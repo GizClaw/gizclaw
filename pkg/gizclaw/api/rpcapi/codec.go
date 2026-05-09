@@ -1,4 +1,4 @@
-package rpc
+package rpcapi
 
 import (
 	"encoding/binary"
@@ -9,9 +9,6 @@ import (
 
 // MaxFrameSize is the largest RPC frame payload accepted by ReadFrame.
 const MaxFrameSize = 1 << 20 // 1 MiB
-
-// MethodPing is the RPC method name for peer ping requests.
-const MethodPing = "peer.ping"
 
 // WriteFrame writes a length-prefixed RPC frame.
 func WriteFrame(w io.Writer, data []byte) error {
@@ -89,7 +86,7 @@ func WriteResponse(w io.Writer, resp *RPCResponse) error {
 // into an RPC response envelope.
 type Error struct {
 	RequestID string
-	Code      int
+	Code      RPCErrorCode
 	Message   string
 }
 
@@ -108,7 +105,7 @@ func (e Error) RPCResponse() *RPCResponse {
 		message = e.Error()
 	}
 	return &RPCResponse{
-		V:  1,
+		V:  RPCVersionV1,
 		Id: e.RequestID,
 		Error: &RPCError{
 			Code:    e.Code,

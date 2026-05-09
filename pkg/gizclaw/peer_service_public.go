@@ -78,7 +78,7 @@ func (s *PeerService) gearHTTPHandler(sessions *publiclogin.SessionManager) http
 		ctx.SetUserContext(gearservice.WithCallerPublicKey(base, publicKey))
 		return ctx.Next()
 	})
-	gearservice.RegisterHandlers(app, gearservice.NewStrictHandler(s.gear, nil))
+	registerGearDownloadHandler(app, s.gear)
 	return fiberHTTPHandler(app)
 }
 

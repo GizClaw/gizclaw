@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw"
+	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkg/giznet"
 )
 
@@ -128,5 +129,66 @@ func TestIntegrationRPCReversePingClient(t *testing.T) {
 	}
 	if secondClientTime.Before(clientTime) {
 		t.Fatalf("second client ServerTime %v is before first %v", secondClientTime, clientTime)
+	}
+}
+
+func TestIntegrationRPCGearClientMethods(t *testing.T) {
+	ts := startTestServer(t)
+	client := newTestClient(t, ts)
+
+	var errLast error
+	if err := waitUntil(testReadyTimeout, func() error {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		_, err := client.RegisterGear(ctx, "rpc-register", rpcapi.GearRegisterRequest{
+			Device: rpcapi.DeviceInfo{
+				Name: strPtr("rpc-gear"),
+				Sn:   strPtr("rpc-sn"),
+			},
+		})
+		if err != nil {
+			errLast = err
+			return err
+		}
+		info, err := client.GetGearInfo(ctx, "rpc-info")
+		if err != nil {
+			errLast = err
+			return err
+		}
+		if info.Name == nil || *info.Name != "rpc-gear" {
+			errLast = fmt.Errorf("gear info = %+v", info)
+			return errLast
+		}
+		if _, err := client.PutGearInfo(ctx, "rpc-put-info", rpcapi.GearPutInfoRequest{Name: strPtr("rpc-gear-2")}); err != nil {
+			errLast = err
+			return err
+		}
+		if _, err := client.GetGearConfig(ctx, "rpc-config"); err != nil {
+			errLast = err
+			return err
+		}
+		registration, err := client.GetGearRegistration(ctx, "rpc-registration")
+		if err != nil {
+			errLast = err
+			return err
+		}
+		if registration.PublicKey == "" || registration.Role != rpcapi.GearRoleUnspecified {
+			errLast = fmt.Errorf("gear registration = %+v", registration)
+			return errLast
+		}
+		runtime, err := client.GetGearRuntime(ctx, "rpc-runtime")
+		if err != nil {
+			errLast = err
+			return err
+		}
+		if !runtime.Online {
+			errLast = fmt.Errorf("gear runtime = %+v", runtime)
+			return errLast
+		}
+		errLast = nil
+		return nil
+	}); err != nil {
+		t.Fatalf("gear RPC client methods err=%v", errLast)
 	}
 }

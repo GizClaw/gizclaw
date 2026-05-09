@@ -20,6 +20,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/gearservice"
+	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/publiclogin"
 	"github.com/GizClaw/gizclaw-go/pkg/giznet"
 	itest "github.com/GizClaw/gizclaw-go/test/gizclaw-e2e/testutil"
@@ -265,21 +266,21 @@ func (h *Harness) RegisterContext(name string, extraArgs ...string) Result {
 		return Result{Args: []string{"register-context", name}, Err: err, Stderr: err.Error()}
 	}
 	defer c.Close()
-	api, err := c.GearServiceClient()
+	rpcReq, err := convertHarnessAPIType[rpcapi.GearRegisterRequest](req)
 	if err != nil {
 		return Result{Args: []string{"register-context", name}, Err: err, Stderr: err.Error()}
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), itest.ReadyTimeout)
 	defer cancel()
-	resp, err := api.RegisterGearWithResponse(ctx, req)
+	resp, err := c.RegisterGear(ctx, "gear.registration.register", rpcReq)
 	if err != nil {
 		return Result{Args: []string{"register-context", name}, Err: err, Stderr: err.Error()}
 	}
-	if resp.JSON200 == nil {
-		err := fmt.Errorf("register context %q failed with status %d: %s", name, resp.StatusCode(), strings.TrimSpace(string(resp.Body)))
-		return Result{Args: []string{"register-context", name}, Err: err, Stdout: string(resp.Body), Stderr: err.Error()}
+	result, err := convertHarnessAPIType[gearservice.RegistrationResult](*resp)
+	if err != nil {
+		return Result{Args: []string{"register-context", name}, Err: err, Stderr: err.Error()}
 	}
-	data, err := json.Marshal(resp.JSON200)
+	data, err := json.Marshal(result)
 	if err != nil {
 		return Result{Args: []string{"register-context", name}, Err: err, Stderr: err.Error()}
 	}
@@ -322,6 +323,18 @@ func (h *Harness) registrationRequest(_ string, extraArgs ...string) (gearservic
 	}
 	req.Device = device
 	return req, nil
+}
+
+func convertHarnessAPIType[T any](value any) (T, error) {
+	var out T
+	data, err := json.Marshal(value)
+	if err != nil {
+		return out, err
+	}
+	if err := json.Unmarshal(data, &out); err != nil {
+		return out, err
+	}
+	return out, nil
 }
 
 func (h *Harness) WaitForPing(contextName string) {
@@ -497,9 +510,13 @@ func (h *Harness) connectClientFromContext(name string) (*gizclaw.Client, error)
 	}
 
 	client := &gizclaw.Client{KeyPair: keyPair}
+	if err := client.Dial(serverPublicKey, cfg.Server.Address); err != nil {
+		_ = client.Close()
+		return nil, err
+	}
 	errCh := make(chan error, 1)
 	go func() {
-		errCh <- client.DialAndServe(serverPublicKey, cfg.Server.Address)
+		errCh <- client.Serve()
 	}()
 
 	deadline := time.Now().Add(itest.ReadyTimeout)
@@ -580,9 +597,13 @@ func (h *Harness) waitForServerReady() {
 			return err
 		}
 		client := &gizclaw.Client{KeyPair: keyPair}
+		if err := client.Dial(serverPublicKey, h.ServerAddr); err != nil {
+			_ = client.Close()
+			return err
+		}
 		errCh := make(chan error, 1)
 		go func() {
-			errCh <- client.DialAndServe(serverPublicKey, h.ServerAddr)
+			errCh <- client.Serve()
 		}()
 		defer client.Close()
 

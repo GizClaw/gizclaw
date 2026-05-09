@@ -13,7 +13,7 @@ import (
 
 const (
 	entrySpecRel = "api/rpc.json"
-	outDirRel    = "pkg/gizclaw/api/rpc"
+	outDirRel    = "pkg/gizclaw/api/rpcapi"
 
 	resolvedRPCFile = "rpc_resolved.json"
 

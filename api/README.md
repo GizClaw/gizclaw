@@ -25,7 +25,7 @@ Generated Go code lives outside this directory:
 - `pkg/gizclaw/api/gearservice/generated.go`
 - `pkg/gizclaw/api/openaiservice/generated.go`
 - `pkg/gizclaw/api/peerpublic/generated.go`
-- `pkg/gizclaw/api/rpc/generated.go`
+- `pkg/gizclaw/api/rpcapi/generated.go`
 - `pkg/gizclaw/api/serverpublic/generated.go`
 
 Do not edit generated files by hand. Change the source schema in `api/`, then
@@ -39,7 +39,7 @@ go generate ./pkg/gizclaw/api/apitypes
 go generate ./pkg/gizclaw/api/gearservice
 go generate ./pkg/gizclaw/api/openaiservice
 go generate ./pkg/gizclaw/api/peerpublic
-go generate ./pkg/gizclaw/api/rpc
+go generate ./pkg/gizclaw/api/rpcapi
 go generate ./pkg/gizclaw/api/serverpublic
 ```
 

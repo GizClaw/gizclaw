@@ -18,6 +18,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/adminservice"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/apitypes"
+	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/rpcapi"
 	adminui "github.com/GizClaw/gizclaw-go/ui/apps/admin"
 	playui "github.com/GizClaw/gizclaw-go/ui/apps/play"
 	"github.com/playwright-community/playwright-go"
@@ -317,20 +318,32 @@ func startSeededUI(t testing.TB) Seed {
 func putGearInfo(t testing.TB, client *gizclaw.Client, publicKey string, info apitypes.DeviceInfo) {
 	t.Helper()
 
-	api, err := client.GearServiceClient()
+	req, err := convertUIAPIType[rpcapi.GearPutInfoRequest](info)
 	if err != nil {
-		t.Fatalf("create gear API client: %v", err)
+		t.Fatalf("convert gear info %q: %v", publicKey, err)
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), itest.ReadyTimeout)
 	defer cancel()
-	resp, err := api.PutInfoWithResponse(ctx, info)
+	resp, err := client.PutGearInfo(ctx, "gear.info.put", req)
 	if err != nil {
 		t.Fatalf("put info %q: %v", publicKey, err)
 	}
-	if resp.JSON200 != nil {
+	if resp != nil {
 		return
 	}
-	t.Fatalf("put info %q got status %d: %s", publicKey, resp.StatusCode(), strings.TrimSpace(string(resp.Body)))
+	t.Fatalf("put info %q got nil response", publicKey)
+}
+
+func convertUIAPIType[T any](value any) (T, error) {
+	var out T
+	data, err := json.Marshal(value)
+	if err != nil {
+		return out, err
+	}
+	if err := json.Unmarshal(data, &out); err != nil {
+		return out, err
+	}
+	return out, nil
 }
 
 func approveGear(t testing.TB, ctx context.Context, api *adminservice.ClientWithResponses, publicKey string) {

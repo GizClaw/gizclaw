@@ -134,8 +134,7 @@ func (s *PeerService) serveGear(conn *giznet.Conn) error {
 		ctx.SetUserContext(gearservice.WithCallerPublicKey(base, conn.PublicKey()))
 		return ctx.Next()
 	})
-	handler := gearservice.NewStrictHandler(s.gear, nil)
-	gearservice.RegisterHandlers(app, handler)
+	registerGearDownloadHandler(app, s.gear)
 
 	server := gizhttp.NewServer(conn, ServiceGear, fiberHTTPHandler(app))
 	defer func() {
@@ -145,6 +144,21 @@ func (s *PeerService) serveGear(conn *giznet.Conn) error {
 		_ = conn.Close()
 	}()
 	return server.Serve()
+}
+
+func registerGearDownloadHandler(app *fiber.App, service gearservice.StrictServerInterface) {
+	app.Get("/download/firmware/:path", func(ctx *fiber.Ctx) error {
+		resp, err := service.DownloadFirmware(ctx.UserContext(), gearservice.DownloadFirmwareRequestObject{
+			Path: ctx.Params("path"),
+		})
+		if err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+		if resp == nil {
+			return nil
+		}
+		return resp.VisitDownloadFirmwareResponse(ctx)
+	})
 }
 
 // fiberHTTPHandler adapts a Fiber app to net/http for gizhttp.NewServer.

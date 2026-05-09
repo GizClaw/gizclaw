@@ -14,7 +14,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkg/audio/codec/opus"
 	"github.com/GizClaw/gizclaw-go/pkg/audio/pcm"
 	"github.com/GizClaw/gizclaw-go/pkg/audio/stampedopus"
-	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/rpc"
+	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkg/giznet"
 	"golang.org/x/sync/errgroup"
 )
@@ -38,6 +38,7 @@ type GearConn struct {
 
 	closeOnce              sync.Once
 	mixer                  *pcm.Mixer
+	rpc                    *rpcServer
 	lastOpusFrameTimestamp atomic.Uint64
 	closed                 atomic.Bool
 }
@@ -62,6 +63,9 @@ func (h *GearConn) serve() error {
 	}
 	if h.Service == nil {
 		return ErrNilGearConnService
+	}
+	if err := h.Service.validateServices(); err != nil {
+		return err
 	}
 	h.init()
 
@@ -96,6 +100,7 @@ func (h *GearConn) serveRPC() error {
 	defer func() {
 		_ = listener.Close()
 	}()
+	server := h.rpcServer()
 	for {
 		stream, err := listener.Accept()
 		if err != nil {
@@ -105,60 +110,10 @@ func (h *GearConn) serveRPC() error {
 			return err
 		}
 		go func(stream net.Conn) {
-			if err := h.serveRPCStream(stream); err != nil {
+			if err := server.Handle(stream); err != nil {
 				_ = stream.Close()
 			}
 		}(stream)
-	}
-}
-
-func (h *GearConn) serveRPCStream(stream net.Conn) error {
-	req, err := rpc.ReadRequest(stream)
-	if err != nil {
-		if errors.Is(err, io.EOF) || errors.Is(err, net.ErrClosed) {
-			return nil
-		}
-		return err
-	}
-	resp, err := h.dispatchRPC(context.Background(), req)
-	if err != nil {
-		return err
-	}
-	if resp == nil {
-		resp = &rpc.RPCResponse{V: 1, Id: req.Id}
-	}
-	if resp.Id == "" {
-		resp.Id = req.Id
-	}
-	if resp.V == 0 {
-		resp.V = 1
-	}
-	if err := rpc.WriteResponse(stream, resp); err != nil {
-		if errors.Is(err, io.EOF) || errors.Is(err, net.ErrClosed) {
-			return nil
-		}
-		return err
-	}
-	return nil
-}
-
-func (h *GearConn) dispatchRPC(ctx context.Context, req *rpc.RPCRequest) (*rpc.RPCResponse, error) {
-	switch req.Method {
-	case rpc.MethodPing:
-		if req.Params == nil {
-			return rpc.Error{RequestID: req.Id, Code: -32602, Message: "missing params"}.RPCResponse(), nil
-		}
-		response, err := h.handlePing(ctx, *req.Params)
-		if err != nil {
-			return nil, err
-		}
-		return &rpc.RPCResponse{
-			V:      1,
-			Id:     req.Id,
-			Result: response,
-		}, nil
-	default:
-		return rpc.Error{RequestID: req.Id, Code: -1, Message: fmt.Sprintf("unknown method: %s", req.Method)}.RPCResponse(), nil
 	}
 }
 
@@ -168,30 +123,45 @@ func (h *GearConn) dispatchRPC(ctx context.Context, req *rpc.RPCRequest) (*rpc.R
 // requests can run concurrently on separate streams. This is closer to
 // HTTP/1.0-style request lifecycles; HTTP/1.1-style stream reuse is not
 // supported yet.
-func (h *GearConn) Ping(ctx context.Context, id string) (*rpc.PingResponse, error) {
-	rpcClient, err := h.rpcClient()
+func (h *GearConn) Ping(ctx context.Context, id string) (*rpcapi.PingResponse, error) {
+	stream, err := h.rpcConn()
 	if err != nil {
 		return nil, err
 	}
-	defer func() { _ = rpcClient.Close() }()
-	return rpcClient.Ping(ctx, id)
+	defer func() { _ = stream.Close() }()
+	return h.rpcServer().Ping(ctx, stream, id)
 }
 
-func (h *GearConn) rpcClient() (*rpcClient, error) {
+func (h *GearConn) rpcConn() (net.Conn, error) {
 	conn := h.Conn
 	stream, err := conn.Dial(ServiceRPC)
 	if err != nil {
 		return nil, fmt.Errorf("gizclaw: dial rpc stream: %w", err)
 	}
-	return newRPCClient(stream), nil
-}
-
-func (h *GearConn) handlePing(_ context.Context, _ rpc.PingRequest) (*rpc.PingResponse, error) {
-	return &rpc.PingResponse{ServerTime: time.Now().UnixMilli()}, nil
+	return stream, nil
 }
 
 func (h *GearConn) init() {
 	h.initMixer()
+	h.initRPC()
+}
+
+func (h *GearConn) initRPC() {
+	if h == nil || h.rpc != nil {
+		return
+	}
+	h.rpc = &rpcServer{}
+	if h.Service != nil {
+		h.rpc.gear = h.Service.gear
+	}
+	if h.Conn != nil {
+		h.rpc.callerPublicKey = h.Conn.PublicKey()
+	}
+}
+
+func (h *GearConn) rpcServer() *rpcServer {
+	h.initRPC()
+	return h.rpc
 }
 
 func (h *GearConn) initMixer() {

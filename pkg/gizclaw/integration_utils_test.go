@@ -21,6 +21,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/adminservice"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/gearservice"
+	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkg/giznet"
 	"github.com/GizClaw/gizclaw-go/pkg/store/depotstore"
 	"github.com/GizClaw/gizclaw-go/pkg/store/kv"
@@ -150,9 +151,13 @@ func waitForServerReady(addr string, pk giznet.PublicKey, errCh <-chan error) er
 		}
 
 		client := &gizclaw.Client{KeyPair: keyPair}
+		if err := client.Dial(pk, addr); err != nil {
+			_ = client.Close()
+			return fmt.Errorf("dial ready check: %w", err)
+		}
 		dialErrCh := make(chan error, 1)
 		go func() {
-			dialErrCh <- client.DialAndServe(pk, addr)
+			dialErrCh <- client.Serve()
 		}()
 
 		for i := 0; i < 20; i++ {
@@ -181,9 +186,12 @@ func waitForServerReady(addr string, pk giznet.PublicKey, errCh <-chan error) er
 func startTestClient(t *testing.T, c *gizclaw.Client, serverPK giznet.PublicKey, addr string) {
 	t.Helper()
 
+	if err := c.Dial(serverPK, addr); err != nil {
+		t.Fatalf("test client dial: %v", err)
+	}
 	errCh := make(chan error, 1)
 	go func() {
-		errCh <- c.DialAndServe(serverPK, addr)
+		errCh <- c.Serve()
 	}()
 
 	if err := waitUntil(testReadyTimeout, func() error {
@@ -209,18 +217,15 @@ func probeServerPublicReady(c *gizclaw.Client) error {
 }
 
 func register(ctx context.Context, c *gizclaw.Client, req gearservice.RegistrationRequest) (gearservice.RegistrationResult, error) {
-	api, err := c.GearServiceClient()
+	rpcReq, err := convertIntegrationAPIType[rpcapi.GearRegisterRequest](req)
 	if err != nil {
 		return gearservice.RegistrationResult{}, err
 	}
-	resp, err := api.RegisterGearWithResponse(ctx, req)
+	resp, err := c.RegisterGear(ctx, "gear.registration.register", rpcReq)
 	if err != nil {
 		return gearservice.RegistrationResult{}, err
 	}
-	if resp.JSON200 != nil {
-		return *resp.JSON200, nil
-	}
-	return gearservice.RegistrationResult{}, responseError(resp.StatusCode(), resp.Body, resp.JSON400, resp.JSON409)
+	return convertIntegrationAPIType[gearservice.RegistrationResult](*resp)
 }
 
 func getServerInfo(ctx context.Context, c *gizclaw.Client) (apitypes.ServerInfo, error) {
@@ -239,105 +244,70 @@ func getServerInfo(ctx context.Context, c *gizclaw.Client) (apitypes.ServerInfo,
 }
 
 func getInfo(ctx context.Context, c *gizclaw.Client) (apitypes.DeviceInfo, error) {
-	api, err := c.GearServiceClient()
+	resp, err := c.GetGearInfo(ctx, "gear.info.get")
 	if err != nil {
 		return apitypes.DeviceInfo{}, err
 	}
-	resp, err := api.GetInfoWithResponse(ctx)
-	if err != nil {
-		return apitypes.DeviceInfo{}, err
-	}
-	if resp.JSON200 != nil {
-		return *resp.JSON200, nil
-	}
-	return apitypes.DeviceInfo{}, responseError(resp.StatusCode(), resp.Body, resp.JSON404)
+	return convertIntegrationAPIType[apitypes.DeviceInfo](*resp)
 }
 
 func putInfo(ctx context.Context, c *gizclaw.Client, info apitypes.DeviceInfo) (apitypes.DeviceInfo, error) {
-	api, err := c.GearServiceClient()
+	rpcReq, err := convertIntegrationAPIType[rpcapi.GearPutInfoRequest](info)
 	if err != nil {
 		return apitypes.DeviceInfo{}, err
 	}
-	resp, err := api.PutInfoWithResponse(ctx, info)
+	resp, err := c.PutGearInfo(ctx, "gear.info.put", rpcReq)
 	if err != nil {
 		return apitypes.DeviceInfo{}, err
 	}
-	if resp.JSON200 != nil {
-		return *resp.JSON200, nil
-	}
-	return apitypes.DeviceInfo{}, responseError(resp.StatusCode(), resp.Body, resp.JSON400, resp.JSON404)
+	return convertIntegrationAPIType[apitypes.DeviceInfo](*resp)
 }
 
 func getRuntime(ctx context.Context, c *gizclaw.Client) (apitypes.Runtime, error) {
-	api, err := c.GearServiceClient()
+	resp, err := c.GetGearRuntime(ctx, "gear.runtime.get")
 	if err != nil {
 		return apitypes.Runtime{}, err
 	}
-	resp, err := api.GetRuntimeWithResponse(ctx)
-	if err != nil {
-		return apitypes.Runtime{}, err
-	}
-	if resp.JSON200 != nil {
-		return *resp.JSON200, nil
-	}
-	return apitypes.Runtime{}, responseError(resp.StatusCode(), resp.Body, resp.JSON400)
+	return convertIntegrationAPIType[apitypes.Runtime](*resp)
 }
 
 func getRegistration(ctx context.Context, c *gizclaw.Client) (apitypes.Registration, error) {
-	api, err := c.GearServiceClient()
+	resp, err := c.GetGearRegistration(ctx, "gear.registration.get")
 	if err != nil {
 		return apitypes.Registration{}, err
 	}
-	resp, err := api.GetRegistrationWithResponse(ctx)
-	if err != nil {
-		return apitypes.Registration{}, err
-	}
-	if resp.JSON200 != nil {
-		return *resp.JSON200, nil
-	}
-	return apitypes.Registration{}, responseError(resp.StatusCode(), resp.Body, resp.JSON404)
+	return convertIntegrationAPIType[apitypes.Registration](*resp)
 }
 
 func getConfig(ctx context.Context, c *gizclaw.Client) (apitypes.Configuration, error) {
-	api, err := c.GearServiceClient()
+	resp, err := c.GetGearConfig(ctx, "gear.config.get")
 	if err != nil {
 		return apitypes.Configuration{}, err
 	}
-	resp, err := api.GetConfigWithResponse(ctx)
+	cfg, err := convertIntegrationAPIType[apitypes.Configuration](*resp)
 	if err != nil {
 		return apitypes.Configuration{}, err
 	}
-	if resp.JSON200 != nil {
-		cfg := *resp.JSON200
-		if cfg.Firmware == nil {
-			cfg.Firmware = &apitypes.FirmwareConfig{}
-		}
-		return cfg, nil
+	if cfg.Firmware == nil {
+		cfg.Firmware = &apitypes.FirmwareConfig{}
 	}
-	return apitypes.Configuration{}, responseError(resp.StatusCode(), resp.Body, resp.JSON404)
+	return cfg, nil
 }
 
 func getOTA(ctx context.Context, c *gizclaw.Client) (apitypes.OTASummary, error) {
-	api, err := c.GearServiceClient()
+	resp, err := c.GetGearOTA(ctx, "gear.ota.get")
 	if err != nil {
 		return apitypes.OTASummary{}, err
 	}
-	resp, err := api.GetOTAWithResponse(ctx)
-	if err != nil {
-		return apitypes.OTASummary{}, err
-	}
-	if resp.JSON200 != nil {
-		return *resp.JSON200, nil
-	}
-	return apitypes.OTASummary{}, responseError(resp.StatusCode(), resp.Body, resp.JSON404)
+	return convertIntegrationAPIType[apitypes.OTASummary](*resp)
 }
 
 func downloadFirmware(ctx context.Context, c *gizclaw.Client, path string) ([]byte, http.Header, error) {
-	api, err := c.GearServiceClient()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://gizclaw/download/firmware/"+url.PathEscape(path), nil)
 	if err != nil {
 		return nil, nil, err
 	}
-	resp, err := api.DownloadFirmware(ctx, path)
+	resp, err := c.HTTPClient(gizclaw.ServiceGear).Do(req)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -351,6 +321,18 @@ func downloadFirmware(ctx context.Context, c *gizclaw.Client, path string) ([]by
 	}
 	body, _ := io.ReadAll(resp.Body)
 	return nil, nil, responseError(resp.StatusCode, body)
+}
+
+func convertIntegrationAPIType[T any](value any) (T, error) {
+	var out T
+	data, err := json.Marshal(value)
+	if err != nil {
+		return out, err
+	}
+	if err := json.Unmarshal(data, &out); err != nil {
+		return out, err
+	}
+	return out, nil
 }
 
 func listFirmwares(ctx context.Context, c *gizclaw.Client) ([]apitypes.Depot, error) {

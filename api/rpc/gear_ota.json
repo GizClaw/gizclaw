@@ -1,0 +1,21 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "RPC Gear OTA Types",
+    "description": "Schemas for gear.ota.get RPC method.",
+    "version": "1.0.0"
+  },
+  "paths": {},
+  "components": {
+    "schemas": {
+      "GearGetOTARequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {}
+      },
+      "GearGetOTAResponse": {
+        "$ref": "../type/ota_summary.json#/components/schemas/OTASummary"
+      }
+    }
+  }
+}

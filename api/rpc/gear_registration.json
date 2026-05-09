@@ -1,0 +1,48 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "RPC Gear Registration Types",
+    "description": "Schemas for gear.registration.get and gear.registration.register RPC methods.",
+    "version": "1.0.0"
+  },
+  "paths": {},
+  "components": {
+    "schemas": {
+      "GearGetRegistrationRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {}
+      },
+      "GearGetRegistrationResponse": {
+        "$ref": "../type/registration.json#/components/schemas/Registration"
+      },
+      "GearRegisterRequest": {
+        "type": "object",
+        "required": [
+          "device"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "device": {
+            "$ref": "../type/device_info.json#/components/schemas/DeviceInfo"
+          }
+        }
+      },
+      "GearRegisterResponse": {
+        "type": "object",
+        "required": [
+          "gear",
+          "registration"
+        ],
+        "properties": {
+          "gear": {
+            "$ref": "../type/gear.json#/components/schemas/Gear"
+          },
+          "registration": {
+            "$ref": "../type/registration.json#/components/schemas/Registration"
+          }
+        }
+      }
+    }
+  }
+}

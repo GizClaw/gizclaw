@@ -4,20 +4,17 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"net"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
 	"sync"
-	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/apitypes"
 
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/adminservice"
-	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/gearservice"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/peerpublic"
-	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/rpc"
+	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/serverpublic"
 	"github.com/GizClaw/gizclaw-go/pkg/giznet"
 	"github.com/GizClaw/gizclaw-go/pkg/giznet/gizhttp"
@@ -37,10 +34,11 @@ type Client struct {
 	listener *giznet.Listener
 	conn     *giznet.Conn
 	serverPK giznet.PublicKey
+	rpc      *rpcClient
 }
 
-// DialAndServe establishes the peer connection and serves peer public handlers.
-func (c *Client) DialAndServe(serverPK giznet.PublicKey, serverAddr string) error {
+// Dial establishes the peer connection and initializes client runtime state.
+func (c *Client) Dial(serverPK giznet.PublicKey, serverAddr string) error {
 	if c == nil {
 		return fmt.Errorf("gizclaw: nil client")
 	}
@@ -64,44 +62,30 @@ func (c *Client) DialAndServe(serverPK giznet.PublicKey, serverAddr string) erro
 	if err != nil {
 		return fmt.Errorf("gizclaw: listen: %w", err)
 	}
-	c.mu.Lock()
-	c.listener = l
-	c.serverPK = serverPK
-	c.mu.Unlock()
 
 	udpAddr, err := net.ResolveUDPAddr("udp", serverAddr)
 	if err != nil {
-		c.mu.Lock()
-		if c.listener == l {
-			c.listener = nil
-			c.serverPK = giznet.PublicKey{}
-		}
-		c.mu.Unlock()
 		_ = l.Close()
 		return fmt.Errorf("gizclaw: resolve addr: %w", err)
 	}
 
 	conn, err := l.Dial(serverPK, udpAddr)
 	if err != nil {
-		c.mu.Lock()
-		if c.listener == l {
-			c.listener = nil
-			c.serverPK = giznet.PublicKey{}
-		}
-		c.mu.Unlock()
 		_ = l.Close()
 		return fmt.Errorf("gizclaw: dial: %w", err)
 	}
-	c.mu.Lock()
-	if c.listener != l {
-		c.mu.Unlock()
-		_ = conn.Close()
-		_ = l.Close()
-		return fmt.Errorf("gizclaw: client closed during dial")
-	}
-	c.conn = conn
-	c.mu.Unlock()
+	c.init(l, conn, serverPK)
+	return nil
+}
 
+// Serve blocks serving client-side peer services on a connection created by Dial.
+func (c *Client) Serve() error {
+	if c == nil {
+		return fmt.Errorf("gizclaw: nil client")
+	}
+	if c.PeerConn() == nil {
+		return fmt.Errorf("gizclaw: client is not connected")
+	}
 	var g errgroup.Group
 	g.Go(c.servePeerPublic)
 	g.Go(c.serveRPC)
@@ -113,14 +97,11 @@ func (c *Client) DialAndServe(serverPK giznet.PublicKey, serverAddr string) erro
 	return nil
 }
 
-type clientSecurityPolicy struct{}
-
-func (clientSecurityPolicy) AllowPeer(giznet.PublicKey) bool {
-	return true
-}
-
-func (clientSecurityPolicy) AllowService(_ giznet.PublicKey, service uint64) bool {
-	return service == ServiceServerPublic || service == ServicePeerPublic || service == ServiceRPC
+func (c *Client) init(listener *giznet.Listener, conn *giznet.Conn, serverPK giznet.PublicKey) {
+	c.listener = listener
+	c.conn = conn
+	c.serverPK = serverPK
+	c.rpc = &rpcClient{}
 }
 
 // Close releases all resources including the underlying UDP socket.
@@ -131,6 +112,7 @@ func (c *Client) Close() error {
 	c.conn = nil
 	c.listener = nil
 	c.serverPK = giznet.PublicKey{}
+	c.rpc = nil
 	c.mu.Unlock()
 
 	var err error
@@ -171,13 +153,6 @@ func (c *Client) ServerAdminClient() (*adminservice.ClientWithResponses, error) 
 	)
 }
 
-func (c *Client) GearServiceClient() (*gearservice.ClientWithResponses, error) {
-	return gearservice.NewClientWithResponses(
-		"http://gizclaw",
-		gearservice.WithHTTPClient(c.HTTPClient(ServiceGear)),
-	)
-}
-
 func (c *Client) ServerPublicClient() (*serverpublic.ClientWithResponses, error) {
 	return serverpublic.NewClientWithResponses(
 		"http://gizclaw",
@@ -198,16 +173,67 @@ func (c *Client) PeerPublicClient() (*peerpublic.ClientWithResponses, error) {
 // requests can run concurrently on separate streams. This is closer to
 // HTTP/1.0-style request lifecycles; HTTP/1.1-style stream reuse is not
 // supported yet.
-func (c *Client) Ping(ctx context.Context, id string) (*rpc.PingResponse, error) {
-	rpcClient, err := c.rpcClient()
+func (c *Client) Ping(ctx context.Context, id string) (*rpcapi.PingResponse, error) {
+	stream, err := c.rpcConn()
 	if err != nil {
 		return nil, err
 	}
-	defer func() { _ = rpcClient.Close() }()
-	return rpcClient.Ping(ctx, id)
+	defer func() { _ = stream.Close() }()
+	return c.rpcClient().Ping(ctx, stream, id)
 }
 
-func (c *Client) rpcClient() (*rpcClient, error) {
+func (c *Client) GetGearConfig(ctx context.Context, id string) (*rpcapi.GearGetConfigResponse, error) {
+	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.GearGetConfigResponse, error) {
+		return client.GetConfig(ctx, conn, id)
+	})
+}
+
+func (c *Client) GetGearInfo(ctx context.Context, id string) (*rpcapi.GearGetInfoResponse, error) {
+	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.GearGetInfoResponse, error) {
+		return client.GetInfo(ctx, conn, id)
+	})
+}
+
+func (c *Client) PutGearInfo(ctx context.Context, id string, request rpcapi.GearPutInfoRequest) (*rpcapi.GearPutInfoResponse, error) {
+	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.GearPutInfoResponse, error) {
+		return client.PutInfo(ctx, conn, id, request)
+	})
+}
+
+func (c *Client) GetGearOTA(ctx context.Context, id string) (*rpcapi.GearGetOTAResponse, error) {
+	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.GearGetOTAResponse, error) {
+		return client.GetOTA(ctx, conn, id)
+	})
+}
+
+func (c *Client) GetGearRegistration(ctx context.Context, id string) (*rpcapi.GearGetRegistrationResponse, error) {
+	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.GearGetRegistrationResponse, error) {
+		return client.GetRegistration(ctx, conn, id)
+	})
+}
+
+func (c *Client) RegisterGear(ctx context.Context, id string, request rpcapi.GearRegisterRequest) (*rpcapi.GearRegisterResponse, error) {
+	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.GearRegisterResponse, error) {
+		return client.RegisterGear(ctx, conn, id, request)
+	})
+}
+
+func (c *Client) GetGearRuntime(ctx context.Context, id string) (*rpcapi.GearGetRuntimeResponse, error) {
+	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.GearGetRuntimeResponse, error) {
+		return client.GetRuntime(ctx, conn, id)
+	})
+}
+
+func callClientRPC[T any](c *Client, call func(*rpcClient, net.Conn) (*T, error)) (*T, error) {
+	stream, err := c.rpcConn()
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = stream.Close() }()
+	return call(c.rpcClient(), stream)
+}
+
+func (c *Client) rpcConn() (net.Conn, error) {
 	conn := c.PeerConn()
 	if conn == nil {
 		return nil, fmt.Errorf("gizclaw: client is not connected")
@@ -216,7 +242,16 @@ func (c *Client) rpcClient() (*rpcClient, error) {
 	if err != nil {
 		return nil, fmt.Errorf("gizclaw: dial rpc stream: %w", err)
 	}
-	return newRPCClient(stream), nil
+	return stream, nil
+}
+
+func (c *Client) rpcClient() *rpcClient {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.rpc == nil {
+		c.rpc = &rpcClient{}
+	}
+	return c.rpc
 }
 
 // PeerConn returns the underlying peer connection.
@@ -247,6 +282,7 @@ func (c *Client) serveRPC() error {
 	defer func() {
 		_ = listener.Close()
 	}()
+	client := c.rpcClient()
 	for {
 		stream, err := listener.Accept()
 		if err != nil {
@@ -257,57 +293,10 @@ func (c *Client) serveRPC() error {
 		}
 
 		go func(stream net.Conn) {
-			if err := c.serveRPCStream(stream); err != nil {
+			if err := client.Handle(stream); err != nil {
 				_ = stream.Close()
 			}
 		}(stream)
-	}
-}
-
-func (c *Client) serveRPCStream(stream net.Conn) error {
-	req, err := rpc.ReadRequest(stream)
-	if err != nil {
-		if errors.Is(err, io.EOF) || errors.Is(err, net.ErrClosed) {
-			return nil
-		}
-		return err
-	}
-
-	resp, err := c.dispatchRPC(context.Background(), req)
-	if err != nil {
-		return err
-	}
-	if resp == nil {
-		resp = &rpc.RPCResponse{V: 1, Id: req.Id}
-	}
-	if resp.Id == "" {
-		resp.Id = req.Id
-	}
-	if resp.V == 0 {
-		resp.V = 1
-	}
-	if err := rpc.WriteResponse(stream, resp); err != nil {
-		if errors.Is(err, io.EOF) || errors.Is(err, net.ErrClosed) {
-			return nil
-		}
-		return err
-	}
-	return nil
-}
-
-func (c *Client) dispatchRPC(_ context.Context, req *rpc.RPCRequest) (*rpc.RPCResponse, error) {
-	switch req.Method {
-	case rpc.MethodPing:
-		if req.Params == nil {
-			return rpc.Error{RequestID: req.Id, Code: -32602, Message: "missing params"}.RPCResponse(), nil
-		}
-		return &rpc.RPCResponse{
-			V:      1,
-			Id:     req.Id,
-			Result: &rpc.PingResponse{ServerTime: time.Now().UnixMilli()},
-		}, nil
-	default:
-		return rpc.Error{RequestID: req.Id, Code: -1, Message: fmt.Sprintf("unknown method: %s", req.Method)}.RPCResponse(), nil
 	}
 }
 

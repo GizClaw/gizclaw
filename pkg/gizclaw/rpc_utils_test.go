@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/rpc"
+	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/rpcapi"
 )
 
 func TestRPCClientPingSingleRequestResponse(t *testing.T) {
@@ -15,26 +15,25 @@ func TestRPCClientPingSingleRequestResponse(t *testing.T) {
 	defer serverSide.Close()
 	defer clientSide.Close()
 
-	client := newRPCClient(clientSide)
-	defer client.Close()
+	client := &rpcClient{}
 
-	reqCh := make(chan *rpc.RPCRequest, 1)
+	reqCh := make(chan *rpcapi.RPCRequest, 1)
 	serverErrCh := make(chan error, 1)
 
 	go func() {
-		req, err := rpc.ReadRequest(serverSide)
+		req, err := rpcapi.ReadRequest(serverSide)
 		if err != nil {
 			serverErrCh <- err
 			return
 		}
 		reqCh <- req
 
-		resp := &rpc.RPCResponse{
-			V:      1,
-			Id:     req.Id,
-			Result: &rpc.PingResponse{ServerTime: rpcServerTimeForID(req.Id)},
+		resp, err := newRPCPingResponse(req.Id, rpcapi.PingResponse{ServerTime: rpcServerTimeForID(req.Id)})
+		if err != nil {
+			serverErrCh <- err
+			return
 		}
-		if err := rpc.WriteResponse(serverSide, resp); err != nil {
+		if err := rpcapi.WriteResponse(serverSide, resp); err != nil {
 			serverErrCh <- err
 			return
 		}
@@ -45,7 +44,7 @@ func TestRPCClientPingSingleRequestResponse(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
-	ping, err := client.Ping(ctx, "req-1")
+	ping, err := client.Ping(ctx, clientSide, "req-1")
 	if err != nil {
 		t.Fatalf("Ping(req-1) error: %v", err)
 	}
@@ -68,23 +67,25 @@ func TestRPCClientCallContextTimeout(t *testing.T) {
 	defer serverSide.Close()
 	defer clientSide.Close()
 
-	client := newRPCClient(clientSide)
-	defer client.Close()
-
-	readDone := make(chan *rpc.RPCRequest, 1)
+	readDone := make(chan *rpcapi.RPCRequest, 1)
 	go func() {
-		req, _ := rpc.ReadRequest(serverSide)
+		req, _ := rpcapi.ReadRequest(serverSide)
 		readDone <- req
 	}()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
 	defer cancel()
 
-	_, err := client.call(ctx, &rpc.RPCRequest{
-		V:      1,
+	params, err := newRPCPingRequestParams(rpcapi.PingRequest{ClientSendTime: time.Now().UnixMilli()})
+	if err != nil {
+		t.Fatalf("newRPCPingRequestParams() error = %v", err)
+	}
+
+	_, err = callRPC(ctx, clientSide, &rpcapi.RPCRequest{
+		V:      rpcapi.RPCVersionV1,
 		Id:     "timeout",
-		Method: rpc.MethodPing,
-		Params: &rpc.PingRequest{ClientSendTime: time.Now().UnixMilli()},
+		Method: rpcapi.RPCMethodPeerPing,
+		Params: params,
 	})
 	if !errors.Is(err, context.DeadlineExceeded) {
 		t.Fatalf("Call timeout err = %v, want %v", err, context.DeadlineExceeded)
@@ -102,12 +103,9 @@ func TestRPCClientCallContextCancel(t *testing.T) {
 	defer serverSide.Close()
 	defer clientSide.Close()
 
-	client := newRPCClient(clientSide)
-	defer client.Close()
-
-	readDone := make(chan *rpc.RPCRequest, 1)
+	readDone := make(chan *rpcapi.RPCRequest, 1)
 	go func() {
-		req, _ := rpc.ReadRequest(serverSide)
+		req, _ := rpcapi.ReadRequest(serverSide)
 		readDone <- req
 	}()
 
@@ -118,35 +116,35 @@ func TestRPCClientCallContextCancel(t *testing.T) {
 		}
 	}()
 
-	_, err := client.call(ctx, &rpc.RPCRequest{
-		V:      1,
+	params, err := newRPCPingRequestParams(rpcapi.PingRequest{ClientSendTime: time.Now().UnixMilli()})
+	if err != nil {
+		t.Fatalf("newRPCPingRequestParams() error = %v", err)
+	}
+
+	_, err = callRPC(ctx, clientSide, &rpcapi.RPCRequest{
+		V:      rpcapi.RPCVersionV1,
 		Id:     "cancel",
-		Method: rpc.MethodPing,
-		Params: &rpc.PingRequest{ClientSendTime: time.Now().UnixMilli()},
+		Method: rpcapi.RPCMethodPeerPing,
+		Params: params,
 	})
 	if !errors.Is(err, context.Canceled) {
 		t.Fatalf("Call cancel err = %v, want %v", err, context.Canceled)
 	}
 }
 
-func TestRPCClientCallValidatesRequestAndClosedState(t *testing.T) {
+func TestRPCClientCallValidatesRequest(t *testing.T) {
 	serverSide, clientSide := net.Pipe()
 	defer serverSide.Close()
+	defer clientSide.Close()
 
-	client := newRPCClient(clientSide)
-	defer client.Close()
-
-	if _, err := client.call(context.Background(), nil); err == nil || err.Error() != "rpc: nil request" {
+	if _, err := callRPC(context.Background(), nil, &rpcapi.RPCRequest{Id: "nil-conn"}); err == nil || err.Error() != "rpc: nil conn" {
+		t.Fatalf("call(nil conn) err = %v", err)
+	}
+	if _, err := callRPC(context.Background(), clientSide, nil); err == nil || err.Error() != "rpc: nil request" {
 		t.Fatalf("call(nil) err = %v", err)
 	}
-	if _, err := client.call(context.Background(), &rpc.RPCRequest{Method: rpc.MethodPing}); err == nil || err.Error() != "rpc: request id required" {
+	if _, err := callRPC(context.Background(), clientSide, &rpcapi.RPCRequest{Method: rpcapi.RPCMethodPeerPing}); err == nil || err.Error() != "rpc: request id required" {
 		t.Fatalf("call(empty id) err = %v", err)
-	}
-	if err := client.Close(); err != nil {
-		t.Fatalf("Close() error = %v", err)
-	}
-	if _, err := client.call(context.Background(), &rpc.RPCRequest{Id: "closed", Method: rpc.MethodPing}); !errors.Is(err, errRPCClientClosed) {
-		t.Fatalf("call(closed) err = %v, want %v", err, errRPCClientClosed)
 	}
 }
 
@@ -156,21 +154,20 @@ func TestRPCClientPingErrorPaths(t *testing.T) {
 		defer serverSide.Close()
 		defer clientSide.Close()
 
-		client := newRPCClient(clientSide)
-		defer client.Close()
+		client := &rpcClient{}
 
 		go func() {
-			req, _ := rpc.ReadRequest(serverSide)
-			_ = rpc.WriteResponse(serverSide, rpc.Error{RequestID: req.Id, Code: -1, Message: "boom"}.RPCResponse())
+			req, _ := rpcapi.ReadRequest(serverSide)
+			_ = rpcapi.WriteResponse(serverSide, rpcapi.Error{RequestID: req.Id, Code: -1, Message: "boom"}.RPCResponse())
 		}()
 
-		_, err := client.Ping(context.Background(), "ping-error")
+		_, err := client.Ping(context.Background(), clientSide, "ping-error")
 		if err == nil || err.Error() != "rpc: boom" {
 			t.Fatalf("Ping(error response) err = %v", err)
 		}
-		var rpcErr rpc.Error
+		var rpcErr rpcapi.Error
 		if !errors.As(err, &rpcErr) {
-			t.Fatalf("Ping(error response) err = %T, want rpc.Error", err)
+			t.Fatalf("Ping(error response) err = %T, want rpcapi.Error", err)
 		}
 		if rpcErr.RequestID != "ping-error" || rpcErr.Code != -1 || rpcErr.Message != "boom" {
 			t.Fatalf("Ping(error response) rpc error = %+v", rpcErr)
@@ -182,15 +179,14 @@ func TestRPCClientPingErrorPaths(t *testing.T) {
 		defer serverSide.Close()
 		defer clientSide.Close()
 
-		client := newRPCClient(clientSide)
-		defer client.Close()
+		client := &rpcClient{}
 
 		go func() {
-			req, _ := rpc.ReadRequest(serverSide)
-			_ = rpc.WriteResponse(serverSide, &rpc.RPCResponse{V: 1, Id: req.Id})
+			req, _ := rpcapi.ReadRequest(serverSide)
+			_ = rpcapi.WriteResponse(serverSide, &rpcapi.RPCResponse{V: rpcapi.RPCVersionV1, Id: req.Id})
 		}()
 
-		_, err := client.Ping(context.Background(), "ping-missing")
+		_, err := client.Ping(context.Background(), clientSide, "ping-missing")
 		if err == nil || err.Error() != "rpc: missing ping result" {
 			t.Fatalf("Ping(missing result) err = %v", err)
 		}
@@ -204,12 +200,16 @@ func rpcServerTimeForID(id string) int64 {
 	return 2
 }
 
-func assertRPCPingRequestHasTimestamp(t *testing.T, req *rpc.RPCRequest) {
+func assertRPCPingRequestHasTimestamp(t *testing.T, req *rpcapi.RPCRequest) {
 	t.Helper()
 	if req.Params == nil {
 		t.Fatal("ping request params missing")
 	}
-	if req.Params.ClientSendTime <= 0 {
-		t.Fatalf("ping request client_send_time = %d", req.Params.ClientSendTime)
+	params, err := req.Params.AsPingRequest()
+	if err != nil {
+		t.Fatalf("ping request params decode error = %v", err)
+	}
+	if params.ClientSendTime <= 0 {
+		t.Fatalf("ping request client_send_time = %d", params.ClientSendTime)
 	}
 }

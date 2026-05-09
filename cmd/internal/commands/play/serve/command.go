@@ -50,7 +50,10 @@ func NewCmd() *cobra.Command {
 				<-ctx.Done()
 				_ = c.Close()
 			}()
-			return c.DialAndServe(serverPK, serverAddr)
+			if err := c.Dial(serverPK, serverAddr); err != nil {
+				return err
+			}
+			return c.Serve()
 		},
 	}
 	cmd.Flags().StringVar(&ctxName, "context", "", "context name (default: current)")

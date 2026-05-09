@@ -11,7 +11,7 @@ import (
 func TestResolveRPCWritesBundledSpec(t *testing.T) {
 	root := newTestRepo(t)
 	writeTestRPCSpec(t, root)
-	t.Chdir(filepath.Join(root, "pkg", "gizclaw", "api", "rpc"))
+	t.Chdir(filepath.Join(root, "pkg", "gizclaw", "api", "rpcapi"))
 
 	if err := resolveRPC(); err != nil {
 		t.Fatalf("resolveRPC() error = %v", err)
@@ -32,7 +32,7 @@ func TestResolveRPCWritesBundledSpec(t *testing.T) {
 func TestRunResolveArg(t *testing.T) {
 	root := newTestRepo(t)
 	writeTestRPCSpec(t, root)
-	t.Chdir(filepath.Join(root, "pkg", "gizclaw", "api", "rpc"))
+	t.Chdir(filepath.Join(root, "pkg", "gizclaw", "api", "rpcapi"))
 
 	if err := run([]string{resolveArg}); err != nil {
 		t.Fatalf("run(resolve) error = %v", err)
@@ -112,7 +112,7 @@ func TestProcessEntrySpecRejectsConflictingSchemas(t *testing.T) {
 func TestFindRepoRootFromNestedDirectory(t *testing.T) {
 	root := newTestRepo(t)
 	writeTestRPCSpec(t, root)
-	nested := filepath.Join(root, "pkg", "gizclaw", "api", "rpc")
+	nested := filepath.Join(root, "pkg", "gizclaw", "api", "rpcapi")
 	if err := os.MkdirAll(nested, 0o755); err != nil {
 		t.Fatalf("MkdirAll() error = %v", err)
 	}

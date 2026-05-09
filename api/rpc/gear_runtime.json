@@ -1,0 +1,21 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "RPC Gear Runtime Types",
+    "description": "Schemas for gear.runtime.get RPC method.",
+    "version": "1.0.0"
+  },
+  "paths": {},
+  "components": {
+    "schemas": {
+      "GearGetRuntimeRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {}
+      },
+      "GearGetRuntimeResponse": {
+        "$ref": "../type/runtime.json#/components/schemas/Runtime"
+      }
+    }
+  }
+}

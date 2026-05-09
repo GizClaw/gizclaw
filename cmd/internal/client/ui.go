@@ -253,18 +253,8 @@ func (r *bufferedHTTPResponse) writeTo(w http.ResponseWriter) {
 }
 
 func ensurePlayRegistration(ctx context.Context, c *gizclaw.Client) error {
-	gearAPI, err := c.GearServiceClient()
-	if err != nil {
-		return err
-	}
-	registration, err := gearAPI.GetRegistrationWithResponse(ctx)
-	if err != nil {
-		return err
-	}
-	if registration.JSON200 != nil {
-		return nil
-	}
-	return responseError(registration.StatusCode(), registration.Body, registration.JSON404)
+	_, err := c.GetGearRegistration(ctx, "gear.registration.get")
+	return err
 }
 
 // staticWithSPAFallback serves embedded UI assets and falls back to index.html

@@ -1,0 +1,27 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "RPC Gear Info Types",
+    "description": "Schemas for gear.info.get and gear.info.put RPC methods.",
+    "version": "1.0.0"
+  },
+  "paths": {},
+  "components": {
+    "schemas": {
+      "GearGetInfoRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {}
+      },
+      "GearGetInfoResponse": {
+        "$ref": "../type/device_info.json#/components/schemas/DeviceInfo"
+      },
+      "GearPutInfoRequest": {
+        "$ref": "../type/device_info.json#/components/schemas/DeviceInfo"
+      },
+      "GearPutInfoResponse": {
+        "$ref": "../type/device_info.json#/components/schemas/DeviceInfo"
+      }
+    }
+  }
+}

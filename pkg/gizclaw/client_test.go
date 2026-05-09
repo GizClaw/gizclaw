@@ -18,7 +18,7 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/apitypes"
 
-	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/rpc"
+	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/firmware"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/gear"
 	"github.com/GizClaw/gizclaw-go/pkg/giznet"
@@ -26,18 +26,18 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkg/store/kv"
 )
 
-func TestClientDialAndServeValidation(t *testing.T) {
+func TestClientDialValidation(t *testing.T) {
 	t.Run("nil client", func(t *testing.T) {
 		var client *Client
-		if err := client.DialAndServe(giznet.PublicKey{}, "127.0.0.1:1"); err == nil || !strings.Contains(err.Error(), "nil client") {
-			t.Fatalf("DialAndServe(nil) err = %v", err)
+		if err := client.Dial(giznet.PublicKey{}, "127.0.0.1:1"); err == nil || !strings.Contains(err.Error(), "nil client") {
+			t.Fatalf("Dial(nil) err = %v", err)
 		}
 	})
 
 	t.Run("nil key pair", func(t *testing.T) {
 		client := &Client{}
-		if err := client.DialAndServe(giznet.PublicKey{}, "127.0.0.1:1"); err == nil || !strings.Contains(err.Error(), "nil key pair") {
-			t.Fatalf("DialAndServe(nil key pair) err = %v", err)
+		if err := client.Dial(giznet.PublicKey{}, "127.0.0.1:1"); err == nil || !strings.Contains(err.Error(), "nil key pair") {
+			t.Fatalf("Dial(nil key pair) err = %v", err)
 		}
 	})
 
@@ -47,8 +47,8 @@ func TestClientDialAndServeValidation(t *testing.T) {
 			t.Fatalf("GenerateKeyPair error = %v", err)
 		}
 		client := &Client{KeyPair: keyPair}
-		if err := client.DialAndServe(giznet.PublicKey{}, ""); err == nil || !strings.Contains(err.Error(), "empty server addr") {
-			t.Fatalf("DialAndServe(empty addr) err = %v", err)
+		if err := client.Dial(giznet.PublicKey{}, ""); err == nil || !strings.Contains(err.Error(), "empty server addr") {
+			t.Fatalf("Dial(empty addr) err = %v", err)
 		}
 	})
 
@@ -58,8 +58,8 @@ func TestClientDialAndServeValidation(t *testing.T) {
 			t.Fatalf("GenerateKeyPair error = %v", err)
 		}
 		client := &Client{KeyPair: keyPair, listener: &giznet.Listener{}}
-		if err := client.DialAndServe(giznet.PublicKey{}, "127.0.0.1:1"); err == nil || !strings.Contains(err.Error(), "already started") {
-			t.Fatalf("DialAndServe(already started) err = %v", err)
+		if err := client.Dial(giznet.PublicKey{}, "127.0.0.1:1"); err == nil || !strings.Contains(err.Error(), "already started") {
+			t.Fatalf("Dial(already started) err = %v", err)
 		}
 	})
 }
@@ -167,9 +167,17 @@ func TestClientProxyMuxRoutesRemoteServices(t *testing.T) {
 		t.Fatalf("GET /api/public/server-info body = %s", string(body))
 	}
 
-	resp, body = mustProxyGET(t, proxy.URL+"/api/gear/runtime")
-	if resp.StatusCode != http.StatusOK {
-		t.Fatalf("GET /api/gear/runtime status = %d body=%s", resp.StatusCode, string(body))
+	resp, err = http.Get(proxy.URL + "/api/gear/download/firmware/fw.bin")
+	if err != nil {
+		t.Fatalf("GET /api/gear/download/firmware/fw.bin error = %v", err)
+	}
+	body, _ = io.ReadAll(resp.Body)
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusNotFound {
+		t.Fatalf("GET /api/gear/download/firmware/fw.bin status = %d body=%s", resp.StatusCode, string(body))
+	}
+	if strings.Contains(string(body), "Cannot GET") {
+		t.Fatalf("GET /api/gear/download/firmware/fw.bin did not reach download handler: %s", string(body))
 	}
 
 	noRedirect := &http.Client{
@@ -283,32 +291,32 @@ func TestClientAccessorsAndConversions(t *testing.T) {
 	}
 }
 
-func TestClientRPCDispatchAndServeStream(t *testing.T) {
+func TestClientRPCHandle(t *testing.T) {
 	t.Run("dispatch missing params", func(t *testing.T) {
-		client := &Client{}
-		resp, err := client.dispatchRPC(context.Background(), &rpc.RPCRequest{
+		client := &rpcClient{}
+		resp, err := client.dispatch(context.Background(), &rpcapi.RPCRequest{
 			Id:     "missing",
-			Method: rpc.MethodPing,
+			Method: rpcapi.RPCMethodPeerPing,
 		})
 		if err != nil {
-			t.Fatalf("dispatchRPC() error = %v", err)
+			t.Fatalf("dispatch() error = %v", err)
 		}
-		if resp == nil || resp.Error == nil || resp.Error.Code != -32602 {
-			t.Fatalf("dispatchRPC() response = %+v", resp)
+		if resp == nil || resp.Error == nil || resp.Error.Code != rpcapi.RPCErrorCodeInvalidParams {
+			t.Fatalf("dispatch() response = %+v", resp)
 		}
 	})
 
-	t.Run("dispatch unknown method", func(t *testing.T) {
-		client := &Client{}
-		resp, err := client.dispatchRPC(context.Background(), &rpc.RPCRequest{
+	t.Run("dispatch unsupported method", func(t *testing.T) {
+		client := &rpcClient{}
+		resp, err := client.dispatch(context.Background(), &rpcapi.RPCRequest{
 			Id:     "unknown",
 			Method: "rpc.unknown",
 		})
 		if err != nil {
-			t.Fatalf("dispatchRPC() error = %v", err)
+			t.Fatalf("dispatch() error = %v", err)
 		}
-		if resp == nil || resp.Error == nil || !strings.Contains(resp.Error.Message, "unknown method") {
-			t.Fatalf("dispatchRPC() response = %+v", resp)
+		if resp == nil || resp.Error == nil || !strings.Contains(resp.Error.Message, "unsupported method") {
+			t.Fatalf("dispatch() response = %+v", resp)
 		}
 	})
 
@@ -319,30 +327,41 @@ func TestClientRPCDispatchAndServeStream(t *testing.T) {
 
 		errCh := make(chan error, 1)
 		go func() {
-			errCh <- (&Client{}).serveRPCStream(serverSide)
+			errCh <- (&rpcClient{}).Handle(serverSide)
 		}()
 
-		if err := rpc.WriteRequest(clientSide, &rpc.RPCRequest{
-			V:      1,
+		params, err := newRPCPingRequestParams(rpcapi.PingRequest{ClientSendTime: time.Now().UnixMilli()})
+		if err != nil {
+			t.Fatalf("newRPCPingRequestParams() error = %v", err)
+		}
+		if err := rpcapi.WriteRequest(clientSide, &rpcapi.RPCRequest{
+			V:      rpcapi.RPCVersionV1,
 			Id:     "ping",
-			Method: rpc.MethodPing,
-			Params: &rpc.PingRequest{ClientSendTime: time.Now().UnixMilli()},
+			Method: rpcapi.RPCMethodPeerPing,
+			Params: params,
 		}); err != nil {
 			t.Fatalf("WriteRequest() error = %v", err)
 		}
 
-		resp, err := rpc.ReadResponse(clientSide)
+		resp, err := rpcapi.ReadResponse(clientSide)
 		if err != nil {
 			t.Fatalf("ReadResponse() error = %v", err)
 		}
 		if resp.Error != nil {
-			t.Fatalf("serveRPCStream() response error = %+v", resp.Error)
+			t.Fatalf("Handle() response error = %+v", resp.Error)
 		}
-		if resp.Result == nil || resp.Result.ServerTime <= 0 {
-			t.Fatalf("serveRPCStream() response result = %+v", resp.Result)
+		if resp.Result == nil {
+			t.Fatalf("Handle() response result = %+v", resp.Result)
+		}
+		result, err := resp.Result.AsPingResponse()
+		if err != nil {
+			t.Fatalf("Handle() response result decode error = %v", err)
+		}
+		if result.ServerTime <= 0 {
+			t.Fatalf("Handle() response result = %+v", result)
 		}
 		if err := <-errCh; err != nil {
-			t.Fatalf("serveRPCStream() error = %v", err)
+			t.Fatalf("Handle() error = %v", err)
 		}
 	})
 }

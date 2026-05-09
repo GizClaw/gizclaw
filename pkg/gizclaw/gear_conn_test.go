@@ -8,11 +8,11 @@ import (
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkg/audio/pcm"
-	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/rpc"
+	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkg/giznet"
 )
 
-func TestGearConnHelpersAndDispatch(t *testing.T) {
+func TestGearConnHelpersAndRPCHandle(t *testing.T) {
 	t.Run("audio mixer lifecycle", func(t *testing.T) {
 		var nilPeer *GearConn
 		if _, err := nilPeer.audioMixer(); err != ErrNilGearConn {
@@ -45,41 +45,53 @@ func TestGearConnHelpersAndDispatch(t *testing.T) {
 	})
 
 	t.Run("dispatch missing params", func(t *testing.T) {
-		resp, err := (&GearConn{}).dispatchRPC(context.Background(), &rpc.RPCRequest{
+		server := &rpcServer{}
+		resp, err := server.dispatch(context.Background(), &rpcapi.RPCRequest{
 			Id:     "missing",
-			Method: rpc.MethodPing,
+			Method: rpcapi.RPCMethodPeerPing,
 		})
 		if err != nil {
-			t.Fatalf("dispatchRPC() error = %v", err)
+			t.Fatalf("dispatch() error = %v", err)
 		}
-		if resp == nil || resp.Error == nil || resp.Error.Code != -32602 {
-			t.Fatalf("dispatchRPC() response = %+v", resp)
+		if resp == nil || resp.Error == nil || resp.Error.Code != rpcapi.RPCErrorCodeInvalidParams {
+			t.Fatalf("dispatch() response = %+v", resp)
 		}
 	})
 
 	t.Run("dispatch ping and unknown method", func(t *testing.T) {
-		peer := &GearConn{}
-		resp, err := peer.dispatchRPC(context.Background(), &rpc.RPCRequest{
+		server := &rpcServer{}
+		params, err := newRPCPingRequestParams(rpcapi.PingRequest{})
+		if err != nil {
+			t.Fatalf("newRPCPingRequestParams() error = %v", err)
+		}
+		resp, err := server.dispatch(context.Background(), &rpcapi.RPCRequest{
 			Id:     "ping",
-			Method: rpc.MethodPing,
-			Params: &rpc.PingRequest{},
+			Method: rpcapi.RPCMethodPeerPing,
+			Params: params,
 		})
 		if err != nil {
-			t.Fatalf("dispatchRPC(ping) error = %v", err)
+			t.Fatalf("dispatch(ping) error = %v", err)
 		}
-		if resp == nil || resp.Result == nil || resp.Result.ServerTime <= 0 {
-			t.Fatalf("dispatchRPC(ping) response = %+v", resp)
+		if resp == nil || resp.Result == nil {
+			t.Fatalf("dispatch(ping) response = %+v", resp)
+		}
+		result, err := resp.Result.AsPingResponse()
+		if err != nil {
+			t.Fatalf("dispatch(ping) result decode error = %v", err)
+		}
+		if result.ServerTime <= 0 {
+			t.Fatalf("dispatch(ping) response = %+v", result)
 		}
 
-		resp, err = peer.dispatchRPC(context.Background(), &rpc.RPCRequest{
+		resp, err = server.dispatch(context.Background(), &rpcapi.RPCRequest{
 			Id:     "unknown",
 			Method: "rpc.unknown",
 		})
 		if err != nil {
-			t.Fatalf("dispatchRPC(unknown) error = %v", err)
+			t.Fatalf("dispatch(unknown) error = %v", err)
 		}
 		if resp == nil || resp.Error == nil || !strings.Contains(resp.Error.Message, "unknown method") {
-			t.Fatalf("dispatchRPC(unknown) response = %+v", resp)
+			t.Fatalf("dispatch(unknown) response = %+v", resp)
 		}
 	})
 }

@@ -17,16 +17,41 @@
         ],
         "properties": {
           "v": {
-            "type": "integer"
+            "$ref": "#/components/schemas/RPCVersion"
           },
           "id": {
             "type": "string"
           },
           "method": {
-            "type": "string"
+            "$ref": "#/components/schemas/RPCMethod"
           },
           "params": {
-            "$ref": "./rpc/ping.json#/components/schemas/PingRequest"
+            "oneOf": [
+              {
+                "$ref": "./rpc/ping.json#/components/schemas/PingRequest"
+              },
+              {
+                "$ref": "./rpc/gear_config.json#/components/schemas/GearGetConfigRequest"
+              },
+              {
+                "$ref": "./rpc/gear_info.json#/components/schemas/GearGetInfoRequest"
+              },
+              {
+                "$ref": "./rpc/gear_info.json#/components/schemas/GearPutInfoRequest"
+              },
+              {
+                "$ref": "./rpc/gear_ota.json#/components/schemas/GearGetOTARequest"
+              },
+              {
+                "$ref": "./rpc/gear_registration.json#/components/schemas/GearGetRegistrationRequest"
+              },
+              {
+                "$ref": "./rpc/gear_registration.json#/components/schemas/GearRegisterRequest"
+              },
+              {
+                "$ref": "./rpc/gear_runtime.json#/components/schemas/GearGetRuntimeRequest"
+              }
+            ]
           }
         }
       },
@@ -38,18 +63,86 @@
         ],
         "properties": {
           "v": {
-            "type": "integer"
+            "$ref": "#/components/schemas/RPCVersion"
           },
           "id": {
             "type": "string"
           },
           "result": {
-            "$ref": "./rpc/ping.json#/components/schemas/PingResponse"
+            "oneOf": [
+              {
+                "$ref": "./rpc/ping.json#/components/schemas/PingResponse"
+              },
+              {
+                "$ref": "./rpc/gear_config.json#/components/schemas/GearGetConfigResponse"
+              },
+              {
+                "$ref": "./rpc/gear_info.json#/components/schemas/GearGetInfoResponse"
+              },
+              {
+                "$ref": "./rpc/gear_info.json#/components/schemas/GearPutInfoResponse"
+              },
+              {
+                "$ref": "./rpc/gear_ota.json#/components/schemas/GearGetOTAResponse"
+              },
+              {
+                "$ref": "./rpc/gear_registration.json#/components/schemas/GearGetRegistrationResponse"
+              },
+              {
+                "$ref": "./rpc/gear_registration.json#/components/schemas/GearRegisterResponse"
+              },
+              {
+                "$ref": "./rpc/gear_runtime.json#/components/schemas/GearGetRuntimeResponse"
+              }
+            ]
           },
           "error": {
             "$ref": "#/components/schemas/RPCError"
           }
         }
+      },
+      "RPCMethod": {
+        "type": "string",
+        "enum": [
+          "peer.ping",
+          "gear.config.get",
+          "gear.info.get",
+          "gear.info.put",
+          "gear.ota.get",
+          "gear.registration.get",
+          "gear.registration.register",
+          "gear.runtime.get"
+        ]
+      },
+      "RPCVersion": {
+        "type": "integer",
+        "enum": [
+          1
+        ],
+        "x-enum-varnames": [
+          "V1"
+        ]
+      },
+      "RPCErrorCode": {
+        "type": "integer",
+        "enum": [
+          -32600,
+          -32601,
+          -32602,
+          -32603,
+          400,
+          404,
+          409
+        ],
+        "x-enum-varnames": [
+          "InvalidRequest",
+          "MethodNotFound",
+          "InvalidParams",
+          "InternalError",
+          "BadRequest",
+          "NotFound",
+          "Conflict"
+        ]
       },
       "RPCError": {
         "type": "object",
@@ -59,7 +152,7 @@
         ],
         "properties": {
           "code": {
-            "type": "integer"
+            "$ref": "#/components/schemas/RPCErrorCode"
           },
           "message": {
             "type": "string"

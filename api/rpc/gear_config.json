@@ -1,0 +1,21 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "RPC Gear Config Types",
+    "description": "Schemas for gear.config.get RPC method.",
+    "version": "1.0.0"
+  },
+  "paths": {},
+  "components": {
+    "schemas": {
+      "GearGetConfigRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {}
+      },
+      "GearGetConfigResponse": {
+        "$ref": "../type/configuration.json#/components/schemas/Configuration"
+      }
+    }
+  }
+}

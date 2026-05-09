@@ -1,0 +1,577 @@
+{
+  "components": {
+    "schemas": {
+      "Configuration": {
+        "properties": {
+          "certifications": {
+            "items": {
+              "$ref": "#/components/schemas/GearCertification"
+            },
+            "type": "array"
+          },
+          "firmware": {
+            "$ref": "#/components/schemas/FirmwareConfig"
+          }
+        },
+        "type": "object"
+      },
+      "DepotFile": {
+        "properties": {
+          "md5": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "sha256": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "sha256",
+          "md5"
+        ],
+        "type": "object"
+      },
+      "DeviceInfo": {
+        "properties": {
+          "hardware": {
+            "$ref": "#/components/schemas/HardwareInfo"
+          },
+          "name": {
+            "type": "string"
+          },
+          "sn": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "FirmwareConfig": {
+        "properties": {
+          "channel": {
+            "$ref": "#/components/schemas/GearFirmwareChannel"
+          }
+        },
+        "type": "object"
+      },
+      "Gear": {
+        "properties": {
+          "approved_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "auto_registered": {
+            "type": "boolean"
+          },
+          "configuration": {
+            "$ref": "#/components/schemas/Configuration"
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "device": {
+            "$ref": "#/components/schemas/DeviceInfo"
+          },
+          "public_key": {
+            "type": "string"
+          },
+          "role": {
+            "$ref": "#/components/schemas/GearRole"
+          },
+          "status": {
+            "$ref": "#/components/schemas/GearStatus"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "public_key",
+          "role",
+          "status",
+          "device",
+          "configuration",
+          "created_at",
+          "updated_at"
+        ],
+        "type": "object"
+      },
+      "GearCertification": {
+        "properties": {
+          "authority": {
+            "$ref": "#/components/schemas/GearCertificationAuthority"
+          },
+          "authority_name": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "type": {
+            "$ref": "#/components/schemas/GearCertificationType"
+          }
+        },
+        "required": [
+          "type",
+          "authority",
+          "id"
+        ],
+        "type": "object"
+      },
+      "GearCertificationAuthority": {
+        "enum": [
+          "unknown",
+          "ccc",
+          "ce",
+          "fcc",
+          "miit",
+          "srrc",
+          "rohs",
+          "internal"
+        ],
+        "type": "string"
+      },
+      "GearCertificationType": {
+        "enum": [
+          "license",
+          "certification"
+        ],
+        "type": "string"
+      },
+      "GearFirmwareChannel": {
+        "type": "string"
+      },
+      "GearGetConfigRequest": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object"
+      },
+      "GearGetConfigResponse": {
+        "$ref": "#/components/schemas/Configuration"
+      },
+      "GearGetInfoRequest": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object"
+      },
+      "GearGetInfoResponse": {
+        "$ref": "#/components/schemas/DeviceInfo"
+      },
+      "GearGetOTARequest": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object"
+      },
+      "GearGetOTAResponse": {
+        "$ref": "#/components/schemas/OTASummary"
+      },
+      "GearGetRegistrationRequest": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object"
+      },
+      "GearGetRegistrationResponse": {
+        "$ref": "#/components/schemas/Registration"
+      },
+      "GearGetRuntimeRequest": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object"
+      },
+      "GearGetRuntimeResponse": {
+        "$ref": "#/components/schemas/Runtime"
+      },
+      "GearIMEI": {
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "serial": {
+            "type": "string"
+          },
+          "tac": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "tac",
+          "serial"
+        ],
+        "type": "object"
+      },
+      "GearLabel": {
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "value": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "value"
+        ],
+        "type": "object"
+      },
+      "GearPutInfoRequest": {
+        "$ref": "#/components/schemas/DeviceInfo"
+      },
+      "GearPutInfoResponse": {
+        "$ref": "#/components/schemas/DeviceInfo"
+      },
+      "GearRegisterRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "device": {
+            "$ref": "#/components/schemas/DeviceInfo"
+          }
+        },
+        "required": [
+          "device"
+        ],
+        "type": "object"
+      },
+      "GearRegisterResponse": {
+        "properties": {
+          "gear": {
+            "$ref": "#/components/schemas/Gear"
+          },
+          "registration": {
+            "$ref": "#/components/schemas/Registration"
+          }
+        },
+        "required": [
+          "gear",
+          "registration"
+        ],
+        "type": "object"
+      },
+      "GearRole": {
+        "enum": [
+          "unspecified",
+          "admin",
+          "server",
+          "gear"
+        ],
+        "type": "string"
+      },
+      "GearStatus": {
+        "enum": [
+          "unspecified",
+          "active",
+          "blocked"
+        ],
+        "type": "string"
+      },
+      "HardwareInfo": {
+        "properties": {
+          "depot": {
+            "type": "string"
+          },
+          "firmware_semver": {
+            "type": "string"
+          },
+          "hardware_revision": {
+            "type": "string"
+          },
+          "imeis": {
+            "items": {
+              "$ref": "#/components/schemas/GearIMEI"
+            },
+            "type": "array"
+          },
+          "labels": {
+            "items": {
+              "$ref": "#/components/schemas/GearLabel"
+            },
+            "type": "array"
+          },
+          "manufacturer": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "OTASummary": {
+        "properties": {
+          "channel": {
+            "type": "string"
+          },
+          "depot": {
+            "type": "string"
+          },
+          "files": {
+            "items": {
+              "$ref": "#/components/schemas/DepotFile"
+            },
+            "type": "array"
+          },
+          "firmware_semver": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "depot",
+          "channel",
+          "firmware_semver",
+          "files"
+        ],
+        "type": "object"
+      },
+      "PingRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "client_send_time": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "client_send_time"
+        ],
+        "type": "object"
+      },
+      "PingResponse": {
+        "properties": {
+          "server_time": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "server_time"
+        ],
+        "type": "object"
+      },
+      "RPCError": {
+        "properties": {
+          "code": {
+            "$ref": "#/components/schemas/RPCErrorCode"
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "message"
+        ],
+        "type": "object"
+      },
+      "RPCErrorCode": {
+        "enum": [
+          -32600,
+          -32601,
+          -32602,
+          -32603,
+          400,
+          404,
+          409
+        ],
+        "type": "integer",
+        "x-enum-varnames": [
+          "InvalidRequest",
+          "MethodNotFound",
+          "InvalidParams",
+          "InternalError",
+          "BadRequest",
+          "NotFound",
+          "Conflict"
+        ]
+      },
+      "RPCMethod": {
+        "enum": [
+          "peer.ping",
+          "gear.config.get",
+          "gear.info.get",
+          "gear.info.put",
+          "gear.ota.get",
+          "gear.registration.get",
+          "gear.registration.register",
+          "gear.runtime.get"
+        ],
+        "type": "string"
+      },
+      "RPCRequest": {
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "method": {
+            "$ref": "#/components/schemas/RPCMethod"
+          },
+          "params": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PingRequest"
+              },
+              {
+                "$ref": "#/components/schemas/GearGetConfigRequest"
+              },
+              {
+                "$ref": "#/components/schemas/GearGetInfoRequest"
+              },
+              {
+                "$ref": "#/components/schemas/GearPutInfoRequest"
+              },
+              {
+                "$ref": "#/components/schemas/GearGetOTARequest"
+              },
+              {
+                "$ref": "#/components/schemas/GearGetRegistrationRequest"
+              },
+              {
+                "$ref": "#/components/schemas/GearRegisterRequest"
+              },
+              {
+                "$ref": "#/components/schemas/GearGetRuntimeRequest"
+              }
+            ]
+          },
+          "v": {
+            "$ref": "#/components/schemas/RPCVersion"
+          }
+        },
+        "required": [
+          "v",
+          "id",
+          "method"
+        ],
+        "type": "object"
+      },
+      "RPCResponse": {
+        "properties": {
+          "error": {
+            "$ref": "#/components/schemas/RPCError"
+          },
+          "id": {
+            "type": "string"
+          },
+          "result": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PingResponse"
+              },
+              {
+                "$ref": "#/components/schemas/GearGetConfigResponse"
+              },
+              {
+                "$ref": "#/components/schemas/GearGetInfoResponse"
+              },
+              {
+                "$ref": "#/components/schemas/GearPutInfoResponse"
+              },
+              {
+                "$ref": "#/components/schemas/GearGetOTAResponse"
+              },
+              {
+                "$ref": "#/components/schemas/GearGetRegistrationResponse"
+              },
+              {
+                "$ref": "#/components/schemas/GearRegisterResponse"
+              },
+              {
+                "$ref": "#/components/schemas/GearGetRuntimeResponse"
+              }
+            ]
+          },
+          "v": {
+            "$ref": "#/components/schemas/RPCVersion"
+          }
+        },
+        "required": [
+          "v",
+          "id"
+        ],
+        "type": "object"
+      },
+      "RPCVersion": {
+        "enum": [
+          1
+        ],
+        "type": "integer",
+        "x-enum-varnames": [
+          "V1"
+        ]
+      },
+      "Registration": {
+        "properties": {
+          "approved_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "auto_registered": {
+            "type": "boolean"
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "public_key": {
+            "type": "string"
+          },
+          "role": {
+            "$ref": "#/components/schemas/GearRole"
+          },
+          "status": {
+            "$ref": "#/components/schemas/GearStatus"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "public_key",
+          "role",
+          "status",
+          "created_at",
+          "updated_at"
+        ],
+        "type": "object"
+      },
+      "Runtime": {
+        "properties": {
+          "last_addr": {
+            "type": "string"
+          },
+          "last_seen_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "online": {
+            "type": "boolean"
+          },
+          "rx_bytes": {
+            "format": "uint64",
+            "type": "integer"
+          },
+          "tx_bytes": {
+            "format": "uint64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "online",
+          "last_seen_at"
+        ],
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "description": "Generated by go run ./internal/rpcgen from api/rpc.json. DO NOT EDIT.",
+    "title": "RPC API Codegen Bundle",
+    "version": "1.0.0"
+  },
+  "openapi": "3.0.3",
+  "paths": {}
+}
