@@ -15,13 +15,13 @@ import (
 	"io"
 	"strings"
 
+	"github.com/GizClaw/gizclaw-go/pkg/encoding/base32"
+	"github.com/GizClaw/gizclaw-go/pkg/encoding/base58"
 	"golang.org/x/crypto/curve25519"
 )
 
 // KeySize is the size of public/private keys in bytes.
 const KeySize = 32
-
-const crockfordBase32Alphabet = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"
 
 // Key represents a 32-byte cryptographic key.
 type Key [KeySize]byte
@@ -47,15 +47,15 @@ func (k Key) ShortString() string {
 	return hex.EncodeToString(k[:4])
 }
 
-// MarshalText encodes the key as Crockford Base32.
+// MarshalText encodes the key as Base58 BTC.
 func (k Key) MarshalText() ([]byte, error) {
-	return []byte(encodeCrockfordBase32(k[:])), nil
+	return []byte(base58.EncodeToString(k[:])), nil
 }
 
-// UnmarshalText decodes a key from Crockford Base32.
+// UnmarshalText decodes a key from Base58 BTC.
 //
-// URL-safe base64 and hex are accepted as legacy input formats, but MarshalText
-// always emits Crockford Base32.
+// Crockford Base32, URL-safe base64, and hex are accepted as legacy input
+// formats, but MarshalText always emits Base58 BTC.
 func (k *Key) UnmarshalText(text []byte) error {
 	if k == nil {
 		return errors.New("noise: nil key")
@@ -75,14 +75,17 @@ func (k *Key) UnmarshalText(text []byte) error {
 // Uses constant-time comparison to prevent timing attacks.
 func (k Key) Equal(other Key) bool {
 	var result byte
-	for i := 0; i < KeySize; i++ {
+	for i := range KeySize {
 		result |= k[i] ^ other[i]
 	}
 	return result == 0
 }
 
 func decodeKeyText(value string) ([]byte, bool) {
-	if decoded, ok := decodeCrockfordBase32(value); ok {
+	if decoded, err := base58.DecodeString(value); err == nil && len(decoded) == KeySize {
+		return decoded, true
+	}
+	if decoded, err := base32.DecodeString(value); err == nil && len(decoded) == KeySize {
 		return decoded, true
 	}
 	for _, encoding := range []*base64.Encoding{
@@ -101,80 +104,6 @@ func decodeKeyText(value string) ([]byte, bool) {
 		return decoded, true
 	}
 	return nil, false
-}
-
-func encodeCrockfordBase32(data []byte) string {
-	out := make([]byte, 0, (len(data)*8+4)/5)
-	buffer := 0
-	bits := 0
-	for _, b := range data {
-		buffer = (buffer << 8) | int(b)
-		bits += 8
-		for bits >= 5 {
-			out = append(out, crockfordBase32Alphabet[(buffer>>(bits-5))&31])
-			bits -= 5
-			if bits == 0 {
-				buffer = 0
-			} else {
-				buffer &= (1 << bits) - 1
-			}
-		}
-	}
-	if bits > 0 {
-		out = append(out, crockfordBase32Alphabet[(buffer<<(5-bits))&31])
-	}
-	return string(out)
-}
-
-func decodeCrockfordBase32(value string) ([]byte, bool) {
-	out := make([]byte, 0, KeySize)
-	buffer := 0
-	bits := 0
-	for i := 0; i < len(value); i++ {
-		v, ok, skip := crockfordBase32Value(value[i])
-		if skip {
-			continue
-		}
-		if !ok {
-			return nil, false
-		}
-		buffer = (buffer << 5) | v
-		bits += 5
-		for bits >= 8 {
-			out = append(out, byte(buffer>>(bits-8)))
-			bits -= 8
-			if bits == 0 {
-				buffer = 0
-			} else {
-				buffer &= (1 << bits) - 1
-			}
-		}
-	}
-	if len(out) != KeySize || buffer != 0 {
-		return nil, false
-	}
-	return out, true
-}
-
-func crockfordBase32Value(ch byte) (value int, ok bool, skip bool) {
-	switch {
-	case ch == '-':
-		return 0, false, true
-	case ch == 'O' || ch == 'o':
-		return 0, true, false
-	case ch == 'I' || ch == 'i' || ch == 'L' || ch == 'l':
-		return 1, true, false
-	case ch >= '0' && ch <= '9':
-		return int(ch - '0'), true, false
-	case ch >= 'a' && ch <= 'z':
-		ch -= 'a' - 'A'
-	}
-	for i := 0; i < len(crockfordBase32Alphabet); i++ {
-		if crockfordBase32Alphabet[i] == ch {
-			return i, true, false
-		}
-	}
-	return 0, false, false
 }
 
 // KeyFromHex creates a Key from a hex-encoded string.

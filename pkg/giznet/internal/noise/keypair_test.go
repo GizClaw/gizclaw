@@ -6,6 +6,8 @@ import (
 	"encoding/base64"
 	"strings"
 	"testing"
+
+	"github.com/GizClaw/gizclaw-go/pkg/encoding/base32"
 )
 
 func TestKeyIsZero(t *testing.T) {
@@ -29,10 +31,10 @@ func TestKeyString(t *testing.T) {
 	}
 
 	full := k.String()
-	if len(full) != 52 {
-		t.Errorf("String() length = %d, want 52", len(full))
+	if len(full) != 43 {
+		t.Errorf("String() length = %d, want 43", len(full))
 	}
-	if full != "0410610000000000000000000000000000000000000000000000" {
+	if full != "4wBqpWMLpZcD5z7ZeZezzLQBtTmiGotBQ5GcRFZS6YX" {
 		t.Errorf("String() = %q", full)
 	}
 }
@@ -82,17 +84,17 @@ func TestKeyTextEncoding(t *testing.T) {
 	if err != nil {
 		t.Fatalf("MarshalText error = %v", err)
 	}
-	want := "041061050R3GG28A1C60T3GF208H44RM2MB1E60S38DHR78Y3WG0"
+	want := "4wBqpZM9xaSheZzJSMawUKKwhdpChKbZ5eu5ky4Vigw"
 	if string(text) != want {
 		t.Fatalf("MarshalText = %q, want %q", string(text), want)
 	}
 
 	var got Key
 	if err := got.UnmarshalText(text); err != nil {
-		t.Fatalf("UnmarshalText(crockford) error = %v", err)
+		t.Fatalf("UnmarshalText(base58btc) error = %v", err)
 	}
 	if got != key {
-		t.Fatalf("UnmarshalText(crockford) = %v, want %v", got, key)
+		t.Fatalf("UnmarshalText(base58btc) = %v, want %v", got, key)
 	}
 }
 
@@ -128,12 +130,12 @@ func TestKeyTextUnmarshalAcceptsLegacyHex(t *testing.T) {
 	}
 }
 
-func TestKeyTextUnmarshalAcceptsCrockfordAliases(t *testing.T) {
+func TestKeyTextUnmarshalAcceptsLegacyCrockfordAliases(t *testing.T) {
 	var want Key
 	for i := range want {
 		want[i] = byte(i + 1)
 	}
-	canonical := want.String()
+	canonical := base32.EncodeToString(want[:])
 	input := strings.ToLower(strings.ReplaceAll(strings.ReplaceAll(canonical, "0", "O"), "1", "L"))
 	input = input[:13] + "-" + input[13:26] + "-" + input[26:39] + "-" + input[39:]
 
