@@ -59,7 +59,7 @@ func TestCipherStateNonceIncrement(t *testing.T) {
 
 	cs, _ := NewCipherState(key)
 
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		if cs.Nonce() != uint64(i) {
 			t.Errorf("nonce = %d, want %d", cs.Nonce(), i)
 		}

@@ -11,7 +11,7 @@ func TestRepeatServerRestartUserStory(t *testing.T) {
 	h.StartServerFromFixture("server_config.yaml")
 
 	h.CreateContext("client-a").MustSucceed(t)
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		if _, err := h.RunCLIUntilSuccess("ping", "--context", "client-a"); err != nil {
 			t.Fatal(err)
 		}

@@ -20,7 +20,7 @@ func BenchmarkStreamAggregateThroughput(b *testing.B, payload []byte, parallel i
 
 	clientStreams := make([]net.Conn, 0, parallel)
 	serverStreams := make([]net.Conn, 0, parallel)
-	for i := 0; i < parallel; i++ {
+	for i := range parallel {
 		c, err := open()
 		if err != nil {
 			b.Fatalf("open stream[%d]: %v", i, err)
@@ -46,7 +46,7 @@ func BenchmarkStreamAggregateThroughput(b *testing.B, payload []byte, parallel i
 	errCh := make(chan error, parallel)
 	var wg sync.WaitGroup
 
-	for i := 0; i < parallel; i++ {
+	for i := range parallel {
 		wg.Add(1)
 		go func(s net.Conn) {
 			defer wg.Done()
@@ -102,7 +102,7 @@ func BenchmarkRPCStyleMultiplexing(b *testing.B, req []byte, parallel int, open 
 
 	clientStreams := make([]net.Conn, 0, parallel)
 	serverStreams := make([]net.Conn, 0, parallel)
-	for i := 0; i < parallel; i++ {
+	for i := range parallel {
 		c, err := open()
 		if err != nil {
 			b.Fatalf("open stream[%d]: %v", i, err)
@@ -126,7 +126,7 @@ func BenchmarkRPCStyleMultiplexing(b *testing.B, req []byte, parallel int, open 
 
 	errCh := make(chan error, parallel)
 	var wg sync.WaitGroup
-	for i := 0; i < parallel; i++ {
+	for i := range parallel {
 		wg.Add(1)
 		go func(idx int, s net.Conn) {
 			defer wg.Done()

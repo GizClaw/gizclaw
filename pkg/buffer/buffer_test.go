@@ -98,7 +98,7 @@ func TestBuffer_ConcurrentWriteRead(t *testing.T) {
 func TestBuffer_Add(t *testing.T) {
 	buf := N[int](10)
 
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		if err := buf.Add(i); err != nil {
 			t.Fatalf("Add(%d) error: %v", i, err)
 		}

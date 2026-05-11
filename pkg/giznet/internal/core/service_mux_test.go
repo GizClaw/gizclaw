@@ -69,7 +69,7 @@ func TestServiceMux_OpenCreatesDistinctStreams(t *testing.T) {
 
 	const serviceID uint64 = 7
 	acceptedCh := make(chan net.Conn, 2)
-	for i := 0; i < 2; i++ {
+	for range 2 {
 		go func() {
 			conn, err := server.AcceptStream(serviceID)
 			if err != nil {
@@ -722,7 +722,7 @@ func TestServiceMux_InputReturnsInboundQueueFull(t *testing.T) {
 	mux := NewServiceMux(noise.PublicKey{}, ServiceMuxConfig{})
 	defer mux.Close()
 
-	for i := 0; i < InboundChanSize; i++ {
+	for i := range InboundChanSize {
 		if err := mux.InputPacket(testDirectProtoA, []byte("x")); err != nil {
 			t.Fatalf("InputPacket fill[%d] failed: %v", i, err)
 		}
@@ -742,7 +742,7 @@ func TestClosedChanGoroutineLeak(t *testing.T) {
 	// Call AcceptStream multiple times across fresh connected pairs. After each
 	// AcceptStream returns, the closedChan goroutine should exit.
 	const iterations = 10
-	for i := 0; i < iterations; i++ {
+	for i := range iterations {
 		server, client, serverKey, clientKey := createConnectedPair(t)
 
 		accepted := make(chan io.ReadWriteCloser, 1)

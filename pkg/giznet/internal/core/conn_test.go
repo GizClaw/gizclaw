@@ -635,7 +635,7 @@ func TestConnMultipleMessages(t *testing.T) {
 	}
 
 	// Send multiple messages
-	for i := 0; i < 100; i++ {
+	for i := range 100 {
 		// Initiator -> Responder
 		msg := []byte("message")
 		initiatorConn.Send(testDirectProtoA, msg)
@@ -1324,7 +1324,7 @@ func TestConnConcurrentTickDoesNotDuplicateHandshakeInit(t *testing.T) {
 	errs := make(chan error, goroutines)
 	var wg sync.WaitGroup
 	wg.Add(goroutines)
-	for i := 0; i < goroutines; i++ {
+	for range goroutines {
 		go func() {
 			defer wg.Done()
 			<-start
@@ -3423,7 +3423,7 @@ func TestMultipleRekeys(t *testing.T) {
 	initiator, responder, cleanup := setupConnPair(t)
 	defer cleanup()
 
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		// Trigger rekey
 		initiator.mu.Lock()
 		initiator.sessionCreated = time.Now().Add(-RekeyAfterTime - time.Second)

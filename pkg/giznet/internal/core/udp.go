@@ -1190,7 +1190,7 @@ func (u *UDP) ioLoopBatch(bc *batchConn) {
 		}
 
 		// Dispatch received packets
-		for i := 0; i < n; i++ {
+		for i := range n {
 			pkt := pkts[i]
 			pkt.n = bc.ReceivedN(i)
 			pkt.from = bc.ReceivedFrom(i)

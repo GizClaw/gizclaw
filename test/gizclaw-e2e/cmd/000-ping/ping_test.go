@@ -18,7 +18,7 @@ func TestPingUserStory(t *testing.T) {
 	h.WaitForPing("client-b")
 
 	t.Run("single client can ping repeatedly", func(t *testing.T) {
-		for i := 0; i < 3; i++ {
+		for range 3 {
 			result, err := h.RunCLIUntilSuccess("ping", "--context", "client-a")
 			if err != nil {
 				t.Fatal(err)

@@ -15,7 +15,7 @@ const (
 
 func AllocateUDPAddr(t testing.TB) string {
 	t.Helper()
-	for attempt := 0; attempt < 20; attempt++ {
+	for range 20 {
 		l, err := net.Listen("tcp", "127.0.0.1:0")
 		if err != nil {
 			t.Fatalf("allocateUDPAddr tcp: %v", err)

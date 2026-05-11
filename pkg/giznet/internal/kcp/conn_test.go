@@ -209,7 +209,7 @@ func TestKCPConn_SmallMessages(t *testing.T) {
 		}
 	}()
 
-	for i := 0; i < msgCount; i++ {
+	for i := range msgCount {
 		msg := bytes.Repeat([]byte{byte(i)}, msgSize)
 		if _, err := a.Write(msg); err != nil {
 			t.Fatalf("Write %d: %v", i, err)
@@ -409,7 +409,7 @@ func TestKCPConn_GoroutineLeak(t *testing.T) {
 
 	const N = 100
 	conns := make([]*KCPConn, N*2)
-	for i := 0; i < N; i++ {
+	for i := range N {
 		a, b := connPair(0)
 		conns[i*2] = a
 		conns[i*2+1] = b
@@ -738,11 +738,11 @@ func TestKCPConn_BUG1_ConcurrentWriteRace(t *testing.T) {
 	var wg sync.WaitGroup
 
 	// Multiple goroutines writing concurrently
-	for i := 0; i < numWriters; i++ {
+	for range numWriters {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			for j := 0; j < writesPerGoroutine; j++ {
+			for range writesPerGoroutine {
 				a.Write(msg)
 			}
 		}()

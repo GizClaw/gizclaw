@@ -62,7 +62,7 @@ func GenerateRichNote(freq float64, samples int, sampleRate int, volume float64)
 	// Note duration for decay calculation
 	noteDuration := float64(samples) / float64(sampleRate)
 
-	for i := 0; i < samples; i++ {
+	for i := range samples {
 		t := float64(i) / float64(sampleRate)
 		progress := t / noteDuration
 

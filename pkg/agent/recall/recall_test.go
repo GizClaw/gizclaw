@@ -204,7 +204,7 @@ func TestRecentSegments(t *testing.T) {
 	ctx := context.Background()
 
 	base := time.Date(2025, 6, 1, 0, 0, 0, 0, time.UTC)
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		seg := Segment{
 			ID:        fmt.Sprintf("seg-%d", i),
 			Summary:   "dinosaurs",
@@ -356,7 +356,7 @@ func TestSearchSegmentsTimeFilter(t *testing.T) {
 	ctx := context.Background()
 
 	base := time.Date(2025, 6, 1, 0, 0, 0, 0, time.UTC)
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		seg := Segment{
 			ID:        fmt.Sprintf("s%d", i),
 			Summary:   "event",
@@ -608,7 +608,7 @@ func TestSearchSegmentsDefaultLimit(t *testing.T) {
 	ctx := context.Background()
 
 	// Store 15 segments, search with Limit=0 (should default to 10).
-	for i := 0; i < 15; i++ {
+	for i := range 15 {
 		seg := Segment{
 			ID:        fmt.Sprintf("s%d", i),
 			Summary:   "hello",
@@ -739,7 +739,7 @@ func BenchmarkSearchSegments(b *testing.B) {
 	ctx := context.Background()
 
 	// Pre-populate 500 segments.
-	for i := 0; i < 500; i++ {
+	for i := range 500 {
 		seg := Segment{
 			ID:        fmt.Sprintf("seg-%d", i),
 			Summary:   "dinosaurs",
@@ -784,7 +784,7 @@ func BenchmarkSearchCombined(b *testing.B) {
 	_ = g.AddRelation(ctx, graph.Relation{From: "Bob", To: "dinosaurs", RelType: "likes"})
 
 	// Pre-populate 200 segments.
-	for i := 0; i < 200; i++ {
+	for i := range 200 {
 		labels := []string{"Alice"}
 		if i%3 == 0 {
 			labels = append(labels, "Bob")

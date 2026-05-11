@@ -14,7 +14,7 @@ func TestRepeatContextUseUserStory(t *testing.T) {
 	h.CreateContext("alpha").MustSucceed(t)
 	h.CreateContext("beta").MustSucceed(t)
 
-	for i := 0; i < 4; i++ {
+	for range 4 {
 		h.UseContext("alpha").MustSucceed(t)
 		if _, err := h.RunCLIUntilSuccess("ping"); err != nil {
 			t.Fatal(err)

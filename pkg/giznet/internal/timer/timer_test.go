@@ -55,11 +55,11 @@ func TestTimerConcurrentResetAndClose(t *testing.T) {
 	})
 
 	var wg sync.WaitGroup
-	for i := 0; i < 16; i++ {
+	for range 16 {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			for j := 0; j < 100; j++ {
+			for range 100 {
 				tm.Reset(time.Now().Add(time.Millisecond))
 			}
 		}()
@@ -83,12 +83,12 @@ func TestTimerResetRacesWithClose(t *testing.T) {
 
 	start := make(chan struct{})
 	var wg sync.WaitGroup
-	for i := 0; i < 16; i++ {
+	for range 16 {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
 			<-start
-			for j := 0; j < 1_000; j++ {
+			for range 1_000 {
 				tm.Reset(time.Now().Add(time.Millisecond))
 			}
 		}()

@@ -259,7 +259,7 @@ func TestMultipleMessages(t *testing.T) {
 	sendR, recvR, _ := responder.Split()
 
 	// Send multiple messages
-	for i := 0; i < 100; i++ {
+	for i := range 100 {
 		// I -> R
 		ct := sendI.Encrypt([]byte("test"), nil)
 		pt, err := recvR.Decrypt(ct, nil)

@@ -44,10 +44,10 @@ func requireNativeEncoderRuntime(t *testing.T) {
 func generatePCM16Sine(sampleRate, channels int, seconds float64, hz float64) []byte {
 	numSamples := int(float64(sampleRate) * seconds)
 	pcm := make([]byte, numSamples*channels*2)
-	for i := 0; i < numSamples; i++ {
+	for i := range numSamples {
 		timeAt := float64(i) / float64(sampleRate)
 		sample := int16(math.Sin(2*math.Pi*hz*timeAt) * 16000)
-		for ch := 0; ch < channels; ch++ {
+		for ch := range channels {
 			off := i*channels*2 + ch*2
 			pcm[off] = byte(sample)
 			pcm[off+1] = byte(sample >> 8)

@@ -450,7 +450,7 @@ func mustProxyGET(t *testing.T, url string) (*http.Response, []byte) {
 	var lastErr error
 	var lastStatus int
 	var lastBody []byte
-	for i := 0; i < 50; i++ {
+	for range 50 {
 		resp, err := http.Get(url)
 		if err != nil {
 			lastErr = err

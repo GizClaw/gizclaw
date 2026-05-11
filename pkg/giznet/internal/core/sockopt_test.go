@@ -95,7 +95,7 @@ func TestReusePort_MultipleBind(t *testing.T) {
 	addr := conn1.LocalAddr().String()
 
 	conns := []*net.UDPConn{conn1}
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		c, err := ListenUDPReusePort(addr)
 		if err != nil {
 			t.Fatalf("failed to bind socket %d to %s: %v", i+1, addr, err)

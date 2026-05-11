@@ -104,7 +104,7 @@ func TestSession_BidirectionalCommunication(t *testing.T) {
 func TestSession_NonceIncrement(t *testing.T) {
 	alice, _ := createTestSession(t)
 
-	for i := uint64(0); i < 10; i++ {
+	for i := range uint64(10) {
 		if alice.SendNonce() != i {
 			t.Errorf("send nonce should be %d, got %d", i, alice.SendNonce())
 		}
@@ -143,7 +143,7 @@ func TestSession_OutOfOrderDecrypt(t *testing.T) {
 		ct    []byte
 		nonce uint64
 	}
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		ct, n, _ := alice.Encrypt([]byte{byte(i)})
 		messages = append(messages, struct {
 			ct    []byte
@@ -264,11 +264,11 @@ func TestSession_Concurrent(t *testing.T) {
 	messagesPerGoroutine := 100
 
 	// Concurrent sends from Alice
-	for i := 0; i < numGoroutines; i++ {
+	for i := range numGoroutines {
 		wg.Add(1)
 		go func(id int) {
 			defer wg.Done()
-			for j := 0; j < messagesPerGoroutine; j++ {
+			for j := range messagesPerGoroutine {
 				_, _, err := alice.Encrypt([]byte{byte(id), byte(j)})
 				if err != nil {
 					t.Errorf("encrypt failed: %v", err)
@@ -290,7 +290,7 @@ func TestSession_Concurrent(t *testing.T) {
 		ct    []byte
 		nonce uint64
 	}, 1000)
-	for i := 0; i < 1000; i++ {
+	for i := range 1000 {
 		ct, n, _ := alice.Encrypt([]byte{byte(i)})
 		messages[i] = struct {
 			ct    []byte
@@ -299,11 +299,11 @@ func TestSession_Concurrent(t *testing.T) {
 	}
 
 	// Decrypt concurrently
-	for i := 0; i < numGoroutines; i++ {
+	for i := range numGoroutines {
 		wg.Add(1)
 		go func(start int) {
 			defer wg.Done()
-			for j := 0; j < 100; j++ {
+			for j := range 100 {
 				idx := start*100 + j
 				_, _ = bob.Decrypt(messages[idx].ct, messages[idx].nonce)
 			}
@@ -315,7 +315,7 @@ func TestSession_Concurrent(t *testing.T) {
 
 func TestGenerateIndex(t *testing.T) {
 	indices := make(map[uint32]bool)
-	for i := 0; i < 1000; i++ {
+	for range 1000 {
 		idx, err := GenerateIndex()
 		if err != nil {
 			t.Fatalf("generate index failed: %v", err)

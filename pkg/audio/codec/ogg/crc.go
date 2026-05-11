@@ -5,9 +5,9 @@ var oggCRCTable = buildOGGCRCTable()
 func buildOGGCRCTable() [256]uint32 {
 	const polynomial uint32 = 0x04c11db7
 	var table [256]uint32
-	for i := 0; i < 256; i++ {
+	for i := range 256 {
 		crc := uint32(i) << 24
-		for j := 0; j < 8; j++ {
+		for range 8 {
 			if (crc & (1 << 31)) != 0 {
 				crc = (crc << 1) ^ polynomial
 			} else {

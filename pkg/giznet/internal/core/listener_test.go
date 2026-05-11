@@ -237,7 +237,7 @@ func TestListenerMultipleConnections(t *testing.T) {
 	clients := make([]*Conn, numClients)
 	clientTransports := make([]*UDPTransport, numClients)
 
-	for i := 0; i < numClients; i++ {
+	for i := range numClients {
 		clientKey, _ := noise.GenerateKeyPair()
 		clientTransport, err := NewUDPTransport("127.0.0.1:0")
 		if err != nil {

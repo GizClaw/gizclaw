@@ -201,7 +201,7 @@ func TestSessionManager_ExpireSessions(t *testing.T) {
 func TestSessionManager_Sessions(t *testing.T) {
 	m := NewSessionManager()
 
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		pk := noise.PublicKey{byte(i)}
 		m.CreateSession(pk, noise.Key{}, noise.Key{})
 	}
@@ -215,7 +215,7 @@ func TestSessionManager_Sessions(t *testing.T) {
 func TestSessionManager_ForEach(t *testing.T) {
 	m := NewSessionManager()
 
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		pk := noise.PublicKey{byte(i)}
 		m.CreateSession(pk, noise.Key{}, noise.Key{})
 	}
@@ -233,7 +233,7 @@ func TestSessionManager_ForEach(t *testing.T) {
 func TestSessionManager_Clear(t *testing.T) {
 	m := NewSessionManager()
 
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		pk := noise.PublicKey{byte(i)}
 		m.CreateSession(pk, noise.Key{}, noise.Key{})
 	}
@@ -296,7 +296,7 @@ func TestSessionManager_Concurrent(t *testing.T) {
 	var wg sync.WaitGroup
 
 	// Concurrent creates
-	for i := 0; i < 100; i++ {
+	for i := range 100 {
 		wg.Add(1)
 		go func(id int) {
 			defer wg.Done()
@@ -312,7 +312,7 @@ func TestSessionManager_Concurrent(t *testing.T) {
 	}
 
 	// Concurrent reads
-	for i := 0; i < 100; i++ {
+	for i := range 100 {
 		wg.Add(1)
 		go func(id int) {
 			defer wg.Done()
@@ -324,7 +324,7 @@ func TestSessionManager_Concurrent(t *testing.T) {
 	wg.Wait()
 
 	// Concurrent removes
-	for i := 0; i < 50; i++ {
+	for i := range 50 {
 		wg.Add(1)
 		go func(id int) {
 			defer wg.Done()
@@ -364,7 +364,7 @@ func TestSessionManager_IndexWrap(t *testing.T) {
 	m.nextIndex = ^uint32(0) - 5 // Near max
 
 	// Create several sessions to trigger wrap
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		pk := noise.PublicKey{byte(i)}
 		_, err := m.CreateSession(pk, noise.Key{}, noise.Key{})
 		if err != nil {
@@ -392,7 +392,7 @@ func BenchmarkSessionManager_GetByIndex(b *testing.B) {
 	var indices []uint32
 
 	// Pre-populate
-	for i := 0; i < 1000; i++ {
+	for i := range 1000 {
 		pk := noise.PublicKey{byte(i >> 8), byte(i)}
 		s, _ := m.CreateSession(pk, noise.Key{}, noise.Key{})
 		indices = append(indices, s.LocalIndex())
@@ -409,7 +409,7 @@ func BenchmarkSessionManager_GetByPubkey(b *testing.B) {
 	var pks []noise.PublicKey
 
 	// Pre-populate
-	for i := 0; i < 1000; i++ {
+	for i := range 1000 {
 		pk := noise.PublicKey{byte(i >> 8), byte(i)}
 		m.CreateSession(pk, noise.Key{}, noise.Key{})
 		pks = append(pks, pk)

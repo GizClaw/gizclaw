@@ -573,7 +573,7 @@ func TestLoadHNSWRejectsOversizedFriendList(t *testing.T) {
 	write(float32(1)) // vector[0]
 	write(float32(0)) // vector[1]
 	write(uint32(17)) // layer-0 friend count; exceeds 2*M (=16)
-	for i := 0; i < 17; i++ {
+	for range 17 {
 		write(uint32(0))
 	}
 
@@ -820,7 +820,7 @@ func TestHNSWRecall(t *testing.T) {
 
 	ids := make([]string, n)
 	vecs := make([][]float32, n)
-	for i := 0; i < n; i++ {
+	for i := range n {
 		ids[i] = fmt.Sprintf("v-%d", i)
 		vecs[i] = randVec(rng, dim)
 		if err := h.Insert(ids[i], vecs[i]); err != nil {
@@ -830,7 +830,7 @@ func TestHNSWRecall(t *testing.T) {
 
 	// Measure recall over random queries.
 	totalRecall := 0.0
-	for q := 0; q < queries; q++ {
+	for range queries {
 		query := randVec(rng, dim)
 
 		// Brute-force ground truth.
@@ -879,7 +879,7 @@ func TestHNSWConcurrent(t *testing.T) {
 	rng := rand.New(rand.NewPCG(7, 13))
 
 	// Pre-insert some vectors.
-	for i := 0; i < 50; i++ {
+	for i := range 50 {
 		_ = h.Insert(fmt.Sprintf("pre-%d", i), randVec(rng, dim))
 	}
 
@@ -887,7 +887,7 @@ func TestHNSWConcurrent(t *testing.T) {
 
 	// Concurrent inserts.
 	wg.Add(numInserts)
-	for i := 0; i < numInserts; i++ {
+	for i := range numInserts {
 		go func(i int) {
 			defer wg.Done()
 			localRng := rand.New(rand.NewPCG(uint64(i)*17, uint64(i)*31))
@@ -897,7 +897,7 @@ func TestHNSWConcurrent(t *testing.T) {
 
 	// Concurrent searches.
 	wg.Add(numSearches)
-	for i := 0; i < numSearches; i++ {
+	for i := range numSearches {
 		go func(i int) {
 			defer wg.Done()
 			localRng := rand.New(rand.NewPCG(uint64(i)*41, uint64(i)*53))
@@ -907,7 +907,7 @@ func TestHNSWConcurrent(t *testing.T) {
 
 	// Concurrent deletes.
 	wg.Add(20)
-	for i := 0; i < 20; i++ {
+	for i := range 20 {
 		go func(i int) {
 			defer wg.Done()
 			_ = h.Delete(fmt.Sprintf("pre-%d", i))
@@ -933,7 +933,7 @@ func BenchmarkHNSWInsert(b *testing.B) {
 
 	// Pre-build an index with 1000 vectors.
 	h := NewHNSW(HNSWConfig{Dim: dim, M: 16, EfConstruction: 100})
-	for i := 0; i < 1000; i++ {
+	for i := range 1000 {
 		_ = h.Insert(fmt.Sprintf("pre-%d", i), randVec(rng, dim))
 	}
 
@@ -954,7 +954,7 @@ func BenchmarkHNSWSearch(b *testing.B) {
 	rng := rand.New(rand.NewPCG(3, 4))
 
 	h := NewHNSW(HNSWConfig{Dim: dim, M: 16, EfConstruction: 200, EfSearch: 50})
-	for i := 0; i < 10000; i++ {
+	for i := range 10000 {
 		_ = h.Insert(fmt.Sprintf("v-%d", i), randVec(rng, dim))
 	}
 
@@ -974,7 +974,7 @@ func BenchmarkHNSWSearch_VaryEf(b *testing.B) {
 	rng := rand.New(rand.NewPCG(5, 6))
 
 	h := NewHNSW(HNSWConfig{Dim: dim, M: 16, EfConstruction: 200})
-	for i := 0; i < 10000; i++ {
+	for i := range 10000 {
 		_ = h.Insert(fmt.Sprintf("v-%d", i), randVec(rng, dim))
 	}
 
@@ -1001,7 +1001,7 @@ func BenchmarkHNSWSaveLoad(b *testing.B) {
 	rng := rand.New(rand.NewPCG(7, 8))
 
 	h := NewHNSW(HNSWConfig{Dim: dim, M: 16, EfConstruction: 100})
-	for i := 0; i < 5000; i++ {
+	for i := range 5000 {
 		_ = h.Insert(fmt.Sprintf("v-%d", i), randVec(rng, dim))
 	}
 

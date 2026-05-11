@@ -24,7 +24,7 @@ func dbscan(vectors [][]float32, eps float32, minPts int) []int {
 	labels := make([]int, n) // 0 = undefined
 	clusterID := 0
 
-	for i := 0; i < n; i++ {
+	for i := range n {
 		if labels[i] != undefined {
 			continue
 		}

@@ -140,7 +140,7 @@ var _ Index = (*Memory)(nil)
 
 func BenchmarkMemorySearch(b *testing.B) {
 	vec := NewMemory()
-	for i := 0; i < 1000; i++ {
+	for i := range 1000 {
 		v := []float32{
 			float32(i%7) / 7.0,
 			float32(i%11) / 11.0,

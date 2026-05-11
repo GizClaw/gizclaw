@@ -57,7 +57,7 @@ func TestServiceMux_OpenCreatesDistinctStreams(t *testing.T) {
 
 	const serviceID uint64 = 7
 	acceptedCh := make(chan net.Conn, 2)
-	for i := 0; i < 2; i++ {
+	for range 2 {
 		go func() {
 			conn, err := server.AcceptStream(serviceID)
 			if err != nil {

@@ -122,7 +122,7 @@ func TestVarint_RoundTrip(t *testing.T) {
 	rng := rand.New(rand.NewSource(42))
 	var buf [MaxVarintLen]byte
 
-	for i := 0; i < 1000; i++ {
+	for i := range 1000 {
 		original := rng.Uint64()
 		n := EncodeVarint(buf[:], original)
 		decoded, consumed, err := DecodeVarint(buf[:n])

@@ -144,7 +144,7 @@ func TestTrieMatchWalkStringAndLen(t *testing.T) {
 
 func generatePaths(count int) []string {
 	paths := make([]string, count)
-	for i := 0; i < count; i++ {
+	for i := range count {
 		a := i % 10
 		b := (i / 10) % 10
 		c := (i / 100) % 10
@@ -272,7 +272,7 @@ func BenchmarkTrieWalk(b *testing.B) {
 
 func BenchmarkTrieDeepPaths(b *testing.B) {
 	deepPaths := make([]string, 100)
-	for i := 0; i < 100; i++ {
+	for i := range 100 {
 		deepPaths[i] = fmt.Sprintf("a/b/c/d/e/f/g/h/i/j/k/l/m/n/o/p/q/r/s/t/u/v/w/x/y/z/%d", i)
 	}
 

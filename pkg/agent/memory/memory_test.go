@@ -900,7 +900,7 @@ func TestZeroCompressPolicyDisablesAutoCompression(t *testing.T) {
 	ctx := context.Background()
 	conv := mustOpenConversation(t, m, "dev1", nil)
 
-	for i := 0; i < 40; i++ {
+	for i := range 40 {
 		if err := conv.Append(ctx, Message{Role: RoleUser, Content: fmt.Sprintf("msg-%d", i)}); err != nil {
 			t.Fatalf("Append %d: %v", i, err)
 		}

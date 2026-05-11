@@ -620,7 +620,7 @@ func setupBenchGraph(b *testing.B, nEntities, nRelations int) graph.Graph {
 	g := graph.NewKVGraph(store, kv.Key{"bench", "g"})
 	ctx := context.Background()
 
-	for i := 0; i < nEntities; i++ {
+	for i := range nEntities {
 		label := fmt.Sprintf("entity_%04d", i)
 		if err := g.SetEntity(ctx, graph.Entity{
 			Label: label,
@@ -630,7 +630,7 @@ func setupBenchGraph(b *testing.B, nEntities, nRelations int) graph.Graph {
 		}
 	}
 
-	for i := 0; i < nRelations; i++ {
+	for i := range nRelations {
 		from := fmt.Sprintf("entity_%04d", i%nEntities)
 		to := fmt.Sprintf("entity_%04d", (i*7+3)%nEntities) // pseudo-random connections
 		relType := "link"
@@ -705,7 +705,7 @@ func BenchmarkRelations(b *testing.B) {
 	ctx := context.Background()
 
 	hub := "hub"
-	for i := 0; i < 100; i++ {
+	for i := range 100 {
 		_ = g.AddRelation(ctx, graph.Relation{
 			From:    hub,
 			To:      fmt.Sprintf("spoke_%d", i),

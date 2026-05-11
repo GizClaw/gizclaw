@@ -397,7 +397,7 @@ func TestPeersIterator(t *testing.T) {
 	defer udp.Close()
 
 	// Add some peers
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		peerKey, _ := noise.GenerateKeyPair()
 		peerAddr, _ := net.ResolveUDPAddr("udp", "127.0.0.1:12345")
 		udp.SetPeerEndpoint(peerKey.Public, peerAddr)
@@ -1206,7 +1206,7 @@ func TestInboundDropCounterWhenPeerQueueFull(t *testing.T) {
 		t.Fatal("server service mux not initialized")
 	}
 
-	for i := 0; i < InboundChanSize; i++ {
+	for i := range InboundChanSize {
 		if err := serverPeer.serviceMux.InputPacket(testDirectProtoA, []byte("seed")); err != nil {
 			t.Fatalf("failed to fill service mux inbound queue at %d: %v", i, err)
 		}
@@ -1419,7 +1419,7 @@ func TestPacketLeakWhenOutputChanFull(t *testing.T) {
 	before := outstandingPackets.Load()
 
 	const numPackets = 50
-	for i := 0; i < numPackets; i++ {
+	for i := range numPackets {
 		if err := client.WriteTo(serverKey.Public, []byte("leak-test")); err != nil {
 			t.Logf("WriteTo %d: %v", i, err)
 		}

@@ -230,7 +230,7 @@ func BenchmarkConcurrentMultiSession(b *testing.B) {
 	const numSessions = 100
 	sessions := make([]*Session, numSessions)
 
-	for i := 0; i < numSessions; i++ {
+	for i := range numSessions {
 		sendKey := Hash([]byte("send" + string(rune(i))))
 		recvKey := Hash([]byte("recv" + string(rune(i))))
 		sessions[i], _ = NewSession(SessionConfig{

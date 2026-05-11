@@ -49,7 +49,7 @@ func (nativeBackend) ListDevices() ([]DeviceInfo, error) {
 	}
 
 	devices := make([]DeviceInfo, 0, deviceCount)
-	for i := 0; i < deviceCount; i++ {
+	for i := range deviceCount {
 		idx := C.PaDeviceIndex(i)
 		info := C.Pa_GetDeviceInfo(idx)
 		if info == nil {

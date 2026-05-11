@@ -61,7 +61,7 @@ func TestDBSCAN(t *testing.T) {
 	}
 
 	// Check that points in the same original cluster have the same label.
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		if labels[i] != labels[0] {
 			t.Errorf("cluster 1: point %d has label %d, expected %d", i, labels[i], labels[0])
 		}

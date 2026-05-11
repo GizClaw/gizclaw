@@ -77,7 +77,7 @@ func TestCompactBucketMultiOutputKeepsUniqueSegments(t *testing.T) {
 	}
 	defer func() { nowNano = origNow }()
 
-	for i := 0; i < 4; i++ {
+	for i := range 4 {
 		if err := mem.StoreSegment(ctx, SegmentInput{Summary: "src", Labels: []string{"person:test"}}, recall.Bucket1H); err != nil {
 			t.Fatalf("store source segment #%d: %v", i+1, err)
 		}

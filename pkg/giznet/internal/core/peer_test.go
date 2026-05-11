@@ -333,7 +333,7 @@ func TestPeer_MultiServiceConcurrentStreams(t *testing.T) {
 		acceptWG.Add(1)
 		go func() {
 			defer acceptWG.Done()
-			for i := 0; i < perService; i++ {
+			for range perService {
 				stream, err := mustServiceMux(t, server, clientKey.Public).AcceptStream(svc)
 				if err != nil {
 					errCh <- err
@@ -361,7 +361,7 @@ func TestPeer_MultiServiceConcurrentStreams(t *testing.T) {
 
 	var openWG sync.WaitGroup
 	for _, serviceID := range services {
-		for i := 0; i < perService; i++ {
+		for i := range perService {
 			payload := []byte(fmt.Sprintf("service-%d-stream-%d", serviceID, i))
 			expected[fmt.Sprintf("%d:%s", serviceID, string(payload))] = struct{}{}
 			openWG.Add(1)

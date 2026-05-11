@@ -115,7 +115,7 @@ func TestMixerCloseWithBlockedReadersAllUnblocked(t *testing.T) {
 
 	const readers = 8
 	errCh := make(chan error, readers)
-	for i := 0; i < readers; i++ {
+	for range readers {
 		go func() {
 			_, err := mx.Read(make([]byte, 320))
 			errCh <- err
@@ -128,7 +128,7 @@ func TestMixerCloseWithBlockedReadersAllUnblocked(t *testing.T) {
 	}
 
 	deadline := time.After(2 * time.Second)
-	for i := 0; i < readers; i++ {
+	for i := range readers {
 		select {
 		case err := <-errCh:
 			if !errors.Is(err, io.EOF) {
@@ -246,7 +246,7 @@ func TestMixerRealtimeExactMixOneTrackPartialChunkPadsSilence(t *testing.T) {
 	}
 
 	decoded := decodePCM16LE(buf[:n])
-	for i := 0; i < half; i++ {
+	for i := range half {
 		if d := absInt16Diff(decoded[i], 3000); d > 1 {
 			t.Fatalf("front sample[%d]=%d want~=3000 (diff=%d)", i, decoded[i], d)
 		}
@@ -260,7 +260,7 @@ func TestMixerRealtimeExactMixOneTrackPartialChunkPadsSilence(t *testing.T) {
 
 func makeConstantChunk(sample int16, sampleCount int) []byte {
 	data := make([]byte, sampleCount*2)
-	for i := 0; i < sampleCount; i++ {
+	for i := range sampleCount {
 		binary.LittleEndian.PutUint16(data[i*2:], uint16(sample))
 	}
 	return data

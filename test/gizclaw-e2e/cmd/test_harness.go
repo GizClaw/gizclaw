@@ -607,7 +607,7 @@ func (h *Harness) waitForServerReady() {
 		}()
 		defer client.Close()
 
-		for i := 0; i < 20; i++ {
+		for range 20 {
 			select {
 			case err := <-errCh:
 				if err != nil {

@@ -31,7 +31,7 @@ func TestIntegration_ConnectionPoolCapacity(t *testing.T) {
 		}
 	}()
 
-	for i := 0; i < peerCount; i++ {
+	for i := range peerCount {
 		clientKey, err := giznet.GenerateKeyPair()
 		if err != nil {
 			t.Fatalf("Generate client key[%d] failed: %v", i, err)
@@ -287,7 +287,7 @@ func TestIntegration_KCPMultiStreamSoak(t *testing.T) {
 	const perService = 3
 	services := []uint64{0, 7}
 
-	for round := 0; round < rounds; round++ {
+	for round := range rounds {
 		var wg sync.WaitGroup
 		errCh := make(chan error, len(services)*perService*2)
 		recvCh := make(chan string, len(services)*perService)
@@ -298,7 +298,7 @@ func TestIntegration_KCPMultiStreamSoak(t *testing.T) {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				for i := 0; i < perService; i++ {
+				for range perService {
 					stream, err := MustPeerMux(t, server, clientKey.Public).AcceptStream(svc)
 					if err != nil {
 						errCh <- err
@@ -319,7 +319,7 @@ func TestIntegration_KCPMultiStreamSoak(t *testing.T) {
 		time.Sleep(20 * time.Millisecond)
 
 		for _, serviceID := range services {
-			for i := 0; i < perService; i++ {
+			for i := range perService {
 				payload := []byte(fmt.Sprintf("round-%d-service-%d-stream-%d", round, serviceID, i))
 				expected[fmt.Sprintf("%d:%s", serviceID, string(payload))] = struct{}{}
 
@@ -450,7 +450,7 @@ func TestIntegration_KCPService0AndNonZeroConcurrentActivity(t *testing.T) {
 		close(svc7RespRead)
 	}()
 
-	for i := 0; i < 2; i++ {
+	for range 2 {
 		select {
 		case <-done:
 		case err := <-errCh:
@@ -654,13 +654,13 @@ func TestIntegration_EVENTFireAndForgetBidirectional(t *testing.T) {
 	const burst = 64
 
 	start := time.Now()
-	for i := 0; i < burst; i++ {
+	for i := range burst {
 		msg := []byte(fmt.Sprintf("event-c2s-%02d", i))
 		if _, err := MustPeerMux(t, client, serverKey.Public).Write(testProtocolEvent, msg); err != nil {
 			t.Fatalf("client EVENT write[%d] failed: %v", i, err)
 		}
 	}
-	for i := 0; i < burst; i++ {
+	for i := range burst {
 		msg := []byte(fmt.Sprintf("event-s2c-%02d", i))
 		if _, err := MustPeerMux(t, server, clientKey.Public).Write(testProtocolEvent, msg); err != nil {
 			t.Fatalf("server EVENT write[%d] failed: %v", i, err)
@@ -671,10 +671,10 @@ func TestIntegration_EVENTFireAndForgetBidirectional(t *testing.T) {
 	}
 
 	serverWant := make(map[string]struct{}, burst)
-	for i := 0; i < burst; i++ {
+	for i := range burst {
 		serverWant[fmt.Sprintf("event-c2s-%02d", i)] = struct{}{}
 	}
-	for i := 0; i < burst; i++ {
+	for i := range burst {
 		proto, got := ReadFromPeerWithTimeout(t, server, clientKey.Public, 3*time.Second)
 		if proto != testProtocolEvent {
 			t.Fatalf("server EVENT proto[%d]=%d, want %d", i, proto, testProtocolEvent)
@@ -686,10 +686,10 @@ func TestIntegration_EVENTFireAndForgetBidirectional(t *testing.T) {
 	}
 
 	clientWant := make(map[string]struct{}, burst)
-	for i := 0; i < burst; i++ {
+	for i := range burst {
 		clientWant[fmt.Sprintf("event-s2c-%02d", i)] = struct{}{}
 	}
-	for i := 0; i < burst; i++ {
+	for i := range burst {
 		proto, got := ReadFromPeerWithTimeout(t, client, serverKey.Public, 3*time.Second)
 		if proto != testProtocolEvent {
 			t.Fatalf("client EVENT proto[%d]=%d, want %d", i, proto, testProtocolEvent)
@@ -721,7 +721,7 @@ func TestIntegration_OPUSFramesDelivered(t *testing.T) {
 	ConnectNodes(t, client, clientKey, server, serverKey)
 
 	const frames = 40
-	for i := 0; i < frames; i++ {
+	for i := range frames {
 		frame := []byte(fmt.Sprintf("opus-frame-%03d", i))
 		if _, err := MustPeerMux(t, client, serverKey.Public).Write(testProtocolOpus, frame); err != nil {
 			t.Fatalf("client OPUS write[%d] failed: %v", i, err)
@@ -729,10 +729,10 @@ func TestIntegration_OPUSFramesDelivered(t *testing.T) {
 	}
 
 	wantFrames := make(map[string]struct{}, frames)
-	for i := 0; i < frames; i++ {
+	for i := range frames {
 		wantFrames[fmt.Sprintf("opus-frame-%03d", i)] = struct{}{}
 	}
-	for i := 0; i < frames; i++ {
+	for i := range frames {
 		proto, got := ReadFromPeerWithTimeout(t, server, clientKey.Public, 3*time.Second)
 		if proto != testProtocolOpus {
 			t.Fatalf("server OPUS proto[%d]=%d, want %d", i, proto, testProtocolOpus)

@@ -23,7 +23,7 @@ func TestUIAPIProxyReusesHealthyClient(t *testing.T) {
 	}, time.Second)
 	defer proxy.Close()
 
-	for i := 0; i < 2; i++ {
+	for i := range 2 {
 		rec := httptest.NewRecorder()
 		proxy.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/admin/credentials", nil))
 		if rec.Code != http.StatusNoContent {

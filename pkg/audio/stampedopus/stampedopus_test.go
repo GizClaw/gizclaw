@@ -140,7 +140,7 @@ func TestUnpackVariousInvalidVersions(t *testing.T) {
 
 // TestUnpackVariousShortLengths 测试各种短长度
 func TestUnpackVariousShortLengths(t *testing.T) {
-	for length := 0; length < HeaderSize; length++ {
+	for length := range HeaderSize {
 		data := make([]byte, length)
 		if length > 0 {
 			data[0] = Version
@@ -296,7 +296,7 @@ func TestMultipleUnpack(t *testing.T) {
 	packed := Pack(timestamp, frame)
 
 	// 多次解包
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		gotTS, gotFrame, ok := Unpack(packed)
 		if !ok {
 			t.Fatalf("Unpack iteration %d failed", i)

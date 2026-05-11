@@ -9,7 +9,7 @@ func TestReplayFilter_Sequential(t *testing.T) {
 	rf := NewReplayFilter()
 
 	// Sequential nonces should all be accepted
-	for i := uint64(0); i < 100; i++ {
+	for i := range uint64(100) {
 		if !rf.CheckAndUpdate(i) {
 			t.Errorf("nonce %d should be accepted", i)
 		}
@@ -98,7 +98,7 @@ func TestReplayFilter_LargeJump(t *testing.T) {
 	rf := NewReplayFilter()
 
 	// Start with some nonces
-	for i := uint64(0); i < 10; i++ {
+	for i := range uint64(10) {
 		rf.CheckAndUpdate(i)
 	}
 
@@ -108,7 +108,7 @@ func TestReplayFilter_LargeJump(t *testing.T) {
 	}
 
 	// Old nonces should be rejected
-	for i := uint64(0); i < 10; i++ {
+	for i := range uint64(10) {
 		if rf.CheckAndUpdate(i) {
 			t.Errorf("old nonce %d should be rejected after large jump", i)
 		}
@@ -142,7 +142,7 @@ func TestReplayFilter_Reset(t *testing.T) {
 	rf := NewReplayFilter()
 
 	// Add some nonces
-	for i := uint64(0); i < 100; i++ {
+	for i := range uint64(100) {
 		rf.CheckAndUpdate(i)
 	}
 
@@ -150,7 +150,7 @@ func TestReplayFilter_Reset(t *testing.T) {
 	rf.Reset()
 
 	// Should accept all again
-	for i := uint64(0); i < 100; i++ {
+	for i := range uint64(100) {
 		if !rf.CheckAndUpdate(i) {
 			t.Errorf("nonce %d should be accepted after reset", i)
 		}
@@ -182,11 +182,11 @@ func TestReplayFilter_Concurrent(t *testing.T) {
 	var wg sync.WaitGroup
 
 	// Run multiple goroutines trying to add the same nonces
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			for n := uint64(0); n < 1000; n++ {
+			for n := range uint64(1000) {
 				rf.CheckAndUpdate(n)
 			}
 		}()
@@ -195,7 +195,7 @@ func TestReplayFilter_Concurrent(t *testing.T) {
 	wg.Wait()
 
 	// All nonces should have been recorded
-	for n := uint64(0); n < 1000; n++ {
+	for n := range uint64(1000) {
 		if rf.Check(n) {
 			t.Errorf("nonce %d should be recorded after concurrent access", n)
 		}

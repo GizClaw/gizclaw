@@ -160,7 +160,7 @@ func waitForServerReady(addr string, pk giznet.PublicKey, errCh <-chan error) er
 			dialErrCh <- client.Serve()
 		}()
 
-		for i := 0; i < 20; i++ {
+		for range 20 {
 			select {
 			case err := <-dialErrCh:
 				_ = client.Close()

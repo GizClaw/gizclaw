@@ -139,7 +139,7 @@ func (rf *ReplayFilter) slideWindow(shift uint64) {
 	// Then handle bit shifts within words (shift left, carry to next word)
 	if bitShift > 0 {
 		var carry uint64
-		for i := 0; i < replayWindowWords; i++ {
+		for i := range replayWindowWords {
 			newCarry := rf.bitmap[i] >> (64 - bitShift)
 			rf.bitmap[i] = (rf.bitmap[i] << bitShift) | carry
 			carry = newCarry

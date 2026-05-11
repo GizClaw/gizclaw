@@ -256,7 +256,7 @@ func TestPeerMultipleConcurrentConnections(t *testing.T) {
 		listener *giznet.Listener
 	}
 	clients := make([]clientNode, 0, peers)
-	for i := 0; i < peers; i++ {
+	for i := range peers {
 		k, err := giznet.GenerateKeyPair()
 		if err != nil {
 			t.Fatalf("Generate client key %d failed: %v", i, err)
@@ -286,7 +286,7 @@ func TestPeerMultipleConcurrentConnections(t *testing.T) {
 	connectWG.Wait()
 
 	accepted := make(map[giznet.PublicKey]struct{})
-	for i := 0; i < peers; i++ {
+	for i := range peers {
 		conn, err := AcceptConnWithTimeout(serverListener, 5*time.Second)
 		if err != nil {
 			t.Fatalf("Accept(%d) failed: %v", i, err)
@@ -928,7 +928,7 @@ func TestConnEventConcurrentDelivery(t *testing.T) {
 	}
 	wg.Wait()
 
-	for i := 0; i < total; i++ {
+	for i := range total {
 		evt, err := readEventWithTimeout(pair.ServerConn, 5*time.Second)
 		if err != nil {
 			t.Fatalf("ReadEvent(%d) failed: %v", i, err)
@@ -1193,7 +1193,7 @@ func TestServerConnCloseWithWaitingAcceptAndImmediateData(t *testing.T) {
 	defer pair.Close()
 
 	serverConn := pair.ServerConn
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		nextConnCh := make(chan *giznet.Conn, 1)
 		nextErrCh := make(chan error, 1)
 		go func() {

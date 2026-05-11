@@ -110,7 +110,7 @@ func (h *Hasher) Hash(embedding []float32) string {
 	full := hex.EncodeToString(hashBytes)
 	nNibbles := h.bits / 4
 	result := make([]byte, nNibbles)
-	for i := 0; i < nNibbles; i++ {
+	for i := range nNibbles {
 		c := full[i]
 		if c >= 'a' && c <= 'f' {
 			c -= 'a' - 'A'

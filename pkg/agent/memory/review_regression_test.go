@@ -64,7 +64,7 @@ func TestRecallPerPersonaVecIsolation(t *testing.T) {
 		t.Fatalf("open foreign persona: %v", err)
 	}
 
-	for i := 0; i < 40; i++ {
+	for i := range 40 {
 		if err := foreign.StoreSegment(ctx, SegmentInput{Summary: fmt.Sprintf("foreign-%02d", i)}, recall.Bucket1H); err != nil {
 			t.Fatalf("store foreign segment %d: %v", i, err)
 		}

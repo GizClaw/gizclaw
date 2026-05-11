@@ -16,7 +16,7 @@ import (
 func generateSineWave(freq float64, sampleRate int, durationMs int) []byte {
 	samples := sampleRate * durationMs / 1000
 	data := make([]byte, samples*2)
-	for i := 0; i < samples; i++ {
+	for i := range samples {
 		t := float64(i) / float64(sampleRate)
 		value := math.Sin(2 * math.Pi * freq * t)
 		sample := int16(value * 16000)
@@ -27,7 +27,7 @@ func generateSineWave(freq float64, sampleRate int, durationMs int) []byte {
 
 func makeConstantChunk(sample int16, sampleCount int) []byte {
 	data := make([]byte, sampleCount*2)
-	for i := 0; i < sampleCount; i++ {
+	for i := range sampleCount {
 		binary.LittleEndian.PutUint16(data[i*2:], uint16(sample))
 	}
 	return data
@@ -198,7 +198,7 @@ func TestMixerNotifyWriteAfterCloseWriteNoPanicNoBlock(t *testing.T) {
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
-		for i := 0; i < 10000; i++ {
+		for range 10000 {
 			mx.notifyWrite()
 		}
 	}()
@@ -290,7 +290,7 @@ func TestMixerExactMixOneTrackPartialChunkPadsSilence(t *testing.T) {
 	}
 
 	decoded := decodePCM16LE(buf[:n])
-	for i := 0; i < half; i++ {
+	for i := range half {
 		if d := absInt16Diff(decoded[i], 3000); d > 1 {
 			t.Fatalf("front sample[%d]=%d want~=3000 (diff=%d)", i, decoded[i], d)
 		}
@@ -449,7 +449,7 @@ func TestMixerMixesTwoTracks(t *testing.T) {
 
 	// Convert to int16 samples.
 	samples := make([]int16, len(mixed)/2)
-	for i := 0; i < len(samples); i++ {
+	for i := range samples {
 		samples[i] = int16(binary.LittleEndian.Uint16(mixed[i*2:]))
 	}
 
@@ -513,7 +513,7 @@ func TestMixerSequentialWrite(t *testing.T) {
 
 	pattern1 := make([]byte, 20) // 10 samples.
 	pattern2 := make([]byte, 20)
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		binary.LittleEndian.PutUint16(pattern1[i*2:], uint16(10000))
 		binary.LittleEndian.PutUint16(pattern2[i*2:], uint16(5000))
 	}
@@ -569,7 +569,7 @@ func TestMixerDebug(t *testing.T) {
 	// Track B: all 2000.
 	dataA := make([]byte, 100)
 	dataB := make([]byte, 100)
-	for i := 0; i < 50; i++ {
+	for i := range 50 {
 		binary.LittleEndian.PutUint16(dataA[i*2:], uint16(1000))
 		binary.LittleEndian.PutUint16(dataB[i*2:], uint16(2000))
 	}
@@ -609,7 +609,7 @@ func TestMixerConcurrentWrite(t *testing.T) {
 
 	dataA := make([]byte, 3200) // 100ms at 16kHz.
 	dataB := make([]byte, 3200)
-	for i := 0; i < 1600; i++ {
+	for i := range 1600 {
 		binary.LittleEndian.PutUint16(dataA[i*2:], uint16(1000))
 		binary.LittleEndian.PutUint16(dataB[i*2:], uint16(2000))
 	}
@@ -676,7 +676,7 @@ func TestMixerFourTracks(t *testing.T) {
 			t.Fatal(err)
 		}
 		data := make([]byte, 1600) // 50ms.
-		for i := 0; i < 800; i++ {
+		for i := range 800 {
 			binary.LittleEndian.PutUint16(data[i*2:], uint16(val))
 		}
 		wg.Add(1)
@@ -730,7 +730,7 @@ func TestMixerDynamicTrackAddition(t *testing.T) {
 
 	data1 := make([]byte, 3200) // 100ms.
 	data2 := make([]byte, 3200)
-	for i := 0; i < 1600; i++ {
+	for i := range 1600 {
 		binary.LittleEndian.PutUint16(data1[i*2:], uint16(1000))
 		binary.LittleEndian.PutUint16(data2[i*2:], uint16(2000))
 	}
@@ -744,7 +744,7 @@ func TestMixerDynamicTrackAddition(t *testing.T) {
 		// Add 3rd track while mixer is running.
 		track3, ctrl3, _ := mixer.CreateTrack(WithTrackLabel("overlay"))
 		data3 := make([]byte, 1600)
-		for i := 0; i < 800; i++ {
+		for i := range 800 {
 			binary.LittleEndian.PutUint16(data3[i*2:], uint16(3000))
 		}
 		track3.Write(format.DataChunk(data3))
@@ -781,10 +781,10 @@ func TestMixerGainClipping(t *testing.T) {
 	var wg sync.WaitGroup
 
 	// 4 tracks, each writing 10000 — sum = 40000 > 32767.
-	for i := 0; i < 4; i++ {
+	for i := range 4 {
 		track, ctrl, _ := mixer.CreateTrack(WithTrackLabel(fmt.Sprintf("loud%d", i)))
 		data := make([]byte, 1600) // 50ms.
-		for j := 0; j < 800; j++ {
+		for j := range 800 {
 			binary.LittleEndian.PutUint16(data[j*2:], uint16(10000))
 		}
 		wg.Add(1)
@@ -828,7 +828,7 @@ func TestMixerPerTrackGain(t *testing.T) {
 	ctrlB.SetGain(0.25)
 
 	data := make([]byte, 1600) // 50ms of 20000.
-	for i := 0; i < 800; i++ {
+	for i := range 800 {
 		binary.LittleEndian.PutUint16(data[i*2:], uint16(20000))
 	}
 
@@ -895,7 +895,7 @@ func TestMixerFadeOutRealtime(t *testing.T) {
 
 	// Write 200ms of constant 10000.
 	data := make([]byte, 6400) // 16kHz * 0.2s * 2 bytes.
-	for i := 0; i < 3200; i++ {
+	for i := range 3200 {
 		binary.LittleEndian.PutUint16(data[i*2:], uint16(10000))
 	}
 	track.Write(format.DataChunk(data))

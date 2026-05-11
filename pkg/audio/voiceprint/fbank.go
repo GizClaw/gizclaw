@@ -128,7 +128,7 @@ func computeFbank(audio []byte, cfg fbankConfig) [][]float32 {
 
 	result := make([][]float32, numFrames)
 	fftEngine := fourier.NewFFT(fftSize)
-	for f := 0; f < numFrames; f++ {
+	for f := range numFrames {
 		offset := f * cfg.FrameShift
 		frameBuf := make([]float64, cfg.FrameLength)
 		copy(frameBuf, samples[offset:offset+cfg.FrameLength])
@@ -158,7 +158,7 @@ func computeFbank(audio []byte, cfg fbankConfig) [][]float32 {
 		coeffs := fftEngine.Coefficients(nil, fftInput)
 
 		powerSpec := make([]float64, halfFFT)
-		for k := 0; k < halfFFT; k++ {
+		for k := range halfFFT {
 			r := real(coeffs[k])
 			im := imag(coeffs[k])
 			powerSpec[k] = r*r + im*im
@@ -260,7 +260,7 @@ func melFilterbank(numMels, fftSize, sampleRate int, lowFreq, highFreq float64) 
 	}
 
 	fb := make([][]float64, numMels)
-	for m := 0; m < numMels; m++ {
+	for m := range numMels {
 		fb[m] = make([]float64, halfFFT)
 		left := binIndices[m]
 		center := binIndices[m+1]
@@ -304,7 +304,7 @@ func fft(x []complex128) {
 		wn := cmplx.Exp(complex(0, -2*math.Pi/float64(size)))
 		for start := 0; start < n; start += size {
 			w := complex(1, 0)
-			for k := 0; k < half; k++ {
+			for k := range half {
 				u := x[start+k]
 				t := w * x[start+k+half]
 				x[start+k] = u + t
@@ -325,7 +325,7 @@ func cmvn(features [][]float32, cfg fbankConfig) {
 	numMels := len(features[0])
 	T := float64(len(features))
 
-	for m := 0; m < numMels; m++ {
+	for m := range numMels {
 		var sum float64
 		for _, f := range features {
 			sum += float64(f[m])

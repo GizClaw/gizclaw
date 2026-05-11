@@ -86,12 +86,12 @@ func TestComputeFbankDifferentFreqs(t *testing.T) {
 
 	var lowLow, highLow float64
 	for _, frame := range lowFbank {
-		for i := 0; i < 20; i++ {
+		for i := range 20 {
 			lowLow += float64(frame[i])
 		}
 	}
 	for _, frame := range highFbank {
-		for i := 0; i < 20; i++ {
+		for i := range 20 {
 			highLow += float64(frame[i])
 		}
 	}

@@ -18,7 +18,7 @@ func TestPingMultiRoundUserStory(t *testing.T) {
 		h.WaitForPing(name)
 	}
 
-	for round := 0; round < 3; round++ {
+	for round := range 3 {
 		t.Run("sequential-round-"+itoa(round), func(t *testing.T) {
 			for _, name := range contexts {
 				result, err := h.RunCLIUntilSuccess("ping", "--context", name)
