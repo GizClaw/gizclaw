@@ -112,6 +112,10 @@ func Handler() http.Handler {
 	return defaultMetrics.Handler()
 }
 
+func Gatherer() prometheus.Gatherer {
+	return defaultMetrics.Gatherer()
+}
+
 func Counter(name string) *prometheus.CounterVec {
 	collector, ok := defaultMetrics.Collector(name)
 	if !ok {

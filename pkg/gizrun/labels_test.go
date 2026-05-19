@@ -6,7 +6,7 @@ import (
 )
 
 func TestTagHTTP(t *testing.T) {
-	ctx := tagHTTP(context.Background(), httpMethod, "POST", httpRoute, "/v1/chat")
+	ctx := tagHTTP(context.Background(), httpMethod, "POST", httpPath, "/v1/chat")
 	ctx = tagHTTP(ctx, httpStatusCode, "200")
 
 	ns, ok := httpLabels(ctx)
@@ -15,7 +15,7 @@ func TestTagHTTP(t *testing.T) {
 	}
 	for key, want := range map[string]string{
 		httpMethod:     "POST",
-		httpRoute:      "/v1/chat",
+		httpPath:       "/v1/chat",
 		httpStatusCode: "200",
 	} {
 		if got, ok := ns.Value(key); !ok || got != want {

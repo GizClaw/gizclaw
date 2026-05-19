@@ -94,3 +94,9 @@ func (m *Metrics) Handler() http.Handler {
 	}
 	return promhttp.HandlerFor(gatherer, promhttp.HandlerOpts{})
 }
+
+func (m *Metrics) Gatherer() prometheus.Gatherer {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return m.gatherer
+}

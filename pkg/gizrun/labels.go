@@ -14,7 +14,6 @@ const (
 
 const (
 	httpMethod     = "method"
-	httpRoute      = "route"
 	httpPath       = "path"
 	httpHost       = "host"
 	httpStatusCode = "status_code"
@@ -34,20 +33,20 @@ const (
 	tokenPrompt    = "prompt"
 )
 
-func tagHTTP(ctx context.Context, keyValues ...string) context.Context {
-	return labelset.Tag(ctx, nsHTTP, keyValues...)
+func tagHTTP(ctx context.Context, kvs ...string) context.Context {
+	return labelset.Tag(ctx, nsHTTP, kvs...)
 }
 
-func tagGenx(ctx context.Context, keyValues ...string) context.Context {
-	return labelset.Tag(ctx, nsGenx, keyValues...)
+func tagGenx(ctx context.Context, kvs ...string) context.Context {
+	return labelset.Tag(ctx, nsGenx, kvs...)
 }
 
-func tagLogSink(ctx context.Context, keyValues ...string) context.Context {
-	return labelset.Tag(ctx, nsLogSink, keyValues...)
+func tagLogSink(ctx context.Context, kvs ...string) context.Context {
+	return labelset.Tag(ctx, nsLogSink, kvs...)
 }
 
-func tag(ctx context.Context, name string, keyValues ...string) context.Context {
-	return labelset.Tag(ctx, name, keyValues...)
+func tag(ctx context.Context, name string, kvs ...string) context.Context {
+	return labelset.Tag(ctx, name, kvs...)
 }
 
 func httpLabels(ctx context.Context) (labelset.LabelSet, bool) {

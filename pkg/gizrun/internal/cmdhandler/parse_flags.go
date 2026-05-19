@@ -47,8 +47,8 @@ func isFlag(arg string) bool {
 
 func splitFlag(arg string) (name, value string, hasValue bool) {
 	name = strings.TrimLeft(arg, "-")
-	if index := strings.Index(name, "="); index >= 0 {
-		return name[:index], name[index+1:], true
+	if name, value, ok := strings.Cut(name, "="); ok {
+		return name, value, true
 	}
 	return name, "", false
 }

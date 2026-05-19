@@ -4,17 +4,19 @@ import (
 	"context"
 	"flag"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 
-	"github.com/GizClaw/gizclaw-go/pkg/gizrun/internal/cmdhandler"
 	"github.com/GizClaw/gizclaw-go/pkg/gizrun/internal/configfile"
+	"github.com/gofiber/fiber/v2"
 )
 
-func TestRunParsesCommandFlagsOnly(t *testing.T) {
+func TestServeParsesCommandFlagsOnly(t *testing.T) {
 	resetInitHooksForTest(t)
 	resetDefaultCmdHandlerForTest(t)
 	resetFlagSetForTest(t)
@@ -43,18 +45,52 @@ func TestRunParsesCommandFlagsOnly(t *testing.T) {
 		t.Fatalf("HandleCmd failed: %v", err)
 	}
 
-	if err := Run(); err != nil {
-		t.Fatalf("Run failed: %v", err)
+	if err := Serve(); err != nil {
+		t.Fatalf("Serve failed: %v", err)
 	}
 
 	if value != configFile {
 		t.Fatalf("config flag = %q, want %q", value, configFile)
 	}
-	if len(gotArgs) != 0 {
-		t.Fatalf("args = %#v, want empty", gotArgs)
+	if want := []string{"chat"}; !slices.Equal(gotArgs, want) {
+		t.Fatalf("args = %#v, want %#v", gotArgs, want)
 	}
 	if len(gotFlags) != 1 || gotFlags[0] != "-model=gpt" {
 		t.Fatalf("flags = %#v, want model flag", gotFlags)
+	}
+}
+
+func TestServePassesFullCommandArgs(t *testing.T) {
+	resetRuntimeForTest(t)
+	resetInitHooksForTest(t)
+	resetDefaultCmdHandlerForTest(t)
+	resetFlagSetForTest(t)
+
+	previousArgs := os.Args
+	os.Args = []string{"gizrun", "chat", "hello", "-model=gpt"}
+	t.Cleanup(func() {
+		os.Args = previousArgs
+	})
+
+	var gotArgs []string
+	var gotFlags []string
+	if err := HandleCmd("chat/hello", CmdHandleFunc(func(_ context.Context, args []string, flags []string) error {
+		gotArgs = append([]string(nil), args...)
+		gotFlags = append([]string(nil), flags...)
+		return nil
+	})); err != nil {
+		t.Fatalf("HandleCmd failed: %v", err)
+	}
+
+	if err := Serve(); err != nil {
+		t.Fatalf("Serve failed: %v", err)
+	}
+
+	if want := []string{"chat", "hello"}; !slices.Equal(gotArgs, want) {
+		t.Fatalf("args = %#v, want %#v", gotArgs, want)
+	}
+	if want := []string{"-model=gpt"}; !slices.Equal(gotFlags, want) {
+		t.Fatalf("flags = %#v, want %#v", gotFlags, want)
 	}
 }
 
@@ -72,20 +108,95 @@ func TestRuntimeHooksInitializeHTTPAndPprof(t *testing.T) {
 	if err := runCtx.loadConfig(flag.CommandLine); err != nil {
 		t.Fatalf("load config: %v", err)
 	}
-	runPostInitHooks(&runCtx, postInitHookValues)
+	runPostInitHooks(runCtx, postInitHookValues)
 	t.Cleanup(func() {
-		runExitHooks(&runCtx, exitHookValues)
+		runExitHooks(runCtx, exitHookValues)
 	})
 
-	metricsRec := httptest.NewRecorder()
-	runCtx.httpHandler.ServeHTTP(metricsRec, httptest.NewRequest(http.MethodGet, "/metrics", nil))
-	if metricsRec.Code != http.StatusOK {
-		t.Fatalf("/metrics status = %d, want 200", metricsRec.Code)
+	metricsResp, err := runCtx.debugApp.Test(httptest.NewRequest(http.MethodGet, "/metrics", nil))
+	if err != nil {
+		t.Fatal(err)
 	}
-	pprofRec := httptest.NewRecorder()
-	runCtx.httpHandler.ServeHTTP(pprofRec, httptest.NewRequest(http.MethodGet, "/debug/pprof/", nil))
-	if pprofRec.Code != http.StatusOK {
-		t.Fatalf("/debug/pprof/ status = %d, want 200", pprofRec.Code)
+	if metricsResp.StatusCode != fiber.StatusOK {
+		t.Fatalf("/metrics status = %d, want 200", metricsResp.StatusCode)
+	}
+	pprofResp, err := runCtx.debugApp.Test(httptest.NewRequest(http.MethodGet, "/debug/pprof/", nil))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if pprofResp.StatusCode != fiber.StatusOK {
+		t.Fatalf("/debug/pprof/ status = %d, want 200", pprofResp.StatusCode)
+	}
+}
+
+func TestConfigFilePostInitAppliesRuntimeConfig(t *testing.T) {
+	postInitHookValues := append([]postInitHook(nil), postInitHooks.hooks...)
+	resetRuntimeForTest(t)
+
+	pprof := true
+	debugPort := 0
+	runCtx.configFile = configfile.ConfigFile{
+		"gizrun": gizrunConfig{
+			DebugPort: &debugPort,
+			Addr:      "127.0.0.1:0",
+			Pprof:     &pprof,
+			Metrics: &struct {
+				Push *metricsPushConfig `yaml:"push"`
+			}{
+				Push: &metricsPushConfig{
+					Enabled: true,
+					URL:     "http://push.example.test",
+				},
+			},
+		},
+	}
+
+	runPostInitHooksBySeq(t, runCtx, postInitHookValues, 0x01)
+
+	if runCtx.debugPort != 0 {
+		t.Fatalf("debug port = %d, want 0", runCtx.debugPort)
+	}
+	if runCtx.addr != "127.0.0.1:0" {
+		t.Fatalf("addr = %q, want configured addr", runCtx.addr)
+	}
+	if !runCtx.enablePprof {
+		t.Fatal("pprof = false, want true")
+	}
+	if !runCtx.metricsPush.Enabled || runCtx.metricsPush.URL != "http://push.example.test" {
+		t.Fatalf("metrics push = %#v, want enabled config", runCtx.metricsPush)
+	}
+}
+
+func TestLogLevelPostInitAppliesVerboseFlag(t *testing.T) {
+	postInitHookValues := append([]postInitHook(nil), postInitHooks.hooks...)
+	resetRuntimeForTest(t)
+
+	if err := runCtx.verbose.Set("debug"); err != nil {
+		t.Fatalf("set verbose: %v", err)
+	}
+	runPostInitHooksBySeq(t, runCtx, postInitHookValues, 0x10)
+
+	if got := runCtx.logLevel.Level(); got != slog.LevelDebug {
+		t.Fatalf("log level = %v, want debug", got)
+	}
+}
+
+func TestRuntimeHooksServePublicHTTP(t *testing.T) {
+	postInitHookValues := append([]postInitHook(nil), postInitHooks.hooks...)
+	exitHookValues := append([]exitHook(nil), exitHooks.hooks...)
+	resetRuntimeForTest(t)
+	runCtx.addr = "127.0.0.1:0"
+
+	runPostInitHooksBySeq(t, runCtx, postInitHookValues, 0x31)
+	t.Cleanup(func() {
+		runExitHooksBySeq(t, runCtx, exitHookValues, 0x00)
+	})
+
+	if !runCtx.publicListening {
+		t.Fatal("publicListening = false, want true")
+	}
+	if runCtx.addr == "" || runCtx.addr == "127.0.0.1:0" {
+		t.Fatalf("addr = %q, want bound listener addr", runCtx.addr)
 	}
 }
 
@@ -101,7 +212,7 @@ func TestPostInitAt(t *testing.T) {
 	PostInitAt(0x30, nil)
 
 	runInitHooks(initHooks.hooks)
-	runPostInitHooks(&runCtx, postInitHooks.hooks)
+	runPostInitHooks(runCtx, postInitHooks.hooks)
 
 	want := []int{1, 2, 3}
 	if len(got) != len(want) {
@@ -147,7 +258,7 @@ func TestExitAt(t *testing.T) {
 	ExitAt(0x20, func(*RunContext) error { got = append(got, 3); return nil })
 	ExitAt(0x30, nil)
 
-	runExitHooks(&runCtx, exitHooks.hooks)
+	runExitHooks(runCtx, exitHooks.hooks)
 
 	want := []int{1, 2, 3}
 	if len(got) != len(want) {
@@ -157,6 +268,40 @@ func TestExitAt(t *testing.T) {
 		if got[i] != want[i] {
 			t.Fatalf("exit hook order = %#v, want %#v", got, want)
 		}
+	}
+}
+
+func runPostInitHooksBySeq(t *testing.T, ctx *RunContext, hooks []postInitHook, seq int) {
+	t.Helper()
+	ran := false
+	for _, hook := range hooks {
+		if hook.seq != seq {
+			continue
+		}
+		ran = true
+		if err := hook.fn(ctx); err != nil {
+			t.Fatalf("post-init hook 0x%x failed: %v", seq, err)
+		}
+	}
+	if !ran {
+		t.Fatalf("post-init hook 0x%x was not found", seq)
+	}
+}
+
+func runExitHooksBySeq(t *testing.T, ctx *RunContext, hooks []exitHook, seq int) {
+	t.Helper()
+	ran := false
+	for _, hook := range hooks {
+		if hook.seq != seq {
+			continue
+		}
+		ran = true
+		if err := hook.fn(ctx); err != nil {
+			t.Fatalf("exit hook 0x%x failed: %v", seq, err)
+		}
+	}
+	if !ran {
+		t.Fatalf("exit hook 0x%x was not found", seq)
 	}
 }
 
@@ -192,11 +337,7 @@ func resetInitHooksForTest(t *testing.T) {
 func resetRuntimeForTest(t *testing.T) {
 	t.Helper()
 	previous := runCtx
-	runCtx = RunContext{
-		cmdHandler:   cmdhandler.New(),
-		configParser: configfile.NewYamlParser(),
-		serveMux:     http.NewServeMux(),
-	}
+	runCtx = newRunContext()
 	t.Cleanup(func() {
 		runCtx = previous
 	})

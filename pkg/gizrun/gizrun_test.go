@@ -26,7 +26,7 @@ func TestHandleCmd(t *testing.T) {
 	}
 }
 
-func TestRunMissingCommandDoesNotRunPostInit(t *testing.T) {
+func TestServeMissingCommandDoesNotRunPostInit(t *testing.T) {
 	resetRuntimeForTest(t)
 	resetInitHooksForTest(t)
 	resetDefaultCmdHandlerForTest(t)
@@ -49,9 +49,9 @@ func TestRunMissingCommandDoesNotRunPostInit(t *testing.T) {
 		return nil
 	})
 
-	err := Run()
+	err := Serve()
 	if err == nil || !strings.Contains(err.Error(), "command handler not found") {
-		t.Fatalf("Run error = %v, want command handler not found", err)
+		t.Fatalf("Serve error = %v, want command handler not found", err)
 	}
 	if postInitRan {
 		t.Fatal("post-init hook ran for missing command")

@@ -22,18 +22,18 @@ type contextKey struct {
 // Tag returns a context with the label set updated by key/value pairs.
 // It uses context.Background when ctx is nil, creates the label set when it
 // does not exist, and copies the existing label set before merging values.
-func Tag(ctx context.Context, name string, keyValues ...string) context.Context {
+func Tag(ctx context.Context, name string, kvs ...string) context.Context {
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	if name == "" || len(keyValues) < 2 {
+	if name == "" || len(kvs) < 2 {
 		return ctx
 	}
 	ns, _ := FromContext(ctx, name)
 	ns = ns.clone()
 	ns.name = name
-	for i := 0; i+1 < len(keyValues); i += 2 {
-		ns.set(keyValues[i], keyValues[i+1])
+	for i := 0; i+1 < len(kvs); i += 2 {
+		ns.set(kvs[i], kvs[i+1])
 	}
 	return context.WithValue(ctx, contextKey{name: name}, ns)
 }
@@ -122,8 +122,6 @@ func (ns LabelSet) Attr() slog.Attr {
 
 func (ns LabelSet) PrometheusLabels() prometheus.Labels {
 	labels := make(prometheus.Labels, len(ns.values))
-	for key, value := range ns.Labels() {
-		labels[key] = value
-	}
+	maps.Insert(labels, ns.Labels())
 	return labels
 }
