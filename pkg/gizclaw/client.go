@@ -14,16 +14,12 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/apitypes"
 
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/adminservice"
-	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/peerpublic"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/serverpublic"
 	"github.com/GizClaw/gizclaw-go/pkg/giznet"
 	"github.com/GizClaw/gizclaw-go/pkg/giznet/gizhttp"
-	"github.com/gofiber/fiber/v2"
 	"golang.org/x/sync/errgroup"
 )
-
-var _ peerpublic.StrictServerInterface = (*Client)(nil)
 
 // Client holds device-side peer client configuration.
 type Client struct {
@@ -91,7 +87,6 @@ func (c *Client) Serve() error {
 		return fmt.Errorf("gizclaw: client is not connected")
 	}
 	var g errgroup.Group
-	g.Go(c.servePeerPublic)
 	g.Go(c.serveRPC)
 	g.Go(c.servePackets)
 	if err := g.Wait(); err != nil {
@@ -105,7 +100,7 @@ func (c *Client) init(listener *giznet.Listener, conn *giznet.Conn, serverPK giz
 	c.listener = listener
 	c.conn = conn
 	c.serverPK = serverPK
-	c.rpc = &rpcClient{}
+	c.rpc = &rpcClient{peer: c}
 }
 
 // Close releases all resources including the underlying UDP socket.
@@ -133,14 +128,6 @@ func (c *Client) Close() error {
 	return err
 }
 
-func (c *Client) GetInfo(_ context.Context, _ peerpublic.GetInfoRequestObject) (peerpublic.GetInfoResponseObject, error) {
-	return peerpublic.GetInfo200JSONResponse(gearDeviceToPeerRefreshInfo(c.Device)), nil
-}
-
-func (c *Client) GetIdentifiers(_ context.Context, _ peerpublic.GetIdentifiersRequestObject) (peerpublic.GetIdentifiersResponseObject, error) {
-	return peerpublic.GetIdentifiers200JSONResponse(gearDeviceToPeerRefreshIdentifiers(c.Device)), nil
-}
-
 // HTTPClient returns an HTTP client bound to a peer service.
 func (c *Client) HTTPClient(service uint64) *http.Client {
 	return gizhttp.NewClient(c.PeerConn(), service)
@@ -157,13 +144,6 @@ func (c *Client) ServerPublicClient() (*serverpublic.ClientWithResponses, error)
 	return serverpublic.NewClientWithResponses(
 		"http://gizclaw",
 		serverpublic.WithHTTPClient(c.HTTPClient(ServiceServerPublic)),
-	)
-}
-
-func (c *Client) PeerPublicClient() (*peerpublic.ClientWithResponses, error) {
-	return peerpublic.NewClientWithResponses(
-		"http://gizclaw",
-		peerpublic.WithHTTPClient(c.HTTPClient(ServicePeerPublic)),
 	)
 }
 
@@ -243,7 +223,10 @@ func (c *Client) rpcClient() *rpcClient {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if c.rpc == nil {
-		c.rpc = &rpcClient{}
+		c.rpc = &rpcClient{peer: c}
+	}
+	if c.rpc.peer == nil {
+		c.rpc.peer = c
 	}
 	return c.rpc
 }
@@ -260,15 +243,6 @@ func (c *Client) ServerPublicKey() giznet.PublicKey {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.serverPK
-}
-
-// servePeerPublic runs the device-side peer public HTTP service on ServicePeerPublic.
-func (c *Client) servePeerPublic() error {
-	app := fiber.New(fiber.Config{DisableStartupMessage: true})
-	peerpublic.RegisterHandlers(app, peerpublic.NewStrictHandler(c, nil))
-
-	server := gizhttp.NewServer(c.conn, ServicePeerPublic, fiberHTTPHandler(app))
-	return server.Serve()
 }
 
 func (c *Client) serveRPC() error {

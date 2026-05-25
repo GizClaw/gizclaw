@@ -94,6 +94,10 @@ func TestGearRPCUnionTypes(t *testing.T) {
 	assertRequestUnion(t, "GearGetRegistration", GearGetRegistrationRequest{}, (*RPCRequest_Params).FromGearGetRegistrationRequest, RPCRequest_Params.AsGearGetRegistrationRequest, (*RPCRequest_Params).MergeGearGetRegistrationRequest)
 	assertRequestUnion(t, "GearRegister", GearRegisterRequest{Device: DeviceInfo{Name: stringPtr("gear-1")}}, (*RPCRequest_Params).FromGearRegisterRequest, RPCRequest_Params.AsGearRegisterRequest, (*RPCRequest_Params).MergeGearRegisterRequest)
 	assertRequestUnion(t, "GearGetRuntime", GearGetRuntimeRequest{}, (*RPCRequest_Params).FromGearGetRuntimeRequest, RPCRequest_Params.AsGearGetRuntimeRequest, (*RPCRequest_Params).MergeGearGetRuntimeRequest)
+	assertRequestUnion(t, "GearRunTest", GearRunTestRequest{Mode: GearTestModeAudioPlay}, (*RPCRequest_Params).FromGearRunTestRequest, RPCRequest_Params.AsGearRunTestRequest, (*RPCRequest_Params).MergeGearRunTestRequest)
+	assertRequestUnion(t, "PeerGetInfo", PeerGetInfoRequest{}, (*RPCRequest_Params).FromPeerGetInfoRequest, RPCRequest_Params.AsPeerGetInfoRequest, (*RPCRequest_Params).MergePeerGetInfoRequest)
+	assertRequestUnion(t, "PeerGetIdentifiers", PeerGetIdentifiersRequest{}, (*RPCRequest_Params).FromPeerGetIdentifiersRequest, RPCRequest_Params.AsPeerGetIdentifiersRequest, (*RPCRequest_Params).MergePeerGetIdentifiersRequest)
+	assertRequestUnion(t, "ServerGetInfo", ServerGetInfoRequest{}, (*RPCRequest_Params).FromServerGetInfoRequest, RPCRequest_Params.AsServerGetInfoRequest, (*RPCRequest_Params).MergeServerGetInfoRequest)
 
 	var pingResult RPCResponse_Result
 	if err := pingResult.MergePingResponse(PingResponse{ServerTime: 200}); err != nil {
@@ -127,17 +131,24 @@ func TestGearRPCUnionTypes(t *testing.T) {
 	assertResponseUnion(t, "GearGetRegistration", GearGetRegistrationResponse(registration), (*RPCResponse_Result).FromGearGetRegistrationResponse, RPCResponse_Result.AsGearGetRegistrationResponse, (*RPCResponse_Result).MergeGearGetRegistrationResponse)
 	assertResponseUnion(t, "GearRegister", GearRegisterResponse{Gear: gear, Registration: registration}, (*RPCResponse_Result).FromGearRegisterResponse, RPCResponse_Result.AsGearRegisterResponse, (*RPCResponse_Result).MergeGearRegisterResponse)
 	assertResponseUnion(t, "GearGetRuntime", GearGetRuntimeResponse{Online: true, LastSeenAt: now}, (*RPCResponse_Result).FromGearGetRuntimeResponse, RPCResponse_Result.AsGearGetRuntimeResponse, (*RPCResponse_Result).MergeGearGetRuntimeResponse)
+	assertResponseUnion(t, "GearRunTest", GearRunTestResponse{Mode: GearTestModeAudioPlay, Status: GearRunTestResponseStatusStarted}, (*RPCResponse_Result).FromGearRunTestResponse, RPCResponse_Result.AsGearRunTestResponse, (*RPCResponse_Result).MergeGearRunTestResponse)
+	assertResponseUnion(t, "PeerGetInfo", PeerGetInfoResponse{Name: stringPtr("gear-1")}, (*RPCResponse_Result).FromPeerGetInfoResponse, RPCResponse_Result.AsPeerGetInfoResponse, (*RPCResponse_Result).MergePeerGetInfoResponse)
+	assertResponseUnion(t, "PeerGetIdentifiers", PeerGetIdentifiersResponse{Sn: stringPtr("sn-1")}, (*RPCResponse_Result).FromPeerGetIdentifiersResponse, RPCResponse_Result.AsPeerGetIdentifiersResponse, (*RPCResponse_Result).MergePeerGetIdentifiersResponse)
+	assertResponseUnion(t, "ServerGetInfo", ServerGetInfoResponse{PublicKey: "server", ServerTime: 123}, (*RPCResponse_Result).FromServerGetInfoResponse, RPCResponse_Result.AsServerGetInfoResponse, (*RPCResponse_Result).MergeServerGetInfoResponse)
 }
 
 func TestRPCMethodValid(t *testing.T) {
 	for _, method := range []RPCMethod{
 		RPCMethodPeerPing,
+		RPCMethodPeerInfoGet,
+		RPCMethodPeerIdentifiersGet,
 		RPCMethodGearConfigGet,
 		RPCMethodGearInfoGet,
 		RPCMethodGearInfoPut,
 		RPCMethodGearRegistrationGet,
 		RPCMethodGearRegistrationRegister,
 		RPCMethodGearRuntimeGet,
+		RPCMethodGearTestRun,
 		RPCMethodServerInfoGet,
 	} {
 		if !method.Valid() {
@@ -176,6 +187,20 @@ func TestRPCMethodValid(t *testing.T) {
 	}
 	if GearStatus("bad").Valid() {
 		t.Fatal("unknown gear status should be invalid")
+	}
+	for _, mode := range []GearTestMode{GearTestModeAudioLoopback, GearTestModeAudioPlay, GearTestModeDownload, GearTestModeUpload} {
+		if !mode.Valid() {
+			t.Fatalf("%s should be valid", mode)
+		}
+	}
+	if GearTestMode("bad").Valid() {
+		t.Fatal("unknown gear test mode should be invalid")
+	}
+	if !GearRunTestResponseStatusStarted.Valid() {
+		t.Fatalf("%s should be valid", GearRunTestResponseStatusStarted)
+	}
+	if GearRunTestResponseStatus("bad").Valid() {
+		t.Fatal("unknown gear run test response status should be invalid")
 	}
 }
 

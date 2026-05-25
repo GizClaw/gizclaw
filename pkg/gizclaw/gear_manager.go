@@ -4,18 +4,16 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net/http"
+	"net"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/apitypes"
 
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/adminservice"
-	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/peerpublic"
+	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/peer"
 	"github.com/GizClaw/gizclaw-go/pkg/giznet"
-	"github.com/GizClaw/gizclaw-go/pkg/giznet/gizhttp"
 )
 
 var (
@@ -24,8 +22,7 @@ var (
 )
 
 type activePeer struct {
-	conn   *giznet.Conn
-	client *peerpublic.ClientWithResponses
+	conn *giznet.Conn
 }
 
 type Manager struct {
@@ -80,7 +77,6 @@ func (m *Manager) SetPeerUp(publicKey giznet.PublicKey, conn *giznet.Conn) {
 		m.peers[publicKey] = state
 	}
 	state.conn = conn
-	state.client = nil
 }
 
 func (m *Manager) SetPeerDown(publicKey giznet.PublicKey) {
@@ -172,38 +168,35 @@ func (m *Manager) RefreshPeer(ctx context.Context, publicKey giznet.PublicKey) (
 	}, true, nil
 }
 
-func (m *Manager) peerPublicClient(publicKey giznet.PublicKey) (*peerpublic.ClientWithResponses, error) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
+func (m *Manager) peerRPCConn(publicKey giznet.PublicKey) (net.Conn, error) {
+	m.mu.RLock()
 	state, ok := m.peers[publicKey]
-	if !ok || state.conn == nil {
+	var peerConn *giznet.Conn
+	if ok {
+		peerConn = state.conn
+	}
+	m.mu.RUnlock()
+
+	if !ok || peerConn == nil {
 		return nil, ErrDeviceOffline
 	}
-	if state.client != nil {
-		return state.client, nil
+	stream, err := peerConn.Dial(ServiceRPC)
+	if err != nil {
+		return nil, fmt.Errorf("dial peer rpc: %w", err)
 	}
-	client := &http.Client{
-		Transport: gizhttp.NewRoundTripper(state.conn, ServicePeerPublic),
-		Timeout:   30 * time.Second,
-	}
-	peerClient, err := peerpublic.NewClientWithResponses(
-		"http://gizclaw",
-		peerpublic.WithHTTPClient(client),
-	)
+	return stream, nil
+}
+
+func callPeerRPC[T any](m *Manager, ctx context.Context, publicKey giznet.PublicKey, call func(*rpcClient, net.Conn) (*T, error)) (*T, error) {
+	stream, err := m.peerRPCConn(publicKey)
 	if err != nil {
 		return nil, err
 	}
-	state.client = peerClient
-	return peerClient, nil
+	defer func() { _ = stream.Close() }()
+	return call(&rpcClient{}, stream)
 }
 
 func (m *Manager) refreshPeer(ctx context.Context, publicKey giznet.PublicKey, gear apitypes.Gear) (apitypes.Gear, []string, []string, error) {
-	client, err := m.peerPublicClient(publicKey)
-	if err != nil {
-		return gear, nil, nil, err
-	}
-
 	var (
 		errs          []string
 		updatedFields []string
@@ -211,30 +204,40 @@ func (m *Manager) refreshPeer(ctx context.Context, publicKey giznet.PublicKey, g
 		disconnected  bool
 	)
 
-	infoResp, err := client.GetInfoWithResponse(ctx)
+	infoResp, err := callPeerRPC(m, ctx, publicKey, func(client *rpcClient, conn net.Conn) (*rpcapi.PeerGetInfoResponse, error) {
+		return client.GetPeerInfo(ctx, conn, "peer.info.get")
+	})
 	if err != nil {
-		if isPeerDisconnectedError(err) {
+		if errors.Is(err, ErrDeviceOffline) || isPeerDisconnectedError(err) {
 			disconnected = true
 		}
 		errs = append(errs, "info: "+err.Error())
-	} else if infoResp.JSON200 == nil {
-		errs = append(errs, fmt.Sprintf("info: unexpected status %d", infoResp.StatusCode()))
 	} else {
-		haveData = true
-		applyPeerRefreshInfo(&gear, *infoResp.JSON200, &updatedFields)
+		info, err := convertRPCType[apitypes.RefreshInfo](*infoResp)
+		if err != nil {
+			errs = append(errs, "info: "+err.Error())
+		} else {
+			haveData = true
+			applyPeerRefreshInfo(&gear, info, &updatedFields)
+		}
 	}
 
-	identifiersResp, err := client.GetIdentifiersWithResponse(ctx)
+	identifiersResp, err := callPeerRPC(m, ctx, publicKey, func(client *rpcClient, conn net.Conn) (*rpcapi.PeerGetIdentifiersResponse, error) {
+		return client.GetPeerIdentifiers(ctx, conn, "peer.identifiers.get")
+	})
 	if err != nil {
-		if isPeerDisconnectedError(err) {
+		if errors.Is(err, ErrDeviceOffline) || isPeerDisconnectedError(err) {
 			disconnected = true
 		}
 		errs = append(errs, "identifiers: "+err.Error())
-	} else if identifiersResp.JSON200 == nil {
-		errs = append(errs, fmt.Sprintf("identifiers: unexpected status %d", identifiersResp.StatusCode()))
 	} else {
-		haveData = true
-		applyPeerRefreshIdentifiers(&gear, *identifiersResp.JSON200, &updatedFields)
+		identifiers, err := convertRPCType[apitypes.RefreshIdentifiers](*identifiersResp)
+		if err != nil {
+			errs = append(errs, "identifiers: "+err.Error())
+		} else {
+			haveData = true
+			applyPeerRefreshIdentifiers(&gear, identifiers, &updatedFields)
+		}
 	}
 
 	if !haveData {

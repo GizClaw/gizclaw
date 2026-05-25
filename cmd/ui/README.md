@@ -10,7 +10,6 @@ Generated TypeScript SDKs live in the repository-level npm workspace under `../.
 
 - `../../js/packages/adminservice`: generated SDK for `api/admin_service.json`
 - `../../js/packages/serverpublic`: generated SDK for `api/server_public.json`
-- `../../js/packages/peerpublic`: generated SDK for `api/peer_public.json`
 - `../../js/packages/gearservice`: generated SDK for `api/gear_service.json`
 
 Each app owns its own generated assets and embedded Go package:

@@ -131,6 +131,63 @@ func TestRPCServerPingClientHandle(t *testing.T) {
 	}
 }
 
+func TestRPCClientHandlePeerInfoMethods(t *testing.T) {
+	serverSide, clientSide := net.Pipe()
+	defer serverSide.Close()
+	defer clientSide.Close()
+
+	name := "main"
+	device := &Client{Device: apitypes.DeviceInfo{
+		Name: stringPtr("gear-1"),
+		Sn:   stringPtr("sn-1"),
+		Hardware: &apitypes.HardwareInfo{
+			Manufacturer: stringPtr("Acme"),
+			Model:        stringPtr("M1"),
+			Imeis: &[]apitypes.GearIMEI{{
+				Name:   &name,
+				Tac:    "12345678",
+				Serial: "0000001",
+			}},
+		},
+	}}
+
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- (&rpcClient{peer: device}).Handle(clientSide)
+	}()
+
+	caller := &rpcClient{}
+	info, err := caller.GetPeerInfo(context.Background(), serverSide, "peer-info")
+	if err != nil {
+		t.Fatalf("GetPeerInfo() error = %v", err)
+	}
+	if info.Name == nil || *info.Name != "gear-1" || info.Manufacturer == nil || *info.Manufacturer != "Acme" {
+		t.Fatalf("GetPeerInfo() = %+v", info)
+	}
+	if err := <-errCh; err != nil {
+		t.Fatalf("Handle(info) error = %v", err)
+	}
+
+	serverSide, clientSide = net.Pipe()
+	defer serverSide.Close()
+	defer clientSide.Close()
+	errCh = make(chan error, 1)
+	go func() {
+		errCh <- (&rpcClient{peer: device}).Handle(clientSide)
+	}()
+
+	identifiers, err := caller.GetPeerIdentifiers(context.Background(), serverSide, "peer-identifiers")
+	if err != nil {
+		t.Fatalf("GetPeerIdentifiers() error = %v", err)
+	}
+	if identifiers.Sn == nil || *identifiers.Sn != "sn-1" || identifiers.Imeis == nil || len(*identifiers.Imeis) != 1 {
+		t.Fatalf("GetPeerIdentifiers() = %+v", identifiers)
+	}
+	if err := <-errCh; err != nil {
+		t.Fatalf("Handle(identifiers) error = %v", err)
+	}
+}
+
 func TestRPCServerGearErrorResponse(t *testing.T) {
 	server := &rpcServer{gear: &fakeRPCGearService{getInfoError: apitypes.NewErrorResponse("GEAR_NOT_FOUND", "missing")}}
 	client := &rpcClient{}

@@ -15,7 +15,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/adminservice"
 )
 
-func TestIntegrationPeerPublicRefresh(t *testing.T) {
+func TestIntegrationPeerRPCRefresh(t *testing.T) {
 	ts := startTestServer(t)
 
 	admin := newTestClient(t, ts)
@@ -50,7 +50,7 @@ func TestIntegrationPeerPublicRefresh(t *testing.T) {
 	}
 }
 
-func TestIntegrationPeerPublicRefreshReportsOfflineWhenDeviceDisconnected(t *testing.T) {
+func TestIntegrationPeerRPCRefreshReportsOfflineWhenDeviceDisconnected(t *testing.T) {
 	ts := startTestServer(t)
 
 	admin := newTestClient(t, ts)

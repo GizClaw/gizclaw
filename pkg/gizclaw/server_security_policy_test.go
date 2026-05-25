@@ -41,9 +41,6 @@ func TestServerSecurityPolicyAllowsGearServiceForActiveGear(t *testing.T) {
 	if !policy.AllowService(keyPair.Public, ServiceServerPublic) {
 		t.Fatal("active gear should allow server public service")
 	}
-	if policy.AllowService(keyPair.Public, ServicePeerPublic) {
-		t.Fatal("active gear should not allow peer public service")
-	}
 	if policy.AllowService(keyPair.Public, 0xffff) {
 		t.Fatal("active gear should not allow unknown service")
 	}

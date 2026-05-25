@@ -31,6 +31,12 @@
                 "$ref": "./rpc/ping.json#/components/schemas/PingRequest"
               },
               {
+                "$ref": "./rpc/peer_info.json#/components/schemas/PeerGetInfoRequest"
+              },
+              {
+                "$ref": "./rpc/peer_info.json#/components/schemas/PeerGetIdentifiersRequest"
+              },
+              {
                 "$ref": "./rpc/server_info.json#/components/schemas/ServerGetInfoRequest"
               },
               {
@@ -77,6 +83,12 @@
                 "$ref": "./rpc/ping.json#/components/schemas/PingResponse"
               },
               {
+                "$ref": "./rpc/peer_info.json#/components/schemas/PeerGetInfoResponse"
+              },
+              {
+                "$ref": "./rpc/peer_info.json#/components/schemas/PeerGetIdentifiersResponse"
+              },
+              {
                 "$ref": "./rpc/server_info.json#/components/schemas/ServerGetInfoResponse"
               },
               {
@@ -111,6 +123,8 @@
         "type": "string",
         "enum": [
           "peer.ping",
+          "peer.info.get",
+          "peer.identifiers.get",
           "server.info.get",
           "gear.config.get",
           "gear.info.get",

@@ -136,6 +136,8 @@ const (
 	RPCMethodGearRegistrationRegister RPCMethod = "gear.registration.register"
 	RPCMethodGearRuntimeGet           RPCMethod = "gear.runtime.get"
 	RPCMethodGearTestRun              RPCMethod = "gear.test.run"
+	RPCMethodPeerIdentifiersGet       RPCMethod = "peer.identifiers.get"
+	RPCMethodPeerInfoGet              RPCMethod = "peer.info.get"
 	RPCMethodPeerPing                 RPCMethod = "peer.ping"
 	RPCMethodServerInfoGet            RPCMethod = "server.info.get"
 )
@@ -156,6 +158,10 @@ func (e RPCMethod) Valid() bool {
 	case RPCMethodGearRuntimeGet:
 		return true
 	case RPCMethodGearTestRun:
+		return true
+	case RPCMethodPeerIdentifiersGet:
+		return true
+	case RPCMethodPeerInfoGet:
 		return true
 	case RPCMethodPeerPing:
 		return true
@@ -308,6 +314,18 @@ type HardwareInfo struct {
 	Model            *string      `json:"model,omitempty"`
 }
 
+// PeerGetIdentifiersRequest defines model for PeerGetIdentifiersRequest.
+type PeerGetIdentifiersRequest = map[string]interface{}
+
+// PeerGetIdentifiersResponse defines model for PeerGetIdentifiersResponse.
+type PeerGetIdentifiersResponse = RefreshIdentifiers
+
+// PeerGetInfoRequest defines model for PeerGetInfoRequest.
+type PeerGetInfoRequest = map[string]interface{}
+
+// PeerGetInfoResponse defines model for PeerGetInfoResponse.
+type PeerGetInfoResponse = RefreshInfo
+
 // PingRequest defines model for PingRequest.
 type PingRequest struct {
 	ClientSendTime int64 `json:"client_send_time"`
@@ -359,6 +377,21 @@ type RPCResponse_Result struct {
 // RPCVersion defines model for RPCVersion.
 type RPCVersion int
 
+// RefreshIdentifiers defines model for RefreshIdentifiers.
+type RefreshIdentifiers struct {
+	Imeis  *[]GearIMEI  `json:"imeis,omitempty"`
+	Labels *[]GearLabel `json:"labels,omitempty"`
+	Sn     *string      `json:"sn,omitempty"`
+}
+
+// RefreshInfo defines model for RefreshInfo.
+type RefreshInfo struct {
+	HardwareRevision *string `json:"hardware_revision,omitempty"`
+	Manufacturer     *string `json:"manufacturer,omitempty"`
+	Model            *string `json:"model,omitempty"`
+	Name             *string `json:"name,omitempty"`
+}
+
 // Registration defines model for Registration.
 type Registration struct {
 	ApprovedAt     *time.Time  `json:"approved_at,omitempty"`
@@ -409,6 +442,58 @@ func (t *RPCRequest_Params) FromPingRequest(v PingRequest) error {
 
 // MergePingRequest performs a merge with any union data inside the RPCRequest_Params, using the provided PingRequest
 func (t *RPCRequest_Params) MergePingRequest(v PingRequest) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsPeerGetInfoRequest returns the union data inside the RPCRequest_Params as a PeerGetInfoRequest
+func (t RPCRequest_Params) AsPeerGetInfoRequest() (PeerGetInfoRequest, error) {
+	var body PeerGetInfoRequest
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromPeerGetInfoRequest overwrites any union data inside the RPCRequest_Params as the provided PeerGetInfoRequest
+func (t *RPCRequest_Params) FromPeerGetInfoRequest(v PeerGetInfoRequest) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergePeerGetInfoRequest performs a merge with any union data inside the RPCRequest_Params, using the provided PeerGetInfoRequest
+func (t *RPCRequest_Params) MergePeerGetInfoRequest(v PeerGetInfoRequest) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsPeerGetIdentifiersRequest returns the union data inside the RPCRequest_Params as a PeerGetIdentifiersRequest
+func (t RPCRequest_Params) AsPeerGetIdentifiersRequest() (PeerGetIdentifiersRequest, error) {
+	var body PeerGetIdentifiersRequest
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromPeerGetIdentifiersRequest overwrites any union data inside the RPCRequest_Params as the provided PeerGetIdentifiersRequest
+func (t *RPCRequest_Params) FromPeerGetIdentifiersRequest(v PeerGetIdentifiersRequest) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergePeerGetIdentifiersRequest performs a merge with any union data inside the RPCRequest_Params, using the provided PeerGetIdentifiersRequest
+func (t *RPCRequest_Params) MergePeerGetIdentifiersRequest(v PeerGetIdentifiersRequest) error {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -653,6 +738,58 @@ func (t *RPCResponse_Result) FromPingResponse(v PingResponse) error {
 
 // MergePingResponse performs a merge with any union data inside the RPCResponse_Result, using the provided PingResponse
 func (t *RPCResponse_Result) MergePingResponse(v PingResponse) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsPeerGetInfoResponse returns the union data inside the RPCResponse_Result as a PeerGetInfoResponse
+func (t RPCResponse_Result) AsPeerGetInfoResponse() (PeerGetInfoResponse, error) {
+	var body PeerGetInfoResponse
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromPeerGetInfoResponse overwrites any union data inside the RPCResponse_Result as the provided PeerGetInfoResponse
+func (t *RPCResponse_Result) FromPeerGetInfoResponse(v PeerGetInfoResponse) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergePeerGetInfoResponse performs a merge with any union data inside the RPCResponse_Result, using the provided PeerGetInfoResponse
+func (t *RPCResponse_Result) MergePeerGetInfoResponse(v PeerGetInfoResponse) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsPeerGetIdentifiersResponse returns the union data inside the RPCResponse_Result as a PeerGetIdentifiersResponse
+func (t RPCResponse_Result) AsPeerGetIdentifiersResponse() (PeerGetIdentifiersResponse, error) {
+	var body PeerGetIdentifiersResponse
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromPeerGetIdentifiersResponse overwrites any union data inside the RPCResponse_Result as the provided PeerGetIdentifiersResponse
+func (t *RPCResponse_Result) FromPeerGetIdentifiersResponse(v PeerGetIdentifiersResponse) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergePeerGetIdentifiersResponse performs a merge with any union data inside the RPCResponse_Result, using the provided PeerGetIdentifiersResponse
+func (t *RPCResponse_Result) MergePeerGetIdentifiersResponse(v PeerGetIdentifiersResponse) error {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err

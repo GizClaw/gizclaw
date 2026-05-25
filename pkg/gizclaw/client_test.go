@@ -174,12 +174,8 @@ func TestClientAccessorsAndConversions(t *testing.T) {
 		t.Fatalf("ServerPublicKey() = %v, want %v", got, keyPair.Public)
 	}
 
-	peerClient, err := client.PeerPublicClient()
-	if err != nil {
-		t.Fatalf("PeerPublicClient() error = %v", err)
-	}
-	if peerClient == nil {
-		t.Fatal("PeerPublicClient() returned nil client")
+	if rpcClient := client.rpcClient(); rpcClient == nil || rpcClient.peer != client {
+		t.Fatalf("rpcClient() = %+v, want peer client bound", rpcClient)
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())

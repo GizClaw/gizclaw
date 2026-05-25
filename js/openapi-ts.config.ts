@@ -11,8 +11,4 @@ export default [
     input: "../api/server_public.json",
     output: "packages/serverpublic",
   },
-  {
-    input: "../api/peer_public.json",
-    output: "packages/peerpublic",
-  },
 ];

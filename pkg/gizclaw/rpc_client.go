@@ -7,7 +7,9 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/rpcapi"
 )
 
-type rpcClient struct{}
+type rpcClient struct {
+	peer *Client
+}
 
 func (c *rpcClient) Handle(conn net.Conn) error {
 	return handleRPC(conn, c.dispatch)
@@ -18,6 +20,10 @@ func (c *rpcClient) dispatch(ctx context.Context, req *rpcapi.RPCRequest) (*rpca
 		return rpcapi.Error{Code: rpcapi.RPCErrorCodeInvalidRequest, Message: "nil request"}.RPCResponse(), nil
 	}
 	switch req.Method {
+	case rpcapi.RPCMethodPeerInfoGet:
+		return c.handleGetPeerInfo(ctx, req)
+	case rpcapi.RPCMethodPeerIdentifiersGet:
+		return c.handleGetPeerIdentifiers(ctx, req)
 	case rpcapi.RPCMethodPeerPing:
 		return handleRPCPing(ctx, req)
 	default:
@@ -27,6 +33,30 @@ func (c *rpcClient) dispatch(ctx context.Context, req *rpcapi.RPCRequest) (*rpca
 
 func (c *rpcClient) Ping(ctx context.Context, conn net.Conn, id string) (*rpcapi.PingResponse, error) {
 	return callRPCPing(ctx, conn, id)
+}
+
+func (c *rpcClient) GetPeerInfo(ctx context.Context, conn net.Conn, id string) (*rpcapi.PeerGetInfoResponse, error) {
+	params, err := newRPCRequestParams(rpcapi.PeerGetInfoRequest{}, (*rpcapi.RPCRequest_Params).FromPeerGetInfoRequest)
+	if err != nil {
+		return nil, err
+	}
+	result, err := callRPCResult(ctx, conn, newRPCRequest(id, rpcapi.RPCMethodPeerInfoGet, params), rpcapi.RPCResponse_Result.AsPeerGetInfoResponse)
+	if err != nil {
+		return nil, wrapRPCResultError("peer info", err)
+	}
+	return result, nil
+}
+
+func (c *rpcClient) GetPeerIdentifiers(ctx context.Context, conn net.Conn, id string) (*rpcapi.PeerGetIdentifiersResponse, error) {
+	params, err := newRPCRequestParams(rpcapi.PeerGetIdentifiersRequest{}, (*rpcapi.RPCRequest_Params).FromPeerGetIdentifiersRequest)
+	if err != nil {
+		return nil, err
+	}
+	result, err := callRPCResult(ctx, conn, newRPCRequest(id, rpcapi.RPCMethodPeerIdentifiersGet, params), rpcapi.RPCResponse_Result.AsPeerGetIdentifiersResponse)
+	if err != nil {
+		return nil, wrapRPCResultError("peer identifiers", err)
+	}
+	return result, nil
 }
 
 func (c *rpcClient) GetServerInfo(ctx context.Context, conn net.Conn, id string) (*rpcapi.ServerGetInfoResponse, error) {
@@ -39,6 +69,40 @@ func (c *rpcClient) GetServerInfo(ctx context.Context, conn net.Conn, id string)
 		return nil, wrapRPCResultError("server info", err)
 	}
 	return result, nil
+}
+
+func (c *rpcClient) handleGetPeerInfo(ctx context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
+	if err := validateRPCParams(req.Params, rpcapi.RPCRequest_Params.AsPeerGetInfoRequest); err != nil {
+		return rpcInvalidParams(req.Id), nil
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	if c.peer == nil {
+		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeInternalError, Message: "peer client not configured"}.RPCResponse(), nil
+	}
+	result, err := convertRPCType[rpcapi.PeerGetInfoResponse](gearDeviceToPeerRefreshInfo(c.peer.Device))
+	if err != nil {
+		return nil, err
+	}
+	return newRPCResultResponse(req.Id, result, (*rpcapi.RPCResponse_Result).FromPeerGetInfoResponse)
+}
+
+func (c *rpcClient) handleGetPeerIdentifiers(ctx context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
+	if err := validateRPCParams(req.Params, rpcapi.RPCRequest_Params.AsPeerGetIdentifiersRequest); err != nil {
+		return rpcInvalidParams(req.Id), nil
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	if c.peer == nil {
+		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeInternalError, Message: "peer client not configured"}.RPCResponse(), nil
+	}
+	result, err := convertRPCType[rpcapi.PeerGetIdentifiersResponse](gearDeviceToPeerRefreshIdentifiers(c.peer.Device))
+	if err != nil {
+		return nil, err
+	}
+	return newRPCResultResponse(req.Id, result, (*rpcapi.RPCResponse_Result).FromPeerGetIdentifiersResponse)
 }
 
 func (c *rpcClient) GetConfig(ctx context.Context, conn net.Conn, id string) (*rpcapi.GearGetConfigResponse, error) {

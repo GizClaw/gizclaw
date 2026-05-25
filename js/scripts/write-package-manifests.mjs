@@ -3,7 +3,6 @@ import { writeFile } from "node:fs/promises";
 const packages = [
   "adminservice",
   "gearservice",
-  "peerpublic",
   "serverpublic",
 ];
 

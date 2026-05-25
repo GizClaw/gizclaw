@@ -276,6 +276,22 @@
         },
         "type": "object"
       },
+      "PeerGetIdentifiersRequest": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object"
+      },
+      "PeerGetIdentifiersResponse": {
+        "$ref": "#/components/schemas/RefreshIdentifiers"
+      },
+      "PeerGetInfoRequest": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object"
+      },
+      "PeerGetInfoResponse": {
+        "$ref": "#/components/schemas/RefreshInfo"
+      },
       "PingRequest": {
         "additionalProperties": false,
         "properties": {
@@ -340,6 +356,8 @@
       "RPCMethod": {
         "enum": [
           "peer.ping",
+          "peer.info.get",
+          "peer.identifiers.get",
           "server.info.get",
           "gear.config.get",
           "gear.info.get",
@@ -363,6 +381,12 @@
             "oneOf": [
               {
                 "$ref": "#/components/schemas/PingRequest"
+              },
+              {
+                "$ref": "#/components/schemas/PeerGetInfoRequest"
+              },
+              {
+                "$ref": "#/components/schemas/PeerGetIdentifiersRequest"
               },
               {
                 "$ref": "#/components/schemas/ServerGetInfoRequest"
@@ -415,6 +439,12 @@
                 "$ref": "#/components/schemas/PingResponse"
               },
               {
+                "$ref": "#/components/schemas/PeerGetInfoResponse"
+              },
+              {
+                "$ref": "#/components/schemas/PeerGetIdentifiersResponse"
+              },
+              {
                 "$ref": "#/components/schemas/ServerGetInfoResponse"
               },
               {
@@ -458,6 +488,43 @@
         "x-enum-varnames": [
           "V1"
         ]
+      },
+      "RefreshIdentifiers": {
+        "properties": {
+          "imeis": {
+            "items": {
+              "$ref": "#/components/schemas/GearIMEI"
+            },
+            "type": "array"
+          },
+          "labels": {
+            "items": {
+              "$ref": "#/components/schemas/GearLabel"
+            },
+            "type": "array"
+          },
+          "sn": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "RefreshInfo": {
+        "properties": {
+          "hardware_revision": {
+            "type": "string"
+          },
+          "manufacturer": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "type": "object"
       },
       "Registration": {
         "properties": {
