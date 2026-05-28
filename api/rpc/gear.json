@@ -2,28 +2,12 @@
   "openapi": "3.0.3",
   "info": {
     "title": "RPC Gear Service Types",
-    "description": "Schemas for gear-side and gear-facing RPC methods.",
+    "description": "Schemas for server-provided gear self-service RPC methods.",
     "version": "1.0.0"
   },
   "paths": {},
   "components": {
     "schemas": {
-      "DeviceGetInfoRequest": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {}
-      },
-      "DeviceGetInfoResponse": {
-        "$ref": "../type/refresh_info.json#/components/schemas/RefreshInfo"
-      },
-      "DeviceGetIdentifiersRequest": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {}
-      },
-      "DeviceGetIdentifiersResponse": {
-        "$ref": "../type/refresh_identifiers.json#/components/schemas/RefreshIdentifiers"
-      },
       "PeerGetInfoRequest": {
         "type": "object",
         "additionalProperties": false,

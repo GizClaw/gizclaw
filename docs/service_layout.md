@@ -2,6 +2,9 @@
 
 This document describes business-level services, not transport service IDs.
 
+Peer Service and Device Service are peer-provided services. Public Service,
+Gear Service, and Admin Service are server-provided services.
+
 ## Doc Style
 
 - Business RPC-style methods use dotted names: `service.resource.method`.
@@ -13,14 +16,16 @@ This document describes business-level services, not transport service IDs.
 Peer Service
 └── peer.ping
 
+Device Service
+├── device.info.get
+└── device.identifiers.get
+
 Public Service
 ├── server.info.get
 ├── /server-info GET
 └── /login POST
 
 Gear Service
-├── device.info.get
-├── device.identifiers.get
 ├── peer.info.{get,put}
 ├── peer.runtime.get
 ├── workflow.{list,get,create,put,delete}

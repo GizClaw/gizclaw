@@ -1,0 +1,29 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "RPC Device Service Types",
+    "description": "Schemas for device-provided RPC methods.",
+    "version": "1.0.0"
+  },
+  "paths": {},
+  "components": {
+    "schemas": {
+      "DeviceGetInfoRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {}
+      },
+      "DeviceGetInfoResponse": {
+        "$ref": "../type/refresh_info.json#/components/schemas/RefreshInfo"
+      },
+      "DeviceGetIdentifiersRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {}
+      },
+      "DeviceGetIdentifiersResponse": {
+        "$ref": "../type/refresh_identifiers.json#/components/schemas/RefreshIdentifiers"
+      }
+    }
+  }
+}

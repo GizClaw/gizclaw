@@ -31,10 +31,10 @@
                 "$ref": "./rpc/peer.json#/components/schemas/PingRequest"
               },
               {
-                "$ref": "./rpc/gear.json#/components/schemas/DeviceGetInfoRequest"
+                "$ref": "./rpc/device.json#/components/schemas/DeviceGetInfoRequest"
               },
               {
-                "$ref": "./rpc/gear.json#/components/schemas/DeviceGetIdentifiersRequest"
+                "$ref": "./rpc/device.json#/components/schemas/DeviceGetIdentifiersRequest"
               },
               {
                 "$ref": "./rpc/public.json#/components/schemas/ServerGetInfoRequest"
@@ -71,10 +71,10 @@
                 "$ref": "./rpc/peer.json#/components/schemas/PingResponse"
               },
               {
-                "$ref": "./rpc/gear.json#/components/schemas/DeviceGetInfoResponse"
+                "$ref": "./rpc/device.json#/components/schemas/DeviceGetInfoResponse"
               },
               {
-                "$ref": "./rpc/gear.json#/components/schemas/DeviceGetIdentifiersResponse"
+                "$ref": "./rpc/device.json#/components/schemas/DeviceGetIdentifiersResponse"
               },
               {
                 "$ref": "./rpc/public.json#/components/schemas/ServerGetInfoResponse"
