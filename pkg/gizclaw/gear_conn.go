@@ -15,6 +15,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkg/audio/pcm"
 	"github.com/GizClaw/gizclaw-go/pkg/audio/stampedopus"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/rpcapi"
+	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/gearresource"
 	"github.com/GizClaw/gizclaw-go/pkg/giznet"
 	"golang.org/x/sync/errgroup"
 )
@@ -155,6 +156,14 @@ func (h *GearConn) initRPC() {
 		if h.Service.manager != nil {
 			h.rpc.peer = h.Service.manager.Peers
 			h.rpc.peerRun = h.Service.manager.PeerRun
+			h.rpc.gearResources = &gearresource.Server{
+				Caller:      h.Conn.PublicKey(),
+				ACL:         h.Service.manager.ACL,
+				Workspaces:  h.Service.manager.Workspaces,
+				Workflows:   h.Service.manager.Workflows,
+				Models:      h.Service.manager.Models,
+				Credentials: h.Service.manager.Credentials,
+			}
 		}
 		h.rpc.serverInfo = h.Service.public
 	}

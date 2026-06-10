@@ -1,0 +1,78 @@
+listen: "__LISTEN_ADDR__"
+storage:
+  memory:
+    kind: keyvalue
+    memory: {}
+  local-files:
+    kind: filesystem
+    fs:
+      dir: .
+  acl-db:
+    kind: sql
+    sqlite:
+      dir: data/acl.sqlite
+  history-db:
+    kind: sql
+    sqlite:
+      dir: data/history.sqlite
+stores:
+  peers:
+    kind: keyvalue
+    storage: memory
+    prefix: peers
+  credentials:
+    kind: keyvalue
+    storage: memory
+    prefix: credentials
+  firmwares:
+    kind: keyvalue
+    storage: memory
+    prefix: firmwares
+  minimax-tenants:
+    kind: keyvalue
+    storage: memory
+    prefix: minimax-tenants
+  models:
+    kind: keyvalue
+    storage: memory
+    prefix: models
+  voices:
+    kind: keyvalue
+    storage: memory
+    prefix: voices
+  workspaces:
+    kind: keyvalue
+    storage: memory
+    prefix: workspaces
+  workflows:
+    kind: keyvalue
+    storage: memory
+    prefix: workflows
+  acl:
+    kind: sql
+    storage: acl-db
+  history:
+    kind: sql
+    storage: history-db
+peers:
+  store: peers
+credentials:
+  store: credentials
+firmwares:
+  store: firmwares
+minimax:
+  tenants-store: minimax-tenants
+  voices-store: voices
+  credentials-store: credentials
+models:
+  store: models
+voices:
+  store: voices
+workspaces:
+  store: workspaces
+workflows:
+  store: workflows
+acl:
+  store: acl
+history:
+  store: history

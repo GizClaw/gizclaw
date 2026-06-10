@@ -28,9 +28,14 @@ type rpcPeerRunService interface {
 	SetRunAgent(context.Context, giznet.PublicKey, apitypes.AgentSelection) (apitypes.PeerRunAgent, error)
 }
 
+type rpcGearResourceService interface {
+	Dispatch(context.Context, *rpcapi.RPCRequest) (*rpcapi.RPCResponse, bool, error)
+}
+
 type rpcServer struct {
 	peer            rpcPeerService
 	peerRun         rpcPeerRunService
+	gearResources   rpcGearResourceService
 	serverInfo      rpcServerInfoService
 	callerPublicKey giznet.PublicKey
 }
@@ -77,6 +82,12 @@ func (s *rpcServer) dispatch(ctx context.Context, req *rpcapi.RPCRequest) (*rpca
 	case rpcapi.RPCMethodPeerRunReload, rpcapi.RPCMethodPeerRunStatus, rpcapi.RPCMethodPeerRunStop:
 		return rpcNotImplemented(req.Id, req.Method), nil
 	default:
+		if s.gearResources != nil {
+			resp, handled, err := s.gearResources.Dispatch(ctx, req)
+			if handled || err != nil {
+				return resp, err
+			}
+		}
 		if isPlannedGearMethod(req.Method) {
 			return rpcNotImplemented(req.Id, req.Method), nil
 		}

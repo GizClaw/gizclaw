@@ -10,10 +10,15 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/apitypes"
 
+	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/acl"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/adminservice"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/rpcapi"
+	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/credential"
+	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/model"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/peer"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/peerrun"
+	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/workflow"
+	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/workspace"
 	"github.com/GizClaw/gizclaw-go/pkg/giznet"
 )
 
@@ -29,6 +34,12 @@ type activePeer struct {
 type Manager struct {
 	Peers   *peer.Server
 	PeerRun *peerrun.Server
+	ACL     *acl.Server
+
+	Workspaces  workspace.WorkspaceAdminService
+	Workflows   workflow.WorkflowAdminService
+	Models      model.ModelAdminService
+	Credentials credential.CredentialAdminService
 
 	mu    sync.RWMutex
 	peers map[giznet.PublicKey]*activePeer

@@ -224,6 +224,11 @@ func (s *Server) init() error {
 	if s.ACLDB != nil {
 		aclServer = &acl.Server{DB: s.ACLDB}
 	}
+	manager.ACL = aclServer
+	manager.Workspaces = workspaceServer
+	manager.Workflows = workflowServer
+	manager.Models = modelServer
+	manager.Credentials = credentialServer
 	resourceManager := resourcemanager.New(resourcemanager.Services{
 		ACL:             aclServer,
 		Credentials:     credentialServer,

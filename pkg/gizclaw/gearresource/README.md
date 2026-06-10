@@ -1,9 +1,9 @@
-# Gear Self-Service
+# Gear Resource
 
 Tracking issue: https://github.com/GizClaw/gizclaw-go/issues/19
 
 This package is reserved for Gear Service RPCs that expose existing resource
-domains to a gear through ACL-controlled self-service APIs.
+domains to a gear through ACL-controlled resource APIs.
 
 Planned scope:
 
