@@ -14,7 +14,9 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/serverpublic"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/peer"
+	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/peerrun"
 	"github.com/GizClaw/gizclaw-go/pkg/giznet"
+	"github.com/GizClaw/gizclaw-go/pkg/store/kv"
 )
 
 func TestRPCGearPeerMethods(t *testing.T) {
@@ -27,7 +29,7 @@ func TestRPCGearPeerMethods(t *testing.T) {
 		runtime:         apitypes.Runtime{Online: true, LastSeenAt: now},
 		putInfoResponse: apitypes.DeviceInfo{Name: stringPtr("gear-2")},
 	}
-	server := &rpcServer{peer: fake, callerPublicKey: publicKey}
+	server := &rpcServer{peer: fake, peerRun: &peerrun.Server{Store: kv.NewMemory(nil)}, callerPublicKey: publicKey}
 	client := &rpcClient{}
 
 	info := callRPCPair(t, server, func(conn net.Conn) (*rpcapi.PeerGetInfoResponse, error) {
@@ -52,6 +54,33 @@ func TestRPCGearPeerMethods(t *testing.T) {
 	})
 	if !runtime.Online || !runtime.LastSeenAt.Equal(now) {
 		t.Fatalf("GetRuntime() = %+v", runtime)
+	}
+
+	volume := 55
+	status := callRPCPair(t, server, func(conn net.Conn) (*rpcapi.PeerPutStatusResponse, error) {
+		return client.PutPeerStatus(context.Background(), conn, "put-status", rpcapi.PeerPutStatusRequest{Volume: &volume})
+	})
+	if status.Volume == nil || *status.Volume != volume {
+		t.Fatalf("PutStatus() = %+v", status)
+	}
+	gotStatus := callRPCPair(t, server, func(conn net.Conn) (*rpcapi.PeerGetStatusResponse, error) {
+		return client.GetPeerStatus(context.Background(), conn, "get-status")
+	})
+	if gotStatus.Volume == nil || *gotStatus.Volume != volume {
+		t.Fatalf("GetStatus() = %+v", gotStatus)
+	}
+
+	runAgent := callRPCPair(t, server, func(conn net.Conn) (*rpcapi.PeerSetRunAgentResponse, error) {
+		return client.SetPeerRunAgent(context.Background(), conn, "set-run-agent", rpcapi.PeerSetRunAgentRequest{WorkspaceName: "demo"})
+	})
+	if runAgent.Pending == nil || runAgent.Pending.WorkspaceName != "demo" || runAgent.Active != nil {
+		t.Fatalf("SetRunAgent() = %+v", runAgent)
+	}
+	gotRunAgent := callRPCPair(t, server, func(conn net.Conn) (*rpcapi.PeerGetRunAgentResponse, error) {
+		return client.GetPeerRunAgent(context.Background(), conn, "get-run-agent")
+	})
+	if gotRunAgent.Pending == nil || gotRunAgent.Pending.WorkspaceName != "demo" {
+		t.Fatalf("GetRunAgent() = %+v", gotRunAgent)
 	}
 }
 
@@ -165,6 +194,9 @@ func TestRPCServerDispatchErrorPaths(t *testing.T) {
 	}
 	if resp, err := (&rpcServer{peer: &fakeRPCPeerService{}}).dispatch(context.Background(), &invalidParamsReq); err != nil || resp.Error == nil || resp.Error.Code != rpcapi.RPCErrorCodeInvalidParams {
 		t.Fatalf("dispatch(invalid params) = %+v, %v", resp, err)
+	}
+	if resp, err := (&rpcServer{}).dispatch(context.Background(), newRPCRequest("audio", rpcapi.RPCMethodAudioSay, nil)); err != nil || resp.Error == nil || resp.Error.Code != rpcapi.RPCErrorCodeMethodNotFound || resp.Error.Message != "method not implemented: audio.say" {
+		t.Fatalf("dispatch(planned unimplemented) = %+v, %v", resp, err)
 	}
 }
 

@@ -13,6 +13,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/adminservice"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/peer"
+	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/peerrun"
 	"github.com/GizClaw/gizclaw-go/pkg/giznet"
 )
 
@@ -26,7 +27,8 @@ type activePeer struct {
 }
 
 type Manager struct {
-	Peers *peer.Server
+	Peers   *peer.Server
+	PeerRun *peerrun.Server
 
 	mu    sync.RWMutex
 	peers map[giznet.PublicKey]*activePeer

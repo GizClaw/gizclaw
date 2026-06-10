@@ -1,0 +1,49 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Peer Status Type",
+    "description": "Optional peer-reported status schema.",
+    "version": "1.0.0"
+  },
+  "paths": {},
+  "components": {
+    "schemas": {
+      "PeerStatus": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "reported_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "volume": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "muted": {
+            "type": "boolean"
+          },
+          "battery_percent": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "charging": {
+            "type": "boolean"
+          },
+          "labels": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "details": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      }
+    }
+  }
+}

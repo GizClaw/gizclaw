@@ -19,6 +19,15 @@ const (
 	ResourceKindCredential = apitypes.ACLResourceKindCredential
 	ResourceKindModel      = apitypes.ACLResourceKindModel
 	ResourceKindView       = apitypes.ACLResourceKindView
+	ResourceKindPet        = apitypes.ACLResourceKindPet
+	ResourceKindWallet     = apitypes.ACLResourceKindWallet
+	ResourceKindContact    = apitypes.ACLResourceKindContact
+	ResourceKindFriend     = apitypes.ACLResourceKindFriend
+	ResourceKindFriendReq  = apitypes.ACLResourceKindFriendRequest
+	ResourceKindGroup      = apitypes.ACLResourceKindGroup
+	ResourceKindCall       = apitypes.ACLResourceKindCall
+	ResourceKindGameResult = apitypes.ACLResourceKindGameResult
+	ResourceKindReward     = apitypes.ACLResourceKindReward
 )
 
 var ErrDenied = errors.New("acl: denied")
@@ -106,5 +115,12 @@ func CredentialResource(name string) apitypes.ACLResource {
 	return apitypes.ACLResource{
 		Kind: ResourceKindCredential,
 		Id:   name,
+	}
+}
+
+func ModelResource(id string) apitypes.ACLResource {
+	return apitypes.ACLResource{
+		Kind: ResourceKindModel,
+		Id:   id,
 	}
 }

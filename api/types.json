@@ -340,6 +340,27 @@
       },
       "FlowcraftWorkflowSpec": {
         "$ref": "./type/workflows/flowcraft.json#/components/schemas/FlowcraftWorkflowSpec"
+      },
+      "AgentSelection": {
+        "$ref": "./type/agent_selection.json#/components/schemas/AgentSelection"
+      },
+      "PeerRunAgent": {
+        "$ref": "./type/peer_run_agent.json#/components/schemas/PeerRunAgent"
+      },
+      "PeerRunStatus": {
+        "$ref": "./type/peer_run_status.json#/components/schemas/PeerRunStatus"
+      },
+      "PeerRunStatusState": {
+        "$ref": "./type/peer_run_status.json#/components/schemas/PeerRunStatusState"
+      },
+      "PeerStatus": {
+        "$ref": "./type/peer_status.json#/components/schemas/PeerStatus"
+      },
+      "AudioSayRequest": {
+        "$ref": "./type/audio_say.json#/components/schemas/AudioSayRequest"
+      },
+      "AudioSayResponse": {
+        "$ref": "./type/audio_say.json#/components/schemas/AudioSayResponse"
       }
     }
   }

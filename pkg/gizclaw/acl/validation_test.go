@@ -58,3 +58,30 @@ func TestNormalizeListParams(t *testing.T) {
 		t.Fatalf("normalizeListParams(clamp) = %d, want %d", limit, maxListLimit)
 	}
 }
+
+func TestPlannedResourceKindsAndPermissionsAreValid(t *testing.T) {
+	for _, kind := range []apitypes.ACLResourceKind{
+		ResourceKindPet,
+		ResourceKindWallet,
+		ResourceKindContact,
+		ResourceKindFriend,
+		ResourceKindFriendReq,
+		ResourceKindGroup,
+		ResourceKindCall,
+		ResourceKindGameResult,
+		ResourceKindReward,
+	} {
+		if !kind.Valid() {
+			t.Fatalf("resource kind %q is not valid", kind)
+		}
+		if _, err := CanonicalResource(apitypes.ACLResource{Kind: kind, Id: "demo"}); err != nil {
+			t.Fatalf("CanonicalResource(%q) error = %v", kind, err)
+		}
+		for _, suffix := range []string{"read", "use", "admin"} {
+			permission := apitypes.ACLPermission(string(kind) + "." + suffix)
+			if !permission.Valid() {
+				t.Fatalf("permission %q is not valid", permission)
+			}
+		}
+	}
+}

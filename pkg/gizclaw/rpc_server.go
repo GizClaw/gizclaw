@@ -21,8 +21,16 @@ type rpcPeerService interface {
 	GetSelfRuntime(context.Context, giznet.PublicKey) apitypes.Runtime
 }
 
+type rpcPeerRunService interface {
+	GetStatus(context.Context, giznet.PublicKey) (apitypes.PeerStatus, error)
+	PutStatus(context.Context, giznet.PublicKey, apitypes.PeerStatus) (apitypes.PeerStatus, error)
+	GetRunAgent(context.Context, giznet.PublicKey) (apitypes.PeerRunAgent, error)
+	SetRunAgent(context.Context, giznet.PublicKey, apitypes.AgentSelection) (apitypes.PeerRunAgent, error)
+}
+
 type rpcServer struct {
 	peer            rpcPeerService
+	peerRun         rpcPeerRunService
 	serverInfo      rpcServerInfoService
 	callerPublicKey giznet.PublicKey
 }
@@ -58,7 +66,20 @@ func (s *rpcServer) dispatch(ctx context.Context, req *rpcapi.RPCRequest) (*rpca
 		return s.handlePutInfo(ctx, req)
 	case rpcapi.RPCMethodPeerRuntimeGet:
 		return s.handleGetRuntime(ctx, req)
+	case rpcapi.RPCMethodPeerStatusGet:
+		return s.handleGetStatus(ctx, req)
+	case rpcapi.RPCMethodPeerStatusPut:
+		return s.handlePutStatus(ctx, req)
+	case rpcapi.RPCMethodPeerRunAgentGet:
+		return s.handleGetRunAgent(ctx, req)
+	case rpcapi.RPCMethodPeerRunAgentSet:
+		return s.handleSetRunAgent(ctx, req)
+	case rpcapi.RPCMethodPeerRunReload, rpcapi.RPCMethodPeerRunStatus, rpcapi.RPCMethodPeerRunStop:
+		return rpcNotImplemented(req.Id, req.Method), nil
 	default:
+		if isPlannedGearMethod(req.Method) {
+			return rpcNotImplemented(req.Id, req.Method), nil
+		}
 		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeMethodNotFound, Message: fmt.Sprintf("unknown method: %s", req.Method)}.RPCResponse(), nil
 	}
 }

@@ -108,6 +108,28 @@ func TestServerPublicKeyAndPeerServiceAccessors(t *testing.T) {
 	}
 }
 
+func TestServerInitConfiguresPeerRunService(t *testing.T) {
+	keyPair, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("GenerateKeyPair error = %v", err)
+	}
+	server := &Server{
+		LocalStatic: *keyPair,
+		PeerStore:   mustBadgerInMemory(t, nil),
+	}
+	if err := server.init(); err != nil {
+		t.Fatalf("init() error = %v", err)
+	}
+	if server.manager == nil || server.manager.PeerRun == nil {
+		t.Fatalf("manager peer run service not configured: %+v", server.manager)
+	}
+	conn := &GearConn{Service: server.peerService}
+	conn.initRPC()
+	if conn.rpc == nil || conn.rpc.peerRun != server.manager.PeerRun {
+		t.Fatalf("GearConn rpc peerRun = %+v, want %+v", conn.rpc, server.manager.PeerRun)
+	}
+}
+
 func TestServerServeHTTPLoginRegisterAndGearAPI(t *testing.T) {
 	serverKey, err := giznet.GenerateKeyPair()
 	if err != nil {

@@ -10,6 +10,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/firmware"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/model"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/peer"
+	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/peerrun"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/providertenants"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/publiclogin"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/resourcemanager"
@@ -33,6 +34,7 @@ type Server struct {
 	SecurityPolicy giznet.SecurityPolicy
 
 	PeerStore              kv.Store
+	PeerRunStore           kv.Store
 	CredentialStore        kv.Store
 	FirmwareStore          kv.Store
 	MiniMaxCredentialStore kv.Store
@@ -176,6 +178,7 @@ func (s *Server) init() error {
 		s.MiniMaxCredentialStore == nil &&
 		s.WorkspaceStore == nil &&
 		s.WorkflowStore == nil &&
+		s.PeerRunStore == nil &&
 		s.PublicLoginStore == nil
 	peerStore := s.PeerStore
 	if legacySharedStore {
@@ -190,6 +193,7 @@ func (s *Server) init() error {
 	voiceStore := moduleStore(s.VoiceStore, s.PeerStore, "voices")
 	workspaceStore := moduleStore(s.WorkspaceStore, s.PeerStore, "workspaces")
 	workflowStore := moduleStore(s.WorkflowStore, s.PeerStore, "workflows")
+	peerRunStore := moduleStore(s.PeerRunStore, s.PeerStore, "peer-run")
 	publicLoginStore := moduleStore(s.PublicLoginStore, s.PeerStore, "public-login")
 
 	publicLoginServer := publiclogin.NewServer(&s.LocalStatic, publicLoginStore)
@@ -200,6 +204,7 @@ func (s *Server) init() error {
 		ServerPublicKey: s.LocalStatic.Public,
 	}
 	manager := NewManager(peersServer)
+	manager.PeerRun = &peerrun.Server{Store: peerRunStore}
 	peersServer.PeerManager = manager
 
 	workflowServer := &workflow.Server{Store: workflowStore}

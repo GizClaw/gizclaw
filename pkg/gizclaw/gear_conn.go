@@ -154,6 +154,7 @@ func (h *GearConn) initRPC() {
 	if h.Service != nil {
 		if h.Service.manager != nil {
 			h.rpc.peer = h.Service.manager.Peers
+			h.rpc.peerRun = h.Service.manager.PeerRun
 		}
 		h.rpc.serverInfo = h.Service.public
 	}

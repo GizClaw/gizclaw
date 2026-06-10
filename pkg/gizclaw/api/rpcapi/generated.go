@@ -10,6 +10,150 @@ import (
 	"github.com/oapi-codegen/runtime"
 )
 
+// Defines values for CredentialMethod.
+const (
+	CredentialMethodApiKey     CredentialMethod = "api_key"
+	CredentialMethodAppIdToken CredentialMethod = "app_id_token"
+	CredentialMethodToken      CredentialMethod = "token"
+)
+
+// Valid indicates whether the value is a known member of the CredentialMethod enum.
+func (e CredentialMethod) Valid() bool {
+	switch e {
+	case CredentialMethodApiKey:
+		return true
+	case CredentialMethodAppIdToken:
+		return true
+	case CredentialMethodToken:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DashScopeTenantModelProviderDataApiMode.
+const (
+	DashScopeTenantModelProviderDataApiModeChatCompletions DashScopeTenantModelProviderDataApiMode = "chat_completions"
+	DashScopeTenantModelProviderDataApiModeRealtime        DashScopeTenantModelProviderDataApiMode = "realtime"
+)
+
+// Valid indicates whether the value is a known member of the DashScopeTenantModelProviderDataApiMode enum.
+func (e DashScopeTenantModelProviderDataApiMode) Valid() bool {
+	switch e {
+	case DashScopeTenantModelProviderDataApiModeChatCompletions:
+		return true
+	case DashScopeTenantModelProviderDataApiModeRealtime:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for FlowcraftWorkflowKind.
+const (
+	FlowcraftWorkflowKindFlowcraftWorkflow FlowcraftWorkflowKind = "FlowcraftWorkflow"
+)
+
+// Valid indicates whether the value is a known member of the FlowcraftWorkflowKind enum.
+func (e FlowcraftWorkflowKind) Valid() bool {
+	switch e {
+	case FlowcraftWorkflowKindFlowcraftWorkflow:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ModelKind.
+const (
+	ModelKindAsr       ModelKind = "asr"
+	ModelKindEmbedding ModelKind = "embedding"
+	ModelKindLlm       ModelKind = "llm"
+	ModelKindTts       ModelKind = "tts"
+)
+
+// Valid indicates whether the value is a known member of the ModelKind enum.
+func (e ModelKind) Valid() bool {
+	switch e {
+	case ModelKindAsr:
+		return true
+	case ModelKindEmbedding:
+		return true
+	case ModelKindLlm:
+		return true
+	case ModelKindTts:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ModelProviderKind.
+const (
+	ModelProviderKindDashscopeTenant ModelProviderKind = "dashscope-tenant"
+	ModelProviderKindGeminiTenant    ModelProviderKind = "gemini-tenant"
+	ModelProviderKindOpenaiTenant    ModelProviderKind = "openai-tenant"
+)
+
+// Valid indicates whether the value is a known member of the ModelProviderKind enum.
+func (e ModelProviderKind) Valid() bool {
+	switch e {
+	case ModelProviderKindDashscopeTenant:
+		return true
+	case ModelProviderKindGeminiTenant:
+		return true
+	case ModelProviderKindOpenaiTenant:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ModelSource.
+const (
+	ModelSourceManual ModelSource = "manual"
+	ModelSourceSync   ModelSource = "sync"
+)
+
+// Valid indicates whether the value is a known member of the ModelSource enum.
+func (e ModelSource) Valid() bool {
+	switch e {
+	case ModelSourceManual:
+		return true
+	case ModelSourceSync:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PeerRunStatusState.
+const (
+	PeerRunStatusStateError    PeerRunStatusState = "error"
+	PeerRunStatusStateRunning  PeerRunStatusState = "running"
+	PeerRunStatusStateStarting PeerRunStatusState = "starting"
+	PeerRunStatusStateStopped  PeerRunStatusState = "stopped"
+	PeerRunStatusStateStopping PeerRunStatusState = "stopping"
+)
+
+// Valid indicates whether the value is a known member of the PeerRunStatusState enum.
+func (e PeerRunStatusState) Valid() bool {
+	switch e {
+	case PeerRunStatusStateError:
+		return true
+	case PeerRunStatusStateRunning:
+		return true
+	case PeerRunStatusStateStarting:
+		return true
+	case PeerRunStatusStateStopped:
+		return true
+	case PeerRunStatusStateStopping:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for RPCErrorCode.
 const (
 	RPCErrorCodeBadRequest     RPCErrorCode = 400
@@ -45,22 +189,176 @@ func (e RPCErrorCode) Valid() bool {
 
 // Defines values for RPCMethod.
 const (
-	RPCMethodDeviceIdentifiersGet RPCMethod = "device.identifiers.get"
-	RPCMethodDeviceInfoGet        RPCMethod = "device.info.get"
-	RPCMethodPeerInfoGet          RPCMethod = "peer.info.get"
-	RPCMethodPeerInfoPut          RPCMethod = "peer.info.put"
-	RPCMethodPeerPing             RPCMethod = "peer.ping"
-	RPCMethodPeerRuntimeGet       RPCMethod = "peer.runtime.get"
-	RPCMethodPeerSpeedTestRun     RPCMethod = "peer.speed_test.run"
-	RPCMethodServerInfoGet        RPCMethod = "server.info.get"
+	RPCMethodAudioSay               RPCMethod = "audio.say"
+	RPCMethodCallAnswer             RPCMethod = "call.answer"
+	RPCMethodCallCreate             RPCMethod = "call.create"
+	RPCMethodCallEnd                RPCMethod = "call.end"
+	RPCMethodCallGet                RPCMethod = "call.get"
+	RPCMethodCallList               RPCMethod = "call.list"
+	RPCMethodCallReject             RPCMethod = "call.reject"
+	RPCMethodContactBlock           RPCMethod = "contact.block"
+	RPCMethodContactCreate          RPCMethod = "contact.create"
+	RPCMethodContactDelete          RPCMethod = "contact.delete"
+	RPCMethodContactGet             RPCMethod = "contact.get"
+	RPCMethodContactList            RPCMethod = "contact.list"
+	RPCMethodContactPut             RPCMethod = "contact.put"
+	RPCMethodContactUnblock         RPCMethod = "contact.unblock"
+	RPCMethodCredentialCreate       RPCMethod = "credential.create"
+	RPCMethodCredentialDelete       RPCMethod = "credential.delete"
+	RPCMethodCredentialGet          RPCMethod = "credential.get"
+	RPCMethodCredentialList         RPCMethod = "credential.list"
+	RPCMethodCredentialPut          RPCMethod = "credential.put"
+	RPCMethodDeviceIdentifiersGet   RPCMethod = "device.identifiers.get"
+	RPCMethodDeviceInfoGet          RPCMethod = "device.info.get"
+	RPCMethodFriendDelete           RPCMethod = "friend.delete"
+	RPCMethodFriendList             RPCMethod = "friend.list"
+	RPCMethodFriendRequestsAccept   RPCMethod = "friend.requests.accept"
+	RPCMethodFriendRequestsCreate   RPCMethod = "friend.requests.create"
+	RPCMethodFriendRequestsList     RPCMethod = "friend.requests.list"
+	RPCMethodFriendRequestsReject   RPCMethod = "friend.requests.reject"
+	RPCMethodGameResultsCreate      RPCMethod = "game.results.create"
+	RPCMethodGroupCreate            RPCMethod = "group.create"
+	RPCMethodGroupDelete            RPCMethod = "group.delete"
+	RPCMethodGroupGet               RPCMethod = "group.get"
+	RPCMethodGroupList              RPCMethod = "group.list"
+	RPCMethodGroupMembersAdd        RPCMethod = "group.members.add"
+	RPCMethodGroupMembersDelete     RPCMethod = "group.members.delete"
+	RPCMethodGroupMembersList       RPCMethod = "group.members.list"
+	RPCMethodGroupMessagesList      RPCMethod = "group.messages.list"
+	RPCMethodGroupMessagesSend      RPCMethod = "group.messages.send"
+	RPCMethodGroupPut               RPCMethod = "group.put"
+	RPCMethodModelCreate            RPCMethod = "model.create"
+	RPCMethodModelDelete            RPCMethod = "model.delete"
+	RPCMethodModelGet               RPCMethod = "model.get"
+	RPCMethodModelList              RPCMethod = "model.list"
+	RPCMethodModelPut               RPCMethod = "model.put"
+	RPCMethodPeerInfoGet            RPCMethod = "peer.info.get"
+	RPCMethodPeerInfoPut            RPCMethod = "peer.info.put"
+	RPCMethodPeerPing               RPCMethod = "peer.ping"
+	RPCMethodPeerRunAgentGet        RPCMethod = "peer.run.agent.get"
+	RPCMethodPeerRunAgentSet        RPCMethod = "peer.run.agent.set"
+	RPCMethodPeerRunReload          RPCMethod = "peer.run.reload"
+	RPCMethodPeerRunStatus          RPCMethod = "peer.run.status"
+	RPCMethodPeerRunStop            RPCMethod = "peer.run.stop"
+	RPCMethodPeerRuntimeGet         RPCMethod = "peer.runtime.get"
+	RPCMethodPeerSpeedTestRun       RPCMethod = "peer.speed_test.run"
+	RPCMethodPeerStatusGet          RPCMethod = "peer.status.get"
+	RPCMethodPeerStatusPut          RPCMethod = "peer.status.put"
+	RPCMethodPetCreate              RPCMethod = "pet.create"
+	RPCMethodPetDelete              RPCMethod = "pet.delete"
+	RPCMethodPetFeed                RPCMethod = "pet.feed"
+	RPCMethodPetGet                 RPCMethod = "pet.get"
+	RPCMethodPetLevelUp             RPCMethod = "pet.level-up"
+	RPCMethodPetList                RPCMethod = "pet.list"
+	RPCMethodPetPlay                RPCMethod = "pet.play"
+	RPCMethodPetPut                 RPCMethod = "pet.put"
+	RPCMethodRewardClaim            RPCMethod = "reward.claim"
+	RPCMethodRewardCreate           RPCMethod = "reward.create"
+	RPCMethodRewardGet              RPCMethod = "reward.get"
+	RPCMethodRewardList             RPCMethod = "reward.list"
+	RPCMethodServerInfoGet          RPCMethod = "server.info.get"
+	RPCMethodWalletGet              RPCMethod = "wallet.get"
+	RPCMethodWalletTransactionsList RPCMethod = "wallet.transactions.list"
+	RPCMethodWorkflowCreate         RPCMethod = "workflow.create"
+	RPCMethodWorkflowDelete         RPCMethod = "workflow.delete"
+	RPCMethodWorkflowGet            RPCMethod = "workflow.get"
+	RPCMethodWorkflowList           RPCMethod = "workflow.list"
+	RPCMethodWorkflowPut            RPCMethod = "workflow.put"
+	RPCMethodWorkspaceCreate        RPCMethod = "workspace.create"
+	RPCMethodWorkspaceDelete        RPCMethod = "workspace.delete"
+	RPCMethodWorkspaceGet           RPCMethod = "workspace.get"
+	RPCMethodWorkspaceList          RPCMethod = "workspace.list"
+	RPCMethodWorkspacePut           RPCMethod = "workspace.put"
 )
 
 // Valid indicates whether the value is a known member of the RPCMethod enum.
 func (e RPCMethod) Valid() bool {
 	switch e {
+	case RPCMethodAudioSay:
+		return true
+	case RPCMethodCallAnswer:
+		return true
+	case RPCMethodCallCreate:
+		return true
+	case RPCMethodCallEnd:
+		return true
+	case RPCMethodCallGet:
+		return true
+	case RPCMethodCallList:
+		return true
+	case RPCMethodCallReject:
+		return true
+	case RPCMethodContactBlock:
+		return true
+	case RPCMethodContactCreate:
+		return true
+	case RPCMethodContactDelete:
+		return true
+	case RPCMethodContactGet:
+		return true
+	case RPCMethodContactList:
+		return true
+	case RPCMethodContactPut:
+		return true
+	case RPCMethodContactUnblock:
+		return true
+	case RPCMethodCredentialCreate:
+		return true
+	case RPCMethodCredentialDelete:
+		return true
+	case RPCMethodCredentialGet:
+		return true
+	case RPCMethodCredentialList:
+		return true
+	case RPCMethodCredentialPut:
+		return true
 	case RPCMethodDeviceIdentifiersGet:
 		return true
 	case RPCMethodDeviceInfoGet:
+		return true
+	case RPCMethodFriendDelete:
+		return true
+	case RPCMethodFriendList:
+		return true
+	case RPCMethodFriendRequestsAccept:
+		return true
+	case RPCMethodFriendRequestsCreate:
+		return true
+	case RPCMethodFriendRequestsList:
+		return true
+	case RPCMethodFriendRequestsReject:
+		return true
+	case RPCMethodGameResultsCreate:
+		return true
+	case RPCMethodGroupCreate:
+		return true
+	case RPCMethodGroupDelete:
+		return true
+	case RPCMethodGroupGet:
+		return true
+	case RPCMethodGroupList:
+		return true
+	case RPCMethodGroupMembersAdd:
+		return true
+	case RPCMethodGroupMembersDelete:
+		return true
+	case RPCMethodGroupMembersList:
+		return true
+	case RPCMethodGroupMessagesList:
+		return true
+	case RPCMethodGroupMessagesSend:
+		return true
+	case RPCMethodGroupPut:
+		return true
+	case RPCMethodModelCreate:
+		return true
+	case RPCMethodModelDelete:
+		return true
+	case RPCMethodModelGet:
+		return true
+	case RPCMethodModelList:
+		return true
+	case RPCMethodModelPut:
 		return true
 	case RPCMethodPeerInfoGet:
 		return true
@@ -68,11 +366,73 @@ func (e RPCMethod) Valid() bool {
 		return true
 	case RPCMethodPeerPing:
 		return true
+	case RPCMethodPeerRunAgentGet:
+		return true
+	case RPCMethodPeerRunAgentSet:
+		return true
+	case RPCMethodPeerRunReload:
+		return true
+	case RPCMethodPeerRunStatus:
+		return true
+	case RPCMethodPeerRunStop:
+		return true
 	case RPCMethodPeerRuntimeGet:
 		return true
 	case RPCMethodPeerSpeedTestRun:
 		return true
+	case RPCMethodPeerStatusGet:
+		return true
+	case RPCMethodPeerStatusPut:
+		return true
+	case RPCMethodPetCreate:
+		return true
+	case RPCMethodPetDelete:
+		return true
+	case RPCMethodPetFeed:
+		return true
+	case RPCMethodPetGet:
+		return true
+	case RPCMethodPetLevelUp:
+		return true
+	case RPCMethodPetList:
+		return true
+	case RPCMethodPetPlay:
+		return true
+	case RPCMethodPetPut:
+		return true
+	case RPCMethodRewardClaim:
+		return true
+	case RPCMethodRewardCreate:
+		return true
+	case RPCMethodRewardGet:
+		return true
+	case RPCMethodRewardList:
+		return true
 	case RPCMethodServerInfoGet:
+		return true
+	case RPCMethodWalletGet:
+		return true
+	case RPCMethodWalletTransactionsList:
+		return true
+	case RPCMethodWorkflowCreate:
+		return true
+	case RPCMethodWorkflowDelete:
+		return true
+	case RPCMethodWorkflowGet:
+		return true
+	case RPCMethodWorkflowList:
+		return true
+	case RPCMethodWorkflowPut:
+		return true
+	case RPCMethodWorkspaceCreate:
+		return true
+	case RPCMethodWorkspaceDelete:
+		return true
+	case RPCMethodWorkspaceGet:
+		return true
+	case RPCMethodWorkspaceList:
+		return true
+	case RPCMethodWorkspacePut:
 		return true
 	default:
 		return false
@@ -94,6 +454,242 @@ func (e RPCVersion) Valid() bool {
 	}
 }
 
+// Defines values for WorkflowAPIVersion.
+const (
+	WorkflowAPIVersionGizclawFlowcraftv1alpha1 WorkflowAPIVersion = "gizclaw.flowcraft/v1alpha1"
+)
+
+// Valid indicates whether the value is a known member of the WorkflowAPIVersion enum.
+func (e WorkflowAPIVersion) Valid() bool {
+	switch e {
+	case WorkflowAPIVersionGizclawFlowcraftv1alpha1:
+		return true
+	default:
+		return false
+	}
+}
+
+// AgentSelection defines model for AgentSelection.
+type AgentSelection struct {
+	WorkspaceName string `json:"workspace_name"`
+}
+
+// AudioSayRequest defines model for AudioSayRequest.
+type AudioSayRequest struct {
+	CredentialName *string `json:"credential_name,omitempty"`
+	ModelId        *string `json:"model_id,omitempty"`
+	Text           string  `json:"text"`
+	VoiceId        *string `json:"voice_id,omitempty"`
+}
+
+// AudioSayResponse defines model for AudioSayResponse.
+type AudioSayResponse struct {
+	Accepted bool `json:"accepted"`
+}
+
+// CallAnswerRequest defines model for CallAnswerRequest.
+type CallAnswerRequest struct {
+	Id string `json:"id"`
+}
+
+// CallAnswerResponse defines model for CallAnswerResponse.
+type CallAnswerResponse = CallObject
+
+// CallCreateRequest defines model for CallCreateRequest.
+type CallCreateRequest struct {
+	Body map[string]interface{} `json:"body"`
+}
+
+// CallCreateResponse defines model for CallCreateResponse.
+type CallCreateResponse = CallObject
+
+// CallEndRequest defines model for CallEndRequest.
+type CallEndRequest struct {
+	Id string `json:"id"`
+}
+
+// CallEndResponse defines model for CallEndResponse.
+type CallEndResponse = CallObject
+
+// CallGetRequest defines model for CallGetRequest.
+type CallGetRequest struct {
+	Id string `json:"id"`
+}
+
+// CallGetResponse defines model for CallGetResponse.
+type CallGetResponse = CallObject
+
+// CallListRequest defines model for CallListRequest.
+type CallListRequest struct {
+	Cursor *string `json:"cursor,omitempty"`
+	Limit  *int    `json:"limit,omitempty"`
+}
+
+// CallListResponse defines model for CallListResponse.
+type CallListResponse struct {
+	HasNext    bool         `json:"has_next"`
+	Items      []CallObject `json:"items"`
+	NextCursor *string      `json:"next_cursor,omitempty"`
+}
+
+// CallObject defines model for CallObject.
+type CallObject struct {
+	Body      *map[string]interface{} `json:"body,omitempty"`
+	CreatedAt *time.Time              `json:"created_at,omitempty"`
+	Id        *string                 `json:"id,omitempty"`
+	UpdatedAt *time.Time              `json:"updated_at,omitempty"`
+}
+
+// CallRejectRequest defines model for CallRejectRequest.
+type CallRejectRequest struct {
+	Id string `json:"id"`
+}
+
+// CallRejectResponse defines model for CallRejectResponse.
+type CallRejectResponse = CallObject
+
+// ContactBlockRequest defines model for ContactBlockRequest.
+type ContactBlockRequest struct {
+	Id string `json:"id"`
+}
+
+// ContactBlockResponse defines model for ContactBlockResponse.
+type ContactBlockResponse = ContactObject
+
+// ContactCreateRequest defines model for ContactCreateRequest.
+type ContactCreateRequest struct {
+	Body map[string]interface{} `json:"body"`
+}
+
+// ContactCreateResponse defines model for ContactCreateResponse.
+type ContactCreateResponse = ContactObject
+
+// ContactDeleteRequest defines model for ContactDeleteRequest.
+type ContactDeleteRequest struct {
+	Id string `json:"id"`
+}
+
+// ContactDeleteResponse defines model for ContactDeleteResponse.
+type ContactDeleteResponse = ContactObject
+
+// ContactGetRequest defines model for ContactGetRequest.
+type ContactGetRequest struct {
+	Id string `json:"id"`
+}
+
+// ContactGetResponse defines model for ContactGetResponse.
+type ContactGetResponse = ContactObject
+
+// ContactListRequest defines model for ContactListRequest.
+type ContactListRequest struct {
+	Cursor *string `json:"cursor,omitempty"`
+	Limit  *int    `json:"limit,omitempty"`
+}
+
+// ContactListResponse defines model for ContactListResponse.
+type ContactListResponse struct {
+	HasNext    bool            `json:"has_next"`
+	Items      []ContactObject `json:"items"`
+	NextCursor *string         `json:"next_cursor,omitempty"`
+}
+
+// ContactObject defines model for ContactObject.
+type ContactObject struct {
+	Body      *map[string]interface{} `json:"body,omitempty"`
+	CreatedAt *time.Time              `json:"created_at,omitempty"`
+	Id        *string                 `json:"id,omitempty"`
+	UpdatedAt *time.Time              `json:"updated_at,omitempty"`
+}
+
+// ContactPutRequest defines model for ContactPutRequest.
+type ContactPutRequest struct {
+	Body map[string]interface{} `json:"body"`
+	Id   string                 `json:"id"`
+}
+
+// ContactPutResponse defines model for ContactPutResponse.
+type ContactPutResponse = ContactObject
+
+// ContactUnblockRequest defines model for ContactUnblockRequest.
+type ContactUnblockRequest struct {
+	Id string `json:"id"`
+}
+
+// ContactUnblockResponse defines model for ContactUnblockResponse.
+type ContactUnblockResponse = ContactObject
+
+// Credential defines model for Credential.
+type Credential struct {
+	Body        CredentialBody `json:"body"`
+	CreatedAt   time.Time      `json:"created_at"`
+	Description *string        `json:"description,omitempty"`
+
+	// Method Credential authentication method
+	Method    CredentialMethod `json:"method"`
+	Name      string           `json:"name"`
+	Provider  string           `json:"provider"`
+	UpdatedAt time.Time        `json:"updated_at"`
+}
+
+// CredentialBody defines model for CredentialBody.
+type CredentialBody map[string]interface{}
+
+// CredentialCreateRequest defines model for CredentialCreateRequest.
+type CredentialCreateRequest = Credential
+
+// CredentialCreateResponse defines model for CredentialCreateResponse.
+type CredentialCreateResponse = Credential
+
+// CredentialDeleteRequest defines model for CredentialDeleteRequest.
+type CredentialDeleteRequest struct {
+	Name string `json:"name"`
+}
+
+// CredentialDeleteResponse defines model for CredentialDeleteResponse.
+type CredentialDeleteResponse = Credential
+
+// CredentialGetRequest defines model for CredentialGetRequest.
+type CredentialGetRequest struct {
+	Name string `json:"name"`
+}
+
+// CredentialGetResponse defines model for CredentialGetResponse.
+type CredentialGetResponse = Credential
+
+// CredentialListRequest defines model for CredentialListRequest.
+type CredentialListRequest struct {
+	Cursor *string `json:"cursor,omitempty"`
+	Limit  *int    `json:"limit,omitempty"`
+}
+
+// CredentialListResponse defines model for CredentialListResponse.
+type CredentialListResponse struct {
+	HasNext    bool         `json:"has_next"`
+	Items      []Credential `json:"items"`
+	NextCursor *string      `json:"next_cursor,omitempty"`
+}
+
+// CredentialMethod Credential authentication method
+type CredentialMethod string
+
+// CredentialPutRequest defines model for CredentialPutRequest.
+type CredentialPutRequest struct {
+	Body Credential `json:"body"`
+	Name string     `json:"name"`
+}
+
+// CredentialPutResponse defines model for CredentialPutResponse.
+type CredentialPutResponse = Credential
+
+// DashScopeTenantModelProviderData defines model for DashScopeTenantModelProviderData.
+type DashScopeTenantModelProviderData struct {
+	ApiMode       *DashScopeTenantModelProviderDataApiMode `json:"api_mode,omitempty"`
+	UpstreamModel *string                                  `json:"upstream_model,omitempty"`
+}
+
+// DashScopeTenantModelProviderDataApiMode defines model for DashScopeTenantModelProviderData.ApiMode.
+type DashScopeTenantModelProviderDataApiMode string
+
 // DeviceGetIdentifiersRequest defines model for DeviceGetIdentifiersRequest.
 type DeviceGetIdentifiersRequest = map[string]interface{}
 
@@ -113,6 +709,110 @@ type DeviceInfo struct {
 	Sn       *string       `json:"sn,omitempty"`
 }
 
+// FlowcraftWorkflow defines model for FlowcraftWorkflow.
+type FlowcraftWorkflow struct {
+	ApiVersion WorkflowAPIVersion    `json:"apiVersion"`
+	Kind       FlowcraftWorkflowKind `json:"kind"`
+	Metadata   WorkflowMetadata      `json:"metadata"`
+	Spec       FlowcraftWorkflowSpec `json:"spec"`
+}
+
+// FlowcraftWorkflowKind defines model for FlowcraftWorkflow.Kind.
+type FlowcraftWorkflowKind string
+
+// FlowcraftWorkflowSpec defines model for FlowcraftWorkflowSpec.
+type FlowcraftWorkflowSpec map[string]interface{}
+
+// FriendDeleteRequest defines model for FriendDeleteRequest.
+type FriendDeleteRequest struct {
+	Id string `json:"id"`
+}
+
+// FriendDeleteResponse defines model for FriendDeleteResponse.
+type FriendDeleteResponse = FriendObject
+
+// FriendListRequest defines model for FriendListRequest.
+type FriendListRequest struct {
+	Cursor *string `json:"cursor,omitempty"`
+	Limit  *int    `json:"limit,omitempty"`
+}
+
+// FriendListResponse defines model for FriendListResponse.
+type FriendListResponse struct {
+	HasNext    bool           `json:"has_next"`
+	Items      []FriendObject `json:"items"`
+	NextCursor *string        `json:"next_cursor,omitempty"`
+}
+
+// FriendObject defines model for FriendObject.
+type FriendObject struct {
+	Body      *map[string]interface{} `json:"body,omitempty"`
+	CreatedAt *time.Time              `json:"created_at,omitempty"`
+	Id        *string                 `json:"id,omitempty"`
+	UpdatedAt *time.Time              `json:"updated_at,omitempty"`
+}
+
+// FriendRequestAcceptRequest defines model for FriendRequestAcceptRequest.
+type FriendRequestAcceptRequest struct {
+	Id string `json:"id"`
+}
+
+// FriendRequestAcceptResponse defines model for FriendRequestAcceptResponse.
+type FriendRequestAcceptResponse = FriendRequestObject
+
+// FriendRequestCreateRequest defines model for FriendRequestCreateRequest.
+type FriendRequestCreateRequest struct {
+	Body map[string]interface{} `json:"body"`
+}
+
+// FriendRequestCreateResponse defines model for FriendRequestCreateResponse.
+type FriendRequestCreateResponse = FriendRequestObject
+
+// FriendRequestListRequest defines model for FriendRequestListRequest.
+type FriendRequestListRequest struct {
+	Cursor *string `json:"cursor,omitempty"`
+	Limit  *int    `json:"limit,omitempty"`
+}
+
+// FriendRequestListResponse defines model for FriendRequestListResponse.
+type FriendRequestListResponse struct {
+	HasNext    bool                  `json:"has_next"`
+	Items      []FriendRequestObject `json:"items"`
+	NextCursor *string               `json:"next_cursor,omitempty"`
+}
+
+// FriendRequestObject defines model for FriendRequestObject.
+type FriendRequestObject struct {
+	Body      *map[string]interface{} `json:"body,omitempty"`
+	CreatedAt *time.Time              `json:"created_at,omitempty"`
+	Id        *string                 `json:"id,omitempty"`
+	UpdatedAt *time.Time              `json:"updated_at,omitempty"`
+}
+
+// FriendRequestRejectRequest defines model for FriendRequestRejectRequest.
+type FriendRequestRejectRequest struct {
+	Id string `json:"id"`
+}
+
+// FriendRequestRejectResponse defines model for FriendRequestRejectResponse.
+type FriendRequestRejectResponse = FriendRequestObject
+
+// GameResultCreateRequest defines model for GameResultCreateRequest.
+type GameResultCreateRequest struct {
+	Body map[string]interface{} `json:"body"`
+}
+
+// GameResultCreateResponse defines model for GameResultCreateResponse.
+type GameResultCreateResponse = GameResultObject
+
+// GameResultObject defines model for GameResultObject.
+type GameResultObject struct {
+	Body      *map[string]interface{} `json:"body,omitempty"`
+	CreatedAt *time.Time              `json:"created_at,omitempty"`
+	Id        *string                 `json:"id,omitempty"`
+	UpdatedAt *time.Time              `json:"updated_at,omitempty"`
+}
+
 // GearIMEI defines model for GearIMEI.
 type GearIMEI struct {
 	Name   *string `json:"name,omitempty"`
@@ -126,6 +826,131 @@ type GearLabel struct {
 	Value string `json:"value"`
 }
 
+// GeminiTenantModelProviderData defines model for GeminiTenantModelProviderData.
+type GeminiTenantModelProviderData struct {
+	UpstreamModel *string `json:"upstream_model,omitempty"`
+}
+
+// GroupCreateRequest defines model for GroupCreateRequest.
+type GroupCreateRequest struct {
+	Body map[string]interface{} `json:"body"`
+}
+
+// GroupCreateResponse defines model for GroupCreateResponse.
+type GroupCreateResponse = GroupObject
+
+// GroupDeleteRequest defines model for GroupDeleteRequest.
+type GroupDeleteRequest struct {
+	Id string `json:"id"`
+}
+
+// GroupDeleteResponse defines model for GroupDeleteResponse.
+type GroupDeleteResponse = GroupObject
+
+// GroupGetRequest defines model for GroupGetRequest.
+type GroupGetRequest struct {
+	Id string `json:"id"`
+}
+
+// GroupGetResponse defines model for GroupGetResponse.
+type GroupGetResponse = GroupObject
+
+// GroupListRequest defines model for GroupListRequest.
+type GroupListRequest struct {
+	Cursor *string `json:"cursor,omitempty"`
+	Limit  *int    `json:"limit,omitempty"`
+}
+
+// GroupListResponse defines model for GroupListResponse.
+type GroupListResponse struct {
+	HasNext    bool          `json:"has_next"`
+	Items      []GroupObject `json:"items"`
+	NextCursor *string       `json:"next_cursor,omitempty"`
+}
+
+// GroupMemberAddRequest defines model for GroupMemberAddRequest.
+type GroupMemberAddRequest struct {
+	Body map[string]interface{} `json:"body"`
+}
+
+// GroupMemberAddResponse defines model for GroupMemberAddResponse.
+type GroupMemberAddResponse = GroupMemberObject
+
+// GroupMemberDeleteRequest defines model for GroupMemberDeleteRequest.
+type GroupMemberDeleteRequest struct {
+	Id string `json:"id"`
+}
+
+// GroupMemberDeleteResponse defines model for GroupMemberDeleteResponse.
+type GroupMemberDeleteResponse = GroupMemberObject
+
+// GroupMemberListRequest defines model for GroupMemberListRequest.
+type GroupMemberListRequest struct {
+	Cursor *string `json:"cursor,omitempty"`
+	Limit  *int    `json:"limit,omitempty"`
+}
+
+// GroupMemberListResponse defines model for GroupMemberListResponse.
+type GroupMemberListResponse struct {
+	HasNext    bool                `json:"has_next"`
+	Items      []GroupMemberObject `json:"items"`
+	NextCursor *string             `json:"next_cursor,omitempty"`
+}
+
+// GroupMemberObject defines model for GroupMemberObject.
+type GroupMemberObject struct {
+	Body      *map[string]interface{} `json:"body,omitempty"`
+	CreatedAt *time.Time              `json:"created_at,omitempty"`
+	Id        *string                 `json:"id,omitempty"`
+	UpdatedAt *time.Time              `json:"updated_at,omitempty"`
+}
+
+// GroupMessageListRequest defines model for GroupMessageListRequest.
+type GroupMessageListRequest struct {
+	Cursor *string `json:"cursor,omitempty"`
+	Limit  *int    `json:"limit,omitempty"`
+}
+
+// GroupMessageListResponse defines model for GroupMessageListResponse.
+type GroupMessageListResponse struct {
+	HasNext    bool                 `json:"has_next"`
+	Items      []GroupMessageObject `json:"items"`
+	NextCursor *string              `json:"next_cursor,omitempty"`
+}
+
+// GroupMessageObject defines model for GroupMessageObject.
+type GroupMessageObject struct {
+	Body      *map[string]interface{} `json:"body,omitempty"`
+	CreatedAt *time.Time              `json:"created_at,omitempty"`
+	Id        *string                 `json:"id,omitempty"`
+	UpdatedAt *time.Time              `json:"updated_at,omitempty"`
+}
+
+// GroupMessageSendRequest defines model for GroupMessageSendRequest.
+type GroupMessageSendRequest struct {
+	Body map[string]interface{} `json:"body"`
+}
+
+// GroupMessageSendResponse defines model for GroupMessageSendResponse.
+type GroupMessageSendResponse = GroupMessageObject
+
+// GroupObject defines model for GroupObject.
+type GroupObject struct {
+	Body      *map[string]interface{} `json:"body,omitempty"`
+	CreatedAt *time.Time              `json:"created_at,omitempty"`
+	Id        *string                 `json:"id,omitempty"`
+	UpdatedAt *time.Time              `json:"updated_at,omitempty"`
+}
+
+// GroupPutRequest defines model for GroupPutRequest.
+type GroupPutRequest struct {
+	Body map[string]interface{} `json:"body"`
+	Id   string                 `json:"id"`
+}
+
+// GroupPutResponse defines model for GroupPutResponse.
+type GroupPutResponse = GroupObject
+
 // HardwareInfo defines model for HardwareInfo.
 type HardwareInfo struct {
 	HardwareRevision *string      `json:"hardware_revision,omitempty"`
@@ -135,11 +960,144 @@ type HardwareInfo struct {
 	Model            *string      `json:"model,omitempty"`
 }
 
+// Model defines model for Model.
+type Model struct {
+	Capabilities *ModelCapabilities `json:"capabilities,omitempty"`
+	CreatedAt    time.Time          `json:"created_at"`
+	Description  *string            `json:"description,omitempty"`
+	Id           string             `json:"id"`
+
+	// Kind Runtime role of a model.
+	Kind     ModelKind     `json:"kind"`
+	Name     *string       `json:"name,omitempty"`
+	Provider ModelProvider `json:"provider"`
+
+	// ProviderData Provider-specific model runtime configuration keyed by provider kind.
+	ProviderData *ModelProviderData `json:"provider_data,omitempty"`
+
+	// Source How the model entered the global catalog
+	Source    ModelSource `json:"source"`
+	SyncedAt  *time.Time  `json:"synced_at,omitempty"`
+	UpdatedAt time.Time   `json:"updated_at"`
+}
+
+// ModelCapabilities defines model for ModelCapabilities.
+type ModelCapabilities struct {
+	JsonOutput  *bool                    `json:"json_output,omitempty"`
+	SystemRole  *bool                    `json:"system_role,omitempty"`
+	Temperature *bool                    `json:"temperature,omitempty"`
+	TextOnly    *bool                    `json:"text_only,omitempty"`
+	Thinking    *ModelThinkingCapability `json:"thinking,omitempty"`
+	ToolCalls   *bool                    `json:"tool_calls,omitempty"`
+}
+
+// ModelCreateRequest defines model for ModelCreateRequest.
+type ModelCreateRequest = Model
+
+// ModelCreateResponse defines model for ModelCreateResponse.
+type ModelCreateResponse = Model
+
+// ModelDeleteRequest defines model for ModelDeleteRequest.
+type ModelDeleteRequest struct {
+	Id string `json:"id"`
+}
+
+// ModelDeleteResponse defines model for ModelDeleteResponse.
+type ModelDeleteResponse = Model
+
+// ModelGetRequest defines model for ModelGetRequest.
+type ModelGetRequest struct {
+	Id string `json:"id"`
+}
+
+// ModelGetResponse defines model for ModelGetResponse.
+type ModelGetResponse = Model
+
+// ModelKind Runtime role of a model.
+type ModelKind string
+
+// ModelListRequest defines model for ModelListRequest.
+type ModelListRequest struct {
+	Cursor *string `json:"cursor,omitempty"`
+	Limit  *int    `json:"limit,omitempty"`
+}
+
+// ModelListResponse defines model for ModelListResponse.
+type ModelListResponse struct {
+	HasNext    bool    `json:"has_next"`
+	Items      []Model `json:"items"`
+	NextCursor *string `json:"next_cursor,omitempty"`
+}
+
+// ModelProvider defines model for ModelProvider.
+type ModelProvider struct {
+	// Kind Provider resource kind usable by model runtime.
+	Kind ModelProviderKind `json:"kind"`
+	Name string            `json:"name"`
+}
+
+// ModelProviderData Provider-specific model runtime configuration keyed by provider kind.
+type ModelProviderData map[string]interface{}
+
+// ModelProviderKind Provider resource kind usable by model runtime.
+type ModelProviderKind string
+
+// ModelPutRequest defines model for ModelPutRequest.
+type ModelPutRequest struct {
+	Body Model  `json:"body"`
+	Id   string `json:"id"`
+}
+
+// ModelPutResponse defines model for ModelPutResponse.
+type ModelPutResponse = Model
+
+// ModelSource How the model entered the global catalog
+type ModelSource string
+
+// ModelThinkingCapability defines model for ModelThinkingCapability.
+type ModelThinkingCapability struct {
+	DefaultLevel *string `json:"default_level,omitempty"`
+
+	// LevelParam Optional provider request parameter used for the selected thinking level or budget.
+	LevelParam *string   `json:"level_param,omitempty"`
+	Levels     *[]string `json:"levels,omitempty"`
+
+	// Param Provider request parameter mapping, such as reasoning_effort, thinking.type, or enable_thinking.
+	Param     *string `json:"param,omitempty"`
+	Supported bool    `json:"supported"`
+}
+
+// OpenAITenantModelProviderData defines model for OpenAITenantModelProviderData.
+type OpenAITenantModelProviderData struct {
+	DefaultThinkingLevel *string   `json:"default_thinking_level,omitempty"`
+	SupportJsonOutput    *bool     `json:"support_json_output,omitempty"`
+	SupportTextOnly      *bool     `json:"support_text_only,omitempty"`
+	SupportThinking      *bool     `json:"support_thinking,omitempty"`
+	SupportToolCalls     *bool     `json:"support_tool_calls,omitempty"`
+	ThinkingLevelParam   *string   `json:"thinking_level_param,omitempty"`
+	ThinkingLevels       *[]string `json:"thinking_levels,omitempty"`
+	ThinkingParam        *string   `json:"thinking_param,omitempty"`
+	UpstreamModel        *string   `json:"upstream_model,omitempty"`
+	UseSystemRole        *bool     `json:"use_system_role,omitempty"`
+}
+
 // PeerGetInfoRequest defines model for PeerGetInfoRequest.
 type PeerGetInfoRequest = map[string]interface{}
 
 // PeerGetInfoResponse defines model for PeerGetInfoResponse.
 type PeerGetInfoResponse = DeviceInfo
+
+// PeerGetRunAgentRequest defines model for PeerGetRunAgentRequest.
+type PeerGetRunAgentRequest = map[string]interface{}
+
+// PeerGetRunAgentResponse defines model for PeerGetRunAgentResponse.
+type PeerGetRunAgentResponse = PeerRunAgent
+
+// PeerGetRunStatusRequest defines model for PeerGetRunStatusRequest.
+type PeerGetRunStatusRequest = map[string]interface{}
+
+// PeerGetRunStatusResponse defines model for PeerGetRunStatusResponse.
+type PeerGetRunStatusResponse = PeerRunStatus
 
 // PeerGetRuntimeRequest defines model for PeerGetRuntimeRequest.
 type PeerGetRuntimeRequest = map[string]interface{}
@@ -147,11 +1105,148 @@ type PeerGetRuntimeRequest = map[string]interface{}
 // PeerGetRuntimeResponse defines model for PeerGetRuntimeResponse.
 type PeerGetRuntimeResponse = Runtime
 
+// PeerGetStatusRequest defines model for PeerGetStatusRequest.
+type PeerGetStatusRequest = map[string]interface{}
+
+// PeerGetStatusResponse defines model for PeerGetStatusResponse.
+type PeerGetStatusResponse = PeerStatus
+
 // PeerPutInfoRequest defines model for PeerPutInfoRequest.
 type PeerPutInfoRequest = DeviceInfo
 
 // PeerPutInfoResponse defines model for PeerPutInfoResponse.
 type PeerPutInfoResponse = DeviceInfo
+
+// PeerPutStatusRequest defines model for PeerPutStatusRequest.
+type PeerPutStatusRequest = PeerStatus
+
+// PeerPutStatusResponse defines model for PeerPutStatusResponse.
+type PeerPutStatusResponse = PeerStatus
+
+// PeerReloadRunRequest defines model for PeerReloadRunRequest.
+type PeerReloadRunRequest = map[string]interface{}
+
+// PeerReloadRunResponse defines model for PeerReloadRunResponse.
+type PeerReloadRunResponse = PeerRunStatus
+
+// PeerRunAgent defines model for PeerRunAgent.
+type PeerRunAgent struct {
+	Active  *AgentSelection `json:"active,omitempty"`
+	Pending *AgentSelection `json:"pending,omitempty"`
+}
+
+// PeerRunStatus defines model for PeerRunStatus.
+type PeerRunStatus struct {
+	Message       *string            `json:"message,omitempty"`
+	StartedAt     *time.Time         `json:"started_at,omitempty"`
+	State         PeerRunStatusState `json:"state"`
+	UpdatedAt     *time.Time         `json:"updated_at,omitempty"`
+	WorkspaceName *string            `json:"workspace_name,omitempty"`
+}
+
+// PeerRunStatusState defines model for PeerRunStatusState.
+type PeerRunStatusState string
+
+// PeerSetRunAgentRequest defines model for PeerSetRunAgentRequest.
+type PeerSetRunAgentRequest = AgentSelection
+
+// PeerSetRunAgentResponse defines model for PeerSetRunAgentResponse.
+type PeerSetRunAgentResponse = PeerRunAgent
+
+// PeerStatus defines model for PeerStatus.
+type PeerStatus struct {
+	BatteryPercent *int                    `json:"battery_percent,omitempty"`
+	Charging       *bool                   `json:"charging,omitempty"`
+	Details        *map[string]interface{} `json:"details,omitempty"`
+	Labels         *map[string]string      `json:"labels,omitempty"`
+	Muted          *bool                   `json:"muted,omitempty"`
+	ReportedAt     *time.Time              `json:"reported_at,omitempty"`
+	Volume         *int                    `json:"volume,omitempty"`
+}
+
+// PeerStopRunRequest defines model for PeerStopRunRequest.
+type PeerStopRunRequest = map[string]interface{}
+
+// PeerStopRunResponse defines model for PeerStopRunResponse.
+type PeerStopRunResponse = PeerRunStatus
+
+// PetCreateRequest defines model for PetCreateRequest.
+type PetCreateRequest struct {
+	Body map[string]interface{} `json:"body"`
+}
+
+// PetCreateResponse defines model for PetCreateResponse.
+type PetCreateResponse = PetObject
+
+// PetDeleteRequest defines model for PetDeleteRequest.
+type PetDeleteRequest struct {
+	Id string `json:"id"`
+}
+
+// PetDeleteResponse defines model for PetDeleteResponse.
+type PetDeleteResponse = PetObject
+
+// PetFeedRequest defines model for PetFeedRequest.
+type PetFeedRequest struct {
+	Id string `json:"id"`
+}
+
+// PetFeedResponse defines model for PetFeedResponse.
+type PetFeedResponse = PetObject
+
+// PetGetRequest defines model for PetGetRequest.
+type PetGetRequest struct {
+	Id string `json:"id"`
+}
+
+// PetGetResponse defines model for PetGetResponse.
+type PetGetResponse = PetObject
+
+// PetLevelUpRequest defines model for PetLevelUpRequest.
+type PetLevelUpRequest struct {
+	Id string `json:"id"`
+}
+
+// PetLevelUpResponse defines model for PetLevelUpResponse.
+type PetLevelUpResponse = PetObject
+
+// PetListRequest defines model for PetListRequest.
+type PetListRequest struct {
+	Cursor *string `json:"cursor,omitempty"`
+	Limit  *int    `json:"limit,omitempty"`
+}
+
+// PetListResponse defines model for PetListResponse.
+type PetListResponse struct {
+	HasNext    bool        `json:"has_next"`
+	Items      []PetObject `json:"items"`
+	NextCursor *string     `json:"next_cursor,omitempty"`
+}
+
+// PetObject defines model for PetObject.
+type PetObject struct {
+	Body      *map[string]interface{} `json:"body,omitempty"`
+	CreatedAt *time.Time              `json:"created_at,omitempty"`
+	Id        *string                 `json:"id,omitempty"`
+	UpdatedAt *time.Time              `json:"updated_at,omitempty"`
+}
+
+// PetPlayRequest defines model for PetPlayRequest.
+type PetPlayRequest struct {
+	Id string `json:"id"`
+}
+
+// PetPlayResponse defines model for PetPlayResponse.
+type PetPlayResponse = PetObject
+
+// PetPutRequest defines model for PetPutRequest.
+type PetPutRequest struct {
+	Body map[string]interface{} `json:"body"`
+	Id   string                 `json:"id"`
+}
+
+// PetPutResponse defines model for PetPutResponse.
+type PetPutResponse = PetObject
 
 // PingRequest defines model for PingRequest.
 type PingRequest struct {
@@ -219,6 +1314,51 @@ type RefreshInfo struct {
 	Name             *string `json:"name,omitempty"`
 }
 
+// RewardClaimRequest defines model for RewardClaimRequest.
+type RewardClaimRequest struct {
+	Id string `json:"id"`
+}
+
+// RewardClaimResponse defines model for RewardClaimResponse.
+type RewardClaimResponse = RewardObject
+
+// RewardCreateRequest defines model for RewardCreateRequest.
+type RewardCreateRequest struct {
+	Body map[string]interface{} `json:"body"`
+}
+
+// RewardCreateResponse defines model for RewardCreateResponse.
+type RewardCreateResponse = RewardObject
+
+// RewardGetRequest defines model for RewardGetRequest.
+type RewardGetRequest struct {
+	Id string `json:"id"`
+}
+
+// RewardGetResponse defines model for RewardGetResponse.
+type RewardGetResponse = RewardObject
+
+// RewardListRequest defines model for RewardListRequest.
+type RewardListRequest struct {
+	Cursor *string `json:"cursor,omitempty"`
+	Limit  *int    `json:"limit,omitempty"`
+}
+
+// RewardListResponse defines model for RewardListResponse.
+type RewardListResponse struct {
+	HasNext    bool           `json:"has_next"`
+	Items      []RewardObject `json:"items"`
+	NextCursor *string        `json:"next_cursor,omitempty"`
+}
+
+// RewardObject defines model for RewardObject.
+type RewardObject struct {
+	Body      *map[string]interface{} `json:"body,omitempty"`
+	CreatedAt *time.Time              `json:"created_at,omitempty"`
+	Id        *string                 `json:"id,omitempty"`
+	UpdatedAt *time.Time              `json:"updated_at,omitempty"`
+}
+
 // Runtime defines model for Runtime.
 type Runtime struct {
 	LastAddr   *string   `json:"last_addr,omitempty"`
@@ -252,6 +1392,150 @@ type SpeedTestResponse struct {
 	DownContentLength int64 `json:"down_content_length"`
 	UpContentLength   int64 `json:"up_content_length"`
 }
+
+// WalletGetRequest defines model for WalletGetRequest.
+type WalletGetRequest = map[string]interface{}
+
+// WalletGetResponse defines model for WalletGetResponse.
+type WalletGetResponse = WalletObject
+
+// WalletObject defines model for WalletObject.
+type WalletObject struct {
+	Balance   *int64     `json:"balance,omitempty"`
+	PublicKey *string    `json:"public_key,omitempty"`
+	UpdatedAt *time.Time `json:"updated_at,omitempty"`
+}
+
+// WalletTransactionObject defines model for WalletTransactionObject.
+type WalletTransactionObject struct {
+	Amount    *int64                  `json:"amount,omitempty"`
+	Body      *map[string]interface{} `json:"body,omitempty"`
+	CreatedAt *time.Time              `json:"created_at,omitempty"`
+	Id        *string                 `json:"id,omitempty"`
+	Reason    *string                 `json:"reason,omitempty"`
+}
+
+// WalletTransactionsListRequest defines model for WalletTransactionsListRequest.
+type WalletTransactionsListRequest struct {
+	Cursor *string `json:"cursor,omitempty"`
+	Limit  *int    `json:"limit,omitempty"`
+}
+
+// WalletTransactionsListResponse defines model for WalletTransactionsListResponse.
+type WalletTransactionsListResponse struct {
+	HasNext    bool                      `json:"has_next"`
+	Items      []WalletTransactionObject `json:"items"`
+	NextCursor *string                   `json:"next_cursor,omitempty"`
+}
+
+// WorkflowAPIVersion defines model for WorkflowAPIVersion.
+type WorkflowAPIVersion string
+
+// WorkflowCreateRequest defines model for WorkflowCreateRequest.
+type WorkflowCreateRequest = WorkflowDocument
+
+// WorkflowCreateResponse defines model for WorkflowCreateResponse.
+type WorkflowCreateResponse = WorkflowDocument
+
+// WorkflowDeleteRequest defines model for WorkflowDeleteRequest.
+type WorkflowDeleteRequest struct {
+	Name string `json:"name"`
+}
+
+// WorkflowDeleteResponse defines model for WorkflowDeleteResponse.
+type WorkflowDeleteResponse = WorkflowDocument
+
+// WorkflowDocument defines model for WorkflowDocument.
+type WorkflowDocument = FlowcraftWorkflow
+
+// WorkflowGetRequest defines model for WorkflowGetRequest.
+type WorkflowGetRequest struct {
+	Name string `json:"name"`
+}
+
+// WorkflowGetResponse defines model for WorkflowGetResponse.
+type WorkflowGetResponse = WorkflowDocument
+
+// WorkflowListRequest defines model for WorkflowListRequest.
+type WorkflowListRequest struct {
+	Cursor *string `json:"cursor,omitempty"`
+	Limit  *int    `json:"limit,omitempty"`
+}
+
+// WorkflowListResponse defines model for WorkflowListResponse.
+type WorkflowListResponse struct {
+	HasNext    bool               `json:"has_next"`
+	Items      []WorkflowDocument `json:"items"`
+	NextCursor *string            `json:"next_cursor,omitempty"`
+}
+
+// WorkflowMetadata defines model for WorkflowMetadata.
+type WorkflowMetadata struct {
+	Description *string `json:"description,omitempty"`
+	Name        string  `json:"name"`
+}
+
+// WorkflowPutRequest defines model for WorkflowPutRequest.
+type WorkflowPutRequest struct {
+	Body WorkflowDocument `json:"body"`
+	Name string           `json:"name"`
+}
+
+// WorkflowPutResponse defines model for WorkflowPutResponse.
+type WorkflowPutResponse = WorkflowDocument
+
+// Workspace defines model for Workspace.
+type Workspace struct {
+	CreatedAt    time.Time               `json:"created_at"`
+	Name         string                  `json:"name"`
+	Parameters   *map[string]interface{} `json:"parameters,omitempty"`
+	UpdatedAt    time.Time               `json:"updated_at"`
+	WorkflowName string                  `json:"workflow_name"`
+}
+
+// WorkspaceCreateRequest defines model for WorkspaceCreateRequest.
+type WorkspaceCreateRequest = Workspace
+
+// WorkspaceCreateResponse defines model for WorkspaceCreateResponse.
+type WorkspaceCreateResponse = Workspace
+
+// WorkspaceDeleteRequest defines model for WorkspaceDeleteRequest.
+type WorkspaceDeleteRequest struct {
+	Name string `json:"name"`
+}
+
+// WorkspaceDeleteResponse defines model for WorkspaceDeleteResponse.
+type WorkspaceDeleteResponse = Workspace
+
+// WorkspaceGetRequest defines model for WorkspaceGetRequest.
+type WorkspaceGetRequest struct {
+	Name string `json:"name"`
+}
+
+// WorkspaceGetResponse defines model for WorkspaceGetResponse.
+type WorkspaceGetResponse = Workspace
+
+// WorkspaceListRequest defines model for WorkspaceListRequest.
+type WorkspaceListRequest struct {
+	Cursor *string `json:"cursor,omitempty"`
+	Limit  *int    `json:"limit,omitempty"`
+}
+
+// WorkspaceListResponse defines model for WorkspaceListResponse.
+type WorkspaceListResponse struct {
+	HasNext    bool        `json:"has_next"`
+	Items      []Workspace `json:"items"`
+	NextCursor *string     `json:"next_cursor,omitempty"`
+}
+
+// WorkspacePutRequest defines model for WorkspacePutRequest.
+type WorkspacePutRequest struct {
+	Body Workspace `json:"body"`
+	Name string    `json:"name"`
+}
+
+// WorkspacePutResponse defines model for WorkspacePutResponse.
+type WorkspacePutResponse = Workspace
 
 // AsPingRequest returns the union data inside the RPCRequest_Params as a PingRequest
 func (t RPCRequest_Params) AsPingRequest() (PingRequest, error) {
@@ -451,6 +1735,1878 @@ func (t *RPCRequest_Params) FromPeerGetRuntimeRequest(v PeerGetRuntimeRequest) e
 
 // MergePeerGetRuntimeRequest performs a merge with any union data inside the RPCRequest_Params, using the provided PeerGetRuntimeRequest
 func (t *RPCRequest_Params) MergePeerGetRuntimeRequest(v PeerGetRuntimeRequest) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsPeerGetStatusRequest returns the union data inside the RPCRequest_Params as a PeerGetStatusRequest
+func (t RPCRequest_Params) AsPeerGetStatusRequest() (PeerGetStatusRequest, error) {
+	var body PeerGetStatusRequest
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromPeerGetStatusRequest overwrites any union data inside the RPCRequest_Params as the provided PeerGetStatusRequest
+func (t *RPCRequest_Params) FromPeerGetStatusRequest(v PeerGetStatusRequest) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergePeerGetStatusRequest performs a merge with any union data inside the RPCRequest_Params, using the provided PeerGetStatusRequest
+func (t *RPCRequest_Params) MergePeerGetStatusRequest(v PeerGetStatusRequest) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsPeerPutStatusRequest returns the union data inside the RPCRequest_Params as a PeerPutStatusRequest
+func (t RPCRequest_Params) AsPeerPutStatusRequest() (PeerPutStatusRequest, error) {
+	var body PeerPutStatusRequest
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromPeerPutStatusRequest overwrites any union data inside the RPCRequest_Params as the provided PeerPutStatusRequest
+func (t *RPCRequest_Params) FromPeerPutStatusRequest(v PeerPutStatusRequest) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergePeerPutStatusRequest performs a merge with any union data inside the RPCRequest_Params, using the provided PeerPutStatusRequest
+func (t *RPCRequest_Params) MergePeerPutStatusRequest(v PeerPutStatusRequest) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsPeerGetRunAgentRequest returns the union data inside the RPCRequest_Params as a PeerGetRunAgentRequest
+func (t RPCRequest_Params) AsPeerGetRunAgentRequest() (PeerGetRunAgentRequest, error) {
+	var body PeerGetRunAgentRequest
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromPeerGetRunAgentRequest overwrites any union data inside the RPCRequest_Params as the provided PeerGetRunAgentRequest
+func (t *RPCRequest_Params) FromPeerGetRunAgentRequest(v PeerGetRunAgentRequest) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergePeerGetRunAgentRequest performs a merge with any union data inside the RPCRequest_Params, using the provided PeerGetRunAgentRequest
+func (t *RPCRequest_Params) MergePeerGetRunAgentRequest(v PeerGetRunAgentRequest) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsPeerSetRunAgentRequest returns the union data inside the RPCRequest_Params as a PeerSetRunAgentRequest
+func (t RPCRequest_Params) AsPeerSetRunAgentRequest() (PeerSetRunAgentRequest, error) {
+	var body PeerSetRunAgentRequest
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromPeerSetRunAgentRequest overwrites any union data inside the RPCRequest_Params as the provided PeerSetRunAgentRequest
+func (t *RPCRequest_Params) FromPeerSetRunAgentRequest(v PeerSetRunAgentRequest) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergePeerSetRunAgentRequest performs a merge with any union data inside the RPCRequest_Params, using the provided PeerSetRunAgentRequest
+func (t *RPCRequest_Params) MergePeerSetRunAgentRequest(v PeerSetRunAgentRequest) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsPeerReloadRunRequest returns the union data inside the RPCRequest_Params as a PeerReloadRunRequest
+func (t RPCRequest_Params) AsPeerReloadRunRequest() (PeerReloadRunRequest, error) {
+	var body PeerReloadRunRequest
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromPeerReloadRunRequest overwrites any union data inside the RPCRequest_Params as the provided PeerReloadRunRequest
+func (t *RPCRequest_Params) FromPeerReloadRunRequest(v PeerReloadRunRequest) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergePeerReloadRunRequest performs a merge with any union data inside the RPCRequest_Params, using the provided PeerReloadRunRequest
+func (t *RPCRequest_Params) MergePeerReloadRunRequest(v PeerReloadRunRequest) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsPeerGetRunStatusRequest returns the union data inside the RPCRequest_Params as a PeerGetRunStatusRequest
+func (t RPCRequest_Params) AsPeerGetRunStatusRequest() (PeerGetRunStatusRequest, error) {
+	var body PeerGetRunStatusRequest
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromPeerGetRunStatusRequest overwrites any union data inside the RPCRequest_Params as the provided PeerGetRunStatusRequest
+func (t *RPCRequest_Params) FromPeerGetRunStatusRequest(v PeerGetRunStatusRequest) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergePeerGetRunStatusRequest performs a merge with any union data inside the RPCRequest_Params, using the provided PeerGetRunStatusRequest
+func (t *RPCRequest_Params) MergePeerGetRunStatusRequest(v PeerGetRunStatusRequest) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsPeerStopRunRequest returns the union data inside the RPCRequest_Params as a PeerStopRunRequest
+func (t RPCRequest_Params) AsPeerStopRunRequest() (PeerStopRunRequest, error) {
+	var body PeerStopRunRequest
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromPeerStopRunRequest overwrites any union data inside the RPCRequest_Params as the provided PeerStopRunRequest
+func (t *RPCRequest_Params) FromPeerStopRunRequest(v PeerStopRunRequest) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergePeerStopRunRequest performs a merge with any union data inside the RPCRequest_Params, using the provided PeerStopRunRequest
+func (t *RPCRequest_Params) MergePeerStopRunRequest(v PeerStopRunRequest) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsAudioSayRequest returns the union data inside the RPCRequest_Params as a AudioSayRequest
+func (t RPCRequest_Params) AsAudioSayRequest() (AudioSayRequest, error) {
+	var body AudioSayRequest
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromAudioSayRequest overwrites any union data inside the RPCRequest_Params as the provided AudioSayRequest
+func (t *RPCRequest_Params) FromAudioSayRequest(v AudioSayRequest) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeAudioSayRequest performs a merge with any union data inside the RPCRequest_Params, using the provided AudioSayRequest
+func (t *RPCRequest_Params) MergeAudioSayRequest(v AudioSayRequest) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsWorkspaceListRequest returns the union data inside the RPCRequest_Params as a WorkspaceListRequest
+func (t RPCRequest_Params) AsWorkspaceListRequest() (WorkspaceListRequest, error) {
+	var body WorkspaceListRequest
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromWorkspaceListRequest overwrites any union data inside the RPCRequest_Params as the provided WorkspaceListRequest
+func (t *RPCRequest_Params) FromWorkspaceListRequest(v WorkspaceListRequest) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeWorkspaceListRequest performs a merge with any union data inside the RPCRequest_Params, using the provided WorkspaceListRequest
+func (t *RPCRequest_Params) MergeWorkspaceListRequest(v WorkspaceListRequest) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsWorkspaceGetRequest returns the union data inside the RPCRequest_Params as a WorkspaceGetRequest
+func (t RPCRequest_Params) AsWorkspaceGetRequest() (WorkspaceGetRequest, error) {
+	var body WorkspaceGetRequest
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromWorkspaceGetRequest overwrites any union data inside the RPCRequest_Params as the provided WorkspaceGetRequest
+func (t *RPCRequest_Params) FromWorkspaceGetRequest(v WorkspaceGetRequest) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeWorkspaceGetRequest performs a merge with any union data inside the RPCRequest_Params, using the provided WorkspaceGetRequest
+func (t *RPCRequest_Params) MergeWorkspaceGetRequest(v WorkspaceGetRequest) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsWorkspaceCreateRequest returns the union data inside the RPCRequest_Params as a WorkspaceCreateRequest
+func (t RPCRequest_Params) AsWorkspaceCreateRequest() (WorkspaceCreateRequest, error) {
+	var body WorkspaceCreateRequest
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromWorkspaceCreateRequest overwrites any union data inside the RPCRequest_Params as the provided WorkspaceCreateRequest
+func (t *RPCRequest_Params) FromWorkspaceCreateRequest(v WorkspaceCreateRequest) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeWorkspaceCreateRequest performs a merge with any union data inside the RPCRequest_Params, using the provided WorkspaceCreateRequest
+func (t *RPCRequest_Params) MergeWorkspaceCreateRequest(v WorkspaceCreateRequest) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsWorkspacePutRequest returns the union data inside the RPCRequest_Params as a WorkspacePutRequest
+func (t RPCRequest_Params) AsWorkspacePutRequest() (WorkspacePutRequest, error) {
+	var body WorkspacePutRequest
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromWorkspacePutRequest overwrites any union data inside the RPCRequest_Params as the provided WorkspacePutRequest
+func (t *RPCRequest_Params) FromWorkspacePutRequest(v WorkspacePutRequest) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeWorkspacePutRequest performs a merge with any union data inside the RPCRequest_Params, using the provided WorkspacePutRequest
+func (t *RPCRequest_Params) MergeWorkspacePutRequest(v WorkspacePutRequest) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsWorkspaceDeleteRequest returns the union data inside the RPCRequest_Params as a WorkspaceDeleteRequest
+func (t RPCRequest_Params) AsWorkspaceDeleteRequest() (WorkspaceDeleteRequest, error) {
+	var body WorkspaceDeleteRequest
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromWorkspaceDeleteRequest overwrites any union data inside the RPCRequest_Params as the provided WorkspaceDeleteRequest
+func (t *RPCRequest_Params) FromWorkspaceDeleteRequest(v WorkspaceDeleteRequest) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeWorkspaceDeleteRequest performs a merge with any union data inside the RPCRequest_Params, using the provided WorkspaceDeleteRequest
+func (t *RPCRequest_Params) MergeWorkspaceDeleteRequest(v WorkspaceDeleteRequest) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsWorkflowListRequest returns the union data inside the RPCRequest_Params as a WorkflowListRequest
+func (t RPCRequest_Params) AsWorkflowListRequest() (WorkflowListRequest, error) {
+	var body WorkflowListRequest
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromWorkflowListRequest overwrites any union data inside the RPCRequest_Params as the provided WorkflowListRequest
+func (t *RPCRequest_Params) FromWorkflowListRequest(v WorkflowListRequest) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeWorkflowListRequest performs a merge with any union data inside the RPCRequest_Params, using the provided WorkflowListRequest
+func (t *RPCRequest_Params) MergeWorkflowListRequest(v WorkflowListRequest) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsWorkflowGetRequest returns the union data inside the RPCRequest_Params as a WorkflowGetRequest
+func (t RPCRequest_Params) AsWorkflowGetRequest() (WorkflowGetRequest, error) {
+	var body WorkflowGetRequest
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromWorkflowGetRequest overwrites any union data inside the RPCRequest_Params as the provided WorkflowGetRequest
+func (t *RPCRequest_Params) FromWorkflowGetRequest(v WorkflowGetRequest) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeWorkflowGetRequest performs a merge with any union data inside the RPCRequest_Params, using the provided WorkflowGetRequest
+func (t *RPCRequest_Params) MergeWorkflowGetRequest(v WorkflowGetRequest) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsWorkflowCreateRequest returns the union data inside the RPCRequest_Params as a WorkflowCreateRequest
+func (t RPCRequest_Params) AsWorkflowCreateRequest() (WorkflowCreateRequest, error) {
+	var body WorkflowCreateRequest
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromWorkflowCreateRequest overwrites any union data inside the RPCRequest_Params as the provided WorkflowCreateRequest
+func (t *RPCRequest_Params) FromWorkflowCreateRequest(v WorkflowCreateRequest) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeWorkflowCreateRequest performs a merge with any union data inside the RPCRequest_Params, using the provided WorkflowCreateRequest
+func (t *RPCRequest_Params) MergeWorkflowCreateRequest(v WorkflowCreateRequest) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsWorkflowPutRequest returns the union data inside the RPCRequest_Params as a WorkflowPutRequest
+func (t RPCRequest_Params) AsWorkflowPutRequest() (WorkflowPutRequest, error) {
+	var body WorkflowPutRequest
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromWorkflowPutRequest overwrites any union data inside the RPCRequest_Params as the provided WorkflowPutRequest
+func (t *RPCRequest_Params) FromWorkflowPutRequest(v WorkflowPutRequest) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeWorkflowPutRequest performs a merge with any union data inside the RPCRequest_Params, using the provided WorkflowPutRequest
+func (t *RPCRequest_Params) MergeWorkflowPutRequest(v WorkflowPutRequest) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsWorkflowDeleteRequest returns the union data inside the RPCRequest_Params as a WorkflowDeleteRequest
+func (t RPCRequest_Params) AsWorkflowDeleteRequest() (WorkflowDeleteRequest, error) {
+	var body WorkflowDeleteRequest
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromWorkflowDeleteRequest overwrites any union data inside the RPCRequest_Params as the provided WorkflowDeleteRequest
+func (t *RPCRequest_Params) FromWorkflowDeleteRequest(v WorkflowDeleteRequest) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeWorkflowDeleteRequest performs a merge with any union data inside the RPCRequest_Params, using the provided WorkflowDeleteRequest
+func (t *RPCRequest_Params) MergeWorkflowDeleteRequest(v WorkflowDeleteRequest) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsModelListRequest returns the union data inside the RPCRequest_Params as a ModelListRequest
+func (t RPCRequest_Params) AsModelListRequest() (ModelListRequest, error) {
+	var body ModelListRequest
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromModelListRequest overwrites any union data inside the RPCRequest_Params as the provided ModelListRequest
+func (t *RPCRequest_Params) FromModelListRequest(v ModelListRequest) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeModelListRequest performs a merge with any union data inside the RPCRequest_Params, using the provided ModelListRequest
+func (t *RPCRequest_Params) MergeModelListRequest(v ModelListRequest) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsModelGetRequest returns the union data inside the RPCRequest_Params as a ModelGetRequest
+func (t RPCRequest_Params) AsModelGetRequest() (ModelGetRequest, error) {
+	var body ModelGetRequest
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromModelGetRequest overwrites any union data inside the RPCRequest_Params as the provided ModelGetRequest
+func (t *RPCRequest_Params) FromModelGetRequest(v ModelGetRequest) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeModelGetRequest performs a merge with any union data inside the RPCRequest_Params, using the provided ModelGetRequest
+func (t *RPCRequest_Params) MergeModelGetRequest(v ModelGetRequest) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsModelCreateRequest returns the union data inside the RPCRequest_Params as a ModelCreateRequest
+func (t RPCRequest_Params) AsModelCreateRequest() (ModelCreateRequest, error) {
+	var body ModelCreateRequest
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromModelCreateRequest overwrites any union data inside the RPCRequest_Params as the provided ModelCreateRequest
+func (t *RPCRequest_Params) FromModelCreateRequest(v ModelCreateRequest) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeModelCreateRequest performs a merge with any union data inside the RPCRequest_Params, using the provided ModelCreateRequest
+func (t *RPCRequest_Params) MergeModelCreateRequest(v ModelCreateRequest) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsModelPutRequest returns the union data inside the RPCRequest_Params as a ModelPutRequest
+func (t RPCRequest_Params) AsModelPutRequest() (ModelPutRequest, error) {
+	var body ModelPutRequest
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromModelPutRequest overwrites any union data inside the RPCRequest_Params as the provided ModelPutRequest
+func (t *RPCRequest_Params) FromModelPutRequest(v ModelPutRequest) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeModelPutRequest performs a merge with any union data inside the RPCRequest_Params, using the provided ModelPutRequest
+func (t *RPCRequest_Params) MergeModelPutRequest(v ModelPutRequest) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsModelDeleteRequest returns the union data inside the RPCRequest_Params as a ModelDeleteRequest
+func (t RPCRequest_Params) AsModelDeleteRequest() (ModelDeleteRequest, error) {
+	var body ModelDeleteRequest
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromModelDeleteRequest overwrites any union data inside the RPCRequest_Params as the provided ModelDeleteRequest
+func (t *RPCRequest_Params) FromModelDeleteRequest(v ModelDeleteRequest) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeModelDeleteRequest performs a merge with any union data inside the RPCRequest_Params, using the provided ModelDeleteRequest
+func (t *RPCRequest_Params) MergeModelDeleteRequest(v ModelDeleteRequest) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsCredentialListRequest returns the union data inside the RPCRequest_Params as a CredentialListRequest
+func (t RPCRequest_Params) AsCredentialListRequest() (CredentialListRequest, error) {
+	var body CredentialListRequest
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromCredentialListRequest overwrites any union data inside the RPCRequest_Params as the provided CredentialListRequest
+func (t *RPCRequest_Params) FromCredentialListRequest(v CredentialListRequest) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeCredentialListRequest performs a merge with any union data inside the RPCRequest_Params, using the provided CredentialListRequest
+func (t *RPCRequest_Params) MergeCredentialListRequest(v CredentialListRequest) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsCredentialGetRequest returns the union data inside the RPCRequest_Params as a CredentialGetRequest
+func (t RPCRequest_Params) AsCredentialGetRequest() (CredentialGetRequest, error) {
+	var body CredentialGetRequest
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromCredentialGetRequest overwrites any union data inside the RPCRequest_Params as the provided CredentialGetRequest
+func (t *RPCRequest_Params) FromCredentialGetRequest(v CredentialGetRequest) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeCredentialGetRequest performs a merge with any union data inside the RPCRequest_Params, using the provided CredentialGetRequest
+func (t *RPCRequest_Params) MergeCredentialGetRequest(v CredentialGetRequest) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsCredentialCreateRequest returns the union data inside the RPCRequest_Params as a CredentialCreateRequest
+func (t RPCRequest_Params) AsCredentialCreateRequest() (CredentialCreateRequest, error) {
+	var body CredentialCreateRequest
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromCredentialCreateRequest overwrites any union data inside the RPCRequest_Params as the provided CredentialCreateRequest
+func (t *RPCRequest_Params) FromCredentialCreateRequest(v CredentialCreateRequest) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeCredentialCreateRequest performs a merge with any union data inside the RPCRequest_Params, using the provided CredentialCreateRequest
+func (t *RPCRequest_Params) MergeCredentialCreateRequest(v CredentialCreateRequest) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsCredentialPutRequest returns the union data inside the RPCRequest_Params as a CredentialPutRequest
+func (t RPCRequest_Params) AsCredentialPutRequest() (CredentialPutRequest, error) {
+	var body CredentialPutRequest
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromCredentialPutRequest overwrites any union data inside the RPCRequest_Params as the provided CredentialPutRequest
+func (t *RPCRequest_Params) FromCredentialPutRequest(v CredentialPutRequest) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeCredentialPutRequest performs a merge with any union data inside the RPCRequest_Params, using the provided CredentialPutRequest
+func (t *RPCRequest_Params) MergeCredentialPutRequest(v CredentialPutRequest) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsCredentialDeleteRequest returns the union data inside the RPCRequest_Params as a CredentialDeleteRequest
+func (t RPCRequest_Params) AsCredentialDeleteRequest() (CredentialDeleteRequest, error) {
+	var body CredentialDeleteRequest
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromCredentialDeleteRequest overwrites any union data inside the RPCRequest_Params as the provided CredentialDeleteRequest
+func (t *RPCRequest_Params) FromCredentialDeleteRequest(v CredentialDeleteRequest) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeCredentialDeleteRequest performs a merge with any union data inside the RPCRequest_Params, using the provided CredentialDeleteRequest
+func (t *RPCRequest_Params) MergeCredentialDeleteRequest(v CredentialDeleteRequest) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsPetListRequest returns the union data inside the RPCRequest_Params as a PetListRequest
+func (t RPCRequest_Params) AsPetListRequest() (PetListRequest, error) {
+	var body PetListRequest
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromPetListRequest overwrites any union data inside the RPCRequest_Params as the provided PetListRequest
+func (t *RPCRequest_Params) FromPetListRequest(v PetListRequest) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergePetListRequest performs a merge with any union data inside the RPCRequest_Params, using the provided PetListRequest
+func (t *RPCRequest_Params) MergePetListRequest(v PetListRequest) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsPetGetRequest returns the union data inside the RPCRequest_Params as a PetGetRequest
+func (t RPCRequest_Params) AsPetGetRequest() (PetGetRequest, error) {
+	var body PetGetRequest
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromPetGetRequest overwrites any union data inside the RPCRequest_Params as the provided PetGetRequest
+func (t *RPCRequest_Params) FromPetGetRequest(v PetGetRequest) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergePetGetRequest performs a merge with any union data inside the RPCRequest_Params, using the provided PetGetRequest
+func (t *RPCRequest_Params) MergePetGetRequest(v PetGetRequest) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsPetCreateRequest returns the union data inside the RPCRequest_Params as a PetCreateRequest
+func (t RPCRequest_Params) AsPetCreateRequest() (PetCreateRequest, error) {
+	var body PetCreateRequest
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromPetCreateRequest overwrites any union data inside the RPCRequest_Params as the provided PetCreateRequest
+func (t *RPCRequest_Params) FromPetCreateRequest(v PetCreateRequest) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergePetCreateRequest performs a merge with any union data inside the RPCRequest_Params, using the provided PetCreateRequest
+func (t *RPCRequest_Params) MergePetCreateRequest(v PetCreateRequest) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsPetPutRequest returns the union data inside the RPCRequest_Params as a PetPutRequest
+func (t RPCRequest_Params) AsPetPutRequest() (PetPutRequest, error) {
+	var body PetPutRequest
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromPetPutRequest overwrites any union data inside the RPCRequest_Params as the provided PetPutRequest
+func (t *RPCRequest_Params) FromPetPutRequest(v PetPutRequest) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergePetPutRequest performs a merge with any union data inside the RPCRequest_Params, using the provided PetPutRequest
+func (t *RPCRequest_Params) MergePetPutRequest(v PetPutRequest) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsPetDeleteRequest returns the union data inside the RPCRequest_Params as a PetDeleteRequest
+func (t RPCRequest_Params) AsPetDeleteRequest() (PetDeleteRequest, error) {
+	var body PetDeleteRequest
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromPetDeleteRequest overwrites any union data inside the RPCRequest_Params as the provided PetDeleteRequest
+func (t *RPCRequest_Params) FromPetDeleteRequest(v PetDeleteRequest) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergePetDeleteRequest performs a merge with any union data inside the RPCRequest_Params, using the provided PetDeleteRequest
+func (t *RPCRequest_Params) MergePetDeleteRequest(v PetDeleteRequest) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsPetFeedRequest returns the union data inside the RPCRequest_Params as a PetFeedRequest
+func (t RPCRequest_Params) AsPetFeedRequest() (PetFeedRequest, error) {
+	var body PetFeedRequest
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromPetFeedRequest overwrites any union data inside the RPCRequest_Params as the provided PetFeedRequest
+func (t *RPCRequest_Params) FromPetFeedRequest(v PetFeedRequest) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergePetFeedRequest performs a merge with any union data inside the RPCRequest_Params, using the provided PetFeedRequest
+func (t *RPCRequest_Params) MergePetFeedRequest(v PetFeedRequest) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsPetPlayRequest returns the union data inside the RPCRequest_Params as a PetPlayRequest
+func (t RPCRequest_Params) AsPetPlayRequest() (PetPlayRequest, error) {
+	var body PetPlayRequest
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromPetPlayRequest overwrites any union data inside the RPCRequest_Params as the provided PetPlayRequest
+func (t *RPCRequest_Params) FromPetPlayRequest(v PetPlayRequest) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergePetPlayRequest performs a merge with any union data inside the RPCRequest_Params, using the provided PetPlayRequest
+func (t *RPCRequest_Params) MergePetPlayRequest(v PetPlayRequest) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsPetLevelUpRequest returns the union data inside the RPCRequest_Params as a PetLevelUpRequest
+func (t RPCRequest_Params) AsPetLevelUpRequest() (PetLevelUpRequest, error) {
+	var body PetLevelUpRequest
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromPetLevelUpRequest overwrites any union data inside the RPCRequest_Params as the provided PetLevelUpRequest
+func (t *RPCRequest_Params) FromPetLevelUpRequest(v PetLevelUpRequest) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergePetLevelUpRequest performs a merge with any union data inside the RPCRequest_Params, using the provided PetLevelUpRequest
+func (t *RPCRequest_Params) MergePetLevelUpRequest(v PetLevelUpRequest) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsWalletGetRequest returns the union data inside the RPCRequest_Params as a WalletGetRequest
+func (t RPCRequest_Params) AsWalletGetRequest() (WalletGetRequest, error) {
+	var body WalletGetRequest
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromWalletGetRequest overwrites any union data inside the RPCRequest_Params as the provided WalletGetRequest
+func (t *RPCRequest_Params) FromWalletGetRequest(v WalletGetRequest) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeWalletGetRequest performs a merge with any union data inside the RPCRequest_Params, using the provided WalletGetRequest
+func (t *RPCRequest_Params) MergeWalletGetRequest(v WalletGetRequest) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsWalletTransactionsListRequest returns the union data inside the RPCRequest_Params as a WalletTransactionsListRequest
+func (t RPCRequest_Params) AsWalletTransactionsListRequest() (WalletTransactionsListRequest, error) {
+	var body WalletTransactionsListRequest
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromWalletTransactionsListRequest overwrites any union data inside the RPCRequest_Params as the provided WalletTransactionsListRequest
+func (t *RPCRequest_Params) FromWalletTransactionsListRequest(v WalletTransactionsListRequest) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeWalletTransactionsListRequest performs a merge with any union data inside the RPCRequest_Params, using the provided WalletTransactionsListRequest
+func (t *RPCRequest_Params) MergeWalletTransactionsListRequest(v WalletTransactionsListRequest) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsContactListRequest returns the union data inside the RPCRequest_Params as a ContactListRequest
+func (t RPCRequest_Params) AsContactListRequest() (ContactListRequest, error) {
+	var body ContactListRequest
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromContactListRequest overwrites any union data inside the RPCRequest_Params as the provided ContactListRequest
+func (t *RPCRequest_Params) FromContactListRequest(v ContactListRequest) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeContactListRequest performs a merge with any union data inside the RPCRequest_Params, using the provided ContactListRequest
+func (t *RPCRequest_Params) MergeContactListRequest(v ContactListRequest) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsContactGetRequest returns the union data inside the RPCRequest_Params as a ContactGetRequest
+func (t RPCRequest_Params) AsContactGetRequest() (ContactGetRequest, error) {
+	var body ContactGetRequest
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromContactGetRequest overwrites any union data inside the RPCRequest_Params as the provided ContactGetRequest
+func (t *RPCRequest_Params) FromContactGetRequest(v ContactGetRequest) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeContactGetRequest performs a merge with any union data inside the RPCRequest_Params, using the provided ContactGetRequest
+func (t *RPCRequest_Params) MergeContactGetRequest(v ContactGetRequest) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsContactCreateRequest returns the union data inside the RPCRequest_Params as a ContactCreateRequest
+func (t RPCRequest_Params) AsContactCreateRequest() (ContactCreateRequest, error) {
+	var body ContactCreateRequest
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromContactCreateRequest overwrites any union data inside the RPCRequest_Params as the provided ContactCreateRequest
+func (t *RPCRequest_Params) FromContactCreateRequest(v ContactCreateRequest) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeContactCreateRequest performs a merge with any union data inside the RPCRequest_Params, using the provided ContactCreateRequest
+func (t *RPCRequest_Params) MergeContactCreateRequest(v ContactCreateRequest) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsContactPutRequest returns the union data inside the RPCRequest_Params as a ContactPutRequest
+func (t RPCRequest_Params) AsContactPutRequest() (ContactPutRequest, error) {
+	var body ContactPutRequest
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromContactPutRequest overwrites any union data inside the RPCRequest_Params as the provided ContactPutRequest
+func (t *RPCRequest_Params) FromContactPutRequest(v ContactPutRequest) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeContactPutRequest performs a merge with any union data inside the RPCRequest_Params, using the provided ContactPutRequest
+func (t *RPCRequest_Params) MergeContactPutRequest(v ContactPutRequest) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsContactDeleteRequest returns the union data inside the RPCRequest_Params as a ContactDeleteRequest
+func (t RPCRequest_Params) AsContactDeleteRequest() (ContactDeleteRequest, error) {
+	var body ContactDeleteRequest
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromContactDeleteRequest overwrites any union data inside the RPCRequest_Params as the provided ContactDeleteRequest
+func (t *RPCRequest_Params) FromContactDeleteRequest(v ContactDeleteRequest) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeContactDeleteRequest performs a merge with any union data inside the RPCRequest_Params, using the provided ContactDeleteRequest
+func (t *RPCRequest_Params) MergeContactDeleteRequest(v ContactDeleteRequest) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsContactBlockRequest returns the union data inside the RPCRequest_Params as a ContactBlockRequest
+func (t RPCRequest_Params) AsContactBlockRequest() (ContactBlockRequest, error) {
+	var body ContactBlockRequest
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromContactBlockRequest overwrites any union data inside the RPCRequest_Params as the provided ContactBlockRequest
+func (t *RPCRequest_Params) FromContactBlockRequest(v ContactBlockRequest) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeContactBlockRequest performs a merge with any union data inside the RPCRequest_Params, using the provided ContactBlockRequest
+func (t *RPCRequest_Params) MergeContactBlockRequest(v ContactBlockRequest) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsContactUnblockRequest returns the union data inside the RPCRequest_Params as a ContactUnblockRequest
+func (t RPCRequest_Params) AsContactUnblockRequest() (ContactUnblockRequest, error) {
+	var body ContactUnblockRequest
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromContactUnblockRequest overwrites any union data inside the RPCRequest_Params as the provided ContactUnblockRequest
+func (t *RPCRequest_Params) FromContactUnblockRequest(v ContactUnblockRequest) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeContactUnblockRequest performs a merge with any union data inside the RPCRequest_Params, using the provided ContactUnblockRequest
+func (t *RPCRequest_Params) MergeContactUnblockRequest(v ContactUnblockRequest) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsFriendRequestListRequest returns the union data inside the RPCRequest_Params as a FriendRequestListRequest
+func (t RPCRequest_Params) AsFriendRequestListRequest() (FriendRequestListRequest, error) {
+	var body FriendRequestListRequest
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromFriendRequestListRequest overwrites any union data inside the RPCRequest_Params as the provided FriendRequestListRequest
+func (t *RPCRequest_Params) FromFriendRequestListRequest(v FriendRequestListRequest) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeFriendRequestListRequest performs a merge with any union data inside the RPCRequest_Params, using the provided FriendRequestListRequest
+func (t *RPCRequest_Params) MergeFriendRequestListRequest(v FriendRequestListRequest) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsFriendRequestCreateRequest returns the union data inside the RPCRequest_Params as a FriendRequestCreateRequest
+func (t RPCRequest_Params) AsFriendRequestCreateRequest() (FriendRequestCreateRequest, error) {
+	var body FriendRequestCreateRequest
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromFriendRequestCreateRequest overwrites any union data inside the RPCRequest_Params as the provided FriendRequestCreateRequest
+func (t *RPCRequest_Params) FromFriendRequestCreateRequest(v FriendRequestCreateRequest) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeFriendRequestCreateRequest performs a merge with any union data inside the RPCRequest_Params, using the provided FriendRequestCreateRequest
+func (t *RPCRequest_Params) MergeFriendRequestCreateRequest(v FriendRequestCreateRequest) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsFriendRequestAcceptRequest returns the union data inside the RPCRequest_Params as a FriendRequestAcceptRequest
+func (t RPCRequest_Params) AsFriendRequestAcceptRequest() (FriendRequestAcceptRequest, error) {
+	var body FriendRequestAcceptRequest
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromFriendRequestAcceptRequest overwrites any union data inside the RPCRequest_Params as the provided FriendRequestAcceptRequest
+func (t *RPCRequest_Params) FromFriendRequestAcceptRequest(v FriendRequestAcceptRequest) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeFriendRequestAcceptRequest performs a merge with any union data inside the RPCRequest_Params, using the provided FriendRequestAcceptRequest
+func (t *RPCRequest_Params) MergeFriendRequestAcceptRequest(v FriendRequestAcceptRequest) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsFriendRequestRejectRequest returns the union data inside the RPCRequest_Params as a FriendRequestRejectRequest
+func (t RPCRequest_Params) AsFriendRequestRejectRequest() (FriendRequestRejectRequest, error) {
+	var body FriendRequestRejectRequest
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromFriendRequestRejectRequest overwrites any union data inside the RPCRequest_Params as the provided FriendRequestRejectRequest
+func (t *RPCRequest_Params) FromFriendRequestRejectRequest(v FriendRequestRejectRequest) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeFriendRequestRejectRequest performs a merge with any union data inside the RPCRequest_Params, using the provided FriendRequestRejectRequest
+func (t *RPCRequest_Params) MergeFriendRequestRejectRequest(v FriendRequestRejectRequest) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsFriendListRequest returns the union data inside the RPCRequest_Params as a FriendListRequest
+func (t RPCRequest_Params) AsFriendListRequest() (FriendListRequest, error) {
+	var body FriendListRequest
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromFriendListRequest overwrites any union data inside the RPCRequest_Params as the provided FriendListRequest
+func (t *RPCRequest_Params) FromFriendListRequest(v FriendListRequest) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeFriendListRequest performs a merge with any union data inside the RPCRequest_Params, using the provided FriendListRequest
+func (t *RPCRequest_Params) MergeFriendListRequest(v FriendListRequest) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsFriendDeleteRequest returns the union data inside the RPCRequest_Params as a FriendDeleteRequest
+func (t RPCRequest_Params) AsFriendDeleteRequest() (FriendDeleteRequest, error) {
+	var body FriendDeleteRequest
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromFriendDeleteRequest overwrites any union data inside the RPCRequest_Params as the provided FriendDeleteRequest
+func (t *RPCRequest_Params) FromFriendDeleteRequest(v FriendDeleteRequest) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeFriendDeleteRequest performs a merge with any union data inside the RPCRequest_Params, using the provided FriendDeleteRequest
+func (t *RPCRequest_Params) MergeFriendDeleteRequest(v FriendDeleteRequest) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsGroupListRequest returns the union data inside the RPCRequest_Params as a GroupListRequest
+func (t RPCRequest_Params) AsGroupListRequest() (GroupListRequest, error) {
+	var body GroupListRequest
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromGroupListRequest overwrites any union data inside the RPCRequest_Params as the provided GroupListRequest
+func (t *RPCRequest_Params) FromGroupListRequest(v GroupListRequest) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeGroupListRequest performs a merge with any union data inside the RPCRequest_Params, using the provided GroupListRequest
+func (t *RPCRequest_Params) MergeGroupListRequest(v GroupListRequest) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsGroupGetRequest returns the union data inside the RPCRequest_Params as a GroupGetRequest
+func (t RPCRequest_Params) AsGroupGetRequest() (GroupGetRequest, error) {
+	var body GroupGetRequest
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromGroupGetRequest overwrites any union data inside the RPCRequest_Params as the provided GroupGetRequest
+func (t *RPCRequest_Params) FromGroupGetRequest(v GroupGetRequest) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeGroupGetRequest performs a merge with any union data inside the RPCRequest_Params, using the provided GroupGetRequest
+func (t *RPCRequest_Params) MergeGroupGetRequest(v GroupGetRequest) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsGroupCreateRequest returns the union data inside the RPCRequest_Params as a GroupCreateRequest
+func (t RPCRequest_Params) AsGroupCreateRequest() (GroupCreateRequest, error) {
+	var body GroupCreateRequest
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromGroupCreateRequest overwrites any union data inside the RPCRequest_Params as the provided GroupCreateRequest
+func (t *RPCRequest_Params) FromGroupCreateRequest(v GroupCreateRequest) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeGroupCreateRequest performs a merge with any union data inside the RPCRequest_Params, using the provided GroupCreateRequest
+func (t *RPCRequest_Params) MergeGroupCreateRequest(v GroupCreateRequest) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsGroupPutRequest returns the union data inside the RPCRequest_Params as a GroupPutRequest
+func (t RPCRequest_Params) AsGroupPutRequest() (GroupPutRequest, error) {
+	var body GroupPutRequest
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromGroupPutRequest overwrites any union data inside the RPCRequest_Params as the provided GroupPutRequest
+func (t *RPCRequest_Params) FromGroupPutRequest(v GroupPutRequest) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeGroupPutRequest performs a merge with any union data inside the RPCRequest_Params, using the provided GroupPutRequest
+func (t *RPCRequest_Params) MergeGroupPutRequest(v GroupPutRequest) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsGroupDeleteRequest returns the union data inside the RPCRequest_Params as a GroupDeleteRequest
+func (t RPCRequest_Params) AsGroupDeleteRequest() (GroupDeleteRequest, error) {
+	var body GroupDeleteRequest
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromGroupDeleteRequest overwrites any union data inside the RPCRequest_Params as the provided GroupDeleteRequest
+func (t *RPCRequest_Params) FromGroupDeleteRequest(v GroupDeleteRequest) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeGroupDeleteRequest performs a merge with any union data inside the RPCRequest_Params, using the provided GroupDeleteRequest
+func (t *RPCRequest_Params) MergeGroupDeleteRequest(v GroupDeleteRequest) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsGroupMemberListRequest returns the union data inside the RPCRequest_Params as a GroupMemberListRequest
+func (t RPCRequest_Params) AsGroupMemberListRequest() (GroupMemberListRequest, error) {
+	var body GroupMemberListRequest
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromGroupMemberListRequest overwrites any union data inside the RPCRequest_Params as the provided GroupMemberListRequest
+func (t *RPCRequest_Params) FromGroupMemberListRequest(v GroupMemberListRequest) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeGroupMemberListRequest performs a merge with any union data inside the RPCRequest_Params, using the provided GroupMemberListRequest
+func (t *RPCRequest_Params) MergeGroupMemberListRequest(v GroupMemberListRequest) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsGroupMemberAddRequest returns the union data inside the RPCRequest_Params as a GroupMemberAddRequest
+func (t RPCRequest_Params) AsGroupMemberAddRequest() (GroupMemberAddRequest, error) {
+	var body GroupMemberAddRequest
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromGroupMemberAddRequest overwrites any union data inside the RPCRequest_Params as the provided GroupMemberAddRequest
+func (t *RPCRequest_Params) FromGroupMemberAddRequest(v GroupMemberAddRequest) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeGroupMemberAddRequest performs a merge with any union data inside the RPCRequest_Params, using the provided GroupMemberAddRequest
+func (t *RPCRequest_Params) MergeGroupMemberAddRequest(v GroupMemberAddRequest) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsGroupMemberDeleteRequest returns the union data inside the RPCRequest_Params as a GroupMemberDeleteRequest
+func (t RPCRequest_Params) AsGroupMemberDeleteRequest() (GroupMemberDeleteRequest, error) {
+	var body GroupMemberDeleteRequest
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromGroupMemberDeleteRequest overwrites any union data inside the RPCRequest_Params as the provided GroupMemberDeleteRequest
+func (t *RPCRequest_Params) FromGroupMemberDeleteRequest(v GroupMemberDeleteRequest) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeGroupMemberDeleteRequest performs a merge with any union data inside the RPCRequest_Params, using the provided GroupMemberDeleteRequest
+func (t *RPCRequest_Params) MergeGroupMemberDeleteRequest(v GroupMemberDeleteRequest) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsGroupMessageListRequest returns the union data inside the RPCRequest_Params as a GroupMessageListRequest
+func (t RPCRequest_Params) AsGroupMessageListRequest() (GroupMessageListRequest, error) {
+	var body GroupMessageListRequest
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromGroupMessageListRequest overwrites any union data inside the RPCRequest_Params as the provided GroupMessageListRequest
+func (t *RPCRequest_Params) FromGroupMessageListRequest(v GroupMessageListRequest) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeGroupMessageListRequest performs a merge with any union data inside the RPCRequest_Params, using the provided GroupMessageListRequest
+func (t *RPCRequest_Params) MergeGroupMessageListRequest(v GroupMessageListRequest) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsGroupMessageSendRequest returns the union data inside the RPCRequest_Params as a GroupMessageSendRequest
+func (t RPCRequest_Params) AsGroupMessageSendRequest() (GroupMessageSendRequest, error) {
+	var body GroupMessageSendRequest
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromGroupMessageSendRequest overwrites any union data inside the RPCRequest_Params as the provided GroupMessageSendRequest
+func (t *RPCRequest_Params) FromGroupMessageSendRequest(v GroupMessageSendRequest) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeGroupMessageSendRequest performs a merge with any union data inside the RPCRequest_Params, using the provided GroupMessageSendRequest
+func (t *RPCRequest_Params) MergeGroupMessageSendRequest(v GroupMessageSendRequest) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsCallListRequest returns the union data inside the RPCRequest_Params as a CallListRequest
+func (t RPCRequest_Params) AsCallListRequest() (CallListRequest, error) {
+	var body CallListRequest
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromCallListRequest overwrites any union data inside the RPCRequest_Params as the provided CallListRequest
+func (t *RPCRequest_Params) FromCallListRequest(v CallListRequest) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeCallListRequest performs a merge with any union data inside the RPCRequest_Params, using the provided CallListRequest
+func (t *RPCRequest_Params) MergeCallListRequest(v CallListRequest) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsCallGetRequest returns the union data inside the RPCRequest_Params as a CallGetRequest
+func (t RPCRequest_Params) AsCallGetRequest() (CallGetRequest, error) {
+	var body CallGetRequest
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromCallGetRequest overwrites any union data inside the RPCRequest_Params as the provided CallGetRequest
+func (t *RPCRequest_Params) FromCallGetRequest(v CallGetRequest) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeCallGetRequest performs a merge with any union data inside the RPCRequest_Params, using the provided CallGetRequest
+func (t *RPCRequest_Params) MergeCallGetRequest(v CallGetRequest) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsCallCreateRequest returns the union data inside the RPCRequest_Params as a CallCreateRequest
+func (t RPCRequest_Params) AsCallCreateRequest() (CallCreateRequest, error) {
+	var body CallCreateRequest
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromCallCreateRequest overwrites any union data inside the RPCRequest_Params as the provided CallCreateRequest
+func (t *RPCRequest_Params) FromCallCreateRequest(v CallCreateRequest) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeCallCreateRequest performs a merge with any union data inside the RPCRequest_Params, using the provided CallCreateRequest
+func (t *RPCRequest_Params) MergeCallCreateRequest(v CallCreateRequest) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsCallAnswerRequest returns the union data inside the RPCRequest_Params as a CallAnswerRequest
+func (t RPCRequest_Params) AsCallAnswerRequest() (CallAnswerRequest, error) {
+	var body CallAnswerRequest
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromCallAnswerRequest overwrites any union data inside the RPCRequest_Params as the provided CallAnswerRequest
+func (t *RPCRequest_Params) FromCallAnswerRequest(v CallAnswerRequest) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeCallAnswerRequest performs a merge with any union data inside the RPCRequest_Params, using the provided CallAnswerRequest
+func (t *RPCRequest_Params) MergeCallAnswerRequest(v CallAnswerRequest) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsCallRejectRequest returns the union data inside the RPCRequest_Params as a CallRejectRequest
+func (t RPCRequest_Params) AsCallRejectRequest() (CallRejectRequest, error) {
+	var body CallRejectRequest
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromCallRejectRequest overwrites any union data inside the RPCRequest_Params as the provided CallRejectRequest
+func (t *RPCRequest_Params) FromCallRejectRequest(v CallRejectRequest) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeCallRejectRequest performs a merge with any union data inside the RPCRequest_Params, using the provided CallRejectRequest
+func (t *RPCRequest_Params) MergeCallRejectRequest(v CallRejectRequest) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsCallEndRequest returns the union data inside the RPCRequest_Params as a CallEndRequest
+func (t RPCRequest_Params) AsCallEndRequest() (CallEndRequest, error) {
+	var body CallEndRequest
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromCallEndRequest overwrites any union data inside the RPCRequest_Params as the provided CallEndRequest
+func (t *RPCRequest_Params) FromCallEndRequest(v CallEndRequest) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeCallEndRequest performs a merge with any union data inside the RPCRequest_Params, using the provided CallEndRequest
+func (t *RPCRequest_Params) MergeCallEndRequest(v CallEndRequest) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsGameResultCreateRequest returns the union data inside the RPCRequest_Params as a GameResultCreateRequest
+func (t RPCRequest_Params) AsGameResultCreateRequest() (GameResultCreateRequest, error) {
+	var body GameResultCreateRequest
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromGameResultCreateRequest overwrites any union data inside the RPCRequest_Params as the provided GameResultCreateRequest
+func (t *RPCRequest_Params) FromGameResultCreateRequest(v GameResultCreateRequest) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeGameResultCreateRequest performs a merge with any union data inside the RPCRequest_Params, using the provided GameResultCreateRequest
+func (t *RPCRequest_Params) MergeGameResultCreateRequest(v GameResultCreateRequest) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsRewardListRequest returns the union data inside the RPCRequest_Params as a RewardListRequest
+func (t RPCRequest_Params) AsRewardListRequest() (RewardListRequest, error) {
+	var body RewardListRequest
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromRewardListRequest overwrites any union data inside the RPCRequest_Params as the provided RewardListRequest
+func (t *RPCRequest_Params) FromRewardListRequest(v RewardListRequest) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeRewardListRequest performs a merge with any union data inside the RPCRequest_Params, using the provided RewardListRequest
+func (t *RPCRequest_Params) MergeRewardListRequest(v RewardListRequest) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsRewardGetRequest returns the union data inside the RPCRequest_Params as a RewardGetRequest
+func (t RPCRequest_Params) AsRewardGetRequest() (RewardGetRequest, error) {
+	var body RewardGetRequest
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromRewardGetRequest overwrites any union data inside the RPCRequest_Params as the provided RewardGetRequest
+func (t *RPCRequest_Params) FromRewardGetRequest(v RewardGetRequest) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeRewardGetRequest performs a merge with any union data inside the RPCRequest_Params, using the provided RewardGetRequest
+func (t *RPCRequest_Params) MergeRewardGetRequest(v RewardGetRequest) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsRewardCreateRequest returns the union data inside the RPCRequest_Params as a RewardCreateRequest
+func (t RPCRequest_Params) AsRewardCreateRequest() (RewardCreateRequest, error) {
+	var body RewardCreateRequest
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromRewardCreateRequest overwrites any union data inside the RPCRequest_Params as the provided RewardCreateRequest
+func (t *RPCRequest_Params) FromRewardCreateRequest(v RewardCreateRequest) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeRewardCreateRequest performs a merge with any union data inside the RPCRequest_Params, using the provided RewardCreateRequest
+func (t *RPCRequest_Params) MergeRewardCreateRequest(v RewardCreateRequest) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsRewardClaimRequest returns the union data inside the RPCRequest_Params as a RewardClaimRequest
+func (t RPCRequest_Params) AsRewardClaimRequest() (RewardClaimRequest, error) {
+	var body RewardClaimRequest
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromRewardClaimRequest overwrites any union data inside the RPCRequest_Params as the provided RewardClaimRequest
+func (t *RPCRequest_Params) FromRewardClaimRequest(v RewardClaimRequest) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeRewardClaimRequest performs a merge with any union data inside the RPCRequest_Params, using the provided RewardClaimRequest
+func (t *RPCRequest_Params) MergeRewardClaimRequest(v RewardClaimRequest) error {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -669,6 +3825,1878 @@ func (t *RPCResponse_Result) FromPeerGetRuntimeResponse(v PeerGetRuntimeResponse
 
 // MergePeerGetRuntimeResponse performs a merge with any union data inside the RPCResponse_Result, using the provided PeerGetRuntimeResponse
 func (t *RPCResponse_Result) MergePeerGetRuntimeResponse(v PeerGetRuntimeResponse) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsPeerGetStatusResponse returns the union data inside the RPCResponse_Result as a PeerGetStatusResponse
+func (t RPCResponse_Result) AsPeerGetStatusResponse() (PeerGetStatusResponse, error) {
+	var body PeerGetStatusResponse
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromPeerGetStatusResponse overwrites any union data inside the RPCResponse_Result as the provided PeerGetStatusResponse
+func (t *RPCResponse_Result) FromPeerGetStatusResponse(v PeerGetStatusResponse) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergePeerGetStatusResponse performs a merge with any union data inside the RPCResponse_Result, using the provided PeerGetStatusResponse
+func (t *RPCResponse_Result) MergePeerGetStatusResponse(v PeerGetStatusResponse) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsPeerPutStatusResponse returns the union data inside the RPCResponse_Result as a PeerPutStatusResponse
+func (t RPCResponse_Result) AsPeerPutStatusResponse() (PeerPutStatusResponse, error) {
+	var body PeerPutStatusResponse
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromPeerPutStatusResponse overwrites any union data inside the RPCResponse_Result as the provided PeerPutStatusResponse
+func (t *RPCResponse_Result) FromPeerPutStatusResponse(v PeerPutStatusResponse) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergePeerPutStatusResponse performs a merge with any union data inside the RPCResponse_Result, using the provided PeerPutStatusResponse
+func (t *RPCResponse_Result) MergePeerPutStatusResponse(v PeerPutStatusResponse) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsPeerGetRunAgentResponse returns the union data inside the RPCResponse_Result as a PeerGetRunAgentResponse
+func (t RPCResponse_Result) AsPeerGetRunAgentResponse() (PeerGetRunAgentResponse, error) {
+	var body PeerGetRunAgentResponse
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromPeerGetRunAgentResponse overwrites any union data inside the RPCResponse_Result as the provided PeerGetRunAgentResponse
+func (t *RPCResponse_Result) FromPeerGetRunAgentResponse(v PeerGetRunAgentResponse) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergePeerGetRunAgentResponse performs a merge with any union data inside the RPCResponse_Result, using the provided PeerGetRunAgentResponse
+func (t *RPCResponse_Result) MergePeerGetRunAgentResponse(v PeerGetRunAgentResponse) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsPeerSetRunAgentResponse returns the union data inside the RPCResponse_Result as a PeerSetRunAgentResponse
+func (t RPCResponse_Result) AsPeerSetRunAgentResponse() (PeerSetRunAgentResponse, error) {
+	var body PeerSetRunAgentResponse
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromPeerSetRunAgentResponse overwrites any union data inside the RPCResponse_Result as the provided PeerSetRunAgentResponse
+func (t *RPCResponse_Result) FromPeerSetRunAgentResponse(v PeerSetRunAgentResponse) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergePeerSetRunAgentResponse performs a merge with any union data inside the RPCResponse_Result, using the provided PeerSetRunAgentResponse
+func (t *RPCResponse_Result) MergePeerSetRunAgentResponse(v PeerSetRunAgentResponse) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsPeerReloadRunResponse returns the union data inside the RPCResponse_Result as a PeerReloadRunResponse
+func (t RPCResponse_Result) AsPeerReloadRunResponse() (PeerReloadRunResponse, error) {
+	var body PeerReloadRunResponse
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromPeerReloadRunResponse overwrites any union data inside the RPCResponse_Result as the provided PeerReloadRunResponse
+func (t *RPCResponse_Result) FromPeerReloadRunResponse(v PeerReloadRunResponse) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergePeerReloadRunResponse performs a merge with any union data inside the RPCResponse_Result, using the provided PeerReloadRunResponse
+func (t *RPCResponse_Result) MergePeerReloadRunResponse(v PeerReloadRunResponse) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsPeerGetRunStatusResponse returns the union data inside the RPCResponse_Result as a PeerGetRunStatusResponse
+func (t RPCResponse_Result) AsPeerGetRunStatusResponse() (PeerGetRunStatusResponse, error) {
+	var body PeerGetRunStatusResponse
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromPeerGetRunStatusResponse overwrites any union data inside the RPCResponse_Result as the provided PeerGetRunStatusResponse
+func (t *RPCResponse_Result) FromPeerGetRunStatusResponse(v PeerGetRunStatusResponse) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergePeerGetRunStatusResponse performs a merge with any union data inside the RPCResponse_Result, using the provided PeerGetRunStatusResponse
+func (t *RPCResponse_Result) MergePeerGetRunStatusResponse(v PeerGetRunStatusResponse) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsPeerStopRunResponse returns the union data inside the RPCResponse_Result as a PeerStopRunResponse
+func (t RPCResponse_Result) AsPeerStopRunResponse() (PeerStopRunResponse, error) {
+	var body PeerStopRunResponse
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromPeerStopRunResponse overwrites any union data inside the RPCResponse_Result as the provided PeerStopRunResponse
+func (t *RPCResponse_Result) FromPeerStopRunResponse(v PeerStopRunResponse) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergePeerStopRunResponse performs a merge with any union data inside the RPCResponse_Result, using the provided PeerStopRunResponse
+func (t *RPCResponse_Result) MergePeerStopRunResponse(v PeerStopRunResponse) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsAudioSayResponse returns the union data inside the RPCResponse_Result as a AudioSayResponse
+func (t RPCResponse_Result) AsAudioSayResponse() (AudioSayResponse, error) {
+	var body AudioSayResponse
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromAudioSayResponse overwrites any union data inside the RPCResponse_Result as the provided AudioSayResponse
+func (t *RPCResponse_Result) FromAudioSayResponse(v AudioSayResponse) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeAudioSayResponse performs a merge with any union data inside the RPCResponse_Result, using the provided AudioSayResponse
+func (t *RPCResponse_Result) MergeAudioSayResponse(v AudioSayResponse) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsWorkspaceListResponse returns the union data inside the RPCResponse_Result as a WorkspaceListResponse
+func (t RPCResponse_Result) AsWorkspaceListResponse() (WorkspaceListResponse, error) {
+	var body WorkspaceListResponse
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromWorkspaceListResponse overwrites any union data inside the RPCResponse_Result as the provided WorkspaceListResponse
+func (t *RPCResponse_Result) FromWorkspaceListResponse(v WorkspaceListResponse) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeWorkspaceListResponse performs a merge with any union data inside the RPCResponse_Result, using the provided WorkspaceListResponse
+func (t *RPCResponse_Result) MergeWorkspaceListResponse(v WorkspaceListResponse) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsWorkspaceGetResponse returns the union data inside the RPCResponse_Result as a WorkspaceGetResponse
+func (t RPCResponse_Result) AsWorkspaceGetResponse() (WorkspaceGetResponse, error) {
+	var body WorkspaceGetResponse
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromWorkspaceGetResponse overwrites any union data inside the RPCResponse_Result as the provided WorkspaceGetResponse
+func (t *RPCResponse_Result) FromWorkspaceGetResponse(v WorkspaceGetResponse) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeWorkspaceGetResponse performs a merge with any union data inside the RPCResponse_Result, using the provided WorkspaceGetResponse
+func (t *RPCResponse_Result) MergeWorkspaceGetResponse(v WorkspaceGetResponse) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsWorkspaceCreateResponse returns the union data inside the RPCResponse_Result as a WorkspaceCreateResponse
+func (t RPCResponse_Result) AsWorkspaceCreateResponse() (WorkspaceCreateResponse, error) {
+	var body WorkspaceCreateResponse
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromWorkspaceCreateResponse overwrites any union data inside the RPCResponse_Result as the provided WorkspaceCreateResponse
+func (t *RPCResponse_Result) FromWorkspaceCreateResponse(v WorkspaceCreateResponse) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeWorkspaceCreateResponse performs a merge with any union data inside the RPCResponse_Result, using the provided WorkspaceCreateResponse
+func (t *RPCResponse_Result) MergeWorkspaceCreateResponse(v WorkspaceCreateResponse) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsWorkspacePutResponse returns the union data inside the RPCResponse_Result as a WorkspacePutResponse
+func (t RPCResponse_Result) AsWorkspacePutResponse() (WorkspacePutResponse, error) {
+	var body WorkspacePutResponse
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromWorkspacePutResponse overwrites any union data inside the RPCResponse_Result as the provided WorkspacePutResponse
+func (t *RPCResponse_Result) FromWorkspacePutResponse(v WorkspacePutResponse) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeWorkspacePutResponse performs a merge with any union data inside the RPCResponse_Result, using the provided WorkspacePutResponse
+func (t *RPCResponse_Result) MergeWorkspacePutResponse(v WorkspacePutResponse) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsWorkspaceDeleteResponse returns the union data inside the RPCResponse_Result as a WorkspaceDeleteResponse
+func (t RPCResponse_Result) AsWorkspaceDeleteResponse() (WorkspaceDeleteResponse, error) {
+	var body WorkspaceDeleteResponse
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromWorkspaceDeleteResponse overwrites any union data inside the RPCResponse_Result as the provided WorkspaceDeleteResponse
+func (t *RPCResponse_Result) FromWorkspaceDeleteResponse(v WorkspaceDeleteResponse) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeWorkspaceDeleteResponse performs a merge with any union data inside the RPCResponse_Result, using the provided WorkspaceDeleteResponse
+func (t *RPCResponse_Result) MergeWorkspaceDeleteResponse(v WorkspaceDeleteResponse) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsWorkflowListResponse returns the union data inside the RPCResponse_Result as a WorkflowListResponse
+func (t RPCResponse_Result) AsWorkflowListResponse() (WorkflowListResponse, error) {
+	var body WorkflowListResponse
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromWorkflowListResponse overwrites any union data inside the RPCResponse_Result as the provided WorkflowListResponse
+func (t *RPCResponse_Result) FromWorkflowListResponse(v WorkflowListResponse) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeWorkflowListResponse performs a merge with any union data inside the RPCResponse_Result, using the provided WorkflowListResponse
+func (t *RPCResponse_Result) MergeWorkflowListResponse(v WorkflowListResponse) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsWorkflowGetResponse returns the union data inside the RPCResponse_Result as a WorkflowGetResponse
+func (t RPCResponse_Result) AsWorkflowGetResponse() (WorkflowGetResponse, error) {
+	var body WorkflowGetResponse
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromWorkflowGetResponse overwrites any union data inside the RPCResponse_Result as the provided WorkflowGetResponse
+func (t *RPCResponse_Result) FromWorkflowGetResponse(v WorkflowGetResponse) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeWorkflowGetResponse performs a merge with any union data inside the RPCResponse_Result, using the provided WorkflowGetResponse
+func (t *RPCResponse_Result) MergeWorkflowGetResponse(v WorkflowGetResponse) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsWorkflowCreateResponse returns the union data inside the RPCResponse_Result as a WorkflowCreateResponse
+func (t RPCResponse_Result) AsWorkflowCreateResponse() (WorkflowCreateResponse, error) {
+	var body WorkflowCreateResponse
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromWorkflowCreateResponse overwrites any union data inside the RPCResponse_Result as the provided WorkflowCreateResponse
+func (t *RPCResponse_Result) FromWorkflowCreateResponse(v WorkflowCreateResponse) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeWorkflowCreateResponse performs a merge with any union data inside the RPCResponse_Result, using the provided WorkflowCreateResponse
+func (t *RPCResponse_Result) MergeWorkflowCreateResponse(v WorkflowCreateResponse) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsWorkflowPutResponse returns the union data inside the RPCResponse_Result as a WorkflowPutResponse
+func (t RPCResponse_Result) AsWorkflowPutResponse() (WorkflowPutResponse, error) {
+	var body WorkflowPutResponse
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromWorkflowPutResponse overwrites any union data inside the RPCResponse_Result as the provided WorkflowPutResponse
+func (t *RPCResponse_Result) FromWorkflowPutResponse(v WorkflowPutResponse) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeWorkflowPutResponse performs a merge with any union data inside the RPCResponse_Result, using the provided WorkflowPutResponse
+func (t *RPCResponse_Result) MergeWorkflowPutResponse(v WorkflowPutResponse) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsWorkflowDeleteResponse returns the union data inside the RPCResponse_Result as a WorkflowDeleteResponse
+func (t RPCResponse_Result) AsWorkflowDeleteResponse() (WorkflowDeleteResponse, error) {
+	var body WorkflowDeleteResponse
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromWorkflowDeleteResponse overwrites any union data inside the RPCResponse_Result as the provided WorkflowDeleteResponse
+func (t *RPCResponse_Result) FromWorkflowDeleteResponse(v WorkflowDeleteResponse) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeWorkflowDeleteResponse performs a merge with any union data inside the RPCResponse_Result, using the provided WorkflowDeleteResponse
+func (t *RPCResponse_Result) MergeWorkflowDeleteResponse(v WorkflowDeleteResponse) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsModelListResponse returns the union data inside the RPCResponse_Result as a ModelListResponse
+func (t RPCResponse_Result) AsModelListResponse() (ModelListResponse, error) {
+	var body ModelListResponse
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromModelListResponse overwrites any union data inside the RPCResponse_Result as the provided ModelListResponse
+func (t *RPCResponse_Result) FromModelListResponse(v ModelListResponse) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeModelListResponse performs a merge with any union data inside the RPCResponse_Result, using the provided ModelListResponse
+func (t *RPCResponse_Result) MergeModelListResponse(v ModelListResponse) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsModelGetResponse returns the union data inside the RPCResponse_Result as a ModelGetResponse
+func (t RPCResponse_Result) AsModelGetResponse() (ModelGetResponse, error) {
+	var body ModelGetResponse
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromModelGetResponse overwrites any union data inside the RPCResponse_Result as the provided ModelGetResponse
+func (t *RPCResponse_Result) FromModelGetResponse(v ModelGetResponse) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeModelGetResponse performs a merge with any union data inside the RPCResponse_Result, using the provided ModelGetResponse
+func (t *RPCResponse_Result) MergeModelGetResponse(v ModelGetResponse) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsModelCreateResponse returns the union data inside the RPCResponse_Result as a ModelCreateResponse
+func (t RPCResponse_Result) AsModelCreateResponse() (ModelCreateResponse, error) {
+	var body ModelCreateResponse
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromModelCreateResponse overwrites any union data inside the RPCResponse_Result as the provided ModelCreateResponse
+func (t *RPCResponse_Result) FromModelCreateResponse(v ModelCreateResponse) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeModelCreateResponse performs a merge with any union data inside the RPCResponse_Result, using the provided ModelCreateResponse
+func (t *RPCResponse_Result) MergeModelCreateResponse(v ModelCreateResponse) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsModelPutResponse returns the union data inside the RPCResponse_Result as a ModelPutResponse
+func (t RPCResponse_Result) AsModelPutResponse() (ModelPutResponse, error) {
+	var body ModelPutResponse
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromModelPutResponse overwrites any union data inside the RPCResponse_Result as the provided ModelPutResponse
+func (t *RPCResponse_Result) FromModelPutResponse(v ModelPutResponse) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeModelPutResponse performs a merge with any union data inside the RPCResponse_Result, using the provided ModelPutResponse
+func (t *RPCResponse_Result) MergeModelPutResponse(v ModelPutResponse) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsModelDeleteResponse returns the union data inside the RPCResponse_Result as a ModelDeleteResponse
+func (t RPCResponse_Result) AsModelDeleteResponse() (ModelDeleteResponse, error) {
+	var body ModelDeleteResponse
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromModelDeleteResponse overwrites any union data inside the RPCResponse_Result as the provided ModelDeleteResponse
+func (t *RPCResponse_Result) FromModelDeleteResponse(v ModelDeleteResponse) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeModelDeleteResponse performs a merge with any union data inside the RPCResponse_Result, using the provided ModelDeleteResponse
+func (t *RPCResponse_Result) MergeModelDeleteResponse(v ModelDeleteResponse) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsCredentialListResponse returns the union data inside the RPCResponse_Result as a CredentialListResponse
+func (t RPCResponse_Result) AsCredentialListResponse() (CredentialListResponse, error) {
+	var body CredentialListResponse
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromCredentialListResponse overwrites any union data inside the RPCResponse_Result as the provided CredentialListResponse
+func (t *RPCResponse_Result) FromCredentialListResponse(v CredentialListResponse) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeCredentialListResponse performs a merge with any union data inside the RPCResponse_Result, using the provided CredentialListResponse
+func (t *RPCResponse_Result) MergeCredentialListResponse(v CredentialListResponse) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsCredentialGetResponse returns the union data inside the RPCResponse_Result as a CredentialGetResponse
+func (t RPCResponse_Result) AsCredentialGetResponse() (CredentialGetResponse, error) {
+	var body CredentialGetResponse
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromCredentialGetResponse overwrites any union data inside the RPCResponse_Result as the provided CredentialGetResponse
+func (t *RPCResponse_Result) FromCredentialGetResponse(v CredentialGetResponse) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeCredentialGetResponse performs a merge with any union data inside the RPCResponse_Result, using the provided CredentialGetResponse
+func (t *RPCResponse_Result) MergeCredentialGetResponse(v CredentialGetResponse) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsCredentialCreateResponse returns the union data inside the RPCResponse_Result as a CredentialCreateResponse
+func (t RPCResponse_Result) AsCredentialCreateResponse() (CredentialCreateResponse, error) {
+	var body CredentialCreateResponse
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromCredentialCreateResponse overwrites any union data inside the RPCResponse_Result as the provided CredentialCreateResponse
+func (t *RPCResponse_Result) FromCredentialCreateResponse(v CredentialCreateResponse) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeCredentialCreateResponse performs a merge with any union data inside the RPCResponse_Result, using the provided CredentialCreateResponse
+func (t *RPCResponse_Result) MergeCredentialCreateResponse(v CredentialCreateResponse) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsCredentialPutResponse returns the union data inside the RPCResponse_Result as a CredentialPutResponse
+func (t RPCResponse_Result) AsCredentialPutResponse() (CredentialPutResponse, error) {
+	var body CredentialPutResponse
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromCredentialPutResponse overwrites any union data inside the RPCResponse_Result as the provided CredentialPutResponse
+func (t *RPCResponse_Result) FromCredentialPutResponse(v CredentialPutResponse) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeCredentialPutResponse performs a merge with any union data inside the RPCResponse_Result, using the provided CredentialPutResponse
+func (t *RPCResponse_Result) MergeCredentialPutResponse(v CredentialPutResponse) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsCredentialDeleteResponse returns the union data inside the RPCResponse_Result as a CredentialDeleteResponse
+func (t RPCResponse_Result) AsCredentialDeleteResponse() (CredentialDeleteResponse, error) {
+	var body CredentialDeleteResponse
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromCredentialDeleteResponse overwrites any union data inside the RPCResponse_Result as the provided CredentialDeleteResponse
+func (t *RPCResponse_Result) FromCredentialDeleteResponse(v CredentialDeleteResponse) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeCredentialDeleteResponse performs a merge with any union data inside the RPCResponse_Result, using the provided CredentialDeleteResponse
+func (t *RPCResponse_Result) MergeCredentialDeleteResponse(v CredentialDeleteResponse) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsPetListResponse returns the union data inside the RPCResponse_Result as a PetListResponse
+func (t RPCResponse_Result) AsPetListResponse() (PetListResponse, error) {
+	var body PetListResponse
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromPetListResponse overwrites any union data inside the RPCResponse_Result as the provided PetListResponse
+func (t *RPCResponse_Result) FromPetListResponse(v PetListResponse) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergePetListResponse performs a merge with any union data inside the RPCResponse_Result, using the provided PetListResponse
+func (t *RPCResponse_Result) MergePetListResponse(v PetListResponse) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsPetGetResponse returns the union data inside the RPCResponse_Result as a PetGetResponse
+func (t RPCResponse_Result) AsPetGetResponse() (PetGetResponse, error) {
+	var body PetGetResponse
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromPetGetResponse overwrites any union data inside the RPCResponse_Result as the provided PetGetResponse
+func (t *RPCResponse_Result) FromPetGetResponse(v PetGetResponse) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergePetGetResponse performs a merge with any union data inside the RPCResponse_Result, using the provided PetGetResponse
+func (t *RPCResponse_Result) MergePetGetResponse(v PetGetResponse) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsPetCreateResponse returns the union data inside the RPCResponse_Result as a PetCreateResponse
+func (t RPCResponse_Result) AsPetCreateResponse() (PetCreateResponse, error) {
+	var body PetCreateResponse
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromPetCreateResponse overwrites any union data inside the RPCResponse_Result as the provided PetCreateResponse
+func (t *RPCResponse_Result) FromPetCreateResponse(v PetCreateResponse) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergePetCreateResponse performs a merge with any union data inside the RPCResponse_Result, using the provided PetCreateResponse
+func (t *RPCResponse_Result) MergePetCreateResponse(v PetCreateResponse) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsPetPutResponse returns the union data inside the RPCResponse_Result as a PetPutResponse
+func (t RPCResponse_Result) AsPetPutResponse() (PetPutResponse, error) {
+	var body PetPutResponse
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromPetPutResponse overwrites any union data inside the RPCResponse_Result as the provided PetPutResponse
+func (t *RPCResponse_Result) FromPetPutResponse(v PetPutResponse) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergePetPutResponse performs a merge with any union data inside the RPCResponse_Result, using the provided PetPutResponse
+func (t *RPCResponse_Result) MergePetPutResponse(v PetPutResponse) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsPetDeleteResponse returns the union data inside the RPCResponse_Result as a PetDeleteResponse
+func (t RPCResponse_Result) AsPetDeleteResponse() (PetDeleteResponse, error) {
+	var body PetDeleteResponse
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromPetDeleteResponse overwrites any union data inside the RPCResponse_Result as the provided PetDeleteResponse
+func (t *RPCResponse_Result) FromPetDeleteResponse(v PetDeleteResponse) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergePetDeleteResponse performs a merge with any union data inside the RPCResponse_Result, using the provided PetDeleteResponse
+func (t *RPCResponse_Result) MergePetDeleteResponse(v PetDeleteResponse) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsPetFeedResponse returns the union data inside the RPCResponse_Result as a PetFeedResponse
+func (t RPCResponse_Result) AsPetFeedResponse() (PetFeedResponse, error) {
+	var body PetFeedResponse
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromPetFeedResponse overwrites any union data inside the RPCResponse_Result as the provided PetFeedResponse
+func (t *RPCResponse_Result) FromPetFeedResponse(v PetFeedResponse) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergePetFeedResponse performs a merge with any union data inside the RPCResponse_Result, using the provided PetFeedResponse
+func (t *RPCResponse_Result) MergePetFeedResponse(v PetFeedResponse) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsPetPlayResponse returns the union data inside the RPCResponse_Result as a PetPlayResponse
+func (t RPCResponse_Result) AsPetPlayResponse() (PetPlayResponse, error) {
+	var body PetPlayResponse
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromPetPlayResponse overwrites any union data inside the RPCResponse_Result as the provided PetPlayResponse
+func (t *RPCResponse_Result) FromPetPlayResponse(v PetPlayResponse) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergePetPlayResponse performs a merge with any union data inside the RPCResponse_Result, using the provided PetPlayResponse
+func (t *RPCResponse_Result) MergePetPlayResponse(v PetPlayResponse) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsPetLevelUpResponse returns the union data inside the RPCResponse_Result as a PetLevelUpResponse
+func (t RPCResponse_Result) AsPetLevelUpResponse() (PetLevelUpResponse, error) {
+	var body PetLevelUpResponse
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromPetLevelUpResponse overwrites any union data inside the RPCResponse_Result as the provided PetLevelUpResponse
+func (t *RPCResponse_Result) FromPetLevelUpResponse(v PetLevelUpResponse) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergePetLevelUpResponse performs a merge with any union data inside the RPCResponse_Result, using the provided PetLevelUpResponse
+func (t *RPCResponse_Result) MergePetLevelUpResponse(v PetLevelUpResponse) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsWalletGetResponse returns the union data inside the RPCResponse_Result as a WalletGetResponse
+func (t RPCResponse_Result) AsWalletGetResponse() (WalletGetResponse, error) {
+	var body WalletGetResponse
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromWalletGetResponse overwrites any union data inside the RPCResponse_Result as the provided WalletGetResponse
+func (t *RPCResponse_Result) FromWalletGetResponse(v WalletGetResponse) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeWalletGetResponse performs a merge with any union data inside the RPCResponse_Result, using the provided WalletGetResponse
+func (t *RPCResponse_Result) MergeWalletGetResponse(v WalletGetResponse) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsWalletTransactionsListResponse returns the union data inside the RPCResponse_Result as a WalletTransactionsListResponse
+func (t RPCResponse_Result) AsWalletTransactionsListResponse() (WalletTransactionsListResponse, error) {
+	var body WalletTransactionsListResponse
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromWalletTransactionsListResponse overwrites any union data inside the RPCResponse_Result as the provided WalletTransactionsListResponse
+func (t *RPCResponse_Result) FromWalletTransactionsListResponse(v WalletTransactionsListResponse) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeWalletTransactionsListResponse performs a merge with any union data inside the RPCResponse_Result, using the provided WalletTransactionsListResponse
+func (t *RPCResponse_Result) MergeWalletTransactionsListResponse(v WalletTransactionsListResponse) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsContactListResponse returns the union data inside the RPCResponse_Result as a ContactListResponse
+func (t RPCResponse_Result) AsContactListResponse() (ContactListResponse, error) {
+	var body ContactListResponse
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromContactListResponse overwrites any union data inside the RPCResponse_Result as the provided ContactListResponse
+func (t *RPCResponse_Result) FromContactListResponse(v ContactListResponse) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeContactListResponse performs a merge with any union data inside the RPCResponse_Result, using the provided ContactListResponse
+func (t *RPCResponse_Result) MergeContactListResponse(v ContactListResponse) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsContactGetResponse returns the union data inside the RPCResponse_Result as a ContactGetResponse
+func (t RPCResponse_Result) AsContactGetResponse() (ContactGetResponse, error) {
+	var body ContactGetResponse
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromContactGetResponse overwrites any union data inside the RPCResponse_Result as the provided ContactGetResponse
+func (t *RPCResponse_Result) FromContactGetResponse(v ContactGetResponse) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeContactGetResponse performs a merge with any union data inside the RPCResponse_Result, using the provided ContactGetResponse
+func (t *RPCResponse_Result) MergeContactGetResponse(v ContactGetResponse) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsContactCreateResponse returns the union data inside the RPCResponse_Result as a ContactCreateResponse
+func (t RPCResponse_Result) AsContactCreateResponse() (ContactCreateResponse, error) {
+	var body ContactCreateResponse
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromContactCreateResponse overwrites any union data inside the RPCResponse_Result as the provided ContactCreateResponse
+func (t *RPCResponse_Result) FromContactCreateResponse(v ContactCreateResponse) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeContactCreateResponse performs a merge with any union data inside the RPCResponse_Result, using the provided ContactCreateResponse
+func (t *RPCResponse_Result) MergeContactCreateResponse(v ContactCreateResponse) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsContactPutResponse returns the union data inside the RPCResponse_Result as a ContactPutResponse
+func (t RPCResponse_Result) AsContactPutResponse() (ContactPutResponse, error) {
+	var body ContactPutResponse
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromContactPutResponse overwrites any union data inside the RPCResponse_Result as the provided ContactPutResponse
+func (t *RPCResponse_Result) FromContactPutResponse(v ContactPutResponse) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeContactPutResponse performs a merge with any union data inside the RPCResponse_Result, using the provided ContactPutResponse
+func (t *RPCResponse_Result) MergeContactPutResponse(v ContactPutResponse) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsContactDeleteResponse returns the union data inside the RPCResponse_Result as a ContactDeleteResponse
+func (t RPCResponse_Result) AsContactDeleteResponse() (ContactDeleteResponse, error) {
+	var body ContactDeleteResponse
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromContactDeleteResponse overwrites any union data inside the RPCResponse_Result as the provided ContactDeleteResponse
+func (t *RPCResponse_Result) FromContactDeleteResponse(v ContactDeleteResponse) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeContactDeleteResponse performs a merge with any union data inside the RPCResponse_Result, using the provided ContactDeleteResponse
+func (t *RPCResponse_Result) MergeContactDeleteResponse(v ContactDeleteResponse) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsContactBlockResponse returns the union data inside the RPCResponse_Result as a ContactBlockResponse
+func (t RPCResponse_Result) AsContactBlockResponse() (ContactBlockResponse, error) {
+	var body ContactBlockResponse
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromContactBlockResponse overwrites any union data inside the RPCResponse_Result as the provided ContactBlockResponse
+func (t *RPCResponse_Result) FromContactBlockResponse(v ContactBlockResponse) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeContactBlockResponse performs a merge with any union data inside the RPCResponse_Result, using the provided ContactBlockResponse
+func (t *RPCResponse_Result) MergeContactBlockResponse(v ContactBlockResponse) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsContactUnblockResponse returns the union data inside the RPCResponse_Result as a ContactUnblockResponse
+func (t RPCResponse_Result) AsContactUnblockResponse() (ContactUnblockResponse, error) {
+	var body ContactUnblockResponse
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromContactUnblockResponse overwrites any union data inside the RPCResponse_Result as the provided ContactUnblockResponse
+func (t *RPCResponse_Result) FromContactUnblockResponse(v ContactUnblockResponse) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeContactUnblockResponse performs a merge with any union data inside the RPCResponse_Result, using the provided ContactUnblockResponse
+func (t *RPCResponse_Result) MergeContactUnblockResponse(v ContactUnblockResponse) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsFriendRequestListResponse returns the union data inside the RPCResponse_Result as a FriendRequestListResponse
+func (t RPCResponse_Result) AsFriendRequestListResponse() (FriendRequestListResponse, error) {
+	var body FriendRequestListResponse
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromFriendRequestListResponse overwrites any union data inside the RPCResponse_Result as the provided FriendRequestListResponse
+func (t *RPCResponse_Result) FromFriendRequestListResponse(v FriendRequestListResponse) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeFriendRequestListResponse performs a merge with any union data inside the RPCResponse_Result, using the provided FriendRequestListResponse
+func (t *RPCResponse_Result) MergeFriendRequestListResponse(v FriendRequestListResponse) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsFriendRequestCreateResponse returns the union data inside the RPCResponse_Result as a FriendRequestCreateResponse
+func (t RPCResponse_Result) AsFriendRequestCreateResponse() (FriendRequestCreateResponse, error) {
+	var body FriendRequestCreateResponse
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromFriendRequestCreateResponse overwrites any union data inside the RPCResponse_Result as the provided FriendRequestCreateResponse
+func (t *RPCResponse_Result) FromFriendRequestCreateResponse(v FriendRequestCreateResponse) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeFriendRequestCreateResponse performs a merge with any union data inside the RPCResponse_Result, using the provided FriendRequestCreateResponse
+func (t *RPCResponse_Result) MergeFriendRequestCreateResponse(v FriendRequestCreateResponse) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsFriendRequestAcceptResponse returns the union data inside the RPCResponse_Result as a FriendRequestAcceptResponse
+func (t RPCResponse_Result) AsFriendRequestAcceptResponse() (FriendRequestAcceptResponse, error) {
+	var body FriendRequestAcceptResponse
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromFriendRequestAcceptResponse overwrites any union data inside the RPCResponse_Result as the provided FriendRequestAcceptResponse
+func (t *RPCResponse_Result) FromFriendRequestAcceptResponse(v FriendRequestAcceptResponse) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeFriendRequestAcceptResponse performs a merge with any union data inside the RPCResponse_Result, using the provided FriendRequestAcceptResponse
+func (t *RPCResponse_Result) MergeFriendRequestAcceptResponse(v FriendRequestAcceptResponse) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsFriendRequestRejectResponse returns the union data inside the RPCResponse_Result as a FriendRequestRejectResponse
+func (t RPCResponse_Result) AsFriendRequestRejectResponse() (FriendRequestRejectResponse, error) {
+	var body FriendRequestRejectResponse
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromFriendRequestRejectResponse overwrites any union data inside the RPCResponse_Result as the provided FriendRequestRejectResponse
+func (t *RPCResponse_Result) FromFriendRequestRejectResponse(v FriendRequestRejectResponse) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeFriendRequestRejectResponse performs a merge with any union data inside the RPCResponse_Result, using the provided FriendRequestRejectResponse
+func (t *RPCResponse_Result) MergeFriendRequestRejectResponse(v FriendRequestRejectResponse) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsFriendListResponse returns the union data inside the RPCResponse_Result as a FriendListResponse
+func (t RPCResponse_Result) AsFriendListResponse() (FriendListResponse, error) {
+	var body FriendListResponse
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromFriendListResponse overwrites any union data inside the RPCResponse_Result as the provided FriendListResponse
+func (t *RPCResponse_Result) FromFriendListResponse(v FriendListResponse) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeFriendListResponse performs a merge with any union data inside the RPCResponse_Result, using the provided FriendListResponse
+func (t *RPCResponse_Result) MergeFriendListResponse(v FriendListResponse) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsFriendDeleteResponse returns the union data inside the RPCResponse_Result as a FriendDeleteResponse
+func (t RPCResponse_Result) AsFriendDeleteResponse() (FriendDeleteResponse, error) {
+	var body FriendDeleteResponse
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromFriendDeleteResponse overwrites any union data inside the RPCResponse_Result as the provided FriendDeleteResponse
+func (t *RPCResponse_Result) FromFriendDeleteResponse(v FriendDeleteResponse) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeFriendDeleteResponse performs a merge with any union data inside the RPCResponse_Result, using the provided FriendDeleteResponse
+func (t *RPCResponse_Result) MergeFriendDeleteResponse(v FriendDeleteResponse) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsGroupListResponse returns the union data inside the RPCResponse_Result as a GroupListResponse
+func (t RPCResponse_Result) AsGroupListResponse() (GroupListResponse, error) {
+	var body GroupListResponse
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromGroupListResponse overwrites any union data inside the RPCResponse_Result as the provided GroupListResponse
+func (t *RPCResponse_Result) FromGroupListResponse(v GroupListResponse) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeGroupListResponse performs a merge with any union data inside the RPCResponse_Result, using the provided GroupListResponse
+func (t *RPCResponse_Result) MergeGroupListResponse(v GroupListResponse) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsGroupGetResponse returns the union data inside the RPCResponse_Result as a GroupGetResponse
+func (t RPCResponse_Result) AsGroupGetResponse() (GroupGetResponse, error) {
+	var body GroupGetResponse
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromGroupGetResponse overwrites any union data inside the RPCResponse_Result as the provided GroupGetResponse
+func (t *RPCResponse_Result) FromGroupGetResponse(v GroupGetResponse) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeGroupGetResponse performs a merge with any union data inside the RPCResponse_Result, using the provided GroupGetResponse
+func (t *RPCResponse_Result) MergeGroupGetResponse(v GroupGetResponse) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsGroupCreateResponse returns the union data inside the RPCResponse_Result as a GroupCreateResponse
+func (t RPCResponse_Result) AsGroupCreateResponse() (GroupCreateResponse, error) {
+	var body GroupCreateResponse
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromGroupCreateResponse overwrites any union data inside the RPCResponse_Result as the provided GroupCreateResponse
+func (t *RPCResponse_Result) FromGroupCreateResponse(v GroupCreateResponse) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeGroupCreateResponse performs a merge with any union data inside the RPCResponse_Result, using the provided GroupCreateResponse
+func (t *RPCResponse_Result) MergeGroupCreateResponse(v GroupCreateResponse) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsGroupPutResponse returns the union data inside the RPCResponse_Result as a GroupPutResponse
+func (t RPCResponse_Result) AsGroupPutResponse() (GroupPutResponse, error) {
+	var body GroupPutResponse
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromGroupPutResponse overwrites any union data inside the RPCResponse_Result as the provided GroupPutResponse
+func (t *RPCResponse_Result) FromGroupPutResponse(v GroupPutResponse) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeGroupPutResponse performs a merge with any union data inside the RPCResponse_Result, using the provided GroupPutResponse
+func (t *RPCResponse_Result) MergeGroupPutResponse(v GroupPutResponse) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsGroupDeleteResponse returns the union data inside the RPCResponse_Result as a GroupDeleteResponse
+func (t RPCResponse_Result) AsGroupDeleteResponse() (GroupDeleteResponse, error) {
+	var body GroupDeleteResponse
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromGroupDeleteResponse overwrites any union data inside the RPCResponse_Result as the provided GroupDeleteResponse
+func (t *RPCResponse_Result) FromGroupDeleteResponse(v GroupDeleteResponse) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeGroupDeleteResponse performs a merge with any union data inside the RPCResponse_Result, using the provided GroupDeleteResponse
+func (t *RPCResponse_Result) MergeGroupDeleteResponse(v GroupDeleteResponse) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsGroupMemberListResponse returns the union data inside the RPCResponse_Result as a GroupMemberListResponse
+func (t RPCResponse_Result) AsGroupMemberListResponse() (GroupMemberListResponse, error) {
+	var body GroupMemberListResponse
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromGroupMemberListResponse overwrites any union data inside the RPCResponse_Result as the provided GroupMemberListResponse
+func (t *RPCResponse_Result) FromGroupMemberListResponse(v GroupMemberListResponse) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeGroupMemberListResponse performs a merge with any union data inside the RPCResponse_Result, using the provided GroupMemberListResponse
+func (t *RPCResponse_Result) MergeGroupMemberListResponse(v GroupMemberListResponse) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsGroupMemberAddResponse returns the union data inside the RPCResponse_Result as a GroupMemberAddResponse
+func (t RPCResponse_Result) AsGroupMemberAddResponse() (GroupMemberAddResponse, error) {
+	var body GroupMemberAddResponse
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromGroupMemberAddResponse overwrites any union data inside the RPCResponse_Result as the provided GroupMemberAddResponse
+func (t *RPCResponse_Result) FromGroupMemberAddResponse(v GroupMemberAddResponse) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeGroupMemberAddResponse performs a merge with any union data inside the RPCResponse_Result, using the provided GroupMemberAddResponse
+func (t *RPCResponse_Result) MergeGroupMemberAddResponse(v GroupMemberAddResponse) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsGroupMemberDeleteResponse returns the union data inside the RPCResponse_Result as a GroupMemberDeleteResponse
+func (t RPCResponse_Result) AsGroupMemberDeleteResponse() (GroupMemberDeleteResponse, error) {
+	var body GroupMemberDeleteResponse
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromGroupMemberDeleteResponse overwrites any union data inside the RPCResponse_Result as the provided GroupMemberDeleteResponse
+func (t *RPCResponse_Result) FromGroupMemberDeleteResponse(v GroupMemberDeleteResponse) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeGroupMemberDeleteResponse performs a merge with any union data inside the RPCResponse_Result, using the provided GroupMemberDeleteResponse
+func (t *RPCResponse_Result) MergeGroupMemberDeleteResponse(v GroupMemberDeleteResponse) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsGroupMessageListResponse returns the union data inside the RPCResponse_Result as a GroupMessageListResponse
+func (t RPCResponse_Result) AsGroupMessageListResponse() (GroupMessageListResponse, error) {
+	var body GroupMessageListResponse
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromGroupMessageListResponse overwrites any union data inside the RPCResponse_Result as the provided GroupMessageListResponse
+func (t *RPCResponse_Result) FromGroupMessageListResponse(v GroupMessageListResponse) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeGroupMessageListResponse performs a merge with any union data inside the RPCResponse_Result, using the provided GroupMessageListResponse
+func (t *RPCResponse_Result) MergeGroupMessageListResponse(v GroupMessageListResponse) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsGroupMessageSendResponse returns the union data inside the RPCResponse_Result as a GroupMessageSendResponse
+func (t RPCResponse_Result) AsGroupMessageSendResponse() (GroupMessageSendResponse, error) {
+	var body GroupMessageSendResponse
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromGroupMessageSendResponse overwrites any union data inside the RPCResponse_Result as the provided GroupMessageSendResponse
+func (t *RPCResponse_Result) FromGroupMessageSendResponse(v GroupMessageSendResponse) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeGroupMessageSendResponse performs a merge with any union data inside the RPCResponse_Result, using the provided GroupMessageSendResponse
+func (t *RPCResponse_Result) MergeGroupMessageSendResponse(v GroupMessageSendResponse) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsCallListResponse returns the union data inside the RPCResponse_Result as a CallListResponse
+func (t RPCResponse_Result) AsCallListResponse() (CallListResponse, error) {
+	var body CallListResponse
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromCallListResponse overwrites any union data inside the RPCResponse_Result as the provided CallListResponse
+func (t *RPCResponse_Result) FromCallListResponse(v CallListResponse) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeCallListResponse performs a merge with any union data inside the RPCResponse_Result, using the provided CallListResponse
+func (t *RPCResponse_Result) MergeCallListResponse(v CallListResponse) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsCallGetResponse returns the union data inside the RPCResponse_Result as a CallGetResponse
+func (t RPCResponse_Result) AsCallGetResponse() (CallGetResponse, error) {
+	var body CallGetResponse
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromCallGetResponse overwrites any union data inside the RPCResponse_Result as the provided CallGetResponse
+func (t *RPCResponse_Result) FromCallGetResponse(v CallGetResponse) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeCallGetResponse performs a merge with any union data inside the RPCResponse_Result, using the provided CallGetResponse
+func (t *RPCResponse_Result) MergeCallGetResponse(v CallGetResponse) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsCallCreateResponse returns the union data inside the RPCResponse_Result as a CallCreateResponse
+func (t RPCResponse_Result) AsCallCreateResponse() (CallCreateResponse, error) {
+	var body CallCreateResponse
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromCallCreateResponse overwrites any union data inside the RPCResponse_Result as the provided CallCreateResponse
+func (t *RPCResponse_Result) FromCallCreateResponse(v CallCreateResponse) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeCallCreateResponse performs a merge with any union data inside the RPCResponse_Result, using the provided CallCreateResponse
+func (t *RPCResponse_Result) MergeCallCreateResponse(v CallCreateResponse) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsCallAnswerResponse returns the union data inside the RPCResponse_Result as a CallAnswerResponse
+func (t RPCResponse_Result) AsCallAnswerResponse() (CallAnswerResponse, error) {
+	var body CallAnswerResponse
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromCallAnswerResponse overwrites any union data inside the RPCResponse_Result as the provided CallAnswerResponse
+func (t *RPCResponse_Result) FromCallAnswerResponse(v CallAnswerResponse) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeCallAnswerResponse performs a merge with any union data inside the RPCResponse_Result, using the provided CallAnswerResponse
+func (t *RPCResponse_Result) MergeCallAnswerResponse(v CallAnswerResponse) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsCallRejectResponse returns the union data inside the RPCResponse_Result as a CallRejectResponse
+func (t RPCResponse_Result) AsCallRejectResponse() (CallRejectResponse, error) {
+	var body CallRejectResponse
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromCallRejectResponse overwrites any union data inside the RPCResponse_Result as the provided CallRejectResponse
+func (t *RPCResponse_Result) FromCallRejectResponse(v CallRejectResponse) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeCallRejectResponse performs a merge with any union data inside the RPCResponse_Result, using the provided CallRejectResponse
+func (t *RPCResponse_Result) MergeCallRejectResponse(v CallRejectResponse) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsCallEndResponse returns the union data inside the RPCResponse_Result as a CallEndResponse
+func (t RPCResponse_Result) AsCallEndResponse() (CallEndResponse, error) {
+	var body CallEndResponse
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromCallEndResponse overwrites any union data inside the RPCResponse_Result as the provided CallEndResponse
+func (t *RPCResponse_Result) FromCallEndResponse(v CallEndResponse) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeCallEndResponse performs a merge with any union data inside the RPCResponse_Result, using the provided CallEndResponse
+func (t *RPCResponse_Result) MergeCallEndResponse(v CallEndResponse) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsGameResultCreateResponse returns the union data inside the RPCResponse_Result as a GameResultCreateResponse
+func (t RPCResponse_Result) AsGameResultCreateResponse() (GameResultCreateResponse, error) {
+	var body GameResultCreateResponse
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromGameResultCreateResponse overwrites any union data inside the RPCResponse_Result as the provided GameResultCreateResponse
+func (t *RPCResponse_Result) FromGameResultCreateResponse(v GameResultCreateResponse) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeGameResultCreateResponse performs a merge with any union data inside the RPCResponse_Result, using the provided GameResultCreateResponse
+func (t *RPCResponse_Result) MergeGameResultCreateResponse(v GameResultCreateResponse) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsRewardListResponse returns the union data inside the RPCResponse_Result as a RewardListResponse
+func (t RPCResponse_Result) AsRewardListResponse() (RewardListResponse, error) {
+	var body RewardListResponse
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromRewardListResponse overwrites any union data inside the RPCResponse_Result as the provided RewardListResponse
+func (t *RPCResponse_Result) FromRewardListResponse(v RewardListResponse) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeRewardListResponse performs a merge with any union data inside the RPCResponse_Result, using the provided RewardListResponse
+func (t *RPCResponse_Result) MergeRewardListResponse(v RewardListResponse) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsRewardGetResponse returns the union data inside the RPCResponse_Result as a RewardGetResponse
+func (t RPCResponse_Result) AsRewardGetResponse() (RewardGetResponse, error) {
+	var body RewardGetResponse
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromRewardGetResponse overwrites any union data inside the RPCResponse_Result as the provided RewardGetResponse
+func (t *RPCResponse_Result) FromRewardGetResponse(v RewardGetResponse) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeRewardGetResponse performs a merge with any union data inside the RPCResponse_Result, using the provided RewardGetResponse
+func (t *RPCResponse_Result) MergeRewardGetResponse(v RewardGetResponse) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsRewardCreateResponse returns the union data inside the RPCResponse_Result as a RewardCreateResponse
+func (t RPCResponse_Result) AsRewardCreateResponse() (RewardCreateResponse, error) {
+	var body RewardCreateResponse
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromRewardCreateResponse overwrites any union data inside the RPCResponse_Result as the provided RewardCreateResponse
+func (t *RPCResponse_Result) FromRewardCreateResponse(v RewardCreateResponse) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeRewardCreateResponse performs a merge with any union data inside the RPCResponse_Result, using the provided RewardCreateResponse
+func (t *RPCResponse_Result) MergeRewardCreateResponse(v RewardCreateResponse) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsRewardClaimResponse returns the union data inside the RPCResponse_Result as a RewardClaimResponse
+func (t RPCResponse_Result) AsRewardClaimResponse() (RewardClaimResponse, error) {
+	var body RewardClaimResponse
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromRewardClaimResponse overwrites any union data inside the RPCResponse_Result as the provided RewardClaimResponse
+func (t *RPCResponse_Result) FromRewardClaimResponse(v RewardClaimResponse) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeRewardClaimResponse performs a merge with any union data inside the RPCResponse_Result, using the provided RewardClaimResponse
+func (t *RPCResponse_Result) MergeRewardClaimResponse(v RewardClaimResponse) error {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err

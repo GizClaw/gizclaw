@@ -1,0 +1,47 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Audio Say Type",
+    "description": "Gear Service text-to-audio request and response schema.",
+    "version": "1.0.0"
+  },
+  "paths": {},
+  "components": {
+    "schemas": {
+      "AudioSayRequest": {
+        "type": "object",
+        "required": [
+          "text"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "text": {
+            "type": "string",
+            "minLength": 1
+          },
+          "voice_id": {
+            "type": "string"
+          },
+          "model_id": {
+            "type": "string"
+          },
+          "credential_name": {
+            "type": "string"
+          }
+        }
+      },
+      "AudioSayResponse": {
+        "type": "object",
+        "required": [
+          "accepted"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "accepted": {
+            "type": "boolean"
+          }
+        }
+      }
+    }
+  }
+}

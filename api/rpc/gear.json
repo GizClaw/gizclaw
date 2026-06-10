@@ -29,6 +29,1616 @@
       },
       "PeerGetRuntimeResponse": {
         "$ref": "../type/runtime.json#/components/schemas/Runtime"
+      },
+      "PeerGetStatusRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {}
+      },
+      "PeerGetStatusResponse": {
+        "$ref": "../type/peer_status.json#/components/schemas/PeerStatus"
+      },
+      "PeerPutStatusRequest": {
+        "$ref": "../type/peer_status.json#/components/schemas/PeerStatus"
+      },
+      "PeerPutStatusResponse": {
+        "$ref": "../type/peer_status.json#/components/schemas/PeerStatus"
+      },
+      "PeerGetRunAgentRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {}
+      },
+      "PeerGetRunAgentResponse": {
+        "$ref": "../type/peer_run_agent.json#/components/schemas/PeerRunAgent"
+      },
+      "PeerSetRunAgentRequest": {
+        "$ref": "../type/agent_selection.json#/components/schemas/AgentSelection"
+      },
+      "PeerSetRunAgentResponse": {
+        "$ref": "../type/peer_run_agent.json#/components/schemas/PeerRunAgent"
+      },
+      "PeerReloadRunRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {}
+      },
+      "PeerReloadRunResponse": {
+        "$ref": "../type/peer_run_status.json#/components/schemas/PeerRunStatus"
+      },
+      "PeerGetRunStatusRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {}
+      },
+      "PeerGetRunStatusResponse": {
+        "$ref": "../type/peer_run_status.json#/components/schemas/PeerRunStatus"
+      },
+      "PeerStopRunRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {}
+      },
+      "PeerStopRunResponse": {
+        "$ref": "../type/peer_run_status.json#/components/schemas/PeerRunStatus"
+      },
+      "AudioSayRequest": {
+        "type": "object",
+        "required": [
+          "text"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "text": {
+            "type": "string",
+            "minLength": 1
+          },
+          "voice_id": {
+            "type": "string"
+          },
+          "model_id": {
+            "type": "string"
+          },
+          "credential_name": {
+            "type": "string"
+          }
+        }
+      },
+      "AudioSayResponse": {
+        "type": "object",
+        "required": [
+          "accepted"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "accepted": {
+            "type": "boolean"
+          }
+        }
+      },
+      "WorkspaceListRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "cursor": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      },
+      "WorkspaceListResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "../type/workspace.json#/components/schemas/Workspace"
+            }
+          },
+          "has_next": {
+            "type": "boolean"
+          },
+          "next_cursor": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "items",
+          "has_next"
+        ]
+      },
+      "WorkspaceGetRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "WorkspaceGetResponse": {
+        "$ref": "../type/workspace.json#/components/schemas/Workspace"
+      },
+      "WorkspaceCreateRequest": {
+        "$ref": "../type/workspace.json#/components/schemas/Workspace"
+      },
+      "WorkspaceCreateResponse": {
+        "$ref": "../type/workspace.json#/components/schemas/Workspace"
+      },
+      "WorkspacePutRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "body": {
+            "$ref": "../type/workspace.json#/components/schemas/Workspace"
+          }
+        },
+        "required": [
+          "name",
+          "body"
+        ]
+      },
+      "WorkspacePutResponse": {
+        "$ref": "../type/workspace.json#/components/schemas/Workspace"
+      },
+      "WorkspaceDeleteRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "WorkspaceDeleteResponse": {
+        "$ref": "../type/workspace.json#/components/schemas/Workspace"
+      },
+      "WorkflowListRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "cursor": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      },
+      "WorkflowListResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "../type/workflow_document.json#/components/schemas/WorkflowDocument"
+            }
+          },
+          "has_next": {
+            "type": "boolean"
+          },
+          "next_cursor": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "items",
+          "has_next"
+        ]
+      },
+      "WorkflowGetRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "WorkflowGetResponse": {
+        "$ref": "../type/workflow_document.json#/components/schemas/WorkflowDocument"
+      },
+      "WorkflowCreateRequest": {
+        "$ref": "../type/workflow_document.json#/components/schemas/WorkflowDocument"
+      },
+      "WorkflowCreateResponse": {
+        "$ref": "../type/workflow_document.json#/components/schemas/WorkflowDocument"
+      },
+      "WorkflowPutRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "body": {
+            "$ref": "../type/workflow_document.json#/components/schemas/WorkflowDocument"
+          }
+        },
+        "required": [
+          "name",
+          "body"
+        ]
+      },
+      "WorkflowPutResponse": {
+        "$ref": "../type/workflow_document.json#/components/schemas/WorkflowDocument"
+      },
+      "WorkflowDeleteRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "WorkflowDeleteResponse": {
+        "$ref": "../type/workflow_document.json#/components/schemas/WorkflowDocument"
+      },
+      "ModelListRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "cursor": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      },
+      "ModelListResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "../type/model.json#/components/schemas/Model"
+            }
+          },
+          "has_next": {
+            "type": "boolean"
+          },
+          "next_cursor": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "items",
+          "has_next"
+        ]
+      },
+      "ModelGetRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "ModelGetResponse": {
+        "$ref": "../type/model.json#/components/schemas/Model"
+      },
+      "ModelCreateRequest": {
+        "$ref": "../type/model.json#/components/schemas/Model"
+      },
+      "ModelCreateResponse": {
+        "$ref": "../type/model.json#/components/schemas/Model"
+      },
+      "ModelPutRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "body": {
+            "$ref": "../type/model.json#/components/schemas/Model"
+          }
+        },
+        "required": [
+          "id",
+          "body"
+        ]
+      },
+      "ModelPutResponse": {
+        "$ref": "../type/model.json#/components/schemas/Model"
+      },
+      "ModelDeleteRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "ModelDeleteResponse": {
+        "$ref": "../type/model.json#/components/schemas/Model"
+      },
+      "CredentialListRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "cursor": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      },
+      "CredentialListResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "../type/credential.json#/components/schemas/Credential"
+            }
+          },
+          "has_next": {
+            "type": "boolean"
+          },
+          "next_cursor": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "items",
+          "has_next"
+        ]
+      },
+      "CredentialGetRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "CredentialGetResponse": {
+        "$ref": "../type/credential.json#/components/schemas/Credential"
+      },
+      "CredentialCreateRequest": {
+        "$ref": "../type/credential.json#/components/schemas/Credential"
+      },
+      "CredentialCreateResponse": {
+        "$ref": "../type/credential.json#/components/schemas/Credential"
+      },
+      "CredentialPutRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "body": {
+            "$ref": "../type/credential.json#/components/schemas/Credential"
+          }
+        },
+        "required": [
+          "name",
+          "body"
+        ]
+      },
+      "CredentialPutResponse": {
+        "$ref": "../type/credential.json#/components/schemas/Credential"
+      },
+      "CredentialDeleteRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "CredentialDeleteResponse": {
+        "$ref": "../type/credential.json#/components/schemas/Credential"
+      },
+      "PetObject": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "body": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "PetListRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "cursor": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      },
+      "PetListResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PetObject"
+            }
+          },
+          "has_next": {
+            "type": "boolean"
+          },
+          "next_cursor": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "items",
+          "has_next"
+        ]
+      },
+      "PetGetRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "PetGetResponse": {
+        "$ref": "#/components/schemas/PetObject"
+      },
+      "PetCreateRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "body": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "required": [
+          "body"
+        ]
+      },
+      "PetCreateResponse": {
+        "$ref": "#/components/schemas/PetObject"
+      },
+      "PetPutRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "body": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "required": [
+          "id",
+          "body"
+        ]
+      },
+      "PetPutResponse": {
+        "$ref": "#/components/schemas/PetObject"
+      },
+      "PetDeleteRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "PetDeleteResponse": {
+        "$ref": "#/components/schemas/PetObject"
+      },
+      "PetFeedRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "PetFeedResponse": {
+        "$ref": "#/components/schemas/PetObject"
+      },
+      "PetPlayRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "PetPlayResponse": {
+        "$ref": "#/components/schemas/PetObject"
+      },
+      "PetLevelUpRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "PetLevelUpResponse": {
+        "$ref": "#/components/schemas/PetObject"
+      },
+      "RewardObject": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "body": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "RewardListRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "cursor": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      },
+      "RewardListResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RewardObject"
+            }
+          },
+          "has_next": {
+            "type": "boolean"
+          },
+          "next_cursor": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "items",
+          "has_next"
+        ]
+      },
+      "RewardGetRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "RewardGetResponse": {
+        "$ref": "#/components/schemas/RewardObject"
+      },
+      "RewardCreateRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "body": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "required": [
+          "body"
+        ]
+      },
+      "RewardCreateResponse": {
+        "$ref": "#/components/schemas/RewardObject"
+      },
+      "RewardClaimRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "RewardClaimResponse": {
+        "$ref": "#/components/schemas/RewardObject"
+      },
+      "ContactObject": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "body": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "ContactListRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "cursor": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      },
+      "ContactListResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ContactObject"
+            }
+          },
+          "has_next": {
+            "type": "boolean"
+          },
+          "next_cursor": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "items",
+          "has_next"
+        ]
+      },
+      "ContactGetRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "ContactGetResponse": {
+        "$ref": "#/components/schemas/ContactObject"
+      },
+      "ContactCreateRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "body": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "required": [
+          "body"
+        ]
+      },
+      "ContactCreateResponse": {
+        "$ref": "#/components/schemas/ContactObject"
+      },
+      "ContactPutRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "body": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "required": [
+          "id",
+          "body"
+        ]
+      },
+      "ContactPutResponse": {
+        "$ref": "#/components/schemas/ContactObject"
+      },
+      "ContactDeleteRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "ContactDeleteResponse": {
+        "$ref": "#/components/schemas/ContactObject"
+      },
+      "ContactBlockRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "ContactBlockResponse": {
+        "$ref": "#/components/schemas/ContactObject"
+      },
+      "ContactUnblockRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "ContactUnblockResponse": {
+        "$ref": "#/components/schemas/ContactObject"
+      },
+      "FriendRequestObject": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "body": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "FriendRequestListRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "cursor": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      },
+      "FriendRequestListResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FriendRequestObject"
+            }
+          },
+          "has_next": {
+            "type": "boolean"
+          },
+          "next_cursor": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "items",
+          "has_next"
+        ]
+      },
+      "FriendRequestCreateRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "body": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "required": [
+          "body"
+        ]
+      },
+      "FriendRequestCreateResponse": {
+        "$ref": "#/components/schemas/FriendRequestObject"
+      },
+      "FriendRequestAcceptRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "FriendRequestAcceptResponse": {
+        "$ref": "#/components/schemas/FriendRequestObject"
+      },
+      "FriendRequestRejectRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "FriendRequestRejectResponse": {
+        "$ref": "#/components/schemas/FriendRequestObject"
+      },
+      "FriendObject": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "body": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "FriendListRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "cursor": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      },
+      "FriendListResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FriendObject"
+            }
+          },
+          "has_next": {
+            "type": "boolean"
+          },
+          "next_cursor": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "items",
+          "has_next"
+        ]
+      },
+      "FriendDeleteRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "FriendDeleteResponse": {
+        "$ref": "#/components/schemas/FriendObject"
+      },
+      "GroupObject": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "body": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "GroupListRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "cursor": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      },
+      "GroupListResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GroupObject"
+            }
+          },
+          "has_next": {
+            "type": "boolean"
+          },
+          "next_cursor": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "items",
+          "has_next"
+        ]
+      },
+      "GroupGetRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "GroupGetResponse": {
+        "$ref": "#/components/schemas/GroupObject"
+      },
+      "GroupCreateRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "body": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "required": [
+          "body"
+        ]
+      },
+      "GroupCreateResponse": {
+        "$ref": "#/components/schemas/GroupObject"
+      },
+      "GroupPutRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "body": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "required": [
+          "id",
+          "body"
+        ]
+      },
+      "GroupPutResponse": {
+        "$ref": "#/components/schemas/GroupObject"
+      },
+      "GroupDeleteRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "GroupDeleteResponse": {
+        "$ref": "#/components/schemas/GroupObject"
+      },
+      "GroupMemberObject": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "body": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "GroupMemberListRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "cursor": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      },
+      "GroupMemberListResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GroupMemberObject"
+            }
+          },
+          "has_next": {
+            "type": "boolean"
+          },
+          "next_cursor": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "items",
+          "has_next"
+        ]
+      },
+      "GroupMemberAddRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "body": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "required": [
+          "body"
+        ]
+      },
+      "GroupMemberAddResponse": {
+        "$ref": "#/components/schemas/GroupMemberObject"
+      },
+      "GroupMemberDeleteRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "GroupMemberDeleteResponse": {
+        "$ref": "#/components/schemas/GroupMemberObject"
+      },
+      "GroupMessageObject": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "body": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "GroupMessageListRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "cursor": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      },
+      "GroupMessageListResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GroupMessageObject"
+            }
+          },
+          "has_next": {
+            "type": "boolean"
+          },
+          "next_cursor": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "items",
+          "has_next"
+        ]
+      },
+      "GroupMessageSendRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "body": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "required": [
+          "body"
+        ]
+      },
+      "GroupMessageSendResponse": {
+        "$ref": "#/components/schemas/GroupMessageObject"
+      },
+      "CallObject": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "body": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "CallListRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "cursor": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      },
+      "CallListResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CallObject"
+            }
+          },
+          "has_next": {
+            "type": "boolean"
+          },
+          "next_cursor": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "items",
+          "has_next"
+        ]
+      },
+      "CallGetRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "CallGetResponse": {
+        "$ref": "#/components/schemas/CallObject"
+      },
+      "CallCreateRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "body": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "required": [
+          "body"
+        ]
+      },
+      "CallCreateResponse": {
+        "$ref": "#/components/schemas/CallObject"
+      },
+      "CallAnswerRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "CallAnswerResponse": {
+        "$ref": "#/components/schemas/CallObject"
+      },
+      "CallRejectRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "CallRejectResponse": {
+        "$ref": "#/components/schemas/CallObject"
+      },
+      "CallEndRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "CallEndResponse": {
+        "$ref": "#/components/schemas/CallObject"
+      },
+      "WalletGetRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {}
+      },
+      "WalletObject": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "public_key": {
+            "type": "string"
+          },
+          "balance": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "WalletGetResponse": {
+        "$ref": "#/components/schemas/WalletObject"
+      },
+      "WalletTransactionObject": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "amount": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "body": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      },
+      "WalletTransactionsListRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "cursor": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      },
+      "WalletTransactionsListResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WalletTransactionObject"
+            }
+          },
+          "has_next": {
+            "type": "boolean"
+          },
+          "next_cursor": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "items",
+          "has_next"
+        ]
+      },
+      "GameResultCreateRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "body": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "required": [
+          "body"
+        ]
+      },
+      "GameResultObject": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "body": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "GameResultCreateResponse": {
+        "$ref": "#/components/schemas/GameResultObject"
       }
     }
   }

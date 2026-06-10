@@ -17,7 +17,16 @@
           "voice",
           "credential",
           "model",
-          "view"
+          "view",
+          "pet",
+          "wallet",
+          "contact",
+          "friend",
+          "friend_request",
+          "group",
+          "call",
+          "game_result",
+          "reward"
         ]
       },
       "ACLResource": {

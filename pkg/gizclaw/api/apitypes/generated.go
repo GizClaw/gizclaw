@@ -13,32 +13,71 @@ import (
 
 // Defines values for ACLPermission.
 const (
-	ACLPermissionCredentialAdmin ACLPermission = "credential.admin"
-	ACLPermissionCredentialRead  ACLPermission = "credential.read"
-	ACLPermissionCredentialUse   ACLPermission = "credential.use"
-	ACLPermissionEditor          ACLPermission = "editor"
-	ACLPermissionModelAdmin      ACLPermission = "model.admin"
-	ACLPermissionModelRead       ACLPermission = "model.read"
-	ACLPermissionModelUse        ACLPermission = "model.use"
-	ACLPermissionOwner           ACLPermission = "owner"
-	ACLPermissionViewAdmin       ACLPermission = "view.admin"
-	ACLPermissionViewRead        ACLPermission = "view.read"
-	ACLPermissionViewUse         ACLPermission = "view.use"
-	ACLPermissionViewer          ACLPermission = "viewer"
-	ACLPermissionVoiceAdmin      ACLPermission = "voice.admin"
-	ACLPermissionVoiceRead       ACLPermission = "voice.read"
-	ACLPermissionVoiceUse        ACLPermission = "voice.use"
-	ACLPermissionWorkflowAdmin   ACLPermission = "workflow.admin"
-	ACLPermissionWorkflowRead    ACLPermission = "workflow.read"
-	ACLPermissionWorkflowUse     ACLPermission = "workflow.use"
-	ACLPermissionWorkspaceAdmin  ACLPermission = "workspace.admin"
-	ACLPermissionWorkspaceRead   ACLPermission = "workspace.read"
-	ACLPermissionWorkspaceUse    ACLPermission = "workspace.use"
+	ACLPermissionCallAdmin          ACLPermission = "call.admin"
+	ACLPermissionCallRead           ACLPermission = "call.read"
+	ACLPermissionCallUse            ACLPermission = "call.use"
+	ACLPermissionContactAdmin       ACLPermission = "contact.admin"
+	ACLPermissionContactRead        ACLPermission = "contact.read"
+	ACLPermissionContactUse         ACLPermission = "contact.use"
+	ACLPermissionCredentialAdmin    ACLPermission = "credential.admin"
+	ACLPermissionCredentialRead     ACLPermission = "credential.read"
+	ACLPermissionCredentialUse      ACLPermission = "credential.use"
+	ACLPermissionEditor             ACLPermission = "editor"
+	ACLPermissionFriendAdmin        ACLPermission = "friend.admin"
+	ACLPermissionFriendRead         ACLPermission = "friend.read"
+	ACLPermissionFriendRequestAdmin ACLPermission = "friend_request.admin"
+	ACLPermissionFriendRequestRead  ACLPermission = "friend_request.read"
+	ACLPermissionFriendRequestUse   ACLPermission = "friend_request.use"
+	ACLPermissionFriendUse          ACLPermission = "friend.use"
+	ACLPermissionGameResultAdmin    ACLPermission = "game_result.admin"
+	ACLPermissionGameResultRead     ACLPermission = "game_result.read"
+	ACLPermissionGameResultUse      ACLPermission = "game_result.use"
+	ACLPermissionGroupAdmin         ACLPermission = "group.admin"
+	ACLPermissionGroupRead          ACLPermission = "group.read"
+	ACLPermissionGroupUse           ACLPermission = "group.use"
+	ACLPermissionModelAdmin         ACLPermission = "model.admin"
+	ACLPermissionModelRead          ACLPermission = "model.read"
+	ACLPermissionModelUse           ACLPermission = "model.use"
+	ACLPermissionOwner              ACLPermission = "owner"
+	ACLPermissionPetAdmin           ACLPermission = "pet.admin"
+	ACLPermissionPetRead            ACLPermission = "pet.read"
+	ACLPermissionPetUse             ACLPermission = "pet.use"
+	ACLPermissionRewardAdmin        ACLPermission = "reward.admin"
+	ACLPermissionRewardRead         ACLPermission = "reward.read"
+	ACLPermissionRewardUse          ACLPermission = "reward.use"
+	ACLPermissionViewAdmin          ACLPermission = "view.admin"
+	ACLPermissionViewRead           ACLPermission = "view.read"
+	ACLPermissionViewUse            ACLPermission = "view.use"
+	ACLPermissionViewer             ACLPermission = "viewer"
+	ACLPermissionVoiceAdmin         ACLPermission = "voice.admin"
+	ACLPermissionVoiceRead          ACLPermission = "voice.read"
+	ACLPermissionVoiceUse           ACLPermission = "voice.use"
+	ACLPermissionWalletAdmin        ACLPermission = "wallet.admin"
+	ACLPermissionWalletRead         ACLPermission = "wallet.read"
+	ACLPermissionWalletUse          ACLPermission = "wallet.use"
+	ACLPermissionWorkflowAdmin      ACLPermission = "workflow.admin"
+	ACLPermissionWorkflowRead       ACLPermission = "workflow.read"
+	ACLPermissionWorkflowUse        ACLPermission = "workflow.use"
+	ACLPermissionWorkspaceAdmin     ACLPermission = "workspace.admin"
+	ACLPermissionWorkspaceRead      ACLPermission = "workspace.read"
+	ACLPermissionWorkspaceUse       ACLPermission = "workspace.use"
 )
 
 // Valid indicates whether the value is a known member of the ACLPermission enum.
 func (e ACLPermission) Valid() bool {
 	switch e {
+	case ACLPermissionCallAdmin:
+		return true
+	case ACLPermissionCallRead:
+		return true
+	case ACLPermissionCallUse:
+		return true
+	case ACLPermissionContactAdmin:
+		return true
+	case ACLPermissionContactRead:
+		return true
+	case ACLPermissionContactUse:
+		return true
 	case ACLPermissionCredentialAdmin:
 		return true
 	case ACLPermissionCredentialRead:
@@ -47,6 +86,30 @@ func (e ACLPermission) Valid() bool {
 		return true
 	case ACLPermissionEditor:
 		return true
+	case ACLPermissionFriendAdmin:
+		return true
+	case ACLPermissionFriendRead:
+		return true
+	case ACLPermissionFriendRequestAdmin:
+		return true
+	case ACLPermissionFriendRequestRead:
+		return true
+	case ACLPermissionFriendRequestUse:
+		return true
+	case ACLPermissionFriendUse:
+		return true
+	case ACLPermissionGameResultAdmin:
+		return true
+	case ACLPermissionGameResultRead:
+		return true
+	case ACLPermissionGameResultUse:
+		return true
+	case ACLPermissionGroupAdmin:
+		return true
+	case ACLPermissionGroupRead:
+		return true
+	case ACLPermissionGroupUse:
+		return true
 	case ACLPermissionModelAdmin:
 		return true
 	case ACLPermissionModelRead:
@@ -54,6 +117,18 @@ func (e ACLPermission) Valid() bool {
 	case ACLPermissionModelUse:
 		return true
 	case ACLPermissionOwner:
+		return true
+	case ACLPermissionPetAdmin:
+		return true
+	case ACLPermissionPetRead:
+		return true
+	case ACLPermissionPetUse:
+		return true
+	case ACLPermissionRewardAdmin:
+		return true
+	case ACLPermissionRewardRead:
+		return true
+	case ACLPermissionRewardUse:
 		return true
 	case ACLPermissionViewAdmin:
 		return true
@@ -68,6 +143,12 @@ func (e ACLPermission) Valid() bool {
 	case ACLPermissionVoiceRead:
 		return true
 	case ACLPermissionVoiceUse:
+		return true
+	case ACLPermissionWalletAdmin:
+		return true
+	case ACLPermissionWalletRead:
+		return true
+	case ACLPermissionWalletUse:
 		return true
 	case ACLPermissionWorkflowAdmin:
 		return true
@@ -103,24 +184,51 @@ func (e ACLPolicyBindingResourceKind) Valid() bool {
 
 // Defines values for ACLResourceKind.
 const (
-	ACLResourceKindCredential ACLResourceKind = "credential"
-	ACLResourceKindModel      ACLResourceKind = "model"
-	ACLResourceKindView       ACLResourceKind = "view"
-	ACLResourceKindVoice      ACLResourceKind = "voice"
-	ACLResourceKindWorkflow   ACLResourceKind = "workflow"
-	ACLResourceKindWorkspace  ACLResourceKind = "workspace"
+	ACLResourceKindCall          ACLResourceKind = "call"
+	ACLResourceKindContact       ACLResourceKind = "contact"
+	ACLResourceKindCredential    ACLResourceKind = "credential"
+	ACLResourceKindFriend        ACLResourceKind = "friend"
+	ACLResourceKindFriendRequest ACLResourceKind = "friend_request"
+	ACLResourceKindGameResult    ACLResourceKind = "game_result"
+	ACLResourceKindGroup         ACLResourceKind = "group"
+	ACLResourceKindModel         ACLResourceKind = "model"
+	ACLResourceKindPet           ACLResourceKind = "pet"
+	ACLResourceKindReward        ACLResourceKind = "reward"
+	ACLResourceKindView          ACLResourceKind = "view"
+	ACLResourceKindVoice         ACLResourceKind = "voice"
+	ACLResourceKindWallet        ACLResourceKind = "wallet"
+	ACLResourceKindWorkflow      ACLResourceKind = "workflow"
+	ACLResourceKindWorkspace     ACLResourceKind = "workspace"
 )
 
 // Valid indicates whether the value is a known member of the ACLResourceKind enum.
 func (e ACLResourceKind) Valid() bool {
 	switch e {
+	case ACLResourceKindCall:
+		return true
+	case ACLResourceKindContact:
+		return true
 	case ACLResourceKindCredential:
 		return true
+	case ACLResourceKindFriend:
+		return true
+	case ACLResourceKindFriendRequest:
+		return true
+	case ACLResourceKindGameResult:
+		return true
+	case ACLResourceKindGroup:
+		return true
 	case ACLResourceKindModel:
+		return true
+	case ACLResourceKindPet:
+		return true
+	case ACLResourceKindReward:
 		return true
 	case ACLResourceKindView:
 		return true
 	case ACLResourceKindVoice:
+		return true
+	case ACLResourceKindWallet:
 		return true
 	case ACLResourceKindWorkflow:
 		return true
@@ -542,6 +650,33 @@ func (e PeerConfigResourceKind) Valid() bool {
 	}
 }
 
+// Defines values for PeerRunStatusState.
+const (
+	PeerRunStatusStateError    PeerRunStatusState = "error"
+	PeerRunStatusStateRunning  PeerRunStatusState = "running"
+	PeerRunStatusStateStarting PeerRunStatusState = "starting"
+	PeerRunStatusStateStopped  PeerRunStatusState = "stopped"
+	PeerRunStatusStateStopping PeerRunStatusState = "stopping"
+)
+
+// Valid indicates whether the value is a known member of the PeerRunStatusState enum.
+func (e PeerRunStatusState) Valid() bool {
+	switch e {
+	case PeerRunStatusStateError:
+		return true
+	case PeerRunStatusStateRunning:
+		return true
+	case PeerRunStatusStateStarting:
+		return true
+	case PeerRunStatusStateStopped:
+		return true
+	case PeerRunStatusStateStopping:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ProviderKind.
 const (
 	ProviderKindDashscopeTenant ProviderKind = "dashscope-tenant"
@@ -897,6 +1032,11 @@ type ACLViewSpec struct {
 	Description *string `json:"description,omitempty"`
 }
 
+// AgentSelection defines model for AgentSelection.
+type AgentSelection struct {
+	WorkspaceName string `json:"workspace_name"`
+}
+
 // ApplyAction Result of applying the resource.
 type ApplyAction string
 
@@ -918,6 +1058,19 @@ type ApplyResult struct {
 	Kind    ResourceKind `json:"kind"`
 	Message *string      `json:"message,omitempty"`
 	Name    string       `json:"name"`
+}
+
+// AudioSayRequest defines model for AudioSayRequest.
+type AudioSayRequest struct {
+	CredentialName *string `json:"credential_name,omitempty"`
+	ModelId        *string `json:"model_id,omitempty"`
+	Text           string  `json:"text"`
+	VoiceId        *string `json:"voice_id,omitempty"`
+}
+
+// AudioSayResponse defines model for AudioSayResponse.
+type AudioSayResponse struct {
+	Accepted bool `json:"accepted"`
 }
 
 // Configuration defines model for Configuration.
@@ -1412,6 +1565,35 @@ type PeerConfigResource struct {
 
 // PeerConfigResourceKind defines model for PeerConfigResource.Kind.
 type PeerConfigResourceKind string
+
+// PeerRunAgent defines model for PeerRunAgent.
+type PeerRunAgent struct {
+	Active  *AgentSelection `json:"active,omitempty"`
+	Pending *AgentSelection `json:"pending,omitempty"`
+}
+
+// PeerRunStatus defines model for PeerRunStatus.
+type PeerRunStatus struct {
+	Message       *string            `json:"message,omitempty"`
+	StartedAt     *time.Time         `json:"started_at,omitempty"`
+	State         PeerRunStatusState `json:"state"`
+	UpdatedAt     *time.Time         `json:"updated_at,omitempty"`
+	WorkspaceName *string            `json:"workspace_name,omitempty"`
+}
+
+// PeerRunStatusState defines model for PeerRunStatusState.
+type PeerRunStatusState string
+
+// PeerStatus defines model for PeerStatus.
+type PeerStatus struct {
+	BatteryPercent *int                    `json:"battery_percent,omitempty"`
+	Charging       *bool                   `json:"charging,omitempty"`
+	Details        *map[string]interface{} `json:"details,omitempty"`
+	Labels         *map[string]string      `json:"labels,omitempty"`
+	Muted          *bool                   `json:"muted,omitempty"`
+	ReportedAt     *time.Time              `json:"reported_at,omitempty"`
+	Volume         *int                    `json:"volume,omitempty"`
+}
 
 // Provider defines model for Provider.
 type Provider struct {

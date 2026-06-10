@@ -1,0 +1,49 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Peer Run Status Type",
+    "description": "Connection-level agent runtime status schema.",
+    "version": "1.0.0"
+  },
+  "paths": {},
+  "components": {
+    "schemas": {
+      "PeerRunStatusState": {
+        "type": "string",
+        "enum": [
+          "stopped",
+          "starting",
+          "running",
+          "stopping",
+          "error"
+        ]
+      },
+      "PeerRunStatus": {
+        "type": "object",
+        "required": [
+          "state"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "state": {
+            "$ref": "#/components/schemas/PeerRunStatusState"
+          },
+          "workspace_name": {
+            "type": "string"
+          },
+          "started_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

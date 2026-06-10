@@ -1,0 +1,25 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Peer Run Agent Type",
+    "description": "Peer-owned active and pending agent selection schema.",
+    "version": "1.0.0"
+  },
+  "paths": {},
+  "components": {
+    "schemas": {
+      "PeerRunAgent": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "active": {
+            "$ref": "./agent_selection.json#/components/schemas/AgentSelection"
+          },
+          "pending": {
+            "$ref": "./agent_selection.json#/components/schemas/AgentSelection"
+          }
+        }
+      }
+    }
+  }
+}

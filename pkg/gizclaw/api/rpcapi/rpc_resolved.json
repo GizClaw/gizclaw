@@ -1,6 +1,507 @@
 {
   "components": {
     "schemas": {
+      "AgentSelection": {
+        "additionalProperties": false,
+        "properties": {
+          "workspace_name": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "workspace_name"
+        ],
+        "type": "object"
+      },
+      "AudioSayRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "credential_name": {
+            "type": "string"
+          },
+          "model_id": {
+            "type": "string"
+          },
+          "text": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "voice_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "type": "object"
+      },
+      "AudioSayResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "accepted": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "accepted"
+        ],
+        "type": "object"
+      },
+      "CallAnswerRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "CallAnswerResponse": {
+        "$ref": "#/components/schemas/CallObject"
+      },
+      "CallCreateRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "body": {
+            "additionalProperties": true,
+            "type": "object"
+          }
+        },
+        "required": [
+          "body"
+        ],
+        "type": "object"
+      },
+      "CallCreateResponse": {
+        "$ref": "#/components/schemas/CallObject"
+      },
+      "CallEndRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "CallEndResponse": {
+        "$ref": "#/components/schemas/CallObject"
+      },
+      "CallGetRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "CallGetResponse": {
+        "$ref": "#/components/schemas/CallObject"
+      },
+      "CallListRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "cursor": {
+            "type": "string"
+          },
+          "limit": {
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "CallListResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "has_next": {
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/CallObject"
+            },
+            "type": "array"
+          },
+          "next_cursor": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "items",
+          "has_next"
+        ],
+        "type": "object"
+      },
+      "CallObject": {
+        "additionalProperties": false,
+        "properties": {
+          "body": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "CallRejectRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "CallRejectResponse": {
+        "$ref": "#/components/schemas/CallObject"
+      },
+      "ContactBlockRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "ContactBlockResponse": {
+        "$ref": "#/components/schemas/ContactObject"
+      },
+      "ContactCreateRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "body": {
+            "additionalProperties": true,
+            "type": "object"
+          }
+        },
+        "required": [
+          "body"
+        ],
+        "type": "object"
+      },
+      "ContactCreateResponse": {
+        "$ref": "#/components/schemas/ContactObject"
+      },
+      "ContactDeleteRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "ContactDeleteResponse": {
+        "$ref": "#/components/schemas/ContactObject"
+      },
+      "ContactGetRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "ContactGetResponse": {
+        "$ref": "#/components/schemas/ContactObject"
+      },
+      "ContactListRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "cursor": {
+            "type": "string"
+          },
+          "limit": {
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "ContactListResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "has_next": {
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ContactObject"
+            },
+            "type": "array"
+          },
+          "next_cursor": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "items",
+          "has_next"
+        ],
+        "type": "object"
+      },
+      "ContactObject": {
+        "additionalProperties": false,
+        "properties": {
+          "body": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "ContactPutRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "body": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "id": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "body"
+        ],
+        "type": "object"
+      },
+      "ContactPutResponse": {
+        "$ref": "#/components/schemas/ContactObject"
+      },
+      "ContactUnblockRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "ContactUnblockResponse": {
+        "$ref": "#/components/schemas/ContactObject"
+      },
+      "Credential": {
+        "properties": {
+          "body": {
+            "$ref": "#/components/schemas/CredentialBody"
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "description": {
+            "example": "primary openai credential",
+            "type": "string"
+          },
+          "method": {
+            "$ref": "#/components/schemas/CredentialMethod"
+          },
+          "name": {
+            "type": "string"
+          },
+          "provider": {
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "provider",
+          "method",
+          "body",
+          "created_at",
+          "updated_at"
+        ],
+        "type": "object"
+      },
+      "CredentialBody": {
+        "additionalProperties": true,
+        "example": {
+          "api_key": "sk-..."
+        },
+        "type": "object"
+      },
+      "CredentialCreateRequest": {
+        "$ref": "#/components/schemas/Credential"
+      },
+      "CredentialCreateResponse": {
+        "$ref": "#/components/schemas/Credential"
+      },
+      "CredentialDeleteRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "type": "object"
+      },
+      "CredentialDeleteResponse": {
+        "$ref": "#/components/schemas/Credential"
+      },
+      "CredentialGetRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "type": "object"
+      },
+      "CredentialGetResponse": {
+        "$ref": "#/components/schemas/Credential"
+      },
+      "CredentialListRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "cursor": {
+            "type": "string"
+          },
+          "limit": {
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "CredentialListResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "has_next": {
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/Credential"
+            },
+            "type": "array"
+          },
+          "next_cursor": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "items",
+          "has_next"
+        ],
+        "type": "object"
+      },
+      "CredentialMethod": {
+        "description": "Credential authentication method",
+        "enum": [
+          "api_key",
+          "token",
+          "app_id_token"
+        ],
+        "type": "string"
+      },
+      "CredentialPutRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "body": {
+            "$ref": "#/components/schemas/Credential"
+          },
+          "name": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "body"
+        ],
+        "type": "object"
+      },
+      "CredentialPutResponse": {
+        "$ref": "#/components/schemas/Credential"
+      },
+      "DashScopeTenantModelProviderData": {
+        "properties": {
+          "api_mode": {
+            "enum": [
+              "chat_completions",
+              "realtime"
+            ],
+            "type": "string"
+          },
+          "upstream_model": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
       "DeviceGetIdentifiersRequest": {
         "additionalProperties": false,
         "properties": {},
@@ -26,6 +527,258 @@
             "type": "string"
           },
           "sn": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "FlowcraftWorkflow": {
+        "example": {
+          "apiVersion": "gizclaw.flowcraft/v1alpha1",
+          "kind": "FlowcraftWorkflow",
+          "metadata": {
+            "description": "flowcraft workflow",
+            "name": "demo-assistant"
+          },
+          "spec": {}
+        },
+        "properties": {
+          "apiVersion": {
+            "$ref": "#/components/schemas/WorkflowAPIVersion"
+          },
+          "kind": {
+            "enum": [
+              "FlowcraftWorkflow"
+            ],
+            "type": "string"
+          },
+          "metadata": {
+            "$ref": "#/components/schemas/WorkflowMetadata"
+          },
+          "spec": {
+            "$ref": "#/components/schemas/FlowcraftWorkflowSpec"
+          }
+        },
+        "required": [
+          "apiVersion",
+          "kind",
+          "metadata",
+          "spec"
+        ],
+        "type": "object"
+      },
+      "FlowcraftWorkflowSpec": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "FriendDeleteRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "FriendDeleteResponse": {
+        "$ref": "#/components/schemas/FriendObject"
+      },
+      "FriendListRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "cursor": {
+            "type": "string"
+          },
+          "limit": {
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "FriendListResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "has_next": {
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/FriendObject"
+            },
+            "type": "array"
+          },
+          "next_cursor": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "items",
+          "has_next"
+        ],
+        "type": "object"
+      },
+      "FriendObject": {
+        "additionalProperties": false,
+        "properties": {
+          "body": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "FriendRequestAcceptRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "FriendRequestAcceptResponse": {
+        "$ref": "#/components/schemas/FriendRequestObject"
+      },
+      "FriendRequestCreateRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "body": {
+            "additionalProperties": true,
+            "type": "object"
+          }
+        },
+        "required": [
+          "body"
+        ],
+        "type": "object"
+      },
+      "FriendRequestCreateResponse": {
+        "$ref": "#/components/schemas/FriendRequestObject"
+      },
+      "FriendRequestListRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "cursor": {
+            "type": "string"
+          },
+          "limit": {
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "FriendRequestListResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "has_next": {
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/FriendRequestObject"
+            },
+            "type": "array"
+          },
+          "next_cursor": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "items",
+          "has_next"
+        ],
+        "type": "object"
+      },
+      "FriendRequestObject": {
+        "additionalProperties": false,
+        "properties": {
+          "body": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "FriendRequestRejectRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "FriendRequestRejectResponse": {
+        "$ref": "#/components/schemas/FriendRequestObject"
+      },
+      "GameResultCreateRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "body": {
+            "additionalProperties": true,
+            "type": "object"
+          }
+        },
+        "required": [
+          "body"
+        ],
+        "type": "object"
+      },
+      "GameResultCreateResponse": {
+        "$ref": "#/components/schemas/GameResultObject"
+      },
+      "GameResultObject": {
+        "additionalProperties": false,
+        "properties": {
+          "body": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
             "type": "string"
           }
         },
@@ -64,6 +817,299 @@
         ],
         "type": "object"
       },
+      "GeminiTenantModelProviderData": {
+        "properties": {
+          "upstream_model": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "GroupCreateRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "body": {
+            "additionalProperties": true,
+            "type": "object"
+          }
+        },
+        "required": [
+          "body"
+        ],
+        "type": "object"
+      },
+      "GroupCreateResponse": {
+        "$ref": "#/components/schemas/GroupObject"
+      },
+      "GroupDeleteRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "GroupDeleteResponse": {
+        "$ref": "#/components/schemas/GroupObject"
+      },
+      "GroupGetRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "GroupGetResponse": {
+        "$ref": "#/components/schemas/GroupObject"
+      },
+      "GroupListRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "cursor": {
+            "type": "string"
+          },
+          "limit": {
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "GroupListResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "has_next": {
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/GroupObject"
+            },
+            "type": "array"
+          },
+          "next_cursor": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "items",
+          "has_next"
+        ],
+        "type": "object"
+      },
+      "GroupMemberAddRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "body": {
+            "additionalProperties": true,
+            "type": "object"
+          }
+        },
+        "required": [
+          "body"
+        ],
+        "type": "object"
+      },
+      "GroupMemberAddResponse": {
+        "$ref": "#/components/schemas/GroupMemberObject"
+      },
+      "GroupMemberDeleteRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "GroupMemberDeleteResponse": {
+        "$ref": "#/components/schemas/GroupMemberObject"
+      },
+      "GroupMemberListRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "cursor": {
+            "type": "string"
+          },
+          "limit": {
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "GroupMemberListResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "has_next": {
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/GroupMemberObject"
+            },
+            "type": "array"
+          },
+          "next_cursor": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "items",
+          "has_next"
+        ],
+        "type": "object"
+      },
+      "GroupMemberObject": {
+        "additionalProperties": false,
+        "properties": {
+          "body": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "GroupMessageListRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "cursor": {
+            "type": "string"
+          },
+          "limit": {
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "GroupMessageListResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "has_next": {
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/GroupMessageObject"
+            },
+            "type": "array"
+          },
+          "next_cursor": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "items",
+          "has_next"
+        ],
+        "type": "object"
+      },
+      "GroupMessageObject": {
+        "additionalProperties": false,
+        "properties": {
+          "body": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "GroupMessageSendRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "body": {
+            "additionalProperties": true,
+            "type": "object"
+          }
+        },
+        "required": [
+          "body"
+        ],
+        "type": "object"
+      },
+      "GroupMessageSendResponse": {
+        "$ref": "#/components/schemas/GroupMessageObject"
+      },
+      "GroupObject": {
+        "additionalProperties": false,
+        "properties": {
+          "body": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "GroupPutRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "body": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "id": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "body"
+        ],
+        "type": "object"
+      },
+      "GroupPutResponse": {
+        "$ref": "#/components/schemas/GroupObject"
+      },
       "HardwareInfo": {
         "properties": {
           "hardware_revision": {
@@ -90,6 +1136,307 @@
         },
         "type": "object"
       },
+      "Model": {
+        "properties": {
+          "capabilities": {
+            "$ref": "#/components/schemas/ModelCapabilities"
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "description": {
+            "example": "OpenAI-compatible chat model",
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/ModelKind"
+          },
+          "name": {
+            "example": "MiniMax M2.5",
+            "type": "string"
+          },
+          "provider": {
+            "$ref": "#/components/schemas/ModelProvider"
+          },
+          "provider_data": {
+            "$ref": "#/components/schemas/ModelProviderData",
+            "description": "Provider-specific model runtime configuration.",
+            "example": {
+              "openai-tenant": {
+                "upstream_model": "MiniMax-M2.5"
+              }
+            }
+          },
+          "source": {
+            "$ref": "#/components/schemas/ModelSource"
+          },
+          "synced_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "source",
+          "provider",
+          "created_at",
+          "updated_at"
+        ],
+        "type": "object"
+      },
+      "ModelCapabilities": {
+        "properties": {
+          "json_output": {
+            "type": "boolean"
+          },
+          "system_role": {
+            "type": "boolean"
+          },
+          "temperature": {
+            "type": "boolean"
+          },
+          "text_only": {
+            "type": "boolean"
+          },
+          "thinking": {
+            "$ref": "#/components/schemas/ModelThinkingCapability"
+          },
+          "tool_calls": {
+            "type": "boolean"
+          }
+        },
+        "type": "object"
+      },
+      "ModelCreateRequest": {
+        "$ref": "#/components/schemas/Model"
+      },
+      "ModelCreateResponse": {
+        "$ref": "#/components/schemas/Model"
+      },
+      "ModelDeleteRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "ModelDeleteResponse": {
+        "$ref": "#/components/schemas/Model"
+      },
+      "ModelGetRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "ModelGetResponse": {
+        "$ref": "#/components/schemas/Model"
+      },
+      "ModelKind": {
+        "description": "Runtime role of a model.",
+        "enum": [
+          "llm",
+          "tts",
+          "asr",
+          "embedding"
+        ],
+        "example": "llm",
+        "type": "string"
+      },
+      "ModelListRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "cursor": {
+            "type": "string"
+          },
+          "limit": {
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "ModelListResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "has_next": {
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/Model"
+            },
+            "type": "array"
+          },
+          "next_cursor": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "items",
+          "has_next"
+        ],
+        "type": "object"
+      },
+      "ModelProvider": {
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/ModelProviderKind"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "name"
+        ],
+        "type": "object"
+      },
+      "ModelProviderData": {
+        "additionalProperties": true,
+        "description": "Provider-specific model runtime configuration keyed by provider kind.",
+        "example": {
+          "dashscope-tenant": {
+            "api_mode": "realtime",
+            "upstream_model": "qwen-omni-turbo-realtime"
+          },
+          "gemini-tenant": {
+            "upstream_model": "gemini-2.5-flash"
+          },
+          "openai-tenant": {
+            "upstream_model": "MiniMax-M2.5"
+          }
+        },
+        "type": "object"
+      },
+      "ModelProviderKind": {
+        "description": "Provider resource kind usable by model runtime.",
+        "enum": [
+          "gemini-tenant",
+          "dashscope-tenant",
+          "openai-tenant"
+        ],
+        "example": "openai-tenant",
+        "type": "string"
+      },
+      "ModelPutRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "body": {
+            "$ref": "#/components/schemas/Model"
+          },
+          "id": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "body"
+        ],
+        "type": "object"
+      },
+      "ModelPutResponse": {
+        "$ref": "#/components/schemas/Model"
+      },
+      "ModelSource": {
+        "description": "How the model entered the global catalog",
+        "enum": [
+          "sync",
+          "manual"
+        ],
+        "example": "manual",
+        "type": "string"
+      },
+      "ModelThinkingCapability": {
+        "properties": {
+          "default_level": {
+            "type": "string"
+          },
+          "level_param": {
+            "description": "Optional provider request parameter used for the selected thinking level or budget.",
+            "type": "string"
+          },
+          "levels": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "param": {
+            "description": "Provider request parameter mapping, such as reasoning_effort, thinking.type, or enable_thinking.",
+            "type": "string"
+          },
+          "supported": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "supported"
+        ],
+        "type": "object"
+      },
+      "OpenAITenantModelProviderData": {
+        "properties": {
+          "default_thinking_level": {
+            "type": "string"
+          },
+          "support_json_output": {
+            "type": "boolean"
+          },
+          "support_text_only": {
+            "type": "boolean"
+          },
+          "support_thinking": {
+            "type": "boolean"
+          },
+          "support_tool_calls": {
+            "type": "boolean"
+          },
+          "thinking_level_param": {
+            "type": "string"
+          },
+          "thinking_levels": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "thinking_param": {
+            "type": "string"
+          },
+          "upstream_model": {
+            "type": "string"
+          },
+          "use_system_role": {
+            "type": "boolean"
+          }
+        },
+        "type": "object"
+      },
       "PeerGetInfoRequest": {
         "additionalProperties": false,
         "properties": {},
@@ -97,6 +1444,22 @@
       },
       "PeerGetInfoResponse": {
         "$ref": "#/components/schemas/DeviceInfo"
+      },
+      "PeerGetRunAgentRequest": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object"
+      },
+      "PeerGetRunAgentResponse": {
+        "$ref": "#/components/schemas/PeerRunAgent"
+      },
+      "PeerGetRunStatusRequest": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object"
+      },
+      "PeerGetRunStatusResponse": {
+        "$ref": "#/components/schemas/PeerRunStatus"
       },
       "PeerGetRuntimeRequest": {
         "additionalProperties": false,
@@ -106,11 +1469,304 @@
       "PeerGetRuntimeResponse": {
         "$ref": "#/components/schemas/Runtime"
       },
+      "PeerGetStatusRequest": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object"
+      },
+      "PeerGetStatusResponse": {
+        "$ref": "#/components/schemas/PeerStatus"
+      },
       "PeerPutInfoRequest": {
         "$ref": "#/components/schemas/DeviceInfo"
       },
       "PeerPutInfoResponse": {
         "$ref": "#/components/schemas/DeviceInfo"
+      },
+      "PeerPutStatusRequest": {
+        "$ref": "#/components/schemas/PeerStatus"
+      },
+      "PeerPutStatusResponse": {
+        "$ref": "#/components/schemas/PeerStatus"
+      },
+      "PeerReloadRunRequest": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object"
+      },
+      "PeerReloadRunResponse": {
+        "$ref": "#/components/schemas/PeerRunStatus"
+      },
+      "PeerRunAgent": {
+        "additionalProperties": false,
+        "properties": {
+          "active": {
+            "$ref": "#/components/schemas/AgentSelection"
+          },
+          "pending": {
+            "$ref": "#/components/schemas/AgentSelection"
+          }
+        },
+        "type": "object"
+      },
+      "PeerRunStatus": {
+        "additionalProperties": false,
+        "properties": {
+          "message": {
+            "type": "string"
+          },
+          "started_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "state": {
+            "$ref": "#/components/schemas/PeerRunStatusState"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "workspace_name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "state"
+        ],
+        "type": "object"
+      },
+      "PeerRunStatusState": {
+        "enum": [
+          "stopped",
+          "starting",
+          "running",
+          "stopping",
+          "error"
+        ],
+        "type": "string"
+      },
+      "PeerSetRunAgentRequest": {
+        "$ref": "#/components/schemas/AgentSelection"
+      },
+      "PeerSetRunAgentResponse": {
+        "$ref": "#/components/schemas/PeerRunAgent"
+      },
+      "PeerStatus": {
+        "additionalProperties": false,
+        "properties": {
+          "battery_percent": {
+            "maximum": 100,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "charging": {
+            "type": "boolean"
+          },
+          "details": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "labels": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "muted": {
+            "type": "boolean"
+          },
+          "reported_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "volume": {
+            "maximum": 100,
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "PeerStopRunRequest": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object"
+      },
+      "PeerStopRunResponse": {
+        "$ref": "#/components/schemas/PeerRunStatus"
+      },
+      "PetCreateRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "body": {
+            "additionalProperties": true,
+            "type": "object"
+          }
+        },
+        "required": [
+          "body"
+        ],
+        "type": "object"
+      },
+      "PetCreateResponse": {
+        "$ref": "#/components/schemas/PetObject"
+      },
+      "PetDeleteRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "PetDeleteResponse": {
+        "$ref": "#/components/schemas/PetObject"
+      },
+      "PetFeedRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "PetFeedResponse": {
+        "$ref": "#/components/schemas/PetObject"
+      },
+      "PetGetRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "PetGetResponse": {
+        "$ref": "#/components/schemas/PetObject"
+      },
+      "PetLevelUpRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "PetLevelUpResponse": {
+        "$ref": "#/components/schemas/PetObject"
+      },
+      "PetListRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "cursor": {
+            "type": "string"
+          },
+          "limit": {
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "PetListResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "has_next": {
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PetObject"
+            },
+            "type": "array"
+          },
+          "next_cursor": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "items",
+          "has_next"
+        ],
+        "type": "object"
+      },
+      "PetObject": {
+        "additionalProperties": false,
+        "properties": {
+          "body": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "PetPlayRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "PetPlayResponse": {
+        "$ref": "#/components/schemas/PetObject"
+      },
+      "PetPutRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "body": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "id": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "body"
+        ],
+        "type": "object"
+      },
+      "PetPutResponse": {
+        "$ref": "#/components/schemas/PetObject"
       },
       "PingRequest": {
         "additionalProperties": false,
@@ -182,7 +1838,79 @@
           "peer.info.get",
           "peer.info.put",
           "peer.runtime.get",
-          "server.info.get"
+          "server.info.get",
+          "peer.status.get",
+          "peer.status.put",
+          "peer.run.agent.get",
+          "peer.run.agent.set",
+          "peer.run.reload",
+          "peer.run.status",
+          "peer.run.stop",
+          "audio.say",
+          "workspace.list",
+          "workspace.get",
+          "workspace.create",
+          "workspace.put",
+          "workspace.delete",
+          "workflow.list",
+          "workflow.get",
+          "workflow.create",
+          "workflow.put",
+          "workflow.delete",
+          "model.list",
+          "model.get",
+          "model.create",
+          "model.put",
+          "model.delete",
+          "credential.list",
+          "credential.get",
+          "credential.create",
+          "credential.put",
+          "credential.delete",
+          "pet.list",
+          "pet.get",
+          "pet.create",
+          "pet.put",
+          "pet.delete",
+          "pet.feed",
+          "pet.play",
+          "pet.level-up",
+          "wallet.get",
+          "wallet.transactions.list",
+          "contact.list",
+          "contact.get",
+          "contact.create",
+          "contact.put",
+          "contact.delete",
+          "contact.block",
+          "contact.unblock",
+          "friend.requests.list",
+          "friend.requests.create",
+          "friend.requests.accept",
+          "friend.requests.reject",
+          "friend.list",
+          "friend.delete",
+          "group.list",
+          "group.get",
+          "group.create",
+          "group.put",
+          "group.delete",
+          "group.members.list",
+          "group.members.add",
+          "group.members.delete",
+          "group.messages.list",
+          "group.messages.send",
+          "call.list",
+          "call.get",
+          "call.create",
+          "call.answer",
+          "call.reject",
+          "call.end",
+          "game.results.create",
+          "reward.list",
+          "reward.get",
+          "reward.create",
+          "reward.claim"
         ],
         "type": "string"
       },
@@ -219,6 +1947,222 @@
               },
               {
                 "$ref": "#/components/schemas/PeerGetRuntimeRequest"
+              },
+              {
+                "$ref": "#/components/schemas/PeerGetStatusRequest"
+              },
+              {
+                "$ref": "#/components/schemas/PeerPutStatusRequest"
+              },
+              {
+                "$ref": "#/components/schemas/PeerGetRunAgentRequest"
+              },
+              {
+                "$ref": "#/components/schemas/PeerSetRunAgentRequest"
+              },
+              {
+                "$ref": "#/components/schemas/PeerReloadRunRequest"
+              },
+              {
+                "$ref": "#/components/schemas/PeerGetRunStatusRequest"
+              },
+              {
+                "$ref": "#/components/schemas/PeerStopRunRequest"
+              },
+              {
+                "$ref": "#/components/schemas/AudioSayRequest"
+              },
+              {
+                "$ref": "#/components/schemas/WorkspaceListRequest"
+              },
+              {
+                "$ref": "#/components/schemas/WorkspaceGetRequest"
+              },
+              {
+                "$ref": "#/components/schemas/WorkspaceCreateRequest"
+              },
+              {
+                "$ref": "#/components/schemas/WorkspacePutRequest"
+              },
+              {
+                "$ref": "#/components/schemas/WorkspaceDeleteRequest"
+              },
+              {
+                "$ref": "#/components/schemas/WorkflowListRequest"
+              },
+              {
+                "$ref": "#/components/schemas/WorkflowGetRequest"
+              },
+              {
+                "$ref": "#/components/schemas/WorkflowCreateRequest"
+              },
+              {
+                "$ref": "#/components/schemas/WorkflowPutRequest"
+              },
+              {
+                "$ref": "#/components/schemas/WorkflowDeleteRequest"
+              },
+              {
+                "$ref": "#/components/schemas/ModelListRequest"
+              },
+              {
+                "$ref": "#/components/schemas/ModelGetRequest"
+              },
+              {
+                "$ref": "#/components/schemas/ModelCreateRequest"
+              },
+              {
+                "$ref": "#/components/schemas/ModelPutRequest"
+              },
+              {
+                "$ref": "#/components/schemas/ModelDeleteRequest"
+              },
+              {
+                "$ref": "#/components/schemas/CredentialListRequest"
+              },
+              {
+                "$ref": "#/components/schemas/CredentialGetRequest"
+              },
+              {
+                "$ref": "#/components/schemas/CredentialCreateRequest"
+              },
+              {
+                "$ref": "#/components/schemas/CredentialPutRequest"
+              },
+              {
+                "$ref": "#/components/schemas/CredentialDeleteRequest"
+              },
+              {
+                "$ref": "#/components/schemas/PetListRequest"
+              },
+              {
+                "$ref": "#/components/schemas/PetGetRequest"
+              },
+              {
+                "$ref": "#/components/schemas/PetCreateRequest"
+              },
+              {
+                "$ref": "#/components/schemas/PetPutRequest"
+              },
+              {
+                "$ref": "#/components/schemas/PetDeleteRequest"
+              },
+              {
+                "$ref": "#/components/schemas/PetFeedRequest"
+              },
+              {
+                "$ref": "#/components/schemas/PetPlayRequest"
+              },
+              {
+                "$ref": "#/components/schemas/PetLevelUpRequest"
+              },
+              {
+                "$ref": "#/components/schemas/WalletGetRequest"
+              },
+              {
+                "$ref": "#/components/schemas/WalletTransactionsListRequest"
+              },
+              {
+                "$ref": "#/components/schemas/ContactListRequest"
+              },
+              {
+                "$ref": "#/components/schemas/ContactGetRequest"
+              },
+              {
+                "$ref": "#/components/schemas/ContactCreateRequest"
+              },
+              {
+                "$ref": "#/components/schemas/ContactPutRequest"
+              },
+              {
+                "$ref": "#/components/schemas/ContactDeleteRequest"
+              },
+              {
+                "$ref": "#/components/schemas/ContactBlockRequest"
+              },
+              {
+                "$ref": "#/components/schemas/ContactUnblockRequest"
+              },
+              {
+                "$ref": "#/components/schemas/FriendRequestListRequest"
+              },
+              {
+                "$ref": "#/components/schemas/FriendRequestCreateRequest"
+              },
+              {
+                "$ref": "#/components/schemas/FriendRequestAcceptRequest"
+              },
+              {
+                "$ref": "#/components/schemas/FriendRequestRejectRequest"
+              },
+              {
+                "$ref": "#/components/schemas/FriendListRequest"
+              },
+              {
+                "$ref": "#/components/schemas/FriendDeleteRequest"
+              },
+              {
+                "$ref": "#/components/schemas/GroupListRequest"
+              },
+              {
+                "$ref": "#/components/schemas/GroupGetRequest"
+              },
+              {
+                "$ref": "#/components/schemas/GroupCreateRequest"
+              },
+              {
+                "$ref": "#/components/schemas/GroupPutRequest"
+              },
+              {
+                "$ref": "#/components/schemas/GroupDeleteRequest"
+              },
+              {
+                "$ref": "#/components/schemas/GroupMemberListRequest"
+              },
+              {
+                "$ref": "#/components/schemas/GroupMemberAddRequest"
+              },
+              {
+                "$ref": "#/components/schemas/GroupMemberDeleteRequest"
+              },
+              {
+                "$ref": "#/components/schemas/GroupMessageListRequest"
+              },
+              {
+                "$ref": "#/components/schemas/GroupMessageSendRequest"
+              },
+              {
+                "$ref": "#/components/schemas/CallListRequest"
+              },
+              {
+                "$ref": "#/components/schemas/CallGetRequest"
+              },
+              {
+                "$ref": "#/components/schemas/CallCreateRequest"
+              },
+              {
+                "$ref": "#/components/schemas/CallAnswerRequest"
+              },
+              {
+                "$ref": "#/components/schemas/CallRejectRequest"
+              },
+              {
+                "$ref": "#/components/schemas/CallEndRequest"
+              },
+              {
+                "$ref": "#/components/schemas/GameResultCreateRequest"
+              },
+              {
+                "$ref": "#/components/schemas/RewardListRequest"
+              },
+              {
+                "$ref": "#/components/schemas/RewardGetRequest"
+              },
+              {
+                "$ref": "#/components/schemas/RewardCreateRequest"
+              },
+              {
+                "$ref": "#/components/schemas/RewardClaimRequest"
               }
             ]
           },
@@ -266,6 +2210,222 @@
               },
               {
                 "$ref": "#/components/schemas/PeerGetRuntimeResponse"
+              },
+              {
+                "$ref": "#/components/schemas/PeerGetStatusResponse"
+              },
+              {
+                "$ref": "#/components/schemas/PeerPutStatusResponse"
+              },
+              {
+                "$ref": "#/components/schemas/PeerGetRunAgentResponse"
+              },
+              {
+                "$ref": "#/components/schemas/PeerSetRunAgentResponse"
+              },
+              {
+                "$ref": "#/components/schemas/PeerReloadRunResponse"
+              },
+              {
+                "$ref": "#/components/schemas/PeerGetRunStatusResponse"
+              },
+              {
+                "$ref": "#/components/schemas/PeerStopRunResponse"
+              },
+              {
+                "$ref": "#/components/schemas/AudioSayResponse"
+              },
+              {
+                "$ref": "#/components/schemas/WorkspaceListResponse"
+              },
+              {
+                "$ref": "#/components/schemas/WorkspaceGetResponse"
+              },
+              {
+                "$ref": "#/components/schemas/WorkspaceCreateResponse"
+              },
+              {
+                "$ref": "#/components/schemas/WorkspacePutResponse"
+              },
+              {
+                "$ref": "#/components/schemas/WorkspaceDeleteResponse"
+              },
+              {
+                "$ref": "#/components/schemas/WorkflowListResponse"
+              },
+              {
+                "$ref": "#/components/schemas/WorkflowGetResponse"
+              },
+              {
+                "$ref": "#/components/schemas/WorkflowCreateResponse"
+              },
+              {
+                "$ref": "#/components/schemas/WorkflowPutResponse"
+              },
+              {
+                "$ref": "#/components/schemas/WorkflowDeleteResponse"
+              },
+              {
+                "$ref": "#/components/schemas/ModelListResponse"
+              },
+              {
+                "$ref": "#/components/schemas/ModelGetResponse"
+              },
+              {
+                "$ref": "#/components/schemas/ModelCreateResponse"
+              },
+              {
+                "$ref": "#/components/schemas/ModelPutResponse"
+              },
+              {
+                "$ref": "#/components/schemas/ModelDeleteResponse"
+              },
+              {
+                "$ref": "#/components/schemas/CredentialListResponse"
+              },
+              {
+                "$ref": "#/components/schemas/CredentialGetResponse"
+              },
+              {
+                "$ref": "#/components/schemas/CredentialCreateResponse"
+              },
+              {
+                "$ref": "#/components/schemas/CredentialPutResponse"
+              },
+              {
+                "$ref": "#/components/schemas/CredentialDeleteResponse"
+              },
+              {
+                "$ref": "#/components/schemas/PetListResponse"
+              },
+              {
+                "$ref": "#/components/schemas/PetGetResponse"
+              },
+              {
+                "$ref": "#/components/schemas/PetCreateResponse"
+              },
+              {
+                "$ref": "#/components/schemas/PetPutResponse"
+              },
+              {
+                "$ref": "#/components/schemas/PetDeleteResponse"
+              },
+              {
+                "$ref": "#/components/schemas/PetFeedResponse"
+              },
+              {
+                "$ref": "#/components/schemas/PetPlayResponse"
+              },
+              {
+                "$ref": "#/components/schemas/PetLevelUpResponse"
+              },
+              {
+                "$ref": "#/components/schemas/WalletGetResponse"
+              },
+              {
+                "$ref": "#/components/schemas/WalletTransactionsListResponse"
+              },
+              {
+                "$ref": "#/components/schemas/ContactListResponse"
+              },
+              {
+                "$ref": "#/components/schemas/ContactGetResponse"
+              },
+              {
+                "$ref": "#/components/schemas/ContactCreateResponse"
+              },
+              {
+                "$ref": "#/components/schemas/ContactPutResponse"
+              },
+              {
+                "$ref": "#/components/schemas/ContactDeleteResponse"
+              },
+              {
+                "$ref": "#/components/schemas/ContactBlockResponse"
+              },
+              {
+                "$ref": "#/components/schemas/ContactUnblockResponse"
+              },
+              {
+                "$ref": "#/components/schemas/FriendRequestListResponse"
+              },
+              {
+                "$ref": "#/components/schemas/FriendRequestCreateResponse"
+              },
+              {
+                "$ref": "#/components/schemas/FriendRequestAcceptResponse"
+              },
+              {
+                "$ref": "#/components/schemas/FriendRequestRejectResponse"
+              },
+              {
+                "$ref": "#/components/schemas/FriendListResponse"
+              },
+              {
+                "$ref": "#/components/schemas/FriendDeleteResponse"
+              },
+              {
+                "$ref": "#/components/schemas/GroupListResponse"
+              },
+              {
+                "$ref": "#/components/schemas/GroupGetResponse"
+              },
+              {
+                "$ref": "#/components/schemas/GroupCreateResponse"
+              },
+              {
+                "$ref": "#/components/schemas/GroupPutResponse"
+              },
+              {
+                "$ref": "#/components/schemas/GroupDeleteResponse"
+              },
+              {
+                "$ref": "#/components/schemas/GroupMemberListResponse"
+              },
+              {
+                "$ref": "#/components/schemas/GroupMemberAddResponse"
+              },
+              {
+                "$ref": "#/components/schemas/GroupMemberDeleteResponse"
+              },
+              {
+                "$ref": "#/components/schemas/GroupMessageListResponse"
+              },
+              {
+                "$ref": "#/components/schemas/GroupMessageSendResponse"
+              },
+              {
+                "$ref": "#/components/schemas/CallListResponse"
+              },
+              {
+                "$ref": "#/components/schemas/CallGetResponse"
+              },
+              {
+                "$ref": "#/components/schemas/CallCreateResponse"
+              },
+              {
+                "$ref": "#/components/schemas/CallAnswerResponse"
+              },
+              {
+                "$ref": "#/components/schemas/CallRejectResponse"
+              },
+              {
+                "$ref": "#/components/schemas/CallEndResponse"
+              },
+              {
+                "$ref": "#/components/schemas/GameResultCreateResponse"
+              },
+              {
+                "$ref": "#/components/schemas/RewardListResponse"
+              },
+              {
+                "$ref": "#/components/schemas/RewardGetResponse"
+              },
+              {
+                "$ref": "#/components/schemas/RewardCreateResponse"
+              },
+              {
+                "$ref": "#/components/schemas/RewardClaimResponse"
               }
             ]
           },
@@ -320,6 +2480,110 @@
             "type": "string"
           },
           "name": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "RewardClaimRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "RewardClaimResponse": {
+        "$ref": "#/components/schemas/RewardObject"
+      },
+      "RewardCreateRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "body": {
+            "additionalProperties": true,
+            "type": "object"
+          }
+        },
+        "required": [
+          "body"
+        ],
+        "type": "object"
+      },
+      "RewardCreateResponse": {
+        "$ref": "#/components/schemas/RewardObject"
+      },
+      "RewardGetRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "RewardGetResponse": {
+        "$ref": "#/components/schemas/RewardObject"
+      },
+      "RewardListRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "cursor": {
+            "type": "string"
+          },
+          "limit": {
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "RewardListResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "has_next": {
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/RewardObject"
+            },
+            "type": "array"
+          },
+          "next_cursor": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "items",
+          "has_next"
+        ],
+        "type": "object"
+      },
+      "RewardObject": {
+        "additionalProperties": false,
+        "properties": {
+          "body": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
             "type": "string"
           }
         },
@@ -419,6 +2683,331 @@
           "down_content_length"
         ],
         "type": "object"
+      },
+      "WalletGetRequest": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object"
+      },
+      "WalletGetResponse": {
+        "$ref": "#/components/schemas/WalletObject"
+      },
+      "WalletObject": {
+        "additionalProperties": false,
+        "properties": {
+          "balance": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "public_key": {
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "WalletTransactionObject": {
+        "additionalProperties": false,
+        "properties": {
+          "amount": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "body": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "WalletTransactionsListRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "cursor": {
+            "type": "string"
+          },
+          "limit": {
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "WalletTransactionsListResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "has_next": {
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/WalletTransactionObject"
+            },
+            "type": "array"
+          },
+          "next_cursor": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "items",
+          "has_next"
+        ],
+        "type": "object"
+      },
+      "WorkflowAPIVersion": {
+        "enum": [
+          "gizclaw.flowcraft/v1alpha1"
+        ],
+        "type": "string"
+      },
+      "WorkflowCreateRequest": {
+        "$ref": "#/components/schemas/WorkflowDocument"
+      },
+      "WorkflowCreateResponse": {
+        "$ref": "#/components/schemas/WorkflowDocument"
+      },
+      "WorkflowDeleteRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "type": "object"
+      },
+      "WorkflowDeleteResponse": {
+        "$ref": "#/components/schemas/WorkflowDocument"
+      },
+      "WorkflowDocument": {
+        "$ref": "#/components/schemas/FlowcraftWorkflow"
+      },
+      "WorkflowGetRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "type": "object"
+      },
+      "WorkflowGetResponse": {
+        "$ref": "#/components/schemas/WorkflowDocument"
+      },
+      "WorkflowListRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "cursor": {
+            "type": "string"
+          },
+          "limit": {
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "WorkflowListResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "has_next": {
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/WorkflowDocument"
+            },
+            "type": "array"
+          },
+          "next_cursor": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "items",
+          "has_next"
+        ],
+        "type": "object"
+      },
+      "WorkflowMetadata": {
+        "properties": {
+          "description": {
+            "example": "flowcraft workflow",
+            "type": "string"
+          },
+          "name": {
+            "example": "demo-assistant",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "type": "object"
+      },
+      "WorkflowPutRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "body": {
+            "$ref": "#/components/schemas/WorkflowDocument"
+          },
+          "name": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "body"
+        ],
+        "type": "object"
+      },
+      "WorkflowPutResponse": {
+        "$ref": "#/components/schemas/WorkflowDocument"
+      },
+      "Workspace": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "parameters": {
+            "additionalProperties": true,
+            "example": {},
+            "type": "object"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "workflow_name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "workflow_name",
+          "created_at",
+          "updated_at"
+        ],
+        "type": "object"
+      },
+      "WorkspaceCreateRequest": {
+        "$ref": "#/components/schemas/Workspace"
+      },
+      "WorkspaceCreateResponse": {
+        "$ref": "#/components/schemas/Workspace"
+      },
+      "WorkspaceDeleteRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "type": "object"
+      },
+      "WorkspaceDeleteResponse": {
+        "$ref": "#/components/schemas/Workspace"
+      },
+      "WorkspaceGetRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "type": "object"
+      },
+      "WorkspaceGetResponse": {
+        "$ref": "#/components/schemas/Workspace"
+      },
+      "WorkspaceListRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "cursor": {
+            "type": "string"
+          },
+          "limit": {
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "WorkspaceListResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "has_next": {
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/Workspace"
+            },
+            "type": "array"
+          },
+          "next_cursor": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "items",
+          "has_next"
+        ],
+        "type": "object"
+      },
+      "WorkspacePutRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "body": {
+            "$ref": "#/components/schemas/Workspace"
+          },
+          "name": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "body"
+        ],
+        "type": "object"
+      },
+      "WorkspacePutResponse": {
+        "$ref": "#/components/schemas/Workspace"
       }
     }
   },
