@@ -18,21 +18,21 @@ import {
   type AclView,
 } from "@gizclaw/adminservice";
 import { expectData, toMessage } from "../../components/api";
-import { Badge } from "../../components/badge";
-import { Button } from "../../components/button";
-import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { DateTimeInput } from "../../components/date-time-input";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../../components/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { EmptyState } from "../../components/empty-state";
 import { ErrorBanner } from "../../components/banners";
 import { FormField } from "../../components/form-field";
-import { Input } from "../../components/input";
+import { Input } from "@/components/ui/input";
 import { PageHeader, PageSummaryCard } from "../../components/page-layout";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/select";
-import { Skeleton } from "../../components/skeleton";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/table";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/tabs";
-import { Textarea } from "../../components/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
 import { appendPermissionText, bindingPayloadFromForm, commonPermissions, emptyBindingForm, permissionsFromText, resourceKinds, type PolicyBindingFormState } from "./acl-utils";
 
 const pageLimit = 50;

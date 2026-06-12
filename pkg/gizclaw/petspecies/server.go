@@ -1,9 +1,9 @@
 package petspecies
 
 import (
-	"bufio"
 	"bytes"
 	"context"
+	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -20,6 +20,11 @@ import (
 const (
 	defaultListLimit = 50
 	maxListLimit     = 200
+
+	pixaHeaderSize     = 40
+	pixaClipEntrySize  = 56
+	pixaClipNameSize   = 32
+	pixaFrameEntrySize = 16
 )
 
 var rootKey = kv.Key{"by-id"}
@@ -56,11 +61,11 @@ func (s *Server) Put(ctx context.Context, id string, spec apitypes.PetSpeciesSpe
 	}
 	if err == nil {
 		out.CreatedAt = current.CreatedAt
-		out.ZpetPath = current.ZpetPath
-		out.ZpetMetadata = current.ZpetMetadata
+		out.PixaPath = current.PixaPath
+		out.PixaMetadata = current.PixaMetadata
 	}
-	if spec.ZpetPath != nil {
-		out.ZpetPath = strings.TrimSpace(*spec.ZpetPath)
+	if spec.PixaPath != nil {
+		out.PixaPath = strings.TrimSpace(*spec.PixaPath)
 	}
 	if err := Write(ctx, store, out); err != nil {
 		return apitypes.PetSpecies{}, err
@@ -88,8 +93,8 @@ func (s *Server) Delete(ctx context.Context, id string) (apitypes.PetSpecies, er
 	if err := store.Delete(ctx, speciesKey(id)); err != nil {
 		return apitypes.PetSpecies{}, err
 	}
-	if item.ZpetPath != "" && s.Assets != nil {
-		if err := s.Assets.Delete(item.ZpetPath); err != nil {
+	if item.PixaPath != "" && s.Assets != nil {
+		if err := s.Assets.Delete(item.PixaPath); err != nil {
 			return apitypes.PetSpecies{}, err
 		}
 	}
@@ -126,7 +131,7 @@ func (s *Server) List(ctx context.Context, cursor string, limit int) ([]apitypes
 	return items, hasNext, next, nil
 }
 
-func (s *Server) UploadZpet(ctx context.Context, id string, r io.Reader) (apitypes.PetSpecies, error) {
+func (s *Server) UploadPixa(ctx context.Context, id string, r io.Reader) (apitypes.PetSpecies, error) {
 	store, err := s.store()
 	if err != nil {
 		return apitypes.PetSpecies{}, err
@@ -143,17 +148,17 @@ func (s *Server) UploadZpet(ctx context.Context, id string, r io.Reader) (apityp
 	if err != nil {
 		return apitypes.PetSpecies{}, err
 	}
-	metadata, err := ParseZpetMetadata(data)
+	metadata, err := ParsePixaMetadata(data)
 	if err != nil {
 		return apitypes.PetSpecies{}, err
 	}
-	if item.ZpetPath == "" {
-		item.ZpetPath = item.Id + ".zpet"
+	if item.PixaPath == "" {
+		item.PixaPath = item.Id + ".pixa"
 	}
-	if err := assets.Put(item.ZpetPath, bytes.NewReader(data)); err != nil {
+	if err := assets.Put(item.PixaPath, bytes.NewReader(data)); err != nil {
 		return apitypes.PetSpecies{}, err
 	}
-	item.ZpetMetadata = metadata
+	item.PixaMetadata = metadata
 	item.UpdatedAt = s.now()
 	if err := Write(ctx, store, item); err != nil {
 		return apitypes.PetSpecies{}, err
@@ -161,7 +166,7 @@ func (s *Server) UploadZpet(ctx context.Context, id string, r io.Reader) (apityp
 	return item, nil
 }
 
-func (s *Server) DownloadZpet(ctx context.Context, id string) (io.ReadCloser, error) {
+func (s *Server) DownloadPixa(ctx context.Context, id string) (io.ReadCloser, error) {
 	store, err := s.store()
 	if err != nil {
 		return nil, err
@@ -174,10 +179,10 @@ func (s *Server) DownloadZpet(ctx context.Context, id string) (io.ReadCloser, er
 	if err != nil {
 		return nil, err
 	}
-	if item.ZpetPath == "" {
-		return nil, fmt.Errorf("pet species %q has no zpet file", id)
+	if item.PixaPath == "" {
+		return nil, fmt.Errorf("pet species %q has no PIXA file", id)
 	}
-	return assets.Get(item.ZpetPath)
+	return assets.Get(item.PixaPath)
 }
 
 func Get(ctx context.Context, store kv.Store, id string) (apitypes.PetSpecies, error) {
@@ -207,49 +212,89 @@ func Write(ctx context.Context, store kv.Store, item apitypes.PetSpecies) error 
 	return store.Set(ctx, speciesKey(item.Id), data)
 }
 
-func ParseZpetMetadata(data []byte) (apitypes.ZpetMetadata, error) {
-	line, err := bufio.NewReader(bytes.NewReader(data)).ReadBytes('\n')
-	if err != nil && !errors.Is(err, io.EOF) {
-		return apitypes.ZpetMetadata{}, err
+func ParsePixaMetadata(data []byte) (apitypes.PixaMetadata, error) {
+	if len(data) < pixaHeaderSize {
+		return apitypes.PixaMetadata{}, errors.New("invalid PIXA file: header is too short")
 	}
-	line = bytes.TrimSpace(line)
-	if len(line) == 0 {
-		return apitypes.ZpetMetadata{}, errors.New("zpet metadata line is empty")
+	if !bytes.Equal(data[0:4], []byte("PIXA")) {
+		return apitypes.PixaMetadata{}, errors.New("invalid PIXA magic")
 	}
-	var header struct {
-		Magic   string `json:"magic"`
-		Version int    `json:"version"`
-		ID      string `json:"id"`
-		Canvas  []int  `json:"canvas"`
-		Format  string `json:"format"`
-		Clips   []struct {
-			ID string `json:"id"`
-		} `json:"clips"`
+	version := binary.LittleEndian.Uint16(data[4:6])
+	if version != 1 {
+		return apitypes.PixaMetadata{}, fmt.Errorf("unsupported PIXA version %d", version)
 	}
-	if err := json.Unmarshal(line, &header); err != nil {
-		return apitypes.ZpetMetadata{}, fmt.Errorf("invalid zpet metadata: %w", err)
+	headerSize := binary.LittleEndian.Uint16(data[6:8])
+	if headerSize != pixaHeaderSize {
+		return apitypes.PixaMetadata{}, fmt.Errorf("invalid PIXA header size %d", headerSize)
 	}
-	if header.Magic != "zpet" {
-		return apitypes.ZpetMetadata{}, fmt.Errorf("invalid zpet magic %q", header.Magic)
+	width := binary.LittleEndian.Uint16(data[8:10])
+	height := binary.LittleEndian.Uint16(data[10:12])
+	colorCount := binary.LittleEndian.Uint16(data[12:14])
+	clipCount := binary.LittleEndian.Uint16(data[14:16])
+	frameCount := binary.LittleEndian.Uint32(data[16:20])
+	paletteOffset := binary.LittleEndian.Uint32(data[20:24])
+	clipOffset := binary.LittleEndian.Uint32(data[24:28])
+	frameOffset := binary.LittleEndian.Uint32(data[28:32])
+	payloadOffset := binary.LittleEndian.Uint32(data[32:36])
+	payloadLen := binary.LittleEndian.Uint32(data[36:40])
+
+	if err := requirePixaRange(data, paletteOffset, uint32(colorCount)*2); err != nil {
+		return apitypes.PixaMetadata{}, err
 	}
-	if header.Version == 0 || strings.TrimSpace(header.ID) == "" || len(header.Canvas) != 2 || strings.TrimSpace(header.Format) == "" {
-		return apitypes.ZpetMetadata{}, errors.New("invalid zpet metadata: version, id, canvas, and format are required")
+	if err := requirePixaRange(data, clipOffset, uint32(clipCount)*uint32(pixaClipEntrySize)); err != nil {
+		return apitypes.PixaMetadata{}, err
 	}
-	clipIDs := make([]string, 0, len(header.Clips))
-	for _, clip := range header.Clips {
-		id := strings.TrimSpace(clip.ID)
-		if id != "" {
-			clipIDs = append(clipIDs, id)
+	if err := requirePixaRange(data, frameOffset, frameCount*uint32(pixaFrameEntrySize)); err != nil {
+		return apitypes.PixaMetadata{}, err
+	}
+	if err := requirePixaRange(data, payloadOffset, payloadLen); err != nil {
+		return apitypes.PixaMetadata{}, err
+	}
+
+	clipNames := make([]string, 0, clipCount)
+	for i := uint16(0); i < clipCount; i++ {
+		base := int(clipOffset) + int(i)*pixaClipEntrySize
+		rawName := data[base : base+pixaClipNameSize]
+		nameLen := bytes.IndexByte(rawName, 0)
+		if nameLen < 0 {
+			nameLen = len(rawName)
+		}
+		name := strings.TrimSpace(string(rawName[:nameLen]))
+		if name != "" {
+			clipNames = append(clipNames, name)
+		}
+		firstFrame := binary.LittleEndian.Uint32(data[base+36 : base+40])
+		clipFrameCount := binary.LittleEndian.Uint32(data[base+40 : base+44])
+		if firstFrame > frameCount || clipFrameCount > frameCount-firstFrame {
+			return apitypes.PixaMetadata{}, errors.New("invalid PIXA clip frame range")
 		}
 	}
-	return apitypes.ZpetMetadata{
-		Version:      header.Version,
-		SpeciesId:    strings.TrimSpace(header.ID),
-		CanvasWidth:  header.Canvas[0],
-		CanvasHeight: header.Canvas[1],
-		Format:       strings.TrimSpace(header.Format),
-		ClipIds:      clipIDs,
+	for i := uint32(0); i < frameCount; i++ {
+		base := int(frameOffset) + int(i)*pixaFrameEntrySize
+		framePayloadOffset := binary.LittleEndian.Uint32(data[base+4 : base+8])
+		framePayloadLen := binary.LittleEndian.Uint32(data[base+8 : base+12])
+		if framePayloadOffset > payloadLen || framePayloadLen > payloadLen-framePayloadOffset {
+			return apitypes.PixaMetadata{}, errors.New("invalid PIXA frame payload range")
+		}
+	}
+
+	return apitypes.PixaMetadata{
+		Version:      int(version),
+		CanvasWidth:  int(width),
+		CanvasHeight: int(height),
+		ColorCount:   int(colorCount),
+		ClipCount:    int(clipCount),
+		FrameCount:   int(frameCount),
+		PayloadBytes: int(payloadLen),
+		ClipNames:    clipNames,
 	}, nil
+}
+
+func requirePixaRange(data []byte, offset uint32, length uint32) error {
+	if uint64(offset) > uint64(len(data)) || uint64(length) > uint64(len(data))-uint64(offset) {
+		return errors.New("invalid PIXA section range")
+	}
+	return nil
 }
 
 func (s *Server) store() (kv.Store, error) {

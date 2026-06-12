@@ -120,8 +120,8 @@ func (m *Manager) deleteBadge(ctx context.Context, id string) (apitypes.Badge, b
 
 func petSpeciesSpec(item apitypes.PetSpecies) apitypes.PetSpeciesSpec {
 	spec := apitypes.PetSpeciesSpec{Name: item.Name}
-	if item.ZpetPath != "" {
-		spec.ZpetPath = &item.ZpetPath
+	if item.PixaPath != "" {
+		spec.PixaPath = &item.PixaPath
 	}
 	return spec
 }

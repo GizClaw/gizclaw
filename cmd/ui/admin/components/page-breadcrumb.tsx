@@ -8,7 +8,7 @@ import {
   BreadcrumbList,
   BreadcrumbPage,
   BreadcrumbSeparator,
-} from "./breadcrumb";
+} from "@/components/ui/breadcrumb";
 
 type BreadcrumbEntry = {
   href?: string;

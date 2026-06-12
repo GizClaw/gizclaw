@@ -4,14 +4,14 @@ import { Link, useNavigate } from "react-router-dom";
 
 import { listFirmwares, type Firmware } from "@gizclaw/adminservice";
 import { expectData } from "../../components/api";
-import { Badge } from "../../components/badge";
-import { Button } from "../../components/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ErrorBanner } from "../../components/banners";
 import { EmptyState } from "../../components/empty-state";
 import { PageHeader, PageSummaryCard } from "../../components/page-layout";
-import { Skeleton } from "../../components/skeleton";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/table";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useCursorListPage } from "../../hooks/useCursorListPage";
 import { formatDate } from "../../lib/format";
 

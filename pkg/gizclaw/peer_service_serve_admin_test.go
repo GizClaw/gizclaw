@@ -2,6 +2,7 @@ package gizclaw
 
 import (
 	"context"
+	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -171,7 +172,7 @@ func TestResource200JSONResponseSerializesResourceUnion(t *testing.T) {
 	}
 }
 
-func TestBusinessAssetHandlersServePetSpeciesZpet(t *testing.T) {
+func TestBusinessAssetHandlersServePetSpeciesPixa(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
@@ -185,24 +186,24 @@ func TestBusinessAssetHandlersServePetSpeciesZpet(t *testing.T) {
 	app := fiber.New(fiber.Config{DisableStartupMessage: true})
 	adminservice.RegisterHandlers(app, adminservice.NewStrictHandler(&adminService{PetSpecies: service}, nil))
 
-	zpet := `{"magic":"zpet","version":1,"id":"rabbit","canvas":[240,240],"format":"rgba","clips":[{"id":"idle"}]}` + "\npayload"
-	rec := serveAdminAsset(app, http.MethodPut, "/pet-species/rabbit/zpet", zpet)
+	pixa := string(testAdminPixa(240, 240, []string{"idle"}))
+	rec := serveAdminAsset(app, http.MethodPut, "/pet-species/rabbit/pixa", pixa)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("PUT status = %d body=%s", rec.Code, rec.Body.String())
 	}
-	if !strings.Contains(rec.Body.String(), `"zpet_path":"rabbit.zpet"`) || !strings.Contains(rec.Body.String(), `"species_id":"rabbit"`) {
+	if !strings.Contains(rec.Body.String(), `"pixa_path":"rabbit.pixa"`) || !strings.Contains(rec.Body.String(), `"clip_names":["idle"]`) {
 		t.Fatalf("PUT body = %s", rec.Body.String())
 	}
 
-	rec = serveAdminAsset(app, http.MethodGet, "/pet-species/rabbit/zpet", "")
+	rec = serveAdminAsset(app, http.MethodGet, "/pet-species/rabbit/pixa", "")
 	if rec.Code != http.StatusOK {
 		t.Fatalf("GET status = %d body=%s", rec.Code, rec.Body.String())
 	}
-	if rec.Body.String() != zpet {
+	if rec.Body.String() != pixa {
 		t.Fatalf("GET body = %q", rec.Body.String())
 	}
 
-	rec = serveAdminAsset(app, http.MethodPut, "/pet-species/missing/zpet", zpet)
+	rec = serveAdminAsset(app, http.MethodPut, "/pet-species/missing/pixa", pixa)
 	if rec.Code != http.StatusNotFound {
 		t.Fatalf("PUT missing status = %d body=%s", rec.Code, rec.Body.String())
 	}
@@ -245,11 +246,101 @@ func TestBusinessAssetHandlersServeBadgeIcon(t *testing.T) {
 	}
 }
 
+func TestBusinessResourceHandlersListResources(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	petSpecies := &petspecies.Server{
+		Store:  kv.NewMemory(nil),
+		Assets: objectstore.Dir(t.TempDir()),
+	}
+	if _, err := petSpecies.Put(ctx, "rabbit", apitypes.PetSpeciesSpec{Name: "Rabbit"}); err != nil {
+		t.Fatalf("Put(pet species) error = %v", err)
+	}
+	badges := &badge.Server{
+		Store:  kv.NewMemory(nil),
+		Assets: objectstore.Dir(t.TempDir()),
+	}
+	if _, err := badges.Put(ctx, "founder", apitypes.BadgeSpec{Name: "Founder", Description: "First badge"}); err != nil {
+		t.Fatalf("Put(badge) error = %v", err)
+	}
+
+	app := fiber.New(fiber.Config{DisableStartupMessage: true})
+	adminservice.RegisterHandlers(app, adminservice.NewStrictHandler(&adminService{PetSpecies: petSpecies, Badges: badges}, nil))
+
+	rec := serveAdminAsset(app, http.MethodGet, "/pet-species", "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET /pet-species status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), `"id":"rabbit"`) || !strings.Contains(rec.Body.String(), `"has_next":false`) {
+		t.Fatalf("GET /pet-species body = %s", rec.Body.String())
+	}
+
+	rec = serveAdminAsset(app, http.MethodGet, "/badges", "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET /badges status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), `"id":"founder"`) || !strings.Contains(rec.Body.String(), `"description":"First badge"`) {
+		t.Fatalf("GET /badges body = %s", rec.Body.String())
+	}
+}
+
+func TestBusinessResourceHandlersReportAssetErrors(t *testing.T) {
+	t.Parallel()
+
+	app := fiber.New(fiber.Config{DisableStartupMessage: true})
+	adminservice.RegisterHandlers(app, adminservice.NewStrictHandler(&adminService{}, nil))
+
+	assertAdminAssetError(t, serveAdminAsset(app, http.MethodGet, "/pet-species", ""), http.StatusInternalServerError, "PET_SPECIES_SERVICE_NOT_CONFIGURED")
+	assertAdminAssetError(t, serveAdminAsset(app, http.MethodPut, "/pet-species/rabbit/pixa", "not-pixa"), http.StatusInternalServerError, "PET_SPECIES_SERVICE_NOT_CONFIGURED")
+	assertAdminAssetError(t, serveAdminAsset(app, http.MethodGet, "/pet-species/rabbit/pixa", ""), http.StatusInternalServerError, "PET_SPECIES_SERVICE_NOT_CONFIGURED")
+	assertAdminAssetError(t, serveAdminAsset(app, http.MethodGet, "/badges", ""), http.StatusInternalServerError, "BADGE_SERVICE_NOT_CONFIGURED")
+	assertAdminAssetError(t, serveAdminAsset(app, http.MethodPut, "/badges/founder/icon", "icon"), http.StatusInternalServerError, "BADGE_SERVICE_NOT_CONFIGURED")
+	assertAdminAssetError(t, serveAdminAsset(app, http.MethodGet, "/badges/founder/icon", ""), http.StatusInternalServerError, "BADGE_SERVICE_NOT_CONFIGURED")
+
+	ctx := context.Background()
+	petSpecies := &petspecies.Server{
+		Store:  kv.NewMemory(nil),
+		Assets: objectstore.Dir(t.TempDir()),
+	}
+	if _, err := petSpecies.Put(ctx, "rabbit", apitypes.PetSpeciesSpec{Name: "Rabbit"}); err != nil {
+		t.Fatalf("Put(pet species) error = %v", err)
+	}
+	badges := &badge.Server{
+		Store:  kv.NewMemory(nil),
+		Assets: objectstore.Dir(t.TempDir()),
+	}
+	if _, err := badges.Put(ctx, "founder", apitypes.BadgeSpec{Name: "Founder"}); err != nil {
+		t.Fatalf("Put(badge) error = %v", err)
+	}
+	app = fiber.New(fiber.Config{DisableStartupMessage: true})
+	adminservice.RegisterHandlers(app, adminservice.NewStrictHandler(&adminService{PetSpecies: petSpecies, Badges: badges}, nil))
+
+	assertAdminAssetError(t, serveAdminAsset(app, http.MethodPut, "/pet-species/rabbit/pixa", "not-pixa"), http.StatusBadRequest, "INVALID_ASSET")
+	assertAdminAssetError(t, serveAdminAsset(app, http.MethodGet, "/pet-species/rabbit/pixa", ""), http.StatusBadRequest, "INVALID_ASSET")
+	assertAdminAssetError(t, serveAdminAsset(app, http.MethodGet, "/badges/founder/icon", ""), http.StatusBadRequest, "INVALID_ASSET")
+}
+
 func serveAdminAsset(app *fiber.App, method, target, body string) *httptest.ResponseRecorder {
 	req := httptest.NewRequest(method, target, strings.NewReader(body))
 	rec := httptest.NewRecorder()
 	fiberHTTPHandler(app).ServeHTTP(rec, req)
 	return rec
+}
+
+func assertAdminAssetError(t *testing.T, rec *httptest.ResponseRecorder, wantStatus int, wantCode string) {
+	t.Helper()
+
+	if rec.Code != wantStatus {
+		t.Fatalf("status = %d, want %d body=%s", rec.Code, wantStatus, rec.Body.String())
+	}
+	var got apitypes.ErrorResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+		t.Fatalf("json.Unmarshal(error response) error = %v body=%s", err, rec.Body.String())
+	}
+	if got.Error.Code != wantCode {
+		t.Fatalf("error code = %q, want %q body=%s", got.Error.Code, wantCode, rec.Body.String())
+	}
 }
 
 func mustPeerServiceResource(t *testing.T, raw string) apitypes.Resource {
@@ -260,4 +351,35 @@ func mustPeerServiceResource(t *testing.T, raw string) apitypes.Resource {
 		t.Fatalf("json.Unmarshal() error = %v", err)
 	}
 	return resource
+}
+
+func testAdminPixa(width, height uint16, clips []string) []byte {
+	const (
+		headerSize     = 40
+		clipEntrySize  = 56
+		frameEntrySize = 16
+	)
+	paletteOffset := headerSize
+	clipOffset := paletteOffset + 2
+	frameOffset := clipOffset + len(clips)*clipEntrySize
+	payloadOffset := frameOffset + frameEntrySize
+	data := make([]byte, payloadOffset)
+	copy(data[0:4], "PIXA")
+	binary.LittleEndian.PutUint16(data[4:6], 1)
+	binary.LittleEndian.PutUint16(data[6:8], headerSize)
+	binary.LittleEndian.PutUint16(data[8:10], width)
+	binary.LittleEndian.PutUint16(data[10:12], height)
+	binary.LittleEndian.PutUint16(data[12:14], 1)
+	binary.LittleEndian.PutUint16(data[14:16], uint16(len(clips)))
+	binary.LittleEndian.PutUint32(data[16:20], 1)
+	binary.LittleEndian.PutUint32(data[20:24], uint32(paletteOffset))
+	binary.LittleEndian.PutUint32(data[24:28], uint32(clipOffset))
+	binary.LittleEndian.PutUint32(data[28:32], uint32(frameOffset))
+	binary.LittleEndian.PutUint32(data[32:36], uint32(payloadOffset))
+	for i, name := range clips {
+		base := clipOffset + i*clipEntrySize
+		copy(data[base:base+32], name)
+		binary.LittleEndian.PutUint32(data[base+40:base+44], 1)
+	}
+	return data
 }

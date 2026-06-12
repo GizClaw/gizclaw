@@ -7,6 +7,7 @@ import { VoiceDetailPage } from "./pages/ai/VoiceDetailPage";
 import { VoicesListPage } from "./pages/ai/VoicesListPage";
 import { WorkflowsListPage } from "./pages/ai/WorkflowsListPage";
 import { WorkspacesListPage } from "./pages/ai/WorkspacesListPage";
+import { BadgeDetailPage, BadgesPage, PetSpeciesDetailPage, PetSpeciesPage } from "./pages/business/BusinessResourcePage";
 import { FirmwareCreatePage } from "./pages/firmware/FirmwareCreatePage";
 import { FirmwareDetailPage } from "./pages/firmware/FirmwareDetailPage";
 import { FirmwaresListPage } from "./pages/firmware/FirmwaresListPage";
@@ -31,6 +32,7 @@ import { ACLPage } from "./pages/settings/ACLPage";
 import { ACLPolicyBindingDetailPage } from "./pages/settings/ACLPolicyBindingDetailPage";
 import { ACLRoleDetailPage } from "./pages/settings/ACLRoleDetailPage";
 import { ACLViewDetailPage } from "./pages/settings/ACLViewDetailPage";
+import { ResourcesPage } from "./pages/resources/ResourcesPage";
 
 export function AppRoutes(): JSX.Element {
   return (
@@ -63,6 +65,11 @@ export function AppRoutes(): JSX.Element {
         <Route element={<Navigate replace to="/ai/workflows" />} path="ai/workspace-templates" />
         <Route element={<Navigate replace to="/ai/workflows" />} path="workspace-templates" />
         <Route element={<WorkspacesListPage />} path="ai/workspaces" />
+        <Route element={<PetSpeciesPage />} path="business/pet-species" />
+        <Route element={<PetSpeciesDetailPage />} path="business/pet-species/:id" />
+        <Route element={<BadgesPage />} path="business/badges" />
+        <Route element={<BadgeDetailPage />} path="business/badges/:id" />
+        <Route element={<ResourcesPage />} path="resources" />
         <Route element={<ACLPage />} path="settings/acl" />
         <Route element={<ACLPolicyBindingDetailPage />} path="settings/acl/policy-bindings/:id" />
         <Route element={<ACLRoleDetailPage />} path="settings/acl/roles/:name" />

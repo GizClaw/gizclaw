@@ -1,10 +1,10 @@
 import type { LucideIcon } from "lucide-react";
-import { AudioLines, Boxes, Cpu, FolderKanban, KeyRound, LayoutDashboard, Mic2, PackageCheck, ServerCog, ShieldCheck, Workflow } from "lucide-react";
+import { AudioLines, Boxes, Cpu, FileJson, FolderKanban, KeyRound, LayoutDashboard, Medal, Mic2, PackageCheck, PawPrint, ServerCog, ShieldCheck, Workflow } from "lucide-react";
 import { NavLink } from "react-router-dom";
 
-import { buttonVariants } from "../components/button";
-import { Card, CardContent } from "../components/card";
-import { cn } from "../components/utils";
+import { buttonVariants } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { cn } from "@/components/ui/utils";
 
 const linkClass = ({ isActive }: { isActive: boolean }) =>
   cn(
@@ -60,8 +60,18 @@ const sections: NavSection[] = [
     ],
   },
   {
+    label: "Business",
+    items: [
+      { href: "/business/pet-species", icon: PawPrint, label: "Pet Species" },
+      { href: "/business/badges", icon: Medal, label: "Badges" },
+    ],
+  },
+  {
     label: "Settings",
-    items: [{ href: "/settings/acl", icon: ShieldCheck, label: "Access Control" }],
+    items: [
+      { href: "/resources", icon: FileJson, label: "Resources" },
+      { href: "/settings/acl", icon: ShieldCheck, label: "Access Control" },
+    ],
   },
 ];
 

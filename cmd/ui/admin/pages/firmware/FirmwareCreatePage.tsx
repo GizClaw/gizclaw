@@ -4,7 +4,7 @@ import { Link, useNavigate } from "react-router-dom";
 
 import { createFirmware } from "@gizclaw/adminservice";
 import { expectData, toMessage } from "../../components/api";
-import { Button } from "../../components/button";
+import { Button } from "@/components/ui/button";
 import { ErrorBanner } from "../../components/banners";
 import { PageHeader, PageSummaryCard } from "../../components/page-layout";
 import { FirmwareEditor, emptyFirmwareForm, formToUpsert } from "./FirmwareForm";

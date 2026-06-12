@@ -3,10 +3,10 @@ import type { KeyboardEvent } from "react";
 import { AudioLines, Boxes, ChevronRight, Cpu, FolderKanban, KeyRound, Mic2, Server, ShieldCheck, Workflow } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 
-import { Button } from "../../components/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/card";
-import { Skeleton } from "../../components/skeleton";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/table";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 import { EmptyState } from "../../components/empty-state";
 import { PageHeader, PageSummaryCard } from "../../components/page-layout";

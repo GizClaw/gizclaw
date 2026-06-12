@@ -2,15 +2,15 @@ import { Edit, Plus, Save, Trash2 } from "lucide-react";
 import { useState } from "react";
 
 import type { Firmware, FirmwareArtifact, FirmwareSlot, FirmwareUpsert } from "@gizclaw/adminservice";
-import { Badge } from "../../components/badge";
-import { Button } from "../../components/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/card";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "../../components/dialog";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { FormField } from "../../components/form-field";
-import { Input } from "../../components/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/table";
-import { Textarea } from "../../components/textarea";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Textarea } from "@/components/ui/textarea";
 
 const slotKeys = ["rollback", "stable", "beta", "develop", "pending"] as const;
 

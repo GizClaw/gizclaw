@@ -1,18 +1,18 @@
 import { useMemo, useState } from "react";
 import type { KeyboardEvent, MouseEvent } from "react";
-import { Eye, EyeOff, RefreshCw } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { Eye, EyeOff, Plus, RefreshCw } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
 
-import { Badge } from "../../components/badge";
-import { Button } from "../../components/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/card";
-import { Skeleton } from "../../components/skeleton";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/table";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { expectData } from "../../components/api";
 import { listCredentials, type Credential } from "@gizclaw/adminservice";
 
 import { ErrorBanner } from "../../components/banners";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "../../components/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { EmptyState } from "../../components/empty-state";
 import { PageHeader, PageSummaryCard } from "../../components/page-layout";
 import { useCursorListPage } from "../../hooks/useCursorListPage";
@@ -54,12 +54,18 @@ export function CredentialsListPage(): JSX.Element {
     <div className="space-y-6">
       <PageHeader
         actions={
-          <Button className="h-8 min-w-fit shrink-0 whitespace-nowrap px-3 text-sm" onClick={() => void refresh()} variant="outline">
-            <span className="inline-flex items-center gap-2 whitespace-nowrap">
+          <>
+            <Button asChild className="h-8 min-w-fit shrink-0 whitespace-nowrap px-3 text-sm" variant="outline">
+              <Link to="/resources?kind=Credential">
+                <Plus className="size-4" />
+                New Credential
+              </Link>
+            </Button>
+            <Button className="h-8 min-w-fit shrink-0 whitespace-nowrap px-3 text-sm" onClick={() => void refresh()} variant="outline">
               <RefreshCw className="size-4" />
               Refresh
-            </span>
-          </Button>
+            </Button>
+          </>
         }
         items={[{ href: "/overview", label: "Overview" }, { label: "Credentials" }]}
       />

@@ -123,8 +123,8 @@
               }
             }
           },
-          "501": {
-            "description": "Apply is defined but not implemented",
+          "500": {
+            "description": "Internal error",
             "content": {
               "application/json": {
                 "schema": {
@@ -133,8 +133,8 @@
               }
             }
           },
-          "500": {
-            "description": "Internal error",
+          "501": {
+            "description": "Apply is defined but not implemented",
             "content": {
               "application/json": {
                 "schema": {
@@ -199,8 +199,8 @@
               }
             }
           },
-          "501": {
-            "description": "Resource get is defined but not implemented",
+          "500": {
+            "description": "Internal error",
             "content": {
               "application/json": {
                 "schema": {
@@ -209,8 +209,8 @@
               }
             }
           },
-          "500": {
-            "description": "Internal error",
+          "501": {
+            "description": "Resource get is defined but not implemented",
             "content": {
               "application/json": {
                 "schema": {
@@ -298,8 +298,8 @@
               }
             }
           },
-          "501": {
-            "description": "Resource put is defined but not implemented",
+          "500": {
+            "description": "Internal error",
             "content": {
               "application/json": {
                 "schema": {
@@ -308,8 +308,8 @@
               }
             }
           },
-          "500": {
-            "description": "Internal error",
+          "501": {
+            "description": "Resource put is defined but not implemented",
             "content": {
               "application/json": {
                 "schema": {
@@ -395,11 +395,11 @@
         }
       }
     },
-    "/pet-species/{id}/zpet": {
+    "/pet-species/{id}/pixa": {
       "put": {
-        "operationId": "uploadPetSpeciesZpet",
-        "summary": "Upload a pet species zpet file",
-        "description": "Upload or replace the .zpet asset for an existing pet species resource.",
+        "operationId": "uploadPetSpeciesPixa",
+        "summary": "Upload a pet species PIXA file",
+        "description": "Upload or replace the .pixa asset for an existing pet species resource.",
         "tags": [
           "BusinessAssets"
         ],
@@ -437,7 +437,7 @@
             }
           },
           "400": {
-            "description": "Invalid zpet file",
+            "description": "Invalid PIXA file",
             "content": {
               "application/json": {
                 "schema": {
@@ -469,8 +469,8 @@
         }
       },
       "get": {
-        "operationId": "downloadPetSpeciesZpet",
-        "summary": "Download a pet species zpet file",
+        "operationId": "downloadPetSpeciesPixa",
+        "summary": "Download a pet species PIXA file",
         "tags": [
           "BusinessAssets"
         ],
@@ -487,7 +487,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Raw zpet file",
+            "description": "Raw PIXA file",
             "content": {
               "application/octet-stream": {
                 "schema": {
@@ -508,7 +508,7 @@
             }
           },
           "404": {
-            "description": "Pet species or zpet file not found",
+            "description": "Pet species or PIXA file not found",
             "content": {
               "application/json": {
                 "schema": {
@@ -5510,6 +5510,112 @@
           }
         }
       }
+    },
+    "/pet-species": {
+      "get": {
+        "operationId": "listPetSpecies",
+        "summary": "List pet species",
+        "tags": [
+          "BusinessResources"
+        ],
+        "parameters": [
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "description": "Opaque cursor returned by the previous list response",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Maximum number of items to return. Omitted or non-positive values use the default page size; values above 200 are clamped.",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 50
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List pet species",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PetSpeciesList"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/badges": {
+      "get": {
+        "operationId": "listBadges",
+        "summary": "List badges",
+        "tags": [
+          "BusinessResources"
+        ],
+        "parameters": [
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "description": "Opaque cursor returned by the previous list response",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Maximum number of items to return. Omitted or non-positive values use the default page size; values above 200 are clamped.",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 50
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List badges",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BadgeList"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -6293,6 +6399,50 @@
             "type": "array",
             "items": {
               "$ref": "./types.json#/components/schemas/DashScopeTenant"
+            }
+          }
+        }
+      },
+      "PetSpeciesList": {
+        "type": "object",
+        "required": [
+          "items",
+          "has_next"
+        ],
+        "properties": {
+          "has_next": {
+            "type": "boolean"
+          },
+          "next_cursor": {
+            "type": "string",
+            "nullable": true
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "./types.json#/components/schemas/PetSpecies"
+            }
+          }
+        }
+      },
+      "BadgeList": {
+        "type": "object",
+        "required": [
+          "items",
+          "has_next"
+        ],
+        "properties": {
+          "has_next": {
+            "type": "boolean"
+          },
+          "next_cursor": {
+            "type": "string",
+            "nullable": true
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "./types.json#/components/schemas/Badge"
             }
           }
         }

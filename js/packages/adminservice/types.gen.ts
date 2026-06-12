@@ -226,6 +226,18 @@ export type DashScopeTenantList = {
     items: Array<DashScopeTenant>;
 };
 
+export type PetSpeciesList = {
+    has_next: boolean;
+    next_cursor?: string | null;
+    items: Array<PetSpecies>;
+};
+
+export type BadgeList = {
+    has_next: boolean;
+    next_cursor?: string | null;
+    items: Array<Badge>;
+};
+
 export type AclPolicyBindingResource = {
     apiVersion: ResourceApiVersion;
     kind: 'ACLPolicyBinding';
@@ -245,6 +257,13 @@ export type AclViewResource = {
     kind: 'ACLView';
     metadata: ResourceMetadata;
     spec: AclViewSpec;
+};
+
+export type BadgeResource = {
+    apiVersion: ResourceApiVersion;
+    kind: 'Badge';
+    metadata: ResourceMetadata;
+    spec: BadgeSpec;
 };
 
 export type CredentialResource = {
@@ -303,6 +322,13 @@ export type PeerConfigResource = {
     spec: Configuration;
 };
 
+export type PetSpeciesResource = {
+    apiVersion: ResourceApiVersion;
+    kind: 'PetSpecies';
+    metadata: ResourceMetadata;
+    spec: PetSpeciesSpec;
+};
+
 /**
  * Result of applying the resource.
  */
@@ -351,6 +377,10 @@ export type Resource = ({
 } & WorkspaceResource) | ({
     kind: 'PeerConfigResource';
 } & PeerConfigResource) | ({
+    kind: 'PetSpeciesResource';
+} & PetSpeciesResource) | ({
+    kind: 'BadgeResource';
+} & BadgeResource) | ({
     kind: 'ResourceListResource';
 } & ResourceListResource);
 
@@ -362,7 +392,7 @@ export type ResourceApiVersion = 'gizclaw.admin/v1alpha1';
 /**
  * Declarative GizClaw resource kind.
  */
-export type ResourceKind = 'Credential' | 'ACLPolicyBinding' | 'ACLRole' | 'ACLView' | 'Firmware' | 'Model' | 'DashScopeTenant' | 'GeminiTenant' | 'MiniMaxTenant' | 'OpenAITenant' | 'VolcTenant' | 'Voice' | 'Workflow' | 'Workspace' | 'PeerConfig' | 'ResourceList';
+export type ResourceKind = 'Credential' | 'ACLPolicyBinding' | 'ACLRole' | 'ACLView' | 'Firmware' | 'Model' | 'DashScopeTenant' | 'GeminiTenant' | 'MiniMaxTenant' | 'OpenAITenant' | 'VolcTenant' | 'Voice' | 'Workflow' | 'Workspace' | 'PeerConfig' | 'ResourceList' | 'PetSpecies' | 'Badge';
 
 export type ResourceMetadata = {
     /**
@@ -415,7 +445,7 @@ export type WorkspaceResource = {
 /**
  * ACL permission enum.
  */
-export type AclPermission = 'viewer' | 'editor' | 'owner' | 'workspace.read' | 'workspace.use' | 'workspace.admin' | 'workflow.read' | 'workflow.use' | 'workflow.admin' | 'voice.read' | 'voice.use' | 'voice.admin' | 'credential.read' | 'credential.use' | 'credential.admin' | 'model.read' | 'model.use' | 'model.admin' | 'view.read' | 'view.use' | 'view.admin' | 'pet.read' | 'pet.use' | 'pet.admin' | 'wallet.read' | 'wallet.use' | 'wallet.admin' | 'contact.read' | 'contact.use' | 'contact.admin' | 'friend.read' | 'friend.use' | 'friend.admin' | 'friend_request.read' | 'friend_request.use' | 'friend_request.admin' | 'group.read' | 'group.use' | 'group.admin' | 'call.read' | 'call.use' | 'call.admin' | 'game_result.read' | 'game_result.use' | 'game_result.admin' | 'reward.read' | 'reward.use' | 'reward.admin';
+export type AclPermission = 'viewer' | 'editor' | 'owner' | 'workspace.read' | 'workspace.use' | 'workspace.admin' | 'workflow.read' | 'workflow.use' | 'workflow.admin' | 'voice.read' | 'voice.use' | 'voice.admin' | 'credential.read' | 'credential.use' | 'credential.admin' | 'model.read' | 'model.use' | 'model.admin' | 'view.read' | 'view.use' | 'view.admin' | 'contact.read' | 'contact.use' | 'contact.admin' | 'friend.read' | 'friend.use' | 'friend.admin' | 'friend_request.read' | 'friend_request.use' | 'friend_request.admin' | 'group.read' | 'group.use' | 'group.admin' | 'call.read' | 'call.use' | 'call.admin' | 'pet_species.read' | 'pet_species.use' | 'pet_species.admin' | 'badge.read' | 'badge.use' | 'badge.admin';
 
 export type AclPermissionList = Array<AclPermission>;
 
@@ -452,7 +482,7 @@ export type AclResource = {
 /**
  * ACL resource identity kind.
  */
-export type AclResourceKind = 'workspace' | 'workflow' | 'voice' | 'credential' | 'model' | 'view' | 'pet' | 'wallet' | 'contact' | 'friend' | 'friend_request' | 'group' | 'call' | 'game_result' | 'reward';
+export type AclResourceKind = 'workspace' | 'workflow' | 'voice' | 'credential' | 'model' | 'view' | 'contact' | 'friend' | 'friend_request' | 'group' | 'call' | 'pet_species' | 'badge';
 
 export type AclRole = {
     name: string;
@@ -490,6 +520,21 @@ export type AclView = {
 
 export type AclViewSpec = {
     description?: string;
+};
+
+export type Badge = {
+    id: string;
+    name: string;
+    description: string;
+    icon_path: string;
+    created_at: string;
+    updated_at: string;
+};
+
+export type BadgeSpec = {
+    name: string;
+    description: string;
+    icon_path?: string;
 };
 
 export type Configuration = {
@@ -720,7 +765,7 @@ export type ModelProviderData = {
 /**
  * Provider resource kind usable by model runtime.
  */
-export type ModelProviderKind = 'gemini-tenant' | 'dashscope-tenant' | 'openai-tenant';
+export type ModelProviderKind = 'gemini-tenant' | 'dashscope-tenant' | 'openai-tenant' | 'volc-tenant';
 
 /**
  * How the model entered the global catalog
@@ -792,6 +837,31 @@ export type PeerLabel = {
 export type PeerRegistrationStatus = 'unspecified' | 'active' | 'blocked';
 
 export type PeerRole = 'unspecified' | 'admin' | 'server' | 'client';
+
+export type PetSpecies = {
+    id: string;
+    name: string;
+    pixa_path: string;
+    pixa_metadata: PixaMetadata;
+    created_at: string;
+    updated_at: string;
+};
+
+export type PixaMetadata = {
+    version: number;
+    canvas_width: number;
+    canvas_height: number;
+    color_count: number;
+    clip_count: number;
+    frame_count: number;
+    payload_bytes: number;
+    clip_names: Array<string>;
+};
+
+export type PetSpeciesSpec = {
+    name: string;
+    pixa_path?: string;
+};
 
 export type Registration = {
     public_key: string;
@@ -1118,6 +1188,158 @@ export type PutResourceResponses = {
 };
 
 export type PutResourceResponse = PutResourceResponses[keyof PutResourceResponses];
+
+export type DownloadPetSpeciesPixaData = {
+    body?: never;
+    path: {
+        /**
+         * Pet species id
+         */
+        id: string;
+    };
+    query?: never;
+    url: '/pet-species/{id}/pixa';
+};
+
+export type DownloadPetSpeciesPixaErrors = {
+    /**
+     * Invalid asset request
+     */
+    400: ErrorResponse;
+    /**
+     * Pet species or PIXA file not found
+     */
+    404: ErrorResponse;
+    /**
+     * Internal error
+     */
+    500: ErrorResponse;
+};
+
+export type DownloadPetSpeciesPixaError = DownloadPetSpeciesPixaErrors[keyof DownloadPetSpeciesPixaErrors];
+
+export type DownloadPetSpeciesPixaResponses = {
+    /**
+     * Raw PIXA file
+     */
+    200: Blob | File;
+};
+
+export type DownloadPetSpeciesPixaResponse = DownloadPetSpeciesPixaResponses[keyof DownloadPetSpeciesPixaResponses];
+
+export type UploadPetSpeciesPixaData = {
+    body: Blob | File;
+    path: {
+        /**
+         * Pet species id
+         */
+        id: string;
+    };
+    query?: never;
+    url: '/pet-species/{id}/pixa';
+};
+
+export type UploadPetSpeciesPixaErrors = {
+    /**
+     * Invalid PIXA file
+     */
+    400: ErrorResponse;
+    /**
+     * Pet species not found
+     */
+    404: ErrorResponse;
+    /**
+     * Internal error
+     */
+    500: ErrorResponse;
+};
+
+export type UploadPetSpeciesPixaError = UploadPetSpeciesPixaErrors[keyof UploadPetSpeciesPixaErrors];
+
+export type UploadPetSpeciesPixaResponses = {
+    /**
+     * Updated pet species metadata
+     */
+    200: PetSpecies;
+};
+
+export type UploadPetSpeciesPixaResponse = UploadPetSpeciesPixaResponses[keyof UploadPetSpeciesPixaResponses];
+
+export type DownloadBadgeIconData = {
+    body?: never;
+    path: {
+        /**
+         * Badge id
+         */
+        id: string;
+    };
+    query?: never;
+    url: '/badges/{id}/icon';
+};
+
+export type DownloadBadgeIconErrors = {
+    /**
+     * Invalid asset request
+     */
+    400: ErrorResponse;
+    /**
+     * Badge or icon file not found
+     */
+    404: ErrorResponse;
+    /**
+     * Internal error
+     */
+    500: ErrorResponse;
+};
+
+export type DownloadBadgeIconError = DownloadBadgeIconErrors[keyof DownloadBadgeIconErrors];
+
+export type DownloadBadgeIconResponses = {
+    /**
+     * Raw badge icon bytes
+     */
+    200: Blob | File;
+};
+
+export type DownloadBadgeIconResponse = DownloadBadgeIconResponses[keyof DownloadBadgeIconResponses];
+
+export type UploadBadgeIconData = {
+    body: Blob | File;
+    path: {
+        /**
+         * Badge id
+         */
+        id: string;
+    };
+    query?: never;
+    url: '/badges/{id}/icon';
+};
+
+export type UploadBadgeIconErrors = {
+    /**
+     * Invalid icon file
+     */
+    400: ErrorResponse;
+    /**
+     * Badge not found
+     */
+    404: ErrorResponse;
+    /**
+     * Internal error
+     */
+    500: ErrorResponse;
+};
+
+export type UploadBadgeIconError = UploadBadgeIconErrors[keyof UploadBadgeIconErrors];
+
+export type UploadBadgeIconResponses = {
+    /**
+     * Updated badge metadata
+     */
+    200: Badge;
+};
+
+export type UploadBadgeIconResponse = UploadBadgeIconResponses[keyof UploadBadgeIconResponses];
 
 export type ListAclViewsData = {
     body?: never;
@@ -4104,3 +4326,71 @@ export type GetPeerRuntimeResponses = {
 };
 
 export type GetPeerRuntimeResponse = GetPeerRuntimeResponses[keyof GetPeerRuntimeResponses];
+
+export type ListPetSpeciesData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Opaque cursor returned by the previous list response
+         */
+        cursor?: string;
+        /**
+         * Maximum number of items to return. Omitted or non-positive values use the default page size; values above 200 are clamped.
+         */
+        limit?: number;
+    };
+    url: '/pet-species';
+};
+
+export type ListPetSpeciesErrors = {
+    /**
+     * Internal error
+     */
+    500: ErrorResponse;
+};
+
+export type ListPetSpeciesError = ListPetSpeciesErrors[keyof ListPetSpeciesErrors];
+
+export type ListPetSpeciesResponses = {
+    /**
+     * List pet species
+     */
+    200: PetSpeciesList;
+};
+
+export type ListPetSpeciesResponse = ListPetSpeciesResponses[keyof ListPetSpeciesResponses];
+
+export type ListBadgesData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Opaque cursor returned by the previous list response
+         */
+        cursor?: string;
+        /**
+         * Maximum number of items to return. Omitted or non-positive values use the default page size; values above 200 are clamped.
+         */
+        limit?: number;
+    };
+    url: '/badges';
+};
+
+export type ListBadgesErrors = {
+    /**
+     * Internal error
+     */
+    500: ErrorResponse;
+};
+
+export type ListBadgesError = ListBadgesErrors[keyof ListBadgesErrors];
+
+export type ListBadgesResponses = {
+    /**
+     * List badges
+     */
+    200: BadgeList;
+};
+
+export type ListBadgesResponse = ListBadgesResponses[keyof ListBadgesResponses];

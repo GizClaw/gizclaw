@@ -42,15 +42,13 @@ Server Service
 ├── server.wallet.transactions.list
 ├── server.wallet.transactions.get
 ├── server.contact.{list,get,create,put,delete}
-├── server.contact.block
-├── server.contact.unblock
 ├── server.friend.requests.{list,create}
 ├── server.friend.requests.accept
 ├── server.friend.requests.reject
 ├── server.friend.{list,delete}
 ├── server.group.{list,get,create,put,delete}
-├── server.group.members.{list,add,delete}
-├── server.group.messages.{list,send}
+├── server.group.members.{list,add,put,delete}
+├── server.group.messages.{list,get,send}
 ├── server.call.{list,get,create}
 ├── server.call.answer
 ├── server.call.reject
@@ -65,7 +63,7 @@ Admin Service
 ├── /acl/roles/{name} LIST, CREATE, GET, PUT, DELETE
 ├── /acl/policy-bindings/{id} LIST, CREATE, GET, PUT, DELETE
 ├── /pet-species/{id} LIST, CREATE, GET, PUT, DELETE
-│   └── /zpet GET, PUT
+│   └── /pixa GET, PUT
 ├── /badges/{id} LIST, CREATE, GET, PUT, DELETE
 │   └── /icon GET, PUT
 ├── /workflows/{name} LIST, CREATE, GET, PUT, DELETE
@@ -87,14 +85,12 @@ Admin Service
 ├── /peers/{publicKey}/wallet GET
 │   └── /transactions LIST, GET
 ├── /peers/{publicKey}/contacts/{id} LIST, CREATE, GET, PUT, DELETE
-│   ├── @block
-│   └── @unblock
 ├── /peers/{publicKey}/friend-requests/{id} LIST, CREATE, GET, PUT, DELETE
 │   ├── @accept
 │   └── @reject
 ├── /peers/{publicKey}/friends/{id} LIST, GET, DELETE
 ├── /groups/{id} LIST, CREATE, GET, PUT, DELETE
-│   ├── /members LIST, CREATE, GET, DELETE
+│   ├── /members LIST, CREATE, GET, PUT, DELETE
 │   └── /messages LIST, CREATE, GET
 ├── /calls/{id} LIST, CREATE, GET
 │   ├── @answer

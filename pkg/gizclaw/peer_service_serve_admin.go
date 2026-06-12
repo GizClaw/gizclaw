@@ -63,42 +63,65 @@ func (s *PeerService) serveAdmin(conn *giznet.Conn) error {
 	return server.Serve()
 }
 
-func (s *adminService) UploadPetSpeciesZpet(ctx context.Context, request adminservice.UploadPetSpeciesZpetRequestObject) (adminservice.UploadPetSpeciesZpetResponseObject, error) {
+func (s *adminService) UploadPetSpeciesPixa(ctx context.Context, request adminservice.UploadPetSpeciesPixaRequestObject) (adminservice.UploadPetSpeciesPixaResponseObject, error) {
 	if s == nil || s.PetSpecies == nil {
-		return adminservice.UploadPetSpeciesZpet500JSONResponse(apitypes.NewErrorResponse("PET_SPECIES_SERVICE_NOT_CONFIGURED", "pet species service is not configured")), nil
+		return adminservice.UploadPetSpeciesPixa500JSONResponse(apitypes.NewErrorResponse("PET_SPECIES_SERVICE_NOT_CONFIGURED", "pet species service is not configured")), nil
 	}
-	item, err := s.PetSpecies.UploadZpet(ctx, request.Id, request.Body)
+	item, err := s.PetSpecies.UploadPixa(ctx, request.Id, request.Body)
 	if err != nil {
 		status, body := assetError(err)
 		switch status {
 		case http.StatusNotFound:
-			return adminservice.UploadPetSpeciesZpet404JSONResponse(body), nil
+			return adminservice.UploadPetSpeciesPixa404JSONResponse(body), nil
 		case http.StatusInternalServerError:
-			return adminservice.UploadPetSpeciesZpet500JSONResponse(body), nil
+			return adminservice.UploadPetSpeciesPixa500JSONResponse(body), nil
 		default:
-			return adminservice.UploadPetSpeciesZpet400JSONResponse(body), nil
+			return adminservice.UploadPetSpeciesPixa400JSONResponse(body), nil
 		}
 	}
-	return adminservice.UploadPetSpeciesZpet200JSONResponse(item), nil
+	return adminservice.UploadPetSpeciesPixa200JSONResponse(item), nil
 }
 
-func (s *adminService) DownloadPetSpeciesZpet(ctx context.Context, request adminservice.DownloadPetSpeciesZpetRequestObject) (adminservice.DownloadPetSpeciesZpetResponseObject, error) {
+func (s *adminService) DownloadPetSpeciesPixa(ctx context.Context, request adminservice.DownloadPetSpeciesPixaRequestObject) (adminservice.DownloadPetSpeciesPixaResponseObject, error) {
 	if s == nil || s.PetSpecies == nil {
-		return adminservice.DownloadPetSpeciesZpet500JSONResponse(apitypes.NewErrorResponse("PET_SPECIES_SERVICE_NOT_CONFIGURED", "pet species service is not configured")), nil
+		return adminservice.DownloadPetSpeciesPixa500JSONResponse(apitypes.NewErrorResponse("PET_SPECIES_SERVICE_NOT_CONFIGURED", "pet species service is not configured")), nil
 	}
-	r, err := s.PetSpecies.DownloadZpet(ctx, request.Id)
+	r, err := s.PetSpecies.DownloadPixa(ctx, request.Id)
 	if err != nil {
 		status, body := assetError(err)
 		switch status {
 		case http.StatusNotFound:
-			return adminservice.DownloadPetSpeciesZpet404JSONResponse(body), nil
+			return adminservice.DownloadPetSpeciesPixa404JSONResponse(body), nil
 		case http.StatusInternalServerError:
-			return adminservice.DownloadPetSpeciesZpet500JSONResponse(body), nil
+			return adminservice.DownloadPetSpeciesPixa500JSONResponse(body), nil
 		default:
-			return adminservice.DownloadPetSpeciesZpet400JSONResponse(body), nil
+			return adminservice.DownloadPetSpeciesPixa400JSONResponse(body), nil
 		}
 	}
-	return adminservice.DownloadPetSpeciesZpet200ApplicationoctetStreamResponse{Body: r}, nil
+	return adminservice.DownloadPetSpeciesPixa200ApplicationoctetStreamResponse{Body: r}, nil
+}
+
+func (s *adminService) ListPetSpecies(ctx context.Context, request adminservice.ListPetSpeciesRequestObject) (adminservice.ListPetSpeciesResponseObject, error) {
+	if s == nil || s.PetSpecies == nil {
+		return adminservice.ListPetSpecies500JSONResponse(apitypes.NewErrorResponse("PET_SPECIES_SERVICE_NOT_CONFIGURED", "pet species service is not configured")), nil
+	}
+	cursor := ""
+	if request.Params.Cursor != nil {
+		cursor = *request.Params.Cursor
+	}
+	limit := 0
+	if request.Params.Limit != nil {
+		limit = int(*request.Params.Limit)
+	}
+	items, hasNext, nextCursor, err := s.PetSpecies.List(ctx, cursor, limit)
+	if err != nil {
+		return adminservice.ListPetSpecies500JSONResponse(apitypes.NewErrorResponse("PET_SPECIES_LIST_FAILED", err.Error())), nil
+	}
+	return adminservice.ListPetSpecies200JSONResponse(adminservice.PetSpeciesList{
+		HasNext:    hasNext,
+		Items:      items,
+		NextCursor: nextCursor,
+	}), nil
 }
 
 func (s *adminService) UploadBadgeIcon(ctx context.Context, request adminservice.UploadBadgeIconRequestObject) (adminservice.UploadBadgeIconResponseObject, error) {
@@ -137,6 +160,29 @@ func (s *adminService) DownloadBadgeIcon(ctx context.Context, request adminservi
 		}
 	}
 	return adminservice.DownloadBadgeIcon200ApplicationoctetStreamResponse{Body: r}, nil
+}
+
+func (s *adminService) ListBadges(ctx context.Context, request adminservice.ListBadgesRequestObject) (adminservice.ListBadgesResponseObject, error) {
+	if s == nil || s.Badges == nil {
+		return adminservice.ListBadges500JSONResponse(apitypes.NewErrorResponse("BADGE_SERVICE_NOT_CONFIGURED", "badge service is not configured")), nil
+	}
+	cursor := ""
+	if request.Params.Cursor != nil {
+		cursor = *request.Params.Cursor
+	}
+	limit := 0
+	if request.Params.Limit != nil {
+		limit = int(*request.Params.Limit)
+	}
+	items, hasNext, nextCursor, err := s.Badges.List(ctx, cursor, limit)
+	if err != nil {
+		return adminservice.ListBadges500JSONResponse(apitypes.NewErrorResponse("BADGE_LIST_FAILED", err.Error())), nil
+	}
+	return adminservice.ListBadges200JSONResponse(adminservice.BadgeList{
+		HasNext:    hasNext,
+		Items:      items,
+		NextCursor: nextCursor,
+	}), nil
 }
 
 func assetError(err error) (int, apitypes.ErrorResponse) {

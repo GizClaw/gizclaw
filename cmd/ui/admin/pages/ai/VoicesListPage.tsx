@@ -1,13 +1,13 @@
-import { Copy, RefreshCw } from "lucide-react";
+import { Copy, Plus, RefreshCw } from "lucide-react";
 import type { KeyboardEvent, MouseEvent } from "react";
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
-import { Badge } from "../../components/badge";
-import { Button } from "../../components/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/card";
-import { Skeleton } from "../../components/skeleton";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/table";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { expectData } from "../../components/api";
 import { listVoices, type Voice } from "@gizclaw/adminservice";
 
@@ -57,12 +57,18 @@ export function VoicesListPage(): JSX.Element {
     <div className="space-y-6">
       <PageHeader
         actions={
-          <Button className="h-8 min-w-fit shrink-0 whitespace-nowrap px-3 text-sm" onClick={() => void refresh()} variant="outline">
-            <span className="inline-flex items-center gap-2 whitespace-nowrap">
+          <>
+            <Button asChild className="h-8 min-w-fit shrink-0 whitespace-nowrap px-3 text-sm" variant="outline">
+              <Link to="/resources?kind=Voice">
+                <Plus className="size-4" />
+                New Voice
+              </Link>
+            </Button>
+            <Button className="h-8 min-w-fit shrink-0 whitespace-nowrap px-3 text-sm" onClick={() => void refresh()} variant="outline">
               <RefreshCw className="size-4" />
               Refresh
-            </span>
-          </Button>
+            </Button>
+          </>
         }
         items={[{ href: "/overview", label: "Overview" }, { label: "Voices" }]}
       />

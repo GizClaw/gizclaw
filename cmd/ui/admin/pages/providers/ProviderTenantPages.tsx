@@ -1,4 +1,4 @@
-import { ChevronLeft, RefreshCw } from "lucide-react";
+import { ChevronLeft, Plus, RefreshCw } from "lucide-react";
 import type { KeyboardEvent } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
@@ -18,17 +18,17 @@ import {
   type ResourceKind,
 } from "@gizclaw/adminservice";
 import { expectData, toMessage } from "../../components/api";
-import { Badge } from "../../components/badge";
-import { Button } from "../../components/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { DetailBlock } from "../../components/detail-block";
 import { EmptyState } from "../../components/empty-state";
 import { ErrorBanner } from "../../components/banners";
 import { PageHeader, PageSummaryCard } from "../../components/page-layout";
 import { ResourceCliPanel } from "../../components/ResourceCliPanel";
-import { Skeleton } from "../../components/skeleton";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/table";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/tabs";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useCursorListPage } from "../../hooks/useCursorListPage";
 import { formatDate, formatValue } from "../../lib/format";
 
@@ -173,10 +173,18 @@ function ProviderTenantsListPage<T extends ProviderTenant>({ config }: { config:
     <div className="space-y-6">
       <PageHeader
         actions={
-          <Button className="h-8 min-w-fit shrink-0 whitespace-nowrap px-3 text-sm" onClick={() => void refresh()} variant="outline">
-            <RefreshCw className="size-4" />
-            Refresh
-          </Button>
+          <>
+            <Button asChild className="h-8 min-w-fit shrink-0 whitespace-nowrap px-3 text-sm" variant="outline">
+              <Link to={`/resources?kind=${config.resourceKind}`}>
+                <Plus className="size-4" />
+                New {config.name}
+              </Link>
+            </Button>
+            <Button className="h-8 min-w-fit shrink-0 whitespace-nowrap px-3 text-sm" onClick={() => void refresh()} variant="outline">
+              <RefreshCw className="size-4" />
+              Refresh
+            </Button>
+          </>
         }
         items={[{ href: "/overview", label: "Overview" }, { label: config.title }]}
       />

@@ -2,7 +2,7 @@ import type { ComponentType } from "react";
 import { Activity, Database, MemoryStick } from "lucide-react";
 import { Link } from "react-router-dom";
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 import { EmptyState } from "../../components/empty-state";
 import { PageHeader, PageSummaryCard } from "../../components/page-layout";

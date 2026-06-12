@@ -8,22 +8,21 @@
   "paths": {},
   "components": {
     "schemas": {
-      "ZpetMetadata": {
+      "PixaMetadata": {
         "type": "object",
         "required": [
           "version",
-          "species_id",
           "canvas_width",
           "canvas_height",
-          "format",
-          "clip_ids"
+          "color_count",
+          "clip_count",
+          "frame_count",
+          "payload_bytes",
+          "clip_names"
         ],
         "properties": {
           "version": {
             "type": "integer"
-          },
-          "species_id": {
-            "type": "string"
           },
           "canvas_width": {
             "type": "integer"
@@ -31,10 +30,19 @@
           "canvas_height": {
             "type": "integer"
           },
-          "format": {
-            "type": "string"
+          "color_count": {
+            "type": "integer"
           },
-          "clip_ids": {
+          "clip_count": {
+            "type": "integer"
+          },
+          "frame_count": {
+            "type": "integer"
+          },
+          "payload_bytes": {
+            "type": "integer"
+          },
+          "clip_names": {
             "type": "array",
             "items": {
               "type": "string"
@@ -47,8 +55,8 @@
         "required": [
           "id",
           "name",
-          "zpet_path",
-          "zpet_metadata",
+          "pixa_path",
+          "pixa_metadata",
           "created_at",
           "updated_at"
         ],
@@ -59,11 +67,11 @@
           "name": {
             "type": "string"
           },
-          "zpet_path": {
+          "pixa_path": {
             "type": "string"
           },
-          "zpet_metadata": {
-            "$ref": "#/components/schemas/ZpetMetadata"
+          "pixa_metadata": {
+            "$ref": "#/components/schemas/PixaMetadata"
           },
           "created_at": {
             "type": "string",

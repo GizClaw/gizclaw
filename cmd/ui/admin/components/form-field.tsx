@@ -1,7 +1,7 @@
 import * as React from "react";
 
-import { Field, FieldDescription, FieldLabel } from "./field";
-import { cn } from "./utils";
+import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
+import { cn } from "@/components/ui/utils";
 
 interface FormFieldProps extends React.HTMLAttributes<HTMLDivElement> {
   description?: string;

@@ -4,16 +4,16 @@ import { Link, useParams } from "react-router-dom";
 
 import { getCredential, getResource, type Credential, type Resource } from "@gizclaw/adminservice";
 import { expectData, toMessage } from "../../components/api";
-import { Badge } from "../../components/badge";
-import { Button } from "../../components/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { DetailBlock } from "../../components/detail-block";
 import { EmptyState } from "../../components/empty-state";
 import { ErrorBanner } from "../../components/banners";
 import { PageHeader, PageSummaryCard } from "../../components/page-layout";
-import { Skeleton } from "../../components/skeleton";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/table";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/tabs";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ResourceCliPanel } from "../../components/ResourceCliPanel";
 
 export function CredentialDetailPage(): JSX.Element {

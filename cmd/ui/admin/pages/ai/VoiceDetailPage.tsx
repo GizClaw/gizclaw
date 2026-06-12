@@ -4,14 +4,14 @@ import { Link, useParams } from "react-router-dom";
 
 import { getResource, getVoice, type Resource, type Voice } from "@gizclaw/adminservice";
 import { expectData, toMessage } from "../../components/api";
-import { Badge } from "../../components/badge";
-import { Button } from "../../components/button";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { DetailBlock } from "../../components/detail-block";
 import { EmptyState } from "../../components/empty-state";
 import { ErrorBanner } from "../../components/banners";
 import { PageHeader, PageSummaryCard } from "../../components/page-layout";
-import { Skeleton } from "../../components/skeleton";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/tabs";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ResourceCliPanel } from "../../components/ResourceCliPanel";
 
 export function VoiceDetailPage(): JSX.Element {

@@ -1,7 +1,7 @@
 import * as React from "react";
 
-import { Card, CardContent, CardHeader, CardTitle } from "./card";
-import { cn } from "./utils";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { cn } from "@/components/ui/utils";
 
 type DetailBlockItem = [label: string, value: string | undefined];
 

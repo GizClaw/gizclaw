@@ -5,20 +5,20 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { deleteAclPolicyBinding, getAclPolicyBinding, putAclPolicyBinding, type AclPolicyBinding, type Resource } from "@gizclaw/adminservice";
 import { ResourceCliPanel } from "../../components/ResourceCliPanel";
 import { expectData, toMessage } from "../../components/api";
-import { Badge } from "../../components/badge";
-import { Button } from "../../components/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { DateTimeInput } from "../../components/date-time-input";
 import { DeleteConfirmButton } from "../../components/delete-confirm-button";
 import { DetailBlock } from "../../components/detail-block";
 import { EmptyState } from "../../components/empty-state";
 import { ErrorBanner } from "../../components/banners";
 import { FormField } from "../../components/form-field";
-import { Input } from "../../components/input";
+import { Input } from "@/components/ui/input";
 import { PageHeader, PageSummaryCard } from "../../components/page-layout";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/select";
-import { Skeleton } from "../../components/skeleton";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   bindingFormFromBinding,
   bindingPayloadFromForm,

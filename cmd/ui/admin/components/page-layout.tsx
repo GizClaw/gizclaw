@@ -1,8 +1,8 @@
 import type { ReactNode } from "react";
 
-import { Card, CardContent } from "./card";
+import { Card, CardContent } from "@/components/ui/card";
 import { PageBreadcrumb, type BreadcrumbEntry } from "./page-breadcrumb";
-import { cn } from "./utils";
+import { cn } from "@/components/ui/utils";
 
 type PageHeaderProps = {
   actions?: ReactNode;

@@ -18,7 +18,7 @@ func TestApplyPetSpeciesCreatesUpdatesAndDeletesResource(t *testing.T) {
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "PetSpecies",
 		"metadata": {"name": "rabbit"},
-		"spec": {"name": "Rabbit", "zpet_path": "rabbit.zpet"}
+		"spec": {"name": "Rabbit", "pixa_path": "rabbit.pixa"}
 	}`))
 	if err != nil {
 		t.Fatalf("Apply(create) returned error: %v", err)
@@ -31,7 +31,7 @@ func TestApplyPetSpeciesCreatesUpdatesAndDeletesResource(t *testing.T) {
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "PetSpecies",
 		"metadata": {"name": "rabbit"},
-		"spec": {"name": "Rabbit", "zpet_path": "rabbit.zpet"}
+		"spec": {"name": "Rabbit", "pixa_path": "rabbit.pixa"}
 	}`))
 	if err != nil {
 		t.Fatalf("Apply(unchanged) returned error: %v", err)
@@ -44,7 +44,7 @@ func TestApplyPetSpeciesCreatesUpdatesAndDeletesResource(t *testing.T) {
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "PetSpecies",
 		"metadata": {"name": "rabbit"},
-		"spec": {"name": "Lucky Rabbit", "zpet_path": "rabbit-v2.zpet"}
+		"spec": {"name": "Lucky Rabbit", "pixa_path": "rabbit-v2.pixa"}
 	}`))
 	if err != nil {
 		t.Fatalf("Put returned error: %v", err)
@@ -53,7 +53,7 @@ func TestApplyPetSpeciesCreatesUpdatesAndDeletesResource(t *testing.T) {
 	if err != nil {
 		t.Fatalf("AsPetSpeciesResource returned error: %v", err)
 	}
-	if species.Spec.Name != "Lucky Rabbit" || species.Spec.ZpetPath == nil || *species.Spec.ZpetPath != "rabbit-v2.zpet" {
+	if species.Spec.Name != "Lucky Rabbit" || species.Spec.PixaPath == nil || *species.Spec.PixaPath != "rabbit-v2.pixa" {
 		t.Fatalf("species spec = %+v", species.Spec)
 	}
 

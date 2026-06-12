@@ -1,6 +1,6 @@
 import * as React from "react";
 
-import { Badge, type BadgeProps } from "./badge";
+import { Badge, type BadgeProps } from "@/components/ui/badge";
 
 interface StatusBadgeProps extends Omit<BadgeProps, "children" | "variant"> {
   status: string;

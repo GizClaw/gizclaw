@@ -115,7 +115,7 @@ stores:
     kind: sql
     storage: acl-db
 
-  # PetSpecies JSON metadata lives in main-kv under this prefix. The .zpet
+  # PetSpecies JSON metadata lives in main-kv under this prefix. The .pixa
   # bytes live in pet_species.assets_store below.
   pet-species:
     kind: keyvalue
@@ -147,7 +147,7 @@ stores:
     kind: sql
     storage: wallet-db
 
-  # Logical object store for pet species .zpet files only. The physical object
+  # Logical object store for pet species .pixa files only. The physical object
   # store is shared with other file payloads; this prefix keeps pet species
   # assets under pet-species/. The complete PetSpecies service binding is
   # composed in pet_species below together with the pet-species KV store.
@@ -163,6 +163,56 @@ stores:
     kind: objectstore
     storage: local-assets
     prefix: badges
+
+  # Contact address-book records for peer-facing contact RPCs.
+  contacts:
+    kind: keyvalue
+    storage: main-kv
+    prefix: contacts
+
+  # Pending and historical friend request records.
+  friend-requests:
+    kind: keyvalue
+    storage: main-kv
+    prefix: friend-requests
+
+  # Accepted peer friend relationships.
+  friends:
+    kind: keyvalue
+    storage: main-kv
+    prefix: friends
+
+  # Group metadata records.
+  groups:
+    kind: keyvalue
+    storage: main-kv
+    prefix: groups
+
+  # Group membership rows.
+  group-members:
+    kind: keyvalue
+    storage: main-kv
+    prefix: group-members
+
+  # Group message metadata. Audio bytes live in group-message-assets below.
+  group-messages:
+    kind: keyvalue
+    storage: main-kv
+    prefix: group-messages
+
+  # Logical object store for group message audio files. The physical object
+  # store is shared with other file payloads; this prefix keeps group message
+  # audio under group-messages/.
+  group-message-assets:
+    kind: objectstore
+    storage: local-assets
+    prefix: group-messages
+
+  # Call lifecycle records for peer and group calls.
+  calls:
+    kind: keyvalue
+    storage: main-kv
+    prefix: calls
 
 # Service store bindings. These names must resolve to entries under "stores".
 peers:
@@ -196,7 +246,7 @@ acl:
 pet_species:
   # Logical KV store for PetSpeciesObject JSON metadata.
   store: pet-species
-  # Logical object store for PetSpeciesObject.zpet_path file bytes.
+  # Logical object store for PetSpeciesObject.pixa_path file bytes.
   assets_store: pet-species-assets
 
 badges:
@@ -216,6 +266,44 @@ rewards:
 wallets:
   # Logical SQL store for WalletObject and WalletTransactionObject rows.
   store: wallets
+
+# Peer social resource bindings.
+contacts:
+  # Logical KV store for ContactObject address-book records.
+  store: contacts
+
+friends:
+  # Logical KV store for FriendRequestObject records.
+  requests_store: friend-requests
+  # Logical KV store for accepted FriendObject relationship records.
+  store: friends
+  # Lifetime of the 6-digit friend OTP reported by the target device through
+  # peerrun.
+  friend_otp_ttl: 10m
+
+groups:
+  # Logical KV store for GroupObject metadata.
+  store: groups
+  # Logical KV store for GroupMemberObject rows.
+  members_store: group-members
+  # Logical KV store for GroupMessageObject metadata.
+  messages_store: group-messages
+  # Logical object store for group message audio bytes.
+  message_assets_store: group-message-assets
+  # Default TTL for a group message when the send request omits ttl_seconds.
+  message_default_ttl: 24h
+  # Maximum allowed message TTL. Requests above this value are rejected or
+  # clamped by the service, depending on the implementation decision.
+  message_max_ttl: 7d
+  # Background cleanup interval for deleting expired message metadata and audio
+  # objects.
+  message_cleanup_interval: 5m
+  # Maximum decoded audio bytes accepted by group message send.
+  message_max_audio_bytes: 2097152
+
+calls:
+  # Logical KV store for CallObject lifecycle records.
+  store: calls
 
 # Server-side system task configuration.
 system_tasks:
@@ -254,6 +342,28 @@ system_tasks:
   stores.
 - `wallets.store` is SQL-backed because wallet balance updates and transaction
   inserts must commit atomically.
+- `contacts.store` stores current-peer address-book records. Contact objects
+  are external contact data such as display name and phone number; they are not
+  peer friend relationships.
+- `friends.requests_store` stores friend request records, while `friends.store`
+  stores accepted peer friend relationships.
+- `friends.friend_otp_ttl` controls how long the 6-digit friend OTP reported by
+  the target device through peerrun can be used for friend request creation.
+- `groups.store`, `groups.members_store`, and `groups.messages_store` store
+  group metadata, membership rows, and group message metadata separately so
+  list pagination and cleanup can be implemented independently.
+- `groups.message_assets_store` stores group message audio objects. Message
+  records should store relative `audio_path` values under this logical object
+  store, never absolute host filesystem paths.
+- `groups.message_default_ttl` is used when a group message send request omits
+  TTL. `groups.message_max_ttl` bounds user-provided TTL values.
+- `groups.message_cleanup_interval` controls the background task that removes
+  expired group message metadata and deletes the referenced audio objects. The
+  cleanup task should tolerate already-missing audio objects.
+- `groups.message_max_audio_bytes` limits the decoded audio payload accepted by
+  group message send before writing bytes to the configured object store.
+- `calls.store` stores call lifecycle records only; media signaling and audio
+  transport are separate concerns.
 - `cipher-mode` accepts `chacha_poly`, `aes_256_gcm`, `plaintext`, or empty.
 - Asset services should use object-store operations such as get, put, delete,
   delete-prefix, and list. They should not require directory creation or rename

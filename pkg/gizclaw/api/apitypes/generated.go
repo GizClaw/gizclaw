@@ -481,6 +481,7 @@ const (
 	ModelProviderKindDashscopeTenant ModelProviderKind = "dashscope-tenant"
 	ModelProviderKindGeminiTenant    ModelProviderKind = "gemini-tenant"
 	ModelProviderKindOpenaiTenant    ModelProviderKind = "openai-tenant"
+	ModelProviderKindVolcTenant      ModelProviderKind = "volc-tenant"
 )
 
 // Valid indicates whether the value is a known member of the ModelProviderKind enum.
@@ -491,6 +492,8 @@ func (e ModelProviderKind) Valid() bool {
 	case ModelProviderKindGeminiTenant:
 		return true
 	case ModelProviderKindOpenaiTenant:
+		return true
+	case ModelProviderKindVolcTenant:
 		return true
 	default:
 		return false
@@ -1602,6 +1605,7 @@ type PeerRunAgent struct {
 
 // PeerRunStatus defines model for PeerRunStatus.
 type PeerRunStatus struct {
+	FriendOtp     *string            `json:"friend_otp,omitempty"`
 	Message       *string            `json:"message,omitempty"`
 	StartedAt     *time.Time         `json:"started_at,omitempty"`
 	State         PeerRunStatusState `json:"state"`
@@ -1628,9 +1632,9 @@ type PetSpecies struct {
 	CreatedAt    time.Time    `json:"created_at"`
 	Id           string       `json:"id"`
 	Name         string       `json:"name"`
+	PixaMetadata PixaMetadata `json:"pixa_metadata"`
+	PixaPath     string       `json:"pixa_path"`
 	UpdatedAt    time.Time    `json:"updated_at"`
-	ZpetMetadata ZpetMetadata `json:"zpet_metadata"`
-	ZpetPath     string       `json:"zpet_path"`
 }
 
 // PetSpeciesResource defines model for PetSpeciesResource.
@@ -1648,7 +1652,19 @@ type PetSpeciesResourceKind string
 // PetSpeciesSpec defines model for PetSpeciesSpec.
 type PetSpeciesSpec struct {
 	Name     string  `json:"name"`
-	ZpetPath *string `json:"zpet_path,omitempty"`
+	PixaPath *string `json:"pixa_path,omitempty"`
+}
+
+// PixaMetadata defines model for PixaMetadata.
+type PixaMetadata struct {
+	CanvasHeight int      `json:"canvas_height"`
+	CanvasWidth  int      `json:"canvas_width"`
+	ClipCount    int      `json:"clip_count"`
+	ClipNames    []string `json:"clip_names"`
+	ColorCount   int      `json:"color_count"`
+	FrameCount   int      `json:"frame_count"`
+	PayloadBytes int      `json:"payload_bytes"`
+	Version      int      `json:"version"`
 }
 
 // Provider defines model for Provider.
@@ -1897,16 +1913,6 @@ type WorkspaceResourceKind string
 type WorkspaceSpec struct {
 	Parameters   *map[string]interface{} `json:"parameters,omitempty"`
 	WorkflowName string                  `json:"workflow_name"`
-}
-
-// ZpetMetadata defines model for ZpetMetadata.
-type ZpetMetadata struct {
-	CanvasHeight int      `json:"canvas_height"`
-	CanvasWidth  int      `json:"canvas_width"`
-	ClipIds      []string `json:"clip_ids"`
-	Format       string   `json:"format"`
-	SpeciesId    string   `json:"species_id"`
-	Version      int      `json:"version"`
 }
 
 // AsACLPolicyBindingResource returns the union data inside the Resource as a ACLPolicyBindingResource

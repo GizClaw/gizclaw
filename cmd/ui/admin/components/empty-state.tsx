@@ -1,7 +1,7 @@
 import * as React from "react";
 
-import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "./empty";
-import { cn } from "./utils";
+import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
+import { cn } from "@/components/ui/utils";
 
 interface EmptyStateProps extends React.HTMLAttributes<HTMLDivElement> {
   description: string;

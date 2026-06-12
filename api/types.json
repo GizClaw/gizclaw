@@ -374,8 +374,8 @@
       "PetSpeciesResource": {
         "$ref": "./resource/pet_species.json#/components/schemas/PetSpeciesResource"
       },
-      "ZpetMetadata": {
-        "$ref": "./type/pet_species.json#/components/schemas/ZpetMetadata"
+      "PixaMetadata": {
+        "$ref": "./type/pet_species.json#/components/schemas/PixaMetadata"
       }
     }
   }

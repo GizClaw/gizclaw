@@ -16,8 +16,13 @@
     "global.d.ts",
     "admin/**/*.ts",
     "admin/**/*.tsx",
+    "components/**/*.ts",
+    "components/**/*.tsx",
     "play/**/*.ts",
     "play/**/*.tsx",
     "../../js/packages/**/*.ts"
+  ],
+  "exclude": [
+    "../../js/packages/**/*.test.ts"
   ]
 }

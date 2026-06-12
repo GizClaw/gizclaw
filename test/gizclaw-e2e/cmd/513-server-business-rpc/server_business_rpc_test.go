@@ -3,6 +3,7 @@ package peerbusinessrpc_test
 import (
 	"context"
 	"database/sql"
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -149,17 +150,48 @@ func seedBusinessResources(t *testing.T, h *clitest.Harness, openAIBaseURL strin
 	defer cancel()
 	seedBusinessACL(t, ctx, api)
 
-	zpet := `{"magic":"zpet","version":1,"id":"rabbit","canvas":[240,240],"format":"rgba","clips":[{"id":"idle"}]}` + "\npayload"
-	if resp, err := api.UploadPetSpeciesZpetWithBodyWithResponse(ctx, "rabbit", "application/octet-stream", strings.NewReader(zpet)); err != nil {
-		t.Fatalf("upload zpet: %v", err)
+	pixa := testPixa(240, 240, []string{"idle"})
+	if resp, err := api.UploadPetSpeciesPixaWithBodyWithResponse(ctx, "rabbit", "application/octet-stream", strings.NewReader(string(pixa))); err != nil {
+		t.Fatalf("upload pixa: %v", err)
 	} else if resp.JSON200 == nil {
-		t.Fatalf("upload zpet status %d: %s", resp.StatusCode(), strings.TrimSpace(string(resp.Body)))
+		t.Fatalf("upload pixa status %d: %s", resp.StatusCode(), strings.TrimSpace(string(resp.Body)))
 	}
 	if resp, err := api.UploadBadgeIconWithBodyWithResponse(ctx, "founder", "application/octet-stream", strings.NewReader("icon")); err != nil {
 		t.Fatalf("upload badge icon: %v", err)
 	} else if resp.JSON200 == nil {
 		t.Fatalf("upload badge icon status %d: %s", resp.StatusCode(), strings.TrimSpace(string(resp.Body)))
 	}
+}
+
+func testPixa(width, height uint16, clips []string) []byte {
+	const (
+		headerSize     = 40
+		clipEntrySize  = 56
+		frameEntrySize = 16
+	)
+	paletteOffset := headerSize
+	clipOffset := paletteOffset + 2
+	frameOffset := clipOffset + len(clips)*clipEntrySize
+	payloadOffset := frameOffset + frameEntrySize
+	data := make([]byte, payloadOffset)
+	copy(data[0:4], "PIXA")
+	binary.LittleEndian.PutUint16(data[4:6], 1)
+	binary.LittleEndian.PutUint16(data[6:8], headerSize)
+	binary.LittleEndian.PutUint16(data[8:10], width)
+	binary.LittleEndian.PutUint16(data[10:12], height)
+	binary.LittleEndian.PutUint16(data[12:14], 1)
+	binary.LittleEndian.PutUint16(data[14:16], uint16(len(clips)))
+	binary.LittleEndian.PutUint32(data[16:20], 1)
+	binary.LittleEndian.PutUint32(data[20:24], uint32(paletteOffset))
+	binary.LittleEndian.PutUint32(data[24:28], uint32(clipOffset))
+	binary.LittleEndian.PutUint32(data[28:32], uint32(frameOffset))
+	binary.LittleEndian.PutUint32(data[32:36], uint32(payloadOffset))
+	for i, name := range clips {
+		base := clipOffset + i*clipEntrySize
+		copy(data[base:base+32], name)
+		binary.LittleEndian.PutUint32(data[base+40:base+44], 1)
+	}
+	return data
 }
 
 func seedBusinessACL(t *testing.T, ctx context.Context, api *adminservice.ClientWithResponses) {

@@ -4,17 +4,17 @@ import { Link, useParams } from "react-router-dom";
 
 import { getFirmware, getResource, putFirmware, releaseFirmware, rollbackFirmware, type Firmware, type Resource } from "@gizclaw/adminservice";
 import { expectData, toMessage } from "../../components/api";
-import { Badge } from "../../components/badge";
-import { Button } from "../../components/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { DetailBlock } from "../../components/detail-block";
 import { EmptyState } from "../../components/empty-state";
 import { ErrorBanner } from "../../components/banners";
 import { PageHeader, PageSummaryCard } from "../../components/page-layout";
 import { ResourceCliPanel } from "../../components/ResourceCliPanel";
-import { Skeleton } from "../../components/skeleton";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/table";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/tabs";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FirmwareEditor, type FirmwareFormState, firmwareToForm, formToUpsert } from "./FirmwareForm";
 
 export function FirmwareDetailPage(): JSX.Element {

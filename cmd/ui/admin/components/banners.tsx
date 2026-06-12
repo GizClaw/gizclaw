@@ -1,6 +1,6 @@
 import * as React from "react";
 
-import { Alert, AlertDescription } from "./alert";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface ErrorBannerProps extends React.HTMLAttributes<HTMLDivElement> {
   message: string;

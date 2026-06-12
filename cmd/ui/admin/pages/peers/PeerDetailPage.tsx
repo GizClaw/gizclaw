@@ -3,13 +3,13 @@ import { Ban, Check, ChevronLeft, RefreshCw, Save, Trash2 } from "lucide-react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
 import { expectData, toMessage } from "../../components/api";
-import { Badge } from "../../components/badge";
-import { Button } from "../../components/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/card";
-import { Input } from "../../components/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/select";
-import { Skeleton } from "../../components/skeleton";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/tabs";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 import {
   approvePeer,

@@ -1,10 +1,12 @@
-import { RefreshCw } from "lucide-react";
+import { FileJson, Plus, RefreshCw } from "lucide-react";
+import type { KeyboardEvent } from "react";
+import { Link, useNavigate } from "react-router-dom";
 
-import { Badge } from "../../components/badge";
-import { Button } from "../../components/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/card";
-import { Skeleton } from "../../components/skeleton";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/table";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { expectData } from "../../components/api";
 import { listWorkspaces, type Workspace } from "@gizclaw/adminservice";
 
@@ -15,6 +17,7 @@ import { useCursorListPage } from "../../hooks/useCursorListPage";
 import { formatDate } from "../../lib/format";
 
 export function WorkspacesListPage(): JSX.Element {
+  const navigate = useNavigate();
   const { error, hasNext, items, loading, nextPage, pageNumber, prevPage, refresh } = useCursorListPage<Workspace>(async (query) => {
     const result = await expectData(listWorkspaces({ query }));
     return {
@@ -24,16 +27,37 @@ export function WorkspacesListPage(): JSX.Element {
     };
   });
 
+  const openWorkspace = (name: string): void => {
+    navigate(`/resources?kind=Workspace&name=${encodeURIComponent(name)}`);
+  };
+
+  const handleRowKeyDown = (event: KeyboardEvent<HTMLTableRowElement>, name: string): void => {
+    if (isInteractiveTarget(event.target)) {
+      return;
+    }
+    if (event.key !== "Enter" && event.key !== " ") {
+      return;
+    }
+    event.preventDefault();
+    openWorkspace(name);
+  };
+
   return (
     <div className="space-y-6">
       <PageHeader
         actions={
-          <Button className="h-8 min-w-fit shrink-0 whitespace-nowrap px-3 text-sm" onClick={() => void refresh()} variant="outline">
-            <span className="inline-flex items-center gap-2 whitespace-nowrap">
+          <>
+            <Button asChild className="h-8 min-w-fit shrink-0 whitespace-nowrap px-3 text-sm" variant="outline">
+              <Link to="/resources?kind=Workspace">
+                <Plus className="size-4" />
+                New Workspace
+              </Link>
+            </Button>
+            <Button className="h-8 min-w-fit shrink-0 whitespace-nowrap px-3 text-sm" onClick={() => void refresh()} variant="outline">
               <RefreshCw className="size-4" />
               Refresh
-            </span>
-          </Button>
+            </Button>
+          </>
         }
         items={[{ href: "/overview", label: "Overview" }, { label: "Workspaces" }]}
       />
@@ -100,16 +124,32 @@ export function WorkspacesListPage(): JSX.Element {
                     <TableHead className="text-right">Parameters</TableHead>
                     <TableHead>Created</TableHead>
                     <TableHead className="text-right">Updated</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {items.map((workspace) => (
-                    <TableRow key={workspace.name}>
+                    <TableRow
+                      className="cursor-pointer hover:bg-muted/40"
+                      key={workspace.name}
+                      onClick={() => openWorkspace(workspace.name)}
+                      onKeyDown={(event) => handleRowKeyDown(event, workspace.name)}
+                      role="link"
+                      tabIndex={0}
+                    >
                       <TableCell className="font-medium">{workspace.name}</TableCell>
                       <TableCell>{workspace.workflow_name}</TableCell>
                       <TableCell className="text-right">{Object.keys(workspace.parameters ?? {}).length}</TableCell>
                       <TableCell className="text-sm text-muted-foreground">{formatDate(workspace.created_at)}</TableCell>
                       <TableCell className="text-right text-sm text-muted-foreground">{formatDate(workspace.updated_at)}</TableCell>
+                      <TableCell className="text-right">
+                        <Button asChild className="h-8 min-w-fit shrink-0 whitespace-nowrap px-3 text-sm" onClick={(event) => event.stopPropagation()} variant="outline">
+                          <Link to={`/resources?kind=Workspace&name=${encodeURIComponent(workspace.name)}`}>
+                            <FileJson className="size-4" />
+                            Resource
+                          </Link>
+                        </Button>
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -120,4 +160,8 @@ export function WorkspacesListPage(): JSX.Element {
       </Card>
     </div>
   );
+}
+
+function isInteractiveTarget(target: EventTarget): boolean {
+  return target instanceof Element && target.closest("a,button,input,select,textarea") !== null;
 }

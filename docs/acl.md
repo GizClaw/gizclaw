@@ -43,12 +43,12 @@ call
 | `credential` | credential name | peer or admin | `credential.{read,use,admin}` | `server.credential.{list,get,create,put,delete}`, `server.run.reload`, `server.run.say` | `/credentials/{name}` |
 | `voice` | voice id | admin | `voice.{read,use,admin}` | `server.run.say`, voice selection, and runtime use | `/voices/{id}` |
 | `view` | view name | admin | `view.{read,use,admin}` | read/use resources exposed by a view | `/acl/views/{name}` |
-| `pet_species` | species id | admin | `pet_species.{read,use,admin}` | pet adoption species selection | `/pet-species/{id}`, `/pet-species/{id}/zpet` |
+| `pet_species` | species id | admin | `pet_species.{read,use,admin}` | pet adoption species selection | `/pet-species/{id}`, `/pet-species/{id}/pixa` |
 | `badge` | badge id | admin | `badge.{read,use,admin}` | reward badge grant validation | `/badges/{id}`, `/badges/{id}/icon` |
-| `contact` | contact id | peer | `contact.{read,use,admin}` | `server.contact.{list,get,create,put,delete}`, `server.contact.block`, `server.contact.unblock` | `/peers/{publicKey}/contacts/{id}` |
+| `contact` | contact id | peer | `contact.{read,use,admin}` | `server.contact.{list,get,create,put,delete}` | `/peers/{publicKey}/contacts/{id}` |
 | `friend` | friend relation id | peer pair | `friend.{read,use,admin}` | `server.friend.{list,delete}` | `/peers/{publicKey}/friends/{id}` |
 | `friend_request` | request id | peer pair | `friend_request.{read,use,admin}` | `server.friend.requests.{list,create}`, `server.friend.requests.accept`, `server.friend.requests.reject` | `/peers/{publicKey}/friend-requests/{id}` |
-| `group` | group id | peer or admin | `group.{read,use,admin}` | `server.group.{list,get,create,put,delete}`, `server.group.members.{list,add,delete}` | `/groups/{id}` |
+| `group` | group id | peer or admin | `group.{read,use,admin}` | `server.group.{list,get,create,put,delete}`, `server.group.members.{list,add,put,delete}` | `/groups/{id}` |
 | `call` | call id | peer pair or group | `call.{read,use,admin}` | `server.call.{list,get,create}`, `server.call.answer`, `server.call.reject`, `server.call.end` | `/calls/{id}` |
 
 ## Permission Mapping
@@ -67,6 +67,7 @@ call
 | `server.run.reload` | current pending agent workspace `workspace.use`, `workflow.use`, referenced `model.use`, referenced `credential.use` |
 | `server.run.say` | selected `voice.use`, selected TTS `model.use`, referenced `credential.use` |
 | `server.group.messages.list` | `group.read` |
+| `server.group.messages.get` | `group.read` |
 | `server.group.messages.send` | `group.use` |
 | `server.pet.adopt` | selected `pet_species.use` |
 | reward badge grant | generated `badge.use` |

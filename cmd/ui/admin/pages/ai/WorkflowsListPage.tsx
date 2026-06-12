@@ -1,10 +1,12 @@
-import { RefreshCw } from "lucide-react";
+import { FileJson, Plus, RefreshCw } from "lucide-react";
+import type { KeyboardEvent } from "react";
+import { Link, useNavigate } from "react-router-dom";
 
-import { Badge } from "../../components/badge";
-import { Button } from "../../components/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/card";
-import { Skeleton } from "../../components/skeleton";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/table";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { expectData } from "../../components/api";
 import { listWorkflows, type FlowcraftWorkflow } from "@gizclaw/adminservice";
 
@@ -14,6 +16,7 @@ import { PageHeader, PageSummaryCard } from "../../components/page-layout";
 import { useCursorListPage } from "../../hooks/useCursorListPage";
 
 export function WorkflowsListPage(): JSX.Element {
+  const navigate = useNavigate();
   const { error, hasNext, items, loading, nextPage, pageNumber, prevPage, refresh } = useCursorListPage<FlowcraftWorkflow>(
     async (query) => {
       const result = await expectData(listWorkflows({ query }));
@@ -25,16 +28,37 @@ export function WorkflowsListPage(): JSX.Element {
     },
   );
 
+  const openWorkflow = (name: string): void => {
+    navigate(`/resources?kind=Workflow&name=${encodeURIComponent(name)}`);
+  };
+
+  const handleRowKeyDown = (event: KeyboardEvent<HTMLTableRowElement>, name: string): void => {
+    if (isInteractiveTarget(event.target)) {
+      return;
+    }
+    if (event.key !== "Enter" && event.key !== " ") {
+      return;
+    }
+    event.preventDefault();
+    openWorkflow(name);
+  };
+
   return (
     <div className="space-y-6">
       <PageHeader
         actions={
-          <Button className="h-8 min-w-fit shrink-0 whitespace-nowrap px-3 text-sm" onClick={() => void refresh()} variant="outline">
-            <span className="inline-flex items-center gap-2 whitespace-nowrap">
+          <>
+            <Button asChild className="h-8 min-w-fit shrink-0 whitespace-nowrap px-3 text-sm" variant="outline">
+              <Link to="/resources?kind=Workflow">
+                <Plus className="size-4" />
+                New Workflow
+              </Link>
+            </Button>
+            <Button className="h-8 min-w-fit shrink-0 whitespace-nowrap px-3 text-sm" onClick={() => void refresh()} variant="outline">
               <RefreshCw className="size-4" />
               Refresh
-            </span>
-          </Button>
+            </Button>
+          </>
         }
         items={[{ href: "/overview", label: "Overview" }, { label: "Workflows" }]}
       />
@@ -100,17 +124,33 @@ export function WorkflowsListPage(): JSX.Element {
                     <TableHead>Kind</TableHead>
                     <TableHead>API Version</TableHead>
                     <TableHead>Description</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {items.map((workflow) => (
-                    <TableRow key={workflow.metadata.name}>
+                    <TableRow
+                      className="cursor-pointer hover:bg-muted/40"
+                      key={workflow.metadata.name}
+                      onClick={() => openWorkflow(workflow.metadata.name)}
+                      onKeyDown={(event) => handleRowKeyDown(event, workflow.metadata.name)}
+                      role="link"
+                      tabIndex={0}
+                    >
                       <TableCell className="font-medium">{workflow.metadata.name}</TableCell>
                       <TableCell>
                         <Badge variant="outline">{workflow.kind}</Badge>
                       </TableCell>
                       <TableCell>{workflow.apiVersion}</TableCell>
                       <TableCell className="max-w-[28rem] text-sm text-muted-foreground">{workflow.metadata.description?.trim() || "—"}</TableCell>
+                      <TableCell className="text-right">
+                        <Button asChild className="h-8 min-w-fit shrink-0 whitespace-nowrap px-3 text-sm" onClick={(event) => event.stopPropagation()} variant="outline">
+                          <Link to={`/resources?kind=Workflow&name=${encodeURIComponent(workflow.metadata.name)}`}>
+                            <FileJson className="size-4" />
+                            Resource
+                          </Link>
+                        </Button>
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -121,4 +161,8 @@ export function WorkflowsListPage(): JSX.Element {
       </Card>
     </div>
   );
+}
+
+function isInteractiveTarget(target: EventTarget): boolean {
+  return target instanceof Element && target.closest("a,button,input,select,textarea") !== null;
 }

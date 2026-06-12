@@ -4,19 +4,19 @@ import { Link, useParams } from "react-router-dom";
 
 import { getResource, getVolcTenant, listCredentials, putVolcTenant, syncVolcTenantVoices, type Credential, type Resource, type VolcTenant } from "@gizclaw/adminservice";
 import { expectData, toMessage } from "../../components/api";
-import { Badge } from "../../components/badge";
-import { Button } from "../../components/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { DetailBlock } from "../../components/detail-block";
 import { EmptyState } from "../../components/empty-state";
 import { ErrorBanner, NoticeBanner } from "../../components/banners";
 import { FormField } from "../../components/form-field";
-import { Input } from "../../components/input";
+import { Input } from "@/components/ui/input";
 import { PageHeader, PageSummaryCard } from "../../components/page-layout";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/select";
-import { Skeleton } from "../../components/skeleton";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/tabs";
-import { Textarea } from "../../components/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
 import { ResourceCliPanel } from "../../components/ResourceCliPanel";
 
 type VolcTenantForm = {

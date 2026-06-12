@@ -4,19 +4,19 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 
 import { deleteAclView, getAclView, getResource, putAclView, type AclView, type Resource } from "@gizclaw/adminservice";
 import { expectData, toMessage } from "../../components/api";
-import { Button } from "../../components/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/card";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { DeleteConfirmButton } from "../../components/delete-confirm-button";
 import { DetailBlock } from "../../components/detail-block";
 import { EmptyState } from "../../components/empty-state";
 import { ErrorBanner, NoticeBanner } from "../../components/banners";
 import { FormField } from "../../components/form-field";
-import { Input } from "../../components/input";
+import { Input } from "@/components/ui/input";
 import { PageHeader, PageSummaryCard } from "../../components/page-layout";
 import { ResourceCliPanel } from "../../components/ResourceCliPanel";
-import { Skeleton } from "../../components/skeleton";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/tabs";
-import { Textarea } from "../../components/textarea";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
 import { decodeRouteParam, shellQuote } from "./acl-utils";
 
 type ViewForm = {
