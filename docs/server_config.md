@@ -182,37 +182,31 @@ stores:
     storage: main-kv
     prefix: friends
 
-  # Group metadata records.
-  groups:
+  # FriendGroup metadata records.
+  friend-groups:
     kind: keyvalue
     storage: main-kv
-    prefix: groups
+    prefix: friend-groups
 
-  # Group membership rows.
-  group-members:
+  # FriendGroup membership rows.
+  friend-group-members:
     kind: keyvalue
     storage: main-kv
-    prefix: group-members
+    prefix: friend-group-members
 
-  # Group message metadata. Audio bytes live in group-message-assets below.
-  group-messages:
+  # FriendGroup message metadata. Audio bytes live in friend-group-message-assets below.
+  friend-group-messages:
     kind: keyvalue
     storage: main-kv
-    prefix: group-messages
+    prefix: friend-group-messages
 
-  # Logical object store for group message audio files. The physical object
-  # store is shared with other file payloads; this prefix keeps group message
-  # audio under group-messages/.
-  group-message-assets:
+  # Logical object store for friend group message audio files. The physical object
+  # store is shared with other file payloads; this prefix keeps friend group message
+  # audio under friend-group-messages/.
+  friend-group-message-assets:
     kind: objectstore
     storage: local-assets
-    prefix: group-messages
-
-  # Call lifecycle records for peer and group calls.
-  calls:
-    kind: keyvalue
-    storage: main-kv
-    prefix: calls
+    prefix: friend-group-messages
 
 # Service store bindings. These names must resolve to entries under "stores".
 peers:
@@ -281,16 +275,16 @@ friends:
   # peerrun.
   friend_otp_ttl: 10m
 
-groups:
-  # Logical KV store for GroupObject metadata.
-  store: groups
-  # Logical KV store for GroupMemberObject rows.
-  members_store: group-members
-  # Logical KV store for GroupMessageObject metadata.
-  messages_store: group-messages
-  # Logical object store for group message audio bytes.
-  message_assets_store: group-message-assets
-  # Default TTL for a group message when the send request omits ttl_seconds.
+friend_groups:
+  # Logical KV store for FriendGroupObject metadata.
+  store: friend-groups
+  # Logical KV store for FriendGroupMemberObject rows.
+  members_store: friend-group-members
+  # Logical KV store for FriendGroupMessageObject metadata.
+  messages_store: friend-group-messages
+  # Logical object store for friend group message audio bytes.
+  message_assets_store: friend-group-message-assets
+  # Default TTL for a friend group message when the send request omits ttl_seconds.
   message_default_ttl: 24h
   # Maximum allowed message TTL. Requests above this value are rejected or
   # clamped by the service, depending on the implementation decision.
@@ -298,12 +292,8 @@ groups:
   # Background cleanup interval for deleting expired message metadata and audio
   # objects.
   message_cleanup_interval: 5m
-  # Maximum decoded audio bytes accepted by group message send.
+  # Maximum decoded audio bytes accepted by friend group message send.
   message_max_audio_bytes: 2097152
-
-calls:
-  # Logical KV store for CallObject lifecycle records.
-  store: calls
 
 # Server-side system task configuration.
 system_tasks:
@@ -349,21 +339,19 @@ system_tasks:
   stores accepted peer friend relationships.
 - `friends.friend_otp_ttl` controls how long the 6-digit friend OTP reported by
   the target device through peerrun can be used for friend request creation.
-- `groups.store`, `groups.members_store`, and `groups.messages_store` store
-  group metadata, membership rows, and group message metadata separately so
+- `friend_groups.store`, `friend_groups.members_store`, and `friend_groups.messages_store` store
+  friend group metadata, membership rows, and friend group message metadata separately so
   list pagination and cleanup can be implemented independently.
-- `groups.message_assets_store` stores group message audio objects. Message
+- `friend_groups.message_assets_store` stores friend group message audio objects. Message
   records should store relative `audio_path` values under this logical object
   store, never absolute host filesystem paths.
-- `groups.message_default_ttl` is used when a group message send request omits
-  TTL. `groups.message_max_ttl` bounds user-provided TTL values.
-- `groups.message_cleanup_interval` controls the background task that removes
-  expired group message metadata and deletes the referenced audio objects. The
+- `friend_groups.message_default_ttl` is used when a friend group message send request omits
+  TTL. `friend_groups.message_max_ttl` bounds user-provided TTL values.
+- `friend_groups.message_cleanup_interval` controls the background task that removes
+  expired friend group message metadata and deletes the referenced audio objects. The
   cleanup task should tolerate already-missing audio objects.
-- `groups.message_max_audio_bytes` limits the decoded audio payload accepted by
-  group message send before writing bytes to the configured object store.
-- `calls.store` stores call lifecycle records only; media signaling and audio
-  transport are separate concerns.
+- `friend_groups.message_max_audio_bytes` limits the decoded audio payload accepted by
+  friend group message send before writing bytes to the configured object store.
 - `cipher-mode` accepts `chacha_poly`, `aes_256_gcm`, `plaintext`, or empty.
 - Asset services should use object-store operations such as get, put, delete,
   delete-prefix, and list. They should not require directory creation or rename

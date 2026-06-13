@@ -41,6 +41,9 @@
           },
           "message": {
             "type": "string"
+          },
+          "friend_otp": {
+            "type": "string"
           }
         }
       }

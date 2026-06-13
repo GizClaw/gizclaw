@@ -66,8 +66,7 @@ func TestPlannedResourceKindsAndPermissionsAreValid(t *testing.T) {
 		ResourceKindContact,
 		ResourceKindFriend,
 		ResourceKindFriendReq,
-		ResourceKindGroup,
-		ResourceKindCall,
+		ResourceKindFriendGroup,
 	} {
 		if !kind.Valid() {
 			t.Fatalf("resource kind %q is not valid", kind)

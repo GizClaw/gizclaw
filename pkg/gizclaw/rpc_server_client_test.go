@@ -103,8 +103,12 @@ func (c *rpcClient) ReloadServerRun(ctx context.Context, conn net.Conn, id strin
 	return result, nil
 }
 
-func (c *rpcClient) GetServerRunStatus(ctx context.Context, conn net.Conn, id string) (*rpcapi.ServerGetRunStatusResponse, error) {
-	params, err := newRPCRequestParams(rpcapi.ServerGetRunStatusRequest{}, (*rpcapi.RPCRequest_Params).FromServerGetRunStatusRequest)
+func (c *rpcClient) GetServerRunStatus(ctx context.Context, conn net.Conn, id string, request ...rpcapi.ServerGetRunStatusRequest) (*rpcapi.ServerGetRunStatusResponse, error) {
+	req := rpcapi.ServerGetRunStatusRequest{}
+	if len(request) > 0 {
+		req = request[0]
+	}
+	params, err := newRPCRequestParams(req, (*rpcapi.RPCRequest_Params).FromServerGetRunStatusRequest)
 	if err != nil {
 		return nil, err
 	}

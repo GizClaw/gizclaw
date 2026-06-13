@@ -46,13 +46,9 @@ Server Service
 ├── server.friend.requests.accept
 ├── server.friend.requests.reject
 ├── server.friend.{list,delete}
-├── server.group.{list,get,create,put,delete}
-├── server.group.members.{list,add,put,delete}
-├── server.group.messages.{list,get,send}
-├── server.call.{list,get,create}
-├── server.call.answer
-├── server.call.reject
-├── server.call.end
+├── server.friend_group.{list,get,create,put,delete}
+├── server.friend_group.members.{list,add,put,delete}
+├── server.friend_group.messages.{list,get,send}
 ├── server.reward.{list,get}
 └── server.reward.claim
 
@@ -89,13 +85,9 @@ Admin Service
 │   ├── @accept
 │   └── @reject
 ├── /peers/{publicKey}/friends/{id} LIST, GET, DELETE
-├── /groups/{id} LIST, CREATE, GET, PUT, DELETE
+├── /friend-groups/{id} LIST, CREATE, GET, PUT, DELETE
 │   ├── /members LIST, CREATE, GET, PUT, DELETE
 │   └── /messages LIST, CREATE, GET
-├── /calls/{id} LIST, CREATE, GET
-│   ├── @answer
-│   ├── @reject
-│   └── @end
 ├── /game-results/{id} LIST, CREATE, GET
 ├── /rewards/{id} LIST, CREATE, GET
 │   └── @claim

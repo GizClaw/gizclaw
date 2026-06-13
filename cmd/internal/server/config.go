@@ -31,11 +31,31 @@ type Config struct {
 	Pets           StoreConfig
 	Rewards        StoreConfig
 	Wallets        StoreConfig
+	Contacts       StoreConfig
+	Friends        FriendsConfig
+	FriendGroups   FriendGroupsConfig
 	SystemTasks    SystemTasksConfig
 }
 
 type StoreConfig struct {
 	Store string `yaml:"store"`
+}
+
+type FriendsConfig struct {
+	Store         string `yaml:"store"`
+	RequestsStore string `yaml:"requests_store"`
+	FriendOTPTTL  string `yaml:"friend_otp_ttl"`
+}
+
+type FriendGroupsConfig struct {
+	Store                  string `yaml:"store"`
+	MembersStore           string `yaml:"members_store"`
+	MessagesStore          string `yaml:"messages_store"`
+	MessageAssetsStore     string `yaml:"message_assets_store"`
+	MessageDefaultTTL      string `yaml:"message_default_ttl"`
+	MessageMaxTTL          string `yaml:"message_max_ttl"`
+	MessageCleanupInterval string `yaml:"message_cleanup_interval"`
+	MessageMaxAudioBytes   int64  `yaml:"message_max_audio_bytes"`
 }
 
 type AssetResourceConfig struct {
@@ -105,6 +125,9 @@ type ConfigFile struct {
 	Pets           StoreConfig               `yaml:"pets"`
 	Rewards        StoreConfig               `yaml:"rewards"`
 	Wallets        StoreConfig               `yaml:"wallets"`
+	Contacts       StoreConfig               `yaml:"contacts"`
+	Friends        FriendsConfig             `yaml:"friends"`
+	FriendGroups   FriendGroupsConfig        `yaml:"friend_groups"`
 	SystemTasks    SystemTasksConfig         `yaml:"system_tasks"`
 }
 
@@ -131,6 +154,9 @@ func LoadConfig(path string) (ConfigFile, error) {
 		Pets           StoreConfig               `yaml:"pets"`
 		Rewards        StoreConfig               `yaml:"rewards"`
 		Wallets        StoreConfig               `yaml:"wallets"`
+		Contacts       StoreConfig               `yaml:"contacts"`
+		Friends        FriendsConfig             `yaml:"friends"`
+		FriendGroups   FriendGroupsConfig        `yaml:"friend_groups"`
 		SystemTasks    SystemTasksConfig         `yaml:"system_tasks"`
 	}
 	if err := yaml.Unmarshal(data, &raw); err != nil {
@@ -161,6 +187,9 @@ func LoadConfig(path string) (ConfigFile, error) {
 		Pets:           raw.Pets,
 		Rewards:        raw.Rewards,
 		Wallets:        raw.Wallets,
+		Contacts:       raw.Contacts,
+		Friends:        raw.Friends,
+		FriendGroups:   raw.FriendGroups,
 		SystemTasks:    raw.SystemTasks,
 	}
 	return cfg, nil
@@ -200,6 +229,9 @@ func mergeFileConfig(cfg Config, fileCfg ConfigFile) (Config, error) {
 	cfg.Pets = mergeStoreConfig(cfg.Pets, fileCfg.Pets)
 	cfg.Rewards = mergeStoreConfig(cfg.Rewards, fileCfg.Rewards)
 	cfg.Wallets = mergeStoreConfig(cfg.Wallets, fileCfg.Wallets)
+	cfg.Contacts = mergeStoreConfig(cfg.Contacts, fileCfg.Contacts)
+	cfg.Friends = mergeFriendsConfig(cfg.Friends, fileCfg.Friends)
+	cfg.FriendGroups = mergeFriendGroupsConfig(cfg.FriendGroups, fileCfg.FriendGroups)
 	cfg.SystemTasks = mergeSystemTasksConfig(cfg.SystemTasks, fileCfg.SystemTasks)
 	return cfg, nil
 }
@@ -217,6 +249,47 @@ func mergeAssetResourceConfig(runtime AssetResourceConfig, file AssetResourceCon
 	}
 	if runtime.AssetsStore == "" {
 		runtime.AssetsStore = file.AssetsStore
+	}
+	return runtime
+}
+
+func mergeFriendsConfig(runtime FriendsConfig, file FriendsConfig) FriendsConfig {
+	if runtime.Store == "" {
+		runtime.Store = file.Store
+	}
+	if runtime.RequestsStore == "" {
+		runtime.RequestsStore = file.RequestsStore
+	}
+	if runtime.FriendOTPTTL == "" {
+		runtime.FriendOTPTTL = file.FriendOTPTTL
+	}
+	return runtime
+}
+
+func mergeFriendGroupsConfig(runtime FriendGroupsConfig, file FriendGroupsConfig) FriendGroupsConfig {
+	if runtime.Store == "" {
+		runtime.Store = file.Store
+	}
+	if runtime.MembersStore == "" {
+		runtime.MembersStore = file.MembersStore
+	}
+	if runtime.MessagesStore == "" {
+		runtime.MessagesStore = file.MessagesStore
+	}
+	if runtime.MessageAssetsStore == "" {
+		runtime.MessageAssetsStore = file.MessageAssetsStore
+	}
+	if runtime.MessageDefaultTTL == "" {
+		runtime.MessageDefaultTTL = file.MessageDefaultTTL
+	}
+	if runtime.MessageMaxTTL == "" {
+		runtime.MessageMaxTTL = file.MessageMaxTTL
+	}
+	if runtime.MessageCleanupInterval == "" {
+		runtime.MessageCleanupInterval = file.MessageCleanupInterval
+	}
+	if runtime.MessageMaxAudioBytes == 0 {
+		runtime.MessageMaxAudioBytes = file.MessageMaxAudioBytes
 	}
 	return runtime
 }
@@ -362,7 +435,42 @@ func (cfg Config) validate() error {
 			return fmt.Errorf("server: system_tasks.reward_claim.cooldown: %w", err)
 		}
 	}
+	if cfg.Friends.FriendOTPTTL != "" {
+		if _, err := parseConfigDuration(cfg.Friends.FriendOTPTTL); err != nil {
+			return fmt.Errorf("server: friends.friend_otp_ttl: %w", err)
+		}
+	}
+	if cfg.FriendGroups.MessageDefaultTTL != "" {
+		if _, err := parseConfigDuration(cfg.FriendGroups.MessageDefaultTTL); err != nil {
+			return fmt.Errorf("server: friend_groups.message_default_ttl: %w", err)
+		}
+	}
+	if cfg.FriendGroups.MessageMaxTTL != "" {
+		if _, err := parseConfigDuration(cfg.FriendGroups.MessageMaxTTL); err != nil {
+			return fmt.Errorf("server: friend_groups.message_max_ttl: %w", err)
+		}
+	}
+	if cfg.FriendGroups.MessageCleanupInterval != "" {
+		if _, err := parseConfigDuration(cfg.FriendGroups.MessageCleanupInterval); err != nil {
+			return fmt.Errorf("server: friend_groups.message_cleanup_interval: %w", err)
+		}
+	}
+	if cfg.FriendGroups.MessageMaxAudioBytes < 0 {
+		return fmt.Errorf("server: friend_groups.message_max_audio_bytes must be >= 0")
+	}
 	return nil
+}
+
+func parseConfigDuration(value string) (time.Duration, error) {
+	value = strings.TrimSpace(value)
+	if strings.HasSuffix(value, "d") {
+		days, err := time.ParseDuration(strings.TrimSuffix(value, "d") + "h")
+		if err != nil {
+			return 0, err
+		}
+		return days * 24, nil
+	}
+	return time.ParseDuration(value)
 }
 
 func validateCipherMode(mode giznet.CipherMode) error {

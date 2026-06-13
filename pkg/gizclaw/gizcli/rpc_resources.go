@@ -163,3 +163,95 @@ func (c *rpcClient) GetReward(ctx context.Context, conn net.Conn, id string, req
 func (c *rpcClient) ClaimReward(ctx context.Context, conn net.Conn, id string, request rpcapi.RewardClaimRequest) (*rpcapi.RewardClaimResponse, error) {
 	return callResourceRPC(ctx, conn, id, rpcapi.RPCMethodServerRewardClaim, request, (*rpcapi.RPCRequest_Params).FromRewardClaimRequest, rpcapi.RPCResponse_Result.AsRewardClaimResponse, "reward claim")
 }
+
+func (c *rpcClient) ListContacts(ctx context.Context, conn net.Conn, id string, request rpcapi.ContactListRequest) (*rpcapi.ContactListResponse, error) {
+	return callResourceRPC(ctx, conn, id, rpcapi.RPCMethodServerContactList, request, (*rpcapi.RPCRequest_Params).FromContactListRequest, rpcapi.RPCResponse_Result.AsContactListResponse, "contact list")
+}
+
+func (c *rpcClient) GetContact(ctx context.Context, conn net.Conn, id string, request rpcapi.ContactGetRequest) (*rpcapi.ContactGetResponse, error) {
+	return callResourceRPC(ctx, conn, id, rpcapi.RPCMethodServerContactGet, request, (*rpcapi.RPCRequest_Params).FromContactGetRequest, rpcapi.RPCResponse_Result.AsContactGetResponse, "contact get")
+}
+
+func (c *rpcClient) CreateContact(ctx context.Context, conn net.Conn, id string, request rpcapi.ContactCreateRequest) (*rpcapi.ContactCreateResponse, error) {
+	return callResourceRPC(ctx, conn, id, rpcapi.RPCMethodServerContactCreate, request, (*rpcapi.RPCRequest_Params).FromContactCreateRequest, rpcapi.RPCResponse_Result.AsContactCreateResponse, "contact create")
+}
+
+func (c *rpcClient) PutContact(ctx context.Context, conn net.Conn, id string, request rpcapi.ContactPutRequest) (*rpcapi.ContactPutResponse, error) {
+	return callResourceRPC(ctx, conn, id, rpcapi.RPCMethodServerContactPut, request, (*rpcapi.RPCRequest_Params).FromContactPutRequest, rpcapi.RPCResponse_Result.AsContactPutResponse, "contact put")
+}
+
+func (c *rpcClient) DeleteContact(ctx context.Context, conn net.Conn, id string, request rpcapi.ContactDeleteRequest) (*rpcapi.ContactDeleteResponse, error) {
+	return callResourceRPC(ctx, conn, id, rpcapi.RPCMethodServerContactDelete, request, (*rpcapi.RPCRequest_Params).FromContactDeleteRequest, rpcapi.RPCResponse_Result.AsContactDeleteResponse, "contact delete")
+}
+
+func (c *rpcClient) ListFriendRequests(ctx context.Context, conn net.Conn, id string, request rpcapi.FriendRequestListRequest) (*rpcapi.FriendRequestListResponse, error) {
+	return callResourceRPC(ctx, conn, id, rpcapi.RPCMethodServerFriendRequestsList, request, (*rpcapi.RPCRequest_Params).FromFriendRequestListRequest, rpcapi.RPCResponse_Result.AsFriendRequestListResponse, "friend request list")
+}
+
+func (c *rpcClient) CreateFriendRequest(ctx context.Context, conn net.Conn, id string, request rpcapi.FriendRequestCreateRequest) (*rpcapi.FriendRequestCreateResponse, error) {
+	return callResourceRPC(ctx, conn, id, rpcapi.RPCMethodServerFriendRequestsCreate, request, (*rpcapi.RPCRequest_Params).FromFriendRequestCreateRequest, rpcapi.RPCResponse_Result.AsFriendRequestCreateResponse, "friend request create")
+}
+
+func (c *rpcClient) AcceptFriendRequest(ctx context.Context, conn net.Conn, id string, request rpcapi.FriendRequestAcceptRequest) (*rpcapi.FriendRequestAcceptResponse, error) {
+	return callResourceRPC(ctx, conn, id, rpcapi.RPCMethodServerFriendRequestsAccept, request, (*rpcapi.RPCRequest_Params).FromFriendRequestAcceptRequest, rpcapi.RPCResponse_Result.AsFriendRequestAcceptResponse, "friend request accept")
+}
+
+func (c *rpcClient) RejectFriendRequest(ctx context.Context, conn net.Conn, id string, request rpcapi.FriendRequestRejectRequest) (*rpcapi.FriendRequestRejectResponse, error) {
+	return callResourceRPC(ctx, conn, id, rpcapi.RPCMethodServerFriendRequestsReject, request, (*rpcapi.RPCRequest_Params).FromFriendRequestRejectRequest, rpcapi.RPCResponse_Result.AsFriendRequestRejectResponse, "friend request reject")
+}
+
+func (c *rpcClient) ListFriends(ctx context.Context, conn net.Conn, id string, request rpcapi.FriendListRequest) (*rpcapi.FriendListResponse, error) {
+	return callResourceRPC(ctx, conn, id, rpcapi.RPCMethodServerFriendList, request, (*rpcapi.RPCRequest_Params).FromFriendListRequest, rpcapi.RPCResponse_Result.AsFriendListResponse, "friend list")
+}
+
+func (c *rpcClient) DeleteFriend(ctx context.Context, conn net.Conn, id string, request rpcapi.FriendDeleteRequest) (*rpcapi.FriendDeleteResponse, error) {
+	return callResourceRPC(ctx, conn, id, rpcapi.RPCMethodServerFriendDelete, request, (*rpcapi.RPCRequest_Params).FromFriendDeleteRequest, rpcapi.RPCResponse_Result.AsFriendDeleteResponse, "friend delete")
+}
+
+func (c *rpcClient) ListFriendGroups(ctx context.Context, conn net.Conn, id string, request rpcapi.FriendGroupListRequest) (*rpcapi.FriendGroupListResponse, error) {
+	return callResourceRPC(ctx, conn, id, rpcapi.RPCMethodServerFriendGroupList, request, (*rpcapi.RPCRequest_Params).FromFriendGroupListRequest, rpcapi.RPCResponse_Result.AsFriendGroupListResponse, "friend group list")
+}
+
+func (c *rpcClient) GetFriendGroup(ctx context.Context, conn net.Conn, id string, request rpcapi.FriendGroupGetRequest) (*rpcapi.FriendGroupGetResponse, error) {
+	return callResourceRPC(ctx, conn, id, rpcapi.RPCMethodServerFriendGroupGet, request, (*rpcapi.RPCRequest_Params).FromFriendGroupGetRequest, rpcapi.RPCResponse_Result.AsFriendGroupGetResponse, "friend group get")
+}
+
+func (c *rpcClient) CreateFriendGroup(ctx context.Context, conn net.Conn, id string, request rpcapi.FriendGroupCreateRequest) (*rpcapi.FriendGroupCreateResponse, error) {
+	return callResourceRPC(ctx, conn, id, rpcapi.RPCMethodServerFriendGroupCreate, request, (*rpcapi.RPCRequest_Params).FromFriendGroupCreateRequest, rpcapi.RPCResponse_Result.AsFriendGroupCreateResponse, "friend group create")
+}
+
+func (c *rpcClient) PutFriendGroup(ctx context.Context, conn net.Conn, id string, request rpcapi.FriendGroupPutRequest) (*rpcapi.FriendGroupPutResponse, error) {
+	return callResourceRPC(ctx, conn, id, rpcapi.RPCMethodServerFriendGroupPut, request, (*rpcapi.RPCRequest_Params).FromFriendGroupPutRequest, rpcapi.RPCResponse_Result.AsFriendGroupPutResponse, "friend group put")
+}
+
+func (c *rpcClient) DeleteFriendGroup(ctx context.Context, conn net.Conn, id string, request rpcapi.FriendGroupDeleteRequest) (*rpcapi.FriendGroupDeleteResponse, error) {
+	return callResourceRPC(ctx, conn, id, rpcapi.RPCMethodServerFriendGroupDelete, request, (*rpcapi.RPCRequest_Params).FromFriendGroupDeleteRequest, rpcapi.RPCResponse_Result.AsFriendGroupDeleteResponse, "friend group delete")
+}
+
+func (c *rpcClient) ListFriendGroupMembers(ctx context.Context, conn net.Conn, id string, request rpcapi.FriendGroupMemberListRequest) (*rpcapi.FriendGroupMemberListResponse, error) {
+	return callResourceRPC(ctx, conn, id, rpcapi.RPCMethodServerFriendGroupMembersList, request, (*rpcapi.RPCRequest_Params).FromFriendGroupMemberListRequest, rpcapi.RPCResponse_Result.AsFriendGroupMemberListResponse, "friend group member list")
+}
+
+func (c *rpcClient) AddFriendGroupMember(ctx context.Context, conn net.Conn, id string, request rpcapi.FriendGroupMemberAddRequest) (*rpcapi.FriendGroupMemberAddResponse, error) {
+	return callResourceRPC(ctx, conn, id, rpcapi.RPCMethodServerFriendGroupMembersAdd, request, (*rpcapi.RPCRequest_Params).FromFriendGroupMemberAddRequest, rpcapi.RPCResponse_Result.AsFriendGroupMemberAddResponse, "friend group member add")
+}
+
+func (c *rpcClient) PutFriendGroupMember(ctx context.Context, conn net.Conn, id string, request rpcapi.FriendGroupMemberPutRequest) (*rpcapi.FriendGroupMemberPutResponse, error) {
+	return callResourceRPC(ctx, conn, id, rpcapi.RPCMethodServerFriendGroupMembersPut, request, (*rpcapi.RPCRequest_Params).FromFriendGroupMemberPutRequest, rpcapi.RPCResponse_Result.AsFriendGroupMemberPutResponse, "friend group member put")
+}
+
+func (c *rpcClient) DeleteFriendGroupMember(ctx context.Context, conn net.Conn, id string, request rpcapi.FriendGroupMemberDeleteRequest) (*rpcapi.FriendGroupMemberDeleteResponse, error) {
+	return callResourceRPC(ctx, conn, id, rpcapi.RPCMethodServerFriendGroupMembersDelete, request, (*rpcapi.RPCRequest_Params).FromFriendGroupMemberDeleteRequest, rpcapi.RPCResponse_Result.AsFriendGroupMemberDeleteResponse, "friend group member delete")
+}
+
+func (c *rpcClient) ListFriendGroupMessages(ctx context.Context, conn net.Conn, id string, request rpcapi.FriendGroupMessageListRequest) (*rpcapi.FriendGroupMessageListResponse, error) {
+	return callResourceRPC(ctx, conn, id, rpcapi.RPCMethodServerFriendGroupMessagesList, request, (*rpcapi.RPCRequest_Params).FromFriendGroupMessageListRequest, rpcapi.RPCResponse_Result.AsFriendGroupMessageListResponse, "friend group message list")
+}
+
+func (c *rpcClient) GetFriendGroupMessage(ctx context.Context, conn net.Conn, id string, request rpcapi.FriendGroupMessageGetRequest) (*rpcapi.FriendGroupMessageGetResponse, error) {
+	return callResourceRPC(ctx, conn, id, rpcapi.RPCMethodServerFriendGroupMessagesGet, request, (*rpcapi.RPCRequest_Params).FromFriendGroupMessageGetRequest, rpcapi.RPCResponse_Result.AsFriendGroupMessageGetResponse, "friend group message get")
+}
+
+func (c *rpcClient) SendFriendGroupMessage(ctx context.Context, conn net.Conn, id string, request rpcapi.FriendGroupMessageSendRequest) (*rpcapi.FriendGroupMessageSendResponse, error) {
+	return callResourceRPC(ctx, conn, id, rpcapi.RPCMethodServerFriendGroupMessagesSend, request, (*rpcapi.RPCRequest_Params).FromFriendGroupMessageSendRequest, rpcapi.RPCResponse_Result.AsFriendGroupMessageSendResponse, "friend group message send")
+}

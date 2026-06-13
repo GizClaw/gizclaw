@@ -68,6 +68,69 @@ func TestClientResourceMethodsRequireConnection(t *testing.T) {
 		{"credential delete", func() (any, error) {
 			return client.DeleteCredential(ctx, "credential-delete", rpcapi.CredentialDeleteRequest{Name: "credential-a"})
 		}},
+		{"contact list", func() (any, error) { return client.ListContacts(ctx, "contact-list", rpcapi.ContactListRequest{}) }},
+		{"contact get", func() (any, error) {
+			return client.GetContact(ctx, "contact-get", rpcapi.ContactGetRequest{Id: "contact-a"})
+		}},
+		{"contact create", func() (any, error) { return client.CreateContact(ctx, "contact-create", rpcapi.ContactCreateRequest{}) }},
+		{"contact put", func() (any, error) {
+			return client.PutContact(ctx, "contact-put", rpcapi.ContactPutRequest{Id: "contact-a"})
+		}},
+		{"contact delete", func() (any, error) {
+			return client.DeleteContact(ctx, "contact-delete", rpcapi.ContactDeleteRequest{Id: "contact-a"})
+		}},
+		{"friend requests list", func() (any, error) {
+			return client.ListFriendRequests(ctx, "friend-requests-list", rpcapi.FriendRequestListRequest{})
+		}},
+		{"friend requests create", func() (any, error) {
+			return client.CreateFriendRequest(ctx, "friend-requests-create", rpcapi.FriendRequestCreateRequest{ToPeerId: "peer-b", Code: "123456"})
+		}},
+		{"friend requests accept", func() (any, error) {
+			return client.AcceptFriendRequest(ctx, "friend-requests-accept", rpcapi.FriendRequestAcceptRequest{Id: "request-a"})
+		}},
+		{"friend requests reject", func() (any, error) {
+			return client.RejectFriendRequest(ctx, "friend-requests-reject", rpcapi.FriendRequestRejectRequest{Id: "request-a"})
+		}},
+		{"friend list", func() (any, error) { return client.ListFriends(ctx, "friend-list", rpcapi.FriendListRequest{}) }},
+		{"friend delete", func() (any, error) {
+			return client.DeleteFriend(ctx, "friend-delete", rpcapi.FriendDeleteRequest{Id: "friend-a"})
+		}},
+		{"friend group list", func() (any, error) {
+			return client.ListFriendGroups(ctx, "friend-group-list", rpcapi.FriendGroupListRequest{})
+		}},
+		{"friend group get", func() (any, error) {
+			return client.GetFriendGroup(ctx, "friend-group-get", rpcapi.FriendGroupGetRequest{Id: "group-a"})
+		}},
+		{"friend group create", func() (any, error) {
+			return client.CreateFriendGroup(ctx, "friend-group-create", rpcapi.FriendGroupCreateRequest{Name: "family"})
+		}},
+		{"friend group put", func() (any, error) {
+			return client.PutFriendGroup(ctx, "friend-group-put", rpcapi.FriendGroupPutRequest{Id: "group-a"})
+		}},
+		{"friend group delete", func() (any, error) {
+			return client.DeleteFriendGroup(ctx, "friend-group-delete", rpcapi.FriendGroupDeleteRequest{Id: "group-a"})
+		}},
+		{"friend group members list", func() (any, error) {
+			return client.ListFriendGroupMembers(ctx, "friend-group-members-list", rpcapi.FriendGroupMemberListRequest{})
+		}},
+		{"friend group members add", func() (any, error) {
+			return client.AddFriendGroupMember(ctx, "friend-group-members-add", rpcapi.FriendGroupMemberAddRequest{FriendGroupId: "group-a", PeerId: "peer-b"})
+		}},
+		{"friend group members put", func() (any, error) {
+			return client.PutFriendGroupMember(ctx, "friend-group-members-put", rpcapi.FriendGroupMemberPutRequest{FriendGroupId: "group-a", Id: "peer-b"})
+		}},
+		{"friend group members delete", func() (any, error) {
+			return client.DeleteFriendGroupMember(ctx, "friend-group-members-delete", rpcapi.FriendGroupMemberDeleteRequest{FriendGroupId: "group-a", Id: "peer-b"})
+		}},
+		{"friend group messages list", func() (any, error) {
+			return client.ListFriendGroupMessages(ctx, "friend-group-messages-list", rpcapi.FriendGroupMessageListRequest{})
+		}},
+		{"friend group messages get", func() (any, error) {
+			return client.GetFriendGroupMessage(ctx, "friend-group-messages-get", rpcapi.FriendGroupMessageGetRequest{FriendGroupId: "group-a", Id: "message-a"})
+		}},
+		{"friend group messages send", func() (any, error) {
+			return client.SendFriendGroupMessage(ctx, "friend-group-messages-send", rpcapi.FriendGroupMessageSendRequest{FriendGroupId: "group-a", AudioContentType: "audio/opus"})
+		}},
 	}
 
 	for _, tc := range tests {

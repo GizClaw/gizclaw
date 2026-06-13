@@ -21,8 +21,7 @@ badge
 contact
 friend
 friend_request
-group
-call
+friend_group
 ```
 
 ## Subjects
@@ -48,8 +47,7 @@ call
 | `contact` | contact id | peer | `contact.{read,use,admin}` | `server.contact.{list,get,create,put,delete}` | `/peers/{publicKey}/contacts/{id}` |
 | `friend` | friend relation id | peer pair | `friend.{read,use,admin}` | `server.friend.{list,delete}` | `/peers/{publicKey}/friends/{id}` |
 | `friend_request` | request id | peer pair | `friend_request.{read,use,admin}` | `server.friend.requests.{list,create}`, `server.friend.requests.accept`, `server.friend.requests.reject` | `/peers/{publicKey}/friend-requests/{id}` |
-| `group` | group id | peer or admin | `group.{read,use,admin}` | `server.group.{list,get,create,put,delete}`, `server.group.members.{list,add,put,delete}` | `/groups/{id}` |
-| `call` | call id | peer pair or group | `call.{read,use,admin}` | `server.call.{list,get,create}`, `server.call.answer`, `server.call.reject`, `server.call.end` | `/calls/{id}` |
+| `friend_group` | friend group id | peer or admin | `friend_group.{read,use,admin}` | `server.friend_group.{list,get,create,put,delete}`, `server.friend_group.members.{list,add,put,delete}` | `/friend-groups/{id}` |
 
 ## Permission Mapping
 
@@ -66,9 +64,9 @@ call
 | `server.run.agent.set` | target `workspace.use` |
 | `server.run.reload` | current pending agent workspace `workspace.use`, `workflow.use`, referenced `model.use`, referenced `credential.use` |
 | `server.run.say` | selected `voice.use`, selected TTS `model.use`, referenced `credential.use` |
-| `server.group.messages.list` | `group.read` |
-| `server.group.messages.get` | `group.read` |
-| `server.group.messages.send` | `group.use` |
+| `server.friend_group.messages.list` | `friend_group.read` |
+| `server.friend_group.messages.get` | `friend_group.read` |
+| `server.friend_group.messages.send` | `friend_group.use` |
 | `server.pet.adopt` | selected `pet_species.use` |
 | reward badge grant | generated `badge.use` |
 
@@ -81,16 +79,16 @@ call
 | Peer creates model | `pk:{peerPublicKey}` | `model:{id}` | model owner/admin |
 | Peer creates credential | `pk:{peerPublicKey}` | `credential:{name}` | credential owner/admin |
 | Peer creates contact | `pk:{peerPublicKey}` | `contact:{id}` | contact owner/admin |
-| Peer creates group | `pk:{peerPublicKey}` | `group:{id}` | group owner/admin |
+| Peer creates friend group | `pk:{peerPublicKey}` | `friend_group:{id}` | friend group owner/admin |
 
 ## Shared Resource Rules
 
 | Shared resource | Subject | Resource | Role |
 | --- | --- | --- | --- |
 | Built-in model for everyone | `all_peers` | `model:{id}` | model reader/user |
-| Built-in model for a group | `view:{name}` | `model:{id}` | model reader/user |
+| Built-in model for a friend group | `view:{name}` | `model:{id}` | model reader/user |
 | Shared credential for one peer | `pk:{peerPublicKey}` | `credential:{name}` | credential user |
-| Shared credential for a group | `view:{name}` | `credential:{name}` | credential user |
+| Shared credential for a friend group | `view:{name}` | `credential:{name}` | credential user |
 | Shared voice for everyone | `all_peers` | `voice:{id}` | voice reader/user |
 | Shared pet species for everyone | `all_peers` | `pet_species:{id}` | pet species user |
 | Shared badge grant for everyone | `all_peers` | `badge:{id}` | badge user |

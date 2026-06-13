@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/GizClaw/gizclaw-go/cmd/internal/storage"
 	"github.com/GizClaw/gizclaw-go/cmd/internal/stores"
@@ -63,6 +64,12 @@ func TestNewWithLayeredStorageConfig(t *testing.T) {
 
 	if srv.PeerStore == nil || srv.CredentialStore == nil || srv.FirmwareStore == nil || srv.MiniMaxTenantStore == nil || srv.VoiceStore == nil || srv.WorkspaceStore == nil || srv.WorkflowStore == nil {
 		t.Fatalf("module stores not wired: %+v", srv)
+	}
+	if srv.ContactStore == nil || srv.FriendRequestStore == nil || srv.FriendStore == nil || srv.FriendGroupStore == nil || srv.FriendGroupMemberStore == nil || srv.FriendGroupMessageStore == nil || srv.FriendGroupMessageAssets == nil {
+		t.Fatalf("social stores not wired: %+v", srv.Server)
+	}
+	if srv.FriendOTPTTL != 10*time.Minute || srv.FriendGroupMessageDefaultTTL != 24*time.Hour || srv.FriendGroupMessageMaxTTL != 7*24*time.Hour || srv.FriendGroupMessageCleanup != 5*time.Minute || srv.FriendGroupMessageMaxBytes != 2097152 {
+		t.Fatalf("social timing config not wired: friend=%v default=%v max=%v cleanup=%v bytes=%d", srv.FriendOTPTTL, srv.FriendGroupMessageDefaultTTL, srv.FriendGroupMessageMaxTTL, srv.FriendGroupMessageCleanup, srv.FriendGroupMessageMaxBytes)
 	}
 	if srv.ACLDB == nil {
 		t.Fatalf("acl store not wired: %v", srv.ACLDB)
@@ -172,6 +179,48 @@ func TestNewWithLayeredStorageReportsStoreErrors(t *testing.T) {
 	missingWalletsCfg.Wallets.Store = "missing"
 	if _, err := New(missingWalletsCfg); err == nil || !strings.Contains(err.Error(), "server: wallets store:") {
 		t.Fatalf("New(missing wallets store) = %v", err)
+	}
+
+	missingContactsCfg := validLayeredConfig(dir)
+	missingContactsCfg.Contacts.Store = "missing"
+	if _, err := New(missingContactsCfg); err == nil || !strings.Contains(err.Error(), "server: contacts store:") {
+		t.Fatalf("New(missing contacts store) = %v", err)
+	}
+
+	missingFriendRequestsCfg := validLayeredConfig(dir)
+	missingFriendRequestsCfg.Friends.RequestsStore = "missing"
+	if _, err := New(missingFriendRequestsCfg); err == nil || !strings.Contains(err.Error(), "server: friend requests store:") {
+		t.Fatalf("New(missing friend requests store) = %v", err)
+	}
+
+	missingFriendsCfg := validLayeredConfig(dir)
+	missingFriendsCfg.Friends.Store = "missing"
+	if _, err := New(missingFriendsCfg); err == nil || !strings.Contains(err.Error(), "server: friends store:") {
+		t.Fatalf("New(missing friends store) = %v", err)
+	}
+
+	missingFriendGroupsCfg := validLayeredConfig(dir)
+	missingFriendGroupsCfg.FriendGroups.Store = "missing"
+	if _, err := New(missingFriendGroupsCfg); err == nil || !strings.Contains(err.Error(), "server: friend_groups store:") {
+		t.Fatalf("New(missing friend_groups store) = %v", err)
+	}
+
+	missingFriendGroupMembersCfg := validLayeredConfig(dir)
+	missingFriendGroupMembersCfg.FriendGroups.MembersStore = "missing"
+	if _, err := New(missingFriendGroupMembersCfg); err == nil || !strings.Contains(err.Error(), "server: friend group members store:") {
+		t.Fatalf("New(missing group members store) = %v", err)
+	}
+
+	missingFriendGroupMessagesCfg := validLayeredConfig(dir)
+	missingFriendGroupMessagesCfg.FriendGroups.MessagesStore = "missing"
+	if _, err := New(missingFriendGroupMessagesCfg); err == nil || !strings.Contains(err.Error(), "server: friend group messages store:") {
+		t.Fatalf("New(missing friend group messages store) = %v", err)
+	}
+
+	missingFriendGroupMessageAssetsCfg := validLayeredConfig(dir)
+	missingFriendGroupMessageAssetsCfg.FriendGroups.MessageAssetsStore = "missing"
+	if _, err := New(missingFriendGroupMessageAssetsCfg); err == nil || !strings.Contains(err.Error(), "server: friend group message assets store:") {
+		t.Fatalf("New(missing friend group message assets store) = %v", err)
 	}
 
 }
@@ -339,6 +388,18 @@ func TestMergeFileConfigKeepsRuntimeOverrides(t *testing.T) {
 		Pets:       StoreConfig{Store: "runtime-pets"},
 		Rewards:    StoreConfig{Store: "runtime-rewards"},
 		Wallets:    StoreConfig{Store: "runtime-wallets"},
+		Contacts:   StoreConfig{Store: "runtime-contacts"},
+		Friends:    FriendsConfig{RequestsStore: "runtime-friend-requests", Store: "runtime-friends", FriendOTPTTL: "2m"},
+		FriendGroups: FriendGroupsConfig{
+			Store:                  "runtime-friend-groups",
+			MembersStore:           "runtime-friend-group-members",
+			MessagesStore:          "runtime-friend-group-messages",
+			MessageAssetsStore:     "runtime-friend-group-message-assets",
+			MessageDefaultTTL:      "2h",
+			MessageMaxTTL:          "3d",
+			MessageCleanupInterval: "30s",
+			MessageMaxAudioBytes:   1024,
+		},
 		SystemTasks: SystemTasksConfig{
 			RewardClaim: RewardClaimTaskConfig{Generator: "model/runtime-reward", Cooldown: "5m"},
 			PetAction:   GeneratorTaskConfig{Generator: "model/runtime-pet"},
@@ -372,6 +433,18 @@ func TestMergeFileConfigKeepsRuntimeOverrides(t *testing.T) {
 		Pets:       StoreConfig{Store: "file-pets"},
 		Rewards:    StoreConfig{Store: "file-rewards"},
 		Wallets:    StoreConfig{Store: "file-wallets"},
+		Contacts:   StoreConfig{Store: "file-contacts"},
+		Friends:    FriendsConfig{RequestsStore: "file-friend-requests", Store: "file-friends", FriendOTPTTL: "10m"},
+		FriendGroups: FriendGroupsConfig{
+			Store:                  "file-friend-groups",
+			MembersStore:           "file-friend-group-members",
+			MessagesStore:          "file-friend-group-messages",
+			MessageAssetsStore:     "file-friend-group-message-assets",
+			MessageDefaultTTL:      "24h",
+			MessageMaxTTL:          "7d",
+			MessageCleanupInterval: "5m",
+			MessageMaxAudioBytes:   2048,
+		},
 		SystemTasks: SystemTasksConfig{
 			RewardClaim: RewardClaimTaskConfig{Generator: "model/file-reward", Cooldown: "30m"},
 			PetAction:   GeneratorTaskConfig{Generator: "model/file-pet"},
@@ -426,6 +499,12 @@ func TestMergeFileConfigKeepsRuntimeOverrides(t *testing.T) {
 	}
 	if merged.Pets.Store != "runtime-pets" || merged.Rewards.Store != "runtime-rewards" || merged.Wallets.Store != "runtime-wallets" {
 		t.Fatalf("business stores = pets:%+v rewards:%+v wallets:%+v", merged.Pets, merged.Rewards, merged.Wallets)
+	}
+	if merged.Contacts.Store != "runtime-contacts" || merged.Friends.Store != "runtime-friends" || merged.Friends.RequestsStore != "runtime-friend-requests" || merged.Friends.FriendOTPTTL != "2m" {
+		t.Fatalf("social friend/contact config = contacts:%+v friends:%+v", merged.Contacts, merged.Friends)
+	}
+	if merged.FriendGroups.Store != "runtime-friend-groups" || merged.FriendGroups.MembersStore != "runtime-friend-group-members" || merged.FriendGroups.MessagesStore != "runtime-friend-group-messages" || merged.FriendGroups.MessageAssetsStore != "runtime-friend-group-message-assets" || merged.FriendGroups.MessageDefaultTTL != "2h" || merged.FriendGroups.MessageMaxTTL != "3d" || merged.FriendGroups.MessageCleanupInterval != "30s" || merged.FriendGroups.MessageMaxAudioBytes != 1024 {
+		t.Fatalf("social friend group config = friend_groups:%+v", merged.FriendGroups)
 	}
 	if merged.SystemTasks.RewardClaim.Generator != "model/runtime-reward" || merged.SystemTasks.RewardClaim.Cooldown != "5m" || merged.SystemTasks.PetAction.Generator != "model/runtime-pet" {
 		t.Fatalf("SystemTasks = %+v", merged.SystemTasks)
@@ -502,6 +581,11 @@ func TestValidateReportsLayeredStorageMissingFields(t *testing.T) {
 		{"bad reward generator", func(c *Config) { c.SystemTasks.RewardClaim.Generator = "voice/main" }, "server: system_tasks.reward_claim.generator must match model/<id>"},
 		{"bad pet generator", func(c *Config) { c.SystemTasks.PetAction.Generator = "voice/main" }, "server: system_tasks.pet_action.generator must match model/<id>"},
 		{"bad cooldown", func(c *Config) { c.SystemTasks.RewardClaim.Cooldown = "soon" }, "server: system_tasks.reward_claim.cooldown: time: invalid duration \"soon\""},
+		{"bad friend otp ttl", func(c *Config) { c.Friends.FriendOTPTTL = "later" }, "server: friends.friend_otp_ttl: time: invalid duration \"later\""},
+		{"bad friend group default ttl", func(c *Config) { c.FriendGroups.MessageDefaultTTL = "later" }, "server: friend_groups.message_default_ttl: time: invalid duration \"later\""},
+		{"bad friend group max ttl", func(c *Config) { c.FriendGroups.MessageMaxTTL = "later" }, "server: friend_groups.message_max_ttl: time: invalid duration \"later\""},
+		{"bad friend group cleanup interval", func(c *Config) { c.FriendGroups.MessageCleanupInterval = "later" }, "server: friend_groups.message_cleanup_interval: time: invalid duration \"later\""},
+		{"bad friend group message size", func(c *Config) { c.FriendGroups.MessageMaxAudioBytes = -1 }, "server: friend_groups.message_max_audio_bytes must be >= 0"},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -565,21 +649,28 @@ func validLayeredConfig(dir string) Config {
 			"wallet-db":   {Kind: storage.KindSQL, SQLite: &storage.SQLConfig{Dir: filepath.Join(dir, "wallet.sqlite")}},
 		},
 		Stores: map[string]stores.Config{
-			"peers":              {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "peers"},
-			"credentials":        {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "credentials"},
-			"firmwares":          {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "firmwares"},
-			"minimax-tenants":    {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "minimax-tenants"},
-			"voices":             {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "voices"},
-			"workspaces":         {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "workspaces"},
-			"workflows":          {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "workflows"},
-			"pet-species":        {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "pet-species"},
-			"badges":             {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "badges"},
-			"pets":               {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "pets"},
-			"rewards":            {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "rewards"},
-			"pet-species-assets": {Kind: stores.KindObjectStore, Storage: "local-files", Prefix: "pet-species"},
-			"badge-assets":       {Kind: stores.KindObjectStore, Storage: "local-files", Prefix: "badges"},
-			"wallets":            {Kind: stores.KindSQL, Storage: "wallet-db"},
-			"acl":                {Kind: stores.KindSQL, Storage: "acl-db"},
+			"peers":                       {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "peers"},
+			"credentials":                 {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "credentials"},
+			"firmwares":                   {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "firmwares"},
+			"minimax-tenants":             {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "minimax-tenants"},
+			"voices":                      {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "voices"},
+			"workspaces":                  {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "workspaces"},
+			"workflows":                   {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "workflows"},
+			"pet-species":                 {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "pet-species"},
+			"badges":                      {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "badges"},
+			"pets":                        {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "pets"},
+			"rewards":                     {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "rewards"},
+			"contacts":                    {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "contacts"},
+			"friend-requests":             {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "friend-requests"},
+			"friends":                     {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "friends"},
+			"friend-groups":               {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "friend-groups"},
+			"friend-group-members":        {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "friend-group-members"},
+			"friend-group-messages":       {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "friend-group-messages"},
+			"friend-group-message-assets": {Kind: stores.KindObjectStore, Storage: "local-files", Prefix: "friend-group-messages"},
+			"pet-species-assets":          {Kind: stores.KindObjectStore, Storage: "local-files", Prefix: "pet-species"},
+			"badge-assets":                {Kind: stores.KindObjectStore, Storage: "local-files", Prefix: "badges"},
+			"wallets":                     {Kind: stores.KindSQL, Storage: "wallet-db"},
+			"acl":                         {Kind: stores.KindSQL, Storage: "acl-db"},
 		},
 		Peers:       PeersConfig{Store: "peers"},
 		Credentials: CredentialsConfig{Store: "credentials"},
@@ -597,6 +688,18 @@ func validLayeredConfig(dir string) Config {
 		Pets:       StoreConfig{Store: "pets"},
 		Rewards:    StoreConfig{Store: "rewards"},
 		Wallets:    StoreConfig{Store: "wallets"},
+		Contacts:   StoreConfig{Store: "contacts"},
+		Friends:    FriendsConfig{RequestsStore: "friend-requests", Store: "friends", FriendOTPTTL: "10m"},
+		FriendGroups: FriendGroupsConfig{
+			Store:                  "friend-groups",
+			MembersStore:           "friend-group-members",
+			MessagesStore:          "friend-group-messages",
+			MessageAssetsStore:     "friend-group-message-assets",
+			MessageDefaultTTL:      "24h",
+			MessageMaxTTL:          "7d",
+			MessageCleanupInterval: "5m",
+			MessageMaxAudioBytes:   2097152,
+		},
 		SystemTasks: SystemTasksConfig{
 			RewardClaim: RewardClaimTaskConfig{Generator: "model/reward-claim", Cooldown: "30m"},
 			PetAction:   GeneratorTaskConfig{Generator: "model/pet-action"},

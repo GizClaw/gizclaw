@@ -21,8 +21,7 @@
           "contact",
           "friend",
           "friend_request",
-          "group",
-          "call",
+          "friend_group",
           "pet_species",
           "badge"
         ]

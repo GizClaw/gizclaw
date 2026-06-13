@@ -64,6 +64,87 @@ func (e FlowcraftWorkflowKind) Valid() bool {
 	}
 }
 
+// Defines values for FriendGroupMemberMutableRole.
+const (
+	FriendGroupMemberMutableRoleAdmin  FriendGroupMemberMutableRole = "admin"
+	FriendGroupMemberMutableRoleMember FriendGroupMemberMutableRole = "member"
+)
+
+// Valid indicates whether the value is a known member of the FriendGroupMemberMutableRole enum.
+func (e FriendGroupMemberMutableRole) Valid() bool {
+	switch e {
+	case FriendGroupMemberMutableRoleAdmin:
+		return true
+	case FriendGroupMemberMutableRoleMember:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for FriendGroupMemberRole.
+const (
+	FriendGroupMemberRoleAdmin  FriendGroupMemberRole = "admin"
+	FriendGroupMemberRoleMember FriendGroupMemberRole = "member"
+	FriendGroupMemberRoleOwner  FriendGroupMemberRole = "owner"
+)
+
+// Valid indicates whether the value is a known member of the FriendGroupMemberRole enum.
+func (e FriendGroupMemberRole) Valid() bool {
+	switch e {
+	case FriendGroupMemberRoleAdmin:
+		return true
+	case FriendGroupMemberRoleMember:
+		return true
+	case FriendGroupMemberRoleOwner:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for FriendRequestBox.
+const (
+	FriendRequestBoxAll      FriendRequestBox = "all"
+	FriendRequestBoxIncoming FriendRequestBox = "incoming"
+	FriendRequestBoxOutgoing FriendRequestBox = "outgoing"
+)
+
+// Valid indicates whether the value is a known member of the FriendRequestBox enum.
+func (e FriendRequestBox) Valid() bool {
+	switch e {
+	case FriendRequestBoxAll:
+		return true
+	case FriendRequestBoxIncoming:
+		return true
+	case FriendRequestBoxOutgoing:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for FriendRequestState.
+const (
+	FriendRequestStateAccepted FriendRequestState = "accepted"
+	FriendRequestStatePending  FriendRequestState = "pending"
+	FriendRequestStateRejected FriendRequestState = "rejected"
+)
+
+// Valid indicates whether the value is a known member of the FriendRequestState enum.
+func (e FriendRequestState) Valid() bool {
+	switch e {
+	case FriendRequestStateAccepted:
+		return true
+	case FriendRequestStatePending:
+		return true
+	case FriendRequestStateRejected:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ModelKind.
 const (
 	ModelKindAsr       ModelKind = "asr"
@@ -93,6 +174,7 @@ const (
 	ModelProviderKindDashscopeTenant ModelProviderKind = "dashscope-tenant"
 	ModelProviderKindGeminiTenant    ModelProviderKind = "gemini-tenant"
 	ModelProviderKindOpenaiTenant    ModelProviderKind = "openai-tenant"
+	ModelProviderKindVolcTenant      ModelProviderKind = "volc-tenant"
 )
 
 // Valid indicates whether the value is a known member of the ModelProviderKind enum.
@@ -103,6 +185,8 @@ func (e ModelProviderKind) Valid() bool {
 	case ModelProviderKindGeminiTenant:
 		return true
 	case ModelProviderKindOpenaiTenant:
+		return true
+	case ModelProviderKindVolcTenant:
 		return true
 	default:
 		return false
@@ -192,84 +276,78 @@ func (e RPCErrorCode) Valid() bool {
 
 // Defines values for RPCMethod.
 const (
-	RPCMethodAllPing                      RPCMethod = "all.ping"
-	RPCMethodAllSpeedTestRun              RPCMethod = "all.speed_test.run"
-	RPCMethodClientIdentifiersGet         RPCMethod = "client.identifiers.get"
-	RPCMethodClientInfoGet                RPCMethod = "client.info.get"
-	RPCMethodServerCallAnswer             RPCMethod = "server.call.answer"
-	RPCMethodServerCallCreate             RPCMethod = "server.call.create"
-	RPCMethodServerCallEnd                RPCMethod = "server.call.end"
-	RPCMethodServerCallGet                RPCMethod = "server.call.get"
-	RPCMethodServerCallList               RPCMethod = "server.call.list"
-	RPCMethodServerCallReject             RPCMethod = "server.call.reject"
-	RPCMethodServerContactBlock           RPCMethod = "server.contact.block"
-	RPCMethodServerContactCreate          RPCMethod = "server.contact.create"
-	RPCMethodServerContactDelete          RPCMethod = "server.contact.delete"
-	RPCMethodServerContactGet             RPCMethod = "server.contact.get"
-	RPCMethodServerContactList            RPCMethod = "server.contact.list"
-	RPCMethodServerContactPut             RPCMethod = "server.contact.put"
-	RPCMethodServerContactUnblock         RPCMethod = "server.contact.unblock"
-	RPCMethodServerCredentialCreate       RPCMethod = "server.credential.create"
-	RPCMethodServerCredentialDelete       RPCMethod = "server.credential.delete"
-	RPCMethodServerCredentialGet          RPCMethod = "server.credential.get"
-	RPCMethodServerCredentialList         RPCMethod = "server.credential.list"
-	RPCMethodServerCredentialPut          RPCMethod = "server.credential.put"
-	RPCMethodServerFriendDelete           RPCMethod = "server.friend.delete"
-	RPCMethodServerFriendList             RPCMethod = "server.friend.list"
-	RPCMethodServerFriendRequestsAccept   RPCMethod = "server.friend.requests.accept"
-	RPCMethodServerFriendRequestsCreate   RPCMethod = "server.friend.requests.create"
-	RPCMethodServerFriendRequestsList     RPCMethod = "server.friend.requests.list"
-	RPCMethodServerFriendRequestsReject   RPCMethod = "server.friend.requests.reject"
-	RPCMethodServerGroupCreate            RPCMethod = "server.group.create"
-	RPCMethodServerGroupDelete            RPCMethod = "server.group.delete"
-	RPCMethodServerGroupGet               RPCMethod = "server.group.get"
-	RPCMethodServerGroupList              RPCMethod = "server.group.list"
-	RPCMethodServerGroupMembersAdd        RPCMethod = "server.group.members.add"
-	RPCMethodServerGroupMembersDelete     RPCMethod = "server.group.members.delete"
-	RPCMethodServerGroupMembersList       RPCMethod = "server.group.members.list"
-	RPCMethodServerGroupMessagesList      RPCMethod = "server.group.messages.list"
-	RPCMethodServerGroupMessagesSend      RPCMethod = "server.group.messages.send"
-	RPCMethodServerGroupPut               RPCMethod = "server.group.put"
-	RPCMethodServerInfoGet                RPCMethod = "server.info.get"
-	RPCMethodServerInfoPut                RPCMethod = "server.info.put"
-	RPCMethodServerModelCreate            RPCMethod = "server.model.create"
-	RPCMethodServerModelDelete            RPCMethod = "server.model.delete"
-	RPCMethodServerModelGet               RPCMethod = "server.model.get"
-	RPCMethodServerModelList              RPCMethod = "server.model.list"
-	RPCMethodServerModelPut               RPCMethod = "server.model.put"
-	RPCMethodServerPetAdopt               RPCMethod = "server.pet.adopt"
-	RPCMethodServerPetDelete              RPCMethod = "server.pet.delete"
-	RPCMethodServerPetFeed                RPCMethod = "server.pet.feed"
-	RPCMethodServerPetGet                 RPCMethod = "server.pet.get"
-	RPCMethodServerPetList                RPCMethod = "server.pet.list"
-	RPCMethodServerPetPlay                RPCMethod = "server.pet.play"
-	RPCMethodServerPetPut                 RPCMethod = "server.pet.put"
-	RPCMethodServerPetWash                RPCMethod = "server.pet.wash"
-	RPCMethodServerRewardClaim            RPCMethod = "server.reward.claim"
-	RPCMethodServerRewardGet              RPCMethod = "server.reward.get"
-	RPCMethodServerRewardList             RPCMethod = "server.reward.list"
-	RPCMethodServerRunAgentGet            RPCMethod = "server.run.agent.get"
-	RPCMethodServerRunAgentSet            RPCMethod = "server.run.agent.set"
-	RPCMethodServerRunReload              RPCMethod = "server.run.reload"
-	RPCMethodServerRunSay                 RPCMethod = "server.run.say"
-	RPCMethodServerRunStatus              RPCMethod = "server.run.status"
-	RPCMethodServerRunStop                RPCMethod = "server.run.stop"
-	RPCMethodServerRuntimeGet             RPCMethod = "server.runtime.get"
-	RPCMethodServerStatusGet              RPCMethod = "server.status.get"
-	RPCMethodServerStatusPut              RPCMethod = "server.status.put"
-	RPCMethodServerWalletGet              RPCMethod = "server.wallet.get"
-	RPCMethodServerWalletTransactionsGet  RPCMethod = "server.wallet.transactions.get"
-	RPCMethodServerWalletTransactionsList RPCMethod = "server.wallet.transactions.list"
-	RPCMethodServerWorkflowCreate         RPCMethod = "server.workflow.create"
-	RPCMethodServerWorkflowDelete         RPCMethod = "server.workflow.delete"
-	RPCMethodServerWorkflowGet            RPCMethod = "server.workflow.get"
-	RPCMethodServerWorkflowList           RPCMethod = "server.workflow.list"
-	RPCMethodServerWorkflowPut            RPCMethod = "server.workflow.put"
-	RPCMethodServerWorkspaceCreate        RPCMethod = "server.workspace.create"
-	RPCMethodServerWorkspaceDelete        RPCMethod = "server.workspace.delete"
-	RPCMethodServerWorkspaceGet           RPCMethod = "server.workspace.get"
-	RPCMethodServerWorkspaceList          RPCMethod = "server.workspace.list"
-	RPCMethodServerWorkspacePut           RPCMethod = "server.workspace.put"
+	RPCMethodAllPing                        RPCMethod = "all.ping"
+	RPCMethodAllSpeedTestRun                RPCMethod = "all.speed_test.run"
+	RPCMethodClientIdentifiersGet           RPCMethod = "client.identifiers.get"
+	RPCMethodClientInfoGet                  RPCMethod = "client.info.get"
+	RPCMethodServerContactCreate            RPCMethod = "server.contact.create"
+	RPCMethodServerContactDelete            RPCMethod = "server.contact.delete"
+	RPCMethodServerContactGet               RPCMethod = "server.contact.get"
+	RPCMethodServerContactList              RPCMethod = "server.contact.list"
+	RPCMethodServerContactPut               RPCMethod = "server.contact.put"
+	RPCMethodServerCredentialCreate         RPCMethod = "server.credential.create"
+	RPCMethodServerCredentialDelete         RPCMethod = "server.credential.delete"
+	RPCMethodServerCredentialGet            RPCMethod = "server.credential.get"
+	RPCMethodServerCredentialList           RPCMethod = "server.credential.list"
+	RPCMethodServerCredentialPut            RPCMethod = "server.credential.put"
+	RPCMethodServerFriendDelete             RPCMethod = "server.friend.delete"
+	RPCMethodServerFriendGroupCreate        RPCMethod = "server.friend_group.create"
+	RPCMethodServerFriendGroupDelete        RPCMethod = "server.friend_group.delete"
+	RPCMethodServerFriendGroupGet           RPCMethod = "server.friend_group.get"
+	RPCMethodServerFriendGroupList          RPCMethod = "server.friend_group.list"
+	RPCMethodServerFriendGroupMembersAdd    RPCMethod = "server.friend_group.members.add"
+	RPCMethodServerFriendGroupMembersDelete RPCMethod = "server.friend_group.members.delete"
+	RPCMethodServerFriendGroupMembersList   RPCMethod = "server.friend_group.members.list"
+	RPCMethodServerFriendGroupMembersPut    RPCMethod = "server.friend_group.members.put"
+	RPCMethodServerFriendGroupMessagesGet   RPCMethod = "server.friend_group.messages.get"
+	RPCMethodServerFriendGroupMessagesList  RPCMethod = "server.friend_group.messages.list"
+	RPCMethodServerFriendGroupMessagesSend  RPCMethod = "server.friend_group.messages.send"
+	RPCMethodServerFriendGroupPut           RPCMethod = "server.friend_group.put"
+	RPCMethodServerFriendList               RPCMethod = "server.friend.list"
+	RPCMethodServerFriendRequestsAccept     RPCMethod = "server.friend.requests.accept"
+	RPCMethodServerFriendRequestsCreate     RPCMethod = "server.friend.requests.create"
+	RPCMethodServerFriendRequestsList       RPCMethod = "server.friend.requests.list"
+	RPCMethodServerFriendRequestsReject     RPCMethod = "server.friend.requests.reject"
+	RPCMethodServerInfoGet                  RPCMethod = "server.info.get"
+	RPCMethodServerInfoPut                  RPCMethod = "server.info.put"
+	RPCMethodServerModelCreate              RPCMethod = "server.model.create"
+	RPCMethodServerModelDelete              RPCMethod = "server.model.delete"
+	RPCMethodServerModelGet                 RPCMethod = "server.model.get"
+	RPCMethodServerModelList                RPCMethod = "server.model.list"
+	RPCMethodServerModelPut                 RPCMethod = "server.model.put"
+	RPCMethodServerPetAdopt                 RPCMethod = "server.pet.adopt"
+	RPCMethodServerPetDelete                RPCMethod = "server.pet.delete"
+	RPCMethodServerPetFeed                  RPCMethod = "server.pet.feed"
+	RPCMethodServerPetGet                   RPCMethod = "server.pet.get"
+	RPCMethodServerPetList                  RPCMethod = "server.pet.list"
+	RPCMethodServerPetPlay                  RPCMethod = "server.pet.play"
+	RPCMethodServerPetPut                   RPCMethod = "server.pet.put"
+	RPCMethodServerPetWash                  RPCMethod = "server.pet.wash"
+	RPCMethodServerRewardClaim              RPCMethod = "server.reward.claim"
+	RPCMethodServerRewardGet                RPCMethod = "server.reward.get"
+	RPCMethodServerRewardList               RPCMethod = "server.reward.list"
+	RPCMethodServerRunAgentGet              RPCMethod = "server.run.agent.get"
+	RPCMethodServerRunAgentSet              RPCMethod = "server.run.agent.set"
+	RPCMethodServerRunReload                RPCMethod = "server.run.reload"
+	RPCMethodServerRunSay                   RPCMethod = "server.run.say"
+	RPCMethodServerRunStatus                RPCMethod = "server.run.status"
+	RPCMethodServerRunStop                  RPCMethod = "server.run.stop"
+	RPCMethodServerRuntimeGet               RPCMethod = "server.runtime.get"
+	RPCMethodServerStatusGet                RPCMethod = "server.status.get"
+	RPCMethodServerStatusPut                RPCMethod = "server.status.put"
+	RPCMethodServerWalletGet                RPCMethod = "server.wallet.get"
+	RPCMethodServerWalletTransactionsGet    RPCMethod = "server.wallet.transactions.get"
+	RPCMethodServerWalletTransactionsList   RPCMethod = "server.wallet.transactions.list"
+	RPCMethodServerWorkflowCreate           RPCMethod = "server.workflow.create"
+	RPCMethodServerWorkflowDelete           RPCMethod = "server.workflow.delete"
+	RPCMethodServerWorkflowGet              RPCMethod = "server.workflow.get"
+	RPCMethodServerWorkflowList             RPCMethod = "server.workflow.list"
+	RPCMethodServerWorkflowPut              RPCMethod = "server.workflow.put"
+	RPCMethodServerWorkspaceCreate          RPCMethod = "server.workspace.create"
+	RPCMethodServerWorkspaceDelete          RPCMethod = "server.workspace.delete"
+	RPCMethodServerWorkspaceGet             RPCMethod = "server.workspace.get"
+	RPCMethodServerWorkspaceList            RPCMethod = "server.workspace.list"
+	RPCMethodServerWorkspacePut             RPCMethod = "server.workspace.put"
 )
 
 // Valid indicates whether the value is a known member of the RPCMethod enum.
@@ -283,20 +361,6 @@ func (e RPCMethod) Valid() bool {
 		return true
 	case RPCMethodClientInfoGet:
 		return true
-	case RPCMethodServerCallAnswer:
-		return true
-	case RPCMethodServerCallCreate:
-		return true
-	case RPCMethodServerCallEnd:
-		return true
-	case RPCMethodServerCallGet:
-		return true
-	case RPCMethodServerCallList:
-		return true
-	case RPCMethodServerCallReject:
-		return true
-	case RPCMethodServerContactBlock:
-		return true
 	case RPCMethodServerContactCreate:
 		return true
 	case RPCMethodServerContactDelete:
@@ -306,8 +370,6 @@ func (e RPCMethod) Valid() bool {
 	case RPCMethodServerContactList:
 		return true
 	case RPCMethodServerContactPut:
-		return true
-	case RPCMethodServerContactUnblock:
 		return true
 	case RPCMethodServerCredentialCreate:
 		return true
@@ -321,6 +383,30 @@ func (e RPCMethod) Valid() bool {
 		return true
 	case RPCMethodServerFriendDelete:
 		return true
+	case RPCMethodServerFriendGroupCreate:
+		return true
+	case RPCMethodServerFriendGroupDelete:
+		return true
+	case RPCMethodServerFriendGroupGet:
+		return true
+	case RPCMethodServerFriendGroupList:
+		return true
+	case RPCMethodServerFriendGroupMembersAdd:
+		return true
+	case RPCMethodServerFriendGroupMembersDelete:
+		return true
+	case RPCMethodServerFriendGroupMembersList:
+		return true
+	case RPCMethodServerFriendGroupMembersPut:
+		return true
+	case RPCMethodServerFriendGroupMessagesGet:
+		return true
+	case RPCMethodServerFriendGroupMessagesList:
+		return true
+	case RPCMethodServerFriendGroupMessagesSend:
+		return true
+	case RPCMethodServerFriendGroupPut:
+		return true
 	case RPCMethodServerFriendList:
 		return true
 	case RPCMethodServerFriendRequestsAccept:
@@ -330,26 +416,6 @@ func (e RPCMethod) Valid() bool {
 	case RPCMethodServerFriendRequestsList:
 		return true
 	case RPCMethodServerFriendRequestsReject:
-		return true
-	case RPCMethodServerGroupCreate:
-		return true
-	case RPCMethodServerGroupDelete:
-		return true
-	case RPCMethodServerGroupGet:
-		return true
-	case RPCMethodServerGroupList:
-		return true
-	case RPCMethodServerGroupMembersAdd:
-		return true
-	case RPCMethodServerGroupMembersDelete:
-		return true
-	case RPCMethodServerGroupMembersList:
-		return true
-	case RPCMethodServerGroupMessagesList:
-		return true
-	case RPCMethodServerGroupMessagesSend:
-		return true
-	case RPCMethodServerGroupPut:
 		return true
 	case RPCMethodServerInfoGet:
 		return true
@@ -498,67 +564,6 @@ type AgentSelection struct {
 	WorkspaceName string `json:"workspace_name"`
 }
 
-// CallAnswerRequest defines model for CallAnswerRequest.
-type CallAnswerRequest struct {
-	Id string `json:"id"`
-}
-
-// CallAnswerResponse defines model for CallAnswerResponse.
-type CallAnswerResponse = CallObject
-
-// CallCreateRequest defines model for CallCreateRequest.
-type CallCreateRequest struct {
-	Body map[string]interface{} `json:"body"`
-}
-
-// CallCreateResponse defines model for CallCreateResponse.
-type CallCreateResponse = CallObject
-
-// CallEndRequest defines model for CallEndRequest.
-type CallEndRequest struct {
-	Id string `json:"id"`
-}
-
-// CallEndResponse defines model for CallEndResponse.
-type CallEndResponse = CallObject
-
-// CallGetRequest defines model for CallGetRequest.
-type CallGetRequest struct {
-	Id string `json:"id"`
-}
-
-// CallGetResponse defines model for CallGetResponse.
-type CallGetResponse = CallObject
-
-// CallListRequest defines model for CallListRequest.
-type CallListRequest struct {
-	Cursor *string `json:"cursor,omitempty"`
-	Limit  *int    `json:"limit,omitempty"`
-}
-
-// CallListResponse defines model for CallListResponse.
-type CallListResponse struct {
-	HasNext    bool         `json:"has_next"`
-	Items      []CallObject `json:"items"`
-	NextCursor *string      `json:"next_cursor,omitempty"`
-}
-
-// CallObject defines model for CallObject.
-type CallObject struct {
-	Body      *map[string]interface{} `json:"body,omitempty"`
-	CreatedAt *time.Time              `json:"created_at,omitempty"`
-	Id        *string                 `json:"id,omitempty"`
-	UpdatedAt *time.Time              `json:"updated_at,omitempty"`
-}
-
-// CallRejectRequest defines model for CallRejectRequest.
-type CallRejectRequest struct {
-	Id string `json:"id"`
-}
-
-// CallRejectResponse defines model for CallRejectResponse.
-type CallRejectResponse = CallObject
-
 // ClientGetIdentifiersRequest defines model for ClientGetIdentifiersRequest.
 type ClientGetIdentifiersRequest = map[string]interface{}
 
@@ -571,17 +576,10 @@ type ClientGetInfoRequest = map[string]interface{}
 // ClientGetInfoResponse defines model for ClientGetInfoResponse.
 type ClientGetInfoResponse = RefreshInfo
 
-// ContactBlockRequest defines model for ContactBlockRequest.
-type ContactBlockRequest struct {
-	Id string `json:"id"`
-}
-
-// ContactBlockResponse defines model for ContactBlockResponse.
-type ContactBlockResponse = ContactObject
-
 // ContactCreateRequest defines model for ContactCreateRequest.
 type ContactCreateRequest struct {
-	Body map[string]interface{} `json:"body"`
+	DisplayName *string `json:"display_name,omitempty"`
+	PhoneNumber *string `json:"phone_number,omitempty"`
 }
 
 // ContactCreateResponse defines model for ContactCreateResponse.
@@ -618,28 +616,22 @@ type ContactListResponse struct {
 
 // ContactObject defines model for ContactObject.
 type ContactObject struct {
-	Body      *map[string]interface{} `json:"body,omitempty"`
-	CreatedAt *time.Time              `json:"created_at,omitempty"`
-	Id        *string                 `json:"id,omitempty"`
-	UpdatedAt *time.Time              `json:"updated_at,omitempty"`
+	CreatedAt   *time.Time `json:"created_at,omitempty"`
+	DisplayName *string    `json:"display_name,omitempty"`
+	Id          *string    `json:"id,omitempty"`
+	PhoneNumber *string    `json:"phone_number,omitempty"`
+	UpdatedAt   *time.Time `json:"updated_at,omitempty"`
 }
 
 // ContactPutRequest defines model for ContactPutRequest.
 type ContactPutRequest struct {
-	Body map[string]interface{} `json:"body"`
-	Id   string                 `json:"id"`
+	DisplayName *string `json:"display_name,omitempty"`
+	Id          string  `json:"id"`
+	PhoneNumber *string `json:"phone_number,omitempty"`
 }
 
 // ContactPutResponse defines model for ContactPutResponse.
 type ContactPutResponse = ContactObject
-
-// ContactUnblockRequest defines model for ContactUnblockRequest.
-type ContactUnblockRequest struct {
-	Id string `json:"id"`
-}
-
-// ContactUnblockResponse defines model for ContactUnblockResponse.
-type ContactUnblockResponse = ContactObject
 
 // Credential defines model for Credential.
 type Credential struct {
@@ -742,6 +734,170 @@ type FriendDeleteRequest struct {
 // FriendDeleteResponse defines model for FriendDeleteResponse.
 type FriendDeleteResponse = FriendObject
 
+// FriendGroupCreateRequest defines model for FriendGroupCreateRequest.
+type FriendGroupCreateRequest struct {
+	Description *string `json:"description,omitempty"`
+	Name        string  `json:"name"`
+}
+
+// FriendGroupCreateResponse defines model for FriendGroupCreateResponse.
+type FriendGroupCreateResponse = FriendGroupObject
+
+// FriendGroupDeleteRequest defines model for FriendGroupDeleteRequest.
+type FriendGroupDeleteRequest struct {
+	Id string `json:"id"`
+}
+
+// FriendGroupDeleteResponse defines model for FriendGroupDeleteResponse.
+type FriendGroupDeleteResponse = FriendGroupObject
+
+// FriendGroupGetRequest defines model for FriendGroupGetRequest.
+type FriendGroupGetRequest struct {
+	Id string `json:"id"`
+}
+
+// FriendGroupGetResponse defines model for FriendGroupGetResponse.
+type FriendGroupGetResponse = FriendGroupObject
+
+// FriendGroupListRequest defines model for FriendGroupListRequest.
+type FriendGroupListRequest struct {
+	Cursor *string `json:"cursor,omitempty"`
+	Limit  *int    `json:"limit,omitempty"`
+}
+
+// FriendGroupListResponse defines model for FriendGroupListResponse.
+type FriendGroupListResponse struct {
+	HasNext    bool                `json:"has_next"`
+	Items      []FriendGroupObject `json:"items"`
+	NextCursor *string             `json:"next_cursor,omitempty"`
+}
+
+// FriendGroupMemberAddRequest defines model for FriendGroupMemberAddRequest.
+type FriendGroupMemberAddRequest struct {
+	FriendGroupId string                       `json:"friend_group_id"`
+	PeerId        string                       `json:"peer_id"`
+	Role          FriendGroupMemberMutableRole `json:"role"`
+}
+
+// FriendGroupMemberAddResponse defines model for FriendGroupMemberAddResponse.
+type FriendGroupMemberAddResponse = FriendGroupMemberObject
+
+// FriendGroupMemberDeleteRequest defines model for FriendGroupMemberDeleteRequest.
+type FriendGroupMemberDeleteRequest struct {
+	FriendGroupId string `json:"friend_group_id"`
+	Id            string `json:"id"`
+}
+
+// FriendGroupMemberDeleteResponse defines model for FriendGroupMemberDeleteResponse.
+type FriendGroupMemberDeleteResponse = FriendGroupMemberObject
+
+// FriendGroupMemberListRequest defines model for FriendGroupMemberListRequest.
+type FriendGroupMemberListRequest struct {
+	Cursor        *string `json:"cursor,omitempty"`
+	FriendGroupId *string `json:"friend_group_id,omitempty"`
+	Limit         *int    `json:"limit,omitempty"`
+}
+
+// FriendGroupMemberListResponse defines model for FriendGroupMemberListResponse.
+type FriendGroupMemberListResponse struct {
+	HasNext    bool                      `json:"has_next"`
+	Items      []FriendGroupMemberObject `json:"items"`
+	NextCursor *string                   `json:"next_cursor,omitempty"`
+}
+
+// FriendGroupMemberMutableRole defines model for FriendGroupMemberMutableRole.
+type FriendGroupMemberMutableRole string
+
+// FriendGroupMemberObject defines model for FriendGroupMemberObject.
+type FriendGroupMemberObject struct {
+	CreatedAt     *time.Time             `json:"created_at,omitempty"`
+	FriendGroupId *string                `json:"friend_group_id,omitempty"`
+	Id            *string                `json:"id,omitempty"`
+	PeerId        *string                `json:"peer_id,omitempty"`
+	Role          *FriendGroupMemberRole `json:"role,omitempty"`
+	UpdatedAt     *time.Time             `json:"updated_at,omitempty"`
+}
+
+// FriendGroupMemberPutRequest defines model for FriendGroupMemberPutRequest.
+type FriendGroupMemberPutRequest struct {
+	FriendGroupId string                       `json:"friend_group_id"`
+	Id            string                       `json:"id"`
+	Role          FriendGroupMemberMutableRole `json:"role"`
+}
+
+// FriendGroupMemberPutResponse defines model for FriendGroupMemberPutResponse.
+type FriendGroupMemberPutResponse = FriendGroupMemberObject
+
+// FriendGroupMemberRole defines model for FriendGroupMemberRole.
+type FriendGroupMemberRole string
+
+// FriendGroupMessageGetRequest defines model for FriendGroupMessageGetRequest.
+type FriendGroupMessageGetRequest struct {
+	FriendGroupId string `json:"friend_group_id"`
+	Id            string `json:"id"`
+}
+
+// FriendGroupMessageGetResponse defines model for FriendGroupMessageGetResponse.
+type FriendGroupMessageGetResponse = FriendGroupMessageObject
+
+// FriendGroupMessageListRequest defines model for FriendGroupMessageListRequest.
+type FriendGroupMessageListRequest struct {
+	Cursor        *string `json:"cursor,omitempty"`
+	FriendGroupId *string `json:"friend_group_id,omitempty"`
+	Limit         *int    `json:"limit,omitempty"`
+}
+
+// FriendGroupMessageListResponse defines model for FriendGroupMessageListResponse.
+type FriendGroupMessageListResponse struct {
+	HasNext    bool                       `json:"has_next"`
+	Items      []FriendGroupMessageObject `json:"items"`
+	NextCursor *string                    `json:"next_cursor,omitempty"`
+}
+
+// FriendGroupMessageObject defines model for FriendGroupMessageObject.
+type FriendGroupMessageObject struct {
+	AudioContentType *string    `json:"audio_content_type,omitempty"`
+	AudioPath        *string    `json:"audio_path,omitempty"`
+	AudioSizeBytes   *int64     `json:"audio_size_bytes,omitempty"`
+	CreatedAt        *time.Time `json:"created_at,omitempty"`
+	ExpiresAt        *time.Time `json:"expires_at,omitempty"`
+	FriendGroupId    *string    `json:"friend_group_id,omitempty"`
+	Id               *string    `json:"id,omitempty"`
+	SenderPeerId     *string    `json:"sender_peer_id,omitempty"`
+	TtlSeconds       *int       `json:"ttl_seconds,omitempty"`
+}
+
+// FriendGroupMessageSendRequest defines model for FriendGroupMessageSendRequest.
+type FriendGroupMessageSendRequest struct {
+	AudioBase64      []byte `json:"audio_base64"`
+	AudioContentType string `json:"audio_content_type"`
+	FriendGroupId    string `json:"friend_group_id"`
+	TtlSeconds       *int   `json:"ttl_seconds,omitempty"`
+}
+
+// FriendGroupMessageSendResponse defines model for FriendGroupMessageSendResponse.
+type FriendGroupMessageSendResponse = FriendGroupMessageObject
+
+// FriendGroupObject defines model for FriendGroupObject.
+type FriendGroupObject struct {
+	CreatedAt       *time.Time `json:"created_at,omitempty"`
+	CreatedByPeerId *string    `json:"created_by_peer_id,omitempty"`
+	Description     *string    `json:"description,omitempty"`
+	Id              *string    `json:"id,omitempty"`
+	Name            *string    `json:"name,omitempty"`
+	UpdatedAt       *time.Time `json:"updated_at,omitempty"`
+}
+
+// FriendGroupPutRequest defines model for FriendGroupPutRequest.
+type FriendGroupPutRequest struct {
+	Description *string `json:"description,omitempty"`
+	Id          string  `json:"id"`
+	Name        *string `json:"name,omitempty"`
+}
+
+// FriendGroupPutResponse defines model for FriendGroupPutResponse.
+type FriendGroupPutResponse = FriendGroupObject
+
 // FriendListRequest defines model for FriendListRequest.
 type FriendListRequest struct {
 	Cursor *string `json:"cursor,omitempty"`
@@ -757,10 +913,11 @@ type FriendListResponse struct {
 
 // FriendObject defines model for FriendObject.
 type FriendObject struct {
-	Body      *map[string]interface{} `json:"body,omitempty"`
-	CreatedAt *time.Time              `json:"created_at,omitempty"`
-	Id        *string                 `json:"id,omitempty"`
-	UpdatedAt *time.Time              `json:"updated_at,omitempty"`
+	CreatedAt *time.Time `json:"created_at,omitempty"`
+	Id        *string    `json:"id,omitempty"`
+	PeerId    *string    `json:"peer_id,omitempty"`
+	RequestId *string    `json:"request_id,omitempty"`
+	UpdatedAt *time.Time `json:"updated_at,omitempty"`
 }
 
 // FriendRequestAcceptRequest defines model for FriendRequestAcceptRequest.
@@ -771,9 +928,14 @@ type FriendRequestAcceptRequest struct {
 // FriendRequestAcceptResponse defines model for FriendRequestAcceptResponse.
 type FriendRequestAcceptResponse = FriendRequestObject
 
+// FriendRequestBox defines model for FriendRequestBox.
+type FriendRequestBox string
+
 // FriendRequestCreateRequest defines model for FriendRequestCreateRequest.
 type FriendRequestCreateRequest struct {
-	Body map[string]interface{} `json:"body"`
+	Code     string  `json:"code"`
+	Message  *string `json:"message,omitempty"`
+	ToPeerId string  `json:"to_peer_id"`
 }
 
 // FriendRequestCreateResponse defines model for FriendRequestCreateResponse.
@@ -781,8 +943,10 @@ type FriendRequestCreateResponse = FriendRequestObject
 
 // FriendRequestListRequest defines model for FriendRequestListRequest.
 type FriendRequestListRequest struct {
-	Cursor *string `json:"cursor,omitempty"`
-	Limit  *int    `json:"limit,omitempty"`
+	Box    *FriendRequestBox   `json:"box,omitempty"`
+	Cursor *string             `json:"cursor,omitempty"`
+	Limit  *int                `json:"limit,omitempty"`
+	State  *FriendRequestState `json:"state,omitempty"`
 }
 
 // FriendRequestListResponse defines model for FriendRequestListResponse.
@@ -794,10 +958,14 @@ type FriendRequestListResponse struct {
 
 // FriendRequestObject defines model for FriendRequestObject.
 type FriendRequestObject struct {
-	Body      *map[string]interface{} `json:"body,omitempty"`
-	CreatedAt *time.Time              `json:"created_at,omitempty"`
-	Id        *string                 `json:"id,omitempty"`
-	UpdatedAt *time.Time              `json:"updated_at,omitempty"`
+	CreatedAt   *time.Time          `json:"created_at,omitempty"`
+	FromPeerId  *string             `json:"from_peer_id,omitempty"`
+	Id          *string             `json:"id,omitempty"`
+	Message     *string             `json:"message,omitempty"`
+	RespondedAt *time.Time          `json:"responded_at,omitempty"`
+	State       *FriendRequestState `json:"state,omitempty"`
+	ToPeerId    *string             `json:"to_peer_id,omitempty"`
+	UpdatedAt   *time.Time          `json:"updated_at,omitempty"`
 }
 
 // FriendRequestRejectRequest defines model for FriendRequestRejectRequest.
@@ -808,130 +976,13 @@ type FriendRequestRejectRequest struct {
 // FriendRequestRejectResponse defines model for FriendRequestRejectResponse.
 type FriendRequestRejectResponse = FriendRequestObject
 
+// FriendRequestState defines model for FriendRequestState.
+type FriendRequestState string
+
 // GeminiTenantModelProviderData defines model for GeminiTenantModelProviderData.
 type GeminiTenantModelProviderData struct {
 	UpstreamModel *string `json:"upstream_model,omitempty"`
 }
-
-// GroupCreateRequest defines model for GroupCreateRequest.
-type GroupCreateRequest struct {
-	Body map[string]interface{} `json:"body"`
-}
-
-// GroupCreateResponse defines model for GroupCreateResponse.
-type GroupCreateResponse = GroupObject
-
-// GroupDeleteRequest defines model for GroupDeleteRequest.
-type GroupDeleteRequest struct {
-	Id string `json:"id"`
-}
-
-// GroupDeleteResponse defines model for GroupDeleteResponse.
-type GroupDeleteResponse = GroupObject
-
-// GroupGetRequest defines model for GroupGetRequest.
-type GroupGetRequest struct {
-	Id string `json:"id"`
-}
-
-// GroupGetResponse defines model for GroupGetResponse.
-type GroupGetResponse = GroupObject
-
-// GroupListRequest defines model for GroupListRequest.
-type GroupListRequest struct {
-	Cursor *string `json:"cursor,omitempty"`
-	Limit  *int    `json:"limit,omitempty"`
-}
-
-// GroupListResponse defines model for GroupListResponse.
-type GroupListResponse struct {
-	HasNext    bool          `json:"has_next"`
-	Items      []GroupObject `json:"items"`
-	NextCursor *string       `json:"next_cursor,omitempty"`
-}
-
-// GroupMemberAddRequest defines model for GroupMemberAddRequest.
-type GroupMemberAddRequest struct {
-	Body map[string]interface{} `json:"body"`
-}
-
-// GroupMemberAddResponse defines model for GroupMemberAddResponse.
-type GroupMemberAddResponse = GroupMemberObject
-
-// GroupMemberDeleteRequest defines model for GroupMemberDeleteRequest.
-type GroupMemberDeleteRequest struct {
-	Id string `json:"id"`
-}
-
-// GroupMemberDeleteResponse defines model for GroupMemberDeleteResponse.
-type GroupMemberDeleteResponse = GroupMemberObject
-
-// GroupMemberListRequest defines model for GroupMemberListRequest.
-type GroupMemberListRequest struct {
-	Cursor *string `json:"cursor,omitempty"`
-	Limit  *int    `json:"limit,omitempty"`
-}
-
-// GroupMemberListResponse defines model for GroupMemberListResponse.
-type GroupMemberListResponse struct {
-	HasNext    bool                `json:"has_next"`
-	Items      []GroupMemberObject `json:"items"`
-	NextCursor *string             `json:"next_cursor,omitempty"`
-}
-
-// GroupMemberObject defines model for GroupMemberObject.
-type GroupMemberObject struct {
-	Body      *map[string]interface{} `json:"body,omitempty"`
-	CreatedAt *time.Time              `json:"created_at,omitempty"`
-	Id        *string                 `json:"id,omitempty"`
-	UpdatedAt *time.Time              `json:"updated_at,omitempty"`
-}
-
-// GroupMessageListRequest defines model for GroupMessageListRequest.
-type GroupMessageListRequest struct {
-	Cursor *string `json:"cursor,omitempty"`
-	Limit  *int    `json:"limit,omitempty"`
-}
-
-// GroupMessageListResponse defines model for GroupMessageListResponse.
-type GroupMessageListResponse struct {
-	HasNext    bool                 `json:"has_next"`
-	Items      []GroupMessageObject `json:"items"`
-	NextCursor *string              `json:"next_cursor,omitempty"`
-}
-
-// GroupMessageObject defines model for GroupMessageObject.
-type GroupMessageObject struct {
-	Body      *map[string]interface{} `json:"body,omitempty"`
-	CreatedAt *time.Time              `json:"created_at,omitempty"`
-	Id        *string                 `json:"id,omitempty"`
-	UpdatedAt *time.Time              `json:"updated_at,omitempty"`
-}
-
-// GroupMessageSendRequest defines model for GroupMessageSendRequest.
-type GroupMessageSendRequest struct {
-	Body map[string]interface{} `json:"body"`
-}
-
-// GroupMessageSendResponse defines model for GroupMessageSendResponse.
-type GroupMessageSendResponse = GroupMessageObject
-
-// GroupObject defines model for GroupObject.
-type GroupObject struct {
-	Body      *map[string]interface{} `json:"body,omitempty"`
-	CreatedAt *time.Time              `json:"created_at,omitempty"`
-	Id        *string                 `json:"id,omitempty"`
-	UpdatedAt *time.Time              `json:"updated_at,omitempty"`
-}
-
-// GroupPutRequest defines model for GroupPutRequest.
-type GroupPutRequest struct {
-	Body map[string]interface{} `json:"body"`
-	Id   string                 `json:"id"`
-}
-
-// GroupPutResponse defines model for GroupPutResponse.
-type GroupPutResponse = GroupObject
 
 // HardwareInfo defines model for HardwareInfo.
 type HardwareInfo struct {
@@ -1084,6 +1135,7 @@ type PeerRunAgent struct {
 
 // PeerRunStatus defines model for PeerRunStatus.
 type PeerRunStatus struct {
+	FriendOtp     *string            `json:"friend_otp,omitempty"`
 	Message       *string            `json:"message,omitempty"`
 	StartedAt     *time.Time         `json:"started_at,omitempty"`
 	State         PeerRunStatusState `json:"state"`
@@ -1346,7 +1398,9 @@ type ServerGetRunAgentRequest = map[string]interface{}
 type ServerGetRunAgentResponse = PeerRunAgent
 
 // ServerGetRunStatusRequest defines model for ServerGetRunStatusRequest.
-type ServerGetRunStatusRequest = map[string]interface{}
+type ServerGetRunStatusRequest struct {
+	FriendOtp *string `json:"friend_otp,omitempty"`
+}
 
 // ServerGetRunStatusResponse defines model for ServerGetRunStatusResponse.
 type ServerGetRunStatusResponse = PeerRunStatus
@@ -2901,58 +2955,6 @@ func (t *RPCRequest_Params) MergeContactDeleteRequest(v ContactDeleteRequest) er
 	return err
 }
 
-// AsContactBlockRequest returns the union data inside the RPCRequest_Params as a ContactBlockRequest
-func (t RPCRequest_Params) AsContactBlockRequest() (ContactBlockRequest, error) {
-	var body ContactBlockRequest
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromContactBlockRequest overwrites any union data inside the RPCRequest_Params as the provided ContactBlockRequest
-func (t *RPCRequest_Params) FromContactBlockRequest(v ContactBlockRequest) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeContactBlockRequest performs a merge with any union data inside the RPCRequest_Params, using the provided ContactBlockRequest
-func (t *RPCRequest_Params) MergeContactBlockRequest(v ContactBlockRequest) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsContactUnblockRequest returns the union data inside the RPCRequest_Params as a ContactUnblockRequest
-func (t RPCRequest_Params) AsContactUnblockRequest() (ContactUnblockRequest, error) {
-	var body ContactUnblockRequest
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromContactUnblockRequest overwrites any union data inside the RPCRequest_Params as the provided ContactUnblockRequest
-func (t *RPCRequest_Params) FromContactUnblockRequest(v ContactUnblockRequest) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeContactUnblockRequest performs a merge with any union data inside the RPCRequest_Params, using the provided ContactUnblockRequest
-func (t *RPCRequest_Params) MergeContactUnblockRequest(v ContactUnblockRequest) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
 // AsFriendRequestListRequest returns the union data inside the RPCRequest_Params as a FriendRequestListRequest
 func (t RPCRequest_Params) AsFriendRequestListRequest() (FriendRequestListRequest, error) {
 	var body FriendRequestListRequest
@@ -3109,22 +3111,22 @@ func (t *RPCRequest_Params) MergeFriendDeleteRequest(v FriendDeleteRequest) erro
 	return err
 }
 
-// AsGroupListRequest returns the union data inside the RPCRequest_Params as a GroupListRequest
-func (t RPCRequest_Params) AsGroupListRequest() (GroupListRequest, error) {
-	var body GroupListRequest
+// AsFriendGroupListRequest returns the union data inside the RPCRequest_Params as a FriendGroupListRequest
+func (t RPCRequest_Params) AsFriendGroupListRequest() (FriendGroupListRequest, error) {
+	var body FriendGroupListRequest
 	err := json.Unmarshal(t.union, &body)
 	return body, err
 }
 
-// FromGroupListRequest overwrites any union data inside the RPCRequest_Params as the provided GroupListRequest
-func (t *RPCRequest_Params) FromGroupListRequest(v GroupListRequest) error {
+// FromFriendGroupListRequest overwrites any union data inside the RPCRequest_Params as the provided FriendGroupListRequest
+func (t *RPCRequest_Params) FromFriendGroupListRequest(v FriendGroupListRequest) error {
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
 }
 
-// MergeGroupListRequest performs a merge with any union data inside the RPCRequest_Params, using the provided GroupListRequest
-func (t *RPCRequest_Params) MergeGroupListRequest(v GroupListRequest) error {
+// MergeFriendGroupListRequest performs a merge with any union data inside the RPCRequest_Params, using the provided FriendGroupListRequest
+func (t *RPCRequest_Params) MergeFriendGroupListRequest(v FriendGroupListRequest) error {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -3135,22 +3137,22 @@ func (t *RPCRequest_Params) MergeGroupListRequest(v GroupListRequest) error {
 	return err
 }
 
-// AsGroupGetRequest returns the union data inside the RPCRequest_Params as a GroupGetRequest
-func (t RPCRequest_Params) AsGroupGetRequest() (GroupGetRequest, error) {
-	var body GroupGetRequest
+// AsFriendGroupGetRequest returns the union data inside the RPCRequest_Params as a FriendGroupGetRequest
+func (t RPCRequest_Params) AsFriendGroupGetRequest() (FriendGroupGetRequest, error) {
+	var body FriendGroupGetRequest
 	err := json.Unmarshal(t.union, &body)
 	return body, err
 }
 
-// FromGroupGetRequest overwrites any union data inside the RPCRequest_Params as the provided GroupGetRequest
-func (t *RPCRequest_Params) FromGroupGetRequest(v GroupGetRequest) error {
+// FromFriendGroupGetRequest overwrites any union data inside the RPCRequest_Params as the provided FriendGroupGetRequest
+func (t *RPCRequest_Params) FromFriendGroupGetRequest(v FriendGroupGetRequest) error {
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
 }
 
-// MergeGroupGetRequest performs a merge with any union data inside the RPCRequest_Params, using the provided GroupGetRequest
-func (t *RPCRequest_Params) MergeGroupGetRequest(v GroupGetRequest) error {
+// MergeFriendGroupGetRequest performs a merge with any union data inside the RPCRequest_Params, using the provided FriendGroupGetRequest
+func (t *RPCRequest_Params) MergeFriendGroupGetRequest(v FriendGroupGetRequest) error {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -3161,22 +3163,22 @@ func (t *RPCRequest_Params) MergeGroupGetRequest(v GroupGetRequest) error {
 	return err
 }
 
-// AsGroupCreateRequest returns the union data inside the RPCRequest_Params as a GroupCreateRequest
-func (t RPCRequest_Params) AsGroupCreateRequest() (GroupCreateRequest, error) {
-	var body GroupCreateRequest
+// AsFriendGroupCreateRequest returns the union data inside the RPCRequest_Params as a FriendGroupCreateRequest
+func (t RPCRequest_Params) AsFriendGroupCreateRequest() (FriendGroupCreateRequest, error) {
+	var body FriendGroupCreateRequest
 	err := json.Unmarshal(t.union, &body)
 	return body, err
 }
 
-// FromGroupCreateRequest overwrites any union data inside the RPCRequest_Params as the provided GroupCreateRequest
-func (t *RPCRequest_Params) FromGroupCreateRequest(v GroupCreateRequest) error {
+// FromFriendGroupCreateRequest overwrites any union data inside the RPCRequest_Params as the provided FriendGroupCreateRequest
+func (t *RPCRequest_Params) FromFriendGroupCreateRequest(v FriendGroupCreateRequest) error {
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
 }
 
-// MergeGroupCreateRequest performs a merge with any union data inside the RPCRequest_Params, using the provided GroupCreateRequest
-func (t *RPCRequest_Params) MergeGroupCreateRequest(v GroupCreateRequest) error {
+// MergeFriendGroupCreateRequest performs a merge with any union data inside the RPCRequest_Params, using the provided FriendGroupCreateRequest
+func (t *RPCRequest_Params) MergeFriendGroupCreateRequest(v FriendGroupCreateRequest) error {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -3187,22 +3189,22 @@ func (t *RPCRequest_Params) MergeGroupCreateRequest(v GroupCreateRequest) error 
 	return err
 }
 
-// AsGroupPutRequest returns the union data inside the RPCRequest_Params as a GroupPutRequest
-func (t RPCRequest_Params) AsGroupPutRequest() (GroupPutRequest, error) {
-	var body GroupPutRequest
+// AsFriendGroupPutRequest returns the union data inside the RPCRequest_Params as a FriendGroupPutRequest
+func (t RPCRequest_Params) AsFriendGroupPutRequest() (FriendGroupPutRequest, error) {
+	var body FriendGroupPutRequest
 	err := json.Unmarshal(t.union, &body)
 	return body, err
 }
 
-// FromGroupPutRequest overwrites any union data inside the RPCRequest_Params as the provided GroupPutRequest
-func (t *RPCRequest_Params) FromGroupPutRequest(v GroupPutRequest) error {
+// FromFriendGroupPutRequest overwrites any union data inside the RPCRequest_Params as the provided FriendGroupPutRequest
+func (t *RPCRequest_Params) FromFriendGroupPutRequest(v FriendGroupPutRequest) error {
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
 }
 
-// MergeGroupPutRequest performs a merge with any union data inside the RPCRequest_Params, using the provided GroupPutRequest
-func (t *RPCRequest_Params) MergeGroupPutRequest(v GroupPutRequest) error {
+// MergeFriendGroupPutRequest performs a merge with any union data inside the RPCRequest_Params, using the provided FriendGroupPutRequest
+func (t *RPCRequest_Params) MergeFriendGroupPutRequest(v FriendGroupPutRequest) error {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -3213,22 +3215,22 @@ func (t *RPCRequest_Params) MergeGroupPutRequest(v GroupPutRequest) error {
 	return err
 }
 
-// AsGroupDeleteRequest returns the union data inside the RPCRequest_Params as a GroupDeleteRequest
-func (t RPCRequest_Params) AsGroupDeleteRequest() (GroupDeleteRequest, error) {
-	var body GroupDeleteRequest
+// AsFriendGroupDeleteRequest returns the union data inside the RPCRequest_Params as a FriendGroupDeleteRequest
+func (t RPCRequest_Params) AsFriendGroupDeleteRequest() (FriendGroupDeleteRequest, error) {
+	var body FriendGroupDeleteRequest
 	err := json.Unmarshal(t.union, &body)
 	return body, err
 }
 
-// FromGroupDeleteRequest overwrites any union data inside the RPCRequest_Params as the provided GroupDeleteRequest
-func (t *RPCRequest_Params) FromGroupDeleteRequest(v GroupDeleteRequest) error {
+// FromFriendGroupDeleteRequest overwrites any union data inside the RPCRequest_Params as the provided FriendGroupDeleteRequest
+func (t *RPCRequest_Params) FromFriendGroupDeleteRequest(v FriendGroupDeleteRequest) error {
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
 }
 
-// MergeGroupDeleteRequest performs a merge with any union data inside the RPCRequest_Params, using the provided GroupDeleteRequest
-func (t *RPCRequest_Params) MergeGroupDeleteRequest(v GroupDeleteRequest) error {
+// MergeFriendGroupDeleteRequest performs a merge with any union data inside the RPCRequest_Params, using the provided FriendGroupDeleteRequest
+func (t *RPCRequest_Params) MergeFriendGroupDeleteRequest(v FriendGroupDeleteRequest) error {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -3239,22 +3241,22 @@ func (t *RPCRequest_Params) MergeGroupDeleteRequest(v GroupDeleteRequest) error 
 	return err
 }
 
-// AsGroupMemberListRequest returns the union data inside the RPCRequest_Params as a GroupMemberListRequest
-func (t RPCRequest_Params) AsGroupMemberListRequest() (GroupMemberListRequest, error) {
-	var body GroupMemberListRequest
+// AsFriendGroupMemberListRequest returns the union data inside the RPCRequest_Params as a FriendGroupMemberListRequest
+func (t RPCRequest_Params) AsFriendGroupMemberListRequest() (FriendGroupMemberListRequest, error) {
+	var body FriendGroupMemberListRequest
 	err := json.Unmarshal(t.union, &body)
 	return body, err
 }
 
-// FromGroupMemberListRequest overwrites any union data inside the RPCRequest_Params as the provided GroupMemberListRequest
-func (t *RPCRequest_Params) FromGroupMemberListRequest(v GroupMemberListRequest) error {
+// FromFriendGroupMemberListRequest overwrites any union data inside the RPCRequest_Params as the provided FriendGroupMemberListRequest
+func (t *RPCRequest_Params) FromFriendGroupMemberListRequest(v FriendGroupMemberListRequest) error {
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
 }
 
-// MergeGroupMemberListRequest performs a merge with any union data inside the RPCRequest_Params, using the provided GroupMemberListRequest
-func (t *RPCRequest_Params) MergeGroupMemberListRequest(v GroupMemberListRequest) error {
+// MergeFriendGroupMemberListRequest performs a merge with any union data inside the RPCRequest_Params, using the provided FriendGroupMemberListRequest
+func (t *RPCRequest_Params) MergeFriendGroupMemberListRequest(v FriendGroupMemberListRequest) error {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -3265,22 +3267,22 @@ func (t *RPCRequest_Params) MergeGroupMemberListRequest(v GroupMemberListRequest
 	return err
 }
 
-// AsGroupMemberAddRequest returns the union data inside the RPCRequest_Params as a GroupMemberAddRequest
-func (t RPCRequest_Params) AsGroupMemberAddRequest() (GroupMemberAddRequest, error) {
-	var body GroupMemberAddRequest
+// AsFriendGroupMemberAddRequest returns the union data inside the RPCRequest_Params as a FriendGroupMemberAddRequest
+func (t RPCRequest_Params) AsFriendGroupMemberAddRequest() (FriendGroupMemberAddRequest, error) {
+	var body FriendGroupMemberAddRequest
 	err := json.Unmarshal(t.union, &body)
 	return body, err
 }
 
-// FromGroupMemberAddRequest overwrites any union data inside the RPCRequest_Params as the provided GroupMemberAddRequest
-func (t *RPCRequest_Params) FromGroupMemberAddRequest(v GroupMemberAddRequest) error {
+// FromFriendGroupMemberAddRequest overwrites any union data inside the RPCRequest_Params as the provided FriendGroupMemberAddRequest
+func (t *RPCRequest_Params) FromFriendGroupMemberAddRequest(v FriendGroupMemberAddRequest) error {
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
 }
 
-// MergeGroupMemberAddRequest performs a merge with any union data inside the RPCRequest_Params, using the provided GroupMemberAddRequest
-func (t *RPCRequest_Params) MergeGroupMemberAddRequest(v GroupMemberAddRequest) error {
+// MergeFriendGroupMemberAddRequest performs a merge with any union data inside the RPCRequest_Params, using the provided FriendGroupMemberAddRequest
+func (t *RPCRequest_Params) MergeFriendGroupMemberAddRequest(v FriendGroupMemberAddRequest) error {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -3291,22 +3293,22 @@ func (t *RPCRequest_Params) MergeGroupMemberAddRequest(v GroupMemberAddRequest) 
 	return err
 }
 
-// AsGroupMemberDeleteRequest returns the union data inside the RPCRequest_Params as a GroupMemberDeleteRequest
-func (t RPCRequest_Params) AsGroupMemberDeleteRequest() (GroupMemberDeleteRequest, error) {
-	var body GroupMemberDeleteRequest
+// AsFriendGroupMemberPutRequest returns the union data inside the RPCRequest_Params as a FriendGroupMemberPutRequest
+func (t RPCRequest_Params) AsFriendGroupMemberPutRequest() (FriendGroupMemberPutRequest, error) {
+	var body FriendGroupMemberPutRequest
 	err := json.Unmarshal(t.union, &body)
 	return body, err
 }
 
-// FromGroupMemberDeleteRequest overwrites any union data inside the RPCRequest_Params as the provided GroupMemberDeleteRequest
-func (t *RPCRequest_Params) FromGroupMemberDeleteRequest(v GroupMemberDeleteRequest) error {
+// FromFriendGroupMemberPutRequest overwrites any union data inside the RPCRequest_Params as the provided FriendGroupMemberPutRequest
+func (t *RPCRequest_Params) FromFriendGroupMemberPutRequest(v FriendGroupMemberPutRequest) error {
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
 }
 
-// MergeGroupMemberDeleteRequest performs a merge with any union data inside the RPCRequest_Params, using the provided GroupMemberDeleteRequest
-func (t *RPCRequest_Params) MergeGroupMemberDeleteRequest(v GroupMemberDeleteRequest) error {
+// MergeFriendGroupMemberPutRequest performs a merge with any union data inside the RPCRequest_Params, using the provided FriendGroupMemberPutRequest
+func (t *RPCRequest_Params) MergeFriendGroupMemberPutRequest(v FriendGroupMemberPutRequest) error {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -3317,22 +3319,22 @@ func (t *RPCRequest_Params) MergeGroupMemberDeleteRequest(v GroupMemberDeleteReq
 	return err
 }
 
-// AsGroupMessageListRequest returns the union data inside the RPCRequest_Params as a GroupMessageListRequest
-func (t RPCRequest_Params) AsGroupMessageListRequest() (GroupMessageListRequest, error) {
-	var body GroupMessageListRequest
+// AsFriendGroupMemberDeleteRequest returns the union data inside the RPCRequest_Params as a FriendGroupMemberDeleteRequest
+func (t RPCRequest_Params) AsFriendGroupMemberDeleteRequest() (FriendGroupMemberDeleteRequest, error) {
+	var body FriendGroupMemberDeleteRequest
 	err := json.Unmarshal(t.union, &body)
 	return body, err
 }
 
-// FromGroupMessageListRequest overwrites any union data inside the RPCRequest_Params as the provided GroupMessageListRequest
-func (t *RPCRequest_Params) FromGroupMessageListRequest(v GroupMessageListRequest) error {
+// FromFriendGroupMemberDeleteRequest overwrites any union data inside the RPCRequest_Params as the provided FriendGroupMemberDeleteRequest
+func (t *RPCRequest_Params) FromFriendGroupMemberDeleteRequest(v FriendGroupMemberDeleteRequest) error {
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
 }
 
-// MergeGroupMessageListRequest performs a merge with any union data inside the RPCRequest_Params, using the provided GroupMessageListRequest
-func (t *RPCRequest_Params) MergeGroupMessageListRequest(v GroupMessageListRequest) error {
+// MergeFriendGroupMemberDeleteRequest performs a merge with any union data inside the RPCRequest_Params, using the provided FriendGroupMemberDeleteRequest
+func (t *RPCRequest_Params) MergeFriendGroupMemberDeleteRequest(v FriendGroupMemberDeleteRequest) error {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -3343,22 +3345,22 @@ func (t *RPCRequest_Params) MergeGroupMessageListRequest(v GroupMessageListReque
 	return err
 }
 
-// AsGroupMessageSendRequest returns the union data inside the RPCRequest_Params as a GroupMessageSendRequest
-func (t RPCRequest_Params) AsGroupMessageSendRequest() (GroupMessageSendRequest, error) {
-	var body GroupMessageSendRequest
+// AsFriendGroupMessageListRequest returns the union data inside the RPCRequest_Params as a FriendGroupMessageListRequest
+func (t RPCRequest_Params) AsFriendGroupMessageListRequest() (FriendGroupMessageListRequest, error) {
+	var body FriendGroupMessageListRequest
 	err := json.Unmarshal(t.union, &body)
 	return body, err
 }
 
-// FromGroupMessageSendRequest overwrites any union data inside the RPCRequest_Params as the provided GroupMessageSendRequest
-func (t *RPCRequest_Params) FromGroupMessageSendRequest(v GroupMessageSendRequest) error {
+// FromFriendGroupMessageListRequest overwrites any union data inside the RPCRequest_Params as the provided FriendGroupMessageListRequest
+func (t *RPCRequest_Params) FromFriendGroupMessageListRequest(v FriendGroupMessageListRequest) error {
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
 }
 
-// MergeGroupMessageSendRequest performs a merge with any union data inside the RPCRequest_Params, using the provided GroupMessageSendRequest
-func (t *RPCRequest_Params) MergeGroupMessageSendRequest(v GroupMessageSendRequest) error {
+// MergeFriendGroupMessageListRequest performs a merge with any union data inside the RPCRequest_Params, using the provided FriendGroupMessageListRequest
+func (t *RPCRequest_Params) MergeFriendGroupMessageListRequest(v FriendGroupMessageListRequest) error {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -3369,22 +3371,22 @@ func (t *RPCRequest_Params) MergeGroupMessageSendRequest(v GroupMessageSendReque
 	return err
 }
 
-// AsCallListRequest returns the union data inside the RPCRequest_Params as a CallListRequest
-func (t RPCRequest_Params) AsCallListRequest() (CallListRequest, error) {
-	var body CallListRequest
+// AsFriendGroupMessageGetRequest returns the union data inside the RPCRequest_Params as a FriendGroupMessageGetRequest
+func (t RPCRequest_Params) AsFriendGroupMessageGetRequest() (FriendGroupMessageGetRequest, error) {
+	var body FriendGroupMessageGetRequest
 	err := json.Unmarshal(t.union, &body)
 	return body, err
 }
 
-// FromCallListRequest overwrites any union data inside the RPCRequest_Params as the provided CallListRequest
-func (t *RPCRequest_Params) FromCallListRequest(v CallListRequest) error {
+// FromFriendGroupMessageGetRequest overwrites any union data inside the RPCRequest_Params as the provided FriendGroupMessageGetRequest
+func (t *RPCRequest_Params) FromFriendGroupMessageGetRequest(v FriendGroupMessageGetRequest) error {
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
 }
 
-// MergeCallListRequest performs a merge with any union data inside the RPCRequest_Params, using the provided CallListRequest
-func (t *RPCRequest_Params) MergeCallListRequest(v CallListRequest) error {
+// MergeFriendGroupMessageGetRequest performs a merge with any union data inside the RPCRequest_Params, using the provided FriendGroupMessageGetRequest
+func (t *RPCRequest_Params) MergeFriendGroupMessageGetRequest(v FriendGroupMessageGetRequest) error {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -3395,126 +3397,22 @@ func (t *RPCRequest_Params) MergeCallListRequest(v CallListRequest) error {
 	return err
 }
 
-// AsCallGetRequest returns the union data inside the RPCRequest_Params as a CallGetRequest
-func (t RPCRequest_Params) AsCallGetRequest() (CallGetRequest, error) {
-	var body CallGetRequest
+// AsFriendGroupMessageSendRequest returns the union data inside the RPCRequest_Params as a FriendGroupMessageSendRequest
+func (t RPCRequest_Params) AsFriendGroupMessageSendRequest() (FriendGroupMessageSendRequest, error) {
+	var body FriendGroupMessageSendRequest
 	err := json.Unmarshal(t.union, &body)
 	return body, err
 }
 
-// FromCallGetRequest overwrites any union data inside the RPCRequest_Params as the provided CallGetRequest
-func (t *RPCRequest_Params) FromCallGetRequest(v CallGetRequest) error {
+// FromFriendGroupMessageSendRequest overwrites any union data inside the RPCRequest_Params as the provided FriendGroupMessageSendRequest
+func (t *RPCRequest_Params) FromFriendGroupMessageSendRequest(v FriendGroupMessageSendRequest) error {
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
 }
 
-// MergeCallGetRequest performs a merge with any union data inside the RPCRequest_Params, using the provided CallGetRequest
-func (t *RPCRequest_Params) MergeCallGetRequest(v CallGetRequest) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsCallCreateRequest returns the union data inside the RPCRequest_Params as a CallCreateRequest
-func (t RPCRequest_Params) AsCallCreateRequest() (CallCreateRequest, error) {
-	var body CallCreateRequest
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromCallCreateRequest overwrites any union data inside the RPCRequest_Params as the provided CallCreateRequest
-func (t *RPCRequest_Params) FromCallCreateRequest(v CallCreateRequest) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeCallCreateRequest performs a merge with any union data inside the RPCRequest_Params, using the provided CallCreateRequest
-func (t *RPCRequest_Params) MergeCallCreateRequest(v CallCreateRequest) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsCallAnswerRequest returns the union data inside the RPCRequest_Params as a CallAnswerRequest
-func (t RPCRequest_Params) AsCallAnswerRequest() (CallAnswerRequest, error) {
-	var body CallAnswerRequest
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromCallAnswerRequest overwrites any union data inside the RPCRequest_Params as the provided CallAnswerRequest
-func (t *RPCRequest_Params) FromCallAnswerRequest(v CallAnswerRequest) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeCallAnswerRequest performs a merge with any union data inside the RPCRequest_Params, using the provided CallAnswerRequest
-func (t *RPCRequest_Params) MergeCallAnswerRequest(v CallAnswerRequest) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsCallRejectRequest returns the union data inside the RPCRequest_Params as a CallRejectRequest
-func (t RPCRequest_Params) AsCallRejectRequest() (CallRejectRequest, error) {
-	var body CallRejectRequest
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromCallRejectRequest overwrites any union data inside the RPCRequest_Params as the provided CallRejectRequest
-func (t *RPCRequest_Params) FromCallRejectRequest(v CallRejectRequest) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeCallRejectRequest performs a merge with any union data inside the RPCRequest_Params, using the provided CallRejectRequest
-func (t *RPCRequest_Params) MergeCallRejectRequest(v CallRejectRequest) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsCallEndRequest returns the union data inside the RPCRequest_Params as a CallEndRequest
-func (t RPCRequest_Params) AsCallEndRequest() (CallEndRequest, error) {
-	var body CallEndRequest
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromCallEndRequest overwrites any union data inside the RPCRequest_Params as the provided CallEndRequest
-func (t *RPCRequest_Params) FromCallEndRequest(v CallEndRequest) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeCallEndRequest performs a merge with any union data inside the RPCRequest_Params, using the provided CallEndRequest
-func (t *RPCRequest_Params) MergeCallEndRequest(v CallEndRequest) error {
+// MergeFriendGroupMessageSendRequest performs a merge with any union data inside the RPCRequest_Params, using the provided FriendGroupMessageSendRequest
+func (t *RPCRequest_Params) MergeFriendGroupMessageSendRequest(v FriendGroupMessageSendRequest) error {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -4939,58 +4837,6 @@ func (t *RPCResponse_Result) MergeContactDeleteResponse(v ContactDeleteResponse)
 	return err
 }
 
-// AsContactBlockResponse returns the union data inside the RPCResponse_Result as a ContactBlockResponse
-func (t RPCResponse_Result) AsContactBlockResponse() (ContactBlockResponse, error) {
-	var body ContactBlockResponse
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromContactBlockResponse overwrites any union data inside the RPCResponse_Result as the provided ContactBlockResponse
-func (t *RPCResponse_Result) FromContactBlockResponse(v ContactBlockResponse) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeContactBlockResponse performs a merge with any union data inside the RPCResponse_Result, using the provided ContactBlockResponse
-func (t *RPCResponse_Result) MergeContactBlockResponse(v ContactBlockResponse) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsContactUnblockResponse returns the union data inside the RPCResponse_Result as a ContactUnblockResponse
-func (t RPCResponse_Result) AsContactUnblockResponse() (ContactUnblockResponse, error) {
-	var body ContactUnblockResponse
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromContactUnblockResponse overwrites any union data inside the RPCResponse_Result as the provided ContactUnblockResponse
-func (t *RPCResponse_Result) FromContactUnblockResponse(v ContactUnblockResponse) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeContactUnblockResponse performs a merge with any union data inside the RPCResponse_Result, using the provided ContactUnblockResponse
-func (t *RPCResponse_Result) MergeContactUnblockResponse(v ContactUnblockResponse) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
 // AsFriendRequestListResponse returns the union data inside the RPCResponse_Result as a FriendRequestListResponse
 func (t RPCResponse_Result) AsFriendRequestListResponse() (FriendRequestListResponse, error) {
 	var body FriendRequestListResponse
@@ -5147,22 +4993,22 @@ func (t *RPCResponse_Result) MergeFriendDeleteResponse(v FriendDeleteResponse) e
 	return err
 }
 
-// AsGroupListResponse returns the union data inside the RPCResponse_Result as a GroupListResponse
-func (t RPCResponse_Result) AsGroupListResponse() (GroupListResponse, error) {
-	var body GroupListResponse
+// AsFriendGroupListResponse returns the union data inside the RPCResponse_Result as a FriendGroupListResponse
+func (t RPCResponse_Result) AsFriendGroupListResponse() (FriendGroupListResponse, error) {
+	var body FriendGroupListResponse
 	err := json.Unmarshal(t.union, &body)
 	return body, err
 }
 
-// FromGroupListResponse overwrites any union data inside the RPCResponse_Result as the provided GroupListResponse
-func (t *RPCResponse_Result) FromGroupListResponse(v GroupListResponse) error {
+// FromFriendGroupListResponse overwrites any union data inside the RPCResponse_Result as the provided FriendGroupListResponse
+func (t *RPCResponse_Result) FromFriendGroupListResponse(v FriendGroupListResponse) error {
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
 }
 
-// MergeGroupListResponse performs a merge with any union data inside the RPCResponse_Result, using the provided GroupListResponse
-func (t *RPCResponse_Result) MergeGroupListResponse(v GroupListResponse) error {
+// MergeFriendGroupListResponse performs a merge with any union data inside the RPCResponse_Result, using the provided FriendGroupListResponse
+func (t *RPCResponse_Result) MergeFriendGroupListResponse(v FriendGroupListResponse) error {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -5173,22 +5019,22 @@ func (t *RPCResponse_Result) MergeGroupListResponse(v GroupListResponse) error {
 	return err
 }
 
-// AsGroupGetResponse returns the union data inside the RPCResponse_Result as a GroupGetResponse
-func (t RPCResponse_Result) AsGroupGetResponse() (GroupGetResponse, error) {
-	var body GroupGetResponse
+// AsFriendGroupGetResponse returns the union data inside the RPCResponse_Result as a FriendGroupGetResponse
+func (t RPCResponse_Result) AsFriendGroupGetResponse() (FriendGroupGetResponse, error) {
+	var body FriendGroupGetResponse
 	err := json.Unmarshal(t.union, &body)
 	return body, err
 }
 
-// FromGroupGetResponse overwrites any union data inside the RPCResponse_Result as the provided GroupGetResponse
-func (t *RPCResponse_Result) FromGroupGetResponse(v GroupGetResponse) error {
+// FromFriendGroupGetResponse overwrites any union data inside the RPCResponse_Result as the provided FriendGroupGetResponse
+func (t *RPCResponse_Result) FromFriendGroupGetResponse(v FriendGroupGetResponse) error {
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
 }
 
-// MergeGroupGetResponse performs a merge with any union data inside the RPCResponse_Result, using the provided GroupGetResponse
-func (t *RPCResponse_Result) MergeGroupGetResponse(v GroupGetResponse) error {
+// MergeFriendGroupGetResponse performs a merge with any union data inside the RPCResponse_Result, using the provided FriendGroupGetResponse
+func (t *RPCResponse_Result) MergeFriendGroupGetResponse(v FriendGroupGetResponse) error {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -5199,22 +5045,22 @@ func (t *RPCResponse_Result) MergeGroupGetResponse(v GroupGetResponse) error {
 	return err
 }
 
-// AsGroupCreateResponse returns the union data inside the RPCResponse_Result as a GroupCreateResponse
-func (t RPCResponse_Result) AsGroupCreateResponse() (GroupCreateResponse, error) {
-	var body GroupCreateResponse
+// AsFriendGroupCreateResponse returns the union data inside the RPCResponse_Result as a FriendGroupCreateResponse
+func (t RPCResponse_Result) AsFriendGroupCreateResponse() (FriendGroupCreateResponse, error) {
+	var body FriendGroupCreateResponse
 	err := json.Unmarshal(t.union, &body)
 	return body, err
 }
 
-// FromGroupCreateResponse overwrites any union data inside the RPCResponse_Result as the provided GroupCreateResponse
-func (t *RPCResponse_Result) FromGroupCreateResponse(v GroupCreateResponse) error {
+// FromFriendGroupCreateResponse overwrites any union data inside the RPCResponse_Result as the provided FriendGroupCreateResponse
+func (t *RPCResponse_Result) FromFriendGroupCreateResponse(v FriendGroupCreateResponse) error {
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
 }
 
-// MergeGroupCreateResponse performs a merge with any union data inside the RPCResponse_Result, using the provided GroupCreateResponse
-func (t *RPCResponse_Result) MergeGroupCreateResponse(v GroupCreateResponse) error {
+// MergeFriendGroupCreateResponse performs a merge with any union data inside the RPCResponse_Result, using the provided FriendGroupCreateResponse
+func (t *RPCResponse_Result) MergeFriendGroupCreateResponse(v FriendGroupCreateResponse) error {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -5225,22 +5071,22 @@ func (t *RPCResponse_Result) MergeGroupCreateResponse(v GroupCreateResponse) err
 	return err
 }
 
-// AsGroupPutResponse returns the union data inside the RPCResponse_Result as a GroupPutResponse
-func (t RPCResponse_Result) AsGroupPutResponse() (GroupPutResponse, error) {
-	var body GroupPutResponse
+// AsFriendGroupPutResponse returns the union data inside the RPCResponse_Result as a FriendGroupPutResponse
+func (t RPCResponse_Result) AsFriendGroupPutResponse() (FriendGroupPutResponse, error) {
+	var body FriendGroupPutResponse
 	err := json.Unmarshal(t.union, &body)
 	return body, err
 }
 
-// FromGroupPutResponse overwrites any union data inside the RPCResponse_Result as the provided GroupPutResponse
-func (t *RPCResponse_Result) FromGroupPutResponse(v GroupPutResponse) error {
+// FromFriendGroupPutResponse overwrites any union data inside the RPCResponse_Result as the provided FriendGroupPutResponse
+func (t *RPCResponse_Result) FromFriendGroupPutResponse(v FriendGroupPutResponse) error {
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
 }
 
-// MergeGroupPutResponse performs a merge with any union data inside the RPCResponse_Result, using the provided GroupPutResponse
-func (t *RPCResponse_Result) MergeGroupPutResponse(v GroupPutResponse) error {
+// MergeFriendGroupPutResponse performs a merge with any union data inside the RPCResponse_Result, using the provided FriendGroupPutResponse
+func (t *RPCResponse_Result) MergeFriendGroupPutResponse(v FriendGroupPutResponse) error {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -5251,22 +5097,22 @@ func (t *RPCResponse_Result) MergeGroupPutResponse(v GroupPutResponse) error {
 	return err
 }
 
-// AsGroupDeleteResponse returns the union data inside the RPCResponse_Result as a GroupDeleteResponse
-func (t RPCResponse_Result) AsGroupDeleteResponse() (GroupDeleteResponse, error) {
-	var body GroupDeleteResponse
+// AsFriendGroupDeleteResponse returns the union data inside the RPCResponse_Result as a FriendGroupDeleteResponse
+func (t RPCResponse_Result) AsFriendGroupDeleteResponse() (FriendGroupDeleteResponse, error) {
+	var body FriendGroupDeleteResponse
 	err := json.Unmarshal(t.union, &body)
 	return body, err
 }
 
-// FromGroupDeleteResponse overwrites any union data inside the RPCResponse_Result as the provided GroupDeleteResponse
-func (t *RPCResponse_Result) FromGroupDeleteResponse(v GroupDeleteResponse) error {
+// FromFriendGroupDeleteResponse overwrites any union data inside the RPCResponse_Result as the provided FriendGroupDeleteResponse
+func (t *RPCResponse_Result) FromFriendGroupDeleteResponse(v FriendGroupDeleteResponse) error {
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
 }
 
-// MergeGroupDeleteResponse performs a merge with any union data inside the RPCResponse_Result, using the provided GroupDeleteResponse
-func (t *RPCResponse_Result) MergeGroupDeleteResponse(v GroupDeleteResponse) error {
+// MergeFriendGroupDeleteResponse performs a merge with any union data inside the RPCResponse_Result, using the provided FriendGroupDeleteResponse
+func (t *RPCResponse_Result) MergeFriendGroupDeleteResponse(v FriendGroupDeleteResponse) error {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -5277,22 +5123,22 @@ func (t *RPCResponse_Result) MergeGroupDeleteResponse(v GroupDeleteResponse) err
 	return err
 }
 
-// AsGroupMemberListResponse returns the union data inside the RPCResponse_Result as a GroupMemberListResponse
-func (t RPCResponse_Result) AsGroupMemberListResponse() (GroupMemberListResponse, error) {
-	var body GroupMemberListResponse
+// AsFriendGroupMemberListResponse returns the union data inside the RPCResponse_Result as a FriendGroupMemberListResponse
+func (t RPCResponse_Result) AsFriendGroupMemberListResponse() (FriendGroupMemberListResponse, error) {
+	var body FriendGroupMemberListResponse
 	err := json.Unmarshal(t.union, &body)
 	return body, err
 }
 
-// FromGroupMemberListResponse overwrites any union data inside the RPCResponse_Result as the provided GroupMemberListResponse
-func (t *RPCResponse_Result) FromGroupMemberListResponse(v GroupMemberListResponse) error {
+// FromFriendGroupMemberListResponse overwrites any union data inside the RPCResponse_Result as the provided FriendGroupMemberListResponse
+func (t *RPCResponse_Result) FromFriendGroupMemberListResponse(v FriendGroupMemberListResponse) error {
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
 }
 
-// MergeGroupMemberListResponse performs a merge with any union data inside the RPCResponse_Result, using the provided GroupMemberListResponse
-func (t *RPCResponse_Result) MergeGroupMemberListResponse(v GroupMemberListResponse) error {
+// MergeFriendGroupMemberListResponse performs a merge with any union data inside the RPCResponse_Result, using the provided FriendGroupMemberListResponse
+func (t *RPCResponse_Result) MergeFriendGroupMemberListResponse(v FriendGroupMemberListResponse) error {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -5303,22 +5149,22 @@ func (t *RPCResponse_Result) MergeGroupMemberListResponse(v GroupMemberListRespo
 	return err
 }
 
-// AsGroupMemberAddResponse returns the union data inside the RPCResponse_Result as a GroupMemberAddResponse
-func (t RPCResponse_Result) AsGroupMemberAddResponse() (GroupMemberAddResponse, error) {
-	var body GroupMemberAddResponse
+// AsFriendGroupMemberAddResponse returns the union data inside the RPCResponse_Result as a FriendGroupMemberAddResponse
+func (t RPCResponse_Result) AsFriendGroupMemberAddResponse() (FriendGroupMemberAddResponse, error) {
+	var body FriendGroupMemberAddResponse
 	err := json.Unmarshal(t.union, &body)
 	return body, err
 }
 
-// FromGroupMemberAddResponse overwrites any union data inside the RPCResponse_Result as the provided GroupMemberAddResponse
-func (t *RPCResponse_Result) FromGroupMemberAddResponse(v GroupMemberAddResponse) error {
+// FromFriendGroupMemberAddResponse overwrites any union data inside the RPCResponse_Result as the provided FriendGroupMemberAddResponse
+func (t *RPCResponse_Result) FromFriendGroupMemberAddResponse(v FriendGroupMemberAddResponse) error {
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
 }
 
-// MergeGroupMemberAddResponse performs a merge with any union data inside the RPCResponse_Result, using the provided GroupMemberAddResponse
-func (t *RPCResponse_Result) MergeGroupMemberAddResponse(v GroupMemberAddResponse) error {
+// MergeFriendGroupMemberAddResponse performs a merge with any union data inside the RPCResponse_Result, using the provided FriendGroupMemberAddResponse
+func (t *RPCResponse_Result) MergeFriendGroupMemberAddResponse(v FriendGroupMemberAddResponse) error {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -5329,22 +5175,22 @@ func (t *RPCResponse_Result) MergeGroupMemberAddResponse(v GroupMemberAddRespons
 	return err
 }
 
-// AsGroupMemberDeleteResponse returns the union data inside the RPCResponse_Result as a GroupMemberDeleteResponse
-func (t RPCResponse_Result) AsGroupMemberDeleteResponse() (GroupMemberDeleteResponse, error) {
-	var body GroupMemberDeleteResponse
+// AsFriendGroupMemberPutResponse returns the union data inside the RPCResponse_Result as a FriendGroupMemberPutResponse
+func (t RPCResponse_Result) AsFriendGroupMemberPutResponse() (FriendGroupMemberPutResponse, error) {
+	var body FriendGroupMemberPutResponse
 	err := json.Unmarshal(t.union, &body)
 	return body, err
 }
 
-// FromGroupMemberDeleteResponse overwrites any union data inside the RPCResponse_Result as the provided GroupMemberDeleteResponse
-func (t *RPCResponse_Result) FromGroupMemberDeleteResponse(v GroupMemberDeleteResponse) error {
+// FromFriendGroupMemberPutResponse overwrites any union data inside the RPCResponse_Result as the provided FriendGroupMemberPutResponse
+func (t *RPCResponse_Result) FromFriendGroupMemberPutResponse(v FriendGroupMemberPutResponse) error {
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
 }
 
-// MergeGroupMemberDeleteResponse performs a merge with any union data inside the RPCResponse_Result, using the provided GroupMemberDeleteResponse
-func (t *RPCResponse_Result) MergeGroupMemberDeleteResponse(v GroupMemberDeleteResponse) error {
+// MergeFriendGroupMemberPutResponse performs a merge with any union data inside the RPCResponse_Result, using the provided FriendGroupMemberPutResponse
+func (t *RPCResponse_Result) MergeFriendGroupMemberPutResponse(v FriendGroupMemberPutResponse) error {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -5355,22 +5201,22 @@ func (t *RPCResponse_Result) MergeGroupMemberDeleteResponse(v GroupMemberDeleteR
 	return err
 }
 
-// AsGroupMessageListResponse returns the union data inside the RPCResponse_Result as a GroupMessageListResponse
-func (t RPCResponse_Result) AsGroupMessageListResponse() (GroupMessageListResponse, error) {
-	var body GroupMessageListResponse
+// AsFriendGroupMemberDeleteResponse returns the union data inside the RPCResponse_Result as a FriendGroupMemberDeleteResponse
+func (t RPCResponse_Result) AsFriendGroupMemberDeleteResponse() (FriendGroupMemberDeleteResponse, error) {
+	var body FriendGroupMemberDeleteResponse
 	err := json.Unmarshal(t.union, &body)
 	return body, err
 }
 
-// FromGroupMessageListResponse overwrites any union data inside the RPCResponse_Result as the provided GroupMessageListResponse
-func (t *RPCResponse_Result) FromGroupMessageListResponse(v GroupMessageListResponse) error {
+// FromFriendGroupMemberDeleteResponse overwrites any union data inside the RPCResponse_Result as the provided FriendGroupMemberDeleteResponse
+func (t *RPCResponse_Result) FromFriendGroupMemberDeleteResponse(v FriendGroupMemberDeleteResponse) error {
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
 }
 
-// MergeGroupMessageListResponse performs a merge with any union data inside the RPCResponse_Result, using the provided GroupMessageListResponse
-func (t *RPCResponse_Result) MergeGroupMessageListResponse(v GroupMessageListResponse) error {
+// MergeFriendGroupMemberDeleteResponse performs a merge with any union data inside the RPCResponse_Result, using the provided FriendGroupMemberDeleteResponse
+func (t *RPCResponse_Result) MergeFriendGroupMemberDeleteResponse(v FriendGroupMemberDeleteResponse) error {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -5381,22 +5227,22 @@ func (t *RPCResponse_Result) MergeGroupMessageListResponse(v GroupMessageListRes
 	return err
 }
 
-// AsGroupMessageSendResponse returns the union data inside the RPCResponse_Result as a GroupMessageSendResponse
-func (t RPCResponse_Result) AsGroupMessageSendResponse() (GroupMessageSendResponse, error) {
-	var body GroupMessageSendResponse
+// AsFriendGroupMessageListResponse returns the union data inside the RPCResponse_Result as a FriendGroupMessageListResponse
+func (t RPCResponse_Result) AsFriendGroupMessageListResponse() (FriendGroupMessageListResponse, error) {
+	var body FriendGroupMessageListResponse
 	err := json.Unmarshal(t.union, &body)
 	return body, err
 }
 
-// FromGroupMessageSendResponse overwrites any union data inside the RPCResponse_Result as the provided GroupMessageSendResponse
-func (t *RPCResponse_Result) FromGroupMessageSendResponse(v GroupMessageSendResponse) error {
+// FromFriendGroupMessageListResponse overwrites any union data inside the RPCResponse_Result as the provided FriendGroupMessageListResponse
+func (t *RPCResponse_Result) FromFriendGroupMessageListResponse(v FriendGroupMessageListResponse) error {
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
 }
 
-// MergeGroupMessageSendResponse performs a merge with any union data inside the RPCResponse_Result, using the provided GroupMessageSendResponse
-func (t *RPCResponse_Result) MergeGroupMessageSendResponse(v GroupMessageSendResponse) error {
+// MergeFriendGroupMessageListResponse performs a merge with any union data inside the RPCResponse_Result, using the provided FriendGroupMessageListResponse
+func (t *RPCResponse_Result) MergeFriendGroupMessageListResponse(v FriendGroupMessageListResponse) error {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -5407,22 +5253,22 @@ func (t *RPCResponse_Result) MergeGroupMessageSendResponse(v GroupMessageSendRes
 	return err
 }
 
-// AsCallListResponse returns the union data inside the RPCResponse_Result as a CallListResponse
-func (t RPCResponse_Result) AsCallListResponse() (CallListResponse, error) {
-	var body CallListResponse
+// AsFriendGroupMessageGetResponse returns the union data inside the RPCResponse_Result as a FriendGroupMessageGetResponse
+func (t RPCResponse_Result) AsFriendGroupMessageGetResponse() (FriendGroupMessageGetResponse, error) {
+	var body FriendGroupMessageGetResponse
 	err := json.Unmarshal(t.union, &body)
 	return body, err
 }
 
-// FromCallListResponse overwrites any union data inside the RPCResponse_Result as the provided CallListResponse
-func (t *RPCResponse_Result) FromCallListResponse(v CallListResponse) error {
+// FromFriendGroupMessageGetResponse overwrites any union data inside the RPCResponse_Result as the provided FriendGroupMessageGetResponse
+func (t *RPCResponse_Result) FromFriendGroupMessageGetResponse(v FriendGroupMessageGetResponse) error {
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
 }
 
-// MergeCallListResponse performs a merge with any union data inside the RPCResponse_Result, using the provided CallListResponse
-func (t *RPCResponse_Result) MergeCallListResponse(v CallListResponse) error {
+// MergeFriendGroupMessageGetResponse performs a merge with any union data inside the RPCResponse_Result, using the provided FriendGroupMessageGetResponse
+func (t *RPCResponse_Result) MergeFriendGroupMessageGetResponse(v FriendGroupMessageGetResponse) error {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -5433,126 +5279,22 @@ func (t *RPCResponse_Result) MergeCallListResponse(v CallListResponse) error {
 	return err
 }
 
-// AsCallGetResponse returns the union data inside the RPCResponse_Result as a CallGetResponse
-func (t RPCResponse_Result) AsCallGetResponse() (CallGetResponse, error) {
-	var body CallGetResponse
+// AsFriendGroupMessageSendResponse returns the union data inside the RPCResponse_Result as a FriendGroupMessageSendResponse
+func (t RPCResponse_Result) AsFriendGroupMessageSendResponse() (FriendGroupMessageSendResponse, error) {
+	var body FriendGroupMessageSendResponse
 	err := json.Unmarshal(t.union, &body)
 	return body, err
 }
 
-// FromCallGetResponse overwrites any union data inside the RPCResponse_Result as the provided CallGetResponse
-func (t *RPCResponse_Result) FromCallGetResponse(v CallGetResponse) error {
+// FromFriendGroupMessageSendResponse overwrites any union data inside the RPCResponse_Result as the provided FriendGroupMessageSendResponse
+func (t *RPCResponse_Result) FromFriendGroupMessageSendResponse(v FriendGroupMessageSendResponse) error {
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
 }
 
-// MergeCallGetResponse performs a merge with any union data inside the RPCResponse_Result, using the provided CallGetResponse
-func (t *RPCResponse_Result) MergeCallGetResponse(v CallGetResponse) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsCallCreateResponse returns the union data inside the RPCResponse_Result as a CallCreateResponse
-func (t RPCResponse_Result) AsCallCreateResponse() (CallCreateResponse, error) {
-	var body CallCreateResponse
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromCallCreateResponse overwrites any union data inside the RPCResponse_Result as the provided CallCreateResponse
-func (t *RPCResponse_Result) FromCallCreateResponse(v CallCreateResponse) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeCallCreateResponse performs a merge with any union data inside the RPCResponse_Result, using the provided CallCreateResponse
-func (t *RPCResponse_Result) MergeCallCreateResponse(v CallCreateResponse) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsCallAnswerResponse returns the union data inside the RPCResponse_Result as a CallAnswerResponse
-func (t RPCResponse_Result) AsCallAnswerResponse() (CallAnswerResponse, error) {
-	var body CallAnswerResponse
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromCallAnswerResponse overwrites any union data inside the RPCResponse_Result as the provided CallAnswerResponse
-func (t *RPCResponse_Result) FromCallAnswerResponse(v CallAnswerResponse) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeCallAnswerResponse performs a merge with any union data inside the RPCResponse_Result, using the provided CallAnswerResponse
-func (t *RPCResponse_Result) MergeCallAnswerResponse(v CallAnswerResponse) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsCallRejectResponse returns the union data inside the RPCResponse_Result as a CallRejectResponse
-func (t RPCResponse_Result) AsCallRejectResponse() (CallRejectResponse, error) {
-	var body CallRejectResponse
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromCallRejectResponse overwrites any union data inside the RPCResponse_Result as the provided CallRejectResponse
-func (t *RPCResponse_Result) FromCallRejectResponse(v CallRejectResponse) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeCallRejectResponse performs a merge with any union data inside the RPCResponse_Result, using the provided CallRejectResponse
-func (t *RPCResponse_Result) MergeCallRejectResponse(v CallRejectResponse) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsCallEndResponse returns the union data inside the RPCResponse_Result as a CallEndResponse
-func (t RPCResponse_Result) AsCallEndResponse() (CallEndResponse, error) {
-	var body CallEndResponse
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromCallEndResponse overwrites any union data inside the RPCResponse_Result as the provided CallEndResponse
-func (t *RPCResponse_Result) FromCallEndResponse(v CallEndResponse) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeCallEndResponse performs a merge with any union data inside the RPCResponse_Result, using the provided CallEndResponse
-func (t *RPCResponse_Result) MergeCallEndResponse(v CallEndResponse) error {
+// MergeFriendGroupMessageSendResponse performs a merge with any union data inside the RPCResponse_Result, using the provided FriendGroupMessageSendResponse
+func (t *RPCResponse_Result) MergeFriendGroupMessageSendResponse(v FriendGroupMessageSendResponse) error {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err

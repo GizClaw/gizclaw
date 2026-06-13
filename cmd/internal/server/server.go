@@ -74,6 +74,35 @@ func New(cfg Config) (srv *CmdServer, err error) {
 		}
 		gizServer.RewardClaimCooldown = cooldown
 	}
+	if cfg.Friends.FriendOTPTTL != "" {
+		ttl, err := parseConfigDuration(cfg.Friends.FriendOTPTTL)
+		if err != nil {
+			return nil, fmt.Errorf("server: friends.friend_otp_ttl: %w", err)
+		}
+		gizServer.FriendOTPTTL = ttl
+	}
+	if cfg.FriendGroups.MessageDefaultTTL != "" {
+		ttl, err := parseConfigDuration(cfg.FriendGroups.MessageDefaultTTL)
+		if err != nil {
+			return nil, fmt.Errorf("server: friend_groups.message_default_ttl: %w", err)
+		}
+		gizServer.FriendGroupMessageDefaultTTL = ttl
+	}
+	if cfg.FriendGroups.MessageMaxTTL != "" {
+		ttl, err := parseConfigDuration(cfg.FriendGroups.MessageMaxTTL)
+		if err != nil {
+			return nil, fmt.Errorf("server: friend_groups.message_max_ttl: %w", err)
+		}
+		gizServer.FriendGroupMessageMaxTTL = ttl
+	}
+	if cfg.FriendGroups.MessageCleanupInterval != "" {
+		interval, err := parseConfigDuration(cfg.FriendGroups.MessageCleanupInterval)
+		if err != nil {
+			return nil, fmt.Errorf("server: friend_groups.message_cleanup_interval: %w", err)
+		}
+		gizServer.FriendGroupMessageCleanup = interval
+	}
+	gizServer.FriendGroupMessageMaxBytes = cfg.FriendGroups.MessageMaxAudioBytes
 	if !cfg.AdminPublicKey.IsZero() {
 		gizServer.SecurityPolicy = adminPublicKeySecurityPolicy{
 			PublicKey: cfg.AdminPublicKey,
@@ -137,6 +166,41 @@ func New(cfg Config) (srv *CmdServer, err error) {
 		if cfg.Wallets.Store != "" {
 			if gizServer.WalletDB, err = ss.SQL(cfg.Wallets.Store); err != nil {
 				return nil, fmt.Errorf("server: wallets store: %w", err)
+			}
+		}
+		if cfg.Contacts.Store != "" {
+			if gizServer.ContactStore, err = ss.KV(cfg.Contacts.Store); err != nil {
+				return nil, fmt.Errorf("server: contacts store: %w", err)
+			}
+		}
+		if cfg.Friends.RequestsStore != "" {
+			if gizServer.FriendRequestStore, err = ss.KV(cfg.Friends.RequestsStore); err != nil {
+				return nil, fmt.Errorf("server: friend requests store: %w", err)
+			}
+		}
+		if cfg.Friends.Store != "" {
+			if gizServer.FriendStore, err = ss.KV(cfg.Friends.Store); err != nil {
+				return nil, fmt.Errorf("server: friends store: %w", err)
+			}
+		}
+		if cfg.FriendGroups.Store != "" {
+			if gizServer.FriendGroupStore, err = ss.KV(cfg.FriendGroups.Store); err != nil {
+				return nil, fmt.Errorf("server: friend_groups store: %w", err)
+			}
+		}
+		if cfg.FriendGroups.MembersStore != "" {
+			if gizServer.FriendGroupMemberStore, err = ss.KV(cfg.FriendGroups.MembersStore); err != nil {
+				return nil, fmt.Errorf("server: friend group members store: %w", err)
+			}
+		}
+		if cfg.FriendGroups.MessagesStore != "" {
+			if gizServer.FriendGroupMessageStore, err = ss.KV(cfg.FriendGroups.MessagesStore); err != nil {
+				return nil, fmt.Errorf("server: friend group messages store: %w", err)
+			}
+		}
+		if cfg.FriendGroups.MessageAssetsStore != "" {
+			if gizServer.FriendGroupMessageAssets, err = ss.ObjectStore(cfg.FriendGroups.MessageAssetsStore); err != nil {
+				return nil, fmt.Errorf("server: friend group message assets store: %w", err)
 			}
 		}
 	}

@@ -172,6 +172,17 @@ func (p *Page) ExpectText(text string) {
 	}
 }
 
+func (p *Page) ExpectNoText(text string) {
+	p.t.Helper()
+	body, err := p.page.TextContent("body")
+	if err != nil {
+		p.t.Fatalf("read page body: %v", err)
+	}
+	if strings.Contains(body, text) {
+		p.t.Fatalf("page body contains %q; body=%q", text, body)
+	}
+}
+
 func (p *Page) Fill(selector, value string) {
 	p.t.Helper()
 	if err := p.page.Locator(selector).Fill(value); err != nil {

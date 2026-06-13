@@ -21,6 +21,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/pet"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/providertenants"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/reward"
+	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/social"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/voice"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/wallet"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/workflow"
@@ -51,6 +52,7 @@ type Manager struct {
 	Pets        *pet.Server
 	Wallets     *wallet.Server
 	Rewards     *reward.Server
+	Social      *social.Server
 
 	ProviderTenants providertenants.ProviderTenantsAdminService
 

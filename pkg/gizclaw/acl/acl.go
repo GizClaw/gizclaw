@@ -13,19 +13,18 @@ const (
 	SubjectKindView      = apitypes.ACLSubjectKindView
 	SubjectKindAllPeers  = apitypes.ACLSubjectKindAllPeers
 
-	ResourceKindWorkspace  = apitypes.ACLResourceKindWorkspace
-	ResourceKindWorkflow   = apitypes.ACLResourceKindWorkflow
-	ResourceKindVoice      = apitypes.ACLResourceKindVoice
-	ResourceKindCredential = apitypes.ACLResourceKindCredential
-	ResourceKindModel      = apitypes.ACLResourceKindModel
-	ResourceKindView       = apitypes.ACLResourceKindView
-	ResourceKindPetSpecies = apitypes.ACLResourceKindPetSpecies
-	ResourceKindBadge      = apitypes.ACLResourceKindBadge
-	ResourceKindContact    = apitypes.ACLResourceKindContact
-	ResourceKindFriend     = apitypes.ACLResourceKindFriend
-	ResourceKindFriendReq  = apitypes.ACLResourceKindFriendRequest
-	ResourceKindGroup      = apitypes.ACLResourceKindGroup
-	ResourceKindCall       = apitypes.ACLResourceKindCall
+	ResourceKindWorkspace   = apitypes.ACLResourceKindWorkspace
+	ResourceKindWorkflow    = apitypes.ACLResourceKindWorkflow
+	ResourceKindVoice       = apitypes.ACLResourceKindVoice
+	ResourceKindCredential  = apitypes.ACLResourceKindCredential
+	ResourceKindModel       = apitypes.ACLResourceKindModel
+	ResourceKindView        = apitypes.ACLResourceKindView
+	ResourceKindPetSpecies  = apitypes.ACLResourceKindPetSpecies
+	ResourceKindBadge       = apitypes.ACLResourceKindBadge
+	ResourceKindContact     = apitypes.ACLResourceKindContact
+	ResourceKindFriend      = apitypes.ACLResourceKindFriend
+	ResourceKindFriendReq   = apitypes.ACLResourceKindFriendRequest
+	ResourceKindFriendGroup = apitypes.ACLResourceKindFriendGroup
 )
 
 var ErrDenied = errors.New("acl: denied")
@@ -137,6 +136,13 @@ func PetSpeciesResource(id string) apitypes.ACLResource {
 func BadgeResource(id string) apitypes.ACLResource {
 	return apitypes.ACLResource{
 		Kind: ResourceKindBadge,
+		Id:   id,
+	}
+}
+
+func FriendGroupResource(id string) apitypes.ACLResource {
+	return apitypes.ACLResource{
+		Kind: ResourceKindFriendGroup,
 		Id:   id,
 	}
 }

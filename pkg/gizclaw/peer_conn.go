@@ -165,6 +165,7 @@ func (h *PeerConn) initRPC() {
 		h.rpc.peerRunRuntime = h.agentHost
 		h.rpc.serverGenX = h.serverGenX
 		h.rpc.serverResources = h.peerResources()
+		h.rpc.friendOTPs = h.Service.manager.Social
 	}
 	if h.Conn != nil {
 		h.rpc.callerPublicKey = h.Conn.PublicKey()
@@ -250,6 +251,7 @@ func (h *PeerConn) peerResources() *peerresource.Server {
 		Pets:        manager.Pets,
 		Wallets:     manager.Wallets,
 		Rewards:     manager.Rewards,
+		Social:      manager.Social,
 	}
 }
 

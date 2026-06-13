@@ -82,6 +82,78 @@ func TestRPCResourceClientWrappers(t *testing.T) {
 			return client.DeleteCredential(ctx, conn, "credential-delete", rpcapi.CredentialDeleteRequest{Name: "openai"})
 		})
 	})
+
+	t.Run("social", func(t *testing.T) {
+		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerContactList, rpcapi.ContactListResponse{}, (*rpcapi.RPCResponse_Result).FromContactListResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.ContactListResponse, error) {
+			return client.ListContacts(ctx, conn, "contact-list", rpcapi.ContactListRequest{})
+		})
+		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerContactGet, rpcapi.ContactGetResponse{}, (*rpcapi.RPCResponse_Result).FromContactGetResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.ContactGetResponse, error) {
+			return client.GetContact(ctx, conn, "contact-get", rpcapi.ContactGetRequest{Id: "contact-a"})
+		})
+		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerContactCreate, rpcapi.ContactCreateResponse{}, (*rpcapi.RPCResponse_Result).FromContactCreateResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.ContactCreateResponse, error) {
+			return client.CreateContact(ctx, conn, "contact-create", rpcapi.ContactCreateRequest{})
+		})
+		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerContactPut, rpcapi.ContactPutResponse{}, (*rpcapi.RPCResponse_Result).FromContactPutResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.ContactPutResponse, error) {
+			return client.PutContact(ctx, conn, "contact-put", rpcapi.ContactPutRequest{Id: "contact-a"})
+		})
+		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerContactDelete, rpcapi.ContactDeleteResponse{}, (*rpcapi.RPCResponse_Result).FromContactDeleteResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.ContactDeleteResponse, error) {
+			return client.DeleteContact(ctx, conn, "contact-delete", rpcapi.ContactDeleteRequest{Id: "contact-a"})
+		})
+		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerFriendRequestsList, rpcapi.FriendRequestListResponse{}, (*rpcapi.RPCResponse_Result).FromFriendRequestListResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.FriendRequestListResponse, error) {
+			return client.ListFriendRequests(ctx, conn, "friend-requests-list", rpcapi.FriendRequestListRequest{})
+		})
+		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerFriendRequestsCreate, rpcapi.FriendRequestCreateResponse{}, (*rpcapi.RPCResponse_Result).FromFriendRequestCreateResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.FriendRequestCreateResponse, error) {
+			return client.CreateFriendRequest(ctx, conn, "friend-requests-create", rpcapi.FriendRequestCreateRequest{ToPeerId: "peer-b", Code: "123456"})
+		})
+		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerFriendRequestsAccept, rpcapi.FriendRequestAcceptResponse{}, (*rpcapi.RPCResponse_Result).FromFriendRequestAcceptResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.FriendRequestAcceptResponse, error) {
+			return client.AcceptFriendRequest(ctx, conn, "friend-requests-accept", rpcapi.FriendRequestAcceptRequest{Id: "request-a"})
+		})
+		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerFriendRequestsReject, rpcapi.FriendRequestRejectResponse{}, (*rpcapi.RPCResponse_Result).FromFriendRequestRejectResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.FriendRequestRejectResponse, error) {
+			return client.RejectFriendRequest(ctx, conn, "friend-requests-reject", rpcapi.FriendRequestRejectRequest{Id: "request-a"})
+		})
+		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerFriendList, rpcapi.FriendListResponse{}, (*rpcapi.RPCResponse_Result).FromFriendListResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.FriendListResponse, error) {
+			return client.ListFriends(ctx, conn, "friend-list", rpcapi.FriendListRequest{})
+		})
+		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerFriendDelete, rpcapi.FriendDeleteResponse{}, (*rpcapi.RPCResponse_Result).FromFriendDeleteResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.FriendDeleteResponse, error) {
+			return client.DeleteFriend(ctx, conn, "friend-delete", rpcapi.FriendDeleteRequest{Id: "friend-a"})
+		})
+		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerFriendGroupList, rpcapi.FriendGroupListResponse{}, (*rpcapi.RPCResponse_Result).FromFriendGroupListResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.FriendGroupListResponse, error) {
+			return client.ListFriendGroups(ctx, conn, "friend-group-list", rpcapi.FriendGroupListRequest{})
+		})
+		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerFriendGroupGet, rpcapi.FriendGroupGetResponse{}, (*rpcapi.RPCResponse_Result).FromFriendGroupGetResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.FriendGroupGetResponse, error) {
+			return client.GetFriendGroup(ctx, conn, "friend-group-get", rpcapi.FriendGroupGetRequest{Id: "group-a"})
+		})
+		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerFriendGroupCreate, rpcapi.FriendGroupCreateResponse{}, (*rpcapi.RPCResponse_Result).FromFriendGroupCreateResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.FriendGroupCreateResponse, error) {
+			return client.CreateFriendGroup(ctx, conn, "friend-group-create", rpcapi.FriendGroupCreateRequest{Name: "family"})
+		})
+		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerFriendGroupPut, rpcapi.FriendGroupPutResponse{}, (*rpcapi.RPCResponse_Result).FromFriendGroupPutResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.FriendGroupPutResponse, error) {
+			return client.PutFriendGroup(ctx, conn, "friend-group-put", rpcapi.FriendGroupPutRequest{Id: "group-a"})
+		})
+		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerFriendGroupDelete, rpcapi.FriendGroupDeleteResponse{}, (*rpcapi.RPCResponse_Result).FromFriendGroupDeleteResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.FriendGroupDeleteResponse, error) {
+			return client.DeleteFriendGroup(ctx, conn, "friend-group-delete", rpcapi.FriendGroupDeleteRequest{Id: "group-a"})
+		})
+		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerFriendGroupMembersList, rpcapi.FriendGroupMemberListResponse{}, (*rpcapi.RPCResponse_Result).FromFriendGroupMemberListResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.FriendGroupMemberListResponse, error) {
+			return client.ListFriendGroupMembers(ctx, conn, "friend-group-members-list", rpcapi.FriendGroupMemberListRequest{})
+		})
+		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerFriendGroupMembersAdd, rpcapi.FriendGroupMemberAddResponse{}, (*rpcapi.RPCResponse_Result).FromFriendGroupMemberAddResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.FriendGroupMemberAddResponse, error) {
+			return client.AddFriendGroupMember(ctx, conn, "friend-group-members-add", rpcapi.FriendGroupMemberAddRequest{FriendGroupId: "group-a", PeerId: "peer-b"})
+		})
+		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerFriendGroupMembersPut, rpcapi.FriendGroupMemberPutResponse{}, (*rpcapi.RPCResponse_Result).FromFriendGroupMemberPutResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.FriendGroupMemberPutResponse, error) {
+			return client.PutFriendGroupMember(ctx, conn, "friend-group-members-put", rpcapi.FriendGroupMemberPutRequest{FriendGroupId: "group-a", Id: "peer-b"})
+		})
+		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerFriendGroupMembersDelete, rpcapi.FriendGroupMemberDeleteResponse{}, (*rpcapi.RPCResponse_Result).FromFriendGroupMemberDeleteResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.FriendGroupMemberDeleteResponse, error) {
+			return client.DeleteFriendGroupMember(ctx, conn, "friend-group-members-delete", rpcapi.FriendGroupMemberDeleteRequest{FriendGroupId: "group-a", Id: "peer-b"})
+		})
+		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerFriendGroupMessagesList, rpcapi.FriendGroupMessageListResponse{}, (*rpcapi.RPCResponse_Result).FromFriendGroupMessageListResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.FriendGroupMessageListResponse, error) {
+			return client.ListFriendGroupMessages(ctx, conn, "friend-group-messages-list", rpcapi.FriendGroupMessageListRequest{})
+		})
+		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerFriendGroupMessagesGet, rpcapi.FriendGroupMessageGetResponse{}, (*rpcapi.RPCResponse_Result).FromFriendGroupMessageGetResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.FriendGroupMessageGetResponse, error) {
+			return client.GetFriendGroupMessage(ctx, conn, "friend-group-messages-get", rpcapi.FriendGroupMessageGetRequest{FriendGroupId: "group-a", Id: "message-a"})
+		})
+		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerFriendGroupMessagesSend, rpcapi.FriendGroupMessageSendResponse{}, (*rpcapi.RPCResponse_Result).FromFriendGroupMessageSendResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.FriendGroupMessageSendResponse, error) {
+			return client.SendFriendGroupMessage(ctx, conn, "friend-group-messages-send", rpcapi.FriendGroupMessageSendRequest{FriendGroupId: "group-a", AudioContentType: "audio/opus"})
+		})
+	})
 }
 
 func runRPCResultWrapperTest[Resp any](

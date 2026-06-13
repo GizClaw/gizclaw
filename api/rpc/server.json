@@ -69,7 +69,11 @@
       "ServerGetRunStatusRequest": {
         "type": "object",
         "additionalProperties": false,
-        "properties": {}
+        "properties": {
+          "friend_otp": {
+            "type": "string"
+          }
+        }
       },
       "ServerGetRunStatusResponse": {
         "$ref": "../type/peer_run_status.json#/components/schemas/PeerRunStatus"
@@ -732,9 +736,11 @@
           "id": {
             "type": "string"
           },
-          "body": {
-            "type": "object",
-            "additionalProperties": true
+          "display_name": {
+            "type": "string"
+          },
+          "phone_number": {
+            "type": "string"
           },
           "created_at": {
             "type": "string",
@@ -754,8 +760,7 @@
             "type": "string"
           },
           "limit": {
-            "type": "integer",
-            "minimum": 1
+            "type": "integer"
           }
         }
       },
@@ -786,8 +791,7 @@
         "additionalProperties": false,
         "properties": {
           "id": {
-            "type": "string",
-            "minLength": 1
+            "type": "string"
           }
         },
         "required": [
@@ -801,14 +805,13 @@
         "type": "object",
         "additionalProperties": false,
         "properties": {
-          "body": {
-            "type": "object",
-            "additionalProperties": true
+          "display_name": {
+            "type": "string"
+          },
+          "phone_number": {
+            "type": "string"
           }
-        },
-        "required": [
-          "body"
-        ]
+        }
       },
       "ContactCreateResponse": {
         "$ref": "#/components/schemas/ContactObject"
@@ -818,17 +821,17 @@
         "additionalProperties": false,
         "properties": {
           "id": {
-            "type": "string",
-            "minLength": 1
+            "type": "string"
           },
-          "body": {
-            "type": "object",
-            "additionalProperties": true
+          "display_name": {
+            "type": "string"
+          },
+          "phone_number": {
+            "type": "string"
           }
         },
         "required": [
-          "id",
-          "body"
+          "id"
         ]
       },
       "ContactPutResponse": {
@@ -839,8 +842,7 @@
         "additionalProperties": false,
         "properties": {
           "id": {
-            "type": "string",
-            "minLength": 1
+            "type": "string"
           }
         },
         "required": [
@@ -850,38 +852,6 @@
       "ContactDeleteResponse": {
         "$ref": "#/components/schemas/ContactObject"
       },
-      "ContactBlockRequest": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "id": {
-            "type": "string",
-            "minLength": 1
-          }
-        },
-        "required": [
-          "id"
-        ]
-      },
-      "ContactBlockResponse": {
-        "$ref": "#/components/schemas/ContactObject"
-      },
-      "ContactUnblockRequest": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "id": {
-            "type": "string",
-            "minLength": 1
-          }
-        },
-        "required": [
-          "id"
-        ]
-      },
-      "ContactUnblockResponse": {
-        "$ref": "#/components/schemas/ContactObject"
-      },
       "FriendRequestObject": {
         "type": "object",
         "additionalProperties": false,
@@ -889,15 +859,27 @@
           "id": {
             "type": "string"
           },
-          "body": {
-            "type": "object",
-            "additionalProperties": true
+          "from_peer_id": {
+            "type": "string"
+          },
+          "to_peer_id": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "state": {
+            "$ref": "#/components/schemas/FriendRequestState"
           },
           "created_at": {
             "type": "string",
             "format": "date-time"
           },
           "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "responded_at": {
             "type": "string",
             "format": "date-time"
           }
@@ -911,8 +893,13 @@
             "type": "string"
           },
           "limit": {
-            "type": "integer",
-            "minimum": 1
+            "type": "integer"
+          },
+          "box": {
+            "$ref": "#/components/schemas/FriendRequestBox"
+          },
+          "state": {
+            "$ref": "#/components/schemas/FriendRequestState"
           }
         }
       },
@@ -942,13 +929,19 @@
         "type": "object",
         "additionalProperties": false,
         "properties": {
-          "body": {
-            "type": "object",
-            "additionalProperties": true
+          "to_peer_id": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
           }
         },
         "required": [
-          "body"
+          "to_peer_id",
+          "code"
         ]
       },
       "FriendRequestCreateResponse": {
@@ -959,8 +952,7 @@
         "additionalProperties": false,
         "properties": {
           "id": {
-            "type": "string",
-            "minLength": 1
+            "type": "string"
           }
         },
         "required": [
@@ -975,8 +967,7 @@
         "additionalProperties": false,
         "properties": {
           "id": {
-            "type": "string",
-            "minLength": 1
+            "type": "string"
           }
         },
         "required": [
@@ -993,9 +984,11 @@
           "id": {
             "type": "string"
           },
-          "body": {
-            "type": "object",
-            "additionalProperties": true
+          "peer_id": {
+            "type": "string"
+          },
+          "request_id": {
+            "type": "string"
           },
           "created_at": {
             "type": "string",
@@ -1015,8 +1008,7 @@
             "type": "string"
           },
           "limit": {
-            "type": "integer",
-            "minimum": 1
+            "type": "integer"
           }
         }
       },
@@ -1047,8 +1039,7 @@
         "additionalProperties": false,
         "properties": {
           "id": {
-            "type": "string",
-            "minLength": 1
+            "type": "string"
           }
         },
         "required": [
@@ -1058,16 +1049,21 @@
       "FriendDeleteResponse": {
         "$ref": "#/components/schemas/FriendObject"
       },
-      "GroupObject": {
+      "FriendGroupObject": {
         "type": "object",
         "additionalProperties": false,
         "properties": {
           "id": {
             "type": "string"
           },
-          "body": {
-            "type": "object",
-            "additionalProperties": true
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "created_by_peer_id": {
+            "type": "string"
           },
           "created_at": {
             "type": "string",
@@ -1079,7 +1075,7 @@
           }
         }
       },
-      "GroupListRequest": {
+      "FriendGroupListRequest": {
         "type": "object",
         "additionalProperties": false,
         "properties": {
@@ -1087,19 +1083,18 @@
             "type": "string"
           },
           "limit": {
-            "type": "integer",
-            "minimum": 1
+            "type": "integer"
           }
         }
       },
-      "GroupListResponse": {
+      "FriendGroupListResponse": {
         "type": "object",
         "additionalProperties": false,
         "properties": {
           "items": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/GroupObject"
+              "$ref": "#/components/schemas/FriendGroupObject"
             }
           },
           "has_next": {
@@ -1114,85 +1109,90 @@
           "has_next"
         ]
       },
-      "GroupGetRequest": {
+      "FriendGroupGetRequest": {
         "type": "object",
         "additionalProperties": false,
         "properties": {
           "id": {
-            "type": "string",
-            "minLength": 1
+            "type": "string"
           }
         },
         "required": [
           "id"
         ]
       },
-      "GroupGetResponse": {
-        "$ref": "#/components/schemas/GroupObject"
+      "FriendGroupGetResponse": {
+        "$ref": "#/components/schemas/FriendGroupObject"
       },
-      "GroupCreateRequest": {
+      "FriendGroupCreateRequest": {
         "type": "object",
         "additionalProperties": false,
         "properties": {
-          "body": {
-            "type": "object",
-            "additionalProperties": true
-          }
-        },
-        "required": [
-          "body"
-        ]
-      },
-      "GroupCreateResponse": {
-        "$ref": "#/components/schemas/GroupObject"
-      },
-      "GroupPutRequest": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "id": {
-            "type": "string",
-            "minLength": 1
+          "name": {
+            "type": "string"
           },
-          "body": {
-            "type": "object",
-            "additionalProperties": true
+          "description": {
+            "type": "string"
           }
         },
         "required": [
-          "id",
-          "body"
+          "name"
         ]
       },
-      "GroupPutResponse": {
-        "$ref": "#/components/schemas/GroupObject"
+      "FriendGroupCreateResponse": {
+        "$ref": "#/components/schemas/FriendGroupObject"
       },
-      "GroupDeleteRequest": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "id": {
-            "type": "string",
-            "minLength": 1
-          }
-        },
-        "required": [
-          "id"
-        ]
-      },
-      "GroupDeleteResponse": {
-        "$ref": "#/components/schemas/GroupObject"
-      },
-      "GroupMemberObject": {
+      "FriendGroupPutRequest": {
         "type": "object",
         "additionalProperties": false,
         "properties": {
           "id": {
             "type": "string"
           },
-          "body": {
-            "type": "object",
-            "additionalProperties": true
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "FriendGroupPutResponse": {
+        "$ref": "#/components/schemas/FriendGroupObject"
+      },
+      "FriendGroupDeleteRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "FriendGroupDeleteResponse": {
+        "$ref": "#/components/schemas/FriendGroupObject"
+      },
+      "FriendGroupMemberObject": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "friend_group_id": {
+            "type": "string"
+          },
+          "peer_id": {
+            "type": "string"
+          },
+          "role": {
+            "$ref": "#/components/schemas/FriendGroupMemberRole"
           },
           "created_at": {
             "type": "string",
@@ -1204,7 +1204,7 @@
           }
         }
       },
-      "GroupMemberListRequest": {
+      "FriendGroupMemberListRequest": {
         "type": "object",
         "additionalProperties": false,
         "properties": {
@@ -1212,19 +1212,21 @@
             "type": "string"
           },
           "limit": {
-            "type": "integer",
-            "minimum": 1
+            "type": "integer"
+          },
+          "friend_group_id": {
+            "type": "string"
           }
         }
       },
-      "GroupMemberListResponse": {
+      "FriendGroupMemberListResponse": {
         "type": "object",
         "additionalProperties": false,
         "properties": {
           "items": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/GroupMemberObject"
+              "$ref": "#/components/schemas/FriendGroupMemberObject"
             }
           },
           "has_next": {
@@ -1239,60 +1241,85 @@
           "has_next"
         ]
       },
-      "GroupMemberAddRequest": {
+      "FriendGroupMemberAddRequest": {
         "type": "object",
         "additionalProperties": false,
         "properties": {
-          "body": {
-            "type": "object",
-            "additionalProperties": true
+          "friend_group_id": {
+            "type": "string"
+          },
+          "peer_id": {
+            "type": "string"
+          },
+          "role": {
+            "$ref": "#/components/schemas/FriendGroupMemberMutableRole"
           }
         },
         "required": [
-          "body"
+          "friend_group_id",
+          "peer_id",
+          "role"
         ]
       },
-      "GroupMemberAddResponse": {
-        "$ref": "#/components/schemas/GroupMemberObject"
+      "FriendGroupMemberAddResponse": {
+        "$ref": "#/components/schemas/FriendGroupMemberObject"
       },
-      "GroupMemberDeleteRequest": {
+      "FriendGroupMemberDeleteRequest": {
         "type": "object",
         "additionalProperties": false,
         "properties": {
+          "friend_group_id": {
+            "type": "string"
+          },
           "id": {
-            "type": "string",
-            "minLength": 1
+            "type": "string"
           }
         },
         "required": [
+          "friend_group_id",
           "id"
         ]
       },
-      "GroupMemberDeleteResponse": {
-        "$ref": "#/components/schemas/GroupMemberObject"
+      "FriendGroupMemberDeleteResponse": {
+        "$ref": "#/components/schemas/FriendGroupMemberObject"
       },
-      "GroupMessageObject": {
+      "FriendGroupMessageObject": {
         "type": "object",
         "additionalProperties": false,
         "properties": {
           "id": {
             "type": "string"
           },
-          "body": {
-            "type": "object",
-            "additionalProperties": true
+          "friend_group_id": {
+            "type": "string"
           },
-          "created_at": {
+          "sender_peer_id": {
+            "type": "string"
+          },
+          "audio_path": {
+            "type": "string"
+          },
+          "audio_content_type": {
+            "type": "string"
+          },
+          "audio_size_bytes": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "ttl_seconds": {
+            "type": "integer"
+          },
+          "expires_at": {
             "type": "string",
             "format": "date-time"
           },
-          "updated_at": {
+          "created_at": {
             "type": "string",
             "format": "date-time"
           }
         }
       },
-      "GroupMessageListRequest": {
+      "FriendGroupMessageListRequest": {
         "type": "object",
         "additionalProperties": false,
         "properties": {
@@ -1300,19 +1327,21 @@
             "type": "string"
           },
           "limit": {
-            "type": "integer",
-            "minimum": 1
+            "type": "integer"
+          },
+          "friend_group_id": {
+            "type": "string"
           }
         }
       },
-      "GroupMessageListResponse": {
+      "FriendGroupMessageListResponse": {
         "type": "object",
         "additionalProperties": false,
         "properties": {
           "items": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/GroupMessageObject"
+              "$ref": "#/components/schemas/FriendGroupMessageObject"
             }
           },
           "has_next": {
@@ -1327,157 +1356,32 @@
           "has_next"
         ]
       },
-      "GroupMessageSendRequest": {
+      "FriendGroupMessageSendRequest": {
         "type": "object",
         "additionalProperties": false,
         "properties": {
-          "body": {
-            "type": "object",
-            "additionalProperties": true
-          }
-        },
-        "required": [
-          "body"
-        ]
-      },
-      "GroupMessageSendResponse": {
-        "$ref": "#/components/schemas/GroupMessageObject"
-      },
-      "CallObject": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "id": {
+          "friend_group_id": {
             "type": "string"
           },
-          "body": {
-            "type": "object",
-            "additionalProperties": true
-          },
-          "created_at": {
+          "audio_base64": {
             "type": "string",
-            "format": "date-time"
+            "format": "byte"
           },
-          "updated_at": {
-            "type": "string",
-            "format": "date-time"
-          }
-        }
-      },
-      "CallListRequest": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "cursor": {
+          "audio_content_type": {
             "type": "string"
           },
-          "limit": {
-            "type": "integer",
-            "minimum": 1
-          }
-        }
-      },
-      "CallListResponse": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "items": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/CallObject"
-            }
-          },
-          "has_next": {
-            "type": "boolean"
-          },
-          "next_cursor": {
-            "type": "string"
+          "ttl_seconds": {
+            "type": "integer"
           }
         },
         "required": [
-          "items",
-          "has_next"
+          "friend_group_id",
+          "audio_base64",
+          "audio_content_type"
         ]
       },
-      "CallGetRequest": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "id": {
-            "type": "string",
-            "minLength": 1
-          }
-        },
-        "required": [
-          "id"
-        ]
-      },
-      "CallGetResponse": {
-        "$ref": "#/components/schemas/CallObject"
-      },
-      "CallCreateRequest": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "body": {
-            "type": "object",
-            "additionalProperties": true
-          }
-        },
-        "required": [
-          "body"
-        ]
-      },
-      "CallCreateResponse": {
-        "$ref": "#/components/schemas/CallObject"
-      },
-      "CallAnswerRequest": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "id": {
-            "type": "string",
-            "minLength": 1
-          }
-        },
-        "required": [
-          "id"
-        ]
-      },
-      "CallAnswerResponse": {
-        "$ref": "#/components/schemas/CallObject"
-      },
-      "CallRejectRequest": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "id": {
-            "type": "string",
-            "minLength": 1
-          }
-        },
-        "required": [
-          "id"
-        ]
-      },
-      "CallRejectResponse": {
-        "$ref": "#/components/schemas/CallObject"
-      },
-      "CallEndRequest": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "id": {
-            "type": "string",
-            "minLength": 1
-          }
-        },
-        "required": [
-          "id"
-        ]
-      },
-      "CallEndResponse": {
-        "$ref": "#/components/schemas/CallObject"
+      "FriendGroupMessageSendResponse": {
+        "$ref": "#/components/schemas/FriendGroupMessageObject"
       },
       "WalletGetRequest": {
         "type": "object",
@@ -1747,6 +1651,79 @@
       },
       "WalletTransactionsGetResponse": {
         "$ref": "#/components/schemas/WalletTransactionObject"
+      },
+      "FriendRequestState": {
+        "type": "string",
+        "enum": [
+          "pending",
+          "accepted",
+          "rejected"
+        ]
+      },
+      "FriendRequestBox": {
+        "type": "string",
+        "enum": [
+          "all",
+          "incoming",
+          "outgoing"
+        ]
+      },
+      "FriendGroupMemberRole": {
+        "type": "string",
+        "enum": [
+          "owner",
+          "admin",
+          "member"
+        ]
+      },
+      "FriendGroupMemberMutableRole": {
+        "type": "string",
+        "enum": [
+          "admin",
+          "member"
+        ]
+      },
+      "FriendGroupMemberPutRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "friend_group_id": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "role": {
+            "$ref": "#/components/schemas/FriendGroupMemberMutableRole"
+          }
+        },
+        "required": [
+          "friend_group_id",
+          "id",
+          "role"
+        ]
+      },
+      "FriendGroupMemberPutResponse": {
+        "$ref": "#/components/schemas/FriendGroupMemberObject"
+      },
+      "FriendGroupMessageGetRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "friend_group_id": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "friend_group_id",
+          "id"
+        ]
+      },
+      "FriendGroupMessageGetResponse": {
+        "$ref": "#/components/schemas/FriendGroupMessageObject"
       }
     }
   }

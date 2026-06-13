@@ -201,9 +201,9 @@ func (c *Client) ReloadServerRun(ctx context.Context, id string) (*rpcapi.Server
 	})
 }
 
-func (c *Client) GetServerRunStatus(ctx context.Context, id string) (*rpcapi.ServerGetRunStatusResponse, error) {
+func (c *Client) GetServerRunStatus(ctx context.Context, id string, request ...rpcapi.ServerGetRunStatusRequest) (*rpcapi.ServerGetRunStatusResponse, error) {
 	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.ServerGetRunStatusResponse, error) {
-		return client.GetServerRunStatus(ctx, conn, id)
+		return client.GetServerRunStatus(ctx, conn, id, request...)
 	})
 }
 

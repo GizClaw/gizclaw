@@ -12,8 +12,47 @@ export type PolicyBindingFormState = {
   subjectKind: AclSubjectKind;
 };
 
-export const resourceKinds: AclResourceKind[] = ["workspace", "workflow", "voice", "credential", "model", "view"];
-export const commonPermissions: AclPermission[] = ["viewer", "editor", "owner", "credential.read", "credential.use", "credential.admin"];
+export const resourceKinds: AclResourceKind[] = [
+  "workspace",
+  "workflow",
+  "voice",
+  "credential",
+  "model",
+  "view",
+  "contact",
+  "friend",
+  "friend_request",
+  "friend_group",
+  "pet_species",
+  "badge",
+];
+
+export const commonPermissions: AclPermission[] = [
+  "viewer",
+  "editor",
+  "owner",
+  "credential.read",
+  "credential.use",
+  "credential.admin",
+  "contact.read",
+  "contact.use",
+  "contact.admin",
+  "friend.read",
+  "friend.use",
+  "friend.admin",
+  "friend_request.read",
+  "friend_request.use",
+  "friend_request.admin",
+  "friend_group.read",
+  "friend_group.use",
+  "friend_group.admin",
+  "pet_species.read",
+  "pet_species.use",
+  "pet_species.admin",
+  "badge.read",
+  "badge.use",
+  "badge.admin",
+];
 
 export function bindingFormFromBinding(binding: AclPolicyBinding): PolicyBindingFormState {
   return {

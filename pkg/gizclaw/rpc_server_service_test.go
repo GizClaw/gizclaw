@@ -32,11 +32,12 @@ func TestRPCServerPeerMethods(t *testing.T) {
 	}
 	runRuntime := &fakeRPCPeerRunRuntime{
 		reload: apitypes.PeerRunStatus{State: apitypes.PeerRunStatusStateRunning, WorkspaceName: stringPtr("demo")},
-		status: apitypes.PeerRunStatus{State: apitypes.PeerRunStatusStateRunning, WorkspaceName: stringPtr("demo")},
+		status: apitypes.PeerRunStatus{State: apitypes.PeerRunStatusStateRunning, WorkspaceName: stringPtr("demo"), FriendOtp: stringPtr("123456")},
 		stop:   apitypes.PeerRunStatus{State: apitypes.PeerRunStatusStateStopped, WorkspaceName: stringPtr("demo")},
 	}
+	friendOTPs := &fakeFriendOTPReporter{}
 	serverGenX := &fakeRPCServerGenXService{}
-	server := &rpcServer{peer: fake, peerRun: &peerrun.Server{Store: kv.NewMemory(nil)}, peerRunRuntime: runRuntime, serverGenX: serverGenX, callerPublicKey: publicKey}
+	server := &rpcServer{peer: fake, peerRun: &peerrun.Server{Store: kv.NewMemory(nil)}, peerRunRuntime: runRuntime, friendOTPs: friendOTPs, serverGenX: serverGenX, callerPublicKey: publicKey}
 	client := &rpcClient{}
 
 	info := callRPCPair(t, server, func(conn net.Conn) (*rpcapi.ServerGetInfoResponse, error) {
@@ -102,13 +103,25 @@ func TestRPCServerPeerMethods(t *testing.T) {
 	if runStatus.State != rpcapi.PeerRunStatusStateRunning {
 		t.Fatalf("GetServerRunStatus() = %+v", runStatus)
 	}
+	if friendOTPs.peerID != publicKey.String() || friendOTPs.code != "123456" {
+		t.Fatalf("friend OTP report = peer %q code %q", friendOTPs.peerID, friendOTPs.code)
+	}
+	runStatus = callRPCPair(t, server, func(conn net.Conn) (*rpcapi.ServerGetRunStatusResponse, error) {
+		return client.GetServerRunStatus(context.Background(), conn, "run-status-report", rpcapi.ServerGetRunStatusRequest{FriendOtp: stringPtr("654321")})
+	})
+	if runStatus.FriendOtp == nil || *runStatus.FriendOtp != "654321" {
+		t.Fatalf("GetServerRunStatus reported friend_otp = %+v", runStatus.FriendOtp)
+	}
+	if friendOTPs.peerID != publicKey.String() || friendOTPs.code != "654321" {
+		t.Fatalf("request friend OTP report = peer %q code %q", friendOTPs.peerID, friendOTPs.code)
+	}
 	stopRun := callRPCPair(t, server, func(conn net.Conn) (*rpcapi.ServerStopRunResponse, error) {
 		return client.StopServerRun(context.Background(), conn, "stop-run")
 	})
 	if stopRun.State != rpcapi.PeerRunStatusStateStopped {
 		t.Fatalf("StopServerRun() = %+v", stopRun)
 	}
-	if runRuntime.reloadCalls != 1 || runRuntime.statusCalls != 1 || runRuntime.stopCalls != 1 {
+	if runRuntime.reloadCalls != 1 || runRuntime.statusCalls != 2 || runRuntime.stopCalls != 1 {
 		t.Fatalf("runtime calls reload=%d status=%d stop=%d", runRuntime.reloadCalls, runRuntime.statusCalls, runRuntime.stopCalls)
 	}
 
@@ -121,6 +134,18 @@ func TestRPCServerPeerMethods(t *testing.T) {
 	if serverGenX.lastSay.Text != "hello" || serverGenX.lastSay.VoiceID != "voice-1" {
 		t.Fatalf("ServerRunSay request = %+v", serverGenX.lastSay)
 	}
+}
+
+type fakeFriendOTPReporter struct {
+	peerID string
+	code   string
+	err    error
+}
+
+func (f *fakeFriendOTPReporter) ReportFriendOTP(_ context.Context, peerID, code string) error {
+	f.peerID = peerID
+	f.code = code
+	return f.err
 }
 
 func TestRPCServerPeerErrorResponse(t *testing.T) {

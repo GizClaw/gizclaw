@@ -26,6 +26,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/publiclogin"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/resourcemanager"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/reward"
+	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/social"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/voice"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/wallet"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/workflow"
@@ -47,36 +48,50 @@ type Server struct {
 
 	SecurityPolicy giznet.SecurityPolicy
 
-	PeerStore              kv.Store
-	PeerRunStore           kv.Store
-	CredentialStore        kv.Store
-	FirmwareStore          kv.Store
-	MiniMaxCredentialStore kv.Store
-	MiniMaxTenantStore     kv.Store
-	VolcTenantStore        kv.Store
-	ModelStore             kv.Store
-	VoiceStore             kv.Store
-	WorkspaceStore         kv.Store
-	WorkflowStore          kv.Store
-	PublicLoginStore       kv.Store
-	PetStore               kv.Store
-	PetSpeciesStore        kv.Store
-	PetSpeciesAssets       objectstore.ObjectStore
-	BadgeStore             kv.Store
-	BadgeAssets            objectstore.ObjectStore
-	WalletDB               *sql.DB
-	RewardStore            kv.Store
-	RewardClaimGenerator   string
-	RewardClaimCooldown    time.Duration
-	PetActionGenerator     string
-	BuildCommit            string
-	ACLDB                  *sql.DB
+	PeerStore                    kv.Store
+	PeerRunStore                 kv.Store
+	CredentialStore              kv.Store
+	FirmwareStore                kv.Store
+	MiniMaxCredentialStore       kv.Store
+	MiniMaxTenantStore           kv.Store
+	VolcTenantStore              kv.Store
+	ModelStore                   kv.Store
+	VoiceStore                   kv.Store
+	WorkspaceStore               kv.Store
+	WorkflowStore                kv.Store
+	PublicLoginStore             kv.Store
+	PetStore                     kv.Store
+	PetSpeciesStore              kv.Store
+	PetSpeciesAssets             objectstore.ObjectStore
+	BadgeStore                   kv.Store
+	BadgeAssets                  objectstore.ObjectStore
+	WalletDB                     *sql.DB
+	RewardStore                  kv.Store
+	ContactStore                 kv.Store
+	FriendRequestStore           kv.Store
+	FriendStore                  kv.Store
+	FriendGroupStore             kv.Store
+	FriendGroupMemberStore       kv.Store
+	FriendGroupMessageStore      kv.Store
+	FriendGroupMessageAssets     objectstore.ObjectStore
+	FriendOTPTTL                 time.Duration
+	FriendGroupMessageDefaultTTL time.Duration
+	FriendGroupMessageMaxTTL     time.Duration
+	FriendGroupMessageCleanup    time.Duration
+	FriendGroupMessageMaxBytes   int64
+	RewardClaimGenerator         string
+	RewardClaimCooldown          time.Duration
+	PetActionGenerator           string
+	BuildCommit                  string
+	ACLDB                        *sql.DB
 
 	manager     *Manager
 	peerService *PeerService
 	sessions    *publiclogin.SessionManager
 	listener    *giznet.Listener
 	httpHandler http.Handler
+	cleanupStop context.CancelFunc
+	cleanupDone <-chan struct{}
 }
 
 // ServeHTTP exposes server-public APIs over ordinary HTTP.
@@ -106,6 +121,7 @@ func (s *Server) Listen() error {
 		return err
 	}
 	s.listener = l
+	s.startCleanup()
 	return nil
 }
 
@@ -179,7 +195,43 @@ func (s *Server) Close() error {
 	if listener != nil {
 		errs = append(errs, listener.Close())
 	}
+	if s.cleanupStop != nil {
+		s.cleanupStop()
+		s.cleanupStop = nil
+	}
+	if s.cleanupDone != nil {
+		<-s.cleanupDone
+		s.cleanupDone = nil
+	}
 	return errors.Join(errs...)
+}
+
+func (s *Server) startCleanup() {
+	if s == nil || s.cleanupStop != nil || s.manager == nil || s.manager.Social == nil || s.manager.Social.FriendGroupMessages == nil {
+		return
+	}
+	interval := s.FriendGroupMessageCleanup
+	if interval <= 0 {
+		interval = 5 * time.Minute
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	s.cleanupStop = cancel
+	s.cleanupDone = done
+	socialServer := s.manager.Social
+	go func() {
+		defer close(done)
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				_ = socialServer.CleanupExpiredFriendGroupMessages(context.WithoutCancel(ctx))
+			}
+		}
+	}()
 }
 
 func (s *Server) init() error {
@@ -211,6 +263,18 @@ func (s *Server) init() error {
 		s.BadgeAssets == nil &&
 		s.WalletDB == nil &&
 		s.RewardStore == nil &&
+		s.ContactStore == nil &&
+		s.FriendRequestStore == nil &&
+		s.FriendStore == nil &&
+		s.FriendGroupStore == nil &&
+		s.FriendGroupMemberStore == nil &&
+		s.FriendGroupMessageStore == nil &&
+		s.FriendGroupMessageAssets == nil &&
+		s.FriendOTPTTL == 0 &&
+		s.FriendGroupMessageDefaultTTL == 0 &&
+		s.FriendGroupMessageMaxTTL == 0 &&
+		s.FriendGroupMessageCleanup == 0 &&
+		s.FriendGroupMessageMaxBytes == 0 &&
 		s.RewardClaimGenerator == "" &&
 		s.RewardClaimCooldown == 0 &&
 		s.PetActionGenerator == ""
@@ -233,6 +297,12 @@ func (s *Server) init() error {
 	petSpeciesStore := moduleStore(s.PetSpeciesStore, s.PeerStore, "pet-species")
 	badgeStore := moduleStore(s.BadgeStore, s.PeerStore, "badges")
 	rewardStore := moduleStore(s.RewardStore, s.PeerStore, "rewards")
+	contactStore := moduleStore(s.ContactStore, s.PeerStore, "contacts")
+	friendRequestStore := moduleStore(s.FriendRequestStore, s.PeerStore, "friend-requests")
+	friendStore := moduleStore(s.FriendStore, s.PeerStore, "friends")
+	friendGroupStore := moduleStore(s.FriendGroupStore, s.PeerStore, "friend-groups")
+	friendGroupMemberStore := moduleStore(s.FriendGroupMemberStore, s.PeerStore, "friend-group-members")
+	friendGroupMessageStore := moduleStore(s.FriendGroupMessageStore, s.PeerStore, "friend-group-messages")
 
 	publicLoginServer := publiclogin.NewServer(&s.LocalStatic, publicLoginStore)
 	sessions := publicLoginServer.SessionManager()
@@ -272,6 +342,21 @@ func (s *Server) init() error {
 		Wallet:          walletServer,
 		SpeciesSelector: firstPetSpeciesSelector{Service: petSpeciesServer, ACL: aclServer},
 		VoiceSelector:   firstVoiceSelector{Service: voiceServer},
+	}
+	socialServer := &social.Server{
+		Contacts:               contactStore,
+		FriendRequests:         friendRequestStore,
+		Friends:                friendStore,
+		FriendGroups:           friendGroupStore,
+		FriendGroupMembers:     friendGroupMemberStore,
+		FriendGroupMessages:    friendGroupMessageStore,
+		MessageAssets:          s.FriendGroupMessageAssets,
+		ACL:                    aclServer,
+		FriendOTPTTL:           s.FriendOTPTTL,
+		MessageDefaultTTL:      s.FriendGroupMessageDefaultTTL,
+		MessageMaxTTL:          s.FriendGroupMessageMaxTTL,
+		MessageCleanupInterval: s.FriendGroupMessageCleanup,
+		MessageMaxAudioBytes:   s.FriendGroupMessageMaxBytes,
 	}
 	providerTenantsServer := &providertenants.Server{
 		ModelStore:      modelStore,
@@ -313,6 +398,7 @@ func (s *Server) init() error {
 	manager.Pets = petServer
 	manager.Wallets = walletServer
 	manager.Rewards = rewardServer
+	manager.Social = socialServer
 	manager.ProviderTenants = providerTenantsServer
 	resourceManager := resourcemanager.New(resourcemanager.Services{
 		ACL:             aclServer,

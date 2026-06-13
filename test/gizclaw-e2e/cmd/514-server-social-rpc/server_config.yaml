@@ -1,0 +1,104 @@
+listen: "__LISTEN_ADDR__"
+storage:
+  memory:
+    kind: keyvalue
+    memory: {}
+  local-files:
+    kind: objectstore
+    fs:
+      dir: .
+  acl-db:
+    kind: sql
+    sqlite:
+      dir: data/acl.sqlite
+stores:
+  peers:
+    kind: keyvalue
+    storage: memory
+    prefix: peers
+  credentials:
+    kind: keyvalue
+    storage: memory
+    prefix: credentials
+  firmwares:
+    kind: keyvalue
+    storage: memory
+    prefix: firmwares
+  minimax-tenants:
+    kind: keyvalue
+    storage: memory
+    prefix: minimax-tenants
+  voices:
+    kind: keyvalue
+    storage: memory
+    prefix: voices
+  workspaces:
+    kind: keyvalue
+    storage: memory
+    prefix: workspaces
+  workflows:
+    kind: keyvalue
+    storage: memory
+    prefix: workflows
+  acl:
+    kind: sql
+    storage: acl-db
+  contacts:
+    kind: keyvalue
+    storage: memory
+    prefix: contacts
+  friend-requests:
+    kind: keyvalue
+    storage: memory
+    prefix: friend-requests
+  friends:
+    kind: keyvalue
+    storage: memory
+    prefix: friends
+  friend-groups:
+    kind: keyvalue
+    storage: memory
+    prefix: friend-groups
+  friend-group-members:
+    kind: keyvalue
+    storage: memory
+    prefix: friend-group-members
+  friend-group-messages:
+    kind: keyvalue
+    storage: memory
+    prefix: friend-group-messages
+  friend-group-message-assets:
+    kind: objectstore
+    storage: local-files
+    prefix: friend-group-messages
+peers:
+  store: peers
+credentials:
+  store: credentials
+firmwares:
+  store: firmwares
+minimax:
+  tenants-store: minimax-tenants
+  voices-store: voices
+  credentials-store: credentials
+workspaces:
+  store: workspaces
+workflows:
+  store: workflows
+acl:
+  store: acl
+contacts:
+  store: contacts
+friends:
+  store: friends
+  requests_store: friend-requests
+  friend_otp_ttl: 2s
+friend_groups:
+  store: friend-groups
+  members_store: friend-group-members
+  messages_store: friend-group-messages
+  message_assets_store: friend-group-message-assets
+  message_default_ttl: 24h
+  message_max_ttl: 7d
+  message_cleanup_interval: 100ms
+  message_max_audio_bytes: 64

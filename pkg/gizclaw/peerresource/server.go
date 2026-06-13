@@ -17,6 +17,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/model"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/pet"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/reward"
+	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/social"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/voice"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/wallet"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/workflow"
@@ -40,6 +41,7 @@ type Server struct {
 	Pets        *pet.Server
 	Wallets     *wallet.Server
 	Rewards     *reward.Server
+	Social      *social.Server
 }
 
 func IsMethod(method rpcapi.RPCMethod) bool {
@@ -77,7 +79,30 @@ func IsMethod(method rpcapi.RPCMethod) bool {
 		rpcapi.RPCMethodServerWalletTransactionsGet,
 		rpcapi.RPCMethodServerRewardList,
 		rpcapi.RPCMethodServerRewardGet,
-		rpcapi.RPCMethodServerRewardClaim:
+		rpcapi.RPCMethodServerRewardClaim,
+		rpcapi.RPCMethodServerContactList,
+		rpcapi.RPCMethodServerContactGet,
+		rpcapi.RPCMethodServerContactCreate,
+		rpcapi.RPCMethodServerContactPut,
+		rpcapi.RPCMethodServerContactDelete,
+		rpcapi.RPCMethodServerFriendRequestsList,
+		rpcapi.RPCMethodServerFriendRequestsCreate,
+		rpcapi.RPCMethodServerFriendRequestsAccept,
+		rpcapi.RPCMethodServerFriendRequestsReject,
+		rpcapi.RPCMethodServerFriendList,
+		rpcapi.RPCMethodServerFriendDelete,
+		rpcapi.RPCMethodServerFriendGroupList,
+		rpcapi.RPCMethodServerFriendGroupGet,
+		rpcapi.RPCMethodServerFriendGroupCreate,
+		rpcapi.RPCMethodServerFriendGroupPut,
+		rpcapi.RPCMethodServerFriendGroupDelete,
+		rpcapi.RPCMethodServerFriendGroupMembersList,
+		rpcapi.RPCMethodServerFriendGroupMembersAdd,
+		rpcapi.RPCMethodServerFriendGroupMembersPut,
+		rpcapi.RPCMethodServerFriendGroupMembersDelete,
+		rpcapi.RPCMethodServerFriendGroupMessagesList,
+		rpcapi.RPCMethodServerFriendGroupMessagesGet,
+		rpcapi.RPCMethodServerFriendGroupMessagesSend:
 		return true
 	default:
 		return false
@@ -157,6 +182,52 @@ func (s *Server) Dispatch(ctx context.Context, req *rpcapi.RPCRequest) (*rpcapi.
 		return s.handleRewardGet(ctx, req), true, nil
 	case rpcapi.RPCMethodServerRewardClaim:
 		return s.handleRewardClaim(ctx, req), true, nil
+	case rpcapi.RPCMethodServerContactList:
+		return s.handleContactList(ctx, req), true, nil
+	case rpcapi.RPCMethodServerContactGet:
+		return s.handleContactGet(ctx, req), true, nil
+	case rpcapi.RPCMethodServerContactCreate:
+		return s.handleContactCreate(ctx, req), true, nil
+	case rpcapi.RPCMethodServerContactPut:
+		return s.handleContactPut(ctx, req), true, nil
+	case rpcapi.RPCMethodServerContactDelete:
+		return s.handleContactDelete(ctx, req), true, nil
+	case rpcapi.RPCMethodServerFriendRequestsList:
+		return s.handleFriendRequestsList(ctx, req), true, nil
+	case rpcapi.RPCMethodServerFriendRequestsCreate:
+		return s.handleFriendRequestsCreate(ctx, req), true, nil
+	case rpcapi.RPCMethodServerFriendRequestsAccept:
+		return s.handleFriendRequestsAccept(ctx, req), true, nil
+	case rpcapi.RPCMethodServerFriendRequestsReject:
+		return s.handleFriendRequestsReject(ctx, req), true, nil
+	case rpcapi.RPCMethodServerFriendList:
+		return s.handleFriendList(ctx, req), true, nil
+	case rpcapi.RPCMethodServerFriendDelete:
+		return s.handleFriendDelete(ctx, req), true, nil
+	case rpcapi.RPCMethodServerFriendGroupList:
+		return s.handleFriendGroupList(ctx, req), true, nil
+	case rpcapi.RPCMethodServerFriendGroupGet:
+		return s.handleFriendGroupGet(ctx, req), true, nil
+	case rpcapi.RPCMethodServerFriendGroupCreate:
+		return s.handleFriendGroupCreate(ctx, req), true, nil
+	case rpcapi.RPCMethodServerFriendGroupPut:
+		return s.handleFriendGroupPut(ctx, req), true, nil
+	case rpcapi.RPCMethodServerFriendGroupDelete:
+		return s.handleFriendGroupDelete(ctx, req), true, nil
+	case rpcapi.RPCMethodServerFriendGroupMembersList:
+		return s.handleFriendGroupMembersList(ctx, req), true, nil
+	case rpcapi.RPCMethodServerFriendGroupMembersAdd:
+		return s.handleFriendGroupMembersAdd(ctx, req), true, nil
+	case rpcapi.RPCMethodServerFriendGroupMembersPut:
+		return s.handleFriendGroupMembersPut(ctx, req), true, nil
+	case rpcapi.RPCMethodServerFriendGroupMembersDelete:
+		return s.handleFriendGroupMembersDelete(ctx, req), true, nil
+	case rpcapi.RPCMethodServerFriendGroupMessagesList:
+		return s.handleFriendGroupMessagesList(ctx, req), true, nil
+	case rpcapi.RPCMethodServerFriendGroupMessagesGet:
+		return s.handleFriendGroupMessagesGet(ctx, req), true, nil
+	case rpcapi.RPCMethodServerFriendGroupMessagesSend:
+		return s.handleFriendGroupMessagesSend(ctx, req), true, nil
 	default:
 		return nil, false, nil
 	}

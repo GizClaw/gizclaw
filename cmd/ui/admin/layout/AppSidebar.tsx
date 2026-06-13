@@ -1,5 +1,24 @@
 import type { LucideIcon } from "lucide-react";
-import { AudioLines, Boxes, Cpu, FileJson, FolderKanban, KeyRound, LayoutDashboard, Medal, Mic2, PackageCheck, PawPrint, ServerCog, ShieldCheck, Workflow } from "lucide-react";
+import {
+  AudioLines,
+  Boxes,
+  ContactRound,
+  Cpu,
+  FileJson,
+  FolderKanban,
+  KeyRound,
+  LayoutDashboard,
+  Medal,
+  MessageSquarePlus,
+  Mic2,
+  PackageCheck,
+  PawPrint,
+  ServerCog,
+  ShieldCheck,
+  UserRoundCheck,
+  UsersRound,
+  Workflow,
+} from "lucide-react";
 import { NavLink } from "react-router-dom";
 
 import { buttonVariants } from "@/components/ui/button";
@@ -64,6 +83,15 @@ const sections: NavSection[] = [
     items: [
       { href: "/business/pet-species", icon: PawPrint, label: "Pet Species" },
       { href: "/business/badges", icon: Medal, label: "Badges" },
+    ],
+  },
+  {
+    label: "Social",
+    items: [
+      { href: "/social/contacts", icon: ContactRound, label: "Contacts" },
+      { href: "/social/friends", icon: UserRoundCheck, label: "Friends" },
+      { href: "/social/friend-requests", icon: MessageSquarePlus, label: "Friend Requests" },
+      { href: "/social/friend-groups", icon: UsersRound, label: "Friend Groups" },
     ],
   },
   {

@@ -210,3 +210,141 @@ func (c *Client) ClaimReward(ctx context.Context, id string, request rpcapi.Rewa
 		return client.ClaimReward(ctx, conn, id, request)
 	})
 }
+
+func (c *Client) ListContacts(ctx context.Context, id string, request rpcapi.ContactListRequest) (*rpcapi.ContactListResponse, error) {
+	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.ContactListResponse, error) {
+		return client.ListContacts(ctx, conn, id, request)
+	})
+}
+
+func (c *Client) GetContact(ctx context.Context, id string, request rpcapi.ContactGetRequest) (*rpcapi.ContactGetResponse, error) {
+	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.ContactGetResponse, error) {
+		return client.GetContact(ctx, conn, id, request)
+	})
+}
+
+func (c *Client) CreateContact(ctx context.Context, id string, request rpcapi.ContactCreateRequest) (*rpcapi.ContactCreateResponse, error) {
+	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.ContactCreateResponse, error) {
+		return client.CreateContact(ctx, conn, id, request)
+	})
+}
+
+func (c *Client) PutContact(ctx context.Context, id string, request rpcapi.ContactPutRequest) (*rpcapi.ContactPutResponse, error) {
+	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.ContactPutResponse, error) {
+		return client.PutContact(ctx, conn, id, request)
+	})
+}
+
+func (c *Client) DeleteContact(ctx context.Context, id string, request rpcapi.ContactDeleteRequest) (*rpcapi.ContactDeleteResponse, error) {
+	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.ContactDeleteResponse, error) {
+		return client.DeleteContact(ctx, conn, id, request)
+	})
+}
+
+func (c *Client) ListFriendRequests(ctx context.Context, id string, request rpcapi.FriendRequestListRequest) (*rpcapi.FriendRequestListResponse, error) {
+	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.FriendRequestListResponse, error) {
+		return client.ListFriendRequests(ctx, conn, id, request)
+	})
+}
+
+func (c *Client) CreateFriendRequest(ctx context.Context, id string, request rpcapi.FriendRequestCreateRequest) (*rpcapi.FriendRequestCreateResponse, error) {
+	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.FriendRequestCreateResponse, error) {
+		return client.CreateFriendRequest(ctx, conn, id, request)
+	})
+}
+
+func (c *Client) AcceptFriendRequest(ctx context.Context, id string, request rpcapi.FriendRequestAcceptRequest) (*rpcapi.FriendRequestAcceptResponse, error) {
+	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.FriendRequestAcceptResponse, error) {
+		return client.AcceptFriendRequest(ctx, conn, id, request)
+	})
+}
+
+func (c *Client) RejectFriendRequest(ctx context.Context, id string, request rpcapi.FriendRequestRejectRequest) (*rpcapi.FriendRequestRejectResponse, error) {
+	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.FriendRequestRejectResponse, error) {
+		return client.RejectFriendRequest(ctx, conn, id, request)
+	})
+}
+
+func (c *Client) ListFriends(ctx context.Context, id string, request rpcapi.FriendListRequest) (*rpcapi.FriendListResponse, error) {
+	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.FriendListResponse, error) {
+		return client.ListFriends(ctx, conn, id, request)
+	})
+}
+
+func (c *Client) DeleteFriend(ctx context.Context, id string, request rpcapi.FriendDeleteRequest) (*rpcapi.FriendDeleteResponse, error) {
+	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.FriendDeleteResponse, error) {
+		return client.DeleteFriend(ctx, conn, id, request)
+	})
+}
+
+func (c *Client) ListFriendGroups(ctx context.Context, id string, request rpcapi.FriendGroupListRequest) (*rpcapi.FriendGroupListResponse, error) {
+	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.FriendGroupListResponse, error) {
+		return client.ListFriendGroups(ctx, conn, id, request)
+	})
+}
+
+func (c *Client) GetFriendGroup(ctx context.Context, id string, request rpcapi.FriendGroupGetRequest) (*rpcapi.FriendGroupGetResponse, error) {
+	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.FriendGroupGetResponse, error) {
+		return client.GetFriendGroup(ctx, conn, id, request)
+	})
+}
+
+func (c *Client) CreateFriendGroup(ctx context.Context, id string, request rpcapi.FriendGroupCreateRequest) (*rpcapi.FriendGroupCreateResponse, error) {
+	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.FriendGroupCreateResponse, error) {
+		return client.CreateFriendGroup(ctx, conn, id, request)
+	})
+}
+
+func (c *Client) PutFriendGroup(ctx context.Context, id string, request rpcapi.FriendGroupPutRequest) (*rpcapi.FriendGroupPutResponse, error) {
+	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.FriendGroupPutResponse, error) {
+		return client.PutFriendGroup(ctx, conn, id, request)
+	})
+}
+
+func (c *Client) DeleteFriendGroup(ctx context.Context, id string, request rpcapi.FriendGroupDeleteRequest) (*rpcapi.FriendGroupDeleteResponse, error) {
+	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.FriendGroupDeleteResponse, error) {
+		return client.DeleteFriendGroup(ctx, conn, id, request)
+	})
+}
+
+func (c *Client) ListFriendGroupMembers(ctx context.Context, id string, request rpcapi.FriendGroupMemberListRequest) (*rpcapi.FriendGroupMemberListResponse, error) {
+	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.FriendGroupMemberListResponse, error) {
+		return client.ListFriendGroupMembers(ctx, conn, id, request)
+	})
+}
+
+func (c *Client) AddFriendGroupMember(ctx context.Context, id string, request rpcapi.FriendGroupMemberAddRequest) (*rpcapi.FriendGroupMemberAddResponse, error) {
+	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.FriendGroupMemberAddResponse, error) {
+		return client.AddFriendGroupMember(ctx, conn, id, request)
+	})
+}
+
+func (c *Client) PutFriendGroupMember(ctx context.Context, id string, request rpcapi.FriendGroupMemberPutRequest) (*rpcapi.FriendGroupMemberPutResponse, error) {
+	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.FriendGroupMemberPutResponse, error) {
+		return client.PutFriendGroupMember(ctx, conn, id, request)
+	})
+}
+
+func (c *Client) DeleteFriendGroupMember(ctx context.Context, id string, request rpcapi.FriendGroupMemberDeleteRequest) (*rpcapi.FriendGroupMemberDeleteResponse, error) {
+	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.FriendGroupMemberDeleteResponse, error) {
+		return client.DeleteFriendGroupMember(ctx, conn, id, request)
+	})
+}
+
+func (c *Client) ListFriendGroupMessages(ctx context.Context, id string, request rpcapi.FriendGroupMessageListRequest) (*rpcapi.FriendGroupMessageListResponse, error) {
+	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.FriendGroupMessageListResponse, error) {
+		return client.ListFriendGroupMessages(ctx, conn, id, request)
+	})
+}
+
+func (c *Client) GetFriendGroupMessage(ctx context.Context, id string, request rpcapi.FriendGroupMessageGetRequest) (*rpcapi.FriendGroupMessageGetResponse, error) {
+	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.FriendGroupMessageGetResponse, error) {
+		return client.GetFriendGroupMessage(ctx, conn, id, request)
+	})
+}
+
+func (c *Client) SendFriendGroupMessage(ctx context.Context, id string, request rpcapi.FriendGroupMessageSendRequest) (*rpcapi.FriendGroupMessageSendResponse, error) {
+	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.FriendGroupMessageSendResponse, error) {
+		return client.SendFriendGroupMessage(ctx, conn, id, request)
+	})
+}

@@ -14,142 +14,6 @@
         ],
         "type": "object"
       },
-      "CallAnswerRequest": {
-        "additionalProperties": false,
-        "properties": {
-          "id": {
-            "minLength": 1,
-            "type": "string"
-          }
-        },
-        "required": [
-          "id"
-        ],
-        "type": "object"
-      },
-      "CallAnswerResponse": {
-        "$ref": "#/components/schemas/CallObject"
-      },
-      "CallCreateRequest": {
-        "additionalProperties": false,
-        "properties": {
-          "body": {
-            "additionalProperties": true,
-            "type": "object"
-          }
-        },
-        "required": [
-          "body"
-        ],
-        "type": "object"
-      },
-      "CallCreateResponse": {
-        "$ref": "#/components/schemas/CallObject"
-      },
-      "CallEndRequest": {
-        "additionalProperties": false,
-        "properties": {
-          "id": {
-            "minLength": 1,
-            "type": "string"
-          }
-        },
-        "required": [
-          "id"
-        ],
-        "type": "object"
-      },
-      "CallEndResponse": {
-        "$ref": "#/components/schemas/CallObject"
-      },
-      "CallGetRequest": {
-        "additionalProperties": false,
-        "properties": {
-          "id": {
-            "minLength": 1,
-            "type": "string"
-          }
-        },
-        "required": [
-          "id"
-        ],
-        "type": "object"
-      },
-      "CallGetResponse": {
-        "$ref": "#/components/schemas/CallObject"
-      },
-      "CallListRequest": {
-        "additionalProperties": false,
-        "properties": {
-          "cursor": {
-            "type": "string"
-          },
-          "limit": {
-            "minimum": 1,
-            "type": "integer"
-          }
-        },
-        "type": "object"
-      },
-      "CallListResponse": {
-        "additionalProperties": false,
-        "properties": {
-          "has_next": {
-            "type": "boolean"
-          },
-          "items": {
-            "items": {
-              "$ref": "#/components/schemas/CallObject"
-            },
-            "type": "array"
-          },
-          "next_cursor": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "items",
-          "has_next"
-        ],
-        "type": "object"
-      },
-      "CallObject": {
-        "additionalProperties": false,
-        "properties": {
-          "body": {
-            "additionalProperties": true,
-            "type": "object"
-          },
-          "created_at": {
-            "format": "date-time",
-            "type": "string"
-          },
-          "id": {
-            "type": "string"
-          },
-          "updated_at": {
-            "format": "date-time",
-            "type": "string"
-          }
-        },
-        "type": "object"
-      },
-      "CallRejectRequest": {
-        "additionalProperties": false,
-        "properties": {
-          "id": {
-            "minLength": 1,
-            "type": "string"
-          }
-        },
-        "required": [
-          "id"
-        ],
-        "type": "object"
-      },
-      "CallRejectResponse": {
-        "$ref": "#/components/schemas/CallObject"
-      },
       "ClientGetIdentifiersRequest": {
         "additionalProperties": false,
         "properties": {},
@@ -166,33 +30,16 @@
       "ClientGetInfoResponse": {
         "$ref": "#/components/schemas/RefreshInfo"
       },
-      "ContactBlockRequest": {
-        "additionalProperties": false,
-        "properties": {
-          "id": {
-            "minLength": 1,
-            "type": "string"
-          }
-        },
-        "required": [
-          "id"
-        ],
-        "type": "object"
-      },
-      "ContactBlockResponse": {
-        "$ref": "#/components/schemas/ContactObject"
-      },
       "ContactCreateRequest": {
         "additionalProperties": false,
         "properties": {
-          "body": {
-            "additionalProperties": true,
-            "type": "object"
+          "display_name": {
+            "type": "string"
+          },
+          "phone_number": {
+            "type": "string"
           }
         },
-        "required": [
-          "body"
-        ],
         "type": "object"
       },
       "ContactCreateResponse": {
@@ -202,7 +49,6 @@
         "additionalProperties": false,
         "properties": {
           "id": {
-            "minLength": 1,
             "type": "string"
           }
         },
@@ -218,7 +64,6 @@
         "additionalProperties": false,
         "properties": {
           "id": {
-            "minLength": 1,
             "type": "string"
           }
         },
@@ -237,7 +82,6 @@
             "type": "string"
           },
           "limit": {
-            "minimum": 1,
             "type": "integer"
           }
         },
@@ -268,15 +112,17 @@
       "ContactObject": {
         "additionalProperties": false,
         "properties": {
-          "body": {
-            "additionalProperties": true,
-            "type": "object"
-          },
           "created_at": {
             "format": "date-time",
             "type": "string"
           },
+          "display_name": {
+            "type": "string"
+          },
           "id": {
+            "type": "string"
+          },
+          "phone_number": {
             "type": "string"
           },
           "updated_at": {
@@ -289,29 +135,13 @@
       "ContactPutRequest": {
         "additionalProperties": false,
         "properties": {
-          "body": {
-            "additionalProperties": true,
-            "type": "object"
+          "display_name": {
+            "type": "string"
           },
           "id": {
-            "minLength": 1,
             "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "body"
-        ],
-        "type": "object"
-      },
-      "ContactPutResponse": {
-        "$ref": "#/components/schemas/ContactObject"
-      },
-      "ContactUnblockRequest": {
-        "additionalProperties": false,
-        "properties": {
-          "id": {
-            "minLength": 1,
+          },
+          "phone_number": {
             "type": "string"
           }
         },
@@ -320,7 +150,7 @@
         ],
         "type": "object"
       },
-      "ContactUnblockResponse": {
+      "ContactPutResponse": {
         "$ref": "#/components/schemas/ContactObject"
       },
       "Credential": {
@@ -541,7 +371,6 @@
         "additionalProperties": false,
         "properties": {
           "id": {
-            "minLength": 1,
             "type": "string"
           }
         },
@@ -553,6 +382,397 @@
       "FriendDeleteResponse": {
         "$ref": "#/components/schemas/FriendObject"
       },
+      "FriendGroupCreateRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "type": "object"
+      },
+      "FriendGroupCreateResponse": {
+        "$ref": "#/components/schemas/FriendGroupObject"
+      },
+      "FriendGroupDeleteRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "FriendGroupDeleteResponse": {
+        "$ref": "#/components/schemas/FriendGroupObject"
+      },
+      "FriendGroupGetRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "FriendGroupGetResponse": {
+        "$ref": "#/components/schemas/FriendGroupObject"
+      },
+      "FriendGroupListRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "cursor": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "FriendGroupListResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "has_next": {
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/FriendGroupObject"
+            },
+            "type": "array"
+          },
+          "next_cursor": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "items",
+          "has_next"
+        ],
+        "type": "object"
+      },
+      "FriendGroupMemberAddRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "friend_group_id": {
+            "type": "string"
+          },
+          "peer_id": {
+            "type": "string"
+          },
+          "role": {
+            "$ref": "#/components/schemas/FriendGroupMemberMutableRole"
+          }
+        },
+        "required": [
+          "friend_group_id",
+          "peer_id",
+          "role"
+        ],
+        "type": "object"
+      },
+      "FriendGroupMemberAddResponse": {
+        "$ref": "#/components/schemas/FriendGroupMemberObject"
+      },
+      "FriendGroupMemberDeleteRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "friend_group_id": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "friend_group_id",
+          "id"
+        ],
+        "type": "object"
+      },
+      "FriendGroupMemberDeleteResponse": {
+        "$ref": "#/components/schemas/FriendGroupMemberObject"
+      },
+      "FriendGroupMemberListRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "cursor": {
+            "type": "string"
+          },
+          "friend_group_id": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "FriendGroupMemberListResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "has_next": {
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/FriendGroupMemberObject"
+            },
+            "type": "array"
+          },
+          "next_cursor": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "items",
+          "has_next"
+        ],
+        "type": "object"
+      },
+      "FriendGroupMemberMutableRole": {
+        "enum": [
+          "admin",
+          "member"
+        ],
+        "type": "string"
+      },
+      "FriendGroupMemberObject": {
+        "additionalProperties": false,
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "friend_group_id": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "peer_id": {
+            "type": "string"
+          },
+          "role": {
+            "$ref": "#/components/schemas/FriendGroupMemberRole"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "FriendGroupMemberPutRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "friend_group_id": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "role": {
+            "$ref": "#/components/schemas/FriendGroupMemberMutableRole"
+          }
+        },
+        "required": [
+          "friend_group_id",
+          "id",
+          "role"
+        ],
+        "type": "object"
+      },
+      "FriendGroupMemberPutResponse": {
+        "$ref": "#/components/schemas/FriendGroupMemberObject"
+      },
+      "FriendGroupMemberRole": {
+        "enum": [
+          "owner",
+          "admin",
+          "member"
+        ],
+        "type": "string"
+      },
+      "FriendGroupMessageGetRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "friend_group_id": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "friend_group_id",
+          "id"
+        ],
+        "type": "object"
+      },
+      "FriendGroupMessageGetResponse": {
+        "$ref": "#/components/schemas/FriendGroupMessageObject"
+      },
+      "FriendGroupMessageListRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "cursor": {
+            "type": "string"
+          },
+          "friend_group_id": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "FriendGroupMessageListResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "has_next": {
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/FriendGroupMessageObject"
+            },
+            "type": "array"
+          },
+          "next_cursor": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "items",
+          "has_next"
+        ],
+        "type": "object"
+      },
+      "FriendGroupMessageObject": {
+        "additionalProperties": false,
+        "properties": {
+          "audio_content_type": {
+            "type": "string"
+          },
+          "audio_path": {
+            "type": "string"
+          },
+          "audio_size_bytes": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "expires_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "friend_group_id": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "sender_peer_id": {
+            "type": "string"
+          },
+          "ttl_seconds": {
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "FriendGroupMessageSendRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "audio_base64": {
+            "format": "byte",
+            "type": "string"
+          },
+          "audio_content_type": {
+            "type": "string"
+          },
+          "friend_group_id": {
+            "type": "string"
+          },
+          "ttl_seconds": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "friend_group_id",
+          "audio_base64",
+          "audio_content_type"
+        ],
+        "type": "object"
+      },
+      "FriendGroupMessageSendResponse": {
+        "$ref": "#/components/schemas/FriendGroupMessageObject"
+      },
+      "FriendGroupObject": {
+        "additionalProperties": false,
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "created_by_peer_id": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "FriendGroupPutRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "FriendGroupPutResponse": {
+        "$ref": "#/components/schemas/FriendGroupObject"
+      },
       "FriendListRequest": {
         "additionalProperties": false,
         "properties": {
@@ -560,7 +780,6 @@
             "type": "string"
           },
           "limit": {
-            "minimum": 1,
             "type": "integer"
           }
         },
@@ -591,15 +810,17 @@
       "FriendObject": {
         "additionalProperties": false,
         "properties": {
-          "body": {
-            "additionalProperties": true,
-            "type": "object"
-          },
           "created_at": {
             "format": "date-time",
             "type": "string"
           },
           "id": {
+            "type": "string"
+          },
+          "peer_id": {
+            "type": "string"
+          },
+          "request_id": {
             "type": "string"
           },
           "updated_at": {
@@ -613,7 +834,6 @@
         "additionalProperties": false,
         "properties": {
           "id": {
-            "minLength": 1,
             "type": "string"
           }
         },
@@ -625,16 +845,30 @@
       "FriendRequestAcceptResponse": {
         "$ref": "#/components/schemas/FriendRequestObject"
       },
+      "FriendRequestBox": {
+        "enum": [
+          "all",
+          "incoming",
+          "outgoing"
+        ],
+        "type": "string"
+      },
       "FriendRequestCreateRequest": {
         "additionalProperties": false,
         "properties": {
-          "body": {
-            "additionalProperties": true,
-            "type": "object"
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "to_peer_id": {
+            "type": "string"
           }
         },
         "required": [
-          "body"
+          "to_peer_id",
+          "code"
         ],
         "type": "object"
       },
@@ -644,12 +878,17 @@
       "FriendRequestListRequest": {
         "additionalProperties": false,
         "properties": {
+          "box": {
+            "$ref": "#/components/schemas/FriendRequestBox"
+          },
           "cursor": {
             "type": "string"
           },
           "limit": {
-            "minimum": 1,
             "type": "integer"
+          },
+          "state": {
+            "$ref": "#/components/schemas/FriendRequestState"
           }
         },
         "type": "object"
@@ -679,15 +918,27 @@
       "FriendRequestObject": {
         "additionalProperties": false,
         "properties": {
-          "body": {
-            "additionalProperties": true,
-            "type": "object"
-          },
           "created_at": {
             "format": "date-time",
             "type": "string"
           },
+          "from_peer_id": {
+            "type": "string"
+          },
           "id": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "responded_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "state": {
+            "$ref": "#/components/schemas/FriendRequestState"
+          },
+          "to_peer_id": {
             "type": "string"
           },
           "updated_at": {
@@ -701,7 +952,6 @@
         "additionalProperties": false,
         "properties": {
           "id": {
-            "minLength": 1,
             "type": "string"
           }
         },
@@ -713,6 +963,14 @@
       "FriendRequestRejectResponse": {
         "$ref": "#/components/schemas/FriendRequestObject"
       },
+      "FriendRequestState": {
+        "enum": [
+          "pending",
+          "accepted",
+          "rejected"
+        ],
+        "type": "string"
+      },
       "GeminiTenantModelProviderData": {
         "properties": {
           "upstream_model": {
@@ -720,291 +978,6 @@
           }
         },
         "type": "object"
-      },
-      "GroupCreateRequest": {
-        "additionalProperties": false,
-        "properties": {
-          "body": {
-            "additionalProperties": true,
-            "type": "object"
-          }
-        },
-        "required": [
-          "body"
-        ],
-        "type": "object"
-      },
-      "GroupCreateResponse": {
-        "$ref": "#/components/schemas/GroupObject"
-      },
-      "GroupDeleteRequest": {
-        "additionalProperties": false,
-        "properties": {
-          "id": {
-            "minLength": 1,
-            "type": "string"
-          }
-        },
-        "required": [
-          "id"
-        ],
-        "type": "object"
-      },
-      "GroupDeleteResponse": {
-        "$ref": "#/components/schemas/GroupObject"
-      },
-      "GroupGetRequest": {
-        "additionalProperties": false,
-        "properties": {
-          "id": {
-            "minLength": 1,
-            "type": "string"
-          }
-        },
-        "required": [
-          "id"
-        ],
-        "type": "object"
-      },
-      "GroupGetResponse": {
-        "$ref": "#/components/schemas/GroupObject"
-      },
-      "GroupListRequest": {
-        "additionalProperties": false,
-        "properties": {
-          "cursor": {
-            "type": "string"
-          },
-          "limit": {
-            "minimum": 1,
-            "type": "integer"
-          }
-        },
-        "type": "object"
-      },
-      "GroupListResponse": {
-        "additionalProperties": false,
-        "properties": {
-          "has_next": {
-            "type": "boolean"
-          },
-          "items": {
-            "items": {
-              "$ref": "#/components/schemas/GroupObject"
-            },
-            "type": "array"
-          },
-          "next_cursor": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "items",
-          "has_next"
-        ],
-        "type": "object"
-      },
-      "GroupMemberAddRequest": {
-        "additionalProperties": false,
-        "properties": {
-          "body": {
-            "additionalProperties": true,
-            "type": "object"
-          }
-        },
-        "required": [
-          "body"
-        ],
-        "type": "object"
-      },
-      "GroupMemberAddResponse": {
-        "$ref": "#/components/schemas/GroupMemberObject"
-      },
-      "GroupMemberDeleteRequest": {
-        "additionalProperties": false,
-        "properties": {
-          "id": {
-            "minLength": 1,
-            "type": "string"
-          }
-        },
-        "required": [
-          "id"
-        ],
-        "type": "object"
-      },
-      "GroupMemberDeleteResponse": {
-        "$ref": "#/components/schemas/GroupMemberObject"
-      },
-      "GroupMemberListRequest": {
-        "additionalProperties": false,
-        "properties": {
-          "cursor": {
-            "type": "string"
-          },
-          "limit": {
-            "minimum": 1,
-            "type": "integer"
-          }
-        },
-        "type": "object"
-      },
-      "GroupMemberListResponse": {
-        "additionalProperties": false,
-        "properties": {
-          "has_next": {
-            "type": "boolean"
-          },
-          "items": {
-            "items": {
-              "$ref": "#/components/schemas/GroupMemberObject"
-            },
-            "type": "array"
-          },
-          "next_cursor": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "items",
-          "has_next"
-        ],
-        "type": "object"
-      },
-      "GroupMemberObject": {
-        "additionalProperties": false,
-        "properties": {
-          "body": {
-            "additionalProperties": true,
-            "type": "object"
-          },
-          "created_at": {
-            "format": "date-time",
-            "type": "string"
-          },
-          "id": {
-            "type": "string"
-          },
-          "updated_at": {
-            "format": "date-time",
-            "type": "string"
-          }
-        },
-        "type": "object"
-      },
-      "GroupMessageListRequest": {
-        "additionalProperties": false,
-        "properties": {
-          "cursor": {
-            "type": "string"
-          },
-          "limit": {
-            "minimum": 1,
-            "type": "integer"
-          }
-        },
-        "type": "object"
-      },
-      "GroupMessageListResponse": {
-        "additionalProperties": false,
-        "properties": {
-          "has_next": {
-            "type": "boolean"
-          },
-          "items": {
-            "items": {
-              "$ref": "#/components/schemas/GroupMessageObject"
-            },
-            "type": "array"
-          },
-          "next_cursor": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "items",
-          "has_next"
-        ],
-        "type": "object"
-      },
-      "GroupMessageObject": {
-        "additionalProperties": false,
-        "properties": {
-          "body": {
-            "additionalProperties": true,
-            "type": "object"
-          },
-          "created_at": {
-            "format": "date-time",
-            "type": "string"
-          },
-          "id": {
-            "type": "string"
-          },
-          "updated_at": {
-            "format": "date-time",
-            "type": "string"
-          }
-        },
-        "type": "object"
-      },
-      "GroupMessageSendRequest": {
-        "additionalProperties": false,
-        "properties": {
-          "body": {
-            "additionalProperties": true,
-            "type": "object"
-          }
-        },
-        "required": [
-          "body"
-        ],
-        "type": "object"
-      },
-      "GroupMessageSendResponse": {
-        "$ref": "#/components/schemas/GroupMessageObject"
-      },
-      "GroupObject": {
-        "additionalProperties": false,
-        "properties": {
-          "body": {
-            "additionalProperties": true,
-            "type": "object"
-          },
-          "created_at": {
-            "format": "date-time",
-            "type": "string"
-          },
-          "id": {
-            "type": "string"
-          },
-          "updated_at": {
-            "format": "date-time",
-            "type": "string"
-          }
-        },
-        "type": "object"
-      },
-      "GroupPutRequest": {
-        "additionalProperties": false,
-        "properties": {
-          "body": {
-            "additionalProperties": true,
-            "type": "object"
-          },
-          "id": {
-            "minLength": 1,
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "body"
-        ],
-        "type": "object"
-      },
-      "GroupPutResponse": {
-        "$ref": "#/components/schemas/GroupObject"
       },
       "HardwareInfo": {
         "properties": {
@@ -1233,7 +1206,8 @@
         "enum": [
           "gemini-tenant",
           "dashscope-tenant",
-          "openai-tenant"
+          "openai-tenant",
+          "volc-tenant"
         ],
         "example": "openai-tenant",
         "type": "string"
@@ -1381,6 +1355,9 @@
       "PeerRunStatus": {
         "additionalProperties": false,
         "properties": {
+          "friend_otp": {
+            "type": "string"
+          },
           "message": {
             "type": "string"
           },
@@ -1830,30 +1807,24 @@
           "server.contact.create",
           "server.contact.put",
           "server.contact.delete",
-          "server.contact.block",
-          "server.contact.unblock",
           "server.friend.requests.list",
           "server.friend.requests.create",
           "server.friend.requests.accept",
           "server.friend.requests.reject",
           "server.friend.list",
           "server.friend.delete",
-          "server.group.list",
-          "server.group.get",
-          "server.group.create",
-          "server.group.put",
-          "server.group.delete",
-          "server.group.members.list",
-          "server.group.members.add",
-          "server.group.members.delete",
-          "server.group.messages.list",
-          "server.group.messages.send",
-          "server.call.list",
-          "server.call.get",
-          "server.call.create",
-          "server.call.answer",
-          "server.call.reject",
-          "server.call.end",
+          "server.friend_group.list",
+          "server.friend_group.get",
+          "server.friend_group.create",
+          "server.friend_group.put",
+          "server.friend_group.delete",
+          "server.friend_group.members.list",
+          "server.friend_group.members.add",
+          "server.friend_group.members.put",
+          "server.friend_group.members.delete",
+          "server.friend_group.messages.list",
+          "server.friend_group.messages.get",
+          "server.friend_group.messages.send",
           "server.reward.list",
           "server.reward.get",
           "server.reward.claim"
@@ -2024,12 +1995,6 @@
                 "$ref": "#/components/schemas/ContactDeleteRequest"
               },
               {
-                "$ref": "#/components/schemas/ContactBlockRequest"
-              },
-              {
-                "$ref": "#/components/schemas/ContactUnblockRequest"
-              },
-              {
                 "$ref": "#/components/schemas/FriendRequestListRequest"
               },
               {
@@ -2048,52 +2013,40 @@
                 "$ref": "#/components/schemas/FriendDeleteRequest"
               },
               {
-                "$ref": "#/components/schemas/GroupListRequest"
+                "$ref": "#/components/schemas/FriendGroupListRequest"
               },
               {
-                "$ref": "#/components/schemas/GroupGetRequest"
+                "$ref": "#/components/schemas/FriendGroupGetRequest"
               },
               {
-                "$ref": "#/components/schemas/GroupCreateRequest"
+                "$ref": "#/components/schemas/FriendGroupCreateRequest"
               },
               {
-                "$ref": "#/components/schemas/GroupPutRequest"
+                "$ref": "#/components/schemas/FriendGroupPutRequest"
               },
               {
-                "$ref": "#/components/schemas/GroupDeleteRequest"
+                "$ref": "#/components/schemas/FriendGroupDeleteRequest"
               },
               {
-                "$ref": "#/components/schemas/GroupMemberListRequest"
+                "$ref": "#/components/schemas/FriendGroupMemberListRequest"
               },
               {
-                "$ref": "#/components/schemas/GroupMemberAddRequest"
+                "$ref": "#/components/schemas/FriendGroupMemberAddRequest"
               },
               {
-                "$ref": "#/components/schemas/GroupMemberDeleteRequest"
+                "$ref": "#/components/schemas/FriendGroupMemberPutRequest"
               },
               {
-                "$ref": "#/components/schemas/GroupMessageListRequest"
+                "$ref": "#/components/schemas/FriendGroupMemberDeleteRequest"
               },
               {
-                "$ref": "#/components/schemas/GroupMessageSendRequest"
+                "$ref": "#/components/schemas/FriendGroupMessageListRequest"
               },
               {
-                "$ref": "#/components/schemas/CallListRequest"
+                "$ref": "#/components/schemas/FriendGroupMessageGetRequest"
               },
               {
-                "$ref": "#/components/schemas/CallGetRequest"
-              },
-              {
-                "$ref": "#/components/schemas/CallCreateRequest"
-              },
-              {
-                "$ref": "#/components/schemas/CallAnswerRequest"
-              },
-              {
-                "$ref": "#/components/schemas/CallRejectRequest"
-              },
-              {
-                "$ref": "#/components/schemas/CallEndRequest"
+                "$ref": "#/components/schemas/FriendGroupMessageSendRequest"
               },
               {
                 "$ref": "#/components/schemas/RewardListRequest"
@@ -2281,12 +2234,6 @@
                 "$ref": "#/components/schemas/ContactDeleteResponse"
               },
               {
-                "$ref": "#/components/schemas/ContactBlockResponse"
-              },
-              {
-                "$ref": "#/components/schemas/ContactUnblockResponse"
-              },
-              {
                 "$ref": "#/components/schemas/FriendRequestListResponse"
               },
               {
@@ -2305,52 +2252,40 @@
                 "$ref": "#/components/schemas/FriendDeleteResponse"
               },
               {
-                "$ref": "#/components/schemas/GroupListResponse"
+                "$ref": "#/components/schemas/FriendGroupListResponse"
               },
               {
-                "$ref": "#/components/schemas/GroupGetResponse"
+                "$ref": "#/components/schemas/FriendGroupGetResponse"
               },
               {
-                "$ref": "#/components/schemas/GroupCreateResponse"
+                "$ref": "#/components/schemas/FriendGroupCreateResponse"
               },
               {
-                "$ref": "#/components/schemas/GroupPutResponse"
+                "$ref": "#/components/schemas/FriendGroupPutResponse"
               },
               {
-                "$ref": "#/components/schemas/GroupDeleteResponse"
+                "$ref": "#/components/schemas/FriendGroupDeleteResponse"
               },
               {
-                "$ref": "#/components/schemas/GroupMemberListResponse"
+                "$ref": "#/components/schemas/FriendGroupMemberListResponse"
               },
               {
-                "$ref": "#/components/schemas/GroupMemberAddResponse"
+                "$ref": "#/components/schemas/FriendGroupMemberAddResponse"
               },
               {
-                "$ref": "#/components/schemas/GroupMemberDeleteResponse"
+                "$ref": "#/components/schemas/FriendGroupMemberPutResponse"
               },
               {
-                "$ref": "#/components/schemas/GroupMessageListResponse"
+                "$ref": "#/components/schemas/FriendGroupMemberDeleteResponse"
               },
               {
-                "$ref": "#/components/schemas/GroupMessageSendResponse"
+                "$ref": "#/components/schemas/FriendGroupMessageListResponse"
               },
               {
-                "$ref": "#/components/schemas/CallListResponse"
+                "$ref": "#/components/schemas/FriendGroupMessageGetResponse"
               },
               {
-                "$ref": "#/components/schemas/CallGetResponse"
-              },
-              {
-                "$ref": "#/components/schemas/CallCreateResponse"
-              },
-              {
-                "$ref": "#/components/schemas/CallAnswerResponse"
-              },
-              {
-                "$ref": "#/components/schemas/CallRejectResponse"
-              },
-              {
-                "$ref": "#/components/schemas/CallEndResponse"
+                "$ref": "#/components/schemas/FriendGroupMessageSendResponse"
               },
               {
                 "$ref": "#/components/schemas/RewardListResponse"
@@ -2577,7 +2512,11 @@
       },
       "ServerGetRunStatusRequest": {
         "additionalProperties": false,
-        "properties": {},
+        "properties": {
+          "friend_otp": {
+            "type": "string"
+          }
+        },
         "type": "object"
       },
       "ServerGetRunStatusResponse": {

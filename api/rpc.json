@@ -181,12 +181,6 @@
                 "$ref": "./rpc/server.json#/components/schemas/ContactDeleteRequest"
               },
               {
-                "$ref": "./rpc/server.json#/components/schemas/ContactBlockRequest"
-              },
-              {
-                "$ref": "./rpc/server.json#/components/schemas/ContactUnblockRequest"
-              },
-              {
                 "$ref": "./rpc/server.json#/components/schemas/FriendRequestListRequest"
               },
               {
@@ -205,52 +199,40 @@
                 "$ref": "./rpc/server.json#/components/schemas/FriendDeleteRequest"
               },
               {
-                "$ref": "./rpc/server.json#/components/schemas/GroupListRequest"
+                "$ref": "./rpc/server.json#/components/schemas/FriendGroupListRequest"
               },
               {
-                "$ref": "./rpc/server.json#/components/schemas/GroupGetRequest"
+                "$ref": "./rpc/server.json#/components/schemas/FriendGroupGetRequest"
               },
               {
-                "$ref": "./rpc/server.json#/components/schemas/GroupCreateRequest"
+                "$ref": "./rpc/server.json#/components/schemas/FriendGroupCreateRequest"
               },
               {
-                "$ref": "./rpc/server.json#/components/schemas/GroupPutRequest"
+                "$ref": "./rpc/server.json#/components/schemas/FriendGroupPutRequest"
               },
               {
-                "$ref": "./rpc/server.json#/components/schemas/GroupDeleteRequest"
+                "$ref": "./rpc/server.json#/components/schemas/FriendGroupDeleteRequest"
               },
               {
-                "$ref": "./rpc/server.json#/components/schemas/GroupMemberListRequest"
+                "$ref": "./rpc/server.json#/components/schemas/FriendGroupMemberListRequest"
               },
               {
-                "$ref": "./rpc/server.json#/components/schemas/GroupMemberAddRequest"
+                "$ref": "./rpc/server.json#/components/schemas/FriendGroupMemberAddRequest"
               },
               {
-                "$ref": "./rpc/server.json#/components/schemas/GroupMemberDeleteRequest"
+                "$ref": "./rpc/server.json#/components/schemas/FriendGroupMemberPutRequest"
               },
               {
-                "$ref": "./rpc/server.json#/components/schemas/GroupMessageListRequest"
+                "$ref": "./rpc/server.json#/components/schemas/FriendGroupMemberDeleteRequest"
               },
               {
-                "$ref": "./rpc/server.json#/components/schemas/GroupMessageSendRequest"
+                "$ref": "./rpc/server.json#/components/schemas/FriendGroupMessageListRequest"
               },
               {
-                "$ref": "./rpc/server.json#/components/schemas/CallListRequest"
+                "$ref": "./rpc/server.json#/components/schemas/FriendGroupMessageGetRequest"
               },
               {
-                "$ref": "./rpc/server.json#/components/schemas/CallGetRequest"
-              },
-              {
-                "$ref": "./rpc/server.json#/components/schemas/CallCreateRequest"
-              },
-              {
-                "$ref": "./rpc/server.json#/components/schemas/CallAnswerRequest"
-              },
-              {
-                "$ref": "./rpc/server.json#/components/schemas/CallRejectRequest"
-              },
-              {
-                "$ref": "./rpc/server.json#/components/schemas/CallEndRequest"
+                "$ref": "./rpc/server.json#/components/schemas/FriendGroupMessageSendRequest"
               },
               {
                 "$ref": "./rpc/server.json#/components/schemas/RewardListRequest"
@@ -434,12 +416,6 @@
                 "$ref": "./rpc/server.json#/components/schemas/ContactDeleteResponse"
               },
               {
-                "$ref": "./rpc/server.json#/components/schemas/ContactBlockResponse"
-              },
-              {
-                "$ref": "./rpc/server.json#/components/schemas/ContactUnblockResponse"
-              },
-              {
                 "$ref": "./rpc/server.json#/components/schemas/FriendRequestListResponse"
               },
               {
@@ -458,52 +434,40 @@
                 "$ref": "./rpc/server.json#/components/schemas/FriendDeleteResponse"
               },
               {
-                "$ref": "./rpc/server.json#/components/schemas/GroupListResponse"
+                "$ref": "./rpc/server.json#/components/schemas/FriendGroupListResponse"
               },
               {
-                "$ref": "./rpc/server.json#/components/schemas/GroupGetResponse"
+                "$ref": "./rpc/server.json#/components/schemas/FriendGroupGetResponse"
               },
               {
-                "$ref": "./rpc/server.json#/components/schemas/GroupCreateResponse"
+                "$ref": "./rpc/server.json#/components/schemas/FriendGroupCreateResponse"
               },
               {
-                "$ref": "./rpc/server.json#/components/schemas/GroupPutResponse"
+                "$ref": "./rpc/server.json#/components/schemas/FriendGroupPutResponse"
               },
               {
-                "$ref": "./rpc/server.json#/components/schemas/GroupDeleteResponse"
+                "$ref": "./rpc/server.json#/components/schemas/FriendGroupDeleteResponse"
               },
               {
-                "$ref": "./rpc/server.json#/components/schemas/GroupMemberListResponse"
+                "$ref": "./rpc/server.json#/components/schemas/FriendGroupMemberListResponse"
               },
               {
-                "$ref": "./rpc/server.json#/components/schemas/GroupMemberAddResponse"
+                "$ref": "./rpc/server.json#/components/schemas/FriendGroupMemberAddResponse"
               },
               {
-                "$ref": "./rpc/server.json#/components/schemas/GroupMemberDeleteResponse"
+                "$ref": "./rpc/server.json#/components/schemas/FriendGroupMemberPutResponse"
               },
               {
-                "$ref": "./rpc/server.json#/components/schemas/GroupMessageListResponse"
+                "$ref": "./rpc/server.json#/components/schemas/FriendGroupMemberDeleteResponse"
               },
               {
-                "$ref": "./rpc/server.json#/components/schemas/GroupMessageSendResponse"
+                "$ref": "./rpc/server.json#/components/schemas/FriendGroupMessageListResponse"
               },
               {
-                "$ref": "./rpc/server.json#/components/schemas/CallListResponse"
+                "$ref": "./rpc/server.json#/components/schemas/FriendGroupMessageGetResponse"
               },
               {
-                "$ref": "./rpc/server.json#/components/schemas/CallGetResponse"
-              },
-              {
-                "$ref": "./rpc/server.json#/components/schemas/CallCreateResponse"
-              },
-              {
-                "$ref": "./rpc/server.json#/components/schemas/CallAnswerResponse"
-              },
-              {
-                "$ref": "./rpc/server.json#/components/schemas/CallRejectResponse"
-              },
-              {
-                "$ref": "./rpc/server.json#/components/schemas/CallEndResponse"
+                "$ref": "./rpc/server.json#/components/schemas/FriendGroupMessageSendResponse"
               },
               {
                 "$ref": "./rpc/server.json#/components/schemas/RewardListResponse"
@@ -575,30 +539,24 @@
           "server.contact.create",
           "server.contact.put",
           "server.contact.delete",
-          "server.contact.block",
-          "server.contact.unblock",
           "server.friend.requests.list",
           "server.friend.requests.create",
           "server.friend.requests.accept",
           "server.friend.requests.reject",
           "server.friend.list",
           "server.friend.delete",
-          "server.group.list",
-          "server.group.get",
-          "server.group.create",
-          "server.group.put",
-          "server.group.delete",
-          "server.group.members.list",
-          "server.group.members.add",
-          "server.group.members.delete",
-          "server.group.messages.list",
-          "server.group.messages.send",
-          "server.call.list",
-          "server.call.get",
-          "server.call.create",
-          "server.call.answer",
-          "server.call.reject",
-          "server.call.end",
+          "server.friend_group.list",
+          "server.friend_group.get",
+          "server.friend_group.create",
+          "server.friend_group.put",
+          "server.friend_group.delete",
+          "server.friend_group.members.list",
+          "server.friend_group.members.add",
+          "server.friend_group.members.put",
+          "server.friend_group.members.delete",
+          "server.friend_group.messages.list",
+          "server.friend_group.messages.get",
+          "server.friend_group.messages.send",
           "server.reward.list",
           "server.reward.get",
           "server.reward.claim"

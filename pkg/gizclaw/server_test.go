@@ -11,9 +11,11 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/publiclogin"
+	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/social"
 
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/peer"
 	"github.com/GizClaw/gizclaw-go/pkg/giznet"
+	"github.com/GizClaw/gizclaw-go/pkg/store/kv"
 )
 
 type testGiznetSecurityPolicy struct {
@@ -89,6 +91,35 @@ func TestServerServeReturnsNilAfterClose(t *testing.T) {
 		}
 	case <-time.After(3 * time.Second):
 		t.Fatal("Serve() did not return after Close()")
+	}
+}
+
+func TestServerCloseWaitsForCleanupLoop(t *testing.T) {
+	server := &Server{
+		FriendGroupMessageCleanup: time.Hour,
+		manager: &Manager{
+			Social: &social.Server{FriendGroupMessages: kv.NewMemory(nil)},
+		},
+	}
+	server.startCleanup()
+	if server.cleanupStop == nil || server.cleanupDone == nil {
+		t.Fatal("startCleanup did not start cleanup loop")
+	}
+
+	done := make(chan error, 1)
+	go func() {
+		done <- server.Close()
+	}()
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatalf("Close() error = %v", err)
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatal("Close() did not wait for cleanup loop to exit")
+	}
+	if server.cleanupStop != nil || server.cleanupDone != nil {
+		t.Fatal("Close() did not clear cleanup state")
 	}
 }
 

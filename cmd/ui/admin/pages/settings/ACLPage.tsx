@@ -57,21 +57,17 @@ type BindingFilters = {
   subjectKind: "" | AclSubjectKind;
 };
 
-export function ACLPage(): JSX.Element {
+type ACLPageProps = {
+  defaultResourceKind?: "" | AclResourceKind;
+};
+
+export function ACLPage({ defaultResourceKind = "" }: ACLPageProps): JSX.Element {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("bindings");
   const [roles, setRoles] = useState<CursorPage<AclRole>>(initialPage());
   const [views, setViews] = useState<CursorPage<AclView>>(initialPage());
   const [bindings, setBindings] = useState<CursorPage<AclPolicyBinding>>(initialPage());
-  const [filters, setFilters] = useState<BindingFilters>({
-    orderBy: "id",
-    permission: "",
-    resourceId: "",
-    resourceKind: "",
-    role: "",
-    subjectId: "",
-    subjectKind: "",
-  });
+  const [filters, setFilters] = useState<BindingFilters>(() => emptyBindingFilters(defaultResourceKind));
   const [roleDialogOpen, setRoleDialogOpen] = useState(false);
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
   const [bindingDialogOpen, setBindingDialogOpen] = useState(false);
@@ -156,6 +152,10 @@ export function ACLPage(): JSX.Element {
   }, [loadViews]);
 
   useEffect(() => {
+    setFilters((current) => (current.resourceKind === defaultResourceKind ? current : { ...current, resourceKind: defaultResourceKind }));
+  }, [defaultResourceKind]);
+
+  useEffect(() => {
     void loadBindings(null, [], filters);
   }, [filters, loadBindings]);
 
@@ -218,13 +218,18 @@ export function ACLPage(): JSX.Element {
       />
 
       <PageSummaryCard
-        description="Roles and policy bindings used by GizClaw admin authorization."
+        description={
+          defaultResourceKind === ""
+            ? "Roles and policy bindings used by GizClaw admin authorization."
+            : `Policy bindings filtered to ${defaultResourceKind} resources.`
+        }
         eyebrow="Settings"
         meta={
           <>
             <Badge variant="secondary">{roles.items.length} roles</Badge>
             <Badge variant="secondary">{views.items.length} views</Badge>
             <Badge variant="outline">{bindings.items.length} bindings</Badge>
+            {defaultResourceKind !== "" ? <Badge variant="outline">{defaultResourceKind}</Badge> : null}
           </>
         }
         title="Access Control"
@@ -675,7 +680,7 @@ function BindingForm({ form, onChange }: { form: PolicyBindingFormState; onChang
       </FormField>
       <FormField label="Resource kind">
         <Select value={form.resourceKind} onValueChange={(value) => onChange({ ...form, resourceKind: value as AclResourceKind })}>
-          <SelectTrigger>
+          <SelectTrigger aria-label="Policy binding resource kind">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -781,6 +786,18 @@ function DialogActions({
 
 function initialPage<T>(): CursorPage<T> {
   return { cursor: null, error: "", hasNext: false, history: [], items: [], loading: true, nextCursor: null };
+}
+
+function emptyBindingFilters(resourceKind: "" | AclResourceKind): BindingFilters {
+  return {
+    orderBy: "id",
+    permission: "",
+    resourceId: "",
+    resourceKind,
+    role: "",
+    subjectId: "",
+    subjectKind: "",
+  };
 }
 
 function valueOrUndefined(value: string): string | undefined {
