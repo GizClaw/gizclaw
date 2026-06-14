@@ -53,7 +53,7 @@ func New(cfg Config) (srv *CmdServer, err error) {
 		}
 	}()
 
-	peersKV, err := ss.KV(cfg.Peers.Store)
+	peersKV, err := ss.KV(defaultPeersStore)
 	if err != nil {
 		return nil, fmt.Errorf("server: peers store: %w", err)
 	}
@@ -109,102 +109,112 @@ func New(cfg Config) (srv *CmdServer, err error) {
 		}
 	}
 	if len(cfg.Storage) > 0 {
-		if gizServer.CredentialStore, err = ss.KV(cfg.Credentials.Store); err != nil {
+		if gizServer.CredentialStore, err = ss.KV(defaultCredentialsStore); err != nil {
 			return nil, fmt.Errorf("server: credentials store: %w", err)
 		}
-		if gizServer.FirmwareStore, err = ss.KV(cfg.Firmwares.Store); err != nil {
+		if gizServer.FirmwareStore, err = ss.KV(defaultFirmwaresStore); err != nil {
 			return nil, fmt.Errorf("server: firmwares store: %w", err)
 		}
-		if gizServer.MiniMaxCredentialStore, err = ss.KV(cfg.MiniMax.CredentialsStore); err != nil {
+		if storeExists(cfg, defaultFirmwareAssetsStore) {
+			if gizServer.FirmwareAssets, err = ss.ObjectStore(defaultFirmwareAssetsStore); err != nil {
+				return nil, fmt.Errorf("server: firmwares assets store: %w", err)
+			}
+		}
+		if gizServer.MiniMaxCredentialStore, err = ss.KV(defaultCredentialsStore); err != nil {
 			return nil, fmt.Errorf("server: minimax credentials store: %w", err)
 		}
-		if gizServer.MiniMaxTenantStore, err = ss.KV(cfg.MiniMax.TenantsStore); err != nil {
+		if gizServer.MiniMaxTenantStore, err = ss.KV(defaultMiniMaxTenantsStore); err != nil {
 			return nil, fmt.Errorf("server: minimax tenants store: %w", err)
 		}
-		if gizServer.VoiceStore, err = ss.KV(cfg.MiniMax.VoicesStore); err != nil {
+		if gizServer.VoiceStore, err = ss.KV(defaultVoicesStore); err != nil {
 			return nil, fmt.Errorf("server: voices store: %w", err)
 		}
-		if gizServer.WorkspaceStore, err = ss.KV(cfg.Workspaces.Store); err != nil {
+		if gizServer.WorkspaceStore, err = ss.KV(defaultWorkspacesStore); err != nil {
 			return nil, fmt.Errorf("server: workspaces store: %w", err)
 		}
-		if gizServer.WorkflowStore, err = ss.KV(cfg.Workflows.Store); err != nil {
+		if gizServer.WorkflowStore, err = ss.KV(defaultWorkflowsStore); err != nil {
 			return nil, fmt.Errorf("server: workflows store: %w", err)
 		}
-		if gizServer.ACLDB, err = ss.SQL(cfg.ACL.Store); err != nil {
+		if gizServer.ACLDB, err = ss.SQL(defaultACLStore); err != nil {
 			return nil, fmt.Errorf("server: acl store: %w", err)
 		}
-		if cfg.PetSpecies.Store != "" {
-			if gizServer.PetSpeciesStore, err = ss.KV(cfg.PetSpecies.Store); err != nil {
+		if storeExists(cfg, defaultPetSpeciesStore) {
+			if gizServer.PetSpeciesStore, err = ss.KV(defaultPetSpeciesStore); err != nil {
 				return nil, fmt.Errorf("server: pet_species store: %w", err)
 			}
 		}
-		if cfg.PetSpecies.AssetsStore != "" {
-			if gizServer.PetSpeciesAssets, err = ss.ObjectStore(cfg.PetSpecies.AssetsStore); err != nil {
+		if storeExists(cfg, defaultPetSpeciesAssetsStore) {
+			if gizServer.PetSpeciesAssets, err = ss.ObjectStore(defaultPetSpeciesAssetsStore); err != nil {
 				return nil, fmt.Errorf("server: pet_species assets store: %w", err)
 			}
 		}
-		if cfg.Badges.Store != "" {
-			if gizServer.BadgeStore, err = ss.KV(cfg.Badges.Store); err != nil {
+		if storeExists(cfg, defaultBadgesStore) {
+			if gizServer.BadgeStore, err = ss.KV(defaultBadgesStore); err != nil {
 				return nil, fmt.Errorf("server: badges store: %w", err)
 			}
 		}
-		if cfg.Badges.AssetsStore != "" {
-			if gizServer.BadgeAssets, err = ss.ObjectStore(cfg.Badges.AssetsStore); err != nil {
+		if storeExists(cfg, defaultBadgeAssetsStore) {
+			if gizServer.BadgeAssets, err = ss.ObjectStore(defaultBadgeAssetsStore); err != nil {
 				return nil, fmt.Errorf("server: badges assets store: %w", err)
 			}
 		}
-		if cfg.Pets.Store != "" {
-			if gizServer.PetStore, err = ss.KV(cfg.Pets.Store); err != nil {
+		if storeExists(cfg, defaultPetsStore) {
+			if gizServer.PetStore, err = ss.KV(defaultPetsStore); err != nil {
 				return nil, fmt.Errorf("server: pets store: %w", err)
 			}
 		}
-		if cfg.Rewards.Store != "" {
-			if gizServer.RewardStore, err = ss.KV(cfg.Rewards.Store); err != nil {
+		if storeExists(cfg, defaultRewardsStore) {
+			if gizServer.RewardStore, err = ss.KV(defaultRewardsStore); err != nil {
 				return nil, fmt.Errorf("server: rewards store: %w", err)
 			}
 		}
-		if cfg.Wallets.Store != "" {
-			if gizServer.WalletDB, err = ss.SQL(cfg.Wallets.Store); err != nil {
+		if storeExists(cfg, defaultWalletsStore) {
+			if gizServer.WalletDB, err = ss.SQL(defaultWalletsStore); err != nil {
 				return nil, fmt.Errorf("server: wallets store: %w", err)
 			}
 		}
-		if cfg.Contacts.Store != "" {
-			if gizServer.ContactStore, err = ss.KV(cfg.Contacts.Store); err != nil {
+		if storeExists(cfg, defaultContactsStore) {
+			if gizServer.ContactStore, err = ss.KV(defaultContactsStore); err != nil {
 				return nil, fmt.Errorf("server: contacts store: %w", err)
 			}
 		}
-		if cfg.Friends.RequestsStore != "" {
-			if gizServer.FriendRequestStore, err = ss.KV(cfg.Friends.RequestsStore); err != nil {
+		if storeExists(cfg, defaultFriendRequestsStore) {
+			if gizServer.FriendRequestStore, err = ss.KV(defaultFriendRequestsStore); err != nil {
 				return nil, fmt.Errorf("server: friend requests store: %w", err)
 			}
 		}
-		if cfg.Friends.Store != "" {
-			if gizServer.FriendStore, err = ss.KV(cfg.Friends.Store); err != nil {
+		if storeExists(cfg, defaultFriendsStore) {
+			if gizServer.FriendStore, err = ss.KV(defaultFriendsStore); err != nil {
 				return nil, fmt.Errorf("server: friends store: %w", err)
 			}
 		}
-		if cfg.FriendGroups.Store != "" {
-			if gizServer.FriendGroupStore, err = ss.KV(cfg.FriendGroups.Store); err != nil {
+		if storeExists(cfg, defaultFriendGroupsStore) {
+			if gizServer.FriendGroupStore, err = ss.KV(defaultFriendGroupsStore); err != nil {
 				return nil, fmt.Errorf("server: friend_groups store: %w", err)
 			}
 		}
-		if cfg.FriendGroups.MembersStore != "" {
-			if gizServer.FriendGroupMemberStore, err = ss.KV(cfg.FriendGroups.MembersStore); err != nil {
+		if storeExists(cfg, defaultFriendGroupMembersStore) {
+			if gizServer.FriendGroupMemberStore, err = ss.KV(defaultFriendGroupMembersStore); err != nil {
 				return nil, fmt.Errorf("server: friend group members store: %w", err)
 			}
 		}
-		if cfg.FriendGroups.MessagesStore != "" {
-			if gizServer.FriendGroupMessageStore, err = ss.KV(cfg.FriendGroups.MessagesStore); err != nil {
+		if storeExists(cfg, defaultFriendGroupMessagesStore) {
+			if gizServer.FriendGroupMessageStore, err = ss.KV(defaultFriendGroupMessagesStore); err != nil {
 				return nil, fmt.Errorf("server: friend group messages store: %w", err)
 			}
 		}
-		if cfg.FriendGroups.MessageAssetsStore != "" {
-			if gizServer.FriendGroupMessageAssets, err = ss.ObjectStore(cfg.FriendGroups.MessageAssetsStore); err != nil {
+		if storeExists(cfg, defaultFriendGroupMessageAssetsStore) {
+			if gizServer.FriendGroupMessageAssets, err = ss.ObjectStore(defaultFriendGroupMessageAssetsStore); err != nil {
 				return nil, fmt.Errorf("server: friend group message assets store: %w", err)
 			}
 		}
 	}
 	return &CmdServer{Server: gizServer, AdminPublicKey: cfg.AdminPublicKey, stores: ss}, nil
+}
+
+func storeExists(cfg Config, name string) bool {
+	_, ok := cfg.Stores[name]
+	return ok
 }
 
 type adminPublicKeySecurityPolicy struct {

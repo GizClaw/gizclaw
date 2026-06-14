@@ -63,6 +63,8 @@ func (s *rpcServer) dispatchStream(ctx context.Context, stream *rpcStream, req *
 	switch req.Method {
 	case rpcapi.RPCMethodAllSpeedTestRun:
 		return true, s.handleSpeedTest(ctx, stream, req)
+	case rpcapi.RPCMethodServerFirmwareDownload:
+		return true, s.handleFirmwareBinDownload(ctx, stream, req)
 	default:
 		return false, nil
 	}

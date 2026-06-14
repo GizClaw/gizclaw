@@ -59,7 +59,7 @@ export function FirmwaresListPage(): JSX.Element {
       />
 
       <PageSummaryCard
-        description="Release-line JSON documents with rollback, stable, beta, develop, and pending slots."
+        description="Release-line JSON documents with develop, beta, stable, and pending slots."
         eyebrow="Devices"
         meta={
           <>

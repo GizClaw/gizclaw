@@ -21,6 +21,7 @@ const (
 	ResourceKindView        = apitypes.ACLResourceKindView
 	ResourceKindPetSpecies  = apitypes.ACLResourceKindPetSpecies
 	ResourceKindBadge       = apitypes.ACLResourceKindBadge
+	ResourceKindFirmware    = apitypes.ACLResourceKindFirmware
 	ResourceKindContact     = apitypes.ACLResourceKindContact
 	ResourceKindFriend      = apitypes.ACLResourceKindFriend
 	ResourceKindFriendReq   = apitypes.ACLResourceKindFriendRequest
@@ -136,6 +137,13 @@ func PetSpeciesResource(id string) apitypes.ACLResource {
 func BadgeResource(id string) apitypes.ACLResource {
 	return apitypes.ACLResource{
 		Kind: ResourceKindBadge,
+		Id:   id,
+	}
+}
+
+func FirmwareResource(id string) apitypes.ACLResource {
+	return apitypes.ACLResource{
+		Kind: ResourceKindFirmware,
 		Id:   id,
 	}
 }

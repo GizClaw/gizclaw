@@ -19,6 +19,30 @@ import (
 	"github.com/oapi-codegen/runtime"
 )
 
+// Defines values for UploadFirmwareBinParamsChannel.
+const (
+	Beta    UploadFirmwareBinParamsChannel = "beta"
+	Develop UploadFirmwareBinParamsChannel = "develop"
+	Pending UploadFirmwareBinParamsChannel = "pending"
+	Stable  UploadFirmwareBinParamsChannel = "stable"
+)
+
+// Valid indicates whether the value is a known member of the UploadFirmwareBinParamsChannel enum.
+func (e UploadFirmwareBinParamsChannel) Valid() bool {
+	switch e {
+	case Beta:
+		return true
+	case Develop:
+		return true
+	case Pending:
+		return true
+	case Stable:
+		return true
+	default:
+		return false
+	}
+}
+
 // ACLPolicyBindingList defines model for ACLPolicyBindingList.
 type ACLPolicyBindingList struct {
 	HasNext    bool                            `json:"has_next"`
@@ -404,6 +428,9 @@ type ListFirmwaresParams struct {
 	// Limit Maximum number of items to return. Omitted or non-positive values use the default page size; values above 200 are clamped.
 	Limit *int32 `form:"limit,omitempty" json:"limit,omitempty"`
 }
+
+// UploadFirmwareBinParamsChannel defines parameters for UploadFirmwareBin.
+type UploadFirmwareBinParamsChannel string
 
 // ListGeminiTenantsParams defines parameters for ListGeminiTenants.
 type ListGeminiTenantsParams struct {
@@ -818,6 +845,9 @@ type ClientInterface interface {
 
 	// RollbackFirmware request
 	RollbackFirmware(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UploadFirmwareBinWithBody request with any body
+	UploadFirmwareBinWithBody(ctx context.Context, name string, channel UploadFirmwareBinParamsChannel, bin string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListGeminiTenants request
 	ListGeminiTenants(ctx context.Context, params *ListGeminiTenantsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -1621,6 +1651,18 @@ func (c *Client) ReleaseFirmware(ctx context.Context, name string, reqEditors ..
 
 func (c *Client) RollbackFirmware(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewRollbackFirmwareRequest(c.Server, name)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UploadFirmwareBinWithBody(ctx context.Context, name string, channel UploadFirmwareBinParamsChannel, bin string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUploadFirmwareBinRequestWithBody(c.Server, name, channel, bin, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -4290,6 +4332,56 @@ func NewRollbackFirmwareRequest(server string, name string) (*http.Request, erro
 	if err != nil {
 		return nil, err
 	}
+
+	return req, nil
+}
+
+// NewUploadFirmwareBinRequestWithBody generates requests for UploadFirmwareBin with any type of body
+func NewUploadFirmwareBinRequestWithBody(server string, name string, channel UploadFirmwareBinParamsChannel, bin string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "channel", channel, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithOptions("simple", false, "bin", bin, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/firmwares/%s/bins/%s/%s", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PUT", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -7185,6 +7277,9 @@ type ClientWithResponsesInterface interface {
 	// RollbackFirmwareWithResponse request
 	RollbackFirmwareWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*RollbackFirmwareResponse, error)
 
+	// UploadFirmwareBinWithBodyWithResponse request with any body
+	UploadFirmwareBinWithBodyWithResponse(ctx context.Context, name string, channel UploadFirmwareBinParamsChannel, bin string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UploadFirmwareBinResponse, error)
+
 	// ListGeminiTenantsWithResponse request
 	ListGeminiTenantsWithResponse(ctx context.Context, params *ListGeminiTenantsParams, reqEditors ...RequestEditorFn) (*ListGeminiTenantsResponse, error)
 
@@ -8271,6 +8366,31 @@ func (r RollbackFirmwareResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r RollbackFirmwareResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type UploadFirmwareBinResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *externalRef0.Firmware
+	JSON400      *externalRef0.ErrorResponse
+	JSON404      *externalRef0.ErrorResponse
+	JSON500      *externalRef0.ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r UploadFirmwareBinResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UploadFirmwareBinResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -10170,6 +10290,15 @@ func (c *ClientWithResponses) RollbackFirmwareWithResponse(ctx context.Context, 
 		return nil, err
 	}
 	return ParseRollbackFirmwareResponse(rsp)
+}
+
+// UploadFirmwareBinWithBodyWithResponse request with arbitrary body returning *UploadFirmwareBinResponse
+func (c *ClientWithResponses) UploadFirmwareBinWithBodyWithResponse(ctx context.Context, name string, channel UploadFirmwareBinParamsChannel, bin string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UploadFirmwareBinResponse, error) {
+	rsp, err := c.UploadFirmwareBinWithBody(ctx, name, channel, bin, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUploadFirmwareBinResponse(rsp)
 }
 
 // ListGeminiTenantsWithResponse request returning *ListGeminiTenantsResponse
@@ -12336,6 +12465,53 @@ func ParseRollbackFirmwareResponse(rsp *http.Response) (*RollbackFirmwareRespons
 			return nil, err
 		}
 		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUploadFirmwareBinResponse parses an HTTP response from a UploadFirmwareBinWithResponse call
+func ParseUploadFirmwareBinResponse(rsp *http.Response) (*UploadFirmwareBinResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UploadFirmwareBinResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest externalRef0.Firmware
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest externalRef0.ErrorResponse
@@ -14920,6 +15096,9 @@ type ServerInterface interface {
 	// Rollback firmware stable slot
 	// (POST /firmwares/{name}/@rollback)
 	RollbackFirmware(c *fiber.Ctx, name string) error
+	// Upload a firmware bin payload
+	// (PUT /firmwares/{name}/bins/{channel}/{bin})
+	UploadFirmwareBin(c *fiber.Ctx, name string, channel UploadFirmwareBinParamsChannel, bin string) error
 	// List all Gemini tenants
 	// (GET /gemini-tenants)
 	ListGeminiTenants(c *fiber.Ctx, params ListGeminiTenantsParams) error
@@ -15777,6 +15956,38 @@ func (siw *ServerInterfaceWrapper) RollbackFirmware(c *fiber.Ctx) error {
 	}
 
 	return siw.Handler.RollbackFirmware(c, name)
+}
+
+// UploadFirmwareBin operation middleware
+func (siw *ServerInterfaceWrapper) UploadFirmwareBin(c *fiber.Ctx) error {
+
+	var err error
+
+	// ------------- Path parameter "name" -------------
+	var name string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "name", c.Params("name"), &name, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter name: %w", err).Error())
+	}
+
+	// ------------- Path parameter "channel" -------------
+	var channel UploadFirmwareBinParamsChannel
+
+	err = runtime.BindStyledParameterWithOptions("simple", "channel", c.Params("channel"), &channel, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter channel: %w", err).Error())
+	}
+
+	// ------------- Path parameter "bin" -------------
+	var bin string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "bin", c.Params("bin"), &bin, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter bin: %w", err).Error())
+	}
+
+	return siw.Handler.UploadFirmwareBin(c, name, channel, bin)
 }
 
 // ListGeminiTenants operation middleware
@@ -16991,6 +17202,8 @@ func RegisterHandlersWithOptions(router fiber.Router, si ServerInterface, option
 	router.Post(options.BaseURL+"/firmwares/:name/@release", wrapper.ReleaseFirmware)
 
 	router.Post(options.BaseURL+"/firmwares/:name/@rollback", wrapper.RollbackFirmware)
+
+	router.Put(options.BaseURL+"/firmwares/:name/bins/:channel/:bin", wrapper.UploadFirmwareBin)
 
 	router.Get(options.BaseURL+"/gemini-tenants", wrapper.ListGeminiTenants)
 
@@ -18433,6 +18646,53 @@ func (response RollbackFirmware409JSONResponse) VisitRollbackFirmwareResponse(ct
 type RollbackFirmware500JSONResponse externalRef0.ErrorResponse
 
 func (response RollbackFirmware500JSONResponse) VisitRollbackFirmwareResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type UploadFirmwareBinRequestObject struct {
+	Name    string                         `json:"name"`
+	Channel UploadFirmwareBinParamsChannel `json:"channel"`
+	Bin     string                         `json:"bin"`
+	Body    io.Reader
+}
+
+type UploadFirmwareBinResponseObject interface {
+	VisitUploadFirmwareBinResponse(ctx *fiber.Ctx) error
+}
+
+type UploadFirmwareBin200JSONResponse externalRef0.Firmware
+
+func (response UploadFirmwareBin200JSONResponse) VisitUploadFirmwareBinResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type UploadFirmwareBin400JSONResponse externalRef0.ErrorResponse
+
+func (response UploadFirmwareBin400JSONResponse) VisitUploadFirmwareBinResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(400)
+
+	return ctx.JSON(&response)
+}
+
+type UploadFirmwareBin404JSONResponse externalRef0.ErrorResponse
+
+func (response UploadFirmwareBin404JSONResponse) VisitUploadFirmwareBinResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type UploadFirmwareBin500JSONResponse externalRef0.ErrorResponse
+
+func (response UploadFirmwareBin500JSONResponse) VisitUploadFirmwareBinResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(500)
 
@@ -20748,6 +21008,9 @@ type StrictServerInterface interface {
 	// Rollback firmware stable slot
 	// (POST /firmwares/{name}/@rollback)
 	RollbackFirmware(ctx context.Context, request RollbackFirmwareRequestObject) (RollbackFirmwareResponseObject, error)
+	// Upload a firmware bin payload
+	// (PUT /firmwares/{name}/bins/{channel}/{bin})
+	UploadFirmwareBin(ctx context.Context, request UploadFirmwareBinRequestObject) (UploadFirmwareBinResponseObject, error)
 	// List all Gemini tenants
 	// (GET /gemini-tenants)
 	ListGeminiTenants(ctx context.Context, request ListGeminiTenantsRequestObject) (ListGeminiTenantsResponseObject, error)
@@ -20960,7 +21223,11 @@ func (sh *strictHandler) ApplyResource(ctx *fiber.Ctx) error {
 
 	}
 	if strings.HasPrefix(string(ctx.Request().Header.ContentType()), "application/yaml") {
-		request.Body = bytes.NewReader(ctx.Request().Body())
+		body := ctx.Context().RequestBodyStream()
+		if body == nil {
+			body = bytes.NewReader(ctx.Request().Body())
+		}
+		request.Body = body
 	}
 
 	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
@@ -21479,7 +21746,11 @@ func (sh *strictHandler) UploadBadgeIcon(ctx *fiber.Ctx, id string) error {
 
 	request.Id = id
 
-	request.Body = bytes.NewReader(ctx.Request().Body())
+	body := ctx.Context().RequestBodyStream()
+	if body == nil {
+		body = bytes.NewReader(ctx.Request().Body())
+	}
+	request.Body = body
 
 	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
 		return sh.ssi.UploadBadgeIcon(ctx.UserContext(), request.(UploadBadgeIconRequestObject))
@@ -21983,6 +22254,41 @@ func (sh *strictHandler) RollbackFirmware(ctx *fiber.Ctx, name string) error {
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
 	} else if validResponse, ok := response.(RollbackFirmwareResponseObject); ok {
 		if err := validResponse.VisitRollbackFirmwareResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// UploadFirmwareBin operation middleware
+func (sh *strictHandler) UploadFirmwareBin(ctx *fiber.Ctx, name string, channel UploadFirmwareBinParamsChannel, bin string) error {
+	var request UploadFirmwareBinRequestObject
+
+	request.Name = name
+	request.Channel = channel
+	request.Bin = bin
+
+	body := ctx.Context().RequestBodyStream()
+	if body == nil {
+		body = bytes.NewReader(ctx.Request().Body())
+	}
+	request.Body = body
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.UploadFirmwareBin(ctx.UserContext(), request.(UploadFirmwareBinRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UploadFirmwareBin")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(UploadFirmwareBinResponseObject); ok {
+		if err := validResponse.VisitUploadFirmwareBinResponse(ctx); err != nil {
 			return fiber.NewError(fiber.StatusBadRequest, err.Error())
 		}
 	} else if response != nil {
@@ -23028,7 +23334,11 @@ func (sh *strictHandler) UploadPetSpeciesPixa(ctx *fiber.Ctx, id string) error {
 
 	request.Id = id
 
-	request.Body = bytes.NewReader(ctx.Request().Body())
+	body := ctx.Context().RequestBodyStream()
+	if body == nil {
+		body = bytes.NewReader(ctx.Request().Body())
+	}
+	request.Body = body
 
 	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
 		return sh.ssi.UploadPetSpeciesPixa(ctx.UserContext(), request.(UploadPetSpeciesPixaRequestObject))
@@ -23123,7 +23433,11 @@ func (sh *strictHandler) PutResource(ctx *fiber.Ctx, kind ResourceKind, name str
 
 	}
 	if strings.HasPrefix(string(ctx.Request().Header.ContentType()), "application/yaml") {
-		request.Body = bytes.NewReader(ctx.Request().Body())
+		body := ctx.Context().RequestBodyStream()
+		if body == nil {
+			body = bytes.NewReader(ctx.Request().Body())
+		}
+		request.Body = body
 	}
 
 	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {

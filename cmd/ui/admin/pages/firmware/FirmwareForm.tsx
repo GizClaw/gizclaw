@@ -12,15 +12,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 
-const slotKeys = ["rollback", "stable", "beta", "develop", "pending"] as const;
+const slotKeys = ["develop", "beta", "stable", "pending"] as const;
 
 type SlotKey = (typeof slotKeys)[number];
 type ArtifactForm = {
   kind: "app" | "data";
   name: string;
-  sha256: string;
-  size: string;
-  url: string;
 };
 
 export type FirmwareFormState = {
@@ -196,7 +193,7 @@ function SlotEditDialog({
 
   const submit = (): void => {
     onSubmit({
-      artifacts: artifacts.map(formToArtifact).filter((artifact) => artifact.name.trim() !== "" || artifact.url.trim() !== ""),
+      artifacts: artifacts.map(formToArtifact).filter((artifact) => artifact.name.trim() !== ""),
       description: optionalString(description),
       version: optionalString(version),
     });
@@ -244,7 +241,7 @@ function SlotEditDialog({
             <CardContent className="flex flex-col gap-3">
               {artifacts.length === 0 ? <div className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">No artifacts.</div> : null}
               {artifacts.map((artifact, index) => (
-                <div className="grid min-w-0 gap-3 rounded-md border p-3 xl:grid-cols-[minmax(0,1fr)_8rem_minmax(0,1.35fr)_7rem_minmax(0,1fr)_auto]" key={index}>
+                <div className="grid min-w-0 gap-3 rounded-md border p-3 md:grid-cols-[minmax(0,1fr)_8rem_auto]" key={index}>
                   <Input aria-label={`Artifact ${index + 1} name`} className="min-w-0" onChange={(event) => updateArtifact(index, { name: event.target.value })} placeholder="name" value={artifact.name} />
                   <Select onValueChange={(value) => updateArtifact(index, { kind: value as ArtifactForm["kind"] })} value={artifact.kind}>
                     <SelectTrigger aria-label={`Artifact ${index + 1} kind`}>
@@ -255,9 +252,6 @@ function SlotEditDialog({
                       <SelectItem value="data">data</SelectItem>
                     </SelectContent>
                   </Select>
-                  <Input aria-label={`Artifact ${index + 1} url`} className="min-w-0" onChange={(event) => updateArtifact(index, { url: event.target.value })} placeholder="https://..." value={artifact.url} />
-                  <Input aria-label={`Artifact ${index + 1} size`} className="min-w-0" onChange={(event) => updateArtifact(index, { size: event.target.value })} placeholder="size" type="number" value={artifact.size} />
-                  <Input aria-label={`Artifact ${index + 1} sha256`} className="min-w-0" onChange={(event) => updateArtifact(index, { sha256: event.target.value })} placeholder="sha256" value={artifact.sha256} />
                   <Button
                     aria-label={`Remove artifact ${index + 1}`}
                     className="h-9 w-9 p-0"
@@ -315,7 +309,6 @@ function emptySlots(): FirmwareFormState["slots"] {
     beta: {},
     develop: {},
     pending: {},
-    rollback: {},
     stable: {
       version: "1.0.0",
     },
@@ -327,7 +320,6 @@ function normalizeSlots(slots: FirmwareUpsert["slots"]): FirmwareFormState["slot
     beta: slots.beta ?? {},
     develop: slots.develop ?? {},
     pending: slots.pending ?? {},
-    rollback: slots.rollback ?? {},
     stable: slots.stable ?? {},
   };
 }
@@ -336,20 +328,13 @@ function artifactToForm(artifact: FirmwareArtifact): ArtifactForm {
   return {
     kind: artifact.kind === "data" ? "data" : "app",
     name: artifact.name,
-    sha256: artifact.sha256 ?? "",
-    size: artifact.size == null ? "" : String(artifact.size),
-    url: artifact.url,
   };
 }
 
 function formToArtifact(form: ArtifactForm): FirmwareArtifact {
-  const size = Number.parseInt(form.size, 10);
   return {
     kind: form.kind,
     name: form.name,
-    sha256: optionalString(form.sha256),
-    size: Number.isFinite(size) ? size : undefined,
-    url: form.url,
   };
 }
 
@@ -357,9 +342,6 @@ function emptyArtifactForm(): ArtifactForm {
   return {
     kind: "app",
     name: "",
-    sha256: "",
-    size: "",
-    url: "",
   };
 }
 

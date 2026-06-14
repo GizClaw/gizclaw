@@ -65,6 +65,12 @@ func TestNewWithLayeredStorageConfig(t *testing.T) {
 	if srv.PeerStore == nil || srv.CredentialStore == nil || srv.FirmwareStore == nil || srv.MiniMaxTenantStore == nil || srv.VoiceStore == nil || srv.WorkspaceStore == nil || srv.WorkflowStore == nil {
 		t.Fatalf("module stores not wired: %+v", srv)
 	}
+	if srv.FirmwareAssets == nil {
+		t.Fatalf("firmware assets store not wired: %+v", srv.Server)
+	}
+	if srv.PetSpeciesStore == nil || srv.PetSpeciesAssets == nil || srv.BadgeStore == nil || srv.BadgeAssets == nil || srv.PetStore == nil || srv.RewardStore == nil || srv.WalletDB == nil {
+		t.Fatalf("business stores not wired: %+v", srv.Server)
+	}
 	if srv.ContactStore == nil || srv.FriendRequestStore == nil || srv.FriendStore == nil || srv.FriendGroupStore == nil || srv.FriendGroupMemberStore == nil || srv.FriendGroupMessageStore == nil || srv.FriendGroupMessageAssets == nil {
 		t.Fatalf("social stores not wired: %+v", srv.Server)
 	}
@@ -98,131 +104,52 @@ func TestNewWithLayeredStorageReportsStoreErrors(t *testing.T) {
 	}
 
 	missingFirmwareCfg := validLayeredConfig(dir)
-	missingFirmwareCfg.Firmwares.Store = "missing"
+	delete(missingFirmwareCfg.Stores, "firmwares")
 	if _, err := New(missingFirmwareCfg); err == nil || !strings.Contains(err.Error(), "server: firmwares store:") {
 		t.Fatalf("New(missing firmwares store) = %v", err)
 	}
 
-	missingMiniMaxCredentialCfg := validLayeredConfig(dir)
-	missingMiniMaxCredentialCfg.MiniMax.CredentialsStore = "missing"
-	if _, err := New(missingMiniMaxCredentialCfg); err == nil || !strings.Contains(err.Error(), "server: minimax credentials store:") {
-		t.Fatalf("New(missing minimax credentials store) = %v", err)
+	badFirmwareAssetsCfg := validLayeredConfig(dir)
+	badFirmwareAssetsCfg.Stores["firmware-assets"] = stores.Config{Kind: stores.KindKeyValue, Storage: "memory", Prefix: "firmware-assets"}
+	if _, err := New(badFirmwareAssetsCfg); err == nil || !strings.Contains(err.Error(), "server: firmwares assets store:") {
+		t.Fatalf("New(bad firmware assets store) = %v", err)
+	}
+
+	badPetSpeciesAssetsCfg := validLayeredConfig(dir)
+	badPetSpeciesAssetsCfg.Stores["pet-species-assets"] = stores.Config{Kind: stores.KindKeyValue, Storage: "memory", Prefix: "pet-species-assets"}
+	if _, err := New(badPetSpeciesAssetsCfg); err == nil || !strings.Contains(err.Error(), "server: pet_species assets store:") {
+		t.Fatalf("New(bad pet species assets store) = %v", err)
 	}
 
 	missingTenantCfg := validLayeredConfig(dir)
-	missingTenantCfg.MiniMax.TenantsStore = "missing"
+	delete(missingTenantCfg.Stores, "minimax-tenants")
 	if _, err := New(missingTenantCfg); err == nil || !strings.Contains(err.Error(), "server: minimax tenants store:") {
 		t.Fatalf("New(missing tenant store) = %v", err)
 	}
 
 	missingVoicesCfg := validLayeredConfig(dir)
-	missingVoicesCfg.MiniMax.VoicesStore = "missing"
+	delete(missingVoicesCfg.Stores, "voices")
 	if _, err := New(missingVoicesCfg); err == nil || !strings.Contains(err.Error(), "server: voices store:") {
 		t.Fatalf("New(missing voices store) = %v", err)
 	}
 
 	missingWorkspacesCfg := validLayeredConfig(dir)
-	missingWorkspacesCfg.Workspaces.Store = "missing"
+	delete(missingWorkspacesCfg.Stores, "workspaces")
 	if _, err := New(missingWorkspacesCfg); err == nil || !strings.Contains(err.Error(), "server: workspaces store:") {
 		t.Fatalf("New(missing workspaces store) = %v", err)
 	}
 
 	missingWorkflowsCfg := validLayeredConfig(dir)
-	missingWorkflowsCfg.Workflows.Store = "missing"
+	delete(missingWorkflowsCfg.Stores, "workflows")
 	if _, err := New(missingWorkflowsCfg); err == nil || !strings.Contains(err.Error(), "server: workflows store:") {
 		t.Fatalf("New(missing workflows store) = %v", err)
 	}
 
 	missingACLCfg := validLayeredConfig(dir)
-	missingACLCfg.ACL.Store = "missing"
+	delete(missingACLCfg.Stores, "acl")
 	if _, err := New(missingACLCfg); err == nil || !strings.Contains(err.Error(), "server: acl store:") {
 		t.Fatalf("New(missing acl store) = %v", err)
 	}
-
-	missingPetSpeciesCfg := validLayeredConfig(dir)
-	missingPetSpeciesCfg.PetSpecies.Store = "missing"
-	if _, err := New(missingPetSpeciesCfg); err == nil || !strings.Contains(err.Error(), "server: pet_species store:") {
-		t.Fatalf("New(missing pet species store) = %v", err)
-	}
-
-	missingPetSpeciesAssetsCfg := validLayeredConfig(dir)
-	missingPetSpeciesAssetsCfg.PetSpecies.AssetsStore = "missing"
-	if _, err := New(missingPetSpeciesAssetsCfg); err == nil || !strings.Contains(err.Error(), "server: pet_species assets store:") {
-		t.Fatalf("New(missing pet species assets store) = %v", err)
-	}
-
-	missingBadgesCfg := validLayeredConfig(dir)
-	missingBadgesCfg.Badges.Store = "missing"
-	if _, err := New(missingBadgesCfg); err == nil || !strings.Contains(err.Error(), "server: badges store:") {
-		t.Fatalf("New(missing badges store) = %v", err)
-	}
-
-	missingBadgeAssetsCfg := validLayeredConfig(dir)
-	missingBadgeAssetsCfg.Badges.AssetsStore = "missing"
-	if _, err := New(missingBadgeAssetsCfg); err == nil || !strings.Contains(err.Error(), "server: badges assets store:") {
-		t.Fatalf("New(missing badge assets store) = %v", err)
-	}
-
-	missingPetsCfg := validLayeredConfig(dir)
-	missingPetsCfg.Pets.Store = "missing"
-	if _, err := New(missingPetsCfg); err == nil || !strings.Contains(err.Error(), "server: pets store:") {
-		t.Fatalf("New(missing pets store) = %v", err)
-	}
-
-	missingRewardsCfg := validLayeredConfig(dir)
-	missingRewardsCfg.Rewards.Store = "missing"
-	if _, err := New(missingRewardsCfg); err == nil || !strings.Contains(err.Error(), "server: rewards store:") {
-		t.Fatalf("New(missing rewards store) = %v", err)
-	}
-
-	missingWalletsCfg := validLayeredConfig(dir)
-	missingWalletsCfg.Wallets.Store = "missing"
-	if _, err := New(missingWalletsCfg); err == nil || !strings.Contains(err.Error(), "server: wallets store:") {
-		t.Fatalf("New(missing wallets store) = %v", err)
-	}
-
-	missingContactsCfg := validLayeredConfig(dir)
-	missingContactsCfg.Contacts.Store = "missing"
-	if _, err := New(missingContactsCfg); err == nil || !strings.Contains(err.Error(), "server: contacts store:") {
-		t.Fatalf("New(missing contacts store) = %v", err)
-	}
-
-	missingFriendRequestsCfg := validLayeredConfig(dir)
-	missingFriendRequestsCfg.Friends.RequestsStore = "missing"
-	if _, err := New(missingFriendRequestsCfg); err == nil || !strings.Contains(err.Error(), "server: friend requests store:") {
-		t.Fatalf("New(missing friend requests store) = %v", err)
-	}
-
-	missingFriendsCfg := validLayeredConfig(dir)
-	missingFriendsCfg.Friends.Store = "missing"
-	if _, err := New(missingFriendsCfg); err == nil || !strings.Contains(err.Error(), "server: friends store:") {
-		t.Fatalf("New(missing friends store) = %v", err)
-	}
-
-	missingFriendGroupsCfg := validLayeredConfig(dir)
-	missingFriendGroupsCfg.FriendGroups.Store = "missing"
-	if _, err := New(missingFriendGroupsCfg); err == nil || !strings.Contains(err.Error(), "server: friend_groups store:") {
-		t.Fatalf("New(missing friend_groups store) = %v", err)
-	}
-
-	missingFriendGroupMembersCfg := validLayeredConfig(dir)
-	missingFriendGroupMembersCfg.FriendGroups.MembersStore = "missing"
-	if _, err := New(missingFriendGroupMembersCfg); err == nil || !strings.Contains(err.Error(), "server: friend group members store:") {
-		t.Fatalf("New(missing group members store) = %v", err)
-	}
-
-	missingFriendGroupMessagesCfg := validLayeredConfig(dir)
-	missingFriendGroupMessagesCfg.FriendGroups.MessagesStore = "missing"
-	if _, err := New(missingFriendGroupMessagesCfg); err == nil || !strings.Contains(err.Error(), "server: friend group messages store:") {
-		t.Fatalf("New(missing friend group messages store) = %v", err)
-	}
-
-	missingFriendGroupMessageAssetsCfg := validLayeredConfig(dir)
-	missingFriendGroupMessageAssetsCfg.FriendGroups.MessageAssetsStore = "missing"
-	if _, err := New(missingFriendGroupMessageAssetsCfg); err == nil || !strings.Contains(err.Error(), "server: friend group message assets store:") {
-		t.Fatalf("New(missing friend group message assets store) = %v", err)
-	}
-
 }
 
 func TestNewWithPreparedConfig(t *testing.T) {
@@ -235,10 +162,7 @@ func TestNewWithPreparedConfig(t *testing.T) {
 		ListenAddr:     ":1234",
 		AdminPublicKey: adminKey,
 		Stores: map[string]stores.Config{
-			"mem": {Kind: stores.KindKeyValue, Backend: "memory"},
-		},
-		Peers: PeersConfig{
-			Store: "mem",
+			"peers": {Kind: stores.KindKeyValue, Backend: "memory"},
 		},
 	})
 	if err != nil {
@@ -261,8 +185,7 @@ func TestNewWiresCipherMode(t *testing.T) {
 	srv, err := New(Config{
 		ListenAddr: ":1234",
 		CipherMode: giznet.CipherModeAES256GCM,
-		Stores:     map[string]stores.Config{"mem": {Kind: stores.KindKeyValue, Backend: "memory"}},
-		Peers:      PeersConfig{Store: "mem"},
+		Stores:     map[string]stores.Config{"peers": {Kind: stores.KindKeyValue, Backend: "memory"}},
 	})
 	if err != nil {
 		t.Fatalf("New error = %v", err)
@@ -276,8 +199,8 @@ func TestNewWiresCipherMode(t *testing.T) {
 
 func TestConfigValidateRequiresStores(t *testing.T) {
 	cfg := Config{}
-	if err := cfg.validate(); err == nil {
-		t.Fatal("validate should fail without required stores")
+	if err := cfg.validate(); err != nil {
+		t.Fatalf("validate should allow default store names without service bindings: %v", err)
 	}
 }
 
@@ -370,31 +293,8 @@ func TestMergeFileConfigKeepsRuntimeOverrides(t *testing.T) {
 		Stores: map[string]stores.Config{
 			"runtime": {Kind: "keyvalue", Backend: "memory"},
 		},
-		Peers: PeersConfig{
-			Store: "runtime-peers",
-		},
-		Credentials: CredentialsConfig{Store: "runtime-credentials"},
-		Firmwares:   FirmwaresConfig{Store: "runtime-firmwares"},
-		MiniMax: MiniMaxConfig{
-			TenantsStore:     "runtime-tenants",
-			VoicesStore:      "runtime-voices",
-			CredentialsStore: "runtime-credentials",
-		},
-		Workspaces: WorkspacesConfig{Store: "runtime-workspaces"},
-		Workflows:  WorkflowsConfig{Store: "runtime-workflows"},
-		ACL:        ACLConfig{Store: "runtime-acl"},
-		PetSpecies: AssetResourceConfig{Store: "runtime-pet-species", AssetsStore: "runtime-pet-species-assets"},
-		Badges:     AssetResourceConfig{Store: "runtime-badges", AssetsStore: "runtime-badge-assets"},
-		Pets:       StoreConfig{Store: "runtime-pets"},
-		Rewards:    StoreConfig{Store: "runtime-rewards"},
-		Wallets:    StoreConfig{Store: "runtime-wallets"},
-		Contacts:   StoreConfig{Store: "runtime-contacts"},
-		Friends:    FriendsConfig{RequestsStore: "runtime-friend-requests", Store: "runtime-friends", FriendOTPTTL: "2m"},
+		Friends: FriendsConfig{FriendOTPTTL: "2m"},
 		FriendGroups: FriendGroupsConfig{
-			Store:                  "runtime-friend-groups",
-			MembersStore:           "runtime-friend-group-members",
-			MessagesStore:          "runtime-friend-group-messages",
-			MessageAssetsStore:     "runtime-friend-group-message-assets",
 			MessageDefaultTTL:      "2h",
 			MessageMaxTTL:          "3d",
 			MessageCleanupInterval: "30s",
@@ -415,31 +315,8 @@ func TestMergeFileConfigKeepsRuntimeOverrides(t *testing.T) {
 		Stores: map[string]stores.Config{
 			"file": {Kind: "keyvalue", Backend: "memory"},
 		},
-		Peers: PeersConfig{
-			Store: "file-peers",
-		},
-		Credentials: CredentialsConfig{Store: "file-credentials"},
-		Firmwares:   FirmwaresConfig{Store: "file-firmwares"},
-		MiniMax: MiniMaxConfig{
-			TenantsStore:     "file-tenants",
-			VoicesStore:      "file-voices",
-			CredentialsStore: "file-credentials",
-		},
-		Workspaces: WorkspacesConfig{Store: "file-workspaces"},
-		Workflows:  WorkflowsConfig{Store: "file-workflows"},
-		ACL:        ACLConfig{Store: "file-acl"},
-		PetSpecies: AssetResourceConfig{Store: "file-pet-species", AssetsStore: "file-pet-species-assets"},
-		Badges:     AssetResourceConfig{Store: "file-badges", AssetsStore: "file-badge-assets"},
-		Pets:       StoreConfig{Store: "file-pets"},
-		Rewards:    StoreConfig{Store: "file-rewards"},
-		Wallets:    StoreConfig{Store: "file-wallets"},
-		Contacts:   StoreConfig{Store: "file-contacts"},
-		Friends:    FriendsConfig{RequestsStore: "file-friend-requests", Store: "file-friends", FriendOTPTTL: "10m"},
+		Friends: FriendsConfig{FriendOTPTTL: "10m"},
 		FriendGroups: FriendGroupsConfig{
-			Store:                  "file-friend-groups",
-			MembersStore:           "file-friend-group-members",
-			MessagesStore:          "file-friend-group-messages",
-			MessageAssetsStore:     "file-friend-group-message-assets",
 			MessageDefaultTTL:      "24h",
 			MessageMaxTTL:          "7d",
 			MessageCleanupInterval: "5m",
@@ -470,41 +347,11 @@ func TestMergeFileConfigKeepsRuntimeOverrides(t *testing.T) {
 	if len(merged.Storage) != 1 || merged.Storage["runtime-storage"].Backend != "memory" {
 		t.Fatalf("Storage = %+v", merged.Storage)
 	}
-	if merged.Peers.Store != "runtime-peers" {
-		t.Fatalf("Peers.Store = %q", merged.Peers.Store)
+	if merged.Friends.FriendOTPTTL != "2m" {
+		t.Fatalf("Friends = %+v", merged.Friends)
 	}
-	if merged.Credentials.Store != "runtime-credentials" {
-		t.Fatalf("Credentials.Store = %q", merged.Credentials.Store)
-	}
-	if merged.Firmwares.Store != "runtime-firmwares" {
-		t.Fatalf("Firmwares.Store = %q", merged.Firmwares.Store)
-	}
-	if merged.MiniMax.TenantsStore != "runtime-tenants" || merged.MiniMax.VoicesStore != "runtime-voices" || merged.MiniMax.CredentialsStore != "runtime-credentials" {
-		t.Fatalf("MiniMax = %+v", merged.MiniMax)
-	}
-	if merged.Workspaces.Store != "runtime-workspaces" {
-		t.Fatalf("Workspaces = %+v", merged.Workspaces)
-	}
-	if merged.Workflows.Store != "runtime-workflows" {
-		t.Fatalf("Workflows.Store = %q", merged.Workflows.Store)
-	}
-	if merged.ACL.Store != "runtime-acl" {
-		t.Fatalf("ACL.Store = %q", merged.ACL.Store)
-	}
-	if merged.PetSpecies.Store != "runtime-pet-species" || merged.PetSpecies.AssetsStore != "runtime-pet-species-assets" {
-		t.Fatalf("PetSpecies = %+v", merged.PetSpecies)
-	}
-	if merged.Badges.Store != "runtime-badges" || merged.Badges.AssetsStore != "runtime-badge-assets" {
-		t.Fatalf("Badges = %+v", merged.Badges)
-	}
-	if merged.Pets.Store != "runtime-pets" || merged.Rewards.Store != "runtime-rewards" || merged.Wallets.Store != "runtime-wallets" {
-		t.Fatalf("business stores = pets:%+v rewards:%+v wallets:%+v", merged.Pets, merged.Rewards, merged.Wallets)
-	}
-	if merged.Contacts.Store != "runtime-contacts" || merged.Friends.Store != "runtime-friends" || merged.Friends.RequestsStore != "runtime-friend-requests" || merged.Friends.FriendOTPTTL != "2m" {
-		t.Fatalf("social friend/contact config = contacts:%+v friends:%+v", merged.Contacts, merged.Friends)
-	}
-	if merged.FriendGroups.Store != "runtime-friend-groups" || merged.FriendGroups.MembersStore != "runtime-friend-group-members" || merged.FriendGroups.MessagesStore != "runtime-friend-group-messages" || merged.FriendGroups.MessageAssetsStore != "runtime-friend-group-message-assets" || merged.FriendGroups.MessageDefaultTTL != "2h" || merged.FriendGroups.MessageMaxTTL != "3d" || merged.FriendGroups.MessageCleanupInterval != "30s" || merged.FriendGroups.MessageMaxAudioBytes != 1024 {
-		t.Fatalf("social friend group config = friend_groups:%+v", merged.FriendGroups)
+	if merged.FriendGroups.MessageDefaultTTL != "2h" || merged.FriendGroups.MessageMaxTTL != "3d" || merged.FriendGroups.MessageCleanupInterval != "30s" || merged.FriendGroups.MessageMaxAudioBytes != 1024 {
+		t.Fatalf("FriendGroups = %+v", merged.FriendGroups)
 	}
 	if merged.SystemTasks.RewardClaim.Generator != "model/runtime-reward" || merged.SystemTasks.RewardClaim.Cooldown != "5m" || merged.SystemTasks.PetAction.Generator != "model/runtime-pet" {
 		t.Fatalf("SystemTasks = %+v", merged.SystemTasks)
@@ -528,11 +375,6 @@ func TestValidateReportsSpecificMissingFields(t *testing.T) {
 		want string
 	}{
 		{
-			name: "missing peers store",
-			cfg:  Config{},
-			want: "server: peers.store is required",
-		},
-		{
 			name: "invalid cipher mode",
 			cfg:  Config{CipherMode: giznet.CipherMode("bad")},
 			want: "server: unsupported cipher-mode \"bad\"",
@@ -551,33 +393,13 @@ func TestValidateReportsSpecificMissingFields(t *testing.T) {
 
 func TestValidateReportsLayeredStorageMissingFields(t *testing.T) {
 	base := Config{
-		Storage:     map[string]storage.Config{"memory": {Kind: storage.KindKeyValue, Memory: &storage.MemoryConfig{}}},
-		Peers:       PeersConfig{Store: "peers"},
-		Credentials: CredentialsConfig{Store: "credentials"},
-		Firmwares:   FirmwaresConfig{Store: "firmwares"},
-		MiniMax:     MiniMaxConfig{TenantsStore: "minimax-tenants", VoicesStore: "voices", CredentialsStore: "credentials"},
-		Workspaces:  WorkspacesConfig{Store: "workspaces"},
-		Workflows:   WorkflowsConfig{Store: "workflows"},
-		ACL:         ACLConfig{Store: "acl"},
-		PetSpecies:  AssetResourceConfig{Store: "pet-species", AssetsStore: "pet-species-assets"},
-		Badges:      AssetResourceConfig{Store: "badges", AssetsStore: "badge-assets"},
-		Pets:        StoreConfig{Store: "pets"},
-		Rewards:     StoreConfig{Store: "rewards"},
-		Wallets:     StoreConfig{Store: "wallets"},
+		Storage: map[string]storage.Config{"memory": {Kind: storage.KindKeyValue, Memory: &storage.MemoryConfig{}}},
 	}
 	tests := []struct {
 		name string
 		edit func(*Config)
 		want string
 	}{
-		{"missing credentials", func(c *Config) { c.Credentials.Store = "" }, "server: credentials.store is required"},
-		{"missing firmwares", func(c *Config) { c.Firmwares.Store = "" }, "server: firmwares.store is required"},
-		{"missing minimax tenants", func(c *Config) { c.MiniMax.TenantsStore = "" }, "server: minimax.tenants-store is required"},
-		{"missing minimax voices", func(c *Config) { c.MiniMax.VoicesStore = "" }, "server: minimax.voices-store is required"},
-		{"missing minimax credentials", func(c *Config) { c.MiniMax.CredentialsStore = "" }, "server: minimax.credentials-store is required"},
-		{"missing workspaces", func(c *Config) { c.Workspaces.Store = "" }, "server: workspaces.store is required"},
-		{"missing workflows", func(c *Config) { c.Workflows.Store = "" }, "server: workflows.store is required"},
-		{"missing acl", func(c *Config) { c.ACL.Store = "" }, "server: acl.store is required"},
 		{"bad reward generator", func(c *Config) { c.SystemTasks.RewardClaim.Generator = "voice/main" }, "server: system_tasks.reward_claim.generator must match model/<id>"},
 		{"bad pet generator", func(c *Config) { c.SystemTasks.PetAction.Generator = "voice/main" }, "server: system_tasks.pet_action.generator must match model/<id>"},
 		{"bad cooldown", func(c *Config) { c.SystemTasks.RewardClaim.Cooldown = "soon" }, "server: system_tasks.reward_claim.cooldown: time: invalid duration \"soon\""},
@@ -600,9 +422,7 @@ func TestValidateReportsLayeredStorageMissingFields(t *testing.T) {
 }
 
 func TestPrepareConfigGeneratesKeyPairAndDefaultListenAddr(t *testing.T) {
-	cfg, err := prepareConfig(Config{
-		Peers: PeersConfig{Store: "g"},
-	})
+	cfg, err := prepareConfig(Config{})
 	if err != nil {
 		t.Fatalf("prepareConfig error = %v", err)
 	}
@@ -617,21 +437,19 @@ func TestPrepareConfigGeneratesKeyPairAndDefaultListenAddr(t *testing.T) {
 func TestNewRejectsUnknownStores(t *testing.T) {
 	_, err := New(Config{
 		Stores: map[string]stores.Config{
-			"bad": {Kind: "keyvalue", Backend: "unknown"},
+			"peers": {Kind: "keyvalue", Backend: "unknown"},
 		},
-		Peers: PeersConfig{Store: "bad"},
 	})
 	if err == nil || !strings.Contains(err.Error(), "server: stores:") {
 		t.Fatalf("New error = %v", err)
 	}
 }
 
-func TestNewRejectsMissingNamedStores(t *testing.T) {
+func TestNewRejectsMissingDefaultPeerStore(t *testing.T) {
 	_, err := New(Config{
 		Stores: map[string]stores.Config{
 			"mem": {Kind: "keyvalue", Backend: "memory"},
 		},
-		Peers: PeersConfig{Store: "missing"},
 	})
 	if err == nil || !strings.Contains(err.Error(), "server: peers store:") {
 		t.Fatalf("New error = %v", err)
@@ -652,6 +470,7 @@ func validLayeredConfig(dir string) Config {
 			"peers":                       {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "peers"},
 			"credentials":                 {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "credentials"},
 			"firmwares":                   {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "firmwares"},
+			"firmware-assets":             {Kind: stores.KindObjectStore, Storage: "local-files", Prefix: "firmwares"},
 			"minimax-tenants":             {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "minimax-tenants"},
 			"voices":                      {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "voices"},
 			"workspaces":                  {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "workspaces"},
@@ -672,29 +491,8 @@ func validLayeredConfig(dir string) Config {
 			"wallets":                     {Kind: stores.KindSQL, Storage: "wallet-db"},
 			"acl":                         {Kind: stores.KindSQL, Storage: "acl-db"},
 		},
-		Peers:       PeersConfig{Store: "peers"},
-		Credentials: CredentialsConfig{Store: "credentials"},
-		Firmwares:   FirmwaresConfig{Store: "firmwares"},
-		MiniMax: MiniMaxConfig{
-			TenantsStore:     "minimax-tenants",
-			VoicesStore:      "voices",
-			CredentialsStore: "credentials",
-		},
-		Workspaces: WorkspacesConfig{Store: "workspaces"},
-		Workflows:  WorkflowsConfig{Store: "workflows"},
-		ACL:        ACLConfig{Store: "acl"},
-		PetSpecies: AssetResourceConfig{Store: "pet-species", AssetsStore: "pet-species-assets"},
-		Badges:     AssetResourceConfig{Store: "badges", AssetsStore: "badge-assets"},
-		Pets:       StoreConfig{Store: "pets"},
-		Rewards:    StoreConfig{Store: "rewards"},
-		Wallets:    StoreConfig{Store: "wallets"},
-		Contacts:   StoreConfig{Store: "contacts"},
-		Friends:    FriendsConfig{RequestsStore: "friend-requests", Store: "friends", FriendOTPTTL: "10m"},
+		Friends: FriendsConfig{FriendOTPTTL: "10m"},
 		FriendGroups: FriendGroupsConfig{
-			Store:                  "friend-groups",
-			MembersStore:           "friend-group-members",
-			MessagesStore:          "friend-group-messages",
-			MessageAssetsStore:     "friend-group-message-assets",
 			MessageDefaultTTL:      "24h",
 			MessageMaxTTL:          "7d",
 			MessageCleanupInterval: "5m",

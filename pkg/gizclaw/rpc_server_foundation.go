@@ -16,7 +16,10 @@ func rpcNotImplemented(id string, method rpcapi.RPCMethod) *rpcapi.RPCResponse {
 
 func isPlannedServerMethod(method rpcapi.RPCMethod) bool {
 	switch method {
-	case rpcapi.RPCMethodServerWorkspaceList,
+	case rpcapi.RPCMethodServerFirmwareList,
+		rpcapi.RPCMethodServerFirmwareGet,
+		rpcapi.RPCMethodServerFirmwareDownload,
+		rpcapi.RPCMethodServerWorkspaceList,
 		rpcapi.RPCMethodServerWorkspaceGet,
 		rpcapi.RPCMethodServerWorkspaceCreate,
 		rpcapi.RPCMethodServerWorkspacePut,

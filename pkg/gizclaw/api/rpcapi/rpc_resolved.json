@@ -328,6 +328,259 @@
         },
         "type": "object"
       },
+      "Firmware": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "description": {
+            "example": "Devkit firmware line",
+            "type": "string"
+          },
+          "name": {
+            "example": "devkit",
+            "type": "string"
+          },
+          "slots": {
+            "$ref": "#/components/schemas/FirmwareSlots"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "slots",
+          "created_at",
+          "updated_at"
+        ],
+        "type": "object"
+      },
+      "FirmwareArtifact": {
+        "properties": {
+          "content_type": {
+            "description": "Optional content type captured during upload.",
+            "example": "application/octet-stream",
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/FirmwareArtifactKind"
+          },
+          "name": {
+            "description": "Device-defined artifact name.",
+            "example": "main",
+            "type": "string"
+          },
+          "path": {
+            "description": "Server-owned objectstore path for the uploaded artifact payload.",
+            "example": "devkit/stable/app/20260613T000000.000000000Z-0123456789abcdef.bin",
+            "type": "string"
+          },
+          "sha256": {
+            "description": "Optional SHA-256 digest for integrity checks.",
+            "type": "string"
+          },
+          "size": {
+            "description": "Optional artifact size in bytes.",
+            "format": "int64",
+            "type": "integer"
+          },
+          "uploaded_at": {
+            "description": "Server-owned upload timestamp.",
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "kind"
+        ],
+        "type": "object"
+      },
+      "FirmwareArtifactKind": {
+        "description": "Kind of payload carried by a firmware artifact.",
+        "enum": [
+          "app",
+          "data"
+        ],
+        "example": "app",
+        "type": "string"
+      },
+      "FirmwareBinMetadata": {
+        "additionalProperties": false,
+        "properties": {
+          "content_type": {
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/FirmwareArtifactKind"
+          },
+          "name": {
+            "type": "string"
+          },
+          "sha256": {
+            "type": "string"
+          },
+          "size": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "uploaded_at": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "kind"
+        ],
+        "type": "object"
+      },
+      "FirmwareChannelName": {
+        "enum": [
+          "stable",
+          "beta",
+          "develop",
+          "pending"
+        ],
+        "type": "string"
+      },
+      "FirmwareDownloadRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "artifact_name": {
+            "type": "string"
+          },
+          "channel": {
+            "$ref": "#/components/schemas/FirmwareChannelName"
+          },
+          "firmware_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "firmware_id",
+          "channel",
+          "artifact_name"
+        ],
+        "type": "object"
+      },
+      "FirmwareDownloadResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "artifact": {
+            "$ref": "#/components/schemas/FirmwareBinMetadata"
+          },
+          "channel": {
+            "$ref": "#/components/schemas/FirmwareChannelName"
+          },
+          "firmware_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "firmware_id",
+          "channel",
+          "artifact"
+        ],
+        "type": "object"
+      },
+      "FirmwareGetRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "firmware_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "firmware_id"
+        ],
+        "type": "object"
+      },
+      "FirmwareGetResponse": {
+        "$ref": "#/components/schemas/Firmware"
+      },
+      "FirmwareListRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "cursor": {
+            "type": "string"
+          },
+          "limit": {
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "FirmwareListResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "has_next": {
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/Firmware"
+            },
+            "type": "array"
+          },
+          "next_cursor": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "items",
+          "has_next"
+        ],
+        "type": "object"
+      },
+      "FirmwareSlot": {
+        "properties": {
+          "artifacts": {
+            "description": "Device-defined artifact list for this slot.",
+            "items": {
+              "$ref": "#/components/schemas/FirmwareArtifact"
+            },
+            "type": "array"
+          },
+          "description": {
+            "example": "Devkit firmware 1.0.3",
+            "type": "string"
+          },
+          "version": {
+            "description": "Version carried by this slot.",
+            "example": "1.0.3",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "FirmwareSlots": {
+        "properties": {
+          "beta": {
+            "$ref": "#/components/schemas/FirmwareSlot"
+          },
+          "develop": {
+            "$ref": "#/components/schemas/FirmwareSlot"
+          },
+          "pending": {
+            "$ref": "#/components/schemas/FirmwareSlot"
+          },
+          "stable": {
+            "$ref": "#/components/schemas/FirmwareSlot"
+          }
+        },
+        "required": [
+          "stable",
+          "beta",
+          "develop",
+          "pending"
+        ],
+        "type": "object"
+      },
       "FlowcraftWorkflow": {
         "example": {
           "apiVersion": "gizclaw.flowcraft/v1alpha1",
@@ -1771,6 +2024,9 @@
           "server.run.status",
           "server.run.stop",
           "server.run.say",
+          "server.firmware.list",
+          "server.firmware.get",
+          "server.firmware.download",
           "server.workspace.list",
           "server.workspace.get",
           "server.workspace.create",
@@ -1885,6 +2141,15 @@
               },
               {
                 "$ref": "#/components/schemas/ServerRunSayRequest"
+              },
+              {
+                "$ref": "#/components/schemas/FirmwareListRequest"
+              },
+              {
+                "$ref": "#/components/schemas/FirmwareGetRequest"
+              },
+              {
+                "$ref": "#/components/schemas/FirmwareDownloadRequest"
               },
               {
                 "$ref": "#/components/schemas/WorkspaceListRequest"
@@ -2124,6 +2389,15 @@
               },
               {
                 "$ref": "#/components/schemas/ServerRunSayResponse"
+              },
+              {
+                "$ref": "#/components/schemas/FirmwareListResponse"
+              },
+              {
+                "$ref": "#/components/schemas/FirmwareGetResponse"
+              },
+              {
+                "$ref": "#/components/schemas/FirmwareDownloadResponse"
               },
               {
                 "$ref": "#/components/schemas/WorkspaceListResponse"

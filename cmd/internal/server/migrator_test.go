@@ -56,8 +56,6 @@ stores:
   acl:
     kind: sql
     storage: acl-db
-acl:
-  store: acl
 `), 0o644); err != nil {
 		t.Fatalf("write config: %v", err)
 	}
@@ -72,7 +70,6 @@ acl:
 		Stores: map[string]stores.Config{
 			"acl": {Kind: stores.KindSQL, Storage: "acl-db"},
 		},
-		ACL: ACLConfig{Store: "acl"},
 	})
 	if err != nil {
 		t.Fatalf("NewMigrator() after workspace migration error = %v", err)
@@ -103,10 +100,6 @@ stores:
   acl:
     kind: sql
     storage: acl-db
-peers:
-  store: peers
-acl:
-  store: acl
 `), 0o644); err != nil {
 		t.Fatalf("write config: %v", err)
 	}
@@ -119,7 +112,7 @@ acl:
 	if err != nil {
 		t.Fatalf("newStoreRegistry() error = %v", err)
 	}
-	peerStore, err := ss.KV(cfg.Peers.Store)
+	peerStore, err := ss.KV(defaultPeersStore)
 	if err != nil {
 		t.Fatalf("KV(peers) error = %v", err)
 	}
@@ -171,7 +164,7 @@ acl:
 	}
 }
 
-func TestNewMigratorRequiresACLStore(t *testing.T) {
+func TestNewMigratorRequiresACLLogicalStore(t *testing.T) {
 	if _, err := NewMigrator(Config{}); err == nil {
 		t.Fatal("NewMigrator() error = nil")
 	}

@@ -93,34 +93,6 @@ stores:
   acl:
     kind: sql
     storage: acl-db
-peers:
-  store: peers
-credentials:
-  store: credentials
-firmwares:
-  store: firmwares
-minimax:
-  tenants-store: minimax-tenants
-  voices-store: voices
-  credentials-store: credentials
-workspaces:
-  store: workspaces
-workflows:
-  store: workflows
-acl:
-  store: acl
-pet_species:
-  store: pet-species
-  assets_store: pet-species-assets
-badges:
-  store: badges
-  assets_store: badge-assets
-pets:
-  store: pets
-rewards:
-  store: rewards
-wallets:
-  store: wallets
 system_tasks:
   reward_claim:
     generator: model/reward-claim
@@ -227,34 +199,6 @@ stores:
   acl:
     kind: sql
     storage: acl-db
-peers:
-  store: fw-meta
-credentials:
-  store: fw-meta
-firmwares:
-  store: fw-meta
-minimax:
-  tenants-store: fw-meta
-  voices-store: fw-meta
-  credentials-store: fw-meta
-workspaces:
-  store: fw-meta
-workflows:
-  store: fw-meta
-acl:
-  store: acl
-pet_species:
-  store: fw-meta
-  assets_store: pet-species-assets
-badges:
-  store: fw-meta
-  assets_store: badge-assets
-pets:
-  store: fw-meta
-rewards:
-  store: fw-meta
-wallets:
-  store: wallets
 system_tasks:
   reward_claim:
     generator: model/reward-claim
@@ -436,34 +380,6 @@ stores:
   acl:
     kind: sql
     storage: acl-db
-peers:
-  store: peers
-credentials:
-  store: credentials
-firmwares:
-  store: firmwares
-minimax:
-  tenants-store: minimax-tenants
-  voices-store: voices
-  credentials-store: credentials
-workspaces:
-  store: workspaces
-workflows:
-  store: workflows
-acl:
-  store: acl
-pet_species:
-  store: pet-species
-  assets_store: pet-species-assets
-badges:
-  store: badges
-  assets_store: badge-assets
-pets:
-  store: pets
-rewards:
-  store: rewards
-wallets:
-  store: wallets
 system_tasks:
   reward_claim:
     generator: model/reward-claim

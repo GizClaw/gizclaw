@@ -4,7 +4,7 @@ storage:
     kind: keyvalue
     memory: {}
   local-files:
-    kind: filesystem
+    kind: objectstore
     fs:
       dir: .
   acl-db:
@@ -28,6 +28,10 @@ stores:
     kind: keyvalue
     storage: memory
     prefix: firmwares
+  firmware-assets:
+    kind: objectstore
+    storage: local-files
+    prefix: firmwares
   minimax-tenants:
     kind: keyvalue
     storage: memory
@@ -50,21 +54,3 @@ stores:
   history:
     kind: sql
     storage: history-db
-peers:
-  store: peers
-credentials:
-  store: credentials
-firmwares:
-  store: firmwares
-minimax:
-  tenants-store: minimax-tenants
-  voices-store: voices
-  credentials-store: credentials
-workspaces:
-  store: workspaces
-workflows:
-  store: workflows
-acl:
-  store: acl
-history:
-  store: history

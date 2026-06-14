@@ -15,6 +15,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/adminservice"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/credential"
+	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/firmware"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/model"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/peer"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/peerrun"
@@ -46,6 +47,7 @@ type Manager struct {
 
 	Workspaces  workspace.WorkspaceAdminService
 	Workflows   workflow.WorkflowAdminService
+	Firmwares   *firmware.Server
 	Models      model.ModelAdminService
 	Credentials credential.CredentialAdminService
 	Voices      voice.VoiceAdminService

@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
@@ -13,6 +14,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/credential"
+	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/firmware"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/model"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/pet"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/reward"
@@ -22,6 +24,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/workspace"
 	"github.com/GizClaw/gizclaw-go/pkg/giznet"
 	"github.com/GizClaw/gizclaw-go/pkg/store/kv"
+	"github.com/GizClaw/gizclaw-go/pkg/store/objectstore"
 	_ "modernc.org/sqlite"
 )
 
@@ -296,6 +299,103 @@ func TestServerBusinessDomainDoesNotUseResourceACL(t *testing.T) {
 	}
 }
 
+func TestServerFirmwareRPCUsesFirmwareReadACL(t *testing.T) {
+	ctx := context.Background()
+	auth := newRuleAuthorizer()
+	version := "1.0.0"
+	firmwareServer := &firmware.Server{Store: kv.NewMemory(nil), Assets: objectstore.Dir(t.TempDir()), Now: func() time.Time { return time.Unix(1, 0).UTC() }}
+	create := adminservice.FirmwareUpsert{
+		Name: "devkit",
+		Slots: apitypes.FirmwareSlots{
+			Stable: apitypes.FirmwareSlot{
+				Version: &version,
+				Artifacts: &[]apitypes.FirmwareArtifact{{
+					Name: "app",
+					Kind: apitypes.FirmwareArtifactKindApp,
+				}},
+			},
+		},
+	}
+	if resp, err := firmwareServer.CreateFirmware(ctx, adminservice.CreateFirmwareRequestObject{Body: &create}); err != nil {
+		t.Fatalf("CreateFirmware error = %v", err)
+	} else if _, ok := resp.(adminservice.CreateFirmware200JSONResponse); !ok {
+		t.Fatalf("CreateFirmware response = %T", resp)
+	}
+	other := adminservice.FirmwareUpsert{
+		Name: "otherkit",
+		Slots: apitypes.FirmwareSlots{
+			Stable: apitypes.FirmwareSlot{Version: stringPtr("2.0.0")},
+		},
+	}
+	if resp, err := firmwareServer.CreateFirmware(ctx, adminservice.CreateFirmwareRequestObject{Body: &other}); err != nil {
+		t.Fatalf("CreateFirmware other error = %v", err)
+	} else if _, ok := resp.(adminservice.CreateFirmware200JSONResponse); !ok {
+		t.Fatalf("CreateFirmware other response = %T", resp)
+	}
+	if resp, err := firmwareServer.UploadFirmwareBin(ctx, adminservice.UploadFirmwareBinRequestObject{
+		Name:    "devkit",
+		Channel: adminservice.Stable,
+		Bin:     "app",
+		Body:    strings.NewReader("firmware payload"),
+	}); err != nil {
+		t.Fatalf("UploadFirmwareBin error = %v", err)
+	} else if _, ok := resp.(adminservice.UploadFirmwareBin200JSONResponse); !ok {
+		t.Fatalf("UploadFirmwareBin response = %T", resp)
+	}
+
+	srv := &Server{
+		Caller:    giznet.PublicKey{1},
+		ACL:       auth,
+		Firmwares: firmwareServer,
+	}
+
+	denied := callRPC(t, srv, "firmware-get-denied", rpcapi.RPCMethodServerFirmwareGet, rpcParams(t, (*rpcapi.RPCRequest_Params).FromFirmwareGetRequest, rpcapi.FirmwareGetRequest{
+		FirmwareId: "devkit",
+	}))
+	requireRPCError(t, denied, rpcapi.RPCErrorCodeForbidden)
+	if got := auth.count(ctx, acl.ResourceKindFirmware, "devkit", apitypes.ACLPermissionFirmwareRead); got == 0 {
+		t.Fatal("firmware.get did not check firmware.read")
+	}
+
+	auth.allow(acl.ResourceKindFirmware, "devkit", apitypes.ACLPermissionFirmwareRead)
+	listResp := callRPC(t, srv, "firmware-list", rpcapi.RPCMethodServerFirmwareList, nil)
+	gotList := mustResult(t, listResp.Result.AsFirmwareListResponse)
+	if len(gotList.Items) != 1 || gotList.Items[0].Name != "devkit" {
+		t.Fatalf("firmware.list = %#v", gotList)
+	}
+	if got := auth.count(ctx, acl.ResourceKindFirmware, "otherkit", apitypes.ACLPermissionFirmwareRead); got == 0 {
+		t.Fatal("firmware.list did not check denied firmware")
+	}
+
+	getResp := callRPC(t, srv, "firmware-get", rpcapi.RPCMethodServerFirmwareGet, rpcParams(t, (*rpcapi.RPCRequest_Params).FromFirmwareGetRequest, rpcapi.FirmwareGetRequest{
+		FirmwareId: "devkit",
+	}))
+	gotFirmware := mustResult(t, getResp.Result.AsFirmwareGetResponse)
+	if gotFirmware.Name != "devkit" || gotFirmware.Slots.Stable.Version == nil || *gotFirmware.Slots.Stable.Version != version {
+		t.Fatalf("firmware.get = %#v", gotFirmware)
+	}
+	if gotFirmware.Slots.Stable.Artifacts == nil || len(*gotFirmware.Slots.Stable.Artifacts) != 1 || (*gotFirmware.Slots.Stable.Artifacts)[0].Size == nil {
+		t.Fatalf("firmware.get artifacts = %#v", gotFirmware.Slots.Stable.Artifacts)
+	}
+
+	bin := callRPC(t, srv, "firmware-download", rpcapi.RPCMethodServerFirmwareDownload, rpcParams(t, (*rpcapi.RPCRequest_Params).FromFirmwareDownloadRequest, rpcapi.FirmwareDownloadRequest{
+		FirmwareId:   "devkit",
+		Channel:      rpcapi.FirmwareChannelNameStable,
+		ArtifactName: "app",
+	}))
+	gotBin := mustResult(t, bin.Result.AsFirmwareDownloadResponse)
+	if gotBin.FirmwareId != "devkit" || gotBin.Artifact.Name != "app" || gotBin.Artifact.Size == nil {
+		t.Fatalf("firmware.download = %#v", gotBin)
+	}
+
+	missingBin := callRPC(t, srv, "firmware-artifact-missing", rpcapi.RPCMethodServerFirmwareDownload, rpcParams(t, (*rpcapi.RPCRequest_Params).FromFirmwareDownloadRequest, rpcapi.FirmwareDownloadRequest{
+		FirmwareId:   "devkit",
+		Channel:      rpcapi.FirmwareChannelNameStable,
+		ArtifactName: "missing",
+	}))
+	requireRPCError(t, missingBin, rpcapi.RPCErrorCodeNotFound)
+}
+
 func TestServerErrorPaths(t *testing.T) {
 	requiredMethods := []rpcapi.RPCMethod{
 		rpcapi.RPCMethodServerWorkspaceGet,
@@ -506,6 +606,18 @@ type fixedRewardDecision rpcapi.RewardDecision
 
 func (d fixedRewardDecision) DecideReward(context.Context, string, string) (rpcapi.RewardDecision, error) {
 	return rpcapi.RewardDecision(d), nil
+}
+
+type fixedPeerConfigService struct {
+	peer apitypes.Peer
+	err  error
+}
+
+func (s fixedPeerConfigService) LoadPeer(context.Context, giznet.PublicKey) (apitypes.Peer, error) {
+	if s.err != nil {
+		return apitypes.Peer{}, s.err
+	}
+	return s.peer, nil
 }
 
 func stringPtr(value string) *string {

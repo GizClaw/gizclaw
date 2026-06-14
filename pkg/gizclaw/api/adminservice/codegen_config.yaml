@@ -8,3 +8,5 @@ import-mapping:
   ./types.json: github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/apitypes
 output-options:
   skip-prune: true
+  user-templates:
+    strict/strict-fiber.tmpl: templates/strict/strict-fiber.tmpl

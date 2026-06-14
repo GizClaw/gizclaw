@@ -19,78 +19,20 @@ type Config struct {
 	AdminPublicKey giznet.PublicKey
 	Storage        map[string]storage.Config
 	Stores         map[string]stores.Config
-	Peers          PeersConfig
-	Credentials    CredentialsConfig
-	Firmwares      FirmwaresConfig
-	MiniMax        MiniMaxConfig
-	Workspaces     WorkspacesConfig
-	Workflows      WorkflowsConfig
-	ACL            ACLConfig
-	PetSpecies     AssetResourceConfig
-	Badges         AssetResourceConfig
-	Pets           StoreConfig
-	Rewards        StoreConfig
-	Wallets        StoreConfig
-	Contacts       StoreConfig
 	Friends        FriendsConfig
 	FriendGroups   FriendGroupsConfig
 	SystemTasks    SystemTasksConfig
 }
 
-type StoreConfig struct {
-	Store string `yaml:"store"`
-}
-
 type FriendsConfig struct {
-	Store         string `yaml:"store"`
-	RequestsStore string `yaml:"requests_store"`
-	FriendOTPTTL  string `yaml:"friend_otp_ttl"`
+	FriendOTPTTL string `yaml:"friend_otp_ttl"`
 }
 
 type FriendGroupsConfig struct {
-	Store                  string `yaml:"store"`
-	MembersStore           string `yaml:"members_store"`
-	MessagesStore          string `yaml:"messages_store"`
-	MessageAssetsStore     string `yaml:"message_assets_store"`
 	MessageDefaultTTL      string `yaml:"message_default_ttl"`
 	MessageMaxTTL          string `yaml:"message_max_ttl"`
 	MessageCleanupInterval string `yaml:"message_cleanup_interval"`
 	MessageMaxAudioBytes   int64  `yaml:"message_max_audio_bytes"`
-}
-
-type AssetResourceConfig struct {
-	Store       string `yaml:"store"`
-	AssetsStore string `yaml:"assets_store"`
-}
-
-type PeersConfig struct {
-	Store string `yaml:"store"`
-}
-
-type CredentialsConfig struct {
-	Store string `yaml:"store"`
-}
-
-type FirmwaresConfig struct {
-	Store string `yaml:"store"`
-}
-
-type MiniMaxConfig struct {
-	TenantsStore     string `yaml:"tenants-store"`
-	VoicesStore      string `yaml:"voices-store"`
-	CredentialsStore string `yaml:"credentials-store"`
-}
-
-type WorkspacesConfig struct {
-	Store string `yaml:"store"`
-}
-
-type WorkflowsConfig struct {
-	Store string `yaml:"store"`
-}
-
-type ACLConfig struct {
-	Store string `yaml:"store"`
 }
 
 type SystemTasksConfig struct {
@@ -113,23 +55,36 @@ type ConfigFile struct {
 	AdminPublicKey giznet.PublicKey          `yaml:"admin-public-key"`
 	Storage        map[string]storage.Config `yaml:"storage"`
 	Stores         map[string]stores.Config  `yaml:"stores"`
-	Peers          PeersConfig               `yaml:"peers"`
-	Credentials    CredentialsConfig         `yaml:"credentials"`
-	Firmwares      FirmwaresConfig           `yaml:"firmwares"`
-	MiniMax        MiniMaxConfig             `yaml:"minimax"`
-	Workspaces     WorkspacesConfig          `yaml:"workspaces"`
-	Workflows      WorkflowsConfig           `yaml:"workflows"`
-	ACL            ACLConfig                 `yaml:"acl"`
-	PetSpecies     AssetResourceConfig       `yaml:"pet_species"`
-	Badges         AssetResourceConfig       `yaml:"badges"`
-	Pets           StoreConfig               `yaml:"pets"`
-	Rewards        StoreConfig               `yaml:"rewards"`
-	Wallets        StoreConfig               `yaml:"wallets"`
-	Contacts       StoreConfig               `yaml:"contacts"`
 	Friends        FriendsConfig             `yaml:"friends"`
 	FriendGroups   FriendGroupsConfig        `yaml:"friend_groups"`
 	SystemTasks    SystemTasksConfig         `yaml:"system_tasks"`
 }
+
+const (
+	defaultPeersStore                    = "peers"
+	defaultCredentialsStore              = "credentials"
+	defaultFirmwaresStore                = "firmwares"
+	defaultFirmwareAssetsStore           = "firmware-assets"
+	defaultMiniMaxTenantsStore           = "minimax-tenants"
+	defaultVoicesStore                   = "voices"
+	defaultWorkspacesStore               = "workspaces"
+	defaultWorkflowsStore                = "workflows"
+	defaultACLStore                      = "acl"
+	defaultPetSpeciesStore               = "pet-species"
+	defaultPetSpeciesAssetsStore         = "pet-species-assets"
+	defaultBadgesStore                   = "badges"
+	defaultBadgeAssetsStore              = "badge-assets"
+	defaultPetsStore                     = "pets"
+	defaultRewardsStore                  = "rewards"
+	defaultWalletsStore                  = "wallets"
+	defaultContactsStore                 = "contacts"
+	defaultFriendRequestsStore           = "friend-requests"
+	defaultFriendsStore                  = "friends"
+	defaultFriendGroupsStore             = "friend-groups"
+	defaultFriendGroupMembersStore       = "friend-group-members"
+	defaultFriendGroupMessagesStore      = "friend-group-messages"
+	defaultFriendGroupMessageAssetsStore = "friend-group-message-assets"
+)
 
 func LoadConfig(path string) (ConfigFile, error) {
 	data, err := os.ReadFile(path)
@@ -142,19 +97,6 @@ func LoadConfig(path string) (ConfigFile, error) {
 		AdminPublicKey *giznet.PublicKey         `yaml:"admin-public-key"`
 		Storage        map[string]storage.Config `yaml:"storage"`
 		Stores         map[string]stores.Config  `yaml:"stores"`
-		Peers          PeersConfig               `yaml:"peers"`
-		Credentials    CredentialsConfig         `yaml:"credentials"`
-		Firmwares      FirmwaresConfig           `yaml:"firmwares"`
-		MiniMax        MiniMaxConfig             `yaml:"minimax"`
-		Workspaces     WorkspacesConfig          `yaml:"workspaces"`
-		Workflows      WorkflowsConfig           `yaml:"workflows"`
-		ACL            ACLConfig                 `yaml:"acl"`
-		PetSpecies     AssetResourceConfig       `yaml:"pet_species"`
-		Badges         AssetResourceConfig       `yaml:"badges"`
-		Pets           StoreConfig               `yaml:"pets"`
-		Rewards        StoreConfig               `yaml:"rewards"`
-		Wallets        StoreConfig               `yaml:"wallets"`
-		Contacts       StoreConfig               `yaml:"contacts"`
 		Friends        FriendsConfig             `yaml:"friends"`
 		FriendGroups   FriendGroupsConfig        `yaml:"friend_groups"`
 		SystemTasks    SystemTasksConfig         `yaml:"system_tasks"`
@@ -175,19 +117,6 @@ func LoadConfig(path string) (ConfigFile, error) {
 		AdminPublicKey: adminPublicKey,
 		Storage:        raw.Storage,
 		Stores:         raw.Stores,
-		Peers:          raw.Peers,
-		Credentials:    raw.Credentials,
-		Firmwares:      raw.Firmwares,
-		MiniMax:        raw.MiniMax,
-		Workspaces:     raw.Workspaces,
-		Workflows:      raw.Workflows,
-		ACL:            raw.ACL,
-		PetSpecies:     raw.PetSpecies,
-		Badges:         raw.Badges,
-		Pets:           raw.Pets,
-		Rewards:        raw.Rewards,
-		Wallets:        raw.Wallets,
-		Contacts:       raw.Contacts,
 		Friends:        raw.Friends,
 		FriendGroups:   raw.FriendGroups,
 		SystemTasks:    raw.SystemTasks,
@@ -217,49 +146,13 @@ func mergeFileConfig(cfg Config, fileCfg ConfigFile) (Config, error) {
 	if len(cfg.Storage) == 0 {
 		cfg.Storage = fileCfg.Storage
 	}
-	cfg.Peers = mergePeersConfig(cfg.Peers, fileCfg.Peers)
-	cfg.Credentials = mergeCredentialsConfig(cfg.Credentials, fileCfg.Credentials)
-	cfg.Firmwares = mergeFirmwaresConfig(cfg.Firmwares, fileCfg.Firmwares)
-	cfg.MiniMax = mergeMiniMaxConfig(cfg.MiniMax, fileCfg.MiniMax)
-	cfg.Workspaces = mergeWorkspacesConfig(cfg.Workspaces, fileCfg.Workspaces)
-	cfg.Workflows = mergeWorkflowsConfig(cfg.Workflows, fileCfg.Workflows)
-	cfg.ACL = mergeACLConfig(cfg.ACL, fileCfg.ACL)
-	cfg.PetSpecies = mergeAssetResourceConfig(cfg.PetSpecies, fileCfg.PetSpecies)
-	cfg.Badges = mergeAssetResourceConfig(cfg.Badges, fileCfg.Badges)
-	cfg.Pets = mergeStoreConfig(cfg.Pets, fileCfg.Pets)
-	cfg.Rewards = mergeStoreConfig(cfg.Rewards, fileCfg.Rewards)
-	cfg.Wallets = mergeStoreConfig(cfg.Wallets, fileCfg.Wallets)
-	cfg.Contacts = mergeStoreConfig(cfg.Contacts, fileCfg.Contacts)
 	cfg.Friends = mergeFriendsConfig(cfg.Friends, fileCfg.Friends)
 	cfg.FriendGroups = mergeFriendGroupsConfig(cfg.FriendGroups, fileCfg.FriendGroups)
 	cfg.SystemTasks = mergeSystemTasksConfig(cfg.SystemTasks, fileCfg.SystemTasks)
 	return cfg, nil
 }
 
-func mergeStoreConfig(runtime StoreConfig, file StoreConfig) StoreConfig {
-	if runtime.Store == "" {
-		runtime.Store = file.Store
-	}
-	return runtime
-}
-
-func mergeAssetResourceConfig(runtime AssetResourceConfig, file AssetResourceConfig) AssetResourceConfig {
-	if runtime.Store == "" {
-		runtime.Store = file.Store
-	}
-	if runtime.AssetsStore == "" {
-		runtime.AssetsStore = file.AssetsStore
-	}
-	return runtime
-}
-
 func mergeFriendsConfig(runtime FriendsConfig, file FriendsConfig) FriendsConfig {
-	if runtime.Store == "" {
-		runtime.Store = file.Store
-	}
-	if runtime.RequestsStore == "" {
-		runtime.RequestsStore = file.RequestsStore
-	}
 	if runtime.FriendOTPTTL == "" {
 		runtime.FriendOTPTTL = file.FriendOTPTTL
 	}
@@ -267,18 +160,6 @@ func mergeFriendsConfig(runtime FriendsConfig, file FriendsConfig) FriendsConfig
 }
 
 func mergeFriendGroupsConfig(runtime FriendGroupsConfig, file FriendGroupsConfig) FriendGroupsConfig {
-	if runtime.Store == "" {
-		runtime.Store = file.Store
-	}
-	if runtime.MembersStore == "" {
-		runtime.MembersStore = file.MembersStore
-	}
-	if runtime.MessagesStore == "" {
-		runtime.MessagesStore = file.MessagesStore
-	}
-	if runtime.MessageAssetsStore == "" {
-		runtime.MessageAssetsStore = file.MessageAssetsStore
-	}
 	if runtime.MessageDefaultTTL == "" {
 		runtime.MessageDefaultTTL = file.MessageDefaultTTL
 	}
@@ -290,61 +171,6 @@ func mergeFriendGroupsConfig(runtime FriendGroupsConfig, file FriendGroupsConfig
 	}
 	if runtime.MessageMaxAudioBytes == 0 {
 		runtime.MessageMaxAudioBytes = file.MessageMaxAudioBytes
-	}
-	return runtime
-}
-
-func mergePeersConfig(runtime PeersConfig, file PeersConfig) PeersConfig {
-	if runtime.Store == "" {
-		runtime.Store = file.Store
-	}
-	return runtime
-}
-
-func mergeCredentialsConfig(runtime CredentialsConfig, file CredentialsConfig) CredentialsConfig {
-	if runtime.Store == "" {
-		runtime.Store = file.Store
-	}
-	return runtime
-}
-
-func mergeFirmwaresConfig(runtime FirmwaresConfig, file FirmwaresConfig) FirmwaresConfig {
-	if runtime.Store == "" {
-		runtime.Store = file.Store
-	}
-	return runtime
-}
-
-func mergeMiniMaxConfig(runtime MiniMaxConfig, file MiniMaxConfig) MiniMaxConfig {
-	if runtime.TenantsStore == "" {
-		runtime.TenantsStore = file.TenantsStore
-	}
-	if runtime.VoicesStore == "" {
-		runtime.VoicesStore = file.VoicesStore
-	}
-	if runtime.CredentialsStore == "" {
-		runtime.CredentialsStore = file.CredentialsStore
-	}
-	return runtime
-}
-
-func mergeWorkspacesConfig(runtime WorkspacesConfig, file WorkspacesConfig) WorkspacesConfig {
-	if runtime.Store == "" {
-		runtime.Store = file.Store
-	}
-	return runtime
-}
-
-func mergeWorkflowsConfig(runtime WorkflowsConfig, file WorkflowsConfig) WorkflowsConfig {
-	if runtime.Store == "" {
-		runtime.Store = file.Store
-	}
-	return runtime
-}
-
-func mergeACLConfig(runtime ACLConfig, file ACLConfig) ACLConfig {
-	if runtime.Store == "" {
-		runtime.Store = file.Store
 	}
 	return runtime
 }
@@ -393,36 +219,6 @@ func prepareConfig(cfg Config) (Config, error) {
 func (cfg Config) validate() error {
 	if err := validateCipherMode(cfg.CipherMode); err != nil {
 		return err
-	}
-	if cfg.Peers.Store == "" {
-		return fmt.Errorf("server: peers.store is required")
-	}
-	if len(cfg.Storage) == 0 {
-		return nil
-	}
-	if cfg.Credentials.Store == "" {
-		return fmt.Errorf("server: credentials.store is required")
-	}
-	if cfg.Firmwares.Store == "" {
-		return fmt.Errorf("server: firmwares.store is required")
-	}
-	if cfg.MiniMax.TenantsStore == "" {
-		return fmt.Errorf("server: minimax.tenants-store is required")
-	}
-	if cfg.MiniMax.VoicesStore == "" {
-		return fmt.Errorf("server: minimax.voices-store is required")
-	}
-	if cfg.MiniMax.CredentialsStore == "" {
-		return fmt.Errorf("server: minimax.credentials-store is required")
-	}
-	if cfg.Workspaces.Store == "" {
-		return fmt.Errorf("server: workspaces.store is required")
-	}
-	if cfg.Workflows.Store == "" {
-		return fmt.Errorf("server: workflows.store is required")
-	}
-	if cfg.ACL.Store == "" {
-		return fmt.Errorf("server: acl.store is required")
 	}
 	if err := validateOptionalModelPattern("system_tasks.reward_claim.generator", cfg.SystemTasks.RewardClaim.Generator); err != nil {
 		return err

@@ -227,6 +227,10 @@ func (s firmwareServiceWithTransportError) PutFirmware(context.Context, adminser
 	return nil, s.err
 }
 
+func (s firmwareServiceWithTransportError) UploadFirmwareBin(context.Context, adminservice.UploadFirmwareBinRequestObject) (adminservice.UploadFirmwareBinResponseObject, error) {
+	return nil, s.err
+}
+
 func (unexpectedFirmwareService) ListFirmwares(context.Context, adminservice.ListFirmwaresRequestObject) (adminservice.ListFirmwaresResponseObject, error) {
 	return nil, nil
 }
@@ -252,6 +256,10 @@ func (unexpectedFirmwareService) ReleaseFirmware(context.Context, adminservice.R
 }
 
 func (unexpectedFirmwareService) RollbackFirmware(context.Context, adminservice.RollbackFirmwareRequestObject) (adminservice.RollbackFirmwareResponseObject, error) {
+	return nil, nil
+}
+
+func (unexpectedFirmwareService) UploadFirmwareBin(context.Context, adminservice.UploadFirmwareBinRequestObject) (adminservice.UploadFirmwareBinResponseObject, error) {
 	return nil, nil
 }
 

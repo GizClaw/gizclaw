@@ -3,6 +3,7 @@ package adminapi
 import (
 	"context"
 	"fmt"
+	"io"
 	"strings"
 
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/apitypes"
@@ -431,6 +432,21 @@ func RollbackFirmware(ctx context.Context, c *gizcli.Client, name string) (apity
 		return *resp.JSON200, nil
 	}
 	return apitypes.Firmware{}, responseError(resp.StatusCode(), resp.Body, resp.JSON404, resp.JSON409, resp.JSON500)
+}
+
+func UploadFirmwareBin(ctx context.Context, c *gizcli.Client, name, channel, bin string, body io.Reader) (apitypes.Firmware, error) {
+	api, err := c.ServerAdminClient()
+	if err != nil {
+		return apitypes.Firmware{}, err
+	}
+	resp, err := api.UploadFirmwareBinWithBodyWithResponse(ctx, name, adminservice.UploadFirmwareBinParamsChannel(channel), bin, "application/octet-stream", body)
+	if err != nil {
+		return apitypes.Firmware{}, err
+	}
+	if resp.JSON200 != nil {
+		return *resp.JSON200, nil
+	}
+	return apitypes.Firmware{}, responseError(resp.StatusCode(), resp.Body, resp.JSON400, resp.JSON404, resp.JSON500)
 }
 
 func ListMiniMaxTenants(ctx context.Context, c *gizcli.Client) ([]apitypes.MiniMaxTenant, error) {

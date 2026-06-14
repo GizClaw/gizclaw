@@ -14,6 +14,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/credential"
+	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/firmware"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/model"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/pet"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/reward"
@@ -35,6 +36,7 @@ type Server struct {
 	ACL         Authorizer
 	Workspaces  workspace.WorkspaceAdminService
 	Workflows   workflow.WorkflowAdminService
+	Firmwares   *firmware.Server
 	Models      model.ModelAdminService
 	Credentials credential.CredentialAdminService
 	Voices      voice.VoiceAdminService
@@ -46,7 +48,10 @@ type Server struct {
 
 func IsMethod(method rpcapi.RPCMethod) bool {
 	switch method {
-	case rpcapi.RPCMethodServerWorkspaceList,
+	case rpcapi.RPCMethodServerFirmwareList,
+		rpcapi.RPCMethodServerFirmwareGet,
+		rpcapi.RPCMethodServerFirmwareDownload,
+		rpcapi.RPCMethodServerWorkspaceList,
 		rpcapi.RPCMethodServerWorkspaceGet,
 		rpcapi.RPCMethodServerWorkspaceCreate,
 		rpcapi.RPCMethodServerWorkspacePut,
@@ -114,6 +119,12 @@ func (s *Server) Dispatch(ctx context.Context, req *rpcapi.RPCRequest) (*rpcapi.
 		return nil, false, nil
 	}
 	switch req.Method {
+	case rpcapi.RPCMethodServerFirmwareList:
+		return s.handleFirmwareList(ctx, req), true, nil
+	case rpcapi.RPCMethodServerFirmwareGet:
+		return s.handleFirmwareGet(ctx, req), true, nil
+	case rpcapi.RPCMethodServerFirmwareDownload:
+		return s.handleFirmwareDownload(ctx, req), true, nil
 	case rpcapi.RPCMethodServerWorkspaceList:
 		return s.handleWorkspaceList(ctx, req), true, nil
 	case rpcapi.RPCMethodServerWorkspaceGet:

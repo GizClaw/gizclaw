@@ -1,6 +1,7 @@
 package gizcli
 
 import (
+	"bytes"
 	"context"
 	"net"
 	"testing"
@@ -154,6 +155,16 @@ func TestRPCResourceClientWrappers(t *testing.T) {
 			return client.SendFriendGroupMessage(ctx, conn, "friend-group-messages-send", rpcapi.FriendGroupMessageSendRequest{FriendGroupId: "group-a", AudioContentType: "audio/opus"})
 		})
 	})
+
+	t.Run("firmware", func(t *testing.T) {
+		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerFirmwareList, rpcapi.FirmwareListResponse{}, (*rpcapi.RPCResponse_Result).FromFirmwareListResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.FirmwareListResponse, error) {
+			return client.ListFirmwares(ctx, conn, "firmware-list", rpcapi.FirmwareListRequest{})
+		})
+		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerFirmwareGet, rpcapi.FirmwareGetResponse{}, (*rpcapi.RPCResponse_Result).FromFirmwareGetResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.FirmwareGetResponse, error) {
+			return client.GetFirmware(ctx, conn, "firmware-get", rpcapi.FirmwareGetRequest{FirmwareId: "devkit"})
+		})
+		runFirmwareDownloadWrapperTest(t, client)
+	})
 }
 
 func runRPCResultWrapperTest[Resp any](
@@ -209,6 +220,60 @@ func resourceResponse[T any](id string, value T, encode func(*rpcapi.RPCResponse
 		panic(err)
 	}
 	return resp
+}
+
+func runFirmwareDownloadWrapperTest(t *testing.T, client *rpcClient) {
+	t.Helper()
+	serverSide, clientSide := net.Pipe()
+	defer serverSide.Close()
+	defer clientSide.Close()
+
+	payload := []byte("firmware-payload")
+	serverErrCh := make(chan error, 1)
+	go func() {
+		req, err := readRPCRequestWithEOS(serverSide)
+		if err != nil {
+			serverErrCh <- err
+			return
+		}
+		if req.Method != rpcapi.RPCMethodServerFirmwareDownload {
+			serverErrCh <- &unexpectedRPCMethodError{got: req.Method, want: rpcapi.RPCMethodServerFirmwareDownload}
+			return
+		}
+		resp := resourceResponse(req.Id, rpcapi.FirmwareDownloadResponse{
+			FirmwareId: "devkit",
+			Channel:    rpcapi.FirmwareChannelNameStable,
+			Artifact: rpcapi.FirmwareBinMetadata{
+				Name: "main",
+				Kind: rpcapi.FirmwareArtifactKindApp,
+			},
+		}, (*rpcapi.RPCResponse_Result).FromFirmwareDownloadResponse)
+		if err := rpcapi.WriteResponse(serverSide, resp); err != nil {
+			serverErrCh <- err
+			return
+		}
+		if err := rpcapi.WriteFrame(serverSide, rpcapi.Frame{Type: rpcapi.FrameTypeBinary, Payload: payload}); err != nil {
+			serverErrCh <- err
+			return
+		}
+		serverErrCh <- rpcapi.WriteEOS(serverSide)
+	}()
+
+	var out bytes.Buffer
+	result, err := client.DownloadFirmware(context.Background(), clientSide, "firmware-download", rpcapi.FirmwareDownloadRequest{
+		FirmwareId:   "devkit",
+		Channel:      rpcapi.FirmwareChannelNameStable,
+		ArtifactName: "main",
+	}, &out)
+	if err != nil {
+		t.Fatalf("firmware download call error = %v", err)
+	}
+	if result.Metadata.Artifact.Name != "main" || result.Bytes != int64(len(payload)) || out.String() != string(payload) {
+		t.Fatalf("firmware download result = %#v payload %q", result, out.String())
+	}
+	if err := <-serverErrCh; err != nil {
+		t.Fatalf("firmware download server error = %v", err)
+	}
 }
 
 func resourceWorkspace(name string) rpcapi.Workspace {

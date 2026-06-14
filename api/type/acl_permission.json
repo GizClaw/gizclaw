@@ -50,7 +50,9 @@
           "pet_species.admin",
           "badge.read",
           "badge.use",
-          "badge.admin"
+          "badge.admin",
+          "firmware.read",
+          "firmware.admin"
         ],
         "example": "workspace.use"
       },

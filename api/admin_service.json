@@ -1941,7 +1941,7 @@
       "post": {
         "operationId": "releaseFirmware",
         "summary": "Promote firmware slots",
-        "description": "Atomically promote slots: stable to rollback, beta to stable, develop to beta, pending to develop, then clear pending. The resulting stable slot must be non-empty.",
+        "description": "Atomically release by shifting slots left in develop, beta, stable, pending order: beta to develop, stable to beta, pending to stable, then clear pending. The resulting stable slot must be non-empty.",
         "tags": [
           "Firmwares"
         ],
@@ -2000,11 +2000,109 @@
         }
       }
     },
+    "/firmwares/{name}/bins/{channel}/{bin}": {
+      "put": {
+        "operationId": "uploadFirmwareBin",
+        "summary": "Upload a firmware bin payload",
+        "description": "Upload raw bytes for a bin declared in the firmware channel configuration. The server stores the payload in the configured firmware asset object store and updates server-owned artifact metadata.",
+        "tags": [
+          "Firmwares"
+        ],
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "description": "Firmware name",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "channel",
+            "in": "path",
+            "required": true,
+            "description": "Firmware channel/slot name",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "stable",
+                "beta",
+                "develop",
+                "pending"
+              ]
+            }
+          },
+          {
+            "name": "bin",
+            "in": "path",
+            "required": true,
+            "description": "Firmware bin/artifact name declared in the selected channel",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/octet-stream": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated firmware",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/Firmware"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid upload request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Firmware, channel, or bin not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/firmwares/{name}/@rollback": {
       "post": {
         "operationId": "rollbackFirmware",
         "summary": "Rollback firmware stable slot",
-        "description": "Atomically swap stable and rollback slots. The resulting stable slot must be non-empty.",
+        "description": "Atomically rollback by shifting slots right in develop, beta, stable, pending order: develop to beta, beta to stable, stable to pending, then clear develop. The resulting stable slot must be non-empty.",
         "tags": [
           "Firmwares"
         ],

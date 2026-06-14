@@ -44,7 +44,7 @@ export function FirmwareCreatePage(): JSX.Element {
       />
 
       <PageSummaryCard
-        description="Create a firmware release-line document with rollback, stable, beta, develop, and pending slots."
+        description="Create a firmware release-line document with develop, beta, stable, and pending slots."
         eyebrow="Devices"
         title="Create Firmware"
       />

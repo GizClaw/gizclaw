@@ -245,6 +245,7 @@ func (h *PeerConn) peerResources() *peerresource.Server {
 		ACL:         h.peerAuthorizer(),
 		Workspaces:  manager.Workspaces,
 		Workflows:   manager.Workflows,
+		Firmwares:   manager.Firmwares,
 		Models:      manager.Models,
 		Credentials: manager.Credentials,
 		Voices:      manager.Voices,

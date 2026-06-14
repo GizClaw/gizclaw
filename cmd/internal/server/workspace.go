@@ -79,9 +79,6 @@ func prepareWorkspaceMigrationConfig(workspace string) (Config, error) {
 	}
 	cfg.Storage = resolveWorkspaceStorageConfigs(root, cfg.Storage)
 	cfg.Stores = resolveWorkspaceStoreConfigs(root, cfg.Stores)
-	if cfg.ACL.Store == "" {
-		return Config{}, fmt.Errorf("server: acl.store is required")
-	}
 	return cfg, nil
 }
 
@@ -145,7 +142,7 @@ func ServeContext(ctx context.Context, workspace string, opts ServeOptions) erro
 	if err != nil {
 		return err
 	}
-	if cfg.ACL.Store != "" {
+	if storeExists(cfg, defaultACLStore) {
 		migrator, err := NewMigrator(cfg)
 		if err != nil {
 			return err

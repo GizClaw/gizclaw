@@ -12,8 +12,7 @@
         "type": "object",
         "required": [
           "name",
-          "kind",
-          "url"
+          "kind"
         ],
         "properties": {
           "name": {
@@ -24,11 +23,10 @@
           "kind": {
             "$ref": "./firmware_artifact_kind.json#/components/schemas/FirmwareArtifactKind"
           },
-          "url": {
+          "path": {
             "type": "string",
-            "format": "uri",
-            "description": "Download URL for this artifact.",
-            "example": "https://cdn.example.com/devkit/1.0.3/app.bin"
+            "description": "Server-owned objectstore path for the uploaded artifact payload.",
+            "example": "devkit/stable/app/20260613T000000.000000000Z-0123456789abcdef.bin"
           },
           "sha256": {
             "type": "string",
@@ -38,6 +36,16 @@
             "type": "integer",
             "format": "int64",
             "description": "Optional artifact size in bytes."
+          },
+          "content_type": {
+            "type": "string",
+            "description": "Optional content type captured during upload.",
+            "example": "application/octet-stream"
+          },
+          "uploaded_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Server-owned upload timestamp."
           }
         }
       }

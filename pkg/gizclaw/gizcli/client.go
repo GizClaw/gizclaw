@@ -219,6 +219,27 @@ func (c *Client) ServerRunSay(ctx context.Context, id string, request rpcapi.Ser
 	})
 }
 
+func (c *Client) ListFirmwares(ctx context.Context, id string, request rpcapi.FirmwareListRequest) (*rpcapi.FirmwareListResponse, error) {
+	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.FirmwareListResponse, error) {
+		return client.ListFirmwares(ctx, conn, id, request)
+	})
+}
+
+func (c *Client) GetFirmware(ctx context.Context, id string, request rpcapi.FirmwareGetRequest) (*rpcapi.FirmwareGetResponse, error) {
+	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.FirmwareGetResponse, error) {
+		return client.GetFirmware(ctx, conn, id, request)
+	})
+}
+
+func (c *Client) DownloadFirmware(ctx context.Context, id string, request rpcapi.FirmwareDownloadRequest, out io.Writer) (FirmwareDownloadResult, error) {
+	stream, err := c.rpcConn()
+	if err != nil {
+		return FirmwareDownloadResult{}, err
+	}
+	defer func() { _ = stream.Close() }()
+	return c.rpcClient().DownloadFirmware(ctx, stream, id, request, out)
+}
+
 func callClientRPC[T any](c *Client, call func(*rpcClient, net.Conn) (*T, error)) (*T, error) {
 	stream, err := c.rpcConn()
 	if err != nil {

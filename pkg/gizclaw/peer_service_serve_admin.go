@@ -46,7 +46,7 @@ type adminService struct {
 var _ adminservice.StrictServerInterface = (*adminService)(nil)
 
 func (s *PeerService) serveAdmin(conn *giznet.Conn) error {
-	app := fiber.New(fiber.Config{DisableStartupMessage: true})
+	app := fiber.New(fiber.Config{DisableStartupMessage: true, StreamRequestBody: true})
 	app.Use(func(ctx *fiber.Ctx) error {
 		return ctx.Next()
 	})

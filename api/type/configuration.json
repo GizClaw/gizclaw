@@ -15,6 +15,9 @@
             "type": "string",
             "description": "Current content view name selected for this peer.",
             "example": "under-12"
+          },
+          "firmware": {
+            "$ref": "./firmware_selection.json#/components/schemas/FirmwareSelection"
           }
         }
       }

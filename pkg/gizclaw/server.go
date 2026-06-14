@@ -52,6 +52,7 @@ type Server struct {
 	PeerRunStore                 kv.Store
 	CredentialStore              kv.Store
 	FirmwareStore                kv.Store
+	FirmwareAssets               objectstore.ObjectStore
 	MiniMaxCredentialStore       kv.Store
 	MiniMaxTenantStore           kv.Store
 	VolcTenantStore              kv.Store
@@ -318,7 +319,7 @@ func (s *Server) init() error {
 	workflowServer := &workflow.Server{Store: workflowStore}
 	workspaceServer := &workspace.Server{Store: workspaceStore, WorkflowStore: workflowStore}
 	credentialServer := &credential.Server{Store: credentialStore}
-	firmwareServer := &firmware.Server{Store: firmwareStore}
+	firmwareServer := &firmware.Server{Store: firmwareStore, Assets: s.FirmwareAssets}
 	modelServer := &model.Server{Store: modelStore}
 	voiceServer := &voice.Server{Store: voiceStore}
 	var aclServer *acl.Server
@@ -392,6 +393,7 @@ func (s *Server) init() error {
 	})
 	manager.Workspaces = workspaceServer
 	manager.Workflows = workflowServer
+	manager.Firmwares = firmwareServer
 	manager.Models = modelServer
 	manager.Credentials = credentialServer
 	manager.Voices = voiceServer

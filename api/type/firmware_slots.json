@@ -11,16 +11,12 @@
       "FirmwareSlots": {
         "type": "object",
         "required": [
-          "rollback",
           "stable",
           "beta",
           "develop",
           "pending"
         ],
         "properties": {
-          "rollback": {
-            "$ref": "./firmware_slot.json#/components/schemas/FirmwareSlot"
-          },
           "stable": {
             "$ref": "./firmware_slot.json#/components/schemas/FirmwareSlot"
           },

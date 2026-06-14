@@ -73,6 +73,15 @@
                 "$ref": "./rpc/server.json#/components/schemas/ServerRunSayRequest"
               },
               {
+                "$ref": "./rpc/server.json#/components/schemas/FirmwareListRequest"
+              },
+              {
+                "$ref": "./rpc/server.json#/components/schemas/FirmwareGetRequest"
+              },
+              {
+                "$ref": "./rpc/server.json#/components/schemas/FirmwareDownloadRequest"
+              },
+              {
                 "$ref": "./rpc/server.json#/components/schemas/WorkspaceListRequest"
               },
               {
@@ -308,6 +317,15 @@
                 "$ref": "./rpc/server.json#/components/schemas/ServerRunSayResponse"
               },
               {
+                "$ref": "./rpc/server.json#/components/schemas/FirmwareListResponse"
+              },
+              {
+                "$ref": "./rpc/server.json#/components/schemas/FirmwareGetResponse"
+              },
+              {
+                "$ref": "./rpc/server.json#/components/schemas/FirmwareDownloadResponse"
+              },
+              {
                 "$ref": "./rpc/server.json#/components/schemas/WorkspaceListResponse"
               },
               {
@@ -503,6 +521,9 @@
           "server.run.status",
           "server.run.stop",
           "server.run.say",
+          "server.firmware.list",
+          "server.firmware.get",
+          "server.firmware.download",
           "server.workspace.list",
           "server.workspace.get",
           "server.workspace.create",

@@ -29,9 +29,6 @@ func (m *CmdMigrator) Close() error {
 }
 
 func NewMigrator(cfg Config) (migrator *CmdMigrator, err error) {
-	if cfg.ACL.Store == "" {
-		return nil, errors.New("server: acl.store is required")
-	}
 	ss, err := newStoreRegistry(cfg)
 	if err != nil {
 		return nil, fmt.Errorf("server: stores: %w", err)
@@ -43,13 +40,13 @@ func NewMigrator(cfg Config) (migrator *CmdMigrator, err error) {
 		}
 	}()
 
-	aclDB, err := ss.SQL(cfg.ACL.Store)
+	aclDB, err := ss.SQL(defaultACLStore)
 	if err != nil {
 		return nil, fmt.Errorf("server: acl store: %w", err)
 	}
 	var peers *peer.Server
-	if cfg.Peers.Store != "" {
-		peerKV, err := ss.KV(cfg.Peers.Store)
+	if storeExists(cfg, defaultPeersStore) {
+		peerKV, err := ss.KV(defaultPeersStore)
 		if err != nil {
 			return nil, fmt.Errorf("server: peers store: %w", err)
 		}

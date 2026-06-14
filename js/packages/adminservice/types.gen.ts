@@ -445,7 +445,7 @@ export type WorkspaceResource = {
 /**
  * ACL permission enum.
  */
-export type AclPermission = 'viewer' | 'editor' | 'owner' | 'workspace.read' | 'workspace.use' | 'workspace.admin' | 'workflow.read' | 'workflow.use' | 'workflow.admin' | 'voice.read' | 'voice.use' | 'voice.admin' | 'credential.read' | 'credential.use' | 'credential.admin' | 'model.read' | 'model.use' | 'model.admin' | 'view.read' | 'view.use' | 'view.admin' | 'contact.read' | 'contact.use' | 'contact.admin' | 'friend.read' | 'friend.use' | 'friend.admin' | 'friend_request.read' | 'friend_request.use' | 'friend_request.admin' | 'friend_group.read' | 'friend_group.use' | 'friend_group.admin' | 'pet_species.read' | 'pet_species.use' | 'pet_species.admin' | 'badge.read' | 'badge.use' | 'badge.admin';
+export type AclPermission = 'viewer' | 'editor' | 'owner' | 'workspace.read' | 'workspace.use' | 'workspace.admin' | 'workflow.read' | 'workflow.use' | 'workflow.admin' | 'voice.read' | 'voice.use' | 'voice.admin' | 'credential.read' | 'credential.use' | 'credential.admin' | 'model.read' | 'model.use' | 'model.admin' | 'view.read' | 'view.use' | 'view.admin' | 'contact.read' | 'contact.use' | 'contact.admin' | 'friend.read' | 'friend.use' | 'friend.admin' | 'friend_request.read' | 'friend_request.use' | 'friend_request.admin' | 'friend_group.read' | 'friend_group.use' | 'friend_group.admin' | 'pet_species.read' | 'pet_species.use' | 'pet_species.admin' | 'badge.read' | 'badge.use' | 'badge.admin' | 'firmware.read' | 'firmware.admin';
 
 export type AclPermissionList = Array<AclPermission>;
 
@@ -482,7 +482,7 @@ export type AclResource = {
 /**
  * ACL resource identity kind.
  */
-export type AclResourceKind = 'workspace' | 'workflow' | 'voice' | 'credential' | 'model' | 'view' | 'contact' | 'friend' | 'friend_request' | 'friend_group' | 'pet_species' | 'badge';
+export type AclResourceKind = 'workspace' | 'workflow' | 'voice' | 'credential' | 'model' | 'view' | 'contact' | 'friend' | 'friend_request' | 'friend_group' | 'pet_species' | 'badge' | 'firmware';
 
 export type AclRole = {
     name: string;
@@ -542,6 +542,7 @@ export type Configuration = {
      * Current content view name selected for this peer.
      */
     view?: string;
+    firmware?: FirmwareSelection;
 };
 
 export type Credential = {
@@ -618,9 +619,9 @@ export type FirmwareArtifact = {
     name: string;
     kind: FirmwareArtifactKind;
     /**
-     * Download URL for this artifact.
+     * Server-owned objectstore path for the uploaded artifact payload.
      */
-    url: string;
+    path?: string;
     /**
      * Optional SHA-256 digest for integrity checks.
      */
@@ -629,12 +630,31 @@ export type FirmwareArtifact = {
      * Optional artifact size in bytes.
      */
     size?: number;
+    /**
+     * Optional content type captured during upload.
+     */
+    content_type?: string;
+    /**
+     * Server-owned upload timestamp.
+     */
+    uploaded_at?: string;
 };
 
 /**
  * Kind of payload carried by a firmware artifact.
  */
 export type FirmwareArtifactKind = 'app' | 'data';
+
+export type FirmwareSelection = {
+    /**
+     * Firmware release-line id selected for the peer.
+     */
+    id: string;
+    /**
+     * Firmware channel selected for the peer.
+     */
+    channel: 'stable' | 'beta' | 'develop' | 'pending';
+};
 
 export type FirmwareSlot = {
     /**
@@ -649,7 +669,6 @@ export type FirmwareSlot = {
 };
 
 export type FirmwareSlots = {
-    rollback: FirmwareSlot;
     stable: FirmwareSlot;
     beta: FirmwareSlot;
     develop: FirmwareSlot;
@@ -2149,6 +2168,52 @@ export type ReleaseFirmwareResponses = {
 };
 
 export type ReleaseFirmwareResponse = ReleaseFirmwareResponses[keyof ReleaseFirmwareResponses];
+
+export type UploadFirmwareBinData = {
+    body: Blob | File;
+    path: {
+        /**
+         * Firmware name
+         */
+        name: string;
+        /**
+         * Firmware channel/slot name
+         */
+        channel: 'stable' | 'beta' | 'develop' | 'pending';
+        /**
+         * Firmware bin/artifact name declared in the selected channel
+         */
+        bin: string;
+    };
+    query?: never;
+    url: '/firmwares/{name}/bins/{channel}/{bin}';
+};
+
+export type UploadFirmwareBinErrors = {
+    /**
+     * Invalid upload request
+     */
+    400: ErrorResponse;
+    /**
+     * Firmware, channel, or bin not found
+     */
+    404: ErrorResponse;
+    /**
+     * Internal error
+     */
+    500: ErrorResponse;
+};
+
+export type UploadFirmwareBinError = UploadFirmwareBinErrors[keyof UploadFirmwareBinErrors];
+
+export type UploadFirmwareBinResponses = {
+    /**
+     * Updated firmware
+     */
+    200: Firmware;
+};
+
+export type UploadFirmwareBinResponse = UploadFirmwareBinResponses[keyof UploadFirmwareBinResponses];
 
 export type RollbackFirmwareData = {
     body?: never;

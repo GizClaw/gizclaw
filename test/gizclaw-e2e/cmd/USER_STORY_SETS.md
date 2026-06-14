@@ -239,7 +239,7 @@ Cases:
   - verify provider tenant, model, and ACL view resources through admin CLI
   - status: implemented
 - `511-admin-firmwares`
-  - verify firmware CRUD, release, rollback, and resource show through admin CLI
+  - verify firmware CRUD, upload, release, rollback, device RPC query/download, and resource show through CLI
   - status: implemented
 
 ### `600-*` Idempotency And Repeatability

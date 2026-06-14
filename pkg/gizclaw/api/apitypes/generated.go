@@ -23,6 +23,8 @@ const (
 	ACLPermissionCredentialRead     ACLPermission = "credential.read"
 	ACLPermissionCredentialUse      ACLPermission = "credential.use"
 	ACLPermissionEditor             ACLPermission = "editor"
+	ACLPermissionFirmwareAdmin      ACLPermission = "firmware.admin"
+	ACLPermissionFirmwareRead       ACLPermission = "firmware.read"
 	ACLPermissionFriendAdmin        ACLPermission = "friend.admin"
 	ACLPermissionFriendGroupAdmin   ACLPermission = "friend_group.admin"
 	ACLPermissionFriendGroupRead    ACLPermission = "friend_group.read"
@@ -76,6 +78,10 @@ func (e ACLPermission) Valid() bool {
 	case ACLPermissionCredentialUse:
 		return true
 	case ACLPermissionEditor:
+		return true
+	case ACLPermissionFirmwareAdmin:
+		return true
+	case ACLPermissionFirmwareRead:
 		return true
 	case ACLPermissionFriendAdmin:
 		return true
@@ -160,6 +166,7 @@ const (
 	ACLResourceKindBadge         ACLResourceKind = "badge"
 	ACLResourceKindContact       ACLResourceKind = "contact"
 	ACLResourceKindCredential    ACLResourceKind = "credential"
+	ACLResourceKindFirmware      ACLResourceKind = "firmware"
 	ACLResourceKindFriend        ACLResourceKind = "friend"
 	ACLResourceKindFriendGroup   ACLResourceKind = "friend_group"
 	ACLResourceKindFriendRequest ACLResourceKind = "friend_request"
@@ -179,6 +186,8 @@ func (e ACLResourceKind) Valid() bool {
 	case ACLResourceKindContact:
 		return true
 	case ACLResourceKindCredential:
+		return true
+	case ACLResourceKindFirmware:
 		return true
 	case ACLResourceKindFriend:
 		return true
@@ -389,6 +398,30 @@ const (
 func (e FirmwareResourceKind) Valid() bool {
 	switch e {
 	case FirmwareResourceKindFirmware:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for FirmwareSelectionChannel.
+const (
+	FirmwareSelectionChannelBeta    FirmwareSelectionChannel = "beta"
+	FirmwareSelectionChannelDevelop FirmwareSelectionChannel = "develop"
+	FirmwareSelectionChannelPending FirmwareSelectionChannel = "pending"
+	FirmwareSelectionChannelStable  FirmwareSelectionChannel = "stable"
+)
+
+// Valid indicates whether the value is a known member of the FirmwareSelectionChannel enum.
+func (e FirmwareSelectionChannel) Valid() bool {
+	switch e {
+	case FirmwareSelectionChannelBeta:
+		return true
+	case FirmwareSelectionChannelDevelop:
+		return true
+	case FirmwareSelectionChannelPending:
+		return true
+	case FirmwareSelectionChannelStable:
 		return true
 	default:
 		return false
@@ -1094,6 +1127,8 @@ type BadgeSpec struct {
 
 // Configuration defines model for Configuration.
 type Configuration struct {
+	Firmware *FirmwareSelection `json:"firmware,omitempty"`
+
 	// View Current content view name selected for this peer.
 	View *string `json:"view,omitempty"`
 }
@@ -1220,11 +1255,17 @@ type Firmware struct {
 
 // FirmwareArtifact defines model for FirmwareArtifact.
 type FirmwareArtifact struct {
+	// ContentType Optional content type captured during upload.
+	ContentType *string `json:"content_type,omitempty"`
+
 	// Kind Kind of payload carried by a firmware artifact.
 	Kind FirmwareArtifactKind `json:"kind"`
 
 	// Name Device-defined artifact name.
 	Name string `json:"name"`
+
+	// Path Server-owned objectstore path for the uploaded artifact payload.
+	Path *string `json:"path,omitempty"`
 
 	// Sha256 Optional SHA-256 digest for integrity checks.
 	Sha256 *string `json:"sha256,omitempty"`
@@ -1232,8 +1273,8 @@ type FirmwareArtifact struct {
 	// Size Optional artifact size in bytes.
 	Size *int64 `json:"size,omitempty"`
 
-	// Url Download URL for this artifact.
-	Url string `json:"url"`
+	// UploadedAt Server-owned upload timestamp.
+	UploadedAt *time.Time `json:"uploaded_at,omitempty"`
 }
 
 // FirmwareArtifactKind Kind of payload carried by a firmware artifact.
@@ -1251,6 +1292,18 @@ type FirmwareResource struct {
 // FirmwareResourceKind defines model for FirmwareResource.Kind.
 type FirmwareResourceKind string
 
+// FirmwareSelection defines model for FirmwareSelection.
+type FirmwareSelection struct {
+	// Channel Firmware channel selected for the peer.
+	Channel FirmwareSelectionChannel `json:"channel"`
+
+	// Id Firmware release-line id selected for the peer.
+	Id string `json:"id"`
+}
+
+// FirmwareSelectionChannel Firmware channel selected for the peer.
+type FirmwareSelectionChannel string
+
 // FirmwareSlot defines model for FirmwareSlot.
 type FirmwareSlot struct {
 	// Artifacts Device-defined artifact list for this slot.
@@ -1263,11 +1316,10 @@ type FirmwareSlot struct {
 
 // FirmwareSlots defines model for FirmwareSlots.
 type FirmwareSlots struct {
-	Beta     FirmwareSlot `json:"beta"`
-	Develop  FirmwareSlot `json:"develop"`
-	Pending  FirmwareSlot `json:"pending"`
-	Rollback FirmwareSlot `json:"rollback"`
-	Stable   FirmwareSlot `json:"stable"`
+	Beta    FirmwareSlot `json:"beta"`
+	Develop FirmwareSlot `json:"develop"`
+	Pending FirmwareSlot `json:"pending"`
+	Stable  FirmwareSlot `json:"stable"`
 }
 
 // FirmwareSpec defines model for FirmwareSpec.

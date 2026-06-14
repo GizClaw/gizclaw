@@ -49,6 +49,48 @@ func (e DashScopeTenantModelProviderDataApiMode) Valid() bool {
 	}
 }
 
+// Defines values for FirmwareArtifactKind.
+const (
+	FirmwareArtifactKindApp  FirmwareArtifactKind = "app"
+	FirmwareArtifactKindData FirmwareArtifactKind = "data"
+)
+
+// Valid indicates whether the value is a known member of the FirmwareArtifactKind enum.
+func (e FirmwareArtifactKind) Valid() bool {
+	switch e {
+	case FirmwareArtifactKindApp:
+		return true
+	case FirmwareArtifactKindData:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for FirmwareChannelName.
+const (
+	FirmwareChannelNameBeta    FirmwareChannelName = "beta"
+	FirmwareChannelNameDevelop FirmwareChannelName = "develop"
+	FirmwareChannelNamePending FirmwareChannelName = "pending"
+	FirmwareChannelNameStable  FirmwareChannelName = "stable"
+)
+
+// Valid indicates whether the value is a known member of the FirmwareChannelName enum.
+func (e FirmwareChannelName) Valid() bool {
+	switch e {
+	case FirmwareChannelNameBeta:
+		return true
+	case FirmwareChannelNameDevelop:
+		return true
+	case FirmwareChannelNamePending:
+		return true
+	case FirmwareChannelNameStable:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for FlowcraftWorkflowKind.
 const (
 	FlowcraftWorkflowKindFlowcraftWorkflow FlowcraftWorkflowKind = "FlowcraftWorkflow"
@@ -290,6 +332,9 @@ const (
 	RPCMethodServerCredentialGet            RPCMethod = "server.credential.get"
 	RPCMethodServerCredentialList           RPCMethod = "server.credential.list"
 	RPCMethodServerCredentialPut            RPCMethod = "server.credential.put"
+	RPCMethodServerFirmwareDownload         RPCMethod = "server.firmware.download"
+	RPCMethodServerFirmwareGet              RPCMethod = "server.firmware.get"
+	RPCMethodServerFirmwareList             RPCMethod = "server.firmware.list"
 	RPCMethodServerFriendDelete             RPCMethod = "server.friend.delete"
 	RPCMethodServerFriendGroupCreate        RPCMethod = "server.friend_group.create"
 	RPCMethodServerFriendGroupDelete        RPCMethod = "server.friend_group.delete"
@@ -380,6 +425,12 @@ func (e RPCMethod) Valid() bool {
 	case RPCMethodServerCredentialList:
 		return true
 	case RPCMethodServerCredentialPut:
+		return true
+	case RPCMethodServerFirmwareDownload:
+		return true
+	case RPCMethodServerFirmwareGet:
+		return true
+	case RPCMethodServerFirmwareList:
 		return true
 	case RPCMethodServerFriendDelete:
 		return true
@@ -710,6 +761,110 @@ type DeviceInfo struct {
 	Hardware *HardwareInfo `json:"hardware,omitempty"`
 	Name     *string       `json:"name,omitempty"`
 	Sn       *string       `json:"sn,omitempty"`
+}
+
+// Firmware defines model for Firmware.
+type Firmware struct {
+	CreatedAt   time.Time     `json:"created_at"`
+	Description *string       `json:"description,omitempty"`
+	Name        string        `json:"name"`
+	Slots       FirmwareSlots `json:"slots"`
+	UpdatedAt   time.Time     `json:"updated_at"`
+}
+
+// FirmwareArtifact defines model for FirmwareArtifact.
+type FirmwareArtifact struct {
+	// ContentType Optional content type captured during upload.
+	ContentType *string `json:"content_type,omitempty"`
+
+	// Kind Kind of payload carried by a firmware artifact.
+	Kind FirmwareArtifactKind `json:"kind"`
+
+	// Name Device-defined artifact name.
+	Name string `json:"name"`
+
+	// Path Server-owned objectstore path for the uploaded artifact payload.
+	Path *string `json:"path,omitempty"`
+
+	// Sha256 Optional SHA-256 digest for integrity checks.
+	Sha256 *string `json:"sha256,omitempty"`
+
+	// Size Optional artifact size in bytes.
+	Size *int64 `json:"size,omitempty"`
+
+	// UploadedAt Server-owned upload timestamp.
+	UploadedAt *time.Time `json:"uploaded_at,omitempty"`
+}
+
+// FirmwareArtifactKind Kind of payload carried by a firmware artifact.
+type FirmwareArtifactKind string
+
+// FirmwareBinMetadata defines model for FirmwareBinMetadata.
+type FirmwareBinMetadata struct {
+	ContentType *string `json:"content_type,omitempty"`
+
+	// Kind Kind of payload carried by a firmware artifact.
+	Kind       FirmwareArtifactKind `json:"kind"`
+	Name       string               `json:"name"`
+	Sha256     *string              `json:"sha256,omitempty"`
+	Size       *int64               `json:"size,omitempty"`
+	UploadedAt *time.Time           `json:"uploaded_at,omitempty"`
+}
+
+// FirmwareChannelName defines model for FirmwareChannelName.
+type FirmwareChannelName string
+
+// FirmwareDownloadRequest defines model for FirmwareDownloadRequest.
+type FirmwareDownloadRequest struct {
+	ArtifactName string              `json:"artifact_name"`
+	Channel      FirmwareChannelName `json:"channel"`
+	FirmwareId   string              `json:"firmware_id"`
+}
+
+// FirmwareDownloadResponse defines model for FirmwareDownloadResponse.
+type FirmwareDownloadResponse struct {
+	Artifact   FirmwareBinMetadata `json:"artifact"`
+	Channel    FirmwareChannelName `json:"channel"`
+	FirmwareId string              `json:"firmware_id"`
+}
+
+// FirmwareGetRequest defines model for FirmwareGetRequest.
+type FirmwareGetRequest struct {
+	FirmwareId string `json:"firmware_id"`
+}
+
+// FirmwareGetResponse defines model for FirmwareGetResponse.
+type FirmwareGetResponse = Firmware
+
+// FirmwareListRequest defines model for FirmwareListRequest.
+type FirmwareListRequest struct {
+	Cursor *string `json:"cursor,omitempty"`
+	Limit  *int    `json:"limit,omitempty"`
+}
+
+// FirmwareListResponse defines model for FirmwareListResponse.
+type FirmwareListResponse struct {
+	HasNext    bool       `json:"has_next"`
+	Items      []Firmware `json:"items"`
+	NextCursor *string    `json:"next_cursor,omitempty"`
+}
+
+// FirmwareSlot defines model for FirmwareSlot.
+type FirmwareSlot struct {
+	// Artifacts Device-defined artifact list for this slot.
+	Artifacts   *[]FirmwareArtifact `json:"artifacts,omitempty"`
+	Description *string             `json:"description,omitempty"`
+
+	// Version Version carried by this slot.
+	Version *string `json:"version,omitempty"`
+}
+
+// FirmwareSlots defines model for FirmwareSlots.
+type FirmwareSlots struct {
+	Beta    FirmwareSlot `json:"beta"`
+	Develop FirmwareSlot `json:"develop"`
+	Pending FirmwareSlot `json:"pending"`
+	Stable  FirmwareSlot `json:"stable"`
 }
 
 // FlowcraftWorkflow defines model for FlowcraftWorkflow.
@@ -2009,6 +2164,84 @@ func (t *RPCRequest_Params) FromServerRunSayRequest(v ServerRunSayRequest) error
 
 // MergeServerRunSayRequest performs a merge with any union data inside the RPCRequest_Params, using the provided ServerRunSayRequest
 func (t *RPCRequest_Params) MergeServerRunSayRequest(v ServerRunSayRequest) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsFirmwareListRequest returns the union data inside the RPCRequest_Params as a FirmwareListRequest
+func (t RPCRequest_Params) AsFirmwareListRequest() (FirmwareListRequest, error) {
+	var body FirmwareListRequest
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromFirmwareListRequest overwrites any union data inside the RPCRequest_Params as the provided FirmwareListRequest
+func (t *RPCRequest_Params) FromFirmwareListRequest(v FirmwareListRequest) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeFirmwareListRequest performs a merge with any union data inside the RPCRequest_Params, using the provided FirmwareListRequest
+func (t *RPCRequest_Params) MergeFirmwareListRequest(v FirmwareListRequest) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsFirmwareGetRequest returns the union data inside the RPCRequest_Params as a FirmwareGetRequest
+func (t RPCRequest_Params) AsFirmwareGetRequest() (FirmwareGetRequest, error) {
+	var body FirmwareGetRequest
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromFirmwareGetRequest overwrites any union data inside the RPCRequest_Params as the provided FirmwareGetRequest
+func (t *RPCRequest_Params) FromFirmwareGetRequest(v FirmwareGetRequest) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeFirmwareGetRequest performs a merge with any union data inside the RPCRequest_Params, using the provided FirmwareGetRequest
+func (t *RPCRequest_Params) MergeFirmwareGetRequest(v FirmwareGetRequest) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsFirmwareDownloadRequest returns the union data inside the RPCRequest_Params as a FirmwareDownloadRequest
+func (t RPCRequest_Params) AsFirmwareDownloadRequest() (FirmwareDownloadRequest, error) {
+	var body FirmwareDownloadRequest
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromFirmwareDownloadRequest overwrites any union data inside the RPCRequest_Params as the provided FirmwareDownloadRequest
+func (t *RPCRequest_Params) FromFirmwareDownloadRequest(v FirmwareDownloadRequest) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeFirmwareDownloadRequest performs a merge with any union data inside the RPCRequest_Params, using the provided FirmwareDownloadRequest
+func (t *RPCRequest_Params) MergeFirmwareDownloadRequest(v FirmwareDownloadRequest) error {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -3891,6 +4124,84 @@ func (t *RPCResponse_Result) FromServerRunSayResponse(v ServerRunSayResponse) er
 
 // MergeServerRunSayResponse performs a merge with any union data inside the RPCResponse_Result, using the provided ServerRunSayResponse
 func (t *RPCResponse_Result) MergeServerRunSayResponse(v ServerRunSayResponse) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsFirmwareListResponse returns the union data inside the RPCResponse_Result as a FirmwareListResponse
+func (t RPCResponse_Result) AsFirmwareListResponse() (FirmwareListResponse, error) {
+	var body FirmwareListResponse
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromFirmwareListResponse overwrites any union data inside the RPCResponse_Result as the provided FirmwareListResponse
+func (t *RPCResponse_Result) FromFirmwareListResponse(v FirmwareListResponse) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeFirmwareListResponse performs a merge with any union data inside the RPCResponse_Result, using the provided FirmwareListResponse
+func (t *RPCResponse_Result) MergeFirmwareListResponse(v FirmwareListResponse) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsFirmwareGetResponse returns the union data inside the RPCResponse_Result as a FirmwareGetResponse
+func (t RPCResponse_Result) AsFirmwareGetResponse() (FirmwareGetResponse, error) {
+	var body FirmwareGetResponse
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromFirmwareGetResponse overwrites any union data inside the RPCResponse_Result as the provided FirmwareGetResponse
+func (t *RPCResponse_Result) FromFirmwareGetResponse(v FirmwareGetResponse) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeFirmwareGetResponse performs a merge with any union data inside the RPCResponse_Result, using the provided FirmwareGetResponse
+func (t *RPCResponse_Result) MergeFirmwareGetResponse(v FirmwareGetResponse) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsFirmwareDownloadResponse returns the union data inside the RPCResponse_Result as a FirmwareDownloadResponse
+func (t RPCResponse_Result) AsFirmwareDownloadResponse() (FirmwareDownloadResponse, error) {
+	var body FirmwareDownloadResponse
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromFirmwareDownloadResponse overwrites any union data inside the RPCResponse_Result as the provided FirmwareDownloadResponse
+func (t *RPCResponse_Result) FromFirmwareDownloadResponse(v FirmwareDownloadResponse) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeFirmwareDownloadResponse performs a merge with any union data inside the RPCResponse_Result, using the provided FirmwareDownloadResponse
+func (t *RPCResponse_Result) MergeFirmwareDownloadResponse(v FirmwareDownloadResponse) error {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err

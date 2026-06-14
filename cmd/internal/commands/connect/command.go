@@ -16,6 +16,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var connectFromContext = connection.ConnectFromContext
+
 func NewCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "connect",
@@ -34,6 +36,7 @@ func NewCmd() *cobra.Command {
 		newContactCmd(),
 		newFriendCmd(),
 		newFriendGroupCmd(),
+		newFirmwareCmd(),
 	)
 	return cmd
 }
@@ -46,7 +49,7 @@ func newPingCmd() *cobra.Command {
 		Short: "Ping the server",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c, err := connection.ConnectFromContext(ctxName)
+			c, err := connectFromContext(ctxName)
 			if err != nil {
 				return err
 			}
@@ -85,7 +88,7 @@ func newServerInfoCmd() *cobra.Command {
 		Short: "Show server information",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c, err := connection.ConnectFromContext(ctxName)
+			c, err := connectFromContext(ctxName)
 			if err != nil {
 				return err
 			}
@@ -116,7 +119,7 @@ func newSetNameCmd() *cobra.Command {
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c, err := connection.ConnectFromContext(ctxName)
+			c, err := connectFromContext(ctxName)
 			if err != nil {
 				return err
 			}
@@ -174,7 +177,7 @@ func newSayCmd() *cobra.Command {
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c, err := connection.ConnectFromContext(ctxName)
+			c, err := connectFromContext(ctxName)
 			if err != nil {
 				return err
 			}
@@ -209,7 +212,7 @@ func newTestSpeedCmd() *cobra.Command {
 		Short: "Measure concurrent upload and download throughput",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c, err := connection.ConnectFromContext(ctxName)
+			c, err := connectFromContext(ctxName)
 			if err != nil {
 				return err
 			}
@@ -253,7 +256,7 @@ func (o *connectRPCOptions) addFlags(cmd *cobra.Command) {
 }
 
 func runConnectJSON(cmd *cobra.Command, opts connectRPCOptions, run func(context.Context, *gizcli.Client) (any, error)) error {
-	c, err := connection.ConnectFromContext(opts.contextName)
+	c, err := connectFromContext(opts.contextName)
 	if err != nil {
 		return err
 	}
@@ -288,6 +291,154 @@ func nonEmptyFlag(name, value string) error {
 		return fmt.Errorf("%s must not be empty", name)
 	}
 	return nil
+}
+
+func firmwareChannelFlag(value string) (rpcapi.FirmwareChannelName, error) {
+	channel := rpcapi.FirmwareChannelName(strings.TrimSpace(value))
+	if !channel.Valid() {
+		return "", fmt.Errorf("channel must be one of stable, beta, develop, pending")
+	}
+	return channel, nil
+}
+
+func newFirmwareCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "firmware",
+		Short: "Inspect and download firmware through server RPC",
+	}
+	cmd.AddCommand(
+		newFirmwareListCmd(),
+		newFirmwareGetCmd(),
+		newFirmwareDownloadCmd(),
+	)
+	return cmd
+}
+
+func newFirmwareListCmd() *cobra.Command {
+	var opts connectRPCOptions
+	var cursor string
+	var limit int
+	cmd := &cobra.Command{
+		Use:   "list",
+		Short: "List firmware release lines readable by this peer",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runConnectJSON(cmd, opts, func(ctx context.Context, c *gizcli.Client) (any, error) {
+				return c.ListFirmwares(ctx, "firmware.list", rpcapi.FirmwareListRequest{
+					Cursor: optionalString(cursor),
+					Limit:  optionalInt(limit),
+				})
+			})
+		},
+	}
+	opts.addFlags(cmd)
+	cmd.Flags().StringVar(&cursor, "cursor", "", "pagination cursor")
+	cmd.Flags().IntVar(&limit, "limit", 0, "page size")
+	return cmd
+}
+
+func newFirmwareGetCmd() *cobra.Command {
+	var opts connectRPCOptions
+	var firmwareID string
+	cmd := &cobra.Command{
+		Use:   "get --firmware-id <id>",
+		Short: "Get a firmware release-line document",
+		Args: func(cmd *cobra.Command, args []string) error {
+			if err := cobra.NoArgs(cmd, args); err != nil {
+				return err
+			}
+			return nonEmptyFlag("firmware-id", firmwareID)
+		},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runConnectJSON(cmd, opts, func(ctx context.Context, c *gizcli.Client) (any, error) {
+				return c.GetFirmware(ctx, "firmware.get", rpcapi.FirmwareGetRequest{
+					FirmwareId: strings.TrimSpace(firmwareID),
+				})
+			})
+		},
+	}
+	opts.addFlags(cmd)
+	cmd.Flags().StringVar(&firmwareID, "firmware-id", "", "firmware id")
+	return cmd
+}
+
+func newFirmwareDownloadCmd() *cobra.Command {
+	var opts connectRPCOptions
+	var firmwareID string
+	var channelValue string
+	var artifactName string
+	var output string
+	cmd := &cobra.Command{
+		Use:   "download --firmware-id <id> --channel <channel> --artifact-name <name> --output <file>",
+		Short: "Download a firmware artifact payload",
+		Args: func(cmd *cobra.Command, args []string) error {
+			if err := cobra.NoArgs(cmd, args); err != nil {
+				return err
+			}
+			for name, value := range map[string]string{
+				"firmware-id":   firmwareID,
+				"artifact-name": artifactName,
+				"output":        output,
+			} {
+				if err := nonEmptyFlag(name, value); err != nil {
+					return err
+				}
+			}
+			if _, err := firmwareChannelFlag(channelValue); err != nil {
+				return err
+			}
+			if strings.TrimSpace(output) == "-" {
+				return fmt.Errorf("output must be a file path")
+			}
+			return nil
+		},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			c, err := connectFromContext(opts.contextName)
+			if err != nil {
+				return err
+			}
+			defer c.Close()
+			ctx, cancel := context.WithTimeout(context.Background(), opts.timeout)
+			defer cancel()
+			channel, err := firmwareChannelFlag(channelValue)
+			if err != nil {
+				return err
+			}
+			out, err := os.Create(strings.TrimSpace(output))
+			if err != nil {
+				return err
+			}
+			result, err := c.DownloadFirmware(ctx, "firmware.download", rpcapi.FirmwareDownloadRequest{
+				FirmwareId:   strings.TrimSpace(firmwareID),
+				Channel:      channel,
+				ArtifactName: strings.TrimSpace(artifactName),
+			}, out)
+			closeErr := out.Close()
+			if err != nil {
+				_ = os.Remove(strings.TrimSpace(output))
+				return err
+			}
+			if closeErr != nil {
+				_ = os.Remove(strings.TrimSpace(output))
+				return closeErr
+			}
+			return json.NewEncoder(cmd.OutOrStdout()).Encode(struct {
+				Metadata rpcapi.FirmwareDownloadResponse `json:"metadata"`
+				Bytes    int64                           `json:"bytes"`
+				Output   string                          `json:"output"`
+			}{
+				Metadata: result.Metadata,
+				Bytes:    result.Bytes,
+				Output:   strings.TrimSpace(output),
+			})
+		},
+	}
+	opts.addFlags(cmd)
+	cmd.Flags().StringVar(&firmwareID, "firmware-id", "", "firmware id")
+	cmd.Flags().StringVar(&channelValue, "channel", "stable", "firmware channel")
+	cmd.Flags().StringVar(&artifactName, "artifact-name", "", "artifact name declared by FirmwareArtifact.name")
+	cmd.Flags().StringVarP(&output, "output", "o", "", "output file")
+	return cmd
 }
 
 func newPetCmd() *cobra.Command {
