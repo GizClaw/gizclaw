@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"iter"
+	"net"
 )
 
 // MaxFrameSize is the largest RPC frame payload accepted by ReadFrame.
@@ -51,10 +52,28 @@ func WriteFrame(w io.Writer, frame Frame) error {
 	var hdr [4]byte
 	binary.LittleEndian.PutUint16(hdr[0:2], uint16(len(frame.Payload)))
 	binary.LittleEndian.PutUint16(hdr[2:4], uint16(frame.Type))
+	if len(frame.Payload) == 0 {
+		return writeFull(w, hdr[:])
+	}
+	if bw, ok := w.(buffersWriter); ok {
+		total := int64(len(hdr) + len(frame.Payload))
+		n, err := bw.WriteBuffers(net.Buffers{hdr[:], frame.Payload})
+		if err != nil {
+			return err
+		}
+		if n != total {
+			return io.ErrShortWrite
+		}
+		return nil
+	}
 	if err := writeFull(w, hdr[:]); err != nil {
 		return err
 	}
 	return writeFull(w, frame.Payload)
+}
+
+type buffersWriter interface {
+	WriteBuffers(net.Buffers) (int64, error)
 }
 
 // ReadFrame reads a typed RPC frame.

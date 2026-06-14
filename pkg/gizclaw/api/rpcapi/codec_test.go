@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"io"
+	"net"
 	"testing"
 	"time"
 )
@@ -195,6 +196,89 @@ func TestWriteFramePropagatesHeaderWriteError(t *testing.T) {
 	if err := WriteFrame(errorWriter{err: writeErr}, Frame{Type: FrameTypeJSON, Payload: []byte("payload")}); !errors.Is(err, writeErr) {
 		t.Fatalf("WriteFrame() err = %v, want %v", err, writeErr)
 	}
+}
+
+func TestWriteFrameUsesBuffersWriter(t *testing.T) {
+	var writer recordingBuffersWriter
+	if err := WriteFrame(&writer, Frame{Type: FrameTypeBinary, Payload: []byte("payload")}); err != nil {
+		t.Fatalf("WriteFrame() error = %v", err)
+	}
+	if writer.writeCalls != 0 {
+		t.Fatalf("Write() calls = %d, want 0", writer.writeCalls)
+	}
+	if writer.writeBuffersCalls != 1 {
+		t.Fatalf("WriteBuffers() calls = %d, want 1", writer.writeBuffersCalls)
+	}
+	frame, err := ReadFrame(bytes.NewReader(writer.buf.Bytes()))
+	if err != nil {
+		t.Fatalf("ReadFrame() error = %v", err)
+	}
+	if frame.Type != FrameTypeBinary || string(frame.Payload) != "payload" {
+		t.Fatalf("ReadFrame() = %+v", frame)
+	}
+}
+
+func TestWriteFramePropagatesBuffersWriterError(t *testing.T) {
+	writeErr := errors.New("write buffers failed")
+	writer := recordingBuffersWriter{writeBuffersErr: writeErr}
+	err := WriteFrame(&writer, Frame{Type: FrameTypeBinary, Payload: []byte("payload")})
+	if !errors.Is(err, writeErr) {
+		t.Fatalf("WriteFrame() err = %v, want %v", err, writeErr)
+	}
+	if writer.writeCalls != 0 {
+		t.Fatalf("Write() calls = %d, want 0", writer.writeCalls)
+	}
+	if writer.writeBuffersCalls != 1 {
+		t.Fatalf("WriteBuffers() calls = %d, want 1", writer.writeBuffersCalls)
+	}
+}
+
+func TestWriteFrameRejectsBuffersWriterShortWrite(t *testing.T) {
+	shortWrite := int64(3)
+	writer := recordingBuffersWriter{writeBuffersResult: &shortWrite}
+	err := WriteFrame(&writer, Frame{Type: FrameTypeBinary, Payload: []byte("payload")})
+	if !errors.Is(err, io.ErrShortWrite) {
+		t.Fatalf("WriteFrame() err = %v, want %v", err, io.ErrShortWrite)
+	}
+	if writer.writeCalls != 0 {
+		t.Fatalf("Write() calls = %d, want 0", writer.writeCalls)
+	}
+	if writer.writeBuffersCalls != 1 {
+		t.Fatalf("WriteBuffers() calls = %d, want 1", writer.writeBuffersCalls)
+	}
+}
+
+type recordingBuffersWriter struct {
+	buf                bytes.Buffer
+	writeCalls         int
+	writeBuffersCalls  int
+	writeBuffersResult *int64
+	writeBuffersErr    error
+}
+
+func (w *recordingBuffersWriter) Write(p []byte) (int, error) {
+	w.writeCalls++
+	return w.buf.Write(p)
+}
+
+func (w *recordingBuffersWriter) WriteBuffers(buffers net.Buffers) (int64, error) {
+	w.writeBuffersCalls++
+	if w.writeBuffersErr != nil || w.writeBuffersResult != nil {
+		var n int64
+		if w.writeBuffersResult != nil {
+			n = *w.writeBuffersResult
+		}
+		return n, w.writeBuffersErr
+	}
+	var total int64
+	for _, buf := range buffers {
+		n, err := w.buf.Write(buf)
+		total += int64(n)
+		if err != nil {
+			return total, err
+		}
+	}
+	return total, nil
 }
 
 func TestReadRequestAndResponseRejectInvalidJSON(t *testing.T) {
