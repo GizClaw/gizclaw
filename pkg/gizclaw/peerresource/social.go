@@ -7,14 +7,14 @@ import (
 )
 
 func (s *Server) handleContactList(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
-	if s.Social == nil {
-		return internalError(req.Id, "social service not configured")
+	if s.Contacts == nil {
+		return internalError(req.Id, "contact service not configured")
 	}
 	params, ok := decodeOptionalParams(req, rpcapi.RPCRequest_Params.AsContactListRequest)
 	if !ok {
 		return invalidParams(req.Id)
 	}
-	result, err := s.Social.ListContacts(ctx, s.Caller.String(), params)
+	result, err := s.Contacts.ListContacts(ctx, s.Caller.String(), params)
 	if err != nil {
 		return businessError(req.Id, err)
 	}
@@ -22,14 +22,14 @@ func (s *Server) handleContactList(ctx context.Context, req *rpcapi.RPCRequest) 
 }
 
 func (s *Server) handleContactGet(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
-	if s.Social == nil {
-		return internalError(req.Id, "social service not configured")
+	if s.Contacts == nil {
+		return internalError(req.Id, "contact service not configured")
 	}
 	params, ok := decodeRequiredParams(req, rpcapi.RPCRequest_Params.AsContactGetRequest)
 	if !ok {
 		return invalidParams(req.Id)
 	}
-	result, err := s.Social.GetContact(ctx, s.Caller.String(), params)
+	result, err := s.Contacts.GetContact(ctx, s.Caller.String(), params)
 	if err != nil {
 		return businessError(req.Id, err)
 	}
@@ -37,14 +37,14 @@ func (s *Server) handleContactGet(ctx context.Context, req *rpcapi.RPCRequest) *
 }
 
 func (s *Server) handleContactCreate(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
-	if s.Social == nil {
-		return internalError(req.Id, "social service not configured")
+	if s.Contacts == nil {
+		return internalError(req.Id, "contact service not configured")
 	}
 	params, ok := decodeRequiredParams(req, rpcapi.RPCRequest_Params.AsContactCreateRequest)
 	if !ok {
 		return invalidParams(req.Id)
 	}
-	result, err := s.Social.CreateContact(ctx, s.Caller.String(), params)
+	result, err := s.Contacts.CreateContact(ctx, s.Caller.String(), params)
 	if err != nil {
 		return businessError(req.Id, err)
 	}
@@ -52,14 +52,14 @@ func (s *Server) handleContactCreate(ctx context.Context, req *rpcapi.RPCRequest
 }
 
 func (s *Server) handleContactPut(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
-	if s.Social == nil {
-		return internalError(req.Id, "social service not configured")
+	if s.Contacts == nil {
+		return internalError(req.Id, "contact service not configured")
 	}
 	params, ok := decodeRequiredParams(req, rpcapi.RPCRequest_Params.AsContactPutRequest)
 	if !ok {
 		return invalidParams(req.Id)
 	}
-	result, err := s.Social.PutContact(ctx, s.Caller.String(), params)
+	result, err := s.Contacts.PutContact(ctx, s.Caller.String(), params)
 	if err != nil {
 		return businessError(req.Id, err)
 	}
@@ -67,14 +67,14 @@ func (s *Server) handleContactPut(ctx context.Context, req *rpcapi.RPCRequest) *
 }
 
 func (s *Server) handleContactDelete(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
-	if s.Social == nil {
-		return internalError(req.Id, "social service not configured")
+	if s.Contacts == nil {
+		return internalError(req.Id, "contact service not configured")
 	}
 	params, ok := decodeRequiredParams(req, rpcapi.RPCRequest_Params.AsContactDeleteRequest)
 	if !ok {
 		return invalidParams(req.Id)
 	}
-	result, err := s.Social.DeleteContact(ctx, s.Caller.String(), params)
+	result, err := s.Contacts.DeleteContact(ctx, s.Caller.String(), params)
 	if err != nil {
 		return businessError(req.Id, err)
 	}
@@ -82,14 +82,14 @@ func (s *Server) handleContactDelete(ctx context.Context, req *rpcapi.RPCRequest
 }
 
 func (s *Server) handleFriendRequestsList(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
-	if s.Social == nil {
-		return internalError(req.Id, "social service not configured")
+	if s.Friends == nil {
+		return internalError(req.Id, "friend service not configured")
 	}
 	params, ok := decodeOptionalParams(req, rpcapi.RPCRequest_Params.AsFriendRequestListRequest)
 	if !ok {
 		return invalidParams(req.Id)
 	}
-	result, err := s.Social.ListFriendRequests(ctx, s.Caller.String(), params)
+	result, err := s.Friends.ListFriendRequests(ctx, s.Caller.String(), params)
 	if err != nil {
 		return businessError(req.Id, err)
 	}
@@ -97,14 +97,14 @@ func (s *Server) handleFriendRequestsList(ctx context.Context, req *rpcapi.RPCRe
 }
 
 func (s *Server) handleFriendRequestsCreate(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
-	if s.Social == nil {
-		return internalError(req.Id, "social service not configured")
+	if s.Friends == nil {
+		return internalError(req.Id, "friend service not configured")
 	}
 	params, ok := decodeRequiredParams(req, rpcapi.RPCRequest_Params.AsFriendRequestCreateRequest)
 	if !ok {
 		return invalidParams(req.Id)
 	}
-	result, err := s.Social.CreateFriendRequest(ctx, s.Caller.String(), params)
+	result, err := s.Friends.CreateFriendRequest(ctx, s.Caller.String(), params)
 	if err != nil {
 		return businessError(req.Id, err)
 	}
@@ -112,14 +112,14 @@ func (s *Server) handleFriendRequestsCreate(ctx context.Context, req *rpcapi.RPC
 }
 
 func (s *Server) handleFriendRequestsAccept(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
-	if s.Social == nil {
-		return internalError(req.Id, "social service not configured")
+	if s.Friends == nil {
+		return internalError(req.Id, "friend service not configured")
 	}
 	params, ok := decodeRequiredParams(req, rpcapi.RPCRequest_Params.AsFriendRequestAcceptRequest)
 	if !ok {
 		return invalidParams(req.Id)
 	}
-	result, err := s.Social.AcceptFriendRequest(ctx, s.Caller.String(), params)
+	result, err := s.Friends.AcceptFriendRequest(ctx, s.Caller.String(), params)
 	if err != nil {
 		return businessError(req.Id, err)
 	}
@@ -127,14 +127,14 @@ func (s *Server) handleFriendRequestsAccept(ctx context.Context, req *rpcapi.RPC
 }
 
 func (s *Server) handleFriendRequestsReject(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
-	if s.Social == nil {
-		return internalError(req.Id, "social service not configured")
+	if s.Friends == nil {
+		return internalError(req.Id, "friend service not configured")
 	}
 	params, ok := decodeRequiredParams(req, rpcapi.RPCRequest_Params.AsFriendRequestRejectRequest)
 	if !ok {
 		return invalidParams(req.Id)
 	}
-	result, err := s.Social.RejectFriendRequest(ctx, s.Caller.String(), params)
+	result, err := s.Friends.RejectFriendRequest(ctx, s.Caller.String(), params)
 	if err != nil {
 		return businessError(req.Id, err)
 	}
@@ -142,14 +142,14 @@ func (s *Server) handleFriendRequestsReject(ctx context.Context, req *rpcapi.RPC
 }
 
 func (s *Server) handleFriendList(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
-	if s.Social == nil {
-		return internalError(req.Id, "social service not configured")
+	if s.Friends == nil {
+		return internalError(req.Id, "friend service not configured")
 	}
 	params, ok := decodeOptionalParams(req, rpcapi.RPCRequest_Params.AsFriendListRequest)
 	if !ok {
 		return invalidParams(req.Id)
 	}
-	result, err := s.Social.ListFriends(ctx, s.Caller.String(), params)
+	result, err := s.Friends.ListFriends(ctx, s.Caller.String(), params)
 	if err != nil {
 		return businessError(req.Id, err)
 	}
@@ -157,14 +157,14 @@ func (s *Server) handleFriendList(ctx context.Context, req *rpcapi.RPCRequest) *
 }
 
 func (s *Server) handleFriendDelete(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
-	if s.Social == nil {
-		return internalError(req.Id, "social service not configured")
+	if s.Friends == nil {
+		return internalError(req.Id, "friend service not configured")
 	}
 	params, ok := decodeRequiredParams(req, rpcapi.RPCRequest_Params.AsFriendDeleteRequest)
 	if !ok {
 		return invalidParams(req.Id)
 	}
-	result, err := s.Social.DeleteFriend(ctx, s.Caller.String(), params)
+	result, err := s.Friends.DeleteFriend(ctx, s.Caller.String(), params)
 	if err != nil {
 		return businessError(req.Id, err)
 	}
@@ -172,14 +172,14 @@ func (s *Server) handleFriendDelete(ctx context.Context, req *rpcapi.RPCRequest)
 }
 
 func (s *Server) handleFriendGroupList(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
-	if s.Social == nil {
-		return internalError(req.Id, "social service not configured")
+	if s.FriendGroups == nil {
+		return internalError(req.Id, "friend group service not configured")
 	}
 	params, ok := decodeOptionalParams(req, rpcapi.RPCRequest_Params.AsFriendGroupListRequest)
 	if !ok {
 		return invalidParams(req.Id)
 	}
-	result, err := s.Social.ListFriendGroups(ctx, s.Caller.String(), params)
+	result, err := s.FriendGroups.ListFriendGroups(ctx, s.Caller.String(), params)
 	if err != nil {
 		return businessError(req.Id, err)
 	}
@@ -187,14 +187,14 @@ func (s *Server) handleFriendGroupList(ctx context.Context, req *rpcapi.RPCReque
 }
 
 func (s *Server) handleFriendGroupGet(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
-	if s.Social == nil {
-		return internalError(req.Id, "social service not configured")
+	if s.FriendGroups == nil {
+		return internalError(req.Id, "friend group service not configured")
 	}
 	params, ok := decodeRequiredParams(req, rpcapi.RPCRequest_Params.AsFriendGroupGetRequest)
 	if !ok {
 		return invalidParams(req.Id)
 	}
-	result, err := s.Social.GetFriendGroup(ctx, s.Caller.String(), params)
+	result, err := s.FriendGroups.GetFriendGroup(ctx, s.Caller.String(), params)
 	if err != nil {
 		return businessError(req.Id, err)
 	}
@@ -202,14 +202,14 @@ func (s *Server) handleFriendGroupGet(ctx context.Context, req *rpcapi.RPCReques
 }
 
 func (s *Server) handleFriendGroupCreate(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
-	if s.Social == nil {
-		return internalError(req.Id, "social service not configured")
+	if s.FriendGroups == nil {
+		return internalError(req.Id, "friend group service not configured")
 	}
 	params, ok := decodeRequiredParams(req, rpcapi.RPCRequest_Params.AsFriendGroupCreateRequest)
 	if !ok {
 		return invalidParams(req.Id)
 	}
-	result, err := s.Social.CreateFriendGroup(ctx, s.Caller.String(), params)
+	result, err := s.FriendGroups.CreateFriendGroup(ctx, s.Caller.String(), params)
 	if err != nil {
 		return businessError(req.Id, err)
 	}
@@ -217,14 +217,14 @@ func (s *Server) handleFriendGroupCreate(ctx context.Context, req *rpcapi.RPCReq
 }
 
 func (s *Server) handleFriendGroupPut(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
-	if s.Social == nil {
-		return internalError(req.Id, "social service not configured")
+	if s.FriendGroups == nil {
+		return internalError(req.Id, "friend group service not configured")
 	}
 	params, ok := decodeRequiredParams(req, rpcapi.RPCRequest_Params.AsFriendGroupPutRequest)
 	if !ok {
 		return invalidParams(req.Id)
 	}
-	result, err := s.Social.PutFriendGroup(ctx, s.Caller.String(), params)
+	result, err := s.FriendGroups.PutFriendGroup(ctx, s.Caller.String(), params)
 	if err != nil {
 		return businessError(req.Id, err)
 	}
@@ -232,14 +232,14 @@ func (s *Server) handleFriendGroupPut(ctx context.Context, req *rpcapi.RPCReques
 }
 
 func (s *Server) handleFriendGroupDelete(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
-	if s.Social == nil {
-		return internalError(req.Id, "social service not configured")
+	if s.FriendGroups == nil {
+		return internalError(req.Id, "friend group service not configured")
 	}
 	params, ok := decodeRequiredParams(req, rpcapi.RPCRequest_Params.AsFriendGroupDeleteRequest)
 	if !ok {
 		return invalidParams(req.Id)
 	}
-	result, err := s.Social.DeleteFriendGroup(ctx, s.Caller.String(), params)
+	result, err := s.FriendGroups.DeleteFriendGroup(ctx, s.Caller.String(), params)
 	if err != nil {
 		return businessError(req.Id, err)
 	}
@@ -247,14 +247,14 @@ func (s *Server) handleFriendGroupDelete(ctx context.Context, req *rpcapi.RPCReq
 }
 
 func (s *Server) handleFriendGroupMembersList(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
-	if s.Social == nil {
-		return internalError(req.Id, "social service not configured")
+	if s.FriendGroups == nil {
+		return internalError(req.Id, "friend group service not configured")
 	}
 	params, ok := decodeOptionalParams(req, rpcapi.RPCRequest_Params.AsFriendGroupMemberListRequest)
 	if !ok {
 		return invalidParams(req.Id)
 	}
-	result, err := s.Social.ListFriendGroupMembers(ctx, s.Caller.String(), params)
+	result, err := s.FriendGroups.ListFriendGroupMembers(ctx, s.Caller.String(), params)
 	if err != nil {
 		return businessError(req.Id, err)
 	}
@@ -262,14 +262,14 @@ func (s *Server) handleFriendGroupMembersList(ctx context.Context, req *rpcapi.R
 }
 
 func (s *Server) handleFriendGroupMembersAdd(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
-	if s.Social == nil {
-		return internalError(req.Id, "social service not configured")
+	if s.FriendGroups == nil {
+		return internalError(req.Id, "friend group service not configured")
 	}
 	params, ok := decodeRequiredParams(req, rpcapi.RPCRequest_Params.AsFriendGroupMemberAddRequest)
 	if !ok {
 		return invalidParams(req.Id)
 	}
-	result, err := s.Social.AddFriendGroupMember(ctx, s.Caller.String(), params)
+	result, err := s.FriendGroups.AddFriendGroupMember(ctx, s.Caller.String(), params)
 	if err != nil {
 		return businessError(req.Id, err)
 	}
@@ -277,14 +277,14 @@ func (s *Server) handleFriendGroupMembersAdd(ctx context.Context, req *rpcapi.RP
 }
 
 func (s *Server) handleFriendGroupMembersPut(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
-	if s.Social == nil {
-		return internalError(req.Id, "social service not configured")
+	if s.FriendGroups == nil {
+		return internalError(req.Id, "friend group service not configured")
 	}
 	params, ok := decodeRequiredParams(req, rpcapi.RPCRequest_Params.AsFriendGroupMemberPutRequest)
 	if !ok {
 		return invalidParams(req.Id)
 	}
-	result, err := s.Social.PutFriendGroupMember(ctx, s.Caller.String(), params)
+	result, err := s.FriendGroups.PutFriendGroupMember(ctx, s.Caller.String(), params)
 	if err != nil {
 		return businessError(req.Id, err)
 	}
@@ -292,14 +292,14 @@ func (s *Server) handleFriendGroupMembersPut(ctx context.Context, req *rpcapi.RP
 }
 
 func (s *Server) handleFriendGroupMembersDelete(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
-	if s.Social == nil {
-		return internalError(req.Id, "social service not configured")
+	if s.FriendGroups == nil {
+		return internalError(req.Id, "friend group service not configured")
 	}
 	params, ok := decodeRequiredParams(req, rpcapi.RPCRequest_Params.AsFriendGroupMemberDeleteRequest)
 	if !ok {
 		return invalidParams(req.Id)
 	}
-	result, err := s.Social.DeleteFriendGroupMember(ctx, s.Caller.String(), params)
+	result, err := s.FriendGroups.DeleteFriendGroupMember(ctx, s.Caller.String(), params)
 	if err != nil {
 		return businessError(req.Id, err)
 	}
@@ -307,14 +307,14 @@ func (s *Server) handleFriendGroupMembersDelete(ctx context.Context, req *rpcapi
 }
 
 func (s *Server) handleFriendGroupMessagesList(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
-	if s.Social == nil {
-		return internalError(req.Id, "social service not configured")
+	if s.FriendGroups == nil {
+		return internalError(req.Id, "friend group service not configured")
 	}
 	params, ok := decodeOptionalParams(req, rpcapi.RPCRequest_Params.AsFriendGroupMessageListRequest)
 	if !ok {
 		return invalidParams(req.Id)
 	}
-	result, err := s.Social.ListFriendGroupMessages(ctx, s.Caller.String(), params)
+	result, err := s.FriendGroups.ListFriendGroupMessages(ctx, s.Caller.String(), params)
 	if err != nil {
 		return businessError(req.Id, err)
 	}
@@ -322,14 +322,14 @@ func (s *Server) handleFriendGroupMessagesList(ctx context.Context, req *rpcapi.
 }
 
 func (s *Server) handleFriendGroupMessagesGet(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
-	if s.Social == nil {
-		return internalError(req.Id, "social service not configured")
+	if s.FriendGroups == nil {
+		return internalError(req.Id, "friend group service not configured")
 	}
 	params, ok := decodeRequiredParams(req, rpcapi.RPCRequest_Params.AsFriendGroupMessageGetRequest)
 	if !ok {
 		return invalidParams(req.Id)
 	}
-	result, err := s.Social.GetFriendGroupMessage(ctx, s.Caller.String(), params)
+	result, err := s.FriendGroups.GetFriendGroupMessage(ctx, s.Caller.String(), params)
 	if err != nil {
 		return businessError(req.Id, err)
 	}
@@ -337,14 +337,14 @@ func (s *Server) handleFriendGroupMessagesGet(ctx context.Context, req *rpcapi.R
 }
 
 func (s *Server) handleFriendGroupMessagesSend(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
-	if s.Social == nil {
-		return internalError(req.Id, "social service not configured")
+	if s.FriendGroups == nil {
+		return internalError(req.Id, "friend group service not configured")
 	}
 	params, ok := decodeRequiredParams(req, rpcapi.RPCRequest_Params.AsFriendGroupMessageSendRequest)
 	if !ok {
 		return invalidParams(req.Id)
 	}
-	result, err := s.Social.SendFriendGroupMessage(ctx, s.Caller.String(), params)
+	result, err := s.FriendGroups.SendFriendGroupMessage(ctx, s.Caller.String(), params)
 	if err != nil {
 		return businessError(req.Id, err)
 	}

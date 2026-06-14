@@ -6,6 +6,19 @@ All Service is provided by every RPC peer. Client Service is provided by the
 client peer. Server Service and Admin Service are provided by the GizClaw
 server.
 
+## Implementation Packages
+
+Peer-facing social resources are implemented as focused packages:
+
+```text
+pkg/gizclaw/contact
+pkg/gizclaw/friend
+pkg/gizclaw/friendgroup
+```
+
+Gameplay resources remain separate packages such as `pet`, `petspecies`,
+`badge`, `reward`, and `wallet`.
+
 ## Doc Style
 
 - Business RPC-style methods use dotted names: `service.resource.method`.

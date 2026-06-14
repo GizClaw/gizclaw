@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/apitypes"
+	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/friendgroup"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/publiclogin"
-	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/social"
 
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/peer"
 	"github.com/GizClaw/gizclaw-go/pkg/giznet"
@@ -98,7 +98,7 @@ func TestServerCloseWaitsForCleanupLoop(t *testing.T) {
 	server := &Server{
 		FriendGroupMessageCleanup: time.Hour,
 		manager: &Manager{
-			Social: &social.Server{FriendGroupMessages: kv.NewMemory(nil)},
+			FriendGroups: &friendgroup.Server{Messages: kv.NewMemory(nil)},
 		},
 	}
 	server.startCleanup()

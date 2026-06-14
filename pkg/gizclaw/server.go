@@ -14,8 +14,11 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/adminservice"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/badge"
+	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/contact"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/credential"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/firmware"
+	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/friend"
+	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/friendgroup"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/model"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/peer"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/peergenx"
@@ -26,7 +29,6 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/publiclogin"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/resourcemanager"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/reward"
-	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/social"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/voice"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/wallet"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/workflow"
@@ -208,7 +210,7 @@ func (s *Server) Close() error {
 }
 
 func (s *Server) startCleanup() {
-	if s == nil || s.cleanupStop != nil || s.manager == nil || s.manager.Social == nil || s.manager.Social.FriendGroupMessages == nil {
+	if s == nil || s.cleanupStop != nil || s.manager == nil || s.manager.FriendGroups == nil || s.manager.FriendGroups.Messages == nil {
 		return
 	}
 	interval := s.FriendGroupMessageCleanup
@@ -219,7 +221,7 @@ func (s *Server) startCleanup() {
 	done := make(chan struct{})
 	s.cleanupStop = cancel
 	s.cleanupDone = done
-	socialServer := s.manager.Social
+	friendGroups := s.manager.FriendGroups
 	go func() {
 		defer close(done)
 		ticker := time.NewTicker(interval)
@@ -229,7 +231,7 @@ func (s *Server) startCleanup() {
 			case <-ctx.Done():
 				return
 			case <-ticker.C:
-				_ = socialServer.CleanupExpiredFriendGroupMessages(context.WithoutCancel(ctx))
+				_ = friendGroups.CleanupExpiredFriendGroupMessages(context.WithoutCancel(ctx))
 			}
 		}
 	}()
@@ -344,20 +346,23 @@ func (s *Server) init() error {
 		SpeciesSelector: firstPetSpeciesSelector{Service: petSpeciesServer, ACL: aclServer},
 		VoiceSelector:   firstVoiceSelector{Service: voiceServer},
 	}
-	socialServer := &social.Server{
-		Contacts:               contactStore,
-		FriendRequests:         friendRequestStore,
-		Friends:                friendStore,
-		FriendGroups:           friendGroupStore,
-		FriendGroupMembers:     friendGroupMemberStore,
-		FriendGroupMessages:    friendGroupMessageStore,
-		MessageAssets:          s.FriendGroupMessageAssets,
-		ACL:                    aclServer,
-		FriendOTPTTL:           s.FriendOTPTTL,
-		MessageDefaultTTL:      s.FriendGroupMessageDefaultTTL,
-		MessageMaxTTL:          s.FriendGroupMessageMaxTTL,
-		MessageCleanupInterval: s.FriendGroupMessageCleanup,
-		MessageMaxAudioBytes:   s.FriendGroupMessageMaxBytes,
+	contactServer := &contact.Server{
+		Store: contactStore,
+	}
+	friendServer := &friend.Server{
+		Requests:     friendRequestStore,
+		Friends:      friendStore,
+		FriendOTPTTL: s.FriendOTPTTL,
+	}
+	friendGroupServer := &friendgroup.Server{
+		Groups:               friendGroupStore,
+		Members:              friendGroupMemberStore,
+		Messages:             friendGroupMessageStore,
+		MessageAssets:        s.FriendGroupMessageAssets,
+		ACL:                  aclServer,
+		MessageDefaultTTL:    s.FriendGroupMessageDefaultTTL,
+		MessageMaxTTL:        s.FriendGroupMessageMaxTTL,
+		MessageMaxAudioBytes: s.FriendGroupMessageMaxBytes,
 	}
 	providerTenantsServer := &providertenants.Server{
 		ModelStore:      modelStore,
@@ -400,7 +405,9 @@ func (s *Server) init() error {
 	manager.Pets = petServer
 	manager.Wallets = walletServer
 	manager.Rewards = rewardServer
-	manager.Social = socialServer
+	manager.Contacts = contactServer
+	manager.Friends = friendServer
+	manager.FriendGroups = friendGroupServer
 	manager.ProviderTenants = providerTenantsServer
 	resourceManager := resourcemanager.New(resourcemanager.Services{
 		ACL:             aclServer,

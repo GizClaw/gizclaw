@@ -165,7 +165,7 @@ func (h *PeerConn) initRPC() {
 		h.rpc.peerRunRuntime = h.agentHost
 		h.rpc.serverGenX = h.serverGenX
 		h.rpc.serverResources = h.peerResources()
-		h.rpc.friendOTPs = h.Service.manager.Social
+		h.rpc.friendOTPs = h.Service.manager.Friends
 	}
 	if h.Conn != nil {
 		h.rpc.callerPublicKey = h.Conn.PublicKey()
@@ -241,18 +241,20 @@ func (h *PeerConn) peerResources() *peerresource.Server {
 	}
 	manager := h.Service.manager
 	return &peerresource.Server{
-		Caller:      h.Conn.PublicKey(),
-		ACL:         h.peerAuthorizer(),
-		Workspaces:  manager.Workspaces,
-		Workflows:   manager.Workflows,
-		Firmwares:   manager.Firmwares,
-		Models:      manager.Models,
-		Credentials: manager.Credentials,
-		Voices:      manager.Voices,
-		Pets:        manager.Pets,
-		Wallets:     manager.Wallets,
-		Rewards:     manager.Rewards,
-		Social:      manager.Social,
+		Caller:       h.Conn.PublicKey(),
+		ACL:          h.peerAuthorizer(),
+		Firmwares:    manager.Firmwares,
+		Workspaces:   manager.Workspaces,
+		Workflows:    manager.Workflows,
+		Models:       manager.Models,
+		Credentials:  manager.Credentials,
+		Voices:       manager.Voices,
+		Pets:         manager.Pets,
+		Wallets:      manager.Wallets,
+		Rewards:      manager.Rewards,
+		Contacts:     manager.Contacts,
+		Friends:      manager.Friends,
+		FriendGroups: manager.FriendGroups,
 	}
 }
 

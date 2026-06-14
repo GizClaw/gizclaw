@@ -14,15 +14,17 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/agenthost"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/adminservice"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/rpcapi"
+	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/contact"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/credential"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/firmware"
+	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/friend"
+	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/friendgroup"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/model"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/peer"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/peerrun"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/pet"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/providertenants"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/reward"
-	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/social"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/voice"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/wallet"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/workflow"
@@ -45,16 +47,18 @@ type Manager struct {
 	AgentHost *agenthost.Host
 	ACL       *acl.Server
 
-	Workspaces  workspace.WorkspaceAdminService
-	Workflows   workflow.WorkflowAdminService
-	Firmwares   *firmware.Server
-	Models      model.ModelAdminService
-	Credentials credential.CredentialAdminService
-	Voices      voice.VoiceAdminService
-	Pets        *pet.Server
-	Wallets     *wallet.Server
-	Rewards     *reward.Server
-	Social      *social.Server
+	Workspaces   workspace.WorkspaceAdminService
+	Workflows    workflow.WorkflowAdminService
+	Firmwares    *firmware.Server
+	Models       model.ModelAdminService
+	Credentials  credential.CredentialAdminService
+	Voices       voice.VoiceAdminService
+	Pets         *pet.Server
+	Wallets      *wallet.Server
+	Rewards      *reward.Server
+	Contacts     *contact.Server
+	Friends      *friend.Server
+	FriendGroups *friendgroup.Server
 
 	ProviderTenants providertenants.ProviderTenantsAdminService
 
