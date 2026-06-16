@@ -356,6 +356,15 @@
       "PeerStatus": {
         "$ref": "./type/peer_status.json#/components/schemas/PeerStatus"
       },
+      "PeerStreamEvent": {
+        "$ref": "./type/peer_stream_event.json#/components/schemas/PeerStreamEvent"
+      },
+      "PeerStreamEventType": {
+        "$ref": "./type/peer_stream_event.json#/components/schemas/PeerStreamEventType"
+      },
+      "PeerStreamKind": {
+        "$ref": "./type/peer_stream_event.json#/components/schemas/PeerStreamKind"
+      },
       "Badge": {
         "$ref": "./type/badge.json#/components/schemas/Badge"
       },

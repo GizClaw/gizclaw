@@ -22,6 +22,9 @@
           "dashscope-tenant": {
             "upstream_model": "qwen-omni-turbo-realtime",
             "api_mode": "realtime"
+          },
+          "volc-tenant": {
+            "resource_id": "volc.speech.dialog"
           }
         }
       },
@@ -82,6 +85,25 @@
             }
           },
           "default_thinking_level": {
+            "type": "string"
+          }
+        }
+      },
+      "VolcTenantModelProviderData": {
+        "type": "object",
+        "properties": {
+          "api_mode": {
+            "type": "string",
+            "enum": [
+              "asr",
+              "tts",
+              "realtime"
+            ]
+          },
+          "resource_id": {
+            "type": "string"
+          },
+          "auth_mode": {
             "type": "string"
           }
         }

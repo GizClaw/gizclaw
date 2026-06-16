@@ -51,14 +51,23 @@ func (b DefaultBuilder) BuildTransformer(_ context.Context, cfg TransformerConfi
 		}
 	}
 	if cfg.Model != nil {
-		if cfg.Model.Kind != apitypes.ModelKindAsr {
-			return nil, fmt.Errorf("%w: model transformer kind %q", ErrUnsupported, cfg.Model.Kind)
-		}
-		switch cfg.Tenant.Kind {
-		case string(apitypes.VoiceProviderKindVolcTenant):
-			return b.buildVolcASR(cfg)
+		switch cfg.Model.Kind {
+		case apitypes.ModelKindAsr:
+			switch cfg.Tenant.Kind {
+			case string(apitypes.VoiceProviderKindVolcTenant):
+				return b.buildVolcASR(cfg)
+			default:
+				return nil, fmt.Errorf("%w: model transformer provider %q", ErrUnsupported, cfg.Tenant.Kind)
+			}
+		case apitypes.ModelKindRealtime:
+			switch cfg.Tenant.Kind {
+			case string(apitypes.VoiceProviderKindVolcTenant):
+				return b.buildVolcRealtime(cfg)
+			default:
+				return nil, fmt.Errorf("%w: realtime transformer provider %q", ErrUnsupported, cfg.Tenant.Kind)
+			}
 		default:
-			return nil, fmt.Errorf("%w: model transformer provider %q", ErrUnsupported, cfg.Tenant.Kind)
+			return nil, fmt.Errorf("%w: model transformer kind %q", ErrUnsupported, cfg.Model.Kind)
 		}
 	}
 	return nil, fmt.Errorf("%w: transformer config has no model or voice", ErrInvalid)
@@ -154,27 +163,67 @@ func (b DefaultBuilder) buildVolcASR(cfg TransformerConfig) (genx.Transformer, e
 		return nil, fmt.Errorf("%w: credential %q missing speech api_key/token/access_token", ErrInvalid, cfg.Credential.Name)
 	}
 	opts := []transformers.DoubaoASRSAUCOption{}
-	if value := mapString(data, "format"); value != "" {
-		opts = append(opts, transformers.WithDoubaoASRSAUCFormat(value))
-	}
-	if value, ok := mapInt(data, "sample_rate"); ok {
-		opts = append(opts, transformers.WithDoubaoASRSAUCSampleRate(value))
-	}
-	if value, ok := mapInt(data, "bits"); ok {
-		opts = append(opts, transformers.WithDoubaoASRSAUCBits(value))
-	}
-	if value, ok := mapInt(data, "channel", "channels"); ok {
-		opts = append(opts, transformers.WithDoubaoASRSAUCChannels(value))
-	}
-	if value := mapString(data, "language"); value != "" {
-		opts = append(opts, transformers.WithDoubaoASRSAUCLanguage(value))
-	}
-	if value := mapString(data, "result_type"); value != "" {
-		opts = append(opts, transformers.WithDoubaoASRSAUCResultType(value))
-	}
 	opts = append(opts, transformers.WithDoubaoASRSAUCResourceID(resourceID))
 	client := doubaospeech.NewClient(cfg.Tenant.Volc.AppId, clientOpts...)
 	return transformers.NewDoubaoASRSAUC(client, opts...), nil
+}
+
+func (b DefaultBuilder) buildVolcRealtime(cfg TransformerConfig) (genx.Transformer, error) {
+	if cfg.Tenant.Volc == nil || cfg.Model == nil {
+		return nil, fmt.Errorf("%w: volc tenant and model are required", ErrInvalid)
+	}
+	data := mergeParams(nil, cfg.Params)
+	clientOpts := []doubaospeech.Option{doubaospeech.WithResourceID(doubaospeech.ResourceRealtime)}
+	if resourceID := mapString(data, "resource_id"); resourceID != "" {
+		clientOpts[0] = doubaospeech.WithResourceID(resourceID)
+	}
+	switch mapString(data, "auth_mode", "auth") {
+	case "x-api-key", "api_key", "":
+		apiKey := credentialString(cfg.Credential, "api_key", "x_api_key")
+		if apiKey != "" {
+			clientOpts = append(clientOpts, doubaospeech.WithAPIKey(apiKey))
+			break
+		}
+		token := credentialString(cfg.Credential, "token", "bearer_token", "access_token")
+		if token != "" {
+			clientOpts = append(clientOpts, doubaospeech.WithBearerToken(token))
+			break
+		}
+		return nil, fmt.Errorf("%w: credential %q missing api_key or token for doubao realtime", ErrInvalid, cfg.Credential.Name)
+	case "v2", "realtime-api-key":
+		accessKey := credentialString(cfg.Credential, "access_key", "access_key_id", "token", "bearer_token")
+		if accessKey == "" {
+			return nil, fmt.Errorf("%w: credential %q missing access key for doubao realtime", ErrInvalid, cfg.Credential.Name)
+		}
+		clientOpts = append(clientOpts, doubaospeech.WithRealtimeAPIKey(accessKey, doubaospeech.AppKeyRealtime))
+	default:
+		return nil, fmt.Errorf("%w: doubao realtime auth_mode %q", ErrUnsupported, mapString(data, "auth_mode", "auth"))
+	}
+
+	opts := []transformers.DoubaoRealtimeOption{}
+	if value := mapString(data, "speaker", "voice"); value != "" {
+		opts = append(opts, transformers.WithDoubaoRealtimeSpeaker(value))
+	}
+	if value := mapString(data, "bot_name"); value != "" {
+		opts = append(opts, transformers.WithDoubaoRealtimeBotName(value))
+	}
+	if value := mapString(data, "system_role", "system_prompt"); value != "" {
+		opts = append(opts, transformers.WithDoubaoRealtimeSystemRole(value))
+	}
+	if value, ok := mapInt(data, "vad_window_ms"); ok {
+		opts = append(opts, transformers.WithDoubaoRealtimeVADWindow(value))
+	}
+	if value := mapString(data, "speaking_style"); value != "" {
+		opts = append(opts, transformers.WithDoubaoRealtimeSpeakingStyle(value))
+	}
+	if value := mapString(data, "character_manifest"); value != "" {
+		opts = append(opts, transformers.WithDoubaoRealtimeCharacterManifest(value))
+	}
+	if value := mapString(data, "upstream_model", "model"); value != "" {
+		opts = append(opts, transformers.WithDoubaoRealtimeModel(value))
+	}
+	client := doubaospeech.NewClient(cfg.Tenant.Volc.AppId, clientOpts...)
+	return transformers.NewDoubaoRealtime(client, opts...), nil
 }
 
 func (b DefaultBuilder) buildVolcTTS(cfg TransformerConfig) (genx.Transformer, error) {
@@ -193,12 +242,6 @@ func (b DefaultBuilder) buildVolcTTS(cfg TransformerConfig) (genx.Transformer, e
 	opts := []transformers.DoubaoTTSSeedV2Option{
 		transformers.WithDoubaoTTSSeedV2Format(defaultTTSAudioFormat),
 		transformers.WithDoubaoTTSSeedV2SampleRate(defaultTTSAudioSampleRate),
-	}
-	if value := mapString(data, "format"); value != "" {
-		opts = append(opts, transformers.WithDoubaoTTSSeedV2Format(value))
-	}
-	if value, ok := mapInt(data, "sample_rate"); ok {
-		opts = append(opts, transformers.WithDoubaoTTSSeedV2SampleRate(value))
 	}
 	if value := mapString(data, "resource_id"); value != "" {
 		opts = append(opts, transformers.WithDoubaoTTSSeedV2ResourceID(value))
@@ -351,6 +394,37 @@ func mapInt(values map[string]any, keys ...string) (int, bool) {
 		}
 	}
 	return 0, false
+}
+
+func mergeParams(base, overrides map[string]any) map[string]any {
+	if len(base) == 0 && len(overrides) == 0 {
+		return nil
+	}
+	out := make(map[string]any, len(base)+len(overrides))
+	for key, value := range base {
+		out[key] = value
+	}
+	for key, value := range overrides {
+		out[key] = value
+	}
+	return out
+}
+
+func mapBool(values map[string]any, keys ...string) (bool, bool) {
+	for _, key := range keys {
+		switch value := values[key].(type) {
+		case bool:
+			return value, true
+		case string:
+			switch strings.ToLower(strings.TrimSpace(value)) {
+			case "true", "1", "yes", "y", "on":
+				return true, true
+			case "false", "0", "no", "n", "off":
+				return false, true
+			}
+		}
+	}
+	return false, false
 }
 
 func boolValue(values ...*bool) bool {

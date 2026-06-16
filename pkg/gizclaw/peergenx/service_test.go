@@ -139,6 +139,38 @@ func TestTransformerModelASRUsesVolcTenant(t *testing.T) {
 	}
 }
 
+func TestTransformerModelRealtimeUsesVolcTenant(t *testing.T) {
+	ctx := context.Background()
+	events := []string{}
+	svc := New(Service{
+		Peer:            newTestPeer(),
+		Authorizer:      &recordingAuthorizer{events: &events},
+		Models:          fakeModels{events: &events, modelKind: apitypes.ModelKindRealtime, providerKind: "volc-tenant"},
+		Credentials:     fakeCredentials{events: &events},
+		ProviderTenants: fakeTenants{events: &events},
+		Builder:         fakeBuilder{events: &events},
+	})
+
+	if _, err := svc.Transformer().Transform(ctx, "model/realtime", fakeStream{}); err != nil {
+		t.Fatalf("Transform() error = %v", err)
+	}
+
+	want := []string{
+		"auth:model:realtime:model.read",
+		"get:model:realtime",
+		"auth:model:realtime:model.use",
+		"get:tenant:volc:main",
+		"auth:credential:volc-token:credential.read",
+		"auth:credential:volc-token:credential.use",
+		"get:credential:volc-token",
+		"build:transformer:model:realtime",
+		"call:transformer:model/realtime",
+	}
+	if !reflect.DeepEqual(events, want) {
+		t.Fatalf("events = %#v, want %#v", events, want)
+	}
+}
+
 func TestTransformerVoiceSupportsMiniMaxTenant(t *testing.T) {
 	ctx := context.Background()
 	events := []string{}
@@ -241,7 +273,15 @@ func TestDefaultBuilderBuildsVolcASRTransformer(t *testing.T) {
 			Id:   "asr",
 			Kind: apitypes.ModelKindAsr,
 			ProviderData: &apitypes.ModelProviderData{
-				"volc-tenant": map[string]any{"format": "ogg", "sample_rate": 16000},
+				"volc-tenant": map[string]any{
+					"resource_id": "volc.bigasr.sauc.duration",
+					"format":      "pcm",
+					"sample_rate": 24000,
+					"channels":    2,
+					"bits":        8,
+					"language":    "en-US",
+					"result_type": "full",
+				},
 			},
 		},
 		Tenant: Tenant{
@@ -262,6 +302,161 @@ func TestDefaultBuilderBuildsVolcASRTransformer(t *testing.T) {
 	}
 	if tf == nil {
 		t.Fatal("BuildTransformer() transformer = nil")
+	}
+	if got := transformerStringField(t, tf, "format"); got != "ogg_opus" {
+		t.Fatalf("ASR format = %q, want ogg_opus", got)
+	}
+	if got := transformerIntField(t, tf, "sampleRate"); got != 16000 {
+		t.Fatalf("ASR sampleRate = %d, want 16000", got)
+	}
+	if got := transformerIntField(t, tf, "channels"); got != 1 {
+		t.Fatalf("ASR channels = %d, want 1", got)
+	}
+	if got := transformerIntField(t, tf, "bits"); got != 16 {
+		t.Fatalf("ASR bits = %d, want 16", got)
+	}
+	if got := transformerStringField(t, tf, "language"); got != "zh-CN" {
+		t.Fatalf("ASR language = %q, want zh-CN", got)
+	}
+	if got := transformerStringField(t, tf, "resultType"); got != "single" {
+		t.Fatalf("ASR resultType = %q, want single", got)
+	}
+	if got := transformerStringField(t, tf, "resourceID"); got != "volc.bigasr.sauc.duration" {
+		t.Fatalf("ASR resourceID = %q, want volc.bigasr.sauc.duration", got)
+	}
+}
+
+func TestDefaultBuilderBuildsVolcRealtimeTransformer(t *testing.T) {
+	tf, err := (DefaultBuilder{}).BuildTransformer(context.Background(), TransformerConfig{
+		Model: &apitypes.Model{
+			Id:   "dialog",
+			Kind: apitypes.ModelKindRealtime,
+			ProviderData: &apitypes.ModelProviderData{
+				"volc-tenant": map[string]any{
+					"upstream_model": "O",
+					"speaker":        "model-speaker",
+					"format":         "pcm_s16le",
+					"sample_rate":    16000,
+					"vad_window_ms":  180,
+				},
+			},
+		},
+		Tenant: Tenant{
+			Kind: "volc-tenant",
+			Volc: &apitypes.VolcTenant{
+				Name:           "main",
+				AppId:          "app-id",
+				CredentialName: "volc-token",
+			},
+		},
+		Credential: apitypes.Credential{
+			Name: "volc-token",
+			Body: apitypes.CredentialBody{"api_key": "runtime-key"},
+		},
+		Params: map[string]any{
+			"upstream_model": "SC",
+			"speaker":        "speaker-id",
+			"vad_window_ms":  220,
+		},
+	})
+	if err != nil {
+		t.Fatalf("BuildTransformer() error = %v", err)
+	}
+	if got := transformerStringField(t, tf, "model"); got != "SC" {
+		t.Fatalf("realtime model = %q, want SC", got)
+	}
+	if got := transformerStringField(t, tf, "speaker"); got != "speaker-id" {
+		t.Fatalf("realtime speaker = %q, want speaker-id", got)
+	}
+	if got := transformerIntField(t, tf, "vadWindowMs"); got != 220 {
+		t.Fatalf("realtime vadWindowMs = %d, want 220", got)
+	}
+}
+
+func TestDefaultBuilderBuildsVolcRealtimeTransformerFromWorkflowParams(t *testing.T) {
+	tf, err := (DefaultBuilder{}).BuildTransformer(context.Background(), TransformerConfig{
+		Model: &apitypes.Model{
+			Id:   "dialog",
+			Kind: apitypes.ModelKindRealtime,
+		},
+		Tenant: Tenant{
+			Kind: "volc-tenant",
+			Volc: &apitypes.VolcTenant{
+				Name:           "main",
+				AppId:          "app-id",
+				CredentialName: "volc-token",
+			},
+		},
+		Credential: apitypes.Credential{
+			Name: "volc-token",
+			Body: apitypes.CredentialBody{"access_key": "realtime-key"},
+		},
+		Params: map[string]any{
+			"auth_mode":          "v2",
+			"resource_id":        "volc.speech.dialog",
+			"upstream_model":     "O",
+			"speaker":            "workflow-speaker",
+			"format":             "ogg_opus",
+			"sample_rate":        24000,
+			"channels":           1,
+			"input_format":       "speech_opus",
+			"input_sample_rate":  16000,
+			"input_channels":     1,
+			"input_transcode":    true,
+			"bot_name":           "豆包",
+			"system_role":        "简短回答。",
+			"speaking_style":     "自然",
+			"character_manifest": "友好",
+			"vad_window_ms":      200,
+		},
+	})
+	if err != nil {
+		t.Fatalf("BuildTransformer() error = %v", err)
+	}
+	if got := transformerNestedStringField(t, tf, "client", "config", "resourceID"); got != "volc.speech.dialog" {
+		t.Fatalf("realtime resourceID = %q, want volc.speech.dialog", got)
+	}
+	if got := transformerStringField(t, tf, "model"); got != "O" {
+		t.Fatalf("realtime model = %q, want O", got)
+	}
+	if got := transformerStringField(t, tf, "speaker"); got != "workflow-speaker" {
+		t.Fatalf("realtime speaker = %q, want workflow-speaker", got)
+	}
+	if got := transformerStringField(t, tf, "format"); got != "ogg_opus" {
+		t.Fatalf("realtime format = %q, want ogg_opus", got)
+	}
+	if got := transformerIntField(t, tf, "sampleRate"); got != 24000 {
+		t.Fatalf("realtime sampleRate = %d, want 24000", got)
+	}
+	if got := transformerIntField(t, tf, "channels"); got != 1 {
+		t.Fatalf("realtime channels = %d, want 1", got)
+	}
+	if got := transformerStringField(t, tf, "inputFormat"); got != "speech_opus" {
+		t.Fatalf("realtime inputFormat = %q, want speech_opus", got)
+	}
+	if got := transformerIntField(t, tf, "inputSampleRate"); got != 16000 {
+		t.Fatalf("realtime inputSampleRate = %d, want 16000", got)
+	}
+	if got := transformerIntField(t, tf, "inputChannels"); got != 1 {
+		t.Fatalf("realtime inputChannels = %d, want 1", got)
+	}
+	if !transformerBoolField(t, tf, "inputTranscode") {
+		t.Fatal("realtime inputTranscode = false, want true")
+	}
+	if got := transformerStringField(t, tf, "botName"); got != "豆包" {
+		t.Fatalf("realtime botName = %q, want 豆包", got)
+	}
+	if got := transformerStringField(t, tf, "systemRole"); got != "简短回答。" {
+		t.Fatalf("realtime systemRole = %q, want 简短回答。", got)
+	}
+	if got := transformerStringField(t, tf, "speakingStyle"); got != "自然" {
+		t.Fatalf("realtime speakingStyle = %q, want 自然", got)
+	}
+	if got := transformerStringField(t, tf, "characterManifest"); got != "友好" {
+		t.Fatalf("realtime characterManifest = %q, want 友好", got)
+	}
+	if got := transformerIntField(t, tf, "vadWindowMs"); got != 200 {
+		t.Fatalf("realtime vadWindowMs = %d, want 200", got)
 	}
 }
 
@@ -407,7 +602,12 @@ func TestDefaultBuilderBuildsVoiceTransformers(t *testing.T) {
 				Voice: &apitypes.Voice{
 					Id: "volc-voice",
 					ProviderData: &apitypes.VoiceProviderData{
-						"volc-tenant": map[string]string{"voice_id": "voice-id", "resource_id": "seed-icl-2.0", "sample_rate": "24000"},
+						"volc-tenant": map[string]any{
+							"voice_id":    "voice-id",
+							"resource_id": "seed-icl-2.0",
+							"format":      "ogg_opus",
+							"sample_rate": 24000,
+						},
 					},
 				},
 				Tenant: Tenant{
@@ -661,6 +861,16 @@ func transformerIntField(t *testing.T, tf genx.Transformer, fieldName string) in
 	return int(field.Int())
 }
 
+func transformerBoolField(t *testing.T, tf genx.Transformer, fieldName string) bool {
+	t.Helper()
+	value := reflect.Indirect(reflect.ValueOf(tf))
+	field := value.FieldByName(fieldName)
+	if !field.IsValid() || field.Kind() != reflect.Bool {
+		t.Fatalf("transformer %T missing bool field %q", tf, fieldName)
+	}
+	return field.Bool()
+}
+
 func transformerNestedStringField(t *testing.T, tf genx.Transformer, fieldNames ...string) string {
 	t.Helper()
 	value := reflect.ValueOf(tf)
@@ -756,6 +966,25 @@ func TestBuilderHelpersHandleJSONNumberAndInvalidVoiceData(t *testing.T) {
 	}
 	if got, ok := parsePattern("voice/ ", "voice"); ok || got != "" {
 		t.Fatalf("parsePattern(empty id) = %q, %v; want empty, false", got, ok)
+	}
+	if got, ok := parsePattern("model/realtime?vad_window_ms=200", "model"); !ok || got != "realtime" {
+		t.Fatalf("parsePattern(query) = %q, %v; want realtime, true", got, ok)
+	}
+	base, params, err := splitPatternParams("model/realtime?input_transcode=true&vad_window_ms=200&system_role=%E7%AE%80%E7%9F%AD")
+	if err != nil {
+		t.Fatalf("splitPatternParams() error = %v", err)
+	}
+	if base != "model/realtime" {
+		t.Fatalf("splitPatternParams base = %q, want model/realtime", base)
+	}
+	if got, ok := params["input_transcode"].(bool); !ok || !got {
+		t.Fatalf("input_transcode param = %#v", params["input_transcode"])
+	}
+	if got, ok := params["vad_window_ms"].(int); !ok || got != 200 {
+		t.Fatalf("vad_window_ms param = %#v", params["vad_window_ms"])
+	}
+	if got, ok := params["system_role"].(string); !ok || got != "简短" {
+		t.Fatalf("system_role param = %#v", params["system_role"])
 	}
 	if !isDenied(fmt.Errorf("wrapped: %w", ErrDenied)) {
 		t.Fatal("isDenied(wrapped ErrDenied) = false, want true")

@@ -35,6 +35,7 @@ type MessageChunk struct {
 type StreamCtrl struct {
 	StreamID string `json:"stream_id,omitempty"`
 	Label    string `json:"label,omitempty"`
+	Error    string `json:"error,omitempty"`
 
 	BeginOfStream bool  `json:"begin_of_stream,omitempty"`
 	EndOfStream   bool  `json:"end_of_stream,omitempty"`

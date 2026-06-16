@@ -19,6 +19,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/peergenx"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/peerresource"
+	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/workflow/agents/doubaorealtime"
 	"github.com/GizClaw/gizclaw-go/pkg/giznet"
 	"golang.org/x/sync/errgroup"
 )
@@ -42,6 +43,8 @@ type PeerConn struct {
 
 	closeOnce              sync.Once
 	agentHost              *agenthost.Service
+	agentInput             *agenthost.PushSource
+	events                 *peerStreamEventBroker
 	serverGenX             *peergenx.Service
 	mixer                  *pcm.Mixer
 	rpc                    *rpcServer
@@ -80,6 +83,7 @@ func (h *PeerConn) serve() error {
 	g.Go(h.servePackets)
 	g.Go(h.serveRPC)
 	g.Go(h.serveOpenAI)
+	g.Go(h.serveEvents)
 	err := g.Wait()
 	if err != nil {
 		_ = h.close()
@@ -98,8 +102,13 @@ func (h *PeerConn) servePackets() error {
 	if _, err := h.audioMixer(); err != nil {
 		return err
 	}
-	h.streamMixedAudioLoop()
-	return nil
+	var g errgroup.Group
+	g.Go(func() error {
+		h.streamMixedAudioLoop()
+		return nil
+	})
+	g.Go(h.serveDirectPackets)
+	return g.Wait()
 }
 
 func (h *PeerConn) serveRPC() error {
@@ -150,8 +159,8 @@ func (h *PeerConn) rpcConn() (net.Conn, error) {
 
 func (h *PeerConn) init() {
 	h.initMixer()
-	h.initAgentHost()
 	h.initPeerGenX()
+	h.initAgentHost()
 	h.initRPC()
 }
 
@@ -175,8 +184,8 @@ func (h *PeerConn) initRPC() {
 
 func (h *PeerConn) rpcServer() *rpcServer {
 	h.initMixer()
-	h.initAgentHost()
 	h.initPeerGenX()
+	h.initAgentHost()
 	h.initRPC()
 	return h.rpc
 }
@@ -198,19 +207,42 @@ func (h *PeerConn) initAgentHost() {
 	if manager.AgentHost == nil || manager.PeerRun == nil {
 		return
 	}
+	h.agentInput = agenthost.NewPushSource(64)
+	h.events = newPeerStreamEventBroker()
+	host := h.peerAgentHost(manager.AgentHost)
+	var authorizer agenthost.Authorizer
+	if manager.ACL != nil {
+		authorizer = manager.ACL
+	}
 	h.agentHost = &agenthost.Service{
-		Host:       manager.AgentHost,
+		Host:       host,
 		PeerRun:    manager.PeerRun,
-		Authorizer: manager.ACL,
+		Authorizer: authorizer,
 		PublicKey:  h.Conn.PublicKey(),
-		Source: agenthost.StreamSourceFunc(func(context.Context) (genx.Stream, error) {
-			return agenthost.NewInputStream(16), nil
-		}),
-		Consumer: agenthost.MixerOutput{Tracks: h},
+		Source:     h.agentInput,
+		Consumer: peerAgentOutput{
+			Events: h.events,
+			Tracks: h,
+			Conn:   h.Conn,
+		},
 	}
 	if h.rpc != nil {
 		h.rpc.peerRunRuntime = h.agentHost
 	}
+}
+
+func (h *PeerConn) peerAgentHost(base *agenthost.Host) *agenthost.Host {
+	if base == nil {
+		return nil
+	}
+	host := agenthost.New(base.Resolver)
+	host.Coordinator = base.Coordinator
+	var transformer genx.Transformer
+	if h != nil && h.serverGenX != nil {
+		transformer = h.serverGenX.Transformer()
+	}
+	_ = host.Register(doubaorealtime.Type, doubaorealtime.Factory{Transformer: transformer})
+	return host
 }
 
 func (h *PeerConn) initPeerGenX() {
@@ -264,6 +296,9 @@ func (h *PeerConn) peerAuthorizer() aclAuthorizer {
 		return nil
 	}
 	manager := h.Service.manager
+	if manager.ACL == nil {
+		return nil
+	}
 	return peerAuthorizer{
 		ACL:       manager.ACL,
 		Peers:     manager.Peers,
@@ -292,6 +327,9 @@ func (h *PeerConn) close() error {
 			_, err := h.agentHost.Stop(context.Background())
 			closeErr = errors.Join(closeErr, err)
 		}
+		if h.agentInput != nil {
+			closeErr = errors.Join(closeErr, h.agentInput.Close())
+		}
 		if h.Conn != nil {
 			if err := h.Conn.Close(); err != nil && !errors.Is(err, giznet.ErrConnClosed) {
 				closeErr = errors.Join(closeErr, err)
@@ -303,6 +341,82 @@ func (h *PeerConn) close() error {
 		}
 	})
 	return closeErr
+}
+
+func (h *PeerConn) serveEvents() error {
+	listener := h.Conn.ListenService(ServiceEvent)
+	defer func() {
+		_ = listener.Close()
+	}()
+	for {
+		stream, err := listener.Accept()
+		if err != nil {
+			if errors.Is(err, net.ErrClosed) {
+				return nil
+			}
+			return err
+		}
+		go func(stream net.Conn) {
+			if err := h.handleEventStream(stream); err != nil {
+				_ = stream.Close()
+			}
+		}(stream)
+	}
+}
+
+func (h *PeerConn) handleEventStream(stream net.Conn) error {
+	if stream == nil {
+		return nil
+	}
+	unsubscribe := h.events.Subscribe(stream)
+	defer unsubscribe()
+	defer func() { _ = stream.Close() }()
+	for {
+		event, err := readPeerStreamEvent(stream)
+		if err != nil {
+			if errors.Is(err, io.EOF) || errors.Is(err, net.ErrClosed) {
+				return nil
+			}
+			return err
+		}
+		chunk, err := peerStreamEventToChunk(event)
+		if err != nil {
+			return err
+		}
+		if err := pushAgentChunk(context.Background(), h.agentInput, chunk); err != nil {
+			return err
+		}
+	}
+}
+
+func (h *PeerConn) serveDirectPackets() error {
+	buf := make([]byte, 64*1024)
+	for {
+		protocol, n, err := h.Conn.Read(buf)
+		if err != nil {
+			if errors.Is(err, io.EOF) ||
+				errors.Is(err, net.ErrClosed) ||
+				errors.Is(err, giznet.ErrConnClosed) ||
+				errors.Is(err, giznet.ErrUDPClosed) ||
+				errors.Is(err, giznet.ErrServiceMuxClosed) {
+				return nil
+			}
+			return err
+		}
+		switch protocol {
+		case ProtocolStampedOpus:
+			chunk, ok := stampedOpusChunk(buf[:n])
+			if !ok {
+				continue
+			}
+			if err := pushAgentChunk(context.Background(), h.agentInput, chunk); err != nil {
+				return err
+			}
+		default:
+			// Unknown direct packets are ignored by the echo slice; service-mux
+			// protocols continue to be handled by KCP services.
+		}
+	}
 }
 
 func (h *PeerConn) streamMixedAudioLoop() {

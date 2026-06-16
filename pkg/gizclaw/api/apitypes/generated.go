@@ -478,6 +478,7 @@ const (
 	ModelKindAsr       ModelKind = "asr"
 	ModelKindEmbedding ModelKind = "embedding"
 	ModelKindLlm       ModelKind = "llm"
+	ModelKindRealtime  ModelKind = "realtime"
 	ModelKindTts       ModelKind = "tts"
 )
 
@@ -489,6 +490,8 @@ func (e ModelKind) Valid() bool {
 	case ModelKindEmbedding:
 		return true
 	case ModelKindLlm:
+		return true
+	case ModelKindRealtime:
 		return true
 	case ModelKindTts:
 		return true
@@ -692,6 +695,54 @@ func (e PeerRunStatusState) Valid() bool {
 	}
 }
 
+// Defines values for PeerStreamEventType.
+const (
+	PeerStreamEventTypeBos       PeerStreamEventType = "bos"
+	PeerStreamEventTypeEos       PeerStreamEventType = "eos"
+	PeerStreamEventTypeTextDelta PeerStreamEventType = "text.delta"
+	PeerStreamEventTypeTextDone  PeerStreamEventType = "text.done"
+)
+
+// Valid indicates whether the value is a known member of the PeerStreamEventType enum.
+func (e PeerStreamEventType) Valid() bool {
+	switch e {
+	case PeerStreamEventTypeBos:
+		return true
+	case PeerStreamEventTypeEos:
+		return true
+	case PeerStreamEventTypeTextDelta:
+		return true
+	case PeerStreamEventTypeTextDone:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PeerStreamKind.
+const (
+	PeerStreamKindAudio PeerStreamKind = "audio"
+	PeerStreamKindMixed PeerStreamKind = "mixed"
+	PeerStreamKindText  PeerStreamKind = "text"
+	PeerStreamKindVideo PeerStreamKind = "video"
+)
+
+// Valid indicates whether the value is a known member of the PeerStreamKind enum.
+func (e PeerStreamKind) Valid() bool {
+	switch e {
+	case PeerStreamKindAudio:
+		return true
+	case PeerStreamKindMixed:
+		return true
+	case PeerStreamKindText:
+		return true
+	case PeerStreamKindVideo:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for PetSpeciesResourceKind.
 const (
 	PetSpeciesResourceKindPetSpecies PetSpeciesResourceKind = "PetSpecies"
@@ -884,6 +935,27 @@ func (e VoiceSource) Valid() bool {
 	case VoiceSourceManual:
 		return true
 	case VoiceSourceSync:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for VolcTenantModelProviderDataApiMode.
+const (
+	VolcTenantModelProviderDataApiModeAsr      VolcTenantModelProviderDataApiMode = "asr"
+	VolcTenantModelProviderDataApiModeRealtime VolcTenantModelProviderDataApiMode = "realtime"
+	VolcTenantModelProviderDataApiModeTts      VolcTenantModelProviderDataApiMode = "tts"
+)
+
+// Valid indicates whether the value is a known member of the VolcTenantModelProviderDataApiMode enum.
+func (e VolcTenantModelProviderDataApiMode) Valid() bool {
+	switch e {
+	case VolcTenantModelProviderDataApiModeAsr:
+		return true
+	case VolcTenantModelProviderDataApiModeRealtime:
+		return true
+	case VolcTenantModelProviderDataApiModeTts:
 		return true
 	default:
 		return false
@@ -1667,6 +1739,26 @@ type PeerStatus struct {
 	Volume         *int                    `json:"volume,omitempty"`
 }
 
+// PeerStreamEvent defines model for PeerStreamEvent.
+type PeerStreamEvent struct {
+	Error     *string             `json:"error,omitempty"`
+	Kind      *PeerStreamKind     `json:"kind,omitempty"`
+	Label     *string             `json:"label,omitempty"`
+	MimeType  *string             `json:"mime_type,omitempty"`
+	Seq       *int64              `json:"seq,omitempty"`
+	StreamId  *string             `json:"stream_id,omitempty"`
+	Text      *string             `json:"text,omitempty"`
+	Timestamp *int64              `json:"timestamp,omitempty"`
+	Type      PeerStreamEventType `json:"type"`
+	V         int                 `json:"v"`
+}
+
+// PeerStreamEventType defines model for PeerStreamEventType.
+type PeerStreamEventType string
+
+// PeerStreamKind defines model for PeerStreamKind.
+type PeerStreamKind string
+
 // PetSpecies defines model for PetSpecies.
 type PetSpecies struct {
 	CreatedAt    time.Time    `json:"created_at"`
@@ -1871,6 +1963,16 @@ type VolcTenant struct {
 	ResourceIds    *[]string  `json:"resource_ids,omitempty"`
 	UpdatedAt      time.Time  `json:"updated_at"`
 }
+
+// VolcTenantModelProviderData defines model for VolcTenantModelProviderData.
+type VolcTenantModelProviderData struct {
+	ApiMode    *VolcTenantModelProviderDataApiMode `json:"api_mode,omitempty"`
+	AuthMode   *string                             `json:"auth_mode,omitempty"`
+	ResourceId *string                             `json:"resource_id,omitempty"`
+}
+
+// VolcTenantModelProviderDataApiMode defines model for VolcTenantModelProviderData.ApiMode.
+type VolcTenantModelProviderDataApiMode string
 
 // VolcTenantResource defines model for VolcTenantResource.
 type VolcTenantResource struct {

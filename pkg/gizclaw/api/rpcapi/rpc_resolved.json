@@ -1382,6 +1382,7 @@
           "llm",
           "tts",
           "asr",
+          "realtime",
           "embedding"
         ],
         "example": "llm",
@@ -1450,6 +1451,9 @@
           },
           "openai-tenant": {
             "upstream_model": "MiniMax-M2.5"
+          },
+          "volc-tenant": {
+            "resource_id": "volc.speech.dialog"
           }
         },
         "type": "object"
@@ -2918,6 +2922,25 @@
           "up_content_length",
           "down_content_length"
         ],
+        "type": "object"
+      },
+      "VolcTenantModelProviderData": {
+        "properties": {
+          "api_mode": {
+            "enum": [
+              "asr",
+              "tts",
+              "realtime"
+            ],
+            "type": "string"
+          },
+          "auth_mode": {
+            "type": "string"
+          },
+          "resource_id": {
+            "type": "string"
+          }
+        },
         "type": "object"
       },
       "WalletGetRequest": {

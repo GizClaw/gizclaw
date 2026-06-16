@@ -1,0 +1,75 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Peer Stream Event Type",
+    "description": "Reliable peer stream lifecycle and text event schema.",
+    "version": "1.0.0"
+  },
+  "paths": {},
+  "components": {
+    "schemas": {
+      "PeerStreamEventType": {
+        "type": "string",
+        "enum": [
+          "bos",
+          "eos",
+          "text.delta",
+          "text.done"
+        ]
+      },
+      "PeerStreamKind": {
+        "type": "string",
+        "enum": [
+          "text",
+          "audio",
+          "video",
+          "mixed"
+        ]
+      },
+      "PeerStreamEvent": {
+        "type": "object",
+        "required": [
+          "v",
+          "type"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "v": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "type": {
+            "$ref": "#/components/schemas/PeerStreamEventType"
+          },
+          "stream_id": {
+            "type": "string"
+          },
+          "seq": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "timestamp": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/PeerStreamKind"
+          },
+          "label": {
+            "type": "string"
+          },
+          "mime_type": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          },
+          "error": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/url"
+	"strconv"
 	"strings"
 
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/adminservice"
@@ -32,6 +34,7 @@ type TransformerConfig struct {
 	Voice      *apitypes.Voice
 	Tenant     Tenant
 	Credential apitypes.Credential
+	Params     map[string]any
 }
 
 func (s *Service) ResolveGenerator(ctx context.Context, pattern string) (GeneratorConfig, error) {
@@ -55,7 +58,11 @@ func (s *Service) ResolveGenerator(ctx context.Context, pattern string) (Generat
 }
 
 func (s *Service) ResolveTransformer(ctx context.Context, pattern string) (TransformerConfig, error) {
-	if voiceID, ok := parsePattern(pattern, "voice", "voices"); ok {
+	basePattern, params, err := splitPatternParams(pattern)
+	if err != nil {
+		return TransformerConfig{}, err
+	}
+	if voiceID, ok := parsePattern(basePattern, "voice", "voices"); ok {
 		voice, tenant, credential, err := s.resolveVoice(ctx, voiceID)
 		if err != nil {
 			return TransformerConfig{}, err
@@ -65,10 +72,11 @@ func (s *Service) ResolveTransformer(ctx context.Context, pattern string) (Trans
 			Voice:      &voice,
 			Tenant:     tenant,
 			Credential: credential,
+			Params:     params,
 		}, nil
 	}
 
-	modelID, ok := parsePattern(pattern, "model", "models")
+	modelID, ok := parsePattern(basePattern, "model", "models")
 	if !ok {
 		return TransformerConfig{}, fmt.Errorf("%w: transformer pattern %q must target model/<id> or voice/<id>", ErrInvalid, pattern)
 	}
@@ -77,7 +85,7 @@ func (s *Service) ResolveTransformer(ctx context.Context, pattern string) (Trans
 		return TransformerConfig{}, err
 	}
 	switch model.Kind {
-	case apitypes.ModelKindAsr, apitypes.ModelKindTts:
+	case apitypes.ModelKindAsr, apitypes.ModelKindTts, apitypes.ModelKindRealtime:
 	default:
 		return TransformerConfig{}, fmt.Errorf("%w: model %q kind %q is not a transformer", ErrInvalid, model.Id, model.Kind)
 	}
@@ -86,6 +94,7 @@ func (s *Service) ResolveTransformer(ctx context.Context, pattern string) (Trans
 		Model:      &model,
 		Tenant:     tenant,
 		Credential: credential,
+		Params:     params,
 	}, nil
 }
 
@@ -340,6 +349,9 @@ func (s *Service) getVolcTenant(ctx context.Context, name string) (apitypes.Volc
 
 func parsePattern(pattern string, prefixes ...string) (string, bool) {
 	pattern = strings.TrimSpace(pattern)
+	if base, _, ok := strings.Cut(pattern, "?"); ok {
+		pattern = base
+	}
 	for _, prefix := range prefixes {
 		head := prefix + "/"
 		if id, ok := strings.CutPrefix(pattern, head); ok {
@@ -348,6 +360,37 @@ func parsePattern(pattern string, prefixes ...string) (string, bool) {
 		}
 	}
 	return "", false
+}
+
+func splitPatternParams(pattern string) (string, map[string]any, error) {
+	pattern = strings.TrimSpace(pattern)
+	base, rawQuery, ok := strings.Cut(pattern, "?")
+	if !ok {
+		return pattern, nil, nil
+	}
+	values, err := url.ParseQuery(rawQuery)
+	if err != nil {
+		return "", nil, fmt.Errorf("%w: invalid transformer pattern query: %w", ErrInvalid, err)
+	}
+	params := make(map[string]any, len(values))
+	for key, value := range values {
+		if len(value) == 0 {
+			continue
+		}
+		params[key] = parsePatternParamValue(value[len(value)-1])
+	}
+	return strings.TrimSpace(base), params, nil
+}
+
+func parsePatternParamValue(value string) any {
+	text := strings.TrimSpace(value)
+	if boolValue, err := strconv.ParseBool(text); err == nil {
+		return boolValue
+	}
+	if intValue, err := strconv.Atoi(text); err == nil {
+		return intValue
+	}
+	return text
 }
 
 func isDenied(err error) bool {

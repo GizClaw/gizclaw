@@ -192,6 +192,7 @@ const (
 	ModelKindAsr       ModelKind = "asr"
 	ModelKindEmbedding ModelKind = "embedding"
 	ModelKindLlm       ModelKind = "llm"
+	ModelKindRealtime  ModelKind = "realtime"
 	ModelKindTts       ModelKind = "tts"
 )
 
@@ -203,6 +204,8 @@ func (e ModelKind) Valid() bool {
 	case ModelKindEmbedding:
 		return true
 	case ModelKindLlm:
+		return true
+	case ModelKindRealtime:
 		return true
 	case ModelKindTts:
 		return true
@@ -562,6 +565,27 @@ const (
 func (e RPCVersion) Valid() bool {
 	switch e {
 	case RPCVersionV1:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for VolcTenantModelProviderDataApiMode.
+const (
+	VolcTenantModelProviderDataApiModeAsr      VolcTenantModelProviderDataApiMode = "asr"
+	VolcTenantModelProviderDataApiModeRealtime VolcTenantModelProviderDataApiMode = "realtime"
+	VolcTenantModelProviderDataApiModeTts      VolcTenantModelProviderDataApiMode = "tts"
+)
+
+// Valid indicates whether the value is a known member of the VolcTenantModelProviderDataApiMode enum.
+func (e VolcTenantModelProviderDataApiMode) Valid() bool {
+	switch e {
+	case VolcTenantModelProviderDataApiModeAsr:
+		return true
+	case VolcTenantModelProviderDataApiModeRealtime:
+		return true
+	case VolcTenantModelProviderDataApiModeTts:
 		return true
 	default:
 		return false
@@ -1626,6 +1650,16 @@ type SpeedTestResponse struct {
 	DownContentLength int64 `json:"down_content_length"`
 	UpContentLength   int64 `json:"up_content_length"`
 }
+
+// VolcTenantModelProviderData defines model for VolcTenantModelProviderData.
+type VolcTenantModelProviderData struct {
+	ApiMode    *VolcTenantModelProviderDataApiMode `json:"api_mode,omitempty"`
+	AuthMode   *string                             `json:"auth_mode,omitempty"`
+	ResourceId *string                             `json:"resource_id,omitempty"`
+}
+
+// VolcTenantModelProviderDataApiMode defines model for VolcTenantModelProviderData.ApiMode.
+type VolcTenantModelProviderDataApiMode string
 
 // WalletGetRequest defines model for WalletGetRequest.
 type WalletGetRequest = map[string]interface{}

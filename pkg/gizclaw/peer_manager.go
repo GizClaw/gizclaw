@@ -75,7 +75,7 @@ func NewManager(peersService *peer.Server) *Manager {
 
 func (m *Manager) allowService(ctx context.Context, publicKey giznet.PublicKey, service uint64) bool {
 	switch service {
-	case ServiceRPC, ServiceServerPublic, ServiceOpenAI:
+	case ServiceRPC, ServiceServerPublic, ServiceOpenAI, ServiceEvent:
 		return true
 	}
 	switch service {
