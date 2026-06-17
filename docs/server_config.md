@@ -99,6 +99,14 @@ stores:
     storage: local-assets
     prefix: firmwares
 
+  # Agent runtime workspace storage. AgentHost creates one subdirectory/prefix
+  # per GizClaw workspace here; agents such as doubao realtime and flowcraft use
+  # it for generated runtime config, history, memory, and cache files.
+  agenthost:
+    kind: objectstore
+    storage: local-assets
+    prefix: agenthost
+
   minimax-tenants:
     kind: keyvalue
     storage: main-kv
@@ -261,14 +269,19 @@ system_tasks:
   configured: `peers`, `credentials`, `firmwares`, `minimax-tenants`, `voices`,
   `workspaces`, `workflows`, and `acl`.
 - Optional resource services are wired when their conventional logical stores
-  exist: `firmware-assets`, `pet-species`, `pet-species-assets`, `badges`,
-  `badge-assets`, `pets`, `rewards`, `wallets`, `contacts`, `friend-requests`,
-  `friends`, `friend-groups`, `friend-group-members`,
-  `friend-group-messages`, and `friend-group-message-assets`.
+  exist: `firmware-assets`, `agenthost`, `pet-species`,
+  `pet-species-assets`, `badges`, `badge-assets`, `pets`, `rewards`,
+  `wallets`, `contacts`, `friend-requests`, `friends`, `friend-groups`,
+  `friend-group-members`, `friend-group-messages`, and
+  `friend-group-message-assets`.
 - `system_tasks.*.generator` values must use `model/<model-id>`. The model id
   must match an admin `Model` resource, such as `qwen-flash`.
 - `firmwares`, `pet-species`, and `badges` each use a KV metadata store plus a
   separate object store for uploaded binary assets.
+- `agenthost` is optional for the server itself, but workspace agents such as
+  Flowcraft should configure it as an object store so AgentHost can prepare
+  per-workspace runtime prefixes and local runtime directories when supported
+  by the object-store backend.
 - `pets` and `rewards` hold peer-facing JSON records in logical KV stores.
 - `wallets` is SQL-backed because wallet balance updates and transaction
   inserts must commit atomically.

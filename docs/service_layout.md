@@ -77,6 +77,7 @@ Admin Service
 │   └── /icon GET, PUT
 ├── /workflows/{name} LIST, CREATE, GET, PUT, DELETE
 ├── /firmwares/{name} LIST, CREATE, GET, PUT, DELETE
+│   ├── /bins/{channel}/{bin} PUT
 │   ├── @release
 │   └── @rollback
 ├── /credentials/{name} LIST, CREATE, GET, PUT, DELETE
