@@ -35,6 +35,9 @@ func NewNetFromMemory(paramData, binData []byte, opts ...*Option) (*Net, error) 
 	if len(binData) == 0 {
 		return nil, fmt.Errorf("ncnn: empty bin data")
 	}
+	if len(binData) < minModelBinDataBytes {
+		return nil, fmt.Errorf("ncnn: bin data too short: %d bytes", len(binData))
+	}
 	return nil, unsupportedErr()
 }
 

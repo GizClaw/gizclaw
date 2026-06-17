@@ -10,6 +10,8 @@ import (
 type ModelID string
 
 const (
+	minModelBinDataBytes = 4
+
 	// ModelSpeakerERes2Net is the speaker embedding model.
 	ModelSpeakerERes2Net ModelID = "speaker-eres2net"
 

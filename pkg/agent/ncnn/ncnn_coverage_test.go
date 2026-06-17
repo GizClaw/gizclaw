@@ -198,17 +198,14 @@ func TestNewNetFromMemoryAdditionalPaths(t *testing.T) {
 		t.Fatalf("Close net: %v", err)
 	}
 
-	_, err = NewNetFromMemory([]byte("not-a-valid-param"), []byte{1})
+	_, err = NewNetFromMemory([]byte("not-a-valid-param"), []byte{1, 2, 3, 4})
 	if err == nil || !strings.Contains(err.Error(), "load_param_memory") {
 		t.Fatalf("expected load_param_memory error, got: %v", err)
 	}
 
-	net2, err := NewNetFromMemory(info.ParamData, []byte{1})
-	if err != nil {
-		t.Fatalf("NewNetFromMemory with minimal bin should still be handled, got error: %v", err)
-	}
-	if err := net2.Close(); err != nil {
-		t.Fatalf("Close net2: %v", err)
+	_, err = NewNetFromMemory(info.ParamData, []byte{1})
+	if err == nil || !strings.Contains(err.Error(), "bin data too short") {
+		t.Fatalf("expected short bin data error, got: %v", err)
 	}
 }
 
