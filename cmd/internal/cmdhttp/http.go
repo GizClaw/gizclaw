@@ -3,6 +3,7 @@ package cmdhttp
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net"
@@ -24,6 +25,10 @@ import (
 )
 
 const uiAPIProxyTimeout = 30 * time.Second
+
+var playOpenAIHTTPClient = func(c *gizcli.Client) *http.Client {
+	return c.HTTPClient(gizcli.ServiceOpenAI)
+}
 
 func ListenAndServeAdminUI(ctxName, addr string, out io.Writer) error {
 	return listenAndServeUI(ctxName, addr, "GizClaw Admin UI", adminui.Handler(), out, nil, registerAdminUIAPIProxyRoutes, func(mux *http.ServeMux, _ clientapi.ClientProvider, _ clientapi.ClientInvalidator) {
@@ -150,6 +155,12 @@ func (p *uiAPIProxy) set(client uiAPIProxyClient) {
 }
 
 func (p *uiAPIProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if !isUIAPIProxyRetryable(r) {
+		if err := p.serveDirect(w, r); err != nil {
+			http.Error(w, err.Error(), http.StatusServiceUnavailable)
+		}
+		return
+	}
 	response, client, err := p.serveOnce(r)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusServiceUnavailable)
@@ -164,6 +175,19 @@ func (p *uiAPIProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	response.writeTo(w)
+}
+
+func (p *uiAPIProxy) serveDirect(w http.ResponseWriter, r *http.Request) error {
+	client, err := p.get()
+	if err != nil {
+		return err
+	}
+
+	client.ProxyHandler().ServeHTTP(w, r)
+	if r.Context().Err() != nil {
+		p.invalidate(client)
+	}
+	return nil
 }
 
 func (p *uiAPIProxy) serveOnce(r *http.Request) (*bufferedHTTPResponse, uiAPIProxyClient, error) {
@@ -333,6 +357,10 @@ func playOpenAIBufferedProxy(client clientapi.ClientProvider, invalidate clienta
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+	if isOpenAIStreamingSpeechRequest(body) {
+		playOpenAIStreamingProxy(client, invalidate, w, r, targetPath, body)
+		return
+	}
 	var lastErr error
 	for attempt := 0; attempt < 2; attempt++ {
 		c, err := client()
@@ -367,14 +395,58 @@ func playOpenAIBufferedProxy(client clientapi.ClientProvider, invalidate clienta
 	http.Error(w, lastErr.Error(), http.StatusBadGateway)
 }
 
-func doPlayOpenAIRequest(c *gizcli.Client, r *http.Request, targetPath string, body []byte) (http.Header, int, []byte, error) {
-	req, err := http.NewRequestWithContext(r.Context(), r.Method, "http://gizclaw"+targetPath, bytes.NewReader(body))
-	if err != nil {
-		return nil, 0, nil, err
+func isOpenAIStreamingSpeechRequest(body []byte) bool {
+	var payload struct {
+		StreamFormat string `json:"stream_format"`
 	}
-	req.URL.RawQuery = r.URL.RawQuery
-	copyHTTPHeaders(req.Header, r.Header)
-	resp, err := c.HTTPClient(gizcli.ServiceOpenAI).Do(req)
+	if err := json.Unmarshal(body, &payload); err != nil {
+		return false
+	}
+	return strings.EqualFold(strings.TrimSpace(payload.StreamFormat), "sse")
+}
+
+func playOpenAIStreamingProxy(client clientapi.ClientProvider, invalidate clientapi.ClientInvalidator, w http.ResponseWriter, r *http.Request, targetPath string, body []byte) {
+	var lastErr error
+	for attempt := 0; attempt < 2; attempt++ {
+		c, err := client()
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusServiceUnavailable)
+			return
+		}
+		resp, err := newPlayOpenAIRequest(c, r, targetPath, body)
+		if err != nil {
+			lastErr = err
+			if invalidate != nil {
+				invalidate(c)
+			}
+			continue
+		}
+		if resp.StatusCode == http.StatusBadGateway && attempt == 0 {
+			lastErr = fmt.Errorf("bad gateway")
+			_ = resp.Body.Close()
+			if invalidate != nil {
+				invalidate(c)
+			}
+			continue
+		}
+		defer resp.Body.Close()
+		copyHTTPHeaders(w.Header(), resp.Header)
+		w.WriteHeader(resp.StatusCode)
+		writer := io.Writer(w)
+		if flusher, ok := w.(http.Flusher); ok {
+			writer = httpFlushWriter{w: w, f: flusher}
+		}
+		_, _ = io.Copy(writer, resp.Body)
+		return
+	}
+	if lastErr == nil {
+		lastErr = fmt.Errorf("bad gateway")
+	}
+	http.Error(w, lastErr.Error(), http.StatusBadGateway)
+}
+
+func doPlayOpenAIRequest(c *gizcli.Client, r *http.Request, targetPath string, body []byte) (http.Header, int, []byte, error) {
+	resp, err := newPlayOpenAIRequest(c, r, targetPath, body)
 	if err != nil {
 		return nil, 0, nil, err
 	}
@@ -386,12 +458,37 @@ func doPlayOpenAIRequest(c *gizcli.Client, r *http.Request, targetPath string, b
 	return resp.Header.Clone(), resp.StatusCode, respBody, nil
 }
 
+func newPlayOpenAIRequest(c *gizcli.Client, r *http.Request, targetPath string, body []byte) (*http.Response, error) {
+	req, err := http.NewRequestWithContext(r.Context(), r.Method, "http://gizclaw"+targetPath, bytes.NewReader(body))
+	if err != nil {
+		return nil, err
+	}
+	req.URL.RawQuery = r.URL.RawQuery
+	copyHTTPHeaders(req.Header, r.Header)
+	resp, err := playOpenAIHTTPClient(c).Do(req)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
 func copyHTTPHeaders(dst, src http.Header) {
 	for key, values := range src {
 		for _, value := range values {
 			dst.Add(key, value)
 		}
 	}
+}
+
+type httpFlushWriter struct {
+	w io.Writer
+	f http.Flusher
+}
+
+func (w httpFlushWriter) Write(p []byte) (int, error) {
+	n, err := w.w.Write(p)
+	w.f.Flush()
+	return n, err
 }
 
 func registerAdminUIRoutes(mux *http.ServeMux) {

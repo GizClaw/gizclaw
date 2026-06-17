@@ -1,11 +1,15 @@
 package cmdhttp
 
 import (
+	"bufio"
+	"bytes"
 	"context"
 	"errors"
+	"io"
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -150,6 +154,102 @@ func TestUIAPIProxyDoesNotRetryNonRetryableFailure(t *testing.T) {
 	}
 }
 
+func TestUIAPIProxyStreamsNonRetryableRequests(t *testing.T) {
+	releaseSecond := make(chan struct{})
+	fake := &fakeUIAPIProxyClient{
+		handler: http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.Header().Set("Content-Type", "text/event-stream")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte("data: first\n\n"))
+			if flusher, ok := w.(http.Flusher); ok {
+				flusher.Flush()
+			}
+			<-releaseSecond
+			_, _ = w.Write([]byte("data: second\n\n"))
+		}),
+	}
+	proxy := newUIAPIProxy(func() (uiAPIProxyClient, error) {
+		return fake, nil
+	}, time.Second)
+	defer proxy.Close()
+	server := httptest.NewServer(proxy)
+	defer server.Close()
+
+	req, err := http.NewRequest(http.MethodPost, server.URL+"/v1/chat/completions", strings.NewReader(`{"stream":true}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	respCh := make(chan *http.Response, 1)
+	errCh := make(chan error, 1)
+	go func() {
+		resp, err := server.Client().Do(req)
+		if err != nil {
+			errCh <- err
+			return
+		}
+		respCh <- resp
+	}()
+
+	var resp *http.Response
+	select {
+	case resp = <-respCh:
+	case err := <-errCh:
+		t.Fatal(err)
+	case <-time.After(500 * time.Millisecond):
+		close(releaseSecond)
+		t.Fatal("streaming POST was buffered before response headers")
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		close(releaseSecond)
+		t.Fatalf("status = %d, want %d", resp.StatusCode, http.StatusOK)
+	}
+
+	lineCh := make(chan string, 1)
+	readErrCh := make(chan error, 1)
+	go func() {
+		line, err := bufio.NewReader(resp.Body).ReadString('\n')
+		if err != nil {
+			readErrCh <- err
+			return
+		}
+		lineCh <- line
+	}()
+	select {
+	case line := <-lineCh:
+		if line != "data: first\n" {
+			close(releaseSecond)
+			t.Fatalf("first line = %q", line)
+		}
+	case err := <-readErrCh:
+		close(releaseSecond)
+		t.Fatal(err)
+	case <-time.After(500 * time.Millisecond):
+		close(releaseSecond)
+		t.Fatal("streaming POST did not flush first chunk")
+	}
+	close(releaseSecond)
+}
+
+func TestUIAPIProxyDirectRequestsUseCallerContext(t *testing.T) {
+	fake := &fakeUIAPIProxyClient{
+		handler: http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			time.Sleep(50 * time.Millisecond)
+			_, _ = w.Write([]byte("ok"))
+		}),
+	}
+	proxy := newUIAPIProxy(func() (uiAPIProxyClient, error) {
+		return fake, nil
+	}, 10*time.Millisecond)
+	defer proxy.Close()
+
+	rec := httptest.NewRecorder()
+	proxy.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/v1/audio/transcriptions", strings.NewReader("{}")))
+	if rec.Code != http.StatusOK || rec.Body.String() != "ok" {
+		t.Fatalf("ServeHTTP status/body = %d/%q, want 200/ok", rec.Code, rec.Body.String())
+	}
+}
+
 func TestUIAPIProxySetUsesExistingClient(t *testing.T) {
 	fake := &fakeUIAPIProxyClient{
 		handler: http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -203,6 +303,12 @@ func TestUIAPIProxyConnectErrorReturnsUnavailable(t *testing.T) {
 	proxy.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/admin/credentials", nil))
 	if rec.Code != http.StatusServiceUnavailable {
 		t.Fatalf("ServeHTTP status = %d", rec.Code)
+	}
+
+	rec = httptest.NewRecorder()
+	proxy.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil))
+	if rec.Code != http.StatusServiceUnavailable {
+		t.Fatalf("direct ServeHTTP status = %d", rec.Code)
 	}
 }
 
@@ -389,6 +495,18 @@ func TestPlayUISpeechRouteReportsClientError(t *testing.T) {
 	}
 }
 
+func TestListenAndServeUIRejectsBadInputs(t *testing.T) {
+	err := listenAndServeUI("", "", "test", http.NotFoundHandler(), io.Discard, nil, registerPlayUIAPIProxyRoutes, nil)
+	if err == nil || !strings.Contains(err.Error(), "empty listen addr") {
+		t.Fatalf("empty addr error = %v", err)
+	}
+
+	err = listenAndServeUI("", "127.0.0.1:bad-port", "test", http.NotFoundHandler(), io.Discard, nil, registerPlayUIAPIProxyRoutes, nil)
+	if err == nil || !strings.Contains(err.Error(), "listen ui") {
+		t.Fatalf("bad listen addr error = %v", err)
+	}
+}
+
 func TestPlayOpenAIBufferedProxyRejectsUnreadableBody(t *testing.T) {
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/v1/audio/speech", nil)
@@ -402,6 +520,259 @@ func TestPlayOpenAIBufferedProxyRejectsUnreadableBody(t *testing.T) {
 	}
 	if !strings.Contains(rec.Body.String(), "read failed") {
 		t.Fatalf("body = %q, want read failed error", rec.Body.String())
+	}
+}
+
+func TestPlayOpenAIBufferedProxyRetriesTransportError(t *testing.T) {
+	var attempts atomic.Int32
+	var invalidates atomic.Int32
+	resetPlayOpenAIHTTPClient(t, func(*http.Request) (*http.Response, error) {
+		switch attempts.Add(1) {
+		case 1:
+			return nil, errors.New("transport failed")
+		case 2:
+			return httpStringResponse(http.StatusOK, "audio", nil), nil
+		default:
+			t.Fatal("unexpected retry")
+			return nil, errors.New("unexpected retry")
+		}
+	})
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/v1/audio/speech", strings.NewReader(`{"input":"hi"}`))
+	playOpenAIBufferedProxy(func() (*gizcli.Client, error) {
+		return &gizcli.Client{}, nil
+	}, func(*gizcli.Client) {
+		invalidates.Add(1)
+	}, rec, req, "/v1/audio/speech")
+	if rec.Code != http.StatusOK || rec.Body.String() != "audio" {
+		t.Fatalf("status/body = %d/%q, want 200/audio", rec.Code, rec.Body.String())
+	}
+	if got := attempts.Load(); got != 2 {
+		t.Fatalf("attempts = %d, want 2", got)
+	}
+	if got := invalidates.Load(); got != 1 {
+		t.Fatalf("invalidates = %d, want 1", got)
+	}
+}
+
+func TestPlayOpenAIBufferedProxyReportsRepeatedBadGateway(t *testing.T) {
+	resetPlayOpenAIHTTPClient(t, func(*http.Request) (*http.Response, error) {
+		return httpStringResponse(http.StatusBadGateway, "upstream failed", nil), nil
+	})
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/v1/audio/speech", strings.NewReader(`{"input":"hi"}`))
+	playOpenAIBufferedProxy(func() (*gizcli.Client, error) {
+		return &gizcli.Client{}, nil
+	}, nil, rec, req, "/v1/audio/speech")
+	if rec.Code != http.StatusBadGateway {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusBadGateway)
+	}
+}
+
+func TestPlayOpenAIBufferedProxyForwardsBufferedSpeech(t *testing.T) {
+	resetPlayOpenAIHTTPClient(t, func(r *http.Request) (*http.Response, error) {
+		if r.URL.Path != "/v1/audio/speech" {
+			t.Fatalf("path = %q, want /v1/audio/speech", r.URL.Path)
+		}
+		if r.URL.RawQuery != "format=mp3" {
+			t.Fatalf("query = %q, want format=mp3", r.URL.RawQuery)
+		}
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if string(body) != `{"input":"hi"}` {
+			t.Fatalf("body = %q", body)
+		}
+		return httpStringResponse(http.StatusCreated, "audio-bytes", http.Header{"X-Test": []string{"ok"}}), nil
+	})
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/v1/audio/speech?format=mp3", strings.NewReader(`{"input":"hi"}`))
+	playOpenAIBufferedProxy(func() (*gizcli.Client, error) {
+		return &gizcli.Client{}, nil
+	}, nil, rec, req, "/v1/audio/speech")
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusCreated)
+	}
+	if got := rec.Header().Get("Content-Length"); got != strconv.Itoa(len("audio-bytes")) {
+		t.Fatalf("Content-Length = %q", got)
+	}
+	if got := rec.Header().Get("X-Test"); got != "ok" {
+		t.Fatalf("X-Test = %q", got)
+	}
+	if rec.Body.String() != "audio-bytes" {
+		t.Fatalf("body = %q", rec.Body.String())
+	}
+}
+
+func TestPlayOpenAIStreamingProxyReportsClientError(t *testing.T) {
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/v1/audio/speech", strings.NewReader(`{"stream_format":"sse"}`))
+	playOpenAIStreamingProxy(func() (*gizcli.Client, error) {
+		return nil, errors.New("offline")
+	}, nil, rec, req, "/v1/audio/speech", []byte(`{"stream_format":"sse"}`))
+	if rec.Code != http.StatusServiceUnavailable {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusServiceUnavailable)
+	}
+}
+
+func TestPlayOpenAIStreamingProxyReportsRepeatedTransportErrors(t *testing.T) {
+	resetPlayOpenAIHTTPClient(t, func(*http.Request) (*http.Response, error) {
+		return nil, errors.New("transport failed")
+	})
+
+	var invalidates atomic.Int32
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/v1/audio/speech", strings.NewReader(`{"stream_format":"sse"}`))
+	playOpenAIStreamingProxy(func() (*gizcli.Client, error) {
+		return &gizcli.Client{}, nil
+	}, func(*gizcli.Client) {
+		invalidates.Add(1)
+	}, rec, req, "/v1/audio/speech", []byte(`{"stream_format":"sse"}`))
+	if rec.Code != http.StatusBadGateway {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusBadGateway)
+	}
+	if got := invalidates.Load(); got != 2 {
+		t.Fatalf("invalidates = %d, want 2", got)
+	}
+}
+
+func TestPlayOpenAIStreamingProxyFlushesSpeechChunks(t *testing.T) {
+	releaseSecond := make(chan struct{})
+	resetPlayOpenAIHTTPClient(t, func(r *http.Request) (*http.Response, error) {
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !isOpenAIStreamingSpeechRequest(body) {
+			t.Fatalf("request was not streaming speech: %q", body)
+		}
+		pr, pw := io.Pipe()
+		go func() {
+			_, _ = pw.Write([]byte("event: audio.delta\n\n"))
+			<-releaseSecond
+			_, _ = pw.Write([]byte("event: done\n\n"))
+			_ = pw.Close()
+		}()
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Header:     http.Header{"Content-Type": []string{"text/event-stream"}},
+			Body:       pr,
+		}, nil
+	})
+
+	mux := http.NewServeMux()
+	registerPlayUIRoutes(mux, func() (*gizcli.Client, error) {
+		return &gizcli.Client{}, nil
+	}, nil)
+	server := httptest.NewServer(mux)
+	defer server.Close()
+
+	respCh := make(chan *http.Response, 1)
+	errCh := make(chan error, 1)
+	go func() {
+		resp, err := server.Client().Post(server.URL+"/v1/audio/speech", "application/json", strings.NewReader(`{"input":"hi","stream_format":"sse"}`))
+		if err != nil {
+			errCh <- err
+			return
+		}
+		respCh <- resp
+	}()
+
+	var resp *http.Response
+	select {
+	case resp = <-respCh:
+	case err := <-errCh:
+		t.Fatal(err)
+	case <-time.After(500 * time.Millisecond):
+		close(releaseSecond)
+		t.Fatal("streaming speech response was buffered before headers")
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		close(releaseSecond)
+		t.Fatalf("status = %d, want %d", resp.StatusCode, http.StatusOK)
+	}
+
+	lineCh := make(chan string, 1)
+	readErrCh := make(chan error, 1)
+	go func() {
+		line, err := bufio.NewReader(resp.Body).ReadString('\n')
+		if err != nil {
+			readErrCh <- err
+			return
+		}
+		lineCh <- line
+	}()
+	select {
+	case line := <-lineCh:
+		if line != "event: audio.delta\n" {
+			close(releaseSecond)
+			t.Fatalf("first line = %q", line)
+		}
+	case err := <-readErrCh:
+		close(releaseSecond)
+		t.Fatal(err)
+	case <-time.After(500 * time.Millisecond):
+		close(releaseSecond)
+		t.Fatal("streaming speech did not flush first chunk")
+	}
+	close(releaseSecond)
+}
+
+func TestPlayOpenAIStreamingProxyRetriesBadGatewayBeforeStreaming(t *testing.T) {
+	var attempts atomic.Int32
+	var invalidates atomic.Int32
+	resetPlayOpenAIHTTPClient(t, func(*http.Request) (*http.Response, error) {
+		switch attempts.Add(1) {
+		case 1:
+			return httpStringResponse(http.StatusBadGateway, "bad gateway", nil), nil
+		case 2:
+			return httpStringResponse(http.StatusOK, "ok", nil), nil
+		default:
+			t.Fatal("unexpected retry")
+			return nil, errors.New("unexpected retry")
+		}
+	})
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/v1/audio/speech", strings.NewReader(`{"stream_format":"sse"}`))
+	playOpenAIBufferedProxy(func() (*gizcli.Client, error) {
+		return &gizcli.Client{}, nil
+	}, func(*gizcli.Client) {
+		invalidates.Add(1)
+	}, rec, req, "/v1/audio/speech")
+	if rec.Code != http.StatusOK || rec.Body.String() != "ok" {
+		t.Fatalf("status/body = %d/%q, want 200/ok", rec.Code, rec.Body.String())
+	}
+	if got := attempts.Load(); got != 2 {
+		t.Fatalf("attempts = %d, want 2", got)
+	}
+	if got := invalidates.Load(); got != 1 {
+		t.Fatalf("invalidates = %d, want 1", got)
+	}
+}
+
+func TestIsOpenAIStreamingSpeechRequest(t *testing.T) {
+	for _, body := range [][]byte{
+		[]byte(`{"stream_format":"sse"}`),
+		[]byte(`{"stream_format":" SSE "}`),
+	} {
+		if !isOpenAIStreamingSpeechRequest(body) {
+			t.Fatalf("body %s should be streaming speech", body)
+		}
+	}
+	for _, body := range [][]byte{
+		[]byte(`{"stream_format":"audio"}`),
+		[]byte(`{"stream":true}`),
+		[]byte(`not-json`),
+	} {
+		if isOpenAIStreamingSpeechRequest(body) {
+			t.Fatalf("body %s should not be streaming speech", body)
+		}
 	}
 }
 
@@ -466,4 +837,32 @@ func (r errReadCloser) Read([]byte) (int, error) {
 
 func (r errReadCloser) Close() error {
 	return nil
+}
+
+func resetPlayOpenAIHTTPClient(t *testing.T, fn func(*http.Request) (*http.Response, error)) {
+	t.Helper()
+	orig := playOpenAIHTTPClient
+	playOpenAIHTTPClient = func(*gizcli.Client) *http.Client {
+		return &http.Client{Transport: roundTripFunc(fn)}
+	}
+	t.Cleanup(func() {
+		playOpenAIHTTPClient = orig
+	})
+}
+
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (fn roundTripFunc) RoundTrip(r *http.Request) (*http.Response, error) {
+	return fn(r)
+}
+
+func httpStringResponse(statusCode int, body string, header http.Header) *http.Response {
+	if header == nil {
+		header = http.Header{}
+	}
+	return &http.Response{
+		StatusCode: statusCode,
+		Header:     header,
+		Body:       io.NopCloser(bytes.NewBufferString(body)),
+	}
 }
