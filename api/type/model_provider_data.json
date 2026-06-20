@@ -9,23 +9,23 @@
   "components": {
     "schemas": {
       "ModelProviderData": {
-        "type": "object",
-        "description": "Provider-specific model runtime configuration keyed by provider kind.",
-        "additionalProperties": true,
-        "example": {
-          "openai-tenant": {
-            "upstream_model": "MiniMax-M2.5"
+        "description": "Provider-specific model runtime configuration. The shape is selected by Model.provider.kind.",
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/GeminiTenantModelProviderData"
           },
-          "gemini-tenant": {
-            "upstream_model": "gemini-2.5-flash"
+          {
+            "$ref": "#/components/schemas/DashScopeTenantModelProviderData"
           },
-          "dashscope-tenant": {
-            "upstream_model": "qwen-omni-turbo-realtime",
-            "api_mode": "realtime"
+          {
+            "$ref": "#/components/schemas/OpenAITenantModelProviderData"
           },
-          "volc-tenant": {
-            "resource_id": "volc.speech.dialog"
+          {
+            "$ref": "#/components/schemas/VolcTenantModelProviderData"
           }
+        ],
+        "example": {
+          "upstream_model": "MiniMax-M2.5"
         }
       },
       "DashScopeTenantModelProviderData": {

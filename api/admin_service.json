@@ -6291,9 +6291,7 @@
             "type": "string"
           },
           "parameters": {
-            "type": "object",
-            "additionalProperties": true,
-            "example": {}
+            "$ref": "./types.json#/components/schemas/WorkspaceParameters"
           }
         }
       },

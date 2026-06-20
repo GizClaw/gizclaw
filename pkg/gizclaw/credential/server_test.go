@@ -3,15 +3,13 @@ package credential
 import (
 	"context"
 	"encoding/json"
-	"strings"
 	"testing"
 
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/adminservice"
-	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkg/store/kv"
 )
 
-func TestMigrationRemovesLegacyMethodFields(t *testing.T) {
+func TestMigrationNoop(t *testing.T) {
 	t.Parallel()
 
 	srv := newTestServer(t)
@@ -39,26 +37,10 @@ func TestMigrationRemovesLegacyMethodFields(t *testing.T) {
 
 	data, err := srv.Store.Get(ctx, credentialKey("legacy-volc"))
 	if err != nil {
-		t.Fatalf("get migrated credential: %v", err)
+		t.Fatalf("get credential after migration: %v", err)
 	}
-	if strings.Contains(string(data), `"method"`) {
-		t.Fatalf("migrated credential still has method: %s", data)
-	}
-	record, err := decodeCredentialRecord(data)
-	if err != nil {
-		t.Fatalf("decode migrated credential: %v", err)
-	}
-	if record.Name != "legacy-volc" || record.Provider != "volc" {
-		t.Fatalf("record identity = %+v", record)
-	}
-	if got := apitypes.CredentialBodyString(record.Body, "api_key"); got != "ak" {
-		t.Fatalf("api_key = %q, want ak", got)
-	}
-	if got := apitypes.CredentialBodyString(record.Body, "token"); got != "tok" {
-		t.Fatalf("token = %q, want tok", got)
-	}
-	if _, err := srv.Store.Get(ctx, credentialByProviderKey("volc", "legacy-volc")); err != nil {
-		t.Fatalf("provider index missing: %v", err)
+	if string(data) != string(legacy) {
+		t.Fatalf("Migration changed credential: %s", data)
 	}
 }
 
@@ -85,7 +67,7 @@ func TestServerCredentialsCRUD(t *testing.T) {
 	if created.Name != "openai-primary" || created.Provider != "openai" {
 		t.Fatalf("CreateCredential() credential = %#v", created)
 	}
-	if apitypes.CredentialBodyString(created.Body, "api_key") != "sk-test" {
+	if testCredentialBodyString(created.Body, "api_key") != "sk-test" {
 		t.Fatalf("CreateCredential() body = %#v", created.Body)
 	}
 
@@ -100,7 +82,7 @@ func TestServerCredentialsCRUD(t *testing.T) {
 	if got.Description == nil || *got.Description != "primary openai credential" {
 		t.Fatalf("GetCredential() description = %#v", got.Description)
 	}
-	if apitypes.CredentialBodyString(got.Body, "api_key") != "sk-test" {
+	if testCredentialBodyString(got.Body, "api_key") != "sk-test" {
 		t.Fatalf("GetCredential() body = %#v", got.Body)
 	}
 
@@ -108,7 +90,7 @@ func TestServerCredentialsCRUD(t *testing.T) {
 		"name": "openai-primary",
 		"provider": "volc",
 		"description": "migrated credential",
-		"body": {"app_id": "app-123", "token": "tok-123"}
+		"body": {"app_id": "app-123", "speech_token": "tok-123"}
 	}`)
 	putResp, err := srv.PutCredential(ctx, adminservice.PutCredentialRequestObject{
 		Name: "openai-primary",
@@ -124,7 +106,7 @@ func TestServerCredentialsCRUD(t *testing.T) {
 	if updated.Provider != "volc" {
 		t.Fatalf("PutCredential() credential = %#v", updated)
 	}
-	if apitypes.CredentialBodyString(updated.Body, "app_id") != "app-123" || apitypes.CredentialBodyString(updated.Body, "token") != "tok-123" {
+	if testCredentialBodyString(updated.Body, "app_id") != "app-123" || testCredentialBodyString(updated.Body, "speech_token") != "tok-123" {
 		t.Fatalf("PutCredential() body = %#v", updated.Body)
 	}
 
@@ -157,7 +139,7 @@ func TestServerCredentialsCRUD(t *testing.T) {
 	if len(newList.Items) != 1 || newList.Items[0].Name != "openai-primary" {
 		t.Fatalf("ListCredentials(new provider) = %#v", newList)
 	}
-	if apitypes.CredentialBodyString(newList.Items[0].Body, "app_id") != "app-123" {
+	if testCredentialBodyString(newList.Items[0].Body, "app_id") != "app-123" {
 		t.Fatalf("ListCredentials(new provider) body = %#v", newList.Items[0].Body)
 	}
 
@@ -232,7 +214,7 @@ func TestServerListCredentialsPaginationAndFilter(t *testing.T) {
 	if len(second.Items) != 1 || second.Items[0].Name == first.Items[0].Name || second.HasNext {
 		t.Fatalf("ListCredentials(second page) = %#v", second)
 	}
-	if apitypes.CredentialBodyString(second.Items[0].Body, "api_key") == "" {
+	if testCredentialBodyString(second.Items[0].Body, "api_key") == "" {
 		t.Fatalf("ListCredentials(second page) body = %#v", second.Items[0].Body)
 	}
 
@@ -396,7 +378,7 @@ func TestServerPutRetainsExistingSecretForSameMethod(t *testing.T) {
 	if err != nil {
 		t.Fatalf("getCredentialRecord() error = %v", err)
 	}
-	if apitypes.CredentialBodyString(record.Body, "api_key") != "sk-test" {
+	if testCredentialBodyString(record.Body, "api_key") != "sk-test" {
 		t.Fatalf("stored credential = %#v", record)
 	}
 	if record.Description == nil || *record.Description != "second" {

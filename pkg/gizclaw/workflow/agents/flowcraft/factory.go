@@ -638,12 +638,20 @@ func buildClawConfig(ctx context.Context, genxService *peergenx.Service, spec ag
 	if out == nil {
 		out = map[string]any{}
 	}
+	var workspaceParams *apitypes.FlowcraftWorkspaceParameters
+	if spec.Workspace.Parameters != nil {
+		typed, err := spec.Workspace.Parameters.AsFlowcraftWorkspaceParameters()
+		if err != nil {
+			return nil, fmt.Errorf("flowcraft: decode workspace parameters: %w", err)
+		}
+		workspaceParams = &typed
+	}
 	settings := ensureMap(out, "settings")
 	models := ensureMap(out, "models")
 	llm := ensureMap(models, "llm")
 	var accessibleModels map[string]peergenx.GeneratorConfig
 	for _, role := range clawModelRoles {
-		modelID, ok, err := modelIDForRole(spec, out, role.settingKey, role.required)
+		modelID, ok, err := modelIDForRole(workspaceParams, out, role.settingKey, role.required)
 		if err != nil {
 			return nil, err
 		}
@@ -716,10 +724,19 @@ func validateVoiceAdapterResources(ctx context.Context, genxService *peergenx.Se
 	return nil
 }
 
-func modelIDForRole(spec agenthost.Spec, cfg map[string]any, key string, required bool) (string, bool, error) {
-	if spec.Workspace.Parameters != nil {
-		if value, ok := (*spec.Workspace.Parameters)[key]; ok {
-			if text, ok := value.(string); ok && strings.TrimSpace(text) != "" {
+func modelIDForRole(parameters *apitypes.FlowcraftWorkspaceParameters, cfg map[string]any, key string, required bool) (string, bool, error) {
+	if parameters != nil {
+		var value *string
+		switch key {
+		case "generate_model":
+			value = parameters.GenerateModel
+		case "extract_model":
+			value = parameters.ExtractModel
+		case "embedding_model":
+			value = parameters.EmbeddingModel
+		}
+		if value != nil {
+			if text := strings.TrimSpace(*value); text != "" {
 				return strings.TrimSpace(text), true, nil
 			}
 		}
@@ -751,11 +768,19 @@ func resolveOpenAIClawModelConfig(cfg peergenx.GeneratorConfig) (map[string]any,
 		return nil, fmt.Errorf("flowcraft: openai tenant is required")
 	}
 	var providerData apitypes.OpenAITenantModelProviderData
-	if err := decodeProviderData(cfg.Model.ProviderData, string(apitypes.ModelProviderKindOpenaiTenant), &providerData); err != nil {
-		return nil, err
+	if cfg.Model.ProviderData != nil {
+		var err error
+		providerData, err = cfg.Model.ProviderData.AsOpenAITenantModelProviderData()
+		if err != nil {
+			return nil, fmt.Errorf("flowcraft: decode openai provider_data: %w", err)
+		}
 	}
 	upstream := firstString(providerData.UpstreamModel, string(cfg.Model.Id))
-	apiKey := credentialString(cfg.Credential, "api_key", "token")
+	body, err := cfg.Credential.Body.AsOpenAICredentialBody()
+	if err != nil {
+		return nil, err
+	}
+	apiKey := firstString(body.ApiKey, body.Token)
 	if apiKey == "" {
 		return nil, fmt.Errorf("flowcraft: credential %q missing api_key", cfg.Credential.Name)
 	}
@@ -767,7 +792,7 @@ func resolveOpenAIClawModelConfig(cfg peergenx.GeneratorConfig) (map[string]any,
 	if extra := openAIThinkingConfig(providerData); len(extra) > 0 {
 		out["config"] = extra
 	}
-	if baseURL := firstString(cfg.Tenant.OpenAI.BaseUrl, credentialBodyString(cfg.Credential.Body, "base_url")); baseURL != "" {
+	if baseURL := firstString(cfg.Tenant.OpenAI.BaseUrl, body.BaseUrl); baseURL != "" {
 		out["base_url"] = baseURL
 	}
 	return out, nil
@@ -778,16 +803,24 @@ func resolveVolcClawModelConfig(cfg peergenx.GeneratorConfig) (map[string]any, e
 		return nil, fmt.Errorf("flowcraft: volc tenant is required")
 	}
 	var providerData apitypes.VolcTenantModelProviderData
-	if err := decodeProviderData(cfg.Model.ProviderData, string(apitypes.ModelProviderKindVolcTenant), &providerData); err != nil {
-		return nil, err
+	if cfg.Model.ProviderData != nil {
+		var err error
+		providerData, err = cfg.Model.ProviderData.AsVolcTenantModelProviderData()
+		if err != nil {
+			return nil, fmt.Errorf("flowcraft: decode volc provider_data: %w", err)
+		}
 	}
 	model := firstString(providerData.UpstreamModel, string(cfg.Model.Id))
 	if model == "" {
 		return nil, fmt.Errorf("flowcraft: model %q missing upstream model", cfg.Model.Id)
 	}
-	apiKey := credentialString(cfg.Credential, "api_key")
+	body, err := cfg.Credential.Body.AsVolcCredentialBody()
+	if err != nil {
+		return nil, err
+	}
+	apiKey := firstString(body.ArkApiKey)
 	if apiKey == "" {
-		return nil, fmt.Errorf("flowcraft: credential %q missing api_key", cfg.Credential.Name)
+		return nil, fmt.Errorf("flowcraft: credential %q missing ark_api_key", cfg.Credential.Name)
 	}
 	out := map[string]any{
 		"provider": "bytedance",
@@ -797,7 +830,7 @@ func resolveVolcClawModelConfig(cfg peergenx.GeneratorConfig) (map[string]any, e
 	if extra := volcThinkingConfig(providerData); len(extra) > 0 {
 		out["config"] = extra
 	}
-	if baseURL := firstString(cfg.Tenant.Volc.Endpoint, credentialBodyString(cfg.Credential.Body, "base_url")); baseURL != "" {
+	if baseURL := firstString(cfg.Tenant.Volc.Endpoint); baseURL != "" {
 		out["base_url"] = baseURL
 	}
 	if region := firstString(cfg.Tenant.Volc.Region); region != "" {
@@ -912,37 +945,6 @@ func deepCopyMap(values map[string]any) map[string]any {
 		return nil
 	}
 	return out
-}
-
-func decodeProviderData[T any](providerData *apitypes.ModelProviderData, kind string, out *T) error {
-	_, err := decodeOptionalProviderData(providerData, kind, out)
-	return err
-}
-
-func decodeOptionalProviderData[T any](providerData *apitypes.ModelProviderData, kind string, out *T) (bool, error) {
-	if out == nil || providerData == nil {
-		return false, nil
-	}
-	value, ok := (*providerData)[kind]
-	if !ok || value == nil {
-		return false, nil
-	}
-	data, err := json.Marshal(value)
-	if err != nil {
-		return true, fmt.Errorf("flowcraft: encode provider_data[%s]: %w", kind, err)
-	}
-	if err := json.Unmarshal(data, out); err != nil {
-		return true, fmt.Errorf("flowcraft: decode provider_data[%s]: %w", kind, err)
-	}
-	return true, nil
-}
-
-func credentialString(credential apitypes.Credential, keys ...string) string {
-	return credentialBodyString(credential.Body, keys...)
-}
-
-func credentialBodyString(body apitypes.CredentialBody, keys ...string) string {
-	return apitypes.CredentialBodyString(body, keys...)
 }
 
 func mapString(values map[string]any, keys ...string) string {

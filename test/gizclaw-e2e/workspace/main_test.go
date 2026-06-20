@@ -137,9 +137,7 @@ func TestEnsureWorkspaceCreatesWorkflowAndWorkspace(t *testing.T) {
 		Workflow: workflowConfig{
 			Name:          "workflow-a",
 			RealtimeModel: "realtime",
-			Parameters: map[string]interface{}{
-				"locale": "zh-CN",
-			},
+			Parameters:    workspaceParameterConfig{E2E: boolPtr(true)},
 			Session: realtimeSessionConfig{
 				AuthMode:    "v2",
 				BotName:     "豆包",
@@ -163,8 +161,15 @@ func TestEnsureWorkspaceCreatesWorkflowAndWorkspace(t *testing.T) {
 	if control.createdWorkspace.Name != "workspace-a" || control.createdWorkspace.WorkflowName != "workflow-a" {
 		t.Fatalf("created workspace = %+v", control.createdWorkspace)
 	}
-	if control.createdWorkspace.Parameters == nil || (*control.createdWorkspace.Parameters)["locale"] != "zh-CN" {
+	if control.createdWorkspace.Parameters == nil {
 		t.Fatalf("workspace parameters = %#v", control.createdWorkspace.Parameters)
+	}
+	workspaceParams, err := control.createdWorkspace.Parameters.AsDoubaoRealtimeWorkspaceParameters()
+	if err != nil {
+		t.Fatalf("decode workspace parameters: %v", err)
+	}
+	if workspaceParams.E2e == nil || !*workspaceParams.E2e {
+		t.Fatalf("workspace parameters = %#v", workspaceParams)
 	}
 }
 
@@ -480,4 +485,8 @@ func (f *fakeRunControl) GetServerRunStatus(context.Context, string, ...rpcapi.S
 
 func stringPtr(s string) *string {
 	return &s
+}
+
+func boolPtr(v bool) *bool {
+	return &v
 }

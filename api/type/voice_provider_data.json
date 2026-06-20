@@ -9,14 +9,27 @@
   "components": {
     "schemas": {
       "VoiceProviderData": {
-        "type": "object",
-        "description": "Provider-specific voice runtime configuration keyed by provider kind.",
-        "additionalProperties": true,
-        "example": {
-          "minimax-tenant": {
-            "voice_id": "Arabic_CalmWoman",
-            "voice_type": "system"
+        "description": "Provider-specific voice runtime configuration. The shape is selected by Voice.provider.kind.",
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/GeminiTenantVoiceProviderData"
+          },
+          {
+            "$ref": "#/components/schemas/DashScopeTenantVoiceProviderData"
+          },
+          {
+            "$ref": "#/components/schemas/OpenAITenantVoiceProviderData"
+          },
+          {
+            "$ref": "#/components/schemas/MiniMaxTenantVoiceProviderData"
+          },
+          {
+            "$ref": "#/components/schemas/VolcTenantVoiceProviderData"
           }
+        ],
+        "example": {
+          "voice_id": "Arabic_CalmWoman",
+          "voice_type": "system"
         }
       },
       "DashScopeTenantVoiceProviderData": {
@@ -63,6 +76,15 @@
           },
           "voice_type": {
             "type": "string"
+          },
+          "model": {
+            "type": "string"
+          },
+          "format": {
+            "type": "string"
+          },
+          "sample_rate": {
+            "type": "integer"
           },
           "raw": {
             "type": "object",

@@ -26,17 +26,15 @@ type workflowEnvelope struct {
 
 func resolveAgentType(workspace apitypes.Workspace, workflow apitypes.WorkflowDocument) (string, error) {
 	if workspace.Parameters != nil {
-		if value, ok := (*workspace.Parameters)[workspaceAgentTypeParameter]; ok {
-			agentType, ok := value.(string)
-			if !ok {
-				return "", fmt.Errorf("agenthost: workspace parameter %q must be a string", workspaceAgentTypeParameter)
-			}
-			agentType = strings.TrimSpace(agentType)
-			if agentType == "" {
-				return "", fmt.Errorf("agenthost: workspace parameter %q is empty", workspaceAgentTypeParameter)
-			}
-			return agentType, nil
+		agentType, err := workspace.Parameters.Discriminator()
+		if err != nil {
+			return "", fmt.Errorf("agenthost: decode workspace parameters: %w", err)
 		}
+		agentType = strings.TrimSpace(agentType)
+		if agentType == "" {
+			return "", fmt.Errorf("agenthost: workspace parameter %q is empty", workspaceAgentTypeParameter)
+		}
+		return agentType, nil
 	}
 	return agentTypeFromWorkflow(workflow)
 }

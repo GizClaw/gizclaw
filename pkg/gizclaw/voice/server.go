@@ -205,7 +205,48 @@ func ProviderData(kind apitypes.VoiceProviderKind, values map[string]interface{}
 	if len(clean) == 0 {
 		return nil
 	}
-	out := apitypes.VoiceProviderData{string(kind): clean}
+	raw := rawMapFromProviderData(clean)
+	out := apitypes.VoiceProviderData{}
+	var err error
+	switch kind {
+	case apitypes.VoiceProviderKindOpenaiTenant:
+		err = out.FromOpenAITenantVoiceProviderData(apitypes.OpenAITenantVoiceProviderData{
+			VoiceId: stringPtrFromProviderData(clean, "voice_id"),
+			Raw:     raw,
+		})
+	case apitypes.VoiceProviderKindGeminiTenant:
+		err = out.FromGeminiTenantVoiceProviderData(apitypes.GeminiTenantVoiceProviderData{
+			VoiceId: stringPtrFromProviderData(clean, "voice_id"),
+			Raw:     raw,
+		})
+	case apitypes.VoiceProviderKindDashscopeTenant:
+		err = out.FromDashScopeTenantVoiceProviderData(apitypes.DashScopeTenantVoiceProviderData{
+			VoiceId: stringPtrFromProviderData(clean, "voice_id"),
+			Raw:     raw,
+		})
+	case apitypes.VoiceProviderKindMinimaxTenant:
+		err = out.FromMiniMaxTenantVoiceProviderData(apitypes.MiniMaxTenantVoiceProviderData{
+			VoiceId:    stringPtrFromProviderData(clean, "voice_id"),
+			VoiceType:  stringPtrFromProviderData(clean, "voice_type"),
+			Model:      stringPtrFromProviderData(clean, "model"),
+			Format:     stringPtrFromProviderData(clean, "format"),
+			SampleRate: intPtrFromProviderData(clean, "sample_rate"),
+			Raw:        raw,
+		})
+	case apitypes.VoiceProviderKindVolcTenant:
+		err = out.FromVolcTenantVoiceProviderData(apitypes.VolcTenantVoiceProviderData{
+			ResourceId: stringPtrFromProviderData(clean, "resource_id"),
+			VoiceId:    stringPtrFromProviderData(clean, "voice_id"),
+			State:      stringPtrFromProviderData(clean, "state"),
+			Status:     stringPtrFromProviderData(clean, "status"),
+			Raw:        raw,
+		})
+	default:
+		return nil
+	}
+	if err != nil {
+		return nil
+	}
 	return &out
 }
 
@@ -213,15 +254,66 @@ func ProviderDataString(voice apitypes.Voice, key string) string {
 	if voice.ProviderData == nil {
 		return ""
 	}
-	value, ok := (*voice.ProviderData)[string(voice.Provider.Kind)]
-	if !ok {
-		return ""
-	}
-	switch data := value.(type) {
-	case map[string]interface{}:
-		return providerDataString(data[key])
-	case map[string]string:
-		return strings.TrimSpace(data[key])
+	switch voice.Provider.Kind {
+	case apitypes.VoiceProviderKindOpenaiTenant:
+		data, err := voice.ProviderData.AsOpenAITenantVoiceProviderData()
+		if err != nil {
+			return ""
+		}
+		if key == "voice_id" {
+			return stringPtrValue(data.VoiceId)
+		}
+		return rawProviderDataString(data.Raw, key)
+	case apitypes.VoiceProviderKindGeminiTenant:
+		data, err := voice.ProviderData.AsGeminiTenantVoiceProviderData()
+		if err != nil {
+			return ""
+		}
+		if key == "voice_id" {
+			return stringPtrValue(data.VoiceId)
+		}
+		return rawProviderDataString(data.Raw, key)
+	case apitypes.VoiceProviderKindDashscopeTenant:
+		data, err := voice.ProviderData.AsDashScopeTenantVoiceProviderData()
+		if err != nil {
+			return ""
+		}
+		if key == "voice_id" {
+			return stringPtrValue(data.VoiceId)
+		}
+		return rawProviderDataString(data.Raw, key)
+	case apitypes.VoiceProviderKindMinimaxTenant:
+		data, err := voice.ProviderData.AsMiniMaxTenantVoiceProviderData()
+		if err != nil {
+			return ""
+		}
+		switch key {
+		case "voice_id":
+			return stringPtrValue(data.VoiceId)
+		case "voice_type":
+			return stringPtrValue(data.VoiceType)
+		case "model":
+			return stringPtrValue(data.Model)
+		case "format":
+			return stringPtrValue(data.Format)
+		}
+		return rawProviderDataString(data.Raw, key)
+	case apitypes.VoiceProviderKindVolcTenant:
+		data, err := voice.ProviderData.AsVolcTenantVoiceProviderData()
+		if err != nil {
+			return ""
+		}
+		switch key {
+		case "resource_id":
+			return stringPtrValue(data.ResourceId)
+		case "voice_id":
+			return stringPtrValue(data.VoiceId)
+		case "state":
+			return stringPtrValue(data.State)
+		case "status":
+			return stringPtrValue(data.Status)
+		}
+		return rawProviderDataString(data.Raw, key)
 	default:
 		return ""
 	}
@@ -521,23 +613,11 @@ func providerDataEqual(left, right *apitypes.VoiceProviderData) bool {
 	if left == nil || right == nil {
 		return false
 	}
-	leftMap := map[string]interface{}(*left)
-	rightMap := map[string]interface{}(*right)
-	return mapEqual(&leftMap, &rightMap)
-}
-
-func mapEqual(left, right *map[string]interface{}) bool {
-	if left == nil && right == nil {
-		return true
-	}
-	if left == nil || right == nil {
-		return false
-	}
-	leftJSON, err := json.Marshal(left)
+	leftJSON, err := left.MarshalJSON()
 	if err != nil {
 		return false
 	}
-	rightJSON, err := json.Marshal(right)
+	rightJSON, err := right.MarshalJSON()
 	if err != nil {
 		return false
 	}
@@ -555,6 +635,95 @@ func providerDataString(value interface{}) string {
 	}
 }
 
+func rawProviderDataString(raw *map[string]interface{}, key string) string {
+	if raw == nil {
+		return ""
+	}
+	return providerDataString((*raw)[key])
+}
+
+func rawMapFromProviderData(values map[string]interface{}) *map[string]interface{} {
+	rawValue, ok := values["raw"]
+	if !ok || rawValue == nil {
+		return nil
+	}
+	switch typed := rawValue.(type) {
+	case map[string]interface{}:
+		out := make(map[string]interface{}, len(typed))
+		for key, value := range typed {
+			out[key] = value
+		}
+		if len(out) == 0 {
+			return nil
+		}
+		return &out
+	case map[string]string:
+		out := make(map[string]interface{}, len(typed))
+		for key, value := range typed {
+			out[key] = value
+		}
+		if len(out) == 0 {
+			return nil
+		}
+		return &out
+	default:
+		return nil
+	}
+}
+
+func stringPtrFromProviderData(values map[string]interface{}, key string) *string {
+	value := providerDataString(values[key])
+	if value == "" {
+		return nil
+	}
+	return &value
+}
+
+func intPtrFromProviderData(values map[string]interface{}, key string) *int {
+	switch typed := values[key].(type) {
+	case int:
+		return &typed
+	case int8:
+		value := int(typed)
+		return &value
+	case int16:
+		value := int(typed)
+		return &value
+	case int32:
+		value := int(typed)
+		return &value
+	case int64:
+		value := int(typed)
+		return &value
+	case uint:
+		value := int(typed)
+		return &value
+	case uint8:
+		value := int(typed)
+		return &value
+	case uint16:
+		value := int(typed)
+		return &value
+	case uint32:
+		value := int(typed)
+		return &value
+	case uint64:
+		value := int(typed)
+		return &value
+	case float64:
+		value := int(typed)
+		if typed == float64(value) {
+			return &value
+		}
+	case float32:
+		value := int(typed)
+		if typed == float32(value) {
+			return &value
+		}
+	}
+	return nil
+}
+
 func stringPtrValue(in *string) string {
 	if in == nil {
 		return ""
@@ -566,9 +735,13 @@ func cloneProviderData(in *apitypes.VoiceProviderData) *apitypes.VoiceProviderDa
 	if in == nil {
 		return nil
 	}
-	out := make(apitypes.VoiceProviderData, len(*in))
-	for key, value := range *in {
-		out[key] = value
+	data, err := in.MarshalJSON()
+	if err != nil {
+		return nil
+	}
+	var out apitypes.VoiceProviderData
+	if err := out.UnmarshalJSON(data); err != nil {
+		return nil
 	}
 	return &out
 }

@@ -5,6 +5,7 @@ package rpcapi
 
 import (
 	"encoding/json"
+	"errors"
 	"time"
 
 	"github.com/oapi-codegen/runtime"
@@ -22,6 +23,21 @@ func (e DashScopeTenantModelProviderDataApiMode) Valid() bool {
 	case DashScopeTenantModelProviderDataApiModeChatCompletions:
 		return true
 	case DashScopeTenantModelProviderDataApiModeRealtime:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DoubaoRealtimeWorkspaceParametersAgentType.
+const (
+	DoubaoRealtimeWorkspaceParametersAgentTypeDoubaoRealtime DoubaoRealtimeWorkspaceParametersAgentType = "doubao-realtime"
+)
+
+// Valid indicates whether the value is a known member of the DoubaoRealtimeWorkspaceParametersAgentType enum.
+func (e DoubaoRealtimeWorkspaceParametersAgentType) Valid() bool {
+	switch e {
+	case DoubaoRealtimeWorkspaceParametersAgentTypeDoubaoRealtime:
 		return true
 	default:
 		return false
@@ -70,6 +86,42 @@ func (e FirmwareChannelName) Valid() bool {
 	}
 }
 
+// Defines values for FlowcraftConversationParametersAgentInitiativePolicy.
+const (
+	FlowcraftConversationParametersAgentInitiativePolicyOnReload      FlowcraftConversationParametersAgentInitiativePolicy = "on_reload"
+	FlowcraftConversationParametersAgentInitiativePolicyOnceWhenEmpty FlowcraftConversationParametersAgentInitiativePolicy = "once_when_empty"
+)
+
+// Valid indicates whether the value is a known member of the FlowcraftConversationParametersAgentInitiativePolicy enum.
+func (e FlowcraftConversationParametersAgentInitiativePolicy) Valid() bool {
+	switch e {
+	case FlowcraftConversationParametersAgentInitiativePolicyOnReload:
+		return true
+	case FlowcraftConversationParametersAgentInitiativePolicyOnceWhenEmpty:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for FlowcraftConversationParametersInitiative.
+const (
+	FlowcraftConversationParametersInitiativeAgent FlowcraftConversationParametersInitiative = "agent"
+	FlowcraftConversationParametersInitiativePeer  FlowcraftConversationParametersInitiative = "peer"
+)
+
+// Valid indicates whether the value is a known member of the FlowcraftConversationParametersInitiative enum.
+func (e FlowcraftConversationParametersInitiative) Valid() bool {
+	switch e {
+	case FlowcraftConversationParametersInitiativeAgent:
+		return true
+	case FlowcraftConversationParametersInitiativePeer:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for FlowcraftWorkflowKind.
 const (
 	FlowcraftWorkflowKindFlowcraftWorkflow FlowcraftWorkflowKind = "FlowcraftWorkflow"
@@ -79,6 +131,21 @@ const (
 func (e FlowcraftWorkflowKind) Valid() bool {
 	switch e {
 	case FlowcraftWorkflowKindFlowcraftWorkflow:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for FlowcraftWorkspaceParametersAgentType.
+const (
+	FlowcraftWorkspaceParametersAgentTypeFlowcraft FlowcraftWorkspaceParametersAgentType = "flowcraft"
+)
+
+// Valid indicates whether the value is a known member of the FlowcraftWorkspaceParametersAgentType enum.
+func (e FlowcraftWorkspaceParametersAgentType) Valid() bool {
+	switch e {
+	case FlowcraftWorkspaceParametersAgentTypeFlowcraft:
 		return true
 	default:
 		return false
@@ -613,6 +680,24 @@ func (e WorkflowAPIVersion) Valid() bool {
 	}
 }
 
+// Defines values for WorkspaceInputMode.
+const (
+	WorkspaceInputModePushToTalk WorkspaceInputMode = "push-to-talk"
+	WorkspaceInputModeRealtime   WorkspaceInputMode = "realtime"
+)
+
+// Valid indicates whether the value is a known member of the WorkspaceInputMode enum.
+func (e WorkspaceInputMode) Valid() bool {
+	switch e {
+	case WorkspaceInputModePushToTalk:
+		return true
+	case WorkspaceInputModeRealtime:
+		return true
+	default:
+		return false
+	}
+}
+
 // AgentSelection defines model for AgentSelection.
 type AgentSelection struct {
 	WorkspaceName string `json:"workspace_name"`
@@ -770,6 +855,66 @@ type DeviceInfo struct {
 	Sn       *string       `json:"sn,omitempty"`
 }
 
+// DoubaoRealtimeExternalVoiceParameters defines model for DoubaoRealtimeExternalVoiceParameters.
+type DoubaoRealtimeExternalVoiceParameters struct {
+	// TtsVoice GizClaw voice resource name used by an external TTS path.
+	TtsVoice string `json:"tts_voice"`
+}
+
+// DoubaoRealtimeInternalSpeakerParameters defines model for DoubaoRealtimeInternalSpeakerParameters.
+type DoubaoRealtimeInternalSpeakerParameters struct {
+	// RealtimeSpeakerId Doubao realtime built-in speaker id.
+	RealtimeSpeakerId string `json:"realtime_speaker_id"`
+}
+
+// DoubaoRealtimeMusicParameters defines model for DoubaoRealtimeMusicParameters.
+type DoubaoRealtimeMusicParameters struct {
+	Enabled *bool `json:"enabled,omitempty"`
+}
+
+// DoubaoRealtimeSearchParameters defines model for DoubaoRealtimeSearchParameters.
+type DoubaoRealtimeSearchParameters struct {
+	BotId           *string `json:"bot_id,omitempty"`
+	Enabled         *bool   `json:"enabled,omitempty"`
+	NoResultMessage *string `json:"no_result_message,omitempty"`
+	ResultCount     *int    `json:"result_count,omitempty"`
+	Type            *string `json:"type,omitempty"`
+}
+
+// DoubaoRealtimeSessionParameters defines model for DoubaoRealtimeSessionParameters.
+type DoubaoRealtimeSessionParameters struct {
+	BotName           *string `json:"bot_name,omitempty"`
+	CharacterManifest *string `json:"character_manifest,omitempty"`
+	ResourceId        *string `json:"resource_id,omitempty"`
+	SpeakingStyle     *string `json:"speaking_style,omitempty"`
+	SystemRole        *string `json:"system_role,omitempty"`
+	UpstreamModel     *string `json:"upstream_model,omitempty"`
+	VadWindowMs       *int    `json:"vad_window_ms,omitempty"`
+}
+
+// DoubaoRealtimeVoiceParameters defines model for DoubaoRealtimeVoiceParameters.
+type DoubaoRealtimeVoiceParameters struct {
+	union json.RawMessage
+}
+
+// DoubaoRealtimeWorkspaceParameters defines model for DoubaoRealtimeWorkspaceParameters.
+type DoubaoRealtimeWorkspaceParameters struct {
+	AgentType DoubaoRealtimeWorkspaceParametersAgentType `json:"agent_type"`
+
+	// E2e Marks seed resources used by the local e2e harness.
+	E2e           *bool                            `json:"e2e,omitempty"`
+	Input         *WorkspaceInputMode              `json:"input,omitempty"`
+	Music         *DoubaoRealtimeMusicParameters   `json:"music,omitempty"`
+	RealtimeModel *string                          `json:"realtime_model,omitempty"`
+	Search        *DoubaoRealtimeSearchParameters  `json:"search,omitempty"`
+	Session       *DoubaoRealtimeSessionParameters `json:"session,omitempty"`
+	Temperature   *float32                         `json:"temperature,omitempty"`
+	Voice         *DoubaoRealtimeVoiceParameters   `json:"voice,omitempty"`
+}
+
+// DoubaoRealtimeWorkspaceParametersAgentType defines model for DoubaoRealtimeWorkspaceParameters.AgentType.
+type DoubaoRealtimeWorkspaceParametersAgentType string
+
 // Firmware defines model for Firmware.
 type Firmware struct {
 	CreatedAt   time.Time     `json:"created_at"`
@@ -874,6 +1019,21 @@ type FirmwareSlots struct {
 	Stable  FirmwareSlot `json:"stable"`
 }
 
+// FlowcraftConversationParameters defines model for FlowcraftConversationParameters.
+type FlowcraftConversationParameters struct {
+	// AgentInitiativePolicy When agent initiative is allowed.
+	AgentInitiativePolicy *FlowcraftConversationParametersAgentInitiativePolicy `json:"agent_initiative_policy,omitempty"`
+
+	// Initiative Who starts the conversation when the workspace runtime opens.
+	Initiative *FlowcraftConversationParametersInitiative `json:"initiative,omitempty"`
+}
+
+// FlowcraftConversationParametersAgentInitiativePolicy When agent initiative is allowed.
+type FlowcraftConversationParametersAgentInitiativePolicy string
+
+// FlowcraftConversationParametersInitiative Who starts the conversation when the workspace runtime opens.
+type FlowcraftConversationParametersInitiative string
+
 // FlowcraftWorkflow defines model for FlowcraftWorkflow.
 type FlowcraftWorkflow struct {
 	ApiVersion WorkflowAPIVersion    `json:"apiVersion"`
@@ -887,6 +1047,22 @@ type FlowcraftWorkflowKind string
 
 // FlowcraftWorkflowSpec defines model for FlowcraftWorkflowSpec.
 type FlowcraftWorkflowSpec map[string]interface{}
+
+// FlowcraftWorkspaceParameters defines model for FlowcraftWorkspaceParameters.
+type FlowcraftWorkspaceParameters struct {
+	AgentType    FlowcraftWorkspaceParametersAgentType `json:"agent_type"`
+	Conversation *FlowcraftConversationParameters      `json:"conversation,omitempty"`
+
+	// E2e Marks seed resources used by the local e2e harness.
+	E2e            *bool               `json:"e2e,omitempty"`
+	EmbeddingModel *string             `json:"embedding_model,omitempty"`
+	ExtractModel   *string             `json:"extract_model,omitempty"`
+	GenerateModel  *string             `json:"generate_model,omitempty"`
+	Input          *WorkspaceInputMode `json:"input,omitempty"`
+}
+
+// FlowcraftWorkspaceParametersAgentType defines model for FlowcraftWorkspaceParameters.AgentType.
+type FlowcraftWorkspaceParametersAgentType string
 
 // FriendDeleteRequest defines model for FriendDeleteRequest.
 type FriendDeleteRequest struct {
@@ -1183,7 +1359,7 @@ type Model struct {
 	Name     *string       `json:"name,omitempty"`
 	Provider ModelProvider `json:"provider"`
 
-	// ProviderData Provider-specific model runtime configuration keyed by provider kind.
+	// ProviderData Provider-specific model runtime configuration. The shape is selected by Model.provider.kind.
 	ProviderData *ModelProviderData `json:"provider_data,omitempty"`
 
 	// Source How the model entered the global catalog
@@ -1247,8 +1423,10 @@ type ModelProvider struct {
 	Name string            `json:"name"`
 }
 
-// ModelProviderData Provider-specific model runtime configuration keyed by provider kind.
-type ModelProviderData map[string]interface{}
+// ModelProviderData Provider-specific model runtime configuration. The shape is selected by Model.provider.kind.
+type ModelProviderData struct {
+	union json.RawMessage
+}
 
 // ModelProviderKind Provider resource kind usable by model runtime.
 type ModelProviderKind string
@@ -1661,22 +1839,13 @@ type SpeedTestResponse struct {
 
 // VolcCredentialBody defines model for VolcCredentialBody.
 type VolcCredentialBody struct {
-	AccessKey       *string `json:"access_key,omitempty"`
-	AccessKeyId     *string `json:"access_key_id,omitempty"`
-	AccessToken     *string `json:"access_token,omitempty"`
-	Ak              *string `json:"ak,omitempty"`
-	ApiKey          *string `json:"api_key,omitempty"`
-	AppId           *string `json:"app_id,omitempty"`
-	BaseUrl         *string `json:"base_url,omitempty"`
-	BearerToken     *string `json:"bearer_token,omitempty"`
-	SaucAccessKey   *string `json:"sauc_access_key,omitempty"`
-	SecretAccessKey *string `json:"secret_access_key,omitempty"`
-	SecretKey       *string `json:"secret_key,omitempty"`
-	SessionToken    *string `json:"session_token,omitempty"`
-	Sk              *string `json:"sk,omitempty"`
-	Token           *string `json:"token,omitempty"`
-	VoiceBaseUrl    *string `json:"voice_base_url,omitempty"`
-	XApiKey         *string `json:"x_api_key,omitempty"`
+	AppId              *string `json:"app_id,omitempty"`
+	ArkApiKey          *string `json:"ark_api_key,omitempty"`
+	OpenapiAccessKeyId *string `json:"openapi_access_key_id,omitempty"`
+	SecretAccessKey    *string `json:"secret_access_key,omitempty"`
+	SessionToken       *string `json:"session_token,omitempty"`
+	SpeechToken        *string `json:"speech_token,omitempty"`
+	WebsearchApiKey    *string `json:"websearch_api_key,omitempty"`
 }
 
 // VolcTenantModelProviderData defines model for VolcTenantModelProviderData.
@@ -1805,11 +1974,13 @@ type WorkflowPutResponse = WorkflowDocument
 
 // Workspace defines model for Workspace.
 type Workspace struct {
-	CreatedAt    time.Time               `json:"created_at"`
-	Name         string                  `json:"name"`
-	Parameters   *map[string]interface{} `json:"parameters,omitempty"`
-	UpdatedAt    time.Time               `json:"updated_at"`
-	WorkflowName string                  `json:"workflow_name"`
+	CreatedAt time.Time `json:"created_at"`
+	Name      string    `json:"name"`
+
+	// Parameters Agent-specific workspace parameters. The shape is selected by agent_type.
+	Parameters   *WorkspaceParameters `json:"parameters,omitempty"`
+	UpdatedAt    time.Time            `json:"updated_at"`
+	WorkflowName string               `json:"workflow_name"`
 }
 
 // WorkspaceCreateRequest defines model for WorkspaceCreateRequest.
@@ -1834,6 +2005,9 @@ type WorkspaceGetRequest struct {
 // WorkspaceGetResponse defines model for WorkspaceGetResponse.
 type WorkspaceGetResponse = Workspace
 
+// WorkspaceInputMode defines model for WorkspaceInputMode.
+type WorkspaceInputMode string
+
 // WorkspaceListRequest defines model for WorkspaceListRequest.
 type WorkspaceListRequest struct {
 	Cursor *string `json:"cursor,omitempty"`
@@ -1845,6 +2019,11 @@ type WorkspaceListResponse struct {
 	HasNext    bool        `json:"has_next"`
 	Items      []Workspace `json:"items"`
 	NextCursor *string     `json:"next_cursor,omitempty"`
+}
+
+// WorkspaceParameters Agent-specific workspace parameters. The shape is selected by agent_type.
+type WorkspaceParameters struct {
+	union json.RawMessage
 }
 
 // WorkspacePutRequest defines model for WorkspacePutRequest.
@@ -1992,6 +2171,182 @@ func (t CredentialBody) MarshalJSON() ([]byte, error) {
 }
 
 func (t *CredentialBody) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
+
+// AsDoubaoRealtimeInternalSpeakerParameters returns the union data inside the DoubaoRealtimeVoiceParameters as a DoubaoRealtimeInternalSpeakerParameters
+func (t DoubaoRealtimeVoiceParameters) AsDoubaoRealtimeInternalSpeakerParameters() (DoubaoRealtimeInternalSpeakerParameters, error) {
+	var body DoubaoRealtimeInternalSpeakerParameters
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromDoubaoRealtimeInternalSpeakerParameters overwrites any union data inside the DoubaoRealtimeVoiceParameters as the provided DoubaoRealtimeInternalSpeakerParameters
+func (t *DoubaoRealtimeVoiceParameters) FromDoubaoRealtimeInternalSpeakerParameters(v DoubaoRealtimeInternalSpeakerParameters) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeDoubaoRealtimeInternalSpeakerParameters performs a merge with any union data inside the DoubaoRealtimeVoiceParameters, using the provided DoubaoRealtimeInternalSpeakerParameters
+func (t *DoubaoRealtimeVoiceParameters) MergeDoubaoRealtimeInternalSpeakerParameters(v DoubaoRealtimeInternalSpeakerParameters) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsDoubaoRealtimeExternalVoiceParameters returns the union data inside the DoubaoRealtimeVoiceParameters as a DoubaoRealtimeExternalVoiceParameters
+func (t DoubaoRealtimeVoiceParameters) AsDoubaoRealtimeExternalVoiceParameters() (DoubaoRealtimeExternalVoiceParameters, error) {
+	var body DoubaoRealtimeExternalVoiceParameters
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromDoubaoRealtimeExternalVoiceParameters overwrites any union data inside the DoubaoRealtimeVoiceParameters as the provided DoubaoRealtimeExternalVoiceParameters
+func (t *DoubaoRealtimeVoiceParameters) FromDoubaoRealtimeExternalVoiceParameters(v DoubaoRealtimeExternalVoiceParameters) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeDoubaoRealtimeExternalVoiceParameters performs a merge with any union data inside the DoubaoRealtimeVoiceParameters, using the provided DoubaoRealtimeExternalVoiceParameters
+func (t *DoubaoRealtimeVoiceParameters) MergeDoubaoRealtimeExternalVoiceParameters(v DoubaoRealtimeExternalVoiceParameters) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t DoubaoRealtimeVoiceParameters) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *DoubaoRealtimeVoiceParameters) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
+
+// AsGeminiTenantModelProviderData returns the union data inside the ModelProviderData as a GeminiTenantModelProviderData
+func (t ModelProviderData) AsGeminiTenantModelProviderData() (GeminiTenantModelProviderData, error) {
+	var body GeminiTenantModelProviderData
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromGeminiTenantModelProviderData overwrites any union data inside the ModelProviderData as the provided GeminiTenantModelProviderData
+func (t *ModelProviderData) FromGeminiTenantModelProviderData(v GeminiTenantModelProviderData) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeGeminiTenantModelProviderData performs a merge with any union data inside the ModelProviderData, using the provided GeminiTenantModelProviderData
+func (t *ModelProviderData) MergeGeminiTenantModelProviderData(v GeminiTenantModelProviderData) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsDashScopeTenantModelProviderData returns the union data inside the ModelProviderData as a DashScopeTenantModelProviderData
+func (t ModelProviderData) AsDashScopeTenantModelProviderData() (DashScopeTenantModelProviderData, error) {
+	var body DashScopeTenantModelProviderData
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromDashScopeTenantModelProviderData overwrites any union data inside the ModelProviderData as the provided DashScopeTenantModelProviderData
+func (t *ModelProviderData) FromDashScopeTenantModelProviderData(v DashScopeTenantModelProviderData) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeDashScopeTenantModelProviderData performs a merge with any union data inside the ModelProviderData, using the provided DashScopeTenantModelProviderData
+func (t *ModelProviderData) MergeDashScopeTenantModelProviderData(v DashScopeTenantModelProviderData) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsOpenAITenantModelProviderData returns the union data inside the ModelProviderData as a OpenAITenantModelProviderData
+func (t ModelProviderData) AsOpenAITenantModelProviderData() (OpenAITenantModelProviderData, error) {
+	var body OpenAITenantModelProviderData
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromOpenAITenantModelProviderData overwrites any union data inside the ModelProviderData as the provided OpenAITenantModelProviderData
+func (t *ModelProviderData) FromOpenAITenantModelProviderData(v OpenAITenantModelProviderData) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeOpenAITenantModelProviderData performs a merge with any union data inside the ModelProviderData, using the provided OpenAITenantModelProviderData
+func (t *ModelProviderData) MergeOpenAITenantModelProviderData(v OpenAITenantModelProviderData) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsVolcTenantModelProviderData returns the union data inside the ModelProviderData as a VolcTenantModelProviderData
+func (t ModelProviderData) AsVolcTenantModelProviderData() (VolcTenantModelProviderData, error) {
+	var body VolcTenantModelProviderData
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromVolcTenantModelProviderData overwrites any union data inside the ModelProviderData as the provided VolcTenantModelProviderData
+func (t *ModelProviderData) FromVolcTenantModelProviderData(v VolcTenantModelProviderData) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeVolcTenantModelProviderData performs a merge with any union data inside the ModelProviderData, using the provided VolcTenantModelProviderData
+func (t *ModelProviderData) MergeVolcTenantModelProviderData(v VolcTenantModelProviderData) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t ModelProviderData) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *ModelProviderData) UnmarshalJSON(b []byte) error {
 	err := t.union.UnmarshalJSON(b)
 	return err
 }
@@ -5912,6 +6267,95 @@ func (t RPCResponse_Result) MarshalJSON() ([]byte, error) {
 }
 
 func (t *RPCResponse_Result) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
+
+// AsFlowcraftWorkspaceParameters returns the union data inside the WorkspaceParameters as a FlowcraftWorkspaceParameters
+func (t WorkspaceParameters) AsFlowcraftWorkspaceParameters() (FlowcraftWorkspaceParameters, error) {
+	var body FlowcraftWorkspaceParameters
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromFlowcraftWorkspaceParameters overwrites any union data inside the WorkspaceParameters as the provided FlowcraftWorkspaceParameters
+func (t *WorkspaceParameters) FromFlowcraftWorkspaceParameters(v FlowcraftWorkspaceParameters) error {
+	v.AgentType = "flowcraft"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeFlowcraftWorkspaceParameters performs a merge with any union data inside the WorkspaceParameters, using the provided FlowcraftWorkspaceParameters
+func (t *WorkspaceParameters) MergeFlowcraftWorkspaceParameters(v FlowcraftWorkspaceParameters) error {
+	v.AgentType = "flowcraft"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsDoubaoRealtimeWorkspaceParameters returns the union data inside the WorkspaceParameters as a DoubaoRealtimeWorkspaceParameters
+func (t WorkspaceParameters) AsDoubaoRealtimeWorkspaceParameters() (DoubaoRealtimeWorkspaceParameters, error) {
+	var body DoubaoRealtimeWorkspaceParameters
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromDoubaoRealtimeWorkspaceParameters overwrites any union data inside the WorkspaceParameters as the provided DoubaoRealtimeWorkspaceParameters
+func (t *WorkspaceParameters) FromDoubaoRealtimeWorkspaceParameters(v DoubaoRealtimeWorkspaceParameters) error {
+	v.AgentType = "doubao-realtime"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeDoubaoRealtimeWorkspaceParameters performs a merge with any union data inside the WorkspaceParameters, using the provided DoubaoRealtimeWorkspaceParameters
+func (t *WorkspaceParameters) MergeDoubaoRealtimeWorkspaceParameters(v DoubaoRealtimeWorkspaceParameters) error {
+	v.AgentType = "doubao-realtime"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t WorkspaceParameters) Discriminator() (string, error) {
+	var discriminator struct {
+		Discriminator string `json:"agent_type"`
+	}
+	err := json.Unmarshal(t.union, &discriminator)
+	return discriminator.Discriminator, err
+}
+
+func (t WorkspaceParameters) ValueByDiscriminator() (interface{}, error) {
+	discriminator, err := t.Discriminator()
+	if err != nil {
+		return nil, err
+	}
+	switch discriminator {
+	case "doubao-realtime":
+		return t.AsDoubaoRealtimeWorkspaceParameters()
+	case "flowcraft":
+		return t.AsFlowcraftWorkspaceParameters()
+	default:
+		return nil, errors.New("unknown discriminator value: " + discriminator)
+	}
+}
+
+func (t WorkspaceParameters) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *WorkspaceParameters) UnmarshalJSON(b []byte) error {
 	err := t.union.UnmarshalJSON(b)
 	return err
 }

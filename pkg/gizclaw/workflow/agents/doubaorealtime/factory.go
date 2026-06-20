@@ -11,14 +11,10 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkg/genx"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/agenthost"
+	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/apitypes"
 )
 
 const Type = "doubao-realtime"
-
-const (
-	workspaceAgentTypeParameter     = "agent_type"
-	workspaceRealtimeModelParameter = "realtime_model"
-)
 
 type Factory struct {
 	Transformer genx.Transformer
@@ -60,12 +56,15 @@ func resolveRealtimeModelPattern(spec agenthost.Spec) (string, error) {
 	if pattern := workflowRealtimeModelPattern(spec); pattern != "" {
 		return normalizeModelPattern(pattern), nil
 	}
-	pattern, err := workspaceRealtimeModelPattern(spec.Workspace.Parameters)
-	if err != nil {
-		return "", err
-	}
-	if pattern != "" {
-		return normalizeModelPattern(pattern), nil
+	if spec.Workspace.Parameters != nil {
+		typed, err := spec.Workspace.Parameters.AsDoubaoRealtimeWorkspaceParameters()
+		if err != nil {
+			return "", fmt.Errorf("doubaorealtime: decode workspace parameters: %w", err)
+		}
+		if typed.RealtimeModel != nil && strings.TrimSpace(*typed.RealtimeModel) != "" {
+			params := mergeDoubaoRealtimeTypedParams(nil, typed)
+			return normalizeModelPattern(appendPatternParams(*typed.RealtimeModel, params)), nil
+		}
 	}
 	return "", fmt.Errorf("doubaorealtime: model is required")
 }
@@ -84,29 +83,12 @@ func workflowRealtimeModelPattern(spec agenthost.Spec) string {
 		return ""
 	}
 	params := realtimeWorkflowParams(cfg)
-	params = mergeWorkspaceRealtimeParams(params, spec.Workspace.Parameters)
+	if spec.Workspace.Parameters != nil {
+		if typed, err := spec.Workspace.Parameters.AsDoubaoRealtimeWorkspaceParameters(); err == nil {
+			params = mergeDoubaoRealtimeTypedParams(params, typed)
+		}
+	}
 	return appendPatternParams(pattern, params)
-}
-
-func workspaceRealtimeModelPattern(parameters *map[string]any) (string, error) {
-	if parameters == nil {
-		return "", nil
-	}
-	for _, key := range []string{workspaceRealtimeModelParameter, "model"} {
-		value, ok := (*parameters)[key]
-		if !ok {
-			continue
-		}
-		text, ok := value.(string)
-		if !ok {
-			return "", fmt.Errorf("doubaorealtime: workspace parameter %q must be a string", key)
-		}
-		if strings.TrimSpace(text) != "" {
-			params := mergeWorkspaceRealtimeParams(nil, parameters)
-			return appendPatternParams(text, params), nil
-		}
-	}
-	return "", nil
 }
 
 func normalizeModelPattern(pattern string) string {
@@ -136,27 +118,96 @@ func realtimeWorkflowParams(cfg realtimeWorkflowConfig) map[string]any {
 	return params
 }
 
-func mergeWorkspaceRealtimeParams(params map[string]any, parameters *map[string]any) map[string]any {
-	if parameters == nil {
-		return params
-	}
+func mergeDoubaoRealtimeTypedParams(params map[string]any, typed apitypes.DoubaoRealtimeWorkspaceParameters) map[string]any {
 	if params == nil {
 		params = make(map[string]any)
 	}
-	for key, value := range *parameters {
-		switch key {
-		case workspaceAgentTypeParameter, workspaceRealtimeModelParameter, "model":
-			continue
-		case "realtime", "realtime_config":
-			mergeRealtimeWorkflowParamsValue(params, value)
-		default:
-			mergeRealtimeWorkflowParam(params, key, value)
+	if typed.Input != nil {
+		switch *typed.Input {
+		case apitypes.WorkspaceInputModePushToTalk:
+			params["mode"] = "push-to-talk"
+		case apitypes.WorkspaceInputModeRealtime:
+			params["mode"] = "realtime"
+		}
+	}
+	if typed.Temperature != nil {
+		params["temperature"] = *typed.Temperature
+	}
+	if typed.Session != nil {
+		mergeRealtimeWorkspaceSession(params, *typed.Session)
+	}
+	if typed.Search != nil {
+		mergeRealtimeWorkspaceSearch(params, *typed.Search)
+	}
+	if typed.Music != nil {
+		mergeRealtimeWorkspaceMusic(params, *typed.Music)
+	}
+	if typed.Voice != nil {
+		if internal, err := typed.Voice.AsDoubaoRealtimeInternalSpeakerParameters(); err == nil {
+			if speaker := strings.TrimSpace(internal.RealtimeSpeakerId); speaker != "" {
+				params["speaker"] = speaker
+			}
 		}
 	}
 	if len(params) == 0 {
 		return nil
 	}
 	return params
+}
+
+func mergeRealtimeWorkspaceSession(params map[string]any, session apitypes.DoubaoRealtimeSessionParameters) {
+	if value := stringPtrValue(session.BotName); value != "" {
+		params["bot_name"] = value
+	}
+	if value := stringPtrValue(session.SystemRole); value != "" {
+		params["system_role"] = value
+	}
+	if value := stringPtrValue(session.UpstreamModel); value != "" {
+		params["upstream_model"] = value
+	}
+	if session.VadWindowMs != nil {
+		params["vad_window_ms"] = *session.VadWindowMs
+	}
+	if value := stringPtrValue(session.SpeakingStyle); value != "" {
+		params["speaking_style"] = value
+	}
+	if value := stringPtrValue(session.CharacterManifest); value != "" {
+		params["character_manifest"] = value
+	}
+	if value := stringPtrValue(session.ResourceId); value != "" {
+		params["resource_id"] = value
+	}
+}
+
+func mergeRealtimeWorkspaceSearch(params map[string]any, search apitypes.DoubaoRealtimeSearchParameters) {
+	if search.Enabled != nil {
+		params["search_enabled"] = *search.Enabled
+	}
+	if value := stringPtrValue(search.Type); value != "" {
+		params["search_type"] = value
+	}
+	if value := stringPtrValue(search.BotId); value != "" {
+		params["search_bot_id"] = value
+	}
+	if search.ResultCount != nil {
+		params["search_result_count"] = *search.ResultCount
+	}
+	if value := stringPtrValue(search.NoResultMessage); value != "" {
+		params["search_no_result_message"] = value
+	}
+}
+
+func mergeRealtimeWorkspaceMusic(params map[string]any, music apitypes.DoubaoRealtimeMusicParameters) {
+	if music.Enabled != nil {
+		params["music_enabled"] = *music.Enabled
+	}
+}
+
+func stringPtrValue(value *string) string {
+	if value == nil {
+		return ""
+	}
+	return strings.TrimSpace(*value)
 }
 
 func mergeRealtimeWorkflowParamsValue(params map[string]any, value any) {
@@ -253,6 +304,12 @@ func workflowParamString(value any) (string, bool) {
 			return strconv.FormatInt(int64(typed), 10), true
 		}
 		return strconv.FormatFloat(typed, 'f', -1, 64), true
+	case float32:
+		value := float64(typed)
+		if value == float64(int64(value)) {
+			return strconv.FormatInt(int64(value), 10), true
+		}
+		return strconv.FormatFloat(value, 'f', -1, 32), true
 	case json.Number:
 		return typed.String(), true
 	default:

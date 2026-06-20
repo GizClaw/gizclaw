@@ -11,6 +11,63 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/apitypes"
 )
 
+func testDoubaoRealtimeWorkspaceParameters(values map[string]any) *apitypes.WorkspaceParameters {
+	typed := apitypes.DoubaoRealtimeWorkspaceParameters{
+		AgentType: apitypes.DoubaoRealtimeWorkspaceParametersAgentTypeDoubaoRealtime,
+	}
+	if value, _ := values["realtime_model"].(string); value != "" {
+		typed.RealtimeModel = &value
+	}
+	if value, ok := values["temperature"].(float64); ok {
+		v := float32(value)
+		typed.Temperature = &v
+	}
+	mergeTestRealtimeWorkspaceValue(&typed, values["realtime_config"])
+	mergeTestRealtimeWorkspaceValue(&typed, values["realtime"])
+	var out apitypes.WorkspaceParameters
+	if err := out.FromDoubaoRealtimeWorkspaceParameters(typed); err != nil {
+		panic(err)
+	}
+	return &out
+}
+
+func mergeTestRealtimeWorkspaceValue(typed *apitypes.DoubaoRealtimeWorkspaceParameters, value any) {
+	values, ok := value.(map[string]any)
+	if !ok {
+		return
+	}
+	if session, ok := values["session"].(map[string]any); ok {
+		if typed.Session == nil {
+			typed.Session = &apitypes.DoubaoRealtimeSessionParameters{}
+		}
+		if value, _ := session["model"].(string); value != "" {
+			typed.Session.UpstreamModel = &value
+		}
+		if value, _ := session["upstream_model"].(string); value != "" {
+			typed.Session.UpstreamModel = &value
+		}
+		if value, _ := session["system_role"].(string); value != "" {
+			typed.Session.SystemRole = &value
+		}
+		if value, ok := session["vad_window_ms"].(int); ok {
+			typed.Session.VadWindowMs = &value
+		}
+	}
+	if output, ok := values["output"].(map[string]any); ok {
+		voice, _ := output["speaker"].(string)
+		if voice == "" {
+			voice, _ = output["voice"].(string)
+		}
+		if voice != "" {
+			var data apitypes.DoubaoRealtimeVoiceParameters
+			if err := data.FromDoubaoRealtimeInternalSpeakerParameters(apitypes.DoubaoRealtimeInternalSpeakerParameters{RealtimeSpeakerId: voice}); err != nil {
+				panic(err)
+			}
+			typed.Voice = &data
+		}
+	}
+}
+
 func TestFactoryUsesWorkflowModel(t *testing.T) {
 	factory := Factory{Transformer: recordingTransformer{}}
 	workspaceParams := map[string]any{
@@ -24,7 +81,7 @@ func TestFactoryUsesWorkflowModel(t *testing.T) {
 		},
 	}
 	agent, err := factory.NewAgent(context.Background(), agenthost.Spec{
-		Workspace: apitypes.Workspace{Name: "demo", Parameters: &workspaceParams},
+		Workspace: apitypes.Workspace{Name: "demo", Parameters: testDoubaoRealtimeWorkspaceParameters(workspaceParams)},
 		Workflow: apitypes.WorkflowDocument{
 			ApiVersion: apitypes.WorkflowAPIVersionGizclawFlowcraftv1alpha1,
 			Kind:       apitypes.FlowcraftWorkflowKindFlowcraftWorkflow,
@@ -90,7 +147,7 @@ func TestFactoryMergesRealtimeConfigAndWorkspaceParams(t *testing.T) {
 		},
 	}
 	agent, err := factory.NewAgent(context.Background(), agenthost.Spec{
-		Workspace: apitypes.Workspace{Name: "demo", Parameters: &workspaceParams},
+		Workspace: apitypes.Workspace{Name: "demo", Parameters: testDoubaoRealtimeWorkspaceParameters(workspaceParams)},
 		Workflow: apitypes.WorkflowDocument{
 			ApiVersion: apitypes.WorkflowAPIVersionGizclawFlowcraftv1alpha1,
 			Kind:       apitypes.FlowcraftWorkflowKindFlowcraftWorkflow,
@@ -160,7 +217,7 @@ func TestFactoryUsesWorkspaceModelAndRealtimeParams(t *testing.T) {
 		},
 	}
 	agent, err := factory.NewAgent(context.Background(), agenthost.Spec{
-		Workspace: apitypes.Workspace{Name: "demo", Parameters: &workspaceParams},
+		Workspace: apitypes.Workspace{Name: "demo", Parameters: testDoubaoRealtimeWorkspaceParameters(workspaceParams)},
 	})
 	if err != nil {
 		t.Fatalf("NewAgent() error = %v", err)

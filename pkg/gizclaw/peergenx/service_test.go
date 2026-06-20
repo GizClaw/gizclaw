@@ -242,13 +242,11 @@ func TestDefaultBuilderBuildsOpenAIGenerator(t *testing.T) {
 				TextOnly:   &trueValue,
 				SystemRole: &trueValue,
 			},
-			ProviderData: &apitypes.ModelProviderData{
-				"openai-tenant": map[string]any{
-					"upstream_model":         upstream,
-					"thinking_param":         "thinking.type",
-					"default_thinking_level": "disabled",
-				},
-			},
+			ProviderData: mustOpenAIModelProviderData(t, apitypes.OpenAITenantModelProviderData{
+				UpstreamModel:        &upstream,
+				ThinkingParam:        stringPtr("thinking.type"),
+				DefaultThinkingLevel: stringPtr("disabled"),
+			}),
 		},
 		Tenant: Tenant{
 			Kind:   "openai-tenant",
@@ -256,7 +254,7 @@ func TestDefaultBuilderBuildsOpenAIGenerator(t *testing.T) {
 		},
 		Credential: apitypes.Credential{
 			Name: "openai-key",
-			Body: apitypes.NewOpenAICredentialBody("sk-test"),
+			Body: testOpenAICredentialBody("sk-test"),
 		},
 	})
 	if err != nil {
@@ -288,13 +286,11 @@ func TestDefaultBuilderBuildsVolcArkGenerator(t *testing.T) {
 				TextOnly:   &trueValue,
 				SystemRole: &trueValue,
 			},
-			ProviderData: &apitypes.ModelProviderData{
-				"volc-tenant": map[string]any{
-					"upstream_model":         upstream,
-					"thinking_param":         "thinking.type",
-					"default_thinking_level": "disabled",
-				},
-			},
+			ProviderData: mustVolcModelProviderData(t, apitypes.VolcTenantModelProviderData{
+				UpstreamModel:        &upstream,
+				ThinkingParam:        stringPtr("thinking.type"),
+				DefaultThinkingLevel: stringPtr("disabled"),
+			}),
 		},
 		Tenant: Tenant{
 			Kind: "volc-tenant",
@@ -305,7 +301,7 @@ func TestDefaultBuilderBuildsVolcArkGenerator(t *testing.T) {
 		},
 		Credential: apitypes.Credential{
 			Name: "volc-key",
-			Body: apitypes.NewVolcCredentialBodyFromStrings(map[string]string{"api_key": "ark-test"}),
+			Body: testVolcCredentialBodyFromStrings(map[string]string{"ark_api_key": "ark-test"}),
 		},
 	})
 	if err != nil {
@@ -329,17 +325,9 @@ func TestDefaultBuilderBuildsVolcASRTransformer(t *testing.T) {
 		Model: &apitypes.Model{
 			Id:   "asr",
 			Kind: apitypes.ModelKindAsr,
-			ProviderData: &apitypes.ModelProviderData{
-				"volc-tenant": map[string]any{
-					"resource_id": "volc.bigasr.sauc.duration",
-					"format":      "pcm",
-					"sample_rate": 24000,
-					"channels":    2,
-					"bits":        8,
-					"language":    "en-US",
-					"result_type": "full",
-				},
-			},
+			ProviderData: mustVolcModelProviderData(t, apitypes.VolcTenantModelProviderData{
+				ResourceId: stringPtr("volc.bigasr.sauc.duration"),
+			}),
 		},
 		Tenant: Tenant{
 			Kind: "volc-tenant",
@@ -350,7 +338,7 @@ func TestDefaultBuilderBuildsVolcASRTransformer(t *testing.T) {
 		},
 		Credential: apitypes.Credential{
 			Name: "volc-token",
-			Body: apitypes.NewVolcCredentialBodyFromStrings(map[string]string{"app_id": "app-id", "token": "tok"}),
+			Body: testVolcCredentialBodyFromStrings(map[string]string{"app_id": "app-id", "speech_token": "tok"}),
 		},
 	})
 	if err != nil {
@@ -387,15 +375,9 @@ func TestDefaultBuilderBuildsVolcRealtimeTransformer(t *testing.T) {
 		Model: &apitypes.Model{
 			Id:   "dialog",
 			Kind: apitypes.ModelKindRealtime,
-			ProviderData: &apitypes.ModelProviderData{
-				"volc-tenant": map[string]any{
-					"upstream_model": "O",
-					"speaker":        "model-speaker",
-					"format":         "pcm_s16le",
-					"sample_rate":    16000,
-					"vad_window_ms":  180,
-				},
-			},
+			ProviderData: mustVolcModelProviderData(t, apitypes.VolcTenantModelProviderData{
+				UpstreamModel: stringPtr("O"),
+			}),
 		},
 		Tenant: Tenant{
 			Kind: "volc-tenant",
@@ -406,7 +388,7 @@ func TestDefaultBuilderBuildsVolcRealtimeTransformer(t *testing.T) {
 		},
 		Credential: apitypes.Credential{
 			Name: "volc-token",
-			Body: apitypes.NewVolcCredentialBodyFromStrings(map[string]string{"app_id": "app-id", "api_key": "runtime-key"}),
+			Body: testVolcCredentialBodyFromStrings(map[string]string{"app_id": "app-id", "ark_api_key": "runtime-key"}),
 		},
 		Params: map[string]any{
 			"upstream_model": "SC",
@@ -443,7 +425,7 @@ func TestDefaultBuilderBuildsVolcRealtimeTransformerFromWorkflowParams(t *testin
 		},
 		Credential: apitypes.Credential{
 			Name: "volc-token",
-			Body: apitypes.NewVolcCredentialBodyFromStrings(map[string]string{"app_id": "app-id", "access_key": "realtime-key"}),
+			Body: testVolcCredentialBodyFromStrings(map[string]string{"app_id": "app-id", "openapi_access_key_id": "realtime-key"}),
 		},
 		Params: map[string]any{
 			"auth_mode":          "v2",
@@ -519,9 +501,9 @@ func TestDefaultBuilderBuildsVolcASRTransformerPrefersSaucAccessToken(t *testing
 		Model: &apitypes.Model{
 			Id:   "asr",
 			Kind: apitypes.ModelKindAsr,
-			ProviderData: &apitypes.ModelProviderData{
-				"volc-tenant": map[string]any{"resource_id": "volc.bigasr.sauc.duration"},
-			},
+			ProviderData: mustVolcModelProviderData(t, apitypes.VolcTenantModelProviderData{
+				ResourceId: stringPtr("volc.bigasr.sauc.duration"),
+			}),
 		},
 		Tenant: Tenant{
 			Kind: "volc-tenant",
@@ -532,10 +514,9 @@ func TestDefaultBuilderBuildsVolcASRTransformerPrefersSaucAccessToken(t *testing
 		},
 		Credential: apitypes.Credential{
 			Name: "volc-token",
-			Body: apitypes.NewVolcCredentialBodyFromStrings(map[string]string{
-				"app_id":        "app-id",
-				"access_key_id": "volc-ak",
-				"bearer_token":  "old-sauc-token",
+			Body: testVolcCredentialBodyFromStrings(map[string]string{
+				"app_id":       "app-id",
+				"speech_token": "old-sauc-token",
 			}),
 		},
 	})
@@ -555,9 +536,9 @@ func TestDefaultBuilderBuildsVolcASRTransformerTreatsAPIKeyAsSpeechAccessKey(t *
 		Model: &apitypes.Model{
 			Id:   "asr",
 			Kind: apitypes.ModelKindAsr,
-			ProviderData: &apitypes.ModelProviderData{
-				"volc-tenant": map[string]any{"resource_id": "volc.bigasr.sauc.duration"},
-			},
+			ProviderData: mustVolcModelProviderData(t, apitypes.VolcTenantModelProviderData{
+				ResourceId: stringPtr("volc.bigasr.sauc.duration"),
+			}),
 		},
 		Tenant: Tenant{
 			Kind: "volc-tenant",
@@ -565,7 +546,7 @@ func TestDefaultBuilderBuildsVolcASRTransformerTreatsAPIKeyAsSpeechAccessKey(t *
 		},
 		Credential: apitypes.Credential{
 			Name: "volc-token",
-			Body: apitypes.NewVolcCredentialBodyFromStrings(map[string]string{"app_id": "app-id", "api_key": "speech-runtime-key"}),
+			Body: testVolcCredentialBodyFromStrings(map[string]string{"app_id": "app-id", "speech_token": "speech-runtime-key"}),
 		},
 	})
 	if err != nil {
@@ -584,9 +565,9 @@ func TestDefaultBuilderBuildsVolcASRTransformerPrefersTokenOverArkAPIKey(t *test
 		Model: &apitypes.Model{
 			Id:   "asr",
 			Kind: apitypes.ModelKindAsr,
-			ProviderData: &apitypes.ModelProviderData{
-				"volc-tenant": map[string]any{"resource_id": "volc.bigasr.sauc.duration"},
-			},
+			ProviderData: mustVolcModelProviderData(t, apitypes.VolcTenantModelProviderData{
+				ResourceId: stringPtr("volc.bigasr.sauc.duration"),
+			}),
 		},
 		Tenant: Tenant{
 			Kind: "volc-tenant",
@@ -594,10 +575,10 @@ func TestDefaultBuilderBuildsVolcASRTransformerPrefersTokenOverArkAPIKey(t *test
 		},
 		Credential: apitypes.Credential{
 			Name: "volc-token",
-			Body: apitypes.NewVolcCredentialBodyFromStrings(map[string]string{
-				"app_id":  "app-id",
-				"api_key": "ark-runtime-key",
-				"token":   "speech-token",
+			Body: testVolcCredentialBodyFromStrings(map[string]string{
+				"app_id":       "app-id",
+				"ark_api_key":  "ark-runtime-key",
+				"speech_token": "speech-token",
 			}),
 		},
 	})
@@ -614,9 +595,9 @@ func TestDefaultBuilderBuildsVolcASRTransformerSupportsXAPIKeyMode(t *testing.T)
 		Model: &apitypes.Model{
 			Id:   "asr",
 			Kind: apitypes.ModelKindAsr,
-			ProviderData: &apitypes.ModelProviderData{
-				"volc-tenant": map[string]any{"auth_mode": "x-api-key"},
-			},
+			ProviderData: mustVolcModelProviderData(t, apitypes.VolcTenantModelProviderData{
+				AuthMode: stringPtr("x-api-key"),
+			}),
 		},
 		Tenant: Tenant{
 			Kind: "volc-tenant",
@@ -624,7 +605,7 @@ func TestDefaultBuilderBuildsVolcASRTransformerSupportsXAPIKeyMode(t *testing.T)
 		},
 		Credential: apitypes.Credential{
 			Name: "volc-token",
-			Body: apitypes.NewVolcCredentialBodyFromStrings(map[string]string{"app_id": "app-id", "api_key": "real-x-api-key"}),
+			Body: testVolcCredentialBodyFromStrings(map[string]string{"app_id": "app-id", "ark_api_key": "real-x-api-key"}),
 		},
 	})
 	if err != nil {
@@ -644,9 +625,9 @@ func TestDefaultBuilderBuildsGeminiGenerator(t *testing.T) {
 		Model: apitypes.Model{
 			Id:   "gemini",
 			Kind: apitypes.ModelKindLlm,
-			ProviderData: &apitypes.ModelProviderData{
-				"gemini-tenant": map[string]any{"upstream_model": upstream},
-			},
+			ProviderData: mustGeminiModelProviderData(t, apitypes.GeminiTenantModelProviderData{
+				UpstreamModel: &upstream,
+			}),
 		},
 		Tenant: Tenant{
 			Kind:   "gemini-tenant",
@@ -654,7 +635,7 @@ func TestDefaultBuilderBuildsGeminiGenerator(t *testing.T) {
 		},
 		Credential: apitypes.Credential{
 			Name: "gemini-key",
-			Body: apitypes.NewGeminiCredentialBody("gemini-token"),
+			Body: testGeminiCredentialBody("gemini-token"),
 		},
 	})
 	if err != nil {
@@ -685,20 +666,16 @@ func TestDefaultBuilderBuildsVoiceTransformers(t *testing.T) {
 			cfg: TransformerConfig{
 				Voice: &apitypes.Voice{
 					Id: "volc-voice",
-					ProviderData: &apitypes.VoiceProviderData{
-						"volc-tenant": map[string]any{
-							"voice_id":    "voice-id",
-							"resource_id": "seed-icl-2.0",
-							"format":      "ogg_opus",
-							"sample_rate": 24000,
-						},
-					},
+					ProviderData: mustVolcVoiceProviderData(t, apitypes.VolcTenantVoiceProviderData{
+						VoiceId:    stringPtr("voice-id"),
+						ResourceId: stringPtr("seed-icl-2.0"),
+					}),
 				},
 				Tenant: Tenant{
 					Kind: "volc-tenant",
 					Volc: &apitypes.VolcTenant{Name: "main", CredentialName: "volc-token"},
 				},
-				Credential: apitypes.Credential{Name: "volc-token", Body: apitypes.NewVolcCredentialBodyFromStrings(map[string]string{"app_id": "app-id", "token": "tok"})},
+				Credential: apitypes.Credential{Name: "volc-token", Body: testVolcCredentialBodyFromStrings(map[string]string{"app_id": "app-id", "speech_token": "tok"})},
 			},
 			wantFormat:     defaultVolcTTSAudioFormat,
 			wantSampleRate: defaultTTSAudioSampleRate,
@@ -709,18 +686,16 @@ func TestDefaultBuilderBuildsVoiceTransformers(t *testing.T) {
 			cfg: TransformerConfig{
 				Voice: &apitypes.Voice{
 					Id: "minimax-voice",
-					ProviderData: &apitypes.VoiceProviderData{
-						"minimax-tenant": struct {
-							VoiceID string `json:"voice_id"`
-							Model   string `json:"model"`
-						}{VoiceID: "voice-id", Model: "speech-02-hd"},
-					},
+					ProviderData: mustMiniMaxVoiceProviderData(t, apitypes.MiniMaxTenantVoiceProviderData{
+						VoiceId: stringPtr("voice-id"),
+						Model:   stringPtr("speech-02-hd"),
+					}),
 				},
 				Tenant: Tenant{
 					Kind:    "minimax-tenant",
 					MiniMax: &apitypes.MiniMaxTenant{Name: "main", CredentialName: "minimax-key", BaseUrl: &baseURL},
 				},
-				Credential: apitypes.Credential{Name: "minimax-key", Body: apitypes.NewMiniMaxCredentialBody("sk-test")},
+				Credential: apitypes.Credential{Name: "minimax-key", Body: testMiniMaxCredentialBody("sk-test")},
 			},
 			wantFormat:     defaultMiniMaxTTSAudioFormat,
 			wantSampleRate: defaultTTSAudioSampleRate,
@@ -732,15 +707,15 @@ func TestDefaultBuilderBuildsVoiceTransformers(t *testing.T) {
 			cfg: TransformerConfig{
 				Voice: &apitypes.Voice{
 					Id: "minimax-voice",
-					ProviderData: &apitypes.VoiceProviderData{
-						"minimax-tenant": map[string]string{"voice_id": "voice-id"},
-					},
+					ProviderData: mustMiniMaxVoiceProviderData(t, apitypes.MiniMaxTenantVoiceProviderData{
+						VoiceId: stringPtr("voice-id"),
+					}),
 				},
 				Tenant: Tenant{
 					Kind:    "minimax-tenant",
 					MiniMax: &apitypes.MiniMaxTenant{Name: "main", CredentialName: "minimax-key"},
 				},
-				Credential: apitypes.Credential{Name: "minimax-key", Body: apitypes.NewMiniMaxCredentialBody("sk-test")},
+				Credential: apitypes.Credential{Name: "minimax-key", Body: testMiniMaxCredentialBody("sk-test")},
 			},
 			wantFormat:     defaultMiniMaxTTSAudioFormat,
 			wantSampleRate: defaultTTSAudioSampleRate,
@@ -814,7 +789,7 @@ func TestDefaultBuilderRejectsInvalidGeneratorConfigs(t *testing.T) {
 					Kind:   string(apitypes.ModelProviderKindOpenaiTenant),
 					OpenAI: &apitypes.OpenAITenant{Name: "main"},
 				},
-				Credential: apitypes.Credential{Body: apitypes.NewOpenAICredentialBody("sk-test")},
+				Credential: apitypes.Credential{Body: testOpenAICredentialBody("sk-test")},
 			},
 		},
 		{
@@ -897,7 +872,7 @@ func TestDefaultBuilderRejectsInvalidTransformerConfigs(t *testing.T) {
 					Kind: string(apitypes.VoiceProviderKindVolcTenant),
 					Volc: &apitypes.VolcTenant{Name: "main"},
 				},
-				Credential: apitypes.Credential{Body: apitypes.NewVolcCredentialBodyFromStrings(map[string]string{"app_id": "app-id", "token": "tok"})},
+				Credential: apitypes.Credential{Body: testVolcCredentialBodyFromStrings(map[string]string{"app_id": "app-id", "speech_token": "tok"})},
 			},
 		},
 		{
@@ -905,9 +880,9 @@ func TestDefaultBuilderRejectsInvalidTransformerConfigs(t *testing.T) {
 			cfg: TransformerConfig{
 				Voice: &apitypes.Voice{
 					Id: "voice",
-					ProviderData: &apitypes.VoiceProviderData{
-						"minimax-tenant": map[string]any{"voice_id": "voice-id"},
-					},
+					ProviderData: mustMiniMaxVoiceProviderData(t, apitypes.MiniMaxTenantVoiceProviderData{
+						VoiceId: stringPtr("voice-id"),
+					}),
 				},
 				Tenant: Tenant{
 					Kind:    string(apitypes.VoiceProviderKindMinimaxTenant),
@@ -1119,11 +1094,6 @@ func TestBuilderHelpersHandleJSONNumberAndInvalidVoiceData(t *testing.T) {
 	number := json.Number("42")
 	if got, ok := mapInt(map[string]any{"n": number}, "n"); !ok || got != 42 {
 		t.Fatalf("mapInt(json.Number) = %d, %v; want 42, true", got, ok)
-	}
-	if got := voiceProviderData(apitypes.Voice{ProviderData: &apitypes.VoiceProviderData{
-		"bad": make(chan int),
-	}}, "bad"); got != nil {
-		t.Fatalf("voiceProviderData() = %#v, want nil", got)
 	}
 	if got, ok := parsePattern(" voice/cancan ", "voice"); !ok || got != "cancan" {
 		t.Fatalf("parsePattern() = %q, %v; want cancan, true", got, ok)
@@ -1402,6 +1372,59 @@ func boolPtr(value bool) *bool {
 	return &value
 }
 
+func stringPtr(value string) *string {
+	return &value
+}
+
+func intPtr(value int) *int {
+	return &value
+}
+
+func mustOpenAIModelProviderData(t *testing.T, data apitypes.OpenAITenantModelProviderData) *apitypes.ModelProviderData {
+	t.Helper()
+	out := apitypes.ModelProviderData{}
+	if err := out.FromOpenAITenantModelProviderData(data); err != nil {
+		t.Fatalf("FromOpenAITenantModelProviderData() error = %v", err)
+	}
+	return &out
+}
+
+func mustVolcModelProviderData(t *testing.T, data apitypes.VolcTenantModelProviderData) *apitypes.ModelProviderData {
+	t.Helper()
+	out := apitypes.ModelProviderData{}
+	if err := out.FromVolcTenantModelProviderData(data); err != nil {
+		t.Fatalf("FromVolcTenantModelProviderData() error = %v", err)
+	}
+	return &out
+}
+
+func mustGeminiModelProviderData(t *testing.T, data apitypes.GeminiTenantModelProviderData) *apitypes.ModelProviderData {
+	t.Helper()
+	out := apitypes.ModelProviderData{}
+	if err := out.FromGeminiTenantModelProviderData(data); err != nil {
+		t.Fatalf("FromGeminiTenantModelProviderData() error = %v", err)
+	}
+	return &out
+}
+
+func mustVolcVoiceProviderData(t *testing.T, data apitypes.VolcTenantVoiceProviderData) *apitypes.VoiceProviderData {
+	t.Helper()
+	out := apitypes.VoiceProviderData{}
+	if err := out.FromVolcTenantVoiceProviderData(data); err != nil {
+		t.Fatalf("FromVolcTenantVoiceProviderData() error = %v", err)
+	}
+	return &out
+}
+
+func mustMiniMaxVoiceProviderData(t *testing.T, data apitypes.MiniMaxTenantVoiceProviderData) *apitypes.VoiceProviderData {
+	t.Helper()
+	out := apitypes.VoiceProviderData{}
+	if err := out.FromMiniMaxTenantVoiceProviderData(data); err != nil {
+		t.Fatalf("FromMiniMaxTenantVoiceProviderData() error = %v", err)
+	}
+	return &out
+}
+
 type fakeVoices struct {
 	events       *[]string
 	providerKind apitypes.VoiceProviderKind
@@ -1413,8 +1436,17 @@ func (f fakeVoices) GetVoice(_ context.Context, request adminservice.GetVoiceReq
 	if providerKind == "" {
 		providerKind = apitypes.VoiceProviderKindVolcTenant
 	}
-	providerData := apitypes.VoiceProviderData{
-		string(providerKind): map[string]any{"voice_id": "voice-id"},
+	providerData := apitypes.VoiceProviderData{}
+	voiceID := "voice-id"
+	var err error
+	switch providerKind {
+	case apitypes.VoiceProviderKindMinimaxTenant:
+		err = providerData.FromMiniMaxTenantVoiceProviderData(apitypes.MiniMaxTenantVoiceProviderData{VoiceId: &voiceID})
+	default:
+		err = providerData.FromVolcTenantVoiceProviderData(apitypes.VolcTenantVoiceProviderData{VoiceId: &voiceID})
+	}
+	if err != nil {
+		panic(err)
 	}
 	return adminservice.GetVoice200JSONResponse(apitypes.Voice{
 		Id: request.Id,
@@ -1434,10 +1466,10 @@ func (f fakeCredentials) GetCredential(_ context.Context, request adminservice.G
 	*f.events = append(*f.events, "get:credential:"+request.Name)
 	return adminservice.GetCredential200JSONResponse(apitypes.Credential{
 		Name: request.Name,
-		Body: apitypes.NewVolcCredentialBodyFromStrings(map[string]string{
-			"app_id":  "app-id",
-			"api_key": "sk-test",
-			"token":   "tok-test",
+		Body: testVolcCredentialBodyFromStrings(map[string]string{
+			"app_id":       "app-id",
+			"ark_api_key":  "sk-test",
+			"speech_token": "tok-test",
 		}),
 	}), nil
 }

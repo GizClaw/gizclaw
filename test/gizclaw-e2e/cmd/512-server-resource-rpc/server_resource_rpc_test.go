@@ -81,7 +81,7 @@ func TestServerResourceRPCUserStory(t *testing.T) {
 	workspace, err := peer.CreateWorkspace(ctx, "workspace.create", rpcapi.WorkspaceCreateRequest{
 		Name:         "peer-workspace",
 		WorkflowName: "peer-flow",
-		Parameters:   &map[string]interface{}{"mode": "create"},
+		Parameters:   testRPCFlowcraftWorkspaceParameters("create"),
 	})
 	if err != nil {
 		t.Fatalf("workspace.create: %v", err)
@@ -94,20 +94,20 @@ func TestServerResourceRPCUserStory(t *testing.T) {
 		Body: rpcapi.Workspace{
 			Name:         "peer-workspace",
 			WorkflowName: "peer-flow",
-			Parameters:   &map[string]interface{}{"mode": "update"},
+			Parameters:   testRPCFlowcraftWorkspaceParameters("update"),
 		},
 	})
 	if err != nil {
 		t.Fatalf("workspace.put: %v", err)
 	}
-	if workspace.Parameters == nil || (*workspace.Parameters)["mode"] != "update" {
+	if testRPCFlowcraftGenerateModel(t, workspace.Parameters) != "update" {
 		t.Fatalf("workspace.put parameters = %#v", workspace.Parameters)
 	}
 	workspace, err = peer.GetWorkspace(ctx, "workspace.get.updated", rpcapi.WorkspaceGetRequest{Name: "peer-workspace"})
 	if err != nil {
 		t.Fatalf("workspace.get updated: %v", err)
 	}
-	if workspace.Parameters == nil || (*workspace.Parameters)["mode"] != "update" {
+	if testRPCFlowcraftGenerateModel(t, workspace.Parameters) != "update" {
 		t.Fatalf("workspace.get updated parameters = %#v", workspace.Parameters)
 	}
 
@@ -183,14 +183,14 @@ func TestServerResourceRPCUserStory(t *testing.T) {
 	if err != nil {
 		t.Fatalf("credential.put: %v", err)
 	}
-	if credential.Body["api_key"] != "sk-updated" {
+	if testRPCOpenAIAPIKey(t, credential.Body) != "sk-updated" {
 		t.Fatalf("credential.put body = %#v", credential.Body)
 	}
 	credential, err = peer.GetCredential(ctx, "credential.get.updated", rpcapi.CredentialGetRequest{Name: "peer-credential"})
 	if err != nil {
 		t.Fatalf("credential.get updated: %v", err)
 	}
-	if credential.Body["api_key"] != "sk-updated" {
+	if testRPCOpenAIAPIKey(t, credential.Body) != "sk-updated" {
 		t.Fatalf("credential.get updated body = %#v", credential.Body)
 	}
 
@@ -427,7 +427,7 @@ func seedPeerResources(t *testing.T, h *clitest.Harness) {
 	if resp, err := api.CreateWorkspaceWithResponse(ctx, adminservice.WorkspaceUpsert{
 		Name:         "seed-workspace",
 		WorkflowName: "seed-flow",
-		Parameters:   &map[string]interface{}{"seeded": true},
+		Parameters:   testAPIFlowcraftWorkspaceParameters("seed"),
 	}); err != nil {
 		t.Fatalf("seed workspace: %v", err)
 	} else if resp.JSON200 == nil {
@@ -449,8 +449,7 @@ func seedPeerResources(t *testing.T, h *clitest.Harness) {
 	if resp, err := api.CreateCredentialWithResponse(ctx, adminservice.CredentialUpsert{
 		Name:     "seed-credential",
 		Provider: "openai",
-		Method:   apitypes.CredentialMethodApiKey,
-		Body:     apitypes.CredentialBody{"api_key": "sk-seed"},
+		Body:     testAPIOpenAICredentialBody("sk-seed"),
 	}); err != nil {
 		t.Fatalf("seed credential: %v", err)
 	} else if resp.JSON200 == nil {
@@ -502,9 +501,77 @@ func rpcCredential(name, apiKey string) rpcapi.Credential {
 	return rpcapi.Credential{
 		Name:     name,
 		Provider: "openai",
-		Method:   rpcapi.CredentialMethodApiKey,
-		Body:     rpcapi.CredentialBody{"api_key": apiKey},
+		Body:     testRPCOpenAICredentialBody(apiKey),
 	}
+}
+
+func testAPIFlowcraftWorkspaceParameters(generateModel string) *apitypes.WorkspaceParameters {
+	var params apitypes.WorkspaceParameters
+	if err := params.FromFlowcraftWorkspaceParameters(apitypes.FlowcraftWorkspaceParameters{
+		AgentType:     apitypes.FlowcraftWorkspaceParametersAgentTypeFlowcraft,
+		GenerateModel: ptr(generateModel),
+	}); err != nil {
+		panic(err)
+	}
+	return &params
+}
+
+func testRPCFlowcraftWorkspaceParameters(generateModel string) *rpcapi.WorkspaceParameters {
+	var params rpcapi.WorkspaceParameters
+	if err := params.FromFlowcraftWorkspaceParameters(rpcapi.FlowcraftWorkspaceParameters{
+		AgentType:     rpcapi.FlowcraftWorkspaceParametersAgentTypeFlowcraft,
+		GenerateModel: ptr(generateModel),
+	}); err != nil {
+		panic(err)
+	}
+	return &params
+}
+
+func testRPCFlowcraftGenerateModel(t *testing.T, params *rpcapi.WorkspaceParameters) string {
+	t.Helper()
+	if params == nil {
+		t.Fatal("workspace parameters are nil")
+	}
+	typed, err := params.AsFlowcraftWorkspaceParameters()
+	if err != nil {
+		t.Fatalf("decode flowcraft workspace parameters: %v", err)
+	}
+	if typed.GenerateModel == nil {
+		return ""
+	}
+	return *typed.GenerateModel
+}
+
+func testAPIOpenAICredentialBody(apiKey string) apitypes.CredentialBody {
+	var body apitypes.CredentialBody
+	if err := body.FromOpenAICredentialBody(apitypes.OpenAICredentialBody{ApiKey: ptr(apiKey)}); err != nil {
+		panic(err)
+	}
+	return body
+}
+
+func testRPCOpenAICredentialBody(apiKey string) rpcapi.CredentialBody {
+	var body rpcapi.CredentialBody
+	if err := body.FromOpenAICredentialBody(rpcapi.OpenAICredentialBody{ApiKey: ptr(apiKey)}); err != nil {
+		panic(err)
+	}
+	return body
+}
+
+func testRPCOpenAIAPIKey(t *testing.T, body rpcapi.CredentialBody) string {
+	t.Helper()
+	typed, err := body.AsOpenAICredentialBody()
+	if err != nil {
+		t.Fatalf("decode OpenAI credential body: %v", err)
+	}
+	if typed.ApiKey == nil {
+		return ""
+	}
+	return *typed.ApiKey
+}
+
+func ptr[T any](v T) *T {
+	return &v
 }
 
 func hasWorkflow(items []rpcapi.WorkflowDocument, name string) bool {

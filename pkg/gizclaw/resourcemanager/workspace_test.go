@@ -41,7 +41,7 @@ func TestGetWorkspaceReturnsResource(t *testing.T) {
 	workspaces.items["demo"] = apitypes.Workspace{
 		CreatedAt:    time.Now().UTC(),
 		Name:         "demo",
-		Parameters:   &map[string]interface{}{"topic": "demo"},
+		Parameters:   testFlowcraftWorkspaceParameters(),
 		UpdatedAt:    time.Now().UTC(),
 		WorkflowName: "workflow",
 	}

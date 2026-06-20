@@ -203,7 +203,7 @@ type ModelUpsert struct {
 	Name     *string                    `json:"name,omitempty"`
 	Provider externalRef0.ModelProvider `json:"provider"`
 
-	// ProviderData Provider-specific model runtime configuration keyed by provider kind.
+	// ProviderData Provider-specific model runtime configuration. The shape is selected by Model.provider.kind.
 	ProviderData *externalRef0.ModelProviderData `json:"provider_data,omitempty"`
 
 	// Source How the model entered the global catalog
@@ -270,7 +270,7 @@ type VoiceUpsert struct {
 	Name        *string                    `json:"name,omitempty"`
 	Provider    externalRef0.VoiceProvider `json:"provider"`
 
-	// ProviderData Provider-specific voice runtime configuration keyed by provider kind.
+	// ProviderData Provider-specific voice runtime configuration. The shape is selected by Voice.provider.kind.
 	ProviderData *externalRef0.VoiceProviderData `json:"provider_data,omitempty"`
 
 	// Source How the voice entered the global catalog
@@ -319,9 +319,11 @@ type WorkspaceList struct {
 
 // WorkspaceUpsert defines model for WorkspaceUpsert.
 type WorkspaceUpsert struct {
-	Name         string                  `json:"name"`
-	Parameters   *map[string]interface{} `json:"parameters,omitempty"`
-	WorkflowName string                  `json:"workflow_name"`
+	Name string `json:"name"`
+
+	// Parameters Agent-specific workspace parameters. The shape is selected by agent_type.
+	Parameters   *externalRef0.WorkspaceParameters `json:"parameters,omitempty"`
+	WorkflowName string                            `json:"workflow_name"`
 }
 
 // ModelProviderKind Provider resource kind usable by model runtime.

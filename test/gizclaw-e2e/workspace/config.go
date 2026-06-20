@@ -44,14 +44,21 @@ type modelConfig struct {
 }
 
 type workflowConfig struct {
-	Name          string                 `json:"name"`
-	Description   string                 `json:"description,omitempty"`
-	RealtimeModel string                 `json:"realtime_model"`
-	Parameters    map[string]interface{} `json:"parameters,omitempty"`
-	Session       realtimeSessionConfig  `json:"session"`
-	Output        realtimeOutputConfig   `json:"output"`
-	Flowcraft     map[string]interface{} `json:"flowcraft,omitempty"`
-	VoiceAdapter  voiceAdapterConfig     `json:"voice_adapter,omitempty"`
+	Name          string                   `json:"name"`
+	Description   string                   `json:"description,omitempty"`
+	RealtimeModel string                   `json:"realtime_model"`
+	Parameters    workspaceParameterConfig `json:"parameters,omitempty"`
+	Session       realtimeSessionConfig    `json:"session"`
+	Output        realtimeOutputConfig     `json:"output"`
+	Flowcraft     map[string]interface{}   `json:"flowcraft,omitempty"`
+	VoiceAdapter  voiceAdapterConfig       `json:"voice_adapter,omitempty"`
+}
+
+type workspaceParameterConfig struct {
+	E2E            *bool  `json:"e2e,omitempty"`
+	GenerateModel  string `json:"generate_model,omitempty"`
+	ExtractModel   string `json:"extract_model,omitempty"`
+	EmbeddingModel string `json:"embedding_model,omitempty"`
 }
 
 type realtimeSessionConfig struct {
@@ -260,11 +267,8 @@ func (c *config) validate() error {
 		if c.Workflow.VoiceAdapter.DefaultVoice == "" {
 			c.Workflow.VoiceAdapter.DefaultVoice = c.Voice
 		}
-		if c.Workflow.Parameters == nil {
-			c.Workflow.Parameters = map[string]interface{}{}
-		}
-		if _, ok := c.Workflow.Parameters["generate_model"]; !ok {
-			c.Workflow.Parameters["generate_model"] = c.Models.LLM
+		if c.Workflow.Parameters.GenerateModel == "" {
+			c.Workflow.Parameters.GenerateModel = c.Models.LLM
 		}
 	}
 	if c.Voice == "" {

@@ -1,0 +1,254 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Workspace Parameters Type",
+    "description": "WorkspaceParameters schema.",
+    "version": "1.0.0"
+  },
+  "paths": {},
+  "components": {
+    "schemas": {
+      "WorkspaceParameters": {
+        "description": "Agent-specific workspace parameters. The shape is selected by agent_type.",
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/FlowcraftWorkspaceParameters"
+          },
+          {
+            "$ref": "#/components/schemas/DoubaoRealtimeWorkspaceParameters"
+          }
+        ],
+        "discriminator": {
+          "propertyName": "agent_type",
+          "mapping": {
+            "flowcraft": "#/components/schemas/FlowcraftWorkspaceParameters",
+            "doubao-realtime": "#/components/schemas/DoubaoRealtimeWorkspaceParameters"
+          }
+        }
+      },
+      "WorkspaceInputMode": {
+        "type": "string",
+        "enum": [
+          "push-to-talk",
+          "realtime"
+        ]
+      },
+      "FlowcraftConversationParameters": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "initiative": {
+            "type": "string",
+            "enum": [
+              "peer",
+              "agent"
+            ],
+            "description": "Who starts the conversation when the workspace runtime opens."
+          },
+          "agent_initiative_policy": {
+            "type": "string",
+            "enum": [
+              "once_when_empty",
+              "on_reload"
+            ],
+            "description": "When agent initiative is allowed."
+          }
+        }
+      },
+      "FlowcraftWorkspaceParameters": {
+        "type": "object",
+        "required": [
+          "agent_type"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "agent_type": {
+            "type": "string",
+            "enum": [
+              "flowcraft"
+            ]
+          },
+          "input": {
+            "$ref": "#/components/schemas/WorkspaceInputMode"
+          },
+          "generate_model": {
+            "type": "string"
+          },
+          "extract_model": {
+            "type": "string"
+          },
+          "embedding_model": {
+            "type": "string"
+          },
+          "conversation": {
+            "$ref": "#/components/schemas/FlowcraftConversationParameters"
+          },
+          "e2e": {
+            "type": "boolean",
+            "description": "Marks seed resources used by the local e2e harness."
+          }
+        },
+        "example": {
+          "agent_type": "flowcraft",
+          "input": "push-to-talk",
+          "generate_model": "e2e-doubao-2-lite-chat",
+          "extract_model": "e2e-doubao-2-lite-chat",
+          "conversation": {
+            "initiative": "agent",
+            "agent_initiative_policy": "once_when_empty"
+          }
+        }
+      },
+      "DoubaoRealtimeVoiceParameters": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/DoubaoRealtimeInternalSpeakerParameters"
+          },
+          {
+            "$ref": "#/components/schemas/DoubaoRealtimeExternalVoiceParameters"
+          }
+        ]
+      },
+      "DoubaoRealtimeInternalSpeakerParameters": {
+        "type": "object",
+        "required": [
+          "realtime_speaker_id"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "realtime_speaker_id": {
+            "type": "string",
+            "description": "Doubao realtime built-in speaker id."
+          }
+        }
+      },
+      "DoubaoRealtimeExternalVoiceParameters": {
+        "type": "object",
+        "required": [
+          "tts_voice"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "tts_voice": {
+            "type": "string",
+            "description": "GizClaw voice resource name used by an external TTS path."
+          }
+        }
+      },
+      "DoubaoRealtimeSessionParameters": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "bot_name": {
+            "type": "string"
+          },
+          "system_role": {
+            "type": "string"
+          },
+          "upstream_model": {
+            "type": "string"
+          },
+          "vad_window_ms": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "speaking_style": {
+            "type": "string"
+          },
+          "character_manifest": {
+            "type": "string"
+          },
+          "resource_id": {
+            "type": "string"
+          }
+        }
+      },
+      "DoubaoRealtimeSearchParameters": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "type": {
+            "type": "string"
+          },
+          "bot_id": {
+            "type": "string"
+          },
+          "result_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "no_result_message": {
+            "type": "string"
+          }
+        }
+      },
+      "DoubaoRealtimeMusicParameters": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          }
+        }
+      },
+      "DoubaoRealtimeWorkspaceParameters": {
+        "type": "object",
+        "required": [
+          "agent_type"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "agent_type": {
+            "type": "string",
+            "enum": [
+              "doubao-realtime"
+            ]
+          },
+          "realtime_model": {
+            "type": "string"
+          },
+          "input": {
+            "$ref": "#/components/schemas/WorkspaceInputMode"
+          },
+          "voice": {
+            "$ref": "#/components/schemas/DoubaoRealtimeVoiceParameters"
+          },
+          "session": {
+            "$ref": "#/components/schemas/DoubaoRealtimeSessionParameters"
+          },
+          "search": {
+            "$ref": "#/components/schemas/DoubaoRealtimeSearchParameters"
+          },
+          "music": {
+            "$ref": "#/components/schemas/DoubaoRealtimeMusicParameters"
+          },
+          "temperature": {
+            "type": "number"
+          },
+          "e2e": {
+            "type": "boolean",
+            "description": "Marks seed resources used by the local e2e harness."
+          }
+        },
+        "example": {
+          "agent_type": "doubao-realtime",
+          "realtime_model": "e2e-realtime",
+          "input": "push-to-talk",
+          "voice": {
+            "realtime_speaker_id": "zh_female_vv_jupiter_bigtts"
+          },
+          "search": {
+            "enabled": true,
+            "type": "web"
+          },
+          "music": {
+            "enabled": true
+          }
+        }
+      }
+    }
+  }
+}

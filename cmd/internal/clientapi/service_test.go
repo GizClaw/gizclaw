@@ -34,13 +34,13 @@ func resetOpenAIHTTPClient(t *testing.T, fn func(*http.Request) (*http.Response,
 func TestSanitizePlayCredentialListRedactsBody(t *testing.T) {
 	got := sanitizePlayCredentialList(&rpcapi.CredentialListResponse{
 		Items: []rpcapi.Credential{
-			{Name: "demo", Body: rpcapi.NewOpenAICredentialBody("secret")},
+			{Name: "demo", Body: testRPCOpenAICredentialBody("secret")},
 		},
 	})
 	if got == nil || len(got.Items) != 1 {
 		t.Fatalf("sanitizePlayCredentialList() = %#v", got)
 	}
-	if rpcapi.CredentialBodyString(got.Items[0].Body, "api_key") != "" {
+	if testRPCCredentialBodyString(got.Items[0].Body, "api_key") != "" {
 		t.Fatalf("credential body = %#v, want redacted", got.Items[0].Body)
 	}
 }

@@ -46,8 +46,7 @@ func seedMiniMaxTenant(t *testing.T, h *clitest.Harness) {
 	credentialResp, err := api.CreateCredentialWithResponse(ctx, adminservice.CredentialUpsert{
 		Name:     "main-credential",
 		Provider: "minimax",
-		Method:   apitypes.CredentialMethodApiKey,
-		Body:     apitypes.CredentialBody{"api_key": "sk-test"},
+		Body:     testMiniMaxCredentialBody("sk-test"),
 	})
 	if err != nil {
 		t.Fatalf("seed minimax credential: %v", err)
@@ -73,4 +72,12 @@ func seedMiniMaxTenant(t *testing.T, h *clitest.Harness) {
 
 func ptr(value string) *string {
 	return &value
+}
+
+func testMiniMaxCredentialBody(apiKey string) apitypes.CredentialBody {
+	var body apitypes.CredentialBody
+	if err := body.FromMiniMaxCredentialBody(apitypes.MiniMaxCredentialBody{ApiKey: ptr(apiKey)}); err != nil {
+		panic(err)
+	}
+	return body
 }

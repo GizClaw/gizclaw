@@ -40,7 +40,7 @@ func TestApplyCredentialCreatesResource(t *testing.T) {
 func TestApplyCredentialUnchangedSkipsPut(t *testing.T) {
 	credentials := newFakeCredentials()
 	credentials.items["minimax-main"] = apitypes.Credential{
-		Body:        apitypes.NewOpenAICredentialBody("secret"),
+		Body:        testOpenAICredentialBody("secret"),
 		CreatedAt:   time.Now().UTC(),
 		Description: ptr("primary key"),
 		Name:        "minimax-main",
@@ -73,7 +73,7 @@ func TestApplyCredentialUnchangedSkipsPut(t *testing.T) {
 func TestApplyCredentialUpdatesResource(t *testing.T) {
 	credentials := newFakeCredentials()
 	credentials.items["minimax-main"] = apitypes.Credential{
-		Body:      apitypes.NewOpenAICredentialBody("old"),
+		Body:      testOpenAICredentialBody("old"),
 		CreatedAt: time.Now().UTC(),
 		Name:      "minimax-main",
 		Provider:  "minimax",
@@ -104,7 +104,7 @@ func TestApplyCredentialUpdatesResource(t *testing.T) {
 func TestGetCredentialReturnsResource(t *testing.T) {
 	credentials := newFakeCredentials()
 	credentials.items["minimax-main"] = apitypes.Credential{
-		Body:      apitypes.NewOpenAICredentialBody("secret"),
+		Body:      testOpenAICredentialBody("secret"),
 		CreatedAt: time.Now().UTC(),
 		Name:      "minimax-main",
 		Provider:  "minimax",
@@ -126,7 +126,7 @@ func TestGetCredentialReturnsResource(t *testing.T) {
 	if credential.Metadata.Name != "minimax-main" {
 		t.Fatalf("metadata.name = %q, want minimax-main", credential.Metadata.Name)
 	}
-	if got := apitypes.CredentialBodyString(credential.Spec.Body, "api_key"); got != "secret" {
+	if got := testCredentialBodyString(credential.Spec.Body, "api_key"); got != "secret" {
 		t.Fatalf("api_key = %q, want secret", got)
 	}
 }

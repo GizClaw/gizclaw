@@ -11,7 +11,7 @@ import (
 func TestApplyResourceListRecurses(t *testing.T) {
 	credentials := newFakeCredentials()
 	credentials.items["existing"] = apitypes.Credential{
-		Body:      apitypes.NewOpenAICredentialBody("old"),
+		Body:      testOpenAICredentialBody("old"),
 		CreatedAt: time.Now().UTC(),
 		Name:      "existing",
 		Provider:  "minimax",

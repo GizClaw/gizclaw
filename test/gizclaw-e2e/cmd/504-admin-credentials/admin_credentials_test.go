@@ -55,15 +55,13 @@ func seedCredentials(t *testing.T, h *clitest.Harness) {
 		{
 			Name:        "main",
 			Provider:    "openai",
-			Method:      apitypes.CredentialMethodApiKey,
 			Description: ptr("primary"),
-			Body:        apitypes.CredentialBody{"api_key": "sk-test"},
+			Body:        testOpenAICredentialBody("sk-test"),
 		},
 		{
 			Name:     "tenant-key",
 			Provider: "minimax",
-			Method:   apitypes.CredentialMethodApiKey,
-			Body:     apitypes.CredentialBody{"api_key": "sk-minimax"},
+			Body:     testMiniMaxCredentialBody("sk-minimax"),
 		},
 	} {
 		resp, err := api.CreateCredentialWithResponse(ctx, req)
@@ -78,4 +76,20 @@ func seedCredentials(t *testing.T, h *clitest.Harness) {
 
 func ptr(value string) *string {
 	return &value
+}
+
+func testOpenAICredentialBody(apiKey string) apitypes.CredentialBody {
+	var body apitypes.CredentialBody
+	if err := body.FromOpenAICredentialBody(apitypes.OpenAICredentialBody{ApiKey: ptr(apiKey)}); err != nil {
+		panic(err)
+	}
+	return body
+}
+
+func testMiniMaxCredentialBody(apiKey string) apitypes.CredentialBody {
+	var body apitypes.CredentialBody
+	if err := body.FromMiniMaxCredentialBody(apitypes.MiniMaxCredentialBody{ApiKey: ptr(apiKey)}); err != nil {
+		panic(err)
+	}
+	return body
 }

@@ -305,13 +305,17 @@ func paginateEntries(entries []kv.Entry, limit int) ([]kv.Entry, bool, *string) 
 	return page, true, &nextCursor
 }
 
-func cloneParameters(parameters *map[string]interface{}) *map[string]interface{} {
+func cloneParameters(parameters *apitypes.WorkspaceParameters) *apitypes.WorkspaceParameters {
 	if parameters == nil {
 		return nil
 	}
-	cloned := make(map[string]interface{}, len(*parameters))
-	for key, value := range *parameters {
-		cloned[key] = value
+	data, err := parameters.MarshalJSON()
+	if err != nil {
+		return nil
+	}
+	var cloned apitypes.WorkspaceParameters
+	if err := cloned.UnmarshalJSON(data); err != nil {
+		return nil
 	}
 	return &cloned
 }

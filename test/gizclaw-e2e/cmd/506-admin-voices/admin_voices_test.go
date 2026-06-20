@@ -104,17 +104,9 @@ func seedVoices(t *testing.T, h *clitest.Harness) {
 				Kind: "volc-tenant",
 				Name: "gizclaw-dev",
 			},
-			Name:        ptr("Volc CLI Seed Voice"),
-			Description: ptr("seeded Volc voice for CLI examples"),
-			ProviderData: &apitypes.VoiceProviderData{
-				"volc-tenant": map[string]interface{}{
-					"app_id":      "app-cli",
-					"resource_id": "seed-tts-2.0",
-					"state":       "Success",
-					"status":      "Available",
-					"voice_id":    "ICL_cli_seed_voice",
-				},
-			},
+			Name:         ptr("Volc CLI Seed Voice"),
+			Description:  ptr("seeded Volc voice for CLI examples"),
+			ProviderData: testVolcVoiceProviderData(),
 		},
 	} {
 		resp, err := api.CreateVoiceWithResponse(ctx, req)
@@ -128,8 +120,7 @@ func seedVoices(t *testing.T, h *clitest.Harness) {
 	credentialResp, err := api.CreateCredentialWithResponse(ctx, adminservice.CredentialUpsert{
 		Name:     "volc-cli-credential",
 		Provider: "volc",
-		Method:   apitypes.CredentialMethodApiKey,
-		Body:     apitypes.CredentialBody{},
+		Body:     testVolcCredentialBody(),
 	})
 	if err != nil {
 		t.Fatalf("seed volc credential: %v", err)
@@ -140,7 +131,6 @@ func seedVoices(t *testing.T, h *clitest.Harness) {
 	resourceIDs := []string{"seed-tts-2.0"}
 	tenantResp, err := api.CreateVolcTenantWithResponse(ctx, adminservice.VolcTenantUpsert{
 		Name:           "gizclaw-dev",
-		AppId:          "app-cli",
 		CredentialName: "volc-cli-credential",
 		Region:         ptr("cn-beijing"),
 		ResourceIds:    &resourceIDs,
@@ -156,4 +146,36 @@ func seedVoices(t *testing.T, h *clitest.Harness) {
 
 func ptr(value string) *string {
 	return &value
+}
+
+func testVolcVoiceProviderData() *apitypes.VoiceProviderData {
+	resourceID := "seed-tts-2.0"
+	state := "Success"
+	status := "Available"
+	voiceID := "ICL_cli_seed_voice"
+	var out apitypes.VoiceProviderData
+	if err := out.FromVolcTenantVoiceProviderData(apitypes.VolcTenantVoiceProviderData{
+		ResourceId: &resourceID,
+		State:      &state,
+		Status:     &status,
+		VoiceId:    &voiceID,
+	}); err != nil {
+		panic(err)
+	}
+	return &out
+}
+
+func testVolcCredentialBody() apitypes.CredentialBody {
+	appID := "app-cli"
+	secret := "secret"
+	ak := "ak"
+	var body apitypes.CredentialBody
+	if err := body.FromVolcCredentialBody(apitypes.VolcCredentialBody{
+		AppId:              &appID,
+		OpenapiAccessKeyId: &ak,
+		SecretAccessKey:    &secret,
+	}); err != nil {
+		panic(err)
+	}
+	return body
 }

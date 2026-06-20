@@ -461,15 +461,16 @@ func miniMaxBaseURLCandidates(tenant apitypes.MiniMaxTenant, credential apitypes
 	if tenant.BaseUrl != nil {
 		add(*tenant.BaseUrl)
 	}
-	add(credentialBodyString(credential.Body, "voice_base_url"))
-	add(credentialBodyString(credential.Body, "minimax_voice_base_url"))
+	body, _ := credential.Body.AsMiniMaxCredentialBody()
+	add(ptrString(body.VoiceBaseUrl))
+	add(ptrString(body.MinimaxVoiceBaseUrl))
 	if len(fallbackBaseURLs) == 0 {
 		fallbackBaseURLs = append([]string{defaultMiniMaxBaseURL}, fallbackMiniMaxBaseURLs...)
 	}
 	for _, baseURL := range fallbackBaseURLs {
 		add(baseURL)
 	}
-	add(credentialBodyString(credential.Body, "base_url"))
+	add(ptrString(body.BaseUrl))
 	return candidates
 }
 
@@ -489,16 +490,30 @@ func normalizeMiniMaxVoiceBaseURL(raw string) string {
 }
 
 func miniMaxAPIKey(credential apitypes.Credential) (string, error) {
-	for _, key := range []string{"api_key", "token"} {
-		if value := credentialBodyString(credential.Body, key); value != "" {
-			return value, nil
-		}
+	body, err := credential.Body.AsMiniMaxCredentialBody()
+	if err != nil {
+		return "", err
+	}
+	if value := firstString(ptrString(body.ApiKey), ptrString(body.Token)); value != "" {
+		return value, nil
 	}
 	return "", fmt.Errorf("credential %q is missing api_key/token", credential.Name)
 }
 
-func credentialBodyString(body apitypes.CredentialBody, key string) string {
-	return apitypes.CredentialBodyString(body, key)
+func ptrString(value *string) string {
+	if value == nil {
+		return ""
+	}
+	return strings.TrimSpace(*value)
+}
+
+func firstString(values ...string) string {
+	for _, value := range values {
+		if text := strings.TrimSpace(value); text != "" {
+			return text
+		}
+	}
+	return ""
 }
 
 func listAllMiniMaxVoices(ctx context.Context, client *minimax.Client) ([]minimax.Voice, error) {
@@ -874,9 +889,13 @@ func cloneVoiceProviderData(in *apitypes.VoiceProviderData) *apitypes.VoiceProvi
 	if in == nil {
 		return nil
 	}
-	out := make(apitypes.VoiceProviderData, len(*in))
-	for key, value := range *in {
-		out[key] = value
+	data, err := in.MarshalJSON()
+	if err != nil {
+		return nil
+	}
+	var out apitypes.VoiceProviderData
+	if err := out.UnmarshalJSON(data); err != nil {
+		return nil
 	}
 	return &out
 }

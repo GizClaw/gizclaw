@@ -195,7 +195,7 @@ func TestFactoryNewAgentWritesClawConfig(t *testing.T) {
 		},
 	}
 	transformer, err := (Factory{GenX: service}).NewAgent(ctx, agenthost.Spec{
-		Workspace: apitypes.Workspace{Name: "ws", Parameters: &params},
+		Workspace: apitypes.Workspace{Name: "ws", Parameters: testFlowcraftWorkspaceParameters(params)},
 		Workflow:  workflow,
 		Runtime:   agenthost.WorkspaceRuntime{LocalDir: t.TempDir()},
 	})
@@ -234,7 +234,7 @@ func TestFactoryNewAgentFailsClosedOnDeniedVoice(t *testing.T) {
 		},
 	}
 	_, err := (Factory{GenX: service}).NewAgent(ctx, agenthost.Spec{
-		Workspace: apitypes.Workspace{Name: "ws", Parameters: &params},
+		Workspace: apitypes.Workspace{Name: "ws", Parameters: testFlowcraftWorkspaceParameters(params)},
 		Workflow:  workflow,
 		Runtime:   agenthost.WorkspaceRuntime{LocalDir: t.TempDir()},
 	})
@@ -487,7 +487,7 @@ func TestBuildClawConfigInjectsPeerResolvedOpenAIModel(t *testing.T) {
 		"agent":   map[string]any{"system_prompt": "short"},
 	}
 	got, err := buildClawConfig(ctx, service, agenthost.Spec{
-		Workspace: apitypes.Workspace{Name: "ws", Parameters: &params},
+		Workspace: apitypes.Workspace{Name: "ws", Parameters: testFlowcraftWorkspaceParameters(params)},
 	}, cfg)
 	if err != nil {
 		t.Fatalf("buildClawConfig() error = %v", err)
@@ -541,7 +541,7 @@ func TestBuildClawConfigMapsVolcTenantLLMToBytedance(t *testing.T) {
 	})
 	params := map[string]any{"generate_model": "chat"}
 	got, err := buildClawConfig(ctx, service, agenthost.Spec{
-		Workspace: apitypes.Workspace{Name: "ws", Parameters: &params},
+		Workspace: apitypes.Workspace{Name: "ws", Parameters: testFlowcraftWorkspaceParameters(params)},
 	}, workflowConfig{})
 	if err != nil {
 		t.Fatalf("buildClawConfig() error = %v", err)
@@ -572,7 +572,7 @@ func TestBuildClawConfigInjectsOptionalModelRoles(t *testing.T) {
 		"extract_model":  "extract",
 	}
 	got, err := buildClawConfig(ctx, service, agenthost.Spec{
-		Workspace: apitypes.Workspace{Name: "ws", Parameters: &params},
+		Workspace: apitypes.Workspace{Name: "ws", Parameters: testFlowcraftWorkspaceParameters(params)},
 	}, workflowConfig{})
 	if err != nil {
 		t.Fatalf("buildClawConfig() error = %v", err)
@@ -605,7 +605,7 @@ func TestBuildClawConfigRejectsUnsupportedProvider(t *testing.T) {
 	})
 	params := map[string]any{"generate_model": "chat"}
 	_, err := buildClawConfig(context.Background(), service, agenthost.Spec{
-		Workspace: apitypes.Workspace{Name: "ws", Parameters: &params},
+		Workspace: apitypes.Workspace{Name: "ws", Parameters: testFlowcraftWorkspaceParameters(params)},
 	}, workflowConfig{})
 	if err == nil || !strings.Contains(err.Error(), "not supported") {
 		t.Fatalf("buildClawConfig() error = %v", err)
@@ -798,7 +798,7 @@ func TestBuildClawConfigFailsClosedOnDeniedModel(t *testing.T) {
 	})
 	params := map[string]any{"generate_model": "chat"}
 	_, err := buildClawConfig(context.Background(), service, agenthost.Spec{
-		Workspace: apitypes.Workspace{Name: "ws", Parameters: &params},
+		Workspace: apitypes.Workspace{Name: "ws", Parameters: testFlowcraftWorkspaceParameters(params)},
 	}, workflowConfig{})
 	if err == nil || !strings.Contains(err.Error(), "not accessible as a generator") {
 		t.Fatalf("buildClawConfig() error = %v, want inaccessible model", err)
@@ -993,17 +993,24 @@ func (f fakeModels) model(id string) apitypes.Model {
 		kind = apitypes.ModelKindAsr
 		providerKind = apitypes.ModelProviderKindVolcTenant
 	}
-	providerData := apitypes.ModelProviderData{
-		string(apitypes.ModelProviderKindOpenaiTenant): map[string]any{
-			"upstream_model":         "gpt-test",
-			"thinking_param":         "thinking.type",
-			"default_thinking_level": "disabled",
-		},
-		string(apitypes.ModelProviderKindVolcTenant): map[string]any{
-			"upstream_model":         "doubao-lite",
-			"thinking_param":         "thinking.type",
-			"default_thinking_level": "disabled",
-		},
+	openAIUpstream := "gpt-test"
+	volcUpstream := "doubao-lite"
+	thinkingParam := "thinking.type"
+	thinkingLevel := "disabled"
+	var providerData *apitypes.ModelProviderData
+	switch providerKind {
+	case apitypes.ModelProviderKindVolcTenant:
+		providerData = testVolcModelProviderData(apitypes.VolcTenantModelProviderData{
+			UpstreamModel:        &volcUpstream,
+			ThinkingParam:        &thinkingParam,
+			DefaultThinkingLevel: &thinkingLevel,
+		})
+	default:
+		providerData = testOpenAIModelProviderData(apitypes.OpenAITenantModelProviderData{
+			UpstreamModel:        &openAIUpstream,
+			ThinkingParam:        &thinkingParam,
+			DefaultThinkingLevel: &thinkingLevel,
+		})
 	}
 	return apitypes.Model{
 		Id:   id,
@@ -1012,7 +1019,7 @@ func (f fakeModels) model(id string) apitypes.Model {
 			Kind: providerKind,
 			Name: "main",
 		},
-		ProviderData: &providerData,
+		ProviderData: providerData,
 	}
 }
 
@@ -1037,9 +1044,13 @@ type fakeCredentials struct {
 
 func (f fakeCredentials) GetCredential(_ context.Context, request adminservice.GetCredentialRequestObject) (adminservice.GetCredentialResponseObject, error) {
 	*f.events = append(*f.events, "get:credential:"+request.Name)
+	body := testOpenAICredentialBody("test-key")
+	if strings.Contains(request.Name, "volc") {
+		body = testVolcCredentialBody("test-key")
+	}
 	return adminservice.GetCredential200JSONResponse(apitypes.Credential{
 		Name: request.Name,
-		Body: apitypes.NewOpenAICredentialBody("test-key"),
+		Body: body,
 	}), nil
 }
 

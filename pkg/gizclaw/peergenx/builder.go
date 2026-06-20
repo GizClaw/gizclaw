@@ -81,12 +81,16 @@ func (b DefaultBuilder) buildOpenAIGenerator(cfg GeneratorConfig) (genx.Generato
 	if cfg.Tenant.OpenAI == nil {
 		return nil, fmt.Errorf("%w: openai tenant is required", ErrInvalid)
 	}
-	apiKey := credentialString(cfg.Credential, "api_key", "token")
+	body, err := cfg.Credential.Body.AsOpenAICredentialBody()
+	if err != nil {
+		return nil, err
+	}
+	apiKey := firstString(body.ApiKey, body.Token)
 	if apiKey == "" {
 		return nil, fmt.Errorf("%w: credential %q missing api_key", ErrInvalid, cfg.Credential.Name)
 	}
 	opts := []option.RequestOption{option.WithAPIKey(apiKey)}
-	if baseURL := firstString(cfg.Tenant.OpenAI.BaseUrl, credentialBodyString(cfg.Credential.Body, "base_url")); baseURL != "" {
+	if baseURL := firstString(cfg.Tenant.OpenAI.BaseUrl, body.BaseUrl); baseURL != "" {
 		opts = append(opts, option.WithBaseURL(baseURL))
 	}
 	if b.HTTPClient != nil {
@@ -95,8 +99,11 @@ func (b DefaultBuilder) buildOpenAIGenerator(cfg GeneratorConfig) (genx.Generato
 	client := openai.NewClient(opts...)
 
 	var providerData apitypes.OpenAITenantModelProviderData
-	if err := decodeProviderData(cfg.Model.ProviderData, string(apitypes.ModelProviderKindOpenaiTenant), &providerData); err != nil {
-		return nil, err
+	if cfg.Model.ProviderData != nil {
+		providerData, err = cfg.Model.ProviderData.AsOpenAITenantModelProviderData()
+		if err != nil {
+			return nil, fmt.Errorf("%w: decode openai model provider_data: %w", ErrInvalid, err)
+		}
 	}
 	modelName := firstString(providerData.UpstreamModel, string(cfg.Model.Id))
 	if modelName == "" {
@@ -118,12 +125,16 @@ func (b DefaultBuilder) buildVolcArkGenerator(cfg GeneratorConfig) (genx.Generat
 	if cfg.Tenant.Volc == nil {
 		return nil, fmt.Errorf("%w: volc tenant is required", ErrInvalid)
 	}
-	apiKey := credentialString(cfg.Credential, "api_key", "x_api_key")
+	body, err := cfg.Credential.Body.AsVolcCredentialBody()
+	if err != nil {
+		return nil, err
+	}
+	apiKey := firstString(body.ArkApiKey)
 	if apiKey == "" {
-		return nil, fmt.Errorf("%w: credential %q missing api_key for ark", ErrInvalid, cfg.Credential.Name)
+		return nil, fmt.Errorf("%w: credential %q missing ark_api_key for ark", ErrInvalid, cfg.Credential.Name)
 	}
 	opts := []option.RequestOption{option.WithAPIKey(apiKey)}
-	baseURL := firstString(cfg.Tenant.Volc.Endpoint, credentialBodyString(cfg.Credential.Body, "base_url"), defaultVolcArkBaseURL)
+	baseURL := firstString(cfg.Tenant.Volc.Endpoint, defaultVolcArkBaseURL)
 	opts = append(opts, option.WithBaseURL(baseURL))
 	if b.HTTPClient != nil {
 		opts = append(opts, option.WithHTTPClient(b.HTTPClient))
@@ -131,8 +142,11 @@ func (b DefaultBuilder) buildVolcArkGenerator(cfg GeneratorConfig) (genx.Generat
 	client := openai.NewClient(opts...)
 
 	var providerData apitypes.VolcTenantModelProviderData
-	if err := decodeProviderData(cfg.Model.ProviderData, string(apitypes.ModelProviderKindVolcTenant), &providerData); err != nil {
-		return nil, err
+	if cfg.Model.ProviderData != nil {
+		providerData, err = cfg.Model.ProviderData.AsVolcTenantModelProviderData()
+		if err != nil {
+			return nil, fmt.Errorf("%w: decode volc model provider_data: %w", ErrInvalid, err)
+		}
 	}
 	openAIData := openAIProviderDataFromVolc(providerData)
 	modelName := firstString(providerData.UpstreamModel, string(cfg.Model.Id))
@@ -155,7 +169,11 @@ func (b DefaultBuilder) buildGeminiGenerator(ctx context.Context, cfg GeneratorC
 	if cfg.Tenant.Gemini == nil {
 		return nil, fmt.Errorf("%w: gemini tenant is required", ErrInvalid)
 	}
-	apiKey := credentialString(cfg.Credential, "api_key", "token")
+	body, err := cfg.Credential.Body.AsGeminiCredentialBody()
+	if err != nil {
+		return nil, err
+	}
+	apiKey := firstString(body.ApiKey, body.Token)
 	if apiKey == "" {
 		return nil, fmt.Errorf("%w: credential %q missing api_key", ErrInvalid, cfg.Credential.Name)
 	}
@@ -164,8 +182,11 @@ func (b DefaultBuilder) buildGeminiGenerator(ctx context.Context, cfg GeneratorC
 		return nil, err
 	}
 	var providerData apitypes.GeminiTenantModelProviderData
-	if err := decodeProviderData(cfg.Model.ProviderData, string(apitypes.ModelProviderKindGeminiTenant), &providerData); err != nil {
-		return nil, err
+	if cfg.Model.ProviderData != nil {
+		providerData, err = cfg.Model.ProviderData.AsGeminiTenantModelProviderData()
+		if err != nil {
+			return nil, fmt.Errorf("%w: decode gemini model provider_data: %w", ErrInvalid, err)
+		}
 	}
 	modelName := firstString(providerData.UpstreamModel, string(cfg.Model.Id))
 	if modelName == "" {
@@ -181,12 +202,16 @@ func (b DefaultBuilder) buildVolcASR(cfg TransformerConfig) (genx.Transformer, e
 	if cfg.Tenant.Volc == nil || cfg.Model == nil {
 		return nil, fmt.Errorf("%w: volc tenant and model are required", ErrInvalid)
 	}
-	var data map[string]any
-	if err := decodeProviderData(cfg.Model.ProviderData, string(apitypes.VoiceProviderKindVolcTenant), &data); err != nil {
-		return nil, err
+	var providerData apitypes.VolcTenantModelProviderData
+	if cfg.Model.ProviderData != nil {
+		var err error
+		providerData, err = cfg.Model.ProviderData.AsVolcTenantModelProviderData()
+		if err != nil {
+			return nil, fmt.Errorf("%w: decode volc model provider_data: %w", ErrInvalid, err)
+		}
 	}
 	clientOpts := []doubaospeech.Option{}
-	resourceID := mapString(data, "resource_id")
+	resourceID := firstString(providerData.ResourceId)
 	if resourceID == "" {
 		resourceID = doubaospeech.ResourceASRStream
 	}
@@ -195,20 +220,20 @@ func (b DefaultBuilder) buildVolcASR(cfg TransformerConfig) (genx.Transformer, e
 	if err != nil {
 		return nil, err
 	}
-	if mapString(data, "auth_mode", "auth") == "x-api-key" {
-		apiKey := credentialString(cfg.Credential, "api_key", "x_api_key")
+	credentialBody, err := cfg.Credential.Body.AsVolcCredentialBody()
+	if err != nil {
+		return nil, err
+	}
+	if firstString(providerData.AuthMode) == "x-api-key" {
+		apiKey := firstString(credentialBody.ArkApiKey)
 		if apiKey == "" {
-			return nil, fmt.Errorf("%w: credential %q missing api_key for x-api-key auth", ErrInvalid, cfg.Credential.Name)
+			return nil, fmt.Errorf("%w: credential %q missing ark_api_key for x-api-key auth", ErrInvalid, cfg.Credential.Name)
 		}
 		clientOpts = append(clientOpts, doubaospeech.WithAPIKey(apiKey))
-	} else if accessKey := credentialString(cfg.Credential, "sauc_access_key", "token", "access_token", "bearer_token"); accessKey != "" {
-		clientOpts = append(clientOpts, doubaospeech.WithV2APIKey(accessKey, appID))
-	} else if accessKey := credentialString(cfg.Credential, "access_key", "access_key_id"); accessKey != "" {
-		clientOpts = append(clientOpts, doubaospeech.WithV2APIKey(accessKey, appID))
-	} else if accessKey := credentialString(cfg.Credential, "api_key"); accessKey != "" {
+	} else if accessKey := firstString(credentialBody.SpeechToken); accessKey != "" {
 		clientOpts = append(clientOpts, doubaospeech.WithV2APIKey(accessKey, appID))
 	} else {
-		return nil, fmt.Errorf("%w: credential %q missing speech api_key/token/access_token", ErrInvalid, cfg.Credential.Name)
+		return nil, fmt.Errorf("%w: credential %q missing speech_token", ErrInvalid, cfg.Credential.Name)
 	}
 	opts := []transformers.DoubaoASRSAUCOption{}
 	opts = append(opts, transformers.WithDoubaoASRSAUCResourceID(resourceID))
@@ -224,6 +249,10 @@ func (b DefaultBuilder) buildVolcRealtime(cfg TransformerConfig) (genx.Transform
 	if err != nil {
 		return nil, err
 	}
+	credentialBody, err := cfg.Credential.Body.AsVolcCredentialBody()
+	if err != nil {
+		return nil, err
+	}
 	data := mergeParams(nil, cfg.Params)
 	clientOpts := []doubaospeech.Option{doubaospeech.WithResourceID(doubaospeech.ResourceRealtime)}
 	if resourceID := mapString(data, "resource_id"); resourceID != "" {
@@ -231,21 +260,21 @@ func (b DefaultBuilder) buildVolcRealtime(cfg TransformerConfig) (genx.Transform
 	}
 	switch mapString(data, "auth_mode", "auth") {
 	case "x-api-key", "api_key", "":
-		apiKey := credentialString(cfg.Credential, "api_key", "x_api_key")
+		apiKey := firstString(credentialBody.ArkApiKey)
 		if apiKey != "" {
 			clientOpts = append(clientOpts, doubaospeech.WithAPIKey(apiKey))
 			break
 		}
-		token := credentialString(cfg.Credential, "token", "bearer_token", "access_token")
+		token := firstString(credentialBody.SpeechToken)
 		if token != "" {
 			clientOpts = append(clientOpts, doubaospeech.WithBearerToken(token))
 			break
 		}
-		return nil, fmt.Errorf("%w: credential %q missing api_key or token for doubao realtime", ErrInvalid, cfg.Credential.Name)
+		return nil, fmt.Errorf("%w: credential %q missing ark_api_key or speech_token for doubao realtime", ErrInvalid, cfg.Credential.Name)
 	case "v2", "realtime-api-key":
-		accessKey := credentialString(cfg.Credential, "access_key", "access_key_id", "token", "bearer_token")
+		accessKey := firstString(credentialBody.OpenapiAccessKeyId)
 		if accessKey == "" {
-			return nil, fmt.Errorf("%w: credential %q missing access key for doubao realtime", ErrInvalid, cfg.Credential.Name)
+			return nil, fmt.Errorf("%w: credential %q missing openapi_access_key_id for doubao realtime", ErrInvalid, cfg.Credential.Name)
 		}
 		clientOpts = append(clientOpts, doubaospeech.WithRealtimeAPIKey(accessKey, doubaospeech.AppKeyRealtime))
 	default:
@@ -286,12 +315,22 @@ func (b DefaultBuilder) buildVolcTTS(cfg TransformerConfig) (genx.Transformer, e
 	if err != nil {
 		return nil, err
 	}
-	token := credentialString(cfg.Credential, "token", "api_key", "bearer_token")
-	if token == "" {
-		return nil, fmt.Errorf("%w: credential %q missing token", ErrInvalid, cfg.Credential.Name)
+	credentialBody, err := cfg.Credential.Body.AsVolcCredentialBody()
+	if err != nil {
+		return nil, err
 	}
-	data := voiceProviderData(*cfg.Voice, string(apitypes.VoiceProviderKindVolcTenant))
-	voiceID := mapString(data, "voice_id")
+	token := firstString(credentialBody.SpeechToken)
+	if token == "" {
+		return nil, fmt.Errorf("%w: credential %q missing speech_token", ErrInvalid, cfg.Credential.Name)
+	}
+	var providerData apitypes.VolcTenantVoiceProviderData
+	if cfg.Voice.ProviderData != nil {
+		providerData, err = cfg.Voice.ProviderData.AsVolcTenantVoiceProviderData()
+		if err != nil {
+			return nil, fmt.Errorf("%w: decode volc voice provider_data: %w", ErrInvalid, err)
+		}
+	}
+	voiceID := firstString(providerData.VoiceId)
 	if voiceID == "" {
 		return nil, fmt.Errorf("%w: voice %q missing voice_id", ErrInvalid, cfg.Voice.Id)
 	}
@@ -299,7 +338,7 @@ func (b DefaultBuilder) buildVolcTTS(cfg TransformerConfig) (genx.Transformer, e
 		transformers.WithDoubaoTTSSeedV2Format(defaultVolcTTSAudioFormat),
 		transformers.WithDoubaoTTSSeedV2SampleRate(defaultTTSAudioSampleRate),
 	}
-	if value := mapString(data, "resource_id"); value != "" {
+	if value := firstString(providerData.ResourceId); value != "" {
 		opts = append(opts, transformers.WithDoubaoTTSSeedV2ResourceID(value))
 	}
 	client := doubaospeech.NewClient(appID, doubaospeech.WithBearerToken(token))
@@ -310,18 +349,28 @@ func (b DefaultBuilder) buildMiniMaxTTS(cfg TransformerConfig) (genx.Transformer
 	if cfg.Tenant.MiniMax == nil || cfg.Voice == nil {
 		return nil, fmt.Errorf("%w: minimax tenant and voice are required", ErrInvalid)
 	}
-	apiKey := credentialString(cfg.Credential, "api_key", "token")
+	body, err := cfg.Credential.Body.AsMiniMaxCredentialBody()
+	if err != nil {
+		return nil, err
+	}
+	apiKey := firstString(body.ApiKey, body.Token)
 	if apiKey == "" {
 		return nil, fmt.Errorf("%w: credential %q missing api_key", ErrInvalid, cfg.Credential.Name)
 	}
-	data := voiceProviderData(*cfg.Voice, string(apitypes.VoiceProviderKindMinimaxTenant))
-	voiceID := mapString(data, "voice_id")
+	var providerData apitypes.MiniMaxTenantVoiceProviderData
+	if cfg.Voice.ProviderData != nil {
+		providerData, err = cfg.Voice.ProviderData.AsMiniMaxTenantVoiceProviderData()
+		if err != nil {
+			return nil, fmt.Errorf("%w: decode minimax voice provider_data: %w", ErrInvalid, err)
+		}
+	}
+	voiceID := firstString(providerData.VoiceId)
 	if voiceID == "" {
 		return nil, fmt.Errorf("%w: voice %q missing voice_id", ErrInvalid, cfg.Voice.Id)
 	}
 	clientConfig := minimax.Config{
 		APIKey:  apiKey,
-		BaseURL: firstString(cfg.Tenant.MiniMax.BaseUrl, credentialBodyString(cfg.Credential.Body, "base_url"), defaultMiniMaxBaseURL),
+		BaseURL: firstString(cfg.Tenant.MiniMax.BaseUrl, body.BaseUrl, defaultMiniMaxBaseURL),
 	}
 	client, err := minimax.NewClient(clientConfig)
 	if err != nil {
@@ -331,77 +380,28 @@ func (b DefaultBuilder) buildMiniMaxTTS(cfg TransformerConfig) (genx.Transformer
 		transformers.WithMinimaxTTSFormat(defaultMiniMaxTTSAudioFormat),
 		transformers.WithMinimaxTTSSampleRate(defaultTTSAudioSampleRate),
 	}
-	if model := mapString(data, "model"); model != "" {
+	if model := firstString(providerData.Model); model != "" {
 		opts = append(opts, transformers.WithMinimaxTTSModel(model))
 	}
-	if format := mapString(data, "format"); format != "" {
+	if format := firstString(providerData.Format); format != "" {
 		opts = append(opts, transformers.WithMinimaxTTSFormat(format))
 	}
-	if sampleRate, ok := mapInt(data, "sample_rate"); ok {
-		opts = append(opts, transformers.WithMinimaxTTSSampleRate(sampleRate))
+	if providerData.SampleRate != nil {
+		opts = append(opts, transformers.WithMinimaxTTSSampleRate(*providerData.SampleRate))
 	}
 	return transformers.NewMinimaxTTS(client, voiceID, opts...), nil
 }
 
-func decodeProviderData[T any](providerData *apitypes.ModelProviderData, kind string, out *T) error {
-	if out == nil || providerData == nil {
-		return nil
-	}
-	value, ok := (*providerData)[kind]
-	if !ok || value == nil {
-		return nil
-	}
-	data, err := json.Marshal(value)
-	if err != nil {
-		return fmt.Errorf("%w: encode provider_data[%s]: %w", ErrInvalid, kind, err)
-	}
-	if err := json.Unmarshal(data, out); err != nil {
-		return fmt.Errorf("%w: decode provider_data[%s]: %w", ErrInvalid, kind, err)
-	}
-	return nil
-}
-
-func voiceProviderData(voice apitypes.Voice, kind string) map[string]any {
-	if voice.ProviderData == nil {
-		return nil
-	}
-	value := (*voice.ProviderData)[kind]
-	switch typed := value.(type) {
-	case map[string]any:
-		return typed
-	case map[string]string:
-		out := make(map[string]any, len(typed))
-		for key, value := range typed {
-			out[key] = value
-		}
-		return out
-	default:
-		data, err := json.Marshal(value)
-		if err != nil {
-			return nil
-		}
-		var out map[string]any
-		if err := json.Unmarshal(data, &out); err != nil {
-			return nil
-		}
-		return out
-	}
-}
-
-func credentialString(credential apitypes.Credential, keys ...string) string {
-	return credentialBodyString(credential.Body, keys...)
-}
-
 func volcCredentialAppID(credential apitypes.Credential) (string, error) {
-	appID := credentialString(credential, "app_id")
+	body, err := credential.Body.AsVolcCredentialBody()
+	if err != nil {
+		return "", err
+	}
+	appID := firstString(body.AppId)
 	if appID == "" {
 		return "", fmt.Errorf("%w: credential %q missing app_id", ErrInvalid, credential.Name)
 	}
 	return appID, nil
-}
-
-func credentialBodyString(body apitypes.CredentialBody, keys ...string) string {
-	return apitypes.CredentialBodyString(body, keys...)
 }
 
 func firstString(values ...any) string {

@@ -347,6 +347,156 @@
         },
         "type": "object"
       },
+      "DoubaoRealtimeExternalVoiceParameters": {
+        "additionalProperties": false,
+        "properties": {
+          "tts_voice": {
+            "description": "GizClaw voice resource name used by an external TTS path.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "tts_voice"
+        ],
+        "type": "object"
+      },
+      "DoubaoRealtimeInternalSpeakerParameters": {
+        "additionalProperties": false,
+        "properties": {
+          "realtime_speaker_id": {
+            "description": "Doubao realtime built-in speaker id.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "realtime_speaker_id"
+        ],
+        "type": "object"
+      },
+      "DoubaoRealtimeMusicParameters": {
+        "additionalProperties": false,
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          }
+        },
+        "type": "object"
+      },
+      "DoubaoRealtimeSearchParameters": {
+        "additionalProperties": false,
+        "properties": {
+          "bot_id": {
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "no_result_message": {
+            "type": "string"
+          },
+          "result_count": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "type": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "DoubaoRealtimeSessionParameters": {
+        "additionalProperties": false,
+        "properties": {
+          "bot_name": {
+            "type": "string"
+          },
+          "character_manifest": {
+            "type": "string"
+          },
+          "resource_id": {
+            "type": "string"
+          },
+          "speaking_style": {
+            "type": "string"
+          },
+          "system_role": {
+            "type": "string"
+          },
+          "upstream_model": {
+            "type": "string"
+          },
+          "vad_window_ms": {
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "DoubaoRealtimeVoiceParameters": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/DoubaoRealtimeInternalSpeakerParameters"
+          },
+          {
+            "$ref": "#/components/schemas/DoubaoRealtimeExternalVoiceParameters"
+          }
+        ]
+      },
+      "DoubaoRealtimeWorkspaceParameters": {
+        "additionalProperties": false,
+        "example": {
+          "agent_type": "doubao-realtime",
+          "input": "push-to-talk",
+          "music": {
+            "enabled": true
+          },
+          "realtime_model": "e2e-realtime",
+          "search": {
+            "enabled": true,
+            "type": "web"
+          },
+          "voice": {
+            "realtime_speaker_id": "zh_female_vv_jupiter_bigtts"
+          }
+        },
+        "properties": {
+          "agent_type": {
+            "enum": [
+              "doubao-realtime"
+            ],
+            "type": "string"
+          },
+          "e2e": {
+            "description": "Marks seed resources used by the local e2e harness.",
+            "type": "boolean"
+          },
+          "input": {
+            "$ref": "#/components/schemas/WorkspaceInputMode"
+          },
+          "music": {
+            "$ref": "#/components/schemas/DoubaoRealtimeMusicParameters"
+          },
+          "realtime_model": {
+            "type": "string"
+          },
+          "search": {
+            "$ref": "#/components/schemas/DoubaoRealtimeSearchParameters"
+          },
+          "session": {
+            "$ref": "#/components/schemas/DoubaoRealtimeSessionParameters"
+          },
+          "temperature": {
+            "type": "number"
+          },
+          "voice": {
+            "$ref": "#/components/schemas/DoubaoRealtimeVoiceParameters"
+          }
+        },
+        "required": [
+          "agent_type"
+        ],
+        "type": "object"
+      },
       "Firmware": {
         "properties": {
           "created_at": {
@@ -600,6 +750,28 @@
         ],
         "type": "object"
       },
+      "FlowcraftConversationParameters": {
+        "additionalProperties": false,
+        "properties": {
+          "agent_initiative_policy": {
+            "description": "When agent initiative is allowed.",
+            "enum": [
+              "once_when_empty",
+              "on_reload"
+            ],
+            "type": "string"
+          },
+          "initiative": {
+            "description": "Who starts the conversation when the workspace runtime opens.",
+            "enum": [
+              "peer",
+              "agent"
+            ],
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
       "FlowcraftWorkflow": {
         "example": {
           "apiVersion": "gizclaw.flowcraft/v1alpha1",
@@ -637,6 +809,50 @@
       },
       "FlowcraftWorkflowSpec": {
         "additionalProperties": true,
+        "type": "object"
+      },
+      "FlowcraftWorkspaceParameters": {
+        "additionalProperties": false,
+        "example": {
+          "agent_type": "flowcraft",
+          "conversation": {
+            "agent_initiative_policy": "once_when_empty",
+            "initiative": "agent"
+          },
+          "extract_model": "e2e-doubao-2-lite-chat",
+          "generate_model": "e2e-doubao-2-lite-chat",
+          "input": "push-to-talk"
+        },
+        "properties": {
+          "agent_type": {
+            "enum": [
+              "flowcraft"
+            ],
+            "type": "string"
+          },
+          "conversation": {
+            "$ref": "#/components/schemas/FlowcraftConversationParameters"
+          },
+          "e2e": {
+            "description": "Marks seed resources used by the local e2e harness.",
+            "type": "boolean"
+          },
+          "embedding_model": {
+            "type": "string"
+          },
+          "extract_model": {
+            "type": "string"
+          },
+          "generate_model": {
+            "type": "string"
+          },
+          "input": {
+            "$ref": "#/components/schemas/WorkspaceInputMode"
+          }
+        },
+        "required": [
+          "agent_type"
+        ],
         "type": "object"
       },
       "FriendDeleteRequest": {
@@ -1351,9 +1567,7 @@
             "$ref": "#/components/schemas/ModelProviderData",
             "description": "Provider-specific model runtime configuration.",
             "example": {
-              "openai-tenant": {
-                "upstream_model": "MiniMax-M2.5"
-              }
+              "upstream_model": "MiniMax-M2.5"
             }
           },
           "source": {
@@ -1502,24 +1716,24 @@
         "type": "object"
       },
       "ModelProviderData": {
-        "additionalProperties": true,
-        "description": "Provider-specific model runtime configuration keyed by provider kind.",
+        "description": "Provider-specific model runtime configuration. The shape is selected by Model.provider.kind.",
         "example": {
-          "dashscope-tenant": {
-            "api_mode": "realtime",
-            "upstream_model": "qwen-omni-turbo-realtime"
-          },
-          "gemini-tenant": {
-            "upstream_model": "gemini-2.5-flash"
-          },
-          "openai-tenant": {
-            "upstream_model": "MiniMax-M2.5"
-          },
-          "volc-tenant": {
-            "resource_id": "volc.speech.dialog"
-          }
+          "upstream_model": "MiniMax-M2.5"
         },
-        "type": "object"
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/GeminiTenantModelProviderData"
+          },
+          {
+            "$ref": "#/components/schemas/DashScopeTenantModelProviderData"
+          },
+          {
+            "$ref": "#/components/schemas/OpenAITenantModelProviderData"
+          },
+          {
+            "$ref": "#/components/schemas/VolcTenantModelProviderData"
+          }
+        ]
       },
       "ModelProviderKind": {
         "description": "Provider resource kind usable by model runtime.",
@@ -3015,57 +3229,30 @@
       "VolcCredentialBody": {
         "additionalProperties": false,
         "example": {
-          "api_key": "...",
-          "app_id": "123456"
+          "app_id": "123456",
+          "speech_token": "..."
         },
         "minProperties": 1,
         "properties": {
-          "access_key": {
-            "type": "string"
-          },
-          "access_key_id": {
-            "type": "string"
-          },
-          "access_token": {
-            "type": "string"
-          },
-          "ak": {
-            "type": "string"
-          },
-          "api_key": {
-            "type": "string"
-          },
           "app_id": {
             "type": "string"
           },
-          "base_url": {
+          "ark_api_key": {
             "type": "string"
           },
-          "bearer_token": {
-            "type": "string"
-          },
-          "sauc_access_key": {
+          "openapi_access_key_id": {
             "type": "string"
           },
           "secret_access_key": {
             "type": "string"
           },
-          "secret_key": {
-            "type": "string"
-          },
           "session_token": {
             "type": "string"
           },
-          "sk": {
+          "speech_token": {
             "type": "string"
           },
-          "token": {
-            "type": "string"
-          },
-          "voice_base_url": {
-            "type": "string"
-          },
-          "x_api_key": {
+          "websearch_api_key": {
             "type": "string"
           }
         },
@@ -3380,9 +3567,7 @@
             "type": "string"
           },
           "parameters": {
-            "additionalProperties": true,
-            "example": {},
-            "type": "object"
+            "$ref": "#/components/schemas/WorkspaceParameters"
           },
           "updated_at": {
             "format": "date-time",
@@ -3438,6 +3623,13 @@
       "WorkspaceGetResponse": {
         "$ref": "#/components/schemas/Workspace"
       },
+      "WorkspaceInputMode": {
+        "enum": [
+          "push-to-talk",
+          "realtime"
+        ],
+        "type": "string"
+      },
       "WorkspaceListRequest": {
         "additionalProperties": false,
         "properties": {
@@ -3472,6 +3664,24 @@
           "has_next"
         ],
         "type": "object"
+      },
+      "WorkspaceParameters": {
+        "description": "Agent-specific workspace parameters. The shape is selected by agent_type.",
+        "discriminator": {
+          "mapping": {
+            "doubao-realtime": "#/components/schemas/DoubaoRealtimeWorkspaceParameters",
+            "flowcraft": "#/components/schemas/FlowcraftWorkspaceParameters"
+          },
+          "propertyName": "agent_type"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/FlowcraftWorkspaceParameters"
+          },
+          {
+            "$ref": "#/components/schemas/DoubaoRealtimeWorkspaceParameters"
+          }
+        ]
       },
       "WorkspacePutRequest": {
         "additionalProperties": false,

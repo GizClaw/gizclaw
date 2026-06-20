@@ -46,9 +46,7 @@
             "$ref": "./model_provider_data.json#/components/schemas/ModelProviderData",
             "description": "Provider-specific model runtime configuration.",
             "example": {
-              "openai-tenant": {
-                "upstream_model": "MiniMax-M2.5"
-              }
+              "upstream_model": "MiniMax-M2.5"
             }
           },
           "synced_at": {

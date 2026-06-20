@@ -1,12 +1,12 @@
 package credential
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net/url"
-	"sort"
 	"strings"
 	"time"
 
@@ -97,7 +97,7 @@ func (s *Server) CreateCredential(ctx context.Context, request adminservice.Crea
 	if err != nil {
 		return adminservice.CreateCredential400JSONResponse(apitypes.NewErrorResponse("INVALID_CREDENTIAL", err.Error())), nil
 	}
-	if apitypes.IsZeroCredentialBody(upsert.Body) {
+	if isZeroCredentialBody(upsert.Body) {
 		return adminservice.CreateCredential400JSONResponse(apitypes.NewErrorResponse("INVALID_CREDENTIAL", "body is required")), nil
 	}
 	if err := validateCredentialBody(upsert.Provider, upsert.Body); err != nil {
@@ -199,13 +199,13 @@ func (s *Server) PutCredential(ctx context.Context, request adminservice.PutCred
 	var previousPtr *credentialRecord
 	if err == nil {
 		record.CreatedAt = previous.CreatedAt
-		if apitypes.IsZeroCredentialBody(record.Body) {
+		if isZeroCredentialBody(record.Body) {
 			record.Body = cloneBody(previous.Body)
 		}
 		previousCopy := previous
 		previousPtr = &previousCopy
 	}
-	if apitypes.IsZeroCredentialBody(record.Body) {
+	if isZeroCredentialBody(record.Body) {
 		return adminservice.PutCredential400JSONResponse(apitypes.NewErrorResponse("INVALID_CREDENTIAL", "body is required")), nil
 	}
 	if err := validateCredentialBody(record.Provider, record.Body); err != nil {
@@ -332,95 +332,78 @@ func normalizeCredentialUpsert(in adminservice.CredentialUpsert, expectedName st
 	return out, nil
 }
 
-var (
-	openAICredentialBodyKeys  = credentialBodyKeySet("api_key", "token", "base_url", "organization", "project")
-	geminiCredentialBodyKeys  = credentialBodyKeySet("api_key", "token", "base_url")
-	dashScopeCredentialKeys   = credentialBodyKeySet("api_key", "token", "base_url")
-	miniMaxCredentialBodyKeys = credentialBodyKeySet("api_key", "token", "base_url", "voice_base_url", "minimax_voice_base_url")
-	volcCredentialBodyKeys    = credentialBodyKeySet(
-		"app_id",
-		"api_key",
-		"x_api_key",
-		"sauc_access_key",
-		"token",
-		"bearer_token",
-		"access_token",
-		"access_key_id",
-		"access_key",
-		"ak",
-		"secret_access_key",
-		"secret_key",
-		"sk",
-		"session_token",
-		"base_url",
-		"voice_base_url",
-	)
-)
-
 func validateCredentialBody(provider string, body apitypes.CredentialBody) error {
-	values := apitypes.CredentialBodyMap(body)
-	if len(values) == 0 {
+	if isZeroCredentialBody(body) {
 		return errors.New("body is required")
 	}
-	allowed, err := credentialBodyKeysForProvider(provider)
+	switch strings.ToLower(strings.TrimSpace(provider)) {
+	case "openai":
+		var typed apitypes.OpenAICredentialBody
+		if err := decodeCredentialBody(body, &typed); err != nil {
+			return err
+		}
+		if allEmpty(typed.ApiKey, typed.Token, typed.BaseUrl, typed.Organization, typed.Project) {
+			return errors.New("body must include at least one non-empty credential field")
+		}
+		return nil
+	case "gemini":
+		var typed apitypes.GeminiCredentialBody
+		if err := decodeCredentialBody(body, &typed); err != nil {
+			return err
+		}
+		if allEmpty(typed.ApiKey, typed.Token, typed.BaseUrl) {
+			return errors.New("body must include at least one non-empty credential field")
+		}
+		return nil
+	case "dashscope":
+		var typed apitypes.DashScopeCredentialBody
+		if err := decodeCredentialBody(body, &typed); err != nil {
+			return err
+		}
+		if allEmpty(typed.ApiKey, typed.Token, typed.BaseUrl) {
+			return errors.New("body must include at least one non-empty credential field")
+		}
+		return nil
+	case "minimax":
+		var typed apitypes.MiniMaxCredentialBody
+		if err := decodeCredentialBody(body, &typed); err != nil {
+			return err
+		}
+		if allEmpty(typed.ApiKey, typed.Token, typed.BaseUrl, typed.VoiceBaseUrl, typed.MinimaxVoiceBaseUrl) {
+			return errors.New("body must include at least one non-empty credential field")
+		}
+		return nil
+	case "volc", "volcengine":
+		var typed apitypes.VolcCredentialBody
+		if err := decodeCredentialBody(body, &typed); err != nil {
+			return err
+		}
+		if allEmpty(typed.AppId, typed.SpeechToken, typed.ArkApiKey, typed.OpenapiAccessKeyId, typed.SecretAccessKey, typed.SessionToken, typed.WebsearchApiKey) {
+			return errors.New("body must include at least one non-empty credential field")
+		}
+		return nil
+	default:
+		return fmt.Errorf("unsupported credential provider %q", provider)
+	}
+}
+
+func decodeCredentialBody(body apitypes.CredentialBody, out any) error {
+	data, err := body.MarshalJSON()
 	if err != nil {
 		return err
 	}
-	unknown := make([]string, 0)
-	nonEmpty := false
-	for key, value := range values {
-		if !allowed[key] {
-			unknown = append(unknown, key)
-			continue
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.DisallowUnknownFields()
+	return decoder.Decode(out)
+}
+
+func allEmpty(values ...*string) bool {
+	for _, value := range values {
+		if value != nil && strings.TrimSpace(*value) != "" {
+			return false
 		}
-		if credentialBodyValueNonEmpty(value) {
-			nonEmpty = true
-		}
 	}
-	if len(unknown) > 0 {
-		sort.Strings(unknown)
-		return fmt.Errorf("body has unsupported field(s) for provider %q: %s", provider, strings.Join(unknown, ", "))
-	}
-	if !nonEmpty {
-		return errors.New("body must include at least one non-empty credential field")
-	}
-	return nil
-}
-
-func credentialBodyKeysForProvider(provider string) (map[string]bool, error) {
-	switch strings.ToLower(strings.TrimSpace(provider)) {
-	case "openai":
-		return openAICredentialBodyKeys, nil
-	case "gemini":
-		return geminiCredentialBodyKeys, nil
-	case "dashscope":
-		return dashScopeCredentialKeys, nil
-	case "minimax":
-		return miniMaxCredentialBodyKeys, nil
-	case "volc", "volcengine":
-		return volcCredentialBodyKeys, nil
-	default:
-		return nil, fmt.Errorf("unsupported credential provider %q", provider)
-	}
-}
-
-func credentialBodyKeySet(keys ...string) map[string]bool {
-	out := make(map[string]bool, len(keys))
-	for _, key := range keys {
-		out[key] = true
-	}
-	return out
-}
-
-func credentialBodyValueNonEmpty(value any) bool {
-	switch typed := value.(type) {
-	case string:
-		return strings.TrimSpace(typed) != ""
-	case nil:
-		return false
-	default:
-		return true
-	}
+	return true
 }
 
 func credentialKey(name string) kv.Key {
@@ -491,7 +474,22 @@ func paginateEntries(entries []kv.Entry, limit int) ([]kv.Entry, bool, *string) 
 }
 
 func cloneBody(in apitypes.CredentialBody) apitypes.CredentialBody {
-	return apitypes.CloneCredentialBody(in)
+	var out apitypes.CredentialBody
+	data, err := in.MarshalJSON()
+	if err != nil {
+		return out
+	}
+	_ = out.UnmarshalJSON(data)
+	return out
+}
+
+func isZeroCredentialBody(body apitypes.CredentialBody) bool {
+	data, err := body.MarshalJSON()
+	if err != nil {
+		return true
+	}
+	data = bytes.TrimSpace(data)
+	return len(data) == 0 || bytes.Equal(data, []byte("null"))
 }
 
 func cloneString(in *string) *string {

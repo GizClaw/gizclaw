@@ -133,7 +133,10 @@ func ensureWorkspace(ctx context.Context, client runControlClient, cfg config) e
 		}
 	}
 
-	workspace := workspaceDocument(cfg)
+	workspace, err := workspaceDocument(cfg)
+	if err != nil {
+		return err
+	}
 	if _, err := client.CreateWorkspace(ctx, "workspacetest.workspace.create", workspace); err != nil {
 		if !isRPCConflict(err) {
 			return fmt.Errorf("create workspace %q: %w", cfg.Workspace, err)
@@ -194,19 +197,51 @@ func workflowSpec(cfg config) map[string]interface{} {
 	}
 }
 
-func workspaceDocument(cfg config) rpcapi.WorkspaceCreateRequest {
-	params := map[string]interface{}{"agent_type": cfg.Agent}
-	if !cfg.isFlowcraftAgent() {
-		params["realtime_model"] = cfg.Workflow.RealtimeModel
-	}
-	for key, value := range cfg.Workflow.Parameters {
-		params[key] = value
+func workspaceDocument(cfg config) (rpcapi.WorkspaceCreateRequest, error) {
+	params, err := workspaceParameters(cfg)
+	if err != nil {
+		return rpcapi.WorkspaceCreateRequest{}, err
 	}
 	return rpcapi.WorkspaceCreateRequest{
 		Name:         cfg.Workspace,
 		WorkflowName: cfg.Workflow.Name,
-		Parameters:   &params,
+		Parameters:   params,
+	}, nil
+}
+
+func workspaceParameters(cfg config) (*rpcapi.WorkspaceParameters, error) {
+	if cfg.isFlowcraftAgent() {
+		typed := rpcapi.FlowcraftWorkspaceParameters{
+			AgentType:      rpcapi.FlowcraftWorkspaceParametersAgentTypeFlowcraft,
+			E2e:            cfg.Workflow.Parameters.E2E,
+			GenerateModel:  optionalString(cfg.Workflow.Parameters.GenerateModel),
+			ExtractModel:   optionalString(cfg.Workflow.Parameters.ExtractModel),
+			EmbeddingModel: optionalString(cfg.Workflow.Parameters.EmbeddingModel),
+		}
+		var params rpcapi.WorkspaceParameters
+		if err := params.FromFlowcraftWorkspaceParameters(typed); err != nil {
+			return nil, fmt.Errorf("build flowcraft workspace parameters: %w", err)
+		}
+		return &params, nil
 	}
+
+	typed := rpcapi.DoubaoRealtimeWorkspaceParameters{
+		AgentType:     rpcapi.DoubaoRealtimeWorkspaceParametersAgentTypeDoubaoRealtime,
+		E2e:           cfg.Workflow.Parameters.E2E,
+		RealtimeModel: optionalString(cfg.Workflow.RealtimeModel),
+	}
+	var params rpcapi.WorkspaceParameters
+	if err := params.FromDoubaoRealtimeWorkspaceParameters(typed); err != nil {
+		return nil, fmt.Errorf("build doubao realtime workspace parameters: %w", err)
+	}
+	return &params, nil
+}
+
+func optionalString(value string) *string {
+	if value == "" {
+		return nil
+	}
+	return &value
 }
 
 func isRPCConflict(err error) bool {

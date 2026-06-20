@@ -102,11 +102,10 @@ func TestServerVoiceCRUDAndFilters(t *testing.T) {
 }
 
 func TestProviderDataStringAndLegacyDecode(t *testing.T) {
+	kind := apitypes.VoiceProviderKindMinimaxTenant
 	voice := apitypes.Voice{
-		Provider: apitypes.VoiceProvider{Kind: "provider", Name: "tenant"},
-		ProviderData: &apitypes.VoiceProviderData{
-			"provider": map[string]string{"voice_id": " voice-1 "},
-		},
+		Provider:     apitypes.VoiceProvider{Kind: kind, Name: "tenant"},
+		ProviderData: ProviderData(kind, map[string]interface{}{"voice_id": " voice-1 "}),
 	}
 	if got := ProviderDataString(voice, "voice_id"); got != "voice-1" {
 		t.Fatalf("ProviderDataString() = %q, want voice-1", got)
@@ -115,7 +114,7 @@ func TestProviderDataStringAndLegacyDecode(t *testing.T) {
 	var decoded apitypes.Voice
 	if err := Decode([]byte(`{
 		"id": "provider:tenant:voice-1",
-		"provider": {"kind": "provider", "name": "tenant"},
+		"provider": {"kind": "minimax-tenant", "name": "tenant"},
 		"source": "sync",
 		"provider_voice_id": "voice-1",
 		"provider_voice_type": "system"
@@ -130,9 +129,9 @@ func TestProviderDataStringAndLegacyDecode(t *testing.T) {
 func TestVoiceHelperIndexesAndSemanticEquality(t *testing.T) {
 	ctx := context.Background()
 	store := kv.NewMemory(nil)
-	kind := apitypes.VoiceProviderKind("openai-tenant")
+	kind := apitypes.VoiceProviderKindMinimaxTenant
 
-	if got := StableID(kind, "main", "voice-1"); got != "openai-tenant:main:voice-1" {
+	if got := StableID(kind, "main", "voice-1"); got != "minimax-tenant:main:voice-1" {
 		t.Fatalf("StableID() = %q", got)
 	}
 	if got := ProviderData(kind, map[string]interface{}{"voice_id": " ", "nil": nil}); got != nil {
@@ -340,15 +339,9 @@ func TestVoiceBoundaryBranches(t *testing.T) {
 	}
 	if got := ProviderDataString(apitypes.Voice{
 		Provider:     apitypes.VoiceProvider{Kind: kind, Name: "main"},
-		ProviderData: &apitypes.VoiceProviderData{"other": map[string]interface{}{"voice_id": "voice-1"}},
+		ProviderData: ProviderData(apitypes.VoiceProviderKindMinimaxTenant, map[string]interface{}{"voice_type": "system"}),
 	}, "voice_id"); got != "" {
-		t.Fatalf("ProviderDataString(other provider) = %q, want empty", got)
-	}
-	if got := ProviderDataString(apitypes.Voice{
-		Provider:     apitypes.VoiceProvider{Kind: kind, Name: "main"},
-		ProviderData: &apitypes.VoiceProviderData{string(kind): "bad"},
-	}, "voice_id"); got != "" {
-		t.Fatalf("ProviderDataString(non-map data) = %q, want empty", got)
+		t.Fatalf("ProviderDataString(missing key) = %q, want empty", got)
 	}
 
 	manual := voiceUpsert("manual:with-provider-data", "main")

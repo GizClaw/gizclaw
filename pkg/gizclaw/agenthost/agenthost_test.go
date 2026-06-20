@@ -64,12 +64,12 @@ func TestParseWorkspacePattern(t *testing.T) {
 
 func TestServiceResolverResolvesWorkspaceAndWorkflow(t *testing.T) {
 	workflow := mustWorkflow(t, "workflow-1")
-	params := map[string]interface{}{"agent_type": "intercom"}
+	params := testFlowcraftWorkspaceParameters()
 	resolver := ServiceResolver{
 		Workspaces: fakeWorkspaceService{items: map[string]apitypes.Workspace{
 			"demo": {
 				Name:         "demo",
-				Parameters:   &params,
+				Parameters:   params,
 				WorkflowName: "workflow-1",
 			},
 		}},
@@ -85,8 +85,8 @@ func TestServiceResolverResolvesWorkspaceAndWorkflow(t *testing.T) {
 	if spec.Workspace.Name != "demo" {
 		t.Fatalf("unexpected workspace spec: %#v", spec)
 	}
-	if spec.AgentType != "intercom" {
-		t.Fatalf("AgentType = %q, want intercom", spec.AgentType)
+	if spec.AgentType != "flowcraft" {
+		t.Fatalf("AgentType = %q, want flowcraft", spec.AgentType)
 	}
 }
 
@@ -149,16 +149,26 @@ func TestServiceResolverErrors(t *testing.T) {
 	if _, err := resolver.Resolve(context.Background(), "demo"); err == nil || !strings.Contains(err.Error(), "workflow") {
 		t.Fatalf("missing workflow error = %v", err)
 	}
-	params := map[string]interface{}{"agent_type": 1}
+	var params apitypes.WorkspaceParameters
 	resolver.Workflows = fakeWorkflowService{items: map[string]apitypes.WorkflowDocument{
 		"bad-agent-type": mustWorkflow(t, "bad-agent-type"),
 	}}
 	resolver.Workspaces = fakeWorkspaceService{items: map[string]apitypes.Workspace{
 		"demo": {Name: "demo", Parameters: &params, WorkflowName: "bad-agent-type"},
 	}}
-	if _, err := resolver.Resolve(context.Background(), "demo"); err == nil || !strings.Contains(err.Error(), "agent_type") {
+	if _, err := resolver.Resolve(context.Background(), "demo"); err == nil || !strings.Contains(err.Error(), "workspace parameters") {
 		t.Fatalf("bad agent_type error = %v", err)
 	}
+}
+
+func testFlowcraftWorkspaceParameters() *apitypes.WorkspaceParameters {
+	var params apitypes.WorkspaceParameters
+	if err := params.FromFlowcraftWorkspaceParameters(apitypes.FlowcraftWorkspaceParameters{
+		AgentType: apitypes.FlowcraftWorkspaceParametersAgentTypeFlowcraft,
+	}); err != nil {
+		panic(err)
+	}
+	return &params
 }
 
 func TestHostTransformRunsAgentAndReleasesOnClose(t *testing.T) {

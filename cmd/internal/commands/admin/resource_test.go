@@ -180,7 +180,7 @@ func TestAdminResourceApplyExpandsProcessEnv(t *testing.T) {
 	if err != nil {
 		t.Fatalf("applied resource is not credential: %v", err)
 	}
-	if got := apitypes.CredentialBodyString(credential.Spec.Body, "api_key"); got != "env-\"secret\"\\line\nnext" {
+	if got := testCredentialBodyString(credential.Spec.Body, "api_key"); got != "env-\"secret\"\\line\nnext" {
 		t.Fatalf("expanded secret = %#v", got)
 	}
 }

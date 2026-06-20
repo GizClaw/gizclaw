@@ -123,7 +123,7 @@ func TestServerAllowedCRUD(t *testing.T) {
 		Name: "credential-a",
 		Body: rpcCredential("credential-a", "sk-b"),
 	}))
-	if got := rpcapi.CredentialBodyString(mustResult(t, credentialPut.Result.AsCredentialPutResponse).Body, "api_key"); got != "sk-b" {
+	if got := testRPCCredentialBodyString(mustResult(t, credentialPut.Result.AsCredentialPutResponse).Body, "api_key"); got != "sk-b" {
 		t.Fatalf("credential.put body api_key = %#v", got)
 	}
 
@@ -734,7 +734,7 @@ func rpcCredential(name, key string) rpcapi.Credential {
 	return rpcapi.Credential{
 		Name:     name,
 		Provider: "openai",
-		Body:     rpcapi.NewOpenAICredentialBody(key),
+		Body:     testRPCOpenAICredentialBody(key),
 	}
 }
 

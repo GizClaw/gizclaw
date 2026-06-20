@@ -213,7 +213,11 @@ func (s *Server) SyncVolcTenantVoices(ctx context.Context, request adminservice.
 	if err != nil {
 		return adminservice.SyncVolcTenantVoices400JSONResponse(apitypes.NewErrorResponse("INVALID_VOLC_TENANT", err.Error())), nil
 	}
-	appID := strings.TrimSpace(apitypes.CredentialBodyString(credential.Body, "app_id"))
+	credentialBody, err := credential.Body.AsVolcCredentialBody()
+	if err != nil {
+		return adminservice.SyncVolcTenantVoices400JSONResponse(apitypes.NewErrorResponse("INVALID_VOLC_TENANT", err.Error())), nil
+	}
+	appID := strings.TrimSpace(ptrString(credentialBody.AppId))
 	if appID == "" {
 		return adminservice.SyncVolcTenantVoices400JSONResponse(apitypes.NewErrorResponse("INVALID_VOLC_TENANT", fmt.Sprintf("credential %q missing app_id", tenant.CredentialName))), nil
 	}
@@ -478,22 +482,17 @@ func (c volcSpeechSDKClient) BatchListMegaTTSTrainStatusWithContext(ctx context.
 }
 
 func volcCredentialKeys(credential apitypes.Credential) (string, string, string, error) {
-	ak := firstCredentialBodyString(credential.Body, "access_key_id", "access_key", "ak")
-	sk := firstCredentialBodyString(credential.Body, "secret_access_key", "secret_key", "sk")
-	token := firstCredentialBodyString(credential.Body, "session_token", "token")
+	body, err := credential.Body.AsVolcCredentialBody()
+	if err != nil {
+		return "", "", "", err
+	}
+	ak := ptrString(body.OpenapiAccessKeyId)
+	sk := ptrString(body.SecretAccessKey)
+	token := ptrString(body.SessionToken)
 	if ak == "" || sk == "" {
-		return "", "", "", fmt.Errorf("credential %q is missing access_key_id/secret_access_key", credential.Name)
+		return "", "", "", fmt.Errorf("credential %q is missing openapi_access_key_id/secret_access_key", credential.Name)
 	}
 	return ak, sk, token, nil
-}
-
-func firstCredentialBodyString(body apitypes.CredentialBody, keys ...string) string {
-	for _, key := range keys {
-		if value := credentialBodyString(body, key); value != "" {
-			return value
-		}
-	}
-	return ""
 }
 
 type volcSpeakerRecord struct {

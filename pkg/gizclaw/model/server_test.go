@@ -309,11 +309,11 @@ func modelUpsert(id string, providerKind, providerName string) adminservice.Mode
 }
 
 func openAIProviderData(baseURL string) *apitypes.ModelProviderData {
-	data := map[string]any{}
-	if baseURL != "" {
-		data["base_url"] = baseURL
+	_ = baseURL
+	out := apitypes.ModelProviderData{}
+	if err := out.FromOpenAITenantModelProviderData(apitypes.OpenAITenantModelProviderData{}); err != nil {
+		panic(err)
 	}
-	out := apitypes.ModelProviderData{"openai-tenant": data}
 	return &out
 }
 

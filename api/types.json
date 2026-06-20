@@ -323,6 +323,12 @@
       "Workspace": {
         "$ref": "./type/workspace.json#/components/schemas/Workspace"
       },
+      "WorkspaceParameters": {
+        "$ref": "./type/workspace_parameters.json#/components/schemas/WorkspaceParameters"
+      },
+      "WorkspaceInputMode": {
+        "$ref": "./type/workspace_parameters.json#/components/schemas/WorkspaceInputMode"
+      },
       "WorkflowDocument": {
         "$ref": "./type/workflow_document.json#/components/schemas/WorkflowDocument"
       },

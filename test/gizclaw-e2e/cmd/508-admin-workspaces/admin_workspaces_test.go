@@ -50,7 +50,13 @@ func seedWorkspace(t *testing.T, h *clitest.Harness) {
 	if workflowResp.JSON200 == nil {
 		t.Fatalf("seed workflow got status %d: %s", workflowResp.StatusCode(), strings.TrimSpace(string(workflowResp.Body)))
 	}
-	params := map[string]interface{}{"city": "shanghai"}
+	var params apitypes.WorkspaceParameters
+	if err := params.FromFlowcraftWorkspaceParameters(apitypes.FlowcraftWorkspaceParameters{
+		AgentType: apitypes.FlowcraftWorkspaceParametersAgentTypeFlowcraft,
+		E2e:       ptr(true),
+	}); err != nil {
+		t.Fatalf("build workspace parameters: %v", err)
+	}
 	workspaceResp, err := api.CreateWorkspaceWithResponse(ctx, adminservice.WorkspaceUpsert{
 		Name:         "workspace-a",
 		WorkflowName: "demo-assistant",
@@ -75,4 +81,8 @@ func workflowDocument(t *testing.T, name string) apitypes.WorkflowDocument {
 		},
 		Spec: apitypes.FlowcraftWorkflowSpec{},
 	}
+}
+
+func ptr[T any](v T) *T {
+	return &v
 }

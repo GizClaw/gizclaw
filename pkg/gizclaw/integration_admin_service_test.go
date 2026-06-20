@@ -127,12 +127,13 @@ func TestIntegrationAdminServiceWorkspaceLifecycle(t *testing.T) {
 	updated, err := putWorkspace(context.Background(), admin, "demo-workspace", adminservice.WorkspaceUpsert{
 		Name:         "demo-workspace",
 		WorkflowName: "demo-workflow",
-		Parameters:   &map[string]interface{}{"mode": "updated"},
+		Parameters:   testFlowcraftWorkspaceParameters(),
 	})
 	if err != nil {
 		t.Fatalf("PutWorkspace error: %v", err)
 	}
-	if updated.Parameters == nil || (*updated.Parameters)["mode"] != "updated" {
+	params, err := updated.Parameters.AsFlowcraftWorkspaceParameters()
+	if err != nil || params.GenerateModel == nil || *params.GenerateModel != "updated" {
 		t.Fatalf("PutWorkspace parameters = %#v", updated.Parameters)
 	}
 
@@ -163,7 +164,7 @@ func TestIntegrationAdminServiceCredentialLifecycle(t *testing.T) {
 	if created.Name != "openai-primary" {
 		t.Fatalf("CreateCredential = %#v", created)
 	}
-	if apitypes.CredentialBodyString(created.Body, "api_key") != "sk-test" {
+	if testCredentialBodyString(created.Body, "api_key") != "sk-test" {
 		t.Fatalf("CreateCredential body = %#v", created.Body)
 	}
 
@@ -182,7 +183,7 @@ func TestIntegrationAdminServiceCredentialLifecycle(t *testing.T) {
 	if got.Description == nil || *got.Description != "primary openai credential" {
 		t.Fatalf("GetCredential description = %#v", got.Description)
 	}
-	if apitypes.CredentialBodyString(got.Body, "api_key") != "sk-test" {
+	if testCredentialBodyString(got.Body, "api_key") != "sk-test" {
 		t.Fatalf("GetCredential body = %#v", got.Body)
 	}
 
@@ -190,7 +191,7 @@ func TestIntegrationAdminServiceCredentialLifecycle(t *testing.T) {
 		"name": "openai-primary",
 		"provider": "volc",
 		"description": "migrated credential",
-		"body": {"app_id": "app-123", "token": "tok-123"}
+		"body": {"app_id": "app-123", "speech_token": "tok-123"}
 	}`)
 	updated, err := putCredential(context.Background(), admin, "openai-primary", updateBody)
 	if err != nil {
@@ -199,7 +200,7 @@ func TestIntegrationAdminServiceCredentialLifecycle(t *testing.T) {
 	if updated.Provider != "volc" {
 		t.Fatalf("PutCredential = %#v", updated)
 	}
-	if apitypes.CredentialBodyString(updated.Body, "app_id") != "app-123" || apitypes.CredentialBodyString(updated.Body, "token") != "tok-123" {
+	if testCredentialBodyString(updated.Body, "app_id") != "app-123" || testCredentialBodyString(updated.Body, "speech_token") != "tok-123" {
 		t.Fatalf("PutCredential body = %#v", updated.Body)
 	}
 
@@ -211,7 +212,7 @@ func TestIntegrationAdminServiceCredentialLifecycle(t *testing.T) {
 	if len(filtered) != 1 || filtered[0].Name != "openai-primary" {
 		t.Fatalf("ListCredentials(provider) = %#v", filtered)
 	}
-	if apitypes.CredentialBodyString(filtered[0].Body, "token") != "tok-123" {
+	if testCredentialBodyString(filtered[0].Body, "speech_token") != "tok-123" {
 		t.Fatalf("ListCredentials(provider) body = %#v", filtered[0].Body)
 	}
 

@@ -305,6 +305,6 @@ func resourceCredential(name string) rpcapi.Credential {
 	return rpcapi.Credential{
 		Name:     name,
 		Provider: "openai",
-		Body:     rpcapi.NewOpenAICredentialBody("sk-test"),
+		Body:     testRPCOpenAICredentialBody("sk-test"),
 	}
 }

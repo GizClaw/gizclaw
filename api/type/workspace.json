@@ -24,9 +24,7 @@
             "type": "string"
           },
           "parameters": {
-            "type": "object",
-            "additionalProperties": true,
-            "example": {}
+            "$ref": "./workspace_parameters.json#/components/schemas/WorkspaceParameters"
           },
           "created_at": {
             "type": "string",
