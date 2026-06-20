@@ -30,7 +30,6 @@ func TestLoadConfigJSONAndDefaultClientConfig(t *testing.T) {
 	}
 	configPath := filepath.Join(configDir, "doubao-realtime.json")
 	configData := []byte(`{
-  "workspace": "doubao-realtime",
   "agent": "doubao-realtime",
   "workflow": {
     "name": "doubao-realtime-workflow",
@@ -59,7 +58,7 @@ func TestLoadConfigJSONAndDefaultClientConfig(t *testing.T) {
 	if cfg.Server.CipherMode != string(giznet.CipherModeAES256GCM) {
 		t.Fatalf("cipher mode = %q", cfg.Server.CipherMode)
 	}
-	if cfg.Workspace != "doubao-realtime" || cfg.Agent != "doubao-realtime" {
+	if cfg.Workspace != "doubao-realtime-workflow" || cfg.Agent != "doubao-realtime" {
 		t.Fatalf("workspace/agent = %q/%q", cfg.Workspace, cfg.Agent)
 	}
 	if cfg.Workflow.Name != "doubao-realtime-workflow" || cfg.Workflow.RealtimeModel != "setup-realtime" {
@@ -79,36 +78,6 @@ func TestLoadConfigJSONAndDefaultClientConfig(t *testing.T) {
 	}
 }
 
-func TestLoadASTTranslateConfig(t *testing.T) {
-	serverKey, err := giznet.GenerateKeyPair()
-	if err != nil {
-		t.Fatalf("GenerateKeyPair(server): %v", err)
-	}
-	clientKey, err := giznet.GenerateKeyPair()
-	if err != nil {
-		t.Fatalf("GenerateKeyPair(client): %v", err)
-	}
-	contextConfigPath := filepath.Join(t.TempDir(), "config.yaml")
-	writeSetupContextConfig(t, contextConfigPath, serverKey, clientKey, "")
-
-	cfg, err := loadConfig(filepath.Join("config", "ast-translate.json"), contextConfigPath)
-	if err != nil {
-		t.Fatalf("loadConfig(ast-translate) error = %v", err)
-	}
-	if cfg.Agent != "ast-translate" || cfg.Models.Translation != "e2e-ast-translate" {
-		t.Fatalf("ast config = %+v", cfg)
-	}
-	if cfg.Workflow.Translation != "e2e-ast-translate" ||
-		cfg.Workflow.Parameters.TranslationModel != "e2e-ast-translate" ||
-		cfg.Workflow.Parameters.Input != "push-to-talk" ||
-		cfg.Workflow.Parameters.LangPair != "auto" ||
-		cfg.Workflow.ASTTranslate.Mode != "s2s" ||
-		cfg.Workflow.ASTTranslate.AuthMode != "v2" ||
-		cfg.Workflow.ASTTranslate.Voice.SpeakerID != "zh_female_vv_uranus_bigtts" {
-		t.Fatalf("ast workflow = %+v", cfg.Workflow)
-	}
-}
-
 func TestLoadConfigJSONWithExplicitClientConfig(t *testing.T) {
 	serverKey, err := giznet.GenerateKeyPair()
 	if err != nil {
@@ -122,8 +91,10 @@ func TestLoadConfigJSONWithExplicitClientConfig(t *testing.T) {
 	configPath := filepath.Join(dir, "config.json")
 	contextConfigPath := filepath.Join(dir, "config.yaml")
 	configData := `{
-  "workspace": "demo",
   "agent": "doubao-realtime",
+  "workflow": {
+    "name": "demo"
+  },
   "models": {
     "llm": "chat",
     "tts": "tts",
@@ -150,6 +121,41 @@ func TestLoadConfigJSONWithExplicitClientConfig(t *testing.T) {
 	}
 }
 
+func TestLoadFlowcraftConfigs(t *testing.T) {
+	serverKey, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("GenerateKeyPair(server): %v", err)
+	}
+	clientKey, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("GenerateKeyPair(client): %v", err)
+	}
+	contextConfigPath := filepath.Join(t.TempDir(), "config.yaml")
+	writeSetupContextConfig(t, contextConfigPath, serverKey, clientKey, "")
+
+	paths, err := flowcraftConfigPaths(filepath.Join("config"))
+	if err != nil {
+		t.Fatalf("flowcraftConfigPaths() error = %v", err)
+	}
+	if len(paths) != 9 {
+		t.Fatalf("flowcraft config count = %d, want 9: %v", len(paths), paths)
+	}
+	for _, path := range paths {
+		t.Run(filepath.Base(path), func(t *testing.T) {
+			cfg, err := loadConfig(path, contextConfigPath)
+			if err != nil {
+				t.Fatalf("loadConfig(%s) error = %v", path, err)
+			}
+			if cfg.Agent != "flowcraft" || cfg.Workspace != cfg.Workflow.Name || !strings.HasPrefix(cfg.Workflow.Name, "e2e-flowcraft-") {
+				t.Fatalf("loaded cfg = %+v", cfg)
+			}
+			if cfg.Workflow.VoiceAdapter.DefaultVoice == "" || len(cfg.Workflow.VoiceAdapter.NodeVoices) == 0 {
+				t.Fatalf("voice adapter = %+v", cfg.Workflow.VoiceAdapter)
+			}
+		})
+	}
+}
+
 func TestReadSetupContextConfigErrors(t *testing.T) {
 	if _, err := readSetupContextConfig(filepath.Join(t.TempDir(), "missing.yaml")); err == nil {
 		t.Fatal("missing context config succeeded")
@@ -169,13 +175,13 @@ func TestConfigValidationRejectsMissingSecret(t *testing.T) {
 		t.Fatalf("GenerateKeyPair(server): %v", err)
 	}
 	cfg := config{
-		Server:    serverConfig{Addr: "127.0.0.1:9820", PublicKey: serverKey.Public.String()},
-		Workspace: "demo",
-		Agent:     "doubao-realtime",
-		Models:    modelConfig{LLM: "chat", TTS: "tts", ASR: "asr", Realtime: "realtime"},
-		Voice:     "voice",
-		Rounds:    1,
-		Persona:   "persona",
+		Server:   serverConfig{Addr: "127.0.0.1:9820", PublicKey: serverKey.Public.String()},
+		Agent:    "doubao-realtime",
+		Models:   modelConfig{LLM: "chat", TTS: "tts", ASR: "asr", Realtime: "realtime"},
+		Workflow: workflowConfig{Name: "demo"},
+		Voice:    "voice",
+		Rounds:   1,
+		Persona:  "persona",
 	}
 	if err := cfg.validate(); err == nil {
 		t.Fatal("validate() succeeded without client private key")
@@ -194,9 +200,9 @@ func TestConfigValidationErrors(t *testing.T) {
 	valid := func() config {
 		return config{
 			Server:           serverConfig{Addr: "127.0.0.1:9820", PublicKey: serverKey.Public.String()},
-			Workspace:        "demo",
 			Agent:            "doubao-realtime",
 			Models:           modelConfig{LLM: "chat", TTS: "tts", ASR: "asr", Realtime: "realtime"},
+			Workflow:         workflowConfig{Name: "demo"},
 			Voice:            "voice",
 			Rounds:           1,
 			Timeout:          "1s",
@@ -211,17 +217,12 @@ func TestConfigValidationErrors(t *testing.T) {
 	}{
 		{"addr", func(c *config) { c.Server.Addr = "" }, "server.addr"},
 		{"public key", func(c *config) { c.Server.PublicKey = "bad" }, "server.public_key"},
-		{"workspace", func(c *config) { c.Workspace = "" }, "workspace"},
+		{"workflow name", func(c *config) { c.Workflow.Name = "" }, "workflow.name"},
 		{"agent", func(c *config) { c.Agent = "" }, "agent"},
 		{"llm", func(c *config) { c.Models.LLM = "" }, "models.llm"},
 		{"tts", func(c *config) { c.Models.TTS = "" }, "models.tts"},
 		{"asr", func(c *config) { c.Models.ASR = "" }, "models.asr"},
 		{"realtime", func(c *config) { c.Models.Realtime = "" }, "models.realtime"},
-		{"translation", func(c *config) {
-			c.Agent = "ast-translate"
-			c.Models.Realtime = ""
-			c.Models.Translation = ""
-		}, "models.translation"},
 		{"voice", func(c *config) { c.Voice = "" }, "voice"},
 		{"rounds", func(c *config) { c.Rounds = 0 }, "rounds"},
 		{"timeout parse", func(c *config) { c.Timeout = "bad" }, "timeout"},
@@ -251,31 +252,18 @@ func TestConfigValidationErrors(t *testing.T) {
 	}
 }
 
-func TestConfigValidationDefaultsWorkspaceFromWorkflowName(t *testing.T) {
-	serverKey, err := giznet.GenerateKeyPair()
-	if err != nil {
-		t.Fatalf("GenerateKeyPair(server): %v", err)
+func TestConfigWorkspaceMode(t *testing.T) {
+	cfg := config{}
+	if cfg.workspaceMode() != "push_to_talk" {
+		t.Fatalf("default workspace mode = %q", cfg.workspaceMode())
 	}
-	clientKey, err := giznet.GenerateKeyPair()
-	if err != nil {
-		t.Fatalf("GenerateKeyPair(client): %v", err)
+	cfg.Workflow.Parameters.Input = "realtime"
+	if cfg.workspaceMode() != "realtime" {
+		t.Fatalf("input realtime mode = %q", cfg.workspaceMode())
 	}
-	cfg := config{
-		Server:           serverConfig{Addr: "127.0.0.1:9820", PublicKey: serverKey.Public.String()},
-		Agent:            "flowcraft",
-		Models:           modelConfig{LLM: "chat", TTS: "tts", ASR: "asr"},
-		Workflow:         workflowConfig{Name: "flowcraft-basic"},
-		Voice:            "voice",
-		Rounds:           1,
-		Timeout:          "1s",
-		Persona:          "persona",
-		ClientPrivateKey: clientKey.Private.String(),
-	}
-	if err := cfg.validate(); err != nil {
-		t.Fatalf("validate() error = %v", err)
-	}
-	if cfg.Workspace != "flowcraft-basic" || cfg.Workflow.Name != "flowcraft-basic" {
-		t.Fatalf("workspace/workflow defaults = %q/%q", cfg.Workspace, cfg.Workflow.Name)
+	cfg.Workflow.Parameters.Input = "push"
+	if cfg.workspaceMode() != "push_to_talk" {
+		t.Fatalf("push workspace mode = %q", cfg.workspaceMode())
 	}
 }
 

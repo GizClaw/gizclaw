@@ -6,7 +6,9 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/rpcapi"
@@ -25,26 +27,83 @@ func main() {
 
 var (
 	dialClientForRun      = dialClient
-	ensureWorkspaceForRun = func(ctx context.Context, client *gizcli.Client, cfg config) error {
+	ensureWorkspaceForRun = func(ctx context.Context, client *gizcli.Client, cfg config) (config, error) {
 		return ensureWorkspace(ctx, client, cfg)
 	}
 	selectAndReloadAgentForRun = func(ctx context.Context, client *gizcli.Client, cfg config) error {
 		return selectAndReloadAgent(ctx, client, cfg)
 	}
-	newChatTransportForRun = newChatTransport
-	runPersonaDriverForRun = (*personaDriver).run
+	newChatTransportForRun         = newChatTransport
+	runWorkspaceCaseForRun         = (*personaDriver).runCase
+	validateWorkspaceRuntimeForRun = validateWorkspaceRuntime
 )
 
 func run(args []string) error {
 	var configPath string
+	var configDir string
 	var contextConfigPath string
+	var caseName string
 	flags := flag.NewFlagSet("workspacetest", flag.ContinueOnError)
 	flags.StringVar(&configPath, "config", "", "workspacetest config path")
+	flags.StringVar(&configDir, "config-dir", "", "directory of flowcraft raid config files")
 	flags.StringVar(&contextConfigPath, "context-config", "", "setup-generated context config path")
+	flags.StringVar(&caseName, "case", "", "workspace e2e case")
 	if err := flags.Parse(args); err != nil {
 		return err
 	}
+	if strings.TrimSpace(configDir) != "" {
+		if strings.TrimSpace(configPath) != "" {
+			return fmt.Errorf("-config and -config-dir are mutually exclusive")
+		}
+		selectedCase, err := parseWorkspaceCase(caseName)
+		if err != nil {
+			return err
+		}
+		return runConfigDir(configDir, contextConfigPath, selectedCase)
+	}
+	if strings.TrimSpace(configPath) == "" {
+		return fmt.Errorf("config path is required")
+	}
+	selectedCase, err := parseWorkspaceCase(caseName)
+	if err != nil {
+		return err
+	}
+	return runConfig(configPath, contextConfigPath, selectedCase)
+}
+
+func runConfigDir(configDir, contextConfigPath string, selectedCase workspaceCase) error {
+	paths, err := flowcraftConfigPaths(configDir)
+	if err != nil {
+		return err
+	}
+	for _, path := range paths {
+		fmt.Printf("workspace flowcraft config=%s case=%s\n", path, selectedCase)
+		if err := runConfig(path, contextConfigPath, selectedCase); err != nil {
+			return fmt.Errorf("%s: %w", path, err)
+		}
+	}
+	return nil
+}
+
+func flowcraftConfigPaths(configDir string) ([]string, error) {
+	pattern := filepath.Join(configDir, "flowcraft-*.json")
+	paths, err := filepath.Glob(pattern)
+	if err != nil {
+		return nil, fmt.Errorf("glob flowcraft configs %q: %w", pattern, err)
+	}
+	sort.Strings(paths)
+	if len(paths) == 0 {
+		return nil, fmt.Errorf("no flowcraft configs found in %s", configDir)
+	}
+	return paths, nil
+}
+
+func runConfig(configPath, contextConfigPath string, selectedCase workspaceCase) error {
 	cfg, err := loadConfig(configPath, contextConfigPath)
+	if err != nil {
+		return err
+	}
+	cfg, err = selectedCase.applyConfig(cfg)
 	if err != nil {
 		return err
 	}
@@ -61,18 +120,25 @@ func run(args []string) error {
 		<-serveDone
 	}()
 
-	if err := ensureWorkspaceForRun(ctx, client, cfg); err != nil {
-		return err
+	if cfg.shouldEnsureWorkspace() {
+		ensured, err := ensureWorkspaceForRun(ctx, client, cfg)
+		if err != nil {
+			return err
+		}
+		cfg = ensured
 	}
 
+	openaiHTTPClient := client.HTTPClient(gizcli.ServiceOpenAI)
+	openaiHTTPClient.Timeout = cfg.timeout
 	openaiClient := openai.NewClient(
 		option.WithAPIKey("gizclaw-peer"),
 		option.WithBaseURL("http://gizclaw/v1"),
-		option.WithHTTPClient(client.HTTPClient(gizcli.ServiceOpenAI)),
+		option.WithHTTPClient(openaiHTTPClient),
 	)
 	driver := &personaDriver{
-		cfg:    cfg,
-		client: openaiClient,
+		cfg:           cfg,
+		client:        openaiClient,
+		runtimeClient: client,
 		newTransport: func() (*chatTransport, error) {
 			return newChatTransportForRun(client)
 		},
@@ -81,8 +147,20 @@ func run(args []string) error {
 		},
 	}
 	defer driver.close()
-	stats, err := runPersonaDriverForRun(driver, ctx)
-	printRunSummary(cfg, stats)
+	result, err := runWorkspaceCaseForRun(driver, ctx, selectedCase)
+	if len(result.Rounds) > 0 {
+		printRunSummary(cfg, result.Rounds)
+	}
+	for _, interrupt := range result.Interrupts {
+		printInterruptSummary(interrupt)
+	}
+	if err != nil {
+		return err
+	}
+	report, err := validateWorkspaceRuntimeForRun(ctx, client, cfg, result.Rounds)
+	if report != nil {
+		printWorkspaceRuntimeReport(*report)
+	}
 	return err
 }
 
@@ -110,45 +188,73 @@ func dialClient(cfg config) (*gizcli.Client, <-chan error, error) {
 }
 
 type runControlClient interface {
-	CreateWorkflow(context.Context, string, rpcapi.WorkflowCreateRequest) (*rpcapi.WorkflowCreateResponse, error)
 	PutWorkflow(context.Context, string, rpcapi.WorkflowPutRequest) (*rpcapi.WorkflowPutResponse, error)
+	StopServerRun(context.Context, string) (*rpcapi.ServerStopRunResponse, error)
+	DeleteWorkspace(context.Context, string, rpcapi.WorkspaceDeleteRequest) (*rpcapi.WorkspaceDeleteResponse, error)
 	CreateWorkspace(context.Context, string, rpcapi.WorkspaceCreateRequest) (*rpcapi.WorkspaceCreateResponse, error)
-	PutWorkspace(context.Context, string, rpcapi.WorkspacePutRequest) (*rpcapi.WorkspacePutResponse, error)
-	SetServerRunAgent(context.Context, string, rpcapi.ServerSetRunAgentRequest) (*rpcapi.ServerSetRunAgentResponse, error)
-	ReloadServerRun(context.Context, string) (*rpcapi.ServerReloadRunResponse, error)
-	GetServerRunStatus(context.Context, string, ...rpcapi.ServerGetRunStatusRequest) (*rpcapi.ServerGetRunStatusResponse, error)
+	SetServerRunWorkspace(context.Context, string, rpcapi.ServerSetRunWorkspaceRequest) (*rpcapi.ServerSetRunWorkspaceResponse, error)
+	ReloadServerRunWorkspace(context.Context, string) (*rpcapi.ServerReloadRunWorkspaceResponse, error)
+	GetServerRunWorkspace(context.Context, string) (*rpcapi.ServerGetRunWorkspaceResponse, error)
+	ListServerRunWorkspaceHistory(context.Context, string, rpcapi.ServerListRunWorkspaceHistoryRequest) (*rpcapi.ServerListRunWorkspaceHistoryResponse, error)
+	PlayServerRunWorkspaceHistory(context.Context, string, rpcapi.ServerPlayRunWorkspaceHistoryRequest) (*rpcapi.ServerPlayRunWorkspaceHistoryResponse, error)
+	GetServerRunWorkspaceMemoryStats(context.Context, string, rpcapi.ServerGetRunWorkspaceMemoryStatsRequest) (*rpcapi.ServerGetRunWorkspaceMemoryStatsResponse, error)
+	ServerRunWorkspaceRecall(context.Context, string, rpcapi.ServerRunWorkspaceRecallRequest) (*rpcapi.ServerRunWorkspaceRecallResponse, error)
 }
 
-func ensureWorkspace(ctx context.Context, client runControlClient, cfg config) error {
+func ensureWorkspace(ctx context.Context, client runControlClient, cfg config) (config, error) {
+	workflowDisplayName := cfg.Workflow.Name
+	workspaceDisplayName := cfg.Workspace
+
 	workflow := workflowDocument(cfg)
-	if _, err := client.CreateWorkflow(ctx, "workspacetest.workflow.create", workflow); err != nil {
-		if !isRPCConflict(err) {
-			return fmt.Errorf("create workflow %q: %w", cfg.Workflow.Name, err)
-		}
-		if _, err := client.PutWorkflow(ctx, "workspacetest.workflow.put", rpcapi.WorkflowPutRequest{
-			Name: cfg.Workflow.Name,
-			Body: workflow,
-		}); err != nil {
-			return fmt.Errorf("update workflow %q: %w", cfg.Workflow.Name, err)
-		}
+	createdWorkflow, err := client.PutWorkflow(ctx, "workspacetest.workflow.put", rpcapi.WorkflowPutRequest{
+		Name: cfg.Workflow.Name,
+		Body: workflow,
+	})
+	if err != nil {
+		return config{}, fmt.Errorf("upsert workflow %q (%s): %w", cfg.Workflow.Name, workflowDisplayName, err)
+	}
+	if createdWorkflow == nil || strings.TrimSpace(createdWorkflow.Metadata.Name) == "" {
+		return config{}, fmt.Errorf("upsert workflow %q (%s): empty workflow id", cfg.Workflow.Name, workflowDisplayName)
+	}
+	if createdWorkflow.Metadata.Name != cfg.Workflow.Name {
+		return config{}, fmt.Errorf("upsert workflow %q (%s): returned workflow id %q", cfg.Workflow.Name, workflowDisplayName, createdWorkflow.Metadata.Name)
 	}
 
 	workspace, err := workspaceDocument(cfg)
 	if err != nil {
-		return err
+		return config{}, fmt.Errorf("build workspace %q (%s): %w", cfg.Workspace, workspaceDisplayName, err)
 	}
-	if _, err := client.CreateWorkspace(ctx, "workspacetest.workspace.create", workspace); err != nil {
-		if !isRPCConflict(err) {
-			return fmt.Errorf("create workspace %q: %w", cfg.Workspace, err)
-		}
-		if _, err := client.PutWorkspace(ctx, "workspacetest.workspace.put", rpcapi.WorkspacePutRequest{
-			Name: cfg.Workspace,
-			Body: workspace,
-		}); err != nil {
-			return fmt.Errorf("update workspace %q: %w", cfg.Workspace, err)
-		}
+	fmt.Printf("workspace_progress event=workspace_recreate_start workspace=%s workflow=%s\n", cfg.Workspace, cfg.Workflow.Name)
+	if _, err := client.StopServerRun(ctx, "workspacetest.run.stop"); err != nil {
+		return config{}, fmt.Errorf("stop active workspace before recreate %q (%s): %w", cfg.Workspace, workspaceDisplayName, err)
 	}
-	return nil
+	if _, err := client.DeleteWorkspace(ctx, "workspacetest.workspace.delete", rpcapi.WorkspaceDeleteRequest{
+		Name: cfg.Workspace,
+	}); err != nil {
+		if !isRPCNotFound(err) {
+			return config{}, fmt.Errorf("delete workspace %q (%s): %w", cfg.Workspace, workspaceDisplayName, err)
+		}
+		fmt.Printf("workspace_progress event=workspace_delete_missing workspace=%s\n", cfg.Workspace)
+	} else {
+		fmt.Printf("workspace_progress event=workspace_delete_done workspace=%s\n", cfg.Workspace)
+	}
+	createdWorkspace, err := client.CreateWorkspace(ctx, "workspacetest.workspace.create", workspace)
+	if err != nil {
+		return config{}, fmt.Errorf("create workspace %q (%s): %w", cfg.Workspace, workspaceDisplayName, err)
+	}
+	if createdWorkspace == nil || strings.TrimSpace(createdWorkspace.Name) == "" {
+		return config{}, fmt.Errorf("create workspace %q (%s): empty workspace id", cfg.Workspace, workspaceDisplayName)
+	}
+	if createdWorkspace.Name != cfg.Workspace {
+		return config{}, fmt.Errorf("create workspace %q (%s): returned workspace id %q", cfg.Workspace, workspaceDisplayName, createdWorkspace.Name)
+	}
+	fmt.Printf("workspace_progress event=workspace_create_done workspace=%s workflow=%s\n", cfg.Workspace, cfg.Workflow.Name)
+	return cfg, nil
+}
+
+func isRPCNotFound(err error) bool {
+	var rpcErr rpcapi.Error
+	return errors.As(err, &rpcErr) && rpcErr.Code == rpcapi.RPCErrorCodeNotFound
 }
 
 func workflowDocument(cfg config) rpcapi.WorkflowCreateRequest {
@@ -168,31 +274,44 @@ func workflowDocument(cfg config) rpcapi.WorkflowCreateRequest {
 
 func workflowSpec(cfg config) rpcapi.WorkflowSpec {
 	if cfg.isFlowcraftAgent() {
-		flowcraft := cloneFlowcraftWorkflowSpec(cfg.Workflow.Flowcraft)
+		flowcraft := cloneWorkflowMap(cfg.Workflow.Flowcraft)
 		flowcraft["voice_adapter"] = map[string]interface{}{
 			"asr_model":     cfg.Workflow.VoiceAdapter.ASRModel,
 			"default_voice": cfg.Workflow.VoiceAdapter.DefaultVoice,
 			"node_voices":   cfg.Workflow.VoiceAdapter.NodeVoices,
 		}
 		return rpcapi.WorkflowSpec{
-			Driver:    rpcapi.WorkflowDriverFlowcraft,
-			Flowcraft: &flowcraft,
+			Driver:    rpcapi.WorkflowDriver("flowcraft"),
+			Flowcraft: (*rpcapi.FlowcraftWorkflowSpec)(&flowcraft),
 		}
 	}
 	if cfg.isASTTranslateAgent() {
 		spec := rpcapi.ASTTranslateWorkflowSpec{
 			TranslationModel: cfg.Workflow.Translation,
-			Mode:             optionalASTTranslateMode(cfg.Workflow.ASTTranslate.Mode),
-			Voice:            astTranslateVoiceParams(cfg.Workflow.ASTTranslate.Voice),
-			SpeakerId:        optionalString(cfg.Workflow.ASTTranslate.SpeakerID),
-			IsCustomSpeaker:  cfg.Workflow.ASTTranslate.IsCustomSpeaker,
-			TtsResourceId:    optionalString(cfg.Workflow.ASTTranslate.TTSResourceID),
-			SpeechRate:       cfg.Workflow.ASTTranslate.SpeechRate,
-			Denoise:          cfg.Workflow.ASTTranslate.Denoise,
-			ResourceId:       optionalString(cfg.Workflow.ASTTranslate.ResourceID),
-			AuthMode:         optionalString(cfg.Workflow.ASTTranslate.AuthMode),
 		}
+		if cfg.Workflow.ASTTranslate.Mode != "" {
+			mode := rpcapi.ASTTranslateMode(cfg.Workflow.ASTTranslate.Mode)
+			spec.Mode = &mode
+		}
+		if voice := astTranslateVoiceParams(cfg.Workflow.ASTTranslate.Voice); voice != nil {
+			spec.Voice = voice
+		}
+		if cfg.Workflow.ASTTranslate.SpeakerID != "" {
+			spec.SpeakerId = &cfg.Workflow.ASTTranslate.SpeakerID
+		}
+		spec.IsCustomSpeaker = cfg.Workflow.ASTTranslate.IsCustomSpeaker
+		if cfg.Workflow.ASTTranslate.TTSResourceID != "" {
+			spec.TtsResourceId = &cfg.Workflow.ASTTranslate.TTSResourceID
+		}
+		spec.SpeechRate = cfg.Workflow.ASTTranslate.SpeechRate
 		spec.EnableSourceLanguageDetect = cfg.Workflow.ASTTranslate.EnableSourceLanguageDetect
+		spec.Denoise = cfg.Workflow.ASTTranslate.Denoise
+		if cfg.Workflow.ASTTranslate.ResourceID != "" {
+			spec.ResourceId = &cfg.Workflow.ASTTranslate.ResourceID
+		}
+		if cfg.Workflow.ASTTranslate.AuthMode != "" {
+			spec.AuthMode = &cfg.Workflow.ASTTranslate.AuthMode
+		}
 		return rpcapi.WorkflowSpec{
 			Driver:       rpcapi.WorkflowDriverAstTranslate,
 			AstTranslate: &spec,
@@ -212,16 +331,16 @@ func workflowSpec(cfg config) rpcapi.WorkflowSpec {
 		},
 	}
 	return rpcapi.WorkflowSpec{
-		Driver: rpcapi.WorkflowDriverDoubaoRealtime,
+		Driver: rpcapi.WorkflowDriver("doubao-realtime"),
 		DoubaoRealtime: &rpcapi.DoubaoRealtimeWorkflowSpec{
-			RealtimeModel: optionalString(cfg.Workflow.RealtimeModel),
+			RealtimeModel: &cfg.Workflow.RealtimeModel,
 			Realtime:      &realtime,
 		},
 	}
 }
 
-func cloneFlowcraftWorkflowSpec(in map[string]interface{}) rpcapi.FlowcraftWorkflowSpec {
-	out := make(rpcapi.FlowcraftWorkflowSpec, len(in)+1)
+func cloneWorkflowMap(in map[string]interface{}) rpcapi.FlowcraftWorkflowSpec {
+	out := make(rpcapi.FlowcraftWorkflowSpec, len(in))
 	for key, value := range in {
 		out[key] = value
 	}
@@ -229,19 +348,9 @@ func cloneFlowcraftWorkflowSpec(in map[string]interface{}) rpcapi.FlowcraftWorkf
 }
 
 func workspaceDocument(cfg config) (rpcapi.WorkspaceCreateRequest, error) {
-	params, err := workspaceParameters(cfg)
-	if err != nil {
-		return rpcapi.WorkspaceCreateRequest{}, err
-	}
-	return rpcapi.WorkspaceCreateRequest{
-		Name:         cfg.Workspace,
-		WorkflowName: cfg.Workflow.Name,
-		Parameters:   params,
-	}, nil
-}
-
-func workspaceParameters(cfg config) (*rpcapi.WorkspaceParameters, error) {
-	if cfg.isFlowcraftAgent() {
+	var parameters rpcapi.WorkspaceParameters
+	switch {
+	case cfg.isFlowcraftAgent():
 		typed := rpcapi.FlowcraftWorkspaceParameters{
 			AgentType:      rpcapi.FlowcraftWorkspaceParametersAgentTypeFlowcraft,
 			E2e:            cfg.Workflow.Parameters.E2E,
@@ -250,13 +359,10 @@ func workspaceParameters(cfg config) (*rpcapi.WorkspaceParameters, error) {
 			ExtractModel:   optionalString(cfg.Workflow.Parameters.ExtractModel),
 			EmbeddingModel: optionalString(cfg.Workflow.Parameters.EmbeddingModel),
 		}
-		var params rpcapi.WorkspaceParameters
-		if err := params.FromFlowcraftWorkspaceParameters(typed); err != nil {
-			return nil, fmt.Errorf("build flowcraft workspace parameters: %w", err)
+		if err := parameters.FromFlowcraftWorkspaceParameters(typed); err != nil {
+			return rpcapi.WorkspaceCreateRequest{}, fmt.Errorf("encode flowcraft workspace parameters: %w", err)
 		}
-		return &params, nil
-	}
-	if cfg.isASTTranslateAgent() {
+	case cfg.isASTTranslateAgent():
 		typed := rpcapi.ASTTranslateWorkspaceParameters{
 			AgentType:                  rpcapi.ASTTranslateWorkspaceParametersAgentTypeAstTranslate,
 			E2e:                        cfg.Workflow.Parameters.E2E,
@@ -272,24 +378,25 @@ func workspaceParameters(cfg config) (*rpcapi.WorkspaceParameters, error) {
 			EnableSourceLanguageDetect: cfg.Workflow.Parameters.EnableSourceLanguageDetect,
 			Denoise:                    cfg.Workflow.Parameters.Denoise,
 		}
-		var params rpcapi.WorkspaceParameters
-		if err := params.FromASTTranslateWorkspaceParameters(typed); err != nil {
-			return nil, fmt.Errorf("build ast translate workspace parameters: %w", err)
+		if err := parameters.FromASTTranslateWorkspaceParameters(typed); err != nil {
+			return rpcapi.WorkspaceCreateRequest{}, fmt.Errorf("encode ast translate workspace parameters: %w", err)
 		}
-		return &params, nil
+	default:
+		typed := rpcapi.DoubaoRealtimeWorkspaceParameters{
+			AgentType:     rpcapi.DoubaoRealtimeWorkspaceParametersAgentTypeDoubaoRealtime,
+			E2e:           cfg.Workflow.Parameters.E2E,
+			Input:         optionalWorkspaceInputMode(cfg.Workflow.Parameters.Input),
+			RealtimeModel: optionalString(cfg.Workflow.RealtimeModel),
+		}
+		if err := parameters.FromDoubaoRealtimeWorkspaceParameters(typed); err != nil {
+			return rpcapi.WorkspaceCreateRequest{}, fmt.Errorf("encode doubao realtime workspace parameters: %w", err)
+		}
 	}
-
-	typed := rpcapi.DoubaoRealtimeWorkspaceParameters{
-		AgentType:     rpcapi.DoubaoRealtimeWorkspaceParametersAgentTypeDoubaoRealtime,
-		E2e:           cfg.Workflow.Parameters.E2E,
-		Input:         optionalWorkspaceInputMode(cfg.Workflow.Parameters.Input),
-		RealtimeModel: optionalString(cfg.Workflow.RealtimeModel),
-	}
-	var params rpcapi.WorkspaceParameters
-	if err := params.FromDoubaoRealtimeWorkspaceParameters(typed); err != nil {
-		return nil, fmt.Errorf("build doubao realtime workspace parameters: %w", err)
-	}
-	return &params, nil
+	return rpcapi.WorkspaceCreateRequest{
+		Name:         cfg.Workspace,
+		WorkflowName: cfg.Workflow.Name,
+		Parameters:   &parameters,
+	}, nil
 }
 
 func optionalString(value string) *string {
@@ -341,19 +448,14 @@ func astTranslateVoiceParams(value astTranslateVoiceConfig) *rpcapi.ASTTranslate
 	}
 }
 
-func isRPCConflict(err error) bool {
-	var rpcErr rpcapi.Error
-	return errors.As(err, &rpcErr) && rpcErr.Code == rpcapi.RPCErrorCodeConflict
-}
-
 func selectAndReloadAgent(ctx context.Context, client runControlClient, cfg config) error {
-	selection := rpcapi.ServerSetRunAgentRequest{WorkspaceName: cfg.Workspace}
+	selection := rpcapi.ServerSetRunWorkspaceRequest{WorkspaceName: cfg.Workspace}
 	deadline := time.Now().Add(30 * time.Second)
 	for {
-		if _, err := client.SetServerRunAgent(ctx, "workspacetest.run.agent.set", selection); err != nil {
+		if _, err := client.SetServerRunWorkspace(ctx, "workspacetest.run.workspace.set", selection); err != nil {
 			return fmt.Errorf("select workspace %q: %w", cfg.Workspace, err)
 		}
-		if _, err := client.ReloadServerRun(ctx, "workspacetest.run.reload"); err != nil {
+		if _, err := client.ReloadServerRunWorkspace(ctx, "workspacetest.run.workspace.reload"); err != nil {
 			if !isAgentAlreadyRunning(err) || time.Now().After(deadline) {
 				return fmt.Errorf("reload workspace %q: %w", cfg.Workspace, err)
 			}
@@ -364,17 +466,17 @@ func selectAndReloadAgent(ctx context.Context, client runControlClient, cfg conf
 				continue
 			}
 		}
-		status, err := client.GetServerRunStatus(ctx, "workspacetest.run.status")
+		status, err := client.GetServerRunWorkspace(ctx, "workspacetest.run.workspace.get")
 		if err != nil {
-			return fmt.Errorf("get run status: %w", err)
+			return fmt.Errorf("get run workspace: %w", err)
 		}
-		if status.State == rpcapi.PeerRunStatusStateRunning {
-			if status.WorkspaceName == nil || *status.WorkspaceName != cfg.Workspace {
-				return fmt.Errorf("running workspace = %v, want %q", status.WorkspaceName, cfg.Workspace)
+		if status.RuntimeState == rpcapi.PeerRunStatusStateRunning {
+			if status.WorkspaceName != cfg.Workspace {
+				return fmt.Errorf("running workspace = %q, want %q", status.WorkspaceName, cfg.Workspace)
 			}
 			return nil
 		}
-		if status.State == rpcapi.PeerRunStatusStateError {
+		if status.RuntimeState == rpcapi.PeerRunStatusStateError {
 			message := ""
 			if status.Message != nil {
 				message = *status.Message
@@ -382,7 +484,7 @@ func selectAndReloadAgent(ctx context.Context, client runControlClient, cfg conf
 			return fmt.Errorf("workspace %q failed to start: %s", cfg.Workspace, message)
 		}
 		if time.Now().After(deadline) {
-			return fmt.Errorf("workspace %q did not reach running state; last=%s", cfg.Workspace, status.State)
+			return fmt.Errorf("workspace %q did not reach running state; last=%s", cfg.Workspace, status.RuntimeState)
 		}
 		select {
 		case <-ctx.Done():
@@ -392,10 +494,167 @@ func selectAndReloadAgent(ctx context.Context, client runControlClient, cfg conf
 	}
 }
 
+type workspaceRuntimeReport struct {
+	Workspace        string `json:"workspace"`
+	RuntimeState     string `json:"runtime_state"`
+	HistoryCount     int    `json:"history_count"`
+	ReplayHistoryID  string `json:"replay_history_id"`
+	ReplayState      string `json:"replay_state"`
+	MemoryAvailable  bool   `json:"memory_available"`
+	MemoryEnabled    bool   `json:"memory_enabled"`
+	MemoryItemCount  int64  `json:"memory_item_count"`
+	MemoryBytes      int64  `json:"memory_bytes"`
+	RecallAvailable  bool   `json:"recall_available"`
+	RecallHitCount   int    `json:"recall_hit_count"`
+	RecallQueryChars int    `json:"recall_query_chars"`
+}
+
+func validateWorkspaceRuntime(ctx context.Context, client runControlClient, cfg config, stats []roundStats) (*workspaceRuntimeReport, error) {
+	if !cfg.isFlowcraftAgent() {
+		return nil, nil
+	}
+	state, err := client.GetServerRunWorkspace(ctx, "workspacetest.runtime.workspace.get")
+	if err != nil {
+		return nil, fmt.Errorf("runtime rpc get workspace: %w", err)
+	}
+	if state.RuntimeState != rpcapi.PeerRunStatusStateRunning || state.WorkspaceName != cfg.Workspace {
+		if err := selectAndReloadAgent(ctx, client, cfg); err != nil {
+			return nil, fmt.Errorf("runtime rpc reload workspace: %w", err)
+		}
+		state, err = client.GetServerRunWorkspace(ctx, "workspacetest.runtime.workspace.get")
+		if err != nil {
+			return nil, fmt.Errorf("runtime rpc get workspace: %w", err)
+		}
+	}
+	if state.RuntimeState != rpcapi.PeerRunStatusStateRunning {
+		return nil, fmt.Errorf("runtime rpc workspace state = %s, want running", state.RuntimeState)
+	}
+	if state.WorkspaceName != cfg.Workspace {
+		return nil, fmt.Errorf("runtime rpc workspace = %q, want %q", state.WorkspaceName, cfg.Workspace)
+	}
+	report := &workspaceRuntimeReport{
+		Workspace:    state.WorkspaceName,
+		RuntimeState: string(state.RuntimeState),
+	}
+
+	limit := 20
+	var history *rpcapi.ServerListRunWorkspaceHistoryResponse
+	historyDeadline := time.NewTimer(60 * time.Second)
+	defer historyDeadline.Stop()
+	for {
+		history, err = client.ListServerRunWorkspaceHistory(ctx, "workspacetest.runtime.history", rpcapi.ServerListRunWorkspaceHistoryRequest{Limit: &limit})
+		if err != nil {
+			return nil, fmt.Errorf("runtime rpc history: %w", err)
+		}
+		if !history.Available {
+			message := ""
+			if history.Message != nil {
+				message = *history.Message
+			}
+			return nil, fmt.Errorf("runtime rpc history unavailable: %s", message)
+		}
+		if len(history.Items) > 0 {
+			break
+		}
+		select {
+		case <-ctx.Done():
+			return nil, fmt.Errorf("runtime rpc history returned no items: %w", ctx.Err())
+		case <-historyDeadline.C:
+			return nil, fmt.Errorf("runtime rpc history returned no items")
+		case <-time.After(500 * time.Millisecond):
+		}
+	}
+
+	memory, err := client.GetServerRunWorkspaceMemoryStats(ctx, "workspacetest.runtime.memory.stats", rpcapi.ServerGetRunWorkspaceMemoryStatsRequest{})
+	if err != nil {
+		return nil, fmt.Errorf("runtime rpc memory stats: %w", err)
+	}
+
+	query := runtimeRecallQuery(stats)
+	recallAvailable := false
+	recallHitCount := 0
+	if memory.Available && memory.Enabled {
+		recall, err := client.ServerRunWorkspaceRecall(ctx, "workspacetest.runtime.recall", rpcapi.ServerRunWorkspaceRecallRequest{Query: query})
+		if err != nil {
+			return nil, fmt.Errorf("runtime rpc recall: %w", err)
+		}
+		if !recall.Available {
+			message := ""
+			if recall.Message != nil {
+				message = *recall.Message
+			}
+			return nil, fmt.Errorf("runtime rpc recall unavailable: %s", message)
+		}
+		recallAvailable = recall.Available
+		recallHitCount = len(recall.Hits)
+	}
+
+	historyID := replayHistoryID(history.Items)
+	if historyID == "" {
+		return nil, fmt.Errorf("runtime rpc history has no replayable item")
+	}
+	play, err := client.PlayServerRunWorkspaceHistory(ctx, "workspacetest.runtime.history.play", rpcapi.ServerPlayRunWorkspaceHistoryRequest{
+		HistoryId: historyID,
+		Options:   &rpcapi.PeerRunHistoryPlayOptions{IncludeAudio: boolPtr(true), IncludeText: boolPtr(true)},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("runtime rpc history play: %w", err)
+	}
+	if !play.Accepted {
+		message := ""
+		if play.Message != nil {
+			message = *play.Message
+		}
+		return nil, fmt.Errorf("runtime rpc history play rejected state=%s: %s", play.State, message)
+	}
+
+	report.HistoryCount = len(history.Items)
+	report.ReplayHistoryID = historyID
+	report.ReplayState = play.State
+	report.MemoryAvailable = memory.Available
+	report.MemoryEnabled = memory.Enabled
+	report.MemoryItemCount = memory.ItemCount
+	report.MemoryBytes = memory.StorageBytes
+	report.RecallAvailable = recallAvailable
+	report.RecallHitCount = recallHitCount
+	report.RecallQueryChars = runeCount(query)
+	return report, nil
+}
+
+func runtimeRecallQuery(stats []roundStats) string {
+	for _, stat := range stats {
+		if text := strings.TrimSpace(stat.Transcript); text != "" {
+			return text
+		}
+		if text := strings.TrimSpace(stat.UserText); text != "" {
+			return text
+		}
+	}
+	return "你好"
+}
+
+func replayHistoryID(items []rpcapi.PeerRunHistoryEntry) string {
+	for _, item := range items {
+		if item.ReplayAvailable && item.Text != nil && strings.TrimSpace(*item.Text) != "" {
+			return item.Id
+		}
+	}
+	for _, item := range items {
+		if item.ReplayAvailable {
+			return item.Id
+		}
+	}
+	return ""
+}
+
+func boolPtr(value bool) *bool {
+	return &value
+}
+
 func printRunSummary(cfg config, stats []roundStats) {
 	fmt.Printf("server=%s workflow=%s workspace=%s agent=%s rounds=%d output_dir=%s\n", cfg.Server.Addr, cfg.Workflow.Name, cfg.Workspace, cfg.Agent, cfg.Rounds, cfg.OutputDir)
 	for _, stat := range stats {
-		fmt.Printf("round=%d user_chars=%d transcript_chars=%d assistant_chars=%d input_packets=%d input_bytes=%d downlink_packets=%d downlink_bytes=%d events=%d workspace_uplink_send=%s after_eos_transcript_start=%s after_eos_transcript_done=%s transcript_first_before_eos=%t after_eos_text_first_chunk=%s text_first_after_transcript_done=%s after_eos_audio_first_chunk=%s after_eos_complete=%s workspace_total=%s\n",
+		fmt.Printf("round=%d user_chars=%d transcript_chars=%d assistant_chars=%d input_packets=%d input_bytes=%d downlink_packets=%d downlink_bytes=%d events=%d workspace_uplink_send=%s after_eos_transcript_start=%s after_eos_transcript_done=%s transcript_first_before_eos=%t after_eos_text_first_chunk=%s assistant_text_done=%s text_first_after_transcript_done=%s after_eos_audio_first_chunk=%s audio_first_before_text_done=%t after_eos_complete=%s workspace_total=%s\n",
 			stat.Index,
 			runeCount(stat.UserText),
 			runeCount(stat.Transcript),
@@ -410,8 +669,10 @@ func printRunSummary(cfg config, stats []roundStats) {
 			stat.TranscriptDone.Round(time.Millisecond),
 			stat.FirstTranscriptBeforeEOS,
 			stat.FirstAssistantTextChunk.Round(time.Millisecond),
+			stat.AssistantTextDone.Round(time.Millisecond),
 			textAfterTranscriptDone(stat).Round(time.Millisecond),
 			stat.FirstAudioChunk.Round(time.Millisecond),
+			stat.FirstAudioBeforeTextDone,
 			stat.ResponseTotal.Round(time.Millisecond),
 			stat.WorkspaceTotal.Round(time.Millisecond),
 		)
@@ -420,9 +681,35 @@ func printRunSummary(cfg config, stats []roundStats) {
 			"transcript":            stat.Transcript,
 			"assistant_first_delta": stat.FirstAssistantText,
 			"assistant":             stat.AssistantText,
+			"assistant_audio_asr":   stat.AssistantAudioASR,
 		}))
 	}
 	fmt.Printf("timing_summary=%s\n", encodeJSONLine(roundTimingSummary(stats)))
+}
+
+func printWorkspaceRuntimeReport(report workspaceRuntimeReport) {
+	fmt.Printf("workspace_runtime=%s\n", encodeJSONLine(report))
+}
+
+func printInterruptSummary(stat interruptStats) {
+	fmt.Printf("interrupt=%s\n", encodeJSONLine(map[string]interface{}{
+		"round":                      stat.Index,
+		"first_user":                 stat.FirstUser,
+		"second_user":                stat.SecondUser,
+		"downlink_before_interrupt":  stat.DownlinkBeforeInterrupt,
+		"interrupted_after_ms":       float64(stat.InterruptedAfter.Microseconds()) / 1000,
+		"interrupted_stream_id":      stat.InterruptedStreamID,
+		"second_transcript":          stat.SecondTranscript,
+		"second_assistant":           stat.SecondAssistantText,
+		"second_assistant_audio_asr": stat.SecondAssistantAudioASR,
+		"second_downlink_packets":    stat.SecondDownlinkPackets,
+		"second_transcript_done_ms":  float64(stat.SecondTranscriptDone.Microseconds()) / 1000,
+		"second_text_first_ms":       float64(stat.SecondFirstText.Microseconds()) / 1000,
+		"second_text_done_ms":        float64(stat.SecondAssistantTextDone.Microseconds()) / 1000,
+		"second_audio_first_ms":      float64(stat.SecondFirstAudio.Microseconds()) / 1000,
+		"second_audio_done_ms":       float64(stat.SecondAudioDone.Microseconds()) / 1000,
+		"second_response_total_ms":   float64(stat.SecondResponseTotal.Microseconds()) / 1000,
+	}))
 }
 
 type timingSummary struct {
@@ -441,6 +728,7 @@ func roundTimingSummary(stats []roundStats) map[string]timingSummary {
 		"after_eos_transcript_start":       summarizeDurations(stats, func(s roundStats) time.Duration { return s.FirstTranscriptChunk }),
 		"after_eos_transcript_done":        summarizeDurations(stats, func(s roundStats) time.Duration { return s.TranscriptDone }),
 		"after_eos_text_first":             summarizeDurations(stats, func(s roundStats) time.Duration { return s.FirstAssistantTextChunk }),
+		"assistant_text_done":              summarizeDurations(stats, func(s roundStats) time.Duration { return s.AssistantTextDone }),
 		"text_first_after_transcript_done": summarizeDurations(stats, textAfterTranscriptDone),
 		"after_eos_audio_first":            summarizeDurations(stats, func(s roundStats) time.Duration { return s.FirstAudioChunk }),
 		"after_eos_complete":               summarizeDurations(stats, func(s roundStats) time.Duration { return s.ResponseTotal }),

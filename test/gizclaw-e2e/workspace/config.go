@@ -15,19 +15,26 @@ import (
 const contextConfigDefaultPath = "test/gizclaw-e2e/.testbench/context/gizclaw/e2e-client/config.yaml"
 
 type config struct {
-	Server    serverConfig   `json:"server"`
-	Workspace string         `json:"workspace"`
-	Agent     string         `json:"agent"`
-	Models    modelConfig    `json:"models"`
-	Workflow  workflowConfig `json:"workflow"`
-	Voice     string         `json:"voice"`
-	Rounds    int            `json:"rounds"`
-	Timeout   string         `json:"timeout"`
-	Persona   string         `json:"persona"`
-	OutputDir string         `json:"output_dir,omitempty"`
+	Server    serverConfig    `json:"server"`
+	Workspace string          `json:"workspace"`
+	Agent     string          `json:"agent"`
+	Ensure    *bool           `json:"ensure_workspace,omitempty"`
+	Models    modelConfig     `json:"models"`
+	Workflow  workflowConfig  `json:"workflow"`
+	Voice     string          `json:"voice"`
+	Interrupt interruptConfig `json:"interrupt,omitempty"`
+	Rounds    int             `json:"rounds"`
+	Timeout   string          `json:"timeout"`
+	Persona   string          `json:"persona"`
+	OutputDir string          `json:"output_dir,omitempty"`
 
 	ClientPrivateKey string        `json:"-"`
 	timeout          time.Duration `json:"-"`
+}
+
+type interruptConfig struct {
+	FirstUtterance  string `json:"first_utterance,omitempty"`
+	SecondUtterance string `json:"second_utterance,omitempty"`
 }
 
 type serverConfig struct {
@@ -383,6 +390,35 @@ func (c config) isDoubaoRealtimeAgent() bool {
 
 func (c config) isASTTranslateAgent() bool {
 	return c.Agent == "ast-translate"
+}
+
+func (c config) shouldEnsureWorkspace() bool {
+	return c.Ensure == nil || *c.Ensure
+}
+
+func (c config) flowcraftStartsSelf() bool {
+	if !c.isFlowcraftAgent() {
+		return false
+	}
+	conversation, ok := c.Workflow.Flowcraft["conversation"].(map[string]interface{})
+	if !ok {
+		return false
+	}
+	starts, _ := conversation["starts"].(string)
+	return strings.EqualFold(strings.TrimSpace(starts), "self")
+}
+
+func (c config) workspaceMode() string {
+	return normalizeWorkspaceMode(c.Workflow.Parameters.Input)
+}
+
+func normalizeWorkspaceMode(mode string) string {
+	switch strings.ToLower(strings.TrimSpace(mode)) {
+	case "realtime", "real_time", "real-time":
+		return "realtime"
+	default:
+		return "push_to_talk"
+	}
 }
 
 func (v *astTranslateVoiceConfig) trim() {

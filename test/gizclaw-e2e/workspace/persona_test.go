@@ -4,10 +4,12 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"sync"
 	"testing"
@@ -16,6 +18,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkg/audio/codec/ogg"
 	"github.com/GizClaw/gizclaw-go/pkg/genx"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/apitypes"
+	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/rpcapi"
 	"github.com/openai/openai-go"
 	"github.com/openai/openai-go/option"
 )
@@ -45,6 +48,13 @@ func TestOpusPacketsFromOggSkipsHeaders(t *testing.T) {
 	}
 	if !bytes.Equal(packets[0], []byte{0x11, 0x22, 0x33}) || !bytes.Equal(packets[1], []byte{0x44, 0x55}) {
 		t.Fatalf("packets = %#v", packets)
+	}
+}
+
+func TestRoundtripUtteranceWrapsIndex(t *testing.T) {
+	first := roundtripUtterance(1)
+	if first == "" || roundtripUtterance(0) != first || roundtripUtterance(4) != first {
+		t.Fatalf("roundtrip utterance wrap = %q/%q/%q", first, roundtripUtterance(0), roundtripUtterance(4))
 	}
 }
 
@@ -106,6 +116,62 @@ func TestTextHelpers(t *testing.T) {
 	}
 }
 
+func TestWaitFlowcraftHistoryProgressAcceptsCappedContentChange(t *testing.T) {
+	oldItems := testHistoryEntries("旧回复一", "旧回复二")
+	newItems := testHistoryEntries("旧回复一", "新回复二")
+	driver := &personaDriver{
+		cfg: config{
+			Agent: "flowcraft",
+		},
+		runtimeClient: &fakeRunControl{
+			history: &rpcapi.ServerListRunWorkspaceHistoryResponse{
+				Available: true,
+				Items:     newItems,
+			},
+		},
+		runtimeHistoryItems: len(oldItems),
+		runtimeHistorySig:   flowcraftHistoryProgressSignature(oldItems),
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	if err := driver.waitFlowcraftHistoryProgress(ctx, "capped history"); err != nil {
+		t.Fatalf("waitFlowcraftHistoryProgress() error = %v", err)
+	}
+	if driver.runtimeHistoryItems != len(newItems) {
+		t.Fatalf("runtimeHistoryItems = %d, want %d", driver.runtimeHistoryItems, len(newItems))
+	}
+	if got, want := driver.runtimeHistorySig, flowcraftHistoryProgressSignature(newItems); got != want {
+		t.Fatalf("runtimeHistorySig = %q, want %q", got, want)
+	}
+}
+
+func TestPrepareConversationRequiresConfiguredSelfStart(t *testing.T) {
+	driver := &personaDriver{
+		cfg: config{
+			Agent:     "flowcraft",
+			Workspace: "self-start-required",
+			Timeout:   "20ms",
+			timeout:   20 * time.Millisecond,
+			Workflow: workflowConfig{
+				Flowcraft: map[string]interface{}{
+					"conversation": map[string]interface{}{"starts": "self"},
+				},
+			},
+		},
+		transport: &chatTransport{
+			events:      make(chan timedPeerEvent),
+			opusPackets: make(chan timedPeerPacket),
+			errs:        make(chan error),
+		},
+	}
+
+	_, err := driver.prepareConversation(context.Background(), conversationMode{})
+	if err == nil || !strings.Contains(err.Error(), "self-start did not emit output") {
+		t.Fatalf("prepareConversation() error = %v, want missing self-start", err)
+	}
+}
+
 func TestPersonaDriverRunUsesPeerTransportContract(t *testing.T) {
 	events := make(chan timedPeerEvent, 8)
 	opusPackets := make(chan timedPeerPacket, 8)
@@ -123,6 +189,7 @@ func TestPersonaDriverRunUsesPeerTransportContract(t *testing.T) {
 		events <- timedTextEvent("transcript", "你好测试")
 		events <- timedTranscriptDoneEvent()
 		events <- timedTextEvent("assistant", "收到，继续。")
+		events <- timedTextDoneEvent("assistant")
 		for j := 0; j < 4; j++ {
 			opusPackets <- newTimedPeerPacket([]byte{0x44, byte(roundIndex), byte(j)})
 		}
@@ -150,7 +217,10 @@ func TestPersonaDriverRunUsesPeerTransportContract(t *testing.T) {
 		synthesizeAudio: func(context.Context, string) ([]byte, [][]byte, error) {
 			return []byte("ogg-audio"), [][]byte{{0x11, 0x22}}, nil
 		},
-		transcribeAudioFile: func(context.Context, string) (string, error) {
+		transcribeAudioFile: func(_ context.Context, path string) (string, error) {
+			if strings.Contains(path, "assistant") {
+				return "收到继续", nil
+			}
 			return "你好测试", nil
 		},
 		reloadAgent: func(context.Context) error {
@@ -159,7 +229,7 @@ func TestPersonaDriverRunUsesPeerTransportContract(t *testing.T) {
 		},
 	}
 
-	stats, err := driver.run(context.Background())
+	stats, err := driver.runPushToTalkRoundtrip(context.Background())
 	if err != nil {
 		t.Fatalf("run() error = %v", err)
 	}
@@ -169,14 +239,26 @@ func TestPersonaDriverRunUsesPeerTransportContract(t *testing.T) {
 	if len(sentFrames) != 2 {
 		t.Fatalf("sent frames = %d, want 2", len(sentFrames))
 	}
-	if reloadCount != 2 {
-		t.Fatalf("reload count = %d, want 2", reloadCount)
+	if reloadCount != 1 {
+		t.Fatalf("reload count = %d, want 1", reloadCount)
 	}
 	for i, frame := range sentFrames {
 		if !bytes.Equal(frame, []byte{0x11, 0x22}) {
 			t.Fatalf("sent frame %d = %v", i, frame)
 		}
 	}
+}
+
+func testHistoryEntries(texts ...string) []rpcapi.PeerRunHistoryEntry {
+	items := make([]rpcapi.PeerRunHistoryEntry, 0, len(texts))
+	for i, text := range texts {
+		items = append(items, rpcapi.PeerRunHistoryEntry{
+			Id:        fmt.Sprintf("ctx:%06d", i),
+			CreatedAt: time.Now().Add(time.Duration(i) * time.Second),
+			Text:      &text,
+		})
+	}
+	return items
 }
 
 func TestPersonaDriverWriteRoundAudioCreatesOutputDir(t *testing.T) {
@@ -310,14 +392,14 @@ func TestPersonaDriverRunRoundFailsWhenResponseIsIncomplete(t *testing.T) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
 	defer cancel()
-	_, err := driver.runRound(ctx, 1)
+	_, err := driver.runRound(ctx, 1, conversationMode{})
 	if err == nil || !strings.Contains(err.Error(), "wait response") {
 		t.Fatalf("runRound() error = %v", err)
 	}
 }
 
-func TestPersonaDriverRunRoundTranscribesAssistantAudio(t *testing.T) {
-	events := make(chan timedPeerEvent, 4)
+func TestPersonaDriverRunRoundVerifiesAssistantAudio(t *testing.T) {
+	events := make(chan timedPeerEvent, 5)
 	label := "assistant"
 	opusPackets := make(chan timedPeerPacket, 1)
 	var publish sync.Once
@@ -327,11 +409,15 @@ func TestPersonaDriverRunRoundTranscribesAssistantAudio(t *testing.T) {
 			return nil
 		}
 		publish.Do(func() {
+			responseStreamID := "response-stream-1"
 			events <- timedTextEvent("transcript", "你好测试")
 			events <- timedTranscriptDoneEvent()
+			events <- newTimedPeerEvent(labeledTextEventWithStream("assistant", responseStreamID, "回复文本"))
+			events <- timedTextDoneEventWithStream("assistant", responseStreamID)
 			events <- newTimedPeerEvent(apitypes.PeerStreamEvent{
-				Type:  apitypes.PeerStreamEventTypeEos,
-				Label: &label,
+				Type:     apitypes.PeerStreamEventTypeEos,
+				Label:    &label,
+				StreamId: &responseStreamID,
 			})
 			opusPackets <- newTimedPeerPacket([]byte{0x44})
 		})
@@ -358,15 +444,55 @@ func TestPersonaDriverRunRoundTranscribesAssistantAudio(t *testing.T) {
 			return "你好测试", nil
 		},
 	}
-	stat, err := driver.runRound(context.Background(), 1)
+	stat, err := driver.runRound(context.Background(), 1, conversationMode{})
 	if err != nil {
 		t.Fatalf("runRound() error = %v", err)
 	}
 	if stat.AssistantText != "回复文本" {
 		t.Fatalf("assistant text = %q, want 回复文本", stat.AssistantText)
 	}
+	if stat.AssistantAudioASR != "回复文本" {
+		t.Fatalf("assistant audio asr = %q, want 回复文本", stat.AssistantAudioASR)
+	}
 	if stat.DownlinkPackets != 1 {
 		t.Fatalf("downlink packets = %d, want 1", stat.DownlinkPackets)
+	}
+}
+
+func TestAssistantASRFrameChunksMergesShortTail(t *testing.T) {
+	tests := []struct {
+		name       string
+		frameCount int
+		want       []frameChunkRange
+	}{
+		{
+			name:       "single short audio",
+			frameCount: 24,
+			want:       []frameChunkRange{{start: 0, end: 24}},
+		},
+		{
+			name:       "exact chunks",
+			frameCount: 1200,
+			want:       []frameChunkRange{{start: 0, end: 600}, {start: 600, end: 1200}},
+		},
+		{
+			name:       "short tail merged",
+			frameCount: 3018,
+			want:       []frameChunkRange{{start: 0, end: 600}, {start: 600, end: 1200}, {start: 1200, end: 1800}, {start: 1800, end: 2400}, {start: 2400, end: 3018}},
+		},
+		{
+			name:       "large enough tail remains separate",
+			frameCount: 3130,
+			want:       []frameChunkRange{{start: 0, end: 600}, {start: 600, end: 1200}, {start: 1200, end: 1800}, {start: 1800, end: 2400}, {start: 2400, end: 3000}, {start: 3000, end: 3130}},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := assistantASRFrameChunks(tt.frameCount)
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Fatalf("assistantASRFrameChunks(%d) = %+v, want %+v", tt.frameCount, got, tt.want)
+			}
+		})
 	}
 }
 
@@ -388,6 +514,11 @@ func TestChatTransportReadEventsAndSendAudioTurn(t *testing.T) {
 	if got.event.Text == nil || *got.event.Text != text {
 		t.Fatalf("event = %+v", got)
 	}
+	stream.chunks <- &genx.MessageChunk{Part: &genx.Blob{MIMEType: "audio/opus"}, Ctrl: &genx.StreamCtrl{Label: "assistant", EndOfStream: true, Error: "interrupted"}}
+	got = <-transport.events
+	if got.event.Error == nil || *got.event.Error != "interrupted" {
+		t.Fatalf("eos event error = %+v", got.event)
+	}
 
 	stream.chunks <- &genx.MessageChunk{Part: &genx.Blob{MIMEType: "audio/opus", Data: []byte{1, 2, 3}}}
 	gotPacket := <-transport.opusPackets
@@ -396,6 +527,16 @@ func TestChatTransportReadEventsAndSendAudioTurn(t *testing.T) {
 	}
 	if gotPacket.since(gotPacket.receivedAt.Add(-time.Millisecond)) <= 0 {
 		t.Fatalf("forwarded packet since returned non-positive duration")
+	}
+
+	stream.chunks <- &genx.MessageChunk{Part: &genx.Blob{MIMEType: "audio/opus", Data: []byte{4, 5, 6}}, Ctrl: &genx.StreamCtrl{Label: "assistant", EndOfStream: true}}
+	gotPacket = <-transport.opusPackets
+	if !bytes.Equal(gotPacket.frame, []byte{4, 5, 6}) {
+		t.Fatalf("forwarded eos packet = %+v", gotPacket)
+	}
+	got = <-transport.events
+	if got.event.Type != apitypes.PeerStreamEventTypeEos || eventLabel(got.event) != "assistant" {
+		t.Fatalf("audio data eos event = %+v", got.event)
 	}
 }
 
@@ -483,15 +624,32 @@ func labeledTextEvent(label, text string) apitypes.PeerStreamEvent {
 	}
 }
 
+func labeledTextEventWithStream(label, streamID, text string) apitypes.PeerStreamEvent {
+	event := labeledTextEvent(label, text)
+	event.StreamId = &streamID
+	return event
+}
+
 func timedTextEvent(label, text string) timedPeerEvent {
 	return newTimedPeerEvent(labeledTextEvent(label, text))
 }
 
 func timedTranscriptDoneEvent() timedPeerEvent {
-	label := "transcript"
+	return timedTextDoneEvent("transcript")
+}
+
+func timedTextDoneEvent(label string) timedPeerEvent {
 	return newTimedPeerEvent(apitypes.PeerStreamEvent{
 		Type:  apitypes.PeerStreamEventTypeTextDone,
 		Label: &label,
+	})
+}
+
+func timedTextDoneEventWithStream(label, streamID string) timedPeerEvent {
+	return newTimedPeerEvent(apitypes.PeerStreamEvent{
+		Type:     apitypes.PeerStreamEventTypeTextDone,
+		Label:    &label,
+		StreamId: &streamID,
 	})
 }
 

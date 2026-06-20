@@ -243,6 +243,48 @@ func (c *Client) SetServerRunAgent(ctx context.Context, id string, request rpcap
 	})
 }
 
+func (c *Client) GetServerRunWorkspace(ctx context.Context, id string) (*rpcapi.ServerGetRunWorkspaceResponse, error) {
+	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.ServerGetRunWorkspaceResponse, error) {
+		return client.GetServerRunWorkspace(ctx, conn, id)
+	})
+}
+
+func (c *Client) SetServerRunWorkspace(ctx context.Context, id string, request rpcapi.ServerSetRunWorkspaceRequest) (*rpcapi.ServerSetRunWorkspaceResponse, error) {
+	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.ServerSetRunWorkspaceResponse, error) {
+		return client.SetServerRunWorkspace(ctx, conn, id, request)
+	})
+}
+
+func (c *Client) ReloadServerRunWorkspace(ctx context.Context, id string) (*rpcapi.ServerReloadRunWorkspaceResponse, error) {
+	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.ServerReloadRunWorkspaceResponse, error) {
+		return client.ReloadServerRunWorkspace(ctx, conn, id)
+	})
+}
+
+func (c *Client) ListServerRunWorkspaceHistory(ctx context.Context, id string, request rpcapi.ServerListRunWorkspaceHistoryRequest) (*rpcapi.ServerListRunWorkspaceHistoryResponse, error) {
+	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.ServerListRunWorkspaceHistoryResponse, error) {
+		return client.ListServerRunWorkspaceHistory(ctx, conn, id, request)
+	})
+}
+
+func (c *Client) PlayServerRunWorkspaceHistory(ctx context.Context, id string, request rpcapi.ServerPlayRunWorkspaceHistoryRequest) (*rpcapi.ServerPlayRunWorkspaceHistoryResponse, error) {
+	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.ServerPlayRunWorkspaceHistoryResponse, error) {
+		return client.PlayServerRunWorkspaceHistory(ctx, conn, id, request)
+	})
+}
+
+func (c *Client) GetServerRunWorkspaceMemoryStats(ctx context.Context, id string, request rpcapi.ServerGetRunWorkspaceMemoryStatsRequest) (*rpcapi.ServerGetRunWorkspaceMemoryStatsResponse, error) {
+	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.ServerGetRunWorkspaceMemoryStatsResponse, error) {
+		return client.GetServerRunWorkspaceMemoryStats(ctx, conn, id, request)
+	})
+}
+
+func (c *Client) ServerRunWorkspaceRecall(ctx context.Context, id string, request rpcapi.ServerRunWorkspaceRecallRequest) (*rpcapi.ServerRunWorkspaceRecallResponse, error) {
+	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.ServerRunWorkspaceRecallResponse, error) {
+		return client.ServerRunWorkspaceRecall(ctx, conn, id, request)
+	})
+}
+
 func (c *Client) ReloadServerRun(ctx context.Context, id string) (*rpcapi.ServerReloadRunResponse, error) {
 	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.ServerReloadRunResponse, error) {
 		return client.ReloadServerRun(ctx, conn, id)
