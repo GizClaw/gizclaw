@@ -66,6 +66,13 @@ func muxDataFrame(conv uint32) []byte {
 	return append([]byte{kcpMuxFrameData}, segment...)
 }
 
+func TestDefaultKcpMuxConfigUsesKCPIdleTimeout(t *testing.T) {
+	cfg := defaultKcpMuxConfig(KcpMuxConfig{})
+	if cfg.IdleStreamTimeout != kcpDefaultIdleTimeout {
+		t.Fatalf("IdleStreamTimeout=%s, want %s", cfg.IdleStreamTimeout, kcpDefaultIdleTimeout)
+	}
+}
+
 func TestKcpMux_OpenCreatesDistinctStreams(t *testing.T) {
 	client, server := kcpMuxPair(t, KcpMuxConfig{})
 	defer client.Close()
@@ -96,6 +103,35 @@ func TestKcpMux_OpenCreatesDistinctStreams(t *testing.T) {
 	defer serverStream2.Close()
 	if serverStream1 == serverStream2 {
 		t.Fatal("expected distinct accepted streams")
+	}
+}
+
+func TestKcpMux_StopAcceptingClosesQueuedStreams(t *testing.T) {
+	client, server := kcpMuxPair(t, KcpMuxConfig{})
+	defer client.Close()
+	defer server.Close()
+
+	stream, err := client.Open()
+	if err != nil {
+		t.Fatalf("Open failed: %v", err)
+	}
+	defer stream.Close()
+
+	deadline := time.Now().Add(2 * time.Second)
+	for server.NumStreams() == 0 && time.Now().Before(deadline) {
+		time.Sleep(10 * time.Millisecond)
+	}
+	if got := server.NumStreams(); got != 1 {
+		t.Fatalf("server NumStreams=%d, want queued stream", got)
+	}
+	if err := server.StopAccepting(); err != nil {
+		t.Fatalf("StopAccepting() error = %v", err)
+	}
+	if got := server.NumStreams(); got != 0 {
+		t.Fatalf("server NumStreams after StopAccepting=%d, want 0", got)
+	}
+	if _, err := server.Accept(); !errors.Is(err, ErrAcceptQueueClosed) {
+		t.Fatalf("Accept() after StopAccepting error = %v, want %v", err, ErrAcceptQueueClosed)
 	}
 }
 

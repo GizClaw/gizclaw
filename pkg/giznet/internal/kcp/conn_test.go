@@ -44,6 +44,52 @@ func TestKCPConn_AccessorsAndDeadlines(t *testing.T) {
 	}
 }
 
+func TestVirtualPacketConnDeadlineAndClosedPaths(t *testing.T) {
+	var wrote []byte
+	pc := newVirtualPacketConn(func(data []byte) {
+		wrote = append(wrote, data...)
+	})
+
+	if pc.LocalAddr().Network() != "kcp" {
+		t.Fatalf("LocalAddr network = %q", pc.LocalAddr().Network())
+	}
+	if err := pc.SetDeadline(time.Now().Add(time.Second)); err != nil {
+		t.Fatalf("SetDeadline() error = %v", err)
+	}
+	if err := pc.SetWriteDeadline(time.Now().Add(-time.Second)); err != nil {
+		t.Fatalf("SetWriteDeadline() error = %v", err)
+	}
+	if !pc.writeDeadlineExpired() {
+		t.Fatal("write deadline should be expired")
+	}
+	if _, err := pc.WriteTo([]byte("x"), nil); err != nil {
+		t.Fatalf("WriteTo() before close error = %v", err)
+	}
+	if string(wrote) != "x" {
+		t.Fatalf("output = %q", wrote)
+	}
+
+	if err := pc.SetReadDeadline(time.Now().Add(10 * time.Millisecond)); err != nil {
+		t.Fatalf("SetReadDeadline() error = %v", err)
+	}
+	buf := make([]byte, 8)
+	_, _, err := pc.ReadFrom(buf)
+	var netErr net.Error
+	if !errors.As(err, &netErr) || !netErr.Timeout() || !netErr.Temporary() {
+		t.Fatalf("ReadFrom deadline error = %v, want timeout net.Error", err)
+	}
+
+	if err := pc.Close(); err != nil {
+		t.Fatalf("Close() error = %v", err)
+	}
+	if err := pc.Input([]byte("closed")); !errors.Is(err, io.ErrClosedPipe) {
+		t.Fatalf("Input() after close error = %v", err)
+	}
+	if _, err := pc.WriteTo([]byte("closed"), nil); !errors.Is(err, io.ErrClosedPipe) {
+		t.Fatalf("WriteTo() after close error = %v", err)
+	}
+}
+
 // connPair creates a connected pair of KCPConns for testing.
 // Packets from A are delivered to B and vice versa.
 // loss controls simulated packet drop rate (0.0 = no loss).
@@ -64,6 +110,16 @@ func connPair(loss float64) (*KCPConn, *KCPConn) {
 		a.Input(data)
 	})
 	return a, b
+}
+
+func withIdleTimeout(t *testing.T, timeout time.Duration) {
+	t.Helper()
+
+	old := idleTimeoutPure
+	idleTimeoutPure = timeout
+	t.Cleanup(func() {
+		idleTimeoutPure = old
+	})
 }
 
 // --- Basic tests ---
@@ -881,6 +937,8 @@ func TestKCPConn_BUG2_WriteDeadline(t *testing.T) {
 // These test KCPConn's own timeout behavior, not external wrappers.
 
 func TestKCPConn_ReadPeerDead(t *testing.T) {
+	withIdleTimeout(t, 100*time.Millisecond)
+
 	a, b := connPair(0)
 
 	a.Write([]byte("setup"))
@@ -904,13 +962,15 @@ func TestKCPConn_ReadPeerDead(t *testing.T) {
 	if !errors.Is(err, ErrConnTimeout) {
 		t.Fatalf("Read after peer death err=%v, want %v", err, ErrConnTimeout)
 	}
-	if elapsed > 35*time.Second {
+	if elapsed > 2*time.Second {
 		t.Fatalf("Read took %v — KCPConn has no self-timeout", elapsed)
 	}
 	t.Logf("Read self-timed-out after %v: %v", elapsed, err)
 }
 
 func TestKCPConn_WritePeerDead(t *testing.T) {
+	withIdleTimeout(t, 100*time.Millisecond)
+
 	a, b := connPair(0)
 
 	a.Write([]byte("setup"))
@@ -929,8 +989,8 @@ func TestKCPConn_WritePeerDead(t *testing.T) {
 		if writeErr != nil {
 			break
 		}
-		if time.Since(start) > 35*time.Second {
-			t.Fatal("Write didn't fail after 35s — no self-timeout")
+		if time.Since(start) > 2*time.Second {
+			t.Fatal("Write didn't fail after 2s — no self-timeout")
 		}
 	}
 	elapsed := time.Since(start)
@@ -938,7 +998,7 @@ func TestKCPConn_WritePeerDead(t *testing.T) {
 	if !errors.Is(writeErr, ErrConnTimeout) {
 		t.Fatalf("Write after peer death err=%v, want %v", writeErr, ErrConnTimeout)
 	}
-	if elapsed > 35*time.Second {
+	if elapsed > 2*time.Second {
 		t.Fatalf("Write took %v to fail", elapsed)
 	}
 	t.Logf("Write self-timed-out after %v: %v", elapsed, writeErr)

@@ -95,6 +95,28 @@ func TestServiceMux_OpenCreatesDistinctStreams(t *testing.T) {
 	if accepted1 == accepted2 {
 		t.Fatal("expected distinct accepted streams")
 	}
+	if got := client.NumServices(); got != 1 {
+		t.Fatalf("client NumServices=%d, want 1", got)
+	}
+	if got := client.NumStreams(); got != 2 {
+		t.Fatalf("client NumStreams=%d, want 2", got)
+	}
+}
+
+func TestServiceMuxClosedOperations(t *testing.T) {
+	mux := NewServiceMux(ServiceMuxConfig{})
+	if err := mux.Close(); err != nil {
+		t.Fatalf("Close() error = %v", err)
+	}
+	if _, err := mux.OpenStream(1); !errors.Is(err, ErrServiceMuxClosed) {
+		t.Fatalf("OpenStream() after close error = %v, want %v", err, ErrServiceMuxClosed)
+	}
+	if _, err := mux.AcceptStream(1); !errors.Is(err, ErrServiceMuxClosed) {
+		t.Fatalf("AcceptStream() after close error = %v, want %v", err, ErrServiceMuxClosed)
+	}
+	if err := mux.Input(1, muxControlFrame(kcpMuxFrameOpen, 1)); !errors.Is(err, ErrServiceMuxClosed) {
+		t.Fatalf("Input() after close error = %v, want %v", err, ErrServiceMuxClosed)
+	}
 }
 
 func TestServiceMux_AcceptStreamRoutesSpecificService(t *testing.T) {

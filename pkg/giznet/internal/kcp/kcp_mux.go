@@ -89,7 +89,7 @@ func defaultKcpMuxConfig(cfg KcpMuxConfig) KcpMuxConfig {
 		cfg.CloseAckTimeout = 15 * time.Second
 	}
 	if cfg.IdleStreamTimeout <= 0 {
-		cfg.IdleStreamTimeout = 60 * time.Second
+		cfg.IdleStreamTimeout = kcpDefaultIdleTimeout
 	}
 	if cfg.AcceptBacklog <= 0 {
 		cfg.AcceptBacklog = 32

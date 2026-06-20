@@ -418,7 +418,6 @@ func (c *KCPConn) RemoteAddr() net.Addr { return c.pc.remoteAddr }
 func (c *KCPConn) IsClosed() bool       { return c.closed.Load() }
 
 const (
-	idleTimeoutPure        = 30 * time.Second
 	kcpMTU                 = 1400
 	kcpNoDelay             = 1
 	kcpUpdateIntervalMs    = 10
@@ -427,6 +426,10 @@ const (
 	kcpSendWindow          = 512
 	kcpRecvWindow          = 512
 )
+
+const kcpDefaultIdleTimeout = 5 * time.Minute
+
+var idleTimeoutPure = kcpDefaultIdleTimeout
 
 var _ io.ReadWriteCloser = (*KCPConn)(nil)
 var _ net.Conn = (*KCPConn)(nil)
