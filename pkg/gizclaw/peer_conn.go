@@ -20,8 +20,6 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/peergenx"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/peerresource"
-	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/workflow/agents/doubaorealtime"
-	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/workflow/agents/flowcraft"
 	"github.com/GizClaw/gizclaw-go/pkg/giznet"
 	"golang.org/x/sync/errgroup"
 )
@@ -212,7 +210,7 @@ func (h *PeerConn) initAgentHost() {
 	}
 	h.agentInput = newPeerRealtimeSource()
 	h.events = newPeerStreamEventBroker()
-	host := h.peerAgentHost(manager.AgentHost)
+	host := newPeerAgentHost(manager.AgentHost, h.serverGenX)
 	h.agentHost = &agenthost.Service{
 		Host:       host,
 		PeerRun:    manager.PeerRun,
@@ -229,24 +227,6 @@ func (h *PeerConn) initAgentHost() {
 	if h.rpc != nil {
 		h.rpc.peerRunRuntime = h.agentHost
 	}
-}
-
-func (h *PeerConn) peerAgentHost(base *agenthost.Host) *agenthost.Host {
-	if base == nil {
-		return nil
-	}
-	host := agenthost.New(base.Resolver)
-	host.Coordinator = base.Coordinator
-	host.WorkspaceStore = base.WorkspaceStore
-	var transformer genx.Transformer
-	var peerGenX *peergenx.Service
-	if h != nil && h.serverGenX != nil {
-		peerGenX = h.serverGenX
-		transformer = h.serverGenX.Transformer()
-	}
-	_ = host.Register(doubaorealtime.Type, doubaorealtime.Factory{Transformer: transformer})
-	_ = host.Register(flowcraft.Type, flowcraft.Factory{GenX: peerGenX})
-	return host
 }
 
 func (h *PeerConn) initPeerGenX() {
