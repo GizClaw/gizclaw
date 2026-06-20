@@ -205,6 +205,11 @@ func (d *Driver) OpenCapture(format pcm.Format, opts CaptureOptions) (*CaptureSt
 // OpenPlayback opens an output stream according to pcm format.
 func (d *Driver) OpenPlayback(format pcm.Format, opts PlaybackOptions) (*PlaybackStream, error) {
 	cfg := StreamConfigFromPCM(format, opts.deviceIDOrDefault(), opts.FramesPerBuffer)
+	return d.OpenPlaybackConfig(cfg)
+}
+
+// OpenPlaybackConfig opens an output stream according to an explicit stream config.
+func (d *Driver) OpenPlaybackConfig(cfg StreamConfig) (*PlaybackStream, error) {
 	handle, err := d.open(directionOutput, cfg)
 	if err != nil {
 		return nil, err
@@ -226,4 +231,9 @@ func OpenCapture(format pcm.Format, opts CaptureOptions) (*CaptureStream, error)
 // OpenPlayback opens an output stream via default driver.
 func OpenPlayback(format pcm.Format, opts PlaybackOptions) (*PlaybackStream, error) {
 	return defaultDriver.OpenPlayback(format, opts)
+}
+
+// OpenPlaybackConfig opens an output stream via default driver.
+func OpenPlaybackConfig(cfg StreamConfig) (*PlaybackStream, error) {
+	return defaultDriver.OpenPlaybackConfig(cfg)
 }

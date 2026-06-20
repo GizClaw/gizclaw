@@ -76,14 +76,14 @@ func prefixRunes(text string, maxRunes int) (string, bool) {
 }
 
 func firstSentenceBoundaryIndex(text string) int {
-	return sentenceBoundaryIndex(text, false)
+	return sentenceBoundaryIndex(text, true, defaultTTSFirstSegmentMinRunes)
 }
 
 func lastSentenceBoundaryIndex(text string) int {
-	return sentenceBoundaryIndex(text, true)
+	return sentenceBoundaryIndex(text, true, 0)
 }
 
-func sentenceBoundaryIndex(text string, last bool) int {
+func sentenceBoundaryIndex(text string, last bool, minRunes int) int {
 	type runeInfo struct {
 		value rune
 		end   int
@@ -105,12 +105,28 @@ func sentenceBoundaryIndex(text string, last bool) int {
 		if !isTTSSentenceBoundary(info.value, prev, next) {
 			continue
 		}
+		requiredRunes := minRunes
+		if requiredRunes > 0 && isTTSStrongSentenceBoundary(info.value) && requiredRunes > 4 {
+			requiredRunes = 4
+		}
+		if requiredRunes > 0 && i+1 < requiredRunes {
+			continue
+		}
 		if !last {
 			return info.end
 		}
 		found = info.end
 	}
 	return found
+}
+
+func isTTSStrongSentenceBoundary(r rune) bool {
+	switch r {
+	case '。', '？', '！', '…', '?', '!', '\r', '\n':
+		return true
+	default:
+		return false
+	}
 }
 
 func isTTSSentenceBoundary(r, prev, next rune) bool {

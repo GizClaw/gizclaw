@@ -359,6 +359,158 @@ func TestDoubaoASRSAUCEmitsDefiniteUtterancesWithNonMonotonicTimes(t *testing.T)
 	}
 }
 
+func TestDoubaoASRSAUCEmitInterimControlsNonDefiniteUtterances(t *testing.T) {
+	tests := []struct {
+		name        string
+		emitInterim bool
+		want        []struct {
+			text  string
+			label string
+			bos   bool
+			eos   bool
+		}
+	}{
+		{
+			name:        "enabled",
+			emitInterim: true,
+			want: []struct {
+				text  string
+				label string
+				bos   bool
+				eos   bool
+			}{
+				{label: "transcript", bos: true},
+				{text: "partial text", label: "transcript"},
+				{text: "final text", label: "transcript"},
+				{label: "transcript", eos: true},
+			},
+		},
+		{
+			name: "disabled",
+			want: []struct {
+				text  string
+				label string
+				bos   bool
+				eos   bool
+			}{
+				{text: "final text"},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			session := newFakeDoubaoASRSession()
+			transformer := NewDoubaoASRSAUC(nil,
+				WithDoubaoASRSAUCFormat("pcm"),
+				WithDoubaoASRSAUCRealtimePacing(false),
+				WithDoubaoASRSAUCEmitInterim(tt.emitInterim),
+			)
+			transformer.newSession = func(context.Context, doubaoASRSessionConfig) (doubaoASRSession, error) {
+				return session, nil
+			}
+			session.sendAudio = func(_ context.Context, _ []byte, isLast bool) error {
+				if isLast {
+					session.result <- &doubaospeech.ASRV2Result{
+						Text: "partial text",
+						Utterances: []doubaospeech.ASRV2Utterance{
+							{Text: "partial text", StartTime: 0, EndTime: 100, Definite: false},
+						},
+					}
+					session.result <- &doubaospeech.ASRV2Result{
+						Utterances: []doubaospeech.ASRV2Utterance{
+							{Text: "final text", StartTime: 0, EndTime: 200, Definite: true},
+						},
+					}
+					close(session.result)
+				}
+				return nil
+			}
+
+			input := newBufferStream(2)
+			output, err := transformer.Transform(context.Background(), "asr", input)
+			if err != nil {
+				t.Fatalf("Transform() error = %v", err)
+			}
+			if err := input.Push(&genx.MessageChunk{Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{1, 2}}}); err != nil {
+				t.Fatalf("push audio = %v", err)
+			}
+			if err := input.Close(); err != nil {
+				t.Fatalf("close input = %v", err)
+			}
+
+			for i, want := range tt.want {
+				chunk, err := output.Next()
+				if err != nil {
+					t.Fatalf("output[%d] = %v", i, err)
+				}
+				if chunk.IsBeginOfStream() != want.bos {
+					t.Fatalf("output[%d] BOS = %t, want %t", i, chunk.IsBeginOfStream(), want.bos)
+				}
+				if chunk.IsEndOfStream() != want.eos {
+					t.Fatalf("output[%d] EOS = %t, want %t", i, chunk.IsEndOfStream(), want.eos)
+				}
+				if want.text != "" {
+					if got := chunk.Part.(genx.Text); string(got) != want.text {
+						t.Fatalf("output[%d] text = %q, want %q", i, got, want.text)
+					}
+				}
+				gotLabel := ""
+				if chunk.Ctrl != nil {
+					gotLabel = chunk.Ctrl.Label
+				}
+				if gotLabel != want.label {
+					t.Fatalf("output[%d] label = %q, want %q", i, gotLabel, want.label)
+				}
+			}
+		})
+	}
+}
+
+func TestDoubaoASRSAUCEmitInterimDoesNotDuplicateFinalTextResult(t *testing.T) {
+	session := newFakeDoubaoASRSession()
+	transformer := NewDoubaoASRSAUC(nil,
+		WithDoubaoASRSAUCFormat("pcm"),
+		WithDoubaoASRSAUCRealtimePacing(false),
+		WithDoubaoASRSAUCEmitInterim(true),
+	)
+	transformer.newSession = func(context.Context, doubaoASRSessionConfig) (doubaoASRSession, error) {
+		return session, nil
+	}
+	session.sendAudio = func(_ context.Context, _ []byte, isLast bool) error {
+		if isLast {
+			session.result <- &doubaospeech.ASRV2Result{Text: "final text", IsFinal: true}
+			close(session.result)
+		}
+		return nil
+	}
+
+	input := newBufferStream(2)
+	output, err := transformer.Transform(context.Background(), "asr", input)
+	if err != nil {
+		t.Fatalf("Transform() error = %v", err)
+	}
+	if err := input.Push(&genx.MessageChunk{Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{1, 2}}}); err != nil {
+		t.Fatalf("push audio = %v", err)
+	}
+	if err := input.Close(); err != nil {
+		t.Fatalf("close input = %v", err)
+	}
+
+	chunks := collectTransformerChunks(t, output)
+	if len(chunks) != 3 {
+		t.Fatalf("got %d chunks, want BOS/text/EOS: %#v", len(chunks), chunks)
+	}
+	if !chunks[0].IsBeginOfStream() {
+		t.Fatalf("chunk[0] = %#v, want BOS", chunks[0])
+	}
+	if got := chunks[1].Part.(genx.Text); got != "final text" {
+		t.Fatalf("chunk[1] text = %q, want final text", got)
+	}
+	if !chunks[2].IsEndOfStream() {
+		t.Fatalf("chunk[2] = %#v, want EOS", chunks[2])
+	}
+}
+
 func buildASROGGOpusStream(t *testing.T, sampleRate, channels int, frame []int16) []byte {
 	t.Helper()
 

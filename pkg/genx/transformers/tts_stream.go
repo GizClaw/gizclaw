@@ -5,16 +5,25 @@ import (
 	"errors"
 	"io"
 	"strings"
+	"unicode"
 
 	"github.com/GizClaw/gizclaw-go/pkg/genx"
 )
 
-const defaultTTSSegmentMaxRunes = 256
+const (
+	defaultTTSSegmentMaxRunes      = 80
+	defaultTTSFirstSegmentMinRunes = 8
+)
 
 type ttsChunkMeta struct {
 	Role     genx.Role
 	Name     string
 	StreamID string
+}
+
+type ttsStreamState struct {
+	meta      ttsChunkMeta
+	segmenter *ttsSentenceSegmenter
 }
 
 type ttsSynthesizer func(context.Context, string, ttsChunkMeta, string, *bufferStream) error
@@ -27,16 +36,48 @@ func runTTSTransform(ctx context.Context, input genx.Stream, output *bufferStrea
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	segmenter := newTTSSentenceSegmenter(defaultTTSSegmentMaxRunes)
-	var meta ttsChunkMeta
+	states := map[string]*ttsStreamState{}
 
-	flush := func(all bool) error {
-		for _, segment := range segmenter.Segments(all) {
-			if strings.TrimSpace(segment) == "" {
+	stateFor := func(chunk *genx.MessageChunk) *ttsStreamState {
+		streamID := chunkStreamID(chunk)
+		state := states[streamID]
+		if state == nil {
+			state = &ttsStreamState{segmenter: newTTSSentenceSegmenter(defaultTTSSegmentMaxRunes)}
+			states[streamID] = state
+		}
+		updateTTSMeta(&state.meta, chunk)
+		return state
+	}
+
+	flushState := func(state *ttsStreamState, all bool) error {
+		for _, segment := range state.segmenter.Segments(all) {
+			if !hasReadableTTSSpokenText(segment) {
 				continue
 			}
-			debugTTSSegment(meta, segment, all)
-			if err := synthesize(ctx, segment, meta, mimeType, output); err != nil {
+			debugTTSSegment(state.meta, segment, all)
+			if err := synthesize(ctx, segment, state.meta, mimeType, output); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+
+	closeState := func(streamID string, state *ttsStreamState, errText string) error {
+		if errText == "" {
+			if err := flushState(state, true); err != nil {
+				return err
+			}
+		}
+		if err := output.Push(newTTSEOSChunk(state.meta, mimeType, errText)); err != nil {
+			return err
+		}
+		delete(states, streamID)
+		return nil
+	}
+
+	closeAll := func() error {
+		for streamID, state := range states {
+			if err := closeState(streamID, state, ""); err != nil {
 				return err
 			}
 		}
@@ -50,7 +91,7 @@ func runTTSTransform(ctx context.Context, input genx.Stream, output *bufferStrea
 				output.CloseWithError(err)
 				return
 			}
-			if err := flush(true); err != nil {
+			if err := closeAll(); err != nil {
 				output.CloseWithError(err)
 			}
 			return
@@ -59,39 +100,70 @@ func runTTSTransform(ctx context.Context, input genx.Stream, output *bufferStrea
 			continue
 		}
 
-		updateTTSMeta(&meta, chunk)
+		streamID := chunkStreamID(chunk)
+		if chunk.Ctrl != nil && chunk.Ctrl.Error != "" {
+			if state := states[streamID]; state != nil {
+				updateTTSMeta(&state.meta, chunk)
+				if err := closeState(streamID, state, chunk.Ctrl.Error); err != nil {
+					output.CloseWithError(err)
+				}
+			} else if err := output.Push(chunk); err != nil {
+				return
+			}
+			continue
+		}
 
 		text, isText := chunk.Part.(genx.Text)
 		if isText {
+			state := stateFor(chunk)
 			if text != "" {
-				segmenter.WriteString(string(text))
-				if err := flush(false); err != nil {
+				state.segmenter.WriteString(string(text))
+				if err := flushState(state, false); err != nil {
 					output.CloseWithError(err)
 					return
 				}
 			}
 			if chunk.IsEndOfStream() {
-				if err := flush(true); err != nil {
+				if err := closeState(streamID, state, ""); err != nil {
 					output.CloseWithError(err)
 					return
 				}
-				if err := output.Push(newTTSEOSChunk(meta, mimeType)); err != nil {
-					return
-				}
-				segmenter.Reset()
-				meta = ttsChunkMeta{}
 			}
 			continue
 		}
 
-		if err := flush(true); err != nil {
-			output.CloseWithError(err)
-			return
+		if chunk.IsEndOfStream() {
+			if state := states[streamID]; state != nil {
+				updateTTSMeta(&state.meta, chunk)
+				if err := closeState(streamID, state, ""); err != nil {
+					output.CloseWithError(err)
+					return
+				}
+			}
 		}
 		if err := output.Push(chunk); err != nil {
 			return
 		}
 	}
+}
+
+func chunkStreamID(chunk *genx.MessageChunk) string {
+	if chunk != nil && chunk.Ctrl != nil {
+		return chunk.Ctrl.StreamID
+	}
+	return ""
+}
+
+func hasReadableTTSSpokenText(text string) bool {
+	if strings.TrimSpace(text) == "" {
+		return false
+	}
+	for _, r := range text {
+		if unicode.IsLetter(r) || unicode.IsNumber(r) {
+			return true
+		}
+	}
+	return false
 }
 
 func updateTTSMeta(meta *ttsChunkMeta, chunk *genx.MessageChunk) {
@@ -120,11 +192,11 @@ func pushTTSAudioChunk(output *bufferStream, meta ttsChunkMeta, mimeType string,
 	return output.Push(chunk)
 }
 
-func newTTSEOSChunk(meta ttsChunkMeta, mimeType string) *genx.MessageChunk {
+func newTTSEOSChunk(meta ttsChunkMeta, mimeType, errText string) *genx.MessageChunk {
 	return &genx.MessageChunk{
 		Role: meta.Role,
 		Name: meta.Name,
 		Part: &genx.Blob{MIMEType: mimeType},
-		Ctrl: &genx.StreamCtrl{StreamID: meta.StreamID, EndOfStream: true},
+		Ctrl: &genx.StreamCtrl{StreamID: meta.StreamID, EndOfStream: true, Error: errText},
 	}
 }

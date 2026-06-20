@@ -402,6 +402,17 @@ func TestOpenPlaybackWriteAndPCMBridge(t *testing.T) {
 		t.Fatalf("device id=%d, want 7", play.Config().DeviceID)
 	}
 
+	stereo, err := d.OpenPlaybackConfig(StreamConfig{DeviceID: 7, SampleRate: 48000, Channels: 2, FramesPerBuffer: 960})
+	if err != nil {
+		t.Fatalf("OpenPlaybackConfig: %v", err)
+	}
+	if stereo.Config().DeviceID != 7 || stereo.Config().Channels != 2 || stereo.Config().SampleRate != 48000 {
+		t.Fatalf("stereo playback config = %+v", stereo.Config())
+	}
+	if err := stereo.Close(); err != nil {
+		t.Fatalf("stereo Close: %v", err)
+	}
+
 	if _, err := play.Write(make([]byte, 3)); err == nil {
 		t.Fatal("expected frame alignment error")
 	}

@@ -18,9 +18,17 @@ func TestNormalizeTTSSpokenTextKeepsNonTagAngleText(t *testing.T) {
 	}
 }
 
-func TestNormalizeTTSSpokenTextRemovesHTMLTags(t *testing.T) {
+func TestNormalizeTTSSpokenTextRemovesXMLTagContents(t *testing.T) {
 	got := normalizeTTSSpokenText("你好<br/>世界，<voice name=\"x\">继续</voice>。")
-	want := "你好世界，继续。"
+	want := "你好世界，。"
+	if got != want {
+		t.Fatalf("normalizeTTSSpokenText() = %q, want %q", got, want)
+	}
+}
+
+func TestNormalizeTTSSpokenTextRemovesStructuredXMLBlocks(t *testing.T) {
+	got := normalizeTTSSpokenText(`<node id="answer">可以。<block><item name="city">上海</item><item name="date">今天</item></block>请稍等。</node>`)
+	want := ""
 	if got != want {
 		t.Fatalf("normalizeTTSSpokenText() = %q, want %q", got, want)
 	}

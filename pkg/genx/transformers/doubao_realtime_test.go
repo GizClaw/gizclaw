@@ -3,10 +3,14 @@ package transformers
 import (
 	"bytes"
 	"encoding/binary"
+	"errors"
+	"fmt"
+	"io"
 	"math"
 	"strings"
 	"testing"
 
+	"github.com/GizClaw/doubao-speech-go"
 	mp3codec "github.com/GizClaw/gizclaw-go/pkg/audio/codec/mp3"
 	"github.com/GizClaw/gizclaw-go/pkg/audio/codec/ogg"
 	"github.com/GizClaw/gizclaw-go/pkg/audio/codec/opus"
@@ -234,6 +238,88 @@ func TestDoubaoRealtimeAudioInputsRejectMIMEChange(t *testing.T) {
 	}
 }
 
+func TestDoubaoRealtimeIdleTimeoutDetection(t *testing.T) {
+	err := fmt.Errorf("wrapped: %w", &doubaospeech.Error{Code: 55000001, Message: "DialogAudioIdleTimeoutError"})
+	if !isDoubaoRealtimeIdleTimeout(err) {
+		t.Fatal("idle timeout error was not detected")
+	}
+	if isDoubaoRealtimeIdleTimeout(fmt.Errorf("other error")) {
+		t.Fatal("non-idle error was detected as idle timeout")
+	}
+}
+
+func TestDoubaoRealtimeConfigSetsInputModeAndModel(t *testing.T) {
+	tfr := NewDoubaoRealtime(nil,
+		WithDoubaoRealtimeMode(DoubaoRealtimeModeText),
+		WithDoubaoRealtimeModel("O"),
+	)
+	cfg := tfr.realtimeConfig()
+	if cfg.InputMode != doubaospeech.RealtimeInputModeText {
+		t.Fatalf("InputMode = %q, want text", cfg.InputMode)
+	}
+	if cfg.Model != doubaospeech.RealtimeModelVersion("O") {
+		t.Fatalf("Model = %q, want O", cfg.Model)
+	}
+}
+
+func TestDoubaoRealtimeConfigAddsDialogExtra(t *testing.T) {
+	tfr := NewDoubaoRealtime(nil,
+		WithDoubaoRealtimeWebSearch(DoubaoRealtimeWebSearchConfig{
+			Enabled:         true,
+			Type:            "web_summary",
+			APIKey:          "search-key",
+			BotID:           "bot-id",
+			ResultCount:     5,
+			NoResultMessage: "没有找到相关结果。",
+		}),
+		WithDoubaoRealtimeMusic(true),
+	)
+	cfg := tfr.realtimeConfig()
+	extra, ok := cfg.Dialog.Extra["extra"].(map[string]any)
+	if !ok {
+		t.Fatalf("Dialog.Extra[extra] = %#v, want map", cfg.Dialog.Extra["extra"])
+	}
+	if extra["enable_volc_websearch"] != true ||
+		extra["volc_websearch_type"] != "web_summary" ||
+		extra["volc_websearch_api_key"] != "search-key" ||
+		extra["volc_websearch_bot_id"] != "bot-id" ||
+		extra["volc_websearch_result_count"] != 5 ||
+		extra["volc_websearch_no_result_message"] != "没有找到相关结果。" {
+		t.Fatalf("web search extra = %#v", extra)
+	}
+	if extra["enable_music"] != true {
+		t.Fatalf("enable_music = %#v, want true", extra["enable_music"])
+	}
+}
+
+func TestPendingChunkStreamDelegatesClose(t *testing.T) {
+	rest := &trackingCloseStream{}
+	stream := withPendingChunk(rest, &genx.MessageChunk{Part: genx.Text("first")})
+
+	chunk, err := stream.Next()
+	if err != nil {
+		t.Fatalf("Next() error = %v", err)
+	}
+	if got, ok := chunk.Part.(genx.Text); !ok || got != "first" {
+		t.Fatalf("first chunk = %#v", chunk)
+	}
+
+	if err := stream.Close(); err != nil {
+		t.Fatalf("Close() error = %v", err)
+	}
+	if rest.closed != 1 {
+		t.Fatalf("rest closed = %d, want 1", rest.closed)
+	}
+
+	wantErr := errors.New("stop")
+	if err := stream.CloseWithError(wantErr); err != nil {
+		t.Fatalf("CloseWithError() error = %v", err)
+	}
+	if rest.closeErr != wantErr {
+		t.Fatalf("rest close error = %v, want %v", rest.closeErr, wantErr)
+	}
+}
+
 func TestPCM16LE(t *testing.T) {
 	got := pcm16LE([]int16{1, -2})
 	want := []byte{1, 0, 254, 255}
@@ -331,4 +417,23 @@ func testRealtimeOpusHeadPacket(sampleRate, channels int) []byte {
 	packet[9] = byte(channels)
 	binary.LittleEndian.PutUint32(packet[12:], uint32(sampleRate))
 	return packet
+}
+
+type trackingCloseStream struct {
+	closed   int
+	closeErr error
+}
+
+func (s *trackingCloseStream) Next() (*genx.MessageChunk, error) {
+	return nil, io.EOF
+}
+
+func (s *trackingCloseStream) Close() error {
+	s.closed++
+	return nil
+}
+
+func (s *trackingCloseStream) CloseWithError(err error) error {
+	s.closeErr = err
+	return nil
 }

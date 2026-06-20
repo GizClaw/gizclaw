@@ -45,6 +45,7 @@ type DoubaoASRSAUC struct {
 	resourceID     string
 	chunkSize      int
 	realtimePacing bool
+	emitInterim    bool
 
 	newSession func(context.Context, doubaoASRSessionConfig) (doubaoASRSession, error)
 }
@@ -128,6 +129,13 @@ func WithDoubaoASRSAUCHotwords(hotwords []string) DoubaoASRSAUCOption {
 func WithDoubaoASRSAUCResultType(resultType string) DoubaoASRSAUCOption {
 	return func(t *DoubaoASRSAUC) {
 		t.resultType = resultType
+	}
+}
+
+// WithDoubaoASRSAUCEmitInterim emits non-definite ASR text chunks.
+func WithDoubaoASRSAUCEmitInterim(enabled bool) DoubaoASRSAUCOption {
+	return func(t *DoubaoASRSAUC) {
+		t.emitInterim = enabled
 	}
 }
 
@@ -345,11 +353,13 @@ func (t *DoubaoASRSAUC) transformLoop(input genx.Stream, output *bufferStream) {
 					output.CloseWithError(err)
 					return
 				}
-				eosChunk := genx.NewTextEndOfStream()
-				eosChunk.Role = lastChunk.Role
-				eosChunk.Name = lastChunk.Name
-				if err := output.Push(eosChunk); err != nil {
-					return
+				if !t.emitInterim {
+					eosChunk := genx.NewTextEndOfStream()
+					eosChunk.Role = lastChunk.Role
+					eosChunk.Name = lastChunk.Name
+					if err := output.Push(eosChunk); err != nil {
+						return
+					}
 				}
 				continue
 			}
@@ -618,11 +628,87 @@ func (t *DoubaoASRSAUC) receiveResults(session doubaoASRSession, lastChunk *genx
 	resultCount := 0
 	textCount := 0
 	lastText := ""
+	lastInterimText := ""
 	lastUtteranceCount := 0
 	lastFinal := false
+	transcriptOpen := false
+	transcriptDefinite := false
+
+	streamCtrl := func(begin, end bool, errText string) *genx.StreamCtrl {
+		ctrl := &genx.StreamCtrl{
+			Label:         "transcript",
+			BeginOfStream: begin,
+			EndOfStream:   end,
+			Error:         errText,
+		}
+		if lastChunk != nil && lastChunk.Ctrl != nil {
+			ctrl.StreamID = lastChunk.Ctrl.StreamID
+		}
+		return ctrl
+	}
+	emitTranscriptBOS := func() {
+		if !t.emitInterim || transcriptOpen {
+			return
+		}
+		outChunk := &genx.MessageChunk{
+			Ctrl: streamCtrl(true, false, ""),
+		}
+		if lastChunk != nil {
+			outChunk.Role = lastChunk.Role
+			outChunk.Name = lastChunk.Name
+		}
+		resultsCh <- outChunk
+		transcriptOpen = true
+		transcriptDefinite = false
+		lastInterimText = ""
+	}
+	emitTranscriptText := func(text string, definite bool) {
+		text = strings.TrimSpace(text)
+		if text == "" {
+			return
+		}
+		if t.emitInterim {
+			emitTranscriptBOS()
+		}
+		outChunk := &genx.MessageChunk{
+			Part: genx.Text(text),
+		}
+		if t.emitInterim {
+			outChunk.Ctrl = streamCtrl(false, false, "")
+		}
+		if lastChunk != nil {
+			outChunk.Role = lastChunk.Role
+			outChunk.Name = lastChunk.Name
+		}
+		resultsCh <- outChunk
+		if definite {
+			transcriptDefinite = true
+		}
+	}
+	closeTranscript := func(errText string) {
+		if !t.emitInterim || !transcriptOpen {
+			return
+		}
+		if errText == "" && !transcriptDefinite {
+			errText = "asr transcript ended before definite result"
+		}
+		outChunk := &genx.MessageChunk{
+			Part: genx.Text(""),
+			Ctrl: streamCtrl(false, true, errText),
+		}
+		if lastChunk != nil {
+			outChunk.Role = lastChunk.Role
+			outChunk.Name = lastChunk.Name
+		}
+		resultsCh <- outChunk
+		transcriptOpen = false
+		transcriptDefinite = false
+		lastInterimText = ""
+	}
 
 	for result, err := range session.Recv() {
 		if err != nil {
+			closeTranscript(err.Error())
 			done <- err
 			return
 		}
@@ -641,35 +727,41 @@ func (t *DoubaoASRSAUC) receiveResults(session doubaoASRSession, lastChunk *genx
 						continue
 					}
 					seenUtterances[key] = struct{}{}
-					outChunk := &genx.MessageChunk{
-						Part: genx.Text(utt.Text),
-					}
-					if lastChunk != nil {
-						outChunk.Role = lastChunk.Role
-						outChunk.Name = lastChunk.Name
-					}
-					resultsCh <- outChunk
+					emitTranscriptText(utt.Text, true)
 					textCount++
 					emittedResultText = true
+					closeTranscript("")
 				}
 			}
 		}
+		if !emittedResultText && t.emitInterim && !result.IsFinal {
+			interimText := strings.TrimSpace(result.Text)
+			if interimText == "" {
+				for _, utt := range result.Utterances {
+					if !utt.Definite && strings.TrimSpace(utt.Text) != "" {
+						interimText = strings.TrimSpace(utt.Text)
+						break
+					}
+				}
+			}
+			if interimText != "" && interimText != lastInterimText {
+				lastInterimText = interimText
+				emitTranscriptText(interimText, false)
+			}
+		}
 		if !emittedResultText && result.IsFinal && result.Text != "" && textCount == 0 {
-			outChunk := &genx.MessageChunk{
-				Part: genx.Text(result.Text),
-			}
-			if lastChunk != nil {
-				outChunk.Role = lastChunk.Role
-				outChunk.Name = lastChunk.Name
-			}
-			resultsCh <- outChunk
+			emitTranscriptText(result.Text, true)
 			textCount++
+			closeTranscript("")
 		}
 	}
 	if textCount == 0 {
-		done <- fmt.Errorf("doubao asr returned no text: results=%d last_final=%t last_text=%q last_utterances=%d", resultCount, lastFinal, lastText, lastUtteranceCount)
+		err := fmt.Errorf("doubao asr returned no text: results=%d last_final=%t last_text=%q last_utterances=%d", resultCount, lastFinal, lastText, lastUtteranceCount)
+		closeTranscript(err.Error())
+		done <- err
 		return
 	}
+	closeTranscript("")
 	done <- nil
 }
 
