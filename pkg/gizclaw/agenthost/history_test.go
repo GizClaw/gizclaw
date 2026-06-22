@@ -3,6 +3,8 @@ package agenthost
 import (
 	"bytes"
 	"context"
+	"errors"
+	"io"
 	"io/fs"
 	"sync"
 	"testing"
@@ -486,6 +488,68 @@ func TestHistoryAgentPlayReplaysGearHistory(t *testing.T) {
 	_ = agentOutput.Close()
 }
 
+func TestHistoryAgentPlayRoutesToRequestGearOutput(t *testing.T) {
+	history := workspace.NewHistoryStore(objectstore.Dir(t.TempDir()), "demo")
+	entry, err := history.Append(context.Background(), workspace.AppendHistoryRequest{
+		Type: "agent",
+		Name: "assistant",
+		Text: "hello gear a",
+	})
+	if err != nil {
+		t.Fatalf("Append history: %v", err)
+	}
+	base := &historyMultiOutputAgent{}
+	agent := wrapHistoryAgent(base, history)
+	outA, err := agent.Transform(withHistoryGearID(context.Background(), "gear-a"), "demo", historyStreamFromChunks())
+	if err != nil {
+		t.Fatalf("Transform(gear-a) error = %v", err)
+	}
+	outB, err := agent.Transform(withHistoryGearID(context.Background(), "gear-b"), "demo", historyStreamFromChunks())
+	if err != nil {
+		t.Fatalf("Transform(gear-b) error = %v", err)
+	}
+	defer outA.Close()
+	defer outB.Close()
+	defer base.closeAll()
+
+	resp, err := agent.PlayHistory(withHistoryGearID(context.Background(), "gear-a"), apitypes.PeerRunHistoryPlayRequest{HistoryId: entry.ID})
+	if err != nil {
+		t.Fatalf("PlayHistory() error = %v", err)
+	}
+	if !resp.Accepted || resp.State != "played" {
+		t.Fatalf("PlayHistory() = %+v", resp)
+	}
+	text, err := outA.Next()
+	if err != nil {
+		t.Fatalf("gear-a Next replay text: %v", err)
+	}
+	if got, ok := text.Part.(genx.Text); !ok || string(got) != "hello gear a" {
+		t.Fatalf("gear-a replay text = %#v", text)
+	}
+	result := make(chan error, 1)
+	go func() {
+		chunk, err := outB.Next()
+		if err != nil {
+			result <- err
+			return
+		}
+		_ = chunk
+		result <- fs.ErrInvalid
+	}()
+	select {
+	case err := <-result:
+		if err == nil {
+			t.Fatal("gear-b received unexpected replay chunk")
+		}
+		t.Fatalf("gear-b replay result before close = %v", err)
+	case <-time.After(50 * time.Millisecond):
+	}
+	_ = outB.Close()
+	if err := <-result; !IsStreamDone(err) && !errors.Is(err, io.ErrClosedPipe) {
+		t.Fatalf("gear-b close error = %v, want stream done", err)
+	}
+}
+
 func TestHistoryAgentPlayInterruptsPreviousReplay(t *testing.T) {
 	history := workspace.NewHistoryStore(objectstore.Dir(t.TempDir()), "demo")
 	audio1, err := historyOggOpusAsset([][]byte{{1}, {2}, {3}, {4}})
@@ -705,6 +769,47 @@ func (a historyTestAgent) MemoryStats(context.Context, apitypes.PeerRunMemorySta
 
 func (a historyTestAgent) Recall(context.Context, apitypes.PeerRunRecallRequest) (apitypes.PeerRunRecallResponse, error) {
 	return apitypes.PeerRunRecallResponse{}, nil
+}
+
+type historyMultiOutputAgent struct {
+	mu      sync.Mutex
+	outputs []*blockingHistoryStream
+}
+
+func (a *historyMultiOutputAgent) Transform(context.Context, string, genx.Stream) (genx.Stream, error) {
+	output := newBlockingHistoryStream()
+	a.mu.Lock()
+	a.outputs = append(a.outputs, output)
+	a.mu.Unlock()
+	return output, nil
+}
+
+func (a *historyMultiOutputAgent) Status(context.Context) (apitypes.PeerRunWorkspaceState, error) {
+	return apitypes.PeerRunWorkspaceState{RuntimeState: apitypes.PeerRunStatusStateRunning}, nil
+}
+
+func (a *historyMultiOutputAgent) ListHistory(context.Context, apitypes.PeerRunHistoryListRequest) (apitypes.PeerRunHistoryListResponse, error) {
+	return apitypes.PeerRunHistoryListResponse{}, nil
+}
+
+func (a *historyMultiOutputAgent) PlayHistory(context.Context, apitypes.PeerRunHistoryPlayRequest) (apitypes.PeerRunHistoryPlayResponse, error) {
+	return apitypes.PeerRunHistoryPlayResponse{}, nil
+}
+
+func (a *historyMultiOutputAgent) MemoryStats(context.Context, apitypes.PeerRunMemoryStatsRequest) (apitypes.PeerRunMemoryStatsResponse, error) {
+	return apitypes.PeerRunMemoryStatsResponse{}, nil
+}
+
+func (a *historyMultiOutputAgent) Recall(context.Context, apitypes.PeerRunRecallRequest) (apitypes.PeerRunRecallResponse, error) {
+	return apitypes.PeerRunRecallResponse{}, nil
+}
+
+func (a *historyMultiOutputAgent) closeAll() {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	for _, output := range a.outputs {
+		_ = output.Close()
+	}
 }
 
 type historyInputDrainingAgent struct {

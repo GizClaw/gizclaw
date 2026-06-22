@@ -28,6 +28,9 @@ func TestNewPeerAgentHostRegistersBuiltInAgents(t *testing.T) {
 	if got.Coordinator != base.Coordinator {
 		t.Fatal("newPeerAgentHost() did not preserve coordinator")
 	}
+	if got.WorkspaceRuntimes() != base.WorkspaceRuntimes() {
+		t.Fatal("newPeerAgentHost() did not preserve workspace runtime registry")
+	}
 	for _, agentType := range []string{asttranslate.Type, doubaorealtime.Type, flowcraft.Type} {
 		t.Run(agentType, func(t *testing.T) {
 			if _, ok := got.Registry.Get(agentType); !ok {

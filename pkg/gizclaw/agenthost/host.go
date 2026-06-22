@@ -10,16 +10,18 @@ import (
 var _ genx.Transformer = (*Host)(nil)
 
 type Host struct {
-	Resolver    Resolver
-	Registry    *Registry
-	Coordinator Coordinator
+	Resolver        Resolver
+	Registry        *Registry
+	Coordinator     Coordinator
+	RuntimeRegistry *RuntimeRegistry
 }
 
 func New(resolver Resolver) *Host {
 	return &Host{
-		Resolver:    resolver,
-		Registry:    NewRegistry(),
-		Coordinator: NewMemoryCoordinator(),
+		Resolver:        resolver,
+		Registry:        NewRegistry(),
+		Coordinator:     NewMemoryCoordinator(),
+		RuntimeRegistry: NewRuntimeRegistry(),
 	}
 }
 
@@ -66,13 +68,17 @@ func (h *Host) OpenAgent(ctx context.Context, pattern string) (Agent, func(), er
 	if err != nil {
 		return nil, nil, err
 	}
-	coordinator := h.coordinator()
-	if coordinator == nil {
-		return nil, nil, fmt.Errorf("agenthost: coordinator is required")
-	}
 	workspaceName := string(spec.Workspace.Name)
 	if workspaceName == "" {
 		return nil, nil, fmt.Errorf("agenthost: resolved workspace name is required")
+	}
+	return h.runtimeRegistry().Acquire(ctx, h, workspaceName, spec)
+}
+
+func (h *Host) openWorkspaceAgent(ctx context.Context, workspaceName string, spec Spec) (Agent, func(), error) {
+	coordinator := h.coordinator()
+	if coordinator == nil {
+		return nil, nil, fmt.Errorf("agenthost: coordinator is required")
 	}
 	lease, err := coordinator.Acquire(ctx, workspaceName)
 	if err != nil {
@@ -118,4 +124,20 @@ func (h *Host) coordinator() Coordinator {
 		h.Coordinator = NewMemoryCoordinator()
 	}
 	return h.Coordinator
+}
+
+func (h *Host) runtimeRegistry() *RuntimeRegistry {
+	if h == nil {
+		return nil
+	}
+	if h.RuntimeRegistry == nil {
+		h.RuntimeRegistry = NewRuntimeRegistry()
+	}
+	return h.RuntimeRegistry
+}
+
+// WorkspaceRuntimes returns the runtime registry shared by peer-scoped host
+// views that should attach to the same workspace agent instances.
+func (h *Host) WorkspaceRuntimes() *RuntimeRegistry {
+	return h.runtimeRegistry()
 }

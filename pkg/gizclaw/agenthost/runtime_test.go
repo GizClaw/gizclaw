@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -399,6 +400,78 @@ func TestServiceWorkspaceStateMergesOpenAgentStatus(t *testing.T) {
 	}
 }
 
+func TestServiceReusesWorkspaceRuntimeForMultipleGears(t *testing.T) {
+	ctx := context.Background()
+	firstKey := testPublicKey(t)
+	secondKey := testPublicKey(t)
+	store := &peerrun.Server{Store: kv.NewMemory(nil)}
+	for _, key := range []giznet.PublicKey{firstKey, secondKey} {
+		if _, err := store.SetRunAgent(ctx, key, apitypes.AgentSelection{WorkspaceName: "demo"}); err != nil {
+			t.Fatalf("SetRunAgent(%s) error = %v", key, err)
+		}
+	}
+	agent := &multiAttachAgent{}
+	factoryCalls := 0
+	host := New(fakeResolver{spec: Spec{Workspace: apitypes.Workspace{Name: "demo"}, AgentType: "multi"}})
+	if err := host.Register("multi", FactoryFunc(func(context.Context, Spec) (genx.Transformer, error) {
+		factoryCalls++
+		return agent, nil
+	})); err != nil {
+		t.Fatalf("Register() error = %v", err)
+	}
+	firstConsumer := newRecordingConsumer()
+	secondConsumer := newRecordingConsumer()
+	first := testService(t, firstKey, store, host)
+	first.Consumer = firstConsumer
+	second := testService(t, secondKey, store, host)
+	second.Consumer = secondConsumer
+
+	if _, err := first.Reload(ctx); err != nil {
+		t.Fatalf("first Reload() error = %v", err)
+	}
+	if _, err := second.Reload(ctx); err != nil {
+		t.Fatalf("second Reload() error = %v", err)
+	}
+	if factoryCalls != 1 {
+		t.Fatalf("factory calls = %d, want 1", factoryCalls)
+	}
+	if agent.transformCalls() != 2 {
+		t.Fatalf("Transform calls = %d, want 2", agent.transformCalls())
+	}
+	if got := firstConsumer.nextText(t); got != firstKey.String() {
+		t.Fatalf("first output = %q, want %q", got, firstKey.String())
+	}
+	if got := secondConsumer.nextText(t); got != secondKey.String() {
+		t.Fatalf("second output = %q, want %q", got, secondKey.String())
+	}
+	if _, err := first.PlayWorkspaceHistory(ctx, apitypes.PeerRunHistoryPlayRequest{HistoryId: "h1"}); err != nil {
+		t.Fatalf("first PlayWorkspaceHistory() error = %v", err)
+	}
+	if _, err := second.PlayWorkspaceHistory(ctx, apitypes.PeerRunHistoryPlayRequest{HistoryId: "h2"}); err != nil {
+		t.Fatalf("second PlayWorkspaceHistory() error = %v", err)
+	}
+	if got, want := agent.playGearIDs(), []string{firstKey.String(), secondKey.String()}; !slices.Equal(got, want) {
+		t.Fatalf("PlayHistory gear IDs = %v, want %v", got, want)
+	}
+
+	if _, err := first.Stop(ctx); err != nil {
+		t.Fatalf("first Stop() error = %v", err)
+	}
+	if _, err := host.coordinator().Acquire(ctx, "demo"); !errors.Is(err, ErrWorkspaceBusy) {
+		t.Fatalf("Acquire after first stop error = %v, want %v", err, ErrWorkspaceBusy)
+	}
+	if _, err := second.Stop(ctx); err != nil {
+		t.Fatalf("second Stop() error = %v", err)
+	}
+	lease, err := host.coordinator().Acquire(ctx, "demo")
+	if err != nil {
+		t.Fatalf("Acquire after both stops error = %v", err)
+	}
+	if err := lease.Release(ctx); err != nil {
+		t.Fatalf("Release after both stops error = %v", err)
+	}
+}
+
 func TestServiceReloadSourceAndOutputErrors(t *testing.T) {
 	ctx := context.Background()
 	publicKey := testPublicKey(t)
@@ -750,6 +823,101 @@ func (a *runtimeTestAgent) MemoryStats(context.Context, apitypes.PeerRunMemorySt
 
 func (a *runtimeTestAgent) Recall(context.Context, apitypes.PeerRunRecallRequest) (apitypes.PeerRunRecallResponse, error) {
 	return apitypes.PeerRunRecallResponse{}, nil
+}
+
+type multiAttachAgent struct {
+	mu        sync.Mutex
+	calls     int
+	playGears []string
+	output    []*genx.StreamBuilder
+}
+
+func (a *multiAttachAgent) Transform(ctx context.Context, _ string, input genx.Stream) (genx.Stream, error) {
+	if input == nil {
+		return nil, errors.New("input required")
+	}
+	sb := genx.NewStreamBuilder((&genx.ModelContextBuilder{}).Build(), 16)
+	if err := sb.Add(&genx.MessageChunk{Part: genx.Text(historyGearID(ctx))}); err != nil {
+		return nil, err
+	}
+	a.mu.Lock()
+	a.calls++
+	a.output = append(a.output, sb)
+	a.mu.Unlock()
+	return sb.Stream(), nil
+}
+
+func (a *multiAttachAgent) transformCalls() int {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.calls
+}
+
+func (a *multiAttachAgent) playGearIDs() []string {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return append([]string(nil), a.playGears...)
+}
+
+func (a *multiAttachAgent) Status(context.Context) (apitypes.PeerRunWorkspaceState, error) {
+	return apitypes.PeerRunWorkspaceState{}, nil
+}
+
+func (a *multiAttachAgent) ListHistory(context.Context, apitypes.PeerRunHistoryListRequest) (apitypes.PeerRunHistoryListResponse, error) {
+	return apitypes.PeerRunHistoryListResponse{}, nil
+}
+
+func (a *multiAttachAgent) PlayHistory(ctx context.Context, req apitypes.PeerRunHistoryPlayRequest) (apitypes.PeerRunHistoryPlayResponse, error) {
+	a.mu.Lock()
+	a.playGears = append(a.playGears, historyGearID(ctx))
+	a.mu.Unlock()
+	return apitypes.PeerRunHistoryPlayResponse{Accepted: true, HistoryId: req.HistoryId, State: "played"}, nil
+}
+
+func (a *multiAttachAgent) MemoryStats(context.Context, apitypes.PeerRunMemoryStatsRequest) (apitypes.PeerRunMemoryStatsResponse, error) {
+	return apitypes.PeerRunMemoryStatsResponse{}, nil
+}
+
+func (a *multiAttachAgent) Recall(context.Context, apitypes.PeerRunRecallRequest) (apitypes.PeerRunRecallResponse, error) {
+	return apitypes.PeerRunRecallResponse{}, nil
+}
+
+type recordingConsumer struct {
+	ch chan string
+}
+
+func newRecordingConsumer() *recordingConsumer {
+	return &recordingConsumer{ch: make(chan string, 4)}
+}
+
+func (c *recordingConsumer) ConsumeAgentOutput(ctx context.Context, stream genx.Stream) error {
+	for {
+		chunk, err := stream.Next()
+		if err != nil {
+			if IsStreamDone(err) || errors.Is(err, io.ErrClosedPipe) {
+				return nil
+			}
+			return err
+		}
+		if text, ok := chunk.Part.(genx.Text); ok {
+			select {
+			case c.ch <- string(text):
+			case <-ctx.Done():
+				return ctx.Err()
+			}
+		}
+	}
+}
+
+func (c *recordingConsumer) nextText(t *testing.T) string {
+	t.Helper()
+	select {
+	case text := <-c.ch:
+		return text
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for output text")
+		return ""
+	}
 }
 
 type blockingStream struct {

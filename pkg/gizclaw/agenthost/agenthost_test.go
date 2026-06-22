@@ -224,22 +224,28 @@ func TestHostTransformUsesResolvedWorkspaceRuntime(t *testing.T) {
 	defer stream.Close()
 }
 
-func TestHostTransformRejectsConcurrentSameWorkspace(t *testing.T) {
+func TestHostTransformReusesAgentForConcurrentSameWorkspace(t *testing.T) {
 	host := New(fakeResolver{spec: Spec{Workspace: apitypes.Workspace{Name: "demo"}, AgentType: "echo"}})
+	createCount := 0
 	if err := host.Register("echo", FactoryFunc(func(context.Context, Spec) (genx.Transformer, error) {
+		createCount++
 		return fixedTransformer{text: "ok"}, nil
 	})); err != nil {
 		t.Fatalf("Register() error = %v", err)
 	}
-	stream, err := host.Transform(context.Background(), "demo", emptyStream{})
+	first, err := host.Transform(context.Background(), "demo", emptyStream{})
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
 	}
-	defer stream.Close()
+	defer first.Close()
 
-	_, err = host.Transform(context.Background(), "demo", emptyStream{})
-	if !errors.Is(err, ErrWorkspaceBusy) {
-		t.Fatalf("second Transform() error = %v, want %v", err, ErrWorkspaceBusy)
+	second, err := host.Transform(context.Background(), "demo", emptyStream{})
+	if err != nil {
+		t.Fatalf("second Transform() error = %v", err)
+	}
+	defer second.Close()
+	if createCount != 1 {
+		t.Fatalf("factory calls = %d, want 1", createCount)
 	}
 }
 

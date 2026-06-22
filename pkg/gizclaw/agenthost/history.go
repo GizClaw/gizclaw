@@ -29,6 +29,7 @@ const (
 	historyOggOpusChannels   = 1
 	historyReplayFrameDelay  = 20 * time.Millisecond
 	historyReplayInterrupted = "interrupted"
+	defaultHistoryOutputKey  = "__default__"
 )
 
 type historyGearIDContextKey struct{}
@@ -58,8 +59,11 @@ type historyAgent struct {
 	history *workspace.HistoryStore
 
 	outputMu sync.Mutex
-	output   *genx.StreamBuilder
-	streamID uint64
+	outputs  map[string]*historyOutput
+}
+
+type historyOutput struct {
+	output *genx.StreamBuilder
 
 	replayMu       sync.Mutex
 	replayCancel   context.CancelFunc
@@ -95,6 +99,7 @@ func (a *historyAgent) Transform(ctx context.Context, pattern string, input genx
 	if a == nil || a.Agent == nil {
 		return nil, fmt.Errorf("agenthost: history agent is nil")
 	}
+	outputKey := historyOutputKey(ctx)
 	recorder := newHistoryRecorder(a.history, historyGearID(ctx))
 	wrappedInput := &historyInputStream{Stream: input, ctx: ctx, recorder: recorder}
 	agentOutput, err := a.Agent.Transform(ctx, pattern, wrappedInput)
@@ -103,11 +108,17 @@ func (a *historyAgent) Transform(ctx context.Context, pattern string, input genx
 	}
 	output := genx.NewStreamBuilder((&genx.ModelContextBuilder{}).Build(), 256)
 	a.outputMu.Lock()
-	a.output = output
-	a.streamID++
-	epoch := a.streamID
+	if a.outputs == nil {
+		a.outputs = make(map[string]*historyOutput)
+	}
+	previous := a.outputs[outputKey]
+	if previous != nil {
+		previous.cancelReplay()
+	}
+	outputState := &historyOutput{output: output}
+	a.outputs[outputKey] = outputState
 	a.outputMu.Unlock()
-	go a.forwardOutput(ctx, epoch, agentOutput, output, recorder)
+	go a.forwardOutput(ctx, outputKey, outputState, agentOutput, output, recorder)
 	return output.Stream(), nil
 }
 
@@ -146,7 +157,7 @@ func (a *historyAgent) PlayHistory(ctx context.Context, req apitypes.PeerRunHist
 		message := "history entry has no replayable content"
 		return apitypes.PeerRunHistoryPlayResponse{Accepted: false, HistoryId: req.HistoryId, State: "unsupported", Message: &message}, nil
 	}
-	output, streamID, ok := a.currentOutput()
+	outputState, streamID, ok := a.currentOutput(ctx)
 	if !ok {
 		message := "workspace history replay requires an active output stream"
 		return apitypes.PeerRunHistoryPlayResponse{Accepted: false, HistoryId: req.HistoryId, State: "unavailable", Message: &message}, nil
@@ -161,29 +172,29 @@ func (a *historyAgent) PlayHistory(ctx context.Context, req apitypes.PeerRunHist
 		return apitypes.PeerRunHistoryPlayResponse{Accepted: false, HistoryId: req.HistoryId, State: "empty", Message: &message}, nil
 	}
 	role, name, label := historyReplayRoute(entry)
-	if err := a.startReplay(output, streamID, role, name, label, chunks); err != nil {
+	if err := outputState.startReplay(streamID, role, name, label, chunks); err != nil {
 		message := err.Error()
 		return apitypes.PeerRunHistoryPlayResponse{Accepted: false, HistoryId: req.HistoryId, State: "unavailable", Message: &message}, nil
 	}
 	return apitypes.PeerRunHistoryPlayResponse{Accepted: true, HistoryId: req.HistoryId, State: "played"}, nil
 }
 
-func (a *historyAgent) forwardOutput(ctx context.Context, epoch uint64, input genx.Stream, output *genx.StreamBuilder, recorder *historyRecorder) {
+func (a *historyAgent) forwardOutput(ctx context.Context, outputKey string, outputState *historyOutput, input genx.Stream, output *genx.StreamBuilder, recorder *historyRecorder) {
 	defer input.Close()
 	for {
 		if err := ctx.Err(); err != nil {
 			_ = output.Abort(err)
-			a.clearOutput(epoch)
+			a.clearOutput(outputKey, outputState)
 			return
 		}
 		chunk, err := input.Next()
 		if err != nil {
 			if flushErr := recorder.Flush(ctx); flushErr != nil {
-				a.clearOutput(epoch)
+				a.clearOutput(outputKey, outputState)
 				_ = output.Abort(flushErr)
 				return
 			}
-			a.clearOutput(epoch)
+			a.clearOutput(outputKey, outputState)
 			if IsStreamDone(err) {
 				_ = output.Done(genx.Usage{})
 				return
@@ -194,50 +205,62 @@ func (a *historyAgent) forwardOutput(ctx context.Context, epoch uint64, input ge
 		if chunk == nil {
 			continue
 		}
-		if a.observeForwardChunk(chunk) {
+		if outputState.observeForwardChunk(chunk) {
 			continue
 		}
 		if err := recorder.ObserveOutput(ctx, chunk); err != nil {
-			a.clearOutput(epoch)
+			a.clearOutput(outputKey, outputState)
 			_ = output.Abort(err)
 			return
 		}
 		if err := output.Add(chunk.Clone()); err != nil {
 			_ = recorder.Flush(ctx)
-			a.clearOutput(epoch)
+			a.clearOutput(outputKey, outputState)
 			return
 		}
 	}
 }
 
-func (a *historyAgent) currentOutput() (*genx.StreamBuilder, string, bool) {
-	a.outputMu.Lock()
-	defer a.outputMu.Unlock()
-	if a.output == nil {
-		return nil, "", false
+func historyOutputKey(ctx context.Context) string {
+	gearID := historyGearID(ctx)
+	if gearID == "" {
+		return defaultHistoryOutputKey
 	}
-	return a.output, fmt.Sprintf("history-replay-%d", time.Now().UnixNano()), true
+	return gearID
 }
 
-func (a *historyAgent) clearOutput(epoch uint64) {
+func (a *historyAgent) currentOutput(ctx context.Context) (*historyOutput, string, bool) {
+	a.outputMu.Lock()
+	defer a.outputMu.Unlock()
+	state := a.outputs[historyOutputKey(ctx)]
+	if state == nil || state.output == nil {
+		return nil, "", false
+	}
+	return state, fmt.Sprintf("history-replay-%d", time.Now().UnixNano()), true
+}
+
+func (a *historyAgent) clearOutput(outputKey string, state *historyOutput) {
 	clearReplay := false
 	a.outputMu.Lock()
-	if a.streamID == epoch {
-		a.output = nil
+	if current := a.outputs[outputKey]; current == state {
+		delete(a.outputs, outputKey)
 		clearReplay = true
 	}
 	a.outputMu.Unlock()
 	if clearReplay {
-		a.cancelReplay()
-		a.clearForwardOutput()
+		state.cancelReplay()
+		state.clearForwardOutput()
 	}
 }
 
-func (a *historyAgent) clearForwardOutput() {
-	a.forwardMu.Lock()
-	defer a.forwardMu.Unlock()
-	a.activeForward = nil
-	a.interruptedForward = nil
+func (o *historyOutput) clearForwardOutput() {
+	if o == nil {
+		return
+	}
+	o.forwardMu.Lock()
+	defer o.forwardMu.Unlock()
+	o.activeForward = nil
+	o.interruptedForward = nil
 }
 
 func (a *historyAgent) replayChunks(ctx context.Context, streamID string, entry workspace.HistoryEntry) ([]*genx.MessageChunk, error) {
@@ -288,46 +311,52 @@ func historyReplayRoute(entry workspace.HistoryEntry) (genx.Role, string, string
 	return role, name, label
 }
 
-func (a *historyAgent) observeForwardChunk(chunk *genx.MessageChunk) bool {
+func (o *historyOutput) observeForwardChunk(chunk *genx.MessageChunk) bool {
+	if o == nil {
+		return false
+	}
 	route, kind, ok := historyForwardChunkRoute(chunk)
 	if !ok {
 		return false
 	}
 	key := historyForwardChunkKey{historyForwardRouteKey: route.key(), kind: kind}
-	a.forwardMu.Lock()
-	defer a.forwardMu.Unlock()
-	if _, interrupted := a.interruptedForward[key]; interrupted {
+	o.forwardMu.Lock()
+	defer o.forwardMu.Unlock()
+	if _, interrupted := o.interruptedForward[key]; interrupted {
 		if chunk.IsEndOfStream() {
-			delete(a.interruptedForward, key)
+			delete(o.interruptedForward, key)
 		}
 		return true
 	}
 	if chunk.IsEndOfStream() {
-		delete(a.activeForward, route.key())
+		delete(o.activeForward, route.key())
 		return false
 	}
-	if a.activeForward == nil {
-		a.activeForward = make(map[historyForwardRouteKey]historyForwardRoute)
+	if o.activeForward == nil {
+		o.activeForward = make(map[historyForwardRouteKey]historyForwardRoute)
 	}
-	a.activeForward[route.key()] = route
+	o.activeForward[route.key()] = route
 	return false
 }
 
-func (a *historyAgent) interruptForwardOutput() []*genx.MessageChunk {
-	a.forwardMu.Lock()
-	defer a.forwardMu.Unlock()
-	if len(a.activeForward) == 0 {
+func (o *historyOutput) interruptForwardOutput() []*genx.MessageChunk {
+	if o == nil {
 		return nil
 	}
-	interrupt := make([]*genx.MessageChunk, 0, len(a.activeForward)*2)
-	if a.interruptedForward == nil {
-		a.interruptedForward = make(map[historyForwardChunkKey]struct{})
+	o.forwardMu.Lock()
+	defer o.forwardMu.Unlock()
+	if len(o.activeForward) == 0 {
+		return nil
 	}
-	for key, route := range a.activeForward {
+	interrupt := make([]*genx.MessageChunk, 0, len(o.activeForward)*2)
+	if o.interruptedForward == nil {
+		o.interruptedForward = make(map[historyForwardChunkKey]struct{})
+	}
+	for key, route := range o.activeForward {
 		interrupt = append(interrupt, historyForwardInterruptedChunks(route)...)
-		a.interruptedForward[historyForwardChunkKey{historyForwardRouteKey: key, kind: "text"}] = struct{}{}
-		a.interruptedForward[historyForwardChunkKey{historyForwardRouteKey: key, kind: "audio"}] = struct{}{}
-		delete(a.activeForward, key)
+		o.interruptedForward[historyForwardChunkKey{historyForwardRouteKey: key, kind: "text"}] = struct{}{}
+		o.interruptedForward[historyForwardChunkKey{historyForwardRouteKey: key, kind: "audio"}] = struct{}{}
+		delete(o.activeForward, key)
 	}
 	return interrupt
 }
@@ -391,41 +420,41 @@ func historyForwardInterruptedChunks(route historyForwardRoute) []*genx.MessageC
 	return []*genx.MessageChunk{textEOS, audioEOS}
 }
 
-func (a *historyAgent) startReplay(output *genx.StreamBuilder, streamID string, role genx.Role, name string, label string, chunks []*genx.MessageChunk) error {
-	if output == nil {
+func (o *historyOutput) startReplay(streamID string, role genx.Role, name string, label string, chunks []*genx.MessageChunk) error {
+	if o == nil || o.output == nil {
 		return fmt.Errorf("workspace history replay requires an active output stream")
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	var interrupt []*genx.MessageChunk
-	a.replayMu.Lock()
-	if a.replayCancel != nil {
-		a.replayCancel()
+	o.replayMu.Lock()
+	if o.replayCancel != nil {
+		o.replayCancel()
 	}
-	if a.replayStreamID != "" {
-		interrupt = historyReplayInterruptedChunks(a.replayRole, a.replayName, a.replayStreamID, a.replayLabel)
+	if o.replayStreamID != "" {
+		interrupt = historyReplayInterruptedChunks(o.replayRole, o.replayName, o.replayStreamID, o.replayLabel)
 	}
-	interrupt = append(interrupt, a.interruptForwardOutput()...)
-	a.replaySeq++
-	seq := a.replaySeq
-	a.replayCancel = cancel
-	a.replayStreamID = streamID
-	a.replayRole = role
-	a.replayName = name
-	a.replayLabel = label
-	a.replayMu.Unlock()
+	interrupt = append(interrupt, o.interruptForwardOutput()...)
+	o.replaySeq++
+	seq := o.replaySeq
+	o.replayCancel = cancel
+	o.replayStreamID = streamID
+	o.replayRole = role
+	o.replayName = name
+	o.replayLabel = label
+	o.replayMu.Unlock()
 	if len(interrupt) > 0 {
-		if err := output.Add(interrupt...); err != nil {
+		if err := o.output.Add(interrupt...); err != nil {
 			cancel()
-			a.finishReplay(seq)
+			o.finishReplay(seq)
 			return err
 		}
 	}
-	go a.runReplay(ctx, seq, output, chunks)
+	go o.runReplay(ctx, seq, chunks)
 	return nil
 }
 
-func (a *historyAgent) runReplay(ctx context.Context, seq uint64, output *genx.StreamBuilder, chunks []*genx.MessageChunk) {
-	defer a.finishReplay(seq)
+func (o *historyOutput) runReplay(ctx context.Context, seq uint64, chunks []*genx.MessageChunk) {
+	defer o.finishReplay(seq)
 	for _, chunk := range chunks {
 		if chunk == nil {
 			continue
@@ -433,22 +462,22 @@ func (a *historyAgent) runReplay(ctx context.Context, seq uint64, output *genx.S
 		if err := ctx.Err(); err != nil {
 			return
 		}
-		if !a.isCurrentReplay(seq) {
+		if !o.isCurrentReplay(seq) {
 			return
 		}
-		if err := output.Add(chunk.Clone()); err != nil {
+		if err := o.output.Add(chunk.Clone()); err != nil {
 			return
 		}
 		if historyReplayNeedsPace(chunk) {
-			if err := a.waitReplayFrame(ctx, seq); err != nil {
+			if err := o.waitReplayFrame(ctx, seq); err != nil {
 				return
 			}
 		}
 	}
 }
 
-func (a *historyAgent) waitReplayFrame(ctx context.Context, seq uint64) error {
-	if !a.isCurrentReplay(seq) {
+func (o *historyOutput) waitReplayFrame(ctx context.Context, seq uint64) error {
+	if !o.isCurrentReplay(seq) {
 		return context.Canceled
 	}
 	timer := time.NewTimer(historyReplayFrameDelay)
@@ -458,43 +487,52 @@ func (a *historyAgent) waitReplayFrame(ctx context.Context, seq uint64) error {
 		return ctx.Err()
 	case <-timer.C:
 	}
-	if !a.isCurrentReplay(seq) {
+	if !o.isCurrentReplay(seq) {
 		return context.Canceled
 	}
 	return nil
 }
 
-func (a *historyAgent) finishReplay(seq uint64) {
-	a.replayMu.Lock()
-	defer a.replayMu.Unlock()
-	if a.replaySeq == seq {
-		a.replayCancel = nil
-		a.replayStreamID = ""
-		a.replayRole = ""
-		a.replayName = ""
-		a.replayLabel = ""
+func (o *historyOutput) finishReplay(seq uint64) {
+	if o == nil {
+		return
+	}
+	o.replayMu.Lock()
+	defer o.replayMu.Unlock()
+	if o.replaySeq == seq {
+		o.replayCancel = nil
+		o.replayStreamID = ""
+		o.replayRole = ""
+		o.replayName = ""
+		o.replayLabel = ""
 	}
 }
 
-func (a *historyAgent) cancelReplay() {
-	a.replayMu.Lock()
-	cancel := a.replayCancel
-	a.replayCancel = nil
-	a.replayStreamID = ""
-	a.replayRole = ""
-	a.replayName = ""
-	a.replayLabel = ""
-	a.replaySeq++
-	a.replayMu.Unlock()
+func (o *historyOutput) cancelReplay() {
+	if o == nil {
+		return
+	}
+	o.replayMu.Lock()
+	cancel := o.replayCancel
+	o.replayCancel = nil
+	o.replayStreamID = ""
+	o.replayRole = ""
+	o.replayName = ""
+	o.replayLabel = ""
+	o.replaySeq++
+	o.replayMu.Unlock()
 	if cancel != nil {
 		cancel()
 	}
 }
 
-func (a *historyAgent) isCurrentReplay(seq uint64) bool {
-	a.replayMu.Lock()
-	defer a.replayMu.Unlock()
-	return a.replaySeq == seq && a.replayCancel != nil
+func (o *historyOutput) isCurrentReplay(seq uint64) bool {
+	if o == nil {
+		return false
+	}
+	o.replayMu.Lock()
+	defer o.replayMu.Unlock()
+	return o.replaySeq == seq && o.replayCancel != nil
 }
 
 func historyReplayInterruptedChunks(role genx.Role, name string, streamID string, label string) []*genx.MessageChunk {

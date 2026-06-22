@@ -240,7 +240,7 @@ func (s *Service) ListWorkspaceHistory(ctx context.Context, req apitypes.PeerRun
 		message := err.Error()
 		return apitypes.PeerRunHistoryListResponse{Available: false, Items: []apitypes.PeerRunHistoryEntry{}, HasNext: false, Message: &message}, nil
 	}
-	return rt.agent.ListHistory(ctx, req)
+	return rt.agent.ListHistory(s.gearContext(ctx), req)
 }
 
 func (s *Service) PlayWorkspaceHistory(ctx context.Context, req apitypes.PeerRunHistoryPlayRequest) (apitypes.PeerRunHistoryPlayResponse, error) {
@@ -249,7 +249,7 @@ func (s *Service) PlayWorkspaceHistory(ctx context.Context, req apitypes.PeerRun
 		message := err.Error()
 		return apitypes.PeerRunHistoryPlayResponse{Accepted: false, HistoryId: req.HistoryId, State: "unavailable", Message: &message}, nil
 	}
-	return rt.agent.PlayHistory(ctx, req)
+	return rt.agent.PlayHistory(s.gearContext(ctx), req)
 }
 
 func (s *Service) WorkspaceMemoryStats(ctx context.Context, req apitypes.PeerRunMemoryStatsRequest) (apitypes.PeerRunMemoryStatsResponse, error) {
@@ -258,7 +258,7 @@ func (s *Service) WorkspaceMemoryStats(ctx context.Context, req apitypes.PeerRun
 		message := err.Error()
 		return apitypes.PeerRunMemoryStatsResponse{Available: false, Enabled: false, ItemCount: 0, StorageBytes: 0, Message: &message}, nil
 	}
-	return rt.agent.MemoryStats(ctx, req)
+	return rt.agent.MemoryStats(s.gearContext(ctx), req)
 }
 
 func (s *Service) WorkspaceRecall(ctx context.Context, req apitypes.PeerRunRecallRequest) (apitypes.PeerRunRecallResponse, error) {
@@ -267,7 +267,7 @@ func (s *Service) WorkspaceRecall(ctx context.Context, req apitypes.PeerRunRecal
 		message := err.Error()
 		return apitypes.PeerRunRecallResponse{Available: false, Hits: []apitypes.PeerRunRecallHit{}, Message: &message}, nil
 	}
-	return rt.agent.Recall(ctx, req)
+	return rt.agent.Recall(s.gearContext(ctx), req)
 }
 
 func (s *Service) validate() error {
@@ -300,6 +300,13 @@ func (s *Service) authorizeWorkspace(ctx context.Context, workspaceName string) 
 		Resource:   acl.WorkspaceResource(workspaceName),
 		Permission: apitypes.ACLPermissionWorkspaceUse,
 	})
+}
+
+func (s *Service) gearContext(ctx context.Context) context.Context {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	return withHistoryGearID(ctx, s.PublicKey.String())
 }
 
 func (s *Service) swap(next *runtime) *runtime {
