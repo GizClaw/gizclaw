@@ -48,6 +48,14 @@ func (c *rpcClient) DeleteWorkspace(ctx context.Context, conn net.Conn, id strin
 	return callResourceRPC(ctx, conn, id, rpcapi.RPCMethodServerWorkspaceDelete, request, (*rpcapi.RPCRequest_Params).FromWorkspaceDeleteRequest, rpcapi.RPCResponse_Result.AsWorkspaceDeleteResponse, "workspace delete")
 }
 
+func (c *rpcClient) ListWorkspaceHistory(ctx context.Context, conn net.Conn, id string, request rpcapi.WorkspaceHistoryListRequest) (*rpcapi.WorkspaceHistoryListResponse, error) {
+	return callResourceRPC(ctx, conn, id, rpcapi.RPCMethodServerWorkspaceHistoryList, request, (*rpcapi.RPCRequest_Params).FromWorkspaceHistoryListRequest, rpcapi.RPCResponse_Result.AsWorkspaceHistoryListResponse, "workspace history list")
+}
+
+func (c *rpcClient) GetWorkspaceHistory(ctx context.Context, conn net.Conn, id string, request rpcapi.WorkspaceHistoryGetRequest) (*rpcapi.WorkspaceHistoryGetResponse, error) {
+	return callResourceRPC(ctx, conn, id, rpcapi.RPCMethodServerWorkspaceHistoryGet, request, (*rpcapi.RPCRequest_Params).FromWorkspaceHistoryGetRequest, rpcapi.RPCResponse_Result.AsWorkspaceHistoryGetResponse, "workspace history get")
+}
+
 func (c *rpcClient) ListWorkflows(ctx context.Context, conn net.Conn, id string, request rpcapi.WorkflowListRequest) (*rpcapi.WorkflowListResponse, error) {
 	return callResourceRPC(ctx, conn, id, rpcapi.RPCMethodServerWorkflowList, request, (*rpcapi.RPCRequest_Params).FromWorkflowListRequest, rpcapi.RPCResponse_Result.AsWorkflowListResponse, "workflow list")
 }

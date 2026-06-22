@@ -118,6 +118,15 @@
                 "$ref": "./rpc/server.json#/components/schemas/WorkspaceDeleteRequest"
               },
               {
+                "$ref": "./rpc/server.json#/components/schemas/WorkspaceHistoryListRequest"
+              },
+              {
+                "$ref": "./rpc/server.json#/components/schemas/WorkspaceHistoryGetRequest"
+              },
+              {
+                "$ref": "./rpc/server.json#/components/schemas/WorkspaceHistoryAudioGetRequest"
+              },
+              {
                 "$ref": "./rpc/server.json#/components/schemas/WorkflowListRequest"
               },
               {
@@ -383,6 +392,15 @@
                 "$ref": "./rpc/server.json#/components/schemas/WorkspaceDeleteResponse"
               },
               {
+                "$ref": "./rpc/server.json#/components/schemas/WorkspaceHistoryListResponse"
+              },
+              {
+                "$ref": "./rpc/server.json#/components/schemas/WorkspaceHistoryGetResponse"
+              },
+              {
+                "$ref": "./rpc/server.json#/components/schemas/WorkspaceHistoryAudioGetResponse"
+              },
+              {
                 "$ref": "./rpc/server.json#/components/schemas/WorkflowListResponse"
               },
               {
@@ -578,6 +596,9 @@
           "server.workspace.create",
           "server.workspace.put",
           "server.workspace.delete",
+          "server.workspace.history.list",
+          "server.workspace.history.get",
+          "server.workspace.history.audio.get",
           "server.workflow.list",
           "server.workflow.get",
           "server.workflow.create",

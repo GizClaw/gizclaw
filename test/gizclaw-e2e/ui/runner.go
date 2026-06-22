@@ -671,16 +671,11 @@ func registerTestPlayWorkspaceRuntimeRoutes(mux *http.ServeMux) {
 		writeTestPlayJSON(w, map[string]any{
 			"items": []map[string]any{{
 				"id":               "ui-history-1",
-				"actor":            "assistant",
+				"type":             "agent",
+				"name":             "assistant",
 				"text":             "北京今天适合轻松散步，也可以看看天气再决定。",
-				"transcript":       "今天适合出去玩吗？",
 				"created_at":       "2026-06-18T02:00:00Z",
-				"duration_ms":      2100,
 				"replay_available": true,
-				"audio": map[string]any{
-					"available":   true,
-					"duration_ms": 2100,
-				},
 			}},
 			"has_next": false,
 		})

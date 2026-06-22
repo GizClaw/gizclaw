@@ -324,21 +324,18 @@ func (e ModelSource) Valid() bool {
 	}
 }
 
-// Defines values for PeerRunHistoryChunkKind.
+// Defines values for PeerRunHistoryEntryType.
 const (
-	PeerRunHistoryChunkKindAudio      PeerRunHistoryChunkKind = "audio"
-	PeerRunHistoryChunkKindText       PeerRunHistoryChunkKind = "text"
-	PeerRunHistoryChunkKindTranscript PeerRunHistoryChunkKind = "transcript"
+	PeerRunHistoryEntryTypeAgent PeerRunHistoryEntryType = "agent"
+	PeerRunHistoryEntryTypeGear  PeerRunHistoryEntryType = "gear"
 )
 
-// Valid indicates whether the value is a known member of the PeerRunHistoryChunkKind enum.
-func (e PeerRunHistoryChunkKind) Valid() bool {
+// Valid indicates whether the value is a known member of the PeerRunHistoryEntryType enum.
+func (e PeerRunHistoryEntryType) Valid() bool {
 	switch e {
-	case PeerRunHistoryChunkKindAudio:
+	case PeerRunHistoryEntryTypeAgent:
 		return true
-	case PeerRunHistoryChunkKindText:
-		return true
-	case PeerRunHistoryChunkKindTranscript:
+	case PeerRunHistoryEntryTypeGear:
 		return true
 	default:
 		return false
@@ -490,6 +487,9 @@ const (
 	RPCMethodServerWorkspaceCreate          RPCMethod = "server.workspace.create"
 	RPCMethodServerWorkspaceDelete          RPCMethod = "server.workspace.delete"
 	RPCMethodServerWorkspaceGet             RPCMethod = "server.workspace.get"
+	RPCMethodServerWorkspaceHistoryAudioGet RPCMethod = "server.workspace.history.audio.get"
+	RPCMethodServerWorkspaceHistoryGet      RPCMethod = "server.workspace.history.get"
+	RPCMethodServerWorkspaceHistoryList     RPCMethod = "server.workspace.history.list"
 	RPCMethodServerWorkspaceList            RPCMethod = "server.workspace.list"
 	RPCMethodServerWorkspacePut             RPCMethod = "server.workspace.put"
 )
@@ -656,6 +656,12 @@ func (e RPCMethod) Valid() bool {
 	case RPCMethodServerWorkspaceDelete:
 		return true
 	case RPCMethodServerWorkspaceGet:
+		return true
+	case RPCMethodServerWorkspaceHistoryAudioGet:
+		return true
+	case RPCMethodServerWorkspaceHistoryGet:
+		return true
+	case RPCMethodServerWorkspaceHistoryList:
 		return true
 	case RPCMethodServerWorkspaceList:
 		return true
@@ -1636,38 +1642,21 @@ type PeerRunAgent struct {
 	Pending *AgentSelection `json:"pending,omitempty"`
 }
 
-// PeerRunHistoryChunk defines model for PeerRunHistoryChunk.
-type PeerRunHistoryChunk struct {
-	Actor      *string                 `json:"actor,omitempty"`
-	AssetUri   *string                 `json:"asset_uri,omitempty"`
-	At         *time.Time              `json:"at,omitempty"`
-	Bytes      *int64                  `json:"bytes,omitempty"`
-	DurationMs *int64                  `json:"duration_ms,omitempty"`
-	Kind       PeerRunHistoryChunkKind `json:"kind"`
-	Metadata   *map[string]interface{} `json:"metadata,omitempty"`
-	MimeType   *string                 `json:"mime_type,omitempty"`
-	Text       *string                 `json:"text,omitempty"`
-}
-
-// PeerRunHistoryChunkKind defines model for PeerRunHistoryChunk.Kind.
-type PeerRunHistoryChunkKind string
-
 // PeerRunHistoryEntry defines model for PeerRunHistoryEntry.
 type PeerRunHistoryEntry struct {
-	Actor           *string                 `json:"actor,omitempty"`
-	AudioBytes      *int64                  `json:"audio_bytes,omitempty"`
-	AudioChunkCount *int64                  `json:"audio_chunk_count,omitempty"`
-	AudioMimeType   *string                 `json:"audio_mime_type,omitempty"`
-	Chunks          *[]PeerRunHistoryChunk  `json:"chunks,omitempty"`
-	CreatedAt       time.Time               `json:"created_at"`
-	DurationMs      *int64                  `json:"duration_ms,omitempty"`
-	EndedAt         *time.Time              `json:"ended_at,omitempty"`
+	CreatedAt time.Time `json:"created_at"`
+
+	// GearId Originating gear id. Required for gear entries and omitted for agent entries.
+	GearId          *string                 `json:"gear_id,omitempty"`
 	Id              string                  `json:"id"`
-	Metadata        *map[string]interface{} `json:"metadata,omitempty"`
+	Name            string                  `json:"name"`
 	ReplayAvailable bool                    `json:"replay_available"`
-	Text            *string                 `json:"text,omitempty"`
-	Transcript      *string                 `json:"transcript,omitempty"`
+	Text            string                  `json:"text"`
+	Type            PeerRunHistoryEntryType `json:"type"`
 }
+
+// PeerRunHistoryEntryType defines model for PeerRunHistoryEntry.Type.
+type PeerRunHistoryEntryType string
 
 // PeerRunHistoryListRequest defines model for PeerRunHistoryListRequest.
 type PeerRunHistoryListRequest struct {
@@ -1684,17 +1673,9 @@ type PeerRunHistoryListResponse struct {
 	NextCursor *string               `json:"next_cursor,omitempty"`
 }
 
-// PeerRunHistoryPlayOptions defines model for PeerRunHistoryPlayOptions.
-type PeerRunHistoryPlayOptions struct {
-	IncludeAudio *bool    `json:"include_audio,omitempty"`
-	IncludeText  *bool    `json:"include_text,omitempty"`
-	Speed        *float64 `json:"speed,omitempty"`
-}
-
 // PeerRunHistoryPlayRequest defines model for PeerRunHistoryPlayRequest.
 type PeerRunHistoryPlayRequest struct {
-	HistoryId string                     `json:"history_id"`
-	Options   *PeerRunHistoryPlayOptions `json:"options,omitempty"`
+	HistoryId string `json:"history_id"`
 }
 
 // PeerRunHistoryPlayResponse defines model for PeerRunHistoryPlayResponse.
@@ -2326,6 +2307,39 @@ type WorkspaceGetRequest struct {
 
 // WorkspaceGetResponse defines model for WorkspaceGetResponse.
 type WorkspaceGetResponse = Workspace
+
+// WorkspaceHistoryAudioGetRequest defines model for WorkspaceHistoryAudioGetRequest.
+type WorkspaceHistoryAudioGetRequest struct {
+	HistoryId     string `json:"history_id"`
+	WorkspaceName string `json:"workspace_name"`
+}
+
+// WorkspaceHistoryAudioGetResponse defines model for WorkspaceHistoryAudioGetResponse.
+type WorkspaceHistoryAudioGetResponse struct {
+	HistoryId     string `json:"history_id"`
+	MimeType      string `json:"mime_type"`
+	SizeBytes     int64  `json:"size_bytes"`
+	WorkspaceName string `json:"workspace_name"`
+}
+
+// WorkspaceHistoryGetRequest defines model for WorkspaceHistoryGetRequest.
+type WorkspaceHistoryGetRequest struct {
+	HistoryId     string `json:"history_id"`
+	WorkspaceName string `json:"workspace_name"`
+}
+
+// WorkspaceHistoryGetResponse defines model for WorkspaceHistoryGetResponse.
+type WorkspaceHistoryGetResponse = PeerRunHistoryEntry
+
+// WorkspaceHistoryListRequest defines model for WorkspaceHistoryListRequest.
+type WorkspaceHistoryListRequest struct {
+	Cursor        *string `json:"cursor,omitempty"`
+	Limit         *int    `json:"limit,omitempty"`
+	WorkspaceName string  `json:"workspace_name"`
+}
+
+// WorkspaceHistoryListResponse defines model for WorkspaceHistoryListResponse.
+type WorkspaceHistoryListResponse = PeerRunHistoryListResponse
 
 // WorkspaceInputMode defines model for WorkspaceInputMode.
 type WorkspaceInputMode string
@@ -3618,6 +3632,84 @@ func (t *RPCRequest_Params) FromWorkspaceDeleteRequest(v WorkspaceDeleteRequest)
 
 // MergeWorkspaceDeleteRequest performs a merge with any union data inside the RPCRequest_Params, using the provided WorkspaceDeleteRequest
 func (t *RPCRequest_Params) MergeWorkspaceDeleteRequest(v WorkspaceDeleteRequest) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsWorkspaceHistoryListRequest returns the union data inside the RPCRequest_Params as a WorkspaceHistoryListRequest
+func (t RPCRequest_Params) AsWorkspaceHistoryListRequest() (WorkspaceHistoryListRequest, error) {
+	var body WorkspaceHistoryListRequest
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromWorkspaceHistoryListRequest overwrites any union data inside the RPCRequest_Params as the provided WorkspaceHistoryListRequest
+func (t *RPCRequest_Params) FromWorkspaceHistoryListRequest(v WorkspaceHistoryListRequest) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeWorkspaceHistoryListRequest performs a merge with any union data inside the RPCRequest_Params, using the provided WorkspaceHistoryListRequest
+func (t *RPCRequest_Params) MergeWorkspaceHistoryListRequest(v WorkspaceHistoryListRequest) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsWorkspaceHistoryGetRequest returns the union data inside the RPCRequest_Params as a WorkspaceHistoryGetRequest
+func (t RPCRequest_Params) AsWorkspaceHistoryGetRequest() (WorkspaceHistoryGetRequest, error) {
+	var body WorkspaceHistoryGetRequest
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromWorkspaceHistoryGetRequest overwrites any union data inside the RPCRequest_Params as the provided WorkspaceHistoryGetRequest
+func (t *RPCRequest_Params) FromWorkspaceHistoryGetRequest(v WorkspaceHistoryGetRequest) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeWorkspaceHistoryGetRequest performs a merge with any union data inside the RPCRequest_Params, using the provided WorkspaceHistoryGetRequest
+func (t *RPCRequest_Params) MergeWorkspaceHistoryGetRequest(v WorkspaceHistoryGetRequest) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsWorkspaceHistoryAudioGetRequest returns the union data inside the RPCRequest_Params as a WorkspaceHistoryAudioGetRequest
+func (t RPCRequest_Params) AsWorkspaceHistoryAudioGetRequest() (WorkspaceHistoryAudioGetRequest, error) {
+	var body WorkspaceHistoryAudioGetRequest
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromWorkspaceHistoryAudioGetRequest overwrites any union data inside the RPCRequest_Params as the provided WorkspaceHistoryAudioGetRequest
+func (t *RPCRequest_Params) FromWorkspaceHistoryAudioGetRequest(v WorkspaceHistoryAudioGetRequest) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeWorkspaceHistoryAudioGetRequest performs a merge with any union data inside the RPCRequest_Params, using the provided WorkspaceHistoryAudioGetRequest
+func (t *RPCRequest_Params) MergeWorkspaceHistoryAudioGetRequest(v WorkspaceHistoryAudioGetRequest) error {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -5760,6 +5852,84 @@ func (t *RPCResponse_Result) FromWorkspaceDeleteResponse(v WorkspaceDeleteRespon
 
 // MergeWorkspaceDeleteResponse performs a merge with any union data inside the RPCResponse_Result, using the provided WorkspaceDeleteResponse
 func (t *RPCResponse_Result) MergeWorkspaceDeleteResponse(v WorkspaceDeleteResponse) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsWorkspaceHistoryListResponse returns the union data inside the RPCResponse_Result as a WorkspaceHistoryListResponse
+func (t RPCResponse_Result) AsWorkspaceHistoryListResponse() (WorkspaceHistoryListResponse, error) {
+	var body WorkspaceHistoryListResponse
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromWorkspaceHistoryListResponse overwrites any union data inside the RPCResponse_Result as the provided WorkspaceHistoryListResponse
+func (t *RPCResponse_Result) FromWorkspaceHistoryListResponse(v WorkspaceHistoryListResponse) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeWorkspaceHistoryListResponse performs a merge with any union data inside the RPCResponse_Result, using the provided WorkspaceHistoryListResponse
+func (t *RPCResponse_Result) MergeWorkspaceHistoryListResponse(v WorkspaceHistoryListResponse) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsWorkspaceHistoryGetResponse returns the union data inside the RPCResponse_Result as a WorkspaceHistoryGetResponse
+func (t RPCResponse_Result) AsWorkspaceHistoryGetResponse() (WorkspaceHistoryGetResponse, error) {
+	var body WorkspaceHistoryGetResponse
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromWorkspaceHistoryGetResponse overwrites any union data inside the RPCResponse_Result as the provided WorkspaceHistoryGetResponse
+func (t *RPCResponse_Result) FromWorkspaceHistoryGetResponse(v WorkspaceHistoryGetResponse) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeWorkspaceHistoryGetResponse performs a merge with any union data inside the RPCResponse_Result, using the provided WorkspaceHistoryGetResponse
+func (t *RPCResponse_Result) MergeWorkspaceHistoryGetResponse(v WorkspaceHistoryGetResponse) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsWorkspaceHistoryAudioGetResponse returns the union data inside the RPCResponse_Result as a WorkspaceHistoryAudioGetResponse
+func (t RPCResponse_Result) AsWorkspaceHistoryAudioGetResponse() (WorkspaceHistoryAudioGetResponse, error) {
+	var body WorkspaceHistoryAudioGetResponse
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromWorkspaceHistoryAudioGetResponse overwrites any union data inside the RPCResponse_Result as the provided WorkspaceHistoryAudioGetResponse
+func (t *RPCResponse_Result) FromWorkspaceHistoryAudioGetResponse(v WorkspaceHistoryAudioGetResponse) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeWorkspaceHistoryAudioGetResponse performs a merge with any union data inside the RPCResponse_Result, using the provided WorkspaceHistoryAudioGetResponse
+func (t *RPCResponse_Result) MergeWorkspaceHistoryAudioGetResponse(v WorkspaceHistoryAudioGetResponse) error {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err

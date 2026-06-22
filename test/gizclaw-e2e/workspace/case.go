@@ -15,6 +15,7 @@ const (
 	workspaceCasePushToTalkInterrupt workspaceCase = "push-to-talk-interrupt"
 	workspaceCaseRealtimeRoundtrip   workspaceCase = "realtime-roundtrip"
 	workspaceCaseRealtimeInterrupt   workspaceCase = "realtime-interrupt"
+	workspaceCaseHistoryReplay       workspaceCase = "history-replay"
 	workspaceCaseHumanReview         workspaceCase = "human-review"
 )
 
@@ -23,6 +24,7 @@ var supportedWorkspaceCases = []workspaceCase{
 	workspaceCasePushToTalkInterrupt,
 	workspaceCaseRealtimeRoundtrip,
 	workspaceCaseRealtimeInterrupt,
+	workspaceCaseHistoryReplay,
 	workspaceCaseHumanReview,
 }
 
@@ -58,8 +60,11 @@ func (c workspaceCase) applyConfig(cfg config) (config, error) {
 	}
 	cfg.Workspace = workspaceNameForCase(cfg.Workflow.Name, c)
 	switch c {
-	case workspaceCasePushToTalkRoundtrip, workspaceCasePushToTalkInterrupt, workspaceCaseHumanReview:
+	case workspaceCasePushToTalkRoundtrip, workspaceCasePushToTalkInterrupt, workspaceCaseHistoryReplay, workspaceCaseHumanReview:
 		cfg.Workflow.Parameters.Input = string(rpcapi.WorkspaceInputModePushToTalk)
+		if c == workspaceCaseHistoryReplay && cfg.Rounds < 1 {
+			cfg.Rounds = 1
+		}
 		if c == workspaceCaseHumanReview && cfg.Rounds < 3 {
 			cfg.Rounds = 3
 		}
@@ -109,6 +114,9 @@ func (d *personaDriver) runCase(ctx context.Context, selected workspaceCase) (wo
 	case workspaceCaseRealtimeInterrupt:
 		interrupts, err := d.runRealtimeInterrupt(ctx)
 		return workspaceCaseResult{Interrupts: interrupts}, err
+	case workspaceCaseHistoryReplay:
+		rounds, err := d.runPushToTalkRoundtrip(ctx)
+		return workspaceCaseResult{Rounds: rounds}, err
 	case workspaceCaseHumanReview:
 		rounds, err := d.runHumanReview(ctx)
 		return workspaceCaseResult{Rounds: rounds}, err

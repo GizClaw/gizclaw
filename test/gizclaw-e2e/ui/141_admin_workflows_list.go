@@ -13,7 +13,7 @@ func adminWorkflowsListStories() []Story {
 			page.GotoAdmin("/ai/workflows")
 			page.ExpectText("Workflows")
 			page.ExpectText(SeedWorkflowName)
-			page.ExpectText("flowcraft")
+			page.ExpectText("Resource")
 		},
 	}}
 }

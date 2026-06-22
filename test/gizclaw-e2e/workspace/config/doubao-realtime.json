@@ -16,7 +16,6 @@
     "description": "Workspace e2e Doubao realtime workflow",
     "realtime_model": "e2e-realtime",
     "parameters": {
-      "e2e": true,
       "input": "push-to-talk",
       "voice": {
         "realtime_speaker_id": "zh_female_vv_jupiter_bigtts"

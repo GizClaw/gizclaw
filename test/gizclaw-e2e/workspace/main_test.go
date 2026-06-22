@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/gizcli"
 	"github.com/GizClaw/gizclaw-go/pkg/giznet"
@@ -57,6 +58,16 @@ func TestWorkspaceCaseAppliesInputMode(t *testing.T) {
 	if got.Workspace != "demo-workflow-push-to-talk-interrupt" {
 		t.Fatalf("push workspace = %q", got.Workspace)
 	}
+	got, err = workspaceCaseHistoryReplay.applyConfig(got)
+	if err != nil {
+		t.Fatalf("applyConfig(history-replay) error = %v", err)
+	}
+	if got.workspaceMode() != "push_to_talk" {
+		t.Fatalf("history-replay workspace mode = %q", got.workspaceMode())
+	}
+	if got.Workspace != "demo-workflow-history-replay" {
+		t.Fatalf("history-replay workspace = %q", got.Workspace)
+	}
 	got, err = workspaceCaseHumanReview.applyConfig(got)
 	if err != nil {
 		t.Fatalf("applyConfig(human-review) error = %v", err)
@@ -70,12 +81,42 @@ func TestWorkspaceCaseAppliesInputMode(t *testing.T) {
 	if parsed, err := parseWorkspaceCase("human-review"); err != nil || parsed != workspaceCaseHumanReview {
 		t.Fatalf("parseWorkspaceCase(human-review) = %q/%v", parsed, err)
 	}
+	if parsed, err := parseWorkspaceCase("history-replay"); err != nil || parsed != workspaceCaseHistoryReplay {
+		t.Fatalf("parseWorkspaceCase(history-replay) = %q/%v", parsed, err)
+	}
 }
 
 func TestWorkspaceCaseDispatchRejectsUnknown(t *testing.T) {
 	_, err := (&personaDriver{}).runCase(context.Background(), workspaceCase("unknown"))
 	if err == nil || !strings.Contains(err.Error(), "unsupported workspace case") {
 		t.Fatalf("runCase(unknown) error = %v", err)
+	}
+}
+
+func TestHistoryReplayStreamHelpers(t *testing.T) {
+	stream := "history-replay-1"
+	other := "assistant-live"
+	if !acceptHistoryReplayStream(apitypes.PeerStreamEvent{StreamId: &stream}, nil) {
+		t.Fatal("history replay stream should be accepted without binding")
+	}
+	if acceptHistoryReplayStream(apitypes.PeerStreamEvent{StreamId: &other}, nil) {
+		t.Fatal("non-history stream should not be accepted without binding")
+	}
+	var bound string
+	if !acceptHistoryReplayStream(apitypes.PeerStreamEvent{StreamId: &stream}, &bound) || bound != stream {
+		t.Fatalf("first bound stream = %q", bound)
+	}
+	if !acceptHistoryReplayStream(apitypes.PeerStreamEvent{StreamId: &stream}, &bound) {
+		t.Fatal("same bound stream should be accepted")
+	}
+	if acceptHistoryReplayStream(apitypes.PeerStreamEvent{StreamId: &other}, &bound) {
+		t.Fatal("different bound stream should be rejected")
+	}
+	if !acceptHistoryReplayStream(apitypes.PeerStreamEvent{}, &bound) {
+		t.Fatal("missing stream id should be accepted for compatibility")
+	}
+	if got := totalFrameBytes([][]byte{{1, 2}, nil, {3, 4, 5}}); got != 5 {
+		t.Fatalf("totalFrameBytes() = %d, want 5", got)
 	}
 }
 
@@ -303,7 +344,7 @@ func TestRunConfigDirRunsRaidConfigs(t *testing.T) {
 		}
 		return workspaceCaseResult{Rounds: []roundStats{{Index: 1, UserText: "你好", Transcript: "你好", AssistantText: "收到"}}}, nil
 	}
-	validateWorkspaceRuntimeForRun = func(context.Context, runControlClient, config, []roundStats) (*workspaceRuntimeReport, error) {
+	validateWorkspaceRuntimeForRun = func(context.Context, *personaDriver, runControlClient, config, []roundStats) (*workspaceRuntimeReport, error) {
 		return nil, nil
 	}
 
@@ -366,7 +407,7 @@ func TestRunSkipsEnsureWorkspaceWhenDisabled(t *testing.T) {
 	runWorkspaceCaseForRun = func(*personaDriver, context.Context, workspaceCase) (workspaceCaseResult, error) {
 		return workspaceCaseResult{Rounds: []roundStats{{Index: 1, UserText: "你好", Transcript: "你好", AssistantText: "收到"}}}, nil
 	}
-	validateWorkspaceRuntimeForRun = func(context.Context, runControlClient, config, []roundStats) (*workspaceRuntimeReport, error) {
+	validateWorkspaceRuntimeForRun = func(context.Context, *personaDriver, runControlClient, config, []roundStats) (*workspaceRuntimeReport, error) {
 		return nil, nil
 	}
 	if err := run([]string{"-config", configPath, "-context-config", contextConfigPath, "-case", "push-to-talk-roundtrip"}); err != nil {
@@ -679,7 +720,7 @@ func TestValidateWorkspaceRuntimeForFlowcraft(t *testing.T) {
 			{RuntimeState: rpcapi.PeerRunStatusStateRunning, WorkspaceName: workspace},
 		},
 	}
-	report, err := validateWorkspaceRuntime(context.Background(), control, config{
+	report, err := validateWorkspaceRuntime(context.Background(), nil, control, config{
 		Workspace: workspace,
 		Agent:     "flowcraft",
 	}, []roundStats{{Transcript: "你好"}})
@@ -703,7 +744,7 @@ func TestValidateWorkspaceRuntimeReloadsDifferentWorkspace(t *testing.T) {
 			{RuntimeState: rpcapi.PeerRunStatusStateRunning, WorkspaceName: workspace},
 		},
 	}
-	if _, err := validateWorkspaceRuntime(context.Background(), control, config{
+	if _, err := validateWorkspaceRuntime(context.Background(), nil, control, config{
 		Workspace: workspace,
 		Agent:     "flowcraft",
 	}, []roundStats{{Transcript: "你好"}}); err != nil {
@@ -722,7 +763,7 @@ func TestValidateWorkspaceRuntimeAllowsDisabledMemory(t *testing.T) {
 		},
 		memory: &rpcapi.ServerGetRunWorkspaceMemoryStatsResponse{Available: true, Enabled: false},
 	}
-	report, err := validateWorkspaceRuntime(context.Background(), control, config{
+	report, err := validateWorkspaceRuntime(context.Background(), nil, control, config{
 		Workspace: workspace,
 		Agent:     "flowcraft",
 	}, []roundStats{{Transcript: "你好"}})
@@ -974,14 +1015,15 @@ func (f *fakeRunControl) ListServerRunWorkspaceHistory(context.Context, string, 
 	if f.history != nil {
 		return f.history, nil
 	}
-	text := "历史回复"
 	return &rpcapi.ServerListRunWorkspaceHistoryResponse{
 		Available: true,
 		Items: []rpcapi.PeerRunHistoryEntry{{
 			Id:              "ctx:000000",
 			CreatedAt:       time.Now(),
+			Name:            "agent",
 			ReplayAvailable: true,
-			Text:            &text,
+			Text:            "历史回复",
+			Type:            rpcapi.PeerRunHistoryEntryTypeAgent,
 		}},
 		HasNext: false,
 	}, nil

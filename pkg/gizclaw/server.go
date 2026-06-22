@@ -333,6 +333,7 @@ func (s *Server) init() error {
 	if s.ACLDB != nil {
 		aclServer = &acl.Server{DB: s.ACLDB}
 	}
+	workspaceServer.Authorizer = aclServer
 	var walletServer *wallet.Server
 	if s.WalletDB != nil {
 		walletServer = &wallet.Server{DB: s.WalletDB}

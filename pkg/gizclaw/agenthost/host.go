@@ -96,6 +96,7 @@ func (h *Host) OpenAgent(ctx context.Context, pattern string) (Agent, func(), er
 		release()
 		return nil, nil, fmt.Errorf("agenthost: factory %q returned nil agent", spec.AgentType)
 	}
+	agent = wrapHistoryAgent(agent, spec.Runtime.History)
 	return agent, release, nil
 }
 

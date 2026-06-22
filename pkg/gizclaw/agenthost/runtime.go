@@ -102,7 +102,7 @@ func (s *Service) Reload(ctx context.Context) (apitypes.PeerRunStatus, error) {
 		err := errors.New("agenthost: input stream is required")
 		return s.setErrorStatus(selection.WorkspaceName, err), err
 	}
-	runCtx, cancel := context.WithCancel(context.WithoutCancel(ctx))
+	runCtx, cancel := context.WithCancel(withHistoryGearID(context.WithoutCancel(ctx), s.PublicKey.String()))
 	pattern := workspacePattern(selection.WorkspaceName)
 	agent, release, output, err := s.openAgentOutput(runCtx, pattern, input)
 	if err != nil {
@@ -235,39 +235,39 @@ func (s *Service) WorkspaceState(ctx context.Context) (apitypes.PeerRunWorkspace
 }
 
 func (s *Service) ListWorkspaceHistory(ctx context.Context, req apitypes.PeerRunHistoryListRequest) (apitypes.PeerRunHistoryListResponse, error) {
-	agent, err := s.currentAgent()
+	rt, err := s.currentRuntimeForFeature(ctx)
 	if err != nil {
 		message := err.Error()
 		return apitypes.PeerRunHistoryListResponse{Available: false, Items: []apitypes.PeerRunHistoryEntry{}, HasNext: false, Message: &message}, nil
 	}
-	return agent.ListHistory(ctx, req)
+	return rt.agent.ListHistory(ctx, req)
 }
 
 func (s *Service) PlayWorkspaceHistory(ctx context.Context, req apitypes.PeerRunHistoryPlayRequest) (apitypes.PeerRunHistoryPlayResponse, error) {
-	agent, err := s.currentAgent()
+	rt, err := s.currentRuntimeForFeature(ctx)
 	if err != nil {
 		message := err.Error()
 		return apitypes.PeerRunHistoryPlayResponse{Accepted: false, HistoryId: req.HistoryId, State: "unavailable", Message: &message}, nil
 	}
-	return agent.PlayHistory(ctx, req)
+	return rt.agent.PlayHistory(ctx, req)
 }
 
 func (s *Service) WorkspaceMemoryStats(ctx context.Context, req apitypes.PeerRunMemoryStatsRequest) (apitypes.PeerRunMemoryStatsResponse, error) {
-	agent, err := s.currentAgent()
+	rt, err := s.currentRuntimeForFeature(ctx)
 	if err != nil {
 		message := err.Error()
 		return apitypes.PeerRunMemoryStatsResponse{Available: false, Enabled: false, ItemCount: 0, StorageBytes: 0, Message: &message}, nil
 	}
-	return agent.MemoryStats(ctx, req)
+	return rt.agent.MemoryStats(ctx, req)
 }
 
 func (s *Service) WorkspaceRecall(ctx context.Context, req apitypes.PeerRunRecallRequest) (apitypes.PeerRunRecallResponse, error) {
-	agent, err := s.currentAgent()
+	rt, err := s.currentRuntimeForFeature(ctx)
 	if err != nil {
 		message := err.Error()
 		return apitypes.PeerRunRecallResponse{Available: false, Hits: []apitypes.PeerRunRecallHit{}, Message: &message}, nil
 	}
-	return agent.Recall(ctx, req)
+	return rt.agent.Recall(ctx, req)
 }
 
 func (s *Service) validate() error {
@@ -288,12 +288,16 @@ func (s *Service) validate() error {
 }
 
 func (s *Service) authorize(ctx context.Context, selection apitypes.AgentSelection) error {
+	return s.authorizeWorkspace(ctx, selection.WorkspaceName)
+}
+
+func (s *Service) authorizeWorkspace(ctx context.Context, workspaceName string) error {
 	if s.Authorizer == nil {
 		return nil
 	}
 	return s.Authorizer.Authorize(ctx, acl.AuthorizeRequest{
 		Subject:    acl.PublicKeySubject(s.PublicKey.String()),
-		Resource:   acl.WorkspaceResource(selection.WorkspaceName),
+		Resource:   acl.WorkspaceResource(workspaceName),
 		Permission: apitypes.ACLPermissionWorkspaceUse,
 	})
 }
@@ -318,6 +322,17 @@ func (s *Service) currentAgent() (Agent, error) {
 		return nil, ErrNoActiveWorkspace
 	}
 	return rt.agent, nil
+}
+
+func (s *Service) currentRuntimeForFeature(ctx context.Context) (*runtime, error) {
+	rt := s.currentRuntime()
+	if rt == nil || rt.agent == nil {
+		return nil, ErrNoActiveWorkspace
+	}
+	if err := s.authorizeWorkspace(ctx, rt.workspace); err != nil {
+		return nil, err
+	}
+	return rt, nil
 }
 
 func (s *Service) consume(ctx context.Context, rt *runtime) {

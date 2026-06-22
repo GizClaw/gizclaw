@@ -2,8 +2,10 @@ package objectstore
 
 import (
 	"io"
+	"io/fs"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestDirPutGetListDelete(t *testing.T) {
@@ -104,9 +106,95 @@ func TestDirReplaceMissingAndEmptyPrefix(t *testing.T) {
 	}
 }
 
+func TestDirPutWithTTLExpiresObjects(t *testing.T) {
+	store := Dir(t.TempDir())
+	if err := store.PutWithTTL("history/audio.opus", strings.NewReader("audio"), 20*time.Millisecond); err != nil {
+		t.Fatalf("PutWithTTL: %v", err)
+	}
+
+	items, err := store.List("history")
+	if err != nil {
+		t.Fatalf("List before deadline: %v", err)
+	}
+	if len(items) != 1 || items[0].Name != "history/audio.opus" || items[0].Deadline.IsZero() {
+		t.Fatalf("List before deadline = %#v, want history/audio.opus with deadline", items)
+	}
+
+	time.Sleep(40 * time.Millisecond)
+	if _, err := store.Get("history/audio.opus"); err == nil {
+		t.Fatal("Get after deadline error = nil")
+	} else if !strings.Contains(err.Error(), fs.ErrNotExist.Error()) {
+		t.Fatalf("Get after deadline error = %v, want not exist", err)
+	}
+	items, err = store.List("history")
+	if err != nil {
+		t.Fatalf("List after deadline: %v", err)
+	}
+	if len(items) != 0 {
+		t.Fatalf("List after deadline = %#v, want empty", items)
+	}
+}
+
+func TestDirPutClearsObjectDeadline(t *testing.T) {
+	store := Dir(t.TempDir())
+	if err := store.PutWithDeadline("history/audio.opus", strings.NewReader("old"), time.Now().Add(time.Hour)); err != nil {
+		t.Fatalf("PutWithDeadline: %v", err)
+	}
+	if err := store.Put("history/audio.opus", strings.NewReader("new")); err != nil {
+		t.Fatalf("Put: %v", err)
+	}
+
+	items, err := store.List("history")
+	if err != nil {
+		t.Fatalf("List: %v", err)
+	}
+	if len(items) != 1 || items[0].Name != "history/audio.opus" || !items[0].Deadline.IsZero() {
+		t.Fatalf("List = %#v, want permanent history/audio.opus", items)
+	}
+}
+
+func TestDirPutWithTTLRejectsNonPositiveTTL(t *testing.T) {
+	store := Dir(t.TempDir())
+	if err := store.PutWithTTL("history/audio.opus", strings.NewReader("audio"), 0); err == nil {
+		t.Fatal("PutWithTTL ttl=0 error = nil")
+	}
+}
+
+func TestDirDeletePrefixRemovesObjectDeadlines(t *testing.T) {
+	store := Dir(t.TempDir())
+	if err := store.PutWithDeadline("history/a.opus", strings.NewReader("a"), time.Now().Add(time.Hour)); err != nil {
+		t.Fatalf("PutWithDeadline(a): %v", err)
+	}
+	if err := store.PutWithDeadline("other/b.opus", strings.NewReader("b"), time.Now().Add(time.Hour)); err != nil {
+		t.Fatalf("PutWithDeadline(b): %v", err)
+	}
+	if err := store.DeletePrefix("history"); err != nil {
+		t.Fatalf("DeletePrefix: %v", err)
+	}
+	if err := store.Put("history/a.opus", strings.NewReader("new")); err != nil {
+		t.Fatalf("Put replacement: %v", err)
+	}
+
+	items, err := store.List("")
+	if err != nil {
+		t.Fatalf("List: %v", err)
+	}
+	if len(items) != 2 {
+		t.Fatalf("List len = %d, want 2: %#v", len(items), items)
+	}
+	for _, item := range items {
+		if item.Name == "history/a.opus" && !item.Deadline.IsZero() {
+			t.Fatalf("replacement deadline = %v, want zero", item.Deadline)
+		}
+		if strings.HasPrefix(item.Name, ".objectstore-meta/") {
+			t.Fatalf("List leaked metadata item %#v", item)
+		}
+	}
+}
+
 func TestDirRejectsInvalidObjectNames(t *testing.T) {
 	store := Dir(t.TempDir())
-	for _, name := range []string{"", "/", "../outside", "a/../b", "/tmp/object"} {
+	for _, name := range []string{"", "/", "../outside", "a/../b", "/tmp/object", ".objectstore-meta/expires/x"} {
 		t.Run(name, func(t *testing.T) {
 			if err := store.Put(name, reader("data")); err == nil {
 				t.Fatal("Put error = nil")

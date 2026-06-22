@@ -365,9 +365,6 @@
       "PeerRunWorkspaceState": {
         "$ref": "./type/peer_run_workspace.json#/components/schemas/PeerRunWorkspaceState"
       },
-      "PeerRunHistoryChunk": {
-        "$ref": "./type/peer_run_workspace.json#/components/schemas/PeerRunHistoryChunk"
-      },
       "PeerRunHistoryEntry": {
         "$ref": "./type/peer_run_workspace.json#/components/schemas/PeerRunHistoryEntry"
       },
@@ -376,9 +373,6 @@
       },
       "PeerRunHistoryListResponse": {
         "$ref": "./type/peer_run_workspace.json#/components/schemas/PeerRunHistoryListResponse"
-      },
-      "PeerRunHistoryPlayOptions": {
-        "$ref": "./type/peer_run_workspace.json#/components/schemas/PeerRunHistoryPlayOptions"
       },
       "PeerRunHistoryPlayRequest": {
         "$ref": "./type/peer_run_workspace.json#/components/schemas/PeerRunHistoryPlayRequest"

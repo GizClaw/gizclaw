@@ -718,8 +718,25 @@ func createPlayWebRTCAnswer(ctx context.Context, client ClientProvider, req clie
 	}, playHTTPErrorResponse{}, true
 }
 
-func reloadPlayRunForWebRTC(ctx context.Context, c *gizcli.Client) error {
-	_, err := c.ReloadServerRun(ctx, "play-webrtc-reload")
+type playWebRTCRunReloader interface {
+	GetServerRunWorkspace(context.Context, string) (*rpcapi.ServerGetRunWorkspaceResponse, error)
+	ReloadServerRunWorkspace(context.Context, string) (*rpcapi.ServerReloadRunWorkspaceResponse, error)
+	ReloadServerRun(context.Context, string) (*rpcapi.ServerReloadRunResponse, error)
+}
+
+func reloadPlayRunForWebRTC(ctx context.Context, c playWebRTCRunReloader) error {
+	if c == nil {
+		return fmt.Errorf("client is required")
+	}
+	state, err := c.GetServerRunWorkspace(ctx, "play-webrtc-workspace-state")
+	if err == nil && playWebRTCWorkspaceName(state) != "" {
+		_, err = c.ReloadServerRunWorkspace(ctx, "play-webrtc-workspace-reload")
+		return err
+	}
+	if err != nil && !strings.Contains(err.Error(), "not configured") {
+		return err
+	}
+	_, err = c.ReloadServerRun(ctx, "play-webrtc-reload")
 	if err == nil {
 		return nil
 	}
@@ -727,6 +744,30 @@ func reloadPlayRunForWebRTC(ctx context.Context, c *gizcli.Client) error {
 		return nil
 	}
 	return err
+}
+
+func playWebRTCWorkspaceName(state *rpcapi.ServerGetRunWorkspaceResponse) string {
+	if state == nil {
+		return ""
+	}
+	for _, value := range []string{
+		stringPtrValue(state.ActiveWorkspaceName),
+		state.WorkspaceName,
+		stringPtrValue(state.SelectedWorkspaceName),
+		stringPtrValue(state.PendingWorkspaceName),
+	} {
+		if strings.TrimSpace(value) != "" {
+			return strings.TrimSpace(value)
+		}
+	}
+	return ""
+}
+
+func stringPtrValue(value *string) string {
+	if value == nil {
+		return ""
+	}
+	return *value
 }
 
 func playWebRTCError(message string, err error, status int) playHTTPErrorResponse {

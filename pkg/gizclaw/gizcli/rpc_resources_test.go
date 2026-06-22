@@ -28,6 +28,13 @@ func TestRPCResourceClientWrappers(t *testing.T) {
 		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerWorkspaceDelete, rpcapi.WorkspaceDeleteResponse{}, (*rpcapi.RPCResponse_Result).FromWorkspaceDeleteResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.WorkspaceDeleteResponse, error) {
 			return client.DeleteWorkspace(ctx, conn, "workspace-delete", rpcapi.WorkspaceDeleteRequest{Name: "main"})
 		})
+		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerWorkspaceHistoryList, rpcapi.WorkspaceHistoryListResponse{}, (*rpcapi.RPCResponse_Result).FromWorkspaceHistoryListResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.WorkspaceHistoryListResponse, error) {
+			return client.ListWorkspaceHistory(ctx, conn, "workspace-history-list", rpcapi.WorkspaceHistoryListRequest{WorkspaceName: "main"})
+		})
+		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerWorkspaceHistoryGet, rpcapi.WorkspaceHistoryGetResponse{}, (*rpcapi.RPCResponse_Result).FromWorkspaceHistoryGetResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.WorkspaceHistoryGetResponse, error) {
+			return client.GetWorkspaceHistory(ctx, conn, "workspace-history-get", rpcapi.WorkspaceHistoryGetRequest{WorkspaceName: "main", HistoryId: "h1"})
+		})
+		runWorkspaceHistoryAudioGetWrapperTest(t, client)
 	})
 
 	t.Run("workflow", func(t *testing.T) {
@@ -273,6 +280,57 @@ func runFirmwareDownloadWrapperTest(t *testing.T, client *rpcClient) {
 	}
 	if err := <-serverErrCh; err != nil {
 		t.Fatalf("firmware download server error = %v", err)
+	}
+}
+
+func runWorkspaceHistoryAudioGetWrapperTest(t *testing.T, client *rpcClient) {
+	t.Helper()
+	serverSide, clientSide := net.Pipe()
+	defer serverSide.Close()
+	defer clientSide.Close()
+
+	payload := []byte("opus-payload")
+	serverErrCh := make(chan error, 1)
+	go func() {
+		req, err := readRPCRequestWithEOS(serverSide)
+		if err != nil {
+			serverErrCh <- err
+			return
+		}
+		if req.Method != rpcapi.RPCMethodServerWorkspaceHistoryAudioGet {
+			serverErrCh <- &unexpectedRPCMethodError{got: req.Method, want: rpcapi.RPCMethodServerWorkspaceHistoryAudioGet}
+			return
+		}
+		resp := resourceResponse(req.Id, rpcapi.WorkspaceHistoryAudioGetResponse{
+			WorkspaceName: "main",
+			HistoryId:     "h1",
+			MimeType:      "audio/opus",
+			SizeBytes:     int64(len(payload)),
+		}, (*rpcapi.RPCResponse_Result).FromWorkspaceHistoryAudioGetResponse)
+		if err := rpcapi.WriteResponse(serverSide, resp); err != nil {
+			serverErrCh <- err
+			return
+		}
+		if err := rpcapi.WriteFrame(serverSide, rpcapi.Frame{Type: rpcapi.FrameTypeBinary, Payload: payload}); err != nil {
+			serverErrCh <- err
+			return
+		}
+		serverErrCh <- rpcapi.WriteEOS(serverSide)
+	}()
+
+	var out bytes.Buffer
+	result, err := client.GetWorkspaceHistoryAudio(context.Background(), clientSide, "workspace-history-audio-get", rpcapi.WorkspaceHistoryAudioGetRequest{
+		WorkspaceName: "main",
+		HistoryId:     "h1",
+	}, &out)
+	if err != nil {
+		t.Fatalf("workspace history audio get call error = %v", err)
+	}
+	if result.Metadata.MimeType != "audio/opus" || result.Bytes != int64(len(payload)) || out.String() != string(payload) {
+		t.Fatalf("workspace history audio get result = %#v payload %q", result, out.String())
+	}
+	if err := <-serverErrCh; err != nil {
+		t.Fatalf("workspace history audio get server error = %v", err)
 	}
 }
 

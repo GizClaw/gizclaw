@@ -248,6 +248,32 @@ func TestCreateWebRTCOfferRejectsInvalidOffer(t *testing.T) {
 	}
 }
 
+func TestReloadPlayRunForWebRTCUsesWorkspaceRuntimeWhenSelected(t *testing.T) {
+	active := "workspace-a"
+	client := &fakePlayWebRTCReloader{
+		workspaceState: &rpcapi.ServerGetRunWorkspaceResponse{
+			ActiveWorkspaceName: &active,
+			WorkspaceName:       active,
+		},
+	}
+	if err := reloadPlayRunForWebRTC(context.Background(), client); err != nil {
+		t.Fatalf("reloadPlayRunForWebRTC() error = %v", err)
+	}
+	if client.workspaceReloads != 1 || client.runReloads != 0 {
+		t.Fatalf("reloads workspace=%d run=%d, want workspace only", client.workspaceReloads, client.runReloads)
+	}
+}
+
+func TestReloadPlayRunForWebRTCFallsBackToRunRuntimeWithoutWorkspace(t *testing.T) {
+	client := &fakePlayWebRTCReloader{workspaceState: &rpcapi.ServerGetRunWorkspaceResponse{}}
+	if err := reloadPlayRunForWebRTC(context.Background(), client); err != nil {
+		t.Fatalf("reloadPlayRunForWebRTC() error = %v", err)
+	}
+	if client.workspaceReloads != 0 || client.runReloads != 1 {
+		t.Fatalf("reloads workspace=%d run=%d, want run only", client.workspaceReloads, client.runReloads)
+	}
+}
+
 func TestPlayHTTPErrorResponseVisitors(t *testing.T) {
 	visitors := []func(playHTTPErrorResponse, *fiber.Ctx) error{
 		playHTTPErrorResponse.VisitListPeerCredentialsResponse,
@@ -286,6 +312,27 @@ func TestPlayHTTPErrorResponseVisitors(t *testing.T) {
 			t.Fatalf("visitor %d status = %d", i, resp.StatusCode)
 		}
 	}
+}
+
+type fakePlayWebRTCReloader struct {
+	workspaceState    *rpcapi.ServerGetRunWorkspaceResponse
+	workspaceStateErr error
+	workspaceReloads  int
+	runReloads        int
+}
+
+func (f *fakePlayWebRTCReloader) GetServerRunWorkspace(context.Context, string) (*rpcapi.ServerGetRunWorkspaceResponse, error) {
+	return f.workspaceState, f.workspaceStateErr
+}
+
+func (f *fakePlayWebRTCReloader) ReloadServerRunWorkspace(context.Context, string) (*rpcapi.ServerReloadRunWorkspaceResponse, error) {
+	f.workspaceReloads++
+	return &rpcapi.ServerReloadRunWorkspaceResponse{}, nil
+}
+
+func (f *fakePlayWebRTCReloader) ReloadServerRun(context.Context, string) (*rpcapi.ServerReloadRunResponse, error) {
+	f.runReloads++
+	return &rpcapi.ServerReloadRunResponse{}, nil
 }
 
 func TestPlayHTTPErrorResponseDefaultStatus(t *testing.T) {

@@ -230,3 +230,19 @@ func TestRunHumanReviewRejectsMissingTransportFactory(t *testing.T) {
 		t.Fatalf("runHumanReview(no factory) error = %v", err)
 	}
 }
+
+func TestDetachHumanReviewPlaybackOnlyClearsMatchingTap(t *testing.T) {
+	playback, _, _ := newTestHumanReviewPlayback(&fakePlaybackStream{})
+	other, _, _ := newTestHumanReviewPlayback(&fakePlaybackStream{})
+	transport := &chatTransport{audioTap: playback}
+
+	detachHumanReviewPlayback(transport, other)
+	if transport.audioTap != playback {
+		t.Fatalf("non-matching playback detached")
+	}
+
+	detachHumanReviewPlayback(transport, playback)
+	if transport.audioTap != nil {
+		t.Fatalf("matching playback not detached")
+	}
+}

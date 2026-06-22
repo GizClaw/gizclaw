@@ -59,55 +59,13 @@
           }
         }
       },
-      "PeerRunHistoryChunk": {
-        "type": "object",
-        "required": [
-          "kind"
-        ],
-        "additionalProperties": false,
-        "properties": {
-          "kind": {
-            "type": "string",
-            "enum": [
-              "transcript",
-              "text",
-              "audio"
-            ]
-          },
-          "actor": {
-            "type": "string"
-          },
-          "text": {
-            "type": "string"
-          },
-          "mime_type": {
-            "type": "string"
-          },
-          "bytes": {
-            "type": "integer",
-            "format": "int64"
-          },
-          "duration_ms": {
-            "type": "integer",
-            "format": "int64"
-          },
-          "asset_uri": {
-            "type": "string"
-          },
-          "at": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "metadata": {
-            "type": "object",
-            "additionalProperties": true
-          }
-        }
-      },
       "PeerRunHistoryEntry": {
         "type": "object",
         "required": [
           "id",
+          "type",
+          "name",
+          "text",
           "created_at",
           "replay_available"
         ],
@@ -117,50 +75,31 @@
             "type": "string",
             "minLength": 1
           },
-          "created_at": {
+          "type": {
             "type": "string",
-            "format": "date-time"
+            "enum": [
+              "gear",
+              "agent"
+            ]
           },
-          "ended_at": {
+          "gear_id": {
             "type": "string",
-            "format": "date-time"
+            "description": "Originating gear id. Required for gear entries and omitted for agent entries.",
+            "minLength": 1
           },
-          "actor": {
-            "type": "string"
-          },
-          "transcript": {
-            "type": "string"
+          "name": {
+            "type": "string",
+            "minLength": 1
           },
           "text": {
             "type": "string"
           },
-          "audio_mime_type": {
-            "type": "string"
-          },
-          "audio_bytes": {
-            "type": "integer",
-            "format": "int64"
-          },
-          "audio_chunk_count": {
-            "type": "integer",
-            "format": "int64"
-          },
-          "duration_ms": {
-            "type": "integer",
-            "format": "int64"
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
           },
           "replay_available": {
             "type": "boolean"
-          },
-          "chunks": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/PeerRunHistoryChunk"
-            }
-          },
-          "metadata": {
-            "type": "object",
-            "additionalProperties": true
           }
         }
       },
@@ -206,23 +145,6 @@
           }
         }
       },
-      "PeerRunHistoryPlayOptions": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "include_text": {
-            "type": "boolean"
-          },
-          "include_audio": {
-            "type": "boolean"
-          },
-          "speed": {
-            "type": "number",
-            "format": "double",
-            "minimum": 0
-          }
-        }
-      },
       "PeerRunHistoryPlayRequest": {
         "type": "object",
         "required": [
@@ -233,9 +155,6 @@
           "history_id": {
             "type": "string",
             "minLength": 1
-          },
-          "options": {
-            "$ref": "#/components/schemas/PeerRunHistoryPlayOptions"
           }
         }
       },

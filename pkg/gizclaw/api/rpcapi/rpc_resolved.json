@@ -2055,93 +2055,25 @@
         },
         "type": "object"
       },
-      "PeerRunHistoryChunk": {
-        "additionalProperties": false,
-        "properties": {
-          "actor": {
-            "type": "string"
-          },
-          "asset_uri": {
-            "type": "string"
-          },
-          "at": {
-            "format": "date-time",
-            "type": "string"
-          },
-          "bytes": {
-            "format": "int64",
-            "type": "integer"
-          },
-          "duration_ms": {
-            "format": "int64",
-            "type": "integer"
-          },
-          "kind": {
-            "enum": [
-              "transcript",
-              "text",
-              "audio"
-            ],
-            "type": "string"
-          },
-          "metadata": {
-            "additionalProperties": true,
-            "type": "object"
-          },
-          "mime_type": {
-            "type": "string"
-          },
-          "text": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "kind"
-        ],
-        "type": "object"
-      },
       "PeerRunHistoryEntry": {
         "additionalProperties": false,
         "properties": {
-          "actor": {
-            "type": "string"
-          },
-          "audio_bytes": {
-            "format": "int64",
-            "type": "integer"
-          },
-          "audio_chunk_count": {
-            "format": "int64",
-            "type": "integer"
-          },
-          "audio_mime_type": {
-            "type": "string"
-          },
-          "chunks": {
-            "items": {
-              "$ref": "#/components/schemas/PeerRunHistoryChunk"
-            },
-            "type": "array"
-          },
           "created_at": {
             "format": "date-time",
             "type": "string"
           },
-          "duration_ms": {
-            "format": "int64",
-            "type": "integer"
-          },
-          "ended_at": {
-            "format": "date-time",
+          "gear_id": {
+            "description": "Originating gear id. Required for gear entries and omitted for agent entries.",
+            "minLength": 1,
             "type": "string"
           },
           "id": {
             "minLength": 1,
             "type": "string"
           },
-          "metadata": {
-            "additionalProperties": true,
-            "type": "object"
+          "name": {
+            "minLength": 1,
+            "type": "string"
           },
           "replay_available": {
             "type": "boolean"
@@ -2149,12 +2081,19 @@
           "text": {
             "type": "string"
           },
-          "transcript": {
+          "type": {
+            "enum": [
+              "gear",
+              "agent"
+            ],
             "type": "string"
           }
         },
         "required": [
           "id",
+          "type",
+          "name",
+          "text",
           "created_at",
           "replay_available"
         ],
@@ -2202,32 +2141,12 @@
         ],
         "type": "object"
       },
-      "PeerRunHistoryPlayOptions": {
-        "additionalProperties": false,
-        "properties": {
-          "include_audio": {
-            "type": "boolean"
-          },
-          "include_text": {
-            "type": "boolean"
-          },
-          "speed": {
-            "format": "double",
-            "minimum": 0,
-            "type": "number"
-          }
-        },
-        "type": "object"
-      },
       "PeerRunHistoryPlayRequest": {
         "additionalProperties": false,
         "properties": {
           "history_id": {
             "minLength": 1,
             "type": "string"
-          },
-          "options": {
-            "$ref": "#/components/schemas/PeerRunHistoryPlayOptions"
           }
         },
         "required": [
@@ -2875,6 +2794,9 @@
           "server.workspace.create",
           "server.workspace.put",
           "server.workspace.delete",
+          "server.workspace.history.list",
+          "server.workspace.history.get",
+          "server.workspace.history.audio.get",
           "server.workflow.list",
           "server.workflow.get",
           "server.workflow.create",
@@ -3029,6 +2951,15 @@
               },
               {
                 "$ref": "#/components/schemas/WorkspaceDeleteRequest"
+              },
+              {
+                "$ref": "#/components/schemas/WorkspaceHistoryListRequest"
+              },
+              {
+                "$ref": "#/components/schemas/WorkspaceHistoryGetRequest"
+              },
+              {
+                "$ref": "#/components/schemas/WorkspaceHistoryAudioGetRequest"
               },
               {
                 "$ref": "#/components/schemas/WorkflowListRequest"
@@ -3298,6 +3229,15 @@
               },
               {
                 "$ref": "#/components/schemas/WorkspaceDeleteResponse"
+              },
+              {
+                "$ref": "#/components/schemas/WorkspaceHistoryListResponse"
+              },
+              {
+                "$ref": "#/components/schemas/WorkspaceHistoryGetResponse"
+              },
+              {
+                "$ref": "#/components/schemas/WorkspaceHistoryAudioGetResponse"
               },
               {
                 "$ref": "#/components/schemas/WorkflowListResponse"
@@ -4284,6 +4224,93 @@
       },
       "WorkspaceGetResponse": {
         "$ref": "#/components/schemas/Workspace"
+      },
+      "WorkspaceHistoryAudioGetRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "history_id": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "workspace_name": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "workspace_name",
+          "history_id"
+        ],
+        "type": "object"
+      },
+      "WorkspaceHistoryAudioGetResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "history_id": {
+            "type": "string"
+          },
+          "mime_type": {
+            "type": "string"
+          },
+          "size_bytes": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "workspace_name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "workspace_name",
+          "history_id",
+          "mime_type",
+          "size_bytes"
+        ],
+        "type": "object"
+      },
+      "WorkspaceHistoryGetRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "history_id": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "workspace_name": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "workspace_name",
+          "history_id"
+        ],
+        "type": "object"
+      },
+      "WorkspaceHistoryGetResponse": {
+        "$ref": "#/components/schemas/PeerRunHistoryEntry"
+      },
+      "WorkspaceHistoryListRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "cursor": {
+            "type": "string"
+          },
+          "limit": {
+            "minimum": 1,
+            "type": "integer"
+          },
+          "workspace_name": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "workspace_name"
+        ],
+        "type": "object"
+      },
+      "WorkspaceHistoryListResponse": {
+        "$ref": "#/components/schemas/PeerRunHistoryListResponse"
       },
       "WorkspaceInputMode": {
         "enum": [

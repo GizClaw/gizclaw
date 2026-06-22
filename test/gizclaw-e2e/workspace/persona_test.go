@@ -300,9 +300,12 @@ func testHistoryEntries(texts ...string) []rpcapi.PeerRunHistoryEntry {
 	items := make([]rpcapi.PeerRunHistoryEntry, 0, len(texts))
 	for i, text := range texts {
 		items = append(items, rpcapi.PeerRunHistoryEntry{
-			Id:        fmt.Sprintf("ctx:%06d", i),
-			CreatedAt: time.Now().Add(time.Duration(i) * time.Second),
-			Text:      &text,
+			Id:              fmt.Sprintf("ctx:%06d", i),
+			CreatedAt:       time.Now().Add(time.Duration(i) * time.Second),
+			Name:            "agent",
+			ReplayAvailable: true,
+			Text:            text,
+			Type:            rpcapi.PeerRunHistoryEntryTypeAgent,
 		})
 	}
 	return items

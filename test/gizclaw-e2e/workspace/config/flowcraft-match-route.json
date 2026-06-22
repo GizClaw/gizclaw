@@ -416,7 +416,6 @@
     },
     "name": "e2e-flowcraft-match-route",
     "parameters": {
-      "e2e": true,
       "generate_model": "e2e-doubao-2-lite-chat",
       "input": "push-to-talk"
     },

@@ -230,17 +230,13 @@ type WorkspaceDetails = {
 };
 
 type WorkspaceHistoryEntry = {
-  actor?: string;
-  audio?: {
-    available?: boolean;
-    duration_ms?: number;
-  };
   created_at?: string;
-  duration_ms?: number;
+  gear_id?: string;
   id: string;
+  name: string;
   replay_available?: boolean;
   text?: string;
-  transcript?: string;
+  type: "agent" | "gear";
 };
 
 type WorkspaceMemoryStats = {
@@ -319,6 +315,7 @@ const sections: Array<{ icon: typeof Bot; id: Section; label: string }> = [
 ];
 
 const chatSessionsKey = "gizclaw.openai.chat.sessions";
+const workspaceAudioPlaybackRequestEvent = "gizclaw:workspace-audio-play-request";
 const openAIAPIKey = "gizclaw-play";
 const topDrawerContentClassName =
   "top-32 h-[calc(100dvh-8rem)] w-[min(100vw,1120px)] gap-0 p-0 sm:top-24 sm:h-[calc(100dvh-6rem)] sm:max-w-none lg:top-20 lg:h-[calc(100dvh-5rem)]";
@@ -481,6 +478,7 @@ function WorkspaceDrawer({ onOpenChange, open }: { onOpenChange: (open: boolean)
   const [recallHits, setRecallHits] = useState<WorkspaceRecallHit[]>([]);
   const [recallError, setRecallError] = useState("");
   const [mode, setMode] = useState<WorkspaceChatMode>("push");
+  const [workspaceTab, setWorkspaceTab] = useState("chat");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -605,12 +603,22 @@ function WorkspaceDrawer({ onOpenChange, open }: { onOpenChange: (open: boolean)
   const playHistory = async (entry: WorkspaceHistoryEntry): Promise<void> => {
     setHistoryError("");
     try {
+      requestWorkspaceAudioPlayback();
       await playActiveWorkspaceHistory(entry.id);
+      setWorkspaceTab("chat");
       toast.success("History replay started", { description: entry.id });
     } catch (err) {
       setHistoryError(workspaceFeatureMessage(err));
     }
   };
+
+  const refreshActiveWorkspaceIntrospection = useCallback(() => {
+    const workspaceName = state?.active_workspace_name ?? state?.workspace_name ?? selectedWorkspace;
+    if (workspaceName === "") {
+      return;
+    }
+    void loadWorkspaceIntrospection(workspaceName);
+  }, [loadWorkspaceIntrospection, selectedWorkspace, state?.active_workspace_name, state?.workspace_name]);
 
   const runRecall = async (): Promise<void> => {
     const query = recallQuery.trim();
@@ -741,7 +749,7 @@ function WorkspaceDrawer({ onOpenChange, open }: { onOpenChange: (open: boolean)
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           ) : null}
-          <Tabs className="flex min-h-0 flex-1 flex-col" defaultValue="chat">
+          <Tabs className="flex min-h-0 flex-1 flex-col" value={workspaceTab} onValueChange={setWorkspaceTab}>
             <div className="border-b px-5 py-3">
               <TabsList>
                 <TabsTrigger value="chat">Chat</TabsTrigger>
@@ -751,21 +759,21 @@ function WorkspaceDrawer({ onOpenChange, open }: { onOpenChange: (open: boolean)
                 <TabsTrigger value="settings">Settings</TabsTrigger>
               </TabsList>
             </div>
-            <TabsContent className="m-0 min-h-0 flex-1" value="chat">
+            <TabsContent forceMount className={cn("m-0 min-h-0 flex-1", workspaceTab !== "chat" && "hidden")} value="chat">
               <WorkspaceChatPanel mode={mode} onModeChange={(nextMode) => {
                 void updateWorkspaceMode(nextMode);
-              }} state={state} />
+              }} onHistoryChange={refreshActiveWorkspaceIntrospection} state={state} />
             </TabsContent>
-            <TabsContent className="m-0 min-h-0 flex-1" value="history">
+            <TabsContent forceMount className={cn("m-0 min-h-0 flex-1", workspaceTab !== "history" && "hidden")} value="history">
               <WorkspaceHistoryPanel error={historyError} history={history} loading={loading} onPlay={playHistory} />
             </TabsContent>
-            <TabsContent className="m-0 min-h-0 flex-1" value="memory">
+            <TabsContent forceMount className={cn("m-0 min-h-0 flex-1", workspaceTab !== "memory" && "hidden")} value="memory">
               <WorkspaceMemoryPanel error={memoryError} memory={memory} />
             </TabsContent>
-            <TabsContent className="m-0 min-h-0 flex-1" value="recall">
+            <TabsContent forceMount className={cn("m-0 min-h-0 flex-1", workspaceTab !== "recall" && "hidden")} value="recall">
               <WorkspaceRecallPanel error={recallError} hits={recallHits} loading={loading} query={recallQuery} onQueryChange={setRecallQuery} onRun={runRecall} />
             </TabsContent>
-            <TabsContent className="m-0 min-h-0 flex-1" value="settings">
+            <TabsContent forceMount className={cn("m-0 min-h-0 flex-1", workspaceTab !== "settings" && "hidden")} value="settings">
               <WorkspaceDetailsPanel
                 details={workspaceDetails}
                 error={workspaceDetailsError}
@@ -917,7 +925,17 @@ function splitWorkspaceStreamID(streamID?: string): { prefix: string; suffix: st
   };
 }
 
-function WorkspaceChatPanel({ mode, onModeChange, state }: { mode: WorkspaceChatMode; onModeChange: (value: WorkspaceChatMode) => void; state: ActiveWorkspaceState | null }): JSX.Element {
+function WorkspaceChatPanel({
+  mode,
+  onHistoryChange,
+  onModeChange,
+  state,
+}: {
+  mode: WorkspaceChatMode;
+  onHistoryChange?: () => void;
+  onModeChange: (value: WorkspaceChatMode) => void;
+  state: ActiveWorkspaceState | null;
+}): JSX.Element {
   const activeWorkspaceName = state?.active_workspace_name ?? "";
   const hasActiveWorkspace = activeWorkspaceName !== "";
   const [status, setStatus] = useState<"idle" | "connecting" | "connected" | "error">("idle");
@@ -1009,6 +1027,20 @@ function WorkspaceChatPanel({ mode, onModeChange, state }: { mode: WorkspaceChat
     updateTurn(id, patch);
   }, [createTurn, updateTurn]);
 
+  const playWorkspaceAudio = useCallback(() => {
+    void unlockBrowserAudio();
+    if (audioRef.current != null) {
+      void audioRef.current.play().catch(() => undefined);
+    }
+  }, []);
+
+  const notifyHistoryChange = useCallback(() => {
+    if (onHistoryChange == null) {
+      return;
+    }
+    window.setTimeout(onHistoryChange, 1000);
+  }, [onHistoryChange]);
+
   const handlePeerEvent = useCallback(
     (event: PeerStreamEvent) => {
       const updateEventTurn = (patch: Partial<WorkspaceChatTurn>, status: WorkspaceChatTurnStatus = "responding"): string => {
@@ -1043,13 +1075,15 @@ function WorkspaceChatPanel({ mode, onModeChange, state }: { mode: WorkspaceChat
           if (currentTurnIDRef.current === targetID) {
             currentTurnIDRef.current = null;
           }
+          notifyHistoryChange();
         }
       }
       if (event.type === "bos" && event.kind === "audio") {
+        playWorkspaceAudio();
         updateEventTurn({ audioState: "playing", status: "playing" }, "playing");
       }
     },
-    [turnIDForStream, updateTurn],
+    [notifyHistoryChange, playWorkspaceAudio, turnIDForStream, updateTurn],
   );
 
   const closeSession = useCallback((reason?: string) => {
@@ -1086,7 +1120,7 @@ function WorkspaceChatPanel({ mode, onModeChange, state }: { mode: WorkspaceChat
             return;
           }
           audioRef.current.srcObject = stream;
-          void audioRef.current.play().catch(() => undefined);
+          playWorkspaceAudio();
         },
         onState: (stateName) => {
           if (stateName === "failed" || stateName === "disconnected" || stateName === "closed") {
@@ -1103,7 +1137,7 @@ function WorkspaceChatPanel({ mode, onModeChange, state }: { mode: WorkspaceChat
       setStatus("error");
       toast.error("Workspace voice failed", { description: message });
     }
-  }, [handlePeerEvent, status]);
+  }, [handlePeerEvent, playWorkspaceAudio, status]);
 
   useEffect(() => {
     if (!hasActiveWorkspace) {
@@ -1120,6 +1154,7 @@ function WorkspaceChatPanel({ mode, onModeChange, state }: { mode: WorkspaceChat
     inputStartingRef.current = true;
     inputPressedRef.current = true;
     setInputPressed(true);
+    playWorkspaceAudio();
     const streamID = newWorkspaceAudioStreamID();
     const turnID = createTurn("recording", streamID);
     try {
@@ -1151,7 +1186,14 @@ function WorkspaceChatPanel({ mode, onModeChange, state }: { mode: WorkspaceChat
     } finally {
       inputStartingRef.current = false;
     }
-  }, [createTurn]);
+  }, [createTurn, playWorkspaceAudio]);
+
+  useEffect(() => {
+    window.addEventListener(workspaceAudioPlaybackRequestEvent, playWorkspaceAudio);
+    return () => {
+      window.removeEventListener(workspaceAudioPlaybackRequestEvent, playWorkspaceAudio);
+    };
+  }, [playWorkspaceAudio]);
 
   const finishInputTurn = useCallback(
     async (reason?: string) => {
@@ -1394,32 +1436,40 @@ function WorkspaceHistoryPanel({ error, history, loading, onPlay }: { error: str
   return (
     <ScrollArea className="h-full">
       <div className="p-5">
-        <div className="rounded-md border">
-          <Table>
+        <div className="min-w-0 overflow-hidden rounded-md border">
+          <Table className="table-fixed">
             <TableHeader>
               <TableRow>
-                <TableHead>Time</TableHead>
-                <TableHead>Actor</TableHead>
+                <TableHead className="w-36">Time</TableHead>
+                <TableHead className="w-20">Type</TableHead>
+                <TableHead className="w-44">Name</TableHead>
                 <TableHead>Text</TableHead>
-                <TableHead>Duration</TableHead>
                 <TableHead className="w-24 text-right">Replay</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {history.map((entry) => (
-                <TableRow key={entry.id}>
-                  <TableCell className="text-muted-foreground">{formatDate(entry.created_at)}</TableCell>
-                  <TableCell>{entry.actor ?? "-"}</TableCell>
-                  <TableCell className="max-w-sm truncate">{entry.text || entry.transcript || entry.id}</TableCell>
-                  <TableCell>{formatDuration(entry.duration_ms ?? entry.audio?.duration_ms)}</TableCell>
-                  <TableCell className="text-right">
-                    <Button disabled={entry.replay_available === false} onClick={() => void onPlay(entry)} size="sm" type="button" variant="outline">
-                      <Play data-icon="inline-start" />
-                      Play
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
+              {history.map((entry) => {
+                const replayable = entry.replay_available === true;
+                const entryName = entry.type === "gear" && entry.gear_id != null && entry.gear_id !== "" ? `${entry.name} / ${entry.gear_id}` : entry.name;
+                return (
+                  <TableRow key={entry.id}>
+                    <TableCell className="truncate text-muted-foreground">{formatDate(entry.created_at)}</TableCell>
+                    <TableCell className="truncate">{entry.type}</TableCell>
+                    <TableCell className="truncate" title={entryName}>{entryName}</TableCell>
+                    <TableCell className="truncate" title={entry.text || entry.id}>{entry.text || entry.id}</TableCell>
+                    <TableCell className="text-right">
+                      {replayable ? (
+                        <Button onClick={() => void onPlay(entry)} size="sm" type="button" variant="outline">
+                          <Play data-icon="inline-start" />
+                          Play
+                        </Button>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">-</span>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         </div>
@@ -2053,6 +2103,11 @@ function createOpenAISpeechSynthesisAdapter({
 }
 
 let audioUnlockPromise: Promise<void> | null = null;
+
+function requestWorkspaceAudioPlayback(): void {
+  void unlockBrowserAudio();
+  window.dispatchEvent(new Event(workspaceAudioPlaybackRequestEvent));
+}
 
 function unlockBrowserAudio(): Promise<void> {
   if (audioUnlockPromise != null) {

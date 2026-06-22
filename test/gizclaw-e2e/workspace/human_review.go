@@ -90,13 +90,22 @@ func runHumanReview(ctx context.Context, d *personaDriver) ([]roundStats, error)
 		return transport, nil
 	}
 	defer func() {
+		detachHumanReviewPlayback(d.transport, playback)
 		d.newTransport = baseNewTransport
 	}()
-	return d.runConversation(ctx, conversationMode{SkipAssistantAudioASR: true})
+	rounds, err := d.runConversation(ctx, conversationMode{SkipAssistantAudioASR: true})
+	detachHumanReviewPlayback(d.transport, playback)
+	return rounds, err
 }
 
 func (d *personaDriver) runHumanReview(ctx context.Context) ([]roundStats, error) {
 	return runHumanReview(ctx, d)
+}
+
+func detachHumanReviewPlayback(transport *chatTransport, playback *humanReviewPlayback) {
+	if transport != nil && transport.audioTap == playback {
+		transport.audioTap = nil
+	}
 }
 
 func newHumanReviewPlayback() (*humanReviewPlayback, error) {

@@ -14,6 +14,7 @@ import (
 type Runtime struct {
 	ObjectPrefix string
 	LocalDir     string
+	History      *HistoryStore
 }
 
 type RuntimeStore interface {
@@ -52,7 +53,15 @@ func (s ObjectRuntimeStore) GetWorkspaceRuntime(_ context.Context, workspace str
 		return Runtime{}, fmt.Errorf("workspace: runtime store is required")
 	}
 	objectPrefix := ObjectPrefix(workspace)
-	rt := Runtime{ObjectPrefix: objectPrefix}
+	rt := Runtime{
+		ObjectPrefix: objectPrefix,
+		History: &HistoryStore{
+			Objects:        s.Objects,
+			Workspace:      workspace,
+			ObjectPrefix:   objectPrefix,
+			AssetRetention: defaultHistoryAssetTTL,
+		},
+	}
 	if provider, ok := s.Objects.(objectstore.LocalDirProvider); ok {
 		root, ok := provider.LocalDir()
 		if ok && strings.TrimSpace(root) != "" {

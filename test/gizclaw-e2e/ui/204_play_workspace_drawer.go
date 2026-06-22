@@ -18,7 +18,7 @@ func playWorkspaceDrawerStories() []Story {
 	return []Story{
 		{
 			Name: "204-play-workspace-drawer",
-			Run: func(_ testing.TB, page *Page) {
+			Run: func(t testing.TB, page *Page) {
 				page.GotoPlay("/")
 				page.ClickRole("button", "Workspace")
 				page.ExpectText("Inspect and test the current peer run active workspace.")
@@ -41,7 +41,34 @@ func playWorkspaceDrawerStories() []Story {
 				page.ExpectText("Active")
 
 				page.ClickSelector("#scroll-select-active-workspace")
-				page.ClickSelector(`button[role="option"][title="` + SeedAltWorkspaceName + `"]`)
+				if err := page.page.GetByRole(playwright.AriaRole("option"), playwright.PageGetByRoleOptions{
+					Name:  SeedAltWorkspaceName,
+					Exact: playwright.Bool(true),
+				}).Click(); err != nil {
+					t.Fatalf("select workspace option %q: %v", SeedAltWorkspaceName, err)
+				}
+				if err := itest.WaitUntil(10*time.Second, func() error {
+					selectorText, err := page.page.Locator("#scroll-select-active-workspace").TextContent()
+					if err != nil {
+						return err
+					}
+					if !strings.Contains(selectorText, SeedAltWorkspaceName) {
+						return fmt.Errorf("workspace selector text=%q, want %q", selectorText, SeedAltWorkspaceName)
+					}
+					disabled, err := page.page.GetByRole(playwright.AriaRole("button"), playwright.PageGetByRoleOptions{
+						Name:  "Set",
+						Exact: playwright.Bool(true),
+					}).IsDisabled()
+					if err != nil {
+						return err
+					}
+					if disabled {
+						return fmt.Errorf("workspace Set button is still disabled after selecting %q", SeedAltWorkspaceName)
+					}
+					return nil
+				}); err != nil {
+					t.Fatal(err)
+				}
 				page.ClickRole("button", "Set")
 				page.ExpectText("Workspace selection updated")
 				page.ExpectText(SeedAltWorkspaceName)

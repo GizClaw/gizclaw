@@ -676,7 +676,11 @@ func TestAgentListHistoryUsesClawDebugHistory(t *testing.T) {
 		t.Fatalf("items len = %d, want 1", len(resp.Items))
 	}
 	item := resp.Items[0]
-	if item.Id != "ctx:000000" || item.Transcript == nil || *item.Transcript != "你好" || item.Actor == nil || *item.Actor != "user" {
+	if item.Id != "ctx:000000" ||
+		item.Type != apitypes.PeerRunHistoryEntryTypeGear ||
+		item.GearId == nil || *item.GearId != "flowcraft" ||
+		item.Name != "gear" ||
+		item.Text != "你好" {
 		t.Fatalf("history item = %+v", item)
 	}
 }

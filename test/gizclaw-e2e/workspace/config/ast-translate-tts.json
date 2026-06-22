@@ -11,7 +11,6 @@
     "description": "Workspace e2e AST text translation with external GizClaw TTS voice",
     "translation_model": "e2e-ast-translate",
     "parameters": {
-      "e2e": true,
       "input": "push-to-talk",
       "lang_pair": "auto"
     },

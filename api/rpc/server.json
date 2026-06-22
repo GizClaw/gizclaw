@@ -388,6 +388,93 @@
       "WorkspaceDeleteResponse": {
         "$ref": "../type/workspace.json#/components/schemas/Workspace"
       },
+      "WorkspaceHistoryListRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "workspace_name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "cursor": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "workspace_name"
+        ]
+      },
+      "WorkspaceHistoryListResponse": {
+        "$ref": "../type/peer_run_workspace.json#/components/schemas/PeerRunHistoryListResponse"
+      },
+      "WorkspaceHistoryGetRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "workspace_name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "history_id": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "workspace_name",
+          "history_id"
+        ]
+      },
+      "WorkspaceHistoryGetResponse": {
+        "$ref": "../type/peer_run_workspace.json#/components/schemas/PeerRunHistoryEntry"
+      },
+      "WorkspaceHistoryAudioGetRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "workspace_name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "history_id": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "workspace_name",
+          "history_id"
+        ]
+      },
+      "WorkspaceHistoryAudioGetResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "workspace_name": {
+            "type": "string"
+          },
+          "history_id": {
+            "type": "string"
+          },
+          "mime_type": {
+            "type": "string"
+          },
+          "size_bytes": {
+            "type": "integer",
+            "format": "int64"
+          }
+        },
+        "required": [
+          "workspace_name",
+          "history_id",
+          "mime_type",
+          "size_bytes"
+        ]
+      },
       "WorkflowListRequest": {
         "type": "object",
         "additionalProperties": false,

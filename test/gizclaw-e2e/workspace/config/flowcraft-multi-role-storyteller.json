@@ -348,7 +348,6 @@
     },
     "name": "e2e-flowcraft-multi-role-storyteller",
     "parameters": {
-      "e2e": true,
       "generate_model": "e2e-doubao-2-lite-chat",
       "input": "push-to-talk"
     },

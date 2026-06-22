@@ -157,7 +157,7 @@ func runConfig(configPath, contextConfigPath string, selectedCase workspaceCase)
 	if err != nil {
 		return err
 	}
-	report, err := validateWorkspaceRuntimeForRun(ctx, client, cfg, result.Rounds)
+	report, err := validateWorkspaceRuntimeForRun(ctx, driver, client, cfg, result.Rounds)
 	if report != nil {
 		printWorkspaceRuntimeReport(*report)
 	}
@@ -353,7 +353,6 @@ func workspaceDocument(cfg config) (rpcapi.WorkspaceCreateRequest, error) {
 	case cfg.isFlowcraftAgent():
 		typed := rpcapi.FlowcraftWorkspaceParameters{
 			AgentType:      rpcapi.FlowcraftWorkspaceParametersAgentTypeFlowcraft,
-			E2e:            cfg.Workflow.Parameters.E2E,
 			Input:          optionalWorkspaceInputMode(cfg.Workflow.Parameters.Input),
 			GenerateModel:  optionalString(cfg.Workflow.Parameters.GenerateModel),
 			ExtractModel:   optionalString(cfg.Workflow.Parameters.ExtractModel),
@@ -365,7 +364,6 @@ func workspaceDocument(cfg config) (rpcapi.WorkspaceCreateRequest, error) {
 	case cfg.isASTTranslateAgent():
 		typed := rpcapi.ASTTranslateWorkspaceParameters{
 			AgentType:                  rpcapi.ASTTranslateWorkspaceParametersAgentTypeAstTranslate,
-			E2e:                        cfg.Workflow.Parameters.E2E,
 			Input:                      optionalWorkspaceInputMode(cfg.Workflow.Parameters.Input),
 			TranslationModel:           optionalString(cfg.Workflow.Parameters.TranslationModel),
 			LangPair:                   optionalString(cfg.Workflow.Parameters.LangPair),
@@ -388,7 +386,6 @@ func workspaceDocument(cfg config) (rpcapi.WorkspaceCreateRequest, error) {
 		}
 		typed := rpcapi.DoubaoRealtimeWorkspaceParameters{
 			AgentType:     rpcapi.DoubaoRealtimeWorkspaceParametersAgentTypeDoubaoRealtime,
-			E2e:           cfg.Workflow.Parameters.E2E,
 			Input:         optionalWorkspaceInputMode(cfg.Workflow.Parameters.Input),
 			Music:         realtimeMusicParams(cfg.Workflow.Parameters.Music),
 			RealtimeModel: optionalString(cfg.Workflow.RealtimeModel),
@@ -559,6 +556,9 @@ type workspaceRuntimeReport struct {
 	HistoryCount     int    `json:"history_count"`
 	ReplayHistoryID  string `json:"replay_history_id"`
 	ReplayState      string `json:"replay_state"`
+	ReplayText       string `json:"replay_text,omitempty"`
+	ReplayAudioASR   string `json:"replay_audio_asr,omitempty"`
+	ReplayPackets    int    `json:"replay_packets,omitempty"`
 	MemoryAvailable  bool   `json:"memory_available"`
 	MemoryEnabled    bool   `json:"memory_enabled"`
 	MemoryItemCount  int64  `json:"memory_item_count"`
@@ -568,7 +568,7 @@ type workspaceRuntimeReport struct {
 	RecallQueryChars int    `json:"recall_query_chars"`
 }
 
-func validateWorkspaceRuntime(ctx context.Context, client runControlClient, cfg config, stats []roundStats) (*workspaceRuntimeReport, error) {
+func validateWorkspaceRuntime(ctx context.Context, driver *personaDriver, client runControlClient, cfg config, stats []roundStats) (*workspaceRuntimeReport, error) {
 	if !cfg.isFlowcraftAgent() {
 		return nil, nil
 	}
@@ -648,13 +648,15 @@ func validateWorkspaceRuntime(ctx context.Context, client runControlClient, cfg 
 		recallHitCount = len(recall.Hits)
 	}
 
-	historyID := replayHistoryID(history.Items)
-	if historyID == "" {
-		return nil, fmt.Errorf("runtime rpc history has no replayable item")
+	historyItem, ok := replayHistoryItem(history.Items)
+	if !ok {
+		return nil, fmt.Errorf("runtime rpc history has no replayable agent item")
+	}
+	if driver != nil {
+		driver.drainTransport()
 	}
 	play, err := client.PlayServerRunWorkspaceHistory(ctx, "workspacetest.runtime.history.play", rpcapi.ServerPlayRunWorkspaceHistoryRequest{
-		HistoryId: historyID,
-		Options:   &rpcapi.PeerRunHistoryPlayOptions{IncludeAudio: boolPtr(true), IncludeText: boolPtr(true)},
+		HistoryId: historyItem.Id,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("runtime rpc history play: %w", err)
@@ -668,8 +670,17 @@ func validateWorkspaceRuntime(ctx context.Context, client runControlClient, cfg 
 	}
 
 	report.HistoryCount = len(history.Items)
-	report.ReplayHistoryID = historyID
+	report.ReplayHistoryID = historyItem.Id
 	report.ReplayState = play.State
+	if driver != nil {
+		replay, err := driver.verifyHistoryReplay(ctx, historyItem)
+		if err != nil {
+			return nil, fmt.Errorf("runtime rpc history replay output: %w", err)
+		}
+		report.ReplayText = replay.Text
+		report.ReplayAudioASR = replay.AudioASR
+		report.ReplayPackets = replay.DownlinkPackets
+	}
 	report.MemoryAvailable = memory.Available
 	report.MemoryEnabled = memory.Enabled
 	report.MemoryItemCount = memory.ItemCount
@@ -692,18 +703,18 @@ func runtimeRecallQuery(stats []roundStats) string {
 	return "你好"
 }
 
-func replayHistoryID(items []rpcapi.PeerRunHistoryEntry) string {
+func replayHistoryItem(items []rpcapi.PeerRunHistoryEntry) (rpcapi.PeerRunHistoryEntry, bool) {
 	for _, item := range items {
-		if item.ReplayAvailable && item.Text != nil && strings.TrimSpace(*item.Text) != "" {
-			return item.Id
+		if item.Type == rpcapi.PeerRunHistoryEntryTypeAgent && item.ReplayAvailable && strings.TrimSpace(item.Text) != "" {
+			return item, true
 		}
 	}
 	for _, item := range items {
-		if item.ReplayAvailable {
-			return item.Id
+		if item.Type == rpcapi.PeerRunHistoryEntryTypeAgent && item.ReplayAvailable {
+			return item, true
 		}
 	}
-	return ""
+	return rpcapi.PeerRunHistoryEntry{}, false
 }
 
 func boolPtr(value bool) *bool {

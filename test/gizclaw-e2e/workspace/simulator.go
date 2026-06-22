@@ -212,30 +212,13 @@ func flowcraftHistoryProgressSignature(items []rpcapi.PeerRunHistoryEntry) strin
 	for _, item := range items {
 		b.WriteString(item.Id)
 		b.WriteByte('\x1f')
-		appendStringPtr(&b, item.Actor)
-		appendStringPtr(&b, item.Transcript)
-		appendStringPtr(&b, item.Text)
-		if item.AudioChunkCount != nil {
-			fmt.Fprintf(&b, "audio_chunks=%d", *item.AudioChunkCount)
-		}
-		if item.AudioBytes != nil {
-			fmt.Fprintf(&b, "audio_bytes=%d", *item.AudioBytes)
-		}
-		if item.Chunks != nil {
-			for _, chunk := range *item.Chunks {
-				b.WriteByte('\x1e')
-				b.WriteString(string(chunk.Kind))
-				appendStringPtr(&b, chunk.Actor)
-				appendStringPtr(&b, chunk.Text)
-				appendStringPtr(&b, chunk.AssetUri)
-				if chunk.Bytes != nil {
-					fmt.Fprintf(&b, "bytes=%d", *chunk.Bytes)
-				}
-				if chunk.DurationMs != nil {
-					fmt.Fprintf(&b, "duration_ms=%d", *chunk.DurationMs)
-				}
-			}
-		}
+		b.WriteString(string(item.Type))
+		appendStringPtr(&b, item.GearId)
+		b.WriteByte('\x1f')
+		b.WriteString(item.Name)
+		b.WriteByte('\x1f')
+		b.WriteString(item.Text)
+		fmt.Fprintf(&b, "replay=%t", item.ReplayAvailable)
 		b.WriteByte('\n')
 	}
 	return b.String()

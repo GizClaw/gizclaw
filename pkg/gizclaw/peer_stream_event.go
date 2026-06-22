@@ -87,6 +87,7 @@ func (o peerAgentOutput) ConsumeAgentOutput(ctx context.Context, output genx.Str
 	}
 	var pcmTrack pcm.Track
 	var pcmCtrl *pcm.TrackCtrl
+	opusPacer := peerOpusPacer{Now: o.Now}
 	defer func() {
 		if pcmCtrl != nil {
 			_ = pcmCtrl.Close()
@@ -123,9 +124,13 @@ func (o peerAgentOutput) ConsumeAgentOutput(ctx context.Context, output genx.Str
 		}
 		switch {
 		case isOpusBlob(blob):
+			if err := opusPacer.Wait(ctx); err != nil {
+				return err
+			}
 			if err := o.writeStampedOpus(chunk, blob.Data); err != nil {
 				return err
 			}
+			opusPacer.Advance()
 		case isPCMBlob(blob):
 			if pcmTrack == nil {
 				if o.Tracks == nil {
@@ -160,6 +165,51 @@ func (o peerAgentOutput) writeStampedOpus(chunk *genx.MessageChunk, frame []byte
 func (o peerAgentOutput) now() time.Time {
 	if o.Now != nil {
 		return o.Now().UTC()
+	}
+	return time.Now().UTC()
+}
+
+type peerOpusPacer struct {
+	Now  func() time.Time
+	next time.Time
+}
+
+func (p *peerOpusPacer) Wait(ctx context.Context) error {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if p == nil || p.next.IsZero() {
+		return nil
+	}
+	delay := p.next.Sub(p.now())
+	if delay <= 0 {
+		return nil
+	}
+	timer := time.NewTimer(delay)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-timer.C:
+		return nil
+	}
+}
+
+func (p *peerOpusPacer) Advance() {
+	if p == nil {
+		return
+	}
+	now := p.now()
+	base := now
+	if !p.next.IsZero() && p.next.After(base) {
+		base = p.next
+	}
+	p.next = base.Add(peerConnOpusFrameDuration)
+}
+
+func (p *peerOpusPacer) now() time.Time {
+	if p != nil && p.Now != nil {
+		return p.Now().UTC()
 	}
 	return time.Now().UTC()
 }

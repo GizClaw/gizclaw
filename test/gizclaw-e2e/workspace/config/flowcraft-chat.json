@@ -127,7 +127,6 @@
     },
     "name": "e2e-flowcraft-chat",
     "parameters": {
-      "e2e": true,
       "extract_model": "e2e-doubao-2-lite-chat",
       "generate_model": "e2e-doubao-2-lite-chat",
       "input": "push-to-talk"

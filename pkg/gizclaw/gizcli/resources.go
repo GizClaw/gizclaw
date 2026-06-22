@@ -37,6 +37,18 @@ func (c *Client) DeleteWorkspace(ctx context.Context, id string, request rpcapi.
 	})
 }
 
+func (c *Client) ListWorkspaceHistory(ctx context.Context, id string, request rpcapi.WorkspaceHistoryListRequest) (*rpcapi.WorkspaceHistoryListResponse, error) {
+	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.WorkspaceHistoryListResponse, error) {
+		return client.ListWorkspaceHistory(ctx, conn, id, request)
+	})
+}
+
+func (c *Client) GetWorkspaceHistory(ctx context.Context, id string, request rpcapi.WorkspaceHistoryGetRequest) (*rpcapi.WorkspaceHistoryGetResponse, error) {
+	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.WorkspaceHistoryGetResponse, error) {
+		return client.GetWorkspaceHistory(ctx, conn, id, request)
+	})
+}
+
 func (c *Client) ListWorkflows(ctx context.Context, id string, request rpcapi.WorkflowListRequest) (*rpcapi.WorkflowListResponse, error) {
 	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.WorkflowListResponse, error) {
 		return client.ListWorkflows(ctx, conn, id, request)

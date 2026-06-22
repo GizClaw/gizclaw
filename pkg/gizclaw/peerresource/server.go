@@ -6,8 +6,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/acl"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/adminservice"
@@ -26,6 +28,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/workflow"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/workspace"
 	"github.com/GizClaw/gizclaw-go/pkg/giznet"
+	"github.com/GizClaw/gizclaw-go/pkg/store/kv"
 	"github.com/gofiber/fiber/v2"
 )
 
@@ -50,6 +53,12 @@ type Server struct {
 	FriendGroups *friendgroup.Server
 }
 
+type WorkspaceHistoryService interface {
+	ListWorkspaceHistory(context.Context, apitypes.ACLSubject, string, apitypes.PeerRunHistoryListRequest) (apitypes.PeerRunHistoryListResponse, error)
+	GetWorkspaceHistory(context.Context, apitypes.ACLSubject, string, string) (workspace.HistoryEntry, error)
+	ReadWorkspaceHistoryAsset(context.Context, apitypes.ACLSubject, string, string) (io.ReadCloser, error)
+}
+
 func IsMethod(method rpcapi.RPCMethod) bool {
 	switch method {
 	case rpcapi.RPCMethodServerFirmwareList,
@@ -60,6 +69,9 @@ func IsMethod(method rpcapi.RPCMethod) bool {
 		rpcapi.RPCMethodServerWorkspaceCreate,
 		rpcapi.RPCMethodServerWorkspacePut,
 		rpcapi.RPCMethodServerWorkspaceDelete,
+		rpcapi.RPCMethodServerWorkspaceHistoryList,
+		rpcapi.RPCMethodServerWorkspaceHistoryGet,
+		rpcapi.RPCMethodServerWorkspaceHistoryAudioGet,
 		rpcapi.RPCMethodServerWorkflowList,
 		rpcapi.RPCMethodServerWorkflowGet,
 		rpcapi.RPCMethodServerWorkflowCreate,
@@ -139,6 +151,12 @@ func (s *Server) Dispatch(ctx context.Context, req *rpcapi.RPCRequest) (*rpcapi.
 		return s.handleWorkspacePut(ctx, req)
 	case rpcapi.RPCMethodServerWorkspaceDelete:
 		return s.handleWorkspaceDelete(ctx, req), true, nil
+	case rpcapi.RPCMethodServerWorkspaceHistoryList:
+		return s.handleWorkspaceHistoryList(ctx, req), true, nil
+	case rpcapi.RPCMethodServerWorkspaceHistoryGet:
+		return s.handleWorkspaceHistoryGet(ctx, req), true, nil
+	case rpcapi.RPCMethodServerWorkspaceHistoryAudioGet:
+		return s.handleWorkspaceHistoryAudioGet(ctx, req), true, nil
 	case rpcapi.RPCMethodServerWorkflowList:
 		return s.handleWorkflowList(ctx, req), true, nil
 	case rpcapi.RPCMethodServerWorkflowGet:
@@ -367,6 +385,133 @@ func (s *Server) handleWorkspaceDelete(ctx context.Context, req *rpcapi.RPCReque
 		return internalError(req.Id, err.Error())
 	}
 	return adminRPCResponse(req.Id, adminResp.VisitDeleteWorkspaceResponse, (*rpcapi.RPCResponse_Result).FromWorkspaceDeleteResponse)
+}
+
+func (s *Server) handleWorkspaceHistoryList(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
+	history, resp := s.workspaceHistoryService(req.Id)
+	if resp != nil {
+		return resp
+	}
+	params, ok := decodeRequiredParams(req, rpcapi.RPCRequest_Params.AsWorkspaceHistoryListRequest)
+	if !ok {
+		return invalidParams(req.Id)
+	}
+	list, err := history.ListWorkspaceHistory(ctx, acl.PublicKeySubject(s.Caller.String()), params.WorkspaceName, apitypes.PeerRunHistoryListRequest{
+		Cursor: params.Cursor,
+		Limit:  params.Limit,
+	})
+	if err != nil {
+		return authOrBadRequest(req.Id, err)
+	}
+	return resultResponse(req.Id, list, (*rpcapi.RPCResponse_Result).FromWorkspaceHistoryListResponse)
+}
+
+func (s *Server) handleWorkspaceHistoryGet(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
+	history, resp := s.workspaceHistoryService(req.Id)
+	if resp != nil {
+		return resp
+	}
+	params, ok := decodeRequiredParams(req, rpcapi.RPCRequest_Params.AsWorkspaceHistoryGetRequest)
+	if !ok {
+		return invalidParams(req.Id)
+	}
+	entry, err := history.GetWorkspaceHistory(ctx, acl.PublicKeySubject(s.Caller.String()), params.WorkspaceName, params.HistoryId)
+	if err != nil {
+		return authOrBadRequest(req.Id, err)
+	}
+	return resultResponse(req.Id, entry.Public(), (*rpcapi.RPCResponse_Result).FromWorkspaceHistoryGetResponse)
+}
+
+func (s *Server) handleWorkspaceHistoryAudioGet(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
+	params, ok := decodeRequiredParams(req, rpcapi.RPCRequest_Params.AsWorkspaceHistoryAudioGetRequest)
+	if !ok {
+		return invalidParams(req.Id)
+	}
+	respValue, reader, rpcErr, err := s.PrepareWorkspaceHistoryAudioGet(ctx, params)
+	if err != nil {
+		return internalError(req.Id, err.Error())
+	}
+	if rpcErr != nil {
+		return rpcapi.Error{RequestID: req.Id, Code: rpcErr.Code, Message: rpcErr.Message}.RPCResponse()
+	}
+	if reader != nil {
+		_ = reader.Close()
+	}
+	return resultResponse(req.Id, respValue, (*rpcapi.RPCResponse_Result).FromWorkspaceHistoryAudioGetResponse)
+}
+
+func (s *Server) PrepareWorkspaceHistoryAudioGet(ctx context.Context, params rpcapi.WorkspaceHistoryAudioGetRequest) (rpcapi.WorkspaceHistoryAudioGetResponse, io.ReadCloser, *rpcapi.RPCError, error) {
+	history, resp := s.workspaceHistoryService("")
+	if resp != nil {
+		return rpcapi.WorkspaceHistoryAudioGetResponse{}, nil, &rpcapi.RPCError{Code: resp.Error.Code, Message: resp.Error.Message}, nil
+	}
+	entry, err := history.GetWorkspaceHistory(ctx, acl.PublicKeySubject(s.Caller.String()), params.WorkspaceName, params.HistoryId)
+	if err != nil {
+		return rpcapi.WorkspaceHistoryAudioGetResponse{}, nil, historyRPCError(err), nil
+	}
+	var asset workspace.HistoryAsset
+	mimeType := ""
+	for _, candidate := range entry.Assets {
+		candidateMIMEType := workspaceHistoryAssetMIMEType(candidate.Name, candidate.MIMEType)
+		if strings.HasPrefix(strings.ToLower(candidateMIMEType), "audio/") {
+			asset = candidate
+			mimeType = candidateMIMEType
+			break
+		}
+	}
+	if mimeType == "" {
+		return rpcapi.WorkspaceHistoryAudioGetResponse{}, nil, &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeNotFound, Message: "workspace history entry has no audio"}, nil
+	}
+	r, err := history.ReadWorkspaceHistoryAsset(ctx, acl.PublicKeySubject(s.Caller.String()), params.WorkspaceName, asset.Name)
+	if err != nil {
+		return rpcapi.WorkspaceHistoryAudioGetResponse{}, nil, historyRPCError(err), nil
+	}
+	return rpcapi.WorkspaceHistoryAudioGetResponse{
+		WorkspaceName: params.WorkspaceName,
+		HistoryId:     params.HistoryId,
+		MimeType:      mimeType,
+		SizeBytes:     asset.Bytes,
+	}, r, nil, nil
+}
+
+func historyRPCError(err error) *rpcapi.RPCError {
+	switch {
+	case err == nil:
+		return nil
+	case errors.Is(err, acl.ErrDenied):
+		return &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeForbidden, Message: err.Error()}
+	case errors.Is(err, kv.ErrNotFound), errors.Is(err, fs.ErrNotExist):
+		return &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeNotFound, Message: err.Error()}
+	default:
+		return &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeBadRequest, Message: err.Error()}
+	}
+}
+
+func (s *Server) workspaceHistoryService(requestID string) (WorkspaceHistoryService, *rpcapi.RPCResponse) {
+	if s.Workspaces == nil {
+		return nil, internalError(requestID, "workspace service not configured")
+	}
+	history, ok := s.Workspaces.(WorkspaceHistoryService)
+	if !ok {
+		return nil, internalError(requestID, "workspace history service not configured")
+	}
+	return history, nil
+}
+
+func workspaceHistoryAssetMIMEType(name, fallback string) string {
+	if strings.TrimSpace(fallback) != "" {
+		return strings.TrimSpace(fallback)
+	}
+	switch {
+	case strings.HasSuffix(strings.ToLower(name), ".opus"):
+		return "audio/opus"
+	case strings.HasSuffix(strings.ToLower(name), ".ogg"):
+		return "audio/ogg"
+	case strings.HasSuffix(strings.ToLower(name), ".mp3"):
+		return "audio/mpeg"
+	default:
+		return "application/octet-stream"
+	}
 }
 
 func (s *Server) handleWorkflowList(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
@@ -847,6 +992,13 @@ func authError(id string, err error) *rpcapi.RPCResponse {
 		code = rpcapi.RPCErrorCodeInternalError
 	}
 	return rpcapi.Error{RequestID: id, Code: code, Message: err.Error()}.RPCResponse()
+}
+
+func authOrBadRequest(id string, err error) *rpcapi.RPCResponse {
+	if errors.Is(err, acl.ErrDenied) {
+		return authError(id, err)
+	}
+	return rpcapi.Error{RequestID: id, Code: rpcapi.RPCErrorCodeBadRequest, Message: err.Error()}.RPCResponse()
 }
 
 func statusError(id string, statusCode int, message string) *rpcapi.RPCResponse {

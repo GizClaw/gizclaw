@@ -735,21 +735,18 @@ func (e PeerRole) Valid() bool {
 	}
 }
 
-// Defines values for PeerRunHistoryChunkKind.
+// Defines values for PeerRunHistoryEntryType.
 const (
-	PeerRunHistoryChunkKindAudio      PeerRunHistoryChunkKind = "audio"
-	PeerRunHistoryChunkKindText       PeerRunHistoryChunkKind = "text"
-	PeerRunHistoryChunkKindTranscript PeerRunHistoryChunkKind = "transcript"
+	PeerRunHistoryEntryTypeAgent PeerRunHistoryEntryType = "agent"
+	PeerRunHistoryEntryTypeGear  PeerRunHistoryEntryType = "gear"
 )
 
-// Valid indicates whether the value is a known member of the PeerRunHistoryChunkKind enum.
-func (e PeerRunHistoryChunkKind) Valid() bool {
+// Valid indicates whether the value is a known member of the PeerRunHistoryEntryType enum.
+func (e PeerRunHistoryEntryType) Valid() bool {
 	switch e {
-	case PeerRunHistoryChunkKindAudio:
+	case PeerRunHistoryEntryTypeAgent:
 		return true
-	case PeerRunHistoryChunkKindText:
-		return true
-	case PeerRunHistoryChunkKindTranscript:
+	case PeerRunHistoryEntryTypeGear:
 		return true
 	default:
 		return false
@@ -2018,38 +2015,21 @@ type PeerRunAgent struct {
 	Pending *AgentSelection `json:"pending,omitempty"`
 }
 
-// PeerRunHistoryChunk defines model for PeerRunHistoryChunk.
-type PeerRunHistoryChunk struct {
-	Actor      *string                 `json:"actor,omitempty"`
-	AssetUri   *string                 `json:"asset_uri,omitempty"`
-	At         *time.Time              `json:"at,omitempty"`
-	Bytes      *int64                  `json:"bytes,omitempty"`
-	DurationMs *int64                  `json:"duration_ms,omitempty"`
-	Kind       PeerRunHistoryChunkKind `json:"kind"`
-	Metadata   *map[string]interface{} `json:"metadata,omitempty"`
-	MimeType   *string                 `json:"mime_type,omitempty"`
-	Text       *string                 `json:"text,omitempty"`
-}
-
-// PeerRunHistoryChunkKind defines model for PeerRunHistoryChunk.Kind.
-type PeerRunHistoryChunkKind string
-
 // PeerRunHistoryEntry defines model for PeerRunHistoryEntry.
 type PeerRunHistoryEntry struct {
-	Actor           *string                 `json:"actor,omitempty"`
-	AudioBytes      *int64                  `json:"audio_bytes,omitempty"`
-	AudioChunkCount *int64                  `json:"audio_chunk_count,omitempty"`
-	AudioMimeType   *string                 `json:"audio_mime_type,omitempty"`
-	Chunks          *[]PeerRunHistoryChunk  `json:"chunks,omitempty"`
-	CreatedAt       time.Time               `json:"created_at"`
-	DurationMs      *int64                  `json:"duration_ms,omitempty"`
-	EndedAt         *time.Time              `json:"ended_at,omitempty"`
+	CreatedAt time.Time `json:"created_at"`
+
+	// GearId Originating gear id. Required for gear entries and omitted for agent entries.
+	GearId          *string                 `json:"gear_id,omitempty"`
 	Id              string                  `json:"id"`
-	Metadata        *map[string]interface{} `json:"metadata,omitempty"`
+	Name            string                  `json:"name"`
 	ReplayAvailable bool                    `json:"replay_available"`
-	Text            *string                 `json:"text,omitempty"`
-	Transcript      *string                 `json:"transcript,omitempty"`
+	Text            string                  `json:"text"`
+	Type            PeerRunHistoryEntryType `json:"type"`
 }
+
+// PeerRunHistoryEntryType defines model for PeerRunHistoryEntry.Type.
+type PeerRunHistoryEntryType string
 
 // PeerRunHistoryListRequest defines model for PeerRunHistoryListRequest.
 type PeerRunHistoryListRequest struct {
@@ -2066,17 +2046,9 @@ type PeerRunHistoryListResponse struct {
 	NextCursor *string               `json:"next_cursor,omitempty"`
 }
 
-// PeerRunHistoryPlayOptions defines model for PeerRunHistoryPlayOptions.
-type PeerRunHistoryPlayOptions struct {
-	IncludeAudio *bool    `json:"include_audio,omitempty"`
-	IncludeText  *bool    `json:"include_text,omitempty"`
-	Speed        *float64 `json:"speed,omitempty"`
-}
-
 // PeerRunHistoryPlayRequest defines model for PeerRunHistoryPlayRequest.
 type PeerRunHistoryPlayRequest struct {
-	HistoryId string                     `json:"history_id"`
-	Options   *PeerRunHistoryPlayOptions `json:"options,omitempty"`
+	HistoryId string `json:"history_id"`
 }
 
 // PeerRunHistoryPlayResponse defines model for PeerRunHistoryPlayResponse.

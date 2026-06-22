@@ -1,12 +1,16 @@
 // Package objectstore defines a generic object storage abstraction.
 package objectstore
 
-import "io"
+import (
+	"io"
+	"time"
+)
 
 // ObjectInfo describes a stored object.
 type ObjectInfo struct {
-	Name string
-	Size int64
+	Name     string
+	Size     int64
+	Deadline time.Time
 }
 
 // ObjectStore provides prefix-addressable object storage.
@@ -20,6 +24,13 @@ type ObjectStore interface {
 
 	// Put writes or replaces an object from the provided reader.
 	Put(name string, r io.Reader) error
+
+	// PutWithDeadline writes or replaces an object and makes it expire at the
+	// given deadline. A zero deadline means the object does not expire.
+	PutWithDeadline(name string, r io.Reader, deadline time.Time) error
+
+	// PutWithTTL writes or replaces an object and makes it expire after ttl.
+	PutWithTTL(name string, r io.Reader, ttl time.Duration) error
 
 	// Delete removes a single object. Returns nil if absent.
 	Delete(name string) error

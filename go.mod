@@ -6,7 +6,7 @@ require (
 	github.com/GizClaw/dashscope-realtime-go v0.0.0-20260512045013-1d5b538966ad
 	github.com/GizClaw/doubao-speech-go v0.0.0-20260618100407-8dabd0d47c2f
 	github.com/GizClaw/flowcraft/sdk v0.4.6
-	github.com/GizClaw/flowcraft/sdkx v0.4.6
+	github.com/GizClaw/flowcraft/sdkx v0.4.7
 	github.com/GizClaw/minimax-go v0.0.0-20260512045057-389426641c63
 	github.com/dgraph-io/badger/v4 v4.9.1
 	github.com/goccy/go-yaml v1.19.2

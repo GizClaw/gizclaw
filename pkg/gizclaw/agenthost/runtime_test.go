@@ -227,6 +227,62 @@ func TestServiceWorkspaceFeatureResponsesWithoutActiveWorkspace(t *testing.T) {
 	}
 }
 
+func TestServiceWorkspaceFeaturesRecheckACL(t *testing.T) {
+	ctx := context.Background()
+	publicKey := testPublicKey(t)
+	store := &peerrun.Server{Store: kv.NewMemory(nil)}
+	if _, err := store.SetRunAgent(ctx, publicKey, apitypes.AgentSelection{WorkspaceName: "demo"}); err != nil {
+		t.Fatalf("SetRunAgent() error = %v", err)
+	}
+	output := newBlockingStream()
+	agent := &runtimeTestAgent{output: output}
+	input := NewInputStream(1)
+	denied := errors.New("acl: denied")
+	svc := &Service{
+		Host:      &runtimeTestOpenAgentHost{agent: agent},
+		PeerRun:   store,
+		PublicKey: publicKey,
+		Source: StreamSourceFunc(func(context.Context) (genx.Stream, error) {
+			return input, nil
+		}),
+		Consumer: StreamConsumerFunc(func(ctx context.Context, stream genx.Stream) error {
+			for {
+				_, err := stream.Next()
+				if IsStreamDone(err) || errors.Is(err, io.ErrClosedPipe) {
+					return nil
+				}
+				if err != nil {
+					return err
+				}
+				if err := ctx.Err(); err != nil {
+					return err
+				}
+			}
+		}),
+		Now: fixedClock(time.Unix(100, 0)),
+	}
+	if _, err := svc.Reload(ctx); err != nil {
+		t.Fatalf("Reload() error = %v", err)
+	}
+	svc.Authorizer = fakeAuthorizer{err: denied}
+	history, err := svc.ListWorkspaceHistory(ctx, apitypes.PeerRunHistoryListRequest{})
+	if err != nil {
+		t.Fatalf("ListWorkspaceHistory() error = %v", err)
+	}
+	if history.Available || history.Message == nil || !strings.Contains(*history.Message, denied.Error()) {
+		t.Fatalf("ListWorkspaceHistory() = %+v", history)
+	}
+	play, err := svc.PlayWorkspaceHistory(ctx, apitypes.PeerRunHistoryPlayRequest{HistoryId: "h1"})
+	if err != nil {
+		t.Fatalf("PlayWorkspaceHistory() error = %v", err)
+	}
+	if play.Accepted || play.State != "unavailable" || play.Message == nil || !strings.Contains(*play.Message, denied.Error()) {
+		t.Fatalf("PlayWorkspaceHistory() = %+v", play)
+	}
+	_ = output.Close()
+	_ = input.Close()
+}
+
 func TestTransformerAgentDefaults(t *testing.T) {
 	agent := asAgent(fixedTransformer{text: "ok"})
 	if agent == nil {
@@ -474,8 +530,14 @@ func TestServiceClosesInputWhenOutputEnds(t *testing.T) {
 		t.Fatalf("Reload() error = %v", err)
 	}
 	<-done
-	if !input.closed() {
-		t.Fatal("input stream was not closed after output ended")
+	deadline := time.After(time.Second)
+	for !input.closed() {
+		select {
+		case <-deadline:
+			t.Fatal("input stream was not closed after output ended")
+		default:
+			time.Sleep(time.Millisecond)
+		}
 	}
 }
 

@@ -65,7 +65,6 @@ type workflowConfig struct {
 }
 
 type workspaceParameterConfig struct {
-	E2E                        *bool                `json:"e2e,omitempty"`
 	Input                      string               `json:"input,omitempty"`
 	GenerateModel              string               `json:"generate_model,omitempty"`
 	ExtractModel               string               `json:"extract_model,omitempty"`

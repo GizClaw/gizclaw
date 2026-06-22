@@ -330,6 +330,15 @@ func (c *Client) DownloadFirmware(ctx context.Context, id string, request rpcapi
 	return c.rpcClient().DownloadFirmware(ctx, stream, id, request, out)
 }
 
+func (c *Client) GetWorkspaceHistoryAudio(ctx context.Context, id string, request rpcapi.WorkspaceHistoryAudioGetRequest, out io.Writer) (WorkspaceHistoryAudioGetResult, error) {
+	stream, err := c.rpcConn()
+	if err != nil {
+		return WorkspaceHistoryAudioGetResult{}, err
+	}
+	defer func() { _ = stream.Close() }()
+	return c.rpcClient().GetWorkspaceHistoryAudio(ctx, stream, id, request, out)
+}
+
 func callClientRPC[T any](c *Client, call func(*rpcClient, net.Conn) (*T, error)) (*T, error) {
 	stream, err := c.rpcConn()
 	if err != nil {

@@ -10,6 +10,7 @@ import (
 	"io"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/GizClaw/gizclaw-go/cmd/internal/storage"
 	"github.com/GizClaw/gizclaw-go/pkg/store/graph"
@@ -398,6 +399,14 @@ func (s prefixedObjectStore) Get(name string) (io.ReadCloser, error) {
 
 func (s prefixedObjectStore) Put(name string, r io.Reader) error {
 	return s.base.Put(s.name(name), r)
+}
+
+func (s prefixedObjectStore) PutWithDeadline(name string, r io.Reader, deadline time.Time) error {
+	return s.base.PutWithDeadline(s.name(name), r, deadline)
+}
+
+func (s prefixedObjectStore) PutWithTTL(name string, r io.Reader, ttl time.Duration) error {
+	return s.base.PutWithTTL(s.name(name), r, ttl)
 }
 
 func (s prefixedObjectStore) Delete(name string) error {

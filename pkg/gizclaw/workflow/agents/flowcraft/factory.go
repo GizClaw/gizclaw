@@ -379,15 +379,13 @@ func (a *agent) PlayHistory(ctx context.Context, req apitypes.PeerRunHistoryPlay
 		message := err.Error()
 		return apitypes.PeerRunHistoryPlayResponse{Accepted: false, HistoryId: req.HistoryId, State: "unavailable", Message: &message}, nil
 	}
-	if includeAudio(req.Options) {
-		voice, ok := a.voiceForNode(nodeID)
-		if !ok {
-			return apitypes.PeerRunHistoryPlayResponse{Accepted: true, HistoryId: req.HistoryId, State: "played"}, nil
-		}
-		if err := a.synthesize(ctx, streamID, nodeID, voice, text, output, epoch); err != nil {
-			message := err.Error()
-			return apitypes.PeerRunHistoryPlayResponse{Accepted: false, HistoryId: req.HistoryId, State: "audio_failed", Message: &message}, nil
-		}
+	voice, ok := a.voiceForNode(nodeID)
+	if !ok {
+		return apitypes.PeerRunHistoryPlayResponse{Accepted: true, HistoryId: req.HistoryId, State: "played"}, nil
+	}
+	if err := a.synthesize(ctx, streamID, nodeID, voice, text, output, epoch); err != nil {
+		message := err.Error()
+		return apitypes.PeerRunHistoryPlayResponse{Accepted: false, HistoryId: req.HistoryId, State: "audio_failed", Message: &message}, nil
 	}
 	return apitypes.PeerRunHistoryPlayResponse{Accepted: true, HistoryId: req.HistoryId, State: "played"}, nil
 }
@@ -635,37 +633,22 @@ func parseHistoryCursor(cursor *string) (int, error) {
 }
 
 func historyEntryFromMessage(contextID string, index int, createdAt time.Time, msg flowmodel.Message) apitypes.PeerRunHistoryEntry {
-	actor := string(msg.Role)
 	text := strings.TrimSpace(msg.Content())
-	kind := apitypes.PeerRunHistoryChunkKind("text")
-	if msg.Role == flowmodel.RoleUser {
-		kind = apitypes.PeerRunHistoryChunkKind("transcript")
-	}
-	metadata := map[string]interface{}{
-		"context_id":    contextID,
-		"message_index": index,
-		"role":          actor,
-	}
-	chunks := []apitypes.PeerRunHistoryChunk{{
-		Actor:    &actor,
-		At:       &createdAt,
-		Kind:     kind,
-		Metadata: &metadata,
-		Text:     &text,
-	}}
+	entryType := apitypes.PeerRunHistoryEntryTypeAgent
+	name := "agent"
 	entry := apitypes.PeerRunHistoryEntry{
-		Actor:           &actor,
-		Chunks:          &chunks,
 		CreatedAt:       createdAt,
 		Id:              historyEntryID(contextID, index),
-		Metadata:        &metadata,
+		Name:            name,
 		ReplayAvailable: text != "",
+		Text:            text,
+		Type:            entryType,
 	}
-	switch msg.Role {
-	case flowmodel.RoleUser:
-		entry.Transcript = &text
-	default:
-		entry.Text = &text
+	if msg.Role == flowmodel.RoleUser {
+		gearID := "flowcraft"
+		entry.Type = apitypes.PeerRunHistoryEntryTypeGear
+		entry.GearId = &gearID
+		entry.Name = "gear"
 	}
 	return entry
 }
@@ -689,10 +672,6 @@ func contextIDOrDefault(contextID string) string {
 		return "default"
 	}
 	return contextID
-}
-
-func includeAudio(options *apitypes.PeerRunHistoryPlayOptions) bool {
-	return options == nil || options.IncludeAudio == nil || *options.IncludeAudio
 }
 
 func recallHitFromDebug(index int, hit debugRecallHit) apitypes.PeerRunRecallHit {

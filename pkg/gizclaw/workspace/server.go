@@ -28,6 +28,7 @@ type Server struct {
 	Store         kv.Store
 	WorkflowStore kv.Store
 	RuntimeStore  RuntimeStore
+	Authorizer    Authorizer
 }
 
 type WorkspaceAdminService interface {

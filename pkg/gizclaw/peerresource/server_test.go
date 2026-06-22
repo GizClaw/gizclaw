@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"io"
 	"net/http"
 	"strings"
 	"testing"
@@ -210,6 +211,113 @@ func TestServerWorkspaceWorkflowCreateUsesCollectionACL(t *testing.T) {
 	}
 	if got := auth.count(ctx, acl.ResourceKindWorkflow, acl.CollectionResourceID, apitypes.ACLPermissionWorkflowUse); got == 0 {
 		t.Fatal("workspace.create did not fallback to workflow collection use")
+	}
+}
+
+func TestServerWorkspaceHistoryRPC(t *testing.T) {
+	workflowStore := kv.NewMemory(nil)
+	objects := objectstore.Dir(t.TempDir())
+	workspaceServer := &workspace.Server{
+		Store:         kv.NewMemory(nil),
+		WorkflowStore: workflowStore,
+		RuntimeStore:  workspace.NewObjectRuntimeStore(objects),
+	}
+	srv := &Server{
+		Caller:     giznet.PublicKey{1},
+		ACL:        allowAllAuthorizer{},
+		Workflows:  &workflow.Server{Store: workflowStore},
+		Workspaces: workspaceServer,
+	}
+	requireNoRPCError(t, callRPC(t, srv, "workflow-create", rpcapi.RPCMethodServerWorkflowCreate, rpcParams(t, (*rpcapi.RPCRequest_Params).FromWorkflowCreateRequest, workflowDoc("flow-history"))))
+	requireNoRPCError(t, callRPC(t, srv, "workspace-create", rpcapi.RPCMethodServerWorkspaceCreate, rpcParams(t, (*rpcapi.RPCRequest_Params).FromWorkspaceCreateRequest, rpcapi.WorkspaceCreateRequest{
+		Name:         "workspace-history",
+		WorkflowName: "flow-history",
+	})))
+	entry, err := workspaceServer.AppendWorkspaceHistory(context.Background(), "workspace-history", workspace.AppendHistoryRequest{
+		Type:  "agent",
+		Name:  "assistant",
+		Text:  "历史回复",
+		Asset: &workspace.AppendHistoryAsset{MIMEType: "audio/opus", Data: []byte("opus")},
+	})
+	if err != nil {
+		t.Fatalf("AppendWorkspaceHistory() error = %v", err)
+	}
+
+	list := callRPC(t, srv, "workspace-history-list", rpcapi.RPCMethodServerWorkspaceHistoryList, rpcParams(t, (*rpcapi.RPCRequest_Params).FromWorkspaceHistoryListRequest, rpcapi.WorkspaceHistoryListRequest{
+		WorkspaceName: "workspace-history",
+	}))
+	listResult := mustResult(t, list.Result.AsWorkspaceHistoryListResponse)
+	if len(listResult.Items) != 1 || listResult.Items[0].Id != entry.ID || listResult.Items[0].Text != "历史回复" {
+		t.Fatalf("workspace.history.list = %+v", listResult)
+	}
+
+	get := callRPC(t, srv, "workspace-history-get", rpcapi.RPCMethodServerWorkspaceHistoryGet, rpcParams(t, (*rpcapi.RPCRequest_Params).FromWorkspaceHistoryGetRequest, rpcapi.WorkspaceHistoryGetRequest{
+		WorkspaceName: "workspace-history",
+		HistoryId:     entry.ID,
+	}))
+	if got := mustResult(t, get.Result.AsWorkspaceHistoryGetResponse); got.Id != entry.ID || got.Text != "历史回复" {
+		t.Fatalf("workspace.history.get = %+v", got)
+	}
+
+	asset := callRPC(t, srv, "workspace-history-audio-get", rpcapi.RPCMethodServerWorkspaceHistoryAudioGet, rpcParams(t, (*rpcapi.RPCRequest_Params).FromWorkspaceHistoryAudioGetRequest, rpcapi.WorkspaceHistoryAudioGetRequest{
+		WorkspaceName: "workspace-history",
+		HistoryId:     entry.ID,
+	}))
+	assetResult := mustResult(t, asset.Result.AsWorkspaceHistoryAudioGetResponse)
+	if assetResult.WorkspaceName != "workspace-history" || assetResult.HistoryId != entry.ID || assetResult.MimeType != "audio/opus" || assetResult.SizeBytes != int64(len("opus")) {
+		t.Fatalf("workspace.history.audio.get = %+v", assetResult)
+	}
+	assetMetadata, reader, rpcErr, err := srv.PrepareWorkspaceHistoryAudioGet(context.Background(), rpcapi.WorkspaceHistoryAudioGetRequest{
+		WorkspaceName: "workspace-history",
+		HistoryId:     entry.ID,
+	})
+	if err != nil || rpcErr != nil {
+		t.Fatalf("PrepareWorkspaceHistoryAudioGet() error = %v rpcErr = %+v", err, rpcErr)
+	}
+	defer reader.Close()
+	data, err := io.ReadAll(reader)
+	if err != nil {
+		t.Fatalf("ReadAll(workspace history audio) error = %v", err)
+	}
+	if assetMetadata != assetResult || string(data) != "opus" {
+		t.Fatalf("PrepareWorkspaceHistoryAudioGet() = %+v data=%q", assetMetadata, data)
+	}
+
+	textAssetEntry, err := workspaceServer.AppendWorkspaceHistory(context.Background(), "workspace-history", workspace.AppendHistoryRequest{
+		Type:  "agent",
+		Name:  "assistant",
+		Text:  "text asset",
+		Asset: &workspace.AppendHistoryAsset{MIMEType: "application/octet-stream", Data: []byte("not audio")},
+	})
+	if err != nil {
+		t.Fatalf("AppendWorkspaceHistory(text asset) error = %v", err)
+	}
+	_, reader, rpcErr, err = srv.PrepareWorkspaceHistoryAudioGet(context.Background(), rpcapi.WorkspaceHistoryAudioGetRequest{
+		WorkspaceName: "workspace-history",
+		HistoryId:     textAssetEntry.ID,
+	})
+	if err != nil || rpcErr == nil || rpcErr.Code != rpcapi.RPCErrorCodeNotFound || reader != nil {
+		t.Fatalf("PrepareWorkspaceHistoryAudioGet(non-audio) err = %v rpcErr = %+v reader = %v", err, rpcErr, reader)
+	}
+
+	missingAssetEntry, err := workspaceServer.AppendWorkspaceHistory(context.Background(), "workspace-history", workspace.AppendHistoryRequest{
+		Type:  "agent",
+		Name:  "assistant",
+		Text:  "missing audio",
+		Asset: &workspace.AppendHistoryAsset{MIMEType: "audio/opus", Data: []byte("gone")},
+	})
+	if err != nil {
+		t.Fatalf("AppendWorkspaceHistory(missing asset) error = %v", err)
+	}
+	if err := objects.Delete(missingAssetEntry.Assets[0].Name); err != nil {
+		t.Fatalf("Delete missing asset fixture: %v", err)
+	}
+	_, reader, rpcErr, err = srv.PrepareWorkspaceHistoryAudioGet(context.Background(), rpcapi.WorkspaceHistoryAudioGetRequest{
+		WorkspaceName: "workspace-history",
+		HistoryId:     missingAssetEntry.ID,
+	})
+	if err != nil || rpcErr == nil || rpcErr.Code != rpcapi.RPCErrorCodeNotFound || reader != nil {
+		t.Fatalf("PrepareWorkspaceHistoryAudioGet(missing asset) err = %v rpcErr = %+v reader = %v", err, rpcErr, reader)
 	}
 }
 
