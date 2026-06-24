@@ -7,7 +7,7 @@ import (
 	"sync"
 
 	"github.com/GizClaw/gizclaw-go/pkg/genx"
-	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/agenthost"
+	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/services/runtime/agenthost"
 )
 
 type peerRealtimeSource struct {

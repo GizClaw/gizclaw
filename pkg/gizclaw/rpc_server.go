@@ -7,7 +7,7 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/rpcapi"
-	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/peergenx"
+	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/services/ai/peergenx"
 	"github.com/GizClaw/gizclaw-go/pkg/giznet"
 )
 

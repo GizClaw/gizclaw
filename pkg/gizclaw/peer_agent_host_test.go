@@ -4,11 +4,11 @@ import (
 	"context"
 	"testing"
 
-	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/agenthost"
-	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/workflow/agents/asttranslate"
-	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/workflow/agents/chatroom"
-	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/workflow/agents/doubaorealtime"
-	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/workflow/agents/flowcraft"
+	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/services/ai/workflow/agents/asttranslate"
+	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/services/ai/workflow/agents/chatroom"
+	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/services/ai/workflow/agents/doubaorealtime"
+	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/services/ai/workflow/agents/flowcraft"
+	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/services/runtime/agenthost"
 )
 
 type peerAgentHostTestResolver struct{}

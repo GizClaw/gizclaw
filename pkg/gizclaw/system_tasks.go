@@ -8,10 +8,10 @@ import (
 	"strings"
 
 	"github.com/GizClaw/gizclaw-go/pkg/genx"
-	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/acl"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/rpcapi"
-	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/badge"
+	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/services/gameplay/badge"
+	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/services/system/acl"
 	"github.com/GizClaw/gizclaw-go/pkg/giznet"
 )
 

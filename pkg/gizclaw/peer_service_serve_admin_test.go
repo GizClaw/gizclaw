@@ -14,9 +14,9 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/adminservice"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/apitypes"
-	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/badge"
-	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/petspecies"
-	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/resourcemanager"
+	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/services/gameplay/badge"
+	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/services/gameplay/petspecies"
+	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/services/system/resourcemanager"
 	"github.com/GizClaw/gizclaw-go/pkg/store/kv"
 	"github.com/GizClaw/gizclaw-go/pkg/store/objectstore"
 )

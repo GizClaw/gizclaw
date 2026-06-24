@@ -10,11 +10,11 @@ import (
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/apitypes"
-	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/friendgroup"
-	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/publiclogin"
-	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/workspace"
+	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/services/ai/workspace"
+	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/services/social/friendgroup"
+	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/services/system/publiclogin"
 
-	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/peer"
+	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/services/runtime/peer"
 	"github.com/GizClaw/gizclaw-go/pkg/giznet"
 	"github.com/GizClaw/gizclaw-go/pkg/store/kv"
 	"github.com/GizClaw/gizclaw-go/pkg/store/objectstore"

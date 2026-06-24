@@ -22,7 +22,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/gizcli"
-	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/publiclogin"
+	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/services/system/publiclogin"
 	"github.com/GizClaw/gizclaw-go/pkg/giznet"
 	"github.com/goccy/go-yaml"
 )

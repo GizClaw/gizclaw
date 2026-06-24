@@ -7,7 +7,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/serverpublic"
-	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/publiclogin"
+	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/services/system/publiclogin"
 	"github.com/GizClaw/gizclaw-go/pkg/giznet"
 	"github.com/GizClaw/gizclaw-go/pkg/giznet/gizhttp"
 )

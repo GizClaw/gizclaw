@@ -11,7 +11,7 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/adaptor"
 
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/serverpublic"
-	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/peer"
+	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/services/runtime/peer"
 	"github.com/GizClaw/gizclaw-go/pkg/giznet"
 	"github.com/GizClaw/gizclaw-go/pkg/giznet/gizhttp"
 )

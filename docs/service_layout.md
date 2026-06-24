@@ -11,13 +11,14 @@ server.
 Peer-facing social resources are implemented as focused packages:
 
 ```text
-pkg/gizclaw/contact
-pkg/gizclaw/friend
-pkg/gizclaw/friendgroup
+pkg/gizclaw/services/social/contact
+pkg/gizclaw/services/social/friend
+pkg/gizclaw/services/social/friendgroup
 ```
 
-Gameplay resources remain separate packages such as `pet`, `petspecies`,
-`badge`, `reward`, and `wallet`.
+Gameplay resources remain separate packages under
+`pkg/gizclaw/services/gameplay`, such as `pet`, `petspecies`, `badge`,
+`reward`, and `wallet`.
 
 ## Doc Style
 

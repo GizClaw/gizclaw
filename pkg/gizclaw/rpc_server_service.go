@@ -8,9 +8,9 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/rpcapi"
-	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/peer"
-	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/peergenx"
-	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/peerrun"
+	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/services/ai/peergenx"
+	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/services/runtime/peer"
+	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/services/runtime/peerrun"
 )
 
 func (s *rpcServer) handleGetInfo(ctx context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {

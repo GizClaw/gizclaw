@@ -7,8 +7,8 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/serverpublic"
-	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/peer"
-	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/publiclogin"
+	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/services/runtime/peer"
+	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/services/system/publiclogin"
 	"github.com/GizClaw/gizclaw-go/pkg/giznet"
 )
 

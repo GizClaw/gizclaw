@@ -13,9 +13,9 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/serverpublic"
-	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/peer"
-	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/peergenx"
-	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/peerrun"
+	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/services/ai/peergenx"
+	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/services/runtime/peer"
+	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/services/runtime/peerrun"
 	"github.com/GizClaw/gizclaw-go/pkg/giznet"
 	"github.com/GizClaw/gizclaw-go/pkg/store/kv"
 )

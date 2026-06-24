@@ -7,9 +7,9 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/cmd/internal/stores"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw"
-	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/acl"
-	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/credential"
-	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/peer"
+	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/services/ai/credential"
+	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/services/runtime/peer"
+	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/services/system/acl"
 )
 
 type CmdMigrator struct {

@@ -2,12 +2,12 @@ package gizclaw
 
 import (
 	"github.com/GizClaw/gizclaw-go/pkg/genx"
-	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/agenthost"
-	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/peergenx"
-	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/workflow/agents/asttranslate"
-	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/workflow/agents/chatroom"
-	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/workflow/agents/doubaorealtime"
-	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/workflow/agents/flowcraft"
+	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/services/ai/peergenx"
+	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/services/ai/workflow/agents/asttranslate"
+	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/services/ai/workflow/agents/chatroom"
+	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/services/ai/workflow/agents/doubaorealtime"
+	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/services/ai/workflow/agents/flowcraft"
+	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/services/runtime/agenthost"
 )
 
 func newPeerAgentHost(base *agenthost.Host, peerGenX *peergenx.Service) *agenthost.Host {

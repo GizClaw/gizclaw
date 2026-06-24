@@ -12,9 +12,9 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkg/audio/pcm"
 	"github.com/GizClaw/gizclaw-go/pkg/audio/stampedopus"
 	"github.com/GizClaw/gizclaw-go/pkg/genx"
-	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/agenthost"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/rpcapi"
+	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/services/runtime/agenthost"
 )
 
 const peerStreamEventVersion = 1

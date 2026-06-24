@@ -10,7 +10,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/adminservice"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/openaiservice"
-	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/openaiapi"
+	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/services/ai/openaiapi"
 	"github.com/GizClaw/gizclaw-go/pkg/giznet/gizhttp"
 )
 

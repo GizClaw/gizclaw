@@ -13,14 +13,14 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkg/audio/pcm"
 	"github.com/GizClaw/gizclaw-go/pkg/genx"
-	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/acl"
-	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/agenthost"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/adminservice"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/openaiservice"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/rpcapi"
-	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/openaiapi"
-	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/peerrun"
+	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/services/ai/openaiapi"
+	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/services/runtime/agenthost"
+	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/services/runtime/peerrun"
+	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/services/system/acl"
 	"github.com/GizClaw/gizclaw-go/pkg/giznet"
 	"github.com/GizClaw/gizclaw-go/pkg/store/kv"
 )

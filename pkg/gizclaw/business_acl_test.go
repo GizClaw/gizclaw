@@ -5,12 +5,12 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/acl"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/adminservice"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/apitypes"
-	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/badge"
-	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/petspecies"
-	voicepkg "github.com/GizClaw/gizclaw-go/pkg/gizclaw/voice"
+	voicepkg "github.com/GizClaw/gizclaw-go/pkg/gizclaw/services/ai/voice"
+	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/services/gameplay/badge"
+	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/services/gameplay/petspecies"
+	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/services/system/acl"
 	"github.com/GizClaw/gizclaw-go/pkg/store/kv"
 )
 

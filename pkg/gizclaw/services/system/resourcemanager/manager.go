@@ -1,0 +1,824 @@
+package resourcemanager
+
+import (
+	"context"
+	"errors"
+	"fmt"
+
+	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/apitypes"
+	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/services/ai/credential"
+	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/services/ai/model"
+	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/services/ai/providertenants"
+	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/services/ai/voice"
+	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/services/ai/workflow"
+	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/services/ai/workspace"
+	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/services/device/firmware"
+	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/services/gameplay/badge"
+	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/services/gameplay/petspecies"
+	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/services/runtime/peer"
+	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/services/system/acl"
+)
+
+// Services groups the admin services that own concrete resource writes.
+type Services struct {
+	ACL             *acl.Server
+	Credentials     credential.CredentialAdminService
+	Firmwares       firmware.FirmwareAdminService
+	Peers           peer.PeerAdminService
+	Models          model.ModelAdminService
+	Badges          *badge.Server
+	PetSpecies      *petspecies.Server
+	ProviderTenants providertenants.ProviderTenantsAdminService
+	Voices          voice.VoiceAdminService
+	Workspaces      workspace.WorkspaceAdminService
+	Workflows       workflow.WorkflowAdminService
+}
+
+// Manager applies declarative admin resources by delegating to owner services.
+type Manager struct {
+	services Services
+}
+
+// Error is returned for apply failures that should map cleanly to HTTP later.
+type Error struct {
+	StatusCode int
+	Code       string
+	Message    string
+}
+
+func (e *Error) Error() string {
+	if e == nil {
+		return ""
+	}
+	return fmt.Sprintf("%s: %s", e.Code, e.Message)
+}
+
+// New creates a resource manager using the provided owner services.
+func New(services Services) *Manager {
+	return &Manager{services: services}
+}
+
+// Get loads the current state of a named resource and returns it as a declarative resource.
+func (m *Manager) Get(ctx context.Context, kind apitypes.ResourceKind, name string) (apitypes.Resource, error) {
+	if m == nil {
+		return apitypes.Resource{}, applyError(500, "RESOURCE_MANAGER_NOT_CONFIGURED", "resource manager is not configured")
+	}
+	if name == "" {
+		return apitypes.Resource{}, applyError(400, "INVALID_RESOURCE", "metadata.name is required")
+	}
+	switch kind {
+	case apitypes.ResourceKindACLPolicyBinding:
+		if m.services.ACL == nil {
+			return apitypes.Resource{}, missingService("acl")
+		}
+		item, exists, err := m.getACLPolicyBinding(ctx, string(pathParam(name)))
+		if err != nil {
+			return apitypes.Resource{}, err
+		}
+		if !exists {
+			return apitypes.Resource{}, notFound(kind, name)
+		}
+		return resourceFromACLPolicyBinding(item)
+	case apitypes.ResourceKindACLRole:
+		if m.services.ACL == nil {
+			return apitypes.Resource{}, missingService("acl")
+		}
+		item, exists, err := m.getACLRole(ctx, string(pathParam(name)))
+		if err != nil {
+			return apitypes.Resource{}, err
+		}
+		if !exists {
+			return apitypes.Resource{}, notFound(kind, name)
+		}
+		return resourceFromACLRole(item)
+	case apitypes.ResourceKindACLView:
+		if m.services.ACL == nil {
+			return apitypes.Resource{}, missingService("acl")
+		}
+		item, exists, err := m.getACLView(ctx, string(pathParam(name)))
+		if err != nil {
+			return apitypes.Resource{}, err
+		}
+		if !exists {
+			return apitypes.Resource{}, notFound(kind, name)
+		}
+		return resourceFromACLView(item)
+	case apitypes.ResourceKindCredential:
+		if m.services.Credentials == nil {
+			return apitypes.Resource{}, missingService("credentials")
+		}
+		item, exists, err := m.getCredential(ctx, string(pathParam(name)))
+		if err != nil {
+			return apitypes.Resource{}, err
+		}
+		if !exists {
+			return apitypes.Resource{}, notFound(kind, name)
+		}
+		return resourceFromCredential(item)
+	case apitypes.ResourceKindFirmware:
+		if m.services.Firmwares == nil {
+			return apitypes.Resource{}, missingService("firmwares")
+		}
+		item, exists, err := m.getFirmware(ctx, string(pathParam(name)))
+		if err != nil {
+			return apitypes.Resource{}, err
+		}
+		if !exists {
+			return apitypes.Resource{}, notFound(kind, name)
+		}
+		return resourceFromFirmware(item)
+	case apitypes.ResourceKindBadge:
+		if m.services.Badges == nil {
+			return apitypes.Resource{}, missingService("badges")
+		}
+		item, exists, err := m.getBadge(ctx, name)
+		if err != nil {
+			return apitypes.Resource{}, err
+		}
+		if !exists {
+			return apitypes.Resource{}, notFound(kind, name)
+		}
+		return resourceFromBadge(item)
+	case apitypes.ResourceKindPeerConfig:
+		if m.services.Peers == nil {
+			return apitypes.Resource{}, missingService("peers")
+		}
+		item, err := m.getPeerConfig(ctx, string(pathParam(name)))
+		if err != nil {
+			return apitypes.Resource{}, err
+		}
+		return resourceFromPeerConfig(name, item)
+	case apitypes.ResourceKindModel:
+		if m.services.Models == nil {
+			return apitypes.Resource{}, missingService("models")
+		}
+		item, exists, err := m.getModel(ctx, string(pathParam(name)))
+		if err != nil {
+			return apitypes.Resource{}, err
+		}
+		if !exists {
+			return apitypes.Resource{}, notFound(kind, name)
+		}
+		return resourceFromModel(item)
+	case apitypes.ResourceKindDashScopeTenant:
+		if m.services.ProviderTenants == nil {
+			return apitypes.Resource{}, missingService("provider tenants")
+		}
+		item, exists, err := m.getDashScopeTenant(ctx, string(pathParam(name)))
+		if err != nil {
+			return apitypes.Resource{}, err
+		}
+		if !exists {
+			return apitypes.Resource{}, notFound(kind, name)
+		}
+		return resourceFromDashScopeTenant(item)
+	case apitypes.ResourceKindMiniMaxTenant:
+		if m.services.ProviderTenants == nil {
+			return apitypes.Resource{}, missingService("provider tenants")
+		}
+		item, exists, err := m.getMiniMaxTenant(ctx, string(pathParam(name)))
+		if err != nil {
+			return apitypes.Resource{}, err
+		}
+		if !exists {
+			return apitypes.Resource{}, notFound(kind, name)
+		}
+		return resourceFromMiniMaxTenant(item)
+	case apitypes.ResourceKindGeminiTenant:
+		if m.services.ProviderTenants == nil {
+			return apitypes.Resource{}, missingService("provider tenants")
+		}
+		item, exists, err := m.getGeminiTenant(ctx, string(pathParam(name)))
+		if err != nil {
+			return apitypes.Resource{}, err
+		}
+		if !exists {
+			return apitypes.Resource{}, notFound(kind, name)
+		}
+		return resourceFromGeminiTenant(item)
+	case apitypes.ResourceKindOpenAITenant:
+		if m.services.ProviderTenants == nil {
+			return apitypes.Resource{}, missingService("provider tenants")
+		}
+		item, exists, err := m.getOpenAITenant(ctx, string(pathParam(name)))
+		if err != nil {
+			return apitypes.Resource{}, err
+		}
+		if !exists {
+			return apitypes.Resource{}, notFound(kind, name)
+		}
+		return resourceFromOpenAITenant(item)
+	case apitypes.ResourceKindVolcTenant:
+		if m.services.ProviderTenants == nil {
+			return apitypes.Resource{}, missingService("provider tenants")
+		}
+		item, exists, err := m.getVolcTenant(ctx, string(pathParam(name)))
+		if err != nil {
+			return apitypes.Resource{}, err
+		}
+		if !exists {
+			return apitypes.Resource{}, notFound(kind, name)
+		}
+		return resourceFromVolcTenant(item)
+	case apitypes.ResourceKindVoice:
+		if m.services.Voices == nil {
+			return apitypes.Resource{}, missingService("voices")
+		}
+		item, exists, err := m.getVoice(ctx, string(pathParam(name)))
+		if err != nil {
+			return apitypes.Resource{}, err
+		}
+		if !exists {
+			return apitypes.Resource{}, notFound(kind, name)
+		}
+		return resourceFromVoice(item)
+	case apitypes.ResourceKindPetSpecies:
+		if m.services.PetSpecies == nil {
+			return apitypes.Resource{}, missingService("pet species")
+		}
+		item, exists, err := m.getPetSpecies(ctx, name)
+		if err != nil {
+			return apitypes.Resource{}, err
+		}
+		if !exists {
+			return apitypes.Resource{}, notFound(kind, name)
+		}
+		return resourceFromPetSpecies(item)
+	case apitypes.ResourceKindWorkspace:
+		if m.services.Workspaces == nil {
+			return apitypes.Resource{}, missingService("workspaces")
+		}
+		item, exists, err := m.getWorkspace(ctx, string(pathParam(name)))
+		if err != nil {
+			return apitypes.Resource{}, err
+		}
+		if !exists {
+			return apitypes.Resource{}, notFound(kind, name)
+		}
+		return resourceFromWorkspace(item)
+	case apitypes.ResourceKindWorkflow:
+		if m.services.Workflows == nil {
+			return apitypes.Resource{}, missingService("workflows")
+		}
+		item, exists, err := m.getWorkflow(ctx, string(pathParam(name)))
+		if err != nil {
+			return apitypes.Resource{}, err
+		}
+		if !exists {
+			return apitypes.Resource{}, notFound(kind, name)
+		}
+		return resourceFromWorkflow(name, item)
+	case apitypes.ResourceKindResourceList:
+		return apitypes.Resource{}, applyError(400, "UNSUPPORTED_RESOURCE_GET", "ResourceList is not stored as a named resource")
+	default:
+		return apitypes.Resource{}, applyError(400, "UNKNOWN_RESOURCE_KIND", fmt.Sprintf("unknown resource kind %q", kind))
+	}
+}
+
+// Put writes the provided resource and returns the stored resource state.
+func (m *Manager) Put(ctx context.Context, resource apitypes.Resource) (apitypes.Resource, error) {
+	if m == nil {
+		return apitypes.Resource{}, applyError(500, "RESOURCE_MANAGER_NOT_CONFIGURED", "resource manager is not configured")
+	}
+	kind, err := resource.Discriminator()
+	if err != nil {
+		return apitypes.Resource{}, applyError(400, "INVALID_RESOURCE", err.Error())
+	}
+	switch kind {
+	case string(apitypes.ResourceKindACLPolicyBinding), "ACLPolicyBindingResource":
+		if m.services.ACL == nil {
+			return apitypes.Resource{}, missingService("acl")
+		}
+		item, err := resource.AsACLPolicyBindingResource()
+		if err != nil {
+			return apitypes.Resource{}, applyError(400, "INVALID_ACL_POLICY_BINDING_RESOURCE", err.Error())
+		}
+		if err := validateResourceHeader(item.ApiVersion, item.Metadata.Name); err != nil {
+			return apitypes.Resource{}, err
+		}
+		if _, err := m.services.ACL.PutPolicyBinding(ctx, string(pathParam(item.Metadata.Name)), 0, item.Spec); err != nil {
+			return apitypes.Resource{}, err
+		}
+		return m.Get(ctx, apitypes.ResourceKindACLPolicyBinding, item.Metadata.Name)
+	case string(apitypes.ResourceKindACLRole), "ACLRoleResource":
+		if m.services.ACL == nil {
+			return apitypes.Resource{}, missingService("acl")
+		}
+		item, err := resource.AsACLRoleResource()
+		if err != nil {
+			return apitypes.Resource{}, applyError(400, "INVALID_ACL_ROLE_RESOURCE", err.Error())
+		}
+		if err := validateResourceHeader(item.ApiVersion, item.Metadata.Name); err != nil {
+			return apitypes.Resource{}, err
+		}
+		if _, err := m.services.ACL.PutRole(ctx, string(pathParam(item.Metadata.Name)), item.Spec.Permissions); err != nil {
+			return apitypes.Resource{}, err
+		}
+		return m.Get(ctx, apitypes.ResourceKindACLRole, item.Metadata.Name)
+	case string(apitypes.ResourceKindACLView), "ACLViewResource":
+		if m.services.ACL == nil {
+			return apitypes.Resource{}, missingService("acl")
+		}
+		item, err := resource.AsACLViewResource()
+		if err != nil {
+			return apitypes.Resource{}, applyError(400, "INVALID_ACL_VIEW_RESOURCE", err.Error())
+		}
+		if err := validateResourceHeader(item.ApiVersion, item.Metadata.Name); err != nil {
+			return apitypes.Resource{}, err
+		}
+		if _, err := m.services.ACL.PutView(ctx, string(pathParam(item.Metadata.Name)), item.Spec); err != nil {
+			return apitypes.Resource{}, err
+		}
+		return m.Get(ctx, apitypes.ResourceKindACLView, item.Metadata.Name)
+	case string(apitypes.ResourceKindCredential), "CredentialResource":
+		if m.services.Credentials == nil {
+			return apitypes.Resource{}, missingService("credentials")
+		}
+		item, err := resource.AsCredentialResource()
+		if err != nil {
+			return apitypes.Resource{}, applyError(400, "INVALID_CREDENTIAL_RESOURCE", err.Error())
+		}
+		if err := validateResourceHeader(item.ApiVersion, item.Metadata.Name); err != nil {
+			return apitypes.Resource{}, err
+		}
+		if err := m.putCredential(ctx, string(pathParam(item.Metadata.Name)), credentialUpsert(item)); err != nil {
+			return apitypes.Resource{}, err
+		}
+		return m.Get(ctx, apitypes.ResourceKindCredential, item.Metadata.Name)
+	case string(apitypes.ResourceKindFirmware), "FirmwareResource":
+		if m.services.Firmwares == nil {
+			return apitypes.Resource{}, missingService("firmwares")
+		}
+		item, err := resource.AsFirmwareResource()
+		if err != nil {
+			return apitypes.Resource{}, applyError(400, "INVALID_FIRMWARE_RESOURCE", err.Error())
+		}
+		if err := validateResourceHeader(item.ApiVersion, item.Metadata.Name); err != nil {
+			return apitypes.Resource{}, err
+		}
+		if err := m.putFirmware(ctx, string(pathParam(item.Metadata.Name)), firmwareUpsert(item)); err != nil {
+			return apitypes.Resource{}, err
+		}
+		return m.Get(ctx, apitypes.ResourceKindFirmware, item.Metadata.Name)
+	case string(apitypes.ResourceKindBadge), "BadgeResource":
+		if m.services.Badges == nil {
+			return apitypes.Resource{}, missingService("badges")
+		}
+		item, err := resource.AsBadgeResource()
+		if err != nil {
+			return apitypes.Resource{}, applyError(400, "INVALID_BADGE_RESOURCE", err.Error())
+		}
+		if err := validateResourceHeader(item.ApiVersion, item.Metadata.Name); err != nil {
+			return apitypes.Resource{}, err
+		}
+		if _, err := m.services.Badges.Put(ctx, item.Metadata.Name, item.Spec); err != nil {
+			return apitypes.Resource{}, err
+		}
+		return m.Get(ctx, apitypes.ResourceKindBadge, item.Metadata.Name)
+	case string(apitypes.ResourceKindPeerConfig), "PeerConfigResource":
+		if m.services.Peers == nil {
+			return apitypes.Resource{}, missingService("peers")
+		}
+		item, err := resource.AsPeerConfigResource()
+		if err != nil {
+			return apitypes.Resource{}, applyError(400, "INVALID_PEER_CONFIG_RESOURCE", err.Error())
+		}
+		if err := validateResourceHeader(item.ApiVersion, item.Metadata.Name); err != nil {
+			return apitypes.Resource{}, err
+		}
+		if err := m.putPeerConfig(ctx, string(pathParam(item.Metadata.Name)), item.Spec); err != nil {
+			return apitypes.Resource{}, err
+		}
+		return m.Get(ctx, apitypes.ResourceKindPeerConfig, item.Metadata.Name)
+	case string(apitypes.ResourceKindDashScopeTenant), "DashScopeTenantResource":
+		if m.services.ProviderTenants == nil {
+			return apitypes.Resource{}, missingService("provider tenants")
+		}
+		item, err := resource.AsDashScopeTenantResource()
+		if err != nil {
+			return apitypes.Resource{}, applyError(400, "INVALID_DASHSCOPE_TENANT_RESOURCE", err.Error())
+		}
+		if err := validateResourceHeader(item.ApiVersion, item.Metadata.Name); err != nil {
+			return apitypes.Resource{}, err
+		}
+		if err := m.putDashScopeTenant(ctx, string(pathParam(item.Metadata.Name)), dashScopeTenantUpsert(item)); err != nil {
+			return apitypes.Resource{}, err
+		}
+		return m.Get(ctx, apitypes.ResourceKindDashScopeTenant, item.Metadata.Name)
+	case string(apitypes.ResourceKindMiniMaxTenant), "MiniMaxTenantResource":
+		if m.services.ProviderTenants == nil {
+			return apitypes.Resource{}, missingService("provider tenants")
+		}
+		item, err := resource.AsMiniMaxTenantResource()
+		if err != nil {
+			return apitypes.Resource{}, applyError(400, "INVALID_MINIMAX_TENANT_RESOURCE", err.Error())
+		}
+		if err := validateResourceHeader(item.ApiVersion, item.Metadata.Name); err != nil {
+			return apitypes.Resource{}, err
+		}
+		if err := m.putMiniMaxTenant(ctx, string(pathParam(item.Metadata.Name)), miniMaxTenantUpsert(item)); err != nil {
+			return apitypes.Resource{}, err
+		}
+		return m.Get(ctx, apitypes.ResourceKindMiniMaxTenant, item.Metadata.Name)
+	case string(apitypes.ResourceKindGeminiTenant), "GeminiTenantResource":
+		if m.services.ProviderTenants == nil {
+			return apitypes.Resource{}, missingService("provider tenants")
+		}
+		item, err := resource.AsGeminiTenantResource()
+		if err != nil {
+			return apitypes.Resource{}, applyError(400, "INVALID_GEMINI_TENANT_RESOURCE", err.Error())
+		}
+		if err := validateResourceHeader(item.ApiVersion, item.Metadata.Name); err != nil {
+			return apitypes.Resource{}, err
+		}
+		if err := m.putGeminiTenant(ctx, string(pathParam(item.Metadata.Name)), geminiTenantUpsert(item)); err != nil {
+			return apitypes.Resource{}, err
+		}
+		return m.Get(ctx, apitypes.ResourceKindGeminiTenant, item.Metadata.Name)
+	case string(apitypes.ResourceKindOpenAITenant), "OpenAITenantResource":
+		if m.services.ProviderTenants == nil {
+			return apitypes.Resource{}, missingService("provider tenants")
+		}
+		item, err := resource.AsOpenAITenantResource()
+		if err != nil {
+			return apitypes.Resource{}, applyError(400, "INVALID_OPENAI_TENANT_RESOURCE", err.Error())
+		}
+		if err := validateResourceHeader(item.ApiVersion, item.Metadata.Name); err != nil {
+			return apitypes.Resource{}, err
+		}
+		if err := m.putOpenAITenant(ctx, string(pathParam(item.Metadata.Name)), openAITenantUpsert(item)); err != nil {
+			return apitypes.Resource{}, err
+		}
+		return m.Get(ctx, apitypes.ResourceKindOpenAITenant, item.Metadata.Name)
+	case string(apitypes.ResourceKindModel), "ModelResource":
+		if m.services.Models == nil {
+			return apitypes.Resource{}, missingService("models")
+		}
+		item, err := resource.AsModelResource()
+		if err != nil {
+			return apitypes.Resource{}, applyError(400, "INVALID_MODEL_RESOURCE", err.Error())
+		}
+		if err := validateResourceHeader(item.ApiVersion, item.Metadata.Name); err != nil {
+			return apitypes.Resource{}, err
+		}
+		if err := m.putModel(ctx, string(pathParam(item.Metadata.Name)), modelUpsert(item)); err != nil {
+			return apitypes.Resource{}, err
+		}
+		return m.Get(ctx, apitypes.ResourceKindModel, item.Metadata.Name)
+	case string(apitypes.ResourceKindVolcTenant), "VolcTenantResource":
+		if m.services.ProviderTenants == nil {
+			return apitypes.Resource{}, missingService("provider tenants")
+		}
+		item, err := resource.AsVolcTenantResource()
+		if err != nil {
+			return apitypes.Resource{}, applyError(400, "INVALID_VOLC_TENANT_RESOURCE", err.Error())
+		}
+		if err := validateResourceHeader(item.ApiVersion, item.Metadata.Name); err != nil {
+			return apitypes.Resource{}, err
+		}
+		if err := m.putVolcTenant(ctx, string(pathParam(item.Metadata.Name)), volcTenantUpsert(item)); err != nil {
+			return apitypes.Resource{}, err
+		}
+		return m.Get(ctx, apitypes.ResourceKindVolcTenant, item.Metadata.Name)
+	case string(apitypes.ResourceKindResourceList), "ResourceListResource":
+		list, err := resource.AsResourceListResource()
+		if err != nil {
+			return apitypes.Resource{}, applyError(400, "INVALID_RESOURCE_LIST", err.Error())
+		}
+		if err := validateResourceHeader(list.ApiVersion, list.Metadata.Name); err != nil {
+			return apitypes.Resource{}, err
+		}
+		items := make([]apitypes.Resource, 0, len(list.Spec.Items))
+		for _, item := range list.Spec.Items {
+			stored, err := m.Put(ctx, item)
+			if err != nil {
+				return apitypes.Resource{}, err
+			}
+			items = append(items, stored)
+		}
+		return resourceFromResourceList(list.Metadata.Name, items)
+	case string(apitypes.ResourceKindVoice), "VoiceResource":
+		if m.services.Voices == nil {
+			return apitypes.Resource{}, missingService("voices")
+		}
+		item, err := resource.AsVoiceResource()
+		if err != nil {
+			return apitypes.Resource{}, applyError(400, "INVALID_VOICE_RESOURCE", err.Error())
+		}
+		if err := validateResourceHeader(item.ApiVersion, item.Metadata.Name); err != nil {
+			return apitypes.Resource{}, err
+		}
+		if err := m.putVoice(ctx, string(pathParam(item.Metadata.Name)), voiceUpsert(item)); err != nil {
+			return apitypes.Resource{}, err
+		}
+		return m.Get(ctx, apitypes.ResourceKindVoice, item.Metadata.Name)
+	case string(apitypes.ResourceKindPetSpecies), "PetSpeciesResource":
+		if m.services.PetSpecies == nil {
+			return apitypes.Resource{}, missingService("pet species")
+		}
+		item, err := resource.AsPetSpeciesResource()
+		if err != nil {
+			return apitypes.Resource{}, applyError(400, "INVALID_PET_SPECIES_RESOURCE", err.Error())
+		}
+		if err := validateResourceHeader(item.ApiVersion, item.Metadata.Name); err != nil {
+			return apitypes.Resource{}, err
+		}
+		if _, err := m.services.PetSpecies.Put(ctx, item.Metadata.Name, item.Spec); err != nil {
+			return apitypes.Resource{}, err
+		}
+		return m.Get(ctx, apitypes.ResourceKindPetSpecies, item.Metadata.Name)
+	case string(apitypes.ResourceKindWorkspace), "WorkspaceResource":
+		if m.services.Workspaces == nil {
+			return apitypes.Resource{}, missingService("workspaces")
+		}
+		item, err := resource.AsWorkspaceResource()
+		if err != nil {
+			return apitypes.Resource{}, applyError(400, "INVALID_WORKSPACE_RESOURCE", err.Error())
+		}
+		if err := validateResourceHeader(item.ApiVersion, item.Metadata.Name); err != nil {
+			return apitypes.Resource{}, err
+		}
+		if err := m.putWorkspace(ctx, string(pathParam(item.Metadata.Name)), workspaceUpsert(item)); err != nil {
+			return apitypes.Resource{}, err
+		}
+		return m.Get(ctx, apitypes.ResourceKindWorkspace, item.Metadata.Name)
+	case string(apitypes.ResourceKindWorkflow), "WorkflowResource":
+		if m.services.Workflows == nil {
+			return apitypes.Resource{}, missingService("workflows")
+		}
+		item, err := resource.AsWorkflowResource()
+		if err != nil {
+			return apitypes.Resource{}, applyError(400, "INVALID_WORKFLOW_RESOURCE", err.Error())
+		}
+		if err := validateResourceHeader(item.ApiVersion, item.Metadata.Name); err != nil {
+			return apitypes.Resource{}, err
+		}
+		if err := m.putWorkflow(ctx, string(pathParam(item.Metadata.Name)), workflowDocumentFromResource(item)); err != nil {
+			return apitypes.Resource{}, err
+		}
+		return m.Get(ctx, apitypes.ResourceKindWorkflow, item.Metadata.Name)
+	default:
+		return apitypes.Resource{}, applyError(400, "UNKNOWN_RESOURCE_KIND", fmt.Sprintf("unknown resource kind %q", kind))
+	}
+}
+
+// Delete removes a named concrete resource and returns the deleted resource state.
+func (m *Manager) Delete(ctx context.Context, kind apitypes.ResourceKind, name string) (apitypes.Resource, error) {
+	if m == nil {
+		return apitypes.Resource{}, applyError(500, "RESOURCE_MANAGER_NOT_CONFIGURED", "resource manager is not configured")
+	}
+	if name == "" {
+		return apitypes.Resource{}, applyError(400, "INVALID_RESOURCE", "metadata.name is required")
+	}
+	switch kind {
+	case apitypes.ResourceKindACLPolicyBinding:
+		if m.services.ACL == nil {
+			return apitypes.Resource{}, missingService("acl")
+		}
+		item, err := m.services.ACL.DeletePolicyBinding(ctx, string(pathParam(name)))
+		if err != nil {
+			if errors.Is(err, acl.ErrPolicyBindingNotFound) {
+				return apitypes.Resource{}, notFound(kind, name)
+			}
+			return apitypes.Resource{}, err
+		}
+		return resourceFromACLPolicyBinding(item)
+	case apitypes.ResourceKindACLRole:
+		if m.services.ACL == nil {
+			return apitypes.Resource{}, missingService("acl")
+		}
+		item, err := m.services.ACL.DeleteRole(ctx, string(pathParam(name)))
+		if err != nil {
+			if errors.Is(err, acl.ErrRoleNotFound) {
+				return apitypes.Resource{}, notFound(kind, name)
+			}
+			return apitypes.Resource{}, err
+		}
+		return resourceFromACLRole(item)
+	case apitypes.ResourceKindACLView:
+		if m.services.ACL == nil {
+			return apitypes.Resource{}, missingService("acl")
+		}
+		item, err := m.services.ACL.DeleteView(ctx, string(pathParam(name)))
+		if err != nil {
+			if errors.Is(err, acl.ErrViewNotFound) {
+				return apitypes.Resource{}, notFound(kind, name)
+			}
+			return apitypes.Resource{}, err
+		}
+		return resourceFromACLView(item)
+	case apitypes.ResourceKindCredential:
+		if m.services.Credentials == nil {
+			return apitypes.Resource{}, missingService("credentials")
+		}
+		item, exists, err := m.deleteCredential(ctx, string(pathParam(name)))
+		if err != nil {
+			return apitypes.Resource{}, err
+		}
+		if !exists {
+			return apitypes.Resource{}, notFound(kind, name)
+		}
+		return resourceFromCredential(item)
+	case apitypes.ResourceKindFirmware:
+		if m.services.Firmwares == nil {
+			return apitypes.Resource{}, missingService("firmwares")
+		}
+		item, exists, err := m.deleteFirmware(ctx, string(pathParam(name)))
+		if err != nil {
+			return apitypes.Resource{}, err
+		}
+		if !exists {
+			return apitypes.Resource{}, notFound(kind, name)
+		}
+		return resourceFromFirmware(item)
+	case apitypes.ResourceKindBadge:
+		if m.services.Badges == nil {
+			return apitypes.Resource{}, missingService("badges")
+		}
+		item, exists, err := m.deleteBadge(ctx, name)
+		if err != nil {
+			return apitypes.Resource{}, err
+		}
+		if !exists {
+			return apitypes.Resource{}, notFound(kind, name)
+		}
+		return resourceFromBadge(item)
+	case apitypes.ResourceKindPeerConfig:
+		return apitypes.Resource{}, applyError(400, "UNSUPPORTED_RESOURCE_DELETE", "PeerConfig cannot be deleted independently")
+	case apitypes.ResourceKindModel:
+		if m.services.Models == nil {
+			return apitypes.Resource{}, missingService("models")
+		}
+		item, exists, err := m.deleteModel(ctx, string(pathParam(name)))
+		if err != nil {
+			return apitypes.Resource{}, err
+		}
+		if !exists {
+			return apitypes.Resource{}, notFound(kind, name)
+		}
+		return resourceFromModel(item)
+	case apitypes.ResourceKindDashScopeTenant:
+		if m.services.ProviderTenants == nil {
+			return apitypes.Resource{}, missingService("provider tenants")
+		}
+		item, exists, err := m.deleteDashScopeTenant(ctx, string(pathParam(name)))
+		if err != nil {
+			return apitypes.Resource{}, err
+		}
+		if !exists {
+			return apitypes.Resource{}, notFound(kind, name)
+		}
+		return resourceFromDashScopeTenant(item)
+	case apitypes.ResourceKindMiniMaxTenant:
+		if m.services.ProviderTenants == nil {
+			return apitypes.Resource{}, missingService("provider tenants")
+		}
+		item, exists, err := m.deleteMiniMaxTenant(ctx, string(pathParam(name)))
+		if err != nil {
+			return apitypes.Resource{}, err
+		}
+		if !exists {
+			return apitypes.Resource{}, notFound(kind, name)
+		}
+		return resourceFromMiniMaxTenant(item)
+	case apitypes.ResourceKindGeminiTenant:
+		if m.services.ProviderTenants == nil {
+			return apitypes.Resource{}, missingService("provider tenants")
+		}
+		item, exists, err := m.deleteGeminiTenant(ctx, string(pathParam(name)))
+		if err != nil {
+			return apitypes.Resource{}, err
+		}
+		if !exists {
+			return apitypes.Resource{}, notFound(kind, name)
+		}
+		return resourceFromGeminiTenant(item)
+	case apitypes.ResourceKindOpenAITenant:
+		if m.services.ProviderTenants == nil {
+			return apitypes.Resource{}, missingService("provider tenants")
+		}
+		item, exists, err := m.deleteOpenAITenant(ctx, string(pathParam(name)))
+		if err != nil {
+			return apitypes.Resource{}, err
+		}
+		if !exists {
+			return apitypes.Resource{}, notFound(kind, name)
+		}
+		return resourceFromOpenAITenant(item)
+	case apitypes.ResourceKindVolcTenant:
+		if m.services.ProviderTenants == nil {
+			return apitypes.Resource{}, missingService("provider tenants")
+		}
+		item, exists, err := m.deleteVolcTenant(ctx, string(pathParam(name)))
+		if err != nil {
+			return apitypes.Resource{}, err
+		}
+		if !exists {
+			return apitypes.Resource{}, notFound(kind, name)
+		}
+		return resourceFromVolcTenant(item)
+	case apitypes.ResourceKindVoice:
+		if m.services.Voices == nil {
+			return apitypes.Resource{}, missingService("voices")
+		}
+		item, exists, err := m.deleteVoice(ctx, string(pathParam(name)))
+		if err != nil {
+			return apitypes.Resource{}, err
+		}
+		if !exists {
+			return apitypes.Resource{}, notFound(kind, name)
+		}
+		return resourceFromVoice(item)
+	case apitypes.ResourceKindPetSpecies:
+		if m.services.PetSpecies == nil {
+			return apitypes.Resource{}, missingService("pet species")
+		}
+		item, exists, err := m.deletePetSpecies(ctx, name)
+		if err != nil {
+			return apitypes.Resource{}, err
+		}
+		if !exists {
+			return apitypes.Resource{}, notFound(kind, name)
+		}
+		return resourceFromPetSpecies(item)
+	case apitypes.ResourceKindWorkspace:
+		if m.services.Workspaces == nil {
+			return apitypes.Resource{}, missingService("workspaces")
+		}
+		item, exists, err := m.deleteWorkspace(ctx, string(pathParam(name)))
+		if err != nil {
+			return apitypes.Resource{}, err
+		}
+		if !exists {
+			return apitypes.Resource{}, notFound(kind, name)
+		}
+		return resourceFromWorkspace(item)
+	case apitypes.ResourceKindWorkflow:
+		if m.services.Workflows == nil {
+			return apitypes.Resource{}, missingService("workflows")
+		}
+		item, exists, err := m.deleteWorkflow(ctx, string(pathParam(name)))
+		if err != nil {
+			return apitypes.Resource{}, err
+		}
+		if !exists {
+			return apitypes.Resource{}, notFound(kind, name)
+		}
+		return resourceFromWorkflow(name, item)
+	case apitypes.ResourceKindResourceList:
+		return apitypes.Resource{}, applyError(400, "UNSUPPORTED_RESOURCE_DELETE", "ResourceList is not stored as a named resource")
+	default:
+		return apitypes.Resource{}, applyError(400, "UNKNOWN_RESOURCE_KIND", fmt.Sprintf("unknown resource kind %q", kind))
+	}
+}
+
+// Apply creates, updates, or leaves unchanged the provided resource.
+func (m *Manager) Apply(ctx context.Context, resource apitypes.Resource) (apitypes.ApplyResult, error) {
+	if m == nil {
+		return apitypes.ApplyResult{}, applyError(500, "RESOURCE_MANAGER_NOT_CONFIGURED", "resource manager is not configured")
+	}
+	kind, err := resource.Discriminator()
+	if err != nil {
+		return apitypes.ApplyResult{}, applyError(400, "INVALID_RESOURCE", err.Error())
+	}
+	switch kind {
+	case string(apitypes.ResourceKindACLPolicyBinding), "ACLPolicyBindingResource":
+		return m.applyACLPolicyBinding(ctx, resource)
+	case string(apitypes.ResourceKindACLRole), "ACLRoleResource":
+		return m.applyACLRole(ctx, resource)
+	case string(apitypes.ResourceKindACLView), "ACLViewResource":
+		return m.applyACLView(ctx, resource)
+	case string(apitypes.ResourceKindCredential), "CredentialResource":
+		return m.applyCredential(ctx, resource)
+	case string(apitypes.ResourceKindFirmware), "FirmwareResource":
+		return m.applyFirmware(ctx, resource)
+	case string(apitypes.ResourceKindBadge), "BadgeResource":
+		return m.applyBadge(ctx, resource)
+	case string(apitypes.ResourceKindPeerConfig), "PeerConfigResource":
+		return m.applyPeerConfig(ctx, resource)
+	case string(apitypes.ResourceKindDashScopeTenant), "DashScopeTenantResource":
+		return m.applyDashScopeTenant(ctx, resource)
+	case string(apitypes.ResourceKindMiniMaxTenant), "MiniMaxTenantResource":
+		return m.applyMiniMaxTenant(ctx, resource)
+	case string(apitypes.ResourceKindGeminiTenant), "GeminiTenantResource":
+		return m.applyGeminiTenant(ctx, resource)
+	case string(apitypes.ResourceKindOpenAITenant), "OpenAITenantResource":
+		return m.applyOpenAITenant(ctx, resource)
+	case string(apitypes.ResourceKindModel), "ModelResource":
+		return m.applyModel(ctx, resource)
+	case string(apitypes.ResourceKindVolcTenant), "VolcTenantResource":
+		return m.applyVolcTenant(ctx, resource)
+	case string(apitypes.ResourceKindResourceList), "ResourceListResource":
+		return m.applyResourceList(ctx, resource)
+	case string(apitypes.ResourceKindVoice), "VoiceResource":
+		return m.applyVoice(ctx, resource)
+	case string(apitypes.ResourceKindPetSpecies), "PetSpeciesResource":
+		return m.applyPetSpecies(ctx, resource)
+	case string(apitypes.ResourceKindWorkspace), "WorkspaceResource":
+		return m.applyWorkspace(ctx, resource)
+	case string(apitypes.ResourceKindWorkflow), "WorkflowResource":
+		return m.applyWorkflow(ctx, resource)
+	default:
+		return apitypes.ApplyResult{}, applyError(400, "UNKNOWN_RESOURCE_KIND", fmt.Sprintf("unknown resource kind %q", kind))
+	}
+}

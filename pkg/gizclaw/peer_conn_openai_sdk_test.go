@@ -16,10 +16,10 @@ import (
 	"github.com/openai/openai-go/shared"
 
 	"github.com/GizClaw/gizclaw-go/pkg/genx"
-	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/acl"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/adminservice"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/apitypes"
-	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/openaiapi"
+	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/services/ai/openaiapi"
+	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/services/system/acl"
 	"github.com/GizClaw/gizclaw-go/pkg/giznet"
 	"github.com/GizClaw/gizclaw-go/pkg/giznet/gizhttp"
 )

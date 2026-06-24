@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/acl"
+	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/services/system/acl"
 	_ "modernc.org/sqlite"
 )
 
