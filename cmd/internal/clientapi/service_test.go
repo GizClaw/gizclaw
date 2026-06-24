@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/apitypes"
@@ -157,6 +158,42 @@ func TestPlayHTTPServiceClientUnavailableResponses(t *testing.T) {
 	}
 }
 
+func TestPlayHTTPServiceInvalidatesClosedCachedClient(t *testing.T) {
+	stale := &gizcli.Client{}
+	fresh := &gizcli.Client{}
+	calls := 0
+	invalidated := false
+	service := &playHTTPService{
+		client: func() (*gizcli.Client, error) {
+			calls++
+			if calls == 1 {
+				return stale, nil
+			}
+			return fresh, nil
+		},
+		invalidate: func(c *gizcli.Client) {
+			if c != stale {
+				t.Fatalf("invalidate client = %p, want stale %p", c, stale)
+			}
+			invalidated = true
+		},
+	}
+
+	got, errResp, ok := service.gizCLIClient()
+	if !ok {
+		t.Fatalf("gizCLIClient failed: %#v", errResp)
+	}
+	if got != fresh {
+		t.Fatalf("gizCLIClient returned %p, want fresh %p", got, fresh)
+	}
+	if !invalidated {
+		t.Fatal("gizCLIClient did not invalidate stale client")
+	}
+	if calls != 2 {
+		t.Fatalf("client calls = %d, want 2", calls)
+	}
+}
+
 func TestPlayHTTPServiceBodyRequiredResponses(t *testing.T) {
 	service := &playHTTPService{client: func() (*gizcli.Client, error) {
 		t.Fatal("body validation should not dial client")
@@ -274,6 +311,33 @@ func TestReloadPlayRunForWebRTCFallsBackToRunRuntimeWithoutWorkspace(t *testing.
 	}
 }
 
+func TestReloadPlayRunForWebRTCErrorBranches(t *testing.T) {
+	if err := reloadPlayRunForWebRTC(context.Background(), nil); err == nil {
+		t.Fatal("reloadPlayRunForWebRTC(nil) error = nil")
+	}
+
+	client := &fakePlayWebRTCReloader{workspaceStateErr: errors.New("workspace unavailable")}
+	if err := reloadPlayRunForWebRTC(context.Background(), client); err == nil || !strings.Contains(err.Error(), "workspace unavailable") {
+		t.Fatalf("workspace error = %v", err)
+	}
+
+	client = &fakePlayWebRTCReloader{
+		workspaceStateErr: errors.New("workspace not configured"),
+		runReloadErr:      errors.New("run unavailable"),
+	}
+	if err := reloadPlayRunForWebRTC(context.Background(), client); err == nil || !strings.Contains(err.Error(), "run unavailable") {
+		t.Fatalf("run reload error = %v", err)
+	}
+
+	client = &fakePlayWebRTCReloader{
+		workspaceStateErr: errors.New("workspace not configured"),
+		runReloadErr:      errors.New("run not configured"),
+	}
+	if err := reloadPlayRunForWebRTC(context.Background(), client); err != nil {
+		t.Fatalf("not configured error = %v, want nil", err)
+	}
+}
+
 func TestPlayHTTPErrorResponseVisitors(t *testing.T) {
 	visitors := []func(playHTTPErrorResponse, *fiber.Ctx) error{
 		playHTTPErrorResponse.VisitListPeerCredentialsResponse,
@@ -315,10 +379,12 @@ func TestPlayHTTPErrorResponseVisitors(t *testing.T) {
 }
 
 type fakePlayWebRTCReloader struct {
-	workspaceState    *rpcapi.ServerGetRunWorkspaceResponse
-	workspaceStateErr error
-	workspaceReloads  int
-	runReloads        int
+	workspaceState     *rpcapi.ServerGetRunWorkspaceResponse
+	workspaceStateErr  error
+	workspaceReloadErr error
+	runReloadErr       error
+	workspaceReloads   int
+	runReloads         int
 }
 
 func (f *fakePlayWebRTCReloader) GetServerRunWorkspace(context.Context, string) (*rpcapi.ServerGetRunWorkspaceResponse, error) {
@@ -327,12 +393,12 @@ func (f *fakePlayWebRTCReloader) GetServerRunWorkspace(context.Context, string) 
 
 func (f *fakePlayWebRTCReloader) ReloadServerRunWorkspace(context.Context, string) (*rpcapi.ServerReloadRunWorkspaceResponse, error) {
 	f.workspaceReloads++
-	return &rpcapi.ServerReloadRunWorkspaceResponse{}, nil
+	return &rpcapi.ServerReloadRunWorkspaceResponse{}, f.workspaceReloadErr
 }
 
 func (f *fakePlayWebRTCReloader) ReloadServerRun(context.Context, string) (*rpcapi.ServerReloadRunResponse, error) {
 	f.runReloads++
-	return &rpcapi.ServerReloadRunResponse{}, nil
+	return &rpcapi.ServerReloadRunResponse{}, f.runReloadErr
 }
 
 func TestPlayHTTPErrorResponseDefaultStatus(t *testing.T) {

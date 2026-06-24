@@ -10,6 +10,7 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"sync"
+	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkg/genx"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/apitypes"
@@ -23,6 +24,8 @@ import (
 )
 
 var _ genx.Transformer = (*Client)(nil)
+
+var defaultRPCStreamTimeout = 30 * time.Second
 
 // Client holds device-side peer client configuration.
 type Client struct {
@@ -368,6 +371,10 @@ func (c *Client) rpcConn() (net.Conn, error) {
 	stream, err := conn.Dial(ServiceRPC)
 	if err != nil {
 		return nil, fmt.Errorf("gizclaw: dial rpc stream: %w", err)
+	}
+	if err := stream.SetDeadline(time.Now().Add(defaultRPCStreamTimeout)); err != nil {
+		_ = stream.Close()
+		return nil, fmt.Errorf("gizclaw: set rpc stream deadline: %w", err)
 	}
 	return stream, nil
 }

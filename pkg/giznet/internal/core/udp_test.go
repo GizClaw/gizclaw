@@ -384,6 +384,67 @@ func TestPeerServiceMuxReestablishesOfflinePeer(t *testing.T) {
 	}
 }
 
+func TestPeerServiceMuxReplacesClosedEstablishedMux(t *testing.T) {
+	localKey, _ := noise.GenerateKeyPair()
+	peerKey, _ := noise.GenerateKeyPair()
+	session, err := noise.NewSession(noise.SessionConfig{
+		LocalIndex:  33,
+		RemoteIndex: 44,
+		SendKey:     noise.Key{1},
+		RecvKey:     noise.Key{2},
+		RemotePK:    peerKey.Public,
+	})
+	if err != nil {
+		t.Fatalf("NewSession failed: %v", err)
+	}
+
+	events := make(chan PeerEvent, 1)
+	oldMux := NewServiceMux(peerKey.Public, ServiceMuxConfig{})
+	if err := oldMux.Close(); err != nil {
+		t.Fatalf("oldMux.Close() error = %v", err)
+	}
+	peer := &peerState{
+		pk:         peerKey.Public,
+		session:    session,
+		serviceMux: oldMux,
+		state:      PeerStateEstablished,
+	}
+	u := &UDP{
+		localKey: localKey,
+		peers: map[noise.PublicKey]*peerState{
+			peerKey.Public: peer,
+		},
+		byIndex: map[uint32]*peerState{
+			session.LocalIndex(): peer,
+		},
+		onPeerEvent: func(ev PeerEvent) bool {
+			events <- ev
+			return true
+		},
+	}
+
+	newMux, err := u.PeerServiceMux(peerKey.Public)
+	if err != nil {
+		t.Fatalf("PeerServiceMux error = %v", err)
+	}
+	if newMux == nil || newMux == oldMux {
+		t.Fatal("PeerServiceMux should replace closed service mux")
+	}
+	peer.mu.RLock()
+	activeMux := peer.serviceMux
+	state := peer.state
+	peer.mu.RUnlock()
+	if activeMux != newMux {
+		t.Fatal("peer.serviceMux should point at replacement mux")
+	}
+	if state != PeerStateEstablished {
+		t.Fatalf("peer.state=%v, want %v", state, PeerStateEstablished)
+	}
+	if ev := <-events; ev.State != PeerStateEstablished {
+		t.Fatalf("PeerServiceMux event = %+v, want established", ev)
+	}
+}
+
 func TestPeersIterator(t *testing.T) {
 	key, err := noise.GenerateKeyPair()
 	if err != nil {

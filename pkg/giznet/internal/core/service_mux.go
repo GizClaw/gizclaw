@@ -253,6 +253,10 @@ func (m *ServiceMux) Close() error {
 	return nil
 }
 
+func (m *ServiceMux) IsClosed() bool {
+	return m == nil || m.closed.Load()
+}
+
 func (m *ServiceMux) NumServices() int {
 	m.mu.RLock()
 	defer m.mu.RUnlock()

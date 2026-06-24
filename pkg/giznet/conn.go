@@ -16,7 +16,7 @@ type Conn struct {
 }
 
 func (c *Conn) Dial(service uint64) (net.Conn, error) {
-	smux, err := c.serviceMux()
+	smux, err := c.dialServiceMux()
 	if err != nil {
 		return nil, err
 	}
@@ -108,8 +108,39 @@ func (c *Conn) serviceMux() (*core.ServiceMux, error) {
 	if c.peer.IsClosed() {
 		return nil, ErrUDPClosed
 	}
-	if c.smux == nil {
-		return nil, ErrNoSession
+	if c.smux != nil && !c.smux.IsClosed() {
+		return c.smux, nil
 	}
+	if c.smux != nil && c.smux.IsClosed() && c.peer.State() != core.PeerStateEstablished {
+		return nil, core.ErrServiceMuxClosed
+	}
+	smux, err := c.peer.ServiceMux()
+	if err != nil {
+		return nil, err
+	}
+	c.smux = smux
+	return c.smux, nil
+}
+
+func (c *Conn) dialServiceMux() (*core.ServiceMux, error) {
+	if err := c.validate(); err != nil {
+		return nil, err
+	}
+	if c.peer.IsClosed() {
+		return nil, ErrUDPClosed
+	}
+	if c.smux != nil && !c.smux.IsClosed() {
+		return c.smux, nil
+	}
+	if c.smux != nil && c.smux.IsClosed() && c.peer.State() != core.PeerStateEstablished {
+		if err := c.peer.Connect(); err != nil {
+			return nil, err
+		}
+	}
+	smux, err := c.peer.ServiceMux()
+	if err != nil {
+		return nil, err
+	}
+	c.smux = smux
 	return c.smux, nil
 }

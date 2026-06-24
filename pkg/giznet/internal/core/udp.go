@@ -1673,7 +1673,7 @@ func (u *UDP) ensureServiceMux(peer *peerState) (*ServiceMux, error) {
 		peer.mu.Unlock()
 		return nil, ErrNoSession
 	}
-	if peer.serviceMux != nil {
+	if peer.serviceMux != nil && !peer.serviceMux.IsClosed() {
 		smux := peer.serviceMux
 		peer.mu.Unlock()
 		return smux, nil

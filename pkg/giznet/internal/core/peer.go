@@ -63,6 +63,16 @@ func (p *Peer) ServiceMux() (*ServiceMux, error) {
 	return p.udp.ensureServiceMux(p.state)
 }
 
+func (p *Peer) Connect() error {
+	if p == nil || p.udp == nil || p.state == nil {
+		return ErrPeerNotFound
+	}
+	if p.IsClosed() {
+		return ErrClosed
+	}
+	return p.udp.initiateHandshake(p.state)
+}
+
 // OpenServiceMux starts a new service mux generation for this peer and closes
 // the previous generation, while preserving the peer and Noise session.
 func (p *Peer) OpenServiceMux() (*ServiceMux, error) {

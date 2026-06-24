@@ -34,7 +34,7 @@ func (l *ServiceListener) Accept() (net.Conn, error) {
 	}
 	smux, err := l.conn.serviceMux()
 	if err != nil {
-		if errors.Is(err, ErrConnClosed) || errors.Is(err, ErrClosed) || errors.Is(err, ErrPeerNotFound) {
+		if errors.Is(err, ErrConnClosed) || errors.Is(err, ErrClosed) || errors.Is(err, ErrPeerNotFound) || errors.Is(err, core.ErrServiceMuxClosed) {
 			return nil, net.ErrClosed
 		}
 		return nil, err

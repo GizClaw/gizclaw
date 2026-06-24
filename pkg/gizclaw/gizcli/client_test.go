@@ -301,6 +301,66 @@ func TestClientServeClearsPeerConnWhenUnderlyingConnCloses(t *testing.T) {
 	}
 }
 
+func TestClientRPCWithoutContextDeadlineUsesDefaultStreamTimeout(t *testing.T) {
+	oldTimeout := defaultRPCStreamTimeout
+	defaultRPCStreamTimeout = 20 * time.Millisecond
+	t.Cleanup(func() { defaultRPCStreamTimeout = oldTimeout })
+
+	serverKey, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("GenerateKeyPair(server) error = %v", err)
+	}
+	clientKey, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("GenerateKeyPair(client) error = %v", err)
+	}
+	serverListener, err := (&giznet.ListenConfig{
+		Addr:           "127.0.0.1:0",
+		SecurityPolicy: clientSecurityPolicy{},
+	}).Listen(serverKey)
+	if err != nil {
+		t.Fatalf("Listen(server) error = %v", err)
+	}
+	defer serverListener.Close()
+
+	accepted := make(chan *giznet.Conn, 1)
+	acceptErr := make(chan error, 1)
+	go func() {
+		conn, err := serverListener.Accept()
+		if err != nil {
+			acceptErr <- err
+			return
+		}
+		accepted <- conn
+	}()
+
+	client := &Client{KeyPair: clientKey}
+	if err := client.Dial(serverKey.Public, serverListener.HostInfo().Addr.String()); err != nil {
+		t.Fatalf("Dial() error = %v", err)
+	}
+
+	select {
+	case conn := <-accepted:
+		defer conn.Close()
+	case err := <-acceptErr:
+		t.Fatalf("Accept() error = %v", err)
+	case <-time.After(3 * time.Second):
+		t.Fatal("Accept() timeout")
+	}
+
+	start := time.Now()
+	_, err = client.Ping(context.Background(), "no-deadline")
+	if err == nil {
+		t.Fatal("Ping() error = nil, want timeout")
+	}
+	if !strings.Contains(err.Error(), "timeout") {
+		t.Fatalf("Ping() error = %v, want timeout", err)
+	}
+	if elapsed := time.Since(start); elapsed > time.Second {
+		t.Fatalf("Ping() elapsed = %s, want bounded by default RPC stream timeout", elapsed)
+	}
+}
+
 func TestClientSecurityPolicyAllowsExpectedPeerAndService(t *testing.T) {
 	if !(clientSecurityPolicy{}).AllowPeer(giznet.PublicKey{}) {
 		t.Fatal("AllowPeer() = false, want true")

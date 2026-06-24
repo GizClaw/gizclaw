@@ -47,6 +47,13 @@ func (s *playHTTPService) gizCLIClient() (*gizcli.Client, playHTTPErrorResponse,
 	if err != nil {
 		return nil, playHTTPErrorResponse{status: http.StatusServiceUnavailable, message: err.Error()}, false
 	}
+	if c.PeerConn() == nil && s.invalidate != nil {
+		s.invalidate(c)
+		c, err = s.client()
+		if err != nil {
+			return nil, playHTTPErrorResponse{status: http.StatusServiceUnavailable, message: err.Error()}, false
+		}
+	}
 	return c, playHTTPErrorResponse{}, true
 }
 

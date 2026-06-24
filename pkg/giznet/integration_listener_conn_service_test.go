@@ -565,8 +565,8 @@ func TestListenerAcceptAndConnEventOpus(t *testing.T) {
 
 // Remote close-control tears down the current service mux, but it is not the
 // same as closing the accepted Conn. Listener ownership stays with that Conn, so
-// a reconnect by the same peer must not create a duplicate Conn. If Accept
-// observes the reconnect event, it returns the existing Conn.
+// a reconnect by the same peer must not create a duplicate Conn. The existing
+// Conn and service listener must refresh to the new service mux generation.
 func TestListenerDoesNotAcceptSamePeerAgainAfterRemoteClose(t *testing.T) {
 	serverKey, err := giznet.GenerateKeyPair()
 	if err != nil {
@@ -628,20 +628,6 @@ func TestListenerDoesNotAcceptSamePeerAgainAfterRemoteClose(t *testing.T) {
 	if err != nil {
 		t.Fatalf("reconnected client Dial failed: %v", err)
 	}
-	rpcErrCh := make(chan error, 1)
-	go func() {
-		_, err := rpcListener.Accept()
-		rpcErrCh <- err
-	}()
-
-	select {
-	case err := <-rpcErrCh:
-		if !errors.Is(err, net.ErrClosed) {
-			t.Fatalf("old Conn service listener err=%v, want %v", err, net.ErrClosed)
-		}
-	case <-time.After(5 * time.Second):
-		t.Fatal("old Conn service listener did not close after remote close")
-	}
 
 	select {
 	case conn := <-nextAcceptCh:
@@ -653,7 +639,38 @@ func TestListenerDoesNotAcceptSamePeerAgainAfterRemoteClose(t *testing.T) {
 	case <-time.After(300 * time.Millisecond):
 	}
 
-	_ = reconnectedConn
+	rpcAcceptCh := make(chan net.Conn, 1)
+	rpcErrCh := make(chan error, 1)
+	go func() {
+		stream, err := rpcListener.Accept()
+		if err != nil {
+			rpcErrCh <- err
+			return
+		}
+		rpcAcceptCh <- stream
+	}()
+
+	clientStream, err := reconnectedConn.Dial(testServiceRPC)
+	if err != nil {
+		t.Fatalf("reconnected Dial(rpc) failed: %v", err)
+	}
+	defer clientStream.Close()
+	req := []byte(`{"method":"after-remote-close"}`)
+	if _, err := clientStream.Write(req); err != nil {
+		t.Fatalf("reconnected stream write failed: %v", err)
+	}
+
+	select {
+	case serverStream := <-rpcAcceptCh:
+		defer serverStream.Close()
+		if got := ReadExactWithTimeout(t, serverStream, len(req), 5*time.Second); !bytes.Equal(got, req) {
+			t.Fatalf("server stream request mismatch: got=%q want=%q", got, req)
+		}
+	case err := <-rpcErrCh:
+		t.Fatalf("old Conn service listener failed after reconnect: %v", err)
+	case <-time.After(5 * time.Second):
+		t.Fatal("old Conn service listener did not accept reconnected stream")
+	}
 }
 
 func TestConnOpenAcceptRPC(t *testing.T) {
