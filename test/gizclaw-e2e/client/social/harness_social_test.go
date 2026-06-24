@@ -64,6 +64,50 @@ func applySocialResourceFile(t *testing.T, api *adminservice.ClientWithResponses
 	}
 }
 
+func setSocialChatWorkspaceInputMode(t *testing.T, h *clitest.Harness, workspaceName string, input apitypes.WorkspaceInputMode) {
+	t.Helper()
+
+	admin := h.ConnectClientFromContext("admin-a")
+	defer admin.Close()
+	api, err := admin.ServerAdminClient()
+	if err != nil {
+		t.Fatalf("create social admin client: %v", err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	got, err := api.GetWorkspaceWithResponse(ctx, workspaceName)
+	if err != nil {
+		t.Fatalf("get social workspace %q: %v", workspaceName, err)
+	}
+	if got.JSON200 == nil {
+		t.Fatalf("get social workspace %q status %d: %s", workspaceName, got.StatusCode(), strings.TrimSpace(string(got.Body)))
+	}
+	if got.JSON200.Parameters == nil {
+		t.Fatalf("get social workspace %q has nil parameters", workspaceName)
+	}
+	typed, err := got.JSON200.Parameters.AsChatRoomWorkspaceParameters()
+	if err != nil {
+		t.Fatalf("decode social workspace %q parameters: %v", workspaceName, err)
+	}
+	typed.Input = &input
+	var params apitypes.WorkspaceParameters
+	if err := params.FromChatRoomWorkspaceParameters(typed); err != nil {
+		t.Fatalf("encode social workspace %q parameters: %v", workspaceName, err)
+	}
+	body := adminservice.WorkspaceUpsert{
+		Name:         string(got.JSON200.Name),
+		WorkflowName: string(got.JSON200.WorkflowName),
+		Parameters:   &params,
+	}
+	updated, err := api.PutWorkspaceWithResponse(ctx, workspaceName, body)
+	if err != nil {
+		t.Fatalf("put social workspace %q: %v", workspaceName, err)
+	}
+	if updated.JSON200 == nil {
+		t.Fatalf("put social workspace %q status %d: %s", workspaceName, updated.StatusCode(), strings.TrimSpace(string(updated.Body)))
+	}
+}
+
 func assertContactRPCs(t *testing.T, h *clitest.Harness) {
 	t.Helper()
 

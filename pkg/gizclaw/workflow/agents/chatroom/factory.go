@@ -28,13 +28,14 @@ type config struct {
 	transformer       genx.Transformer
 	transcriptEnabled bool
 	asrModel          string
+	inputMode         apitypes.WorkspaceInputMode
 }
 
 func (f Factory) NewAgent(_ context.Context, spec agenthost.Spec) (agenthost.Agent, error) {
 	if spec.Workflow.Spec.Chatroom == nil {
 		return nil, fmt.Errorf("chatroom: workflow spec.chatroom is required")
 	}
-	cfg := config{transformer: f.Transformer}
+	cfg := config{transformer: f.Transformer, inputMode: apitypes.WorkspaceInputModePushToTalk}
 	if spec.Workflow.Spec.Chatroom.Transcript != nil {
 		cfg.transcriptEnabled = boolValue(spec.Workflow.Spec.Chatroom.Transcript.Enabled)
 		cfg.asrModel = stringValue(spec.Workflow.Spec.Chatroom.Transcript.AsrModel)
@@ -52,6 +53,9 @@ func (f Factory) NewAgent(_ context.Context, spec agenthost.Spec) (agenthost.Age
 		}
 		if typed.Input != nil && !typed.Input.Valid() {
 			return nil, fmt.Errorf("chatroom: unsupported input %q", *typed.Input)
+		}
+		if typed.Input != nil {
+			cfg.inputMode = *typed.Input
 		}
 		mergeWorkspaceTranscriptConfig(&cfg, typed)
 	}
@@ -169,7 +173,6 @@ func (a agent) transcribeInput(ctx context.Context, input genx.Stream, output *g
 	var asr genx.Stream
 	var readDone chan error
 	streamID := &lockedString{value: defaultInputStreamID}
-	lastAudioMIME := "audio/opus"
 	textOpen := false
 	textStreamID := ""
 	flushText := func() error {
@@ -189,7 +192,7 @@ func (a agent) transcribeInput(ctx context.Context, input genx.Stream, output *g
 		}
 		asrInput = genx.NewStreamBuilder((&genx.ModelContextBuilder{}).Build(), 64)
 		var err error
-		asr, err = a.cfg.transformer.Transform(ctx, "model/"+a.cfg.asrModel, asrInput.Stream())
+		asr, err = a.cfg.transformer.Transform(ctx, a.asrPattern(), asrInput.Stream())
 		if err != nil {
 			return fmt.Errorf("chatroom: start ASR: %w", err)
 		}
@@ -225,10 +228,6 @@ func (a agent) transcribeInput(ctx context.Context, input genx.Stream, output *g
 			}
 			if !audioSeen {
 				_ = output.Done(genx.Usage{})
-				return
-			}
-			if err := output.Add(historyAudioEOSChunk(streamID.Get(), lastAudioMIME)); err != nil {
-				_ = output.Abort(err)
 				return
 			}
 			if err := asrInput.Done(genx.Usage{}); err != nil {
@@ -277,9 +276,6 @@ func (a agent) transcribeInput(ctx context.Context, input genx.Stream, output *g
 			continue
 		}
 		audioSeen = true
-		if blob, ok := chunk.Part.(*genx.Blob); ok && strings.TrimSpace(blob.MIMEType) != "" {
-			lastAudioMIME = blob.MIMEType
-		}
 		if err := startASR(); err != nil {
 			_ = output.Abort(err)
 			return
@@ -290,10 +286,6 @@ func (a agent) transcribeInput(ctx context.Context, input genx.Stream, output *g
 		}
 		if strings.TrimSpace(next.Ctrl.StreamID) == "" {
 			next.Ctrl.StreamID = streamID.Get()
-		}
-		if err := output.Add(historyAudioChunk(next, streamID.Get())); err != nil {
-			_ = output.Abort(err)
-			return
 		}
 		if err := asrInput.Add(next); err != nil {
 			_ = output.Abort(err)
@@ -314,29 +306,12 @@ func (a agent) transcribeInput(ctx context.Context, input genx.Stream, output *g
 	}
 }
 
-func historyAudioChunk(chunk *genx.MessageChunk, streamID string) *genx.MessageChunk {
-	next := chunk.Clone()
-	next.Role = genx.RoleUser
-	next.Name = transcriptLabel
-	if next.Ctrl == nil {
-		next.Ctrl = &genx.StreamCtrl{}
+func (a agent) asrPattern() string {
+	pattern := "model/" + a.cfg.asrModel
+	if a.cfg.inputMode == apitypes.WorkspaceInputModeRealtime {
+		pattern += "?emit_interim=true"
 	}
-	if strings.TrimSpace(streamID) == "" {
-		streamID = defaultInputStreamID
-	}
-	next.Ctrl.StreamID = streamID
-	next.Ctrl.Label = genx.HistoryUserAudioLabel
-	return next
-}
-
-func historyAudioEOSChunk(streamID, mimeType string) *genx.MessageChunk {
-	if strings.TrimSpace(mimeType) == "" {
-		mimeType = "audio/opus"
-	}
-	return historyAudioChunk(&genx.MessageChunk{
-		Part: &genx.Blob{MIMEType: mimeType},
-		Ctrl: &genx.StreamCtrl{StreamID: streamID, EndOfStream: true},
-	}, streamID)
+	return pattern
 }
 
 func readTranscript(ctx context.Context, asr genx.Stream, output *genx.StreamBuilder, streamID *lockedString) error {
@@ -354,18 +329,60 @@ func readTranscript(ctx context.Context, asr genx.Stream, output *genx.StreamBui
 		if chunk == nil {
 			continue
 		}
-		text, hasText := chunk.Part.(genx.Text)
-		if hasText && text != "" {
-			if err := output.Add(textChunk(streamID.Get(), string(text), false)); err != nil {
-				return err
-			}
+		next := normalizeASRTranscriptChunk(chunk, streamID.Get())
+		if next == nil {
+			continue
 		}
-		if chunk.IsEndOfStream() {
-			if err := output.Add(textChunk(streamID.Get(), "", true)); err != nil {
-				return err
-			}
+		if err := output.Add(next); err != nil {
+			return err
 		}
 	}
+}
+
+func normalizeASRTranscriptChunk(chunk *genx.MessageChunk, fallbackStreamID string) *genx.MessageChunk {
+	if chunk == nil {
+		return nil
+	}
+	next := chunk.Clone()
+	if next.Ctrl == nil {
+		next.Ctrl = &genx.StreamCtrl{}
+	}
+	if strings.TrimSpace(next.Ctrl.StreamID) == "" {
+		next.Ctrl.StreamID = strings.TrimSpace(fallbackStreamID)
+	}
+	if strings.TrimSpace(next.Ctrl.StreamID) == "" {
+		next.Ctrl.StreamID = defaultInputStreamID
+	}
+	if next.Role == "" {
+		next.Role = genx.RoleUser
+	}
+	if strings.TrimSpace(next.Name) == "" {
+		next.Name = transcriptLabel
+	}
+	if strings.TrimSpace(next.Ctrl.Label) == "" {
+		next.Ctrl.Label = transcriptLabel
+	}
+	if strings.TrimSpace(next.Ctrl.Label) == genx.HistoryUserAudioLabel {
+		next.Role = genx.RoleUser
+		if strings.TrimSpace(next.Name) == "" {
+			next.Name = transcriptLabel
+		}
+		return next
+	}
+	if next.IsBeginOfStream() {
+		return next
+	}
+	text, hasText := next.Part.(genx.Text)
+	if hasText && text != "" {
+		return next
+	}
+	if next.IsEndOfStream() {
+		if !hasText {
+			next.Part = genx.Text("")
+		}
+		return next
+	}
+	return nil
 }
 
 func textChunk(streamID, text string, eos bool) *genx.MessageChunk {
