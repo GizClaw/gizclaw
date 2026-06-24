@@ -1,0 +1,15 @@
+.git
+.DS_Store
+
+node_modules
+cmd/ui/node_modules
+cmd/ui/admin/dist
+cmd/ui/play/dist
+
+.tmp
+openteam
+test/gizclaw-e2e/.testbench
+test/gizclaw-e2e/testdata/bin
+test/gizclaw-e2e/testdata/server-workspace/data
+test/gizclaw-e2e/testdata/server-workspace/*.log
+test/gizclaw-e2e/testdata/server-workspace/*.pid
