@@ -19,7 +19,7 @@ func playShellStories() []Story {
 			page.ExpectText("Models")
 			page.ExpectText("Credentials")
 			page.ExpectText("Voices")
-			page.ExpectText("Test Chat")
+			page.ExpectText("OpenAI")
 			page.ClickRoleLike("button", "Models")
 			page.ExpectText(SeedModelID)
 			page.ClickRoleLike("button", "Credentials")

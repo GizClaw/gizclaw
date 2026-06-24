@@ -65,7 +65,6 @@ func TestPlannedResourceKindsAndPermissionsAreValid(t *testing.T) {
 		ResourceKindBadge,
 		ResourceKindContact,
 		ResourceKindFriend,
-		ResourceKindFriendReq,
 		ResourceKindFriendGroup,
 	} {
 		if !kind.Valid() {

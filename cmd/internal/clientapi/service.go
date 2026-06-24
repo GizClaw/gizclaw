@@ -1,6 +1,7 @@
 package clientapi
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -70,6 +71,8 @@ func (s *playHTTPService) ListPeerResourceNames(context.Context, clientservice.L
 			clientservice.Credentials,
 			clientservice.Voices,
 			clientservice.Pets,
+			clientservice.Friends,
+			clientservice.FriendGroups,
 			clientservice.Wallet,
 			clientservice.WalletTransactions,
 			clientservice.Rewards,
@@ -123,6 +126,259 @@ func (s *playHTTPService) ListPeerCredentials(ctx context.Context, request clien
 		return playHTTPError(err), nil
 	}
 	return clientservice.ListPeerCredentials200JSONResponse(*sanitizePlayCredentialList(result)), nil
+}
+
+func (s *playHTTPService) ListPeerFriends(ctx context.Context, request clientservice.ListPeerFriendsRequestObject) (clientservice.ListPeerFriendsResponseObject, error) {
+	c, errResp, ok := s.gizCLIClient()
+	if !ok {
+		return errResp, nil
+	}
+	result, err := c.ListFriends(ctx, s.rpcID(), rpcapi.FriendListRequest{Cursor: request.Params.Cursor, Limit: playLimitPtr(request.Params.Limit)})
+	if err != nil {
+		return playHTTPError(err), nil
+	}
+	return clientservice.ListPeerFriends200JSONResponse(*result), nil
+}
+
+func (s *playHTTPService) AddPeerFriend(ctx context.Context, request clientservice.AddPeerFriendRequestObject) (clientservice.AddPeerFriendResponseObject, error) {
+	if request.Body == nil {
+		return playHTTPErrorResponse{status: http.StatusBadRequest, message: "request body required"}, nil
+	}
+	c, errResp, ok := s.gizCLIClient()
+	if !ok {
+		return errResp, nil
+	}
+	result, err := c.AddFriend(ctx, s.rpcID(), *request.Body)
+	if err != nil {
+		return playHTTPError(err), nil
+	}
+	return clientservice.AddPeerFriend200JSONResponse(*result), nil
+}
+
+func (s *playHTTPService) DeletePeerFriend(ctx context.Context, request clientservice.DeletePeerFriendRequestObject) (clientservice.DeletePeerFriendResponseObject, error) {
+	c, errResp, ok := s.gizCLIClient()
+	if !ok {
+		return errResp, nil
+	}
+	result, err := c.DeleteFriend(ctx, s.rpcID(), rpcapi.FriendDeleteRequest{Id: request.Id})
+	if err != nil {
+		return playHTTPError(err), nil
+	}
+	return clientservice.DeletePeerFriend200JSONResponse(*result), nil
+}
+
+func (s *playHTTPService) GetPeerFriendInviteToken(ctx context.Context, _ clientservice.GetPeerFriendInviteTokenRequestObject) (clientservice.GetPeerFriendInviteTokenResponseObject, error) {
+	c, errResp, ok := s.gizCLIClient()
+	if !ok {
+		return errResp, nil
+	}
+	result, err := c.GetFriendInviteToken(ctx, s.rpcID(), rpcapi.FriendInviteTokenGetRequest{})
+	if err != nil {
+		return playHTTPError(err), nil
+	}
+	return clientservice.GetPeerFriendInviteToken200JSONResponse(*result), nil
+}
+
+func (s *playHTTPService) CreatePeerFriendInviteToken(ctx context.Context, _ clientservice.CreatePeerFriendInviteTokenRequestObject) (clientservice.CreatePeerFriendInviteTokenResponseObject, error) {
+	c, errResp, ok := s.gizCLIClient()
+	if !ok {
+		return errResp, nil
+	}
+	result, err := c.CreateFriendInviteToken(ctx, s.rpcID(), rpcapi.FriendInviteTokenCreateRequest{})
+	if err != nil {
+		return playHTTPError(err), nil
+	}
+	return clientservice.CreatePeerFriendInviteToken200JSONResponse(*result), nil
+}
+
+func (s *playHTTPService) ClearPeerFriendInviteToken(ctx context.Context, _ clientservice.ClearPeerFriendInviteTokenRequestObject) (clientservice.ClearPeerFriendInviteTokenResponseObject, error) {
+	c, errResp, ok := s.gizCLIClient()
+	if !ok {
+		return errResp, nil
+	}
+	result, err := c.ClearFriendInviteToken(ctx, s.rpcID(), rpcapi.FriendInviteTokenClearRequest{})
+	if err != nil {
+		return playHTTPError(err), nil
+	}
+	return clientservice.ClearPeerFriendInviteToken200JSONResponse(*result), nil
+}
+
+func (s *playHTTPService) ListPeerFriendGroups(ctx context.Context, request clientservice.ListPeerFriendGroupsRequestObject) (clientservice.ListPeerFriendGroupsResponseObject, error) {
+	c, errResp, ok := s.gizCLIClient()
+	if !ok {
+		return errResp, nil
+	}
+	result, err := c.ListFriendGroups(ctx, s.rpcID(), rpcapi.FriendGroupListRequest{Cursor: request.Params.Cursor, Limit: playLimitPtr(request.Params.Limit)})
+	if err != nil {
+		return playHTTPError(err), nil
+	}
+	return clientservice.ListPeerFriendGroups200JSONResponse(*result), nil
+}
+
+func (s *playHTTPService) CreatePeerFriendGroup(ctx context.Context, request clientservice.CreatePeerFriendGroupRequestObject) (clientservice.CreatePeerFriendGroupResponseObject, error) {
+	if request.Body == nil {
+		return playHTTPErrorResponse{status: http.StatusBadRequest, message: "request body required"}, nil
+	}
+	c, errResp, ok := s.gizCLIClient()
+	if !ok {
+		return errResp, nil
+	}
+	result, err := c.CreateFriendGroup(ctx, s.rpcID(), *request.Body)
+	if err != nil {
+		return playHTTPError(err), nil
+	}
+	return clientservice.CreatePeerFriendGroup200JSONResponse(*result), nil
+}
+
+func (s *playHTTPService) JoinPeerFriendGroup(ctx context.Context, request clientservice.JoinPeerFriendGroupRequestObject) (clientservice.JoinPeerFriendGroupResponseObject, error) {
+	if request.Body == nil {
+		return playHTTPErrorResponse{status: http.StatusBadRequest, message: "request body required"}, nil
+	}
+	c, errResp, ok := s.gizCLIClient()
+	if !ok {
+		return errResp, nil
+	}
+	result, err := c.JoinFriendGroup(ctx, s.rpcID(), *request.Body)
+	if err != nil {
+		return playHTTPError(err), nil
+	}
+	return clientservice.JoinPeerFriendGroup200JSONResponse(*result), nil
+}
+
+func (s *playHTTPService) GetPeerFriendGroup(ctx context.Context, request clientservice.GetPeerFriendGroupRequestObject) (clientservice.GetPeerFriendGroupResponseObject, error) {
+	c, errResp, ok := s.gizCLIClient()
+	if !ok {
+		return errResp, nil
+	}
+	result, err := c.GetFriendGroup(ctx, s.rpcID(), rpcapi.FriendGroupGetRequest{Id: request.Id})
+	if err != nil {
+		return playHTTPError(err), nil
+	}
+	return clientservice.GetPeerFriendGroup200JSONResponse(*result), nil
+}
+
+func (s *playHTTPService) PutPeerFriendGroup(ctx context.Context, request clientservice.PutPeerFriendGroupRequestObject) (clientservice.PutPeerFriendGroupResponseObject, error) {
+	if request.Body == nil {
+		return playHTTPErrorResponse{status: http.StatusBadRequest, message: "request body required"}, nil
+	}
+	c, errResp, ok := s.gizCLIClient()
+	if !ok {
+		return errResp, nil
+	}
+	body := *request.Body
+	body.Id = request.Id
+	result, err := c.PutFriendGroup(ctx, s.rpcID(), body)
+	if err != nil {
+		return playHTTPError(err), nil
+	}
+	return clientservice.PutPeerFriendGroup200JSONResponse(*result), nil
+}
+
+func (s *playHTTPService) DeletePeerFriendGroup(ctx context.Context, request clientservice.DeletePeerFriendGroupRequestObject) (clientservice.DeletePeerFriendGroupResponseObject, error) {
+	c, errResp, ok := s.gizCLIClient()
+	if !ok {
+		return errResp, nil
+	}
+	result, err := c.DeleteFriendGroup(ctx, s.rpcID(), rpcapi.FriendGroupDeleteRequest{Id: request.Id})
+	if err != nil {
+		return playHTTPError(err), nil
+	}
+	return clientservice.DeletePeerFriendGroup200JSONResponse(*result), nil
+}
+
+func (s *playHTTPService) GetPeerFriendGroupInviteToken(ctx context.Context, request clientservice.GetPeerFriendGroupInviteTokenRequestObject) (clientservice.GetPeerFriendGroupInviteTokenResponseObject, error) {
+	c, errResp, ok := s.gizCLIClient()
+	if !ok {
+		return errResp, nil
+	}
+	result, err := c.GetFriendGroupInviteToken(ctx, s.rpcID(), rpcapi.FriendGroupInviteTokenGetRequest{FriendGroupId: request.Id})
+	if err != nil {
+		return playHTTPError(err), nil
+	}
+	return clientservice.GetPeerFriendGroupInviteToken200JSONResponse(*result), nil
+}
+
+func (s *playHTTPService) CreatePeerFriendGroupInviteToken(ctx context.Context, request clientservice.CreatePeerFriendGroupInviteTokenRequestObject) (clientservice.CreatePeerFriendGroupInviteTokenResponseObject, error) {
+	c, errResp, ok := s.gizCLIClient()
+	if !ok {
+		return errResp, nil
+	}
+	result, err := c.CreateFriendGroupInviteToken(ctx, s.rpcID(), rpcapi.FriendGroupInviteTokenCreateRequest{FriendGroupId: request.Id})
+	if err != nil {
+		return playHTTPError(err), nil
+	}
+	return clientservice.CreatePeerFriendGroupInviteToken200JSONResponse(*result), nil
+}
+
+func (s *playHTTPService) ClearPeerFriendGroupInviteToken(ctx context.Context, request clientservice.ClearPeerFriendGroupInviteTokenRequestObject) (clientservice.ClearPeerFriendGroupInviteTokenResponseObject, error) {
+	c, errResp, ok := s.gizCLIClient()
+	if !ok {
+		return errResp, nil
+	}
+	result, err := c.ClearFriendGroupInviteToken(ctx, s.rpcID(), rpcapi.FriendGroupInviteTokenClearRequest{FriendGroupId: request.Id})
+	if err != nil {
+		return playHTTPError(err), nil
+	}
+	return clientservice.ClearPeerFriendGroupInviteToken200JSONResponse(*result), nil
+}
+
+func (s *playHTTPService) ListPeerFriendGroupMembers(ctx context.Context, request clientservice.ListPeerFriendGroupMembersRequestObject) (clientservice.ListPeerFriendGroupMembersResponseObject, error) {
+	c, errResp, ok := s.gizCLIClient()
+	if !ok {
+		return errResp, nil
+	}
+	result, err := c.ListFriendGroupMembers(ctx, s.rpcID(), rpcapi.FriendGroupMemberListRequest{FriendGroupId: &request.Id, Cursor: request.Params.Cursor, Limit: playLimitPtr(request.Params.Limit)})
+	if err != nil {
+		return playHTTPError(err), nil
+	}
+	return clientservice.ListPeerFriendGroupMembers200JSONResponse(*result), nil
+}
+
+func (s *playHTTPService) AddPeerFriendGroupMember(ctx context.Context, request clientservice.AddPeerFriendGroupMemberRequestObject) (clientservice.AddPeerFriendGroupMemberResponseObject, error) {
+	if request.Body == nil {
+		return playHTTPErrorResponse{status: http.StatusBadRequest, message: "request body required"}, nil
+	}
+	c, errResp, ok := s.gizCLIClient()
+	if !ok {
+		return errResp, nil
+	}
+	body := *request.Body
+	body.FriendGroupId = request.Id
+	result, err := c.AddFriendGroupMember(ctx, s.rpcID(), body)
+	if err != nil {
+		return playHTTPError(err), nil
+	}
+	return clientservice.AddPeerFriendGroupMember200JSONResponse(*result), nil
+}
+
+func (s *playHTTPService) PutPeerFriendGroupMember(ctx context.Context, request clientservice.PutPeerFriendGroupMemberRequestObject) (clientservice.PutPeerFriendGroupMemberResponseObject, error) {
+	if request.Body == nil {
+		return playHTTPErrorResponse{status: http.StatusBadRequest, message: "request body required"}, nil
+	}
+	c, errResp, ok := s.gizCLIClient()
+	if !ok {
+		return errResp, nil
+	}
+	body := *request.Body
+	body.FriendGroupId = request.Id
+	body.Id = request.MemberId
+	result, err := c.PutFriendGroupMember(ctx, s.rpcID(), body)
+	if err != nil {
+		return playHTTPError(err), nil
+	}
+	return clientservice.PutPeerFriendGroupMember200JSONResponse(*result), nil
+}
+
+func (s *playHTTPService) DeletePeerFriendGroupMember(ctx context.Context, request clientservice.DeletePeerFriendGroupMemberRequestObject) (clientservice.DeletePeerFriendGroupMemberResponseObject, error) {
+	c, errResp, ok := s.gizCLIClient()
+	if !ok {
+		return errResp, nil
+	}
+	result, err := c.DeleteFriendGroupMember(ctx, s.rpcID(), rpcapi.FriendGroupMemberDeleteRequest{FriendGroupId: request.Id, Id: request.MemberId})
+	if err != nil {
+		return playHTTPError(err), nil
+	}
+	return clientservice.DeletePeerFriendGroupMember200JSONResponse(*result), nil
 }
 
 func (s *playHTTPService) ListPeerPets(ctx context.Context, request clientservice.ListPeerPetsRequestObject) (clientservice.ListPeerPetsResponseObject, error) {
@@ -343,6 +599,52 @@ func (s *playHTTPService) ListClientVoices(ctx context.Context, request clientse
 	return clientservice.ListClientVoices200JSONResponse(result), nil
 }
 
+func (s *playHTTPService) ListPeerWorkspaceHistory(ctx context.Context, request clientservice.ListPeerWorkspaceHistoryRequestObject) (clientservice.ListPeerWorkspaceHistoryResponseObject, error) {
+	c, errResp, ok := s.gizCLIClient()
+	if !ok {
+		return errResp, nil
+	}
+	result, err := c.ListWorkspaceHistory(ctx, s.rpcID(), rpcapi.WorkspaceHistoryListRequest{
+		WorkspaceName: request.WorkspaceName,
+		Cursor:        request.Params.Cursor,
+		Limit:         playLimitPtr(request.Params.Limit),
+		Order:         (*rpcapi.WorkspaceHistoryListRequestOrder)(request.Params.Order),
+	})
+	if err != nil {
+		return playHTTPError(err), nil
+	}
+	return clientservice.ListPeerWorkspaceHistory200JSONResponse(*result), nil
+}
+
+func (s *playHTTPService) GetPeerWorkspaceHistory(ctx context.Context, request clientservice.GetPeerWorkspaceHistoryRequestObject) (clientservice.GetPeerWorkspaceHistoryResponseObject, error) {
+	c, errResp, ok := s.gizCLIClient()
+	if !ok {
+		return errResp, nil
+	}
+	result, err := c.GetWorkspaceHistory(ctx, s.rpcID(), rpcapi.WorkspaceHistoryGetRequest{WorkspaceName: request.WorkspaceName, HistoryId: request.HistoryId})
+	if err != nil {
+		return playHTTPError(err), nil
+	}
+	return clientservice.GetPeerWorkspaceHistory200JSONResponse(*result), nil
+}
+
+func (s *playHTTPService) GetPeerWorkspaceHistoryAudio(ctx context.Context, request clientservice.GetPeerWorkspaceHistoryAudioRequestObject) (clientservice.GetPeerWorkspaceHistoryAudioResponseObject, error) {
+	c, errResp, ok := s.gizCLIClient()
+	if !ok {
+		return errResp, nil
+	}
+	var audio bytes.Buffer
+	result, err := c.GetWorkspaceHistoryAudio(ctx, s.rpcID(), rpcapi.WorkspaceHistoryAudioGetRequest{WorkspaceName: request.WorkspaceName, HistoryId: request.HistoryId}, &audio)
+	if err != nil {
+		return playHTTPError(err), nil
+	}
+	size := result.Metadata.SizeBytes
+	if size == 0 {
+		size = int64(audio.Len())
+	}
+	return clientservice.GetPeerWorkspaceHistoryAudio200ApplicationoctetStreamResponse{Body: bytes.NewReader(audio.Bytes()), ContentLength: size}, nil
+}
+
 func (s *playHTTPService) StreamPlayableVoices(ctx context.Context, request clientservice.StreamPlayableVoicesRequestObject) (clientservice.StreamPlayableVoicesResponseObject, error) {
 	c, errResp, ok := s.gizCLIClient()
 	if !ok {
@@ -424,6 +726,94 @@ func (r playHTTPErrorResponse) write(ctx *fiber.Ctx) error {
 }
 
 func (r playHTTPErrorResponse) VisitListPeerCredentialsResponse(ctx *fiber.Ctx) error {
+	return r.write(ctx)
+}
+
+func (r playHTTPErrorResponse) VisitListPeerFriendsResponse(ctx *fiber.Ctx) error {
+	return r.write(ctx)
+}
+
+func (r playHTTPErrorResponse) VisitAddPeerFriendResponse(ctx *fiber.Ctx) error {
+	return r.write(ctx)
+}
+
+func (r playHTTPErrorResponse) VisitDeletePeerFriendResponse(ctx *fiber.Ctx) error {
+	return r.write(ctx)
+}
+
+func (r playHTTPErrorResponse) VisitGetPeerFriendInviteTokenResponse(ctx *fiber.Ctx) error {
+	return r.write(ctx)
+}
+
+func (r playHTTPErrorResponse) VisitCreatePeerFriendInviteTokenResponse(ctx *fiber.Ctx) error {
+	return r.write(ctx)
+}
+
+func (r playHTTPErrorResponse) VisitClearPeerFriendInviteTokenResponse(ctx *fiber.Ctx) error {
+	return r.write(ctx)
+}
+
+func (r playHTTPErrorResponse) VisitListPeerFriendGroupsResponse(ctx *fiber.Ctx) error {
+	return r.write(ctx)
+}
+
+func (r playHTTPErrorResponse) VisitCreatePeerFriendGroupResponse(ctx *fiber.Ctx) error {
+	return r.write(ctx)
+}
+
+func (r playHTTPErrorResponse) VisitJoinPeerFriendGroupResponse(ctx *fiber.Ctx) error {
+	return r.write(ctx)
+}
+
+func (r playHTTPErrorResponse) VisitGetPeerFriendGroupResponse(ctx *fiber.Ctx) error {
+	return r.write(ctx)
+}
+
+func (r playHTTPErrorResponse) VisitPutPeerFriendGroupResponse(ctx *fiber.Ctx) error {
+	return r.write(ctx)
+}
+
+func (r playHTTPErrorResponse) VisitDeletePeerFriendGroupResponse(ctx *fiber.Ctx) error {
+	return r.write(ctx)
+}
+
+func (r playHTTPErrorResponse) VisitGetPeerFriendGroupInviteTokenResponse(ctx *fiber.Ctx) error {
+	return r.write(ctx)
+}
+
+func (r playHTTPErrorResponse) VisitCreatePeerFriendGroupInviteTokenResponse(ctx *fiber.Ctx) error {
+	return r.write(ctx)
+}
+
+func (r playHTTPErrorResponse) VisitClearPeerFriendGroupInviteTokenResponse(ctx *fiber.Ctx) error {
+	return r.write(ctx)
+}
+
+func (r playHTTPErrorResponse) VisitListPeerFriendGroupMembersResponse(ctx *fiber.Ctx) error {
+	return r.write(ctx)
+}
+
+func (r playHTTPErrorResponse) VisitAddPeerFriendGroupMemberResponse(ctx *fiber.Ctx) error {
+	return r.write(ctx)
+}
+
+func (r playHTTPErrorResponse) VisitPutPeerFriendGroupMemberResponse(ctx *fiber.Ctx) error {
+	return r.write(ctx)
+}
+
+func (r playHTTPErrorResponse) VisitDeletePeerFriendGroupMemberResponse(ctx *fiber.Ctx) error {
+	return r.write(ctx)
+}
+
+func (r playHTTPErrorResponse) VisitListPeerWorkspaceHistoryResponse(ctx *fiber.Ctx) error {
+	return r.write(ctx)
+}
+
+func (r playHTTPErrorResponse) VisitGetPeerWorkspaceHistoryResponse(ctx *fiber.Ctx) error {
+	return r.write(ctx)
+}
+
+func (r playHTTPErrorResponse) VisitGetPeerWorkspaceHistoryAudioResponse(ctx *fiber.Ctx) error {
 	return r.write(ctx)
 }
 

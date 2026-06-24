@@ -137,40 +137,43 @@ func newBusinessHarness(t *testing.T) *businessRPCHarness {
 	return &businessRPCHarness{ctx: ctx, a: a, b: b}
 }
 
-func createAcceptedRPCFriendRequest(t *testing.T, env *socialRPCHarness, from, to *gizcli.Client, toPeerID, code string) rpcapi.FriendObject {
+func createRPCFriendByInviteToken(t *testing.T, env *socialRPCHarness, from, to *gizcli.Client, toPeerID string) rpcapi.FriendObject {
 	t.Helper()
 
-	if _, err := to.GetServerRunStatus(env.ctx, "friend.otp.report", rpcapi.ServerGetRunStatusRequest{FriendOtp: &code}); err != nil {
-		t.Fatalf("report friend otp: %v", err)
-	}
-	message := "hi"
-	req, err := from.CreateFriendRequest(env.ctx, "friend.requests.create", rpcapi.FriendRequestCreateRequest{
-		ToPeerId: toPeerID,
-		Code:     code,
-		Message:  &message,
-	})
+	empty, err := to.GetFriendInviteToken(env.ctx, "friend.invite_token.get.empty", rpcapi.FriendInviteTokenGetRequest{})
 	if err != nil {
-		t.Fatalf("friend.requests.create: %v", err)
+		t.Fatalf("friend.invite_token.get empty: %v", err)
 	}
-	if req.State == nil || *req.State != rpcapi.FriendRequestStatePending {
-		t.Fatalf("friend request state = %v, want pending", req.State)
+	if empty.InviteToken != nil || empty.ExpiresAt != nil {
+		t.Fatalf("friend invite token empty get = %#v, want no token", empty)
 	}
-	if req.Id == nil || *req.Id == "" {
-		t.Fatalf("friend request id is empty: %#v", req)
-	}
-	accepted, err := to.AcceptFriendRequest(env.ctx, "friend.requests.accept", rpcapi.FriendRequestAcceptRequest{Id: *req.Id})
+	token, err := to.CreateFriendInviteToken(env.ctx, "friend.invite_token.create", rpcapi.FriendInviteTokenCreateRequest{})
 	if err != nil {
-		t.Fatalf("friend.requests.accept: %v", err)
+		t.Fatalf("friend.invite_token.create: %v", err)
 	}
-	if accepted.State == nil || *accepted.State != rpcapi.FriendRequestStateAccepted {
-		t.Fatalf("accepted friend request state = %v, want accepted", accepted.State)
+	if token.InviteToken == "" || token.ExpiresAt.IsZero() {
+		t.Fatalf("friend invite token create = %#v", token)
+	}
+	got, err := to.GetFriendInviteToken(env.ctx, "friend.invite_token.get", rpcapi.FriendInviteTokenGetRequest{})
+	if err != nil {
+		t.Fatalf("friend.invite_token.get: %v", err)
+	}
+	if got.InviteToken == nil || *got.InviteToken != token.InviteToken {
+		t.Fatalf("friend invite token get = %#v, want %q", got, token.InviteToken)
+	}
+	added, err := from.AddFriend(env.ctx, "friend.add", rpcapi.FriendAddRequest{InviteToken: token.InviteToken})
+	if err != nil {
+		t.Fatalf("friend.add: %v", err)
+	}
+	if added.PeerPublicKey != nil && *added.PeerPublicKey == toPeerID {
+		return *added
 	}
 	friends, err := from.ListFriends(env.ctx, "friend.list", rpcapi.FriendListRequest{})
 	if err != nil {
 		t.Fatalf("friend.list: %v", err)
 	}
 	for _, friend := range friends.Items {
-		if friend.PeerId != nil && *friend.PeerId == toPeerID {
+		if friend.PeerPublicKey != nil && *friend.PeerPublicKey == toPeerID {
 			return friend
 		}
 	}

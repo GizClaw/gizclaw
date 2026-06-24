@@ -443,8 +443,7 @@ func (s *rpcServer) handleGetRunStatus(ctx context.Context, req *rpcapi.RPCReque
 	if req.Params == nil {
 		return rpcInvalidParams(req.Id), nil
 	}
-	params, err := req.Params.AsServerGetRunStatusRequest()
-	if err != nil {
+	if _, err := req.Params.AsServerGetRunStatusRequest(); err != nil {
 		return rpcInvalidParams(req.Id), nil
 	}
 	if s.peerRunRuntime == nil {
@@ -453,16 +452,6 @@ func (s *rpcServer) handleGetRunStatus(ctx context.Context, req *rpcapi.RPCReque
 	resp, err := s.peerRunRuntime.Status(ctx)
 	if err != nil {
 		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeBadRequest, Message: err.Error()}.RPCResponse(), nil
-	}
-	friendOTP := resp.FriendOtp
-	if params.FriendOtp != nil {
-		friendOTP = params.FriendOtp
-		resp.FriendOtp = params.FriendOtp
-	}
-	if s.friendOTPs != nil && friendOTP != nil {
-		if err := s.friendOTPs.ReportFriendOTP(ctx, s.callerPublicKey.String(), *friendOTP); err != nil {
-			return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeBadRequest, Message: err.Error()}.RPCResponse(), nil
-		}
 	}
 	result, err := convertRPCType[rpcapi.ServerGetRunStatusResponse](resp)
 	if err != nil {

@@ -89,17 +89,17 @@ func TestClientResourceMethodsRequireConnection(t *testing.T) {
 		{"contact delete", func() (any, error) {
 			return client.DeleteContact(ctx, "contact-delete", rpcapi.ContactDeleteRequest{Id: "contact-a"})
 		}},
-		{"friend requests list", func() (any, error) {
-			return client.ListFriendRequests(ctx, "friend-requests-list", rpcapi.FriendRequestListRequest{})
+		{"friend invite token get", func() (any, error) {
+			return client.GetFriendInviteToken(ctx, "friend-invite-token-get", rpcapi.FriendInviteTokenGetRequest{})
 		}},
-		{"friend requests create", func() (any, error) {
-			return client.CreateFriendRequest(ctx, "friend-requests-create", rpcapi.FriendRequestCreateRequest{ToPeerId: "peer-b", Code: "123456"})
+		{"friend invite token create", func() (any, error) {
+			return client.CreateFriendInviteToken(ctx, "friend-invite-token-create", rpcapi.FriendInviteTokenCreateRequest{})
 		}},
-		{"friend requests accept", func() (any, error) {
-			return client.AcceptFriendRequest(ctx, "friend-requests-accept", rpcapi.FriendRequestAcceptRequest{Id: "request-a"})
+		{"friend invite token clear", func() (any, error) {
+			return client.ClearFriendInviteToken(ctx, "friend-invite-token-clear", rpcapi.FriendInviteTokenClearRequest{})
 		}},
-		{"friend requests reject", func() (any, error) {
-			return client.RejectFriendRequest(ctx, "friend-requests-reject", rpcapi.FriendRequestRejectRequest{Id: "request-a"})
+		{"friend add", func() (any, error) {
+			return client.AddFriend(ctx, "friend-add", rpcapi.FriendAddRequest{InviteToken: "token-a"})
 		}},
 		{"friend list", func() (any, error) { return client.ListFriends(ctx, "friend-list", rpcapi.FriendListRequest{}) }},
 		{"friend delete", func() (any, error) {
@@ -120,11 +120,23 @@ func TestClientResourceMethodsRequireConnection(t *testing.T) {
 		{"friend group delete", func() (any, error) {
 			return client.DeleteFriendGroup(ctx, "friend-group-delete", rpcapi.FriendGroupDeleteRequest{Id: "group-a"})
 		}},
+		{"friend group invite token get", func() (any, error) {
+			return client.GetFriendGroupInviteToken(ctx, "friend-group-invite-token-get", rpcapi.FriendGroupInviteTokenGetRequest{FriendGroupId: "group-a"})
+		}},
+		{"friend group invite token create", func() (any, error) {
+			return client.CreateFriendGroupInviteToken(ctx, "friend-group-invite-token-create", rpcapi.FriendGroupInviteTokenCreateRequest{FriendGroupId: "group-a"})
+		}},
+		{"friend group invite token clear", func() (any, error) {
+			return client.ClearFriendGroupInviteToken(ctx, "friend-group-invite-token-clear", rpcapi.FriendGroupInviteTokenClearRequest{FriendGroupId: "group-a"})
+		}},
+		{"friend group join", func() (any, error) {
+			return client.JoinFriendGroup(ctx, "friend-group-join", rpcapi.FriendGroupJoinRequest{InviteToken: "token-a"})
+		}},
 		{"friend group members list", func() (any, error) {
 			return client.ListFriendGroupMembers(ctx, "friend-group-members-list", rpcapi.FriendGroupMemberListRequest{})
 		}},
 		{"friend group members add", func() (any, error) {
-			return client.AddFriendGroupMember(ctx, "friend-group-members-add", rpcapi.FriendGroupMemberAddRequest{FriendGroupId: "group-a", PeerId: "peer-b"})
+			return client.AddFriendGroupMember(ctx, "friend-group-members-add", rpcapi.FriendGroupMemberAddRequest{FriendGroupId: "group-a", PeerPublicKey: "peer-b"})
 		}},
 		{"friend group members put", func() (any, error) {
 			return client.PutFriendGroupMember(ctx, "friend-group-members-put", rpcapi.FriendGroupMemberPutRequest{FriendGroupId: "group-a", Id: "peer-b"})

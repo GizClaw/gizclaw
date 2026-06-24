@@ -72,13 +72,13 @@ type Server struct {
 	WalletDB                     *sql.DB
 	RewardStore                  kv.Store
 	ContactStore                 kv.Store
-	FriendRequestStore           kv.Store
+	FriendInviteTokenStore       kv.Store
 	FriendStore                  kv.Store
 	FriendGroupStore             kv.Store
+	FriendGroupInviteTokenStore  kv.Store
 	FriendGroupMemberStore       kv.Store
 	FriendGroupMessageStore      kv.Store
 	FriendGroupMessageAssets     objectstore.ObjectStore
-	FriendOTPTTL                 time.Duration
 	FriendGroupMessageDefaultTTL time.Duration
 	FriendGroupMessageMaxTTL     time.Duration
 	FriendGroupMessageCleanup    time.Duration
@@ -269,13 +269,13 @@ func (s *Server) init() error {
 		s.WalletDB == nil &&
 		s.RewardStore == nil &&
 		s.ContactStore == nil &&
-		s.FriendRequestStore == nil &&
+		s.FriendInviteTokenStore == nil &&
 		s.FriendStore == nil &&
 		s.FriendGroupStore == nil &&
+		s.FriendGroupInviteTokenStore == nil &&
 		s.FriendGroupMemberStore == nil &&
 		s.FriendGroupMessageStore == nil &&
 		s.FriendGroupMessageAssets == nil &&
-		s.FriendOTPTTL == 0 &&
 		s.FriendGroupMessageDefaultTTL == 0 &&
 		s.FriendGroupMessageMaxTTL == 0 &&
 		s.FriendGroupMessageCleanup == 0 &&
@@ -303,9 +303,10 @@ func (s *Server) init() error {
 	badgeStore := moduleStore(s.BadgeStore, s.PeerStore, "badges")
 	rewardStore := moduleStore(s.RewardStore, s.PeerStore, "rewards")
 	contactStore := moduleStore(s.ContactStore, s.PeerStore, "contacts")
-	friendRequestStore := moduleStore(s.FriendRequestStore, s.PeerStore, "friend-requests")
+	friendInviteTokenStore := moduleStore(s.FriendInviteTokenStore, s.PeerStore, "friend-invite-tokens")
 	friendStore := moduleStore(s.FriendStore, s.PeerStore, "friends")
 	friendGroupStore := moduleStore(s.FriendGroupStore, s.PeerStore, "friend-groups")
+	friendGroupInviteTokenStore := moduleStore(s.FriendGroupInviteTokenStore, s.PeerStore, "friend-group-invite-tokens")
 	friendGroupMemberStore := moduleStore(s.FriendGroupMemberStore, s.PeerStore, "friend-group-members")
 	friendGroupMessageStore := moduleStore(s.FriendGroupMessageStore, s.PeerStore, "friend-group-messages")
 
@@ -356,14 +357,14 @@ func (s *Server) init() error {
 		Store: contactStore,
 	}
 	friendServer := &friend.Server{
-		Requests:     friendRequestStore,
+		InviteTokens: friendInviteTokenStore,
 		Friends:      friendStore,
 		Workspaces:   workspaceServer,
 		ACL:          aclServer,
-		FriendOTPTTL: s.FriendOTPTTL,
 	}
 	friendGroupServer := &friendgroup.Server{
 		Groups:               friendGroupStore,
+		InviteTokens:         friendGroupInviteTokenStore,
 		Members:              friendGroupMemberStore,
 		Messages:             friendGroupMessageStore,
 		MessageAssets:        s.FriendGroupMessageAssets,

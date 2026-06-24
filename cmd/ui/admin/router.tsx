@@ -71,7 +71,6 @@ export function AppRoutes(): JSX.Element {
         <Route element={<BadgeDetailPage />} path="business/badges/:id" />
         <Route element={<ACLPage defaultResourceKind="contact" />} path="social/contacts" />
         <Route element={<ACLPage defaultResourceKind="friend" />} path="social/friends" />
-        <Route element={<ACLPage defaultResourceKind="friend_request" />} path="social/friend-requests" />
         <Route element={<ACLPage defaultResourceKind="friend_group" />} path="social/friend-groups" />
         <Route element={<ResourcesPage />} path="resources" />
         <Route element={<ACLPage />} path="settings/acl" />

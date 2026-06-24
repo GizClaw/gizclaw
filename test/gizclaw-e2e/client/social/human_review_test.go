@@ -52,7 +52,7 @@ func TestServerSocialRPCHumanReview(t *testing.T) {
 	peerB := h.ContextPublicKey("peer-b")
 	peerC := h.ContextPublicKey("peer-c")
 
-	requestAB := createAcceptedFriendRequest(t, h, "peer-a", "peer-b", peerB, "123456")
+	requestAB := createFriendByInviteToken(t, h, "peer-a", "peer-b", peerB)
 	if stringValue(requestAB.WorkspaceName) == "" {
 		t.Fatalf("accepted friend workspace is empty: %#v", requestAB)
 	}
@@ -92,9 +92,14 @@ func newSocialHumanReviewHarness(t *testing.T) *clitest.Harness {
 		t.Fatalf("create social human-review admin client: %v", err)
 	}
 	applySocialResourceFile(t, api, socialHumanReviewResourcePath(h, "040-workflow-chatroom.json"))
-	for _, peer := range []string{"peer-a", "peer-b", "peer-c"} {
+	configureSocialPeerContext(t, h, "peer-a", "GIZCLAW_E2E_SOCIAL_PERSON_A_CONFIG_HOME", "GIZCLAW_E2E_SOCIAL_PERSON_A_CONTEXT", "client-social-human-review-peer-a-sn")
+	configureSocialPeerContext(t, h, "peer-b", "GIZCLAW_E2E_SOCIAL_PERSON_B_CONFIG_HOME", "GIZCLAW_E2E_SOCIAL_PERSON_B_CONTEXT", "client-social-human-review-peer-b-sn")
+	for _, peer := range []string{"peer-c"} {
 		h.CreateContext(peer).MustSucceed(t)
 		h.RegisterContext(peer, "--sn", "client-social-human-review-"+peer+"-sn").MustSucceed(t)
+		putSocialHumanReviewPeerConfig(t, api, h.ContextPublicKey(peer))
+	}
+	for _, peer := range []string{"peer-a", "peer-b"} {
 		putSocialHumanReviewPeerConfig(t, api, h.ContextPublicKey(peer))
 	}
 	return h

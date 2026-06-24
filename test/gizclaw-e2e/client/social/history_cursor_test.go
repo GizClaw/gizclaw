@@ -8,7 +8,7 @@ func TestSocialHistoryCursorRPC(t *testing.T) {
 	h := newSocialSimulatorHarness(t)
 	peerB := h.ContextPublicKey("peer-b")
 
-	requestAB := createAcceptedFriendRequest(t, h, "peer-a", "peer-b", peerB, "123456")
+	requestAB := createFriendByInviteToken(t, h, "peer-a", "peer-b", peerB)
 	assertChatWorkspaceHistory(t, h, "peer-a", "peer-b", stringValue(requestAB.WorkspaceName), []string{
 		"hello cursor round one",
 		"hello cursor round two",

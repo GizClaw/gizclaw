@@ -253,27 +253,27 @@ func (c *Client) DeleteContact(ctx context.Context, id string, request rpcapi.Co
 	})
 }
 
-func (c *Client) ListFriendRequests(ctx context.Context, id string, request rpcapi.FriendRequestListRequest) (*rpcapi.FriendRequestListResponse, error) {
-	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.FriendRequestListResponse, error) {
-		return client.ListFriendRequests(ctx, conn, id, request)
+func (c *Client) GetFriendInviteToken(ctx context.Context, id string, request rpcapi.FriendInviteTokenGetRequest) (*rpcapi.FriendInviteTokenGetResponse, error) {
+	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.FriendInviteTokenGetResponse, error) {
+		return client.GetFriendInviteToken(ctx, conn, id, request)
 	})
 }
 
-func (c *Client) CreateFriendRequest(ctx context.Context, id string, request rpcapi.FriendRequestCreateRequest) (*rpcapi.FriendRequestCreateResponse, error) {
-	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.FriendRequestCreateResponse, error) {
-		return client.CreateFriendRequest(ctx, conn, id, request)
+func (c *Client) CreateFriendInviteToken(ctx context.Context, id string, request rpcapi.FriendInviteTokenCreateRequest) (*rpcapi.FriendInviteTokenCreateResponse, error) {
+	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.FriendInviteTokenCreateResponse, error) {
+		return client.CreateFriendInviteToken(ctx, conn, id, request)
 	})
 }
 
-func (c *Client) AcceptFriendRequest(ctx context.Context, id string, request rpcapi.FriendRequestAcceptRequest) (*rpcapi.FriendRequestAcceptResponse, error) {
-	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.FriendRequestAcceptResponse, error) {
-		return client.AcceptFriendRequest(ctx, conn, id, request)
+func (c *Client) ClearFriendInviteToken(ctx context.Context, id string, request rpcapi.FriendInviteTokenClearRequest) (*rpcapi.FriendInviteTokenClearResponse, error) {
+	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.FriendInviteTokenClearResponse, error) {
+		return client.ClearFriendInviteToken(ctx, conn, id, request)
 	})
 }
 
-func (c *Client) RejectFriendRequest(ctx context.Context, id string, request rpcapi.FriendRequestRejectRequest) (*rpcapi.FriendRequestRejectResponse, error) {
-	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.FriendRequestRejectResponse, error) {
-		return client.RejectFriendRequest(ctx, conn, id, request)
+func (c *Client) AddFriend(ctx context.Context, id string, request rpcapi.FriendAddRequest) (*rpcapi.FriendAddResponse, error) {
+	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.FriendAddResponse, error) {
+		return client.AddFriend(ctx, conn, id, request)
 	})
 }
 
@@ -316,6 +316,30 @@ func (c *Client) PutFriendGroup(ctx context.Context, id string, request rpcapi.F
 func (c *Client) DeleteFriendGroup(ctx context.Context, id string, request rpcapi.FriendGroupDeleteRequest) (*rpcapi.FriendGroupDeleteResponse, error) {
 	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.FriendGroupDeleteResponse, error) {
 		return client.DeleteFriendGroup(ctx, conn, id, request)
+	})
+}
+
+func (c *Client) GetFriendGroupInviteToken(ctx context.Context, id string, request rpcapi.FriendGroupInviteTokenGetRequest) (*rpcapi.FriendGroupInviteTokenGetResponse, error) {
+	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.FriendGroupInviteTokenGetResponse, error) {
+		return client.GetFriendGroupInviteToken(ctx, conn, id, request)
+	})
+}
+
+func (c *Client) CreateFriendGroupInviteToken(ctx context.Context, id string, request rpcapi.FriendGroupInviteTokenCreateRequest) (*rpcapi.FriendGroupInviteTokenCreateResponse, error) {
+	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.FriendGroupInviteTokenCreateResponse, error) {
+		return client.CreateFriendGroupInviteToken(ctx, conn, id, request)
+	})
+}
+
+func (c *Client) ClearFriendGroupInviteToken(ctx context.Context, id string, request rpcapi.FriendGroupInviteTokenClearRequest) (*rpcapi.FriendGroupInviteTokenClearResponse, error) {
+	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.FriendGroupInviteTokenClearResponse, error) {
+		return client.ClearFriendGroupInviteToken(ctx, conn, id, request)
+	})
+}
+
+func (c *Client) JoinFriendGroup(ctx context.Context, id string, request rpcapi.FriendGroupJoinRequest) (*rpcapi.FriendGroupJoinResponse, error) {
+	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.FriendGroupJoinResponse, error) {
+		return client.JoinFriendGroup(ctx, conn, id, request)
 	})
 }
 

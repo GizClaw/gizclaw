@@ -91,11 +91,11 @@ func TestNewWithLayeredStorageConfig(t *testing.T) {
 	if srv.PetSpeciesStore == nil || srv.PetSpeciesAssets == nil || srv.BadgeStore == nil || srv.BadgeAssets == nil || srv.PetStore == nil || srv.RewardStore == nil || srv.WalletDB == nil {
 		t.Fatalf("business stores not wired: %+v", srv.Server)
 	}
-	if srv.ContactStore == nil || srv.FriendRequestStore == nil || srv.FriendStore == nil || srv.FriendGroupStore == nil || srv.FriendGroupMemberStore == nil || srv.FriendGroupMessageStore == nil || srv.FriendGroupMessageAssets == nil {
+	if srv.ContactStore == nil || srv.FriendInviteTokenStore == nil || srv.FriendStore == nil || srv.FriendGroupStore == nil || srv.FriendGroupInviteTokenStore == nil || srv.FriendGroupMemberStore == nil || srv.FriendGroupMessageStore == nil || srv.FriendGroupMessageAssets == nil {
 		t.Fatalf("social stores not wired: %+v", srv.Server)
 	}
-	if srv.FriendOTPTTL != 10*time.Minute || srv.FriendGroupMessageDefaultTTL != 24*time.Hour || srv.FriendGroupMessageMaxTTL != 7*24*time.Hour || srv.FriendGroupMessageCleanup != 5*time.Minute || srv.FriendGroupMessageMaxBytes != 2097152 {
-		t.Fatalf("social timing config not wired: friend=%v default=%v max=%v cleanup=%v bytes=%d", srv.FriendOTPTTL, srv.FriendGroupMessageDefaultTTL, srv.FriendGroupMessageMaxTTL, srv.FriendGroupMessageCleanup, srv.FriendGroupMessageMaxBytes)
+	if srv.FriendGroupMessageDefaultTTL != 24*time.Hour || srv.FriendGroupMessageMaxTTL != 7*24*time.Hour || srv.FriendGroupMessageCleanup != 5*time.Minute || srv.FriendGroupMessageMaxBytes != 2097152 {
+		t.Fatalf("social timing config not wired: default=%v max=%v cleanup=%v bytes=%d", srv.FriendGroupMessageDefaultTTL, srv.FriendGroupMessageMaxTTL, srv.FriendGroupMessageCleanup, srv.FriendGroupMessageMaxBytes)
 	}
 	if srv.ACLDB == nil {
 		t.Fatalf("acl store not wired: %v", srv.ACLDB)
@@ -335,7 +335,6 @@ func TestMergeFileConfigKeepsRuntimeOverrides(t *testing.T) {
 		Stores: map[string]stores.Config{
 			"runtime": {Kind: "keyvalue", Backend: "memory"},
 		},
-		Friends: FriendsConfig{FriendOTPTTL: "2m"},
 		FriendGroups: FriendGroupsConfig{
 			MessageDefaultTTL:      "2h",
 			MessageMaxTTL:          "3d",
@@ -357,7 +356,6 @@ func TestMergeFileConfigKeepsRuntimeOverrides(t *testing.T) {
 		Stores: map[string]stores.Config{
 			"file": {Kind: "keyvalue", Backend: "memory"},
 		},
-		Friends: FriendsConfig{FriendOTPTTL: "10m"},
 		FriendGroups: FriendGroupsConfig{
 			MessageDefaultTTL:      "24h",
 			MessageMaxTTL:          "7d",
@@ -388,9 +386,6 @@ func TestMergeFileConfigKeepsRuntimeOverrides(t *testing.T) {
 	}
 	if len(merged.Storage) != 1 || merged.Storage["runtime-storage"].Backend != "memory" {
 		t.Fatalf("Storage = %+v", merged.Storage)
-	}
-	if merged.Friends.FriendOTPTTL != "2m" {
-		t.Fatalf("Friends = %+v", merged.Friends)
 	}
 	if merged.FriendGroups.MessageDefaultTTL != "2h" || merged.FriendGroups.MessageMaxTTL != "3d" || merged.FriendGroups.MessageCleanupInterval != "30s" || merged.FriendGroups.MessageMaxAudioBytes != 1024 {
 		t.Fatalf("FriendGroups = %+v", merged.FriendGroups)
@@ -445,7 +440,6 @@ func TestValidateReportsLayeredStorageMissingFields(t *testing.T) {
 		{"bad reward generator", func(c *Config) { c.SystemTasks.RewardClaim.Generator = "voice/main" }, "server: system_tasks.reward_claim.generator must match model/<id>"},
 		{"bad pet generator", func(c *Config) { c.SystemTasks.PetAction.Generator = "voice/main" }, "server: system_tasks.pet_action.generator must match model/<id>"},
 		{"bad cooldown", func(c *Config) { c.SystemTasks.RewardClaim.Cooldown = "soon" }, "server: system_tasks.reward_claim.cooldown: time: invalid duration \"soon\""},
-		{"bad friend otp ttl", func(c *Config) { c.Friends.FriendOTPTTL = "later" }, "server: friends.friend_otp_ttl: time: invalid duration \"later\""},
 		{"bad friend group default ttl", func(c *Config) { c.FriendGroups.MessageDefaultTTL = "later" }, "server: friend_groups.message_default_ttl: time: invalid duration \"later\""},
 		{"bad friend group max ttl", func(c *Config) { c.FriendGroups.MessageMaxTTL = "later" }, "server: friend_groups.message_max_ttl: time: invalid duration \"later\""},
 		{"bad friend group cleanup interval", func(c *Config) { c.FriendGroups.MessageCleanupInterval = "later" }, "server: friend_groups.message_cleanup_interval: time: invalid duration \"later\""},
@@ -523,9 +517,10 @@ func validLayeredConfig(dir string) Config {
 			"pets":                        {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "pets"},
 			"rewards":                     {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "rewards"},
 			"contacts":                    {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "contacts"},
-			"friend-requests":             {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "friend-requests"},
+			"friend-invite-tokens":        {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "friend-invite-tokens"},
 			"friends":                     {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "friends"},
 			"friend-groups":               {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "friend-groups"},
+			"friend-group-invite-tokens":  {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "friend-group-invite-tokens"},
 			"friend-group-members":        {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "friend-group-members"},
 			"friend-group-messages":       {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "friend-group-messages"},
 			"friend-group-message-assets": {Kind: stores.KindObjectStore, Storage: "local-files", Prefix: "friend-group-messages"},
@@ -534,7 +529,6 @@ func validLayeredConfig(dir string) Config {
 			"wallets":                     {Kind: stores.KindSQL, Storage: "wallet-db"},
 			"acl":                         {Kind: stores.KindSQL, Storage: "acl-db"},
 		},
-		Friends: FriendsConfig{FriendOTPTTL: "10m"},
 		FriendGroups: FriendGroupsConfig{
 			MessageDefaultTTL:      "24h",
 			MessageMaxTTL:          "7d",

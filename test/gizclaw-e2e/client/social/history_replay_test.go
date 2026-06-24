@@ -13,7 +13,7 @@ func TestSocialHistoryReplayRPC(t *testing.T) {
 	peerB := h.ContextPublicKey("peer-b")
 	peerC := h.ContextPublicKey("peer-c")
 
-	requestAB := createAcceptedFriendRequest(t, h, "peer-a", "peer-b", peerB, "123456")
+	requestAB := createFriendByInviteToken(t, h, "peer-a", "peer-b", peerB)
 	t.Run("friend direct chat", func(t *testing.T) {
 		assertChatWorkspaceHistory(t, h, "peer-a", "peer-b", stringValue(requestAB.WorkspaceName), []string{
 			"hello direct chat round one",

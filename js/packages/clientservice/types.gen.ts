@@ -4,7 +4,7 @@ export type ClientOptions = {
     baseUrl: `${string}://${string}` | (string & {});
 };
 
-export type PeerResourceName = 'workspaces' | 'workflows' | 'models' | 'credentials' | 'voices' | 'pets' | 'wallet' | 'wallet-transactions' | 'rewards';
+export type PeerResourceName = 'workspaces' | 'workflows' | 'models' | 'credentials' | 'voices' | 'pets' | 'wallet' | 'wallet-transactions' | 'rewards' | 'friends' | 'friend-groups';
 
 export type PeerResourceNamesResponse = {
     resources: Array<PeerResourceName>;
@@ -33,6 +33,120 @@ export type CredentialListResponse = {
     items: Array<Credential>;
     has_next: boolean;
     next_cursor?: string;
+};
+
+export type FriendAddRequest = {
+    invite_token: string;
+};
+
+export type FriendGroupCreateRequest = {
+    name: string;
+    description?: string;
+};
+
+export type FriendGroupInviteTokenClearResponse = {
+    [key: string]: never;
+};
+
+export type FriendGroupInviteTokenCreateResponse = {
+    invite_token: string;
+    expires_at: string;
+};
+
+export type FriendGroupInviteTokenGetResponse = {
+    invite_token?: string;
+    expires_at?: string;
+};
+
+export type FriendGroupJoinRequest = {
+    invite_token: string;
+};
+
+export type FriendGroupJoinResponse = {
+    group: FriendGroupObject;
+    member: FriendGroupMemberObject;
+};
+
+export type FriendGroupListResponse = {
+    items: Array<FriendGroupObject>;
+    has_next: boolean;
+    next_cursor?: string;
+};
+
+export type FriendGroupMemberAddRequest = {
+    friend_group_id: string;
+    peer_public_key: string;
+    role: FriendGroupMemberMutableRole;
+};
+
+export type FriendGroupMemberListResponse = {
+    items: Array<FriendGroupMemberObject>;
+    has_next: boolean;
+    next_cursor?: string;
+};
+
+export type FriendGroupMemberMutableRole = 'admin' | 'member';
+
+export type FriendGroupMemberObject = {
+    id?: string;
+    friend_group_id?: string;
+    peer_public_key?: string;
+    role?: FriendGroupMemberRole;
+    created_at?: string;
+    updated_at?: string;
+};
+
+export type FriendGroupMemberPutRequest = {
+    friend_group_id: string;
+    id: string;
+    role: FriendGroupMemberMutableRole;
+};
+
+export type FriendGroupMemberRole = 'owner' | 'admin' | 'member';
+
+export type FriendGroupObject = {
+    id?: string;
+    name?: string;
+    description?: string;
+    created_by_peer_public_key?: string;
+    workspace_name?: string;
+    created_at?: string;
+    updated_at?: string;
+    my_role?: FriendGroupMemberRole;
+};
+
+export type FriendGroupPutRequest = {
+    id: string;
+    name?: string;
+    description?: string;
+};
+
+export type FriendInviteTokenClearResponse = {
+    [key: string]: never;
+};
+
+export type FriendInviteTokenCreateResponse = {
+    invite_token: string;
+    expires_at: string;
+};
+
+export type FriendInviteTokenGetResponse = {
+    invite_token?: string;
+    expires_at?: string;
+};
+
+export type FriendListResponse = {
+    items: Array<FriendObject>;
+    has_next: boolean;
+    next_cursor?: string;
+};
+
+export type FriendObject = {
+    id?: string;
+    peer_public_key?: string;
+    workspace_name?: string;
+    created_at?: string;
+    updated_at?: string;
 };
 
 export type ModelListResponse = {
@@ -294,6 +408,27 @@ export type ModelProviderKind = 'gemini-tenant' | 'dashscope-tenant' | 'openai-t
  */
 export type ModelSource = 'sync' | 'manual';
 
+export type PeerRunHistoryEntry = {
+    id: string;
+    type: 'gear' | 'agent';
+    /**
+     * Originating gear id. Required for gear entries and omitted for agent entries.
+     */
+    gear_id?: string;
+    name: string;
+    text: string;
+    created_at: string;
+    replay_available: boolean;
+};
+
+export type PeerRunHistoryListResponse = {
+    available: boolean;
+    items: Array<PeerRunHistoryEntry>;
+    has_next: boolean;
+    next_cursor?: string;
+    message?: string;
+};
+
 export type Voice = {
     id: string;
     source: VoiceSource;
@@ -381,13 +516,14 @@ export type WorkflowMetadata = {
     description?: string;
 };
 
-export type WorkflowDriver = 'flowcraft' | 'doubao-realtime' | 'ast-translate';
+export type WorkflowDriver = 'flowcraft' | 'doubao-realtime' | 'ast-translate' | 'chatroom';
 
 export type WorkflowSpec = {
     driver: WorkflowDriver;
     flowcraft?: FlowcraftWorkflowSpec;
     doubao_realtime?: DoubaoRealtimeWorkflowSpec;
     ast_translate?: AstTranslateWorkflowSpec;
+    chatroom?: ChatRoomWorkflowSpec;
 };
 
 export type AstTranslateExternalVoiceParameters = {
@@ -434,6 +570,29 @@ export type AstTranslateWorkflowSpec = {
     auth_mode?: string;
 };
 
+export type ChatRoomWorkflowHistorySpec = {
+    /**
+     * Unified retention duration for chat history entries and their assets.
+     */
+    ttl?: string;
+};
+
+export type ChatRoomWorkflowSpec = {
+    history: ChatRoomWorkflowHistorySpec;
+    transcript?: ChatRoomWorkflowTranscriptSpec;
+};
+
+export type ChatRoomWorkflowTranscriptSpec = {
+    /**
+     * Whether gear audio should be transcribed and written as text in workspace history.
+     */
+    enabled?: boolean;
+    /**
+     * GizClaw ASR model resource used to transcribe gear audio.
+     */
+    asr_model?: string;
+};
+
 export type DoubaoRealtimeWorkflowSpec = {
     realtime_model?: string;
     model?: string;
@@ -455,6 +614,10 @@ export type Workspace = {
     workflow_name: string;
     parameters?: WorkspaceParameters;
     created_at: string;
+    /**
+     * Last user-visible workspace conversation or history activity time. Configuration-only updates must not modify this field.
+     */
+    last_active_at: string;
     updated_at: string;
 };
 
@@ -500,6 +663,34 @@ export type AstTranslateWorkspaceParameters = {
      * Marks seed resources used by the local e2e harness.
      */
     e2e?: boolean;
+};
+
+export type ChatRoomMode = 'direct' | 'group';
+
+export type ChatRoomWorkspaceHistoryParameters = {
+    /**
+     * Workspace-level retention override for chat history entries and their assets.
+     */
+    ttl?: string;
+};
+
+export type ChatRoomWorkspaceParameters = {
+    agent_type: 'chatroom';
+    input?: WorkspaceInputMode;
+    mode?: ChatRoomMode;
+    history?: ChatRoomWorkspaceHistoryParameters;
+    transcript?: ChatRoomWorkspaceTranscriptParameters;
+};
+
+export type ChatRoomWorkspaceTranscriptParameters = {
+    /**
+     * Whether gear audio should be transcribed and written as text in workspace history.
+     */
+    enabled?: boolean;
+    /**
+     * Workspace-level ASR model override for gear audio transcription.
+     */
+    asr_model?: string;
 };
 
 export type DoubaoRealtimeExternalVoiceParameters = {
@@ -590,7 +781,9 @@ export type WorkspaceParameters = ({
     agent_type: 'doubao-realtime';
 } & DoubaoRealtimeWorkspaceParameters) | ({
     agent_type: 'ast-translate';
-} & AstTranslateWorkspaceParameters);
+} & AstTranslateWorkspaceParameters) | ({
+    agent_type: 'chatroom';
+} & ChatRoomWorkspaceParameters);
 
 export type Cursor = string;
 
@@ -607,6 +800,18 @@ export type VoiceSource2 = VoiceSource;
 export type VoiceProviderKind2 = VoiceProviderKind;
 
 export type VoiceProviderName = string;
+
+export type FriendId = string;
+
+export type FriendGroupId = string;
+
+export type FriendGroupMemberId = string;
+
+export type WorkspaceName = string;
+
+export type HistoryId = string;
+
+export type HistoryOrder = 'asc' | 'desc';
 
 export type ListPeerResourceNamesData = {
     body?: never;
@@ -1028,3 +1233,400 @@ export type CreateWebRtcOfferResponses = {
 };
 
 export type CreateWebRtcOfferResponse = CreateWebRtcOfferResponses[keyof CreateWebRtcOfferResponses];
+
+export type ListPeerFriendsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        cursor?: string;
+        limit?: number;
+    };
+    url: '/peer-resources/friends';
+};
+
+export type ListPeerFriendsResponses = {
+    /**
+     * A page of friends.
+     */
+    200: FriendListResponse;
+};
+
+export type ListPeerFriendsResponse = ListPeerFriendsResponses[keyof ListPeerFriendsResponses];
+
+export type AddPeerFriendData = {
+    body: FriendAddRequest;
+    path?: never;
+    query?: never;
+    url: '/peer-resources/friends/@add';
+};
+
+export type AddPeerFriendResponses = {
+    /**
+     * The friend relation.
+     */
+    200: FriendObject;
+};
+
+export type AddPeerFriendResponse = AddPeerFriendResponses[keyof AddPeerFriendResponses];
+
+export type ClearPeerFriendInviteTokenData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/peer-resources/friends/@invite-token';
+};
+
+export type ClearPeerFriendInviteTokenResponses = {
+    /**
+     * The empty clear result.
+     */
+    200: FriendInviteTokenClearResponse;
+};
+
+export type ClearPeerFriendInviteTokenResponse = ClearPeerFriendInviteTokenResponses[keyof ClearPeerFriendInviteTokenResponses];
+
+export type GetPeerFriendInviteTokenData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/peer-resources/friends/@invite-token';
+};
+
+export type GetPeerFriendInviteTokenResponses = {
+    /**
+     * The active invite token when present.
+     */
+    200: FriendInviteTokenGetResponse;
+};
+
+export type GetPeerFriendInviteTokenResponse = GetPeerFriendInviteTokenResponses[keyof GetPeerFriendInviteTokenResponses];
+
+export type CreatePeerFriendInviteTokenData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/peer-resources/friends/@invite-token';
+};
+
+export type CreatePeerFriendInviteTokenResponses = {
+    /**
+     * The active invite token.
+     */
+    200: FriendInviteTokenCreateResponse;
+};
+
+export type CreatePeerFriendInviteTokenResponse = CreatePeerFriendInviteTokenResponses[keyof CreatePeerFriendInviteTokenResponses];
+
+export type DeletePeerFriendData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/peer-resources/friends/{id}';
+};
+
+export type DeletePeerFriendResponses = {
+    /**
+     * The deleted friend relation.
+     */
+    200: FriendObject;
+};
+
+export type DeletePeerFriendResponse = DeletePeerFriendResponses[keyof DeletePeerFriendResponses];
+
+export type ListPeerFriendGroupsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        cursor?: string;
+        limit?: number;
+    };
+    url: '/peer-resources/friend-groups';
+};
+
+export type ListPeerFriendGroupsResponses = {
+    /**
+     * A page of friend groups.
+     */
+    200: FriendGroupListResponse;
+};
+
+export type ListPeerFriendGroupsResponse = ListPeerFriendGroupsResponses[keyof ListPeerFriendGroupsResponses];
+
+export type CreatePeerFriendGroupData = {
+    body: FriendGroupCreateRequest;
+    path?: never;
+    query?: never;
+    url: '/peer-resources/friend-groups';
+};
+
+export type CreatePeerFriendGroupResponses = {
+    /**
+     * The created friend group.
+     */
+    200: FriendGroupObject;
+};
+
+export type CreatePeerFriendGroupResponse = CreatePeerFriendGroupResponses[keyof CreatePeerFriendGroupResponses];
+
+export type JoinPeerFriendGroupData = {
+    body: FriendGroupJoinRequest;
+    path?: never;
+    query?: never;
+    url: '/peer-resources/friend-groups/@join';
+};
+
+export type JoinPeerFriendGroupResponses = {
+    /**
+     * The joined group and caller membership.
+     */
+    200: FriendGroupJoinResponse;
+};
+
+export type JoinPeerFriendGroupResponse = JoinPeerFriendGroupResponses[keyof JoinPeerFriendGroupResponses];
+
+export type DeletePeerFriendGroupData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/peer-resources/friend-groups/{id}';
+};
+
+export type DeletePeerFriendGroupResponses = {
+    /**
+     * The deleted friend group.
+     */
+    200: FriendGroupObject;
+};
+
+export type DeletePeerFriendGroupResponse = DeletePeerFriendGroupResponses[keyof DeletePeerFriendGroupResponses];
+
+export type GetPeerFriendGroupData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/peer-resources/friend-groups/{id}';
+};
+
+export type GetPeerFriendGroupResponses = {
+    /**
+     * The friend group.
+     */
+    200: FriendGroupObject;
+};
+
+export type GetPeerFriendGroupResponse = GetPeerFriendGroupResponses[keyof GetPeerFriendGroupResponses];
+
+export type PutPeerFriendGroupData = {
+    body: FriendGroupPutRequest;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/peer-resources/friend-groups/{id}';
+};
+
+export type PutPeerFriendGroupResponses = {
+    /**
+     * The updated friend group.
+     */
+    200: FriendGroupObject;
+};
+
+export type PutPeerFriendGroupResponse = PutPeerFriendGroupResponses[keyof PutPeerFriendGroupResponses];
+
+export type ClearPeerFriendGroupInviteTokenData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/peer-resources/friend-groups/{id}/invite-token';
+};
+
+export type ClearPeerFriendGroupInviteTokenResponses = {
+    /**
+     * The empty clear result.
+     */
+    200: FriendGroupInviteTokenClearResponse;
+};
+
+export type ClearPeerFriendGroupInviteTokenResponse = ClearPeerFriendGroupInviteTokenResponses[keyof ClearPeerFriendGroupInviteTokenResponses];
+
+export type GetPeerFriendGroupInviteTokenData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/peer-resources/friend-groups/{id}/invite-token';
+};
+
+export type GetPeerFriendGroupInviteTokenResponses = {
+    /**
+     * The active invite token when present.
+     */
+    200: FriendGroupInviteTokenGetResponse;
+};
+
+export type GetPeerFriendGroupInviteTokenResponse = GetPeerFriendGroupInviteTokenResponses[keyof GetPeerFriendGroupInviteTokenResponses];
+
+export type CreatePeerFriendGroupInviteTokenData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/peer-resources/friend-groups/{id}/invite-token';
+};
+
+export type CreatePeerFriendGroupInviteTokenResponses = {
+    /**
+     * The active invite token.
+     */
+    200: FriendGroupInviteTokenCreateResponse;
+};
+
+export type CreatePeerFriendGroupInviteTokenResponse = CreatePeerFriendGroupInviteTokenResponses[keyof CreatePeerFriendGroupInviteTokenResponses];
+
+export type ListPeerFriendGroupMembersData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: {
+        cursor?: string;
+        limit?: number;
+    };
+    url: '/peer-resources/friend-groups/{id}/members';
+};
+
+export type ListPeerFriendGroupMembersResponses = {
+    /**
+     * A page of friend group members.
+     */
+    200: FriendGroupMemberListResponse;
+};
+
+export type ListPeerFriendGroupMembersResponse = ListPeerFriendGroupMembersResponses[keyof ListPeerFriendGroupMembersResponses];
+
+export type AddPeerFriendGroupMemberData = {
+    body: FriendGroupMemberAddRequest;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/peer-resources/friend-groups/{id}/members';
+};
+
+export type AddPeerFriendGroupMemberResponses = {
+    /**
+     * The added friend group member.
+     */
+    200: FriendGroupMemberObject;
+};
+
+export type AddPeerFriendGroupMemberResponse = AddPeerFriendGroupMemberResponses[keyof AddPeerFriendGroupMemberResponses];
+
+export type DeletePeerFriendGroupMemberData = {
+    body?: never;
+    path: {
+        id: string;
+        member_id: string;
+    };
+    query?: never;
+    url: '/peer-resources/friend-groups/{id}/members/{member_id}';
+};
+
+export type DeletePeerFriendGroupMemberResponses = {
+    /**
+     * The deleted friend group member.
+     */
+    200: FriendGroupMemberObject;
+};
+
+export type DeletePeerFriendGroupMemberResponse = DeletePeerFriendGroupMemberResponses[keyof DeletePeerFriendGroupMemberResponses];
+
+export type PutPeerFriendGroupMemberData = {
+    body: FriendGroupMemberPutRequest;
+    path: {
+        id: string;
+        member_id: string;
+    };
+    query?: never;
+    url: '/peer-resources/friend-groups/{id}/members/{member_id}';
+};
+
+export type PutPeerFriendGroupMemberResponses = {
+    /**
+     * The updated friend group member.
+     */
+    200: FriendGroupMemberObject;
+};
+
+export type PutPeerFriendGroupMemberResponse = PutPeerFriendGroupMemberResponses[keyof PutPeerFriendGroupMemberResponses];
+
+export type ListPeerWorkspaceHistoryData = {
+    body?: never;
+    path: {
+        workspace_name: string;
+    };
+    query?: {
+        cursor?: string;
+        limit?: number;
+        order?: 'asc' | 'desc';
+    };
+    url: '/peer-resources/workspaces/{workspace_name}/history';
+};
+
+export type ListPeerWorkspaceHistoryResponses = {
+    /**
+     * A page of workspace history entries.
+     */
+    200: PeerRunHistoryListResponse;
+};
+
+export type ListPeerWorkspaceHistoryResponse = ListPeerWorkspaceHistoryResponses[keyof ListPeerWorkspaceHistoryResponses];
+
+export type GetPeerWorkspaceHistoryData = {
+    body?: never;
+    path: {
+        workspace_name: string;
+        history_id: string;
+    };
+    query?: never;
+    url: '/peer-resources/workspaces/{workspace_name}/history/{history_id}';
+};
+
+export type GetPeerWorkspaceHistoryResponses = {
+    /**
+     * The workspace history entry.
+     */
+    200: PeerRunHistoryEntry;
+};
+
+export type GetPeerWorkspaceHistoryResponse = GetPeerWorkspaceHistoryResponses[keyof GetPeerWorkspaceHistoryResponses];
+
+export type GetPeerWorkspaceHistoryAudioData = {
+    body?: never;
+    path: {
+        workspace_name: string;
+        history_id: string;
+    };
+    query?: never;
+    url: '/peer-resources/workspaces/{workspace_name}/history/{history_id}/audio';
+};
+
+export type GetPeerWorkspaceHistoryAudioResponses = {
+    /**
+     * The workspace history audio asset.
+     */
+    200: Blob | File;
+};
+
+export type GetPeerWorkspaceHistoryAudioResponse = GetPeerWorkspaceHistoryAudioResponses[keyof GetPeerWorkspaceHistoryAudioResponses];

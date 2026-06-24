@@ -243,48 +243,6 @@ func (e FriendGroupMemberRole) Valid() bool {
 	}
 }
 
-// Defines values for FriendRequestBox.
-const (
-	FriendRequestBoxAll      FriendRequestBox = "all"
-	FriendRequestBoxIncoming FriendRequestBox = "incoming"
-	FriendRequestBoxOutgoing FriendRequestBox = "outgoing"
-)
-
-// Valid indicates whether the value is a known member of the FriendRequestBox enum.
-func (e FriendRequestBox) Valid() bool {
-	switch e {
-	case FriendRequestBoxAll:
-		return true
-	case FriendRequestBoxIncoming:
-		return true
-	case FriendRequestBoxOutgoing:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for FriendRequestState.
-const (
-	FriendRequestStateAccepted FriendRequestState = "accepted"
-	FriendRequestStatePending  FriendRequestState = "pending"
-	FriendRequestStateRejected FriendRequestState = "rejected"
-)
-
-// Valid indicates whether the value is a known member of the FriendRequestState enum.
-func (e FriendRequestState) Valid() bool {
-	switch e {
-	case FriendRequestStateAccepted:
-		return true
-	case FriendRequestStatePending:
-		return true
-	case FriendRequestStateRejected:
-		return true
-	default:
-		return false
-	}
-}
-
 // Defines values for ModelKind.
 const (
 	ModelKindAsr         ModelKind = "asr"
@@ -458,91 +416,95 @@ func (e RPCErrorCode) Valid() bool {
 
 // Defines values for RPCMethod.
 const (
-	RPCMethodAllPing                        RPCMethod = "all.ping"
-	RPCMethodAllSpeedTestRun                RPCMethod = "all.speed_test.run"
-	RPCMethodClientIdentifiersGet           RPCMethod = "client.identifiers.get"
-	RPCMethodClientInfoGet                  RPCMethod = "client.info.get"
-	RPCMethodServerContactCreate            RPCMethod = "server.contact.create"
-	RPCMethodServerContactDelete            RPCMethod = "server.contact.delete"
-	RPCMethodServerContactGet               RPCMethod = "server.contact.get"
-	RPCMethodServerContactList              RPCMethod = "server.contact.list"
-	RPCMethodServerContactPut               RPCMethod = "server.contact.put"
-	RPCMethodServerCredentialCreate         RPCMethod = "server.credential.create"
-	RPCMethodServerCredentialDelete         RPCMethod = "server.credential.delete"
-	RPCMethodServerCredentialGet            RPCMethod = "server.credential.get"
-	RPCMethodServerCredentialList           RPCMethod = "server.credential.list"
-	RPCMethodServerCredentialPut            RPCMethod = "server.credential.put"
-	RPCMethodServerFirmwareDownload         RPCMethod = "server.firmware.download"
-	RPCMethodServerFirmwareGet              RPCMethod = "server.firmware.get"
-	RPCMethodServerFirmwareList             RPCMethod = "server.firmware.list"
-	RPCMethodServerFriendDelete             RPCMethod = "server.friend.delete"
-	RPCMethodServerFriendGroupCreate        RPCMethod = "server.friend_group.create"
-	RPCMethodServerFriendGroupDelete        RPCMethod = "server.friend_group.delete"
-	RPCMethodServerFriendGroupGet           RPCMethod = "server.friend_group.get"
-	RPCMethodServerFriendGroupList          RPCMethod = "server.friend_group.list"
-	RPCMethodServerFriendGroupMembersAdd    RPCMethod = "server.friend_group.members.add"
-	RPCMethodServerFriendGroupMembersDelete RPCMethod = "server.friend_group.members.delete"
-	RPCMethodServerFriendGroupMembersList   RPCMethod = "server.friend_group.members.list"
-	RPCMethodServerFriendGroupMembersPut    RPCMethod = "server.friend_group.members.put"
-	RPCMethodServerFriendGroupMessagesGet   RPCMethod = "server.friend_group.messages.get"
-	RPCMethodServerFriendGroupMessagesList  RPCMethod = "server.friend_group.messages.list"
-	RPCMethodServerFriendGroupMessagesSend  RPCMethod = "server.friend_group.messages.send"
-	RPCMethodServerFriendGroupPut           RPCMethod = "server.friend_group.put"
-	RPCMethodServerFriendList               RPCMethod = "server.friend.list"
-	RPCMethodServerFriendRequestsAccept     RPCMethod = "server.friend.requests.accept"
-	RPCMethodServerFriendRequestsCreate     RPCMethod = "server.friend.requests.create"
-	RPCMethodServerFriendRequestsList       RPCMethod = "server.friend.requests.list"
-	RPCMethodServerFriendRequestsReject     RPCMethod = "server.friend.requests.reject"
-	RPCMethodServerInfoGet                  RPCMethod = "server.info.get"
-	RPCMethodServerInfoPut                  RPCMethod = "server.info.put"
-	RPCMethodServerModelCreate              RPCMethod = "server.model.create"
-	RPCMethodServerModelDelete              RPCMethod = "server.model.delete"
-	RPCMethodServerModelGet                 RPCMethod = "server.model.get"
-	RPCMethodServerModelList                RPCMethod = "server.model.list"
-	RPCMethodServerModelPut                 RPCMethod = "server.model.put"
-	RPCMethodServerPetAdopt                 RPCMethod = "server.pet.adopt"
-	RPCMethodServerPetDelete                RPCMethod = "server.pet.delete"
-	RPCMethodServerPetFeed                  RPCMethod = "server.pet.feed"
-	RPCMethodServerPetGet                   RPCMethod = "server.pet.get"
-	RPCMethodServerPetList                  RPCMethod = "server.pet.list"
-	RPCMethodServerPetPlay                  RPCMethod = "server.pet.play"
-	RPCMethodServerPetPut                   RPCMethod = "server.pet.put"
-	RPCMethodServerPetWash                  RPCMethod = "server.pet.wash"
-	RPCMethodServerRewardClaim              RPCMethod = "server.reward.claim"
-	RPCMethodServerRewardGet                RPCMethod = "server.reward.get"
-	RPCMethodServerRewardList               RPCMethod = "server.reward.list"
-	RPCMethodServerRunAgentGet              RPCMethod = "server.run.agent.get"
-	RPCMethodServerRunAgentSet              RPCMethod = "server.run.agent.set"
-	RPCMethodServerRunReload                RPCMethod = "server.run.reload"
-	RPCMethodServerRunSay                   RPCMethod = "server.run.say"
-	RPCMethodServerRunStatus                RPCMethod = "server.run.status"
-	RPCMethodServerRunStop                  RPCMethod = "server.run.stop"
-	RPCMethodServerRunWorkspaceGet          RPCMethod = "server.run.workspace.get"
-	RPCMethodServerRunWorkspaceHistory      RPCMethod = "server.run.workspace.history"
-	RPCMethodServerRunWorkspaceHistoryPlay  RPCMethod = "server.run.workspace.history.play"
-	RPCMethodServerRunWorkspaceMemoryStats  RPCMethod = "server.run.workspace.memory.stats"
-	RPCMethodServerRunWorkspaceRecall       RPCMethod = "server.run.workspace.recall"
-	RPCMethodServerRunWorkspaceReload       RPCMethod = "server.run.workspace.reload"
-	RPCMethodServerRunWorkspaceSet          RPCMethod = "server.run.workspace.set"
-	RPCMethodServerRuntimeGet               RPCMethod = "server.runtime.get"
-	RPCMethodServerStatusGet                RPCMethod = "server.status.get"
-	RPCMethodServerStatusPut                RPCMethod = "server.status.put"
-	RPCMethodServerWalletGet                RPCMethod = "server.wallet.get"
-	RPCMethodServerWalletTransactionsGet    RPCMethod = "server.wallet.transactions.get"
-	RPCMethodServerWalletTransactionsList   RPCMethod = "server.wallet.transactions.list"
-	RPCMethodServerWorkflowCreate           RPCMethod = "server.workflow.create"
-	RPCMethodServerWorkflowDelete           RPCMethod = "server.workflow.delete"
-	RPCMethodServerWorkflowGet              RPCMethod = "server.workflow.get"
-	RPCMethodServerWorkflowList             RPCMethod = "server.workflow.list"
-	RPCMethodServerWorkflowPut              RPCMethod = "server.workflow.put"
-	RPCMethodServerWorkspaceCreate          RPCMethod = "server.workspace.create"
-	RPCMethodServerWorkspaceDelete          RPCMethod = "server.workspace.delete"
-	RPCMethodServerWorkspaceGet             RPCMethod = "server.workspace.get"
-	RPCMethodServerWorkspaceHistoryAudioGet RPCMethod = "server.workspace.history.audio.get"
-	RPCMethodServerWorkspaceHistoryGet      RPCMethod = "server.workspace.history.get"
-	RPCMethodServerWorkspaceHistoryList     RPCMethod = "server.workspace.history.list"
-	RPCMethodServerWorkspaceList            RPCMethod = "server.workspace.list"
-	RPCMethodServerWorkspacePut             RPCMethod = "server.workspace.put"
+	RPCMethodAllPing                            RPCMethod = "all.ping"
+	RPCMethodAllSpeedTestRun                    RPCMethod = "all.speed_test.run"
+	RPCMethodClientIdentifiersGet               RPCMethod = "client.identifiers.get"
+	RPCMethodClientInfoGet                      RPCMethod = "client.info.get"
+	RPCMethodServerContactCreate                RPCMethod = "server.contact.create"
+	RPCMethodServerContactDelete                RPCMethod = "server.contact.delete"
+	RPCMethodServerContactGet                   RPCMethod = "server.contact.get"
+	RPCMethodServerContactList                  RPCMethod = "server.contact.list"
+	RPCMethodServerContactPut                   RPCMethod = "server.contact.put"
+	RPCMethodServerCredentialCreate             RPCMethod = "server.credential.create"
+	RPCMethodServerCredentialDelete             RPCMethod = "server.credential.delete"
+	RPCMethodServerCredentialGet                RPCMethod = "server.credential.get"
+	RPCMethodServerCredentialList               RPCMethod = "server.credential.list"
+	RPCMethodServerCredentialPut                RPCMethod = "server.credential.put"
+	RPCMethodServerFirmwareDownload             RPCMethod = "server.firmware.download"
+	RPCMethodServerFirmwareGet                  RPCMethod = "server.firmware.get"
+	RPCMethodServerFirmwareList                 RPCMethod = "server.firmware.list"
+	RPCMethodServerFriendAdd                    RPCMethod = "server.friend.add"
+	RPCMethodServerFriendDelete                 RPCMethod = "server.friend.delete"
+	RPCMethodServerFriendGroupCreate            RPCMethod = "server.friend_group.create"
+	RPCMethodServerFriendGroupDelete            RPCMethod = "server.friend_group.delete"
+	RPCMethodServerFriendGroupGet               RPCMethod = "server.friend_group.get"
+	RPCMethodServerFriendGroupInviteTokenClear  RPCMethod = "server.friend_group.invite_token.clear"
+	RPCMethodServerFriendGroupInviteTokenCreate RPCMethod = "server.friend_group.invite_token.create"
+	RPCMethodServerFriendGroupInviteTokenGet    RPCMethod = "server.friend_group.invite_token.get"
+	RPCMethodServerFriendGroupJoin              RPCMethod = "server.friend_group.join"
+	RPCMethodServerFriendGroupList              RPCMethod = "server.friend_group.list"
+	RPCMethodServerFriendGroupMembersAdd        RPCMethod = "server.friend_group.members.add"
+	RPCMethodServerFriendGroupMembersDelete     RPCMethod = "server.friend_group.members.delete"
+	RPCMethodServerFriendGroupMembersList       RPCMethod = "server.friend_group.members.list"
+	RPCMethodServerFriendGroupMembersPut        RPCMethod = "server.friend_group.members.put"
+	RPCMethodServerFriendGroupMessagesGet       RPCMethod = "server.friend_group.messages.get"
+	RPCMethodServerFriendGroupMessagesList      RPCMethod = "server.friend_group.messages.list"
+	RPCMethodServerFriendGroupMessagesSend      RPCMethod = "server.friend_group.messages.send"
+	RPCMethodServerFriendGroupPut               RPCMethod = "server.friend_group.put"
+	RPCMethodServerFriendInviteTokenClear       RPCMethod = "server.friend.invite_token.clear"
+	RPCMethodServerFriendInviteTokenCreate      RPCMethod = "server.friend.invite_token.create"
+	RPCMethodServerFriendInviteTokenGet         RPCMethod = "server.friend.invite_token.get"
+	RPCMethodServerFriendList                   RPCMethod = "server.friend.list"
+	RPCMethodServerInfoGet                      RPCMethod = "server.info.get"
+	RPCMethodServerInfoPut                      RPCMethod = "server.info.put"
+	RPCMethodServerModelCreate                  RPCMethod = "server.model.create"
+	RPCMethodServerModelDelete                  RPCMethod = "server.model.delete"
+	RPCMethodServerModelGet                     RPCMethod = "server.model.get"
+	RPCMethodServerModelList                    RPCMethod = "server.model.list"
+	RPCMethodServerModelPut                     RPCMethod = "server.model.put"
+	RPCMethodServerPetAdopt                     RPCMethod = "server.pet.adopt"
+	RPCMethodServerPetDelete                    RPCMethod = "server.pet.delete"
+	RPCMethodServerPetFeed                      RPCMethod = "server.pet.feed"
+	RPCMethodServerPetGet                       RPCMethod = "server.pet.get"
+	RPCMethodServerPetList                      RPCMethod = "server.pet.list"
+	RPCMethodServerPetPlay                      RPCMethod = "server.pet.play"
+	RPCMethodServerPetPut                       RPCMethod = "server.pet.put"
+	RPCMethodServerPetWash                      RPCMethod = "server.pet.wash"
+	RPCMethodServerRewardClaim                  RPCMethod = "server.reward.claim"
+	RPCMethodServerRewardGet                    RPCMethod = "server.reward.get"
+	RPCMethodServerRewardList                   RPCMethod = "server.reward.list"
+	RPCMethodServerRunAgentGet                  RPCMethod = "server.run.agent.get"
+	RPCMethodServerRunAgentSet                  RPCMethod = "server.run.agent.set"
+	RPCMethodServerRunReload                    RPCMethod = "server.run.reload"
+	RPCMethodServerRunSay                       RPCMethod = "server.run.say"
+	RPCMethodServerRunStatus                    RPCMethod = "server.run.status"
+	RPCMethodServerRunStop                      RPCMethod = "server.run.stop"
+	RPCMethodServerRunWorkspaceGet              RPCMethod = "server.run.workspace.get"
+	RPCMethodServerRunWorkspaceHistory          RPCMethod = "server.run.workspace.history"
+	RPCMethodServerRunWorkspaceHistoryPlay      RPCMethod = "server.run.workspace.history.play"
+	RPCMethodServerRunWorkspaceMemoryStats      RPCMethod = "server.run.workspace.memory.stats"
+	RPCMethodServerRunWorkspaceRecall           RPCMethod = "server.run.workspace.recall"
+	RPCMethodServerRunWorkspaceReload           RPCMethod = "server.run.workspace.reload"
+	RPCMethodServerRunWorkspaceSet              RPCMethod = "server.run.workspace.set"
+	RPCMethodServerRuntimeGet                   RPCMethod = "server.runtime.get"
+	RPCMethodServerStatusGet                    RPCMethod = "server.status.get"
+	RPCMethodServerStatusPut                    RPCMethod = "server.status.put"
+	RPCMethodServerWalletGet                    RPCMethod = "server.wallet.get"
+	RPCMethodServerWalletTransactionsGet        RPCMethod = "server.wallet.transactions.get"
+	RPCMethodServerWalletTransactionsList       RPCMethod = "server.wallet.transactions.list"
+	RPCMethodServerWorkflowCreate               RPCMethod = "server.workflow.create"
+	RPCMethodServerWorkflowDelete               RPCMethod = "server.workflow.delete"
+	RPCMethodServerWorkflowGet                  RPCMethod = "server.workflow.get"
+	RPCMethodServerWorkflowList                 RPCMethod = "server.workflow.list"
+	RPCMethodServerWorkflowPut                  RPCMethod = "server.workflow.put"
+	RPCMethodServerWorkspaceCreate              RPCMethod = "server.workspace.create"
+	RPCMethodServerWorkspaceDelete              RPCMethod = "server.workspace.delete"
+	RPCMethodServerWorkspaceGet                 RPCMethod = "server.workspace.get"
+	RPCMethodServerWorkspaceHistoryAudioGet     RPCMethod = "server.workspace.history.audio.get"
+	RPCMethodServerWorkspaceHistoryGet          RPCMethod = "server.workspace.history.get"
+	RPCMethodServerWorkspaceHistoryList         RPCMethod = "server.workspace.history.list"
+	RPCMethodServerWorkspaceList                RPCMethod = "server.workspace.list"
+	RPCMethodServerWorkspacePut                 RPCMethod = "server.workspace.put"
 )
 
 // Valid indicates whether the value is a known member of the RPCMethod enum.
@@ -582,6 +544,8 @@ func (e RPCMethod) Valid() bool {
 		return true
 	case RPCMethodServerFirmwareList:
 		return true
+	case RPCMethodServerFriendAdd:
+		return true
 	case RPCMethodServerFriendDelete:
 		return true
 	case RPCMethodServerFriendGroupCreate:
@@ -589,6 +553,14 @@ func (e RPCMethod) Valid() bool {
 	case RPCMethodServerFriendGroupDelete:
 		return true
 	case RPCMethodServerFriendGroupGet:
+		return true
+	case RPCMethodServerFriendGroupInviteTokenClear:
+		return true
+	case RPCMethodServerFriendGroupInviteTokenCreate:
+		return true
+	case RPCMethodServerFriendGroupInviteTokenGet:
+		return true
+	case RPCMethodServerFriendGroupJoin:
 		return true
 	case RPCMethodServerFriendGroupList:
 		return true
@@ -608,15 +580,13 @@ func (e RPCMethod) Valid() bool {
 		return true
 	case RPCMethodServerFriendGroupPut:
 		return true
+	case RPCMethodServerFriendInviteTokenClear:
+		return true
+	case RPCMethodServerFriendInviteTokenCreate:
+		return true
+	case RPCMethodServerFriendInviteTokenGet:
+		return true
 	case RPCMethodServerFriendList:
-		return true
-	case RPCMethodServerFriendRequestsAccept:
-		return true
-	case RPCMethodServerFriendRequestsCreate:
-		return true
-	case RPCMethodServerFriendRequestsList:
-		return true
-	case RPCMethodServerFriendRequestsReject:
 		return true
 	case RPCMethodServerInfoGet:
 		return true
@@ -1331,6 +1301,14 @@ type FlowcraftWorkspaceParameters struct {
 // FlowcraftWorkspaceParametersAgentType defines model for FlowcraftWorkspaceParameters.AgentType.
 type FlowcraftWorkspaceParametersAgentType string
 
+// FriendAddRequest defines model for FriendAddRequest.
+type FriendAddRequest struct {
+	InviteToken string `json:"invite_token"`
+}
+
+// FriendAddResponse defines model for FriendAddResponse.
+type FriendAddResponse = FriendObject
+
 // FriendDeleteRequest defines model for FriendDeleteRequest.
 type FriendDeleteRequest struct {
 	Id string `json:"id"`
@@ -1364,6 +1342,47 @@ type FriendGroupGetRequest struct {
 // FriendGroupGetResponse defines model for FriendGroupGetResponse.
 type FriendGroupGetResponse = FriendGroupObject
 
+// FriendGroupInviteTokenClearRequest defines model for FriendGroupInviteTokenClearRequest.
+type FriendGroupInviteTokenClearRequest struct {
+	FriendGroupId string `json:"friend_group_id"`
+}
+
+// FriendGroupInviteTokenClearResponse defines model for FriendGroupInviteTokenClearResponse.
+type FriendGroupInviteTokenClearResponse = map[string]interface{}
+
+// FriendGroupInviteTokenCreateRequest defines model for FriendGroupInviteTokenCreateRequest.
+type FriendGroupInviteTokenCreateRequest struct {
+	FriendGroupId string `json:"friend_group_id"`
+}
+
+// FriendGroupInviteTokenCreateResponse defines model for FriendGroupInviteTokenCreateResponse.
+type FriendGroupInviteTokenCreateResponse struct {
+	ExpiresAt   time.Time `json:"expires_at"`
+	InviteToken string    `json:"invite_token"`
+}
+
+// FriendGroupInviteTokenGetRequest defines model for FriendGroupInviteTokenGetRequest.
+type FriendGroupInviteTokenGetRequest struct {
+	FriendGroupId string `json:"friend_group_id"`
+}
+
+// FriendGroupInviteTokenGetResponse defines model for FriendGroupInviteTokenGetResponse.
+type FriendGroupInviteTokenGetResponse struct {
+	ExpiresAt   *time.Time `json:"expires_at,omitempty"`
+	InviteToken *string    `json:"invite_token,omitempty"`
+}
+
+// FriendGroupJoinRequest defines model for FriendGroupJoinRequest.
+type FriendGroupJoinRequest struct {
+	InviteToken string `json:"invite_token"`
+}
+
+// FriendGroupJoinResponse defines model for FriendGroupJoinResponse.
+type FriendGroupJoinResponse struct {
+	Group  FriendGroupObject       `json:"group"`
+	Member FriendGroupMemberObject `json:"member"`
+}
+
 // FriendGroupListRequest defines model for FriendGroupListRequest.
 type FriendGroupListRequest struct {
 	Cursor *string `json:"cursor,omitempty"`
@@ -1380,7 +1399,7 @@ type FriendGroupListResponse struct {
 // FriendGroupMemberAddRequest defines model for FriendGroupMemberAddRequest.
 type FriendGroupMemberAddRequest struct {
 	FriendGroupId string                       `json:"friend_group_id"`
-	PeerId        string                       `json:"peer_id"`
+	PeerPublicKey string                       `json:"peer_public_key"`
 	Role          FriendGroupMemberMutableRole `json:"role"`
 }
 
@@ -1418,7 +1437,7 @@ type FriendGroupMemberObject struct {
 	CreatedAt     *time.Time             `json:"created_at,omitempty"`
 	FriendGroupId *string                `json:"friend_group_id,omitempty"`
 	Id            *string                `json:"id,omitempty"`
-	PeerId        *string                `json:"peer_id,omitempty"`
+	PeerPublicKey *string                `json:"peer_public_key,omitempty"`
 	Role          *FriendGroupMemberRole `json:"role,omitempty"`
 	UpdatedAt     *time.Time             `json:"updated_at,omitempty"`
 }
@@ -1461,15 +1480,15 @@ type FriendGroupMessageListResponse struct {
 
 // FriendGroupMessageObject defines model for FriendGroupMessageObject.
 type FriendGroupMessageObject struct {
-	AudioContentType *string    `json:"audio_content_type,omitempty"`
-	AudioPath        *string    `json:"audio_path,omitempty"`
-	AudioSizeBytes   *int64     `json:"audio_size_bytes,omitempty"`
-	CreatedAt        *time.Time `json:"created_at,omitempty"`
-	ExpiresAt        *time.Time `json:"expires_at,omitempty"`
-	FriendGroupId    *string    `json:"friend_group_id,omitempty"`
-	Id               *string    `json:"id,omitempty"`
-	SenderPeerId     *string    `json:"sender_peer_id,omitempty"`
-	TtlSeconds       *int       `json:"ttl_seconds,omitempty"`
+	AudioContentType    *string    `json:"audio_content_type,omitempty"`
+	AudioPath           *string    `json:"audio_path,omitempty"`
+	AudioSizeBytes      *int64     `json:"audio_size_bytes,omitempty"`
+	CreatedAt           *time.Time `json:"created_at,omitempty"`
+	ExpiresAt           *time.Time `json:"expires_at,omitempty"`
+	FriendGroupId       *string    `json:"friend_group_id,omitempty"`
+	Id                  *string    `json:"id,omitempty"`
+	SenderPeerPublicKey *string    `json:"sender_peer_public_key,omitempty"`
+	TtlSeconds          *int       `json:"ttl_seconds,omitempty"`
 }
 
 // FriendGroupMessageSendRequest defines model for FriendGroupMessageSendRequest.
@@ -1485,13 +1504,14 @@ type FriendGroupMessageSendResponse = FriendGroupMessageObject
 
 // FriendGroupObject defines model for FriendGroupObject.
 type FriendGroupObject struct {
-	CreatedAt       *time.Time `json:"created_at,omitempty"`
-	CreatedByPeerId *string    `json:"created_by_peer_id,omitempty"`
-	Description     *string    `json:"description,omitempty"`
-	Id              *string    `json:"id,omitempty"`
-	Name            *string    `json:"name,omitempty"`
-	UpdatedAt       *time.Time `json:"updated_at,omitempty"`
-	WorkspaceName   *string    `json:"workspace_name,omitempty"`
+	CreatedAt              *time.Time             `json:"created_at,omitempty"`
+	CreatedByPeerPublicKey *string                `json:"created_by_peer_public_key,omitempty"`
+	Description            *string                `json:"description,omitempty"`
+	Id                     *string                `json:"id,omitempty"`
+	MyRole                 *FriendGroupMemberRole `json:"my_role,omitempty"`
+	Name                   *string                `json:"name,omitempty"`
+	UpdatedAt              *time.Time             `json:"updated_at,omitempty"`
+	WorkspaceName          *string                `json:"workspace_name,omitempty"`
 }
 
 // FriendGroupPutRequest defines model for FriendGroupPutRequest.
@@ -1503,6 +1523,30 @@ type FriendGroupPutRequest struct {
 
 // FriendGroupPutResponse defines model for FriendGroupPutResponse.
 type FriendGroupPutResponse = FriendGroupObject
+
+// FriendInviteTokenClearRequest defines model for FriendInviteTokenClearRequest.
+type FriendInviteTokenClearRequest = map[string]interface{}
+
+// FriendInviteTokenClearResponse defines model for FriendInviteTokenClearResponse.
+type FriendInviteTokenClearResponse = map[string]interface{}
+
+// FriendInviteTokenCreateRequest defines model for FriendInviteTokenCreateRequest.
+type FriendInviteTokenCreateRequest = map[string]interface{}
+
+// FriendInviteTokenCreateResponse defines model for FriendInviteTokenCreateResponse.
+type FriendInviteTokenCreateResponse struct {
+	ExpiresAt   time.Time `json:"expires_at"`
+	InviteToken string    `json:"invite_token"`
+}
+
+// FriendInviteTokenGetRequest defines model for FriendInviteTokenGetRequest.
+type FriendInviteTokenGetRequest = map[string]interface{}
+
+// FriendInviteTokenGetResponse defines model for FriendInviteTokenGetResponse.
+type FriendInviteTokenGetResponse struct {
+	ExpiresAt   *time.Time `json:"expires_at,omitempty"`
+	InviteToken *string    `json:"invite_token,omitempty"`
+}
 
 // FriendListRequest defines model for FriendListRequest.
 type FriendListRequest struct {
@@ -1521,71 +1565,10 @@ type FriendListResponse struct {
 type FriendObject struct {
 	CreatedAt     *time.Time `json:"created_at,omitempty"`
 	Id            *string    `json:"id,omitempty"`
-	PeerId        *string    `json:"peer_id,omitempty"`
-	RequestId     *string    `json:"request_id,omitempty"`
+	PeerPublicKey *string    `json:"peer_public_key,omitempty"`
 	UpdatedAt     *time.Time `json:"updated_at,omitempty"`
 	WorkspaceName *string    `json:"workspace_name,omitempty"`
 }
-
-// FriendRequestAcceptRequest defines model for FriendRequestAcceptRequest.
-type FriendRequestAcceptRequest struct {
-	Id string `json:"id"`
-}
-
-// FriendRequestAcceptResponse defines model for FriendRequestAcceptResponse.
-type FriendRequestAcceptResponse = FriendRequestObject
-
-// FriendRequestBox defines model for FriendRequestBox.
-type FriendRequestBox string
-
-// FriendRequestCreateRequest defines model for FriendRequestCreateRequest.
-type FriendRequestCreateRequest struct {
-	Code     string  `json:"code"`
-	Message  *string `json:"message,omitempty"`
-	ToPeerId string  `json:"to_peer_id"`
-}
-
-// FriendRequestCreateResponse defines model for FriendRequestCreateResponse.
-type FriendRequestCreateResponse = FriendRequestObject
-
-// FriendRequestListRequest defines model for FriendRequestListRequest.
-type FriendRequestListRequest struct {
-	Box    *FriendRequestBox   `json:"box,omitempty"`
-	Cursor *string             `json:"cursor,omitempty"`
-	Limit  *int                `json:"limit,omitempty"`
-	State  *FriendRequestState `json:"state,omitempty"`
-}
-
-// FriendRequestListResponse defines model for FriendRequestListResponse.
-type FriendRequestListResponse struct {
-	HasNext    bool                  `json:"has_next"`
-	Items      []FriendRequestObject `json:"items"`
-	NextCursor *string               `json:"next_cursor,omitempty"`
-}
-
-// FriendRequestObject defines model for FriendRequestObject.
-type FriendRequestObject struct {
-	CreatedAt     *time.Time          `json:"created_at,omitempty"`
-	FromPeerId    *string             `json:"from_peer_id,omitempty"`
-	Id            *string             `json:"id,omitempty"`
-	Message       *string             `json:"message,omitempty"`
-	RespondedAt   *time.Time          `json:"responded_at,omitempty"`
-	State         *FriendRequestState `json:"state,omitempty"`
-	ToPeerId      *string             `json:"to_peer_id,omitempty"`
-	UpdatedAt     *time.Time          `json:"updated_at,omitempty"`
-	WorkspaceName *string             `json:"workspace_name,omitempty"`
-}
-
-// FriendRequestRejectRequest defines model for FriendRequestRejectRequest.
-type FriendRequestRejectRequest struct {
-	Id string `json:"id"`
-}
-
-// FriendRequestRejectResponse defines model for FriendRequestRejectResponse.
-type FriendRequestRejectResponse = FriendRequestObject
-
-// FriendRequestState defines model for FriendRequestState.
-type FriendRequestState string
 
 // GeminiCredentialBody defines model for GeminiCredentialBody.
 type GeminiCredentialBody struct {
@@ -1861,7 +1844,6 @@ type PeerRunRecallResponse struct {
 
 // PeerRunStatus defines model for PeerRunStatus.
 type PeerRunStatus struct {
-	FriendOtp     *string            `json:"friend_otp,omitempty"`
 	Message       *string            `json:"message,omitempty"`
 	StartedAt     *time.Time         `json:"started_at,omitempty"`
 	State         PeerRunStatusState `json:"state"`
@@ -2141,9 +2123,7 @@ type ServerGetRunAgentRequest = map[string]interface{}
 type ServerGetRunAgentResponse = PeerRunAgent
 
 // ServerGetRunStatusRequest defines model for ServerGetRunStatusRequest.
-type ServerGetRunStatusRequest struct {
-	FriendOtp *string `json:"friend_otp,omitempty"`
-}
+type ServerGetRunStatusRequest = map[string]interface{}
 
 // ServerGetRunStatusResponse defines model for ServerGetRunStatusResponse.
 type ServerGetRunStatusResponse = PeerRunStatus
@@ -4665,22 +4645,22 @@ func (t *RPCRequest_Params) MergeContactDeleteRequest(v ContactDeleteRequest) er
 	return err
 }
 
-// AsFriendRequestListRequest returns the union data inside the RPCRequest_Params as a FriendRequestListRequest
-func (t RPCRequest_Params) AsFriendRequestListRequest() (FriendRequestListRequest, error) {
-	var body FriendRequestListRequest
+// AsFriendInviteTokenGetRequest returns the union data inside the RPCRequest_Params as a FriendInviteTokenGetRequest
+func (t RPCRequest_Params) AsFriendInviteTokenGetRequest() (FriendInviteTokenGetRequest, error) {
+	var body FriendInviteTokenGetRequest
 	err := json.Unmarshal(t.union, &body)
 	return body, err
 }
 
-// FromFriendRequestListRequest overwrites any union data inside the RPCRequest_Params as the provided FriendRequestListRequest
-func (t *RPCRequest_Params) FromFriendRequestListRequest(v FriendRequestListRequest) error {
+// FromFriendInviteTokenGetRequest overwrites any union data inside the RPCRequest_Params as the provided FriendInviteTokenGetRequest
+func (t *RPCRequest_Params) FromFriendInviteTokenGetRequest(v FriendInviteTokenGetRequest) error {
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
 }
 
-// MergeFriendRequestListRequest performs a merge with any union data inside the RPCRequest_Params, using the provided FriendRequestListRequest
-func (t *RPCRequest_Params) MergeFriendRequestListRequest(v FriendRequestListRequest) error {
+// MergeFriendInviteTokenGetRequest performs a merge with any union data inside the RPCRequest_Params, using the provided FriendInviteTokenGetRequest
+func (t *RPCRequest_Params) MergeFriendInviteTokenGetRequest(v FriendInviteTokenGetRequest) error {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -4691,22 +4671,22 @@ func (t *RPCRequest_Params) MergeFriendRequestListRequest(v FriendRequestListReq
 	return err
 }
 
-// AsFriendRequestCreateRequest returns the union data inside the RPCRequest_Params as a FriendRequestCreateRequest
-func (t RPCRequest_Params) AsFriendRequestCreateRequest() (FriendRequestCreateRequest, error) {
-	var body FriendRequestCreateRequest
+// AsFriendInviteTokenCreateRequest returns the union data inside the RPCRequest_Params as a FriendInviteTokenCreateRequest
+func (t RPCRequest_Params) AsFriendInviteTokenCreateRequest() (FriendInviteTokenCreateRequest, error) {
+	var body FriendInviteTokenCreateRequest
 	err := json.Unmarshal(t.union, &body)
 	return body, err
 }
 
-// FromFriendRequestCreateRequest overwrites any union data inside the RPCRequest_Params as the provided FriendRequestCreateRequest
-func (t *RPCRequest_Params) FromFriendRequestCreateRequest(v FriendRequestCreateRequest) error {
+// FromFriendInviteTokenCreateRequest overwrites any union data inside the RPCRequest_Params as the provided FriendInviteTokenCreateRequest
+func (t *RPCRequest_Params) FromFriendInviteTokenCreateRequest(v FriendInviteTokenCreateRequest) error {
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
 }
 
-// MergeFriendRequestCreateRequest performs a merge with any union data inside the RPCRequest_Params, using the provided FriendRequestCreateRequest
-func (t *RPCRequest_Params) MergeFriendRequestCreateRequest(v FriendRequestCreateRequest) error {
+// MergeFriendInviteTokenCreateRequest performs a merge with any union data inside the RPCRequest_Params, using the provided FriendInviteTokenCreateRequest
+func (t *RPCRequest_Params) MergeFriendInviteTokenCreateRequest(v FriendInviteTokenCreateRequest) error {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -4717,22 +4697,22 @@ func (t *RPCRequest_Params) MergeFriendRequestCreateRequest(v FriendRequestCreat
 	return err
 }
 
-// AsFriendRequestAcceptRequest returns the union data inside the RPCRequest_Params as a FriendRequestAcceptRequest
-func (t RPCRequest_Params) AsFriendRequestAcceptRequest() (FriendRequestAcceptRequest, error) {
-	var body FriendRequestAcceptRequest
+// AsFriendInviteTokenClearRequest returns the union data inside the RPCRequest_Params as a FriendInviteTokenClearRequest
+func (t RPCRequest_Params) AsFriendInviteTokenClearRequest() (FriendInviteTokenClearRequest, error) {
+	var body FriendInviteTokenClearRequest
 	err := json.Unmarshal(t.union, &body)
 	return body, err
 }
 
-// FromFriendRequestAcceptRequest overwrites any union data inside the RPCRequest_Params as the provided FriendRequestAcceptRequest
-func (t *RPCRequest_Params) FromFriendRequestAcceptRequest(v FriendRequestAcceptRequest) error {
+// FromFriendInviteTokenClearRequest overwrites any union data inside the RPCRequest_Params as the provided FriendInviteTokenClearRequest
+func (t *RPCRequest_Params) FromFriendInviteTokenClearRequest(v FriendInviteTokenClearRequest) error {
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
 }
 
-// MergeFriendRequestAcceptRequest performs a merge with any union data inside the RPCRequest_Params, using the provided FriendRequestAcceptRequest
-func (t *RPCRequest_Params) MergeFriendRequestAcceptRequest(v FriendRequestAcceptRequest) error {
+// MergeFriendInviteTokenClearRequest performs a merge with any union data inside the RPCRequest_Params, using the provided FriendInviteTokenClearRequest
+func (t *RPCRequest_Params) MergeFriendInviteTokenClearRequest(v FriendInviteTokenClearRequest) error {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -4743,22 +4723,22 @@ func (t *RPCRequest_Params) MergeFriendRequestAcceptRequest(v FriendRequestAccep
 	return err
 }
 
-// AsFriendRequestRejectRequest returns the union data inside the RPCRequest_Params as a FriendRequestRejectRequest
-func (t RPCRequest_Params) AsFriendRequestRejectRequest() (FriendRequestRejectRequest, error) {
-	var body FriendRequestRejectRequest
+// AsFriendAddRequest returns the union data inside the RPCRequest_Params as a FriendAddRequest
+func (t RPCRequest_Params) AsFriendAddRequest() (FriendAddRequest, error) {
+	var body FriendAddRequest
 	err := json.Unmarshal(t.union, &body)
 	return body, err
 }
 
-// FromFriendRequestRejectRequest overwrites any union data inside the RPCRequest_Params as the provided FriendRequestRejectRequest
-func (t *RPCRequest_Params) FromFriendRequestRejectRequest(v FriendRequestRejectRequest) error {
+// FromFriendAddRequest overwrites any union data inside the RPCRequest_Params as the provided FriendAddRequest
+func (t *RPCRequest_Params) FromFriendAddRequest(v FriendAddRequest) error {
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
 }
 
-// MergeFriendRequestRejectRequest performs a merge with any union data inside the RPCRequest_Params, using the provided FriendRequestRejectRequest
-func (t *RPCRequest_Params) MergeFriendRequestRejectRequest(v FriendRequestRejectRequest) error {
+// MergeFriendAddRequest performs a merge with any union data inside the RPCRequest_Params, using the provided FriendAddRequest
+func (t *RPCRequest_Params) MergeFriendAddRequest(v FriendAddRequest) error {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -4941,6 +4921,110 @@ func (t *RPCRequest_Params) FromFriendGroupDeleteRequest(v FriendGroupDeleteRequ
 
 // MergeFriendGroupDeleteRequest performs a merge with any union data inside the RPCRequest_Params, using the provided FriendGroupDeleteRequest
 func (t *RPCRequest_Params) MergeFriendGroupDeleteRequest(v FriendGroupDeleteRequest) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsFriendGroupInviteTokenGetRequest returns the union data inside the RPCRequest_Params as a FriendGroupInviteTokenGetRequest
+func (t RPCRequest_Params) AsFriendGroupInviteTokenGetRequest() (FriendGroupInviteTokenGetRequest, error) {
+	var body FriendGroupInviteTokenGetRequest
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromFriendGroupInviteTokenGetRequest overwrites any union data inside the RPCRequest_Params as the provided FriendGroupInviteTokenGetRequest
+func (t *RPCRequest_Params) FromFriendGroupInviteTokenGetRequest(v FriendGroupInviteTokenGetRequest) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeFriendGroupInviteTokenGetRequest performs a merge with any union data inside the RPCRequest_Params, using the provided FriendGroupInviteTokenGetRequest
+func (t *RPCRequest_Params) MergeFriendGroupInviteTokenGetRequest(v FriendGroupInviteTokenGetRequest) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsFriendGroupInviteTokenCreateRequest returns the union data inside the RPCRequest_Params as a FriendGroupInviteTokenCreateRequest
+func (t RPCRequest_Params) AsFriendGroupInviteTokenCreateRequest() (FriendGroupInviteTokenCreateRequest, error) {
+	var body FriendGroupInviteTokenCreateRequest
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromFriendGroupInviteTokenCreateRequest overwrites any union data inside the RPCRequest_Params as the provided FriendGroupInviteTokenCreateRequest
+func (t *RPCRequest_Params) FromFriendGroupInviteTokenCreateRequest(v FriendGroupInviteTokenCreateRequest) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeFriendGroupInviteTokenCreateRequest performs a merge with any union data inside the RPCRequest_Params, using the provided FriendGroupInviteTokenCreateRequest
+func (t *RPCRequest_Params) MergeFriendGroupInviteTokenCreateRequest(v FriendGroupInviteTokenCreateRequest) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsFriendGroupInviteTokenClearRequest returns the union data inside the RPCRequest_Params as a FriendGroupInviteTokenClearRequest
+func (t RPCRequest_Params) AsFriendGroupInviteTokenClearRequest() (FriendGroupInviteTokenClearRequest, error) {
+	var body FriendGroupInviteTokenClearRequest
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromFriendGroupInviteTokenClearRequest overwrites any union data inside the RPCRequest_Params as the provided FriendGroupInviteTokenClearRequest
+func (t *RPCRequest_Params) FromFriendGroupInviteTokenClearRequest(v FriendGroupInviteTokenClearRequest) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeFriendGroupInviteTokenClearRequest performs a merge with any union data inside the RPCRequest_Params, using the provided FriendGroupInviteTokenClearRequest
+func (t *RPCRequest_Params) MergeFriendGroupInviteTokenClearRequest(v FriendGroupInviteTokenClearRequest) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsFriendGroupJoinRequest returns the union data inside the RPCRequest_Params as a FriendGroupJoinRequest
+func (t RPCRequest_Params) AsFriendGroupJoinRequest() (FriendGroupJoinRequest, error) {
+	var body FriendGroupJoinRequest
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromFriendGroupJoinRequest overwrites any union data inside the RPCRequest_Params as the provided FriendGroupJoinRequest
+func (t *RPCRequest_Params) FromFriendGroupJoinRequest(v FriendGroupJoinRequest) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeFriendGroupJoinRequest performs a merge with any union data inside the RPCRequest_Params, using the provided FriendGroupJoinRequest
+func (t *RPCRequest_Params) MergeFriendGroupJoinRequest(v FriendGroupJoinRequest) error {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -6885,22 +6969,22 @@ func (t *RPCResponse_Result) MergeContactDeleteResponse(v ContactDeleteResponse)
 	return err
 }
 
-// AsFriendRequestListResponse returns the union data inside the RPCResponse_Result as a FriendRequestListResponse
-func (t RPCResponse_Result) AsFriendRequestListResponse() (FriendRequestListResponse, error) {
-	var body FriendRequestListResponse
+// AsFriendInviteTokenGetResponse returns the union data inside the RPCResponse_Result as a FriendInviteTokenGetResponse
+func (t RPCResponse_Result) AsFriendInviteTokenGetResponse() (FriendInviteTokenGetResponse, error) {
+	var body FriendInviteTokenGetResponse
 	err := json.Unmarshal(t.union, &body)
 	return body, err
 }
 
-// FromFriendRequestListResponse overwrites any union data inside the RPCResponse_Result as the provided FriendRequestListResponse
-func (t *RPCResponse_Result) FromFriendRequestListResponse(v FriendRequestListResponse) error {
+// FromFriendInviteTokenGetResponse overwrites any union data inside the RPCResponse_Result as the provided FriendInviteTokenGetResponse
+func (t *RPCResponse_Result) FromFriendInviteTokenGetResponse(v FriendInviteTokenGetResponse) error {
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
 }
 
-// MergeFriendRequestListResponse performs a merge with any union data inside the RPCResponse_Result, using the provided FriendRequestListResponse
-func (t *RPCResponse_Result) MergeFriendRequestListResponse(v FriendRequestListResponse) error {
+// MergeFriendInviteTokenGetResponse performs a merge with any union data inside the RPCResponse_Result, using the provided FriendInviteTokenGetResponse
+func (t *RPCResponse_Result) MergeFriendInviteTokenGetResponse(v FriendInviteTokenGetResponse) error {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -6911,22 +6995,22 @@ func (t *RPCResponse_Result) MergeFriendRequestListResponse(v FriendRequestListR
 	return err
 }
 
-// AsFriendRequestCreateResponse returns the union data inside the RPCResponse_Result as a FriendRequestCreateResponse
-func (t RPCResponse_Result) AsFriendRequestCreateResponse() (FriendRequestCreateResponse, error) {
-	var body FriendRequestCreateResponse
+// AsFriendInviteTokenCreateResponse returns the union data inside the RPCResponse_Result as a FriendInviteTokenCreateResponse
+func (t RPCResponse_Result) AsFriendInviteTokenCreateResponse() (FriendInviteTokenCreateResponse, error) {
+	var body FriendInviteTokenCreateResponse
 	err := json.Unmarshal(t.union, &body)
 	return body, err
 }
 
-// FromFriendRequestCreateResponse overwrites any union data inside the RPCResponse_Result as the provided FriendRequestCreateResponse
-func (t *RPCResponse_Result) FromFriendRequestCreateResponse(v FriendRequestCreateResponse) error {
+// FromFriendInviteTokenCreateResponse overwrites any union data inside the RPCResponse_Result as the provided FriendInviteTokenCreateResponse
+func (t *RPCResponse_Result) FromFriendInviteTokenCreateResponse(v FriendInviteTokenCreateResponse) error {
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
 }
 
-// MergeFriendRequestCreateResponse performs a merge with any union data inside the RPCResponse_Result, using the provided FriendRequestCreateResponse
-func (t *RPCResponse_Result) MergeFriendRequestCreateResponse(v FriendRequestCreateResponse) error {
+// MergeFriendInviteTokenCreateResponse performs a merge with any union data inside the RPCResponse_Result, using the provided FriendInviteTokenCreateResponse
+func (t *RPCResponse_Result) MergeFriendInviteTokenCreateResponse(v FriendInviteTokenCreateResponse) error {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -6937,22 +7021,22 @@ func (t *RPCResponse_Result) MergeFriendRequestCreateResponse(v FriendRequestCre
 	return err
 }
 
-// AsFriendRequestAcceptResponse returns the union data inside the RPCResponse_Result as a FriendRequestAcceptResponse
-func (t RPCResponse_Result) AsFriendRequestAcceptResponse() (FriendRequestAcceptResponse, error) {
-	var body FriendRequestAcceptResponse
+// AsFriendInviteTokenClearResponse returns the union data inside the RPCResponse_Result as a FriendInviteTokenClearResponse
+func (t RPCResponse_Result) AsFriendInviteTokenClearResponse() (FriendInviteTokenClearResponse, error) {
+	var body FriendInviteTokenClearResponse
 	err := json.Unmarshal(t.union, &body)
 	return body, err
 }
 
-// FromFriendRequestAcceptResponse overwrites any union data inside the RPCResponse_Result as the provided FriendRequestAcceptResponse
-func (t *RPCResponse_Result) FromFriendRequestAcceptResponse(v FriendRequestAcceptResponse) error {
+// FromFriendInviteTokenClearResponse overwrites any union data inside the RPCResponse_Result as the provided FriendInviteTokenClearResponse
+func (t *RPCResponse_Result) FromFriendInviteTokenClearResponse(v FriendInviteTokenClearResponse) error {
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
 }
 
-// MergeFriendRequestAcceptResponse performs a merge with any union data inside the RPCResponse_Result, using the provided FriendRequestAcceptResponse
-func (t *RPCResponse_Result) MergeFriendRequestAcceptResponse(v FriendRequestAcceptResponse) error {
+// MergeFriendInviteTokenClearResponse performs a merge with any union data inside the RPCResponse_Result, using the provided FriendInviteTokenClearResponse
+func (t *RPCResponse_Result) MergeFriendInviteTokenClearResponse(v FriendInviteTokenClearResponse) error {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -6963,22 +7047,22 @@ func (t *RPCResponse_Result) MergeFriendRequestAcceptResponse(v FriendRequestAcc
 	return err
 }
 
-// AsFriendRequestRejectResponse returns the union data inside the RPCResponse_Result as a FriendRequestRejectResponse
-func (t RPCResponse_Result) AsFriendRequestRejectResponse() (FriendRequestRejectResponse, error) {
-	var body FriendRequestRejectResponse
+// AsFriendAddResponse returns the union data inside the RPCResponse_Result as a FriendAddResponse
+func (t RPCResponse_Result) AsFriendAddResponse() (FriendAddResponse, error) {
+	var body FriendAddResponse
 	err := json.Unmarshal(t.union, &body)
 	return body, err
 }
 
-// FromFriendRequestRejectResponse overwrites any union data inside the RPCResponse_Result as the provided FriendRequestRejectResponse
-func (t *RPCResponse_Result) FromFriendRequestRejectResponse(v FriendRequestRejectResponse) error {
+// FromFriendAddResponse overwrites any union data inside the RPCResponse_Result as the provided FriendAddResponse
+func (t *RPCResponse_Result) FromFriendAddResponse(v FriendAddResponse) error {
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
 }
 
-// MergeFriendRequestRejectResponse performs a merge with any union data inside the RPCResponse_Result, using the provided FriendRequestRejectResponse
-func (t *RPCResponse_Result) MergeFriendRequestRejectResponse(v FriendRequestRejectResponse) error {
+// MergeFriendAddResponse performs a merge with any union data inside the RPCResponse_Result, using the provided FriendAddResponse
+func (t *RPCResponse_Result) MergeFriendAddResponse(v FriendAddResponse) error {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -7161,6 +7245,110 @@ func (t *RPCResponse_Result) FromFriendGroupDeleteResponse(v FriendGroupDeleteRe
 
 // MergeFriendGroupDeleteResponse performs a merge with any union data inside the RPCResponse_Result, using the provided FriendGroupDeleteResponse
 func (t *RPCResponse_Result) MergeFriendGroupDeleteResponse(v FriendGroupDeleteResponse) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsFriendGroupInviteTokenGetResponse returns the union data inside the RPCResponse_Result as a FriendGroupInviteTokenGetResponse
+func (t RPCResponse_Result) AsFriendGroupInviteTokenGetResponse() (FriendGroupInviteTokenGetResponse, error) {
+	var body FriendGroupInviteTokenGetResponse
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromFriendGroupInviteTokenGetResponse overwrites any union data inside the RPCResponse_Result as the provided FriendGroupInviteTokenGetResponse
+func (t *RPCResponse_Result) FromFriendGroupInviteTokenGetResponse(v FriendGroupInviteTokenGetResponse) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeFriendGroupInviteTokenGetResponse performs a merge with any union data inside the RPCResponse_Result, using the provided FriendGroupInviteTokenGetResponse
+func (t *RPCResponse_Result) MergeFriendGroupInviteTokenGetResponse(v FriendGroupInviteTokenGetResponse) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsFriendGroupInviteTokenCreateResponse returns the union data inside the RPCResponse_Result as a FriendGroupInviteTokenCreateResponse
+func (t RPCResponse_Result) AsFriendGroupInviteTokenCreateResponse() (FriendGroupInviteTokenCreateResponse, error) {
+	var body FriendGroupInviteTokenCreateResponse
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromFriendGroupInviteTokenCreateResponse overwrites any union data inside the RPCResponse_Result as the provided FriendGroupInviteTokenCreateResponse
+func (t *RPCResponse_Result) FromFriendGroupInviteTokenCreateResponse(v FriendGroupInviteTokenCreateResponse) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeFriendGroupInviteTokenCreateResponse performs a merge with any union data inside the RPCResponse_Result, using the provided FriendGroupInviteTokenCreateResponse
+func (t *RPCResponse_Result) MergeFriendGroupInviteTokenCreateResponse(v FriendGroupInviteTokenCreateResponse) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsFriendGroupInviteTokenClearResponse returns the union data inside the RPCResponse_Result as a FriendGroupInviteTokenClearResponse
+func (t RPCResponse_Result) AsFriendGroupInviteTokenClearResponse() (FriendGroupInviteTokenClearResponse, error) {
+	var body FriendGroupInviteTokenClearResponse
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromFriendGroupInviteTokenClearResponse overwrites any union data inside the RPCResponse_Result as the provided FriendGroupInviteTokenClearResponse
+func (t *RPCResponse_Result) FromFriendGroupInviteTokenClearResponse(v FriendGroupInviteTokenClearResponse) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeFriendGroupInviteTokenClearResponse performs a merge with any union data inside the RPCResponse_Result, using the provided FriendGroupInviteTokenClearResponse
+func (t *RPCResponse_Result) MergeFriendGroupInviteTokenClearResponse(v FriendGroupInviteTokenClearResponse) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsFriendGroupJoinResponse returns the union data inside the RPCResponse_Result as a FriendGroupJoinResponse
+func (t RPCResponse_Result) AsFriendGroupJoinResponse() (FriendGroupJoinResponse, error) {
+	var body FriendGroupJoinResponse
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromFriendGroupJoinResponse overwrites any union data inside the RPCResponse_Result as the provided FriendGroupJoinResponse
+func (t *RPCResponse_Result) FromFriendGroupJoinResponse(v FriendGroupJoinResponse) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeFriendGroupJoinResponse performs a merge with any union data inside the RPCResponse_Result, using the provided FriendGroupJoinResponse
+func (t *RPCResponse_Result) MergeFriendGroupJoinResponse(v FriendGroupJoinResponse) error {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err

@@ -11,8 +11,8 @@ import (
 func TestServerFriendRPC(t *testing.T) {
 	env := newSocialRPCHarness(t)
 
-	friendAB := createAcceptedRPCFriendRequest(t, env, env.a, env.b, env.peer["peer-b"], "123456")
-	friendAC := createAcceptedRPCFriendRequest(t, env, env.a, env.c, env.peer["peer-c"], "234567")
+	friendAB := createRPCFriendByInviteToken(t, env, env.a, env.b, env.peer["peer-b"])
+	friendAC := createRPCFriendByInviteToken(t, env, env.a, env.c, env.peer["peer-c"])
 	if friendAB.WorkspaceName == nil || *friendAB.WorkspaceName == "" || friendAC.WorkspaceName == nil || *friendAC.WorkspaceName == "" {
 		t.Fatalf("accepted friend workspaces are empty: ab=%#v ac=%#v", friendAB, friendAC)
 	}

@@ -59,32 +59,22 @@ func TestJSONPagingAndDeletePrefix(t *testing.T) {
 }
 
 func TestItemPagingAndVisibility(t *testing.T) {
-	items := []rpcapi.FriendRequestObject{
-		{Id: strPtr("a"), FromPeerId: strPtr("peer-a"), ToPeerId: strPtr("peer-b")},
-		{Id: strPtr("b"), FromPeerId: strPtr("peer-c"), ToPeerId: strPtr("peer-a")},
-		{Id: strPtr("c"), FromPeerId: strPtr("peer-a"), ToPeerId: strPtr("peer-d")},
+	items := []rpcapi.ContactObject{
+		{Id: strPtr("a"), DisplayName: strPtr("first")},
+		{Id: strPtr("b"), DisplayName: strPtr("second")},
+		{Id: strPtr("c"), DisplayName: strPtr("third")},
 	}
-	page := PageItems(items, "a", 1, func(item rpcapi.FriendRequestObject) string {
+	page := PageItems(items, "a", 1, func(item rpcapi.ContactObject) string {
 		return StringValue(item.Id)
 	})
 	if len(page.Items) != 1 || StringValue(page.Items[0].Id) != "b" || !page.HasNext || page.NextCursor == nil || *page.NextCursor != "b" {
 		t.Fatalf("PageItems after cursor = %#v, want item b with next cursor", page)
 	}
-	page = PageItems(items, "missing", 2, func(item rpcapi.FriendRequestObject) string {
+	page = PageItems(items, "missing", 2, func(item rpcapi.ContactObject) string {
 		return StringValue(item.Id)
 	})
 	if len(page.Items) != 2 || StringValue(page.Items[0].Id) != "a" {
 		t.Fatalf("PageItems missing cursor = %#v, want first page", page)
-	}
-
-	if !FriendRequestVisible(items[0], "peer-b", "incoming") {
-		t.Fatal("FriendRequestVisible incoming = false, want true")
-	}
-	if !FriendRequestVisible(items[0], "peer-a", "outgoing") {
-		t.Fatal("FriendRequestVisible outgoing = false, want true")
-	}
-	if FriendRequestVisible(items[1], "peer-b", "all") {
-		t.Fatal("FriendRequestVisible unrelated = true, want false")
 	}
 }
 
@@ -122,12 +112,6 @@ func TestScalarHelpersAndRoles(t *testing.T) {
 	if OptionalString("") != nil || StringValue(OptionalString("x")) != "x" {
 		t.Fatal("OptionalString returned unexpected value")
 	}
-	if !IsSixDigitCode("123456") || IsSixDigitCode("12345x") || IsSixDigitCode("12345") {
-		t.Fatal("IsSixDigitCode returned unexpected result")
-	}
-	if HashCode("123456") != HashCode("123456") || HashCode("123456") == HashCode("654321") {
-		t.Fatal("HashCode stability or uniqueness check failed")
-	}
 	if got := UnescapeStoreSegment(EscapeStoreSegment("a/b c")); got != "a/b c" {
 		t.Fatalf("escaped round trip = %q, want original", got)
 	}
@@ -136,6 +120,12 @@ func TestScalarHelpersAndRoles(t *testing.T) {
 	}
 	if got := GroupACLBindingID("group/a", "peer b"); got != "social-friend-group:group%2Fa:peer+b" {
 		t.Fatalf("GroupACLBindingID = %q, want escaped id", got)
+	}
+	if got := FriendInviteTokenKey("peer/a"); len(got) != 2 || got[1] != "peer%2Fa" {
+		t.Fatalf("FriendInviteTokenKey = %#v, want escaped owner key", got)
+	}
+	if got := GroupInviteTokenKey("group/a"); len(got) != 2 || got[1] != "group%2Fa" {
+		t.Fatalf("GroupInviteTokenKey = %#v, want escaped group key", got)
 	}
 	role, permissions := WorkspaceACLRole()
 	if role != WorkspaceMemberRoleName || len(permissions) != 2 || permissions[0] != apitypes.ACLPermissionWorkspaceRead || permissions[1] != apitypes.ACLPermissionWorkspaceUse {

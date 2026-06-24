@@ -24,9 +24,7 @@ type Config struct {
 	SystemTasks    SystemTasksConfig
 }
 
-type FriendsConfig struct {
-	FriendOTPTTL string `yaml:"friend_otp_ttl"`
-}
+type FriendsConfig struct{}
 
 type FriendGroupsConfig struct {
 	MessageDefaultTTL      string `yaml:"message_default_ttl"`
@@ -79,9 +77,10 @@ const (
 	defaultRewardsStore                  = "rewards"
 	defaultWalletsStore                  = "wallets"
 	defaultContactsStore                 = "contacts"
-	defaultFriendRequestsStore           = "friend-requests"
+	defaultFriendInviteTokensStore       = "friend-invite-tokens"
 	defaultFriendsStore                  = "friends"
 	defaultFriendGroupsStore             = "friend-groups"
+	defaultFriendGroupInviteTokensStore  = "friend-group-invite-tokens"
 	defaultFriendGroupMembersStore       = "friend-group-members"
 	defaultFriendGroupMessagesStore      = "friend-group-messages"
 	defaultFriendGroupMessageAssetsStore = "friend-group-message-assets"
@@ -171,9 +170,7 @@ func mergeFileConfig(cfg Config, fileCfg ConfigFile) (Config, error) {
 }
 
 func mergeFriendsConfig(runtime FriendsConfig, file FriendsConfig) FriendsConfig {
-	if runtime.FriendOTPTTL == "" {
-		runtime.FriendOTPTTL = file.FriendOTPTTL
-	}
+	_ = file
 	return runtime
 }
 
@@ -247,11 +244,6 @@ func (cfg Config) validate() error {
 	if cfg.SystemTasks.RewardClaim.Cooldown != "" {
 		if _, err := time.ParseDuration(cfg.SystemTasks.RewardClaim.Cooldown); err != nil {
 			return fmt.Errorf("server: system_tasks.reward_claim.cooldown: %w", err)
-		}
-	}
-	if cfg.Friends.FriendOTPTTL != "" {
-		if _, err := parseConfigDuration(cfg.Friends.FriendOTPTTL); err != nil {
-			return fmt.Errorf("server: friends.friend_otp_ttl: %w", err)
 		}
 	}
 	if cfg.FriendGroups.MessageDefaultTTL != "" {

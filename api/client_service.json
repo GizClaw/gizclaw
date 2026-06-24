@@ -629,6 +629,558 @@
           }
         }
       }
+    },
+    "/peer-resources/friends": {
+      "get": {
+        "operationId": "listPeerFriends",
+        "summary": "List friends for the current peer",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Cursor"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A page of friends.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./rpc/server.json#/components/schemas/FriendListResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/peer-resources/friends/@add": {
+      "post": {
+        "operationId": "addPeerFriend",
+        "summary": "Add a friend by invite token",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./rpc/server.json#/components/schemas/FriendAddRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The friend relation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./rpc/server.json#/components/schemas/FriendAddResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/peer-resources/friends/@invite-token": {
+      "get": {
+        "operationId": "getPeerFriendInviteToken",
+        "summary": "Get the current peer friend invite token",
+        "responses": {
+          "200": {
+            "description": "The active invite token when present.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./rpc/server.json#/components/schemas/FriendInviteTokenGetResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createPeerFriendInviteToken",
+        "summary": "Create or refresh the current peer friend invite token",
+        "responses": {
+          "200": {
+            "description": "The active invite token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./rpc/server.json#/components/schemas/FriendInviteTokenCreateResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "clearPeerFriendInviteToken",
+        "summary": "Clear the current peer friend invite token",
+        "responses": {
+          "200": {
+            "description": "The empty clear result.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./rpc/server.json#/components/schemas/FriendInviteTokenClearResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/peer-resources/friends/{id}": {
+      "delete": {
+        "operationId": "deletePeerFriend",
+        "summary": "Delete a friend relation for the current peer",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/FriendId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The deleted friend relation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./rpc/server.json#/components/schemas/FriendDeleteResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/peer-resources/friend-groups": {
+      "get": {
+        "operationId": "listPeerFriendGroups",
+        "summary": "List friend groups for the current peer",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Cursor"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A page of friend groups.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./rpc/server.json#/components/schemas/FriendGroupListResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createPeerFriendGroup",
+        "summary": "Create a friend group for the current peer",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./rpc/server.json#/components/schemas/FriendGroupCreateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The created friend group.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./rpc/server.json#/components/schemas/FriendGroupCreateResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/peer-resources/friend-groups/@join": {
+      "post": {
+        "operationId": "joinPeerFriendGroup",
+        "summary": "Join a friend group by invite token",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./rpc/server.json#/components/schemas/FriendGroupJoinRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The joined group and caller membership.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./rpc/server.json#/components/schemas/FriendGroupJoinResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/peer-resources/friend-groups/{id}": {
+      "get": {
+        "operationId": "getPeerFriendGroup",
+        "summary": "Get a friend group visible to the current peer",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/FriendGroupId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The friend group.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./rpc/server.json#/components/schemas/FriendGroupGetResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "putPeerFriendGroup",
+        "summary": "Update a friend group visible to the current peer",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/FriendGroupId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./rpc/server.json#/components/schemas/FriendGroupPutRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The updated friend group.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./rpc/server.json#/components/schemas/FriendGroupPutResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deletePeerFriendGroup",
+        "summary": "Delete a friend group visible to the current peer",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/FriendGroupId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The deleted friend group.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./rpc/server.json#/components/schemas/FriendGroupDeleteResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/peer-resources/friend-groups/{id}/invite-token": {
+      "get": {
+        "operationId": "getPeerFriendGroupInviteToken",
+        "summary": "Get a friend group invite token",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/FriendGroupId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The active invite token when present.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./rpc/server.json#/components/schemas/FriendGroupInviteTokenGetResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createPeerFriendGroupInviteToken",
+        "summary": "Create or refresh a friend group invite token",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/FriendGroupId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The active invite token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./rpc/server.json#/components/schemas/FriendGroupInviteTokenCreateResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "clearPeerFriendGroupInviteToken",
+        "summary": "Clear a friend group invite token",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/FriendGroupId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The empty clear result.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./rpc/server.json#/components/schemas/FriendGroupInviteTokenClearResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/peer-resources/friend-groups/{id}/members": {
+      "get": {
+        "operationId": "listPeerFriendGroupMembers",
+        "summary": "List friend group members",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/FriendGroupId"
+          },
+          {
+            "$ref": "#/components/parameters/Cursor"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A page of friend group members.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./rpc/server.json#/components/schemas/FriendGroupMemberListResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "addPeerFriendGroupMember",
+        "summary": "Add a friend group member",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/FriendGroupId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./rpc/server.json#/components/schemas/FriendGroupMemberAddRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The added friend group member.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./rpc/server.json#/components/schemas/FriendGroupMemberAddResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/peer-resources/friend-groups/{id}/members/{member_id}": {
+      "put": {
+        "operationId": "putPeerFriendGroupMember",
+        "summary": "Update a friend group member role",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/FriendGroupId"
+          },
+          {
+            "$ref": "#/components/parameters/FriendGroupMemberId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./rpc/server.json#/components/schemas/FriendGroupMemberPutRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The updated friend group member.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./rpc/server.json#/components/schemas/FriendGroupMemberPutResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deletePeerFriendGroupMember",
+        "summary": "Delete a friend group member",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/FriendGroupId"
+          },
+          {
+            "$ref": "#/components/parameters/FriendGroupMemberId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The deleted friend group member.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./rpc/server.json#/components/schemas/FriendGroupMemberDeleteResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/peer-resources/workspaces/{workspace_name}/history": {
+      "get": {
+        "operationId": "listPeerWorkspaceHistory",
+        "summary": "List workspace history for a visible workspace",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/WorkspaceName"
+          },
+          {
+            "$ref": "#/components/parameters/Cursor"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/HistoryOrder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A page of workspace history entries.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./rpc/server.json#/components/schemas/WorkspaceHistoryListResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/peer-resources/workspaces/{workspace_name}/history/{history_id}": {
+      "get": {
+        "operationId": "getPeerWorkspaceHistory",
+        "summary": "Get one workspace history entry",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/WorkspaceName"
+          },
+          {
+            "$ref": "#/components/parameters/HistoryId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The workspace history entry.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./rpc/server.json#/components/schemas/WorkspaceHistoryGetResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/peer-resources/workspaces/{workspace_name}/history/{history_id}/audio": {
+      "get": {
+        "operationId": "getPeerWorkspaceHistoryAudio",
+        "summary": "Get one workspace history audio asset",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/WorkspaceName"
+          },
+          {
+            "$ref": "#/components/parameters/HistoryId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The workspace history audio asset.",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -702,6 +1254,63 @@
         "schema": {
           "type": "string"
         }
+      },
+      "FriendId": {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "FriendGroupId": {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "FriendGroupMemberId": {
+        "name": "member_id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "WorkspaceName": {
+        "name": "workspace_name",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "HistoryId": {
+        "name": "history_id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "HistoryOrder": {
+        "name": "order",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "enum": [
+            "asc",
+            "desc"
+          ]
+        }
       }
     },
     "schemas": {
@@ -716,7 +1325,9 @@
           "pets",
           "wallet",
           "wallet-transactions",
-          "rewards"
+          "rewards",
+          "friends",
+          "friend-groups"
         ]
       },
       "PeerResourceNamesResponse": {

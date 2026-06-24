@@ -24,7 +24,6 @@ const (
 	ResourceKindFirmware    = apitypes.ACLResourceKindFirmware
 	ResourceKindContact     = apitypes.ACLResourceKindContact
 	ResourceKindFriend      = apitypes.ACLResourceKindFriend
-	ResourceKindFriendReq   = apitypes.ACLResourceKindFriendRequest
 	ResourceKindFriendGroup = apitypes.ACLResourceKindFriendGroup
 
 	CollectionResourceID = "__collection__"

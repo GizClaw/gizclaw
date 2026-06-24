@@ -220,16 +220,16 @@
                 "$ref": "./rpc/server.json#/components/schemas/ContactDeleteRequest"
               },
               {
-                "$ref": "./rpc/server.json#/components/schemas/FriendRequestListRequest"
+                "$ref": "./rpc/server.json#/components/schemas/FriendInviteTokenGetRequest"
               },
               {
-                "$ref": "./rpc/server.json#/components/schemas/FriendRequestCreateRequest"
+                "$ref": "./rpc/server.json#/components/schemas/FriendInviteTokenCreateRequest"
               },
               {
-                "$ref": "./rpc/server.json#/components/schemas/FriendRequestAcceptRequest"
+                "$ref": "./rpc/server.json#/components/schemas/FriendInviteTokenClearRequest"
               },
               {
-                "$ref": "./rpc/server.json#/components/schemas/FriendRequestRejectRequest"
+                "$ref": "./rpc/server.json#/components/schemas/FriendAddRequest"
               },
               {
                 "$ref": "./rpc/server.json#/components/schemas/FriendListRequest"
@@ -251,6 +251,18 @@
               },
               {
                 "$ref": "./rpc/server.json#/components/schemas/FriendGroupDeleteRequest"
+              },
+              {
+                "$ref": "./rpc/server.json#/components/schemas/FriendGroupInviteTokenGetRequest"
+              },
+              {
+                "$ref": "./rpc/server.json#/components/schemas/FriendGroupInviteTokenCreateRequest"
+              },
+              {
+                "$ref": "./rpc/server.json#/components/schemas/FriendGroupInviteTokenClearRequest"
+              },
+              {
+                "$ref": "./rpc/server.json#/components/schemas/FriendGroupJoinRequest"
               },
               {
                 "$ref": "./rpc/server.json#/components/schemas/FriendGroupMemberListRequest"
@@ -494,16 +506,16 @@
                 "$ref": "./rpc/server.json#/components/schemas/ContactDeleteResponse"
               },
               {
-                "$ref": "./rpc/server.json#/components/schemas/FriendRequestListResponse"
+                "$ref": "./rpc/server.json#/components/schemas/FriendInviteTokenGetResponse"
               },
               {
-                "$ref": "./rpc/server.json#/components/schemas/FriendRequestCreateResponse"
+                "$ref": "./rpc/server.json#/components/schemas/FriendInviteTokenCreateResponse"
               },
               {
-                "$ref": "./rpc/server.json#/components/schemas/FriendRequestAcceptResponse"
+                "$ref": "./rpc/server.json#/components/schemas/FriendInviteTokenClearResponse"
               },
               {
-                "$ref": "./rpc/server.json#/components/schemas/FriendRequestRejectResponse"
+                "$ref": "./rpc/server.json#/components/schemas/FriendAddResponse"
               },
               {
                 "$ref": "./rpc/server.json#/components/schemas/FriendListResponse"
@@ -525,6 +537,18 @@
               },
               {
                 "$ref": "./rpc/server.json#/components/schemas/FriendGroupDeleteResponse"
+              },
+              {
+                "$ref": "./rpc/server.json#/components/schemas/FriendGroupInviteTokenGetResponse"
+              },
+              {
+                "$ref": "./rpc/server.json#/components/schemas/FriendGroupInviteTokenCreateResponse"
+              },
+              {
+                "$ref": "./rpc/server.json#/components/schemas/FriendGroupInviteTokenClearResponse"
+              },
+              {
+                "$ref": "./rpc/server.json#/components/schemas/FriendGroupJoinResponse"
               },
               {
                 "$ref": "./rpc/server.json#/components/schemas/FriendGroupMemberListResponse"
@@ -630,10 +654,10 @@
           "server.contact.create",
           "server.contact.put",
           "server.contact.delete",
-          "server.friend.requests.list",
-          "server.friend.requests.create",
-          "server.friend.requests.accept",
-          "server.friend.requests.reject",
+          "server.friend.invite_token.get",
+          "server.friend.invite_token.create",
+          "server.friend.invite_token.clear",
+          "server.friend.add",
           "server.friend.list",
           "server.friend.delete",
           "server.friend_group.list",
@@ -641,6 +665,10 @@
           "server.friend_group.create",
           "server.friend_group.put",
           "server.friend_group.delete",
+          "server.friend_group.invite_token.get",
+          "server.friend_group.invite_token.create",
+          "server.friend_group.invite_token.clear",
+          "server.friend_group.join",
           "server.friend_group.members.list",
           "server.friend_group.members.add",
           "server.friend_group.members.put",

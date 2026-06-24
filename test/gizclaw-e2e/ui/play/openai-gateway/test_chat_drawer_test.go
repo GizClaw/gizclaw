@@ -17,7 +17,7 @@ func playAllActionsStories() []Story {
 			page.ClickRoleLike("button", "Models")
 			page.ClickRole("button", "Refresh")
 			page.ExpectText(SeedModelID)
-			page.ClickRole("button", "Test Chat")
+			page.ClickRole("button", "OpenAI")
 			page.ExpectText("Ready to test")
 			page.ExpectText("/v1/chat/completions")
 		},

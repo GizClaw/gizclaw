@@ -3,6 +3,7 @@ package friend
 import (
 	"context"
 	"errors"
+	"iter"
 	"testing"
 	"time"
 
@@ -14,66 +15,66 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkg/store/kv"
 )
 
-func TestRequestRequiresDeviceOTPAndCreatesSymmetricFriend(t *testing.T) {
+func TestInviteTokenLifecycleAndAddFriend(t *testing.T) {
 	ctx := context.Background()
 	s := newTestServer()
 
-	if _, err := s.CreateFriendRequest(ctx, "peer-a", rpcapi.FriendRequestCreateRequest{ToPeerId: "peer-b", Code: "bad"}); err == nil {
-		t.Fatal("CreateFriendRequest malformed code error = nil")
-	}
-	if err := s.ReportFriendOTP(ctx, "peer-b", "123456"); err != nil {
-		t.Fatalf("ReportFriendOTP: %v", err)
-	}
-	if _, err := s.CreateFriendRequest(ctx, "peer-a", rpcapi.FriendRequestCreateRequest{ToPeerId: "peer-b", Code: "000000"}); err == nil {
-		t.Fatal("CreateFriendRequest wrong code error = nil")
-	}
-	req, err := s.CreateFriendRequest(ctx, "peer-a", rpcapi.FriendRequestCreateRequest{
-		ToPeerId: "peer-b",
-		Code:     "123456",
-		Message:  strPtr("hi"),
-	})
+	empty, err := s.GetFriendInviteToken(ctx, "peer-b", rpcapi.FriendInviteTokenGetRequest{})
 	if err != nil {
-		t.Fatalf("CreateFriendRequest: %v", err)
+		t.Fatalf("GetFriendInviteToken empty: %v", err)
 	}
-	if req.State == nil || *req.State != rpcapi.FriendRequestStatePending {
-		t.Fatalf("friend request state = %v, want pending", req.State)
+	if empty.InviteToken != nil || empty.ExpiresAt != nil {
+		t.Fatalf("empty token response = %#v, want no token fields", empty)
 	}
-	duplicate, err := s.CreateFriendRequest(ctx, "peer-a", rpcapi.FriendRequestCreateRequest{ToPeerId: "peer-b", Code: "123456"})
-	if err != nil {
-		t.Fatalf("CreateFriendRequest duplicate pending: %v", err)
-	}
-	if socialutil.StringValue(duplicate.Id) != socialutil.StringValue(req.Id) {
-		t.Fatalf("duplicate pending request id = %q, want %q", socialutil.StringValue(duplicate.Id), socialutil.StringValue(req.Id))
-	}
-	if _, err := s.CreateFriendRequest(ctx, "peer-x", rpcapi.FriendRequestCreateRequest{ToPeerId: "peer-b", Code: "123456"}); err == nil {
-		t.Fatal("CreateFriendRequest consumed code for different requester error = nil")
-	}
-	if err := s.ReportFriendOTP(ctx, "peer-c", "333333"); err != nil {
-		t.Fatalf("ReportFriendOTP expired: %v", err)
-	}
-	s.Now = func() time.Time { return time.Date(2026, 6, 13, 0, 11, 0, 0, time.UTC) }
-	if _, err := s.CreateFriendRequest(ctx, "peer-a", rpcapi.FriendRequestCreateRequest{ToPeerId: "peer-c", Code: "333333"}); err == nil {
-		t.Fatal("CreateFriendRequest expired code error = nil")
-	}
-	s.Now = func() time.Time { return time.Date(2026, 6, 13, 0, 0, 0, 0, time.UTC) }
 
-	accepted, err := s.AcceptFriendRequest(ctx, "peer-b", rpcapi.FriendRequestAcceptRequest{Id: socialutil.StringValue(req.Id)})
+	created, err := s.CreateFriendInviteToken(ctx, "peer-b", rpcapi.FriendInviteTokenCreateRequest{})
 	if err != nil {
-		t.Fatalf("AcceptFriendRequest: %v", err)
+		t.Fatalf("CreateFriendInviteToken: %v", err)
 	}
-	if accepted.State == nil || *accepted.State != rpcapi.FriendRequestStateAccepted {
-		t.Fatalf("accepted state = %v", accepted.State)
+	if created.InviteToken != "id-a" || !created.ExpiresAt.Equal(s.now().Add(socialutil.DefaultInviteTokenTTL)) {
+		t.Fatalf("created token = %#v", created)
 	}
-	if accepted.WorkspaceName == nil || *accepted.WorkspaceName == "" {
-		t.Fatalf("accepted workspace_name = %#v, want value", accepted.WorkspaceName)
-	}
-	acceptedAgain, err := s.AcceptFriendRequest(ctx, "peer-b", rpcapi.FriendRequestAcceptRequest{Id: socialutil.StringValue(req.Id)})
+	createdAgain, err := s.CreateFriendInviteToken(ctx, "peer-b", rpcapi.FriendInviteTokenCreateRequest{})
 	if err != nil {
-		t.Fatalf("AcceptFriendRequest accepted request: %v", err)
+		t.Fatalf("CreateFriendInviteToken existing: %v", err)
 	}
-	if socialutil.StringValue(acceptedAgain.Id) != socialutil.StringValue(req.Id) || acceptedAgain.State == nil || *acceptedAgain.State != rpcapi.FriendRequestStateAccepted {
-		t.Fatalf("accepted again = %#v, want same accepted request", acceptedAgain)
+	if createdAgain.InviteToken != created.InviteToken || !createdAgain.ExpiresAt.Equal(created.ExpiresAt) {
+		t.Fatalf("existing token = %#v, want %#v", createdAgain, created)
 	}
+	got, err := s.GetFriendInviteToken(ctx, "peer-b", rpcapi.FriendInviteTokenGetRequest{})
+	if err != nil {
+		t.Fatalf("GetFriendInviteToken: %v", err)
+	}
+	if got.InviteToken == nil || *got.InviteToken != created.InviteToken {
+		t.Fatalf("got token = %#v, want %q", got, created.InviteToken)
+	}
+
+	if _, err := s.AddFriend(ctx, "peer-a", rpcapi.FriendAddRequest{InviteToken: "missing"}); err == nil {
+		t.Fatal("AddFriend missing token error = nil")
+	}
+	if _, err := s.AddFriend(ctx, "peer-b", rpcapi.FriendAddRequest{InviteToken: created.InviteToken}); err == nil {
+		t.Fatal("AddFriend self token error = nil")
+	}
+
+	friend, err := s.AddFriend(ctx, "peer-a", rpcapi.FriendAddRequest{InviteToken: created.InviteToken})
+	if err != nil {
+		t.Fatalf("AddFriend: %v", err)
+	}
+	if socialutil.StringValue(friend.PeerPublicKey) != "peer-b" {
+		t.Fatalf("AddFriend peer_public_key = %q, want peer-b", socialutil.StringValue(friend.PeerPublicKey))
+	}
+	workspaceName := socialutil.StringValue(friend.WorkspaceName)
+	if workspaceName == "" {
+		t.Fatal("AddFriend workspace_name is empty")
+	}
+	duplicate, err := s.AddFriend(ctx, "peer-a", rpcapi.FriendAddRequest{InviteToken: created.InviteToken})
+	if err != nil {
+		t.Fatalf("AddFriend duplicate: %v", err)
+	}
+	if socialutil.StringValue(duplicate.Id) != socialutil.StringValue(friend.Id) {
+		t.Fatalf("duplicate relation id = %q, want %q", socialutil.StringValue(duplicate.Id), socialutil.StringValue(friend.Id))
+	}
+
 	for _, peer := range []string{"peer-a", "peer-b"} {
 		friends, err := s.ListFriends(ctx, peer, rpcapi.FriendListRequest{})
 		if err != nil {
@@ -82,19 +83,51 @@ func TestRequestRequiresDeviceOTPAndCreatesSymmetricFriend(t *testing.T) {
 		if len(friends.Items) != 1 {
 			t.Fatalf("ListFriends(%s) len = %d, want 1", peer, len(friends.Items))
 		}
-		if friends.Items[0].WorkspaceName == nil || *friends.Items[0].WorkspaceName != *accepted.WorkspaceName {
-			t.Fatalf("ListFriends(%s) workspace_name = %#v, want %q", peer, friends.Items[0].WorkspaceName, *accepted.WorkspaceName)
+		if socialutil.StringValue(friends.Items[0].WorkspaceName) != workspaceName {
+			t.Fatalf("ListFriends(%s) workspace_name = %#v, want %q", peer, friends.Items[0].WorkspaceName, workspaceName)
 		}
-	}
-	if err := s.ReportFriendOTP(ctx, "peer-b", "444444"); err != nil {
-		t.Fatalf("ReportFriendOTP already friends: %v", err)
-	}
-	if _, err := s.CreateFriendRequest(ctx, "peer-a", rpcapi.FriendRequestCreateRequest{ToPeerId: "peer-b", Code: "444444"}); err == nil {
-		t.Fatal("CreateFriendRequest already friends error = nil")
 	}
 }
 
-func TestAcceptAndDeleteMaintainChatWorkspace(t *testing.T) {
+func TestInviteTokenExpiryAndClear(t *testing.T) {
+	ctx := context.Background()
+	s := newTestServer()
+	created, err := s.CreateFriendInviteToken(ctx, "peer-b", rpcapi.FriendInviteTokenCreateRequest{})
+	if err != nil {
+		t.Fatalf("CreateFriendInviteToken: %v", err)
+	}
+	s.Now = func() time.Time { return time.Date(2026, 6, 13, 0, 6, 0, 0, time.UTC) }
+	got, err := s.GetFriendInviteToken(ctx, "peer-b", rpcapi.FriendInviteTokenGetRequest{})
+	if err != nil {
+		t.Fatalf("GetFriendInviteToken expired: %v", err)
+	}
+	if got.InviteToken != nil || got.ExpiresAt != nil {
+		t.Fatalf("expired token response = %#v, want no token fields", got)
+	}
+	if _, err := s.AddFriend(ctx, "peer-a", rpcapi.FriendAddRequest{InviteToken: created.InviteToken}); err == nil {
+		t.Fatal("AddFriend expired token error = nil")
+	}
+
+	refreshed, err := s.CreateFriendInviteToken(ctx, "peer-b", rpcapi.FriendInviteTokenCreateRequest{})
+	if err != nil {
+		t.Fatalf("CreateFriendInviteToken refreshed: %v", err)
+	}
+	if refreshed.InviteToken == created.InviteToken {
+		t.Fatalf("refreshed token reused expired token %q", refreshed.InviteToken)
+	}
+	if _, err := s.ClearFriendInviteToken(ctx, "peer-b", rpcapi.FriendInviteTokenClearRequest{}); err != nil {
+		t.Fatalf("ClearFriendInviteToken: %v", err)
+	}
+	cleared, err := s.GetFriendInviteToken(ctx, "peer-b", rpcapi.FriendInviteTokenGetRequest{})
+	if err != nil {
+		t.Fatalf("GetFriendInviteToken cleared: %v", err)
+	}
+	if cleared.InviteToken != nil || cleared.ExpiresAt != nil {
+		t.Fatalf("cleared token response = %#v, want no token fields", cleared)
+	}
+}
+
+func TestAddAndDeleteMaintainChatWorkspace(t *testing.T) {
 	ctx := context.Background()
 	s := newTestServer()
 	workspaces := &recordingWorkspaceService{}
@@ -102,20 +135,17 @@ func TestAcceptAndDeleteMaintainChatWorkspace(t *testing.T) {
 	s.Workspaces = workspaces
 	s.ACL = aclSvc
 
-	if err := s.ReportFriendOTP(ctx, "peer-b", "123456"); err != nil {
-		t.Fatalf("ReportFriendOTP: %v", err)
-	}
-	req, err := s.CreateFriendRequest(ctx, "peer-a", rpcapi.FriendRequestCreateRequest{ToPeerId: "peer-b", Code: "123456"})
+	token, err := s.CreateFriendInviteToken(ctx, "peer-b", rpcapi.FriendInviteTokenCreateRequest{})
 	if err != nil {
-		t.Fatalf("CreateFriendRequest: %v", err)
+		t.Fatalf("CreateFriendInviteToken: %v", err)
 	}
-	accepted, err := s.AcceptFriendRequest(ctx, "peer-b", rpcapi.FriendRequestAcceptRequest{Id: socialutil.StringValue(req.Id)})
+	friend, err := s.AddFriend(ctx, "peer-a", rpcapi.FriendAddRequest{InviteToken: token.InviteToken})
 	if err != nil {
-		t.Fatalf("AcceptFriendRequest: %v", err)
+		t.Fatalf("AddFriend: %v", err)
 	}
-	workspaceName := socialutil.StringValue(accepted.WorkspaceName)
+	workspaceName := socialutil.StringValue(friend.WorkspaceName)
 	if workspaceName == "" {
-		t.Fatal("accepted workspace_name is empty")
+		t.Fatal("friend workspace_name is empty")
 	}
 	if len(workspaces.created) != 1 || workspaces.created[0].Name != workspaceName || workspaces.created[0].WorkflowName != socialutil.ChatRoomWorkflowName {
 		t.Fatalf("created workspaces = %#v, want %q chatroom", workspaces.created, workspaceName)
@@ -139,65 +169,6 @@ func TestAcceptAndDeleteMaintainChatWorkspace(t *testing.T) {
 	if err := aclSvc.authorizeWorkspace(workspaceName, "peer-b"); !errors.Is(err, acl.ErrDenied) {
 		t.Fatalf("peer-b workspace authorize after delete = %v, want denied", err)
 	}
-}
-
-func TestAcceptKeepsPendingWhenFriendRowsFail(t *testing.T) {
-	ctx := context.Background()
-	s := newTestServer()
-	if err := s.ReportFriendOTP(ctx, "peer-b", "123456"); err != nil {
-		t.Fatalf("ReportFriendOTP: %v", err)
-	}
-	req, err := s.CreateFriendRequest(ctx, "peer-a", rpcapi.FriendRequestCreateRequest{ToPeerId: "peer-b", Code: "123456"})
-	if err != nil {
-		t.Fatalf("CreateFriendRequest: %v", err)
-	}
-	s.Friends = failingBatchSetStore{Store: kv.NewMemory(nil)}
-	if _, err := s.AcceptFriendRequest(ctx, "peer-b", rpcapi.FriendRequestAcceptRequest{Id: socialutil.StringValue(req.Id)}); err == nil {
-		t.Fatal("AcceptFriendRequest with failing friend store error = nil")
-	}
-	requests, err := s.ListFriendRequests(ctx, "peer-b", rpcapi.FriendRequestListRequest{State: friendRequestStatePtr(rpcapi.FriendRequestStatePending)})
-	if err != nil {
-		t.Fatalf("ListFriendRequests pending: %v", err)
-	}
-	if len(requests.Items) != 1 || socialutil.StringValue(requests.Items[0].Id) != socialutil.StringValue(req.Id) {
-		t.Fatalf("pending requests after failed accept = %#v, want original request", requests.Items)
-	}
-}
-
-func TestDeleteAndFilteredLists(t *testing.T) {
-	ctx := context.Background()
-	s := newTestServer()
-
-	if err := s.ReportFriendOTP(ctx, "peer-y", "111111"); err != nil {
-		t.Fatalf("ReportFriendOTP peer-y: %v", err)
-	}
-	if _, err := s.CreateFriendRequest(ctx, "peer-x", rpcapi.FriendRequestCreateRequest{ToPeerId: "peer-y", Code: "111111"}); err != nil {
-		t.Fatalf("CreateFriendRequest unrelated: %v", err)
-	}
-	if err := s.ReportFriendOTP(ctx, "peer-b", "222222"); err != nil {
-		t.Fatalf("ReportFriendOTP peer-b: %v", err)
-	}
-	visibleReq, err := s.CreateFriendRequest(ctx, "peer-a", rpcapi.FriendRequestCreateRequest{ToPeerId: "peer-b", Code: "222222"})
-	if err != nil {
-		t.Fatalf("CreateFriendRequest visible: %v", err)
-	}
-	reqs, err := s.ListFriendRequests(ctx, "peer-b", rpcapi.FriendRequestListRequest{Box: friendRequestBoxPtr(rpcapi.FriendRequestBoxIncoming), Limit: socialutil.IntPtr(1)})
-	if err != nil {
-		t.Fatalf("ListFriendRequests: %v", err)
-	}
-	if len(reqs.Items) != 1 || socialutil.StringValue(reqs.Items[0].Id) != socialutil.StringValue(visibleReq.Id) || reqs.HasNext {
-		t.Fatalf("ListFriendRequests page = %#v, want only visible request without next page", reqs)
-	}
-	if _, err := s.AcceptFriendRequest(ctx, "peer-b", rpcapi.FriendRequestAcceptRequest{Id: socialutil.StringValue(visibleReq.Id)}); err != nil {
-		t.Fatalf("AcceptFriendRequest: %v", err)
-	}
-	deleted, err := s.DeleteFriend(ctx, "peer-a", rpcapi.FriendDeleteRequest{Id: socialutil.RelationID("peer-a", "peer-b")})
-	if err != nil {
-		t.Fatalf("DeleteFriend: %v", err)
-	}
-	if socialutil.StringValue(deleted.PeerId) != "peer-b" {
-		t.Fatalf("DeleteFriend peer_id = %q, want peer-b", socialutil.StringValue(deleted.PeerId))
-	}
 	peerBFriends, err := s.ListFriends(ctx, "peer-b", rpcapi.FriendListRequest{})
 	if err != nil {
 		t.Fatalf("ListFriends peer-b: %v", err)
@@ -207,102 +178,86 @@ func TestDeleteAndFilteredLists(t *testing.T) {
 	}
 }
 
-func TestRejectAndAcceptRollbackPaths(t *testing.T) {
+func TestAddFriendRollsBackWorkspaceWhenFriendRowsFail(t *testing.T) {
 	ctx := context.Background()
 	s := newTestServer()
-
-	if err := s.ReportFriendOTP(ctx, "peer-b", "101010"); err != nil {
-		t.Fatalf("ReportFriendOTP reject: %v", err)
-	}
-	rejectedReq, err := s.CreateFriendRequest(ctx, "peer-a", rpcapi.FriendRequestCreateRequest{ToPeerId: "peer-b", Code: "101010"})
+	workspaces := &recordingWorkspaceService{}
+	aclSvc := &recordingACL{}
+	s.Workspaces = workspaces
+	s.ACL = aclSvc
+	token, err := s.CreateFriendInviteToken(ctx, "peer-b", rpcapi.FriendInviteTokenCreateRequest{})
 	if err != nil {
-		t.Fatalf("CreateFriendRequest reject: %v", err)
+		t.Fatalf("CreateFriendInviteToken: %v", err)
 	}
-	rejectedReq, err = s.RejectFriendRequest(ctx, "peer-b", rpcapi.FriendRequestRejectRequest{Id: socialutil.StringValue(rejectedReq.Id)})
-	if err != nil {
-		t.Fatalf("RejectFriendRequest: %v", err)
+	s.Friends = failingBatchSetStore{Store: kv.NewMemory(nil)}
+	if _, err := s.AddFriend(ctx, "peer-a", rpcapi.FriendAddRequest{InviteToken: token.InviteToken}); err == nil {
+		t.Fatal("AddFriend with failing friend store error = nil")
 	}
-	if rejectedReq.State == nil || *rejectedReq.State != rpcapi.FriendRequestStateRejected {
-		t.Fatalf("rejected state = %v, want rejected", rejectedReq.State)
+	workspaceName := socialutil.DirectWorkspaceName(socialutil.RelationID("peer-a", "peer-b"))
+	if len(workspaces.deleted) != 1 || workspaces.deleted[0] != workspaceName {
+		t.Fatalf("deleted workspaces after rollback = %#v, want %q", workspaces.deleted, workspaceName)
 	}
-	if _, err := s.AcceptFriendRequest(ctx, "peer-b", rpcapi.FriendRequestAcceptRequest{Id: socialutil.StringValue(rejectedReq.Id)}); err == nil {
-		t.Fatal("AcceptFriendRequest rejected request error = nil")
-	}
-
-	if err := s.ReportFriendOTP(ctx, "peer-c", "202020"); err != nil {
-		t.Fatalf("ReportFriendOTP accept: %v", err)
-	}
-	acceptedReq, err := s.CreateFriendRequest(ctx, "peer-a", rpcapi.FriendRequestCreateRequest{ToPeerId: "peer-c", Code: "202020"})
-	if err != nil {
-		t.Fatalf("CreateFriendRequest accept: %v", err)
-	}
-	s.Requests = failingSetStore{Store: s.Requests}
-	if _, err := s.AcceptFriendRequest(ctx, "peer-c", rpcapi.FriendRequestAcceptRequest{Id: socialutil.StringValue(acceptedReq.Id)}); err == nil {
-		t.Fatal("AcceptFriendRequest with failing request store error = nil")
-	}
-	if _, err := s.GetFriendRelation(ctx, "peer-a", socialutil.RelationID("peer-a", "peer-c")); !errors.Is(err, kv.ErrNotFound) {
-		t.Fatalf("friend relation after accept rollback error = %v, want not found", err)
+	if err := aclSvc.authorizeWorkspace(workspaceName, "peer-a"); !errors.Is(err, acl.ErrDenied) {
+		t.Fatalf("peer-a workspace authorize after rollback = %v, want denied", err)
 	}
 }
 
 func TestConfigurationAndValidationErrors(t *testing.T) {
 	ctx := context.Background()
 	empty := &Server{}
-	if _, err := empty.CreateFriendRequest(ctx, "peer-a", rpcapi.FriendRequestCreateRequest{ToPeerId: "peer-b", Code: "123456"}); err == nil {
-		t.Fatal("CreateFriendRequest without store error = nil")
+	if _, err := empty.CreateFriendInviteToken(ctx, "peer-a", rpcapi.FriendInviteTokenCreateRequest{}); err == nil {
+		t.Fatal("CreateFriendInviteToken without store error = nil")
+	}
+	if _, err := empty.AddFriend(ctx, "peer-a", rpcapi.FriendAddRequest{InviteToken: "token"}); err == nil {
+		t.Fatal("AddFriend without store error = nil")
 	}
 	if _, err := empty.ListFriends(ctx, "peer-a", rpcapi.FriendListRequest{}); err == nil {
 		t.Fatal("ListFriends without store error = nil")
 	}
 
 	s := newTestServer()
-	if err := s.ReportFriendOTP(ctx, "", "123456"); err == nil {
-		t.Fatal("ReportFriendOTP empty peer error = nil")
+	if _, err := s.CreateFriendInviteToken(ctx, "", rpcapi.FriendInviteTokenCreateRequest{}); err == nil {
+		t.Fatal("CreateFriendInviteToken empty owner error = nil")
 	}
-	if _, err := s.ListFriendRequests(ctx, "peer-a", rpcapi.FriendRequestListRequest{Box: friendRequestBoxPtr(rpcapi.FriendRequestBox("bogus"))}); err == nil {
-		t.Fatal("ListFriendRequests invalid box error = nil")
+	if _, err := s.ClearFriendInviteToken(ctx, "", rpcapi.FriendInviteTokenClearRequest{}); err == nil {
+		t.Fatal("ClearFriendInviteToken empty owner error = nil")
 	}
-	bogusState := rpcapi.FriendRequestState("bogus")
-	if _, err := s.ListFriendRequests(ctx, "peer-a", rpcapi.FriendRequestListRequest{State: &bogusState}); err == nil {
-		t.Fatal("ListFriendRequests invalid state error = nil")
+	if _, err := s.AddFriend(ctx, "", rpcapi.FriendAddRequest{InviteToken: "token"}); err == nil {
+		t.Fatal("AddFriend empty owner error = nil")
 	}
-	if _, err := s.CreateFriendRequest(ctx, "", rpcapi.FriendRequestCreateRequest{ToPeerId: "peer-b", Code: "123456"}); err == nil {
-		t.Fatal("CreateFriendRequest empty owner error = nil")
+	if _, err := s.AddFriend(ctx, "peer-a", rpcapi.FriendAddRequest{}); err == nil {
+		t.Fatal("AddFriend empty token error = nil")
 	}
-	if _, err := s.CreateFriendRequest(ctx, "peer-a", rpcapi.FriendRequestCreateRequest{ToPeerId: "peer-a", Code: "123456"}); err == nil {
-		t.Fatal("CreateFriendRequest self error = nil")
-	}
-	defaultClock := &Server{Requests: kv.NewMemory(nil), Friends: kv.NewMemory(nil)}
-	if err := defaultClock.ReportFriendOTP(ctx, "peer-z", "999999"); err != nil {
-		t.Fatalf("ReportFriendOTP with default clock: %v", err)
+	defaultClock := &Server{InviteTokens: kv.NewMemory(nil), Friends: kv.NewMemory(nil)}
+	if created, err := defaultClock.CreateFriendInviteToken(ctx, "peer-z", rpcapi.FriendInviteTokenCreateRequest{}); err != nil || created.InviteToken == "" || created.ExpiresAt.IsZero() {
+		t.Fatalf("CreateFriendInviteToken with defaults = %#v, %v", created, err)
 	}
 	if id := (&Server{}).newID(); id == "" {
 		t.Fatal("newID without override returned empty string")
 	}
 }
 
-func TestCreateFriendRequestPropagatesOTPStoreErrors(t *testing.T) {
+func TestAddFriendPropagatesInviteTokenStoreErrors(t *testing.T) {
 	ctx := context.Background()
 	s := newTestServer()
-	s.Requests = failingGetStore{Store: s.Requests}
+	s.InviteTokens = failingGetStore{Store: s.InviteTokens}
 
-	_, err := s.CreateFriendRequest(ctx, "peer-a", rpcapi.FriendRequestCreateRequest{ToPeerId: "peer-b", Code: "123456"})
+	_, err := s.AddFriend(ctx, "peer-a", rpcapi.FriendAddRequest{InviteToken: "token"})
 	if err == nil {
-		t.Fatal("CreateFriendRequest with failing OTP store error = nil")
+		t.Fatal("AddFriend with failing invite token store error = nil")
 	}
-	if err.Error() != "forced get failure" {
-		t.Fatalf("CreateFriendRequest error = %v, want forced get failure", err)
+	if err.Error() != "forced list failure" {
+		t.Fatalf("AddFriend error = %v, want forced list failure", err)
 	}
 }
 
 func newTestServer() *Server {
-	store := kv.NewMemory(nil)
 	now := time.Date(2026, 6, 13, 0, 0, 0, 0, time.UTC)
 	nextID := 0
 	return &Server{
-		Requests: store,
-		Friends:  store,
-		Now:      func() time.Time { return now },
+		InviteTokens: kv.NewMemory(nil),
+		Friends:      kv.NewMemory(nil),
+		Now:          func() time.Time { return now },
 		NewID: func() string {
 			nextID++
 			return "id-" + string(rune('a'+nextID-1))
@@ -318,20 +273,14 @@ func (s failingBatchSetStore) BatchSet(context.Context, []kv.Entry) error {
 	return errors.New("forced batch set failure")
 }
 
-type failingSetStore struct {
-	kv.Store
-}
-
-func (s failingSetStore) Set(context.Context, kv.Key, []byte) error {
-	return errors.New("forced set failure")
-}
-
 type failingGetStore struct {
 	kv.Store
 }
 
-func (s failingGetStore) Get(context.Context, kv.Key) ([]byte, error) {
-	return nil, errors.New("forced get failure")
+func (s failingGetStore) List(context.Context, kv.Key) iter.Seq2[kv.Entry, error] {
+	return func(yield func(kv.Entry, error) bool) {
+		yield(kv.Entry{}, errors.New("forced list failure"))
+	}
 }
 
 type recordingWorkspaceService struct {
@@ -400,16 +349,4 @@ func (a *recordingACL) authorizeWorkspace(workspaceName string, peerID string) e
 		return errors.New("unexpected workspace ACL policy")
 	}
 	return nil
-}
-
-func strPtr(v string) *string {
-	return &v
-}
-
-func friendRequestBoxPtr(v rpcapi.FriendRequestBox) *rpcapi.FriendRequestBox {
-	return &v
-}
-
-func friendRequestStatePtr(v rpcapi.FriendRequestState) *rpcapi.FriendRequestState {
-	return &v
 }

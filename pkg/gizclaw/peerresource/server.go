@@ -110,10 +110,10 @@ func IsMethod(method rpcapi.RPCMethod) bool {
 		rpcapi.RPCMethodServerContactCreate,
 		rpcapi.RPCMethodServerContactPut,
 		rpcapi.RPCMethodServerContactDelete,
-		rpcapi.RPCMethodServerFriendRequestsList,
-		rpcapi.RPCMethodServerFriendRequestsCreate,
-		rpcapi.RPCMethodServerFriendRequestsAccept,
-		rpcapi.RPCMethodServerFriendRequestsReject,
+		rpcapi.RPCMethodServerFriendInviteTokenGet,
+		rpcapi.RPCMethodServerFriendInviteTokenCreate,
+		rpcapi.RPCMethodServerFriendInviteTokenClear,
+		rpcapi.RPCMethodServerFriendAdd,
 		rpcapi.RPCMethodServerFriendList,
 		rpcapi.RPCMethodServerFriendDelete,
 		rpcapi.RPCMethodServerFriendGroupList,
@@ -121,6 +121,10 @@ func IsMethod(method rpcapi.RPCMethod) bool {
 		rpcapi.RPCMethodServerFriendGroupCreate,
 		rpcapi.RPCMethodServerFriendGroupPut,
 		rpcapi.RPCMethodServerFriendGroupDelete,
+		rpcapi.RPCMethodServerFriendGroupInviteTokenGet,
+		rpcapi.RPCMethodServerFriendGroupInviteTokenCreate,
+		rpcapi.RPCMethodServerFriendGroupInviteTokenClear,
+		rpcapi.RPCMethodServerFriendGroupJoin,
 		rpcapi.RPCMethodServerFriendGroupMembersList,
 		rpcapi.RPCMethodServerFriendGroupMembersAdd,
 		rpcapi.RPCMethodServerFriendGroupMembersPut,
@@ -229,14 +233,14 @@ func (s *Server) Dispatch(ctx context.Context, req *rpcapi.RPCRequest) (*rpcapi.
 		return s.handleContactPut(ctx, req), true, nil
 	case rpcapi.RPCMethodServerContactDelete:
 		return s.handleContactDelete(ctx, req), true, nil
-	case rpcapi.RPCMethodServerFriendRequestsList:
-		return s.handleFriendRequestsList(ctx, req), true, nil
-	case rpcapi.RPCMethodServerFriendRequestsCreate:
-		return s.handleFriendRequestsCreate(ctx, req), true, nil
-	case rpcapi.RPCMethodServerFriendRequestsAccept:
-		return s.handleFriendRequestsAccept(ctx, req), true, nil
-	case rpcapi.RPCMethodServerFriendRequestsReject:
-		return s.handleFriendRequestsReject(ctx, req), true, nil
+	case rpcapi.RPCMethodServerFriendInviteTokenGet:
+		return s.handleFriendInviteTokenGet(ctx, req), true, nil
+	case rpcapi.RPCMethodServerFriendInviteTokenCreate:
+		return s.handleFriendInviteTokenCreate(ctx, req), true, nil
+	case rpcapi.RPCMethodServerFriendInviteTokenClear:
+		return s.handleFriendInviteTokenClear(ctx, req), true, nil
+	case rpcapi.RPCMethodServerFriendAdd:
+		return s.handleFriendAdd(ctx, req), true, nil
 	case rpcapi.RPCMethodServerFriendList:
 		return s.handleFriendList(ctx, req), true, nil
 	case rpcapi.RPCMethodServerFriendDelete:
@@ -251,6 +255,14 @@ func (s *Server) Dispatch(ctx context.Context, req *rpcapi.RPCRequest) (*rpcapi.
 		return s.handleFriendGroupPut(ctx, req), true, nil
 	case rpcapi.RPCMethodServerFriendGroupDelete:
 		return s.handleFriendGroupDelete(ctx, req), true, nil
+	case rpcapi.RPCMethodServerFriendGroupInviteTokenGet:
+		return s.handleFriendGroupInviteTokenGet(ctx, req), true, nil
+	case rpcapi.RPCMethodServerFriendGroupInviteTokenCreate:
+		return s.handleFriendGroupInviteTokenCreate(ctx, req), true, nil
+	case rpcapi.RPCMethodServerFriendGroupInviteTokenClear:
+		return s.handleFriendGroupInviteTokenClear(ctx, req), true, nil
+	case rpcapi.RPCMethodServerFriendGroupJoin:
+		return s.handleFriendGroupJoin(ctx, req), true, nil
 	case rpcapi.RPCMethodServerFriendGroupMembersList:
 		return s.handleFriendGroupMembersList(ctx, req), true, nil
 	case rpcapi.RPCMethodServerFriendGroupMembersAdd:

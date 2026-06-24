@@ -94,10 +94,10 @@ stores:
     kind: keyvalue
     storage: memory
     prefix: contacts
-  friend-requests:
+  friend-invite-tokens:
     kind: keyvalue
     storage: memory
-    prefix: friend-requests
+    prefix: friend-invite-tokens
   friends:
     kind: keyvalue
     storage: memory
@@ -106,6 +106,10 @@ stores:
     kind: keyvalue
     storage: memory
     prefix: friend-groups
+  friend-group-invite-tokens:
+    kind: keyvalue
+    storage: memory
+    prefix: friend-group-invite-tokens
   friend-group-members:
     kind: keyvalue
     storage: memory
@@ -136,8 +140,6 @@ acl:
   store: acl
 history:
   store: history
-friends:
-  friend_otp_ttl: 2s
 friend_groups:
   message_default_ttl: 24h
   message_max_ttl: 7d

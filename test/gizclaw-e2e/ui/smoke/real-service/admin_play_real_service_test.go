@@ -22,7 +22,7 @@ func realServiceSmokeStories() []Story {
 			page.ExpectText(SeedModelID)
 			page.ClickRoleLike("button", "Voices")
 			page.ExpectText(SeedVoiceID)
-			page.ExpectText("Test Chat")
+			page.ExpectText("OpenAI")
 		},
 	}}
 }

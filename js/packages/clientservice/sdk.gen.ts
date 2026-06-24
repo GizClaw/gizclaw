@@ -2,7 +2,7 @@
 
 import type { Client, Options as Options2, TDataShape } from './client';
 import { client } from './client.gen';
-import type { AdoptPeerPetData, AdoptPeerPetResponses, ClaimPeerRewardData, ClaimPeerRewardResponses, CreateWebRtcOfferData, CreateWebRtcOfferResponses, DeletePeerPetData, DeletePeerPetResponses, FeedPeerPetData, FeedPeerPetResponses, GetPeerPetData, GetPeerPetResponses, GetPeerRewardData, GetPeerRewardResponses, GetPeerWalletData, GetPeerWalletResponses, GetPeerWalletTransactionData, GetPeerWalletTransactionResponses, ListClientVoicesData, ListClientVoicesResponses, ListPeerCredentialsData, ListPeerCredentialsResponses, ListPeerModelsData, ListPeerModelsResponses, ListPeerPetsData, ListPeerPetsResponses, ListPeerResourceNamesData, ListPeerResourceNamesResponses, ListPeerRewardsData, ListPeerRewardsResponses, ListPeerVoicesData, ListPeerVoicesResponses, ListPeerWalletTransactionsData, ListPeerWalletTransactionsResponses, ListPeerWorkflowsData, ListPeerWorkflowsResponses, ListPeerWorkspacesData, ListPeerWorkspacesResponses, PlayWithPeerPetData, PlayWithPeerPetResponses, PutPeerPetData, PutPeerPetResponses, StreamPlayableVoicesData, StreamPlayableVoicesResponse, StreamPlayableVoicesResponses, WashPeerPetData, WashPeerPetResponses } from './types.gen';
+import type { AddPeerFriendData, AddPeerFriendGroupMemberData, AddPeerFriendGroupMemberResponses, AddPeerFriendResponses, AdoptPeerPetData, AdoptPeerPetResponses, ClaimPeerRewardData, ClaimPeerRewardResponses, ClearPeerFriendGroupInviteTokenData, ClearPeerFriendGroupInviteTokenResponses, ClearPeerFriendInviteTokenData, ClearPeerFriendInviteTokenResponses, CreatePeerFriendGroupData, CreatePeerFriendGroupInviteTokenData, CreatePeerFriendGroupInviteTokenResponses, CreatePeerFriendGroupResponses, CreatePeerFriendInviteTokenData, CreatePeerFriendInviteTokenResponses, CreateWebRtcOfferData, CreateWebRtcOfferResponses, DeletePeerFriendData, DeletePeerFriendGroupData, DeletePeerFriendGroupMemberData, DeletePeerFriendGroupMemberResponses, DeletePeerFriendGroupResponses, DeletePeerFriendResponses, DeletePeerPetData, DeletePeerPetResponses, FeedPeerPetData, FeedPeerPetResponses, GetPeerFriendGroupData, GetPeerFriendGroupInviteTokenData, GetPeerFriendGroupInviteTokenResponses, GetPeerFriendGroupResponses, GetPeerFriendInviteTokenData, GetPeerFriendInviteTokenResponses, GetPeerPetData, GetPeerPetResponses, GetPeerRewardData, GetPeerRewardResponses, GetPeerWalletData, GetPeerWalletResponses, GetPeerWalletTransactionData, GetPeerWalletTransactionResponses, GetPeerWorkspaceHistoryAudioData, GetPeerWorkspaceHistoryAudioResponses, GetPeerWorkspaceHistoryData, GetPeerWorkspaceHistoryResponses, JoinPeerFriendGroupData, JoinPeerFriendGroupResponses, ListClientVoicesData, ListClientVoicesResponses, ListPeerCredentialsData, ListPeerCredentialsResponses, ListPeerFriendGroupMembersData, ListPeerFriendGroupMembersResponses, ListPeerFriendGroupsData, ListPeerFriendGroupsResponses, ListPeerFriendsData, ListPeerFriendsResponses, ListPeerModelsData, ListPeerModelsResponses, ListPeerPetsData, ListPeerPetsResponses, ListPeerResourceNamesData, ListPeerResourceNamesResponses, ListPeerRewardsData, ListPeerRewardsResponses, ListPeerVoicesData, ListPeerVoicesResponses, ListPeerWalletTransactionsData, ListPeerWalletTransactionsResponses, ListPeerWorkflowsData, ListPeerWorkflowsResponses, ListPeerWorkspaceHistoryData, ListPeerWorkspaceHistoryResponses, ListPeerWorkspacesData, ListPeerWorkspacesResponses, PlayWithPeerPetData, PlayWithPeerPetResponses, PutPeerFriendGroupData, PutPeerFriendGroupMemberData, PutPeerFriendGroupMemberResponses, PutPeerFriendGroupResponses, PutPeerPetData, PutPeerPetResponses, StreamPlayableVoicesData, StreamPlayableVoicesResponse, StreamPlayableVoicesResponses, WashPeerPetData, WashPeerPetResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -181,3 +181,155 @@ export const createWebRtcOffer = <ThrowOnError extends boolean = false>(options:
         ...options.headers
     }
 });
+
+/**
+ * List friends for the current peer
+ */
+export const listPeerFriends = <ThrowOnError extends boolean = false>(options?: Options<ListPeerFriendsData, ThrowOnError>) => (options?.client ?? client).get<ListPeerFriendsResponses, unknown, ThrowOnError>({ url: '/peer-resources/friends', ...options });
+
+/**
+ * Add a friend by invite token
+ */
+export const addPeerFriend = <ThrowOnError extends boolean = false>(options: Options<AddPeerFriendData, ThrowOnError>) => (options.client ?? client).post<AddPeerFriendResponses, unknown, ThrowOnError>({
+    url: '/peer-resources/friends/@add',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Clear the current peer friend invite token
+ */
+export const clearPeerFriendInviteToken = <ThrowOnError extends boolean = false>(options?: Options<ClearPeerFriendInviteTokenData, ThrowOnError>) => (options?.client ?? client).delete<ClearPeerFriendInviteTokenResponses, unknown, ThrowOnError>({ url: '/peer-resources/friends/@invite-token', ...options });
+
+/**
+ * Get the current peer friend invite token
+ */
+export const getPeerFriendInviteToken = <ThrowOnError extends boolean = false>(options?: Options<GetPeerFriendInviteTokenData, ThrowOnError>) => (options?.client ?? client).get<GetPeerFriendInviteTokenResponses, unknown, ThrowOnError>({ url: '/peer-resources/friends/@invite-token', ...options });
+
+/**
+ * Create or refresh the current peer friend invite token
+ */
+export const createPeerFriendInviteToken = <ThrowOnError extends boolean = false>(options?: Options<CreatePeerFriendInviteTokenData, ThrowOnError>) => (options?.client ?? client).post<CreatePeerFriendInviteTokenResponses, unknown, ThrowOnError>({ url: '/peer-resources/friends/@invite-token', ...options });
+
+/**
+ * Delete a friend relation for the current peer
+ */
+export const deletePeerFriend = <ThrowOnError extends boolean = false>(options: Options<DeletePeerFriendData, ThrowOnError>) => (options.client ?? client).delete<DeletePeerFriendResponses, unknown, ThrowOnError>({ url: '/peer-resources/friends/{id}', ...options });
+
+/**
+ * List friend groups for the current peer
+ */
+export const listPeerFriendGroups = <ThrowOnError extends boolean = false>(options?: Options<ListPeerFriendGroupsData, ThrowOnError>) => (options?.client ?? client).get<ListPeerFriendGroupsResponses, unknown, ThrowOnError>({ url: '/peer-resources/friend-groups', ...options });
+
+/**
+ * Create a friend group for the current peer
+ */
+export const createPeerFriendGroup = <ThrowOnError extends boolean = false>(options: Options<CreatePeerFriendGroupData, ThrowOnError>) => (options.client ?? client).post<CreatePeerFriendGroupResponses, unknown, ThrowOnError>({
+    url: '/peer-resources/friend-groups',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Join a friend group by invite token
+ */
+export const joinPeerFriendGroup = <ThrowOnError extends boolean = false>(options: Options<JoinPeerFriendGroupData, ThrowOnError>) => (options.client ?? client).post<JoinPeerFriendGroupResponses, unknown, ThrowOnError>({
+    url: '/peer-resources/friend-groups/@join',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Delete a friend group visible to the current peer
+ */
+export const deletePeerFriendGroup = <ThrowOnError extends boolean = false>(options: Options<DeletePeerFriendGroupData, ThrowOnError>) => (options.client ?? client).delete<DeletePeerFriendGroupResponses, unknown, ThrowOnError>({ url: '/peer-resources/friend-groups/{id}', ...options });
+
+/**
+ * Get a friend group visible to the current peer
+ */
+export const getPeerFriendGroup = <ThrowOnError extends boolean = false>(options: Options<GetPeerFriendGroupData, ThrowOnError>) => (options.client ?? client).get<GetPeerFriendGroupResponses, unknown, ThrowOnError>({ url: '/peer-resources/friend-groups/{id}', ...options });
+
+/**
+ * Update a friend group visible to the current peer
+ */
+export const putPeerFriendGroup = <ThrowOnError extends boolean = false>(options: Options<PutPeerFriendGroupData, ThrowOnError>) => (options.client ?? client).put<PutPeerFriendGroupResponses, unknown, ThrowOnError>({
+    url: '/peer-resources/friend-groups/{id}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Clear a friend group invite token
+ */
+export const clearPeerFriendGroupInviteToken = <ThrowOnError extends boolean = false>(options: Options<ClearPeerFriendGroupInviteTokenData, ThrowOnError>) => (options.client ?? client).delete<ClearPeerFriendGroupInviteTokenResponses, unknown, ThrowOnError>({ url: '/peer-resources/friend-groups/{id}/invite-token', ...options });
+
+/**
+ * Get a friend group invite token
+ */
+export const getPeerFriendGroupInviteToken = <ThrowOnError extends boolean = false>(options: Options<GetPeerFriendGroupInviteTokenData, ThrowOnError>) => (options.client ?? client).get<GetPeerFriendGroupInviteTokenResponses, unknown, ThrowOnError>({ url: '/peer-resources/friend-groups/{id}/invite-token', ...options });
+
+/**
+ * Create or refresh a friend group invite token
+ */
+export const createPeerFriendGroupInviteToken = <ThrowOnError extends boolean = false>(options: Options<CreatePeerFriendGroupInviteTokenData, ThrowOnError>) => (options.client ?? client).post<CreatePeerFriendGroupInviteTokenResponses, unknown, ThrowOnError>({ url: '/peer-resources/friend-groups/{id}/invite-token', ...options });
+
+/**
+ * List friend group members
+ */
+export const listPeerFriendGroupMembers = <ThrowOnError extends boolean = false>(options: Options<ListPeerFriendGroupMembersData, ThrowOnError>) => (options.client ?? client).get<ListPeerFriendGroupMembersResponses, unknown, ThrowOnError>({ url: '/peer-resources/friend-groups/{id}/members', ...options });
+
+/**
+ * Add a friend group member
+ */
+export const addPeerFriendGroupMember = <ThrowOnError extends boolean = false>(options: Options<AddPeerFriendGroupMemberData, ThrowOnError>) => (options.client ?? client).post<AddPeerFriendGroupMemberResponses, unknown, ThrowOnError>({
+    url: '/peer-resources/friend-groups/{id}/members',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Delete a friend group member
+ */
+export const deletePeerFriendGroupMember = <ThrowOnError extends boolean = false>(options: Options<DeletePeerFriendGroupMemberData, ThrowOnError>) => (options.client ?? client).delete<DeletePeerFriendGroupMemberResponses, unknown, ThrowOnError>({ url: '/peer-resources/friend-groups/{id}/members/{member_id}', ...options });
+
+/**
+ * Update a friend group member role
+ */
+export const putPeerFriendGroupMember = <ThrowOnError extends boolean = false>(options: Options<PutPeerFriendGroupMemberData, ThrowOnError>) => (options.client ?? client).put<PutPeerFriendGroupMemberResponses, unknown, ThrowOnError>({
+    url: '/peer-resources/friend-groups/{id}/members/{member_id}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * List workspace history for a visible workspace
+ */
+export const listPeerWorkspaceHistory = <ThrowOnError extends boolean = false>(options: Options<ListPeerWorkspaceHistoryData, ThrowOnError>) => (options.client ?? client).get<ListPeerWorkspaceHistoryResponses, unknown, ThrowOnError>({ url: '/peer-resources/workspaces/{workspace_name}/history', ...options });
+
+/**
+ * Get one workspace history entry
+ */
+export const getPeerWorkspaceHistory = <ThrowOnError extends boolean = false>(options: Options<GetPeerWorkspaceHistoryData, ThrowOnError>) => (options.client ?? client).get<GetPeerWorkspaceHistoryResponses, unknown, ThrowOnError>({ url: '/peer-resources/workspaces/{workspace_name}/history/{history_id}', ...options });
+
+/**
+ * Get one workspace history audio asset
+ */
+export const getPeerWorkspaceHistoryAudio = <ThrowOnError extends boolean = false>(options: Options<GetPeerWorkspaceHistoryAudioData, ThrowOnError>) => (options.client ?? client).get<GetPeerWorkspaceHistoryAudioResponses, unknown, ThrowOnError>({ url: '/peer-resources/workspaces/{workspace_name}/history/{history_id}/audio', ...options });

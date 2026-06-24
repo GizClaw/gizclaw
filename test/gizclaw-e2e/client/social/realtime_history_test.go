@@ -28,7 +28,7 @@ func TestSocialRealtimeHistoryRPC(t *testing.T) {
 	peerC := h.ContextPublicKey("peer-c")
 	realtime := apitypes.WorkspaceInputModeRealtime
 
-	requestAB := createAcceptedFriendRequest(t, h, "peer-a", "peer-b", peerB, "123456")
+	requestAB := createFriendByInviteToken(t, h, "peer-a", "peer-b", peerB)
 	setSocialChatWorkspaceInputMode(t, h, stringValue(requestAB.WorkspaceName), realtime)
 	t.Run("friend direct chat", func(t *testing.T) {
 		runSocialRealtimeAudioHistory(t, h, "peer-a", "peer-b", stringValue(requestAB.WorkspaceName), []string{

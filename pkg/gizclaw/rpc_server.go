@@ -39,10 +39,6 @@ type rpcServerResourceService interface {
 	Dispatch(context.Context, *rpcapi.RPCRequest) (*rpcapi.RPCResponse, bool, error)
 }
 
-type rpcFriendOTPReporter interface {
-	ReportFriendOTP(context.Context, string, string) error
-}
-
 type rpcServerGenXService interface {
 	Say(context.Context, peergenx.SayRequest) (peergenx.SayResponse, error)
 }
@@ -52,7 +48,6 @@ type rpcServer struct {
 	peerRun         rpcPeerRunService
 	peerRunRuntime  rpcPeerRunRuntime
 	serverResources rpcServerResourceService
-	friendOTPs      rpcFriendOTPReporter
 	serverGenX      rpcServerGenXService
 	callerPublicKey giznet.PublicKey
 }

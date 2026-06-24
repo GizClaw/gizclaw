@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"sort"
 	"strings"
 	"time"
 
@@ -28,132 +27,113 @@ type ACL interface {
 }
 
 type Server struct {
-	Requests   kv.Store
-	Friends    kv.Store
-	Workspaces WorkspaceService
-	ACL        ACL
-
-	FriendOTPTTL time.Duration
+	InviteTokens kv.Store
+	Friends      kv.Store
+	Workspaces   WorkspaceService
+	ACL          ACL
 
 	Now   func() time.Time
 	NewID func() string
 }
 
-type otpRecord struct {
-	PeerID    string    `json:"peer_id"`
-	CodeHash  string    `json:"code_hash"`
-	ExpiresAt time.Time `json:"expires_at"`
-	Consumed  bool      `json:"consumed"`
+type inviteTokenRecord struct {
+	PeerPublicKey string    `json:"peer_public_key"`
+	InviteToken   string    `json:"invite_token"`
+	CreatedAt     time.Time `json:"created_at"`
+	ExpiresAt     time.Time `json:"expires_at"`
 }
 
-func (s *Server) ReportFriendOTP(ctx context.Context, peerID, code string) error {
-	store, err := s.requestsStore()
+func (s *Server) GetFriendInviteToken(ctx context.Context, owner string, _ rpcapi.FriendInviteTokenGetRequest) (rpcapi.FriendInviteTokenGetResponse, error) {
+	store, err := s.inviteTokensStore()
 	if err != nil {
-		return err
+		return rpcapi.FriendInviteTokenGetResponse{}, err
 	}
-	peerID = strings.TrimSpace(peerID)
-	if peerID == "" {
-		return errors.New("social: peer id is required")
+	record, ok, err := s.activeInviteToken(ctx, store, strings.TrimSpace(owner))
+	if err != nil || !ok {
+		return rpcapi.FriendInviteTokenGetResponse{}, err
 	}
-	if !socialutil.IsSixDigitCode(code) {
-		return errors.New("social: friend otp must be exactly 6 digits")
-	}
-	record := otpRecord{
-		PeerID:    peerID,
-		CodeHash:  socialutil.HashCode(code),
-		ExpiresAt: s.now().Add(s.friendOTPTTL()),
-	}
-	return socialutil.WriteJSON(ctx, store, socialutil.FriendOTPKey(peerID), record)
+	return rpcapi.FriendInviteTokenGetResponse{InviteToken: &record.InviteToken, ExpiresAt: &record.ExpiresAt}, nil
 }
 
-func (s *Server) CreateFriendRequest(ctx context.Context, owner string, req rpcapi.FriendRequestCreateRequest) (rpcapi.FriendRequestObject, error) {
-	store, err := s.requestsStore()
+func (s *Server) CreateFriendInviteToken(ctx context.Context, owner string, _ rpcapi.FriendInviteTokenCreateRequest) (rpcapi.FriendInviteTokenCreateResponse, error) {
+	store, err := s.inviteTokensStore()
 	if err != nil {
-		return rpcapi.FriendRequestObject{}, err
+		return rpcapi.FriendInviteTokenCreateResponse{}, err
 	}
 	owner = strings.TrimSpace(owner)
-	to := strings.TrimSpace(req.ToPeerId)
-	if owner == "" || to == "" {
-		return rpcapi.FriendRequestObject{}, errors.New("social: friend request peers are required")
+	if owner == "" {
+		return rpcapi.FriendInviteTokenCreateResponse{}, errors.New("social: peer public key is required")
 	}
-	if owner == to {
-		return rpcapi.FriendRequestObject{}, errors.New("social: cannot friend self")
-	}
-	if _, err := s.GetFriendRelation(ctx, owner, socialutil.RelationID(owner, to)); err == nil {
-		return rpcapi.FriendRequestObject{}, errors.New("social: peers are already friends")
-	} else if !errors.Is(err, kv.ErrNotFound) {
-		return rpcapi.FriendRequestObject{}, err
-	}
-	if existing, ok, err := s.pendingRequest(ctx, owner, to); err != nil {
-		return rpcapi.FriendRequestObject{}, err
+	if record, ok, err := s.activeInviteToken(ctx, store, owner); err != nil {
+		return rpcapi.FriendInviteTokenCreateResponse{}, err
 	} else if ok {
-		return existing, nil
-	}
-	if err := s.consumeOTP(ctx, to, req.Code); err != nil {
-		return rpcapi.FriendRequestObject{}, err
+		return rpcapi.FriendInviteTokenCreateResponse{InviteToken: record.InviteToken, ExpiresAt: record.ExpiresAt}, nil
 	}
 	now := s.now()
-	id := s.newID()
-	state := rpcapi.FriendRequestStatePending
-	item := rpcapi.FriendRequestObject{
-		Id:         &id,
-		FromPeerId: &owner,
-		ToPeerId:   &to,
-		Message:    socialutil.OptionalString(strings.TrimSpace(socialutil.StringValue(req.Message))),
-		State:      &state,
-		CreatedAt:  &now,
-		UpdatedAt:  &now,
+	record := inviteTokenRecord{
+		PeerPublicKey: owner,
+		InviteToken:   s.newID(),
+		CreatedAt:     now,
+		ExpiresAt:     now.Add(s.inviteTokenTTL()),
 	}
-	return item, socialutil.WriteJSON(ctx, store, socialutil.FriendRequestKey(id), item)
+	if strings.TrimSpace(record.InviteToken) == "" {
+		return rpcapi.FriendInviteTokenCreateResponse{}, errors.New("social: invite token is empty")
+	}
+	if err := socialutil.WriteJSON(ctx, store, socialutil.FriendInviteTokenKey(owner), record); err != nil {
+		return rpcapi.FriendInviteTokenCreateResponse{}, err
+	}
+	return rpcapi.FriendInviteTokenCreateResponse{InviteToken: record.InviteToken, ExpiresAt: record.ExpiresAt}, nil
 }
 
-func (s *Server) ListFriendRequests(ctx context.Context, owner string, req rpcapi.FriendRequestListRequest) (rpcapi.FriendRequestListResponse, error) {
-	store, err := s.requestsStore()
+func (s *Server) ClearFriendInviteToken(ctx context.Context, owner string, _ rpcapi.FriendInviteTokenClearRequest) (rpcapi.FriendInviteTokenClearResponse, error) {
+	store, err := s.inviteTokensStore()
 	if err != nil {
-		return rpcapi.FriendRequestListResponse{}, err
+		return rpcapi.FriendInviteTokenClearResponse{}, err
 	}
-	box := "all"
-	if req.Box != nil && string(*req.Box) != "" {
-		if !req.Box.Valid() {
-			return rpcapi.FriendRequestListResponse{}, errors.New("social: invalid friend request box")
-		}
-		box = string(*req.Box)
+	owner = strings.TrimSpace(owner)
+	if owner == "" {
+		return rpcapi.FriendInviteTokenClearResponse{}, errors.New("social: peer public key is required")
 	}
-	if req.State != nil && !req.State.Valid() {
-		return rpcapi.FriendRequestListResponse{}, errors.New("social: invalid friend request state")
+	if err := store.Delete(ctx, socialutil.FriendInviteTokenKey(owner)); err != nil && !errors.Is(err, kv.ErrNotFound) {
+		return rpcapi.FriendInviteTokenClearResponse{}, err
 	}
-	items := make([]rpcapi.FriendRequestObject, 0)
-	for entry, err := range store.List(ctx, socialutil.FriendRequestsRoot) {
-		if err != nil {
-			return rpcapi.FriendRequestListResponse{}, err
-		}
-		var item rpcapi.FriendRequestObject
-		if err := json.Unmarshal(entry.Value, &item); err != nil {
-			return rpcapi.FriendRequestListResponse{}, err
-		}
-		if !socialutil.FriendRequestVisible(item, owner, box) {
-			continue
-		}
-		if req.State != nil && (item.State == nil || *item.State != *req.State) {
-			continue
-		}
-		items = append(items, item)
-	}
-	sort.SliceStable(items, func(i, j int) bool {
-		return socialutil.CompareByCreatedAtAsc(socialutil.TimeValue(items[i].CreatedAt), socialutil.StringValue(items[i].Id), socialutil.TimeValue(items[j].CreatedAt), socialutil.StringValue(items[j].Id))
-	})
-	page := socialutil.PageItems(items, socialutil.StringValue(req.Cursor), socialutil.IntValue(req.Limit), func(item rpcapi.FriendRequestObject) string {
-		return socialutil.StringValue(item.Id)
-	})
-	return rpcapi.FriendRequestListResponse{Items: page.Items, HasNext: page.HasNext, NextCursor: page.NextCursor}, nil
+	return rpcapi.FriendInviteTokenClearResponse{}, nil
 }
 
-func (s *Server) AcceptFriendRequest(ctx context.Context, owner string, req rpcapi.FriendRequestAcceptRequest) (rpcapi.FriendRequestObject, error) {
-	return s.transitionRequest(ctx, owner, req.Id, rpcapi.FriendRequestStateAccepted)
-}
-
-func (s *Server) RejectFriendRequest(ctx context.Context, owner string, req rpcapi.FriendRequestRejectRequest) (rpcapi.FriendRequestObject, error) {
-	return s.transitionRequest(ctx, owner, req.Id, rpcapi.FriendRequestStateRejected)
+func (s *Server) AddFriend(ctx context.Context, owner string, req rpcapi.FriendAddRequest) (rpcapi.FriendAddResponse, error) {
+	owner = strings.TrimSpace(owner)
+	if owner == "" {
+		return rpcapi.FriendAddResponse{}, errors.New("social: peer public key is required")
+	}
+	record, err := s.findInviteToken(ctx, strings.TrimSpace(req.InviteToken))
+	if err != nil {
+		return rpcapi.FriendAddResponse{}, err
+	}
+	to := strings.TrimSpace(record.PeerPublicKey)
+	if to == "" {
+		return rpcapi.FriendAddResponse{}, errors.New("social: invite token owner is empty")
+	}
+	if owner == to {
+		return rpcapi.FriendAddResponse{}, errors.New("social: cannot friend self")
+	}
+	relationID := socialutil.RelationID(owner, to)
+	if existing, err := s.GetFriendRelation(ctx, owner, relationID); err == nil {
+		return existing, nil
+	} else if !errors.Is(err, kv.ErrNotFound) {
+		return rpcapi.FriendAddResponse{}, err
+	}
+	workspaceName, rollback, err := s.ensureDirectChatWorkspace(ctx, owner, to)
+	if err != nil {
+		return rpcapi.FriendAddResponse{}, err
+	}
+	friend, err := s.createFriendRows(ctx, owner, to, workspaceName)
+	if err != nil {
+		if rollback != nil {
+			rollback()
+		}
+		return rpcapi.FriendAddResponse{}, err
+	}
+	return friend, nil
 }
 
 func (s *Server) ListFriends(ctx context.Context, owner string, req rpcapi.FriendListRequest) (rpcapi.FriendListResponse, error) {
@@ -188,7 +168,7 @@ func (s *Server) DeleteFriend(ctx context.Context, owner string, req rpcapi.Frie
 	if err := s.deleteDirectChatWorkspace(ctx, owner, item); err != nil {
 		return rpcapi.FriendObject{}, err
 	}
-	other := socialutil.StringValue(item.PeerId)
+	other := socialutil.StringValue(item.PeerPublicKey)
 	if err := store.BatchDelete(ctx, []kv.Key{socialutil.FriendKey(owner, req.Id), socialutil.FriendKey(other, req.Id)}); err != nil {
 		return rpcapi.FriendObject{}, err
 	}
@@ -203,92 +183,35 @@ func (s *Server) GetFriendRelation(ctx context.Context, owner, id string) (rpcap
 	return socialutil.ReadJSONValue[rpcapi.FriendObject](ctx, store, socialutil.FriendKey(owner, id))
 }
 
-func (s *Server) transitionRequest(ctx context.Context, owner, id string, next rpcapi.FriendRequestState) (rpcapi.FriendRequestObject, error) {
-	store, err := s.requestsStore()
-	if err != nil {
-		return rpcapi.FriendRequestObject{}, err
-	}
-	item, err := socialutil.ReadJSONValue[rpcapi.FriendRequestObject](ctx, store, socialutil.FriendRequestKey(id))
-	if err != nil {
-		return rpcapi.FriendRequestObject{}, err
-	}
-	if socialutil.StringValue(item.ToPeerId) != owner {
-		return rpcapi.FriendRequestObject{}, errors.New("social: only receiver can transition friend request")
-	}
-	if next == rpcapi.FriendRequestStateAccepted && item.State != nil && *item.State == rpcapi.FriendRequestStateAccepted {
-		return item, nil
-	}
-	if item.State == nil || *item.State != rpcapi.FriendRequestStatePending {
-		return rpcapi.FriendRequestObject{}, errors.New("social: friend request is not pending")
-	}
-	now := s.now()
-	item.State = &next
-	item.UpdatedAt = &now
-	item.RespondedAt = &now
-	var rollbackWorkspace func()
-	if next == rpcapi.FriendRequestStateAccepted {
-		workspaceName, rollback, err := s.ensureDirectChatWorkspace(ctx, item)
-		if err != nil {
-			return rpcapi.FriendRequestObject{}, err
-		}
-		rollbackWorkspace = rollback
-		if workspaceName != "" {
-			item.WorkspaceName = &workspaceName
-		}
-		if err := s.createFriendRows(ctx, item); err != nil {
-			if rollbackWorkspace != nil {
-				rollbackWorkspace()
-			}
-			return rpcapi.FriendRequestObject{}, err
-		}
-	}
-	if err := socialutil.WriteJSON(ctx, store, socialutil.FriendRequestKey(id), item); err != nil {
-		if next == rpcapi.FriendRequestStateAccepted {
-			rollbackErr := s.deleteFriendRows(ctx, item)
-			if rollbackWorkspace != nil {
-				rollbackWorkspace()
-			}
-			return rpcapi.FriendRequestObject{}, errors.Join(err, rollbackErr)
-		}
-		return rpcapi.FriendRequestObject{}, err
-	}
-	return item, nil
-}
-
-func (s *Server) createFriendRows(ctx context.Context, req rpcapi.FriendRequestObject) error {
+func (s *Server) createFriendRows(ctx context.Context, from, to, workspaceName string) (rpcapi.FriendObject, error) {
 	store, err := s.friendsStore()
 	if err != nil {
-		return err
+		return rpcapi.FriendObject{}, err
 	}
-	from, to, requestID := socialutil.StringValue(req.FromPeerId), socialutil.StringValue(req.ToPeerId), socialutil.StringValue(req.Id)
 	rel := socialutil.RelationID(from, to)
 	now := s.now()
 	entries := make([]kv.Entry, 0, 2)
+	var ownerRow rpcapi.FriendObject
 	for _, row := range []struct{ owner, peer string }{{from, to}, {to, from}} {
-		item := rpcapi.FriendObject{Id: &rel, PeerId: &row.peer, RequestId: &requestID, WorkspaceName: req.WorkspaceName, CreatedAt: &now, UpdatedAt: &now}
+		item := rpcapi.FriendObject{Id: &rel, PeerPublicKey: &row.peer, WorkspaceName: &workspaceName, CreatedAt: &now, UpdatedAt: &now}
+		if row.owner == from {
+			ownerRow = item
+		}
 		data, err := json.Marshal(item)
 		if err != nil {
-			return err
+			return rpcapi.FriendObject{}, err
 		}
 		entries = append(entries, kv.Entry{Key: socialutil.FriendKey(row.owner, rel), Value: data})
 	}
-	return store.BatchSet(ctx, entries)
-}
-
-func (s *Server) deleteFriendRows(ctx context.Context, req rpcapi.FriendRequestObject) error {
-	store, err := s.friendsStore()
-	if err != nil {
-		return err
+	if err := store.BatchSet(ctx, entries); err != nil {
+		return rpcapi.FriendObject{}, err
 	}
-	from, to := socialutil.StringValue(req.FromPeerId), socialutil.StringValue(req.ToPeerId)
-	rel := socialutil.RelationID(from, to)
-	return store.BatchDelete(ctx, []kv.Key{socialutil.FriendKey(from, rel), socialutil.FriendKey(to, rel)})
+	return ownerRow, nil
 }
 
-func (s *Server) ensureDirectChatWorkspace(ctx context.Context, req rpcapi.FriendRequestObject) (string, func(), error) {
-	from, to := socialutil.StringValue(req.FromPeerId), socialutil.StringValue(req.ToPeerId)
+func (s *Server) ensureDirectChatWorkspace(ctx context.Context, from, to string) (string, func(), error) {
 	if from == "" || to == "" {
-		return "", nil, errors.New("social: friend request peers are required")
+		return "", nil, errors.New("social: friend peers are required")
 	}
 	workspaceName := socialutil.DirectWorkspaceName(socialutil.RelationID(from, to))
 	created := false
@@ -326,7 +249,7 @@ func (s *Server) ensureDirectChatWorkspace(ctx context.Context, req rpcapi.Frien
 }
 
 func (s *Server) deleteDirectChatWorkspace(ctx context.Context, owner string, item rpcapi.FriendObject) error {
-	other := socialutil.StringValue(item.PeerId)
+	other := socialutil.StringValue(item.PeerPublicKey)
 	workspaceName := socialutil.StringValue(item.WorkspaceName)
 	if workspaceName == "" {
 		workspaceName = socialutil.DirectWorkspaceName(socialutil.StringValue(item.Id))
@@ -393,53 +316,58 @@ func (s *Server) deleteWorkspace(ctx context.Context, workspaceName string) erro
 	}
 }
 
-func (s *Server) consumeOTP(ctx context.Context, peerID, code string) error {
-	if !socialutil.IsSixDigitCode(code) {
-		return errors.New("social: friend otp code must be exactly 6 digits")
+func (s *Server) activeInviteToken(ctx context.Context, store kv.Store, owner string) (inviteTokenRecord, bool, error) {
+	if owner == "" {
+		return inviteTokenRecord{}, false, errors.New("social: peer public key is required")
 	}
-	store, err := s.requestsStore()
+	record, err := socialutil.ReadJSONValue[inviteTokenRecord](ctx, store, socialutil.FriendInviteTokenKey(owner))
 	if err != nil {
-		return err
-	}
-	record, err := socialutil.ReadJSONValue[otpRecord](ctx, store, socialutil.FriendOTPKey(peerID))
-	if err != nil {
-		if !errors.Is(err, kv.ErrNotFound) {
-			return err
+		if errors.Is(err, kv.ErrNotFound) {
+			return inviteTokenRecord{}, false, nil
 		}
-		return errors.New("social: friend otp not found")
+		return inviteTokenRecord{}, false, err
 	}
-	if record.Consumed || !record.ExpiresAt.After(s.now()) || record.CodeHash != socialutil.HashCode(code) {
-		return errors.New("social: invalid friend otp")
+	if strings.TrimSpace(record.InviteToken) == "" || !record.ExpiresAt.After(s.now()) {
+		_ = store.Delete(ctx, socialutil.FriendInviteTokenKey(owner))
+		return inviteTokenRecord{}, false, nil
 	}
-	record.Consumed = true
-	return socialutil.WriteJSON(ctx, store, socialutil.FriendOTPKey(peerID), record)
+	return record, true, nil
 }
 
-func (s *Server) pendingRequest(ctx context.Context, from, to string) (rpcapi.FriendRequestObject, bool, error) {
-	store, err := s.requestsStore()
-	if err != nil {
-		return rpcapi.FriendRequestObject{}, false, err
+func (s *Server) findInviteToken(ctx context.Context, inviteToken string) (inviteTokenRecord, error) {
+	inviteToken = strings.TrimSpace(inviteToken)
+	if inviteToken == "" {
+		return inviteTokenRecord{}, errors.New("social: invite token is required")
 	}
-	for entry, err := range store.List(ctx, socialutil.FriendRequestsRoot) {
+	store, err := s.inviteTokensStore()
+	if err != nil {
+		return inviteTokenRecord{}, err
+	}
+	now := s.now()
+	for entry, err := range store.List(ctx, socialutil.FriendInviteTokensRoot) {
 		if err != nil {
-			return rpcapi.FriendRequestObject{}, false, err
+			return inviteTokenRecord{}, err
 		}
-		var item rpcapi.FriendRequestObject
-		if err := json.Unmarshal(entry.Value, &item); err != nil {
-			return rpcapi.FriendRequestObject{}, false, err
+		var record inviteTokenRecord
+		if err := json.Unmarshal(entry.Value, &record); err != nil {
+			return inviteTokenRecord{}, err
 		}
-		if socialutil.StringValue(item.FromPeerId) == from && socialutil.StringValue(item.ToPeerId) == to && item.State != nil && *item.State == rpcapi.FriendRequestStatePending {
-			return item, true, nil
+		if strings.TrimSpace(record.InviteToken) == "" || !record.ExpiresAt.After(now) {
+			_ = store.Delete(ctx, entry.Key)
+			continue
+		}
+		if record.InviteToken == inviteToken {
+			return record, nil
 		}
 	}
-	return rpcapi.FriendRequestObject{}, false, nil
+	return inviteTokenRecord{}, errors.New("social: invite token not found")
 }
 
-func (s *Server) requestsStore() (kv.Store, error) {
-	if s == nil || s.Requests == nil {
-		return nil, errors.New("social: friend request service not configured")
+func (s *Server) inviteTokensStore() (kv.Store, error) {
+	if s == nil || s.InviteTokens == nil {
+		return nil, errors.New("social: friend invite token service not configured")
 	}
-	return s.Requests, nil
+	return s.InviteTokens, nil
 }
 
 func (s *Server) friendsStore() (kv.Store, error) {
@@ -449,11 +377,8 @@ func (s *Server) friendsStore() (kv.Store, error) {
 	return s.Friends, nil
 }
 
-func (s *Server) friendOTPTTL() time.Duration {
-	if s != nil && s.FriendOTPTTL > 0 {
-		return s.FriendOTPTTL
-	}
-	return socialutil.DefaultFriendOTPTTL
+func (s *Server) inviteTokenTTL() time.Duration {
+	return socialutil.DefaultInviteTokenTTL
 }
 
 func (s *Server) now() time.Time {

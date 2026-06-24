@@ -39,7 +39,6 @@ func adminACLStories() []Story {
 				page.ClickRole("combobox", "Policy binding resource kind")
 				page.ExpectText("contact")
 				page.ExpectText("friend")
-				page.ExpectText("friend_request")
 				page.ExpectText("friend_group")
 				page.ExpectNoText("call.admin")
 
@@ -48,7 +47,6 @@ func adminACLStories() []Story {
 				page.ClickRole("button", "New Role")
 				page.ExpectText("contact.admin")
 				page.ExpectText("friend.admin")
-				page.ExpectText("friend_request.admin")
 				page.ExpectText("friend_group.admin")
 				page.ExpectNoText("call.admin")
 			},

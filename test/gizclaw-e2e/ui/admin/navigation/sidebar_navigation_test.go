@@ -34,7 +34,6 @@ func adminSidebarNavigationStories() []Story {
 				{label: "Workspaces", heading: "Workspaces", path: "/ai/workspaces"},
 				{label: "Contacts", heading: "Access Control", path: "/social/contacts"},
 				{label: "Friends", heading: "Access Control", path: "/social/friends"},
-				{label: "Friend Requests", heading: "Access Control", path: "/social/friend-requests"},
 				{label: "Friend Groups", heading: "Access Control", path: "/social/friend-groups"},
 				{label: "Access Control", heading: "Access Control", path: "/settings/acl"},
 			} {

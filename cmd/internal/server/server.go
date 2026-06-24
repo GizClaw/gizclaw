@@ -74,13 +74,6 @@ func New(cfg Config) (srv *CmdServer, err error) {
 		}
 		gizServer.RewardClaimCooldown = cooldown
 	}
-	if cfg.Friends.FriendOTPTTL != "" {
-		ttl, err := parseConfigDuration(cfg.Friends.FriendOTPTTL)
-		if err != nil {
-			return nil, fmt.Errorf("server: friends.friend_otp_ttl: %w", err)
-		}
-		gizServer.FriendOTPTTL = ttl
-	}
 	if cfg.FriendGroups.MessageDefaultTTL != "" {
 		ttl, err := parseConfigDuration(cfg.FriendGroups.MessageDefaultTTL)
 		if err != nil {
@@ -183,9 +176,9 @@ func New(cfg Config) (srv *CmdServer, err error) {
 				return nil, fmt.Errorf("server: contacts store: %w", err)
 			}
 		}
-		if storeExists(cfg, defaultFriendRequestsStore) {
-			if gizServer.FriendRequestStore, err = ss.KV(defaultFriendRequestsStore); err != nil {
-				return nil, fmt.Errorf("server: friend requests store: %w", err)
+		if storeExists(cfg, defaultFriendInviteTokensStore) {
+			if gizServer.FriendInviteTokenStore, err = ss.KV(defaultFriendInviteTokensStore); err != nil {
+				return nil, fmt.Errorf("server: friend invite tokens store: %w", err)
 			}
 		}
 		if storeExists(cfg, defaultFriendsStore) {
@@ -196,6 +189,11 @@ func New(cfg Config) (srv *CmdServer, err error) {
 		if storeExists(cfg, defaultFriendGroupsStore) {
 			if gizServer.FriendGroupStore, err = ss.KV(defaultFriendGroupsStore); err != nil {
 				return nil, fmt.Errorf("server: friend_groups store: %w", err)
+			}
+		}
+		if storeExists(cfg, defaultFriendGroupInviteTokensStore) {
+			if gizServer.FriendGroupInviteTokenStore, err = ss.KV(defaultFriendGroupInviteTokensStore); err != nil {
+				return nil, fmt.Errorf("server: friend group invite tokens store: %w", err)
 			}
 		}
 		if storeExists(cfg, defaultFriendGroupMembersStore) {

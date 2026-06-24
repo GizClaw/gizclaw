@@ -115,11 +115,7 @@
       "ServerGetRunStatusRequest": {
         "type": "object",
         "additionalProperties": false,
-        "properties": {
-          "friend_otp": {
-            "type": "string"
-          }
-        }
+        "properties": {}
       },
       "ServerGetRunStatusResponse": {
         "$ref": "../type/peer_run_status.json#/components/schemas/PeerRunStatus"
@@ -1124,133 +1120,70 @@
       "ContactDeleteResponse": {
         "$ref": "#/components/schemas/ContactObject"
       },
-      "FriendRequestObject": {
+      "FriendInviteTokenGetRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {}
+      },
+      "FriendInviteTokenGetResponse": {
         "type": "object",
         "additionalProperties": false,
         "properties": {
-          "id": {
+          "invite_token": {
             "type": "string"
           },
-          "from_peer_id": {
-            "type": "string"
-          },
-          "to_peer_id": {
-            "type": "string"
-          },
-          "message": {
-            "type": "string"
-          },
-          "state": {
-            "$ref": "#/components/schemas/FriendRequestState"
-          },
-          "workspace_name": {
-            "type": "string"
-          },
-          "created_at": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "updated_at": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "responded_at": {
+          "expires_at": {
             "type": "string",
             "format": "date-time"
           }
         }
       },
-      "FriendRequestListRequest": {
+      "FriendInviteTokenCreateRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {}
+      },
+      "FriendInviteTokenCreateResponse": {
         "type": "object",
         "additionalProperties": false,
         "properties": {
-          "cursor": {
+          "invite_token": {
             "type": "string"
           },
-          "limit": {
-            "type": "integer"
-          },
-          "box": {
-            "$ref": "#/components/schemas/FriendRequestBox"
-          },
-          "state": {
-            "$ref": "#/components/schemas/FriendRequestState"
+          "expires_at": {
+            "type": "string",
+            "format": "date-time"
           }
-        }
+        },
+        "required": [
+          "invite_token",
+          "expires_at"
+        ]
       },
-      "FriendRequestListResponse": {
+      "FriendInviteTokenClearRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {}
+      },
+      "FriendInviteTokenClearResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {}
+      },
+      "FriendAddRequest": {
         "type": "object",
         "additionalProperties": false,
         "properties": {
-          "items": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/FriendRequestObject"
-            }
-          },
-          "has_next": {
-            "type": "boolean"
-          },
-          "next_cursor": {
+          "invite_token": {
             "type": "string"
           }
         },
         "required": [
-          "items",
-          "has_next"
+          "invite_token"
         ]
       },
-      "FriendRequestCreateRequest": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "to_peer_id": {
-            "type": "string"
-          },
-          "code": {
-            "type": "string"
-          },
-          "message": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "to_peer_id",
-          "code"
-        ]
-      },
-      "FriendRequestCreateResponse": {
-        "$ref": "#/components/schemas/FriendRequestObject"
-      },
-      "FriendRequestAcceptRequest": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "id": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "id"
-        ]
-      },
-      "FriendRequestAcceptResponse": {
-        "$ref": "#/components/schemas/FriendRequestObject"
-      },
-      "FriendRequestRejectRequest": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "id": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "id"
-        ]
-      },
-      "FriendRequestRejectResponse": {
-        "$ref": "#/components/schemas/FriendRequestObject"
+      "FriendAddResponse": {
+        "$ref": "#/components/schemas/FriendObject"
       },
       "FriendObject": {
         "type": "object",
@@ -1259,10 +1192,7 @@
           "id": {
             "type": "string"
           },
-          "peer_id": {
-            "type": "string"
-          },
-          "request_id": {
+          "peer_public_key": {
             "type": "string"
           },
           "workspace_name": {
@@ -1340,7 +1270,7 @@
           "description": {
             "type": "string"
           },
-          "created_by_peer_id": {
+          "created_by_peer_public_key": {
             "type": "string"
           },
           "workspace_name": {
@@ -1353,6 +1283,9 @@
           "updated_at": {
             "type": "string",
             "format": "date-time"
+          },
+          "my_role": {
+            "$ref": "#/components/schemas/FriendGroupMemberRole"
           }
         }
       },
@@ -1459,6 +1392,105 @@
       "FriendGroupDeleteResponse": {
         "$ref": "#/components/schemas/FriendGroupObject"
       },
+      "FriendGroupInviteTokenGetRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "friend_group_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "friend_group_id"
+        ]
+      },
+      "FriendGroupInviteTokenGetResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "invite_token": {
+            "type": "string"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "FriendGroupInviteTokenCreateRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "friend_group_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "friend_group_id"
+        ]
+      },
+      "FriendGroupInviteTokenCreateResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "invite_token": {
+            "type": "string"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "invite_token",
+          "expires_at"
+        ]
+      },
+      "FriendGroupInviteTokenClearRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "friend_group_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "friend_group_id"
+        ]
+      },
+      "FriendGroupInviteTokenClearResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {}
+      },
+      "FriendGroupJoinRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "invite_token": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "invite_token"
+        ]
+      },
+      "FriendGroupJoinResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "group": {
+            "$ref": "#/components/schemas/FriendGroupObject"
+          },
+          "member": {
+            "$ref": "#/components/schemas/FriendGroupMemberObject"
+          }
+        },
+        "required": [
+          "group",
+          "member"
+        ]
+      },
       "FriendGroupMemberObject": {
         "type": "object",
         "additionalProperties": false,
@@ -1469,7 +1501,7 @@
           "friend_group_id": {
             "type": "string"
           },
-          "peer_id": {
+          "peer_public_key": {
             "type": "string"
           },
           "role": {
@@ -1529,7 +1561,7 @@
           "friend_group_id": {
             "type": "string"
           },
-          "peer_id": {
+          "peer_public_key": {
             "type": "string"
           },
           "role": {
@@ -1538,7 +1570,7 @@
         },
         "required": [
           "friend_group_id",
-          "peer_id",
+          "peer_public_key",
           "role"
         ]
       },
@@ -1574,7 +1606,7 @@
           "friend_group_id": {
             "type": "string"
           },
-          "sender_peer_id": {
+          "sender_peer_public_key": {
             "type": "string"
           },
           "audio_path": {
@@ -1932,22 +1964,6 @@
       },
       "WalletTransactionsGetResponse": {
         "$ref": "#/components/schemas/WalletTransactionObject"
-      },
-      "FriendRequestState": {
-        "type": "string",
-        "enum": [
-          "pending",
-          "accepted",
-          "rejected"
-        ]
-      },
-      "FriendRequestBox": {
-        "type": "string",
-        "enum": [
-          "all",
-          "incoming",
-          "outgoing"
-        ]
       },
       "FriendGroupMemberRole": {
         "type": "string",

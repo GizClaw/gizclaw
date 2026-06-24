@@ -2,11 +2,10 @@
 
 Tracking issue: https://github.com/GizClaw/gizclaw-go/issues/23
 
-This package is reserved for friend requests and friend relationships.
+This package owns friend invite tokens and friend relationships.
 
 Planned scope:
 
-- `friend.requests.{list,create}`
-- `friend.requests.accept`
-- `friend.requests.reject`
+- `friend.invite_token.{get,create,clear}`
+- `friend.add`
 - `friend.{list,delete}`

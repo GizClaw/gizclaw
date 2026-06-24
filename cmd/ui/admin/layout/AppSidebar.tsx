@@ -9,7 +9,6 @@ import {
   KeyRound,
   LayoutDashboard,
   Medal,
-  MessageSquarePlus,
   Mic2,
   PackageCheck,
   PawPrint,
@@ -90,7 +89,6 @@ const sections: NavSection[] = [
     items: [
       { href: "/social/contacts", icon: ContactRound, label: "Contacts" },
       { href: "/social/friends", icon: UserRoundCheck, label: "Friends" },
-      { href: "/social/friend-requests", icon: MessageSquarePlus, label: "Friend Requests" },
       { href: "/social/friend-groups", icon: UsersRound, label: "Friend Groups" },
     ],
   },

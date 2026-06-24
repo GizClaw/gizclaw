@@ -1,7 +1,7 @@
 //go:build gizclaw_e2e
 
 // User story: As a Play UI user, I can inspect and test the active workspace
-// from the Workspace drawer without using the global Test Chat drawer.
+// from the Workspace drawer without using the global OpenAI drawer.
 package playui_test
 
 import (
@@ -27,10 +27,10 @@ func playWorkspaceDrawerStories() []Story {
 				page.ExpectNoText("Inspect and test the current peer run active workspace.")
 				page.ClickRole("button", "Workspace")
 				page.ExpectText("Inspect and test the current peer run active workspace.")
-				page.ClickRole("button", "Test Chat")
+				page.ClickRole("button", "OpenAI")
 				page.ExpectText("Send requests to this gateway through the OpenAI-compatible chat completions endpoint.")
 				page.ExpectNoText("Inspect and test the current peer run active workspace.")
-				page.ClickRole("button", "Test Chat")
+				page.ClickRole("button", "OpenAI")
 				page.ExpectNoText("Send requests to this gateway through the OpenAI-compatible chat completions endpoint.")
 				page.ClickRole("button", "Workspace")
 				page.ExpectText("Inspect and test the current peer run active workspace.")

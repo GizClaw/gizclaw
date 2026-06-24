@@ -21,7 +21,7 @@ import (
 const (
 	DefaultListLimit        = 50
 	MaxListLimit            = 200
-	DefaultFriendOTPTTL     = 10 * time.Minute
+	DefaultInviteTokenTTL   = 5 * time.Minute
 	DefaultMessageTTL       = 24 * time.Hour
 	DefaultMessageMaxTTL    = 7 * 24 * time.Hour
 	DefaultCleanupInterval  = 5 * time.Minute
@@ -35,13 +35,13 @@ const (
 )
 
 var (
-	ContactsRoot       = kv.Key{"contacts"}
-	FriendRequestsRoot = kv.Key{"friend-requests"}
-	FriendsRoot        = kv.Key{"friends"}
-	FriendOTPRoot      = kv.Key{"friend-otps"}
-	GroupsRoot         = kv.Key{"friend-groups"}
-	GroupMembersRoot   = kv.Key{"friend-group-members"}
-	GroupMessagesRoot  = kv.Key{"friend-group-messages"}
+	ContactsRoot            = kv.Key{"contacts"}
+	FriendsRoot             = kv.Key{"friends"}
+	FriendInviteTokensRoot  = kv.Key{"friend-invite-tokens"}
+	GroupsRoot              = kv.Key{"friend-groups"}
+	GroupInviteTokensRoot   = kv.Key{"friend-group-invite-tokens"}
+	GroupMembersRoot        = kv.Key{"friend-group-members"}
+	GroupMessagesRoot       = kv.Key{"friend-group-messages"}
 )
 
 type EntryPage struct {
@@ -170,20 +170,20 @@ func ContactKey(owner, id string) kv.Key {
 	return append(OwnerPrefix(ContactsRoot, owner), EscapeStoreSegment(id))
 }
 
-func FriendRequestKey(id string) kv.Key {
-	return append(append(kv.Key{}, FriendRequestsRoot...), EscapeStoreSegment(id))
-}
-
-func FriendOTPKey(peerID string) kv.Key {
-	return append(append(kv.Key{}, FriendOTPRoot...), EscapeStoreSegment(peerID))
-}
-
 func FriendKey(owner, id string) kv.Key {
 	return append(OwnerPrefix(FriendsRoot, owner), EscapeStoreSegment(id))
 }
 
+func FriendInviteTokenKey(peerPublicKey string) kv.Key {
+	return append(append(kv.Key{}, FriendInviteTokensRoot...), EscapeStoreSegment(peerPublicKey))
+}
+
 func GroupKey(id string) kv.Key {
 	return append(append(kv.Key{}, GroupsRoot...), EscapeStoreSegment(id))
+}
+
+func GroupInviteTokenKey(friendGroupID string) kv.Key {
+	return append(append(kv.Key{}, GroupInviteTokensRoot...), EscapeStoreSegment(friendGroupID))
 }
 
 func GroupMemberKey(friendGroupID, peerID string) kv.Key {
@@ -216,19 +216,6 @@ func ChatRoomWorkspaceParameters(mode apitypes.ChatRoomMode) *apitypes.Workspace
 		Mode:  &mode,
 	})
 	return &params
-}
-
-func FriendRequestVisible(item rpcapi.FriendRequestObject, owner, box string) bool {
-	in := StringValue(item.ToPeerId) == owner
-	out := StringValue(item.FromPeerId) == owner
-	switch box {
-	case "incoming":
-		return in
-	case "outgoing":
-		return out
-	default:
-		return in || out
-	}
 }
 
 func GroupRole(member rpcapi.FriendGroupMemberObject) rpcapi.FriendGroupMemberRole {
@@ -338,23 +325,6 @@ func OptionalString(v string) *string {
 		return nil
 	}
 	return &v
-}
-
-func IsSixDigitCode(code string) bool {
-	if len(code) != 6 {
-		return false
-	}
-	for _, r := range code {
-		if r < '0' || r > '9' {
-			return false
-		}
-	}
-	return true
-}
-
-func HashCode(code string) string {
-	sum := sha256.Sum256([]byte(code))
-	return hex.EncodeToString(sum[:])
 }
 
 func NormalizePhone(phone string) string {

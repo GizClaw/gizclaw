@@ -3,7 +3,9 @@ package clientapi
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -55,6 +57,12 @@ func TestPlayHTTPServiceClientUnavailableResponses(t *testing.T) {
 	petAction := rpcapi.PetActionRequest{Prompt: "now"}
 	petPut := rpcapi.PetPutRequest{Name: "Pixa"}
 	rewardClaim := rpcapi.RewardClaimRequest{Prompt: "done"}
+	friendAdd := rpcapi.FriendAddRequest{InviteToken: "token"}
+	groupCreate := rpcapi.FriendGroupCreateRequest{Name: "room"}
+	groupJoin := rpcapi.FriendGroupJoinRequest{InviteToken: "token"}
+	groupPut := rpcapi.FriendGroupPutRequest{}
+	groupMemberAdd := rpcapi.FriendGroupMemberAddRequest{PeerPublicKey: "peer-b", Role: rpcapi.FriendGroupMemberMutableRole("member")}
+	groupMemberPut := rpcapi.FriendGroupMemberPutRequest{Role: rpcapi.FriendGroupMemberMutableRole("admin")}
 	offer := clientservice.WebRTCSessionDescription{Type: clientservice.Offer, Sdp: "v=0"}
 
 	for name, call := range map[string]func() any{
@@ -72,6 +80,82 @@ func TestPlayHTTPServiceClientUnavailableResponses(t *testing.T) {
 		},
 		"credentials": func() any {
 			resp, _ := service.ListPeerCredentials(ctx, clientservice.ListPeerCredentialsRequestObject{})
+			return resp
+		},
+		"friends": func() any {
+			resp, _ := service.ListPeerFriends(ctx, clientservice.ListPeerFriendsRequestObject{})
+			return resp
+		},
+		"add friend": func() any {
+			resp, _ := service.AddPeerFriend(ctx, clientservice.AddPeerFriendRequestObject{Body: &friendAdd})
+			return resp
+		},
+		"delete friend": func() any {
+			resp, _ := service.DeletePeerFriend(ctx, clientservice.DeletePeerFriendRequestObject{Id: "peer-b"})
+			return resp
+		},
+		"get friend invite token": func() any {
+			resp, _ := service.GetPeerFriendInviteToken(ctx, clientservice.GetPeerFriendInviteTokenRequestObject{})
+			return resp
+		},
+		"create friend invite token": func() any {
+			resp, _ := service.CreatePeerFriendInviteToken(ctx, clientservice.CreatePeerFriendInviteTokenRequestObject{})
+			return resp
+		},
+		"clear friend invite token": func() any {
+			resp, _ := service.ClearPeerFriendInviteToken(ctx, clientservice.ClearPeerFriendInviteTokenRequestObject{})
+			return resp
+		},
+		"friend groups": func() any {
+			resp, _ := service.ListPeerFriendGroups(ctx, clientservice.ListPeerFriendGroupsRequestObject{})
+			return resp
+		},
+		"create friend group": func() any {
+			resp, _ := service.CreatePeerFriendGroup(ctx, clientservice.CreatePeerFriendGroupRequestObject{Body: &groupCreate})
+			return resp
+		},
+		"join friend group": func() any {
+			resp, _ := service.JoinPeerFriendGroup(ctx, clientservice.JoinPeerFriendGroupRequestObject{Body: &groupJoin})
+			return resp
+		},
+		"get friend group": func() any {
+			resp, _ := service.GetPeerFriendGroup(ctx, clientservice.GetPeerFriendGroupRequestObject{Id: "group-a"})
+			return resp
+		},
+		"put friend group": func() any {
+			resp, _ := service.PutPeerFriendGroup(ctx, clientservice.PutPeerFriendGroupRequestObject{Id: "group-a", Body: &groupPut})
+			return resp
+		},
+		"delete friend group": func() any {
+			resp, _ := service.DeletePeerFriendGroup(ctx, clientservice.DeletePeerFriendGroupRequestObject{Id: "group-a"})
+			return resp
+		},
+		"get friend group invite token": func() any {
+			resp, _ := service.GetPeerFriendGroupInviteToken(ctx, clientservice.GetPeerFriendGroupInviteTokenRequestObject{Id: "group-a"})
+			return resp
+		},
+		"create friend group invite token": func() any {
+			resp, _ := service.CreatePeerFriendGroupInviteToken(ctx, clientservice.CreatePeerFriendGroupInviteTokenRequestObject{Id: "group-a"})
+			return resp
+		},
+		"clear friend group invite token": func() any {
+			resp, _ := service.ClearPeerFriendGroupInviteToken(ctx, clientservice.ClearPeerFriendGroupInviteTokenRequestObject{Id: "group-a"})
+			return resp
+		},
+		"friend group members": func() any {
+			resp, _ := service.ListPeerFriendGroupMembers(ctx, clientservice.ListPeerFriendGroupMembersRequestObject{Id: "group-a"})
+			return resp
+		},
+		"add friend group member": func() any {
+			resp, _ := service.AddPeerFriendGroupMember(ctx, clientservice.AddPeerFriendGroupMemberRequestObject{Id: "group-a", Body: &groupMemberAdd})
+			return resp
+		},
+		"put friend group member": func() any {
+			resp, _ := service.PutPeerFriendGroupMember(ctx, clientservice.PutPeerFriendGroupMemberRequestObject{Id: "group-a", MemberId: "peer-b", Body: &groupMemberPut})
+			return resp
+		},
+		"delete friend group member": func() any {
+			resp, _ := service.DeletePeerFriendGroupMember(ctx, clientservice.DeletePeerFriendGroupMemberRequestObject{Id: "group-a", MemberId: "peer-b"})
 			return resp
 		},
 		"pets": func() any {
@@ -138,6 +222,18 @@ func TestPlayHTTPServiceClientUnavailableResponses(t *testing.T) {
 			resp, _ := service.ListClientVoices(ctx, clientservice.ListClientVoicesRequestObject{})
 			return resp
 		},
+		"workspace history": func() any {
+			resp, _ := service.ListPeerWorkspaceHistory(ctx, clientservice.ListPeerWorkspaceHistoryRequestObject{WorkspaceName: "workspace-a"})
+			return resp
+		},
+		"workspace history get": func() any {
+			resp, _ := service.GetPeerWorkspaceHistory(ctx, clientservice.GetPeerWorkspaceHistoryRequestObject{WorkspaceName: "workspace-a", HistoryId: "history-a"})
+			return resp
+		},
+		"workspace history audio": func() any {
+			resp, _ := service.GetPeerWorkspaceHistoryAudio(ctx, clientservice.GetPeerWorkspaceHistoryAudioRequestObject{WorkspaceName: "workspace-a", HistoryId: "history-a"})
+			return resp
+		},
 		"stream voices": func() any {
 			resp, _ := service.StreamPlayableVoices(ctx, clientservice.StreamPlayableVoicesRequestObject{})
 			return resp
@@ -154,6 +250,119 @@ func TestPlayHTTPServiceClientUnavailableResponses(t *testing.T) {
 		}
 		if errResp.status != http.StatusServiceUnavailable {
 			t.Fatalf("%s status = %d, want %d", name, errResp.status, http.StatusServiceUnavailable)
+		}
+	}
+}
+
+func TestPlayHTTPServiceConnectedClientRPCErrorResponses(t *testing.T) {
+	service := &playHTTPService{client: func() (*gizcli.Client, error) {
+		return &gizcli.Client{}, nil
+	}}
+	ctx := context.Background()
+	friendAdd := rpcapi.FriendAddRequest{InviteToken: "token"}
+	groupCreate := rpcapi.FriendGroupCreateRequest{Name: "room"}
+	groupJoin := rpcapi.FriendGroupJoinRequest{InviteToken: "token"}
+	groupPut := rpcapi.FriendGroupPutRequest{}
+	groupMemberAdd := rpcapi.FriendGroupMemberAddRequest{PeerPublicKey: "peer-b", Role: rpcapi.FriendGroupMemberMutableRole("member")}
+	groupMemberPut := rpcapi.FriendGroupMemberPutRequest{Role: rpcapi.FriendGroupMemberMutableRole("admin")}
+
+	for name, call := range map[string]func() any{
+		"friends": func() any {
+			resp, _ := service.ListPeerFriends(ctx, clientservice.ListPeerFriendsRequestObject{})
+			return resp
+		},
+		"add friend": func() any {
+			resp, _ := service.AddPeerFriend(ctx, clientservice.AddPeerFriendRequestObject{Body: &friendAdd})
+			return resp
+		},
+		"delete friend": func() any {
+			resp, _ := service.DeletePeerFriend(ctx, clientservice.DeletePeerFriendRequestObject{Id: "peer-b"})
+			return resp
+		},
+		"get friend invite token": func() any {
+			resp, _ := service.GetPeerFriendInviteToken(ctx, clientservice.GetPeerFriendInviteTokenRequestObject{})
+			return resp
+		},
+		"create friend invite token": func() any {
+			resp, _ := service.CreatePeerFriendInviteToken(ctx, clientservice.CreatePeerFriendInviteTokenRequestObject{})
+			return resp
+		},
+		"clear friend invite token": func() any {
+			resp, _ := service.ClearPeerFriendInviteToken(ctx, clientservice.ClearPeerFriendInviteTokenRequestObject{})
+			return resp
+		},
+		"friend groups": func() any {
+			resp, _ := service.ListPeerFriendGroups(ctx, clientservice.ListPeerFriendGroupsRequestObject{})
+			return resp
+		},
+		"create friend group": func() any {
+			resp, _ := service.CreatePeerFriendGroup(ctx, clientservice.CreatePeerFriendGroupRequestObject{Body: &groupCreate})
+			return resp
+		},
+		"join friend group": func() any {
+			resp, _ := service.JoinPeerFriendGroup(ctx, clientservice.JoinPeerFriendGroupRequestObject{Body: &groupJoin})
+			return resp
+		},
+		"get friend group": func() any {
+			resp, _ := service.GetPeerFriendGroup(ctx, clientservice.GetPeerFriendGroupRequestObject{Id: "group-a"})
+			return resp
+		},
+		"put friend group": func() any {
+			resp, _ := service.PutPeerFriendGroup(ctx, clientservice.PutPeerFriendGroupRequestObject{Id: "group-a", Body: &groupPut})
+			return resp
+		},
+		"delete friend group": func() any {
+			resp, _ := service.DeletePeerFriendGroup(ctx, clientservice.DeletePeerFriendGroupRequestObject{Id: "group-a"})
+			return resp
+		},
+		"get friend group invite token": func() any {
+			resp, _ := service.GetPeerFriendGroupInviteToken(ctx, clientservice.GetPeerFriendGroupInviteTokenRequestObject{Id: "group-a"})
+			return resp
+		},
+		"create friend group invite token": func() any {
+			resp, _ := service.CreatePeerFriendGroupInviteToken(ctx, clientservice.CreatePeerFriendGroupInviteTokenRequestObject{Id: "group-a"})
+			return resp
+		},
+		"clear friend group invite token": func() any {
+			resp, _ := service.ClearPeerFriendGroupInviteToken(ctx, clientservice.ClearPeerFriendGroupInviteTokenRequestObject{Id: "group-a"})
+			return resp
+		},
+		"friend group members": func() any {
+			resp, _ := service.ListPeerFriendGroupMembers(ctx, clientservice.ListPeerFriendGroupMembersRequestObject{Id: "group-a"})
+			return resp
+		},
+		"add friend group member": func() any {
+			resp, _ := service.AddPeerFriendGroupMember(ctx, clientservice.AddPeerFriendGroupMemberRequestObject{Id: "group-a", Body: &groupMemberAdd})
+			return resp
+		},
+		"put friend group member": func() any {
+			resp, _ := service.PutPeerFriendGroupMember(ctx, clientservice.PutPeerFriendGroupMemberRequestObject{Id: "group-a", MemberId: "peer-b", Body: &groupMemberPut})
+			return resp
+		},
+		"delete friend group member": func() any {
+			resp, _ := service.DeletePeerFriendGroupMember(ctx, clientservice.DeletePeerFriendGroupMemberRequestObject{Id: "group-a", MemberId: "peer-b"})
+			return resp
+		},
+		"workspace history": func() any {
+			resp, _ := service.ListPeerWorkspaceHistory(ctx, clientservice.ListPeerWorkspaceHistoryRequestObject{WorkspaceName: "workspace-a"})
+			return resp
+		},
+		"workspace history get": func() any {
+			resp, _ := service.GetPeerWorkspaceHistory(ctx, clientservice.GetPeerWorkspaceHistoryRequestObject{WorkspaceName: "workspace-a", HistoryId: "history-a"})
+			return resp
+		},
+		"workspace history audio": func() any {
+			resp, _ := service.GetPeerWorkspaceHistoryAudio(ctx, clientservice.GetPeerWorkspaceHistoryAudioRequestObject{WorkspaceName: "workspace-a", HistoryId: "history-a"})
+			return resp
+		},
+	} {
+		resp := call()
+		errResp, ok := resp.(playHTTPErrorResponse)
+		if !ok {
+			t.Fatalf("%s response = %T, want playHTTPErrorResponse", name, resp)
+		}
+		if errResp.status != http.StatusBadGateway {
+			t.Fatalf("%s status = %d, want %d", name, errResp.status, http.StatusBadGateway)
 		}
 	}
 }
@@ -202,6 +411,30 @@ func TestPlayHTTPServiceBodyRequiredResponses(t *testing.T) {
 	ctx := context.Background()
 
 	for name, call := range map[string]func() any{
+		"add friend": func() any {
+			resp, _ := service.AddPeerFriend(ctx, clientservice.AddPeerFriendRequestObject{})
+			return resp
+		},
+		"create friend group": func() any {
+			resp, _ := service.CreatePeerFriendGroup(ctx, clientservice.CreatePeerFriendGroupRequestObject{})
+			return resp
+		},
+		"join friend group": func() any {
+			resp, _ := service.JoinPeerFriendGroup(ctx, clientservice.JoinPeerFriendGroupRequestObject{})
+			return resp
+		},
+		"put friend group": func() any {
+			resp, _ := service.PutPeerFriendGroup(ctx, clientservice.PutPeerFriendGroupRequestObject{Id: "group-a"})
+			return resp
+		},
+		"add friend group member": func() any {
+			resp, _ := service.AddPeerFriendGroupMember(ctx, clientservice.AddPeerFriendGroupMemberRequestObject{Id: "group-a"})
+			return resp
+		},
+		"put friend group member": func() any {
+			resp, _ := service.PutPeerFriendGroupMember(ctx, clientservice.PutPeerFriendGroupMemberRequestObject{Id: "group-a", MemberId: "peer-b"})
+			return resp
+		},
 		"adopt pet": func() any {
 			resp, _ := service.AdoptPeerPet(ctx, clientservice.AdoptPeerPetRequestObject{})
 			return resp
@@ -359,6 +592,28 @@ func TestPlayHTTPErrorResponseVisitors(t *testing.T) {
 		playHTTPErrorResponse.VisitGetPeerWalletTransactionResponse,
 		playHTTPErrorResponse.VisitListPeerWorkflowsResponse,
 		playHTTPErrorResponse.VisitListPeerWorkspacesResponse,
+		playHTTPErrorResponse.VisitListPeerFriendsResponse,
+		playHTTPErrorResponse.VisitAddPeerFriendResponse,
+		playHTTPErrorResponse.VisitDeletePeerFriendResponse,
+		playHTTPErrorResponse.VisitGetPeerFriendInviteTokenResponse,
+		playHTTPErrorResponse.VisitCreatePeerFriendInviteTokenResponse,
+		playHTTPErrorResponse.VisitClearPeerFriendInviteTokenResponse,
+		playHTTPErrorResponse.VisitListPeerFriendGroupsResponse,
+		playHTTPErrorResponse.VisitCreatePeerFriendGroupResponse,
+		playHTTPErrorResponse.VisitJoinPeerFriendGroupResponse,
+		playHTTPErrorResponse.VisitGetPeerFriendGroupResponse,
+		playHTTPErrorResponse.VisitPutPeerFriendGroupResponse,
+		playHTTPErrorResponse.VisitDeletePeerFriendGroupResponse,
+		playHTTPErrorResponse.VisitGetPeerFriendGroupInviteTokenResponse,
+		playHTTPErrorResponse.VisitCreatePeerFriendGroupInviteTokenResponse,
+		playHTTPErrorResponse.VisitClearPeerFriendGroupInviteTokenResponse,
+		playHTTPErrorResponse.VisitListPeerFriendGroupMembersResponse,
+		playHTTPErrorResponse.VisitAddPeerFriendGroupMemberResponse,
+		playHTTPErrorResponse.VisitPutPeerFriendGroupMemberResponse,
+		playHTTPErrorResponse.VisitDeletePeerFriendGroupMemberResponse,
+		playHTTPErrorResponse.VisitListPeerWorkspaceHistoryResponse,
+		playHTTPErrorResponse.VisitGetPeerWorkspaceHistoryResponse,
+		playHTTPErrorResponse.VisitGetPeerWorkspaceHistoryAudioResponse,
 		playHTTPErrorResponse.VisitStreamPlayableVoicesResponse,
 		playHTTPErrorResponse.VisitListClientVoicesResponse,
 		playHTTPErrorResponse.VisitCreateWebRTCOfferResponse,
@@ -432,6 +687,14 @@ func TestPlayVoiceMatches(t *testing.T) {
 	otherName := "other"
 	if playVoiceMatches(voice, &source, &kind, &otherName) {
 		t.Fatal("voice matched wrong provider name")
+	}
+	otherSource := apitypes.VoiceSource("custom")
+	if playVoiceMatches(voice, &otherSource, &kind, &name) {
+		t.Fatal("voice matched wrong source")
+	}
+	otherKind := apitypes.VoiceProviderKind("minimax")
+	if playVoiceMatches(voice, &source, &otherKind, &name) {
+		t.Fatal("voice matched wrong provider kind")
 	}
 }
 
@@ -562,5 +825,76 @@ func TestStreamPlayableVoicesWritesErrorAndInvalidates(t *testing.T) {
 	}
 	if !bytes.Contains(buf.Bytes(), []byte("offline")) {
 		t.Fatalf("stream = %q", buf.String())
+	}
+}
+
+func TestStreamPlayableVoicesPaginatesAndFilters(t *testing.T) {
+	kind := apitypes.VoiceProviderKind("openai")
+	name := "main"
+	next := "next-page"
+	calls := 0
+	resetOpenAIHTTPClient(t, func(req *http.Request) (*http.Response, error) {
+		calls++
+		if got := req.URL.Query().Get("limit"); got != "1" {
+			t.Fatalf("limit = %q, want 1", got)
+		}
+		if calls == 2 {
+			if got := req.URL.Query().Get("cursor"); got != next {
+				t.Fatalf("cursor = %q, want %q", got, next)
+			}
+		}
+		voice := apitypes.Voice{
+			Id:     fmt.Sprintf("voice-%d", calls),
+			Source: apitypes.VoiceSource("global"),
+			Provider: apitypes.VoiceProvider{
+				Kind: kind,
+				Name: name,
+			},
+		}
+		filtered := apitypes.Voice{
+			Id:     "filtered",
+			Source: apitypes.VoiceSource("global"),
+			Provider: apitypes.VoiceProvider{
+				Kind: kind,
+				Name: "other",
+			},
+		}
+		body := clientservice.ClientVoiceListResponse{
+			Data:    []apitypes.Voice{voice, filtered},
+			HasNext: calls == 1,
+			Object:  clientservice.List,
+		}
+		if calls == 1 {
+			body.NextCursor = &next
+		}
+		data, err := json.Marshal(body)
+		if err != nil {
+			t.Fatalf("marshal voice page: %v", err)
+		}
+		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(bytes.NewReader(data)), Header: http.Header{}}, nil
+	})
+
+	var out bytes.Buffer
+	streamPlayableVoices(context.Background(), &out, &gizcli.Client{}, nil, &kind, &name, ptr(1))
+	text := out.String()
+	if calls != 2 {
+		t.Fatalf("voice page calls = %d, want 2", calls)
+	}
+	if !strings.Contains(text, "voice-1") || !strings.Contains(text, "voice-2") || strings.Contains(text, "filtered") || !strings.Contains(text, `"done":true`) {
+		t.Fatalf("stream output = %q", text)
+	}
+}
+
+func TestCreatePlayWebRTCAnswerPreflightErrors(t *testing.T) {
+	offer := clientservice.WebRTCSessionDescription{Type: clientservice.Offer, Sdp: "v=0"}
+	if _, errResp, ok := createPlayWebRTCAnswer(context.Background(), func() (*gizcli.Client, error) {
+		return nil, errors.New("offline")
+	}, offer); ok || errResp.status != http.StatusServiceUnavailable {
+		t.Fatalf("client error response = %#v ok=%v, want unavailable", errResp, ok)
+	}
+	if _, errResp, ok := createPlayWebRTCAnswer(context.Background(), func() (*gizcli.Client, error) {
+		return &gizcli.Client{}, nil
+	}, offer); ok || errResp.status != http.StatusBadGateway {
+		t.Fatalf("reload error response = %#v ok=%v, want bad gateway", errResp, ok)
 	}
 }

@@ -441,7 +441,7 @@ export type WorkspaceResource = {
 /**
  * ACL permission enum.
  */
-export type AclPermission = 'viewer' | 'editor' | 'owner' | 'workspace.read' | 'workspace.use' | 'workspace.admin' | 'workflow.read' | 'workflow.use' | 'workflow.admin' | 'voice.read' | 'voice.use' | 'voice.admin' | 'credential.read' | 'credential.use' | 'credential.admin' | 'model.read' | 'model.use' | 'model.admin' | 'view.read' | 'view.use' | 'view.admin' | 'contact.read' | 'contact.use' | 'contact.admin' | 'friend.read' | 'friend.use' | 'friend.admin' | 'friend_request.read' | 'friend_request.use' | 'friend_request.admin' | 'friend_group.read' | 'friend_group.use' | 'friend_group.admin' | 'pet_species.read' | 'pet_species.use' | 'pet_species.admin' | 'badge.read' | 'badge.use' | 'badge.admin' | 'firmware.read' | 'firmware.admin';
+export type AclPermission = 'viewer' | 'editor' | 'owner' | 'workspace.read' | 'workspace.use' | 'workspace.admin' | 'workflow.read' | 'workflow.use' | 'workflow.admin' | 'voice.read' | 'voice.use' | 'voice.admin' | 'credential.read' | 'credential.use' | 'credential.admin' | 'model.read' | 'model.use' | 'model.admin' | 'view.read' | 'view.use' | 'view.admin' | 'contact.read' | 'contact.use' | 'contact.admin' | 'friend.read' | 'friend.use' | 'friend.admin' | 'friend_group.read' | 'friend_group.use' | 'friend_group.admin' | 'pet_species.read' | 'pet_species.use' | 'pet_species.admin' | 'badge.read' | 'badge.use' | 'badge.admin' | 'firmware.read' | 'firmware.admin';
 
 export type AclPermissionList = Array<AclPermission>;
 
@@ -478,7 +478,7 @@ export type AclResource = {
 /**
  * ACL resource identity kind.
  */
-export type AclResourceKind = 'workspace' | 'workflow' | 'voice' | 'credential' | 'model' | 'view' | 'contact' | 'friend' | 'friend_request' | 'friend_group' | 'pet_species' | 'badge' | 'firmware';
+export type AclResourceKind = 'workspace' | 'workflow' | 'voice' | 'credential' | 'model' | 'view' | 'contact' | 'friend' | 'friend_group' | 'pet_species' | 'badge' | 'firmware';
 
 export type AclRole = {
     name: string;
@@ -1084,13 +1084,14 @@ export type WorkflowMetadata = {
     description?: string;
 };
 
-export type WorkflowDriver = 'flowcraft' | 'doubao-realtime' | 'ast-translate';
+export type WorkflowDriver = 'flowcraft' | 'doubao-realtime' | 'ast-translate' | 'chatroom';
 
 export type WorkflowSpec = {
     driver: WorkflowDriver;
     flowcraft?: FlowcraftWorkflowSpec;
     doubao_realtime?: DoubaoRealtimeWorkflowSpec;
     ast_translate?: AstTranslateWorkflowSpec;
+    chatroom?: ChatRoomWorkflowSpec;
 };
 
 export type AstTranslateExternalVoiceParameters = {
@@ -1137,6 +1138,29 @@ export type AstTranslateWorkflowSpec = {
     auth_mode?: string;
 };
 
+export type ChatRoomWorkflowHistorySpec = {
+    /**
+     * Unified retention duration for chat history entries and their assets.
+     */
+    ttl?: string;
+};
+
+export type ChatRoomWorkflowSpec = {
+    history: ChatRoomWorkflowHistorySpec;
+    transcript?: ChatRoomWorkflowTranscriptSpec;
+};
+
+export type ChatRoomWorkflowTranscriptSpec = {
+    /**
+     * Whether gear audio should be transcribed and written as text in workspace history.
+     */
+    enabled?: boolean;
+    /**
+     * GizClaw ASR model resource used to transcribe gear audio.
+     */
+    asr_model?: string;
+};
+
 export type DoubaoRealtimeWorkflowSpec = {
     realtime_model?: string;
     model?: string;
@@ -1158,6 +1182,10 @@ export type Workspace = {
     workflow_name: string;
     parameters?: WorkspaceParameters;
     created_at: string;
+    /**
+     * Last user-visible workspace conversation or history activity time. Configuration-only updates must not modify this field.
+     */
+    last_active_at: string;
     updated_at: string;
 };
 
@@ -1203,6 +1231,34 @@ export type AstTranslateWorkspaceParameters = {
      * Marks seed resources used by the local e2e harness.
      */
     e2e?: boolean;
+};
+
+export type ChatRoomMode = 'direct' | 'group';
+
+export type ChatRoomWorkspaceHistoryParameters = {
+    /**
+     * Workspace-level retention override for chat history entries and their assets.
+     */
+    ttl?: string;
+};
+
+export type ChatRoomWorkspaceParameters = {
+    agent_type: 'chatroom';
+    input?: WorkspaceInputMode;
+    mode?: ChatRoomMode;
+    history?: ChatRoomWorkspaceHistoryParameters;
+    transcript?: ChatRoomWorkspaceTranscriptParameters;
+};
+
+export type ChatRoomWorkspaceTranscriptParameters = {
+    /**
+     * Whether gear audio should be transcribed and written as text in workspace history.
+     */
+    enabled?: boolean;
+    /**
+     * Workspace-level ASR model override for gear audio transcription.
+     */
+    asr_model?: string;
 };
 
 export type DoubaoRealtimeExternalVoiceParameters = {
@@ -1293,7 +1349,9 @@ export type WorkspaceParameters = ({
     agent_type: 'doubao-realtime';
 } & DoubaoRealtimeWorkspaceParameters) | ({
     agent_type: 'ast-translate';
-} & AstTranslateWorkspaceParameters);
+} & AstTranslateWorkspaceParameters) | ({
+    agent_type: 'chatroom';
+} & ChatRoomWorkspaceParameters);
 
 export type WorkspaceSpec = {
     workflow_name: string;
@@ -2022,6 +2080,10 @@ export type ListAclPolicyBindingsData = {
          * Filter by ACL resource identifier
          */
         resource_id?: string;
+        /**
+         * Filter by ACL resource identifier prefix
+         */
+        resource_id_prefix?: string;
         /**
          * Filter by ACL role name
          */

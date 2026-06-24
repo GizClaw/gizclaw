@@ -38,19 +38,35 @@ func TestServerFriendGroupRPC(t *testing.T) {
 	if updated.Name == nil || *updated.Name != renamed {
 		t.Fatalf("friend_group.put name = %#v", updated.Name)
 	}
+	if updated.MyRole == nil || *updated.MyRole != rpcapi.FriendGroupMemberRoleOwner {
+		t.Fatalf("friend_group.put my_role = %#v, want owner", updated.MyRole)
+	}
 
-	memberB, err := env.a.AddFriendGroupMember(env.ctx, "friend_group.members.add.b", rpcapi.FriendGroupMemberAddRequest{
-		FriendGroupId: *group.Id,
-		PeerId:        env.peer["peer-b"],
-		Role:          rpcapi.FriendGroupMemberMutableRoleMember,
-	})
+	emptyToken, err := env.a.GetFriendGroupInviteToken(env.ctx, "friend_group.invite_token.get.empty", rpcapi.FriendGroupInviteTokenGetRequest{FriendGroupId: *group.Id})
 	if err != nil {
-		t.Fatalf("friend_group.members.add b: %v", err)
+		t.Fatalf("friend_group.invite_token.get empty: %v", err)
 	}
-	if memberB.PeerId == nil || *memberB.PeerId != env.peer["peer-b"] {
-		t.Fatalf("member b peer_id = %#v", memberB.PeerId)
+	if emptyToken.InviteToken != nil || emptyToken.ExpiresAt != nil {
+		t.Fatalf("friend_group.invite_token.get empty = %#v, want no token", emptyToken)
 	}
-	memberB, err = env.a.PutFriendGroupMember(env.ctx, "friend_group.members.put.b", rpcapi.FriendGroupMemberPutRequest{
+	token, err := env.a.CreateFriendGroupInviteToken(env.ctx, "friend_group.invite_token.create", rpcapi.FriendGroupInviteTokenCreateRequest{FriendGroupId: *group.Id})
+	if err != nil {
+		t.Fatalf("friend_group.invite_token.create: %v", err)
+	}
+	if token.InviteToken == "" || token.ExpiresAt.IsZero() {
+		t.Fatalf("friend_group.invite_token.create = %#v", token)
+	}
+	joined, err := env.b.JoinFriendGroup(env.ctx, "friend_group.join.b", rpcapi.FriendGroupJoinRequest{InviteToken: token.InviteToken})
+	if err != nil {
+		t.Fatalf("friend_group.join b: %v", err)
+	}
+	if joined.Member.PeerPublicKey == nil || *joined.Member.PeerPublicKey != env.peer["peer-b"] || joined.Member.Role == nil || *joined.Member.Role != rpcapi.FriendGroupMemberRoleMember {
+		t.Fatalf("friend_group.join member = %#v, want peer-b member", joined.Member)
+	}
+	if joined.Group.MyRole == nil || *joined.Group.MyRole != rpcapi.FriendGroupMemberRoleMember {
+		t.Fatalf("friend_group.join my_role = %#v, want member", joined.Group.MyRole)
+	}
+	memberB, err := env.a.PutFriendGroupMember(env.ctx, "friend_group.members.put.b", rpcapi.FriendGroupMemberPutRequest{
 		FriendGroupId: *group.Id,
 		Id:            env.peer["peer-b"],
 		Role:          rpcapi.FriendGroupMemberMutableRoleAdmin,
@@ -63,14 +79,14 @@ func TestServerFriendGroupRPC(t *testing.T) {
 	}
 	memberC, err := env.b.AddFriendGroupMember(env.ctx, "friend_group.members.add.c", rpcapi.FriendGroupMemberAddRequest{
 		FriendGroupId: *group.Id,
-		PeerId:        env.peer["peer-c"],
+		PeerPublicKey: env.peer["peer-c"],
 		Role:          rpcapi.FriendGroupMemberMutableRoleMember,
 	})
 	if err != nil {
 		t.Fatalf("friend_group.members.add c: %v", err)
 	}
-	if memberC.PeerId == nil || *memberC.PeerId != env.peer["peer-c"] {
-		t.Fatalf("member c peer_id = %#v", memberC.PeerId)
+	if memberC.PeerPublicKey == nil || *memberC.PeerPublicKey != env.peer["peer-c"] {
+		t.Fatalf("member c peer_public_key = %#v", memberC.PeerPublicKey)
 	}
 	limit := 1
 	groups, err := env.a.ListFriendGroups(env.ctx, "friend_group.list.page1", rpcapi.FriendGroupListRequest{Limit: &limit})

@@ -3,7 +3,7 @@ import type { JSX, MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEv
 import { createRoot } from "react-dom/client";
 import OpenAI from "openai";
 import type { ChatCompletionMessageParam } from "openai/resources/chat/completions";
-import { Bot, Brain, BriefcaseBusiness, ChevronDown, Clock3, Coins, Database, Gift, KeyRound, Loader2, MessageCircle, Mic2, PawPrint, Pencil, Play, Plus, ReceiptText, RefreshCw, Search, SendHorizontal, Trash2, Volume2, VolumeX, Workflow } from "lucide-react";
+import { ArrowLeft, Bot, Brain, BriefcaseBusiness, ChevronDown, Clock3, Coins, Database, Gift, KeyRound, Loader2, MessageCircle, Mic2, PawPrint, Pencil, Play, Plus, ReceiptText, RefreshCw, Search, SendHorizontal, Trash2, UserPlus, Users, Volume2, VolumeX, Workflow } from "lucide-react";
 import { toast } from "sonner";
 import {
   ActionBarPrimitive,
@@ -26,26 +26,51 @@ import {
   type ThreadMessage,
 } from "@assistant-ui/react";
 import {
+  addPeerFriend,
+  addPeerFriendGroupMember,
   adoptPeerPet,
   claimPeerReward,
+  clearPeerFriendGroupInviteToken,
+  clearPeerFriendInviteToken,
+  createPeerFriendGroup,
+  createPeerFriendGroupInviteToken,
+  createPeerFriendInviteToken,
+  deletePeerFriend,
+  deletePeerFriendGroupMember,
   deletePeerPet,
   feedPeerPet,
+  getPeerFriendGroup,
+  getPeerFriendGroupInviteToken,
+  getPeerFriendInviteToken,
+  getPeerWorkspaceHistoryAudio,
+  joinPeerFriendGroup,
   getPeerReward,
   getPeerWallet,
   getPeerWalletTransaction,
   listClientVoices,
   listPeerCredentials,
+  listPeerFriendGroupMembers,
+  listPeerFriendGroups,
+  listPeerFriends,
   listPeerModels,
   listPeerPets,
   listPeerRewards,
   listPeerVoices,
   listPeerWalletTransactions,
+  listPeerWorkspaceHistory,
   listPeerWorkflows,
   listPeerWorkspaces,
   playWithPeerPet,
+  putPeerFriendGroupMember,
   putPeerPet,
   streamPlayableVoices as streamPlayableVoicesSDK,
   washPeerPet,
+  type FriendGroupInviteTokenGetResponse,
+  type FriendGroupMemberMutableRole,
+  type FriendGroupMemberObject,
+  type FriendGroupObject,
+  type FriendInviteTokenGetResponse,
+  type FriendObject,
   type PlayVoiceStreamEvent,
 } from "@gizclaw/clientservice";
 
@@ -81,8 +106,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/components/ui/utils";
 
-type Section = "overview" | "workspaces" | "workflows" | "models" | "credentials" | "voices" | "pets" | "walletTransactions" | "rewards";
-type TopDrawer = "workspace" | "test-chat" | null;
+type Section = "overview" | "friends" | "friendGroups" | "workspaces" | "workflows" | "models" | "credentials" | "voices" | "pets" | "walletTransactions" | "rewards";
+type TopDrawer = "workspace" | "social-chat" | "test-chat" | null;
 
 type ModelSpec = {
   capabilities?: ModelCapabilities;
@@ -239,6 +264,13 @@ type WorkspaceHistoryEntry = {
   type: "agent" | "gear";
 };
 
+type SocialChatTarget = {
+  id: string;
+  kind: "friend" | "group";
+  title: string;
+  workspaceName: string;
+};
+
 type WorkspaceMemoryStats = {
   available?: boolean;
   backend?: string;
@@ -305,6 +337,8 @@ type WorkspaceChatTurn = {
 
 const sections: Array<{ icon: typeof Bot; id: Section; label: string }> = [
   { icon: Database, id: "overview", label: "Overview" },
+  { icon: UserPlus, id: "friends", label: "Friends" },
+  { icon: Users, id: "friendGroups", label: "Groups" },
   { icon: BriefcaseBusiness, id: "workspaces", label: "Workspaces" },
   { icon: Workflow, id: "workflows", label: "Workflows" },
   { icon: Bot, id: "models", label: "Models" },
@@ -338,6 +372,9 @@ function App(): JSX.Element {
   const [topDrawer, setTopDrawer] = useState<TopDrawer>(null);
   const [models, setModels] = useState<ModelSpec[]>([]);
   const [wallet, setWallet] = useState<WalletResource | null>(null);
+  const [selectedFriend, setSelectedFriend] = useState<FriendObject | null>(null);
+  const [selectedGroup, setSelectedGroup] = useState<FriendGroupObject | null>(null);
+  const [socialChatTarget, setSocialChatTarget] = useState<SocialChatTarget | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -353,6 +390,11 @@ function App(): JSX.Element {
       setError(failures.join("\n"));
     }
     setLoading(false);
+  };
+
+  const openSocialChat = (target: SocialChatTarget): void => {
+    setSocialChatTarget(target);
+    setTopDrawer("social-chat");
   };
 
   useEffect(() => {
@@ -427,6 +469,12 @@ function App(): JSX.Element {
                   <RefreshCw className={cn("size-4", loading && "animate-spin")} />
                   Refresh
                 </Button>
+                <SocialChatDrawer
+                  initialTarget={socialChatTarget}
+                  open={topDrawer === "social-chat"}
+                  onInitialTargetChange={setSocialChatTarget}
+                  onOpenChange={(nextOpen) => setTopDrawer(nextOpen ? "social-chat" : null)}
+                />
                 <WorkspaceDrawer open={topDrawer === "workspace"} onOpenChange={(nextOpen) => setTopDrawer(nextOpen ? "workspace" : null)} />
                 <ChatTester models={models} open={topDrawer === "test-chat"} onOpenChange={(nextOpen) => setTopDrawer(nextOpen ? "test-chat" : null)} />
               </div>
@@ -444,6 +492,20 @@ function App(): JSX.Element {
             ) : (
               <>
                 {section === "overview" ? <OverviewPanel modelCount={models.length} wallet={wallet} /> : null}
+                {section === "friends" ? (
+                  selectedFriend == null ? (
+                    <FriendsPanel onOpenChat={openSocialChat} onOpenFriend={setSelectedFriend} />
+                  ) : (
+                    <FriendDetailPanel friend={selectedFriend} onBack={() => setSelectedFriend(null)} onOpenChat={openSocialChat} />
+                  )
+                ) : null}
+                {section === "friendGroups" ? (
+                  selectedGroup == null ? (
+                    <FriendGroupsPanel onOpenChat={openSocialChat} onOpenGroup={setSelectedGroup} />
+                  ) : (
+                    <FriendGroupDetailPanel group={selectedGroup} onBack={() => setSelectedGroup(null)} onGroupChange={setSelectedGroup} onOpenChat={openSocialChat} />
+                  )
+                ) : null}
                 {section === "workspaces" ? <WorkspacesPanel /> : null}
                 {section === "workflows" ? <WorkflowsPanel /> : null}
                 {section === "models" ? <ModelsPanel initialModels={models} /> : null}
@@ -460,6 +522,973 @@ function App(): JSX.Element {
       </div>
       <Toaster richColors />
     </>
+  );
+}
+
+function FriendsPanel({ onOpenChat, onOpenFriend }: { onOpenChat: (target: SocialChatTarget) => void; onOpenFriend: (friend: FriendObject) => void }): JSX.Element {
+  const pager = usePagedList<FriendObject>(listFriendsPage);
+  return (
+    <Tabs className="max-w-6xl" defaultValue="friends">
+      <TabsList>
+        <TabsTrigger value="friends">Friends</TabsTrigger>
+        <TabsTrigger value="invite-token">Invite Token</TabsTrigger>
+        <TabsTrigger value="add-friend">Add Friend</TabsTrigger>
+      </TabsList>
+      <TabsContent className="mt-4" value="friends">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between gap-3">
+            <CardTitle>Friends</CardTitle>
+            <PageAction canNext={pager.page.hasNext} canPrevious={pager.page.cursors.length > 1} loading={pager.page.loading} onNext={pager.next} onPrevious={pager.previous} onRefresh={pager.refresh} pageIndex={pager.page.cursors.length} />
+          </CardHeader>
+          <CardContent>
+            {pager.error !== "" ? (
+              <Alert className="mb-4" variant="destructive">
+                <AlertDescription>{pager.error}</AlertDescription>
+              </Alert>
+            ) : null}
+            {pager.page.items.length === 0 ? (
+              <EmptyMessage description={pager.page.loading ? "Loading friends." : "No direct friends are visible for this peer."} title={pager.page.loading ? "Loading" : "No friends"} />
+            ) : (
+              <div className="rounded-md border">
+                <Table className="table-fixed">
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-44">Friend</TableHead>
+                      <TableHead>Peer public key</TableHead>
+                      <TableHead className="w-56">Workspace</TableHead>
+                      <TableHead className="w-40">Updated</TableHead>
+                      <TableHead className="w-44 text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {pager.page.items.map((friend) => {
+                      const workspaceName = friend.workspace_name ?? "";
+                      return (
+                        <TableRow key={friend.id ?? friend.peer_public_key ?? workspaceName}>
+                          <TableCell>
+                            <div className="font-medium">{friendDisplayName(friend)}</div>
+                            <div className="font-mono text-xs text-muted-foreground">{friend.id ?? "-"}</div>
+                          </TableCell>
+                          <TableCell className="truncate font-mono text-xs" title={friend.peer_public_key ?? ""}>{friend.peer_public_key ?? "-"}</TableCell>
+                          <TableCell className="truncate" title={workspaceName}>{workspaceName || "-"}</TableCell>
+                          <TableCell className="text-muted-foreground">{formatDate(friend.updated_at ?? friend.created_at)}</TableCell>
+                          <TableCell>
+                            <div className="flex justify-end gap-2">
+                              <Button onClick={() => onOpenFriend(friend)} size="sm" type="button" variant="outline">
+                                Open
+                              </Button>
+                              <Button disabled={workspaceName === ""} onClick={() => onOpenChat(friendChatTarget(friend))} size="sm" type="button">
+                                <MessageCircle data-icon="inline-start" />
+                                Chat
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </TabsContent>
+      <TabsContent className="mt-4" value="invite-token">
+        <FriendInviteTokenPanel />
+      </TabsContent>
+      <TabsContent className="mt-4" value="add-friend">
+        <AddFriendPanel onAdded={pager.refresh} onOpenFriend={onOpenFriend} />
+      </TabsContent>
+    </Tabs>
+  );
+}
+
+function FriendInviteTokenPanel(): JSX.Element {
+  const [token, setToken] = useState<FriendInviteTokenGetResponse | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      setToken(await getFriendInviteToken());
+    } catch (err) {
+      setError(toMessage(err));
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const create = async (): Promise<void> => {
+    setLoading(true);
+    setError("");
+    try {
+      setToken(await createFriendInviteToken());
+      toast.success("Friend invite token refreshed");
+    } catch (err) {
+      setError(toMessage(err));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const clear = async (): Promise<void> => {
+    setLoading(true);
+    setError("");
+    try {
+      await clearFriendInviteToken();
+      setToken({});
+      toast.success("Friend invite token cleared");
+    } catch (err) {
+      setError(toMessage(err));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const activeToken = token?.invite_token ?? "";
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between gap-3">
+        <CardTitle>Invite Token</CardTitle>
+        <Button disabled={loading} onClick={() => void load()} size="sm" type="button" variant="outline">
+          <RefreshCw className={cn("size-4", loading && "animate-spin")} />
+        </Button>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-4">
+        {error !== "" ? (
+          <Alert variant="destructive">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        ) : null}
+        <FieldGroup>
+          <ShadField>
+            <FieldLabel htmlFor="friend-invite-token">Invite token</FieldLabel>
+            <Input id="friend-invite-token" readOnly value={activeToken} />
+          </ShadField>
+          <ShadField>
+            <FieldLabel htmlFor="friend-invite-token-expires">Expires</FieldLabel>
+            <Input id="friend-invite-token-expires" readOnly value={formatDate(token?.expires_at)} />
+          </ShadField>
+        </FieldGroup>
+        <div className="flex justify-end gap-2">
+          {activeToken === "" ? (
+            <Button disabled={loading} onClick={() => void create()} type="button">
+              <RefreshCw data-icon="inline-start" />
+              Refresh
+            </Button>
+          ) : (
+            <>
+              <Button disabled={loading} onClick={() => void clear()} type="button" variant="outline">
+                Clear
+              </Button>
+              <Button disabled={loading} onClick={() => void create()} type="button">
+                <RefreshCw data-icon="inline-start" />
+                Refresh
+              </Button>
+            </>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function AddFriendPanel({ onAdded, onOpenFriend }: { onAdded: () => void; onOpenFriend: (friend: FriendObject) => void }): JSX.Element {
+  const [inviteToken, setInviteToken] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  const submit = async (): Promise<void> => {
+    const token = inviteToken.trim();
+    if (token === "") {
+      return;
+    }
+    setSaving(true);
+    setError("");
+    try {
+      const friend = await addFriendByInviteToken(token);
+      setInviteToken("");
+      toast.success("Friend added", { description: friendDisplayName(friend) });
+      onAdded();
+      onOpenFriend(friend);
+    } catch (err) {
+      setError(toMessage(err));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Add Friend</CardTitle>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-4">
+        {error !== "" ? (
+          <Alert variant="destructive">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        ) : null}
+        <FieldGroup>
+          <ShadField data-invalid={error !== ""}>
+            <FieldLabel htmlFor="friend-add-token">Invite token</FieldLabel>
+            <Input aria-invalid={error !== ""} id="friend-add-token" onChange={(event) => setInviteToken(event.target.value)} value={inviteToken} />
+          </ShadField>
+        </FieldGroup>
+        <div className="flex justify-end">
+          <Button disabled={saving || inviteToken.trim() === ""} onClick={() => void submit()} type="button">
+            <UserPlus data-icon="inline-start" />
+            Add Friend
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function FriendDetailPanel({ friend, onBack, onOpenChat }: { friend: FriendObject; onBack: () => void; onOpenChat: (target: SocialChatTarget) => void }): JSX.Element {
+  const [deleting, setDeleting] = useState(false);
+  const workspaceName = friend.workspace_name ?? "";
+  const history = useWorkspaceHistory(workspaceName, "desc");
+
+  const remove = async (): Promise<void> => {
+    const id = friend.id ?? "";
+    if (id === "") {
+      return;
+    }
+    setDeleting(true);
+    try {
+      await deleteFriend(id);
+      toast.success("Friend deleted");
+      onBack();
+    } catch (err) {
+      toast.error("Friend delete failed", { description: toMessage(err) });
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  return (
+    <div className="flex max-w-6xl flex-col gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <Button onClick={onBack} type="button" variant="outline">
+          <ArrowLeft data-icon="inline-start" />
+          Friends
+        </Button>
+        <div className="flex gap-2">
+          <Button disabled={workspaceName === ""} onClick={() => onOpenChat(friendChatTarget(friend))} type="button">
+            <MessageCircle data-icon="inline-start" />
+            Chat
+          </Button>
+          <Button disabled={deleting || friend.id == null || friend.id === ""} onClick={() => void remove()} type="button" variant="destructive">
+            <Trash2 data-icon="inline-start" />
+            Delete
+          </Button>
+        </div>
+      </div>
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>Info</CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-x-6 gap-y-3 text-sm">
+            <WorkspaceInfoItem label="Friend ID" value={friend.id ?? "-"} />
+            <WorkspaceInfoItem label="Peer public key" value={friend.peer_public_key ?? "-"} />
+            <WorkspaceInfoItem label="Created" value={formatDate(friend.created_at)} />
+            <WorkspaceInfoItem label="Updated" value={formatDate(friend.updated_at)} />
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Workspace</CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-x-6 gap-y-3 text-sm">
+            <WorkspaceInfoItem label="Workspace" value={workspaceName || "-"} />
+            <WorkspaceInfoItem label="Conversation" value={friendDisplayName(friend)} />
+          </CardContent>
+        </Card>
+      </div>
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between gap-3">
+          <CardTitle>History</CardTitle>
+          <Button disabled={history.loading || workspaceName === ""} onClick={history.refresh} size="sm" type="button" variant="outline">
+            <RefreshCw className={cn("size-4", history.loading && "animate-spin")} />
+          </Button>
+        </CardHeader>
+        <CardContent className="p-0">
+          <WorkspaceHistoryPanel error={history.error} history={history.items} loading={history.loading} onPlay={(entry) => playWorkspaceHistoryAsset(workspaceName, entry.id)} />
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function FriendGroupsPanel({ onOpenChat, onOpenGroup }: { onOpenChat: (target: SocialChatTarget) => void; onOpenGroup: (group: FriendGroupObject) => void }): JSX.Element {
+  const pager = usePagedList<FriendGroupObject>(listFriendGroupsPage);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [createName, setCreateName] = useState("");
+  const [createDescription, setCreateDescription] = useState("");
+  const [creating, setCreating] = useState(false);
+  const [joinOpen, setJoinOpen] = useState(false);
+  const [joinToken, setJoinToken] = useState("");
+  const [joining, setJoining] = useState(false);
+
+  const create = async (): Promise<void> => {
+    const name = createName.trim();
+    const description = createDescription.trim();
+    if (name === "") {
+      return;
+    }
+    setCreating(true);
+    try {
+      const group = await createFriendGroup(name, description);
+      setCreateName("");
+      setCreateDescription("");
+      setCreateOpen(false);
+      toast.success("Group created", { description: groupDisplayName(group) });
+      pager.refresh();
+      onOpenGroup(group);
+    } catch (err) {
+      toast.error("Group create failed", { description: toMessage(err) });
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const join = async (): Promise<void> => {
+    const token = joinToken.trim();
+    if (token === "") {
+      return;
+    }
+    setJoining(true);
+    try {
+      const response = await joinFriendGroupByInviteToken(token);
+      setJoinToken("");
+      setJoinOpen(false);
+      toast.success("Group joined", { description: groupDisplayName(response.group) });
+      pager.refresh();
+      onOpenGroup(response.group);
+    } catch (err) {
+      toast.error("Group join failed", { description: toMessage(err) });
+    } finally {
+      setJoining(false);
+    }
+  };
+
+  return (
+    <div className="max-w-6xl">
+      {pager.error !== "" ? (
+        <Alert className="mb-4" variant="destructive">
+          <AlertDescription>{pager.error}</AlertDescription>
+        </Alert>
+      ) : null}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between gap-3">
+          <CardTitle>Groups</CardTitle>
+          <div className="flex gap-2">
+            <Button onClick={() => setCreateOpen(true)} size="sm" type="button">
+              <Plus data-icon="inline-start" />
+              Create Group
+            </Button>
+            <Button onClick={() => setJoinOpen(true)} size="sm" type="button">
+              <Users data-icon="inline-start" />
+              Join Group
+            </Button>
+            <PageAction canNext={pager.page.hasNext} canPrevious={pager.page.cursors.length > 1} loading={pager.page.loading} onNext={pager.next} onPrevious={pager.previous} onRefresh={pager.refresh} pageIndex={pager.page.cursors.length} />
+          </div>
+        </CardHeader>
+        <CardContent>
+          {pager.page.items.length === 0 ? (
+            <EmptyMessage description={pager.page.loading ? "Loading groups." : "No friend groups are visible for this peer."} title={pager.page.loading ? "Loading" : "No groups"} />
+          ) : (
+            <div className="rounded-md border">
+              <Table className="table-fixed">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-56">Group</TableHead>
+                    <TableHead className="w-28">My role</TableHead>
+                    <TableHead>Workspace</TableHead>
+                    <TableHead className="w-40">Updated</TableHead>
+                    <TableHead className="w-44 text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {pager.page.items.map((group) => {
+                    const workspaceName = group.workspace_name ?? "";
+                    return (
+                      <TableRow key={group.id ?? group.name ?? workspaceName}>
+                        <TableCell>
+                          <div className="font-medium">{groupDisplayName(group)}</div>
+                          <div className="font-mono text-xs text-muted-foreground">{group.id ?? "-"}</div>
+                        </TableCell>
+                        <TableCell>{group.my_role ?? "-"}</TableCell>
+                        <TableCell className="truncate" title={workspaceName}>{workspaceName || "-"}</TableCell>
+                        <TableCell className="text-muted-foreground">{formatDate(group.updated_at ?? group.created_at)}</TableCell>
+                        <TableCell>
+                          <div className="flex justify-end gap-2">
+                            <Button onClick={() => onOpenGroup(group)} size="sm" type="button" variant="outline">
+                              Open
+                            </Button>
+                            <Button disabled={workspaceName === ""} onClick={() => onOpenChat(groupChatTarget(group))} size="sm" type="button">
+                              <MessageCircle data-icon="inline-start" />
+                              Chat
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create Group</DialogTitle>
+            <DialogDescription>Create a group workspace owned by this peer.</DialogDescription>
+          </DialogHeader>
+          <FieldGroup>
+            <Field label="Name" value={createName} onChange={setCreateName} />
+            <TextAreaField label="Description" value={createDescription} onChange={setCreateDescription} />
+          </FieldGroup>
+          <DialogFooter>
+            <Button disabled={creating} onClick={() => setCreateOpen(false)} type="button" variant="outline">
+              Cancel
+            </Button>
+            <Button disabled={creating || createName.trim() === ""} onClick={() => void create()} type="button">
+              Create Group
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={joinOpen} onOpenChange={setJoinOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Join Group</DialogTitle>
+            <DialogDescription>Join a group by its invite token.</DialogDescription>
+          </DialogHeader>
+          <FieldGroup>
+            <ShadField>
+              <FieldLabel htmlFor="group-join-token">Invite token</FieldLabel>
+              <Input id="group-join-token" onChange={(event) => setJoinToken(event.target.value)} value={joinToken} />
+            </ShadField>
+          </FieldGroup>
+          <DialogFooter>
+            <Button disabled={joining} onClick={() => setJoinOpen(false)} type="button" variant="outline">
+              Cancel
+            </Button>
+            <Button disabled={joining || joinToken.trim() === ""} onClick={() => void join()} type="button">
+              Join Group
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+function FriendGroupDetailPanel({
+  group,
+  onBack,
+  onGroupChange,
+  onOpenChat,
+}: {
+  group: FriendGroupObject;
+  onBack: () => void;
+  onGroupChange: (group: FriendGroupObject) => void;
+  onOpenChat: (target: SocialChatTarget) => void;
+}): JSX.Element {
+  const [currentGroup, setCurrentGroup] = useState(group);
+  const groupID = currentGroup.id ?? "";
+  const workspaceName = currentGroup.workspace_name ?? "";
+  const history = useWorkspaceHistory(workspaceName, "desc");
+
+  useEffect(() => {
+    setCurrentGroup(group);
+  }, [group]);
+
+  const refreshGroup = async (): Promise<void> => {
+    if (groupID === "") {
+      return;
+    }
+    try {
+      const next = await getFriendGroup(groupID);
+      setCurrentGroup(next);
+      onGroupChange(next);
+    } catch (err) {
+      toast.error("Group refresh failed", { description: toMessage(err) });
+    }
+  };
+
+  return (
+    <div className="flex max-w-6xl flex-col gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <Button onClick={onBack} type="button" variant="outline">
+          <ArrowLeft data-icon="inline-start" />
+          Groups
+        </Button>
+        <Button disabled={workspaceName === ""} onClick={() => onOpenChat(groupChatTarget(currentGroup))} type="button">
+          <MessageCircle data-icon="inline-start" />
+          Chat
+        </Button>
+      </div>
+      <Tabs defaultValue="info">
+        <TabsList>
+          <TabsTrigger value="info">Info</TabsTrigger>
+          <TabsTrigger value="members">Members</TabsTrigger>
+          <TabsTrigger value="invite-token">Invite Token</TabsTrigger>
+          <TabsTrigger value="history">History</TabsTrigger>
+        </TabsList>
+        <TabsContent className="mt-4" value="info">
+          <GroupInfoPanel group={currentGroup} onRefresh={refreshGroup} />
+        </TabsContent>
+        <TabsContent className="mt-4" value="members">
+          <GroupMembersPanel group={currentGroup} />
+        </TabsContent>
+        <TabsContent className="mt-4" value="invite-token">
+          <GroupInviteTokenPanel group={currentGroup} />
+        </TabsContent>
+        <TabsContent className="mt-4" value="history">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between gap-3">
+              <CardTitle>History</CardTitle>
+              <Button disabled={history.loading || workspaceName === ""} onClick={history.refresh} size="sm" type="button" variant="outline">
+                <RefreshCw className={cn("size-4", history.loading && "animate-spin")} />
+              </Button>
+            </CardHeader>
+            <CardContent className="p-0">
+              <WorkspaceHistoryPanel error={history.error} history={history.items} loading={history.loading} onPlay={(entry) => playWorkspaceHistoryAsset(workspaceName, entry.id)} />
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}
+
+function GroupInfoPanel({ group, onRefresh }: { group: FriendGroupObject; onRefresh: () => Promise<void> }): JSX.Element {
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between gap-3">
+        <CardTitle>Info</CardTitle>
+        <Button onClick={() => void onRefresh()} size="sm" type="button" variant="outline">
+          <RefreshCw data-icon="inline-start" />
+          Refresh
+        </Button>
+      </CardHeader>
+      <CardContent className="grid gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
+        <WorkspaceInfoItem label="Group ID" value={group.id ?? "-"} />
+        <WorkspaceInfoItem label="Name" value={group.name ?? "-"} />
+        <WorkspaceInfoItem label="My role" value={group.my_role ?? "-"} />
+        <WorkspaceInfoItem label="Workspace" value={group.workspace_name ?? "-"} />
+        <WorkspaceInfoItem label="Created by" value={group.created_by_peer_public_key ?? "-"} />
+        <WorkspaceInfoItem label="Updated" value={formatDate(group.updated_at ?? group.created_at)} />
+      </CardContent>
+    </Card>
+  );
+}
+
+function GroupMembersPanel({ group }: { group: FriendGroupObject }): JSX.Element {
+  const groupID = group.id ?? "";
+  const pager = usePagedList<FriendGroupMemberObject>(useCallback((cursor: string) => listFriendGroupMembersPage(groupID, cursor), [groupID]));
+  const [memberPublicKey, setMemberPublicKey] = useState("");
+  const [memberRole, setMemberRole] = useState<FriendGroupMemberMutableRole>("member");
+  const [saving, setSaving] = useState(false);
+  const canManage = group.my_role === "owner" || group.my_role === "admin";
+
+  const addMember = async (): Promise<void> => {
+    const peerPublicKey = memberPublicKey.trim();
+    if (groupID === "" || peerPublicKey === "") {
+      return;
+    }
+    setSaving(true);
+    try {
+      await addFriendGroupMember(groupID, peerPublicKey, memberRole);
+      setMemberPublicKey("");
+      toast.success("Group member added");
+      pager.refresh();
+    } catch (err) {
+      toast.error("Group member add failed", { description: toMessage(err) });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between gap-3">
+        <CardTitle>Members</CardTitle>
+        <PageAction canNext={pager.page.hasNext} canPrevious={pager.page.cursors.length > 1} loading={pager.page.loading} onNext={pager.next} onPrevious={pager.previous} onRefresh={pager.refresh} pageIndex={pager.page.cursors.length} />
+      </CardHeader>
+      <CardContent className="flex flex-col gap-4">
+        {pager.error !== "" ? (
+          <Alert variant="destructive">
+            <AlertDescription>{pager.error}</AlertDescription>
+          </Alert>
+        ) : null}
+        {canManage ? (
+          <div className="grid gap-3 rounded-md border p-3 md:grid-cols-[minmax(0,1fr)_160px_auto]">
+            <Field label="Peer public key" value={memberPublicKey} onChange={setMemberPublicKey} />
+            <SelectField label="Role" value={memberRole} onChange={(value) => setMemberRole(value === "admin" ? "admin" : "member")} options={["member", "admin"]} />
+            <div className="flex items-end">
+              <Button disabled={saving || memberPublicKey.trim() === ""} onClick={() => void addMember()} type="button">
+                <Plus data-icon="inline-start" />
+                Add
+              </Button>
+            </div>
+          </div>
+        ) : null}
+        {pager.page.items.length === 0 ? (
+          <EmptyMessage description={pager.page.loading ? "Loading members." : "No group members are visible."} title={pager.page.loading ? "Loading" : "No members"} />
+        ) : (
+          <div className="rounded-md border">
+            <Table className="table-fixed">
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Peer public key</TableHead>
+                  <TableHead className="w-28">Role</TableHead>
+                  <TableHead className="w-40">Updated</TableHead>
+                  <TableHead className="w-56 text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {pager.page.items.map((member) => (
+                  <GroupMemberRow canManage={canManage} groupID={groupID} key={member.id ?? member.peer_public_key ?? ""} member={member} onChanged={pager.refresh} />
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function GroupMemberRow({ canManage, groupID, member, onChanged }: { canManage: boolean; groupID: string; member: FriendGroupMemberObject; onChanged: () => void }): JSX.Element {
+  const [saving, setSaving] = useState(false);
+  const memberID = member.id ?? "";
+  const mutable = canManage && member.role !== "owner" && groupID !== "" && memberID !== "";
+  const updateRole = async (role: FriendGroupMemberMutableRole): Promise<void> => {
+    setSaving(true);
+    try {
+      await updateFriendGroupMember(groupID, memberID, role);
+      toast.success("Group member updated");
+      onChanged();
+    } catch (err) {
+      toast.error("Group member update failed", { description: toMessage(err) });
+    } finally {
+      setSaving(false);
+    }
+  };
+  const remove = async (): Promise<void> => {
+    setSaving(true);
+    try {
+      await deleteFriendGroupMember(groupID, memberID);
+      toast.success("Group member removed");
+      onChanged();
+    } catch (err) {
+      toast.error("Group member remove failed", { description: toMessage(err) });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <TableRow>
+      <TableCell className="truncate font-mono text-xs" title={member.peer_public_key ?? ""}>{member.peer_public_key ?? "-"}</TableCell>
+      <TableCell>{member.role ?? "-"}</TableCell>
+      <TableCell className="text-muted-foreground">{formatDate(member.updated_at ?? member.created_at)}</TableCell>
+      <TableCell>
+        {mutable ? (
+          <div className="flex justify-end gap-2">
+            <Button disabled={saving || member.role === "admin"} onClick={() => void updateRole("admin")} size="sm" type="button" variant="outline">
+              Admin
+            </Button>
+            <Button disabled={saving || member.role === "member"} onClick={() => void updateRole("member")} size="sm" type="button" variant="outline">
+              Member
+            </Button>
+            <Button disabled={saving} onClick={() => void remove()} size="sm" type="button" variant="destructive">
+              Remove
+            </Button>
+          </div>
+        ) : (
+          <div className="text-right text-xs text-muted-foreground">-</div>
+        )}
+      </TableCell>
+    </TableRow>
+  );
+}
+
+function GroupInviteTokenPanel({ group }: { group: FriendGroupObject }): JSX.Element {
+  const groupID = group.id ?? "";
+  const owner = group.my_role === "owner";
+  const [token, setToken] = useState<FriendGroupInviteTokenGetResponse | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const load = useCallback(async () => {
+    if (groupID === "" || !owner) {
+      setToken(null);
+      return;
+    }
+    setLoading(true);
+    setError("");
+    try {
+      setToken(await getFriendGroupInviteToken(groupID));
+    } catch (err) {
+      setError(toMessage(err));
+    } finally {
+      setLoading(false);
+    }
+  }, [groupID, owner]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const create = async (): Promise<void> => {
+    setLoading(true);
+    setError("");
+    try {
+      setToken(await createFriendGroupInviteToken(groupID));
+      toast.success("Group invite token refreshed");
+    } catch (err) {
+      setError(toMessage(err));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const clear = async (): Promise<void> => {
+    setLoading(true);
+    setError("");
+    try {
+      await clearFriendGroupInviteToken(groupID);
+      setToken({});
+      toast.success("Group invite token cleared");
+    } catch (err) {
+      setError(toMessage(err));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (!owner) {
+    return <EmptyMessage description="Only the group owner can manage the invite token." title="Invite token unavailable" />;
+  }
+
+  const activeToken = token?.invite_token ?? "";
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between gap-3">
+        <CardTitle>Invite Token</CardTitle>
+        <Button disabled={loading} onClick={() => void load()} size="sm" type="button" variant="outline">
+          <RefreshCw className={cn("size-4", loading && "animate-spin")} />
+        </Button>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-4">
+        {error !== "" ? (
+          <Alert variant="destructive">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        ) : null}
+        <FieldGroup>
+          <ShadField>
+            <FieldLabel htmlFor="group-invite-token">Invite token</FieldLabel>
+            <Input id="group-invite-token" readOnly value={activeToken} />
+          </ShadField>
+          <ShadField>
+            <FieldLabel htmlFor="group-invite-token-expires">Expires</FieldLabel>
+            <Input id="group-invite-token-expires" readOnly value={formatDate(token?.expires_at)} />
+          </ShadField>
+        </FieldGroup>
+        <div className="flex justify-end gap-2">
+          {activeToken !== "" ? (
+            <Button disabled={loading} onClick={() => void clear()} type="button" variant="outline">
+              Clear
+            </Button>
+          ) : null}
+          <Button disabled={loading} onClick={() => void create()} type="button">
+            <RefreshCw data-icon="inline-start" />
+            Refresh
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function SocialChatDrawer({
+  initialTarget,
+  onInitialTargetChange,
+  onOpenChange,
+  open,
+}: {
+  initialTarget: SocialChatTarget | null;
+  onInitialTargetChange: (target: SocialChatTarget | null) => void;
+  onOpenChange: (open: boolean) => void;
+  open: boolean;
+}): JSX.Element {
+  const [friends, setFriends] = useState<FriendObject[]>([]);
+  const [groups, setGroups] = useState<FriendGroupObject[]>([]);
+  const [targetKey, setTargetKey] = useState("");
+  const [state, setState] = useState<ActiveWorkspaceState | null>(null);
+  const [mode, setMode] = useState<WorkspaceChatMode>("push");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const targets = useMemo(() => [...friends.map(friendChatTarget), ...groups.map(groupChatTarget)].filter((target) => target.workspaceName !== ""), [friends, groups]);
+  const selectedTarget = useMemo(() => targets.find((target) => socialTargetKey(target) === targetKey) ?? initialTarget ?? targets[0] ?? null, [initialTarget, targetKey, targets]);
+  const history = useWorkspaceHistory(selectedTarget?.workspaceName ?? "", "asc");
+
+  const loadTargets = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const [friendPage, groupPage] = await Promise.all([listFriendsPage(""), listFriendGroupsPage("")]);
+      const nextFriends = friendPage.items ?? friendPage.data ?? [];
+      const nextGroups = groupPage.items ?? groupPage.data ?? [];
+      setFriends(nextFriends);
+      setGroups(nextGroups);
+      const allTargets = [...nextFriends.map(friendChatTarget), ...nextGroups.map(groupChatTarget)].filter((target) => target.workspaceName !== "");
+      const nextTarget = initialTarget != null && allTargets.some((target) => socialTargetKey(target) === socialTargetKey(initialTarget)) ? initialTarget : allTargets[0] ?? null;
+      setTargetKey(nextTarget == null ? "" : socialTargetKey(nextTarget));
+    } catch (err) {
+      setError(toMessage(err));
+    } finally {
+      setLoading(false);
+    }
+  }, [initialTarget]);
+
+  useEffect(() => {
+    if (open) {
+      void loadTargets();
+    }
+  }, [loadTargets, open]);
+
+  useEffect(() => {
+    if (!open || selectedTarget == null) {
+      return;
+    }
+    onInitialTargetChange(selectedTarget);
+    setError("");
+    setLoading(true);
+    void setActiveWorkspace(selectedTarget.workspaceName)
+      .then((nextState) => {
+        const normalized = normalizeWorkspaceState(nextState);
+        setState(normalized);
+        setMode(normalized.workspace_mode ?? "push");
+      })
+      .catch((err: unknown) => setError(toMessage(err)))
+      .finally(() => setLoading(false));
+  }, [onInitialTargetChange, open, selectedTarget?.workspaceName, selectedTarget]);
+
+  const updateWorkspaceMode = async (nextMode: WorkspaceChatMode): Promise<void> => {
+    const workspaceName = selectedTarget?.workspaceName ?? "";
+    if (workspaceName === "") {
+      return;
+    }
+    setError("");
+    setLoading(true);
+    try {
+      const nextState = normalizeWorkspaceState(await setActiveWorkspaceMode(nextMode, workspaceName));
+      setState(nextState);
+      setMode(nextState.workspace_mode ?? nextMode);
+      toast.success("Chat mode updated", { description: nextMode === "push" ? "Push To Talk" : "Realtime Chat" });
+    } catch (err) {
+      setError(toMessage(err));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const playHistory = async (entry: WorkspaceHistoryEntry): Promise<void> => {
+    try {
+      requestWorkspaceAudioPlayback();
+      await playActiveWorkspaceHistory(entry.id);
+      toast.success("History replay started", { description: entry.id });
+    } catch (err) {
+      toast.error("History replay failed", { description: workspaceFeatureMessage(err) });
+    }
+  };
+
+  return (
+    <Sheet modal={false} open={open} onOpenChange={onOpenChange}>
+      <Button aria-pressed={open} onClick={() => onOpenChange(!open)} size="sm" type="button" variant={open ? "default" : "outline"}>
+        <MessageCircle data-icon="inline-start" />
+        Chat
+      </Button>
+      <SheetContent
+        className={topDrawerContentClassName}
+        onInteractOutside={(event) => event.preventDefault()}
+        overlayClassName="pointer-events-none top-32 bg-transparent sm:top-24 lg:top-20"
+        side="right"
+      >
+        <SheetHeader className="border-b px-5 py-4 pr-12">
+          <SheetTitle>Chat</SheetTitle>
+          <SheetDescription>Append voice messages and replay history through the selected social workspace.</SheetDescription>
+          <div className="grid gap-3 pt-2 md:grid-cols-[220px_minmax(0,1fr)_auto]">
+            <Select value={selectedTarget == null ? "" : socialTargetKey(selectedTarget)} onValueChange={setTargetKey}>
+              <SelectTrigger>
+                <SelectValue placeholder="Conversation" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  {targets.map((target) => (
+                    <SelectItem key={socialTargetKey(target)} value={socialTargetKey(target)}>
+                      {target.kind === "friend" ? "Friend" : "Group"} / {target.title}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+            <div className="min-w-0 rounded-md border px-3 py-2 text-sm">
+              <div className="truncate font-medium">{selectedTarget?.title ?? "No conversation"}</div>
+              <div className="truncate text-xs text-muted-foreground">{selectedTarget?.workspaceName ?? "-"}</div>
+            </div>
+            <Button disabled={loading} onClick={() => void loadTargets()} type="button" variant="outline">
+              <RefreshCw className={cn("size-4", loading && "animate-spin")} />
+            </Button>
+          </div>
+        </SheetHeader>
+        <div className="flex min-h-0 flex-1 flex-col gap-4 p-5">
+          {error !== "" ? (
+            <Alert variant="destructive">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          ) : null}
+          {selectedTarget == null ? (
+            <EmptyMessage description="No friend or group conversation has a workspace yet." title="No chat target" />
+          ) : (
+            <>
+              <WorkspaceChatPanel mode={mode} onHistoryChange={history.loadNewer} onModeChange={(nextMode) => void updateWorkspaceMode(nextMode)} showTurns={false} state={state} title="Composer" />
+              <Card className="min-h-0 flex-1">
+                <CardHeader className="flex flex-row items-center justify-between gap-3">
+                  <CardTitle className="flex min-w-0 items-center gap-2 text-sm">
+                    <span className="truncate">History</span>
+                    {history.lastUpdatedAt !== "" ? <Badge variant="outline">{formatDate(history.lastUpdatedAt)}</Badge> : null}
+                  </CardTitle>
+                  <Button disabled={history.loading} onClick={history.refresh} size="sm" type="button" variant="outline">
+                    <RefreshCw className={cn("size-4", history.loading && "animate-spin")} />
+                  </Button>
+                </CardHeader>
+                <CardContent className="min-h-0 p-0">
+                  <ChatHistoryTimeline error={history.error} history={history.items} loading={history.loading} onPlay={playHistory} />
+                </CardContent>
+              </Card>
+            </>
+          )}
+        </div>
+      </SheetContent>
+    </Sheet>
   );
 }
 
@@ -930,12 +1959,16 @@ function WorkspaceChatPanel({
   mode,
   onHistoryChange,
   onModeChange,
+  showTurns = true,
   state,
+  title = "Conversation",
 }: {
   mode: WorkspaceChatMode;
-  onHistoryChange?: () => void;
+  onHistoryChange?: (lastUpdatedAt?: string) => void;
   onModeChange: (value: WorkspaceChatMode) => void;
+  showTurns?: boolean;
   state: ActiveWorkspaceState | null;
+  title?: string;
 }): JSX.Element {
   const activeWorkspaceName = state?.active_workspace_name ?? "";
   const hasActiveWorkspace = activeWorkspaceName !== "";
@@ -1035,11 +2068,11 @@ function WorkspaceChatPanel({
     }
   }, []);
 
-  const notifyHistoryChange = useCallback(() => {
+  const notifyHistoryChange = useCallback((lastUpdatedAt?: string) => {
     if (onHistoryChange == null) {
       return;
     }
-    window.setTimeout(onHistoryChange, 1000);
+    window.setTimeout(() => onHistoryChange(lastUpdatedAt), 1000);
   }, [onHistoryChange]);
 
   const handlePeerEvent = useCallback(
@@ -1050,7 +2083,7 @@ function WorkspaceChatPanel({
         return targetID;
       };
       if (event.type === "workspace.history.updated") {
-        notifyHistoryChange();
+        notifyHistoryChange(event.last_updated_at);
         return;
       }
       if ((event.type === "text.delta" || event.type === "text.done") && event.text != null) {
@@ -1294,10 +2327,10 @@ function WorkspaceChatPanel({
   };
 
   return (
-    <div className="flex h-full flex-col gap-4 p-5">
+    <div className={cn("flex flex-col gap-4 p-5", showTurns ? "h-full" : "shrink-0 rounded-md border bg-background")}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <div className="text-sm font-semibold">Conversation</div>
+          <div className="text-sm font-semibold">{title}</div>
           <div className="mt-1 flex flex-wrap gap-2">
             <Badge variant={connected ? "default" : "secondary"}>{statusLabel}</Badge>
             {activeWorkspaceName !== "" ? <Badge variant="outline">{activeWorkspaceName}</Badge> : null}
@@ -1376,50 +2409,52 @@ function WorkspaceChatPanel({
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           ) : null}
-          <ScrollArea className="min-h-0 flex-1 rounded-md border bg-background">
-            <div className="flex flex-col gap-3 p-4 text-sm">
-              {turns.length === 0 ? (
-                <EmptyMessage description="Hold the button to start a voice turn." title="No conversation turns" />
-              ) : (
-                Array.from(turns).reverse().map((turn) => {
-                  const streamMeta = splitWorkspaceStreamID(turn.streamID);
-                  return (
-                    <div className="rounded-md border bg-card px-3 py-3" key={turn.id}>
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <div className="flex flex-wrap items-center gap-2">
-                          {streamMeta.prefix !== "" ? <Badge variant="outline">{streamMeta.prefix}</Badge> : null}
-                          <Badge variant={workspaceTurnBadgeVariant(turn.status)}>{workspaceTurnStatusLabel(turn.status)}</Badge>
-                          {turn.status === "recording" ? <Badge variant="secondary">BOS sent</Badge> : null}
-                          {turn.status !== "recording" && turn.status !== "error" ? <Badge variant="secondary">EOS sent</Badge> : null}
-                          {turn.audioState != null ? <Badge variant="outline">audio {turn.audioState}</Badge> : null}
+          {showTurns ? (
+            <ScrollArea className="min-h-0 flex-1 rounded-md border bg-background">
+              <div className="flex flex-col gap-3 p-4 text-sm">
+                {turns.length === 0 ? (
+                  <EmptyMessage description="Hold the button to start a voice turn." title="No conversation turns" />
+                ) : (
+                  Array.from(turns).reverse().map((turn) => {
+                    const streamMeta = splitWorkspaceStreamID(turn.streamID);
+                    return (
+                      <div className="rounded-md border bg-card px-3 py-3" key={turn.id}>
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <div className="flex flex-wrap items-center gap-2">
+                            {streamMeta.prefix !== "" ? <Badge variant="outline">{streamMeta.prefix}</Badge> : null}
+                            <Badge variant={workspaceTurnBadgeVariant(turn.status)}>{workspaceTurnStatusLabel(turn.status)}</Badge>
+                            {turn.status === "recording" ? <Badge variant="secondary">BOS sent</Badge> : null}
+                            {turn.status !== "recording" && turn.status !== "error" ? <Badge variant="secondary">EOS sent</Badge> : null}
+                            {turn.audioState != null ? <Badge variant="outline">audio {turn.audioState}</Badge> : null}
+                          </div>
+                          <span className="text-xs text-muted-foreground">{formatDate(turn.createdAt)}</span>
                         </div>
-                        <span className="text-xs text-muted-foreground">{formatDate(turn.createdAt)}</span>
+                        {turn.transcript != null && turn.transcript !== "" ? (
+                          <div className="mt-3 rounded-md bg-muted px-3 py-2">
+                            <div className="flex items-center justify-between gap-2 text-xs font-medium text-muted-foreground">
+                              <span>You</span>
+                              {streamMeta.suffix !== "" ? <span className="font-mono">{streamMeta.suffix}</span> : null}
+                            </div>
+                            <div className="whitespace-pre-wrap break-words">{turn.transcript}</div>
+                          </div>
+                        ) : null}
+                        {turn.assistantText != null && turn.assistantText !== "" ? (
+                          <div className="mt-3 rounded-md bg-secondary px-3 py-2">
+                            <div className="flex items-center justify-between gap-2 text-xs font-medium text-muted-foreground">
+                              <span>Assistant</span>
+                              {streamMeta.suffix !== "" ? <span className="font-mono">{streamMeta.suffix}</span> : null}
+                            </div>
+                            <div className="whitespace-pre-wrap break-words">{turn.assistantText}</div>
+                          </div>
+                        ) : null}
+                        {turn.error != null && turn.error !== "" ? <div className="mt-3 text-sm text-destructive">{turn.error}</div> : null}
                       </div>
-                      {turn.transcript != null && turn.transcript !== "" ? (
-                        <div className="mt-3 rounded-md bg-muted px-3 py-2">
-                          <div className="flex items-center justify-between gap-2 text-xs font-medium text-muted-foreground">
-                            <span>You</span>
-                            {streamMeta.suffix !== "" ? <span className="font-mono">{streamMeta.suffix}</span> : null}
-                          </div>
-                          <div className="whitespace-pre-wrap break-words">{turn.transcript}</div>
-                        </div>
-                      ) : null}
-                      {turn.assistantText != null && turn.assistantText !== "" ? (
-                        <div className="mt-3 rounded-md bg-secondary px-3 py-2">
-                          <div className="flex items-center justify-between gap-2 text-xs font-medium text-muted-foreground">
-                            <span>Assistant</span>
-                            {streamMeta.suffix !== "" ? <span className="font-mono">{streamMeta.suffix}</span> : null}
-                          </div>
-                          <div className="whitespace-pre-wrap break-words">{turn.assistantText}</div>
-                        </div>
-                      ) : null}
-                      {turn.error != null && turn.error !== "" ? <div className="mt-3 text-sm text-destructive">{turn.error}</div> : null}
-                    </div>
-                  );
-                })
-              )}
-            </div>
-          </ScrollArea>
+                    );
+                  })
+                )}
+              </div>
+            </ScrollArea>
+          ) : null}
         </div>
       ) : (
         <EmptyMessage description="Select an active workspace before starting conversation tests." title="No active workspace" />
@@ -1721,7 +2756,7 @@ function ChatTester({ models, onOpenChange, open }: { models: ModelSpec[]; onOpe
     <Sheet modal={false} open={open} onOpenChange={onOpenChange}>
       <Button aria-pressed={open} onClick={() => onOpenChange(!open)} size="sm" type="button" variant={open ? "default" : "outline"}>
         <MessageCircle data-icon="inline-start" />
-        Test Chat
+        OpenAI
       </Button>
       <SheetContent
         className={topDrawerContentClassName}
@@ -1730,7 +2765,7 @@ function ChatTester({ models, onOpenChange, open }: { models: ModelSpec[]; onOpe
         side="right"
       >
         <SheetHeader className="border-b px-5 py-4">
-          <SheetTitle>Test Chat</SheetTitle>
+          <SheetTitle>OpenAI</SheetTitle>
           <SheetDescription>Send requests to this gateway through the OpenAI-compatible chat completions endpoint.</SheetDescription>
         </SheetHeader>
         <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[minmax(0,1fr)_280px]">
@@ -2327,6 +3362,260 @@ function EditMessageComposer(): JSX.Element {
       </div>
     </ComposerPrimitive.Root>
   );
+}
+
+function ChatHistoryTimeline({
+  error,
+  history,
+  loading,
+  onPlay,
+}: {
+  error: string;
+  history: WorkspaceHistoryEntry[];
+  loading: boolean;
+  onPlay: (entry: WorkspaceHistoryEntry) => Promise<void>;
+}): JSX.Element {
+  if (loading && history.length === 0) {
+    return <LoadingGrid />;
+  }
+  if (error !== "") {
+    return <EmptyMessage description={error} title="History unavailable" />;
+  }
+  if (history.length === 0) {
+    return <EmptyMessage description="No history is available for this conversation." title="No history" />;
+  }
+  return (
+    <ScrollArea className="h-full">
+      <div className="flex flex-col gap-3 p-4">
+        {history.map((entry) => {
+          const source = historyEntrySource(entry);
+          return (
+            <div className={cn("flex", entry.type === "gear" ? "justify-end" : "justify-start")} key={entry.id}>
+              <div className={cn("max-w-[82%] rounded-md border px-3 py-2 text-sm", entry.type === "gear" ? "bg-primary text-primary-foreground" : "bg-muted")}>
+                <div className={cn("mb-1 flex flex-wrap items-center gap-2 text-xs", entry.type === "gear" ? "text-primary-foreground/75" : "text-muted-foreground")}>
+                  <Badge variant={entry.type === "gear" ? "secondary" : "outline"}>{entry.type}</Badge>
+                  <span className="truncate">{source}</span>
+                  <span>{formatDate(entry.created_at)}</span>
+                </div>
+                <div className="whitespace-pre-wrap break-words">{entry.text || entry.id}</div>
+                <div className="mt-2 flex justify-end">
+                  {entry.replay_available === true ? (
+                    <Button onClick={() => void onPlay(entry)} size="xs" type="button" variant={entry.type === "gear" ? "secondary" : "outline"}>
+                      <Play data-icon="inline-start" />
+                      Play
+                    </Button>
+                  ) : (
+                    <span className="text-xs opacity-70">No audio</span>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </ScrollArea>
+  );
+}
+
+function useWorkspaceHistory(workspaceName: string, order: "asc" | "desc"): {
+  error: string;
+  items: WorkspaceHistoryEntry[];
+  lastUpdatedAt: string;
+  loadNewer: (lastUpdatedAt?: string) => void;
+  loading: boolean;
+  refresh: () => void;
+} {
+  const [items, setItems] = useState<WorkspaceHistoryEntry[]>([]);
+  const [nextCursor, setNextCursor] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [lastUpdatedAt, setLastUpdatedAt] = useState("");
+
+  const load = useCallback(
+    async (cursor: string, append: boolean, notifiedAt?: string) => {
+      const normalizedWorkspace = workspaceName.trim();
+      if (normalizedWorkspace === "") {
+        setItems([]);
+        setNextCursor("");
+        setError("");
+        setLastUpdatedAt("");
+        return;
+      }
+      setLoading(true);
+      setError("");
+      try {
+        const response = await listWorkspaceHistoryPage(normalizedWorkspace, cursor, order);
+        const nextItems = response.items ?? response.data ?? [];
+        setItems((current) => (append ? mergeHistoryEntries(current, nextItems, order) : nextItems));
+        setNextCursor(response.next_cursor ?? "");
+        setLastUpdatedAt(notifiedAt == null || notifiedAt === "" ? new Date().toISOString() : notifiedAt);
+      } catch (err) {
+        if (!append) {
+          setItems([]);
+        }
+        setError(workspaceFeatureMessage(err));
+      } finally {
+        setLoading(false);
+      }
+    },
+    [order, workspaceName],
+  );
+
+  useEffect(() => {
+    void load("", false);
+  }, [load]);
+
+  return {
+    error,
+    items,
+    lastUpdatedAt,
+    loadNewer: (notifiedAt?: string) => {
+      void load(nextCursor, nextCursor !== "", notifiedAt);
+    },
+    loading,
+    refresh: () => {
+      void load("", false);
+    },
+  };
+}
+
+function mergeHistoryEntries(current: WorkspaceHistoryEntry[], incoming: WorkspaceHistoryEntry[], order: "asc" | "desc"): WorkspaceHistoryEntry[] {
+  const byID = new Map<string, WorkspaceHistoryEntry>();
+  for (const item of current) {
+    byID.set(item.id, item);
+  }
+  for (const item of incoming) {
+    byID.set(item.id, item);
+  }
+  return Array.from(byID.values()).sort((left, right) => {
+    const delta = new Date(left.created_at ?? 0).getTime() - new Date(right.created_at ?? 0).getTime();
+    return order === "asc" ? delta : -delta;
+  });
+}
+
+function historyEntrySource(entry: WorkspaceHistoryEntry): string {
+  if (entry.type === "gear" && entry.gear_id != null && entry.gear_id !== "") {
+    return `${entry.name} / ${entry.gear_id}`;
+  }
+  return entry.name;
+}
+
+function friendDisplayName(friend: FriendObject): string {
+  return compactID(friend.peer_public_key ?? friend.id ?? friend.workspace_name ?? "friend");
+}
+
+function groupDisplayName(group: FriendGroupObject): string {
+  return group.name || compactID(group.id ?? group.workspace_name ?? "group");
+}
+
+function friendChatTarget(friend: FriendObject): SocialChatTarget {
+  return {
+    id: friend.id ?? friend.peer_public_key ?? friend.workspace_name ?? "",
+    kind: "friend",
+    title: friendDisplayName(friend),
+    workspaceName: friend.workspace_name ?? "",
+  };
+}
+
+function groupChatTarget(group: FriendGroupObject): SocialChatTarget {
+  return {
+    id: group.id ?? group.name ?? group.workspace_name ?? "",
+    kind: "group",
+    title: groupDisplayName(group),
+    workspaceName: group.workspace_name ?? "",
+  };
+}
+
+function socialTargetKey(target: SocialChatTarget): string {
+  return `${target.kind}:${target.id}:${target.workspaceName}`;
+}
+
+function listFriendsPage(cursor: string): Promise<PageResponse<FriendObject>> {
+  return expectData(listPeerFriends({ query: pageQuery(cursor) })) as Promise<PageResponse<FriendObject>>;
+}
+
+function getFriendInviteToken(): Promise<FriendInviteTokenGetResponse> {
+  return expectData(getPeerFriendInviteToken()) as Promise<FriendInviteTokenGetResponse>;
+}
+
+function createFriendInviteToken(): Promise<FriendInviteTokenGetResponse> {
+  return expectData(createPeerFriendInviteToken()) as Promise<FriendInviteTokenGetResponse>;
+}
+
+function clearFriendInviteToken(): Promise<unknown> {
+  return expectData(clearPeerFriendInviteToken());
+}
+
+function addFriendByInviteToken(inviteToken: string): Promise<FriendObject> {
+  return expectData(addPeerFriend({ body: { invite_token: inviteToken } })) as Promise<FriendObject>;
+}
+
+function deleteFriend(id: string): Promise<FriendObject> {
+  return expectData(deletePeerFriend({ path: { id } })) as Promise<FriendObject>;
+}
+
+function listFriendGroupsPage(cursor: string): Promise<PageResponse<FriendGroupObject>> {
+  return expectData(listPeerFriendGroups({ query: pageQuery(cursor) })) as Promise<PageResponse<FriendGroupObject>>;
+}
+
+function createFriendGroup(name: string, description: string): Promise<FriendGroupObject> {
+  const body = description === "" ? { name } : { name, description };
+  return expectData(createPeerFriendGroup({ body })) as Promise<FriendGroupObject>;
+}
+
+function getFriendGroup(id: string): Promise<FriendGroupObject> {
+  return expectData(getPeerFriendGroup({ path: { id } })) as Promise<FriendGroupObject>;
+}
+
+function joinFriendGroupByInviteToken(inviteToken: string): Promise<{ group: FriendGroupObject; member: FriendGroupMemberObject }> {
+  return expectData(joinPeerFriendGroup({ body: { invite_token: inviteToken } })) as Promise<{ group: FriendGroupObject; member: FriendGroupMemberObject }>;
+}
+
+function getFriendGroupInviteToken(id: string): Promise<FriendGroupInviteTokenGetResponse> {
+  return expectData(getPeerFriendGroupInviteToken({ path: { id } })) as Promise<FriendGroupInviteTokenGetResponse>;
+}
+
+function createFriendGroupInviteToken(id: string): Promise<FriendGroupInviteTokenGetResponse> {
+  return expectData(createPeerFriendGroupInviteToken({ path: { id } })) as Promise<FriendGroupInviteTokenGetResponse>;
+}
+
+function clearFriendGroupInviteToken(id: string): Promise<unknown> {
+  return expectData(clearPeerFriendGroupInviteToken({ path: { id } }));
+}
+
+function listFriendGroupMembersPage(id: string, cursor: string): Promise<PageResponse<FriendGroupMemberObject>> {
+  if (id.trim() === "") {
+    return Promise.resolve({ has_next: false, items: [] });
+  }
+  return expectData(listPeerFriendGroupMembers({ path: { id }, query: pageQuery(cursor) })) as Promise<PageResponse<FriendGroupMemberObject>>;
+}
+
+function addFriendGroupMember(id: string, peerPublicKey: string, role: FriendGroupMemberMutableRole): Promise<FriendGroupMemberObject> {
+  return expectData(addPeerFriendGroupMember({ body: { friend_group_id: id, peer_public_key: peerPublicKey, role }, path: { id } })) as Promise<FriendGroupMemberObject>;
+}
+
+function updateFriendGroupMember(id: string, memberID: string, role: FriendGroupMemberMutableRole): Promise<FriendGroupMemberObject> {
+  return expectData(putPeerFriendGroupMember({ body: { friend_group_id: id, id: memberID, role }, path: { id, member_id: memberID } })) as Promise<FriendGroupMemberObject>;
+}
+
+function deleteFriendGroupMember(id: string, memberID: string): Promise<FriendGroupMemberObject> {
+  return expectData(deletePeerFriendGroupMember({ path: { id, member_id: memberID } })) as Promise<FriendGroupMemberObject>;
+}
+
+function listWorkspaceHistoryPage(workspaceName: string, cursor: string, order: "asc" | "desc"): Promise<PageResponse<WorkspaceHistoryEntry>> {
+  return expectData(listPeerWorkspaceHistory({ path: { workspace_name: workspaceName }, query: { ...pageQuery(cursor), order } })) as Promise<PageResponse<WorkspaceHistoryEntry>>;
+}
+
+async function playWorkspaceHistoryAsset(workspaceName: string, historyID: string): Promise<void> {
+  const blob = await expectData(getPeerWorkspaceHistoryAudio({ path: { history_id: historyID, workspace_name: workspaceName } })) as Blob;
+  const url = URL.createObjectURL(blob);
+  const audio = new Audio(url);
+  audio.preload = "auto";
+  audio.setAttribute("playsinline", "true");
+  audio.addEventListener("ended", () => URL.revokeObjectURL(url), { once: true });
+  audio.addEventListener("error", () => URL.revokeObjectURL(url), { once: true });
+  await unlockBrowserAudio();
+  await playAudioWithTimeout(audio);
 }
 
 function usePagedList<T>(loadPage: (cursor: string) => Promise<PageResponse<T>>): {
@@ -3380,6 +4669,10 @@ async function listPeerResourcePage(name: string, cursor: string): Promise<PageR
   switch (name) {
     case "credentials":
       return expectData(listPeerCredentials({ query })) as Promise<PageResponse<ResourceItem>>;
+    case "friend-groups":
+      return expectData(listPeerFriendGroups({ query })) as Promise<PageResponse<ResourceItem>>;
+    case "friends":
+      return expectData(listPeerFriends({ query })) as Promise<PageResponse<ResourceItem>>;
     case "models":
       return expectData(listPeerModels({ query })) as Promise<PageResponse<ResourceItem>>;
     case "voices":
