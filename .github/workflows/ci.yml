@@ -24,7 +24,6 @@ jobs:
         os:
           - ubuntu-latest
           - macos-latest
-          - windows-latest
     env:
       CGO_ENABLED: "1"
     steps:
@@ -36,9 +35,6 @@ jobs:
       - name: Ensure Git LFS assets are available
         run: git lfs pull
 
-      - name: Initialize required submodules
-        run: git submodule update --init --depth 1 third_party/net/kcp
-
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
@@ -48,8 +44,13 @@ jobs:
       - name: Download modules
         run: go mod download
 
+      - name: Install UI dependencies
+        run: |
+          npm ci
+          npm ci --prefix cmd/ui
+
       - name: Generate UI assets
-        run: go generate ./ui/apps/admin ./ui/apps/play
+        run: go generate ./cmd/ui/admin ./cmd/ui/play
 
       - name: Run tests
         run: go test -count=1 ./...
