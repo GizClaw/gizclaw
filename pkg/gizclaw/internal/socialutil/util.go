@@ -27,21 +27,19 @@ const (
 	DefaultCleanupInterval  = 5 * time.Minute
 	DefaultMaxAudioBytes    = 2 * 1024 * 1024
 	DefaultAudioContentType = "audio/opus"
-	GroupOwnerRoleName      = "social-friend-group-owner"
-	GroupAdminRoleName      = "social-friend-group-admin"
-	GroupMemberRoleName     = "social-friend-group-member"
 	WorkspaceMemberRoleName = "social-chatroom-member"
 	ChatRoomWorkflowName    = "chatroom"
 )
 
 var (
-	ContactsRoot            = kv.Key{"contacts"}
-	FriendsRoot             = kv.Key{"friends"}
-	FriendInviteTokensRoot  = kv.Key{"friend-invite-tokens"}
-	GroupsRoot              = kv.Key{"friend-groups"}
-	GroupInviteTokensRoot   = kv.Key{"friend-group-invite-tokens"}
-	GroupMembersRoot        = kv.Key{"friend-group-members"}
-	GroupMessagesRoot       = kv.Key{"friend-group-messages"}
+	ContactsRoot           = kv.Key{"contacts"}
+	FriendsRoot            = kv.Key{"friends"}
+	FriendInviteTokensRoot = kv.Key{"friend-invite-tokens"}
+	GroupsRoot             = kv.Key{"friend-groups"}
+	GroupInviteTokensRoot  = kv.Key{"friend-group-invite-tokens"}
+	GroupMembersRoot       = kv.Key{"friend-group-members"}
+	GroupBelongsRoot       = kv.Key{"friend-group-belongs"}
+	GroupMessagesRoot      = kv.Key{"friend-group-messages"}
 )
 
 type EntryPage struct {
@@ -190,6 +188,10 @@ func GroupMemberKey(friendGroupID, peerID string) kv.Key {
 	return append(append(kv.Key{}, GroupMembersRoot...), EscapeStoreSegment(friendGroupID), EscapeStoreSegment(peerID))
 }
 
+func GroupBelongKey(peerID, friendGroupID string) kv.Key {
+	return append(append(kv.Key{}, GroupBelongsRoot...), EscapeStoreSegment(peerID), EscapeStoreSegment(friendGroupID))
+}
+
 func GroupMessageKey(friendGroupID, id string) kv.Key {
 	return append(append(kv.Key{}, GroupMessagesRoot...), EscapeStoreSegment(friendGroupID), EscapeStoreSegment(id))
 }
@@ -223,34 +225,6 @@ func GroupRole(member rpcapi.FriendGroupMemberObject) rpcapi.FriendGroupMemberRo
 		return ""
 	}
 	return *member.Role
-}
-
-func GroupACLRole(role rpcapi.FriendGroupMemberRole) (string, apitypes.ACLPermissionList, error) {
-	switch role {
-	case rpcapi.FriendGroupMemberRoleOwner:
-		return GroupOwnerRoleName, apitypes.ACLPermissionList{
-			apitypes.ACLPermissionFriendGroupRead,
-			apitypes.ACLPermissionFriendGroupUse,
-			apitypes.ACLPermissionFriendGroupAdmin,
-		}, nil
-	case rpcapi.FriendGroupMemberRoleAdmin:
-		return GroupAdminRoleName, apitypes.ACLPermissionList{
-			apitypes.ACLPermissionFriendGroupRead,
-			apitypes.ACLPermissionFriendGroupUse,
-			apitypes.ACLPermissionFriendGroupAdmin,
-		}, nil
-	case rpcapi.FriendGroupMemberRoleMember:
-		return GroupMemberRoleName, apitypes.ACLPermissionList{
-			apitypes.ACLPermissionFriendGroupRead,
-			apitypes.ACLPermissionFriendGroupUse,
-		}, nil
-	default:
-		return "", nil, errors.New("social: invalid group member role")
-	}
-}
-
-func GroupACLBindingID(friendGroupID, peerID string) string {
-	return "social-friend-group:" + EscapeStoreSegment(strings.TrimSpace(friendGroupID)) + ":" + EscapeStoreSegment(strings.TrimSpace(peerID))
 }
 
 func WorkspaceACLRole() (string, apitypes.ACLPermissionList) {

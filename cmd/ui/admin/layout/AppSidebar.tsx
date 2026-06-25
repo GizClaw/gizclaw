@@ -2,7 +2,6 @@ import type { LucideIcon } from "lucide-react";
 import {
   AudioLines,
   Boxes,
-  ContactRound,
   Cpu,
   FileJson,
   FolderKanban,
@@ -14,8 +13,6 @@ import {
   PawPrint,
   ServerCog,
   ShieldCheck,
-  UserRoundCheck,
-  UsersRound,
   Workflow,
 } from "lucide-react";
 import { NavLink } from "react-router-dom";
@@ -82,14 +79,6 @@ const sections: NavSection[] = [
     items: [
       { href: "/business/pet-species", icon: PawPrint, label: "Pet Species" },
       { href: "/business/badges", icon: Medal, label: "Badges" },
-    ],
-  },
-  {
-    label: "Social",
-    items: [
-      { href: "/social/contacts", icon: ContactRound, label: "Contacts" },
-      { href: "/social/friends", icon: UserRoundCheck, label: "Friends" },
-      { href: "/social/friend-groups", icon: UsersRound, label: "Friend Groups" },
     ],
   },
   {

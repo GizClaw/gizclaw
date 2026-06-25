@@ -82,6 +82,7 @@ const (
 	defaultFriendGroupsStore             = "friend-groups"
 	defaultFriendGroupInviteTokensStore  = "friend-group-invite-tokens"
 	defaultFriendGroupMembersStore       = "friend-group-members"
+	defaultFriendGroupBelongsStore       = "friend-group-belongs"
 	defaultFriendGroupMessagesStore      = "friend-group-messages"
 	defaultFriendGroupMessageAssetsStore = "friend-group-message-assets"
 )

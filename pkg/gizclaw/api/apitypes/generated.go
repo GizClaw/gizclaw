@@ -14,44 +14,35 @@ import (
 
 // Defines values for ACLPermission.
 const (
-	ACLPermissionBadgeAdmin       ACLPermission = "badge.admin"
-	ACLPermissionBadgeRead        ACLPermission = "badge.read"
-	ACLPermissionBadgeUse         ACLPermission = "badge.use"
-	ACLPermissionContactAdmin     ACLPermission = "contact.admin"
-	ACLPermissionContactRead      ACLPermission = "contact.read"
-	ACLPermissionContactUse       ACLPermission = "contact.use"
-	ACLPermissionCredentialAdmin  ACLPermission = "credential.admin"
-	ACLPermissionCredentialRead   ACLPermission = "credential.read"
-	ACLPermissionCredentialUse    ACLPermission = "credential.use"
-	ACLPermissionEditor           ACLPermission = "editor"
-	ACLPermissionFirmwareAdmin    ACLPermission = "firmware.admin"
-	ACLPermissionFirmwareRead     ACLPermission = "firmware.read"
-	ACLPermissionFriendAdmin      ACLPermission = "friend.admin"
-	ACLPermissionFriendGroupAdmin ACLPermission = "friend_group.admin"
-	ACLPermissionFriendGroupRead  ACLPermission = "friend_group.read"
-	ACLPermissionFriendGroupUse   ACLPermission = "friend_group.use"
-	ACLPermissionFriendRead       ACLPermission = "friend.read"
-	ACLPermissionFriendUse        ACLPermission = "friend.use"
-	ACLPermissionModelAdmin       ACLPermission = "model.admin"
-	ACLPermissionModelRead        ACLPermission = "model.read"
-	ACLPermissionModelUse         ACLPermission = "model.use"
-	ACLPermissionOwner            ACLPermission = "owner"
-	ACLPermissionPetSpeciesAdmin  ACLPermission = "pet_species.admin"
-	ACLPermissionPetSpeciesRead   ACLPermission = "pet_species.read"
-	ACLPermissionPetSpeciesUse    ACLPermission = "pet_species.use"
-	ACLPermissionViewAdmin        ACLPermission = "view.admin"
-	ACLPermissionViewRead         ACLPermission = "view.read"
-	ACLPermissionViewUse          ACLPermission = "view.use"
-	ACLPermissionViewer           ACLPermission = "viewer"
-	ACLPermissionVoiceAdmin       ACLPermission = "voice.admin"
-	ACLPermissionVoiceRead        ACLPermission = "voice.read"
-	ACLPermissionVoiceUse         ACLPermission = "voice.use"
-	ACLPermissionWorkflowAdmin    ACLPermission = "workflow.admin"
-	ACLPermissionWorkflowRead     ACLPermission = "workflow.read"
-	ACLPermissionWorkflowUse      ACLPermission = "workflow.use"
-	ACLPermissionWorkspaceAdmin   ACLPermission = "workspace.admin"
-	ACLPermissionWorkspaceRead    ACLPermission = "workspace.read"
-	ACLPermissionWorkspaceUse     ACLPermission = "workspace.use"
+	ACLPermissionBadgeAdmin      ACLPermission = "badge.admin"
+	ACLPermissionBadgeRead       ACLPermission = "badge.read"
+	ACLPermissionBadgeUse        ACLPermission = "badge.use"
+	ACLPermissionCredentialAdmin ACLPermission = "credential.admin"
+	ACLPermissionCredentialRead  ACLPermission = "credential.read"
+	ACLPermissionCredentialUse   ACLPermission = "credential.use"
+	ACLPermissionEditor          ACLPermission = "editor"
+	ACLPermissionFirmwareAdmin   ACLPermission = "firmware.admin"
+	ACLPermissionFirmwareRead    ACLPermission = "firmware.read"
+	ACLPermissionModelAdmin      ACLPermission = "model.admin"
+	ACLPermissionModelRead       ACLPermission = "model.read"
+	ACLPermissionModelUse        ACLPermission = "model.use"
+	ACLPermissionOwner           ACLPermission = "owner"
+	ACLPermissionPetSpeciesAdmin ACLPermission = "pet_species.admin"
+	ACLPermissionPetSpeciesRead  ACLPermission = "pet_species.read"
+	ACLPermissionPetSpeciesUse   ACLPermission = "pet_species.use"
+	ACLPermissionViewAdmin       ACLPermission = "view.admin"
+	ACLPermissionViewRead        ACLPermission = "view.read"
+	ACLPermissionViewUse         ACLPermission = "view.use"
+	ACLPermissionViewer          ACLPermission = "viewer"
+	ACLPermissionVoiceAdmin      ACLPermission = "voice.admin"
+	ACLPermissionVoiceRead       ACLPermission = "voice.read"
+	ACLPermissionVoiceUse        ACLPermission = "voice.use"
+	ACLPermissionWorkflowAdmin   ACLPermission = "workflow.admin"
+	ACLPermissionWorkflowRead    ACLPermission = "workflow.read"
+	ACLPermissionWorkflowUse     ACLPermission = "workflow.use"
+	ACLPermissionWorkspaceAdmin  ACLPermission = "workspace.admin"
+	ACLPermissionWorkspaceRead   ACLPermission = "workspace.read"
+	ACLPermissionWorkspaceUse    ACLPermission = "workspace.use"
 )
 
 // Valid indicates whether the value is a known member of the ACLPermission enum.
@@ -62,12 +53,6 @@ func (e ACLPermission) Valid() bool {
 	case ACLPermissionBadgeRead:
 		return true
 	case ACLPermissionBadgeUse:
-		return true
-	case ACLPermissionContactAdmin:
-		return true
-	case ACLPermissionContactRead:
-		return true
-	case ACLPermissionContactUse:
 		return true
 	case ACLPermissionCredentialAdmin:
 		return true
@@ -80,18 +65,6 @@ func (e ACLPermission) Valid() bool {
 	case ACLPermissionFirmwareAdmin:
 		return true
 	case ACLPermissionFirmwareRead:
-		return true
-	case ACLPermissionFriendAdmin:
-		return true
-	case ACLPermissionFriendGroupAdmin:
-		return true
-	case ACLPermissionFriendGroupRead:
-		return true
-	case ACLPermissionFriendGroupUse:
-		return true
-	case ACLPermissionFriendRead:
-		return true
-	case ACLPermissionFriendUse:
 		return true
 	case ACLPermissionModelAdmin:
 		return true
@@ -155,18 +128,15 @@ func (e ACLPolicyBindingResourceKind) Valid() bool {
 
 // Defines values for ACLResourceKind.
 const (
-	ACLResourceKindBadge       ACLResourceKind = "badge"
-	ACLResourceKindContact     ACLResourceKind = "contact"
-	ACLResourceKindCredential  ACLResourceKind = "credential"
-	ACLResourceKindFirmware    ACLResourceKind = "firmware"
-	ACLResourceKindFriend      ACLResourceKind = "friend"
-	ACLResourceKindFriendGroup ACLResourceKind = "friend_group"
-	ACLResourceKindModel       ACLResourceKind = "model"
-	ACLResourceKindPetSpecies  ACLResourceKind = "pet_species"
-	ACLResourceKindView        ACLResourceKind = "view"
-	ACLResourceKindVoice       ACLResourceKind = "voice"
-	ACLResourceKindWorkflow    ACLResourceKind = "workflow"
-	ACLResourceKindWorkspace   ACLResourceKind = "workspace"
+	ACLResourceKindBadge      ACLResourceKind = "badge"
+	ACLResourceKindCredential ACLResourceKind = "credential"
+	ACLResourceKindFirmware   ACLResourceKind = "firmware"
+	ACLResourceKindModel      ACLResourceKind = "model"
+	ACLResourceKindPetSpecies ACLResourceKind = "pet_species"
+	ACLResourceKindView       ACLResourceKind = "view"
+	ACLResourceKindVoice      ACLResourceKind = "voice"
+	ACLResourceKindWorkflow   ACLResourceKind = "workflow"
+	ACLResourceKindWorkspace  ACLResourceKind = "workspace"
 )
 
 // Valid indicates whether the value is a known member of the ACLResourceKind enum.
@@ -174,15 +144,9 @@ func (e ACLResourceKind) Valid() bool {
 	switch e {
 	case ACLResourceKindBadge:
 		return true
-	case ACLResourceKindContact:
-		return true
 	case ACLResourceKindCredential:
 		return true
 	case ACLResourceKindFirmware:
-		return true
-	case ACLResourceKindFriend:
-		return true
-	case ACLResourceKindFriendGroup:
 		return true
 	case ACLResourceKindModel:
 		return true

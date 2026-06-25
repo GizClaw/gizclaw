@@ -28,28 +28,5 @@ func adminACLStories() []Story {
 				page.ExpectText("gizclaw admin acl --context <admin-cli-context> views get '" + SeedACLViewName + "'")
 			},
 		},
-		{
-			Name: "161-admin-acl-social-resource-controls",
-			Run: func(_ testing.TB, page *Page) {
-				page.GotoAdmin("/social/friend-groups")
-				page.ExpectURLSuffix("/social/friend-groups")
-				page.ExpectText("friend_group")
-
-				page.ClickRole("button", "New Binding")
-				page.ClickRole("combobox", "Policy binding resource kind")
-				page.ExpectText("contact")
-				page.ExpectText("friend")
-				page.ExpectText("friend_group")
-				page.ExpectNoText("call.admin")
-
-				page.GotoAdmin("/settings/acl")
-				page.ClickRole("tab", "Roles")
-				page.ClickRole("button", "New Role")
-				page.ExpectText("contact.admin")
-				page.ExpectText("friend.admin")
-				page.ExpectText("friend_group.admin")
-				page.ExpectNoText("call.admin")
-			},
-		},
 	}
 }

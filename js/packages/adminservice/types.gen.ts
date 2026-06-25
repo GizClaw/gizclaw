@@ -441,7 +441,7 @@ export type WorkspaceResource = {
 /**
  * ACL permission enum.
  */
-export type AclPermission = 'viewer' | 'editor' | 'owner' | 'workspace.read' | 'workspace.use' | 'workspace.admin' | 'workflow.read' | 'workflow.use' | 'workflow.admin' | 'voice.read' | 'voice.use' | 'voice.admin' | 'credential.read' | 'credential.use' | 'credential.admin' | 'model.read' | 'model.use' | 'model.admin' | 'view.read' | 'view.use' | 'view.admin' | 'contact.read' | 'contact.use' | 'contact.admin' | 'friend.read' | 'friend.use' | 'friend.admin' | 'friend_group.read' | 'friend_group.use' | 'friend_group.admin' | 'pet_species.read' | 'pet_species.use' | 'pet_species.admin' | 'badge.read' | 'badge.use' | 'badge.admin' | 'firmware.read' | 'firmware.admin';
+export type AclPermission = 'viewer' | 'editor' | 'owner' | 'workspace.read' | 'workspace.use' | 'workspace.admin' | 'workflow.read' | 'workflow.use' | 'workflow.admin' | 'voice.read' | 'voice.use' | 'voice.admin' | 'credential.read' | 'credential.use' | 'credential.admin' | 'model.read' | 'model.use' | 'model.admin' | 'view.read' | 'view.use' | 'view.admin' | 'pet_species.read' | 'pet_species.use' | 'pet_species.admin' | 'badge.read' | 'badge.use' | 'badge.admin' | 'firmware.read' | 'firmware.admin';
 
 export type AclPermissionList = Array<AclPermission>;
 
@@ -478,7 +478,7 @@ export type AclResource = {
 /**
  * ACL resource identity kind.
  */
-export type AclResourceKind = 'workspace' | 'workflow' | 'voice' | 'credential' | 'model' | 'view' | 'contact' | 'friend' | 'friend_group' | 'pet_species' | 'badge' | 'firmware';
+export type AclResourceKind = 'workspace' | 'workflow' | 'voice' | 'credential' | 'model' | 'view' | 'pet_species' | 'badge' | 'firmware';
 
 export type AclRole = {
     name: string;

@@ -118,8 +118,8 @@ func TestScalarHelpersAndRoles(t *testing.T) {
 	if got := UnescapeStoreSegment("%"); got != "%" {
 		t.Fatalf("invalid unescape = %q, want original", got)
 	}
-	if got := GroupACLBindingID("group/a", "peer b"); got != "social-friend-group:group%2Fa:peer+b" {
-		t.Fatalf("GroupACLBindingID = %q, want escaped id", got)
+	if got := GroupBelongKey("peer b", "group/a"); len(got) != 3 || got[1] != "peer+b" || got[2] != "group%2Fa" {
+		t.Fatalf("GroupBelongKey = %#v, want escaped peer/group key", got)
 	}
 	if got := FriendInviteTokenKey("peer/a"); len(got) != 2 || got[1] != "peer%2Fa" {
 		t.Fatalf("FriendInviteTokenKey = %#v, want escaped owner key", got)
@@ -143,32 +143,6 @@ func TestGroupRolesAndMessageExpiry(t *testing.T) {
 	}
 	if got := GroupRole(rpcapi.FriendGroupMemberObject{}); got != "" {
 		t.Fatalf("GroupRole nil = %q, want empty", got)
-	}
-
-	cases := []struct {
-		role rpcapi.FriendGroupMemberRole
-		want []apitypes.ACLPermission
-	}{
-		{rpcapi.FriendGroupMemberRoleOwner, []apitypes.ACLPermission{apitypes.ACLPermissionFriendGroupRead, apitypes.ACLPermissionFriendGroupUse, apitypes.ACLPermissionFriendGroupAdmin}},
-		{rpcapi.FriendGroupMemberRoleAdmin, []apitypes.ACLPermission{apitypes.ACLPermissionFriendGroupRead, apitypes.ACLPermissionFriendGroupUse, apitypes.ACLPermissionFriendGroupAdmin}},
-		{rpcapi.FriendGroupMemberRoleMember, []apitypes.ACLPermission{apitypes.ACLPermissionFriendGroupRead, apitypes.ACLPermissionFriendGroupUse}},
-	}
-	for _, tt := range cases {
-		name, permissions, err := GroupACLRole(tt.role)
-		if err != nil {
-			t.Fatalf("GroupACLRole(%s): %v", tt.role, err)
-		}
-		if name == "" || len(permissions) != len(tt.want) {
-			t.Fatalf("GroupACLRole(%s) = (%q, %#v), want %d permissions", tt.role, name, permissions, len(tt.want))
-		}
-		for i, permission := range tt.want {
-			if permissions[i] != permission {
-				t.Fatalf("GroupACLRole(%s) permission[%d] = %q, want %q", tt.role, i, permissions[i], permission)
-			}
-		}
-	}
-	if _, _, err := GroupACLRole("bogus"); err == nil {
-		t.Fatal("GroupACLRole bogus error = nil")
 	}
 
 	now := time.Date(2026, 6, 13, 0, 0, 0, 0, time.UTC)

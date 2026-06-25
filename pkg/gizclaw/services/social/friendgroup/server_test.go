@@ -101,10 +101,11 @@ func TestRolesAudioMessagesAndTTL(t *testing.T) {
 	}
 }
 
-func TestMembersMaintainACLBindings(t *testing.T) {
+func TestMembersMaintainBelongsAndWorkspaceACLBindings(t *testing.T) {
 	ctx := context.Background()
 	s := newTestServer(t)
-	s.ACL = newTestACL(t)
+	baseACL := newTestACL(t)
+	s.ACL = baseACL
 	workspaces := &recordingWorkspaceService{}
 	s.Workspaces = workspaces
 
@@ -120,14 +121,8 @@ func TestMembersMaintainACLBindings(t *testing.T) {
 	if len(workspaces.created) != 1 || workspaces.created[0].Name != workspaceName || workspaces.created[0].WorkflowName != socialutil.ChatRoomWorkflowName {
 		t.Fatalf("created workspaces = %#v, want %q chatroom", workspaces.created, workspaceName)
 	}
-	if err := s.ACL.Authorize(ctx, acl.AuthorizeRequest{
-		Subject:    acl.PublicKeySubject("peer-a"),
-		Resource:   acl.FriendGroupResource(friendGroupID),
-		Permission: apitypes.ACLPermissionFriendGroupAdmin,
-	}); err != nil {
-		t.Fatalf("owner friend group admin authorize: %v", err)
-	}
-	if err := s.ACL.Authorize(ctx, acl.AuthorizeRequest{
+	assertBelongs(t, ctx, s, "peer-a", friendGroupID, rpcapi.FriendGroupMemberRoleOwner)
+	if err := baseACL.Authorize(ctx, acl.AuthorizeRequest{
 		Subject:    acl.PublicKeySubject("peer-a"),
 		Resource:   acl.WorkspaceResource(workspaceName),
 		Permission: apitypes.ACLPermissionWorkspaceUse,
@@ -138,59 +133,48 @@ func TestMembersMaintainACLBindings(t *testing.T) {
 	if _, err := s.AddFriendGroupMember(ctx, "peer-a", rpcapi.FriendGroupMemberAddRequest{FriendGroupId: friendGroupID, PeerPublicKey: "peer-b", Role: rpcapi.FriendGroupMemberMutableRole("member")}); err != nil {
 		t.Fatalf("AddFriendGroupMember: %v", err)
 	}
-	if err := s.ACL.Authorize(ctx, acl.AuthorizeRequest{
-		Subject:    acl.PublicKeySubject("peer-b"),
-		Resource:   acl.FriendGroupResource(friendGroupID),
-		Permission: apitypes.ACLPermissionFriendGroupUse,
-	}); err != nil {
-		t.Fatalf("member group use authorize: %v", err)
-	}
-	if err := s.ACL.Authorize(ctx, acl.AuthorizeRequest{
+	assertBelongs(t, ctx, s, "peer-b", friendGroupID, rpcapi.FriendGroupMemberRoleMember)
+	if err := baseACL.Authorize(ctx, acl.AuthorizeRequest{
 		Subject:    acl.PublicKeySubject("peer-b"),
 		Resource:   acl.WorkspaceResource(workspaceName),
 		Permission: apitypes.ACLPermissionWorkspaceUse,
 	}); err != nil {
 		t.Fatalf("member workspace use authorize: %v", err)
 	}
-	if err := s.ACL.Authorize(ctx, acl.AuthorizeRequest{
-		Subject:    acl.PublicKeySubject("peer-b"),
-		Resource:   acl.FriendGroupResource(friendGroupID),
-		Permission: apitypes.ACLPermissionFriendGroupAdmin,
-	}); !errors.Is(err, acl.ErrDenied) {
-		t.Fatalf("member friend group admin authorize error = %v, want denied", err)
+	peerBGroups, err := s.ListFriendGroups(ctx, " peer-b ", rpcapi.FriendGroupListRequest{})
+	if err != nil {
+		t.Fatalf("ListFriendGroups peer-b: %v", err)
+	}
+	if len(peerBGroups.Items) != 1 || socialutil.StringValue(peerBGroups.Items[0].Id) != friendGroupID || peerBGroups.Items[0].MyRole == nil || *peerBGroups.Items[0].MyRole != rpcapi.FriendGroupMemberRoleMember {
+		t.Fatalf("ListFriendGroups peer-b = %#v, want member group", peerBGroups)
 	}
 
 	if _, err := s.PutFriendGroupMember(ctx, "peer-a", rpcapi.FriendGroupMemberPutRequest{FriendGroupId: friendGroupID, Id: "peer-b", Role: rpcapi.FriendGroupMemberMutableRole("admin")}); err != nil {
 		t.Fatalf("PutFriendGroupMember: %v", err)
 	}
-	if err := s.ACL.Authorize(ctx, acl.AuthorizeRequest{
-		Subject:    acl.PublicKeySubject("peer-b"),
-		Resource:   acl.FriendGroupResource(friendGroupID),
-		Permission: apitypes.ACLPermissionFriendGroupAdmin,
-	}); err != nil {
-		t.Fatalf("admin friend group admin authorize: %v", err)
-	}
+	assertBelongs(t, ctx, s, "peer-b", friendGroupID, rpcapi.FriendGroupMemberRoleAdmin)
 
 	if _, err := s.DeleteFriendGroupMember(ctx, "peer-a", rpcapi.FriendGroupMemberDeleteRequest{FriendGroupId: friendGroupID, Id: "peer-b"}); err != nil {
 		t.Fatalf("DeleteFriendGroupMember: %v", err)
 	}
-	if err := s.ACL.Authorize(ctx, acl.AuthorizeRequest{
-		Subject:    acl.PublicKeySubject("peer-b"),
-		Resource:   acl.FriendGroupResource(friendGroupID),
-		Permission: apitypes.ACLPermissionFriendGroupUse,
-	}); !errors.Is(err, acl.ErrDenied) {
-		t.Fatalf("deleted member group use authorize error = %v, want denied", err)
-	}
-	if err := s.ACL.Authorize(ctx, acl.AuthorizeRequest{
+	assertNoBelongs(t, ctx, s, "peer-b", friendGroupID)
+	if err := baseACL.Authorize(ctx, acl.AuthorizeRequest{
 		Subject:    acl.PublicKeySubject("peer-b"),
 		Resource:   acl.WorkspaceResource(workspaceName),
 		Permission: apitypes.ACLPermissionWorkspaceUse,
 	}); !errors.Is(err, acl.ErrDenied) {
 		t.Fatalf("deleted member workspace use authorize error = %v, want denied", err)
 	}
+	peerBGroups, err = s.ListFriendGroups(ctx, "peer-b", rpcapi.FriendGroupListRequest{})
+	if err != nil {
+		t.Fatalf("ListFriendGroups peer-b after delete: %v", err)
+	}
+	if len(peerBGroups.Items) != 0 {
+		t.Fatalf("ListFriendGroups peer-b after delete = %#v, want empty", peerBGroups)
+	}
 }
 
-func TestMemberRollsBackWhenACLWriteFails(t *testing.T) {
+func TestMemberRollsBackWhenWorkspaceACLWriteFails(t *testing.T) {
 	ctx := context.Background()
 	s := newTestServer(t)
 	baseACL := newTestACL(t)
@@ -202,49 +186,23 @@ func TestMemberRollsBackWhenACLWriteFails(t *testing.T) {
 	}
 	friendGroupID := socialutil.StringValue(group.Id)
 
-	s.ACL = failingACL{ACL: baseACL, failPut: true}
-	if _, err := s.AddFriendGroupMember(ctx, "peer-a", rpcapi.FriendGroupMemberAddRequest{FriendGroupId: friendGroupID, PeerPublicKey: "peer-b", Role: rpcapi.FriendGroupMemberMutableRole("member")}); err == nil {
-		t.Fatal("AddFriendGroupMember with failing ACL error = nil")
-	}
-	if _, err := s.groupMember(ctx, friendGroupID, "peer-b"); !errors.Is(err, kv.ErrNotFound) {
-		t.Fatalf("member after failed add error = %v, want not found", err)
-	}
-
-	s.ACL = baseACL
 	if _, err := s.AddFriendGroupMember(ctx, "peer-a", rpcapi.FriendGroupMemberAddRequest{FriendGroupId: friendGroupID, PeerPublicKey: "peer-b", Role: rpcapi.FriendGroupMemberMutableRole("member")}); err != nil {
 		t.Fatalf("AddFriendGroupMember: %v", err)
 	}
-
-	s.ACL = failingACL{ACL: baseACL, failPut: true}
-	if _, err := s.PutFriendGroupMember(ctx, "peer-a", rpcapi.FriendGroupMemberPutRequest{FriendGroupId: friendGroupID, Id: "peer-b", Role: rpcapi.FriendGroupMemberMutableRole("admin")}); err == nil {
-		t.Fatal("PutFriendGroupMember with failing ACL error = nil")
-	}
-	member, err := s.groupMember(ctx, friendGroupID, "peer-b")
-	if err != nil {
-		t.Fatalf("groupMember after failed put: %v", err)
-	}
-	if socialutil.GroupRole(member) != rpcapi.FriendGroupMemberRoleMember {
-		t.Fatalf("member role after failed put = %s, want member", socialutil.GroupRole(member))
-	}
+	assertBelongs(t, ctx, s, "peer-b", friendGroupID, rpcapi.FriendGroupMemberRoleMember)
 
 	s.ACL = failingWorkspaceACL{ACL: baseACL}
 	if _, err := s.AddFriendGroupMember(ctx, "peer-a", rpcapi.FriendGroupMemberAddRequest{FriendGroupId: friendGroupID, PeerPublicKey: "peer-b", Role: rpcapi.FriendGroupMemberMutableRole("admin")}); err == nil {
 		t.Fatal("AddFriendGroupMember with failing workspace ACL error = nil")
 	}
-	member, err = s.groupMember(ctx, friendGroupID, "peer-b")
+	member, err := s.groupMember(ctx, friendGroupID, "peer-b")
 	if err != nil {
 		t.Fatalf("groupMember after failed workspace ACL: %v", err)
 	}
 	if socialutil.GroupRole(member) != rpcapi.FriendGroupMemberRoleMember {
 		t.Fatalf("member role after failed workspace ACL = %s, want member", socialutil.GroupRole(member))
 	}
-	if err := baseACL.Authorize(ctx, acl.AuthorizeRequest{
-		Subject:    acl.PublicKeySubject("peer-b"),
-		Resource:   acl.FriendGroupResource(friendGroupID),
-		Permission: apitypes.ACLPermissionFriendGroupAdmin,
-	}); !errors.Is(err, acl.ErrDenied) {
-		t.Fatalf("member group admin authorize after failed workspace ACL = %v, want denied", err)
-	}
+	assertBelongs(t, ctx, s, "peer-b", friendGroupID, rpcapi.FriendGroupMemberRoleMember)
 
 	s.ACL = failingACL{ACL: baseACL, failDelete: true}
 	if _, err := s.DeleteFriendGroupMember(ctx, "peer-a", rpcapi.FriendGroupMemberDeleteRequest{FriendGroupId: friendGroupID, Id: "peer-b"}); err == nil {
@@ -282,13 +240,7 @@ func TestJoinFriendGroupRollsBackWhenFinalReadFails(t *testing.T) {
 	if _, err := s.groupMember(ctx, friendGroupID, "peer-b"); !errors.Is(err, kv.ErrNotFound) {
 		t.Fatalf("member after failed join error = %v, want not found", err)
 	}
-	if err := baseACL.Authorize(ctx, acl.AuthorizeRequest{
-		Subject:    acl.PublicKeySubject("peer-b"),
-		Resource:   acl.FriendGroupResource(friendGroupID),
-		Permission: apitypes.ACLPermissionFriendGroupUse,
-	}); !errors.Is(err, acl.ErrDenied) {
-		t.Fatalf("group ACL after failed join error = %v, want denied", err)
-	}
+	assertNoBelongs(t, ctx, s, "peer-b", friendGroupID)
 	if err := baseACL.Authorize(ctx, acl.AuthorizeRequest{
 		Subject:    acl.PublicKeySubject("peer-b"),
 		Resource:   acl.WorkspaceResource(workspaceName),
@@ -298,10 +250,134 @@ func TestJoinFriendGroupRollsBackWhenFinalReadFails(t *testing.T) {
 	}
 }
 
+func TestInviteTokensAndJoinLifecycle(t *testing.T) {
+	ctx := context.Background()
+	s := newTestServer(t)
+	baseACL := newTestACL(t)
+	s.ACL = baseACL
+	s.Workspaces = &recordingWorkspaceService{}
+
+	group, err := s.CreateFriendGroup(ctx, "peer-a", rpcapi.FriendGroupCreateRequest{Name: "room"})
+	if err != nil {
+		t.Fatalf("CreateFriendGroup: %v", err)
+	}
+	friendGroupID := socialutil.StringValue(group.Id)
+	workspaceName := socialutil.StringValue(group.WorkspaceName)
+
+	empty, err := s.GetFriendGroupInviteToken(ctx, "peer-a", rpcapi.FriendGroupInviteTokenGetRequest{FriendGroupId: friendGroupID})
+	if err != nil {
+		t.Fatalf("GetFriendGroupInviteToken empty: %v", err)
+	}
+	if empty.InviteToken != nil || empty.ExpiresAt != nil {
+		t.Fatalf("empty invite token = %#v, want nil fields", empty)
+	}
+
+	token, err := s.CreateFriendGroupInviteToken(ctx, "peer-a", rpcapi.FriendGroupInviteTokenCreateRequest{FriendGroupId: friendGroupID})
+	if err != nil {
+		t.Fatalf("CreateFriendGroupInviteToken: %v", err)
+	}
+	if token.InviteToken == "" || token.ExpiresAt.IsZero() {
+		t.Fatalf("created invite token = %#v", token)
+	}
+	got, err := s.GetFriendGroupInviteToken(ctx, "peer-a", rpcapi.FriendGroupInviteTokenGetRequest{FriendGroupId: friendGroupID})
+	if err != nil {
+		t.Fatalf("GetFriendGroupInviteToken: %v", err)
+	}
+	if got.InviteToken == nil || *got.InviteToken != token.InviteToken {
+		t.Fatalf("GetFriendGroupInviteToken = %#v, want %q", got, token.InviteToken)
+	}
+	activeAgain, err := s.CreateFriendGroupInviteToken(ctx, "peer-a", rpcapi.FriendGroupInviteTokenCreateRequest{FriendGroupId: friendGroupID})
+	if err != nil {
+		t.Fatalf("CreateFriendGroupInviteToken active: %v", err)
+	}
+	if activeAgain.InviteToken != token.InviteToken {
+		t.Fatalf("active invite token = %q, want existing %q", activeAgain.InviteToken, token.InviteToken)
+	}
+
+	joined, err := s.JoinFriendGroup(ctx, "peer-b", rpcapi.FriendGroupJoinRequest{InviteToken: token.InviteToken})
+	if err != nil {
+		t.Fatalf("JoinFriendGroup: %v", err)
+	}
+	if socialutil.GroupRole(joined.Member) != rpcapi.FriendGroupMemberRoleMember {
+		t.Fatalf("joined role = %q, want member", socialutil.GroupRole(joined.Member))
+	}
+	if joined.Group.MyRole == nil || *joined.Group.MyRole != rpcapi.FriendGroupMemberRoleMember {
+		t.Fatalf("joined group my_role = %#v, want member", joined.Group.MyRole)
+	}
+	assertBelongs(t, ctx, s, "peer-b", friendGroupID, rpcapi.FriendGroupMemberRoleMember)
+	if err := baseACL.Authorize(ctx, acl.AuthorizeRequest{
+		Subject:    acl.PublicKeySubject("peer-b"),
+		Resource:   acl.WorkspaceResource(workspaceName),
+		Permission: apitypes.ACLPermissionWorkspaceUse,
+	}); err != nil {
+		t.Fatalf("joined peer workspace authorize: %v", err)
+	}
+
+	joinedAgain, err := s.JoinFriendGroup(ctx, "peer-b", rpcapi.FriendGroupJoinRequest{InviteToken: token.InviteToken})
+	if err != nil {
+		t.Fatalf("JoinFriendGroup existing: %v", err)
+	}
+	if socialutil.StringValue(joinedAgain.Member.PeerPublicKey) != "peer-b" {
+		t.Fatalf("existing join member = %#v, want peer-b", joinedAgain.Member)
+	}
+
+	if _, err := s.ClearFriendGroupInviteToken(ctx, "peer-a", rpcapi.FriendGroupInviteTokenClearRequest{FriendGroupId: friendGroupID}); err != nil {
+		t.Fatalf("ClearFriendGroupInviteToken: %v", err)
+	}
+	empty, err = s.GetFriendGroupInviteToken(ctx, "peer-a", rpcapi.FriendGroupInviteTokenGetRequest{FriendGroupId: friendGroupID})
+	if err != nil {
+		t.Fatalf("GetFriendGroupInviteToken after clear: %v", err)
+	}
+	if empty.InviteToken != nil || empty.ExpiresAt != nil {
+		t.Fatalf("cleared invite token = %#v, want nil fields", empty)
+	}
+
+	expiring, err := s.CreateFriendGroupInviteToken(ctx, "peer-a", rpcapi.FriendGroupInviteTokenCreateRequest{FriendGroupId: friendGroupID})
+	if err != nil {
+		t.Fatalf("CreateFriendGroupInviteToken expiring: %v", err)
+	}
+	s.Now = func() time.Time { return time.Date(2026, 6, 13, 0, 6, 0, 0, time.UTC) }
+	expired, err := s.GetFriendGroupInviteToken(ctx, "peer-a", rpcapi.FriendGroupInviteTokenGetRequest{FriendGroupId: friendGroupID})
+	if err != nil {
+		t.Fatalf("GetFriendGroupInviteToken expired: %v", err)
+	}
+	if expired.InviteToken != nil || expired.ExpiresAt != nil {
+		t.Fatalf("expired invite token = %#v, want nil fields", expired)
+	}
+	if _, err := s.JoinFriendGroup(ctx, "peer-c", rpcapi.FriendGroupJoinRequest{InviteToken: expiring.InviteToken}); err == nil {
+		t.Fatal("JoinFriendGroup expired token error = nil")
+	}
+}
+
+func TestBelongsStoreFallsBackToMembersStore(t *testing.T) {
+	ctx := context.Background()
+	s := newTestServer(t)
+	s.Belongs = nil
+
+	group, err := s.CreateFriendGroup(ctx, "peer-a", rpcapi.FriendGroupCreateRequest{Name: "room"})
+	if err != nil {
+		t.Fatalf("CreateFriendGroup: %v", err)
+	}
+	friendGroupID := socialutil.StringValue(group.Id)
+	assertBelongs(t, ctx, s, "peer-a", friendGroupID, rpcapi.FriendGroupMemberRoleOwner)
+
+	if _, err := s.AddFriendGroupMember(ctx, "peer-a", rpcapi.FriendGroupMemberAddRequest{FriendGroupId: friendGroupID, PeerPublicKey: "peer-b", Role: rpcapi.FriendGroupMemberMutableRole("member")}); err != nil {
+		t.Fatalf("AddFriendGroupMember: %v", err)
+	}
+	groups, err := s.ListFriendGroups(ctx, "peer-b", rpcapi.FriendGroupListRequest{})
+	if err != nil {
+		t.Fatalf("ListFriendGroups peer-b: %v", err)
+	}
+	if len(groups.Items) != 1 || socialutil.StringValue(groups.Items[0].Id) != friendGroupID || groups.Items[0].MyRole == nil || *groups.Items[0].MyRole != rpcapi.FriendGroupMemberRoleMember {
+		t.Fatalf("ListFriendGroups peer-b = %#v, want member group", groups)
+	}
+}
+
 func TestLifecycleDeletePathsAndPagination(t *testing.T) {
 	ctx := context.Background()
 	s := newTestServer(t)
-	s.ACL = newTestACL(t)
+	baseACL := newTestACL(t)
+	s.ACL = baseACL
 	workspaces := &recordingWorkspaceService{}
 	s.Workspaces = workspaces
 
@@ -318,8 +394,17 @@ func TestLifecycleDeletePathsAndPagination(t *testing.T) {
 	if socialutil.StringValue(group.Name) != "renamed" {
 		t.Fatalf("PutFriendGroup name = %q, want renamed", socialutil.StringValue(group.Name))
 	}
+	if group.MyRole == nil || *group.MyRole != rpcapi.FriendGroupMemberRoleOwner {
+		t.Fatalf("PutFriendGroup my_role = %#v, want owner", group.MyRole)
+	}
 	if _, err := s.PutFriendGroup(ctx, "peer-a", rpcapi.FriendGroupPutRequest{Id: friendGroupID, Name: strPtr(" ")}); err == nil {
 		t.Fatal("PutFriendGroup empty name error = nil")
+	}
+	if _, err := s.DeleteFriendGroup(ctx, "peer-a", rpcapi.FriendGroupDeleteRequest{}); err == nil {
+		t.Fatal("DeleteFriendGroup empty id error = nil")
+	}
+	if _, err := s.DeleteFriendGroup(ctx, "peer-b", rpcapi.FriendGroupDeleteRequest{Id: friendGroupID}); err == nil {
+		t.Fatal("DeleteFriendGroup by non-owner error = nil")
 	}
 	if _, err := s.AddFriendGroupMember(ctx, "peer-a", rpcapi.FriendGroupMemberAddRequest{FriendGroupId: friendGroupID, PeerPublicKey: "peer-b", Role: rpcapi.FriendGroupMemberMutableRole("member")}); err != nil {
 		t.Fatalf("AddFriendGroupMember: %v", err)
@@ -364,6 +449,16 @@ func TestMemberDeleteRoleRules(t *testing.T) {
 		t.Fatalf("CreateFriendGroup: %v", err)
 	}
 	friendGroupID := socialutil.StringValue(group.Id)
+	if _, err := s.AddFriendGroupMember(ctx, "peer-a", rpcapi.FriendGroupMemberAddRequest{FriendGroupId: friendGroupID, PeerPublicKey: "peer-a", Role: rpcapi.FriendGroupMemberMutableRole("member")}); err == nil {
+		t.Fatal("AddFriendGroupMember owner role change error = nil")
+	}
+	ownerMember, err := s.groupMember(ctx, friendGroupID, "peer-a")
+	if err != nil {
+		t.Fatalf("owner groupMember after failed add: %v", err)
+	}
+	if got := socialutil.GroupRole(ownerMember); got != rpcapi.FriendGroupMemberRoleOwner {
+		t.Fatalf("owner role after failed add = %q, want owner", got)
+	}
 	if _, err := s.AddFriendGroupMember(ctx, "peer-a", rpcapi.FriendGroupMemberAddRequest{FriendGroupId: friendGroupID, PeerPublicKey: "peer-b", Role: rpcapi.FriendGroupMemberMutableRole("member")}); err != nil {
 		t.Fatalf("AddFriendGroupMember peer-b: %v", err)
 	}
@@ -392,10 +487,11 @@ func TestMemberDeleteRoleRules(t *testing.T) {
 	}
 }
 
-func TestDeleteClearsACLBindingsBeyondFirstPage(t *testing.T) {
+func TestDeleteClearsBelongsAndWorkspaceACLBeyondFirstPage(t *testing.T) {
 	ctx := context.Background()
 	s := newTestServer(t)
-	s.ACL = newTestACL(t)
+	baseACL := newTestACL(t)
+	s.ACL = baseACL
 	nextID := 0
 	s.NewID = func() string {
 		nextID++
@@ -407,6 +503,7 @@ func TestDeleteClearsACLBindingsBeyondFirstPage(t *testing.T) {
 		t.Fatalf("CreateFriendGroup: %v", err)
 	}
 	friendGroupID := socialutil.StringValue(group.Id)
+	workspaceName := socialutil.StringValue(group.WorkspaceName)
 	var lastPeer string
 	for i := range socialutil.MaxListLimit + 1 {
 		lastPeer = fmt.Sprintf("peer-%03d", i)
@@ -418,22 +515,24 @@ func TestDeleteClearsACLBindingsBeyondFirstPage(t *testing.T) {
 			t.Fatalf("AddFriendGroupMember %d: %v", i, err)
 		}
 	}
-	if err := s.ACL.Authorize(ctx, acl.AuthorizeRequest{
+	assertBelongs(t, ctx, s, lastPeer, friendGroupID, rpcapi.FriendGroupMemberRoleMember)
+	if err := baseACL.Authorize(ctx, acl.AuthorizeRequest{
 		Subject:    acl.PublicKeySubject(lastPeer),
-		Resource:   acl.FriendGroupResource(friendGroupID),
-		Permission: apitypes.ACLPermissionFriendGroupUse,
+		Resource:   acl.WorkspaceResource(workspaceName),
+		Permission: apitypes.ACLPermissionWorkspaceUse,
 	}); err != nil {
-		t.Fatalf("last member group use authorize before delete: %v", err)
+		t.Fatalf("last member workspace use authorize before delete: %v", err)
 	}
 	if _, err := s.DeleteFriendGroup(ctx, "peer-owner", rpcapi.FriendGroupDeleteRequest{Id: friendGroupID}); err != nil {
 		t.Fatalf("DeleteFriendGroup: %v", err)
 	}
-	if err := s.ACL.Authorize(ctx, acl.AuthorizeRequest{
+	assertNoBelongs(t, ctx, s, lastPeer, friendGroupID)
+	if err := baseACL.Authorize(ctx, acl.AuthorizeRequest{
 		Subject:    acl.PublicKeySubject(lastPeer),
-		Resource:   acl.FriendGroupResource(friendGroupID),
-		Permission: apitypes.ACLPermissionFriendGroupUse,
+		Resource:   acl.WorkspaceResource(workspaceName),
+		Permission: apitypes.ACLPermissionWorkspaceUse,
 	}); !errors.Is(err, acl.ErrDenied) {
-		t.Fatalf("last member group use authorize after delete error = %v, want denied", err)
+		t.Fatalf("last member workspace use authorize after delete error = %v, want denied", err)
 	}
 }
 
@@ -505,9 +604,6 @@ func TestConfigurationErrorsAndHelpers(t *testing.T) {
 	if role := socialutil.GroupRole(rpcapi.FriendGroupMemberObject{}); role != "" {
 		t.Fatalf("GroupRole without role = %q, want empty", role)
 	}
-	if _, _, err := socialutil.GroupACLRole("bogus"); err == nil {
-		t.Fatal("GroupACLRole invalid role error = nil")
-	}
 	if id := (&Server{}).newID(); id == "" {
 		t.Fatal("newID without override returned empty string")
 	}
@@ -567,7 +663,8 @@ func TestCreateHandlesWorkspaceFailures(t *testing.T) {
 	}
 
 	s = newTestServer(t)
-	s.ACL = newTestACL(t)
+	baseACL := newTestACL(t)
+	s.ACL = baseACL
 	workspaces := &recordingWorkspaceService{}
 	s.Workspaces = workspaces
 	if created, err := s.ensureGroupWorkspace(ctx, "workspace-a", "peer-a"); err != nil || !created {
@@ -576,7 +673,7 @@ func TestCreateHandlesWorkspaceFailures(t *testing.T) {
 	if created, err := s.ensureGroupWorkspace(ctx, "workspace-a", "peer-b"); err != nil || created {
 		t.Fatalf("ensureGroupWorkspace existing = %v, %v; want existing", created, err)
 	}
-	if err := s.ACL.Authorize(ctx, acl.AuthorizeRequest{
+	if err := baseACL.Authorize(ctx, acl.AuthorizeRequest{
 		Subject:    acl.PublicKeySubject("peer-b"),
 		Resource:   acl.WorkspaceResource("workspace-a"),
 		Permission: apitypes.ACLPermissionWorkspaceUse,
@@ -721,6 +818,7 @@ func newTestServer(t *testing.T) *Server {
 		Groups:        store,
 		InviteTokens:  store,
 		Members:       store,
+		Belongs:       store,
 		Messages:      store,
 		MessageAssets: objectstore.Dir(t.TempDir()),
 		Now:           func() time.Time { return now },
@@ -728,6 +826,38 @@ func newTestServer(t *testing.T) *Server {
 			nextID++
 			return "id-" + string(rune('a'+nextID-1))
 		},
+	}
+}
+
+func assertBelongs(t *testing.T, ctx context.Context, s *Server, peerID, friendGroupID string, wantRole rpcapi.FriendGroupMemberRole) {
+	t.Helper()
+	belongs, err := s.belongsStore()
+	if err != nil {
+		t.Fatalf("belongsStore: %v", err)
+	}
+	item, err := socialutil.ReadJSONValue[rpcapi.FriendGroupMemberObject](ctx, belongs, socialutil.GroupBelongKey(peerID, friendGroupID))
+	if err != nil {
+		t.Fatalf("group belong %s/%s: %v", peerID, friendGroupID, err)
+	}
+	if got := socialutil.StringValue(item.FriendGroupId); got != friendGroupID {
+		t.Fatalf("belong friend_group_id = %q, want %q", got, friendGroupID)
+	}
+	if got := socialutil.StringValue(item.PeerPublicKey); got != peerID {
+		t.Fatalf("belong peer_public_key = %q, want %q", got, peerID)
+	}
+	if got := socialutil.GroupRole(item); got != wantRole {
+		t.Fatalf("belong role = %q, want %q", got, wantRole)
+	}
+}
+
+func assertNoBelongs(t *testing.T, ctx context.Context, s *Server, peerID, friendGroupID string) {
+	t.Helper()
+	belongs, err := s.belongsStore()
+	if err != nil {
+		t.Fatalf("belongsStore: %v", err)
+	}
+	if _, err := socialutil.ReadJSONValue[rpcapi.FriendGroupMemberObject](ctx, belongs, socialutil.GroupBelongKey(peerID, friendGroupID)); !errors.Is(err, kv.ErrNotFound) {
+		t.Fatalf("group belong %s/%s error = %v, want not found", peerID, friendGroupID, err)
 	}
 }
 

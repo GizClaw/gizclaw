@@ -114,6 +114,10 @@ stores:
     kind: keyvalue
     storage: memory
     prefix: friend-group-members
+  friend-group-belongs:
+    kind: keyvalue
+    storage: memory
+    prefix: friend-group-belongs
   friend-group-messages:
     kind: keyvalue
     storage: memory

@@ -13,18 +13,15 @@ const (
 	SubjectKindView      = apitypes.ACLSubjectKindView
 	SubjectKindAllPeers  = apitypes.ACLSubjectKindAllPeers
 
-	ResourceKindWorkspace   = apitypes.ACLResourceKindWorkspace
-	ResourceKindWorkflow    = apitypes.ACLResourceKindWorkflow
-	ResourceKindVoice       = apitypes.ACLResourceKindVoice
-	ResourceKindCredential  = apitypes.ACLResourceKindCredential
-	ResourceKindModel       = apitypes.ACLResourceKindModel
-	ResourceKindView        = apitypes.ACLResourceKindView
-	ResourceKindPetSpecies  = apitypes.ACLResourceKindPetSpecies
-	ResourceKindBadge       = apitypes.ACLResourceKindBadge
-	ResourceKindFirmware    = apitypes.ACLResourceKindFirmware
-	ResourceKindContact     = apitypes.ACLResourceKindContact
-	ResourceKindFriend      = apitypes.ACLResourceKindFriend
-	ResourceKindFriendGroup = apitypes.ACLResourceKindFriendGroup
+	ResourceKindWorkspace  = apitypes.ACLResourceKindWorkspace
+	ResourceKindWorkflow   = apitypes.ACLResourceKindWorkflow
+	ResourceKindVoice      = apitypes.ACLResourceKindVoice
+	ResourceKindCredential = apitypes.ACLResourceKindCredential
+	ResourceKindModel      = apitypes.ACLResourceKindModel
+	ResourceKindView       = apitypes.ACLResourceKindView
+	ResourceKindPetSpecies = apitypes.ACLResourceKindPetSpecies
+	ResourceKindBadge      = apitypes.ACLResourceKindBadge
+	ResourceKindFirmware   = apitypes.ACLResourceKindFirmware
 
 	CollectionResourceID = "__collection__"
 )
@@ -152,13 +149,6 @@ func BadgeResource(id string) apitypes.ACLResource {
 func FirmwareResource(id string) apitypes.ACLResource {
 	return apitypes.ACLResource{
 		Kind: ResourceKindFirmware,
-		Id:   id,
-	}
-}
-
-func FriendGroupResource(id string) apitypes.ACLResource {
-	return apitypes.ACLResource{
-		Kind: ResourceKindFriendGroup,
 		Id:   id,
 	}
 }

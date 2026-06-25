@@ -63,9 +63,6 @@ func TestPlannedResourceKindsAndPermissionsAreValid(t *testing.T) {
 	for _, kind := range []apitypes.ACLResourceKind{
 		ResourceKindPetSpecies,
 		ResourceKindBadge,
-		ResourceKindContact,
-		ResourceKindFriend,
-		ResourceKindFriendGroup,
 	} {
 		if !kind.Valid() {
 			t.Fatalf("resource kind %q is not valid", kind)

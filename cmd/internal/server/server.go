@@ -201,6 +201,11 @@ func New(cfg Config) (srv *CmdServer, err error) {
 				return nil, fmt.Errorf("server: friend group members store: %w", err)
 			}
 		}
+		if storeExists(cfg, defaultFriendGroupBelongsStore) {
+			if gizServer.FriendGroupBelongStore, err = ss.KV(defaultFriendGroupBelongsStore); err != nil {
+				return nil, fmt.Errorf("server: friend group belongs store: %w", err)
+			}
+		}
 		if storeExists(cfg, defaultFriendGroupMessagesStore) {
 			if gizServer.FriendGroupMessageStore, err = ss.KV(defaultFriendGroupMessagesStore); err != nil {
 				return nil, fmt.Errorf("server: friend group messages store: %w", err)

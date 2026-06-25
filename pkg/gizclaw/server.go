@@ -77,6 +77,7 @@ type Server struct {
 	FriendGroupStore             kv.Store
 	FriendGroupInviteTokenStore  kv.Store
 	FriendGroupMemberStore       kv.Store
+	FriendGroupBelongStore       kv.Store
 	FriendGroupMessageStore      kv.Store
 	FriendGroupMessageAssets     objectstore.ObjectStore
 	FriendGroupMessageDefaultTTL time.Duration
@@ -274,6 +275,7 @@ func (s *Server) init() error {
 		s.FriendGroupStore == nil &&
 		s.FriendGroupInviteTokenStore == nil &&
 		s.FriendGroupMemberStore == nil &&
+		s.FriendGroupBelongStore == nil &&
 		s.FriendGroupMessageStore == nil &&
 		s.FriendGroupMessageAssets == nil &&
 		s.FriendGroupMessageDefaultTTL == 0 &&
@@ -308,6 +310,7 @@ func (s *Server) init() error {
 	friendGroupStore := moduleStore(s.FriendGroupStore, s.PeerStore, "friend-groups")
 	friendGroupInviteTokenStore := moduleStore(s.FriendGroupInviteTokenStore, s.PeerStore, "friend-group-invite-tokens")
 	friendGroupMemberStore := moduleStore(s.FriendGroupMemberStore, s.PeerStore, "friend-group-members")
+	friendGroupBelongStore := moduleStore(s.FriendGroupBelongStore, s.PeerStore, "friend-group-belongs")
 	friendGroupMessageStore := moduleStore(s.FriendGroupMessageStore, s.PeerStore, "friend-group-messages")
 
 	publicLoginServer := publiclogin.NewServer(&s.LocalStatic, publicLoginStore)
@@ -366,6 +369,7 @@ func (s *Server) init() error {
 		Groups:               friendGroupStore,
 		InviteTokens:         friendGroupInviteTokenStore,
 		Members:              friendGroupMemberStore,
+		Belongs:              friendGroupBelongStore,
 		Messages:             friendGroupMessageStore,
 		MessageAssets:        s.FriendGroupMessageAssets,
 		ACL:                  aclServer,
