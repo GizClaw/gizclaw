@@ -1,4 +1,4 @@
-import { Plus, RefreshCw } from "lucide-react";
+import { Check, Copy, Plus, RefreshCw } from "lucide-react";
 import type { KeyboardEvent, MouseEvent } from "react";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
@@ -8,8 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { expectData, toMessage } from "../../components/api";
-import { listVolcTenants, syncVolcTenantVoices, type VolcTenant } from "@gizclaw/adminservice";
+import { expectData } from "../../components/api";
+import { listVolcTenants, type VolcTenant } from "@gizclaw/adminservice";
 
 import { ErrorBanner } from "../../components/banners";
 import { EmptyState } from "../../components/empty-state";
@@ -19,8 +19,7 @@ import { formatDate, formatValue } from "../../lib/format";
 
 export function VolcTenantsListPage(): JSX.Element {
   const navigate = useNavigate();
-  const [syncing, setSyncing] = useState<Record<string, boolean>>({});
-  const [syncError, setSyncError] = useState("");
+  const [copiedName, setCopiedName] = useState("");
   const { error, hasNext, items, loading, nextPage, pageNumber, prevPage, refresh } = useCursorListPage<VolcTenant>(async (query) => {
     const result = await expectData(listVolcTenants({ query }));
     return {
@@ -45,18 +44,13 @@ export function VolcTenantsListPage(): JSX.Element {
     openTenant(name);
   };
 
-  const syncTenant = async (event: MouseEvent<HTMLButtonElement>, name: string): Promise<void> => {
+  const copyTenantName = async (event: MouseEvent<HTMLButtonElement>, name: string): Promise<void> => {
     event.stopPropagation();
-    setSyncError("");
-    setSyncing((current) => ({ ...current, [name]: true }));
-    try {
-      await expectData(syncVolcTenantVoices({ path: { name } }));
-      await refresh();
-    } catch (err) {
-      setSyncError(toMessage(err));
-    } finally {
-      setSyncing((current) => ({ ...current, [name]: false }));
-    }
+    await navigator.clipboard.writeText(name);
+    setCopiedName(name);
+    window.setTimeout(() => {
+      setCopiedName((current) => (current === name ? "" : current));
+    }, 1500);
   };
 
   return (
@@ -93,7 +87,6 @@ export function VolcTenantsListPage(): JSX.Element {
       />
 
       {error !== "" ? <ErrorBanner message={error} /> : null}
-      {syncError !== "" ? <ErrorBanner message={syncError} /> : null}
 
       <Card>
         <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0">
@@ -134,18 +127,17 @@ export function VolcTenantsListPage(): JSX.Element {
             <EmptyState description="Volcengine tenant records will appear here after they are created." title="No Volcengine tenants" />
           ) : (
             <div className="rounded-md border">
-              <Table>
+              <Table className="table-fixed">
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>App ID</TableHead>
-                    <TableHead>Credential</TableHead>
-                    <TableHead>Region</TableHead>
+                    <TableHead className="w-[20%]">Tenant ID</TableHead>
+                    <TableHead className="w-36">App ID</TableHead>
+                    <TableHead className="w-40">Credential</TableHead>
+                    <TableHead className="w-28">Region</TableHead>
                     <TableHead>Endpoint</TableHead>
                     <TableHead>Resource IDs</TableHead>
-                    <TableHead>Last Sync</TableHead>
-                    <TableHead className="text-right">Updated</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                    <TableHead className="w-40">Last Sync</TableHead>
+                    <TableHead className="w-40 text-right">Updated</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -158,26 +150,37 @@ export function VolcTenantsListPage(): JSX.Element {
                       role="link"
                       tabIndex={0}
                     >
-                      <TableCell className="font-medium">{tenant.name}</TableCell>
-                      <TableCell className="font-mono text-xs">{tenant.app_id}</TableCell>
-                      <TableCell>{tenant.credential_name}</TableCell>
+                      <TableCell className="min-w-0">
+                        <div className="flex min-w-0 items-center gap-1.5">
+                          <button
+                            className="min-w-0 truncate rounded-sm text-left font-medium underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              openTenant(tenant.name);
+                            }}
+                            title={tenant.name}
+                            type="button"
+                          >
+                            {tenant.name}
+                          </button>
+                          <button
+                            aria-label={`Copy tenant name ${tenant.name}`}
+                            className="shrink-0 rounded-sm text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                            onClick={(event) => void copyTenantName(event, tenant.name)}
+                            title="Copy tenant name"
+                            type="button"
+                          >
+                            {copiedName === tenant.name ? <Check className="size-3 shrink-0 text-emerald-600" /> : <Copy className="size-3 shrink-0" />}
+                          </button>
+                        </div>
+                      </TableCell>
+                      <TableCell className="truncate font-mono text-xs" title={tenant.app_id}>{tenant.app_id}</TableCell>
+                      <TableCell className="truncate" title={tenant.credential_name}>{tenant.credential_name}</TableCell>
                       <TableCell className="text-sm text-muted-foreground">{formatValue(tenant.region)}</TableCell>
-                      <TableCell className="max-w-[18rem] truncate text-sm text-muted-foreground">{formatValue(tenant.endpoint)}</TableCell>
-                      <TableCell className="max-w-[18rem] truncate font-mono text-xs">{tenant.resource_ids?.join(", ") ?? "public only"}</TableCell>
+                      <TableCell className="truncate text-sm text-muted-foreground" title={formatValue(tenant.endpoint)}>{formatValue(tenant.endpoint)}</TableCell>
+                      <TableCell className="truncate font-mono text-xs" title={tenant.resource_ids?.join(", ") ?? "public only"}>{tenant.resource_ids?.join(", ") ?? "public only"}</TableCell>
                       <TableCell className="text-sm text-muted-foreground">{formatDate(tenant.last_synced_at)}</TableCell>
                       <TableCell className="text-right text-sm text-muted-foreground">{formatDate(tenant.updated_at)}</TableCell>
-                      <TableCell className="text-right">
-                        <Button
-                          className="h-8 min-w-fit shrink-0 whitespace-nowrap px-3 text-sm"
-                          disabled={syncing[tenant.name] === true}
-                          onClick={(event) => void syncTenant(event, tenant.name)}
-                          type="button"
-                          variant="outline"
-                        >
-                          <RefreshCw className={`size-4 ${syncing[tenant.name] === true ? "animate-spin" : ""}`} />
-                          Sync
-                        </Button>
-                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

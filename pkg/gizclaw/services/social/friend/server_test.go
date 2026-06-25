@@ -63,6 +63,9 @@ func TestInviteTokenLifecycleAndAddFriend(t *testing.T) {
 	if socialutil.StringValue(friend.PeerPublicKey) != "peer-b" {
 		t.Fatalf("AddFriend peer_public_key = %q, want peer-b", socialutil.StringValue(friend.PeerPublicKey))
 	}
+	if socialutil.StringValue(friend.Id) != "peer-b" {
+		t.Fatalf("AddFriend id = %q, want peer-b", socialutil.StringValue(friend.Id))
+	}
 	workspaceName := socialutil.StringValue(friend.WorkspaceName)
 	if workspaceName == "" {
 		t.Fatal("AddFriend workspace_name is empty")
@@ -72,19 +75,22 @@ func TestInviteTokenLifecycleAndAddFriend(t *testing.T) {
 		t.Fatalf("AddFriend duplicate: %v", err)
 	}
 	if socialutil.StringValue(duplicate.Id) != socialutil.StringValue(friend.Id) {
-		t.Fatalf("duplicate relation id = %q, want %q", socialutil.StringValue(duplicate.Id), socialutil.StringValue(friend.Id))
+		t.Fatalf("duplicate friend id = %q, want %q", socialutil.StringValue(duplicate.Id), socialutil.StringValue(friend.Id))
 	}
 
-	for _, peer := range []string{"peer-a", "peer-b"} {
-		friends, err := s.ListFriends(ctx, peer, rpcapi.FriendListRequest{})
+	for _, tc := range []struct{ owner, wantID string }{{"peer-a", "peer-b"}, {"peer-b", "peer-a"}} {
+		friends, err := s.ListFriends(ctx, tc.owner, rpcapi.FriendListRequest{})
 		if err != nil {
-			t.Fatalf("ListFriends(%s): %v", peer, err)
+			t.Fatalf("ListFriends(%s): %v", tc.owner, err)
 		}
 		if len(friends.Items) != 1 {
-			t.Fatalf("ListFriends(%s) len = %d, want 1", peer, len(friends.Items))
+			t.Fatalf("ListFriends(%s) len = %d, want 1", tc.owner, len(friends.Items))
+		}
+		if socialutil.StringValue(friends.Items[0].Id) != tc.wantID {
+			t.Fatalf("ListFriends(%s) id = %#v, want %q", tc.owner, friends.Items[0].Id, tc.wantID)
 		}
 		if socialutil.StringValue(friends.Items[0].WorkspaceName) != workspaceName {
-			t.Fatalf("ListFriends(%s) workspace_name = %#v, want %q", peer, friends.Items[0].WorkspaceName, workspaceName)
+			t.Fatalf("ListFriends(%s) workspace_name = %#v, want %q", tc.owner, friends.Items[0].WorkspaceName, workspaceName)
 		}
 	}
 }
@@ -157,7 +163,7 @@ func TestAddAndDeleteMaintainChatWorkspace(t *testing.T) {
 		t.Fatalf("peer-b workspace authorize: %v", err)
 	}
 
-	if _, err := s.DeleteFriend(ctx, "peer-a", rpcapi.FriendDeleteRequest{Id: socialutil.RelationID("peer-a", "peer-b")}); err != nil {
+	if _, err := s.DeleteFriend(ctx, "peer-a", rpcapi.FriendDeleteRequest{Id: socialutil.StringValue(friend.Id)}); err != nil {
 		t.Fatalf("DeleteFriend: %v", err)
 	}
 	if len(workspaces.deleted) != 1 || workspaces.deleted[0] != workspaceName {
@@ -191,7 +197,7 @@ func TestAdminCreateFriendMaintainsRowsAndChatWorkspace(t *testing.T) {
 		t.Fatalf("AdminCreateFriend: %v", err)
 	}
 	relationID := socialutil.RelationID("peer-a", "peer-b")
-	if socialutil.StringValue(friend.Id) != relationID || socialutil.StringValue(friend.PeerPublicKey) != "peer-b" {
+	if socialutil.StringValue(friend.Id) != "peer-b" || socialutil.StringValue(friend.PeerPublicKey) != "peer-b" {
 		t.Fatalf("AdminCreateFriend item = %#v", friend)
 	}
 	workspaceName := socialutil.StringValue(friend.WorkspaceName)
@@ -212,14 +218,14 @@ func TestAdminCreateFriendMaintainsRowsAndChatWorkspace(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetFriendRelation peer-b: %v", err)
 	}
-	if socialutil.StringValue(otherRow.PeerPublicKey) != "peer-a" || socialutil.StringValue(otherRow.WorkspaceName) != workspaceName {
+	if socialutil.StringValue(otherRow.Id) != "peer-a" || socialutil.StringValue(otherRow.PeerPublicKey) != "peer-a" || socialutil.StringValue(otherRow.WorkspaceName) != workspaceName {
 		t.Fatalf("peer-b row = %#v", otherRow)
 	}
 	duplicate, err := s.AdminCreateFriend(ctx, "peer-a", "peer-b")
 	if err != nil {
 		t.Fatalf("AdminCreateFriend duplicate: %v", err)
 	}
-	if socialutil.StringValue(duplicate.Id) != relationID || len(workspaces.created) != 1 {
+	if socialutil.StringValue(duplicate.Id) != "peer-b" || len(workspaces.created) != 1 {
 		t.Fatalf("duplicate = %#v created=%#v, want existing row without new workspace", duplicate, workspaces.created)
 	}
 	adminPage, err := s.AdminListFriends(ctx, nil, socialutil.IntPtr(1))
@@ -229,7 +235,7 @@ func TestAdminCreateFriendMaintainsRowsAndChatWorkspace(t *testing.T) {
 	if len(adminPage.Items) != 1 || !adminPage.HasNext || adminPage.NextCursor == nil {
 		t.Fatalf("AdminListFriends first page = %#v, want one row with next cursor", adminPage)
 	}
-	if adminPage.Items[0].OwnerPublicKey == "" || adminPage.Items[0].PeerPublicKey == "" || adminPage.Items[0].Id != relationID {
+	if adminPage.Items[0].OwnerPublicKey == "" || adminPage.Items[0].PeerPublicKey == "" || adminPage.Items[0].Id != adminPage.Items[0].PeerPublicKey {
 		t.Fatalf("AdminListFriends item = %#v", adminPage.Items[0])
 	}
 	nextPage, err := s.AdminListFriends(ctx, adminPage.NextCursor, socialutil.IntPtr(10))
@@ -243,7 +249,7 @@ func TestAdminCreateFriendMaintainsRowsAndChatWorkspace(t *testing.T) {
 	if err != nil {
 		t.Fatalf("AdminGetFriend: %v", err)
 	}
-	if adminRow.OwnerPublicKey != "peer-a" || adminRow.PeerPublicKey != "peer-b" || adminRow.WorkspaceName != workspaceName {
+	if adminRow.OwnerPublicKey != "peer-a" || adminRow.Id != "peer-b" || adminRow.PeerPublicKey != "peer-b" || adminRow.WorkspaceName != workspaceName {
 		t.Fatalf("AdminGetFriend row = %#v", adminRow)
 	}
 	if _, err := s.AdminCreateFriend(ctx, "peer-a", "peer-a"); err == nil {
@@ -254,7 +260,7 @@ func TestAdminCreateFriendMaintainsRowsAndChatWorkspace(t *testing.T) {
 	if err != nil {
 		t.Fatalf("AdminDeleteFriend: %v", err)
 	}
-	if deleted.OwnerPublicKey != "peer-a" || deleted.PeerPublicKey != "peer-b" {
+	if deleted.OwnerPublicKey != "peer-a" || deleted.Id != "peer-b" || deleted.PeerPublicKey != "peer-b" {
 		t.Fatalf("AdminDeleteFriend row = %#v", deleted)
 	}
 	if _, err := s.GetFriendRelation(ctx, "peer-a", relationID); !errors.Is(err, kv.ErrNotFound) {
@@ -273,10 +279,10 @@ func TestAdminFriendResourceWrappersAndCursorHelpers(t *testing.T) {
 	if err != nil {
 		t.Fatalf("AdminCreateFriendResource: %v", err)
 	}
-	if created.OwnerPublicKey != "peer-c" || created.PeerPublicKey != "peer-d" || created.Id != socialutil.RelationID("peer-c", "peer-d") {
+	if created.OwnerPublicKey != "peer-c" || created.PeerPublicKey != "peer-d" || created.Id != "peer-d" {
 		t.Fatalf("AdminCreateFriendResource row = %#v", created)
 	}
-	if created.WorkspaceName != socialutil.DirectWorkspaceName(created.Id) {
+	if created.WorkspaceName != socialutil.DirectWorkspaceName(socialutil.RelationID("peer-c", "peer-d")) {
 		t.Fatalf("AdminCreateFriendResource workspace = %q, want direct workspace", created.WorkspaceName)
 	}
 	page, err := s.AdminListFriends(ctx, stringPtr("malformed/cursor/value"), socialutil.IntPtr(10))

@@ -204,7 +204,7 @@ func resourceFromFriend(item adminservice.AdminFriendObject) (apitypes.Resource,
 	return marshalResource(apitypes.FriendResource{
 		ApiVersion: apitypes.ResourceAPIVersionGizclawAdminv1alpha1,
 		Kind:       apitypes.FriendResourceKindFriend,
-		Metadata:   apitypes.ResourceMetadata{Name: item.Id},
+		Metadata:   apitypes.ResourceMetadata{Name: socialutil.RelationID(item.OwnerPublicKey, item.PeerPublicKey)},
 		Spec:       friendSpec(item),
 	})
 }

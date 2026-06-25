@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import type { KeyboardEvent, MouseEvent } from "react";
-import { Eye, EyeOff, Plus, RefreshCw } from "lucide-react";
+import { Check, Copy, Eye, EyeOff, Plus, RefreshCw } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 
 import { Badge } from "@/components/ui/badge";
@@ -21,6 +21,7 @@ import { formatDate } from "../../lib/format";
 export function CredentialsListPage(): JSX.Element {
   const navigate = useNavigate();
   const [selectedCredential, setSelectedCredential] = useState<Credential | null>(null);
+  const [copiedName, setCopiedName] = useState("");
   const { error, hasNext, items, loading, nextPage, pageNumber, prevPage, refresh } = useCursorListPage<Credential>(async (query) => {
     const result = await expectData(listCredentials({ query }));
     return {
@@ -48,6 +49,15 @@ export function CredentialsListPage(): JSX.Element {
   const openBodyDialog = (event: MouseEvent<HTMLButtonElement>, credential: Credential): void => {
     event.stopPropagation();
     setSelectedCredential(credential);
+  };
+
+  const copyCredentialName = async (event: MouseEvent<HTMLButtonElement>, name: string): Promise<void> => {
+    event.stopPropagation();
+    await navigator.clipboard.writeText(name);
+    setCopiedName(name);
+    window.setTimeout(() => {
+      setCopiedName((current) => (current === name ? "" : current));
+    }, 1500);
   };
 
   return (
@@ -124,15 +134,15 @@ export function CredentialsListPage(): JSX.Element {
             <EmptyState description="Credentials will appear here after they are created through the admin API." title="No credentials" />
           ) : (
             <div className="rounded-md border">
-              <Table>
+              <Table className="table-fixed">
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Provider</TableHead>
-                    <TableHead>Method</TableHead>
+                    <TableHead className="w-[24%]">Credential ID</TableHead>
+                    <TableHead className="w-32">Provider</TableHead>
+                    <TableHead className="w-36">Method</TableHead>
                     <TableHead>Description</TableHead>
-                    <TableHead className="text-right">Body Keys</TableHead>
-                    <TableHead className="text-right">Updated</TableHead>
+                    <TableHead className="w-28 text-right">Body Keys</TableHead>
+                    <TableHead className="w-40 text-right">Updated</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -145,12 +155,37 @@ export function CredentialsListPage(): JSX.Element {
                       role="link"
                       tabIndex={0}
                     >
-                      <TableCell className="font-medium">{credential.name}</TableCell>
-                      <TableCell>{credential.provider}</TableCell>
+                      <TableCell className="min-w-0">
+                        <div className="flex min-w-0 items-center gap-1.5">
+                          <button
+                            className="min-w-0 truncate rounded-sm text-left font-medium underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              openCredential(credential.name);
+                            }}
+                            title={credential.name}
+                            type="button"
+                          >
+                            {credential.name}
+                          </button>
+                          <button
+                            aria-label={`Copy credential name ${credential.name}`}
+                            className="shrink-0 rounded-sm text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                            onClick={(event) => void copyCredentialName(event, credential.name)}
+                            title="Copy credential name"
+                            type="button"
+                          >
+                            {copiedName === credential.name ? <Check className="size-3 shrink-0 text-emerald-600" /> : <Copy className="size-3 shrink-0" />}
+                          </button>
+                        </div>
+                      </TableCell>
+                      <TableCell className="truncate" title={credential.provider}>{credential.provider}</TableCell>
                       <TableCell>
                         <Badge variant="outline">{credential.method}</Badge>
                       </TableCell>
-                      <TableCell className="max-w-[22rem] text-sm text-muted-foreground">{credential.description?.trim() || "—"}</TableCell>
+                      <TableCell className="truncate text-sm text-muted-foreground" title={credential.description?.trim() || "—"}>
+                        {credential.description?.trim() || "—"}
+                      </TableCell>
                       <TableCell className="text-right">
                         <Button
                           aria-label={`View body keys for ${credential.name}`}

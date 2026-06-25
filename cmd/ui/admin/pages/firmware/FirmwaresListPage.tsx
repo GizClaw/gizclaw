@@ -1,5 +1,6 @@
-import type { KeyboardEvent } from "react";
-import { Plus, RefreshCw } from "lucide-react";
+import type { KeyboardEvent, MouseEvent } from "react";
+import { useState } from "react";
+import { Check, Copy, Plus, RefreshCw } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 
 import { listFirmwares, type Firmware } from "@gizclaw/adminservice";
@@ -17,6 +18,7 @@ import { formatDate } from "../../lib/format";
 
 export function FirmwaresListPage(): JSX.Element {
   const navigate = useNavigate();
+  const [copiedName, setCopiedName] = useState("");
   const { error, hasNext, items, loading, nextPage, pageNumber, prevPage, refresh } = useCursorListPage<Firmware>(async (query) => {
     const result = await expectData(listFirmwares({ query }));
     return {
@@ -31,11 +33,23 @@ export function FirmwaresListPage(): JSX.Element {
   };
 
   const handleRowKeyDown = (event: KeyboardEvent<HTMLTableRowElement>, name: string): void => {
+    if (isInteractiveTarget(event.target)) {
+      return;
+    }
     if (event.key !== "Enter" && event.key !== " ") {
       return;
     }
     event.preventDefault();
     openFirmware(name);
+  };
+
+  const copyFirmwareName = async (event: MouseEvent<HTMLButtonElement>, name: string): Promise<void> => {
+    event.stopPropagation();
+    await navigator.clipboard.writeText(name);
+    setCopiedName(name);
+    window.setTimeout(() => {
+      setCopiedName((current) => (current === name ? "" : current));
+    }, 1500);
   };
 
   return (
@@ -112,15 +126,15 @@ export function FirmwaresListPage(): JSX.Element {
             <EmptyState description="Firmware release lines will appear here after they are created." title="No firmwares" />
           ) : (
             <div className="rounded-md border">
-              <Table>
+              <Table className="table-fixed">
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Name</TableHead>
+                    <TableHead className="w-[26%]">Firmware ID</TableHead>
                     <TableHead>Stable</TableHead>
                     <TableHead>Beta</TableHead>
                     <TableHead>Develop</TableHead>
                     <TableHead>Pending</TableHead>
-                    <TableHead className="text-right">Updated</TableHead>
+                    <TableHead className="w-40 text-right">Updated</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -133,7 +147,30 @@ export function FirmwaresListPage(): JSX.Element {
                       role="link"
                       tabIndex={0}
                     >
-                      <TableCell className="font-medium">{firmware.name}</TableCell>
+                      <TableCell className="min-w-0">
+                        <div className="flex min-w-0 items-center gap-1.5">
+                          <button
+                            className="min-w-0 truncate rounded-sm text-left font-medium underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              openFirmware(firmware.name);
+                            }}
+                            title={firmware.name}
+                            type="button"
+                          >
+                            {firmware.name}
+                          </button>
+                          <button
+                            aria-label={`Copy firmware name ${firmware.name}`}
+                            className="shrink-0 rounded-sm text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                            onClick={(event) => void copyFirmwareName(event, firmware.name)}
+                            title="Copy firmware name"
+                            type="button"
+                          >
+                            {copiedName === firmware.name ? <Check className="size-3 shrink-0 text-emerald-600" /> : <Copy className="size-3 shrink-0" />}
+                          </button>
+                        </div>
+                      </TableCell>
                       <TableCell>{slotLabel(firmware.slots.stable)}</TableCell>
                       <TableCell>{slotLabel(firmware.slots.beta)}</TableCell>
                       <TableCell>{slotLabel(firmware.slots.develop)}</TableCell>
@@ -163,4 +200,8 @@ function slotLabel(slot: Firmware["slots"]["stable"]): JSX.Element {
       {count > 0 ? <Badge variant="outline">{count}</Badge> : null}
     </div>
   );
+}
+
+function isInteractiveTarget(target: EventTarget): boolean {
+  return target instanceof Element && target.closest("a,button,input,select,textarea") !== null;
 }

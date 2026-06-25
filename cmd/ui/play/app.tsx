@@ -565,9 +565,13 @@ function FriendsPanel({ onOpenChat, onOpenFriend }: { onOpenChat: (target: Socia
                       const workspaceName = friend.workspace_name ?? "";
                       return (
                         <TableRow key={friend.id ?? friend.peer_public_key ?? workspaceName}>
-                          <TableCell>
-                            <div className="font-medium">{friendDisplayName(friend)}</div>
-                            <div className="font-mono text-xs text-muted-foreground">{friend.id ?? "-"}</div>
+                          <TableCell className="min-w-0">
+                            <div className="truncate font-medium" title={friendDisplayName(friend)}>
+                              {friendDisplayName(friend)}
+                            </div>
+                            <div className="truncate font-mono text-xs text-muted-foreground" title={friend.id ?? ""}>
+                              {friend.id ?? "-"}
+                            </div>
                           </TableCell>
                           <TableCell className="truncate font-mono text-xs" title={friend.peer_public_key ?? ""}>{friend.peer_public_key ?? "-"}</TableCell>
                           <TableCell className="truncate" title={workspaceName}>{workspaceName || "-"}</TableCell>

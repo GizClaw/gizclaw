@@ -21,7 +21,7 @@ export function FriendDetailPage(): JSX.Element {
   const params = useParams();
   const navigate = useNavigate();
   const ownerPublicKey = useMemo(() => decodeRouteParam(params.ownerPublicKey ?? ""), [params.ownerPublicKey]);
-  const relationID = useMemo(() => decodeRouteParam(params.id ?? ""), [params.id]);
+  const friendID = useMemo(() => decodeRouteParam(params.id ?? ""), [params.id]);
   const [friend, setFriend] = useState<AdminFriendObject | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -29,15 +29,15 @@ export function FriendDetailPage(): JSX.Element {
   const [busy, setBusy] = useState("");
 
   const load = async (): Promise<void> => {
-    if (ownerPublicKey === "" || relationID === "") {
+    if (ownerPublicKey === "" || friendID === "") {
       setLoading(false);
-      setError("Missing friend owner or relation id in the URL.");
+      setError("Missing friend owner or friend id in the URL.");
       return;
     }
     setLoading(true);
     setError("");
     try {
-      setFriend(await expectData(getFriend({ path: { ownerPublicKey, id: relationID } })));
+      setFriend(await expectData(getFriend({ path: { ownerPublicKey, id: friendID } })));
     } catch (err) {
       setFriend(null);
       setError(toMessage(err));
@@ -48,13 +48,13 @@ export function FriendDetailPage(): JSX.Element {
 
   useEffect(() => {
     void load();
-  }, [ownerPublicKey, relationID]);
+  }, [ownerPublicKey, friendID]);
 
   const remove = async (): Promise<void> => {
     setBusy("delete");
     setNotice(null);
     try {
-      await expectData(deleteFriend({ path: { ownerPublicKey, id: relationID } }));
+      await expectData(deleteFriend({ path: { ownerPublicKey, id: friendID } }));
       navigate("/social/friends");
     } catch (err) {
       setNotice({ message: toMessage(err), tone: "error" });
@@ -63,8 +63,8 @@ export function FriendDetailPage(): JSX.Element {
     }
   };
 
-  if (ownerPublicKey === "" || relationID === "") {
-    return <EmptyState description="Missing friend owner or relation id in the URL." title="Invalid route" />;
+  if (ownerPublicKey === "" || friendID === "") {
+    return <EmptyState description="Missing friend owner or friend id in the URL." title="Invalid route" />;
   }
 
   return (
@@ -82,6 +82,18 @@ export function FriendDetailPage(): JSX.Element {
               <RefreshCw className="size-4" />
               Reload
             </Button>
+            {friend ? (
+              <DeleteConfirmButton
+                description="Deleting a friend relation removes both owner-view rows and the backing direct workspace."
+                disabled={busy !== ""}
+                onConfirm={() => void remove()}
+                size="sm"
+                title="Delete friend relation?"
+              >
+                <Trash2 className="size-4" />
+                Delete
+              </DeleteConfirmButton>
+            ) : null}
           </>
         }
         items={[
@@ -92,21 +104,7 @@ export function FriendDetailPage(): JSX.Element {
       />
 
       <PageSummaryCard
-        actions={
-          friend ? (
-            <DeleteConfirmButton
-              description="Deleting a friend relation removes both owner-view rows and the backing direct workspace."
-              disabled={busy !== ""}
-              onConfirm={() => void remove()}
-              size="sm"
-              title="Delete friend relation?"
-            >
-              <Trash2 className="size-4" />
-              Delete
-            </DeleteConfirmButton>
-          ) : null
-        }
-        description={<span className="break-all font-mono text-xs">{relationID}</span>}
+        description={<span className="break-all font-mono text-xs">{friendID}</span>}
         eyebrow="Social Friend"
         meta={friend ? <Badge variant="outline">{formatShortKey(friend.workspace_name)}</Badge> : null}
         title={friend ? socialPeerLabel(friend.owner_public_key) : "Friend"}
@@ -130,7 +128,7 @@ export function FriendDetailPage(): JSX.Element {
               items={[
                 ["Owner peer", friend.owner_public_key],
                 ["Friend peer", friend.peer_public_key],
-                ["Relation id", friend.id],
+                ["Friend id", friend.id],
                 ["Workspace", friend.workspace_name],
               ]}
               title="Friend Row"

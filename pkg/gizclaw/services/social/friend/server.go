@@ -189,6 +189,7 @@ func (s *Server) AdminListFriends(ctx context.Context, cursor *string, limit *in
 		if err := json.Unmarshal(entry.Value, &item); err != nil {
 			return adminservice.AdminFriendListResponse{}, err
 		}
+		item = friendObjectForOwner(owner, item)
 		items = append(items, adminFriendObject(owner, item))
 	}
 	var next *string
@@ -240,6 +241,7 @@ func (s *Server) ListFriends(ctx context.Context, owner string, req rpcapi.Frien
 		if err := json.Unmarshal(entry.Value, &item); err != nil {
 			return rpcapi.FriendListResponse{}, err
 		}
+		item = friendObjectForOwner(owner, item)
 		items = append(items, item)
 	}
 	return rpcapi.FriendListResponse{Items: items, HasNext: entries.HasNext, NextCursor: entries.NextCursor}, nil
@@ -250,6 +252,7 @@ func (s *Server) DeleteFriend(ctx context.Context, owner string, req rpcapi.Frie
 	if err != nil {
 		return rpcapi.FriendObject{}, err
 	}
+	relationID := friendRelationID(owner, req.Id)
 	item, err := s.GetFriendRelation(ctx, owner, req.Id)
 	if err != nil {
 		return rpcapi.FriendObject{}, err
@@ -258,10 +261,10 @@ func (s *Server) DeleteFriend(ctx context.Context, owner string, req rpcapi.Frie
 		return rpcapi.FriendObject{}, err
 	}
 	other := socialutil.StringValue(item.PeerPublicKey)
-	if err := store.BatchDelete(ctx, []kv.Key{socialutil.FriendKey(owner, req.Id), socialutil.FriendKey(other, req.Id)}); err != nil {
+	if err := store.BatchDelete(ctx, []kv.Key{socialutil.FriendKey(owner, relationID), socialutil.FriendKey(other, relationID)}); err != nil {
 		return rpcapi.FriendObject{}, err
 	}
-	return item, nil
+	return friendObjectForOwner(owner, item), nil
 }
 
 func (s *Server) GetFriendRelation(ctx context.Context, owner, id string) (rpcapi.FriendObject, error) {
@@ -269,7 +272,47 @@ func (s *Server) GetFriendRelation(ctx context.Context, owner, id string) (rpcap
 	if err != nil {
 		return rpcapi.FriendObject{}, err
 	}
-	return socialutil.ReadJSONValue[rpcapi.FriendObject](ctx, store, socialutil.FriendKey(owner, id))
+	item, err := socialutil.ReadJSONValue[rpcapi.FriendObject](ctx, store, socialutil.FriendKey(owner, friendRelationID(owner, id)))
+	if err != nil {
+		return rpcapi.FriendObject{}, err
+	}
+	return friendObjectForOwner(owner, item), nil
+}
+
+func friendRelationID(owner, id string) string {
+	id = strings.TrimSpace(id)
+	if strings.Contains(id, ":") {
+		return id
+	}
+	return socialutil.RelationID(owner, id)
+}
+
+func friendObjectForOwner(owner string, item rpcapi.FriendObject) rpcapi.FriendObject {
+	peer := strings.TrimSpace(socialutil.StringValue(item.PeerPublicKey))
+	if peer == "" {
+		peer = relationPeer(owner, socialutil.StringValue(item.Id))
+	}
+	if peer != "" {
+		item.Id = &peer
+		item.PeerPublicKey = &peer
+	}
+	return item
+}
+
+func relationPeer(owner, relationID string) string {
+	owner = strings.TrimSpace(owner)
+	parts := strings.Split(strings.TrimSpace(relationID), ":")
+	if len(parts) != 2 {
+		return ""
+	}
+	switch {
+	case parts[0] == owner:
+		return parts[1]
+	case parts[1] == owner:
+		return parts[0]
+	default:
+		return ""
+	}
 }
 
 func adminFriendObject(owner string, item rpcapi.FriendObject) adminservice.AdminFriendObject {
@@ -319,7 +362,8 @@ func (s *Server) createFriendRows(ctx context.Context, from, to, workspaceName s
 	entries := make([]kv.Entry, 0, 2)
 	var ownerRow rpcapi.FriendObject
 	for _, row := range []struct{ owner, peer string }{{from, to}, {to, from}} {
-		item := rpcapi.FriendObject{Id: &rel, PeerPublicKey: &row.peer, WorkspaceName: &workspaceName, CreatedAt: &now, UpdatedAt: &now}
+		peer := row.peer
+		item := rpcapi.FriendObject{Id: &peer, PeerPublicKey: &peer, WorkspaceName: &workspaceName, CreatedAt: &now, UpdatedAt: &now}
 		if row.owner == from {
 			ownerRow = item
 		}
@@ -378,7 +422,7 @@ func (s *Server) deleteDirectChatWorkspace(ctx context.Context, owner string, it
 	other := socialutil.StringValue(item.PeerPublicKey)
 	workspaceName := socialutil.StringValue(item.WorkspaceName)
 	if workspaceName == "" {
-		workspaceName = socialutil.DirectWorkspaceName(socialutil.StringValue(item.Id))
+		workspaceName = socialutil.DirectWorkspaceName(socialutil.RelationID(owner, other))
 	}
 	if err := s.revokeWorkspace(ctx, workspaceName, owner, other); err != nil {
 		return err

@@ -1,5 +1,5 @@
-import { Plus, RefreshCw } from "lucide-react";
-import type { KeyboardEvent, ReactNode } from "react";
+import { Check, Copy, Plus, RefreshCw } from "lucide-react";
+import type { KeyboardEvent, MouseEvent, ReactNode } from "react";
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -20,7 +20,7 @@ import {
 import { expectData, toMessage } from "../../components/api";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { DateTimeInput } from "../../components/date-time-input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { EmptyState } from "../../components/empty-state";
@@ -71,6 +71,7 @@ export function ACLPage({ defaultResourceKind = "" }: ACLPageProps): JSX.Element
   const [roleDialogOpen, setRoleDialogOpen] = useState(false);
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
   const [bindingDialogOpen, setBindingDialogOpen] = useState(false);
+  const [copiedID, setCopiedID] = useState("");
 
   const loadRoles = useCallback(async (cursor: string | null, history: Array<string | null>) => {
     setRoles((current) => ({ ...current, error: "", loading: true }));
@@ -205,14 +206,37 @@ export function ACLPage({ defaultResourceKind = "" }: ACLPageProps): JSX.Element
     await loadBindings(null, [], filters);
   };
 
+  const copyListID = async (event: MouseEvent<HTMLButtonElement>, id: string): Promise<void> => {
+    event.stopPropagation();
+    await navigator.clipboard.writeText(id);
+    setCopiedID(id);
+    window.setTimeout(() => {
+      setCopiedID((current) => (current === id ? "" : current));
+    }, 1500);
+  };
+
   return (
     <div className="space-y-6">
       <PageHeader
         actions={
-          <Button className="h-8 min-w-fit shrink-0 whitespace-nowrap px-3 text-sm" onClick={refresh} variant="outline">
-            <RefreshCw className="size-4" />
-            Refresh
-          </Button>
+          <>
+            <Button className="h-8 min-w-fit shrink-0 whitespace-nowrap px-3 text-sm" onClick={() => setBindingDialogOpen(true)} type="button" variant="outline">
+              <Plus className="size-4" />
+              New Binding
+            </Button>
+            <Button className="h-8 min-w-fit shrink-0 whitespace-nowrap px-3 text-sm" onClick={() => setRoleDialogOpen(true)} type="button" variant="outline">
+              <Plus className="size-4" />
+              New Role
+            </Button>
+            <Button className="h-8 min-w-fit shrink-0 whitespace-nowrap px-3 text-sm" onClick={() => setViewDialogOpen(true)} type="button" variant="outline">
+              <Plus className="size-4" />
+              New View
+            </Button>
+            <Button className="h-8 min-w-fit shrink-0 whitespace-nowrap px-3 text-sm" onClick={refresh} variant="outline">
+              <RefreshCw className="size-4" />
+              Refresh
+            </Button>
+          </>
         }
         items={[{ href: "/overview", label: "Overview" }, { label: "Access Control" }]}
       />
@@ -247,12 +271,6 @@ export function ACLPage({ defaultResourceKind = "" }: ACLPageProps): JSX.Element
             <CardHeader>
               <CardTitle>Policy bindings</CardTitle>
               <CardDescription>Subject-resource-role bindings sorted by ID or display order.</CardDescription>
-              <CardAction>
-                <Button className="h-8 min-w-fit shrink-0 px-3 text-sm" onClick={() => setBindingDialogOpen(true)} type="button">
-                  <Plus className="size-4" />
-                  New Binding
-                </Button>
-              </CardAction>
               <div className="col-span-full mt-2">
                 <BindingFiltersBar filters={filters} onChange={setFilters} />
               </div>
@@ -275,7 +293,9 @@ export function ACLPage({ defaultResourceKind = "" }: ACLPageProps): JSX.Element
               />
               <BindingsTable
                 bindings={bindings.items}
+                copiedID={copiedID}
                 loading={bindings.loading}
+                onCopyID={copyListID}
                 onOpen={(id) => navigate(`/settings/acl/policy-bindings/${encodeURIComponent(id)}`)}
               />
             </CardContent>
@@ -287,12 +307,6 @@ export function ACLPage({ defaultResourceKind = "" }: ACLPageProps): JSX.Element
             <CardHeader>
               <CardTitle>Views</CardTitle>
               <CardDescription>Named content views used as ACL subjects and resources.</CardDescription>
-              <CardAction>
-                <Button className="h-8 min-w-fit shrink-0 px-3 text-sm" onClick={() => setViewDialogOpen(true)} type="button">
-                  <Plus className="size-4" />
-                  New View
-                </Button>
-              </CardAction>
             </CardHeader>
             <CardContent className="space-y-4">
               {views.error !== "" ? <ErrorBanner message={views.error} /> : null}
@@ -310,7 +324,13 @@ export function ACLPage({ defaultResourceKind = "" }: ACLPageProps): JSX.Element
                   void loadViews(previousCursor, views.history.slice(0, -1));
                 }}
               />
-              <ViewsTable loading={views.loading} onOpen={(name) => navigate(`/settings/acl/views/${encodeURIComponent(name)}`)} views={views.items} />
+              <ViewsTable
+                copiedID={copiedID}
+                loading={views.loading}
+                onCopyID={copyListID}
+                onOpen={(name) => navigate(`/settings/acl/views/${encodeURIComponent(name)}`)}
+                views={views.items}
+              />
             </CardContent>
           </Card>
         </TabsContent>
@@ -320,12 +340,6 @@ export function ACLPage({ defaultResourceKind = "" }: ACLPageProps): JSX.Element
             <CardHeader>
               <CardTitle>Roles</CardTitle>
               <CardDescription>Named permission sets referenced by policy bindings.</CardDescription>
-              <CardAction>
-                <Button className="h-8 min-w-fit shrink-0 px-3 text-sm" onClick={() => setRoleDialogOpen(true)} type="button">
-                  <Plus className="size-4" />
-                  New Role
-                </Button>
-              </CardAction>
             </CardHeader>
             <CardContent className="space-y-4">
               {roles.error !== "" ? <ErrorBanner message={roles.error} /> : null}
@@ -343,7 +357,13 @@ export function ACLPage({ defaultResourceKind = "" }: ACLPageProps): JSX.Element
                   void loadRoles(previousCursor, roles.history.slice(0, -1));
                 }}
               />
-              <RolesTable roles={roles.items} loading={roles.loading} onOpen={(name) => navigate(`/settings/acl/roles/${encodeURIComponent(name)}`)} />
+              <RolesTable
+                copiedID={copiedID}
+                roles={roles.items}
+                loading={roles.loading}
+                onCopyID={copyListID}
+                onOpen={(name) => navigate(`/settings/acl/roles/${encodeURIComponent(name)}`)}
+              />
             </CardContent>
           </Card>
         </TabsContent>
@@ -415,7 +435,19 @@ function BindingFiltersBar({ filters, onChange }: { filters: BindingFilters; onC
   );
 }
 
-function BindingsTable({ bindings, loading, onOpen }: { bindings: AclPolicyBinding[]; loading: boolean; onOpen: (id: string) => void }): JSX.Element {
+function BindingsTable({
+  bindings,
+  copiedID,
+  loading,
+  onCopyID,
+  onOpen,
+}: {
+  bindings: AclPolicyBinding[];
+  copiedID: string;
+  loading: boolean;
+  onCopyID: (event: MouseEvent<HTMLButtonElement>, id: string) => Promise<void>;
+  onOpen: (id: string) => void;
+}): JSX.Element {
   if (loading) {
     return <LoadingRows />;
   }
@@ -424,10 +456,10 @@ function BindingsTable({ bindings, loading, onOpen }: { bindings: AclPolicyBindi
   }
   return (
     <div className="rounded-md border">
-      <Table>
+      <Table className="table-fixed">
         <TableHeader>
           <TableRow>
-            <TableHead>ID</TableHead>
+            <TableHead className="w-[28%]">ID</TableHead>
             <TableHead className="text-right">Order</TableHead>
             <TableHead>Subject</TableHead>
             <TableHead>Resource</TableHead>
@@ -445,7 +477,30 @@ function BindingsTable({ bindings, loading, onOpen }: { bindings: AclPolicyBindi
               role="link"
               tabIndex={0}
             >
-              <TableCell className="font-mono text-xs font-medium">{binding.id}</TableCell>
+              <TableCell className="min-w-0">
+                <div className="flex min-w-0 items-center gap-1.5">
+                  <button
+                    className="min-w-0 truncate rounded-sm text-left font-mono text-xs font-medium underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onOpen(binding.id);
+                    }}
+                    title={binding.id}
+                    type="button"
+                  >
+                    {binding.id}
+                  </button>
+                  <button
+                    aria-label={`Copy policy binding id ${binding.id}`}
+                    className="shrink-0 rounded-sm text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    onClick={(event) => void onCopyID(event, binding.id)}
+                    title="Copy policy binding id"
+                    type="button"
+                  >
+                    {copiedID === binding.id ? <Check className="size-3 shrink-0 text-emerald-600" /> : <Copy className="size-3 shrink-0" />}
+                  </button>
+                </div>
+              </TableCell>
               <TableCell className="text-right font-mono text-xs">{binding.display_order}</TableCell>
               <TableCell className="font-mono text-xs">
                 {binding.policy.subject.kind}:{binding.policy.subject.id}
@@ -465,7 +520,19 @@ function BindingsTable({ bindings, loading, onOpen }: { bindings: AclPolicyBindi
   );
 }
 
-function ViewsTable({ loading, onOpen, views }: { loading: boolean; onOpen: (name: string) => void; views: AclView[] }): JSX.Element {
+function ViewsTable({
+  copiedID,
+  loading,
+  onCopyID,
+  onOpen,
+  views,
+}: {
+  copiedID: string;
+  loading: boolean;
+  onCopyID: (event: MouseEvent<HTMLButtonElement>, id: string) => Promise<void>;
+  onOpen: (name: string) => void;
+  views: AclView[];
+}): JSX.Element {
   if (loading) {
     return <LoadingRows />;
   }
@@ -474,10 +541,10 @@ function ViewsTable({ loading, onOpen, views }: { loading: boolean; onOpen: (nam
   }
   return (
     <div className="rounded-md border">
-      <Table>
+      <Table className="table-fixed">
         <TableHeader>
           <TableRow>
-            <TableHead>Name</TableHead>
+            <TableHead className="w-[28%]">View ID</TableHead>
             <TableHead>Description</TableHead>
             <TableHead className="text-right">Updated</TableHead>
           </TableRow>
@@ -492,7 +559,30 @@ function ViewsTable({ loading, onOpen, views }: { loading: boolean; onOpen: (nam
               role="link"
               tabIndex={0}
             >
-              <TableCell className="font-medium">{view.name}</TableCell>
+              <TableCell className="min-w-0">
+                <div className="flex min-w-0 items-center gap-1.5">
+                  <button
+                    className="min-w-0 truncate rounded-sm text-left font-medium underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onOpen(view.name);
+                    }}
+                    title={view.name}
+                    type="button"
+                  >
+                    {view.name}
+                  </button>
+                  <button
+                    aria-label={`Copy ACL view id ${view.name}`}
+                    className="shrink-0 rounded-sm text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    onClick={(event) => void onCopyID(event, view.name)}
+                    title="Copy ACL view id"
+                    type="button"
+                  >
+                    {copiedID === view.name ? <Check className="size-3 shrink-0 text-emerald-600" /> : <Copy className="size-3 shrink-0" />}
+                  </button>
+                </div>
+              </TableCell>
               <TableCell className="max-w-[28rem] truncate text-sm text-muted-foreground">{view.description ?? "—"}</TableCell>
               <TableCell className="text-right text-sm text-muted-foreground">{view.updated_at}</TableCell>
             </TableRow>
@@ -503,7 +593,19 @@ function ViewsTable({ loading, onOpen, views }: { loading: boolean; onOpen: (nam
   );
 }
 
-function RolesTable({ loading, onOpen, roles }: { loading: boolean; onOpen: (name: string) => void; roles: AclRole[] }): JSX.Element {
+function RolesTable({
+  copiedID,
+  loading,
+  onCopyID,
+  onOpen,
+  roles,
+}: {
+  copiedID: string;
+  loading: boolean;
+  onCopyID: (event: MouseEvent<HTMLButtonElement>, id: string) => Promise<void>;
+  onOpen: (name: string) => void;
+  roles: AclRole[];
+}): JSX.Element {
   if (loading) {
     return <LoadingRows />;
   }
@@ -512,10 +614,10 @@ function RolesTable({ loading, onOpen, roles }: { loading: boolean; onOpen: (nam
   }
   return (
     <div className="rounded-md border">
-      <Table>
+      <Table className="table-fixed">
         <TableHeader>
           <TableRow>
-            <TableHead>Name</TableHead>
+            <TableHead className="w-[28%]">Role ID</TableHead>
             <TableHead>Permissions</TableHead>
             <TableHead className="text-right">Updated</TableHead>
           </TableRow>
@@ -530,7 +632,30 @@ function RolesTable({ loading, onOpen, roles }: { loading: boolean; onOpen: (nam
               role="link"
               tabIndex={0}
             >
-              <TableCell className="font-medium">{role.name}</TableCell>
+              <TableCell className="min-w-0">
+                <div className="flex min-w-0 items-center gap-1.5">
+                  <button
+                    className="min-w-0 truncate rounded-sm text-left font-medium underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onOpen(role.name);
+                    }}
+                    title={role.name}
+                    type="button"
+                  >
+                    {role.name}
+                  </button>
+                  <button
+                    aria-label={`Copy ACL role id ${role.name}`}
+                    className="shrink-0 rounded-sm text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    onClick={(event) => void onCopyID(event, role.name)}
+                    title="Copy ACL role id"
+                    type="button"
+                  >
+                    {copiedID === role.name ? <Check className="size-3 shrink-0 text-emerald-600" /> : <Copy className="size-3 shrink-0" />}
+                  </button>
+                </div>
+              </TableCell>
               <TableCell>
                 <div className="flex flex-wrap gap-1">
                   {role.permissions.map((permission) => (
@@ -810,9 +935,16 @@ function permissionOrUndefined(value: string): AclPermission | undefined {
 }
 
 function rowKeyDown(event: KeyboardEvent<HTMLTableRowElement>, action: () => void): void {
+  if (isInteractiveTarget(event.target)) {
+    return;
+  }
   if (event.key !== "Enter" && event.key !== " ") {
     return;
   }
   event.preventDefault();
   action();
+}
+
+function isInteractiveTarget(target: EventTarget): boolean {
+  return target instanceof Element && target.closest("a,button,input,select,textarea") !== null;
 }

@@ -1,5 +1,5 @@
-import { Copy, Plus, RefreshCw } from "lucide-react";
-import type { MouseEvent } from "react";
+import { Check, Copy, Plus, RefreshCw } from "lucide-react";
+import type { KeyboardEvent, MouseEvent } from "react";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
@@ -28,6 +28,21 @@ export function ModelsListPage(): JSX.Element {
       nextCursor: result.next_cursor ?? null,
     };
   });
+
+  const openModel = (id: string): void => {
+    navigate(`/ai/models/${encodeURIComponent(id)}`);
+  };
+
+  const handleRowKeyDown = (event: KeyboardEvent<HTMLTableRowElement>, id: string): void => {
+    if (isInteractiveTarget(event.target)) {
+      return;
+    }
+    if (event.key !== "Enter" && event.key !== " ") {
+      return;
+    }
+    event.preventDefault();
+    openModel(id);
+  };
 
   const copyModelID = async (event: MouseEvent<HTMLButtonElement>, id: string): Promise<void> => {
     event.stopPropagation();
@@ -112,7 +127,7 @@ export function ModelsListPage(): JSX.Element {
             <EmptyState description="Models will appear here after manual creation or provider sync." title="No models" />
           ) : (
             <div className="rounded-md border">
-              <Table>
+              <Table className="table-fixed">
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-48">ID</TableHead>
@@ -125,7 +140,14 @@ export function ModelsListPage(): JSX.Element {
                 </TableHeader>
                 <TableBody>
                   {items.map((model) => (
-                    <TableRow key={model.id}>
+                    <TableRow
+                      className="cursor-pointer hover:bg-muted/40"
+                      key={model.id}
+                      onClick={() => openModel(model.id)}
+                      onKeyDown={(event) => handleRowKeyDown(event, model.id)}
+                      role="link"
+                      tabIndex={0}
+                    >
                       <TableCell className="w-48 max-w-48">
                         <button
                           className="inline-flex w-44 max-w-44 items-center gap-2 rounded-sm text-left font-mono text-xs font-medium underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -134,25 +156,19 @@ export function ModelsListPage(): JSX.Element {
                           type="button"
                         >
                           <span className="truncate">{compactModelID(model.id)}</span>
-                          <Copy className="size-3 shrink-0 text-muted-foreground" />
+                          {copiedID === model.id ? <Check className="size-3 shrink-0 text-emerald-600" /> : <Copy className="size-3 shrink-0" />}
                         </button>
-                        {copiedID === model.id ? <div className="text-[0.65rem] text-muted-foreground">Copied</div> : null}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="w-24">
                         <Badge variant="outline">{model.kind}</Badge>
                       </TableCell>
                       <TableCell className="text-sm font-medium">
                         <ProviderLabel kind={model.provider.kind} name={model.provider.name} />
                       </TableCell>
                       <TableCell className="max-w-[24rem]">
-                        <button
-                          className="block max-w-full truncate text-left font-medium underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                          onClick={() => navigate(`/ai/models/${encodeURIComponent(model.id)}`)}
-                          title={model.name?.trim() || model.id}
-                          type="button"
-                        >
+                        <div className="block max-w-full truncate font-medium" title={model.name?.trim() || model.id}>
                           {model.name?.trim() || "Unnamed model"}
-                        </button>
+                        </div>
                         <div className="block truncate text-xs text-muted-foreground" title={model.description?.trim() || undefined}>
                           {model.description?.trim() || "No description"}
                         </div>
@@ -193,4 +209,8 @@ function ProviderLabel({ kind, name }: { kind: string; name: string }): JSX.Elem
       <span className="truncate text-foreground">{name}</span>
     </span>
   );
+}
+
+function isInteractiveTarget(target: EventTarget): boolean {
+  return target instanceof Element && target.closest("a,button,input,select,textarea") !== null;
 }

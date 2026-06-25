@@ -156,14 +156,14 @@ export function PeersListPage(): JSX.Element {
                 />
               </div>
             ) : (
-              <Table>
+              <Table className="table-fixed">
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-64">Peer</TableHead>
                     <TableHead className="w-56">Registration</TableHead>
                     <TableHead className="w-56">Runtime</TableHead>
                     <TableHead className="w-48">Endpoint</TableHead>
-                    <TableHead className="text-right">Peer Updated</TableHead>
+                    <TableHead className="text-right">Updated</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -182,19 +182,29 @@ export function PeersListPage(): JSX.Element {
                         tabIndex={0}
                       >
                         <TableCell className="w-64 max-w-64">
-                          <div className={name === "" ? "" : "space-y-1"}>
-                            {name !== "" ? (
-                              <div className="block truncate font-medium" title={name}>
-                                {name}
-                              </div>
-                            ) : null}
+                          <div className="flex min-w-0 items-center gap-1.5">
+                            <div className="min-w-0 flex-1">
+                              {name !== "" ? (
+                                <div className="block truncate font-medium" title={name}>
+                                  {name}
+                                </div>
+                              ) : null}
+                              <button
+                                className="block w-full truncate text-left font-mono text-xs text-muted-foreground hover:text-foreground"
+                                onClick={(event) => void handleCopyPublicKey(event, peer.public_key)}
+                                title="Copy public key"
+                                type="button"
+                              >
+                                {peer.public_key}
+                              </button>
+                            </div>
                             <button
-                              className="flex max-w-full items-center gap-1.5 font-mono text-xs text-muted-foreground hover:text-foreground"
+                              aria-label={`Copy public key ${peer.public_key}`}
+                              className="shrink-0 rounded-sm text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                               onClick={(event) => void handleCopyPublicKey(event, peer.public_key)}
                               title="Copy public key"
                               type="button"
                             >
-                              <span className="block truncate">{peer.public_key}</span>
                               {copied ? <Check className="size-3 shrink-0 text-emerald-600" /> : <Copy className="size-3 shrink-0" />}
                             </button>
                           </div>

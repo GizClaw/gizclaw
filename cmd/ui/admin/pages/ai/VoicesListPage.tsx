@@ -1,4 +1,4 @@
-import { Copy, Plus, RefreshCw } from "lucide-react";
+import { Check, Copy, Plus, RefreshCw } from "lucide-react";
 import type { KeyboardEvent, MouseEvent } from "react";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
@@ -127,7 +127,7 @@ export function VoicesListPage(): JSX.Element {
             <EmptyState description="Voices will appear here after manual creation or provider sync." title="No voices" />
           ) : (
             <div className="rounded-md border">
-              <Table>
+              <Table className="table-fixed">
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-48">ID</TableHead>
@@ -155,9 +155,8 @@ export function VoicesListPage(): JSX.Element {
                           type="button"
                         >
                           <span className="truncate">{compactVoiceID(voice.id)}</span>
-                          <Copy className="size-3 shrink-0 text-muted-foreground" />
+                          {copiedID === voice.id ? <Check className="size-3 shrink-0 text-emerald-600" /> : <Copy className="size-3 shrink-0" />}
                         </button>
-                        {copiedID === voice.id ? <div className="text-[0.65rem] text-muted-foreground">Copied</div> : null}
                       </TableCell>
                       <TableCell className="text-sm font-medium">
                         <ProviderLabel kind={voice.provider.kind} name={voice.provider.name} />

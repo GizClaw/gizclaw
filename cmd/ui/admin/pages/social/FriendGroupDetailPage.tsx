@@ -109,6 +109,18 @@ export function FriendGroupDetailPage(): JSX.Element {
               <RefreshCw className="size-4" />
               Reload
             </Button>
+            {group ? (
+              <DeleteConfirmButton
+                description="Deleting a group removes group metadata, invite token, membership rows, workspace access, and the backing workspace."
+                disabled={busy !== ""}
+                onConfirm={() => void remove()}
+                size="sm"
+                title="Delete friend group?"
+              >
+                <Trash2 className="size-4" />
+                Delete
+              </DeleteConfirmButton>
+            ) : null}
           </>
         }
         items={[
@@ -119,20 +131,6 @@ export function FriendGroupDetailPage(): JSX.Element {
       />
 
       <PageSummaryCard
-        actions={
-          group ? (
-            <DeleteConfirmButton
-              description="Deleting a group removes group metadata, invite token, membership rows, workspace access, and the backing workspace."
-              disabled={busy !== ""}
-              onConfirm={() => void remove()}
-              size="sm"
-              title="Delete friend group?"
-            >
-              <Trash2 className="size-4" />
-              Delete
-            </DeleteConfirmButton>
-          ) : null
-        }
         description={group?.description?.trim() || <span className="break-all font-mono text-xs">{groupID}</span>}
         eyebrow="Social Friend Group"
         meta={group ? <Badge variant="outline">{socialWorkspaceName(group.workspace_name)}</Badge> : null}
