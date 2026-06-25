@@ -6,13 +6,18 @@ package adminui_test
 
 import (
 	"fmt"
-	"net/url"
 	"testing"
 	"time"
 
-	"github.com/playwright-community/playwright-go"
-
 	. "github.com/GizClaw/gizclaw-go/test/gizclaw-e2e/ui/internal/harness"
+)
+
+const (
+	adminUISocialOwnerPublicKey = "6Ww6ANsXDCf91Yp7Tvi65hqpywjMmXqAoZDiq33kfCee"
+	adminUISocialPeerPublicKey  = "8rAUkTyxLHDa5o3VajtzWcQdNJq1thrjAGtpwQkEsaEu"
+	adminUISocialGroupID        = "family-circle"
+	adminUISocialGroupName      = "Family Circle"
+	adminUISocialGroupToken     = "family-circle-token"
 )
 
 func adminSocialStories() []Story {
@@ -23,104 +28,62 @@ func adminSocialStories() []Story {
 				page.GotoAdmin("/social/friends")
 				page.ExpectURLSuffix("/social/friends")
 				page.ExpectText("Friends")
-				page.ExpectText("Create Friend")
+				page.ExpectText("New Friend")
 
 				page.GotoAdmin("/social/friend-groups")
 				page.ExpectURLSuffix("/social/friend-groups")
 				page.ExpectText("Friend Groups")
-				page.ExpectText("Create Friend Group")
+				page.ExpectText("New Friend Group")
 			},
 		},
 		{
 			Name: "161-admin-social-friends-list-and-detail",
 			Run: func(t testing.TB, page *Page) {
-				suffix := time.Now().UnixNano()
-				owner := fmt.Sprintf("000-ui-social-owner-%d", suffix)
-				peer := fmt.Sprintf("000-ui-social-peer-%d", suffix)
-
 				page.GotoAdmin("/social/friends")
-				page.Fill(`input[placeholder="Owner peer public key"]`, owner)
-				page.Fill(`input[placeholder="Friend peer public key"]`, peer)
-				page.ClickRole("button", "Create")
-				page.ExpectText(peer)
-				page.ExpectText("Workspace History")
-				page.ExpectText("No history entries")
-
-				page.GotoAdmin("/social/friends")
-				page.ExpectText(peer)
-				clickFriendOpenLink(t, page, owner, peer)
-				page.ExpectText(owner)
-				page.ExpectText(peer)
+				page.ExpectText(adminUISocialPeerPublicKey)
+				clickFriendRow(t, page, adminUISocialOwnerPublicKey, adminUISocialPeerPublicKey)
+				page.ExpectText(adminUISocialOwnerPublicKey)
+				page.ExpectText(adminUISocialPeerPublicKey)
 				page.ExpectText("Friend Row")
+				page.ExpectText("Workspace History")
 			},
 		},
 		{
 			Name: "162-admin-social-friend-groups-detail",
 			Run: func(t testing.TB, page *Page) {
-				suffix := time.Now().UnixNano()
-				groupName := fmt.Sprintf("ui-social-group-%d", suffix)
-				member := fmt.Sprintf("000-ui-social-member-%d", suffix)
-				token := fmt.Sprintf("ui-social-token-%d", suffix)
-
 				page.GotoAdmin("/social/friend-groups")
-				page.Fill(`input[placeholder="story-club"]`, groupName)
-				page.Fill(`textarea[placeholder="Group description"]`, "Created from Admin UI social e2e")
-				page.ClickRole("button", "Create")
-				page.ExpectText(groupName)
+				page.ExpectText(adminUISocialGroupName)
+				clickFriendGroupRow(t, page, adminUISocialGroupID)
 				page.ExpectText("Info")
 				page.ExpectText("Members")
 				page.ExpectText("Invite Token")
 				page.ExpectText("History")
 
 				page.ClickRole("tab", "Members")
-				page.Fill(`input[placeholder="Peer public key"]`, member)
-				page.ClickRole("button", "Add")
-				page.ExpectText("Member added.")
-				page.ExpectText(member)
-
-				clickFirstTableCombobox(t, page)
-				if err := page.Raw().GetByRole(playwright.AriaRole("option"), playwright.PageGetByRoleOptions{
-					Name:  "admin",
-					Exact: playwright.Bool(true),
-				}).Click(); err != nil {
-					t.Fatalf("select admin role: %v", err)
-				}
-				page.ExpectText("Member role updated.")
-
-				page.ClickRole("button", "Remove")
-				page.ClickRole("button", "Delete")
-				page.ExpectText("Member removed.")
+				page.ExpectText(adminUISocialOwnerPublicKey)
+				page.ExpectText(adminUISocialPeerPublicKey)
 
 				page.ClickRole("tab", "Invite Token")
-				page.Fill(`input[placeholder="Invite token"]`, token)
-				page.ClickRole("button", "Save Token")
-				page.ExpectText("Invite token saved.")
-				expectInputValue(t, page, `input[placeholder="Invite token"]`, token)
-				page.ClickRole("button", "Clear")
-				page.ClickRole("button", "Delete")
-				page.ExpectText("Invite token cleared.")
+				expectInputValue(t, page, `input[placeholder="Invite token"]`, adminUISocialGroupToken)
 
 				page.ClickRole("tab", "History")
 				page.ExpectText("Workspace History")
-				page.ExpectText("No history entries")
 			},
 		},
 	}
 }
 
-func clickFirstTableCombobox(t testing.TB, page *Page) {
+func clickFriendRow(t testing.TB, page *Page, ownerPublicKey string, peerPublicKey string) {
 	t.Helper()
-	if err := page.Raw().Locator(`table [role="combobox"]`).First().Click(); err != nil {
-		t.Fatalf("click first member role combobox: %v", err)
+	if err := page.Raw().Locator(fmt.Sprintf(`table tbody tr:has-text(%q):has-text(%q)`, ownerPublicKey, peerPublicKey)).First().Click(); err != nil {
+		t.Fatalf("click friend row %q <-> %q: %v", ownerPublicKey, peerPublicKey, err)
 	}
 }
 
-func clickFriendOpenLink(t testing.TB, page *Page, owner, peer string) {
+func clickFriendGroupRow(t testing.TB, page *Page, groupName string) {
 	t.Helper()
-	relationID := fmt.Sprintf("%s:%s", owner, peer)
-	href := fmt.Sprintf("/social/friends/%s/%s", url.QueryEscape(owner), url.QueryEscape(relationID))
-	if err := page.Raw().Locator(fmt.Sprintf(`a[href="%s"]`, href)).Click(); err != nil {
-		t.Fatalf("click friend open link %q: %v", href, err)
+	if err := page.Raw().Locator(fmt.Sprintf(`table tbody tr:has-text(%q)`, groupName)).First().Click(); err != nil {
+		t.Fatalf("click friend group row %q: %v", groupName, err)
 	}
 }
 

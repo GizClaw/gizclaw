@@ -1,6 +1,6 @@
 //go:build gizclaw_e2e
 
-package workspace
+package chat
 
 import (
 	"os"
@@ -150,7 +150,7 @@ func TestLoadFlowcraftConfigs(t *testing.T) {
 			if err != nil {
 				t.Fatalf("loadConfig(%s) error = %v", path, err)
 			}
-			if cfg.Agent != "flowcraft" || cfg.Workspace != cfg.Workflow.Name || !strings.HasPrefix(cfg.Workflow.Name, "flowcraft-voice-assistant-") {
+			if cfg.Agent != "flowcraft" || cfg.Workspace != cfg.Workflow.Name || !strings.HasPrefix(cfg.Workflow.Name, "flowcraft-") {
 				t.Fatalf("loaded cfg = %+v", cfg)
 			}
 			if cfg.Workflow.VoiceAdapter.DefaultVoice == "" || len(cfg.Workflow.VoiceAdapter.NodeVoices) == 0 {

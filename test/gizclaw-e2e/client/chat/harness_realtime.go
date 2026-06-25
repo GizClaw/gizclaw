@@ -1,6 +1,6 @@
 //go:build gizclaw_e2e
 
-package workspace
+package chat
 
 import "context"
 

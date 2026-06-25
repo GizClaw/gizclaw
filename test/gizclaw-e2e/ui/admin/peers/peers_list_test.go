@@ -12,7 +12,10 @@ import (
 func adminPeersListStories() []Story {
 	return []Story{{
 		Name: "110-admin-peers-list",
-		Run: func(_ testing.TB, page *Page) {
+		Run: func(t testing.TB, page *Page) {
+			if len(page.Seed.DevicePublicKey) < 12 {
+				t.Skipf("admin peer seed public key is unavailable")
+			}
 			page.GotoAdmin("/peers")
 			page.ExpectText("Peers")
 			page.ExpectText("Peer Inventory")

@@ -77,8 +77,9 @@ type Result struct {
 
 type cliContextConfig struct {
 	Server struct {
-		Address   string `yaml:"address"`
-		PublicKey string `yaml:"public-key"`
+		Address    string `yaml:"address"`
+		PublicKey  string `yaml:"public-key"`
+		CipherMode string `yaml:"cipher-mode,omitempty"`
 	} `yaml:"server"`
 }
 
@@ -185,7 +186,44 @@ func (h *Harness) UseSetupServer() {
 	h.ServerAddr = strings.TrimSpace(cfg.Listen)
 	h.ServerPublicKey = keyPair.Public.String()
 	h.ServerCipherMode = strings.TrimSpace(cfg.CipherMode)
+	h.applySetupContextServer()
 	h.waitForSetupServerReady()
+}
+
+func (h *Harness) applySetupContextServer() {
+	h.t.Helper()
+
+	setupConfigHome := strings.TrimSpace(os.Getenv("GIZCLAW_E2E_ADMIN_SETUP_CONFIG_HOME"))
+	setupContext := strings.TrimSpace(os.Getenv("GIZCLAW_E2E_ADMIN_SETUP_CONTEXT"))
+	if setupConfigHome == "" && setupContext == "" {
+		return
+	}
+	if setupConfigHome == "" {
+		setupConfigHome = filepath.Join(h.RepoRoot, "test", "gizclaw-e2e", "testdata", "admin-config-home")
+	}
+	if setupContext == "" {
+		setupContext = "e2e-admin"
+	}
+
+	configPath := filepath.Join(setupConfigHome, "gizclaw", setupContext, "config.yaml")
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		h.t.Fatalf("read setup context config %q: %v", configPath, err)
+	}
+	var cfg cliContextConfig
+	if err := yaml.Unmarshal(data, &cfg); err != nil {
+		h.t.Fatalf("parse setup context config %q: %v", configPath, err)
+	}
+	if strings.TrimSpace(cfg.Server.Address) == "" {
+		h.t.Fatalf("setup context config %q has empty server address", configPath)
+	}
+	if strings.TrimSpace(cfg.Server.PublicKey) == "" {
+		h.t.Fatalf("setup context config %q has empty server public key", configPath)
+	}
+
+	h.ServerAddr = strings.TrimSpace(cfg.Server.Address)
+	h.ServerPublicKey = strings.TrimSpace(cfg.Server.PublicKey)
+	h.ServerCipherMode = strings.TrimSpace(cfg.Server.CipherMode)
 }
 
 func (h *Harness) StartServerFromFixture(fixtureName string) {
@@ -307,6 +345,7 @@ func (h *Harness) EnsureContext(name string) Result {
 	cfg := cliContextConfig{}
 	cfg.Server.Address = h.ServerAddr
 	cfg.Server.PublicKey = h.ServerPublicKey
+	cfg.Server.CipherMode = h.ServerCipherMode
 	data, err := yaml.Marshal(cfg)
 	if err != nil {
 		return Result{Args: []string{"ensure-context", name}, Err: err, Stderr: err.Error()}

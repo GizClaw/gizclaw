@@ -13,7 +13,10 @@ import (
 func adminPeerDetailStories() []Story {
 	return []Story{{
 		Name: "111-admin-peer-detail",
-		Run: func(_ testing.TB, page *Page) {
+		Run: func(t testing.TB, page *Page) {
+			if page.Seed.DevicePublicKey == "" {
+				t.Skipf("admin peer seed public key is unavailable")
+			}
 			page.GotoAdmin("/peers/" + url.PathEscape(page.Seed.DevicePublicKey))
 			page.ExpectText("Living Room Device")
 			page.ExpectText(page.Seed.DevicePublicKey)

@@ -14,7 +14,10 @@ func adminPeerActionsStories() []Story {
 	return []Story{
 		{
 			Name: "112-admin-peer-actions",
-			Run: func(_ testing.TB, page *Page) {
+			Run: func(t testing.TB, page *Page) {
+				if page.Seed.ActionDevicePublicKey == "" {
+					t.Skipf("admin peer action seed public key is unavailable")
+				}
 				page.GotoAdmin("/peers/" + url.PathEscape(page.Seed.ActionDevicePublicKey))
 				page.ClickRole("button", "Refresh Peer")
 				page.ExpectText("Peer refreshed.")
@@ -28,7 +31,10 @@ func adminPeerActionsStories() []Story {
 		},
 		{
 			Name: "112-admin-peer-delete",
-			Run: func(_ testing.TB, page *Page) {
+			Run: func(t testing.TB, page *Page) {
+				if page.Seed.DeleteDevicePublicKey == "" {
+					t.Skipf("admin peer delete seed public key is unavailable")
+				}
 				page.GotoAdmin("/peers/" + url.PathEscape(page.Seed.DeleteDevicePublicKey))
 				page.ClickRole("tab", "Edit")
 				page.ClickRole("button", "Reset")

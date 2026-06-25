@@ -167,30 +167,9 @@ init_data() {
       "$bin_path" admin apply --context "$admin_setup_context" -f "$resource_file"
   }
 
-  local voice_acl_files=()
   for resource_file in "${resource_files[@]}"; do
-    local resource_key="${resource_file#$resource_dir/}"
-    case "$resource_key" in
-      90-acl/3*-volc-*-voice-binding.yaml)
-        voice_acl_files+=("$resource_file")
-        continue
-        ;;
-    esac
     apply_resource "$resource_file"
   done
-
-  if ! volc_ready; then
-    voice_acl_files=()
-  else
-    XDG_CONFIG_HOME="$admin_setup_config_home" \
-      "$bin_path" admin volc-tenants --context "$admin_setup_context" sync-voices volc-main >/dev/null
-  fi
-
-  if [[ ${#voice_acl_files[@]} -gt 0 ]]; then
-    for resource_file in "${voice_acl_files[@]}"; do
-      apply_resource "$resource_file"
-    done
-  fi
 
   upload_firmware_asset() {
     local firmware_id="devkit-firmware-main"

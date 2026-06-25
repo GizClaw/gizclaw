@@ -15,6 +15,7 @@ func TestAdminAPIPeerFriendsListGetCreateDelete(t *testing.T) {
 	relationID := adminAPIRelationID(env.adminKey, env.peerKey)
 
 	_, _ = env.api.DeletePeerFriendWithResponse(env.ctx, env.adminKey, relationID)
+	_, _ = env.api.DeletePeerFriendWithResponse(env.ctx, env.adminKey, env.peerKey)
 	created, err := env.api.CreatePeerFriendWithResponse(env.ctx, env.adminKey, adminservice.AdminFriendCreateRequest{
 		PeerPublicKey: env.peerKey,
 	})
@@ -22,7 +23,7 @@ func TestAdminAPIPeerFriendsListGetCreateDelete(t *testing.T) {
 		t.Fatalf("create peer friend: %v", err)
 	}
 	requireStatusOK(t, created, created.Body)
-	if created.JSON200 == nil || created.JSON200.Id == nil || *created.JSON200.Id != relationID || created.JSON200.PeerPublicKey == nil || *created.JSON200.PeerPublicKey != env.peerKey {
+	if created.JSON200 == nil || created.JSON200.Id == nil || *created.JSON200.Id != env.peerKey || created.JSON200.PeerPublicKey == nil || *created.JSON200.PeerPublicKey != env.peerKey {
 		t.Fatalf("created friend = %#v", created.JSON200)
 	}
 
@@ -46,7 +47,7 @@ func TestAdminAPIPeerFriendsListGetCreateDelete(t *testing.T) {
 		}
 		return resp.JSON200.Items, resp.JSON200.HasNext, resp.JSON200.NextCursor
 	})
-	requireName(t, ownerRows, relationID, func(item rpcapi.FriendObject) string {
+	requireName(t, ownerRows, env.peerKey, func(item rpcapi.FriendObject) string {
 		if item.Id == nil {
 			return ""
 		}
@@ -62,7 +63,7 @@ func TestAdminAPIPeerFriendsListGetCreateDelete(t *testing.T) {
 		t.Fatalf("peer friend rows = %#v", peerRows.JSON200)
 	}
 
-	deleted, err := env.api.DeletePeerFriendWithResponse(env.ctx, env.adminKey, relationID)
+	deleted, err := env.api.DeletePeerFriendWithResponse(env.ctx, env.adminKey, env.peerKey)
 	if err != nil {
 		t.Fatalf("delete peer friend: %v", err)
 	}

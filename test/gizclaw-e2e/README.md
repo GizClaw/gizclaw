@@ -51,16 +51,16 @@ To let another peer public key use the default shared client view, apply a
 
 `reset_data.sh` only rebuilds resource state: provider tenants, models,
 workflows, workspaces, firmware metadata, ACL rows, and shared social graph
-rows. It must not seed runtime history, message records, replay audio, or other
-non-resource state.
+rows. It does not call provider sync operations. It must not seed runtime
+history, message records, replay audio, or other non-resource state.
 
 5. Run client tests that create runtime state. These should run before any UI
    test that expects conversations, history entries, replay data, or social
    message state to already exist:
 
 ```sh
-go test -tags gizclaw_e2e -count=1 ./test/gizclaw-e2e/client/workspace
 go test -tags gizclaw_e2e -count=1 ./test/gizclaw-e2e/client/admin
+go test -tags gizclaw_e2e -count=1 ./test/gizclaw-e2e/client/chat
 go test -tags gizclaw_e2e -count=1 ./test/gizclaw-e2e/client/rpc
 go test -tags gizclaw_e2e -count=1 ./test/gizclaw-e2e/client/social
 ```
@@ -192,7 +192,8 @@ gizclaw admin firmwares upload-bin devkit-firmware-main \
 Provider-independent catalog rows use schema-valid committed metadata and do
 not require real provider credentials. Real OpenAI/Volc workspace voice
 resources still depend on the credential values from `.env` and are skipped
-when those values are absent.
+when those values are absent. `client/admin` owns provider voice sync
+verification and should run before chat voice tests.
 
 Workspace history is runtime data. `reset_data.sh` must not seed history
 entries directly; social and workspace e2e cases should create history by
@@ -227,7 +228,7 @@ without changing test code:
 Unset values fall back to the committed `testdata` config homes and context
 names.
 
-The setup scripts, workspace client tests, UI seed lookup, and social peer A/B
+The setup scripts, chat client tests, UI seed lookup, and social peer A/B
 harness read their matching role overrides. Most `cmd/*` story tests still
 create isolated sandbox contexts unless a specific story opts into one of the
 CLI target roles.
@@ -237,13 +238,15 @@ CLI target roles.
 `client/admin` contains typed Admin HTTP API contract coverage using the
 generated `adminservice` client. It verifies Swagger-defined request/response
 schemas, pagination, binary upload/download where the current Admin API exposes
-it, and selected mutation-safe paths against the shared setup server.
+it, provider voice sync prerequisites for chat tests, and selected
+mutation-safe paths against the shared setup server.
 
 `client/rpc` contains typed RPC coverage. Test files should be grouped by RPC
 module prefix, and individual methods should be split by `Test...` functions.
 
-`client/workspace` contains workspace voice and history cases as ordinary
-`_test.go` files. It should not use a custom `main.go -case ...` dispatcher.
+`client/chat` contains workspace-backed voice conversation and history cases as
+ordinary `_test.go` files. It should not use a custom `main.go -case ...`
+dispatcher.
 
 `client/social` contains friend and friend-group behavior. These tests are
 client-driven, not CLI-story driven, and should cover relation changes,
