@@ -1,0 +1,10 @@
+---
+apiVersion: gizclaw.admin/v1alpha1
+kind: Workspace
+metadata:
+  name: workspace-flowcraft-alt
+spec:
+  workflow_name: flowcraft-assistant
+  parameters:
+    customer: demo-customer-alt
+    locale: en-US

@@ -109,18 +109,24 @@ export function FriendsListPage(): JSX.Element {
           <CardDescription>Admin directly creates both owner-view rows and the backing direct workspace.</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] lg:items-end">
+          <form
+            className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] lg:items-end"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void create();
+            }}
+          >
             <FormField label="Owner public key">
               <Input onChange={(event) => setOwnerPublicKey(event.target.value)} placeholder="Owner peer public key" value={ownerPublicKey} />
             </FormField>
             <FormField label="Friend public key">
               <Input onChange={(event) => setPeerPublicKey(event.target.value)} placeholder="Friend peer public key" value={peerPublicKey} />
             </FormField>
-            <Button disabled={busy !== "" || ownerPublicKey.trim() === "" || peerPublicKey.trim() === ""} onClick={() => void create()} type="button">
+            <Button disabled={busy !== "" || ownerPublicKey.trim() === "" || peerPublicKey.trim() === ""} type="submit">
               <Plus className="size-4" />
               Create
             </Button>
-          </div>
+          </form>
         </CardContent>
       </Card>
 
@@ -163,30 +169,42 @@ export function FriendsListPage(): JSX.Element {
             <EmptyState description="Friend rows will appear here after they are created." title="No friends" />
           ) : (
             <div className="rounded-md border">
-              <Table>
+              <Table className="table-fixed">
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Owner peer</TableHead>
-                    <TableHead>Friend peer</TableHead>
-                    <TableHead>Relation</TableHead>
+                    <TableHead className="w-[24%]">Owner peer</TableHead>
+                    <TableHead className="w-[24%]">Friend peer</TableHead>
+                    <TableHead className="w-28">Relation</TableHead>
                     <TableHead>Workspace</TableHead>
-                    <TableHead className="text-right">Updated</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                    <TableHead className="w-32 text-right">Updated</TableHead>
+                    <TableHead className="w-44 text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {items.map((friend) => (
                     <TableRow className="hover:bg-muted/40" key={`${friend.owner_public_key}:${friend.id}`}>
-                      <TableCell>
-                        <div className="font-medium">{socialPeerLabel(friend.owner_public_key)}</div>
-                        <div className="break-all font-mono text-xs text-muted-foreground">{friend.owner_public_key}</div>
+                      <TableCell className="min-w-0">
+                        <div className="truncate font-medium" title={socialPeerLabel(friend.owner_public_key)}>
+                          {socialPeerLabel(friend.owner_public_key)}
+                        </div>
+                        <div className="truncate font-mono text-xs text-muted-foreground" title={friend.owner_public_key}>
+                          {friend.owner_public_key}
+                        </div>
                       </TableCell>
-                      <TableCell>
-                        <div className="font-medium">{socialPeerLabel(friend.peer_public_key)}</div>
-                        <div className="break-all font-mono text-xs text-muted-foreground">{friend.peer_public_key}</div>
+                      <TableCell className="min-w-0">
+                        <div className="truncate font-medium" title={socialPeerLabel(friend.peer_public_key)}>
+                          {socialPeerLabel(friend.peer_public_key)}
+                        </div>
+                        <div className="truncate font-mono text-xs text-muted-foreground" title={friend.peer_public_key}>
+                          {friend.peer_public_key}
+                        </div>
                       </TableCell>
-                      <TableCell className="break-all font-mono text-xs">{friend.id}</TableCell>
-                      <TableCell className="font-mono text-xs">{socialWorkspaceName(friend.workspace_name)}</TableCell>
+                      <TableCell className="truncate font-mono text-xs" title={friend.id}>
+                        {formatShortKey(friend.id)}
+                      </TableCell>
+                      <TableCell className="truncate font-mono text-xs" title={socialWorkspaceName(friend.workspace_name)}>
+                        {socialWorkspaceName(friend.workspace_name)}
+                      </TableCell>
                       <TableCell className="text-right text-sm text-muted-foreground">{formatDate(friend.updated_at)}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex flex-wrap justify-end gap-2">

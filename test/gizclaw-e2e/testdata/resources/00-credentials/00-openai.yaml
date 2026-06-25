@@ -1,0 +1,10 @@
+---
+apiVersion: gizclaw.admin/v1alpha1
+kind: Credential
+metadata:
+  name: openai-main-credential
+spec:
+  provider: openai
+  description: OpenAI-compatible main credential
+  body:
+    api_key: "${GIZCLAW_E2E_OPENAI_API_KEY}"

@@ -1,0 +1,16 @@
+---
+apiVersion: gizclaw.admin/v1alpha1
+kind: Workflow
+metadata:
+  name: volc-ast-translate
+  description: AST realtime translation workflow
+spec:
+  driver: ast-translate
+  ast_translate:
+    translation_model: volc-ast-translate
+    auth_mode: v2
+    mode: s2s
+    voice:
+      speaker_id: zh_female_vv_uranus_bigtts
+    resource_id: volc.service_type.10053
+    denoise: false

@@ -19,6 +19,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/gizcli"
 	clitest "github.com/GizClaw/gizclaw-go/test/gizclaw-e2e/cmd"
+	"github.com/goccy/go-yaml"
 )
 
 func newSocialSimulatorHarness(t *testing.T) *clitest.Harness {
@@ -27,7 +28,7 @@ func newSocialSimulatorHarness(t *testing.T) *clitest.Harness {
 	h := clitest.NewSetupHarness(t, "client-social")
 	h.CreateContext("admin-a").MustSucceed(t)
 	h.RegisterContext("admin-a", "--sn", "client-social-admin-sn").MustSucceed(t)
-	chatroomWorkflow := filepath.Join(h.RepoRoot, "test", "gizclaw-e2e", "testdata", "resources", "040-workflow-chatroom.json")
+	chatroomWorkflow := filepath.Join(h.RepoRoot, "test", "gizclaw-e2e", "testdata", "resources", "04-workflows", "03-chatroom.yaml")
 	admin := h.ConnectClientFromContext("admin-a")
 	defer admin.Close()
 	api, err := admin.ServerAdminClient()
@@ -71,8 +72,12 @@ func applySocialResourceFile(t *testing.T, api *adminservice.ClientWithResponses
 	if err != nil {
 		t.Fatalf("read social resource %s: %v", resourcePath, err)
 	}
+	jsonData, err := yaml.YAMLToJSON(data)
+	if err != nil {
+		t.Fatalf("convert social resource %s to JSON: %v", resourcePath, err)
+	}
 	var resource apitypes.Resource
-	if err := json.Unmarshal(data, &resource); err != nil {
+	if err := json.Unmarshal(jsonData, &resource); err != nil {
 		t.Fatalf("decode social resource %s: %v", resourcePath, err)
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)

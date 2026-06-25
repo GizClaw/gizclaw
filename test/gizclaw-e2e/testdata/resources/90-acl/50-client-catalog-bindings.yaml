@@ -1,0 +1,43 @@
+---
+apiVersion: gizclaw.admin/v1alpha1
+kind: ResourceList
+metadata:
+  name: client-catalog-acl
+spec:
+  items:
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-openai-lab-chat
+    spec:
+      subject:
+        kind: view
+        id: default-client
+      resource:
+        kind: model
+        id: openai-lab-chat
+      role: default-client
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-minimax-cloned-narrator
+    spec:
+      subject:
+        kind: view
+        id: default-client
+      resource:
+        kind: voice
+        id: minimax-cloned-narrator
+      role: default-client
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-volc-demo-voice
+    spec:
+      subject:
+        kind: view
+        id: default-client
+      resource:
+        kind: voice
+        id: volc-tenant:volc-lab:ICL_demo_voice
+      role: default-client

@@ -17,6 +17,7 @@ import (
 
 type adminAPIHarness struct {
 	ctx      context.Context
+	h        *clitest.Harness
 	api      *adminservice.ClientWithResponses
 	adminKey string
 	adminSN  string
@@ -54,6 +55,7 @@ func newAdminAPIHarness(t *testing.T) *adminAPIHarness {
 	t.Cleanup(cancel)
 	return &adminAPIHarness{
 		ctx:      ctx,
+		h:        h,
 		api:      api,
 		adminKey: adminKey,
 		adminSN:  adminSN,

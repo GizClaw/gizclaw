@@ -1,16 +1,16 @@
 {
   "agent": "flowcraft",
   "models": {
-    "asr": "e2e-asr",
-    "llm": "e2e-doubao-2-lite-chat",
-    "tts": "e2e-tts"
+    "asr": "volc-bigasr-sauc",
+    "llm": "doubao-lite-chat",
+    "tts": "volc-bigtts"
   },
   "persona": "Always generate exactly this Chinese utterance: 开始狼人杀，告诉我现在轮到谁。",
   "rounds": 3,
   "timeout": "1200s",
-  "voice": "volc-tenant:e2e-volc-tenant:zh_female_vv_mars_bigtts",
+  "voice": "volc-tenant:volc-main:zh_female_vv_mars_bigtts",
   "workflow": {
-    "description": "Workspace e2e Flowcraft raid: Werewolf",
+    "description": "Flowcraft raid: Werewolf",
     "flowcraft": {
       "agent": {
         "description": "A Chinese Werewolf host where the user sits at seat 3 and every NPC seat has its own graph node.",
@@ -683,7 +683,7 @@
         ]
       },
       "conversation": {
-        "context_id": "e2e-flowcraft-werewolf",
+        "context_id": "flowcraft-werewolf-game",
         "starts": "self"
       },
       "history": {
@@ -923,44 +923,44 @@
         "state_root": "state"
       }
     },
-    "name": "e2e-flowcraft-werewolf",
+    "name": "flowcraft-werewolf-game",
     "parameters": {
-      "extract_model": "e2e-doubao-2-lite-chat",
-      "generate_model": "e2e-doubao-2-lite-chat",
+      "extract_model": "doubao-lite-chat",
+      "generate_model": "doubao-lite-chat",
       "input": "push-to-talk"
     },
     "voice_adapter": {
-      "asr_model": "e2e-asr",
-      "default_voice": "volc-tenant:e2e-volc-tenant:zh_female_shaoergushi_mars_bigtts",
+      "asr_model": "volc-bigasr-sauc",
+      "default_voice": "volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts",
       "node_voices": {
-        "call_game_event": "volc-tenant:e2e-volc-tenant:zh_female_shaoergushi_mars_bigtts",
-        "call_game_over_event": "volc-tenant:e2e-volc-tenant:zh_female_shaoergushi_mars_bigtts",
-        "host_day_announce": "volc-tenant:e2e-volc-tenant:zh_female_shaoergushi_mars_bigtts",
-        "host_night_begin": "volc-tenant:e2e-volc-tenant:zh_female_shaoergushi_mars_bigtts",
-        "host_opening": "volc-tenant:e2e-volc-tenant:zh_female_shaoergushi_mars_bigtts",
-        "host_seer_action": "volc-tenant:e2e-volc-tenant:zh_female_shaoergushi_mars_bigtts",
-        "host_vote_prompt": "volc-tenant:e2e-volc-tenant:zh_female_shaoergushi_mars_bigtts",
-        "host_vote_result": "volc-tenant:e2e-volc-tenant:zh_female_shaoergushi_mars_bigtts",
-        "host_werewolf_action": "volc-tenant:e2e-volc-tenant:zh_female_shaoergushi_mars_bigtts",
-        "host_witch_action": "volc-tenant:e2e-volc-tenant:zh_female_shaoergushi_mars_bigtts",
-        "post_game_host_wrap": "volc-tenant:e2e-volc-tenant:zh_female_shaoergushi_mars_bigtts",
-        "post_game_seat_1_free_chat": "volc-tenant:e2e-volc-tenant:ICL_zh_female_bingjiao3_tob",
-        "post_game_seat_2_free_chat": "volc-tenant:e2e-volc-tenant:zh_male_sunwukong_mars_bigtts",
-        "post_game_seat_4_free_chat": "volc-tenant:e2e-volc-tenant:zh_male_tangseng_mars_bigtts",
-        "post_game_seat_5_free_chat": "volc-tenant:e2e-volc-tenant:zh_male_zhubajie_mars_bigtts",
-        "post_game_seat_6_free_chat": "volc-tenant:e2e-volc-tenant:zh_male_sunwukong_mars_bigtts",
-        "post_game_seat_7_free_chat": "volc-tenant:e2e-volc-tenant:zh_male_tangseng_mars_bigtts",
-        "post_game_seat_8_free_chat": "volc-tenant:e2e-volc-tenant:ICL_zh_female_bingjiao3_tob",
-        "seat_1_lin_zhi_speak": "volc-tenant:e2e-volc-tenant:ICL_zh_female_bingjiao3_tob",
-        "seat_2_ache_speak": "volc-tenant:e2e-volc-tenant:zh_male_sunwukong_mars_bigtts",
-        "seat_4_xiaoman_speak": "volc-tenant:e2e-volc-tenant:zh_male_tangseng_mars_bigtts",
-        "seat_5_zhoulan_speak": "volc-tenant:e2e-volc-tenant:zh_male_zhubajie_mars_bigtts",
-        "seat_6_chen_doctor_speak": "volc-tenant:e2e-volc-tenant:zh_male_sunwukong_mars_bigtts",
-        "seat_7_laozhao_speak": "volc-tenant:e2e-volc-tenant:zh_male_tangseng_mars_bigtts",
-        "seat_8_suhe_speak": "volc-tenant:e2e-volc-tenant:ICL_zh_female_bingjiao3_tob",
-        "user_speech_prompt": "volc-tenant:e2e-volc-tenant:zh_female_shaoergushi_mars_bigtts",
-        "user_speech_retry": "volc-tenant:e2e-volc-tenant:zh_female_shaoergushi_mars_bigtts",
-        "vote_retry": "volc-tenant:e2e-volc-tenant:zh_female_shaoergushi_mars_bigtts"
+        "call_game_event": "volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts",
+        "call_game_over_event": "volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts",
+        "host_day_announce": "volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts",
+        "host_night_begin": "volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts",
+        "host_opening": "volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts",
+        "host_seer_action": "volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts",
+        "host_vote_prompt": "volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts",
+        "host_vote_result": "volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts",
+        "host_werewolf_action": "volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts",
+        "host_witch_action": "volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts",
+        "post_game_host_wrap": "volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts",
+        "post_game_seat_1_free_chat": "volc-tenant:volc-main:ICL_zh_female_bingjiao3_tob",
+        "post_game_seat_2_free_chat": "volc-tenant:volc-main:zh_male_sunwukong_mars_bigtts",
+        "post_game_seat_4_free_chat": "volc-tenant:volc-main:zh_male_tangseng_mars_bigtts",
+        "post_game_seat_5_free_chat": "volc-tenant:volc-main:zh_male_zhubajie_mars_bigtts",
+        "post_game_seat_6_free_chat": "volc-tenant:volc-main:zh_male_sunwukong_mars_bigtts",
+        "post_game_seat_7_free_chat": "volc-tenant:volc-main:zh_male_tangseng_mars_bigtts",
+        "post_game_seat_8_free_chat": "volc-tenant:volc-main:ICL_zh_female_bingjiao3_tob",
+        "seat_1_lin_zhi_speak": "volc-tenant:volc-main:ICL_zh_female_bingjiao3_tob",
+        "seat_2_ache_speak": "volc-tenant:volc-main:zh_male_sunwukong_mars_bigtts",
+        "seat_4_xiaoman_speak": "volc-tenant:volc-main:zh_male_tangseng_mars_bigtts",
+        "seat_5_zhoulan_speak": "volc-tenant:volc-main:zh_male_zhubajie_mars_bigtts",
+        "seat_6_chen_doctor_speak": "volc-tenant:volc-main:zh_male_sunwukong_mars_bigtts",
+        "seat_7_laozhao_speak": "volc-tenant:volc-main:zh_male_tangseng_mars_bigtts",
+        "seat_8_suhe_speak": "volc-tenant:volc-main:ICL_zh_female_bingjiao3_tob",
+        "user_speech_prompt": "volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts",
+        "user_speech_retry": "volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts",
+        "vote_retry": "volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts"
       }
     }
   }

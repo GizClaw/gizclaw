@@ -66,19 +66,63 @@ volc_ready() {
   return 0
 }
 
+minimax_cn_ready() {
+  local name
+  for name in \
+    GIZCLAW_E2E_MINIMAX_CN_API_KEY \
+    GIZCLAW_E2E_MINIMAX_CN_APP_ID \
+    GIZCLAW_E2E_MINIMAX_CN_GROUP_ID; do
+    if [[ -z "${!name:-}" ]]; then
+      return 1
+    fi
+  done
+  return 0
+}
+
+minimax_global_ready() {
+  local name
+  for name in \
+    GIZCLAW_E2E_MINIMAX_GLOBAL_API_KEY \
+    GIZCLAW_E2E_MINIMAX_GLOBAL_APP_ID \
+    GIZCLAW_E2E_MINIMAX_GLOBAL_GROUP_ID; do
+    if [[ -z "${!name:-}" ]]; then
+      return 1
+    fi
+  done
+  return 0
+}
+
+gemini_ready() {
+  [[ -n "${GIZCLAW_E2E_GEMINI_API_KEY:-}" ]]
+}
+
+dashscope_ready() {
+  [[ -n "${GIZCLAW_E2E_DASHSCOPE_API_KEY:-}" ]]
+}
+
 init_data() {
   "$script_dir/start-server.sh" >/dev/null
 
   XDG_CONFIG_HOME="$default_client_config_home" \
-    "$bin_path" connect set-name e2e-client --context "$default_client_context" >/dev/null
+    "$bin_path" connect set-name "Living Room Device" --context "$default_client_context" >/dev/null
   if [[ "$client_config_home" != "$default_client_config_home" || "$client_context" != "$default_client_context" ]]; then
     XDG_CONFIG_HOME="$client_config_home" \
-      "$bin_path" connect set-name e2e-client --context "$client_context" >/dev/null
+      "$bin_path" connect set-name "Living Room Device" --context "$client_context" >/dev/null
   fi
 
-  shopt -s nullglob
-  local resource_files=("$resource_dir"/*.json)
-  shopt -u nullglob
+  local resource_files=()
+  local resource_subdir
+  while IFS= read -r resource_subdir; do
+    while IFS= read -r resource_file; do
+      resource_files+=("$resource_file")
+    done < <(
+      find "$resource_subdir" -type f -name '*.yaml' -print |
+        sort
+    )
+  done < <(
+    find "$resource_dir" -mindepth 1 -maxdepth 1 -type d -name '[0-9][0-9]-*' -print |
+      sort
+  )
   if [[ ${#resource_files[@]} -eq 0 ]]; then
     echo "no resource fixtures found in $resource_dir" >&2
     exit 2
@@ -86,14 +130,35 @@ init_data() {
 
   apply_resource() {
     local resource_file="$1"
-    case "$(basename "$resource_file")" in
-      000-openai-credential.json|001-openai-tenant.json|010-chat-model.json|050-view-acl-credential-openai.json|052-view-acl-model-chat.json)
+    local resource_key="${resource_file#$resource_dir/}"
+    case "$resource_key" in
+      00-credentials/00-openai.yaml|01-tenants/00-openai.yaml|03-models/00-openai-chat.yaml|90-acl/10-openai-credential-binding.yaml|90-acl/20-openai-chat-model-binding.yaml)
         if ! openai_ready; then
           return 0
         fi
         ;;
-      002-volc-credential.json|003-volc-tenant.json|011-tts-model.json|012-asr-model.json|013-realtime-model.json|014-doubao-2-lite-chat-model.json|015-ast-translate-model.json|051-view-acl-credential-volc.json|053-view-acl-model-tts.json|054-view-acl-model-asr.json|055-view-acl-model-ast-translate.json|055-view-acl-model-realtime.json|059-view-acl-model-doubao-2-lite-chat.json)
+      00-credentials/01-volc.yaml|01-tenants/01-volc.yaml|03-models/01-volc-tts.yaml|03-models/02-volc-asr.yaml|03-models/03-doubao-realtime.yaml|03-models/04-doubao-lite-chat.yaml|03-models/05-volc-ast-translate.yaml|90-acl/11-volc-credential-binding.yaml|90-acl/21-volc-tts-model-binding.yaml|90-acl/22-volc-asr-model-binding.yaml|90-acl/23-volc-ast-translate-model-binding.yaml|90-acl/24-doubao-realtime-model-binding.yaml|90-acl/25-doubao-lite-chat-model-binding.yaml|90-acl/3*-volc-*-voice-binding.yaml)
         if ! volc_ready; then
+          return 0
+        fi
+        ;;
+      00-credentials/02-minimax-cn.yaml|01-tenants/02-minimax-cn.yaml|90-acl/12-minimax-cn-credential-binding.yaml)
+        if ! minimax_cn_ready; then
+          return 0
+        fi
+        ;;
+      00-credentials/03-minimax-global.yaml|01-tenants/03-minimax-global.yaml|90-acl/13-minimax-global-credential-binding.yaml)
+        if ! minimax_global_ready; then
+          return 0
+        fi
+        ;;
+      00-credentials/04-gemini.yaml|01-tenants/04-gemini.yaml|03-models/06-gemini-chat.yaml|90-acl/14-gemini-credential-binding.yaml|90-acl/26-gemini-chat-model-binding.yaml)
+        if ! gemini_ready; then
+          return 0
+        fi
+        ;;
+      00-credentials/05-qwen-dashscope.yaml|01-tenants/05-qwen-dashscope.yaml|03-models/07-qwen-chat.yaml|90-acl/15-qwen-dashscope-credential-binding.yaml|90-acl/27-qwen-chat-model-binding.yaml)
+        if ! dashscope_ready; then
           return 0
         fi
         ;;
@@ -104,8 +169,9 @@ init_data() {
 
   local voice_acl_files=()
   for resource_file in "${resource_files[@]}"; do
-    case "$(basename "$resource_file")" in
-      056-view-acl-voice*.json)
+    local resource_key="${resource_file#$resource_dir/}"
+    case "$resource_key" in
+      90-acl/3*-volc-*-voice-binding.yaml)
         voice_acl_files+=("$resource_file")
         continue
         ;;
@@ -117,7 +183,7 @@ init_data() {
     voice_acl_files=()
   else
     XDG_CONFIG_HOME="$admin_setup_config_home" \
-      "$bin_path" admin volc-tenants --context "$admin_setup_context" sync-voices e2e-volc-tenant >/dev/null
+      "$bin_path" admin volc-tenants --context "$admin_setup_context" sync-voices volc-main >/dev/null
   fi
 
   if [[ ${#voice_acl_files[@]} -gt 0 ]]; then
@@ -127,10 +193,10 @@ init_data() {
   fi
 
   upload_firmware_asset() {
-    local firmware_id="e2e-rpc-firmware"
+    local firmware_id="devkit-firmware-main"
     local channel="stable"
     local bin="main"
-    local asset_path="$resource_dir/assets/firmware/e2e-rpc-firmware-main.tar"
+    local asset_path="$resource_dir/assets/firmware/devkit-firmware-main.tar"
     if [[ ! -f "$asset_path" ]]; then
       echo "missing firmware fixture asset: $asset_path" >&2
       exit 2
@@ -140,11 +206,6 @@ init_data() {
   }
 
   upload_firmware_asset
-
-  (
-    cd "$repo_root"
-    go run ./test/gizclaw-e2e/setup/seed_rpc_history.go
-  )
 
 }
 

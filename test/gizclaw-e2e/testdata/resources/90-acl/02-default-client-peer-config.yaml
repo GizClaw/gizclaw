@@ -1,0 +1,7 @@
+---
+apiVersion: gizclaw.admin/v1alpha1
+kind: PeerConfig
+metadata:
+  name: 8rAUkTyxLHDa5o3VajtzWcQdNJq1thrjAGtpwQkEsaEu
+spec:
+  view: default-client

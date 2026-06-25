@@ -6,12 +6,14 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 
 	"github.com/GizClaw/gizclaw-go/cmd/internal/connection"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/adminservice"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/apitypes"
+	"github.com/goccy/go-yaml"
 	"github.com/spf13/cobra"
 )
 
@@ -115,7 +117,7 @@ func newApplyCmd(ctxName *string) *cobra.Command {
 			return json.NewEncoder(cmd.OutOrStdout()).Encode(result)
 		},
 	}
-	cmd.Flags().StringVarP(&file, "file", "f", "", "resource JSON file, or '-' for stdin")
+	cmd.Flags().StringVarP(&file, "file", "f", "", "resource JSON/YAML file, or '-' for JSON stdin")
 	cmd.Flags().StringVar(ctxName, "context", "", "context name (default: current)")
 	return cmd
 }
@@ -188,10 +190,40 @@ func readResourceFile(cmd *cobra.Command, path string) (apitypes.Resource, error
 	if err != nil {
 		return apitypes.Resource{}, err
 	}
-	data, err = expandResourceEnv(data)
-	if err != nil {
-		return apitypes.Resource{}, err
+	return decodeResourceData(path, data)
+}
+
+func decodeResourceData(path string, data []byte) (apitypes.Resource, error) {
+	switch resourceFileFormat(path) {
+	case "json":
+		var err error
+		data, err = expandResourceEnv(data)
+		if err != nil {
+			return apitypes.Resource{}, err
+		}
+		return decodeJSONResource(data)
+	case "yaml":
+		return decodeYAMLResource(data)
+	default:
+		return apitypes.Resource{}, fmt.Errorf("unsupported resource file extension %q; use .json, .yaml, or .yml", filepath.Ext(path))
 	}
+}
+
+func resourceFileFormat(path string) string {
+	if path == "-" {
+		return "json"
+	}
+	switch strings.ToLower(filepath.Ext(path)) {
+	case ".json":
+		return "json"
+	case ".yaml", ".yml":
+		return "yaml"
+	default:
+		return ""
+	}
+}
+
+func decodeJSONResource(data []byte) (apitypes.Resource, error) {
 	var resource apitypes.Resource
 	if err := json.Unmarshal(data, &resource); err != nil {
 		return apitypes.Resource{}, err
@@ -199,13 +231,91 @@ func readResourceFile(cmd *cobra.Command, path string) (apitypes.Resource, error
 	return resource, nil
 }
 
+func decodeYAMLResource(data []byte) (apitypes.Resource, error) {
+	var value any
+	if err := yaml.Unmarshal(data, &value); err != nil {
+		return apitypes.Resource{}, err
+	}
+	expanded, err := expandResourceYAMLValue(value)
+	if err != nil {
+		return apitypes.Resource{}, err
+	}
+	jsonData, err := json.Marshal(expanded)
+	if err != nil {
+		return apitypes.Resource{}, err
+	}
+	return decodeJSONResource(jsonData)
+}
+
+func expandResourceYAMLValue(value any) (any, error) {
+	switch v := value.(type) {
+	case map[string]any:
+		out := make(map[string]any, len(v))
+		for key, item := range v {
+			expanded, err := expandResourceYAMLValue(item)
+			if err != nil {
+				return nil, err
+			}
+			out[key] = expanded
+		}
+		return out, nil
+	case map[any]any:
+		out := make(map[string]any, len(v))
+		for key, item := range v {
+			name, ok := key.(string)
+			if !ok {
+				return nil, fmt.Errorf("resource YAML map key must be a string, got %T", key)
+			}
+			expanded, err := expandResourceYAMLValue(item)
+			if err != nil {
+				return nil, err
+			}
+			out[name] = expanded
+		}
+		return out, nil
+	case []any:
+		out := make([]any, len(v))
+		for i, item := range v {
+			expanded, err := expandResourceYAMLValue(item)
+			if err != nil {
+				return nil, err
+			}
+			out[i] = expanded
+		}
+		return out, nil
+	case string:
+		return expandResourceEnvString(v)
+	default:
+		return value, nil
+	}
+}
+
 var resourceEnvPattern = regexp.MustCompile(`\$\{([A-Za-z_][A-Za-z0-9_]*)(:-([^}]*))?\}`)
 
 func expandResourceEnv(data []byte) ([]byte, error) {
 	input := string(data)
+	expanded, err := expandResourceEnvWith(input, func(replacement string, offset int) string {
+		if insideJSONString(input, offset) {
+			return escapeJSONStringFragment(replacement)
+		}
+		return replacement
+	})
+	if err != nil {
+		return nil, err
+	}
+	return []byte(expanded), nil
+}
+
+func expandResourceEnvString(input string) (string, error) {
+	return expandResourceEnvWith(input, func(replacement string, _ int) string {
+		return replacement
+	})
+}
+
+func expandResourceEnvWith(input string, formatReplacement func(string, int) string) (string, error) {
 	matches := resourceEnvPattern.FindAllStringSubmatchIndex(input, -1)
 	if len(matches) == 0 {
-		return data, nil
+		return input, nil
 	}
 	var firstErr error
 	var expanded strings.Builder
@@ -225,17 +335,14 @@ func expandResourceEnv(data []byte) ([]byte, error) {
 			firstErr = fmt.Errorf("environment variable %s is required", name)
 			break
 		}
-		if insideJSONString(input, match[0]) {
-			replacement = escapeJSONStringFragment(replacement)
-		}
-		expanded.WriteString(replacement)
+		expanded.WriteString(formatReplacement(replacement, match[0]))
 		last = match[1]
 	}
 	if firstErr != nil {
-		return nil, firstErr
+		return "", firstErr
 	}
 	expanded.WriteString(input[last:])
-	return []byte(expanded.String()), nil
+	return expanded.String(), nil
 }
 
 func insideJSONString(input string, offset int) bool {

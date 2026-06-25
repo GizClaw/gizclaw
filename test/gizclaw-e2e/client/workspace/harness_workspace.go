@@ -286,7 +286,7 @@ func isRPCNotFound(err error) bool {
 func workflowDocument(cfg config) rpcapi.WorkflowCreateRequest {
 	description := cfg.Workflow.Description
 	if description == "" {
-		description = "Workspace e2e workflow"
+		description = "workflow"
 	}
 	spec := workflowSpec(cfg)
 	return rpcapi.WorkflowCreateRequest{

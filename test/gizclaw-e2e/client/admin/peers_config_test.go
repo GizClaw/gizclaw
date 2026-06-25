@@ -21,13 +21,13 @@ func TestAdminAPIPeerConfigInfoRuntime(t *testing.T) {
 	}
 
 	nextCfg := *cfg.JSON200
-	nextCfg.View = ptr("e2e-client")
+	nextCfg.View = ptr("default-client")
 	putCfg, err := env.api.PutPeerConfigWithResponse(env.ctx, env.peerKey, nextCfg)
 	if err != nil {
 		t.Fatalf("put peer config: %v", err)
 	}
 	requireStatusOK(t, putCfg, putCfg.Body)
-	if putCfg.JSON200 == nil || putCfg.JSON200.View == nil || *putCfg.JSON200.View != "e2e-client" {
+	if putCfg.JSON200 == nil || putCfg.JSON200.View == nil || *putCfg.JSON200.View != "default-client" {
 		t.Fatalf("put peer config = %#v", putCfg.JSON200)
 	}
 

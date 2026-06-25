@@ -1,0 +1,2634 @@
+apiVersion: gizclaw.admin/v1alpha1
+kind: ResourceList
+metadata:
+  name: standard-client-bindings
+spec:
+  items:
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-workflow-collection
+    spec:
+      resource:
+        id: __collection__
+        kind: workflow
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-workspace-collection
+    spec:
+      resource:
+        id: __collection__
+        kind: workspace
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-model-core
+    spec:
+      resource:
+        id: openai-catalog-chat
+        kind: model
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-credential-core
+    spec:
+      resource:
+        id: openai-catalog-credential
+        kind: credential
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-firmware-core
+    spec:
+      resource:
+        id: devkit-firmware-main
+        kind: firmware
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-voice-core
+    spec:
+      resource:
+        id: minimax-catalog-voice
+        kind: voice
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-history-workspace
+    spec:
+      resource:
+        id: workspace-history-demo
+        kind: workspace
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-history-workflow
+    spec:
+      resource:
+        id: chatroom-history
+        kind: workflow
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: pk-default-client-history-workspace
+    spec:
+      resource:
+        id: workspace-history-demo
+        kind: workspace
+      role: standard-client
+      subject:
+        id: 8rAUkTyxLHDa5o3VajtzWcQdNJq1thrjAGtpwQkEsaEu
+        kind: pk
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-model-000
+    spec:
+      resource:
+        id: openai-catalog-chat-000
+        kind: model
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-model-001
+    spec:
+      resource:
+        id: openai-catalog-chat-001
+        kind: model
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-model-002
+    spec:
+      resource:
+        id: openai-catalog-chat-002
+        kind: model
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-model-003
+    spec:
+      resource:
+        id: openai-catalog-chat-003
+        kind: model
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-model-004
+    spec:
+      resource:
+        id: openai-catalog-chat-004
+        kind: model
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-model-005
+    spec:
+      resource:
+        id: openai-catalog-chat-005
+        kind: model
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-model-006
+    spec:
+      resource:
+        id: openai-catalog-chat-006
+        kind: model
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-model-007
+    spec:
+      resource:
+        id: openai-catalog-chat-007
+        kind: model
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-model-008
+    spec:
+      resource:
+        id: openai-catalog-chat-008
+        kind: model
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-model-009
+    spec:
+      resource:
+        id: openai-catalog-chat-009
+        kind: model
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-model-010
+    spec:
+      resource:
+        id: openai-catalog-chat-010
+        kind: model
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-model-011
+    spec:
+      resource:
+        id: openai-catalog-chat-011
+        kind: model
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-model-012
+    spec:
+      resource:
+        id: openai-catalog-chat-012
+        kind: model
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-model-013
+    spec:
+      resource:
+        id: openai-catalog-chat-013
+        kind: model
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-model-014
+    spec:
+      resource:
+        id: openai-catalog-chat-014
+        kind: model
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-model-015
+    spec:
+      resource:
+        id: openai-catalog-chat-015
+        kind: model
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-model-016
+    spec:
+      resource:
+        id: openai-catalog-chat-016
+        kind: model
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-model-017
+    spec:
+      resource:
+        id: openai-catalog-chat-017
+        kind: model
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-model-018
+    spec:
+      resource:
+        id: openai-catalog-chat-018
+        kind: model
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-model-019
+    spec:
+      resource:
+        id: openai-catalog-chat-019
+        kind: model
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-model-020
+    spec:
+      resource:
+        id: openai-catalog-chat-020
+        kind: model
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-model-021
+    spec:
+      resource:
+        id: openai-catalog-chat-021
+        kind: model
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-model-022
+    spec:
+      resource:
+        id: openai-catalog-chat-022
+        kind: model
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-model-023
+    spec:
+      resource:
+        id: openai-catalog-chat-023
+        kind: model
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-model-024
+    spec:
+      resource:
+        id: openai-catalog-chat-024
+        kind: model
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-model-025
+    spec:
+      resource:
+        id: openai-catalog-chat-025
+        kind: model
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-model-026
+    spec:
+      resource:
+        id: openai-catalog-chat-026
+        kind: model
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-model-027
+    spec:
+      resource:
+        id: openai-catalog-chat-027
+        kind: model
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-model-028
+    spec:
+      resource:
+        id: openai-catalog-chat-028
+        kind: model
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-model-029
+    spec:
+      resource:
+        id: openai-catalog-chat-029
+        kind: model
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-model-030
+    spec:
+      resource:
+        id: openai-catalog-chat-030
+        kind: model
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-model-031
+    spec:
+      resource:
+        id: openai-catalog-chat-031
+        kind: model
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-model-032
+    spec:
+      resource:
+        id: openai-catalog-chat-032
+        kind: model
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-model-033
+    spec:
+      resource:
+        id: openai-catalog-chat-033
+        kind: model
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-model-034
+    spec:
+      resource:
+        id: openai-catalog-chat-034
+        kind: model
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-model-035
+    spec:
+      resource:
+        id: openai-catalog-chat-035
+        kind: model
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-model-036
+    spec:
+      resource:
+        id: openai-catalog-chat-036
+        kind: model
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-model-037
+    spec:
+      resource:
+        id: openai-catalog-chat-037
+        kind: model
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-model-038
+    spec:
+      resource:
+        id: openai-catalog-chat-038
+        kind: model
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-model-039
+    spec:
+      resource:
+        id: openai-catalog-chat-039
+        kind: model
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-model-040
+    spec:
+      resource:
+        id: openai-catalog-chat-040
+        kind: model
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-model-041
+    spec:
+      resource:
+        id: openai-catalog-chat-041
+        kind: model
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-model-042
+    spec:
+      resource:
+        id: openai-catalog-chat-042
+        kind: model
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-model-043
+    spec:
+      resource:
+        id: openai-catalog-chat-043
+        kind: model
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-model-044
+    spec:
+      resource:
+        id: openai-catalog-chat-044
+        kind: model
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-model-045
+    spec:
+      resource:
+        id: openai-catalog-chat-045
+        kind: model
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-model-046
+    spec:
+      resource:
+        id: openai-catalog-chat-046
+        kind: model
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-model-047
+    spec:
+      resource:
+        id: openai-catalog-chat-047
+        kind: model
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-model-048
+    spec:
+      resource:
+        id: openai-catalog-chat-048
+        kind: model
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-model-049
+    spec:
+      resource:
+        id: openai-catalog-chat-049
+        kind: model
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-model-050
+    spec:
+      resource:
+        id: openai-catalog-chat-050
+        kind: model
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-model-051
+    spec:
+      resource:
+        id: openai-catalog-chat-051
+        kind: model
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-model-052
+    spec:
+      resource:
+        id: openai-catalog-chat-052
+        kind: model
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-model-053
+    spec:
+      resource:
+        id: openai-catalog-chat-053
+        kind: model
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-model-054
+    spec:
+      resource:
+        id: openai-catalog-chat-054
+        kind: model
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-model-055
+    spec:
+      resource:
+        id: openai-catalog-chat-055
+        kind: model
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-model-056
+    spec:
+      resource:
+        id: openai-catalog-chat-056
+        kind: model
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-model-057
+    spec:
+      resource:
+        id: openai-catalog-chat-057
+        kind: model
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-model-058
+    spec:
+      resource:
+        id: openai-catalog-chat-058
+        kind: model
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-model-059
+    spec:
+      resource:
+        id: openai-catalog-chat-059
+        kind: model
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-model-060
+    spec:
+      resource:
+        id: openai-catalog-chat-060
+        kind: model
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-model-061
+    spec:
+      resource:
+        id: openai-catalog-chat-061
+        kind: model
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-model-062
+    spec:
+      resource:
+        id: openai-catalog-chat-062
+        kind: model
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-model-063
+    spec:
+      resource:
+        id: openai-catalog-chat-063
+        kind: model
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-model-064
+    spec:
+      resource:
+        id: openai-catalog-chat-064
+        kind: model
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-model-065
+    spec:
+      resource:
+        id: openai-catalog-chat-065
+        kind: model
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-model-066
+    spec:
+      resource:
+        id: openai-catalog-chat-066
+        kind: model
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-model-067
+    spec:
+      resource:
+        id: openai-catalog-chat-067
+        kind: model
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-model-068
+    spec:
+      resource:
+        id: openai-catalog-chat-068
+        kind: model
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-model-069
+    spec:
+      resource:
+        id: openai-catalog-chat-069
+        kind: model
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-model-070
+    spec:
+      resource:
+        id: openai-catalog-chat-070
+        kind: model
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-model-071
+    spec:
+      resource:
+        id: openai-catalog-chat-071
+        kind: model
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-model-072
+    spec:
+      resource:
+        id: openai-catalog-chat-072
+        kind: model
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-model-073
+    spec:
+      resource:
+        id: openai-catalog-chat-073
+        kind: model
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-model-074
+    spec:
+      resource:
+        id: openai-catalog-chat-074
+        kind: model
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-model-075
+    spec:
+      resource:
+        id: openai-catalog-chat-075
+        kind: model
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-model-076
+    spec:
+      resource:
+        id: openai-catalog-chat-076
+        kind: model
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-model-077
+    spec:
+      resource:
+        id: openai-catalog-chat-077
+        kind: model
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-model-078
+    spec:
+      resource:
+        id: openai-catalog-chat-078
+        kind: model
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-model-079
+    spec:
+      resource:
+        id: openai-catalog-chat-079
+        kind: model
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-credential-000
+    spec:
+      resource:
+        id: openai-catalog-credential-000
+        kind: credential
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-credential-001
+    spec:
+      resource:
+        id: openai-catalog-credential-001
+        kind: credential
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-credential-002
+    spec:
+      resource:
+        id: openai-catalog-credential-002
+        kind: credential
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-credential-003
+    spec:
+      resource:
+        id: openai-catalog-credential-003
+        kind: credential
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-credential-004
+    spec:
+      resource:
+        id: openai-catalog-credential-004
+        kind: credential
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-credential-005
+    spec:
+      resource:
+        id: openai-catalog-credential-005
+        kind: credential
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-credential-006
+    spec:
+      resource:
+        id: openai-catalog-credential-006
+        kind: credential
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-credential-007
+    spec:
+      resource:
+        id: openai-catalog-credential-007
+        kind: credential
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-credential-008
+    spec:
+      resource:
+        id: openai-catalog-credential-008
+        kind: credential
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-credential-009
+    spec:
+      resource:
+        id: openai-catalog-credential-009
+        kind: credential
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-credential-010
+    spec:
+      resource:
+        id: openai-catalog-credential-010
+        kind: credential
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-credential-011
+    spec:
+      resource:
+        id: openai-catalog-credential-011
+        kind: credential
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-credential-012
+    spec:
+      resource:
+        id: openai-catalog-credential-012
+        kind: credential
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-credential-013
+    spec:
+      resource:
+        id: openai-catalog-credential-013
+        kind: credential
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-credential-014
+    spec:
+      resource:
+        id: openai-catalog-credential-014
+        kind: credential
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-credential-015
+    spec:
+      resource:
+        id: openai-catalog-credential-015
+        kind: credential
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-credential-016
+    spec:
+      resource:
+        id: openai-catalog-credential-016
+        kind: credential
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-credential-017
+    spec:
+      resource:
+        id: openai-catalog-credential-017
+        kind: credential
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-credential-018
+    spec:
+      resource:
+        id: openai-catalog-credential-018
+        kind: credential
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-credential-019
+    spec:
+      resource:
+        id: openai-catalog-credential-019
+        kind: credential
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-credential-020
+    spec:
+      resource:
+        id: openai-catalog-credential-020
+        kind: credential
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-credential-021
+    spec:
+      resource:
+        id: openai-catalog-credential-021
+        kind: credential
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-credential-022
+    spec:
+      resource:
+        id: openai-catalog-credential-022
+        kind: credential
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-credential-023
+    spec:
+      resource:
+        id: openai-catalog-credential-023
+        kind: credential
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-credential-024
+    spec:
+      resource:
+        id: openai-catalog-credential-024
+        kind: credential
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-credential-025
+    spec:
+      resource:
+        id: openai-catalog-credential-025
+        kind: credential
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-credential-026
+    spec:
+      resource:
+        id: openai-catalog-credential-026
+        kind: credential
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-credential-027
+    spec:
+      resource:
+        id: openai-catalog-credential-027
+        kind: credential
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-credential-028
+    spec:
+      resource:
+        id: openai-catalog-credential-028
+        kind: credential
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-credential-029
+    spec:
+      resource:
+        id: openai-catalog-credential-029
+        kind: credential
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-credential-030
+    spec:
+      resource:
+        id: openai-catalog-credential-030
+        kind: credential
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-credential-031
+    spec:
+      resource:
+        id: openai-catalog-credential-031
+        kind: credential
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-credential-032
+    spec:
+      resource:
+        id: openai-catalog-credential-032
+        kind: credential
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-credential-033
+    spec:
+      resource:
+        id: openai-catalog-credential-033
+        kind: credential
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-credential-034
+    spec:
+      resource:
+        id: openai-catalog-credential-034
+        kind: credential
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-credential-035
+    spec:
+      resource:
+        id: openai-catalog-credential-035
+        kind: credential
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-credential-036
+    spec:
+      resource:
+        id: openai-catalog-credential-036
+        kind: credential
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-credential-037
+    spec:
+      resource:
+        id: openai-catalog-credential-037
+        kind: credential
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-credential-038
+    spec:
+      resource:
+        id: openai-catalog-credential-038
+        kind: credential
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-credential-039
+    spec:
+      resource:
+        id: openai-catalog-credential-039
+        kind: credential
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-credential-040
+    spec:
+      resource:
+        id: openai-catalog-credential-040
+        kind: credential
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-credential-041
+    spec:
+      resource:
+        id: openai-catalog-credential-041
+        kind: credential
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-credential-042
+    spec:
+      resource:
+        id: openai-catalog-credential-042
+        kind: credential
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-credential-043
+    spec:
+      resource:
+        id: openai-catalog-credential-043
+        kind: credential
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-credential-044
+    spec:
+      resource:
+        id: openai-catalog-credential-044
+        kind: credential
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-credential-045
+    spec:
+      resource:
+        id: openai-catalog-credential-045
+        kind: credential
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-credential-046
+    spec:
+      resource:
+        id: openai-catalog-credential-046
+        kind: credential
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-credential-047
+    spec:
+      resource:
+        id: openai-catalog-credential-047
+        kind: credential
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-credential-048
+    spec:
+      resource:
+        id: openai-catalog-credential-048
+        kind: credential
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-credential-049
+    spec:
+      resource:
+        id: openai-catalog-credential-049
+        kind: credential
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-firmware-000
+    spec:
+      resource:
+        id: devkit-firmware-000
+        kind: firmware
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-firmware-001
+    spec:
+      resource:
+        id: devkit-firmware-001
+        kind: firmware
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-firmware-002
+    spec:
+      resource:
+        id: devkit-firmware-002
+        kind: firmware
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-firmware-003
+    spec:
+      resource:
+        id: devkit-firmware-003
+        kind: firmware
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-firmware-004
+    spec:
+      resource:
+        id: devkit-firmware-004
+        kind: firmware
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-firmware-005
+    spec:
+      resource:
+        id: devkit-firmware-005
+        kind: firmware
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-firmware-006
+    spec:
+      resource:
+        id: devkit-firmware-006
+        kind: firmware
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-firmware-007
+    spec:
+      resource:
+        id: devkit-firmware-007
+        kind: firmware
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-firmware-008
+    spec:
+      resource:
+        id: devkit-firmware-008
+        kind: firmware
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-firmware-009
+    spec:
+      resource:
+        id: devkit-firmware-009
+        kind: firmware
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-firmware-010
+    spec:
+      resource:
+        id: devkit-firmware-010
+        kind: firmware
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-firmware-011
+    spec:
+      resource:
+        id: devkit-firmware-011
+        kind: firmware
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-firmware-012
+    spec:
+      resource:
+        id: devkit-firmware-012
+        kind: firmware
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-firmware-013
+    spec:
+      resource:
+        id: devkit-firmware-013
+        kind: firmware
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-firmware-014
+    spec:
+      resource:
+        id: devkit-firmware-014
+        kind: firmware
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-firmware-015
+    spec:
+      resource:
+        id: devkit-firmware-015
+        kind: firmware
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-firmware-016
+    spec:
+      resource:
+        id: devkit-firmware-016
+        kind: firmware
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-firmware-017
+    spec:
+      resource:
+        id: devkit-firmware-017
+        kind: firmware
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-firmware-018
+    spec:
+      resource:
+        id: devkit-firmware-018
+        kind: firmware
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-firmware-019
+    spec:
+      resource:
+        id: devkit-firmware-019
+        kind: firmware
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-firmware-020
+    spec:
+      resource:
+        id: devkit-firmware-020
+        kind: firmware
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-firmware-021
+    spec:
+      resource:
+        id: devkit-firmware-021
+        kind: firmware
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-firmware-022
+    spec:
+      resource:
+        id: devkit-firmware-022
+        kind: firmware
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-firmware-023
+    spec:
+      resource:
+        id: devkit-firmware-023
+        kind: firmware
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-firmware-024
+    spec:
+      resource:
+        id: devkit-firmware-024
+        kind: firmware
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-firmware-025
+    spec:
+      resource:
+        id: devkit-firmware-025
+        kind: firmware
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-firmware-026
+    spec:
+      resource:
+        id: devkit-firmware-026
+        kind: firmware
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-firmware-027
+    spec:
+      resource:
+        id: devkit-firmware-027
+        kind: firmware
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-firmware-028
+    spec:
+      resource:
+        id: devkit-firmware-028
+        kind: firmware
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-firmware-029
+    spec:
+      resource:
+        id: devkit-firmware-029
+        kind: firmware
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-firmware-030
+    spec:
+      resource:
+        id: devkit-firmware-030
+        kind: firmware
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-firmware-031
+    spec:
+      resource:
+        id: devkit-firmware-031
+        kind: firmware
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-firmware-032
+    spec:
+      resource:
+        id: devkit-firmware-032
+        kind: firmware
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-firmware-033
+    spec:
+      resource:
+        id: devkit-firmware-033
+        kind: firmware
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-firmware-034
+    spec:
+      resource:
+        id: devkit-firmware-034
+        kind: firmware
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-firmware-035
+    spec:
+      resource:
+        id: devkit-firmware-035
+        kind: firmware
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-firmware-036
+    spec:
+      resource:
+        id: devkit-firmware-036
+        kind: firmware
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-firmware-037
+    spec:
+      resource:
+        id: devkit-firmware-037
+        kind: firmware
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-firmware-038
+    spec:
+      resource:
+        id: devkit-firmware-038
+        kind: firmware
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-firmware-039
+    spec:
+      resource:
+        id: devkit-firmware-039
+        kind: firmware
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-firmware-040
+    spec:
+      resource:
+        id: devkit-firmware-040
+        kind: firmware
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-firmware-041
+    spec:
+      resource:
+        id: devkit-firmware-041
+        kind: firmware
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-firmware-042
+    spec:
+      resource:
+        id: devkit-firmware-042
+        kind: firmware
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-firmware-043
+    spec:
+      resource:
+        id: devkit-firmware-043
+        kind: firmware
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-firmware-044
+    spec:
+      resource:
+        id: devkit-firmware-044
+        kind: firmware
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-firmware-045
+    spec:
+      resource:
+        id: devkit-firmware-045
+        kind: firmware
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-firmware-046
+    spec:
+      resource:
+        id: devkit-firmware-046
+        kind: firmware
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-firmware-047
+    spec:
+      resource:
+        id: devkit-firmware-047
+        kind: firmware
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-firmware-048
+    spec:
+      resource:
+        id: devkit-firmware-048
+        kind: firmware
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-firmware-049
+    spec:
+      resource:
+        id: devkit-firmware-049
+        kind: firmware
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-firmware-050
+    spec:
+      resource:
+        id: devkit-firmware-050
+        kind: firmware
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-firmware-051
+    spec:
+      resource:
+        id: devkit-firmware-051
+        kind: firmware
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-firmware-052
+    spec:
+      resource:
+        id: devkit-firmware-052
+        kind: firmware
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-firmware-053
+    spec:
+      resource:
+        id: devkit-firmware-053
+        kind: firmware
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-firmware-054
+    spec:
+      resource:
+        id: devkit-firmware-054
+        kind: firmware
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-firmware-055
+    spec:
+      resource:
+        id: devkit-firmware-055
+        kind: firmware
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-firmware-056
+    spec:
+      resource:
+        id: devkit-firmware-056
+        kind: firmware
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-firmware-057
+    spec:
+      resource:
+        id: devkit-firmware-057
+        kind: firmware
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-firmware-058
+    spec:
+      resource:
+        id: devkit-firmware-058
+        kind: firmware
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-firmware-059
+    spec:
+      resource:
+        id: devkit-firmware-059
+        kind: firmware
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-firmware-060
+    spec:
+      resource:
+        id: devkit-firmware-060
+        kind: firmware
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-firmware-061
+    spec:
+      resource:
+        id: devkit-firmware-061
+        kind: firmware
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-firmware-062
+    spec:
+      resource:
+        id: devkit-firmware-062
+        kind: firmware
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-firmware-063
+    spec:
+      resource:
+        id: devkit-firmware-063
+        kind: firmware
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-firmware-064
+    spec:
+      resource:
+        id: devkit-firmware-064
+        kind: firmware
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-firmware-065
+    spec:
+      resource:
+        id: devkit-firmware-065
+        kind: firmware
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-firmware-066
+    spec:
+      resource:
+        id: devkit-firmware-066
+        kind: firmware
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-firmware-067
+    spec:
+      resource:
+        id: devkit-firmware-067
+        kind: firmware
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-firmware-068
+    spec:
+      resource:
+        id: devkit-firmware-068
+        kind: firmware
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-firmware-069
+    spec:
+      resource:
+        id: devkit-firmware-069
+        kind: firmware
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-firmware-070
+    spec:
+      resource:
+        id: devkit-firmware-070
+        kind: firmware
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-firmware-071
+    spec:
+      resource:
+        id: devkit-firmware-071
+        kind: firmware
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-firmware-072
+    spec:
+      resource:
+        id: devkit-firmware-072
+        kind: firmware
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-firmware-073
+    spec:
+      resource:
+        id: devkit-firmware-073
+        kind: firmware
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-firmware-074
+    spec:
+      resource:
+        id: devkit-firmware-074
+        kind: firmware
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-firmware-075
+    spec:
+      resource:
+        id: devkit-firmware-075
+        kind: firmware
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-firmware-076
+    spec:
+      resource:
+        id: devkit-firmware-076
+        kind: firmware
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-firmware-077
+    spec:
+      resource:
+        id: devkit-firmware-077
+        kind: firmware
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-firmware-078
+    spec:
+      resource:
+        id: devkit-firmware-078
+        kind: firmware
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-firmware-079
+    spec:
+      resource:
+        id: devkit-firmware-079
+        kind: firmware
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view

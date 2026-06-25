@@ -1,0 +1,25 @@
+---
+apiVersion: gizclaw.admin/v1alpha1
+kind: Model
+metadata:
+  name: openai-gpt-4o-mini
+spec:
+  kind: llm
+  source: manual
+  provider:
+    kind: openai-tenant
+    name: openai-main
+  name: OpenAI GPT-4o Mini
+  description: OpenAI-compatible GPT-4o Mini chat model
+  capabilities:
+    json_output: true
+    system_role: true
+    temperature: true
+    text_only: true
+    tool_calls: true
+  provider_data:
+    upstream_model: gpt-4o-mini
+    support_json_output: true
+    support_text_only: true
+    support_tool_calls: true
+    use_system_role: true

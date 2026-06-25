@@ -1,7 +1,7 @@
 //go:build gizclaw_e2e
 
 // User story: As an admin operator, I can perform peer actions against real
-// seeded registrations, including refresh, role updates, block, and reset.
+// shared registrations, including refresh, role updates, block, and reset.
 package adminui_test
 
 import (

@@ -16,24 +16,24 @@ func TestAdminWorkspacesUserStory(t *testing.T) {
 
 	list := h.RunCLI("admin", "workspaces", "list", "--context", "admin-a")
 	list.MustSucceed(t)
-	if !strings.Contains(list.Stdout, `"name":"ui-seed-workspace"`) {
+	if !strings.Contains(list.Stdout, `"name":"workspace-flowcraft-assistant"`) {
 		t.Fatalf("workspaces list missing created item:\n%s", list.Stdout)
 	}
-	for _, want := range []string{`"name":"e2e-rpc-workspace"`, `"name":"e2e-rpc-workspace-119"`} {
+	for _, want := range []string{`"name":"workspace-support-demo"`, `"name":"workspace-scenario-119"`} {
 		if !strings.Contains(list.Stdout, want) {
 			t.Fatalf("workspaces list missing %q:\n%s", want, list.Stdout)
 		}
 	}
 
-	get := h.RunCLI("admin", "workspaces", "get", "ui-seed-workspace", "--context", "admin-a")
+	get := h.RunCLI("admin", "workspaces", "get", "workspace-flowcraft-assistant", "--context", "admin-a")
 	get.MustSucceed(t)
-	if !strings.Contains(get.Stdout, `"workflow_name":"ui-seed-workflow"`) {
+	if !strings.Contains(get.Stdout, `"workflow_name":"flowcraft-assistant"`) {
 		t.Fatalf("workspaces get missing workflow name:\n%s", get.Stdout)
 	}
 
-	rpcGet := h.RunCLI("admin", "workspaces", "get", "e2e-rpc-workspace", "--context", "admin-a")
+	rpcGet := h.RunCLI("admin", "workspaces", "get", "workspace-support-demo", "--context", "admin-a")
 	rpcGet.MustSucceed(t)
-	if !strings.Contains(rpcGet.Stdout, `"workflow_name":"e2e-rpc-workflow"`) {
-		t.Fatalf("workspaces get missing RPC workflow name:\n%s", rpcGet.Stdout)
+	if !strings.Contains(rpcGet.Stdout, `"workflow_name":"flowcraft-support"`) {
+		t.Fatalf("workspaces get missing catalog workflow name:\n%s", rpcGet.Stdout)
 	}
 }

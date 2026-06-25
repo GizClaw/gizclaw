@@ -1,6 +1,6 @@
 //go:build gizclaw_e2e
 
-// User story: As an admin operator, I can browse seeded provider credentials
+// User story: As an admin operator, I can browse shared provider credentials
 // and confirm the credential metadata shown by the Admin UI.
 package adminui_test
 

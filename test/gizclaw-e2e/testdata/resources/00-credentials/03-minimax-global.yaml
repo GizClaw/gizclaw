@@ -1,0 +1,11 @@
+---
+apiVersion: gizclaw.admin/v1alpha1
+kind: Credential
+metadata:
+  name: minimax-global-credential
+spec:
+  provider: minimax
+  description: MiniMax global credential
+  body:
+    api_key: "${GIZCLAW_E2E_MINIMAX_GLOBAL_API_KEY}"
+    voice_base_url: "${GIZCLAW_E2E_MINIMAX_GLOBAL_VOICE_BASE_URL:-}"

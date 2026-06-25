@@ -1,0 +1,98 @@
+apiVersion: gizclaw.admin/v1alpha1
+kind: ResourceList
+metadata:
+  name: fake-core-resources
+spec:
+  items:
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Credential
+    metadata:
+      name: openai-catalog-credential
+    spec:
+      body:
+        api_key: sk-openai-catalog
+      description: OpenAI-compatible credential entry for the shared catalog
+      provider: openai
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Model
+    metadata:
+      name: openai-catalog-chat
+    spec:
+      kind: llm
+      name: OpenAI catalog model openai-catalog-chat
+      provider:
+        kind: openai-tenant
+        name: openai-lab
+      provider_data:
+        support_json_output: true
+        upstream_model: gpt-4o-mini
+        use_system_role: true
+      source: manual
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Voice
+    metadata:
+      name: minimax-catalog-voice
+    spec:
+      description: Manual MiniMax voice row for shared catalog coverage
+      name: MiniMax catalog voice
+      provider:
+        kind: minimax-tenant
+        name: minimax-main
+      provider_data:
+        raw:
+          origin: shared-catalog
+        voice_id: minimax-catalog-voice-id
+        voice_type: voice_cloning
+      source: manual
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Workflow
+    metadata:
+      description: Shared Flowcraft support workflow
+      name: flowcraft-support
+    spec:
+      driver: flowcraft
+      flowcraft:
+        entry_agent: ""
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Workflow
+    metadata:
+      description: Direct chatroom message board workflow
+      name: chatroom-direct
+    spec:
+      chatroom:
+        history:
+          ttl: 168h
+      driver: chatroom
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Workspace
+    metadata:
+      name: workspace-support-demo
+    spec:
+      parameters:
+        agent_type: flowcraft
+        input: push-to-talk
+      workflow_name: flowcraft-support
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Workspace
+    metadata:
+      name: workspace-direct-chat-demo
+    spec:
+      parameters:
+        agent_type: chatroom
+      workflow_name: chatroom-direct
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Firmware
+    metadata:
+      name: devkit-firmware-main
+    spec:
+      description: Devkit firmware catalog entry
+      slots:
+        beta:
+          version: 9.9.0-beta
+        develop:
+          version: 9.9.0-dev
+        stable:
+          artifacts:
+          - kind: app
+            name: main
+          version: 9.9.0

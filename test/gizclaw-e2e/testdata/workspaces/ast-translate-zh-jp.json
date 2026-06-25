@@ -1,15 +1,15 @@
 {
   "agent": "ast-translate",
   "models": {
-    "llm": "e2e-doubao-2-lite-chat",
-    "tts": "e2e-tts",
-    "asr": "e2e-asr",
-    "translation": "e2e-ast-translate"
+    "llm": "doubao-lite-chat",
+    "tts": "volc-bigtts",
+    "asr": "volc-bigasr-sauc",
+    "translation": "volc-ast-translate"
   },
   "workflow": {
-    "name": "e2e-ast-translate-zh-jp",
-    "description": "Workspace e2e AST Chinese to Japanese speech translation workflow",
-    "translation_model": "e2e-ast-translate",
+    "name": "volc-ast-translate-zh-jp",
+    "description": "AST Chinese to Japanese speech translation workflow",
+    "translation_model": "volc-ast-translate",
     "parameters": {
       "input": "push-to-talk",
       "lang_pair": "zh/jp"
@@ -21,7 +21,7 @@
       "denoise": false
     }
   },
-  "voice": "volc-tenant:e2e-volc-tenant:zh_female_vv_mars_bigtts",
+  "voice": "volc-tenant:volc-main:zh_female_vv_mars_bigtts",
   "rounds": 3,
   "timeout": "300s",
   "persona": "You are a concise Chinese voice translation test user. Keep every utterance short, clear, and speech friendly."

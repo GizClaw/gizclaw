@@ -1,0 +1,20 @@
+---
+apiVersion: gizclaw.admin/v1alpha1
+kind: ACLRole
+metadata:
+  name: default-client
+spec:
+  permissions:
+  - credential.read
+  - credential.use
+  - model.read
+  - model.use
+  - view.read
+  - view.use
+  - voice.read
+  - voice.use
+  - workflow.read
+  - workflow.use
+  - workspace.admin
+  - workspace.read
+  - workspace.use

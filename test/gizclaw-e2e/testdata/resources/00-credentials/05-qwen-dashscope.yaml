@@ -1,0 +1,10 @@
+---
+apiVersion: gizclaw.admin/v1alpha1
+kind: Credential
+metadata:
+  name: qwen-dashscope-credential
+spec:
+  provider: dashscope
+  description: Qwen/DashScope main credential
+  body:
+    api_key: "${GIZCLAW_E2E_DASHSCOPE_API_KEY}"

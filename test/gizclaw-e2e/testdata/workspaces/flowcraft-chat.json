@@ -1,16 +1,16 @@
 {
   "agent": "flowcraft",
   "models": {
-    "asr": "e2e-asr",
-    "llm": "e2e-doubao-2-lite-chat",
-    "tts": "e2e-tts"
+    "asr": "volc-bigasr-sauc",
+    "llm": "doubao-lite-chat",
+    "tts": "volc-bigtts"
   },
   "persona": "Always generate exactly this Chinese utterance: 你好，简单介绍一下你自己。",
   "rounds": 3,
   "timeout": "1200s",
-  "voice": "volc-tenant:e2e-volc-tenant:zh_female_vv_mars_bigtts",
+  "voice": "volc-tenant:volc-main:zh_female_vv_mars_bigtts",
   "workflow": {
-    "description": "Workspace e2e Flowcraft raid: Chat",
+    "description": "Flowcraft raid: Chat",
     "flowcraft": {
       "agent": {
         "description": "Local FlowCraft assistant.",
@@ -53,7 +53,7 @@
         "name": "Claw"
       },
       "conversation": {
-        "context_id": "e2e-flowcraft-chat"
+        "context_id": "flowcraft-chat-assistant"
       },
       "history": {
         "enabled": true,
@@ -125,17 +125,17 @@
         "state_root": "state"
       }
     },
-    "name": "e2e-flowcraft-chat",
+    "name": "flowcraft-chat-assistant",
     "parameters": {
-      "extract_model": "e2e-doubao-2-lite-chat",
-      "generate_model": "e2e-doubao-2-lite-chat",
+      "extract_model": "doubao-lite-chat",
+      "generate_model": "doubao-lite-chat",
       "input": "push-to-talk"
     },
     "voice_adapter": {
-      "asr_model": "e2e-asr",
-      "default_voice": "volc-tenant:e2e-volc-tenant:zh_female_shaoergushi_mars_bigtts",
+      "asr_model": "volc-bigasr-sauc",
+      "default_voice": "volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts",
       "node_voices": {
-        "answer": "volc-tenant:e2e-volc-tenant:zh_female_shaoergushi_mars_bigtts"
+        "answer": "volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts"
       }
     }
   }

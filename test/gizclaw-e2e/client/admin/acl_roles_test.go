@@ -20,14 +20,14 @@ func TestAdminAPIACLRolesListGetAndMutation(t *testing.T) {
 	if list.JSON200 == nil {
 		t.Fatalf("list ACL roles missing JSON200")
 	}
-	requireName(t, list.JSON200.Items, "e2e-client", func(item apitypes.ACLRole) string { return item.Name })
+	requireName(t, list.JSON200.Items, "default-client", func(item apitypes.ACLRole) string { return item.Name })
 
-	get, err := env.api.GetACLRoleWithResponse(env.ctx, "e2e-client")
+	get, err := env.api.GetACLRoleWithResponse(env.ctx, "default-client")
 	if err != nil {
 		t.Fatalf("get ACL role: %v", err)
 	}
 	requireStatusOK(t, get, get.Body)
-	if get.JSON200 == nil || get.JSON200.Name != "e2e-client" || len(get.JSON200.Permissions) == 0 {
+	if get.JSON200 == nil || get.JSON200.Name != "default-client" || len(get.JSON200.Permissions) == 0 {
 		t.Fatalf("get ACL role = %#v", get.JSON200)
 	}
 

@@ -1,0 +1,16 @@
+---
+apiVersion: gizclaw.admin/v1alpha1
+kind: Workflow
+metadata:
+  name: volc-ast-translate-tts
+  description: AST text translation with external GizClaw TTS voice
+spec:
+  driver: ast-translate
+  ast_translate:
+    translation_model: volc-ast-translate
+    auth_mode: v2
+    mode: s2t
+    voice:
+      tts_voice: volc-tenant:volc-main:zh_female_vv_mars_bigtts
+    resource_id: volc.service_type.10053
+    denoise: false

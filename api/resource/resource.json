@@ -24,6 +24,10 @@
           "ACLRole",
           "ACLView",
           "Firmware",
+          "Friend",
+          "FriendGroup",
+          "FriendGroupInviteToken",
+          "FriendGroupMember",
           "Model",
           "DashScopeTenant",
           "GeminiTenant",
@@ -81,6 +85,18 @@
             "$ref": "./firmware.json#/components/schemas/FirmwareResource"
           },
           {
+            "$ref": "./friend.json#/components/schemas/FriendResource"
+          },
+          {
+            "$ref": "./friend_group.json#/components/schemas/FriendGroupResource"
+          },
+          {
+            "$ref": "./friend_group_invite_token.json#/components/schemas/FriendGroupInviteTokenResource"
+          },
+          {
+            "$ref": "./friend_group_member.json#/components/schemas/FriendGroupMemberResource"
+          },
+          {
             "$ref": "./model.json#/components/schemas/ModelResource"
           },
           {
@@ -128,6 +144,10 @@
             "ACLView": "./acl_view.json#/components/schemas/ACLViewResource",
             "Credential": "./credential.json#/components/schemas/CredentialResource",
             "Firmware": "./firmware.json#/components/schemas/FirmwareResource",
+            "Friend": "./friend.json#/components/schemas/FriendResource",
+            "FriendGroup": "./friend_group.json#/components/schemas/FriendGroupResource",
+            "FriendGroupInviteToken": "./friend_group_invite_token.json#/components/schemas/FriendGroupInviteTokenResource",
+            "FriendGroupMember": "./friend_group_member.json#/components/schemas/FriendGroupMemberResource",
             "DashScopeTenant": "./dashscope_tenant.json#/components/schemas/DashScopeTenantResource",
             "GeminiTenant": "./gemini_tenant.json#/components/schemas/GeminiTenantResource",
             "Model": "./model.json#/components/schemas/ModelResource",

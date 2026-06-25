@@ -1,16 +1,16 @@
 {
   "agent": "flowcraft",
   "models": {
-    "asr": "e2e-asr",
-    "llm": "e2e-doubao-2-lite-chat",
-    "tts": "e2e-tts"
+    "asr": "volc-bigasr-sauc",
+    "llm": "doubao-lite-chat",
+    "tts": "volc-bigtts"
   },
   "persona": "Always generate exactly this Chinese utterance: 继续讲西游记，讲短一点。",
   "rounds": 3,
   "timeout": "1200s",
-  "voice": "volc-tenant:e2e-volc-tenant:zh_female_vv_mars_bigtts",
+  "voice": "volc-tenant:volc-main:zh_female_vv_mars_bigtts",
   "workflow": {
-    "description": "Workspace e2e Flowcraft raid: Journey",
+    "description": "Flowcraft raid: Journey",
     "flowcraft": {
       "agent": {
         "description": "A multi-node storyteller for Journey to the West.",
@@ -461,7 +461,7 @@
         }
       },
       "conversation": {
-        "context_id": "e2e-flowcraft-journey",
+        "context_id": "flowcraft-journey-guide",
         "starts": "self"
       },
       "history": {
@@ -644,28 +644,28 @@
         "state_root": "state"
       }
     },
-    "name": "e2e-flowcraft-journey",
+    "name": "flowcraft-journey-guide",
     "parameters": {
-      "extract_model": "e2e-doubao-2-lite-chat",
-      "generate_model": "e2e-doubao-2-lite-chat",
+      "extract_model": "doubao-lite-chat",
+      "generate_model": "doubao-lite-chat",
       "input": "push-to-talk"
     },
     "voice_adapter": {
-      "asr_model": "e2e-asr",
-      "default_voice": "volc-tenant:e2e-volc-tenant:zh_female_shaoergushi_mars_bigtts",
+      "asr_model": "volc-bigasr-sauc",
+      "default_voice": "volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts",
       "node_voices": {
-        "reroute_storyteller_arrival": "volc-tenant:e2e-volc-tenant:zh_female_shaoergushi_mars_bigtts",
-        "reroute_storyteller_heaven": "volc-tenant:e2e-volc-tenant:zh_female_shaoergushi_mars_bigtts",
-        "reroute_storyteller_kingdoms": "volc-tenant:e2e-volc-tenant:zh_female_shaoergushi_mars_bigtts",
-        "reroute_storyteller_origin": "volc-tenant:e2e-volc-tenant:zh_female_shaoergushi_mars_bigtts",
-        "reroute_storyteller_pilgrimage": "volc-tenant:e2e-volc-tenant:zh_female_shaoergushi_mars_bigtts",
-        "reroute_storyteller_trials": "volc-tenant:e2e-volc-tenant:zh_female_shaoergushi_mars_bigtts",
-        "storyteller_arrival": "volc-tenant:e2e-volc-tenant:zh_female_shaoergushi_mars_bigtts",
-        "storyteller_heaven": "volc-tenant:e2e-volc-tenant:zh_female_shaoergushi_mars_bigtts",
-        "storyteller_kingdoms": "volc-tenant:e2e-volc-tenant:zh_female_shaoergushi_mars_bigtts",
-        "storyteller_origin": "volc-tenant:e2e-volc-tenant:zh_female_shaoergushi_mars_bigtts",
-        "storyteller_pilgrimage": "volc-tenant:e2e-volc-tenant:zh_female_shaoergushi_mars_bigtts",
-        "storyteller_trials": "volc-tenant:e2e-volc-tenant:zh_female_shaoergushi_mars_bigtts"
+        "reroute_storyteller_arrival": "volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts",
+        "reroute_storyteller_heaven": "volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts",
+        "reroute_storyteller_kingdoms": "volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts",
+        "reroute_storyteller_origin": "volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts",
+        "reroute_storyteller_pilgrimage": "volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts",
+        "reroute_storyteller_trials": "volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts",
+        "storyteller_arrival": "volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts",
+        "storyteller_heaven": "volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts",
+        "storyteller_kingdoms": "volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts",
+        "storyteller_origin": "volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts",
+        "storyteller_pilgrimage": "volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts",
+        "storyteller_trials": "volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts"
       }
     }
   }

@@ -32,8 +32,8 @@ const (
 	socialHumanReviewSampleRate             = 48000
 	socialHumanReviewFrameSize              = socialHumanReviewSampleRate / 50
 	socialHumanReviewACLView                = "e2e-client"
-	socialHumanReviewTTSModel               = "e2e-tts"
-	socialHumanReviewVoiceResource          = "volc-tenant:e2e-volc-tenant:zh_female_vv_mars_bigtts"
+	socialHumanReviewTTSModel               = "volc-bigtts"
+	socialHumanReviewVoiceResource          = "volc-tenant:volc-main:zh_female_vv_mars_bigtts"
 )
 
 func TestServerSocialRPCHumanReview(t *testing.T) {
@@ -91,7 +91,7 @@ func newSocialHumanReviewHarness(t *testing.T) *clitest.Harness {
 	if err != nil {
 		t.Fatalf("create social human-review admin client: %v", err)
 	}
-	applySocialResourceFile(t, api, socialHumanReviewResourcePath(h, "040-workflow-chatroom.json"))
+	applySocialResourceFile(t, api, socialHumanReviewResourcePath(h, "04-workflows/03-chatroom.yaml"))
 	configureSocialPeerContext(t, h, "peer-a", "GIZCLAW_E2E_SOCIAL_PERSON_A_CONFIG_HOME", "GIZCLAW_E2E_SOCIAL_PERSON_A_CONTEXT", "client-social-human-review-peer-a-sn")
 	configureSocialPeerContext(t, h, "peer-b", "GIZCLAW_E2E_SOCIAL_PERSON_B_CONFIG_HOME", "GIZCLAW_E2E_SOCIAL_PERSON_B_CONTEXT", "client-social-human-review-peer-b-sn")
 	for _, peer := range []string{"peer-c"} {

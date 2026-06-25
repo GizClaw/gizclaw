@@ -17,6 +17,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/gizcli"
 	"github.com/GizClaw/gizclaw-go/pkg/giznet"
+	"github.com/goccy/go-yaml"
 )
 
 func TestWorkspaceCaseAppliesInputMode(t *testing.T) {
@@ -219,6 +220,7 @@ func TestSetupWorkflowResourcesCoverWorkspaceConfigs(t *testing.T) {
 	if len(paths) == 0 {
 		t.Fatal("workspace configs are missing")
 	}
+	resources := loadSetupWorkflowResources(t)
 	for _, path := range paths {
 		t.Run(filepath.Base(path), func(t *testing.T) {
 			data, err := os.ReadFile(path)
@@ -229,21 +231,11 @@ func TestSetupWorkflowResourcesCoverWorkspaceConfigs(t *testing.T) {
 			if err := json.Unmarshal(data, &cfg); err != nil {
 				t.Fatalf("decode config: %v", err)
 			}
-			resourcePath := filepath.Join("..", "..", "testdata", "resources", "040-workflow-"+strings.TrimSuffix(filepath.Base(path), filepath.Ext(path))+".json")
-			resourceData, err := os.ReadFile(resourcePath)
-			if err != nil {
-				t.Fatalf("read setup workflow resource %s: %v", resourcePath, err)
-			}
-			var resource struct {
-				APIVersion string                  `json:"apiVersion"`
-				Kind       string                  `json:"kind"`
-				Metadata   rpcapi.WorkflowMetadata `json:"metadata"`
-				Spec       rpcapi.WorkflowSpec     `json:"spec"`
-			}
-			if err := json.Unmarshal(resourceData, &resource); err != nil {
-				t.Fatalf("decode setup workflow resource: %v", err)
-			}
 			want := workflowDocument(cfg)
+			resource, ok := resources[want.Metadata.Name]
+			if !ok {
+				t.Fatalf("setup workflow resource for %q is missing", want.Metadata.Name)
+			}
 			if resource.APIVersion != "gizclaw.admin/v1alpha1" || resource.Kind != "Workflow" {
 				t.Fatalf("resource header = %s/%s", resource.APIVersion, resource.Kind)
 			}
@@ -263,6 +255,44 @@ func TestSetupWorkflowResourcesCoverWorkspaceConfigs(t *testing.T) {
 			}
 		})
 	}
+}
+
+type setupWorkflowResource struct {
+	APIVersion string                  `json:"apiVersion"`
+	Kind       string                  `json:"kind"`
+	Metadata   rpcapi.WorkflowMetadata `json:"metadata"`
+	Spec       rpcapi.WorkflowSpec     `json:"spec"`
+}
+
+func loadSetupWorkflowResources(t *testing.T) map[string]setupWorkflowResource {
+	t.Helper()
+	paths, err := filepath.Glob(filepath.Join("..", "..", "testdata", "resources", "04-workflows", "*.yaml"))
+	if err != nil {
+		t.Fatalf("glob workflow resources: %v", err)
+	}
+	if len(paths) == 0 {
+		t.Fatal("setup workflow resources are missing")
+	}
+	resources := make(map[string]setupWorkflowResource)
+	for _, path := range paths {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatalf("read setup workflow resource %s: %v", path, err)
+		}
+		jsonData, err := yaml.YAMLToJSON(data)
+		if err != nil {
+			t.Fatalf("convert setup workflow resource %s: %v", path, err)
+		}
+		var resource setupWorkflowResource
+		if err := json.Unmarshal(jsonData, &resource); err != nil {
+			t.Fatalf("decode setup workflow resource %s: %v", path, err)
+		}
+		if resource.Kind != "Workflow" {
+			continue
+		}
+		resources[resource.Metadata.Name] = resource
+	}
+	return resources
 }
 
 func TestPrintWorkspaceRuntimeAndInterruptSummaries(t *testing.T) {
@@ -401,7 +431,7 @@ func TestRunSkipsEnsureWorkspaceWhenDisabled(t *testing.T) {
     "asr": "asr"
   },
   "workflow": {
-    "name": "e2e-flowcraft-journey"
+    "name": "flowcraft-journey-guide"
   },
   "voice": "voice",
   "rounds": 1,

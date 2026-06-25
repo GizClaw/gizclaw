@@ -435,6 +435,8 @@ func (s *Server) init() error {
 		Voices:          voiceServer,
 		Workspaces:      workspaceServer,
 		Workflows:       workflowServer,
+		Friends:         friendServer,
+		FriendGroups:    friendGroupServer,
 	})
 
 	s.manager = manager

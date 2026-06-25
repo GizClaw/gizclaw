@@ -1,6 +1,7 @@
 package resourcemanager
 
 import (
+	"context"
 	"encoding/json"
 	"net/url"
 	"testing"
@@ -63,8 +64,17 @@ func TestCommonResourceErrors(t *testing.T) {
 	assertResourceError(t, missingService("credentials"), 500, "RESOURCE_SERVICE_NOT_CONFIGURED")
 	assertResourceError(t, notFound(apitypes.ResourceKindCredential, "missing"), 404, "RESOURCE_NOT_FOUND")
 	assertResourceError(t, unexpectedResponse("Operation", struct{}{}), 500, "UNEXPECTED_SERVICE_RESPONSE")
+	manager := New(Services{})
+	_, err := manager.Get(context.Background(), apitypes.ResourceKindResourceList, "bundle")
+	assertResourceError(t, err, 400, "UNSUPPORTED_RESOURCE_GET")
+	_, err = manager.Delete(context.Background(), apitypes.ResourceKindResourceList, "bundle")
+	assertResourceError(t, err, 400, "UNSUPPORTED_RESOURCE_DELETE")
+	_, err = manager.Get(context.Background(), apitypes.ResourceKind("Unknown"), "demo")
+	assertResourceError(t, err, 400, "UNKNOWN_RESOURCE_KIND")
+	_, err = manager.Delete(context.Background(), apitypes.ResourceKind("Unknown"), "demo")
+	assertResourceError(t, err, 400, "UNKNOWN_RESOURCE_KIND")
 
-	err := applyError(400, "INVALID", "invalid resource")
+	err = applyError(400, "INVALID", "invalid resource")
 	if err.Error() != "INVALID: invalid resource" {
 		t.Fatalf("Error() = %q, want INVALID: invalid resource", err.Error())
 	}

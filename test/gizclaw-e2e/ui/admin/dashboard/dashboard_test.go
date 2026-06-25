@@ -1,7 +1,7 @@
 //go:build gizclaw_e2e
 
 // User story: As an admin operator, I can open the dashboard and see the
-// high-level server and device overview backed by real seeded data.
+// high-level server and device overview backed by real shared data.
 package adminui_test
 
 import (

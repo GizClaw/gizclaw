@@ -1,6 +1,6 @@
 //go:build gizclaw_e2e
 
-// User story: As an admin operator, I can browse seeded workflows and
+// User story: As an admin operator, I can browse shared workflows and
 // inspect the workflow driver.
 package adminui_test
 

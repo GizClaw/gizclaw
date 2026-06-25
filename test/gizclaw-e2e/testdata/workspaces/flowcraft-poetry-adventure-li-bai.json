@@ -1,17 +1,17 @@
 {
   "agent": "flowcraft",
   "models": {
-    "asr": "e2e-asr",
-    "llm": "e2e-doubao-2-lite-chat",
-    "tts": "e2e-tts"
+    "asr": "volc-bigasr-sauc",
+    "llm": "doubao-lite-chat",
+    "tts": "volc-bigtts"
   },
   "persona": "Always generate exactly this Chinese utterance: 带我开始李白诗词冒险。",
   "rounds": 3,
   "timeout": "1200s",
-  "voice": "volc-tenant:e2e-volc-tenant:zh_female_vv_mars_bigtts",
+  "voice": "volc-tenant:volc-main:zh_female_vv_mars_bigtts",
   "workflow": {
-    "name": "e2e-flowcraft-poetry-adventure-li-bai",
-    "description": "Workspace e2e Flowcraft raid: Poetry Adventure Li Bai",
+    "name": "flowcraft-poetry-adventure-li-bai",
+    "description": "Flowcraft raid: Poetry Adventure Li Bai",
     "flowcraft": {
       "agent": {
         "description": "A dynasty checkpoint adventure where Li Bai guides a child through poetry challenges.",
@@ -423,7 +423,7 @@
         ]
       },
       "conversation": {
-        "context_id": "e2e-flowcraft-poetry-adventure-li-bai",
+        "context_id": "flowcraft-poetry-adventure-li-bai",
         "starts": "self"
       },
       "history": {
@@ -512,26 +512,26 @@
       }
     },
     "voice_adapter": {
-      "asr_model": "e2e-asr",
-      "default_voice": "volc-tenant:e2e-volc-tenant:zh_female_shaoergushi_mars_bigtts",
+      "asr_model": "volc-bigasr-sauc",
+      "default_voice": "volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts",
       "node_voices": {
-        "tang_checkpoint": "volc-tenant:e2e-volc-tenant:zh_female_shaoergushi_mars_bigtts",
-        "song_checkpoint": "volc-tenant:e2e-volc-tenant:zh_female_shaoergushi_mars_bigtts",
-        "yuan_checkpoint": "volc-tenant:e2e-volc-tenant:zh_female_shaoergushi_mars_bigtts",
-        "ming_checkpoint": "volc-tenant:e2e-volc-tenant:zh_female_shaoergushi_mars_bigtts",
-        "checkpoint_clear": "volc-tenant:e2e-volc-tenant:zh_female_shaoergushi_mars_bigtts",
-        "retry_hint": "volc-tenant:e2e-volc-tenant:zh_female_shaoergushi_mars_bigtts",
-        "call_tang_moon_badge": "volc-tenant:e2e-volc-tenant:zh_female_shaoergushi_mars_bigtts",
-        "call_song_river_badge": "volc-tenant:e2e-volc-tenant:zh_female_shaoergushi_mars_bigtts",
-        "call_yuan_dusk_badge": "volc-tenant:e2e-volc-tenant:zh_female_shaoergushi_mars_bigtts",
-        "call_ming_courage_badge": "volc-tenant:e2e-volc-tenant:zh_female_shaoergushi_mars_bigtts",
-        "journey_finish": "volc-tenant:e2e-volc-tenant:zh_female_shaoergushi_mars_bigtts",
-        "finished_roleplay_chat": "volc-tenant:e2e-volc-tenant:zh_female_shaoergushi_mars_bigtts"
+        "tang_checkpoint": "volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts",
+        "song_checkpoint": "volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts",
+        "yuan_checkpoint": "volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts",
+        "ming_checkpoint": "volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts",
+        "checkpoint_clear": "volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts",
+        "retry_hint": "volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts",
+        "call_tang_moon_badge": "volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts",
+        "call_song_river_badge": "volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts",
+        "call_yuan_dusk_badge": "volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts",
+        "call_ming_courage_badge": "volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts",
+        "journey_finish": "volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts",
+        "finished_roleplay_chat": "volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts"
       }
     },
     "parameters": {
-      "extract_model": "e2e-doubao-2-lite-chat",
-      "generate_model": "e2e-doubao-2-lite-chat"
+      "extract_model": "doubao-lite-chat",
+      "generate_model": "doubao-lite-chat"
     }
   }
 }

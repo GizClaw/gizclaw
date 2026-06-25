@@ -1,0 +1,15 @@
+---
+apiVersion: gizclaw.admin/v1alpha1
+kind: Credential
+metadata:
+  name: volc-main-credential
+spec:
+  provider: volc
+  description: Volc/Doubao main credential
+  body:
+    app_id: "${GIZCLAW_E2E_VOLC_APP_ID}"
+    openapi_access_key_id: "${GIZCLAW_E2E_VOLC_ACCESS_KEY_ID}"
+    ark_api_key: "${GIZCLAW_E2E_VOLC_ARK_API_KEY}"
+    secret_access_key: "${GIZCLAW_E2E_VOLC_SECRET_ACCESS_KEY}"
+    websearch_api_key: "${GIZCLAW_E2E_VOLC_WEBSEARCH_API_KEY:-}"
+    speech_token: "${GIZCLAW_E2E_VOLC_TOKEN}"

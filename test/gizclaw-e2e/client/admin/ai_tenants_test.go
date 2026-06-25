@@ -19,8 +19,8 @@ func TestAdminAPITenantsListAndGet(t *testing.T) {
 	if openAIList.JSON200 == nil {
 		t.Fatalf("list OpenAI tenants missing JSON200")
 	}
-	requireName(t, openAIList.JSON200.Items, "ui-seed-openai-tenant", func(item apitypes.OpenAITenant) string { return item.Name })
-	openAIGet, err := env.api.GetOpenAITenantWithResponse(env.ctx, "ui-seed-openai-tenant")
+	requireName(t, openAIList.JSON200.Items, "openai-lab", func(item apitypes.OpenAITenant) string { return item.Name })
+	openAIGet, err := env.api.GetOpenAITenantWithResponse(env.ctx, "openai-lab")
 	if err != nil {
 		t.Fatalf("get OpenAI tenant: %v", err)
 	}
@@ -34,13 +34,13 @@ func TestAdminAPITenantsListAndGet(t *testing.T) {
 	if miniMaxList.JSON200 == nil {
 		t.Fatalf("list MiniMax tenants missing JSON200")
 	}
-	requireName(t, miniMaxList.JSON200.Items, "ui-seed-tenant", func(item apitypes.MiniMaxTenant) string { return item.Name })
-	miniMaxGet, err := env.api.GetMiniMaxTenantWithResponse(env.ctx, "ui-seed-tenant")
+	requireName(t, miniMaxList.JSON200.Items, "minimax-main", func(item apitypes.MiniMaxTenant) string { return item.Name })
+	miniMaxGet, err := env.api.GetMiniMaxTenantWithResponse(env.ctx, "minimax-main")
 	if err != nil {
 		t.Fatalf("get MiniMax tenant: %v", err)
 	}
 	requireStatusOK(t, miniMaxGet, miniMaxGet.Body)
-	if miniMaxGet.JSON200 == nil || miniMaxGet.JSON200.Name != "ui-seed-tenant" {
+	if miniMaxGet.JSON200 == nil || miniMaxGet.JSON200.Name != "minimax-main" {
 		t.Fatalf("get MiniMax tenant = %#v", miniMaxGet.JSON200)
 	}
 
@@ -52,13 +52,13 @@ func TestAdminAPITenantsListAndGet(t *testing.T) {
 	if volcList.JSON200 == nil {
 		t.Fatalf("list Volc tenants missing JSON200")
 	}
-	requireName(t, volcList.JSON200.Items, "ui-seed-volc-tenant", func(item apitypes.VolcTenant) string { return item.Name })
-	volcGet, err := env.api.GetVolcTenantWithResponse(env.ctx, "ui-seed-volc-tenant")
+	requireName(t, volcList.JSON200.Items, "volc-lab", func(item apitypes.VolcTenant) string { return item.Name })
+	volcGet, err := env.api.GetVolcTenantWithResponse(env.ctx, "volc-lab")
 	if err != nil {
 		t.Fatalf("get Volc tenant: %v", err)
 	}
 	requireStatusOK(t, volcGet, volcGet.Body)
-	if volcGet.JSON200 == nil || volcGet.JSON200.Name != "ui-seed-volc-tenant" {
+	if volcGet.JSON200 == nil || volcGet.JSON200.Name != "volc-lab" {
 		t.Fatalf("get Volc tenant = %#v", volcGet.JSON200)
 	}
 
@@ -70,13 +70,13 @@ func TestAdminAPITenantsListAndGet(t *testing.T) {
 	if geminiList.JSON200 == nil {
 		t.Fatalf("list Gemini tenants missing JSON200")
 	}
-	requireName(t, geminiList.JSON200.Items, "ui-seed-gemini-tenant", func(item apitypes.GeminiTenant) string { return item.Name })
-	geminiGet, err := env.api.GetGeminiTenantWithResponse(env.ctx, "ui-seed-gemini-tenant")
+	requireName(t, geminiList.JSON200.Items, "gemini-main", func(item apitypes.GeminiTenant) string { return item.Name })
+	geminiGet, err := env.api.GetGeminiTenantWithResponse(env.ctx, "gemini-main")
 	if err != nil {
 		t.Fatalf("get Gemini tenant: %v", err)
 	}
 	requireStatusOK(t, geminiGet, geminiGet.Body)
-	if geminiGet.JSON200 == nil || geminiGet.JSON200.Name != "ui-seed-gemini-tenant" {
+	if geminiGet.JSON200 == nil || geminiGet.JSON200.Name != "gemini-main" {
 		t.Fatalf("get Gemini tenant = %#v", geminiGet.JSON200)
 	}
 
@@ -88,13 +88,13 @@ func TestAdminAPITenantsListAndGet(t *testing.T) {
 	if dashScopeList.JSON200 == nil {
 		t.Fatalf("list DashScope tenants missing JSON200")
 	}
-	requireName(t, dashScopeList.JSON200.Items, "ui-seed-dashscope-tenant", func(item apitypes.DashScopeTenant) string { return item.Name })
-	dashScopeGet, err := env.api.GetDashScopeTenantWithResponse(env.ctx, "ui-seed-dashscope-tenant")
+	requireName(t, dashScopeList.JSON200.Items, "dashscope-main", func(item apitypes.DashScopeTenant) string { return item.Name })
+	dashScopeGet, err := env.api.GetDashScopeTenantWithResponse(env.ctx, "dashscope-main")
 	if err != nil {
 		t.Fatalf("get DashScope tenant: %v", err)
 	}
 	requireStatusOK(t, dashScopeGet, dashScopeGet.Body)
-	if dashScopeGet.JSON200 == nil || dashScopeGet.JSON200.Name != "ui-seed-dashscope-tenant" {
+	if dashScopeGet.JSON200 == nil || dashScopeGet.JSON200.Name != "dashscope-main" {
 		t.Fatalf("get DashScope tenant = %#v", dashScopeGet.JSON200)
 	}
 }

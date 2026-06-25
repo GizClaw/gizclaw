@@ -1,6 +1,6 @@
 //go:build gizclaw_e2e
 
-// User story: As an admin operator, I can inspect seeded Volcengine tenants
+// User story: As an admin operator, I can inspect shared Volcengine tenants
 // and verify their CLI/resource metadata.
 package adminui_test
 

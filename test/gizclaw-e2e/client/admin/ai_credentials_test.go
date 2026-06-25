@@ -23,15 +23,15 @@ func TestAdminAPICredentialsListGetPaginationAndMutation(t *testing.T) {
 		}
 		return resp.JSON200.Items, resp.JSON200.HasNext, resp.JSON200.NextCursor
 	})
-	requireName(t, all, "e2e-rpc-credential", func(item apitypes.Credential) string { return item.Name })
-	requirePrefixCount(t, all, "e2e-rpc-credential-", 40, func(item apitypes.Credential) string { return item.Name })
+	requireName(t, all, "openai-catalog-credential", func(item apitypes.Credential) string { return item.Name })
+	requirePrefixCount(t, all, "openai-catalog-credential-", 40, func(item apitypes.Credential) string { return item.Name })
 
-	get, err := env.api.GetCredentialWithResponse(env.ctx, "e2e-rpc-credential")
+	get, err := env.api.GetCredentialWithResponse(env.ctx, "openai-catalog-credential")
 	if err != nil {
 		t.Fatalf("get credential: %v", err)
 	}
 	requireStatusOK(t, get, get.Body)
-	if get.JSON200 == nil || get.JSON200.Name != "e2e-rpc-credential" || get.JSON200.Provider != "openai" {
+	if get.JSON200 == nil || get.JSON200.Name != "openai-catalog-credential" || get.JSON200.Provider != "openai" {
 		t.Fatalf("get credential = %#v", get.JSON200)
 	}
 

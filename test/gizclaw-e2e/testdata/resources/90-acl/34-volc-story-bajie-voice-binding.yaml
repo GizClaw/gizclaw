@@ -1,0 +1,13 @@
+---
+apiVersion: gizclaw.admin/v1alpha1
+kind: ACLPolicyBinding
+metadata:
+  name: view-default-client-voice-story-bajie
+spec:
+  subject:
+    kind: view
+    id: default-client
+  resource:
+    kind: voice
+    id: volc-tenant:volc-main:zh_male_zhubajie_mars_bigtts
+  role: default-client

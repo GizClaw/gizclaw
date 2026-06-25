@@ -18,23 +18,27 @@ import {
 } from "lucide-react";
 import { NavLink } from "react-router-dom";
 
-import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/components/ui/utils";
 
+const sidebarLinkBase =
+  "inline-flex shrink-0 items-center outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0";
+
 const linkClass = ({ isActive }: { isActive: boolean }) =>
   cn(
+    sidebarLinkBase,
     "h-11 w-full justify-start gap-3 rounded-xl px-4 text-sm font-medium transition-colors",
     isActive
-      ? "bg-primary text-primary-foreground shadow-sm hover:bg-primary/90 hover:text-primary-foreground"
+      ? "bg-primary text-primary-foreground shadow-sm hover:bg-primary hover:text-primary-foreground"
       : "text-muted-foreground hover:bg-muted hover:text-foreground",
   );
 
 const childLinkClass = ({ isActive }: { isActive: boolean }) =>
   cn(
+    sidebarLinkBase,
     "h-10 w-full justify-start gap-3 rounded-lg px-3 text-sm transition-colors",
     isActive
-      ? "bg-primary text-primary-foreground shadow-sm hover:bg-primary/90 hover:text-primary-foreground"
+      ? "bg-primary text-primary-foreground shadow-sm hover:bg-primary hover:text-primary-foreground"
       : "text-muted-foreground hover:bg-muted hover:text-foreground",
   );
 
@@ -113,7 +117,7 @@ export function AppSidebar(): JSX.Element {
         </div>
 
         <nav className="flex flex-1 flex-col gap-4 px-3">
-          <NavLink className={({ isActive }) => cn(buttonVariants({ variant: "ghost" }), linkClass({ isActive }))} end to="/overview">
+          <NavLink className={linkClass} end to="/overview">
             <LayoutDashboard className="size-4" />
             Overview
           </NavLink>
@@ -123,7 +127,7 @@ export function AppSidebar(): JSX.Element {
               <div className="ml-4 space-y-1 border-l pl-3">
                 {section.items.map((item) => (
                   <NavLink
-                    className={({ isActive }) => cn(buttonVariants({ variant: "ghost" }), childLinkClass({ isActive }))}
+                    className={childLinkClass}
                     end
                     key={item.href}
                     to={item.href}

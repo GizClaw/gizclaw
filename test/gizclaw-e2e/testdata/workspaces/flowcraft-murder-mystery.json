@@ -1,16 +1,16 @@
 {
   "agent": "flowcraft",
   "models": {
-    "asr": "e2e-asr",
-    "llm": "e2e-doubao-2-lite-chat",
-    "tts": "e2e-tts"
+    "asr": "volc-bigasr-sauc",
+    "llm": "doubao-lite-chat",
+    "tts": "volc-bigtts"
   },
   "persona": "Always generate exactly this Chinese utterance: 我想调查书房门锁。",
   "rounds": 3,
   "timeout": "1200s",
-  "voice": "volc-tenant:e2e-volc-tenant:zh_female_vv_mars_bigtts",
+  "voice": "volc-tenant:volc-main:zh_female_vv_mars_bigtts",
   "workflow": {
-    "description": "Workspace e2e Flowcraft raid: Murder Mystery",
+    "description": "Flowcraft raid: Murder Mystery",
     "flowcraft": {
       "agent": {
         "description": "A player-driven murder mystery host for the case \"雨夜留声机\".",
@@ -191,7 +191,7 @@
         ]
       },
       "conversation": {
-        "context_id": "e2e-flowcraft-murder-mystery",
+        "context_id": "flowcraft-murder-mystery",
         "starts": "self"
       },
       "history": {
@@ -264,18 +264,18 @@
         "state_root": "state"
       }
     },
-    "name": "e2e-flowcraft-murder-mystery",
+    "name": "flowcraft-murder-mystery",
     "parameters": {
-      "generate_model": "e2e-doubao-2-lite-chat",
+      "generate_model": "doubao-lite-chat",
       "input": "push-to-talk"
     },
     "voice_adapter": {
-      "asr_model": "e2e-asr",
-      "default_voice": "volc-tenant:e2e-volc-tenant:zh_female_shaoergushi_mars_bigtts",
+      "asr_model": "volc-bigasr-sauc",
+      "default_voice": "volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts",
       "node_voices": {
-        "call_case_solved": "volc-tenant:e2e-volc-tenant:zh_female_shaoergushi_mars_bigtts",
-        "generate_game_master": "volc-tenant:e2e-volc-tenant:zh_female_shaoergushi_mars_bigtts",
-        "solved_chat": "volc-tenant:e2e-volc-tenant:zh_female_shaoergushi_mars_bigtts"
+        "call_case_solved": "volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts",
+        "generate_game_master": "volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts",
+        "solved_chat": "volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts"
       }
     }
   }

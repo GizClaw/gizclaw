@@ -20,14 +20,14 @@ func TestAdminAPIVoicesListAndGet(t *testing.T) {
 	if resp.JSON200 == nil {
 		t.Fatalf("list voices missing JSON200")
 	}
-	requireName(t, resp.JSON200.Items, "e2e-rpc-voice", func(item apitypes.Voice) string { return item.Id })
+	requireName(t, resp.JSON200.Items, "minimax-catalog-voice", func(item apitypes.Voice) string { return item.Id })
 
-	get, err := env.api.GetVoiceWithResponse(env.ctx, "e2e-rpc-voice")
+	get, err := env.api.GetVoiceWithResponse(env.ctx, "minimax-catalog-voice")
 	if err != nil {
 		t.Fatalf("get voice: %v", err)
 	}
 	requireStatusOK(t, get, get.Body)
-	if get.JSON200 == nil || get.JSON200.Id != "e2e-rpc-voice" || get.JSON200.Provider.Name != "e2e-rpc-provider" {
+	if get.JSON200 == nil || get.JSON200.Id != "minimax-catalog-voice" || get.JSON200.Provider.Name != "minimax-main" {
 		t.Fatalf("get voice = %#v", get.JSON200)
 	}
 }

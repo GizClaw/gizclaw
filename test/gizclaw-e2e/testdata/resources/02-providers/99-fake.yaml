@@ -1,0 +1,180 @@
+---
+apiVersion: gizclaw.admin/v1alpha1
+kind: ResourceList
+metadata:
+  name: provider-catalog
+spec:
+  items:
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Credential
+    metadata:
+      name: minimax-main-credential
+    spec:
+      provider: minimax
+      description: MiniMax main catalog credential
+      body:
+        api_key: sk-minimax-main
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Credential
+    metadata:
+      name: openai-lab-credential
+    spec:
+      provider: openai
+      description: OpenAI-compatible lab catalog credential
+      body:
+        api_key: sk-openai-lab
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Credential
+    metadata:
+      name: gemini-main-credential
+    spec:
+      provider: gemini
+      description: Gemini main catalog credential
+      body:
+        api_key: sk-gemini-main
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Credential
+    metadata:
+      name: dashscope-main-credential
+    spec:
+      provider: dashscope
+      description: DashScope main catalog credential
+      body:
+        api_key: sk-dashscope-main
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Credential
+    metadata:
+      name: volc-lab-credential
+    spec:
+      provider: volc
+      description: Volcengine lab catalog credential
+      body:
+        app_id: volc-lab-app
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: OpenAITenant
+    metadata:
+      name: openai-lab
+    spec:
+      kind: compatible
+      credential_name: openai-lab-credential
+      base_url: https://api.example.invalid/v1
+      api_mode: chat_completions
+      description: OpenAI-compatible lab tenant
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: GeminiTenant
+    metadata:
+      name: gemini-main
+    spec:
+      credential_name: gemini-main-credential
+      project_id: gemini-main-project
+      location: global
+      description: Gemini main tenant
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: DashScopeTenant
+    metadata:
+      name: dashscope-main
+    spec:
+      credential_name: dashscope-main-credential
+      base_url: https://dashscope.example.invalid/compatible-mode/v1
+      description: DashScope main tenant
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: MiniMaxTenant
+    metadata:
+      name: minimax-main
+    spec:
+      app_id: minimax-main-app
+      group_id: minimax-main-group
+      credential_name: minimax-main-credential
+      base_url: https://example.invalid
+      description: MiniMax main tenant
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: VolcTenant
+    metadata:
+      name: volc-lab
+    spec:
+      credential_name: volc-lab-credential
+      region: cn-beijing
+      resource_ids:
+      - seed-tts-2.0
+      description: Volcengine lab tenant
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Firmware
+    metadata:
+      name: devkit-voice-firmware
+    spec:
+      description: Voice devkit firmware catalog entry
+      slots:
+        stable:
+          version: 1.0.0
+          artifacts:
+          - name: main
+            kind: app
+        beta:
+          version: 1.1.0
+        develop:
+          version: 1.2.0
+        pending:
+          version: 1.3.0
+          artifacts:
+          - name: assets
+            kind: data
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Voice
+    metadata:
+      name: minimax-cloned-narrator
+    spec:
+      source: manual
+      provider:
+        kind: minimax-tenant
+        name: minimax-main
+      name: MiniMax Cloned Narrator
+      description: MiniMax cloned narrator voice
+      provider_data:
+        voice_id: minimax-cloned-narrator-v1
+        voice_type: voice_cloning
+        raw:
+          origin: integration-seed
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Voice
+    metadata:
+      name: volc-tenant:volc-lab:ICL_demo_voice
+    spec:
+      source: manual
+      provider:
+        kind: volc-tenant
+        name: volc-lab
+      name: Volc Demo Voice
+      description: Volc demo voice
+      provider_data:
+        resource_id: seed-tts-2.0
+        state: Success
+        status: Available
+        voice_id: ICL_demo_voice
+        raw:
+          origin: integration-seed
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Model
+    metadata:
+      name: openai-lab-chat
+    spec:
+      kind: llm
+      source: manual
+      provider:
+        kind: openai-tenant
+        name: openai-lab
+      name: OpenAI Lab Chat
+      description: OpenAI-compatible lab chat model
+      capabilities:
+        json_output: true
+        tool_calls: true
+        text_only: true
+        system_role: true
+        temperature: true
+      provider_data:
+        upstream_model: gpt-4o-mini
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLView
+    metadata:
+      name: under-12
+    spec:
+      description: Child-safe content view

@@ -1,0 +1,66 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Friend Group Member Resource Schema",
+    "description": "FriendGroupMemberResource envelope schema.",
+    "version": "1.0.0"
+  },
+  "paths": {},
+  "components": {
+    "schemas": {
+      "FriendGroupMemberResource": {
+        "type": "object",
+        "required": [
+          "apiVersion",
+          "kind",
+          "metadata",
+          "spec"
+        ],
+        "properties": {
+          "apiVersion": {
+            "$ref": "./resource.json#/components/schemas/ResourceAPIVersion"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "FriendGroupMember"
+            ]
+          },
+          "metadata": {
+            "$ref": "./resource.json#/components/schemas/ResourceMetadata"
+          },
+          "spec": {
+            "$ref": "#/components/schemas/FriendGroupMemberSpec"
+          }
+        }
+      },
+      "FriendGroupMemberSpec": {
+        "type": "object",
+        "required": [
+          "friend_group_id",
+          "peer_public_key",
+          "role"
+        ],
+        "properties": {
+          "friend_group_id": {
+            "type": "string"
+          },
+          "peer_public_key": {
+            "type": "string"
+          },
+          "role": {
+            "$ref": "#/components/schemas/FriendGroupMemberRole"
+          }
+        }
+      },
+      "FriendGroupMemberRole": {
+        "type": "string",
+        "enum": [
+          "owner",
+          "admin",
+          "member"
+        ]
+      }
+    }
+  }
+}

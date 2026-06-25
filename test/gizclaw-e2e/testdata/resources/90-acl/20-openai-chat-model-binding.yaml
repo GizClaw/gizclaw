@@ -1,0 +1,13 @@
+---
+apiVersion: gizclaw.admin/v1alpha1
+kind: ACLPolicyBinding
+metadata:
+  name: view-default-client-model-chat
+spec:
+  subject:
+    kind: view
+    id: default-client
+  resource:
+    kind: model
+    id: openai-gpt-4o-mini
+  role: default-client

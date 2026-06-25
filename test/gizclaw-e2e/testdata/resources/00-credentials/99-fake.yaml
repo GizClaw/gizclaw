@@ -1,0 +1,456 @@
+apiVersion: gizclaw.admin/v1alpha1
+kind: ResourceList
+metadata:
+  name: fake-openai-credentials
+spec:
+  items:
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Credential
+    metadata:
+      name: openai-catalog-credential-000
+    spec:
+      body:
+        api_key: sk-openai-catalog-000
+      description: OpenAI-compatible credential entry for the shared catalog
+      provider: openai
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Credential
+    metadata:
+      name: openai-catalog-credential-001
+    spec:
+      body:
+        api_key: sk-openai-catalog-001
+      description: OpenAI-compatible credential entry for the shared catalog
+      provider: openai
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Credential
+    metadata:
+      name: openai-catalog-credential-002
+    spec:
+      body:
+        api_key: sk-openai-catalog-002
+      description: OpenAI-compatible credential entry for the shared catalog
+      provider: openai
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Credential
+    metadata:
+      name: openai-catalog-credential-003
+    spec:
+      body:
+        api_key: sk-openai-catalog-003
+      description: OpenAI-compatible credential entry for the shared catalog
+      provider: openai
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Credential
+    metadata:
+      name: openai-catalog-credential-004
+    spec:
+      body:
+        api_key: sk-openai-catalog-004
+      description: OpenAI-compatible credential entry for the shared catalog
+      provider: openai
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Credential
+    metadata:
+      name: openai-catalog-credential-005
+    spec:
+      body:
+        api_key: sk-openai-catalog-005
+      description: OpenAI-compatible credential entry for the shared catalog
+      provider: openai
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Credential
+    metadata:
+      name: openai-catalog-credential-006
+    spec:
+      body:
+        api_key: sk-openai-catalog-006
+      description: OpenAI-compatible credential entry for the shared catalog
+      provider: openai
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Credential
+    metadata:
+      name: openai-catalog-credential-007
+    spec:
+      body:
+        api_key: sk-openai-catalog-007
+      description: OpenAI-compatible credential entry for the shared catalog
+      provider: openai
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Credential
+    metadata:
+      name: openai-catalog-credential-008
+    spec:
+      body:
+        api_key: sk-openai-catalog-008
+      description: OpenAI-compatible credential entry for the shared catalog
+      provider: openai
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Credential
+    metadata:
+      name: openai-catalog-credential-009
+    spec:
+      body:
+        api_key: sk-openai-catalog-009
+      description: OpenAI-compatible credential entry for the shared catalog
+      provider: openai
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Credential
+    metadata:
+      name: openai-catalog-credential-010
+    spec:
+      body:
+        api_key: sk-openai-catalog-010
+      description: OpenAI-compatible credential entry for the shared catalog
+      provider: openai
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Credential
+    metadata:
+      name: openai-catalog-credential-011
+    spec:
+      body:
+        api_key: sk-openai-catalog-011
+      description: OpenAI-compatible credential entry for the shared catalog
+      provider: openai
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Credential
+    metadata:
+      name: openai-catalog-credential-012
+    spec:
+      body:
+        api_key: sk-openai-catalog-012
+      description: OpenAI-compatible credential entry for the shared catalog
+      provider: openai
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Credential
+    metadata:
+      name: openai-catalog-credential-013
+    spec:
+      body:
+        api_key: sk-openai-catalog-013
+      description: OpenAI-compatible credential entry for the shared catalog
+      provider: openai
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Credential
+    metadata:
+      name: openai-catalog-credential-014
+    spec:
+      body:
+        api_key: sk-openai-catalog-014
+      description: OpenAI-compatible credential entry for the shared catalog
+      provider: openai
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Credential
+    metadata:
+      name: openai-catalog-credential-015
+    spec:
+      body:
+        api_key: sk-openai-catalog-015
+      description: OpenAI-compatible credential entry for the shared catalog
+      provider: openai
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Credential
+    metadata:
+      name: openai-catalog-credential-016
+    spec:
+      body:
+        api_key: sk-openai-catalog-016
+      description: OpenAI-compatible credential entry for the shared catalog
+      provider: openai
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Credential
+    metadata:
+      name: openai-catalog-credential-017
+    spec:
+      body:
+        api_key: sk-openai-catalog-017
+      description: OpenAI-compatible credential entry for the shared catalog
+      provider: openai
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Credential
+    metadata:
+      name: openai-catalog-credential-018
+    spec:
+      body:
+        api_key: sk-openai-catalog-018
+      description: OpenAI-compatible credential entry for the shared catalog
+      provider: openai
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Credential
+    metadata:
+      name: openai-catalog-credential-019
+    spec:
+      body:
+        api_key: sk-openai-catalog-019
+      description: OpenAI-compatible credential entry for the shared catalog
+      provider: openai
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Credential
+    metadata:
+      name: openai-catalog-credential-020
+    spec:
+      body:
+        api_key: sk-openai-catalog-020
+      description: OpenAI-compatible credential entry for the shared catalog
+      provider: openai
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Credential
+    metadata:
+      name: openai-catalog-credential-021
+    spec:
+      body:
+        api_key: sk-openai-catalog-021
+      description: OpenAI-compatible credential entry for the shared catalog
+      provider: openai
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Credential
+    metadata:
+      name: openai-catalog-credential-022
+    spec:
+      body:
+        api_key: sk-openai-catalog-022
+      description: OpenAI-compatible credential entry for the shared catalog
+      provider: openai
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Credential
+    metadata:
+      name: openai-catalog-credential-023
+    spec:
+      body:
+        api_key: sk-openai-catalog-023
+      description: OpenAI-compatible credential entry for the shared catalog
+      provider: openai
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Credential
+    metadata:
+      name: openai-catalog-credential-024
+    spec:
+      body:
+        api_key: sk-openai-catalog-024
+      description: OpenAI-compatible credential entry for the shared catalog
+      provider: openai
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Credential
+    metadata:
+      name: openai-catalog-credential-025
+    spec:
+      body:
+        api_key: sk-openai-catalog-025
+      description: OpenAI-compatible credential entry for the shared catalog
+      provider: openai
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Credential
+    metadata:
+      name: openai-catalog-credential-026
+    spec:
+      body:
+        api_key: sk-openai-catalog-026
+      description: OpenAI-compatible credential entry for the shared catalog
+      provider: openai
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Credential
+    metadata:
+      name: openai-catalog-credential-027
+    spec:
+      body:
+        api_key: sk-openai-catalog-027
+      description: OpenAI-compatible credential entry for the shared catalog
+      provider: openai
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Credential
+    metadata:
+      name: openai-catalog-credential-028
+    spec:
+      body:
+        api_key: sk-openai-catalog-028
+      description: OpenAI-compatible credential entry for the shared catalog
+      provider: openai
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Credential
+    metadata:
+      name: openai-catalog-credential-029
+    spec:
+      body:
+        api_key: sk-openai-catalog-029
+      description: OpenAI-compatible credential entry for the shared catalog
+      provider: openai
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Credential
+    metadata:
+      name: openai-catalog-credential-030
+    spec:
+      body:
+        api_key: sk-openai-catalog-030
+      description: OpenAI-compatible credential entry for the shared catalog
+      provider: openai
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Credential
+    metadata:
+      name: openai-catalog-credential-031
+    spec:
+      body:
+        api_key: sk-openai-catalog-031
+      description: OpenAI-compatible credential entry for the shared catalog
+      provider: openai
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Credential
+    metadata:
+      name: openai-catalog-credential-032
+    spec:
+      body:
+        api_key: sk-openai-catalog-032
+      description: OpenAI-compatible credential entry for the shared catalog
+      provider: openai
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Credential
+    metadata:
+      name: openai-catalog-credential-033
+    spec:
+      body:
+        api_key: sk-openai-catalog-033
+      description: OpenAI-compatible credential entry for the shared catalog
+      provider: openai
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Credential
+    metadata:
+      name: openai-catalog-credential-034
+    spec:
+      body:
+        api_key: sk-openai-catalog-034
+      description: OpenAI-compatible credential entry for the shared catalog
+      provider: openai
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Credential
+    metadata:
+      name: openai-catalog-credential-035
+    spec:
+      body:
+        api_key: sk-openai-catalog-035
+      description: OpenAI-compatible credential entry for the shared catalog
+      provider: openai
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Credential
+    metadata:
+      name: openai-catalog-credential-036
+    spec:
+      body:
+        api_key: sk-openai-catalog-036
+      description: OpenAI-compatible credential entry for the shared catalog
+      provider: openai
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Credential
+    metadata:
+      name: openai-catalog-credential-037
+    spec:
+      body:
+        api_key: sk-openai-catalog-037
+      description: OpenAI-compatible credential entry for the shared catalog
+      provider: openai
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Credential
+    metadata:
+      name: openai-catalog-credential-038
+    spec:
+      body:
+        api_key: sk-openai-catalog-038
+      description: OpenAI-compatible credential entry for the shared catalog
+      provider: openai
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Credential
+    metadata:
+      name: openai-catalog-credential-039
+    spec:
+      body:
+        api_key: sk-openai-catalog-039
+      description: OpenAI-compatible credential entry for the shared catalog
+      provider: openai
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Credential
+    metadata:
+      name: openai-catalog-credential-040
+    spec:
+      body:
+        api_key: sk-openai-catalog-040
+      description: OpenAI-compatible credential entry for the shared catalog
+      provider: openai
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Credential
+    metadata:
+      name: openai-catalog-credential-041
+    spec:
+      body:
+        api_key: sk-openai-catalog-041
+      description: OpenAI-compatible credential entry for the shared catalog
+      provider: openai
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Credential
+    metadata:
+      name: openai-catalog-credential-042
+    spec:
+      body:
+        api_key: sk-openai-catalog-042
+      description: OpenAI-compatible credential entry for the shared catalog
+      provider: openai
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Credential
+    metadata:
+      name: openai-catalog-credential-043
+    spec:
+      body:
+        api_key: sk-openai-catalog-043
+      description: OpenAI-compatible credential entry for the shared catalog
+      provider: openai
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Credential
+    metadata:
+      name: openai-catalog-credential-044
+    spec:
+      body:
+        api_key: sk-openai-catalog-044
+      description: OpenAI-compatible credential entry for the shared catalog
+      provider: openai
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Credential
+    metadata:
+      name: openai-catalog-credential-045
+    spec:
+      body:
+        api_key: sk-openai-catalog-045
+      description: OpenAI-compatible credential entry for the shared catalog
+      provider: openai
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Credential
+    metadata:
+      name: openai-catalog-credential-046
+    spec:
+      body:
+        api_key: sk-openai-catalog-046
+      description: OpenAI-compatible credential entry for the shared catalog
+      provider: openai
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Credential
+    metadata:
+      name: openai-catalog-credential-047
+    spec:
+      body:
+        api_key: sk-openai-catalog-047
+      description: OpenAI-compatible credential entry for the shared catalog
+      provider: openai
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Credential
+    metadata:
+      name: openai-catalog-credential-048
+    spec:
+      body:
+        api_key: sk-openai-catalog-048
+      description: OpenAI-compatible credential entry for the shared catalog
+      provider: openai
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Credential
+    metadata:
+      name: openai-catalog-credential-049
+    spec:
+      body:
+        api_key: sk-openai-catalog-049
+      description: OpenAI-compatible credential entry for the shared catalog
+      provider: openai

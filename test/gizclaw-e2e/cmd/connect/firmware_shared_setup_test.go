@@ -23,14 +23,18 @@ func TestFirmwareSharedSetupDownload(t *testing.T) {
 
 	list := h.RunCLI("connect", "firmware", "list", "--context", "device-a")
 	list.MustSucceed(t)
-	assertOutputContains(t, list.Stdout, `"name":"e2e-rpc-firmware"`, `"has_next":true`)
+	assertOutputContains(t, list.Stdout, `"name":"devkit-firmware-000"`, `"has_next":true`)
 
-	getLast := h.RunCLI("connect", "firmware", "get", "--firmware-id", "e2e-rpc-firmware-079", "--context", "device-a")
+	getMain := h.RunCLI("connect", "firmware", "get", "--firmware-id", "devkit-firmware-main", "--context", "device-a")
+	getMain.MustSucceed(t)
+	assertOutputContains(t, getMain.Stdout, `"name":"devkit-firmware-main"`)
+
+	getLast := h.RunCLI("connect", "firmware", "get", "--firmware-id", "devkit-firmware-079", "--context", "device-a")
 	getLast.MustSucceed(t)
-	assertOutputContains(t, getLast.Stdout, `"name":"e2e-rpc-firmware-079"`)
+	assertOutputContains(t, getLast.Stdout, `"name":"devkit-firmware-079"`)
 
-	outputPath := filepath.Join(h.SandboxDir, "e2e-rpc-firmware-main.tar")
-	download := mustRunCLIJSON[firmwareDownloadCLIResponse](t, h, "connect", "firmware", "download", "--firmware-id", "e2e-rpc-firmware", "--channel", "stable", "--artifact-name", "main", "--output", outputPath, "--context", "device-a")
+	outputPath := filepath.Join(h.SandboxDir, "devkit-firmware-main.tar")
+	download := mustRunCLIJSON[firmwareDownloadCLIResponse](t, h, "connect", "firmware", "download", "--firmware-id", "devkit-firmware-main", "--channel", "stable", "--artifact-name", "main", "--output", outputPath, "--context", "device-a")
 	if download.Bytes <= 0 || download.Metadata.Artifact.Name != "main" {
 		t.Fatalf("firmware download = %#v", download)
 	}
@@ -38,7 +42,7 @@ func TestFirmwareSharedSetupDownload(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read downloaded firmware: %v", err)
 	}
-	if !bytes.Contains(payload, []byte("gizclaw e2e rpc firmware")) {
+	if !bytes.Contains(payload, []byte("gizclaw devkit firmware")) {
 		t.Fatalf("downloaded firmware tar missing manifest text")
 	}
 }

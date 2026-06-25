@@ -23,15 +23,15 @@ func TestAdminAPIWorkspacesListGetPaginationAndMutation(t *testing.T) {
 		}
 		return resp.JSON200.Items, resp.JSON200.HasNext, resp.JSON200.NextCursor
 	})
-	requireName(t, all, "e2e-rpc-workspace", func(item apitypes.Workspace) string { return item.Name })
-	requirePrefixCount(t, all, "e2e-rpc-workspace-", 100, func(item apitypes.Workspace) string { return item.Name })
+	requireName(t, all, "workspace-support-demo", func(item apitypes.Workspace) string { return item.Name })
+	requirePrefixCount(t, all, "workspace-scenario-", 100, func(item apitypes.Workspace) string { return item.Name })
 
-	get, err := env.api.GetWorkspaceWithResponse(env.ctx, "e2e-rpc-workspace")
+	get, err := env.api.GetWorkspaceWithResponse(env.ctx, "workspace-support-demo")
 	if err != nil {
 		t.Fatalf("get workspace: %v", err)
 	}
 	requireStatusOK(t, get, get.Body)
-	if get.JSON200 == nil || get.JSON200.WorkflowName != "e2e-rpc-workflow" {
+	if get.JSON200 == nil || get.JSON200.WorkflowName != "flowcraft-support" {
 		t.Fatalf("get workspace = %#v", get.JSON200)
 	}
 
@@ -39,7 +39,7 @@ func TestAdminAPIWorkspacesListGetPaginationAndMutation(t *testing.T) {
 	_, _ = env.api.DeleteWorkspaceWithResponse(env.ctx, name)
 	created, err := env.api.CreateWorkspaceWithResponse(env.ctx, adminservice.WorkspaceUpsert{
 		Name:         name,
-		WorkflowName: "e2e-rpc-workflow",
+		WorkflowName: "flowcraft-support",
 		Parameters:   flowcraftWorkspaceParameters(t, apitypes.WorkspaceInputModePushToTalk),
 	})
 	if err != nil {

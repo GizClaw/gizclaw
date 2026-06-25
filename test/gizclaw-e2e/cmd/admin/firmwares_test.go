@@ -102,11 +102,11 @@ func TestAdminFirmwaresSharedSetupCatalog(t *testing.T) {
 
 	list := h.RunCLI("admin", "firmwares", "list", "--context", "admin-a")
 	list.MustSucceed(t)
-	assertContains(t, list.Stdout, `"name":"e2e-rpc-firmware"`, `"name":"e2e-rpc-firmware-079"`)
+	assertContains(t, list.Stdout, `"name":"devkit-firmware-main"`, `"name":"devkit-firmware-079"`)
 
-	get := h.RunCLI("admin", "firmwares", "get", "e2e-rpc-firmware", "--context", "admin-a")
+	get := h.RunCLI("admin", "firmwares", "get", "devkit-firmware-main", "--context", "admin-a")
 	get.MustSucceed(t)
-	assertContains(t, get.Stdout, `"name":"e2e-rpc-firmware"`, `"version":"9.9.0"`, `"path":"e2e-rpc-firmware/stable/main/`)
+	assertContains(t, get.Stdout, `"name":"devkit-firmware-main"`, `"version":"9.9.0"`, `"path":"devkit-firmware-main/stable/main/`)
 }
 
 func grantFirmwareRead(t *testing.T, h *clitest.Harness, peerContext string, firmwareID string) {

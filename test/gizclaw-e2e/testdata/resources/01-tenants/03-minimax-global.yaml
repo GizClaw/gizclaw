@@ -1,0 +1,10 @@
+---
+apiVersion: gizclaw.admin/v1alpha1
+kind: MiniMaxTenant
+metadata:
+  name: minimax-global
+spec:
+  app_id: "${GIZCLAW_E2E_MINIMAX_GLOBAL_APP_ID}"
+  group_id: "${GIZCLAW_E2E_MINIMAX_GLOBAL_GROUP_ID}"
+  credential_name: minimax-global-credential
+  description: MiniMax global tenant

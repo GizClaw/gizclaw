@@ -16,13 +16,13 @@ func TestAdminMiniMaxTenantsUserStory(t *testing.T) {
 
 	list := h.RunCLI("admin", "minimax-tenants", "list", "--context", "admin-a")
 	list.MustSucceed(t)
-	if !strings.Contains(list.Stdout, `"name":"ui-seed-tenant"`) {
+	if !strings.Contains(list.Stdout, `"name":"minimax-main"`) {
 		t.Fatalf("minimax tenants list missing created item:\n%s", list.Stdout)
 	}
 
-	get := h.RunCLI("admin", "minimax-tenants", "get", "ui-seed-tenant", "--context", "admin-a")
+	get := h.RunCLI("admin", "minimax-tenants", "get", "minimax-main", "--context", "admin-a")
 	get.MustSucceed(t)
-	if !strings.Contains(get.Stdout, `"credential_name":"ui-seed-credential"`) {
+	if !strings.Contains(get.Stdout, `"credential_name":"minimax-main-credential"`) {
 		t.Fatalf("minimax tenants get missing credential:\n%s", get.Stdout)
 	}
 }

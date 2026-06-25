@@ -1,0 +1,42 @@
+apiVersion: gizclaw.admin/v1alpha1
+kind: ResourceList
+metadata:
+  name: mutation-bindings
+spec:
+  items:
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-mutation-model
+    spec:
+      resource:
+        id: mutation-openai-model
+        kind: model
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-mutation-credential
+    spec:
+      resource:
+        id: mutation-openai-credential
+        kind: credential
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-mutation-firmware
+    spec:
+      resource:
+        id: mutation-firmware
+        kind: firmware
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view

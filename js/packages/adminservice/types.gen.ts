@@ -270,11 +270,11 @@ export type AdminFriendGroupPutRequest = {
 
 export type AdminFriendGroupMemberCreateRequest = {
     peer_public_key: string;
-    role: FriendGroupMemberRole;
+    role: ServerFriendGroupMemberRole;
 };
 
 export type AdminFriendGroupMemberPutRequest = {
-    role: FriendGroupMemberRole;
+    role: ServerFriendGroupMemberRole;
 };
 
 export type AdminFriendGroupInviteTokenPutRequest = {
@@ -329,6 +329,67 @@ export type FirmwareResource = {
     kind: 'Firmware';
     metadata: ResourceMetadata;
     spec: FirmwareSpec;
+};
+
+export type FriendResource = {
+    apiVersion: ResourceApiVersion;
+    kind: 'Friend';
+    metadata: ResourceMetadata;
+    spec: FriendSpec;
+};
+
+export type FriendSpec = {
+    /**
+     * Canonical owner peer public key. metadata.name must be the sorted relation id owner:peer.
+     */
+    owner_public_key: string;
+    /**
+     * Canonical friend peer public key. Applying the resource creates both owner-view rows.
+     */
+    peer_public_key: string;
+};
+
+export type FriendGroupResource = {
+    apiVersion: ResourceApiVersion;
+    kind: 'FriendGroup';
+    metadata: ResourceMetadata;
+    spec: FriendGroupSpec;
+};
+
+export type FriendGroupSpec = {
+    /**
+     * Display name for the friend group. metadata.name is the stable group id.
+     */
+    name: string;
+    description?: string;
+};
+
+export type FriendGroupInviteTokenResource = {
+    apiVersion: ResourceApiVersion;
+    kind: 'FriendGroupInviteToken';
+    metadata: ResourceMetadata;
+    spec: FriendGroupInviteTokenSpec;
+};
+
+export type FriendGroupInviteTokenSpec = {
+    friend_group_id: string;
+    invite_token: string;
+    expires_at: string;
+};
+
+export type FriendGroupMemberResource = {
+    apiVersion: ResourceApiVersion;
+    kind: 'FriendGroupMember';
+    metadata: ResourceMetadata;
+    spec: FriendGroupMemberSpec;
+};
+
+export type FriendGroupMemberRole = 'owner' | 'admin' | 'member';
+
+export type FriendGroupMemberSpec = {
+    friend_group_id: string;
+    peer_public_key: string;
+    role: FriendGroupMemberRole;
 };
 
 export type GeminiTenantResource = {
@@ -401,6 +462,14 @@ export type Resource = ({
 } & CredentialResource) | ({
     kind: 'FirmwareResource';
 } & FirmwareResource) | ({
+    kind: 'FriendResource';
+} & FriendResource) | ({
+    kind: 'FriendGroupResource';
+} & FriendGroupResource) | ({
+    kind: 'FriendGroupInviteTokenResource';
+} & FriendGroupInviteTokenResource) | ({
+    kind: 'FriendGroupMemberResource';
+} & FriendGroupMemberResource) | ({
     kind: 'ModelResource';
 } & ModelResource) | ({
     kind: 'DashScopeTenantResource';
@@ -436,7 +505,7 @@ export type ResourceApiVersion = 'gizclaw.admin/v1alpha1';
 /**
  * Declarative GizClaw resource kind.
  */
-export type ResourceKind = 'Credential' | 'ACLPolicyBinding' | 'ACLRole' | 'ACLView' | 'Firmware' | 'Model' | 'DashScopeTenant' | 'GeminiTenant' | 'MiniMaxTenant' | 'OpenAITenant' | 'VolcTenant' | 'Voice' | 'Workflow' | 'Workspace' | 'PeerConfig' | 'ResourceList' | 'PetSpecies' | 'Badge';
+export type ResourceKind = 'Credential' | 'ACLPolicyBinding' | 'ACLRole' | 'ACLView' | 'Firmware' | 'Friend' | 'FriendGroup' | 'FriendGroupInviteToken' | 'FriendGroupMember' | 'Model' | 'DashScopeTenant' | 'GeminiTenant' | 'MiniMaxTenant' | 'OpenAITenant' | 'VolcTenant' | 'Voice' | 'Workflow' | 'Workspace' | 'PeerConfig' | 'ResourceList' | 'PetSpecies' | 'Badge';
 
 export type ResourceMetadata = {
     /**
@@ -511,12 +580,12 @@ export type FriendGroupMemberObject = {
     id?: string;
     friend_group_id?: string;
     peer_public_key?: string;
-    role?: FriendGroupMemberRole;
+    role?: ServerFriendGroupMemberRole;
     created_at?: string;
     updated_at?: string;
 };
 
-export type FriendGroupMemberRole = 'owner' | 'admin' | 'member';
+export type ServerFriendGroupMemberRole = 'owner' | 'admin' | 'member';
 
 export type FriendGroupObject = {
     id?: string;
@@ -526,7 +595,7 @@ export type FriendGroupObject = {
     workspace_name?: string;
     created_at?: string;
     updated_at?: string;
-    my_role?: FriendGroupMemberRole;
+    my_role?: ServerFriendGroupMemberRole;
 };
 
 export type FriendListResponse = {

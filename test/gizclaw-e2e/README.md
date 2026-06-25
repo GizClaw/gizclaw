@@ -36,29 +36,44 @@ so they are not pulled into ordinary `go test ./...` runs.
 ./test/gizclaw-e2e/setup/start-server.sh
 ```
 
-4. Clear and initialize shared server data:
+4. Clear and initialize shared server resources:
 
 ```sh
 ./test/gizclaw-e2e/setup/reset_data.sh
 ```
 
-To let another peer public key use the default seeded client view, apply a
+To let another peer public key use the default shared client view, apply a
 `PeerConfig` for that key:
 
 ```sh
 ./test/gizclaw-e2e/setup/apply_client_view.sh <peer-public-key>
 ```
 
-5. Run the needed client or CLI tests, for example:
+`reset_data.sh` only rebuilds resource state: provider tenants, models,
+workflows, workspaces, firmware metadata, ACL rows, and shared social graph
+rows. It must not seed runtime history, message records, replay audio, or other
+non-resource state.
+
+5. Run client tests that create runtime state. These should run before any UI
+   test that expects conversations, history entries, replay data, or social
+   message state to already exist:
 
 ```sh
 go test -tags gizclaw_e2e -count=1 ./test/gizclaw-e2e/client/workspace
 go test -tags gizclaw_e2e -count=1 ./test/gizclaw-e2e/client/admin
 go test -tags gizclaw_e2e -count=1 ./test/gizclaw-e2e/client/rpc
+go test -tags gizclaw_e2e -count=1 ./test/gizclaw-e2e/client/social
+```
+
+6. Run CLI story tests against the same setup-created server and resource
+   catalog:
+
+```sh
 go test -tags gizclaw_e2e -count=1 ./test/gizclaw-e2e/cmd/connect
 ```
 
-6. For browser UI tests, start the matching UI surface first:
+7. For browser UI tests, start the matching UI surface after the needed client
+   tests have created runtime state:
 
 ```sh
 ./test/gizclaw-e2e/setup/start-admin-ui.sh
@@ -73,18 +88,45 @@ go test -tags gizclaw_e2e -count=1 ./test/gizclaw-e2e/ui/play/...
 go test -tags gizclaw_e2e -count=1 ./test/gizclaw-e2e/ui/smoke/...
 ```
 
-7. Stop e2e services when finished:
+8. Stop e2e services when finished:
 
 ```sh
 ./test/gizclaw-e2e/setup/stop.sh
 ```
 
+The full e2e run is intentionally ordered. Setup creates resource state, client
+tests exercise the server and create runtime state, and UI tests verify the
+browser surfaces against the resulting server state. Do not make UI tests depend
+on setup-seeded runtime records.
+
 ## Test Data
 
-`testdata/resources` is the shared source for server resources used by client,
-cmd, and UI tests. Resource fixture filenames use a three-digit numeric prefix,
-for example `000-openai-credential.json` or
-`040-workflow-flowcraft-chat.json`.
+`testdata/resources` is the shared business resource catalog used by client,
+cmd, and UI tests. It is organized by resource domain instead of by test
+surface:
+
+```text
+resources/
+  00-credentials/
+  01-tenants/
+  02-providers/
+  03-models/
+  04-workflows/
+  05-workspaces/
+  06-firmwares/
+  07-catalog/
+  08-history/
+  09-social/
+  90-acl/
+  assets/
+```
+
+Resource fixture filenames use a local numeric prefix inside each resource
+domain directory, for example `00-credentials/00-openai.yaml` or
+`04-workflows/06-flowcraft-chat.yaml`. The directory prefix controls
+cross-resource apply order, and the file prefix controls order within that
+resource domain. `gizclaw admin apply` accepts JSON and YAML, but committed e2e
+resource fixtures should use `.yaml`.
 
 Only credential-like provider values should be environment placeholders, such as
 `${GIZCLAW_E2E_OPENAI_API_KEY}`. Values are supplied by
@@ -94,60 +136,67 @@ fixtures with committed non-secret defaults. Do not commit real provider keys,
 tokens, app secrets, or access keys. Stable e2e identity key pairs are committed
 config fixtures, not env values.
 
+`~/Work/haivivi/env` can be used as a private source for local provider values.
+For example, MiniMax maps `minimax_cn_key` / `minimax_cn_group_id` and
+`minimax_global_key` / `minimax_global_group_id` to the matching
+`GIZCLAW_E2E_MINIMAX_*` values in `.env`. Qwen should be represented by the
+DashScope provider (`GIZCLAW_E2E_DASHSCOPE_API_KEY`) when a DashScope/Tongyi
+credential is available.
+
 Generated runtime data under `testdata/server-workspace/data/` and generated
 binaries under `testdata/bin/` stay ignored.
 
-## Shared RPC Catalog
+## Shared System Catalog
 
-`setup/reset_data.sh init` also creates a larger RPC fixture catalog under the
-`e2e-rpc-*` namespace. These fixtures are intended for typed RPC clients, CLI
-story tests, and UI surfaces that need realistic list data rather than a nearly
-empty server.
+`setup/reset_data.sh init` creates a system catalog that looks like a small real
+deployment: provider tenants, model rows, voice rows, workflows, workspaces,
+firmware entries, ACL policy bindings, and social graph rows. Client, CLI, and
+UI tests should be written around this business catalog instead of adding
+private per-test or UI-specific resource groups. Tests may still create and delete
+`mutation-*` resources for mutation coverage.
 
-Stable fixture IDs:
+Stable catalog IDs:
 
-- Workflow: `e2e-rpc-workflow`
-- Run-control workflow: `e2e-rpc-run-workflow`
-- Workspace: `e2e-rpc-workspace`
-- Run-control workspace: `e2e-rpc-run-workspace`
-- History workspace target: `e2e-rpc-history-workspace`
-- History seed text prefix: `rpc shared history round`
-- Model: `e2e-rpc-model`
-- Credential: `e2e-rpc-credential`
-- Voice metadata row: `e2e-rpc-voice`
-- Firmware: `e2e-rpc-firmware`
+- Workflow: `flowcraft-support`
+- Run-control workflow: `chatroom-direct`
+- Workspace: `workspace-support-demo`
+- Run-control workspace: `workspace-direct-chat-demo`
+- History workspace target: `workspace-history-demo`
+- Model: `openai-catalog-chat`
+- Credential: `openai-catalog-credential`
+- Voice metadata row: `minimax-catalog-voice`
+- Firmware: `devkit-firmware-main`
 - Firmware channel/artifact: `stable` / `main`
-- Mutation-safe names: `e2e-rpc-mut-workflow`, `e2e-rpc-mut-workspace`,
-  `e2e-rpc-mut-model`, `e2e-rpc-mut-credential`
+- Mutation-safe names: `mutation-flowcraft-workflow`, `mutation-flowcraft-workspace`,
+  `mutation-openai-model`, `mutation-openai-credential`
 
 Bulk catalog prefixes:
 
-- `e2e-rpc-workflow-000` through `e2e-rpc-workflow-119`
-- `e2e-rpc-workspace-000` through `e2e-rpc-workspace-119`
-- `e2e-rpc-model-000` through `e2e-rpc-model-079`
-- `e2e-rpc-credential-000` through `e2e-rpc-credential-049`
-- `e2e-rpc-firmware-000` through `e2e-rpc-firmware-079`
+- `flowcraft-scenario-000` through `flowcraft-scenario-119`
+- `workspace-scenario-000` through `workspace-scenario-119`
+- `openai-catalog-chat-000` through `openai-catalog-chat-079`
+- `openai-catalog-credential-000` through `openai-catalog-credential-049`
+- `devkit-firmware-000` through `devkit-firmware-079`
 
-The committed firmware metadata is applied through ResourceList JSON, but the
+The committed firmware metadata is applied through ResourceList YAML, but the
 downloadable firmware payload is a real tar fixture at
-`testdata/resources/assets/firmware/e2e-rpc-firmware-main.tar`. During init,
+`testdata/resources/assets/firmware/devkit-firmware-main.tar`. During init,
 `reset_data.sh` uploads that tar with:
 
 ```sh
-gizclaw admin firmwares upload-bin e2e-rpc-firmware \
+gizclaw admin firmwares upload-bin devkit-firmware-main \
   --channel stable --bin main \
-  -f testdata/resources/assets/firmware/e2e-rpc-firmware-main.tar
+  -f testdata/resources/assets/firmware/devkit-firmware-main.tar
 ```
 
-Provider-independent RPC fixtures use schema-valid fake metadata and do not
-require real provider credentials. Real OpenAI/Volc workspace voice fixtures
-still depend on the credential values from `.env` and are skipped when those
-values are absent.
+Provider-independent catalog rows use schema-valid committed metadata and do
+not require real provider credentials. Real OpenAI/Volc workspace voice
+resources still depend on the credential values from `.env` and are skipped
+when those values are absent.
 
-`reset_data.sh init` also writes several deterministic history entries with
-audio assets into `e2e-rpc-history-workspace` after resources are applied. That
-state is runtime data, so it is created by setup code rather than by static
-ResourceList JSON.
+Workspace history is runtime data. `reset_data.sh` must not seed history
+entries directly; social and workspace e2e cases should create history by
+running the relevant client workflows.
 
 ## Config Homes
 
@@ -217,8 +266,9 @@ under `ui/play`.
 ## UI Tests
 
 `ui/admin` and `ui/play` are browser UI tests organized by visible page or major
-surface. Missing shared resources should be added under `testdata/resources` and
-initialized by `setup/reset_data.sh`.
+surface. Missing business resources should be added under the matching
+`testdata/resources/<NN-domain>/` directory and initialized by
+`setup/reset_data.sh`.
 
 `ui/smoke` contains cross-surface checks, such as opening both Admin UI and Play
-UI against the same seeded test service.
+UI against the same shared test service.

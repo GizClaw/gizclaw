@@ -185,6 +185,105 @@ func TestAdminResourceApplyExpandsProcessEnv(t *testing.T) {
 	}
 }
 
+func TestAdminResourceApplyReadsYAMLFile(t *testing.T) {
+	t.Setenv("GIZCLAW_TEST_YAML_SECRET", "yaml-\"secret\"\\line\nnext")
+	resourceFile := filepath.Join(t.TempDir(), "credential.yaml")
+	if err := os.WriteFile(resourceFile, []byte(`
+apiVersion: gizclaw.admin/v1alpha1
+kind: Credential
+metadata:
+  name: yaml-credential
+spec:
+  provider: minimax
+  body:
+    api_key: ${GIZCLAW_TEST_YAML_SECRET}
+`), 0o644); err != nil {
+		t.Fatalf("write resource: %v", err)
+	}
+	fake := &fakeResourceClient{applyResult: apitypes.ApplyResult{Name: "yaml-credential"}}
+	restore := stubResourceClient(fake)
+	defer restore()
+
+	cmd := NewCmd()
+	cmd.SetArgs([]string{"apply", "-f", resourceFile})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("admin apply yaml error: %v", err)
+	}
+	if fake.appliedName != "yaml-credential" {
+		t.Fatalf("applied name = %q", fake.appliedName)
+	}
+	credential, err := fake.appliedResource.AsCredentialResource()
+	if err != nil {
+		t.Fatalf("applied resource is not credential: %v", err)
+	}
+	if got := testCredentialBodyString(credential.Spec.Body, "api_key"); got != "yaml-\"secret\"\\line\nnext" {
+		t.Fatalf("expanded YAML secret = %#v", got)
+	}
+}
+
+func TestAdminResourceYAMLExpansionHandlesNestedValues(t *testing.T) {
+	t.Setenv("GIZCLAW_TEST_YAML_NESTED_SECRET", "nested-secret")
+	resource, err := decodeResourceData("resources.yaml", []byte(`
+apiVersion: gizclaw.admin/v1alpha1
+kind: ResourceList
+metadata:
+  name: nested-resources
+spec:
+  items:
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Credential
+      metadata:
+        name: nested-credential
+      spec:
+        provider: openai
+        body:
+          api_key: ${GIZCLAW_TEST_YAML_NESTED_SECRET}
+`))
+	if err != nil {
+		t.Fatalf("decodeResourceData YAML: %v", err)
+	}
+	list, err := resource.AsResourceListResource()
+	if err != nil {
+		t.Fatalf("AsResourceListResource: %v", err)
+	}
+	if len(list.Spec.Items) != 1 {
+		t.Fatalf("items len = %d, want 1", len(list.Spec.Items))
+	}
+	credential, err := list.Spec.Items[0].AsCredentialResource()
+	if err != nil {
+		t.Fatalf("nested AsCredentialResource: %v", err)
+	}
+	if got := testCredentialBodyString(credential.Spec.Body, "api_key"); got != "nested-secret" {
+		t.Fatalf("nested api_key = %q, want nested-secret", got)
+	}
+
+	if _, err := expandResourceYAMLValue(map[any]any{"key": "${GIZCLAW_TEST_YAML_NESTED_SECRET}"}); err != nil {
+		t.Fatalf("expandResourceYAMLValue string-key map: %v", err)
+	}
+	if _, err := expandResourceYAMLValue(map[any]any{1: "value"}); err == nil {
+		t.Fatal("expandResourceYAMLValue non-string key error = nil")
+	}
+}
+
+func TestAdminResourceApplyRejectsUnsupportedResourceFileExtension(t *testing.T) {
+	resourceFile := filepath.Join(t.TempDir(), "credential.txt")
+	if err := os.WriteFile(resourceFile, []byte(`{
+		"apiVersion": "gizclaw.admin/v1alpha1",
+		"kind": "Credential",
+		"metadata": {"name": "txt-credential"},
+		"spec": {"provider": "minimax", "body": {"api_key": "secret"}}
+	}`), 0o644); err != nil {
+		t.Fatalf("write resource: %v", err)
+	}
+
+	cmd := NewCmd()
+	cmd.SetArgs([]string{"apply", "-f", resourceFile})
+	err := cmd.Execute()
+	if err == nil || !strings.Contains(err.Error(), ".json, .yaml, or .yml") {
+		t.Fatalf("admin apply error = %v, want unsupported extension", err)
+	}
+}
+
 func TestAdminResourceApplyRejectsMissingEnv(t *testing.T) {
 	resourceFile := filepath.Join(t.TempDir(), "credential.json")
 	if err := os.WriteFile(resourceFile, []byte(`{

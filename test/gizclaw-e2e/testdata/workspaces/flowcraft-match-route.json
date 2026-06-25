@@ -1,16 +1,16 @@
 {
   "agent": "flowcraft",
   "models": {
-    "asr": "e2e-asr",
-    "llm": "e2e-doubao-2-lite-chat",
-    "tts": "e2e-tts"
+    "asr": "volc-bigasr-sauc",
+    "llm": "doubao-lite-chat",
+    "tts": "volc-bigtts"
   },
   "persona": "Always generate exactly this Chinese utterance: 播放卡农，然后音量调到三十。",
   "rounds": 3,
   "timeout": "1200s",
-  "voice": "volc-tenant:e2e-volc-tenant:zh_female_vv_mars_bigtts",
+  "voice": "volc-tenant:volc-main:zh_female_vv_mars_bigtts",
   "workflow": {
-    "description": "Workspace e2e Flowcraft raid: Match Route",
+    "description": "Flowcraft raid: Match Route",
     "flowcraft": {
       "agent": {
         "description": "Routes by persisted route state first, then PALR-style text format and JS extraction.",
@@ -309,7 +309,7 @@
         ]
       },
       "conversation": {
-        "context_id": "e2e-flowcraft-match-route",
+        "context_id": "flowcraft-route-matcher",
         "starts": "self"
       },
       "history": {
@@ -414,20 +414,20 @@
         "state_root": "state"
       }
     },
-    "name": "e2e-flowcraft-match-route",
+    "name": "flowcraft-route-matcher",
     "parameters": {
-      "generate_model": "e2e-doubao-2-lite-chat",
+      "generate_model": "doubao-lite-chat",
       "input": "push-to-talk"
     },
     "voice_adapter": {
-      "asr_model": "e2e-asr",
-      "default_voice": "volc-tenant:e2e-volc-tenant:zh_female_shaoergushi_mars_bigtts",
+      "asr_model": "volc-bigasr-sauc",
+      "default_voice": "volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts",
       "node_voices": {
-        "chat_buffer": "volc-tenant:e2e-volc-tenant:zh_female_shaoergushi_mars_bigtts",
-        "function_adjust_device_volume": "volc-tenant:e2e-volc-tenant:zh_female_shaoergushi_mars_bigtts",
-        "function_play_music": "volc-tenant:e2e-volc-tenant:zh_female_shaoergushi_mars_bigtts",
-        "function_stop": "volc-tenant:e2e-volc-tenant:zh_female_shaoergushi_mars_bigtts",
-        "function_web_search": "volc-tenant:e2e-volc-tenant:zh_female_shaoergushi_mars_bigtts"
+        "chat_buffer": "volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts",
+        "function_adjust_device_volume": "volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts",
+        "function_play_music": "volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts",
+        "function_stop": "volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts",
+        "function_web_search": "volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts"
       }
     }
   }

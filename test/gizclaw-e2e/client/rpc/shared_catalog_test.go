@@ -24,6 +24,12 @@ type sharedSetupRPCHarness struct {
 	peer *gizcli.Client
 }
 
+const (
+	sharedSetupSocialAdminPublicKey  = "6Ww6ANsXDCf91Yp7Tvi65hqpywjMmXqAoZDiq33kfCee"
+	sharedSetupSocialClientPublicKey = "8rAUkTyxLHDa5o3VajtzWcQdNJq1thrjAGtpwQkEsaEu"
+	sharedSetupSocialGroupID         = "family-circle"
+)
+
 func newSharedSetupRPCHarness(t *testing.T) *sharedSetupRPCHarness {
 	t.Helper()
 
@@ -43,33 +49,33 @@ func TestSharedSetupRPCCatalogPagination(t *testing.T) {
 	env := newSharedSetupRPCHarness(t)
 
 	workflowNames := collectWorkflowNames(t, env.ctx, env.peer, 25)
-	requireName(t, workflowNames, "e2e-rpc-workflow")
-	requirePrefixCount(t, workflowNames, "e2e-rpc-workflow-", 120)
+	requireName(t, workflowNames, "flowcraft-support")
+	requirePrefixCount(t, workflowNames, "flowcraft-scenario-", 120)
 
 	workspaceNames := collectWorkspaceNames(t, env.ctx, env.peer, 25)
-	requireName(t, workspaceNames, "e2e-rpc-workspace")
-	requireName(t, workspaceNames, "e2e-rpc-history-workspace")
-	requirePrefixCount(t, workspaceNames, "e2e-rpc-workspace-", 120)
+	requireName(t, workspaceNames, "workspace-support-demo")
+	requireName(t, workspaceNames, "workspace-history-demo")
+	requirePrefixCount(t, workspaceNames, "workspace-scenario-", 120)
 
 	modelIDs := collectModelIDs(t, env.ctx, env.peer, 25)
-	requireName(t, modelIDs, "e2e-rpc-model")
-	requirePrefixCount(t, modelIDs, "e2e-rpc-model-", 80)
+	requireName(t, modelIDs, "openai-catalog-chat")
+	requirePrefixCount(t, modelIDs, "openai-catalog-chat-", 80)
 
 	credentialNames := collectCredentialNames(t, env.ctx, env.peer, 25)
-	requireName(t, credentialNames, "e2e-rpc-credential")
-	requirePrefixCount(t, credentialNames, "e2e-rpc-credential-", 50)
+	requireName(t, credentialNames, "openai-catalog-credential")
+	requirePrefixCount(t, credentialNames, "openai-catalog-credential-", 50)
 
 	firmwareNames := collectFirmwareNames(t, env.ctx, env.peer, 25)
-	requireName(t, firmwareNames, "e2e-rpc-firmware")
-	requirePrefixCount(t, firmwareNames, "e2e-rpc-firmware-", 80)
+	requireName(t, firmwareNames, "devkit-firmware-main")
+	requirePrefixCount(t, firmwareNames, "devkit-firmware-", 80)
 }
 
 func TestSharedSetupRPCFirmwareDownloadFixture(t *testing.T) {
 	env := newSharedSetupRPCHarness(t)
 
-	got, err := env.peer.GetFirmware(env.ctx, "shared.firmware.get", rpcapi.FirmwareGetRequest{FirmwareId: "e2e-rpc-firmware"})
+	got, err := env.peer.GetFirmware(env.ctx, "shared.firmware.get", rpcapi.FirmwareGetRequest{FirmwareId: "devkit-firmware-main"})
 	if err != nil {
-		t.Fatalf("firmware.get e2e-rpc-firmware: %v", err)
+		t.Fatalf("firmware.get devkit-firmware-main: %v", err)
 	}
 	if got.Slots.Stable.Artifacts == nil || len(*got.Slots.Stable.Artifacts) != 1 {
 		t.Fatalf("firmware stable artifacts = %#v", got.Slots.Stable.Artifacts)
@@ -81,114 +87,104 @@ func TestSharedSetupRPCFirmwareDownloadFixture(t *testing.T) {
 
 	var out bytes.Buffer
 	download, err := env.peer.DownloadFirmware(env.ctx, "shared.firmware.download", rpcapi.FirmwareDownloadRequest{
-		FirmwareId:   "e2e-rpc-firmware",
+		FirmwareId:   "devkit-firmware-main",
 		Channel:      rpcapi.FirmwareChannelNameStable,
 		ArtifactName: "main",
 	}, &out)
 	if err != nil {
-		t.Fatalf("firmware.download e2e-rpc-firmware: %v", err)
+		t.Fatalf("firmware.download devkit-firmware-main: %v", err)
 	}
 	if download.Bytes != int64(out.Len()) {
 		t.Fatalf("firmware.download bytes = %d, payload len = %d", download.Bytes, out.Len())
 	}
-	assertTarContains(t, out.Bytes(), "MANIFEST.txt", "gizclaw e2e rpc firmware")
+	assertTarContains(t, out.Bytes(), "MANIFEST.txt", "gizclaw devkit firmware")
 }
 
-func TestSharedSetupRPCHistoryFixture(t *testing.T) {
+func TestSharedSetupRPCSocialFixtures(t *testing.T) {
 	env := newSharedSetupRPCHarness(t)
 
-	limit := 2
-	history, err := env.peer.ListWorkspaceHistory(env.ctx, "shared.history.list", rpcapi.WorkspaceHistoryListRequest{
-		WorkspaceName: "e2e-rpc-history-workspace",
-		Limit:         &limit,
-	})
-	if err != nil {
-		t.Fatalf("workspace history list: %v", err)
-	}
-	if len(history.Items) != 2 || !history.HasNext || history.NextCursor == nil {
-		t.Fatalf("workspace history first page = %#v", history)
-	}
-	first := history.Items[0]
-	if first.Type != rpcapi.PeerRunHistoryEntryTypeGear || first.GearId == nil || !first.ReplayAvailable {
-		t.Fatalf("workspace history first entry = %#v", first)
-	}
-	if !strings.HasPrefix(first.Text, "rpc shared history round") {
-		t.Fatalf("workspace history first text = %q", first.Text)
+	if got := env.h.ContextPublicKey("e2e-client"); got != sharedSetupSocialClientPublicKey {
+		t.Skipf("shared social fixture targets default e2e-client %s, got %s", sharedSetupSocialClientPublicKey, got)
 	}
 
-	next, err := env.peer.ListWorkspaceHistory(env.ctx, "shared.history.next", rpcapi.WorkspaceHistoryListRequest{
-		WorkspaceName: "e2e-rpc-history-workspace",
-		Limit:         &limit,
-		Cursor:        history.NextCursor,
-	})
+	friends, err := env.peer.ListFriends(env.ctx, "shared.social.friend.list", rpcapi.FriendListRequest{})
 	if err != nil {
-		t.Fatalf("workspace history next page: %v", err)
+		t.Fatalf("friend.list shared fixture: %v", err)
 	}
-	if len(next.Items) == 0 {
-		t.Fatalf("workspace history next page = %#v", next)
+	friend := requireFriendPeer(t, friends.Items, sharedSetupSocialAdminPublicKey)
+	if friend.WorkspaceName == nil || *friend.WorkspaceName == "" {
+		t.Fatalf("shared friend workspace is empty: %#v", friend)
 	}
 
-	got, err := env.peer.GetWorkspaceHistory(env.ctx, "shared.history.get", rpcapi.WorkspaceHistoryGetRequest{
-		WorkspaceName: "e2e-rpc-history-workspace",
-		HistoryId:     first.Id,
-	})
+	groups, err := env.peer.ListFriendGroups(env.ctx, "shared.social.friend_group.list", rpcapi.FriendGroupListRequest{})
 	if err != nil {
-		t.Fatalf("workspace history get %q: %v", first.Id, err)
+		t.Fatalf("friend_group.list shared fixture: %v", err)
 	}
-	if got.Id != first.Id || got.Text != first.Text {
-		t.Fatalf("workspace history get = %#v, want id/text from %#v", got, first)
+	group := requireFriendGroupID(t, groups.Items, sharedSetupSocialGroupID)
+	if group.MyRole == nil || *group.MyRole != rpcapi.FriendGroupMemberRoleMember {
+		t.Fatalf("shared group my_role = %#v, want member", group.MyRole)
 	}
 
-	var audio bytes.Buffer
-	audioResp, err := env.peer.GetWorkspaceHistoryAudio(env.ctx, "shared.history.audio", rpcapi.WorkspaceHistoryAudioGetRequest{
-		WorkspaceName: "e2e-rpc-history-workspace",
-		HistoryId:     first.Id,
-	}, &audio)
+	gotGroup, err := env.peer.GetFriendGroup(env.ctx, "shared.social.friend_group.get", rpcapi.FriendGroupGetRequest{Id: sharedSetupSocialGroupID})
 	if err != nil {
-		t.Fatalf("workspace history audio get %q: %v", first.Id, err)
+		t.Fatalf("friend_group.get shared fixture: %v", err)
 	}
-	if audioResp.Bytes != int64(audio.Len()) || !strings.Contains(audio.String(), "rpc-history-opus-payload") {
-		t.Fatalf("workspace history audio bytes = %d payload=%q metadata=%#v", audio.Len(), audio.String(), audioResp)
+	if gotGroup.Name == nil || *gotGroup.Name != "Family Circle" {
+		t.Fatalf("shared group = %#v", gotGroup)
+	}
+
+	members, err := env.peer.ListFriendGroupMembers(env.ctx, "shared.social.friend_group.members.list", rpcapi.FriendGroupMemberListRequest{
+		FriendGroupId: testStringPtr(sharedSetupSocialGroupID),
+	})
+	if err != nil {
+		t.Fatalf("friend_group.members.list shared fixture: %v", err)
+	}
+	member := requireFriendGroupMemberPeer(t, members.Items, sharedSetupSocialClientPublicKey)
+	if member.Role == nil || *member.Role != rpcapi.FriendGroupMemberRoleMember {
+		t.Fatalf("shared member role = %#v, want member", member.Role)
+	}
+	if sharedStringValue(friend.WorkspaceName) == "" || sharedStringValue(group.WorkspaceName) == "" {
+		t.Fatalf("shared social workspaces are empty: friend=%#v group=%#v", friend.WorkspaceName, group.WorkspaceName)
 	}
 }
 
 func TestSharedSetupRPCMutationFixtures(t *testing.T) {
 	env := newSharedSetupRPCHarness(t)
 
-	_, _ = env.peer.DeleteWorkflow(env.ctx, "shared.workflow.delete.preclean", rpcapi.WorkflowDeleteRequest{Name: "e2e-rpc-mut-workflow"})
-	createdWorkflow, err := env.peer.CreateWorkflow(env.ctx, "shared.workflow.create", rpcWorkflow("e2e-rpc-mut-workflow", "shared setup mutation workflow"))
+	_, _ = env.peer.DeleteWorkflow(env.ctx, "shared.workflow.delete.preclean", rpcapi.WorkflowDeleteRequest{Name: "mutation-flowcraft-workflow"})
+	createdWorkflow, err := env.peer.CreateWorkflow(env.ctx, "shared.workflow.create", rpcWorkflow("mutation-flowcraft-workflow", "shared setup mutation workflow"))
 	if err != nil {
-		t.Fatalf("workflow.create e2e-rpc-mut-workflow: %v", err)
+		t.Fatalf("workflow.create mutation-flowcraft-workflow: %v", err)
 	}
-	if createdWorkflow.Metadata.Name != "e2e-rpc-mut-workflow" {
+	if createdWorkflow.Metadata.Name != "mutation-flowcraft-workflow" {
 		t.Fatalf("workflow.create = %#v", createdWorkflow)
 	}
-	if _, err := env.peer.DeleteWorkflow(env.ctx, "shared.workflow.delete", rpcapi.WorkflowDeleteRequest{Name: "e2e-rpc-mut-workflow"}); err != nil {
-		t.Fatalf("workflow.delete e2e-rpc-mut-workflow: %v", err)
+	if _, err := env.peer.DeleteWorkflow(env.ctx, "shared.workflow.delete", rpcapi.WorkflowDeleteRequest{Name: "mutation-flowcraft-workflow"}); err != nil {
+		t.Fatalf("workflow.delete mutation-flowcraft-workflow: %v", err)
 	}
 
-	_, _ = env.peer.DeleteModel(env.ctx, "shared.model.delete.preclean", rpcapi.ModelDeleteRequest{Id: "e2e-rpc-mut-model"})
-	createdModel, err := env.peer.CreateModel(env.ctx, "shared.model.create", rpcModel("e2e-rpc-mut-model", "e2e-rpc-provider"))
+	_, _ = env.peer.DeleteModel(env.ctx, "shared.model.delete.preclean", rpcapi.ModelDeleteRequest{Id: "mutation-openai-model"})
+	createdModel, err := env.peer.CreateModel(env.ctx, "shared.model.create", rpcModel("mutation-openai-model", "openai-lab"))
 	if err != nil {
-		t.Fatalf("model.create e2e-rpc-mut-model: %v", err)
+		t.Fatalf("model.create mutation-openai-model: %v", err)
 	}
-	if createdModel.Id != "e2e-rpc-mut-model" {
+	if createdModel.Id != "mutation-openai-model" {
 		t.Fatalf("model.create = %#v", createdModel)
 	}
-	if _, err := env.peer.DeleteModel(env.ctx, "shared.model.delete", rpcapi.ModelDeleteRequest{Id: "e2e-rpc-mut-model"}); err != nil {
-		t.Fatalf("model.delete e2e-rpc-mut-model: %v", err)
+	if _, err := env.peer.DeleteModel(env.ctx, "shared.model.delete", rpcapi.ModelDeleteRequest{Id: "mutation-openai-model"}); err != nil {
+		t.Fatalf("model.delete mutation-openai-model: %v", err)
 	}
 
-	_, _ = env.peer.DeleteCredential(env.ctx, "shared.credential.delete.preclean", rpcapi.CredentialDeleteRequest{Name: "e2e-rpc-mut-credential"})
-	createdCredential, err := env.peer.CreateCredential(env.ctx, "shared.credential.create", rpcCredential("e2e-rpc-mut-credential", "sk-e2e-rpc-mut"))
+	_, _ = env.peer.DeleteCredential(env.ctx, "shared.credential.delete.preclean", rpcapi.CredentialDeleteRequest{Name: "mutation-openai-credential"})
+	createdCredential, err := env.peer.CreateCredential(env.ctx, "shared.credential.create", rpcCredential("mutation-openai-credential", "sk-mutation-openai"))
 	if err != nil {
-		t.Fatalf("credential.create e2e-rpc-mut-credential: %v", err)
+		t.Fatalf("credential.create mutation-openai-credential: %v", err)
 	}
-	if createdCredential.Name != "e2e-rpc-mut-credential" {
+	if createdCredential.Name != "mutation-openai-credential" {
 		t.Fatalf("credential.create = %#v", createdCredential)
 	}
-	if _, err := env.peer.DeleteCredential(env.ctx, "shared.credential.delete", rpcapi.CredentialDeleteRequest{Name: "e2e-rpc-mut-credential"}); err != nil {
-		t.Fatalf("credential.delete e2e-rpc-mut-credential: %v", err)
+	if _, err := env.peer.DeleteCredential(env.ctx, "shared.credential.delete", rpcapi.CredentialDeleteRequest{Name: "mutation-openai-credential"}); err != nil {
+		t.Fatalf("credential.delete mutation-openai-credential: %v", err)
 	}
 }
 
@@ -322,6 +318,46 @@ func requireName(t *testing.T, names map[string]bool, name string) {
 	if !names[name] {
 		t.Fatalf("missing %q in names map with %d entries", name, len(names))
 	}
+}
+
+func requireFriendPeer(t *testing.T, items []rpcapi.FriendObject, peerPublicKey string) rpcapi.FriendObject {
+	t.Helper()
+	for _, item := range items {
+		if item.PeerPublicKey != nil && *item.PeerPublicKey == peerPublicKey {
+			return item
+		}
+	}
+	t.Fatalf("missing friend peer %q in %#v", peerPublicKey, items)
+	return rpcapi.FriendObject{}
+}
+
+func requireFriendGroupID(t *testing.T, items []rpcapi.FriendGroupObject, id string) rpcapi.FriendGroupObject {
+	t.Helper()
+	for _, item := range items {
+		if item.Id != nil && *item.Id == id {
+			return item
+		}
+	}
+	t.Fatalf("missing friend group %q in %#v", id, items)
+	return rpcapi.FriendGroupObject{}
+}
+
+func requireFriendGroupMemberPeer(t *testing.T, items []rpcapi.FriendGroupMemberObject, peerPublicKey string) rpcapi.FriendGroupMemberObject {
+	t.Helper()
+	for _, item := range items {
+		if item.PeerPublicKey != nil && *item.PeerPublicKey == peerPublicKey {
+			return item
+		}
+	}
+	t.Fatalf("missing friend group member %q in %#v", peerPublicKey, items)
+	return rpcapi.FriendGroupMemberObject{}
+}
+
+func sharedStringValue(value *string) string {
+	if value == nil {
+		return ""
+	}
+	return *value
 }
 
 func requirePrefixCount(t *testing.T, names map[string]bool, prefix string, want int) {

@@ -1,6 +1,6 @@
 //go:build gizclaw_e2e
 
-// User story: As an admin operator, I can inspect a seeded peer across its
+// User story: As an admin operator, I can inspect a shared peer across its
 // info, edit, and CLI views.
 package adminui_test
 
@@ -15,10 +15,10 @@ func adminPeerDetailStories() []Story {
 		Name: "111-admin-peer-detail",
 		Run: func(_ testing.TB, page *Page) {
 			page.GotoAdmin("/peers/" + url.PathEscape(page.Seed.DevicePublicKey))
-			page.ExpectText("Seeded UI Device")
+			page.ExpectText("Living Room Device")
 			page.ExpectText(page.Seed.DevicePublicKey)
 			page.ExpectText("Configuration")
-			page.ExpectText("e2e-client")
+			page.ExpectText("default-client")
 			page.ExpectText("Last Address")
 			page.ExpectText("Online")
 

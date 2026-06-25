@@ -18,7 +18,7 @@ func playActionsStories() []Story {
 			page.ExpectText(SeedModelID)
 			page.ClickRoleLike("button", "Voices")
 			page.ExpectText(SeedVoiceID)
-			page.ExpectText("Seeded UI Voice")
+			page.ExpectText("MiniMax Cloned Narrator")
 			page.ClickRoleLike("button", "Pets")
 			page.ExpectText("Seeded Pet")
 			page.ClickRoleLike("button", "Transactions")

@@ -1,0 +1,13 @@
+---
+apiVersion: gizclaw.admin/v1alpha1
+kind: ACLPolicyBinding
+metadata:
+  name: view-default-client-model-doubao-2-lite-chat
+spec:
+  subject:
+    kind: view
+    id: default-client
+  resource:
+    kind: model
+    id: doubao-lite-chat
+  role: default-client

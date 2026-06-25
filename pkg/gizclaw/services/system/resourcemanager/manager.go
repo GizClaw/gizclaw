@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/apitypes"
+	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/services/ai/credential"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/services/ai/model"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/services/ai/providertenants"
@@ -16,7 +17,10 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/services/gameplay/badge"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/services/gameplay/petspecies"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/services/runtime/peer"
+	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/services/social/friend"
+	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/services/social/friendgroup"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/services/system/acl"
+	"github.com/GizClaw/gizclaw-go/pkg/store/kv"
 )
 
 // Services groups the admin services that own concrete resource writes.
@@ -32,6 +36,8 @@ type Services struct {
 	Voices          voice.VoiceAdminService
 	Workspaces      workspace.WorkspaceAdminService
 	Workflows       workflow.WorkflowAdminService
+	Friends         *friend.Server
+	FriendGroups    *friendgroup.Server
 }
 
 // Manager applies declarative admin resources by delegating to owner services.
@@ -270,6 +276,54 @@ func (m *Manager) Get(ctx context.Context, kind apitypes.ResourceKind, name stri
 		return resourceFromWorkflow(name, item)
 	case apitypes.ResourceKindResourceList:
 		return apitypes.Resource{}, applyError(400, "UNSUPPORTED_RESOURCE_GET", "ResourceList is not stored as a named resource")
+	case apitypes.ResourceKindFriend:
+		if m.services.Friends == nil {
+			return apitypes.Resource{}, missingService("friends")
+		}
+		item, exists, err := m.getFriend(ctx, name)
+		if err != nil {
+			return apitypes.Resource{}, err
+		}
+		if !exists {
+			return apitypes.Resource{}, notFound(kind, name)
+		}
+		return resourceFromFriend(item)
+	case apitypes.ResourceKindFriendGroup:
+		if m.services.FriendGroups == nil {
+			return apitypes.Resource{}, missingService("friend groups")
+		}
+		item, exists, err := m.getFriendGroup(ctx, name)
+		if err != nil {
+			return apitypes.Resource{}, err
+		}
+		if !exists {
+			return apitypes.Resource{}, notFound(kind, name)
+		}
+		return resourceFromFriendGroup(item)
+	case apitypes.ResourceKindFriendGroupInviteToken:
+		if m.services.FriendGroups == nil {
+			return apitypes.Resource{}, missingService("friend groups")
+		}
+		item, exists, err := m.getFriendGroupInviteToken(ctx, name)
+		if err != nil {
+			return apitypes.Resource{}, err
+		}
+		if !exists {
+			return apitypes.Resource{}, notFound(kind, name)
+		}
+		return resourceFromFriendGroupInviteToken(name, item)
+	case apitypes.ResourceKindFriendGroupMember:
+		if m.services.FriendGroups == nil {
+			return apitypes.Resource{}, missingService("friend groups")
+		}
+		item, exists, err := m.getFriendGroupMember(ctx, name)
+		if err != nil {
+			return apitypes.Resource{}, err
+		}
+		if !exists {
+			return apitypes.Resource{}, notFound(kind, name)
+		}
+		return resourceFromFriendGroupMember(item)
 	default:
 		return apitypes.Resource{}, applyError(400, "UNKNOWN_RESOURCE_KIND", fmt.Sprintf("unknown resource kind %q", kind))
 	}
@@ -557,6 +611,66 @@ func (m *Manager) Put(ctx context.Context, resource apitypes.Resource) (apitypes
 			return apitypes.Resource{}, err
 		}
 		return m.Get(ctx, apitypes.ResourceKindWorkflow, item.Metadata.Name)
+	case string(apitypes.ResourceKindFriend), "FriendResource":
+		if m.services.Friends == nil {
+			return apitypes.Resource{}, missingService("friends")
+		}
+		item, err := resource.AsFriendResource()
+		if err != nil {
+			return apitypes.Resource{}, applyError(400, "INVALID_FRIEND_RESOURCE", err.Error())
+		}
+		if err := validateFriendResource(item); err != nil {
+			return apitypes.Resource{}, err
+		}
+		if _, err := m.services.Friends.AdminCreateFriendResource(ctx, item.Spec.OwnerPublicKey, item.Spec.PeerPublicKey); err != nil {
+			return apitypes.Resource{}, err
+		}
+		return m.Get(ctx, apitypes.ResourceKindFriend, item.Metadata.Name)
+	case string(apitypes.ResourceKindFriendGroup), "FriendGroupResource":
+		if m.services.FriendGroups == nil {
+			return apitypes.Resource{}, missingService("friend groups")
+		}
+		item, err := resource.AsFriendGroupResource()
+		if err != nil {
+			return apitypes.Resource{}, applyError(400, "INVALID_FRIEND_GROUP_RESOURCE", err.Error())
+		}
+		if err := validateFriendGroupResource(item); err != nil {
+			return apitypes.Resource{}, err
+		}
+		if _, err := m.services.FriendGroups.AdminApplyFriendGroup(ctx, item.Metadata.Name, item.Spec.Name, item.Spec.Description); err != nil {
+			return apitypes.Resource{}, err
+		}
+		return m.Get(ctx, apitypes.ResourceKindFriendGroup, item.Metadata.Name)
+	case string(apitypes.ResourceKindFriendGroupInviteToken), "FriendGroupInviteTokenResource":
+		if m.services.FriendGroups == nil {
+			return apitypes.Resource{}, missingService("friend groups")
+		}
+		item, err := resource.AsFriendGroupInviteTokenResource()
+		if err != nil {
+			return apitypes.Resource{}, applyError(400, "INVALID_FRIEND_GROUP_INVITE_TOKEN_RESOURCE", err.Error())
+		}
+		if err := validateFriendGroupInviteTokenResource(item); err != nil {
+			return apitypes.Resource{}, err
+		}
+		if _, err := m.services.FriendGroups.AdminPutFriendGroupInviteToken(ctx, item.Spec.FriendGroupId, item.Spec.InviteToken, item.Spec.ExpiresAt); err != nil {
+			return apitypes.Resource{}, err
+		}
+		return m.Get(ctx, apitypes.ResourceKindFriendGroupInviteToken, item.Metadata.Name)
+	case string(apitypes.ResourceKindFriendGroupMember), "FriendGroupMemberResource":
+		if m.services.FriendGroups == nil {
+			return apitypes.Resource{}, missingService("friend groups")
+		}
+		item, err := resource.AsFriendGroupMemberResource()
+		if err != nil {
+			return apitypes.Resource{}, applyError(400, "INVALID_FRIEND_GROUP_MEMBER_RESOURCE", err.Error())
+		}
+		if err := validateFriendGroupMemberResource(item); err != nil {
+			return apitypes.Resource{}, err
+		}
+		if _, err := m.services.FriendGroups.AdminPutFriendGroupMember(ctx, item.Spec.FriendGroupId, item.Spec.PeerPublicKey, rpcapi.FriendGroupMemberRole(item.Spec.Role)); err != nil {
+			return apitypes.Resource{}, err
+		}
+		return m.Get(ctx, apitypes.ResourceKindFriendGroupMember, item.Metadata.Name)
 	default:
 		return apitypes.Resource{}, applyError(400, "UNKNOWN_RESOURCE_KIND", fmt.Sprintf("unknown resource kind %q", kind))
 	}
@@ -767,6 +881,65 @@ func (m *Manager) Delete(ctx context.Context, kind apitypes.ResourceKind, name s
 		return resourceFromWorkflow(name, item)
 	case apitypes.ResourceKindResourceList:
 		return apitypes.Resource{}, applyError(400, "UNSUPPORTED_RESOURCE_DELETE", "ResourceList is not stored as a named resource")
+	case apitypes.ResourceKindFriend:
+		if m.services.Friends == nil {
+			return apitypes.Resource{}, missingService("friends")
+		}
+		owner, _, err := friendResourcePeers(name)
+		if err != nil {
+			return apitypes.Resource{}, err
+		}
+		item, err := m.services.Friends.AdminDeleteFriend(ctx, owner, name)
+		if errors.Is(err, kv.ErrNotFound) {
+			return apitypes.Resource{}, notFound(kind, name)
+		}
+		if err != nil {
+			return apitypes.Resource{}, err
+		}
+		return resourceFromFriend(item)
+	case apitypes.ResourceKindFriendGroup:
+		if m.services.FriendGroups == nil {
+			return apitypes.Resource{}, missingService("friend groups")
+		}
+		item, err := m.services.FriendGroups.AdminDeleteFriendGroup(ctx, name)
+		if errors.Is(err, kv.ErrNotFound) {
+			return apitypes.Resource{}, notFound(kind, name)
+		}
+		if err != nil {
+			return apitypes.Resource{}, err
+		}
+		return resourceFromFriendGroup(item)
+	case apitypes.ResourceKindFriendGroupInviteToken:
+		if m.services.FriendGroups == nil {
+			return apitypes.Resource{}, missingService("friend groups")
+		}
+		item, exists, err := m.getFriendGroupInviteToken(ctx, name)
+		if err != nil {
+			return apitypes.Resource{}, err
+		}
+		if !exists {
+			return apitypes.Resource{}, notFound(kind, name)
+		}
+		if _, err := m.services.FriendGroups.AdminDeleteFriendGroupInviteToken(ctx, name); err != nil {
+			return apitypes.Resource{}, err
+		}
+		return resourceFromFriendGroupInviteToken(name, item)
+	case apitypes.ResourceKindFriendGroupMember:
+		if m.services.FriendGroups == nil {
+			return apitypes.Resource{}, missingService("friend groups")
+		}
+		friendGroupID, peerID, err := friendGroupMemberResourceParts(name)
+		if err != nil {
+			return apitypes.Resource{}, err
+		}
+		item, err := m.services.FriendGroups.AdminDeleteFriendGroupMember(ctx, friendGroupID, peerID)
+		if errors.Is(err, kv.ErrNotFound) {
+			return apitypes.Resource{}, notFound(kind, name)
+		}
+		if err != nil {
+			return apitypes.Resource{}, err
+		}
+		return resourceFromFriendGroupMember(item)
 	default:
 		return apitypes.Resource{}, applyError(400, "UNKNOWN_RESOURCE_KIND", fmt.Sprintf("unknown resource kind %q", kind))
 	}
@@ -818,6 +991,14 @@ func (m *Manager) Apply(ctx context.Context, resource apitypes.Resource) (apityp
 		return m.applyWorkspace(ctx, resource)
 	case string(apitypes.ResourceKindWorkflow), "WorkflowResource":
 		return m.applyWorkflow(ctx, resource)
+	case string(apitypes.ResourceKindFriend), "FriendResource":
+		return m.applyFriend(ctx, resource)
+	case string(apitypes.ResourceKindFriendGroup), "FriendGroupResource":
+		return m.applyFriendGroup(ctx, resource)
+	case string(apitypes.ResourceKindFriendGroupInviteToken), "FriendGroupInviteTokenResource":
+		return m.applyFriendGroupInviteToken(ctx, resource)
+	case string(apitypes.ResourceKindFriendGroupMember), "FriendGroupMemberResource":
+		return m.applyFriendGroupMember(ctx, resource)
 	default:
 		return apitypes.ApplyResult{}, applyError(400, "UNKNOWN_RESOURCE_KIND", fmt.Sprintf("unknown resource kind %q", kind))
 	}

@@ -21,6 +21,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/gizcli"
 	clitest "github.com/GizClaw/gizclaw-go/test/gizclaw-e2e/cmd"
+	"github.com/goccy/go-yaml"
 	_ "modernc.org/sqlite"
 )
 
@@ -74,7 +75,7 @@ func newSocialRPCHarness(t *testing.T) *socialRPCHarness {
 	h := clitest.NewSetupHarness(t, "client-rpc-social")
 	h.CreateContext("admin-a").MustSucceed(t)
 	h.RegisterContext("admin-a", "--sn", "client-rpc-social-admin-sn").MustSucceed(t)
-	chatroomWorkflow := filepath.Join(h.RepoRoot, "test", "gizclaw-e2e", "testdata", "resources", "040-workflow-chatroom.json")
+	chatroomWorkflow := filepath.Join(h.RepoRoot, "test", "gizclaw-e2e", "testdata", "resources", "04-workflows", "03-chatroom.yaml")
 	admin := h.ConnectClientFromContext("admin-a")
 	defer admin.Close()
 	api, err := admin.ServerAdminClient()
@@ -487,8 +488,12 @@ func applyRPCResourceFile(t *testing.T, api *adminservice.ClientWithResponses, r
 func applyRPCResourceData(t *testing.T, ctx context.Context, api *adminservice.ClientWithResponses, label string, data []byte) {
 	t.Helper()
 
+	jsonData, err := yaml.YAMLToJSON(data)
+	if err != nil {
+		t.Fatalf("decode rpc resource YAML %s: %v", label, err)
+	}
 	var resource apitypes.Resource
-	if err := json.Unmarshal(data, &resource); err != nil {
+	if err := json.Unmarshal(jsonData, &resource); err != nil {
 		t.Fatalf("decode rpc resource %s: %v", label, err)
 	}
 	resp, err := api.ApplyResourceWithResponse(ctx, resource)

@@ -1,0 +1,13 @@
+---
+apiVersion: gizclaw.admin/v1alpha1
+kind: ACLPolicyBinding
+metadata:
+  name: view-default-client-model-gemini-chat
+spec:
+  subject:
+    kind: view
+    id: default-client
+  resource:
+    kind: model
+    id: gemini-2-flash
+  role: default-client

@@ -17,7 +17,7 @@ func adminProviderTenantsListStories() []Story {
 			page.GotoAdmin("/providers/openai-tenants")
 			page.ExpectText("OpenAI Tenants")
 			page.ExpectText(SeedOpenAITenantName)
-			page.ExpectText("ui-seed-openai-credential")
+			page.ExpectText("openai-lab-credential")
 
 			page.GotoAdmin("/providers/openai-tenants/" + url.PathEscape(SeedOpenAITenantName))
 			page.ExpectText("OpenAI-compatible endpoint configuration")
@@ -31,11 +31,11 @@ func adminProviderTenantsListStories() []Story {
 			page.GotoAdmin("/providers/gemini-tenants")
 			page.ExpectText("Gemini Tenants")
 			page.ExpectText(SeedGeminiTenantName)
-			page.ExpectText("ui-seed-gemini-credential")
+			page.ExpectText("gemini-main-credential")
 
 			page.GotoAdmin("/providers/gemini-tenants/" + url.PathEscape(SeedGeminiTenantName))
 			page.ExpectText("Gemini project and credential binding")
-			page.ExpectText("ui-seed-project")
+			page.ExpectText("gemini-main-project")
 			page.ClickRole("tab", "CLI")
 			page.ExpectText("GeminiTenant Resource Spec")
 			page.ExpectText("gizclaw admin gemini-tenants --context <admin-cli-context> get '" + SeedGeminiTenantName + "'")
@@ -46,7 +46,7 @@ func adminProviderTenantsListStories() []Story {
 			page.GotoAdmin("/providers/dashscope-tenants")
 			page.ExpectText("DashScope Tenants")
 			page.ExpectText(SeedDashScopeTenantName)
-			page.ExpectText("ui-seed-dashscope-credential")
+			page.ExpectText("dashscope-main-credential")
 
 			page.GotoAdmin("/providers/dashscope-tenants/" + url.PathEscape(SeedDashScopeTenantName))
 			page.ExpectText("DashScope endpoint and credential binding")

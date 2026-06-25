@@ -18,7 +18,7 @@ if [[ $# -lt 1 || $# -gt 2 ]]; then
 fi
 
 peer_public_key="$1"
-view_name="${2:-e2e-client}"
+view_name="${2:-default-client}"
 
 if [[ ! "$peer_public_key" =~ ^[1-9A-HJ-NP-Za-km-z]+$ ]]; then
   echo "peer public key must be a non-empty base58 string" >&2

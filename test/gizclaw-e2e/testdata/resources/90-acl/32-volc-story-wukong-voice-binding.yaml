@@ -1,0 +1,13 @@
+---
+apiVersion: gizclaw.admin/v1alpha1
+kind: ACLPolicyBinding
+metadata:
+  name: view-default-client-voice-story-wukong
+spec:
+  subject:
+    kind: view
+    id: default-client
+  resource:
+    kind: voice
+    id: volc-tenant:volc-main:zh_male_sunwukong_mars_bigtts
+  role: default-client

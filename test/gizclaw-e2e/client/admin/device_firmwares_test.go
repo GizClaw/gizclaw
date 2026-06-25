@@ -24,10 +24,10 @@ func TestAdminAPIFirmwaresListGetPaginationAndUpload(t *testing.T) {
 		}
 		return resp.JSON200.Items, resp.JSON200.HasNext, resp.JSON200.NextCursor
 	})
-	requireName(t, all, "e2e-rpc-firmware", func(item apitypes.Firmware) string { return item.Name })
-	requirePrefixCount(t, all, "e2e-rpc-firmware-", 70, func(item apitypes.Firmware) string { return item.Name })
+	requireName(t, all, "devkit-firmware-main", func(item apitypes.Firmware) string { return item.Name })
+	requirePrefixCount(t, all, "devkit-firmware-", 70, func(item apitypes.Firmware) string { return item.Name })
 
-	get, err := env.api.GetFirmwareWithResponse(env.ctx, "e2e-rpc-firmware")
+	get, err := env.api.GetFirmwareWithResponse(env.ctx, "devkit-firmware-main")
 	if err != nil {
 		t.Fatalf("get firmware: %v", err)
 	}

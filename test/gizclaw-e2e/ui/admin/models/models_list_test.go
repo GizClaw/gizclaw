@@ -16,12 +16,12 @@ func adminModelsListStories() []Story {
 		Run: func(_ testing.TB, page *Page) {
 			page.GotoAdmin("/ai/models")
 			page.ExpectText("Models")
-			page.ExpectText("Seeded OpenAI Chat")
+			page.ExpectText("OpenAI Lab Chat")
 			page.ExpectText("openai-tenant")
 
 			page.GotoAdmin("/ai/models/" + url.PathEscape(SeedModelID))
 			page.ExpectText(SeedModelID)
-			page.ExpectText("Seeded OpenAI Chat")
+			page.ExpectText("OpenAI Lab Chat")
 			page.ClickRole("tab", "CLI")
 			page.ExpectText("Model Resource Spec")
 			page.ExpectText("gizclaw admin models --context <admin-cli-context> get '" + SeedModelID + "'")

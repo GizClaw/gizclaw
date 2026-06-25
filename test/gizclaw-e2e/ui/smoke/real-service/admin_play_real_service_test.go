@@ -1,7 +1,7 @@
 //go:build gizclaw_e2e
 
 // User story: As a maintainer, I can run one smoke path that proves Admin and
-// Play both serve against the same seeded test service.
+// Play both serve against the same shared test service.
 package smoke_test
 
 import (

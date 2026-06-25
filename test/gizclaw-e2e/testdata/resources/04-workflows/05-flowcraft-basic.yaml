@@ -1,0 +1,47 @@
+---
+apiVersion: gizclaw.admin/v1alpha1
+kind: Workflow
+metadata:
+  name: flowcraft-voice-assistant
+  description: Flowcraft voice adapter workflow
+spec:
+  driver: flowcraft
+  flowcraft:
+    workspace:
+      memory_root: memory
+      state_root: state
+      history_root: history
+    conversation:
+      starts: peer
+      context_id: flowcraft-voice-assistant
+    history:
+      enabled: true
+      kind: buffer
+      max_messages: 20
+    memory:
+      enabled: true
+      write:
+        save_conversation: true
+        mode: async_semantic
+        tier: general
+      extract:
+        enabled: true
+        model: extract_model
+        mode: two_pass
+        temperature: 0
+        schema_name: flowcraft_voice_memory
+      embedding:
+        enabled: false
+      retrieval:
+        backend: memory
+    agent:
+      id: voice-adapter
+      name: Voice Adapter
+      model: generate_model
+      system_prompt: 你是一个简短、自然的中文语音聊天助手。直接回答用户，不要解释测试流程。
+      max_iterations: 4
+    voice_adapter:
+      asr_model: volc-bigasr-sauc
+      default_voice: volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts
+      node_voices:
+        answer: volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts

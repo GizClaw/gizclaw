@@ -492,6 +492,87 @@ func (e FlowcraftWorkspaceParametersAgentType) Valid() bool {
 	}
 }
 
+// Defines values for FriendGroupInviteTokenResourceKind.
+const (
+	FriendGroupInviteTokenResourceKindFriendGroupInviteToken FriendGroupInviteTokenResourceKind = "FriendGroupInviteToken"
+)
+
+// Valid indicates whether the value is a known member of the FriendGroupInviteTokenResourceKind enum.
+func (e FriendGroupInviteTokenResourceKind) Valid() bool {
+	switch e {
+	case FriendGroupInviteTokenResourceKindFriendGroupInviteToken:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for FriendGroupMemberResourceKind.
+const (
+	FriendGroupMemberResourceKindFriendGroupMember FriendGroupMemberResourceKind = "FriendGroupMember"
+)
+
+// Valid indicates whether the value is a known member of the FriendGroupMemberResourceKind enum.
+func (e FriendGroupMemberResourceKind) Valid() bool {
+	switch e {
+	case FriendGroupMemberResourceKindFriendGroupMember:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for FriendGroupMemberRole.
+const (
+	FriendGroupMemberRoleAdmin  FriendGroupMemberRole = "admin"
+	FriendGroupMemberRoleMember FriendGroupMemberRole = "member"
+	FriendGroupMemberRoleOwner  FriendGroupMemberRole = "owner"
+)
+
+// Valid indicates whether the value is a known member of the FriendGroupMemberRole enum.
+func (e FriendGroupMemberRole) Valid() bool {
+	switch e {
+	case FriendGroupMemberRoleAdmin:
+		return true
+	case FriendGroupMemberRoleMember:
+		return true
+	case FriendGroupMemberRoleOwner:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for FriendGroupResourceKind.
+const (
+	FriendGroupResourceKindFriendGroup FriendGroupResourceKind = "FriendGroup"
+)
+
+// Valid indicates whether the value is a known member of the FriendGroupResourceKind enum.
+func (e FriendGroupResourceKind) Valid() bool {
+	switch e {
+	case FriendGroupResourceKindFriendGroup:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for FriendResourceKind.
+const (
+	FriendResourceKindFriend FriendResourceKind = "Friend"
+)
+
+// Valid indicates whether the value is a known member of the FriendResourceKind enum.
+func (e FriendResourceKind) Valid() bool {
+	switch e {
+	case FriendResourceKindFriend:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for GeminiTenantResourceKind.
 const (
 	GeminiTenantResourceKindGeminiTenant GeminiTenantResourceKind = "GeminiTenant"
@@ -893,24 +974,28 @@ func (e ResourceAPIVersion) Valid() bool {
 
 // Defines values for ResourceKind.
 const (
-	ResourceKindACLPolicyBinding ResourceKind = "ACLPolicyBinding"
-	ResourceKindACLRole          ResourceKind = "ACLRole"
-	ResourceKindACLView          ResourceKind = "ACLView"
-	ResourceKindBadge            ResourceKind = "Badge"
-	ResourceKindCredential       ResourceKind = "Credential"
-	ResourceKindDashScopeTenant  ResourceKind = "DashScopeTenant"
-	ResourceKindFirmware         ResourceKind = "Firmware"
-	ResourceKindGeminiTenant     ResourceKind = "GeminiTenant"
-	ResourceKindMiniMaxTenant    ResourceKind = "MiniMaxTenant"
-	ResourceKindModel            ResourceKind = "Model"
-	ResourceKindOpenAITenant     ResourceKind = "OpenAITenant"
-	ResourceKindPeerConfig       ResourceKind = "PeerConfig"
-	ResourceKindPetSpecies       ResourceKind = "PetSpecies"
-	ResourceKindResourceList     ResourceKind = "ResourceList"
-	ResourceKindVoice            ResourceKind = "Voice"
-	ResourceKindVolcTenant       ResourceKind = "VolcTenant"
-	ResourceKindWorkflow         ResourceKind = "Workflow"
-	ResourceKindWorkspace        ResourceKind = "Workspace"
+	ResourceKindACLPolicyBinding       ResourceKind = "ACLPolicyBinding"
+	ResourceKindACLRole                ResourceKind = "ACLRole"
+	ResourceKindACLView                ResourceKind = "ACLView"
+	ResourceKindBadge                  ResourceKind = "Badge"
+	ResourceKindCredential             ResourceKind = "Credential"
+	ResourceKindDashScopeTenant        ResourceKind = "DashScopeTenant"
+	ResourceKindFirmware               ResourceKind = "Firmware"
+	ResourceKindFriend                 ResourceKind = "Friend"
+	ResourceKindFriendGroup            ResourceKind = "FriendGroup"
+	ResourceKindFriendGroupInviteToken ResourceKind = "FriendGroupInviteToken"
+	ResourceKindFriendGroupMember      ResourceKind = "FriendGroupMember"
+	ResourceKindGeminiTenant           ResourceKind = "GeminiTenant"
+	ResourceKindMiniMaxTenant          ResourceKind = "MiniMaxTenant"
+	ResourceKindModel                  ResourceKind = "Model"
+	ResourceKindOpenAITenant           ResourceKind = "OpenAITenant"
+	ResourceKindPeerConfig             ResourceKind = "PeerConfig"
+	ResourceKindPetSpecies             ResourceKind = "PetSpecies"
+	ResourceKindResourceList           ResourceKind = "ResourceList"
+	ResourceKindVoice                  ResourceKind = "Voice"
+	ResourceKindVolcTenant             ResourceKind = "VolcTenant"
+	ResourceKindWorkflow               ResourceKind = "Workflow"
+	ResourceKindWorkspace              ResourceKind = "Workspace"
 )
 
 // Valid indicates whether the value is a known member of the ResourceKind enum.
@@ -929,6 +1014,14 @@ func (e ResourceKind) Valid() bool {
 	case ResourceKindDashScopeTenant:
 		return true
 	case ResourceKindFirmware:
+		return true
+	case ResourceKindFriend:
+		return true
+	case ResourceKindFriendGroup:
+		return true
+	case ResourceKindFriendGroupInviteToken:
+		return true
+	case ResourceKindFriendGroupMember:
 		return true
 	case ResourceKindGeminiTenant:
 		return true
@@ -1743,6 +1836,88 @@ type FlowcraftWorkspaceParameters struct {
 
 // FlowcraftWorkspaceParametersAgentType defines model for FlowcraftWorkspaceParameters.AgentType.
 type FlowcraftWorkspaceParametersAgentType string
+
+// FriendGroupInviteTokenResource defines model for FriendGroupInviteTokenResource.
+type FriendGroupInviteTokenResource struct {
+	// ApiVersion API version for declarative GizClaw resources.
+	ApiVersion ResourceAPIVersion                 `json:"apiVersion"`
+	Kind       FriendGroupInviteTokenResourceKind `json:"kind"`
+	Metadata   ResourceMetadata                   `json:"metadata"`
+	Spec       FriendGroupInviteTokenSpec         `json:"spec"`
+}
+
+// FriendGroupInviteTokenResourceKind defines model for FriendGroupInviteTokenResource.Kind.
+type FriendGroupInviteTokenResourceKind string
+
+// FriendGroupInviteTokenSpec defines model for FriendGroupInviteTokenSpec.
+type FriendGroupInviteTokenSpec struct {
+	ExpiresAt     time.Time `json:"expires_at"`
+	FriendGroupId string    `json:"friend_group_id"`
+	InviteToken   string    `json:"invite_token"`
+}
+
+// FriendGroupMemberResource defines model for FriendGroupMemberResource.
+type FriendGroupMemberResource struct {
+	// ApiVersion API version for declarative GizClaw resources.
+	ApiVersion ResourceAPIVersion            `json:"apiVersion"`
+	Kind       FriendGroupMemberResourceKind `json:"kind"`
+	Metadata   ResourceMetadata              `json:"metadata"`
+	Spec       FriendGroupMemberSpec         `json:"spec"`
+}
+
+// FriendGroupMemberResourceKind defines model for FriendGroupMemberResource.Kind.
+type FriendGroupMemberResourceKind string
+
+// FriendGroupMemberRole defines model for FriendGroupMemberRole.
+type FriendGroupMemberRole string
+
+// FriendGroupMemberSpec defines model for FriendGroupMemberSpec.
+type FriendGroupMemberSpec struct {
+	FriendGroupId string                `json:"friend_group_id"`
+	PeerPublicKey string                `json:"peer_public_key"`
+	Role          FriendGroupMemberRole `json:"role"`
+}
+
+// FriendGroupResource defines model for FriendGroupResource.
+type FriendGroupResource struct {
+	// ApiVersion API version for declarative GizClaw resources.
+	ApiVersion ResourceAPIVersion      `json:"apiVersion"`
+	Kind       FriendGroupResourceKind `json:"kind"`
+	Metadata   ResourceMetadata        `json:"metadata"`
+	Spec       FriendGroupSpec         `json:"spec"`
+}
+
+// FriendGroupResourceKind defines model for FriendGroupResource.Kind.
+type FriendGroupResourceKind string
+
+// FriendGroupSpec defines model for FriendGroupSpec.
+type FriendGroupSpec struct {
+	Description *string `json:"description,omitempty"`
+
+	// Name Display name for the friend group. metadata.name is the stable group id.
+	Name string `json:"name"`
+}
+
+// FriendResource defines model for FriendResource.
+type FriendResource struct {
+	// ApiVersion API version for declarative GizClaw resources.
+	ApiVersion ResourceAPIVersion `json:"apiVersion"`
+	Kind       FriendResourceKind `json:"kind"`
+	Metadata   ResourceMetadata   `json:"metadata"`
+	Spec       FriendSpec         `json:"spec"`
+}
+
+// FriendResourceKind defines model for FriendResource.Kind.
+type FriendResourceKind string
+
+// FriendSpec defines model for FriendSpec.
+type FriendSpec struct {
+	// OwnerPublicKey Canonical owner peer public key. metadata.name must be the sorted relation id owner:peer.
+	OwnerPublicKey string `json:"owner_public_key"`
+
+	// PeerPublicKey Canonical friend peer public key. Applying the resource creates both owner-view rows.
+	PeerPublicKey string `json:"peer_public_key"`
+}
 
 // GeminiCredentialBody defines model for GeminiCredentialBody.
 type GeminiCredentialBody struct {
@@ -3204,6 +3379,118 @@ func (t *Resource) MergeFirmwareResource(v FirmwareResource) error {
 	return err
 }
 
+// AsFriendResource returns the union data inside the Resource as a FriendResource
+func (t Resource) AsFriendResource() (FriendResource, error) {
+	var body FriendResource
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromFriendResource overwrites any union data inside the Resource as the provided FriendResource
+func (t *Resource) FromFriendResource(v FriendResource) error {
+	v.Kind = "FriendResource"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeFriendResource performs a merge with any union data inside the Resource, using the provided FriendResource
+func (t *Resource) MergeFriendResource(v FriendResource) error {
+	v.Kind = "FriendResource"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsFriendGroupResource returns the union data inside the Resource as a FriendGroupResource
+func (t Resource) AsFriendGroupResource() (FriendGroupResource, error) {
+	var body FriendGroupResource
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromFriendGroupResource overwrites any union data inside the Resource as the provided FriendGroupResource
+func (t *Resource) FromFriendGroupResource(v FriendGroupResource) error {
+	v.Kind = "FriendGroupResource"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeFriendGroupResource performs a merge with any union data inside the Resource, using the provided FriendGroupResource
+func (t *Resource) MergeFriendGroupResource(v FriendGroupResource) error {
+	v.Kind = "FriendGroupResource"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsFriendGroupInviteTokenResource returns the union data inside the Resource as a FriendGroupInviteTokenResource
+func (t Resource) AsFriendGroupInviteTokenResource() (FriendGroupInviteTokenResource, error) {
+	var body FriendGroupInviteTokenResource
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromFriendGroupInviteTokenResource overwrites any union data inside the Resource as the provided FriendGroupInviteTokenResource
+func (t *Resource) FromFriendGroupInviteTokenResource(v FriendGroupInviteTokenResource) error {
+	v.Kind = "FriendGroupInviteTokenResource"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeFriendGroupInviteTokenResource performs a merge with any union data inside the Resource, using the provided FriendGroupInviteTokenResource
+func (t *Resource) MergeFriendGroupInviteTokenResource(v FriendGroupInviteTokenResource) error {
+	v.Kind = "FriendGroupInviteTokenResource"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsFriendGroupMemberResource returns the union data inside the Resource as a FriendGroupMemberResource
+func (t Resource) AsFriendGroupMemberResource() (FriendGroupMemberResource, error) {
+	var body FriendGroupMemberResource
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromFriendGroupMemberResource overwrites any union data inside the Resource as the provided FriendGroupMemberResource
+func (t *Resource) FromFriendGroupMemberResource(v FriendGroupMemberResource) error {
+	v.Kind = "FriendGroupMemberResource"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeFriendGroupMemberResource performs a merge with any union data inside the Resource, using the provided FriendGroupMemberResource
+func (t *Resource) MergeFriendGroupMemberResource(v FriendGroupMemberResource) error {
+	v.Kind = "FriendGroupMemberResource"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
 // AsModelResource returns the union data inside the Resource as a ModelResource
 func (t Resource) AsModelResource() (ModelResource, error) {
 	var body ModelResource
@@ -3596,6 +3883,14 @@ func (t Resource) ValueByDiscriminator() (interface{}, error) {
 		return t.AsDashScopeTenantResource()
 	case "FirmwareResource":
 		return t.AsFirmwareResource()
+	case "FriendGroupInviteTokenResource":
+		return t.AsFriendGroupInviteTokenResource()
+	case "FriendGroupMemberResource":
+		return t.AsFriendGroupMemberResource()
+	case "FriendGroupResource":
+		return t.AsFriendGroupResource()
+	case "FriendResource":
+		return t.AsFriendResource()
 	case "GeminiTenantResource":
 		return t.AsGeminiTenantResource()
 	case "MiniMaxTenantResource":

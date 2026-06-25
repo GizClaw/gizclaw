@@ -305,6 +305,86 @@ func TestAdminFriendGroupLifecycleMaintainsMembersBelongsAndWorkspaceACL(t *test
 	assertNoBelongs(t, ctx, s, "peer-member", friendGroupID)
 }
 
+func TestAdminApplyFriendGroupAndGetMember(t *testing.T) {
+	ctx := context.Background()
+	s := newTestServer(t)
+	s.ACL = newTestACL(t)
+	workspaces := &recordingWorkspaceService{}
+	s.Workspaces = workspaces
+
+	group, err := s.AdminApplyFriendGroup(ctx, " family ", " Family ", strPtr("first"))
+	if err != nil {
+		t.Fatalf("AdminApplyFriendGroup create: %v", err)
+	}
+	if got := socialutil.StringValue(group.Id); got != "family" {
+		t.Fatalf("created group id = %q, want family", got)
+	}
+	if got := socialutil.StringValue(group.Name); got != "Family" {
+		t.Fatalf("created group name = %q, want Family", got)
+	}
+	workspaceName := socialutil.StringValue(group.WorkspaceName)
+	if workspaceName != socialutil.GroupWorkspaceName("family") {
+		t.Fatalf("created workspace_name = %q", workspaceName)
+	}
+	if len(workspaces.created) != 1 || workspaces.created[0].Name != workspaceName {
+		t.Fatalf("created workspaces = %#v, want %q", workspaces.created, workspaceName)
+	}
+
+	updated, err := s.AdminApplyFriendGroup(ctx, "family", "Family+", strPtr(""))
+	if err != nil {
+		t.Fatalf("AdminApplyFriendGroup update: %v", err)
+	}
+	if got := socialutil.StringValue(updated.Name); got != "Family+" {
+		t.Fatalf("updated group name = %q, want Family+", got)
+	}
+	if updated.Description != nil {
+		t.Fatalf("updated description = %q, want nil", socialutil.StringValue(updated.Description))
+	}
+	if len(workspaces.created) != 1 {
+		t.Fatalf("updated created workspaces = %#v, want unchanged", workspaces.created)
+	}
+
+	if _, err := s.AdminApplyFriendGroup(ctx, "", "Family", nil); err == nil {
+		t.Fatal("AdminApplyFriendGroup empty id error = nil")
+	}
+	if _, err := s.AdminApplyFriendGroup(ctx, "family", "", nil); err == nil {
+		t.Fatal("AdminApplyFriendGroup empty name error = nil")
+	}
+
+	member, err := s.AdminPutFriendGroupMember(ctx, "family", "peer-member", rpcapi.FriendGroupMemberRoleMember)
+	if err != nil {
+		t.Fatalf("AdminPutFriendGroupMember: %v", err)
+	}
+	gotMember, err := s.AdminGetFriendGroupMember(ctx, " family ", " peer-member ")
+	if err != nil {
+		t.Fatalf("AdminGetFriendGroupMember: %v", err)
+	}
+	if socialutil.StringValue(gotMember.Id) != socialutil.StringValue(member.Id) || socialutil.GroupRole(gotMember) != rpcapi.FriendGroupMemberRoleMember {
+		t.Fatalf("got member = %#v, want %#v", gotMember, member)
+	}
+	if _, err := s.AdminGetFriendGroupMember(ctx, "missing", "peer-member"); !errors.Is(err, kv.ErrNotFound) {
+		t.Fatalf("AdminGetFriendGroupMember missing group error = %v, want kv.ErrNotFound", err)
+	}
+	if _, err := s.AdminGetFriendGroupMember(ctx, "family", "missing"); !errors.Is(err, kv.ErrNotFound) {
+		t.Fatalf("AdminGetFriendGroupMember missing member error = %v, want kv.ErrNotFound", err)
+	}
+}
+
+func TestAdminApplyFriendGroupRollsBackWorkspaceOnGroupWriteFailure(t *testing.T) {
+	ctx := context.Background()
+	workspaces := &recordingWorkspaceService{}
+	s := newTestServer(t)
+	s.Workspaces = workspaces
+	s.Groups = failingSetStore{Store: kv.NewMemory(nil)}
+
+	if _, err := s.AdminApplyFriendGroup(ctx, "family", "Family", nil); err == nil {
+		t.Fatal("AdminApplyFriendGroup with failing group store error = nil")
+	}
+	if len(workspaces.deleted) != 1 || workspaces.deleted[0] != socialutil.GroupWorkspaceName("family") {
+		t.Fatalf("deleted workspaces = %#v, want family workspace rollback", workspaces.deleted)
+	}
+}
+
 func TestMemberRollsBackWhenWorkspaceACLWriteFails(t *testing.T) {
 	ctx := context.Background()
 	s := newTestServer(t)
@@ -341,6 +421,26 @@ func TestMemberRollsBackWhenWorkspaceACLWriteFails(t *testing.T) {
 	}
 	if _, err := s.groupMember(ctx, friendGroupID, "peer-b"); err != nil {
 		t.Fatalf("groupMember after failed delete = %v, want preserved", err)
+	}
+}
+
+func TestAdminDeleteFriendGroupMemberRollsBackWhenBelongsDeleteFails(t *testing.T) {
+	ctx := context.Background()
+	s := newTestServer(t)
+	group, err := s.AdminApplyFriendGroup(ctx, "family", "Family", nil)
+	if err != nil {
+		t.Fatalf("AdminApplyFriendGroup: %v", err)
+	}
+	friendGroupID := socialutil.StringValue(group.Id)
+	if _, err := s.AdminPutFriendGroupMember(ctx, friendGroupID, "peer-b", rpcapi.FriendGroupMemberRoleMember); err != nil {
+		t.Fatalf("AdminPutFriendGroupMember: %v", err)
+	}
+	s.Belongs = failingDeleteStore{Store: s.Belongs}
+	if _, err := s.AdminDeleteFriendGroupMember(ctx, friendGroupID, "peer-b"); err == nil {
+		t.Fatal("AdminDeleteFriendGroupMember with failing belongs delete error = nil")
+	}
+	if _, err := s.groupMember(ctx, friendGroupID, "peer-b"); err != nil {
+		t.Fatalf("groupMember after failed admin delete = %v, want restored", err)
 	}
 }
 
@@ -679,6 +779,15 @@ func TestConfigurationErrorsAndHelpers(t *testing.T) {
 	if _, err := empty.SendFriendGroupMessage(ctx, "peer-a", rpcapi.FriendGroupMessageSendRequest{FriendGroupId: "group-a", AudioContentType: "audio/opus"}); err == nil {
 		t.Fatal("SendFriendGroupMessage without store error = nil")
 	}
+	if _, err := empty.AdminApplyFriendGroup(ctx, "group-a", "Group A", nil); err == nil {
+		t.Fatal("AdminApplyFriendGroup without store error = nil")
+	}
+	if _, err := empty.AdminGetFriendGroupMember(ctx, "group-a", "peer-a"); err == nil {
+		t.Fatal("AdminGetFriendGroupMember without store error = nil")
+	}
+	if _, err := empty.AdminPutFriendGroupInviteToken(ctx, "group-a", "token", time.Now().Add(time.Hour)); err == nil {
+		t.Fatal("AdminPutFriendGroupInviteToken without store error = nil")
+	}
 	s := newTestServer(t)
 	if _, err := s.CreateFriendGroup(ctx, "", rpcapi.FriendGroupCreateRequest{Name: "room"}); err == nil {
 		t.Fatal("CreateFriendGroup empty owner error = nil")
@@ -693,6 +802,36 @@ func TestConfigurationErrorsAndHelpers(t *testing.T) {
 	friendGroupID := socialutil.StringValue(group.Id)
 	if _, err := s.AddFriendGroupMember(ctx, "peer-a", rpcapi.FriendGroupMemberAddRequest{FriendGroupId: friendGroupID, Role: rpcapi.FriendGroupMemberMutableRole("member")}); err == nil {
 		t.Fatal("AddFriendGroupMember empty peer public key error = nil")
+	}
+	if _, err := s.AdminPutFriendGroup(ctx, "", strPtr("renamed"), nil); err == nil {
+		t.Fatal("AdminPutFriendGroup empty id error = nil")
+	}
+	if _, err := s.AdminDeleteFriendGroup(ctx, ""); err == nil {
+		t.Fatal("AdminDeleteFriendGroup empty id error = nil")
+	}
+	if _, err := s.AdminListFriendGroupMembers(ctx, "missing", rpcapi.FriendGroupMemberListRequest{}); !errors.Is(err, kv.ErrNotFound) {
+		t.Fatalf("AdminListFriendGroupMembers missing group error = %v, want kv.ErrNotFound", err)
+	}
+	if _, err := s.AdminPutFriendGroupMember(ctx, friendGroupID, "peer-b", rpcapi.FriendGroupMemberRole("observer")); err == nil {
+		t.Fatal("AdminPutFriendGroupMember invalid role error = nil")
+	}
+	if _, err := s.AdminPutFriendGroupInviteToken(ctx, friendGroupID, "", s.now().Add(time.Hour)); err == nil {
+		t.Fatal("AdminPutFriendGroupInviteToken empty token error = nil")
+	}
+	if _, err := s.AdminPutFriendGroupInviteToken(ctx, friendGroupID, "token", s.now()); err == nil {
+		t.Fatal("AdminPutFriendGroupInviteToken expired token error = nil")
+	}
+	if _, err := s.AdminDeleteFriendGroupInviteToken(ctx, "missing"); !errors.Is(err, kv.ErrNotFound) {
+		t.Fatalf("AdminDeleteFriendGroupInviteToken missing group error = %v, want kv.ErrNotFound", err)
+	}
+	if _, err := s.AdminDeleteFriendGroupMember(ctx, friendGroupID, "missing"); !errors.Is(err, kv.ErrNotFound) {
+		t.Fatalf("AdminDeleteFriendGroupMember missing member error = %v, want kv.ErrNotFound", err)
+	}
+	if _, err := s.JoinFriendGroup(ctx, "", rpcapi.FriendGroupJoinRequest{InviteToken: "token"}); err == nil {
+		t.Fatal("JoinFriendGroup empty owner error = nil")
+	}
+	if _, err := s.JoinFriendGroup(ctx, "peer-b", rpcapi.FriendGroupJoinRequest{InviteToken: "missing"}); err == nil {
+		t.Fatal("JoinFriendGroup missing token error = nil")
 	}
 	if _, err := s.SendFriendGroupMessage(ctx, "peer-a", rpcapi.FriendGroupMessageSendRequest{
 		FriendGroupId:    friendGroupID,
@@ -998,6 +1137,14 @@ type failingSetStore struct {
 
 func (s failingSetStore) Set(context.Context, kv.Key, []byte) error {
 	return errors.New("forced set failure")
+}
+
+type failingDeleteStore struct {
+	kv.Store
+}
+
+func (s failingDeleteStore) Delete(context.Context, kv.Key) error {
+	return errors.New("forced delete failure")
 }
 
 type failAfterGetStore struct {

@@ -1,16 +1,16 @@
 {
   "agent": "flowcraft",
   "models": {
-    "llm": "e2e-doubao-2-lite-chat",
-    "tts": "e2e-tts",
-    "asr": "e2e-asr"
+    "llm": "doubao-lite-chat",
+    "tts": "volc-bigtts",
+    "asr": "volc-bigasr-sauc"
   },
   "workflow": {
-    "name": "e2e-flowcraft-voice",
-    "description": "Workspace e2e Flowcraft voice adapter workflow",
+    "name": "flowcraft-voice-assistant",
+    "description": "Flowcraft voice adapter workflow",
     "parameters": {
-      "generate_model": "e2e-doubao-2-lite-chat",
-      "extract_model": "e2e-doubao-2-lite-chat",
+      "generate_model": "doubao-lite-chat",
+      "extract_model": "doubao-lite-chat",
       "input": "push-to-talk"
     },
     "flowcraft": {
@@ -21,7 +21,7 @@
       },
       "conversation": {
         "starts": "peer",
-        "context_id": "e2e-flowcraft"
+        "context_id": "flowcraft-voice-assistant"
       },
       "history": {
         "enabled": true,
@@ -40,7 +40,7 @@
           "model": "extract_model",
           "mode": "two_pass",
           "temperature": 0,
-          "schema_name": "e2e_flowcraft_memory"
+          "schema_name": "flowcraft_voice_memory"
         },
         "embedding": {
           "enabled": false
@@ -58,14 +58,14 @@
       }
     },
     "voice_adapter": {
-      "asr_model": "e2e-asr",
-      "default_voice": "volc-tenant:e2e-volc-tenant:zh_female_shaoergushi_mars_bigtts",
+      "asr_model": "volc-bigasr-sauc",
+      "default_voice": "volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts",
       "node_voices": {
-        "answer": "volc-tenant:e2e-volc-tenant:zh_female_shaoergushi_mars_bigtts"
+        "answer": "volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts"
       }
     }
   },
-  "voice": "volc-tenant:e2e-volc-tenant:zh_female_vv_mars_bigtts",
+  "voice": "volc-tenant:volc-main:zh_female_vv_mars_bigtts",
   "rounds": 3,
   "timeout": "1200s",
   "persona": "You are a concise Chinese voice chat test user. Keep every utterance short and speech friendly."

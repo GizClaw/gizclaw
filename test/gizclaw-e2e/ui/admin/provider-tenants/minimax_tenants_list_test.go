@@ -1,6 +1,6 @@
 //go:build gizclaw_e2e
 
-// User story: As an admin operator, I can browse seeded MiniMax tenants and
+// User story: As an admin operator, I can browse shared MiniMax tenants and
 // verify their credential and provider metadata.
 package adminui_test
 
@@ -17,8 +17,8 @@ func adminMiniMaxTenantsListStories() []Story {
 			page.GotoAdmin("/providers/minimax-tenants")
 			page.ExpectText("MiniMax Tenants")
 			page.ExpectText(SeedMiniMaxTenantName)
-			page.ExpectText("ui-seed-app")
-			page.ExpectText("ui-seed-group")
+			page.ExpectText("minimax-main-app")
+			page.ExpectText("minimax-main-group")
 			page.ExpectText(SeedCredentialName)
 			page.ExpectText("https://example.invalid")
 		},

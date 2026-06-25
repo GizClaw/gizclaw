@@ -1,0 +1,8 @@
+---
+apiVersion: gizclaw.admin/v1alpha1
+kind: Workflow
+metadata:
+  name: flowcraft-assistant
+spec:
+  driver: flowcraft
+  flowcraft: {}

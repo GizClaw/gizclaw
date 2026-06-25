@@ -1,0 +1,13 @@
+---
+apiVersion: gizclaw.admin/v1alpha1
+kind: ACLPolicyBinding
+metadata:
+  name: view-default-client-workflow-collection
+spec:
+  subject:
+    kind: view
+    id: default-client
+  resource:
+    kind: workflow
+    id: __collection__
+  role: default-client

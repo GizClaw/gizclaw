@@ -1,0 +1,14 @@
+---
+apiVersion: gizclaw.admin/v1alpha1
+kind: Workflow
+metadata:
+  name: volc-ast-translate-zh-jp
+  description: AST Chinese to Japanese speech translation workflow
+spec:
+  driver: ast-translate
+  ast_translate:
+    translation_model: volc-ast-translate
+    auth_mode: v2
+    mode: s2s
+    resource_id: volc.service_type.10053
+    denoise: false

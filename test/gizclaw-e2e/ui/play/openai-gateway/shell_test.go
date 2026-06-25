@@ -23,7 +23,7 @@ func playShellStories() []Story {
 			page.ClickRoleLike("button", "Models")
 			page.ExpectText(SeedModelID)
 			page.ClickRoleLike("button", "Credentials")
-			page.ExpectText("ui-seed-openai-credential")
+			page.ExpectText("openai-lab-credential")
 		},
 	}}
 }

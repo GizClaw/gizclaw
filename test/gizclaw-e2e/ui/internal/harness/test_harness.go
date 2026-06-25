@@ -19,21 +19,21 @@ import (
 )
 
 const (
-	SeedCredentialName      = "ui-seed-credential"
-	SeedOpenAITenantName    = "ui-seed-openai-tenant"
-	SeedGeminiTenantName    = "ui-seed-gemini-tenant"
-	SeedDashScopeTenantName = "ui-seed-dashscope-tenant"
-	SeedModelID             = "ui-seed-openai-chat"
-	SeedFirmwareName        = "ui-seed-devkit"
+	SeedCredentialName      = "minimax-main-credential"
+	SeedOpenAITenantName    = "openai-lab"
+	SeedGeminiTenantName    = "gemini-main"
+	SeedDashScopeTenantName = "dashscope-main"
+	SeedModelID             = "openai-lab-chat"
+	SeedFirmwareName        = "devkit-voice-firmware"
 	SeedACLViewName         = "under-12"
-	SeedMiniMaxTenantName   = "ui-seed-tenant"
-	SeedVoiceID             = "ui-seed-voice"
-	SeedVolcCredentialName  = "ui-seed-volc-credential"
-	SeedVolcTenantName      = "ui-seed-volc-tenant"
-	SeedVolcVoiceID         = "volc-tenant:ui-seed-volc-tenant:ICL_ui_seed_voice"
-	SeedWorkflowName        = "ui-seed-workflow"
-	SeedWorkspaceName       = "ui-seed-workspace"
-	SeedAltWorkspaceName    = "ui-alt-workspace"
+	SeedMiniMaxTenantName   = "minimax-main"
+	SeedVoiceID             = "minimax-cloned-narrator"
+	SeedVolcCredentialName  = "volc-lab-credential"
+	SeedVolcTenantName      = "volc-lab"
+	SeedVolcVoiceID         = "volc-tenant:volc-lab:ICL_demo_voice"
+	SeedWorkflowName        = "flowcraft-assistant"
+	SeedWorkspaceName       = "workspace-flowcraft-assistant"
+	SeedAltWorkspaceName    = "workspace-flowcraft-alt"
 	pollInterval            = 20 * time.Millisecond
 )
 

@@ -1,0 +1,45 @@
+---
+apiVersion: gizclaw.admin/v1alpha1
+kind: ResourceList
+metadata:
+  name: social-fixtures
+spec:
+  items:
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Friend
+    metadata:
+      name: 6Ww6ANsXDCf91Yp7Tvi65hqpywjMmXqAoZDiq33kfCee:8rAUkTyxLHDa5o3VajtzWcQdNJq1thrjAGtpwQkEsaEu
+    spec:
+      owner_public_key: 6Ww6ANsXDCf91Yp7Tvi65hqpywjMmXqAoZDiq33kfCee
+      peer_public_key: 8rAUkTyxLHDa5o3VajtzWcQdNJq1thrjAGtpwQkEsaEu
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: FriendGroup
+    metadata:
+      name: family-circle
+    spec:
+      name: Family Circle
+      description: Shared family chat group.
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: FriendGroupMember
+    metadata:
+      name: family-circle:6Ww6ANsXDCf91Yp7Tvi65hqpywjMmXqAoZDiq33kfCee
+    spec:
+      friend_group_id: family-circle
+      peer_public_key: 6Ww6ANsXDCf91Yp7Tvi65hqpywjMmXqAoZDiq33kfCee
+      role: owner
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: FriendGroupMember
+    metadata:
+      name: family-circle:8rAUkTyxLHDa5o3VajtzWcQdNJq1thrjAGtpwQkEsaEu
+    spec:
+      friend_group_id: family-circle
+      peer_public_key: 8rAUkTyxLHDa5o3VajtzWcQdNJq1thrjAGtpwQkEsaEu
+      role: member
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: FriendGroupInviteToken
+    metadata:
+      name: family-circle
+    spec:
+      friend_group_id: family-circle
+      invite_token: family-circle-token
+      expires_at: '2099-01-01T00:00:00Z'

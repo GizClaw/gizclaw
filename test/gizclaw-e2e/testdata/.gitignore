@@ -1,7 +1,8 @@
 *
 !.gitignore
 !resources/
-!resources/*.json
+!resources/**/
+!resources/**/*.yaml
 !resources/assets/
 !resources/assets/firmware/
 !resources/assets/firmware/*.tar

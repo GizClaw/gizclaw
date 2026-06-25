@@ -23,15 +23,15 @@ func TestAdminAPIWorkflowsListGetPaginationAndMutation(t *testing.T) {
 		}
 		return resp.JSON200.Items, resp.JSON200.HasNext, resp.JSON200.NextCursor
 	})
-	requireName(t, all, "e2e-rpc-workflow", func(item apitypes.WorkflowDocument) string { return item.Metadata.Name })
-	requirePrefixCount(t, all, "e2e-rpc-workflow-", 100, func(item apitypes.WorkflowDocument) string { return item.Metadata.Name })
+	requireName(t, all, "flowcraft-support", func(item apitypes.WorkflowDocument) string { return item.Metadata.Name })
+	requirePrefixCount(t, all, "flowcraft-scenario-", 100, func(item apitypes.WorkflowDocument) string { return item.Metadata.Name })
 
-	get, err := env.api.GetWorkflowWithResponse(env.ctx, "e2e-rpc-workflow")
+	get, err := env.api.GetWorkflowWithResponse(env.ctx, "flowcraft-support")
 	if err != nil {
 		t.Fatalf("get workflow: %v", err)
 	}
 	requireStatusOK(t, get, get.Body)
-	if get.JSON200 == nil || get.JSON200.Metadata.Name != "e2e-rpc-workflow" || get.JSON200.Spec.Driver != apitypes.WorkflowDriverFlowcraft {
+	if get.JSON200 == nil || get.JSON200.Metadata.Name != "flowcraft-support" || get.JSON200.Spec.Driver != apitypes.WorkflowDriverFlowcraft {
 		t.Fatalf("get workflow = %#v", get.JSON200)
 	}
 

@@ -19,7 +19,7 @@ func adminACLStories() []Story {
 				page.ExpectText("Access Control")
 				page.ClickRole("tab", "Views")
 				page.ExpectText(SeedACLViewName)
-				page.ExpectText("Seeded child-safe content view")
+				page.ExpectText("Child-safe content view")
 
 				page.GotoAdmin("/settings/acl/views/" + url.PathEscape(SeedACLViewName))
 				page.ExpectText("Named content view")

@@ -1,0 +1,1206 @@
+apiVersion: gizclaw.admin/v1alpha1
+kind: ResourceList
+metadata:
+  name: fake-openai-chat-models
+spec:
+  items:
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Model
+    metadata:
+      name: openai-catalog-chat-000
+    spec:
+      kind: llm
+      name: OpenAI catalog model openai-catalog-chat-000
+      provider:
+        kind: openai-tenant
+        name: openai-lab
+      provider_data:
+        support_json_output: true
+        upstream_model: gpt-catalog-000
+        use_system_role: true
+      source: manual
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Model
+    metadata:
+      name: openai-catalog-chat-001
+    spec:
+      kind: llm
+      name: OpenAI catalog model openai-catalog-chat-001
+      provider:
+        kind: openai-tenant
+        name: openai-lab
+      provider_data:
+        support_json_output: true
+        upstream_model: gpt-catalog-001
+        use_system_role: true
+      source: manual
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Model
+    metadata:
+      name: openai-catalog-chat-002
+    spec:
+      kind: llm
+      name: OpenAI catalog model openai-catalog-chat-002
+      provider:
+        kind: openai-tenant
+        name: openai-lab
+      provider_data:
+        support_json_output: true
+        upstream_model: gpt-catalog-002
+        use_system_role: true
+      source: manual
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Model
+    metadata:
+      name: openai-catalog-chat-003
+    spec:
+      kind: llm
+      name: OpenAI catalog model openai-catalog-chat-003
+      provider:
+        kind: openai-tenant
+        name: openai-lab
+      provider_data:
+        support_json_output: true
+        upstream_model: gpt-catalog-003
+        use_system_role: true
+      source: manual
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Model
+    metadata:
+      name: openai-catalog-chat-004
+    spec:
+      kind: llm
+      name: OpenAI catalog model openai-catalog-chat-004
+      provider:
+        kind: openai-tenant
+        name: openai-lab
+      provider_data:
+        support_json_output: true
+        upstream_model: gpt-catalog-004
+        use_system_role: true
+      source: manual
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Model
+    metadata:
+      name: openai-catalog-chat-005
+    spec:
+      kind: llm
+      name: OpenAI catalog model openai-catalog-chat-005
+      provider:
+        kind: openai-tenant
+        name: openai-lab
+      provider_data:
+        support_json_output: true
+        upstream_model: gpt-catalog-005
+        use_system_role: true
+      source: manual
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Model
+    metadata:
+      name: openai-catalog-chat-006
+    spec:
+      kind: llm
+      name: OpenAI catalog model openai-catalog-chat-006
+      provider:
+        kind: openai-tenant
+        name: openai-lab
+      provider_data:
+        support_json_output: true
+        upstream_model: gpt-catalog-006
+        use_system_role: true
+      source: manual
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Model
+    metadata:
+      name: openai-catalog-chat-007
+    spec:
+      kind: llm
+      name: OpenAI catalog model openai-catalog-chat-007
+      provider:
+        kind: openai-tenant
+        name: openai-lab
+      provider_data:
+        support_json_output: true
+        upstream_model: gpt-catalog-007
+        use_system_role: true
+      source: manual
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Model
+    metadata:
+      name: openai-catalog-chat-008
+    spec:
+      kind: llm
+      name: OpenAI catalog model openai-catalog-chat-008
+      provider:
+        kind: openai-tenant
+        name: openai-lab
+      provider_data:
+        support_json_output: true
+        upstream_model: gpt-catalog-008
+        use_system_role: true
+      source: manual
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Model
+    metadata:
+      name: openai-catalog-chat-009
+    spec:
+      kind: llm
+      name: OpenAI catalog model openai-catalog-chat-009
+      provider:
+        kind: openai-tenant
+        name: openai-lab
+      provider_data:
+        support_json_output: true
+        upstream_model: gpt-catalog-009
+        use_system_role: true
+      source: manual
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Model
+    metadata:
+      name: openai-catalog-chat-010
+    spec:
+      kind: llm
+      name: OpenAI catalog model openai-catalog-chat-010
+      provider:
+        kind: openai-tenant
+        name: openai-lab
+      provider_data:
+        support_json_output: true
+        upstream_model: gpt-catalog-010
+        use_system_role: true
+      source: manual
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Model
+    metadata:
+      name: openai-catalog-chat-011
+    spec:
+      kind: llm
+      name: OpenAI catalog model openai-catalog-chat-011
+      provider:
+        kind: openai-tenant
+        name: openai-lab
+      provider_data:
+        support_json_output: true
+        upstream_model: gpt-catalog-011
+        use_system_role: true
+      source: manual
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Model
+    metadata:
+      name: openai-catalog-chat-012
+    spec:
+      kind: llm
+      name: OpenAI catalog model openai-catalog-chat-012
+      provider:
+        kind: openai-tenant
+        name: openai-lab
+      provider_data:
+        support_json_output: true
+        upstream_model: gpt-catalog-012
+        use_system_role: true
+      source: manual
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Model
+    metadata:
+      name: openai-catalog-chat-013
+    spec:
+      kind: llm
+      name: OpenAI catalog model openai-catalog-chat-013
+      provider:
+        kind: openai-tenant
+        name: openai-lab
+      provider_data:
+        support_json_output: true
+        upstream_model: gpt-catalog-013
+        use_system_role: true
+      source: manual
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Model
+    metadata:
+      name: openai-catalog-chat-014
+    spec:
+      kind: llm
+      name: OpenAI catalog model openai-catalog-chat-014
+      provider:
+        kind: openai-tenant
+        name: openai-lab
+      provider_data:
+        support_json_output: true
+        upstream_model: gpt-catalog-014
+        use_system_role: true
+      source: manual
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Model
+    metadata:
+      name: openai-catalog-chat-015
+    spec:
+      kind: llm
+      name: OpenAI catalog model openai-catalog-chat-015
+      provider:
+        kind: openai-tenant
+        name: openai-lab
+      provider_data:
+        support_json_output: true
+        upstream_model: gpt-catalog-015
+        use_system_role: true
+      source: manual
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Model
+    metadata:
+      name: openai-catalog-chat-016
+    spec:
+      kind: llm
+      name: OpenAI catalog model openai-catalog-chat-016
+      provider:
+        kind: openai-tenant
+        name: openai-lab
+      provider_data:
+        support_json_output: true
+        upstream_model: gpt-catalog-016
+        use_system_role: true
+      source: manual
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Model
+    metadata:
+      name: openai-catalog-chat-017
+    spec:
+      kind: llm
+      name: OpenAI catalog model openai-catalog-chat-017
+      provider:
+        kind: openai-tenant
+        name: openai-lab
+      provider_data:
+        support_json_output: true
+        upstream_model: gpt-catalog-017
+        use_system_role: true
+      source: manual
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Model
+    metadata:
+      name: openai-catalog-chat-018
+    spec:
+      kind: llm
+      name: OpenAI catalog model openai-catalog-chat-018
+      provider:
+        kind: openai-tenant
+        name: openai-lab
+      provider_data:
+        support_json_output: true
+        upstream_model: gpt-catalog-018
+        use_system_role: true
+      source: manual
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Model
+    metadata:
+      name: openai-catalog-chat-019
+    spec:
+      kind: llm
+      name: OpenAI catalog model openai-catalog-chat-019
+      provider:
+        kind: openai-tenant
+        name: openai-lab
+      provider_data:
+        support_json_output: true
+        upstream_model: gpt-catalog-019
+        use_system_role: true
+      source: manual
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Model
+    metadata:
+      name: openai-catalog-chat-020
+    spec:
+      kind: llm
+      name: OpenAI catalog model openai-catalog-chat-020
+      provider:
+        kind: openai-tenant
+        name: openai-lab
+      provider_data:
+        support_json_output: true
+        upstream_model: gpt-catalog-020
+        use_system_role: true
+      source: manual
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Model
+    metadata:
+      name: openai-catalog-chat-021
+    spec:
+      kind: llm
+      name: OpenAI catalog model openai-catalog-chat-021
+      provider:
+        kind: openai-tenant
+        name: openai-lab
+      provider_data:
+        support_json_output: true
+        upstream_model: gpt-catalog-021
+        use_system_role: true
+      source: manual
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Model
+    metadata:
+      name: openai-catalog-chat-022
+    spec:
+      kind: llm
+      name: OpenAI catalog model openai-catalog-chat-022
+      provider:
+        kind: openai-tenant
+        name: openai-lab
+      provider_data:
+        support_json_output: true
+        upstream_model: gpt-catalog-022
+        use_system_role: true
+      source: manual
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Model
+    metadata:
+      name: openai-catalog-chat-023
+    spec:
+      kind: llm
+      name: OpenAI catalog model openai-catalog-chat-023
+      provider:
+        kind: openai-tenant
+        name: openai-lab
+      provider_data:
+        support_json_output: true
+        upstream_model: gpt-catalog-023
+        use_system_role: true
+      source: manual
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Model
+    metadata:
+      name: openai-catalog-chat-024
+    spec:
+      kind: llm
+      name: OpenAI catalog model openai-catalog-chat-024
+      provider:
+        kind: openai-tenant
+        name: openai-lab
+      provider_data:
+        support_json_output: true
+        upstream_model: gpt-catalog-024
+        use_system_role: true
+      source: manual
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Model
+    metadata:
+      name: openai-catalog-chat-025
+    spec:
+      kind: llm
+      name: OpenAI catalog model openai-catalog-chat-025
+      provider:
+        kind: openai-tenant
+        name: openai-lab
+      provider_data:
+        support_json_output: true
+        upstream_model: gpt-catalog-025
+        use_system_role: true
+      source: manual
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Model
+    metadata:
+      name: openai-catalog-chat-026
+    spec:
+      kind: llm
+      name: OpenAI catalog model openai-catalog-chat-026
+      provider:
+        kind: openai-tenant
+        name: openai-lab
+      provider_data:
+        support_json_output: true
+        upstream_model: gpt-catalog-026
+        use_system_role: true
+      source: manual
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Model
+    metadata:
+      name: openai-catalog-chat-027
+    spec:
+      kind: llm
+      name: OpenAI catalog model openai-catalog-chat-027
+      provider:
+        kind: openai-tenant
+        name: openai-lab
+      provider_data:
+        support_json_output: true
+        upstream_model: gpt-catalog-027
+        use_system_role: true
+      source: manual
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Model
+    metadata:
+      name: openai-catalog-chat-028
+    spec:
+      kind: llm
+      name: OpenAI catalog model openai-catalog-chat-028
+      provider:
+        kind: openai-tenant
+        name: openai-lab
+      provider_data:
+        support_json_output: true
+        upstream_model: gpt-catalog-028
+        use_system_role: true
+      source: manual
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Model
+    metadata:
+      name: openai-catalog-chat-029
+    spec:
+      kind: llm
+      name: OpenAI catalog model openai-catalog-chat-029
+      provider:
+        kind: openai-tenant
+        name: openai-lab
+      provider_data:
+        support_json_output: true
+        upstream_model: gpt-catalog-029
+        use_system_role: true
+      source: manual
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Model
+    metadata:
+      name: openai-catalog-chat-030
+    spec:
+      kind: llm
+      name: OpenAI catalog model openai-catalog-chat-030
+      provider:
+        kind: openai-tenant
+        name: openai-lab
+      provider_data:
+        support_json_output: true
+        upstream_model: gpt-catalog-030
+        use_system_role: true
+      source: manual
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Model
+    metadata:
+      name: openai-catalog-chat-031
+    spec:
+      kind: llm
+      name: OpenAI catalog model openai-catalog-chat-031
+      provider:
+        kind: openai-tenant
+        name: openai-lab
+      provider_data:
+        support_json_output: true
+        upstream_model: gpt-catalog-031
+        use_system_role: true
+      source: manual
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Model
+    metadata:
+      name: openai-catalog-chat-032
+    spec:
+      kind: llm
+      name: OpenAI catalog model openai-catalog-chat-032
+      provider:
+        kind: openai-tenant
+        name: openai-lab
+      provider_data:
+        support_json_output: true
+        upstream_model: gpt-catalog-032
+        use_system_role: true
+      source: manual
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Model
+    metadata:
+      name: openai-catalog-chat-033
+    spec:
+      kind: llm
+      name: OpenAI catalog model openai-catalog-chat-033
+      provider:
+        kind: openai-tenant
+        name: openai-lab
+      provider_data:
+        support_json_output: true
+        upstream_model: gpt-catalog-033
+        use_system_role: true
+      source: manual
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Model
+    metadata:
+      name: openai-catalog-chat-034
+    spec:
+      kind: llm
+      name: OpenAI catalog model openai-catalog-chat-034
+      provider:
+        kind: openai-tenant
+        name: openai-lab
+      provider_data:
+        support_json_output: true
+        upstream_model: gpt-catalog-034
+        use_system_role: true
+      source: manual
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Model
+    metadata:
+      name: openai-catalog-chat-035
+    spec:
+      kind: llm
+      name: OpenAI catalog model openai-catalog-chat-035
+      provider:
+        kind: openai-tenant
+        name: openai-lab
+      provider_data:
+        support_json_output: true
+        upstream_model: gpt-catalog-035
+        use_system_role: true
+      source: manual
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Model
+    metadata:
+      name: openai-catalog-chat-036
+    spec:
+      kind: llm
+      name: OpenAI catalog model openai-catalog-chat-036
+      provider:
+        kind: openai-tenant
+        name: openai-lab
+      provider_data:
+        support_json_output: true
+        upstream_model: gpt-catalog-036
+        use_system_role: true
+      source: manual
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Model
+    metadata:
+      name: openai-catalog-chat-037
+    spec:
+      kind: llm
+      name: OpenAI catalog model openai-catalog-chat-037
+      provider:
+        kind: openai-tenant
+        name: openai-lab
+      provider_data:
+        support_json_output: true
+        upstream_model: gpt-catalog-037
+        use_system_role: true
+      source: manual
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Model
+    metadata:
+      name: openai-catalog-chat-038
+    spec:
+      kind: llm
+      name: OpenAI catalog model openai-catalog-chat-038
+      provider:
+        kind: openai-tenant
+        name: openai-lab
+      provider_data:
+        support_json_output: true
+        upstream_model: gpt-catalog-038
+        use_system_role: true
+      source: manual
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Model
+    metadata:
+      name: openai-catalog-chat-039
+    spec:
+      kind: llm
+      name: OpenAI catalog model openai-catalog-chat-039
+      provider:
+        kind: openai-tenant
+        name: openai-lab
+      provider_data:
+        support_json_output: true
+        upstream_model: gpt-catalog-039
+        use_system_role: true
+      source: manual
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Model
+    metadata:
+      name: openai-catalog-chat-040
+    spec:
+      kind: llm
+      name: OpenAI catalog model openai-catalog-chat-040
+      provider:
+        kind: openai-tenant
+        name: openai-lab
+      provider_data:
+        support_json_output: true
+        upstream_model: gpt-catalog-040
+        use_system_role: true
+      source: manual
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Model
+    metadata:
+      name: openai-catalog-chat-041
+    spec:
+      kind: llm
+      name: OpenAI catalog model openai-catalog-chat-041
+      provider:
+        kind: openai-tenant
+        name: openai-lab
+      provider_data:
+        support_json_output: true
+        upstream_model: gpt-catalog-041
+        use_system_role: true
+      source: manual
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Model
+    metadata:
+      name: openai-catalog-chat-042
+    spec:
+      kind: llm
+      name: OpenAI catalog model openai-catalog-chat-042
+      provider:
+        kind: openai-tenant
+        name: openai-lab
+      provider_data:
+        support_json_output: true
+        upstream_model: gpt-catalog-042
+        use_system_role: true
+      source: manual
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Model
+    metadata:
+      name: openai-catalog-chat-043
+    spec:
+      kind: llm
+      name: OpenAI catalog model openai-catalog-chat-043
+      provider:
+        kind: openai-tenant
+        name: openai-lab
+      provider_data:
+        support_json_output: true
+        upstream_model: gpt-catalog-043
+        use_system_role: true
+      source: manual
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Model
+    metadata:
+      name: openai-catalog-chat-044
+    spec:
+      kind: llm
+      name: OpenAI catalog model openai-catalog-chat-044
+      provider:
+        kind: openai-tenant
+        name: openai-lab
+      provider_data:
+        support_json_output: true
+        upstream_model: gpt-catalog-044
+        use_system_role: true
+      source: manual
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Model
+    metadata:
+      name: openai-catalog-chat-045
+    spec:
+      kind: llm
+      name: OpenAI catalog model openai-catalog-chat-045
+      provider:
+        kind: openai-tenant
+        name: openai-lab
+      provider_data:
+        support_json_output: true
+        upstream_model: gpt-catalog-045
+        use_system_role: true
+      source: manual
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Model
+    metadata:
+      name: openai-catalog-chat-046
+    spec:
+      kind: llm
+      name: OpenAI catalog model openai-catalog-chat-046
+      provider:
+        kind: openai-tenant
+        name: openai-lab
+      provider_data:
+        support_json_output: true
+        upstream_model: gpt-catalog-046
+        use_system_role: true
+      source: manual
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Model
+    metadata:
+      name: openai-catalog-chat-047
+    spec:
+      kind: llm
+      name: OpenAI catalog model openai-catalog-chat-047
+      provider:
+        kind: openai-tenant
+        name: openai-lab
+      provider_data:
+        support_json_output: true
+        upstream_model: gpt-catalog-047
+        use_system_role: true
+      source: manual
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Model
+    metadata:
+      name: openai-catalog-chat-048
+    spec:
+      kind: llm
+      name: OpenAI catalog model openai-catalog-chat-048
+      provider:
+        kind: openai-tenant
+        name: openai-lab
+      provider_data:
+        support_json_output: true
+        upstream_model: gpt-catalog-048
+        use_system_role: true
+      source: manual
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Model
+    metadata:
+      name: openai-catalog-chat-049
+    spec:
+      kind: llm
+      name: OpenAI catalog model openai-catalog-chat-049
+      provider:
+        kind: openai-tenant
+        name: openai-lab
+      provider_data:
+        support_json_output: true
+        upstream_model: gpt-catalog-049
+        use_system_role: true
+      source: manual
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Model
+    metadata:
+      name: openai-catalog-chat-050
+    spec:
+      kind: llm
+      name: OpenAI catalog model openai-catalog-chat-050
+      provider:
+        kind: openai-tenant
+        name: openai-lab
+      provider_data:
+        support_json_output: true
+        upstream_model: gpt-catalog-050
+        use_system_role: true
+      source: manual
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Model
+    metadata:
+      name: openai-catalog-chat-051
+    spec:
+      kind: llm
+      name: OpenAI catalog model openai-catalog-chat-051
+      provider:
+        kind: openai-tenant
+        name: openai-lab
+      provider_data:
+        support_json_output: true
+        upstream_model: gpt-catalog-051
+        use_system_role: true
+      source: manual
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Model
+    metadata:
+      name: openai-catalog-chat-052
+    spec:
+      kind: llm
+      name: OpenAI catalog model openai-catalog-chat-052
+      provider:
+        kind: openai-tenant
+        name: openai-lab
+      provider_data:
+        support_json_output: true
+        upstream_model: gpt-catalog-052
+        use_system_role: true
+      source: manual
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Model
+    metadata:
+      name: openai-catalog-chat-053
+    spec:
+      kind: llm
+      name: OpenAI catalog model openai-catalog-chat-053
+      provider:
+        kind: openai-tenant
+        name: openai-lab
+      provider_data:
+        support_json_output: true
+        upstream_model: gpt-catalog-053
+        use_system_role: true
+      source: manual
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Model
+    metadata:
+      name: openai-catalog-chat-054
+    spec:
+      kind: llm
+      name: OpenAI catalog model openai-catalog-chat-054
+      provider:
+        kind: openai-tenant
+        name: openai-lab
+      provider_data:
+        support_json_output: true
+        upstream_model: gpt-catalog-054
+        use_system_role: true
+      source: manual
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Model
+    metadata:
+      name: openai-catalog-chat-055
+    spec:
+      kind: llm
+      name: OpenAI catalog model openai-catalog-chat-055
+      provider:
+        kind: openai-tenant
+        name: openai-lab
+      provider_data:
+        support_json_output: true
+        upstream_model: gpt-catalog-055
+        use_system_role: true
+      source: manual
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Model
+    metadata:
+      name: openai-catalog-chat-056
+    spec:
+      kind: llm
+      name: OpenAI catalog model openai-catalog-chat-056
+      provider:
+        kind: openai-tenant
+        name: openai-lab
+      provider_data:
+        support_json_output: true
+        upstream_model: gpt-catalog-056
+        use_system_role: true
+      source: manual
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Model
+    metadata:
+      name: openai-catalog-chat-057
+    spec:
+      kind: llm
+      name: OpenAI catalog model openai-catalog-chat-057
+      provider:
+        kind: openai-tenant
+        name: openai-lab
+      provider_data:
+        support_json_output: true
+        upstream_model: gpt-catalog-057
+        use_system_role: true
+      source: manual
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Model
+    metadata:
+      name: openai-catalog-chat-058
+    spec:
+      kind: llm
+      name: OpenAI catalog model openai-catalog-chat-058
+      provider:
+        kind: openai-tenant
+        name: openai-lab
+      provider_data:
+        support_json_output: true
+        upstream_model: gpt-catalog-058
+        use_system_role: true
+      source: manual
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Model
+    metadata:
+      name: openai-catalog-chat-059
+    spec:
+      kind: llm
+      name: OpenAI catalog model openai-catalog-chat-059
+      provider:
+        kind: openai-tenant
+        name: openai-lab
+      provider_data:
+        support_json_output: true
+        upstream_model: gpt-catalog-059
+        use_system_role: true
+      source: manual
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Model
+    metadata:
+      name: openai-catalog-chat-060
+    spec:
+      kind: llm
+      name: OpenAI catalog model openai-catalog-chat-060
+      provider:
+        kind: openai-tenant
+        name: openai-lab
+      provider_data:
+        support_json_output: true
+        upstream_model: gpt-catalog-060
+        use_system_role: true
+      source: manual
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Model
+    metadata:
+      name: openai-catalog-chat-061
+    spec:
+      kind: llm
+      name: OpenAI catalog model openai-catalog-chat-061
+      provider:
+        kind: openai-tenant
+        name: openai-lab
+      provider_data:
+        support_json_output: true
+        upstream_model: gpt-catalog-061
+        use_system_role: true
+      source: manual
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Model
+    metadata:
+      name: openai-catalog-chat-062
+    spec:
+      kind: llm
+      name: OpenAI catalog model openai-catalog-chat-062
+      provider:
+        kind: openai-tenant
+        name: openai-lab
+      provider_data:
+        support_json_output: true
+        upstream_model: gpt-catalog-062
+        use_system_role: true
+      source: manual
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Model
+    metadata:
+      name: openai-catalog-chat-063
+    spec:
+      kind: llm
+      name: OpenAI catalog model openai-catalog-chat-063
+      provider:
+        kind: openai-tenant
+        name: openai-lab
+      provider_data:
+        support_json_output: true
+        upstream_model: gpt-catalog-063
+        use_system_role: true
+      source: manual
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Model
+    metadata:
+      name: openai-catalog-chat-064
+    spec:
+      kind: llm
+      name: OpenAI catalog model openai-catalog-chat-064
+      provider:
+        kind: openai-tenant
+        name: openai-lab
+      provider_data:
+        support_json_output: true
+        upstream_model: gpt-catalog-064
+        use_system_role: true
+      source: manual
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Model
+    metadata:
+      name: openai-catalog-chat-065
+    spec:
+      kind: llm
+      name: OpenAI catalog model openai-catalog-chat-065
+      provider:
+        kind: openai-tenant
+        name: openai-lab
+      provider_data:
+        support_json_output: true
+        upstream_model: gpt-catalog-065
+        use_system_role: true
+      source: manual
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Model
+    metadata:
+      name: openai-catalog-chat-066
+    spec:
+      kind: llm
+      name: OpenAI catalog model openai-catalog-chat-066
+      provider:
+        kind: openai-tenant
+        name: openai-lab
+      provider_data:
+        support_json_output: true
+        upstream_model: gpt-catalog-066
+        use_system_role: true
+      source: manual
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Model
+    metadata:
+      name: openai-catalog-chat-067
+    spec:
+      kind: llm
+      name: OpenAI catalog model openai-catalog-chat-067
+      provider:
+        kind: openai-tenant
+        name: openai-lab
+      provider_data:
+        support_json_output: true
+        upstream_model: gpt-catalog-067
+        use_system_role: true
+      source: manual
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Model
+    metadata:
+      name: openai-catalog-chat-068
+    spec:
+      kind: llm
+      name: OpenAI catalog model openai-catalog-chat-068
+      provider:
+        kind: openai-tenant
+        name: openai-lab
+      provider_data:
+        support_json_output: true
+        upstream_model: gpt-catalog-068
+        use_system_role: true
+      source: manual
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Model
+    metadata:
+      name: openai-catalog-chat-069
+    spec:
+      kind: llm
+      name: OpenAI catalog model openai-catalog-chat-069
+      provider:
+        kind: openai-tenant
+        name: openai-lab
+      provider_data:
+        support_json_output: true
+        upstream_model: gpt-catalog-069
+        use_system_role: true
+      source: manual
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Model
+    metadata:
+      name: openai-catalog-chat-070
+    spec:
+      kind: llm
+      name: OpenAI catalog model openai-catalog-chat-070
+      provider:
+        kind: openai-tenant
+        name: openai-lab
+      provider_data:
+        support_json_output: true
+        upstream_model: gpt-catalog-070
+        use_system_role: true
+      source: manual
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Model
+    metadata:
+      name: openai-catalog-chat-071
+    spec:
+      kind: llm
+      name: OpenAI catalog model openai-catalog-chat-071
+      provider:
+        kind: openai-tenant
+        name: openai-lab
+      provider_data:
+        support_json_output: true
+        upstream_model: gpt-catalog-071
+        use_system_role: true
+      source: manual
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Model
+    metadata:
+      name: openai-catalog-chat-072
+    spec:
+      kind: llm
+      name: OpenAI catalog model openai-catalog-chat-072
+      provider:
+        kind: openai-tenant
+        name: openai-lab
+      provider_data:
+        support_json_output: true
+        upstream_model: gpt-catalog-072
+        use_system_role: true
+      source: manual
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Model
+    metadata:
+      name: openai-catalog-chat-073
+    spec:
+      kind: llm
+      name: OpenAI catalog model openai-catalog-chat-073
+      provider:
+        kind: openai-tenant
+        name: openai-lab
+      provider_data:
+        support_json_output: true
+        upstream_model: gpt-catalog-073
+        use_system_role: true
+      source: manual
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Model
+    metadata:
+      name: openai-catalog-chat-074
+    spec:
+      kind: llm
+      name: OpenAI catalog model openai-catalog-chat-074
+      provider:
+        kind: openai-tenant
+        name: openai-lab
+      provider_data:
+        support_json_output: true
+        upstream_model: gpt-catalog-074
+        use_system_role: true
+      source: manual
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Model
+    metadata:
+      name: openai-catalog-chat-075
+    spec:
+      kind: llm
+      name: OpenAI catalog model openai-catalog-chat-075
+      provider:
+        kind: openai-tenant
+        name: openai-lab
+      provider_data:
+        support_json_output: true
+        upstream_model: gpt-catalog-075
+        use_system_role: true
+      source: manual
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Model
+    metadata:
+      name: openai-catalog-chat-076
+    spec:
+      kind: llm
+      name: OpenAI catalog model openai-catalog-chat-076
+      provider:
+        kind: openai-tenant
+        name: openai-lab
+      provider_data:
+        support_json_output: true
+        upstream_model: gpt-catalog-076
+        use_system_role: true
+      source: manual
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Model
+    metadata:
+      name: openai-catalog-chat-077
+    spec:
+      kind: llm
+      name: OpenAI catalog model openai-catalog-chat-077
+      provider:
+        kind: openai-tenant
+        name: openai-lab
+      provider_data:
+        support_json_output: true
+        upstream_model: gpt-catalog-077
+        use_system_role: true
+      source: manual
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Model
+    metadata:
+      name: openai-catalog-chat-078
+    spec:
+      kind: llm
+      name: OpenAI catalog model openai-catalog-chat-078
+      provider:
+        kind: openai-tenant
+        name: openai-lab
+      provider_data:
+        support_json_output: true
+        upstream_model: gpt-catalog-078
+        use_system_role: true
+      source: manual
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Model
+    metadata:
+      name: openai-catalog-chat-079
+    spec:
+      kind: llm
+      name: OpenAI catalog model openai-catalog-chat-079
+      provider:
+        kind: openai-tenant
+        name: openai-lab
+      provider_data:
+        support_json_output: true
+        upstream_model: gpt-catalog-079
+        use_system_role: true
+      source: manual

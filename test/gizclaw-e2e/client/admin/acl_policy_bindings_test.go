@@ -24,7 +24,7 @@ func TestAdminAPIACLPolicyBindingsListGetAndMutation(t *testing.T) {
 		t.Fatalf("list ACL policy bindings returned no items")
 	}
 
-	fixture, err := env.api.GetACLPolicyBindingWithResponse(env.ctx, "view-e2e-client-rpc-workflow-collection")
+	fixture, err := env.api.GetACLPolicyBindingWithResponse(env.ctx, "view-default-client-workflow-collection")
 	if err != nil {
 		t.Fatalf("get fixture ACL policy binding: %v", err)
 	}
@@ -39,8 +39,8 @@ func TestAdminAPIACLPolicyBindingsListGetAndMutation(t *testing.T) {
 		Id: ptr(bindingID),
 		Policy: apitypes.ACLPolicy{
 			Subject:  apitypes.ACLSubject{Kind: apitypes.ACLSubjectKindPk, Id: env.peerKey},
-			Resource: apitypes.ACLResource{Kind: apitypes.ACLResourceKindWorkflow, Id: "e2e-rpc-workflow"},
-			Role:     "e2e-client",
+			Resource: apitypes.ACLResource{Kind: apitypes.ACLResourceKindWorkflow, Id: "flowcraft-support"},
+			Role:     "default-client",
 		},
 	})
 	if err != nil {
