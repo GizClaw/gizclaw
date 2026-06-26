@@ -3447,104 +3447,6 @@
         }
       }
     },
-    "/firmwares/{name}/bins/{channel}/{bin}": {
-      "put": {
-        "operationId": "uploadFirmwareBin",
-        "summary": "Upload a firmware bin payload",
-        "description": "Upload raw bytes for a bin declared in the firmware channel configuration. The server stores the payload in the configured firmware asset object store and updates server-owned artifact metadata.",
-        "tags": [
-          "Firmwares"
-        ],
-        "parameters": [
-          {
-            "name": "name",
-            "in": "path",
-            "required": true,
-            "description": "Firmware name",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "channel",
-            "in": "path",
-            "required": true,
-            "description": "Firmware channel/slot name",
-            "schema": {
-              "type": "string",
-              "enum": [
-                "stable",
-                "beta",
-                "develop",
-                "pending"
-              ]
-            }
-          },
-          {
-            "name": "bin",
-            "in": "path",
-            "required": true,
-            "description": "Firmware bin/artifact name declared in the selected channel",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/octet-stream": {
-              "schema": {
-                "type": "string",
-                "format": "binary"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Updated firmware",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./types.json#/components/schemas/Firmware"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid upload request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./types.json#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Firmware, channel, or bin not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./types.json#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./types.json#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/firmwares/{name}/@rollback": {
       "post": {
         "operationId": "rollbackFirmware",
@@ -7671,6 +7573,587 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/BadgeList"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/firmwares/{name}/packages/{channel}/artifact.tar": {
+      "get": {
+        "operationId": "downloadFirmwareArtifact",
+        "summary": "Download a firmware channel artifact tar",
+        "description": "Download the original artifact.tar uploaded for a firmware channel.",
+        "tags": [
+          "Firmwares"
+        ],
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "description": "Firmware name",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "channel",
+            "in": "path",
+            "required": true,
+            "description": "Firmware channel/slot name",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "stable",
+                "beta",
+                "develop",
+                "pending"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Artifact tar",
+            "content": {
+              "application/x-tar": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Firmware, channel, or artifact not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "uploadFirmwareArtifact",
+        "summary": "Upload a firmware channel artifact tar",
+        "description": "Upload artifact.tar for a firmware channel. The server stores the original tar, extracts regular files, writes a manifest, and updates server-owned channel artifact metadata. Existing package objects cause a conflict until deleted.",
+        "tags": [
+          "Firmwares"
+        ],
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "description": "Firmware name",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "channel",
+            "in": "path",
+            "required": true,
+            "description": "Firmware channel/slot name",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "stable",
+                "beta",
+                "develop",
+                "pending"
+              ]
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/x-tar": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated firmware",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/Firmware"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid artifact upload request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Firmware or channel not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Artifact already exists",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteFirmwareArtifact",
+        "summary": "Delete a firmware channel artifact",
+        "description": "Delete artifact.tar, extracted files, manifest, and channel artifact metadata.",
+        "tags": [
+          "Firmwares"
+        ],
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "description": "Firmware name",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "channel",
+            "in": "path",
+            "required": true,
+            "description": "Firmware channel/slot name",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "stable",
+                "beta",
+                "develop",
+                "pending"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Updated firmware",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/Firmware"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Firmware, channel, or artifact not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/firmwares/{name}/packages/{channel}/artifact/ls": {
+      "get": {
+        "operationId": "listFirmwareArtifactEntries",
+        "summary": "List firmware artifact entries",
+        "description": "List one file entry or the immediate children of a directory inside the channel artifact manifest.",
+        "tags": [
+          "Firmwares"
+        ],
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "description": "Firmware name",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "channel",
+            "in": "path",
+            "required": true,
+            "description": "Firmware channel/slot name",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "stable",
+                "beta",
+                "develop",
+                "pending"
+              ]
+            }
+          },
+          {
+            "name": "path",
+            "in": "query",
+            "required": false,
+            "description": "Directory or file path. Empty means artifact root.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Artifact entries",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/FirmwareArtifactList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid path",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Firmware, channel, artifact, or path not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/firmwares/{name}/packages/{channel}/artifact/tree": {
+      "get": {
+        "operationId": "treeFirmwareArtifactEntries",
+        "summary": "Return firmware artifact tree entries",
+        "description": "Return recursive flat entries below a directory in the channel artifact manifest.",
+        "tags": [
+          "Firmwares"
+        ],
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "description": "Firmware name",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "channel",
+            "in": "path",
+            "required": true,
+            "description": "Firmware channel/slot name",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "stable",
+                "beta",
+                "develop",
+                "pending"
+              ]
+            }
+          },
+          {
+            "name": "path",
+            "in": "query",
+            "required": false,
+            "description": "Directory path. Empty means artifact root.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Artifact tree entries",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/FirmwareArtifactTree"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid path",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Firmware, channel, artifact, or path not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/firmwares/{name}/packages/{channel}/artifact/stat": {
+      "get": {
+        "operationId": "statFirmwareArtifactEntry",
+        "summary": "Stat a firmware artifact or entry",
+        "description": "Return artifact-level stats when path is empty, otherwise return one file or directory entry stat.",
+        "tags": [
+          "Firmwares"
+        ],
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "description": "Firmware name",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "channel",
+            "in": "path",
+            "required": true,
+            "description": "Firmware channel/slot name",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "stable",
+                "beta",
+                "develop",
+                "pending"
+              ]
+            }
+          },
+          {
+            "name": "path",
+            "in": "query",
+            "required": false,
+            "description": "File or directory path. Empty means artifact-level stats.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Artifact stats",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/FirmwareArtifactStats"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid path",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Firmware, channel, artifact, or path not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/firmwares/{name}/packages/{channel}/artifact/dl": {
+      "get": {
+        "operationId": "downloadFirmwareArtifactEntry",
+        "summary": "Download one firmware artifact entry",
+        "description": "Download one regular file extracted from the channel artifact.",
+        "tags": [
+          "Firmwares"
+        ],
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "description": "Firmware name",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "channel",
+            "in": "path",
+            "required": true,
+            "description": "Firmware channel/slot name",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "stable",
+                "beta",
+                "develop",
+                "pending"
+              ]
+            }
+          },
+          {
+            "name": "path",
+            "in": "query",
+            "required": true,
+            "description": "Regular file path to download.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Artifact entry bytes",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid path",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Firmware, channel, artifact, or path not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
                 }
               }
             }

@@ -77,27 +77,25 @@ func TestSharedSetupRPCFirmwareDownloadFixture(t *testing.T) {
 	if err != nil {
 		t.Fatalf("firmware.get devkit-firmware-main: %v", err)
 	}
-	if got.Slots.Stable.Artifacts == nil || len(*got.Slots.Stable.Artifacts) != 1 {
-		t.Fatalf("firmware stable artifacts = %#v", got.Slots.Stable.Artifacts)
-	}
-	artifact := (*got.Slots.Stable.Artifacts)[0]
-	if artifact.Name != "main" || artifact.Path == nil || strings.TrimSpace(*artifact.Path) == "" {
-		t.Fatalf("firmware artifact = %#v", artifact)
+	if got.Slots.Stable.Artifact == nil || strings.TrimSpace(got.Slots.Stable.Artifact.TarPath) == "" {
+		t.Fatalf("firmware artifact = %#v", got.Slots.Stable.Artifact)
 	}
 
 	var out bytes.Buffer
-	download, err := env.peer.DownloadFirmware(env.ctx, "shared.firmware.download", rpcapi.FirmwareDownloadRequest{
-		FirmwareId:   "devkit-firmware-main",
-		Channel:      rpcapi.FirmwareChannelNameStable,
-		ArtifactName: "main",
+	download, err := env.peer.DownloadFirmware(env.ctx, "shared.firmware.files.download", rpcapi.FirmwareFilesDownloadRequest{
+		FirmwareId: "devkit-firmware-main",
+		Channel:    rpcapi.FirmwareChannelNameStable,
+		Path:       "MANIFEST.txt",
 	}, &out)
 	if err != nil {
-		t.Fatalf("firmware.download devkit-firmware-main: %v", err)
+		t.Fatalf("firmware.files.download devkit-firmware-main: %v", err)
 	}
 	if download.Bytes != int64(out.Len()) {
 		t.Fatalf("firmware.download bytes = %d, payload len = %d", download.Bytes, out.Len())
 	}
-	assertTarContains(t, out.Bytes(), "MANIFEST.txt", "gizclaw devkit firmware")
+	if !strings.Contains(out.String(), "gizclaw devkit firmware") {
+		t.Fatalf("firmware manifest = %q", out.String())
+	}
 }
 
 func TestSharedSetupRPCSocialFixtures(t *testing.T) {

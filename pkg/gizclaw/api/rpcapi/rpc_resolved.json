@@ -1062,33 +1062,36 @@
         "type": "object"
       },
       "FirmwareArtifact": {
+        "additionalProperties": false,
         "properties": {
           "content_type": {
-            "description": "Optional content type captured during upload.",
-            "example": "application/octet-stream",
+            "description": "Content type for the uploaded artifact.tar.",
+            "example": "application/x-tar",
             "type": "string"
           },
-          "kind": {
-            "$ref": "#/components/schemas/FirmwareArtifactKind"
-          },
-          "name": {
-            "description": "Device-defined artifact name.",
-            "example": "main",
+          "files_path": {
+            "description": "Server-owned objectstore prefix for extracted artifact files.",
+            "example": "firmware/devkit/stable/files/",
             "type": "string"
           },
-          "path": {
-            "description": "Server-owned objectstore path for the uploaded artifact payload.",
-            "example": "devkit/stable/app/20260613T000000.000000000Z-0123456789abcdef.bin",
+          "manifest_path": {
+            "description": "Server-owned objectstore path for the artifact manifest.",
+            "example": "firmware/devkit/stable/manifest.json",
             "type": "string"
           },
           "sha256": {
-            "description": "Optional SHA-256 digest for integrity checks.",
+            "description": "SHA-256 digest of the uploaded artifact.tar.",
             "type": "string"
           },
           "size": {
-            "description": "Optional artifact size in bytes.",
+            "description": "Uploaded artifact.tar size in bytes.",
             "format": "int64",
             "type": "integer"
+          },
+          "tar_path": {
+            "description": "Server-owned objectstore path for the uploaded artifact.tar.",
+            "example": "firmware/devkit/stable/artifact.tar",
+            "type": "string"
           },
           "uploaded_at": {
             "description": "Server-owned upload timestamp.",
@@ -1097,47 +1100,148 @@
           }
         },
         "required": [
-          "name",
-          "kind"
+          "tar_path",
+          "manifest_path",
+          "files_path",
+          "sha256",
+          "size",
+          "content_type",
+          "uploaded_at"
         ],
         "type": "object"
       },
-      "FirmwareArtifactKind": {
-        "description": "Kind of payload carried by a firmware artifact.",
-        "enum": [
-          "app",
-          "data"
-        ],
-        "example": "app",
-        "type": "string"
-      },
-      "FirmwareBinMetadata": {
+      "FirmwareArtifactEntry": {
         "additionalProperties": false,
         "properties": {
           "content_type": {
+            "description": "Best-effort content type for file entries.",
             "type": "string"
           },
-          "kind": {
-            "$ref": "#/components/schemas/FirmwareArtifactKind"
-          },
-          "name": {
+          "mod_time": {
+            "format": "date-time",
             "type": "string"
           },
-          "sha256": {
+          "mode": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "path": {
+            "description": "Normalized artifact entry path relative to the tar root.",
+            "example": "assets/icons/app.png",
             "type": "string"
           },
           "size": {
             "format": "int64",
             "type": "integer"
           },
-          "uploaded_at": {
-            "format": "date-time",
+          "type": {
+            "$ref": "#/components/schemas/FirmwareArtifactEntryType"
+          }
+        },
+        "required": [
+          "path",
+          "type",
+          "size",
+          "mode",
+          "mod_time"
+        ],
+        "type": "object"
+      },
+      "FirmwareArtifactEntryType": {
+        "enum": [
+          "file",
+          "dir"
+        ],
+        "type": "string"
+      },
+      "FirmwareArtifactList": {
+        "additionalProperties": false,
+        "properties": {
+          "channel": {
+            "type": "string"
+          },
+          "firmware_id": {
+            "type": "string"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/FirmwareArtifactEntry"
+            },
+            "type": "array"
+          },
+          "path": {
             "type": "string"
           }
         },
         "required": [
-          "name",
-          "kind"
+          "firmware_id",
+          "channel",
+          "path",
+          "items"
+        ],
+        "type": "object"
+      },
+      "FirmwareArtifactStats": {
+        "additionalProperties": false,
+        "properties": {
+          "artifact": {
+            "$ref": "#/components/schemas/FirmwareArtifact"
+          },
+          "channel": {
+            "type": "string"
+          },
+          "entry": {
+            "$ref": "#/components/schemas/FirmwareArtifactEntry"
+          },
+          "files_count": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "firmware_id": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "total_size": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "firmware_id",
+          "channel",
+          "artifact",
+          "files_count",
+          "total_size"
+        ],
+        "type": "object"
+      },
+      "FirmwareArtifactTree": {
+        "additionalProperties": false,
+        "properties": {
+          "channel": {
+            "type": "string"
+          },
+          "firmware_id": {
+            "type": "string"
+          },
+          "items": {
+            "description": "Recursive flat entry list rooted at path.",
+            "items": {
+              "$ref": "#/components/schemas/FirmwareArtifactEntry"
+            },
+            "type": "array"
+          },
+          "path": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "firmware_id",
+          "channel",
+          "path",
+          "items"
         ],
         "type": "object"
       },
@@ -1150,42 +1254,51 @@
         ],
         "type": "string"
       },
-      "FirmwareDownloadRequest": {
+      "FirmwareFilesDownloadRequest": {
         "additionalProperties": false,
         "properties": {
-          "artifact_name": {
-            "type": "string"
-          },
           "channel": {
             "$ref": "#/components/schemas/FirmwareChannelName"
           },
           "firmware_id": {
+            "type": "string"
+          },
+          "path": {
+            "minLength": 1,
             "type": "string"
           }
         },
         "required": [
           "firmware_id",
           "channel",
-          "artifact_name"
+          "path"
         ],
         "type": "object"
       },
-      "FirmwareDownloadResponse": {
+      "FirmwareFilesDownloadResponse": {
         "additionalProperties": false,
         "properties": {
           "artifact": {
-            "$ref": "#/components/schemas/FirmwareBinMetadata"
+            "$ref": "#/components/schemas/FirmwareArtifact"
           },
           "channel": {
             "$ref": "#/components/schemas/FirmwareChannelName"
           },
+          "file": {
+            "$ref": "#/components/schemas/FirmwareArtifactEntry"
+          },
           "firmware_id": {
+            "type": "string"
+          },
+          "path": {
             "type": "string"
           }
         },
         "required": [
           "firmware_id",
           "channel",
+          "path",
+          "file",
           "artifact"
         ],
         "type": "object"
@@ -1242,12 +1355,9 @@
       },
       "FirmwareSlot": {
         "properties": {
-          "artifacts": {
-            "description": "Device-defined artifact list for this slot.",
-            "items": {
-              "$ref": "#/components/schemas/FirmwareArtifact"
-            },
-            "type": "array"
+          "artifact": {
+            "$ref": "#/components/schemas/FirmwareArtifact",
+            "description": "Server-owned channel artifact metadata. This is singular and is populated by artifact.tar upload."
           },
           "description": {
             "example": "Devkit firmware 1.0.3",
@@ -3177,7 +3287,7 @@
           "server.run.say",
           "server.firmware.list",
           "server.firmware.get",
-          "server.firmware.download",
+          "server.firmware.files.download",
           "server.workspace.list",
           "server.workspace.get",
           "server.workspace.create",
@@ -3328,7 +3438,7 @@
                 "$ref": "#/components/schemas/FirmwareGetRequest"
               },
               {
-                "$ref": "#/components/schemas/FirmwareDownloadRequest"
+                "$ref": "#/components/schemas/FirmwareFilesDownloadRequest"
               },
               {
                 "$ref": "#/components/schemas/WorkspaceListRequest"
@@ -3618,7 +3728,7 @@
                 "$ref": "#/components/schemas/FirmwareGetResponse"
               },
               {
-                "$ref": "#/components/schemas/FirmwareDownloadResponse"
+                "$ref": "#/components/schemas/FirmwareFilesDownloadResponse"
               },
               {
                 "$ref": "#/components/schemas/WorkspaceListResponse"

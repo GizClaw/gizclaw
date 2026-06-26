@@ -1,0 +1,148 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Firmware Artifact Entry Type",
+    "description": "Firmware artifact manifest entry schema.",
+    "version": "1.0.0"
+  },
+  "paths": {},
+  "components": {
+    "schemas": {
+      "FirmwareArtifactEntryType": {
+        "type": "string",
+        "enum": [
+          "file",
+          "dir"
+        ]
+      },
+      "FirmwareArtifactEntry": {
+        "type": "object",
+        "required": [
+          "path",
+          "type",
+          "size",
+          "mode",
+          "mod_time"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Normalized artifact entry path relative to the tar root.",
+            "example": "assets/icons/app.png"
+          },
+          "type": {
+            "$ref": "#/components/schemas/FirmwareArtifactEntryType"
+          },
+          "size": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "mode": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "mod_time": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "content_type": {
+            "type": "string",
+            "description": "Best-effort content type for file entries."
+          }
+        }
+      },
+      "FirmwareArtifactList": {
+        "type": "object",
+        "required": [
+          "firmware_id",
+          "channel",
+          "path",
+          "items"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "firmware_id": {
+            "type": "string"
+          },
+          "channel": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FirmwareArtifactEntry"
+            }
+          }
+        }
+      },
+      "FirmwareArtifactTree": {
+        "type": "object",
+        "required": [
+          "firmware_id",
+          "channel",
+          "path",
+          "items"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "firmware_id": {
+            "type": "string"
+          },
+          "channel": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "items": {
+            "type": "array",
+            "description": "Recursive flat entry list rooted at path.",
+            "items": {
+              "$ref": "#/components/schemas/FirmwareArtifactEntry"
+            }
+          }
+        }
+      },
+      "FirmwareArtifactStats": {
+        "type": "object",
+        "required": [
+          "firmware_id",
+          "channel",
+          "artifact",
+          "files_count",
+          "total_size"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "firmware_id": {
+            "type": "string"
+          },
+          "channel": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "artifact": {
+            "$ref": "./firmware_artifact.json#/components/schemas/FirmwareArtifact"
+          },
+          "entry": {
+            "$ref": "#/components/schemas/FirmwareArtifactEntry"
+          },
+          "files_count": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "total_size": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      }
+    }
+  }
+}

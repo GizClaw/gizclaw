@@ -1,6 +1,7 @@
 package firmware
 
 import (
+	"archive/tar"
 	"bytes"
 	"context"
 	"crypto/sha256"
@@ -16,6 +17,8 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkg/store/kv"
 	"github.com/GizClaw/gizclaw-go/pkg/store/objectstore"
 )
+
+const stableChannel = "stable"
 
 func TestServerCRUDReleaseRollback(t *testing.T) {
 	ctx := context.Background()
@@ -179,29 +182,7 @@ func TestServerCreateAndPutValidation(t *testing.T) {
 	}
 }
 
-func TestServerRejectsInvalidArtifacts(t *testing.T) {
-	tests := []struct {
-		name     string
-		artifact apitypes.FirmwareArtifact
-		want     string
-	}{
-		{name: "missing name", artifact: apitypes.FirmwareArtifact{Kind: apitypes.FirmwareArtifactKindApp}, want: "name is required"},
-		{name: "missing kind", artifact: apitypes.FirmwareArtifact{Name: "main"}, want: "kind is required"},
-		{name: "bad kind", artifact: apitypes.FirmwareArtifact{Name: "main", Kind: apitypes.FirmwareArtifactKind("other")}, want: "unsupported kind"},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			req := firmwareUpsertWithArtifact("devkit", "1.0.0")
-			req.Slots.Stable.Artifacts = &[]apitypes.FirmwareArtifact{tt.artifact}
-			_, err := normalizeFirmwareUpsert(req, "")
-			if err == nil || !strings.Contains(err.Error(), tt.want) {
-				t.Fatalf("normalizeFirmwareUpsert error = %v, want %q", err, tt.want)
-			}
-		})
-	}
-}
-
-func TestServerUploadFirmwareBinStoresObjectAndMetadata(t *testing.T) {
+func TestServerUploadFirmwareArtifactExtractsTarAndMetadata(t *testing.T) {
 	ctx := context.Background()
 	now := time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC)
 	assets := objectstore.Dir(t.TempDir())
@@ -210,40 +191,48 @@ func TestServerUploadFirmwareBinStoresObjectAndMetadata(t *testing.T) {
 		t.Fatalf("CreateFirmware error = %v", err)
 	}
 
-	payload := []byte("firmware-app")
-	resp, err := s.UploadFirmwareBin(ctx, adminservice.UploadFirmwareBinRequestObject{
+	payload := tarPayload(t, map[string]string{
+		"firmware.bin":       "firmware-app",
+		"assets/readme.txt":  "hello asset",
+		"assets/icons/app":   "icon",
+		"assets/icons/.keep": "",
+	})
+	resp, err := s.UploadFirmwareArtifact(ctx, adminservice.UploadFirmwareArtifactRequestObject{
 		Name:    "devkit",
-		Channel: adminservice.Stable,
-		Bin:     "main",
+		Channel: stableChannel,
 		Body:    bytes.NewReader(payload),
 	})
 	if err != nil {
-		t.Fatalf("UploadFirmwareBin error = %v", err)
+		t.Fatalf("UploadFirmwareArtifact error = %v", err)
 	}
-	item := apitypes.Firmware(resp.(adminservice.UploadFirmwareBin200JSONResponse))
-	artifact := item.Slots.Stable.Artifacts
-	if artifact == nil || len(*artifact) != 1 {
+	item := apitypes.Firmware(resp.(adminservice.UploadFirmwareArtifact200JSONResponse))
+	artifact := item.Slots.Stable.Artifact
+	if artifact == nil {
 		t.Fatalf("stable artifacts = %+v", artifact)
 	}
-	got := (*artifact)[0]
-	if got.Path == nil || !strings.HasPrefix(*got.Path, "devkit/stable/main/") || !strings.HasSuffix(*got.Path, ".bin") {
-		t.Fatalf("path = %v", got.Path)
+	if artifact.TarPath != "devkit/stable/artifact/artifact.tar" {
+		t.Fatalf("tar path = %q", artifact.TarPath)
 	}
-	firstPath := *got.Path
-	if got.Size == nil || *got.Size != int64(len(payload)) {
-		t.Fatalf("size = %v", got.Size)
+	if artifact.ManifestPath != "devkit/stable/artifact/manifest.json" {
+		t.Fatalf("manifest path = %q", artifact.ManifestPath)
+	}
+	if artifact.FilesPath != "devkit/stable/artifact/files" {
+		t.Fatalf("files path = %q", artifact.FilesPath)
+	}
+	if artifact.Size != int64(len(payload)) {
+		t.Fatalf("size = %v", artifact.Size)
 	}
 	wantSHA := sha256.Sum256(payload)
-	if got.Sha256 == nil || *got.Sha256 != hex.EncodeToString(wantSHA[:]) {
-		t.Fatalf("sha256 = %v", got.Sha256)
+	if artifact.Sha256 != hex.EncodeToString(wantSHA[:]) {
+		t.Fatalf("sha256 = %v", artifact.Sha256)
 	}
-	if got.ContentType == nil || *got.ContentType != "application/octet-stream" {
-		t.Fatalf("content type = %v", got.ContentType)
+	if artifact.ContentType != "application/x-tar" {
+		t.Fatalf("content type = %v", artifact.ContentType)
 	}
-	if got.UploadedAt == nil || !got.UploadedAt.Equal(now) {
-		t.Fatalf("uploaded at = %v", got.UploadedAt)
+	if !artifact.UploadedAt.Equal(now) {
+		t.Fatalf("uploaded at = %v", artifact.UploadedAt)
 	}
-	reader, err := assets.Get(*got.Path)
+	reader, err := assets.Get(artifact.TarPath)
 	if err != nil {
 		t.Fatalf("Get uploaded object: %v", err)
 	}
@@ -256,71 +245,183 @@ func TestServerUploadFirmwareBinStoresObjectAndMetadata(t *testing.T) {
 		t.Fatalf("uploaded object = %q", data)
 	}
 
-	nextPayload := []byte("updated-firmware-app")
-	resp, err = s.UploadFirmwareBin(ctx, adminservice.UploadFirmwareBinRequestObject{
+	list, err := s.ListFirmwareArtifactEntries(ctx, adminservice.ListFirmwareArtifactEntriesRequestObject{
 		Name:    "devkit",
-		Channel: adminservice.Stable,
-		Bin:     "main",
-		Body:    bytes.NewReader(nextPayload),
+		Channel: stableChannel,
 	})
 	if err != nil {
-		t.Fatalf("UploadFirmwareBin reupload error = %v", err)
+		t.Fatalf("ListFirmwareArtifactEntries error = %v", err)
 	}
-	item = apitypes.Firmware(resp.(adminservice.UploadFirmwareBin200JSONResponse))
-	got = (*item.Slots.Stable.Artifacts)[0]
-	if got.Path == nil || *got.Path == firstPath {
-		t.Fatalf("reupload path = %v, want new path", got.Path)
+	root := apitypes.FirmwareArtifactList(list.(adminservice.ListFirmwareArtifactEntries200JSONResponse))
+	if entryPaths(root.Items) != "assets,firmware.bin" {
+		t.Fatalf("root items = %+v", root.Items)
 	}
-	if _, err := assets.Get(firstPath); err == nil {
-		t.Fatal("old uploaded object still exists after reupload")
+
+	tree, err := s.TreeFirmwareArtifactEntries(ctx, adminservice.TreeFirmwareArtifactEntriesRequestObject{
+		Name:    "devkit",
+		Channel: stableChannel,
+	})
+	if err != nil {
+		t.Fatalf("TreeFirmwareArtifactEntries error = %v", err)
+	}
+	all := apitypes.FirmwareArtifactTree(tree.(adminservice.TreeFirmwareArtifactEntries200JSONResponse))
+	if got := entryPaths(all.Items); got != "assets,assets/icons,assets/icons/.keep,assets/icons/app,assets/readme.txt,firmware.bin" {
+		t.Fatalf("tree paths = %s", got)
+	}
+
+	assetDir := "assets"
+	stat, err := s.StatFirmwareArtifactEntry(ctx, adminservice.StatFirmwareArtifactEntryRequestObject{
+		Name:    "devkit",
+		Channel: stableChannel,
+		Params:  adminservice.StatFirmwareArtifactEntryParams{Path: &assetDir},
+	})
+	if err != nil {
+		t.Fatalf("StatFirmwareArtifactEntry error = %v", err)
+	}
+	stats := apitypes.FirmwareArtifactStats(stat.(adminservice.StatFirmwareArtifactEntry200JSONResponse))
+	if stats.FilesCount != 3 || stats.TotalSize != int64(len("hello asset")+len("icon")) {
+		t.Fatalf("stats = %+v", stats)
+	}
+
+	entry, err := s.DownloadFirmwareArtifactEntry(ctx, adminservice.DownloadFirmwareArtifactEntryRequestObject{
+		Name:    "devkit",
+		Channel: stableChannel,
+		Params:  adminservice.DownloadFirmwareArtifactEntryParams{Path: "assets/readme.txt"},
+	})
+	if err != nil {
+		t.Fatalf("DownloadFirmwareArtifactEntry error = %v", err)
+	}
+	entryBody, err := io.ReadAll(entry.(adminservice.DownloadFirmwareArtifactEntry200ApplicationoctetStreamResponse).Body)
+	if err != nil {
+		t.Fatalf("read entry: %v", err)
+	}
+	if string(entryBody) != "hello asset" {
+		t.Fatalf("entry body = %q", entryBody)
+	}
+
+	if conflict, err := s.UploadFirmwareArtifact(ctx, adminservice.UploadFirmwareArtifactRequestObject{
+		Name:    "devkit",
+		Channel: stableChannel,
+		Body:    bytes.NewReader(payload),
+	}); err != nil {
+		t.Fatalf("UploadFirmwareArtifact conflict error = %v", err)
+	} else if _, ok := conflict.(adminservice.UploadFirmwareArtifact409JSONResponse); !ok {
+		t.Fatalf("UploadFirmwareArtifact conflict response = %T, want 409", conflict)
 	}
 }
 
-func TestServerUploadFirmwareBinCleansObjectWhenMetadataWriteFails(t *testing.T) {
-	ctx := context.Background()
-	assets := objectstore.Dir(t.TempDir())
-	store := kv.NewMemory(nil)
-	s := &Server{Store: store, Assets: assets}
-	if _, err := s.CreateFirmware(ctx, adminservice.CreateFirmwareRequestObject{Body: ptr(firmwareUpsertWithArtifact("devkit", "1.0.0"))}); err != nil {
-		t.Fatalf("CreateFirmware error = %v", err)
-	}
-
-	s.Store = failSetStore{Store: store}
-	resp, err := s.UploadFirmwareBin(ctx, adminservice.UploadFirmwareBinRequestObject{
-		Name:    "devkit",
-		Channel: adminservice.Stable,
-		Bin:     "main",
-		Body:    strings.NewReader("payload"),
-	})
-	if err != nil {
-		t.Fatalf("UploadFirmwareBin error = %v", err)
-	}
-	if _, ok := resp.(adminservice.UploadFirmwareBin500JSONResponse); !ok {
-		t.Fatalf("UploadFirmwareBin response = %T, want 500", resp)
-	}
-	objects, err := assets.List("devkit")
-	if err != nil {
-		t.Fatalf("List uploaded objects: %v", err)
-	}
-	if len(objects) != 0 {
-		t.Fatalf("uploaded objects after failed metadata write = %+v, want none", objects)
-	}
-}
-
-func TestServerPutPreservesUploadedMetadataAndCleansRemovedBins(t *testing.T) {
+func TestServerDeleteFirmwareArtifactAllowsReupload(t *testing.T) {
 	ctx := context.Background()
 	assets := objectstore.Dir(t.TempDir())
 	s := &Server{Store: kv.NewMemory(nil), Assets: assets}
 	if _, err := s.CreateFirmware(ctx, adminservice.CreateFirmwareRequestObject{Body: ptr(firmwareUpsertWithArtifact("devkit", "1.0.0"))}); err != nil {
 		t.Fatalf("CreateFirmware error = %v", err)
 	}
-	if _, err := s.UploadFirmwareBin(ctx, adminservice.UploadFirmwareBinRequestObject{
+	payload := tarPayload(t, map[string]string{"firmware.bin": "payload"})
+	if _, err := s.UploadFirmwareArtifact(ctx, adminservice.UploadFirmwareArtifactRequestObject{Name: "devkit", Channel: stableChannel, Body: bytes.NewReader(payload)}); err != nil {
+		t.Fatalf("UploadFirmwareArtifact error = %v", err)
+	}
+
+	resp, err := s.DeleteFirmwareArtifact(ctx, adminservice.DeleteFirmwareArtifactRequestObject{
 		Name:    "devkit",
-		Channel: adminservice.Stable,
-		Bin:     "main",
-		Body:    strings.NewReader("payload"),
-	}); err != nil {
-		t.Fatalf("UploadFirmwareBin error = %v", err)
+		Channel: stableChannel,
+	})
+	if err != nil {
+		t.Fatalf("DeleteFirmwareArtifact error = %v", err)
+	}
+	item := apitypes.Firmware(resp.(adminservice.DeleteFirmwareArtifact200JSONResponse))
+	if item.Slots.Stable.Artifact != nil {
+		t.Fatalf("artifact after delete = %+v", item.Slots.Stable.Artifact)
+	}
+	objects, err := assets.List("devkit/stable/artifact")
+	if err != nil {
+		t.Fatalf("List artifact objects: %v", err)
+	}
+	if len(objects) != 0 {
+		t.Fatalf("artifact objects after delete = %+v", objects)
+	}
+	if _, err := s.UploadFirmwareArtifact(ctx, adminservice.UploadFirmwareArtifactRequestObject{Name: "devkit", Channel: stableChannel, Body: bytes.NewReader(payload)}); err != nil {
+		t.Fatalf("UploadFirmwareArtifact after delete error = %v", err)
+	}
+}
+
+func TestServerUploadFirmwareArtifactRejectsUnsafeTarPath(t *testing.T) {
+	ctx := context.Background()
+	assets := objectstore.Dir(t.TempDir())
+	s := &Server{Store: kv.NewMemory(nil), Assets: assets}
+	if _, err := s.CreateFirmware(ctx, adminservice.CreateFirmwareRequestObject{Body: ptr(firmwareUpsertWithArtifact("devkit", "1.0.0"))}); err != nil {
+		t.Fatalf("CreateFirmware error = %v", err)
+	}
+	payload := tarPayload(t, map[string]string{"../bad.bin": "payload"})
+	resp, err := s.UploadFirmwareArtifact(ctx, adminservice.UploadFirmwareArtifactRequestObject{
+		Name:    "devkit",
+		Channel: stableChannel,
+		Body:    bytes.NewReader(payload),
+	})
+	if err != nil {
+		t.Fatalf("UploadFirmwareArtifact error = %v", err)
+	}
+	if _, ok := resp.(adminservice.UploadFirmwareArtifact400JSONResponse); !ok {
+		t.Fatalf("UploadFirmwareArtifact response = %T, want 400", resp)
+	}
+}
+
+func TestServerUploadFirmwareArtifactRejectsTarWithoutFilesAndPathConflicts(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		payload []byte
+	}{
+		{
+			name:    "directories only",
+			payload: tarPayloadWithEntries(t, []tarTestEntry{{name: "assets", kind: tar.TypeDir}}),
+		},
+		{
+			name: "file then directory conflict",
+			payload: tarPayloadWithEntries(t, []tarTestEntry{
+				{name: "assets", body: "payload", kind: tar.TypeReg},
+				{name: "assets", kind: tar.TypeDir},
+			}),
+		},
+		{
+			name: "file then child conflict",
+			payload: tarPayloadWithEntries(t, []tarTestEntry{
+				{name: "assets", body: "payload", kind: tar.TypeReg},
+				{name: "assets/readme.txt", body: "child", kind: tar.TypeReg},
+			}),
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx := context.Background()
+			assets := objectstore.Dir(t.TempDir())
+			s := &Server{Store: kv.NewMemory(nil), Assets: assets}
+			if _, err := s.CreateFirmware(ctx, adminservice.CreateFirmwareRequestObject{Body: ptr(firmwareUpsertWithArtifact("devkit", "1.0.0"))}); err != nil {
+				t.Fatalf("CreateFirmware error = %v", err)
+			}
+			resp, err := s.UploadFirmwareArtifact(ctx, adminservice.UploadFirmwareArtifactRequestObject{
+				Name:    "devkit",
+				Channel: stableChannel,
+				Body:    bytes.NewReader(tc.payload),
+			})
+			if err != nil {
+				t.Fatalf("UploadFirmwareArtifact error = %v", err)
+			}
+			if _, ok := resp.(adminservice.UploadFirmwareArtifact400JSONResponse); !ok {
+				t.Fatalf("UploadFirmwareArtifact response = %T, want 400", resp)
+			}
+		})
+	}
+}
+
+func TestServerPutPreservesUploadedArtifact(t *testing.T) {
+	ctx := context.Background()
+	assets := objectstore.Dir(t.TempDir())
+	s := &Server{Store: kv.NewMemory(nil), Assets: assets}
+	if _, err := s.CreateFirmware(ctx, adminservice.CreateFirmwareRequestObject{Body: ptr(firmwareUpsertWithArtifact("devkit", "1.0.0"))}); err != nil {
+		t.Fatalf("CreateFirmware error = %v", err)
+	}
+	payload := tarPayload(t, map[string]string{"firmware.bin": "payload"})
+	if _, err := s.UploadFirmwareArtifact(ctx, adminservice.UploadFirmwareArtifactRequestObject{Name: "devkit", Channel: stableChannel, Body: bytes.NewReader(payload)}); err != nil {
+		t.Fatalf("UploadFirmwareArtifact error = %v", err)
 	}
 
 	update := firmwareUpsertWithArtifact("devkit", "1.1.0")
@@ -329,18 +430,9 @@ func TestServerPutPreservesUploadedMetadataAndCleansRemovedBins(t *testing.T) {
 		t.Fatalf("PutFirmware preserving metadata error = %v", err)
 	}
 	item := apitypes.Firmware(updated.(adminservice.PutFirmware200JSONResponse))
-	artifact := (*item.Slots.Stable.Artifacts)[0]
-	if artifact.Path == nil || !strings.HasPrefix(*artifact.Path, "devkit/stable/main/") || !strings.HasSuffix(*artifact.Path, ".bin") {
-		t.Fatalf("preserved path = %v", artifact.Path)
-	}
-	path := *artifact.Path
-
-	withoutBin := firmwareUpsert("devkit", "1.2.0", "", "", "")
-	if _, err := s.PutFirmware(ctx, adminservice.PutFirmwareRequestObject{Name: "devkit", Body: ptr(withoutBin)}); err != nil {
-		t.Fatalf("PutFirmware removing bin error = %v", err)
-	}
-	if _, err := assets.Get(path); err == nil {
-		t.Fatal("removed bin object still exists")
+	artifact := item.Slots.Stable.Artifact
+	if artifact == nil || artifact.TarPath != "devkit/stable/artifact/artifact.tar" {
+		t.Fatalf("preserved artifact = %+v", artifact)
 	}
 }
 
@@ -401,12 +493,7 @@ func firmwareUpsert(name, stable, beta, develop, pending string) adminservice.Fi
 }
 
 func firmwareUpsertWithArtifact(name, stable string) adminservice.FirmwareUpsert {
-	req := firmwareUpsert(name, stable, "", "", "")
-	req.Slots.Stable.Artifacts = &[]apitypes.FirmwareArtifact{{
-		Name: "main",
-		Kind: apitypes.FirmwareArtifactKindApp,
-	}}
-	return req
+	return firmwareUpsert(name, stable, "", "", "")
 }
 
 func firmwareSlot(version string) apitypes.FirmwareSlot {
@@ -429,6 +516,57 @@ func ptr[T any](value T) *T {
 
 func int64Ptr(value int64) *int64 {
 	return &value
+}
+
+func tarPayload(t *testing.T, files map[string]string) []byte {
+	t.Helper()
+	entries := make([]tarTestEntry, 0, len(files))
+	for name, body := range files {
+		entries = append(entries, tarTestEntry{name: name, body: body, kind: tar.TypeReg})
+	}
+	return tarPayloadWithEntries(t, entries)
+}
+
+type tarTestEntry struct {
+	name string
+	body string
+	kind byte
+}
+
+func tarPayloadWithEntries(t *testing.T, entries []tarTestEntry) []byte {
+	t.Helper()
+	var buf bytes.Buffer
+	tw := tar.NewWriter(&buf)
+	modTime := time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC)
+	for _, entry := range entries {
+		data := []byte(entry.body)
+		header := &tar.Header{Name: entry.name, Mode: 0644, ModTime: modTime, Typeflag: entry.kind}
+		if entry.kind == tar.TypeDir {
+			header.Mode = 0755
+		} else {
+			header.Size = int64(len(data))
+		}
+		if err := tw.WriteHeader(header); err != nil {
+			t.Fatalf("WriteHeader(%s): %v", entry.name, err)
+		}
+		if entry.kind != tar.TypeDir {
+			if _, err := tw.Write(data); err != nil {
+				t.Fatalf("Write(%s): %v", entry.name, err)
+			}
+		}
+	}
+	if err := tw.Close(); err != nil {
+		t.Fatalf("Close tar: %v", err)
+	}
+	return buf.Bytes()
+}
+
+func entryPaths(entries []apitypes.FirmwareArtifactEntry) string {
+	paths := make([]string, 0, len(entries))
+	for _, entry := range entries {
+		paths = append(paths, entry.Path)
+	}
+	return strings.Join(paths, ",")
 }
 
 type failSetStore struct {

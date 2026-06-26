@@ -173,14 +173,13 @@ init_data() {
   upload_firmware_asset() {
     local firmware_id="devkit-firmware-main"
     local channel="stable"
-    local bin="main"
     local asset_path="$repo_root/test/gizclaw-e2e/testdata/assets/firmware/devkit-firmware-main.tar"
     if [[ ! -f "$asset_path" ]]; then
       echo "missing firmware fixture asset: $asset_path" >&2
       exit 2
     fi
     XDG_CONFIG_HOME="$admin_setup_config_home" \
-      "$bin_path" admin firmwares upload-bin "$firmware_id" --channel "$channel" --bin "$bin" -f "$asset_path" --context "$admin_setup_context" >/dev/null
+      "$bin_path" admin firmwares upload-artifact "$firmware_id" --channel "$channel" -f "$asset_path" --context "$admin_setup_context" >/dev/null
   }
 
   upload_firmware_asset

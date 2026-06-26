@@ -11,7 +11,4 @@ spec:
     develop:
       version: 9.9.0-dev
     stable:
-      artifacts:
-      - kind: app
-        name: main
       version: 9.9.0

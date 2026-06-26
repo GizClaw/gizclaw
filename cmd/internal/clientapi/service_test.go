@@ -84,6 +84,10 @@ func TestPlayHTTPServiceClientUnavailableResponses(t *testing.T) {
 			resp, _ := service.ListPeerCredentials(ctx, clientservice.ListPeerCredentialsRequestObject{})
 			return resp
 		},
+		"firmwares": func() any {
+			resp, _ := service.ListPeerFirmwares(ctx, clientservice.ListPeerFirmwaresRequestObject{})
+			return resp
+		},
 		"contacts": func() any {
 			resp, _ := service.ListPeerContacts(ctx, clientservice.ListPeerContactsRequestObject{})
 			return resp
@@ -626,6 +630,7 @@ func TestReloadPlayRunForWebRTCErrorBranches(t *testing.T) {
 func TestPlayHTTPErrorResponseVisitors(t *testing.T) {
 	visitors := []func(playHTTPErrorResponse, *fiber.Ctx) error{
 		playHTTPErrorResponse.VisitListPeerCredentialsResponse,
+		playHTTPErrorResponse.VisitListPeerFirmwaresResponse,
 		playHTTPErrorResponse.VisitListPeerModelsResponse,
 		playHTTPErrorResponse.VisitListPeerPetsResponse,
 		playHTTPErrorResponse.VisitAdoptPeerPetResponse,

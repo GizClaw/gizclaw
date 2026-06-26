@@ -31,28 +31,30 @@ func TestServerFirmwareRPC(t *testing.T) {
 	if got.Slots.Stable.Version == nil || *got.Slots.Stable.Version != "9.9.0" {
 		t.Fatalf("firmware stable version = %#v", got.Slots.Stable.Version)
 	}
-	if got.Slots.Stable.Artifacts == nil || len(*got.Slots.Stable.Artifacts) != 1 || (*got.Slots.Stable.Artifacts)[0].Path == nil {
-		t.Fatalf("firmware stable artifacts = %#v", got.Slots.Stable.Artifacts)
+	if got.Slots.Stable.Artifact == nil || got.Slots.Stable.Artifact.TarPath == "" {
+		t.Fatalf("firmware stable artifact = %#v", got.Slots.Stable.Artifact)
 	}
 
 	var out bytes.Buffer
-	download, err := env.peer.DownloadFirmware(env.ctx, "firmware.download.shared", rpcapi.FirmwareDownloadRequest{
-		FirmwareId:   sharedFirmware,
-		Channel:      rpcapi.FirmwareChannelNameStable,
-		ArtifactName: "main",
+	download, err := env.peer.DownloadFirmware(env.ctx, "firmware.files.download.shared", rpcapi.FirmwareFilesDownloadRequest{
+		FirmwareId: sharedFirmware,
+		Channel:    rpcapi.FirmwareChannelNameStable,
+		Path:       "MANIFEST.txt",
 	}, &out)
 	if err != nil {
-		t.Fatalf("firmware.download shared: %v", err)
+		t.Fatalf("firmware.files.download shared: %v", err)
 	}
-	assertTarContains(t, out.Bytes(), "MANIFEST.txt", "gizclaw devkit firmware")
+	if !strings.Contains(out.String(), "gizclaw devkit firmware") {
+		t.Fatalf("firmware manifest = %q", out.String())
+	}
 	if download.Bytes != int64(out.Len()) {
 		t.Fatalf("firmware.download bytes = %d", download.Bytes)
 	}
 	if download.Metadata.FirmwareId != sharedFirmware || download.Metadata.Channel != rpcapi.FirmwareChannelNameStable {
 		t.Fatalf("firmware.download metadata = %#v", download.Metadata)
 	}
-	if download.Metadata.Artifact.Name != "main" || download.Metadata.Artifact.Kind != rpcapi.FirmwareArtifactKindApp {
-		t.Fatalf("firmware.download artifact = %#v", download.Metadata.Artifact)
+	if download.Metadata.File.Path != "MANIFEST.txt" {
+		t.Fatalf("firmware.download file = %#v", download.Metadata.File)
 	}
 
 	denied := env.h.ConnectClientFromContext("peer-denied")

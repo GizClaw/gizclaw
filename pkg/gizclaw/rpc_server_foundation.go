@@ -18,7 +18,7 @@ func isPlannedServerMethod(method rpcapi.RPCMethod) bool {
 	switch method {
 	case rpcapi.RPCMethodServerFirmwareList,
 		rpcapi.RPCMethodServerFirmwareGet,
-		rpcapi.RPCMethodServerFirmwareDownload,
+		rpcapi.RPCMethodServerFirmwareFilesDownload,
 		rpcapi.RPCMethodServerWorkspaceList,
 		rpcapi.RPCMethodServerWorkspaceGet,
 		rpcapi.RPCMethodServerWorkspaceCreate,

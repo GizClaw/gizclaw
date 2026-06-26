@@ -863,36 +863,78 @@ export type Firmware = {
 
 export type FirmwareArtifact = {
     /**
-     * Device-defined artifact name.
+     * Server-owned objectstore path for the uploaded artifact.tar.
      */
-    name: string;
-    kind: FirmwareArtifactKind;
+    tar_path: string;
     /**
-     * Server-owned objectstore path for the uploaded artifact payload.
+     * Server-owned objectstore path for the artifact manifest.
      */
-    path?: string;
+    manifest_path: string;
     /**
-     * Optional SHA-256 digest for integrity checks.
+     * Server-owned objectstore prefix for extracted artifact files.
      */
-    sha256?: string;
+    files_path: string;
     /**
-     * Optional artifact size in bytes.
+     * SHA-256 digest of the uploaded artifact.tar.
      */
-    size?: number;
+    sha256: string;
     /**
-     * Optional content type captured during upload.
+     * Uploaded artifact.tar size in bytes.
      */
-    content_type?: string;
+    size: number;
+    /**
+     * Content type for the uploaded artifact.tar.
+     */
+    content_type: string;
     /**
      * Server-owned upload timestamp.
      */
-    uploaded_at?: string;
+    uploaded_at: string;
 };
 
-/**
- * Kind of payload carried by a firmware artifact.
- */
-export type FirmwareArtifactKind = 'app' | 'data';
+export type FirmwareArtifactEntry = {
+    /**
+     * Normalized artifact entry path relative to the tar root.
+     */
+    path: string;
+    type: FirmwareArtifactEntryType;
+    size: number;
+    mode: number;
+    mod_time: string;
+    /**
+     * Best-effort content type for file entries.
+     */
+    content_type?: string;
+};
+
+export type FirmwareArtifactEntryType = 'file' | 'dir';
+
+export type FirmwareArtifactList = {
+    firmware_id: string;
+    channel: string;
+    path: string;
+    items: Array<FirmwareArtifactEntry>;
+};
+
+export type FirmwareArtifactStats = {
+    firmware_id: string;
+    channel: string;
+    path?: string;
+    artifact: FirmwareArtifact;
+    entry?: FirmwareArtifactEntry;
+    files_count: number;
+    total_size: number;
+};
+
+export type FirmwareArtifactTree = {
+    firmware_id: string;
+    channel: string;
+    path: string;
+    /**
+     * Recursive flat entry list rooted at path.
+     */
+    items: Array<FirmwareArtifactEntry>;
+};
 
 export type FirmwareSelection = {
     /**
@@ -911,10 +953,7 @@ export type FirmwareSlot = {
      */
     version?: string;
     description?: string;
-    /**
-     * Device-defined artifact list for this slot.
-     */
-    artifacts?: Array<FirmwareArtifact>;
+    artifact?: FirmwareArtifact;
 };
 
 export type FirmwareSlots = {
@@ -926,7 +965,22 @@ export type FirmwareSlots = {
 
 export type FirmwareSpec = {
     description?: string;
-    slots: FirmwareSlots;
+    slots: FirmwareSpecSlots;
+};
+
+export type FirmwareSpecSlot = {
+    /**
+     * Version carried by this slot.
+     */
+    version?: string;
+    description?: string;
+};
+
+export type FirmwareSpecSlots = {
+    stable: FirmwareSpecSlot;
+    beta: FirmwareSpecSlot;
+    develop: FirmwareSpecSlot;
+    pending: FirmwareSpecSlot;
 };
 
 export type GeminiTenant = {
@@ -3669,52 +3723,6 @@ export type ReleaseFirmwareResponses = {
 
 export type ReleaseFirmwareResponse = ReleaseFirmwareResponses[keyof ReleaseFirmwareResponses];
 
-export type UploadFirmwareBinData = {
-    body: Blob | File;
-    path: {
-        /**
-         * Firmware name
-         */
-        name: string;
-        /**
-         * Firmware channel/slot name
-         */
-        channel: 'stable' | 'beta' | 'develop' | 'pending';
-        /**
-         * Firmware bin/artifact name declared in the selected channel
-         */
-        bin: string;
-    };
-    query?: never;
-    url: '/firmwares/{name}/bins/{channel}/{bin}';
-};
-
-export type UploadFirmwareBinErrors = {
-    /**
-     * Invalid upload request
-     */
-    400: ErrorResponse;
-    /**
-     * Firmware, channel, or bin not found
-     */
-    404: ErrorResponse;
-    /**
-     * Internal error
-     */
-    500: ErrorResponse;
-};
-
-export type UploadFirmwareBinError = UploadFirmwareBinErrors[keyof UploadFirmwareBinErrors];
-
-export type UploadFirmwareBinResponses = {
-    /**
-     * Updated firmware
-     */
-    200: Firmware;
-};
-
-export type UploadFirmwareBinResponse = UploadFirmwareBinResponses[keyof UploadFirmwareBinResponses];
-
 export type RollbackFirmwareData = {
     body?: never;
     path: {
@@ -6263,3 +6271,313 @@ export type ListBadgesResponses = {
 };
 
 export type ListBadgesResponse = ListBadgesResponses[keyof ListBadgesResponses];
+
+export type DeleteFirmwareArtifactData = {
+    body?: never;
+    path: {
+        /**
+         * Firmware name
+         */
+        name: string;
+        /**
+         * Firmware channel/slot name
+         */
+        channel: 'stable' | 'beta' | 'develop' | 'pending';
+    };
+    query?: never;
+    url: '/firmwares/{name}/packages/{channel}/artifact.tar';
+};
+
+export type DeleteFirmwareArtifactErrors = {
+    /**
+     * Firmware, channel, or artifact not found
+     */
+    404: ErrorResponse;
+    /**
+     * Internal error
+     */
+    500: ErrorResponse;
+};
+
+export type DeleteFirmwareArtifactError = DeleteFirmwareArtifactErrors[keyof DeleteFirmwareArtifactErrors];
+
+export type DeleteFirmwareArtifactResponses = {
+    /**
+     * Updated firmware
+     */
+    200: Firmware;
+};
+
+export type DeleteFirmwareArtifactResponse = DeleteFirmwareArtifactResponses[keyof DeleteFirmwareArtifactResponses];
+
+export type DownloadFirmwareArtifactData = {
+    body?: never;
+    path: {
+        /**
+         * Firmware name
+         */
+        name: string;
+        /**
+         * Firmware channel/slot name
+         */
+        channel: 'stable' | 'beta' | 'develop' | 'pending';
+    };
+    query?: never;
+    url: '/firmwares/{name}/packages/{channel}/artifact.tar';
+};
+
+export type DownloadFirmwareArtifactErrors = {
+    /**
+     * Firmware, channel, or artifact not found
+     */
+    404: ErrorResponse;
+    /**
+     * Internal error
+     */
+    500: ErrorResponse;
+};
+
+export type DownloadFirmwareArtifactError = DownloadFirmwareArtifactErrors[keyof DownloadFirmwareArtifactErrors];
+
+export type DownloadFirmwareArtifactResponses = {
+    /**
+     * Artifact tar
+     */
+    200: Blob | File;
+};
+
+export type DownloadFirmwareArtifactResponse = DownloadFirmwareArtifactResponses[keyof DownloadFirmwareArtifactResponses];
+
+export type UploadFirmwareArtifactData = {
+    body: Blob | File;
+    path: {
+        /**
+         * Firmware name
+         */
+        name: string;
+        /**
+         * Firmware channel/slot name
+         */
+        channel: 'stable' | 'beta' | 'develop' | 'pending';
+    };
+    query?: never;
+    url: '/firmwares/{name}/packages/{channel}/artifact.tar';
+};
+
+export type UploadFirmwareArtifactErrors = {
+    /**
+     * Invalid artifact upload request
+     */
+    400: ErrorResponse;
+    /**
+     * Firmware or channel not found
+     */
+    404: ErrorResponse;
+    /**
+     * Artifact already exists
+     */
+    409: ErrorResponse;
+    /**
+     * Internal error
+     */
+    500: ErrorResponse;
+};
+
+export type UploadFirmwareArtifactError = UploadFirmwareArtifactErrors[keyof UploadFirmwareArtifactErrors];
+
+export type UploadFirmwareArtifactResponses = {
+    /**
+     * Updated firmware
+     */
+    200: Firmware;
+};
+
+export type UploadFirmwareArtifactResponse = UploadFirmwareArtifactResponses[keyof UploadFirmwareArtifactResponses];
+
+export type ListFirmwareArtifactEntriesData = {
+    body?: never;
+    path: {
+        /**
+         * Firmware name
+         */
+        name: string;
+        /**
+         * Firmware channel/slot name
+         */
+        channel: 'stable' | 'beta' | 'develop' | 'pending';
+    };
+    query?: {
+        /**
+         * Directory or file path. Empty means artifact root.
+         */
+        path?: string;
+    };
+    url: '/firmwares/{name}/packages/{channel}/artifact/ls';
+};
+
+export type ListFirmwareArtifactEntriesErrors = {
+    /**
+     * Invalid path
+     */
+    400: ErrorResponse;
+    /**
+     * Firmware, channel, artifact, or path not found
+     */
+    404: ErrorResponse;
+    /**
+     * Internal error
+     */
+    500: ErrorResponse;
+};
+
+export type ListFirmwareArtifactEntriesError = ListFirmwareArtifactEntriesErrors[keyof ListFirmwareArtifactEntriesErrors];
+
+export type ListFirmwareArtifactEntriesResponses = {
+    /**
+     * Artifact entries
+     */
+    200: FirmwareArtifactList;
+};
+
+export type ListFirmwareArtifactEntriesResponse = ListFirmwareArtifactEntriesResponses[keyof ListFirmwareArtifactEntriesResponses];
+
+export type TreeFirmwareArtifactEntriesData = {
+    body?: never;
+    path: {
+        /**
+         * Firmware name
+         */
+        name: string;
+        /**
+         * Firmware channel/slot name
+         */
+        channel: 'stable' | 'beta' | 'develop' | 'pending';
+    };
+    query?: {
+        /**
+         * Directory path. Empty means artifact root.
+         */
+        path?: string;
+    };
+    url: '/firmwares/{name}/packages/{channel}/artifact/tree';
+};
+
+export type TreeFirmwareArtifactEntriesErrors = {
+    /**
+     * Invalid path
+     */
+    400: ErrorResponse;
+    /**
+     * Firmware, channel, artifact, or path not found
+     */
+    404: ErrorResponse;
+    /**
+     * Internal error
+     */
+    500: ErrorResponse;
+};
+
+export type TreeFirmwareArtifactEntriesError = TreeFirmwareArtifactEntriesErrors[keyof TreeFirmwareArtifactEntriesErrors];
+
+export type TreeFirmwareArtifactEntriesResponses = {
+    /**
+     * Artifact tree entries
+     */
+    200: FirmwareArtifactTree;
+};
+
+export type TreeFirmwareArtifactEntriesResponse = TreeFirmwareArtifactEntriesResponses[keyof TreeFirmwareArtifactEntriesResponses];
+
+export type StatFirmwareArtifactEntryData = {
+    body?: never;
+    path: {
+        /**
+         * Firmware name
+         */
+        name: string;
+        /**
+         * Firmware channel/slot name
+         */
+        channel: 'stable' | 'beta' | 'develop' | 'pending';
+    };
+    query?: {
+        /**
+         * File or directory path. Empty means artifact-level stats.
+         */
+        path?: string;
+    };
+    url: '/firmwares/{name}/packages/{channel}/artifact/stat';
+};
+
+export type StatFirmwareArtifactEntryErrors = {
+    /**
+     * Invalid path
+     */
+    400: ErrorResponse;
+    /**
+     * Firmware, channel, artifact, or path not found
+     */
+    404: ErrorResponse;
+    /**
+     * Internal error
+     */
+    500: ErrorResponse;
+};
+
+export type StatFirmwareArtifactEntryError = StatFirmwareArtifactEntryErrors[keyof StatFirmwareArtifactEntryErrors];
+
+export type StatFirmwareArtifactEntryResponses = {
+    /**
+     * Artifact stats
+     */
+    200: FirmwareArtifactStats;
+};
+
+export type StatFirmwareArtifactEntryResponse = StatFirmwareArtifactEntryResponses[keyof StatFirmwareArtifactEntryResponses];
+
+export type DownloadFirmwareArtifactEntryData = {
+    body?: never;
+    path: {
+        /**
+         * Firmware name
+         */
+        name: string;
+        /**
+         * Firmware channel/slot name
+         */
+        channel: 'stable' | 'beta' | 'develop' | 'pending';
+    };
+    query: {
+        /**
+         * Regular file path to download.
+         */
+        path: string;
+    };
+    url: '/firmwares/{name}/packages/{channel}/artifact/dl';
+};
+
+export type DownloadFirmwareArtifactEntryErrors = {
+    /**
+     * Invalid path
+     */
+    400: ErrorResponse;
+    /**
+     * Firmware, channel, artifact, or path not found
+     */
+    404: ErrorResponse;
+    /**
+     * Internal error
+     */
+    500: ErrorResponse;
+};
+
+export type DownloadFirmwareArtifactEntryError = DownloadFirmwareArtifactEntryErrors[keyof DownloadFirmwareArtifactEntryErrors];
+
+export type DownloadFirmwareArtifactEntryResponses = {
+    /**
+     * Artifact entry bytes
+     */
+    200: Blob | File;
+};
+
+export type DownloadFirmwareArtifactEntryResponse = DownloadFirmwareArtifactEntryResponses[keyof DownloadFirmwareArtifactEntryResponses];

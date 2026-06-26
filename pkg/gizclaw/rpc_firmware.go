@@ -12,7 +12,7 @@ import (
 const rpcFirmwareDownloadFrameSize = 32 * 1024
 
 type rpcFirmwareDownloadService interface {
-	PrepareFirmwareDownload(context.Context, rpcapi.FirmwareDownloadRequest) (rpcapi.FirmwareDownloadResponse, io.ReadCloser, *rpcapi.RPCError, error)
+	PrepareFirmwareDownload(context.Context, rpcapi.FirmwareFilesDownloadRequest) (rpcapi.FirmwareFilesDownloadResponse, io.ReadCloser, *rpcapi.RPCError, error)
 }
 
 func (s *rpcServer) handleFirmwareBinDownload(ctx context.Context, stream *rpcStream, req *rpcapi.RPCRequest) error {
@@ -22,7 +22,7 @@ func (s *rpcServer) handleFirmwareBinDownload(ctx context.Context, stream *rpcSt
 	if req.Params == nil {
 		return writeRPCErrorResponse(stream, req.Id, rpcapi.RPCErrorCodeInvalidParams, "missing params")
 	}
-	params, err := req.Params.AsFirmwareDownloadRequest()
+	params, err := req.Params.AsFirmwareFilesDownloadRequest()
 	if err != nil {
 		return writeRPCErrorResponse(stream, req.Id, rpcapi.RPCErrorCodeInvalidParams, "invalid params")
 	}
@@ -39,7 +39,7 @@ func (s *rpcServer) handleFirmwareBinDownload(ctx context.Context, stream *rpcSt
 	}
 	defer reader.Close()
 
-	resp, err := newRPCResultResponse(req.Id, metadata, (*rpcapi.RPCResponse_Result).FromFirmwareDownloadResponse)
+	resp, err := newRPCResultResponse(req.Id, metadata, (*rpcapi.RPCResponse_Result).FromFirmwareFilesDownloadResponse)
 	if err != nil {
 		return err
 	}

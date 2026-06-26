@@ -4,7 +4,7 @@ export type ClientOptions = {
     baseUrl: `${string}://${string}` | (string & {});
 };
 
-export type PeerResourceName = 'workspaces' | 'workflows' | 'models' | 'credentials' | 'voices' | 'pets' | 'wallet' | 'wallet-transactions' | 'rewards' | 'contacts' | 'friends' | 'friend-groups';
+export type PeerResourceName = 'workspaces' | 'workflows' | 'models' | 'credentials' | 'firmwares' | 'voices' | 'pets' | 'wallet' | 'wallet-transactions' | 'rewards' | 'contacts' | 'friends' | 'friend-groups';
 
 export type PeerResourceNamesResponse = {
     resources: Array<PeerResourceName>;
@@ -56,6 +56,12 @@ export type ContactPutRequest = {
 
 export type CredentialListResponse = {
     items: Array<Credential>;
+    has_next: boolean;
+    next_cursor?: string;
+};
+
+export type FirmwareListResponse = {
+    items: Array<Firmware>;
     has_next: boolean;
     next_cursor?: string;
 };
@@ -329,6 +335,61 @@ export type VolcCredentialBody = {
     search_api_key?: string;
     openapi_access_key_id?: string;
     openapi_access_key?: string;
+};
+
+export type Firmware = {
+    name: string;
+    description?: string;
+    slots: FirmwareSlots;
+    created_at: string;
+    updated_at: string;
+};
+
+export type FirmwareArtifact = {
+    /**
+     * Server-owned objectstore path for the uploaded artifact.tar.
+     */
+    tar_path: string;
+    /**
+     * Server-owned objectstore path for the artifact manifest.
+     */
+    manifest_path: string;
+    /**
+     * Server-owned objectstore prefix for extracted artifact files.
+     */
+    files_path: string;
+    /**
+     * SHA-256 digest of the uploaded artifact.tar.
+     */
+    sha256: string;
+    /**
+     * Uploaded artifact.tar size in bytes.
+     */
+    size: number;
+    /**
+     * Content type for the uploaded artifact.tar.
+     */
+    content_type: string;
+    /**
+     * Server-owned upload timestamp.
+     */
+    uploaded_at: string;
+};
+
+export type FirmwareSlot = {
+    /**
+     * Version carried by this slot.
+     */
+    version?: string;
+    description?: string;
+    artifact?: FirmwareArtifact;
+};
+
+export type FirmwareSlots = {
+    stable: FirmwareSlot;
+    beta: FirmwareSlot;
+    develop: FirmwareSlot;
+    pending: FirmwareSlot;
 };
 
 export type Model = {
@@ -1001,6 +1062,25 @@ export type ListPeerCredentialsResponses = {
 };
 
 export type ListPeerCredentialsResponse = ListPeerCredentialsResponses[keyof ListPeerCredentialsResponses];
+
+export type ListPeerFirmwaresData = {
+    body?: never;
+    path?: never;
+    query?: {
+        cursor?: string;
+        limit?: number;
+    };
+    url: '/peer-resources/firmwares';
+};
+
+export type ListPeerFirmwaresResponses = {
+    /**
+     * A page of firmwares.
+     */
+    200: FirmwareListResponse;
+};
+
+export type ListPeerFirmwaresResponse = ListPeerFirmwaresResponses[keyof ListPeerFirmwaresResponses];
 
 export type ListPeerVoicesData = {
     body?: never;

@@ -434,19 +434,122 @@ func RollbackFirmware(ctx context.Context, c *gizcli.Client, name string) (apity
 	return apitypes.Firmware{}, responseError(resp.StatusCode(), resp.Body, resp.JSON404, resp.JSON409, resp.JSON500)
 }
 
-func UploadFirmwareBin(ctx context.Context, c *gizcli.Client, name, channel, bin string, body io.Reader) (apitypes.Firmware, error) {
+func UploadFirmwareArtifact(ctx context.Context, c *gizcli.Client, name, channel string, body io.Reader) (apitypes.Firmware, error) {
 	api, err := c.ServerAdminClient()
 	if err != nil {
 		return apitypes.Firmware{}, err
 	}
-	resp, err := api.UploadFirmwareBinWithBodyWithResponse(ctx, name, adminservice.UploadFirmwareBinParamsChannel(channel), bin, "application/octet-stream", body)
+	resp, err := api.UploadFirmwareArtifactWithBodyWithResponse(ctx, name, adminservice.UploadFirmwareArtifactParamsChannel(channel), "application/x-tar", body)
 	if err != nil {
 		return apitypes.Firmware{}, err
 	}
 	if resp.JSON200 != nil {
 		return *resp.JSON200, nil
 	}
-	return apitypes.Firmware{}, responseError(resp.StatusCode(), resp.Body, resp.JSON400, resp.JSON404, resp.JSON500)
+	return apitypes.Firmware{}, responseError(resp.StatusCode(), resp.Body, resp.JSON400, resp.JSON404, resp.JSON409, resp.JSON500)
+}
+
+func DownloadFirmwareArtifact(ctx context.Context, c *gizcli.Client, name, channel string) ([]byte, error) {
+	api, err := c.ServerAdminClient()
+	if err != nil {
+		return nil, err
+	}
+	resp, err := api.DownloadFirmwareArtifactWithResponse(ctx, name, adminservice.DownloadFirmwareArtifactParamsChannel(channel))
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode() == 200 {
+		return resp.Body, nil
+	}
+	return nil, responseError(resp.StatusCode(), resp.Body, resp.JSON404, resp.JSON500)
+}
+
+func DeleteFirmwareArtifact(ctx context.Context, c *gizcli.Client, name, channel string) (apitypes.Firmware, error) {
+	api, err := c.ServerAdminClient()
+	if err != nil {
+		return apitypes.Firmware{}, err
+	}
+	resp, err := api.DeleteFirmwareArtifactWithResponse(ctx, name, adminservice.DeleteFirmwareArtifactParamsChannel(channel))
+	if err != nil {
+		return apitypes.Firmware{}, err
+	}
+	if resp.JSON200 != nil {
+		return *resp.JSON200, nil
+	}
+	return apitypes.Firmware{}, responseError(resp.StatusCode(), resp.Body, resp.JSON404, resp.JSON500)
+}
+
+func ListFirmwareArtifactEntries(ctx context.Context, c *gizcli.Client, name, channel, path string) (apitypes.FirmwareArtifactList, error) {
+	api, err := c.ServerAdminClient()
+	if err != nil {
+		return apitypes.FirmwareArtifactList{}, err
+	}
+	params := &adminservice.ListFirmwareArtifactEntriesParams{}
+	if strings.TrimSpace(path) != "" {
+		params.Path = &path
+	}
+	resp, err := api.ListFirmwareArtifactEntriesWithResponse(ctx, name, adminservice.ListFirmwareArtifactEntriesParamsChannel(channel), params)
+	if err != nil {
+		return apitypes.FirmwareArtifactList{}, err
+	}
+	if resp.JSON200 != nil {
+		return *resp.JSON200, nil
+	}
+	return apitypes.FirmwareArtifactList{}, responseError(resp.StatusCode(), resp.Body, resp.JSON400, resp.JSON404, resp.JSON500)
+}
+
+func TreeFirmwareArtifactEntries(ctx context.Context, c *gizcli.Client, name, channel, path string) (apitypes.FirmwareArtifactTree, error) {
+	api, err := c.ServerAdminClient()
+	if err != nil {
+		return apitypes.FirmwareArtifactTree{}, err
+	}
+	params := &adminservice.TreeFirmwareArtifactEntriesParams{}
+	if strings.TrimSpace(path) != "" {
+		params.Path = &path
+	}
+	resp, err := api.TreeFirmwareArtifactEntriesWithResponse(ctx, name, adminservice.TreeFirmwareArtifactEntriesParamsChannel(channel), params)
+	if err != nil {
+		return apitypes.FirmwareArtifactTree{}, err
+	}
+	if resp.JSON200 != nil {
+		return *resp.JSON200, nil
+	}
+	return apitypes.FirmwareArtifactTree{}, responseError(resp.StatusCode(), resp.Body, resp.JSON400, resp.JSON404, resp.JSON500)
+}
+
+func StatFirmwareArtifactEntry(ctx context.Context, c *gizcli.Client, name, channel, path string) (apitypes.FirmwareArtifactStats, error) {
+	api, err := c.ServerAdminClient()
+	if err != nil {
+		return apitypes.FirmwareArtifactStats{}, err
+	}
+	params := &adminservice.StatFirmwareArtifactEntryParams{}
+	if strings.TrimSpace(path) != "" {
+		params.Path = &path
+	}
+	resp, err := api.StatFirmwareArtifactEntryWithResponse(ctx, name, adminservice.StatFirmwareArtifactEntryParamsChannel(channel), params)
+	if err != nil {
+		return apitypes.FirmwareArtifactStats{}, err
+	}
+	if resp.JSON200 != nil {
+		return *resp.JSON200, nil
+	}
+	return apitypes.FirmwareArtifactStats{}, responseError(resp.StatusCode(), resp.Body, resp.JSON400, resp.JSON404, resp.JSON500)
+}
+
+func DownloadFirmwareArtifactEntry(ctx context.Context, c *gizcli.Client, name, channel, path string) ([]byte, error) {
+	api, err := c.ServerAdminClient()
+	if err != nil {
+		return nil, err
+	}
+	params := &adminservice.DownloadFirmwareArtifactEntryParams{Path: path}
+	resp, err := api.DownloadFirmwareArtifactEntryWithResponse(ctx, name, adminservice.DownloadFirmwareArtifactEntryParamsChannel(channel), params)
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode() == 200 {
+		return resp.Body, nil
+	}
+	return nil, responseError(resp.StatusCode(), resp.Body, resp.JSON400, resp.JSON404, resp.JSON500)
 }
 
 func ListMiniMaxTenants(ctx context.Context, c *gizcli.Client) ([]apitypes.MiniMaxTenant, error) {

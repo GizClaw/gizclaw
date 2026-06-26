@@ -2,7 +2,7 @@
   "openapi": "3.0.3",
   "info": {
     "title": "Firmware Artifact Type",
-    "description": "Firmware artifact schema.",
+    "description": "Firmware channel artifact metadata schema.",
     "version": "1.0.0"
   },
   "paths": {},
@@ -11,36 +11,44 @@
       "FirmwareArtifact": {
         "type": "object",
         "required": [
-          "name",
-          "kind"
+          "tar_path",
+          "manifest_path",
+          "files_path",
+          "sha256",
+          "size",
+          "content_type",
+          "uploaded_at"
         ],
+        "additionalProperties": false,
         "properties": {
-          "name": {
+          "tar_path": {
             "type": "string",
-            "description": "Device-defined artifact name.",
-            "example": "main"
+            "description": "Server-owned objectstore path for the uploaded artifact.tar.",
+            "example": "firmware/devkit/stable/artifact.tar"
           },
-          "kind": {
-            "$ref": "./firmware_artifact_kind.json#/components/schemas/FirmwareArtifactKind"
-          },
-          "path": {
+          "manifest_path": {
             "type": "string",
-            "description": "Server-owned objectstore path for the uploaded artifact payload.",
-            "example": "devkit/stable/app/20260613T000000.000000000Z-0123456789abcdef.bin"
+            "description": "Server-owned objectstore path for the artifact manifest.",
+            "example": "firmware/devkit/stable/manifest.json"
+          },
+          "files_path": {
+            "type": "string",
+            "description": "Server-owned objectstore prefix for extracted artifact files.",
+            "example": "firmware/devkit/stable/files/"
           },
           "sha256": {
             "type": "string",
-            "description": "Optional SHA-256 digest for integrity checks."
+            "description": "SHA-256 digest of the uploaded artifact.tar."
           },
           "size": {
             "type": "integer",
             "format": "int64",
-            "description": "Optional artifact size in bytes."
+            "description": "Uploaded artifact.tar size in bytes."
           },
           "content_type": {
             "type": "string",
-            "description": "Optional content type captured during upload.",
-            "example": "application/octet-stream"
+            "description": "Content type for the uploaded artifact.tar.",
+            "example": "application/x-tar"
           },
           "uploaded_at": {
             "type": "string",

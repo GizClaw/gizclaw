@@ -3,7 +3,7 @@ import type { JSX, MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEv
 import { createRoot } from "react-dom/client";
 import OpenAI from "openai";
 import type { ChatCompletionMessageParam } from "openai/resources/chat/completions";
-import { ArrowLeft, Bot, Brain, BriefcaseBusiness, ChevronDown, Clock3, Coins, ContactRound, Database, Gift, KeyRound, Loader2, MessageCircle, Mic2, PawPrint, Pencil, Play, Plus, ReceiptText, RefreshCw, Search, SendHorizontal, Trash2, UserPlus, Users, Volume2, VolumeX, Workflow } from "lucide-react";
+import { ArrowLeft, Bot, Brain, BriefcaseBusiness, ChevronDown, Clock3, Coins, ContactRound, Database, Gift, KeyRound, Loader2, MessageCircle, Mic2, PackageCheck, PawPrint, Pencil, Play, Plus, ReceiptText, RefreshCw, Search, SendHorizontal, Trash2, UserPlus, Users, Volume2, VolumeX, Workflow } from "lucide-react";
 import { toast } from "sonner";
 import {
   ActionBarPrimitive,
@@ -52,6 +52,7 @@ import {
   listClientVoices,
   listPeerContacts,
   listPeerCredentials,
+  listPeerFirmwares,
   listPeerFriendGroupMembers,
   listPeerFriendGroups,
   listPeerFriends,
@@ -76,6 +77,7 @@ import {
   type FriendGroupObject,
   type FriendInviteTokenGetResponse,
   type FriendObject,
+  type Firmware,
   type PlayVoiceStreamEvent,
 } from "@gizclaw/clientservice";
 
@@ -111,7 +113,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/components/ui/utils";
 
-type Section = "overview" | "contacts" | "friends" | "friendGroups" | "workspaces" | "workflows" | "models" | "credentials" | "voices" | "pets" | "walletTransactions" | "rewards";
+type Section = "overview" | "contacts" | "friends" | "friendGroups" | "workspaces" | "workflows" | "models" | "credentials" | "firmwares" | "voices" | "pets" | "walletTransactions" | "rewards";
 type TopDrawer = "workspace" | "social-chat" | "test-chat" | null;
 
 type ModelSpec = {
@@ -349,6 +351,7 @@ const sections: Array<{ icon: typeof Bot; id: Section; label: string }> = [
   { icon: Workflow, id: "workflows", label: "Workflows" },
   { icon: Bot, id: "models", label: "Models" },
   { icon: KeyRound, id: "credentials", label: "Credentials" },
+  { icon: PackageCheck, id: "firmwares", label: "Firmwares" },
   { icon: Mic2, id: "voices", label: "Voices" },
   { icon: PawPrint, id: "pets", label: "Pets" },
   { icon: ReceiptText, id: "walletTransactions", label: "Transactions" },
@@ -517,6 +520,7 @@ function App(): JSX.Element {
                 {section === "workflows" ? <WorkflowsPanel /> : null}
                 {section === "models" ? <ModelsPanel initialModels={models} /> : null}
                 {section === "credentials" ? <CredentialsPanel /> : null}
+                {section === "firmwares" ? <FirmwaresPanel /> : null}
                 {section === "voices" ? <VoicesPanel /> : null}
                 {section === "pets" ? <PetsPanel /> : null}
                 {section === "walletTransactions" ? <WalletTransactionsPanel /> : null}
@@ -4027,6 +4031,26 @@ function CredentialsPanel(): JSX.Element {
   );
 }
 
+function FirmwaresPanel(): JSX.Element {
+  const loadPage = useCallback((cursor: string) => listFirmwaresPage(cursor), []);
+  return (
+    <PagedSimpleTable
+      columns={["Name", "Stable", "Beta", "Develop", "Pending", "Updated"]}
+      empty="No firmwares"
+      loadPage={loadPage}
+      row={(item) => [
+        item.name,
+        firmwareSlotSummary(item.slots.stable),
+        firmwareSlotSummary(item.slots.beta),
+        firmwareSlotSummary(item.slots.develop),
+        firmwareSlotSummary(item.slots.pending),
+        formatDate(item.updated_at),
+      ]}
+      title="Firmwares"
+    />
+  );
+}
+
 function OverviewPanel({ modelCount, wallet }: { modelCount: number; wallet: WalletResource | null }): JSX.Element {
   return (
     <div className="grid max-w-6xl gap-4 md:grid-cols-2">
@@ -4562,6 +4586,11 @@ function signedNumber(value: number): string {
   return value > 0 ? `+${value}` : String(value);
 }
 
+function firmwareSlotSummary(slot: Firmware["slots"]["stable"]): string {
+  const version = slot.version?.trim() || "-";
+  return slot.artifact == null || slot.artifact.tar_path.trim() === "" ? version : `${version} / artifact`;
+}
+
 function ModelsPanel({ initialModels }: { initialModels: ModelSpec[] }): JSX.Element {
   const loadPage = useCallback((cursor: string) => listModelsPage(cursor), []);
   const pager = usePagedList(loadPage);
@@ -4838,6 +4867,10 @@ function listPetsPage(cursor: string): Promise<PageResponse<PetResource>> {
   return expectData(listPeerPets({ query: pageQuery(cursor) })) as Promise<PageResponse<PetResource>>;
 }
 
+function listFirmwaresPage(cursor: string): Promise<PageResponse<Firmware>> {
+  return expectData(listPeerFirmwares({ query: pageQuery(cursor) })) as Promise<PageResponse<Firmware>>;
+}
+
 function adoptPet(name: string): Promise<PetResource> {
   return expectData(adoptPeerPet({ body: { name } })) as Promise<PetResource>;
 }
@@ -4921,6 +4954,8 @@ async function listPeerResourcePage(name: string, cursor: string): Promise<PageR
       return expectData(listPeerContacts({ query })) as Promise<PageResponse<ResourceItem>>;
     case "credentials":
       return expectData(listPeerCredentials({ query })) as Promise<PageResponse<ResourceItem>>;
+    case "firmwares":
+      return expectData(listPeerFirmwares({ query })) as Promise<PageResponse<ResourceItem>>;
     case "friend-groups":
       return expectData(listPeerFriendGroups({ query })) as Promise<PageResponse<ResourceItem>>;
     case "friends":

@@ -69,6 +69,7 @@ func (s *playHTTPService) ListPeerResourceNames(context.Context, clientservice.L
 			clientservice.Workflows,
 			clientservice.Models,
 			clientservice.Credentials,
+			clientservice.Firmwares,
 			clientservice.Voices,
 			clientservice.Pets,
 			clientservice.Contacts,
@@ -127,6 +128,18 @@ func (s *playHTTPService) ListPeerCredentials(ctx context.Context, request clien
 		return playHTTPError(err), nil
 	}
 	return clientservice.ListPeerCredentials200JSONResponse(*sanitizePlayCredentialList(result)), nil
+}
+
+func (s *playHTTPService) ListPeerFirmwares(ctx context.Context, request clientservice.ListPeerFirmwaresRequestObject) (clientservice.ListPeerFirmwaresResponseObject, error) {
+	c, errResp, ok := s.gizCLIClient()
+	if !ok {
+		return errResp, nil
+	}
+	result, err := c.ListFirmwares(ctx, s.rpcID(), rpcapi.FirmwareListRequest{Cursor: request.Params.Cursor, Limit: playLimitPtr(request.Params.Limit)})
+	if err != nil {
+		return playHTTPError(err), nil
+	}
+	return clientservice.ListPeerFirmwares200JSONResponse(*result), nil
 }
 
 func (s *playHTTPService) ListPeerContacts(ctx context.Context, request clientservice.ListPeerContactsRequestObject) (clientservice.ListPeerContactsResponseObject, error) {
@@ -907,6 +920,10 @@ func (r playHTTPErrorResponse) VisitGetPeerWorkspaceHistoryAudioResponse(ctx *fi
 }
 
 func (r playHTTPErrorResponse) VisitListPeerModelsResponse(ctx *fiber.Ctx) error {
+	return r.write(ctx)
+}
+
+func (r playHTTPErrorResponse) VisitListPeerFirmwaresResponse(ctx *fiber.Ctx) error {
 	return r.write(ctx)
 }
 

@@ -458,18 +458,18 @@ func (e DoubaoRealtimeWorkspaceParametersAgentType) Valid() bool {
 	}
 }
 
-// Defines values for FirmwareArtifactKind.
+// Defines values for FirmwareArtifactEntryType.
 const (
-	FirmwareArtifactKindApp  FirmwareArtifactKind = "app"
-	FirmwareArtifactKindData FirmwareArtifactKind = "data"
+	FirmwareArtifactEntryTypeDir  FirmwareArtifactEntryType = "dir"
+	FirmwareArtifactEntryTypeFile FirmwareArtifactEntryType = "file"
 )
 
-// Valid indicates whether the value is a known member of the FirmwareArtifactKind enum.
-func (e FirmwareArtifactKind) Valid() bool {
+// Valid indicates whether the value is a known member of the FirmwareArtifactEntryType enum.
+func (e FirmwareArtifactEntryType) Valid() bool {
 	switch e {
-	case FirmwareArtifactKindApp:
+	case FirmwareArtifactEntryTypeDir:
 		return true
-	case FirmwareArtifactKindData:
+	case FirmwareArtifactEntryTypeFile:
 		return true
 	default:
 		return false
@@ -1898,30 +1898,72 @@ type Firmware struct {
 
 // FirmwareArtifact defines model for FirmwareArtifact.
 type FirmwareArtifact struct {
-	// ContentType Optional content type captured during upload.
-	ContentType *string `json:"content_type,omitempty"`
+	// ContentType Content type for the uploaded artifact.tar.
+	ContentType string `json:"content_type"`
 
-	// Kind Kind of payload carried by a firmware artifact.
-	Kind FirmwareArtifactKind `json:"kind"`
+	// FilesPath Server-owned objectstore prefix for extracted artifact files.
+	FilesPath string `json:"files_path"`
 
-	// Name Device-defined artifact name.
-	Name string `json:"name"`
+	// ManifestPath Server-owned objectstore path for the artifact manifest.
+	ManifestPath string `json:"manifest_path"`
 
-	// Path Server-owned objectstore path for the uploaded artifact payload.
-	Path *string `json:"path,omitempty"`
+	// Sha256 SHA-256 digest of the uploaded artifact.tar.
+	Sha256 string `json:"sha256"`
 
-	// Sha256 Optional SHA-256 digest for integrity checks.
-	Sha256 *string `json:"sha256,omitempty"`
+	// Size Uploaded artifact.tar size in bytes.
+	Size int64 `json:"size"`
 
-	// Size Optional artifact size in bytes.
-	Size *int64 `json:"size,omitempty"`
+	// TarPath Server-owned objectstore path for the uploaded artifact.tar.
+	TarPath string `json:"tar_path"`
 
 	// UploadedAt Server-owned upload timestamp.
-	UploadedAt *time.Time `json:"uploaded_at,omitempty"`
+	UploadedAt time.Time `json:"uploaded_at"`
 }
 
-// FirmwareArtifactKind Kind of payload carried by a firmware artifact.
-type FirmwareArtifactKind string
+// FirmwareArtifactEntry defines model for FirmwareArtifactEntry.
+type FirmwareArtifactEntry struct {
+	// ContentType Best-effort content type for file entries.
+	ContentType *string   `json:"content_type,omitempty"`
+	ModTime     time.Time `json:"mod_time"`
+	Mode        int32     `json:"mode"`
+
+	// Path Normalized artifact entry path relative to the tar root.
+	Path string                    `json:"path"`
+	Size int64                     `json:"size"`
+	Type FirmwareArtifactEntryType `json:"type"`
+}
+
+// FirmwareArtifactEntryType defines model for FirmwareArtifactEntryType.
+type FirmwareArtifactEntryType string
+
+// FirmwareArtifactList defines model for FirmwareArtifactList.
+type FirmwareArtifactList struct {
+	Channel    string                  `json:"channel"`
+	FirmwareId string                  `json:"firmware_id"`
+	Items      []FirmwareArtifactEntry `json:"items"`
+	Path       string                  `json:"path"`
+}
+
+// FirmwareArtifactStats defines model for FirmwareArtifactStats.
+type FirmwareArtifactStats struct {
+	Artifact   FirmwareArtifact       `json:"artifact"`
+	Channel    string                 `json:"channel"`
+	Entry      *FirmwareArtifactEntry `json:"entry,omitempty"`
+	FilesCount int64                  `json:"files_count"`
+	FirmwareId string                 `json:"firmware_id"`
+	Path       *string                `json:"path,omitempty"`
+	TotalSize  int64                  `json:"total_size"`
+}
+
+// FirmwareArtifactTree defines model for FirmwareArtifactTree.
+type FirmwareArtifactTree struct {
+	Channel    string `json:"channel"`
+	FirmwareId string `json:"firmware_id"`
+
+	// Items Recursive flat entry list rooted at path.
+	Items []FirmwareArtifactEntry `json:"items"`
+	Path  string                  `json:"path"`
+}
 
 // FirmwareResource defines model for FirmwareResource.
 type FirmwareResource struct {
@@ -1949,9 +1991,8 @@ type FirmwareSelectionChannel string
 
 // FirmwareSlot defines model for FirmwareSlot.
 type FirmwareSlot struct {
-	// Artifacts Device-defined artifact list for this slot.
-	Artifacts   *[]FirmwareArtifact `json:"artifacts,omitempty"`
-	Description *string             `json:"description,omitempty"`
+	Artifact    *FirmwareArtifact `json:"artifact,omitempty"`
+	Description *string           `json:"description,omitempty"`
 
 	// Version Version carried by this slot.
 	Version *string `json:"version,omitempty"`
@@ -1967,8 +2008,24 @@ type FirmwareSlots struct {
 
 // FirmwareSpec defines model for FirmwareSpec.
 type FirmwareSpec struct {
-	Description *string       `json:"description,omitempty"`
-	Slots       FirmwareSlots `json:"slots"`
+	Description *string           `json:"description,omitempty"`
+	Slots       FirmwareSpecSlots `json:"slots"`
+}
+
+// FirmwareSpecSlot defines model for FirmwareSpecSlot.
+type FirmwareSpecSlot struct {
+	Description *string `json:"description,omitempty"`
+
+	// Version Version carried by this slot.
+	Version *string `json:"version,omitempty"`
+}
+
+// FirmwareSpecSlots defines model for FirmwareSpecSlots.
+type FirmwareSpecSlots struct {
+	Beta    FirmwareSpecSlot `json:"beta"`
+	Develop FirmwareSpecSlot `json:"develop"`
+	Pending FirmwareSpecSlot `json:"pending"`
+	Stable  FirmwareSpecSlot `json:"stable"`
 }
 
 // FlowcraftConversationParameters defines model for FlowcraftConversationParameters.

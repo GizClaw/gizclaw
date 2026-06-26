@@ -62,7 +62,7 @@ func TestFirmwareDownloadHelp(t *testing.T) {
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"--firmware-id", "--channel", "--artifact-name", "--output", "--context", "--timeout"} {
+	for _, want := range []string{"--firmware-id", "--channel", "--path", "--output", "--context", "--timeout"} {
 		if !strings.Contains(out.String(), want) {
 			t.Fatalf("firmware download help missing %q: %s", want, out.String())
 		}
@@ -97,18 +97,18 @@ func TestFirmwareDownloadRejectsInvalidInput(t *testing.T) {
 	}{
 		{
 			name: "bad channel",
-			args: []string{"firmware", "download", "--firmware-id", "devkit", "--channel", "rollback", "--artifact-name", "app", "--output", "app.bin"},
+			args: []string{"firmware", "download", "--firmware-id", "devkit", "--channel", "rollback", "--path", "firmware.bin", "--output", "app.bin"},
 			want: "channel must be one of stable, beta, develop, pending",
 		},
 		{
 			name: "stdout output",
-			args: []string{"firmware", "download", "--firmware-id", "devkit", "--channel", "stable", "--artifact-name", "app", "--output", "-"},
+			args: []string{"firmware", "download", "--firmware-id", "devkit", "--channel", "stable", "--path", "firmware.bin", "--output", "-"},
 			want: "output must be a file path",
 		},
 		{
-			name: "missing artifact",
+			name: "missing path",
 			args: []string{"firmware", "download", "--firmware-id", "devkit", "--channel", "stable", "--output", "app.bin"},
-			want: "artifact-name must not be empty",
+			want: "path must not be empty",
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -141,7 +141,7 @@ func TestFirmwareCommandsPropagateConnectError(t *testing.T) {
 		{name: "test-speed", args: []string{"test-speed"}},
 		{name: "list", args: []string{"firmware", "list"}},
 		{name: "get", args: []string{"firmware", "get", "--firmware-id", "devkit"}},
-		{name: "download", args: []string{"firmware", "download", "--firmware-id", "devkit", "--channel", "stable", "--artifact-name", "app", "--output", "app.bin"}},
+		{name: "download", args: []string{"firmware", "download", "--firmware-id", "devkit", "--channel", "stable", "--path", "firmware.bin", "--output", "app.bin"}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			cmd := NewCmd()

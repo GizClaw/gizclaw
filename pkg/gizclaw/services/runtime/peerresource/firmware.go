@@ -62,7 +62,7 @@ func (s *Server) handleFirmwareGet(ctx context.Context, req *rpcapi.RPCRequest) 
 }
 
 func (s *Server) handleFirmwareDownload(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
-	params, ok := decodeRequiredParams(req, rpcapi.RPCRequest_Params.AsFirmwareDownloadRequest)
+	params, ok := decodeRequiredParams(req, rpcapi.RPCRequest_Params.AsFirmwareFilesDownloadRequest)
 	if !ok {
 		return invalidParams(req.Id)
 	}
@@ -77,32 +77,24 @@ func (s *Server) handleFirmwareDownload(ctx context.Context, req *rpcapi.RPCRequ
 		rpcErr.Message = strings.TrimSpace(rpcErr.Message)
 		return rpcapi.Error{RequestID: req.Id, Code: rpcErr.Code, Message: rpcErr.Message}.RPCResponse()
 	}
-	return resultResponse(req.Id, result, (*rpcapi.RPCResponse_Result).FromFirmwareDownloadResponse)
+	return resultResponse(req.Id, result, (*rpcapi.RPCResponse_Result).FromFirmwareFilesDownloadResponse)
 }
 
-func (s *Server) PrepareFirmwareDownload(ctx context.Context, params rpcapi.FirmwareDownloadRequest) (rpcapi.FirmwareDownloadResponse, io.ReadCloser, *rpcapi.RPCError, error) {
-	item, slot, err := s.firmwareSlot(ctx, params.FirmwareId, params.Channel)
+func (s *Server) PrepareFirmwareDownload(ctx context.Context, params rpcapi.FirmwareFilesDownloadRequest) (rpcapi.FirmwareFilesDownloadResponse, io.ReadCloser, *rpcapi.RPCError, error) {
+	item, _, err := s.firmwareSlot(ctx, params.FirmwareId, params.Channel)
 	if err != nil {
-		return rpcapi.FirmwareDownloadResponse{}, nil, firmwareRPCErrorBody(err), nil
+		return rpcapi.FirmwareFilesDownloadResponse{}, nil, firmwareRPCErrorBody(err), nil
 	}
-	artifact, ok := firmwareArtifact(slot, params.ArtifactName)
-	if !ok {
-		return rpcapi.FirmwareDownloadResponse{}, nil, &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeNotFound, Message: "firmware artifact not found"}, nil
-	}
-	if artifact.Path == nil || strings.TrimSpace(*artifact.Path) == "" {
-		return rpcapi.FirmwareDownloadResponse{}, nil, &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeNotFound, Message: "firmware artifact payload not uploaded"}, nil
-	}
-	if s.Firmwares == nil || s.Firmwares.Assets == nil {
-		return rpcapi.FirmwareDownloadResponse{}, nil, &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeInternalError, Message: "firmware asset store not configured"}, nil
-	}
-	reader, err := s.Firmwares.Assets.Get(*artifact.Path)
+	artifact, entry, reader, err := s.Firmwares.PrepareArtifactEntryDownload(ctx, item.Name, string(params.Channel), params.Path)
 	if err != nil {
-		return rpcapi.FirmwareDownloadResponse{}, nil, nil, err
+		return rpcapi.FirmwareFilesDownloadResponse{}, nil, firmwareDownloadRPCErrorBody(err), nil
 	}
-	return rpcapi.FirmwareDownloadResponse{
+	return rpcapi.FirmwareFilesDownloadResponse{
 		FirmwareId: item.Name,
 		Channel:    params.Channel,
-		Artifact:   firmwareBinMetadata(*artifact),
+		Path:       entry.Path,
+		Artifact:   rpcFirmwareArtifact(artifact),
+		File:       rpcFirmwareArtifactEntry(entry),
 	}, reader, nil, nil
 }
 
@@ -150,30 +142,6 @@ func firmwareSlotByName(slots apitypes.FirmwareSlots, channel rpcapi.FirmwareCha
 	}
 }
 
-func firmwareArtifact(slot apitypes.FirmwareSlot, name string) (*apitypes.FirmwareArtifact, bool) {
-	name = strings.TrimSpace(name)
-	if name == "" || slot.Artifacts == nil {
-		return nil, false
-	}
-	for i := range *slot.Artifacts {
-		if (*slot.Artifacts)[i].Name == name {
-			return &(*slot.Artifacts)[i], true
-		}
-	}
-	return nil, false
-}
-
-func firmwareBinMetadata(artifact apitypes.FirmwareArtifact) rpcapi.FirmwareBinMetadata {
-	return rpcapi.FirmwareBinMetadata{
-		Name:        artifact.Name,
-		Kind:        rpcapi.FirmwareArtifactKind(artifact.Kind),
-		Size:        artifact.Size,
-		Sha256:      artifact.Sha256,
-		ContentType: artifact.ContentType,
-		UploadedAt:  artifact.UploadedAt,
-	}
-}
-
 var (
 	errInvalidFirmwareRequest = errors.New("invalid firmware request")
 )
@@ -200,5 +168,41 @@ func firmwareRPCErrorBody(err error) *rpcapi.RPCError {
 		return &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeInternalError, Message: err.Error()}
 	default:
 		return &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeInternalError, Message: err.Error()}
+	}
+}
+
+func firmwareDownloadRPCErrorBody(err error) *rpcapi.RPCError {
+	switch {
+	case err == nil:
+		return nil
+	case firmware.IsInvalidArtifactError(err):
+		return &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeInvalidParams, Message: err.Error()}
+	case firmware.IsArtifactNotFoundError(err):
+		return &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeNotFound, Message: err.Error()}
+	default:
+		return firmwareRPCErrorBody(err)
+	}
+}
+
+func rpcFirmwareArtifact(artifact apitypes.FirmwareArtifact) rpcapi.FirmwareArtifact {
+	return rpcapi.FirmwareArtifact{
+		ContentType:  artifact.ContentType,
+		FilesPath:    artifact.FilesPath,
+		ManifestPath: artifact.ManifestPath,
+		Sha256:       artifact.Sha256,
+		Size:         artifact.Size,
+		TarPath:      artifact.TarPath,
+		UploadedAt:   artifact.UploadedAt,
+	}
+}
+
+func rpcFirmwareArtifactEntry(entry apitypes.FirmwareArtifactEntry) rpcapi.FirmwareArtifactEntry {
+	return rpcapi.FirmwareArtifactEntry{
+		ContentType: entry.ContentType,
+		ModTime:     entry.ModTime,
+		Mode:        entry.Mode,
+		Path:        entry.Path,
+		Size:        entry.Size,
+		Type:        rpcapi.FirmwareArtifactEntryType(entry.Type),
 	}
 }

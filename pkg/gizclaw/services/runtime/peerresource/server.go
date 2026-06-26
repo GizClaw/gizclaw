@@ -67,7 +67,7 @@ func IsMethod(method rpcapi.RPCMethod) bool {
 	switch method {
 	case rpcapi.RPCMethodServerFirmwareList,
 		rpcapi.RPCMethodServerFirmwareGet,
-		rpcapi.RPCMethodServerFirmwareDownload,
+		rpcapi.RPCMethodServerFirmwareFilesDownload,
 		rpcapi.RPCMethodServerWorkspaceList,
 		rpcapi.RPCMethodServerWorkspaceGet,
 		rpcapi.RPCMethodServerWorkspaceCreate,
@@ -147,7 +147,7 @@ func (s *Server) Dispatch(ctx context.Context, req *rpcapi.RPCRequest) (*rpcapi.
 		return s.handleFirmwareList(ctx, req), true, nil
 	case rpcapi.RPCMethodServerFirmwareGet:
 		return s.handleFirmwareGet(ctx, req), true, nil
-	case rpcapi.RPCMethodServerFirmwareDownload:
+	case rpcapi.RPCMethodServerFirmwareFilesDownload:
 		return s.handleFirmwareDownload(ctx, req), true, nil
 	case rpcapi.RPCMethodServerWorkspaceList:
 		return s.handleWorkspaceList(ctx, req), true, nil

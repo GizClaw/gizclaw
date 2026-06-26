@@ -14,7 +14,7 @@ import (
 
 func TestDownloadFirmwareRejectsNilOutput(t *testing.T) {
 	client := &rpcClient{}
-	_, err := client.DownloadFirmware(context.Background(), nil, "firmware-download", rpcapi.FirmwareDownloadRequest{}, nil)
+	_, err := client.DownloadFirmware(context.Background(), nil, "firmware-download", rpcapi.FirmwareFilesDownloadRequest{}, nil)
 	if err == nil || !strings.Contains(err.Error(), "firmware download output is required") {
 		t.Fatalf("DownloadFirmware nil output err = %v", err)
 	}
@@ -29,10 +29,10 @@ func TestClientFirmwareMethodsRequireConnection(t *testing.T) {
 		t.Fatalf("GetFirmware disconnected err = %v", err)
 	}
 	var out bytes.Buffer
-	if _, err := client.DownloadFirmware(context.Background(), "firmware-download", rpcapi.FirmwareDownloadRequest{
-		FirmwareId:   "devkit",
-		Channel:      rpcapi.FirmwareChannelNameStable,
-		ArtifactName: "main",
+	if _, err := client.DownloadFirmware(context.Background(), "firmware-download", rpcapi.FirmwareFilesDownloadRequest{
+		FirmwareId: "devkit",
+		Channel:    rpcapi.FirmwareChannelNameStable,
+		Path:       "firmware.bin",
 	}, &out); err == nil || !strings.Contains(err.Error(), "client is not connected") {
 		t.Fatalf("DownloadFirmware disconnected err = %v", err)
 	}
@@ -52,11 +52,13 @@ func TestClientFirmwareMethodsUseRPCConnection(t *testing.T) {
 			HasNext: false,
 		}, (*rpcapi.RPCResponse_Result).FromFirmwareListResponse, nil, serverErrCh)
 		serveFirmwareRPCResponse(t, listener, rpcapi.RPCMethodServerFirmwareGet, rpcapi.FirmwareGetResponse{Name: "devkit"}, (*rpcapi.RPCResponse_Result).FromFirmwareGetResponse, nil, serverErrCh)
-		serveFirmwareRPCResponse(t, listener, rpcapi.RPCMethodServerFirmwareDownload, rpcapi.FirmwareDownloadResponse{
+		serveFirmwareRPCResponse(t, listener, rpcapi.RPCMethodServerFirmwareFilesDownload, rpcapi.FirmwareFilesDownloadResponse{
 			FirmwareId: "devkit",
 			Channel:    rpcapi.FirmwareChannelNameStable,
-			Artifact:   rpcapi.FirmwareBinMetadata{Name: "main", Kind: rpcapi.FirmwareArtifactKindApp},
-		}, (*rpcapi.RPCResponse_Result).FromFirmwareDownloadResponse, []byte("firmware-payload"), serverErrCh)
+			Path:       "firmware.bin",
+			Artifact:   rpcapi.FirmwareArtifact{TarPath: "devkit/stable/artifact/artifact.tar", Size: 1024, ContentType: "application/x-tar"},
+			File:       rpcapi.FirmwareArtifactEntry{Path: "firmware.bin", Type: rpcapi.FirmwareArtifactEntryTypeFile, Size: int64(len("firmware-payload"))},
+		}, (*rpcapi.RPCResponse_Result).FromFirmwareFilesDownloadResponse, []byte("firmware-payload"), serverErrCh)
 	}()
 	list, err := client.ListFirmwares(context.Background(), "firmware-list", rpcapi.FirmwareListRequest{})
 	if err != nil {
@@ -76,10 +78,10 @@ func TestClientFirmwareMethodsUseRPCConnection(t *testing.T) {
 
 	payload := []byte("firmware-payload")
 	var out bytes.Buffer
-	download, err := client.DownloadFirmware(context.Background(), "firmware-download", rpcapi.FirmwareDownloadRequest{
-		FirmwareId:   "devkit",
-		Channel:      rpcapi.FirmwareChannelNameStable,
-		ArtifactName: "main",
+	download, err := client.DownloadFirmware(context.Background(), "firmware-download", rpcapi.FirmwareFilesDownloadRequest{
+		FirmwareId: "devkit",
+		Channel:    rpcapi.FirmwareChannelNameStable,
+		Path:       "firmware.bin",
 	}, &out)
 	if err != nil {
 		t.Fatalf("DownloadFirmware error = %v", err)
@@ -117,10 +119,10 @@ func TestDownloadFirmwareReturnsRPCError(t *testing.T) {
 
 	client := &rpcClient{}
 	var out bytes.Buffer
-	_, err := client.DownloadFirmware(context.Background(), clientSide, "firmware-download", rpcapi.FirmwareDownloadRequest{
-		FirmwareId:   "devkit",
-		Channel:      rpcapi.FirmwareChannelNameStable,
-		ArtifactName: "main",
+	_, err := client.DownloadFirmware(context.Background(), clientSide, "firmware-download", rpcapi.FirmwareFilesDownloadRequest{
+		FirmwareId: "devkit",
+		Channel:    rpcapi.FirmwareChannelNameStable,
+		Path:       "firmware.bin",
 	}, &out)
 	if err == nil || !strings.Contains(err.Error(), "firmware artifact not found") {
 		t.Fatalf("DownloadFirmware RPC error = %v", err)

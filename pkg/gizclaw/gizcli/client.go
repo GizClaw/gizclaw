@@ -336,7 +336,7 @@ func (c *Client) GetFirmware(ctx context.Context, id string, request rpcapi.Firm
 	})
 }
 
-func (c *Client) DownloadFirmware(ctx context.Context, id string, request rpcapi.FirmwareDownloadRequest, out io.Writer) (FirmwareDownloadResult, error) {
+func (c *Client) DownloadFirmware(ctx context.Context, id string, request rpcapi.FirmwareFilesDownloadRequest, out io.Writer) (FirmwareDownloadResult, error) {
 	stream, err := c.rpcConn()
 	if err != nil {
 		return FirmwareDownloadResult{}, err

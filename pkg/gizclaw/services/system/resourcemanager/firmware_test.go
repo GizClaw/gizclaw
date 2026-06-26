@@ -19,9 +19,7 @@ func TestFirmwareResourceApplyShowDelete(t *testing.T) {
 		Kind:       apitypes.FirmwareResourceKind(apitypes.ResourceKindFirmware),
 		Metadata:   apitypes.ResourceMetadata{Name: "devkit"},
 		Spec: apitypes.FirmwareSpec{
-			Slots: apitypes.FirmwareSlots{
-				Stable: apitypes.FirmwareSlot{Version: stringPtr("1.0.0")},
-			},
+			Slots: testFirmwareSpecSlots("1.0.0"),
 		},
 	})
 	if err != nil {
@@ -76,9 +74,7 @@ func TestFirmwareResourcePutAndErrors(t *testing.T) {
 		Kind:       apitypes.FirmwareResourceKind(apitypes.ResourceKindFirmware),
 		Metadata:   apitypes.ResourceMetadata{Name: "devkit"},
 		Spec: apitypes.FirmwareSpec{
-			Slots: apitypes.FirmwareSlots{
-				Stable: apitypes.FirmwareSlot{Version: stringPtr("1.0.0")},
-			},
+			Slots: testFirmwareSpecSlots("1.0.0"),
 		},
 	})
 	if err != nil {
@@ -166,7 +162,7 @@ func TestFirmwareResourceApplyUpdatesChangedSpec(t *testing.T) {
 		ApiVersion: apitypes.ResourceAPIVersionGizclawAdminv1alpha1,
 		Kind:       apitypes.FirmwareResourceKind(apitypes.ResourceKindFirmware),
 		Metadata:   apitypes.ResourceMetadata{Name: "devkit"},
-		Spec:       apitypes.FirmwareSpec{Slots: apitypes.FirmwareSlots{Stable: apitypes.FirmwareSlot{Version: stringPtr("1.0.0")}}},
+		Spec:       apitypes.FirmwareSpec{Slots: testFirmwareSpecSlots("1.0.0")},
 	})
 	if err != nil {
 		t.Fatalf("marshal first resource: %v", err)
@@ -175,7 +171,7 @@ func TestFirmwareResourceApplyUpdatesChangedSpec(t *testing.T) {
 		ApiVersion: apitypes.ResourceAPIVersionGizclawAdminv1alpha1,
 		Kind:       apitypes.FirmwareResourceKind(apitypes.ResourceKindFirmware),
 		Metadata:   apitypes.ResourceMetadata{Name: "devkit"},
-		Spec:       apitypes.FirmwareSpec{Slots: apitypes.FirmwareSlots{Stable: apitypes.FirmwareSlot{Version: stringPtr("1.1.0")}}},
+		Spec:       apitypes.FirmwareSpec{Slots: testFirmwareSpecSlots("1.1.0")},
 	})
 	if err != nil {
 		t.Fatalf("marshal second resource: %v", err)
@@ -227,10 +223,6 @@ func (s firmwareServiceWithTransportError) PutFirmware(context.Context, adminser
 	return nil, s.err
 }
 
-func (s firmwareServiceWithTransportError) UploadFirmwareBin(context.Context, adminservice.UploadFirmwareBinRequestObject) (adminservice.UploadFirmwareBinResponseObject, error) {
-	return nil, s.err
-}
-
 func (unexpectedFirmwareService) ListFirmwares(context.Context, adminservice.ListFirmwaresRequestObject) (adminservice.ListFirmwaresResponseObject, error) {
 	return nil, nil
 }
@@ -259,8 +251,38 @@ func (unexpectedFirmwareService) RollbackFirmware(context.Context, adminservice.
 	return nil, nil
 }
 
-func (unexpectedFirmwareService) UploadFirmwareBin(context.Context, adminservice.UploadFirmwareBinRequestObject) (adminservice.UploadFirmwareBinResponseObject, error) {
+func (unexpectedFirmwareService) DownloadFirmwareArtifact(context.Context, adminservice.DownloadFirmwareArtifactRequestObject) (adminservice.DownloadFirmwareArtifactResponseObject, error) {
 	return nil, nil
+}
+
+func (unexpectedFirmwareService) UploadFirmwareArtifact(context.Context, adminservice.UploadFirmwareArtifactRequestObject) (adminservice.UploadFirmwareArtifactResponseObject, error) {
+	return nil, nil
+}
+
+func (unexpectedFirmwareService) DeleteFirmwareArtifact(context.Context, adminservice.DeleteFirmwareArtifactRequestObject) (adminservice.DeleteFirmwareArtifactResponseObject, error) {
+	return nil, nil
+}
+
+func (unexpectedFirmwareService) ListFirmwareArtifactEntries(context.Context, adminservice.ListFirmwareArtifactEntriesRequestObject) (adminservice.ListFirmwareArtifactEntriesResponseObject, error) {
+	return nil, nil
+}
+
+func (unexpectedFirmwareService) TreeFirmwareArtifactEntries(context.Context, adminservice.TreeFirmwareArtifactEntriesRequestObject) (adminservice.TreeFirmwareArtifactEntriesResponseObject, error) {
+	return nil, nil
+}
+
+func (unexpectedFirmwareService) StatFirmwareArtifactEntry(context.Context, adminservice.StatFirmwareArtifactEntryRequestObject) (adminservice.StatFirmwareArtifactEntryResponseObject, error) {
+	return nil, nil
+}
+
+func (unexpectedFirmwareService) DownloadFirmwareArtifactEntry(context.Context, adminservice.DownloadFirmwareArtifactEntryRequestObject) (adminservice.DownloadFirmwareArtifactEntryResponseObject, error) {
+	return nil, nil
+}
+
+func testFirmwareSpecSlots(stable string) apitypes.FirmwareSpecSlots {
+	return apitypes.FirmwareSpecSlots{
+		Stable: apitypes.FirmwareSpecSlot{Version: stringPtr(stable)},
+	}
 }
 
 func stringPtr(value string) *string {

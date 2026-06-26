@@ -10,7 +10,7 @@ import (
 )
 
 type FirmwareDownloadResult struct {
-	Metadata rpcapi.FirmwareDownloadResponse
+	Metadata rpcapi.FirmwareFilesDownloadResponse
 	Bytes    int64
 }
 
@@ -22,11 +22,11 @@ func (c *rpcClient) GetFirmware(ctx context.Context, conn net.Conn, id string, r
 	return callResourceRPC(ctx, conn, id, rpcapi.RPCMethodServerFirmwareGet, request, (*rpcapi.RPCRequest_Params).FromFirmwareGetRequest, rpcapi.RPCResponse_Result.AsFirmwareGetResponse, "firmware get")
 }
 
-func (c *rpcClient) DownloadFirmware(ctx context.Context, conn net.Conn, id string, request rpcapi.FirmwareDownloadRequest, out io.Writer) (FirmwareDownloadResult, error) {
+func (c *rpcClient) DownloadFirmware(ctx context.Context, conn net.Conn, id string, request rpcapi.FirmwareFilesDownloadRequest, out io.Writer) (FirmwareDownloadResult, error) {
 	if out == nil {
 		return FirmwareDownloadResult{}, fmt.Errorf("firmware download output is required")
 	}
-	params, err := newRPCRequestParams(request, (*rpcapi.RPCRequest_Params).FromFirmwareDownloadRequest)
+	params, err := newRPCRequestParams(request, (*rpcapi.RPCRequest_Params).FromFirmwareFilesDownloadRequest)
 	if err != nil {
 		return FirmwareDownloadResult{}, err
 	}
@@ -35,7 +35,7 @@ func (c *rpcClient) DownloadFirmware(ctx context.Context, conn net.Conn, id stri
 		return FirmwareDownloadResult{}, err
 	}
 	defer stream.Close()
-	if err := stream.WriteRequest(newRPCRequest(id, rpcapi.RPCMethodServerFirmwareDownload, params)); err != nil {
+	if err := stream.WriteRequest(newRPCRequest(id, rpcapi.RPCMethodServerFirmwareFilesDownload, params)); err != nil {
 		return FirmwareDownloadResult{}, err
 	}
 	if err := stream.WriteEOS(); err != nil {
@@ -52,7 +52,7 @@ func (c *rpcClient) DownloadFirmware(ctx context.Context, conn net.Conn, id stri
 	if resp.Result == nil {
 		return FirmwareDownloadResult{}, errRPCMissingResult
 	}
-	metadata, err := resp.Result.AsFirmwareDownloadResponse()
+	metadata, err := resp.Result.AsFirmwareFilesDownloadResponse()
 	if err != nil {
 		return FirmwareDownloadResult{}, wrapRPCResultError("firmware download", err)
 	}

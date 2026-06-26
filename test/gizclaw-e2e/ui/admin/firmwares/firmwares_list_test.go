@@ -39,7 +39,7 @@ func adminFirmwaresListStories() []Story {
 			page.ClickRole("tab", "CLI")
 			page.ExpectText("Firmware Resource Spec")
 			page.ExpectText("gizclaw admin firmwares --context <admin-cli-context> get '" + SeedFirmwareName + "'")
-			page.ExpectText("gizclaw admin firmwares --context <admin-cli-context> upload-bin '" + SeedFirmwareName + "' --channel stable --bin app -f app.bin")
+			page.ExpectText("gizclaw admin firmwares --context <admin-cli-context> upload-artifact '" + SeedFirmwareName + "' --channel stable -f artifact.tar")
 		},
 	}}
 }

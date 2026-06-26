@@ -35,8 +35,8 @@ func TestAdminAPIFirmwaresListGetPaginationAndUpload(t *testing.T) {
 	if get.JSON200 == nil || get.JSON200.Slots.Stable.Version == nil || *get.JSON200.Slots.Stable.Version != "9.9.0" {
 		t.Fatalf("get firmware = %#v", get.JSON200)
 	}
-	if get.JSON200.Slots.Stable.Artifacts == nil || len(*get.JSON200.Slots.Stable.Artifacts) != 1 || (*get.JSON200.Slots.Stable.Artifacts)[0].Path == nil {
-		t.Fatalf("firmware stable artifact missing uploaded path: %#v", get.JSON200.Slots.Stable.Artifacts)
+	if get.JSON200.Slots.Stable.Artifact == nil || get.JSON200.Slots.Stable.Artifact.TarPath == "" {
+		t.Fatalf("firmware stable artifact missing uploaded path: %#v", get.JSON200.Slots.Stable.Artifact)
 	}
 
 	name := mutationName("firmware")
@@ -44,7 +44,7 @@ func TestAdminAPIFirmwaresListGetPaginationAndUpload(t *testing.T) {
 	created, err := env.api.CreateFirmwareWithResponse(env.ctx, adminservice.FirmwareUpsert{
 		Name:        name,
 		Description: ptr("Admin API mutation firmware"),
-		Slots:       firmwareSlots("0.0.1", "main"),
+		Slots:       firmwareSlots("0.0.1"),
 	})
 	if err != nil {
 		t.Fatalf("create firmware: %v", err)
@@ -52,12 +52,21 @@ func TestAdminAPIFirmwaresListGetPaginationAndUpload(t *testing.T) {
 	requireStatusOK(t, created, created.Body)
 	t.Cleanup(func() { _, _ = env.api.DeleteFirmwareWithResponse(env.ctx, name) })
 
-	upload, err := env.api.UploadFirmwareBinWithBodyWithResponse(env.ctx, name, adminservice.Stable, "main", "application/octet-stream", bytes.NewReader([]byte("admin api firmware payload")))
+	payload := adminFirmwareTarPayload(t, map[string]string{"firmware.bin": "admin api firmware payload"})
+	upload, err := env.api.UploadFirmwareArtifactWithBodyWithResponse(env.ctx, name, adminservice.UploadFirmwareArtifactParamsChannelStable, "application/x-tar", bytes.NewReader(payload))
 	if err != nil {
-		t.Fatalf("upload firmware bin: %v", err)
+		t.Fatalf("upload firmware artifact: %v", err)
 	}
 	requireStatusOK(t, upload, upload.Body)
-	if upload.JSON200 == nil || upload.JSON200.Slots.Stable.Artifacts == nil {
-		t.Fatalf("upload firmware bin = %#v", upload.JSON200)
+	if upload.JSON200 == nil || upload.JSON200.Slots.Stable.Artifact == nil {
+		t.Fatalf("upload firmware artifact = %#v", upload.JSON200)
+	}
+	list, err := env.api.ListFirmwareArtifactEntriesWithResponse(env.ctx, name, adminservice.ListFirmwareArtifactEntriesParamsChannelStable, nil)
+	if err != nil {
+		t.Fatalf("list firmware artifact entries: %v", err)
+	}
+	requireStatusOK(t, list, list.Body)
+	if list.JSON200 == nil || len(list.JSON200.Items) != 1 || list.JSON200.Items[0].Path != "firmware.bin" {
+		t.Fatalf("artifact list = %#v", list.JSON200)
 	}
 }
