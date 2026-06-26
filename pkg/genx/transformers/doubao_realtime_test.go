@@ -9,7 +9,9 @@ import (
 	"iter"
 	"math"
 	"strings"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/GizClaw/doubao-speech-go"
 	mp3codec "github.com/GizClaw/gizclaw-go/pkg/audio/codec/mp3"
@@ -568,6 +570,39 @@ func TestDoubaoRealtimeReturnsDuplexErrorEvent(t *testing.T) {
 	}
 }
 
+func TestDoubaoRealtimeErrorEventClosesBlockedInput(t *testing.T) {
+	wantErr := &doubaospeech.Error{Code: 500, Message: "duplex failed"}
+	input := newBlockingRealtimeStream()
+	session := &fakeDoubaoRealtimeDuplexSession{
+		beforeRecv: input.started,
+		events: []*doubaospeech.RealtimeDuplexEvent{
+			{Type: doubaospeech.RealtimeDuplexEventError, Error: wantErr},
+		},
+	}
+	tfr := NewDoubaoRealtime(nil)
+
+	done := make(chan error, 1)
+	go func() {
+		_, err := tfr.processLoop(context.Background(), input, newBufferStream(1), session)
+		done <- err
+	}()
+
+	select {
+	case err := <-done:
+		if !errors.Is(err, wantErr) {
+			t.Fatalf("processLoop() error = %v, want %v", err, wantErr)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("processLoop() did not return after duplex error closed output")
+	}
+	if got := input.closeErr(); !errors.Is(got, wantErr) {
+		t.Fatalf("input close error = %v, want %v", got, wantErr)
+	}
+	if !session.closed {
+		t.Fatal("session was not closed")
+	}
+}
+
 func TestDoubaoRealtimeMapsDuplexEventsToStreamChunks(t *testing.T) {
 	session := &fakeDoubaoRealtimeDuplexSession{
 		events: []*doubaospeech.RealtimeDuplexEvent{
@@ -692,6 +727,7 @@ func (o *fakeDoubaoRealtimeDuplexOpener) OpenSession(_ context.Context, cfg *dou
 
 type fakeDoubaoRealtimeDuplexSession struct {
 	events          []*doubaospeech.RealtimeDuplexEvent
+	beforeRecv      <-chan struct{}
 	outputs         []doubaospeech.RealtimeDuplexFunctionCallOutput
 	functionCallErr error
 	closed          bool
@@ -717,6 +753,9 @@ func (s *fakeDoubaoRealtimeDuplexSession) SendFunctionCallOutputs(_ context.Cont
 
 func (s *fakeDoubaoRealtimeDuplexSession) Recv() iter.Seq2[*doubaospeech.RealtimeDuplexEvent, error] {
 	return func(yield func(*doubaospeech.RealtimeDuplexEvent, error) bool) {
+		if s.beforeRecv != nil {
+			<-s.beforeRecv
+		}
 		for _, event := range s.events {
 			if !yield(event, nil) {
 				return
@@ -737,6 +776,55 @@ func (emptyRealtimeStream) Next() (*genx.MessageChunk, error) { return nil, io.E
 func (emptyRealtimeStream) Close() error { return nil }
 
 func (emptyRealtimeStream) CloseWithError(error) error { return nil }
+
+type blockingRealtimeStream struct {
+	started     chan struct{}
+	done        chan struct{}
+	startedOnce sync.Once
+	doneOnce    sync.Once
+	errMu       sync.Mutex
+	err         error
+}
+
+func newBlockingRealtimeStream() *blockingRealtimeStream {
+	return &blockingRealtimeStream{
+		started: make(chan struct{}),
+		done:    make(chan struct{}),
+	}
+}
+
+func (s *blockingRealtimeStream) Next() (*genx.MessageChunk, error) {
+	s.startedOnce.Do(func() {
+		close(s.started)
+	})
+	<-s.done
+	return nil, s.closeErr()
+}
+
+func (s *blockingRealtimeStream) Close() error {
+	s.close(nil)
+	return nil
+}
+
+func (s *blockingRealtimeStream) CloseWithError(err error) error {
+	s.close(err)
+	return nil
+}
+
+func (s *blockingRealtimeStream) close(err error) {
+	s.doneOnce.Do(func() {
+		s.errMu.Lock()
+		s.err = err
+		s.errMu.Unlock()
+		close(s.done)
+	})
+}
+
+func (s *blockingRealtimeStream) closeErr() error {
+	s.errMu.Lock()
+	defer s.errMu.Unlock()
+	return s.err
+}
 
 type trackingCloseStream struct {
 	closed   int

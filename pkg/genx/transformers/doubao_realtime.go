@@ -425,6 +425,7 @@ func (t *DoubaoRealtime) processLoop(ctx context.Context, input genx.Stream, out
 			return
 		}
 		output.CloseWithError(err)
+		_ = input.CloseWithError(err)
 		select {
 		case eventsErr <- err:
 		default:
