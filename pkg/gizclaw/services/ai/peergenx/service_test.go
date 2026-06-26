@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	doubaospeech "github.com/GizClaw/doubao-speech-go"
 	"github.com/GizClaw/gizclaw-go/pkg/genx"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/adminservice"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/apitypes"
@@ -449,22 +450,17 @@ func TestDefaultBuilderBuildsVolcRealtimeTransformer(t *testing.T) {
 			Body: testVolcCredentialBodyFromStrings(map[string]string{"app_id": "app", "api_key": "runtime-key"}),
 		},
 		Params: map[string]any{
-			"upstream_model": "SC",
-			"speaker":        "speaker-id",
-			"vad_window_ms":  220,
+			"output_voice": "speaker-id",
 		},
 	})
 	if err != nil {
 		t.Fatalf("BuildTransformer() error = %v", err)
 	}
-	if got := transformerStringField(t, tf, "model"); got != "SC" {
-		t.Fatalf("realtime model = %q, want SC", got)
+	if got := transformerStringField(t, tf, "model"); got != "O" {
+		t.Fatalf("realtime model = %q, want O", got)
 	}
-	if got := transformerStringField(t, tf, "speaker"); got != "speaker-id" {
-		t.Fatalf("realtime speaker = %q, want speaker-id", got)
-	}
-	if got := transformerIntField(t, tf, "vadWindowMs"); got != 220 {
-		t.Fatalf("realtime vadWindowMs = %d, want 220", got)
+	if got := transformerStringField(t, tf, "outputVoice"); got != "speaker-id" {
+		t.Fatalf("realtime outputVoice = %q, want speaker-id", got)
 	}
 	if got := transformerNestedStringField(t, tf, "client", "config", "apiKey"); got != "runtime-key" {
 		t.Fatalf("realtime api key = %q, want runtime-key", got)
@@ -476,6 +472,10 @@ func TestDefaultBuilderBuildsVolcRealtimeTransformerUsesAPIKey(t *testing.T) {
 		Model: &apitypes.Model{
 			Id:   "dialog",
 			Kind: apitypes.ModelKindRealtime,
+			ProviderData: mustVolcModelProviderData(t, apitypes.VolcTenantModelProviderData{
+				ResourceId:    stringPtr("volc.speech.dialog"),
+				UpstreamModel: stringPtr("O"),
+			}),
 		},
 		Tenant: Tenant{
 			Kind: "volc-tenant",
@@ -499,6 +499,10 @@ func TestDefaultBuilderBuildsVolcRealtimeTransformerFromWorkflowParams(t *testin
 		Model: &apitypes.Model{
 			Id:   "dialog",
 			Kind: apitypes.ModelKindRealtime,
+			ProviderData: mustVolcModelProviderData(t, apitypes.VolcTenantModelProviderData{
+				ResourceId:    stringPtr("volc.speech.dialog"),
+				UpstreamModel: stringPtr("O"),
+			}),
 		},
 		Tenant: Tenant{
 			Kind: "volc-tenant",
@@ -512,21 +516,14 @@ func TestDefaultBuilderBuildsVolcRealtimeTransformerFromWorkflowParams(t *testin
 			Body: testVolcCredentialBodyFromStrings(map[string]string{"app_id": "app", "api_key": "realtime-key"}),
 		},
 		Params: map[string]any{
-			"resource_id":        "volc.speech.dialog",
-			"upstream_model":     "O",
-			"speaker":            "workflow-speaker",
-			"format":             "ogg_opus",
-			"sample_rate":        24000,
-			"channels":           1,
+			"instructions":       "简短回答。",
+			"output_voice":       "workflow-speaker",
+			"output_format":      "ogg_opus",
+			"output_sample_rate": 24000,
 			"input_format":       "speech_opus",
 			"input_sample_rate":  16000,
 			"input_channels":     1,
 			"input_transcode":    true,
-			"bot_name":           "豆包",
-			"system_role":        "简短回答。",
-			"speaking_style":     "自然",
-			"character_manifest": "友好",
-			"vad_window_ms":      200,
 			"mode":               "realtime",
 		},
 	})
@@ -542,17 +539,17 @@ func TestDefaultBuilderBuildsVolcRealtimeTransformerFromWorkflowParams(t *testin
 	if got := transformerStringField(t, tf, "model"); got != "O" {
 		t.Fatalf("realtime model = %q, want O", got)
 	}
-	if got := transformerStringField(t, tf, "speaker"); got != "workflow-speaker" {
-		t.Fatalf("realtime speaker = %q, want workflow-speaker", got)
+	if got := transformerStringField(t, tf, "instructions"); got != "简短回答。" {
+		t.Fatalf("realtime instructions = %q, want 简短回答。", got)
 	}
-	if got := transformerStringField(t, tf, "format"); got != "ogg_opus" {
-		t.Fatalf("realtime format = %q, want ogg_opus", got)
+	if got := transformerStringField(t, tf, "outputVoice"); got != "workflow-speaker" {
+		t.Fatalf("realtime outputVoice = %q, want workflow-speaker", got)
 	}
-	if got := transformerIntField(t, tf, "sampleRate"); got != 24000 {
-		t.Fatalf("realtime sampleRate = %d, want 24000", got)
+	if got := transformerStringField(t, tf, "outputFormat"); got != "ogg_opus" {
+		t.Fatalf("realtime outputFormat = %q, want ogg_opus", got)
 	}
-	if got := transformerIntField(t, tf, "channels"); got != 1 {
-		t.Fatalf("realtime channels = %d, want 1", got)
+	if got := transformerIntField(t, tf, "outputSampleRate"); got != 24000 {
+		t.Fatalf("realtime outputSampleRate = %d, want 24000", got)
 	}
 	if got := transformerStringField(t, tf, "inputFormat"); got != "speech_opus" {
 		t.Fatalf("realtime inputFormat = %q, want speech_opus", got)
@@ -566,21 +563,6 @@ func TestDefaultBuilderBuildsVolcRealtimeTransformerFromWorkflowParams(t *testin
 	if !transformerBoolField(t, tf, "inputTranscode") {
 		t.Fatal("realtime inputTranscode = false, want true")
 	}
-	if got := transformerStringField(t, tf, "botName"); got != "豆包" {
-		t.Fatalf("realtime botName = %q, want 豆包", got)
-	}
-	if got := transformerStringField(t, tf, "systemRole"); got != "简短回答。" {
-		t.Fatalf("realtime systemRole = %q, want 简短回答。", got)
-	}
-	if got := transformerStringField(t, tf, "speakingStyle"); got != "自然" {
-		t.Fatalf("realtime speakingStyle = %q, want 自然", got)
-	}
-	if got := transformerStringField(t, tf, "characterManifest"); got != "友好" {
-		t.Fatalf("realtime characterManifest = %q, want 友好", got)
-	}
-	if got := transformerIntField(t, tf, "vadWindowMs"); got != 200 {
-		t.Fatalf("realtime vadWindowMs = %d, want 200", got)
-	}
 	if got := transformerStringField(t, tf, "mode"); got != "realtime" {
 		t.Fatalf("realtime mode = %q, want realtime", got)
 	}
@@ -591,6 +573,9 @@ func TestDefaultBuilderRejectsUnsupportedVolcRealtimeMode(t *testing.T) {
 		Model: &apitypes.Model{
 			Id:   "dialog",
 			Kind: apitypes.ModelKindRealtime,
+			ProviderData: mustVolcModelProviderData(t, apitypes.VolcTenantModelProviderData{
+				UpstreamModel: stringPtr("O"),
+			}),
 		},
 		Tenant: Tenant{
 			Kind: "volc-tenant",
@@ -607,6 +592,89 @@ func TestDefaultBuilderRejectsUnsupportedVolcRealtimeMode(t *testing.T) {
 	})
 	if err == nil || !strings.Contains(err.Error(), `doubao realtime mode "bad"`) {
 		t.Fatalf("BuildTransformer() error = %v, want unsupported mode", err)
+	}
+}
+
+func TestDefaultBuilderRejectsVolcRealtimeMissingUpstreamModel(t *testing.T) {
+	_, err := (DefaultBuilder{}).BuildTransformer(context.Background(), TransformerConfig{
+		Model: &apitypes.Model{
+			Id:   "dialog",
+			Kind: apitypes.ModelKindRealtime,
+			ProviderData: mustVolcModelProviderData(t, apitypes.VolcTenantModelProviderData{
+				ResourceId: stringPtr("volc.speech.dialog"),
+			}),
+		},
+		Tenant: Tenant{
+			Kind: "volc-tenant",
+			Volc: &apitypes.VolcTenant{
+				Name:           "main",
+				CredentialName: "volc-token",
+			},
+		},
+		Credential: apitypes.Credential{
+			Name: "volc-token",
+			Body: testVolcCredentialBodyFromStrings(map[string]string{"app_id": "app", "api_key": "realtime-key"}),
+		},
+	})
+	if err == nil || !strings.Contains(err.Error(), `missing upstream_model for doubao realtime`) {
+		t.Fatalf("BuildTransformer() error = %v, want missing upstream_model", err)
+	}
+}
+
+func TestDoubaoRealtimeDuplexParamDecoders(t *testing.T) {
+	tools, err := doubaoRealtimeTools(`[{"type":"function","name":"get_weather","parameters":{"type":"object"}}]`)
+	if err != nil {
+		t.Fatalf("doubaoRealtimeTools(string) error = %v", err)
+	}
+	if len(tools) != 1 || tools[0].Name != "get_weather" || tools[0].Parameters == nil || tools[0].Parameters.Type != "object" {
+		t.Fatalf("tools = %#v", tools)
+	}
+	typedTools, err := doubaoRealtimeTools([]doubaospeech.RealtimeDuplexFunctionTool{{Type: "function", Name: "typed"}})
+	if err != nil {
+		t.Fatalf("doubaoRealtimeTools(typed) error = %v", err)
+	}
+	if len(typedTools) != 1 || typedTools[0].Name != "typed" {
+		t.Fatalf("typed tools = %#v", typedTools)
+	}
+	mapTools, err := doubaoRealtimeTools([]map[string]any{{"type": "function", "name": "mapped"}})
+	if err != nil {
+		t.Fatalf("doubaoRealtimeTools(map) error = %v", err)
+	}
+	if len(mapTools) != 1 || mapTools[0].Name != "mapped" {
+		t.Fatalf("map tools = %#v", mapTools)
+	}
+	if _, err := doubaoRealtimeTools(`{"bad":`); err == nil {
+		t.Fatal("doubaoRealtimeTools(invalid JSON) error = nil")
+	}
+	if tools, err := doubaoRealtimeTools(""); err != nil || tools != nil {
+		t.Fatalf("doubaoRealtimeTools(empty) = %#v, %v; want nil, nil", tools, err)
+	}
+
+	extension, err := doubaoRealtimeExtension(`{"dialog":{"extra":{"enable_music":true}}}`)
+	if err != nil {
+		t.Fatalf("doubaoRealtimeExtension(string) error = %v", err)
+	}
+	if extension == nil || extension.Dialog == nil || extension.Dialog.Extra == nil ||
+		extension.Dialog.Extra.EnableMusic == nil || !*extension.Dialog.Extra.EnableMusic {
+		t.Fatalf("extension = %#v", extension)
+	}
+	typedExtension := doubaospeech.RealtimeDuplexExtension{
+		Dialog: &doubaospeech.RealtimeDuplexDialogExtension{
+			Extra: &doubaospeech.RealtimeDuplexDialogExtra{AuditResponse: "audit"},
+		},
+	}
+	gotExtension, err := doubaoRealtimeExtension(typedExtension)
+	if err != nil {
+		t.Fatalf("doubaoRealtimeExtension(typed) error = %v", err)
+	}
+	if gotExtension == nil || gotExtension.Dialog == nil || gotExtension.Dialog.Extra.AuditResponse != "audit" {
+		t.Fatalf("typed extension = %#v", gotExtension)
+	}
+	if _, err := doubaoRealtimeExtension(`{"dialog":`); err == nil {
+		t.Fatal("doubaoRealtimeExtension(invalid JSON) error = nil")
+	}
+	if extension, err := doubaoRealtimeExtension(""); err != nil || extension != nil {
+		t.Fatalf("doubaoRealtimeExtension(empty) = %#v, %v; want nil, nil", extension, err)
 	}
 }
 
@@ -1092,10 +1160,10 @@ func TestBuilderHelpersHandleJSONNumberAndInvalidVoiceData(t *testing.T) {
 	if got, ok := parsePattern("voice/ ", "voice"); ok || got != "" {
 		t.Fatalf("parsePattern(empty id) = %q, %v; want empty, false", got, ok)
 	}
-	if got, ok := parsePattern("model/realtime?vad_window_ms=200", "model"); !ok || got != "realtime" {
+	if got, ok := parsePattern("model/realtime?output_sample_rate=24000", "model"); !ok || got != "realtime" {
 		t.Fatalf("parsePattern(query) = %q, %v; want realtime, true", got, ok)
 	}
-	base, params, err := splitPatternParams("model/realtime?input_transcode=true&vad_window_ms=200&system_role=%E7%AE%80%E7%9F%AD")
+	base, params, err := splitPatternParams("model/realtime?input_transcode=true&output_sample_rate=24000&instructions=%E7%AE%80%E7%9F%AD")
 	if err != nil {
 		t.Fatalf("splitPatternParams() error = %v", err)
 	}
@@ -1105,11 +1173,11 @@ func TestBuilderHelpersHandleJSONNumberAndInvalidVoiceData(t *testing.T) {
 	if got, ok := params["input_transcode"].(bool); !ok || !got {
 		t.Fatalf("input_transcode param = %#v", params["input_transcode"])
 	}
-	if got, ok := params["vad_window_ms"].(int); !ok || got != 200 {
-		t.Fatalf("vad_window_ms param = %#v", params["vad_window_ms"])
+	if got, ok := params["output_sample_rate"].(int); !ok || got != 24000 {
+		t.Fatalf("output_sample_rate param = %#v", params["output_sample_rate"])
 	}
-	if got, ok := params["system_role"].(string); !ok || got != "简短" {
-		t.Fatalf("system_role param = %#v", params["system_role"])
+	if got, ok := params["instructions"].(string); !ok || got != "简短" {
+		t.Fatalf("instructions param = %#v", params["instructions"])
 	}
 	if !isDenied(fmt.Errorf("wrapped: %w", ErrDenied)) {
 		t.Fatal("isDenied(wrapped ErrDenied) = false, want true")

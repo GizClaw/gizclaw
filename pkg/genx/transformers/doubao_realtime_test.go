@@ -2,10 +2,11 @@ package transformers
 
 import (
 	"bytes"
+	"context"
 	"encoding/binary"
 	"errors"
-	"fmt"
 	"io"
+	"iter"
 	"math"
 	"strings"
 	"testing"
@@ -313,57 +314,52 @@ func TestDoubaoRealtimeAudioInputsRejectMIMEChange(t *testing.T) {
 	}
 }
 
-func TestDoubaoRealtimeIdleTimeoutDetection(t *testing.T) {
-	err := fmt.Errorf("wrapped: %w", &doubaospeech.Error{Code: 55000001, Message: "DialogAudioIdleTimeoutError"})
-	if !isDoubaoRealtimeIdleTimeout(err) {
-		t.Fatal("idle timeout error was not detected")
-	}
-	if isDoubaoRealtimeIdleTimeout(fmt.Errorf("other error")) {
-		t.Fatal("non-idle error was detected as idle timeout")
-	}
-}
-
-func TestDoubaoRealtimeConfigSetsInputModeAndModel(t *testing.T) {
+func TestDoubaoRealtimeConfigSetsDuplexSession(t *testing.T) {
+	strict := true
+	enableMusic := true
 	tfr := NewDoubaoRealtime(nil,
 		WithDoubaoRealtimeMode(DoubaoRealtimeModeText),
-		WithDoubaoRealtimeModel("O"),
-	)
-	cfg := tfr.realtimeConfig()
-	if cfg.InputMode != doubaospeech.RealtimeInputModeText {
-		t.Fatalf("InputMode = %q, want text", cfg.InputMode)
-	}
-	if cfg.Model != doubaospeech.RealtimeModelVersion("O") {
-		t.Fatalf("Model = %q, want O", cfg.Model)
-	}
-}
-
-func TestDoubaoRealtimeConfigAddsDialogExtra(t *testing.T) {
-	tfr := NewDoubaoRealtime(nil,
-		WithDoubaoRealtimeWebSearch(DoubaoRealtimeWebSearchConfig{
-			Enabled:         true,
-			Type:            "web_summary",
-			APIKey:          "search-key",
-			BotID:           "bot-id",
-			ResultCount:     5,
-			NoResultMessage: "没有找到相关结果。",
+		WithDoubaoRealtimeModel("1.2.6.0"),
+		WithDoubaoRealtimeInstructions("简短回答。"),
+		WithDoubaoRealtimeSpeaker("voice-a"),
+		WithDoubaoRealtimeFormat("ogg_opus"),
+		WithDoubaoRealtimeSampleRate(24000),
+		WithDoubaoRealtimeInputFormat("speech_opus"),
+		WithDoubaoRealtimeInputSampleRate(16000),
+		WithDoubaoRealtimeOutputSpeed(1),
+		WithDoubaoRealtimeOutputLoudness(-1),
+		WithDoubaoRealtimeTools([]doubaospeech.RealtimeDuplexFunctionTool{{
+			Type:   "function",
+			Name:   "get_weather",
+			Strict: &strict,
+			Parameters: &doubaospeech.RealtimeDuplexJSONSchema{
+				Type:                 "object",
+				AdditionalProperties: &strict,
+			},
+		}}),
+		WithDoubaoRealtimeExtension(&doubaospeech.RealtimeDuplexExtension{
+			Dialog: &doubaospeech.RealtimeDuplexDialogExtension{
+				Extra: &doubaospeech.RealtimeDuplexDialogExtra{EnableMusic: &enableMusic},
+			},
 		}),
-		WithDoubaoRealtimeMusic(true),
 	)
 	cfg := tfr.realtimeConfig()
-	extra, ok := cfg.Dialog.Extra["extra"].(map[string]any)
-	if !ok {
-		t.Fatalf("Dialog.Extra[extra] = %#v, want map", cfg.Dialog.Extra["extra"])
+	if cfg.Session.Model != "1.2.6.0" || cfg.Session.Instructions != "简短回答。" {
+		t.Fatalf("session model/instructions = %#v", cfg.Session)
 	}
-	if extra["enable_volc_websearch"] != true ||
-		extra["volc_websearch_type"] != "web_summary" ||
-		extra["volc_websearch_api_key"] != "search-key" ||
-		extra["volc_websearch_bot_id"] != "bot-id" ||
-		extra["volc_websearch_result_count"] != 5 ||
-		extra["volc_websearch_no_result_message"] != "没有找到相关结果。" {
-		t.Fatalf("web search extra = %#v", extra)
+	if cfg.Session.Audio.Input.Format.Type != "speech_opus" || cfg.Session.Audio.Input.Format.Rate != 16000 {
+		t.Fatalf("input audio = %#v", cfg.Session.Audio.Input.Format)
 	}
-	if extra["enable_music"] != true {
-		t.Fatalf("enable_music = %#v, want true", extra["enable_music"])
+	if cfg.Session.Audio.Output.Format.Type != "ogg_opus" || cfg.Session.Audio.Output.Format.Rate != 24000 ||
+		cfg.Session.Audio.Output.Voice != "voice-a" || cfg.Session.Audio.Output.Speed != 1 || cfg.Session.Audio.Output.Loudness != -1 {
+		t.Fatalf("output audio = %#v", cfg.Session.Audio.Output)
+	}
+	if len(cfg.Session.Tools) != 1 || cfg.Session.Tools[0].Name != "get_weather" {
+		t.Fatalf("tools = %#v", cfg.Session.Tools)
+	}
+	if cfg.Extension == nil || cfg.Extension.Dialog == nil || cfg.Extension.Dialog.Extra == nil ||
+		cfg.Extension.Dialog.Extra.EnableMusic == nil || !*cfg.Extension.Dialog.Extra.EnableMusic {
+		t.Fatalf("extension = %#v", cfg.Extension)
 	}
 }
 
@@ -485,6 +481,196 @@ func TestDoubaoRealtimeOutputAudioBlobsExtractsOggOpusPackets(t *testing.T) {
 	}
 }
 
+func TestDoubaoRealtimeSendsFakeFunctionCallOutputs(t *testing.T) {
+	session := &fakeDoubaoRealtimeDuplexSession{
+		events: []*doubaospeech.RealtimeDuplexEvent{
+			{
+				Type: doubaospeech.RealtimeDuplexEventResponseFunctionCallArgumentsDone,
+				FunctionCalls: []doubaospeech.RealtimeDuplexFunctionCall{{
+					CallID:    "call-1",
+					Name:      "get_weather",
+					Arguments: `{"city":"深圳"}`,
+				}},
+			},
+			{Type: doubaospeech.RealtimeDuplexEventSessionClosed},
+		},
+	}
+	opener := &fakeDoubaoRealtimeDuplexOpener{session: session}
+	tfr := NewDoubaoRealtime(nil, withDoubaoRealtimeDuplexOpener(opener))
+	stream, err := tfr.Transform(context.Background(), "", emptyRealtimeStream{})
+	if err != nil {
+		t.Fatalf("Transform() error = %v", err)
+	}
+	for {
+		_, err := stream.Next()
+		if err == io.EOF || err == genx.ErrDone {
+			break
+		}
+		if err != nil {
+			t.Fatalf("Next() error = %v", err)
+		}
+	}
+	if opener.config == nil {
+		t.Fatal("OpenSession was not called")
+	}
+	if len(session.outputs) != 1 {
+		t.Fatalf("function call outputs len = %d, want 1", len(session.outputs))
+	}
+	output := session.outputs[0]
+	if output.CallID != "call-1" ||
+		!strings.Contains(output.Output, `"source":"gizclaw-internal-fake"`) ||
+		!strings.Contains(output.Output, `"tool":"get_weather"`) {
+		t.Fatalf("function call output = %#v", output)
+	}
+	if !session.closed {
+		t.Fatal("session was not closed")
+	}
+}
+
+func TestDoubaoRealtimeReturnsFunctionCallOutputError(t *testing.T) {
+	wantErr := errors.New("send function output failed")
+	session := &fakeDoubaoRealtimeDuplexSession{
+		events: []*doubaospeech.RealtimeDuplexEvent{
+			{
+				Type: doubaospeech.RealtimeDuplexEventResponseFunctionCallArgumentsDone,
+				FunctionCalls: []doubaospeech.RealtimeDuplexFunctionCall{{
+					CallID: "call-1",
+					Name:   "get_weather",
+				}},
+			},
+		},
+		functionCallErr: wantErr,
+	}
+	tfr := NewDoubaoRealtime(nil)
+	_, err := tfr.processLoop(context.Background(), emptyRealtimeStream{}, newBufferStream(1), session)
+	if !errors.Is(err, wantErr) {
+		t.Fatalf("processLoop() error = %v, want %v", err, wantErr)
+	}
+	if !session.closed {
+		t.Fatal("session was not closed")
+	}
+}
+
+func TestDoubaoRealtimeReturnsDuplexErrorEvent(t *testing.T) {
+	wantErr := &doubaospeech.Error{Code: 500, Message: "duplex failed"}
+	session := &fakeDoubaoRealtimeDuplexSession{
+		events: []*doubaospeech.RealtimeDuplexEvent{
+			{Type: doubaospeech.RealtimeDuplexEventError, Error: wantErr},
+		},
+	}
+	tfr := NewDoubaoRealtime(nil)
+	_, err := tfr.processLoop(context.Background(), emptyRealtimeStream{}, newBufferStream(1), session)
+	if !errors.Is(err, wantErr) {
+		t.Fatalf("processLoop() error = %v, want %v", err, wantErr)
+	}
+	if !session.closed {
+		t.Fatal("session was not closed")
+	}
+}
+
+func TestDoubaoRealtimeMapsDuplexEventsToStreamChunks(t *testing.T) {
+	session := &fakeDoubaoRealtimeDuplexSession{
+		events: []*doubaospeech.RealtimeDuplexEvent{
+			{Type: doubaospeech.RealtimeDuplexEventTranscriptionDelta, Delta: "你好"},
+			{Type: doubaospeech.RealtimeDuplexEventTranscriptionCompleted, Transcript: "你好"},
+			{Type: doubaospeech.RealtimeDuplexEventResponseOutputTextDelta, ResponseID: "resp-1", Delta: "收到"},
+			{Type: doubaospeech.RealtimeDuplexEventResponseOutputTextDone, ResponseID: "resp-1", Text: "收到"},
+			{Type: doubaospeech.RealtimeDuplexEventResponseOutputAudioStarted, ResponseID: "resp-1"},
+			{Type: doubaospeech.RealtimeDuplexEventResponseOutputAudioDelta, ResponseID: "resp-1", Audio: []byte{1, 2, 3}},
+			{Type: doubaospeech.RealtimeDuplexEventResponseOutputAudioDone, ResponseID: "resp-1"},
+			{Type: doubaospeech.RealtimeDuplexEventResponseDone, ResponseID: "resp-1"},
+			{Type: doubaospeech.RealtimeDuplexEventSessionClosed},
+		},
+	}
+	tfr := NewDoubaoRealtime(nil,
+		withDoubaoRealtimeDuplexOpener(&fakeDoubaoRealtimeDuplexOpener{session: session}),
+		WithDoubaoRealtimeFormat("pcm"),
+	)
+	stream, err := tfr.Transform(context.Background(), "", emptyRealtimeStream{})
+	if err != nil {
+		t.Fatalf("Transform() error = %v", err)
+	}
+	var chunks []*genx.MessageChunk
+	for {
+		chunk, err := stream.Next()
+		if err == io.EOF || err == genx.ErrDone {
+			break
+		}
+		if err != nil {
+			t.Fatalf("Next() error = %v", err)
+		}
+		chunks = append(chunks, chunk)
+	}
+	if len(chunks) < 6 {
+		t.Fatalf("chunks len = %d, chunks=%#v", len(chunks), chunks)
+	}
+	if got, ok := chunks[0].Part.(genx.Text); !ok || got != "你好" || chunks[0].Role != genx.RoleUser {
+		t.Fatalf("transcript chunk = %#v", chunks[0])
+	}
+	hasAssistantText := false
+	assistantTextCount := 0
+	hasAudio := false
+	hasAudioEOS := false
+	for _, chunk := range chunks {
+		if text, ok := chunk.Part.(genx.Text); ok && chunk.Role == genx.RoleModel && text == "收到" {
+			hasAssistantText = true
+			assistantTextCount++
+		}
+		if blob, ok := chunk.Part.(*genx.Blob); ok && bytes.Equal(blob.Data, []byte{1, 2, 3}) {
+			hasAudio = true
+		}
+		if chunk.IsEndOfStream() {
+			if _, ok := chunk.Part.(*genx.Blob); ok && chunk.Role == genx.RoleModel {
+				hasAudioEOS = true
+			}
+		}
+	}
+	if !hasAssistantText || !hasAudio || !hasAudioEOS {
+		t.Fatalf("assistant text/audio/eos = %t/%t/%t; chunks=%#v", hasAssistantText, hasAudio, hasAudioEOS, chunks)
+	}
+	if assistantTextCount != 1 {
+		t.Fatalf("assistant text chunks = %d, want 1; chunks=%#v", assistantTextCount, chunks)
+	}
+}
+
+func TestDoubaoRealtimeUsesDoneTextWhenNoDeltaArrived(t *testing.T) {
+	session := &fakeDoubaoRealtimeDuplexSession{
+		events: []*doubaospeech.RealtimeDuplexEvent{
+			{Type: doubaospeech.RealtimeDuplexEventResponseOutputTextDone, ResponseID: "resp-1", Text: "最终文本"},
+			{Type: doubaospeech.RealtimeDuplexEventSessionClosed},
+		},
+	}
+	tfr := NewDoubaoRealtime(nil, withDoubaoRealtimeDuplexOpener(&fakeDoubaoRealtimeDuplexOpener{session: session}))
+	stream, err := tfr.Transform(context.Background(), "", emptyRealtimeStream{})
+	if err != nil {
+		t.Fatalf("Transform() error = %v", err)
+	}
+	var chunks []*genx.MessageChunk
+	for {
+		chunk, err := stream.Next()
+		if err == io.EOF || err == genx.ErrDone {
+			break
+		}
+		if err != nil {
+			t.Fatalf("Next() error = %v", err)
+		}
+		chunks = append(chunks, chunk)
+	}
+	foundText := false
+	foundEOS := false
+	for _, chunk := range chunks {
+		if text, ok := chunk.Part.(genx.Text); ok && chunk.Role == genx.RoleModel && text == "最终文本" {
+			foundText = true
+		}
+		if chunk.Role == genx.RoleModel && chunk.IsEndOfStream() {
+			foundEOS = true
+		}
+	}
+	if !foundText || !foundEOS {
+		t.Fatalf("done text/eos = %t/%t; chunks=%#v", foundText, foundEOS, chunks)
+	}
+}
+
 func testRealtimeOpusHeadPacket(sampleRate, channels int) []byte {
 	packet := make([]byte, 19)
 	copy(packet, []byte("OpusHead"))
@@ -493,6 +679,64 @@ func testRealtimeOpusHeadPacket(sampleRate, channels int) []byte {
 	binary.LittleEndian.PutUint32(packet[12:], uint32(sampleRate))
 	return packet
 }
+
+type fakeDoubaoRealtimeDuplexOpener struct {
+	config  *doubaospeech.RealtimeDuplexConfig
+	session *fakeDoubaoRealtimeDuplexSession
+}
+
+func (o *fakeDoubaoRealtimeDuplexOpener) OpenSession(_ context.Context, cfg *doubaospeech.RealtimeDuplexConfig) (doubaoRealtimeDuplexSession, error) {
+	o.config = cfg
+	return o.session, nil
+}
+
+type fakeDoubaoRealtimeDuplexSession struct {
+	events          []*doubaospeech.RealtimeDuplexEvent
+	outputs         []doubaospeech.RealtimeDuplexFunctionCallOutput
+	functionCallErr error
+	closed          bool
+}
+
+func (s *fakeDoubaoRealtimeDuplexSession) SendAudio(context.Context, []byte) error { return nil }
+
+func (s *fakeDoubaoRealtimeDuplexSession) CommitAudio(context.Context) error { return nil }
+
+func (s *fakeDoubaoRealtimeDuplexSession) SendSpeechText(context.Context, doubaospeech.RealtimeDuplexSpeechTextRequest) error {
+	return nil
+}
+
+func (s *fakeDoubaoRealtimeDuplexSession) CancelResponse(context.Context) error { return nil }
+
+func (s *fakeDoubaoRealtimeDuplexSession) SendFunctionCallOutputs(_ context.Context, outputs ...doubaospeech.RealtimeDuplexFunctionCallOutput) error {
+	if s.functionCallErr != nil {
+		return s.functionCallErr
+	}
+	s.outputs = append(s.outputs, outputs...)
+	return nil
+}
+
+func (s *fakeDoubaoRealtimeDuplexSession) Recv() iter.Seq2[*doubaospeech.RealtimeDuplexEvent, error] {
+	return func(yield func(*doubaospeech.RealtimeDuplexEvent, error) bool) {
+		for _, event := range s.events {
+			if !yield(event, nil) {
+				return
+			}
+		}
+	}
+}
+
+func (s *fakeDoubaoRealtimeDuplexSession) Close() error {
+	s.closed = true
+	return nil
+}
+
+type emptyRealtimeStream struct{}
+
+func (emptyRealtimeStream) Next() (*genx.MessageChunk, error) { return nil, io.EOF }
+
+func (emptyRealtimeStream) Close() error { return nil }
+
+func (emptyRealtimeStream) CloseWithError(error) error { return nil }
 
 type trackingCloseStream struct {
 	closed   int

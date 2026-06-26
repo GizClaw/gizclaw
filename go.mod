@@ -4,7 +4,7 @@ go 1.26
 
 require (
 	github.com/GizClaw/dashscope-realtime-go v0.0.0-20260512045013-1d5b538966ad
-	github.com/GizClaw/doubao-speech-go v0.0.0-20260625205714-344734f67843
+	github.com/GizClaw/doubao-speech-go v0.0.0-20260626090148-9ef9a500cd24
 	github.com/GizClaw/flowcraft/sdk v0.4.6
 	github.com/GizClaw/flowcraft/sdkx v0.4.7
 	github.com/GizClaw/minimax-go v0.0.0-20260512045057-389426641c63

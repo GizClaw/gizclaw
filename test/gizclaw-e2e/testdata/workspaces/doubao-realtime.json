@@ -13,32 +13,46 @@
   },
   "workflow": {
     "name": "doubao-realtime-conversation",
-    "description": "Doubao realtime workflow",
-    "realtime_model": "doubao-realtime-dialog",
-    "parameters": {
-      "input": "push-to-talk",
-      "voice": {
-        "realtime_speaker_id": "zh_female_vv_jupiter_bigtts"
+    "description": "Doubao realtime duplex workflow",
+    "model": "doubao-realtime-dialog",
+    "instructions": "你是一个简短、自然的中文语音聊天助手。",
+    "audio": {
+      "input": {
+        "format": {
+          "type": "speech_opus",
+          "rate": 16000
+        }
       },
-      "search": {
-        "enabled": true,
-        "type": "web_summary",
-        "result_count": 5,
-        "no_result_message": "没有找到相关结果。"
-      },
-      "music": {
-        "enabled": true
+      "output": {
+        "format": {
+          "type": "ogg_opus",
+          "rate": 24000
+        },
+        "voice": "zh_female_vv_jupiter_bigtts",
+        "speed": 0,
+        "loudness": 0
       }
     },
-    "session": {
-      "bot_name": "豆包",
-      "model": "1.2.1.1",
-      "resource_id": "volc.speech.dialog",
-      "system_role": "你是一个简短、自然的中文语音聊天助手。",
-      "vad_window_ms": 200
-    },
-    "output": {
-      "speaker": "zh_female_vv_jupiter_bigtts"
+    "tools": [
+      {
+        "type": "function",
+        "name": "get_weather",
+        "description": "查询指定城市的当前天气。",
+        "strict": true,
+        "parameters": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["city"],
+          "properties": {
+            "city": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "input": "push-to-talk"
     }
   },
   "voice": "volc-tenant:volc-main:zh_female_vv_mars_bigtts",

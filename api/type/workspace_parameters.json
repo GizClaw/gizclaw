@@ -107,101 +107,6 @@
           }
         }
       },
-      "DoubaoRealtimeVoiceParameters": {
-        "oneOf": [
-          {
-            "$ref": "#/components/schemas/DoubaoRealtimeInternalSpeakerParameters"
-          },
-          {
-            "$ref": "#/components/schemas/DoubaoRealtimeExternalVoiceParameters"
-          }
-        ]
-      },
-      "DoubaoRealtimeInternalSpeakerParameters": {
-        "type": "object",
-        "required": [
-          "realtime_speaker_id"
-        ],
-        "additionalProperties": false,
-        "properties": {
-          "realtime_speaker_id": {
-            "type": "string",
-            "description": "Doubao realtime built-in speaker id."
-          }
-        }
-      },
-      "DoubaoRealtimeExternalVoiceParameters": {
-        "type": "object",
-        "required": [
-          "tts_voice"
-        ],
-        "additionalProperties": false,
-        "properties": {
-          "tts_voice": {
-            "type": "string",
-            "description": "GizClaw voice resource name used by an external TTS path."
-          }
-        }
-      },
-      "DoubaoRealtimeSessionParameters": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "bot_name": {
-            "type": "string"
-          },
-          "system_role": {
-            "type": "string"
-          },
-          "upstream_model": {
-            "type": "string"
-          },
-          "vad_window_ms": {
-            "type": "integer",
-            "minimum": 0
-          },
-          "speaking_style": {
-            "type": "string"
-          },
-          "character_manifest": {
-            "type": "string"
-          },
-          "resource_id": {
-            "type": "string"
-          }
-        }
-      },
-      "DoubaoRealtimeSearchParameters": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "enabled": {
-            "type": "boolean"
-          },
-          "type": {
-            "type": "string"
-          },
-          "bot_id": {
-            "type": "string"
-          },
-          "result_count": {
-            "type": "integer",
-            "minimum": 0
-          },
-          "no_result_message": {
-            "type": "string"
-          }
-        }
-      },
-      "DoubaoRealtimeMusicParameters": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "enabled": {
-            "type": "boolean"
-          }
-        }
-      },
       "DoubaoRealtimeWorkspaceParameters": {
         "type": "object",
         "required": [
@@ -215,45 +120,51 @@
               "doubao-realtime"
             ]
           },
-          "realtime_model": {
+          "model": {
+            "type": "string",
+            "description": "GizClaw Model resource name. Defaults to Workflow.spec.doubao_realtime.model."
+          },
+          "instructions": {
             "type": "string"
           },
           "input": {
             "$ref": "#/components/schemas/WorkspaceInputMode"
           },
-          "voice": {
-            "$ref": "#/components/schemas/DoubaoRealtimeVoiceParameters"
+          "audio": {
+            "$ref": "./workflows/doubao_realtime.json#/components/schemas/DoubaoRealtimeAudio"
           },
-          "session": {
-            "$ref": "#/components/schemas/DoubaoRealtimeSessionParameters"
+          "tools": {
+            "type": "array",
+            "items": {
+              "$ref": "./workflows/doubao_realtime.json#/components/schemas/DoubaoRealtimeFunctionTool"
+            }
           },
-          "search": {
-            "$ref": "#/components/schemas/DoubaoRealtimeSearchParameters"
-          },
-          "music": {
-            "$ref": "#/components/schemas/DoubaoRealtimeMusicParameters"
+          "extension": {
+            "$ref": "./workflows/doubao_realtime.json#/components/schemas/DoubaoRealtimeExtension"
           },
           "e2e": {
             "type": "boolean",
             "description": "Marks seed resources used by the local e2e harness."
-          },
-          "temperature": {
-            "type": "number"
           }
         },
         "example": {
           "agent_type": "doubao-realtime",
-          "realtime_model": "e2e-realtime",
+          "model": "e2e-realtime",
           "input": "push-to-talk",
-          "voice": {
-            "realtime_speaker_id": "zh_female_vv_jupiter_bigtts"
-          },
-          "search": {
-            "enabled": true,
-            "type": "web"
-          },
-          "music": {
-            "enabled": true
+          "audio": {
+            "input": {
+              "format": {
+                "type": "speech_opus",
+                "rate": 16000
+              }
+            },
+            "output": {
+              "format": {
+                "type": "ogg_opus",
+                "rate": 24000
+              },
+              "voice": "zh_female_vv_jupiter_bigtts"
+            }
           }
         }
       },

@@ -3,17 +3,34 @@ apiVersion: gizclaw.admin/v1alpha1
 kind: Workflow
 metadata:
   name: doubao-realtime-conversation
-  description: Doubao realtime workflow
+  description: Doubao realtime duplex workflow
 spec:
   driver: doubao-realtime
   doubao_realtime:
-    realtime_model: doubao-realtime-dialog
-    realtime:
-      session:
-        bot_name: 豆包
-        model: 1.2.1.1
-        resource_id: volc.speech.dialog
-        system_role: 你是一个简短、自然的中文语音聊天助手。
-        vad_window_ms: 200
+    model: doubao-realtime-dialog
+    instructions: 你是一个简短、自然的中文语音聊天助手。
+    audio:
+      input:
+        format:
+          type: speech_opus
+          rate: 16000
       output:
-        speaker: zh_female_vv_jupiter_bigtts
+        format:
+          type: ogg_opus
+          rate: 24000
+        voice: zh_female_vv_jupiter_bigtts
+        speed: 0
+        loudness: 0
+    tools:
+      - type: function
+        name: get_weather
+        description: 查询指定城市的当前天气。
+        strict: true
+        parameters:
+          type: object
+          additionalProperties: false
+          required:
+            - city
+          properties:
+            city:
+              type: string

@@ -340,23 +340,14 @@ func workflowSpec(cfg config) rpcapi.WorkflowSpec {
 			AstTranslate: &spec,
 		}
 	}
-	realtime := map[string]interface{}{
-		"session": map[string]interface{}{
-			"bot_name":      cfg.Workflow.Session.BotName,
-			"model":         cfg.Workflow.Session.Model,
-			"resource_id":   cfg.Workflow.Session.ResourceID,
-			"system_role":   cfg.Workflow.Session.SystemRole,
-			"vad_window_ms": cfg.Workflow.Session.VADWindowMS,
-		},
-		"output": map[string]interface{}{
-			"speaker": cfg.Workflow.Output.Speaker,
-		},
-	}
 	return rpcapi.WorkflowSpec{
 		Driver: rpcapi.WorkflowDriver("doubao-realtime"),
 		DoubaoRealtime: &rpcapi.DoubaoRealtimeWorkflowSpec{
-			RealtimeModel: &cfg.Workflow.RealtimeModel,
-			Realtime:      &realtime,
+			Model:        cfg.Workflow.Model,
+			Instructions: optionalString(cfg.Workflow.Instructions),
+			Audio:        cfg.Workflow.Audio,
+			Tools:        cfg.Workflow.Tools,
+			Extension:    cfg.Workflow.Extension,
 		},
 	}
 }
@@ -402,17 +393,14 @@ func workspaceDocument(cfg config) (rpcapi.WorkspaceCreateRequest, error) {
 			return rpcapi.WorkspaceCreateRequest{}, fmt.Errorf("encode ast translate workspace parameters: %w", err)
 		}
 	default:
-		voice, err := doubaoRealtimeVoiceParams(cfg.Workflow.Parameters.Voice)
-		if err != nil {
-			return rpcapi.WorkspaceCreateRequest{}, err
-		}
 		typed := rpcapi.DoubaoRealtimeWorkspaceParameters{
-			AgentType:     rpcapi.DoubaoRealtimeWorkspaceParametersAgentTypeDoubaoRealtime,
-			Input:         optionalWorkspaceInputMode(cfg.Workflow.Parameters.Input),
-			Music:         realtimeMusicParams(cfg.Workflow.Parameters.Music),
-			RealtimeModel: optionalString(cfg.Workflow.RealtimeModel),
-			Search:        realtimeSearchParams(cfg.Workflow.Parameters.Search),
-			Voice:         voice,
+			AgentType:    rpcapi.DoubaoRealtimeWorkspaceParametersAgentTypeDoubaoRealtime,
+			Input:        optionalWorkspaceInputMode(cfg.Workflow.Parameters.Input),
+			Model:        optionalString(cfg.Workflow.Parameters.Model),
+			Instructions: optionalString(cfg.Workflow.Parameters.Instructions),
+			Audio:        cfg.Workflow.Parameters.Audio,
+			Tools:        cfg.Workflow.Parameters.Tools,
+			Extension:    cfg.Workflow.Parameters.Extension,
 		}
 		if err := parameters.FromDoubaoRealtimeWorkspaceParameters(typed); err != nil {
 			return rpcapi.WorkspaceCreateRequest{}, fmt.Errorf("encode doubao realtime workspace parameters: %w", err)
@@ -482,48 +470,6 @@ func astTranslateVoiceParams(value astTranslateVoiceConfig) *rpcapi.ASTTranslate
 	default:
 		return nil
 	}
-}
-
-func doubaoRealtimeVoiceParams(value workspaceVoiceConfig) (*rpcapi.DoubaoRealtimeVoiceParameters, error) {
-	var voice rpcapi.DoubaoRealtimeVoiceParameters
-	switch {
-	case value.RealtimeSpeakerID != "":
-		if err := voice.FromDoubaoRealtimeInternalSpeakerParameters(rpcapi.DoubaoRealtimeInternalSpeakerParameters{
-			RealtimeSpeakerId: value.RealtimeSpeakerID,
-		}); err != nil {
-			return nil, fmt.Errorf("encode doubao realtime internal speaker voice parameters: %w", err)
-		}
-		return &voice, nil
-	case value.TTSVoice != "":
-		if err := voice.FromDoubaoRealtimeExternalVoiceParameters(rpcapi.DoubaoRealtimeExternalVoiceParameters{
-			TtsVoice: value.TTSVoice,
-		}); err != nil {
-			return nil, fmt.Errorf("encode doubao realtime external voice parameters: %w", err)
-		}
-		return &voice, nil
-	default:
-		return nil, nil
-	}
-}
-
-func realtimeSearchParams(value realtimeSearchConfig) *rpcapi.DoubaoRealtimeSearchParameters {
-	if value.Enabled == nil && value.Type == "" && value.BotID == "" && value.ResultCount == nil && value.NoResultMessage == "" {
-		return nil
-	}
-	return &rpcapi.DoubaoRealtimeSearchParameters{
-		BotId:           optionalString(value.BotID),
-		Enabled:         value.Enabled,
-		NoResultMessage: optionalString(value.NoResultMessage),
-		ResultCount:     value.ResultCount,
-		Type:            optionalString(value.Type),
-	}
-}
-
-func realtimeMusicParams(value realtimeMusicConfig) *rpcapi.DoubaoRealtimeMusicParameters {
-	if value.Enabled == nil {
-		return nil
-	}
-	return &rpcapi.DoubaoRealtimeMusicParameters{Enabled: value.Enabled}
 }
 
 func selectAndReloadAgent(ctx context.Context, client runControlClient, cfg config) error {

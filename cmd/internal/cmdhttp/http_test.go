@@ -796,7 +796,7 @@ func TestPlayWorkspaceParametersWithMode(t *testing.T) {
 
 	var doubao rpcapi.WorkspaceParameters
 	if err := doubao.FromDoubaoRealtimeWorkspaceParameters(rpcapi.DoubaoRealtimeWorkspaceParameters{
-		RealtimeModel: ptr("voice"),
+		Model: ptr("voice"),
 	}); err != nil {
 		t.Fatalf("FromDoubaoRealtimeWorkspaceParameters() error = %v", err)
 	}
@@ -811,8 +811,8 @@ func TestPlayWorkspaceParametersWithMode(t *testing.T) {
 	if doubaoTyped.Input == nil || *doubaoTyped.Input != rpcapi.WorkspaceInputModePushToTalk {
 		t.Fatalf("doubao input = %v, want push-to-talk", doubaoTyped.Input)
 	}
-	if doubaoTyped.RealtimeModel == nil || *doubaoTyped.RealtimeModel != "voice" {
-		t.Fatalf("doubao realtime_model = %v, want voice", doubaoTyped.RealtimeModel)
+	if doubaoTyped.Model == nil || *doubaoTyped.Model != "voice" {
+		t.Fatalf("doubao model = %v, want voice", doubaoTyped.Model)
 	}
 
 	var ast rpcapi.WorkspaceParameters

@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkg/giznet"
 	"github.com/goccy/go-yaml"
 )
@@ -58,47 +59,40 @@ type modelConfig struct {
 }
 
 type workflowConfig struct {
-	Name          string                   `json:"name"`
-	Description   string                   `json:"description,omitempty"`
-	RealtimeModel string                   `json:"realtime_model"`
-	Translation   string                   `json:"translation_model,omitempty"`
-	Parameters    workspaceParameterConfig `json:"parameters,omitempty"`
-	Session       realtimeSessionConfig    `json:"session"`
-	Output        realtimeOutputConfig     `json:"output"`
-	Flowcraft     map[string]interface{}   `json:"flowcraft,omitempty"`
-	VoiceAdapter  voiceAdapterConfig       `json:"voice_adapter,omitempty"`
-	ASTTranslate  astTranslateConfig       `json:"ast_translate,omitempty"`
+	Name         string                               `json:"name"`
+	Description  string                               `json:"description,omitempty"`
+	Model        string                               `json:"model"`
+	Instructions string                               `json:"instructions,omitempty"`
+	Audio        *rpcapi.DoubaoRealtimeAudio          `json:"audio,omitempty"`
+	Tools        *[]rpcapi.DoubaoRealtimeFunctionTool `json:"tools,omitempty"`
+	Extension    *rpcapi.DoubaoRealtimeExtension      `json:"extension,omitempty"`
+	Translation  string                               `json:"translation_model,omitempty"`
+	Parameters   workspaceParameterConfig             `json:"parameters,omitempty"`
+	Flowcraft    map[string]interface{}               `json:"flowcraft,omitempty"`
+	VoiceAdapter voiceAdapterConfig                   `json:"voice_adapter,omitempty"`
+	ASTTranslate astTranslateConfig                   `json:"ast_translate,omitempty"`
 }
 
 type workspaceParameterConfig struct {
-	Input                      string               `json:"input,omitempty"`
-	GenerateModel              string               `json:"generate_model,omitempty"`
-	ExtractModel               string               `json:"extract_model,omitempty"`
-	EmbeddingModel             string               `json:"embedding_model,omitempty"`
-	TranslationModel           string               `json:"translation_model,omitempty"`
-	LangPair                   string               `json:"lang_pair,omitempty"`
-	Mode                       string               `json:"mode,omitempty"`
-	Voice                      workspaceVoiceConfig `json:"voice,omitempty"`
-	Search                     realtimeSearchConfig `json:"search,omitempty"`
-	Music                      realtimeMusicConfig  `json:"music,omitempty"`
-	SpeakerID                  string               `json:"speaker_id,omitempty"`
-	IsCustomSpeaker            *bool                `json:"is_custom_speaker,omitempty"`
-	TTSResourceID              string               `json:"tts_resource_id,omitempty"`
-	SpeechRate                 *int                 `json:"speech_rate,omitempty"`
-	EnableSourceLanguageDetect *bool                `json:"enable_source_language_detect,omitempty"`
-	Denoise                    *bool                `json:"denoise,omitempty"`
-}
-
-type realtimeSessionConfig struct {
-	BotName     string `json:"bot_name,omitempty"`
-	Model       string `json:"model,omitempty"`
-	ResourceID  string `json:"resource_id,omitempty"`
-	SystemRole  string `json:"system_role,omitempty"`
-	VADWindowMS int    `json:"vad_window_ms,omitempty"`
-}
-
-type realtimeOutputConfig struct {
-	Speaker string `json:"speaker,omitempty"`
+	Input                      string                               `json:"input,omitempty"`
+	GenerateModel              string                               `json:"generate_model,omitempty"`
+	ExtractModel               string                               `json:"extract_model,omitempty"`
+	EmbeddingModel             string                               `json:"embedding_model,omitempty"`
+	TranslationModel           string                               `json:"translation_model,omitempty"`
+	LangPair                   string                               `json:"lang_pair,omitempty"`
+	Mode                       string                               `json:"mode,omitempty"`
+	Model                      string                               `json:"model,omitempty"`
+	Instructions               string                               `json:"instructions,omitempty"`
+	Audio                      *rpcapi.DoubaoRealtimeAudio          `json:"audio,omitempty"`
+	Tools                      *[]rpcapi.DoubaoRealtimeFunctionTool `json:"tools,omitempty"`
+	Extension                  *rpcapi.DoubaoRealtimeExtension      `json:"extension,omitempty"`
+	Voice                      workspaceVoiceConfig                 `json:"voice,omitempty"`
+	SpeakerID                  string                               `json:"speaker_id,omitempty"`
+	IsCustomSpeaker            *bool                                `json:"is_custom_speaker,omitempty"`
+	TTSResourceID              string                               `json:"tts_resource_id,omitempty"`
+	SpeechRate                 *int                                 `json:"speech_rate,omitempty"`
+	EnableSourceLanguageDetect *bool                                `json:"enable_source_language_detect,omitempty"`
+	Denoise                    *bool                                `json:"denoise,omitempty"`
 }
 
 type voiceAdapterConfig struct {
@@ -134,18 +128,6 @@ type workspaceVoiceConfig struct {
 	TTSResourceID     string `json:"tts_resource_id,omitempty"`
 	SpeechRate        *int   `json:"speech_rate,omitempty"`
 	TTSVoice          string `json:"tts_voice,omitempty"`
-}
-
-type realtimeSearchConfig struct {
-	Enabled         *bool  `json:"enabled,omitempty"`
-	Type            string `json:"type,omitempty"`
-	BotID           string `json:"bot_id,omitempty"`
-	ResultCount     *int   `json:"result_count,omitempty"`
-	NoResultMessage string `json:"no_result_message,omitempty"`
-}
-
-type realtimeMusicConfig struct {
-	Enabled *bool `json:"enabled,omitempty"`
 }
 
 type setupContextConfig struct {
@@ -279,7 +261,8 @@ func (c *config) validate() error {
 	c.Models.Translation = strings.TrimSpace(c.Models.Translation)
 	c.Workflow.Name = strings.TrimSpace(c.Workflow.Name)
 	c.Workflow.Description = strings.TrimSpace(c.Workflow.Description)
-	c.Workflow.RealtimeModel = strings.TrimSpace(c.Workflow.RealtimeModel)
+	c.Workflow.Model = strings.TrimSpace(c.Workflow.Model)
+	c.Workflow.Instructions = strings.TrimSpace(c.Workflow.Instructions)
 	c.Workflow.Translation = strings.TrimSpace(c.Workflow.Translation)
 	c.Workflow.Parameters.Input = strings.TrimSpace(c.Workflow.Parameters.Input)
 	c.Workflow.Parameters.GenerateModel = strings.TrimSpace(c.Workflow.Parameters.GenerateModel)
@@ -288,15 +271,11 @@ func (c *config) validate() error {
 	c.Workflow.Parameters.TranslationModel = strings.TrimSpace(c.Workflow.Parameters.TranslationModel)
 	c.Workflow.Parameters.LangPair = strings.TrimSpace(c.Workflow.Parameters.LangPair)
 	c.Workflow.Parameters.Mode = strings.TrimSpace(c.Workflow.Parameters.Mode)
+	c.Workflow.Parameters.Model = strings.TrimSpace(c.Workflow.Parameters.Model)
+	c.Workflow.Parameters.Instructions = strings.TrimSpace(c.Workflow.Parameters.Instructions)
 	c.Workflow.Parameters.SpeakerID = strings.TrimSpace(c.Workflow.Parameters.SpeakerID)
 	c.Workflow.Parameters.TTSResourceID = strings.TrimSpace(c.Workflow.Parameters.TTSResourceID)
 	c.Workflow.Parameters.Voice.trim()
-	c.Workflow.Parameters.Search.trim()
-	c.Workflow.Session.BotName = strings.TrimSpace(c.Workflow.Session.BotName)
-	c.Workflow.Session.Model = strings.TrimSpace(c.Workflow.Session.Model)
-	c.Workflow.Session.ResourceID = strings.TrimSpace(c.Workflow.Session.ResourceID)
-	c.Workflow.Session.SystemRole = strings.TrimSpace(c.Workflow.Session.SystemRole)
-	c.Workflow.Output.Speaker = strings.TrimSpace(c.Workflow.Output.Speaker)
 	c.Workflow.VoiceAdapter.ASRModel = strings.TrimSpace(c.Workflow.VoiceAdapter.ASRModel)
 	c.Workflow.VoiceAdapter.DefaultVoice = strings.TrimSpace(c.Workflow.VoiceAdapter.DefaultVoice)
 	c.Workflow.ASTTranslate.Mode = strings.TrimSpace(c.Workflow.ASTTranslate.Mode)
@@ -354,29 +333,19 @@ func (c *config) validate() error {
 	if c.isASTTranslateAgent() && c.Models.Translation == "" {
 		return fmt.Errorf("models.translation is required")
 	}
-	if c.Workflow.RealtimeModel == "" {
-		c.Workflow.RealtimeModel = c.Models.Realtime
+	if c.Workflow.Model == "" {
+		c.Workflow.Model = c.Models.Realtime
 	}
 	if c.Workflow.Translation == "" {
 		c.Workflow.Translation = c.Models.Translation
 	}
-	if c.Workflow.Session.BotName == "" {
-		c.Workflow.Session.BotName = "豆包"
-	}
-	if c.Workflow.Session.Model == "" {
-		c.Workflow.Session.Model = "O"
-	}
-	if c.Workflow.Session.ResourceID == "" {
-		c.Workflow.Session.ResourceID = "volc.speech.dialog"
-	}
-	if c.Workflow.Session.SystemRole == "" {
-		c.Workflow.Session.SystemRole = "你是一个简短、自然的中文语音聊天助手。"
-	}
-	if c.Workflow.Session.VADWindowMS <= 0 {
-		c.Workflow.Session.VADWindowMS = 200
-	}
-	if c.Workflow.Output.Speaker == "" {
-		c.Workflow.Output.Speaker = "zh_female_vv_jupiter_bigtts"
+	if c.isDoubaoRealtimeAgent() {
+		if c.Workflow.Instructions == "" {
+			c.Workflow.Instructions = "你是一个简短、自然的中文语音聊天助手。"
+		}
+		if c.Workflow.Audio == nil {
+			c.Workflow.Audio = defaultDoubaoRealtimeAudio()
+		}
 	}
 	if c.isFlowcraftAgent() {
 		if c.Workflow.VoiceAdapter.ASRModel == "" {
@@ -438,6 +407,24 @@ func (c config) isASTTranslateAgent() bool {
 	return c.Agent == "ast-translate"
 }
 
+func defaultDoubaoRealtimeAudio() *rpcapi.DoubaoRealtimeAudio {
+	return &rpcapi.DoubaoRealtimeAudio{
+		Input: rpcapi.DoubaoRealtimeAudioInput{
+			Format: rpcapi.DoubaoRealtimeAudioFormat{
+				Type: rpcapi.DoubaoRealtimeAudioFormatType("speech_opus"),
+				Rate: 16000,
+			},
+		},
+		Output: rpcapi.DoubaoRealtimeAudioOutput{
+			Format: rpcapi.DoubaoRealtimeAudioFormat{
+				Type: rpcapi.DoubaoRealtimeAudioFormatType("ogg_opus"),
+				Rate: 24000,
+			},
+			Voice: optionalString("zh_female_vv_jupiter_bigtts"),
+		},
+	}
+}
+
 func (c config) shouldEnsureWorkspace() bool {
 	return c.Ensure == nil || *c.Ensure
 }
@@ -478,12 +465,6 @@ func (v *workspaceVoiceConfig) trim() {
 	v.SpeakerID = strings.TrimSpace(v.SpeakerID)
 	v.TTSResourceID = strings.TrimSpace(v.TTSResourceID)
 	v.TTSVoice = strings.TrimSpace(v.TTSVoice)
-}
-
-func (c *realtimeSearchConfig) trim() {
-	c.Type = strings.TrimSpace(c.Type)
-	c.BotID = strings.TrimSpace(c.BotID)
-	c.NoResultMessage = strings.TrimSpace(c.NoResultMessage)
 }
 
 func normalizeCipherMode(mode string) string {

@@ -43,52 +43,28 @@ func (t patternTransformer) Transform(ctx context.Context, _ string, input genx.
 	return t.Transformer.Transform(ctx, t.Pattern, input)
 }
 
-type realtimeWorkflowConfig struct {
-	Model          string
-	RealtimeModel  string
-	Realtime       map[string]any
-	RealtimeConfig map[string]any
-}
-
 func resolveRealtimeModelPattern(spec agenthost.Spec) (string, error) {
-	if pattern := workflowRealtimeModelPattern(spec); pattern != "" {
-		return normalizeModelPattern(pattern), nil
+	workflowSpec := spec.Workflow.Spec.DoubaoRealtime
+	if workflowSpec == nil {
+		return "", fmt.Errorf("doubaorealtime: workflow doubao_realtime spec is required")
 	}
+
+	model := strings.TrimSpace(workflowSpec.Model)
+	params := realtimeWorkflowParams(*workflowSpec)
 	if spec.Workspace.Parameters != nil {
 		typed, err := spec.Workspace.Parameters.AsDoubaoRealtimeWorkspaceParameters()
 		if err != nil {
 			return "", fmt.Errorf("doubaorealtime: decode workspace parameters: %w", err)
 		}
-		if typed.RealtimeModel != nil && strings.TrimSpace(*typed.RealtimeModel) != "" {
-			params := mergeDoubaoRealtimeTypedParams(nil, typed)
-			return normalizeModelPattern(appendPatternParams(*typed.RealtimeModel, params)), nil
+		if typed.Model != nil && strings.TrimSpace(*typed.Model) != "" {
+			model = strings.TrimSpace(*typed.Model)
 		}
+		params = mergeDoubaoRealtimeWorkspaceParams(params, typed)
 	}
-	return "", fmt.Errorf("doubaorealtime: model is required")
-}
-
-func workflowRealtimeModelPattern(spec agenthost.Spec) string {
-	workflowSpec := spec.Workflow.Spec.DoubaoRealtime
-	if workflowSpec == nil {
-		return ""
+	if model == "" {
+		return "", fmt.Errorf("doubaorealtime: model is required")
 	}
-	cfg := realtimeWorkflowConfig{
-		Model:          stringPtrValue(workflowSpec.Model),
-		RealtimeModel:  stringPtrValue(workflowSpec.RealtimeModel),
-		RealtimeConfig: mapPtrValue(workflowSpec.RealtimeConfig),
-		Realtime:       mapPtrValue(workflowSpec.Realtime),
-	}
-	pattern := firstNonEmpty(cfg.RealtimeModel, cfg.Model)
-	if pattern == "" {
-		return ""
-	}
-	params := realtimeWorkflowParams(cfg)
-	if spec.Workspace.Parameters != nil {
-		if typed, err := spec.Workspace.Parameters.AsDoubaoRealtimeWorkspaceParameters(); err == nil {
-			params = mergeDoubaoRealtimeTypedParams(params, typed)
-		}
-	}
-	return appendPatternParams(pattern, params)
+	return normalizeModelPattern(appendPatternParams(model, params)), nil
 }
 
 func normalizeModelPattern(pattern string) string {
@@ -99,33 +75,27 @@ func normalizeModelPattern(pattern string) string {
 	return "model/" + pattern
 }
 
-func firstNonEmpty(values ...string) string {
-	for _, value := range values {
-		if strings.TrimSpace(value) != "" {
-			return strings.TrimSpace(value)
-		}
-	}
-	return ""
-}
-
-func realtimeWorkflowParams(cfg realtimeWorkflowConfig) map[string]any {
+func realtimeWorkflowParams(spec apitypes.DoubaoRealtimeWorkflowSpec) map[string]any {
 	params := make(map[string]any)
-	mergeRealtimeWorkflowParamsValue(params, cfg.RealtimeConfig)
-	mergeRealtimeWorkflowParamsValue(params, cfg.Realtime)
+	if value := stringPtrValue(spec.Instructions); value != "" {
+		params["instructions"] = value
+	}
+	if spec.Audio != nil {
+		mergeDoubaoRealtimeAudioParams(params, *spec.Audio)
+	}
+	if spec.Tools != nil {
+		params["tools"] = *spec.Tools
+	}
+	if spec.Extension != nil {
+		params["extension"] = *spec.Extension
+	}
 	if len(params) == 0 {
 		return nil
 	}
 	return params
 }
 
-func mapPtrValue(value *map[string]interface{}) map[string]any {
-	if value == nil {
-		return nil
-	}
-	return *value
-}
-
-func mergeDoubaoRealtimeTypedParams(params map[string]any, typed apitypes.DoubaoRealtimeWorkspaceParameters) map[string]any {
+func mergeDoubaoRealtimeWorkspaceParams(params map[string]any, typed apitypes.DoubaoRealtimeWorkspaceParameters) map[string]any {
 	if params == nil {
 		params = make(map[string]any)
 	}
@@ -137,24 +107,17 @@ func mergeDoubaoRealtimeTypedParams(params map[string]any, typed apitypes.Doubao
 			params["mode"] = "realtime"
 		}
 	}
-	if typed.Temperature != nil {
-		params["temperature"] = *typed.Temperature
+	if value := stringPtrValue(typed.Instructions); value != "" {
+		params["instructions"] = value
 	}
-	if typed.Session != nil {
-		mergeRealtimeWorkspaceSession(params, *typed.Session)
+	if typed.Audio != nil {
+		mergeDoubaoRealtimeAudioParams(params, *typed.Audio)
 	}
-	if typed.Search != nil {
-		mergeRealtimeWorkspaceSearch(params, *typed.Search)
+	if typed.Tools != nil {
+		params["tools"] = *typed.Tools
 	}
-	if typed.Music != nil {
-		mergeRealtimeWorkspaceMusic(params, *typed.Music)
-	}
-	if typed.Voice != nil {
-		if internal, err := typed.Voice.AsDoubaoRealtimeInternalSpeakerParameters(); err == nil {
-			if speaker := strings.TrimSpace(internal.RealtimeSpeakerId); speaker != "" {
-				params["speaker"] = speaker
-			}
-		}
+	if typed.Extension != nil {
+		params["extension"] = *typed.Extension
 	}
 	if len(params) == 0 {
 		return nil
@@ -162,51 +125,19 @@ func mergeDoubaoRealtimeTypedParams(params map[string]any, typed apitypes.Doubao
 	return params
 }
 
-func mergeRealtimeWorkspaceSession(params map[string]any, session apitypes.DoubaoRealtimeSessionParameters) {
-	if value := stringPtrValue(session.BotName); value != "" {
-		params["bot_name"] = value
+func mergeDoubaoRealtimeAudioParams(params map[string]any, audio apitypes.DoubaoRealtimeAudio) {
+	params["input_format"] = string(audio.Input.Format.Type)
+	params["input_sample_rate"] = audio.Input.Format.Rate
+	params["output_format"] = string(audio.Output.Format.Type)
+	params["output_sample_rate"] = audio.Output.Format.Rate
+	if value := stringPtrValue(audio.Output.Voice); value != "" {
+		params["output_voice"] = value
 	}
-	if value := stringPtrValue(session.SystemRole); value != "" {
-		params["system_role"] = value
+	if audio.Output.Speed != nil {
+		params["output_speed"] = *audio.Output.Speed
 	}
-	if value := stringPtrValue(session.UpstreamModel); value != "" {
-		params["upstream_model"] = value
-	}
-	if session.VadWindowMs != nil {
-		params["vad_window_ms"] = *session.VadWindowMs
-	}
-	if value := stringPtrValue(session.SpeakingStyle); value != "" {
-		params["speaking_style"] = value
-	}
-	if value := stringPtrValue(session.CharacterManifest); value != "" {
-		params["character_manifest"] = value
-	}
-	if value := stringPtrValue(session.ResourceId); value != "" {
-		params["resource_id"] = value
-	}
-}
-
-func mergeRealtimeWorkspaceSearch(params map[string]any, search apitypes.DoubaoRealtimeSearchParameters) {
-	if search.Enabled != nil {
-		params["search_enabled"] = *search.Enabled
-	}
-	if value := stringPtrValue(search.Type); value != "" {
-		params["search_type"] = value
-	}
-	if value := stringPtrValue(search.BotId); value != "" {
-		params["search_bot_id"] = value
-	}
-	if search.ResultCount != nil {
-		params["search_result_count"] = *search.ResultCount
-	}
-	if value := stringPtrValue(search.NoResultMessage); value != "" {
-		params["search_no_result_message"] = value
-	}
-}
-
-func mergeRealtimeWorkspaceMusic(params map[string]any, music apitypes.DoubaoRealtimeMusicParameters) {
-	if music.Enabled != nil {
-		params["music_enabled"] = *music.Enabled
+	if audio.Output.Loudness != nil {
+		params["output_loudness"] = *audio.Output.Loudness
 	}
 }
 
@@ -215,59 +146,6 @@ func stringPtrValue(value *string) string {
 		return ""
 	}
 	return strings.TrimSpace(*value)
-}
-
-func mergeRealtimeWorkflowParamsValue(params map[string]any, value any) {
-	values, ok := value.(map[string]any)
-	if !ok {
-		return
-	}
-	for key, value := range values {
-		mergeRealtimeWorkflowParam(params, key, value)
-	}
-}
-
-func mergeRealtimeWorkflowParam(params map[string]any, key string, value any) {
-	switch key {
-	case "session":
-		mergeRealtimeWorkflowMap(params, value, map[string]string{
-			"model": "upstream_model",
-		})
-	case "input":
-		return
-	case "output":
-		mergeRealtimeWorkflowAllowedMap(params, value, map[string]string{
-			"speaker": "speaker",
-			"voice":   "speaker",
-		})
-	default:
-		params[key] = value
-	}
-}
-
-func mergeRealtimeWorkflowMap(params map[string]any, value any, aliases map[string]string) {
-	values, ok := value.(map[string]any)
-	if !ok {
-		return
-	}
-	for key, value := range values {
-		if alias := aliases[key]; alias != "" {
-			key = alias
-		}
-		params[key] = value
-	}
-}
-
-func mergeRealtimeWorkflowAllowedMap(params map[string]any, value any, keys map[string]string) {
-	values, ok := value.(map[string]any)
-	if !ok {
-		return
-	}
-	for key, value := range values {
-		if target := keys[key]; target != "" {
-			params[target] = value
-		}
-	}
 }
 
 func appendPatternParams(pattern string, params map[string]any) string {
@@ -320,6 +198,10 @@ func workflowParamString(value any) (string, bool) {
 	case json.Number:
 		return typed.String(), true
 	default:
-		return "", false
+		data, err := json.Marshal(typed)
+		if err != nil || string(data) == "null" {
+			return "", false
+		}
+		return string(data), true
 	}
 }

@@ -206,8 +206,8 @@ func TestWorkflowSpecCoversTypedAgentSpecs(t *testing.T) {
 		t.Fatalf("ast mode = %#v", ast.AstTranslate.Mode)
 	}
 
-	realtime := workflowSpec(config{Workflow: workflowConfig{RealtimeModel: "rt", Session: realtimeSessionConfig{}, Output: realtimeOutputConfig{Speaker: "sp"}}})
-	if realtime.Driver != rpcapi.WorkflowDriverDoubaoRealtime || realtime.DoubaoRealtime == nil || realtime.DoubaoRealtime.Realtime == nil {
+	realtime := workflowSpec(config{Workflow: workflowConfig{Model: "rt", Audio: defaultDoubaoRealtimeAudio()}})
+	if realtime.Driver != rpcapi.WorkflowDriverDoubaoRealtime || realtime.DoubaoRealtime == nil || realtime.DoubaoRealtime.Model != "rt" || realtime.DoubaoRealtime.Audio == nil {
 		t.Fatalf("realtime spec = %+v", realtime)
 	}
 }
@@ -322,7 +322,7 @@ func TestRunWiresClientTransportAndPersonaDriver(t *testing.T) {
   "agent": "doubao-realtime",
   "workflow": {
     "name": "doubao-realtime-workflow",
-    "realtime_model": "realtime"
+    "model": "realtime"
   },
   "models": {
     "llm": "chat",
@@ -471,37 +471,20 @@ func TestDialClientRejectsInvalidPrivateKey(t *testing.T) {
 
 func TestEnsureWorkspaceRequiresSetupWorkflowAndRecreatesWorkspace(t *testing.T) {
 	control := &fakeRunControl{}
-	searchEnabled := true
-	musicEnabled := true
-	searchCount := 3
+	audio := defaultDoubaoRealtimeAudio()
 	cfg := config{
 		Workspace: "workspace-a",
 		Agent:     "doubao-realtime",
 		Models:    modelConfig{Realtime: "realtime"},
 		Workflow: workflowConfig{
-			Name:          "workflow-a",
-			RealtimeModel: "realtime",
+			Name:  "workflow-a",
+			Model: "realtime",
+			Audio: audio,
 			Parameters: workspaceParameterConfig{
 				Input: "realtime",
-				Voice: workspaceVoiceConfig{
-					RealtimeSpeakerID: "speaker-a",
-				},
-				Search: realtimeSearchConfig{
-					Enabled:         &searchEnabled,
-					Type:            "web_summary",
-					ResultCount:     &searchCount,
-					NoResultMessage: "none",
-				},
-				Music: realtimeMusicConfig{Enabled: &musicEnabled},
+				Model: "realtime",
+				Audio: audio,
 			},
-			Session: realtimeSessionConfig{
-				BotName:     "豆包",
-				Model:       "O",
-				ResourceID:  "volc.speech.dialog",
-				SystemRole:  "简短回答",
-				VADWindowMS: 200,
-			},
-			Output: realtimeOutputConfig{Speaker: "speaker-a"},
 		},
 	}
 	ensured, err := ensureWorkspace(context.Background(), control, cfg)
@@ -534,29 +517,12 @@ func TestEnsureWorkspaceRequiresSetupWorkflowAndRecreatesWorkspace(t *testing.T)
 		t.Fatalf("workspace parameters decode error = %v", err)
 	}
 	if params.AgentType != rpcapi.DoubaoRealtimeWorkspaceParametersAgentTypeDoubaoRealtime ||
-		params.RealtimeModel == nil || *params.RealtimeModel != "realtime" ||
+		params.Model == nil || *params.Model != "realtime" ||
 		params.Input == nil || *params.Input != rpcapi.WorkspaceInputModeRealtime {
 		t.Fatalf("workspace parameters = %#v", params)
 	}
-	if params.Search == nil ||
-		params.Search.Enabled == nil || !*params.Search.Enabled ||
-		params.Search.Type == nil || *params.Search.Type != "web_summary" ||
-		params.Search.ResultCount == nil || *params.Search.ResultCount != searchCount ||
-		params.Search.NoResultMessage == nil || *params.Search.NoResultMessage != "none" {
-		t.Fatalf("workspace search parameters = %#v", params.Search)
-	}
-	if params.Music == nil || params.Music.Enabled == nil || !*params.Music.Enabled {
-		t.Fatalf("workspace music parameters = %#v", params.Music)
-	}
-	if params.Voice == nil {
-		t.Fatalf("workspace voice parameters = %#v", params.Voice)
-	}
-	voice, err := params.Voice.AsDoubaoRealtimeInternalSpeakerParameters()
-	if err != nil {
-		t.Fatalf("workspace voice decode error = %v", err)
-	}
-	if voice.RealtimeSpeakerId != "speaker-a" {
-		t.Fatalf("workspace voice = %#v", voice)
+	if params.Audio == nil || params.Audio.Output.Voice == nil || *params.Audio.Output.Voice != "zh_female_vv_jupiter_bigtts" {
+		t.Fatalf("workspace audio parameters = %#v", params.Audio)
 	}
 }
 
@@ -567,7 +533,7 @@ func TestEnsureWorkspaceIgnoresMissingWorkspaceDelete(t *testing.T) {
 	cfg := config{
 		Workspace: "workspace-a",
 		Agent:     "doubao-realtime",
-		Workflow:  workflowConfig{Name: "workflow-a", RealtimeModel: "realtime"},
+		Workflow:  workflowConfig{Name: "workflow-a", Model: "realtime"},
 	}
 	if _, err := ensureWorkspace(context.Background(), control, cfg); err != nil {
 		t.Fatalf("ensureWorkspace() error = %v", err)
@@ -582,7 +548,7 @@ func TestEnsureWorkspaceAlwaysRecreatesWorkspace(t *testing.T) {
 	cfg := config{
 		Workspace: "workspace-a",
 		Agent:     "doubao-realtime",
-		Workflow:  workflowConfig{Name: "workflow-a", RealtimeModel: "realtime"},
+		Workflow:  workflowConfig{Name: "workflow-a", Model: "realtime"},
 	}
 	ensured, err := ensureWorkspace(context.Background(), control, cfg)
 	if err != nil {
@@ -607,7 +573,7 @@ func TestEnsureWorkspaceReturnsGetWorkflowErrors(t *testing.T) {
 	_, err := ensureWorkspace(context.Background(), control, config{
 		Workspace: "workspace-a",
 		Agent:     "doubao-realtime",
-		Workflow:  workflowConfig{Name: "workflow-a", RealtimeModel: "realtime"},
+		Workflow:  workflowConfig{Name: "workflow-a", Model: "realtime"},
 	})
 	if err == nil || !strings.Contains(err.Error(), "get workflow") {
 		t.Fatalf("ensureWorkspace() error = %v", err)
@@ -619,7 +585,7 @@ func TestEnsureWorkspaceReturnsSetupHintWhenWorkflowMissing(t *testing.T) {
 	_, err := ensureWorkspace(context.Background(), control, config{
 		Workspace: "workspace-a",
 		Agent:     "doubao-realtime",
-		Workflow:  workflowConfig{Name: "workflow-a", RealtimeModel: "realtime"},
+		Workflow:  workflowConfig{Name: "workflow-a", Model: "realtime"},
 	})
 	if err == nil || !strings.Contains(err.Error(), "reset_data.sh") {
 		t.Fatalf("ensureWorkspace() error = %v", err)
@@ -631,7 +597,7 @@ func TestEnsureWorkspaceReturnsStopErrors(t *testing.T) {
 	_, err := ensureWorkspace(context.Background(), control, config{
 		Workspace: "workspace-a",
 		Agent:     "doubao-realtime",
-		Workflow:  workflowConfig{Name: "workflow-a", RealtimeModel: "realtime"},
+		Workflow:  workflowConfig{Name: "workflow-a", Model: "realtime"},
 	})
 	if err == nil || !strings.Contains(err.Error(), "stop active workspace") {
 		t.Fatalf("ensureWorkspace() error = %v", err)
@@ -643,7 +609,7 @@ func TestEnsureWorkspaceReturnsDeleteErrors(t *testing.T) {
 	_, err := ensureWorkspace(context.Background(), control, config{
 		Workspace: "workspace-a",
 		Agent:     "doubao-realtime",
-		Workflow:  workflowConfig{Name: "workflow-a", RealtimeModel: "realtime"},
+		Workflow:  workflowConfig{Name: "workflow-a", Model: "realtime"},
 	})
 	if err == nil || !strings.Contains(err.Error(), "delete workspace") {
 		t.Fatalf("ensureWorkspace() error = %v", err)
@@ -655,7 +621,7 @@ func TestEnsureWorkspaceReturnsCreateErrors(t *testing.T) {
 	_, err := ensureWorkspace(context.Background(), control, config{
 		Workspace: "workspace-a",
 		Agent:     "doubao-realtime",
-		Workflow:  workflowConfig{Name: "workflow-a", RealtimeModel: "realtime"},
+		Workflow:  workflowConfig{Name: "workflow-a", Model: "realtime"},
 	})
 	if err == nil || !strings.Contains(err.Error(), "create workspace") {
 		t.Fatalf("ensureWorkspace() error = %v", err)

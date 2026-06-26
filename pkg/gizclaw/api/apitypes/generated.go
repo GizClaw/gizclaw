@@ -6,7 +6,6 @@ package apitypes
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"time"
 
 	"github.com/oapi-codegen/runtime"
@@ -363,6 +362,45 @@ const (
 func (e DashScopeTenantResourceKind) Valid() bool {
 	switch e {
 	case DashScopeTenantResourceKindDashScopeTenant:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DoubaoRealtimeAudioFormatType.
+const (
+	DoubaoRealtimeAudioFormatTypeOggOpus    DoubaoRealtimeAudioFormatType = "ogg_opus"
+	DoubaoRealtimeAudioFormatTypePcm        DoubaoRealtimeAudioFormatType = "pcm"
+	DoubaoRealtimeAudioFormatTypePcmS16le   DoubaoRealtimeAudioFormatType = "pcm_s16le"
+	DoubaoRealtimeAudioFormatTypeSpeechOpus DoubaoRealtimeAudioFormatType = "speech_opus"
+)
+
+// Valid indicates whether the value is a known member of the DoubaoRealtimeAudioFormatType enum.
+func (e DoubaoRealtimeAudioFormatType) Valid() bool {
+	switch e {
+	case DoubaoRealtimeAudioFormatTypeOggOpus:
+		return true
+	case DoubaoRealtimeAudioFormatTypePcm:
+		return true
+	case DoubaoRealtimeAudioFormatTypePcmS16le:
+		return true
+	case DoubaoRealtimeAudioFormatTypeSpeechOpus:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DoubaoRealtimeFunctionToolType.
+const (
+	DoubaoRealtimeFunctionToolTypeFunction DoubaoRealtimeFunctionToolType = "function"
+)
+
+// Valid indicates whether the value is a known member of the DoubaoRealtimeFunctionToolType enum.
+func (e DoubaoRealtimeFunctionToolType) Valid() bool {
+	switch e {
+	case DoubaoRealtimeFunctionToolTypeFunction:
 		return true
 	default:
 		return false
@@ -1602,70 +1640,104 @@ type DeviceInfo struct {
 	Sn       *string       `json:"sn,omitempty"`
 }
 
-// DoubaoRealtimeExternalVoiceParameters defines model for DoubaoRealtimeExternalVoiceParameters.
-type DoubaoRealtimeExternalVoiceParameters struct {
-	// TtsVoice GizClaw voice resource name used by an external TTS path.
-	TtsVoice string `json:"tts_voice"`
+// DoubaoRealtimeAudio defines model for DoubaoRealtimeAudio.
+type DoubaoRealtimeAudio struct {
+	Input  DoubaoRealtimeAudioInput  `json:"input"`
+	Output DoubaoRealtimeAudioOutput `json:"output"`
 }
 
-// DoubaoRealtimeInternalSpeakerParameters defines model for DoubaoRealtimeInternalSpeakerParameters.
-type DoubaoRealtimeInternalSpeakerParameters struct {
-	// RealtimeSpeakerId Doubao realtime built-in speaker id.
-	RealtimeSpeakerId string `json:"realtime_speaker_id"`
+// DoubaoRealtimeAudioFormat defines model for DoubaoRealtimeAudioFormat.
+type DoubaoRealtimeAudioFormat struct {
+	Rate int                           `json:"rate"`
+	Type DoubaoRealtimeAudioFormatType `json:"type"`
 }
 
-// DoubaoRealtimeMusicParameters defines model for DoubaoRealtimeMusicParameters.
-type DoubaoRealtimeMusicParameters struct {
-	Enabled *bool `json:"enabled,omitempty"`
+// DoubaoRealtimeAudioFormatType defines model for DoubaoRealtimeAudioFormat.Type.
+type DoubaoRealtimeAudioFormatType string
+
+// DoubaoRealtimeAudioInput defines model for DoubaoRealtimeAudioInput.
+type DoubaoRealtimeAudioInput struct {
+	Format DoubaoRealtimeAudioFormat `json:"format"`
 }
 
-// DoubaoRealtimeSearchParameters defines model for DoubaoRealtimeSearchParameters.
-type DoubaoRealtimeSearchParameters struct {
-	BotId           *string `json:"bot_id,omitempty"`
-	Enabled         *bool   `json:"enabled,omitempty"`
-	NoResultMessage *string `json:"no_result_message,omitempty"`
-	ResultCount     *int    `json:"result_count,omitempty"`
-	Type            *string `json:"type,omitempty"`
+// DoubaoRealtimeAudioOutput defines model for DoubaoRealtimeAudioOutput.
+type DoubaoRealtimeAudioOutput struct {
+	Format   DoubaoRealtimeAudioFormat `json:"format"`
+	Loudness *int                      `json:"loudness,omitempty"`
+	Speed    *int                      `json:"speed,omitempty"`
+	Voice    *string                   `json:"voice,omitempty"`
 }
 
-// DoubaoRealtimeSessionParameters defines model for DoubaoRealtimeSessionParameters.
-type DoubaoRealtimeSessionParameters struct {
-	BotName           *string `json:"bot_name,omitempty"`
-	CharacterManifest *string `json:"character_manifest,omitempty"`
-	ResourceId        *string `json:"resource_id,omitempty"`
-	SpeakingStyle     *string `json:"speaking_style,omitempty"`
-	SystemRole        *string `json:"system_role,omitempty"`
-	UpstreamModel     *string `json:"upstream_model,omitempty"`
-	VadWindowMs       *int    `json:"vad_window_ms,omitempty"`
+// DoubaoRealtimeDialogExtension defines model for DoubaoRealtimeDialogExtension.
+type DoubaoRealtimeDialogExtension struct {
+	Extra *DoubaoRealtimeDialogExtra `json:"extra,omitempty"`
 }
 
-// DoubaoRealtimeVoiceParameters defines model for DoubaoRealtimeVoiceParameters.
-type DoubaoRealtimeVoiceParameters struct {
-	union json.RawMessage
+// DoubaoRealtimeDialogExtra defines model for DoubaoRealtimeDialogExtra.
+type DoubaoRealtimeDialogExtra struct {
+	AuditResponse      *string `json:"audit_response,omitempty"`
+	EnableLoudnessNorm *bool   `json:"enable_loudness_norm,omitempty"`
+	EnableMusic        *bool   `json:"enable_music,omitempty"`
+}
+
+// DoubaoRealtimeExtension defines model for DoubaoRealtimeExtension.
+type DoubaoRealtimeExtension struct {
+	Dialog *DoubaoRealtimeDialogExtension `json:"dialog,omitempty"`
+}
+
+// DoubaoRealtimeFunctionTool defines model for DoubaoRealtimeFunctionTool.
+type DoubaoRealtimeFunctionTool struct {
+	Description *string                        `json:"description,omitempty"`
+	Name        string                         `json:"name"`
+	Parameters  *DoubaoRealtimeJSONSchema      `json:"parameters,omitempty"`
+	Strict      *bool                          `json:"strict,omitempty"`
+	Type        DoubaoRealtimeFunctionToolType `json:"type"`
+}
+
+// DoubaoRealtimeFunctionToolType defines model for DoubaoRealtimeFunctionTool.Type.
+type DoubaoRealtimeFunctionToolType string
+
+// DoubaoRealtimeJSONSchema defines model for DoubaoRealtimeJSONSchema.
+type DoubaoRealtimeJSONSchema struct {
+	AdditionalProperties *bool                                `json:"additionalProperties,omitempty"`
+	AnyOf                *[]DoubaoRealtimeJSONSchema          `json:"anyOf,omitempty"`
+	Description          *string                              `json:"description,omitempty"`
+	Enum                 *[]string                            `json:"enum,omitempty"`
+	Items                *DoubaoRealtimeJSONSchema            `json:"items,omitempty"`
+	MaxLength            *int                                 `json:"maxLength,omitempty"`
+	Maximum              *float32                             `json:"maximum,omitempty"`
+	MinLength            *int                                 `json:"minLength,omitempty"`
+	Minimum              *float32                             `json:"minimum,omitempty"`
+	Properties           *map[string]DoubaoRealtimeJSONSchema `json:"properties,omitempty"`
+	Required             *[]string                            `json:"required,omitempty"`
+	Type                 *string                              `json:"type,omitempty"`
 }
 
 // DoubaoRealtimeWorkflowSpec defines model for DoubaoRealtimeWorkflowSpec.
 type DoubaoRealtimeWorkflowSpec struct {
-	Model                *string                 `json:"model,omitempty"`
-	Realtime             *map[string]interface{} `json:"realtime,omitempty"`
-	RealtimeConfig       *map[string]interface{} `json:"realtime_config,omitempty"`
-	RealtimeModel        *string                 `json:"realtime_model,omitempty"`
-	AdditionalProperties map[string]interface{}  `json:"-"`
+	Audio        *DoubaoRealtimeAudio     `json:"audio,omitempty"`
+	Extension    *DoubaoRealtimeExtension `json:"extension,omitempty"`
+	Instructions *string                  `json:"instructions,omitempty"`
+
+	// Model GizClaw Model resource name. The upstream Doubao model version is configured on Model provider_data.upstream_model.
+	Model string                        `json:"model"`
+	Tools *[]DoubaoRealtimeFunctionTool `json:"tools,omitempty"`
 }
 
 // DoubaoRealtimeWorkspaceParameters defines model for DoubaoRealtimeWorkspaceParameters.
 type DoubaoRealtimeWorkspaceParameters struct {
 	AgentType DoubaoRealtimeWorkspaceParametersAgentType `json:"agent_type"`
+	Audio     *DoubaoRealtimeAudio                       `json:"audio,omitempty"`
 
 	// E2e Marks seed resources used by the local e2e harness.
-	E2e           *bool                            `json:"e2e,omitempty"`
-	Input         *WorkspaceInputMode              `json:"input,omitempty"`
-	Music         *DoubaoRealtimeMusicParameters   `json:"music,omitempty"`
-	RealtimeModel *string                          `json:"realtime_model,omitempty"`
-	Search        *DoubaoRealtimeSearchParameters  `json:"search,omitempty"`
-	Session       *DoubaoRealtimeSessionParameters `json:"session,omitempty"`
-	Temperature   *float32                         `json:"temperature,omitempty"`
-	Voice         *DoubaoRealtimeVoiceParameters   `json:"voice,omitempty"`
+	E2e          *bool                    `json:"e2e,omitempty"`
+	Extension    *DoubaoRealtimeExtension `json:"extension,omitempty"`
+	Input        *WorkspaceInputMode      `json:"input,omitempty"`
+	Instructions *string                  `json:"instructions,omitempty"`
+
+	// Model GizClaw Model resource name. Defaults to Workflow.spec.doubao_realtime.model.
+	Model *string                       `json:"model,omitempty"`
+	Tools *[]DoubaoRealtimeFunctionTool `json:"tools,omitempty"`
 }
 
 // DoubaoRealtimeWorkspaceParametersAgentType defines model for DoubaoRealtimeWorkspaceParameters.AgentType.
@@ -2705,119 +2777,6 @@ type WorkspaceSpec struct {
 	WorkflowName string               `json:"workflow_name"`
 }
 
-// Getter for additional properties for DoubaoRealtimeWorkflowSpec. Returns the specified
-// element and whether it was found
-func (a DoubaoRealtimeWorkflowSpec) Get(fieldName string) (value interface{}, found bool) {
-	if a.AdditionalProperties != nil {
-		value, found = a.AdditionalProperties[fieldName]
-	}
-	return
-}
-
-// Setter for additional properties for DoubaoRealtimeWorkflowSpec
-func (a *DoubaoRealtimeWorkflowSpec) Set(fieldName string, value interface{}) {
-	if a.AdditionalProperties == nil {
-		a.AdditionalProperties = make(map[string]interface{})
-	}
-	a.AdditionalProperties[fieldName] = value
-}
-
-// Override default JSON handling for DoubaoRealtimeWorkflowSpec to handle AdditionalProperties
-func (a *DoubaoRealtimeWorkflowSpec) UnmarshalJSON(b []byte) error {
-	object := make(map[string]json.RawMessage)
-	err := json.Unmarshal(b, &object)
-	if err != nil {
-		return err
-	}
-
-	if raw, found := object["model"]; found {
-		err = json.Unmarshal(raw, &a.Model)
-		if err != nil {
-			return fmt.Errorf("error reading 'model': %w", err)
-		}
-		delete(object, "model")
-	}
-
-	if raw, found := object["realtime"]; found {
-		err = json.Unmarshal(raw, &a.Realtime)
-		if err != nil {
-			return fmt.Errorf("error reading 'realtime': %w", err)
-		}
-		delete(object, "realtime")
-	}
-
-	if raw, found := object["realtime_config"]; found {
-		err = json.Unmarshal(raw, &a.RealtimeConfig)
-		if err != nil {
-			return fmt.Errorf("error reading 'realtime_config': %w", err)
-		}
-		delete(object, "realtime_config")
-	}
-
-	if raw, found := object["realtime_model"]; found {
-		err = json.Unmarshal(raw, &a.RealtimeModel)
-		if err != nil {
-			return fmt.Errorf("error reading 'realtime_model': %w", err)
-		}
-		delete(object, "realtime_model")
-	}
-
-	if len(object) != 0 {
-		a.AdditionalProperties = make(map[string]interface{})
-		for fieldName, fieldBuf := range object {
-			var fieldVal interface{}
-			err := json.Unmarshal(fieldBuf, &fieldVal)
-			if err != nil {
-				return fmt.Errorf("error unmarshaling field %s: %w", fieldName, err)
-			}
-			a.AdditionalProperties[fieldName] = fieldVal
-		}
-	}
-	return nil
-}
-
-// Override default JSON handling for DoubaoRealtimeWorkflowSpec to handle AdditionalProperties
-func (a DoubaoRealtimeWorkflowSpec) MarshalJSON() ([]byte, error) {
-	var err error
-	object := make(map[string]json.RawMessage)
-
-	if a.Model != nil {
-		object["model"], err = json.Marshal(a.Model)
-		if err != nil {
-			return nil, fmt.Errorf("error marshaling 'model': %w", err)
-		}
-	}
-
-	if a.Realtime != nil {
-		object["realtime"], err = json.Marshal(a.Realtime)
-		if err != nil {
-			return nil, fmt.Errorf("error marshaling 'realtime': %w", err)
-		}
-	}
-
-	if a.RealtimeConfig != nil {
-		object["realtime_config"], err = json.Marshal(a.RealtimeConfig)
-		if err != nil {
-			return nil, fmt.Errorf("error marshaling 'realtime_config': %w", err)
-		}
-	}
-
-	if a.RealtimeModel != nil {
-		object["realtime_model"], err = json.Marshal(a.RealtimeModel)
-		if err != nil {
-			return nil, fmt.Errorf("error marshaling 'realtime_model': %w", err)
-		}
-	}
-
-	for fieldName, field := range a.AdditionalProperties {
-		object[fieldName], err = json.Marshal(field)
-		if err != nil {
-			return nil, fmt.Errorf("error marshaling '%s': %w", fieldName, err)
-		}
-	}
-	return json.Marshal(object)
-}
-
 // AsASTTranslateInternalSpeakerParameters returns the union data inside the ASTTranslateVoiceParameters as a ASTTranslateInternalSpeakerParameters
 func (t ASTTranslateVoiceParameters) AsASTTranslateInternalSpeakerParameters() (ASTTranslateInternalSpeakerParameters, error) {
 	var body ASTTranslateInternalSpeakerParameters
@@ -3016,68 +2975,6 @@ func (t CredentialBody) MarshalJSON() ([]byte, error) {
 }
 
 func (t *CredentialBody) UnmarshalJSON(b []byte) error {
-	err := t.union.UnmarshalJSON(b)
-	return err
-}
-
-// AsDoubaoRealtimeInternalSpeakerParameters returns the union data inside the DoubaoRealtimeVoiceParameters as a DoubaoRealtimeInternalSpeakerParameters
-func (t DoubaoRealtimeVoiceParameters) AsDoubaoRealtimeInternalSpeakerParameters() (DoubaoRealtimeInternalSpeakerParameters, error) {
-	var body DoubaoRealtimeInternalSpeakerParameters
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromDoubaoRealtimeInternalSpeakerParameters overwrites any union data inside the DoubaoRealtimeVoiceParameters as the provided DoubaoRealtimeInternalSpeakerParameters
-func (t *DoubaoRealtimeVoiceParameters) FromDoubaoRealtimeInternalSpeakerParameters(v DoubaoRealtimeInternalSpeakerParameters) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeDoubaoRealtimeInternalSpeakerParameters performs a merge with any union data inside the DoubaoRealtimeVoiceParameters, using the provided DoubaoRealtimeInternalSpeakerParameters
-func (t *DoubaoRealtimeVoiceParameters) MergeDoubaoRealtimeInternalSpeakerParameters(v DoubaoRealtimeInternalSpeakerParameters) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsDoubaoRealtimeExternalVoiceParameters returns the union data inside the DoubaoRealtimeVoiceParameters as a DoubaoRealtimeExternalVoiceParameters
-func (t DoubaoRealtimeVoiceParameters) AsDoubaoRealtimeExternalVoiceParameters() (DoubaoRealtimeExternalVoiceParameters, error) {
-	var body DoubaoRealtimeExternalVoiceParameters
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromDoubaoRealtimeExternalVoiceParameters overwrites any union data inside the DoubaoRealtimeVoiceParameters as the provided DoubaoRealtimeExternalVoiceParameters
-func (t *DoubaoRealtimeVoiceParameters) FromDoubaoRealtimeExternalVoiceParameters(v DoubaoRealtimeExternalVoiceParameters) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeDoubaoRealtimeExternalVoiceParameters performs a merge with any union data inside the DoubaoRealtimeVoiceParameters, using the provided DoubaoRealtimeExternalVoiceParameters
-func (t *DoubaoRealtimeVoiceParameters) MergeDoubaoRealtimeExternalVoiceParameters(v DoubaoRealtimeExternalVoiceParameters) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-func (t DoubaoRealtimeVoiceParameters) MarshalJSON() ([]byte, error) {
-	b, err := t.union.MarshalJSON()
-	return b, err
-}
-
-func (t *DoubaoRealtimeVoiceParameters) UnmarshalJSON(b []byte) error {
 	err := t.union.UnmarshalJSON(b)
 	return err
 }

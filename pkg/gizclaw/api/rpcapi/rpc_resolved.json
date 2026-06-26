@@ -603,56 +603,186 @@
         },
         "type": "object"
       },
-      "DoubaoRealtimeExternalVoiceParameters": {
+      "DoubaoRealtimeAudio": {
         "additionalProperties": false,
         "properties": {
-          "tts_voice": {
-            "description": "GizClaw voice resource name used by an external TTS path.",
-            "type": "string"
+          "input": {
+            "$ref": "#/components/schemas/DoubaoRealtimeAudioInput"
+          },
+          "output": {
+            "$ref": "#/components/schemas/DoubaoRealtimeAudioOutput"
           }
         },
         "required": [
-          "tts_voice"
+          "input",
+          "output"
         ],
         "type": "object"
       },
-      "DoubaoRealtimeInternalSpeakerParameters": {
+      "DoubaoRealtimeAudioFormat": {
         "additionalProperties": false,
         "properties": {
-          "realtime_speaker_id": {
-            "description": "Doubao realtime built-in speaker id.",
-            "type": "string"
-          }
-        },
-        "required": [
-          "realtime_speaker_id"
-        ],
-        "type": "object"
-      },
-      "DoubaoRealtimeMusicParameters": {
-        "additionalProperties": false,
-        "properties": {
-          "enabled": {
-            "type": "boolean"
-          }
-        },
-        "type": "object"
-      },
-      "DoubaoRealtimeSearchParameters": {
-        "additionalProperties": false,
-        "properties": {
-          "bot_id": {
-            "type": "string"
-          },
-          "enabled": {
-            "type": "boolean"
-          },
-          "no_result_message": {
-            "type": "string"
-          },
-          "result_count": {
-            "minimum": 0,
+          "rate": {
+            "minimum": 1,
             "type": "integer"
+          },
+          "type": {
+            "enum": [
+              "pcm",
+              "pcm_s16le",
+              "speech_opus",
+              "ogg_opus"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "rate"
+        ],
+        "type": "object"
+      },
+      "DoubaoRealtimeAudioInput": {
+        "additionalProperties": false,
+        "properties": {
+          "format": {
+            "$ref": "#/components/schemas/DoubaoRealtimeAudioFormat"
+          }
+        },
+        "required": [
+          "format"
+        ],
+        "type": "object"
+      },
+      "DoubaoRealtimeAudioOutput": {
+        "additionalProperties": false,
+        "properties": {
+          "format": {
+            "$ref": "#/components/schemas/DoubaoRealtimeAudioFormat"
+          },
+          "loudness": {
+            "type": "integer"
+          },
+          "speed": {
+            "type": "integer"
+          },
+          "voice": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "format"
+        ],
+        "type": "object"
+      },
+      "DoubaoRealtimeDialogExtension": {
+        "additionalProperties": false,
+        "properties": {
+          "extra": {
+            "$ref": "#/components/schemas/DoubaoRealtimeDialogExtra"
+          }
+        },
+        "type": "object"
+      },
+      "DoubaoRealtimeDialogExtra": {
+        "additionalProperties": false,
+        "properties": {
+          "audit_response": {
+            "type": "string"
+          },
+          "enable_loudness_norm": {
+            "type": "boolean"
+          },
+          "enable_music": {
+            "type": "boolean"
+          }
+        },
+        "type": "object"
+      },
+      "DoubaoRealtimeExtension": {
+        "additionalProperties": false,
+        "properties": {
+          "dialog": {
+            "$ref": "#/components/schemas/DoubaoRealtimeDialogExtension"
+          }
+        },
+        "type": "object"
+      },
+      "DoubaoRealtimeFunctionTool": {
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "parameters": {
+            "$ref": "#/components/schemas/DoubaoRealtimeJSONSchema"
+          },
+          "strict": {
+            "type": "boolean"
+          },
+          "type": {
+            "enum": [
+              "function"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "name"
+        ],
+        "type": "object"
+      },
+      "DoubaoRealtimeJSONSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "additionalProperties": {
+            "type": "boolean"
+          },
+          "anyOf": {
+            "items": {
+              "$ref": "#/components/schemas/DoubaoRealtimeJSONSchema"
+            },
+            "type": "array"
+          },
+          "description": {
+            "type": "string"
+          },
+          "enum": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "items": {
+            "$ref": "#/components/schemas/DoubaoRealtimeJSONSchema"
+          },
+          "maxLength": {
+            "type": "integer"
+          },
+          "maximum": {
+            "type": "number"
+          },
+          "minLength": {
+            "type": "integer"
+          },
+          "minimum": {
+            "type": "number"
+          },
+          "properties": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/DoubaoRealtimeJSONSchema"
+            },
+            "type": "object"
+          },
+          "required": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
           },
           "type": {
             "type": "string"
@@ -660,80 +790,55 @@
         },
         "type": "object"
       },
-      "DoubaoRealtimeSessionParameters": {
+      "DoubaoRealtimeWorkflowSpec": {
         "additionalProperties": false,
         "properties": {
-          "bot_name": {
+          "audio": {
+            "$ref": "#/components/schemas/DoubaoRealtimeAudio"
+          },
+          "extension": {
+            "$ref": "#/components/schemas/DoubaoRealtimeExtension"
+          },
+          "instructions": {
             "type": "string"
           },
-          "character_manifest": {
-            "type": "string"
-          },
-          "resource_id": {
-            "type": "string"
-          },
-          "speaking_style": {
-            "type": "string"
-          },
-          "system_role": {
-            "type": "string"
-          },
-          "upstream_model": {
-            "type": "string"
-          },
-          "vad_window_ms": {
-            "minimum": 0,
-            "type": "integer"
-          }
-        },
-        "type": "object"
-      },
-      "DoubaoRealtimeVoiceParameters": {
-        "oneOf": [
-          {
-            "$ref": "#/components/schemas/DoubaoRealtimeInternalSpeakerParameters"
-          },
-          {
-            "$ref": "#/components/schemas/DoubaoRealtimeExternalVoiceParameters"
-          }
-        ]
-      },
-      "DoubaoRealtimeWorkflowSpec": {
-        "additionalProperties": true,
-        "properties": {
           "model": {
+            "description": "GizClaw Model resource name. The upstream Doubao model version is configured on Model provider_data.upstream_model.",
             "type": "string"
           },
-          "realtime": {
-            "additionalProperties": true,
-            "type": "object"
-          },
-          "realtime_config": {
-            "additionalProperties": true,
-            "type": "object"
-          },
-          "realtime_model": {
-            "type": "string"
+          "tools": {
+            "items": {
+              "$ref": "#/components/schemas/DoubaoRealtimeFunctionTool"
+            },
+            "type": "array"
           }
         },
+        "required": [
+          "model"
+        ],
         "type": "object"
       },
       "DoubaoRealtimeWorkspaceParameters": {
         "additionalProperties": false,
         "example": {
           "agent_type": "doubao-realtime",
+          "audio": {
+            "input": {
+              "format": {
+                "rate": 16000,
+                "type": "speech_opus"
+              }
+            },
+            "output": {
+              "format": {
+                "rate": 24000,
+                "type": "ogg_opus"
+              },
+              "voice": "zh_female_vv_jupiter_bigtts"
+            }
+          },
           "input": "push-to-talk",
-          "music": {
-            "enabled": true
-          },
-          "realtime_model": "e2e-realtime",
-          "search": {
-            "enabled": true,
-            "type": "web"
-          },
-          "voice": {
-            "realtime_speaker_id": "zh_female_vv_jupiter_bigtts"
-          }
+          "model": "e2e-realtime"
         },
         "properties": {
           "agent_type": {
@@ -742,30 +847,31 @@
             ],
             "type": "string"
           },
+          "audio": {
+            "$ref": "#/components/schemas/DoubaoRealtimeAudio"
+          },
           "e2e": {
             "description": "Marks seed resources used by the local e2e harness.",
             "type": "boolean"
           },
+          "extension": {
+            "$ref": "#/components/schemas/DoubaoRealtimeExtension"
+          },
           "input": {
             "$ref": "#/components/schemas/WorkspaceInputMode"
           },
-          "music": {
-            "$ref": "#/components/schemas/DoubaoRealtimeMusicParameters"
-          },
-          "realtime_model": {
+          "instructions": {
             "type": "string"
           },
-          "search": {
-            "$ref": "#/components/schemas/DoubaoRealtimeSearchParameters"
+          "model": {
+            "description": "GizClaw Model resource name. Defaults to Workflow.spec.doubao_realtime.model.",
+            "type": "string"
           },
-          "session": {
-            "$ref": "#/components/schemas/DoubaoRealtimeSessionParameters"
-          },
-          "temperature": {
-            "type": "number"
-          },
-          "voice": {
-            "$ref": "#/components/schemas/DoubaoRealtimeVoiceParameters"
+          "tools": {
+            "items": {
+              "$ref": "#/components/schemas/DoubaoRealtimeFunctionTool"
+            },
+            "type": "array"
           }
         },
         "required": [

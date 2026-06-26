@@ -36,7 +36,7 @@ func TestLoadConfigJSONAndDefaultClientConfig(t *testing.T) {
   "agent": "doubao-realtime",
   "workflow": {
     "name": "doubao-realtime-workflow",
-    "realtime_model": "setup-realtime"
+    "model": "setup-realtime"
   },
   "models": {
     "llm": "setup-chat",
@@ -64,7 +64,7 @@ func TestLoadConfigJSONAndDefaultClientConfig(t *testing.T) {
 	if cfg.Workspace != "doubao-realtime-workflow" || cfg.Agent != "doubao-realtime" {
 		t.Fatalf("workspace/agent = %q/%q", cfg.Workspace, cfg.Agent)
 	}
-	if cfg.Workflow.Name != "doubao-realtime-workflow" || cfg.Workflow.RealtimeModel != "setup-realtime" {
+	if cfg.Workflow.Name != "doubao-realtime-workflow" || cfg.Workflow.Model != "setup-realtime" {
 		t.Fatalf("workflow = %+v", cfg.Workflow)
 	}
 	if cfg.Models != (modelConfig{LLM: "setup-chat", TTS: "setup-tts", ASR: "setup-asr", Realtime: "setup-realtime"}) {
@@ -251,7 +251,7 @@ func TestConfigValidationErrors(t *testing.T) {
 	if cfg.timeout != time.Second {
 		t.Fatalf("timeout = %s", cfg.timeout)
 	}
-	if cfg.Workflow.Name != "demo" || cfg.Workflow.RealtimeModel != "realtime" {
+	if cfg.Workflow.Name != "demo" || cfg.Workflow.Model != "realtime" {
 		t.Fatalf("workflow defaults = %+v", cfg.Workflow)
 	}
 }

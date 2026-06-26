@@ -41,9 +41,6 @@ func registerDoubaoRealtime(cfg ConfigFile) ([]string, error) {
 		if model, ok := cfg.DefaultParams["model"].(string); ok {
 			defaultOpts = append(defaultOpts, transformers.WithDoubaoRealtimeModel(model))
 		}
-		if vadWindow, ok := cfg.DefaultParams["vad_window_ms"].(float64); ok {
-			defaultOpts = append(defaultOpts, transformers.WithDoubaoRealtimeVADWindow(int(vadWindow)))
-		}
 	}
 
 	var names []string

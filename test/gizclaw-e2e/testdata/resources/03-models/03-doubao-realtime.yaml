@@ -9,6 +9,9 @@ spec:
   provider:
     kind: volc-tenant
     name: volc-main
-  name: Doubao Realtime Dialog
-  description: Doubao realtime dialog model
-  provider_data: {}
+  name: Doubao Realtime Duplex Dialog
+  description: Doubao realtime duplex dialog model
+  provider_data:
+    api_mode: realtime
+    resource_id: volc.speech.dialog
+    upstream_model: "1.2.6.0"

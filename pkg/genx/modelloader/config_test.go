@@ -416,10 +416,9 @@ func TestRegisterDoubaoRealtimeIgnoresOutputAudioDefaults(t *testing.T) {
 		AppID:  "app-id",
 		APIKey: "api-key",
 		DefaultParams: map[string]any{
-			"format":        "pcm",
-			"sample_rate":   float64(8000),
-			"model":         "SC",
-			"vad_window_ms": float64(350),
+			"format":      "pcm",
+			"sample_rate": float64(8000),
+			"model":       "SC",
 		},
 		Models: []Entry{{Name: "realtime/test", Voice: "voice/test"}},
 	})
@@ -431,20 +430,17 @@ func TestRegisterDoubaoRealtimeIgnoresOutputAudioDefaults(t *testing.T) {
 	}
 
 	registered := mustRegisteredDefaultTransformer(t, "realtime/test")
-	if got := stringField(t, registered, "format"); got != "ogg_opus" {
-		t.Fatalf("format = %q, want fixed default ogg_opus", got)
+	if got := stringField(t, registered, "outputFormat"); got != "ogg_opus" {
+		t.Fatalf("outputFormat = %q, want fixed default ogg_opus", got)
 	}
-	if got := intField(t, registered, "sampleRate"); got != 24000 {
-		t.Fatalf("sampleRate = %d, want fixed default 24000", got)
+	if got := intField(t, registered, "outputSampleRate"); got != 24000 {
+		t.Fatalf("outputSampleRate = %d, want fixed default 24000", got)
 	}
 	if got := stringField(t, registered, "model"); got != "SC" {
 		t.Fatalf("model = %q, want configured model", got)
 	}
-	if got := intField(t, registered, "vadWindowMs"); got != 350 {
-		t.Fatalf("vadWindowMs = %d, want configured VAD window", got)
-	}
-	if got := stringField(t, registered, "speaker"); got != "voice/test" {
-		t.Fatalf("speaker = %q, want configured voice", got)
+	if got := stringField(t, registered, "outputVoice"); got != "voice/test" {
+		t.Fatalf("outputVoice = %q, want configured voice", got)
 	}
 
 	_, err = registerDoubaoRealtime(ConfigFile{
