@@ -4,6 +4,7 @@ import (
 	"archive/tar"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -447,7 +448,13 @@ func openArtifactUpload(cmd *cobra.Command, file, dir string) (io.Reader, func()
 	if err != nil {
 		return nil, func() error { return nil }, err
 	}
-	return f, f.Close, nil
+	return f, func() error {
+		err := f.Close()
+		if errors.Is(err, os.ErrClosed) {
+			return nil
+		}
+		return err
+	}, nil
 }
 
 func openUploadDir(dir string) (io.Reader, func() error, error) {
