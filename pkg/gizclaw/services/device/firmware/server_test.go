@@ -38,16 +38,16 @@ func TestServerCRUDReleaseRollback(t *testing.T) {
 		t.Fatalf("ReleaseFirmware error = %v", err)
 	}
 	releasedItem := apitypes.Firmware(released.(adminservice.ReleaseFirmware200JSONResponse))
-	if got := slotVersion(releasedItem.Slots.Develop); got != "beta-1" {
+	if got := slotDescription(releasedItem.Slots.Develop); got != "beta-1" {
 		t.Fatalf("released develop = %q", got)
 	}
-	if got := slotVersion(releasedItem.Slots.Beta); got != "stable-1" {
+	if got := slotDescription(releasedItem.Slots.Beta); got != "stable-1" {
 		t.Fatalf("released beta = %q", got)
 	}
-	if got := slotVersion(releasedItem.Slots.Stable); got != "pending-1" {
+	if got := slotDescription(releasedItem.Slots.Stable); got != "pending-1" {
 		t.Fatalf("released stable = %q", got)
 	}
-	if slotVersion(releasedItem.Slots.Pending) != "" {
+	if slotDescription(releasedItem.Slots.Pending) != "" {
 		t.Fatalf("released pending should be empty: %+v", releasedItem.Slots.Pending)
 	}
 
@@ -56,10 +56,10 @@ func TestServerCRUDReleaseRollback(t *testing.T) {
 		t.Fatalf("RollbackFirmware error = %v", err)
 	}
 	rolledBackItem := apitypes.Firmware(rolledBack.(adminservice.RollbackFirmware200JSONResponse))
-	if got := slotVersion(rolledBackItem.Slots.Stable); got != "stable-1" {
+	if got := slotDescription(rolledBackItem.Slots.Stable); got != "stable-1" {
 		t.Fatalf("rolled back stable = %q", got)
 	}
-	if got := slotVersion(rolledBackItem.Slots.Pending); got != "pending-1" {
+	if got := slotDescription(rolledBackItem.Slots.Pending); got != "pending-1" {
 		t.Fatalf("rolled back pending = %q", got)
 	}
 
@@ -135,7 +135,7 @@ func TestServerPutGetDeleteFirmware(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetFirmware error = %v", err)
 	}
-	if item := apitypes.Firmware(got.(adminservice.GetFirmware200JSONResponse)); slotVersion(item.Slots.Stable) != "1.1.0" {
+	if item := apitypes.Firmware(got.(adminservice.GetFirmware200JSONResponse)); slotDescription(item.Slots.Stable) != "1.1.0" {
 		t.Fatalf("GetFirmware stable = %+v", item.Slots.Stable)
 	}
 
@@ -500,14 +500,14 @@ func firmwareSlot(version string) apitypes.FirmwareSlot {
 	if version == "" {
 		return apitypes.FirmwareSlot{}
 	}
-	return apitypes.FirmwareSlot{Version: &version}
+	return apitypes.FirmwareSlot{Description: &version}
 }
 
-func slotVersion(slot apitypes.FirmwareSlot) string {
-	if slot.Version == nil {
+func slotDescription(slot apitypes.FirmwareSlot) string {
+	if slot.Description == nil {
 		return ""
 	}
-	return *slot.Version
+	return *slot.Description
 }
 
 func ptr[T any](value T) *T {

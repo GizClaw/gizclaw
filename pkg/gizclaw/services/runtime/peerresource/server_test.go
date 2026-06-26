@@ -524,13 +524,13 @@ func TestServerBusinessDomainDoesNotUseResourceACL(t *testing.T) {
 func TestServerFirmwareRPCUsesFirmwareReadACL(t *testing.T) {
 	ctx := context.Background()
 	auth := newRuleAuthorizer()
-	version := "1.0.0"
+	description := "main stable firmware"
 	firmwareServer := &firmware.Server{Store: kv.NewMemory(nil), Assets: objectstore.Dir(t.TempDir()), Now: func() time.Time { return time.Unix(1, 0).UTC() }}
 	create := adminservice.FirmwareUpsert{
 		Name: "devkit",
 		Slots: apitypes.FirmwareSlots{
 			Stable: apitypes.FirmwareSlot{
-				Version: &version,
+				Description: &description,
 			},
 		},
 	}
@@ -542,7 +542,7 @@ func TestServerFirmwareRPCUsesFirmwareReadACL(t *testing.T) {
 	other := adminservice.FirmwareUpsert{
 		Name: "otherkit",
 		Slots: apitypes.FirmwareSlots{
-			Stable: apitypes.FirmwareSlot{Version: stringPtr("2.0.0")},
+			Stable: apitypes.FirmwareSlot{Description: stringPtr("other stable firmware")},
 		},
 	}
 	if resp, err := firmwareServer.CreateFirmware(ctx, adminservice.CreateFirmwareRequestObject{Body: &other}); err != nil {
@@ -588,7 +588,7 @@ func TestServerFirmwareRPCUsesFirmwareReadACL(t *testing.T) {
 		FirmwareId: "devkit",
 	}))
 	gotFirmware := mustResult(t, getResp.Result.AsFirmwareGetResponse)
-	if gotFirmware.Name != "devkit" || gotFirmware.Slots.Stable.Version == nil || *gotFirmware.Slots.Stable.Version != version {
+	if gotFirmware.Name != "devkit" || gotFirmware.Slots.Stable.Description == nil || *gotFirmware.Slots.Stable.Description != description {
 		t.Fatalf("firmware.get = %#v", gotFirmware)
 	}
 	if gotFirmware.Slots.Stable.Artifact == nil || gotFirmware.Slots.Stable.Artifact.Size == 0 {

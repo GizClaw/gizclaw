@@ -377,10 +377,6 @@ export type FirmwareArtifact = {
 };
 
 export type FirmwareSlot = {
-    /**
-     * Version carried by this slot.
-     */
-    version?: string;
     description?: string;
     artifact?: FirmwareArtifact;
 };

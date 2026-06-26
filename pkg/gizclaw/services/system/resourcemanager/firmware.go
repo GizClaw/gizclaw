@@ -119,7 +119,6 @@ func firmwareSpecSlots(slots apitypes.FirmwareSlots) apitypes.FirmwareSpecSlots 
 func firmwareSpecSlot(slot apitypes.FirmwareSlot) apitypes.FirmwareSpecSlot {
 	return apitypes.FirmwareSpecSlot{
 		Description: slot.Description,
-		Version:     slot.Version,
 	}
 }
 
@@ -135,7 +134,6 @@ func firmwareRuntimeSlots(slots apitypes.FirmwareSpecSlots) apitypes.FirmwareSlo
 func firmwareRuntimeSlot(slot apitypes.FirmwareSpecSlot) apitypes.FirmwareSlot {
 	return apitypes.FirmwareSlot{
 		Description: slot.Description,
-		Version:     slot.Version,
 	}
 }
 

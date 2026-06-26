@@ -11,11 +11,6 @@
       "FirmwareSlot": {
         "type": "object",
         "properties": {
-          "version": {
-            "type": "string",
-            "description": "Version carried by this slot.",
-            "example": "1.0.3"
-          },
           "description": {
             "type": "string",
             "example": "Devkit firmware 1.0.3"

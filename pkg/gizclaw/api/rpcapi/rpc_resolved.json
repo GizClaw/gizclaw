@@ -1362,11 +1362,6 @@
           "description": {
             "example": "Devkit firmware 1.0.3",
             "type": "string"
-          },
-          "version": {
-            "description": "Version carried by this slot.",
-            "example": "1.0.3",
-            "type": "string"
           }
         },
         "type": "object"

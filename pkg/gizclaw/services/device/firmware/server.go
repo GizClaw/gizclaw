@@ -338,12 +338,6 @@ func normalizeSlots(in apitypes.FirmwareSlots) (apitypes.FirmwareSlots, error) {
 
 func normalizeSlot(in apitypes.FirmwareSlot) (apitypes.FirmwareSlot, error) {
 	out := apitypes.FirmwareSlot{}
-	if in.Version != nil {
-		version := strings.TrimSpace(*in.Version)
-		if version != "" {
-			out.Version = &version
-		}
-	}
 	if in.Description != nil {
 		description := strings.TrimSpace(*in.Description)
 		if description != "" {
@@ -354,7 +348,7 @@ func normalizeSlot(in apitypes.FirmwareSlot) (apitypes.FirmwareSlot, error) {
 }
 
 func slotHasPayload(slot apitypes.FirmwareSlot) bool {
-	if slot.Version != nil && strings.TrimSpace(*slot.Version) != "" {
+	if slot.Description != nil && strings.TrimSpace(*slot.Description) != "" {
 		return true
 	}
 	if slot.Artifact != nil {

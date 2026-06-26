@@ -19,7 +19,7 @@ func TestFirmwareResourceApplyShowDelete(t *testing.T) {
 		Kind:       apitypes.FirmwareResourceKind(apitypes.ResourceKindFirmware),
 		Metadata:   apitypes.ResourceMetadata{Name: "devkit"},
 		Spec: apitypes.FirmwareSpec{
-			Slots: testFirmwareSpecSlots("1.0.0"),
+			Slots: testFirmwareSpecSlots("stable firmware"),
 		},
 	})
 	if err != nil {
@@ -42,7 +42,7 @@ func TestFirmwareResourceApplyShowDelete(t *testing.T) {
 	if err != nil {
 		t.Fatalf("AsFirmwareResource: %v", err)
 	}
-	if item.Metadata.Name != "devkit" || item.Spec.Slots.Stable.Version == nil || *item.Spec.Slots.Stable.Version != "1.0.0" {
+	if item.Metadata.Name != "devkit" || item.Spec.Slots.Stable.Description == nil || *item.Spec.Slots.Stable.Description != "stable firmware" {
 		t.Fatalf("shown resource = %+v", item)
 	}
 
@@ -74,7 +74,7 @@ func TestFirmwareResourcePutAndErrors(t *testing.T) {
 		Kind:       apitypes.FirmwareResourceKind(apitypes.ResourceKindFirmware),
 		Metadata:   apitypes.ResourceMetadata{Name: "devkit"},
 		Spec: apitypes.FirmwareSpec{
-			Slots: testFirmwareSpecSlots("1.0.0"),
+			Slots: testFirmwareSpecSlots("stable firmware"),
 		},
 	})
 	if err != nil {
@@ -162,7 +162,7 @@ func TestFirmwareResourceApplyUpdatesChangedSpec(t *testing.T) {
 		ApiVersion: apitypes.ResourceAPIVersionGizclawAdminv1alpha1,
 		Kind:       apitypes.FirmwareResourceKind(apitypes.ResourceKindFirmware),
 		Metadata:   apitypes.ResourceMetadata{Name: "devkit"},
-		Spec:       apitypes.FirmwareSpec{Slots: testFirmwareSpecSlots("1.0.0")},
+		Spec:       apitypes.FirmwareSpec{Slots: testFirmwareSpecSlots("stable firmware")},
 	})
 	if err != nil {
 		t.Fatalf("marshal first resource: %v", err)
@@ -171,7 +171,7 @@ func TestFirmwareResourceApplyUpdatesChangedSpec(t *testing.T) {
 		ApiVersion: apitypes.ResourceAPIVersionGizclawAdminv1alpha1,
 		Kind:       apitypes.FirmwareResourceKind(apitypes.ResourceKindFirmware),
 		Metadata:   apitypes.ResourceMetadata{Name: "devkit"},
-		Spec:       apitypes.FirmwareSpec{Slots: testFirmwareSpecSlots("1.1.0")},
+		Spec:       apitypes.FirmwareSpec{Slots: testFirmwareSpecSlots("updated stable firmware")},
 	})
 	if err != nil {
 		t.Fatalf("marshal second resource: %v", err)
@@ -279,9 +279,9 @@ func (unexpectedFirmwareService) DownloadFirmwareArtifactEntry(context.Context, 
 	return nil, nil
 }
 
-func testFirmwareSpecSlots(stable string) apitypes.FirmwareSpecSlots {
+func testFirmwareSpecSlots(stableDescription string) apitypes.FirmwareSpecSlots {
 	return apitypes.FirmwareSpecSlots{
-		Stable: apitypes.FirmwareSpecSlot{Version: stringPtr(stable)},
+		Stable: apitypes.FirmwareSpecSlot{Description: stringPtr(stableDescription)},
 	}
 }
 

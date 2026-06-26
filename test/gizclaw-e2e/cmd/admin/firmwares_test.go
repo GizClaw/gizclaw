@@ -32,10 +32,10 @@ func TestAdminFirmwaresUserStory(t *testing.T) {
 				"name": "devkit",
 				"description": "Devkit firmware line",
 				"slots": {
-				"stable": {"version": "1.0.0"},
-				"beta": {"version": "1.1.0"},
-				"develop": {"version": "1.2.0"},
-				"pending": {"version": "1.3.0"}
+				"stable": {"description": "stable channel"},
+				"beta": {"description": "beta channel"},
+				"develop": {"description": "develop channel"},
+				"pending": {"description": "pending channel"}
 			}
 	}`), 0o644); err != nil {
 		t.Fatalf("write firmware file: %v", err)
@@ -47,7 +47,7 @@ func TestAdminFirmwaresUserStory(t *testing.T) {
 
 	put := h.RunCLI("admin", "firmwares", "put", "devkit", "-f", firmwarePath, "--context", "admin-a")
 	put.MustSucceed(t)
-	assertContains(t, put.Stdout, `"name":"devkit"`, `"version":"1.0.0"`)
+	assertContains(t, put.Stdout, `"name":"devkit"`, `"description":"stable channel"`)
 
 	list := h.RunCLI("admin", "firmwares", "list", "--context", "admin-a")
 	list.MustSucceed(t)
@@ -55,7 +55,7 @@ func TestAdminFirmwaresUserStory(t *testing.T) {
 
 	get := h.RunCLI("admin", "firmwares", "get", "devkit", "--context", "admin-a")
 	get.MustSucceed(t)
-	assertContains(t, get.Stdout, `"name":"devkit"`, `"version":"1.0.0"`)
+	assertContains(t, get.Stdout, `"name":"devkit"`, `"description":"stable channel"`)
 
 	uploadApp := h.RunCLI("admin", "firmwares", "upload-artifact", "devkit", "--channel", "stable", "-f", appTarPath, "--context", "admin-a")
 	uploadApp.MustSucceed(t)
@@ -77,11 +77,11 @@ func TestAdminFirmwaresUserStory(t *testing.T) {
 
 	release := h.RunCLI("admin", "firmwares", "release", "devkit", "--context", "admin-a")
 	release.MustSucceed(t)
-	assertContains(t, release.Stdout, `"stable":{"artifact":{`, `"tar_path":"devkit/pending/artifact/artifact.tar"`, `"version":"1.3.0"`, `"beta":{"artifact":{`, `"tar_path":"devkit/stable/artifact/artifact.tar"`, `"version":"1.0.0"`)
+	assertContains(t, release.Stdout, `"stable":{"artifact":{`, `"tar_path":"devkit/pending/artifact/artifact.tar"`, `"beta":{"artifact":{`, `"tar_path":"devkit/stable/artifact/artifact.tar"`)
 
 	rollback := h.RunCLI("admin", "firmwares", "rollback", "devkit", "--context", "admin-a")
 	rollback.MustSucceed(t)
-	assertContains(t, rollback.Stdout, `"stable":{"artifact":{`, `"tar_path":"devkit/stable/artifact/artifact.tar"`, `"version":"1.0.0"`)
+	assertContains(t, rollback.Stdout, `"stable":{"artifact":{`, `"tar_path":"devkit/stable/artifact/artifact.tar"`)
 
 	resource := h.RunCLI("admin", "show", "Firmware", "devkit", "--context", "admin-a")
 	resource.MustSucceed(t)
@@ -103,7 +103,7 @@ func TestAdminFirmwaresSharedSetupCatalog(t *testing.T) {
 
 	get := h.RunCLI("admin", "firmwares", "get", "devkit-firmware-main", "--context", "admin-a")
 	get.MustSucceed(t)
-	assertContains(t, get.Stdout, `"name":"devkit-firmware-main"`, `"version":"9.9.0"`, `"tar_path":"devkit-firmware-main/stable/artifact/artifact.tar"`)
+	assertContains(t, get.Stdout, `"name":"devkit-firmware-main"`, `"tar_path":"devkit-firmware-main/stable/artifact/artifact.tar"`)
 }
 
 func grantFirmwareRead(t *testing.T, h *clitest.Harness, peerContext string, firmwareID string) {
@@ -154,7 +154,7 @@ func assertDeviceFirmwareRPC(t *testing.T, h *clitest.Harness, contextName strin
 		t.Fatalf("firmware list = %#v", list)
 	}
 	get := mustRunCLIJSON[rpcapi.FirmwareGetResponse](t, h, "connect", "firmware", "get", "--firmware-id", "devkit", "--context", contextName)
-	if get.Slots.Stable.Version == nil || *get.Slots.Stable.Version != "1.0.0" || get.Slots.Stable.Artifact == nil {
+	if get.Slots.Stable.Artifact == nil {
 		t.Fatalf("firmware get = %#v", get)
 	}
 	download := mustRunCLIJSON[firmwareDownloadCLIResponse](t, h, "connect", "firmware", "download", "--firmware-id", "devkit", "--channel", "stable", "--path", "firmware.bin", "--output", outputPath, "--context", contextName)

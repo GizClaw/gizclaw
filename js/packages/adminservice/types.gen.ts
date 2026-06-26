@@ -948,10 +948,6 @@ export type FirmwareSelection = {
 };
 
 export type FirmwareSlot = {
-    /**
-     * Version carried by this slot.
-     */
-    version?: string;
     description?: string;
     artifact?: FirmwareArtifact;
 };
@@ -969,10 +965,6 @@ export type FirmwareSpec = {
 };
 
 export type FirmwareSpecSlot = {
-    /**
-     * Version carried by this slot.
-     */
-    version?: string;
     description?: string;
 };
 

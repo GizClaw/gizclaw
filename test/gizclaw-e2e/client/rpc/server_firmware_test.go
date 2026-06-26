@@ -28,9 +28,6 @@ func TestServerFirmwareRPC(t *testing.T) {
 	if got.Name != sharedFirmware {
 		t.Fatalf("firmware.get name = %q", got.Name)
 	}
-	if got.Slots.Stable.Version == nil || *got.Slots.Stable.Version != "9.9.0" {
-		t.Fatalf("firmware stable version = %#v", got.Slots.Stable.Version)
-	}
 	if got.Slots.Stable.Artifact == nil || got.Slots.Stable.Artifact.TarPath == "" {
 		t.Fatalf("firmware stable artifact = %#v", got.Slots.Stable.Artifact)
 	}

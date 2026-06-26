@@ -189,10 +189,10 @@ func mutationName(base string) string {
 	return fmt.Sprintf("e2e-admin-mut-%s", base)
 }
 
-func firmwareSlots(version string) apitypes.FirmwareSlots {
+func firmwareSlots(description string) apitypes.FirmwareSlots {
 	return apitypes.FirmwareSlots{
 		Stable: apitypes.FirmwareSlot{
-			Version: ptr(version),
+			Description: ptr(description),
 		},
 	}
 }

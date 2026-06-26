@@ -1438,9 +1438,6 @@ type FirmwareListResponse struct {
 type FirmwareSlot struct {
 	Artifact    *FirmwareArtifact `json:"artifact,omitempty"`
 	Description *string           `json:"description,omitempty"`
-
-	// Version Version carried by this slot.
-	Version *string `json:"version,omitempty"`
 }
 
 // FirmwareSlots defines model for FirmwareSlots.

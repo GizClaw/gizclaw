@@ -1993,9 +1993,6 @@ type FirmwareSelectionChannel string
 type FirmwareSlot struct {
 	Artifact    *FirmwareArtifact `json:"artifact,omitempty"`
 	Description *string           `json:"description,omitempty"`
-
-	// Version Version carried by this slot.
-	Version *string `json:"version,omitempty"`
 }
 
 // FirmwareSlots defines model for FirmwareSlots.
@@ -2015,9 +2012,6 @@ type FirmwareSpec struct {
 // FirmwareSpecSlot defines model for FirmwareSpecSlot.
 type FirmwareSpecSlot struct {
 	Description *string `json:"description,omitempty"`
-
-	// Version Version carried by this slot.
-	Version *string `json:"version,omitempty"`
 }
 
 // FirmwareSpecSlots defines model for FirmwareSpecSlots.

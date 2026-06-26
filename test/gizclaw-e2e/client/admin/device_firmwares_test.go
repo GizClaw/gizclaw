@@ -32,11 +32,8 @@ func TestAdminAPIFirmwaresListGetPaginationAndUpload(t *testing.T) {
 		t.Fatalf("get firmware: %v", err)
 	}
 	requireStatusOK(t, get, get.Body)
-	if get.JSON200 == nil || get.JSON200.Slots.Stable.Version == nil || *get.JSON200.Slots.Stable.Version != "9.9.0" {
+	if get.JSON200 == nil || get.JSON200.Slots.Stable.Artifact == nil || get.JSON200.Slots.Stable.Artifact.TarPath == "" {
 		t.Fatalf("get firmware = %#v", get.JSON200)
-	}
-	if get.JSON200.Slots.Stable.Artifact == nil || get.JSON200.Slots.Stable.Artifact.TarPath == "" {
-		t.Fatalf("firmware stable artifact missing uploaded path: %#v", get.JSON200.Slots.Stable.Artifact)
 	}
 
 	name := mutationName("firmware")
@@ -44,7 +41,7 @@ func TestAdminAPIFirmwaresListGetPaginationAndUpload(t *testing.T) {
 	created, err := env.api.CreateFirmwareWithResponse(env.ctx, adminservice.FirmwareUpsert{
 		Name:        name,
 		Description: ptr("Admin API mutation firmware"),
-		Slots:       firmwareSlots("0.0.1"),
+		Slots:       firmwareSlots("Admin API stable firmware"),
 	})
 	if err != nil {
 		t.Fatalf("create firmware: %v", err)
