@@ -11,6 +11,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/adminservice"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/rpcapi"
+	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/internal/socialutil"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/services/ai/workspace"
 	"github.com/GizClaw/gizclaw-go/pkg/store/kv"
 )
@@ -19,6 +20,105 @@ type adminWorkspaceHistoryService interface {
 	AdminListWorkspaceHistory(context.Context, string, apitypes.PeerRunHistoryListRequest) (apitypes.PeerRunHistoryListResponse, error)
 	AdminGetWorkspaceHistory(context.Context, string, string) (workspace.HistoryEntry, error)
 	AdminReadWorkspaceHistoryAudio(context.Context, string, string) (io.ReadCloser, int64, error)
+}
+
+func (s *adminService) ListContacts(ctx context.Context, request adminservice.ListContactsRequestObject) (adminservice.ListContactsResponseObject, error) {
+	if s == nil || s.Contacts == nil {
+		return adminservice.ListContacts500JSONResponse(apitypes.NewErrorResponse("SOCIAL_CONTACT_SERVICE_NOT_CONFIGURED", "contact service is not configured")), nil
+	}
+	resp, err := s.Contacts.AdminListContacts(ctx, socialutil.StringValue(request.Params.OwnerPublicKey), request.Params.Cursor, request.Params.Limit)
+	if err != nil {
+		status, body := adminSocialError(err)
+		switch status {
+		case http.StatusInternalServerError:
+			return adminservice.ListContacts500JSONResponse(body), nil
+		default:
+			return adminservice.ListContacts400JSONResponse(body), nil
+		}
+	}
+	return adminservice.ListContacts200JSONResponse(resp), nil
+}
+
+func (s *adminService) CreateContact(ctx context.Context, request adminservice.CreateContactRequestObject) (adminservice.CreateContactResponseObject, error) {
+	if s == nil || s.Contacts == nil {
+		return adminservice.CreateContact500JSONResponse(apitypes.NewErrorResponse("SOCIAL_CONTACT_SERVICE_NOT_CONFIGURED", "contact service is not configured")), nil
+	}
+	if request.Body == nil {
+		return adminservice.CreateContact400JSONResponse(apitypes.NewErrorResponse("INVALID_CONTACT", "request body is required")), nil
+	}
+	item, err := s.Contacts.AdminCreateContact(ctx, *request.Body)
+	if err != nil {
+		status, body := adminSocialError(err)
+		switch status {
+		case http.StatusNotFound:
+			return adminservice.CreateContact404JSONResponse(body), nil
+		case http.StatusInternalServerError:
+			return adminservice.CreateContact500JSONResponse(body), nil
+		default:
+			return adminservice.CreateContact400JSONResponse(body), nil
+		}
+	}
+	return adminservice.CreateContact200JSONResponse(item), nil
+}
+
+func (s *adminService) GetContact(ctx context.Context, request adminservice.GetContactRequestObject) (adminservice.GetContactResponseObject, error) {
+	if s == nil || s.Contacts == nil {
+		return adminservice.GetContact500JSONResponse(apitypes.NewErrorResponse("SOCIAL_CONTACT_SERVICE_NOT_CONFIGURED", "contact service is not configured")), nil
+	}
+	item, err := s.Contacts.AdminGetContact(ctx, request.OwnerPublicKey, request.Id)
+	if err != nil {
+		status, body := adminSocialError(err)
+		switch status {
+		case http.StatusNotFound:
+			return adminservice.GetContact404JSONResponse(body), nil
+		case http.StatusInternalServerError:
+			return adminservice.GetContact500JSONResponse(body), nil
+		default:
+			return adminservice.GetContact400JSONResponse(body), nil
+		}
+	}
+	return adminservice.GetContact200JSONResponse(item), nil
+}
+
+func (s *adminService) PutContact(ctx context.Context, request adminservice.PutContactRequestObject) (adminservice.PutContactResponseObject, error) {
+	if s == nil || s.Contacts == nil {
+		return adminservice.PutContact500JSONResponse(apitypes.NewErrorResponse("SOCIAL_CONTACT_SERVICE_NOT_CONFIGURED", "contact service is not configured")), nil
+	}
+	if request.Body == nil {
+		return adminservice.PutContact400JSONResponse(apitypes.NewErrorResponse("INVALID_CONTACT", "request body is required")), nil
+	}
+	item, err := s.Contacts.AdminPutContact(ctx, request.OwnerPublicKey, request.Id, *request.Body)
+	if err != nil {
+		status, body := adminSocialError(err)
+		switch status {
+		case http.StatusNotFound:
+			return adminservice.PutContact404JSONResponse(body), nil
+		case http.StatusInternalServerError:
+			return adminservice.PutContact500JSONResponse(body), nil
+		default:
+			return adminservice.PutContact400JSONResponse(body), nil
+		}
+	}
+	return adminservice.PutContact200JSONResponse(item), nil
+}
+
+func (s *adminService) DeleteContact(ctx context.Context, request adminservice.DeleteContactRequestObject) (adminservice.DeleteContactResponseObject, error) {
+	if s == nil || s.Contacts == nil {
+		return adminservice.DeleteContact500JSONResponse(apitypes.NewErrorResponse("SOCIAL_CONTACT_SERVICE_NOT_CONFIGURED", "contact service is not configured")), nil
+	}
+	item, err := s.Contacts.AdminDeleteContact(ctx, request.OwnerPublicKey, request.Id)
+	if err != nil {
+		status, body := adminSocialError(err)
+		switch status {
+		case http.StatusNotFound:
+			return adminservice.DeleteContact404JSONResponse(body), nil
+		case http.StatusInternalServerError:
+			return adminservice.DeleteContact500JSONResponse(body), nil
+		default:
+			return adminservice.DeleteContact400JSONResponse(body), nil
+		}
+	}
+	return adminservice.DeleteContact200JSONResponse(item), nil
 }
 
 func (s *adminService) ListFriends(ctx context.Context, request adminservice.ListFriendsRequestObject) (adminservice.ListFriendsResponseObject, error) {

@@ -656,6 +656,133 @@
         }
       }
     },
+    "/peer-resources/contacts": {
+      "get": {
+        "operationId": "listPeerContacts",
+        "summary": "List contacts for the current peer",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Cursor"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A page of contacts.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./rpc/server.json#/components/schemas/ContactListResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createPeerContact",
+        "summary": "Create a contact for the current peer",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./rpc/server.json#/components/schemas/ContactCreateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The created contact.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./rpc/server.json#/components/schemas/ContactCreateResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/peer-resources/contacts/{id}": {
+      "get": {
+        "operationId": "getPeerContact",
+        "summary": "Get a contact for the current peer",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ContactId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The contact.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./rpc/server.json#/components/schemas/ContactGetResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "putPeerContact",
+        "summary": "Update a contact for the current peer",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ContactId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./rpc/server.json#/components/schemas/ContactPutRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The updated contact.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./rpc/server.json#/components/schemas/ContactPutResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deletePeerContact",
+        "summary": "Delete a contact for the current peer",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ContactId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The deleted contact.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./rpc/server.json#/components/schemas/ContactDeleteResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/peer-resources/friends/@add": {
       "post": {
         "operationId": "addPeerFriend",
@@ -1255,6 +1382,15 @@
           "type": "string"
         }
       },
+      "ContactId": {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
       "FriendId": {
         "name": "id",
         "in": "path",
@@ -1326,6 +1462,7 @@
           "wallet",
           "wallet-transactions",
           "rewards",
+          "contacts",
           "friends",
           "friend-groups"
         ]

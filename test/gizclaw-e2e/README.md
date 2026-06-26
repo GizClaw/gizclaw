@@ -163,7 +163,7 @@ Stable business resource IDs:
 - Run-control workspace: `direct-chatroom-workspace`
 - Family chatroom workspace: `family-circle-chatroom-workspace`
 - Model: `openai-gpt-4o-mini`
-- Gameplay system task models: `reward-claim`, `pet-action` (provider credentials required)
+- Gameplay system task models: `reward-claim`, `pet-action` (Volc/Doubao credentials required)
 - Credential: `openai-main-credential`
 - MiniMax voice metadata row: `minimax-narrator-clone`
 - Volc voice metadata row: `volc-tenant:volc-main:zh_female_vv_mars_bigtts`
@@ -194,11 +194,12 @@ gizclaw admin firmwares upload-bin devkit-firmware-main \
 ```
 
 Provider-independent resource rows use schema-valid committed metadata and do
-not require real provider credentials. Real OpenAI/Volc resources still depend
-on credential values from `.env` and are skipped when those values are absent.
-`reward-claim` and `pet-action` are gameplay system task model rows; business
-RPC tests skip when reset_data did not apply them. `client/admin` owns provider
-voice sync verification and should run before chat voice tests.
+not require real provider credentials. Real provider resources still depend on
+credential values from `.env` and are skipped when those values are absent.
+`reward-claim` and `pet-action` are Volc/Doubao-backed gameplay system task
+model rows; business RPC tests skip when reset_data did not apply them.
+`client/admin` owns provider voice sync verification and should run before chat
+voice tests.
 
 Workspace history is runtime data. `family-circle-chatroom-workspace` is a normal
 chatroom workspace target. `reset_data.sh` must not seed

@@ -31,6 +31,7 @@ export function useCursorListPage<T>(loader: CursorPageLoader<T>): {
   pageNumber: number;
   prevPage: () => void;
   refresh: () => Promise<void>;
+  reset: () => void;
 } {
   const loaderRef = useRef(loader);
   loaderRef.current = loader;
@@ -81,6 +82,10 @@ export function useCursorListPage<T>(loader: CursorPageLoader<T>): {
     await loadPage(state.cursor, state.history);
   }, [loadPage, state.cursor, state.history]);
 
+  const reset = useCallback(() => {
+    void loadPage(null, []);
+  }, [loadPage]);
+
   const nextPage = useCallback(() => {
     if (state.nextCursor === null) {
       return;
@@ -105,5 +110,6 @@ export function useCursorListPage<T>(loader: CursorPageLoader<T>): {
     pageNumber: state.history.length + 1,
     prevPage,
     refresh,
+    reset,
   };
 }

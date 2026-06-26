@@ -13,8 +13,8 @@ spec:
       kind: llm
       source: manual
       provider:
-        kind: openai-tenant
-        name: openai-main
+        kind: volc-tenant
+        name: volc-main
       name: Reward claim policy model
       description: System task model for reward claim decisions
       capabilities:
@@ -23,7 +23,7 @@ spec:
         text_only: true
         tool_calls: true
       provider_data:
-        upstream_model: gpt-4o-mini
+        upstream_model: doubao-seed-2-0-lite-260215
         support_json_output: true
         support_text_only: true
         support_tool_calls: true
@@ -36,8 +36,8 @@ spec:
       kind: llm
       source: manual
       provider:
-        kind: openai-tenant
-        name: openai-main
+        kind: volc-tenant
+        name: volc-main
       name: Pet action policy model
       description: System task model for pet action decisions
       capabilities:
@@ -46,7 +46,7 @@ spec:
         text_only: true
         tool_calls: true
       provider_data:
-        upstream_model: gpt-4o-mini
+        upstream_model: doubao-seed-2-0-lite-260215
         support_json_output: true
         support_text_only: true
         support_tool_calls: true

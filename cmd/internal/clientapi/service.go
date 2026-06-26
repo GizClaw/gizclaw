@@ -71,6 +71,7 @@ func (s *playHTTPService) ListPeerResourceNames(context.Context, clientservice.L
 			clientservice.Credentials,
 			clientservice.Voices,
 			clientservice.Pets,
+			clientservice.Contacts,
 			clientservice.Friends,
 			clientservice.FriendGroups,
 			clientservice.Wallet,
@@ -126,6 +127,74 @@ func (s *playHTTPService) ListPeerCredentials(ctx context.Context, request clien
 		return playHTTPError(err), nil
 	}
 	return clientservice.ListPeerCredentials200JSONResponse(*sanitizePlayCredentialList(result)), nil
+}
+
+func (s *playHTTPService) ListPeerContacts(ctx context.Context, request clientservice.ListPeerContactsRequestObject) (clientservice.ListPeerContactsResponseObject, error) {
+	c, errResp, ok := s.gizCLIClient()
+	if !ok {
+		return errResp, nil
+	}
+	result, err := c.ListContacts(ctx, s.rpcID(), rpcapi.ContactListRequest{Cursor: request.Params.Cursor, Limit: playLimitPtr(request.Params.Limit)})
+	if err != nil {
+		return playHTTPError(err), nil
+	}
+	return clientservice.ListPeerContacts200JSONResponse(*result), nil
+}
+
+func (s *playHTTPService) CreatePeerContact(ctx context.Context, request clientservice.CreatePeerContactRequestObject) (clientservice.CreatePeerContactResponseObject, error) {
+	if request.Body == nil {
+		return playHTTPErrorResponse{status: http.StatusBadRequest, message: "request body required"}, nil
+	}
+	c, errResp, ok := s.gizCLIClient()
+	if !ok {
+		return errResp, nil
+	}
+	result, err := c.CreateContact(ctx, s.rpcID(), *request.Body)
+	if err != nil {
+		return playHTTPError(err), nil
+	}
+	return clientservice.CreatePeerContact200JSONResponse(*result), nil
+}
+
+func (s *playHTTPService) GetPeerContact(ctx context.Context, request clientservice.GetPeerContactRequestObject) (clientservice.GetPeerContactResponseObject, error) {
+	c, errResp, ok := s.gizCLIClient()
+	if !ok {
+		return errResp, nil
+	}
+	result, err := c.GetContact(ctx, s.rpcID(), rpcapi.ContactGetRequest{Id: request.Id})
+	if err != nil {
+		return playHTTPError(err), nil
+	}
+	return clientservice.GetPeerContact200JSONResponse(*result), nil
+}
+
+func (s *playHTTPService) PutPeerContact(ctx context.Context, request clientservice.PutPeerContactRequestObject) (clientservice.PutPeerContactResponseObject, error) {
+	if request.Body == nil {
+		return playHTTPErrorResponse{status: http.StatusBadRequest, message: "request body required"}, nil
+	}
+	c, errResp, ok := s.gizCLIClient()
+	if !ok {
+		return errResp, nil
+	}
+	body := *request.Body
+	body.Id = request.Id
+	result, err := c.PutContact(ctx, s.rpcID(), body)
+	if err != nil {
+		return playHTTPError(err), nil
+	}
+	return clientservice.PutPeerContact200JSONResponse(*result), nil
+}
+
+func (s *playHTTPService) DeletePeerContact(ctx context.Context, request clientservice.DeletePeerContactRequestObject) (clientservice.DeletePeerContactResponseObject, error) {
+	c, errResp, ok := s.gizCLIClient()
+	if !ok {
+		return errResp, nil
+	}
+	result, err := c.DeleteContact(ctx, s.rpcID(), rpcapi.ContactDeleteRequest{Id: request.Id})
+	if err != nil {
+		return playHTTPError(err), nil
+	}
+	return clientservice.DeletePeerContact200JSONResponse(*result), nil
 }
 
 func (s *playHTTPService) ListPeerFriends(ctx context.Context, request clientservice.ListPeerFriendsRequestObject) (clientservice.ListPeerFriendsResponseObject, error) {
@@ -726,6 +795,26 @@ func (r playHTTPErrorResponse) write(ctx *fiber.Ctx) error {
 }
 
 func (r playHTTPErrorResponse) VisitListPeerCredentialsResponse(ctx *fiber.Ctx) error {
+	return r.write(ctx)
+}
+
+func (r playHTTPErrorResponse) VisitListPeerContactsResponse(ctx *fiber.Ctx) error {
+	return r.write(ctx)
+}
+
+func (r playHTTPErrorResponse) VisitCreatePeerContactResponse(ctx *fiber.Ctx) error {
+	return r.write(ctx)
+}
+
+func (r playHTTPErrorResponse) VisitGetPeerContactResponse(ctx *fiber.Ctx) error {
+	return r.write(ctx)
+}
+
+func (r playHTTPErrorResponse) VisitPutPeerContactResponse(ctx *fiber.Ctx) error {
+	return r.write(ctx)
+}
+
+func (r playHTTPErrorResponse) VisitDeletePeerContactResponse(ctx *fiber.Ctx) error {
 	return r.write(ctx)
 }
 

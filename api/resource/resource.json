@@ -24,6 +24,7 @@
           "ACLRole",
           "ACLView",
           "Firmware",
+          "Contact",
           "Friend",
           "FriendGroup",
           "FriendGroupInviteToken",
@@ -85,6 +86,9 @@
             "$ref": "./firmware.json#/components/schemas/FirmwareResource"
           },
           {
+            "$ref": "./contact.json#/components/schemas/ContactResource"
+          },
+          {
             "$ref": "./friend.json#/components/schemas/FriendResource"
           },
           {
@@ -144,6 +148,7 @@
             "ACLView": "./acl_view.json#/components/schemas/ACLViewResource",
             "Credential": "./credential.json#/components/schemas/CredentialResource",
             "Firmware": "./firmware.json#/components/schemas/FirmwareResource",
+            "Contact": "./contact.json#/components/schemas/ContactResource",
             "Friend": "./friend.json#/components/schemas/FriendResource",
             "FriendGroup": "./friend_group.json#/components/schemas/FriendGroupResource",
             "FriendGroupInviteToken": "./friend_group_invite_token.json#/components/schemas/FriendGroupInviteTokenResource",

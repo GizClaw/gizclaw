@@ -321,6 +321,21 @@ func (e ChatRoomWorkspaceParametersAgentType) Valid() bool {
 	}
 }
 
+// Defines values for ContactResourceKind.
+const (
+	ContactResourceKindContact ContactResourceKind = "Contact"
+)
+
+// Valid indicates whether the value is a known member of the ContactResourceKind enum.
+func (e ContactResourceKind) Valid() bool {
+	switch e {
+	case ContactResourceKindContact:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for CredentialResourceKind.
 const (
 	CredentialResourceKindCredential CredentialResourceKind = "Credential"
@@ -951,6 +966,7 @@ const (
 	ResourceKindACLRole                ResourceKind = "ACLRole"
 	ResourceKindACLView                ResourceKind = "ACLView"
 	ResourceKindBadge                  ResourceKind = "Badge"
+	ResourceKindContact                ResourceKind = "Contact"
 	ResourceKindCredential             ResourceKind = "Credential"
 	ResourceKindDashScopeTenant        ResourceKind = "DashScopeTenant"
 	ResourceKindFirmware               ResourceKind = "Firmware"
@@ -981,6 +997,8 @@ func (e ResourceKind) Valid() bool {
 	case ResourceKindACLView:
 		return true
 	case ResourceKindBadge:
+		return true
+	case ResourceKindContact:
 		return true
 	case ResourceKindCredential:
 		return true
@@ -1506,6 +1524,30 @@ type Configuration struct {
 
 	// View Current content view name selected for this peer.
 	View *string `json:"view,omitempty"`
+}
+
+// ContactResource defines model for ContactResource.
+type ContactResource struct {
+	// ApiVersion API version for declarative GizClaw resources.
+	ApiVersion ResourceAPIVersion  `json:"apiVersion"`
+	Kind       ContactResourceKind `json:"kind"`
+	Metadata   ResourceMetadata    `json:"metadata"`
+	Spec       ContactSpec         `json:"spec"`
+}
+
+// ContactResourceKind defines model for ContactResource.Kind.
+type ContactResourceKind string
+
+// ContactSpec defines model for ContactSpec.
+type ContactSpec struct {
+	DisplayName *string `json:"display_name,omitempty"`
+
+	// Id Owner-scoped contact id.
+	Id string `json:"id"`
+
+	// OwnerPublicKey Owner peer public key. metadata.name must be owner_public_key:id.
+	OwnerPublicKey string  `json:"owner_public_key"`
+	PhoneNumber    *string `json:"phone_number,omitempty"`
 }
 
 // Credential defines model for Credential.
@@ -3336,6 +3378,34 @@ func (t *Resource) MergeFirmwareResource(v FirmwareResource) error {
 	return err
 }
 
+// AsContactResource returns the union data inside the Resource as a ContactResource
+func (t Resource) AsContactResource() (ContactResource, error) {
+	var body ContactResource
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromContactResource overwrites any union data inside the Resource as the provided ContactResource
+func (t *Resource) FromContactResource(v ContactResource) error {
+	v.Kind = "ContactResource"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeContactResource performs a merge with any union data inside the Resource, using the provided ContactResource
+func (t *Resource) MergeContactResource(v ContactResource) error {
+	v.Kind = "ContactResource"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
 // AsFriendResource returns the union data inside the Resource as a FriendResource
 func (t Resource) AsFriendResource() (FriendResource, error) {
 	var body FriendResource
@@ -3834,6 +3904,8 @@ func (t Resource) ValueByDiscriminator() (interface{}, error) {
 		return t.AsACLViewResource()
 	case "BadgeResource":
 		return t.AsBadgeResource()
+	case "ContactResource":
+		return t.AsContactResource()
 	case "CredentialResource":
 		return t.AsCredentialResource()
 	case "DashScopeTenantResource":

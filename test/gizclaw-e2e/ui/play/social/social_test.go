@@ -31,6 +31,9 @@ func playSocialStories() []Story {
 			Run: func(_ testing.TB, page *Page) {
 				page.GotoPlay("/")
 
+				page.ClickRoleLike("button", "Contacts")
+				page.ExpectText("New Contact")
+
 				page.ClickRoleLike("button", "Friends")
 				page.ExpectText("Invite Token")
 				page.ExpectText("Add Friend")
@@ -51,7 +54,29 @@ func playSocialStories() []Story {
 			},
 		},
 		{
-			Name: "206-play-social-friend-invite-token-flow",
+			Name: "206-play-social-contacts-crud",
+			Run: func(t testing.TB, page *Page) {
+				contactName := fmt.Sprintf("UI Contact %d", time.Now().UnixNano())
+				renamedContact := contactName + " Renamed"
+
+				page.GotoPlay("/")
+				page.ClickRoleLike("button", "Contacts")
+				page.ClickRole("button", "New Contact")
+				fillLabel(t, page, "Display name", contactName)
+				fillLabel(t, page, "Phone number", fmt.Sprintf("+1555%d", time.Now().UnixNano()%1000000000))
+				page.ClickRole("button", "Create")
+				page.ExpectText(contactName)
+
+				clickContactAction(t, page, contactName, "Edit")
+				fillLabel(t, page, "Display name", renamedContact)
+				page.ClickRole("button", "Save")
+				page.ExpectText(renamedContact)
+
+				clickContactAction(t, page, renamedContact, "Delete")
+			},
+		},
+		{
+			Name: "207-play-social-friend-invite-token-flow",
 			Run: func(t testing.TB, page *Page) {
 				t.Cleanup(func() {
 					restorePlayHTTPWorkspace(t, page.Seed.PlayURL, SeedWorkspaceName)
@@ -85,7 +110,7 @@ func playSocialStories() []Story {
 			},
 		},
 		{
-			Name: "207-play-social-group-invite-token-flow",
+			Name: "208-play-social-group-invite-token-flow",
 			Run: func(t testing.TB, page *Page) {
 				t.Cleanup(func() {
 					restorePlayHTTPWorkspace(t, page.Seed.PlayURL, SeedWorkspaceName)
@@ -113,7 +138,7 @@ func playSocialStories() []Story {
 			},
 		},
 		{
-			Name: "208-play-social-owner-group-token-flow",
+			Name: "209-play-social-owner-group-token-flow",
 			Run: func(t testing.TB, page *Page) {
 				groupName := fmt.Sprintf("ui-play-social-owned-%d", time.Now().UnixNano())
 
@@ -133,6 +158,17 @@ func playSocialStories() []Story {
 				expectInputValueEquals(t, page, "#group-invite-token", "")
 			},
 		},
+	}
+}
+
+func clickContactAction(t testing.TB, page *Page, contactName string, action string) {
+	t.Helper()
+	row := page.Raw().Locator(fmt.Sprintf(`table tbody tr:has-text(%q)`, contactName)).First()
+	if err := row.GetByRole(playwright.AriaRole("button"), playwright.LocatorGetByRoleOptions{
+		Name:  action,
+		Exact: playwright.Bool(true),
+	}).Click(); err != nil {
+		t.Fatalf("click contact %q action %q: %v", contactName, action, err)
 	}
 }
 

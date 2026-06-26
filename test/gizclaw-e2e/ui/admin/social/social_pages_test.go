@@ -15,6 +15,8 @@ import (
 const (
 	adminUISocialOwnerPublicKey = "6Ww6ANsXDCf91Yp7Tvi65hqpywjMmXqAoZDiq33kfCee"
 	adminUISocialPeerPublicKey  = "8rAUkTyxLHDa5o3VajtzWcQdNJq1thrjAGtpwQkEsaEu"
+	adminUISocialContactID      = "living-room"
+	adminUISocialContactName    = "Living Room Device"
 	adminUISocialGroupID        = "family-circle"
 	adminUISocialGroupName      = "Family Circle"
 	adminUISocialGroupToken     = "family-circle-token"
@@ -25,6 +27,11 @@ func adminSocialStories() []Story {
 		{
 			Name: "160-admin-social-routes",
 			Run: func(_ testing.TB, page *Page) {
+				page.GotoAdmin("/social/contacts")
+				page.ExpectURLSuffix("/social/contacts")
+				page.ExpectText("Contacts")
+				page.ExpectText("New Contact")
+
 				page.GotoAdmin("/social/friends")
 				page.ExpectURLSuffix("/social/friends")
 				page.ExpectText("Friends")
@@ -37,7 +44,19 @@ func adminSocialStories() []Story {
 			},
 		},
 		{
-			Name: "161-admin-social-friends-list-and-detail",
+			Name: "161-admin-social-contacts-list-and-detail",
+			Run: func(t testing.TB, page *Page) {
+				page.GotoAdmin("/social/contacts")
+				page.ExpectText(adminUISocialContactName)
+				clickContactRow(t, page, adminUISocialOwnerPublicKey, adminUISocialContactID)
+				page.ExpectText(adminUISocialOwnerPublicKey)
+				page.ExpectText(adminUISocialContactID)
+				page.ExpectText("Contact Row")
+				page.ExpectText("Edit Contact")
+			},
+		},
+		{
+			Name: "162-admin-social-friends-list-and-detail",
 			Run: func(t testing.TB, page *Page) {
 				page.GotoAdmin("/social/friends")
 				page.ExpectText(adminUISocialPeerPublicKey)
@@ -49,7 +68,7 @@ func adminSocialStories() []Story {
 			},
 		},
 		{
-			Name: "162-admin-social-friend-groups-detail",
+			Name: "163-admin-social-friend-groups-detail",
 			Run: func(t testing.TB, page *Page) {
 				page.GotoAdmin("/social/friend-groups")
 				page.ExpectText(adminUISocialGroupName)
@@ -70,6 +89,13 @@ func adminSocialStories() []Story {
 				page.ExpectText("Workspace History")
 			},
 		},
+	}
+}
+
+func clickContactRow(t testing.TB, page *Page, ownerPublicKey string, contactID string) {
+	t.Helper()
+	if err := page.Raw().Locator(fmt.Sprintf(`table tbody tr:has-text(%q):has-text(%q)`, ownerPublicKey, contactID)).First().Click(); err != nil {
+		t.Fatalf("click contact row %q/%q: %v", ownerPublicKey, contactID, err)
 	}
 }
 

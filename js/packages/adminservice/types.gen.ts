@@ -243,6 +243,33 @@ export type AdminFriendObject = {
     updated_at?: string;
 };
 
+export type AdminContactObject = {
+    owner_public_key: string;
+    id: string;
+    display_name?: string;
+    phone_number?: string;
+    created_at?: string;
+    updated_at?: string;
+};
+
+export type AdminContactListResponse = {
+    has_next: boolean;
+    next_cursor?: string | null;
+    items: Array<AdminContactObject>;
+};
+
+export type AdminContactCreateRequest = {
+    owner_public_key: string;
+    id?: string;
+    display_name?: string;
+    phone_number?: string;
+};
+
+export type AdminContactPutRequest = {
+    display_name?: string;
+    phone_number?: string;
+};
+
 export type AdminFriendListResponse = {
     has_next: boolean;
     next_cursor?: string | null;
@@ -308,6 +335,26 @@ export type BadgeResource = {
     kind: 'Badge';
     metadata: ResourceMetadata;
     spec: BadgeSpec;
+};
+
+export type ContactResource = {
+    apiVersion: ResourceApiVersion;
+    kind: 'Contact';
+    metadata: ResourceMetadata;
+    spec: ContactSpec;
+};
+
+export type ContactSpec = {
+    /**
+     * Owner peer public key. metadata.name must be owner_public_key:id.
+     */
+    owner_public_key: string;
+    /**
+     * Owner-scoped contact id.
+     */
+    id: string;
+    display_name?: string;
+    phone_number?: string;
 };
 
 export type CredentialResource = {
@@ -462,6 +509,8 @@ export type Resource = ({
 } & CredentialResource) | ({
     kind: 'FirmwareResource';
 } & FirmwareResource) | ({
+    kind: 'ContactResource';
+} & ContactResource) | ({
     kind: 'FriendResource';
 } & FriendResource) | ({
     kind: 'FriendGroupResource';
@@ -505,7 +554,7 @@ export type ResourceApiVersion = 'gizclaw.admin/v1alpha1';
 /**
  * Declarative GizClaw resource kind.
  */
-export type ResourceKind = 'Credential' | 'ACLPolicyBinding' | 'ACLRole' | 'ACLView' | 'Firmware' | 'Friend' | 'FriendGroup' | 'FriendGroupInviteToken' | 'FriendGroupMember' | 'Model' | 'DashScopeTenant' | 'GeminiTenant' | 'MiniMaxTenant' | 'OpenAITenant' | 'VolcTenant' | 'Voice' | 'Workflow' | 'Workspace' | 'PeerConfig' | 'ResourceList' | 'PetSpecies' | 'Badge';
+export type ResourceKind = 'Credential' | 'ACLPolicyBinding' | 'ACLRole' | 'ACLView' | 'Firmware' | 'Contact' | 'Friend' | 'FriendGroup' | 'FriendGroupInviteToken' | 'FriendGroupMember' | 'Model' | 'DashScopeTenant' | 'GeminiTenant' | 'MiniMaxTenant' | 'OpenAITenant' | 'VolcTenant' | 'Voice' | 'Workflow' | 'Workspace' | 'PeerConfig' | 'ResourceList' | 'PetSpecies' | 'Badge';
 
 export type ResourceMetadata = {
     /**
@@ -1748,6 +1797,207 @@ export type PutResourceResponses = {
 };
 
 export type PutResourceResponse = PutResourceResponses[keyof PutResourceResponses];
+
+export type ListContactsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Optional owner peer public key filter.
+         */
+        owner_public_key?: string;
+        /**
+         * Cursor returned by the previous list response.
+         */
+        cursor?: string;
+        /**
+         * Maximum number of items to return.
+         */
+        limit?: number;
+    };
+    url: '/social/contacts';
+};
+
+export type ListContactsErrors = {
+    /**
+     * Invalid request
+     */
+    400: ErrorResponse;
+    /**
+     * Internal error
+     */
+    500: ErrorResponse;
+};
+
+export type ListContactsError = ListContactsErrors[keyof ListContactsErrors];
+
+export type ListContactsResponses = {
+    /**
+     * Global contact list
+     */
+    200: AdminContactListResponse;
+};
+
+export type ListContactsResponse = ListContactsResponses[keyof ListContactsResponses];
+
+export type CreateContactData = {
+    body: AdminContactCreateRequest;
+    path?: never;
+    query?: never;
+    url: '/social/contacts';
+};
+
+export type CreateContactErrors = {
+    /**
+     * Invalid request
+     */
+    400: ErrorResponse;
+    /**
+     * Resource not found
+     */
+    404: ErrorResponse;
+    /**
+     * Internal error
+     */
+    500: ErrorResponse;
+};
+
+export type CreateContactError = CreateContactErrors[keyof CreateContactErrors];
+
+export type CreateContactResponses = {
+    /**
+     * Created contact
+     */
+    200: AdminContactObject;
+};
+
+export type CreateContactResponse = CreateContactResponses[keyof CreateContactResponses];
+
+export type DeleteContactData = {
+    body?: never;
+    path: {
+        /**
+         * Owner peer public key
+         */
+        ownerPublicKey: string;
+        /**
+         * Contact id
+         */
+        id: string;
+    };
+    query?: never;
+    url: '/social/contacts/{ownerPublicKey}/{id}';
+};
+
+export type DeleteContactErrors = {
+    /**
+     * Invalid request
+     */
+    400: ErrorResponse;
+    /**
+     * Resource not found
+     */
+    404: ErrorResponse;
+    /**
+     * Internal error
+     */
+    500: ErrorResponse;
+};
+
+export type DeleteContactError = DeleteContactErrors[keyof DeleteContactErrors];
+
+export type DeleteContactResponses = {
+    /**
+     * Deleted contact row
+     */
+    200: AdminContactObject;
+};
+
+export type DeleteContactResponse = DeleteContactResponses[keyof DeleteContactResponses];
+
+export type GetContactData = {
+    body?: never;
+    path: {
+        /**
+         * Owner peer public key
+         */
+        ownerPublicKey: string;
+        /**
+         * Contact id
+         */
+        id: string;
+    };
+    query?: never;
+    url: '/social/contacts/{ownerPublicKey}/{id}';
+};
+
+export type GetContactErrors = {
+    /**
+     * Invalid request
+     */
+    400: ErrorResponse;
+    /**
+     * Resource not found
+     */
+    404: ErrorResponse;
+    /**
+     * Internal error
+     */
+    500: ErrorResponse;
+};
+
+export type GetContactError = GetContactErrors[keyof GetContactErrors];
+
+export type GetContactResponses = {
+    /**
+     * Contact row
+     */
+    200: AdminContactObject;
+};
+
+export type GetContactResponse = GetContactResponses[keyof GetContactResponses];
+
+export type PutContactData = {
+    body: AdminContactPutRequest;
+    path: {
+        /**
+         * Owner peer public key
+         */
+        ownerPublicKey: string;
+        /**
+         * Contact id
+         */
+        id: string;
+    };
+    query?: never;
+    url: '/social/contacts/{ownerPublicKey}/{id}';
+};
+
+export type PutContactErrors = {
+    /**
+     * Invalid request
+     */
+    400: ErrorResponse;
+    /**
+     * Resource not found
+     */
+    404: ErrorResponse;
+    /**
+     * Internal error
+     */
+    500: ErrorResponse;
+};
+
+export type PutContactError = PutContactErrors[keyof PutContactErrors];
+
+export type PutContactResponses = {
+    /**
+     * Updated contact row
+     */
+    200: AdminContactObject;
+};
+
+export type PutContactResponse = PutContactResponses[keyof PutContactResponses];
 
 export type ListFriendsData = {
     body?: never;

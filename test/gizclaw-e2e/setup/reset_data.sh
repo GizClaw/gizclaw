@@ -131,12 +131,12 @@ init_data() {
     local resource_file="$1"
     local resource_key="${resource_file#$resource_dir/}"
     case "$resource_key" in
-      00-credentials/00-openai.yaml|01-tenants/00-openai.yaml|03-models/00-openai-chat.yaml|03-models/08-gameplay-system-tasks.yaml|90-acl/10-openai-credential-binding.yaml|90-acl/20-openai-chat-model-binding.yaml)
+      00-credentials/00-openai.yaml|01-tenants/00-openai.yaml|03-models/00-openai-chat.yaml|90-acl/10-openai-credential-binding.yaml|90-acl/20-openai-chat-model-binding.yaml)
         if ! openai_ready; then
           return 0
         fi
         ;;
-      00-credentials/01-volc.yaml|01-tenants/01-volc.yaml|03-models/01-volc-tts.yaml|03-models/02-volc-asr.yaml|03-models/03-doubao-realtime.yaml|03-models/04-doubao-lite-chat.yaml|03-models/05-volc-ast-translate.yaml|08-voices/01-volc-mars-vv.yaml|08-voices/02-volc-story-voices.yaml|90-acl/11-volc-credential-binding.yaml|90-acl/21-volc-tts-model-binding.yaml|90-acl/22-volc-asr-model-binding.yaml|90-acl/23-volc-ast-translate-model-binding.yaml|90-acl/24-doubao-realtime-model-binding.yaml|90-acl/25-doubao-lite-chat-model-binding.yaml|90-acl/3*-volc-*-voice-binding.yaml)
+      00-credentials/01-volc.yaml|01-tenants/01-volc.yaml|03-models/01-volc-tts.yaml|03-models/02-volc-asr.yaml|03-models/03-doubao-realtime.yaml|03-models/04-doubao-lite-chat.yaml|03-models/05-volc-ast-translate.yaml|03-models/08-gameplay-system-tasks.yaml|08-voices/01-volc-mars-vv.yaml|08-voices/02-volc-story-voices.yaml|90-acl/11-volc-credential-binding.yaml|90-acl/21-volc-tts-model-binding.yaml|90-acl/22-volc-asr-model-binding.yaml|90-acl/23-volc-ast-translate-model-binding.yaml|90-acl/24-doubao-realtime-model-binding.yaml|90-acl/25-doubao-lite-chat-model-binding.yaml|90-acl/3*-volc-*-voice-binding.yaml)
         if ! volc_ready; then
           return 0
         fi

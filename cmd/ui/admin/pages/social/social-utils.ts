@@ -1,4 +1,4 @@
-import type { AdminFriendObject, FriendGroupObject } from "@gizclaw/adminservice";
+import type { AdminContactObject, AdminFriendObject, FriendGroupObject } from "@gizclaw/adminservice";
 
 import { formatShortKey } from "../../lib/format";
 
@@ -12,6 +12,10 @@ export function decodeRouteParam(value: string): string {
 
 export function friendDetailPath(friend: AdminFriendObject): string {
   return `/social/friends/${encodeURIComponent(friend.owner_public_key)}/${encodeURIComponent(friend.id)}`;
+}
+
+export function contactDetailPath(contact: AdminContactObject): string {
+  return `/social/contacts/${encodeURIComponent(contact.owner_public_key)}/${encodeURIComponent(contact.id)}`;
 }
 
 export function friendRelationID(a: string, b: string): string {

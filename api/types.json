@@ -239,6 +239,12 @@
       "CredentialResource": {
         "$ref": "./resource/credential.json#/components/schemas/CredentialResource"
       },
+      "ContactResource": {
+        "$ref": "./resource/contact.json#/components/schemas/ContactResource"
+      },
+      "ContactSpec": {
+        "$ref": "./resource/contact.json#/components/schemas/ContactSpec"
+      },
       "FirmwareResource": {
         "$ref": "./resource/firmware.json#/components/schemas/FirmwareResource"
       },

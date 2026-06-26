@@ -3,7 +3,7 @@ import type { JSX, MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEv
 import { createRoot } from "react-dom/client";
 import OpenAI from "openai";
 import type { ChatCompletionMessageParam } from "openai/resources/chat/completions";
-import { ArrowLeft, Bot, Brain, BriefcaseBusiness, ChevronDown, Clock3, Coins, Database, Gift, KeyRound, Loader2, MessageCircle, Mic2, PawPrint, Pencil, Play, Plus, ReceiptText, RefreshCw, Search, SendHorizontal, Trash2, UserPlus, Users, Volume2, VolumeX, Workflow } from "lucide-react";
+import { ArrowLeft, Bot, Brain, BriefcaseBusiness, ChevronDown, Clock3, Coins, ContactRound, Database, Gift, KeyRound, Loader2, MessageCircle, Mic2, PawPrint, Pencil, Play, Plus, ReceiptText, RefreshCw, Search, SendHorizontal, Trash2, UserPlus, Users, Volume2, VolumeX, Workflow } from "lucide-react";
 import { toast } from "sonner";
 import {
   ActionBarPrimitive,
@@ -32,9 +32,11 @@ import {
   claimPeerReward,
   clearPeerFriendGroupInviteToken,
   clearPeerFriendInviteToken,
+  createPeerContact,
   createPeerFriendGroup,
   createPeerFriendGroupInviteToken,
   createPeerFriendInviteToken,
+  deletePeerContact,
   deletePeerFriend,
   deletePeerFriendGroupMember,
   deletePeerPet,
@@ -48,6 +50,7 @@ import {
   getPeerWallet,
   getPeerWalletTransaction,
   listClientVoices,
+  listPeerContacts,
   listPeerCredentials,
   listPeerFriendGroupMembers,
   listPeerFriendGroups,
@@ -61,10 +64,12 @@ import {
   listPeerWorkflows,
   listPeerWorkspaces,
   playWithPeerPet,
+  putPeerContact,
   putPeerFriendGroupMember,
   putPeerPet,
   streamPlayableVoices as streamPlayableVoicesSDK,
   washPeerPet,
+  type ContactObject,
   type FriendGroupInviteTokenGetResponse,
   type FriendGroupMemberMutableRole,
   type FriendGroupMemberObject,
@@ -106,7 +111,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/components/ui/utils";
 
-type Section = "overview" | "friends" | "friendGroups" | "workspaces" | "workflows" | "models" | "credentials" | "voices" | "pets" | "walletTransactions" | "rewards";
+type Section = "overview" | "contacts" | "friends" | "friendGroups" | "workspaces" | "workflows" | "models" | "credentials" | "voices" | "pets" | "walletTransactions" | "rewards";
 type TopDrawer = "workspace" | "social-chat" | "test-chat" | null;
 
 type ModelSpec = {
@@ -337,6 +342,7 @@ type WorkspaceChatTurn = {
 
 const sections: Array<{ icon: typeof Bot; id: Section; label: string }> = [
   { icon: Database, id: "overview", label: "Overview" },
+  { icon: ContactRound, id: "contacts", label: "Contacts" },
   { icon: UserPlus, id: "friends", label: "Friends" },
   { icon: Users, id: "friendGroups", label: "Groups" },
   { icon: BriefcaseBusiness, id: "workspaces", label: "Workspaces" },
@@ -411,8 +417,8 @@ function App(): JSX.Element {
 
   return (
     <>
-      <div className="min-h-screen bg-slate-50">
-      <div className="flex min-h-screen">
+      <div className="h-screen overflow-hidden bg-slate-50">
+      <div className="flex h-screen min-h-0">
         <aside className="hidden w-64 shrink-0 border-r bg-background px-4 py-5 lg:block">
           <div className="mb-6 flex items-center gap-3 px-2">
             <div className="flex size-9 items-center justify-center rounded-md bg-primary text-primary-foreground">
@@ -444,8 +450,8 @@ function App(): JSX.Element {
           </nav>
         </aside>
 
-        <main className="min-w-0 flex-1">
-          <header className="border-b bg-background px-4 py-4 sm:px-6">
+        <main className="flex min-h-0 min-w-0 flex-1 flex-col">
+          <header className="shrink-0 border-b bg-background px-4 py-4 sm:px-6">
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
               <div>
                 <div className="text-xs font-semibold uppercase text-muted-foreground">Gateway</div>
@@ -481,7 +487,7 @@ function App(): JSX.Element {
             </div>
           </header>
 
-          <div className="space-y-5 p-4 sm:p-6">
+          <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto overscroll-contain p-4 sm:p-6">
             {error !== "" ? (
               <Alert variant="destructive">
                 <AlertDescription>{error}</AlertDescription>
@@ -492,6 +498,7 @@ function App(): JSX.Element {
             ) : (
               <>
                 {section === "overview" ? <OverviewPanel modelCount={models.length} wallet={wallet} /> : null}
+                {section === "contacts" ? <ContactsPanel /> : null}
                 {section === "friends" ? (
                   selectedFriend == null ? (
                     <FriendsPanel onOpenChat={openSocialChat} onOpenFriend={setSelectedFriend} />
@@ -522,6 +529,207 @@ function App(): JSX.Element {
       </div>
       <Toaster richColors />
     </>
+  );
+}
+
+function ContactsPanel(): JSX.Element {
+  const pager = usePagedList<ContactObject>(listContactsPage);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editing, setEditing] = useState<ContactObject | null>(null);
+
+  const openCreate = (): void => {
+    setEditing(null);
+    setDialogOpen(true);
+  };
+
+  const openEdit = (contact: ContactObject): void => {
+    setEditing(contact);
+    setDialogOpen(true);
+  };
+
+  return (
+    <div className="max-w-6xl">
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between gap-3">
+          <CardTitle>Contacts</CardTitle>
+          <div className="flex flex-wrap justify-end gap-2">
+            <Button onClick={openCreate} size="sm" type="button">
+              <Plus className="size-4" />
+              New Contact
+            </Button>
+            <PageAction canNext={pager.page.hasNext} canPrevious={pager.page.cursors.length > 1} loading={pager.page.loading} onNext={pager.next} onPrevious={pager.previous} onRefresh={pager.refresh} pageIndex={pager.page.cursors.length} />
+          </div>
+        </CardHeader>
+        <CardContent>
+          {pager.error !== "" ? (
+            <Alert className="mb-4" variant="destructive">
+              <AlertDescription>{pager.error}</AlertDescription>
+            </Alert>
+          ) : null}
+          {pager.page.items.length === 0 ? (
+            <EmptyMessage description={pager.page.loading ? "Loading contacts." : "No contacts are saved for this peer."} title={pager.page.loading ? "Loading" : "No contacts"} />
+          ) : (
+            <div className="rounded-md border">
+              <Table className="table-fixed">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-52">Contact</TableHead>
+                    <TableHead>Phone</TableHead>
+                    <TableHead className="w-40">Updated</TableHead>
+                    <TableHead className="w-44 text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {pager.page.items.map((contact) => (
+                    <ContactRow contact={contact} key={contact.id ?? `${contact.display_name ?? ""}:${contact.phone_number ?? ""}`} onChanged={pager.refresh} onEdit={openEdit} />
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+      <ContactDialog
+        contact={editing}
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        onSaved={(contact) => {
+          setDialogOpen(false);
+          setEditing(null);
+          toast.success(editing == null ? "Contact created" : "Contact saved", { description: contactDisplayName(contact) });
+          pager.refresh();
+        }}
+      />
+    </div>
+  );
+}
+
+function ContactRow({ contact, onChanged, onEdit }: { contact: ContactObject; onChanged: () => void; onEdit: (contact: ContactObject) => void }): JSX.Element {
+  const [deleting, setDeleting] = useState(false);
+  const id = contact.id ?? "";
+
+  const remove = async (): Promise<void> => {
+    if (id === "") {
+      return;
+    }
+    setDeleting(true);
+    try {
+      await deleteContact(id);
+      toast.success("Contact deleted", { description: contactDisplayName(contact) });
+      onChanged();
+    } catch (err) {
+      toast.error("Contact delete failed", { description: toMessage(err) });
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  return (
+    <TableRow>
+      <TableCell className="min-w-0">
+        <div className="truncate font-medium" title={contactDisplayName(contact)}>
+          {contactDisplayName(contact)}
+        </div>
+        <div className="truncate font-mono text-xs text-muted-foreground" title={id}>
+          {id || "-"}
+        </div>
+      </TableCell>
+      <TableCell className="truncate font-mono text-xs" title={contact.phone_number ?? ""}>
+        {contact.phone_number ?? "-"}
+      </TableCell>
+      <TableCell className="text-muted-foreground">{formatDate(contact.updated_at ?? contact.created_at)}</TableCell>
+      <TableCell>
+        <div className="flex justify-end gap-2">
+          <Button onClick={() => onEdit(contact)} size="sm" type="button" variant="outline">
+            Edit
+          </Button>
+          <Button disabled={deleting || id === ""} onClick={() => void remove()} size="sm" type="button" variant="destructive">
+            Delete
+          </Button>
+        </div>
+      </TableCell>
+    </TableRow>
+  );
+}
+
+function ContactDialog({
+  contact,
+  onOpenChange,
+  onSaved,
+  open,
+}: {
+  contact: ContactObject | null;
+  onOpenChange: (open: boolean) => void;
+  onSaved: (contact: ContactObject) => void;
+  open: boolean;
+}): JSX.Element {
+  const [displayName, setDisplayName] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+    setDisplayName(contact?.display_name ?? "");
+    setPhoneNumber(contact?.phone_number ?? "");
+    setError("");
+  }, [contact, open]);
+
+  const submit = async (): Promise<void> => {
+    if (displayName.trim() === "" && phoneNumber.trim() === "") {
+      return;
+    }
+    setSaving(true);
+    setError("");
+    try {
+      const saved =
+        contact?.id == null || contact.id === ""
+          ? await createContact(displayName, phoneNumber)
+          : await updateContact(contact.id, displayName, phoneNumber);
+      onSaved(saved);
+    } catch (err) {
+      setError(toMessage(err));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{contact == null ? "New Contact" : "Edit Contact"}</DialogTitle>
+          <DialogDescription>Contacts are saved in this peer address book.</DialogDescription>
+        </DialogHeader>
+        <div className="flex flex-col gap-4">
+          {error !== "" ? (
+            <Alert variant="destructive">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          ) : null}
+          <FieldGroup>
+            <ShadField>
+              <FieldLabel htmlFor="contact-display-name">Display name</FieldLabel>
+              <Input id="contact-display-name" onChange={(event) => setDisplayName(event.target.value)} value={displayName} />
+            </ShadField>
+            <ShadField>
+              <FieldLabel htmlFor="contact-phone-number">Phone number</FieldLabel>
+              <Input id="contact-phone-number" onChange={(event) => setPhoneNumber(event.target.value)} value={phoneNumber} />
+            </ShadField>
+          </FieldGroup>
+        </div>
+        <DialogFooter>
+          <Button disabled={saving} onClick={() => onOpenChange(false)} type="button" variant="outline">
+            Cancel
+          </Button>
+          <Button disabled={saving || (displayName.trim() === "" && phoneNumber.trim() === "")} onClick={() => void submit()} type="button">
+            {contact == null ? "Create" : "Save"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -3534,6 +3742,42 @@ function socialTargetKey(target: SocialChatTarget): string {
   return `${target.kind}:${target.id}:${target.workspaceName}`;
 }
 
+function contactDisplayName(contact: ContactObject): string {
+  return contact.display_name?.trim() || contact.phone_number?.trim() || compactID(contact.id ?? "contact");
+}
+
+function listContactsPage(cursor: string): Promise<PageResponse<ContactObject>> {
+  return expectData(listPeerContacts({ query: pageQuery(cursor) })) as Promise<PageResponse<ContactObject>>;
+}
+
+function createContact(displayName: string, phoneNumber: string): Promise<ContactObject> {
+  return expectData(
+    createPeerContact({
+      body: {
+        display_name: displayName.trim() || undefined,
+        phone_number: phoneNumber.trim() || undefined,
+      },
+    }),
+  ) as Promise<ContactObject>;
+}
+
+function updateContact(id: string, displayName: string, phoneNumber: string): Promise<ContactObject> {
+  return expectData(
+    putPeerContact({
+      body: {
+        display_name: displayName.trim(),
+        id,
+        phone_number: phoneNumber.trim(),
+      },
+      path: { id },
+    }),
+  ) as Promise<ContactObject>;
+}
+
+function deleteContact(id: string): Promise<ContactObject> {
+  return expectData(deletePeerContact({ path: { id } })) as Promise<ContactObject>;
+}
+
 function listFriendsPage(cursor: string): Promise<PageResponse<FriendObject>> {
   return expectData(listPeerFriends({ query: pageQuery(cursor) })) as Promise<PageResponse<FriendObject>>;
 }
@@ -4673,6 +4917,8 @@ function isPlayableVoice(voice: Voice): boolean {
 async function listPeerResourcePage(name: string, cursor: string): Promise<PageResponse<ResourceItem>> {
   const query = pageQuery(cursor);
   switch (name) {
+    case "contacts":
+      return expectData(listPeerContacts({ query })) as Promise<PageResponse<ResourceItem>>;
     case "credentials":
       return expectData(listPeerCredentials({ query })) as Promise<PageResponse<ResourceItem>>;
     case "friend-groups":

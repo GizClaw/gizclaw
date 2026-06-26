@@ -104,6 +104,37 @@ type ACLViewUpsert struct {
 	Name        string  `json:"name"`
 }
 
+// AdminContactCreateRequest defines model for AdminContactCreateRequest.
+type AdminContactCreateRequest struct {
+	DisplayName    *string `json:"display_name,omitempty"`
+	Id             *string `json:"id,omitempty"`
+	OwnerPublicKey string  `json:"owner_public_key"`
+	PhoneNumber    *string `json:"phone_number,omitempty"`
+}
+
+// AdminContactListResponse defines model for AdminContactListResponse.
+type AdminContactListResponse struct {
+	HasNext    bool                 `json:"has_next"`
+	Items      []AdminContactObject `json:"items"`
+	NextCursor *string              `json:"next_cursor,omitempty"`
+}
+
+// AdminContactObject defines model for AdminContactObject.
+type AdminContactObject struct {
+	CreatedAt      *time.Time `json:"created_at,omitempty"`
+	DisplayName    *string    `json:"display_name,omitempty"`
+	Id             string     `json:"id"`
+	OwnerPublicKey string     `json:"owner_public_key"`
+	PhoneNumber    *string    `json:"phone_number,omitempty"`
+	UpdatedAt      *time.Time `json:"updated_at,omitempty"`
+}
+
+// AdminContactPutRequest defines model for AdminContactPutRequest.
+type AdminContactPutRequest struct {
+	DisplayName *string `json:"display_name,omitempty"`
+	PhoneNumber *string `json:"phone_number,omitempty"`
+}
+
 // AdminFriendCreateRequest defines model for AdminFriendCreateRequest.
 type AdminFriendCreateRequest struct {
 	PeerPublicKey string `json:"peer_public_key"`
@@ -582,6 +613,18 @@ type ListPetSpeciesParams struct {
 	Limit *int32 `form:"limit,omitempty" json:"limit,omitempty"`
 }
 
+// ListContactsParams defines parameters for ListContacts.
+type ListContactsParams struct {
+	// OwnerPublicKey Optional owner peer public key filter.
+	OwnerPublicKey *string `form:"owner_public_key,omitempty" json:"owner_public_key,omitempty"`
+
+	// Cursor Cursor returned by the previous list response.
+	Cursor *string `form:"cursor,omitempty" json:"cursor,omitempty"`
+
+	// Limit Maximum number of items to return.
+	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
 // ListFriendGroupsParams defines parameters for ListFriendGroups.
 type ListFriendGroupsParams struct {
 	// Cursor Cursor returned by the previous list response.
@@ -746,6 +789,12 @@ type PutPeerInfoJSONRequestBody = externalRef0.DeviceInfo
 
 // PutResourceJSONRequestBody defines body for PutResource for application/json ContentType.
 type PutResourceJSONRequestBody = externalRef0.Resource
+
+// CreateContactJSONRequestBody defines body for CreateContact for application/json ContentType.
+type CreateContactJSONRequestBody = AdminContactCreateRequest
+
+// PutContactJSONRequestBody defines body for PutContact for application/json ContentType.
+type PutContactJSONRequestBody = AdminContactPutRequest
 
 // CreateFriendGroupJSONRequestBody defines body for CreateFriendGroup for application/json ContentType.
 type CreateFriendGroupJSONRequestBody = AdminFriendGroupCreateRequest
@@ -1156,6 +1205,25 @@ type ClientInterface interface {
 	PutResourceWithBody(ctx context.Context, kind ResourceKind, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	PutResource(ctx context.Context, kind ResourceKind, name string, body PutResourceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListContacts request
+	ListContacts(ctx context.Context, params *ListContactsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateContactWithBody request with any body
+	CreateContactWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateContact(ctx context.Context, body CreateContactJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteContact request
+	DeleteContact(ctx context.Context, ownerPublicKey string, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetContact request
+	GetContact(ctx context.Context, ownerPublicKey string, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PutContactWithBody request with any body
+	PutContactWithBody(ctx context.Context, ownerPublicKey string, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	PutContact(ctx context.Context, ownerPublicKey string, id string, body PutContactJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListFriendGroups request
 	ListFriendGroups(ctx context.Context, params *ListFriendGroupsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -2580,6 +2648,90 @@ func (c *Client) PutResourceWithBody(ctx context.Context, kind ResourceKind, nam
 
 func (c *Client) PutResource(ctx context.Context, kind ResourceKind, name string, body PutResourceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewPutResourceRequest(c.Server, kind, name, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListContacts(ctx context.Context, params *ListContactsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListContactsRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateContactWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateContactRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateContact(ctx context.Context, body CreateContactJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateContactRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteContact(ctx context.Context, ownerPublicKey string, id string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteContactRequest(c.Server, ownerPublicKey, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetContact(ctx context.Context, ownerPublicKey string, id string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetContactRequest(c.Server, ownerPublicKey, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PutContactWithBody(ctx context.Context, ownerPublicKey string, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutContactRequestWithBody(c.Server, ownerPublicKey, id, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PutContact(ctx context.Context, ownerPublicKey string, id string, body PutContactJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutContactRequest(c.Server, ownerPublicKey, id, body)
 	if err != nil {
 		return nil, err
 	}
@@ -6948,6 +7100,263 @@ func NewPutResourceRequestWithBody(server string, kind ResourceKind, name string
 	return req, nil
 }
 
+// NewListContactsRequest generates requests for ListContacts
+func NewListContactsRequest(server string, params *ListContactsParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/social/contacts")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.OwnerPublicKey != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "owner_public_key", *params.OwnerPublicKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Cursor != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "cursor", *params.Cursor, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateContactRequest calls the generic CreateContact builder with application/json body
+func NewCreateContactRequest(server string, body CreateContactJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateContactRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewCreateContactRequestWithBody generates requests for CreateContact with any type of body
+func NewCreateContactRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/social/contacts")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteContactRequest generates requests for DeleteContact
+func NewDeleteContactRequest(server string, ownerPublicKey string, id string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "ownerPublicKey", ownerPublicKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/social/contacts/%s/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetContactRequest generates requests for GetContact
+func NewGetContactRequest(server string, ownerPublicKey string, id string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "ownerPublicKey", ownerPublicKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/social/contacts/%s/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewPutContactRequest calls the generic PutContact builder with application/json body
+func NewPutContactRequest(server string, ownerPublicKey string, id string, body PutContactJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPutContactRequestWithBody(server, ownerPublicKey, id, "application/json", bodyReader)
+}
+
+// NewPutContactRequestWithBody generates requests for PutContact with any type of body
+func NewPutContactRequestWithBody(server string, ownerPublicKey string, id string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "ownerPublicKey", ownerPublicKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/social/contacts/%s/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PUT", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewListFriendGroupsRequest generates requests for ListFriendGroups
 func NewListFriendGroupsRequest(server string, params *ListFriendGroupsParams) (*http.Request, error) {
 	var err error
@@ -9154,6 +9563,25 @@ type ClientWithResponsesInterface interface {
 
 	PutResourceWithResponse(ctx context.Context, kind ResourceKind, name string, body PutResourceJSONRequestBody, reqEditors ...RequestEditorFn) (*PutResourceResponse, error)
 
+	// ListContactsWithResponse request
+	ListContactsWithResponse(ctx context.Context, params *ListContactsParams, reqEditors ...RequestEditorFn) (*ListContactsResponse, error)
+
+	// CreateContactWithBodyWithResponse request with any body
+	CreateContactWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateContactResponse, error)
+
+	CreateContactWithResponse(ctx context.Context, body CreateContactJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateContactResponse, error)
+
+	// DeleteContactWithResponse request
+	DeleteContactWithResponse(ctx context.Context, ownerPublicKey string, id string, reqEditors ...RequestEditorFn) (*DeleteContactResponse, error)
+
+	// GetContactWithResponse request
+	GetContactWithResponse(ctx context.Context, ownerPublicKey string, id string, reqEditors ...RequestEditorFn) (*GetContactResponse, error)
+
+	// PutContactWithBodyWithResponse request with any body
+	PutContactWithBodyWithResponse(ctx context.Context, ownerPublicKey string, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutContactResponse, error)
+
+	PutContactWithResponse(ctx context.Context, ownerPublicKey string, id string, body PutContactJSONRequestBody, reqEditors ...RequestEditorFn) (*PutContactResponse, error)
+
 	// ListFriendGroupsWithResponse request
 	ListFriendGroupsWithResponse(ctx context.Context, params *ListFriendGroupsParams, reqEditors ...RequestEditorFn) (*ListFriendGroupsResponse, error)
 
@@ -11256,6 +11684,130 @@ func (r PutResourceResponse) StatusCode() int {
 	return 0
 }
 
+type ListContactsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *AdminContactListResponse
+	JSON400      *externalRef0.ErrorResponse
+	JSON500      *externalRef0.ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r ListContactsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListContactsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type CreateContactResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *AdminContactObject
+	JSON400      *externalRef0.ErrorResponse
+	JSON404      *externalRef0.ErrorResponse
+	JSON500      *externalRef0.ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateContactResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateContactResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DeleteContactResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *AdminContactObject
+	JSON400      *externalRef0.ErrorResponse
+	JSON404      *externalRef0.ErrorResponse
+	JSON500      *externalRef0.ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteContactResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteContactResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetContactResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *AdminContactObject
+	JSON400      *externalRef0.ErrorResponse
+	JSON404      *externalRef0.ErrorResponse
+	JSON500      *externalRef0.ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r GetContactResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetContactResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type PutContactResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *AdminContactObject
+	JSON400      *externalRef0.ErrorResponse
+	JSON404      *externalRef0.ErrorResponse
+	JSON500      *externalRef0.ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r PutContactResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PutContactResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type ListFriendGroupsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -13171,6 +13723,67 @@ func (c *ClientWithResponses) PutResourceWithResponse(ctx context.Context, kind 
 		return nil, err
 	}
 	return ParsePutResourceResponse(rsp)
+}
+
+// ListContactsWithResponse request returning *ListContactsResponse
+func (c *ClientWithResponses) ListContactsWithResponse(ctx context.Context, params *ListContactsParams, reqEditors ...RequestEditorFn) (*ListContactsResponse, error) {
+	rsp, err := c.ListContacts(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListContactsResponse(rsp)
+}
+
+// CreateContactWithBodyWithResponse request with arbitrary body returning *CreateContactResponse
+func (c *ClientWithResponses) CreateContactWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateContactResponse, error) {
+	rsp, err := c.CreateContactWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateContactResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreateContactWithResponse(ctx context.Context, body CreateContactJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateContactResponse, error) {
+	rsp, err := c.CreateContact(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateContactResponse(rsp)
+}
+
+// DeleteContactWithResponse request returning *DeleteContactResponse
+func (c *ClientWithResponses) DeleteContactWithResponse(ctx context.Context, ownerPublicKey string, id string, reqEditors ...RequestEditorFn) (*DeleteContactResponse, error) {
+	rsp, err := c.DeleteContact(ctx, ownerPublicKey, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteContactResponse(rsp)
+}
+
+// GetContactWithResponse request returning *GetContactResponse
+func (c *ClientWithResponses) GetContactWithResponse(ctx context.Context, ownerPublicKey string, id string, reqEditors ...RequestEditorFn) (*GetContactResponse, error) {
+	rsp, err := c.GetContact(ctx, ownerPublicKey, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetContactResponse(rsp)
+}
+
+// PutContactWithBodyWithResponse request with arbitrary body returning *PutContactResponse
+func (c *ClientWithResponses) PutContactWithBodyWithResponse(ctx context.Context, ownerPublicKey string, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutContactResponse, error) {
+	rsp, err := c.PutContactWithBody(ctx, ownerPublicKey, id, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePutContactResponse(rsp)
+}
+
+func (c *ClientWithResponses) PutContactWithResponse(ctx context.Context, ownerPublicKey string, id string, body PutContactJSONRequestBody, reqEditors ...RequestEditorFn) (*PutContactResponse, error) {
+	rsp, err := c.PutContact(ctx, ownerPublicKey, id, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePutContactResponse(rsp)
 }
 
 // ListFriendGroupsWithResponse request returning *ListFriendGroupsResponse
@@ -16948,6 +17561,234 @@ func ParsePutResourceResponse(rsp *http.Response) (*PutResourceResponse, error) 
 	return response, nil
 }
 
+// ParseListContactsResponse parses an HTTP response from a ListContactsWithResponse call
+func ParseListContactsResponse(rsp *http.Response) (*ListContactsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListContactsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AdminContactListResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateContactResponse parses an HTTP response from a CreateContactWithResponse call
+func ParseCreateContactResponse(rsp *http.Response) (*CreateContactResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateContactResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AdminContactObject
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteContactResponse parses an HTTP response from a DeleteContactWithResponse call
+func ParseDeleteContactResponse(rsp *http.Response) (*DeleteContactResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteContactResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AdminContactObject
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetContactResponse parses an HTTP response from a GetContactWithResponse call
+func ParseGetContactResponse(rsp *http.Response) (*GetContactResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetContactResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AdminContactObject
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePutContactResponse parses an HTTP response from a PutContactWithResponse call
+func ParsePutContactResponse(rsp *http.Response) (*PutContactResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PutContactResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AdminContactObject
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseListFriendGroupsResponse parses an HTTP response from a ListFriendGroupsWithResponse call
 func ParseListFriendGroupsResponse(rsp *http.Response) (*ListFriendGroupsResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -18933,6 +19774,21 @@ type ServerInterface interface {
 	// Create or update an admin resource
 	// (PUT /resources/{kind}/{name})
 	PutResource(c *fiber.Ctx, kind ResourceKind, name string) error
+	// List global contacts
+	// (GET /social/contacts)
+	ListContacts(c *fiber.Ctx, params ListContactsParams) error
+	// Create a contact for one owner peer
+	// (POST /social/contacts)
+	CreateContact(c *fiber.Ctx) error
+	// Delete one owner-scoped contact
+	// (DELETE /social/contacts/{ownerPublicKey}/{id})
+	DeleteContact(c *fiber.Ctx, ownerPublicKey string, id string) error
+	// Get one owner-scoped contact
+	// (GET /social/contacts/{ownerPublicKey}/{id})
+	GetContact(c *fiber.Ctx, ownerPublicKey string, id string) error
+	// Update one owner-scoped contact
+	// (PUT /social/contacts/{ownerPublicKey}/{id})
+	PutContact(c *fiber.Ctx, ownerPublicKey string, id string) error
 	// List friend groups
 	// (GET /social/friend-groups)
 	ListFriendGroups(c *fiber.Ctx, params ListFriendGroupsParams) error
@@ -20614,6 +21470,122 @@ func (siw *ServerInterfaceWrapper) PutResource(c *fiber.Ctx) error {
 	return siw.Handler.PutResource(c, kind, name)
 }
 
+// ListContacts operation middleware
+func (siw *ServerInterfaceWrapper) ListContacts(c *fiber.Ctx) error {
+
+	var err error
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListContactsParams
+
+	var query url.Values
+	query, err = url.ParseQuery(string(c.Request().URI().QueryString()))
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for query string: %w", err).Error())
+	}
+
+	// ------------- Optional query parameter "owner_public_key" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "owner_public_key", query, &params.OwnerPublicKey, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter owner_public_key: %w", err).Error())
+	}
+
+	// ------------- Optional query parameter "cursor" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "cursor", query, &params.Cursor, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter cursor: %w", err).Error())
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", query, &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter limit: %w", err).Error())
+	}
+
+	return siw.Handler.ListContacts(c, params)
+}
+
+// CreateContact operation middleware
+func (siw *ServerInterfaceWrapper) CreateContact(c *fiber.Ctx) error {
+
+	return siw.Handler.CreateContact(c)
+}
+
+// DeleteContact operation middleware
+func (siw *ServerInterfaceWrapper) DeleteContact(c *fiber.Ctx) error {
+
+	var err error
+
+	// ------------- Path parameter "ownerPublicKey" -------------
+	var ownerPublicKey string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "ownerPublicKey", c.Params("ownerPublicKey"), &ownerPublicKey, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter ownerPublicKey: %w", err).Error())
+	}
+
+	// ------------- Path parameter "id" -------------
+	var id string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
+	}
+
+	return siw.Handler.DeleteContact(c, ownerPublicKey, id)
+}
+
+// GetContact operation middleware
+func (siw *ServerInterfaceWrapper) GetContact(c *fiber.Ctx) error {
+
+	var err error
+
+	// ------------- Path parameter "ownerPublicKey" -------------
+	var ownerPublicKey string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "ownerPublicKey", c.Params("ownerPublicKey"), &ownerPublicKey, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter ownerPublicKey: %w", err).Error())
+	}
+
+	// ------------- Path parameter "id" -------------
+	var id string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
+	}
+
+	return siw.Handler.GetContact(c, ownerPublicKey, id)
+}
+
+// PutContact operation middleware
+func (siw *ServerInterfaceWrapper) PutContact(c *fiber.Ctx) error {
+
+	var err error
+
+	// ------------- Path parameter "ownerPublicKey" -------------
+	var ownerPublicKey string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "ownerPublicKey", c.Params("ownerPublicKey"), &ownerPublicKey, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter ownerPublicKey: %w", err).Error())
+	}
+
+	// ------------- Path parameter "id" -------------
+	var id string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
+	}
+
+	return siw.Handler.PutContact(c, ownerPublicKey, id)
+}
+
 // ListFriendGroups operation middleware
 func (siw *ServerInterfaceWrapper) ListFriendGroups(c *fiber.Ctx) error {
 
@@ -21588,6 +22560,16 @@ func RegisterHandlersWithOptions(router fiber.Router, si ServerInterface, option
 	router.Get(options.BaseURL+"/resources/:kind/:name", wrapper.GetResource)
 
 	router.Put(options.BaseURL+"/resources/:kind/:name", wrapper.PutResource)
+
+	router.Get(options.BaseURL+"/social/contacts", wrapper.ListContacts)
+
+	router.Post(options.BaseURL+"/social/contacts", wrapper.CreateContact)
+
+	router.Delete(options.BaseURL+"/social/contacts/:ownerPublicKey/:id", wrapper.DeleteContact)
+
+	router.Get(options.BaseURL+"/social/contacts/:ownerPublicKey/:id", wrapper.GetContact)
+
+	router.Put(options.BaseURL+"/social/contacts/:ownerPublicKey/:id", wrapper.PutContact)
 
 	router.Get(options.BaseURL+"/social/friend-groups", wrapper.ListFriendGroups)
 
@@ -24654,6 +25636,221 @@ func (response PutResource501JSONResponse) VisitPutResourceResponse(ctx *fiber.C
 	return ctx.JSON(&response)
 }
 
+type ListContactsRequestObject struct {
+	Params ListContactsParams
+}
+
+type ListContactsResponseObject interface {
+	VisitListContactsResponse(ctx *fiber.Ctx) error
+}
+
+type ListContacts200JSONResponse AdminContactListResponse
+
+func (response ListContacts200JSONResponse) VisitListContactsResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type ListContacts400JSONResponse externalRef0.ErrorResponse
+
+func (response ListContacts400JSONResponse) VisitListContactsResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(400)
+
+	return ctx.JSON(&response)
+}
+
+type ListContacts500JSONResponse externalRef0.ErrorResponse
+
+func (response ListContacts500JSONResponse) VisitListContactsResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type CreateContactRequestObject struct {
+	Body *CreateContactJSONRequestBody
+}
+
+type CreateContactResponseObject interface {
+	VisitCreateContactResponse(ctx *fiber.Ctx) error
+}
+
+type CreateContact200JSONResponse AdminContactObject
+
+func (response CreateContact200JSONResponse) VisitCreateContactResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type CreateContact400JSONResponse externalRef0.ErrorResponse
+
+func (response CreateContact400JSONResponse) VisitCreateContactResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(400)
+
+	return ctx.JSON(&response)
+}
+
+type CreateContact404JSONResponse externalRef0.ErrorResponse
+
+func (response CreateContact404JSONResponse) VisitCreateContactResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type CreateContact500JSONResponse externalRef0.ErrorResponse
+
+func (response CreateContact500JSONResponse) VisitCreateContactResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type DeleteContactRequestObject struct {
+	OwnerPublicKey string `json:"ownerPublicKey"`
+	Id             string `json:"id"`
+}
+
+type DeleteContactResponseObject interface {
+	VisitDeleteContactResponse(ctx *fiber.Ctx) error
+}
+
+type DeleteContact200JSONResponse AdminContactObject
+
+func (response DeleteContact200JSONResponse) VisitDeleteContactResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type DeleteContact400JSONResponse externalRef0.ErrorResponse
+
+func (response DeleteContact400JSONResponse) VisitDeleteContactResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(400)
+
+	return ctx.JSON(&response)
+}
+
+type DeleteContact404JSONResponse externalRef0.ErrorResponse
+
+func (response DeleteContact404JSONResponse) VisitDeleteContactResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type DeleteContact500JSONResponse externalRef0.ErrorResponse
+
+func (response DeleteContact500JSONResponse) VisitDeleteContactResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type GetContactRequestObject struct {
+	OwnerPublicKey string `json:"ownerPublicKey"`
+	Id             string `json:"id"`
+}
+
+type GetContactResponseObject interface {
+	VisitGetContactResponse(ctx *fiber.Ctx) error
+}
+
+type GetContact200JSONResponse AdminContactObject
+
+func (response GetContact200JSONResponse) VisitGetContactResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type GetContact400JSONResponse externalRef0.ErrorResponse
+
+func (response GetContact400JSONResponse) VisitGetContactResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(400)
+
+	return ctx.JSON(&response)
+}
+
+type GetContact404JSONResponse externalRef0.ErrorResponse
+
+func (response GetContact404JSONResponse) VisitGetContactResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type GetContact500JSONResponse externalRef0.ErrorResponse
+
+func (response GetContact500JSONResponse) VisitGetContactResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type PutContactRequestObject struct {
+	OwnerPublicKey string `json:"ownerPublicKey"`
+	Id             string `json:"id"`
+	Body           *PutContactJSONRequestBody
+}
+
+type PutContactResponseObject interface {
+	VisitPutContactResponse(ctx *fiber.Ctx) error
+}
+
+type PutContact200JSONResponse AdminContactObject
+
+func (response PutContact200JSONResponse) VisitPutContactResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type PutContact400JSONResponse externalRef0.ErrorResponse
+
+func (response PutContact400JSONResponse) VisitPutContactResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(400)
+
+	return ctx.JSON(&response)
+}
+
+type PutContact404JSONResponse externalRef0.ErrorResponse
+
+func (response PutContact404JSONResponse) VisitPutContactResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type PutContact500JSONResponse externalRef0.ErrorResponse
+
+func (response PutContact500JSONResponse) VisitPutContactResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
 type ListFriendGroupsRequestObject struct {
 	Params ListFriendGroupsParams
 }
@@ -26514,6 +27711,21 @@ type StrictServerInterface interface {
 	// Create or update an admin resource
 	// (PUT /resources/{kind}/{name})
 	PutResource(ctx context.Context, request PutResourceRequestObject) (PutResourceResponseObject, error)
+	// List global contacts
+	// (GET /social/contacts)
+	ListContacts(ctx context.Context, request ListContactsRequestObject) (ListContactsResponseObject, error)
+	// Create a contact for one owner peer
+	// (POST /social/contacts)
+	CreateContact(ctx context.Context, request CreateContactRequestObject) (CreateContactResponseObject, error)
+	// Delete one owner-scoped contact
+	// (DELETE /social/contacts/{ownerPublicKey}/{id})
+	DeleteContact(ctx context.Context, request DeleteContactRequestObject) (DeleteContactResponseObject, error)
+	// Get one owner-scoped contact
+	// (GET /social/contacts/{ownerPublicKey}/{id})
+	GetContact(ctx context.Context, request GetContactRequestObject) (GetContactResponseObject, error)
+	// Update one owner-scoped contact
+	// (PUT /social/contacts/{ownerPublicKey}/{id})
+	PutContact(ctx context.Context, request PutContactRequestObject) (PutContactResponseObject, error)
 	// List friend groups
 	// (GET /social/friend-groups)
 	ListFriendGroups(ctx context.Context, request ListFriendGroupsRequestObject) (ListFriendGroupsResponseObject, error)
@@ -29010,6 +30222,154 @@ func (sh *strictHandler) PutResource(ctx *fiber.Ctx, kind ResourceKind, name str
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
 	} else if validResponse, ok := response.(PutResourceResponseObject); ok {
 		if err := validResponse.VisitPutResourceResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// ListContacts operation middleware
+func (sh *strictHandler) ListContacts(ctx *fiber.Ctx, params ListContactsParams) error {
+	var request ListContactsRequestObject
+
+	request.Params = params
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.ListContacts(ctx.UserContext(), request.(ListContactsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListContacts")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(ListContactsResponseObject); ok {
+		if err := validResponse.VisitListContactsResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// CreateContact operation middleware
+func (sh *strictHandler) CreateContact(ctx *fiber.Ctx) error {
+	var request CreateContactRequestObject
+
+	var body CreateContactJSONRequestBody
+	if err := ctx.BodyParser(&body); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	}
+	request.Body = &body
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateContact(ctx.UserContext(), request.(CreateContactRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateContact")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(CreateContactResponseObject); ok {
+		if err := validResponse.VisitCreateContactResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// DeleteContact operation middleware
+func (sh *strictHandler) DeleteContact(ctx *fiber.Ctx, ownerPublicKey string, id string) error {
+	var request DeleteContactRequestObject
+
+	request.OwnerPublicKey = ownerPublicKey
+	request.Id = id
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteContact(ctx.UserContext(), request.(DeleteContactRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteContact")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(DeleteContactResponseObject); ok {
+		if err := validResponse.VisitDeleteContactResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// GetContact operation middleware
+func (sh *strictHandler) GetContact(ctx *fiber.Ctx, ownerPublicKey string, id string) error {
+	var request GetContactRequestObject
+
+	request.OwnerPublicKey = ownerPublicKey
+	request.Id = id
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.GetContact(ctx.UserContext(), request.(GetContactRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetContact")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(GetContactResponseObject); ok {
+		if err := validResponse.VisitGetContactResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// PutContact operation middleware
+func (sh *strictHandler) PutContact(ctx *fiber.Ctx, ownerPublicKey string, id string) error {
+	var request PutContactRequestObject
+
+	request.OwnerPublicKey = ownerPublicKey
+	request.Id = id
+
+	var body PutContactJSONRequestBody
+	if err := ctx.BodyParser(&body); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	}
+	request.Body = &body
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.PutContact(ctx.UserContext(), request.(PutContactRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PutContact")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(PutContactResponseObject); ok {
+		if err := validResponse.VisitPutContactResponse(ctx); err != nil {
 			return fiber.NewError(fiber.StatusBadRequest, err.Error())
 		}
 	} else if response != nil {

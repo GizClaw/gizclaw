@@ -36,6 +36,7 @@ func (e ClientVoiceListResponseObject) Valid() bool {
 
 // Defines values for PeerResourceName.
 const (
+	Contacts           PeerResourceName = "contacts"
 	Credentials        PeerResourceName = "credentials"
 	FriendGroups       PeerResourceName = "friend-groups"
 	Friends            PeerResourceName = "friends"
@@ -52,6 +53,8 @@ const (
 // Valid indicates whether the value is a known member of the PeerResourceName enum.
 func (e PeerResourceName) Valid() bool {
 	switch e {
+	case Contacts:
+		return true
 	case Credentials:
 		return true
 	case FriendGroups:
@@ -175,6 +178,9 @@ type WebRTCSessionDescription struct {
 // WebRTCSessionDescriptionType defines model for WebRTCSessionDescription.Type.
 type WebRTCSessionDescriptionType string
 
+// ContactId defines model for ContactId.
+type ContactId = string
+
 // Cursor defines model for Cursor.
 type Cursor = string
 
@@ -216,6 +222,12 @@ type WalletTransactionId = string
 
 // WorkspaceName defines model for WorkspaceName.
 type WorkspaceName = string
+
+// ListPeerContactsParams defines parameters for ListPeerContacts.
+type ListPeerContactsParams struct {
+	Cursor *Cursor `form:"cursor,omitempty" json:"cursor,omitempty"`
+	Limit  *Limit  `form:"limit,omitempty" json:"limit,omitempty"`
+}
 
 // ListPeerCredentialsParams defines parameters for ListPeerCredentials.
 type ListPeerCredentialsParams struct {
@@ -311,6 +323,12 @@ type ListClientVoicesParams struct {
 	ProviderKind *VoiceProviderKind `form:"provider_kind,omitempty" json:"provider_kind,omitempty"`
 	ProviderName *VoiceProviderName `form:"provider_name,omitempty" json:"provider_name,omitempty"`
 }
+
+// CreatePeerContactJSONRequestBody defines body for CreatePeerContact for application/json ContentType.
+type CreatePeerContactJSONRequestBody = externalRef1.ContactCreateRequest
+
+// PutPeerContactJSONRequestBody defines body for PutPeerContact for application/json ContentType.
+type PutPeerContactJSONRequestBody = externalRef1.ContactPutRequest
 
 // CreatePeerFriendGroupJSONRequestBody defines body for CreatePeerFriendGroup for application/json ContentType.
 type CreatePeerFriendGroupJSONRequestBody = externalRef1.FriendGroupCreateRequest
@@ -426,6 +444,25 @@ func WithRequestEditorFn(fn RequestEditorFn) ClientOption {
 type ClientInterface interface {
 	// ListPeerResourceNames request
 	ListPeerResourceNames(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListPeerContacts request
+	ListPeerContacts(ctx context.Context, params *ListPeerContactsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreatePeerContactWithBody request with any body
+	CreatePeerContactWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreatePeerContact(ctx context.Context, body CreatePeerContactJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeletePeerContact request
+	DeletePeerContact(ctx context.Context, id ContactId, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetPeerContact request
+	GetPeerContact(ctx context.Context, id ContactId, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PutPeerContactWithBody request with any body
+	PutPeerContactWithBody(ctx context.Context, id ContactId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	PutPeerContact(ctx context.Context, id ContactId, body PutPeerContactJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListPeerCredentials request
 	ListPeerCredentials(ctx context.Context, params *ListPeerCredentialsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -588,6 +625,90 @@ type ClientInterface interface {
 
 func (c *Client) ListPeerResourceNames(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListPeerResourceNamesRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListPeerContacts(ctx context.Context, params *ListPeerContactsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListPeerContactsRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreatePeerContactWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreatePeerContactRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreatePeerContact(ctx context.Context, body CreatePeerContactJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreatePeerContactRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeletePeerContact(ctx context.Context, id ContactId, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeletePeerContactRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetPeerContact(ctx context.Context, id ContactId, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetPeerContactRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PutPeerContactWithBody(ctx context.Context, id ContactId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutPeerContactRequestWithBody(c.Server, id, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PutPeerContact(ctx context.Context, id ContactId, body PutPeerContactJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutPeerContactRequest(c.Server, id, body)
 	if err != nil {
 		return nil, err
 	}
@@ -1305,6 +1426,226 @@ func NewListPeerResourceNamesRequest(server string) (*http.Request, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	return req, nil
+}
+
+// NewListPeerContactsRequest generates requests for ListPeerContacts
+func NewListPeerContactsRequest(server string, params *ListPeerContactsParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/peer-resources/contacts")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Cursor != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "cursor", *params.Cursor, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreatePeerContactRequest calls the generic CreatePeerContact builder with application/json body
+func NewCreatePeerContactRequest(server string, body CreatePeerContactJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreatePeerContactRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewCreatePeerContactRequestWithBody generates requests for CreatePeerContact with any type of body
+func NewCreatePeerContactRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/peer-resources/contacts")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeletePeerContactRequest generates requests for DeletePeerContact
+func NewDeletePeerContactRequest(server string, id ContactId) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/peer-resources/contacts/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetPeerContactRequest generates requests for GetPeerContact
+func NewGetPeerContactRequest(server string, id ContactId) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/peer-resources/contacts/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewPutPeerContactRequest calls the generic PutPeerContact builder with application/json body
+func NewPutPeerContactRequest(server string, id ContactId, body PutPeerContactJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPutPeerContactRequestWithBody(server, id, "application/json", bodyReader)
+}
+
+// NewPutPeerContactRequestWithBody generates requests for PutPeerContact with any type of body
+func NewPutPeerContactRequestWithBody(server string, id ContactId, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/peer-resources/contacts/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PUT", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -3554,6 +3895,25 @@ type ClientWithResponsesInterface interface {
 	// ListPeerResourceNamesWithResponse request
 	ListPeerResourceNamesWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListPeerResourceNamesResponse, error)
 
+	// ListPeerContactsWithResponse request
+	ListPeerContactsWithResponse(ctx context.Context, params *ListPeerContactsParams, reqEditors ...RequestEditorFn) (*ListPeerContactsResponse, error)
+
+	// CreatePeerContactWithBodyWithResponse request with any body
+	CreatePeerContactWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreatePeerContactResponse, error)
+
+	CreatePeerContactWithResponse(ctx context.Context, body CreatePeerContactJSONRequestBody, reqEditors ...RequestEditorFn) (*CreatePeerContactResponse, error)
+
+	// DeletePeerContactWithResponse request
+	DeletePeerContactWithResponse(ctx context.Context, id ContactId, reqEditors ...RequestEditorFn) (*DeletePeerContactResponse, error)
+
+	// GetPeerContactWithResponse request
+	GetPeerContactWithResponse(ctx context.Context, id ContactId, reqEditors ...RequestEditorFn) (*GetPeerContactResponse, error)
+
+	// PutPeerContactWithBodyWithResponse request with any body
+	PutPeerContactWithBodyWithResponse(ctx context.Context, id ContactId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutPeerContactResponse, error)
+
+	PutPeerContactWithResponse(ctx context.Context, id ContactId, body PutPeerContactJSONRequestBody, reqEditors ...RequestEditorFn) (*PutPeerContactResponse, error)
+
 	// ListPeerCredentialsWithResponse request
 	ListPeerCredentialsWithResponse(ctx context.Context, params *ListPeerCredentialsParams, reqEditors ...RequestEditorFn) (*ListPeerCredentialsResponse, error)
 
@@ -3729,6 +4089,116 @@ func (r ListPeerResourceNamesResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r ListPeerResourceNamesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ListPeerContactsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *externalRef1.ContactListResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r ListPeerContactsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListPeerContactsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type CreatePeerContactResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *externalRef1.ContactCreateResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r CreatePeerContactResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreatePeerContactResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DeletePeerContactResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *externalRef1.ContactDeleteResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r DeletePeerContactResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeletePeerContactResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetPeerContactResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *externalRef1.ContactGetResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r GetPeerContactResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetPeerContactResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type PutPeerContactResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *externalRef1.ContactPutResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r PutPeerContactResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PutPeerContactResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -4710,6 +5180,67 @@ func (c *ClientWithResponses) ListPeerResourceNamesWithResponse(ctx context.Cont
 	return ParseListPeerResourceNamesResponse(rsp)
 }
 
+// ListPeerContactsWithResponse request returning *ListPeerContactsResponse
+func (c *ClientWithResponses) ListPeerContactsWithResponse(ctx context.Context, params *ListPeerContactsParams, reqEditors ...RequestEditorFn) (*ListPeerContactsResponse, error) {
+	rsp, err := c.ListPeerContacts(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListPeerContactsResponse(rsp)
+}
+
+// CreatePeerContactWithBodyWithResponse request with arbitrary body returning *CreatePeerContactResponse
+func (c *ClientWithResponses) CreatePeerContactWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreatePeerContactResponse, error) {
+	rsp, err := c.CreatePeerContactWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreatePeerContactResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreatePeerContactWithResponse(ctx context.Context, body CreatePeerContactJSONRequestBody, reqEditors ...RequestEditorFn) (*CreatePeerContactResponse, error) {
+	rsp, err := c.CreatePeerContact(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreatePeerContactResponse(rsp)
+}
+
+// DeletePeerContactWithResponse request returning *DeletePeerContactResponse
+func (c *ClientWithResponses) DeletePeerContactWithResponse(ctx context.Context, id ContactId, reqEditors ...RequestEditorFn) (*DeletePeerContactResponse, error) {
+	rsp, err := c.DeletePeerContact(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeletePeerContactResponse(rsp)
+}
+
+// GetPeerContactWithResponse request returning *GetPeerContactResponse
+func (c *ClientWithResponses) GetPeerContactWithResponse(ctx context.Context, id ContactId, reqEditors ...RequestEditorFn) (*GetPeerContactResponse, error) {
+	rsp, err := c.GetPeerContact(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetPeerContactResponse(rsp)
+}
+
+// PutPeerContactWithBodyWithResponse request with arbitrary body returning *PutPeerContactResponse
+func (c *ClientWithResponses) PutPeerContactWithBodyWithResponse(ctx context.Context, id ContactId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutPeerContactResponse, error) {
+	rsp, err := c.PutPeerContactWithBody(ctx, id, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePutPeerContactResponse(rsp)
+}
+
+func (c *ClientWithResponses) PutPeerContactWithResponse(ctx context.Context, id ContactId, body PutPeerContactJSONRequestBody, reqEditors ...RequestEditorFn) (*PutPeerContactResponse, error) {
+	rsp, err := c.PutPeerContact(ctx, id, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePutPeerContactResponse(rsp)
+}
+
 // ListPeerCredentialsWithResponse request returning *ListPeerCredentialsResponse
 func (c *ClientWithResponses) ListPeerCredentialsWithResponse(ctx context.Context, params *ListPeerCredentialsParams, reqEditors ...RequestEditorFn) (*ListPeerCredentialsResponse, error) {
 	rsp, err := c.ListPeerCredentials(ctx, params, reqEditors...)
@@ -5226,6 +5757,136 @@ func ParseListPeerResourceNamesResponse(rsp *http.Response) (*ListPeerResourceNa
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest PeerResourceNamesResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListPeerContactsResponse parses an HTTP response from a ListPeerContactsWithResponse call
+func ParseListPeerContactsResponse(rsp *http.Response) (*ListPeerContactsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListPeerContactsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest externalRef1.ContactListResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreatePeerContactResponse parses an HTTP response from a CreatePeerContactWithResponse call
+func ParseCreatePeerContactResponse(rsp *http.Response) (*CreatePeerContactResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreatePeerContactResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest externalRef1.ContactCreateResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeletePeerContactResponse parses an HTTP response from a DeletePeerContactWithResponse call
+func ParseDeletePeerContactResponse(rsp *http.Response) (*DeletePeerContactResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeletePeerContactResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest externalRef1.ContactDeleteResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetPeerContactResponse parses an HTTP response from a GetPeerContactWithResponse call
+func ParseGetPeerContactResponse(rsp *http.Response) (*GetPeerContactResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetPeerContactResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest externalRef1.ContactGetResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePutPeerContactResponse parses an HTTP response from a PutPeerContactWithResponse call
+func ParsePutPeerContactResponse(rsp *http.Response) (*PutPeerContactResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PutPeerContactResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest externalRef1.ContactPutResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -6365,6 +7026,21 @@ type ServerInterface interface {
 	// List resource names exposed to the current peer
 	// (GET /peer-resources)
 	ListPeerResourceNames(c *fiber.Ctx) error
+	// List contacts for the current peer
+	// (GET /peer-resources/contacts)
+	ListPeerContacts(c *fiber.Ctx, params ListPeerContactsParams) error
+	// Create a contact for the current peer
+	// (POST /peer-resources/contacts)
+	CreatePeerContact(c *fiber.Ctx) error
+	// Delete a contact for the current peer
+	// (DELETE /peer-resources/contacts/{id})
+	DeletePeerContact(c *fiber.Ctx, id ContactId) error
+	// Get a contact for the current peer
+	// (GET /peer-resources/contacts/{id})
+	GetPeerContact(c *fiber.Ctx, id ContactId) error
+	// Update a contact for the current peer
+	// (PUT /peer-resources/contacts/{id})
+	PutPeerContact(c *fiber.Ctx, id ContactId) error
 	// List credentials readable by the current peer
 	// (GET /peer-resources/credentials)
 	ListPeerCredentials(c *fiber.Ctx, params ListPeerCredentialsParams) error
@@ -6510,6 +7186,91 @@ type MiddlewareFunc fiber.Handler
 func (siw *ServerInterfaceWrapper) ListPeerResourceNames(c *fiber.Ctx) error {
 
 	return siw.Handler.ListPeerResourceNames(c)
+}
+
+// ListPeerContacts operation middleware
+func (siw *ServerInterfaceWrapper) ListPeerContacts(c *fiber.Ctx) error {
+
+	var err error
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListPeerContactsParams
+
+	var query url.Values
+	query, err = url.ParseQuery(string(c.Request().URI().QueryString()))
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for query string: %w", err).Error())
+	}
+
+	// ------------- Optional query parameter "cursor" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "cursor", query, &params.Cursor, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter cursor: %w", err).Error())
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", query, &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter limit: %w", err).Error())
+	}
+
+	return siw.Handler.ListPeerContacts(c, params)
+}
+
+// CreatePeerContact operation middleware
+func (siw *ServerInterfaceWrapper) CreatePeerContact(c *fiber.Ctx) error {
+
+	return siw.Handler.CreatePeerContact(c)
+}
+
+// DeletePeerContact operation middleware
+func (siw *ServerInterfaceWrapper) DeletePeerContact(c *fiber.Ctx) error {
+
+	var err error
+
+	// ------------- Path parameter "id" -------------
+	var id ContactId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
+	}
+
+	return siw.Handler.DeletePeerContact(c, id)
+}
+
+// GetPeerContact operation middleware
+func (siw *ServerInterfaceWrapper) GetPeerContact(c *fiber.Ctx) error {
+
+	var err error
+
+	// ------------- Path parameter "id" -------------
+	var id ContactId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
+	}
+
+	return siw.Handler.GetPeerContact(c, id)
+}
+
+// PutPeerContact operation middleware
+func (siw *ServerInterfaceWrapper) PutPeerContact(c *fiber.Ctx) error {
+
+	var err error
+
+	// ------------- Path parameter "id" -------------
+	var id ContactId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
+	}
+
+	return siw.Handler.PutPeerContact(c, id)
 }
 
 // ListPeerCredentials operation middleware
@@ -7453,6 +8214,16 @@ func RegisterHandlersWithOptions(router fiber.Router, si ServerInterface, option
 
 	router.Get(options.BaseURL+"/peer-resources", wrapper.ListPeerResourceNames)
 
+	router.Get(options.BaseURL+"/peer-resources/contacts", wrapper.ListPeerContacts)
+
+	router.Post(options.BaseURL+"/peer-resources/contacts", wrapper.CreatePeerContact)
+
+	router.Delete(options.BaseURL+"/peer-resources/contacts/:id", wrapper.DeletePeerContact)
+
+	router.Get(options.BaseURL+"/peer-resources/contacts/:id", wrapper.GetPeerContact)
+
+	router.Put(options.BaseURL+"/peer-resources/contacts/:id", wrapper.PutPeerContact)
+
 	router.Get(options.BaseURL+"/peer-resources/credentials", wrapper.ListPeerCredentials)
 
 	router.Get(options.BaseURL+"/peer-resources/friend-groups", wrapper.ListPeerFriendGroups)
@@ -7553,6 +8324,92 @@ type ListPeerResourceNamesResponseObject interface {
 type ListPeerResourceNames200JSONResponse PeerResourceNamesResponse
 
 func (response ListPeerResourceNames200JSONResponse) VisitListPeerResourceNamesResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type ListPeerContactsRequestObject struct {
+	Params ListPeerContactsParams
+}
+
+type ListPeerContactsResponseObject interface {
+	VisitListPeerContactsResponse(ctx *fiber.Ctx) error
+}
+
+type ListPeerContacts200JSONResponse externalRef1.ContactListResponse
+
+func (response ListPeerContacts200JSONResponse) VisitListPeerContactsResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type CreatePeerContactRequestObject struct {
+	Body *CreatePeerContactJSONRequestBody
+}
+
+type CreatePeerContactResponseObject interface {
+	VisitCreatePeerContactResponse(ctx *fiber.Ctx) error
+}
+
+type CreatePeerContact200JSONResponse externalRef1.ContactCreateResponse
+
+func (response CreatePeerContact200JSONResponse) VisitCreatePeerContactResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type DeletePeerContactRequestObject struct {
+	Id ContactId `json:"id"`
+}
+
+type DeletePeerContactResponseObject interface {
+	VisitDeletePeerContactResponse(ctx *fiber.Ctx) error
+}
+
+type DeletePeerContact200JSONResponse externalRef1.ContactDeleteResponse
+
+func (response DeletePeerContact200JSONResponse) VisitDeletePeerContactResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type GetPeerContactRequestObject struct {
+	Id ContactId `json:"id"`
+}
+
+type GetPeerContactResponseObject interface {
+	VisitGetPeerContactResponse(ctx *fiber.Ctx) error
+}
+
+type GetPeerContact200JSONResponse externalRef1.ContactGetResponse
+
+func (response GetPeerContact200JSONResponse) VisitGetPeerContactResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type PutPeerContactRequestObject struct {
+	Id   ContactId `json:"id"`
+	Body *PutPeerContactJSONRequestBody
+}
+
+type PutPeerContactResponseObject interface {
+	VisitPutPeerContactResponse(ctx *fiber.Ctx) error
+}
+
+type PutPeerContact200JSONResponse externalRef1.ContactPutResponse
+
+func (response PutPeerContact200JSONResponse) VisitPutPeerContactResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(200)
 
@@ -8341,6 +9198,21 @@ type StrictServerInterface interface {
 	// List resource names exposed to the current peer
 	// (GET /peer-resources)
 	ListPeerResourceNames(ctx context.Context, request ListPeerResourceNamesRequestObject) (ListPeerResourceNamesResponseObject, error)
+	// List contacts for the current peer
+	// (GET /peer-resources/contacts)
+	ListPeerContacts(ctx context.Context, request ListPeerContactsRequestObject) (ListPeerContactsResponseObject, error)
+	// Create a contact for the current peer
+	// (POST /peer-resources/contacts)
+	CreatePeerContact(ctx context.Context, request CreatePeerContactRequestObject) (CreatePeerContactResponseObject, error)
+	// Delete a contact for the current peer
+	// (DELETE /peer-resources/contacts/{id})
+	DeletePeerContact(ctx context.Context, request DeletePeerContactRequestObject) (DeletePeerContactResponseObject, error)
+	// Get a contact for the current peer
+	// (GET /peer-resources/contacts/{id})
+	GetPeerContact(ctx context.Context, request GetPeerContactRequestObject) (GetPeerContactResponseObject, error)
+	// Update a contact for the current peer
+	// (PUT /peer-resources/contacts/{id})
+	PutPeerContact(ctx context.Context, request PutPeerContactRequestObject) (PutPeerContactResponseObject, error)
 	// List credentials readable by the current peer
 	// (GET /peer-resources/credentials)
 	ListPeerCredentials(ctx context.Context, request ListPeerCredentialsRequestObject) (ListPeerCredentialsResponseObject, error)
@@ -8505,6 +9377,151 @@ func (sh *strictHandler) ListPeerResourceNames(ctx *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
 	} else if validResponse, ok := response.(ListPeerResourceNamesResponseObject); ok {
 		if err := validResponse.VisitListPeerResourceNamesResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// ListPeerContacts operation middleware
+func (sh *strictHandler) ListPeerContacts(ctx *fiber.Ctx, params ListPeerContactsParams) error {
+	var request ListPeerContactsRequestObject
+
+	request.Params = params
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.ListPeerContacts(ctx.UserContext(), request.(ListPeerContactsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListPeerContacts")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(ListPeerContactsResponseObject); ok {
+		if err := validResponse.VisitListPeerContactsResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// CreatePeerContact operation middleware
+func (sh *strictHandler) CreatePeerContact(ctx *fiber.Ctx) error {
+	var request CreatePeerContactRequestObject
+
+	var body CreatePeerContactJSONRequestBody
+	if err := ctx.BodyParser(&body); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	}
+	request.Body = &body
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.CreatePeerContact(ctx.UserContext(), request.(CreatePeerContactRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreatePeerContact")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(CreatePeerContactResponseObject); ok {
+		if err := validResponse.VisitCreatePeerContactResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// DeletePeerContact operation middleware
+func (sh *strictHandler) DeletePeerContact(ctx *fiber.Ctx, id ContactId) error {
+	var request DeletePeerContactRequestObject
+
+	request.Id = id
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.DeletePeerContact(ctx.UserContext(), request.(DeletePeerContactRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeletePeerContact")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(DeletePeerContactResponseObject); ok {
+		if err := validResponse.VisitDeletePeerContactResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// GetPeerContact operation middleware
+func (sh *strictHandler) GetPeerContact(ctx *fiber.Ctx, id ContactId) error {
+	var request GetPeerContactRequestObject
+
+	request.Id = id
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.GetPeerContact(ctx.UserContext(), request.(GetPeerContactRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetPeerContact")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(GetPeerContactResponseObject); ok {
+		if err := validResponse.VisitGetPeerContactResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// PutPeerContact operation middleware
+func (sh *strictHandler) PutPeerContact(ctx *fiber.Ctx, id ContactId) error {
+	var request PutPeerContactRequestObject
+
+	request.Id = id
+
+	var body PutPeerContactJSONRequestBody
+	if err := ctx.BodyParser(&body); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	}
+	request.Body = &body
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.PutPeerContact(ctx.UserContext(), request.(PutPeerContactRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PutPeerContact")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(PutPeerContactResponseObject); ok {
+		if err := validResponse.VisitPutPeerContactResponse(ctx); err != nil {
 			return fiber.NewError(fiber.StatusBadRequest, err.Error())
 		}
 	} else if response != nil {

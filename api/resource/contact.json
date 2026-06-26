@@ -1,0 +1,64 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Contact Resource Schema",
+    "description": "ContactResource envelope schema.",
+    "version": "1.0.0"
+  },
+  "paths": {},
+  "components": {
+    "schemas": {
+      "ContactResource": {
+        "type": "object",
+        "required": [
+          "apiVersion",
+          "kind",
+          "metadata",
+          "spec"
+        ],
+        "properties": {
+          "apiVersion": {
+            "$ref": "./resource.json#/components/schemas/ResourceAPIVersion"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "Contact"
+            ]
+          },
+          "metadata": {
+            "$ref": "./resource.json#/components/schemas/ResourceMetadata"
+          },
+          "spec": {
+            "$ref": "#/components/schemas/ContactSpec"
+          }
+        }
+      },
+      "ContactSpec": {
+        "type": "object",
+        "required": [
+          "owner_public_key",
+          "id"
+        ],
+        "properties": {
+          "owner_public_key": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Owner peer public key. metadata.name must be owner_public_key:id."
+          },
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Owner-scoped contact id."
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "phone_number": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/adminservice"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/internal/socialutil"
 	"github.com/GizClaw/gizclaw-go/pkg/store/kv"
@@ -112,6 +113,143 @@ func TestDuplicatePhoneScansBeyondFirstPage(t *testing.T) {
 	}
 }
 
+func TestAdminContactCRUDAndPagination(t *testing.T) {
+	ctx := context.Background()
+	s := newTestServer()
+
+	first, err := s.AdminCreateContact(ctx, adminservice.AdminContactCreateRequest{
+		OwnerPublicKey: "peer-a",
+		Id:             strPtr("alice"),
+		DisplayName:    strPtr("Alice"),
+		PhoneNumber:    strPtr("+1 555 0100"),
+	})
+	if err != nil {
+		t.Fatalf("AdminCreateContact: %v", err)
+	}
+	if first.OwnerPublicKey != "peer-a" || first.Id != "alice" {
+		t.Fatalf("created contact = %+v", first)
+	}
+	if first.CreatedAt == nil || first.UpdatedAt == nil {
+		t.Fatalf("created timestamps = created:%v updated:%v", first.CreatedAt, first.UpdatedAt)
+	}
+	if _, err := s.AdminCreateContact(ctx, adminservice.AdminContactCreateRequest{
+		OwnerPublicKey: "peer-a",
+		Id:             strPtr("alice"),
+		DisplayName:    strPtr("Alice Again"),
+	}); err == nil {
+		t.Fatal("AdminCreateContact duplicate id error = nil")
+	}
+	if _, err := s.AdminCreateContact(ctx, adminservice.AdminContactCreateRequest{
+		OwnerPublicKey: "peer-a",
+		Id:             strPtr("alice-phone"),
+		PhoneNumber:    strPtr("+1 (555) 0100"),
+	}); err == nil {
+		t.Fatal("AdminCreateContact duplicate phone error = nil")
+	}
+
+	if _, err := s.AdminCreateContact(ctx, adminservice.AdminContactCreateRequest{
+		OwnerPublicKey: "peer-a",
+		Id:             strPtr("bob"),
+		DisplayName:    strPtr("Bob"),
+	}); err != nil {
+		t.Fatalf("AdminCreateContact bob: %v", err)
+	}
+	if _, err := s.AdminCreateContact(ctx, adminservice.AdminContactCreateRequest{
+		OwnerPublicKey: "peer-b",
+		Id:             strPtr("carol"),
+		DisplayName:    strPtr("Carol"),
+	}); err != nil {
+		t.Fatalf("AdminCreateContact carol: %v", err)
+	}
+
+	page, err := s.AdminListContacts(ctx, "peer-a", nil, intPtr(1))
+	if err != nil {
+		t.Fatalf("AdminListContacts owner first page: %v", err)
+	}
+	if len(page.Items) != 1 || !page.HasNext || page.NextCursor == nil {
+		t.Fatalf("owner page = %+v, want one item with next cursor", page)
+	}
+	nextPage, err := s.AdminListContacts(ctx, "peer-a", page.NextCursor, intPtr(10))
+	if err != nil {
+		t.Fatalf("AdminListContacts owner next page: %v", err)
+	}
+	if len(nextPage.Items) != 1 || nextPage.HasNext {
+		t.Fatalf("owner next page = %+v, want final item", nextPage)
+	}
+	global, err := s.AdminListContacts(ctx, "", nil, intPtr(2))
+	if err != nil {
+		t.Fatalf("AdminListContacts global first page: %v", err)
+	}
+	if len(global.Items) != 2 || !global.HasNext || global.NextCursor == nil {
+		t.Fatalf("global page = %+v, want two items with next cursor", global)
+	}
+	globalNext, err := s.AdminListContacts(ctx, "", global.NextCursor, intPtr(10))
+	if err != nil {
+		t.Fatalf("AdminListContacts global next page: %v", err)
+	}
+	if len(globalNext.Items) != 1 || globalNext.Items[0].OwnerPublicKey != "peer-b" {
+		t.Fatalf("global next page = %+v, want peer-b contact", globalNext)
+	}
+
+	updated, err := s.AdminPutContact(ctx, "peer-a", "alice", adminservice.AdminContactPutRequest{
+		DisplayName: strPtr("Alice Zhang"),
+		PhoneNumber: strPtr("+1 555 0101"),
+	})
+	if err != nil {
+		t.Fatalf("AdminPutContact: %v", err)
+	}
+	if socialutil.StringValue(updated.DisplayName) != "Alice Zhang" || socialutil.StringValue(updated.PhoneNumber) != "+1 555 0101" {
+		t.Fatalf("updated contact = %+v", updated)
+	}
+	got, err := s.AdminGetContact(ctx, "peer-a", "alice")
+	if err != nil {
+		t.Fatalf("AdminGetContact: %v", err)
+	}
+	if got.Id != "alice" || got.OwnerPublicKey != "peer-a" {
+		t.Fatalf("got contact = %+v", got)
+	}
+	deleted, err := s.AdminDeleteContact(ctx, "peer-a", "alice")
+	if err != nil {
+		t.Fatalf("AdminDeleteContact: %v", err)
+	}
+	if deleted.Id != "alice" {
+		t.Fatalf("deleted contact id = %q, want alice", deleted.Id)
+	}
+	if _, err := s.AdminGetContact(ctx, "peer-a", "alice"); err == nil {
+		t.Fatal("AdminGetContact deleted contact error = nil")
+	}
+}
+
+func TestAdminApplyContactUpsertsAndPreservesCreatedAt(t *testing.T) {
+	ctx := context.Background()
+	s := newTestServer()
+
+	created, err := s.AdminApplyContact(ctx, "peer-a", "alice", strPtr("Alice"), strPtr("+1 555 0100"))
+	if err != nil {
+		t.Fatalf("AdminApplyContact create: %v", err)
+	}
+	if created.CreatedAt == nil {
+		t.Fatal("created CreatedAt = nil")
+	}
+	createdAt := *created.CreatedAt
+
+	s.Now = func() time.Time { return createdAt.Add(time.Hour) }
+	updated, err := s.AdminApplyContact(ctx, "peer-a", "alice", strPtr("Alice Zhang"), strPtr("+1 555 0101"))
+	if err != nil {
+		t.Fatalf("AdminApplyContact update: %v", err)
+	}
+	if updated.CreatedAt == nil || !updated.CreatedAt.Equal(createdAt) {
+		t.Fatalf("updated CreatedAt = %v, want %v", updated.CreatedAt, createdAt)
+	}
+	if updated.UpdatedAt == nil || !updated.UpdatedAt.After(createdAt) {
+		t.Fatalf("updated UpdatedAt = %v, want after %v", updated.UpdatedAt, createdAt)
+	}
+
+	if _, err := s.AdminApplyContact(ctx, "peer-a", "bob", strPtr("Bob"), strPtr("+1 (555) 0101")); err == nil {
+		t.Fatal("AdminApplyContact duplicate phone error = nil")
+	}
+}
+
 func TestConfigurationErrors(t *testing.T) {
 	ctx := context.Background()
 	empty := &Server{}
@@ -137,6 +275,10 @@ func newTestServer() *Server {
 }
 
 func strPtr(v string) *string {
+	return &v
+}
+
+func intPtr(v int) *int {
 	return &v
 }
 

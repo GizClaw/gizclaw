@@ -2,6 +2,7 @@ import type { LucideIcon } from "lucide-react";
 import {
   AudioLines,
   Boxes,
+  ContactRound,
   Cpu,
   FileJson,
   FolderKanban,
@@ -82,6 +83,7 @@ const sections: NavSection[] = [
   {
     label: "Social",
     items: [
+      { href: "/social/contacts", icon: ContactRound, label: "Contacts" },
       { href: "/social/friends", icon: UsersRound, label: "Friends" },
       { href: "/social/friend-groups", icon: UsersRound, label: "Friend Groups" },
     ],

@@ -17,6 +17,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/services/gameplay/badge"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/services/gameplay/petspecies"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/services/runtime/peer"
+	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/services/social/contact"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/services/social/friend"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/services/social/friendgroup"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/services/system/acl"
@@ -36,6 +37,7 @@ type Services struct {
 	Voices          voice.VoiceAdminService
 	Workspaces      workspace.WorkspaceAdminService
 	Workflows       workflow.WorkflowAdminService
+	Contacts        *contact.Server
 	Friends         *friend.Server
 	FriendGroups    *friendgroup.Server
 }
@@ -288,6 +290,18 @@ func (m *Manager) Get(ctx context.Context, kind apitypes.ResourceKind, name stri
 			return apitypes.Resource{}, notFound(kind, name)
 		}
 		return resourceFromFriend(item)
+	case apitypes.ResourceKindContact:
+		if m.services.Contacts == nil {
+			return apitypes.Resource{}, missingService("contacts")
+		}
+		item, exists, err := m.getContact(ctx, name)
+		if err != nil {
+			return apitypes.Resource{}, err
+		}
+		if !exists {
+			return apitypes.Resource{}, notFound(kind, name)
+		}
+		return resourceFromContact(item)
 	case apitypes.ResourceKindFriendGroup:
 		if m.services.FriendGroups == nil {
 			return apitypes.Resource{}, missingService("friend groups")
@@ -626,6 +640,21 @@ func (m *Manager) Put(ctx context.Context, resource apitypes.Resource) (apitypes
 			return apitypes.Resource{}, err
 		}
 		return m.Get(ctx, apitypes.ResourceKindFriend, item.Metadata.Name)
+	case string(apitypes.ResourceKindContact), "ContactResource":
+		if m.services.Contacts == nil {
+			return apitypes.Resource{}, missingService("contacts")
+		}
+		item, err := resource.AsContactResource()
+		if err != nil {
+			return apitypes.Resource{}, applyError(400, "INVALID_CONTACT_RESOURCE", err.Error())
+		}
+		if err := validateContactResource(item); err != nil {
+			return apitypes.Resource{}, err
+		}
+		if _, err := m.services.Contacts.AdminApplyContact(ctx, item.Spec.OwnerPublicKey, item.Spec.Id, item.Spec.DisplayName, item.Spec.PhoneNumber); err != nil {
+			return apitypes.Resource{}, err
+		}
+		return m.Get(ctx, apitypes.ResourceKindContact, item.Metadata.Name)
 	case string(apitypes.ResourceKindFriendGroup), "FriendGroupResource":
 		if m.services.FriendGroups == nil {
 			return apitypes.Resource{}, missingService("friend groups")
@@ -897,6 +926,22 @@ func (m *Manager) Delete(ctx context.Context, kind apitypes.ResourceKind, name s
 			return apitypes.Resource{}, err
 		}
 		return resourceFromFriend(item)
+	case apitypes.ResourceKindContact:
+		if m.services.Contacts == nil {
+			return apitypes.Resource{}, missingService("contacts")
+		}
+		owner, id, err := contactResourceParts(name)
+		if err != nil {
+			return apitypes.Resource{}, err
+		}
+		item, err := m.services.Contacts.AdminDeleteContact(ctx, owner, id)
+		if errors.Is(err, kv.ErrNotFound) {
+			return apitypes.Resource{}, notFound(kind, name)
+		}
+		if err != nil {
+			return apitypes.Resource{}, err
+		}
+		return resourceFromContact(item)
 	case apitypes.ResourceKindFriendGroup:
 		if m.services.FriendGroups == nil {
 			return apitypes.Resource{}, missingService("friend groups")
@@ -993,6 +1038,8 @@ func (m *Manager) Apply(ctx context.Context, resource apitypes.Resource) (apityp
 		return m.applyWorkflow(ctx, resource)
 	case string(apitypes.ResourceKindFriend), "FriendResource":
 		return m.applyFriend(ctx, resource)
+	case string(apitypes.ResourceKindContact), "ContactResource":
+		return m.applyContact(ctx, resource)
 	case string(apitypes.ResourceKindFriendGroup), "FriendGroupResource":
 		return m.applyFriendGroup(ctx, resource)
 	case string(apitypes.ResourceKindFriendGroupInviteToken), "FriendGroupInviteTokenResource":

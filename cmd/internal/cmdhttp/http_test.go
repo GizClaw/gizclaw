@@ -508,6 +508,113 @@ func TestUIAPIProxyRetryHelpers(t *testing.T) {
 	}
 }
 
+func TestRetryingPlayClientAPIHandlerRetriesStaleGet(t *testing.T) {
+	stale := &gizcli.Client{}
+	fresh := &gizcli.Client{}
+	current := stale
+	var calls atomic.Int32
+	invalidated := false
+	handler := retryingPlayClientAPIHandler(
+		func() (*gizcli.Client, error) {
+			return current, nil
+		},
+		func(c *gizcli.Client) {
+			if c != stale {
+				t.Fatalf("invalidate client = %p, want stale %p", c, stale)
+			}
+			invalidated = true
+			current = fresh
+		},
+		http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			if calls.Add(1) == 1 {
+				http.Error(w, "rpc: decode friend list result: kcp: stream aborted by peer", http.StatusBadGateway)
+				return
+			}
+			_, _ = w.Write([]byte("ok"))
+		}),
+	)
+
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/peer-resources/friends", nil))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d, body=%q", rec.Code, http.StatusOK, rec.Body.String())
+	}
+	if rec.Body.String() != "ok" {
+		t.Fatalf("body = %q, want ok", rec.Body.String())
+	}
+	if !invalidated {
+		t.Fatal("stale client was not invalidated")
+	}
+	if calls.Load() != 2 {
+		t.Fatalf("calls = %d, want 2", calls.Load())
+	}
+	if current != fresh {
+		t.Fatal("handler did not switch to fresh client")
+	}
+}
+
+func TestRetryingPlayClientAPIHandlerInvalidatesButDoesNotReplayPost(t *testing.T) {
+	stale := &gizcli.Client{}
+	var calls atomic.Int32
+	invalidated := false
+	handler := retryingPlayClientAPIHandler(
+		func() (*gizcli.Client, error) {
+			return stale, nil
+		},
+		func(c *gizcli.Client) {
+			if c != stale {
+				t.Fatalf("invalidate client = %p, want stale %p", c, stale)
+			}
+			invalidated = true
+		},
+		http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			calls.Add(1)
+			http.Error(w, "rpc: decode friend add result: kcp: stream aborted by peer", http.StatusBadGateway)
+		}),
+	)
+
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/peer-resources/friends", strings.NewReader(`{"invite_token":"x"}`)))
+	if rec.Code != http.StatusBadGateway {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusBadGateway)
+	}
+	if !invalidated {
+		t.Fatal("stale client was not invalidated")
+	}
+	if calls.Load() != 1 {
+		t.Fatalf("calls = %d, want 1", calls.Load())
+	}
+}
+
+func TestRetryingPlayClientAPIHandlerDoesNotRetryBusinessBadGateway(t *testing.T) {
+	var calls atomic.Int32
+	invalidated := false
+	handler := retryingPlayClientAPIHandler(
+		func() (*gizcli.Client, error) {
+			return &gizcli.Client{}, nil
+		},
+		func(*gizcli.Client) {
+			invalidated = true
+		},
+		http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			calls.Add(1)
+			http.Error(w, "rpc: provider returned empty audio", http.StatusBadGateway)
+		}),
+	)
+
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/peer-resources/friends", nil))
+	if rec.Code != http.StatusBadGateway {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusBadGateway)
+	}
+	if invalidated {
+		t.Fatal("business 502 should not invalidate client")
+	}
+	if calls.Load() != 1 {
+		t.Fatalf("calls = %d, want 1", calls.Load())
+	}
+}
+
 func TestBufferedHTTPResponseDefaultsAndIgnoresSecondStatus(t *testing.T) {
 	resp := newBufferedHTTPResponse()
 	if got := resp.statusCode(); got != http.StatusOK {

@@ -2,7 +2,7 @@
 
 import type { Client, Options as Options2, TDataShape } from './client';
 import { client } from './client.gen';
-import type { AddPeerFriendData, AddPeerFriendGroupMemberData, AddPeerFriendGroupMemberResponses, AddPeerFriendResponses, AdoptPeerPetData, AdoptPeerPetResponses, ClaimPeerRewardData, ClaimPeerRewardResponses, ClearPeerFriendGroupInviteTokenData, ClearPeerFriendGroupInviteTokenResponses, ClearPeerFriendInviteTokenData, ClearPeerFriendInviteTokenResponses, CreatePeerFriendGroupData, CreatePeerFriendGroupInviteTokenData, CreatePeerFriendGroupInviteTokenResponses, CreatePeerFriendGroupResponses, CreatePeerFriendInviteTokenData, CreatePeerFriendInviteTokenResponses, CreateWebRtcOfferData, CreateWebRtcOfferResponses, DeletePeerFriendData, DeletePeerFriendGroupData, DeletePeerFriendGroupMemberData, DeletePeerFriendGroupMemberResponses, DeletePeerFriendGroupResponses, DeletePeerFriendResponses, DeletePeerPetData, DeletePeerPetResponses, FeedPeerPetData, FeedPeerPetResponses, GetPeerFriendGroupData, GetPeerFriendGroupInviteTokenData, GetPeerFriendGroupInviteTokenResponses, GetPeerFriendGroupResponses, GetPeerFriendInviteTokenData, GetPeerFriendInviteTokenResponses, GetPeerPetData, GetPeerPetResponses, GetPeerRewardData, GetPeerRewardResponses, GetPeerWalletData, GetPeerWalletResponses, GetPeerWalletTransactionData, GetPeerWalletTransactionResponses, GetPeerWorkspaceHistoryAudioData, GetPeerWorkspaceHistoryAudioResponses, GetPeerWorkspaceHistoryData, GetPeerWorkspaceHistoryResponses, JoinPeerFriendGroupData, JoinPeerFriendGroupResponses, ListClientVoicesData, ListClientVoicesResponses, ListPeerCredentialsData, ListPeerCredentialsResponses, ListPeerFriendGroupMembersData, ListPeerFriendGroupMembersResponses, ListPeerFriendGroupsData, ListPeerFriendGroupsResponses, ListPeerFriendsData, ListPeerFriendsResponses, ListPeerModelsData, ListPeerModelsResponses, ListPeerPetsData, ListPeerPetsResponses, ListPeerResourceNamesData, ListPeerResourceNamesResponses, ListPeerRewardsData, ListPeerRewardsResponses, ListPeerVoicesData, ListPeerVoicesResponses, ListPeerWalletTransactionsData, ListPeerWalletTransactionsResponses, ListPeerWorkflowsData, ListPeerWorkflowsResponses, ListPeerWorkspaceHistoryData, ListPeerWorkspaceHistoryResponses, ListPeerWorkspacesData, ListPeerWorkspacesResponses, PlayWithPeerPetData, PlayWithPeerPetResponses, PutPeerFriendGroupData, PutPeerFriendGroupMemberData, PutPeerFriendGroupMemberResponses, PutPeerFriendGroupResponses, PutPeerPetData, PutPeerPetResponses, StreamPlayableVoicesData, StreamPlayableVoicesResponse, StreamPlayableVoicesResponses, WashPeerPetData, WashPeerPetResponses } from './types.gen';
+import type { AddPeerFriendData, AddPeerFriendGroupMemberData, AddPeerFriendGroupMemberResponses, AddPeerFriendResponses, AdoptPeerPetData, AdoptPeerPetResponses, ClaimPeerRewardData, ClaimPeerRewardResponses, ClearPeerFriendGroupInviteTokenData, ClearPeerFriendGroupInviteTokenResponses, ClearPeerFriendInviteTokenData, ClearPeerFriendInviteTokenResponses, CreatePeerContactData, CreatePeerContactResponses, CreatePeerFriendGroupData, CreatePeerFriendGroupInviteTokenData, CreatePeerFriendGroupInviteTokenResponses, CreatePeerFriendGroupResponses, CreatePeerFriendInviteTokenData, CreatePeerFriendInviteTokenResponses, CreateWebRtcOfferData, CreateWebRtcOfferResponses, DeletePeerContactData, DeletePeerContactResponses, DeletePeerFriendData, DeletePeerFriendGroupData, DeletePeerFriendGroupMemberData, DeletePeerFriendGroupMemberResponses, DeletePeerFriendGroupResponses, DeletePeerFriendResponses, DeletePeerPetData, DeletePeerPetResponses, FeedPeerPetData, FeedPeerPetResponses, GetPeerContactData, GetPeerContactResponses, GetPeerFriendGroupData, GetPeerFriendGroupInviteTokenData, GetPeerFriendGroupInviteTokenResponses, GetPeerFriendGroupResponses, GetPeerFriendInviteTokenData, GetPeerFriendInviteTokenResponses, GetPeerPetData, GetPeerPetResponses, GetPeerRewardData, GetPeerRewardResponses, GetPeerWalletData, GetPeerWalletResponses, GetPeerWalletTransactionData, GetPeerWalletTransactionResponses, GetPeerWorkspaceHistoryAudioData, GetPeerWorkspaceHistoryAudioResponses, GetPeerWorkspaceHistoryData, GetPeerWorkspaceHistoryResponses, JoinPeerFriendGroupData, JoinPeerFriendGroupResponses, ListClientVoicesData, ListClientVoicesResponses, ListPeerContactsData, ListPeerContactsResponses, ListPeerCredentialsData, ListPeerCredentialsResponses, ListPeerFriendGroupMembersData, ListPeerFriendGroupMembersResponses, ListPeerFriendGroupsData, ListPeerFriendGroupsResponses, ListPeerFriendsData, ListPeerFriendsResponses, ListPeerModelsData, ListPeerModelsResponses, ListPeerPetsData, ListPeerPetsResponses, ListPeerResourceNamesData, ListPeerResourceNamesResponses, ListPeerRewardsData, ListPeerRewardsResponses, ListPeerVoicesData, ListPeerVoicesResponses, ListPeerWalletTransactionsData, ListPeerWalletTransactionsResponses, ListPeerWorkflowsData, ListPeerWorkflowsResponses, ListPeerWorkspaceHistoryData, ListPeerWorkspaceHistoryResponses, ListPeerWorkspacesData, ListPeerWorkspacesResponses, PlayWithPeerPetData, PlayWithPeerPetResponses, PutPeerContactData, PutPeerContactResponses, PutPeerFriendGroupData, PutPeerFriendGroupMemberData, PutPeerFriendGroupMemberResponses, PutPeerFriendGroupResponses, PutPeerPetData, PutPeerPetResponses, StreamPlayableVoicesData, StreamPlayableVoicesResponse, StreamPlayableVoicesResponses, WashPeerPetData, WashPeerPetResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -186,6 +186,45 @@ export const createWebRtcOffer = <ThrowOnError extends boolean = false>(options:
  * List friends for the current peer
  */
 export const listPeerFriends = <ThrowOnError extends boolean = false>(options?: Options<ListPeerFriendsData, ThrowOnError>) => (options?.client ?? client).get<ListPeerFriendsResponses, unknown, ThrowOnError>({ url: '/peer-resources/friends', ...options });
+
+/**
+ * List contacts for the current peer
+ */
+export const listPeerContacts = <ThrowOnError extends boolean = false>(options?: Options<ListPeerContactsData, ThrowOnError>) => (options?.client ?? client).get<ListPeerContactsResponses, unknown, ThrowOnError>({ url: '/peer-resources/contacts', ...options });
+
+/**
+ * Create a contact for the current peer
+ */
+export const createPeerContact = <ThrowOnError extends boolean = false>(options: Options<CreatePeerContactData, ThrowOnError>) => (options.client ?? client).post<CreatePeerContactResponses, unknown, ThrowOnError>({
+    url: '/peer-resources/contacts',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Delete a contact for the current peer
+ */
+export const deletePeerContact = <ThrowOnError extends boolean = false>(options: Options<DeletePeerContactData, ThrowOnError>) => (options.client ?? client).delete<DeletePeerContactResponses, unknown, ThrowOnError>({ url: '/peer-resources/contacts/{id}', ...options });
+
+/**
+ * Get a contact for the current peer
+ */
+export const getPeerContact = <ThrowOnError extends boolean = false>(options: Options<GetPeerContactData, ThrowOnError>) => (options.client ?? client).get<GetPeerContactResponses, unknown, ThrowOnError>({ url: '/peer-resources/contacts/{id}', ...options });
+
+/**
+ * Update a contact for the current peer
+ */
+export const putPeerContact = <ThrowOnError extends boolean = false>(options: Options<PutPeerContactData, ThrowOnError>) => (options.client ?? client).put<PutPeerContactResponses, unknown, ThrowOnError>({
+    url: '/peer-resources/contacts/{id}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
 
 /**
  * Add a friend by invite token

@@ -4,7 +4,7 @@ export type ClientOptions = {
     baseUrl: `${string}://${string}` | (string & {});
 };
 
-export type PeerResourceName = 'workspaces' | 'workflows' | 'models' | 'credentials' | 'voices' | 'pets' | 'wallet' | 'wallet-transactions' | 'rewards' | 'friends' | 'friend-groups';
+export type PeerResourceName = 'workspaces' | 'workflows' | 'models' | 'credentials' | 'voices' | 'pets' | 'wallet' | 'wallet-transactions' | 'rewards' | 'contacts' | 'friends' | 'friend-groups';
 
 export type PeerResourceNamesResponse = {
     resources: Array<PeerResourceName>;
@@ -27,6 +27,31 @@ export type PlayVoiceStreamEvent = {
 export type WebRtcSessionDescription = {
     sdp: string;
     type: 'offer' | 'answer' | 'pranswer' | 'rollback';
+};
+
+export type ContactCreateRequest = {
+    display_name?: string;
+    phone_number?: string;
+};
+
+export type ContactListResponse = {
+    items: Array<ContactObject>;
+    has_next: boolean;
+    next_cursor?: string;
+};
+
+export type ContactObject = {
+    id?: string;
+    display_name?: string;
+    phone_number?: string;
+    created_at?: string;
+    updated_at?: string;
+};
+
+export type ContactPutRequest = {
+    id: string;
+    display_name?: string;
+    phone_number?: string;
 };
 
 export type CredentialListResponse = {
@@ -793,6 +818,8 @@ export type VoiceProviderKind2 = VoiceProviderKind;
 
 export type VoiceProviderName = string;
 
+export type ContactId = string;
+
 export type FriendId = string;
 
 export type FriendGroupId = string;
@@ -1244,6 +1271,95 @@ export type ListPeerFriendsResponses = {
 };
 
 export type ListPeerFriendsResponse = ListPeerFriendsResponses[keyof ListPeerFriendsResponses];
+
+export type ListPeerContactsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        cursor?: string;
+        limit?: number;
+    };
+    url: '/peer-resources/contacts';
+};
+
+export type ListPeerContactsResponses = {
+    /**
+     * A page of contacts.
+     */
+    200: ContactListResponse;
+};
+
+export type ListPeerContactsResponse = ListPeerContactsResponses[keyof ListPeerContactsResponses];
+
+export type CreatePeerContactData = {
+    body: ContactCreateRequest;
+    path?: never;
+    query?: never;
+    url: '/peer-resources/contacts';
+};
+
+export type CreatePeerContactResponses = {
+    /**
+     * The created contact.
+     */
+    200: ContactObject;
+};
+
+export type CreatePeerContactResponse = CreatePeerContactResponses[keyof CreatePeerContactResponses];
+
+export type DeletePeerContactData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/peer-resources/contacts/{id}';
+};
+
+export type DeletePeerContactResponses = {
+    /**
+     * The deleted contact.
+     */
+    200: ContactObject;
+};
+
+export type DeletePeerContactResponse = DeletePeerContactResponses[keyof DeletePeerContactResponses];
+
+export type GetPeerContactData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/peer-resources/contacts/{id}';
+};
+
+export type GetPeerContactResponses = {
+    /**
+     * The contact.
+     */
+    200: ContactObject;
+};
+
+export type GetPeerContactResponse = GetPeerContactResponses[keyof GetPeerContactResponses];
+
+export type PutPeerContactData = {
+    body: ContactPutRequest;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/peer-resources/contacts/{id}';
+};
+
+export type PutPeerContactResponses = {
+    /**
+     * The updated contact.
+     */
+    200: ContactObject;
+};
+
+export type PutPeerContactResponse = PutPeerContactResponses[keyof PutPeerContactResponses];
 
 export type AddPeerFriendData = {
     body: FriendAddRequest;

@@ -63,6 +63,8 @@ func TestPlayHTTPServiceClientUnavailableResponses(t *testing.T) {
 	groupPut := rpcapi.FriendGroupPutRequest{}
 	groupMemberAdd := rpcapi.FriendGroupMemberAddRequest{PeerPublicKey: "peer-b", Role: rpcapi.FriendGroupMemberMutableRole("member")}
 	groupMemberPut := rpcapi.FriendGroupMemberPutRequest{Role: rpcapi.FriendGroupMemberMutableRole("admin")}
+	contactCreate := rpcapi.ContactCreateRequest{DisplayName: ptr("Alice")}
+	contactPut := rpcapi.ContactPutRequest{DisplayName: ptr("Alice Zhang")}
 	offer := clientservice.WebRTCSessionDescription{Type: clientservice.Offer, Sdp: "v=0"}
 
 	for name, call := range map[string]func() any{
@@ -80,6 +82,26 @@ func TestPlayHTTPServiceClientUnavailableResponses(t *testing.T) {
 		},
 		"credentials": func() any {
 			resp, _ := service.ListPeerCredentials(ctx, clientservice.ListPeerCredentialsRequestObject{})
+			return resp
+		},
+		"contacts": func() any {
+			resp, _ := service.ListPeerContacts(ctx, clientservice.ListPeerContactsRequestObject{})
+			return resp
+		},
+		"create contact": func() any {
+			resp, _ := service.CreatePeerContact(ctx, clientservice.CreatePeerContactRequestObject{Body: &contactCreate})
+			return resp
+		},
+		"get contact": func() any {
+			resp, _ := service.GetPeerContact(ctx, clientservice.GetPeerContactRequestObject{Id: "contact-a"})
+			return resp
+		},
+		"put contact": func() any {
+			resp, _ := service.PutPeerContact(ctx, clientservice.PutPeerContactRequestObject{Id: "contact-a", Body: &contactPut})
+			return resp
+		},
+		"delete contact": func() any {
+			resp, _ := service.DeletePeerContact(ctx, clientservice.DeletePeerContactRequestObject{Id: "contact-a"})
 			return resp
 		},
 		"friends": func() any {
@@ -265,8 +287,30 @@ func TestPlayHTTPServiceConnectedClientRPCErrorResponses(t *testing.T) {
 	groupPut := rpcapi.FriendGroupPutRequest{}
 	groupMemberAdd := rpcapi.FriendGroupMemberAddRequest{PeerPublicKey: "peer-b", Role: rpcapi.FriendGroupMemberMutableRole("member")}
 	groupMemberPut := rpcapi.FriendGroupMemberPutRequest{Role: rpcapi.FriendGroupMemberMutableRole("admin")}
+	contactCreate := rpcapi.ContactCreateRequest{DisplayName: ptr("Alice")}
+	contactPut := rpcapi.ContactPutRequest{DisplayName: ptr("Alice Zhang")}
 
 	for name, call := range map[string]func() any{
+		"contacts": func() any {
+			resp, _ := service.ListPeerContacts(ctx, clientservice.ListPeerContactsRequestObject{})
+			return resp
+		},
+		"create contact": func() any {
+			resp, _ := service.CreatePeerContact(ctx, clientservice.CreatePeerContactRequestObject{Body: &contactCreate})
+			return resp
+		},
+		"get contact": func() any {
+			resp, _ := service.GetPeerContact(ctx, clientservice.GetPeerContactRequestObject{Id: "contact-a"})
+			return resp
+		},
+		"put contact": func() any {
+			resp, _ := service.PutPeerContact(ctx, clientservice.PutPeerContactRequestObject{Id: "contact-a", Body: &contactPut})
+			return resp
+		},
+		"delete contact": func() any {
+			resp, _ := service.DeletePeerContact(ctx, clientservice.DeletePeerContactRequestObject{Id: "contact-a"})
+			return resp
+		},
 		"friends": func() any {
 			resp, _ := service.ListPeerFriends(ctx, clientservice.ListPeerFriendsRequestObject{})
 			return resp
@@ -411,6 +455,14 @@ func TestPlayHTTPServiceBodyRequiredResponses(t *testing.T) {
 	ctx := context.Background()
 
 	for name, call := range map[string]func() any{
+		"create contact": func() any {
+			resp, _ := service.CreatePeerContact(ctx, clientservice.CreatePeerContactRequestObject{})
+			return resp
+		},
+		"put contact": func() any {
+			resp, _ := service.PutPeerContact(ctx, clientservice.PutPeerContactRequestObject{Id: "contact-a"})
+			return resp
+		},
 		"add friend": func() any {
 			resp, _ := service.AddPeerFriend(ctx, clientservice.AddPeerFriendRequestObject{})
 			return resp
@@ -592,6 +644,11 @@ func TestPlayHTTPErrorResponseVisitors(t *testing.T) {
 		playHTTPErrorResponse.VisitGetPeerWalletTransactionResponse,
 		playHTTPErrorResponse.VisitListPeerWorkflowsResponse,
 		playHTTPErrorResponse.VisitListPeerWorkspacesResponse,
+		playHTTPErrorResponse.VisitListPeerContactsResponse,
+		playHTTPErrorResponse.VisitCreatePeerContactResponse,
+		playHTTPErrorResponse.VisitGetPeerContactResponse,
+		playHTTPErrorResponse.VisitPutPeerContactResponse,
+		playHTTPErrorResponse.VisitDeletePeerContactResponse,
 		playHTTPErrorResponse.VisitListPeerFriendsResponse,
 		playHTTPErrorResponse.VisitAddPeerFriendResponse,
 		playHTTPErrorResponse.VisitDeletePeerFriendResponse,

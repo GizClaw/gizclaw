@@ -433,15 +433,101 @@ func registerPlayUIRoutes(mux *http.ServeMux, client clientapi.ClientProvider, i
 	mux.HandleFunc("/peer-run/workspace/memory/stats", handlePlayWorkspaceMemoryStats(client, invalidate))
 	mux.HandleFunc("/peer-run/workspace/recall", handlePlayWorkspaceRecall(client, invalidate))
 	handler := clientapi.Handler(client, invalidate)
+	retryingHandler := retryingPlayClientAPIHandler(client, invalidate, handler)
 	for _, pattern := range []string{
 		"/peer-resources",
 		"/peer-resources/",
-		"/play/voices/stream",
 		"/v1/voices",
+	} {
+		mux.Handle(pattern, retryingHandler)
+	}
+	for _, pattern := range []string{
+		"/play/voices/stream",
 		"/webrtc/offer",
 	} {
 		mux.Handle(pattern, handler)
 	}
+}
+
+func retryingPlayClientAPIHandler(client clientapi.ClientProvider, invalidate clientapi.ClientInvalidator, next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body []byte
+		if r.Body != nil {
+			var err error
+			body, err = io.ReadAll(r.Body)
+			if err != nil {
+				http.Error(w, "read request body: "+err.Error(), http.StatusBadRequest)
+				return
+			}
+		}
+		response := newBufferedHTTPResponse()
+		next.ServeHTTP(response, requestWithReplayBody(r, body))
+		if !isPlayClientAPIStaleResponse(response) {
+			response.writeTo(w)
+			return
+		}
+
+		invalidatePlayClient(client, invalidate)
+		if !isPlayClientAPIReplaySafe(r) {
+			response.writeTo(w)
+			return
+		}
+
+		retryResponse := newBufferedHTTPResponse()
+		next.ServeHTTP(retryResponse, requestWithReplayBody(r, body))
+		retryResponse.writeTo(w)
+	})
+}
+
+func invalidatePlayClient(client clientapi.ClientProvider, invalidate clientapi.ClientInvalidator) {
+	if client == nil || invalidate == nil {
+		return
+	}
+	c, err := client()
+	if err != nil {
+		return
+	}
+	invalidate(c)
+}
+
+func isPlayClientAPIReplaySafe(r *http.Request) bool {
+	switch r.Method {
+	case http.MethodGet, http.MethodHead, http.MethodOptions:
+		return true
+	default:
+		return false
+	}
+}
+
+func isPlayClientAPIStaleResponse(response *bufferedHTTPResponse) bool {
+	if response == nil {
+		return false
+	}
+	switch response.statusCode() {
+	case http.StatusBadGateway, http.StatusServiceUnavailable, http.StatusGatewayTimeout:
+	default:
+		return false
+	}
+	message := strings.ToLower(response.body.String())
+	for _, marker := range []string{
+		"kcp: stream aborted by peer",
+		"kcp: stream closed by peer",
+		"kcp: stream closed as invalid",
+		"kcp: conn closed",
+		"kcp: service mux closed",
+		"gizclaw: client is not connected",
+		"giznet: conn closed",
+		"net: connection closed",
+		"use of closed network connection",
+		"io: read/write on closed pipe",
+		"connection reset by peer",
+		"broken pipe",
+	} {
+		if strings.Contains(message, marker) {
+			return true
+		}
+	}
+	return false
 }
 
 type playWorkspaceSetRequest struct {

@@ -11,7 +11,7 @@ type PageHeaderProps = {
 
 export function PageHeader({ actions, items }: PageHeaderProps): JSX.Element {
   return (
-    <div className="flex min-w-0 flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+    <div className="sticky top-0 z-30 -mx-6 flex min-w-0 flex-col gap-3 border-b bg-muted/90 px-6 py-4 backdrop-blur supports-[backdrop-filter]:bg-muted/70 lg:-mx-10 lg:flex-row lg:items-center lg:justify-between lg:px-10">
       <PageBreadcrumb items={items} />
       {actions ? <div className="flex flex-wrap items-center gap-2">{actions}</div> : null}
     </div>

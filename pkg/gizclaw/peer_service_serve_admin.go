@@ -21,6 +21,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/services/gameplay/badge"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/services/gameplay/petspecies"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/services/runtime/peer"
+	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/services/social/contact"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/services/social/friend"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/services/social/friendgroup"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/services/system/acl"
@@ -41,6 +42,7 @@ type adminService struct {
 	workflow.WorkflowAdminService
 	PetSpecies      *petspecies.Server
 	Badges          *badge.Server
+	Contacts        *contact.Server
 	Friends         *friend.Server
 	FriendGroups    *friendgroup.Server
 	ACL             *acl.Server

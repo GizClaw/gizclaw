@@ -435,6 +435,7 @@ func (s *Server) init() error {
 		Voices:          voiceServer,
 		Workspaces:      workspaceServer,
 		Workflows:       workflowServer,
+		Contacts:        contactServer,
 		Friends:         friendServer,
 		FriendGroups:    friendGroupServer,
 	})
@@ -453,6 +454,7 @@ func (s *Server) init() error {
 			WorkflowAdminService:        workflowServer,
 			PetSpecies:                  petSpeciesServer,
 			Badges:                      badgeServer,
+			Contacts:                    contactServer,
 			Friends:                     friendServer,
 			FriendGroups:                friendGroupServer,
 			ACL:                         aclServer,
