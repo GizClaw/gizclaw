@@ -3,6 +3,8 @@
 package admin_test
 
 import (
+	"archive/tar"
+	"bytes"
 	"context"
 	"fmt"
 	"net/http"
@@ -187,16 +189,30 @@ func mutationName(base string) string {
 	return fmt.Sprintf("e2e-admin-mut-%s", base)
 }
 
-func firmwareSlots(version string, artifactName string) apitypes.FirmwareSlots {
+func firmwareSlots(description string) apitypes.FirmwareSlots {
 	return apitypes.FirmwareSlots{
 		Stable: apitypes.FirmwareSlot{
-			Version: ptr(version),
-			Artifacts: &[]apitypes.FirmwareArtifact{
-				{
-					Name: artifactName,
-					Kind: apitypes.FirmwareArtifactKindApp,
-				},
-			},
+			Description: ptr(description),
 		},
 	}
+}
+
+func adminFirmwareTarPayload(t *testing.T, files map[string]string) []byte {
+	t.Helper()
+	var buf bytes.Buffer
+	tw := tar.NewWriter(&buf)
+	modTime := time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC)
+	for name, body := range files {
+		data := []byte(body)
+		if err := tw.WriteHeader(&tar.Header{Name: name, Mode: 0644, Size: int64(len(data)), ModTime: modTime}); err != nil {
+			t.Fatalf("WriteHeader(%s): %v", name, err)
+		}
+		if _, err := tw.Write(data); err != nil {
+			t.Fatalf("Write(%s): %v", name, err)
+		}
+	}
+	if err := tw.Close(); err != nil {
+		t.Fatalf("Close tar: %v", err)
+	}
+	return buf.Bytes()
 }

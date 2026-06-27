@@ -95,7 +95,7 @@ func (m *Manager) deleteFirmware(ctx context.Context, name string) (apitypes.Fir
 func firmwareSpec(item apitypes.Firmware) apitypes.FirmwareSpec {
 	return apitypes.FirmwareSpec{
 		Description: item.Description,
-		Slots:       item.Slots,
+		Slots:       firmwareSpecSlots(item.Slots),
 	}
 }
 
@@ -103,7 +103,37 @@ func firmwareUpsert(resource apitypes.FirmwareResource) adminservice.FirmwareUps
 	return adminservice.FirmwareUpsert{
 		Description: resource.Spec.Description,
 		Name:        string(resource.Metadata.Name),
-		Slots:       resource.Spec.Slots,
+		Slots:       firmwareRuntimeSlots(resource.Spec.Slots),
+	}
+}
+
+func firmwareSpecSlots(slots apitypes.FirmwareSlots) apitypes.FirmwareSpecSlots {
+	return apitypes.FirmwareSpecSlots{
+		Stable:  firmwareSpecSlot(slots.Stable),
+		Beta:    firmwareSpecSlot(slots.Beta),
+		Develop: firmwareSpecSlot(slots.Develop),
+		Pending: firmwareSpecSlot(slots.Pending),
+	}
+}
+
+func firmwareSpecSlot(slot apitypes.FirmwareSlot) apitypes.FirmwareSpecSlot {
+	return apitypes.FirmwareSpecSlot{
+		Description: slot.Description,
+	}
+}
+
+func firmwareRuntimeSlots(slots apitypes.FirmwareSpecSlots) apitypes.FirmwareSlots {
+	return apitypes.FirmwareSlots{
+		Stable:  firmwareRuntimeSlot(slots.Stable),
+		Beta:    firmwareRuntimeSlot(slots.Beta),
+		Develop: firmwareRuntimeSlot(slots.Develop),
+		Pending: firmwareRuntimeSlot(slots.Pending),
+	}
+}
+
+func firmwareRuntimeSlot(slot apitypes.FirmwareSpecSlot) apitypes.FirmwareSlot {
+	return apitypes.FirmwareSlot{
+		Description: slot.Description,
 	}
 }
 

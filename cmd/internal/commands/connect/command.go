@@ -362,19 +362,19 @@ func newFirmwareDownloadCmd() *cobra.Command {
 	var opts connectRPCOptions
 	var firmwareID string
 	var channelValue string
-	var artifactName string
+	var artifactPath string
 	var output string
 	cmd := &cobra.Command{
-		Use:   "download --firmware-id <id> --channel <channel> --artifact-name <name> --output <file>",
-		Short: "Download a firmware artifact payload",
+		Use:   "download --firmware-id <id> --channel <channel> --path <artifact-path> --output <file>",
+		Short: "Download a firmware artifact file",
 		Args: func(cmd *cobra.Command, args []string) error {
 			if err := cobra.NoArgs(cmd, args); err != nil {
 				return err
 			}
 			for name, value := range map[string]string{
-				"firmware-id":   firmwareID,
-				"artifact-name": artifactName,
-				"output":        output,
+				"firmware-id": firmwareID,
+				"path":        artifactPath,
+				"output":      output,
 			} {
 				if err := nonEmptyFlag(name, value); err != nil {
 					return err
@@ -404,10 +404,10 @@ func newFirmwareDownloadCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			result, err := c.DownloadFirmware(ctx, "firmware.download", rpcapi.FirmwareDownloadRequest{
-				FirmwareId:   strings.TrimSpace(firmwareID),
-				Channel:      channel,
-				ArtifactName: strings.TrimSpace(artifactName),
+			result, err := c.DownloadFirmware(ctx, "firmware.files.download", rpcapi.FirmwareFilesDownloadRequest{
+				FirmwareId: strings.TrimSpace(firmwareID),
+				Channel:    channel,
+				Path:       strings.TrimSpace(artifactPath),
 			}, out)
 			closeErr := out.Close()
 			if err != nil {
@@ -419,9 +419,9 @@ func newFirmwareDownloadCmd() *cobra.Command {
 				return closeErr
 			}
 			return json.NewEncoder(cmd.OutOrStdout()).Encode(struct {
-				Metadata rpcapi.FirmwareDownloadResponse `json:"metadata"`
-				Bytes    int64                           `json:"bytes"`
-				Output   string                          `json:"output"`
+				Metadata rpcapi.FirmwareFilesDownloadResponse `json:"metadata"`
+				Bytes    int64                                `json:"bytes"`
+				Output   string                               `json:"output"`
 			}{
 				Metadata: result.Metadata,
 				Bytes:    result.Bytes,
@@ -432,7 +432,7 @@ func newFirmwareDownloadCmd() *cobra.Command {
 	opts.addFlags(cmd)
 	cmd.Flags().StringVar(&firmwareID, "firmware-id", "", "firmware id")
 	cmd.Flags().StringVar(&channelValue, "channel", "stable", "firmware channel")
-	cmd.Flags().StringVar(&artifactName, "artifact-name", "", "artifact name declared by FirmwareArtifact.name")
+	cmd.Flags().StringVar(&artifactPath, "path", "", "artifact file path")
 	cmd.Flags().StringVarP(&output, "output", "o", "", "output file")
 	return cmd
 }

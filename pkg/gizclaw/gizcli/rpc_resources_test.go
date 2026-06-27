@@ -255,18 +255,17 @@ func runFirmwareDownloadWrapperTest(t *testing.T, client *rpcClient) {
 			serverErrCh <- err
 			return
 		}
-		if req.Method != rpcapi.RPCMethodServerFirmwareDownload {
-			serverErrCh <- &unexpectedRPCMethodError{got: req.Method, want: rpcapi.RPCMethodServerFirmwareDownload}
+		if req.Method != rpcapi.RPCMethodServerFirmwareFilesDownload {
+			serverErrCh <- &unexpectedRPCMethodError{got: req.Method, want: rpcapi.RPCMethodServerFirmwareFilesDownload}
 			return
 		}
-		resp := resourceResponse(req.Id, rpcapi.FirmwareDownloadResponse{
+		resp := resourceResponse(req.Id, rpcapi.FirmwareFilesDownloadResponse{
 			FirmwareId: "devkit",
 			Channel:    rpcapi.FirmwareChannelNameStable,
-			Artifact: rpcapi.FirmwareBinMetadata{
-				Name: "main",
-				Kind: rpcapi.FirmwareArtifactKindApp,
-			},
-		}, (*rpcapi.RPCResponse_Result).FromFirmwareDownloadResponse)
+			Path:       "firmware.bin",
+			Artifact:   rpcapi.FirmwareArtifact{TarPath: "devkit/stable/artifact/artifact.tar", Size: 1024, ContentType: "application/x-tar"},
+			File:       rpcapi.FirmwareArtifactEntry{Path: "firmware.bin", Type: rpcapi.FirmwareArtifactEntryTypeFile, Size: int64(len(payload))},
+		}, (*rpcapi.RPCResponse_Result).FromFirmwareFilesDownloadResponse)
 		if err := rpcapi.WriteResponse(serverSide, resp); err != nil {
 			serverErrCh <- err
 			return
@@ -279,15 +278,15 @@ func runFirmwareDownloadWrapperTest(t *testing.T, client *rpcClient) {
 	}()
 
 	var out bytes.Buffer
-	result, err := client.DownloadFirmware(context.Background(), clientSide, "firmware-download", rpcapi.FirmwareDownloadRequest{
-		FirmwareId:   "devkit",
-		Channel:      rpcapi.FirmwareChannelNameStable,
-		ArtifactName: "main",
+	result, err := client.DownloadFirmware(context.Background(), clientSide, "firmware-download", rpcapi.FirmwareFilesDownloadRequest{
+		FirmwareId: "devkit",
+		Channel:    rpcapi.FirmwareChannelNameStable,
+		Path:       "firmware.bin",
 	}, &out)
 	if err != nil {
 		t.Fatalf("firmware download call error = %v", err)
 	}
-	if result.Metadata.Artifact.Name != "main" || result.Bytes != int64(len(payload)) || out.String() != string(payload) {
+	if result.Metadata.File.Path != "firmware.bin" || result.Bytes != int64(len(payload)) || out.String() != string(payload) {
 		t.Fatalf("firmware download result = %#v payload %q", result, out.String())
 	}
 	if err := <-serverErrCh; err != nil {

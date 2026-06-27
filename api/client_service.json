@@ -133,6 +133,32 @@
         }
       }
     },
+    "/peer-resources/firmwares": {
+      "get": {
+        "operationId": "listPeerFirmwares",
+        "summary": "List firmwares readable by the current peer",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Cursor"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A page of firmwares.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./rpc/server.json#/components/schemas/FirmwareListResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/peer-resources/voices": {
       "get": {
         "operationId": "listPeerVoices",
@@ -1457,6 +1483,7 @@
           "workflows",
           "models",
           "credentials",
+          "firmwares",
           "voices",
           "pets",
           "wallet",

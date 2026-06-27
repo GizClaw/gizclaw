@@ -171,36 +171,6 @@
           "pending"
         ]
       },
-      "FirmwareBinMetadata": {
-        "type": "object",
-        "required": [
-          "name",
-          "kind"
-        ],
-        "additionalProperties": false,
-        "properties": {
-          "name": {
-            "type": "string"
-          },
-          "kind": {
-            "$ref": "../type/firmware_artifact_kind.json#/components/schemas/FirmwareArtifactKind"
-          },
-          "size": {
-            "type": "integer",
-            "format": "int64"
-          },
-          "sha256": {
-            "type": "string"
-          },
-          "content_type": {
-            "type": "string"
-          },
-          "uploaded_at": {
-            "type": "string",
-            "format": "date-time"
-          }
-        }
-      },
       "FirmwareListRequest": {
         "type": "object",
         "additionalProperties": false,
@@ -250,46 +220,6 @@
       },
       "FirmwareGetResponse": {
         "$ref": "../type/firmware.json#/components/schemas/Firmware"
-      },
-      "FirmwareDownloadRequest": {
-        "type": "object",
-        "required": [
-          "firmware_id",
-          "channel",
-          "artifact_name"
-        ],
-        "additionalProperties": false,
-        "properties": {
-          "firmware_id": {
-            "type": "string"
-          },
-          "channel": {
-            "$ref": "#/components/schemas/FirmwareChannelName"
-          },
-          "artifact_name": {
-            "type": "string"
-          }
-        }
-      },
-      "FirmwareDownloadResponse": {
-        "type": "object",
-        "required": [
-          "firmware_id",
-          "channel",
-          "artifact"
-        ],
-        "additionalProperties": false,
-        "properties": {
-          "firmware_id": {
-            "type": "string"
-          },
-          "channel": {
-            "$ref": "#/components/schemas/FirmwareChannelName"
-          },
-          "artifact": {
-            "$ref": "#/components/schemas/FirmwareBinMetadata"
-          }
-        }
       },
       "WorkspaceListRequest": {
         "type": "object",
@@ -2021,6 +1951,55 @@
       },
       "FriendGroupMessageGetResponse": {
         "$ref": "#/components/schemas/FriendGroupMessageObject"
+      },
+      "FirmwareFilesDownloadRequest": {
+        "type": "object",
+        "required": [
+          "firmware_id",
+          "channel",
+          "path"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "firmware_id": {
+            "type": "string"
+          },
+          "channel": {
+            "$ref": "#/components/schemas/FirmwareChannelName"
+          },
+          "path": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "FirmwareFilesDownloadResponse": {
+        "type": "object",
+        "required": [
+          "firmware_id",
+          "channel",
+          "path",
+          "file",
+          "artifact"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "firmware_id": {
+            "type": "string"
+          },
+          "channel": {
+            "$ref": "#/components/schemas/FirmwareChannelName"
+          },
+          "path": {
+            "type": "string"
+          },
+          "file": {
+            "$ref": "../type/firmware_artifact_entry.json#/components/schemas/FirmwareArtifactEntry"
+          },
+          "artifact": {
+            "$ref": "../type/firmware_artifact.json#/components/schemas/FirmwareArtifact"
+          }
+        }
       }
     }
   }

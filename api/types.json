@@ -128,9 +128,6 @@
       "FirmwareArtifact": {
         "$ref": "./type/firmware_artifact.json#/components/schemas/FirmwareArtifact"
       },
-      "FirmwareArtifactKind": {
-        "$ref": "./type/firmware_artifact_kind.json#/components/schemas/FirmwareArtifactKind"
-      },
       "FirmwareSlot": {
         "$ref": "./type/firmware_slot.json#/components/schemas/FirmwareSlot"
       },
@@ -430,6 +427,27 @@
       },
       "PixaMetadata": {
         "$ref": "./type/pet_species.json#/components/schemas/PixaMetadata"
+      },
+      "FirmwareArtifactEntry": {
+        "$ref": "./type/firmware_artifact_entry.json#/components/schemas/FirmwareArtifactEntry"
+      },
+      "FirmwareArtifactEntryType": {
+        "$ref": "./type/firmware_artifact_entry.json#/components/schemas/FirmwareArtifactEntryType"
+      },
+      "FirmwareArtifactList": {
+        "$ref": "./type/firmware_artifact_entry.json#/components/schemas/FirmwareArtifactList"
+      },
+      "FirmwareArtifactStats": {
+        "$ref": "./type/firmware_artifact_entry.json#/components/schemas/FirmwareArtifactStats"
+      },
+      "FirmwareArtifactTree": {
+        "$ref": "./type/firmware_artifact_entry.json#/components/schemas/FirmwareArtifactTree"
+      },
+      "FirmwareSpecSlot": {
+        "$ref": "./type/firmware_spec.json#/components/schemas/FirmwareSpecSlot"
+      },
+      "FirmwareSpecSlots": {
+        "$ref": "./type/firmware_spec.json#/components/schemas/FirmwareSpecSlots"
       }
     }
   }

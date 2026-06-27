@@ -3,7 +3,7 @@ import type { JSX, MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEv
 import { createRoot } from "react-dom/client";
 import OpenAI from "openai";
 import type { ChatCompletionMessageParam } from "openai/resources/chat/completions";
-import { ArrowLeft, Bot, Brain, BriefcaseBusiness, ChevronDown, Clock3, Coins, ContactRound, Database, Gift, KeyRound, Loader2, MessageCircle, Mic2, PawPrint, Pencil, Play, Plus, ReceiptText, RefreshCw, Search, SendHorizontal, Trash2, UserPlus, Users, Volume2, VolumeX, Workflow } from "lucide-react";
+import { ArrowLeft, Bot, Brain, BriefcaseBusiness, ChevronDown, Clock3, Coins, ContactRound, Database, Gift, KeyRound, Loader2, MessageCircle, Mic2, PackageCheck, PawPrint, Pencil, Play, Plus, ReceiptText, RefreshCw, Search, SendHorizontal, Trash2, UserPlus, Users, Volume2, VolumeX, Workflow } from "lucide-react";
 import { toast } from "sonner";
 import {
   ActionBarPrimitive,
@@ -52,6 +52,7 @@ import {
   listClientVoices,
   listPeerContacts,
   listPeerCredentials,
+  listPeerFirmwares,
   listPeerFriendGroupMembers,
   listPeerFriendGroups,
   listPeerFriends,
@@ -76,6 +77,7 @@ import {
   type FriendGroupObject,
   type FriendInviteTokenGetResponse,
   type FriendObject,
+  type Firmware,
   type PlayVoiceStreamEvent,
 } from "@gizclaw/clientservice";
 
@@ -111,7 +113,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/components/ui/utils";
 
-type Section = "overview" | "contacts" | "friends" | "friendGroups" | "workspaces" | "workflows" | "models" | "credentials" | "voices" | "pets" | "walletTransactions" | "rewards";
+type Section = "overview" | "contacts" | "friends" | "friendGroups" | "workspaces" | "workflows" | "models" | "credentials" | "firmwares" | "voices" | "pets" | "walletTransactions" | "rewards";
 type TopDrawer = "workspace" | "social-chat" | "test-chat" | null;
 
 type ModelSpec = {
@@ -349,6 +351,7 @@ const sections: Array<{ icon: typeof Bot; id: Section; label: string }> = [
   { icon: Workflow, id: "workflows", label: "Workflows" },
   { icon: Bot, id: "models", label: "Models" },
   { icon: KeyRound, id: "credentials", label: "Credentials" },
+  { icon: PackageCheck, id: "firmwares", label: "Firmwares" },
   { icon: Mic2, id: "voices", label: "Voices" },
   { icon: PawPrint, id: "pets", label: "Pets" },
   { icon: ReceiptText, id: "walletTransactions", label: "Transactions" },
@@ -380,6 +383,7 @@ function App(): JSX.Element {
   const [wallet, setWallet] = useState<WalletResource | null>(null);
   const [selectedFriend, setSelectedFriend] = useState<FriendObject | null>(null);
   const [selectedGroup, setSelectedGroup] = useState<FriendGroupObject | null>(null);
+  const [selectedFirmware, setSelectedFirmware] = useState<Firmware | null>(null);
   const [socialChatTarget, setSocialChatTarget] = useState<SocialChatTarget | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -517,6 +521,13 @@ function App(): JSX.Element {
                 {section === "workflows" ? <WorkflowsPanel /> : null}
                 {section === "models" ? <ModelsPanel initialModels={models} /> : null}
                 {section === "credentials" ? <CredentialsPanel /> : null}
+                {section === "firmwares" ? (
+                  selectedFirmware == null ? (
+                    <FirmwaresPanel onOpenFirmware={setSelectedFirmware} />
+                  ) : (
+                    <FirmwareDetailPanel firmware={selectedFirmware} onBack={() => setSelectedFirmware(null)} />
+                  )
+                ) : null}
                 {section === "voices" ? <VoicesPanel /> : null}
                 {section === "pets" ? <PetsPanel /> : null}
                 {section === "walletTransactions" ? <WalletTransactionsPanel /> : null}
@@ -4027,6 +4038,156 @@ function CredentialsPanel(): JSX.Element {
   );
 }
 
+type FirmwareChannelKey = keyof Firmware["slots"];
+
+const firmwareChannels: Array<{ key: FirmwareChannelKey; label: string }> = [
+  { key: "stable", label: "Stable" },
+  { key: "beta", label: "Beta" },
+  { key: "develop", label: "Develop" },
+  { key: "pending", label: "Pending" },
+];
+
+function FirmwaresPanel({ onOpenFirmware }: { onOpenFirmware: (firmware: Firmware) => void }): JSX.Element {
+  const pager = usePagedList<Firmware>(listFirmwaresPage);
+  return (
+    <Card className="max-w-6xl">
+      <CardHeader className="flex flex-row items-center justify-between gap-3">
+        <CardTitle>Firmwares</CardTitle>
+        <PageAction canNext={pager.page.hasNext} canPrevious={pager.page.cursors.length > 1} loading={pager.page.loading} onNext={pager.next} onPrevious={pager.previous} onRefresh={pager.refresh} pageIndex={pager.page.cursors.length} />
+      </CardHeader>
+      <CardContent>
+        {pager.error !== "" ? (
+          <Alert className="mb-4" variant="destructive">
+            <AlertDescription>{pager.error}</AlertDescription>
+          </Alert>
+        ) : null}
+        {pager.page.items.length === 0 ? (
+          <EmptyMessage description={pager.page.loading ? "Loading firmwares." : "No firmwares are visible for this peer."} title={pager.page.loading ? "Loading" : "No firmwares"} />
+        ) : (
+          <div className="rounded-md border">
+            <Table className="table-fixed">
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-64">Firmware</TableHead>
+                  <TableHead className="w-28">Stable</TableHead>
+                  <TableHead className="w-28">Beta</TableHead>
+                  <TableHead className="w-28">Develop</TableHead>
+                  <TableHead className="w-28">Pending</TableHead>
+                  <TableHead className="w-40">Updated</TableHead>
+                  <TableHead className="w-24 text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {pager.page.items.map((item) => (
+                  <TableRow key={item.name}>
+                    <TableCell className="min-w-0">
+                      <div className="truncate font-medium" title={item.name}>
+                        {item.name}
+                      </div>
+                      <div className="truncate text-xs text-muted-foreground" title={item.description ?? ""}>
+                        {item.description ?? "-"}
+                      </div>
+                    </TableCell>
+                    <TableCell>{firmwareSlotSummary(item.slots.stable)}</TableCell>
+                    <TableCell>{firmwareSlotSummary(item.slots.beta)}</TableCell>
+                    <TableCell>{firmwareSlotSummary(item.slots.develop)}</TableCell>
+                    <TableCell>{firmwareSlotSummary(item.slots.pending)}</TableCell>
+                    <TableCell className="text-muted-foreground">{formatDate(item.updated_at)}</TableCell>
+                    <TableCell>
+                      <div className="flex justify-end">
+                        <Button onClick={() => onOpenFirmware(item)} size="sm" type="button" variant="outline">
+                          Open
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function FirmwareDetailPanel({ firmware, onBack }: { firmware: Firmware; onBack: () => void }): JSX.Element {
+  return (
+    <div className="flex max-w-6xl flex-col gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <Button onClick={onBack} type="button" variant="outline">
+          <ArrowLeft data-icon="inline-start" />
+          Firmwares
+        </Button>
+      </div>
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>Info</CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-x-6 gap-y-3 text-sm">
+            <WorkspaceInfoItem label="Name" value={firmware.name} />
+            <WorkspaceInfoItem label="Description" value={firmware.description ?? "-"} />
+            <WorkspaceInfoItem label="Created" value={formatDate(firmware.created_at)} />
+            <WorkspaceInfoItem label="Updated" value={formatDate(firmware.updated_at)} />
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Artifact Summary</CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-x-6 gap-y-3 text-sm">
+            {firmwareChannels.map(({ key, label }) => (
+              <WorkspaceInfoItem key={key} label={label} value={firmwareSlotSummary(firmware.slots[key])} />
+            ))}
+          </CardContent>
+        </Card>
+      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>Channels</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="rounded-md border">
+            <Table className="table-fixed">
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-28">Channel</TableHead>
+                  <TableHead>Description</TableHead>
+                  <TableHead className="w-28">Artifact</TableHead>
+                  <TableHead className="w-28">Size</TableHead>
+                  <TableHead className="w-40">Uploaded</TableHead>
+                  <TableHead>Tar path</TableHead>
+                  <TableHead className="w-44">SHA-256</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {firmwareChannels.map(({ key, label }) => {
+                  const slot = firmware.slots[key];
+                  const artifact = slot.artifact;
+                  return (
+                    <TableRow key={key}>
+                      <TableCell className="font-medium">{label}</TableCell>
+                      <TableCell className="truncate" title={slot.description ?? ""}>{slot.description ?? "-"}</TableCell>
+                      <TableCell>
+                        <Badge variant={artifact == null ? "outline" : "secondary"}>{artifact == null ? "None" : "Uploaded"}</Badge>
+                      </TableCell>
+                      <TableCell>{formatBytes(artifact?.size)}</TableCell>
+                      <TableCell className="text-muted-foreground">{formatDate(artifact?.uploaded_at)}</TableCell>
+                      <TableCell className="truncate font-mono text-xs" title={artifact?.tar_path ?? ""}>{artifact?.tar_path ?? "-"}</TableCell>
+                      <TableCell className="truncate font-mono text-xs" title={artifact?.sha256 ?? ""}>{compactID(artifact?.sha256 ?? "-")}</TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 function OverviewPanel({ modelCount, wallet }: { modelCount: number; wallet: WalletResource | null }): JSX.Element {
   return (
     <div className="grid max-w-6xl gap-4 md:grid-cols-2">
@@ -4562,6 +4723,13 @@ function signedNumber(value: number): string {
   return value > 0 ? `+${value}` : String(value);
 }
 
+function firmwareSlotSummary(slot: Firmware["slots"]["stable"]): string {
+  if (slot.artifact != null && slot.artifact.tar_path.trim() !== "") {
+    return "Artifact";
+  }
+  return slot.description?.trim() || "-";
+}
+
 function ModelsPanel({ initialModels }: { initialModels: ModelSpec[] }): JSX.Element {
   const loadPage = useCallback((cursor: string) => listModelsPage(cursor), []);
   const pager = usePagedList(loadPage);
@@ -4838,6 +5006,10 @@ function listPetsPage(cursor: string): Promise<PageResponse<PetResource>> {
   return expectData(listPeerPets({ query: pageQuery(cursor) })) as Promise<PageResponse<PetResource>>;
 }
 
+function listFirmwaresPage(cursor: string): Promise<PageResponse<Firmware>> {
+  return expectData(listPeerFirmwares({ query: pageQuery(cursor) })) as Promise<PageResponse<Firmware>>;
+}
+
 function adoptPet(name: string): Promise<PetResource> {
   return expectData(adoptPeerPet({ body: { name } })) as Promise<PetResource>;
 }
@@ -4921,6 +5093,8 @@ async function listPeerResourcePage(name: string, cursor: string): Promise<PageR
       return expectData(listPeerContacts({ query })) as Promise<PageResponse<ResourceItem>>;
     case "credentials":
       return expectData(listPeerCredentials({ query })) as Promise<PageResponse<ResourceItem>>;
+    case "firmwares":
+      return expectData(listPeerFirmwares({ query })) as Promise<PageResponse<ResourceItem>>;
     case "friend-groups":
       return expectData(listPeerFriendGroups({ query })) as Promise<PageResponse<ResourceItem>>;
     case "friends":

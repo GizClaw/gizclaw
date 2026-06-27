@@ -188,8 +188,8 @@ downloadable firmware payload is a real tar fixture at
 `reset_data.sh` uploads that tar with:
 
 ```sh
-gizclaw admin firmwares upload-bin devkit-firmware-main \
-  --channel stable --bin main \
+gizclaw admin firmwares upload-artifact devkit-firmware-main \
+  --channel stable \
   -f testdata/assets/firmware/devkit-firmware-main.tar
 ```
 

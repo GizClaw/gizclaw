@@ -28,32 +28,11 @@ func TestServerFirmwareRPC(t *testing.T) {
 	if got.Name != sharedFirmware {
 		t.Fatalf("firmware.get name = %q", got.Name)
 	}
-	if got.Slots.Stable.Version == nil || *got.Slots.Stable.Version != "9.9.0" {
-		t.Fatalf("firmware stable version = %#v", got.Slots.Stable.Version)
-	}
-	if got.Slots.Stable.Artifacts == nil || len(*got.Slots.Stable.Artifacts) != 1 || (*got.Slots.Stable.Artifacts)[0].Path == nil {
-		t.Fatalf("firmware stable artifacts = %#v", got.Slots.Stable.Artifacts)
+	if got.Slots.Stable.Artifact == nil || got.Slots.Stable.Artifact.TarPath == "" {
+		t.Fatalf("firmware stable artifact = %#v", got.Slots.Stable.Artifact)
 	}
 
-	var out bytes.Buffer
-	download, err := env.peer.DownloadFirmware(env.ctx, "firmware.download.shared", rpcapi.FirmwareDownloadRequest{
-		FirmwareId:   sharedFirmware,
-		Channel:      rpcapi.FirmwareChannelNameStable,
-		ArtifactName: "main",
-	}, &out)
-	if err != nil {
-		t.Fatalf("firmware.download shared: %v", err)
-	}
-	assertTarContains(t, out.Bytes(), "MANIFEST.txt", "gizclaw devkit firmware")
-	if download.Bytes != int64(out.Len()) {
-		t.Fatalf("firmware.download bytes = %d", download.Bytes)
-	}
-	if download.Metadata.FirmwareId != sharedFirmware || download.Metadata.Channel != rpcapi.FirmwareChannelNameStable {
-		t.Fatalf("firmware.download metadata = %#v", download.Metadata)
-	}
-	if download.Metadata.Artifact.Name != "main" || download.Metadata.Artifact.Kind != rpcapi.FirmwareArtifactKindApp {
-		t.Fatalf("firmware.download artifact = %#v", download.Metadata.Artifact)
-	}
+	assertFirmwareBundleRPCDownloads(t, env.ctx, env.peer, "firmware.files.download.shared", sharedFirmware)
 
 	denied := env.h.ConnectClientFromContext("peer-denied")
 	defer denied.Close()
@@ -66,6 +45,14 @@ func TestServerFirmwareRPC(t *testing.T) {
 	}
 	if _, err := denied.GetFirmware(env.ctx, "firmware.get.denied", rpcapi.FirmwareGetRequest{FirmwareId: sharedFirmware}); err == nil || !strings.Contains(err.Error(), "acl: denied") {
 		t.Fatalf("firmware.get denied error = %v", err)
+	}
+	var deniedOut bytes.Buffer
+	if _, err := denied.DownloadFirmware(env.ctx, "firmware.files.download.denied", rpcapi.FirmwareFilesDownloadRequest{
+		FirmwareId: sharedFirmware,
+		Channel:    rpcapi.FirmwareChannelNameStable,
+		Path:       "firmware/main.bin",
+	}, &deniedOut); err == nil || !strings.Contains(err.Error(), "acl: denied") {
+		t.Fatalf("firmware.files.download denied error = %v", err)
 	}
 }
 

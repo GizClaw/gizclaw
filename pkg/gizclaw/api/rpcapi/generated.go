@@ -170,18 +170,18 @@ func (e DoubaoRealtimeWorkspaceParametersAgentType) Valid() bool {
 	}
 }
 
-// Defines values for FirmwareArtifactKind.
+// Defines values for FirmwareArtifactEntryType.
 const (
-	FirmwareArtifactKindApp  FirmwareArtifactKind = "app"
-	FirmwareArtifactKindData FirmwareArtifactKind = "data"
+	FirmwareArtifactEntryTypeDir  FirmwareArtifactEntryType = "dir"
+	FirmwareArtifactEntryTypeFile FirmwareArtifactEntryType = "file"
 )
 
-// Valid indicates whether the value is a known member of the FirmwareArtifactKind enum.
-func (e FirmwareArtifactKind) Valid() bool {
+// Valid indicates whether the value is a known member of the FirmwareArtifactEntryType enum.
+func (e FirmwareArtifactEntryType) Valid() bool {
 	switch e {
-	case FirmwareArtifactKindApp:
+	case FirmwareArtifactEntryTypeDir:
 		return true
-	case FirmwareArtifactKindData:
+	case FirmwareArtifactEntryTypeFile:
 		return true
 	default:
 		return false
@@ -489,7 +489,7 @@ const (
 	RPCMethodServerCredentialGet                RPCMethod = "server.credential.get"
 	RPCMethodServerCredentialList               RPCMethod = "server.credential.list"
 	RPCMethodServerCredentialPut                RPCMethod = "server.credential.put"
-	RPCMethodServerFirmwareDownload             RPCMethod = "server.firmware.download"
+	RPCMethodServerFirmwareFilesDownload        RPCMethod = "server.firmware.files.download"
 	RPCMethodServerFirmwareGet                  RPCMethod = "server.firmware.get"
 	RPCMethodServerFirmwareList                 RPCMethod = "server.firmware.list"
 	RPCMethodServerFriendAdd                    RPCMethod = "server.friend.add"
@@ -597,7 +597,7 @@ func (e RPCMethod) Valid() bool {
 		return true
 	case RPCMethodServerCredentialPut:
 		return true
-	case RPCMethodServerFirmwareDownload:
+	case RPCMethodServerFirmwareFilesDownload:
 		return true
 	case RPCMethodServerFirmwareGet:
 		return true
@@ -1327,58 +1327,90 @@ type Firmware struct {
 
 // FirmwareArtifact defines model for FirmwareArtifact.
 type FirmwareArtifact struct {
-	// ContentType Optional content type captured during upload.
-	ContentType *string `json:"content_type,omitempty"`
+	// ContentType Content type for the uploaded artifact.tar.
+	ContentType string `json:"content_type"`
 
-	// Kind Kind of payload carried by a firmware artifact.
-	Kind FirmwareArtifactKind `json:"kind"`
+	// FilesPath Server-owned objectstore prefix for extracted artifact files.
+	FilesPath string `json:"files_path"`
 
-	// Name Device-defined artifact name.
-	Name string `json:"name"`
+	// ManifestPath Server-owned objectstore path for the artifact manifest.
+	ManifestPath string `json:"manifest_path"`
 
-	// Path Server-owned objectstore path for the uploaded artifact payload.
-	Path *string `json:"path,omitempty"`
+	// Sha256 SHA-256 digest of the uploaded artifact.tar.
+	Sha256 string `json:"sha256"`
 
-	// Sha256 Optional SHA-256 digest for integrity checks.
-	Sha256 *string `json:"sha256,omitempty"`
+	// Size Uploaded artifact.tar size in bytes.
+	Size int64 `json:"size"`
 
-	// Size Optional artifact size in bytes.
-	Size *int64 `json:"size,omitempty"`
+	// TarPath Server-owned objectstore path for the uploaded artifact.tar.
+	TarPath string `json:"tar_path"`
 
 	// UploadedAt Server-owned upload timestamp.
-	UploadedAt *time.Time `json:"uploaded_at,omitempty"`
+	UploadedAt time.Time `json:"uploaded_at"`
 }
 
-// FirmwareArtifactKind Kind of payload carried by a firmware artifact.
-type FirmwareArtifactKind string
+// FirmwareArtifactEntry defines model for FirmwareArtifactEntry.
+type FirmwareArtifactEntry struct {
+	// ContentType Best-effort content type for file entries.
+	ContentType *string   `json:"content_type,omitempty"`
+	ModTime     time.Time `json:"mod_time"`
+	Mode        int32     `json:"mode"`
 
-// FirmwareBinMetadata defines model for FirmwareBinMetadata.
-type FirmwareBinMetadata struct {
-	ContentType *string `json:"content_type,omitempty"`
+	// Path Normalized artifact entry path relative to the tar root.
+	Path string                    `json:"path"`
+	Size int64                     `json:"size"`
+	Type FirmwareArtifactEntryType `json:"type"`
+}
 
-	// Kind Kind of payload carried by a firmware artifact.
-	Kind       FirmwareArtifactKind `json:"kind"`
-	Name       string               `json:"name"`
-	Sha256     *string              `json:"sha256,omitempty"`
-	Size       *int64               `json:"size,omitempty"`
-	UploadedAt *time.Time           `json:"uploaded_at,omitempty"`
+// FirmwareArtifactEntryType defines model for FirmwareArtifactEntryType.
+type FirmwareArtifactEntryType string
+
+// FirmwareArtifactList defines model for FirmwareArtifactList.
+type FirmwareArtifactList struct {
+	Channel    string                  `json:"channel"`
+	FirmwareId string                  `json:"firmware_id"`
+	Items      []FirmwareArtifactEntry `json:"items"`
+	Path       string                  `json:"path"`
+}
+
+// FirmwareArtifactStats defines model for FirmwareArtifactStats.
+type FirmwareArtifactStats struct {
+	Artifact   FirmwareArtifact       `json:"artifact"`
+	Channel    string                 `json:"channel"`
+	Entry      *FirmwareArtifactEntry `json:"entry,omitempty"`
+	FilesCount int64                  `json:"files_count"`
+	FirmwareId string                 `json:"firmware_id"`
+	Path       *string                `json:"path,omitempty"`
+	TotalSize  int64                  `json:"total_size"`
+}
+
+// FirmwareArtifactTree defines model for FirmwareArtifactTree.
+type FirmwareArtifactTree struct {
+	Channel    string `json:"channel"`
+	FirmwareId string `json:"firmware_id"`
+
+	// Items Recursive flat entry list rooted at path.
+	Items []FirmwareArtifactEntry `json:"items"`
+	Path  string                  `json:"path"`
 }
 
 // FirmwareChannelName defines model for FirmwareChannelName.
 type FirmwareChannelName string
 
-// FirmwareDownloadRequest defines model for FirmwareDownloadRequest.
-type FirmwareDownloadRequest struct {
-	ArtifactName string              `json:"artifact_name"`
-	Channel      FirmwareChannelName `json:"channel"`
-	FirmwareId   string              `json:"firmware_id"`
-}
-
-// FirmwareDownloadResponse defines model for FirmwareDownloadResponse.
-type FirmwareDownloadResponse struct {
-	Artifact   FirmwareBinMetadata `json:"artifact"`
+// FirmwareFilesDownloadRequest defines model for FirmwareFilesDownloadRequest.
+type FirmwareFilesDownloadRequest struct {
 	Channel    FirmwareChannelName `json:"channel"`
 	FirmwareId string              `json:"firmware_id"`
+	Path       string              `json:"path"`
+}
+
+// FirmwareFilesDownloadResponse defines model for FirmwareFilesDownloadResponse.
+type FirmwareFilesDownloadResponse struct {
+	Artifact   FirmwareArtifact      `json:"artifact"`
+	Channel    FirmwareChannelName   `json:"channel"`
+	File       FirmwareArtifactEntry `json:"file"`
+	FirmwareId string                `json:"firmware_id"`
+	Path       string                `json:"path"`
 }
 
 // FirmwareGetRequest defines model for FirmwareGetRequest.
@@ -1404,12 +1436,8 @@ type FirmwareListResponse struct {
 
 // FirmwareSlot defines model for FirmwareSlot.
 type FirmwareSlot struct {
-	// Artifacts Device-defined artifact list for this slot.
-	Artifacts   *[]FirmwareArtifact `json:"artifacts,omitempty"`
-	Description *string             `json:"description,omitempty"`
-
-	// Version Version carried by this slot.
-	Version *string `json:"version,omitempty"`
+	Artifact    *FirmwareArtifact `json:"artifact,omitempty"`
+	Description *string           `json:"description,omitempty"`
 }
 
 // FirmwareSlots defines model for FirmwareSlots.
@@ -3580,22 +3608,22 @@ func (t *RPCRequest_Params) MergeFirmwareGetRequest(v FirmwareGetRequest) error 
 	return err
 }
 
-// AsFirmwareDownloadRequest returns the union data inside the RPCRequest_Params as a FirmwareDownloadRequest
-func (t RPCRequest_Params) AsFirmwareDownloadRequest() (FirmwareDownloadRequest, error) {
-	var body FirmwareDownloadRequest
+// AsFirmwareFilesDownloadRequest returns the union data inside the RPCRequest_Params as a FirmwareFilesDownloadRequest
+func (t RPCRequest_Params) AsFirmwareFilesDownloadRequest() (FirmwareFilesDownloadRequest, error) {
+	var body FirmwareFilesDownloadRequest
 	err := json.Unmarshal(t.union, &body)
 	return body, err
 }
 
-// FromFirmwareDownloadRequest overwrites any union data inside the RPCRequest_Params as the provided FirmwareDownloadRequest
-func (t *RPCRequest_Params) FromFirmwareDownloadRequest(v FirmwareDownloadRequest) error {
+// FromFirmwareFilesDownloadRequest overwrites any union data inside the RPCRequest_Params as the provided FirmwareFilesDownloadRequest
+func (t *RPCRequest_Params) FromFirmwareFilesDownloadRequest(v FirmwareFilesDownloadRequest) error {
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
 }
 
-// MergeFirmwareDownloadRequest performs a merge with any union data inside the RPCRequest_Params, using the provided FirmwareDownloadRequest
-func (t *RPCRequest_Params) MergeFirmwareDownloadRequest(v FirmwareDownloadRequest) error {
+// MergeFirmwareFilesDownloadRequest performs a merge with any union data inside the RPCRequest_Params, using the provided FirmwareFilesDownloadRequest
+func (t *RPCRequest_Params) MergeFirmwareFilesDownloadRequest(v FirmwareFilesDownloadRequest) error {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -5904,22 +5932,22 @@ func (t *RPCResponse_Result) MergeFirmwareGetResponse(v FirmwareGetResponse) err
 	return err
 }
 
-// AsFirmwareDownloadResponse returns the union data inside the RPCResponse_Result as a FirmwareDownloadResponse
-func (t RPCResponse_Result) AsFirmwareDownloadResponse() (FirmwareDownloadResponse, error) {
-	var body FirmwareDownloadResponse
+// AsFirmwareFilesDownloadResponse returns the union data inside the RPCResponse_Result as a FirmwareFilesDownloadResponse
+func (t RPCResponse_Result) AsFirmwareFilesDownloadResponse() (FirmwareFilesDownloadResponse, error) {
+	var body FirmwareFilesDownloadResponse
 	err := json.Unmarshal(t.union, &body)
 	return body, err
 }
 
-// FromFirmwareDownloadResponse overwrites any union data inside the RPCResponse_Result as the provided FirmwareDownloadResponse
-func (t *RPCResponse_Result) FromFirmwareDownloadResponse(v FirmwareDownloadResponse) error {
+// FromFirmwareFilesDownloadResponse overwrites any union data inside the RPCResponse_Result as the provided FirmwareFilesDownloadResponse
+func (t *RPCResponse_Result) FromFirmwareFilesDownloadResponse(v FirmwareFilesDownloadResponse) error {
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
 }
 
-// MergeFirmwareDownloadResponse performs a merge with any union data inside the RPCResponse_Result, using the provided FirmwareDownloadResponse
-func (t *RPCResponse_Result) MergeFirmwareDownloadResponse(v FirmwareDownloadResponse) error {
+// MergeFirmwareFilesDownloadResponse performs a merge with any union data inside the RPCResponse_Result, using the provided FirmwareFilesDownloadResponse
+func (t *RPCResponse_Result) MergeFirmwareFilesDownloadResponse(v FirmwareFilesDownloadResponse) error {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err

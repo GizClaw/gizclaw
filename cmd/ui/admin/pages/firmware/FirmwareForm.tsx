@@ -1,24 +1,19 @@
-import { Edit, Plus, Save, Trash2 } from "lucide-react";
+import { Edit, Save } from "lucide-react";
 import { useState } from "react";
 
-import type { Firmware, FirmwareArtifact, FirmwareSlot, FirmwareUpsert } from "@gizclaw/adminservice";
+import type { Firmware, FirmwareSlot, FirmwareUpsert } from "@gizclaw/adminservice";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { FormField } from "../../components/form-field";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 
 const slotKeys = ["develop", "beta", "stable", "pending"] as const;
 
 type SlotKey = (typeof slotKeys)[number];
-type ArtifactForm = {
-  kind: "app" | "data";
-  name: string;
-};
 
 export type FirmwareFormState = {
   description: string;
@@ -140,7 +135,7 @@ function SlotsEditTable({ form, onEdit }: { form: FirmwareFormState; onEdit: (sl
             <TableHead className="w-32">Slot</TableHead>
             <TableHead className="w-40">Version</TableHead>
             <TableHead>Description</TableHead>
-            <TableHead className="w-32 text-right">Artifacts</TableHead>
+            <TableHead className="w-32 text-right">Artifact</TableHead>
             <TableHead className="w-24 text-right">Actions</TableHead>
           </TableRow>
         </TableHeader>
@@ -153,7 +148,7 @@ function SlotsEditTable({ form, onEdit }: { form: FirmwareFormState; onEdit: (sl
                 <TableCell className="font-mono text-xs">{slot.version?.trim() || "-"}</TableCell>
                 <TableCell className="max-w-[26rem] text-sm text-muted-foreground">{slot.description?.trim() || "-"}</TableCell>
                 <TableCell className="text-right">
-                  <Badge variant="outline">{slot.artifacts?.length ?? 0}</Badge>
+                  <Badge variant="outline">{slot.artifact == null ? "None" : "Uploaded"}</Badge>
                 </TableCell>
                 <TableCell className="text-right">
                   <Button aria-label={`Edit ${slotName} slot`} className="h-8 min-w-fit px-2 text-xs" onClick={() => onEdit(slotName)} type="button" variant="outline">
@@ -185,15 +180,9 @@ function SlotEditDialog({
 }): JSX.Element {
   const [version, setVersion] = useState(slot.version ?? "");
   const [description, setDescription] = useState(slot.description ?? "");
-  const [artifacts, setArtifacts] = useState<ArtifactForm[]>(() => (slot.artifacts ?? []).map(artifactToForm));
-
-  const updateArtifact = (index: number, patch: Partial<ArtifactForm>): void => {
-    setArtifacts((current) => current.map((artifact, itemIndex) => (itemIndex === index ? { ...artifact, ...patch } : artifact)));
-  };
 
   const submit = (): void => {
     onSubmit({
-      artifacts: artifacts.map(formToArtifact).filter((artifact) => artifact.name.trim() !== ""),
       description: optionalString(description),
       version: optionalString(version),
     });
@@ -222,47 +211,12 @@ function SlotEditDialog({
           </div>
 
           <Card>
-            <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0">
-              <div className="space-y-1">
-                <CardTitle className="text-base">Artifacts</CardTitle>
-                <CardDescription>Device-managed artifact entries for this slot.</CardDescription>
-              </div>
-              <Button
-                className="min-w-fit shrink-0"
-                onClick={() => setArtifacts((current) => [...current, emptyArtifactForm()])}
-                size="sm"
-                type="button"
-                variant="outline"
-              >
-                <Plus className="size-4" />
-                Add
-              </Button>
+            <CardHeader>
+              <CardTitle className="text-base">Artifact</CardTitle>
+              <CardDescription>Artifacts are uploaded from the firmware detail summary after the slot exists.</CardDescription>
             </CardHeader>
-            <CardContent className="flex flex-col gap-3">
-              {artifacts.length === 0 ? <div className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">No artifacts.</div> : null}
-              {artifacts.map((artifact, index) => (
-                <div className="grid min-w-0 gap-3 rounded-md border p-3 md:grid-cols-[minmax(0,1fr)_8rem_auto]" key={index}>
-                  <Input aria-label={`Artifact ${index + 1} name`} className="min-w-0" onChange={(event) => updateArtifact(index, { name: event.target.value })} placeholder="name" value={artifact.name} />
-                  <Select onValueChange={(value) => updateArtifact(index, { kind: value as ArtifactForm["kind"] })} value={artifact.kind}>
-                    <SelectTrigger aria-label={`Artifact ${index + 1} kind`}>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="app">app</SelectItem>
-                      <SelectItem value="data">data</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Button
-                    aria-label={`Remove artifact ${index + 1}`}
-                    className="h-9 w-9 p-0"
-                    onClick={() => setArtifacts((current) => current.filter((_, itemIndex) => itemIndex !== index))}
-                    type="button"
-                    variant="ghost"
-                  >
-                    <Trash2 className="size-4" />
-                  </Button>
-                </div>
-              ))}
+            <CardContent>
+              <Badge variant="outline">{slot.artifact == null ? "Not uploaded" : "Uploaded"}</Badge>
             </CardContent>
           </Card>
         </div>
@@ -300,7 +254,12 @@ export function formToUpsert(form: FirmwareFormState): FirmwareUpsert {
   return {
     description: optionalString(form.description),
     name: form.name,
-    slots: normalizeSlots(form.slots),
+    slots: {
+      beta: slotToUpsert(form.slots.beta),
+      develop: slotToUpsert(form.slots.develop),
+      pending: slotToUpsert(form.slots.pending),
+      stable: slotToUpsert(form.slots.stable),
+    },
   };
 }
 
@@ -324,24 +283,10 @@ function normalizeSlots(slots: FirmwareUpsert["slots"]): FirmwareFormState["slot
   };
 }
 
-function artifactToForm(artifact: FirmwareArtifact): ArtifactForm {
+function slotToUpsert(slot: FirmwareSlot): FirmwareSlot {
   return {
-    kind: artifact.kind === "data" ? "data" : "app",
-    name: artifact.name,
-  };
-}
-
-function formToArtifact(form: ArtifactForm): FirmwareArtifact {
-  return {
-    kind: form.kind,
-    name: form.name,
-  };
-}
-
-function emptyArtifactForm(): ArtifactForm {
-  return {
-    kind: "app",
-    name: "",
+    description: slot.description,
+    version: slot.version,
   };
 }
 

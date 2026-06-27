@@ -1,6 +1,8 @@
 package peerresource
 
 import (
+	"archive/tar"
+	"bytes"
 	"context"
 	"database/sql"
 	"errors"
@@ -522,17 +524,13 @@ func TestServerBusinessDomainDoesNotUseResourceACL(t *testing.T) {
 func TestServerFirmwareRPCUsesFirmwareReadACL(t *testing.T) {
 	ctx := context.Background()
 	auth := newRuleAuthorizer()
-	version := "1.0.0"
+	description := "main stable firmware"
 	firmwareServer := &firmware.Server{Store: kv.NewMemory(nil), Assets: objectstore.Dir(t.TempDir()), Now: func() time.Time { return time.Unix(1, 0).UTC() }}
 	create := adminservice.FirmwareUpsert{
 		Name: "devkit",
 		Slots: apitypes.FirmwareSlots{
 			Stable: apitypes.FirmwareSlot{
-				Version: &version,
-				Artifacts: &[]apitypes.FirmwareArtifact{{
-					Name: "app",
-					Kind: apitypes.FirmwareArtifactKindApp,
-				}},
+				Description: &description,
 			},
 		},
 	}
@@ -544,7 +542,7 @@ func TestServerFirmwareRPCUsesFirmwareReadACL(t *testing.T) {
 	other := adminservice.FirmwareUpsert{
 		Name: "otherkit",
 		Slots: apitypes.FirmwareSlots{
-			Stable: apitypes.FirmwareSlot{Version: stringPtr("2.0.0")},
+			Stable: apitypes.FirmwareSlot{Description: stringPtr("other stable firmware")},
 		},
 	}
 	if resp, err := firmwareServer.CreateFirmware(ctx, adminservice.CreateFirmwareRequestObject{Body: &other}); err != nil {
@@ -552,15 +550,14 @@ func TestServerFirmwareRPCUsesFirmwareReadACL(t *testing.T) {
 	} else if _, ok := resp.(adminservice.CreateFirmware200JSONResponse); !ok {
 		t.Fatalf("CreateFirmware other response = %T", resp)
 	}
-	if resp, err := firmwareServer.UploadFirmwareBin(ctx, adminservice.UploadFirmwareBinRequestObject{
+	if resp, err := firmwareServer.UploadFirmwareArtifact(ctx, adminservice.UploadFirmwareArtifactRequestObject{
 		Name:    "devkit",
-		Channel: adminservice.Stable,
-		Bin:     "app",
-		Body:    strings.NewReader("firmware payload"),
+		Channel: "stable",
+		Body:    bytes.NewReader(peerresourceTarPayload(t, map[string]string{"firmware.bin": "firmware payload"})),
 	}); err != nil {
-		t.Fatalf("UploadFirmwareBin error = %v", err)
-	} else if _, ok := resp.(adminservice.UploadFirmwareBin200JSONResponse); !ok {
-		t.Fatalf("UploadFirmwareBin response = %T", resp)
+		t.Fatalf("UploadFirmwareArtifact error = %v", err)
+	} else if _, ok := resp.(adminservice.UploadFirmwareArtifact200JSONResponse); !ok {
+		t.Fatalf("UploadFirmwareArtifact response = %T", resp)
 	}
 
 	srv := &Server{
@@ -591,27 +588,27 @@ func TestServerFirmwareRPCUsesFirmwareReadACL(t *testing.T) {
 		FirmwareId: "devkit",
 	}))
 	gotFirmware := mustResult(t, getResp.Result.AsFirmwareGetResponse)
-	if gotFirmware.Name != "devkit" || gotFirmware.Slots.Stable.Version == nil || *gotFirmware.Slots.Stable.Version != version {
+	if gotFirmware.Name != "devkit" || gotFirmware.Slots.Stable.Description == nil || *gotFirmware.Slots.Stable.Description != description {
 		t.Fatalf("firmware.get = %#v", gotFirmware)
 	}
-	if gotFirmware.Slots.Stable.Artifacts == nil || len(*gotFirmware.Slots.Stable.Artifacts) != 1 || (*gotFirmware.Slots.Stable.Artifacts)[0].Size == nil {
-		t.Fatalf("firmware.get artifacts = %#v", gotFirmware.Slots.Stable.Artifacts)
+	if gotFirmware.Slots.Stable.Artifact == nil || gotFirmware.Slots.Stable.Artifact.Size == 0 {
+		t.Fatalf("firmware.get artifact = %#v", gotFirmware.Slots.Stable.Artifact)
 	}
 
-	bin := callRPC(t, srv, "firmware-download", rpcapi.RPCMethodServerFirmwareDownload, rpcParams(t, (*rpcapi.RPCRequest_Params).FromFirmwareDownloadRequest, rpcapi.FirmwareDownloadRequest{
-		FirmwareId:   "devkit",
-		Channel:      rpcapi.FirmwareChannelNameStable,
-		ArtifactName: "app",
+	bin := callRPC(t, srv, "firmware-download", rpcapi.RPCMethodServerFirmwareFilesDownload, rpcParams(t, (*rpcapi.RPCRequest_Params).FromFirmwareFilesDownloadRequest, rpcapi.FirmwareFilesDownloadRequest{
+		FirmwareId: "devkit",
+		Channel:    rpcapi.FirmwareChannelNameStable,
+		Path:       "firmware.bin",
 	}))
-	gotBin := mustResult(t, bin.Result.AsFirmwareDownloadResponse)
-	if gotBin.FirmwareId != "devkit" || gotBin.Artifact.Name != "app" || gotBin.Artifact.Size == nil {
+	gotBin := mustResult(t, bin.Result.AsFirmwareFilesDownloadResponse)
+	if gotBin.FirmwareId != "devkit" || gotBin.File.Path != "firmware.bin" || gotBin.File.Size == 0 {
 		t.Fatalf("firmware.download = %#v", gotBin)
 	}
 
-	missingBin := callRPC(t, srv, "firmware-artifact-missing", rpcapi.RPCMethodServerFirmwareDownload, rpcParams(t, (*rpcapi.RPCRequest_Params).FromFirmwareDownloadRequest, rpcapi.FirmwareDownloadRequest{
-		FirmwareId:   "devkit",
-		Channel:      rpcapi.FirmwareChannelNameStable,
-		ArtifactName: "missing",
+	missingBin := callRPC(t, srv, "firmware-artifact-missing", rpcapi.RPCMethodServerFirmwareFilesDownload, rpcParams(t, (*rpcapi.RPCRequest_Params).FromFirmwareFilesDownloadRequest, rpcapi.FirmwareFilesDownloadRequest{
+		FirmwareId: "devkit",
+		Channel:    rpcapi.FirmwareChannelNameStable,
+		Path:       "missing.bin",
 	}))
 	requireRPCError(t, missingBin, rpcapi.RPCErrorCodeNotFound)
 }
@@ -728,6 +725,26 @@ func TestServerErrorPaths(t *testing.T) {
 	authless := newTestResourceServer()
 	resp := callRPC(t, authless, "acl-missing", rpcapi.RPCMethodServerModelGet, rpcParams(t, (*rpcapi.RPCRequest_Params).FromModelGetRequest, rpcapi.ModelGetRequest{Id: "model-a"}))
 	requireRPCError(t, resp, rpcapi.RPCErrorCodeInternalError)
+}
+
+func peerresourceTarPayload(t *testing.T, files map[string]string) []byte {
+	t.Helper()
+	var buf bytes.Buffer
+	tw := tar.NewWriter(&buf)
+	modTime := time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC)
+	for name, body := range files {
+		data := []byte(body)
+		if err := tw.WriteHeader(&tar.Header{Name: name, Mode: 0644, Size: int64(len(data)), ModTime: modTime}); err != nil {
+			t.Fatalf("WriteHeader(%s): %v", name, err)
+		}
+		if _, err := tw.Write(data); err != nil {
+			t.Fatalf("Write(%s): %v", name, err)
+		}
+	}
+	if err := tw.Close(); err != nil {
+		t.Fatalf("Close tar: %v", err)
+	}
+	return buf.Bytes()
 }
 
 func TestHelpers(t *testing.T) {

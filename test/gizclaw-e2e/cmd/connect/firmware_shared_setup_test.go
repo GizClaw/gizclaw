@@ -33,9 +33,9 @@ func TestFirmwareSharedSetupDownload(t *testing.T) {
 	getLast.MustSucceed(t)
 	assertOutputContains(t, getLast.Stdout, `"name":"devkit-firmware-079"`)
 
-	outputPath := filepath.Join(h.SandboxDir, "devkit-firmware-main.tar")
-	download := mustRunCLIJSON[firmwareDownloadCLIResponse](t, h, "connect", "firmware", "download", "--firmware-id", "devkit-firmware-main", "--channel", "stable", "--artifact-name", "main", "--output", outputPath, "--context", "device-a")
-	if download.Bytes <= 0 || download.Metadata.Artifact.Name != "main" {
+	outputPath := filepath.Join(h.SandboxDir, "MANIFEST.txt")
+	download := mustRunCLIJSON[firmwareDownloadCLIResponse](t, h, "connect", "firmware", "download", "--firmware-id", "devkit-firmware-main", "--channel", "stable", "--path", "MANIFEST.txt", "--output", outputPath, "--context", "device-a")
+	if download.Bytes <= 0 || download.Metadata.File.Path != "MANIFEST.txt" {
 		t.Fatalf("firmware download = %#v", download)
 	}
 	payload, err := os.ReadFile(outputPath)
@@ -43,14 +43,27 @@ func TestFirmwareSharedSetupDownload(t *testing.T) {
 		t.Fatalf("read downloaded firmware: %v", err)
 	}
 	if !bytes.Contains(payload, []byte("gizclaw devkit firmware")) {
-		t.Fatalf("downloaded firmware tar missing manifest text")
+		t.Fatalf("downloaded firmware manifest missing text")
+	}
+
+	binPath := filepath.Join(h.SandboxDir, "main.bin")
+	binDownload := mustRunCLIJSON[firmwareDownloadCLIResponse](t, h, "connect", "firmware", "download", "--firmware-id", "devkit-firmware-main", "--channel", "stable", "--path", "firmware/main.bin", "--output", binPath, "--context", "device-a")
+	if binDownload.Bytes <= 0 || binDownload.Metadata.File.Path != "firmware/main.bin" {
+		t.Fatalf("firmware bin download = %#v", binDownload)
+	}
+	binPayload, err := os.ReadFile(binPath)
+	if err != nil {
+		t.Fatalf("read downloaded firmware bin: %v", err)
+	}
+	if !bytes.Contains(binPayload, []byte("GIZCLAW_MAIN_FIRMWARE_V1")) {
+		t.Fatalf("downloaded firmware bin missing marker")
 	}
 }
 
 type firmwareDownloadCLIResponse struct {
-	Metadata rpcapi.FirmwareDownloadResponse `json:"metadata"`
-	Bytes    int64                           `json:"bytes"`
-	Output   string                          `json:"output"`
+	Metadata rpcapi.FirmwareFilesDownloadResponse `json:"metadata"`
+	Bytes    int64                                `json:"bytes"`
+	Output   string                               `json:"output"`
 }
 
 func mustRunCLIJSON[T any](t *testing.T, h *clitest.Harness, args ...string) T {

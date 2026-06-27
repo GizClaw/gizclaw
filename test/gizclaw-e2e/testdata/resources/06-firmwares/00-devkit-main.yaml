@@ -6,12 +6,6 @@ metadata:
 spec:
   description: Devkit firmware resource entry
   slots:
-    beta:
-      version: 9.9.0-beta
-    develop:
-      version: 9.9.0-dev
-    stable:
-      artifacts:
-      - kind: app
-        name: main
-      version: 9.9.0
+    beta: {}
+    develop: {}
+    stable: {}

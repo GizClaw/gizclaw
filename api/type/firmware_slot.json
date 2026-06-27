@@ -11,21 +11,13 @@
       "FirmwareSlot": {
         "type": "object",
         "properties": {
-          "version": {
-            "type": "string",
-            "description": "Version carried by this slot.",
-            "example": "1.0.3"
-          },
           "description": {
             "type": "string",
             "example": "Devkit firmware 1.0.3"
           },
-          "artifacts": {
-            "type": "array",
-            "description": "Device-defined artifact list for this slot.",
-            "items": {
-              "$ref": "./firmware_artifact.json#/components/schemas/FirmwareArtifact"
-            }
+          "artifact": {
+            "$ref": "./firmware_artifact.json#/components/schemas/FirmwareArtifact",
+            "description": "Server-owned channel artifact metadata. This is singular and is populated by artifact.tar upload."
           }
         }
       }

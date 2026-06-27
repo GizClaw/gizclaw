@@ -2,13 +2,9 @@ package firmware
 
 import (
 	"context"
-	"crypto/rand"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/url"
 	"strings"
 	"time"
@@ -40,7 +36,13 @@ type FirmwareAdminService interface {
 	PutFirmware(context.Context, adminservice.PutFirmwareRequestObject) (adminservice.PutFirmwareResponseObject, error)
 	ReleaseFirmware(context.Context, adminservice.ReleaseFirmwareRequestObject) (adminservice.ReleaseFirmwareResponseObject, error)
 	RollbackFirmware(context.Context, adminservice.RollbackFirmwareRequestObject) (adminservice.RollbackFirmwareResponseObject, error)
-	UploadFirmwareBin(context.Context, adminservice.UploadFirmwareBinRequestObject) (adminservice.UploadFirmwareBinResponseObject, error)
+	DownloadFirmwareArtifact(context.Context, adminservice.DownloadFirmwareArtifactRequestObject) (adminservice.DownloadFirmwareArtifactResponseObject, error)
+	UploadFirmwareArtifact(context.Context, adminservice.UploadFirmwareArtifactRequestObject) (adminservice.UploadFirmwareArtifactResponseObject, error)
+	DeleteFirmwareArtifact(context.Context, adminservice.DeleteFirmwareArtifactRequestObject) (adminservice.DeleteFirmwareArtifactResponseObject, error)
+	ListFirmwareArtifactEntries(context.Context, adminservice.ListFirmwareArtifactEntriesRequestObject) (adminservice.ListFirmwareArtifactEntriesResponseObject, error)
+	TreeFirmwareArtifactEntries(context.Context, adminservice.TreeFirmwareArtifactEntriesRequestObject) (adminservice.TreeFirmwareArtifactEntriesResponseObject, error)
+	StatFirmwareArtifactEntry(context.Context, adminservice.StatFirmwareArtifactEntryRequestObject) (adminservice.StatFirmwareArtifactEntryResponseObject, error)
+	DownloadFirmwareArtifactEntry(context.Context, adminservice.DownloadFirmwareArtifactEntryRequestObject) (adminservice.DownloadFirmwareArtifactEntryResponseObject, error)
 }
 
 var _ FirmwareAdminService = (*Server)(nil)
@@ -155,15 +157,11 @@ func (s *Server) PutFirmware(ctx context.Context, request adminservice.PutFirmwa
 	now := s.now()
 	item.CreatedAt = now
 	item.UpdatedAt = now
-	var removed []string
 	if err == nil {
 		item.CreatedAt = previous.CreatedAt
-		removed = mergeUploadedMetadata(previous.Slots, &item.Slots)
+		mergeArtifactMetadata(previous.Slots, &item.Slots)
 	}
 	if err := Write(ctx, store, item); err != nil {
-		return adminservice.PutFirmware500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
-	}
-	if err := s.deleteAssetPaths(removed); err != nil {
 		return adminservice.PutFirmware500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	return adminservice.PutFirmware200JSONResponse(item), nil
@@ -185,100 +183,11 @@ func (s *Server) RollbackFirmware(ctx context.Context, request adminservice.Roll
 	return adminservice.RollbackFirmware200JSONResponse(item), nil
 }
 
-func (s *Server) UploadFirmwareBin(ctx context.Context, request adminservice.UploadFirmwareBinRequestObject) (adminservice.UploadFirmwareBinResponseObject, error) {
-	item, err := s.uploadFirmwareBin(ctx, request)
-	if err != nil {
-		switch {
-		case errors.Is(err, kv.ErrNotFound), errors.Is(err, errChannelNotFound), errors.Is(err, errBinNotFound):
-			return adminservice.UploadFirmwareBin404JSONResponse(apitypes.NewErrorResponse("FIRMWARE_BIN_NOT_FOUND", err.Error())), nil
-		case errors.Is(err, errAssetsNotConfigured):
-			return adminservice.UploadFirmwareBin500JSONResponse(apitypes.NewErrorResponse("FIRMWARE_ASSETS_NOT_CONFIGURED", err.Error())), nil
-		case errors.Is(err, errInvalidChannel), errors.Is(err, errInvalidBin):
-			return adminservice.UploadFirmwareBin400JSONResponse(apitypes.NewErrorResponse("INVALID_FIRMWARE_BIN", err.Error())), nil
-		default:
-			return adminservice.UploadFirmwareBin500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
-		}
-	}
-	return adminservice.UploadFirmwareBin200JSONResponse(item), nil
-}
-
 var (
 	errAssetsNotConfigured = errors.New("firmware asset store not configured")
 	errInvalidChannel      = errors.New("invalid firmware channel")
-	errInvalidBin          = errors.New("invalid firmware bin")
 	errChannelNotFound     = errors.New("firmware channel not found")
-	errBinNotFound         = errors.New("firmware bin not found")
 )
-
-func (s *Server) uploadFirmwareBin(ctx context.Context, request adminservice.UploadFirmwareBinRequestObject) (apitypes.Firmware, error) {
-	store, err := s.store()
-	if err != nil {
-		return apitypes.Firmware{}, err
-	}
-	assets, err := s.assets()
-	if err != nil {
-		return apitypes.Firmware{}, err
-	}
-	name, err := url.PathUnescape(string(request.Name))
-	if err != nil {
-		return apitypes.Firmware{}, fmt.Errorf("%w: %v", errInvalidBin, err)
-	}
-	bin, err := url.PathUnescape(string(request.Bin))
-	if err != nil {
-		return apitypes.Firmware{}, fmt.Errorf("%w: %v", errInvalidBin, err)
-	}
-	name = strings.TrimSpace(name)
-	bin = strings.TrimSpace(bin)
-	channel := strings.TrimSpace(string(request.Channel))
-	if name == "" || bin == "" {
-		return apitypes.Firmware{}, errInvalidBin
-	}
-	item, err := Get(ctx, store, name)
-	if err != nil {
-		return apitypes.Firmware{}, err
-	}
-	slot, ok := slotForChannel(&item.Slots, channel)
-	if !ok {
-		return apitypes.Firmware{}, fmt.Errorf("%w: %s", errChannelNotFound, channel)
-	}
-	artifact, ok := artifactForBin(slot, bin)
-	if !ok {
-		return apitypes.Firmware{}, fmt.Errorf("%w: %s/%s", errBinNotFound, channel, bin)
-	}
-
-	now := s.now()
-	path, err := firmwareBinObjectPath(name, channel, bin, now)
-	if err != nil {
-		return apitypes.Firmware{}, err
-	}
-	hash := sha256.New()
-	var sizeCounter byteCounter
-	reader := io.TeeReader(request.Body, io.MultiWriter(hash, &sizeCounter))
-	if err := assets.Put(path, reader); err != nil {
-		return apitypes.Firmware{}, err
-	}
-
-	oldPath := artifact.Path
-	contentType := "application/octet-stream"
-	size := sizeCounter.N
-	sha256Hex := hex.EncodeToString(hash.Sum(nil))
-	artifact.Path = &path
-	artifact.Size = &size
-	artifact.Sha256 = &sha256Hex
-	artifact.ContentType = &contentType
-	artifact.UploadedAt = &now
-	item.UpdatedAt = now
-	if err := Write(ctx, store, item); err != nil {
-		_ = assets.Delete(path)
-		return apitypes.Firmware{}, err
-	}
-	if oldPath != nil && *oldPath != "" && *oldPath != path {
-		if err := assets.Delete(*oldPath); err != nil {
-			return apitypes.Firmware{}, err
-		}
-	}
-	return item, nil
-}
 
 func (s *Server) updateSlots(ctx context.Context, rawName string, mutate func(apitypes.FirmwareSlots) apitypes.FirmwareSlots) (apitypes.Firmware, error) {
 	store, err := s.store()
@@ -429,54 +338,20 @@ func normalizeSlots(in apitypes.FirmwareSlots) (apitypes.FirmwareSlots, error) {
 
 func normalizeSlot(in apitypes.FirmwareSlot) (apitypes.FirmwareSlot, error) {
 	out := apitypes.FirmwareSlot{}
-	if in.Version != nil {
-		version := strings.TrimSpace(*in.Version)
-		if version != "" {
-			out.Version = &version
-		}
-	}
 	if in.Description != nil {
 		description := strings.TrimSpace(*in.Description)
 		if description != "" {
 			out.Description = &description
 		}
 	}
-	if in.Artifacts != nil {
-		artifacts := make([]apitypes.FirmwareArtifact, 0, len(*in.Artifacts))
-		for i, artifact := range *in.Artifacts {
-			next, err := normalizeArtifact(artifact)
-			if err != nil {
-				return out, fmt.Errorf("artifact[%d]: %w", i, err)
-			}
-			artifacts = append(artifacts, next)
-		}
-		if len(artifacts) > 0 {
-			out.Artifacts = &artifacts
-		}
-	}
 	return out, nil
 }
 
-func normalizeArtifact(in apitypes.FirmwareArtifact) (apitypes.FirmwareArtifact, error) {
-	name := strings.TrimSpace(in.Name)
-	if name == "" {
-		return apitypes.FirmwareArtifact{}, errors.New("name is required")
-	}
-	kind := apitypes.FirmwareArtifactKind(strings.TrimSpace(string(in.Kind)))
-	if kind == "" {
-		return apitypes.FirmwareArtifact{}, errors.New("kind is required")
-	}
-	if !kind.Valid() {
-		return apitypes.FirmwareArtifact{}, fmt.Errorf("unsupported kind %q", kind)
-	}
-	return apitypes.FirmwareArtifact{Name: name, Kind: kind}, nil
-}
-
 func slotHasPayload(slot apitypes.FirmwareSlot) bool {
-	if slot.Version != nil && strings.TrimSpace(*slot.Version) != "" {
+	if slot.Description != nil && strings.TrimSpace(*slot.Description) != "" {
 		return true
 	}
-	if slot.Artifacts != nil && len(*slot.Artifacts) > 0 {
+	if slot.Artifact != nil {
 		return true
 	}
 	return false
@@ -554,15 +429,6 @@ func (s *Server) now() time.Time {
 	return time.Now().UTC()
 }
 
-type byteCounter struct {
-	N int64
-}
-
-func (c *byteCounter) Write(p []byte) (int, error) {
-	c.N += int64(len(p))
-	return len(p), nil
-}
-
 func slotForChannel(slots *apitypes.FirmwareSlots, channel string) (*apitypes.FirmwareSlot, bool) {
 	switch channel {
 	case "stable":
@@ -578,106 +444,11 @@ func slotForChannel(slots *apitypes.FirmwareSlots, channel string) (*apitypes.Fi
 	}
 }
 
-func artifactForBin(slot *apitypes.FirmwareSlot, bin string) (*apitypes.FirmwareArtifact, bool) {
-	if slot == nil || slot.Artifacts == nil {
-		return nil, false
-	}
-	for i := range *slot.Artifacts {
-		if (*slot.Artifacts)[i].Name == bin {
-			return &(*slot.Artifacts)[i], true
-		}
-	}
-	return nil, false
-}
-
-func mergeUploadedMetadata(previous apitypes.FirmwareSlots, next *apitypes.FirmwareSlots) []string {
-	removed := artifactPaths(previous)
-	mergeSlotUploadedMetadata(previous.Stable, &next.Stable, removed)
-	mergeSlotUploadedMetadata(previous.Beta, &next.Beta, removed)
-	mergeSlotUploadedMetadata(previous.Develop, &next.Develop, removed)
-	mergeSlotUploadedMetadata(previous.Pending, &next.Pending, removed)
-	out := make([]string, 0, len(removed))
-	for path := range removed {
-		out = append(out, path)
-	}
-	return out
-}
-
-func mergeSlotUploadedMetadata(previous apitypes.FirmwareSlot, next *apitypes.FirmwareSlot, removed map[string]struct{}) {
-	if previous.Artifacts == nil || next.Artifacts == nil {
-		return
-	}
-	previousByKey := make(map[string]apitypes.FirmwareArtifact, len(*previous.Artifacts))
-	for _, artifact := range *previous.Artifacts {
-		previousByKey[artifactIdentity(artifact)] = artifact
-	}
-	for i := range *next.Artifacts {
-		current := &(*next.Artifacts)[i]
-		previous, ok := previousByKey[artifactIdentity(*current)]
-		if !ok {
-			continue
-		}
-		current.Path = previous.Path
-		current.Size = previous.Size
-		current.Sha256 = previous.Sha256
-		current.ContentType = previous.ContentType
-		current.UploadedAt = previous.UploadedAt
-		if previous.Path != nil {
-			delete(removed, *previous.Path)
-		}
-	}
-}
-
-func artifactIdentity(artifact apitypes.FirmwareArtifact) string {
-	return artifact.Name + "\x00" + string(artifact.Kind)
-}
-
-func artifactPaths(slots apitypes.FirmwareSlots) map[string]struct{} {
-	out := make(map[string]struct{})
-	collectSlotArtifactPaths(slots.Stable, out)
-	collectSlotArtifactPaths(slots.Beta, out)
-	collectSlotArtifactPaths(slots.Develop, out)
-	collectSlotArtifactPaths(slots.Pending, out)
-	return out
-}
-
-func collectSlotArtifactPaths(slot apitypes.FirmwareSlot, out map[string]struct{}) {
-	if slot.Artifacts == nil {
-		return
-	}
-	for _, artifact := range *slot.Artifacts {
-		if artifact.Path != nil && *artifact.Path != "" {
-			out[*artifact.Path] = struct{}{}
-		}
-	}
-}
-
-func (s *Server) deleteAssetPaths(paths []string) error {
-	if len(paths) == 0 || s == nil || s.Assets == nil {
-		return nil
-	}
-	for _, path := range paths {
-		if err := s.Assets.Delete(path); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 func (s *Server) deleteAssetPrefix(name string) error {
 	if s == nil || s.Assets == nil {
 		return nil
 	}
 	return s.Assets.DeletePrefix(firmwareAssetPrefix(name))
-}
-
-func firmwareBinObjectPath(name, channel, bin string, uploadedAt time.Time) (string, error) {
-	var nonce [8]byte
-	if _, err := rand.Read(nonce[:]); err != nil {
-		return "", fmt.Errorf("firmware: generate bin path nonce: %w", err)
-	}
-	fileName := uploadedAt.UTC().Format("20060102T150405.000000000Z") + "-" + hex.EncodeToString(nonce[:]) + ".bin"
-	return strings.Join([]string{objectPathSegment(name), objectPathSegment(channel), objectPathSegment(bin), fileName}, "/"), nil
 }
 
 func firmwareAssetPrefix(name string) string {

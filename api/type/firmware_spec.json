@@ -8,18 +8,53 @@
   "paths": {},
   "components": {
     "schemas": {
+      "FirmwareSpecSlot": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "type": "string",
+            "example": "Devkit firmware 1.0.3"
+          }
+        }
+      },
+      "FirmwareSpecSlots": {
+        "type": "object",
+        "required": [
+          "stable",
+          "beta",
+          "develop",
+          "pending"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "stable": {
+            "$ref": "#/components/schemas/FirmwareSpecSlot"
+          },
+          "beta": {
+            "$ref": "#/components/schemas/FirmwareSpecSlot"
+          },
+          "develop": {
+            "$ref": "#/components/schemas/FirmwareSpecSlot"
+          },
+          "pending": {
+            "$ref": "#/components/schemas/FirmwareSpecSlot"
+          }
+        }
+      },
       "FirmwareSpec": {
         "type": "object",
         "required": [
           "slots"
         ],
+        "additionalProperties": false,
         "properties": {
           "description": {
             "type": "string",
             "example": "Devkit firmware line"
           },
           "slots": {
-            "$ref": "./firmware_slots.json#/components/schemas/FirmwareSlots"
+            "$ref": "#/components/schemas/FirmwareSpecSlots"
           }
         }
       }

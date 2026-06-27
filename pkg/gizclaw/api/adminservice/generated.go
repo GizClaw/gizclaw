@@ -20,16 +20,160 @@ import (
 	"github.com/oapi-codegen/runtime"
 )
 
-// Defines values for UploadFirmwareBinParamsChannel.
+// Defines values for DeleteFirmwareArtifactParamsChannel.
 const (
-	Beta    UploadFirmwareBinParamsChannel = "beta"
-	Develop UploadFirmwareBinParamsChannel = "develop"
-	Pending UploadFirmwareBinParamsChannel = "pending"
-	Stable  UploadFirmwareBinParamsChannel = "stable"
+	DeleteFirmwareArtifactParamsChannelBeta    DeleteFirmwareArtifactParamsChannel = "beta"
+	DeleteFirmwareArtifactParamsChannelDevelop DeleteFirmwareArtifactParamsChannel = "develop"
+	DeleteFirmwareArtifactParamsChannelPending DeleteFirmwareArtifactParamsChannel = "pending"
+	DeleteFirmwareArtifactParamsChannelStable  DeleteFirmwareArtifactParamsChannel = "stable"
 )
 
-// Valid indicates whether the value is a known member of the UploadFirmwareBinParamsChannel enum.
-func (e UploadFirmwareBinParamsChannel) Valid() bool {
+// Valid indicates whether the value is a known member of the DeleteFirmwareArtifactParamsChannel enum.
+func (e DeleteFirmwareArtifactParamsChannel) Valid() bool {
+	switch e {
+	case DeleteFirmwareArtifactParamsChannelBeta:
+		return true
+	case DeleteFirmwareArtifactParamsChannelDevelop:
+		return true
+	case DeleteFirmwareArtifactParamsChannelPending:
+		return true
+	case DeleteFirmwareArtifactParamsChannelStable:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DownloadFirmwareArtifactParamsChannel.
+const (
+	DownloadFirmwareArtifactParamsChannelBeta    DownloadFirmwareArtifactParamsChannel = "beta"
+	DownloadFirmwareArtifactParamsChannelDevelop DownloadFirmwareArtifactParamsChannel = "develop"
+	DownloadFirmwareArtifactParamsChannelPending DownloadFirmwareArtifactParamsChannel = "pending"
+	DownloadFirmwareArtifactParamsChannelStable  DownloadFirmwareArtifactParamsChannel = "stable"
+)
+
+// Valid indicates whether the value is a known member of the DownloadFirmwareArtifactParamsChannel enum.
+func (e DownloadFirmwareArtifactParamsChannel) Valid() bool {
+	switch e {
+	case DownloadFirmwareArtifactParamsChannelBeta:
+		return true
+	case DownloadFirmwareArtifactParamsChannelDevelop:
+		return true
+	case DownloadFirmwareArtifactParamsChannelPending:
+		return true
+	case DownloadFirmwareArtifactParamsChannelStable:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for UploadFirmwareArtifactParamsChannel.
+const (
+	UploadFirmwareArtifactParamsChannelBeta    UploadFirmwareArtifactParamsChannel = "beta"
+	UploadFirmwareArtifactParamsChannelDevelop UploadFirmwareArtifactParamsChannel = "develop"
+	UploadFirmwareArtifactParamsChannelPending UploadFirmwareArtifactParamsChannel = "pending"
+	UploadFirmwareArtifactParamsChannelStable  UploadFirmwareArtifactParamsChannel = "stable"
+)
+
+// Valid indicates whether the value is a known member of the UploadFirmwareArtifactParamsChannel enum.
+func (e UploadFirmwareArtifactParamsChannel) Valid() bool {
+	switch e {
+	case UploadFirmwareArtifactParamsChannelBeta:
+		return true
+	case UploadFirmwareArtifactParamsChannelDevelop:
+		return true
+	case UploadFirmwareArtifactParamsChannelPending:
+		return true
+	case UploadFirmwareArtifactParamsChannelStable:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DownloadFirmwareArtifactEntryParamsChannel.
+const (
+	DownloadFirmwareArtifactEntryParamsChannelBeta    DownloadFirmwareArtifactEntryParamsChannel = "beta"
+	DownloadFirmwareArtifactEntryParamsChannelDevelop DownloadFirmwareArtifactEntryParamsChannel = "develop"
+	DownloadFirmwareArtifactEntryParamsChannelPending DownloadFirmwareArtifactEntryParamsChannel = "pending"
+	DownloadFirmwareArtifactEntryParamsChannelStable  DownloadFirmwareArtifactEntryParamsChannel = "stable"
+)
+
+// Valid indicates whether the value is a known member of the DownloadFirmwareArtifactEntryParamsChannel enum.
+func (e DownloadFirmwareArtifactEntryParamsChannel) Valid() bool {
+	switch e {
+	case DownloadFirmwareArtifactEntryParamsChannelBeta:
+		return true
+	case DownloadFirmwareArtifactEntryParamsChannelDevelop:
+		return true
+	case DownloadFirmwareArtifactEntryParamsChannelPending:
+		return true
+	case DownloadFirmwareArtifactEntryParamsChannelStable:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ListFirmwareArtifactEntriesParamsChannel.
+const (
+	ListFirmwareArtifactEntriesParamsChannelBeta    ListFirmwareArtifactEntriesParamsChannel = "beta"
+	ListFirmwareArtifactEntriesParamsChannelDevelop ListFirmwareArtifactEntriesParamsChannel = "develop"
+	ListFirmwareArtifactEntriesParamsChannelPending ListFirmwareArtifactEntriesParamsChannel = "pending"
+	ListFirmwareArtifactEntriesParamsChannelStable  ListFirmwareArtifactEntriesParamsChannel = "stable"
+)
+
+// Valid indicates whether the value is a known member of the ListFirmwareArtifactEntriesParamsChannel enum.
+func (e ListFirmwareArtifactEntriesParamsChannel) Valid() bool {
+	switch e {
+	case ListFirmwareArtifactEntriesParamsChannelBeta:
+		return true
+	case ListFirmwareArtifactEntriesParamsChannelDevelop:
+		return true
+	case ListFirmwareArtifactEntriesParamsChannelPending:
+		return true
+	case ListFirmwareArtifactEntriesParamsChannelStable:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for StatFirmwareArtifactEntryParamsChannel.
+const (
+	StatFirmwareArtifactEntryParamsChannelBeta    StatFirmwareArtifactEntryParamsChannel = "beta"
+	StatFirmwareArtifactEntryParamsChannelDevelop StatFirmwareArtifactEntryParamsChannel = "develop"
+	StatFirmwareArtifactEntryParamsChannelPending StatFirmwareArtifactEntryParamsChannel = "pending"
+	StatFirmwareArtifactEntryParamsChannelStable  StatFirmwareArtifactEntryParamsChannel = "stable"
+)
+
+// Valid indicates whether the value is a known member of the StatFirmwareArtifactEntryParamsChannel enum.
+func (e StatFirmwareArtifactEntryParamsChannel) Valid() bool {
+	switch e {
+	case StatFirmwareArtifactEntryParamsChannelBeta:
+		return true
+	case StatFirmwareArtifactEntryParamsChannelDevelop:
+		return true
+	case StatFirmwareArtifactEntryParamsChannelPending:
+		return true
+	case StatFirmwareArtifactEntryParamsChannelStable:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TreeFirmwareArtifactEntriesParamsChannel.
+const (
+	Beta    TreeFirmwareArtifactEntriesParamsChannel = "beta"
+	Develop TreeFirmwareArtifactEntriesParamsChannel = "develop"
+	Pending TreeFirmwareArtifactEntriesParamsChannel = "pending"
+	Stable  TreeFirmwareArtifactEntriesParamsChannel = "stable"
+)
+
+// Valid indicates whether the value is a known member of the TreeFirmwareArtifactEntriesParamsChannel enum.
+func (e TreeFirmwareArtifactEntriesParamsChannel) Valid() bool {
 	switch e {
 	case Beta:
 		return true
@@ -538,8 +682,50 @@ type ListFirmwaresParams struct {
 	Limit *int32 `form:"limit,omitempty" json:"limit,omitempty"`
 }
 
-// UploadFirmwareBinParamsChannel defines parameters for UploadFirmwareBin.
-type UploadFirmwareBinParamsChannel string
+// DeleteFirmwareArtifactParamsChannel defines parameters for DeleteFirmwareArtifact.
+type DeleteFirmwareArtifactParamsChannel string
+
+// DownloadFirmwareArtifactParamsChannel defines parameters for DownloadFirmwareArtifact.
+type DownloadFirmwareArtifactParamsChannel string
+
+// UploadFirmwareArtifactParamsChannel defines parameters for UploadFirmwareArtifact.
+type UploadFirmwareArtifactParamsChannel string
+
+// DownloadFirmwareArtifactEntryParams defines parameters for DownloadFirmwareArtifactEntry.
+type DownloadFirmwareArtifactEntryParams struct {
+	// Path Regular file path to download.
+	Path string `form:"path" json:"path"`
+}
+
+// DownloadFirmwareArtifactEntryParamsChannel defines parameters for DownloadFirmwareArtifactEntry.
+type DownloadFirmwareArtifactEntryParamsChannel string
+
+// ListFirmwareArtifactEntriesParams defines parameters for ListFirmwareArtifactEntries.
+type ListFirmwareArtifactEntriesParams struct {
+	// Path Directory or file path. Empty means artifact root.
+	Path *string `form:"path,omitempty" json:"path,omitempty"`
+}
+
+// ListFirmwareArtifactEntriesParamsChannel defines parameters for ListFirmwareArtifactEntries.
+type ListFirmwareArtifactEntriesParamsChannel string
+
+// StatFirmwareArtifactEntryParams defines parameters for StatFirmwareArtifactEntry.
+type StatFirmwareArtifactEntryParams struct {
+	// Path File or directory path. Empty means artifact-level stats.
+	Path *string `form:"path,omitempty" json:"path,omitempty"`
+}
+
+// StatFirmwareArtifactEntryParamsChannel defines parameters for StatFirmwareArtifactEntry.
+type StatFirmwareArtifactEntryParamsChannel string
+
+// TreeFirmwareArtifactEntriesParams defines parameters for TreeFirmwareArtifactEntries.
+type TreeFirmwareArtifactEntriesParams struct {
+	// Path Directory path. Empty means artifact root.
+	Path *string `form:"path,omitempty" json:"path,omitempty"`
+}
+
+// TreeFirmwareArtifactEntriesParamsChannel defines parameters for TreeFirmwareArtifactEntries.
+type TreeFirmwareArtifactEntriesParamsChannel string
 
 // ListGeminiTenantsParams defines parameters for ListGeminiTenants.
 type ListGeminiTenantsParams struct {
@@ -1045,8 +1231,26 @@ type ClientInterface interface {
 	// RollbackFirmware request
 	RollbackFirmware(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// UploadFirmwareBinWithBody request with any body
-	UploadFirmwareBinWithBody(ctx context.Context, name string, channel UploadFirmwareBinParamsChannel, bin string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// DeleteFirmwareArtifact request
+	DeleteFirmwareArtifact(ctx context.Context, name string, channel DeleteFirmwareArtifactParamsChannel, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DownloadFirmwareArtifact request
+	DownloadFirmwareArtifact(ctx context.Context, name string, channel DownloadFirmwareArtifactParamsChannel, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UploadFirmwareArtifactWithBody request with any body
+	UploadFirmwareArtifactWithBody(ctx context.Context, name string, channel UploadFirmwareArtifactParamsChannel, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DownloadFirmwareArtifactEntry request
+	DownloadFirmwareArtifactEntry(ctx context.Context, name string, channel DownloadFirmwareArtifactEntryParamsChannel, params *DownloadFirmwareArtifactEntryParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListFirmwareArtifactEntries request
+	ListFirmwareArtifactEntries(ctx context.Context, name string, channel ListFirmwareArtifactEntriesParamsChannel, params *ListFirmwareArtifactEntriesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// StatFirmwareArtifactEntry request
+	StatFirmwareArtifactEntry(ctx context.Context, name string, channel StatFirmwareArtifactEntryParamsChannel, params *StatFirmwareArtifactEntryParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// TreeFirmwareArtifactEntries request
+	TreeFirmwareArtifactEntries(ctx context.Context, name string, channel TreeFirmwareArtifactEntriesParamsChannel, params *TreeFirmwareArtifactEntriesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListGeminiTenants request
 	ListGeminiTenants(ctx context.Context, params *ListGeminiTenantsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -1962,8 +2166,80 @@ func (c *Client) RollbackFirmware(ctx context.Context, name string, reqEditors .
 	return c.Client.Do(req)
 }
 
-func (c *Client) UploadFirmwareBinWithBody(ctx context.Context, name string, channel UploadFirmwareBinParamsChannel, bin string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewUploadFirmwareBinRequestWithBody(c.Server, name, channel, bin, contentType, body)
+func (c *Client) DeleteFirmwareArtifact(ctx context.Context, name string, channel DeleteFirmwareArtifactParamsChannel, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteFirmwareArtifactRequest(c.Server, name, channel)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DownloadFirmwareArtifact(ctx context.Context, name string, channel DownloadFirmwareArtifactParamsChannel, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDownloadFirmwareArtifactRequest(c.Server, name, channel)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UploadFirmwareArtifactWithBody(ctx context.Context, name string, channel UploadFirmwareArtifactParamsChannel, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUploadFirmwareArtifactRequestWithBody(c.Server, name, channel, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DownloadFirmwareArtifactEntry(ctx context.Context, name string, channel DownloadFirmwareArtifactEntryParamsChannel, params *DownloadFirmwareArtifactEntryParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDownloadFirmwareArtifactEntryRequest(c.Server, name, channel, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListFirmwareArtifactEntries(ctx context.Context, name string, channel ListFirmwareArtifactEntriesParamsChannel, params *ListFirmwareArtifactEntriesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListFirmwareArtifactEntriesRequest(c.Server, name, channel, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) StatFirmwareArtifactEntry(ctx context.Context, name string, channel StatFirmwareArtifactEntryParamsChannel, params *StatFirmwareArtifactEntryParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewStatFirmwareArtifactEntryRequest(c.Server, name, channel, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) TreeFirmwareArtifactEntries(ctx context.Context, name string, channel TreeFirmwareArtifactEntriesParamsChannel, params *TreeFirmwareArtifactEntriesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewTreeFirmwareArtifactEntriesRequest(c.Server, name, channel, params)
 	if err != nil {
 		return nil, err
 	}
@@ -5097,8 +5373,8 @@ func NewRollbackFirmwareRequest(server string, name string) (*http.Request, erro
 	return req, nil
 }
 
-// NewUploadFirmwareBinRequestWithBody generates requests for UploadFirmwareBin with any type of body
-func NewUploadFirmwareBinRequestWithBody(server string, name string, channel UploadFirmwareBinParamsChannel, bin string, contentType string, body io.Reader) (*http.Request, error) {
+// NewDeleteFirmwareArtifactRequest generates requests for DeleteFirmwareArtifact
+func NewDeleteFirmwareArtifactRequest(server string, name string, channel DeleteFirmwareArtifactParamsChannel) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -5115,9 +5391,43 @@ func NewUploadFirmwareBinRequestWithBody(server string, name string, channel Upl
 		return nil, err
 	}
 
-	var pathParam2 string
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
 
-	pathParam2, err = runtime.StyleParamWithOptions("simple", false, "bin", bin, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	operationPath := fmt.Sprintf("/firmwares/%s/packages/%s/artifact.tar", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewDownloadFirmwareArtifactRequest generates requests for DownloadFirmwareArtifact
+func NewDownloadFirmwareArtifactRequest(server string, name string, channel DownloadFirmwareArtifactParamsChannel) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "channel", channel, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
 	if err != nil {
 		return nil, err
 	}
@@ -5127,7 +5437,48 @@ func NewUploadFirmwareBinRequestWithBody(server string, name string, channel Upl
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/firmwares/%s/bins/%s/%s", pathParam0, pathParam1, pathParam2)
+	operationPath := fmt.Sprintf("/firmwares/%s/packages/%s/artifact.tar", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUploadFirmwareArtifactRequestWithBody generates requests for UploadFirmwareArtifact with any type of body
+func NewUploadFirmwareArtifactRequestWithBody(server string, name string, channel UploadFirmwareArtifactParamsChannel, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "channel", channel, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/firmwares/%s/packages/%s/artifact.tar", pathParam0, pathParam1)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -5143,6 +5494,254 @@ func NewUploadFirmwareBinRequestWithBody(server string, name string, channel Upl
 	}
 
 	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDownloadFirmwareArtifactEntryRequest generates requests for DownloadFirmwareArtifactEntry
+func NewDownloadFirmwareArtifactEntryRequest(server string, name string, channel DownloadFirmwareArtifactEntryParamsChannel, params *DownloadFirmwareArtifactEntryParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "channel", channel, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/firmwares/%s/packages/%s/artifact/dl", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "path", params.Path, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewListFirmwareArtifactEntriesRequest generates requests for ListFirmwareArtifactEntries
+func NewListFirmwareArtifactEntriesRequest(server string, name string, channel ListFirmwareArtifactEntriesParamsChannel, params *ListFirmwareArtifactEntriesParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "channel", channel, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/firmwares/%s/packages/%s/artifact/ls", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Path != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "path", *params.Path, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewStatFirmwareArtifactEntryRequest generates requests for StatFirmwareArtifactEntry
+func NewStatFirmwareArtifactEntryRequest(server string, name string, channel StatFirmwareArtifactEntryParamsChannel, params *StatFirmwareArtifactEntryParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "channel", channel, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/firmwares/%s/packages/%s/artifact/stat", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Path != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "path", *params.Path, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewTreeFirmwareArtifactEntriesRequest generates requests for TreeFirmwareArtifactEntries
+func NewTreeFirmwareArtifactEntriesRequest(server string, name string, channel TreeFirmwareArtifactEntriesParamsChannel, params *TreeFirmwareArtifactEntriesParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "channel", channel, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/firmwares/%s/packages/%s/artifact/tree", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Path != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "path", *params.Path, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
 
 	return req, nil
 }
@@ -9402,8 +10001,26 @@ type ClientWithResponsesInterface interface {
 	// RollbackFirmwareWithResponse request
 	RollbackFirmwareWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*RollbackFirmwareResponse, error)
 
-	// UploadFirmwareBinWithBodyWithResponse request with any body
-	UploadFirmwareBinWithBodyWithResponse(ctx context.Context, name string, channel UploadFirmwareBinParamsChannel, bin string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UploadFirmwareBinResponse, error)
+	// DeleteFirmwareArtifactWithResponse request
+	DeleteFirmwareArtifactWithResponse(ctx context.Context, name string, channel DeleteFirmwareArtifactParamsChannel, reqEditors ...RequestEditorFn) (*DeleteFirmwareArtifactResponse, error)
+
+	// DownloadFirmwareArtifactWithResponse request
+	DownloadFirmwareArtifactWithResponse(ctx context.Context, name string, channel DownloadFirmwareArtifactParamsChannel, reqEditors ...RequestEditorFn) (*DownloadFirmwareArtifactResponse, error)
+
+	// UploadFirmwareArtifactWithBodyWithResponse request with any body
+	UploadFirmwareArtifactWithBodyWithResponse(ctx context.Context, name string, channel UploadFirmwareArtifactParamsChannel, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UploadFirmwareArtifactResponse, error)
+
+	// DownloadFirmwareArtifactEntryWithResponse request
+	DownloadFirmwareArtifactEntryWithResponse(ctx context.Context, name string, channel DownloadFirmwareArtifactEntryParamsChannel, params *DownloadFirmwareArtifactEntryParams, reqEditors ...RequestEditorFn) (*DownloadFirmwareArtifactEntryResponse, error)
+
+	// ListFirmwareArtifactEntriesWithResponse request
+	ListFirmwareArtifactEntriesWithResponse(ctx context.Context, name string, channel ListFirmwareArtifactEntriesParamsChannel, params *ListFirmwareArtifactEntriesParams, reqEditors ...RequestEditorFn) (*ListFirmwareArtifactEntriesResponse, error)
+
+	// StatFirmwareArtifactEntryWithResponse request
+	StatFirmwareArtifactEntryWithResponse(ctx context.Context, name string, channel StatFirmwareArtifactEntryParamsChannel, params *StatFirmwareArtifactEntryParams, reqEditors ...RequestEditorFn) (*StatFirmwareArtifactEntryResponse, error)
+
+	// TreeFirmwareArtifactEntriesWithResponse request
+	TreeFirmwareArtifactEntriesWithResponse(ctx context.Context, name string, channel TreeFirmwareArtifactEntriesParamsChannel, params *TreeFirmwareArtifactEntriesParams, reqEditors ...RequestEditorFn) (*TreeFirmwareArtifactEntriesResponse, error)
 
 	// ListGeminiTenantsWithResponse request
 	ListGeminiTenantsWithResponse(ctx context.Context, params *ListGeminiTenantsParams, reqEditors ...RequestEditorFn) (*ListGeminiTenantsResponse, error)
@@ -10599,17 +11216,16 @@ func (r RollbackFirmwareResponse) StatusCode() int {
 	return 0
 }
 
-type UploadFirmwareBinResponse struct {
+type DeleteFirmwareArtifactResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *externalRef0.Firmware
-	JSON400      *externalRef0.ErrorResponse
 	JSON404      *externalRef0.ErrorResponse
 	JSON500      *externalRef0.ErrorResponse
 }
 
 // Status returns HTTPResponse.Status
-func (r UploadFirmwareBinResponse) Status() string {
+func (r DeleteFirmwareArtifactResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -10617,7 +11233,155 @@ func (r UploadFirmwareBinResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r UploadFirmwareBinResponse) StatusCode() int {
+func (r DeleteFirmwareArtifactResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DownloadFirmwareArtifactResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON404      *externalRef0.ErrorResponse
+	JSON500      *externalRef0.ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r DownloadFirmwareArtifactResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DownloadFirmwareArtifactResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type UploadFirmwareArtifactResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *externalRef0.Firmware
+	JSON400      *externalRef0.ErrorResponse
+	JSON404      *externalRef0.ErrorResponse
+	JSON409      *externalRef0.ErrorResponse
+	JSON500      *externalRef0.ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r UploadFirmwareArtifactResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UploadFirmwareArtifactResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DownloadFirmwareArtifactEntryResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON400      *externalRef0.ErrorResponse
+	JSON404      *externalRef0.ErrorResponse
+	JSON500      *externalRef0.ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r DownloadFirmwareArtifactEntryResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DownloadFirmwareArtifactEntryResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ListFirmwareArtifactEntriesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *externalRef0.FirmwareArtifactList
+	JSON400      *externalRef0.ErrorResponse
+	JSON404      *externalRef0.ErrorResponse
+	JSON500      *externalRef0.ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r ListFirmwareArtifactEntriesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListFirmwareArtifactEntriesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type StatFirmwareArtifactEntryResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *externalRef0.FirmwareArtifactStats
+	JSON400      *externalRef0.ErrorResponse
+	JSON404      *externalRef0.ErrorResponse
+	JSON500      *externalRef0.ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r StatFirmwareArtifactEntryResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r StatFirmwareArtifactEntryResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type TreeFirmwareArtifactEntriesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *externalRef0.FirmwareArtifactTree
+	JSON400      *externalRef0.ErrorResponse
+	JSON404      *externalRef0.ErrorResponse
+	JSON500      *externalRef0.ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r TreeFirmwareArtifactEntriesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r TreeFirmwareArtifactEntriesResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -13216,13 +13980,67 @@ func (c *ClientWithResponses) RollbackFirmwareWithResponse(ctx context.Context, 
 	return ParseRollbackFirmwareResponse(rsp)
 }
 
-// UploadFirmwareBinWithBodyWithResponse request with arbitrary body returning *UploadFirmwareBinResponse
-func (c *ClientWithResponses) UploadFirmwareBinWithBodyWithResponse(ctx context.Context, name string, channel UploadFirmwareBinParamsChannel, bin string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UploadFirmwareBinResponse, error) {
-	rsp, err := c.UploadFirmwareBinWithBody(ctx, name, channel, bin, contentType, body, reqEditors...)
+// DeleteFirmwareArtifactWithResponse request returning *DeleteFirmwareArtifactResponse
+func (c *ClientWithResponses) DeleteFirmwareArtifactWithResponse(ctx context.Context, name string, channel DeleteFirmwareArtifactParamsChannel, reqEditors ...RequestEditorFn) (*DeleteFirmwareArtifactResponse, error) {
+	rsp, err := c.DeleteFirmwareArtifact(ctx, name, channel, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseUploadFirmwareBinResponse(rsp)
+	return ParseDeleteFirmwareArtifactResponse(rsp)
+}
+
+// DownloadFirmwareArtifactWithResponse request returning *DownloadFirmwareArtifactResponse
+func (c *ClientWithResponses) DownloadFirmwareArtifactWithResponse(ctx context.Context, name string, channel DownloadFirmwareArtifactParamsChannel, reqEditors ...RequestEditorFn) (*DownloadFirmwareArtifactResponse, error) {
+	rsp, err := c.DownloadFirmwareArtifact(ctx, name, channel, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDownloadFirmwareArtifactResponse(rsp)
+}
+
+// UploadFirmwareArtifactWithBodyWithResponse request with arbitrary body returning *UploadFirmwareArtifactResponse
+func (c *ClientWithResponses) UploadFirmwareArtifactWithBodyWithResponse(ctx context.Context, name string, channel UploadFirmwareArtifactParamsChannel, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UploadFirmwareArtifactResponse, error) {
+	rsp, err := c.UploadFirmwareArtifactWithBody(ctx, name, channel, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUploadFirmwareArtifactResponse(rsp)
+}
+
+// DownloadFirmwareArtifactEntryWithResponse request returning *DownloadFirmwareArtifactEntryResponse
+func (c *ClientWithResponses) DownloadFirmwareArtifactEntryWithResponse(ctx context.Context, name string, channel DownloadFirmwareArtifactEntryParamsChannel, params *DownloadFirmwareArtifactEntryParams, reqEditors ...RequestEditorFn) (*DownloadFirmwareArtifactEntryResponse, error) {
+	rsp, err := c.DownloadFirmwareArtifactEntry(ctx, name, channel, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDownloadFirmwareArtifactEntryResponse(rsp)
+}
+
+// ListFirmwareArtifactEntriesWithResponse request returning *ListFirmwareArtifactEntriesResponse
+func (c *ClientWithResponses) ListFirmwareArtifactEntriesWithResponse(ctx context.Context, name string, channel ListFirmwareArtifactEntriesParamsChannel, params *ListFirmwareArtifactEntriesParams, reqEditors ...RequestEditorFn) (*ListFirmwareArtifactEntriesResponse, error) {
+	rsp, err := c.ListFirmwareArtifactEntries(ctx, name, channel, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListFirmwareArtifactEntriesResponse(rsp)
+}
+
+// StatFirmwareArtifactEntryWithResponse request returning *StatFirmwareArtifactEntryResponse
+func (c *ClientWithResponses) StatFirmwareArtifactEntryWithResponse(ctx context.Context, name string, channel StatFirmwareArtifactEntryParamsChannel, params *StatFirmwareArtifactEntryParams, reqEditors ...RequestEditorFn) (*StatFirmwareArtifactEntryResponse, error) {
+	rsp, err := c.StatFirmwareArtifactEntry(ctx, name, channel, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseStatFirmwareArtifactEntryResponse(rsp)
+}
+
+// TreeFirmwareArtifactEntriesWithResponse request returning *TreeFirmwareArtifactEntriesResponse
+func (c *ClientWithResponses) TreeFirmwareArtifactEntriesWithResponse(ctx context.Context, name string, channel TreeFirmwareArtifactEntriesParamsChannel, params *TreeFirmwareArtifactEntriesParams, reqEditors ...RequestEditorFn) (*TreeFirmwareArtifactEntriesResponse, error) {
+	rsp, err := c.TreeFirmwareArtifactEntries(ctx, name, channel, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseTreeFirmwareArtifactEntriesResponse(rsp)
 }
 
 // ListGeminiTenantsWithResponse request returning *ListGeminiTenantsResponse
@@ -15726,15 +16544,15 @@ func ParseRollbackFirmwareResponse(rsp *http.Response) (*RollbackFirmwareRespons
 	return response, nil
 }
 
-// ParseUploadFirmwareBinResponse parses an HTTP response from a UploadFirmwareBinWithResponse call
-func ParseUploadFirmwareBinResponse(rsp *http.Response) (*UploadFirmwareBinResponse, error) {
+// ParseDeleteFirmwareArtifactResponse parses an HTTP response from a DeleteFirmwareArtifactWithResponse call
+func ParseDeleteFirmwareArtifactResponse(rsp *http.Response) (*DeleteFirmwareArtifactResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &UploadFirmwareBinResponse{
+	response := &DeleteFirmwareArtifactResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -15742,6 +16560,267 @@ func ParseUploadFirmwareBinResponse(rsp *http.Response) (*UploadFirmwareBinRespo
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest externalRef0.Firmware
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDownloadFirmwareArtifactResponse parses an HTTP response from a DownloadFirmwareArtifactWithResponse call
+func ParseDownloadFirmwareArtifactResponse(rsp *http.Response) (*DownloadFirmwareArtifactResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DownloadFirmwareArtifactResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUploadFirmwareArtifactResponse parses an HTTP response from a UploadFirmwareArtifactWithResponse call
+func ParseUploadFirmwareArtifactResponse(rsp *http.Response) (*UploadFirmwareArtifactResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UploadFirmwareArtifactResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest externalRef0.Firmware
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDownloadFirmwareArtifactEntryResponse parses an HTTP response from a DownloadFirmwareArtifactEntryWithResponse call
+func ParseDownloadFirmwareArtifactEntryResponse(rsp *http.Response) (*DownloadFirmwareArtifactEntryResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DownloadFirmwareArtifactEntryResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListFirmwareArtifactEntriesResponse parses an HTTP response from a ListFirmwareArtifactEntriesWithResponse call
+func ParseListFirmwareArtifactEntriesResponse(rsp *http.Response) (*ListFirmwareArtifactEntriesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListFirmwareArtifactEntriesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest externalRef0.FirmwareArtifactList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseStatFirmwareArtifactEntryResponse parses an HTTP response from a StatFirmwareArtifactEntryWithResponse call
+func ParseStatFirmwareArtifactEntryResponse(rsp *http.Response) (*StatFirmwareArtifactEntryResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &StatFirmwareArtifactEntryResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest externalRef0.FirmwareArtifactStats
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseTreeFirmwareArtifactEntriesResponse parses an HTTP response from a TreeFirmwareArtifactEntriesWithResponse call
+func ParseTreeFirmwareArtifactEntriesResponse(rsp *http.Response) (*TreeFirmwareArtifactEntriesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &TreeFirmwareArtifactEntriesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest externalRef0.FirmwareArtifactTree
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -19639,9 +20718,27 @@ type ServerInterface interface {
 	// Rollback firmware stable slot
 	// (POST /firmwares/{name}/@rollback)
 	RollbackFirmware(c *fiber.Ctx, name string) error
-	// Upload a firmware bin payload
-	// (PUT /firmwares/{name}/bins/{channel}/{bin})
-	UploadFirmwareBin(c *fiber.Ctx, name string, channel UploadFirmwareBinParamsChannel, bin string) error
+	// Delete a firmware channel artifact
+	// (DELETE /firmwares/{name}/packages/{channel}/artifact.tar)
+	DeleteFirmwareArtifact(c *fiber.Ctx, name string, channel DeleteFirmwareArtifactParamsChannel) error
+	// Download a firmware channel artifact tar
+	// (GET /firmwares/{name}/packages/{channel}/artifact.tar)
+	DownloadFirmwareArtifact(c *fiber.Ctx, name string, channel DownloadFirmwareArtifactParamsChannel) error
+	// Upload a firmware channel artifact tar
+	// (PUT /firmwares/{name}/packages/{channel}/artifact.tar)
+	UploadFirmwareArtifact(c *fiber.Ctx, name string, channel UploadFirmwareArtifactParamsChannel) error
+	// Download one firmware artifact entry
+	// (GET /firmwares/{name}/packages/{channel}/artifact/dl)
+	DownloadFirmwareArtifactEntry(c *fiber.Ctx, name string, channel DownloadFirmwareArtifactEntryParamsChannel, params DownloadFirmwareArtifactEntryParams) error
+	// List firmware artifact entries
+	// (GET /firmwares/{name}/packages/{channel}/artifact/ls)
+	ListFirmwareArtifactEntries(c *fiber.Ctx, name string, channel ListFirmwareArtifactEntriesParamsChannel, params ListFirmwareArtifactEntriesParams) error
+	// Stat a firmware artifact or entry
+	// (GET /firmwares/{name}/packages/{channel}/artifact/stat)
+	StatFirmwareArtifactEntry(c *fiber.Ctx, name string, channel StatFirmwareArtifactEntryParamsChannel, params StatFirmwareArtifactEntryParams) error
+	// Return firmware artifact tree entries
+	// (GET /firmwares/{name}/packages/{channel}/artifact/tree)
+	TreeFirmwareArtifactEntries(c *fiber.Ctx, name string, channel TreeFirmwareArtifactEntriesParamsChannel, params TreeFirmwareArtifactEntriesParams) error
 	// List all Gemini tenants
 	// (GET /gemini-tenants)
 	ListGeminiTenants(c *fiber.Ctx, params ListGeminiTenantsParams) error
@@ -20592,8 +21689,8 @@ func (siw *ServerInterfaceWrapper) RollbackFirmware(c *fiber.Ctx) error {
 	return siw.Handler.RollbackFirmware(c, name)
 }
 
-// UploadFirmwareBin operation middleware
-func (siw *ServerInterfaceWrapper) UploadFirmwareBin(c *fiber.Ctx) error {
+// DeleteFirmwareArtifact operation middleware
+func (siw *ServerInterfaceWrapper) DeleteFirmwareArtifact(c *fiber.Ctx) error {
 
 	var err error
 
@@ -20606,22 +21703,230 @@ func (siw *ServerInterfaceWrapper) UploadFirmwareBin(c *fiber.Ctx) error {
 	}
 
 	// ------------- Path parameter "channel" -------------
-	var channel UploadFirmwareBinParamsChannel
+	var channel DeleteFirmwareArtifactParamsChannel
 
 	err = runtime.BindStyledParameterWithOptions("simple", "channel", c.Params("channel"), &channel, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter channel: %w", err).Error())
 	}
 
-	// ------------- Path parameter "bin" -------------
-	var bin string
+	return siw.Handler.DeleteFirmwareArtifact(c, name, channel)
+}
 
-	err = runtime.BindStyledParameterWithOptions("simple", "bin", c.Params("bin"), &bin, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+// DownloadFirmwareArtifact operation middleware
+func (siw *ServerInterfaceWrapper) DownloadFirmwareArtifact(c *fiber.Ctx) error {
+
+	var err error
+
+	// ------------- Path parameter "name" -------------
+	var name string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "name", c.Params("name"), &name, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter bin: %w", err).Error())
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter name: %w", err).Error())
 	}
 
-	return siw.Handler.UploadFirmwareBin(c, name, channel, bin)
+	// ------------- Path parameter "channel" -------------
+	var channel DownloadFirmwareArtifactParamsChannel
+
+	err = runtime.BindStyledParameterWithOptions("simple", "channel", c.Params("channel"), &channel, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter channel: %w", err).Error())
+	}
+
+	return siw.Handler.DownloadFirmwareArtifact(c, name, channel)
+}
+
+// UploadFirmwareArtifact operation middleware
+func (siw *ServerInterfaceWrapper) UploadFirmwareArtifact(c *fiber.Ctx) error {
+
+	var err error
+
+	// ------------- Path parameter "name" -------------
+	var name string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "name", c.Params("name"), &name, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter name: %w", err).Error())
+	}
+
+	// ------------- Path parameter "channel" -------------
+	var channel UploadFirmwareArtifactParamsChannel
+
+	err = runtime.BindStyledParameterWithOptions("simple", "channel", c.Params("channel"), &channel, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter channel: %w", err).Error())
+	}
+
+	return siw.Handler.UploadFirmwareArtifact(c, name, channel)
+}
+
+// DownloadFirmwareArtifactEntry operation middleware
+func (siw *ServerInterfaceWrapper) DownloadFirmwareArtifactEntry(c *fiber.Ctx) error {
+
+	var err error
+
+	// ------------- Path parameter "name" -------------
+	var name string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "name", c.Params("name"), &name, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter name: %w", err).Error())
+	}
+
+	// ------------- Path parameter "channel" -------------
+	var channel DownloadFirmwareArtifactEntryParamsChannel
+
+	err = runtime.BindStyledParameterWithOptions("simple", "channel", c.Params("channel"), &channel, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter channel: %w", err).Error())
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params DownloadFirmwareArtifactEntryParams
+
+	var query url.Values
+	query, err = url.ParseQuery(string(c.Request().URI().QueryString()))
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for query string: %w", err).Error())
+	}
+
+	// ------------- Required query parameter "path" -------------
+
+	if paramValue := c.Query("path"); paramValue != "" {
+
+	} else {
+		err = fmt.Errorf("Query argument path is required, but not found")
+		c.Status(fiber.StatusBadRequest).JSON(err)
+		return err
+	}
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "path", query, &params.Path, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter path: %w", err).Error())
+	}
+
+	return siw.Handler.DownloadFirmwareArtifactEntry(c, name, channel, params)
+}
+
+// ListFirmwareArtifactEntries operation middleware
+func (siw *ServerInterfaceWrapper) ListFirmwareArtifactEntries(c *fiber.Ctx) error {
+
+	var err error
+
+	// ------------- Path parameter "name" -------------
+	var name string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "name", c.Params("name"), &name, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter name: %w", err).Error())
+	}
+
+	// ------------- Path parameter "channel" -------------
+	var channel ListFirmwareArtifactEntriesParamsChannel
+
+	err = runtime.BindStyledParameterWithOptions("simple", "channel", c.Params("channel"), &channel, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter channel: %w", err).Error())
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListFirmwareArtifactEntriesParams
+
+	var query url.Values
+	query, err = url.ParseQuery(string(c.Request().URI().QueryString()))
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for query string: %w", err).Error())
+	}
+
+	// ------------- Optional query parameter "path" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "path", query, &params.Path, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter path: %w", err).Error())
+	}
+
+	return siw.Handler.ListFirmwareArtifactEntries(c, name, channel, params)
+}
+
+// StatFirmwareArtifactEntry operation middleware
+func (siw *ServerInterfaceWrapper) StatFirmwareArtifactEntry(c *fiber.Ctx) error {
+
+	var err error
+
+	// ------------- Path parameter "name" -------------
+	var name string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "name", c.Params("name"), &name, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter name: %w", err).Error())
+	}
+
+	// ------------- Path parameter "channel" -------------
+	var channel StatFirmwareArtifactEntryParamsChannel
+
+	err = runtime.BindStyledParameterWithOptions("simple", "channel", c.Params("channel"), &channel, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter channel: %w", err).Error())
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params StatFirmwareArtifactEntryParams
+
+	var query url.Values
+	query, err = url.ParseQuery(string(c.Request().URI().QueryString()))
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for query string: %w", err).Error())
+	}
+
+	// ------------- Optional query parameter "path" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "path", query, &params.Path, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter path: %w", err).Error())
+	}
+
+	return siw.Handler.StatFirmwareArtifactEntry(c, name, channel, params)
+}
+
+// TreeFirmwareArtifactEntries operation middleware
+func (siw *ServerInterfaceWrapper) TreeFirmwareArtifactEntries(c *fiber.Ctx) error {
+
+	var err error
+
+	// ------------- Path parameter "name" -------------
+	var name string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "name", c.Params("name"), &name, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter name: %w", err).Error())
+	}
+
+	// ------------- Path parameter "channel" -------------
+	var channel TreeFirmwareArtifactEntriesParamsChannel
+
+	err = runtime.BindStyledParameterWithOptions("simple", "channel", c.Params("channel"), &channel, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter channel: %w", err).Error())
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params TreeFirmwareArtifactEntriesParams
+
+	var query url.Values
+	query, err = url.ParseQuery(string(c.Request().URI().QueryString()))
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for query string: %w", err).Error())
+	}
+
+	// ------------- Optional query parameter "path" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "path", query, &params.Path, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter path: %w", err).Error())
+	}
+
+	return siw.Handler.TreeFirmwareArtifactEntries(c, name, channel, params)
 }
 
 // ListGeminiTenants operation middleware
@@ -22471,7 +23776,19 @@ func RegisterHandlersWithOptions(router fiber.Router, si ServerInterface, option
 
 	router.Post(options.BaseURL+"/firmwares/:name/@rollback", wrapper.RollbackFirmware)
 
-	router.Put(options.BaseURL+"/firmwares/:name/bins/:channel/:bin", wrapper.UploadFirmwareBin)
+	router.Delete(options.BaseURL+"/firmwares/:name/packages/:channel/artifact.tar", wrapper.DeleteFirmwareArtifact)
+
+	router.Get(options.BaseURL+"/firmwares/:name/packages/:channel/artifact.tar", wrapper.DownloadFirmwareArtifact)
+
+	router.Put(options.BaseURL+"/firmwares/:name/packages/:channel/artifact.tar", wrapper.UploadFirmwareArtifact)
+
+	router.Get(options.BaseURL+"/firmwares/:name/packages/:channel/artifact/dl", wrapper.DownloadFirmwareArtifactEntry)
+
+	router.Get(options.BaseURL+"/firmwares/:name/packages/:channel/artifact/ls", wrapper.ListFirmwareArtifactEntries)
+
+	router.Get(options.BaseURL+"/firmwares/:name/packages/:channel/artifact/stat", wrapper.StatFirmwareArtifactEntry)
+
+	router.Get(options.BaseURL+"/firmwares/:name/packages/:channel/artifact/tree", wrapper.TreeFirmwareArtifactEntries)
 
 	router.Get(options.BaseURL+"/gemini-tenants", wrapper.ListGeminiTenants)
 
@@ -23976,47 +25293,331 @@ func (response RollbackFirmware500JSONResponse) VisitRollbackFirmwareResponse(ct
 	return ctx.JSON(&response)
 }
 
-type UploadFirmwareBinRequestObject struct {
-	Name    string                         `json:"name"`
-	Channel UploadFirmwareBinParamsChannel `json:"channel"`
-	Bin     string                         `json:"bin"`
-	Body    io.Reader
+type DeleteFirmwareArtifactRequestObject struct {
+	Name    string                              `json:"name"`
+	Channel DeleteFirmwareArtifactParamsChannel `json:"channel"`
 }
 
-type UploadFirmwareBinResponseObject interface {
-	VisitUploadFirmwareBinResponse(ctx *fiber.Ctx) error
+type DeleteFirmwareArtifactResponseObject interface {
+	VisitDeleteFirmwareArtifactResponse(ctx *fiber.Ctx) error
 }
 
-type UploadFirmwareBin200JSONResponse externalRef0.Firmware
+type DeleteFirmwareArtifact200JSONResponse externalRef0.Firmware
 
-func (response UploadFirmwareBin200JSONResponse) VisitUploadFirmwareBinResponse(ctx *fiber.Ctx) error {
+func (response DeleteFirmwareArtifact200JSONResponse) VisitDeleteFirmwareArtifactResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(200)
 
 	return ctx.JSON(&response)
 }
 
-type UploadFirmwareBin400JSONResponse externalRef0.ErrorResponse
+type DeleteFirmwareArtifact404JSONResponse externalRef0.ErrorResponse
 
-func (response UploadFirmwareBin400JSONResponse) VisitUploadFirmwareBinResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(400)
-
-	return ctx.JSON(&response)
-}
-
-type UploadFirmwareBin404JSONResponse externalRef0.ErrorResponse
-
-func (response UploadFirmwareBin404JSONResponse) VisitUploadFirmwareBinResponse(ctx *fiber.Ctx) error {
+func (response DeleteFirmwareArtifact404JSONResponse) VisitDeleteFirmwareArtifactResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(404)
 
 	return ctx.JSON(&response)
 }
 
-type UploadFirmwareBin500JSONResponse externalRef0.ErrorResponse
+type DeleteFirmwareArtifact500JSONResponse externalRef0.ErrorResponse
 
-func (response UploadFirmwareBin500JSONResponse) VisitUploadFirmwareBinResponse(ctx *fiber.Ctx) error {
+func (response DeleteFirmwareArtifact500JSONResponse) VisitDeleteFirmwareArtifactResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type DownloadFirmwareArtifactRequestObject struct {
+	Name    string                                `json:"name"`
+	Channel DownloadFirmwareArtifactParamsChannel `json:"channel"`
+}
+
+type DownloadFirmwareArtifactResponseObject interface {
+	VisitDownloadFirmwareArtifactResponse(ctx *fiber.Ctx) error
+}
+
+type DownloadFirmwareArtifact200ApplicationxTarResponse struct {
+	Body          io.Reader
+	ContentLength int64
+}
+
+func (response DownloadFirmwareArtifact200ApplicationxTarResponse) VisitDownloadFirmwareArtifactResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/x-tar")
+	if response.ContentLength != 0 {
+		ctx.Response().Header.Set("Content-Length", fmt.Sprint(response.ContentLength))
+	}
+	ctx.Status(200)
+
+	if closer, ok := response.Body.(io.ReadCloser); ok {
+		defer closer.Close()
+	}
+	_, err := io.Copy(ctx.Response().BodyWriter(), response.Body)
+	return err
+}
+
+type DownloadFirmwareArtifact404JSONResponse externalRef0.ErrorResponse
+
+func (response DownloadFirmwareArtifact404JSONResponse) VisitDownloadFirmwareArtifactResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type DownloadFirmwareArtifact500JSONResponse externalRef0.ErrorResponse
+
+func (response DownloadFirmwareArtifact500JSONResponse) VisitDownloadFirmwareArtifactResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type UploadFirmwareArtifactRequestObject struct {
+	Name    string                              `json:"name"`
+	Channel UploadFirmwareArtifactParamsChannel `json:"channel"`
+	Body    io.Reader
+}
+
+type UploadFirmwareArtifactResponseObject interface {
+	VisitUploadFirmwareArtifactResponse(ctx *fiber.Ctx) error
+}
+
+type UploadFirmwareArtifact200JSONResponse externalRef0.Firmware
+
+func (response UploadFirmwareArtifact200JSONResponse) VisitUploadFirmwareArtifactResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type UploadFirmwareArtifact400JSONResponse externalRef0.ErrorResponse
+
+func (response UploadFirmwareArtifact400JSONResponse) VisitUploadFirmwareArtifactResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(400)
+
+	return ctx.JSON(&response)
+}
+
+type UploadFirmwareArtifact404JSONResponse externalRef0.ErrorResponse
+
+func (response UploadFirmwareArtifact404JSONResponse) VisitUploadFirmwareArtifactResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type UploadFirmwareArtifact409JSONResponse externalRef0.ErrorResponse
+
+func (response UploadFirmwareArtifact409JSONResponse) VisitUploadFirmwareArtifactResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
+
+	return ctx.JSON(&response)
+}
+
+type UploadFirmwareArtifact500JSONResponse externalRef0.ErrorResponse
+
+func (response UploadFirmwareArtifact500JSONResponse) VisitUploadFirmwareArtifactResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type DownloadFirmwareArtifactEntryRequestObject struct {
+	Name    string                                     `json:"name"`
+	Channel DownloadFirmwareArtifactEntryParamsChannel `json:"channel"`
+	Params  DownloadFirmwareArtifactEntryParams
+}
+
+type DownloadFirmwareArtifactEntryResponseObject interface {
+	VisitDownloadFirmwareArtifactEntryResponse(ctx *fiber.Ctx) error
+}
+
+type DownloadFirmwareArtifactEntry200ApplicationoctetStreamResponse struct {
+	Body          io.Reader
+	ContentLength int64
+}
+
+func (response DownloadFirmwareArtifactEntry200ApplicationoctetStreamResponse) VisitDownloadFirmwareArtifactEntryResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/octet-stream")
+	if response.ContentLength != 0 {
+		ctx.Response().Header.Set("Content-Length", fmt.Sprint(response.ContentLength))
+	}
+	ctx.Status(200)
+
+	if closer, ok := response.Body.(io.ReadCloser); ok {
+		defer closer.Close()
+	}
+	_, err := io.Copy(ctx.Response().BodyWriter(), response.Body)
+	return err
+}
+
+type DownloadFirmwareArtifactEntry400JSONResponse externalRef0.ErrorResponse
+
+func (response DownloadFirmwareArtifactEntry400JSONResponse) VisitDownloadFirmwareArtifactEntryResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(400)
+
+	return ctx.JSON(&response)
+}
+
+type DownloadFirmwareArtifactEntry404JSONResponse externalRef0.ErrorResponse
+
+func (response DownloadFirmwareArtifactEntry404JSONResponse) VisitDownloadFirmwareArtifactEntryResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type DownloadFirmwareArtifactEntry500JSONResponse externalRef0.ErrorResponse
+
+func (response DownloadFirmwareArtifactEntry500JSONResponse) VisitDownloadFirmwareArtifactEntryResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type ListFirmwareArtifactEntriesRequestObject struct {
+	Name    string                                   `json:"name"`
+	Channel ListFirmwareArtifactEntriesParamsChannel `json:"channel"`
+	Params  ListFirmwareArtifactEntriesParams
+}
+
+type ListFirmwareArtifactEntriesResponseObject interface {
+	VisitListFirmwareArtifactEntriesResponse(ctx *fiber.Ctx) error
+}
+
+type ListFirmwareArtifactEntries200JSONResponse externalRef0.FirmwareArtifactList
+
+func (response ListFirmwareArtifactEntries200JSONResponse) VisitListFirmwareArtifactEntriesResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type ListFirmwareArtifactEntries400JSONResponse externalRef0.ErrorResponse
+
+func (response ListFirmwareArtifactEntries400JSONResponse) VisitListFirmwareArtifactEntriesResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(400)
+
+	return ctx.JSON(&response)
+}
+
+type ListFirmwareArtifactEntries404JSONResponse externalRef0.ErrorResponse
+
+func (response ListFirmwareArtifactEntries404JSONResponse) VisitListFirmwareArtifactEntriesResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type ListFirmwareArtifactEntries500JSONResponse externalRef0.ErrorResponse
+
+func (response ListFirmwareArtifactEntries500JSONResponse) VisitListFirmwareArtifactEntriesResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type StatFirmwareArtifactEntryRequestObject struct {
+	Name    string                                 `json:"name"`
+	Channel StatFirmwareArtifactEntryParamsChannel `json:"channel"`
+	Params  StatFirmwareArtifactEntryParams
+}
+
+type StatFirmwareArtifactEntryResponseObject interface {
+	VisitStatFirmwareArtifactEntryResponse(ctx *fiber.Ctx) error
+}
+
+type StatFirmwareArtifactEntry200JSONResponse externalRef0.FirmwareArtifactStats
+
+func (response StatFirmwareArtifactEntry200JSONResponse) VisitStatFirmwareArtifactEntryResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type StatFirmwareArtifactEntry400JSONResponse externalRef0.ErrorResponse
+
+func (response StatFirmwareArtifactEntry400JSONResponse) VisitStatFirmwareArtifactEntryResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(400)
+
+	return ctx.JSON(&response)
+}
+
+type StatFirmwareArtifactEntry404JSONResponse externalRef0.ErrorResponse
+
+func (response StatFirmwareArtifactEntry404JSONResponse) VisitStatFirmwareArtifactEntryResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type StatFirmwareArtifactEntry500JSONResponse externalRef0.ErrorResponse
+
+func (response StatFirmwareArtifactEntry500JSONResponse) VisitStatFirmwareArtifactEntryResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type TreeFirmwareArtifactEntriesRequestObject struct {
+	Name    string                                   `json:"name"`
+	Channel TreeFirmwareArtifactEntriesParamsChannel `json:"channel"`
+	Params  TreeFirmwareArtifactEntriesParams
+}
+
+type TreeFirmwareArtifactEntriesResponseObject interface {
+	VisitTreeFirmwareArtifactEntriesResponse(ctx *fiber.Ctx) error
+}
+
+type TreeFirmwareArtifactEntries200JSONResponse externalRef0.FirmwareArtifactTree
+
+func (response TreeFirmwareArtifactEntries200JSONResponse) VisitTreeFirmwareArtifactEntriesResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type TreeFirmwareArtifactEntries400JSONResponse externalRef0.ErrorResponse
+
+func (response TreeFirmwareArtifactEntries400JSONResponse) VisitTreeFirmwareArtifactEntriesResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(400)
+
+	return ctx.JSON(&response)
+}
+
+type TreeFirmwareArtifactEntries404JSONResponse externalRef0.ErrorResponse
+
+func (response TreeFirmwareArtifactEntries404JSONResponse) VisitTreeFirmwareArtifactEntriesResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type TreeFirmwareArtifactEntries500JSONResponse externalRef0.ErrorResponse
+
+func (response TreeFirmwareArtifactEntries500JSONResponse) VisitTreeFirmwareArtifactEntriesResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(500)
 
@@ -27576,9 +29177,27 @@ type StrictServerInterface interface {
 	// Rollback firmware stable slot
 	// (POST /firmwares/{name}/@rollback)
 	RollbackFirmware(ctx context.Context, request RollbackFirmwareRequestObject) (RollbackFirmwareResponseObject, error)
-	// Upload a firmware bin payload
-	// (PUT /firmwares/{name}/bins/{channel}/{bin})
-	UploadFirmwareBin(ctx context.Context, request UploadFirmwareBinRequestObject) (UploadFirmwareBinResponseObject, error)
+	// Delete a firmware channel artifact
+	// (DELETE /firmwares/{name}/packages/{channel}/artifact.tar)
+	DeleteFirmwareArtifact(ctx context.Context, request DeleteFirmwareArtifactRequestObject) (DeleteFirmwareArtifactResponseObject, error)
+	// Download a firmware channel artifact tar
+	// (GET /firmwares/{name}/packages/{channel}/artifact.tar)
+	DownloadFirmwareArtifact(ctx context.Context, request DownloadFirmwareArtifactRequestObject) (DownloadFirmwareArtifactResponseObject, error)
+	// Upload a firmware channel artifact tar
+	// (PUT /firmwares/{name}/packages/{channel}/artifact.tar)
+	UploadFirmwareArtifact(ctx context.Context, request UploadFirmwareArtifactRequestObject) (UploadFirmwareArtifactResponseObject, error)
+	// Download one firmware artifact entry
+	// (GET /firmwares/{name}/packages/{channel}/artifact/dl)
+	DownloadFirmwareArtifactEntry(ctx context.Context, request DownloadFirmwareArtifactEntryRequestObject) (DownloadFirmwareArtifactEntryResponseObject, error)
+	// List firmware artifact entries
+	// (GET /firmwares/{name}/packages/{channel}/artifact/ls)
+	ListFirmwareArtifactEntries(ctx context.Context, request ListFirmwareArtifactEntriesRequestObject) (ListFirmwareArtifactEntriesResponseObject, error)
+	// Stat a firmware artifact or entry
+	// (GET /firmwares/{name}/packages/{channel}/artifact/stat)
+	StatFirmwareArtifactEntry(ctx context.Context, request StatFirmwareArtifactEntryRequestObject) (StatFirmwareArtifactEntryResponseObject, error)
+	// Return firmware artifact tree entries
+	// (GET /firmwares/{name}/packages/{channel}/artifact/tree)
+	TreeFirmwareArtifactEntries(ctx context.Context, request TreeFirmwareArtifactEntriesRequestObject) (TreeFirmwareArtifactEntriesResponseObject, error)
 	// List all Gemini tenants
 	// (GET /gemini-tenants)
 	ListGeminiTenants(ctx context.Context, request ListGeminiTenantsRequestObject) (ListGeminiTenantsResponseObject, error)
@@ -28914,13 +30533,68 @@ func (sh *strictHandler) RollbackFirmware(ctx *fiber.Ctx, name string) error {
 	return nil
 }
 
-// UploadFirmwareBin operation middleware
-func (sh *strictHandler) UploadFirmwareBin(ctx *fiber.Ctx, name string, channel UploadFirmwareBinParamsChannel, bin string) error {
-	var request UploadFirmwareBinRequestObject
+// DeleteFirmwareArtifact operation middleware
+func (sh *strictHandler) DeleteFirmwareArtifact(ctx *fiber.Ctx, name string, channel DeleteFirmwareArtifactParamsChannel) error {
+	var request DeleteFirmwareArtifactRequestObject
 
 	request.Name = name
 	request.Channel = channel
-	request.Bin = bin
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteFirmwareArtifact(ctx.UserContext(), request.(DeleteFirmwareArtifactRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteFirmwareArtifact")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(DeleteFirmwareArtifactResponseObject); ok {
+		if err := validResponse.VisitDeleteFirmwareArtifactResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// DownloadFirmwareArtifact operation middleware
+func (sh *strictHandler) DownloadFirmwareArtifact(ctx *fiber.Ctx, name string, channel DownloadFirmwareArtifactParamsChannel) error {
+	var request DownloadFirmwareArtifactRequestObject
+
+	request.Name = name
+	request.Channel = channel
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.DownloadFirmwareArtifact(ctx.UserContext(), request.(DownloadFirmwareArtifactRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DownloadFirmwareArtifact")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(DownloadFirmwareArtifactResponseObject); ok {
+		if err := validResponse.VisitDownloadFirmwareArtifactResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// UploadFirmwareArtifact operation middleware
+func (sh *strictHandler) UploadFirmwareArtifact(ctx *fiber.Ctx, name string, channel UploadFirmwareArtifactParamsChannel) error {
+	var request UploadFirmwareArtifactRequestObject
+
+	request.Name = name
+	request.Channel = channel
 
 	body := ctx.Context().RequestBodyStream()
 	if body == nil {
@@ -28929,18 +30603,134 @@ func (sh *strictHandler) UploadFirmwareBin(ctx *fiber.Ctx, name string, channel 
 	request.Body = body
 
 	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
-		return sh.ssi.UploadFirmwareBin(ctx.UserContext(), request.(UploadFirmwareBinRequestObject))
+		return sh.ssi.UploadFirmwareArtifact(ctx.UserContext(), request.(UploadFirmwareArtifactRequestObject))
 	}
 	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "UploadFirmwareBin")
+		handler = middleware(handler, "UploadFirmwareArtifact")
 	}
 
 	response, err := handler(ctx, request)
 
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
-	} else if validResponse, ok := response.(UploadFirmwareBinResponseObject); ok {
-		if err := validResponse.VisitUploadFirmwareBinResponse(ctx); err != nil {
+	} else if validResponse, ok := response.(UploadFirmwareArtifactResponseObject); ok {
+		if err := validResponse.VisitUploadFirmwareArtifactResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// DownloadFirmwareArtifactEntry operation middleware
+func (sh *strictHandler) DownloadFirmwareArtifactEntry(ctx *fiber.Ctx, name string, channel DownloadFirmwareArtifactEntryParamsChannel, params DownloadFirmwareArtifactEntryParams) error {
+	var request DownloadFirmwareArtifactEntryRequestObject
+
+	request.Name = name
+	request.Channel = channel
+	request.Params = params
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.DownloadFirmwareArtifactEntry(ctx.UserContext(), request.(DownloadFirmwareArtifactEntryRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DownloadFirmwareArtifactEntry")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(DownloadFirmwareArtifactEntryResponseObject); ok {
+		if err := validResponse.VisitDownloadFirmwareArtifactEntryResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// ListFirmwareArtifactEntries operation middleware
+func (sh *strictHandler) ListFirmwareArtifactEntries(ctx *fiber.Ctx, name string, channel ListFirmwareArtifactEntriesParamsChannel, params ListFirmwareArtifactEntriesParams) error {
+	var request ListFirmwareArtifactEntriesRequestObject
+
+	request.Name = name
+	request.Channel = channel
+	request.Params = params
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.ListFirmwareArtifactEntries(ctx.UserContext(), request.(ListFirmwareArtifactEntriesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListFirmwareArtifactEntries")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(ListFirmwareArtifactEntriesResponseObject); ok {
+		if err := validResponse.VisitListFirmwareArtifactEntriesResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// StatFirmwareArtifactEntry operation middleware
+func (sh *strictHandler) StatFirmwareArtifactEntry(ctx *fiber.Ctx, name string, channel StatFirmwareArtifactEntryParamsChannel, params StatFirmwareArtifactEntryParams) error {
+	var request StatFirmwareArtifactEntryRequestObject
+
+	request.Name = name
+	request.Channel = channel
+	request.Params = params
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.StatFirmwareArtifactEntry(ctx.UserContext(), request.(StatFirmwareArtifactEntryRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "StatFirmwareArtifactEntry")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(StatFirmwareArtifactEntryResponseObject); ok {
+		if err := validResponse.VisitStatFirmwareArtifactEntryResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// TreeFirmwareArtifactEntries operation middleware
+func (sh *strictHandler) TreeFirmwareArtifactEntries(ctx *fiber.Ctx, name string, channel TreeFirmwareArtifactEntriesParamsChannel, params TreeFirmwareArtifactEntriesParams) error {
+	var request TreeFirmwareArtifactEntriesRequestObject
+
+	request.Name = name
+	request.Channel = channel
+	request.Params = params
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.TreeFirmwareArtifactEntries(ctx.UserContext(), request.(TreeFirmwareArtifactEntriesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "TreeFirmwareArtifactEntries")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(TreeFirmwareArtifactEntriesResponseObject); ok {
+		if err := validResponse.VisitTreeFirmwareArtifactEntriesResponse(ctx); err != nil {
 			return fiber.NewError(fiber.StatusBadRequest, err.Error())
 		}
 	} else if response != nil {

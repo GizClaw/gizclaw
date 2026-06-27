@@ -265,6 +265,16 @@ func (p *Page) ClickRoleLike(role, name string) {
 	}
 }
 
+func (p *Page) ClickNthRole(role, name string, index int) {
+	p.t.Helper()
+	if err := p.page.GetByRole(playwright.AriaRole(role), playwright.PageGetByRoleOptions{
+		Name:  name,
+		Exact: playwright.Bool(true),
+	}).Nth(index).Click(); err != nil {
+		p.t.Fatalf("click role=%s name=%q index=%d: %v", role, name, index, err)
+	}
+}
+
 func (p *Page) ClickSelector(selector string) {
 	p.t.Helper()
 	if err := p.page.Locator(selector).Click(); err != nil {

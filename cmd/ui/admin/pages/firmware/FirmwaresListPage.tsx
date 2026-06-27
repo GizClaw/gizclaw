@@ -190,14 +190,14 @@ export function FirmwaresListPage(): JSX.Element {
 
 function slotLabel(slot: Firmware["slots"]["stable"]): JSX.Element {
   const version = slot.version?.trim();
-  const count = slot.artifacts?.length ?? 0;
-  if (!version && count === 0) {
+  const hasArtifact = slot.artifact != null && slot.artifact.tar_path.trim() !== "";
+  if (!version && !hasArtifact) {
     return <span className="text-muted-foreground">-</span>;
   }
   return (
     <div className="flex items-center gap-2">
       <span className="font-mono text-xs">{version || "artifact-only"}</span>
-      {count > 0 ? <Badge variant="outline">{count}</Badge> : null}
+      {hasArtifact ? <Badge variant="outline">artifact</Badge> : null}
     </div>
   );
 }

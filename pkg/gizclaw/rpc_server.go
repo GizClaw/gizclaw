@@ -63,7 +63,7 @@ func (s *rpcServer) dispatchStream(ctx context.Context, stream *rpcStream, req *
 	switch req.Method {
 	case rpcapi.RPCMethodAllSpeedTestRun:
 		return true, s.handleSpeedTest(ctx, stream, req)
-	case rpcapi.RPCMethodServerFirmwareDownload:
+	case rpcapi.RPCMethodServerFirmwareFilesDownload:
 		return true, s.handleFirmwareBinDownload(ctx, stream, req)
 	case rpcapi.RPCMethodServerWorkspaceHistoryAudioGet:
 		return true, s.handleWorkspaceHistoryAudioGet(ctx, stream, req)

@@ -38,6 +38,7 @@ func (e ClientVoiceListResponseObject) Valid() bool {
 const (
 	Contacts           PeerResourceName = "contacts"
 	Credentials        PeerResourceName = "credentials"
+	Firmwares          PeerResourceName = "firmwares"
 	FriendGroups       PeerResourceName = "friend-groups"
 	Friends            PeerResourceName = "friends"
 	Models             PeerResourceName = "models"
@@ -56,6 +57,8 @@ func (e PeerResourceName) Valid() bool {
 	case Contacts:
 		return true
 	case Credentials:
+		return true
+	case Firmwares:
 		return true
 	case FriendGroups:
 		return true
@@ -231,6 +234,12 @@ type ListPeerContactsParams struct {
 
 // ListPeerCredentialsParams defines parameters for ListPeerCredentials.
 type ListPeerCredentialsParams struct {
+	Cursor *Cursor `form:"cursor,omitempty" json:"cursor,omitempty"`
+	Limit  *Limit  `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
+// ListPeerFirmwaresParams defines parameters for ListPeerFirmwares.
+type ListPeerFirmwaresParams struct {
 	Cursor *Cursor `form:"cursor,omitempty" json:"cursor,omitempty"`
 	Limit  *Limit  `form:"limit,omitempty" json:"limit,omitempty"`
 }
@@ -466,6 +475,9 @@ type ClientInterface interface {
 
 	// ListPeerCredentials request
 	ListPeerCredentials(ctx context.Context, params *ListPeerCredentialsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListPeerFirmwares request
+	ListPeerFirmwares(ctx context.Context, params *ListPeerFirmwaresParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListPeerFriendGroups request
 	ListPeerFriendGroups(ctx context.Context, params *ListPeerFriendGroupsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -721,6 +733,18 @@ func (c *Client) PutPeerContact(ctx context.Context, id ContactId, body PutPeerC
 
 func (c *Client) ListPeerCredentials(ctx context.Context, params *ListPeerCredentialsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListPeerCredentialsRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListPeerFirmwares(ctx context.Context, params *ListPeerFirmwaresParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListPeerFirmwaresRequest(c.Server, params)
 	if err != nil {
 		return nil, err
 	}
@@ -1660,6 +1684,71 @@ func NewListPeerCredentialsRequest(server string, params *ListPeerCredentialsPar
 	}
 
 	operationPath := fmt.Sprintf("/peer-resources/credentials")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Cursor != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "cursor", *params.Cursor, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewListPeerFirmwaresRequest generates requests for ListPeerFirmwares
+func NewListPeerFirmwaresRequest(server string, params *ListPeerFirmwaresParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/peer-resources/firmwares")
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -3917,6 +4006,9 @@ type ClientWithResponsesInterface interface {
 	// ListPeerCredentialsWithResponse request
 	ListPeerCredentialsWithResponse(ctx context.Context, params *ListPeerCredentialsParams, reqEditors ...RequestEditorFn) (*ListPeerCredentialsResponse, error)
 
+	// ListPeerFirmwaresWithResponse request
+	ListPeerFirmwaresWithResponse(ctx context.Context, params *ListPeerFirmwaresParams, reqEditors ...RequestEditorFn) (*ListPeerFirmwaresResponse, error)
+
 	// ListPeerFriendGroupsWithResponse request
 	ListPeerFriendGroupsWithResponse(ctx context.Context, params *ListPeerFriendGroupsParams, reqEditors ...RequestEditorFn) (*ListPeerFriendGroupsResponse, error)
 
@@ -4221,6 +4313,28 @@ func (r ListPeerCredentialsResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r ListPeerCredentialsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ListPeerFirmwaresResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *externalRef1.FirmwareListResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r ListPeerFirmwaresResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListPeerFirmwaresResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -5250,6 +5364,15 @@ func (c *ClientWithResponses) ListPeerCredentialsWithResponse(ctx context.Contex
 	return ParseListPeerCredentialsResponse(rsp)
 }
 
+// ListPeerFirmwaresWithResponse request returning *ListPeerFirmwaresResponse
+func (c *ClientWithResponses) ListPeerFirmwaresWithResponse(ctx context.Context, params *ListPeerFirmwaresParams, reqEditors ...RequestEditorFn) (*ListPeerFirmwaresResponse, error) {
+	rsp, err := c.ListPeerFirmwares(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListPeerFirmwaresResponse(rsp)
+}
+
 // ListPeerFriendGroupsWithResponse request returning *ListPeerFriendGroupsResponse
 func (c *ClientWithResponses) ListPeerFriendGroupsWithResponse(ctx context.Context, params *ListPeerFriendGroupsParams, reqEditors ...RequestEditorFn) (*ListPeerFriendGroupsResponse, error) {
 	rsp, err := c.ListPeerFriendGroups(ctx, params, reqEditors...)
@@ -5913,6 +6036,32 @@ func ParseListPeerCredentialsResponse(rsp *http.Response) (*ListPeerCredentialsR
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest externalRef1.CredentialListResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListPeerFirmwaresResponse parses an HTTP response from a ListPeerFirmwaresWithResponse call
+func ParseListPeerFirmwaresResponse(rsp *http.Response) (*ListPeerFirmwaresResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListPeerFirmwaresResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest externalRef1.FirmwareListResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -7044,6 +7193,9 @@ type ServerInterface interface {
 	// List credentials readable by the current peer
 	// (GET /peer-resources/credentials)
 	ListPeerCredentials(c *fiber.Ctx, params ListPeerCredentialsParams) error
+	// List firmwares readable by the current peer
+	// (GET /peer-resources/firmwares)
+	ListPeerFirmwares(c *fiber.Ctx, params ListPeerFirmwaresParams) error
 	// List friend groups for the current peer
 	// (GET /peer-resources/friend-groups)
 	ListPeerFriendGroups(c *fiber.Ctx, params ListPeerFriendGroupsParams) error
@@ -7302,6 +7454,37 @@ func (siw *ServerInterfaceWrapper) ListPeerCredentials(c *fiber.Ctx) error {
 	}
 
 	return siw.Handler.ListPeerCredentials(c, params)
+}
+
+// ListPeerFirmwares operation middleware
+func (siw *ServerInterfaceWrapper) ListPeerFirmwares(c *fiber.Ctx) error {
+
+	var err error
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListPeerFirmwaresParams
+
+	var query url.Values
+	query, err = url.ParseQuery(string(c.Request().URI().QueryString()))
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for query string: %w", err).Error())
+	}
+
+	// ------------- Optional query parameter "cursor" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "cursor", query, &params.Cursor, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter cursor: %w", err).Error())
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", query, &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter limit: %w", err).Error())
+	}
+
+	return siw.Handler.ListPeerFirmwares(c, params)
 }
 
 // ListPeerFriendGroups operation middleware
@@ -8226,6 +8409,8 @@ func RegisterHandlersWithOptions(router fiber.Router, si ServerInterface, option
 
 	router.Get(options.BaseURL+"/peer-resources/credentials", wrapper.ListPeerCredentials)
 
+	router.Get(options.BaseURL+"/peer-resources/firmwares", wrapper.ListPeerFirmwares)
+
 	router.Get(options.BaseURL+"/peer-resources/friend-groups", wrapper.ListPeerFriendGroups)
 
 	router.Post(options.BaseURL+"/peer-resources/friend-groups", wrapper.CreatePeerFriendGroup)
@@ -8427,6 +8612,23 @@ type ListPeerCredentialsResponseObject interface {
 type ListPeerCredentials200JSONResponse externalRef1.CredentialListResponse
 
 func (response ListPeerCredentials200JSONResponse) VisitListPeerCredentialsResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type ListPeerFirmwaresRequestObject struct {
+	Params ListPeerFirmwaresParams
+}
+
+type ListPeerFirmwaresResponseObject interface {
+	VisitListPeerFirmwaresResponse(ctx *fiber.Ctx) error
+}
+
+type ListPeerFirmwares200JSONResponse externalRef1.FirmwareListResponse
+
+func (response ListPeerFirmwares200JSONResponse) VisitListPeerFirmwaresResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(200)
 
@@ -9216,6 +9418,9 @@ type StrictServerInterface interface {
 	// List credentials readable by the current peer
 	// (GET /peer-resources/credentials)
 	ListPeerCredentials(ctx context.Context, request ListPeerCredentialsRequestObject) (ListPeerCredentialsResponseObject, error)
+	// List firmwares readable by the current peer
+	// (GET /peer-resources/firmwares)
+	ListPeerFirmwares(ctx context.Context, request ListPeerFirmwaresRequestObject) (ListPeerFirmwaresResponseObject, error)
 	// List friend groups for the current peer
 	// (GET /peer-resources/friend-groups)
 	ListPeerFriendGroups(ctx context.Context, request ListPeerFriendGroupsRequestObject) (ListPeerFriendGroupsResponseObject, error)
@@ -9549,6 +9754,33 @@ func (sh *strictHandler) ListPeerCredentials(ctx *fiber.Ctx, params ListPeerCred
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
 	} else if validResponse, ok := response.(ListPeerCredentialsResponseObject); ok {
 		if err := validResponse.VisitListPeerCredentialsResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// ListPeerFirmwares operation middleware
+func (sh *strictHandler) ListPeerFirmwares(ctx *fiber.Ctx, params ListPeerFirmwaresParams) error {
+	var request ListPeerFirmwaresRequestObject
+
+	request.Params = params
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.ListPeerFirmwares(ctx.UserContext(), request.(ListPeerFirmwaresRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListPeerFirmwares")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(ListPeerFirmwaresResponseObject); ok {
+		if err := validResponse.VisitListPeerFirmwaresResponse(ctx); err != nil {
 			return fiber.NewError(fiber.StatusBadRequest, err.Error())
 		}
 	} else if response != nil {

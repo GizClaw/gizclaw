@@ -16,7 +16,7 @@ The peer firmware RPC surface is intentionally small:
 ```text
 server.firmware.list
 server.firmware.get
-server.firmware.download
+server.firmware.files.download
 ```
 
 There are no firmware-specific update report RPCs such as
@@ -34,18 +34,19 @@ A firmware document represents one release line, for example `devkit` or
 develop -> beta -> stable -> pending
 ```
 
-Each slot may declare artifacts. An artifact is selected by `name`, for example
-`main`, `assets`, or `bootloader`, and has a `kind` such as `app` or `data`.
-Binary payload bytes are uploaded separately and stored in the configured
-`firmware-assets` object store. The firmware document stores server-owned
-metadata such as object path, SHA-256, size, content type, and upload time.
+Each slot has at most one server-owned `artifact`. The uploaded payload is an
+`artifact.tar` package, which can contain multiple firmware modules such as
+`.bin` images plus additional assets such as audio or image files. The server
+stores the original tar, extracts regular files into the configured
+`firmware-assets` object store, and writes metadata such as object paths,
+SHA-256, size, content type, and upload time back to the slot.
 
 ## Admin Flow
 
 Admins own firmware publishing:
 
 1. Create or update a firmware document.
-2. Upload binary payloads for declared channel/artifact entries.
+2. Upload an `artifact.tar` package for the target channel.
 3. Release or rollback channel slots.
 4. Assign firmware selection to a peer config.
 5. Grant the peer `firmware.read` through ACL.
@@ -54,7 +55,7 @@ Example CLI flow:
 
 ```sh
 gizclaw admin firmwares put devkit -f firmware.json --context admin
-gizclaw admin firmwares upload-bin devkit --channel stable --bin main -f app.bin --context admin
+gizclaw admin firmwares upload-artifact devkit --channel stable -f artifact.tar --context admin
 gizclaw admin peers put-config <peer-public-key> --file peer-config.json --context admin
 gizclaw admin firmwares release devkit --context admin
 ```
@@ -78,10 +79,9 @@ separate `update.check` RPC.
 1. Read the assigned firmware id and channel from peer config or local runtime
    context.
 2. Call `server.firmware.get` to fetch the firmware document.
-3. Compare local firmware version/build/artifact metadata with the assigned
-   channel.
-4. Pick the exact `artifact_name` needed by the device.
-5. Call `server.firmware.download`.
+3. Compare local firmware version/build metadata with the assigned channel.
+4. Pick the exact artifact file path needed by the device.
+5. Call `server.firmware.files.download`.
 6. Verify size and SHA-256 before applying the payload.
 7. Apply the update using the device firmware updater.
 
@@ -93,7 +93,7 @@ gizclaw connect firmware get --firmware-id devkit --context device
 gizclaw connect firmware download \
   --firmware-id devkit \
   --channel stable \
-  --artifact-name main \
+  --path firmware.bin \
   --output app.bin \
   --context device
 ```
