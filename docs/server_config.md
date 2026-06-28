@@ -294,46 +294,9 @@ Default ports:
 
 ## CLI Context Config
 
-CLI contexts use the same explicit host/port model. The server public key is
-the trust anchor for both transports.
-
-Noise context:
-
-```yaml
-server:
-  host: 127.0.0.1
-  public-api-port: 9820
-  noise-udp-port: 9820
-  public-key: <server-public-key>
-  transport: noise
-  cipher-mode: chacha_poly
-```
-
-WebRTC context:
-
-```yaml
-server:
-  host: 127.0.0.1
-  public-api-port: 9820
-  noise-udp-port: 9820
-  ice-port: 9821
-  public-key: <server-public-key>
-  transport: webrtc
-  cipher-mode: chacha_poly
-```
-
-The WebRTC signaling path is fixed and must not be stored in the context:
-
-```text
-/giznet/webrtc/v1/offer
-```
-
-Transport selection:
-
-- `transport: noise` dials `host:noise-udp-port` over UDP.
-- `transport: webrtc` sends the sealed HTTP offer to
-  `http://host:public-api-port/giznet/webrtc/v1/offer` and uses `ice-port` for
-  WebRTC ICE UDP/TCP.
+CLI contexts use the same explicit host/port model. See
+[context_config.md](context_config.md) for the context file schema and transport
+dialing behavior.
 
 ## Field Notes
 
