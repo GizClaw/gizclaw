@@ -5,8 +5,10 @@ package chat
 import (
 	"encoding/json"
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -47,9 +49,11 @@ type interruptConfig struct {
 }
 
 type serverConfig struct {
-	Addr       string `json:"addr"`
-	PublicKey  string `json:"public_key"`
-	CipherMode string `json:"cipher_mode"`
+	Addr         string `json:"addr"`
+	PublicKey    string `json:"public_key"`
+	Transport    string `json:"transport"`
+	CipherMode   string `json:"cipher_mode"`
+	SignalingURL string `json:"signaling_url,omitempty"`
 }
 
 type modelConfig struct {
@@ -227,9 +231,14 @@ func readSetupContextConfig(path string) (setupContextConfig, error) {
 	contextDir := filepath.Dir(path)
 	var raw struct {
 		Server struct {
-			Address    string           `yaml:"address"`
-			PublicKey  giznet.PublicKey `yaml:"public-key"`
-			CipherMode string           `yaml:"cipher-mode"`
+			Address       string           `yaml:"address"`
+			Host          string           `yaml:"host"`
+			PublicAPIPort int              `yaml:"public-api-port"`
+			NoiseUDPPort  int              `yaml:"noise-udp-port"`
+			ICEPort       int              `yaml:"ice-port"`
+			PublicKey     giznet.PublicKey `yaml:"public-key"`
+			Transport     string           `yaml:"transport"`
+			CipherMode    string           `yaml:"cipher-mode"`
 		} `yaml:"server"`
 	}
 	if err := yaml.Unmarshal(data, &raw); err != nil {
@@ -249,9 +258,11 @@ func readSetupContextConfig(path string) (setupContextConfig, error) {
 	copy(privateKey[:], identityData)
 	cfg := setupContextConfig{
 		Server: serverConfig{
-			Addr:       raw.Server.Address,
-			PublicKey:  raw.Server.PublicKey.String(),
-			CipherMode: raw.Server.CipherMode,
+			Addr:         chatContextDialAddr(raw.Server.Address, raw.Server.Host, raw.Server.PublicAPIPort, raw.Server.NoiseUDPPort, raw.Server.Transport),
+			PublicKey:    raw.Server.PublicKey.String(),
+			Transport:    normalizeChatTransport(raw.Server.Transport),
+			CipherMode:   raw.Server.CipherMode,
+			SignalingURL: chatContextSignalingURL(raw.Server.Address, raw.Server.Host, raw.Server.PublicAPIPort),
 		},
 		ClientPrivateKey: privateKey.String(),
 	}
@@ -266,6 +277,7 @@ func (c *config) applySetupContextConfig(contextCfg setupContextConfig) {
 func (c *config) validate() error {
 	c.Server.Addr = strings.TrimSpace(c.Server.Addr)
 	c.Server.PublicKey = strings.TrimSpace(c.Server.PublicKey)
+	c.Server.Transport = normalizeChatTransport(c.Server.Transport)
 	c.Server.CipherMode = normalizeCipherMode(strings.TrimSpace(c.Server.CipherMode))
 	c.Workspace = strings.TrimSpace(c.Workspace)
 	c.Agent = strings.TrimSpace(c.Agent)
@@ -408,6 +420,68 @@ func (c *config) validate() error {
 		return fmt.Errorf("client private key: %w", err)
 	}
 	return nil
+}
+
+func normalizeChatTransport(transport string) string {
+	transport = strings.TrimSpace(transport)
+	if transport == "" {
+		return "noise"
+	}
+	return transport
+}
+
+func chatContextDialAddr(address, host string, publicPort, noisePort int, transport string) string {
+	if normalizeChatTransport(transport) == "webrtc" {
+		return chatContextPublicAPIAddr(address, host, publicPort)
+	}
+	if strings.TrimSpace(address) != "" && strings.TrimSpace(host) == "" && noisePort == 0 {
+		return strings.TrimSpace(address)
+	}
+	h, addressPort := chatContextHostAndAddressPort(address, host)
+	port := noisePort
+	if port == 0 {
+		port = addressPort
+	}
+	if port == 0 {
+		port = 9820
+	}
+	return net.JoinHostPort(h, strconv.Itoa(port))
+}
+
+func chatContextSignalingURL(address, host string, publicPort int) string {
+	return "http://" + chatContextPublicAPIAddr(address, host, publicPort) + "/giznet/webrtc/v1/offer"
+}
+
+func chatContextPublicAPIAddr(address, host string, publicPort int) string {
+	h, addressPort := chatContextHostAndAddressPort(address, host)
+	port := publicPort
+	if port == 0 {
+		port = addressPort
+	}
+	if port == 0 {
+		port = 9820
+	}
+	return net.JoinHostPort(h, strconv.Itoa(port))
+}
+
+func chatContextHostAndAddressPort(address, host string) (string, int) {
+	h := strings.TrimSpace(host)
+	var port int
+	if addr := strings.TrimSpace(address); addr != "" {
+		addrHost, addrPort, err := net.SplitHostPort(addr)
+		if err == nil {
+			if h == "" {
+				h = addrHost
+			}
+			port, _ = strconv.Atoi(addrPort)
+		} else if h == "" {
+			h = addr
+		}
+	}
+	if h == "" {
+		h = "127.0.0.1"
+	}
+	return h, port
 }
 
 func (c config) isFlowcraftAgent() bool {

@@ -1,0 +1,229 @@
+package gizwebrtc
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"net"
+	"net/http/httptest"
+	"testing"
+	"time"
+
+	"github.com/GizClaw/gizclaw-go/pkg/giznet"
+)
+
+type allowAllPolicy struct{}
+
+func (allowAllPolicy) AllowPeer(giznet.PublicKey) bool { return true }
+func (allowAllPolicy) AllowService(giznet.PublicKey, uint64) bool {
+	return true
+}
+
+func TestDialSignalingPacketAndServiceStream(t *testing.T) {
+	serverKey, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("GenerateKeyPair(server) error = %v", err)
+	}
+	clientKey, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("GenerateKeyPair(client) error = %v", err)
+	}
+	serverListener, err := (&ListenConfig{
+		CipherMode:     CipherModePlaintext,
+		SecurityPolicy: allowAllPolicy{},
+	}).Listen(serverKey)
+	if err != nil {
+		t.Fatalf("Listen error = %v", err)
+	}
+	defer serverListener.Close()
+	httpServer := httptest.NewServer(serverListener.SignalingHandler())
+	defer httpServer.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	clientListener, clientConn, err := Dial(ctx, clientKey, serverKey.Public, DialConfig{
+		SignalingURL:   httpServer.URL + SignalingPath,
+		CipherMode:     CipherModePlaintext,
+		SecurityPolicy: allowAllPolicy{},
+	})
+	if err != nil {
+		t.Fatalf("Dial error = %v", err)
+	}
+	defer clientListener.Close()
+	defer clientConn.Close()
+
+	serverConn := acceptConn(t, serverListener)
+	defer serverConn.Close()
+
+	if _, err := clientConn.Write(0x42, []byte("packet")); err != nil {
+		t.Fatalf("client packet Write error = %v", err)
+	}
+	buf := make([]byte, 64)
+	proto, n, err := serverConn.Read(buf)
+	if err != nil {
+		t.Fatalf("server packet Read error = %v", err)
+	}
+	if proto != 0x42 || string(buf[:n]) != "packet" {
+		t.Fatalf("server packet proto=%d payload=%q", proto, string(buf[:n]))
+	}
+
+	service := serverConn.ListenService(100)
+	clientStream, err := clientConn.Dial(100)
+	if err != nil {
+		t.Fatalf("client Dial(service) error = %v", err)
+	}
+	defer clientStream.Close()
+	serverStreamCh := make(chan interface{}, 1)
+	go func() {
+		s, err := service.Accept()
+		if err != nil {
+			serverStreamCh <- err
+			return
+		}
+		serverStreamCh <- s
+	}()
+	var serverStream interface{}
+	select {
+	case serverStream = <-serverStreamCh:
+	case <-time.After(5 * time.Second):
+		t.Fatal("server service Accept timeout")
+	}
+	if err, ok := serverStream.(error); ok {
+		t.Fatalf("server service Accept error = %v", err)
+	}
+	accepted := serverStream.(interface {
+		Read([]byte) (int, error)
+		Write([]byte) (int, error)
+		Close() error
+	})
+	defer accepted.Close()
+	if _, err := clientStream.Write([]byte("hello stream")); err != nil {
+		t.Fatalf("client stream Write error = %v", err)
+	}
+	n, err = accepted.Read(buf)
+	if err != nil {
+		t.Fatalf("server stream Read error = %v", err)
+	}
+	if string(buf[:n]) != "hello stream" {
+		t.Fatalf("server stream payload = %q", string(buf[:n]))
+	}
+}
+
+func TestDialSignalingWithFixedICEPort(t *testing.T) {
+	serverKey, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("GenerateKeyPair(server) error = %v", err)
+	}
+	clientKey, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("GenerateKeyPair(client) error = %v", err)
+	}
+	serverListener, err := (&ListenConfig{
+		ICEAddr:        freeLocalICEAddr(t),
+		CipherMode:     CipherModePlaintext,
+		SecurityPolicy: allowAllPolicy{},
+	}).Listen(serverKey)
+	if err != nil {
+		t.Fatalf("Listen error = %v", err)
+	}
+	defer serverListener.Close()
+	httpServer := httptest.NewServer(serverListener.SignalingHandler())
+	defer httpServer.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	clientListener, clientConn, err := Dial(ctx, clientKey, serverKey.Public, DialConfig{
+		SignalingURL:   httpServer.URL + SignalingPath,
+		CipherMode:     CipherModePlaintext,
+		SecurityPolicy: allowAllPolicy{},
+	})
+	if err != nil {
+		t.Fatalf("Dial error = %v", err)
+	}
+	defer clientListener.Close()
+	defer clientConn.Close()
+
+	serverConn := acceptConn(t, serverListener)
+	defer serverConn.Close()
+
+	if _, err := clientConn.Write(0x42, []byte("fixed ice")); err != nil {
+		t.Fatalf("client packet Write error = %v", err)
+	}
+	buf := make([]byte, 64)
+	proto, n, err := serverConn.Read(buf)
+	if err != nil {
+		t.Fatalf("server packet Read error = %v", err)
+	}
+	if proto != 0x42 || string(buf[:n]) != "fixed ice" {
+		t.Fatalf("server packet proto=%d payload=%q", proto, string(buf[:n]))
+	}
+}
+
+func TestPacketWriteRejectsLargePayload(t *testing.T) {
+	if _, err := writePacket(nil, 1, nil); !errors.Is(err, ErrPacketChannel) {
+		t.Fatalf("writePacket nil err = %v, want %v", err, ErrPacketChannel)
+	}
+	payload := make([]byte, maxPacketMessageSize)
+	if _, err := writePacket(noopPacketRaw{}, 1, payload); !errors.Is(err, ErrPacketTooLarge) {
+		t.Fatalf("writePacket large err = %v, want %v", err, ErrPacketTooLarge)
+	}
+}
+
+func acceptConn(t *testing.T, l *Listener) *Conn {
+	t.Helper()
+	ch := make(chan giznet.Conn, 1)
+	errCh := make(chan error, 1)
+	go func() {
+		c, err := l.Accept()
+		if err != nil {
+			errCh <- err
+			return
+		}
+		ch <- c
+	}()
+	select {
+	case c := <-ch:
+		wc, ok := c.(*Conn)
+		if !ok {
+			t.Fatalf("accepted conn type = %T", c)
+		}
+		return wc
+	case err := <-errCh:
+		t.Fatalf("Accept error = %v", err)
+	case <-time.After(5 * time.Second):
+		t.Fatal("Accept timeout")
+	}
+	return nil
+}
+
+func freeLocalICEAddr(t *testing.T) string {
+	t.Helper()
+	for range 20 {
+		tcp, err := net.Listen("tcp", "127.0.0.1:0")
+		if err != nil {
+			t.Fatalf("listen tcp: %v", err)
+		}
+		port := tcp.Addr().(*net.TCPAddr).Port
+		udp, err := net.ListenPacket("udp", fmt.Sprintf("127.0.0.1:%d", port))
+		if err == nil {
+			_ = udp.Close()
+			_ = tcp.Close()
+			return fmt.Sprintf("127.0.0.1:%d", port)
+		}
+		_ = tcp.Close()
+	}
+	t.Fatal("could not allocate local ICE addr")
+	return ""
+}
+
+type noopPacketRaw struct{}
+
+func (noopPacketRaw) Read([]byte) (int, error)                  { return 0, nil }
+func (noopPacketRaw) Write([]byte) (int, error)                 { return 0, nil }
+func (noopPacketRaw) ReadDataChannel([]byte) (int, bool, error) { return 0, false, nil }
+func (noopPacketRaw) WriteDataChannel([]byte, bool) (int, error) {
+	return 0, nil
+}
+func (noopPacketRaw) Close() error                     { return nil }
+func (noopPacketRaw) SetReadDeadline(time.Time) error  { return nil }
+func (noopPacketRaw) SetWriteDeadline(time.Time) error { return nil }

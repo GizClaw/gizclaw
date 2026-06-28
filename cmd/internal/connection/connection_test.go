@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -16,6 +17,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkg/giznet"
 	"github.com/GizClaw/gizclaw-go/pkg/giznet/gizhttp"
 	"github.com/GizClaw/gizclaw-go/pkg/giznet/giznoise"
+	"github.com/GizClaw/gizclaw-go/pkg/giznet/gizwebrtc"
 )
 
 type allowAllSecurityPolicy struct{}
@@ -147,6 +149,79 @@ func TestDialFromContextUsesCurrentContext(t *testing.T) {
 	}
 	if serverAddr != "127.0.0.1:9820" {
 		t.Fatalf("server address = %q", serverAddr)
+	}
+}
+
+func TestDialFromContextUsesWebRTCTransport(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+
+	serverKey, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("GenerateKeyPair(server) error = %v", err)
+	}
+	clientKey := testServerPrivateKey(0xac)
+	clientKeyPair, err := giznet.NewKeyPair(clientKey)
+	if err != nil {
+		t.Fatalf("NewKeyPair(client) error = %v", err)
+	}
+	serverListener, err := (&gizwebrtc.ListenConfig{
+		CipherMode:     gizwebrtc.CipherModePlaintext,
+		SecurityPolicy: allowAllSecurityPolicy{},
+	}).Listen(serverKey)
+	if err != nil {
+		t.Fatalf("gizwebrtc Listen error = %v", err)
+	}
+	defer serverListener.Close()
+	httpServer := httptest.NewServer(serverListener.SignalingHandler())
+	defer httpServer.Close()
+	serverURL := strings.TrimPrefix(httpServer.URL, "http://")
+
+	store, err := clicontext.DefaultStore()
+	if err != nil {
+		t.Fatalf("DefaultStore error = %v", err)
+	}
+	if err := store.CreateWithOptions("webrtc", serverURL, clicontext.CreateOptions{
+		ServerPublicKey: serverKey.Public.String(),
+		CipherMode:      giznoise.CipherModePlaintext,
+		Transport:       "webrtc",
+	}); err != nil {
+		t.Fatalf("CreateWithOptions error = %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(store.Root, "webrtc", "identity.key"), clientKey[:], 0o600); err != nil {
+		t.Fatalf("write identity: %v", err)
+	}
+
+	client, serverPK, serverAddr, err := DialFromContext("webrtc")
+	if err != nil {
+		t.Fatalf("DialFromContext error = %v", err)
+	}
+	if serverPK != serverKey.Public {
+		t.Fatalf("serverPK mismatch")
+	}
+	if serverAddr == "" {
+		t.Fatal("serverAddr is empty")
+	}
+	if err := client.Dial(serverPK, serverAddr); err != nil {
+		t.Fatalf("client Dial error = %v", err)
+	}
+	defer client.Close()
+
+	accepted := make(chan giznet.Conn, 1)
+	go func() {
+		conn, _ := serverListener.Accept()
+		accepted <- conn
+	}()
+	select {
+	case conn := <-accepted:
+		if conn == nil {
+			t.Fatal("accepted nil conn")
+		}
+		defer conn.Close()
+		if conn.PublicKey() != clientKeyPair.Public {
+			t.Fatalf("accepted public key = %s want %s", conn.PublicKey(), clientKeyPair.Public)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("server Accept timeout")
 	}
 }
 

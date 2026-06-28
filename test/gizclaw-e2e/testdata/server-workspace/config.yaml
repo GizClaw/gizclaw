@@ -1,4 +1,7 @@
-listen: "127.0.0.1:9820"
+host: 127.0.0.1
+public-api-port: 9820
+noise-udp-port: 9820
+ice-port: 9821
 cipher-mode: "chacha_poly"
 admin-public-key: "6Ww6ANsXDCf91Yp7Tvi65hqpywjMmXqAoZDiq33kfCee"
 storage:

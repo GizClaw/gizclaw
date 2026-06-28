@@ -219,8 +219,8 @@ func TestNewWiresPeerListenerFactory(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = srv.Close() })
 
-	if len(srv.Server.PeerListenerFactories) != 1 {
-		t.Fatalf("PeerListenerFactories len = %d, want 1", len(srv.Server.PeerListenerFactories))
+	if len(srv.Server.PeerListenerFactories) != 2 {
+		t.Fatalf("PeerListenerFactories len = %d, want 2", len(srv.Server.PeerListenerFactories))
 	}
 }
 
@@ -458,7 +458,7 @@ func TestValidateReportsLayeredStorageMissingFields(t *testing.T) {
 	}
 }
 
-func TestPrepareConfigGeneratesKeyPairAndDefaultListenAddr(t *testing.T) {
+func TestPrepareConfigGeneratesKeyPairAndDefaultPorts(t *testing.T) {
 	cfg, err := prepareConfig(Config{})
 	if err != nil {
 		t.Fatalf("prepareConfig error = %v", err)
@@ -466,8 +466,9 @@ func TestPrepareConfigGeneratesKeyPairAndDefaultListenAddr(t *testing.T) {
 	if cfg.KeyPair == nil {
 		t.Fatal("KeyPair should be generated")
 	}
-	if cfg.ListenAddr != DefaultConfig().ListenAddr {
-		t.Fatalf("ListenAddr = %q, want %q", cfg.ListenAddr, DefaultConfig().ListenAddr)
+	defaults := DefaultConfig()
+	if cfg.Host != defaults.Host || cfg.PublicAPIPort != defaults.PublicAPIPort || cfg.NoiseUDPPort != defaults.NoiseUDPPort || cfg.ICEPort != defaults.ICEPort {
+		t.Fatalf("defaults host=%q public=%d noise=%d ice=%d", cfg.Host, cfg.PublicAPIPort, cfg.NoiseUDPPort, cfg.ICEPort)
 	}
 }
 

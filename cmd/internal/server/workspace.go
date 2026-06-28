@@ -160,7 +160,7 @@ func ServeContext(ctx context.Context, workspace string, opts ServeOptions) erro
 		return err
 	}
 	defer srv.Close()
-	publicListener, err := net.Listen("tcp", cfg.ListenAddr)
+	publicListener, err := net.Listen("tcp", cfg.PublicAPIListenAddr())
 	if err != nil {
 		return fmt.Errorf("server: listen public http: %w", err)
 	}

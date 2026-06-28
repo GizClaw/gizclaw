@@ -25,6 +25,10 @@ type Store struct {
 type CreateOptions struct {
 	CipherMode      giznoise.CipherMode
 	ServerPublicKey string
+	Transport       string
+	PublicAPIPort   int
+	NoiseUDPPort    int
+	ICEPort         int
 }
 
 // DefaultStore returns a Store under the gizclaw config directory.
@@ -48,6 +52,13 @@ func (s *Store) CreateWithOptions(name, serverAddr string, opts CreateOptions) e
 	}
 	if err := validateCipherMode(opts.CipherMode); err != nil {
 		return err
+	}
+	transport := opts.Transport
+	if transport == "" {
+		transport = "noise"
+	}
+	if transport != "noise" && transport != "webrtc" {
+		return fmt.Errorf("clicontext: unsupported transport %q", transport)
 	}
 	dir := filepath.Join(s.Root, name)
 	if _, err := os.Stat(dir); err == nil {
@@ -73,15 +84,28 @@ func (s *Store) CreateWithOptions(name, serverAddr string, opts CreateOptions) e
 		return fmt.Errorf("clicontext: generate key: %w", err)
 	}
 
+	host, publicPort, noisePort, icePort, err := normalizeServerEndpoint(serverAddr, "", opts.PublicAPIPort, opts.NoiseUDPPort, opts.ICEPort)
+	if err != nil {
+		return err
+	}
+
 	cfg := struct {
 		Server struct {
-			Address    string              `yaml:"address"`
-			PublicKey  giznet.PublicKey    `yaml:"public-key"`
-			CipherMode giznoise.CipherMode `yaml:"cipher-mode,omitempty"`
+			Host          string              `yaml:"host"`
+			PublicAPIPort int                 `yaml:"public-api-port"`
+			NoiseUDPPort  int                 `yaml:"noise-udp-port"`
+			ICEPort       int                 `yaml:"ice-port"`
+			PublicKey     giznet.PublicKey    `yaml:"public-key"`
+			Transport     string              `yaml:"transport"`
+			CipherMode    giznoise.CipherMode `yaml:"cipher-mode,omitempty"`
 		} `yaml:"server"`
 	}{}
-	cfg.Server.Address = serverAddr
+	cfg.Server.Host = host
+	cfg.Server.PublicAPIPort = publicPort
+	cfg.Server.NoiseUDPPort = noisePort
+	cfg.Server.ICEPort = icePort
 	cfg.Server.PublicKey = serverPublicKey
+	cfg.Server.Transport = transport
 	cfg.Server.CipherMode = opts.CipherMode
 	data, err := yaml.Marshal(cfg)
 	if err != nil {

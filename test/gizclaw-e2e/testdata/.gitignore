@@ -23,3 +23,6 @@
 !gizclaw-config-home/gizclaw/e2e-client/
 !gizclaw-config-home/gizclaw/e2e-client/config.yaml
 !gizclaw-config-home/gizclaw/e2e-client/identity.key
+!gizclaw-config-home/gizclaw/e2e-client-webrtc/
+!gizclaw-config-home/gizclaw/e2e-client-webrtc/config.yaml
+!gizclaw-config-home/gizclaw/e2e-client-webrtc/identity.key

@@ -72,6 +72,41 @@ go test -tags gizclaw_e2e -count=1 ./test/gizclaw-e2e/client/social
 go test -tags gizclaw_e2e -count=1 ./test/gizclaw-e2e/cmd/connect
 ```
 
+### Giznet Transport Parity
+
+The committed setup server exposes both giznet transports:
+
+- `9820/udp`: Noise over UDP
+- `9820/tcp`: public HTTP API and WebRTC signaling
+- `9821/udp` and `9821/tcp`: WebRTC ICE
+
+For #90 transport parity, run the same client suites twice with separate
+contexts and a data reset between runs. The Noise context is
+`e2e-client`; the WebRTC context is `e2e-client-webrtc`.
+
+```sh
+./test/gizclaw-e2e/setup/reset_data.sh
+GIZCLAW_E2E_CLIENT_CONTEXT=e2e-client \
+go test -tags gizclaw_e2e -count=1 \
+  ./test/gizclaw-e2e/client/admin \
+  ./test/gizclaw-e2e/client/rpc \
+  ./test/gizclaw-e2e/client/chat \
+  ./test/gizclaw-e2e/client/social \
+  ./test/gizclaw-e2e/cmd/connect
+
+./test/gizclaw-e2e/setup/reset_data.sh
+GIZCLAW_E2E_CLIENT_CONTEXT=e2e-client-webrtc \
+go test -tags gizclaw_e2e -count=1 \
+  ./test/gizclaw-e2e/client/admin \
+  ./test/gizclaw-e2e/client/rpc \
+  ./test/gizclaw-e2e/client/chat \
+  ./test/gizclaw-e2e/client/social \
+  ./test/gizclaw-e2e/cmd/connect
+```
+
+The harness logs the selected context transport and dial address when it binds
+an alias or opens a direct `gizcli.Client` connection.
+
 7. For browser UI tests, start the matching UI surface after the needed client
    tests have created runtime state:
 
@@ -222,7 +257,8 @@ without changing test code:
 - `GIZCLAW_E2E_ADMIN_CLI_CONFIG_HOME` / `GIZCLAW_E2E_ADMIN_CLI_CONTEXT`:
   admin CLI story target role.
 - `GIZCLAW_E2E_CLIENT_CONFIG_HOME` / `GIZCLAW_E2E_CLIENT_CONTEXT`: ordinary
-  client, workspace, and RPC cases.
+  client, workspace, and RPC cases. The committed contexts are `e2e-client`
+  for Noise over UDP and `e2e-client-webrtc` for WebRTC.
 - `GIZCLAW_E2E_SOCIAL_PERSON_A_CONFIG_HOME` /
   `GIZCLAW_E2E_SOCIAL_PERSON_A_CONTEXT`: social role A.
 - `GIZCLAW_E2E_SOCIAL_PERSON_B_CONFIG_HOME` /

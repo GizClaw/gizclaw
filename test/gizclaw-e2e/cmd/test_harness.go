@@ -14,6 +14,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -24,6 +25,8 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/gizcli"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/services/system/publiclogin"
 	"github.com/GizClaw/gizclaw-go/pkg/giznet"
+	"github.com/GizClaw/gizclaw-go/pkg/giznet/giznoise"
+	"github.com/GizClaw/gizclaw-go/pkg/giznet/gizwebrtc"
 	"github.com/goccy/go-yaml"
 )
 
@@ -77,9 +80,14 @@ type Result struct {
 
 type cliContextConfig struct {
 	Server struct {
-		Address    string `yaml:"address"`
-		PublicKey  string `yaml:"public-key"`
-		CipherMode string `yaml:"cipher-mode,omitempty"`
+		Address       string `yaml:"address,omitempty"`
+		Host          string `yaml:"host,omitempty"`
+		PublicAPIPort int    `yaml:"public-api-port,omitempty"`
+		NoiseUDPPort  int    `yaml:"noise-udp-port,omitempty"`
+		ICEPort       int    `yaml:"ice-port,omitempty"`
+		PublicKey     string `yaml:"public-key"`
+		Transport     string `yaml:"transport,omitempty"`
+		CipherMode    string `yaml:"cipher-mode,omitempty"`
 	} `yaml:"server"`
 }
 
@@ -89,8 +97,12 @@ type contextAlias struct {
 }
 
 type serverWorkspaceConfig struct {
-	Listen     string `yaml:"listen"`
-	CipherMode string `yaml:"cipher-mode"`
+	Listen        string `yaml:"listen"`
+	Host          string `yaml:"host"`
+	PublicAPIPort int    `yaml:"public-api-port"`
+	NoiseUDPPort  int    `yaml:"noise-udp-port"`
+	ICEPort       int    `yaml:"ice-port"`
+	CipherMode    string `yaml:"cipher-mode"`
 }
 
 type managedProcess struct {
@@ -178,12 +190,13 @@ func (h *Harness) UseSetupServer() {
 	if err != nil {
 		h.t.Fatalf("load setup server identity: %v", err)
 	}
-	if strings.TrimSpace(cfg.Listen) == "" {
-		h.t.Fatalf("setup server config %q has empty listen address", configPath)
+	serverAddr := serverWorkspaceNoiseAddr(cfg)
+	if strings.TrimSpace(serverAddr) == "" {
+		h.t.Fatalf("setup server config %q has empty server address", configPath)
 	}
 
 	h.ServerWorkspace = workspaceDir
-	h.ServerAddr = strings.TrimSpace(cfg.Listen)
+	h.ServerAddr = serverAddr
 	h.ServerPublicKey = keyPair.Public.String()
 	h.ServerCipherMode = strings.TrimSpace(cfg.CipherMode)
 	h.applySetupContextServer()
@@ -214,14 +227,14 @@ func (h *Harness) applySetupContextServer() {
 	if err := yaml.Unmarshal(data, &cfg); err != nil {
 		h.t.Fatalf("parse setup context config %q: %v", configPath, err)
 	}
-	if strings.TrimSpace(cfg.Server.Address) == "" {
+	if strings.TrimSpace(cliContextNoiseAddr(cfg)) == "" {
 		h.t.Fatalf("setup context config %q has empty server address", configPath)
 	}
 	if strings.TrimSpace(cfg.Server.PublicKey) == "" {
 		h.t.Fatalf("setup context config %q has empty server public key", configPath)
 	}
 
-	h.ServerAddr = strings.TrimSpace(cfg.Server.Address)
+	h.ServerAddr = cliContextNoiseAddr(cfg)
 	h.ServerPublicKey = strings.TrimSpace(cfg.Server.PublicKey)
 	h.ServerCipherMode = strings.TrimSpace(cfg.Server.CipherMode)
 }
@@ -317,10 +330,14 @@ func (h *Harness) CreateContext(name string) Result {
 
 func (h *Harness) CreateContextWith(name, serverAddr, serverPublicKey string) Result {
 	h.t.Helper()
+	_, port := splitHostPortForHarness(serverAddr)
 	args := []string{
 		"context", "create", name,
 		"--server", serverAddr,
 		"--public-key", serverPublicKey,
+		"--transport", "noise",
+		"--public-api-port", port,
+		"--noise-udp-port", port,
 	}
 	if h.ServerCipherMode != "" {
 		args = append(args, "--cipher-mode", h.ServerCipherMode)
@@ -343,8 +360,12 @@ func (h *Harness) EnsureContext(name string) Result {
 	}
 
 	cfg := cliContextConfig{}
-	cfg.Server.Address = h.ServerAddr
+	host, port := splitHostPortForHarness(h.ServerAddr)
+	cfg.Server.Host = host
+	cfg.Server.PublicAPIPort = parsePortForHarness(h.t, port)
+	cfg.Server.NoiseUDPPort = parsePortForHarness(h.t, port)
 	cfg.Server.PublicKey = h.ServerPublicKey
+	cfg.Server.Transport = "noise"
 	cfg.Server.CipherMode = h.ServerCipherMode
 	data, err := yaml.Marshal(cfg)
 	if err != nil {
@@ -529,6 +550,13 @@ func (h *Harness) SetContextAlias(alias, configHome, contextName string) {
 		h.contextAliases = make(map[string]contextAlias)
 	}
 	h.contextAliases[alias] = contextAlias{ConfigHome: configHome, Name: contextName}
+	configPath := filepath.Join(configHome, "gizclaw", contextName, "config.yaml")
+	if data, err := os.ReadFile(configPath); err == nil {
+		var cfg cliContextConfig
+		if err := yaml.Unmarshal(data, &cfg); err == nil {
+			h.t.Logf("context alias %s -> %s/%s transport=%s dial=%s", alias, configHome, contextName, cliContextTransport(cfg), cliContextDialAddr(cfg))
+		}
+	}
 }
 
 func (h *Harness) StartUI(kind, contextName string) string {
@@ -617,9 +645,13 @@ func (h *Harness) connectClientFromContext(name string) (*gizcli.Client, error) 
 	}
 
 	serverPublicKey := h.serverPublicKeyFromContextConfig(cfg)
+	h.t.Logf("connect context %s transport=%s dial=%s", name, cliContextTransport(cfg), cliContextDialAddr(cfg))
 
-	client := &gizcli.Client{KeyPair: keyPair}
-	if err := client.Dial(serverPublicKey, cfg.Server.Address); err != nil {
+	client := &gizcli.Client{
+		KeyPair:       keyPair,
+		DialTransport: e2eDialTransport(cfg),
+	}
+	if err := client.Dial(serverPublicKey, cliContextDialAddr(cfg)); err != nil {
 		_ = client.Close()
 		return nil, err
 	}
@@ -705,7 +737,15 @@ func (h *Harness) waitForServerReady() {
 		if err != nil {
 			return err
 		}
-		client := &gizcli.Client{KeyPair: keyPair}
+		cfg := cliContextConfig{}
+		host, portText := splitHostPortForHarness(h.ServerAddr)
+		port := parsePortForHarness(h.t, portText)
+		cfg.Server.Host = host
+		cfg.Server.PublicAPIPort = port
+		cfg.Server.NoiseUDPPort = port
+		cfg.Server.Transport = "noise"
+		cfg.Server.CipherMode = h.ServerCipherMode
+		client := &gizcli.Client{KeyPair: keyPair, DialTransport: e2eDialTransport(cfg)}
 		if err := client.Dial(serverPublicKey, h.ServerAddr); err != nil {
 			_ = client.Close()
 			return err
@@ -825,7 +865,14 @@ func (h *Harness) renderServerFixture(fixtureName string, replacements map[strin
 		rendered = strings.ReplaceAll(rendered, old, newValue)
 	}
 	if listenAddr := replacements[fixtureListenAddrToken]; listenAddr != "" {
+		host, port := splitHostPortForHarness(listenAddr)
+		_, icePort := splitHostPortForHarness(allocateUDPAddr(h.t))
 		rendered = strings.ReplaceAll(rendered, `listen: "127.0.0.1:9820"`, fmt.Sprintf(`listen: "%s"`, listenAddr))
+		rendered = strings.ReplaceAll(rendered, "host: 127.0.0.1", "host: "+host)
+		rendered = strings.ReplaceAll(rendered, "host: 0.0.0.0", "host: "+host)
+		rendered = strings.ReplaceAll(rendered, "public-api-port: 9820", "public-api-port: "+port)
+		rendered = strings.ReplaceAll(rendered, "noise-udp-port: 9820", "noise-udp-port: "+port)
+		rendered = strings.ReplaceAll(rendered, "ice-port: 9821", "ice-port: "+icePort)
 	}
 
 	targetPath := filepath.Join(h.ServerWorkspace, "config.yaml")
@@ -864,6 +911,143 @@ func (h *Harness) serverPublicKeyFromContextConfig(cfg cliContextConfig) giznet.
 		h.t.Fatal("context server public key is zero")
 	}
 	return serverPublicKey
+}
+
+func e2eDialTransport(cfg cliContextConfig) gizcli.DialTransportFunc {
+	return func(key *giznet.KeyPair, serverPK giznet.PublicKey, serverAddr string, securityPolicy giznet.SecurityPolicy) (giznet.Listener, giznet.Conn, error) {
+		if cliContextTransport(cfg) == "webrtc" {
+			ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+			defer cancel()
+			return gizwebrtc.Dial(ctx, key, serverPK, gizwebrtc.DialConfig{
+				SignalingURL:   cliContextSignalingURL(cfg),
+				CipherMode:     gizwebrtc.CipherMode(cfg.Server.CipherMode),
+				SecurityPolicy: securityPolicy,
+			})
+		}
+		l, err := (&giznoise.ListenConfig{
+			Addr:           ":0",
+			CipherMode:     giznoise.CipherMode(cfg.Server.CipherMode),
+			SecurityPolicy: securityPolicy,
+		}).Listen(key)
+		if err != nil {
+			return nil, nil, err
+		}
+		udpAddr, err := net.ResolveUDPAddr("udp", serverAddr)
+		if err != nil {
+			_ = l.Close()
+			return nil, nil, err
+		}
+		conn, err := l.Dial(serverPK, udpAddr)
+		if err != nil {
+			_ = l.Close()
+			return nil, nil, err
+		}
+		return l, conn, nil
+	}
+}
+
+func cliContextTransport(cfg cliContextConfig) string {
+	transport := strings.TrimSpace(cfg.Server.Transport)
+	if transport == "" {
+		return "noise"
+	}
+	return transport
+}
+
+func cliContextDialAddr(cfg cliContextConfig) string {
+	if cliContextTransport(cfg) == "webrtc" {
+		return cliContextPublicAPIAddr(cfg)
+	}
+	return cliContextNoiseAddr(cfg)
+}
+
+func cliContextSignalingURL(cfg cliContextConfig) string {
+	return "http://" + cliContextPublicAPIAddr(cfg) + gizwebrtc.SignalingPath
+}
+
+func cliContextPublicAPIAddr(cfg cliContextConfig) string {
+	host, addressPort := cliContextHostAndAddressPort(cfg)
+	port := cfg.Server.PublicAPIPort
+	if port == 0 {
+		port = addressPort
+	}
+	if port == 0 {
+		port = 9820
+	}
+	return net.JoinHostPort(host, strconv.Itoa(port))
+}
+
+func cliContextNoiseAddr(cfg cliContextConfig) string {
+	if strings.TrimSpace(cfg.Server.Address) != "" && cfg.Server.NoiseUDPPort == 0 && cfg.Server.Host == "" {
+		return strings.TrimSpace(cfg.Server.Address)
+	}
+	host, addressPort := cliContextHostAndAddressPort(cfg)
+	port := cfg.Server.NoiseUDPPort
+	if port == 0 {
+		port = addressPort
+	}
+	if port == 0 {
+		port = 9820
+	}
+	return net.JoinHostPort(host, strconv.Itoa(port))
+}
+
+func cliContextHostAndAddressPort(cfg cliContextConfig) (string, int) {
+	host := strings.TrimSpace(cfg.Server.Host)
+	var port int
+	if addr := strings.TrimSpace(cfg.Server.Address); addr != "" {
+		addrHost, addrPort, err := net.SplitHostPort(addr)
+		if err == nil {
+			if host == "" {
+				host = addrHost
+			}
+			port, _ = strconv.Atoi(addrPort)
+		} else if host == "" {
+			host = addr
+		}
+	}
+	if host == "" {
+		host = "127.0.0.1"
+	}
+	return host, port
+}
+
+func serverWorkspaceNoiseAddr(cfg serverWorkspaceConfig) string {
+	if strings.TrimSpace(cfg.Listen) != "" {
+		return strings.TrimSpace(cfg.Listen)
+	}
+	host := strings.TrimSpace(cfg.Host)
+	if host == "" {
+		host = "127.0.0.1"
+	}
+	port := cfg.NoiseUDPPort
+	if port == 0 {
+		port = cfg.PublicAPIPort
+	}
+	if port == 0 {
+		port = 9820
+	}
+	return net.JoinHostPort(host, strconv.Itoa(port))
+}
+
+func splitHostPortForHarness(addr string) (string, string) {
+	host, port, err := net.SplitHostPort(strings.TrimSpace(addr))
+	if err != nil {
+		return "127.0.0.1", "9820"
+	}
+	if host == "" {
+		host = "127.0.0.1"
+	}
+	return host, port
+}
+
+func parsePortForHarness(t testing.TB, port string) int {
+	t.Helper()
+	n, err := strconv.Atoi(port)
+	if err != nil {
+		t.Fatalf("parse port %q: %v", port, err)
+	}
+	return n
 }
 
 func (h *Harness) serverProcessError() error {

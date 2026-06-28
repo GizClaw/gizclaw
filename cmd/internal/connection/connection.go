@@ -10,6 +10,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/gizcli"
 	"github.com/GizClaw/gizclaw-go/pkg/giznet"
 	"github.com/GizClaw/gizclaw-go/pkg/giznet/giznoise"
+	"github.com/GizClaw/gizclaw-go/pkg/giznet/gizwebrtc"
 )
 
 func DialFromContext(name string) (*gizcli.Client, giznet.PublicKey, string, error) {
@@ -36,6 +37,19 @@ func DialFromContext(name string) (*gizcli.Client, giznet.PublicKey, string, err
 	return &gizcli.Client{
 		KeyPair: cliCtx.KeyPair,
 		DialTransport: func(key *giznet.KeyPair, serverPK giznet.PublicKey, serverAddr string, securityPolicy giznet.SecurityPolicy) (giznet.Listener, giznet.Conn, error) {
+			if cliCtx.Config.Server.Transport == "webrtc" {
+				ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+				defer cancel()
+				l, conn, err := gizwebrtc.Dial(ctx, key, serverPK, gizwebrtc.DialConfig{
+					SignalingURL:   cliCtx.Config.Server.SignalingURL(),
+					CipherMode:     gizwebrtc.CipherMode(cliCtx.Config.Server.CipherMode),
+					SecurityPolicy: securityPolicy,
+				})
+				if err != nil {
+					return nil, nil, err
+				}
+				return l, conn, nil
+			}
 			l, err := (&giznoise.ListenConfig{
 				Addr:           ":0",
 				CipherMode:     cliCtx.Config.Server.CipherMode,
@@ -56,7 +70,7 @@ func DialFromContext(name string) (*gizcli.Client, giznet.PublicKey, string, err
 			}
 			return l, conn, nil
 		},
-	}, serverPK, cliCtx.Config.Server.Address, nil
+	}, serverPK, cliCtx.Config.Server.NoiseUDPAddr(), nil
 }
 
 var dialFromContext = DialFromContext

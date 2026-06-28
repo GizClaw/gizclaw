@@ -15,6 +15,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/gizcli"
 	"github.com/GizClaw/gizclaw-go/pkg/giznet"
 	"github.com/GizClaw/gizclaw-go/pkg/giznet/giznoise"
+	"github.com/GizClaw/gizclaw-go/pkg/giznet/gizwebrtc"
 	"github.com/openai/openai-go"
 	"github.com/openai/openai-go/option"
 )
@@ -203,6 +204,15 @@ func dialClient(cfg config) (*gizcli.Client, <-chan error, error) {
 	client := &gizcli.Client{
 		KeyPair: keyPair,
 		DialTransport: func(key *giznet.KeyPair, serverPK giznet.PublicKey, serverAddr string, securityPolicy giznet.SecurityPolicy) (giznet.Listener, giznet.Conn, error) {
+			if cfg.Server.Transport == "webrtc" {
+				ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+				defer cancel()
+				return gizwebrtc.Dial(ctx, key, serverPK, gizwebrtc.DialConfig{
+					SignalingURL:   cfg.Server.SignalingURL,
+					CipherMode:     gizwebrtc.CipherMode(cfg.Server.CipherMode),
+					SecurityPolicy: securityPolicy,
+				})
+			}
 			l, err := (&giznoise.ListenConfig{
 				Addr:           ":0",
 				CipherMode:     giznoise.CipherMode(cfg.Server.CipherMode),

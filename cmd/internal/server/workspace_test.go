@@ -128,7 +128,7 @@ system_tasks:
 	}
 }
 
-func TestPrepareWorkspaceConfigUsesDefaultListenAddr(t *testing.T) {
+func TestPrepareWorkspaceConfigUsesDefaultPorts(t *testing.T) {
 	workspace := t.TempDir()
 	if err := os.WriteFile(filepath.Join(workspace, workspaceConfigFile), []byte(`
 stores:
@@ -145,8 +145,9 @@ peers:
 	if err != nil {
 		t.Fatalf("prepareWorkspaceConfig error = %v", err)
 	}
-	if cfg.ListenAddr != DefaultConfig().ListenAddr {
-		t.Fatalf("ListenAddr = %q, want %q", cfg.ListenAddr, DefaultConfig().ListenAddr)
+	defaults := DefaultConfig()
+	if cfg.Host != defaults.Host || cfg.PublicAPIPort != defaults.PublicAPIPort || cfg.NoiseUDPPort != defaults.NoiseUDPPort || cfg.ICEPort != defaults.ICEPort {
+		t.Fatalf("defaults host=%q public=%d noise=%d ice=%d", cfg.Host, cfg.PublicAPIPort, cfg.NoiseUDPPort, cfg.ICEPort)
 	}
 }
 

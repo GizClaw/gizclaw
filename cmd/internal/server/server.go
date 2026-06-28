@@ -3,6 +3,7 @@ package server
 import (
 	"errors"
 	"fmt"
+	"net/http"
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/cmd/internal/storage"
@@ -10,6 +11,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw"
 	"github.com/GizClaw/gizclaw-go/pkg/giznet"
 	"github.com/GizClaw/gizclaw-go/pkg/giznet/giznoise"
+	"github.com/GizClaw/gizclaw-go/pkg/giznet/gizwebrtc"
 )
 
 var BuildCommit = "dev"
@@ -19,6 +21,7 @@ type CmdServer struct {
 	*gizclaw.Server
 	AdminPublicKey giznet.PublicKey
 	stores         *stores.Stores
+	webrtcHandler  http.Handler
 }
 
 func (s *CmdServer) Close() error {
@@ -35,6 +38,18 @@ func (s *CmdServer) Close() error {
 		s.stores = nil
 	}
 	return errors.Join(errs...)
+}
+
+func (s *CmdServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if s != nil && s.webrtcHandler != nil && r.URL.Path == gizwebrtc.SignalingPath {
+		s.webrtcHandler.ServeHTTP(w, r)
+		return
+	}
+	if s == nil || s.Server == nil {
+		http.NotFound(w, r)
+		return
+	}
+	s.Server.ServeHTTP(w, r)
 }
 
 // New wires an already prepared in-memory config into a command server.
@@ -59,6 +74,7 @@ func New(cfg Config) (srv *CmdServer, err error) {
 		return nil, fmt.Errorf("server: peers store: %w", err)
 	}
 
+	cmdSrv := &CmdServer{stores: ss, AdminPublicKey: cfg.AdminPublicKey}
 	gizServer := &gizclaw.Server{
 		LocalStatic: *cfg.KeyPair,
 		PeerStore:   peersKV,
@@ -66,14 +82,28 @@ func New(cfg Config) (srv *CmdServer, err error) {
 		PeerListenerFactories: []gizclaw.PeerListenerFactory{
 			func(opts gizclaw.PeerListenerOptions) (giznet.Listener, error) {
 				return (&giznoise.ListenConfig{
-					Addr:             cfg.ListenAddr,
+					Addr:             cfg.NoiseUDPListenAddr(),
 					CipherMode:       cfg.CipherMode,
 					SecurityPolicy:   opts.SecurityPolicy,
 					PeerEventHandler: opts.PeerEventHandler,
 				}).Listen(opts.KeyPair)
 			},
+			func(opts gizclaw.PeerListenerOptions) (giznet.Listener, error) {
+				l, err := (&gizwebrtc.ListenConfig{
+					ICEAddr:          cfg.ICEListenAddr(),
+					CipherMode:       gizwebrtc.CipherMode(cfg.CipherMode),
+					SecurityPolicy:   opts.SecurityPolicy,
+					PeerEventHandler: opts.PeerEventHandler,
+				}).Listen(opts.KeyPair)
+				if err != nil {
+					return nil, err
+				}
+				cmdSrv.webrtcHandler = l.SignalingHandler()
+				return l, nil
+			},
 		},
 	}
+	cmdSrv.Server = gizServer
 	gizServer.RewardClaimGenerator = cfg.SystemTasks.RewardClaim.Generator
 	gizServer.PetActionGenerator = cfg.SystemTasks.PetAction.Generator
 	if cfg.SystemTasks.RewardClaim.Cooldown != "" {
@@ -226,7 +256,7 @@ func New(cfg Config) (srv *CmdServer, err error) {
 			}
 		}
 	}
-	return &CmdServer{Server: gizServer, AdminPublicKey: cfg.AdminPublicKey, stores: ss}, nil
+	return cmdSrv, nil
 }
 
 func storeExists(cfg Config, name string) bool {
