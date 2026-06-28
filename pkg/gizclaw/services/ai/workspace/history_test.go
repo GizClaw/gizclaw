@@ -13,7 +13,7 @@ import (
 
 func TestHistoryStoreAppendListAndReadAsset(t *testing.T) {
 	store := NewHistoryStore(objectstore.Dir(t.TempDir()), "demo")
-	base := time.Date(2026, 6, 21, 12, 0, 0, 0, time.UTC)
+	base := time.Now().UTC().Truncate(time.Second)
 	store.Now = func() time.Time { return base }
 
 	ctx := context.Background()
