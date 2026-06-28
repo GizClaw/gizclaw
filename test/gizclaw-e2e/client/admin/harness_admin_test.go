@@ -39,6 +39,7 @@ func newAdminAPIHarness(t *testing.T) *adminAPIHarness {
 	peerSN := "client-admin-api-peer-" + peerKey
 	h.RegisterContext("admin-api-admin", "--sn", adminSN).MustSucceed(t)
 	h.RegisterContext("admin-api-peer", "--sn", peerSN).MustSucceed(t)
+	h.ApproveAdminPeer(adminKey)
 
 	admin := h.ConnectClientFromContext("admin-api-admin")
 	t.Cleanup(func() { admin.Close() })

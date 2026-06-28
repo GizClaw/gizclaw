@@ -40,7 +40,11 @@ type Conn struct {
 	once    sync.Once
 	closed  atomic.Bool
 
-	audioTrack *webrtc.TrackLocalStaticSample
+	audioTrack sampleWriter
+}
+
+type sampleWriter interface {
+	WriteSample(media.Sample) error
 }
 
 func newConn(pk giznet.PublicKey, pc *webrtc.PeerConnection, policy giznet.SecurityPolicy, role string) (*Conn, error) {
@@ -335,9 +339,13 @@ func (c *Conn) readRemoteOpus(track *webrtc.TrackRemote) {
 		if err != nil {
 			return
 		}
-		payload := stampedopus.Pack(uint64(time.Now().UnixMilli()), pkt.Payload)
-		c.enqueuePacket(directPacket{protocol: ProtocolStampedOpus, payload: payload})
+		c.enqueueRemoteOpusFrame(pkt.Payload)
 	}
+}
+
+func (c *Conn) enqueueRemoteOpusFrame(frame []byte) {
+	payload := stampedopus.Pack(uint64(time.Now().UnixMilli()), frame)
+	c.enqueuePacket(directPacket{protocol: ProtocolStampedOpus, payload: payload})
 }
 
 func serviceLabel(service uint64) string {

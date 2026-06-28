@@ -225,6 +225,79 @@ func TestDialFromContextUsesWebRTCTransport(t *testing.T) {
 	}
 }
 
+func TestDialFromContextUsesNoiseTransport(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+
+	serverKey, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("GenerateKeyPair(server) error = %v", err)
+	}
+	serverListener, err := (&giznoise.ListenConfig{
+		Addr:           "127.0.0.1:0",
+		SecurityPolicy: allowAllSecurityPolicy{},
+	}).Listen(serverKey)
+	if err != nil {
+		t.Fatalf("Listen(server) error = %v", err)
+	}
+	defer serverListener.Close()
+
+	store, err := clicontext.DefaultStore()
+	if err != nil {
+		t.Fatalf("DefaultStore error = %v", err)
+	}
+	if err := store.CreateWithOptions("noise", serverListener.HostInfo().Addr.String(), clicontext.CreateOptions{
+		ServerPublicKey: serverKey.Public.String(),
+		Transport:       "noise",
+	}); err != nil {
+		t.Fatalf("CreateWithOptions error = %v", err)
+	}
+
+	client, serverPK, serverAddr, err := DialFromContext("noise")
+	if err != nil {
+		t.Fatalf("DialFromContext error = %v", err)
+	}
+	accepted := make(chan giznet.Conn, 1)
+	go func() {
+		conn, _ := serverListener.Accept()
+		accepted <- conn
+	}()
+	if err := client.Dial(serverPK, serverAddr); err != nil {
+		t.Fatalf("client Dial error = %v", err)
+	}
+	defer client.Close()
+	select {
+	case conn := <-accepted:
+		if conn == nil {
+			t.Fatal("accepted nil conn")
+		}
+		defer conn.Close()
+	case <-time.After(5 * time.Second):
+		t.Fatal("server Accept timeout")
+	}
+}
+
+func TestDialFromContextNoiseTransportRejectsBadDialAddress(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+
+	store, err := clicontext.DefaultStore()
+	if err != nil {
+		t.Fatalf("DefaultStore error = %v", err)
+	}
+	if err := store.CreateWithOptions("noise", "127.0.0.1:9820", clicontext.CreateOptions{
+		ServerPublicKey: testServerPublicKeyText(0xab),
+		Transport:       "noise",
+	}); err != nil {
+		t.Fatalf("CreateWithOptions error = %v", err)
+	}
+	client, serverPK, _, err := DialFromContext("noise")
+	if err != nil {
+		t.Fatalf("DialFromContext error = %v", err)
+	}
+	if err := client.Dial(serverPK, "%%%"); err == nil {
+		t.Fatal("client Dial bad address error = nil")
+	}
+}
+
 func TestDialFromContextMissingNamedContext(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 

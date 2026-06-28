@@ -27,6 +27,11 @@ func (l *ServiceListener) Accept() (net.Conn, error) {
 		return nil, ErrNilConn
 	}
 	select {
+	case <-l.closeCh:
+		return nil, ErrServiceClosed
+	default:
+	}
+	select {
 	case c, ok := <-l.ch:
 		if !ok {
 			return nil, ErrServiceClosed
@@ -40,6 +45,18 @@ func (l *ServiceListener) Accept() (net.Conn, error) {
 }
 
 func (l *ServiceListener) enqueue(c net.Conn) error {
+	select {
+	case <-l.closeCh:
+		_ = c.Close()
+		return ErrServiceClosed
+	default:
+	}
+	select {
+	case <-l.conn.closeCh:
+		_ = c.Close()
+		return ErrConnClosed
+	default:
+	}
 	select {
 	case l.ch <- c:
 		return nil

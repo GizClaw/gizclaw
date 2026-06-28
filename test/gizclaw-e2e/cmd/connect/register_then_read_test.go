@@ -14,6 +14,7 @@ func TestClientRegisterThenReadUserStory(t *testing.T) {
 
 	h.CreateContext("admin-a").MustSucceed(t)
 	h.RegisterContext("admin-a", "--sn", "connect-register-read-admin-sn").MustSucceed(t)
+	h.ApproveAdminPeer(h.ContextPublicKey("admin-a"))
 
 	h.CreateContext("device-a").MustSucceed(t)
 	h.RegisterContext(

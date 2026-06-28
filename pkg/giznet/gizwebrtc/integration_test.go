@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/GizClaw/gizclaw-go/pkg/audio/stampedopus"
 	"github.com/GizClaw/gizclaw-go/pkg/giznet"
 )
 
@@ -67,6 +68,22 @@ func TestDialSignalingPacketAndServiceStream(t *testing.T) {
 		t.Fatalf("server packet proto=%d payload=%q", proto, string(buf[:n]))
 	}
 
+	opusFrame := []byte{0x00, 0xaa, 0xbb}
+	if _, err := clientConn.Write(ProtocolStampedOpus, stampedopus.Pack(uint64(time.Now().UnixMilli()), opusFrame)); err != nil {
+		t.Fatalf("client opus Write error = %v", err)
+	}
+	proto, payload := readDirectPacketWithTimeout(t, serverConn)
+	if proto != ProtocolStampedOpus {
+		t.Fatalf("server opus proto=%d, want %d", proto, ProtocolStampedOpus)
+	}
+	_, gotFrame, ok := stampedopus.Unpack(payload)
+	if !ok {
+		t.Fatalf("server opus payload failed to unpack: %v", payload)
+	}
+	if string(gotFrame) != string(opusFrame) {
+		t.Fatalf("server opus frame = %v, want %v", gotFrame, opusFrame)
+	}
+
 	service := serverConn.ListenService(100)
 	clientStream, err := clientConn.Dial(100)
 	if err != nil {
@@ -114,10 +131,6 @@ func TestDialSignalingWithFixedICEPort(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GenerateKeyPair(server) error = %v", err)
 	}
-	clientKey, err := giznet.GenerateKeyPair()
-	if err != nil {
-		t.Fatalf("GenerateKeyPair(client) error = %v", err)
-	}
 	serverListener, err := (&ListenConfig{
 		ICEAddr:        freeLocalICEAddr(t),
 		CipherMode:     CipherModePlaintext,
@@ -130,32 +143,39 @@ func TestDialSignalingWithFixedICEPort(t *testing.T) {
 	httpServer := httptest.NewServer(serverListener.SignalingHandler())
 	defer httpServer.Close()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-	defer cancel()
-	clientListener, clientConn, err := Dial(ctx, clientKey, serverKey.Public, DialConfig{
-		SignalingURL:   httpServer.URL + SignalingPath,
-		CipherMode:     CipherModePlaintext,
-		SecurityPolicy: allowAllPolicy{},
-	})
-	if err != nil {
-		t.Fatalf("Dial error = %v", err)
-	}
-	defer clientListener.Close()
-	defer clientConn.Close()
+	for i := range 2 {
+		clientKey, err := giznet.GenerateKeyPair()
+		if err != nil {
+			t.Fatalf("GenerateKeyPair(client %d) error = %v", i, err)
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		clientListener, clientConn, err := Dial(ctx, clientKey, serverKey.Public, DialConfig{
+			SignalingURL:   httpServer.URL + SignalingPath,
+			CipherMode:     CipherModePlaintext,
+			SecurityPolicy: allowAllPolicy{},
+		})
+		cancel()
+		if err != nil {
+			t.Fatalf("Dial client %d error = %v", i, err)
+		}
+		defer clientListener.Close()
+		defer clientConn.Close()
 
-	serverConn := acceptConn(t, serverListener)
-	defer serverConn.Close()
+		serverConn := acceptConn(t, serverListener)
+		defer serverConn.Close()
 
-	if _, err := clientConn.Write(0x42, []byte("fixed ice")); err != nil {
-		t.Fatalf("client packet Write error = %v", err)
-	}
-	buf := make([]byte, 64)
-	proto, n, err := serverConn.Read(buf)
-	if err != nil {
-		t.Fatalf("server packet Read error = %v", err)
-	}
-	if proto != 0x42 || string(buf[:n]) != "fixed ice" {
-		t.Fatalf("server packet proto=%d payload=%q", proto, string(buf[:n]))
+		payload := fmt.Sprintf("fixed ice %d", i)
+		if _, err := clientConn.Write(0x42, []byte(payload)); err != nil {
+			t.Fatalf("client %d packet Write error = %v", i, err)
+		}
+		buf := make([]byte, 64)
+		proto, n, err := serverConn.Read(buf)
+		if err != nil {
+			t.Fatalf("server packet Read client %d error = %v", i, err)
+		}
+		if proto != 0x42 || string(buf[:n]) != payload {
+			t.Fatalf("server packet client %d proto=%d payload=%q", i, proto, string(buf[:n]))
+		}
 	}
 }
 
@@ -167,6 +187,31 @@ func TestPacketWriteRejectsLargePayload(t *testing.T) {
 	if _, err := writePacket(noopPacketRaw{}, 1, payload); !errors.Is(err, ErrPacketTooLarge) {
 		t.Fatalf("writePacket large err = %v, want %v", err, ErrPacketTooLarge)
 	}
+}
+
+func readDirectPacketWithTimeout(t *testing.T, conn *Conn) (byte, []byte) {
+	t.Helper()
+	type result struct {
+		protocol byte
+		payload  []byte
+		err      error
+	}
+	ch := make(chan result, 1)
+	go func() {
+		buf := make([]byte, maxPacketMessageSize)
+		protocol, n, err := conn.Read(buf)
+		ch <- result{protocol: protocol, payload: append([]byte(nil), buf[:n]...), err: err}
+	}()
+	select {
+	case res := <-ch:
+		if res.err != nil {
+			t.Fatalf("Read error = %v", res.err)
+		}
+		return res.protocol, res.payload
+	case <-time.After(5 * time.Second):
+		t.Fatal("Read timeout")
+	}
+	return 0, nil
 }
 
 func acceptConn(t *testing.T, l *Listener) *Conn {

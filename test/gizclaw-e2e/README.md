@@ -87,6 +87,7 @@ contexts and a data reset between runs. The Noise context is
 ```sh
 ./test/gizclaw-e2e/setup/reset_data.sh
 GIZCLAW_E2E_CLIENT_CONTEXT=e2e-client \
+GIZCLAW_E2E_CONNECT_TRANSPORT=noise \
 go test -tags gizclaw_e2e -count=1 \
   ./test/gizclaw-e2e/client/admin \
   ./test/gizclaw-e2e/client/rpc \
@@ -96,6 +97,7 @@ go test -tags gizclaw_e2e -count=1 \
 
 ./test/gizclaw-e2e/setup/reset_data.sh
 GIZCLAW_E2E_CLIENT_CONTEXT=e2e-client-webrtc \
+GIZCLAW_E2E_CONNECT_TRANSPORT=webrtc \
 go test -tags gizclaw_e2e -count=1 \
   ./test/gizclaw-e2e/client/admin \
   ./test/gizclaw-e2e/client/rpc \
@@ -105,7 +107,8 @@ go test -tags gizclaw_e2e -count=1 \
 ```
 
 The harness logs the selected context transport and dial address when it binds
-an alias or opens a direct `gizcli.Client` connection.
+an alias, creates a `cmd/connect` context, or opens a direct `gizcli.Client`
+connection.
 
 7. For browser UI tests, start the matching UI surface after the needed client
    tests have created runtime state:
@@ -259,6 +262,8 @@ without changing test code:
 - `GIZCLAW_E2E_CLIENT_CONFIG_HOME` / `GIZCLAW_E2E_CLIENT_CONTEXT`: ordinary
   client, workspace, and RPC cases. The committed contexts are `e2e-client`
   for Noise over UDP and `e2e-client-webrtc` for WebRTC.
+- `GIZCLAW_E2E_CONNECT_TRANSPORT`: transport used by `cmd/connect` tests when
+  they create sandbox contexts. Set to `noise` or `webrtc` for #90 parity runs.
 - `GIZCLAW_E2E_SOCIAL_PERSON_A_CONFIG_HOME` /
   `GIZCLAW_E2E_SOCIAL_PERSON_A_CONTEXT`: social role A.
 - `GIZCLAW_E2E_SOCIAL_PERSON_B_CONFIG_HOME` /

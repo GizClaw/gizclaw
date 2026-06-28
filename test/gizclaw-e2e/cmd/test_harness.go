@@ -20,6 +20,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/adminservice"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/gizcli"
@@ -58,6 +59,9 @@ type Harness struct {
 
 	BinaryPath       string
 	ServerAddr       string
+	ServerPublicPort int
+	ServerNoisePort  int
+	ServerICEPort    int
 	ServerPublicKey  string
 	ServerCipherMode string
 	ServerLogPath    string
@@ -197,6 +201,9 @@ func (h *Harness) UseSetupServer() {
 
 	h.ServerWorkspace = workspaceDir
 	h.ServerAddr = serverAddr
+	h.ServerPublicPort = defaultPort(cfg.PublicAPIPort, 9820)
+	h.ServerNoisePort = defaultPort(cfg.NoiseUDPPort, h.ServerPublicPort)
+	h.ServerICEPort = defaultPort(cfg.ICEPort, 9821)
 	h.ServerPublicKey = keyPair.Public.String()
 	h.ServerCipherMode = strings.TrimSpace(cfg.CipherMode)
 	h.applySetupContextServer()
@@ -235,6 +242,9 @@ func (h *Harness) applySetupContextServer() {
 	}
 
 	h.ServerAddr = cliContextNoiseAddr(cfg)
+	h.ServerPublicPort = cfg.Server.PublicAPIPort
+	h.ServerNoisePort = cfg.Server.NoiseUDPPort
+	h.ServerICEPort = cfg.Server.ICEPort
 	h.ServerPublicKey = strings.TrimSpace(cfg.Server.PublicKey)
 	h.ServerCipherMode = strings.TrimSpace(cfg.Server.CipherMode)
 }
@@ -330,18 +340,27 @@ func (h *Harness) CreateContext(name string) Result {
 
 func (h *Harness) CreateContextWith(name, serverAddr, serverPublicKey string) Result {
 	h.t.Helper()
-	_, port := splitHostPortForHarness(serverAddr)
+	transport := h.defaultContextTransport()
+	_, portText := splitHostPortForHarness(serverAddr)
+	port := parsePortForHarness(h.t, portText)
+	publicPort := defaultPort(h.ServerPublicPort, port)
+	noisePort := defaultPort(h.ServerNoisePort, port)
+	icePort := defaultPort(h.ServerICEPort, 9821)
 	args := []string{
 		"context", "create", name,
 		"--server", serverAddr,
 		"--public-key", serverPublicKey,
-		"--transport", "noise",
-		"--public-api-port", port,
-		"--noise-udp-port", port,
+		"--transport", transport,
+		"--public-api-port", strconv.Itoa(publicPort),
+		"--noise-udp-port", strconv.Itoa(noisePort),
+	}
+	if transport == "webrtc" {
+		args = append(args, "--ice-port", strconv.Itoa(icePort))
 	}
 	if h.ServerCipherMode != "" {
 		args = append(args, "--cipher-mode", h.ServerCipherMode)
 	}
+	h.t.Logf("create context %s transport=%s public=%d noise=%d ice=%d", name, transport, publicPort, noisePort, icePort)
 	return h.RunCLI(args...)
 }
 
@@ -360,13 +379,16 @@ func (h *Harness) EnsureContext(name string) Result {
 	}
 
 	cfg := cliContextConfig{}
-	host, port := splitHostPortForHarness(h.ServerAddr)
+	host, portText := splitHostPortForHarness(h.ServerAddr)
+	port := parsePortForHarness(h.t, portText)
 	cfg.Server.Host = host
-	cfg.Server.PublicAPIPort = parsePortForHarness(h.t, port)
-	cfg.Server.NoiseUDPPort = parsePortForHarness(h.t, port)
+	cfg.Server.PublicAPIPort = defaultPort(h.ServerPublicPort, port)
+	cfg.Server.NoiseUDPPort = defaultPort(h.ServerNoisePort, port)
+	cfg.Server.ICEPort = defaultPort(h.ServerICEPort, 9821)
 	cfg.Server.PublicKey = h.ServerPublicKey
-	cfg.Server.Transport = "noise"
+	cfg.Server.Transport = h.defaultContextTransport()
 	cfg.Server.CipherMode = h.ServerCipherMode
+	h.t.Logf("ensure context %s transport=%s public=%d noise=%d ice=%d", name, cfg.Server.Transport, cfg.Server.PublicAPIPort, cfg.Server.NoiseUDPPort, cfg.Server.ICEPort)
 	data, err := yaml.Marshal(cfg)
 	if err != nil {
 		return Result{Args: []string{"ensure-context", name}, Err: err, Stderr: err.Error()}
@@ -375,6 +397,23 @@ func (h *Harness) EnsureContext(name string) Result {
 		return Result{Args: []string{"ensure-context", name}, Err: err, Stderr: err.Error()}
 	}
 	return h.UseContext(name)
+}
+
+func (h *Harness) defaultContextTransport() string {
+	transport := strings.TrimSpace(os.Getenv("GIZCLAW_E2E_CONNECT_TRANSPORT"))
+	if transport == "" {
+		transport = strings.TrimSpace(os.Getenv("GIZCLAW_E2E_CLIENT_TRANSPORT"))
+	}
+	if transport == "" && strings.Contains(strings.ToLower(os.Getenv("GIZCLAW_E2E_CLIENT_CONTEXT")), "webrtc") {
+		transport = "webrtc"
+	}
+	if transport == "" {
+		return "noise"
+	}
+	if transport != "noise" && transport != "webrtc" {
+		h.t.Fatalf("unsupported e2e connect transport %q", transport)
+	}
+	return transport
 }
 
 func (h *Harness) RegisterContext(name string, extraArgs ...string) Result {
@@ -404,6 +443,27 @@ func (h *Harness) RegisterContext(name string, extraArgs ...string) Result {
 		return Result{Args: []string{"register-context", name}, Err: err, Stderr: err.Error()}
 	}
 	return Result{Args: append([]string{"register-context", name}, extraArgs...), Stdout: string(data)}
+}
+
+func (h *Harness) ApproveAdminPeer(publicKey string) {
+	h.t.Helper()
+
+	h.SetContextAlias("setup-admin", filepath.Join(h.RepoRoot, "test", "gizclaw-e2e", "testdata", "admin-config-home"), "e2e-admin")
+	admin := h.ConnectClientFromContext("setup-admin")
+	defer admin.Close()
+	api, err := admin.ServerAdminClient()
+	if err != nil {
+		h.t.Fatalf("create setup admin API client: %v", err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	resp, err := api.ApprovePeerWithResponse(ctx, publicKey, adminservice.ApproveRequest{Role: apitypes.PeerRoleAdmin})
+	if err != nil {
+		h.t.Fatalf("approve admin peer %s: %v", publicKey, err)
+	}
+	if resp.StatusCode() != http.StatusOK {
+		h.t.Fatalf("approve admin peer %s status = %d: %s", publicKey, resp.StatusCode(), strings.TrimSpace(string(resp.Body)))
+	}
 }
 
 func (h *Harness) deviceInfoFromArgs(_ string, extraArgs ...string) (apitypes.DeviceInfo, error) {
@@ -867,6 +927,9 @@ func (h *Harness) renderServerFixture(fixtureName string, replacements map[strin
 	if listenAddr := replacements[fixtureListenAddrToken]; listenAddr != "" {
 		host, port := splitHostPortForHarness(listenAddr)
 		_, icePort := splitHostPortForHarness(allocateUDPAddr(h.t))
+		h.ServerPublicPort = parsePortForHarness(h.t, port)
+		h.ServerNoisePort = h.ServerPublicPort
+		h.ServerICEPort = parsePortForHarness(h.t, icePort)
 		rendered = strings.ReplaceAll(rendered, `listen: "127.0.0.1:9820"`, fmt.Sprintf(`listen: "%s"`, listenAddr))
 		rendered = strings.ReplaceAll(rendered, "host: 127.0.0.1", "host: "+host)
 		rendered = strings.ReplaceAll(rendered, "host: 0.0.0.0", "host: "+host)
@@ -1048,6 +1111,13 @@ func parsePortForHarness(t testing.TB, port string) int {
 		t.Fatalf("parse port %q: %v", port, err)
 	}
 	return n
+}
+
+func defaultPort(value, fallback int) int {
+	if value != 0 {
+		return value
+	}
+	return fallback
 }
 
 func (h *Harness) serverProcessError() error {
