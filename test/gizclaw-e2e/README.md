@@ -84,6 +84,12 @@ For #90 transport parity, run the same client suites twice with separate
 contexts and a data reset between runs. The Noise context is
 `e2e-client`; the WebRTC context is `e2e-client-webrtc`.
 
+Run these transport parity suites sequentially against the shared setup server.
+The shared `testdata/server-workspace` and committed context homes are mutable
+during e2e execution, so concurrent parity runs must use fully isolated server
+instances: a separate workspace directory, config home, public API port, Noise
+UDP port, and WebRTC ICE port for each run.
+
 ```sh
 ./test/gizclaw-e2e/setup/reset_data.sh
 GIZCLAW_E2E_CLIENT_CONTEXT=e2e-client \
@@ -251,6 +257,11 @@ history by running the relevant client workflows.
 and committed client `identity.key` fixtures. Context config files must store
 the server `public-key` directly; do not point contexts at the server
 `identity.key`, because that file is the server private key.
+
+Committed fixture contexts are stable identities and should be used when a test
+depends on a known role or ACL state. Tests that create sandbox contexts at
+runtime are responsible for registering and approving those peers before using
+role-gated services.
 
 Optional role overrides in `.env` let e2e suites target existing context homes
 without changing test code:
