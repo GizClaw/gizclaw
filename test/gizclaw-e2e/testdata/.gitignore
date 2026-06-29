@@ -13,7 +13,6 @@
 !server-workspace/identity.key
 !config-home/
 !config-home/gizclaw/
-!config-home/gizclaw/current
 !config-home/gizclaw/e2e-admin/
 !config-home/gizclaw/e2e-admin/config.yaml
 !config-home/gizclaw/e2e-admin/identity.key
