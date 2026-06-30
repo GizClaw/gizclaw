@@ -4,37 +4,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
-
-	"github.com/GizClaw/gizclaw-go/pkg/giznet/gizwebrtc"
 )
-
-func TestCmdServerServeHTTPRoutesWebRTCSignalingBeforeFallback(t *testing.T) {
-	srv := &CmdServer{
-		webrtcHandler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if r.URL.Path != gizwebrtc.SignalingPath {
-				t.Fatalf("signaling path = %q", r.URL.Path)
-			}
-			w.Header().Set("X-Handler", "webrtc")
-			w.WriteHeader(http.StatusAccepted)
-		}),
-	}
-	rec := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodPost, gizwebrtc.SignalingPath, nil)
-	srv.ServeHTTP(rec, req)
-	if rec.Code != http.StatusAccepted {
-		t.Fatalf("signaling status = %d, want %d", rec.Code, http.StatusAccepted)
-	}
-	if rec.Header().Get("X-Handler") != "webrtc" {
-		t.Fatalf("signaling handler header = %q", rec.Header().Get("X-Handler"))
-	}
-
-	rec = httptest.NewRecorder()
-	req = httptest.NewRequest(http.MethodGet, "/not-signaling", nil)
-	srv.ServeHTTP(rec, req)
-	if rec.Code != http.StatusNotFound {
-		t.Fatalf("fallback without core server status = %d, want %d", rec.Code, http.StatusNotFound)
-	}
-}
 
 func TestCmdServerServeHTTPNilServerReturnsNotFound(t *testing.T) {
 	rec := httptest.NewRecorder()

@@ -4,6 +4,7 @@
 package serverpublic
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -32,6 +33,11 @@ func (e LoginResultTokenType) Valid() bool {
 	}
 }
 
+// GiznetWebRTCSignalingError defines model for GiznetWebRTCSignalingError.
+type GiznetWebRTCSignalingError struct {
+	Error string `json:"error"`
+}
+
 // LoginResult defines model for LoginResult.
 type LoginResult struct {
 	AccessToken string               `json:"access_token"`
@@ -41,6 +47,18 @@ type LoginResult struct {
 
 // LoginResultTokenType defines model for LoginResult.TokenType.
 type LoginResultTokenType string
+
+// CreateGiznetWebRTCOfferParams defines parameters for CreateGiznetWebRTCOffer.
+type CreateGiznetWebRTCOfferParams struct {
+	// XGiznetPublicKey Client public key.
+	XGiznetPublicKey string `json:"X-Giznet-Public-Key"`
+
+	// XGiznetTimestamp Unix timestamp used by signaling AEAD derivation.
+	XGiznetTimestamp int64 `json:"X-Giznet-Timestamp"`
+
+	// XGiznetNonce Base64url nonce used by signaling AEAD derivation and replay checks.
+	XGiznetNonce string `json:"X-Giznet-Nonce"`
+}
 
 // LoginParams defines parameters for Login.
 type LoginParams struct {
@@ -121,11 +139,26 @@ func WithRequestEditorFn(fn RequestEditorFn) ClientOption {
 
 // The interface specification for the client above.
 type ClientInterface interface {
+	// CreateGiznetWebRTCOfferWithBody request with any body
+	CreateGiznetWebRTCOfferWithBody(ctx context.Context, params *CreateGiznetWebRTCOfferParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// Login request
 	Login(ctx context.Context, params *LoginParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetServerInfo request
 	GetServerInfo(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+}
+
+func (c *Client) CreateGiznetWebRTCOfferWithBody(ctx context.Context, params *CreateGiznetWebRTCOfferParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateGiznetWebRTCOfferRequestWithBody(c.Server, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
 }
 
 func (c *Client) Login(ctx context.Context, params *LoginParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -150,6 +183,66 @@ func (c *Client) GetServerInfo(ctx context.Context, reqEditors ...RequestEditorF
 		return nil, err
 	}
 	return c.Client.Do(req)
+}
+
+// NewCreateGiznetWebRTCOfferRequestWithBody generates requests for CreateGiznetWebRTCOffer with any type of body
+func NewCreateGiznetWebRTCOfferRequestWithBody(server string, params *CreateGiznetWebRTCOfferParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/giznet/webrtc/v1/offer")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-Giznet-Public-Key", params.XGiznetPublicKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-Giznet-Public-Key", headerParam0)
+
+		var headerParam1 string
+
+		headerParam1, err = runtime.StyleParamWithOptions("simple", false, "X-Giznet-Timestamp", params.XGiznetTimestamp, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "integer", Format: "int64"})
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-Giznet-Timestamp", headerParam1)
+
+		var headerParam2 string
+
+		headerParam2, err = runtime.StyleParamWithOptions("simple", false, "X-Giznet-Nonce", params.XGiznetNonce, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-Giznet-Nonce", headerParam2)
+
+	}
+
+	return req, nil
 }
 
 // NewLoginRequest generates requests for Login
@@ -271,11 +364,43 @@ func WithBaseURL(baseURL string) ClientOption {
 
 // ClientWithResponsesInterface is the interface specification for the client with responses above.
 type ClientWithResponsesInterface interface {
+	// CreateGiznetWebRTCOfferWithBodyWithResponse request with any body
+	CreateGiznetWebRTCOfferWithBodyWithResponse(ctx context.Context, params *CreateGiznetWebRTCOfferParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateGiznetWebRTCOfferResponse, error)
+
 	// LoginWithResponse request
 	LoginWithResponse(ctx context.Context, params *LoginParams, reqEditors ...RequestEditorFn) (*LoginResponse, error)
 
 	// GetServerInfoWithResponse request
 	GetServerInfoWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetServerInfoResponse, error)
+}
+
+type CreateGiznetWebRTCOfferResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON400      *GiznetWebRTCSignalingError
+	JSON401      *GiznetWebRTCSignalingError
+	JSON403      *GiznetWebRTCSignalingError
+	JSON409      *GiznetWebRTCSignalingError
+	JSON413      *GiznetWebRTCSignalingError
+	JSON415      *GiznetWebRTCSignalingError
+	JSON500      *GiznetWebRTCSignalingError
+	JSON503      *GiznetWebRTCSignalingError
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateGiznetWebRTCOfferResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateGiznetWebRTCOfferResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
 }
 
 type LoginResponse struct {
@@ -324,6 +449,15 @@ func (r GetServerInfoResponse) StatusCode() int {
 	return 0
 }
 
+// CreateGiznetWebRTCOfferWithBodyWithResponse request with arbitrary body returning *CreateGiznetWebRTCOfferResponse
+func (c *ClientWithResponses) CreateGiznetWebRTCOfferWithBodyWithResponse(ctx context.Context, params *CreateGiznetWebRTCOfferParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateGiznetWebRTCOfferResponse, error) {
+	rsp, err := c.CreateGiznetWebRTCOfferWithBody(ctx, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateGiznetWebRTCOfferResponse(rsp)
+}
+
 // LoginWithResponse request returning *LoginResponse
 func (c *ClientWithResponses) LoginWithResponse(ctx context.Context, params *LoginParams, reqEditors ...RequestEditorFn) (*LoginResponse, error) {
 	rsp, err := c.Login(ctx, params, reqEditors...)
@@ -340,6 +474,81 @@ func (c *ClientWithResponses) GetServerInfoWithResponse(ctx context.Context, req
 		return nil, err
 	}
 	return ParseGetServerInfoResponse(rsp)
+}
+
+// ParseCreateGiznetWebRTCOfferResponse parses an HTTP response from a CreateGiznetWebRTCOfferWithResponse call
+func ParseCreateGiznetWebRTCOfferResponse(rsp *http.Response) (*CreateGiznetWebRTCOfferResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateGiznetWebRTCOfferResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest GiznetWebRTCSignalingError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest GiznetWebRTCSignalingError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest GiznetWebRTCSignalingError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest GiznetWebRTCSignalingError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 413:
+		var dest GiznetWebRTCSignalingError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON413 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 415:
+		var dest GiznetWebRTCSignalingError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON415 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest GiznetWebRTCSignalingError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest GiznetWebRTCSignalingError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON503 = &dest
+
+	}
+
+	return response, nil
 }
 
 // ParseLoginResponse parses an HTTP response from a LoginWithResponse call
@@ -410,6 +619,9 @@ func ParseGetServerInfoResponse(rsp *http.Response) (*GetServerInfoResponse, err
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
+	// Create a GizNet WebRTC answer for an encrypted browser offer
+	// (POST /giznet/webrtc/v1/offer)
+	CreateGiznetWebRTCOffer(c *fiber.Ctx, params CreateGiznetWebRTCOfferParams) error
 	// Exchange a device assertion for a bearer session
 	// (POST /login)
 	Login(c *fiber.Ctx, params LoginParams) error
@@ -424,6 +636,79 @@ type ServerInterfaceWrapper struct {
 }
 
 type MiddlewareFunc fiber.Handler
+
+// CreateGiznetWebRTCOffer operation middleware
+func (siw *ServerInterfaceWrapper) CreateGiznetWebRTCOffer(c *fiber.Ctx) error {
+
+	var err error
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params CreateGiznetWebRTCOfferParams
+
+	headers := c.GetReqHeaders()
+
+	// ------------- Required header parameter "X-Giznet-Public-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-Giznet-Public-Key")]; found {
+		var XGiznetPublicKey string
+		n := len(valueList)
+		if n != 1 {
+			return fiber.NewError(fiber.StatusBadRequest, fmt.Sprintf("Too many values for ParamName X-Giznet-Public-Key, 1 is required, but %d found", n))
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-Giznet-Public-Key", valueList[0], &XGiznetPublicKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter X-Giznet-Public-Key: %w", err).Error())
+		}
+
+		params.XGiznetPublicKey = XGiznetPublicKey
+
+	} else {
+		err = fmt.Errorf("Header parameter X-Giznet-Public-Key is required, but not found: %w", err)
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	}
+
+	// ------------- Required header parameter "X-Giznet-Timestamp" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-Giznet-Timestamp")]; found {
+		var XGiznetTimestamp int64
+		n := len(valueList)
+		if n != 1 {
+			return fiber.NewError(fiber.StatusBadRequest, fmt.Sprintf("Too many values for ParamName X-Giznet-Timestamp, 1 is required, but %d found", n))
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-Giznet-Timestamp", valueList[0], &XGiznetTimestamp, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "integer", Format: "int64"})
+		if err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter X-Giznet-Timestamp: %w", err).Error())
+		}
+
+		params.XGiznetTimestamp = XGiznetTimestamp
+
+	} else {
+		err = fmt.Errorf("Header parameter X-Giznet-Timestamp is required, but not found: %w", err)
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	}
+
+	// ------------- Required header parameter "X-Giznet-Nonce" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-Giznet-Nonce")]; found {
+		var XGiznetNonce string
+		n := len(valueList)
+		if n != 1 {
+			return fiber.NewError(fiber.StatusBadRequest, fmt.Sprintf("Too many values for ParamName X-Giznet-Nonce, 1 is required, but %d found", n))
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-Giznet-Nonce", valueList[0], &XGiznetNonce, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter X-Giznet-Nonce: %w", err).Error())
+		}
+
+		params.XGiznetNonce = XGiznetNonce
+
+	} else {
+		err = fmt.Errorf("Header parameter X-Giznet-Nonce is required, but not found: %w", err)
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	}
+
+	return siw.Handler.CreateGiznetWebRTCOffer(c, params)
+}
 
 // Login operation middleware
 func (siw *ServerInterfaceWrapper) Login(c *fiber.Ctx) error {
@@ -505,10 +790,112 @@ func RegisterHandlersWithOptions(router fiber.Router, si ServerInterface, option
 		router.Use(fiber.Handler(m))
 	}
 
+	router.Post(options.BaseURL+"/giznet/webrtc/v1/offer", wrapper.CreateGiznetWebRTCOffer)
+
 	router.Post(options.BaseURL+"/login", wrapper.Login)
 
 	router.Get(options.BaseURL+"/server-info", wrapper.GetServerInfo)
 
+}
+
+type CreateGiznetWebRTCOfferRequestObject struct {
+	Params CreateGiznetWebRTCOfferParams
+	Body   io.Reader
+}
+
+type CreateGiznetWebRTCOfferResponseObject interface {
+	VisitCreateGiznetWebRTCOfferResponse(ctx *fiber.Ctx) error
+}
+
+type CreateGiznetWebRTCOffer200ApplicationoctetStreamResponse struct {
+	Body          io.Reader
+	ContentLength int64
+}
+
+func (response CreateGiznetWebRTCOffer200ApplicationoctetStreamResponse) VisitCreateGiznetWebRTCOfferResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/octet-stream")
+	if response.ContentLength != 0 {
+		ctx.Response().Header.Set("Content-Length", fmt.Sprint(response.ContentLength))
+	}
+	ctx.Status(200)
+
+	if closer, ok := response.Body.(io.ReadCloser); ok {
+		defer closer.Close()
+	}
+	_, err := io.Copy(ctx.Response().BodyWriter(), response.Body)
+	return err
+}
+
+type CreateGiznetWebRTCOffer400JSONResponse GiznetWebRTCSignalingError
+
+func (response CreateGiznetWebRTCOffer400JSONResponse) VisitCreateGiznetWebRTCOfferResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(400)
+
+	return ctx.JSON(&response)
+}
+
+type CreateGiznetWebRTCOffer401JSONResponse GiznetWebRTCSignalingError
+
+func (response CreateGiznetWebRTCOffer401JSONResponse) VisitCreateGiznetWebRTCOfferResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(401)
+
+	return ctx.JSON(&response)
+}
+
+type CreateGiznetWebRTCOffer403JSONResponse GiznetWebRTCSignalingError
+
+func (response CreateGiznetWebRTCOffer403JSONResponse) VisitCreateGiznetWebRTCOfferResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(403)
+
+	return ctx.JSON(&response)
+}
+
+type CreateGiznetWebRTCOffer409JSONResponse GiznetWebRTCSignalingError
+
+func (response CreateGiznetWebRTCOffer409JSONResponse) VisitCreateGiznetWebRTCOfferResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
+
+	return ctx.JSON(&response)
+}
+
+type CreateGiznetWebRTCOffer413JSONResponse GiznetWebRTCSignalingError
+
+func (response CreateGiznetWebRTCOffer413JSONResponse) VisitCreateGiznetWebRTCOfferResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(413)
+
+	return ctx.JSON(&response)
+}
+
+type CreateGiznetWebRTCOffer415JSONResponse GiznetWebRTCSignalingError
+
+func (response CreateGiznetWebRTCOffer415JSONResponse) VisitCreateGiznetWebRTCOfferResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(415)
+
+	return ctx.JSON(&response)
+}
+
+type CreateGiznetWebRTCOffer500JSONResponse GiznetWebRTCSignalingError
+
+func (response CreateGiznetWebRTCOffer500JSONResponse) VisitCreateGiznetWebRTCOfferResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type CreateGiznetWebRTCOffer503JSONResponse GiznetWebRTCSignalingError
+
+func (response CreateGiznetWebRTCOffer503JSONResponse) VisitCreateGiznetWebRTCOfferResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(503)
+
+	return ctx.JSON(&response)
 }
 
 type LoginRequestObject struct {
@@ -564,6 +951,9 @@ func (response GetServerInfo400JSONResponse) VisitGetServerInfoResponse(ctx *fib
 
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
+	// Create a GizNet WebRTC answer for an encrypted browser offer
+	// (POST /giznet/webrtc/v1/offer)
+	CreateGiznetWebRTCOffer(ctx context.Context, request CreateGiznetWebRTCOfferRequestObject) (CreateGiznetWebRTCOfferResponseObject, error)
 	// Exchange a device assertion for a bearer session
 	// (POST /login)
 	Login(ctx context.Context, request LoginRequestObject) (LoginResponseObject, error)
@@ -583,6 +973,35 @@ func NewStrictHandler(ssi StrictServerInterface, middlewares []StrictMiddlewareF
 type strictHandler struct {
 	ssi         StrictServerInterface
 	middlewares []StrictMiddlewareFunc
+}
+
+// CreateGiznetWebRTCOffer operation middleware
+func (sh *strictHandler) CreateGiznetWebRTCOffer(ctx *fiber.Ctx, params CreateGiznetWebRTCOfferParams) error {
+	var request CreateGiznetWebRTCOfferRequestObject
+
+	request.Params = params
+
+	request.Body = bytes.NewReader(ctx.Request().Body())
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateGiznetWebRTCOffer(ctx.UserContext(), request.(CreateGiznetWebRTCOfferRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateGiznetWebRTCOffer")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(CreateGiznetWebRTCOfferResponseObject); ok {
+		if err := validResponse.VisitCreateGiznetWebRTCOfferResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
 }
 
 // Login operation middleware

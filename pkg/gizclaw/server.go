@@ -35,6 +35,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/services/system/publiclogin"
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/services/system/resourcemanager"
 	"github.com/GizClaw/gizclaw-go/pkg/giznet"
+	"github.com/GizClaw/gizclaw-go/pkg/giznet/gizwebrtc"
 	"github.com/GizClaw/gizclaw-go/pkg/store/kv"
 	"github.com/GizClaw/gizclaw-go/pkg/store/objectstore"
 	"golang.org/x/sync/errgroup"
@@ -92,6 +93,7 @@ type Server struct {
 	PetAdoptPointCost            int64
 	BuildCommit                  string
 	ACLDB                        *sql.DB
+	WebRTCSignalingHandler       http.Handler
 
 	manager     *Manager
 	peerService *PeerService
@@ -521,10 +523,14 @@ func (s *Server) init() error {
 		public: &serverPublic{
 			ServerPublicService: peersServer,
 			ServerPublic:        publicLoginServer,
+			WebRTCSignalingHandler: func() http.Handler {
+				return s.WebRTCSignalingHandler
+			},
 		},
 	}
 	s.sessions = sessions
 	mux := http.NewServeMux()
+	mux.Handle(gizwebrtc.SignalingPath, s.peerService.publicHTTPHandler(sessions))
 	mux.Handle("/api/public/", http.StripPrefix("/api/public", s.peerService.publicHTTPHandler(sessions)))
 	mux.HandleFunc("/api/public", redirectProxyPrefix("/api/public/"))
 	s.httpHandler = httpLabelSetHandler(mux)

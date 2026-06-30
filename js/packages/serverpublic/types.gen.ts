@@ -10,6 +10,10 @@ export type LoginResult = {
     expires_at: number;
 };
 
+export type GiznetWebRtcSignalingError = {
+    error: string;
+};
+
 export type ErrorPayload = {
     code: string;
     message: string;
@@ -81,3 +85,70 @@ export type GetServerInfoResponses = {
 };
 
 export type GetServerInfoResponse = GetServerInfoResponses[keyof GetServerInfoResponses];
+
+export type CreateGiznetWebRtcOfferData = {
+    body: Blob | File;
+    headers: {
+        /**
+         * Client public key.
+         */
+        'X-Giznet-Public-Key': string;
+        /**
+         * Unix timestamp used by signaling AEAD derivation.
+         */
+        'X-Giznet-Timestamp': number;
+        /**
+         * Base64url nonce used by signaling AEAD derivation and replay checks.
+         */
+        'X-Giznet-Nonce': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/giznet/webrtc/v1/offer';
+};
+
+export type CreateGiznetWebRtcOfferErrors = {
+    /**
+     * Invalid signaling request.
+     */
+    400: GiznetWebRtcSignalingError;
+    /**
+     * Unauthorized signaling request.
+     */
+    401: GiznetWebRtcSignalingError;
+    /**
+     * Peer is not allowed to connect.
+     */
+    403: GiznetWebRtcSignalingError;
+    /**
+     * Signaling nonce was replayed.
+     */
+    409: GiznetWebRtcSignalingError;
+    /**
+     * Signaling body is too large.
+     */
+    413: GiznetWebRtcSignalingError;
+    /**
+     * Unsupported signaling media type.
+     */
+    415: GiznetWebRtcSignalingError;
+    /**
+     * Failed to create signaling answer.
+     */
+    500: GiznetWebRtcSignalingError;
+    /**
+     * WebRTC signaling listener is unavailable.
+     */
+    503: GiznetWebRtcSignalingError;
+};
+
+export type CreateGiznetWebRtcOfferError = CreateGiznetWebRtcOfferErrors[keyof CreateGiznetWebRtcOfferErrors];
+
+export type CreateGiznetWebRtcOfferResponses = {
+    /**
+     * Encrypted SDP answer.
+     */
+    200: Blob | File;
+};
+
+export type CreateGiznetWebRtcOfferResponse = CreateGiznetWebRtcOfferResponses[keyof CreateGiznetWebRtcOfferResponses];

@@ -2,7 +2,7 @@
 
 import type { Client, Options as Options2, TDataShape } from './client';
 import { client } from './client.gen';
-import type { GetServerInfoData, GetServerInfoErrors, GetServerInfoResponses, LoginData, LoginErrors, LoginResponses } from './types.gen';
+import type { CreateGiznetWebRtcOfferData, CreateGiznetWebRtcOfferErrors, CreateGiznetWebRtcOfferResponses, GetServerInfoData, GetServerInfoErrors, GetServerInfoResponses, LoginData, LoginErrors, LoginResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -27,3 +27,18 @@ export const login = <ThrowOnError extends boolean = false>(options: Options<Log
  * Get server information
  */
 export const getServerInfo = <ThrowOnError extends boolean = false>(options?: Options<GetServerInfoData, ThrowOnError>) => (options?.client ?? client).get<GetServerInfoResponses, GetServerInfoErrors, ThrowOnError>({ url: '/server-info', ...options });
+
+/**
+ * Create a GizNet WebRTC answer for an encrypted browser offer
+ *
+ * Public WebRTC signaling endpoint for browser clients. The request body is an encrypted SDP offer and the 200 response body is the encrypted SDP answer.
+ */
+export const createGiznetWebRtcOffer = <ThrowOnError extends boolean = false>(options: Options<CreateGiznetWebRtcOfferData, ThrowOnError>) => (options.client ?? client).post<CreateGiznetWebRtcOfferResponses, CreateGiznetWebRtcOfferErrors, ThrowOnError>({
+    bodySerializer: null,
+    url: '/giznet/webrtc/v1/offer',
+    ...options,
+    headers: {
+        'Content-Type': 'application/octet-stream',
+        ...options.headers
+    }
+});

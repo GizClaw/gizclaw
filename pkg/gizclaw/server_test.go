@@ -1,9 +1,11 @@
 package gizclaw
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -17,6 +19,7 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkg/gizclaw/services/runtime/peer"
 	"github.com/GizClaw/gizclaw-go/pkg/giznet"
+	"github.com/GizClaw/gizclaw-go/pkg/giznet/gizwebrtc"
 	"github.com/GizClaw/gizclaw-go/pkg/store/kv"
 	"github.com/GizClaw/gizclaw-go/pkg/store/objectstore"
 )
@@ -135,6 +138,143 @@ func TestServerCanListenAgainAfterClose(t *testing.T) {
 		}
 	case <-time.After(3 * time.Second):
 		t.Fatal("Serve() did not use second listener")
+	}
+}
+
+func TestServerPublicWebRTCSignalingUsesGeneratedRoute(t *testing.T) {
+	keyPair, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("GenerateKeyPair error = %v", err)
+	}
+	var gotBody []byte
+	var gotContentType string
+	var gotPublicKey string
+	var gotTimestamp string
+	var gotNonce string
+	server := &Server{
+		LocalStatic: *keyPair,
+		PeerStore:   mustBadgerInMemory(t, nil),
+		WebRTCSignalingHandler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method != http.MethodPost {
+				t.Fatalf("signaling method = %q", r.Method)
+			}
+			if r.URL.Path != gizwebrtc.SignalingPath {
+				t.Fatalf("signaling path = %q", r.URL.Path)
+			}
+			gotContentType = r.Header.Get("Content-Type")
+			gotPublicKey = r.Header.Get("X-Giznet-Public-Key")
+			gotTimestamp = r.Header.Get("X-Giznet-Timestamp")
+			gotNonce = r.Header.Get("X-Giznet-Nonce")
+			gotBody, _ = io.ReadAll(r.Body)
+			w.Header().Set("Content-Type", "application/octet-stream")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte("encrypted-answer"))
+		}),
+	}
+	if err := server.init(); err != nil {
+		t.Fatalf("init error = %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, gizwebrtc.SignalingPath, bytes.NewReader([]byte("encrypted-offer")))
+	req.Header.Set("Content-Type", "application/octet-stream")
+	req.Header.Set("X-Giznet-Public-Key", "peer-public")
+	req.Header.Set("X-Giznet-Timestamp", "123456789")
+	req.Header.Set("X-Giznet-Nonce", "nonce")
+	rec := httptest.NewRecorder()
+	server.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	if rec.Body.String() != "encrypted-answer" {
+		t.Fatalf("body = %q", rec.Body.String())
+	}
+	if gotContentType != "application/octet-stream" {
+		t.Fatalf("forwarded content-type = %q", gotContentType)
+	}
+	if gotPublicKey != "peer-public" || gotTimestamp != "123456789" || gotNonce != "nonce" {
+		t.Fatalf("forwarded headers public=%q ts=%q nonce=%q", gotPublicKey, gotTimestamp, gotNonce)
+	}
+	if string(gotBody) != "encrypted-offer" {
+		t.Fatalf("forwarded body = %q", string(gotBody))
+	}
+}
+
+func TestServerPublicWebRTCSignalingUnavailable(t *testing.T) {
+	keyPair, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("GenerateKeyPair error = %v", err)
+	}
+	server := &Server{
+		LocalStatic: *keyPair,
+		PeerStore:   mustBadgerInMemory(t, nil),
+	}
+	if err := server.init(); err != nil {
+		t.Fatalf("init error = %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, gizwebrtc.SignalingPath, strings.NewReader("encrypted-offer"))
+	req.Header.Set("Content-Type", "application/octet-stream")
+	req.Header.Set("X-Giznet-Public-Key", "peer-public")
+	req.Header.Set("X-Giznet-Timestamp", "123456789")
+	req.Header.Set("X-Giznet-Nonce", "nonce")
+	rec := httptest.NewRecorder()
+	server.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusServiceUnavailable {
+		t.Fatalf("status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	var payload struct {
+		Error string `json:"error"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode response: %v body=%s", err, rec.Body.String())
+	}
+	if payload.Error != "webrtc_signaling_listener_unavailable" {
+		t.Fatalf("error = %q", payload.Error)
+	}
+}
+
+func TestServerPublicWebRTCSignalingPreservesContentType(t *testing.T) {
+	keyPair, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("GenerateKeyPair error = %v", err)
+	}
+	server := &Server{
+		LocalStatic: *keyPair,
+		PeerStore:   mustBadgerInMemory(t, nil),
+		WebRTCSignalingHandler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Header.Get("Content-Type") != "application/json" {
+				t.Fatalf("forwarded content-type = %q", r.Header.Get("Content-Type"))
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusUnsupportedMediaType)
+			_, _ = w.Write([]byte(`{"error":"unsupported_media_type"}`))
+		}),
+	}
+	if err := server.init(); err != nil {
+		t.Fatalf("init error = %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, gizwebrtc.SignalingPath, strings.NewReader(`{"offer":"bad"}`))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Giznet-Public-Key", "peer-public")
+	req.Header.Set("X-Giznet-Timestamp", "123456789")
+	req.Header.Set("X-Giznet-Nonce", "nonce")
+	rec := httptest.NewRecorder()
+	server.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusUnsupportedMediaType {
+		t.Fatalf("status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	var payload struct {
+		Error string `json:"error"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode response: %v body=%s", err, rec.Body.String())
+	}
+	if payload.Error != "unsupported_media_type" {
+		t.Fatalf("error = %q", payload.Error)
 	}
 }
 

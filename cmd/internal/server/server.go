@@ -21,7 +21,6 @@ type CmdServer struct {
 	*gizclaw.Server
 	AdminPublicKey giznet.PublicKey
 	stores         *stores.Stores
-	webrtcHandler  http.Handler
 }
 
 func (s *CmdServer) Close() error {
@@ -41,10 +40,6 @@ func (s *CmdServer) Close() error {
 }
 
 func (s *CmdServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if s != nil && s.webrtcHandler != nil && r.URL.Path == gizwebrtc.SignalingPath {
-		s.webrtcHandler.ServeHTTP(w, r)
-		return
-	}
 	if s == nil || s.Server == nil {
 		http.NotFound(w, r)
 		return
@@ -75,7 +70,8 @@ func New(cfg Config) (srv *CmdServer, err error) {
 	}
 
 	cmdSrv := &CmdServer{stores: ss, AdminPublicKey: cfg.AdminPublicKey}
-	gizServer := &gizclaw.Server{
+	var gizServer *gizclaw.Server
+	gizServer = &gizclaw.Server{
 		LocalStatic: *cfg.KeyPair,
 		PeerStore:   peersKV,
 		BuildCommit: BuildCommit,
@@ -98,7 +94,7 @@ func New(cfg Config) (srv *CmdServer, err error) {
 				if err != nil {
 					return nil, err
 				}
-				cmdSrv.webrtcHandler = l.SignalingHandler()
+				gizServer.WebRTCSignalingHandler = l.SignalingHandler()
 				return l, nil
 			},
 		},

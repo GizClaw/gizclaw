@@ -100,6 +100,150 @@
           }
         }
       }
+    },
+    "/giznet/webrtc/v1/offer": {
+      "post": {
+        "operationId": "createGiznetWebRTCOffer",
+        "summary": "Create a GizNet WebRTC answer for an encrypted browser offer",
+        "description": "Public WebRTC signaling endpoint for browser clients. The request body is an encrypted SDP offer and the 200 response body is the encrypted SDP answer.",
+        "tags": [
+          "Public"
+        ],
+        "parameters": [
+          {
+            "name": "X-Giznet-Public-Key",
+            "in": "header",
+            "required": true,
+            "description": "Client public key.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Giznet-Timestamp",
+            "in": "header",
+            "required": true,
+            "description": "Unix timestamp used by signaling AEAD derivation.",
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "X-Giznet-Nonce",
+            "in": "header",
+            "required": true,
+            "description": "Base64url nonce used by signaling AEAD derivation and replay checks.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/octet-stream": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Encrypted SDP answer.",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid signaling request.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GiznetWebRTCSignalingError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized signaling request.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GiznetWebRTCSignalingError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Peer is not allowed to connect.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GiznetWebRTCSignalingError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Signaling nonce was replayed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GiznetWebRTCSignalingError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Signaling body is too large.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GiznetWebRTCSignalingError"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Unsupported signaling media type.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GiznetWebRTCSignalingError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Failed to create signaling answer.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GiznetWebRTCSignalingError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "WebRTC signaling listener is unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GiznetWebRTCSignalingError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -124,6 +268,17 @@
           "expires_at": {
             "type": "integer",
             "format": "int64"
+          }
+        }
+      },
+      "GiznetWebRTCSignalingError": {
+        "type": "object",
+        "required": [
+          "error"
+        ],
+        "properties": {
+          "error": {
+            "type": "string"
           }
         }
       }

@@ -1,0 +1,11 @@
+{
+  "name": "@gizclaw/webrtc",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./index.ts"
+  },
+  "scripts": {
+    "test": "node --test --experimental-strip-types index.test.ts"
+  }
+}

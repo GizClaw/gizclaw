@@ -3,6 +3,7 @@ package gizclaw
 import (
 	"context"
 	"errors"
+	"net/http"
 
 	"golang.org/x/sync/errgroup"
 
@@ -26,6 +27,7 @@ const (
 type serverPublic struct {
 	peer.ServerPublicService
 	publiclogin.ServerPublic
+	WebRTCSignalingHandler func() http.Handler
 }
 
 // PeerService serves one peer connection.

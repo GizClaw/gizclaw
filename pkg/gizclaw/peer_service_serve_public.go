@@ -19,6 +19,7 @@ func (s *PeerService) servePublic(conn giznet.Conn) error {
 		if base == nil {
 			base = context.Background()
 		}
+		base = withServerPublicContentType(base, ctx.Get(fiber.HeaderContentType))
 		ctx.SetUserContext(serverpublic.WithCallerPublicKey(base, conn.PublicKey()))
 		return ctx.Next()
 	})
@@ -37,17 +38,20 @@ func (s *PeerService) servePublic(conn giznet.Conn) error {
 func (s *PeerService) publicHTTPHandler(sessions *publiclogin.SessionManager) http.Handler {
 	app := fiber.New(fiber.Config{DisableStartupMessage: true})
 	app.Use(func(ctx *fiber.Ctx) error {
+		base := ctx.UserContext()
+		if base == nil {
+			base = context.Background()
+		}
+		base = withServerPublicContentType(base, ctx.Get(fiber.HeaderContentType))
+		ctx.SetUserContext(base)
 		if (ctx.Method() == http.MethodGet && ctx.Path() == "/server-info") ||
-			(ctx.Method() == http.MethodPost && ctx.Path() == "/login") {
+			(ctx.Method() == http.MethodPost && ctx.Path() == "/login") ||
+			(ctx.Method() == http.MethodPost && ctx.Path() == "/giznet/webrtc/v1/offer") {
 			return ctx.Next()
 		}
 		publicKey, ok := authenticateFiberSession(ctx, sessions)
 		if !ok {
 			return nil
-		}
-		base := ctx.UserContext()
-		if base == nil {
-			base = context.Background()
 		}
 		ctx.SetUserContext(serverpublic.WithCallerPublicKey(base, publicKey))
 		return ctx.Next()
