@@ -3,7 +3,6 @@ import type { CreateGiznetWebRtcOfferData } from "@gizclaw/serverpublic";
 export const WEBRTC_RPC_DATA_CHANNEL_LABEL = "rpc";
 export const WEBRTC_EVENT_DATA_CHANNEL_LABEL = "event";
 export const GIZNET_WEBRTC_SIGNALING_PATH = "/webrtc/v1/offer";
-export const LOCAL_BRIDGE_WEBRTC_SIGNALING_PATH = "/webrtc/offer";
 export const RPC_VERSION = 1;
 
 export type RPCID = string;
@@ -45,21 +44,6 @@ export type WebRTCRPCDataChannel = {
 
 export type WebRTCRPCDataChannelFactory = {
   createDataChannel(label: string, options?: RTCDataChannelInit): WebRTCRPCDataChannel;
-};
-
-export type WebRTCOfferClient = {
-  createOffer(): Promise<RTCSessionDescriptionInit>;
-  localDescription: RTCSessionDescription | null;
-  setLocalDescription(description: RTCSessionDescriptionInit): Promise<void>;
-  setRemoteDescription(description: RTCSessionDescriptionInit): Promise<void>;
-};
-
-export type ConnectWebRTCOptions = {
-  fetch?: typeof fetch;
-  offerPath?: string;
-  offerURL?: string;
-  pc: RTCPeerConnection;
-  signal?: AbortSignal;
 };
 
 export type PreparedGiznetWebRTCOffer = {
@@ -312,32 +296,6 @@ export class WorkspaceRPC {
   getWorkspaceHistory<TResult = unknown>(request: WorkspaceHistoryGetRequest, options?: RPCCallOptions): Promise<TResult> {
     return this.client.call<TResult, WorkspaceHistoryGetRequest>("server.workspace.history.get", request, options);
   }
-}
-
-export async function connectLocalBridgeWebRTC(options: ConnectWebRTCOptions): Promise<RTCPeerConnection> {
-  const fetchImpl = options.fetch ?? globalThis.fetch;
-  const offerURL = options.offerURL ?? options.offerPath ?? LOCAL_BRIDGE_WEBRTC_SIGNALING_PATH;
-
-  const offer = await options.pc.createOffer();
-  await options.pc.setLocalDescription(offer);
-  await waitForICEGatheringComplete(options.pc, options.signal);
-  const local = options.pc.localDescription;
-  if (local == null) {
-    throw new Error("WebRTC offer was not created.");
-  }
-
-  const response = await fetchImpl(offerURL, {
-    body: JSON.stringify({ sdp: local.sdp, type: local.type }),
-    headers: { "content-type": "application/json" },
-    method: "POST",
-    signal: options.signal,
-  });
-  if (!response.ok) {
-    throw new Error(`WebRTC offer failed: ${response.status} ${response.statusText}`);
-  }
-  const answer = (await response.json()) as RTCSessionDescriptionInit;
-  await options.pc.setRemoteDescription(answer);
-  return options.pc;
 }
 
 export async function connectGiznetWebRTC(options: ConnectGiznetWebRTCOptions): Promise<RTCPeerConnection> {

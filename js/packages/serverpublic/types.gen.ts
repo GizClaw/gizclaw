@@ -30,6 +30,13 @@ export type ServerInfo = {
     public_key: string;
     server_time: number;
     build_commit: string;
+    protocol: string;
+    signaling_path: string;
+    endpoint: string;
+    ice: {
+        udp: boolean;
+        tcp: boolean;
+    };
 };
 
 export type LoginData = {

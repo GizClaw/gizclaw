@@ -1,9 +1,6 @@
 package admincmd
 
 import (
-	"strings"
-
-	"github.com/GizClaw/gizclaw-go/cmd/internal/cmdhttp"
 	aclcmd "github.com/GizClaw/gizclaw-go/cmd/internal/commands/admin/acl"
 	credentialscmd "github.com/GizClaw/gizclaw-go/cmd/internal/commands/admin/credentials"
 	dashscopetenantscmd "github.com/GizClaw/gizclaw-go/cmd/internal/commands/admin/dashscopetenants"
@@ -20,23 +17,16 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var listenAndServeAdminUI = cmdhttp.ListenAndServeAdminUI
-
 func NewCmd() *cobra.Command {
 	var ctxName string
-	var listenAddr string
 	cmd := &cobra.Command{
 		Use:   "admin",
 		Short: "Admin control-plane commands",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if strings.TrimSpace(listenAddr) == "" {
-				return cmd.Help()
-			}
-			return listenAndServeAdminUI(ctxName, listenAddr, cmd.OutOrStdout())
+			return cmd.Help()
 		},
 	}
 	cmd.Flags().StringVar(&ctxName, "context", "", "context name (default: current)")
-	cmd.Flags().StringVar(&listenAddr, "listen", "", "listen address or port for the admin web UI")
 	cmd.AddCommand(
 		newApplyCmd(&ctxName),
 		newDeleteCmd(&ctxName),

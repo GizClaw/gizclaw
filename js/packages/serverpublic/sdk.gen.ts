@@ -29,7 +29,7 @@ export const login = <ThrowOnError extends boolean = false>(options: Options<Log
 export const getServerInfo = <ThrowOnError extends boolean = false>(options?: Options<GetServerInfoData, ThrowOnError>) => (options?.client ?? client).get<GetServerInfoResponses, GetServerInfoErrors, ThrowOnError>({ url: '/server-info', ...options });
 
 /**
- * Create a GizNet WebRTC answer for an encrypted browser offer
+ * Create a WebRTC answer for an encrypted browser offer
  *
  * Public WebRTC signaling endpoint for browser clients. The request body is an encrypted SDP offer and the 200 response body is the encrypted SDP answer.
  */

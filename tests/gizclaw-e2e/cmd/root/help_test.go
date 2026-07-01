@@ -14,9 +14,12 @@ func TestRootHelpUserStory(t *testing.T) {
 
 	result := h.RunCLI("--help")
 	result.MustSucceed(t)
-	for _, want := range []string{"serve", "service", "context", "gen-key", "migrate", "connect", "admin", "play"} {
+	for _, want := range []string{"serve", "service", "context", "gen-key", "migrate", "connect", "admin"} {
 		if !strings.Contains(result.Stdout, want) {
 			t.Fatalf("root help missing %q:\n%s", want, result.Stdout)
 		}
+	}
+	if strings.Contains(result.Stdout, "play") {
+		t.Fatalf("root help should not include old Play UI command:\n%s", result.Stdout)
 	}
 }

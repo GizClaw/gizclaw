@@ -591,53 +591,6 @@ func (h *Harness) SetContextDirAlias(alias, contextDir string) {
 	}
 }
 
-func (h *Harness) StartUI(kind, contextName string) string {
-	h.t.Helper()
-
-	h.UseContext(contextName).MustSucceed(h.t)
-
-	listenAddr := freeTCPAddr(h.t)
-	logPath := filepath.Join(h.LogsDir, fmt.Sprintf("%s-%s-ui.log", kind, safeLogName(contextName)))
-	logFile, err := os.Create(logPath)
-	if err != nil {
-		h.t.Fatalf("create %s UI log: %v", kind, err)
-	}
-
-	cmd := exec.Command(h.BinaryPath, kind, "--context", contextName, "--listen", listenAddr)
-	cmd.Dir = h.RepoRoot
-	cmd.Env = h.baseEnv()
-	cmd.Stdout = logFile
-	cmd.Stderr = logFile
-	if err := cmd.Start(); err != nil {
-		_ = logFile.Close()
-		h.t.Fatalf("start %s UI: %v", kind, err)
-	}
-
-	process := &managedProcess{
-		name:    kind + "-ui",
-		cmd:     cmd,
-		log:     logFile,
-		waitCh:  make(chan error, 1),
-		logPath: logPath,
-	}
-	go func() {
-		process.waitCh <- cmd.Wait()
-		close(process.waitCh)
-	}()
-	h.extraProcesses = append(h.extraProcesses, process)
-
-	url := "http://" + listenAddr
-	if err := waitForHTTP(url, process); err != nil {
-		h.t.Fatalf("wait for %s UI: %v\nlog: %s", kind, err, logPath)
-	}
-	return url
-}
-
-func safeLogName(value string) string {
-	replacer := strings.NewReplacer("/", "-", "\\", "-", ":", "-", " ", "-")
-	return replacer.Replace(value)
-}
-
 func (h *Harness) RunCLI(args ...string) Result {
 	h.t.Helper()
 
@@ -1059,25 +1012,6 @@ func (p *managedProcess) errorIfExited() error {
 	}
 }
 
-func waitForHTTP(url string, process *managedProcess) error {
-	client := &http.Client{Timeout: probeTimeout}
-	return waitUntil(readyTimeout, func() error {
-		if err := process.errorIfExited(); err != nil {
-			return err
-		}
-		resp, err := client.Get(url)
-		if err != nil {
-			return err
-		}
-		_, _ = io.Copy(io.Discard, resp.Body)
-		_ = resp.Body.Close()
-		if resp.StatusCode != http.StatusOK {
-			return fmt.Errorf("GET %s status %d", url, resp.StatusCode)
-		}
-		return nil
-	})
-}
-
 func allocateUDPAddr(t testing.TB) string {
 	t.Helper()
 	for range 20 {
@@ -1096,17 +1030,6 @@ func allocateUDPAddr(t testing.TB) string {
 	}
 	t.Fatalf("allocateUDPAddr: could not find a TCP/UDP-free port")
 	return ""
-}
-
-func freeTCPAddr(t testing.TB) string {
-	t.Helper()
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatalf("allocate TCP addr: %v", err)
-	}
-	addr := listener.Addr().String()
-	_ = listener.Close()
-	return addr
 }
 
 func waitUntil(timeout time.Duration, check func() error) error {

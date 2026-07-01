@@ -10,8 +10,8 @@ import (
 )
 
 func TestNormalizeLegacyLongFlags(t *testing.T) {
-	got := normalizeLegacyLongFlags([]string{"admin", "-listen=8080", "-context", "demo", "--help", "-h"})
-	want := []string{"admin", "--listen=8080", "--context", "demo", "--help", "-h"}
+	got := normalizeLegacyLongFlags([]string{"context", "create", "demo", "-server=127.0.0.1:9820", "-public-key", "pk", "--help", "-h"})
+	want := []string{"context", "create", "demo", "--server=127.0.0.1:9820", "--public-key", "pk", "--help", "-h"}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("normalizeLegacyLongFlags() = %#v, want %#v", got, want)
 	}
@@ -47,8 +47,8 @@ func TestRootHelp(t *testing.T) {
 	if !strings.Contains(out, "admin") {
 		t.Fatalf("help missing 'admin': %s", out)
 	}
-	if !strings.Contains(out, "play") {
-		t.Fatalf("help missing 'play': %s", out)
+	if strings.Contains(out, "play") {
+		t.Fatalf("help should not include old Play UI command: %s", out)
 	}
 }
 
@@ -297,8 +297,8 @@ func TestAdminHelp(t *testing.T) {
 			t.Fatalf("admin help missing %q: %s", want, out)
 		}
 	}
-	if !strings.Contains(out, "--listen") {
-		t.Fatalf("admin help missing '--listen': %s", out)
+	if strings.Contains(out, "--listen") {
+		t.Fatalf("admin help should not include old UI listen flag: %s", out)
 	}
 }
 
@@ -336,7 +336,7 @@ func TestAdminResourceHelp(t *testing.T) {
 	}
 }
 
-func TestAdminHelpShowsListen(t *testing.T) {
+func TestAdminHelpDoesNotExposeUIListen(t *testing.T) {
 	root := New()
 	var buf bytes.Buffer
 	root.SetOut(&buf)
@@ -348,27 +348,16 @@ func TestAdminHelpShowsListen(t *testing.T) {
 	if !strings.Contains(out, "peers") || !strings.Contains(out, "credentials") {
 		t.Fatalf("admin help missing subcommands: %s", out)
 	}
-	if !strings.Contains(out, "--listen") {
-		t.Fatalf("admin help missing '--listen': %s", out)
+	if strings.Contains(out, "--listen") {
+		t.Fatalf("admin help should not include old UI listen flag: %s", out)
 	}
 }
 
-func TestPlayHelp(t *testing.T) {
+func TestPlayCommandRemoved(t *testing.T) {
 	root := New()
-	var buf bytes.Buffer
-	root.SetOut(&buf)
 	root.SetArgs([]string{"play", "--help"})
-	if err := root.Execute(); err != nil {
-		t.Fatal(err)
-	}
-	out := buf.String()
-	for _, removed := range []string{"register", "config", "ota", "serve"} {
-		if strings.Contains(out, "\n  "+removed) || strings.Contains(out, "\n    "+removed) {
-			t.Fatalf("play help should not mention removed %q subcommand: %s", removed, out)
-		}
-	}
-	if !strings.Contains(out, "--listen") {
-		t.Fatalf("play help missing '--listen': %s", out)
+	if err := root.Execute(); err == nil || !strings.Contains(err.Error(), "unknown command") {
+		t.Fatalf("play command err = %v, want unknown command", err)
 	}
 }
 

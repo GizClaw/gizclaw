@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -342,28 +341,6 @@ func TestAdminResourcePropagatesOpenClientError(t *testing.T) {
 	cmd.SetArgs([]string{"show", "Credential", "minimax-main"})
 	if err := cmd.Execute(); !errors.Is(err, want) {
 		t.Fatalf("admin show error = %v, want %v", err, want)
-	}
-}
-
-func TestAdminRootRunsListenMode(t *testing.T) {
-	original := listenAndServeAdminUI
-	defer func() { listenAndServeAdminUI = original }()
-
-	var gotContext string
-	var gotListen string
-	listenAndServeAdminUI = func(ctxName, listenAddr string, _ io.Writer) error {
-		gotContext = ctxName
-		gotListen = listenAddr
-		return nil
-	}
-
-	cmd := NewCmd()
-	cmd.SetArgs([]string{"--context", "local", "--listen", "127.0.0.1:8080"})
-	if err := cmd.Execute(); err != nil {
-		t.Fatalf("admin listen error: %v", err)
-	}
-	if gotContext != "local" || gotListen != "127.0.0.1:8080" {
-		t.Fatalf("listen args = %q/%q", gotContext, gotListen)
 	}
 }
 

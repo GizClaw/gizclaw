@@ -47,8 +47,8 @@ type ClientWebRTCRegistration struct {
 // RegisterTo wires this client into a Pion PeerConnection.
 //
 // The browser-facing contract is intentionally transport-shaped rather than
-// signaling-shaped: cmd/play can use any local signaling mechanism, then call
-// RegisterTo before applying the offer/answer.
+// signaling-shaped: desktop/frontend callers can use their own signaling
+// mechanism, then call RegisterTo before applying the offer/answer.
 func (c *Client) RegisterTo(pc *webrtc.PeerConnection) (*ClientWebRTCRegistration, error) {
 	if c == nil {
 		return nil, fmt.Errorf("gizclaw: nil client")

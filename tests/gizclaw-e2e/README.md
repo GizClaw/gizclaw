@@ -278,13 +278,10 @@ Go `os/exec`. They should not use `go run` and should not shortcut through
 typed clients.
 
 The `cmd` layout mirrors the real CLI command hierarchy: `root`, `gen-key`,
-`context`, `serve`, `service`, `migrate`, `connect`, `admin`, and `play`. Each
-command directory has one `USER_STORIES.md` plus focused `_test.go` files.
-
-`cmd/play` tests the legacy `gizclaw play` command until #111 removes old
-CLI-served UI paths.
+`context`, `serve`, `service`, `migrate`, `connect`, and `admin`. Each command
+directory has one `USER_STORIES.md` plus focused `_test.go` files.
 
 ## UI Tests
 
-The old CLI-served browser UI e2e tree is not part of the default runner.
-Desktop UI coverage is rebuilt under `desktop/` with the Wails follow-up issues.
+The old CLI-served browser UI e2e tree has been removed. Desktop UI coverage is
+rebuilt under `desktop/` with the Wails follow-up issues.

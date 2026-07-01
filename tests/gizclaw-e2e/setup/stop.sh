@@ -7,8 +7,6 @@ testdata_dir="$repo_root/tests/gizclaw-e2e/testdata"
 workspace_dir="$testdata_dir/server-workspace"
 target="${1:-all}"
 server_launch_label="com.gizclaw.e2e.server.$(printf '%s' "$repo_root" | cksum | awk '{print $1}')"
-admin_ui_launch_label="com.gizclaw.e2e.admin-ui.$(printf '%s' "$repo_root" | cksum | awk '{print $1}')"
-play_ui_launch_label="com.gizclaw.e2e.play-ui.$(printf '%s' "$repo_root" | cksum | awk '{print $1}')"
 
 launchctl_supported() {
   [[ "$(uname -s)" == "Darwin" ]] && command -v launchctl >/dev/null 2>&1
@@ -39,38 +37,14 @@ stop_pid_file() {
 }
 
 case "$target" in
-  all)
-    if launchctl_supported; then
-      launchctl remove "$play_ui_launch_label" >/dev/null 2>&1 || true
-      launchctl remove "$admin_ui_launch_label" >/dev/null 2>&1 || true
-    fi
-    stop_pid_file "play UI" "$testdata_dir/play-ui.pid"
-    stop_pid_file "admin UI" "$testdata_dir/admin-ui.pid"
+  all|server)
     if launchctl_supported; then
       launchctl remove "$server_launch_label" >/dev/null 2>&1 || true
     fi
     stop_pid_file "server" "$workspace_dir/gizclaw-server.pid"
-    ;;
-  server)
-    if launchctl_supported; then
-      launchctl remove "$server_launch_label" >/dev/null 2>&1 || true
-    fi
-    stop_pid_file "server" "$workspace_dir/gizclaw-server.pid"
-    ;;
-  admin-ui)
-    if launchctl_supported; then
-      launchctl remove "$admin_ui_launch_label" >/dev/null 2>&1 || true
-    fi
-    stop_pid_file "admin UI" "$testdata_dir/admin-ui.pid"
-    ;;
-  play-ui)
-    if launchctl_supported; then
-      launchctl remove "$play_ui_launch_label" >/dev/null 2>&1 || true
-    fi
-    stop_pid_file "play UI" "$testdata_dir/play-ui.pid"
     ;;
   *)
-    echo "usage: $0 [all|server|admin-ui|play-ui]" >&2
+    echo "usage: $0 [all|server]" >&2
     exit 2
     ;;
 esac

@@ -5,7 +5,7 @@ Browser-side WebRTC helpers for GizClaw peer sessions.
 ## What This Package Provides
 
 - WebRTC signaling helpers for the server public `/webrtc/v1/offer`
-  endpoint and the local client bridge `/webrtc/offer` endpoint.
+  endpoint.
 - JSON-RPC calls over the `rpc:*` data channel.
 - Workspace-related RPC convenience methods.
 - A fetch-compatible adapter that can route generated-client requests through
@@ -13,9 +13,9 @@ Browser-side WebRTC helpers for GizClaw peer sessions.
 
 ## Signaling Surfaces
 
-Use `connectGiznetWebRTC` for browser pages served by GizClaw server static
-hosting. It targets the server public endpoint described by
-`api/server_public.json`:
+Use `connectGiznetWebRTC` for browser or desktop frontend sessions that connect
+to a GizClaw server endpoint. It targets the server public endpoint described
+by `api/server_public.json`:
 
 ```text
 POST /webrtc/v1/offer
@@ -27,9 +27,6 @@ X-Giznet-Nonce: <base64url nonce>
 
 The request body is encrypted SDP offer bytes. The response body is encrypted
 SDP answer bytes.
-
-Use `connectLocalBridgeWebRTC` only for client-local Play UI bridging through
-`/webrtc/offer`.
 
 ## HTTP Over Data Channel
 
