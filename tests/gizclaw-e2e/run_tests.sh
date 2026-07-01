@@ -76,12 +76,21 @@ run_chat_pkg() {
 	done
 }
 
+run_js_rpc_tests() {
+	echo "==> npm test --workspace @gizclaw/webrtc"
+	(cd "$repo_root" && npm test --workspace @gizclaw/webrtc)
+
+	echo "==> node tests/gizclaw-e2e/js/rpc"
+	(cd "$repo_root/tests/gizclaw-e2e/js" && npm run test:rpc)
+}
+
 echo "==> build e2e CLI"
 "$setup_dir/build.sh" >/dev/null
 
 echo "==> reset e2e data"
 "$setup_dir/reset_data.sh" reset
 
+run_js_rpc_tests
 run_pkg "./tests/gizclaw-e2e/go/admin"
 run_chat_pkg
 run_pkg "./tests/gizclaw-e2e/go/rpc"

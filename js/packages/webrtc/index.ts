@@ -2,8 +2,19 @@ import type { CreateGiznetWebRtcOfferData } from "@gizclaw/serverpublic";
 
 export const WEBRTC_RPC_DATA_CHANNEL_LABEL = "rpc";
 export const WEBRTC_EVENT_DATA_CHANNEL_LABEL = "event";
+export const GIZNET_WEBRTC_PACKET_DATA_CHANNEL_LABEL = "giznet/v1/packet";
+export const GIZNET_WEBRTC_SERVICE_DATA_CHANNEL_PREFIX = "giznet/v1/service/";
 export const GIZNET_WEBRTC_SIGNALING_PATH = "/webrtc/v1/offer";
 export const RPC_VERSION = 1;
+export const GIZCLAW_SERVICE_RPC = 0x00;
+export const GIZCLAW_SERVICE_SERVER_PUBLIC = 0x01;
+export const GIZCLAW_SERVICE_OPENAI = 0x02;
+export const GIZCLAW_SERVICE_ADMIN = 0x10;
+export const GIZCLAW_SERVICE_EVENT = 0x20;
+export const RPC_FRAME_TYPE_EOS = 0;
+export const RPC_FRAME_TYPE_JSON = 1;
+export const RPC_FRAME_TYPE_BINARY = 2;
+export const RPC_FRAME_TYPE_TEXT = 3;
 
 export type RPCID = string;
 
@@ -39,7 +50,7 @@ export type WebRTCRPCDataChannel = {
   removeEventListener(type: "message", listener: (event: MessageEvent) => void): void;
   removeEventListener(type: "error", listener: () => void): void;
   removeEventListener(type: "close", listener: () => void): void;
-  send(data: string): void;
+  send(data: ArrayBuffer | ArrayBufferView | Blob | string): void;
 };
 
 export type WebRTCRPCDataChannelFactory = {
@@ -55,6 +66,8 @@ export type PreparedGiznetWebRTCOffer = {
 };
 
 export type ConnectGiznetWebRTCOptions = {
+  addAudioTransceiver?: boolean;
+  createPacketDataChannel?: boolean;
   fetch?: typeof fetch;
   pc: RTCPeerConnection;
   prepareOffer: (offerSDP: string) => Promise<PreparedGiznetWebRTCOffer>;
@@ -66,6 +79,7 @@ export type WebRTCRPCClientOptions = {
   channelLabel?: string;
   createID?: () => string;
   requestTimeoutMs?: number;
+  service?: number;
 };
 
 export type RPCCallOptions = {
@@ -96,7 +110,7 @@ export class WebRTCRPCClient {
 
   constructor(pc: WebRTCRPCDataChannelFactory, options: WebRTCRPCClientOptions = {}) {
     this.pc = pc;
-    this.channelLabel = options.channelLabel ?? WEBRTC_RPC_DATA_CHANNEL_LABEL;
+    this.channelLabel = options.channelLabel ?? giznetServiceDataChannelLabel(options.service ?? GIZCLAW_SERVICE_RPC);
     this.createID = options.createID ?? defaultRPCID;
     this.requestTimeoutMs = options.requestTimeoutMs ?? 30000;
   }
@@ -111,7 +125,7 @@ export class WebRTCRPCClient {
   }
 
   async request<TResult = unknown, TParams = unknown>(request: RPCRequest<TParams>, options: RPCCallOptions = {}): Promise<RPCResponse<TResult>> {
-    const channel = this.pc.createDataChannel(`${this.channelLabel}:${request.id}`, { ordered: true });
+    const channel = this.pc.createDataChannel(this.channelLabel, { ordered: true });
     channel.binaryType = "arraybuffer";
 
     const timeoutMs = options.timeoutMs ?? this.requestTimeoutMs;
@@ -151,21 +165,29 @@ export class WebRTCRPCClient {
       };
       const onOpen = (): void => {
         try {
-          channel.send(JSON.stringify(request));
+          channel.send(encodeRPCRequest(request));
         } catch (err) {
           settle(() => reject(err));
         }
       };
       const onMessage = (event: MessageEvent): void => {
-        try {
-          const response = parseRPCResponse<TResult>(event.data);
-          if (response.id != null && response.id !== request.id) {
-            throw new Error(`rpc response id mismatch: got ${response.id}, want ${request.id}`);
+        void (async () => {
+          try {
+            const chunk = await messageDataBytes(event.data);
+            buffer = appendBytes(buffer, chunk);
+            const parsed = tryReadRPCResponse<TResult>(buffer);
+            if (parsed == null) {
+              return;
+            }
+            buffer = parsed.rest;
+            if (parsed.response.id != null && parsed.response.id !== request.id) {
+              throw new Error(`rpc response id mismatch: got ${parsed.response.id}, want ${request.id}`);
+            }
+            settle(() => resolve(parsed.response));
+          } catch (err) {
+            settle(() => reject(err));
           }
-          settle(() => resolve(response));
-        } catch (err) {
-          settle(() => reject(err));
-        }
+        })();
       };
       const onError = (): void => {
         settle(() => reject(new Error("WebRTC RPC data channel failed.")));
@@ -191,6 +213,7 @@ export class WebRTCRPCClient {
         }, timeoutMs);
       }
 
+      let buffer = new Uint8Array();
       if (channel.readyState === "open") {
         onOpen();
       } else if (channel.readyState === "closed") {
@@ -299,6 +322,7 @@ export class WorkspaceRPC {
 }
 
 export async function connectGiznetWebRTC(options: ConnectGiznetWebRTCOptions): Promise<RTCPeerConnection> {
+  prepareGiznetWebRTCPeerConnection(options.pc, options);
   const offer = await options.pc.createOffer();
   await options.pc.setLocalDescription(offer);
   await waitForICEGatheringComplete(options.pc, options.signal);
@@ -312,6 +336,21 @@ export async function connectGiznetWebRTC(options: ConnectGiznetWebRTCOptions): 
   const answerSDP = await prepared.openAnswer(encryptedAnswer);
   await options.pc.setRemoteDescription({ sdp: answerSDP, type: "answer" });
   return options.pc;
+}
+
+export function prepareGiznetWebRTCPeerConnection(
+  pc: RTCPeerConnection,
+  options: Pick<ConnectGiznetWebRTCOptions, "addAudioTransceiver" | "createPacketDataChannel"> = {},
+): void {
+  if (options.createPacketDataChannel !== false) {
+    pc.createDataChannel(GIZNET_WEBRTC_PACKET_DATA_CHANNEL_LABEL, {
+      maxRetransmits: 0,
+      ordered: false,
+    });
+  }
+  if (options.addAudioTransceiver !== false && typeof pc.addTransceiver === "function") {
+    pc.addTransceiver("audio", { direction: "sendrecv" });
+  }
 }
 
 export async function sendGiznetWebRTCOffer(
@@ -364,6 +403,102 @@ export function parseRPCResponse<TResult = unknown>(data: unknown): RPCResponse<
   return parsed;
 }
 
+export function giznetServiceDataChannelLabel(service: number): string {
+  if (!Number.isSafeInteger(service) || service < 0) {
+    throw new Error(`invalid giznet service id: ${service}`);
+  }
+  return `${GIZNET_WEBRTC_SERVICE_DATA_CHANNEL_PREFIX}${service}`;
+}
+
+export function encodeRPCRequest(request: RPCRequest): ArrayBuffer {
+  return concatBytes([encodeJSONFrame(request), encodeFrame(RPC_FRAME_TYPE_EOS)]);
+}
+
+export function encodeRPCResponse(response: RPCResponse): ArrayBuffer {
+  return concatBytes([encodeJSONFrame(response), encodeFrame(RPC_FRAME_TYPE_EOS)]);
+}
+
+export function encodeJSONFrame(value: unknown): ArrayBuffer {
+  return encodeFrame(RPC_FRAME_TYPE_JSON, new TextEncoder().encode(JSON.stringify(value)));
+}
+
+export function encodeFrame(type: number, payload: Uint8Array = new Uint8Array()): ArrayBuffer {
+  if (!Number.isInteger(type) || type < 0 || type > 0xffff) {
+    throw new Error(`invalid RPC frame type: ${type}`);
+  }
+  if (payload.length > 0xffff) {
+    throw new Error(`RPC frame too large: ${payload.length}`);
+  }
+  if (type === RPC_FRAME_TYPE_EOS && payload.length !== 0) {
+    throw new Error("RPC EOS frame must be empty.");
+  }
+  const out = new Uint8Array(4 + payload.length);
+  const view = new DataView(out.buffer);
+  view.setUint16(0, payload.length, true);
+  view.setUint16(2, type, true);
+  out.set(payload, 4);
+  return out.buffer;
+}
+
+export function decodeFrames(data: ArrayBuffer | Uint8Array): Array<{ payload: Uint8Array; type: number }> {
+  let offset = 0;
+  const bytes = data instanceof Uint8Array ? data : new Uint8Array(data);
+  const frames: Array<{ payload: Uint8Array; type: number }> = [];
+  while (offset < bytes.length) {
+    if (bytes.length - offset < 4) {
+      throw new Error("incomplete RPC frame header");
+    }
+    const view = new DataView(bytes.buffer, bytes.byteOffset + offset, 4);
+    const length = view.getUint16(0, true);
+    const type = view.getUint16(2, true);
+    offset += 4;
+    if (bytes.length - offset < length) {
+      throw new Error("incomplete RPC frame payload");
+    }
+    if (type === RPC_FRAME_TYPE_EOS && length !== 0) {
+      throw new Error("RPC EOS frame must be empty.");
+    }
+    frames.push({ payload: bytes.slice(offset, offset + length), type });
+    offset += length;
+  }
+  return frames;
+}
+
+function tryReadRPCResponse<TResult>(buffer: Uint8Array): { response: RPCResponse<TResult>; rest: Uint8Array } | null {
+  let offset = 0;
+  let response: RPCResponse<TResult> | undefined;
+  for (;;) {
+    if (buffer.length - offset < 4) {
+      return null;
+    }
+    const view = new DataView(buffer.buffer, buffer.byteOffset + offset, 4);
+    const length = view.getUint16(0, true);
+    const type = view.getUint16(2, true);
+    if (buffer.length - offset - 4 < length) {
+      return null;
+    }
+    offset += 4;
+    const payload = buffer.slice(offset, offset + length);
+    offset += length;
+    if (type === RPC_FRAME_TYPE_EOS) {
+      if (length !== 0) {
+        throw new Error("RPC EOS frame must be empty.");
+      }
+      if (response == null) {
+        throw new Error("RPC response EOS before JSON frame.");
+      }
+      return { response, rest: buffer.slice(offset) };
+    }
+    if (type !== RPC_FRAME_TYPE_JSON) {
+      throw new Error(`rpc: expected JSON frame, got type ${type}`);
+    }
+    if (response != null) {
+      throw new Error("RPC response contains multiple JSON frames.");
+    }
+    response = parseRPCResponse<TResult>(new TextDecoder().decode(payload));
+  }
+}
+
 export function waitForICEGatheringComplete(pc: RTCPeerConnection, signal?: AbortSignal): Promise<void> {
   if (pc.iceGatheringState === "complete") {
     return Promise.resolve();
@@ -403,4 +538,41 @@ function abortError(): Error {
   const err = new Error("The operation was aborted.");
   err.name = "AbortError";
   return err;
+}
+
+async function messageDataBytes(data: unknown): Promise<Uint8Array> {
+  if (data instanceof ArrayBuffer) {
+    return new Uint8Array(data);
+  }
+  if (ArrayBuffer.isView(data)) {
+    return new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
+  }
+  if (typeof Blob !== "undefined" && data instanceof Blob) {
+    return new Uint8Array(await data.arrayBuffer());
+  }
+  if (typeof data === "string") {
+    return new TextEncoder().encode(data);
+  }
+  throw new Error("unsupported WebRTC data channel message type");
+}
+
+function appendBytes(left: Uint8Array, right: Uint8Array): Uint8Array {
+  if (left.length === 0) {
+    return right;
+  }
+  const out = new Uint8Array(left.length + right.length);
+  out.set(left, 0);
+  out.set(right, left.length);
+  return out;
+}
+
+function concatBytes(parts: Array<ArrayBuffer | Uint8Array>): ArrayBuffer {
+  const arrays = parts.map((part) => (part instanceof Uint8Array ? part : new Uint8Array(part)));
+  const out = new Uint8Array(arrays.reduce((sum, part) => sum + part.length, 0));
+  let offset = 0;
+  for (const part of arrays) {
+    out.set(part, offset);
+    offset += part.length;
+  }
+  return out.buffer;
 }

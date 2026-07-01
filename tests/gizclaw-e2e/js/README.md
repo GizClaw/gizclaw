@@ -10,4 +10,15 @@ Expected suites:
 - `chat/`: chat/workspace flows over WebRTC RPC
 - `social/`: social flows over WebRTC RPC
 
-The implementation belongs to the WebRTC SDK and desktop follow-up issues.
+Current coverage:
+
+- `rpc/webrtc_rpc_e2e.test.ts` uses the shared setup server and
+  `testdata/identities/peer` to establish a real server-public WebRTC
+  connection, then runs `all.ping` over the RPC service data channel.
+
+Run after `setup/start-server.sh` and `setup/reset_data.sh reset`:
+
+```bash
+cd tests/gizclaw-e2e/js
+npm run test:rpc
+```

@@ -1,7 +1,22 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { GIZNET_WEBRTC_SIGNALING_PATH, WebRTCRPCClient, WebRTCRPCError, WorkspaceRPC, createWebRTCFetch, sendGiznetWebRTCOffer } from "./index.ts";
+import {
+  GIZCLAW_SERVICE_RPC,
+  GIZNET_WEBRTC_PACKET_DATA_CHANNEL_LABEL,
+  GIZNET_WEBRTC_SIGNALING_PATH,
+  RPC_FRAME_TYPE_EOS,
+  RPC_FRAME_TYPE_JSON,
+  WebRTCRPCClient,
+  WebRTCRPCError,
+  WorkspaceRPC,
+  createWebRTCFetch,
+  decodeFrames,
+  encodeRPCResponse,
+  giznetServiceDataChannelLabel,
+  prepareGiznetWebRTCPeerConnection,
+  sendGiznetWebRTCOffer,
+} from "./index.ts";
 
 test("WebRTCRPCClient sends JSON-RPC over an rpc data channel", async () => {
   const pc = new FakePeerConnection();
@@ -11,18 +26,37 @@ test("WebRTCRPCClient sends JSON-RPC over an rpc data channel", async () => {
   const channel = pc.lastChannel();
   channel.open();
 
-  assert.equal(channel.label, "rpc:req-1");
-  assert.deepEqual(JSON.parse(channel.sent[0] ?? ""), {
+  assert.equal(channel.label, giznetServiceDataChannelLabel(GIZCLAW_SERVICE_RPC));
+  const frames = decodeFrames(channel.sent[0] ?? new ArrayBuffer(0));
+  assert.equal(frames.length, 2);
+  assert.equal(frames[0]?.type, RPC_FRAME_TYPE_JSON);
+  assert.equal(frames[1]?.type, RPC_FRAME_TYPE_EOS);
+  assert.deepEqual(JSON.parse(new TextDecoder().decode(frames[0]?.payload)), {
     id: "req-1",
     method: "server.run.workspace.get",
     params: {},
     v: 1,
   });
 
-  channel.receive({ id: "req-1", result: { ok: true }, v: 1 });
+  channel.receive(encodeRPCResponse({ id: "req-1", result: { ok: true }, v: 1 }));
 
   assert.deepEqual(await promise, { ok: true });
   assert.equal(channel.closed, true);
+});
+
+test("WebRTCRPCClient reassembles response frames split across messages", async () => {
+  const pc = new FakePeerConnection();
+  const client = new WebRTCRPCClient(pc, { createID: () => "req-split" });
+
+  const promise = client.call<{ ok: boolean }>("server.run.workspace.get", {});
+  const channel = pc.lastChannel();
+  channel.open();
+
+  const response = new Uint8Array(encodeRPCResponse({ id: "req-split", result: { ok: true }, v: 1 }));
+  channel.receiveBytes(response.slice(0, 5));
+  channel.receiveBytes(response.slice(5));
+
+  assert.deepEqual(await promise, { ok: true });
 });
 
 test("WebRTCRPCClient rejects RPC error responses", async () => {
@@ -32,7 +66,7 @@ test("WebRTCRPCClient rejects RPC error responses", async () => {
   const promise = client.call("server.run.workspace.reload");
   const channel = pc.lastChannel();
   channel.open();
-  channel.receive({ error: { code: -32000, message: "boom" }, id: "req-2", v: 1 });
+  channel.receive(encodeRPCResponse({ error: { code: -32000, message: "boom" }, id: "req-2", v: 1 }));
 
   await assert.rejects(promise, (err) => {
     assert.equal(err instanceof WebRTCRPCError, true);
@@ -101,6 +135,16 @@ test("createWebRTCFetch turns generated-client fetch calls into RPC calls", asyn
   assert.deepEqual(calls, [{ method: "server.run.workspace.get", params: {} }]);
 });
 
+test("prepareGiznetWebRTCPeerConnection creates packet channel and audio transceiver", () => {
+  const pc = new FakePeerConnection();
+
+  prepareGiznetWebRTCPeerConnection(pc as unknown as RTCPeerConnection);
+
+  assert.equal(pc.channels[0]?.label, GIZNET_WEBRTC_PACKET_DATA_CHANNEL_LABEL);
+  assert.deepEqual(pc.channels[0]?.options, { maxRetransmits: 0, ordered: false });
+  assert.deepEqual(pc.transceivers, [{ kind: "audio", init: { direction: "sendrecv" } }]);
+});
+
 test("sendGiznetWebRTCOffer posts the server public signaling request", async () => {
   const body = new Blob([new Uint8Array([1, 2, 3])]);
   const answer = new Blob([new Uint8Array([4, 5])]);
@@ -135,11 +179,16 @@ test("sendGiznetWebRTCOffer posts the server public signaling request", async ()
 
 class FakePeerConnection {
   channels: FakeDataChannel[] = [];
+  transceivers: Array<{ init?: RTCRtpTransceiverInit; kind: string }> = [];
 
-  createDataChannel(label: string): FakeDataChannel {
-    const channel = new FakeDataChannel(label);
+  createDataChannel(label: string, options?: RTCDataChannelInit): FakeDataChannel {
+    const channel = new FakeDataChannel(label, options);
     this.channels.push(channel);
     return channel;
+  }
+
+  addTransceiver(kind: string, init?: RTCRtpTransceiverInit): void {
+    this.transceivers.push({ kind, init });
   }
 
   lastChannel(): FakeDataChannel {
@@ -155,12 +204,14 @@ class FakeDataChannel {
   binaryType?: BinaryType;
   closed = false;
   readonly label: string;
+  readonly options?: RTCDataChannelInit;
   readyState: RTCDataChannelState = "connecting";
-  sent: string[] = [];
+  sent: ArrayBuffer[] = [];
   readonly listeners = new Map<string, Set<(event?: unknown) => void>>();
 
-  constructor(label: string) {
+  constructor(label: string, options?: RTCDataChannelInit) {
     this.label = label;
+    this.options = options;
   }
 
   addEventListener(type: string, listener: (event?: unknown) => void): void {
@@ -176,8 +227,20 @@ class FakeDataChannel {
     this.listeners.get(type)?.delete(listener);
   }
 
-  send(data: string): void {
-    this.sent.push(data);
+  send(data: ArrayBuffer | ArrayBufferView | Blob | string): void {
+    if (data instanceof ArrayBuffer) {
+      this.sent.push(data);
+      return;
+    }
+    if (ArrayBuffer.isView(data)) {
+      this.sent.push(data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength));
+      return;
+    }
+    if (typeof data === "string") {
+      this.sent.push(new TextEncoder().encode(data).buffer);
+      return;
+    }
+    throw new Error("fake data channel only supports synchronous data");
   }
 
   close(): void {
@@ -190,8 +253,12 @@ class FakeDataChannel {
     this.emit("open");
   }
 
-  receive(data: unknown): void {
-    this.emit("message", { data: JSON.stringify(data) });
+  receive(data: ArrayBuffer): void {
+    this.emit("message", { data });
+  }
+
+  receiveBytes(data: Uint8Array): void {
+    this.emit("message", { data });
   }
 
   private emit(type: string, event?: unknown): void {

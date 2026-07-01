@@ -1,0 +1,8 @@
+{
+  "name": "@gizclaw/e2e-js",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test:rpc": "node --experimental-strip-types rpc/webrtc_rpc_e2e.test.ts"
+  }
+}

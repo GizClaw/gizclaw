@@ -7,5 +7,8 @@
   },
   "scripts": {
     "test": "node --test --experimental-strip-types index.test.ts"
+  },
+  "devDependencies": {
+    "@roamhq/wrtc": "^0.10.0"
   }
 }
