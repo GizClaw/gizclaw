@@ -1,0 +1,1 @@
+This file keeps the embedded Wails asset directory present before the frontend is built.

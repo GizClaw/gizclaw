@@ -1,6 +1,6 @@
 # GizClaw Desktop E2E
 
-This directory is reserved for Wails desktop e2e suites.
+This directory contains Wails desktop e2e suites.
 
 Expected suites:
 
@@ -8,4 +8,9 @@ Expected suites:
 - `admin/`: Wails-hosted Admin view tests
 - `play/`: Wails-hosted Play view tests
 
-The harness and tests are added with the desktop shell and UI rewrite issues.
+The shell suite is active. It runs Wails backend Go tests, frontend runtime
+tests, frontend build checks, and Playwright shell behavior through the shared
+desktop harness.
+
+Admin and Play suites are added when those views are rewritten into
+`apps/wails`.

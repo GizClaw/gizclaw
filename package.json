@@ -1,6 +1,8 @@
 {
+  "name": "gizclaw-go",
   "private": true,
   "workspaces": [
+    "apps/wails/frontend",
     "js",
     "js/packages/*"
   ]

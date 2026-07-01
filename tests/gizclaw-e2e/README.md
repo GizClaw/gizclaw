@@ -10,12 +10,13 @@ runs.
 
 - `testdata/`: committed identity/resource data plus ignored generated runtime files.
 - `setup/`: lifecycle scripts for building the CLI, starting services,
-  resetting shared data, granting the default client view, and stopping
-  services.
+  preparing the desktop shell, resetting shared data, granting the default
+  client view, and stopping services.
 - `cmd/`: user-facing `gizclaw` CLI command e2e tests.
 - `go/`: Go Admin API, RPC, chat, and social e2e tests.
 - `js/`: reserved JavaScript/TypeScript package e2e suites.
-- `desktop/`: reserved Wails desktop e2e suites.
+- `desktop/`: Wails desktop shell e2e suites, with Admin and Play coverage added
+  as those views are rewritten.
 
 ## Standard Flow
 
@@ -31,8 +32,9 @@ runs.
 ./tests/gizclaw-e2e/run_tests.sh
 ```
 
-The script builds the e2e CLI, resets server data, then runs the Go Admin API,
-chat, RPC, social, and selected CLI suites one at a time. It excludes
+The script builds the e2e CLI, resets server data, then runs JS WebRTC,
+desktop shell, Go Admin API, chat, RPC, social, and selected CLI suites one at
+a time. It excludes
 human-review cases, which require separate interactive audio review. It stops
 e2e services on success or failure.
 
@@ -83,14 +85,27 @@ go test -tags gizclaw_e2e -count=1 -skip '^(TestHumanReview|TestServerSocialRPCH
 go test -tags gizclaw_e2e -count=1 -skip '^(TestHumanReview|TestServerSocialRPCHumanReview)$' ./tests/gizclaw-e2e/go/social
 ```
 
-7. Run CLI story tests against the same setup-created server and resource
+7. Run desktop shell tests against the same setup context model:
+
+```sh
+./tests/gizclaw-e2e/setup/build-desktop.sh
+go test -tags gizclaw_e2e -count=1 ./tests/gizclaw-e2e/desktop/...
+```
+
+For manual browser inspection of the current desktop frontend surface:
+
+```sh
+./tests/gizclaw-e2e/setup/start-desktop.sh
+```
+
+8. Run CLI story tests against the same setup-created server and resource
    catalog:
 
 ```sh
 go test -tags gizclaw_e2e -count=1 ./tests/gizclaw-e2e/cmd/connect
 ```
 
-8. Stop e2e services when finished:
+9. Stop e2e services when finished:
 
 ```sh
 ./tests/gizclaw-e2e/setup/stop.sh

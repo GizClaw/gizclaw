@@ -84,6 +84,11 @@ run_js_rpc_tests() {
 	(cd "$repo_root/tests/gizclaw-e2e/js" && npm run test:rpc)
 }
 
+run_desktop_tests() {
+	echo "==> go test tests/gizclaw-e2e/desktop"
+	(cd "$repo_root" && go test -v -tags gizclaw_e2e -count=1 -timeout "$go_test_timeout" ./tests/gizclaw-e2e/desktop/...)
+}
+
 echo "==> build e2e CLI"
 "$setup_dir/build.sh" >/dev/null
 
@@ -91,6 +96,7 @@ echo "==> reset e2e data"
 "$setup_dir/reset_data.sh" reset
 
 run_js_rpc_tests
+run_desktop_tests
 run_pkg "./tests/gizclaw-e2e/go/admin"
 run_chat_pkg
 run_pkg "./tests/gizclaw-e2e/go/rpc"
