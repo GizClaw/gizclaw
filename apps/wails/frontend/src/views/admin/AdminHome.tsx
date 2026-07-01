@@ -2,6 +2,7 @@ import { RefreshCw } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "../../components/Button";
 import { Card, CardBody, CardHeader } from "../../components/Card";
+import { TextInput } from "../../components/TextInput";
 import {
   type AdminSection,
   type AdminDataClient,
@@ -187,12 +188,26 @@ function ResourceTable({
   section: AdminSection;
   selectedID: string;
 }) {
+  const [filter, setFilter] = useState("");
+  useEffect(() => {
+    setFilter("");
+  }, [section.key]);
+  const filteredRows = section.rows.filter((row) => matchesRow(row, filter));
   return (
     <Card>
       <CardHeader title={section.title} />
       <CardBody>
+        <TextInput
+          aria-label={`Filter ${section.title}`}
+          className="table-filter"
+          onChange={(event) => setFilter(event.target.value)}
+          placeholder={`Filter ${section.title.toLowerCase()} by id, name, or status`}
+          value={filter}
+        />
         {section.rows.length === 0 ? (
           <div className="empty">No {section.title.toLowerCase()} found.</div>
+        ) : filteredRows.length === 0 ? (
+          <div className="empty">No matching {section.title.toLowerCase()} found.</div>
         ) : (
           <div className="table-wrap">
             <table className="data-table">
@@ -205,7 +220,7 @@ function ResourceTable({
                 </tr>
               </thead>
               <tbody>
-                {section.rows.map((row) => (
+                {filteredRows.map((row) => (
                   <tr className={row.id === selectedID ? "selected" : ""} key={row.id}>
                     <td>
                       <button className="table-link mono" onClick={() => onSelect(row.id)} type="button">
@@ -225,6 +240,16 @@ function ResourceTable({
       </CardBody>
     </Card>
   );
+}
+
+function matchesRow(row: AdminRow, filter: string): boolean {
+  const needle = filter.trim().toLowerCase();
+  if (needle === "") {
+    return true;
+  }
+  return [row.id, row.title, row.subtitle, row.status, row.updated_at]
+    .filter((value): value is string => typeof value === "string")
+    .some((value) => value.toLowerCase().includes(needle));
 }
 
 function ResourceDetail({ row, section }: { row: AdminRow; section: AdminSection }) {

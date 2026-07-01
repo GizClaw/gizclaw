@@ -420,6 +420,10 @@ input {
   overflow-x: auto;
 }
 
+.table-filter {
+  margin-bottom: 12px;
+}
+
 .data-table {
   border-collapse: collapse;
   table-layout: fixed;
