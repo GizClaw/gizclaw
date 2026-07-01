@@ -4,6 +4,8 @@ package desktop
 
 import (
 	"bytes"
+	"fmt"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -12,18 +14,20 @@ import (
 )
 
 type harness struct {
-	configHome string
-	repoRoot   string
-	wailsDir   string
+	configHome   string
+	frontendPort string
+	repoRoot     string
+	wailsDir     string
 }
 
 func newHarness(t *testing.T) harness {
 	t.Helper()
 	root := repoRoot(t)
 	return harness{
-		configHome: filepath.Join(t.TempDir(), "desktop-config"),
-		repoRoot:   root,
-		wailsDir:   filepath.Join(root, "apps", "wails"),
+		configHome:   filepath.Join(t.TempDir(), "desktop-config"),
+		frontendPort: freeTCPPort(t),
+		repoRoot:     root,
+		wailsDir:     filepath.Join(root, "apps", "wails"),
 	}
 }
 
@@ -31,7 +35,11 @@ func (h harness) run(t *testing.T, dir string, name string, args ...string) stri
 	t.Helper()
 	cmd := exec.Command(name, args...)
 	cmd.Dir = dir
-	cmd.Env = append(os.Environ(), "GIZCLAW_DESKTOP_CONFIG_HOME="+h.configHome)
+	cmd.Env = append(
+		os.Environ(),
+		"GIZCLAW_DESKTOP_CONFIG_HOME="+h.configHome,
+		"GIZCLAW_DESKTOP_E2E_PORT="+h.frontendPort,
+	)
 	var output bytes.Buffer
 	cmd.Stdout = &output
 	cmd.Stderr = &output
@@ -39,6 +47,20 @@ func (h harness) run(t *testing.T, dir string, name string, args ...string) stri
 		t.Fatalf("%s %s failed: %v\n%s", name, strings.Join(args, " "), err, output.String())
 	}
 	return output.String()
+}
+
+func freeTCPPort(t *testing.T) string {
+	t.Helper()
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen free tcp port: %v", err)
+	}
+	defer listener.Close()
+	addr, ok := listener.Addr().(*net.TCPAddr)
+	if !ok {
+		t.Fatalf("unexpected tcp addr type %T", listener.Addr())
+	}
+	return fmt.Sprintf("%d", addr.Port)
 }
 
 func repoRoot(t *testing.T) string {

@@ -1,6 +1,7 @@
 import { writeFile } from "node:fs/promises";
 
 const packages = [
+  "adminservice",
   "serverpublic",
 ];
 
@@ -11,6 +12,7 @@ for (const name of packages) {
     type: "module",
     exports: {
       ".": "./index.ts",
+      "./client": "./client/index.ts",
       "./client.gen": "./client.gen.ts",
     },
   };

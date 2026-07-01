@@ -132,6 +132,8 @@ export class WebRTCRPCClient {
     const abortSignal = options.signal;
 
     return new Promise<RPCResponse<TResult>>((resolve, reject) => {
+      let buffer: Uint8Array<ArrayBufferLike> = new Uint8Array();
+      let messageQueue = Promise.resolve();
       let settled = false;
       let timeout: ReturnType<typeof setTimeout> | undefined;
 
@@ -171,7 +173,10 @@ export class WebRTCRPCClient {
         }
       };
       const onMessage = (event: MessageEvent): void => {
-        void (async () => {
+        messageQueue = messageQueue.then(async () => {
+          if (settled) {
+            return;
+          }
           try {
             const chunk = await messageDataBytes(event.data);
             buffer = appendBytes(buffer, chunk);
@@ -187,13 +192,17 @@ export class WebRTCRPCClient {
           } catch (err) {
             settle(() => reject(err));
           }
-        })();
+        });
       };
       const onError = (): void => {
         settle(() => reject(new Error("WebRTC RPC data channel failed.")));
       };
       const onClose = (): void => {
-        settle(() => reject(new Error("WebRTC RPC data channel closed before response.")));
+        messageQueue = messageQueue.then(() => {
+          if (!settled) {
+            settle(() => reject(new Error("WebRTC RPC data channel closed before response.")));
+          }
+        });
       };
 
       if (abortSignal?.aborted) {
@@ -212,8 +221,6 @@ export class WebRTCRPCClient {
           settle(() => reject(new Error(`WebRTC RPC request timed out after ${timeoutMs}ms.`)));
         }, timeoutMs);
       }
-
-      let buffer = new Uint8Array();
       if (channel.readyState === "open") {
         onOpen();
       } else if (channel.readyState === "closed") {
@@ -250,6 +257,29 @@ export function createWebRTCFetch(client: WebRTCRPCClient, options: WebRTCFetchO
       status: route.status ?? 200,
     });
   };
+}
+
+export type WebRTCServiceFetchOptions = {
+  host?: string;
+  requestTimeoutMs?: number;
+  service?: number;
+};
+
+export function createWebRTCServiceFetch(pc: WebRTCRPCDataChannelFactory, options: WebRTCServiceFetchOptions = {}): typeof fetch {
+  const service = options.service ?? GIZCLAW_SERVICE_ADMIN;
+  const host = options.host ?? "gizclaw";
+  const timeoutMs = options.requestTimeoutMs ?? 30000;
+  return async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+    const request = new Request(input, init);
+    const channel = pc.createDataChannel(giznetServiceDataChannelLabel(service), { ordered: true });
+    channel.binaryType = "arraybuffer";
+    const requestBytes = await encodeHTTPRequest(request, host);
+    return readHTTPResponse(channel, requestBytes, request.signal, timeoutMs);
+  };
+}
+
+export function createAdminAPIFetch(pc: WebRTCRPCDataChannelFactory, options: Omit<WebRTCServiceFetchOptions, "service"> = {}): typeof fetch {
+  return createWebRTCServiceFetch(pc, { ...options, service: GIZCLAW_SERVICE_ADMIN });
 }
 
 export type WorkspaceRunSetRequest = {
@@ -464,7 +494,100 @@ export function decodeFrames(data: ArrayBuffer | Uint8Array): Array<{ payload: U
   return frames;
 }
 
-function tryReadRPCResponse<TResult>(buffer: Uint8Array): { response: RPCResponse<TResult>; rest: Uint8Array } | null {
+export async function encodeHTTPRequest(request: Request, host = "gizclaw"): Promise<Uint8Array> {
+  const url = new URL(request.url);
+  const target = `${url.pathname}${url.search}`;
+  const body = new Uint8Array(await request.arrayBuffer());
+  const headers = new Headers(request.headers);
+  headers.set("Host", host);
+  headers.set("Connection", "close");
+  headers.delete("Content-Length");
+  headers.delete("Transfer-Encoding");
+  if (body.length > 0) {
+    headers.set("Content-Length", String(body.length));
+  }
+  const lines = [`${request.method} ${target || "/"} HTTP/1.1`];
+  headers.forEach((value, key) => {
+    lines.push(`${canonicalHTTPHeaderName(key)}: ${value}`);
+  });
+  lines.push("", "");
+  return new Uint8Array(concatBytes([new TextEncoder().encode(lines.join("\r\n")), body]));
+}
+
+export type ParsedHTTPResponse = {
+  body: Uint8Array;
+  headers: Headers;
+  status: number;
+  statusText: string;
+};
+
+export function tryParseHTTPResponse(buffer: Uint8Array<ArrayBufferLike>, closed = false): ParsedHTTPResponse | null {
+  const headerEnd = indexOfBytes(buffer, CRLFCRLF);
+  if (headerEnd < 0) {
+    return null;
+  }
+  const headerText = new TextDecoder().decode(buffer.slice(0, headerEnd));
+  const lines = headerText.split("\r\n");
+  const statusLine = lines.shift() ?? "";
+  const match = /^HTTP\/\d(?:\.\d)?\s+(\d{3})(?:\s+(.*))?$/.exec(statusLine);
+  if (match == null) {
+    throw new Error(`invalid HTTP response status line: ${statusLine}`);
+  }
+  const headers = new Headers();
+  for (const line of lines) {
+    if (line === "") {
+      continue;
+    }
+    const idx = line.indexOf(":");
+    if (idx < 0) {
+      throw new Error(`invalid HTTP response header: ${line}`);
+    }
+    headers.append(line.slice(0, idx).trim(), line.slice(idx + 1).trim());
+  }
+  const rawBody = buffer.slice(headerEnd + CRLFCRLF.length);
+  const transferEncoding = headers.get("transfer-encoding") ?? "";
+  if (/\bchunked\b/i.test(transferEncoding)) {
+    const parsed = tryDecodeChunkedBody(rawBody);
+    if (parsed == null) {
+      return null;
+    }
+    return {
+      body: parsed,
+      headers,
+      status: Number(match[1]),
+      statusText: match[2] ?? "",
+    };
+  }
+  const lengthText = headers.get("content-length");
+  if (lengthText != null && lengthText !== "") {
+    const length = Number.parseInt(lengthText, 10);
+    if (!Number.isSafeInteger(length) || length < 0) {
+      throw new Error(`invalid HTTP response content-length: ${lengthText}`);
+    }
+    if (rawBody.length < length) {
+      return null;
+    }
+    return {
+      body: rawBody.slice(0, length),
+      headers,
+      status: Number(match[1]),
+      statusText: match[2] ?? "",
+    };
+  }
+  if (!closed) {
+    return null;
+  }
+  return {
+    body: rawBody,
+    headers,
+    status: Number(match[1]),
+    statusText: match[2] ?? "",
+  };
+}
+
+function tryReadRPCResponse<TResult>(
+  buffer: Uint8Array<ArrayBufferLike>,
+): { response: RPCResponse<TResult>; rest: Uint8Array<ArrayBufferLike> } | null {
   let offset = 0;
   let response: RPCResponse<TResult> | undefined;
   for (;;) {
@@ -527,6 +650,115 @@ export function waitForICEGatheringComplete(pc: RTCPeerConnection, signal?: Abor
   });
 }
 
+const CRLF = new TextEncoder().encode("\r\n");
+const CRLFCRLF = new TextEncoder().encode("\r\n\r\n");
+
+function readHTTPResponse(channel: WebRTCRPCDataChannel, requestBytes: Uint8Array, signal?: AbortSignal, timeoutMs = 30000): Promise<Response> {
+  return new Promise<Response>((resolve, reject) => {
+    let buffer: Uint8Array<ArrayBufferLike> = new Uint8Array();
+    let messageQueue = Promise.resolve();
+    let settled = false;
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+
+    const settle = (fn: () => void): void => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      cleanup();
+      try {
+        channel.close();
+      } catch {
+        // Ignore close races.
+      }
+      fn();
+    };
+    const cleanup = (): void => {
+      if (timeout != null) {
+        clearTimeout(timeout);
+      }
+      signal?.removeEventListener("abort", onAbort);
+      channel.removeEventListener("open", onOpen);
+      channel.removeEventListener("message", onMessage);
+      channel.removeEventListener("error", onError);
+      channel.removeEventListener("close", onClose);
+    };
+    const resolveParsed = (closed = false): boolean => {
+      const parsed = tryParseHTTPResponse(buffer, closed);
+      if (parsed == null) {
+        return false;
+      }
+      settle(() =>
+        resolve(
+          new Response(arrayBufferFromBytes(parsed.body), {
+            headers: parsed.headers,
+            status: parsed.status,
+            statusText: parsed.statusText,
+          }),
+        ),
+      );
+      return true;
+    };
+    const onAbort = (): void => {
+      settle(() => reject(abortError()));
+    };
+    const onOpen = (): void => {
+      try {
+        channel.send(requestBytes);
+      } catch (err) {
+        settle(() => reject(err));
+      }
+    };
+    const onMessage = (event: MessageEvent): void => {
+      messageQueue = messageQueue.then(async () => {
+        if (settled) {
+          return;
+        }
+        try {
+          buffer = appendBytes(buffer, await messageDataBytes(event.data));
+          resolveParsed(false);
+        } catch (err) {
+          settle(() => reject(err));
+        }
+      });
+    };
+    const onError = (): void => {
+      settle(() => reject(new Error("WebRTC HTTP service data channel failed.")));
+    };
+    const onClose = (): void => {
+      messageQueue = messageQueue.then(() => {
+        try {
+          if (!settled && !resolveParsed(true)) {
+            settle(() => reject(new Error("WebRTC HTTP service data channel closed before response.")));
+          }
+        } catch (err) {
+          settle(() => reject(err));
+        }
+      });
+    };
+
+    if (signal?.aborted) {
+      settle(() => reject(abortError()));
+      return;
+    }
+    signal?.addEventListener("abort", onAbort, { once: true });
+    channel.addEventListener("open", onOpen);
+    channel.addEventListener("message", onMessage);
+    channel.addEventListener("error", onError);
+    channel.addEventListener("close", onClose);
+    if (timeoutMs > 0) {
+      timeout = setTimeout(() => {
+        settle(() => reject(new Error(`WebRTC HTTP service request timed out after ${timeoutMs}ms.`)));
+      }, timeoutMs);
+    }
+    if (channel.readyState === "open") {
+      onOpen();
+    } else if (channel.readyState === "closed") {
+      onClose();
+    }
+  });
+}
+
 function defaultRPCID(): string {
   return `webrtc-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 }
@@ -545,7 +777,7 @@ async function messageDataBytes(data: unknown): Promise<Uint8Array> {
     return new Uint8Array(data);
   }
   if (ArrayBuffer.isView(data)) {
-    return new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
+    return copyBytes(new Uint8Array(data.buffer, data.byteOffset, data.byteLength));
   }
   if (typeof Blob !== "undefined" && data instanceof Blob) {
     return new Uint8Array(await data.arrayBuffer());
@@ -558,11 +790,23 @@ async function messageDataBytes(data: unknown): Promise<Uint8Array> {
 
 function appendBytes(left: Uint8Array, right: Uint8Array): Uint8Array {
   if (left.length === 0) {
-    return right;
+    return copyBytes(right);
   }
   const out = new Uint8Array(left.length + right.length);
   out.set(left, 0);
   out.set(right, left.length);
+  return out;
+}
+
+function copyBytes(data: Uint8Array): Uint8Array {
+  const out = new Uint8Array(data.byteLength);
+  out.set(data);
+  return out;
+}
+
+function arrayBufferFromBytes(data: Uint8Array): ArrayBuffer {
+  const out = new ArrayBuffer(data.byteLength);
+  new Uint8Array(out).set(data);
   return out;
 }
 
@@ -575,4 +819,61 @@ function concatBytes(parts: Array<ArrayBuffer | Uint8Array>): ArrayBuffer {
     offset += part.length;
   }
   return out.buffer;
+}
+
+function indexOfBytes(haystack: Uint8Array, needle: Uint8Array, start = 0): number {
+  if (needle.length === 0) {
+    return start;
+  }
+  outer: for (let i = Math.max(0, start); i <= haystack.length - needle.length; i += 1) {
+    for (let j = 0; j < needle.length; j += 1) {
+      if (haystack[i + j] !== needle[j]) {
+        continue outer;
+      }
+    }
+    return i;
+  }
+  return -1;
+}
+
+function tryDecodeChunkedBody(data: Uint8Array): Uint8Array | null {
+  const chunks: Uint8Array[] = [];
+  let offset = 0;
+  for (;;) {
+    const lineEnd = indexOfBytes(data, CRLF, offset);
+    if (lineEnd < 0) {
+      return null;
+    }
+    const line = new TextDecoder().decode(data.slice(offset, lineEnd));
+    const sizeText = line.split(";", 1)[0]?.trim() ?? "";
+    const size = Number.parseInt(sizeText, 16);
+    if (!Number.isSafeInteger(size) || size < 0) {
+      throw new Error(`invalid HTTP chunk size: ${line}`);
+    }
+    offset = lineEnd + CRLF.length;
+    if (size === 0) {
+      const trailerEnd = indexOfBytes(data, CRLFCRLF, offset);
+      const hasEmptyTrailer = data.length >= offset + CRLF.length && data[offset] === 13 && data[offset + 1] === 10;
+      if (trailerEnd >= 0 || hasEmptyTrailer) {
+        return new Uint8Array(concatBytes(chunks));
+      }
+      return null;
+    }
+    if (data.length < offset + size + CRLF.length) {
+      return null;
+    }
+    chunks.push(data.slice(offset, offset + size));
+    offset += size;
+    if (data[offset] !== 13 || data[offset + 1] !== 10) {
+      throw new Error("invalid HTTP chunk terminator");
+    }
+    offset += CRLF.length;
+  }
+}
+
+function canonicalHTTPHeaderName(name: string): string {
+  return name
+    .split("-")
+    .map((part) => (part === "" ? part : `${part.slice(0, 1).toUpperCase()}${part.slice(1).toLowerCase()}`))
+    .join("-");
 }

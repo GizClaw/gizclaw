@@ -213,6 +213,10 @@ input {
   border-radius: 7px;
   cursor: pointer;
   font-weight: 650;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
 }
 
 .button.secondary {
@@ -256,4 +260,117 @@ input {
   border: 1px solid #f0bcbc;
   border-radius: 8px;
   padding: 10px 12px;
+}
+
+.error.compact {
+  margin-top: 12px;
+}
+
+.admin-view {
+  display: grid;
+  gap: 16px;
+}
+
+.resource-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.resource-tile {
+  min-width: 0;
+  border: 1px solid #dfe5e2;
+  background: #ffffff;
+  border-radius: 8px;
+  padding: 14px;
+  text-align: left;
+  cursor: pointer;
+  display: grid;
+  gap: 6px;
+}
+
+.resource-tile.active {
+  border-color: #2d756e;
+  box-shadow: inset 3px 0 0 #2d756e;
+}
+
+.resource-count {
+  color: #173d3a;
+  font-size: 24px;
+  font-weight: 750;
+  line-height: 1;
+}
+
+.resource-title {
+  color: #172126;
+  font-size: 14px;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.resource-description {
+  color: #64736f;
+  font-size: 12px;
+  min-height: 32px;
+  overflow: hidden;
+}
+
+.table-wrap {
+  overflow-x: auto;
+}
+
+.data-table {
+  border-collapse: collapse;
+  table-layout: fixed;
+  width: 100%;
+}
+
+.data-table th,
+.data-table td {
+  border-bottom: 1px solid #edf1ef;
+  font-size: 13px;
+  padding: 11px 10px;
+  text-align: left;
+  vertical-align: middle;
+}
+
+.data-table th {
+  color: #64736f;
+  font-weight: 700;
+}
+
+.data-table th:first-child,
+.data-table td:first-child {
+  width: 42%;
+}
+
+.data-table th:nth-child(2),
+.data-table td:nth-child(2) {
+  width: 25%;
+}
+
+.data-table th:nth-child(3),
+.data-table td:nth-child(3) {
+  width: 15%;
+}
+
+.data-table th:last-child,
+.data-table td:last-child {
+  width: 18%;
+}
+
+.table-id,
+.table-subtitle {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.table-subtitle {
+  color: #64736f;
+  font-size: 12px;
+  margin-top: 3px;
 }

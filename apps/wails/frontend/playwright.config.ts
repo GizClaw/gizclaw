@@ -1,5 +1,8 @@
 import { defineConfig, devices } from "@playwright/test";
 
+const port = process.env.GIZCLAW_DESKTOP_E2E_PORT ?? "4191";
+const baseURL = `http://127.0.0.1:${port}`;
+
 export default defineConfig({
   testDir: "./e2e",
   timeout: 30_000,
@@ -9,11 +12,11 @@ export default defineConfig({
   use: {
     ...devices["Desktop Chrome"],
     channel: "chrome",
-    baseURL: "http://127.0.0.1:4191",
+    baseURL,
   },
   webServer: {
-    command: "npm run dev -- --port 4191",
-    url: "http://127.0.0.1:4191",
+    command: `npm run dev -- --port ${port}`,
+    url: baseURL,
     reuseExistingServer: false,
     stdout: "pipe",
     stderr: "pipe",

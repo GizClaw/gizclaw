@@ -8,9 +8,16 @@ type HarnessForShell struct {
 	harness
 }
 
+type Harness = HarnessForShell
+
+func NewHarness(t *testing.T) Harness {
+	t.Helper()
+	return Harness{harness: newHarness(t)}
+}
+
 func NewHarnessForShell(t *testing.T) HarnessForShell {
 	t.Helper()
-	return HarnessForShell{harness: newHarness(t)}
+	return NewHarness(t)
 }
 
 func (h HarnessForShell) FrontendDir() string {

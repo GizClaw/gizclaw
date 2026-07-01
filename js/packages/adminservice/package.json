@@ -1,5 +1,5 @@
 {
-  "name": "@gizclaw/serverpublic",
+  "name": "@gizclaw/adminservice",
   "private": true,
   "type": "module",
   "exports": {

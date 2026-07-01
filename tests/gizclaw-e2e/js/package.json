@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "test:admin": "node --experimental-strip-types admin/admin_fetch_e2e.test.ts",
     "test:rpc": "node --experimental-strip-types rpc/webrtc_rpc_e2e.test.ts"
   }
 }

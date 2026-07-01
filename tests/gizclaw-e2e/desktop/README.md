@@ -12,5 +12,5 @@ The shell suite is active. It runs Wails backend Go tests, frontend runtime
 tests, frontend build checks, and Playwright shell behavior through the shared
 desktop harness.
 
-Admin and Play suites are added when those views are rewritten into
-`apps/wails`.
+The Admin suite is active for the Wails-hosted Admin resource view. The Play
+suite is added when the Play view is rewritten into `apps/wails`.

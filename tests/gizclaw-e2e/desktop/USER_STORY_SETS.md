@@ -8,5 +8,6 @@ the Go, JS, and cmd suites.
 
 - `shell/`: app startup, context picker, selected context persistence, and
   runtime injection.
-- `admin/`: populated when the Admin view is rewritten into the desktop app.
+- `admin/`: Admin resource navigation and generated-client WebRTC Admin API
+  transport boundary.
 - `play/`: populated when the Play view is rewritten into the desktop app.
