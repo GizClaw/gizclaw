@@ -77,8 +77,8 @@ run_chat_pkg() {
 }
 
 run_js_rpc_tests() {
-	echo "==> npm test --workspace @gizclaw/webrtc"
-	(cd "$repo_root" && npm test --workspace @gizclaw/webrtc)
+	echo "==> npm test --workspace @gizclaw/gizclaw"
+	(cd "$repo_root" && npm test --workspace @gizclaw/gizclaw)
 
 	echo "==> node tests/gizclaw-e2e/js/admin"
 	(cd "$repo_root/tests/gizclaw-e2e/js" && npm run test:admin)

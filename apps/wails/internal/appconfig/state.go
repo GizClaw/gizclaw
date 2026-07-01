@@ -8,8 +8,11 @@ import (
 )
 
 type State struct {
-	SelectedContext string `json:"selected_context,omitempty"`
-	SelectedView    string `json:"selected_view,omitempty"`
+	LastContext    string `json:"last_context,omitempty"`
+	LastView       string `json:"last_view,omitempty"`
+	SessionActive  bool   `json:"session_active,omitempty"`
+	SessionContext string `json:"session_context,omitempty"`
+	SessionView    string `json:"session_view,omitempty"`
 }
 
 const DefaultView = "admin"

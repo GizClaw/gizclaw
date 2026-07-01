@@ -51,30 +51,51 @@ func (a *App) ListContexts() ([]bridge.ContextSummary, error) {
 	return a.bridge.Context.ListContexts(context.Background())
 }
 
-func (a *App) SelectContext(name string) (bridge.RuntimeContext, error) {
+func (a *App) SelectContext(name string) (bridge.ContextSummary, error) {
 	if a == nil || a.bridge == nil || a.bridge.Context == nil {
-		return bridge.RuntimeContext{}, fmt.Errorf("desktop app: context bridge is not configured")
+		return bridge.ContextSummary{}, fmt.Errorf("desktop app: context bridge is not configured")
 	}
 	return a.bridge.Context.SelectContext(context.Background(), name)
 }
 
-func (a *App) CreateContext(req bridge.CreateContextRequest) (bridge.RuntimeContext, error) {
+func (a *App) CreateContext(req bridge.CreateContextRequest) (bridge.ContextSummary, error) {
 	if a == nil || a.bridge == nil || a.bridge.Context == nil {
-		return bridge.RuntimeContext{}, fmt.Errorf("desktop app: context bridge is not configured")
+		return bridge.ContextSummary{}, fmt.Errorf("desktop app: context bridge is not configured")
 	}
 	return a.bridge.Context.CreateContext(context.Background(), req)
 }
 
-func (a *App) RuntimeContext() (bridge.RuntimeContext, error) {
-	if a == nil || a.bridge == nil || a.bridge.Context == nil {
-		return bridge.RuntimeContext{}, fmt.Errorf("desktop app: context bridge is not configured")
+func (a *App) InjectedRuntime() (bridge.RuntimeContext, error) {
+	if a == nil || a.bridge == nil {
+		return bridge.RuntimeContext{}, fmt.Errorf("desktop app: bridge is not configured")
 	}
-	return a.bridge.Context.RuntimeContext(context.Background())
+	return a.bridge.InjectedRuntime(context.Background())
 }
 
-func (a *App) SetSelectedView(view string) (appconfig.State, error) {
+func (a *App) ListViews() ([]bridge.DesktopView, error) {
 	if a == nil || a.bridge == nil {
-		return appconfig.State{}, fmt.Errorf("desktop app: bridge is not configured")
+		return nil, fmt.Errorf("desktop app: bridge is not configured")
 	}
-	return a.bridge.SetSelectedView(context.Background(), view)
+	return a.bridge.ListViews(context.Background())
+}
+
+func (a *App) GetViewSession() (bridge.ViewSession, error) {
+	if a == nil || a.bridge == nil {
+		return bridge.ViewSession{}, fmt.Errorf("desktop app: bridge is not configured")
+	}
+	return a.bridge.GetViewSession(context.Background())
+}
+
+func (a *App) StartViewSession(req bridge.StartViewSessionRequest) (bridge.ViewSession, error) {
+	if a == nil || a.bridge == nil {
+		return bridge.ViewSession{}, fmt.Errorf("desktop app: bridge is not configured")
+	}
+	return a.bridge.StartViewSession(context.Background(), req)
+}
+
+func (a *App) EndViewSession() (bridge.ViewSession, error) {
+	if a == nil || a.bridge == nil {
+		return bridge.ViewSession{}, fmt.Errorf("desktop app: bridge is not configured")
+	}
+	return a.bridge.EndViewSession(context.Background())
 }

@@ -1,8 +1,8 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import wrtc from "@roamhq/wrtc";
-import { connectGiznetWebRTC, sendGiznetWebRTCOffer } from "@gizclaw/webrtc";
-import { prepareEncryptedGiznetWebRTCOffer } from "@gizclaw/webrtc/signaling";
+import { connectGiznetWebRTC, sendGiznetWebRTCOffer } from "@gizclaw/gizclaw";
+import { prepareEncryptedGiznetWebRTCOffer } from "@gizclaw/gizclaw/signaling";
 
 export const repoRoot = path.resolve(import.meta.dirname, "../../../..");
 
@@ -27,6 +27,7 @@ export async function connectSetupPeer(identityDir: string): Promise<wrtc.RTCPee
       ),
     sendOffer: (offer, signal) => sendGiznetWebRTCOffer(offer, { baseUrl: `http://${identity.endpoint}`, signal }),
   });
+  await new Promise((resolve) => setTimeout(resolve, 100));
   return pc;
 }
 
@@ -45,26 +46,21 @@ export async function loadIdentity(dir: string): Promise<Identity> {
   };
 }
 
-export async function serverAvailable(endpoint: string): Promise<boolean> {
+export async function assertSetupServerAvailable(endpoint: string): Promise<void> {
   try {
     const response = await fetch(`http://${endpoint}/server-info`, { signal: AbortSignal.timeout(1000) });
-    return response.ok;
-  } catch {
-    return false;
+    if (!response.ok) {
+      throw new Error(`server-info returned HTTP ${response.status}`);
+    }
+  } catch (err) {
+    throw new Error(
+      `gizclaw e2e setup server is required at ${endpoint}; run tests/gizclaw-e2e/setup/start-server.sh before this JS e2e test`,
+      { cause: err },
+    );
   }
 }
 
 export function closePeerConnection(pc: wrtc.RTCPeerConnection): void {
-  for (const sender of pc.getSenders?.() ?? []) {
-    sender.track?.stop();
-  }
-  for (const transceiver of pc.getTransceivers?.() ?? []) {
-    try {
-      transceiver.stop();
-    } catch {
-      // Some runtimes throw if a transceiver has already stopped.
-    }
-  }
   pc.close();
 }
 

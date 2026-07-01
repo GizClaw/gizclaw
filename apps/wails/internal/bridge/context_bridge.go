@@ -56,41 +56,50 @@ func (b *ContextBridge) ListContexts(context.Context) ([]ContextSummary, error) 
 	return out, nil
 }
 
-func (b *ContextBridge) SelectContext(_ context.Context, name string) (RuntimeContext, error) {
+func (b *ContextBridge) SelectContext(_ context.Context, name string) (ContextSummary, error) {
 	if b == nil || b.Store == nil {
-		return RuntimeContext{}, fmt.Errorf("desktop bridge: context store is not configured")
+		return ContextSummary{}, fmt.Errorf("desktop bridge: context store is not configured")
 	}
 	name = strings.TrimSpace(name)
 	if name == "" {
-		return RuntimeContext{}, fmt.Errorf("desktop bridge: context name is required")
+		return ContextSummary{}, fmt.Errorf("desktop bridge: context name is required")
 	}
 	if err := b.Store.Use(name); err != nil {
-		return RuntimeContext{}, err
+		return ContextSummary{}, err
 	}
 	state, err := b.State.Load()
 	if err != nil {
-		return RuntimeContext{}, err
+		return ContextSummary{}, err
 	}
-	state.SelectedContext = name
+	state.LastContext = name
 	if err := b.State.Save(state); err != nil {
-		return RuntimeContext{}, err
+		return ContextSummary{}, err
 	}
-	return b.RuntimeContext(context.Background())
+	current, err := b.Store.Current()
+	if err != nil {
+		return ContextSummary{}, err
+	}
+	summary, err := contextstore.LoadSummary(current.Dir)
+	if err != nil {
+		return ContextSummary{}, err
+	}
+	summary.Current = true
+	return contextSummary(summary), nil
 }
 
-func (b *ContextBridge) CreateContext(_ context.Context, req CreateContextRequest) (RuntimeContext, error) {
+func (b *ContextBridge) CreateContext(_ context.Context, req CreateContextRequest) (ContextSummary, error) {
 	if b == nil || b.Store == nil {
-		return RuntimeContext{}, fmt.Errorf("desktop bridge: context store is not configured")
+		return ContextSummary{}, fmt.Errorf("desktop bridge: context store is not configured")
 	}
 	name := strings.TrimSpace(req.Name)
 	if name == "" {
-		return RuntimeContext{}, fmt.Errorf("desktop bridge: context name is required")
+		return ContextSummary{}, fmt.Errorf("desktop bridge: context name is required")
 	}
 	if err := b.Store.CreateWithOptions(name, strings.TrimSpace(req.Endpoint), contextstore.CreateOptions{
 		Description:     strings.TrimSpace(req.Description),
 		ServerPublicKey: strings.TrimSpace(req.ServerPublicKey),
 	}); err != nil {
-		return RuntimeContext{}, err
+		return ContextSummary{}, err
 	}
 	return b.SelectContext(context.Background(), name)
 }

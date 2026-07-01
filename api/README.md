@@ -26,14 +26,16 @@ Generated Go code lives outside this directory:
 - `pkgs/gizclaw/api/rpcapi/generated.go`
 - `pkgs/gizclaw/api/serverpublic/generated.go`
 
-Current generated TypeScript SDK packages live under `js/packages/`:
+Current generated TypeScript SDK code lives under `js/packages/gizclaw/`:
 
-- `js/packages/serverpublic`
+- `js/packages/gizclaw/generated/adminservice`
+- `js/packages/gizclaw/generated/rpc`
+- `js/packages/gizclaw/generated/serverpublic`
 
 The old browser `client_service` API and CLI-served UI TypeScript clients were
-removed as part of the desktop clean break. Future Admin UI TypeScript
-generation should be added through the Wails/WebRTC transport layer instead of
-reintroducing the old CLI-served package boundary.
+removed as part of the desktop clean break. Desktop UI code should consume the
+generated clients through `@gizclaw/gizclaw` WebRTC transports instead of
+reintroducing old CLI-served package boundaries.
 
 Do not edit generated files by hand. Change the source schema in `api/`, then
 regenerate the corresponding Go and/or TypeScript package.

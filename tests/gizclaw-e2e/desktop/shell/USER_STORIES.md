@@ -7,4 +7,5 @@
 - As a desktop user, the UI receives the selected signaling URL and private key
   material at runtime so WebRTC can connect.
 - As a desktop maintainer, shell behavior is covered with Playwright using a
-  mock Wails bridge before the Admin and Play views are rewritten.
+  mock Wails bridge while the full Admin and Play views run inside the desktop
+  shell.

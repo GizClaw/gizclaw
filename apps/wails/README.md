@@ -42,6 +42,6 @@ npm --prefix apps/wails/frontend run build
 go test ./apps/wails/...
 ```
 
-The shell currently provides context selection plus Admin and Play placeholder
-views. The actual Admin and Play experiences are rewritten in the follow-up
-issues under the #109 desktop plan.
+The shell provides context selection plus full Admin and Play views. Admin API
+requests use generated clients over WebRTC service fetch, and Play requests use
+generated peer RPC types over WebRTC.

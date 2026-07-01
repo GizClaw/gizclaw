@@ -20,10 +20,11 @@ fi
 
 config_home="${GIZCLAW_E2E_CONFIG_HOME:-$testdata_dir/cmd-config-home}"
 context_name="${GIZCLAW_E2E_ADMIN_CONTEXT:-admin}"
+server_endpoint="${GIZCLAW_E2E_SERVER_ADDR:-$(awk '/^endpoint:/ {print $2; exit}' "$workspace_dir/config.yaml")}"
 
 wait_ready() {
   for _ in {1..300}; do
-    if ping_ready; then
+    if ping_ready && http_ready; then
       return 0
     fi
     sleep 0.1
@@ -45,6 +46,10 @@ ping_ready() {
   kill "$ping_pid" 2>/dev/null || true
   wait "$ping_pid" 2>/dev/null || true
   return 124
+}
+
+http_ready() {
+  curl -fsS --max-time 1 "http://$server_endpoint/server-info" >/dev/null 2>&1
 }
 
 if [[ ! -x "$bin_path" ]]; then

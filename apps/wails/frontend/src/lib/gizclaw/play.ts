@@ -1,14 +1,6 @@
-import {
-  FirmwareRPC,
-  GameplayRPC,
-  PeerResourceRPC,
-  SocialRPC,
-  WebRTCRPCClient,
-  WorkspaceRPC,
-  connectGiznetWebRTC,
-  sendGiznetWebRTCOffer,
-} from "@gizclaw/webrtc";
-import { base64Decode, prepareEncryptedGiznetWebRTCOffer } from "@gizclaw/webrtc/signaling";
+import { connectGiznetWebRTC, sendGiznetWebRTCOffer } from "@gizclaw/gizclaw";
+import { createPeerRPCClient, type PeerRPCClient } from "@gizclaw/gizclaw/rpc";
+import { base64Decode, prepareEncryptedGiznetWebRTCOffer } from "@gizclaw/gizclaw/signaling";
 import type { RuntimeContext } from "../runtime/types";
 
 export interface PlayDataClient {
@@ -35,6 +27,7 @@ export interface PlaySnapshot {
   pets: PlayResourceRow[];
   rewards: PlayResourceRow[];
   runWorkspace?: PlayWorkspaceState;
+  voices: PlayResourceRow[];
   warnings: string[];
   wallet?: PlayResourceRow;
   walletTransactions: PlayResourceRow[];
@@ -76,7 +69,7 @@ export interface PlayMemoryRecall {
   raw?: unknown;
 }
 
-export async function connectPlaySession(runtime: RuntimeContext): Promise<PlaySession> {
+export async function connectPlayPeerConnection(runtime: RuntimeContext): Promise<RTCPeerConnection> {
   if (runtime.context == null) {
     throw new Error("Play WebRTC session requires a selected context.");
   }
@@ -97,9 +90,14 @@ export async function connectPlaySession(runtime: RuntimeContext): Promise<PlayS
           serverPublicKey: runtime.context?.server_public_key ?? "",
         },
         offerSDP,
-      ),
+    ),
     sendOffer: (offer, signal) => sendGiznetWebRTCOffer(offer, { signal, url: runtime.signaling_url }),
   });
+  return pc;
+}
+
+export async function connectPlaySession(runtime: RuntimeContext): Promise<PlaySession> {
+  const pc = await connectPlayPeerConnection(runtime);
   const client = createPlayDataClientFromPeerConnection(pc);
   return {
     close() {
@@ -114,29 +112,10 @@ export async function connectPlaySession(runtime: RuntimeContext): Promise<PlayS
 }
 
 export function createPlayDataClientFromPeerConnection(pc: RTCPeerConnection): PlayDataClient {
-  const rpc = new WebRTCRPCClient(pc);
-  return createRPCPlayDataClient({
-    firmware: new FirmwareRPC(rpc),
-    gameplay: new GameplayRPC(rpc),
-    resources: new PeerResourceRPC(rpc),
-    social: new SocialRPC(rpc),
-    workspace: new WorkspaceRPC(rpc),
-  });
+  return createRPCPlayDataClient(createPeerRPCClient(pc));
 }
 
-export function createRPCPlayDataClient({
-  firmware,
-  gameplay,
-  resources,
-  social,
-  workspace,
-}: {
-  firmware: FirmwareRPC;
-  gameplay: GameplayRPC;
-  resources: PeerResourceRPC;
-  social: SocialRPC;
-  workspace: WorkspaceRPC;
-}): PlayDataClient {
+export function createRPCPlayDataClient(rpc: PeerRPCClient): PlayDataClient {
   return {
     async loadSnapshot(): Promise<PlaySnapshot> {
       const [
@@ -150,27 +129,29 @@ export function createRPCPlayDataClient({
         workspaces,
         workflows,
         models,
+        voices,
         credentials,
         pets,
         rewards,
         wallet,
         walletTransactions,
       ] = await Promise.all([
-        captureCall("server.run.workspace.get", () => workspace.getRunWorkspace()),
-        captureCall("server.run.workspace.history", () => workspace.listRunWorkspaceHistory({ limit: 30 })),
-        captureCall("server.run.workspace.memory.stats", () => workspace.getRunWorkspaceMemoryStats()),
-        captureCall("server.contact.list", () => social.listContacts()),
-        captureCall("server.friend.list", () => social.listFriends()),
-        captureCall("server.friend_group.list", () => social.listFriendGroups()),
-        captureCall("server.firmware.list", () => firmware.listFirmwares()),
-        captureCall("server.workspace.list", () => resources.listWorkspaces()),
-        captureCall("server.workflow.list", () => resources.listWorkflows()),
-        captureCall("server.model.list", () => resources.listModels()),
-        captureCall("server.credential.list", () => resources.listCredentials()),
-        captureCall("server.pet.list", () => gameplay.listPets()),
-        captureCall("server.reward.list", () => gameplay.listRewards()),
-        captureCall("server.wallet.get", () => gameplay.getWallet()),
-        captureCall("server.wallet.transactions.list", () => gameplay.listWalletTransactions()),
+        captureCall("server.run.workspace.get", () => rpc.call("server.run.workspace.get", {})),
+        captureCall("server.run.workspace.history", () => rpc.call("server.run.workspace.history", { limit: 30 })),
+        captureCall("server.run.workspace.memory.stats", () => rpc.call("server.run.workspace.memory.stats", {})),
+        captureCall("server.contact.list", () => rpc.call("server.contact.list", {})),
+        captureCall("server.friend.list", () => rpc.call("server.friend.list", {})),
+        captureCall("server.friend_group.list", () => rpc.call("server.friend_group.list", {})),
+        captureCall("server.firmware.list", () => rpc.call("server.firmware.list", {})),
+        captureCall("server.workspace.list", () => rpc.call("server.workspace.list", {})),
+        captureCall("server.workflow.list", () => rpc.call("server.workflow.list", {})),
+        captureCall("server.model.list", () => rpc.call("server.model.list", {})),
+        captureCall("server.voice.list", () => rpc.call("server.voice.list", {})),
+        captureCall("server.credential.list", () => rpc.call("server.credential.list", {})),
+        captureCall("server.pet.list", () => rpc.call("server.pet.list", {})),
+        captureCall("server.reward.list", () => rpc.call("server.reward.list", {})),
+        captureCall("server.wallet.get", () => rpc.call("server.wallet.get", {})),
+        captureCall("server.wallet.transactions.list", () => rpc.call("server.wallet.transactions.list", {})),
       ]);
       return {
         contacts: listItems(contacts.value).map((item) => itemToResourceRow(item, "contact")),
@@ -184,6 +165,7 @@ export function createRPCPlayDataClient({
         pets: listItems(pets.value).map((item) => itemToResourceRow(item, "pet")),
         rewards: listItems(rewards.value).map((item) => itemToResourceRow(item, "reward")),
         runWorkspace: workspaceState(runWorkspace.value),
+        voices: listItems(voices.value).map((item) => itemToResourceRow(item, "voice")),
         wallet: isRecord(wallet.value) ? itemToResourceRow(wallet.value, "wallet") : undefined,
         walletTransactions: listItems(walletTransactions.value).map((item) => itemToResourceRow(item, "wallet-transaction")),
         warnings: [
@@ -197,6 +179,7 @@ export function createRPCPlayDataClient({
           workspaces,
           workflows,
           models,
+          voices,
           credentials,
           pets,
           rewards,
@@ -208,20 +191,20 @@ export function createRPCPlayDataClient({
       };
     },
     playHistory(historyID: string): Promise<unknown> {
-      return workspace.playRunWorkspaceHistory({ history_id: historyID });
+      return rpc.call("server.run.workspace.history.play", { history_id: historyID });
     },
     async recallMemory(query: string): Promise<PlayMemoryRecall> {
-      const raw = await workspace.recallRunWorkspaceMemory({ limit: 8, query });
+      const raw = await rpc.call("server.run.workspace.recall", { limit: 8, query });
       return {
         hits: listItems(raw).map((item) => itemToResourceRow(item, "memory")),
         raw,
       };
     },
     reloadWorkspace(): Promise<unknown> {
-      return workspace.reloadRunWorkspace();
+      return rpc.call("server.run.workspace.reload", {});
     },
     setWorkspace(workspaceName: string): Promise<unknown> {
-      return workspace.setRunWorkspace({ workspace_name: workspaceName });
+      return rpc.call("server.run.workspace.set", { workspace_name: workspaceName });
     },
   };
 }

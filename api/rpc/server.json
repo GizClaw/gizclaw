@@ -597,6 +597,57 @@
       "ModelDeleteResponse": {
         "$ref": "../type/model.json#/components/schemas/Model"
       },
+      "VoiceListRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "cursor": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      },
+      "VoiceListResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "../type/voice.json#/components/schemas/Voice"
+            }
+          },
+          "has_next": {
+            "type": "boolean"
+          },
+          "next_cursor": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "items",
+          "has_next"
+        ]
+      },
+      "VoiceGetRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "VoiceGetResponse": {
+        "$ref": "../type/voice.json#/components/schemas/Voice"
+      },
       "CredentialListRequest": {
         "type": "object",
         "additionalProperties": false,

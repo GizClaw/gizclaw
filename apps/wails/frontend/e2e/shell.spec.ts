@@ -4,6 +4,7 @@ test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => {
     let selected = "local";
     let selectedView = "admin";
+    let session = { active: false };
     const contexts = [
       {
         current: true,
@@ -22,6 +23,10 @@ test.beforeEach(async ({ page }) => {
         server_public_key: "remote-server-public-key",
       },
     ];
+    const views = [
+      { description: "Manage GizClaw server resources.", id: "admin", title: "Admin" },
+      { description: "Use workspaces, chat history, social, and firmware flows.", id: "play", title: "Play" },
+    ];
     const runtime = (name: string) => {
       const context = contexts.find((item) => item.name === name) ?? contexts[0];
       return {
@@ -34,16 +39,12 @@ test.beforeEach(async ({ page }) => {
       async Bootstrap() {
         return {
           contexts,
-          paths: {
-            config_root: "/tmp/gizclaw-desktop",
-            context_dir: "/tmp/gizclaw-desktop/contexts",
-            state_file: "/tmp/gizclaw-desktop/state.json",
-          },
-          runtime: runtime(selected),
           state: {
-            selected_context: selected,
-            selected_view: selectedView,
+            last_context: selected,
+            last_view: selectedView,
           },
+          view_session: session,
+          views,
         };
       },
       async CreateContext(req) {
@@ -51,53 +52,68 @@ test.beforeEach(async ({ page }) => {
         contexts.forEach((item) => {
           item.current = item.name === selected;
         });
-        contexts.push({
+        const created = {
           current: true,
           description: req.description ?? "",
           endpoint: req.endpoint,
           local_public_key: "created-public-key",
           name: req.name,
           server_public_key: req.server_public_key,
-        });
+        };
+        contexts.push(created);
+        return created;
+      },
+      async EndViewSession() {
+        session = { active: false };
+        return session;
+      },
+      async GetViewSession() {
+        return session;
+      },
+      async InjectedRuntime() {
         return runtime(selected);
       },
       async ListContexts() {
         return contexts;
       },
-      async RuntimeContext() {
-        return runtime(selected);
+      async ListViews() {
+        return views;
       },
       async SelectContext(name) {
         selected = name;
         contexts.forEach((item) => {
           item.current = item.name === selected;
         });
-        return runtime(selected);
+        return contexts.find((item) => item.name === selected) ?? contexts[0];
       },
-      async SetSelectedView(view) {
-        selectedView = view === "play" ? "play" : "admin";
-        return {
-          selected_context: selected,
-          selected_view: selectedView,
-        };
+      async StartViewSession(req) {
+        selected = req.context_name;
+        selectedView = req.view;
+        session = { active: true, context_name: selected, view: selectedView };
+        return session;
       },
     };
   });
 });
 
-test("shell selects contexts and injects runtime metadata", async ({ page }) => {
+test("shell opens from welcome and injects runtime only after get started", async ({ page }) => {
   await page.goto("/");
 
-  await expect(page.getByText("GizClaw")).toBeVisible();
-  await expect(page.getByText("Context: local")).toBeVisible();
-  await expect(page.getByText("http://127.0.0.1:9820/webrtc/v1/offer")).toBeVisible();
-  await expect(page.getByText("Injected in memory")).toBeVisible();
+  await expect(page.getByText("GizClaw Desktop")).toBeVisible();
+  await expect(page.getByRole("button", { name: /local/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Admin selected/ })).toBeVisible();
+  await expect(page.getByText("Runtime Injection")).not.toBeVisible();
 
   await page.getByRole("button", { name: /remote/i }).click();
+  await page.getByRole("button", { name: /Play/ }).click();
+  await page.getByRole("button", { name: "Get Started" }).click();
+
+  await expect(page.getByText("Play Console")).toBeVisible();
   await expect(page.getByText("Context: remote")).toBeVisible();
   await expect(page.getByText("http://127.0.0.1:19820/webrtc/v1/offer")).toBeVisible();
+  await expect(page.getByText("Injected in memory")).toBeVisible();
 
-  await page.getByRole("button", { name: "Play" }).click();
-  await expect(page.getByText("Play Console")).toBeVisible();
-  await expect(page.getByText("WebRTC RPC")).toBeVisible();
+  await page.getByRole("button", { name: /Sign out/ }).click();
+  await expect(page.getByText("GizClaw Desktop")).toBeVisible();
+  await expect(page.getByText("Runtime Injection")).not.toBeVisible();
 });

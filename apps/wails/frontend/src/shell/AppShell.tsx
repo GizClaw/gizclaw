@@ -1,4 +1,4 @@
-import { Cpu, Gamepad2, Server } from "lucide-react";
+import { Cpu, Gamepad2, LogOut, Server } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { Button } from "../components/Button";
 import { Card, CardBody, CardHeader } from "../components/Card";
@@ -9,10 +9,11 @@ import type {
   ContextSummary,
   CreateContextRequest,
   DesktopView,
+  DesktopViewId,
   RuntimeContext,
 } from "../lib/runtime/types";
-import { AdminHome } from "../views/admin/AdminHome";
-import { PlayHome } from "../views/play/PlayHome";
+import { AdminFullHome } from "../views/admin/AdminFullHome";
+import { PlayFullHome } from "../views/play/PlayFullHome";
 
 const emptyRuntime: RuntimeContext = {};
 
@@ -20,7 +21,9 @@ export function AppShell() {
   const api = useMemo(() => getDesktopAPI(), []);
   const [bootstrap, setBootstrap] = useState<BootstrapState | null>(null);
   const [runtime, setRuntime] = useState<RuntimeContext>(emptyRuntime);
-  const [view, setView] = useState<DesktopView>("admin");
+  const [selectedContext, setSelectedContext] = useState<string>("");
+  const [selectedView, setSelectedView] = useState<DesktopViewId>("admin");
+  const [activeView, setActiveView] = useState<DesktopViewId | null>(null);
   const [error, setError] = useState<string>("");
 
   useEffect(() => {
@@ -28,19 +31,27 @@ export function AppShell() {
       .Bootstrap()
       .then((state) => {
         setBootstrap(state);
-        setRuntime(state.runtime ?? emptyRuntime);
-        setView(state.state.selected_view === "play" ? "play" : "admin");
+        setSelectedContext(state.state.last_context ?? state.contexts.find((ctx) => ctx.current)?.name ?? state.contexts[0]?.name ?? "");
+        setSelectedView(state.state.last_view === "play" ? "play" : "admin");
+        setRuntime(emptyRuntime);
+        setActiveView(null);
       })
       .catch((err: unknown) => setError(errorMessage(err)));
   }, [api]);
 
+  async function refreshBootstrap() {
+    const next = await api.Bootstrap();
+    setBootstrap(next);
+    return next;
+  }
+
   async function selectContext(name: string) {
     setError("");
     try {
-      const next = await api.SelectContext(name);
-      const contexts = await api.ListContexts();
-      setRuntime(next);
-      setBootstrap((prev) => (prev ? { ...prev, contexts, runtime: next } : prev));
+      await api.SelectContext(name);
+      const next = await refreshBootstrap();
+      setSelectedContext(name);
+      setSelectedView(next.state.last_view === "play" ? "play" : selectedView);
     } catch (err) {
       setError(errorMessage(err));
     }
@@ -49,36 +60,123 @@ export function AppShell() {
   async function createContext(req: CreateContextRequest) {
     setError("");
     try {
-      const next = await api.CreateContext(req);
-      const contexts = await api.ListContexts();
-      setRuntime(next);
-      setBootstrap((prev) =>
-        prev
-          ? {
-              ...prev,
-              contexts,
-              runtime: next,
-              state: { ...prev.state, selected_context: next.context?.name },
-            }
-          : prev,
-      );
+      const context = await api.CreateContext(req);
+      await refreshBootstrap();
+      setSelectedContext(context.name);
     } catch (err) {
       setError(errorMessage(err));
     }
   }
 
-  async function switchView(next: DesktopView) {
-    setView(next);
+  async function getStarted() {
+    setError("");
+    if (!selectedContext) {
+      setError("Select a context first.");
+      return;
+    }
     try {
-      await api.SetSelectedView(next);
+      await api.StartViewSession({ context_name: selectedContext, view: selectedView });
+      const injected = await api.InjectedRuntime();
+      setRuntime(injected);
+      setActiveView(selectedView);
+      await refreshBootstrap();
     } catch (err) {
       setError(errorMessage(err));
     }
   }
 
-  const contexts = bootstrap?.contexts ?? [];
-  const currentContext = runtime.context;
+  async function signOut() {
+    setError("");
+    try {
+      await api.EndViewSession();
+      await refreshBootstrap();
+      setRuntime(emptyRuntime);
+      setActiveView(null);
+    } catch (err) {
+      setError(errorMessage(err));
+    }
+  }
 
+  if (activeView == null) {
+    return (
+      <WelcomePage
+        bootstrap={bootstrap}
+        error={error}
+        onCreateContext={createContext}
+        onGetStarted={getStarted}
+        onSelectContext={selectContext}
+        onSelectView={setSelectedView}
+        selectedContext={selectedContext}
+        selectedView={selectedView}
+      />
+    );
+  }
+
+  return (
+    <DashboardShell activeView={activeView} onSignOut={signOut} runtime={runtime}>
+      {error ? <div className="error">{error}</div> : null}
+      <RuntimeDetails runtime={runtime} />
+      {activeView === "admin" ? <AdminFullHome runtime={runtime} /> : <PlayFullHome runtime={runtime} />}
+    </DashboardShell>
+  );
+}
+
+function WelcomePage({
+  bootstrap,
+  error,
+  onCreateContext,
+  onGetStarted,
+  onSelectContext,
+  onSelectView,
+  selectedContext,
+  selectedView,
+}: {
+  bootstrap: BootstrapState | null;
+  error: string;
+  onCreateContext(req: CreateContextRequest): Promise<void>;
+  onGetStarted(): Promise<void>;
+  onSelectContext(name: string): Promise<void>;
+  onSelectView(view: DesktopViewId): void;
+  selectedContext: string;
+  selectedView: DesktopViewId;
+}) {
+  const contexts = bootstrap?.contexts ?? [];
+  const views = bootstrap?.views ?? defaultViews();
+
+  return (
+    <div className="welcome-shell">
+      <section className="welcome-panel">
+        <div className="brand welcome-brand">
+          <div className="brand-mark" />
+          <span>GizClaw Desktop</span>
+        </div>
+        <div className="welcome-grid">
+          <ContextPicker contexts={contexts} current={selectedContext} onSelect={onSelectContext} />
+          <ViewPicker onSelect={onSelectView} selected={selectedView} views={views} />
+        </div>
+        <div className="welcome-actions">
+          {error ? <div className="error">{error}</div> : null}
+          <Button disabled={!selectedContext} onClick={() => void onGetStarted()} type="button">
+            Get Started
+          </Button>
+        </div>
+        <CreateContextForm onCreate={onCreateContext} />
+      </section>
+    </div>
+  );
+}
+
+function DashboardShell({
+  activeView,
+  children,
+  onSignOut,
+  runtime,
+}: {
+  activeView: DesktopViewId;
+  children: React.ReactNode;
+  onSignOut(): Promise<void>;
+  runtime: RuntimeContext;
+}) {
   return (
     <div className="app-shell">
       <aside className="sidebar">
@@ -87,18 +185,10 @@ export function AppShell() {
           <span>GizClaw</span>
         </div>
         <nav>
-          <button
-            className={`nav-button ${view === "admin" ? "active" : ""}`}
-            onClick={() => void switchView("admin")}
-            type="button"
-          >
+          <button className={`nav-button ${activeView === "admin" ? "active" : ""}`} disabled type="button">
             <Cpu size={17} /> Admin
           </button>
-          <button
-            className={`nav-button ${view === "play" ? "active" : ""}`}
-            onClick={() => void switchView("play")}
-            type="button"
-          >
+          <button className={`nav-button ${activeView === "play" ? "active" : ""}`} disabled type="button">
             <Gamepad2 size={17} /> Play
           </button>
         </nav>
@@ -106,22 +196,17 @@ export function AppShell() {
       <section className="content">
         <header className="topbar">
           <div>
-            <div className="topbar-title">{view === "admin" ? "Admin Console" : "Play Console"}</div>
-            <div className="topbar-meta">{currentContext?.endpoint ?? "No context selected"}</div>
+            <div className="topbar-title">{activeView === "admin" ? "Admin Console" : "Play Console"}</div>
+            <div className="topbar-meta">{runtime.context?.endpoint ?? "No context selected"}</div>
           </div>
-          <div className="topbar-meta">
-            {currentContext ? `Context: ${currentContext.name}` : "Select a context"}
+          <div className="topbar-actions">
+            <div className="topbar-meta">{runtime.context ? `Context: ${runtime.context.name}` : "No context"}</div>
+            <Button onClick={() => void onSignOut()} type="button">
+              <LogOut size={16} /> Sign out
+            </Button>
           </div>
         </header>
-        <main className="main">
-          {error ? <div className="error">{error}</div> : null}
-          <div className="grid-two">
-            <ContextPicker contexts={contexts} current={currentContext} onSelect={selectContext} />
-            <CreateContextForm onCreate={createContext} />
-          </div>
-          <RuntimeDetails runtime={runtime} />
-          {view === "admin" ? <AdminHome runtime={runtime} /> : <PlayHome runtime={runtime} />}
-        </main>
+        <main className="main">{children}</main>
       </section>
     </div>
   );
@@ -133,7 +218,7 @@ function ContextPicker({
   onSelect,
 }: {
   contexts: ContextSummary[];
-  current?: ContextSummary;
+  current: string;
   onSelect(name: string): Promise<void>;
 }) {
   return (
@@ -145,7 +230,7 @@ function ContextPicker({
         ) : (
           <div className="context-list">
             {contexts.map((ctx) => {
-              const selected = current?.name === ctx.name || ctx.current;
+              const selected = current === ctx.name;
               return (
                 <button
                   className={`context-row ${selected ? "current" : ""}`}
@@ -155,7 +240,7 @@ function ContextPicker({
                 >
                   <div className="row-title">
                     <span>{ctx.name}</span>
-                    {selected ? <span className="badge">current</span> : null}
+                    {selected ? <span className="badge">selected</span> : null}
                   </div>
                   <div className="row-meta">{ctx.description || ctx.endpoint}</div>
                   <div className="row-meta mono">{ctx.local_public_key}</div>
@@ -164,6 +249,38 @@ function ContextPicker({
             })}
           </div>
         )}
+      </CardBody>
+    </Card>
+  );
+}
+
+function ViewPicker({
+  onSelect,
+  selected,
+  views,
+}: {
+  onSelect(view: DesktopViewId): void;
+  selected: DesktopViewId;
+  views: DesktopView[];
+}) {
+  return (
+    <Card>
+      <CardHeader title="Views" />
+      <CardBody>
+        <div className="context-list">
+          {views.map((view) => {
+            const isSelected = selected === view.id;
+            return (
+              <button className={`context-row ${isSelected ? "current" : ""}`} key={view.id} onClick={() => onSelect(view.id)} type="button">
+                <div className="row-title">
+                  <span>{view.title}</span>
+                  {isSelected ? <span className="badge">selected</span> : null}
+                </div>
+                <div className="row-meta">{view.description}</div>
+              </button>
+            );
+          })}
+        </div>
       </CardBody>
     </Card>
   );
@@ -205,19 +322,11 @@ function CreateContextForm({ onCreate }: { onCreate(req: CreateContextRequest): 
           </div>
           <div className="field">
             <label htmlFor="context-server-key">Server public key</label>
-            <TextInput
-              id="context-server-key"
-              onChange={(e) => update("server_public_key", e.target.value)}
-              value={form.server_public_key}
-            />
+            <TextInput id="context-server-key" onChange={(e) => update("server_public_key", e.target.value)} value={form.server_public_key} />
           </div>
           <div className="field">
             <label htmlFor="context-description">Description</label>
-            <TextInput
-              id="context-description"
-              onChange={(e) => update("description", e.target.value)}
-              value={form.description ?? ""}
-            />
+            <TextInput id="context-description" onChange={(e) => update("description", e.target.value)} value={form.description ?? ""} />
           </div>
           <Button type="submit">Create Context</Button>
         </form>
@@ -251,16 +360,20 @@ function RuntimeDetails({ runtime }: { runtime: RuntimeContext }) {
             </div>
           </div>
         ) : (
-          <div className="empty">Select or create a context to inject WebRTC runtime data.</div>
+          <div className="empty">Runtime is injected after a view session starts.</div>
         )}
       </CardBody>
     </Card>
   );
 }
 
+function defaultViews(): DesktopView[] {
+  return [
+    { description: "Manage GizClaw server resources.", id: "admin", title: "Admin" },
+    { description: "Use workspaces, chat history, social, and firmware flows.", id: "play", title: "Play" },
+  ];
+}
+
 function errorMessage(err: unknown): string {
-  if (err instanceof Error) {
-    return err.message;
-  }
-  return String(err);
+  return err instanceof Error ? err.message : String(err);
 }

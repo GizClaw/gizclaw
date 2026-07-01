@@ -6,7 +6,7 @@ shared `setup/` server and `testdata/` fixtures.
 Expected suites:
 
 - `admin/`: generated Admin API client plus WebRTC fetch transport
-- `rpc/`: `@gizclaw/webrtc` Node runtime RPC coverage
+- `rpc/`: `@gizclaw/gizclaw` Node runtime RPC coverage
 - `chat/`: chat/workspace flows over WebRTC RPC
 - `social/`: social flows over WebRTC RPC
 

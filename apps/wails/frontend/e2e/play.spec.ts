@@ -11,80 +11,72 @@ test.beforeEach(async ({ page }) => {
       server_public_key: "server-public-key",
     };
     const actions: string[] = [];
+    let session = { active: false };
+    const views = [
+      { description: "Manage GizClaw server resources.", id: "admin", title: "Admin" },
+      { description: "Use workspaces, chat history, social, and firmware flows.", id: "play", title: "Play" },
+    ];
+    const snapshot = {
+      contacts: [{ id: "contact-main", name: "Main Contact", title: "Main Contact" }],
+      credentials: [{ id: "fake-openai-credential-000", title: "Fake OpenAI Credential" }],
+      firmwares: [{ id: "devkit-firmware-main", name: "devkit-firmware-main", slots: { beta: {}, develop: {}, pending: {}, stable: { description: "stable" } }, title: "Devkit Firmware" }],
+      friendGroups: [{ id: "story-group", my_role: "member", name: "Story Group", workspace_name: "story-group-workspace" }],
+      friends: [{ id: "peer-b", peer_public_key: "peer-b", name: "Peer B", workspace_name: "friend-workspace" }],
+      history: [
+        { id: "20260701T000000Z-1", name: "transcript", text: "你好，开始测试。", type: "gear", updated_at: "2026-07-01T00:00:00Z" },
+        { id: "20260701T000001Z-2", name: "answer", text: "收到，我们继续。", type: "agent", updated_at: "2026-07-01T00:00:01Z" },
+      ],
+      memoryStats: { total: 2 },
+      models: [{ id: "fake-openai-chat-000", name: "Fake OpenAI Chat", title: "Fake OpenAI Chat" }],
+      pets: [{ id: "pet-main", name: "Main Pet", title: "Main Pet" }],
+      rewards: [{ id: "reward-claim", prompt: "Reward Claim", title: "Reward Claim" }],
+      runWorkspace: {
+        active_workspace_name: "flowcraft-chat",
+        mode: "push",
+        workspace_mode: "push",
+        workspace_name: "flowcraft-chat",
+      },
+      voices: [{ id: "volc-voice-000", name: "Volc Voice", provider: { kind: "volc-tenant", name: "volc-tenant" }, source: "sync" }],
+      wallet: { id: "wallet-main", point_balance: 10, title: "Main Wallet", token_balance: 0 },
+      walletTransactions: [{ id: "wallet-tx-1", reason: "seed", title: "Wallet Transaction" }],
+      warnings: [],
+      workflows: [{ id: "flowcraft-chat", name: "Flowcraft Chat Workflow", title: "Flowcraft Chat Workflow" }],
+      workspaces: [{ id: "flowcraft-chat", name: "flowcraft-chat", title: "Flowcraft Chat Workspace", workflow_name: "flowcraft-chat" }],
+    };
     window.__GIZCLAW_DESKTOP_TEST_API__ = {
       async Bootstrap() {
-        return {
-          contexts: [context],
-          paths: {
-            config_root: "/tmp/gizclaw-desktop",
-            context_dir: "/tmp/gizclaw-desktop/contexts",
-            state_file: "/tmp/gizclaw-desktop/state.json",
-          },
-          runtime: {
-            context,
-            private_key_base64: "cHJpdmF0ZS1rZXktbWF0ZXJpYWw=",
-            signaling_url: "http://127.0.0.1:9820/webrtc/v1/offer",
-          },
-          state: {
-            selected_context: "local",
-            selected_view: "play",
-          },
-        };
+        return { contexts: [context], state: { last_context: "local", last_view: "play" }, view_session: session, views };
       },
       async CreateContext() {
-        return { context };
+        return context;
+      },
+      async EndViewSession() {
+        session = { active: false };
+        return session;
+      },
+      async GetViewSession() {
+        return session;
+      },
+      async InjectedRuntime() {
+        return { context, private_key_base64: "cHJpdmF0ZS1rZXktbWF0ZXJpYWw=", signaling_url: "http://127.0.0.1:9820/webrtc/v1/offer" };
       },
       async ListContexts() {
         return [context];
       },
-      async RuntimeContext() {
-        return { context };
+      async ListViews() {
+        return views;
       },
       async SelectContext() {
-        return { context };
+        return context;
       },
-      async SetSelectedView(view) {
-        return { selected_context: "local", selected_view: view };
+      async StartViewSession(req) {
+        session = { active: true, context_name: req.context_name, view: req.view };
+        return session;
       },
     };
     window.__GIZCLAW_DESKTOP_TEST_PLAY_CLIENT__ = {
       async loadSnapshot() {
-        return {
-          contacts: [{ id: "contact-main", title: "Main Contact" }],
-          credentials: [{ id: "fake-openai-credential-000", title: "Fake OpenAI Credential" }],
-          firmwares: [{ id: "devkit-firmware-main", subtitle: "stable", title: "Devkit Firmware" }],
-          friendGroups: [{ id: "story-group", subtitle: "member", title: "Story Group" }],
-          friends: [{ id: "peer-b", subtitle: "peer-a <-> peer-b", title: "Peer B" }],
-          history: [
-            {
-              id: "20260701T000000Z-1",
-              name: "transcript",
-              text: "你好，开始测试。",
-              type: "gear",
-              updated_at: "2026-07-01T00:00:00Z",
-            },
-            {
-              id: "20260701T000001Z-2",
-              name: "answer",
-              text: "收到，我们继续。",
-              type: "agent",
-              updated_at: "2026-07-01T00:00:01Z",
-            },
-          ],
-          memoryStats: { total: 2 },
-          models: [{ id: "fake-openai-chat-000", title: "Fake OpenAI Chat" }],
-          pets: [{ id: "pet-main", title: "Main Pet" }],
-          rewards: [{ id: "reward-claim", title: "Reward Claim" }],
-          runWorkspace: {
-            mode: "push-to-talk",
-            workspace_name: "flowcraft-chat",
-          },
-          wallet: { id: "wallet-main", title: "Main Wallet" },
-          walletTransactions: [{ id: "wallet-tx-1", title: "Wallet Transaction" }],
-          warnings: [],
-          workflows: [{ id: "flowcraft-chat", title: "Flowcraft Chat Workflow" }],
-          workspaces: [{ id: "flowcraft-chat", title: "Flowcraft Chat Workspace" }],
-        };
+        return snapshot;
       },
       async playHistory(historyID) {
         actions.push(`play:${historyID}`);
@@ -94,66 +86,60 @@ test.beforeEach(async ({ page }) => {
       async recallMemory(query) {
         actions.push(`recall:${query}`);
         window.__GIZCLAW_DESKTOP_TEST_PLAY_ACTIONS__ = actions;
-        return {
-          hits: [{ id: "memory-hit-1", subtitle: query, title: "Memory Hit" }],
-          raw: { query },
-        };
+        return { hits: [{ id: "memory-hit-1", score: 0.95, snippet: `Memory Hit: ${query}`, source_id: "memory-hit-1" }] };
       },
       async reloadWorkspace() {
         actions.push("reload");
         window.__GIZCLAW_DESKTOP_TEST_PLAY_ACTIONS__ = actions;
-        return { accepted: true };
+        return snapshot.runWorkspace;
       },
       async setWorkspace(workspaceName) {
         actions.push(`set:${workspaceName}`);
         window.__GIZCLAW_DESKTOP_TEST_PLAY_ACTIONS__ = actions;
-        return { workspace_name: workspaceName };
+        snapshot.runWorkspace.workspace_name = workspaceName;
+        snapshot.runWorkspace.active_workspace_name = workspaceName;
+        return snapshot.runWorkspace;
       },
     };
   });
 });
 
-test("play view uses direct WebRTC RPC client data", async ({ page }) => {
+test("play view renders the full desktop play surface", async ({ page }) => {
   await page.goto("/");
+  await page.getByRole("button", { name: "Get Started" }).click();
 
   await expect(page.getByText("Play Console")).toBeVisible();
-  await expect(page.locator(".card-title", { hasText: "Play RPC" })).toBeVisible();
-  await expect(page.getByText("WebRTC RPC")).toBeVisible();
-  await expect(page.getByText("flowcraft-chat").first()).toBeVisible();
-  await expect(page.getByText("push-to-talk")).toBeVisible();
-  await expect(page.getByText("你好，开始测试。")).toBeVisible();
-  await expect(page.getByText("Peer B")).toBeVisible();
-  await expect(page.getByText("Story Group")).toBeVisible();
-  await expect(page.getByText("Flowcraft Chat Workspace")).toBeVisible();
-  await expect(page.getByText("Fake OpenAI Chat")).toBeVisible();
-  await expect(page.getByText("Main Wallet")).toBeVisible();
-  await expect(page.getByText("Reward Claim")).toBeVisible();
-  await expect(page.getByText("Devkit Firmware")).toBeVisible();
+  await expect(page.getByText("OpenAI Gateway")).toBeVisible();
+  await expect(page.getByRole("button", { name: /Workspaces/ })).toBeVisible();
+  await expect(page.getByText("wallet-main")).toBeVisible();
 
-  await page.locator(".card", { hasText: "Workspace History" }).getByRole("button", { name: /^Play$/ }).first().click();
-  await expect(page.getByText("History 20260701T000000Z-1 replay requested.")).toBeVisible();
-  await expect
-    .poll(() => page.evaluate(() => window.__GIZCLAW_DESKTOP_TEST_PLAY_ACTIONS__ ?? []))
-    .toContain("play:20260701T000000Z-1");
+  await page.getByRole("button", { name: /Workspaces/ }).click();
+  await expect(page.getByRole("heading", { name: "Workspaces" })).toBeVisible();
+  await expect(page.getByText("flowcraft-chat").first()).toBeVisible();
+
+  await page.getByRole("button", { name: /Friends/ }).click();
+  await expect(page.getByRole("heading", { name: "Friends" })).toBeVisible();
+  await expect(page.getByText("peer-b").first()).toBeVisible();
+
+  await page.getByRole("button", { name: /Firmwares/ }).click();
+  await expect(page.getByRole("heading", { name: "Firmwares" })).toBeVisible();
+  await expect(page.getByText("devkit-firmware-main")).toBeVisible();
 });
 
-test("play view sends workspace and memory actions through client", async ({ page }) => {
+test("play workspace drawer sends direct RPC-backed actions", async ({ page }) => {
   await page.goto("/");
+  await page.getByRole("button", { name: "Get Started" }).click();
 
-  await page.locator(".card", { hasText: "Workspace" }).getByRole("button", { name: "Reload" }).click();
-  await expect(page.getByText("Workspace reloaded.")).toBeVisible();
+  await page.getByRole("button", { name: /^Workspace$/ }).click();
+  await expect(page.getByRole("heading", { name: "Workspace" })).toBeVisible();
+  await page.getByRole("button", { name: /Reload/ }).click();
+  await expect.poll(() => page.evaluate(() => window.__GIZCLAW_DESKTOP_TEST_PLAY_ACTIONS__ ?? [])).toContain("reload");
 
-  await page.getByLabel("Workspace name").fill("story-group-workspace");
-  await page.getByRole("button", { name: "Set" }).click();
-  await expect(page.getByText("Workspace set to story-group-workspace.")).toBeVisible();
-
-  await page.getByLabel("Memory recall query").fill("route");
-  await page.getByRole("button", { name: "Recall" }).click();
-  await expect(page.getByText("Memory Hit")).toBeVisible();
-
-  await expect
-    .poll(() => page.evaluate(() => window.__GIZCLAW_DESKTOP_TEST_PLAY_ACTIONS__ ?? []))
-    .toEqual(expect.arrayContaining(["reload", "set:story-group-workspace", "recall:route"]));
+  await page.getByRole("tab", { name: /Recall/ }).click();
+  await page.getByPlaceholder("Recall query").fill("route");
+  await page.getByRole("button", { name: "Run Recall" }).click();
+  await expect(page.getByText("Memory Hit: route")).toBeVisible();
+  await expect.poll(() => page.evaluate(() => window.__GIZCLAW_DESKTOP_TEST_PLAY_ACTIONS__ ?? [])).toContain("recall:route");
 });
 
 declare global {

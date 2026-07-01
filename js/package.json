@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "gen:sdk": "openapi-ts && node scripts/write-package-manifests.mjs"
+    "gen:sdk": "openapi-ts && node scripts/fix-generated-imports.mjs && node scripts/generate-rpc-method-map.mjs"
   },
   "devDependencies": {
     "@hey-api/openapi-ts": "^0.96.0"

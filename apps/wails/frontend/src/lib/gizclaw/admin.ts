@@ -1,5 +1,6 @@
-import type { Client as AdminServiceClient } from "@gizclaw/adminservice/client";
 import {
+  type AdminServiceClient,
+  createAdminAPIClient,
   listAclPolicyBindings,
   listAclRoles,
   listAclViews,
@@ -20,11 +21,10 @@ import {
   listVolcTenants,
   listWorkflows,
   listWorkspaces,
-} from "@gizclaw/adminservice";
-import { createAdminAPIClient } from "@gizclaw/webrtc/adminservice";
-import { connectGiznetWebRTC, sendGiznetWebRTCOffer } from "@gizclaw/webrtc";
-import type { WebRTCRPCDataChannelFactory } from "@gizclaw/webrtc";
-import { base64Decode, prepareEncryptedGiznetWebRTCOffer } from "@gizclaw/webrtc/signaling";
+} from "@gizclaw/gizclaw/admin";
+import { connectGiznetWebRTC, sendGiznetWebRTCOffer } from "@gizclaw/gizclaw";
+import type { WebRTCRPCDataChannelFactory } from "@gizclaw/gizclaw";
+import { base64Decode, prepareEncryptedGiznetWebRTCOffer } from "@gizclaw/gizclaw/signaling";
 import type { RuntimeContext } from "../runtime/types";
 
 export interface AdminDataClient {
@@ -87,7 +87,7 @@ export function createAdminDataClientFromPeerConnection(pc: WebRTCRPCDataChannel
   return createGeneratedAdminDataClient(createAdminAPIClient(pc));
 }
 
-export async function connectAdminSession(runtime: RuntimeContext): Promise<AdminSession> {
+export async function connectAdminPeerConnection(runtime: RuntimeContext): Promise<RTCPeerConnection> {
   if (runtime.context == null) {
     throw new Error("Admin WebRTC session requires a selected context.");
   }
@@ -110,9 +110,14 @@ export async function connectAdminSession(runtime: RuntimeContext): Promise<Admi
           serverPublicKey: runtime.context?.server_public_key ?? "",
         },
         offerSDP,
-      ),
+    ),
     sendOffer: (offer, signal) => sendGiznetWebRTCOffer(offer, { signal, url: runtime.signaling_url }),
   });
+  return pc;
+}
+
+export async function connectAdminSession(runtime: RuntimeContext): Promise<AdminSession> {
+  const pc = await connectAdminPeerConnection(runtime);
   const client = createGeneratedAdminDataClient(createAdminAPIClient(pc));
   return {
     close() {

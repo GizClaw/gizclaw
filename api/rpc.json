@@ -157,6 +157,12 @@
                 "$ref": "./rpc/server.json#/components/schemas/ModelDeleteRequest"
               },
               {
+                "$ref": "./rpc/server.json#/components/schemas/VoiceListRequest"
+              },
+              {
+                "$ref": "./rpc/server.json#/components/schemas/VoiceGetRequest"
+              },
+              {
                 "$ref": "./rpc/server.json#/components/schemas/CredentialListRequest"
               },
               {
@@ -443,6 +449,12 @@
                 "$ref": "./rpc/server.json#/components/schemas/ModelDeleteResponse"
               },
               {
+                "$ref": "./rpc/server.json#/components/schemas/VoiceListResponse"
+              },
+              {
+                "$ref": "./rpc/server.json#/components/schemas/VoiceGetResponse"
+              },
+              {
                 "$ref": "./rpc/server.json#/components/schemas/CredentialListResponse"
               },
               {
@@ -633,6 +645,8 @@
           "server.model.create",
           "server.model.put",
           "server.model.delete",
+          "server.voice.list",
+          "server.voice.get",
           "server.credential.list",
           "server.credential.get",
           "server.credential.create",
@@ -729,5 +743,462 @@
         }
       }
     }
-  }
+  },
+  "x-gizclaw-rpc-methods": [
+    {
+      "method": "all.ping",
+      "request": "./rpc/all.json#/components/schemas/PingRequest",
+      "response": "./rpc/all.json#/components/schemas/PingResponse"
+    },
+    {
+      "method": "all.speed_test.run",
+      "request": "./rpc/all.json#/components/schemas/SpeedTestRequest",
+      "response": "./rpc/all.json#/components/schemas/SpeedTestResponse"
+    },
+    {
+      "method": "client.info.get",
+      "request": "./rpc/client.json#/components/schemas/ClientGetInfoRequest",
+      "response": "./rpc/client.json#/components/schemas/ClientGetInfoResponse"
+    },
+    {
+      "method": "client.identifiers.get",
+      "request": "./rpc/client.json#/components/schemas/ClientGetIdentifiersRequest",
+      "response": "./rpc/client.json#/components/schemas/ClientGetIdentifiersResponse"
+    },
+    {
+      "method": "server.info.get",
+      "request": "./rpc/server.json#/components/schemas/ServerGetInfoRequest",
+      "response": "./rpc/server.json#/components/schemas/ServerGetInfoResponse"
+    },
+    {
+      "method": "server.info.put",
+      "request": "./rpc/server.json#/components/schemas/ServerPutInfoRequest",
+      "response": "./rpc/server.json#/components/schemas/ServerPutInfoResponse"
+    },
+    {
+      "method": "server.runtime.get",
+      "request": "./rpc/server.json#/components/schemas/ServerGetRuntimeRequest",
+      "response": "./rpc/server.json#/components/schemas/ServerGetRuntimeResponse"
+    },
+    {
+      "method": "server.status.get",
+      "request": "./rpc/server.json#/components/schemas/ServerGetStatusRequest",
+      "response": "./rpc/server.json#/components/schemas/ServerGetStatusResponse"
+    },
+    {
+      "method": "server.status.put",
+      "request": "./rpc/server.json#/components/schemas/ServerPutStatusRequest",
+      "response": "./rpc/server.json#/components/schemas/ServerPutStatusResponse"
+    },
+    {
+      "method": "server.run.agent.get",
+      "request": "./rpc/server.json#/components/schemas/ServerGetRunAgentRequest",
+      "response": "./rpc/server.json#/components/schemas/ServerGetRunAgentResponse"
+    },
+    {
+      "method": "server.run.agent.set",
+      "request": "./rpc/server.json#/components/schemas/ServerSetRunAgentRequest",
+      "response": "./rpc/server.json#/components/schemas/ServerSetRunAgentResponse"
+    },
+    {
+      "method": "server.run.workspace.get",
+      "request": "./rpc/server.json#/components/schemas/ServerGetRunWorkspaceRequest",
+      "response": "./rpc/server.json#/components/schemas/ServerGetRunWorkspaceResponse"
+    },
+    {
+      "method": "server.run.workspace.set",
+      "request": "./rpc/server.json#/components/schemas/ServerSetRunWorkspaceRequest",
+      "response": "./rpc/server.json#/components/schemas/ServerSetRunWorkspaceResponse"
+    },
+    {
+      "method": "server.run.workspace.reload",
+      "request": "./rpc/server.json#/components/schemas/ServerReloadRunWorkspaceRequest",
+      "response": "./rpc/server.json#/components/schemas/ServerReloadRunWorkspaceResponse"
+    },
+    {
+      "method": "server.run.workspace.history",
+      "request": "./rpc/server.json#/components/schemas/ServerListRunWorkspaceHistoryRequest",
+      "response": "./rpc/server.json#/components/schemas/ServerListRunWorkspaceHistoryResponse"
+    },
+    {
+      "method": "server.run.workspace.history.play",
+      "request": "./rpc/server.json#/components/schemas/ServerPlayRunWorkspaceHistoryRequest",
+      "response": "./rpc/server.json#/components/schemas/ServerPlayRunWorkspaceHistoryResponse"
+    },
+    {
+      "method": "server.run.workspace.memory.stats",
+      "request": "./rpc/server.json#/components/schemas/ServerGetRunWorkspaceMemoryStatsRequest",
+      "response": "./rpc/server.json#/components/schemas/ServerGetRunWorkspaceMemoryStatsResponse"
+    },
+    {
+      "method": "server.run.workspace.recall",
+      "request": "./rpc/server.json#/components/schemas/ServerRunWorkspaceRecallRequest",
+      "response": "./rpc/server.json#/components/schemas/ServerRunWorkspaceRecallResponse"
+    },
+    {
+      "method": "server.run.reload",
+      "request": "./rpc/server.json#/components/schemas/ServerReloadRunRequest",
+      "response": "./rpc/server.json#/components/schemas/ServerReloadRunResponse"
+    },
+    {
+      "method": "server.run.status",
+      "request": "./rpc/server.json#/components/schemas/ServerGetRunStatusRequest",
+      "response": "./rpc/server.json#/components/schemas/ServerGetRunStatusResponse"
+    },
+    {
+      "method": "server.run.stop",
+      "request": "./rpc/server.json#/components/schemas/ServerStopRunRequest",
+      "response": "./rpc/server.json#/components/schemas/ServerStopRunResponse"
+    },
+    {
+      "method": "server.run.say",
+      "request": "./rpc/server.json#/components/schemas/ServerRunSayRequest",
+      "response": "./rpc/server.json#/components/schemas/ServerRunSayResponse"
+    },
+    {
+      "method": "server.firmware.list",
+      "request": "./rpc/server.json#/components/schemas/FirmwareListRequest",
+      "response": "./rpc/server.json#/components/schemas/FirmwareListResponse"
+    },
+    {
+      "method": "server.firmware.get",
+      "request": "./rpc/server.json#/components/schemas/FirmwareGetRequest",
+      "response": "./rpc/server.json#/components/schemas/FirmwareGetResponse"
+    },
+    {
+      "method": "server.firmware.files.download",
+      "request": "./rpc/server.json#/components/schemas/FirmwareFilesDownloadRequest",
+      "response": "./rpc/server.json#/components/schemas/FirmwareFilesDownloadResponse"
+    },
+    {
+      "method": "server.workspace.list",
+      "request": "./rpc/server.json#/components/schemas/WorkspaceListRequest",
+      "response": "./rpc/server.json#/components/schemas/WorkspaceListResponse"
+    },
+    {
+      "method": "server.workspace.get",
+      "request": "./rpc/server.json#/components/schemas/WorkspaceGetRequest",
+      "response": "./rpc/server.json#/components/schemas/WorkspaceGetResponse"
+    },
+    {
+      "method": "server.workspace.create",
+      "request": "./rpc/server.json#/components/schemas/WorkspaceCreateRequest",
+      "response": "./rpc/server.json#/components/schemas/WorkspaceCreateResponse"
+    },
+    {
+      "method": "server.workspace.put",
+      "request": "./rpc/server.json#/components/schemas/WorkspacePutRequest",
+      "response": "./rpc/server.json#/components/schemas/WorkspacePutResponse"
+    },
+    {
+      "method": "server.workspace.delete",
+      "request": "./rpc/server.json#/components/schemas/WorkspaceDeleteRequest",
+      "response": "./rpc/server.json#/components/schemas/WorkspaceDeleteResponse"
+    },
+    {
+      "method": "server.workspace.history.list",
+      "request": "./rpc/server.json#/components/schemas/WorkspaceHistoryListRequest",
+      "response": "./rpc/server.json#/components/schemas/WorkspaceHistoryListResponse"
+    },
+    {
+      "method": "server.workspace.history.get",
+      "request": "./rpc/server.json#/components/schemas/WorkspaceHistoryGetRequest",
+      "response": "./rpc/server.json#/components/schemas/WorkspaceHistoryGetResponse"
+    },
+    {
+      "method": "server.workspace.history.audio.get",
+      "request": "./rpc/server.json#/components/schemas/WorkspaceHistoryAudioGetRequest",
+      "response": "./rpc/server.json#/components/schemas/WorkspaceHistoryAudioGetResponse"
+    },
+    {
+      "method": "server.workflow.list",
+      "request": "./rpc/server.json#/components/schemas/WorkflowListRequest",
+      "response": "./rpc/server.json#/components/schemas/WorkflowListResponse"
+    },
+    {
+      "method": "server.workflow.get",
+      "request": "./rpc/server.json#/components/schemas/WorkflowGetRequest",
+      "response": "./rpc/server.json#/components/schemas/WorkflowGetResponse"
+    },
+    {
+      "method": "server.workflow.create",
+      "request": "./rpc/server.json#/components/schemas/WorkflowCreateRequest",
+      "response": "./rpc/server.json#/components/schemas/WorkflowCreateResponse"
+    },
+    {
+      "method": "server.workflow.put",
+      "request": "./rpc/server.json#/components/schemas/WorkflowPutRequest",
+      "response": "./rpc/server.json#/components/schemas/WorkflowPutResponse"
+    },
+    {
+      "method": "server.workflow.delete",
+      "request": "./rpc/server.json#/components/schemas/WorkflowDeleteRequest",
+      "response": "./rpc/server.json#/components/schemas/WorkflowDeleteResponse"
+    },
+    {
+      "method": "server.model.list",
+      "request": "./rpc/server.json#/components/schemas/ModelListRequest",
+      "response": "./rpc/server.json#/components/schemas/ModelListResponse"
+    },
+    {
+      "method": "server.model.get",
+      "request": "./rpc/server.json#/components/schemas/ModelGetRequest",
+      "response": "./rpc/server.json#/components/schemas/ModelGetResponse"
+    },
+    {
+      "method": "server.model.create",
+      "request": "./rpc/server.json#/components/schemas/ModelCreateRequest",
+      "response": "./rpc/server.json#/components/schemas/ModelCreateResponse"
+    },
+    {
+      "method": "server.model.put",
+      "request": "./rpc/server.json#/components/schemas/ModelPutRequest",
+      "response": "./rpc/server.json#/components/schemas/ModelPutResponse"
+    },
+    {
+      "method": "server.model.delete",
+      "request": "./rpc/server.json#/components/schemas/ModelDeleteRequest",
+      "response": "./rpc/server.json#/components/schemas/ModelDeleteResponse"
+    },
+    {
+      "method": "server.voice.list",
+      "request": "./rpc/server.json#/components/schemas/VoiceListRequest",
+      "response": "./rpc/server.json#/components/schemas/VoiceListResponse"
+    },
+    {
+      "method": "server.voice.get",
+      "request": "./rpc/server.json#/components/schemas/VoiceGetRequest",
+      "response": "./rpc/server.json#/components/schemas/VoiceGetResponse"
+    },
+    {
+      "method": "server.credential.list",
+      "request": "./rpc/server.json#/components/schemas/CredentialListRequest",
+      "response": "./rpc/server.json#/components/schemas/CredentialListResponse"
+    },
+    {
+      "method": "server.credential.get",
+      "request": "./rpc/server.json#/components/schemas/CredentialGetRequest",
+      "response": "./rpc/server.json#/components/schemas/CredentialGetResponse"
+    },
+    {
+      "method": "server.credential.create",
+      "request": "./rpc/server.json#/components/schemas/CredentialCreateRequest",
+      "response": "./rpc/server.json#/components/schemas/CredentialCreateResponse"
+    },
+    {
+      "method": "server.credential.put",
+      "request": "./rpc/server.json#/components/schemas/CredentialPutRequest",
+      "response": "./rpc/server.json#/components/schemas/CredentialPutResponse"
+    },
+    {
+      "method": "server.credential.delete",
+      "request": "./rpc/server.json#/components/schemas/CredentialDeleteRequest",
+      "response": "./rpc/server.json#/components/schemas/CredentialDeleteResponse"
+    },
+    {
+      "method": "server.pet.list",
+      "request": "./rpc/server.json#/components/schemas/PetListRequest",
+      "response": "./rpc/server.json#/components/schemas/PetListResponse"
+    },
+    {
+      "method": "server.pet.get",
+      "request": "./rpc/server.json#/components/schemas/PetGetRequest",
+      "response": "./rpc/server.json#/components/schemas/PetGetResponse"
+    },
+    {
+      "method": "server.pet.adopt",
+      "request": "./rpc/server.json#/components/schemas/PetAdoptRequest",
+      "response": "./rpc/server.json#/components/schemas/PetAdoptResponse"
+    },
+    {
+      "method": "server.pet.put",
+      "request": "./rpc/server.json#/components/schemas/PetPutRequest",
+      "response": "./rpc/server.json#/components/schemas/PetPutResponse"
+    },
+    {
+      "method": "server.pet.delete",
+      "request": "./rpc/server.json#/components/schemas/PetDeleteRequest",
+      "response": "./rpc/server.json#/components/schemas/PetDeleteResponse"
+    },
+    {
+      "method": "server.pet.feed",
+      "request": "./rpc/server.json#/components/schemas/PetFeedRequest",
+      "response": "./rpc/server.json#/components/schemas/PetFeedResponse"
+    },
+    {
+      "method": "server.pet.wash",
+      "request": "./rpc/server.json#/components/schemas/PetWashRequest",
+      "response": "./rpc/server.json#/components/schemas/PetWashResponse"
+    },
+    {
+      "method": "server.pet.play",
+      "request": "./rpc/server.json#/components/schemas/PetPlayRequest",
+      "response": "./rpc/server.json#/components/schemas/PetPlayResponse"
+    },
+    {
+      "method": "server.wallet.get",
+      "request": "./rpc/server.json#/components/schemas/WalletGetRequest",
+      "response": "./rpc/server.json#/components/schemas/WalletGetResponse"
+    },
+    {
+      "method": "server.wallet.transactions.list",
+      "request": "./rpc/server.json#/components/schemas/WalletTransactionsListRequest",
+      "response": "./rpc/server.json#/components/schemas/WalletTransactionsListResponse"
+    },
+    {
+      "method": "server.wallet.transactions.get",
+      "request": "./rpc/server.json#/components/schemas/WalletTransactionsGetRequest",
+      "response": "./rpc/server.json#/components/schemas/WalletTransactionsGetResponse"
+    },
+    {
+      "method": "server.contact.list",
+      "request": "./rpc/server.json#/components/schemas/ContactListRequest",
+      "response": "./rpc/server.json#/components/schemas/ContactListResponse"
+    },
+    {
+      "method": "server.contact.get",
+      "request": "./rpc/server.json#/components/schemas/ContactGetRequest",
+      "response": "./rpc/server.json#/components/schemas/ContactGetResponse"
+    },
+    {
+      "method": "server.contact.create",
+      "request": "./rpc/server.json#/components/schemas/ContactCreateRequest",
+      "response": "./rpc/server.json#/components/schemas/ContactCreateResponse"
+    },
+    {
+      "method": "server.contact.put",
+      "request": "./rpc/server.json#/components/schemas/ContactPutRequest",
+      "response": "./rpc/server.json#/components/schemas/ContactPutResponse"
+    },
+    {
+      "method": "server.contact.delete",
+      "request": "./rpc/server.json#/components/schemas/ContactDeleteRequest",
+      "response": "./rpc/server.json#/components/schemas/ContactDeleteResponse"
+    },
+    {
+      "method": "server.friend.invite_token.get",
+      "request": "./rpc/server.json#/components/schemas/FriendInviteTokenGetRequest",
+      "response": "./rpc/server.json#/components/schemas/FriendInviteTokenGetResponse"
+    },
+    {
+      "method": "server.friend.invite_token.create",
+      "request": "./rpc/server.json#/components/schemas/FriendInviteTokenCreateRequest",
+      "response": "./rpc/server.json#/components/schemas/FriendInviteTokenCreateResponse"
+    },
+    {
+      "method": "server.friend.invite_token.clear",
+      "request": "./rpc/server.json#/components/schemas/FriendInviteTokenClearRequest",
+      "response": "./rpc/server.json#/components/schemas/FriendInviteTokenClearResponse"
+    },
+    {
+      "method": "server.friend.add",
+      "request": "./rpc/server.json#/components/schemas/FriendAddRequest",
+      "response": "./rpc/server.json#/components/schemas/FriendAddResponse"
+    },
+    {
+      "method": "server.friend.list",
+      "request": "./rpc/server.json#/components/schemas/FriendListRequest",
+      "response": "./rpc/server.json#/components/schemas/FriendListResponse"
+    },
+    {
+      "method": "server.friend.delete",
+      "request": "./rpc/server.json#/components/schemas/FriendDeleteRequest",
+      "response": "./rpc/server.json#/components/schemas/FriendDeleteResponse"
+    },
+    {
+      "method": "server.friend_group.list",
+      "request": "./rpc/server.json#/components/schemas/FriendGroupListRequest",
+      "response": "./rpc/server.json#/components/schemas/FriendGroupListResponse"
+    },
+    {
+      "method": "server.friend_group.get",
+      "request": "./rpc/server.json#/components/schemas/FriendGroupGetRequest",
+      "response": "./rpc/server.json#/components/schemas/FriendGroupGetResponse"
+    },
+    {
+      "method": "server.friend_group.create",
+      "request": "./rpc/server.json#/components/schemas/FriendGroupCreateRequest",
+      "response": "./rpc/server.json#/components/schemas/FriendGroupCreateResponse"
+    },
+    {
+      "method": "server.friend_group.put",
+      "request": "./rpc/server.json#/components/schemas/FriendGroupPutRequest",
+      "response": "./rpc/server.json#/components/schemas/FriendGroupPutResponse"
+    },
+    {
+      "method": "server.friend_group.delete",
+      "request": "./rpc/server.json#/components/schemas/FriendGroupDeleteRequest",
+      "response": "./rpc/server.json#/components/schemas/FriendGroupDeleteResponse"
+    },
+    {
+      "method": "server.friend_group.invite_token.get",
+      "request": "./rpc/server.json#/components/schemas/FriendGroupInviteTokenGetRequest",
+      "response": "./rpc/server.json#/components/schemas/FriendGroupInviteTokenGetResponse"
+    },
+    {
+      "method": "server.friend_group.invite_token.create",
+      "request": "./rpc/server.json#/components/schemas/FriendGroupInviteTokenCreateRequest",
+      "response": "./rpc/server.json#/components/schemas/FriendGroupInviteTokenCreateResponse"
+    },
+    {
+      "method": "server.friend_group.invite_token.clear",
+      "request": "./rpc/server.json#/components/schemas/FriendGroupInviteTokenClearRequest",
+      "response": "./rpc/server.json#/components/schemas/FriendGroupInviteTokenClearResponse"
+    },
+    {
+      "method": "server.friend_group.join",
+      "request": "./rpc/server.json#/components/schemas/FriendGroupJoinRequest",
+      "response": "./rpc/server.json#/components/schemas/FriendGroupJoinResponse"
+    },
+    {
+      "method": "server.friend_group.members.list",
+      "request": "./rpc/server.json#/components/schemas/FriendGroupMemberListRequest",
+      "response": "./rpc/server.json#/components/schemas/FriendGroupMemberListResponse"
+    },
+    {
+      "method": "server.friend_group.members.add",
+      "request": "./rpc/server.json#/components/schemas/FriendGroupMemberAddRequest",
+      "response": "./rpc/server.json#/components/schemas/FriendGroupMemberAddResponse"
+    },
+    {
+      "method": "server.friend_group.members.put",
+      "request": "./rpc/server.json#/components/schemas/FriendGroupMemberPutRequest",
+      "response": "./rpc/server.json#/components/schemas/FriendGroupMemberPutResponse"
+    },
+    {
+      "method": "server.friend_group.members.delete",
+      "request": "./rpc/server.json#/components/schemas/FriendGroupMemberDeleteRequest",
+      "response": "./rpc/server.json#/components/schemas/FriendGroupMemberDeleteResponse"
+    },
+    {
+      "method": "server.friend_group.messages.list",
+      "request": "./rpc/server.json#/components/schemas/FriendGroupMessageListRequest",
+      "response": "./rpc/server.json#/components/schemas/FriendGroupMessageListResponse"
+    },
+    {
+      "method": "server.friend_group.messages.get",
+      "request": "./rpc/server.json#/components/schemas/FriendGroupMessageGetRequest",
+      "response": "./rpc/server.json#/components/schemas/FriendGroupMessageGetResponse"
+    },
+    {
+      "method": "server.friend_group.messages.send",
+      "request": "./rpc/server.json#/components/schemas/FriendGroupMessageSendRequest",
+      "response": "./rpc/server.json#/components/schemas/FriendGroupMessageSendResponse"
+    },
+    {
+      "method": "server.reward.list",
+      "request": "./rpc/server.json#/components/schemas/RewardListRequest",
+      "response": "./rpc/server.json#/components/schemas/RewardListResponse"
+    },
+    {
+      "method": "server.reward.get",
+      "request": "./rpc/server.json#/components/schemas/RewardGetRequest",
+      "response": "./rpc/server.json#/components/schemas/RewardGetResponse"
+    },
+    {
+      "method": "server.reward.claim",
+      "request": "./rpc/server.json#/components/schemas/RewardClaimRequest",
+      "response": "./rpc/server.json#/components/schemas/RewardClaimResponse"
+    }
+  ]
 }

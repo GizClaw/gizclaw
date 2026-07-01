@@ -27,6 +27,40 @@ input {
   background: #f6f8f7;
 }
 
+.welcome-shell {
+  min-height: 100vh;
+  background: #f6f8f7;
+  display: flex;
+  justify-content: center;
+  padding: 40px 24px;
+}
+
+.welcome-panel {
+  width: min(1120px, 100%);
+  display: grid;
+  gap: 16px;
+  align-content: start;
+}
+
+.welcome-brand {
+  font-size: 22px;
+  padding: 8px 0;
+}
+
+.welcome-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(360px, 0.9fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.welcome-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  align-items: center;
+}
+
 .sidebar {
   border-right: 1px solid #dfe5e2;
   background: #ffffff;
@@ -97,6 +131,12 @@ input {
 .topbar-meta {
   color: #63706d;
   font-size: 13px;
+}
+
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
 .main {

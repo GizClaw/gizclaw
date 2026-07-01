@@ -548,6 +548,8 @@ const (
 	RPCMethodServerRuntimeGet                   RPCMethod = "server.runtime.get"
 	RPCMethodServerStatusGet                    RPCMethod = "server.status.get"
 	RPCMethodServerStatusPut                    RPCMethod = "server.status.put"
+	RPCMethodServerVoiceGet                     RPCMethod = "server.voice.get"
+	RPCMethodServerVoiceList                    RPCMethod = "server.voice.list"
 	RPCMethodServerWalletGet                    RPCMethod = "server.wallet.get"
 	RPCMethodServerWalletTransactionsGet        RPCMethod = "server.wallet.transactions.get"
 	RPCMethodServerWalletTransactionsList       RPCMethod = "server.wallet.transactions.list"
@@ -715,6 +717,10 @@ func (e RPCMethod) Valid() bool {
 		return true
 	case RPCMethodServerStatusPut:
 		return true
+	case RPCMethodServerVoiceGet:
+		return true
+	case RPCMethodServerVoiceList:
+		return true
 	case RPCMethodServerWalletGet:
 		return true
 	case RPCMethodServerWalletTransactionsGet:
@@ -761,6 +767,51 @@ const (
 func (e RPCVersion) Valid() bool {
 	switch e {
 	case RPCVersionV1:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for VoiceProviderKind.
+const (
+	VoiceProviderKindDashscopeTenant VoiceProviderKind = "dashscope-tenant"
+	VoiceProviderKindGeminiTenant    VoiceProviderKind = "gemini-tenant"
+	VoiceProviderKindMinimaxTenant   VoiceProviderKind = "minimax-tenant"
+	VoiceProviderKindOpenaiTenant    VoiceProviderKind = "openai-tenant"
+	VoiceProviderKindVolcTenant      VoiceProviderKind = "volc-tenant"
+)
+
+// Valid indicates whether the value is a known member of the VoiceProviderKind enum.
+func (e VoiceProviderKind) Valid() bool {
+	switch e {
+	case VoiceProviderKindDashscopeTenant:
+		return true
+	case VoiceProviderKindGeminiTenant:
+		return true
+	case VoiceProviderKindMinimaxTenant:
+		return true
+	case VoiceProviderKindOpenaiTenant:
+		return true
+	case VoiceProviderKindVolcTenant:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for VoiceSource.
+const (
+	VoiceSourceManual VoiceSource = "manual"
+	VoiceSourceSync   VoiceSource = "sync"
+)
+
+// Valid indicates whether the value is a known member of the VoiceSource enum.
+func (e VoiceSource) Valid() bool {
+	switch e {
+	case VoiceSourceManual:
+		return true
+	case VoiceSourceSync:
 		return true
 	default:
 		return false
@@ -1143,6 +1194,12 @@ type DashScopeTenantModelProviderData struct {
 
 // DashScopeTenantModelProviderDataApiMode defines model for DashScopeTenantModelProviderData.ApiMode.
 type DashScopeTenantModelProviderDataApiMode string
+
+// DashScopeTenantVoiceProviderData defines model for DashScopeTenantVoiceProviderData.
+type DashScopeTenantVoiceProviderData struct {
+	Raw     *map[string]interface{} `json:"raw,omitempty"`
+	VoiceId *string                 `json:"voice_id,omitempty"`
+}
 
 // DeviceInfo defines model for DeviceInfo.
 type DeviceInfo struct {
@@ -1763,6 +1820,12 @@ type GeminiTenantModelProviderData struct {
 	UpstreamModel *string `json:"upstream_model,omitempty"`
 }
 
+// GeminiTenantVoiceProviderData defines model for GeminiTenantVoiceProviderData.
+type GeminiTenantVoiceProviderData struct {
+	Raw     *map[string]interface{} `json:"raw,omitempty"`
+	VoiceId *string                 `json:"voice_id,omitempty"`
+}
+
 // HardwareInfo defines model for HardwareInfo.
 type HardwareInfo struct {
 	HardwareRevision *string      `json:"hardware_revision,omitempty"`
@@ -1779,6 +1842,16 @@ type MiniMaxCredentialBody struct {
 	MinimaxVoiceBaseUrl *string `json:"minimax_voice_base_url,omitempty"`
 	Token               *string `json:"token,omitempty"`
 	VoiceBaseUrl        *string `json:"voice_base_url,omitempty"`
+}
+
+// MiniMaxTenantVoiceProviderData defines model for MiniMaxTenantVoiceProviderData.
+type MiniMaxTenantVoiceProviderData struct {
+	Format     *string                 `json:"format,omitempty"`
+	Model      *string                 `json:"model,omitempty"`
+	Raw        *map[string]interface{} `json:"raw,omitempty"`
+	SampleRate *int                    `json:"sample_rate,omitempty"`
+	VoiceId    *string                 `json:"voice_id,omitempty"`
+	VoiceType  *string                 `json:"voice_type,omitempty"`
 }
 
 // Model defines model for Model.
@@ -1911,6 +1984,12 @@ type OpenAITenantModelProviderData struct {
 	ThinkingParam        *string   `json:"thinking_param,omitempty"`
 	UpstreamModel        *string   `json:"upstream_model,omitempty"`
 	UseSystemRole        *bool     `json:"use_system_role,omitempty"`
+}
+
+// OpenAITenantVoiceProviderData defines model for OpenAITenantVoiceProviderData.
+type OpenAITenantVoiceProviderData struct {
+	Raw     *map[string]interface{} `json:"raw,omitempty"`
+	VoiceId *string                 `json:"voice_id,omitempty"`
 }
 
 // PeerIMEI defines model for PeerIMEI.
@@ -2418,6 +2497,62 @@ type SpeedTestResponse struct {
 	UpContentLength   int64 `json:"up_content_length"`
 }
 
+// Voice defines model for Voice.
+type Voice struct {
+	CreatedAt   time.Time     `json:"created_at"`
+	Description *string       `json:"description,omitempty"`
+	Id          string        `json:"id"`
+	Name        *string       `json:"name,omitempty"`
+	Provider    VoiceProvider `json:"provider"`
+
+	// ProviderData Provider-specific voice runtime configuration. The shape is selected by Voice.provider.kind.
+	ProviderData *VoiceProviderData `json:"provider_data,omitempty"`
+
+	// Source How the voice entered the global catalog
+	Source    VoiceSource `json:"source"`
+	SyncedAt  *time.Time  `json:"synced_at,omitempty"`
+	UpdatedAt time.Time   `json:"updated_at"`
+}
+
+// VoiceGetRequest defines model for VoiceGetRequest.
+type VoiceGetRequest struct {
+	Id string `json:"id"`
+}
+
+// VoiceGetResponse defines model for VoiceGetResponse.
+type VoiceGetResponse = Voice
+
+// VoiceListRequest defines model for VoiceListRequest.
+type VoiceListRequest struct {
+	Cursor *string `json:"cursor,omitempty"`
+	Limit  *int    `json:"limit,omitempty"`
+}
+
+// VoiceListResponse defines model for VoiceListResponse.
+type VoiceListResponse struct {
+	HasNext    bool    `json:"has_next"`
+	Items      []Voice `json:"items"`
+	NextCursor *string `json:"next_cursor,omitempty"`
+}
+
+// VoiceProvider defines model for VoiceProvider.
+type VoiceProvider struct {
+	// Kind Provider resource kind usable by voice runtime.
+	Kind VoiceProviderKind `json:"kind"`
+	Name string            `json:"name"`
+}
+
+// VoiceProviderData Provider-specific voice runtime configuration. The shape is selected by Voice.provider.kind.
+type VoiceProviderData struct {
+	union json.RawMessage
+}
+
+// VoiceProviderKind Provider resource kind usable by voice runtime.
+type VoiceProviderKind string
+
+// VoiceSource How the voice entered the global catalog
+type VoiceSource string
+
 // VolcCredentialBody defines model for VolcCredentialBody.
 type VolcCredentialBody struct {
 	ApiKey             *string `json:"api_key,omitempty"`
@@ -2445,6 +2580,15 @@ type VolcTenantModelProviderData struct {
 
 // VolcTenantModelProviderDataApiMode defines model for VolcTenantModelProviderData.ApiMode.
 type VolcTenantModelProviderDataApiMode string
+
+// VolcTenantVoiceProviderData defines model for VolcTenantVoiceProviderData.
+type VolcTenantVoiceProviderData struct {
+	Raw        *map[string]interface{} `json:"raw,omitempty"`
+	ResourceId *string                 `json:"resource_id,omitempty"`
+	State      *string                 `json:"state,omitempty"`
+	Status     *string                 `json:"status,omitempty"`
+	VoiceId    *string                 `json:"voice_id,omitempty"`
+}
 
 // WalletGetRequest defines model for WalletGetRequest.
 type WalletGetRequest = map[string]interface{}
@@ -4092,6 +4236,58 @@ func (t *RPCRequest_Params) FromModelDeleteRequest(v ModelDeleteRequest) error {
 
 // MergeModelDeleteRequest performs a merge with any union data inside the RPCRequest_Params, using the provided ModelDeleteRequest
 func (t *RPCRequest_Params) MergeModelDeleteRequest(v ModelDeleteRequest) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsVoiceListRequest returns the union data inside the RPCRequest_Params as a VoiceListRequest
+func (t RPCRequest_Params) AsVoiceListRequest() (VoiceListRequest, error) {
+	var body VoiceListRequest
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromVoiceListRequest overwrites any union data inside the RPCRequest_Params as the provided VoiceListRequest
+func (t *RPCRequest_Params) FromVoiceListRequest(v VoiceListRequest) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeVoiceListRequest performs a merge with any union data inside the RPCRequest_Params, using the provided VoiceListRequest
+func (t *RPCRequest_Params) MergeVoiceListRequest(v VoiceListRequest) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsVoiceGetRequest returns the union data inside the RPCRequest_Params as a VoiceGetRequest
+func (t RPCRequest_Params) AsVoiceGetRequest() (VoiceGetRequest, error) {
+	var body VoiceGetRequest
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromVoiceGetRequest overwrites any union data inside the RPCRequest_Params as the provided VoiceGetRequest
+func (t *RPCRequest_Params) FromVoiceGetRequest(v VoiceGetRequest) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeVoiceGetRequest performs a merge with any union data inside the RPCRequest_Params, using the provided VoiceGetRequest
+func (t *RPCRequest_Params) MergeVoiceGetRequest(v VoiceGetRequest) error {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -6426,6 +6622,58 @@ func (t *RPCResponse_Result) MergeModelDeleteResponse(v ModelDeleteResponse) err
 	return err
 }
 
+// AsVoiceListResponse returns the union data inside the RPCResponse_Result as a VoiceListResponse
+func (t RPCResponse_Result) AsVoiceListResponse() (VoiceListResponse, error) {
+	var body VoiceListResponse
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromVoiceListResponse overwrites any union data inside the RPCResponse_Result as the provided VoiceListResponse
+func (t *RPCResponse_Result) FromVoiceListResponse(v VoiceListResponse) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeVoiceListResponse performs a merge with any union data inside the RPCResponse_Result, using the provided VoiceListResponse
+func (t *RPCResponse_Result) MergeVoiceListResponse(v VoiceListResponse) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsVoiceGetResponse returns the union data inside the RPCResponse_Result as a VoiceGetResponse
+func (t RPCResponse_Result) AsVoiceGetResponse() (VoiceGetResponse, error) {
+	var body VoiceGetResponse
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromVoiceGetResponse overwrites any union data inside the RPCResponse_Result as the provided VoiceGetResponse
+func (t *RPCResponse_Result) FromVoiceGetResponse(v VoiceGetResponse) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeVoiceGetResponse performs a merge with any union data inside the RPCResponse_Result, using the provided VoiceGetResponse
+func (t *RPCResponse_Result) MergeVoiceGetResponse(v VoiceGetResponse) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
 // AsCredentialListResponse returns the union data inside the RPCResponse_Result as a CredentialListResponse
 func (t RPCResponse_Result) AsCredentialListResponse() (CredentialListResponse, error) {
 	var body CredentialListResponse
@@ -7628,6 +7876,146 @@ func (t RPCResponse_Result) MarshalJSON() ([]byte, error) {
 }
 
 func (t *RPCResponse_Result) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
+
+// AsGeminiTenantVoiceProviderData returns the union data inside the VoiceProviderData as a GeminiTenantVoiceProviderData
+func (t VoiceProviderData) AsGeminiTenantVoiceProviderData() (GeminiTenantVoiceProviderData, error) {
+	var body GeminiTenantVoiceProviderData
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromGeminiTenantVoiceProviderData overwrites any union data inside the VoiceProviderData as the provided GeminiTenantVoiceProviderData
+func (t *VoiceProviderData) FromGeminiTenantVoiceProviderData(v GeminiTenantVoiceProviderData) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeGeminiTenantVoiceProviderData performs a merge with any union data inside the VoiceProviderData, using the provided GeminiTenantVoiceProviderData
+func (t *VoiceProviderData) MergeGeminiTenantVoiceProviderData(v GeminiTenantVoiceProviderData) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsDashScopeTenantVoiceProviderData returns the union data inside the VoiceProviderData as a DashScopeTenantVoiceProviderData
+func (t VoiceProviderData) AsDashScopeTenantVoiceProviderData() (DashScopeTenantVoiceProviderData, error) {
+	var body DashScopeTenantVoiceProviderData
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromDashScopeTenantVoiceProviderData overwrites any union data inside the VoiceProviderData as the provided DashScopeTenantVoiceProviderData
+func (t *VoiceProviderData) FromDashScopeTenantVoiceProviderData(v DashScopeTenantVoiceProviderData) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeDashScopeTenantVoiceProviderData performs a merge with any union data inside the VoiceProviderData, using the provided DashScopeTenantVoiceProviderData
+func (t *VoiceProviderData) MergeDashScopeTenantVoiceProviderData(v DashScopeTenantVoiceProviderData) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsOpenAITenantVoiceProviderData returns the union data inside the VoiceProviderData as a OpenAITenantVoiceProviderData
+func (t VoiceProviderData) AsOpenAITenantVoiceProviderData() (OpenAITenantVoiceProviderData, error) {
+	var body OpenAITenantVoiceProviderData
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromOpenAITenantVoiceProviderData overwrites any union data inside the VoiceProviderData as the provided OpenAITenantVoiceProviderData
+func (t *VoiceProviderData) FromOpenAITenantVoiceProviderData(v OpenAITenantVoiceProviderData) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeOpenAITenantVoiceProviderData performs a merge with any union data inside the VoiceProviderData, using the provided OpenAITenantVoiceProviderData
+func (t *VoiceProviderData) MergeOpenAITenantVoiceProviderData(v OpenAITenantVoiceProviderData) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsMiniMaxTenantVoiceProviderData returns the union data inside the VoiceProviderData as a MiniMaxTenantVoiceProviderData
+func (t VoiceProviderData) AsMiniMaxTenantVoiceProviderData() (MiniMaxTenantVoiceProviderData, error) {
+	var body MiniMaxTenantVoiceProviderData
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromMiniMaxTenantVoiceProviderData overwrites any union data inside the VoiceProviderData as the provided MiniMaxTenantVoiceProviderData
+func (t *VoiceProviderData) FromMiniMaxTenantVoiceProviderData(v MiniMaxTenantVoiceProviderData) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeMiniMaxTenantVoiceProviderData performs a merge with any union data inside the VoiceProviderData, using the provided MiniMaxTenantVoiceProviderData
+func (t *VoiceProviderData) MergeMiniMaxTenantVoiceProviderData(v MiniMaxTenantVoiceProviderData) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsVolcTenantVoiceProviderData returns the union data inside the VoiceProviderData as a VolcTenantVoiceProviderData
+func (t VoiceProviderData) AsVolcTenantVoiceProviderData() (VolcTenantVoiceProviderData, error) {
+	var body VolcTenantVoiceProviderData
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromVolcTenantVoiceProviderData overwrites any union data inside the VoiceProviderData as the provided VolcTenantVoiceProviderData
+func (t *VoiceProviderData) FromVolcTenantVoiceProviderData(v VolcTenantVoiceProviderData) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeVolcTenantVoiceProviderData performs a merge with any union data inside the VoiceProviderData, using the provided VolcTenantVoiceProviderData
+func (t *VoiceProviderData) MergeVolcTenantVoiceProviderData(v VolcTenantVoiceProviderData) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t VoiceProviderData) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *VoiceProviderData) UnmarshalJSON(b []byte) error {
 	err := t.union.UnmarshalJSON(b)
 	return err
 }

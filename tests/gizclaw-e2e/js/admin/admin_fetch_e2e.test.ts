@@ -1,28 +1,38 @@
 import assert from "node:assert/strict";
 import path from "node:path";
-import test from "node:test";
 
-import { createAdminAPIFetch } from "@gizclaw/webrtc";
-import { closePeerConnection, connectSetupPeer, loadIdentity, repoRoot, serverAvailable } from "../common/webrtc.ts";
+import { createAdminAPIClient, listPeers } from "@gizclaw/gizclaw/admin";
+import { assertSetupServerAvailable, closePeerConnection, connectSetupPeer, loadIdentity, repoRoot } from "../common/webrtc.ts";
 
 const identityDir = process.env.GIZCLAW_E2E_JS_ADMIN_IDENTITY_DIR ?? path.join(repoRoot, "tests/gizclaw-e2e/testdata/identities/admin");
 
-test("Node WebRTC SDK fetches Admin API over the admin service channel", async (t) => {
+async function main(): Promise<void> {
   const identity = await loadIdentity(identityDir);
-  if (!(await serverAvailable(identity.endpoint))) {
-    t.skip(`e2e setup server is not available at ${identity.endpoint}`);
-    return;
-  }
+  await assertSetupServerAvailable(identity.endpoint);
 
   const pc = await connectSetupPeer(identityDir);
   try {
-    const adminFetch = createAdminAPIFetch(pc as unknown as RTCPeerConnection, { requestTimeoutMs: 10_000 });
-    const response = await adminFetch("http://gizclaw/peers?limit=5");
-    assert.equal(response.ok, true);
-    const body = (await response.json()) as { items?: unknown[] };
+    const client = createAdminAPIClient(pc as unknown as RTCPeerConnection, { requestTimeoutMs: 10_000 });
+    const body = await listPeers({
+      client,
+      query: { limit: 5 },
+      responseStyle: "data",
+      throwOnError: true,
+    });
     assert.equal(Array.isArray(body.items), true);
   } finally {
     closePeerConnection(pc);
     await new Promise((resolve) => setTimeout(resolve, 50));
   }
-});
+}
+
+main().then(
+  () => {
+    console.log("ok - Node WebRTC SDK fetches Admin API over the admin service channel");
+    process.exit(0);
+  },
+  (err: unknown) => {
+    console.error(err);
+    process.exit(1);
+  },
+);

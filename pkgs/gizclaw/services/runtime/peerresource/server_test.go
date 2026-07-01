@@ -438,6 +438,56 @@ func TestServerListVoicesFiltersByACL(t *testing.T) {
 	if got := auth.count(ctx, acl.ResourceKindVoice, "voice-b", apitypes.ACLPermissionVoiceRead); got == 0 {
 		t.Fatal("ListVoices() did not check denied voice")
 	}
+
+	rpcList := callRPC(t, srv, "voice-list", rpcapi.RPCMethodServerVoiceList, rpcParams(t, (*rpcapi.RPCRequest_Params).FromVoiceListRequest, rpcapi.VoiceListRequest{}))
+	requireNoRPCError(t, rpcList)
+	rpcVoiceList := mustResult(t, rpcList.Result.AsVoiceListResponse)
+	if len(rpcVoiceList.Items) != 2 || rpcVoiceList.Items[0].Id != "provider:tenant:voice-c" || rpcVoiceList.Items[1].Id != "voice-a" {
+		t.Fatalf("server.voice.list items = %#v", rpcVoiceList.Items)
+	}
+
+	rpcGet := callRPC(t, srv, "voice-get", rpcapi.RPCMethodServerVoiceGet, rpcParams(t, (*rpcapi.RPCRequest_Params).FromVoiceGetRequest, rpcapi.VoiceGetRequest{Id: "voice-a"}))
+	requireNoRPCError(t, rpcGet)
+	if got := mustResult(t, rpcGet.Result.AsVoiceGetResponse); got.Id != "voice-a" {
+		t.Fatalf("server.voice.get = %#v", got)
+	}
+}
+
+func TestServerVoiceRPCErrorPaths(t *testing.T) {
+	srv := newTestResourceServer()
+	srv.ACL = allowAllAuthorizer{}
+
+	missingService := newTestResourceServer()
+	missingService.Voices = nil
+	resp := callRPC(t, missingService, "voice-list-no-service", rpcapi.RPCMethodServerVoiceList, rpcParams(t, (*rpcapi.RPCRequest_Params).FromVoiceListRequest, rpcapi.VoiceListRequest{}))
+	requireRPCError(t, resp, rpcapi.RPCErrorCodeInternalError)
+
+	resp = callRPC(t, missingService, "voice-get-no-service", rpcapi.RPCMethodServerVoiceGet, rpcParams(t, (*rpcapi.RPCRequest_Params).FromVoiceGetRequest, rpcapi.VoiceGetRequest{Id: "voice-a"}))
+	requireRPCError(t, resp, rpcapi.RPCErrorCodeInternalError)
+
+	resp = callRPC(t, srv, "voice-get-missing-params", rpcapi.RPCMethodServerVoiceGet, nil)
+	requireRPCError(t, resp, rpcapi.RPCErrorCodeInvalidParams)
+
+	body := testVoiceUpsert("voice-a")
+	if _, err := srv.Voices.CreateVoice(context.Background(), adminservice.CreateVoiceRequestObject{Body: &body}); err != nil {
+		t.Fatalf("CreateVoice() error = %v", err)
+	}
+	denied := newRuleAuthorizer()
+	srv.ACL = denied
+	resp = callRPC(t, srv, "voice-get-denied", rpcapi.RPCMethodServerVoiceGet, rpcParams(t, (*rpcapi.RPCRequest_Params).FromVoiceGetRequest, rpcapi.VoiceGetRequest{Id: "voice-a"}))
+	requireRPCError(t, resp, rpcapi.RPCErrorCodeInternalError)
+
+	srv.ACL = errorAuthorizer{err: errors.New("acl backend down")}
+	resp = callRPC(t, srv, "voice-list-acl-error", rpcapi.RPCMethodServerVoiceList, rpcParams(t, (*rpcapi.RPCRequest_Params).FromVoiceListRequest, rpcapi.VoiceListRequest{}))
+	requireRPCError(t, resp, rpcapi.RPCErrorCodeInternalError)
+
+	upstreamError := newTestResourceServer()
+	upstreamError.ACL = allowAllAuthorizer{}
+	upstreamError.Voices = fakeVoiceAdminService{
+		list: adminservice.ListVoices500JSONResponse(apitypes.NewErrorResponse("VOICE_ERROR", "failed")),
+	}
+	resp = callRPC(t, upstreamError, "voice-list-upstream-error", rpcapi.RPCMethodServerVoiceList, rpcParams(t, (*rpcapi.RPCRequest_Params).FromVoiceListRequest, rpcapi.VoiceListRequest{}))
+	requireRPCError(t, resp, rpcapi.RPCErrorCodeInternalError)
 }
 
 func TestServerBusinessDomainRPC(t *testing.T) {
@@ -977,6 +1027,38 @@ type allowAllAuthorizer struct{}
 
 func (allowAllAuthorizer) Authorize(context.Context, acl.AuthorizeRequest) error {
 	return nil
+}
+
+type errorAuthorizer struct {
+	err error
+}
+
+func (a errorAuthorizer) Authorize(context.Context, acl.AuthorizeRequest) error {
+	return a.err
+}
+
+type fakeVoiceAdminService struct {
+	list adminservice.ListVoicesResponseObject
+}
+
+func (s fakeVoiceAdminService) CreateVoice(context.Context, adminservice.CreateVoiceRequestObject) (adminservice.CreateVoiceResponseObject, error) {
+	return nil, errors.New("unexpected CreateVoice")
+}
+
+func (s fakeVoiceAdminService) ListVoices(context.Context, adminservice.ListVoicesRequestObject) (adminservice.ListVoicesResponseObject, error) {
+	return s.list, nil
+}
+
+func (s fakeVoiceAdminService) DeleteVoice(context.Context, adminservice.DeleteVoiceRequestObject) (adminservice.DeleteVoiceResponseObject, error) {
+	return nil, errors.New("unexpected DeleteVoice")
+}
+
+func (s fakeVoiceAdminService) GetVoice(context.Context, adminservice.GetVoiceRequestObject) (adminservice.GetVoiceResponseObject, error) {
+	return nil, errors.New("unexpected GetVoice")
+}
+
+func (s fakeVoiceAdminService) PutVoice(context.Context, adminservice.PutVoiceRequestObject) (adminservice.PutVoiceResponseObject, error) {
+	return nil, errors.New("unexpected PutVoice")
 }
 
 type ruleAuthorizer struct {

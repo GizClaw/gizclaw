@@ -1,50 +1,28 @@
-export interface ContextSummary {
-  current: boolean;
-  description?: string;
-  endpoint: string;
-  local_public_key?: string;
-  name: string;
-  server_public_key: string;
-}
+import type {
+  CreateDesktopContextRequest,
+  DesktopBootstrap,
+  DesktopContext,
+  DesktopInjectedRuntime,
+  DesktopView,
+  DesktopViewId,
+  DesktopViewSession,
+  StartDesktopViewSessionRequest,
+} from "../../generated/desktopservice/types.gen";
 
-export interface RuntimeContext {
-  context?: ContextSummary;
-  private_key_base64?: string;
-  signaling_url?: string;
-}
-
-export interface AppState {
-  selected_context?: string;
-  selected_view?: string;
-}
-
-export interface AppPaths {
-  config_root: string;
-  context_dir: string;
-  state_file: string;
-}
-
-export interface BootstrapState {
-  contexts: ContextSummary[];
-  paths: AppPaths;
-  runtime: RuntimeContext;
-  state: AppState;
-}
-
-export interface CreateContextRequest {
-  description?: string;
-  endpoint: string;
-  name: string;
-  server_public_key: string;
-}
+export type BootstrapState = DesktopBootstrap;
+export type ContextSummary = DesktopContext;
+export type CreateContextRequest = CreateDesktopContextRequest;
+export type RuntimeContext = Partial<DesktopInjectedRuntime>;
+export type { DesktopView, DesktopViewId, DesktopViewSession, StartDesktopViewSessionRequest };
 
 export interface DesktopAPI {
-  Bootstrap(): Promise<BootstrapState>;
-  CreateContext(req: CreateContextRequest): Promise<RuntimeContext>;
-  ListContexts(): Promise<ContextSummary[]>;
-  RuntimeContext(): Promise<RuntimeContext>;
-  SelectContext(name: string): Promise<RuntimeContext>;
-  SetSelectedView(view: string): Promise<AppState>;
+  Bootstrap(): Promise<DesktopBootstrap>;
+  CreateContext(req: CreateDesktopContextRequest): Promise<DesktopContext>;
+  EndViewSession(): Promise<DesktopViewSession>;
+  GetViewSession(): Promise<DesktopViewSession>;
+  InjectedRuntime(): Promise<DesktopInjectedRuntime>;
+  ListContexts(): Promise<DesktopContext[]>;
+  ListViews(): Promise<DesktopView[]>;
+  SelectContext(name: string): Promise<DesktopContext>;
+  StartViewSession(req: StartDesktopViewSessionRequest): Promise<DesktopViewSession>;
 }
-
-export type DesktopView = "admin" | "play";

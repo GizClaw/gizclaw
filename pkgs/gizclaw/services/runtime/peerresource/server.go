@@ -86,6 +86,8 @@ func IsMethod(method rpcapi.RPCMethod) bool {
 		rpcapi.RPCMethodServerModelCreate,
 		rpcapi.RPCMethodServerModelPut,
 		rpcapi.RPCMethodServerModelDelete,
+		rpcapi.RPCMethodServerVoiceList,
+		rpcapi.RPCMethodServerVoiceGet,
 		rpcapi.RPCMethodServerCredentialList,
 		rpcapi.RPCMethodServerCredentialGet,
 		rpcapi.RPCMethodServerCredentialCreate,
@@ -185,6 +187,10 @@ func (s *Server) Dispatch(ctx context.Context, req *rpcapi.RPCRequest) (*rpcapi.
 		return s.handleModelPut(ctx, req)
 	case rpcapi.RPCMethodServerModelDelete:
 		return s.handleModelDelete(ctx, req), true, nil
+	case rpcapi.RPCMethodServerVoiceList:
+		return s.handleVoiceList(ctx, req), true, nil
+	case rpcapi.RPCMethodServerVoiceGet:
+		return s.handleVoiceGet(ctx, req), true, nil
 	case rpcapi.RPCMethodServerCredentialList:
 		return s.handleCredentialList(ctx, req), true, nil
 	case rpcapi.RPCMethodServerCredentialGet:
@@ -828,6 +834,45 @@ func (s *Server) handleModelDelete(ctx context.Context, req *rpcapi.RPCRequest) 
 		return internalError(req.Id, err.Error())
 	}
 	return adminRPCResponse(req.Id, adminResp.VisitDeleteModelResponse, (*rpcapi.RPCResponse_Result).FromModelDeleteResponse)
+}
+
+func (s *Server) handleVoiceList(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
+	if s.Voices == nil {
+		return internalError(req.Id, "voice service not configured")
+	}
+	params, ok := decodeOptionalParams(req, rpcapi.RPCRequest_Params.AsVoiceListRequest)
+	if !ok {
+		return invalidParams(req.Id)
+	}
+	resp, err := s.ListVoices(ctx, adminservice.ListVoicesRequestObject{
+		Params: adminservice.ListVoicesParams{Cursor: params.Cursor, Limit: int32Ptr(params.Limit)},
+	})
+	if err != nil {
+		return internalError(req.Id, err.Error())
+	}
+	list, rpcResp, err := adminResult[adminservice.VoiceList](resp.VisitListVoicesResponse)
+	if err != nil {
+		return internalError(req.Id, err.Error())
+	}
+	if rpcResp != nil {
+		return withRequestID(req.Id, rpcResp)
+	}
+	return resultResponse(req.Id, list, (*rpcapi.RPCResponse_Result).FromVoiceListResponse)
+}
+
+func (s *Server) handleVoiceGet(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
+	if s.Voices == nil {
+		return internalError(req.Id, "voice service not configured")
+	}
+	params, ok := decodeRequiredParams(req, rpcapi.RPCRequest_Params.AsVoiceGetRequest)
+	if !ok {
+		return invalidParams(req.Id)
+	}
+	adminResp, err := s.GetVoice(ctx, adminservice.GetVoiceRequestObject{Id: params.Id})
+	if err != nil {
+		return internalError(req.Id, err.Error())
+	}
+	return adminRPCResponse(req.Id, adminResp.VisitGetVoiceResponse, (*rpcapi.RPCResponse_Result).FromVoiceGetResponse)
 }
 
 func (s *Server) handleCredentialList(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {

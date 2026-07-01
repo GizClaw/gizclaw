@@ -589,6 +589,18 @@
         },
         "type": "object"
       },
+      "DashScopeTenantVoiceProviderData": {
+        "properties": {
+          "raw": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "voice_id": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
       "DeviceInfo": {
         "properties": {
           "hardware": {
@@ -2119,6 +2131,18 @@
         },
         "type": "object"
       },
+      "GeminiTenantVoiceProviderData": {
+        "properties": {
+          "raw": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "voice_id": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
       "HardwareInfo": {
         "properties": {
           "hardware_revision": {
@@ -2165,6 +2189,30 @@
             "type": "string"
           },
           "voice_base_url": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "MiniMaxTenantVoiceProviderData": {
+        "properties": {
+          "format": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string"
+          },
+          "raw": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "sample_rate": {
+            "type": "integer"
+          },
+          "voice_id": {
+            "type": "string"
+          },
+          "voice_type": {
             "type": "string"
           }
         },
@@ -2496,6 +2544,18 @@
           },
           "use_system_role": {
             "type": "boolean"
+          }
+        },
+        "type": "object"
+      },
+      "OpenAITenantVoiceProviderData": {
+        "properties": {
+          "raw": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "voice_id": {
+            "type": "string"
           }
         },
         "type": "object"
@@ -3301,6 +3361,8 @@
           "server.model.create",
           "server.model.put",
           "server.model.delete",
+          "server.voice.list",
+          "server.voice.get",
           "server.credential.list",
           "server.credential.get",
           "server.credential.create",
@@ -3488,6 +3550,12 @@
               },
               {
                 "$ref": "#/components/schemas/ModelDeleteRequest"
+              },
+              {
+                "$ref": "#/components/schemas/VoiceListRequest"
+              },
+              {
+                "$ref": "#/components/schemas/VoiceGetRequest"
               },
               {
                 "$ref": "#/components/schemas/CredentialListRequest"
@@ -3778,6 +3846,12 @@
               },
               {
                 "$ref": "#/components/schemas/ModelDeleteResponse"
+              },
+              {
+                "$ref": "#/components/schemas/VoiceListResponse"
+              },
+              {
+                "$ref": "#/components/schemas/VoiceGetResponse"
               },
               {
                 "$ref": "#/components/schemas/CredentialListResponse"
@@ -4309,6 +4383,161 @@
         ],
         "type": "object"
       },
+      "Voice": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "description": {
+            "example": "calm female narrator",
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "example": "calm narrator",
+            "type": "string"
+          },
+          "provider": {
+            "$ref": "#/components/schemas/VoiceProvider"
+          },
+          "provider_data": {
+            "$ref": "#/components/schemas/VoiceProviderData"
+          },
+          "source": {
+            "$ref": "#/components/schemas/VoiceSource"
+          },
+          "synced_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "source",
+          "provider",
+          "created_at",
+          "updated_at"
+        ],
+        "type": "object"
+      },
+      "VoiceGetRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "VoiceGetResponse": {
+        "$ref": "#/components/schemas/Voice"
+      },
+      "VoiceListRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "cursor": {
+            "type": "string"
+          },
+          "limit": {
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "VoiceListResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "has_next": {
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/Voice"
+            },
+            "type": "array"
+          },
+          "next_cursor": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "items",
+          "has_next"
+        ],
+        "type": "object"
+      },
+      "VoiceProvider": {
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/VoiceProviderKind"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "name"
+        ],
+        "type": "object"
+      },
+      "VoiceProviderData": {
+        "description": "Provider-specific voice runtime configuration. The shape is selected by Voice.provider.kind.",
+        "example": {
+          "voice_id": "Arabic_CalmWoman",
+          "voice_type": "system"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/GeminiTenantVoiceProviderData"
+          },
+          {
+            "$ref": "#/components/schemas/DashScopeTenantVoiceProviderData"
+          },
+          {
+            "$ref": "#/components/schemas/OpenAITenantVoiceProviderData"
+          },
+          {
+            "$ref": "#/components/schemas/MiniMaxTenantVoiceProviderData"
+          },
+          {
+            "$ref": "#/components/schemas/VolcTenantVoiceProviderData"
+          }
+        ]
+      },
+      "VoiceProviderKind": {
+        "description": "Provider resource kind usable by voice runtime.",
+        "enum": [
+          "gemini-tenant",
+          "dashscope-tenant",
+          "openai-tenant",
+          "minimax-tenant",
+          "volc-tenant"
+        ],
+        "example": "minimax-tenant",
+        "type": "string"
+      },
+      "VoiceSource": {
+        "description": "How the voice entered the global catalog",
+        "enum": [
+          "sync",
+          "manual"
+        ],
+        "example": "sync",
+        "type": "string"
+      },
       "VolcCredentialBody": {
         "additionalProperties": false,
         "example": {
@@ -4380,6 +4609,27 @@
           },
           "use_system_role": {
             "type": "boolean"
+          }
+        },
+        "type": "object"
+      },
+      "VolcTenantVoiceProviderData": {
+        "properties": {
+          "raw": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "resource_id": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "voice_id": {
+            "type": "string"
           }
         },
         "type": "object"
