@@ -1,4 +1,5 @@
 import type { KeyboardEvent, MouseEvent } from "react";
+import { DashboardActionButton } from "@/dashboard";
 import { DashboardPager } from "@/dashboard";
 import { DashboardTable } from "@/dashboard";
 import { useState } from "react";
@@ -59,16 +60,16 @@ export function FirmwaresListPage(): JSX.Element {
       <PageHeader
         actions={
           <>
-            <Button asChild className="h-8 min-w-fit shrink-0 whitespace-nowrap px-3 text-sm" variant="outline">
+            <DashboardActionButton asChild>
               <Link to="/firmwares/new">
                 <Plus className="size-4" />
                 Create
               </Link>
-            </Button>
-            <Button className="h-8 min-w-fit shrink-0 whitespace-nowrap px-3 text-sm" onClick={() => void refresh()} variant="outline">
+            </DashboardActionButton>
+            <DashboardActionButton onClick={() => void refresh()}>
               <RefreshCw className="size-4" />
               Refresh
-            </Button>
+            </DashboardActionButton>
           </>
         }
         items={[{ href: "/overview", label: "Overview" }, { label: "Firmwares" }]}

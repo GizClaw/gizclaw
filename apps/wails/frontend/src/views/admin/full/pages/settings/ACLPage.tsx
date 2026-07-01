@@ -1,4 +1,5 @@
 import { Check, Copy, Plus, RefreshCw } from "lucide-react";
+import { DashboardActionButton } from "@/dashboard";
 import { DashboardPager, DashboardTable } from "@/dashboard";
 import type { KeyboardEvent, MouseEvent, ReactNode } from "react";
 import { useCallback, useEffect, useState } from "react";
@@ -221,22 +222,22 @@ export function ACLPage({ defaultResourceKind = "" }: ACLPageProps): JSX.Element
       <PageHeader
         actions={
           <>
-            <Button className="h-8 min-w-fit shrink-0 whitespace-nowrap px-3 text-sm" onClick={() => setBindingDialogOpen(true)} type="button" variant="outline">
+            <DashboardActionButton onClick={() => setBindingDialogOpen(true)} type="button">
               <Plus className="size-4" />
               New Binding
-            </Button>
-            <Button className="h-8 min-w-fit shrink-0 whitespace-nowrap px-3 text-sm" onClick={() => setRoleDialogOpen(true)} type="button" variant="outline">
+            </DashboardActionButton>
+            <DashboardActionButton onClick={() => setRoleDialogOpen(true)} type="button">
               <Plus className="size-4" />
               New Role
-            </Button>
-            <Button className="h-8 min-w-fit shrink-0 whitespace-nowrap px-3 text-sm" onClick={() => setViewDialogOpen(true)} type="button" variant="outline">
+            </DashboardActionButton>
+            <DashboardActionButton onClick={() => setViewDialogOpen(true)} type="button">
               <Plus className="size-4" />
               New View
-            </Button>
-            <Button className="h-8 min-w-fit shrink-0 whitespace-nowrap px-3 text-sm" onClick={refresh} variant="outline">
+            </DashboardActionButton>
+            <DashboardActionButton onClick={refresh}>
               <RefreshCw className="size-4" />
               Refresh
-            </Button>
+            </DashboardActionButton>
           </>
         }
         items={[{ href: "/overview", label: "Overview" }, { label: "Access Control" }]}

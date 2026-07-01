@@ -1,4 +1,5 @@
 import { Check, Copy, Plus, RefreshCw } from "lucide-react";
+import { DashboardActionButton } from "@/dashboard";
 import { DashboardPager } from "@/dashboard";
 import { DashboardTable } from "@/dashboard";
 import type { KeyboardEvent, MouseEvent } from "react";
@@ -97,14 +98,14 @@ export function FriendGroupsListPage(): JSX.Element {
       <PageHeader
         actions={
           <>
-            <Button className="h-8 min-w-fit shrink-0 whitespace-nowrap px-3 text-sm" onClick={() => setCreateDialogOpen(true)} type="button" variant="outline">
+            <DashboardActionButton onClick={() => setCreateDialogOpen(true)} type="button">
               <Plus className="size-4" />
               New Friend Group
-            </Button>
-            <Button className="h-8 min-w-fit shrink-0 whitespace-nowrap px-3 text-sm" disabled={loading} onClick={() => void refresh()} variant="outline">
+            </DashboardActionButton>
+            <DashboardActionButton disabled={loading} onClick={() => void refresh()}>
               <RefreshCw className="size-4" />
               Refresh
-            </Button>
+            </DashboardActionButton>
           </>
         }
         items={[{ href: "/overview", label: "Overview" }, { label: "Friend Groups" }]}

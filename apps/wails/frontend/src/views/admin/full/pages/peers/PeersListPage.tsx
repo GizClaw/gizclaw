@@ -1,4 +1,5 @@
 import dayjs from "dayjs";
+import { DashboardActionButton } from "@/dashboard";
 import relativeTime from "dayjs/plugin/relativeTime";
 import type { KeyboardEvent, MouseEvent } from "react";
 import { Check, Copy, RefreshCw, Search } from "lucide-react";
@@ -73,12 +74,12 @@ export function PeersListPage(): JSX.Element {
     <div className="space-y-6">
       <PageHeader
         actions={
-          <Button className="h-8 min-w-fit shrink-0 whitespace-nowrap px-3 text-sm" onClick={() => void refreshDashboard()} variant="outline">
+          <DashboardActionButton onClick={() => void refreshDashboard()}>
             <span className="inline-flex items-center gap-2 whitespace-nowrap">
               <RefreshCw className="size-4" />
               Refresh
             </span>
-          </Button>
+          </DashboardActionButton>
         }
         items={[{ href: "/overview", label: "Overview" }, { label: "Peers" }]}
       />
@@ -121,24 +122,20 @@ export function PeersListPage(): JSX.Element {
                 />
               </div>
               <div className="flex gap-2">
-                <Button
-                  className="h-8 min-w-fit shrink-0 whitespace-nowrap px-3 text-sm disabled:border-border disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100 disabled:shadow-none"
+                <DashboardActionButton
                   disabled={dashboard.loading || peerList.history.length === 0}
                   onClick={prevPage}
                   type="button"
-                  variant="outline"
                 >
                   Previous
-                </Button>
-                <Button
-                  className="h-8 min-w-fit shrink-0 whitespace-nowrap px-3 text-sm disabled:border-border disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100 disabled:shadow-none"
+                </DashboardActionButton>
+                <DashboardActionButton
                   disabled={dashboard.loading || !peerList.hasNext || peerList.nextCursor === null}
                   onClick={nextPage}
                   type="button"
-                  variant="outline"
                 >
                   Next
-                </Button>
+                </DashboardActionButton>
               </div>
             </div>
 

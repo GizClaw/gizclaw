@@ -1,4 +1,5 @@
 import { ChevronLeft, Download, FileJson, Medal, PawPrint, Plus, RefreshCw, Save, Trash2, Upload } from "lucide-react";
+import { DashboardActionButton } from "@/dashboard";
 import { DashboardPager } from "@/dashboard";
 import { DashboardTable } from "@/dashboard";
 import type { ChangeEvent } from "react";
@@ -140,16 +141,16 @@ function BusinessResourceCollectionPage({ config }: { config: BusinessResourceCo
       <PageHeader
         actions={
           <>
-            <Button asChild className="h-8 min-w-fit shrink-0 whitespace-nowrap px-3 text-sm" variant="outline">
+            <DashboardActionButton asChild>
               <Link to={`/resources?kind=${encodeURIComponent(config.kind)}`}>
                 <Plus className="size-4" />
                 New {config.kind === "PetSpecies" ? "Pet Species" : "Badge"}
               </Link>
-            </Button>
-            <Button className="h-8 min-w-fit shrink-0 whitespace-nowrap px-3 text-sm" onClick={() => void refresh()} variant="outline">
+            </DashboardActionButton>
+            <DashboardActionButton onClick={() => void refresh()}>
               <RefreshCw className="size-4" />
               Refresh
-            </Button>
+            </DashboardActionButton>
           </>
         }
         items={[{ href: "/overview", label: "Overview" }, { label: config.title }]}
@@ -442,20 +443,20 @@ function BusinessResourceDetailPage({ config }: { config: BusinessResourceConfig
       <PageHeader
         actions={
           <>
-            <Button asChild className="h-8 min-w-fit shrink-0 whitespace-nowrap px-3 text-sm" variant="outline">
+            <DashboardActionButton asChild>
               <Link to={config.collectionPath}>
                 <ChevronLeft className="size-4" />
                 Back
               </Link>
-            </Button>
-            <Button className="h-8 min-w-fit shrink-0 whitespace-nowrap px-3 text-sm" disabled={loading} onClick={() => void load()} variant="outline">
+            </DashboardActionButton>
+            <DashboardActionButton disabled={loading} onClick={() => void load()}>
               <RefreshCw className="size-4" />
               Reload
-            </Button>
-            <Button className="h-8 min-w-fit shrink-0 whitespace-nowrap px-3 text-sm" disabled={acting !== ""} onClick={() => void saveFields()}>
+            </DashboardActionButton>
+            <DashboardActionButton disabled={acting !== ""} onClick={() => void saveFields()} variant="default">
               <Save className="size-4" />
               Save
-            </Button>
+            </DashboardActionButton>
           </>
         }
         items={[{ href: "/overview", label: "Overview" }, { href: config.collectionPath, label: config.title }, { label: id }]}

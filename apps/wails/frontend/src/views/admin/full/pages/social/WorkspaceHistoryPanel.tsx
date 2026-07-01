@@ -1,12 +1,10 @@
 import { Download, Play, RefreshCw } from "lucide-react";
-import { DashboardPager } from "@/dashboard";
-import { DashboardTable } from "@/dashboard";
+import { DashboardActionButton, DashboardPager, DashboardTable } from "@/dashboard";
 import { useEffect, useState } from "react";
 
 import { downloadWorkspaceHistoryAudio, listWorkspaceHistory, type PeerRunHistoryEntry } from "@gizclaw/gizclaw/admin";
 import { expectData, toMessage } from "@/dashboard";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -84,10 +82,10 @@ export function WorkspaceHistoryPanel({ workspaceName }: WorkspaceHistoryPanelPr
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Badge variant="outline">Page {pageNumber}</Badge>
-          <Button disabled={loading} onClick={() => void refresh()} size="sm" type="button" variant="outline">
+          <DashboardActionButton disabled={loading} onClick={() => void refresh()}>
             <RefreshCw className="size-4" />
             Reload
-          </Button>
+          </DashboardActionButton>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -131,16 +129,14 @@ export function WorkspaceHistoryPanel({ workspaceName }: WorkspaceHistoryPanelPr
                     <TableCell className="max-w-[32rem] text-sm leading-6">{entry.text}</TableCell>
                     <TableCell className="text-sm text-muted-foreground">{formatDate(entry.created_at)}</TableCell>
                     <TableCell className="text-right">
-                      <Button
-                        className="h-8 min-w-fit shrink-0 whitespace-nowrap px-3 text-sm"
+                      <DashboardActionButton
                         disabled={!entry.replay_available || playingHistoryID === entry.id}
                         onClick={() => void playAudio(entry.id)}
                         type="button"
-                        variant="outline"
                       >
                         {entry.replay_available ? <Play className="size-4" /> : <Download className="size-4" />}
                         Play
-                      </Button>
+                      </DashboardActionButton>
                     </TableCell>
                   </TableRow>
                 ))}
