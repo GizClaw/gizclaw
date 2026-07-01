@@ -35,7 +35,7 @@ export const getServerInfo = <ThrowOnError extends boolean = false>(options?: Op
  */
 export const createGiznetWebRtcOffer = <ThrowOnError extends boolean = false>(options: Options<CreateGiznetWebRtcOfferData, ThrowOnError>) => (options.client ?? client).post<CreateGiznetWebRtcOfferResponses, CreateGiznetWebRtcOfferErrors, ThrowOnError>({
     bodySerializer: null,
-    url: '/giznet/webrtc/v1/offer',
+    url: '/webrtc/v1/offer',
     ...options,
     headers: {
         'Content-Type': 'application/octet-stream',

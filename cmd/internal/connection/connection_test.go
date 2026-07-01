@@ -3,7 +3,6 @@ package connection
 import (
 	"context"
 	"errors"
-	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -16,7 +15,6 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/gizcli"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizhttp"
-	"github.com/GizClaw/gizclaw-go/pkgs/giznet/giznoise"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
 )
 
@@ -88,7 +86,7 @@ func TestDialFromContextInvalidServerPublicKey(t *testing.T) {
 	}
 	if err := os.WriteFile(filepath.Join(store.Root, "local", "config.yaml"), []byte(`
 server:
-  address: 127.0.0.1:9820
+  endpoint: 127.0.0.1:9820
   public-key: not-a-key
 `), 0o644); err != nil {
 		t.Fatalf("WriteFile error = %v", err)
@@ -100,29 +98,6 @@ server:
 	}
 	if !strings.Contains(err.Error(), "parse config") {
 		t.Fatalf("DialFromContext error = %v", err)
-	}
-}
-
-func TestDialFromContextUsesCipherMode(t *testing.T) {
-	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
-
-	store, err := clicontext.DefaultStore()
-	if err != nil {
-		t.Fatalf("DefaultStore error = %v", err)
-	}
-	if err := store.CreateWithOptions("local", "127.0.0.1:9820", clicontext.CreateOptions{
-		ServerPublicKey: testServerPublicKeyText(0xab),
-		CipherMode:      giznoise.CipherModeAES256GCM,
-	}); err != nil {
-		t.Fatalf("CreateWithOptions error = %v", err)
-	}
-
-	client, _, _, err := DialFromContext("local")
-	if err != nil {
-		t.Fatalf("DialFromContext error = %v", err)
-	}
-	if client.DialTransport == nil {
-		t.Fatal("DialTransport is nil")
 	}
 }
 
@@ -165,7 +140,6 @@ func TestDialFromContextUsesWebRTCTransport(t *testing.T) {
 		t.Fatalf("NewKeyPair(client) error = %v", err)
 	}
 	serverListener, err := (&gizwebrtc.ListenConfig{
-		CipherMode:     gizwebrtc.CipherModePlaintext,
 		SecurityPolicy: allowAllSecurityPolicy{},
 	}).Listen(serverKey)
 	if err != nil {
@@ -182,8 +156,6 @@ func TestDialFromContextUsesWebRTCTransport(t *testing.T) {
 	}
 	if err := store.CreateWithOptions("webrtc", serverURL, clicontext.CreateOptions{
 		ServerPublicKey: serverKey.Public.String(),
-		CipherMode:      giznoise.CipherModePlaintext,
-		Transport:       "webrtc",
 	}); err != nil {
 		t.Fatalf("CreateWithOptions error = %v", err)
 	}
@@ -222,79 +194,6 @@ func TestDialFromContextUsesWebRTCTransport(t *testing.T) {
 		}
 	case <-time.After(5 * time.Second):
 		t.Fatal("server Accept timeout")
-	}
-}
-
-func TestDialFromContextUsesNoiseTransport(t *testing.T) {
-	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
-
-	serverKey, err := giznet.GenerateKeyPair()
-	if err != nil {
-		t.Fatalf("GenerateKeyPair(server) error = %v", err)
-	}
-	serverListener, err := (&giznoise.ListenConfig{
-		Addr:           "127.0.0.1:0",
-		SecurityPolicy: allowAllSecurityPolicy{},
-	}).Listen(serverKey)
-	if err != nil {
-		t.Fatalf("Listen(server) error = %v", err)
-	}
-	defer serverListener.Close()
-
-	store, err := clicontext.DefaultStore()
-	if err != nil {
-		t.Fatalf("DefaultStore error = %v", err)
-	}
-	if err := store.CreateWithOptions("noise", serverListener.HostInfo().Addr.String(), clicontext.CreateOptions{
-		ServerPublicKey: serverKey.Public.String(),
-		Transport:       "noise",
-	}); err != nil {
-		t.Fatalf("CreateWithOptions error = %v", err)
-	}
-
-	client, serverPK, serverAddr, err := DialFromContext("noise")
-	if err != nil {
-		t.Fatalf("DialFromContext error = %v", err)
-	}
-	accepted := make(chan giznet.Conn, 1)
-	go func() {
-		conn, _ := serverListener.Accept()
-		accepted <- conn
-	}()
-	if err := client.Dial(serverPK, serverAddr); err != nil {
-		t.Fatalf("client Dial error = %v", err)
-	}
-	defer client.Close()
-	select {
-	case conn := <-accepted:
-		if conn == nil {
-			t.Fatal("accepted nil conn")
-		}
-		defer conn.Close()
-	case <-time.After(5 * time.Second):
-		t.Fatal("server Accept timeout")
-	}
-}
-
-func TestDialFromContextNoiseTransportRejectsBadDialAddress(t *testing.T) {
-	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
-
-	store, err := clicontext.DefaultStore()
-	if err != nil {
-		t.Fatalf("DefaultStore error = %v", err)
-	}
-	if err := store.CreateWithOptions("noise", "127.0.0.1:9820", clicontext.CreateOptions{
-		ServerPublicKey: testServerPublicKeyText(0xab),
-		Transport:       "noise",
-	}); err != nil {
-		t.Fatalf("CreateWithOptions error = %v", err)
-	}
-	client, serverPK, _, err := DialFromContext("noise")
-	if err != nil {
-		t.Fatalf("DialFromContext error = %v", err)
-	}
-	if err := client.Dial(serverPK, "%%%"); err == nil {
-		t.Fatal("client Dial bad address error = nil")
 	}
 }
 
@@ -452,14 +351,16 @@ func TestProbeServerPublicReadyConnectedClient(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GenerateKeyPair(client) error = %v", err)
 	}
-	serverListener, err := (&giznoise.ListenConfig{
-		Addr:           "127.0.0.1:0",
+	serverListener, err := (&gizwebrtc.ListenConfig{
 		SecurityPolicy: allowAllSecurityPolicy{},
 	}).Listen(serverKey)
 	if err != nil {
 		t.Fatalf("Listen(server) error = %v", err)
 	}
 	defer serverListener.Close()
+	httpServer := httptest.NewServer(serverListener.SignalingHandler())
+	defer httpServer.Close()
+	serverAddr := strings.TrimPrefix(httpServer.URL, "http://")
 
 	accepted := make(chan giznet.Conn, 1)
 	acceptErr := make(chan error, 1)
@@ -473,26 +374,14 @@ func TestProbeServerPublicReadyConnectedClient(t *testing.T) {
 	}()
 
 	client := &gizcli.Client{KeyPair: clientKey, DialTransport: func(key *giznet.KeyPair, serverPK giznet.PublicKey, serverAddr string, securityPolicy giznet.SecurityPolicy) (giznet.Listener, giznet.Conn, error) {
-		listener, err := (&giznoise.ListenConfig{
-			Addr:           ":0",
+		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		defer cancel()
+		return gizwebrtc.Dial(ctx, key, serverPK, gizwebrtc.DialConfig{
+			SignalingURL:   "http://" + serverAddr + gizwebrtc.SignalingPath,
 			SecurityPolicy: securityPolicy,
-		}).Listen(key)
-		if err != nil {
-			return nil, nil, err
-		}
-		udpAddr, err := net.ResolveUDPAddr("udp", serverAddr)
-		if err != nil {
-			_ = listener.Close()
-			return nil, nil, err
-		}
-		conn, err := listener.Dial(serverPK, udpAddr)
-		if err != nil {
-			_ = listener.Close()
-			return nil, nil, err
-		}
-		return listener, conn, nil
+		})
 	}}
-	if err := client.Dial(serverKey.Public, serverListener.HostInfo().Addr.String()); err != nil {
+	if err := client.Dial(serverKey.Public, serverAddr); err != nil {
 		t.Fatalf("Dial error = %v", err)
 	}
 	defer client.Close()

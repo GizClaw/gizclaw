@@ -437,7 +437,9 @@ func TestServerPublicHandlers(t *testing.T) {
 	server := &Server{
 		Store:           mustBadgerInMemory(t, nil),
 		BuildCommit:     "deadbeef",
+		Endpoint:        "127.0.0.1:9820",
 		ServerPublicKey: giznet.PublicKey{1},
+		SignalingPath:   "/webrtc/v1/offer",
 	}
 
 	name := "peer-a"
@@ -471,6 +473,18 @@ func TestServerPublicHandlers(t *testing.T) {
 	}
 	if serverInfo.BuildCommit != "deadbeef" || serverInfo.PublicKey != server.ServerPublicKey.String() {
 		t.Fatalf("GetServerInfo = %+v", serverInfo)
+	}
+	if serverInfo.Protocol != "gizclaw-webrtc" {
+		t.Fatalf("GetServerInfo protocol = %q, want gizclaw-webrtc", serverInfo.Protocol)
+	}
+	if serverInfo.Endpoint != server.Endpoint {
+		t.Fatalf("GetServerInfo endpoint = %q, want %q", serverInfo.Endpoint, server.Endpoint)
+	}
+	if serverInfo.SignalingPath != server.SignalingPath {
+		t.Fatalf("GetServerInfo signaling_path = %q, want %q", serverInfo.SignalingPath, server.SignalingPath)
+	}
+	if !serverInfo.Ice.Udp || serverInfo.Ice.Tcp {
+		t.Fatalf("GetServerInfo ice = %+v, want udp=true tcp=false", serverInfo.Ice)
 	}
 	if serverInfo.ServerTime < before.UnixMilli() || serverInfo.ServerTime > time.Now().Add(time.Second).UnixMilli() {
 		t.Fatalf("GetServerInfo = %+v", serverInfo)

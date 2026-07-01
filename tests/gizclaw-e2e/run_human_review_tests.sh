@@ -31,7 +31,7 @@ echo "==> build e2e CLI"
 echo "==> reset e2e data"
 "$setup_dir/reset_data.sh" reset
 
-run_pkg "./tests/gizclaw-e2e/client/chat" '^TestHumanReview$'
-run_pkg "./tests/gizclaw-e2e/client/social" '^TestServerSocialRPCHumanReview$'
+run_pkg "./tests/gizclaw-e2e/go/chat" '^TestHumanReview$'
+run_pkg "./tests/gizclaw-e2e/go/social" '^TestServerSocialRPCHumanReview$'
 
 echo "==> human-review e2e run completed"

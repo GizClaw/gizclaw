@@ -46,7 +46,7 @@ func (s *PeerService) publicHTTPHandler(sessions *publiclogin.SessionManager) ht
 		ctx.SetUserContext(base)
 		if (ctx.Method() == http.MethodGet && ctx.Path() == "/server-info") ||
 			(ctx.Method() == http.MethodPost && ctx.Path() == "/login") ||
-			(ctx.Method() == http.MethodPost && ctx.Path() == "/giznet/webrtc/v1/offer") {
+			(ctx.Method() == http.MethodPost && ctx.Path() == "/webrtc/v1/offer") {
 			return ctx.Next()
 		}
 		publicKey, ok := authenticateFiberSession(ctx, sessions)

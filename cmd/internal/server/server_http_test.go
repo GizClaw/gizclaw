@@ -15,22 +15,12 @@ func TestCmdServerServeHTTPNilServerReturnsNotFound(t *testing.T) {
 	}
 }
 
-func TestConfigTransportListenAddrs(t *testing.T) {
-	cfg := Config{Host: "127.0.0.1", PublicAPIPort: 9820, NoiseUDPPort: 9822, ICEPort: 9821}
+func TestConfigEndpointListenAddrs(t *testing.T) {
+	cfg := Config{Endpoint: "127.0.0.1:9820"}
 	if got := cfg.PublicAPIListenAddr(); got != "127.0.0.1:9820" {
 		t.Fatalf("PublicAPIListenAddr = %q", got)
 	}
-	if got := cfg.NoiseUDPListenAddr(); got != "127.0.0.1:9822" {
-		t.Fatalf("NoiseUDPListenAddr = %q", got)
-	}
-	if got := cfg.ICEListenAddr(); got != "127.0.0.1:9821" {
+	if got := cfg.ICEListenAddr(); got != "127.0.0.1:9820" {
 		t.Fatalf("ICEListenAddr = %q", got)
-	}
-	cfg.ListenAddr = "127.0.0.1:9999"
-	if got := cfg.PublicAPIListenAddr(); got != "127.0.0.1:9999" {
-		t.Fatalf("PublicAPIListenAddr legacy = %q", got)
-	}
-	if got := cfg.NoiseUDPListenAddr(); got != "127.0.0.1:9999" {
-		t.Fatalf("NoiseUDPListenAddr legacy = %q", got)
 	}
 }

@@ -104,7 +104,7 @@ export type CreateGiznetWebRtcOfferData = {
     };
     path?: never;
     query?: never;
-    url: '/giznet/webrtc/v1/offer';
+    url: '/webrtc/v1/offer';
 };
 
 export type CreateGiznetWebRtcOfferErrors = {

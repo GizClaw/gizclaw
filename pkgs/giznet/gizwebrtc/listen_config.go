@@ -22,6 +22,12 @@ type ListenConfig struct {
 	// ICEAddr is the UDP/TCP bind address used for shared WebRTC ICE muxes.
 	// If empty, Pion uses its default ephemeral ICE sockets.
 	ICEAddr string
+	// ICEUDPAddr is the UDP bind address used for the shared WebRTC ICE mux.
+	// If set, it takes precedence over ICEAddr for UDP.
+	ICEUDPAddr string
+	// ICETCPAddr is the TCP bind address used for the shared WebRTC ICE mux.
+	// If set, it takes precedence over ICEAddr for TCP.
+	ICETCPAddr string
 
 	SecurityPolicy   giznet.SecurityPolicy
 	PeerEventHandler giznet.PeerEventHandler
@@ -74,37 +80,70 @@ func newPionAPI(c *ListenConfig) (*webrtc.API, []func() error, error) {
 
 	settingEngine := webrtc.SettingEngine{}
 	settingEngine.DetachDataChannels()
-	settingEngine.SetNetworkTypes([]webrtc.NetworkType{
-		webrtc.NetworkTypeUDP4,
-		webrtc.NetworkTypeTCP4,
-	})
 
 	var closers []func() error
-	if c != nil && c.ICEAddr != "" {
-		if isLoopbackICEAddr(c.ICEAddr) {
+	udpAddr, tcpAddr := iceMuxAddrs(c)
+	var networkTypes []webrtc.NetworkType
+	if udpAddr != "" {
+		if isLoopbackICEAddr(udpAddr) {
 			settingEngine.SetIncludeLoopbackCandidate(true)
 		}
 		logger := logging.NewDefaultLoggerFactory().NewLogger("gizwebrtc")
-		udpConn, err := net.ListenPacket("udp", c.ICEAddr)
+		udpConn, err := net.ListenPacket("udp", udpAddr)
 		if err != nil {
 			return nil, nil, fmt.Errorf("gizwebrtc: listen ICE UDP: %w", err)
 		}
 		closers = append(closers, udpConn.Close)
 		settingEngine.SetICEUDPMux(webrtc.NewICEUDPMux(logger, udpConn))
+		networkTypes = append(networkTypes, webrtc.NetworkTypeUDP4)
+	}
 
-		tcpListener, err := net.Listen("tcp", c.ICEAddr)
+	if tcpAddr != "" {
+		if isLoopbackICEAddr(tcpAddr) {
+			settingEngine.SetIncludeLoopbackCandidate(true)
+		}
+		logger := logging.NewDefaultLoggerFactory().NewLogger("gizwebrtc")
+		tcpListener, err := net.Listen("tcp", tcpAddr)
 		if err != nil {
-			_ = udpConn.Close()
+			for _, closeFn := range closers {
+				_ = closeFn()
+			}
 			return nil, nil, fmt.Errorf("gizwebrtc: listen ICE TCP: %w", err)
 		}
 		closers = append(closers, tcpListener.Close)
 		settingEngine.SetICETCPMux(webrtc.NewICETCPMux(logger, tcpListener, 0))
+		networkTypes = append(networkTypes, webrtc.NetworkTypeTCP4)
+	}
+	if len(networkTypes) > 0 {
+		settingEngine.SetNetworkTypes(networkTypes)
+	} else {
+		settingEngine.SetNetworkTypes([]webrtc.NetworkType{
+			webrtc.NetworkTypeUDP4,
+			webrtc.NetworkTypeTCP4,
+		})
 	}
 
 	return webrtc.NewAPI(
 		webrtc.WithMediaEngine(&mediaEngine),
 		webrtc.WithSettingEngine(settingEngine),
 	), closers, nil
+}
+
+func iceMuxAddrs(c *ListenConfig) (udpAddr string, tcpAddr string) {
+	if c == nil {
+		return "", ""
+	}
+	udpAddr = c.ICEUDPAddr
+	tcpAddr = c.ICETCPAddr
+	if c.ICEAddr != "" {
+		if udpAddr == "" {
+			udpAddr = c.ICEAddr
+		}
+		if tcpAddr == "" {
+			tcpAddr = c.ICEAddr
+		}
+	}
+	return udpAddr, tcpAddr
 }
 
 func isLoopbackICEAddr(addr string) bool {

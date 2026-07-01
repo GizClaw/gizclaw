@@ -36,7 +36,7 @@ if [[ -f "$env_file" ]]; then
   set +a
 fi
 
-config_home="${GIZCLAW_E2E_CONFIG_HOME:-$testdata_dir/config-home-giznet}"
+config_home="${GIZCLAW_E2E_CONFIG_HOME:-$testdata_dir/cmd-config-home}"
 admin_context="${GIZCLAW_E2E_ADMIN_CONTEXT:-admin}"
 
 if [[ ! -x "$bin_path" ]]; then

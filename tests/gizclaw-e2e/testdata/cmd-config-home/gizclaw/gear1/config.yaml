@@ -1,0 +1,4 @@
+description: E2E gear1 CLI context
+server:
+  endpoint: 127.0.0.1:9820
+  public-key: BoYfN5LcjihD8j7HmzDW56s3E9F2R1AX8JsucW5Zvd7T

@@ -2740,8 +2740,15 @@ type Runtime struct {
 // ServerInfo defines model for ServerInfo.
 type ServerInfo struct {
 	BuildCommit string `json:"build_commit"`
-	PublicKey   string `json:"public_key"`
-	ServerTime  int64  `json:"server_time"`
+	Endpoint    string `json:"endpoint"`
+	Ice         struct {
+		Tcp bool `json:"tcp"`
+		Udp bool `json:"udp"`
+	} `json:"ice"`
+	Protocol      string `json:"protocol"`
+	PublicKey     string `json:"public_key"`
+	ServerTime    int64  `json:"server_time"`
+	SignalingPath string `json:"signaling_path"`
 }
 
 // Voice defines model for Voice.

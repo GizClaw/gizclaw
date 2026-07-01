@@ -10,7 +10,6 @@ import (
 	"github.com/GizClaw/gizclaw-go/cmd/internal/stores"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
-	"github.com/GizClaw/gizclaw-go/pkgs/giznet/giznoise"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
 )
 
@@ -72,22 +71,14 @@ func New(cfg Config) (srv *CmdServer, err error) {
 	cmdSrv := &CmdServer{stores: ss, AdminPublicKey: cfg.AdminPublicKey}
 	var gizServer *gizclaw.Server
 	gizServer = &gizclaw.Server{
-		LocalStatic: *cfg.KeyPair,
-		PeerStore:   peersKV,
-		BuildCommit: BuildCommit,
+		LocalStatic:    *cfg.KeyPair,
+		PeerStore:      peersKV,
+		BuildCommit:    BuildCommit,
+		PublicEndpoint: cfg.Endpoint,
 		PeerListenerFactories: []gizclaw.PeerListenerFactory{
 			func(opts gizclaw.PeerListenerOptions) (giznet.Listener, error) {
-				return (&giznoise.ListenConfig{
-					Addr:             cfg.NoiseUDPListenAddr(),
-					CipherMode:       cfg.CipherMode,
-					SecurityPolicy:   opts.SecurityPolicy,
-					PeerEventHandler: opts.PeerEventHandler,
-				}).Listen(opts.KeyPair)
-			},
-			func(opts gizclaw.PeerListenerOptions) (giznet.Listener, error) {
 				l, err := (&gizwebrtc.ListenConfig{
-					ICEAddr:          cfg.ICEListenAddr(),
-					CipherMode:       gizwebrtc.CipherMode(cfg.CipherMode),
+					ICEUDPAddr:       cfg.ICEListenAddr(),
 					SecurityPolicy:   opts.SecurityPolicy,
 					PeerEventHandler: opts.PeerEventHandler,
 				}).Listen(opts.KeyPair)

@@ -13,7 +13,11 @@
         "required": [
           "public_key",
           "server_time",
-          "build_commit"
+          "build_commit",
+          "protocol",
+          "signaling_path",
+          "endpoint",
+          "ice"
         ],
         "properties": {
           "public_key": {
@@ -25,6 +29,31 @@
           },
           "build_commit": {
             "type": "string"
+          },
+          "protocol": {
+            "type": "string"
+          },
+          "signaling_path": {
+            "type": "string"
+          },
+          "endpoint": {
+            "type": "string"
+          },
+          "ice": {
+            "type": "object",
+            "required": [
+              "udp",
+              "tcp"
+            ],
+            "properties": {
+              "udp": {
+                "type": "boolean"
+              },
+              "tcp": {
+                "type": "boolean"
+              }
+            },
+            "additionalProperties": false
           }
         }
       }

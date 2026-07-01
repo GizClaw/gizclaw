@@ -1,7 +1,7 @@
 package gizwebrtc
 
 const (
-	SignalingPath = "/giznet/webrtc/v1/offer"
+	SignalingPath = "/webrtc/v1/offer"
 
 	serviceLabelPrefix = "giznet/v1/service/"
 	packetLabel        = "giznet/v1/packet"

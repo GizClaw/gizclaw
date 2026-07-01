@@ -4,7 +4,7 @@ Browser-side WebRTC helpers for GizClaw peer sessions.
 
 ## What This Package Provides
 
-- WebRTC signaling helpers for the server public `/giznet/webrtc/v1/offer`
+- WebRTC signaling helpers for the server public `/webrtc/v1/offer`
   endpoint and the local client bridge `/webrtc/offer` endpoint.
 - JSON-RPC calls over the `rpc:*` data channel.
 - Workspace-related RPC convenience methods.
@@ -18,7 +18,7 @@ hosting. It targets the server public endpoint described by
 `api/server_public.json`:
 
 ```text
-POST /giznet/webrtc/v1/offer
+POST /webrtc/v1/offer
 Content-Type: application/octet-stream
 X-Giznet-Public-Key: <peer public key>
 X-Giznet-Timestamp: <unix timestamp>

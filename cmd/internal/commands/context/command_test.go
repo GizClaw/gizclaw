@@ -8,7 +8,6 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/cmd/internal/clicontext"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
-	"github.com/GizClaw/gizclaw-go/pkgs/giznet/giznoise"
 )
 
 func testPublicKeyText(fill byte) string {
@@ -27,7 +26,7 @@ func testPrivateKey(fill byte) giznet.Key {
 	return key
 }
 
-func TestContextCreateStoresCipherMode(t *testing.T) {
+func TestContextCreateStoresDescription(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 
 	cmd := NewCmd()
@@ -39,8 +38,8 @@ func TestContextCreateStoresCipherMode(t *testing.T) {
 		"127.0.0.1:9820",
 		"--public-key",
 		testPublicKeyText(0xab),
-		"--cipher-mode",
-		string(giznoise.CipherModeAES256GCM),
+		"--description",
+		"Local dev",
 	})
 	if err := cmd.Execute(); err != nil {
 		t.Fatalf("Execute error = %v", err)
@@ -54,8 +53,8 @@ func TestContextCreateStoresCipherMode(t *testing.T) {
 	if err != nil {
 		t.Fatalf("LoadByName error = %v", err)
 	}
-	if ctx.Config.Server.CipherMode != giznoise.CipherModeAES256GCM {
-		t.Fatalf("CipherMode = %q, want %q", ctx.Config.Server.CipherMode, giznoise.CipherModeAES256GCM)
+	if ctx.Config.Description != "Local dev" {
+		t.Fatalf("Description = %q, want Local dev", ctx.Config.Description)
 	}
 }
 
@@ -71,7 +70,7 @@ func TestContextCommandsManageContexts(t *testing.T) {
 		"create", "beta",
 		"--server", "127.0.0.1:9821",
 		"--public-key", testPublicKeyText(0xcd),
-		"--cipher-mode", string(giznoise.CipherModePlaintext),
+		"--description", "Beta context",
 	)
 
 	listOut := executeContextCmd(t, "list")
@@ -85,7 +84,7 @@ func TestContextCommandsManageContexts(t *testing.T) {
 	if err := json.Unmarshal([]byte(infoOut), &info); err != nil {
 		t.Fatalf("decode info output %q: %v", infoOut, err)
 	}
-	if info.Name != "alpha" || !info.Current || info.ServerAddress != "127.0.0.1:9820" {
+	if info.Name != "alpha" || !info.Current || info.ServerEndpoint != "127.0.0.1:9820" {
 		t.Fatalf("info = %+v", info)
 	}
 
@@ -94,7 +93,7 @@ func TestContextCommandsManageContexts(t *testing.T) {
 	if err := json.Unmarshal([]byte(showOut), &shown); err != nil {
 		t.Fatalf("decode show output %q: %v", showOut, err)
 	}
-	if shown.Name != "beta" || shown.Current || shown.ServerCipherMode != string(giznoise.CipherModePlaintext) {
+	if shown.Name != "beta" || shown.Current || shown.Description != "Beta context" || shown.ServerEndpoint != "127.0.0.1:9821" {
 		t.Fatalf("show = %+v", shown)
 	}
 

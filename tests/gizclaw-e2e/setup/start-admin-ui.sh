@@ -15,7 +15,7 @@ if [[ -f "$env_file" ]]; then
   set +a
 fi
 
-config_home="${GIZCLAW_E2E_CONFIG_HOME:-$testdata_dir/config-home-giznet}"
+config_home="${GIZCLAW_E2E_CONFIG_HOME:-$testdata_dir/cmd-config-home}"
 context_name="${GIZCLAW_E2E_ADMIN_CONTEXT:-admin}"
 pid_file="$testdata_dir/admin-ui.pid"
 log_file="$testdata_dir/admin-ui.log"

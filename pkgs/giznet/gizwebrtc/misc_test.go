@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -214,6 +215,87 @@ func TestLabelsAndLoopbackHelpers(t *testing.T) {
 	}
 	if isLoopbackICEAddr("192.0.2.10:9821") {
 		t.Fatal("isLoopbackICEAddr(non-loopback) = true, want false")
+	}
+}
+
+func TestICEMuxAddrs(t *testing.T) {
+	tests := []struct {
+		name    string
+		cfg     *ListenConfig
+		wantUDP string
+		wantTCP string
+	}{
+		{
+			name: "nil config",
+		},
+		{
+			name:    "shared address",
+			cfg:     &ListenConfig{ICEAddr: "127.0.0.1:9820"},
+			wantUDP: "127.0.0.1:9820",
+			wantTCP: "127.0.0.1:9820",
+		},
+		{
+			name:    "udp override",
+			cfg:     &ListenConfig{ICEAddr: "127.0.0.1:9820", ICEUDPAddr: "127.0.0.1:9821"},
+			wantUDP: "127.0.0.1:9821",
+			wantTCP: "127.0.0.1:9820",
+		},
+		{
+			name:    "tcp override",
+			cfg:     &ListenConfig{ICEAddr: "127.0.0.1:9820", ICETCPAddr: "127.0.0.1:9822"},
+			wantUDP: "127.0.0.1:9820",
+			wantTCP: "127.0.0.1:9822",
+		},
+		{
+			name:    "split addresses",
+			cfg:     &ListenConfig{ICEUDPAddr: "127.0.0.1:9821", ICETCPAddr: "127.0.0.1:9822"},
+			wantUDP: "127.0.0.1:9821",
+			wantTCP: "127.0.0.1:9822",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotUDP, gotTCP := iceMuxAddrs(tt.cfg)
+			if gotUDP != tt.wantUDP || gotTCP != tt.wantTCP {
+				t.Fatalf("iceMuxAddrs() = %q, %q; want %q, %q", gotUDP, gotTCP, tt.wantUDP, tt.wantTCP)
+			}
+		})
+	}
+}
+
+func TestNewPionAPICleansUDPWhenTCPBindFails(t *testing.T) {
+	udpProbe, err := net.ListenPacket("udp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("ListenPacket probe error = %v", err)
+	}
+	udpAddr := udpProbe.LocalAddr().String()
+	if err := udpProbe.Close(); err != nil {
+		t.Fatalf("Close udp probe error = %v", err)
+	}
+
+	tcpBlocker, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("Listen tcp blocker error = %v", err)
+	}
+	defer tcpBlocker.Close()
+
+	_, closers, err := newPionAPI(&ListenConfig{
+		ICEUDPAddr: udpAddr,
+		ICETCPAddr: tcpBlocker.Addr().String(),
+	})
+	for _, closeFn := range closers {
+		_ = closeFn()
+	}
+	if err == nil {
+		t.Fatal("newPionAPI with occupied TCP addr error = nil")
+	}
+
+	udpAfter, err := net.ListenPacket("udp", udpAddr)
+	if err != nil {
+		t.Fatalf("UDP addr was not released after TCP bind failure: %v", err)
+	}
+	if err := udpAfter.Close(); err != nil {
+		t.Fatalf("Close udp after error = %v", err)
 	}
 }
 

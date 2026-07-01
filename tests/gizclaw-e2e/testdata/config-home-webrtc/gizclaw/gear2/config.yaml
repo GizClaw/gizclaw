@@ -1,8 +1,0 @@
-server:
-  host: 127.0.0.1
-  public-api-port: 9820
-  noise-udp-port: 9820
-  ice-port: 9821
-  public-key: BoYfN5LcjihD8j7HmzDW56s3E9F2R1AX8JsucW5Zvd7T
-  transport: webrtc
-  cipher-mode: chacha_poly

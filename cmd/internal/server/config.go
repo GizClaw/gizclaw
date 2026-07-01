@@ -10,18 +10,12 @@ import (
 	"github.com/GizClaw/gizclaw-go/cmd/internal/storage"
 	"github.com/GizClaw/gizclaw-go/cmd/internal/stores"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
-	"github.com/GizClaw/gizclaw-go/pkgs/giznet/giznoise"
 	"github.com/goccy/go-yaml"
 )
 
 type Config struct {
 	KeyPair        *giznet.KeyPair
-	Host           string
-	PublicAPIPort  int
-	NoiseUDPPort   int
-	ICEPort        int
-	ListenAddr     string
-	CipherMode     giznoise.CipherMode
+	Endpoint       string
 	AdminPublicKey giznet.PublicKey
 	Storage        map[string]storage.Config
 	Stores         map[string]stores.Config
@@ -59,12 +53,7 @@ type GameplayConfig struct {
 }
 
 type ConfigFile struct {
-	Host           string                    `yaml:"host"`
-	PublicAPIPort  int                       `yaml:"public-api-port"`
-	NoiseUDPPort   int                       `yaml:"noise-udp-port"`
-	ICEPort        int                       `yaml:"ice-port"`
-	ListenAddr     string                    `yaml:"listen"`
-	CipherMode     giznoise.CipherMode       `yaml:"cipher-mode"`
+	Endpoint       string                    `yaml:"endpoint"`
 	AdminPublicKey giznet.PublicKey          `yaml:"admin-public-key"`
 	Storage        map[string]storage.Config `yaml:"storage"`
 	Stores         map[string]stores.Config  `yaml:"stores"`
@@ -118,13 +107,13 @@ func LoadConfig(path string) (ConfigFile, error) {
 	if _, ok := keyCheck["admin-identity-key"]; ok {
 		return ConfigFile{}, fmt.Errorf("server: admin-identity-key is not supported; use admin-public-key")
 	}
+	for _, field := range []string{"host", "listen", "public-api-port", "noise-udp-port", "ice-port", "cipher-mode"} {
+		if _, ok := keyCheck[field]; ok {
+			return ConfigFile{}, fmt.Errorf("server: %s is not supported; use endpoint", field)
+		}
+	}
 	var raw struct {
-		Host           string                    `yaml:"host"`
-		PublicAPIPort  int                       `yaml:"public-api-port"`
-		NoiseUDPPort   int                       `yaml:"noise-udp-port"`
-		ICEPort        int                       `yaml:"ice-port"`
-		ListenAddr     string                    `yaml:"listen"`
-		CipherMode     giznoise.CipherMode       `yaml:"cipher-mode"`
+		Endpoint       string                    `yaml:"endpoint"`
 		AdminPublicKey *giznet.PublicKey         `yaml:"admin-public-key"`
 		Storage        map[string]storage.Config `yaml:"storage"`
 		Stores         map[string]stores.Config  `yaml:"stores"`
@@ -141,12 +130,7 @@ func LoadConfig(path string) (ConfigFile, error) {
 		return ConfigFile{}, err
 	}
 	cfg := ConfigFile{
-		Host:           raw.Host,
-		PublicAPIPort:  raw.PublicAPIPort,
-		NoiseUDPPort:   raw.NoiseUDPPort,
-		ICEPort:        raw.ICEPort,
-		ListenAddr:     raw.ListenAddr,
-		CipherMode:     raw.CipherMode,
+		Endpoint:       raw.Endpoint,
 		AdminPublicKey: adminPublicKey,
 		Storage:        raw.Storage,
 		Stores:         raw.Stores,
@@ -170,32 +154,13 @@ func resolveAdminPublicKey(publicKey *giznet.PublicKey) (giznet.PublicKey, error
 
 func DefaultConfig() Config {
 	return Config{
-		Host:          "0.0.0.0",
-		PublicAPIPort: 9820,
-		NoiseUDPPort:  9820,
-		ICEPort:       9821,
-		ListenAddr:    ":9820",
+		Endpoint: "0.0.0.0:9820",
 	}
 }
 
 func mergeFileConfig(cfg Config, fileCfg ConfigFile) (Config, error) {
-	if cfg.Host == "" {
-		cfg.Host = fileCfg.Host
-	}
-	if cfg.PublicAPIPort == 0 {
-		cfg.PublicAPIPort = fileCfg.PublicAPIPort
-	}
-	if cfg.NoiseUDPPort == 0 {
-		cfg.NoiseUDPPort = fileCfg.NoiseUDPPort
-	}
-	if cfg.ICEPort == 0 {
-		cfg.ICEPort = fileCfg.ICEPort
-	}
-	if cfg.ListenAddr == "" {
-		cfg.ListenAddr = fileCfg.ListenAddr
-	}
-	if cfg.CipherMode == "" {
-		cfg.CipherMode = fileCfg.CipherMode
+	if cfg.Endpoint == "" {
+		cfg.Endpoint = fileCfg.Endpoint
 	}
 	if cfg.AdminPublicKey.IsZero() {
 		cfg.AdminPublicKey = fileCfg.AdminPublicKey
@@ -266,17 +231,8 @@ func mergeGameplayConfig(runtime GameplayConfig, file GameplayConfig) GameplayCo
 
 func prepareConfig(cfg Config) (Config, error) {
 	defaults := DefaultConfig()
-	if cfg.Host == "" {
-		cfg.Host = defaults.Host
-	}
-	if cfg.PublicAPIPort == 0 {
-		cfg.PublicAPIPort = defaults.PublicAPIPort
-	}
-	if cfg.NoiseUDPPort == 0 {
-		cfg.NoiseUDPPort = defaults.NoiseUDPPort
-	}
-	if cfg.ICEPort == 0 {
-		cfg.ICEPort = defaults.ICEPort
+	if cfg.Endpoint == "" {
+		cfg.Endpoint = defaults.Endpoint
 	}
 	if err := cfg.validate(); err != nil {
 		return Config{}, err
@@ -292,16 +248,7 @@ func prepareConfig(cfg Config) (Config, error) {
 }
 
 func (cfg Config) validate() error {
-	if err := validateCipherMode(cfg.CipherMode); err != nil {
-		return err
-	}
-	if err := validatePort("public-api-port", cfg.PublicAPIPort); err != nil {
-		return err
-	}
-	if err := validatePort("noise-udp-port", cfg.NoiseUDPPort); err != nil {
-		return err
-	}
-	if err := validatePort("ice-port", cfg.ICEPort); err != nil {
+	if err := validateEndpoint(cfg.Endpoint); err != nil {
 		return err
 	}
 	if err := validateOptionalModelPattern("system_tasks.reward_claim.generator", cfg.SystemTasks.RewardClaim.Generator); err != nil {
@@ -337,21 +284,11 @@ func (cfg Config) validate() error {
 }
 
 func (cfg Config) PublicAPIListenAddr() string {
-	if cfg.ListenAddr != "" {
-		return cfg.ListenAddr
-	}
-	return net.JoinHostPort(cfg.Host, fmt.Sprintf("%d", cfg.PublicAPIPort))
-}
-
-func (cfg Config) NoiseUDPListenAddr() string {
-	if cfg.ListenAddr != "" {
-		return cfg.ListenAddr
-	}
-	return net.JoinHostPort(cfg.Host, fmt.Sprintf("%d", cfg.NoiseUDPPort))
+	return cfg.Endpoint
 }
 
 func (cfg Config) ICEListenAddr() string {
-	return net.JoinHostPort(cfg.Host, fmt.Sprintf("%d", cfg.ICEPort))
+	return cfg.Endpoint
 }
 
 func parseConfigDuration(value string) (time.Duration, error) {
@@ -366,18 +303,19 @@ func parseConfigDuration(value string) (time.Duration, error) {
 	return time.ParseDuration(value)
 }
 
-func validateCipherMode(mode giznoise.CipherMode) error {
-	switch mode {
-	case "", giznoise.CipherModeChaChaPoly, giznoise.CipherModeAES256GCM, giznoise.CipherModePlaintext:
-		return nil
-	default:
-		return fmt.Errorf("server: unsupported cipher-mode %q", mode)
+func validateEndpoint(endpoint string) error {
+	if strings.Contains(endpoint, "://") {
+		return fmt.Errorf("server: endpoint must be host:port, got %q", endpoint)
 	}
-}
-
-func validatePort(field string, port int) error {
-	if port < 0 || port > 65535 {
-		return fmt.Errorf("server: %s must be between 1 and 65535", field)
+	host, port, err := net.SplitHostPort(endpoint)
+	if err != nil {
+		return fmt.Errorf("server: invalid endpoint: %w", err)
+	}
+	if strings.TrimSpace(host) == "" {
+		return fmt.Errorf("server: endpoint host is empty")
+	}
+	if strings.TrimSpace(port) == "" {
+		return fmt.Errorf("server: endpoint port is empty")
 	}
 	return nil
 }

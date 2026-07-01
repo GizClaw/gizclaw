@@ -3,13 +3,11 @@ package connection
 import (
 	"context"
 	"fmt"
-	"net"
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/cmd/internal/clicontext"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/gizcli"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
-	"github.com/GizClaw/gizclaw-go/pkgs/giznet/giznoise"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
 )
 
@@ -37,40 +35,19 @@ func DialFromContext(name string) (*gizcli.Client, giznet.PublicKey, string, err
 	return &gizcli.Client{
 		KeyPair: cliCtx.KeyPair,
 		DialTransport: func(key *giznet.KeyPair, serverPK giznet.PublicKey, serverAddr string, securityPolicy giznet.SecurityPolicy) (giznet.Listener, giznet.Conn, error) {
-			if cliCtx.Config.Server.Transport == "webrtc" {
-				ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-				defer cancel()
-				l, conn, err := gizwebrtc.Dial(ctx, key, serverPK, gizwebrtc.DialConfig{
-					SignalingURL:   cliCtx.Config.Server.SignalingURL(),
-					CipherMode:     gizwebrtc.CipherMode(cliCtx.Config.Server.CipherMode),
-					SecurityPolicy: securityPolicy,
-				})
-				if err != nil {
-					return nil, nil, err
-				}
-				return l, conn, nil
-			}
-			l, err := (&giznoise.ListenConfig{
-				Addr:           ":0",
-				CipherMode:     cliCtx.Config.Server.CipherMode,
+			_ = serverAddr
+			ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+			defer cancel()
+			l, conn, err := gizwebrtc.Dial(ctx, key, serverPK, gizwebrtc.DialConfig{
+				SignalingURL:   cliCtx.Config.Server.SignalingURL(),
 				SecurityPolicy: securityPolicy,
-			}).Listen(key)
+			})
 			if err != nil {
-				return nil, nil, err
-			}
-			udpAddr, err := net.ResolveUDPAddr("udp", serverAddr)
-			if err != nil {
-				_ = l.Close()
-				return nil, nil, err
-			}
-			conn, err := l.Dial(serverPK, udpAddr)
-			if err != nil {
-				_ = l.Close()
 				return nil, nil, err
 			}
 			return l, conn, nil
 		},
-	}, serverPK, cliCtx.Config.Server.NoiseUDPAddr(), nil
+	}, serverPK, cliCtx.Config.Server.Endpoint, nil
 }
 
 var dialFromContext = DialFromContext

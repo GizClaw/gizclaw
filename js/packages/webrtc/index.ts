@@ -2,7 +2,7 @@ import type { CreateGiznetWebRtcOfferData } from "@gizclaw/serverpublic";
 
 export const WEBRTC_RPC_DATA_CHANNEL_LABEL = "rpc";
 export const WEBRTC_EVENT_DATA_CHANNEL_LABEL = "event";
-export const GIZNET_WEBRTC_SIGNALING_PATH = "/giznet/webrtc/v1/offer";
+export const GIZNET_WEBRTC_SIGNALING_PATH = "/webrtc/v1/offer";
 export const LOCAL_BRIDGE_WEBRTC_SIGNALING_PATH = "/webrtc/offer";
 export const RPC_VERSION = 1;
 

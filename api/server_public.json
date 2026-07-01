@@ -101,10 +101,10 @@
         }
       }
     },
-    "/giznet/webrtc/v1/offer": {
+    "/webrtc/v1/offer": {
       "post": {
         "operationId": "createGiznetWebRTCOffer",
-        "summary": "Create a GizNet WebRTC answer for an encrypted browser offer",
+        "summary": "Create a WebRTC answer for an encrypted browser offer",
         "description": "Public WebRTC signaling endpoint for browser clients. The request body is an encrypted SDP offer and the 200 response body is the encrypted SDP answer.",
         "tags": [
           "Public"

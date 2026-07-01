@@ -16,7 +16,7 @@ import (
 func TestPrepareWorkspaceConfigLoadsWorkspaceConfig(t *testing.T) {
 	workspace := t.TempDir()
 	if err := os.WriteFile(filepath.Join(workspace, workspaceConfigFile), []byte(fmt.Sprintf(`
-listen: "127.0.0.1:39001"
+endpoint: "127.0.0.1:39001"
 admin-public-key: %q
 storage:
   memory:
@@ -112,8 +112,8 @@ gameplay:
 	if cfg.KeyPair == nil {
 		t.Fatal("KeyPair should not be nil")
 	}
-	if cfg.ListenAddr != "127.0.0.1:39001" {
-		t.Fatalf("ListenAddr = %q", cfg.ListenAddr)
+	if cfg.Endpoint != "127.0.0.1:39001" {
+		t.Fatalf("Endpoint = %q", cfg.Endpoint)
 	}
 	adminKey := testKeyPair(t, 0xab).Public
 	if cfg.AdminPublicKey != adminKey {
@@ -151,8 +151,8 @@ peers:
 		t.Fatalf("prepareWorkspaceConfig error = %v", err)
 	}
 	defaults := DefaultConfig()
-	if cfg.Host != defaults.Host || cfg.PublicAPIPort != defaults.PublicAPIPort || cfg.NoiseUDPPort != defaults.NoiseUDPPort || cfg.ICEPort != defaults.ICEPort {
-		t.Fatalf("defaults host=%q public=%d noise=%d ice=%d", cfg.Host, cfg.PublicAPIPort, cfg.NoiseUDPPort, cfg.ICEPort)
+	if cfg.Endpoint != defaults.Endpoint {
+		t.Fatalf("default endpoint = %q, want %q", cfg.Endpoint, defaults.Endpoint)
 	}
 }
 

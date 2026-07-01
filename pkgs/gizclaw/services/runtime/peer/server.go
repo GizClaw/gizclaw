@@ -34,7 +34,9 @@ type PeerManager interface {
 type Server struct {
 	Store           kv.Store
 	BuildCommit     string
+	Endpoint        string
 	ServerPublicKey giznet.PublicKey
+	SignalingPath   string
 	PeerManager     PeerManager
 
 	mu sync.Mutex
@@ -293,10 +295,24 @@ func (s *Server) GetSelfRuntime(ctx context.Context, publicKey giznet.PublicKey)
 
 // GetServerInfo implements `serverpublic.StrictServerInterface.GetServerInfo`.
 func (s *Server) GetServerInfo(_ context.Context, _ serverpublic.GetServerInfoRequestObject) (serverpublic.GetServerInfoResponseObject, error) {
+	signalingPath := s.SignalingPath
+	if signalingPath == "" {
+		signalingPath = "/webrtc/v1/offer"
+	}
 	return serverpublic.GetServerInfo200JSONResponse(apitypes.ServerInfo{
 		BuildCommit: s.BuildCommit,
-		PublicKey:   s.ServerPublicKey.String(),
-		ServerTime:  time.Now().UnixMilli(),
+		Endpoint:    s.Endpoint,
+		Ice: struct {
+			Tcp bool `json:"tcp"`
+			Udp bool `json:"udp"`
+		}{
+			Tcp: false,
+			Udp: true,
+		},
+		Protocol:      "gizclaw-webrtc",
+		PublicKey:     s.ServerPublicKey.String(),
+		ServerTime:    time.Now().UnixMilli(),
+		SignalingPath: signalingPath,
 	}), nil
 }
 

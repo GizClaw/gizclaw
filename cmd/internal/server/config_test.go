@@ -11,7 +11,6 @@ import (
 	"github.com/GizClaw/gizclaw-go/cmd/internal/stores"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
-	"github.com/GizClaw/gizclaw-go/pkgs/giznet/giznoise"
 )
 
 func testPublicKey(fill byte) giznet.PublicKey {
@@ -45,11 +44,8 @@ func testKeyPair(t *testing.T, fill byte) *giznet.KeyPair {
 
 func TestDefaultConfig(t *testing.T) {
 	cfg := DefaultConfig()
-	if cfg.ListenAddr != ":9820" {
-		t.Fatalf("ListenAddr = %q", cfg.ListenAddr)
-	}
-	if cfg.CipherMode != "" {
-		t.Fatalf("CipherMode = %q, want empty default", cfg.CipherMode)
+	if cfg.Endpoint != "0.0.0.0:9820" {
+		t.Fatalf("Endpoint = %q", cfg.Endpoint)
 	}
 }
 
@@ -186,7 +182,7 @@ func TestNewWithPreparedConfig(t *testing.T) {
 		t.Fatalf("KeyFromHex error = %v", err)
 	}
 	srv, err := New(Config{
-		ListenAddr:     ":1234",
+		Endpoint:       "127.0.0.1:1234",
 		AdminPublicKey: adminKey,
 		Stores: map[string]stores.Config{
 			"peers": {Kind: stores.KindKeyValue, Backend: "memory"},
@@ -210,22 +206,21 @@ func TestNewWithPreparedConfig(t *testing.T) {
 
 func TestNewWiresPeerListenerFactory(t *testing.T) {
 	srv, err := New(Config{
-		ListenAddr: ":1234",
-		CipherMode: giznoise.CipherModeAES256GCM,
-		Stores:     map[string]stores.Config{"peers": {Kind: stores.KindKeyValue, Backend: "memory"}},
+		Endpoint: "127.0.0.1:1234",
+		Stores:   map[string]stores.Config{"peers": {Kind: stores.KindKeyValue, Backend: "memory"}},
 	})
 	if err != nil {
 		t.Fatalf("New error = %v", err)
 	}
 	t.Cleanup(func() { _ = srv.Close() })
 
-	if len(srv.Server.PeerListenerFactories) != 2 {
-		t.Fatalf("PeerListenerFactories len = %d, want 2", len(srv.Server.PeerListenerFactories))
+	if len(srv.Server.PeerListenerFactories) != 1 {
+		t.Fatalf("PeerListenerFactories len = %d, want 1", len(srv.Server.PeerListenerFactories))
 	}
 }
 
 func TestConfigValidateRequiresStores(t *testing.T) {
-	cfg := Config{}
+	cfg := Config{Endpoint: "127.0.0.1:9820"}
 	if err := cfg.validate(); err != nil {
 		t.Fatalf("validate should allow default store names without service bindings: %v", err)
 	}
@@ -287,18 +282,14 @@ func TestLoadConfigRejectsAdminIdentityKey(t *testing.T) {
 	}
 }
 
-func TestLoadConfigCipherMode(t *testing.T) {
+func TestLoadConfigRejectsOldNetworkFields(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.yaml")
 	if err := os.WriteFile(path, []byte("cipher-mode: aes_256_gcm\n"), 0o644); err != nil {
 		t.Fatalf("WriteFile error = %v", err)
 	}
 
-	cfg, err := LoadConfig(path)
-	if err != nil {
-		t.Fatalf("LoadConfig error = %v", err)
-	}
-	if cfg.CipherMode != giznoise.CipherModeAES256GCM {
-		t.Fatalf("CipherMode = %q, want %q", cfg.CipherMode, giznoise.CipherModeAES256GCM)
+	if _, err := LoadConfig(path); err == nil || !strings.Contains(err.Error(), "cipher-mode is not supported") {
+		t.Fatalf("LoadConfig old field error = %v", err)
 	}
 }
 
@@ -327,8 +318,7 @@ func TestMergeFileConfigKeepsRuntimeOverrides(t *testing.T) {
 		t.Fatalf("KeyFromHex file error = %v", err)
 	}
 	runtimeCfg := Config{
-		ListenAddr:     ":9999",
-		CipherMode:     giznoise.CipherModePlaintext,
+		Endpoint:       "127.0.0.1:9999",
 		AdminPublicKey: adminKey,
 		Storage: map[string]storage.Config{
 			"runtime-storage": {Kind: "keyvalue", Backend: "memory"},
@@ -351,8 +341,7 @@ func TestMergeFileConfigKeepsRuntimeOverrides(t *testing.T) {
 		},
 	}
 	fileCfg := ConfigFile{
-		ListenAddr:     ":1234",
-		CipherMode:     giznoise.CipherModeAES256GCM,
+		Endpoint:       "127.0.0.1:1234",
 		AdminPublicKey: fileAdminKey,
 		Storage: map[string]storage.Config{
 			"file-storage": {Kind: "keyvalue", Backend: "memory"},
@@ -379,11 +368,8 @@ func TestMergeFileConfigKeepsRuntimeOverrides(t *testing.T) {
 	if err != nil {
 		t.Fatalf("mergeFileConfig error = %v", err)
 	}
-	if merged.ListenAddr != ":9999" {
-		t.Fatalf("ListenAddr = %q", merged.ListenAddr)
-	}
-	if merged.CipherMode != giznoise.CipherModePlaintext {
-		t.Fatalf("CipherMode = %q, want %q", merged.CipherMode, giznoise.CipherModePlaintext)
+	if merged.Endpoint != "127.0.0.1:9999" {
+		t.Fatalf("Endpoint = %q", merged.Endpoint)
 	}
 	if merged.AdminPublicKey != runtimeCfg.AdminPublicKey {
 		t.Fatalf("AdminPublicKey = %v, want %v", merged.AdminPublicKey, runtimeCfg.AdminPublicKey)
@@ -412,16 +398,6 @@ func TestMergeFileConfigKeepsRuntimeOverrides(t *testing.T) {
 	}
 }
 
-func TestMergeFileConfigUsesFileCipherModeWhenRuntimeEmpty(t *testing.T) {
-	merged, err := mergeFileConfig(Config{}, ConfigFile{CipherMode: giznoise.CipherModeAES256GCM})
-	if err != nil {
-		t.Fatalf("mergeFileConfig error = %v", err)
-	}
-	if merged.CipherMode != giznoise.CipherModeAES256GCM {
-		t.Fatalf("CipherMode = %q, want %q", merged.CipherMode, giznoise.CipherModeAES256GCM)
-	}
-}
-
 func TestValidateReportsSpecificMissingFields(t *testing.T) {
 	tests := []struct {
 		name string
@@ -429,9 +405,9 @@ func TestValidateReportsSpecificMissingFields(t *testing.T) {
 		want string
 	}{
 		{
-			name: "invalid cipher mode",
-			cfg:  Config{CipherMode: giznoise.CipherMode("bad")},
-			want: "server: unsupported cipher-mode \"bad\"",
+			name: "invalid endpoint",
+			cfg:  Config{Endpoint: "http://127.0.0.1:9820"},
+			want: "server: endpoint must be host:port, got \"http://127.0.0.1:9820\"",
 		},
 	}
 
@@ -447,7 +423,8 @@ func TestValidateReportsSpecificMissingFields(t *testing.T) {
 
 func TestValidateReportsLayeredStorageMissingFields(t *testing.T) {
 	base := Config{
-		Storage: map[string]storage.Config{"memory": {Kind: storage.KindKeyValue, Memory: &storage.MemoryConfig{}}},
+		Endpoint: "127.0.0.1:9820",
+		Storage:  map[string]storage.Config{"memory": {Kind: storage.KindKeyValue, Memory: &storage.MemoryConfig{}}},
 	}
 	tests := []struct {
 		name string
@@ -483,8 +460,8 @@ func TestPrepareConfigGeneratesKeyPairAndDefaultPorts(t *testing.T) {
 		t.Fatal("KeyPair should be generated")
 	}
 	defaults := DefaultConfig()
-	if cfg.Host != defaults.Host || cfg.PublicAPIPort != defaults.PublicAPIPort || cfg.NoiseUDPPort != defaults.NoiseUDPPort || cfg.ICEPort != defaults.ICEPort {
-		t.Fatalf("defaults host=%q public=%d noise=%d ice=%d", cfg.Host, cfg.PublicAPIPort, cfg.NoiseUDPPort, cfg.ICEPort)
+	if cfg.Endpoint != defaults.Endpoint {
+		t.Fatalf("Endpoint = %q, want %q", cfg.Endpoint, defaults.Endpoint)
 	}
 }
 
@@ -513,7 +490,7 @@ func TestNewRejectsMissingDefaultPeerStore(t *testing.T) {
 
 func validLayeredConfig(dir string) Config {
 	return Config{
-		ListenAddr: ":1234",
+		Endpoint: "127.0.0.1:1234",
 		Storage: map[string]storage.Config{
 			"memory":      {Kind: storage.KindKeyValue, Memory: &storage.MemoryConfig{}},
 			"local-files": {Kind: storage.KindObjectStore, FS: &storage.FSConfig{Dir: dir}},

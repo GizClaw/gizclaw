@@ -26,10 +26,10 @@ if [[ -f "$env_file" ]]; then
   set +a
 fi
 
-config_home="${GIZCLAW_E2E_CONFIG_HOME:-$testdata_dir/config-home-giznet}"
+config_home="${GIZCLAW_E2E_CONFIG_HOME:-$testdata_dir/cmd-config-home}"
 admin_context="${GIZCLAW_E2E_ADMIN_CONTEXT:-admin}"
-gear1_context="${GIZCLAW_E2E_GEAR1_CONTEXT:-gear1}"
-gear2_context="${GIZCLAW_E2E_GEAR2_CONTEXT:-gear2}"
+gear1_context="${GIZCLAW_E2E_CMD_GEAR1_CONTEXT:-gear1}"
+gear2_context="${GIZCLAW_E2E_CMD_GEAR2_CONTEXT:-gear2}"
 
 # Preserve Flowcraft runtime placeholders while admin apply expands provider
 # credential placeholders from the setup environment.

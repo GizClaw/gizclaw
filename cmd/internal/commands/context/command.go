@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/GizClaw/gizclaw-go/cmd/internal/clicontext"
-	"github.com/GizClaw/gizclaw-go/pkgs/giznet/giznoise"
 	"github.com/spf13/cobra"
 )
 
@@ -28,30 +27,27 @@ func NewCmd() *cobra.Command {
 }
 
 type contextInfo struct {
-	Name             string `json:"name"`
-	Current          bool   `json:"current"`
-	ServerAddress    string `json:"server_address"`
-	ServerTransport  string `json:"server_transport"`
-	ServerPublicKey  string `json:"server_public_key"`
-	ServerCipherMode string `json:"server_cipher_mode,omitempty"`
-	IdentityPublic   string `json:"identity_public"`
+	Name            string `json:"name"`
+	Description     string `json:"description,omitempty"`
+	Current         bool   `json:"current"`
+	ServerEndpoint  string `json:"server_endpoint"`
+	ServerPublicKey string `json:"server_public_key"`
+	IdentityPublic  string `json:"identity_public"`
 }
 
 func buildContextInfo(ctx *clicontext.CLIContext, current string) contextInfo {
 	return contextInfo{
-		Name:             ctx.Name,
-		Current:          ctx.Name == current,
-		ServerAddress:    ctx.Config.Server.Address,
-		ServerTransport:  ctx.Config.Server.Transport,
-		ServerPublicKey:  ctx.Config.Server.PublicKey.String(),
-		ServerCipherMode: string(ctx.Config.Server.CipherMode),
-		IdentityPublic:   ctx.KeyPair.Public.String(),
+		Name:            ctx.Name,
+		Description:     ctx.Config.Description,
+		Current:         ctx.Name == current,
+		ServerEndpoint:  ctx.Config.Server.Endpoint,
+		ServerPublicKey: ctx.Config.Server.PublicKey.String(),
+		IdentityPublic:  ctx.KeyPair.Public.String(),
 	}
 }
 
 func newCreateCmd() *cobra.Command {
-	var serverAddr, publicKey, cipherMode, transport string
-	var publicAPIPort, noiseUDPPort, icePort int
+	var serverAddr, publicKey, description string
 
 	cmd := &cobra.Command{
 		Use:   "create <name>",
@@ -65,11 +61,7 @@ func newCreateCmd() *cobra.Command {
 			name := args[0]
 			if err := store.CreateWithOptions(name, serverAddr, clicontext.CreateOptions{
 				ServerPublicKey: publicKey,
-				CipherMode:      giznoise.CipherMode(cipherMode),
-				Transport:       transport,
-				PublicAPIPort:   publicAPIPort,
-				NoiseUDPPort:    noiseUDPPort,
-				ICEPort:         icePort,
+				Description:     description,
 			}); err != nil {
 				return err
 			}
@@ -78,13 +70,9 @@ func newCreateCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&serverAddr, "server", "", "server address (host:port)")
+	cmd.Flags().StringVar(&serverAddr, "server", "", "server endpoint (host:port)")
 	cmd.Flags().StringVar(&publicKey, "public-key", "", "server public key (base58btc)")
-	cmd.Flags().StringVar(&transport, "transport", "noise", "giznet transport: noise or webrtc")
-	cmd.Flags().StringVar(&cipherMode, "cipher-mode", "", "giznet cipher mode: chacha_poly, aes_256_gcm, or plaintext")
-	cmd.Flags().IntVar(&publicAPIPort, "public-api-port", 0, "server public API/signaling TCP port")
-	cmd.Flags().IntVar(&noiseUDPPort, "noise-udp-port", 0, "server Noise-over-UDP port")
-	cmd.Flags().IntVar(&icePort, "ice-port", 0, "server WebRTC ICE UDP/TCP port")
+	cmd.Flags().StringVar(&description, "description", "", "human-readable context description")
 	_ = cmd.MarkFlagRequired("server")
 	_ = cmd.MarkFlagRequired("public-key")
 

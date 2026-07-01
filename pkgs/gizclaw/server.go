@@ -92,6 +92,7 @@ type Server struct {
 	PetActionGenerator           string
 	PetAdoptPointCost            int64
 	BuildCommit                  string
+	PublicEndpoint               string
 	ACLDB                        *sql.DB
 	WebRTCSignalingHandler       http.Handler
 
@@ -377,7 +378,9 @@ func (s *Server) init() error {
 	peersServer := &peer.Server{
 		Store:           peerStore,
 		BuildCommit:     s.BuildCommit,
+		Endpoint:        s.PublicEndpoint,
 		ServerPublicKey: s.LocalStatic.Public,
+		SignalingPath:   gizwebrtc.SignalingPath,
 	}
 	manager := NewManager(peersServer)
 	manager.PeerRun = &peerrun.Server{Store: peerRunStore}
