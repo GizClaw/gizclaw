@@ -533,9 +533,10 @@ func (s *Server) init() error {
 	}
 	s.sessions = sessions
 	mux := http.NewServeMux()
-	mux.Handle(gizwebrtc.SignalingPath, s.peerService.publicHTTPHandler(sessions))
-	mux.Handle("/api/public/", http.StripPrefix("/api/public", s.peerService.publicHTTPHandler(sessions)))
-	mux.HandleFunc("/api/public", redirectProxyPrefix("/api/public/"))
+	publicHandler := s.peerService.publicHTTPHandler(sessions)
+	mux.Handle("/login", publicHandler)
+	mux.Handle("/server-info", publicHandler)
+	mux.Handle(gizwebrtc.SignalingPath, publicHandler)
 	s.httpHandler = httpLabelSetHandler(mux)
 	return nil
 }

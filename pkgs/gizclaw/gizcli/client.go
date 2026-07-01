@@ -7,8 +7,6 @@ import (
 	"io"
 	"net"
 	"net/http"
-	"net/http/httputil"
-	"net/url"
 	"sync"
 	"time"
 
@@ -502,57 +500,6 @@ func (c *Client) dispatchPeerPacket(protocol byte, payload []byte) {
 			// Direct media packets are realtime; stale consumers should drop
 			// rather than backpressure the peer packet loop.
 		}
-	}
-}
-
-// ProxyHandler exposes the local reverse-proxy routes for remote server APIs.
-func (c *Client) ProxyHandler() http.Handler {
-	mux := http.NewServeMux()
-	mux.Handle("/v1/", c.proxyService(ServiceOpenAI))
-	mux.Handle("/api/admin/", http.StripPrefix("/api/admin", c.proxyService(ServiceAdmin)))
-	mux.Handle("/api/public/", http.StripPrefix("/api/public", c.proxyService(ServiceServerPublic)))
-	mux.HandleFunc("/v1", redirectProxyPrefix("/v1/"))
-	mux.HandleFunc("/api/admin", redirectProxyPrefix("/api/admin/"))
-	mux.HandleFunc("/api/public", redirectProxyPrefix("/api/public/"))
-	mux.HandleFunc("/api", redirectProxyPrefix("/api/"))
-	return mux
-}
-
-func (c *Client) proxyService(service uint64) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if c == nil {
-			http.Error(w, http.StatusText(http.StatusServiceUnavailable), http.StatusServiceUnavailable)
-			return
-		}
-		conn := c.PeerConn()
-		if conn == nil {
-			http.Error(w, http.StatusText(http.StatusServiceUnavailable), http.StatusServiceUnavailable)
-			return
-		}
-		newServiceProxy(conn, service).ServeHTTP(w, r)
-	})
-}
-
-func newServiceProxy(conn giznet.Conn, service uint64) *httputil.ReverseProxy {
-	target := &url.URL{
-		Scheme: "http",
-		Host:   "gizclaw",
-	}
-	proxy := httputil.NewSingleHostReverseProxy(target)
-	proxy.Transport = gizhttp.NewRoundTripper(conn, service)
-	proxy.ErrorHandler = func(w http.ResponseWriter, _ *http.Request, err error) {
-		message := http.StatusText(http.StatusBadGateway)
-		if err != nil {
-			message = fmt.Sprintf("%s: %v", message, err)
-		}
-		http.Error(w, message, http.StatusBadGateway)
-	}
-	return proxy
-}
-
-func redirectProxyPrefix(target string) func(http.ResponseWriter, *http.Request) {
-	return func(w http.ResponseWriter, r *http.Request) {
-		http.Redirect(w, r, target, http.StatusTemporaryRedirect)
 	}
 }
 

@@ -394,7 +394,7 @@ func TestServerServeHTTPLoginRegisterAndPeerAPI(t *testing.T) {
 	ts := httptest.NewServer(server)
 	defer ts.Close()
 
-	infoResp, err := http.Get(ts.URL + "/api/public/server-info")
+	infoResp, err := http.Get(ts.URL + "/server-info")
 	if err != nil {
 		t.Fatalf("GET server-info error = %v", err)
 	}
@@ -402,6 +402,15 @@ func TestServerServeHTTPLoginRegisterAndPeerAPI(t *testing.T) {
 		t.Fatalf("GET server-info status = %d", infoResp.StatusCode)
 	}
 	_ = infoResp.Body.Close()
+
+	oldInfoResp, err := http.Get(ts.URL + "/api/public/server-info")
+	if err != nil {
+		t.Fatalf("GET old server-info error = %v", err)
+	}
+	if oldInfoResp.StatusCode != http.StatusNotFound {
+		t.Fatalf("GET old server-info status = %d, want %d", oldInfoResp.StatusCode, http.StatusNotFound)
+	}
+	_ = oldInfoResp.Body.Close()
 
 	_ = publicHTTPTestLogin(t, ts.URL, serverKey.Public, deviceKey)
 }
@@ -412,7 +421,7 @@ func publicHTTPTestLogin(t *testing.T, baseURL string, serverPublicKey giznet.Pu
 	if err != nil {
 		t.Fatalf("NewLoginAssertion error = %v", err)
 	}
-	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, baseURL+"/api/public/login", nil)
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, baseURL+"/login", nil)
 	if err != nil {
 		t.Fatalf("NewRequest login error = %v", err)
 	}

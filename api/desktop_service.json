@@ -1,0 +1,523 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Desktop Local API",
+    "description": "Local desktop API exposed by the Wails backend for context store, view registry, and runtime injection. This API is local to the desktop app and must not proxy GizClaw server Admin API or peer RPC calls.",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "/"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Desktop",
+      "description": "Local desktop shell operations"
+    },
+    {
+      "name": "Contexts",
+      "description": "Local context store operations"
+    },
+    {
+      "name": "Views",
+      "description": "Local desktop view registry and view session operations"
+    }
+  ],
+  "paths": {
+    "/desktop/bootstrap": {
+      "get": {
+        "operationId": "getDesktopBootstrap",
+        "summary": "Get desktop bootstrap state",
+        "description": "Returns available contexts, available views, persisted launcher defaults, and the active view session if one exists. This operation only reads local desktop state and does not expose local filesystem paths.",
+        "tags": [
+          "Desktop"
+        ],
+        "responses": {
+          "200": {
+            "description": "Desktop bootstrap state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DesktopBootstrap"
+                }
+              }
+            }
+          },
+          "500": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/desktop/contexts": {
+      "get": {
+        "operationId": "listDesktopContexts",
+        "summary": "List local desktop contexts",
+        "description": "Lists contexts from the local desktop context store. This does not contact any GizClaw server.",
+        "tags": [
+          "Contexts"
+        ],
+        "responses": {
+          "200": {
+            "description": "Local desktop contexts",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DesktopContextList"
+                }
+              }
+            }
+          },
+          "500": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "post": {
+        "operationId": "createDesktopContext",
+        "summary": "Create a local desktop context",
+        "description": "Creates a local desktop context and identity file. This does not register the peer, select a dashboard session, or contact a GizClaw server.",
+        "tags": [
+          "Contexts"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateDesktopContextRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created local desktop context",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DesktopContext"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/desktop/contexts/current": {
+      "put": {
+        "operationId": "selectDesktopContext",
+        "summary": "Select current local desktop context",
+        "description": "Selects a context from the local context store as the launcher default. This does not start a dashboard session or return private key material.",
+        "tags": [
+          "Contexts"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SelectDesktopContextRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Selected local desktop context",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DesktopContext"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/desktop/views": {
+      "get": {
+        "operationId": "listDesktopViews",
+        "summary": "List desktop views",
+        "description": "Lists views registered by the local desktop app, such as Admin and Play. This list is local to Wails and does not come from a GizClaw server.",
+        "tags": [
+          "Views"
+        ],
+        "responses": {
+          "200": {
+            "description": "Available desktop views",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DesktopViewList"
+                }
+              }
+            }
+          },
+          "500": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/desktop/view-session": {
+      "get": {
+        "operationId": "getDesktopViewSession",
+        "summary": "Get active desktop view session",
+        "description": "Returns active dashboard session metadata. If there is no active session, active is false.",
+        "tags": [
+          "Views"
+        ],
+        "responses": {
+          "200": {
+            "description": "Active desktop view session state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DesktopViewSession"
+                }
+              }
+            }
+          },
+          "500": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "post": {
+        "operationId": "startDesktopViewSession",
+        "summary": "Start a desktop view session",
+        "description": "Starts a dashboard session for the selected local context and view. This operation records session state only; private runtime material is injected when the selected view page is served, not returned by this API. This operation does not contact a GizClaw server.",
+        "tags": [
+          "Views"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartDesktopViewSessionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Started desktop view session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DesktopViewSession"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "delete": {
+        "operationId": "endDesktopViewSession",
+        "summary": "End the active desktop view session",
+        "description": "Signs out of the current dashboard session and returns the app to the Welcome page. This clears only the active session; it must not delete or reset stored contexts or identity files.",
+        "tags": [
+          "Views"
+        ],
+        "responses": {
+          "200": {
+            "description": "Cleared desktop view session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DesktopViewSession"
+                }
+              }
+            }
+          },
+          "500": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "responses": {
+      "Error": {
+        "description": "Desktop local API error",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "./types.json#/components/schemas/ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "schemas": {
+      "DesktopViewID": {
+        "type": "string",
+        "enum": [
+          "admin",
+          "play"
+        ]
+      },
+      "DesktopView": {
+        "type": "object",
+        "required": [
+          "id",
+          "title"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/DesktopViewID"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": {
+            "type": "string"
+          }
+        }
+      },
+      "DesktopViewList": {
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DesktopView"
+            }
+          }
+        }
+      },
+      "DesktopContext": {
+        "type": "object",
+        "description": "Local desktop context metadata. This is the REST resource returned by context list/create/select operations and does not contain private key material.",
+        "required": [
+          "current",
+          "endpoint",
+          "name",
+          "server_public_key"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "current": {
+            "type": "boolean"
+          },
+          "description": {
+            "type": "string"
+          },
+          "endpoint": {
+            "type": "string",
+            "description": "GizClaw server endpoint in host:port form, without scheme.",
+            "example": "127.0.0.1:9820"
+          },
+          "local_public_key": {
+            "type": "string",
+            "description": "Public key derived from the local context identity file."
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "server_public_key": {
+            "type": "string"
+          }
+        }
+      },
+      "DesktopContextList": {
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DesktopContext"
+            }
+          }
+        }
+      },
+      "CreateDesktopContextRequest": {
+        "type": "object",
+        "required": [
+          "endpoint",
+          "name",
+          "server_public_key"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "type": "string"
+          },
+          "endpoint": {
+            "type": "string",
+            "description": "GizClaw server endpoint in host:port form, without scheme.",
+            "example": "127.0.0.1:9820"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "server_public_key": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "SelectDesktopContextRequest": {
+        "type": "object",
+        "required": [
+          "context_name"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "context_name": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "DesktopInjectedRuntime": {
+        "type": "object",
+        "description": "Runtime connection material injected when serving the selected dashboard view page. This schema is for generated frontend types only and is not returned by a REST endpoint. The private key is for in-memory WebRTC use and must not be persisted in browser storage.",
+        "required": [
+          "context",
+          "private_key_base64",
+          "signaling_url"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "context": {
+            "$ref": "#/components/schemas/DesktopContext"
+          },
+          "private_key_base64": {
+            "type": "string",
+            "description": "Base64-encoded local private key for in-memory frontend use. This value must not be persisted in browser storage.",
+            "format": "byte"
+          },
+          "signaling_url": {
+            "type": "string",
+            "format": "uri",
+            "example": "http://127.0.0.1:9820/webrtc/v1/offer"
+          }
+        }
+      },
+      "DesktopAppState": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "last_context": {
+            "type": "string",
+            "description": "Optional launcher default. This is not an active session."
+          },
+          "last_view": {
+            "$ref": "#/components/schemas/DesktopViewID"
+          }
+        }
+      },
+      "StartDesktopViewSessionRequest": {
+        "type": "object",
+        "required": [
+          "context_name",
+          "view"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "context_name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "view": {
+            "$ref": "#/components/schemas/DesktopViewID"
+          }
+        }
+      },
+      "DesktopViewSession": {
+        "type": "object",
+        "description": "Current dashboard session metadata. A session is created by selecting a context and view, and is cleared by sign out without deleting the underlying DesktopContext. Private runtime material is injected when serving the selected dashboard view page and is not part of this REST resource.",
+        "required": [
+          "active"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "active": {
+            "type": "boolean"
+          },
+          "context_name": {
+            "type": "string"
+          },
+          "view": {
+            "$ref": "#/components/schemas/DesktopViewID"
+          }
+        }
+      },
+      "DesktopBootstrap": {
+        "type": "object",
+        "required": [
+          "contexts",
+          "state",
+          "views",
+          "view_session"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "contexts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DesktopContext"
+            }
+          },
+          "state": {
+            "$ref": "#/components/schemas/DesktopAppState"
+          },
+          "views": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DesktopView"
+            }
+          },
+          "view_session": {
+            "$ref": "#/components/schemas/DesktopViewSession"
+          }
+        }
+      }
+    }
+  }
+}

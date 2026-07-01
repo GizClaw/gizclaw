@@ -509,7 +509,7 @@ func (h *Harness) PublicHTTPLogin(name string) publiclogin.LoginResponse {
 	if err != nil {
 		h.t.Fatalf("create login assertion: %v", err)
 	}
-	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, h.PublicHTTPURL()+"/api/public/login", nil)
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, h.PublicHTTPURL()+"/login", nil)
 	if err != nil {
 		h.t.Fatalf("create login request: %v", err)
 	}

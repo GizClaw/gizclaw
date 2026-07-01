@@ -47,7 +47,7 @@ export async function loadIdentity(dir: string): Promise<Identity> {
 
 export async function serverAvailable(endpoint: string): Promise<boolean> {
   try {
-    const response = await fetch(`http://${endpoint}/api/public/server-info`, { signal: AbortSignal.timeout(1000) });
+    const response = await fetch(`http://${endpoint}/server-info`, { signal: AbortSignal.timeout(1000) });
     return response.ok;
   } catch {
     return false;

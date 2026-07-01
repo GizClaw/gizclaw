@@ -2,10 +2,7 @@ package gizcli
 
 import (
 	"context"
-	"io"
 	"net"
-	"net/http"
-	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
@@ -62,56 +59,6 @@ func TestClientDialValidation(t *testing.T) {
 		client := &Client{KeyPair: keyPair}
 		if err := client.Dial(giznet.PublicKey{1}, "127.0.0.1:1"); err == nil || !strings.Contains(err.Error(), "nil dial transport") {
 			t.Fatalf("Dial(nil dial transport) err = %v", err)
-		}
-	})
-}
-
-func TestClientProxyHandlerValidation(t *testing.T) {
-	t.Run("nil client", func(t *testing.T) {
-		var client *Client
-		server := httptest.NewServer(client.ProxyHandler())
-		defer server.Close()
-
-		resp, err := http.Get(server.URL + "/api/admin/peers")
-		if err != nil {
-			t.Fatalf("GET /api/admin/peers error = %v", err)
-		}
-		body, _ := io.ReadAll(resp.Body)
-		resp.Body.Close()
-		if resp.StatusCode != http.StatusServiceUnavailable {
-			t.Fatalf("GET /api/admin/peers status = %d body=%s", resp.StatusCode, string(body))
-		}
-	})
-
-	t.Run("disconnected client", func(t *testing.T) {
-		client := &Client{}
-		server := httptest.NewServer(client.ProxyHandler())
-		defer server.Close()
-
-		resp, err := http.Get(server.URL + "/api/public/server-info")
-		if err != nil {
-			t.Fatalf("GET /api/public/server-info error = %v", err)
-		}
-		body, _ := io.ReadAll(resp.Body)
-		resp.Body.Close()
-		if resp.StatusCode != http.StatusServiceUnavailable {
-			t.Fatalf("GET /api/public/server-info status = %d body=%s", resp.StatusCode, string(body))
-		}
-	})
-
-	t.Run("openai route", func(t *testing.T) {
-		client := &Client{}
-		server := httptest.NewServer(client.ProxyHandler())
-		defer server.Close()
-
-		resp, err := http.Get(server.URL + "/v1/models")
-		if err != nil {
-			t.Fatalf("GET /v1/models error = %v", err)
-		}
-		body, _ := io.ReadAll(resp.Body)
-		resp.Body.Close()
-		if resp.StatusCode != http.StatusServiceUnavailable {
-			t.Fatalf("GET /v1/models status = %d body=%s", resp.StatusCode, string(body))
 		}
 	})
 }

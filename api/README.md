@@ -6,8 +6,8 @@ interfaces, and shared API types under `pkgs/gizclaw/api/`.
 
 ## Layout
 
-- `admin_service.json`, `server_public.json`, and `rpc.json` define GizClaw
-  API surfaces or shared protocol documents.
+- `admin_service.json`, `server_public.json`, `desktop_service.json`, and
+  `rpc.json` define GizClaw API surfaces or shared protocol documents.
 - `openai-compat/v1/service.json` defines the OpenAI-compatible HTTP surface.
 - `types.json` collects shared schemas and exposes them through
   `#/components/schemas`.
