@@ -369,8 +369,44 @@ input {
   white-space: nowrap;
 }
 
+.data-table tr.selected td {
+  background: #f5faf8;
+}
+
+.table-link {
+  max-width: 100%;
+  border: 0;
+  background: transparent;
+  color: #175a54;
+  cursor: pointer;
+  display: block;
+  overflow: hidden;
+  padding: 0;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .table-subtitle {
   color: #64736f;
   font-size: 12px;
   margin-top: 3px;
+}
+
+.admin-detail-grid {
+  grid-template-columns: minmax(0, 1.3fr) minmax(360px, 0.7fr);
+}
+
+.json-panel {
+  background: #111c1b;
+  border-radius: 8px;
+  color: #e8f1ee;
+  font-size: 12px;
+  line-height: 1.45;
+  margin: 14px 0 0;
+  max-height: 320px;
+  overflow: auto;
+  padding: 12px;
+  white-space: pre-wrap;
+  word-break: break-word;
 }

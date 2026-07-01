@@ -5,6 +5,7 @@ import { Card, CardBody, CardHeader } from "../../components/Card";
 import {
   type AdminSection,
   type AdminDataClient,
+  type AdminRow,
   connectAdminSession,
   getInjectedAdminDataClient,
 } from "../../lib/gizclaw/admin";
@@ -13,6 +14,7 @@ import type { RuntimeContext } from "../../lib/runtime/types";
 export function AdminHome({ runtime }: { runtime: RuntimeContext }) {
   const [sections, setSections] = useState<AdminSection[]>([]);
   const [activeKey, setActiveKey] = useState<string>("peers");
+  const [selectedID, setSelectedID] = useState<string>("");
   const [client, setClient] = useState<AdminDataClient | undefined>();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -93,6 +95,7 @@ export function AdminHome({ runtime }: { runtime: RuntimeContext }) {
   }
 
   const active = sections.find((section) => section.key === activeKey) ?? sections[0];
+  const selected = active?.rows.find((row) => row.id === selectedID) ?? active?.rows[0];
 
   return (
     <div className="admin-view">
@@ -127,7 +130,12 @@ export function AdminHome({ runtime }: { runtime: RuntimeContext }) {
       {sections.length > 0 ? (
         <>
           <ResourceOverview sections={sections} activeKey={activeKey} onSelect={setActiveKey} />
-          {active ? <ResourceTable section={active} /> : null}
+          {active ? (
+            <div className="grid-two admin-detail-grid">
+              <ResourceTable section={active} selectedID={selected?.id ?? ""} onSelect={setSelectedID} />
+              {selected ? <ResourceDetail row={selected} section={active} /> : null}
+            </div>
+          ) : null}
         </>
       ) : (
         <Card>
@@ -170,7 +178,15 @@ function ResourceOverview({
   );
 }
 
-function ResourceTable({ section }: { section: AdminSection }) {
+function ResourceTable({
+  onSelect,
+  section,
+  selectedID,
+}: {
+  onSelect(id: string): void;
+  section: AdminSection;
+  selectedID: string;
+}) {
   return (
     <Card>
       <CardHeader title={section.title} />
@@ -190,9 +206,11 @@ function ResourceTable({ section }: { section: AdminSection }) {
               </thead>
               <tbody>
                 {section.rows.map((row) => (
-                  <tr key={row.id}>
+                  <tr className={row.id === selectedID ? "selected" : ""} key={row.id}>
                     <td>
-                      <div className="table-id mono">{row.id}</div>
+                      <button className="table-link mono" onClick={() => onSelect(row.id)} type="button">
+                        {row.id}
+                      </button>
                       {row.subtitle ? <div className="table-subtitle">{row.subtitle}</div> : null}
                     </td>
                     <td>{row.title}</td>
@@ -207,6 +225,42 @@ function ResourceTable({ section }: { section: AdminSection }) {
       </CardBody>
     </Card>
   );
+}
+
+function ResourceDetail({ row, section }: { row: AdminRow; section: AdminSection }) {
+  return (
+    <Card>
+      <CardHeader title={`${section.title} Detail`} />
+      <CardBody>
+        <div className="details">
+          <div className="detail-row">
+            <div className="detail-key">ID</div>
+            <div className="mono">{row.id}</div>
+          </div>
+          <div className="detail-row">
+            <div className="detail-key">Name</div>
+            <div>{row.title}</div>
+          </div>
+          <div className="detail-row">
+            <div className="detail-key">Status</div>
+            <div>{row.status ?? ""}</div>
+          </div>
+          <div className="detail-row">
+            <div className="detail-key">CLI</div>
+            <div className="mono">gizclaw admin --context &lt;admin-cli-context&gt; show {resourceKind(section.key)} '{row.id}'</div>
+          </div>
+        </div>
+        <pre className="json-panel">{JSON.stringify(row.raw ?? row, null, 2)}</pre>
+      </CardBody>
+    </Card>
+  );
+}
+
+function resourceKind(sectionKey: string): string {
+  return sectionKey
+    .split("-")
+    .map((part) => `${part.slice(0, 1).toUpperCase()}${part.slice(1)}`)
+    .join("");
 }
 
 function errorMessage(err: unknown): string {

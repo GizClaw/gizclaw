@@ -40,6 +40,7 @@ export interface AdminSection {
 
 export interface AdminRow {
   id: string;
+  raw?: unknown;
   status?: string;
   subtitle?: string;
   title: string;
@@ -179,6 +180,7 @@ function itemToRow(item: unknown, section: string): AdminRow {
     stringValue(record.kind);
   return {
     id,
+    raw: item,
     status: stringValue(record.status) ?? stringValue(record.role) ?? stringValue(record.my_role),
     subtitle,
     title,
