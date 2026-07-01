@@ -1,4 +1,5 @@
 import type { ComponentType } from "react";
+import { DashboardTable } from "@/dashboard";
 import type { KeyboardEvent } from "react";
 import { AudioLines, Boxes, ChevronRight, Cpu, FolderKanban, KeyRound, Mic2, Server, ShieldCheck, Workflow } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
@@ -8,9 +9,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
-import { EmptyState } from "../../components/empty-state";
-import { PageHeader, PageSummaryCard } from "../../components/page-layout";
-import { StatusBadge } from "../../components/status-badge";
+import { EmptyState } from "@/dashboard";
+import { PageHeader, PageSummaryCard } from "@/dashboard";
+import { StatusBadge } from "@/dashboard";
 import { useOverviewData } from "../../hooks/useOverviewData";
 import { formatShortKey } from "../../lib/format";
 
@@ -92,8 +93,7 @@ export function OverviewPage(): JSX.Element {
                 title="No peers yet"
               />
             ) : (
-              <div className="rounded-md border">
-                <Table>
+              <DashboardTable>
                   <TableHeader>
                     <TableRow>
                       <TableHead>Peer</TableHead>
@@ -122,8 +122,7 @@ export function OverviewPage(): JSX.Element {
                       );
                     })}
                   </TableBody>
-                </Table>
-              </div>
+                </DashboardTable>
             )}
           </CardContent>
         </Card>

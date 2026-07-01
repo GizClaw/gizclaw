@@ -1,4 +1,6 @@
 import { ChevronLeft, Download, FileJson, Medal, PawPrint, Plus, RefreshCw, Save, Trash2, Upload } from "lucide-react";
+import { DashboardPager } from "@/dashboard";
+import { DashboardTable } from "@/dashboard";
 import type { ChangeEvent } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
@@ -29,14 +31,14 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 
-import { expectData, toMessage } from "../../components/api";
-import { ErrorBanner, NoticeBanner } from "../../components/banners";
-import { DeleteConfirmButton } from "../../components/delete-confirm-button";
-import { DetailBlock } from "../../components/detail-block";
-import { EmptyState } from "../../components/empty-state";
-import { FormField } from "../../components/form-field";
-import { PageHeader, PageSummaryCard } from "../../components/page-layout";
-import { useCursorListPage } from "../../hooks/useCursorListPage";
+import { expectData, toMessage } from "@/dashboard";
+import { ErrorBanner, NoticeBanner } from "@/dashboard";
+import { DashboardDeleteButton as DeleteConfirmButton } from "@/dashboard";
+import { DetailBlock } from "@/dashboard";
+import { EmptyState } from "@/dashboard";
+import { FormField } from "@/dashboard";
+import { PageHeader, PageSummaryCard } from "@/dashboard";
+import { useDashboardCursorPage as useCursorListPage } from "@/dashboard";
 import { formatDate } from "../../lib/format";
 
 type BusinessResourceKind = "PetSpecies" | "Badge";
@@ -178,6 +180,7 @@ function BusinessResourceCollectionPage({ config }: { config: BusinessResourceCo
         onOpen={(id) => navigate(resourceDetailPath(config, id))}
         pageNumber={pageNumber}
         prevPage={prevPage}
+        refresh={refresh}
       />
     </div>
   );
@@ -193,6 +196,7 @@ function BusinessResourceList({
   onOpen,
   pageNumber,
   prevPage,
+  refresh,
 }: {
   config: BusinessResourceConfig;
   hasNext: boolean;
@@ -203,6 +207,7 @@ function BusinessResourceList({
   onOpen: (id: string) => void;
   pageNumber: number;
   prevPage: () => void;
+  refresh: () => Promise<void>;
 }): JSX.Element {
   return (
     <Card>
@@ -217,26 +222,9 @@ function BusinessResourceList({
         </div>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
-        <div className="flex justify-end gap-2">
-          <Button
-            className="h-8 min-w-fit shrink-0 whitespace-nowrap px-3 text-sm disabled:border-border disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100 disabled:shadow-none"
-            disabled={loading || pageNumber === 1}
-            onClick={prevPage}
-            type="button"
-            variant="outline"
-          >
-            Previous
-          </Button>
-          <Button
-            className="h-8 min-w-fit shrink-0 whitespace-nowrap px-3 text-sm disabled:border-border disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100 disabled:shadow-none"
-            disabled={loading || !hasNext}
-            onClick={nextPage}
-            type="button"
-            variant="outline"
-          >
-            Next
-          </Button>
-        </div>
+        <div className="flex justify-end">
+            <DashboardPager canNext={hasNext} canPrevious={pageNumber > 1} loading={loading} onNext={nextPage} onPrevious={prevPage} onRefresh={() => void refresh()} pageIndex={pageNumber} />
+          </div>
 
         {loading ? (
           <div className="flex flex-col gap-3">
@@ -252,8 +240,7 @@ function BusinessResourceList({
         ) : items.length === 0 ? (
           <EmptyState description={`Create a ${config.kind} resource to make it appear in this list.`} title={`No ${config.kind} resources`} />
         ) : (
-          <div className="rounded-md border">
-            <Table>
+          <DashboardTable>
               <TableHeader>
                 <TableRow>
                   <TableHead>ID</TableHead>
@@ -284,8 +271,7 @@ function BusinessResourceList({
                   </TableRow>
                 ))}
               </TableBody>
-            </Table>
-          </div>
+            </DashboardTable>
         )}
       </CardContent>
     </Card>

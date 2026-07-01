@@ -1,17 +1,19 @@
 import { Download, Play, RefreshCw } from "lucide-react";
+import { DashboardPager } from "@/dashboard";
+import { DashboardTable } from "@/dashboard";
 import { useEffect, useState } from "react";
 
 import { downloadWorkspaceHistoryAudio, listWorkspaceHistory, type PeerRunHistoryEntry } from "@gizclaw/gizclaw/admin";
-import { expectData, toMessage } from "../../components/api";
+import { expectData, toMessage } from "@/dashboard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
-import { ErrorBanner } from "../../components/banners";
-import { EmptyState } from "../../components/empty-state";
-import { useCursorListPage } from "../../hooks/useCursorListPage";
+import { ErrorBanner } from "@/dashboard";
+import { EmptyState } from "@/dashboard";
+import { useDashboardCursorPage as useCursorListPage } from "@/dashboard";
 import { formatDate } from "../../lib/format";
 
 type WorkspaceHistoryPanelProps = {
@@ -93,26 +95,9 @@ export function WorkspaceHistoryPanel({ workspaceName }: WorkspaceHistoryPanelPr
         {audioError !== "" ? <ErrorBanner message={audioError} /> : null}
         {audioURL !== "" ? <audio autoPlay className="w-full" controls src={audioURL} /> : null}
 
-        <div className="flex justify-end gap-2">
-          <Button
-            className="h-8 min-w-fit shrink-0 whitespace-nowrap px-3 text-sm disabled:border-border disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100 disabled:shadow-none"
-            disabled={loading || pageNumber === 1}
-            onClick={prevPage}
-            type="button"
-            variant="outline"
-          >
-            Previous
-          </Button>
-          <Button
-            className="h-8 min-w-fit shrink-0 whitespace-nowrap px-3 text-sm disabled:border-border disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100 disabled:shadow-none"
-            disabled={loading || !hasNext}
-            onClick={nextPage}
-            type="button"
-            variant="outline"
-          >
-            Next
-          </Button>
-        </div>
+        <div className="flex justify-end">
+            <DashboardPager canNext={hasNext} canPrevious={pageNumber > 1} loading={loading} onNext={nextPage} onPrevious={prevPage} onRefresh={() => void refresh()} pageIndex={pageNumber} />
+          </div>
 
         {loading ? (
           <div className="space-y-3">
@@ -123,8 +108,7 @@ export function WorkspaceHistoryPanel({ workspaceName }: WorkspaceHistoryPanelPr
         ) : items.length === 0 ? (
           <EmptyState description="History entries will appear after the backing workspace records conversation history." title="No history entries" />
         ) : (
-          <div className="rounded-md border">
-            <Table>
+          <DashboardTable>
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-28">Type</TableHead>
@@ -161,8 +145,7 @@ export function WorkspaceHistoryPanel({ workspaceName }: WorkspaceHistoryPanelPr
                   </TableRow>
                 ))}
               </TableBody>
-            </Table>
-          </div>
+            </DashboardTable>
         )}
       </CardContent>
     </Card>

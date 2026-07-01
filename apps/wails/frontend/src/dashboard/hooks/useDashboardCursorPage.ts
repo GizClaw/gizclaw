@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { toMessage } from "../components/api";
+import { toMessage } from "../lib/api-result";
 
-export const RESOURCE_PAGE_LIMIT = 50;
+export const DASHBOARD_RESOURCE_PAGE_LIMIT = 50;
 
 type CursorListResult<T> = {
   hasNext: boolean;
@@ -22,7 +22,7 @@ type CursorListPageState<T> = {
   nextCursor: string | null;
 };
 
-export function useCursorListPage<T>(loader: CursorPageLoader<T>): {
+export function useDashboardCursorPage<T>(loader: CursorPageLoader<T>): {
   error: string;
   hasNext: boolean;
   items: T[];
@@ -52,7 +52,7 @@ export function useCursorListPage<T>(loader: CursorPageLoader<T>): {
       try {
         const page = await loaderRef.current({
           cursor: cursor ?? undefined,
-          limit: RESOURCE_PAGE_LIMIT,
+          limit: DASHBOARD_RESOURCE_PAGE_LIMIT,
         });
         setState({
           cursor,

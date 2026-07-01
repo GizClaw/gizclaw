@@ -1,4 +1,5 @@
 import { Check, Copy, Plus, RefreshCw } from "lucide-react";
+import { DashboardPager, DashboardTable } from "@/dashboard";
 import type { KeyboardEvent, MouseEvent, ReactNode } from "react";
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -17,17 +18,17 @@ import {
   type AclSubjectKind,
   type AclView,
 } from "@gizclaw/gizclaw/admin";
-import { expectData, toMessage } from "../../components/api";
+import { expectData, toMessage } from "@/dashboard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { DateTimeInput } from "../../components/date-time-input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { EmptyState } from "../../components/empty-state";
-import { ErrorBanner } from "../../components/banners";
-import { FormField } from "../../components/form-field";
+import { EmptyState } from "@/dashboard";
+import { ErrorBanner } from "@/dashboard";
+import { FormField } from "@/dashboard";
 import { Input } from "@/components/ui/input";
-import { PageHeader, PageSummaryCard } from "../../components/page-layout";
+import { PageHeader, PageSummaryCard } from "@/dashboard";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -290,6 +291,7 @@ export function ACLPage({ defaultResourceKind = "" }: ACLPageProps): JSX.Element
                   const previousCursor = bindings.history[bindings.history.length - 1] ?? null;
                   void loadBindings(previousCursor, bindings.history.slice(0, -1), filters);
                 }}
+                refresh={() => void loadBindings(bindings.cursor, bindings.history, filters)}
               />
               <BindingsTable
                 bindings={bindings.items}
@@ -323,6 +325,7 @@ export function ACLPage({ defaultResourceKind = "" }: ACLPageProps): JSX.Element
                   const previousCursor = views.history[views.history.length - 1] ?? null;
                   void loadViews(previousCursor, views.history.slice(0, -1));
                 }}
+                refresh={() => void loadViews(views.cursor, views.history)}
               />
               <ViewsTable
                 copiedID={copiedID}
@@ -356,6 +359,7 @@ export function ACLPage({ defaultResourceKind = "" }: ACLPageProps): JSX.Element
                   const previousCursor = roles.history[roles.history.length - 1] ?? null;
                   void loadRoles(previousCursor, roles.history.slice(0, -1));
                 }}
+                refresh={() => void loadRoles(roles.cursor, roles.history)}
               />
               <RolesTable
                 copiedID={copiedID}
@@ -455,8 +459,7 @@ function BindingsTable({
     return <EmptyState description="No policy bindings match the current filters." title="No policy bindings" />;
   }
   return (
-    <div className="rounded-md border">
-      <Table className="table-fixed">
+    <DashboardTable className="table-fixed">
         <TableHeader>
           <TableRow>
             <TableHead className="w-[28%]">ID</TableHead>
@@ -515,8 +518,7 @@ function BindingsTable({
             </TableRow>
           ))}
         </TableBody>
-      </Table>
-    </div>
+      </DashboardTable>
   );
 }
 
@@ -540,8 +542,7 @@ function ViewsTable({
     return <EmptyState description="No ACL views have been created." title="No views" />;
   }
   return (
-    <div className="rounded-md border">
-      <Table className="table-fixed">
+    <DashboardTable className="table-fixed">
         <TableHeader>
           <TableRow>
             <TableHead className="w-[28%]">View ID</TableHead>
@@ -588,8 +589,7 @@ function ViewsTable({
             </TableRow>
           ))}
         </TableBody>
-      </Table>
-    </div>
+      </DashboardTable>
   );
 }
 
@@ -613,8 +613,7 @@ function RolesTable({
     return <EmptyState description="No ACL roles have been created." title="No roles" />;
   }
   return (
-    <div className="rounded-md border">
-      <Table className="table-fixed">
+    <DashboardTable className="table-fixed">
         <TableHeader>
           <TableRow>
             <TableHead className="w-[28%]">Role ID</TableHead>
@@ -669,8 +668,7 @@ function RolesTable({
             </TableRow>
           ))}
         </TableBody>
-      </Table>
-    </div>
+      </DashboardTable>
   );
 }
 
@@ -839,22 +837,18 @@ function Pagination({
   nextPage,
   pageNumber,
   prevPage,
+  refresh,
 }: {
   hasNext: boolean;
   loading: boolean;
   nextPage: () => void;
   pageNumber: number;
   prevPage: () => void;
+  refresh: () => void;
 }): JSX.Element {
   return (
-    <div className="flex items-center justify-end gap-2">
-      <Badge variant="outline">Page {pageNumber}</Badge>
-      <Button className="h-8 min-w-fit px-3 text-sm" disabled={loading || pageNumber === 1} onClick={prevPage} type="button" variant="outline">
-        Previous
-      </Button>
-      <Button className="h-8 min-w-fit px-3 text-sm" disabled={loading || !hasNext} onClick={nextPage} type="button" variant="outline">
-        Next
-      </Button>
+    <div className="flex justify-end">
+      <DashboardPager canNext={hasNext} canPrevious={pageNumber > 1} loading={loading} onNext={nextPage} onPrevious={prevPage} onRefresh={refresh} pageIndex={pageNumber} />
     </div>
   );
 }

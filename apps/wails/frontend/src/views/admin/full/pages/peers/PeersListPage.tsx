@@ -13,9 +13,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 import type { DeviceInfo, Runtime } from "@gizclaw/gizclaw/admin";
-import { EmptyState } from "../../components/empty-state";
-import { PageHeader, PageSummaryCard } from "../../components/page-layout";
-import { StatusBadge } from "../../components/status-badge";
+import { EmptyState } from "@/dashboard";
+import { PageHeader, PageSummaryCard } from "@/dashboard";
+import { StatusBadge } from "@/dashboard";
 import { usePeersPage } from "../../hooks/usePeersPage";
 import { formatDate } from "../../lib/format";
 

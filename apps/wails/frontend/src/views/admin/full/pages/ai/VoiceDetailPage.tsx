@@ -3,13 +3,13 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
 import { getResource, getVoice, type Resource, type Voice } from "@gizclaw/gizclaw/admin";
-import { expectData, toMessage } from "../../components/api";
+import { expectData, toMessage } from "@/dashboard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { DetailBlock } from "../../components/detail-block";
-import { EmptyState } from "../../components/empty-state";
-import { ErrorBanner } from "../../components/banners";
-import { PageHeader, PageSummaryCard } from "../../components/page-layout";
+import { DetailBlock } from "@/dashboard";
+import { EmptyState } from "@/dashboard";
+import { ErrorBanner } from "@/dashboard";
+import { PageHeader, PageSummaryCard } from "@/dashboard";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ResourceCliPanel } from "../../components/ResourceCliPanel";

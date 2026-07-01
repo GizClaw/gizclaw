@@ -1,4 +1,6 @@
 import { Plus, RefreshCw, Trash2 } from "lucide-react";
+import { DashboardPager } from "@/dashboard";
+import { DashboardTable } from "@/dashboard";
 import { useState } from "react";
 
 import {
@@ -9,7 +11,7 @@ import {
   type FriendGroupMemberObject,
   type FriendGroupMemberRole,
 } from "@gizclaw/gizclaw/admin";
-import { expectData, toMessage } from "../../components/api";
+import { expectData, toMessage } from "@/dashboard";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -17,11 +19,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
-import { ErrorBanner, NoticeBanner } from "../../components/banners";
-import { DeleteConfirmButton } from "../../components/delete-confirm-button";
-import { EmptyState } from "../../components/empty-state";
-import { FormField } from "../../components/form-field";
-import { useCursorListPage } from "../../hooks/useCursorListPage";
+import { ErrorBanner, NoticeBanner } from "@/dashboard";
+import { DashboardDeleteButton as DeleteConfirmButton } from "@/dashboard";
+import { EmptyState } from "@/dashboard";
+import { FormField } from "@/dashboard";
+import { useDashboardCursorPage as useCursorListPage } from "@/dashboard";
 import { formatDate, formatShortKey } from "../../lib/format";
 
 type FriendGroupMemberEditorProps = {
@@ -145,25 +147,8 @@ export function FriendGroupMemberEditor({ groupID }: FriendGroupMemberEditorProp
           </Button>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex justify-end gap-2">
-            <Button
-              className="h-8 min-w-fit shrink-0 whitespace-nowrap px-3 text-sm disabled:border-border disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100 disabled:shadow-none"
-              disabled={loading || pageNumber === 1}
-              onClick={prevPage}
-              type="button"
-              variant="outline"
-            >
-              Previous
-            </Button>
-            <Button
-              className="h-8 min-w-fit shrink-0 whitespace-nowrap px-3 text-sm disabled:border-border disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100 disabled:shadow-none"
-              disabled={loading || !hasNext}
-              onClick={nextPage}
-              type="button"
-              variant="outline"
-            >
-              Next
-            </Button>
+          <div className="flex justify-end">
+            <DashboardPager canNext={hasNext} canPrevious={pageNumber > 1} loading={loading} onNext={nextPage} onPrevious={prevPage} onRefresh={() => void refresh()} pageIndex={pageNumber} />
           </div>
 
           {loading ? (
@@ -175,8 +160,7 @@ export function FriendGroupMemberEditor({ groupID }: FriendGroupMemberEditorProp
           ) : items.length === 0 ? (
             <EmptyState description="This group has no members yet." title="No members" />
           ) : (
-            <div className="rounded-md border">
-              <Table>
+            <DashboardTable>
                 <TableHeader>
                   <TableRow>
                     <TableHead>Peer</TableHead>
@@ -229,8 +213,7 @@ export function FriendGroupMemberEditor({ groupID }: FriendGroupMemberEditorProp
                     );
                   })}
                 </TableBody>
-              </Table>
-            </div>
+              </DashboardTable>
           )}
         </CardContent>
       </Card>

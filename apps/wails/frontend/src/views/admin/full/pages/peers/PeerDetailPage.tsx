@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Ban, Check, ChevronLeft, RefreshCw, Save, Trash2 } from "lucide-react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
-import { expectData, toMessage } from "../../components/api";
+import { expectData, toMessage } from "@/dashboard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -24,12 +24,12 @@ import {
 } from "@gizclaw/gizclaw/admin";
 
 import { ResourceCliPanel } from "../../components/ResourceCliPanel";
-import { DetailBlock } from "../../components/detail-block";
-import { ErrorBanner, NoticeBanner } from "../../components/banners";
-import { EmptyState } from "../../components/empty-state";
-import { FormField } from "../../components/form-field";
-import { PageHeader, PageSummaryCard } from "../../components/page-layout";
-import { StatusBadge } from "../../components/status-badge";
+import { DetailBlock } from "@/dashboard";
+import { ErrorBanner, NoticeBanner } from "@/dashboard";
+import { EmptyState } from "@/dashboard";
+import { FormField } from "@/dashboard";
+import { PageHeader, PageSummaryCard } from "@/dashboard";
+import { StatusBadge } from "@/dashboard";
 import { usePeerDetail } from "../../hooks/usePeerDetail";
 import { formatDate, formatShortKey, peerTitle } from "../../lib/format";
 

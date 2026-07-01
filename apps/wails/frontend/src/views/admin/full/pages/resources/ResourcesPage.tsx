@@ -24,12 +24,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { ErrorBanner, NoticeBanner } from "../../components/banners";
-import { DeleteConfirmButton } from "../../components/delete-confirm-button";
-import { EmptyState } from "../../components/empty-state";
-import { FormField } from "../../components/form-field";
-import { PageHeader, PageSummaryCard } from "../../components/page-layout";
-import { expectData, toMessage } from "../../components/api";
+import { ErrorBanner, NoticeBanner } from "@/dashboard";
+import { DashboardDeleteButton as DeleteConfirmButton } from "@/dashboard";
+import { EmptyState } from "@/dashboard";
+import { FormField } from "@/dashboard";
+import { PageHeader, PageSummaryCard } from "@/dashboard";
+import { expectData, toMessage } from "@/dashboard";
 
 const resourceKinds: ResourceKind[] = [
   "Credential",

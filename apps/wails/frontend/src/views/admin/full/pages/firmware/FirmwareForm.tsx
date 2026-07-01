@@ -1,4 +1,5 @@
 import { Edit, Save } from "lucide-react";
+import { DashboardTable } from "@/dashboard";
 import { useState } from "react";
 
 import type { Firmware, FirmwareSlot, FirmwareUpsert } from "@gizclaw/gizclaw/admin";
@@ -6,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { FormField } from "../../components/form-field";
+import { FormField } from "@/dashboard";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
@@ -128,8 +129,7 @@ export function FirmwareEditor({
 
 function SlotsEditTable({ form, onEdit }: { form: FirmwareFormState; onEdit: (slot: SlotKey) => void }): JSX.Element {
   return (
-    <div className="rounded-md border">
-      <Table>
+    <DashboardTable>
         <TableHeader>
           <TableRow>
             <TableHead className="w-32">Slot</TableHead>
@@ -158,8 +158,7 @@ function SlotsEditTable({ form, onEdit }: { form: FirmwareFormState; onEdit: (sl
             );
           })}
         </TableBody>
-      </Table>
-    </div>
+      </DashboardTable>
   );
 }
 

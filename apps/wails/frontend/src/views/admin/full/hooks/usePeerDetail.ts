@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 
-import { expectData, toMessage } from "../components/api";
+import { expectData, toMessage } from "@/dashboard";
 import {
   getPeer,
   getPeerConfig,

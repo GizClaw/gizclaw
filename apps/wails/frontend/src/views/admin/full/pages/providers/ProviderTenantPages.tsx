@@ -1,4 +1,6 @@
 import { ChevronLeft, Plus, RefreshCw } from "lucide-react";
+import { DashboardPager } from "@/dashboard";
+import { DashboardTable } from "@/dashboard";
 import type { KeyboardEvent } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
@@ -17,19 +19,19 @@ import {
   type Resource,
   type ResourceKind,
 } from "@gizclaw/gizclaw/admin";
-import { expectData, toMessage } from "../../components/api";
+import { expectData, toMessage } from "@/dashboard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { DetailBlock } from "../../components/detail-block";
-import { EmptyState } from "../../components/empty-state";
-import { ErrorBanner } from "../../components/banners";
-import { PageHeader, PageSummaryCard } from "../../components/page-layout";
+import { DetailBlock } from "@/dashboard";
+import { EmptyState } from "@/dashboard";
+import { ErrorBanner } from "@/dashboard";
+import { PageHeader, PageSummaryCard } from "@/dashboard";
 import { ResourceCliPanel } from "../../components/ResourceCliPanel";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useCursorListPage } from "../../hooks/useCursorListPage";
+import { useDashboardCursorPage as useCursorListPage } from "@/dashboard";
 import { formatDate, formatValue } from "../../lib/format";
 
 type ProviderTenant = OpenAiTenant | GeminiTenant | DashScopeTenant;
@@ -212,25 +214,8 @@ function ProviderTenantsListPage<T extends ProviderTenant>({ config }: { config:
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex justify-end gap-2">
-            <Button
-              className="h-8 min-w-fit shrink-0 whitespace-nowrap px-3 text-sm disabled:border-border disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100 disabled:shadow-none"
-              disabled={loading || pageNumber === 1}
-              onClick={prevPage}
-              type="button"
-              variant="outline"
-            >
-              Previous
-            </Button>
-            <Button
-              className="h-8 min-w-fit shrink-0 whitespace-nowrap px-3 text-sm disabled:border-border disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100 disabled:shadow-none"
-              disabled={loading || !hasNext}
-              onClick={nextPage}
-              type="button"
-              variant="outline"
-            >
-              Next
-            </Button>
+          <div className="flex justify-end">
+            <DashboardPager canNext={hasNext} canPrevious={pageNumber > 1} loading={loading} onNext={nextPage} onPrevious={prevPage} onRefresh={() => void refresh()} pageIndex={pageNumber} />
           </div>
 
           {loading ? (
@@ -242,8 +227,7 @@ function ProviderTenantsListPage<T extends ProviderTenant>({ config }: { config:
           ) : items.length === 0 ? (
             <EmptyState description="Tenant records will appear here after they are created." title={config.emptyTitle} />
           ) : (
-            <div className="rounded-md border">
-              <Table>
+            <DashboardTable>
                 <TableHeader>
                   <TableRow>
                     <TableHead>Name</TableHead>
@@ -271,8 +255,7 @@ function ProviderTenantsListPage<T extends ProviderTenant>({ config }: { config:
                     </TableRow>
                   ))}
                 </TableBody>
-              </Table>
-            </div>
+              </DashboardTable>
           )}
         </CardContent>
       </Card>

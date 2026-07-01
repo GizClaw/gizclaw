@@ -1,4 +1,6 @@
 import { Check, Copy, Plus, RefreshCw } from "lucide-react";
+import { DashboardPager } from "@/dashboard";
+import { DashboardTable } from "@/dashboard";
 import type { KeyboardEvent, MouseEvent } from "react";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
@@ -8,13 +10,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { expectData } from "../../components/api";
+import { expectData } from "@/dashboard";
 import { listVoices, type Voice } from "@gizclaw/gizclaw/admin";
 
-import { ErrorBanner } from "../../components/banners";
-import { EmptyState } from "../../components/empty-state";
-import { PageHeader, PageSummaryCard } from "../../components/page-layout";
-import { useCursorListPage } from "../../hooks/useCursorListPage";
+import { ErrorBanner } from "@/dashboard";
+import { EmptyState } from "@/dashboard";
+import { PageHeader, PageSummaryCard } from "@/dashboard";
+import { useDashboardCursorPage as useCursorListPage } from "@/dashboard";
 import { formatDate } from "../../lib/format";
 
 export function VoicesListPage(): JSX.Element {
@@ -96,25 +98,8 @@ export function VoicesListPage(): JSX.Element {
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex justify-end gap-2">
-            <Button
-              className="h-8 min-w-fit shrink-0 whitespace-nowrap px-3 text-sm disabled:border-border disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100 disabled:shadow-none"
-              disabled={loading || pageNumber === 1}
-              onClick={prevPage}
-              type="button"
-              variant="outline"
-            >
-              Previous
-            </Button>
-            <Button
-              className="h-8 min-w-fit shrink-0 whitespace-nowrap px-3 text-sm disabled:border-border disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100 disabled:shadow-none"
-              disabled={loading || !hasNext}
-              onClick={nextPage}
-              type="button"
-              variant="outline"
-            >
-              Next
-            </Button>
+          <div className="flex justify-end">
+            <DashboardPager canNext={hasNext} canPrevious={pageNumber > 1} loading={loading} onNext={nextPage} onPrevious={prevPage} onRefresh={() => void refresh()} pageIndex={pageNumber} />
           </div>
 
           {loading ? (
@@ -126,8 +111,7 @@ export function VoicesListPage(): JSX.Element {
           ) : items.length === 0 ? (
             <EmptyState description="Voices will appear here after manual creation or provider sync." title="No voices" />
           ) : (
-            <div className="rounded-md border">
-              <Table className="table-fixed">
+            <DashboardTable className="table-fixed">
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-48">ID</TableHead>
@@ -171,8 +155,7 @@ export function VoicesListPage(): JSX.Element {
                     </TableRow>
                   ))}
                 </TableBody>
-              </Table>
-            </div>
+              </DashboardTable>
           )}
         </CardContent>
       </Card>

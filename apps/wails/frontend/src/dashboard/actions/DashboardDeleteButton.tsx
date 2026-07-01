@@ -11,9 +11,9 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Button } from "@/components/ui/button";
+import { DashboardActionButton } from "./DashboardActionButton";
 
-type DeleteConfirmButtonProps = {
+type DashboardDeleteButtonProps = {
   children: ReactNode;
   description?: string;
   disabled?: boolean;
@@ -22,20 +22,20 @@ type DeleteConfirmButtonProps = {
   title?: string;
 };
 
-export function DeleteConfirmButton({
+export function DashboardDeleteButton({
   children,
   description = "This action cannot be undone.",
   disabled = false,
   onConfirm,
   size = "default",
   title = "Delete item?",
-}: DeleteConfirmButtonProps): JSX.Element {
+}: DashboardDeleteButtonProps): JSX.Element {
   return (
     <AlertDialog>
       <AlertDialogTrigger asChild>
-        <Button className="border-destructive/40 text-destructive hover:bg-destructive/10" disabled={disabled} size={size} type="button" variant="outline">
+        <DashboardActionButton className="border-destructive/40 text-destructive hover:bg-destructive/10" disabled={disabled} size={size}>
           {children}
-        </Button>
+        </DashboardActionButton>
       </AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader>

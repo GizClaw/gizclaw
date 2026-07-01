@@ -1,19 +1,21 @@
 import type { KeyboardEvent, MouseEvent } from "react";
+import { DashboardPager } from "@/dashboard";
+import { DashboardTable } from "@/dashboard";
 import { useState } from "react";
 import { Check, Copy, Plus, RefreshCw } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 
 import { listFirmwares, type Firmware } from "@gizclaw/gizclaw/admin";
-import { expectData } from "../../components/api";
+import { expectData } from "@/dashboard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ErrorBanner } from "../../components/banners";
-import { EmptyState } from "../../components/empty-state";
-import { PageHeader, PageSummaryCard } from "../../components/page-layout";
+import { ErrorBanner } from "@/dashboard";
+import { EmptyState } from "@/dashboard";
+import { PageHeader, PageSummaryCard } from "@/dashboard";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { useCursorListPage } from "../../hooks/useCursorListPage";
+import { useDashboardCursorPage as useCursorListPage } from "@/dashboard";
 import { formatDate } from "../../lib/format";
 
 export function FirmwaresListPage(): JSX.Element {
@@ -95,25 +97,8 @@ export function FirmwaresListPage(): JSX.Element {
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex justify-end gap-2">
-            <Button
-              className="h-8 min-w-fit shrink-0 whitespace-nowrap px-3 text-sm disabled:border-border disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100 disabled:shadow-none"
-              disabled={loading || pageNumber === 1}
-              onClick={prevPage}
-              type="button"
-              variant="outline"
-            >
-              Previous
-            </Button>
-            <Button
-              className="h-8 min-w-fit shrink-0 whitespace-nowrap px-3 text-sm disabled:border-border disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100 disabled:shadow-none"
-              disabled={loading || !hasNext}
-              onClick={nextPage}
-              type="button"
-              variant="outline"
-            >
-              Next
-            </Button>
+          <div className="flex justify-end">
+            <DashboardPager canNext={hasNext} canPrevious={pageNumber > 1} loading={loading} onNext={nextPage} onPrevious={prevPage} onRefresh={() => void refresh()} pageIndex={pageNumber} />
           </div>
 
           {loading ? (
@@ -125,8 +110,7 @@ export function FirmwaresListPage(): JSX.Element {
           ) : items.length === 0 ? (
             <EmptyState description="Firmware release lines will appear here after they are created." title="No firmwares" />
           ) : (
-            <div className="rounded-md border">
-              <Table className="table-fixed">
+            <DashboardTable className="table-fixed">
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-[26%]">Firmware ID</TableHead>
@@ -179,8 +163,7 @@ export function FirmwaresListPage(): JSX.Element {
                     </TableRow>
                   ))}
                 </TableBody>
-              </Table>
-            </div>
+              </DashboardTable>
           )}
         </CardContent>
       </Card>

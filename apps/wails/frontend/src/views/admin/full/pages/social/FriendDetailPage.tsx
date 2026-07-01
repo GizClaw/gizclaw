@@ -3,16 +3,16 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
 import { deleteFriend, getFriend, type AdminFriendObject } from "@gizclaw/gizclaw/admin";
-import { expectData, toMessage } from "../../components/api";
+import { expectData, toMessage } from "@/dashboard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 
-import { ErrorBanner, NoticeBanner } from "../../components/banners";
-import { DeleteConfirmButton } from "../../components/delete-confirm-button";
-import { DetailBlock } from "../../components/detail-block";
-import { EmptyState } from "../../components/empty-state";
-import { PageHeader, PageSummaryCard } from "../../components/page-layout";
+import { ErrorBanner, NoticeBanner } from "@/dashboard";
+import { DashboardDeleteButton as DeleteConfirmButton } from "@/dashboard";
+import { DetailBlock } from "@/dashboard";
+import { EmptyState } from "@/dashboard";
+import { PageHeader, PageSummaryCard } from "@/dashboard";
 import { formatDate, formatShortKey } from "../../lib/format";
 import { WorkspaceHistoryPanel } from "./WorkspaceHistoryPanel";
 import { decodeRouteParam, socialPeerLabel } from "./social-utils";

@@ -1,16 +1,17 @@
 import { ChevronLeft, Eye, EyeOff, RefreshCw } from "lucide-react";
+import { DashboardTable } from "@/dashboard";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
 import { getCredential, getResource, type Credential, type Resource } from "@gizclaw/gizclaw/admin";
-import { expectData, toMessage } from "../../components/api";
+import { expectData, toMessage } from "@/dashboard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { DetailBlock } from "../../components/detail-block";
-import { EmptyState } from "../../components/empty-state";
-import { ErrorBanner } from "../../components/banners";
-import { PageHeader, PageSummaryCard } from "../../components/page-layout";
+import { DetailBlock } from "@/dashboard";
+import { EmptyState } from "@/dashboard";
+import { ErrorBanner } from "@/dashboard";
+import { PageHeader, PageSummaryCard } from "@/dashboard";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -162,8 +163,7 @@ function CredentialBodyTable({ credential, revealed }: { credential: Credential;
     return <EmptyState description="This credential has an empty body." title="No body keys" />;
   }
   return (
-    <div className="rounded-md border">
-      <Table>
+    <DashboardTable>
         <TableHeader>
           <TableRow>
             <TableHead className="w-56">Key</TableHead>
@@ -181,8 +181,7 @@ function CredentialBodyTable({ credential, revealed }: { credential: Credential;
             );
           })}
         </TableBody>
-      </Table>
-    </div>
+      </DashboardTable>
   );
 }
 

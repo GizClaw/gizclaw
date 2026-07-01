@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { expectData, toMessage } from "../components/api";
+import { expectData, toMessage } from "@/dashboard";
 import { getPeerInfo, getPeerRuntime, listPeers } from "@gizclaw/gizclaw/admin";
 import { getServerInfo, type ServerInfo } from "@gizclaw/gizclaw/serverpublic";
 

@@ -2,17 +2,17 @@ import { RefreshCw, Save, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { deleteFriendGroupInviteToken, getFriendGroupInviteToken, putFriendGroupInviteToken } from "@gizclaw/gizclaw/admin";
-import { expectData, toMessage } from "../../components/api";
+import { expectData, toMessage } from "@/dashboard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 
-import { ErrorBanner, NoticeBanner } from "../../components/banners";
+import { ErrorBanner, NoticeBanner } from "@/dashboard";
 import { DateTimeInput } from "../../components/date-time-input";
-import { DeleteConfirmButton } from "../../components/delete-confirm-button";
-import { FormField } from "../../components/form-field";
+import { DashboardDeleteButton as DeleteConfirmButton } from "@/dashboard";
+import { FormField } from "@/dashboard";
 import { formatDate } from "../../lib/format";
 
 type FriendGroupInviteTokenPanelProps = {

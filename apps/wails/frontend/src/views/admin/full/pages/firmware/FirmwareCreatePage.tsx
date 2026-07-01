@@ -3,10 +3,10 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 import { createFirmware } from "@gizclaw/gizclaw/admin";
-import { expectData, toMessage } from "../../components/api";
+import { expectData, toMessage } from "@/dashboard";
 import { Button } from "@/components/ui/button";
-import { ErrorBanner } from "../../components/banners";
-import { PageHeader, PageSummaryCard } from "../../components/page-layout";
+import { ErrorBanner } from "@/dashboard";
+import { PageHeader, PageSummaryCard } from "@/dashboard";
 import { FirmwareEditor, emptyFirmwareForm, formToUpsert } from "./FirmwareForm";
 
 export function FirmwareCreatePage(): JSX.Element {

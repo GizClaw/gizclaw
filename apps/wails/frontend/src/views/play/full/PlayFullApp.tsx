@@ -2,7 +2,7 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react"
 import type { JSX, MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent } from "react";
 import OpenAI from "openai";
 import type { ChatCompletionMessageParam } from "openai/resources/chat/completions";
-import { ArrowLeft, Bot, Brain, BriefcaseBusiness, ChevronDown, Clock3, Coins, ContactRound, Database, Gift, KeyRound, Loader2, LogOut, MessageCircle, Mic2, PackageCheck, PawPrint, Pencil, Play, Plus, ReceiptText, RefreshCw, Search, SendHorizontal, Trash2, UserPlus, Users, Volume2, VolumeX, Workflow } from "lucide-react";
+import { ArrowLeft, Bot, Brain, BriefcaseBusiness, ChevronDown, Clock3, Coins, ContactRound, Database, Gift, KeyRound, Loader2, MessageCircle, Mic2, PackageCheck, PawPrint, Pencil, Play, Plus, ReceiptText, RefreshCw, Search, SendHorizontal, Trash2, UserPlus, Users, Volume2, VolumeX, Workflow } from "lucide-react";
 import { toast } from "sonner";
 import {
   ActionBarPrimitive,
@@ -101,7 +101,7 @@ import {
   type WorkspaceParameters,
 } from "./peer-rpc-adapter";
 
-import { expectData, toMessage } from "./components/api";
+import { expectData, toMessage } from "@/dashboard";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -117,7 +117,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { Field as ShadField, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -132,6 +131,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/components/ui/utils";
+import { DashboardEmptyState, DashboardPager, DashboardShell, DashboardTable, DashboardTableCard, type DashboardNavItem } from "@/dashboard";
 
 type Section = "overview" | "contacts" | "friends" | "friendGroups" | "workspaces" | "workflows" | "models" | "credentials" | "firmwares" | "voices" | "pets" | "walletTransactions" | "rewards";
 type TopDrawer = "workspace" | "social-chat" | "test-chat" | null;
@@ -301,7 +301,7 @@ type WorkspaceChatTurn = {
   transcript?: string;
 };
 
-const sections: Array<{ icon: typeof Bot; id: Section; label: string }> = [
+const sections: Array<DashboardNavItem<Section>> = [
   { icon: Database, id: "overview", label: "Overview" },
   { icon: ContactRound, id: "contacts", label: "Contacts" },
   { icon: UserPlus, id: "friends", label: "Friends" },
@@ -378,85 +378,49 @@ export function PlayFullApp({ contextName, onSignOut }: { contextName?: string; 
     }),
     [models.length, wallet],
   );
+  const navGroups = useMemo(
+    () => [
+      {
+        items: sections.map((item) => ({
+          ...item,
+          badge: counts[item.id as keyof typeof counts] == null ? undefined : <Badge variant="outline">{counts[item.id as keyof typeof counts]}</Badge>,
+        })),
+      },
+    ],
+    [counts],
+  );
+  const headerActions = (
+    <>
+      <Button disabled={loading} onClick={() => void refresh()} size="sm" type="button" variant="outline">
+        <RefreshCw className={cn("size-4", loading && "animate-spin")} />
+        Refresh
+      </Button>
+      <SocialChatDrawer
+        initialTarget={socialChatTarget}
+        open={topDrawer === "social-chat"}
+        onInitialTargetChange={setSocialChatTarget}
+        onOpenChange={(nextOpen) => setTopDrawer(nextOpen ? "social-chat" : null)}
+      />
+      <WorkspaceDrawer open={topDrawer === "workspace"} onOpenChange={(nextOpen) => setTopDrawer(nextOpen ? "workspace" : null)} />
+      <ChatTester models={models} open={topDrawer === "test-chat"} onOpenChange={(nextOpen) => setTopDrawer(nextOpen ? "test-chat" : null)} />
+    </>
+  );
 
   return (
     <>
-      <div className="h-screen overflow-hidden bg-slate-50">
-      <div className="flex h-screen min-h-0">
-        <aside className="hidden w-64 shrink-0 border-r bg-background px-4 py-5 lg:block">
-          <div className="mb-6 flex items-center gap-3 px-2">
-            <div className="flex size-9 items-center justify-center rounded-md bg-primary text-primary-foreground">
-              <Database className="size-5" />
-            </div>
-            <div>
-              <div className="text-sm font-semibold">OpenAI Gateway</div>
-              <div className="text-xs text-muted-foreground">GizClaw runtime</div>
-            </div>
-          </div>
-          <nav className="space-y-1">
-            {sections.map((item) => (
-              <button
-                className={cn(
-                  "flex h-9 w-full items-center justify-between rounded-md px-3 text-left text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground",
-                  section === item.id && "bg-accent text-accent-foreground",
-                )}
-                key={item.id}
-                onClick={() => setSection(item.id)}
-                type="button"
-              >
-                <span className="inline-flex items-center gap-2">
-                  <item.icon className="size-4" />
-                  {item.label}
-                </span>
-                {counts[item.id as keyof typeof counts] == null ? null : <Badge variant="outline">{counts[item.id as keyof typeof counts]}</Badge>}
-              </button>
-            ))}
-          </nav>
-        </aside>
-
-        <main className="flex min-h-0 min-w-0 flex-1 flex-col">
-          <header className="shrink-0 border-b bg-background px-4 py-4 sm:px-6">
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-              <div>
-                <div className="text-xs font-semibold uppercase text-muted-foreground">Gateway</div>
-                <h1 className="text-2xl font-semibold tracking-tight">{sectionTitle(section)}</h1>
-                <div className="mt-0.5 text-xs text-muted-foreground">{contextName == null || contextName === "" ? "No context selected" : `Context: ${contextName}`}</div>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <div className="flex gap-1 rounded-md border bg-background p-1 lg:hidden">
-                  {sections.map((item) => (
-                    <button
-                      aria-label={item.label}
-                      className={cn("flex size-8 items-center justify-center rounded-sm text-muted-foreground", section === item.id && "bg-accent text-accent-foreground")}
-                      key={item.id}
-                      onClick={() => setSection(item.id)}
-                      type="button"
-                    >
-                      <item.icon className="size-4" />
-                    </button>
-                  ))}
-                </div>
-                <Button disabled={loading} onClick={() => void refresh()} size="sm" type="button" variant="outline">
-                  <RefreshCw className={cn("size-4", loading && "animate-spin")} />
-                  Refresh
-                </Button>
-                <SocialChatDrawer
-                  initialTarget={socialChatTarget}
-                  open={topDrawer === "social-chat"}
-                  onInitialTargetChange={setSocialChatTarget}
-                  onOpenChange={(nextOpen) => setTopDrawer(nextOpen ? "social-chat" : null)}
-                />
-                <WorkspaceDrawer open={topDrawer === "workspace"} onOpenChange={(nextOpen) => setTopDrawer(nextOpen ? "workspace" : null)} />
-                <ChatTester models={models} open={topDrawer === "test-chat"} onOpenChange={(nextOpen) => setTopDrawer(nextOpen ? "test-chat" : null)} />
-                <Button onClick={() => void onSignOut()} size="sm" type="button" variant="outline">
-                  <LogOut className="size-4" />
-                  Logout
-                </Button>
-              </div>
-            </div>
-          </header>
-
-          <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto overscroll-contain p-4 sm:p-6">
+      <DashboardShell
+        actions={headerActions}
+        activeID={section}
+        brandSubtitle="GizClaw runtime"
+        brandTitle="OpenAI Gateway"
+        contextName={contextName}
+        eyebrow="Gateway"
+        navGroups={navGroups}
+        onNavigate={(id) => setSection(id)}
+        onSignOut={onSignOut}
+        title={sectionTitle(section)}
+        titleAsHeading
+      >
             {error !== "" ? (
               <Alert variant="destructive">
                 <AlertDescription>{error}</AlertDescription>
@@ -499,10 +463,7 @@ export function PlayFullApp({ contextName, onSignOut }: { contextName?: string; 
                 {section === "rewards" ? <RewardsPanel /> : null}
               </>
             )}
-          </div>
-        </main>
-      </div>
-      </div>
+      </DashboardShell>
       <Toaster richColors />
     </>
   );
@@ -545,8 +506,7 @@ function ContactsPanel(): JSX.Element {
           {pager.page.items.length === 0 ? (
             <EmptyMessage description={pager.page.loading ? "Loading contacts." : "No contacts are saved for this peer."} title={pager.page.loading ? "Loading" : "No contacts"} />
           ) : (
-            <div className="rounded-md border">
-              <Table className="table-fixed">
+            <DashboardTable>
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-52">Contact</TableHead>
@@ -560,8 +520,7 @@ function ContactsPanel(): JSX.Element {
                     <ContactRow contact={contact} key={contact.id ?? `${contact.display_name ?? ""}:${contact.phone_number ?? ""}`} onChanged={pager.refresh} onEdit={openEdit} />
                   ))}
                 </TableBody>
-              </Table>
-            </div>
+              </DashboardTable>
           )}
         </CardContent>
       </Card>
@@ -733,8 +692,7 @@ function FriendsPanel({ onOpenChat, onOpenFriend }: { onOpenChat: (target: Socia
             {pager.page.items.length === 0 ? (
               <EmptyMessage description={pager.page.loading ? "Loading friends." : "No direct friends are visible for this peer."} title={pager.page.loading ? "Loading" : "No friends"} />
             ) : (
-              <div className="rounded-md border">
-                <Table className="table-fixed">
+              <DashboardTable>
                   <TableHeader>
                     <TableRow>
                       <TableHead className="w-44">Friend</TableHead>
@@ -775,8 +733,7 @@ function FriendsPanel({ onOpenChat, onOpenFriend }: { onOpenChat: (target: Socia
                       );
                     })}
                   </TableBody>
-                </Table>
-              </div>
+              </DashboardTable>
             )}
           </CardContent>
         </Card>
@@ -1095,8 +1052,7 @@ function FriendGroupsPanel({ onOpenChat, onOpenGroup }: { onOpenChat: (target: S
           {pager.page.items.length === 0 ? (
             <EmptyMessage description={pager.page.loading ? "Loading groups." : "No friend groups are visible for this peer."} title={pager.page.loading ? "Loading" : "No groups"} />
           ) : (
-            <div className="rounded-md border">
-              <Table className="table-fixed">
+            <DashboardTable>
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-56">Group</TableHead>
@@ -1133,8 +1089,7 @@ function FriendGroupsPanel({ onOpenChat, onOpenGroup }: { onOpenChat: (target: S
                     );
                   })}
                 </TableBody>
-              </Table>
-            </div>
+              </DashboardTable>
           )}
         </CardContent>
       </Card>
@@ -1338,8 +1293,7 @@ function GroupMembersPanel({ group }: { group: FriendGroupObject }): JSX.Element
         {pager.page.items.length === 0 ? (
           <EmptyMessage description={pager.page.loading ? "Loading members." : "No group members are visible."} title={pager.page.loading ? "Loading" : "No members"} />
         ) : (
-          <div className="rounded-md border">
-            <Table className="table-fixed">
+          <DashboardTable>
               <TableHeader>
                 <TableRow>
                   <TableHead>Peer public key</TableHead>
@@ -1353,8 +1307,7 @@ function GroupMembersPanel({ group }: { group: FriendGroupObject }): JSX.Element
                   <GroupMemberRow canManage={canManage} groupID={groupID} key={member.id ?? member.peer_public_key ?? ""} member={member} onChanged={pager.refresh} />
                 ))}
               </TableBody>
-            </Table>
-          </div>
+              </DashboardTable>
         )}
       </CardContent>
     </Card>
@@ -2663,8 +2616,7 @@ function WorkspaceHistoryPanel({ error, history, loading, onPlay }: { error: str
   return (
     <ScrollArea className="h-full">
       <div className="p-5">
-        <div className="min-w-0 overflow-hidden rounded-md border">
-          <Table className="table-fixed">
+        <DashboardTable>
             <TableHeader>
               <TableRow>
                 <TableHead className="w-36">Time</TableHead>
@@ -2698,8 +2650,7 @@ function WorkspaceHistoryPanel({ error, history, loading, onPlay }: { error: str
                 );
               })}
             </TableBody>
-          </Table>
-        </div>
+              </DashboardTable>
       </div>
     </ScrollArea>
   );
@@ -3905,20 +3856,7 @@ function usePagedList<T>(loadPage: (cursor: string) => Promise<PageResponse<T>>)
 }
 
 function PageAction({ canNext, canPrevious, loading, onNext, onPrevious, onRefresh, pageIndex }: { canNext: boolean; canPrevious: boolean; loading: boolean; onNext: () => void; onPrevious: () => void; onRefresh: () => void; pageIndex: number }): JSX.Element {
-  return (
-    <div className="flex items-center gap-2 text-sm">
-      <span className="text-muted-foreground">Page {pageIndex}</span>
-      <Button disabled={loading} onClick={onRefresh} size="sm" type="button" variant="outline">
-        <RefreshCw className={cn("size-4", loading && "animate-spin")} />
-      </Button>
-      <Button disabled={loading || !canPrevious} onClick={onPrevious} size="sm" type="button" variant="outline">
-        Prev
-      </Button>
-      <Button disabled={loading || !canNext} onClick={onNext} size="sm" type="button" variant="outline">
-        Next
-      </Button>
-    </div>
-  );
+  return <DashboardPager canNext={canNext} canPrevious={canPrevious} loading={loading} onNext={onNext} onPrevious={onPrevious} onRefresh={onRefresh} pageIndex={pageIndex} />;
 }
 
 function PagedSimpleTable<T>({
@@ -4028,8 +3966,7 @@ function FirmwaresPanel({ onOpenFirmware }: { onOpenFirmware: (firmware: Firmwar
         {pager.page.items.length === 0 ? (
           <EmptyMessage description={pager.page.loading ? "Loading firmwares." : "No firmwares are visible for this peer."} title={pager.page.loading ? "Loading" : "No firmwares"} />
         ) : (
-          <div className="rounded-md border">
-            <Table className="table-fixed">
+          <DashboardTable>
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-64">Firmware</TableHead>
@@ -4067,8 +4004,7 @@ function FirmwaresPanel({ onOpenFirmware }: { onOpenFirmware: (firmware: Firmwar
                   </TableRow>
                 ))}
               </TableBody>
-            </Table>
-          </div>
+              </DashboardTable>
         )}
       </CardContent>
     </Card>
@@ -4112,8 +4048,7 @@ function FirmwareDetailPanel({ firmware, onBack }: { firmware: Firmware; onBack:
           <CardTitle>Channels</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="rounded-md border">
-            <Table className="table-fixed">
+          <DashboardTable>
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-28">Channel</TableHead>
@@ -4144,8 +4079,7 @@ function FirmwareDetailPanel({ firmware, onBack }: { firmware: Firmware; onBack:
                   );
                 })}
               </TableBody>
-            </Table>
-          </div>
+              </DashboardTable>
         </CardContent>
       </Card>
     </div>
@@ -4227,8 +4161,7 @@ function WalletTransactionsPanel(): JSX.Element {
           {pager.page.items.length === 0 ? (
             <EmptyMessage description="No wallet transactions are visible for this context." title="No transactions" />
           ) : (
-            <div className="rounded-md border">
-              <Table>
+            <DashboardTable>
                 <TableHeader>
                   <TableRow>
                     <TableHead>ID</TableHead>
@@ -4262,8 +4195,7 @@ function WalletTransactionsPanel(): JSX.Element {
                     </TableRow>
                   ))}
                 </TableBody>
-              </Table>
-            </div>
+              </DashboardTable>
           )}
         </CardContent>
       </Card>
@@ -4301,8 +4233,7 @@ function PetsPanel(): JSX.Element {
           {pager.page.items.length === 0 ? (
             <EmptyMessage description="No pets are visible for this context." title="No pets" />
           ) : (
-            <div className="rounded-md border">
-              <Table>
+            <DashboardTable>
                 <TableHeader>
                   <TableRow>
                     <TableHead>Name</TableHead>
@@ -4348,8 +4279,7 @@ function PetsPanel(): JSX.Element {
                     </TableRow>
                   ))}
                 </TableBody>
-              </Table>
-            </div>
+              </DashboardTable>
           )}
         </CardContent>
       </Card>
@@ -4396,8 +4326,7 @@ function RewardsPanel(): JSX.Element {
           {pager.page.items.length === 0 ? (
             <EmptyMessage description="No rewards are visible for this context." title="No rewards" />
           ) : (
-            <div className="rounded-md border">
-              <Table>
+            <DashboardTable>
                 <TableHeader>
                   <TableRow>
                     <TableHead>ID</TableHead>
@@ -4431,8 +4360,7 @@ function RewardsPanel(): JSX.Element {
                     </TableRow>
                   ))}
                 </TableBody>
-              </Table>
-            </div>
+              </DashboardTable>
           )}
         </CardContent>
       </Card>
@@ -4714,8 +4642,7 @@ function ModelsPanel({ initialModels }: { initialModels: ModelSpec[] }): JSX.Ele
           {models.length === 0 ? (
             <EmptyMessage description="No model resources are visible for this context." title="No models" />
           ) : (
-            <div className="rounded-md border">
-              <Table>
+            <DashboardTable>
                 <TableHeader>
                   <TableRow>
                     <TableHead>ID</TableHead>
@@ -4738,8 +4665,7 @@ function ModelsPanel({ initialModels }: { initialModels: ModelSpec[] }): JSX.Ele
                     </TableRow>
                   ))}
                 </TableBody>
-              </Table>
-            </div>
+              </DashboardTable>
           )}
         </CardContent>
       </Card>
@@ -4776,17 +4702,8 @@ function SimpleTable({
   title: string;
 }): JSX.Element {
   return (
-    <Card className="max-w-6xl">
-      <CardHeader className="flex flex-row items-center justify-between gap-3">
-        <CardTitle>{title}</CardTitle>
-        {action}
-      </CardHeader>
-      <CardContent>
-        {rows.length === 0 ? (
-          <EmptyMessage description={empty} title={empty} />
-        ) : (
-          <div className="rounded-md border">
-            <Table>
+    <DashboardTableCard actions={action} emptyDescription={empty} emptyTitle={rows.length === 0 ? empty : undefined} title={title}>
+          <DashboardTable className="table-auto">
               <TableHeader>
                 <TableRow>
                   {columns.map((column) => (
@@ -4805,23 +4722,13 @@ function SimpleTable({
                   </TableRow>
                 ))}
               </TableBody>
-            </Table>
-          </div>
-        )}
-      </CardContent>
-    </Card>
+          </DashboardTable>
+    </DashboardTableCard>
   );
 }
 
 function EmptyMessage({ description, title }: { description: string; title: string }): JSX.Element {
-  return (
-    <Empty className="min-h-56 border">
-      <EmptyHeader>
-        <EmptyTitle>{title}</EmptyTitle>
-        <EmptyDescription>{description}</EmptyDescription>
-      </EmptyHeader>
-    </Empty>
-  );
+  return <DashboardEmptyState description={description} title={title} />;
 }
 
 function Field({ label, onChange, type = "text", value }: { label: string; onChange: (value: string) => void; type?: string; value: string }): JSX.Element {

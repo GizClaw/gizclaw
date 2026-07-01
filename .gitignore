@@ -14,10 +14,13 @@ go.work.sum
 *.exe
 *.exe~
 *.so
+apps/wails/build/
 apps/wails/frontend/dist/*
 !apps/wails/frontend/dist/embed-placeholder.txt
+apps/wails/frontend/package.json.md5
 apps/wails/frontend/playwright-report/
 apps/wails/frontend/test-results/
+apps/wails/frontend/wailsjs/
 
 # Test and coverage output
 *.out

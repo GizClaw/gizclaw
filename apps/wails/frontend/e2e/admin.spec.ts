@@ -84,21 +84,21 @@ test("admin view renders full resource manager pages", async ({ page }) => {
 
   await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
   await expect(page.getByText("test-build")).toBeVisible();
-  await expect(page.getByRole("link", { name: "Peers" }).first()).toBeVisible();
+  await expect(page.getByRole("button", { name: "Peers" }).first()).toBeVisible();
 
-  await page.getByRole("link", { name: "Peers" }).first().click();
+  await page.getByRole("button", { name: "Peers" }).first().click();
   await expect(page.getByRole("heading", { name: "Peers" })).toBeVisible();
   await expect(page.getByText("peer-public-key-1")).toBeVisible();
 
-  await page.getByRole("link", { name: "Workflows" }).click();
+  await page.getByRole("button", { name: "Workflows" }).click();
   await expect(page.getByRole("heading", { name: "Workflows" })).toBeVisible();
   await expect(page.getByText("openai-chat")).toBeVisible();
 
-  await page.getByRole("link", { name: "Firmwares" }).click();
+  await page.getByRole("button", { name: "Firmwares" }).click();
   await expect(page.getByRole("heading", { name: "Firmwares" })).toBeVisible();
   await expect(page.getByText("devkit-firmware-main")).toBeVisible();
 
-  await page.getByRole("link", { name: "Friends" }).click();
+  await page.getByRole("button", { name: "Friends" }).click();
   await expect(page.getByRole("heading", { name: "Friends" })).toBeVisible();
   await expect(page.getByText("peer-a <-> peer-b")).toBeVisible();
 });

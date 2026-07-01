@@ -1,4 +1,6 @@
 import { useMemo, useState } from "react";
+import { DashboardPager } from "@/dashboard";
+import { DashboardTable } from "@/dashboard";
 import type { KeyboardEvent, MouseEvent } from "react";
 import { Check, Copy, Eye, EyeOff, Plus, RefreshCw } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
@@ -8,14 +10,14 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { expectData } from "../../components/api";
+import { expectData } from "@/dashboard";
 import { listCredentials, type Credential } from "@gizclaw/gizclaw/admin";
 
-import { ErrorBanner } from "../../components/banners";
+import { ErrorBanner } from "@/dashboard";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { EmptyState } from "../../components/empty-state";
-import { PageHeader, PageSummaryCard } from "../../components/page-layout";
-import { useCursorListPage } from "../../hooks/useCursorListPage";
+import { EmptyState } from "@/dashboard";
+import { PageHeader, PageSummaryCard } from "@/dashboard";
+import { useDashboardCursorPage as useCursorListPage } from "@/dashboard";
 import { formatDate } from "../../lib/format";
 
 export function CredentialsListPage(): JSX.Element {
@@ -103,25 +105,8 @@ export function CredentialsListPage(): JSX.Element {
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex justify-end gap-2">
-            <Button
-              className="h-8 min-w-fit shrink-0 whitespace-nowrap px-3 text-sm disabled:border-border disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100 disabled:shadow-none"
-              disabled={loading || pageNumber === 1}
-              onClick={prevPage}
-              type="button"
-              variant="outline"
-            >
-              Previous
-            </Button>
-            <Button
-              className="h-8 min-w-fit shrink-0 whitespace-nowrap px-3 text-sm disabled:border-border disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100 disabled:shadow-none"
-              disabled={loading || !hasNext}
-              onClick={nextPage}
-              type="button"
-              variant="outline"
-            >
-              Next
-            </Button>
+          <div className="flex justify-end">
+            <DashboardPager canNext={hasNext} canPrevious={pageNumber > 1} loading={loading} onNext={nextPage} onPrevious={prevPage} onRefresh={() => void refresh()} pageIndex={pageNumber} />
           </div>
 
           {loading ? (
@@ -133,8 +118,7 @@ export function CredentialsListPage(): JSX.Element {
           ) : items.length === 0 ? (
             <EmptyState description="Credentials will appear here after they are created through the admin API." title="No credentials" />
           ) : (
-            <div className="rounded-md border">
-              <Table className="table-fixed">
+            <DashboardTable className="table-fixed">
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-[24%]">Credential ID</TableHead>
@@ -202,8 +186,7 @@ export function CredentialsListPage(): JSX.Element {
                     </TableRow>
                   ))}
                 </TableBody>
-              </Table>
-            </div>
+              </DashboardTable>
           )}
         </CardContent>
       </Card>
@@ -240,8 +223,7 @@ function CredentialBodyDialog({ credential, onClose }: { credential: Credential;
           {entries.length === 0 ? (
             <EmptyState description="This credential has an empty body." title="No body keys" />
           ) : (
-            <div className="rounded-md border">
-              <Table>
+            <DashboardTable>
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-56">Key</TableHead>
@@ -259,8 +241,7 @@ function CredentialBodyDialog({ credential, onClose }: { credential: Credential;
                     );
                   })}
                 </TableBody>
-              </Table>
-            </div>
+              </DashboardTable>
           )}
         </div>
       </DialogContent>
