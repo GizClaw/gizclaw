@@ -31,6 +31,7 @@ type DoubaoASTTranslate struct {
 	client                     *doubaospeech.Client
 	resourceID                 string
 	mode                       doubaospeech.ASTTranslateMode
+	inputMode                  DoubaoASTTranslateInputMode
 	sourceLanguage             string
 	targetLanguage             string
 	speakerID                  string
@@ -55,6 +56,13 @@ type doubaoASTTranslateSession interface {
 
 type DoubaoASTTranslateOption func(*DoubaoASTTranslate)
 
+type DoubaoASTTranslateInputMode string
+
+const (
+	DoubaoASTTranslateInputModeRealtime   DoubaoASTTranslateInputMode = "realtime"
+	DoubaoASTTranslateInputModePushToTalk DoubaoASTTranslateInputMode = "push-to-talk"
+)
+
 func WithDoubaoASTTranslateResourceID(resourceID string) DoubaoASTTranslateOption {
 	return func(t *DoubaoASTTranslate) {
 		t.resourceID = resourceID
@@ -65,6 +73,14 @@ func WithDoubaoASTTranslateMode(mode doubaospeech.ASTTranslateMode) DoubaoASTTra
 	return func(t *DoubaoASTTranslate) {
 		if mode != "" {
 			t.mode = mode
+		}
+	}
+}
+
+func WithDoubaoASTTranslateInputMode(mode DoubaoASTTranslateInputMode) DoubaoASTTranslateOption {
+	return func(t *DoubaoASTTranslate) {
+		if mode != "" {
+			t.inputMode = mode
 		}
 	}
 }
@@ -128,6 +144,7 @@ func NewDoubaoASTTranslate(client *doubaospeech.Client, opts ...DoubaoASTTransla
 		client:         client,
 		resourceID:     doubaospeech.ResourceASTTranslate,
 		mode:           doubaospeech.ASTTranslateModeS2T,
+		inputMode:      DoubaoASTTranslateInputModeRealtime,
 		sourceLanguage: "zhen",
 		targetLanguage: "zhen",
 		realtimePacing: true,
@@ -410,6 +427,7 @@ func (t *DoubaoASTTranslate) forwardEvents(output *bufferStream, session doubaoA
 	translation := astTranslateTextState{role: genx.RoleModel, label: doubaoASTTranslateAssistantLabel, streamID: streamID}
 	audio := astTranslateAudioState{streamID: streamID, mimeType: "audio/opus", decoder: newASTOggOpusFrameDecoder()}
 	segment := 0
+	segmentByProvider := t.inputMode != DoubaoASTTranslateInputModePushToTalk
 	ensureSegment := func() string {
 		if segment == 0 {
 			segment = 1
@@ -421,6 +439,9 @@ func (t *DoubaoASTTranslate) forwardEvents(output *bufferStream, session doubaoA
 		return id
 	}
 	startSegment := func() string {
+		if !segmentByProvider {
+			return ensureSegment()
+		}
 		segment++
 		return ensureSegment()
 	}
@@ -441,7 +462,7 @@ func (t *DoubaoASTTranslate) forwardEvents(output *bufferStream, session doubaoA
 		}
 		switch event.Type {
 		case doubaospeech.ASTEventSourceSubtitleStart:
-			if source.active {
+			if segmentByProvider && source.active {
 				if err := source.close(output, ""); err != nil {
 					return err
 				}
@@ -460,11 +481,13 @@ func (t *DoubaoASTTranslate) forwardEvents(output *bufferStream, session doubaoA
 			if err := source.addFinal(output, event.Text); err != nil {
 				return err
 			}
-			if err := historyAudio.emitSegment(output, id, event.StartTimeMS, event.EndTimeMS); err != nil {
-				return err
-			}
-			if err := source.close(output, ""); err != nil {
-				return err
+			if segmentByProvider {
+				if err := historyAudio.emitSegment(output, id, event.StartTimeMS, event.EndTimeMS); err != nil {
+					return err
+				}
+				if err := source.close(output, ""); err != nil {
+					return err
+				}
 			}
 		case doubaospeech.ASTEventTranslationSubtitleStart:
 			ensureSegment()
@@ -481,8 +504,10 @@ func (t *DoubaoASTTranslate) forwardEvents(output *bufferStream, session doubaoA
 			if err := translation.addFinal(output, event.Text); err != nil {
 				return err
 			}
-			if err := translation.close(output, ""); err != nil {
-				return err
+			if segmentByProvider {
+				if err := translation.close(output, ""); err != nil {
+					return err
+				}
 			}
 		case doubaospeech.ASTEventTTSSentenceStart:
 			ensureSegment()
@@ -501,10 +526,19 @@ func (t *DoubaoASTTranslate) forwardEvents(output *bufferStream, session doubaoA
 					return err
 				}
 			}
-			if err := audio.close(output, ""); err != nil {
+			if segmentByProvider {
+				if err := audio.close(output, ""); err != nil {
+					return err
+				}
+			} else if err := audio.finishDecoder(""); err != nil {
 				return err
 			}
 		case doubaospeech.ASTEventSessionFinished:
+			if !segmentByProvider {
+				if err := historyAudio.emitSegment(output, ensureSegment(), 0, 0); err != nil {
+					return err
+				}
+			}
 			return nil
 		case doubaospeech.ASTEventSessionCanceled, doubaospeech.ASTEventSessionFailed:
 			if event.Error != nil {
@@ -720,11 +754,8 @@ func (s *astTranslateAudioState) close(output *bufferStream, errText string) err
 	if !s.active {
 		return nil
 	}
-	if s.decoder != nil {
-		if err := s.decoder.Close(); err != nil && errText == "" {
-			errText = err.Error()
-		}
-		s.decoder = newASTOggOpusFrameDecoder()
+	if err := s.finishDecoder(errText); err != nil {
+		errText = err.Error()
 	}
 	s.active = false
 	return output.Push(&genx.MessageChunk{
@@ -732,6 +763,18 @@ func (s *astTranslateAudioState) close(output *bufferStream, errText string) err
 		Part: &genx.Blob{MIMEType: s.mimeType},
 		Ctrl: &genx.StreamCtrl{StreamID: s.streamID, Label: doubaoASTTranslateAssistantLabel, EndOfStream: true, Error: errText},
 	})
+}
+
+func (s *astTranslateAudioState) finishDecoder(errText string) error {
+	if s.decoder == nil {
+		return nil
+	}
+	if err := s.decoder.Close(); err != nil && errText == "" {
+		s.decoder = newASTOggOpusFrameDecoder()
+		return err
+	}
+	s.decoder = newASTOggOpusFrameDecoder()
+	return nil
 }
 
 type astOggOpusFrameDecoder struct {

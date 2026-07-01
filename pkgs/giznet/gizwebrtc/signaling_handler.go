@@ -149,11 +149,10 @@ func validateOfferSDP(sdp string) error {
 	if !strings.Contains(lower, "a=fingerprint:") {
 		return fmt.Errorf("%w: missing fingerprint", ErrInvalidSDP)
 	}
-	if !strings.Contains(lower, "m=audio") {
-		return fmt.Errorf("%w: missing audio", ErrUnsupportedCodec)
-	}
-	if !strings.Contains(lower, "opus/48000") {
-		return fmt.Errorf("%w: missing opus", ErrUnsupportedCodec)
+	hasOpusAudio := strings.Contains(lower, "m=audio") && strings.Contains(lower, "opus/48000")
+	hasDataChannel := strings.Contains(lower, "m=application") && strings.Contains(lower, "webrtc-datachannel")
+	if !hasOpusAudio && !hasDataChannel {
+		return fmt.Errorf("%w: missing opus audio or data channel", ErrUnsupportedCodec)
 	}
 	return nil
 }

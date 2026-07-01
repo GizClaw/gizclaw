@@ -1,6 +1,6 @@
 {
   "$schema": "https://wails.io/schemas/config.v2.json",
-  "name": "gizclaw",
+  "name": "gizclaw-desktop",
   "outputfilename": "gizclaw-desktop",
   "frontend:dir": "frontend",
   "frontend:install": "npm install",
@@ -9,5 +9,11 @@
   "frontend:dev:serverUrl": "auto",
   "author": {
     "name": "GizClaw"
+  },
+  "info": {
+    "companyName": "GizClaw",
+    "productName": "GizClaw",
+    "productVersion": "1.0.0",
+    "copyright": "Copyright © GizClaw"
   }
 }

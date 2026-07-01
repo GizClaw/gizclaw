@@ -7,7 +7,7 @@ import { clearPlayDataClient, clearPlayRPCClient, clearPlayRuntime, configurePla
 import { PlayFullApp } from "./full/PlayFullApp";
 import "./full/styles.css";
 
-export function PlayFullHome({ runtime }: { runtime: RuntimeContext }) {
+export function PlayFullHome({ onSignOut, runtime }: { onSignOut(): Promise<void>; runtime: RuntimeContext }) {
   const [error, setError] = useState("");
   const [ready, setReady] = useState(false);
 
@@ -55,10 +55,26 @@ export function PlayFullHome({ runtime }: { runtime: RuntimeContext }) {
   }, [runtime]);
 
   if (error !== "") {
-    return <div className="rounded-md border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">{error}</div>;
+    return <ViewConnectionState error={error} title="Play connection failed" />;
   }
   if (!ready) {
-    return <div className="rounded-md border bg-card p-4 text-sm text-muted-foreground">Connecting Play RPC over WebRTC...</div>;
+    return <ViewConnectionState title="Connecting Play RPC" />;
   }
-  return <PlayFullApp />;
+  return <PlayFullApp contextName={runtime.context?.name} onSignOut={onSignOut} />;
+}
+
+function ViewConnectionState({ error = "", title }: { error?: string; title: string }): JSX.Element {
+  return (
+    <div className="flex h-screen items-center justify-center bg-slate-50 px-6">
+      <div className="grid max-w-md gap-4 text-center">
+        {error === "" ? <div className="mx-auto size-8 animate-spin rounded-full border-2 border-primary border-t-transparent" /> : null}
+        <div>
+          <h1 className="text-xl font-semibold tracking-tight">{title}</h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            {error === "" ? "Preparing the Play UI over WebRTC..." : error}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
 }

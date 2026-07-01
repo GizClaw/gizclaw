@@ -108,7 +108,6 @@ test("play view renders the full desktop play surface", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("button", { name: "Get Started" }).click();
 
-  await expect(page.getByText("Play Console")).toBeVisible();
   await expect(page.getByText("OpenAI Gateway")).toBeVisible();
   await expect(page.getByRole("button", { name: /Workspaces/ })).toBeVisible();
   await expect(page.getByText("wallet-main")).toBeVisible();

@@ -586,6 +586,13 @@ func (b DefaultBuilder) buildVolcASTTranslate(cfg TransformerConfig) (genx.Trans
 	if value, ok := mapBool(data, "denoise"); ok {
 		opts = append(opts, transformers.WithDoubaoASTTranslateDenoise(value))
 	}
+	if value := mapString(data, "input", "input_mode"); value != "" {
+		inputMode, err := doubaoASTTranslateInputMode(value)
+		if err != nil {
+			return nil, err
+		}
+		opts = append(opts, transformers.WithDoubaoASTTranslateInputMode(inputMode))
+	}
 	client := doubaospeech.NewClient(appID, clientOpts...)
 	return transformers.NewDoubaoASTTranslate(client, opts...), nil
 }
@@ -651,6 +658,17 @@ func doubaoASTTranslateMode(mode string) (doubaospeech.ASTTranslateMode, error) 
 		return doubaospeech.ASTTranslateModeS2S, nil
 	default:
 		return "", fmt.Errorf("%w: doubao ast translate mode %q", ErrUnsupported, mode)
+	}
+}
+
+func doubaoASTTranslateInputMode(value string) (transformers.DoubaoASTTranslateInputMode, error) {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "", "push-to-talk", "push_to_talk", "ptt", "default":
+		return transformers.DoubaoASTTranslateInputModePushToTalk, nil
+	case "realtime", "real-time", "real_time":
+		return transformers.DoubaoASTTranslateInputModeRealtime, nil
+	default:
+		return "", fmt.Errorf("%w: doubao ast translate input mode %q", ErrUnsupported, value)
 	}
 }
 

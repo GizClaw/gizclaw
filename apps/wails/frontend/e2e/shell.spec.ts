@@ -93,6 +93,46 @@ test.beforeEach(async ({ page }) => {
         return session;
       },
     };
+    window.__GIZCLAW_DESKTOP_TEST_PLAY_CLIENT__ = {
+      async loadSnapshot() {
+        return {
+          contacts: [],
+          credentials: [],
+          firmwares: [],
+          friendGroups: [],
+          friends: [],
+          history: [],
+          memoryStats: { total: 0 },
+          models: [],
+          pets: [],
+          rewards: [],
+          runWorkspace: {
+            active_workspace_name: "",
+            mode: "push",
+            workspace_mode: "push",
+            workspace_name: "",
+          },
+          voices: [],
+          wallet: null,
+          walletTransactions: [],
+          warnings: [],
+          workflows: [],
+          workspaces: [],
+        };
+      },
+      async playHistory() {
+        return { accepted: true };
+      },
+      async recallMemory() {
+        return { hits: [] };
+      },
+      async reloadWorkspace() {
+        return { active_workspace_name: "", mode: "push", workspace_mode: "push", workspace_name: "" };
+      },
+      async setWorkspace(workspaceName) {
+        return { active_workspace_name: workspaceName, mode: "push", workspace_mode: "push", workspace_name: workspaceName };
+      },
+    };
   });
 });
 
@@ -108,12 +148,13 @@ test("shell opens from welcome and injects runtime only after get started", asyn
   await page.getByRole("button", { name: /Play/ }).click();
   await page.getByRole("button", { name: "Get Started" }).click();
 
-  await expect(page.getByText("Play Console")).toBeVisible();
+  await expect(page.getByText("OpenAI Gateway")).toBeVisible();
   await expect(page.getByText("Context: remote")).toBeVisible();
-  await expect(page.getByText("http://127.0.0.1:19820/webrtc/v1/offer")).toBeVisible();
-  await expect(page.getByText("Injected in memory")).toBeVisible();
+  await expect(page.getByText("Runtime Injection")).not.toBeVisible();
+  await expect(page.getByText("http://127.0.0.1:19820/webrtc/v1/offer")).not.toBeVisible();
+  await expect(page.getByText("Injected in memory")).not.toBeVisible();
 
-  await page.getByRole("button", { name: /Sign out/ }).click();
+  await page.getByRole("button", { name: /Logout/ }).click();
   await expect(page.getByText("GizClaw Desktop")).toBeVisible();
   await expect(page.getByText("Runtime Injection")).not.toBeVisible();
 });

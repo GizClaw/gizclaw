@@ -20,6 +20,7 @@ import {
   giznetServiceDataChannelLabel,
   prepareGiznetWebRTCPeerConnection,
   sendGiznetWebRTCOffer,
+  waitForICEGatheringComplete,
 } from "./index.ts";
 import { createPeerRPCClient } from "./rpc.ts";
 import { base58Decode, base58Encode, base64Decode, prepareEncryptedGiznetWebRTCOffer } from "./signaling.ts";
@@ -267,6 +268,15 @@ test("prepareGiznetWebRTCPeerConnection creates packet channel and audio transce
   assert.deepEqual(pc.transceivers, [{ kind: "audio", init: { direction: "sendrecv" } }]);
 });
 
+test("waitForICEGatheringComplete resolves when completion races listener registration", async () => {
+  const pc = new FakeICEPeerConnection();
+  pc.completeAfterFirstListener = true;
+
+  await waitForICEGatheringComplete(pc as unknown as RTCPeerConnection);
+
+  assert.equal(pc.iceGatheringState, "complete");
+});
+
 test("sendGiznetWebRTCOffer posts the server public signaling request", async () => {
   const body = new Blob([new Uint8Array([1, 2, 3])]);
   const answer = new Blob([new Uint8Array([4, 5])]);
@@ -343,6 +353,28 @@ class FakePeerConnection {
       throw new Error("no channel created");
     }
     return channel;
+  }
+}
+
+class FakeICEPeerConnection {
+  completeAfterFirstListener = false;
+  iceGatheringState: RTCIceGatheringState = "gathering";
+  readonly listeners = new Map<string, Set<() => void>>();
+
+  addEventListener(type: string, listener: () => void): void {
+    let listeners = this.listeners.get(type);
+    if (listeners == null) {
+      listeners = new Set();
+      this.listeners.set(type, listeners);
+    }
+    listeners.add(listener);
+    if (this.completeAfterFirstListener) {
+      this.iceGatheringState = "complete";
+    }
+  }
+
+  removeEventListener(type: string, listener: () => void): void {
+    this.listeners.get(type)?.delete(listener);
   }
 }
 

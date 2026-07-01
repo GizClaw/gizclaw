@@ -468,7 +468,9 @@ export async function sendGiznetWebRTCOffer(
     signal: options.signal,
   });
   if (!response.ok) {
-    throw new Error(`WebRTC signaling failed: ${response.status} ${response.statusText}`);
+    const body = await response.text().catch(() => "");
+    const suffix = body.trim() === "" ? "" : `: ${body.trim()}`;
+    throw new Error(`WebRTC signaling failed: ${response.status} ${response.statusText}${suffix}`);
   }
   return response.blob();
 }
@@ -721,18 +723,30 @@ export function waitForICEGatheringComplete(pc: RTCPeerConnection, signal?: Abor
     return Promise.resolve();
   }
   return new Promise((resolve, reject) => {
+    let settled = false;
     const cleanup = (): void => {
       signal?.removeEventListener("abort", onAbort);
       pc.removeEventListener("icegatheringstatechange", onStateChange);
     };
+    const complete = (): void => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      cleanup();
+      resolve();
+    };
     const onAbort = (): void => {
+      if (settled) {
+        return;
+      }
+      settled = true;
       cleanup();
       reject(abortError());
     };
     const onStateChange = (): void => {
       if (pc.iceGatheringState === "complete") {
-        cleanup();
-        resolve();
+        complete();
       }
     };
     if (signal?.aborted) {
@@ -741,6 +755,9 @@ export function waitForICEGatheringComplete(pc: RTCPeerConnection, signal?: Abor
     }
     signal?.addEventListener("abort", onAbort, { once: true });
     pc.addEventListener("icegatheringstatechange", onStateChange);
+    if (pc.iceGatheringState === "complete") {
+      complete();
+    }
   });
 }
 

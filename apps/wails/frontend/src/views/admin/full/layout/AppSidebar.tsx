@@ -8,6 +8,7 @@ import {
   FolderKanban,
   KeyRound,
   LayoutDashboard,
+  LogOut,
   Medal,
   Mic2,
   PackageCheck,
@@ -19,6 +20,7 @@ import {
 } from "lucide-react";
 import { NavLink } from "react-router-dom";
 
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/components/ui/utils";
 
@@ -104,7 +106,7 @@ const sections: NavSection[] = [
   },
 ];
 
-export function AppSidebar(): JSX.Element {
+export function AppSidebar({ contextName, onSignOut }: { contextName?: string; onSignOut(): Promise<void> }): JSX.Element {
   return (
     <aside className="border-r bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
       <div className="sticky top-0 flex h-screen w-[248px] flex-col">
@@ -145,8 +147,17 @@ export function AppSidebar(): JSX.Element {
 
         <div className="px-6 pb-6 pt-4">
           <Card className="rounded-xl bg-muted/20 shadow-none">
-            <CardContent className="px-4 py-3 text-xs leading-5 text-muted-foreground">
-              Grouped navigation keeps providers and AI resources one level below the main console.
+            <CardContent className="grid gap-3 px-4 py-3">
+              <div className="min-w-0">
+                <div className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Context</div>
+                <div className="mt-1 truncate text-sm font-medium text-foreground" title={contextName ?? ""}>
+                  {contextName == null || contextName === "" ? "No context" : contextName}
+                </div>
+              </div>
+              <Button className="w-full justify-start" onClick={() => void onSignOut()} size="sm" type="button" variant="outline">
+                <LogOut className="size-4" />
+                Logout
+              </Button>
             </CardContent>
           </Card>
         </div>

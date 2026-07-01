@@ -99,6 +99,15 @@ func TestSignalingHandlerRejectsInvalidSDPAndForbiddenPeer(t *testing.T) {
 		assertSignalingStatus(t, rec, http.StatusBadRequest, "missing_opus_audio")
 	})
 
+	t.Run("data channel offer", func(t *testing.T) {
+		listener := newTestSignalingListener(t, serverKey, CipherModePlaintext, denyAllPolicy{})
+		defer listener.Close()
+		req := newSealedOfferRequest(t, serverKey, clientKey, CipherModePlaintext, time.Now(), fixedNonce(6), []byte(minimalDataChannelSignalingSDP))
+		rec := httptest.NewRecorder()
+		listener.SignalingHandler().ServeHTTP(rec, req)
+		assertSignalingStatus(t, rec, http.StatusForbidden, "peer_forbidden")
+	})
+
 	t.Run("forbidden peer", func(t *testing.T) {
 		listener := newTestSignalingListener(t, serverKey, CipherModePlaintext, denyAllPolicy{})
 		defer listener.Close()
@@ -110,6 +119,7 @@ func TestSignalingHandlerRejectsInvalidSDPAndForbiddenPeer(t *testing.T) {
 }
 
 const minimalValidSignalingSDP = "v=0\r\nm=audio 9 UDP/TLS/RTP/SAVPF 111\r\na=rtpmap:111 opus/48000/2\r\na=fingerprint:sha-256 AA\r\n"
+const minimalDataChannelSignalingSDP = "v=0\r\nm=application 9 UDP/DTLS/SCTP webrtc-datachannel\r\na=sctp-port:5000\r\na=fingerprint:sha-256 AA\r\n"
 
 type denyAllPolicy struct{}
 

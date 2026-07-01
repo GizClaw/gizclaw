@@ -43,6 +43,59 @@ func TestPublicFiberAdapterServerInfo(t *testing.T) {
 	}
 }
 
+func TestPeerServicePublicHTTPHandlerAllowsBrowserPreflight(t *testing.T) {
+	service := &PeerService{
+		public: &serverPublic{
+			ServerPublicService: &peer.Server{
+				BuildCommit:     "test-build",
+				ServerPublicKey: giznet.PublicKey{1},
+			},
+		},
+	}
+	handler := service.publicHTTPHandler(nil)
+
+	req := httptest.NewRequest(http.MethodOptions, "/webrtc/v1/offer", nil)
+	req.Header.Set("Origin", "wails://wails.localhost")
+	req.Header.Set("Access-Control-Request-Method", http.MethodPost)
+	req.Header.Set("Access-Control-Request-Headers", "content-type,x-giznet-nonce,x-giznet-public-key,x-giznet-timestamp")
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("OPTIONS status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	if got := rec.Header().Get("Access-Control-Allow-Origin"); got != "*" {
+		t.Fatalf("Access-Control-Allow-Origin = %q, want *", got)
+	}
+	if got := rec.Header().Get("Access-Control-Allow-Headers"); got == "" {
+		t.Fatal("Access-Control-Allow-Headers is empty")
+	}
+}
+
+func TestPeerServicePublicHTTPHandlerAddsCORSHeaders(t *testing.T) {
+	service := &PeerService{
+		public: &serverPublic{
+			ServerPublicService: &peer.Server{
+				BuildCommit:     "test-build",
+				ServerPublicKey: giznet.PublicKey{1},
+			},
+		},
+	}
+	handler := service.publicHTTPHandler(nil)
+
+	req := httptest.NewRequest(http.MethodGet, "/server-info", nil)
+	req.Header.Set("Origin", "wails://wails.localhost")
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	if got := rec.Header().Get("Access-Control-Allow-Origin"); got != "*" {
+		t.Fatalf("Access-Control-Allow-Origin = %q, want *", got)
+	}
+}
+
 func TestPeerServicePublicRoundTrip(t *testing.T) {
 	serverKey, err := giznet.GenerateKeyPair()
 	if err != nil {

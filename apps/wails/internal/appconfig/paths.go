@@ -8,7 +8,7 @@ import (
 
 const (
 	EnvConfigHome = "GIZCLAW_DESKTOP_CONFIG_HOME"
-	AppDirName    = "gizclaw-desktop"
+	AppDirName    = "GizClaw"
 )
 
 type Paths struct {

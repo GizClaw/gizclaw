@@ -2,7 +2,7 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react"
 import type { JSX, MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent } from "react";
 import OpenAI from "openai";
 import type { ChatCompletionMessageParam } from "openai/resources/chat/completions";
-import { ArrowLeft, Bot, Brain, BriefcaseBusiness, ChevronDown, Clock3, Coins, ContactRound, Database, Gift, KeyRound, Loader2, MessageCircle, Mic2, PackageCheck, PawPrint, Pencil, Play, Plus, ReceiptText, RefreshCw, Search, SendHorizontal, Trash2, UserPlus, Users, Volume2, VolumeX, Workflow } from "lucide-react";
+import { ArrowLeft, Bot, Brain, BriefcaseBusiness, ChevronDown, Clock3, Coins, ContactRound, Database, Gift, KeyRound, Loader2, LogOut, MessageCircle, Mic2, PackageCheck, PawPrint, Pencil, Play, Plus, ReceiptText, RefreshCw, Search, SendHorizontal, Trash2, UserPlus, Users, Volume2, VolumeX, Workflow } from "lucide-react";
 import { toast } from "sonner";
 import {
   ActionBarPrimitive,
@@ -336,7 +336,7 @@ function getOpenAIClient(): OpenAI {
   return openAIClient;
 }
 
-export function PlayFullApp(): JSX.Element {
+export function PlayFullApp({ contextName, onSignOut }: { contextName?: string; onSignOut(): Promise<void> }): JSX.Element {
   const [section, setSection] = useState<Section>("overview");
   const [topDrawer, setTopDrawer] = useState<TopDrawer>(null);
   const [models, setModels] = useState<ModelSpec[]>([]);
@@ -420,6 +420,7 @@ export function PlayFullApp(): JSX.Element {
               <div>
                 <div className="text-xs font-semibold uppercase text-muted-foreground">Gateway</div>
                 <h1 className="text-2xl font-semibold tracking-tight">{sectionTitle(section)}</h1>
+                <div className="mt-0.5 text-xs text-muted-foreground">{contextName == null || contextName === "" ? "No context selected" : `Context: ${contextName}`}</div>
               </div>
               <div className="flex flex-wrap gap-2">
                 <div className="flex gap-1 rounded-md border bg-background p-1 lg:hidden">
@@ -447,6 +448,10 @@ export function PlayFullApp(): JSX.Element {
                 />
                 <WorkspaceDrawer open={topDrawer === "workspace"} onOpenChange={(nextOpen) => setTopDrawer(nextOpen ? "workspace" : null)} />
                 <ChatTester models={models} open={topDrawer === "test-chat"} onOpenChange={(nextOpen) => setTopDrawer(nextOpen ? "test-chat" : null)} />
+                <Button onClick={() => void onSignOut()} size="sm" type="button" variant="outline">
+                  <LogOut className="size-4" />
+                  Logout
+                </Button>
               </div>
             </div>
           </header>

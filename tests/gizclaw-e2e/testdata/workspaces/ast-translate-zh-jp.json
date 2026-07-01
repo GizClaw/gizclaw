@@ -12,13 +12,13 @@
     "translation_model": "volc-ast-translate",
     "parameters": {
       "input": "push-to-talk",
-      "lang_pair": "zh/jp",
-      "voice": {
-        "speaker_id": "zh_female_vv_uranus_bigtts"
-      }
+      "lang_pair": "zh/jp"
     },
     "ast_translate": {
       "mode": "s2s",
+      "voice": {
+        "speaker_id": "zh_female_vv_uranus_bigtts"
+      },
       "resource_id": "volc.service_type.10053",
       "denoise": false
     }

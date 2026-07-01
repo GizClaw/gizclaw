@@ -40,10 +40,10 @@ import { FriendGroupDetailPage } from "./pages/social/FriendGroupDetailPage";
 import { FriendGroupsListPage } from "./pages/social/FriendGroupsListPage";
 import { FriendsListPage } from "./pages/social/FriendsListPage";
 
-export function AppRoutes(): JSX.Element {
+export function AppRoutes({ contextName, onSignOut }: { contextName?: string; onSignOut(): Promise<void> }): JSX.Element {
   return (
     <Routes>
-      <Route element={<AdminLayout />} path="/">
+      <Route element={<AdminLayout contextName={contextName} onSignOut={onSignOut} />} path="/">
         <Route index element={<Navigate replace to="/overview" />} />
         <Route element={<OverviewPage />} path="overview" />
         <Route element={<PeersListPage />} path="peers" />

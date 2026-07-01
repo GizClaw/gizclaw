@@ -42,11 +42,13 @@ func (s *PeerService) publicHTTPHandler(sessions *publiclogin.SessionManager) ht
 		if base == nil {
 			base = context.Background()
 		}
+		setServerPublicCORSHeaders(ctx)
+		if ctx.Method() == http.MethodOptions && isServerPublicHTTPPath(ctx.Path()) {
+			return ctx.SendStatus(http.StatusNoContent)
+		}
 		base = withServerPublicContentType(base, ctx.Get(fiber.HeaderContentType))
 		ctx.SetUserContext(base)
-		if (ctx.Method() == http.MethodGet && ctx.Path() == "/server-info") ||
-			(ctx.Method() == http.MethodPost && ctx.Path() == "/login") ||
-			(ctx.Method() == http.MethodPost && ctx.Path() == "/webrtc/v1/offer") {
+		if isUnauthenticatedServerPublicHTTPRoute(ctx.Method(), ctx.Path()) {
 			return ctx.Next()
 		}
 		publicKey, ok := authenticateFiberSession(ctx, sessions)
@@ -58,4 +60,26 @@ func (s *PeerService) publicHTTPHandler(sessions *publiclogin.SessionManager) ht
 	})
 	serverpublic.RegisterHandlers(app, serverpublic.NewStrictHandler(s.public, nil))
 	return fiberHTTPHandler(app)
+}
+
+func setServerPublicCORSHeaders(ctx *fiber.Ctx) {
+	ctx.Set(fiber.HeaderAccessControlAllowOrigin, "*")
+	ctx.Set(fiber.HeaderAccessControlAllowMethods, "GET,POST,OPTIONS")
+	ctx.Set(fiber.HeaderAccessControlAllowHeaders, "Authorization,Content-Type,X-Giznet-Nonce,X-Giznet-Public-Key,X-Giznet-Timestamp")
+	ctx.Set(fiber.HeaderAccessControlExposeHeaders, "Content-Length,Content-Type")
+}
+
+func isServerPublicHTTPPath(path string) bool {
+	switch path {
+	case "/login", "/server-info", "/webrtc/v1/offer":
+		return true
+	default:
+		return false
+	}
+}
+
+func isUnauthenticatedServerPublicHTTPRoute(method, path string) bool {
+	return (method == http.MethodGet && path == "/server-info") ||
+		(method == http.MethodPost && path == "/login") ||
+		(method == http.MethodPost && path == "/webrtc/v1/offer")
 }

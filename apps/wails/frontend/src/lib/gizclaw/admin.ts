@@ -98,9 +98,11 @@ export async function connectAdminPeerConnection(runtime: RuntimeContext): Promi
     throw new Error("Admin WebRTC session requires a signaling URL.");
   }
   const pc = new RTCPeerConnection();
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), 15_000);
   await connectGiznetWebRTC({
     addAudioTransceiver: false,
-    createPacketDataChannel: false,
+    createPacketDataChannel: true,
     pc,
     prepareOffer: (offerSDP) =>
       prepareEncryptedGiznetWebRTCOffer(
@@ -112,7 +114,8 @@ export async function connectAdminPeerConnection(runtime: RuntimeContext): Promi
         offerSDP,
     ),
     sendOffer: (offer, signal) => sendGiznetWebRTCOffer(offer, { signal, url: runtime.signaling_url }),
-  });
+    signal: controller.signal,
+  }).finally(() => window.clearTimeout(timeout));
   return pc;
 }
 

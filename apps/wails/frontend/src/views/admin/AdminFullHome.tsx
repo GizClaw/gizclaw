@@ -7,7 +7,7 @@ import { configureAdminClients, configureAdminClientsWithFetch } from "./full/li
 import { AppRoutes } from "./full/router";
 import "./full/styles.css";
 
-export function AdminFullHome({ runtime }: { runtime: RuntimeContext }) {
+export function AdminFullHome({ onSignOut, runtime }: { onSignOut(): Promise<void>; runtime: RuntimeContext }) {
   const [error, setError] = useState("");
   const [ready, setReady] = useState(false);
 
@@ -46,15 +46,31 @@ export function AdminFullHome({ runtime }: { runtime: RuntimeContext }) {
   }, [runtime]);
 
   if (error !== "") {
-    return <div className="rounded-md border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">{error}</div>;
+    return <ViewConnectionState error={error} title="Admin connection failed" />;
   }
   if (!ready) {
-    return <div className="rounded-md border bg-card p-4 text-sm text-muted-foreground">Connecting Admin API over WebRTC...</div>;
+    return <ViewConnectionState title="Connecting Admin API" />;
   }
   return (
     <MemoryRouter initialEntries={["/overview"]}>
-      <AppRoutes />
+      <AppRoutes contextName={runtime.context?.name} onSignOut={onSignOut} />
     </MemoryRouter>
+  );
+}
+
+function ViewConnectionState({ error = "", title }: { error?: string; title: string }): JSX.Element {
+  return (
+    <div className="flex h-screen items-center justify-center bg-muted/30 px-6">
+      <div className="grid max-w-md gap-4 text-center">
+        {error === "" ? <div className="mx-auto size-8 animate-spin rounded-full border-2 border-primary border-t-transparent" /> : null}
+        <div>
+          <h1 className="text-xl font-semibold tracking-tight">{title}</h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            {error === "" ? "Preparing the Admin UI over WebRTC..." : error}
+          </p>
+        </div>
+      </div>
+    </div>
   );
 }
 
