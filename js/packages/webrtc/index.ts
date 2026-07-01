@@ -367,6 +367,14 @@ export type FriendGroupMessageSendRequest = {
   text: string;
 };
 
+export type NamedResourceGetRequest = {
+  name: string;
+};
+
+export type IDResourceGetRequest = {
+  id: string;
+};
+
 export class WorkspaceRPC {
   private readonly client: WebRTCRPCClient;
 
@@ -408,6 +416,78 @@ export class WorkspaceRPC {
 
   getWorkspaceHistory<TResult = unknown>(request: WorkspaceHistoryGetRequest, options?: RPCCallOptions): Promise<TResult> {
     return this.client.call<TResult, WorkspaceHistoryGetRequest>("server.workspace.history.get", request, options);
+  }
+}
+
+export class PeerResourceRPC {
+  private readonly client: WebRTCRPCClient;
+
+  constructor(client: WebRTCRPCClient) {
+    this.client = client;
+  }
+
+  listCredentials<TResult = unknown>(options?: RPCCallOptions): Promise<TResult> {
+    return this.client.call<TResult>("server.credential.list", {}, options);
+  }
+
+  getCredential<TResult = unknown>(request: NamedResourceGetRequest, options?: RPCCallOptions): Promise<TResult> {
+    return this.client.call<TResult, NamedResourceGetRequest>("server.credential.get", request, options);
+  }
+
+  listModels<TResult = unknown>(options?: RPCCallOptions): Promise<TResult> {
+    return this.client.call<TResult>("server.model.list", {}, options);
+  }
+
+  getModel<TResult = unknown>(request: IDResourceGetRequest, options?: RPCCallOptions): Promise<TResult> {
+    return this.client.call<TResult, IDResourceGetRequest>("server.model.get", request, options);
+  }
+
+  listWorkflows<TResult = unknown>(options?: RPCCallOptions): Promise<TResult> {
+    return this.client.call<TResult>("server.workflow.list", {}, options);
+  }
+
+  getWorkflow<TResult = unknown>(request: NamedResourceGetRequest, options?: RPCCallOptions): Promise<TResult> {
+    return this.client.call<TResult, NamedResourceGetRequest>("server.workflow.get", request, options);
+  }
+
+  listWorkspaces<TResult = unknown>(options?: RPCCallOptions): Promise<TResult> {
+    return this.client.call<TResult>("server.workspace.list", {}, options);
+  }
+
+  getWorkspace<TResult = unknown>(request: NamedResourceGetRequest, options?: RPCCallOptions): Promise<TResult> {
+    return this.client.call<TResult, NamedResourceGetRequest>("server.workspace.get", request, options);
+  }
+}
+
+export class GameplayRPC {
+  private readonly client: WebRTCRPCClient;
+
+  constructor(client: WebRTCRPCClient) {
+    this.client = client;
+  }
+
+  listPets<TResult = unknown>(options?: RPCCallOptions): Promise<TResult> {
+    return this.client.call<TResult>("server.pet.list", {}, options);
+  }
+
+  getPet<TResult = unknown>(request: IDResourceGetRequest, options?: RPCCallOptions): Promise<TResult> {
+    return this.client.call<TResult, IDResourceGetRequest>("server.pet.get", request, options);
+  }
+
+  listRewards<TResult = unknown>(options?: RPCCallOptions): Promise<TResult> {
+    return this.client.call<TResult>("server.reward.list", {}, options);
+  }
+
+  getReward<TResult = unknown>(request: IDResourceGetRequest, options?: RPCCallOptions): Promise<TResult> {
+    return this.client.call<TResult, IDResourceGetRequest>("server.reward.get", request, options);
+  }
+
+  getWallet<TResult = unknown>(options?: RPCCallOptions): Promise<TResult> {
+    return this.client.call<TResult>("server.wallet.get", {}, options);
+  }
+
+  listWalletTransactions<TResult = unknown>(options?: RPCCallOptions): Promise<TResult> {
+    return this.client.call<TResult>("server.wallet.transactions.list", {}, options);
   }
 }
 

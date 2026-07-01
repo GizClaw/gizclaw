@@ -10,6 +10,8 @@ import {
   RPC_FRAME_TYPE_EOS,
   RPC_FRAME_TYPE_JSON,
   FirmwareRPC,
+  GameplayRPC,
+  PeerResourceRPC,
   SocialRPC,
   WebRTCRPCClient,
   WebRTCRPCError,
@@ -149,6 +151,64 @@ test("FirmwareRPC exposes firmware RPC methods", async () => {
     { method: "server.firmware.list", params: {} },
     { method: "server.firmware.get", params: { name: "devkit" } },
     { method: "server.firmware.files.download", params: { channel: "stable", name: "devkit", path: "firmware.bin" } },
+  ]);
+});
+
+test("PeerResourceRPC exposes catalog resource RPC methods", async () => {
+  const calls: Array<{ method: string; params: unknown }> = [];
+  const client = {
+    call: async (method: string, params: unknown) => {
+      calls.push({ method, params });
+      return { accepted: true };
+    },
+  } as unknown as WebRTCRPCClient;
+  const resources = new PeerResourceRPC(client);
+
+  await resources.listCredentials();
+  await resources.getCredential({ name: "openai-main" });
+  await resources.listModels();
+  await resources.getModel({ id: "gpt-5" });
+  await resources.listWorkflows();
+  await resources.getWorkflow({ name: "flowcraft" });
+  await resources.listWorkspaces();
+  await resources.getWorkspace({ name: "main" });
+
+  assert.deepEqual(calls, [
+    { method: "server.credential.list", params: {} },
+    { method: "server.credential.get", params: { name: "openai-main" } },
+    { method: "server.model.list", params: {} },
+    { method: "server.model.get", params: { id: "gpt-5" } },
+    { method: "server.workflow.list", params: {} },
+    { method: "server.workflow.get", params: { name: "flowcraft" } },
+    { method: "server.workspace.list", params: {} },
+    { method: "server.workspace.get", params: { name: "main" } },
+  ]);
+});
+
+test("GameplayRPC exposes gameplay RPC methods", async () => {
+  const calls: Array<{ method: string; params: unknown }> = [];
+  const client = {
+    call: async (method: string, params: unknown) => {
+      calls.push({ method, params });
+      return { accepted: true };
+    },
+  } as unknown as WebRTCRPCClient;
+  const gameplay = new GameplayRPC(client);
+
+  await gameplay.listPets();
+  await gameplay.getPet({ id: "pet-a" });
+  await gameplay.listRewards();
+  await gameplay.getReward({ id: "reward-a" });
+  await gameplay.getWallet();
+  await gameplay.listWalletTransactions();
+
+  assert.deepEqual(calls, [
+    { method: "server.pet.list", params: {} },
+    { method: "server.pet.get", params: { id: "pet-a" } },
+    { method: "server.reward.list", params: {} },
+    { method: "server.reward.get", params: { id: "reward-a" } },
+    { method: "server.wallet.get", params: {} },
+    { method: "server.wallet.transactions.list", params: {} },
   ]);
 });
 

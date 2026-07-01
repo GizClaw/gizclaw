@@ -51,6 +51,7 @@ test.beforeEach(async ({ page }) => {
       async loadSnapshot() {
         return {
           contacts: [{ id: "contact-main", title: "Main Contact" }],
+          credentials: [{ id: "fake-openai-credential-000", title: "Fake OpenAI Credential" }],
           firmwares: [{ id: "devkit-firmware-main", subtitle: "stable", title: "Devkit Firmware" }],
           friendGroups: [{ id: "story-group", subtitle: "member", title: "Story Group" }],
           friends: [{ id: "peer-b", subtitle: "peer-a <-> peer-b", title: "Peer B" }],
@@ -71,11 +72,18 @@ test.beforeEach(async ({ page }) => {
             },
           ],
           memoryStats: { total: 2 },
+          models: [{ id: "fake-openai-chat-000", title: "Fake OpenAI Chat" }],
+          pets: [{ id: "pet-main", title: "Main Pet" }],
+          rewards: [{ id: "reward-claim", title: "Reward Claim" }],
           runWorkspace: {
             mode: "push-to-talk",
             workspace_name: "flowcraft-chat",
           },
+          wallet: { id: "wallet-main", title: "Main Wallet" },
+          walletTransactions: [{ id: "wallet-tx-1", title: "Wallet Transaction" }],
           warnings: [],
+          workflows: [{ id: "flowcraft-chat", title: "Flowcraft Chat Workflow" }],
+          workspaces: [{ id: "flowcraft-chat", title: "Flowcraft Chat Workspace" }],
         };
       },
       async playHistory(historyID) {
@@ -111,11 +119,15 @@ test("play view uses direct WebRTC RPC client data", async ({ page }) => {
   await expect(page.getByText("Play Console")).toBeVisible();
   await expect(page.locator(".card-title", { hasText: "Play RPC" })).toBeVisible();
   await expect(page.getByText("WebRTC RPC")).toBeVisible();
-  await expect(page.getByText("flowcraft-chat")).toBeVisible();
+  await expect(page.getByText("flowcraft-chat").first()).toBeVisible();
   await expect(page.getByText("push-to-talk")).toBeVisible();
   await expect(page.getByText("你好，开始测试。")).toBeVisible();
   await expect(page.getByText("Peer B")).toBeVisible();
   await expect(page.getByText("Story Group")).toBeVisible();
+  await expect(page.getByText("Flowcraft Chat Workspace")).toBeVisible();
+  await expect(page.getByText("Fake OpenAI Chat")).toBeVisible();
+  await expect(page.getByText("Main Wallet")).toBeVisible();
+  await expect(page.getByText("Reward Claim")).toBeVisible();
   await expect(page.getByText("Devkit Firmware")).toBeVisible();
 
   await page.locator(".card", { hasText: "Workspace History" }).getByRole("button", { name: /^Play$/ }).first().click();

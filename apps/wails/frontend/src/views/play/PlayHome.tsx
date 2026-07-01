@@ -17,11 +17,18 @@ import type { RuntimeContext } from "../../lib/runtime/types";
 
 const emptySnapshot: PlaySnapshot = {
   contacts: [],
+  credentials: [],
   firmwares: [],
   friendGroups: [],
   friends: [],
   history: [],
+  models: [],
+  pets: [],
+  rewards: [],
   warnings: [],
+  walletTransactions: [],
+  workflows: [],
+  workspaces: [],
 };
 
 export function PlayHome({ runtime }: { runtime: RuntimeContext }) {
@@ -262,6 +269,47 @@ export function PlayHome({ runtime }: { runtime: RuntimeContext }) {
               <Metric label="Groups" value={snapshot.friendGroups.length} />
             </div>
             <ResourceList empty="No friends found." rows={[...snapshot.friends, ...snapshot.friendGroups]} />
+          </CardBody>
+        </Card>
+      </div>
+
+      <div className="grid-two">
+        <Card>
+          <CardHeader title="Resource Catalog" action={<PackageCheck size={17} />} />
+          <CardBody>
+            <div className="metric-grid">
+              <Metric label="Workspaces" value={snapshot.workspaces.length} />
+              <Metric label="Workflows" value={snapshot.workflows.length} />
+              <Metric label="Models" value={snapshot.models.length} />
+            </div>
+            <ResourceList
+              empty="No catalog resources found."
+              rows={[
+                ...snapshot.workspaces,
+                ...snapshot.workflows,
+                ...snapshot.models,
+                ...snapshot.credentials,
+              ]}
+            />
+          </CardBody>
+        </Card>
+        <Card>
+          <CardHeader title="Gameplay" action={<PackageCheck size={17} />} />
+          <CardBody>
+            <div className="metric-grid">
+              <Metric label="Pets" value={snapshot.pets.length} />
+              <Metric label="Rewards" value={snapshot.rewards.length} />
+              <Metric label="Wallet Tx" value={snapshot.walletTransactions.length} />
+            </div>
+            <ResourceList
+              empty="No gameplay resources found."
+              rows={[
+                ...(snapshot.wallet ? [snapshot.wallet] : []),
+                ...snapshot.pets,
+                ...snapshot.rewards,
+                ...snapshot.walletTransactions,
+              ]}
+            />
           </CardBody>
         </Card>
       </div>

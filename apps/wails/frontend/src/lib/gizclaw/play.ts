@@ -1,5 +1,7 @@
 import {
   FirmwareRPC,
+  GameplayRPC,
+  PeerResourceRPC,
   SocialRPC,
   WebRTCRPCClient,
   WorkspaceRPC,
@@ -23,13 +25,21 @@ export interface PlaySession extends PlayDataClient {
 
 export interface PlaySnapshot {
   contacts: PlayResourceRow[];
+  credentials: PlayResourceRow[];
   firmwares: PlayResourceRow[];
   friendGroups: PlayResourceRow[];
   friends: PlayResourceRow[];
   history: PlayHistoryRow[];
   memoryStats?: PlayMemoryStats;
+  models: PlayResourceRow[];
+  pets: PlayResourceRow[];
+  rewards: PlayResourceRow[];
   runWorkspace?: PlayWorkspaceState;
   warnings: string[];
+  wallet?: PlayResourceRow;
+  walletTransactions: PlayResourceRow[];
+  workflows: PlayResourceRow[];
+  workspaces: PlayResourceRow[];
 }
 
 export interface PlayWorkspaceState {
@@ -107,6 +117,8 @@ export function createPlayDataClientFromPeerConnection(pc: RTCPeerConnection): P
   const rpc = new WebRTCRPCClient(pc);
   return createRPCPlayDataClient({
     firmware: new FirmwareRPC(rpc),
+    gameplay: new GameplayRPC(rpc),
+    resources: new PeerResourceRPC(rpc),
     social: new SocialRPC(rpc),
     workspace: new WorkspaceRPC(rpc),
   });
@@ -114,16 +126,36 @@ export function createPlayDataClientFromPeerConnection(pc: RTCPeerConnection): P
 
 export function createRPCPlayDataClient({
   firmware,
+  gameplay,
+  resources,
   social,
   workspace,
 }: {
   firmware: FirmwareRPC;
+  gameplay: GameplayRPC;
+  resources: PeerResourceRPC;
   social: SocialRPC;
   workspace: WorkspaceRPC;
 }): PlayDataClient {
   return {
     async loadSnapshot(): Promise<PlaySnapshot> {
-      const [runWorkspace, history, memoryStats, contacts, friends, friendGroups, firmwares] = await Promise.all([
+      const [
+        runWorkspace,
+        history,
+        memoryStats,
+        contacts,
+        friends,
+        friendGroups,
+        firmwares,
+        workspaces,
+        workflows,
+        models,
+        credentials,
+        pets,
+        rewards,
+        wallet,
+        walletTransactions,
+      ] = await Promise.all([
         captureCall("server.run.workspace.get", () => workspace.getRunWorkspace()),
         captureCall("server.run.workspace.history", () => workspace.listRunWorkspaceHistory({ limit: 30 })),
         captureCall("server.run.workspace.memory.stats", () => workspace.getRunWorkspaceMemoryStats()),
@@ -131,18 +163,48 @@ export function createRPCPlayDataClient({
         captureCall("server.friend.list", () => social.listFriends()),
         captureCall("server.friend_group.list", () => social.listFriendGroups()),
         captureCall("server.firmware.list", () => firmware.listFirmwares()),
+        captureCall("server.workspace.list", () => resources.listWorkspaces()),
+        captureCall("server.workflow.list", () => resources.listWorkflows()),
+        captureCall("server.model.list", () => resources.listModels()),
+        captureCall("server.credential.list", () => resources.listCredentials()),
+        captureCall("server.pet.list", () => gameplay.listPets()),
+        captureCall("server.reward.list", () => gameplay.listRewards()),
+        captureCall("server.wallet.get", () => gameplay.getWallet()),
+        captureCall("server.wallet.transactions.list", () => gameplay.listWalletTransactions()),
       ]);
       return {
         contacts: listItems(contacts.value).map((item) => itemToResourceRow(item, "contact")),
+        credentials: listItems(credentials.value).map((item) => itemToResourceRow(item, "credential")),
         firmwares: listItems(firmwares.value).map((item) => itemToResourceRow(item, "firmware")),
         friendGroups: listItems(friendGroups.value).map((item) => itemToResourceRow(item, "friend-group")),
         friends: listItems(friends.value).map((item) => itemToResourceRow(item, "friend")),
         history: listItems(history.value).map(itemToHistoryRow),
         memoryStats: memoryStatsToRow(memoryStats.value),
+        models: listItems(models.value).map((item) => itemToResourceRow(item, "model")),
+        pets: listItems(pets.value).map((item) => itemToResourceRow(item, "pet")),
+        rewards: listItems(rewards.value).map((item) => itemToResourceRow(item, "reward")),
         runWorkspace: workspaceState(runWorkspace.value),
-        warnings: [runWorkspace, history, memoryStats, contacts, friends, friendGroups, firmwares].flatMap((item) =>
-          item.warning ? [item.warning] : [],
-        ),
+        wallet: isRecord(wallet.value) ? itemToResourceRow(wallet.value, "wallet") : undefined,
+        walletTransactions: listItems(walletTransactions.value).map((item) => itemToResourceRow(item, "wallet-transaction")),
+        warnings: [
+          runWorkspace,
+          history,
+          memoryStats,
+          contacts,
+          friends,
+          friendGroups,
+          firmwares,
+          workspaces,
+          workflows,
+          models,
+          credentials,
+          pets,
+          rewards,
+          wallet,
+          walletTransactions,
+        ].flatMap((item) => (item.warning ? [item.warning] : [])),
+        workflows: listItems(workflows.value).map((item) => itemToResourceRow(item, "workflow")),
+        workspaces: listItems(workspaces.value).map((item) => itemToResourceRow(item, "workspace")),
       };
     },
     playHistory(historyID: string): Promise<unknown> {
