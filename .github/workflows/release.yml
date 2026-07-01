@@ -79,12 +79,7 @@ jobs:
           cache: true
 
       - name: Install UI dependencies
-        run: |
-          npm ci
-          npm ci --prefix cmd/ui
-
-      - name: Generate UI assets
-        run: go generate ./cmd/ui/admin ./cmd/ui/play
+        run: npm ci
 
       - name: Build gizclaw Darwin arm64 binary
         env:
