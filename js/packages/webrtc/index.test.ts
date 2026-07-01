@@ -9,6 +9,8 @@ import {
   GIZNET_WEBRTC_SIGNALING_PATH,
   RPC_FRAME_TYPE_EOS,
   RPC_FRAME_TYPE_JSON,
+  FirmwareRPC,
+  SocialRPC,
   WebRTCRPCClient,
   WebRTCRPCError,
   WorkspaceRPC,
@@ -126,6 +128,70 @@ test("WorkspaceRPC exposes workspace-related RPC methods", async () => {
     { method: "server.run.workspace.history.play", params: { history_id: "h1" } },
     { method: "server.run.workspace.recall", params: { query: "hello" } },
     { method: "server.workspace.history.list", params: { cursor: "c1", workspace_name: "main" } },
+  ]);
+});
+
+test("FirmwareRPC exposes firmware RPC methods", async () => {
+  const calls: Array<{ method: string; params: unknown }> = [];
+  const client = {
+    call: async (method: string, params: unknown) => {
+      calls.push({ method, params });
+      return { accepted: true };
+    },
+  } as unknown as WebRTCRPCClient;
+  const firmware = new FirmwareRPC(client);
+
+  await firmware.listFirmwares();
+  await firmware.getFirmware({ name: "devkit" });
+  await firmware.downloadFirmwareFile({ channel: "stable", name: "devkit", path: "firmware.bin" });
+
+  assert.deepEqual(calls, [
+    { method: "server.firmware.list", params: {} },
+    { method: "server.firmware.get", params: { name: "devkit" } },
+    { method: "server.firmware.files.download", params: { channel: "stable", name: "devkit", path: "firmware.bin" } },
+  ]);
+});
+
+test("SocialRPC exposes social RPC methods", async () => {
+  const calls: Array<{ method: string; params: unknown }> = [];
+  const client = {
+    call: async (method: string, params: unknown) => {
+      calls.push({ method, params });
+      return { accepted: true };
+    },
+  } as unknown as WebRTCRPCClient;
+  const social = new SocialRPC(client);
+
+  await social.listContacts();
+  await social.getFriendInviteToken();
+  await social.createFriendInviteToken();
+  await social.addFriend({ invite_token: "friend-token" });
+  await social.listFriends();
+  await social.deleteFriend({ friend_public_key: "peer-b" });
+  await social.listFriendGroups();
+  await social.getFriendGroup({ friend_group_id: "group-a" });
+  await social.createFriendGroup({ description: "demo", name: "Group A" });
+  await social.getFriendGroupInviteToken({ friend_group_id: "group-a" });
+  await social.joinFriendGroup({ invite_token: "group-token" });
+  await social.listFriendGroupMembers({ friend_group_id: "group-a" });
+  await social.listFriendGroupMessages({ cursor: "c1", friend_group_id: "group-a", limit: 10 });
+  await social.sendFriendGroupMessage({ friend_group_id: "group-a", text: "hello" });
+
+  assert.deepEqual(calls, [
+    { method: "server.contact.list", params: {} },
+    { method: "server.friend.invite_token.get", params: {} },
+    { method: "server.friend.invite_token.create", params: {} },
+    { method: "server.friend.add", params: { invite_token: "friend-token" } },
+    { method: "server.friend.list", params: {} },
+    { method: "server.friend.delete", params: { friend_public_key: "peer-b" } },
+    { method: "server.friend_group.list", params: {} },
+    { method: "server.friend_group.get", params: { friend_group_id: "group-a" } },
+    { method: "server.friend_group.create", params: { description: "demo", name: "Group A" } },
+    { method: "server.friend_group.invite_token.get", params: { friend_group_id: "group-a" } },
+    { method: "server.friend_group.join", params: { invite_token: "group-token" } },
+    { method: "server.friend_group.members.list", params: { friend_group_id: "group-a" } },
+    { method: "server.friend_group.messages.list", params: { cursor: "c1", friend_group_id: "group-a", limit: 10 } },
+    { method: "server.friend_group.messages.send", params: { friend_group_id: "group-a", text: "hello" } },
   ]);
 });
 

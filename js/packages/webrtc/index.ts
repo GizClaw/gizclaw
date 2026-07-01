@@ -307,6 +307,66 @@ export type WorkspaceRecallRequest = {
   query: string;
 };
 
+export type FirmwareGetRequest = {
+  name: string;
+};
+
+export type FirmwareFileDownloadRequest = {
+  channel: string;
+  name: string;
+  path: string;
+};
+
+export type ContactGetRequest = {
+  contact_id: string;
+};
+
+export type FriendAddRequest = {
+  invite_token: string;
+};
+
+export type FriendDeleteRequest = {
+  friend_public_key: string;
+};
+
+export type FriendGroupGetRequest = {
+  friend_group_id: string;
+};
+
+export type FriendGroupCreateRequest = {
+  description?: string;
+  name: string;
+};
+
+export type FriendGroupDeleteRequest = {
+  friend_group_id: string;
+};
+
+export type FriendGroupJoinRequest = {
+  invite_token: string;
+};
+
+export type FriendGroupMembersRequest = {
+  friend_group_id: string;
+};
+
+export type FriendGroupMessagesRequest = {
+  cursor?: string;
+  friend_group_id: string;
+  limit?: number;
+  order?: string;
+};
+
+export type FriendGroupMessageGetRequest = {
+  friend_group_id: string;
+  message_id: string;
+};
+
+export type FriendGroupMessageSendRequest = {
+  friend_group_id: string;
+  text: string;
+};
+
 export class WorkspaceRPC {
   private readonly client: WebRTCRPCClient;
 
@@ -348,6 +408,114 @@ export class WorkspaceRPC {
 
   getWorkspaceHistory<TResult = unknown>(request: WorkspaceHistoryGetRequest, options?: RPCCallOptions): Promise<TResult> {
     return this.client.call<TResult, WorkspaceHistoryGetRequest>("server.workspace.history.get", request, options);
+  }
+}
+
+export class FirmwareRPC {
+  private readonly client: WebRTCRPCClient;
+
+  constructor(client: WebRTCRPCClient) {
+    this.client = client;
+  }
+
+  listFirmwares<TResult = unknown>(options?: RPCCallOptions): Promise<TResult> {
+    return this.client.call<TResult>("server.firmware.list", {}, options);
+  }
+
+  getFirmware<TResult = unknown>(request: FirmwareGetRequest, options?: RPCCallOptions): Promise<TResult> {
+    return this.client.call<TResult, FirmwareGetRequest>("server.firmware.get", request, options);
+  }
+
+  downloadFirmwareFile<TResult = unknown>(request: FirmwareFileDownloadRequest, options?: RPCCallOptions): Promise<TResult> {
+    return this.client.call<TResult, FirmwareFileDownloadRequest>("server.firmware.files.download", request, options);
+  }
+}
+
+export class SocialRPC {
+  private readonly client: WebRTCRPCClient;
+
+  constructor(client: WebRTCRPCClient) {
+    this.client = client;
+  }
+
+  listContacts<TResult = unknown>(options?: RPCCallOptions): Promise<TResult> {
+    return this.client.call<TResult>("server.contact.list", {}, options);
+  }
+
+  getContact<TResult = unknown>(request: ContactGetRequest, options?: RPCCallOptions): Promise<TResult> {
+    return this.client.call<TResult, ContactGetRequest>("server.contact.get", request, options);
+  }
+
+  getFriendInviteToken<TResult = unknown>(options?: RPCCallOptions): Promise<TResult> {
+    return this.client.call<TResult>("server.friend.invite_token.get", {}, options);
+  }
+
+  createFriendInviteToken<TResult = unknown>(options?: RPCCallOptions): Promise<TResult> {
+    return this.client.call<TResult>("server.friend.invite_token.create", {}, options);
+  }
+
+  clearFriendInviteToken<TResult = unknown>(options?: RPCCallOptions): Promise<TResult> {
+    return this.client.call<TResult>("server.friend.invite_token.clear", {}, options);
+  }
+
+  addFriend<TResult = unknown>(request: FriendAddRequest, options?: RPCCallOptions): Promise<TResult> {
+    return this.client.call<TResult, FriendAddRequest>("server.friend.add", request, options);
+  }
+
+  listFriends<TResult = unknown>(options?: RPCCallOptions): Promise<TResult> {
+    return this.client.call<TResult>("server.friend.list", {}, options);
+  }
+
+  deleteFriend<TResult = unknown>(request: FriendDeleteRequest, options?: RPCCallOptions): Promise<TResult> {
+    return this.client.call<TResult, FriendDeleteRequest>("server.friend.delete", request, options);
+  }
+
+  listFriendGroups<TResult = unknown>(options?: RPCCallOptions): Promise<TResult> {
+    return this.client.call<TResult>("server.friend_group.list", {}, options);
+  }
+
+  getFriendGroup<TResult = unknown>(request: FriendGroupGetRequest, options?: RPCCallOptions): Promise<TResult> {
+    return this.client.call<TResult, FriendGroupGetRequest>("server.friend_group.get", request, options);
+  }
+
+  createFriendGroup<TResult = unknown>(request: FriendGroupCreateRequest, options?: RPCCallOptions): Promise<TResult> {
+    return this.client.call<TResult, FriendGroupCreateRequest>("server.friend_group.create", request, options);
+  }
+
+  deleteFriendGroup<TResult = unknown>(request: FriendGroupDeleteRequest, options?: RPCCallOptions): Promise<TResult> {
+    return this.client.call<TResult, FriendGroupDeleteRequest>("server.friend_group.delete", request, options);
+  }
+
+  getFriendGroupInviteToken<TResult = unknown>(request: FriendGroupGetRequest, options?: RPCCallOptions): Promise<TResult> {
+    return this.client.call<TResult, FriendGroupGetRequest>("server.friend_group.invite_token.get", request, options);
+  }
+
+  createFriendGroupInviteToken<TResult = unknown>(request: FriendGroupGetRequest, options?: RPCCallOptions): Promise<TResult> {
+    return this.client.call<TResult, FriendGroupGetRequest>("server.friend_group.invite_token.create", request, options);
+  }
+
+  clearFriendGroupInviteToken<TResult = unknown>(request: FriendGroupGetRequest, options?: RPCCallOptions): Promise<TResult> {
+    return this.client.call<TResult, FriendGroupGetRequest>("server.friend_group.invite_token.clear", request, options);
+  }
+
+  joinFriendGroup<TResult = unknown>(request: FriendGroupJoinRequest, options?: RPCCallOptions): Promise<TResult> {
+    return this.client.call<TResult, FriendGroupJoinRequest>("server.friend_group.join", request, options);
+  }
+
+  listFriendGroupMembers<TResult = unknown>(request: FriendGroupMembersRequest, options?: RPCCallOptions): Promise<TResult> {
+    return this.client.call<TResult, FriendGroupMembersRequest>("server.friend_group.members.list", request, options);
+  }
+
+  listFriendGroupMessages<TResult = unknown>(request: FriendGroupMessagesRequest, options?: RPCCallOptions): Promise<TResult> {
+    return this.client.call<TResult, FriendGroupMessagesRequest>("server.friend_group.messages.list", request, options);
+  }
+
+  getFriendGroupMessage<TResult = unknown>(request: FriendGroupMessageGetRequest, options?: RPCCallOptions): Promise<TResult> {
+    return this.client.call<TResult, FriendGroupMessageGetRequest>("server.friend_group.messages.get", request, options);
+  }
+
+  sendFriendGroupMessage<TResult = unknown>(request: FriendGroupMessageSendRequest, options?: RPCCallOptions): Promise<TResult> {
+    return this.client.call<TResult, FriendGroupMessageSendRequest>("server.friend_group.messages.send", request, options);
   }
 }
 

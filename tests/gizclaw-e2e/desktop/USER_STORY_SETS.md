@@ -10,4 +10,5 @@ the Go, JS, and cmd suites.
   runtime injection.
 - `admin/`: Admin resource navigation and generated-client WebRTC Admin API
   transport boundary.
-- `play/`: populated when the Play view is rewritten into the desktop app.
+- `play/`: Play workspace runtime, history replay, social/firmware resource
+  scanning, and direct WebRTC RPC transport boundary.

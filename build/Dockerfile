@@ -12,13 +12,11 @@ WORKDIR /src
 
 COPY . .
 
-RUN npm ci \
-    && npm ci --prefix cmd/ui
+RUN npm ci
 
 RUN --mount=type=cache,target=/root/.cache/go-build \
     --mount=type=cache,target=/go/pkg/mod \
-    go generate ./cmd/ui/admin ./cmd/ui/play \
-    && go build -trimpath -o /out/gizclaw ./cmd/gizclaw
+    go build -trimpath -o /out/gizclaw ./cmd/gizclaw
 
 FROM scratch AS artifact
 COPY --from=builder /out/gizclaw /gizclaw
