@@ -74,6 +74,7 @@ func isRetryableLiveWorkspaceError(err error) bool {
 		strings.Contains(text, "response incomplete: length") ||
 		strings.Contains(text, "flowcraft: claw event error: recall ingest: extract:") ||
 		strings.Contains(text, "speech: POST \"http://gizclaw/v1/audio/speech\": 400 Bad Request") ||
+		strings.Contains(text, "doubaospeech: [Server processing timeout] node execution timeout") ||
 		strings.Contains(text, "transcript mismatch: similarity")
 }
 

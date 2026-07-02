@@ -12,6 +12,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -489,8 +490,12 @@ func (d *personaDriver) verifyAssistantAudioASRWithMinRatio(ctx context.Context,
 	if minRatio <= 0 {
 		minRatio = assistantAudioASRMinRatio
 	}
+	expectedText := cleanAssistantSpokenText(assistantText)
+	if expectedText == "" {
+		expectedText = cleanUtterance(assistantText)
+	}
 	chunks := assistantASRFrameChunks(len(frames))
-	fmt.Printf("workspace_progress event=assistant_audio_asr_start workspace=%s round=%d name=%s frames=%d parts=%d assistant_chars=%d\n", d.cfg.Workspace, index, name, len(frames), len(chunks), runeCount(assistantText))
+	fmt.Printf("workspace_progress event=assistant_audio_asr_start workspace=%s round=%d name=%s frames=%d parts=%d assistant_chars=%d spoken_chars=%d\n", d.cfg.Workspace, index, name, len(frames), len(chunks), runeCount(assistantText), runeCount(expectedText))
 	var parts []string
 	started := time.Now()
 	for _, chunk := range chunks {
@@ -508,7 +513,7 @@ func (d *personaDriver) verifyAssistantAudioASRWithMinRatio(ctx context.Context,
 		fmt.Printf("workspace_progress event=assistant_audio_asr_part_done workspace=%s round=%d name=%s part=%d duration=%s text_chars=%d\n", d.cfg.Workspace, index, name, len(parts), time.Since(partStart).Truncate(time.Millisecond), runeCount(audioASR))
 	}
 	audioASR := strings.TrimSpace(strings.Join(parts, " "))
-	if err := assertTextSimilar("assistant audio asr", assistantText, audioASR, minRatio); err != nil {
+	if err := assertTextSimilar("assistant audio asr", expectedText, audioASR, minRatio); err != nil {
 		return "", err
 	}
 	fmt.Printf("workspace_progress event=assistant_audio_asr_done workspace=%s round=%d name=%s duration=%s text_chars=%d\n", d.cfg.Workspace, index, name, time.Since(started).Truncate(time.Millisecond), runeCount(audioASR))
@@ -1318,6 +1323,50 @@ func cleanUtterance(text string) string {
 	text = strings.Trim(text, "`\"'“”‘’ \t\r\n")
 	text = strings.ReplaceAll(text, "\n", "")
 	return strings.TrimSpace(text)
+}
+
+var (
+	assistantSpokenXMLBlockPattern = regexp.MustCompile(`(?is)<\s*[A-Za-z][A-Za-z0-9:_-]*\b[^<>]*>.*?</\s*[A-Za-z][A-Za-z0-9:_-]*\s*>`)
+	assistantSpokenXMLTagPattern   = regexp.MustCompile(`</?[A-Za-z][A-Za-z0-9:_-]*(?:\s+[^<>]*)?/?>`)
+)
+
+func cleanAssistantSpokenText(text string) string {
+	text = cleanUtterance(text)
+	if text == "" {
+		return ""
+	}
+	text = trimAssistantToolMarkupTail(text)
+	text = removeAssistantXMLBlocks(text)
+	text = assistantSpokenXMLTagPattern.ReplaceAllString(text, "")
+	return cleanUtterance(text)
+}
+
+func trimAssistantToolMarkupTail(text string) string {
+	lower := strings.ToLower(text)
+	cut := len(text)
+	for _, marker := range []string{
+		"<seed:_tool_call",
+		"<tool_call",
+		"<node id=\"tool_call\"",
+		"<node id='tool_call'",
+		"<function",
+		"<parameter",
+	} {
+		if idx := strings.Index(lower, marker); idx >= 0 && idx < cut {
+			cut = idx
+		}
+	}
+	return strings.TrimSpace(text[:cut])
+}
+
+func removeAssistantXMLBlocks(text string) string {
+	for {
+		next := assistantSpokenXMLBlockPattern.ReplaceAllString(text, "")
+		if next == text {
+			return text
+		}
+		text = next
+	}
 }
 
 func eventLabel(event apitypes.PeerStreamEvent) string {

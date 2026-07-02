@@ -101,6 +101,12 @@ func TestTextHelpers(t *testing.T) {
 	if got := cleanUtterance(" “你好\n测试” "); got != "你好测试" {
 		t.Fatalf("cleanUtterance() = %q", got)
 	}
+	if got := cleanAssistantSpokenText(`你是3号平民，轮到你发言。<seed:_tool_call><function werewolf><parameter name="event_type">night</parameter></function>`); got != "你是3号平民，轮到你发言。" {
+		t.Fatalf("cleanAssistantSpokenText(tool call) = %q", got)
+	}
+	if got := cleanAssistantSpokenText(`<node id="answer">不要念出来</node>请继续。`); got != "请继续。" {
+		t.Fatalf("cleanAssistantSpokenText(xml block) = %q", got)
+	}
 	if got := normalizeTranscript("A-猫，12!"); got != "a猫12" {
 		t.Fatalf("normalizeTranscript() = %q", got)
 	}

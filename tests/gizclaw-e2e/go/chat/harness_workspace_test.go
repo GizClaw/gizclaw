@@ -160,6 +160,7 @@ func TestRetryableLiveWorkspaceError(t *testing.T) {
 		errors.New("bytedance: response incomplete: length"),
 		errors.New("buffer: read from closed buffer: genx: generate error: flowcraft: claw event error: recall ingest: extract: recall two-pass extractor: content llm: bytedance.generate: 15.007s"),
 		errors.New("speech: POST \"http://gizclaw/v1/audio/speech\": 400 Bad Request"),
+		errors.New("peer event error: buffer: read from closed buffer: doubaospeech: [Server processing timeout] node execution timeout (code=55001010)"),
 		errors.New("interrupt second transcript mismatch: similarity 0.21 below 0.45"),
 	}
 	for _, err := range retryable {
