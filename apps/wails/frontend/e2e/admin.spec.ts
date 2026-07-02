@@ -16,11 +16,18 @@ test.beforeEach(async ({ page }) => {
       { description: "Use workspaces, chat history, social, and firmware flows.", id: "play", title: "Play" },
     ];
     const pageResponse = (items) => ({ has_next: false, items, next_cursor: null });
+    const adminFetchPaths: string[] = [];
     const json = (data) =>
       new Response(JSON.stringify(data), {
         headers: { "content-type": "application/json" },
         status: 200,
       });
+    const ogg = () =>
+      new Response(new Uint8Array([0x4f, 0x67, 0x67, 0x53]), {
+        headers: { "content-type": "audio/ogg" },
+        status: 200,
+      });
+    const friend = { id: "peer-a:peer-b", owner_public_key: "peer-a", peer_public_key: "peer-b", workspace_name: "friend-workspace" };
     const data = {
       "/acl/policy-bindings": pageResponse([
         {
@@ -50,12 +57,17 @@ test.beforeEach(async ({ page }) => {
       "/server-info": { build_commit: "test-build", public_key: "server-public-key" },
       "/social/contacts": pageResponse([{ id: "contact-admin", name: "Admin Contact", owner_public_key: "peer-public-key-1" }]),
       "/social/friend-groups": pageResponse([{ id: "group-main", name: "Main Group", my_role: "owner", workspace_name: "group-workspace" }]),
-      "/social/friends": pageResponse([{ id: "peer-b", owner_public_key: "peer-a", peer_public_key: "peer-b", workspace_name: "friend-workspace" }]),
+      "/social/friends": pageResponse([friend]),
+      "/social/friends/peer-a/peer-a:peer-b": friend,
+      "/workspaces/friend-workspace/history": pageResponse([
+        { created_at: "2026-07-01T00:00:00Z", id: "20260701T000000Z-1", name: "transcript", replay_available: true, text: "你好，开始测试。", type: "gear" },
+      ]),
       "/voices": pageResponse([{ id: "volc-voice-000", name: "Volc Voice", provider: { kind: "volc-tenant", name: "volc-tenant" }, source: "sync", updated_at: "2026-07-01T00:00:00Z" }]),
       "/volc-tenants": pageResponse([{ credential_name: "volc-credential", name: "volc-tenant", updated_at: "2026-07-01T00:00:00Z" }]),
       "/workflows": pageResponse([{ metadata: { name: "openai-chat" }, spec: { driver: "workflow" } }]),
       "/workspaces": pageResponse([{ name: "main-workspace", workflow_name: "openai-chat", updated_at: "2026-07-01T00:00:00Z" }]),
     };
+    window.__GIZCLAW_DESKTOP_TEST_ADMIN_FETCH_PATHS__ = adminFetchPaths;
     window.__GIZCLAW_DESKTOP_TEST_API__ = {
       async Bootstrap() {
         return { contexts: [context], state: { last_context: "local", last_view: "admin" }, view_session: session, views };
@@ -89,7 +101,12 @@ test.beforeEach(async ({ page }) => {
     };
     window.__GIZCLAW_DESKTOP_TEST_ADMIN_FETCH__ = async (input) => {
       const url = new URL(typeof input === "string" ? input : input.url);
-      return json(data[url.pathname] ?? pageResponse([]));
+      const path = decodeURIComponent(url.pathname);
+      adminFetchPaths.push(path);
+      if (path === "/workspaces/friend-workspace/history/20260701T000000Z-1/audio.ogg") {
+        return ogg();
+      }
+      return json(data[path] ?? pageResponse([]));
     };
   });
 });
@@ -182,3 +199,27 @@ test("admin view covers provider, AI, social, business, and settings sections", 
   await expect(page.getByRole("heading", { name: "Access Control" })).toBeVisible();
   await expect(page.getByText("binding-admin")).toBeVisible();
 });
+
+test("admin social friend detail loads workspace history and downloads audio", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Get Started" }).click();
+
+  await page.getByRole("button", { name: "Friends" }).click();
+  await page.getByRole("link", { name: /peer-a <-> peer-b/ }).click();
+
+  await expect(page.getByRole("heading", { name: "peer-a" })).toBeVisible();
+  await expect(page.getByText("friend-workspace").first()).toBeVisible();
+  await expect(page.getByText("Workspace History")).toBeVisible();
+  await expect(page.getByText("你好，开始测试。")).toBeVisible();
+
+  await page.getByRole("row").filter({ hasText: "你好，开始测试。" }).getByRole("button", { name: "Play" }).click();
+
+  await expect.poll(() => page.evaluate(() => window.__GIZCLAW_DESKTOP_TEST_ADMIN_FETCH_PATHS__ ?? [])).toContain("/workspaces/friend-workspace/history");
+  await expect.poll(() => page.evaluate(() => window.__GIZCLAW_DESKTOP_TEST_ADMIN_FETCH_PATHS__ ?? [])).toContain("/workspaces/friend-workspace/history/20260701T000000Z-1/audio.ogg");
+});
+
+declare global {
+  interface Window {
+    __GIZCLAW_DESKTOP_TEST_ADMIN_FETCH_PATHS__?: string[];
+  }
+}
