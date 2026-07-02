@@ -5,7 +5,6 @@ script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd "$script_dir/../../.." && pwd)"
 testdata_dir="$repo_root/tests/gizclaw-e2e/testdata"
 workspace_dir="$testdata_dir/server-workspace"
-desktop_dir="$testdata_dir/desktop"
 target="${1:-all}"
 server_launch_label="com.gizclaw.e2e.server.$(printf '%s' "$repo_root" | cksum | awk '{print $1}')"
 
@@ -43,15 +42,9 @@ case "$target" in
       launchctl remove "$server_launch_label" >/dev/null 2>&1 || true
     fi
     stop_pid_file "server" "$workspace_dir/gizclaw-server.pid"
-    if [[ "$target" == "all" ]]; then
-      stop_pid_file "desktop" "$desktop_dir/gizclaw-desktop.pid"
-    fi
-    ;;
-  desktop)
-    stop_pid_file "desktop" "$desktop_dir/gizclaw-desktop.pid"
     ;;
   *)
-    echo "usage: $0 [all|server|desktop]" >&2
+    echo "usage: $0 [all|server]" >&2
     exit 2
     ;;
 esac

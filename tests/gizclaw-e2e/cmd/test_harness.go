@@ -764,19 +764,10 @@ func (h *Harness) waitForSetupServerReady() {
 
 	setupConfigHome := e2eConfigHome(h.RepoRoot)
 	setupContext := setupAdminContextName()
-	if err := h.probeSetupServer(setupConfigHome, setupContext, 2*time.Second); err != nil {
-		startScript := filepath.Join(h.RepoRoot, "tests", "gizclaw-e2e", "setup", "start-server.sh")
-		cmd := exec.Command(startScript)
-		cmd.Dir = h.RepoRoot
-		output, startErr := cmd.CombinedOutput()
-		if startErr != nil {
-			h.t.Fatalf("start setup server: %v\n%s", startErr, string(output))
-		}
-	}
 	if err := waitUntil(readyTimeout, func() error {
 		return h.probeSetupServer(setupConfigHome, setupContext, 2*time.Second)
 	}); err != nil {
-		h.t.Fatalf("setup server did not become ready: %v\nrun tests/gizclaw-e2e/setup/start-server.sh before setup-driven cmd tests", err)
+		h.t.Fatalf("setup server did not become ready: %v\nstart the Docker e2e stack with tests/gizclaw-e2e/run_tests.sh or docker compose -f tests/gizclaw-e2e/docker/docker-compose.yaml up -d --build", err)
 	}
 }
 

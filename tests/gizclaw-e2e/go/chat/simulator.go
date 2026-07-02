@@ -318,7 +318,7 @@ func (d *personaDriver) runRound(ctx context.Context, index int, mode conversati
 	responseTimeout := d.roundResponseTimeout()
 	responseDeadline := time.NewTimer(responseTimeout)
 	defer responseDeadline.Stop()
-	for transcriptText == "" || stat.TranscriptDone == 0 || stat.AssistantTextDone == 0 || stat.DownlinkPackets == 0 || !assistantAudioDone || settle != nil {
+	for sendDone != nil || transcriptText == "" || stat.TranscriptDone == 0 || stat.AssistantTextDone == 0 || stat.DownlinkPackets == 0 || !assistantAudioDone || settle != nil {
 		select {
 		case <-ctx.Done():
 			return stat, fmt.Errorf("round %d: wait response: %w; recent events: %s", index, ctx.Err(), trace.String())
@@ -349,6 +349,9 @@ func (d *personaDriver) runRound(ctx context.Context, index int, mode conversati
 			stat.UplinkSend = time.Since(uplinkStart)
 			fmt.Printf("workspace_progress event=uplink_done workspace=%s round=%d stream=%s duration=%s\n", d.cfg.Workspace, index, streamID, stat.UplinkSend.Truncate(time.Millisecond))
 			sendDone = nil
+			if assistantAudioDone && settle == nil {
+				settle = time.After(700 * time.Millisecond)
+			}
 		case received := <-d.transport.events:
 			event := received.event
 			label := eventLabel(event)
@@ -380,7 +383,11 @@ func (d *personaDriver) runRound(ctx context.Context, index int, mode conversati
 					continue
 				}
 				assistantAudioDone = true
-				settle = time.After(700 * time.Millisecond)
+				if sendDone == nil {
+					settle = time.After(700 * time.Millisecond)
+				} else {
+					trace.add("assistant audio segment eos before uplink done stream=%s", eventStreamID(event))
+				}
 				fmt.Printf("workspace_progress event=assistant_audio_done workspace=%s round=%d stream=%s after_eos=%s packets=%d bytes=%d\n", d.cfg.Workspace, index, eventStreamID(event), afterStartLatency(received.receivedAt, responseStart).Truncate(time.Millisecond), stat.DownlinkPackets, stat.DownlinkBytes)
 				continue
 			}
@@ -997,6 +1004,19 @@ func (d *personaDriver) synthesizeOpusOnce(ctx context.Context, text string) ([]
 }
 
 func isRetryableSpeechError(err error) bool {
+	if errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) {
+		return true
+	}
+	var netErr interface {
+		Temporary() bool
+		Timeout() bool
+	}
+	if errors.As(err, &netErr) && (netErr.Temporary() || netErr.Timeout()) {
+		return true
+	}
+	if strings.Contains(strings.ToLower(err.Error()), "speech returned empty audio") {
+		return true
+	}
 	var apiErr *openai.Error
 	if !errors.As(err, &apiErr) {
 		return false
@@ -1089,6 +1109,9 @@ func (d *personaDriver) assistantAudioASRSkipReason(mode conversationMode) strin
 	}
 	if d == nil || !d.cfg.isASTTranslateAgent() {
 		return ""
+	}
+	if mode.Realtime {
+		return "ast-translate-realtime-provider-segmented-audio"
 	}
 	pair := strings.ToLower(strings.TrimSpace(d.cfg.Workflow.Parameters.LangPair))
 	if pair == "" || pair == "auto" {

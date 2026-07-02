@@ -467,6 +467,44 @@ func TestPersonaDriverSynthesizeRetriesRetryableAPIError(t *testing.T) {
 	}
 }
 
+func TestPersonaDriverSynthesizeRetriesEmptyAudio(t *testing.T) {
+	oggAudio := testOggOpus(t, [][]byte{
+		[]byte("OpusHeadxxxx"),
+		[]byte("OpusTagsyyyy"),
+		{0x11, 0x22},
+	})
+	attempts := 0
+	client := openai.NewClient(
+		option.WithAPIKey("test"),
+		option.WithBaseURL("http://gizclaw/v1"),
+		option.WithHTTPClient(&http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+			if !strings.HasSuffix(req.URL.Path, "/audio/speech") {
+				t.Fatalf("unexpected OpenAI path %s", req.URL.Path)
+			}
+			attempts++
+			if attempts == 1 {
+				return binaryResponse("audio/ogg", nil), nil
+			}
+			return binaryResponse("audio/ogg", oggAudio), nil
+		})}),
+	)
+	driver := &personaDriver{
+		cfg: config{
+			Models: modelConfig{TTS: "tts"},
+			Voice:  "voice",
+		},
+		client: client,
+	}
+
+	audio, packets, err := driver.synthesizeOpus(context.Background(), "你好测试")
+	if err != nil {
+		t.Fatalf("synthesizeOpus() error = %v", err)
+	}
+	if attempts != 2 || !bytes.Equal(audio, oggAudio) || len(packets) != 1 || !bytes.Equal(packets[0], []byte{0x11, 0x22}) {
+		t.Fatalf("synthesizeOpus() attempts/audio/packets = %d/%d/%#v", attempts, len(audio), packets)
+	}
+}
+
 func TestPersonaDriverTranscribeRetriesRetryableAPIError(t *testing.T) {
 	audioPath := filepath.Join(t.TempDir(), "input.ogg")
 	if err := os.WriteFile(audioPath, []byte("audio"), 0o644); err != nil {
@@ -519,6 +557,9 @@ func TestPersonaDriverSkipsAssistantAudioASRForJapaneseASTTarget(t *testing.T) {
 	driver.cfg.Workflow.Parameters.LangPair = "zh/en"
 	if got := driver.assistantAudioASRSkipReason(conversationMode{}); got != "" {
 		t.Fatalf("assistantAudioASRSkipReason(zh/en) = %q", got)
+	}
+	if got := driver.assistantAudioASRSkipReason(conversationMode{Realtime: true}); got != "ast-translate-realtime-provider-segmented-audio" {
+		t.Fatalf("assistantAudioASRSkipReason(zh/en realtime) = %q", got)
 	}
 	if got := driver.assistantAudioASRSkipReason(conversationMode{SkipAssistantAudioASR: true}); got != "human-review" {
 		t.Fatalf("assistantAudioASRSkipReason(human-review) = %q", got)

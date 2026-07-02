@@ -72,6 +72,7 @@ func isRetryableLiveWorkspaceError(err error) bool {
 		strings.Contains(text, "websocket: close 1006 (abnormal closure): unexpected EOF") ||
 		strings.Contains(text, "transport: kcp: timeout") ||
 		strings.Contains(text, "response incomplete: length") ||
+		strings.Contains(text, "flowcraft: claw event error: recall ingest: extract:") ||
 		strings.Contains(text, "speech: POST \"http://gizclaw/v1/audio/speech\": 400 Bad Request") ||
 		strings.Contains(text, "transcript mismatch: similarity")
 }

@@ -9,9 +9,10 @@ runs.
 ## Modules
 
 - `testdata/`: committed identity/resource data plus ignored generated runtime files.
-- `setup/`: lifecycle scripts for building the CLI, starting services,
-  preparing the desktop shell, resetting shared data, granting the default
-  client view, and stopping services.
+- `docker/`: Docker Compose e2e stack for the setup server and desktop surface.
+- `setup/`: local fallback scripts and container-internal setup steps for
+  building the CLI, resetting shared data, granting the default client view,
+  and stopping local fallback services.
 - `cmd/`: user-facing `gizclaw` CLI command e2e tests.
 - `go/`: Go Admin API, RPC, chat, and social e2e tests.
 - `js/`: reserved JavaScript/TypeScript package e2e suites.
@@ -32,11 +33,12 @@ runs.
 ./tests/gizclaw-e2e/run_tests.sh
 ```
 
-The script builds the e2e CLI, resets server data, then runs JS WebRTC,
+The script builds the host e2e CLI, starts an isolated Docker Compose stack,
+waits for the Docker server and Docker desktop surface, writes generated
+host-side config under `testdata/docker/<project>/`, then runs JS WebRTC,
 desktop shell, Go Admin API, chat, RPC, social, and selected CLI suites one at
-a time. It excludes
-human-review cases, which require separate interactive audio review. It stops
-e2e services on success or failure.
+a time. It excludes human-review cases, which require separate interactive
+audio review. It stops the Compose stack on success or failure.
 
 For debugging, the same flow can be run manually.
 
@@ -46,19 +48,48 @@ Human-review cases are not part of the default e2e gate. Run them explicitly:
 ./tests/gizclaw-e2e/run_human_review_tests.sh
 ```
 
-3. Build the e2e CLI binary:
+3. Start a Docker e2e stack manually:
+
+```sh
+docker build -f build/Dockerfile.cn.base \
+  -t gizclaw-go:linux-amd64-cn-base \
+  build
+
+project=gizclaw-e2e-manual
+compose_file=tests/gizclaw-e2e/docker/docker-compose.yaml
+docker compose -p "$project" -f "$compose_file" up -d --build
+
+server_port=$(docker compose -p "$project" -f "$compose_file" port server 9820 | awk -F: '{print $NF}')
+desktop_port=$(docker compose -p "$project" -f "$compose_file" port desktop 4191 | awk -F: '{print $NF}')
+
+export GIZCLAW_E2E_SERVER_ENDPOINT="127.0.0.1:${server_port}"
+export GIZCLAW_E2E_DESKTOP_URL="http://127.0.0.1:${desktop_port}"
+```
+
+The Compose file owns Docker lifecycle. Use normal Compose commands for logs,
+status, and shutdown:
+
+```sh
+docker compose -p "$project" -f "$compose_file" logs -f
+docker compose -p "$project" -f "$compose_file" down -v
+```
+
+4. Build the host e2e CLI binary:
 
 ```sh
 ./tests/gizclaw-e2e/setup/build.sh
 ```
 
-4. Start the local e2e server:
+5. Local fallback only: start the e2e server on the committed fixed endpoint:
 
 ```sh
 ./tests/gizclaw-e2e/setup/start-server.sh
 ```
 
-5. Clear and initialize server resources:
+This path is not the default e2e lifecycle. It is useful for debugging a single
+local checkout when port collisions are not a concern.
+
+6. Local fallback only: clear and initialize server resources:
 
 ```sh
 ./tests/gizclaw-e2e/setup/reset_data.sh
@@ -76,7 +107,7 @@ workflows, workspaces, firmware metadata, ACL rows, and social graph
 resources. It does not call provider sync operations. It must not seed runtime
 history, message records, replay audio, or other non-resource state.
 
-6. Run Go API/RPC tests that create runtime state:
+7. Run Go API/RPC tests that create runtime state:
 
 ```sh
 go test -tags gizclaw_e2e -count=1 -skip '^(TestHumanReview|TestServerSocialRPCHumanReview)$' ./tests/gizclaw-e2e/go/admin
@@ -85,35 +116,37 @@ go test -tags gizclaw_e2e -count=1 -skip '^(TestHumanReview|TestServerSocialRPCH
 go test -tags gizclaw_e2e -count=1 -skip '^(TestHumanReview|TestServerSocialRPCHumanReview)$' ./tests/gizclaw-e2e/go/social
 ```
 
-7. Run desktop shell tests against the same setup context model:
+8. Run desktop shell tests against the same setup context model:
 
 ```sh
-./tests/gizclaw-e2e/setup/build-desktop.sh
 go test -tags gizclaw_e2e -count=1 ./tests/gizclaw-e2e/desktop/...
 ```
 
-For manual browser inspection of the current desktop frontend surface:
+When `GIZCLAW_E2E_DESKTOP_URL` is set, Playwright uses that existing desktop
+surface and does not start a local Vite process. For manual frontend inspection
+outside the Docker e2e lifecycle, start the Vite app directly:
 
 ```sh
-./tests/gizclaw-e2e/setup/start-desktop.sh
+npm --workspace @gizclaw/desktop run dev
 ```
 
-8. Run CLI story tests against the same setup-created server and resource
+9. Run CLI story tests against the same setup-created server and resource
    catalog:
 
 ```sh
 go test -tags gizclaw_e2e -count=1 ./tests/gizclaw-e2e/cmd/connect
 ```
 
-9. Stop e2e services when finished:
+10. Stop local fallback services when finished:
 
 ```sh
 ./tests/gizclaw-e2e/setup/stop.sh
 ```
 
-The full e2e run is intentionally ordered. Setup creates resource state, and
-Go/JS/Desktop tests exercise the server and create runtime state through public
-API/RPC paths. Do not make tests depend on setup-created runtime records.
+The full e2e run is intentionally ordered. The Docker server initializes
+resource state through the setup scripts, and Go/JS/Desktop tests exercise the
+server and create runtime state through public API/RPC paths. Do not make tests
+depend on setup-created runtime records.
 
 ## Test Data
 

@@ -1,0 +1,16 @@
+ARG BASE_IMAGE=gizclaw-go:linux-amd64-cn-base
+FROM ${BASE_IMAGE}
+
+WORKDIR /src
+
+COPY package.json package-lock.json ./
+COPY apps/wails/frontend/package.json apps/wails/frontend/package.json
+COPY js/package.json js/package.json
+COPY js/packages/gizclaw/package.json js/packages/gizclaw/package.json
+COPY js/packages/pixa/package.json js/packages/pixa/package.json
+
+RUN npm ci
+
+COPY . .
+
+ENTRYPOINT ["/src/tests/gizclaw-e2e/docker/entrypoint-desktop.sh"]

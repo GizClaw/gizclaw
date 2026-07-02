@@ -1,7 +1,16 @@
 import { defineConfig, devices } from "@playwright/test";
 
 const port = process.env.GIZCLAW_DESKTOP_E2E_PORT ?? "4191";
-const baseURL = `http://127.0.0.1:${port}`;
+const baseURL = process.env.GIZCLAW_E2E_DESKTOP_URL ?? `http://127.0.0.1:${port}`;
+const webServer = process.env.GIZCLAW_E2E_DESKTOP_URL
+  ? undefined
+  : {
+      command: `npm run dev -- --port ${port}`,
+      url: baseURL,
+      reuseExistingServer: false,
+      stdout: "pipe" as const,
+      stderr: "pipe" as const,
+    };
 
 export default defineConfig({
   testDir: "./e2e",
@@ -14,11 +23,5 @@ export default defineConfig({
     channel: "chrome",
     baseURL,
   },
-  webServer: {
-    command: `npm run dev -- --port ${port}`,
-    url: baseURL,
-    reuseExistingServer: false,
-    stdout: "pipe",
-    stderr: "pipe",
-  },
+  webServer,
 });

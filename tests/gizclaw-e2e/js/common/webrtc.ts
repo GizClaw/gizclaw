@@ -54,7 +54,7 @@ export async function assertSetupServerAvailable(endpoint: string): Promise<void
     }
   } catch (err) {
     throw new Error(
-      `gizclaw e2e setup server is required at ${endpoint}; run tests/gizclaw-e2e/setup/start-server.sh before this JS e2e test`,
+      `gizclaw e2e setup server is required at ${endpoint}; start the Docker e2e stack before this JS e2e test`,
       { cause: err },
     );
   }

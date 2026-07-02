@@ -728,6 +728,62 @@ func TestServerSyncMiniMaxTenantVoicesUsesTenantBaseURL(t *testing.T) {
 	}
 }
 
+func TestServerSyncMiniMaxTenantVoicesRetriesTransientEOF(t *testing.T) {
+	t.Parallel()
+
+	var callCount atomic.Int32
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if callCount.Add(1) == 1 {
+			conn, _, err := http.NewResponseController(w).Hijack()
+			if err != nil {
+				t.Fatalf("hijack transient EOF response: %v", err)
+			}
+			_ = conn.Close()
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{
+			"base_resp":{"status_code":0,"status_msg":"ok"},
+			"voices":[{"voice_id":"voice-1","voice_name":"retry narrator","voice_type":"system"}],
+			"has_more":false
+		}`))
+	}))
+	defer upstream.Close()
+
+	srv := newTestServer(t)
+	srv.MiniMaxBaseURLs = []string{upstream.URL}
+	ctx := context.Background()
+	seedCredential(t, srv, apitypes.Credential{
+		Name:      "cred-main",
+		Provider:  "minimax",
+		Body:      testMiniMaxCredentialBody("mmx-key"),
+		CreatedAt: srv.now(),
+		UpdatedAt: srv.now(),
+	})
+	tenantBody := mustMiniMaxTenantUpsert(t, `{
+		"name": "tenant-a",
+		"app_id": "app-1",
+		"group_id": "group-1",
+		"credential_name": "cred-main"
+	}`)
+	tenantBody.BaseUrl = stringPtr(upstream.URL)
+	if _, err := srv.CreateMiniMaxTenant(ctx, adminservice.CreateMiniMaxTenantRequestObject{Body: &tenantBody}); err != nil {
+		t.Fatalf("CreateMiniMaxTenant() error = %v", err)
+	}
+
+	resp, err := srv.SyncMiniMaxTenantVoices(ctx, adminservice.SyncMiniMaxTenantVoicesRequestObject{Name: "tenant-a"})
+	if err != nil {
+		t.Fatalf("SyncMiniMaxTenantVoices() error = %v", err)
+	}
+	syncResp, ok := resp.(adminservice.SyncMiniMaxTenantVoices200JSONResponse)
+	if !ok {
+		t.Fatalf("SyncMiniMaxTenantVoices() response = %#v", resp)
+	}
+	if syncResp.CreatedCount != 1 || callCount.Load() != 5 {
+		t.Fatalf("sync result = %#v, upstream calls = %d", syncResp, callCount.Load())
+	}
+}
+
 func TestServerSyncMiniMaxTenantVoicesCredentialRejected(t *testing.T) {
 	t.Parallel()
 

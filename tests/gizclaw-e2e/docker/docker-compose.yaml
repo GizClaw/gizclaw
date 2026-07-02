@@ -1,0 +1,46 @@
+services:
+  server:
+    platform: linux/amd64
+    build:
+      context: ../../..
+      dockerfile: tests/gizclaw-e2e/docker/Dockerfile.server
+      args:
+        BASE_IMAGE: ${GIZCLAW_E2E_DOCKER_BASE_IMAGE:-gizclaw-go:linux-amd64-cn-base}
+    environment:
+      GIZCLAW_E2E_CONFIG_HOME: /src/tests/gizclaw-e2e/testdata/cmd-config-home
+      GIZCLAW_E2E_SERVER_ADDR: 127.0.0.1:9820
+    ports:
+      - "127.0.0.1::9820/tcp"
+      - "127.0.0.1::9820/udp"
+    volumes:
+      - type: bind
+        source: ../.env
+        target: /src/tests/gizclaw-e2e/.env
+        read_only: true
+        bind:
+          create_host_path: false
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:9820/server-info >/dev/null"]
+      interval: 2s
+      timeout: 1s
+      retries: 60
+      start_period: 10s
+
+  desktop:
+    platform: linux/amd64
+    build:
+      context: ../../..
+      dockerfile: tests/gizclaw-e2e/docker/Dockerfile.desktop
+      args:
+        BASE_IMAGE: ${GIZCLAW_E2E_DOCKER_BASE_IMAGE:-gizclaw-go:linux-amd64-cn-base}
+    depends_on:
+      server:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1::4191/tcp"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:4191/ >/dev/null"]
+      interval: 2s
+      timeout: 1s
+      retries: 60
+      start_period: 5s

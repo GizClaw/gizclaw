@@ -1,7 +1,7 @@
 # GizClaw JS E2E
 
 This directory is reserved for JavaScript and TypeScript e2e suites that use the
-shared `setup/` server and `testdata/` fixtures.
+Docker e2e server and `testdata/` fixtures.
 
 Expected suites:
 
@@ -20,7 +20,15 @@ Current coverage:
   `testdata/identities/peer` to establish a real server-public WebRTC
   connection, then runs `all.ping` over the RPC service data channel.
 
-Run after `setup/start-server.sh` and `setup/reset_data.sh reset`:
+Run through the default Docker e2e gate:
+
+```bash
+./tests/gizclaw-e2e/run_tests.sh
+```
+
+For focused manual runs, start the Docker Compose stack from the repository
+root, export the generated identity directories from
+`tests/gizclaw-e2e/testdata/docker/<project>/docker.env`, then run:
 
 ```bash
 cd tests/gizclaw-e2e/js

@@ -158,6 +158,7 @@ func TestRetryableLiveWorkspaceError(t *testing.T) {
 		errors.New("ast websocket read: websocket: close 1006 (abnormal closure): unexpected EOF"),
 		errors.New("round 2: transport: kcp: timeout; recent events: none"),
 		errors.New("bytedance: response incomplete: length"),
+		errors.New("buffer: read from closed buffer: genx: generate error: flowcraft: claw event error: recall ingest: extract: recall two-pass extractor: content llm: bytedance.generate: 15.007s"),
 		errors.New("speech: POST \"http://gizclaw/v1/audio/speech\": 400 Bad Request"),
 		errors.New("interrupt second transcript mismatch: similarity 0.21 below 0.45"),
 	}
@@ -795,6 +796,36 @@ func TestValidateWorkspaceRuntimeAllowsDisabledMemory(t *testing.T) {
 		t.Fatalf("validateWorkspaceRuntime() error = %v", err)
 	}
 	if report == nil || !report.MemoryAvailable || report.MemoryEnabled || report.RecallAvailable {
+		t.Fatalf("runtime report = %+v", report)
+	}
+}
+
+func TestValidateWorkspaceRuntimeAllowsMissingReplayWhenConfigured(t *testing.T) {
+	workspace := "flowcraft-voice"
+	control := &fakeRunControl{
+		workspaceStates: []*rpcapi.ServerGetRunWorkspaceResponse{
+			{RuntimeState: rpcapi.PeerRunStatusStateRunning, WorkspaceName: workspace},
+		},
+		history: &rpcapi.ServerListRunWorkspaceHistoryResponse{
+			Available: true,
+			Items: []rpcapi.PeerRunHistoryEntry{{
+				Id:              "gear:000000",
+				CreatedAt:       time.Now(),
+				Name:            "transcript",
+				ReplayAvailable: false,
+				Text:            "用户输入",
+				Type:            rpcapi.PeerRunHistoryEntryTypeGear,
+			}},
+		},
+	}
+	report, err := validateWorkspaceRuntime(context.Background(), nil, control, config{
+		Workspace: workspace,
+		Agent:     "flowcraft",
+	}, []roundStats{{Transcript: "你好"}}, workspaceRuntimeValidationOptions{AllowMissingReplay: true})
+	if err != nil {
+		t.Fatalf("validateWorkspaceRuntime() error = %v", err)
+	}
+	if report == nil || report.HistoryCount != 1 || report.ReplayState != "" || report.ReplayHistoryID != "" {
 		t.Fatalf("runtime report = %+v", report)
 	}
 }

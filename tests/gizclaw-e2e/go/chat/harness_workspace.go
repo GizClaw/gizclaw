@@ -49,7 +49,8 @@ type workspaceCaseResult struct {
 }
 
 type workspaceRuntimeValidationOptions struct {
-	Replay historyReplayVerifyOptions
+	AllowMissingReplay bool
+	Replay             historyReplayVerifyOptions
 }
 
 func (c workspaceCase) runtimeValidationOptions() workspaceRuntimeValidationOptions {
@@ -61,6 +62,10 @@ func (c workspaceCase) runtimeValidationOptions() workspaceRuntimeValidationOpti
 				SkipAssistantAudioASR:   true,
 				AssistantAudioASRReason: "history-replay",
 			},
+		}
+	case workspaceCasePushToTalkInterrupt, workspaceCaseRealtimeInterrupt:
+		return workspaceRuntimeValidationOptions{
+			AllowMissingReplay: true,
 		}
 	default:
 		return workspaceRuntimeValidationOptions{}
@@ -652,9 +657,20 @@ func validateWorkspaceRuntime(ctx context.Context, driver *personaDriver, client
 		recallAvailable = recall.Available
 		recallHitCount = len(recall.Hits)
 	}
+	report.HistoryCount = len(history.Items)
+	report.MemoryAvailable = memory.Available
+	report.MemoryEnabled = memory.Enabled
+	report.MemoryItemCount = memory.ItemCount
+	report.MemoryBytes = memory.StorageBytes
+	report.RecallAvailable = recallAvailable
+	report.RecallHitCount = recallHitCount
+	report.RecallQueryChars = runeCount(query)
 
 	historyItem, ok := replayHistoryItem(history.Items)
 	if !ok {
+		if options.AllowMissingReplay {
+			return report, nil
+		}
 		return nil, fmt.Errorf("runtime rpc history has no replayable agent item")
 	}
 	if driver != nil {
@@ -674,7 +690,6 @@ func validateWorkspaceRuntime(ctx context.Context, driver *personaDriver, client
 		return nil, fmt.Errorf("runtime rpc history play rejected state=%s: %s", play.State, message)
 	}
 
-	report.HistoryCount = len(history.Items)
 	report.ReplayHistoryID = historyItem.Id
 	report.ReplayState = play.State
 	if driver != nil {
@@ -686,13 +701,6 @@ func validateWorkspaceRuntime(ctx context.Context, driver *personaDriver, client
 		report.ReplayAudioASR = replay.AudioASR
 		report.ReplayPackets = replay.DownlinkPackets
 	}
-	report.MemoryAvailable = memory.Available
-	report.MemoryEnabled = memory.Enabled
-	report.MemoryItemCount = memory.ItemCount
-	report.MemoryBytes = memory.StorageBytes
-	report.RecallAvailable = recallAvailable
-	report.RecallHitCount = recallHitCount
-	report.RecallQueryChars = runeCount(query)
 	return report, nil
 }
 

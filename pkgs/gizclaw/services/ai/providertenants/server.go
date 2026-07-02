@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"sort"
@@ -561,7 +563,7 @@ func listMiniMaxVoicesByType(ctx context.Context, client *minimax.Client, voiceT
 			PageToken: pageToken,
 			VoiceType: voiceType,
 		}
-		resp, err := client.Voice.ListVoices(ctx, req)
+		resp, err := listMiniMaxVoicesPage(ctx, client, req)
 		if err != nil {
 			return nil, err
 		}
@@ -571,6 +573,48 @@ func listMiniMaxVoicesByType(ctx context.Context, client *minimax.Client, voiceT
 		}
 		pageToken = strings.TrimSpace(resp.NextPageToken)
 	}
+}
+
+func listMiniMaxVoicesPage(ctx context.Context, client *minimax.Client, req *minimax.ListVoicesRequest) (*minimax.ListVoicesResponse, error) {
+	const attempts = 3
+	var lastErr error
+	for attempt := 1; attempt <= attempts; attempt++ {
+		resp, err := client.Voice.ListVoices(ctx, req)
+		if err == nil {
+			return resp, nil
+		}
+		lastErr = err
+		if attempt == attempts || !retryableMiniMaxListVoicesError(err) {
+			return nil, err
+		}
+		delay := time.Duration(attempt) * 250 * time.Millisecond
+		timer := time.NewTimer(delay)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return nil, ctx.Err()
+		case <-timer.C:
+		}
+	}
+	return nil, lastErr
+}
+
+func retryableMiniMaxListVoicesError(err error) bool {
+	if err == nil || miniMaxCredentialRejected(err) {
+		return false
+	}
+	if errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) {
+		return true
+	}
+	var netErr net.Error
+	if errors.As(err, &netErr) && (netErr.Timeout() || netErr.Temporary()) {
+		return true
+	}
+	message := strings.ToLower(err.Error())
+	return strings.Contains(message, "eof") ||
+		strings.Contains(message, "connection reset") ||
+		strings.Contains(message, "connection refused") ||
+		strings.Contains(message, "server closed idle connection")
 }
 
 func miniMaxCredentialRejected(err error) bool {
