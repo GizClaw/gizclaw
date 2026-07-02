@@ -22,13 +22,29 @@ test.beforeEach(async ({ page }) => {
         status: 200,
       });
     const data = {
-      "/acl/policy-bindings": pageResponse([{ id: "binding-admin", role: "admin-role", view: "default-view" }]),
-      "/acl/roles": pageResponse([{ name: "admin-role", permissions: [] }]),
-      "/acl/views": pageResponse([{ name: "default-view", resources: [] }]),
+      "/acl/policy-bindings": pageResponse([
+        {
+          display_order: 10,
+          id: "binding-admin",
+          policy: {
+            permissions: ["read"],
+            resource: { id: "default-view", kind: "view" },
+            role: "admin-role",
+            subject: { id: "peer-public-key-1", kind: "peer" },
+          },
+          updated_at: "2026-07-01T00:00:00Z",
+        },
+      ]),
+      "/acl/roles": pageResponse([{ name: "admin-role", permissions: ["read"], updated_at: "2026-07-01T00:00:00Z" }]),
+      "/acl/views": pageResponse([{ name: "default-view", resources: [], updated_at: "2026-07-01T00:00:00Z" }]),
       "/badges": pageResponse([{ id: "badge-helper", name: "Helper Badge", updated_at: "2026-07-01T00:00:00Z" }]),
       "/credentials": pageResponse([{ body: { api_key: "set" }, name: "fake-openai-credential-000", provider: "openai", updated_at: "2026-07-01T00:00:00Z" }]),
+      "/dashscope-tenants": pageResponse([{ credential_name: "dashscope-credential", name: "dashscope-tenant", updated_at: "2026-07-01T00:00:00Z" }]),
       "/firmwares": pageResponse([{ name: "devkit-firmware-main", slots: { beta: {}, develop: {}, pending: {}, stable: {} }, updated_at: "2026-07-01T00:00:00Z" }]),
+      "/gemini-tenants": pageResponse([{ credential_name: "gemini-credential", name: "gemini-tenant", updated_at: "2026-07-01T00:00:00Z" }]),
+      "/minimax-tenants": pageResponse([{ credential_name: "minimax-credential", group_id: "minimax-group", name: "minimax-tenant", updated_at: "2026-07-01T00:00:00Z" }]),
       "/models": pageResponse([{ id: "fake-openai-chat-000", kind: "chat", name: "Fake OpenAI chat model", provider: { kind: "openai-tenant", name: "openai-tenant" }, updated_at: "2026-07-01T00:00:00Z" }]),
+      "/openai-tenants": pageResponse([{ credential_name: "openai-credential", name: "openai-tenant", updated_at: "2026-07-01T00:00:00Z" }]),
       "/peers": pageResponse([{ auto_registered: false, public_key: "peer-public-key-1", role: "peer", status: "approved", updated_at: "2026-07-01T00:00:00Z" }]),
       "/pet-species": pageResponse([{ id: "pet-cat", name: "Pet Cat", updated_at: "2026-07-01T00:00:00Z" }]),
       "/server-info": { build_commit: "test-build", public_key: "server-public-key" },
@@ -101,4 +117,68 @@ test("admin view renders full resource manager pages", async ({ page }) => {
   await page.getByRole("button", { name: "Friends" }).click();
   await expect(page.getByRole("heading", { name: "Friends" })).toBeVisible();
   await expect(page.getByText("peer-a <-> peer-b")).toBeVisible();
+});
+
+test("admin view covers provider, AI, social, business, and settings sections", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Get Started" }).click();
+
+  await page.getByRole("button", { name: "Credentials" }).click();
+  await expect(page.getByRole("heading", { name: "Credentials" })).toBeVisible();
+  await expect(page.getByText("fake-openai-credential-000")).toBeVisible();
+
+  await page.getByRole("button", { name: "OpenAI Tenants" }).click();
+  await expect(page.getByRole("heading", { name: "OpenAI Tenants" })).toBeVisible();
+  await expect(page.getByText("openai-tenant")).toBeVisible();
+
+  await page.getByRole("button", { name: "Gemini Tenants" }).click();
+  await expect(page.getByRole("heading", { name: "Gemini Tenants" })).toBeVisible();
+  await expect(page.getByText("gemini-tenant")).toBeVisible();
+
+  await page.getByRole("button", { name: "DashScope Tenants" }).click();
+  await expect(page.getByRole("heading", { name: "DashScope Tenants" })).toBeVisible();
+  await expect(page.getByText("dashscope-tenant")).toBeVisible();
+
+  await page.getByRole("button", { name: "MiniMax Tenants" }).click();
+  await expect(page.getByRole("heading", { name: "MiniMax Tenants" })).toBeVisible();
+  await expect(page.getByText("minimax-tenant")).toBeVisible();
+
+  await page.getByRole("button", { name: "Volcengine Tenants" }).click();
+  await expect(page.getByRole("heading", { name: "Volcengine Tenants" })).toBeVisible();
+  await expect(page.getByText("volc-tenant")).toBeVisible();
+
+  await page.getByRole("button", { name: "Voices" }).click();
+  await expect(page.getByRole("heading", { name: "Voices" })).toBeVisible();
+  await expect(page.getByText("volc-voice-000")).toBeVisible();
+
+  await page.getByRole("button", { name: "Models" }).click();
+  await expect(page.getByRole("heading", { name: "Models" })).toBeVisible();
+  await expect(page.getByText("fake-openai-chat-000")).toBeVisible();
+
+  await page.getByRole("button", { name: "Workspaces" }).click();
+  await expect(page.getByRole("heading", { name: "Workspaces" })).toBeVisible();
+  await expect(page.getByText("main-workspace")).toBeVisible();
+
+  await page.getByRole("button", { name: "Contacts" }).click();
+  await expect(page.getByRole("heading", { name: "Contacts" })).toBeVisible();
+  await expect(page.getByRole("button", { exact: true, name: "peer-public-key-1:contact-admin" })).toBeVisible();
+
+  await page.getByRole("button", { name: "Friend Groups" }).click();
+  await expect(page.getByRole("heading", { name: "Friend Groups" })).toBeVisible();
+  await expect(page.getByText("group-main")).toBeVisible();
+
+  await page.getByRole("button", { name: "Pet Species" }).click();
+  await expect(page.getByRole("heading", { name: "Pet Species" })).toBeVisible();
+  await expect(page.getByText("pet-cat")).toBeVisible();
+
+  await page.getByRole("button", { name: "Badges" }).click();
+  await expect(page.getByRole("heading", { name: "Badges" })).toBeVisible();
+  await expect(page.getByText("badge-helper")).toBeVisible();
+
+  await page.getByRole("button", { name: "Resources" }).click();
+  await expect(page.getByRole("heading", { name: "Resources" })).toBeVisible();
+
+  await page.getByRole("button", { name: "Access Control" }).click();
+  await expect(page.getByRole("heading", { name: "Access Control" })).toBeVisible();
+  await expect(page.getByText("binding-admin")).toBeVisible();
 });
