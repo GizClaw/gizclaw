@@ -13,13 +13,12 @@ async function main(): Promise<void> {
   const pc = await connectSetupPeer(identityDir);
   try {
     const client = createAdminAPIClient(pc as unknown as RTCPeerConnection, { requestTimeoutMs: 10_000 });
-    const body = await listPeers({
+    const response = await listPeers({
       client,
       query: { limit: 5 },
-      responseStyle: "data",
       throwOnError: true,
     });
-    assert.equal(Array.isArray(body.items), true);
+    assert.equal(Array.isArray(response.data.items), true);
   } finally {
     closePeerConnection(pc);
     await new Promise((resolve) => setTimeout(resolve, 50));
