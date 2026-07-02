@@ -23,8 +23,8 @@ test.beforeEach(async ({ page }) => {
       friendGroups: [{ id: "story-group", my_role: "member", name: "Story Group", workspace_name: "story-group-workspace" }],
       friends: [{ id: "peer-b", peer_public_key: "peer-b", name: "Peer B", workspace_name: "friend-workspace" }],
       history: [
-        { id: "20260701T000000Z-1", name: "transcript", text: "你好，开始测试。", type: "gear", updated_at: "2026-07-01T00:00:00Z" },
-        { id: "20260701T000001Z-2", name: "answer", text: "收到，我们继续。", type: "agent", updated_at: "2026-07-01T00:00:01Z" },
+        { created_at: "2026-07-01T00:00:00Z", id: "20260701T000000Z-1", name: "transcript", replay_available: true, text: "你好，开始测试。", type: "gear", updated_at: "2026-07-01T00:00:00Z" },
+        { created_at: "2026-07-01T00:00:01Z", id: "20260701T000001Z-2", name: "answer", replay_available: true, text: "收到，我们继续。", type: "agent", updated_at: "2026-07-01T00:00:01Z" },
       ],
       memoryStats: { total: 2 },
       models: [{ id: "fake-openai-chat-000", name: "Fake OpenAI Chat", title: "Fake OpenAI Chat" }],
@@ -139,6 +139,20 @@ test("play workspace drawer sends direct RPC-backed actions", async ({ page }) =
   await page.getByRole("button", { name: "Run Recall" }).click();
   await expect(page.getByText("Memory Hit: route")).toBeVisible();
   await expect.poll(() => page.evaluate(() => window.__GIZCLAW_DESKTOP_TEST_PLAY_ACTIONS__ ?? [])).toContain("recall:route");
+});
+
+test("play workspace history replay uses direct peer RPC", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Get Started" }).click();
+
+  await page.getByRole("button", { name: /^Workspace$/ }).click();
+  await page.getByRole("tab", { name: "History" }).click();
+  await expect(page.getByText("你好，开始测试。")).toBeVisible();
+
+  const firstHistoryRow = page.getByRole("row").filter({ hasText: "你好，开始测试。" });
+  await firstHistoryRow.getByRole("button", { name: "Play" }).click();
+
+  await expect.poll(() => page.evaluate(() => window.__GIZCLAW_DESKTOP_TEST_PLAY_ACTIONS__ ?? [])).toContain("play:20260701T000000Z-1");
 });
 
 declare global {
