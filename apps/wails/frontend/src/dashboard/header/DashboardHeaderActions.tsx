@@ -11,7 +11,7 @@ export function DashboardHeaderActions({
   onSignOut(): Promise<void>;
 }): JSX.Element {
   return (
-    <div className="flex flex-wrap gap-2">
+    <div className="flex min-w-0 flex-wrap justify-end gap-2">
       {actions}
       <Button onClick={() => void onSignOut()} size="sm" type="button" variant="outline">
         <LogOut className="size-4" />
