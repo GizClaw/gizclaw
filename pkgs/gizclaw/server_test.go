@@ -507,7 +507,7 @@ func TestServerSecurityPolicyAllowServiceUsesPeerPolicy(t *testing.T) {
 	}
 }
 
-func TestServerPeerEventHandlerMarksManagerOffline(t *testing.T) {
+func TestServerPeerEventHandlerDoesNotClearActivePeer(t *testing.T) {
 	keyPair, err := giznet.GenerateKeyPair()
 	if err != nil {
 		t.Fatalf("GenerateKeyPair error = %v", err)
@@ -517,7 +517,7 @@ func TestServerPeerEventHandlerMarksManagerOffline(t *testing.T) {
 
 	(*serverPeerEventHandler)(server).HandlePeerEvent(giznet.PeerEvent{PublicKey: keyPair.Public, State: giznet.PeerStateOffline})
 	runtime := server.manager.PeerRuntime(context.Background(), keyPair.Public)
-	if runtime.Online || !runtime.LastSeenAt.IsZero() {
-		t.Fatalf("runtime after offline event = %+v", runtime)
+	if !runtime.Online || !runtime.LastSeenAt.IsZero() {
+		t.Fatalf("runtime after offline event = %+v, want active peer unchanged", runtime)
 	}
 }

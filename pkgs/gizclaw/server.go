@@ -212,10 +212,10 @@ type serverPeerEventHandler Server
 var _ giznet.PeerEventHandler = (*serverPeerEventHandler)(nil)
 
 func (h *serverPeerEventHandler) HandlePeerEvent(ev giznet.PeerEvent) {
-	switch ev.State {
-	case giznet.PeerStateOffline:
-		(*Server)(h).manager.SetPeerDown(ev.PublicKey)
-	}
+	// Transport-level events do not identify the specific connection instance.
+	// Active peer state is therefore owned by PeerService's identity-aware
+	// registration/teardown path.
+	_ = ev
 }
 
 // PublicKey returns the configured server public key.

@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/stampedopus"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
 )
@@ -143,6 +144,48 @@ func TestWebRTCServerConnClosesAfterClientDisconnect(t *testing.T) {
 	waitConnReadClosed(t, serverConn)
 	if info := serverConn.PeerInfo(); info == nil || info.State != giznet.PeerStateOffline {
 		t.Fatalf("server peer info after client close = %#v, want offline", info)
+	}
+}
+
+func TestWebRTCDuplicatePublicKeyFollowsGizClawSingleActivePeer(t *testing.T) {
+	serverKey := mustKeyPair(t)
+	clientKey := mustKeyPair(t)
+	server := startWebRTCServer(t, serverKey, gizwebrtc.CipherModePlaintext)
+	defer server.Close()
+
+	oldClientListener, oldClientConn := dialWebRTC(t, clientKey, serverKey.Public, server.signalingURL, gizwebrtc.CipherModePlaintext)
+	defer oldClientListener.Close()
+	defer oldClientConn.Close()
+	oldServerConn := acceptConn(t, server.listener)
+	defer oldServerConn.Close()
+
+	newClientListener, newClientConn := dialWebRTC(t, clientKey, serverKey.Public, server.signalingURL, gizwebrtc.CipherModePlaintext)
+	defer newClientListener.Close()
+	defer newClientConn.Close()
+	newServerConn := acceptConn(t, server.listener)
+	defer newServerConn.Close()
+
+	if oldServerConn.PublicKey() != clientKey.Public || newServerConn.PublicKey() != clientKey.Public {
+		t.Fatalf("server conns public keys = %s/%s, want %s", oldServerConn.PublicKey(), newServerConn.PublicKey(), clientKey.Public)
+	}
+	if oldServerConn == newServerConn {
+		t.Fatal("duplicate WebRTC accept returned the same connection")
+	}
+
+	manager := gizclaw.NewManager(nil)
+	if oldConn := manager.SetPeerUp(clientKey.Public, oldServerConn); oldConn != nil {
+		t.Fatal("first SetPeerUp returned a replaced conn, want nil")
+	}
+	if oldConn := manager.SetPeerUp(clientKey.Public, newServerConn); oldConn != oldServerConn {
+		t.Fatal("replacement did not return first WebRTC conn")
+	}
+	manager.SetPeerDown(clientKey.Public, oldServerConn)
+	if got, ok := manager.Peer(clientKey.Public); !ok || got != newServerConn {
+		t.Fatalf("stale WebRTC teardown cleared active peer: ok=%v", ok)
+	}
+	manager.SetPeerDown(clientKey.Public, newServerConn)
+	if _, ok := manager.Peer(clientKey.Public); ok {
+		t.Fatal("active WebRTC teardown should remove active peer")
 	}
 }
 

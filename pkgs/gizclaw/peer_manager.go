@@ -90,7 +90,7 @@ func (m *Manager) allowService(ctx context.Context, publicKey giznet.PublicKey, 
 	}
 }
 
-func (m *Manager) SetPeerUp(publicKey giznet.PublicKey, conn giznet.Conn) {
+func (m *Manager) SetPeerUp(publicKey giznet.PublicKey, conn giznet.Conn) giznet.Conn {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if m.peers == nil {
@@ -101,10 +101,25 @@ func (m *Manager) SetPeerUp(publicKey giznet.PublicKey, conn giznet.Conn) {
 		state = &activePeer{}
 		m.peers[publicKey] = state
 	}
+	oldConn := state.conn
 	state.conn = conn
+	if oldConn == conn {
+		return nil
+	}
+	return oldConn
 }
 
-func (m *Manager) SetPeerDown(publicKey giznet.PublicKey) {
+func (m *Manager) SetPeerDown(publicKey giznet.PublicKey, conn giznet.Conn) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	state, ok := m.peers[publicKey]
+	if !ok || state.conn != conn {
+		return
+	}
+	delete(m.peers, publicKey)
+}
+
+func (m *Manager) ForcePeerDown(publicKey giznet.PublicKey) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	delete(m.peers, publicKey)
@@ -163,7 +178,7 @@ func (m *Manager) RefreshPeer(ctx context.Context, publicKey giznet.PublicKey) (
 	if err != nil {
 		online := true
 		if errors.Is(err, ErrDeviceOffline) {
-			m.SetPeerDown(publicKey)
+			m.ForcePeerDown(publicKey)
 			online = false
 		}
 		return adminservice.RefreshResult{

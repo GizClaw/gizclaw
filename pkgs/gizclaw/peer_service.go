@@ -57,8 +57,11 @@ func (s *PeerService) ServeConn(conn giznet.Conn) error {
 		return err
 	}
 	publicKey := conn.PublicKey()
-	s.manager.SetPeerUp(publicKey, conn)
-	defer s.manager.SetPeerDown(publicKey)
+	oldConn := s.manager.SetPeerUp(publicKey, conn)
+	defer s.manager.SetPeerDown(publicKey, conn)
+	if oldConn != nil {
+		_ = oldConn.Close()
+	}
 
 	var g errgroup.Group
 	g.Go(func() error { return s.serveAdmin(conn) })

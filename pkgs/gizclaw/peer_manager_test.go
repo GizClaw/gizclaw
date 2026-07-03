@@ -11,17 +11,19 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 )
 
-func TestManagerSetPeerDownDeletesPeer(t *testing.T) {
+func TestManagerSetPeerDownDeletesMatchingPeer(t *testing.T) {
 	manager := &Manager{}
 	key := giznet.PublicKey{1}
 	conn := &testGiznetConn{}
 
-	manager.SetPeerUp(key, conn)
+	if oldConn := manager.SetPeerUp(key, conn); oldConn != nil {
+		t.Fatalf("SetPeerUp first oldConn = %v, want nil", oldConn)
+	}
 	if runtime := manager.PeerRuntime(context.Background(), key); !runtime.Online {
 		t.Fatalf("peer should be online before removal: %+v", runtime)
 	}
 
-	manager.SetPeerDown(key)
+	manager.SetPeerDown(key, conn)
 	if _, ok := manager.Peer(key); ok {
 		t.Fatal("peer should be removed")
 	}
@@ -36,15 +38,44 @@ func TestManagerSetPeerUpReplacesConnection(t *testing.T) {
 	oldConn := &testGiznetConn{}
 	newConn := &testGiznetConn{}
 
-	manager.SetPeerUp(key, oldConn)
-	manager.SetPeerUp(key, newConn)
+	if replaced := manager.SetPeerUp(key, oldConn); replaced != nil {
+		t.Fatalf("first SetPeerUp replaced = %v, want nil", replaced)
+	}
+	if replaced := manager.SetPeerUp(key, newConn); replaced != oldConn {
+		t.Fatalf("second SetPeerUp replaced = %v, want old conn", replaced)
+	}
 
 	got, ok := manager.Peer(key)
 	if !ok || got != newConn {
 		t.Fatalf("ActivePeer after replacement = %v, %v", got, ok)
 	}
+	manager.SetPeerDown(key, oldConn)
+	got, ok = manager.Peer(key)
+	if !ok || got != newConn {
+		t.Fatalf("stale SetPeerDown removed active peer: %v, %v", got, ok)
+	}
+	manager.SetPeerDown(key, newConn)
+	if _, ok := manager.Peer(key); ok {
+		t.Fatal("matching SetPeerDown should remove active peer")
+	}
+	if runtime := manager.PeerRuntime(context.Background(), key); runtime.Online || !runtime.LastSeenAt.IsZero() {
+		t.Fatalf("runtime after matching down = %+v", runtime)
+	}
+}
+
+func TestManagerSetPeerUpSameConnectionDoesNotReplace(t *testing.T) {
+	manager := &Manager{}
+	key := giznet.PublicKey{1}
+	conn := &testGiznetConn{}
+
+	if replaced := manager.SetPeerUp(key, conn); replaced != nil {
+		t.Fatalf("first SetPeerUp replaced = %v, want nil", replaced)
+	}
+	if replaced := manager.SetPeerUp(key, conn); replaced != nil {
+		t.Fatalf("same-conn SetPeerUp replaced = %v, want nil", replaced)
+	}
 	if runtime := manager.PeerRuntime(context.Background(), key); !runtime.Online || !runtime.LastSeenAt.IsZero() {
-		t.Fatalf("runtime after replacement = %+v", runtime)
+		t.Fatalf("runtime after same-conn replacement = %+v", runtime)
 	}
 }
 
@@ -61,9 +92,21 @@ func TestManagerSetPeerUpAndDownUpdatesRuntime(t *testing.T) {
 		t.Fatalf("runtime after set = %+v, want online with no peer info", runtime)
 	}
 
-	manager.SetPeerDown(key)
+	manager.SetPeerDown(key, conn)
 	if runtime := manager.PeerRuntime(context.Background(), key); runtime.Online || !runtime.LastSeenAt.IsZero() {
 		t.Fatalf("runtime after remove = %+v", runtime)
+	}
+}
+
+func TestManagerForcePeerDownRemovesActivePeer(t *testing.T) {
+	manager := &Manager{}
+	key := giznet.PublicKey{1}
+	conn := &testGiznetConn{}
+
+	manager.SetPeerUp(key, conn)
+	manager.ForcePeerDown(key)
+	if _, ok := manager.Peer(key); ok {
+		t.Fatal("ForcePeerDown should remove active peer")
 	}
 }
 

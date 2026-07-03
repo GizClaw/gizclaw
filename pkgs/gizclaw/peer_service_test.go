@@ -209,3 +209,109 @@ func TestIntegrationPeerServiceServeConnClientCloseUnblocksAndMarksPeerOffline(t
 		t.Fatalf("peer runtime after client close = %+v", runtime)
 	}
 }
+
+func TestIntegrationPeerServiceServeConnReplacesSameKeyConnection(t *testing.T) {
+	const closeTimeout = 2 * time.Second
+
+	serverKey, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("GenerateKeyPair(server) error = %v", err)
+	}
+	clientKey, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("GenerateKeyPair(client) error = %v", err)
+	}
+
+	server := &Server{
+		LocalStatic: *serverKey,
+		PeerStore:   mustBadgerInMemory(t, nil),
+		BuildCommit: "test-build",
+	}
+	if err := server.init(); err != nil {
+		t.Fatalf("init error = %v", err)
+	}
+
+	oldClientConn, oldServerConn := newTestWebRTCConnPair(t, serverKey, clientKey,
+		testGiznetSecurityPolicy{
+			allowService: func(_ giznet.PublicKey, service uint64) bool {
+				switch service {
+				case ServiceAdmin, ServiceServerPublic, ServiceRPC:
+					return true
+				default:
+					return false
+				}
+			},
+		},
+		testGiznetSecurityPolicy{})
+	defer oldClientConn.Close()
+
+	oldServeErrCh := make(chan error, 1)
+	go func() {
+		oldServeErrCh <- server.peerService.ServeConn(oldServerConn)
+	}()
+	if err := waitUntil(testReadyTimeout, func() error {
+		got, ok := server.manager.Peer(clientKey.Public)
+		if !ok || got != oldServerConn {
+			return fmt.Errorf("old conn not active yet: ok=%v", ok)
+		}
+		return nil
+	}); err != nil {
+		t.Fatalf("old ServeConn did not become active: %v", err)
+	}
+
+	newClientConn, newServerConn := newTestWebRTCConnPair(t, serverKey, clientKey,
+		testGiznetSecurityPolicy{
+			allowService: func(_ giznet.PublicKey, service uint64) bool {
+				switch service {
+				case ServiceAdmin, ServiceServerPublic, ServiceRPC:
+					return true
+				default:
+					return false
+				}
+			},
+		},
+		testGiznetSecurityPolicy{})
+	defer newClientConn.Close()
+
+	newServeErrCh := make(chan error, 1)
+	go func() {
+		newServeErrCh <- server.peerService.ServeConn(newServerConn)
+	}()
+	if err := waitUntil(testReadyTimeout, func() error {
+		got, ok := server.manager.Peer(clientKey.Public)
+		if !ok || got != newServerConn {
+			return fmt.Errorf("new conn not active yet: ok=%v", ok)
+		}
+		return nil
+	}); err != nil {
+		t.Fatalf("new ServeConn did not replace old active conn: %v", err)
+	}
+
+	select {
+	case serveErr := <-oldServeErrCh:
+		if serveErr != nil {
+			t.Fatalf("old ServeConn error after replacement = %v", serveErr)
+		}
+	case <-time.After(closeTimeout):
+		t.Fatalf("old ServeConn did not exit within %v after replacement", closeTimeout)
+	}
+
+	if got, ok := server.manager.Peer(clientKey.Public); !ok || got != newServerConn {
+		t.Fatalf("old ServeConn teardown cleared new active conn: ok=%v", ok)
+	}
+
+	if err := newClientConn.Close(); err != nil {
+		t.Fatalf("newClientConn.Close error = %v", err)
+	}
+	select {
+	case serveErr := <-newServeErrCh:
+		if serveErr != nil {
+			t.Fatalf("new ServeConn error after client close = %v", serveErr)
+		}
+	case <-time.After(closeTimeout):
+		t.Fatalf("new ServeConn did not exit within %v after client close", closeTimeout)
+	}
+	if _, ok := server.manager.Peer(clientKey.Public); ok {
+		t.Fatal("peer should be offline after new active conn exits")
+	}
+}
