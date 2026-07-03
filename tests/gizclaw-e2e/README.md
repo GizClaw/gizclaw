@@ -57,14 +57,21 @@ docker build -f build/Dockerfile.cn.base \
 
 project=gizclaw-e2e-manual
 compose_file=tests/gizclaw-e2e/docker/docker-compose.yaml
+export GIZCLAW_E2E_DOCKER_SERVER_PORT=19820
 docker compose -p "$project" -f "$compose_file" up -d --build
 
-server_port=$(docker compose -p "$project" -f "$compose_file" port server 9820 | awk -F: '{print $NF}')
+server_tcp_port=$(docker compose -p "$project" -f "$compose_file" port --protocol tcp server 9820 | awk -F: '{print $NF}')
+server_udp_port=$(docker compose -p "$project" -f "$compose_file" port --protocol udp server 9820 | awk -F: '{print $NF}')
+test "$server_tcp_port" = "$server_udp_port"
 desktop_port=$(docker compose -p "$project" -f "$compose_file" port desktop 4191 | awk -F: '{print $NF}')
 
-export GIZCLAW_E2E_SERVER_ENDPOINT="127.0.0.1:${server_port}"
+export GIZCLAW_E2E_SERVER_ENDPOINT="127.0.0.1:${server_tcp_port}"
 export GIZCLAW_E2E_DESKTOP_URL="http://127.0.0.1:${desktop_port}"
 ```
+
+`GIZCLAW_E2E_DOCKER_SERVER_PORT` is the host port used for both TCP and UDP
+mapping of the container's `9820` endpoint. It must not collide with another
+local service.
 
 The Compose file owns Docker lifecycle. Use normal Compose commands for logs,
 status, and shutdown:

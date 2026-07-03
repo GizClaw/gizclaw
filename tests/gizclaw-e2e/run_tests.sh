@@ -64,6 +64,19 @@ wait_http_ready() {
 	return 1
 }
 
+pick_free_tcp_port() {
+	local port
+	for _ in {1..100}; do
+		port=$((20000 + RANDOM % 30000))
+		if ! (: >"/dev/tcp/127.0.0.1/$port") >/dev/null 2>&1; then
+			echo "$port"
+			return 0
+		fi
+	done
+	echo "failed to find a free local TCP port" >&2
+	return 1
+}
+
 rewrite_endpoint_configs() {
 	local root="$1"
 	local endpoint="$2"
@@ -102,6 +115,7 @@ GIZCLAW_E2E_JS_ADMIN_IDENTITY_DIR=$identities_home/admin
 GIZCLAW_E2E_SERVER_ENDPOINT=$endpoint
 GIZCLAW_E2E_DESKTOP_URL=$desktop_url
 GIZCLAW_E2E_DOCKER_PROJECT=$docker_project
+GIZCLAW_E2E_DOCKER_SERVER_PORT=${GIZCLAW_E2E_DOCKER_SERVER_PORT:-}
 EOF
 	echo "==> docker e2e env: $state_dir/docker.env"
 }
@@ -131,15 +145,24 @@ start_docker_stack() {
 		echo "==> build e2e Docker base $base_image"
 		docker build -f "$repo_root/build/Dockerfile.cn.base" -t "$base_image" "$repo_root/build"
 	fi
+	if [[ -z "${GIZCLAW_E2E_DOCKER_SERVER_PORT:-}" ]]; then
+		GIZCLAW_E2E_DOCKER_SERVER_PORT="$(pick_free_tcp_port)"
+	fi
+	export GIZCLAW_E2E_DOCKER_SERVER_PORT
 
 	echo "==> start Docker e2e stack project=$docker_project"
 	docker_started=1
 	docker compose -p "$docker_project" -f "$docker_dir/docker-compose.yaml" up -d --build
 
-	local server_port desktop_port server_endpoint desktop_url
-	server_port="$(docker compose -p "$docker_project" -f "$docker_dir/docker-compose.yaml" port server 9820 | awk -F: '{print $NF}')"
+	local server_tcp_port server_udp_port desktop_port server_endpoint desktop_url
+	server_tcp_port="$(docker compose -p "$docker_project" -f "$docker_dir/docker-compose.yaml" port --protocol tcp server 9820 | awk -F: '{print $NF}')"
+	server_udp_port="$(docker compose -p "$docker_project" -f "$docker_dir/docker-compose.yaml" port --protocol udp server 9820 | awk -F: '{print $NF}')"
+	if [[ "$server_tcp_port" != "$server_udp_port" ]]; then
+		echo "docker server TCP/UDP port mismatch: tcp=$server_tcp_port udp=$server_udp_port" >&2
+		exit 2
+	fi
 	desktop_port="$(docker compose -p "$docker_project" -f "$docker_dir/docker-compose.yaml" port desktop 4191 | awk -F: '{print $NF}')"
-	server_endpoint="127.0.0.1:${server_port}"
+	server_endpoint="127.0.0.1:${server_tcp_port}"
 	desktop_url="http://127.0.0.1:${desktop_port}"
 
 	wait_http_ready "http://$server_endpoint/server-info" "docker server"

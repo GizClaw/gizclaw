@@ -1,75 +1,46 @@
 # GizClaw CLI Context Config
 
 The GizClaw CLI stores each context in a context directory with a `config.yaml`
-file and an `identity.key` file. The context config describes how the CLI dials
-one GizClaw server.
+file and an `identity.key` file. The context config describes one WebRTC-only
+GizClaw server endpoint.
 
 ## Example
 
-Noise context:
-
 ```yaml
+description: Local development server
 server:
-  host: 127.0.0.1
-  public-api-port: 9820
-  noise-udp-port: 9820
+  endpoint: 127.0.0.1:9820
   public-key: <server-public-key>
-  transport: noise
-  cipher-mode: chacha_poly
-```
-
-WebRTC context:
-
-```yaml
-server:
-  host: 127.0.0.1
-  public-api-port: 9820
-  noise-udp-port: 9820
-  ice-port: 9821
-  public-key: <server-public-key>
-  transport: webrtc
-  cipher-mode: chacha_poly
 ```
 
 ## Fields
 
-- `server.host` is the server host or IP address without a port.
-- `server.public-api-port` is the HTTP public API port. WebRTC signaling also
-  uses this port.
-- `server.noise-udp-port` is the Noise-over-UDP transport port.
-- `server.ice-port` is the WebRTC ICE UDP/TCP port. It is required for
-  `transport: webrtc`.
+- `description` is optional display metadata for context pickers and desktop
+  launchers.
+- `server.endpoint` is the server `host:port` value without a URL scheme.
 - `server.public-key` is the server static public key and is the trust anchor
   for the context.
-- `server.transport` selects the dial transport. Valid values are `noise` and
-  `webrtc`.
-- `server.cipher-mode` selects the configured transport/signaling cipher mode.
-  Valid values are `chacha_poly`, `aes_256_gcm`, `plaintext`, or empty.
+
+The context config no longer supports `server.host`, `server.public-api-port`,
+`server.noise-udp-port`, `server.ice-port`, `server.transport`,
+`server.cipher-mode`, `server.private-key`, or `server.identity-key`.
+`contextstore.LoadConfig` rejects those fields so stale split-port or giznoise
+contexts fail fast.
 
 ## Transport Behavior
 
-Noise contexts dial:
+Contexts use the single configured endpoint for server-public HTTP, WebRTC
+signaling, and WebRTC ICE:
 
 ```text
-host:noise-udp-port over UDP
-```
-
-WebRTC contexts send a sealed HTTP offer to the fixed signaling path:
-
-```text
-http://host:public-api-port/giznet/webrtc/v1/offer
-```
-
-Then WebRTC ICE uses:
-
-```text
-host:ice-port over UDP and passive ICE-TCP
+http://server.endpoint/server-info
+http://server.endpoint/webrtc/v1/offer
+server.endpoint over UDP for WebRTC ICE
 ```
 
 The WebRTC signaling path is fixed by the protocol and is not stored in the
 context config:
 
 ```text
-/giznet/webrtc/v1/offer
+/webrtc/v1/offer
 ```
-

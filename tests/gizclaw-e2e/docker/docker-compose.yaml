@@ -10,8 +10,8 @@ services:
       GIZCLAW_E2E_CONFIG_HOME: /src/tests/gizclaw-e2e/testdata/cmd-config-home
       GIZCLAW_E2E_SERVER_ADDR: 127.0.0.1:9820
     ports:
-      - "127.0.0.1::9820/tcp"
-      - "127.0.0.1::9820/udp"
+      - "127.0.0.1:${GIZCLAW_E2E_DOCKER_SERVER_PORT:?set by run_tests.sh}:9820/tcp"
+      - "127.0.0.1:${GIZCLAW_E2E_DOCKER_SERVER_PORT:?set by run_tests.sh}:9820/udp"
     volumes:
       - type: bind
         source: ../.env
