@@ -40,11 +40,14 @@ func (f Factory) NewAgent(_ context.Context, spec agenthost.Spec) (agenthost.Age
 	if resolved.ttsVoice == "" {
 		return agenthost.NewTransformerAgent(interruptibleTransformer{Transformer: patternTransformer{Transformer: f.Transformer, Pattern: resolved.astPattern}}), nil
 	}
-	return agenthost.NewTransformerAgent(interruptibleTransformer{Transformer: externalVoiceTransformer{
-		Transformer: f.Transformer,
-		ASTPattern:  resolved.astPattern,
-		TTSPattern:  voicePattern(resolved.ttsVoice),
-	}}), nil
+	return agenthost.NewTransformerAgent(interruptibleTransformer{
+		Transformer: externalVoiceTransformer{
+			Transformer: f.Transformer,
+			ASTPattern:  resolved.astPattern,
+			TTSPattern:  voicePattern(resolved.ttsVoice),
+		},
+		keepActiveAfterTextEOS: true,
+	}), nil
 }
 
 type patternTransformer struct {
@@ -60,7 +63,8 @@ func (t patternTransformer) Transform(ctx context.Context, _ string, input genx.
 }
 
 type interruptibleTransformer struct {
-	Transformer genx.Transformer
+	Transformer            genx.Transformer
+	keepActiveAfterTextEOS bool
 }
 
 func (t interruptibleTransformer) Transform(ctx context.Context, pattern string, input genx.Stream) (genx.Stream, error) {
@@ -68,7 +72,7 @@ func (t interruptibleTransformer) Transform(ctx context.Context, pattern string,
 		return nil, fmt.Errorf("asttranslate: transformer is required")
 	}
 	ctx, cancel := context.WithCancel(ctx)
-	out := newInterruptibleOutput()
+	out := newInterruptibleOutput(t.keepActiveAfterTextEOS)
 	observedInput := newObservedInputStream(ctx, input, out.interrupt)
 	inner, err := t.Transformer.Transform(ctx, pattern, observedInput)
 	if err != nil {
@@ -224,19 +228,25 @@ func (s *observedInputStream) closeWithError(err error) {
 }
 
 type interruptibleOutput struct {
-	mu            sync.Mutex
-	cond          *sync.Cond
-	queue         []*genx.MessageChunk
-	closed        bool
-	closeErr      error
-	active        bool
-	activeStream  string
-	blockedStream map[string]bool
+	mu                     sync.Mutex
+	cond                   *sync.Cond
+	queue                  []*genx.MessageChunk
+	closed                 bool
+	closeErr               error
+	active                 bool
+	activeStream           string
+	activeStreamKeys       map[string]map[string]struct{}
+	blockedStream          map[string]bool
+	keepActiveAfterTextEOS bool
 }
 
-func newInterruptibleOutput() *interruptibleOutput {
+func newInterruptibleOutput(keepActiveAfterTextEOS ...bool) *interruptibleOutput {
 	out := &interruptibleOutput{
-		blockedStream: make(map[string]bool),
+		activeStreamKeys: make(map[string]map[string]struct{}),
+		blockedStream:    make(map[string]bool),
+	}
+	if len(keepActiveAfterTextEOS) > 0 {
+		out.keepActiveAfterTextEOS = keepActiveAfterTextEOS[0]
 	}
 	out.cond = sync.NewCond(&out.mu)
 	return out
@@ -285,19 +295,11 @@ func (s *interruptibleOutput) push(chunk *genx.MessageChunk) error {
 		return io.ErrClosedPipe
 	}
 	if isASTAssistantChunk(chunk) {
-		streamID := chunk.Ctrl.StreamID
-		if s.blockedStream[streamID] {
+		streamID := astAssistantResponseStreamID(chunk.Ctrl.StreamID)
+		if s.isBlockedStream(chunk.Ctrl.StreamID) {
 			return nil
 		}
-		if chunk.Ctrl.EndOfStream {
-			if s.activeStream == streamID {
-				s.active = false
-				s.activeStream = ""
-			}
-		} else if streamID != "" {
-			s.active = true
-			s.activeStream = streamID
-		}
+		s.observeAssistantChunk(chunk, streamID)
 	}
 	s.queue = append(s.queue, chunk)
 	s.cond.Signal()
@@ -320,9 +322,60 @@ func (s *interruptibleOutput) interrupt(inputStreamID string) {
 	s.blockedStream[streamID] = true
 	s.active = false
 	s.activeStream = ""
+	delete(s.activeStreamKeys, streamID)
 	s.queue = removeASTAssistantStreamChunks(s.queue, streamID)
 	s.queue = append(astInterruptedChunks(streamID), s.queue...)
 	s.cond.Broadcast()
+}
+
+func (s *interruptibleOutput) observeAssistantChunk(chunk *genx.MessageChunk, responseStreamID string) {
+	if responseStreamID == "" {
+		return
+	}
+	key := astAssistantActiveKey(chunk)
+	if !chunk.Ctrl.EndOfStream {
+		s.addActiveStreamKey(responseStreamID, key)
+		if s.keepActiveAfterTextEOS && astAssistantChunkKind(chunk) == "text" {
+			s.addActiveStreamKey(responseStreamID, astAssistantPendingAudioKey(chunk.Ctrl.StreamID))
+		}
+		s.active = true
+		s.activeStream = responseStreamID
+		return
+	}
+	s.removeActiveStreamKey(responseStreamID, key)
+	if s.keepActiveAfterTextEOS && astAssistantChunkKind(chunk) == "audio" {
+		s.removeActiveStreamKey(responseStreamID, astAssistantPendingAudioKey(chunk.Ctrl.StreamID))
+	}
+	if s.activeStream == responseStreamID && len(s.activeStreamKeys[responseStreamID]) == 0 {
+		s.active = false
+		s.activeStream = ""
+	}
+}
+
+func (s *interruptibleOutput) addActiveStreamKey(responseStreamID, key string) {
+	if key == "" {
+		return
+	}
+	keys := s.activeStreamKeys[responseStreamID]
+	if keys == nil {
+		keys = make(map[string]struct{})
+		s.activeStreamKeys[responseStreamID] = keys
+	}
+	keys[key] = struct{}{}
+}
+
+func (s *interruptibleOutput) removeActiveStreamKey(responseStreamID, key string) {
+	if key == "" {
+		return
+	}
+	keys := s.activeStreamKeys[responseStreamID]
+	if keys == nil {
+		return
+	}
+	delete(keys, key)
+	if len(keys) == 0 {
+		delete(s.activeStreamKeys, responseStreamID)
+	}
 }
 
 func (s *interruptibleOutput) close() {
@@ -347,6 +400,15 @@ func (s *interruptibleOutput) closeWithError(err error) {
 	}
 }
 
+func (s *interruptibleOutput) isBlockedStream(streamID string) bool {
+	streamID = strings.TrimSpace(streamID)
+	if s.blockedStream[streamID] {
+		return true
+	}
+	responseStreamID := astAssistantResponseStreamID(streamID)
+	return responseStreamID != streamID && s.blockedStream[responseStreamID]
+}
+
 func isASTAssistantChunk(chunk *genx.MessageChunk) bool {
 	return chunk != nil &&
 		chunk.Role == genx.RoleModel &&
@@ -358,18 +420,69 @@ func shouldGraceASTAssistantChunk(chunk *genx.MessageChunk) bool {
 	return isASTAssistantChunk(chunk) && !chunk.Ctrl.EndOfStream && chunk.Ctrl.Error == ""
 }
 
+func astAssistantActiveKey(chunk *genx.MessageChunk) string {
+	if chunk == nil || chunk.Ctrl == nil {
+		return ""
+	}
+	kind := astAssistantChunkKind(chunk)
+	if kind == "" {
+		return ""
+	}
+	return kind + "\x00" + strings.TrimSpace(chunk.Ctrl.StreamID)
+}
+
+func astAssistantPendingAudioKey(streamID string) string {
+	streamID = strings.TrimSpace(streamID)
+	if streamID == "" {
+		return ""
+	}
+	return "audio-pending\x00" + streamID
+}
+
+func astAssistantChunkKind(chunk *genx.MessageChunk) string {
+	if chunk == nil {
+		return ""
+	}
+	switch part := chunk.Part.(type) {
+	case genx.Text:
+		return "text"
+	case *genx.Blob:
+		if part != nil && strings.HasPrefix(baseMIME(part.MIMEType), "audio/") {
+			return "audio"
+		}
+	}
+	return ""
+}
+
 func removeASTAssistantStreamChunks(chunks []*genx.MessageChunk, streamID string) []*genx.MessageChunk {
 	if len(chunks) == 0 {
 		return chunks
 	}
 	out := chunks[:0]
 	for _, chunk := range chunks {
-		if isASTAssistantChunk(chunk) && chunk.Ctrl.StreamID == streamID {
+		if isASTAssistantChunk(chunk) && astAssistantStreamIDMatches(chunk.Ctrl.StreamID, streamID) {
 			continue
 		}
 		out = append(out, chunk)
 	}
 	return out
+}
+
+func astAssistantResponseStreamID(streamID string) string {
+	streamID = strings.TrimSpace(streamID)
+	if i := strings.Index(streamID, ":ast:"); i >= 0 {
+		return streamID[:i]
+	}
+	return streamID
+}
+
+func astAssistantStreamIDMatches(streamID, responseStreamID string) bool {
+	streamID = strings.TrimSpace(streamID)
+	responseStreamID = astAssistantResponseStreamID(responseStreamID)
+	if responseStreamID == "" {
+		return streamID == ""
+	}
+	return streamID == responseStreamID || strings.HasPrefix(streamID, responseStreamID+":ast:")
 }
 
 func astInterruptedChunks(streamID string) []*genx.MessageChunk {

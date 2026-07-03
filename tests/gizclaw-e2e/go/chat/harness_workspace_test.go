@@ -151,12 +151,17 @@ func TestInterruptRoundsDefaultToOne(t *testing.T) {
 	}
 }
 
-func TestInterruptWorkspaceConfigPathsExcludeExternalTTS(t *testing.T) {
+func TestInterruptWorkspaceConfigPathsIncludeExternalTTS(t *testing.T) {
 	paths := interruptWorkspaceConfigPaths(t)
+	var found bool
 	for _, path := range paths {
 		if filepath.Base(path) == "ast-translate-tts.json" {
-			t.Fatalf("interrupt configs include external TTS fixture: %s", path)
+			found = true
+			break
 		}
+	}
+	if !found {
+		t.Fatal("interrupt configs exclude external TTS fixture")
 	}
 }
 

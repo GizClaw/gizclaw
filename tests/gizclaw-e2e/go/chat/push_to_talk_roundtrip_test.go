@@ -32,12 +32,6 @@ func interruptWorkspaceConfigPaths(t testing.TB) []string {
 	t.Helper()
 	var paths []string
 	for _, path := range allWorkspaceConfigPaths(t) {
-		// This fixture is s2t plus external GizClaw TTS. Native AST, Doubao
-		// realtime, and Flowcraft cover input interruption here; the external
-		// TTS cancellation path is validated outside this matrix.
-		if filepath.Base(path) == "ast-translate-tts.json" {
-			continue
-		}
 		paths = append(paths, path)
 	}
 	if len(paths) == 0 {

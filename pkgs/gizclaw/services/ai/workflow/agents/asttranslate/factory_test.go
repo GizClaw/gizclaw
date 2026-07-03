@@ -255,6 +255,134 @@ func TestInterruptibleOutputDropsQueuedAssistantChunks(t *testing.T) {
 	}
 }
 
+func TestInterruptibleOutputDropsASTSegmentFamily(t *testing.T) {
+	output := newInterruptibleOutput()
+	if err := output.push(&genx.MessageChunk{
+		Role: genx.RoleModel,
+		Part: genx.Text("stale-base"),
+		Ctrl: &genx.StreamCtrl{StreamID: "turn-1", Label: "assistant"},
+	}); err != nil {
+		t.Fatalf("push base text: %v", err)
+	}
+	if err := output.push(&genx.MessageChunk{
+		Role: genx.RoleModel,
+		Part: genx.Text("stale-segment"),
+		Ctrl: &genx.StreamCtrl{StreamID: "turn-1:ast:2", Label: "assistant"},
+	}); err != nil {
+		t.Fatalf("push segment text: %v", err)
+	}
+
+	output.interrupt("turn-2")
+
+	for i := 0; i < 2; i++ {
+		chunk, err := output.Next()
+		if err != nil {
+			t.Fatalf("Next interrupt chunk %d: %v", i, err)
+		}
+		if chunk.Ctrl == nil || chunk.Ctrl.StreamID != "turn-1" || chunk.Ctrl.Label != "assistant" || !chunk.Ctrl.EndOfStream || chunk.Ctrl.Error != "interrupted" {
+			t.Fatalf("interrupt chunk %d = %#v", i, chunk)
+		}
+	}
+	if err := output.push(&genx.MessageChunk{
+		Role: genx.RoleModel,
+		Part: &genx.Blob{MIMEType: "audio/opus", Data: []byte{1}},
+		Ctrl: &genx.StreamCtrl{StreamID: "turn-1:ast:2", Label: "assistant"},
+	}); err != nil {
+		t.Fatalf("push late segment audio: %v", err)
+	}
+	if err := output.push(&genx.MessageChunk{
+		Role: genx.RoleModel,
+		Part: &genx.Blob{MIMEType: "audio/opus", Data: []byte{2}},
+		Ctrl: &genx.StreamCtrl{StreamID: "turn-1", Label: "assistant"},
+	}); err != nil {
+		t.Fatalf("push late base audio: %v", err)
+	}
+	output.close()
+	if chunk, err := output.Next(); err == nil || chunk != nil {
+		t.Fatalf("Next after close = %#v, %v; want EOF without stale AST family chunk", chunk, err)
+	}
+}
+
+func TestInterruptibleOutputKeepsExternalTTSPendingAfterTextEOS(t *testing.T) {
+	output := newInterruptibleOutput(true)
+	if err := output.push(&genx.MessageChunk{
+		Role: genx.RoleModel,
+		Part: genx.Text("translated"),
+		Ctrl: &genx.StreamCtrl{StreamID: "turn-1", Label: "assistant"},
+	}); err != nil {
+		t.Fatalf("push text: %v", err)
+	}
+	if err := output.push(&genx.MessageChunk{
+		Role: genx.RoleModel,
+		Part: genx.Text(""),
+		Ctrl: &genx.StreamCtrl{StreamID: "turn-1", Label: "assistant", EndOfStream: true},
+	}); err != nil {
+		t.Fatalf("push text eos: %v", err)
+	}
+	if !output.active || output.activeStream != "turn-1" {
+		t.Fatalf("active after text eos = %t/%q, want pending external TTS", output.active, output.activeStream)
+	}
+
+	output.interrupt("turn-2")
+
+	first, err := output.Next()
+	if err != nil {
+		t.Fatalf("Next first interrupt: %v", err)
+	}
+	second, err := output.Next()
+	if err != nil {
+		t.Fatalf("Next second interrupt: %v", err)
+	}
+	for _, chunk := range []*genx.MessageChunk{first, second} {
+		if chunk.Ctrl == nil || chunk.Ctrl.StreamID != "turn-1" || chunk.Ctrl.Label != "assistant" || !chunk.Ctrl.EndOfStream || chunk.Ctrl.Error != "interrupted" {
+			t.Fatalf("interrupt chunk = %#v", chunk)
+		}
+	}
+	if err := output.push(&genx.MessageChunk{
+		Role: genx.RoleModel,
+		Part: &genx.Blob{MIMEType: "audio/opus", Data: []byte{1}},
+		Ctrl: &genx.StreamCtrl{StreamID: "turn-1", Label: "assistant"},
+	}); err != nil {
+		t.Fatalf("push late audio: %v", err)
+	}
+	output.close()
+	if chunk, err := output.Next(); err == nil || chunk != nil {
+		t.Fatalf("Next after close = %#v, %v; want EOF without late audio", chunk, err)
+	}
+
+	output = newInterruptibleOutput(true)
+	if err := output.push(&genx.MessageChunk{
+		Role: genx.RoleModel,
+		Ctrl: &genx.StreamCtrl{StreamID: "turn-1", Label: "assistant", BeginOfStream: true},
+	}); err != nil {
+		t.Fatalf("push completed bos: %v", err)
+	}
+	if err := output.push(&genx.MessageChunk{
+		Role: genx.RoleModel,
+		Part: genx.Text("translated"),
+		Ctrl: &genx.StreamCtrl{StreamID: "turn-1", Label: "assistant"},
+	}); err != nil {
+		t.Fatalf("push completed text: %v", err)
+	}
+	if err := output.push(&genx.MessageChunk{
+		Role: genx.RoleModel,
+		Part: genx.Text(""),
+		Ctrl: &genx.StreamCtrl{StreamID: "turn-1", Label: "assistant", EndOfStream: true},
+	}); err != nil {
+		t.Fatalf("push completed text eos: %v", err)
+	}
+	if err := output.push(&genx.MessageChunk{
+		Role: genx.RoleModel,
+		Part: &genx.Blob{MIMEType: "audio/opus"},
+		Ctrl: &genx.StreamCtrl{StreamID: "turn-1", Label: "assistant", EndOfStream: true},
+	}); err != nil {
+		t.Fatalf("push completed audio eos: %v", err)
+	}
+	if output.active || output.activeStream != "" {
+		t.Fatalf("active after audio eos = %t/%q, want completed", output.active, output.activeStream)
+	}
+}
+
 func TestInterruptibleTransformerBranches(t *testing.T) {
 	if _, err := (interruptibleTransformer{}).Transform(context.Background(), "", emptyStream{}); err == nil {
 		t.Fatalf("Transform() without inner transformer succeeded, want error")
