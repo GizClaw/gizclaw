@@ -657,10 +657,12 @@ func TestDoubaoRealtimeDuplexInputEOSClosesLocalStream(t *testing.T) {
 }
 
 func TestDoubaoRealtimeDuplexTextDoneAfterAudioDoneAllowsNextTurn(t *testing.T) {
+	firstInputDrained := make(chan struct{})
 	allowNextInput := make(chan struct{})
 	releaseEvents := make(chan struct{})
 	eventsDrained := make(chan struct{})
 	session := &fakeDoubaoRealtimeDuplexSession{
+		beforeRecv: firstInputDrained,
 		events: []*doubaospeech.RealtimeDuplexEvent{
 			{Type: doubaospeech.RealtimeDuplexEventResponseOutputAudioStarted, ResponseID: "turn-1"},
 			{Type: doubaospeech.RealtimeDuplexEventResponseOutputAudioDone, ResponseID: "turn-1"},
@@ -681,7 +683,8 @@ func TestDoubaoRealtimeDuplexTextDoneAfterAudioDoneAllowsNextTurn(t *testing.T) 
 			{Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{1, 0, 2, 0}}, Ctrl: &genx.StreamCtrl{StreamID: "turn-1"}},
 			{Ctrl: &genx.StreamCtrl{StreamID: "turn-1", EndOfStream: true}},
 		},
-		gate: allowNextInput,
+		firstDrained: firstInputDrained,
+		gate:         allowNextInput,
 		rest: []*genx.MessageChunk{
 			{Ctrl: &genx.StreamCtrl{StreamID: "turn-2", BeginOfStream: true}},
 		},
@@ -909,16 +912,23 @@ func (s *sliceRealtimeStream) Close() error { return nil }
 func (s *sliceRealtimeStream) CloseWithError(error) error { return nil }
 
 type gatedRealtimeStream struct {
-	first []*genx.MessageChunk
-	rest  []*genx.MessageChunk
-	gate  <-chan struct{}
-	index int
+	first            []*genx.MessageChunk
+	rest             []*genx.MessageChunk
+	gate             <-chan struct{}
+	firstDrained     chan<- struct{}
+	firstDrainedOnce sync.Once
+	index            int
 }
 
 func (s *gatedRealtimeStream) Next() (*genx.MessageChunk, error) {
 	if s.index < len(s.first) {
 		chunk := s.first[s.index]
 		s.index++
+		if s.index == len(s.first) && s.firstDrained != nil {
+			s.firstDrainedOnce.Do(func() {
+				close(s.firstDrained)
+			})
+		}
 		return chunk, nil
 	}
 	if s.gate != nil {
