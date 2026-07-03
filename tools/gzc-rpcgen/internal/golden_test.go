@@ -1,50 +1,26 @@
 package rpcgen
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 )
 
-func TestGeneratorEmitsRepresentativeBindings(t *testing.T) {
-	root := t.TempDir()
-	writeFile(t, filepath.Join(root, "api", "rpc.json"), `{
-  "openapi":"3.0.3",
-  "components":{"schemas":{
-    "RPCMethod":{"type":"string","enum":["all.ping"]},
-    "RPCRequest":{"type":"object","properties":{"params":{"oneOf":[{"$ref":"./rpc/all.json#/components/schemas/PingRequest"}]}}},
-    "RPCResponse":{"type":"object","properties":{"result":{"oneOf":[{"$ref":"./rpc/all.json#/components/schemas/PingResponse"}]}}}
-  }}
-}`)
-	writeFile(t, filepath.Join(root, "api", "rpc", "all.json"), `{
-  "openapi":"3.0.3",
-  "components":{"schemas":{
-    "PingRequest":{"type":"object","required":["client_send_time"],"properties":{"client_send_time":{"type":"integer","format":"int64"},"tag":{"type":"string"}}},
-    "PingResponse":{"type":"object","required":["ok"],"properties":{"ok":{"type":"boolean"},"server_time":{"type":"integer","format":"int64"}}}
-  }}
-}`)
-	out := filepath.Join(root, "out")
-	err := Run(Config{SchemaPath: filepath.Join(root, "api", "rpc.json"), IncludeDirs: []string{filepath.Join(root, "api")}, OutDir: out, Package: "gzc", Format: true})
+func TestGeneratorMatchesGoldenFiles(t *testing.T) {
+	fixture := filepath.Join("testdata", "golden")
+	out := filepath.Join(t.TempDir(), "out")
+	err := Run(Config{
+		SchemaPath:  filepath.Join(fixture, "api", "rpc.json"),
+		IncludeDirs: []string{filepath.Join(fixture, "api")},
+		OutDir:      out,
+		Package:     "gzc",
+		Format:      true,
+	})
 	if err != nil {
 		t.Fatalf("Run() error = %v", err)
 	}
-	types := readFile(t, filepath.Join(out, "gzc_rpc_types.h"))
-	for _, want := range []string{
-		"typedef struct {",
-		"int64_t client_send_time;",
-		"bool has_tag;",
-		"gzc_ping_request_t",
-		"gzc_ping_response_t",
-	} {
-		if !strings.Contains(types, want) {
-			t.Fatalf("types missing %q:\n%s", want, types)
-		}
-	}
-	methods := readFile(t, filepath.Join(out, "gzc_rpc_methods.h"))
-	if !strings.Contains(methods, "#define GZC_RPC_METHOD_ALL_PING \"all.ping\"") {
-		t.Fatalf("methods missing all.ping constant:\n%s", methods)
-	}
+	assertGoldenDir(t, filepath.Join(fixture, "want"), out)
 }
 
 func TestGeneratorResolvesRefsFromIncludeRoots(t *testing.T) {
@@ -120,4 +96,52 @@ func readFile(t *testing.T, path string) string {
 		t.Fatal(err)
 	}
 	return string(data)
+}
+
+func assertGoldenDir(t *testing.T, wantDir, gotDir string) {
+	t.Helper()
+	wantFiles := listRelativeFiles(t, wantDir)
+	gotFiles := listRelativeFiles(t, gotDir)
+	if len(wantFiles) != len(gotFiles) {
+		t.Fatalf("generated file count = %d, want %d\ngot=%v\nwant=%v", len(gotFiles), len(wantFiles), gotFiles, wantFiles)
+	}
+	for i := range wantFiles {
+		if gotFiles[i] != wantFiles[i] {
+			t.Fatalf("generated file[%d] = %s, want %s\ngot=%v\nwant=%v", i, gotFiles[i], wantFiles[i], gotFiles, wantFiles)
+		}
+		want, err := os.ReadFile(filepath.Join(wantDir, wantFiles[i]))
+		if err != nil {
+			t.Fatal(err)
+		}
+		got, err := os.ReadFile(filepath.Join(gotDir, gotFiles[i]))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !bytes.Equal(got, want) {
+			t.Fatalf("generated %s does not match golden\n--- got ---\n%s\n--- want ---\n%s", gotFiles[i], got, want)
+		}
+	}
+}
+
+func listRelativeFiles(t *testing.T, root string) []string {
+	t.Helper()
+	var files []string
+	err := filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			return nil
+		}
+		rel, err := filepath.Rel(root, path)
+		if err != nil {
+			return err
+		}
+		files = append(files, filepath.ToSlash(rel))
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return files
 }

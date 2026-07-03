@@ -1,0 +1,43 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Golden All RPC Types",
+    "version": "1.0.0"
+  },
+  "paths": {},
+  "components": {
+    "schemas": {
+      "PingRequest": {
+        "type": "object",
+        "required": [
+          "client_send_time"
+        ],
+        "properties": {
+          "client_send_time": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "tag": {
+            "type": "string"
+          }
+        }
+      },
+      "PingResponse": {
+        "type": "object",
+        "required": [
+          "server_time",
+          "ok"
+        ],
+        "properties": {
+          "server_time": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "ok": {
+            "type": "boolean"
+          }
+        }
+      }
+    }
+  }
+}

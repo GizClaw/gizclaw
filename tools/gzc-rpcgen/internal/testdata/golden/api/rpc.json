@@ -1,0 +1,49 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Golden RPC API",
+    "version": "1.0.0"
+  },
+  "paths": {},
+  "components": {
+    "schemas": {
+      "RPCMethod": {
+        "type": "string",
+        "enum": [
+          "all.ping",
+          "server.run.say"
+        ]
+      },
+      "RPCRequest": {
+        "type": "object",
+        "properties": {
+          "params": {
+            "oneOf": [
+              {
+                "$ref": "./rpc/all.json#/components/schemas/PingRequest"
+              },
+              {
+                "$ref": "./rpc/server.json#/components/schemas/ServerRunSayRequest"
+              }
+            ]
+          }
+        }
+      },
+      "RPCResponse": {
+        "type": "object",
+        "properties": {
+          "result": {
+            "oneOf": [
+              {
+                "$ref": "./rpc/all.json#/components/schemas/PingResponse"
+              },
+              {
+                "$ref": "./rpc/server.json#/components/schemas/ServerRunSayResponse"
+              }
+            ]
+          }
+        }
+      }
+    }
+  }
+}
