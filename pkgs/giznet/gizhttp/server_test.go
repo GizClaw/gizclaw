@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
-	"github.com/GizClaw/gizclaw-go/pkgs/giznet/giznoise"
+	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
 )
 
 func TestRoundTrip(t *testing.T) {
@@ -24,7 +24,7 @@ func TestRoundTrip(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	serverListener := newListenerNode(t, serverKey, giznoise.ListenConfig{
+	serverListener := newListenerNode(t, serverKey, gizwebrtc.ListenConfig{
 		SecurityPolicy: testSecurityPolicy{
 			allowService: func(_ giznet.PublicKey, service uint64) bool {
 				return service == 7
@@ -83,7 +83,7 @@ func TestRoundTripKeepsRequestBodyOpenAfterResponseHeaders(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	serverListener := newListenerNode(t, serverKey, giznoise.ListenConfig{
+	serverListener := newListenerNode(t, serverKey, gizwebrtc.ListenConfig{
 		SecurityPolicy: testSecurityPolicy{
 			allowService: func(_ giznet.PublicKey, service uint64) bool {
 				return service == 7
@@ -203,7 +203,7 @@ func TestListenerCloseUnblocksAccept(t *testing.T) {
 	_, serverConn := connectListenerNodes(t, clientListener, clientKey, serverListener, serverKey)
 
 	l := NewListener(serverConn, 9)
-	if l.Addr().Network() != "kcp-http" {
+	if l.Addr().Network() != "gizhttp" {
 		t.Fatalf("Addr().Network() = %q", l.Addr().Network())
 	}
 	done := make(chan error, 1)
@@ -240,7 +240,7 @@ func TestPeerCloseUnblocksAccept(t *testing.T) {
 	defer serverListener.Close()
 	clientListener := newListenerNode(t, clientKey)
 	defer clientListener.Close()
-	_, serverConn := connectListenerNodes(t, clientListener, clientKey, serverListener, serverKey)
+	clientConn, serverConn := connectListenerNodes(t, clientListener, clientKey, serverListener, serverKey)
 	defer serverConn.Close()
 
 	l := NewListener(serverConn, 11)
@@ -251,8 +251,8 @@ func TestPeerCloseUnblocksAccept(t *testing.T) {
 	}()
 	time.Sleep(100 * time.Millisecond)
 
-	if err := clientListener.Close(); err != nil {
-		t.Fatalf("client listener close error: %v", err)
+	if err := clientConn.Close(); err != nil {
+		t.Fatalf("client conn close error: %v", err)
 	}
 
 	select {

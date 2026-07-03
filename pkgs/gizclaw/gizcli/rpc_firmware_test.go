@@ -10,7 +10,6 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
-	"github.com/GizClaw/gizclaw-go/pkgs/giznet/giznoise"
 )
 
 func TestDownloadFirmwareRejectsNilOutput(t *testing.T) {
@@ -143,13 +142,7 @@ func connectedFirmwareTestClient(t *testing.T) (*Client, giznet.Conn, func()) {
 	if err != nil {
 		t.Fatalf("GenerateKeyPair(client) error = %v", err)
 	}
-	serverListener, err := (&giznoise.ListenConfig{
-		Addr:           "127.0.0.1:0",
-		SecurityPolicy: clientSecurityPolicy{},
-	}).Listen(serverKey)
-	if err != nil {
-		t.Fatalf("Listen(server) error = %v", err)
-	}
+	serverListener, signalingURL := newTestWebRTCServer(t, serverKey, clientSecurityPolicy{})
 
 	accepted := make(chan giznet.Conn, 1)
 	acceptErr := make(chan error, 1)
@@ -162,9 +155,8 @@ func connectedFirmwareTestClient(t *testing.T) (*Client, giznet.Conn, func()) {
 		accepted <- conn
 	}()
 
-	client := &Client{KeyPair: clientKey, DialTransport: testNoiseDialTransport()}
-	if err := client.Dial(serverKey.Public, serverListener.HostInfo().Addr.String()); err != nil {
-		_ = serverListener.Close()
+	client := &Client{KeyPair: clientKey, DialTransport: testWebRTCDialTransport()}
+	if err := client.Dial(serverKey.Public, signalingURL); err != nil {
 		t.Fatalf("Dial() error = %v", err)
 	}
 
@@ -173,18 +165,15 @@ func connectedFirmwareTestClient(t *testing.T) (*Client, giznet.Conn, func()) {
 	case serverConn = <-accepted:
 	case err := <-acceptErr:
 		_ = client.Close()
-		_ = serverListener.Close()
 		t.Fatalf("Accept() error = %v", err)
 	case <-time.After(3 * time.Second):
 		_ = client.Close()
-		_ = serverListener.Close()
 		t.Fatal("Accept() timeout")
 	}
 
 	cleanup := func() {
 		_ = client.Close()
 		_ = serverConn.Close()
-		_ = serverListener.Close()
 	}
 	return client, serverConn, cleanup
 }

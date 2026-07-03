@@ -4,7 +4,7 @@ This document describes the stream-level RPC framing protocol.
 
 ## Stream Model
 
-One KCP stream carries one RPC exchange.
+One giznet service stream carries one RPC exchange.
 
 ```text
 stream
@@ -20,9 +20,9 @@ frame, and one response EOS frame. Streaming RPC calls use one request frame,
 zero or more request body frames, a request EOS frame, zero or more response
 frames, and a response EOS frame.
 
-EOS is the protocol-level end of one frame sequence. KCP stream EOF means the
-transport stream was closed. If a peer sees EOF before the expected EOS frame,
-the RPC exchange is truncated.
+EOS is the protocol-level end of one frame sequence. Transport stream EOF means
+the stream was closed. If a peer sees EOF before the expected EOS frame, the RPC
+exchange is truncated.
 
 ## Frame Header
 
@@ -131,8 +131,8 @@ JSON response frame, read response EOS, and return.
 Streaming clients read frames until EOS. EOS after zero or more successful
 response frames means the RPC exchange is complete.
 
-If the KCP stream ends before the method-specific minimum response or expected
-EOS is received, the client should report a truncated RPC stream.
+If the transport stream ends before the method-specific minimum response or
+expected EOS is received, the client should report a truncated RPC stream.
 
 ## Compatibility
 

@@ -12,7 +12,6 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizhttp"
-	"github.com/GizClaw/gizclaw-go/pkgs/giznet/giznoise"
 )
 
 const (
@@ -113,9 +112,8 @@ func TestIntegrationPeerServiceServeConnClientCloseUnblocksAndMarksPeerOffline(t
 		t.Fatalf("GenerateKeyPair(client) error = %v", err)
 	}
 
-	serverListener, err := (&giznoise.ListenConfig{
-		Addr: "127.0.0.1:0",
-		SecurityPolicy: testGiznetSecurityPolicy{
+	clientConn, serverConn := newTestWebRTCConnPair(t, serverKey, clientKey,
+		testGiznetSecurityPolicy{
 			allowService: func(_ giznet.PublicKey, service uint64) bool {
 				switch service {
 				case ServiceAdmin, ServiceServerPublic, ServiceRPC:
@@ -125,48 +123,8 @@ func TestIntegrationPeerServiceServeConnClientCloseUnblocksAndMarksPeerOffline(t
 				}
 			},
 		},
-	}).Listen(serverKey)
-	if err != nil {
-		t.Fatalf("giznoise.Listen(server) error = %v", err)
-	}
-	defer serverListener.Close()
-	go drainUDP(serverListener.UDP())
-
-	clientListener, err := (&giznoise.ListenConfig{
-		Addr:           "127.0.0.1:0",
-		SecurityPolicy: testGiznetSecurityPolicy{},
-	}).Listen(clientKey)
-	if err != nil {
-		t.Fatalf("giznoise.Listen(client) error = %v", err)
-	}
-	defer clientListener.Close()
-	go drainUDP(clientListener.UDP())
-
-	connCh := make(chan giznet.Conn, 1)
-	errCh := make(chan error, 1)
-	go func() {
-		conn, acceptErr := serverListener.Accept()
-		if acceptErr != nil {
-			errCh <- acceptErr
-			return
-		}
-		connCh <- conn
-	}()
-
-	clientConn, err := clientListener.Dial(serverKey.Public, serverListener.HostInfo().Addr)
-	if err != nil {
-		t.Fatalf("Dial error = %v", err)
-	}
+		testGiznetSecurityPolicy{})
 	defer clientConn.Close()
-
-	var serverConn giznet.Conn
-	select {
-	case serverConn = <-connCh:
-	case acceptErr := <-errCh:
-		t.Fatalf("Accept error = %v", acceptErr)
-	case <-time.After(5 * time.Second):
-		t.Fatal("Accept timeout")
-	}
 	defer serverConn.Close()
 
 	server := &Server{
@@ -230,9 +188,6 @@ func TestIntegrationPeerServiceServeConnClientCloseUnblocksAndMarksPeerOffline(t
 	if err := clientConn.Close(); err != nil {
 		t.Fatalf("clientConn.Close error = %v", err)
 	}
-	if err := clientListener.Close(); err != nil {
-		t.Fatalf("clientListener.Close error = %v", err)
-	}
 
 	select {
 	case serveErr := <-serveErrCh:
@@ -252,14 +207,5 @@ func TestIntegrationPeerServiceServeConnClientCloseUnblocksAndMarksPeerOffline(t
 	}
 	if runtime := server.manager.PeerRuntime(context.Background(), clientKey.Public); runtime.Online || !runtime.LastSeenAt.IsZero() {
 		t.Fatalf("peer runtime after client close = %+v", runtime)
-	}
-}
-
-func drainUDP(u *giznoise.UDP) {
-	buf := make([]byte, 65535)
-	for {
-		if _, _, err := u.ReadFrom(buf); err != nil {
-			return
-		}
 	}
 }

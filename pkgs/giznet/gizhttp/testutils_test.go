@@ -1,11 +1,13 @@
 package gizhttp
 
 import (
+	"context"
+	"net/http/httptest"
 	"testing"
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
-	"github.com/GizClaw/gizclaw-go/pkgs/giznet/giznoise"
+	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
 )
 
 type testSecurityPolicy struct {
@@ -23,12 +25,24 @@ func (p testSecurityPolicy) AllowService(pk giznet.PublicKey, service uint64) bo
 	return p.allowService(pk, service)
 }
 
+type testListenerNode struct {
+	listener     *gizwebrtc.Listener
+	signalingURL string
+}
+
+func (n *testListenerNode) Close() error {
+	if n == nil || n.listener == nil {
+		return nil
+	}
+	return n.listener.Close()
+}
+
 // newListenerNode creates a giznet.Listener for tests using only public APIs.
-func newListenerNode(t *testing.T, key *giznet.KeyPair, cfgs ...giznoise.ListenConfig) *giznoise.Listener {
+func newListenerNode(t *testing.T, key *giznet.KeyPair, cfgs ...gizwebrtc.ListenConfig) *testListenerNode {
 	t.Helper()
 
-	cfg := giznoise.ListenConfig{
-		Addr:           "127.0.0.1:0",
+	cfg := gizwebrtc.ListenConfig{
+		CipherMode:     gizwebrtc.CipherModePlaintext,
 		SecurityPolicy: testSecurityPolicy{},
 	}
 	if len(cfgs) > 0 {
@@ -39,32 +53,21 @@ func newListenerNode(t *testing.T, key *giznet.KeyPair, cfgs ...giznoise.ListenC
 	}
 	l, err := (&cfg).Listen(key)
 	if err != nil {
-		t.Fatalf("giznet.Listen failed: %v", err)
+		t.Fatalf("gizwebrtc.Listen failed: %v", err)
 	}
 	t.Cleanup(func() { _ = l.Close() })
-
-	u := l.UDP()
-	go func() {
-		buf := make([]byte, 65535)
-		for {
-			if _, _, err := u.ReadFrom(buf); err != nil {
-				return
-			}
-		}
-	}()
-
-	return l
+	server := httptest.NewServer(l.SignalingHandler())
+	t.Cleanup(server.Close)
+	return &testListenerNode{listener: l, signalingURL: server.URL + gizwebrtc.SignalingPath}
 }
 
-func connectListenerNodes(t *testing.T, client *giznoise.Listener, clientKey *giznet.KeyPair, server *giznoise.Listener, serverKey *giznet.KeyPair) (giznet.Conn, giznet.Conn) {
+func connectListenerNodes(t *testing.T, _ *testListenerNode, clientKey *giznet.KeyPair, server *testListenerNode, serverKey *giznet.KeyPair) (giznet.Conn, giznet.Conn) {
 	t.Helper()
-
-	server.SetPeerEndpoint(clientKey.Public, client.HostInfo().Addr)
 
 	acceptCh := make(chan giznet.Conn, 1)
 	errCh := make(chan error, 1)
 	go func() {
-		conn, err := server.Accept()
+		conn, err := server.listener.Accept()
 		if err != nil {
 			errCh <- err
 			return
@@ -72,10 +75,17 @@ func connectListenerNodes(t *testing.T, client *giznoise.Listener, clientKey *gi
 		acceptCh <- conn
 	}()
 
-	clientConn, err := client.Dial(serverKey.Public, server.HostInfo().Addr)
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	clientListener, clientConn, err := gizwebrtc.Dial(ctx, clientKey, serverKey.Public, gizwebrtc.DialConfig{
+		SignalingURL:   server.signalingURL,
+		CipherMode:     gizwebrtc.CipherModePlaintext,
+		SecurityPolicy: testSecurityPolicy{},
+	})
 	if err != nil {
-		t.Fatalf("Dial failed: %v", err)
+		t.Fatalf("gizwebrtc.Dial failed: %v", err)
 	}
+	t.Cleanup(func() { _ = clientListener.Close() })
 
 	select {
 	case serverConn := <-acceptCh:
@@ -86,23 +96,4 @@ func connectListenerNodes(t *testing.T, client *giznoise.Listener, clientKey *gi
 		t.Fatal("Accept timeout")
 	}
 	return nil, nil
-}
-
-func waitForPeerEstablished(t *testing.T, u *giznoise.UDP, pk giznet.PublicKey) {
-	t.Helper()
-
-	deadline := time.Now().Add(5 * time.Second)
-	for time.Now().Before(deadline) {
-		info := u.PeerInfo(pk)
-		if info != nil && info.State.String() == giznet.PeerStateEstablished.String() {
-			return
-		}
-		time.Sleep(10 * time.Millisecond)
-	}
-
-	info := u.PeerInfo(pk)
-	if info == nil {
-		t.Fatalf("peer %x was not registered before timeout", pk)
-	}
-	t.Fatalf("peer %x state=%v, want %v", pk, info.State, giznet.PeerStateEstablished)
 }

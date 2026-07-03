@@ -267,11 +267,6 @@ Binding direction:
   `/login`, and the fixed WebRTC signaling path `/webrtc/v1/offer`.
 - `endpoint/udp` serves WebRTC ICE UDP.
 
-The server config no longer supports `host`, `listen`, `public-api-port`,
-`noise-udp-port`, `ice-port`, or `cipher-mode`. `LoadConfig` rejects those
-fields so stale split-port configs fail fast instead of silently advertising a
-wrong public endpoint.
-
 Default endpoint:
 
 - `0.0.0.0:9820`

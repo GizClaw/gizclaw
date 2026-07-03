@@ -94,15 +94,8 @@ func LoadConfig(dir string) (Config, error) {
 	if err != nil {
 		return Config{}, fmt.Errorf("contextstore: read config: %w", err)
 	}
-	var rawKeys map[string]any
-	if err := yaml.Unmarshal(data, &rawKeys); err != nil {
-		return Config{}, fmt.Errorf("contextstore: parse config: %w", err)
-	}
-	if err := rejectContextConfigFields(rawKeys); err != nil {
-		return Config{}, err
-	}
 	var cfg Config
-	if err := yaml.Unmarshal(data, &cfg); err != nil {
+	if err := yaml.UnmarshalWithOptions(data, &cfg, yaml.DisallowUnknownField()); err != nil {
 		return Config{}, fmt.Errorf("contextstore: parse config: %w", err)
 	}
 	if err := validateEndpoint("server.endpoint", cfg.Server.Endpoint); err != nil {
@@ -112,29 +105,6 @@ func LoadConfig(dir string) (Config, error) {
 		return Config{}, fmt.Errorf("contextstore: missing server.public-key")
 	}
 	return cfg, nil
-}
-
-func rejectContextConfigFields(raw map[string]any) error {
-	if _, ok := raw["server"].(map[string]any); !ok {
-		return nil
-	}
-	server, _ := raw["server"].(map[string]any)
-	for _, field := range []string{
-		"address",
-		"host",
-		"public-api-port",
-		"noise-udp-port",
-		"ice-port",
-		"transport",
-		"cipher-mode",
-		"private-key",
-		"identity-key",
-	} {
-		if _, ok := server[field]; ok {
-			return fmt.Errorf("contextstore: server.%s is not supported; use server.endpoint and server.public-key", field)
-		}
-	}
-	return nil
 }
 
 func validateEndpoint(field, endpoint string) error {

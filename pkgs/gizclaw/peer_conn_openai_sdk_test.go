@@ -22,7 +22,6 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/acl"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizhttp"
-	"github.com/GizClaw/gizclaw-go/pkgs/giznet/giznoise"
 )
 
 func TestPeerConnOpenAIServiceWithOpenAISDK(t *testing.T) {
@@ -35,55 +34,10 @@ func TestPeerConnOpenAIServiceWithOpenAISDK(t *testing.T) {
 		t.Fatalf("GenerateKeyPair(client) error = %v", err)
 	}
 
-	serverListener, err := (&giznoise.ListenConfig{
-		Addr: "127.0.0.1:0",
-		SecurityPolicy: testGiznetSecurityPolicy{allowService: func(giznet.PublicKey, uint64) bool {
-			return true
-		}},
-	}).Listen(serverKey)
-	if err != nil {
-		t.Fatalf("Listen(server) error = %v", err)
-	}
-	defer serverListener.Close()
-	go drainUDP(serverListener.UDP())
-
-	clientListener, err := (&giznoise.ListenConfig{
-		Addr: "127.0.0.1:0",
-		SecurityPolicy: testGiznetSecurityPolicy{allowService: func(giznet.PublicKey, uint64) bool {
-			return true
-		}},
-	}).Listen(clientKey)
-	if err != nil {
-		t.Fatalf("Listen(client) error = %v", err)
-	}
-	defer clientListener.Close()
-	go drainUDP(clientListener.UDP())
-
-	acceptCh := make(chan giznet.Conn, 1)
-	acceptErrCh := make(chan error, 1)
-	go func() {
-		conn, err := serverListener.Accept()
-		if err != nil {
-			acceptErrCh <- err
-			return
-		}
-		acceptCh <- conn
-	}()
-
-	clientConn, err := clientListener.Dial(serverKey.Public, serverListener.HostInfo().Addr)
-	if err != nil {
-		t.Fatalf("Dial error = %v", err)
-	}
+	clientConn, serverConn := newTestWebRTCConnPair(t, serverKey, clientKey,
+		testGiznetSecurityPolicy{allowService: func(giznet.PublicKey, uint64) bool { return true }},
+		testGiznetSecurityPolicy{allowService: func(giznet.PublicKey, uint64) bool { return true }})
 	defer clientConn.Close()
-
-	var serverConn giznet.Conn
-	select {
-	case serverConn = <-acceptCh:
-	case err := <-acceptErrCh:
-		t.Fatalf("Accept error = %v", err)
-	case <-time.After(5 * time.Second):
-		t.Fatal("Accept timeout")
-	}
 	defer serverConn.Close()
 
 	var sawChat bool
@@ -277,55 +231,10 @@ func TestPeerConnOpenAIServiceStreamsChatThroughProxy(t *testing.T) {
 		t.Fatalf("GenerateKeyPair(client) error = %v", err)
 	}
 
-	serverListener, err := (&giznoise.ListenConfig{
-		Addr: "127.0.0.1:0",
-		SecurityPolicy: testGiznetSecurityPolicy{allowService: func(giznet.PublicKey, uint64) bool {
-			return true
-		}},
-	}).Listen(serverKey)
-	if err != nil {
-		t.Fatalf("Listen(server) error = %v", err)
-	}
-	defer serverListener.Close()
-	go drainUDP(serverListener.UDP())
-
-	clientListener, err := (&giznoise.ListenConfig{
-		Addr: "127.0.0.1:0",
-		SecurityPolicy: testGiznetSecurityPolicy{allowService: func(giznet.PublicKey, uint64) bool {
-			return true
-		}},
-	}).Listen(clientKey)
-	if err != nil {
-		t.Fatalf("Listen(client) error = %v", err)
-	}
-	defer clientListener.Close()
-	go drainUDP(clientListener.UDP())
-
-	acceptCh := make(chan giznet.Conn, 1)
-	acceptErrCh := make(chan error, 1)
-	go func() {
-		conn, err := serverListener.Accept()
-		if err != nil {
-			acceptErrCh <- err
-			return
-		}
-		acceptCh <- conn
-	}()
-
-	clientConn, err := clientListener.Dial(serverKey.Public, serverListener.HostInfo().Addr)
-	if err != nil {
-		t.Fatalf("Dial error = %v", err)
-	}
+	clientConn, serverConn := newTestWebRTCConnPair(t, serverKey, clientKey,
+		testGiznetSecurityPolicy{allowService: func(giznet.PublicKey, uint64) bool { return true }},
+		testGiznetSecurityPolicy{allowService: func(giznet.PublicKey, uint64) bool { return true }})
 	defer clientConn.Close()
-
-	var serverConn giznet.Conn
-	select {
-	case serverConn = <-acceptCh:
-	case err := <-acceptErrCh:
-		t.Fatalf("Accept error = %v", err)
-	case <-time.After(5 * time.Second):
-		t.Fatal("Accept timeout")
-	}
 	defer serverConn.Close()
 
 	releaseSecond := make(chan struct{})

@@ -136,8 +136,8 @@ func (h *PeerConn) serveRPC() error {
 
 // Ping opens a fresh RPC stream, sends one ping, and closes it.
 //
-// Our current RPC transport uses one KCP stream per round trip so multiple RPC
-// requests can run concurrently on separate streams. This is closer to
+// Our current RPC transport uses one giznet service stream per round trip so
+// multiple RPC requests can run concurrently on separate streams. This is closer to
 // HTTP/1.0-style request lifecycles; HTTP/1.1-style stream reuse is not
 // supported yet.
 func (h *PeerConn) Ping(ctx context.Context, id string) (*rpcapi.PingResponse, error) {
@@ -410,8 +410,8 @@ func (h *PeerConn) serveDirectPackets() error {
 				return err
 			}
 		default:
-			// Unknown direct packets are ignored by the echo slice; service-mux
-			// protocols continue to be handled by KCP services.
+			// Unknown direct packets are ignored by the echo slice; service
+			// protocols continue to be handled by service streams.
 		}
 	}
 }
