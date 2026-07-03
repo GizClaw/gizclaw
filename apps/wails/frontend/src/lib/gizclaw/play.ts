@@ -1,5 +1,5 @@
 import { connectGiznetWebRTC, sendGiznetWebRTCOffer } from "@gizclaw/gizclaw";
-import { createPeerRPCClient, type PeerRPCClient } from "@gizclaw/gizclaw/rpc";
+import { RPC_METHODS, createPeerRPCClient, type PeerRPCClient } from "@gizclaw/gizclaw/rpc";
 import { base64Decode, prepareEncryptedGiznetWebRTCOffer } from "@gizclaw/gizclaw/signaling";
 import type { RuntimeContext } from "../runtime/types";
 
@@ -136,22 +136,22 @@ export function createRPCPlayDataClient(rpc: PeerRPCClient): PlayDataClient {
         wallet,
         walletTransactions,
       ] = await Promise.all([
-        captureCall("server.run.workspace.get", () => rpc.call("server.run.workspace.get", {})),
-        captureCall("server.run.workspace.history", () => rpc.call("server.run.workspace.history", { limit: 30 })),
-        captureCall("server.run.workspace.memory.stats", () => rpc.call("server.run.workspace.memory.stats", {})),
-        captureCall("server.contact.list", () => rpc.call("server.contact.list", {})),
-        captureCall("server.friend.list", () => rpc.call("server.friend.list", {})),
-        captureCall("server.friend_group.list", () => rpc.call("server.friend_group.list", {})),
-        captureCall("server.firmware.list", () => rpc.call("server.firmware.list", {})),
-        captureCall("server.workspace.list", () => rpc.call("server.workspace.list", {})),
-        captureCall("server.workflow.list", () => rpc.call("server.workflow.list", {})),
-        captureCall("server.model.list", () => rpc.call("server.model.list", {})),
-        captureCall("server.voice.list", () => rpc.call("server.voice.list", {})),
-        captureCall("server.credential.list", () => rpc.call("server.credential.list", {})),
-        captureCall("server.pet.list", () => rpc.call("server.pet.list", {})),
-        captureCall("server.reward.list", () => rpc.call("server.reward.list", {})),
-        captureCall("server.wallet.get", () => rpc.call("server.wallet.get", {})),
-        captureCall("server.wallet.transactions.list", () => rpc.call("server.wallet.transactions.list", {})),
+        captureCall(RPC_METHODS["server.run.workspace.get"], () => rpc.call(RPC_METHODS["server.run.workspace.get"], {})),
+        captureCall(RPC_METHODS["server.run.workspace.history"], () => rpc.call(RPC_METHODS["server.run.workspace.history"], { limit: 30 })),
+        captureCall(RPC_METHODS["server.run.workspace.memory.stats"], () => rpc.call(RPC_METHODS["server.run.workspace.memory.stats"], {})),
+        captureCall(RPC_METHODS["server.contact.list"], () => rpc.call(RPC_METHODS["server.contact.list"], {})),
+        captureCall(RPC_METHODS["server.friend.list"], () => rpc.call(RPC_METHODS["server.friend.list"], {})),
+        captureCall(RPC_METHODS["server.friend_group.list"], () => rpc.call(RPC_METHODS["server.friend_group.list"], {})),
+        captureCall(RPC_METHODS["server.firmware.list"], () => rpc.call(RPC_METHODS["server.firmware.list"], {})),
+        captureCall(RPC_METHODS["server.workspace.list"], () => rpc.call(RPC_METHODS["server.workspace.list"], {})),
+        captureCall(RPC_METHODS["server.workflow.list"], () => rpc.call(RPC_METHODS["server.workflow.list"], {})),
+        captureCall(RPC_METHODS["server.model.list"], () => rpc.call(RPC_METHODS["server.model.list"], {})),
+        captureCall(RPC_METHODS["server.voice.list"], () => rpc.call(RPC_METHODS["server.voice.list"], {})),
+        captureCall(RPC_METHODS["server.credential.list"], () => rpc.call(RPC_METHODS["server.credential.list"], {})),
+        captureCall(RPC_METHODS["server.pet.list"], () => rpc.call(RPC_METHODS["server.pet.list"], {})),
+        captureCall(RPC_METHODS["server.reward.list"], () => rpc.call(RPC_METHODS["server.reward.list"], {})),
+        captureCall(RPC_METHODS["server.wallet.get"], () => rpc.call(RPC_METHODS["server.wallet.get"], {})),
+        captureCall(RPC_METHODS["server.wallet.transactions.list"], () => rpc.call(RPC_METHODS["server.wallet.transactions.list"], {})),
       ]);
       return {
         contacts: listItems(contacts.value).map((item) => itemToResourceRow(item, "contact")),
@@ -191,20 +191,20 @@ export function createRPCPlayDataClient(rpc: PeerRPCClient): PlayDataClient {
       };
     },
     playHistory(historyID: string): Promise<unknown> {
-      return rpc.call("server.run.workspace.history.play", { history_id: historyID });
+      return rpc.call(RPC_METHODS["server.run.workspace.history.play"], { history_id: historyID });
     },
     async recallMemory(query: string): Promise<PlayMemoryRecall> {
-      const raw = await rpc.call("server.run.workspace.recall", { limit: 8, query });
+      const raw = await rpc.call(RPC_METHODS["server.run.workspace.recall"], { limit: 8, query });
       return {
         hits: listItems(raw).map((item) => itemToResourceRow(item, "memory")),
         raw,
       };
     },
     reloadWorkspace(): Promise<unknown> {
-      return rpc.call("server.run.workspace.reload", {});
+      return rpc.call(RPC_METHODS["server.run.workspace.reload"], {});
     },
     setWorkspace(workspaceName: string): Promise<unknown> {
-      return rpc.call("server.run.workspace.set", { workspace_name: workspaceName });
+      return rpc.call(RPC_METHODS["server.run.workspace.set"], { workspace_name: workspaceName });
     },
   };
 }

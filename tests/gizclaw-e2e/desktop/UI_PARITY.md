@@ -51,14 +51,17 @@ Old e2e/user-story baseline:
 
 | Old Admin Area | New Implementation | New E2E Coverage |
 | --- | --- | --- |
-| Admin layout/sidebar/resource navigation | `apps/wails/frontend/src/views/admin/AdminFullHome.tsx` | `apps/wails/frontend/e2e/admin.spec.ts` |
-| Peers list/detail | `apps/wails/frontend/src/views/admin/AdminFullHome.tsx` | `apps/wails/frontend/e2e/admin.spec.ts` |
-| Workflows/workspaces/models/voices | `apps/wails/frontend/src/views/admin/AdminFullHome.tsx`, `apps/wails/frontend/src/lib/gizclaw/admin.ts` | `apps/wails/frontend/e2e/admin.spec.ts` |
-| Credentials/provider tenants | `apps/wails/frontend/src/views/admin/AdminFullHome.tsx`, `apps/wails/frontend/src/lib/gizclaw/admin.ts` | `apps/wails/frontend/e2e/admin.spec.ts` |
-| Firmware resources | `apps/wails/frontend/src/views/admin/AdminFullHome.tsx` | `apps/wails/frontend/e2e/admin.spec.ts` |
-| ACL views/roles/policy bindings | `apps/wails/frontend/src/views/admin/AdminFullHome.tsx` | `apps/wails/frontend/e2e/admin.spec.ts` |
-| Social contacts/friends/friend groups | `apps/wails/frontend/src/views/admin/AdminFullHome.tsx` | `apps/wails/frontend/e2e/admin.spec.ts` |
-| Gameplay badges/pet species | `apps/wails/frontend/src/views/admin/AdminFullHome.tsx` | `apps/wails/frontend/e2e/admin.spec.ts` |
+| Admin layout/sidebar/resource navigation | `apps/wails/frontend/src/views/admin/full/layout`, `apps/wails/frontend/src/views/admin/full/router.tsx`, `apps/wails/frontend/src/views/admin/AdminFullHome.tsx` | `apps/wails/frontend/e2e/admin.spec.ts` |
+| Overview dashboard | `apps/wails/frontend/src/views/admin/full/pages/overview/OverviewPage.tsx` | `apps/wails/frontend/e2e/admin.spec.ts` |
+| Peers list/detail | `apps/wails/frontend/src/views/admin/full/pages/peers` | `apps/wails/frontend/e2e/admin.spec.ts` |
+| Workflows/workspaces/models/voices | `apps/wails/frontend/src/views/admin/full/pages/ai`, `apps/wails/frontend/src/lib/gizclaw/admin.ts` | `apps/wails/frontend/e2e/admin.spec.ts` |
+| Credentials/provider tenants | `apps/wails/frontend/src/views/admin/full/pages/providers`, `apps/wails/frontend/src/lib/gizclaw/admin.ts` | `apps/wails/frontend/e2e/admin.spec.ts` |
+| Firmware list/create/detail/artifact browsing | `apps/wails/frontend/src/views/admin/full/pages/firmware` | `apps/wails/frontend/e2e/admin.spec.ts` |
+| ACL views/roles/policy bindings | `apps/wails/frontend/src/views/admin/full/pages/settings` | `apps/wails/frontend/e2e/admin.spec.ts` |
+| Social contacts/friends/friend groups/history audio | `apps/wails/frontend/src/views/admin/full/pages/social` | `apps/wails/frontend/e2e/admin.spec.ts` |
+| Gameplay badges/pet species | `apps/wails/frontend/src/views/admin/full/pages/business` | `apps/wails/frontend/e2e/admin.spec.ts` |
+| Resource manager page | `apps/wails/frontend/src/views/admin/full/pages/resources/ResourcesPage.tsx` | `apps/wails/frontend/e2e/admin.spec.ts` |
+| Legacy memory placeholder | `apps/wails/frontend/src/views/admin/full/pages/memory/MemoryPage.tsx` | Not a parity gate: the old `origin/main` router also did not expose this placeholder page |
 
 Admin transport mapping:
 
@@ -73,13 +76,15 @@ Admin transport mapping:
 
 | Old Play Area | New Implementation | New E2E Coverage |
 | --- | --- | --- |
-| Workspace runtime summary | `apps/wails/frontend/src/views/play/PlayFullHome.tsx` | `apps/wails/frontend/e2e/play.spec.ts` |
-| Workspace set/reload | `apps/wails/frontend/src/views/play/PlayFullHome.tsx`, `apps/wails/frontend/src/lib/gizclaw/play.ts` | `apps/wails/frontend/e2e/play.spec.ts` |
-| History list and replay action | `apps/wails/frontend/src/views/play/PlayFullHome.tsx` | `apps/wails/frontend/e2e/play.spec.ts` |
-| Social friend/group resource visibility | `apps/wails/frontend/src/views/play/PlayFullHome.tsx` | `apps/wails/frontend/e2e/play.spec.ts` |
-| Firmware list visibility | `apps/wails/frontend/src/views/play/PlayFullHome.tsx` | `apps/wails/frontend/e2e/play.spec.ts` |
-| Memory stats/recall | `apps/wails/frontend/src/views/play/PlayFullHome.tsx` | `apps/wails/frontend/e2e/play.spec.ts` |
-| Gameplay wallet/reward/pet visibility | `apps/wails/frontend/src/views/play/PlayFullHome.tsx` | `apps/wails/frontend/e2e/play.spec.ts` |
+| Workspace runtime summary | `apps/wails/frontend/src/views/play/full/PlayFullApp.tsx` | `apps/wails/frontend/e2e/play.spec.ts` |
+| Workspace set/reload/mode | `apps/wails/frontend/src/views/play/full/PlayFullApp.tsx`, `apps/wails/frontend/src/views/play/full/peer-rpc-adapter.ts` | `apps/wails/frontend/e2e/play.spec.ts` |
+| Push-to-talk / realtime workspace controls | `apps/wails/frontend/src/views/play/full/PlayFullApp.tsx` | `apps/wails/frontend/e2e/play.spec.ts`, `tests/gizclaw-e2e/go/chat` live workspace tests |
+| Event stream rendering and active chat history replay | `apps/wails/frontend/src/views/play/full/PlayFullApp.tsx` | `apps/wails/frontend/e2e/play.spec.ts` |
+| History list and replay action | `apps/wails/frontend/src/views/play/full/PlayFullApp.tsx` | `apps/wails/frontend/e2e/play.spec.ts` |
+| Social friend/group resources and chat targets | `apps/wails/frontend/src/views/play/full/PlayFullApp.tsx` | `apps/wails/frontend/e2e/play.spec.ts`, `tests/gizclaw-e2e/go/social` |
+| Firmware list/detail/download | `apps/wails/frontend/src/views/play/full/PlayFullApp.tsx` | `apps/wails/frontend/e2e/play.spec.ts`, `tests/gizclaw-e2e/go/rpc/server_firmware_test.go` |
+| Memory stats/recall/reload | `apps/wails/frontend/src/views/play/full/PlayFullApp.tsx` | `apps/wails/frontend/e2e/play.spec.ts` |
+| Gameplay wallet/reward/pet visibility and actions | `apps/wails/frontend/src/views/play/full/PlayFullApp.tsx` | `apps/wails/frontend/e2e/play.spec.ts`, `tests/gizclaw-e2e/go/rpc/server_pet_test.go`, `tests/gizclaw-e2e/go/rpc/server_reward_test.go`, `tests/gizclaw-e2e/go/rpc/server_wallet_test.go` |
 
 Play transport mapping:
 
@@ -90,15 +95,31 @@ Play transport mapping:
 - The generated RPC method map is produced from
   `api/rpc.json` `x-gizclaw-rpc-methods`.
 
-## Ongoing Regression Focus
+## Final Acceptance Evidence
 
-The desktop implementation should continue to be checked against the full old UI
-surface whenever these areas change:
+The #120 desktop UI redo is considered complete when the following evidence is
+current:
 
-- Admin page-level forms and create/update/delete dialogs from old per-resource
-  pages.
-- Admin firmware artifact tree/stat/download detail interactions.
-- Play push-to-talk/realtime controls and event stream rendering.
-- Chat drawer conversation behavior and active workspace history replay.
-- E2E assertions that use real shared setup data in addition to injected browser
-  mocks.
+- `api/desktop_service.json` defines the local desktop API for contexts, views,
+  and view sessions. The generated frontend types live under
+  `apps/wails/frontend/src/generated/desktopservice`.
+- The desktop launcher uses `apps/wails/frontend/src/lib/runtime/desktop.ts`
+  and generated DTO aliases from `apps/wails/frontend/src/lib/runtime/types.ts`.
+- The desktop app starts on `AppShell` Welcome/context/view selection and only
+  requests injected private runtime material after `Get Started`.
+- Dashboard sign-out calls the local desktop API to clear the active session and
+  returns to Welcome without deleting stored contexts or identities.
+- `@gizclaw/gizclaw` is the only GizClaw JavaScript SDK package used by the
+  desktop frontend. Generated Admin, server-public, and peer RPC code lives
+  under `js/packages/gizclaw/generated`.
+- Admin uses generated Admin API clients through the WebRTC fetch transport in
+  `@gizclaw/gizclaw/admin`.
+- Play uses generated typed peer RPC through `@gizclaw/gizclaw/rpc`; it does not
+  use the removed client-service API.
+- Old Go-hosted UI and proxy surfaces remain deleted:
+  `cmd/ui/admin`, `cmd/ui/play`, old Play `cmd/internal/clientapi`
+  dependencies, and old `cmd/internal/cmdhttp` UI proxy handlers are absent.
+- `npm --prefix apps/wails/frontend run test:e2e`,
+  `go test -tags gizclaw_e2e -count=1 ./tests/gizclaw-e2e/desktop/...`, and the
+  default Docker-backed `./tests/gizclaw-e2e/run_tests.sh` must pass before
+  #109 is closed.
