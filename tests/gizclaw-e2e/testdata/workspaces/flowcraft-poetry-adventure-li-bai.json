@@ -5,9 +5,14 @@
     "llm": "doubao-lite-chat",
     "tts": "volc-bigtts"
   },
-  "persona": "Always generate exactly this Chinese utterance: 带我开始李白诗词冒险。",
+  "persona": "Use short Chinese hint-seeking utterances that keep the poetry adventure on the retry path.",
   "rounds": 3,
   "timeout": "1200s",
+  "utterances": [
+    "我还没想好诗句",
+    "请再给我一点提示",
+    "我还需要更多线索"
+  ],
   "voice": "volc-tenant:volc-main:zh_female_vv_mars_bigtts",
   "workflow": {
     "name": "flowcraft-poetry-adventure-li-bai",
