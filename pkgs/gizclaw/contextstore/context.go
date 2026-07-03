@@ -1,7 +1,6 @@
 package contextstore
 
 import (
-	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -20,10 +19,16 @@ type ServerConfig struct {
 	PublicKey giznet.PublicKey `yaml:"public-key"`
 }
 
+// IdentityConfig holds the local identity material for this context.
+type IdentityConfig struct {
+	PrivateKey giznet.Key `yaml:"private-key"`
+}
+
 // Config is the per-context configuration stored in config.yaml.
 type Config struct {
-	Description string       `yaml:"description,omitempty"`
-	Server      ServerConfig `yaml:"server"`
+	Description string         `yaml:"description,omitempty"`
+	Identity    IdentityConfig `yaml:"identity"`
+	Server      ServerConfig   `yaml:"server"`
 }
 
 // Context represents a loaded context directory.
@@ -49,15 +54,15 @@ type Summary struct {
 	LocalPublicKey  giznet.PublicKey
 }
 
-// Load reads a context from its directory and loads identity material.
+// Load reads a context from its directory.
 func Load(dir string) (*Context, error) {
 	cfg, err := LoadConfig(dir)
 	if err != nil {
 		return nil, err
 	}
-	kp, err := LoadIdentity(filepath.Join(dir, IdentityFile))
+	kp, err := keyPairFromPrivateKey("identity.private-key", cfg.Identity.PrivateKey)
 	if err != nil {
-		return nil, fmt.Errorf("contextstore: load identity: %w", err)
+		return nil, err
 	}
 	return &Context{
 		Name:    filepath.Base(dir),
@@ -67,10 +72,13 @@ func Load(dir string) (*Context, error) {
 	}, nil
 }
 
-// LoadSummary reads context metadata. It derives local public key when identity
-// material is present, but tolerates a missing identity for partially-created contexts.
+// LoadSummary reads context metadata.
 func LoadSummary(dir string) (Summary, error) {
 	ctx, err := LoadConfig(dir)
+	if err != nil {
+		return Summary{}, err
+	}
+	kp, err := keyPairFromPrivateKey("identity.private-key", ctx.Identity.PrivateKey)
 	if err != nil {
 		return Summary{}, err
 	}
@@ -79,11 +87,7 @@ func LoadSummary(dir string) (Summary, error) {
 		Description:     ctx.Description,
 		Endpoint:        ctx.Server.Endpoint,
 		ServerPublicKey: ctx.Server.PublicKey,
-	}
-	if kp, err := LoadIdentity(filepath.Join(dir, IdentityFile)); err == nil {
-		summary.LocalPublicKey = kp.Public
-	} else if !errors.Is(err, os.ErrNotExist) {
-		return Summary{}, fmt.Errorf("contextstore: load identity summary: %w", err)
+		LocalPublicKey:  kp.Public,
 	}
 	return summary, nil
 }
@@ -101,10 +105,26 @@ func LoadConfig(dir string) (Config, error) {
 	if err := validateEndpoint("server.endpoint", cfg.Server.Endpoint); err != nil {
 		return Config{}, err
 	}
+	kp, err := keyPairFromPrivateKey("identity.private-key", cfg.Identity.PrivateKey)
+	if err != nil {
+		return Config{}, err
+	}
+	cfg.Identity.PrivateKey = kp.Private
 	if cfg.Server.PublicKey.IsZero() {
 		return Config{}, fmt.Errorf("contextstore: missing server.public-key")
 	}
 	return cfg, nil
+}
+
+func keyPairFromPrivateKey(field string, privateKey giznet.Key) (*giznet.KeyPair, error) {
+	if privateKey.IsZero() {
+		return nil, fmt.Errorf("contextstore: missing %s", field)
+	}
+	kp, err := giznet.NewKeyPair(privateKey)
+	if err != nil {
+		return nil, fmt.Errorf("contextstore: invalid %s: %w", field, err)
+	}
+	return kp, nil
 }
 
 func validateEndpoint(field, endpoint string) error {

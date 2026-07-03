@@ -76,6 +76,9 @@ type Result struct {
 }
 
 type cliContextConfig struct {
+	Identity struct {
+		PrivateKey giznet.Key `yaml:"private-key"`
+	} `yaml:"identity"`
 	Server struct {
 		Endpoint  string `yaml:"endpoint"`
 		PublicKey string `yaml:"public-key"`
@@ -89,6 +92,9 @@ type contextAlias struct {
 }
 
 type serverWorkspaceConfig struct {
+	Identity struct {
+		PrivateKey giznet.Key `yaml:"private-key"`
+	} `yaml:"identity"`
 	Endpoint string `yaml:"endpoint"`
 }
 
@@ -173,9 +179,9 @@ func (h *Harness) UseSetupServer() {
 	if err := yaml.Unmarshal(data, &cfg); err != nil {
 		h.t.Fatalf("parse setup server config %q: %v", configPath, err)
 	}
-	keyPair, err := loadIdentity(filepath.Join(workspaceDir, "identity.key"))
+	keyPair, err := keyPairFromConfigPrivateKey(cfg.Identity.PrivateKey)
 	if err != nil {
-		h.t.Fatalf("load setup server identity: %v", err)
+		h.t.Fatalf("load setup server identity from config: %v", err)
 	}
 	serverAddr := serverWorkspaceEndpoint(cfg)
 	if strings.TrimSpace(serverAddr) == "" {
@@ -328,8 +334,8 @@ func (h *Harness) EnsureContext(name string) Result {
 	h.t.Helper()
 
 	contextDir := filepath.Join(h.contextRoot(), name)
-	identityPath := filepath.Join(contextDir, "identity.key")
-	if _, err := os.Stat(identityPath); os.IsNotExist(err) {
+	configPath := filepath.Join(contextDir, "config.yaml")
+	if _, err := os.Stat(configPath); os.IsNotExist(err) {
 		result := h.CreateContext(name)
 		if result.Err != nil {
 			return result
@@ -339,6 +345,14 @@ func (h *Harness) EnsureContext(name string) Result {
 	}
 
 	cfg := cliContextConfig{}
+	if data, err := os.ReadFile(configPath); err != nil {
+		return Result{Args: []string{"ensure-context", name}, Err: err, Stderr: err.Error()}
+	} else if err := yaml.Unmarshal(data, &cfg); err != nil {
+		return Result{Args: []string{"ensure-context", name}, Err: err, Stderr: err.Error()}
+	}
+	if _, err := keyPairFromConfigPrivateKey(cfg.Identity.PrivateKey); err != nil {
+		return Result{Args: []string{"ensure-context", name}, Err: err, Stderr: err.Error()}
+	}
 	cfg.Server.Endpoint = h.ServerAddr
 	cfg.Server.PublicKey = h.ServerPublicKey
 	h.t.Logf("ensure context %s endpoint=%s", name, cfg.Server.Endpoint)
@@ -346,7 +360,7 @@ func (h *Harness) EnsureContext(name string) Result {
 	if err != nil {
 		return Result{Args: []string{"ensure-context", name}, Err: err, Stderr: err.Error()}
 	}
-	if err := os.WriteFile(filepath.Join(contextDir, "config.yaml"), data, 0o600); err != nil {
+	if err := os.WriteFile(configPath, data, 0o600); err != nil {
 		return Result{Args: []string{"ensure-context", name}, Err: err, Stderr: err.Error()}
 	}
 	return h.UseContext(name)
@@ -359,20 +373,18 @@ func (h *Harness) InstallFixedAdminContext(name string) Result {
 	if err := os.MkdirAll(contextDir, 0o755); err != nil {
 		return Result{Args: []string{"install-fixed-admin-context", name}, Err: err, Stderr: err.Error()}
 	}
-	fixtureIdentity := filepath.Join(h.RepoRoot, "tests", "gizclaw-e2e", "testdata", "identities", "admin", "identity.key")
-	identityData, err := os.ReadFile(fixtureIdentity)
+	fixtureConfig := filepath.Join(h.RepoRoot, "tests", "gizclaw-e2e", "testdata", "identities", "admin", "config.yaml")
+	identityData, err := os.ReadFile(fixtureConfig)
 	if err != nil {
 		return Result{Args: []string{"install-fixed-admin-context", name}, Err: err, Stderr: err.Error()}
 	}
-	if len(identityData) != giznet.KeySize {
-		err := fmt.Errorf("fixed admin identity has %d bytes, want %d", len(identityData), giznet.KeySize)
-		return Result{Args: []string{"install-fixed-admin-context", name}, Err: err, Stderr: err.Error()}
-	}
-	if err := os.WriteFile(filepath.Join(contextDir, "identity.key"), identityData, 0o600); err != nil {
-		return Result{Args: []string{"install-fixed-admin-context", name}, Err: err, Stderr: err.Error()}
-	}
-
 	cfg := cliContextConfig{}
+	if err := yaml.Unmarshal(identityData, &cfg); err != nil {
+		return Result{Args: []string{"install-fixed-admin-context", name}, Err: err, Stderr: err.Error()}
+	}
+	if _, err := keyPairFromConfigPrivateKey(cfg.Identity.PrivateKey); err != nil {
+		return Result{Args: []string{"install-fixed-admin-context", name}, Err: err, Stderr: err.Error()}
+	}
 	cfg.Server.Endpoint = h.ServerAddr
 	cfg.Server.PublicKey = h.ServerPublicKey
 	h.t.Logf("install fixed admin context %s endpoint=%s", name, cfg.Server.Endpoint)
@@ -487,9 +499,13 @@ func (h *Harness) ContextPublicKey(name string) string {
 func (h *Harness) ContextKeyPair(name string) *giznet.KeyPair {
 	h.t.Helper()
 
-	keyPair, err := loadIdentity(filepath.Join(h.contextDir(name), "identity.key"))
+	cfg, err := h.readContextConfig(name)
 	if err != nil {
-		h.t.Fatalf("load context %q identity: %v", name, err)
+		h.t.Fatalf("load context %q config: %v", name, err)
+	}
+	keyPair, err := keyPairFromConfigPrivateKey(cfg.Identity.PrivateKey)
+	if err != nil {
+		h.t.Fatalf("load context %q identity from config: %v", name, err)
 	}
 	return keyPair
 }
@@ -613,20 +629,14 @@ func (h *Harness) RunCLI(args ...string) Result {
 }
 
 func (h *Harness) connectClientFromContext(name string) (*gizcli.Client, error) {
-	contextDir := h.contextDir(name)
-	data, err := os.ReadFile(filepath.Join(contextDir, "config.yaml"))
+	cfg, err := h.readContextConfig(name)
 	if err != nil {
-		return nil, fmt.Errorf("read context config: %w", err)
+		return nil, err
 	}
 
-	var cfg cliContextConfig
-	if err := yaml.Unmarshal(data, &cfg); err != nil {
-		return nil, fmt.Errorf("parse context config: %w", err)
-	}
-
-	keyPair, err := loadIdentity(filepath.Join(contextDir, "identity.key"))
+	keyPair, err := keyPairFromConfigPrivateKey(cfg.Identity.PrivateKey)
 	if err != nil {
-		return nil, fmt.Errorf("load context identity: %w", err)
+		return nil, fmt.Errorf("load context identity from config: %w", err)
 	}
 
 	serverPublicKey := h.serverPublicKeyFromContextConfig(cfg)
@@ -672,6 +682,20 @@ func (h *Harness) connectClientFromContext(name string) (*gizcli.Client, error) 
 	return nil, fmt.Errorf("timeout waiting for client readiness")
 }
 
+func (h *Harness) readContextConfig(name string) (cliContextConfig, error) {
+	contextDir := h.contextDir(name)
+	data, err := os.ReadFile(filepath.Join(contextDir, "config.yaml"))
+	if err != nil {
+		return cliContextConfig{}, fmt.Errorf("read context config: %w", err)
+	}
+
+	var cfg cliContextConfig
+	if err := yaml.Unmarshal(data, &cfg); err != nil {
+		return cliContextConfig{}, fmt.Errorf("parse context config: %w", err)
+	}
+	return cfg, nil
+}
+
 func (h *Harness) RunCLIUntilSuccess(args ...string) (Result, error) {
 	var last Result
 	if err := waitUntil(readyTimeout, func() error {
@@ -689,12 +713,19 @@ func (h *Harness) RunCLIUntilSuccess(args ...string) (Result, error) {
 func (h *Harness) waitForServerIdentity() {
 	h.t.Helper()
 
-	identityPath := filepath.Join(h.ServerWorkspace, "identity.key")
 	if err := waitUntil(readyTimeout, func() error {
 		if err := h.serverProcessError(); err != nil {
 			return err
 		}
-		keyPair, err := loadIdentity(identityPath)
+		data, err := os.ReadFile(filepath.Join(h.ServerWorkspace, "config.yaml"))
+		if err != nil {
+			return err
+		}
+		var cfg serverWorkspaceConfig
+		if err := yaml.Unmarshal(data, &cfg); err != nil {
+			return err
+		}
+		keyPair, err := keyPairFromConfigPrivateKey(cfg.Identity.PrivateKey)
 		if err != nil {
 			return err
 		}
@@ -1080,17 +1111,11 @@ func mustBuildCLI(t testing.TB, repoRoot string) string {
 	return buildBinaryPath
 }
 
-func loadIdentity(path string) (*giznet.KeyPair, error) {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return nil, fmt.Errorf("read %s: %w", path, err)
+func keyPairFromConfigPrivateKey(privateKey giznet.Key) (*giznet.KeyPair, error) {
+	if privateKey.IsZero() {
+		return nil, fmt.Errorf("missing identity.private-key")
 	}
-	if len(data) != giznet.KeySize {
-		return nil, fmt.Errorf("invalid key file: got %d bytes, want %d", len(data), giznet.KeySize)
-	}
-	var key giznet.Key
-	copy(key[:], data)
-	return giznet.NewKeyPair(key)
+	return giznet.NewKeyPair(privateKey)
 }
 
 func probeServerPublicReady(ctx context.Context, client *gizcli.Client) error {

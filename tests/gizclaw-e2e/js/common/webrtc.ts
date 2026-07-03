@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import wrtc from "@roamhq/wrtc";
 import { connectGiznetWebRTC, sendGiznetWebRTCOffer } from "@gizclaw/gizclaw";
-import { prepareEncryptedGiznetWebRTCOffer } from "@gizclaw/gizclaw/signaling";
+import { base58Decode, prepareEncryptedGiznetWebRTCOffer } from "@gizclaw/gizclaw/signaling";
 
 export const repoRoot = path.resolve(import.meta.dirname, "../../../..");
 
@@ -32,17 +32,15 @@ export async function connectSetupPeer(identityDir: string): Promise<wrtc.RTCPee
 }
 
 export async function loadIdentity(dir: string): Promise<Identity> {
-  const [config, privateKey] = await Promise.all([
-    readFile(path.join(dir, "config.yaml"), "utf8"),
-    readFile(path.join(dir, "identity.key")),
-  ]);
+  const config = await readFile(path.join(dir, "config.yaml"), "utf8");
+  const privateKey = base58Decode(matchConfig(config, /private-key:\s*"?([^"\s]+)"?/));
   if (privateKey.length !== 32) {
-    throw new Error(`identity.key length = ${privateKey.length}, want 32`);
+    throw new Error(`identity.private-key length = ${privateKey.length}, want 32`);
   }
   return {
     clientPrivateKey: privateKey,
     endpoint: matchConfig(config, /endpoint:\s*([^\s]+)/),
-    serverPublicKey: matchConfig(config, /public-key:\s*"?([^"\s]+)"?/),
+    serverPublicKey: matchConfig(config, /server:[\s\S]*public-key:\s*"?([^"\s]+)"?/),
   };
 }
 

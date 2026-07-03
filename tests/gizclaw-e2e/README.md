@@ -268,11 +268,13 @@ history by running the relevant client workflows.
 ## Identities And CLI Config Homes
 
 `testdata/identities` contains committed WebRTC identity directories for Go,
-JS, and desktop harnesses. Each directory stores `identity.key` and an
-endpoint-only `config.yaml`:
+JS, and desktop harnesses. Each directory stores a `config.yaml` with both the
+local identity and server endpoint:
 
 ```yaml
 description: Local e2e peer
+identity:
+  private-key: <client-private-key>
 server:
   endpoint: 127.0.0.1:9820
   public-key: <server-public-key>
@@ -304,7 +306,7 @@ It defaults to `tests/gizclaw-e2e/testdata/cmd-config-home`.
 override the setup script peer contexts inside that CLI config home.
 
 Transport is not configured with an environment variable. GizClaw e2e uses
-WebRTC only; the server and context config shape is a single `endpoint`.
+WebRTC only; server and context configs use a single `endpoint`.
 
 ## Go Tests
 

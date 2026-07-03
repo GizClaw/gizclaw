@@ -1,13 +1,15 @@
 # GizClaw CLI Context Config
 
 The GizClaw CLI stores each context in a context directory with a `config.yaml`
-file and an `identity.key` file. The context config describes one WebRTC-only
+file. The context config describes the local identity and one WebRTC-only
 GizClaw server endpoint.
 
 ## Example
 
 ```yaml
 description: Local development server
+identity:
+  private-key: <client-private-key>
 server:
   endpoint: 127.0.0.1:9820
   public-key: <server-public-key>
@@ -17,6 +19,7 @@ server:
 
 - `description` is optional display metadata for context pickers and desktop
   launchers.
+- `identity.private-key` is the local client private key for this context.
 - `server.endpoint` is the server `host:port` value without a URL scheme.
 - `server.public-key` is the server static public key and is the trust anchor
   for the context.

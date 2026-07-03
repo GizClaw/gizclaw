@@ -1,3 +1,5 @@
+identity:
+  private-key: 8YPaUP5njxKdQnV17qynJWwJ5NMB3azJjzQoz8RfoLNs
 description: E2E gear2 CLI context
 server:
   endpoint: 127.0.0.1:9820

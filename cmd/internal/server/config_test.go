@@ -229,7 +229,8 @@ func TestConfigValidateRequiresStores(t *testing.T) {
 func TestLoadConfigReadsAdminPublicKey(t *testing.T) {
 	adminKP := testKeyPair(t, 0x10)
 	path := filepath.Join(t.TempDir(), "config.yaml")
-	if err := os.WriteFile(path, []byte("admin-public-key: \""+adminKP.Public.String()+"\"\n"), 0o644); err != nil {
+	serverKP := testKeyPair(t, 0x11)
+	if err := os.WriteFile(path, []byte("identity:\n  private-key: \""+serverKP.Private.String()+"\"\nadmin-public-key: \""+adminKP.Public.String()+"\"\n"), 0o644); err != nil {
 		t.Fatalf("WriteFile error = %v", err)
 	}
 
@@ -239,6 +240,49 @@ func TestLoadConfigReadsAdminPublicKey(t *testing.T) {
 	}
 	if cfg.AdminPublicKey != adminKP.Public {
 		t.Fatalf("AdminPublicKey = %v, want %v", cfg.AdminPublicKey, adminKP.Public)
+	}
+	if cfg.Identity.PrivateKey != serverKP.Private {
+		t.Fatalf("Identity.PrivateKey = %v, want %v", cfg.Identity.PrivateKey, serverKP.Private)
+	}
+}
+
+func TestLoadConfigRejectsInvalidIdentityPrivateKey(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.yaml")
+	if err := os.WriteFile(path, []byte("identity:\n  private-key: \"not-a-key\"\n"), 0o644); err != nil {
+		t.Fatalf("WriteFile invalid error = %v", err)
+	}
+	if _, err := LoadConfig(path); err == nil || !strings.Contains(err.Error(), "invalid key text") {
+		t.Fatalf("LoadConfig invalid identity private key err = %v", err)
+	}
+
+	if err := os.WriteFile(path, []byte("identity:\n  private-key: \""+testPrivateKey(0).String()+"\"\n"), 0o644); err != nil {
+		t.Fatalf("WriteFile zero error = %v", err)
+	}
+	if _, err := LoadConfig(path); err == nil || !strings.Contains(err.Error(), "zero key") {
+		t.Fatalf("LoadConfig zero identity private key err = %v", err)
+	}
+}
+
+func TestLoadConfigNormalizesIdentityPrivateKey(t *testing.T) {
+	var rawPrivate giznet.Key
+	for i := range rawPrivate {
+		rawPrivate[i] = 0xff
+	}
+	want, err := giznet.NewKeyPair(rawPrivate)
+	if err != nil {
+		t.Fatalf("NewKeyPair error = %v", err)
+	}
+	path := filepath.Join(t.TempDir(), "config.yaml")
+	if err := os.WriteFile(path, []byte("identity:\n  private-key: \""+rawPrivate.String()+"\"\n"), 0o644); err != nil {
+		t.Fatalf("WriteFile error = %v", err)
+	}
+
+	cfg, err := LoadConfig(path)
+	if err != nil {
+		t.Fatalf("LoadConfig error = %v", err)
+	}
+	if cfg.Identity.PrivateKey != want.Private {
+		t.Fatalf("identity private key = %s, want normalized %s", cfg.Identity.PrivateKey, want.Private)
 	}
 }
 
@@ -374,6 +418,16 @@ func TestValidateReportsSpecificMissingFields(t *testing.T) {
 			name: "invalid endpoint",
 			cfg:  Config{Endpoint: "http://127.0.0.1:9820"},
 			want: "server: endpoint must be host:port, got \"http://127.0.0.1:9820\"",
+		},
+		{
+			name: "empty endpoint host",
+			cfg:  Config{Endpoint: ":9820"},
+			want: "server: endpoint host is empty",
+		},
+		{
+			name: "empty endpoint port",
+			cfg:  Config{Endpoint: "127.0.0.1:"},
+			want: "server: endpoint port is empty",
 		},
 	}
 

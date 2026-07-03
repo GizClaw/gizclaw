@@ -85,6 +85,8 @@ func TestDialFromContextInvalidServerPublicKey(t *testing.T) {
 		t.Fatalf("Create error = %v", err)
 	}
 	if err := os.WriteFile(filepath.Join(store.Root, "local", "config.yaml"), []byte(`
+identity:
+  private-key: `+testServerPrivateKey(0xac).String()+`
 server:
   endpoint: 127.0.0.1:9820
   public-key: not-a-key
@@ -159,8 +161,14 @@ func TestDialFromContextUsesWebRTCTransport(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("CreateWithOptions error = %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(store.Root, "webrtc", "identity.key"), clientKey[:], 0o600); err != nil {
-		t.Fatalf("write identity: %v", err)
+	if err := os.WriteFile(filepath.Join(store.Root, "webrtc", "config.yaml"), []byte(`
+identity:
+  private-key: `+clientKey.String()+`
+server:
+  endpoint: `+serverURL+`
+  public-key: `+serverKey.Public.String()+`
+`), 0o600); err != nil {
+		t.Fatalf("write context config: %v", err)
 	}
 
 	client, serverPK, serverAddr, err := DialFromContext("webrtc")

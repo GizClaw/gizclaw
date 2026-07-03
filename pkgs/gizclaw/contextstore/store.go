@@ -56,12 +56,16 @@ func (s *Store) CreateWithOptions(name, endpoint string, opts CreateOptions) err
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return fmt.Errorf("contextstore: mkdir: %w", err)
 	}
-	if _, err := LoadIdentityOrGenerate(filepath.Join(dir, IdentityFile)); err != nil {
+	keyPair, err := giznet.GenerateKeyPair()
+	if err != nil {
 		return fmt.Errorf("contextstore: generate key: %w", err)
 	}
 
 	cfg := Config{
 		Description: strings.TrimSpace(opts.Description),
+		Identity: IdentityConfig{
+			PrivateKey: keyPair.Private,
+		},
 		Server: ServerConfig{
 			Endpoint:  endpoint,
 			PublicKey: serverPublicKey,

@@ -77,7 +77,7 @@
       "post": {
         "operationId": "createDesktopContext",
         "summary": "Create a local desktop context",
-        "description": "Creates a local desktop context and identity file. This does not register the peer, select a dashboard session, or contact a GizClaw server.",
+        "description": "Creates a local desktop context and identity. This does not register the peer, select a dashboard session, or contact a GizClaw server.",
         "tags": [
           "Contexts"
         ],
@@ -246,7 +246,7 @@
       "delete": {
         "operationId": "endDesktopViewSession",
         "summary": "End the active desktop view session",
-        "description": "Signs out of the current dashboard session and returns the app to the Welcome page. This clears only the active session; it must not delete or reset stored contexts or identity files.",
+        "description": "Signs out of the current dashboard session and returns the app to the Welcome page. This clears only the active session; it must not delete or reset stored contexts or identities.",
         "tags": [
           "Views"
         ],
@@ -348,7 +348,7 @@
           },
           "local_public_key": {
             "type": "string",
-            "description": "Public key derived from the local context identity file."
+            "description": "Public key derived from the local context identity."
           },
           "name": {
             "type": "string",

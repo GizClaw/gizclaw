@@ -11,11 +11,15 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/cmd/internal/storage"
 	"github.com/GizClaw/gizclaw-go/cmd/internal/stores"
+	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 )
 
 func TestPrepareWorkspaceConfigLoadsWorkspaceConfig(t *testing.T) {
 	workspace := t.TempDir()
+	serverKP := testKeyPair(t, 0xcd)
 	if err := os.WriteFile(filepath.Join(workspace, workspaceConfigFile), []byte(fmt.Sprintf(`
+identity:
+  private-key: %q
 endpoint: "127.0.0.1:39001"
 admin-public-key: %q
 storage:
@@ -101,7 +105,7 @@ system_tasks:
     generator: model/pet-action
 gameplay:
   pet_adopt_point_cost: -1
-`, testKeyPair(t, 0xab).Public.String())), 0o644); err != nil {
+`, serverKP.Private.String(), testKeyPair(t, 0xab).Public.String())), 0o644); err != nil {
 		t.Fatalf("WriteFile error = %v", err)
 	}
 
@@ -111,6 +115,9 @@ gameplay:
 	}
 	if cfg.KeyPair == nil {
 		t.Fatal("KeyPair should not be nil")
+	}
+	if cfg.KeyPair.Public != serverKP.Public {
+		t.Fatalf("KeyPair.Public = %v, want %v", cfg.KeyPair.Public, serverKP.Public)
 	}
 	if cfg.Endpoint != "127.0.0.1:39001" {
 		t.Fatalf("Endpoint = %q", cfg.Endpoint)
@@ -135,7 +142,8 @@ gameplay:
 
 func TestPrepareWorkspaceConfigUsesDefaultPorts(t *testing.T) {
 	workspace := t.TempDir()
-	if err := os.WriteFile(filepath.Join(workspace, workspaceConfigFile), []byte(`
+	configPath := filepath.Join(workspace, workspaceConfigFile)
+	if err := os.WriteFile(configPath, []byte(`
 stores:
   mem:
     kind: keyvalue
@@ -153,6 +161,20 @@ peers:
 	defaults := DefaultConfig()
 	if cfg.Endpoint != defaults.Endpoint {
 		t.Fatalf("default endpoint = %q, want %q", cfg.Endpoint, defaults.Endpoint)
+	}
+	rewritten, err := LoadConfig(configPath)
+	if err != nil {
+		t.Fatalf("LoadConfig rewritten error = %v", err)
+	}
+	if rewritten.Identity.PrivateKey.IsZero() {
+		t.Fatal("identity.private-key should be written back to config")
+	}
+	rewrittenKeyPair, err := giznet.NewKeyPair(rewritten.Identity.PrivateKey)
+	if err != nil {
+		t.Fatalf("rewritten identity private key error = %v", err)
+	}
+	if rewrittenKeyPair.Public != cfg.KeyPair.Public {
+		t.Fatalf("rewritten public key = %v, want %v", rewrittenKeyPair.Public, cfg.KeyPair.Public)
 	}
 }
 
@@ -229,6 +251,8 @@ system_tasks:
 func TestPrepareWorkspaceConfigIdentityError(t *testing.T) {
 	workspace := t.TempDir()
 	if err := os.WriteFile(filepath.Join(workspace, workspaceConfigFile), []byte(`
+identity:
+  private-key: not-a-key
 stores:
   mem:
     kind: keyvalue
@@ -238,13 +262,17 @@ peers:
 `), 0o644); err != nil {
 		t.Fatalf("WriteFile error = %v", err)
 	}
-	if err := os.Mkdir(filepath.Join(workspace, workspaceIdentityFile), 0o755); err != nil {
-		t.Fatalf("Mkdir error = %v", err)
-	}
 
 	_, err := prepareWorkspaceConfig(workspace)
+	if err == nil || !strings.Contains(err.Error(), "invalid key text") {
+		t.Fatalf("prepareWorkspaceConfig identity error = %v", err)
+	}
+}
+
+func TestWriteWorkspaceIdentityReadError(t *testing.T) {
+	err := writeWorkspaceIdentity(filepath.Join(t.TempDir(), "missing.yaml"), testKeyPair(t, 0xde).Private)
 	if err == nil {
-		t.Fatal("prepareWorkspaceConfig should fail when identity.key is a directory")
+		t.Fatal("writeWorkspaceIdentity should fail for missing config")
 	}
 }
 

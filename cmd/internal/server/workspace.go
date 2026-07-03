@@ -14,13 +14,12 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/GizClaw/gizclaw-go/cmd/internal/identity"
 	"github.com/GizClaw/gizclaw-go/cmd/internal/storage"
 	"github.com/GizClaw/gizclaw-go/cmd/internal/stores"
+	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 )
 
 const workspaceConfigFile = "config.yaml"
-const workspaceIdentityFile = "identity.key"
 const workspacePIDFile = "serve.pid"
 
 type ServeOptions struct {
@@ -43,11 +42,12 @@ func prepareWorkspaceConfig(workspace string) (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
-	fileCfg, err := LoadConfig(filepath.Join(root, workspaceConfigFile))
+	configPath := filepath.Join(root, workspaceConfigFile)
+	fileCfg, err := LoadConfig(configPath)
 	if err != nil {
 		return Config{}, fmt.Errorf("server: load config: %w", err)
 	}
-	keyPair, err := identity.LoadOrGenerate(filepath.Join(root, workspaceIdentityFile))
+	keyPair, fileCfg, err := resolveWorkspaceIdentity(configPath, fileCfg)
 	if err != nil {
 		return Config{}, fmt.Errorf("server: identity: %w", err)
 	}
@@ -61,6 +61,35 @@ func prepareWorkspaceConfig(workspace string) (Config, error) {
 	cfg.Storage = resolveWorkspaceStorageConfigs(root, cfg.Storage)
 	cfg.Stores = resolveWorkspaceStoreConfigs(root, cfg.Stores)
 	return prepareConfig(cfg)
+}
+
+func resolveWorkspaceIdentity(configPath string, fileCfg ConfigFile) (*giznet.KeyPair, ConfigFile, error) {
+	if !fileCfg.Identity.PrivateKey.IsZero() {
+		keyPair, err := giznet.NewKeyPair(fileCfg.Identity.PrivateKey)
+		if err != nil {
+			return nil, ConfigFile{}, fmt.Errorf("load identity.private-key: %w", err)
+		}
+		return keyPair, fileCfg, nil
+	}
+
+	keyPair, err := giznet.GenerateKeyPair()
+	if err != nil {
+		return nil, ConfigFile{}, fmt.Errorf("generate: %w", err)
+	}
+	if err := writeWorkspaceIdentity(configPath, keyPair.Private); err != nil {
+		return nil, ConfigFile{}, fmt.Errorf("write config: %w", err)
+	}
+	fileCfg.Identity.PrivateKey = keyPair.Private
+	return keyPair, fileCfg, nil
+}
+
+func writeWorkspaceIdentity(configPath string, privateKey giznet.Key) error {
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		return err
+	}
+	prefix := fmt.Sprintf("identity:\n  private-key: %s\n", privateKey.String())
+	return os.WriteFile(configPath, []byte(prefix+string(data)), 0o600)
 }
 
 func prepareWorkspaceMigrationConfig(workspace string) (Config, error) {
