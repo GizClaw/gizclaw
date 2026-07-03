@@ -59,6 +59,8 @@ type RealtimeStream struct {
 	seq         uint64
 	lastEmitted int64
 	maxSeen     int64
+	activeID    string
+	activeLabel string
 }
 
 var _ Stream = (*RealtimeStream)(nil)
@@ -118,9 +120,25 @@ func (s *RealtimeStream) Push(ctx context.Context, chunk *MessageChunk) error {
 	if s.closed {
 		return io.ErrClosedPipe
 	}
+	if chunk.IsBeginOfStream() {
+		s.dropSupersededStreamLocked(chunk)
+		if chunk.Ctrl != nil {
+			s.activeID = chunk.Ctrl.StreamID
+			s.activeLabel = chunk.Ctrl.Label
+		}
+	} else if s.isSupersededActiveRouteChunkLocked(chunk) {
+		return nil
+	}
 	ts := s.chunkTimestampLocked(chunk)
 	if s.lastEmitted >= 0 && ts < s.lastEmitted {
-		return nil
+		if !s.shouldClampLateTimestampLocked(chunk) {
+			return nil
+		}
+		ts = s.lastEmitted + 1
+		if chunk.Ctrl == nil {
+			chunk.Ctrl = &StreamCtrl{}
+		}
+		chunk.Ctrl.Timestamp = ts
 	}
 	s.seq++
 	heap.Push(&s.heap, realtimeStreamItem{
@@ -247,6 +265,70 @@ func (s *RealtimeStream) dropLateLocked() {
 	for s.heap.Len() > 0 && s.lastEmitted >= 0 && s.heap[0].timestamp < s.lastEmitted {
 		heap.Pop(&s.heap)
 	}
+}
+
+func (s *RealtimeStream) dropSupersededStreamLocked(next *MessageChunk) {
+	nextID, nextLabel := realtimeChunkRoute(next)
+	if nextID == "" || s.heap.Len() == 0 {
+		return
+	}
+	items := s.heap[:0]
+	for _, item := range s.heap {
+		id, label := realtimeChunkRoute(item.chunk)
+		if id != "" && id != nextID && realtimeRouteMatches(nextLabel, label) && isRealtimeAudioChunk(item.chunk) {
+			continue
+		}
+		items = append(items, item)
+	}
+	s.heap = items
+	heap.Init(&s.heap)
+	s.recomputeMaxSeenLocked()
+}
+
+func (s *RealtimeStream) shouldClampLateTimestampLocked(chunk *MessageChunk) bool {
+	if chunk == nil || chunk.Ctrl == nil {
+		return false
+	}
+	return s.activeID != "" && chunk.Ctrl.StreamID == s.activeID
+}
+
+func (s *RealtimeStream) isSupersededActiveRouteChunkLocked(chunk *MessageChunk) bool {
+	if chunk == nil || chunk.Ctrl == nil || s.activeID == "" || chunk.Ctrl.StreamID == "" || chunk.Ctrl.StreamID == s.activeID {
+		return false
+	}
+	return realtimeRouteMatches(s.activeLabel, chunk.Ctrl.Label) && isRealtimeAudioChunk(chunk)
+}
+
+func (s *RealtimeStream) recomputeMaxSeenLocked() {
+	maxSeen := s.lastEmitted
+	for _, item := range s.heap {
+		if item.timestamp > maxSeen {
+			maxSeen = item.timestamp
+		}
+	}
+	s.maxSeen = maxSeen
+}
+
+func realtimeChunkRoute(chunk *MessageChunk) (streamID, label string) {
+	if chunk == nil || chunk.Ctrl == nil {
+		return "", ""
+	}
+	return chunk.Ctrl.StreamID, chunk.Ctrl.Label
+}
+
+func realtimeRouteMatches(left, right string) bool {
+	return left == "" || right == "" || left == right
+}
+
+func isRealtimeAudioChunk(chunk *MessageChunk) bool {
+	if chunk == nil {
+		return false
+	}
+	if chunk.IsEndOfStream() {
+		return true
+	}
+	_, ok := chunk.Part.(*Blob)
+	return ok
 }
 
 func (s *RealtimeStream) signalLocked() {

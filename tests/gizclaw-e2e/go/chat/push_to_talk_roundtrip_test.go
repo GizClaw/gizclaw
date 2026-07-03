@@ -28,6 +28,24 @@ func allWorkspaceConfigPaths(t testing.TB) []string {
 	return paths
 }
 
+func realtimeInterruptWorkspaceConfigPaths(t testing.TB) []string {
+	t.Helper()
+	var paths []string
+	for _, path := range allWorkspaceConfigPaths(t) {
+		// This fixture is s2t plus external GizClaw TTS. Native AST, Doubao
+		// realtime, and Flowcraft cover realtime input interruption here; the
+		// external TTS cancellation path is validated outside this matrix.
+		if filepath.Base(path) == "ast-translate-tts.json" {
+			continue
+		}
+		paths = append(paths, path)
+	}
+	if len(paths) == 0 {
+		t.Fatal("no realtime interrupt workspace configs selected")
+	}
+	return paths
+}
+
 func runLiveWorkspaceCase(t *testing.T, selected workspaceCase, paths []string) {
 	t.Helper()
 	if err := probeLiveWorkspaceSetup(); err != nil {
@@ -75,6 +93,7 @@ func isRetryableLiveWorkspaceError(err error) bool {
 		strings.Contains(text, "flowcraft: claw event error: recall ingest: extract:") ||
 		strings.Contains(text, "speech: POST \"http://gizclaw/v1/audio/speech\": 400 Bad Request") ||
 		strings.Contains(text, "doubaospeech: [Server processing timeout] node execution timeout") ||
+		strings.Contains(text, "doubaospeech: [Server-side generic error]") && strings.Contains(text, "big asr recv err") ||
 		strings.Contains(text, "transcript mismatch: similarity")
 }
 

@@ -586,6 +586,9 @@ func (b DefaultBuilder) buildVolcASTTranslate(cfg TransformerConfig) (genx.Trans
 	if value, ok := mapBool(data, "denoise"); ok {
 		opts = append(opts, transformers.WithDoubaoASTTranslateDenoise(value))
 	}
+	if value, ok := mapBool(data, "realtime_pacing", "realtimePacing"); ok {
+		opts = append(opts, transformers.WithDoubaoASTTranslateRealtimePacing(value))
+	}
 	if value := mapString(data, "input", "input_mode"); value != "" {
 		inputMode, err := doubaoASTTranslateInputMode(value)
 		if err != nil {

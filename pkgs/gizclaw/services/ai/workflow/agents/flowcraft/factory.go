@@ -1006,9 +1006,10 @@ func (a *agent) runRealtime(ctx context.Context, input genx.Stream, output *genx
 
 	streamIDState := &lockedString{value: defaultInputStreamID}
 	historyAudio := &realtimeHistoryAudioBuffer{}
+	inputStarted := make(chan string, 4)
 	feedDone := make(chan feedASRResult, 1)
 	go func() {
-		feedDone <- feedRealtimeASRInput(ctx, input, asrInput, streamIDState)
+		feedDone <- feedRealtimeASRInput(ctx, input, asrInput, streamIDState, inputStarted)
 	}()
 
 	asrResults := make(chan streamResult, 1)
@@ -1050,6 +1051,12 @@ func (a *agent) runRealtime(ctx context.Context, input genx.Stream, output *genx
 		current.cancel()
 		_ = a.interruptOutput(output, current.streamID, current.epoch)
 		current = nil
+	}
+	interruptForInput := func(streamID string) {
+		if current == nil || !realtimeInputInterruptsCurrent(current.streamID, streamID) {
+			return
+		}
+		interruptCurrent()
 	}
 	var asrTranscript string
 	var asrTranscriptStreamID string
@@ -1133,6 +1140,8 @@ func (a *agent) runRealtime(ctx context.Context, input genx.Stream, output *genx
 
 		if current == nil {
 			select {
+			case <-inputStarted:
+				continue
 			case result := <-asrResults:
 				if result.err != nil {
 					if failCurrent(fmt.Errorf("flowcraft: read ASR: %w", result.err)) {
@@ -1173,6 +1182,8 @@ func (a *agent) runRealtime(ctx context.Context, input genx.Stream, output *genx
 		}
 
 		select {
+		case streamID := <-inputStarted:
+			interruptForInput(streamID)
 		case result := <-asrResults:
 			if result.err != nil {
 				if failCurrent(fmt.Errorf("flowcraft: read ASR: %w", result.err)) {
@@ -1892,11 +1903,34 @@ func feedASRInput(ctx context.Context, input genx.Stream, asrInput *genx.StreamB
 	}
 }
 
-func feedRealtimeASRInput(ctx context.Context, input genx.Stream, asrInput *genx.StreamBuilder, streamIDState *lockedString) feedASRResult {
+func feedRealtimeASRInput(ctx context.Context, input genx.Stream, asrInput *genx.StreamBuilder, streamIDState *lockedString, inputStarted chan string) feedASRResult {
 	streamID := streamIDState.Get()
 	if streamID == "" {
 		streamID = defaultInputStreamID
 		streamIDState.Set(streamID)
+	}
+	notifiedStreamID := ""
+	notifyStarted := func(id string) {
+		id = strings.TrimSpace(id)
+		if id == "" || inputStarted == nil {
+			return
+		}
+		if id == notifiedStreamID {
+			return
+		}
+		notifiedStreamID = id
+		select {
+		case inputStarted <- id:
+		default:
+			select {
+			case <-inputStarted:
+			default:
+			}
+			select {
+			case inputStarted <- id:
+			default:
+			}
+		}
 	}
 	fail := func(err error) feedASRResult {
 		_ = asrInput.Unexpected(genx.Usage{}, err)
@@ -1927,12 +1961,14 @@ func feedRealtimeASRInput(ctx context.Context, input genx.Stream, asrInput *genx
 			streamIDState.Set(streamID)
 		}
 		if chunk.IsBeginOfStream() {
+			notifyStarted(streamID)
 			continue
 		}
 		blob, ok := chunk.Part.(*genx.Blob)
 		if !ok || !isAudioMIME(blob.MIMEType) {
 			continue
 		}
+		notifyStarted(streamID)
 		next := chunk.Clone()
 		if next.Ctrl == nil {
 			next.Ctrl = &genx.StreamCtrl{}
@@ -2049,6 +2085,15 @@ func realtimeTurnStreamID(prefix string, index int) string {
 		index = 1
 	}
 	return fmt.Sprintf("%s:rt:%d", prefix, index)
+}
+
+func realtimeInputInterruptsCurrent(currentStreamID, inputStreamID string) bool {
+	currentStreamID = strings.TrimSpace(currentStreamID)
+	inputStreamID = strings.TrimSpace(inputStreamID)
+	if currentStreamID == "" || inputStreamID == "" {
+		return true
+	}
+	return currentStreamID != inputStreamID && !strings.HasPrefix(currentStreamID, inputStreamID+":")
 }
 
 type lockedString struct {

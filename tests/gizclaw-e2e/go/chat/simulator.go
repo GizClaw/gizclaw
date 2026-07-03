@@ -671,6 +671,7 @@ func (d *personaDriver) runInterruptScenario(ctx context.Context, index int, mod
 	firstStreamID := workspaceAudioStreamID(index*2 - 1)
 	secondStreamID := workspaceAudioStreamID(index * 2)
 	firstSendDone := make(chan error, 1)
+	secondSendDone := make(chan error, 1)
 	if mode.Realtime {
 		go func() {
 			firstSendDone <- d.transport.sendAudioTurn(ctx, firstStreamID, firstPackets)
@@ -688,9 +689,19 @@ func (d *personaDriver) runInterruptScenario(ctx context.Context, index int, mod
 			return nil
 		}
 		sentInterrupt = true
+		if mode.Realtime {
+			if err := d.transport.sendAudioTurnBOS(ctx, secondStreamID); err != nil {
+				return fmt.Errorf("interrupt send second BOS: %w", err)
+			}
+			go func() {
+				secondSendDone <- d.transport.sendAudioTurnAudioAndEOS(ctx, secondStreamID, secondPackets)
+			}()
+			return nil
+		}
 		if err := d.transport.sendAudioTurn(ctx, secondStreamID, secondPackets); err != nil {
 			return fmt.Errorf("interrupt send second audio: %w", err)
 		}
+		close(secondSendDone)
 		return nil
 	}
 	var interruptedAt time.Time
@@ -784,6 +795,15 @@ func (d *personaDriver) runInterruptScenario(ctx context.Context, index int, mod
 				return stat, fmt.Errorf("interrupt send first audio: %w", err)
 			}
 			firstSendDone = nil
+		case err, ok := <-secondSendDone:
+			if !ok {
+				secondSendDone = nil
+				continue
+			}
+			if err != nil {
+				return stat, fmt.Errorf("interrupt send second audio: %w", err)
+			}
+			secondSendDone = nil
 		case event := <-d.transport.events:
 			trace.add("event stream=%s label=%s type=%s text=%q error=%s", eventStreamID(event.event), eventLabel(event.event), event.event.Type, eventText(event.event), eventError(event.event))
 			if eventLabel(event.event) == "assistant" && event.event.Error != nil && *event.event.Error == "interrupted" {
@@ -1701,13 +1721,22 @@ func (t *chatTransport) readChunks(packets chan<- timedPeerPacket) {
 }
 
 func (t *chatTransport) sendAudioTurn(ctx context.Context, streamID string, packets [][]byte) error {
-	label := "workspacetest"
-	if err := t.stream.Push(ctx, &genx.MessageChunk{
-		Part: &genx.Blob{MIMEType: "audio/opus"},
-		Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: label, BeginOfStream: true},
-	}); err != nil {
+	if err := t.sendAudioTurnBOS(ctx, streamID); err != nil {
 		return err
 	}
+	return t.sendAudioTurnAudioAndEOS(ctx, streamID, packets)
+}
+
+func (t *chatTransport) sendAudioTurnBOS(ctx context.Context, streamID string) error {
+	label := "workspacetest"
+	return t.stream.Push(ctx, &genx.MessageChunk{
+		Part: &genx.Blob{MIMEType: "audio/opus"},
+		Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: label, BeginOfStream: true},
+	})
+}
+
+func (t *chatTransport) sendAudioTurnAudioAndEOS(ctx context.Context, streamID string, packets [][]byte) error {
+	label := "workspacetest"
 	timestamp := time.Now().UnixMilli()
 	for i, packet := range packets {
 		if err := ctx.Err(); err != nil {

@@ -151,6 +151,15 @@ func TestInterruptRoundsDefaultToOne(t *testing.T) {
 	}
 }
 
+func TestRealtimeInterruptWorkspaceConfigPathsExcludeExternalTTS(t *testing.T) {
+	paths := realtimeInterruptWorkspaceConfigPaths(t)
+	for _, path := range paths {
+		if filepath.Base(path) == "ast-translate-tts.json" {
+			t.Fatalf("realtime interrupt configs include external TTS fixture: %s", path)
+		}
+	}
+}
+
 func TestRetryableLiveWorkspaceError(t *testing.T) {
 	retryable := []error{
 		errors.New("flowcraft: read ASR: buffer: read from closed buffer: websocket connect failed: Bad Gateway"),
@@ -161,6 +170,7 @@ func TestRetryableLiveWorkspaceError(t *testing.T) {
 		errors.New("buffer: read from closed buffer: genx: generate error: flowcraft: claw event error: recall ingest: extract: recall two-pass extractor: content llm: bytedance.generate: 15.007s"),
 		errors.New("speech: POST \"http://gizclaw/v1/audio/speech\": 400 Bad Request"),
 		errors.New("peer event error: buffer: read from closed buffer: doubaospeech: [Server processing timeout] node execution timeout (code=55001010)"),
+		errors.New("peer event error: buffer: read from closed buffer: doubaospeech: [Server-side generic error] OperatorWrapper Process failed: big asr recv err. rpc timeout: CallWithTimeout: timeout in business code, timeout_config=3s"),
 		errors.New("interrupt second transcript mismatch: similarity 0.21 below 0.45"),
 	}
 	for _, err := range retryable {

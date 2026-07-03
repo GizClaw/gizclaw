@@ -13,3 +13,5 @@ spec:
   description: Doubao AST realtime translation model
   provider_data:
     resource_id: volc.service_type.10053
+  params:
+    realtime_pacing: false

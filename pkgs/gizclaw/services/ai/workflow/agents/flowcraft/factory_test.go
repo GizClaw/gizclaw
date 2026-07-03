@@ -1375,6 +1375,28 @@ func TestInterruptOutputGuards(t *testing.T) {
 	}
 }
 
+func TestRealtimeInputInterruptsCurrent(t *testing.T) {
+	tests := []struct {
+		name    string
+		current string
+		input   string
+		want    bool
+	}{
+		{name: "same stream", current: "audio-1", input: "audio-1", want: false},
+		{name: "same realtime segment prefix", current: "audio-1:rt:1", input: "audio-1", want: false},
+		{name: "different stream", current: "audio-1:rt:1", input: "audio-2", want: true},
+		{name: "self start interrupted by input", current: selfStartStreamID, input: "audio-1", want: true},
+		{name: "missing current is conservative", current: "", input: "audio-1", want: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := realtimeInputInterruptsCurrent(tt.current, tt.input); got != tt.want {
+				t.Fatalf("realtimeInputInterruptsCurrent(%q, %q) = %t, want %t", tt.current, tt.input, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestWaitOpusFrameCancellation(t *testing.T) {
 	a := &agent{}
 	if err := a.waitOpusFrame(context.Background(), 99); !errors.Is(err, context.Canceled) {
@@ -1678,14 +1700,18 @@ func TestFeedASRInputStreamsRawOpusUnchanged(t *testing.T) {
 func TestFeedRealtimeASRInputForwardsAudioAndDone(t *testing.T) {
 	asrInput := genx.NewStreamBuilder((&genx.ModelContextBuilder{}).Build(), 8)
 	state := &lockedString{}
+	inputStarted := make(chan string, 1)
 	result := feedRealtimeASRInput(context.Background(), &sliceStream{chunks: []*genx.MessageChunk{
 		genx.NewBeginOfStream("audio-rt"),
 		{Part: genx.Text("ignored"), Ctrl: &genx.StreamCtrl{StreamID: "audio-rt"}},
 		{Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{1}}, Ctrl: &genx.StreamCtrl{StreamID: "audio-rt"}},
 		{Part: &genx.Blob{MIMEType: "audio/pcm"}, Ctrl: &genx.StreamCtrl{StreamID: "audio-rt", EndOfStream: true}},
-	}}, asrInput, state)
+	}}, asrInput, state, inputStarted)
 	if result.err != nil || result.streamID != "audio-rt" || state.Get() != "audio-rt" {
 		t.Fatalf("feedRealtimeASRInput() = %+v state=%q", result, state.Get())
+	}
+	if got := <-inputStarted; got != "audio-rt" {
+		t.Fatalf("input started = %q, want audio-rt", got)
 	}
 	chunks := drainChunks(t, asrInput.Stream())
 	if len(chunks) != 2 {
@@ -1698,7 +1724,7 @@ func TestFeedRealtimeASRInputForwardsAudioAndDone(t *testing.T) {
 		t.Fatalf("EOS chunk = %#v", chunks[1])
 	}
 
-	errResult := feedRealtimeASRInput(context.Background(), nil, genx.NewStreamBuilder((&genx.ModelContextBuilder{}).Build(), 1), &lockedString{})
+	errResult := feedRealtimeASRInput(context.Background(), nil, genx.NewStreamBuilder((&genx.ModelContextBuilder{}).Build(), 1), &lockedString{}, nil)
 	if errResult.err == nil || !strings.Contains(errResult.err.Error(), "input stream") {
 		t.Fatalf("feedRealtimeASRInput(nil) = %+v", errResult)
 	}

@@ -23,7 +23,11 @@ import (
 
 var _ genx.Transformer = (*Client)(nil)
 
-var defaultRPCStreamTimeout = 30 * time.Second
+var (
+	defaultRPCStreamTimeout       = 30 * time.Second
+	defaultHTTPClientTimeout      = 30 * time.Second
+	defaultAdminHTTPClientTimeout = 2 * time.Minute
+)
 
 // Client holds device-side peer client configuration.
 type Client struct {
@@ -170,13 +174,21 @@ func (c *Client) Close() error {
 
 // HTTPClient returns an HTTP client bound to a peer service.
 func (c *Client) HTTPClient(service uint64) *http.Client {
-	return gizhttp.NewClient(c.PeerConn(), service)
+	return c.HTTPClientWithTimeout(service, defaultHTTPClientTimeout)
+}
+
+// HTTPClientWithTimeout returns an HTTP client bound to a peer service with the
+// provided end-to-end request timeout.
+func (c *Client) HTTPClientWithTimeout(service uint64, timeout time.Duration) *http.Client {
+	client := gizhttp.NewClient(c.PeerConn(), service)
+	client.Timeout = timeout
+	return client
 }
 
 func (c *Client) ServerAdminClient() (*adminservice.ClientWithResponses, error) {
 	return adminservice.NewClientWithResponses(
 		"http://gizclaw",
-		adminservice.WithHTTPClient(c.HTTPClient(ServiceAdmin)),
+		adminservice.WithHTTPClient(c.HTTPClientWithTimeout(ServiceAdmin, defaultAdminHTTPClientTimeout)),
 	)
 }
 

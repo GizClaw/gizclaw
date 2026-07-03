@@ -8,6 +8,8 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codec/ogg"
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codecconv"
@@ -18,6 +20,10 @@ import (
 )
 
 const Type = "ast-translate"
+
+// Give realtime input BOS a scheduling window to interrupt stale AST downlink
+// before another queued assistant chunk reaches the peer.
+const interruptibleAssistantChunkGrace = 160 * time.Millisecond
 
 type Factory struct {
 	Transformer genx.Transformer
@@ -32,13 +38,13 @@ func (f Factory) NewAgent(_ context.Context, spec agenthost.Spec) (agenthost.Age
 		return nil, err
 	}
 	if resolved.ttsVoice == "" {
-		return agenthost.NewTransformerAgent(patternTransformer{Transformer: f.Transformer, Pattern: resolved.astPattern}), nil
+		return agenthost.NewTransformerAgent(interruptibleTransformer{Transformer: patternTransformer{Transformer: f.Transformer, Pattern: resolved.astPattern}}), nil
 	}
-	return agenthost.NewTransformerAgent(externalVoiceTransformer{
+	return agenthost.NewTransformerAgent(interruptibleTransformer{Transformer: externalVoiceTransformer{
 		Transformer: f.Transformer,
 		ASTPattern:  resolved.astPattern,
 		TTSPattern:  voicePattern(resolved.ttsVoice),
-	}), nil
+	}}), nil
 }
 
 type patternTransformer struct {
@@ -51,6 +57,334 @@ func (t patternTransformer) Transform(ctx context.Context, _ string, input genx.
 		return nil, fmt.Errorf("asttranslate: transformer is required")
 	}
 	return t.Transformer.Transform(ctx, t.Pattern, input)
+}
+
+type interruptibleTransformer struct {
+	Transformer genx.Transformer
+}
+
+func (t interruptibleTransformer) Transform(ctx context.Context, pattern string, input genx.Stream) (genx.Stream, error) {
+	if t.Transformer == nil {
+		return nil, fmt.Errorf("asttranslate: transformer is required")
+	}
+	ctx, cancel := context.WithCancel(ctx)
+	out := newInterruptibleOutput()
+	observedInput := newObservedInputStream(ctx, input, out.interrupt)
+	inner, err := t.Transformer.Transform(ctx, pattern, observedInput)
+	if err != nil {
+		cancel()
+		observedInput.CloseWithError(err)
+		return nil, err
+	}
+	go func() {
+		defer cancel()
+		defer inner.Close()
+		for {
+			if err := ctx.Err(); err != nil {
+				out.closeWithError(err)
+				return
+			}
+			chunk, err := inner.Next()
+			if err != nil {
+				if isStreamDone(err) {
+					out.close()
+					return
+				}
+				out.closeWithError(err)
+				return
+			}
+			if chunk == nil {
+				continue
+			}
+			if err := out.push(chunk.Clone()); err != nil {
+				return
+			}
+		}
+	}()
+	return out, nil
+}
+
+type observedInputStream struct {
+	source genx.Stream
+	onBOS  func(string)
+
+	mu       sync.Mutex
+	cond     *sync.Cond
+	queue    []*genx.MessageChunk
+	closed   bool
+	closeErr error
+}
+
+func newObservedInputStream(ctx context.Context, source genx.Stream, onBOS func(string)) *observedInputStream {
+	stream := &observedInputStream{
+		source: source,
+		onBOS:  onBOS,
+	}
+	stream.cond = sync.NewCond(&stream.mu)
+	go stream.copy(ctx)
+	return stream
+}
+
+func (s *observedInputStream) Next() (*genx.MessageChunk, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for len(s.queue) == 0 {
+		if s.closeErr != nil {
+			return nil, s.closeErr
+		}
+		if s.closed {
+			return nil, io.EOF
+		}
+		s.cond.Wait()
+	}
+	chunk := s.queue[0]
+	s.queue = s.queue[1:]
+	return chunk, nil
+}
+
+func (s *observedInputStream) Close() error {
+	s.close()
+	if s.source != nil {
+		return s.source.Close()
+	}
+	return nil
+}
+
+func (s *observedInputStream) CloseWithError(err error) error {
+	s.closeWithError(err)
+	if s.source != nil {
+		return s.source.CloseWithError(err)
+	}
+	return nil
+}
+
+func (s *observedInputStream) copy(ctx context.Context) {
+	defer s.source.Close()
+	for {
+		if err := ctx.Err(); err != nil {
+			s.closeWithError(err)
+			return
+		}
+		chunk, err := s.source.Next()
+		if err != nil {
+			if isStreamDone(err) {
+				s.close()
+				return
+			}
+			s.closeWithError(err)
+			return
+		}
+		if chunk == nil {
+			continue
+		}
+		if chunk.IsBeginOfStream() && s.onBOS != nil {
+			streamID := ""
+			if chunk.Ctrl != nil {
+				streamID = chunk.Ctrl.StreamID
+			}
+			s.onBOS(streamID)
+		}
+		if err := s.push(chunk); err != nil {
+			return
+		}
+	}
+}
+
+func (s *observedInputStream) push(chunk *genx.MessageChunk) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.closed || s.closeErr != nil {
+		return io.ErrClosedPipe
+	}
+	s.queue = append(s.queue, chunk)
+	s.cond.Signal()
+	return nil
+}
+
+func (s *observedInputStream) close() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if !s.closed {
+		s.closed = true
+		s.cond.Broadcast()
+	}
+}
+
+func (s *observedInputStream) closeWithError(err error) {
+	if err == nil {
+		err = io.ErrClosedPipe
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.closeErr == nil {
+		s.closeErr = err
+		s.closed = true
+		s.cond.Broadcast()
+	}
+}
+
+type interruptibleOutput struct {
+	mu            sync.Mutex
+	cond          *sync.Cond
+	queue         []*genx.MessageChunk
+	closed        bool
+	closeErr      error
+	active        bool
+	activeStream  string
+	blockedStream map[string]bool
+}
+
+func newInterruptibleOutput() *interruptibleOutput {
+	out := &interruptibleOutput{
+		blockedStream: make(map[string]bool),
+	}
+	out.cond = sync.NewCond(&out.mu)
+	return out
+}
+
+func (s *interruptibleOutput) Next() (*genx.MessageChunk, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+retry:
+	for len(s.queue) == 0 {
+		if s.closeErr != nil {
+			return nil, s.closeErr
+		}
+		if s.closed {
+			return nil, io.EOF
+		}
+		s.cond.Wait()
+	}
+	if chunk := s.queue[0]; shouldGraceASTAssistantChunk(chunk) {
+		s.mu.Unlock()
+		time.Sleep(interruptibleAssistantChunkGrace)
+		s.mu.Lock()
+		if len(s.queue) == 0 || s.queue[0] != chunk {
+			goto retry
+		}
+	}
+	chunk := s.queue[0]
+	s.queue = s.queue[1:]
+	return chunk, nil
+}
+
+func (s *interruptibleOutput) Close() error {
+	s.close()
+	return nil
+}
+
+func (s *interruptibleOutput) CloseWithError(err error) error {
+	s.closeWithError(err)
+	return nil
+}
+
+func (s *interruptibleOutput) push(chunk *genx.MessageChunk) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.closed || s.closeErr != nil {
+		return io.ErrClosedPipe
+	}
+	if isASTAssistantChunk(chunk) {
+		streamID := chunk.Ctrl.StreamID
+		if s.blockedStream[streamID] {
+			return nil
+		}
+		if chunk.Ctrl.EndOfStream {
+			if s.activeStream == streamID {
+				s.active = false
+				s.activeStream = ""
+			}
+		} else if streamID != "" {
+			s.active = true
+			s.activeStream = streamID
+		}
+	}
+	s.queue = append(s.queue, chunk)
+	s.cond.Signal()
+	return nil
+}
+
+func (s *interruptibleOutput) interrupt(inputStreamID string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if !s.active {
+		return
+	}
+	streamID := strings.TrimSpace(s.activeStream)
+	if streamID == "" {
+		streamID = strings.TrimSpace(inputStreamID)
+	}
+	if streamID == "" {
+		streamID = "audio"
+	}
+	s.blockedStream[streamID] = true
+	s.active = false
+	s.activeStream = ""
+	s.queue = removeASTAssistantStreamChunks(s.queue, streamID)
+	s.queue = append(astInterruptedChunks(streamID), s.queue...)
+	s.cond.Broadcast()
+}
+
+func (s *interruptibleOutput) close() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if !s.closed {
+		s.closed = true
+		s.cond.Broadcast()
+	}
+}
+
+func (s *interruptibleOutput) closeWithError(err error) {
+	if err == nil {
+		err = io.ErrClosedPipe
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.closeErr == nil {
+		s.closeErr = err
+		s.closed = true
+		s.cond.Broadcast()
+	}
+}
+
+func isASTAssistantChunk(chunk *genx.MessageChunk) bool {
+	return chunk != nil &&
+		chunk.Role == genx.RoleModel &&
+		chunk.Ctrl != nil &&
+		chunk.Ctrl.Label == "assistant"
+}
+
+func shouldGraceASTAssistantChunk(chunk *genx.MessageChunk) bool {
+	return isASTAssistantChunk(chunk) && !chunk.Ctrl.EndOfStream && chunk.Ctrl.Error == ""
+}
+
+func removeASTAssistantStreamChunks(chunks []*genx.MessageChunk, streamID string) []*genx.MessageChunk {
+	if len(chunks) == 0 {
+		return chunks
+	}
+	out := chunks[:0]
+	for _, chunk := range chunks {
+		if isASTAssistantChunk(chunk) && chunk.Ctrl.StreamID == streamID {
+			continue
+		}
+		out = append(out, chunk)
+	}
+	return out
+}
+
+func astInterruptedChunks(streamID string) []*genx.MessageChunk {
+	return []*genx.MessageChunk{
+		{
+			Role: genx.RoleModel,
+			Part: genx.Text(""),
+			Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: "assistant", EndOfStream: true, Error: "interrupted"},
+		},
+		{
+			Role: genx.RoleModel,
+			Part: &genx.Blob{MIMEType: "audio/opus"},
+			Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: "assistant", EndOfStream: true, Error: "interrupted"},
+		},
+	}
 }
 
 type resolvedConfig struct {

@@ -9,6 +9,7 @@ import (
 	"iter"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/GizClaw/doubao-speech-go"
@@ -176,9 +177,12 @@ func (t *DoubaoASTTranslate) transformLoop(parent context.Context, input genx.St
 	var recvDone chan error
 	var recvStart chan struct{}
 	var streamID string
+	var sessionFinishing bool
 	var rawOpusDecoder *opus.Decoder
 	var sessionStartedAt time.Time
 	var sentAudioDuration time.Duration
+	var sessionSeq uint64
+	var activeSessionSeq atomic.Uint64
 	historyAudio := newASTTranslateHistoryAudioBuffer()
 	defer func() {
 		if rawOpusDecoder != nil {
@@ -207,6 +211,10 @@ func (t *DoubaoASTTranslate) transformLoop(parent context.Context, input genx.St
 		historyAudio.reset()
 		sessionStartedAt = time.Time{}
 		sentAudioDuration = 0
+		sessionFinishing = false
+		sessionSeq++
+		activeSessionSeq.Store(sessionSeq)
+		seq := sessionSeq
 		done := make(chan error, 1)
 		start := make(chan struct{})
 		recvDone = done
@@ -218,7 +226,12 @@ func (t *DoubaoASTTranslate) transformLoop(parent context.Context, input genx.St
 				return
 			case <-start:
 			}
-			done <- t.forwardEvents(output, next, activeStreamID, historyAudio)
+			done <- t.forwardEvents(astTranslateGatedOutput{
+				output: output,
+				active: func() bool {
+					return activeSessionSeq.Load() == seq
+				},
+			}, next, activeStreamID, historyAudio)
 		}(streamID, start)
 		return nil
 	}
@@ -254,26 +267,106 @@ func (t *DoubaoASTTranslate) transformLoop(parent context.Context, input genx.St
 		return nil
 	}
 
-	finishSession := func() error {
+	finishSession := func(wait bool) error {
 		if session == nil {
 			return nil
 		}
 		active := session
 		done := recvDone
-		session = nil
-		recvDone = nil
 		if recvStart != nil {
 			close(recvStart)
 			recvStart = nil
 		}
-		if err := active.Finish(ctx); err != nil {
+		if !sessionFinishing {
+			sessionFinishing = true
+			if err := active.Finish(ctx); err != nil {
+				session = nil
+				recvDone = nil
+				sessionFinishing = false
+				activeSessionSeq.Store(0)
+				_ = active.Close()
+				return err
+			}
+		}
+		if !wait {
+			return nil
+		}
+		session = nil
+		recvDone = nil
+		sessionFinishing = false
+		if done == nil {
+			activeSessionSeq.Store(0)
 			_ = active.Close()
-			return err
+			streamID = ""
+			return nil
 		}
 		err := <-done
+		activeSessionSeq.Store(0)
 		_ = active.Close()
 		streamID = ""
 		return err
+	}
+
+	completeFinishedSession := func() error {
+		if session == nil || !sessionFinishing || recvDone == nil {
+			return nil
+		}
+		select {
+		case err := <-recvDone:
+			active := session
+			session = nil
+			recvDone = nil
+			sessionFinishing = false
+			activeSessionSeq.Store(0)
+			_ = active.Close()
+			streamID = ""
+			return err
+		default:
+			return nil
+		}
+	}
+
+	interruptSession := func(id string) error {
+		if session == nil {
+			streamID = strings.TrimSpace(id)
+			return nil
+		}
+		active := session
+		done := recvDone
+		interruptedStreamID := strings.TrimSpace(streamID)
+		if interruptedStreamID == "" {
+			interruptedStreamID = strings.TrimSpace(id)
+		}
+		if interruptedStreamID == "" {
+			interruptedStreamID = "audio"
+		}
+		session = nil
+		recvDone = nil
+		sessionFinishing = false
+		activeSessionSeq.Store(0)
+		if recvStart != nil {
+			close(recvStart)
+			recvStart = nil
+		}
+		for _, chunk := range astTranslateInterruptedChunks(interruptedStreamID) {
+			if err := output.Push(chunk); err != nil {
+				_ = active.Close()
+				return err
+			}
+		}
+		_ = active.Close()
+		if done != nil {
+			select {
+			case <-done:
+			case <-ctx.Done():
+				return ctx.Err()
+			}
+		}
+		streamID = strings.TrimSpace(id)
+		historyAudio.reset()
+		sessionStartedAt = time.Time{}
+		sentAudioDuration = 0
+		return nil
 	}
 
 	for {
@@ -290,7 +383,7 @@ func (t *DoubaoASTTranslate) transformLoop(parent context.Context, input genx.St
 				output.CloseWithError(err)
 				return
 			}
-			if err := finishSession(); err != nil {
+			if err := finishSession(true); err != nil {
 				output.CloseWithError(err)
 			}
 			return
@@ -298,14 +391,28 @@ func (t *DoubaoASTTranslate) transformLoop(parent context.Context, input genx.St
 		if chunk == nil {
 			continue
 		}
+		if err := completeFinishedSession(); err != nil {
+			output.CloseWithError(err)
+			return
+		}
 		id := chunkInputStreamID(chunk, streamID)
 		if chunk.IsBeginOfStream() {
+			if strings.TrimSpace(streamID) != "" && strings.TrimSpace(id) != "" && id != streamID {
+				if err := interruptSession(id); err != nil {
+					output.CloseWithError(err)
+					return
+				}
+			}
 			streamID = id
+			continue
+		}
+		if strings.TrimSpace(streamID) != "" && strings.TrimSpace(id) != "" && id != streamID {
 			continue
 		}
 		if chunk.IsEndOfStream() {
 			if blob, ok := chunk.Part.(*genx.Blob); ok && isAudioMIME(blob.MIMEType) {
-				if err := finishSession(); err != nil {
+				wait := t.inputMode != DoubaoASTTranslateInputModeRealtime
+				if err := finishSession(wait); err != nil {
 					output.CloseWithError(err)
 					return
 				}
@@ -336,6 +443,10 @@ func (t *DoubaoASTTranslate) transformLoop(parent context.Context, input genx.St
 		}
 		if err := startSession(id); err != nil {
 			output.CloseWithError(err)
+			return
+		}
+		if sessionFinishing {
+			output.CloseWithError(fmt.Errorf("doubao ast translate: received audio for finishing session %q", streamID))
 			return
 		}
 		historyAudio.appendChunk(chunk, id)
@@ -422,7 +533,23 @@ func (t *DoubaoASTTranslate) audioChunkSize() int {
 	return doubaoASTTranslateSourceSampleRate * doubaoASTTranslateSourceChannels * (doubaoASTTranslateSourceBits / 8) / 10
 }
 
-func (t *DoubaoASTTranslate) forwardEvents(output *bufferStream, session doubaoASTTranslateSession, streamID string, historyAudio *astTranslateHistoryAudioBuffer) error {
+type astTranslateOutput interface {
+	Push(*genx.MessageChunk) error
+}
+
+type astTranslateGatedOutput struct {
+	output astTranslateOutput
+	active func() bool
+}
+
+func (o astTranslateGatedOutput) Push(chunk *genx.MessageChunk) error {
+	if o.active != nil && !o.active() {
+		return nil
+	}
+	return o.output.Push(chunk)
+}
+
+func (t *DoubaoASTTranslate) forwardEvents(output astTranslateOutput, session doubaoASTTranslateSession, streamID string, historyAudio *astTranslateHistoryAudioBuffer) error {
 	source := astTranslateTextState{role: genx.RoleUser, label: doubaoASTTranslateTranscriptLabel, streamID: streamID}
 	translation := astTranslateTextState{role: genx.RoleModel, label: doubaoASTTranslateAssistantLabel, streamID: streamID}
 	audio := astTranslateAudioState{streamID: streamID, mimeType: "audio/opus", decoder: newASTOggOpusFrameDecoder()}
@@ -561,6 +688,26 @@ func astTranslateSegmentStreamID(base string, segment int) string {
 	return fmt.Sprintf("%s:ast:%d", base, segment)
 }
 
+func astTranslateInterruptedChunks(streamID string) []*genx.MessageChunk {
+	streamID = strings.TrimSpace(streamID)
+	if streamID == "" {
+		streamID = "audio"
+	}
+	textEOS := &genx.MessageChunk{
+		Role: genx.RoleModel,
+		Name: doubaoASTTranslateAssistantLabel,
+		Part: genx.Text(""),
+		Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: doubaoASTTranslateAssistantLabel, EndOfStream: true, Error: "interrupted"},
+	}
+	audioEOS := &genx.MessageChunk{
+		Role: genx.RoleModel,
+		Name: doubaoASTTranslateAssistantLabel,
+		Part: &genx.Blob{MIMEType: "audio/opus"},
+		Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: doubaoASTTranslateAssistantLabel, EndOfStream: true, Error: "interrupted"},
+	}
+	return []*genx.MessageChunk{textEOS, audioEOS}
+}
+
 type astTranslateHistoryAudioBuffer struct {
 	mu   sync.Mutex
 	opus timestampedHistoryAudioBuffer
@@ -588,7 +735,7 @@ func (b *astTranslateHistoryAudioBuffer) appendChunk(chunk *genx.MessageChunk, s
 	b.opus.append(chunk, streamID)
 }
 
-func (b *astTranslateHistoryAudioBuffer) emitSegment(output *bufferStream, streamID string, startMS, endMS int) error {
+func (b *astTranslateHistoryAudioBuffer) emitSegment(output astTranslateOutput, streamID string, startMS, endMS int) error {
 	if b == nil {
 		return nil
 	}
@@ -612,7 +759,7 @@ type astTranslateTextState struct {
 	text     string
 }
 
-func (s *astTranslateTextState) open(output *bufferStream) error {
+func (s *astTranslateTextState) open(output astTranslateOutput) error {
 	if s.active {
 		return nil
 	}
@@ -624,7 +771,7 @@ func (s *astTranslateTextState) open(output *bufferStream) error {
 	})
 }
 
-func (s *astTranslateTextState) addToken(output *bufferStream, text string) error {
+func (s *astTranslateTextState) addToken(output astTranslateOutput, text string) error {
 	text = strings.TrimSpace(text)
 	if text == "" {
 		return nil
@@ -644,7 +791,7 @@ func (s *astTranslateTextState) addToken(output *bufferStream, text string) erro
 	})
 }
 
-func (s *astTranslateTextState) addFinal(output *bufferStream, text string) error {
+func (s *astTranslateTextState) addFinal(output astTranslateOutput, text string) error {
 	text = strings.TrimSpace(text)
 	if text == "" {
 		return nil
@@ -689,7 +836,7 @@ func astTranslateASCIIWordByte(b byte) bool {
 	return (b >= 'a' && b <= 'z') || (b >= 'A' && b <= 'Z') || (b >= '0' && b <= '9')
 }
 
-func (s *astTranslateTextState) close(output *bufferStream, errText string) error {
+func (s *astTranslateTextState) close(output astTranslateOutput, errText string) error {
 	if !s.active {
 		return nil
 	}
@@ -709,7 +856,7 @@ type astTranslateAudioState struct {
 	decoder  *astOggOpusFrameDecoder
 }
 
-func (s *astTranslateAudioState) open(output *bufferStream) error {
+func (s *astTranslateAudioState) open(output astTranslateOutput) error {
 	if s.active {
 		return nil
 	}
@@ -721,7 +868,7 @@ func (s *astTranslateAudioState) open(output *bufferStream) error {
 	})
 }
 
-func (s *astTranslateAudioState) add(output *bufferStream, audio []byte) error {
+func (s *astTranslateAudioState) add(output astTranslateOutput, audio []byte) error {
 	if len(audio) == 0 {
 		return nil
 	}
@@ -750,7 +897,7 @@ func (s *astTranslateAudioState) add(output *bufferStream, audio []byte) error {
 	return nil
 }
 
-func (s *astTranslateAudioState) close(output *bufferStream, errText string) error {
+func (s *astTranslateAudioState) close(output astTranslateOutput, errText string) error {
 	if !s.active {
 		return nil
 	}

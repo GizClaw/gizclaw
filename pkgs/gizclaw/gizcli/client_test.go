@@ -74,6 +74,12 @@ func TestClientAccessorsAndConversions(t *testing.T) {
 	if got := client.ServerPublicKey(); got != keyPair.Public {
 		t.Fatalf("ServerPublicKey() = %v, want %v", got, keyPair.Public)
 	}
+	if got := client.HTTPClient(ServiceRPC).Timeout; got != defaultHTTPClientTimeout {
+		t.Fatalf("HTTPClient().Timeout = %v, want %v", got, defaultHTTPClientTimeout)
+	}
+	if got := client.HTTPClientWithTimeout(ServiceAdmin, 3*time.Minute).Timeout; got != 3*time.Minute {
+		t.Fatalf("HTTPClientWithTimeout().Timeout = %v, want %v", got, 3*time.Minute)
+	}
 
 	if rpcClient := client.rpcClient(); rpcClient == nil || rpcClient.peer != client {
 		t.Fatalf("rpcClient() = %+v, want peer client bound", rpcClient)

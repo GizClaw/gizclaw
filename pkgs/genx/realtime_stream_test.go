@@ -128,6 +128,125 @@ func TestRealtimeStreamUntimestampedEOSFollowsFutureAudio(t *testing.T) {
 	assertRealtimeNextTimestamp(t, stream, 2_001, true)
 }
 
+func TestRealtimeStreamNewBOSDropsPendingAudioFromPreviousStream(t *testing.T) {
+	stream := NewRealtimeStream(WithRealtimeStreamDelay(0))
+	if err := stream.Push(context.Background(), &MessageChunk{
+		Part: &Blob{MIMEType: "audio/opus", Data: []byte{0x01}},
+		Ctrl: &StreamCtrl{StreamID: "audio-1", Label: "mic", Timestamp: 1_000},
+	}); err != nil {
+		t.Fatalf("Push(audio-1) error = %v", err)
+	}
+	if err := stream.Push(context.Background(), &MessageChunk{
+		Part: &Blob{MIMEType: "audio/opus"},
+		Ctrl: &StreamCtrl{StreamID: "audio-1", Label: "mic", Timestamp: 1_020, EndOfStream: true},
+	}); err != nil {
+		t.Fatalf("Push(audio-1 EOS) error = %v", err)
+	}
+	if err := stream.Push(context.Background(), &MessageChunk{
+		Ctrl: &StreamCtrl{StreamID: "audio-2", Label: "mic", Timestamp: 1_010, BeginOfStream: true},
+	}); err != nil {
+		t.Fatalf("Push(audio-2 BOS) error = %v", err)
+	}
+	chunk, err := stream.Next()
+	if err != nil {
+		t.Fatalf("Next() error = %v", err)
+	}
+	if chunk.Ctrl == nil || chunk.Ctrl.StreamID != "audio-2" || !chunk.Ctrl.BeginOfStream {
+		t.Fatalf("Next() = %#v, want audio-2 BOS", chunk)
+	}
+	stream.mu.Lock()
+	heapLen := stream.heap.Len()
+	stream.mu.Unlock()
+	if heapLen != 0 {
+		t.Fatalf("superseded audio stayed in heap, len=%d", heapLen)
+	}
+}
+
+func TestRealtimeStreamNewBOSKeepsDifferentRouteAndNonAudio(t *testing.T) {
+	stream := NewRealtimeStream(WithRealtimeStreamDelay(0))
+	if err := stream.Push(context.Background(), &MessageChunk{
+		Part: Text("keep"),
+		Ctrl: &StreamCtrl{StreamID: "text-1", Label: "text", Timestamp: 1_000},
+	}); err != nil {
+		t.Fatalf("Push(text) error = %v", err)
+	}
+	if err := stream.Push(context.Background(), &MessageChunk{
+		Part: &Blob{MIMEType: "audio/opus", Data: []byte{0x01}},
+		Ctrl: &StreamCtrl{StreamID: "audio-1", Label: "speaker", Timestamp: 1_001},
+	}); err != nil {
+		t.Fatalf("Push(other label audio) error = %v", err)
+	}
+	if err := stream.Push(context.Background(), &MessageChunk{
+		Ctrl: &StreamCtrl{StreamID: "audio-2", Label: "mic", Timestamp: 1_002, BeginOfStream: true},
+	}); err != nil {
+		t.Fatalf("Push(BOS) error = %v", err)
+	}
+	assertRealtimeNextTimestamp(t, stream, 1_000, false)
+	assertRealtimeNextTimestamp(t, stream, 1_001, false)
+	assertRealtimeNextTimestamp(t, stream, 1_002, false)
+}
+
+func TestRealtimeStreamNewStreamClampsExplicitLateTimestamps(t *testing.T) {
+	now := time.UnixMilli(2_000)
+	stream := NewRealtimeStream(
+		WithRealtimeStreamDelay(0),
+		WithRealtimeStreamNow(func() time.Time { return now }),
+	)
+	if err := stream.Push(context.Background(), &MessageChunk{
+		Part: &Blob{MIMEType: "audio/opus", Data: []byte{0x01}},
+		Ctrl: &StreamCtrl{StreamID: "audio-1", Label: "mic", Timestamp: 2_000},
+	}); err != nil {
+		t.Fatalf("Push(audio-1) error = %v", err)
+	}
+	assertRealtimeNextTimestamp(t, stream, 2_000, false)
+
+	now = time.UnixMilli(1_000)
+	if err := stream.Push(context.Background(), &MessageChunk{
+		Ctrl: &StreamCtrl{StreamID: "audio-2", Label: "mic", BeginOfStream: true},
+	}); err != nil {
+		t.Fatalf("Push(audio-2 BOS) error = %v", err)
+	}
+	if err := stream.Push(context.Background(), &MessageChunk{
+		Part: &Blob{MIMEType: "audio/opus", Data: []byte{0x02}},
+		Ctrl: &StreamCtrl{StreamID: "audio-2", Label: "mic", Timestamp: 1_000},
+	}); err != nil {
+		t.Fatalf("Push(audio-2 late explicit audio) error = %v", err)
+	}
+
+	now = time.UnixMilli(2_001)
+	assertRealtimeNextTimestamp(t, stream, 2_001, false)
+	assertRealtimeNextTimestamp(t, stream, 2_001, false)
+}
+
+func TestRealtimeStreamNewBOSDropsFutureAudioFromPreviousStream(t *testing.T) {
+	stream := NewRealtimeStream(WithRealtimeStreamDelay(0))
+	if err := stream.Push(context.Background(), &MessageChunk{
+		Ctrl: &StreamCtrl{StreamID: "audio-2", Label: "mic", Timestamp: 1_000, BeginOfStream: true},
+	}); err != nil {
+		t.Fatalf("Push(audio-2 BOS) error = %v", err)
+	}
+	if err := stream.Push(context.Background(), &MessageChunk{
+		Part: &Blob{MIMEType: "audio/opus", Data: []byte{0x01}},
+		Ctrl: &StreamCtrl{StreamID: "audio-1", Label: "mic", Timestamp: 1_001},
+	}); err != nil {
+		t.Fatalf("Push(late audio-1 audio) error = %v", err)
+	}
+	if err := stream.Push(context.Background(), &MessageChunk{
+		Part: &Blob{MIMEType: "audio/opus"},
+		Ctrl: &StreamCtrl{StreamID: "audio-1", Label: "mic", Timestamp: 1_002, EndOfStream: true},
+	}); err != nil {
+		t.Fatalf("Push(late audio-1 EOS) error = %v", err)
+	}
+
+	assertRealtimeNextTimestamp(t, stream, 1_000, false)
+	stream.mu.Lock()
+	heapLen := stream.heap.Len()
+	stream.mu.Unlock()
+	if heapLen != 0 {
+		t.Fatalf("superseded future audio stayed in heap, len=%d", heapLen)
+	}
+}
+
 func testRealtimeAudioChunk(timestamp int64) *MessageChunk {
 	return &MessageChunk{
 		Part: &Blob{MIMEType: "audio/opus", Data: []byte{0x01}},
