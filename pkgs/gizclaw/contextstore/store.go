@@ -77,7 +77,9 @@ func (s *Store) CreateWithOptions(name, endpoint string, opts CreateOptions) err
 
 	link := filepath.Join(s.Root, currentLink)
 	if _, err := os.Lstat(link); os.IsNotExist(err) {
-		_ = os.Symlink(name, link)
+		if err := os.Symlink(name, link); err != nil {
+			return fmt.Errorf("contextstore: symlink current: %w", err)
+		}
 	}
 	return nil
 }

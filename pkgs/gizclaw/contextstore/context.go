@@ -1,6 +1,7 @@
 package contextstore
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -81,7 +82,7 @@ func LoadSummary(dir string) (Summary, error) {
 	}
 	if kp, err := LoadIdentity(filepath.Join(dir, IdentityFile)); err == nil {
 		summary.LocalPublicKey = kp.Public
-	} else if !os.IsNotExist(err) {
+	} else if !errors.Is(err, os.ErrNotExist) {
 		return Summary{}, fmt.Errorf("contextstore: load identity summary: %w", err)
 	}
 	return summary, nil
