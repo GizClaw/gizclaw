@@ -319,9 +319,6 @@ func TestInterruptibleOutputKeepsExternalTTSPendingAfterTextEOS(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("push text eos: %v", err)
 	}
-	if !output.active || output.activeStream != "turn-1" {
-		t.Fatalf("active after text eos = %t/%q, want pending external TTS", output.active, output.activeStream)
-	}
 
 	output.interrupt("turn-2")
 
@@ -378,8 +375,19 @@ func TestInterruptibleOutputKeepsExternalTTSPendingAfterTextEOS(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("push completed audio eos: %v", err)
 	}
-	if output.active || output.activeStream != "" {
-		t.Fatalf("active after audio eos = %t/%q, want completed", output.active, output.activeStream)
+	output.interrupt("turn-2")
+	for i := 0; i < 4; i++ {
+		chunk, err := output.Next()
+		if err != nil {
+			t.Fatalf("Next completed chunk %d: %v", i, err)
+		}
+		if chunk.Ctrl == nil || chunk.Ctrl.Error == "interrupted" {
+			t.Fatalf("completed chunk %d = %#v, want original output without interrupt", i, chunk)
+		}
+	}
+	output.close()
+	if chunk, err := output.Next(); err == nil || chunk != nil {
+		t.Fatalf("Next completed after close = %#v, %v; want EOF", chunk, err)
 	}
 }
 
