@@ -3,6 +3,7 @@ package gizclaw
 import (
 	"context"
 	"errors"
+	"net"
 	"net/http"
 
 	"golang.org/x/sync/errgroup"
@@ -63,7 +64,17 @@ func (s *PeerService) ServeConn(conn giznet.Conn) error {
 	g.Go(func() error { return s.serveAdmin(conn) })
 	g.Go(func() error { return s.servePublic(conn) })
 
-	return g.Wait()
+	if err := g.Wait(); err != nil && !isPeerServiceClosed(err) {
+		return err
+	}
+	return nil
+}
+
+func isPeerServiceClosed(err error) bool {
+	return errors.Is(err, net.ErrClosed) ||
+		errors.Is(err, giznet.ErrClosed) ||
+		errors.Is(err, giznet.ErrConnClosed) ||
+		errors.Is(err, giznet.ErrServiceMuxClosed)
 }
 
 func (s *PeerService) ensureConnectedPeer(ctx context.Context, conn giznet.Conn) error {

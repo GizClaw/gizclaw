@@ -165,7 +165,7 @@ func TestRetryableLiveWorkspaceError(t *testing.T) {
 		errors.New("flowcraft: read ASR: buffer: read from closed buffer: websocket connect failed: Bad Gateway"),
 		errors.New("flowcraft: read ASR: buffer: read from closed buffer: websocket read: unexpected EOF"),
 		errors.New("ast websocket read: websocket: close 1006 (abnormal closure): unexpected EOF"),
-		errors.New("round 2: transport: kcp: timeout; recent events: none"),
+		errors.New("round 2: transport: timeout; recent events: none"),
 		errors.New("bytedance: response incomplete: length"),
 		errors.New("buffer: read from closed buffer: genx: generate error: flowcraft: claw event error: recall ingest: extract: recall two-pass extractor: content llm: bytedance.generate: 15.007s"),
 		errors.New("speech: POST \"http://gizclaw/v1/audio/speech\": 400 Bad Request"),

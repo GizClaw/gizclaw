@@ -147,7 +147,7 @@ func (c *Client) init(listener giznet.Listener, conn giznet.Conn, serverPK gizne
 	c.rpc = &rpcClient{peer: c}
 }
 
-// Close releases all resources including the underlying UDP socket.
+// Close releases all transport resources.
 func (c *Client) Close() error {
 	c.mu.Lock()
 	conn := c.conn
@@ -201,8 +201,8 @@ func (c *Client) ServerPublicClient() (*serverpublic.ClientWithResponses, error)
 
 // Ping opens a fresh RPC stream, sends one ping, and closes it.
 //
-// Our current RPC transport uses one KCP stream per round trip so multiple RPC
-// requests can run concurrently on separate streams. This is closer to
+// Our current RPC transport uses one giznet service stream per round trip so
+// multiple RPC requests can run concurrently on separate streams. This is closer to
 // HTTP/1.0-style request lifecycles; HTTP/1.1-style stream reuse is not
 // supported yet.
 func (c *Client) Ping(ctx context.Context, id string) (*rpcapi.PingResponse, error) {
@@ -416,7 +416,7 @@ func (c *Client) serveRPC() error {
 	for {
 		stream, err := listener.Accept()
 		if err != nil {
-			if errors.Is(err, net.ErrClosed) {
+			if isPeerPacketReadClosed(err) {
 				return nil
 			}
 			return err

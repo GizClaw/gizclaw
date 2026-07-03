@@ -259,40 +259,6 @@ func TestLoadConfigRejectsInvalidAdminPublicKey(t *testing.T) {
 	}
 }
 
-func TestLoadConfigRejectsAdminPrivateKey(t *testing.T) {
-	adminKP := testKeyPair(t, 0x13)
-	path := filepath.Join(t.TempDir(), "config.yaml")
-	if err := os.WriteFile(path, []byte("admin-private-key: "+adminKP.Private.String()+"\n"), 0o644); err != nil {
-		t.Fatalf("WriteFile error = %v", err)
-	}
-
-	if _, err := LoadConfig(path); err == nil || !strings.Contains(err.Error(), "admin-private-key is not supported") {
-		t.Fatalf("LoadConfig private key err = %v", err)
-	}
-}
-
-func TestLoadConfigRejectsAdminIdentityKey(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "config.yaml")
-	if err := os.WriteFile(path, []byte("admin-identity-key: admin.identity\n"), 0o644); err != nil {
-		t.Fatalf("WriteFile error = %v", err)
-	}
-
-	if _, err := LoadConfig(path); err == nil || !strings.Contains(err.Error(), "admin-identity-key is not supported") {
-		t.Fatalf("LoadConfig identity key err = %v", err)
-	}
-}
-
-func TestLoadConfigRejectsOldNetworkFields(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "config.yaml")
-	if err := os.WriteFile(path, []byte("cipher-mode: aes_256_gcm\n"), 0o644); err != nil {
-		t.Fatalf("WriteFile error = %v", err)
-	}
-
-	if _, err := LoadConfig(path); err == nil || !strings.Contains(err.Error(), "cipher-mode is not supported") {
-		t.Fatalf("LoadConfig old field error = %v", err)
-	}
-}
-
 func TestLoadConfigErrors(t *testing.T) {
 	if _, err := LoadConfig(filepath.Join(t.TempDir(), "missing.yaml")); err == nil {
 		t.Fatal("LoadConfig should fail for a missing file")

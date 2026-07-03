@@ -29,7 +29,7 @@ func NewServer(conn giznet.Conn, service uint64, handler http.Handler) *Server {
 
 func (s *Server) Serve() error {
 	err := s.httpServer.Serve(s.listener)
-	if errors.Is(err, http.ErrServerClosed) || errors.Is(err, net.ErrClosed) {
+	if errors.Is(err, http.ErrServerClosed) || IsClosed(err) {
 		return nil
 	}
 	return err

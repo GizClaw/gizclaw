@@ -5513,7 +5513,12 @@ function createOpenAIChatAdapter({
 }
 
 function isTransientSpeechProxyError(message: string): boolean {
-  return message.includes("kcp: conn closed: local") || message.includes("gizhttp: read response: kcp: timeout");
+  const normalized = message.toLowerCase();
+  return (
+    normalized.includes("giznet: conn closed") ||
+    normalized.includes("transport: timeout") ||
+    (normalized.includes("gizhttp: read response:") && normalized.includes("timeout"))
+  );
 }
 
 function chatErrorResult(errorText: string, partialText = ""): ChatModelRunResult {

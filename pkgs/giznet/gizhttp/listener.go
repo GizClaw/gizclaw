@@ -54,7 +54,7 @@ func (l *listener) Addr() net.Addr {
 }
 
 func (a listenerAddr) Network() string {
-	return "kcp-http"
+	return "gizhttp"
 }
 
 func (a listenerAddr) String() string {
@@ -62,5 +62,8 @@ func (a listenerAddr) String() string {
 }
 
 func IsClosed(err error) bool {
-	return errors.Is(err, net.ErrClosed)
+	return errors.Is(err, net.ErrClosed) ||
+		errors.Is(err, giznet.ErrClosed) ||
+		errors.Is(err, giznet.ErrConnClosed) ||
+		errors.Is(err, giznet.ErrServiceMuxClosed)
 }

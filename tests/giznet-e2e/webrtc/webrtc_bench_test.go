@@ -1,4 +1,6 @@
-package giznet_test
+//go:build giznet_e2e
+
+package webrtc_test
 
 import (
 	"bytes"
@@ -7,32 +9,24 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizhttp"
-	"github.com/GizClaw/gizclaw-go/pkgs/giznet/giznoise"
+	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
 )
 
-func BenchmarkPublicHTTPRoundTrip(b *testing.B) {
+func BenchmarkWebRTCHTTPRoundTrip(b *testing.B) {
 	for _, size := range []int{128, 1024, 4096} {
 		b.Run("size="+itoa(size), func(b *testing.B) {
-			serverKey, err := giznet.GenerateKeyPair()
-			if err != nil {
-				b.Fatal(err)
-			}
-			clientKey, err := giznet.GenerateKeyPair()
-			if err != nil {
-				b.Fatal(err)
-			}
+			serverKey := mustKeyPair(b)
+			clientKey := mustKeyPair(b)
+			server := startWebRTCServer(b, serverKey, gizwebrtc.CipherModePlaintext)
+			defer server.Close()
 
-			serverListener := newBenchListenerNode(b, serverKey, giznoise.ListenConfig{
-				SecurityPolicy: benchSecurityPolicy{
-					allowService: func(_ giznet.PublicKey, service uint64) bool {
-						return service == 7
-					},
-				},
-			})
-			clientListener := newBenchListenerNode(b, clientKey)
-			clientConn, serverConn := connectBenchListenerNodes(b, clientListener, clientKey, serverListener, serverKey)
+			clientListener, clientConn := dialWebRTC(b, clientKey, serverKey.Public, server.signalingURL, gizwebrtc.CipherModePlaintext)
+			defer clientListener.Close()
+			defer clientConn.Close()
+
+			serverConn := acceptConn(b, server.listener)
+			defer serverConn.Close()
 
 			srv := gizhttp.NewServer(serverConn, 7, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				body, err := io.ReadAll(r.Body)
@@ -44,22 +38,15 @@ func BenchmarkPublicHTTPRoundTrip(b *testing.B) {
 				w.Header().Set("Content-Type", "application/octet-stream")
 				_, _ = w.Write(body)
 			}))
-			ctx, cancel := context.WithCancel(context.Background())
-			b.Cleanup(func() {
-				cancel()
-				_ = srv.Shutdown(context.Background())
-			})
-			go func() {
-				<-ctx.Done()
-				_ = srv.Shutdown(context.Background())
-			}()
 			go func() {
 				_ = srv.Serve()
 			}()
+			b.Cleanup(func() {
+				_ = srv.Shutdown(context.Background())
+			})
 
 			client := gizhttp.NewClient(clientConn, 7)
 			payload := bytes.Repeat([]byte("a"), size)
-
 			b.SetBytes(int64(len(payload) * 2))
 			b.ReportAllocs()
 			b.ResetTimer()

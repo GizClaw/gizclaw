@@ -249,17 +249,17 @@ func TestLoadIdentityRejectsInvalidKeyFile(t *testing.T) {
 	}
 }
 
-func TestLoadRejectsOldNoiseFields(t *testing.T) {
+func TestLoadRejectsUnknownFields(t *testing.T) {
 	dir := t.TempDir()
 	if err := os.WriteFile(filepath.Join(dir, ConfigFile), []byte(`
 server:
-  host: 127.0.0.1
-  public-api-port: 9820
+  endpoint: 127.0.0.1:9820
   public-key: 11111111111111111111111111111111
+  extra: value
 `), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := LoadConfig(dir); err == nil || !strings.Contains(err.Error(), "server.host is not supported") {
+	if _, err := LoadConfig(dir); err == nil || !strings.Contains(err.Error(), "unknown field") {
 		t.Fatalf("LoadConfig() error = %v", err)
 	}
 }

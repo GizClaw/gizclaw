@@ -97,21 +97,6 @@ func LoadConfig(path string) (ConfigFile, error) {
 	if err != nil {
 		return ConfigFile{}, err
 	}
-	var keyCheck map[string]any
-	if err := yaml.Unmarshal(data, &keyCheck); err != nil {
-		return ConfigFile{}, err
-	}
-	if _, ok := keyCheck["admin-private-key"]; ok {
-		return ConfigFile{}, fmt.Errorf("server: admin-private-key is not supported; use admin-public-key")
-	}
-	if _, ok := keyCheck["admin-identity-key"]; ok {
-		return ConfigFile{}, fmt.Errorf("server: admin-identity-key is not supported; use admin-public-key")
-	}
-	for _, field := range []string{"host", "listen", "public-api-port", "noise-udp-port", "ice-port", "cipher-mode"} {
-		if _, ok := keyCheck[field]; ok {
-			return ConfigFile{}, fmt.Errorf("server: %s is not supported; use endpoint", field)
-		}
-	}
 	var raw struct {
 		Endpoint       string                    `yaml:"endpoint"`
 		AdminPublicKey *giznet.PublicKey         `yaml:"admin-public-key"`

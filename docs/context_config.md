@@ -21,12 +21,6 @@ server:
 - `server.public-key` is the server static public key and is the trust anchor
   for the context.
 
-The context config no longer supports `server.host`, `server.public-api-port`,
-`server.noise-udp-port`, `server.ice-port`, `server.transport`,
-`server.cipher-mode`, `server.private-key`, or `server.identity-key`.
-`contextstore.LoadConfig` rejects those fields so stale split-port or giznoise
-contexts fail fast.
-
 ## Transport Behavior
 
 Contexts use the single configured endpoint for server-public HTTP, WebRTC

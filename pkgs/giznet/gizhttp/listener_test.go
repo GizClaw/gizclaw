@@ -9,7 +9,7 @@ import (
 
 func TestListenerAddrHelpers(t *testing.T) {
 	addr := listenerAddr{peerPK: "peer-pk", service: 7}
-	if addr.Network() != "kcp-http" {
+	if addr.Network() != "gizhttp" {
 		t.Fatalf("Network = %q", addr.Network())
 	}
 	if addr.String() != "peer-pk/service/7" {

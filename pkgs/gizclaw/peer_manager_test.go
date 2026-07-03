@@ -237,7 +237,7 @@ func TestApplyPeerRefreshIdentifiersUpdatesChangedCollections(t *testing.T) {
 
 func TestIsPeerDisconnectedError(t *testing.T) {
 	t.Run("closed connection errors are offline", func(t *testing.T) {
-		if !isPeerDisconnectedError(errors.New("gizhttp: read response: kcp: conn closed: local")) {
+		if !isPeerDisconnectedError(errors.New("gizhttp: read response: giznet: conn closed")) {
 			t.Fatal("conn closed error should be treated as disconnected")
 		}
 	})

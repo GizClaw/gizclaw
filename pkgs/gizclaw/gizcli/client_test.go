@@ -11,7 +11,6 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
-	"github.com/GizClaw/gizclaw-go/pkgs/giznet/giznoise"
 )
 
 func TestClientDialValidation(t *testing.T) {
@@ -192,14 +191,7 @@ func TestClientServeClearsPeerConnWhenUnderlyingConnCloses(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GenerateKeyPair(client) error = %v", err)
 	}
-	serverListener, err := (&giznoise.ListenConfig{
-		Addr:           "127.0.0.1:0",
-		SecurityPolicy: clientSecurityPolicy{},
-	}).Listen(serverKey)
-	if err != nil {
-		t.Fatalf("Listen(server) error = %v", err)
-	}
-	defer serverListener.Close()
+	serverListener, signalingURL := newTestWebRTCServer(t, serverKey, clientSecurityPolicy{})
 
 	accepted := make(chan giznet.Conn, 1)
 	acceptErr := make(chan error, 1)
@@ -212,8 +204,8 @@ func TestClientServeClearsPeerConnWhenUnderlyingConnCloses(t *testing.T) {
 		accepted <- conn
 	}()
 
-	client := &Client{KeyPair: clientKey, DialTransport: testNoiseDialTransport()}
-	if err := client.Dial(serverKey.Public, serverListener.HostInfo().Addr.String()); err != nil {
+	client := &Client{KeyPair: clientKey, DialTransport: testWebRTCDialTransport()}
+	if err := client.Dial(serverKey.Public, signalingURL); err != nil {
 		t.Fatalf("Dial() error = %v", err)
 	}
 
@@ -268,14 +260,7 @@ func TestClientRPCWithoutContextDeadlineUsesDefaultStreamTimeout(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GenerateKeyPair(client) error = %v", err)
 	}
-	serverListener, err := (&giznoise.ListenConfig{
-		Addr:           "127.0.0.1:0",
-		SecurityPolicy: clientSecurityPolicy{},
-	}).Listen(serverKey)
-	if err != nil {
-		t.Fatalf("Listen(server) error = %v", err)
-	}
-	defer serverListener.Close()
+	serverListener, signalingURL := newTestWebRTCServer(t, serverKey, clientSecurityPolicy{})
 
 	accepted := make(chan giznet.Conn, 1)
 	acceptErr := make(chan error, 1)
@@ -288,8 +273,8 @@ func TestClientRPCWithoutContextDeadlineUsesDefaultStreamTimeout(t *testing.T) {
 		accepted <- conn
 	}()
 
-	client := &Client{KeyPair: clientKey, DialTransport: testNoiseDialTransport()}
-	if err := client.Dial(serverKey.Public, serverListener.HostInfo().Addr.String()); err != nil {
+	client := &Client{KeyPair: clientKey, DialTransport: testWebRTCDialTransport()}
+	if err := client.Dial(serverKey.Public, signalingURL); err != nil {
 		t.Fatalf("Dial() error = %v", err)
 	}
 

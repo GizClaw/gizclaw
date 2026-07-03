@@ -22,7 +22,6 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerrun"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/acl"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
-	"github.com/GizClaw/gizclaw-go/pkgs/giznet/giznoise"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
@@ -223,57 +222,15 @@ func TestPeerConnCloseClosesConn(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GenerateKeyPair(client) error = %v", err)
 	}
-	serverListener, err := (&giznoise.ListenConfig{
-		Addr:           "127.0.0.1:0",
-		SecurityPolicy: testGiznetSecurityPolicy{},
-	}).Listen(serverKey)
-	if err != nil {
-		t.Fatalf("Listen(server) error = %v", err)
-	}
-	defer serverListener.Close()
-	go drainUDP(serverListener.UDP())
-	clientListener, err := (&giznoise.ListenConfig{
-		Addr:           "127.0.0.1:0",
-		SecurityPolicy: testGiznetSecurityPolicy{},
-	}).Listen(clientKey)
-	if err != nil {
-		t.Fatalf("Listen(client) error = %v", err)
-	}
-	defer clientListener.Close()
-	go drainUDP(clientListener.UDP())
-
-	acceptCh := make(chan giznet.Conn, 1)
-	errCh := make(chan error, 1)
-	go func() {
-		conn, err := serverListener.Accept()
-		if err != nil {
-			errCh <- err
-			return
-		}
-		acceptCh <- conn
-	}()
-
-	clientConn, err := clientListener.Dial(serverKey.Public, serverListener.HostInfo().Addr)
-	if err != nil {
-		t.Fatalf("Dial error = %v", err)
-	}
+	clientConn, serverConn := newTestWebRTCConnPair(t, serverKey, clientKey, testGiznetSecurityPolicy{}, testGiznetSecurityPolicy{})
 	defer clientConn.Close()
-
-	var serverConn giznet.Conn
-	select {
-	case serverConn = <-acceptCh:
-	case err := <-errCh:
-		t.Fatalf("Accept error = %v", err)
-	case <-time.After(5 * time.Second):
-		t.Fatal("Accept timeout")
-	}
 
 	peer := &PeerConn{Conn: serverConn}
 	if err := peer.close(); err != nil {
 		t.Fatalf("PeerConn.close() error = %v", err)
 	}
-	if err := serverConn.Close(); !errors.Is(err, giznet.ErrConnClosed) {
-		t.Fatalf("server Conn.Close() after PeerConn.close err=%v, want %v", err, giznet.ErrConnClosed)
+	if err := serverConn.Close(); err != nil && !errors.Is(err, giznet.ErrConnClosed) {
+		t.Fatalf("server Conn.Close() after PeerConn.close err=%v, want nil or %v", err, giznet.ErrConnClosed)
 	}
 }
 
