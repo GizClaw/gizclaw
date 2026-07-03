@@ -19,6 +19,9 @@
           },
           "tag": {
             "type": "string"
+          },
+          "trace": {
+            "$ref": "#/components/schemas/TraceContext"
           }
         }
       },
@@ -35,6 +38,78 @@
           },
           "ok": {
             "type": "boolean"
+          },
+          "labels": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "SpeedTestRequest": {
+        "type": "object",
+        "required": [
+          "up_content_length",
+          "down_content_length"
+        ],
+        "properties": {
+          "up_content_length": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "down_content_length": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "sample_count": {
+            "type": "integer"
+          },
+          "payload_hint": {
+            "$ref": "#/components/schemas/PayloadHint"
+          }
+        }
+      },
+      "SpeedTestResponse": {
+        "type": "object",
+        "required": [
+          "up_content_length",
+          "down_content_length",
+          "duration_ms"
+        ],
+        "properties": {
+          "up_content_length": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "down_content_length": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "duration_ms": {
+            "type": "number"
+          },
+          "samples": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          }
+        }
+      },
+      "TraceContext": {
+        "type": "object",
+        "properties": {
+          "trace_id": {
+            "type": "string"
+          }
+        }
+      },
+      "PayloadHint": {
+        "type": "object",
+        "properties": {
+          "pattern": {
+            "type": "string"
           }
         }
       }

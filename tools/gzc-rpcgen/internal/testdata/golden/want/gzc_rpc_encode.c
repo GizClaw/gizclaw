@@ -6,6 +6,7 @@
 
 const gzc_rpc_method_info_t gzc_rpc_methods[] = {
   {GZC_RPC_METHOD_ALL_PING, "PingRequest", "PingResponse"},
+  {GZC_RPC_METHOD_ALL_SPEED_TEST_RUN, "SpeedTestRequest", "SpeedTestResponse"},
   {GZC_RPC_METHOD_SERVER_RUN_SAY, "ServerRunSayRequest", "ServerRunSayResponse"},
 };
 
@@ -25,6 +26,37 @@ int gzc_ping_request_encode_json(const gzc_platform_t *platform, const gzc_ping_
     rc = gzc_json_field_str(&writer, "tag", value->tag);
     if (rc != GZC_OK) { return rc; }
   }
+  if (value->has_trace) {
+    rc = gzc_json_field_raw(&writer, "trace", value->trace.raw);
+    if (rc != GZC_OK) { return rc; }
+  }
+  return gzc_json_object_end(&writer);
+}
+
+int gzc_speed_test_request_encode_json(const gzc_platform_t *platform, const gzc_speed_test_request_t *value, gzc_buf_t *out_json) {
+  if (value == NULL || out_json == NULL) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  gzc_json_writer_t writer;
+  gzc_json_writer_init(&writer, platform, out_json);
+  int rc = gzc_json_object_begin(&writer);
+  if (rc != GZC_OK) { return rc; }
+  if (true) {
+    rc = gzc_json_field_i64(&writer, "down_content_length", value->down_content_length);
+    if (rc != GZC_OK) { return rc; }
+  }
+  if (value->has_payload_hint) {
+    rc = gzc_json_field_raw(&writer, "payload_hint", value->payload_hint.raw);
+    if (rc != GZC_OK) { return rc; }
+  }
+  if (value->has_sample_count) {
+    rc = gzc_json_field_i32(&writer, "sample_count", value->sample_count);
+    if (rc != GZC_OK) { return rc; }
+  }
+  if (true) {
+    rc = gzc_json_field_i64(&writer, "up_content_length", value->up_content_length);
+    if (rc != GZC_OK) { return rc; }
+  }
   return gzc_json_object_end(&writer);
 }
 
@@ -38,6 +70,10 @@ int gzc_server_run_say_request_encode_json(const gzc_platform_t *platform, const
   if (rc != GZC_OK) { return rc; }
   if (value->has_metadata) {
     rc = gzc_json_field_raw(&writer, "metadata", value->metadata.raw);
+    if (rc != GZC_OK) { return rc; }
+  }
+  if (value->has_repeat) {
+    rc = gzc_json_field_i32(&writer, "repeat", value->repeat);
     if (rc != GZC_OK) { return rc; }
   }
   if (true) {

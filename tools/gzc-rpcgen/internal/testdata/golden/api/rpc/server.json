@@ -21,6 +21,9 @@
           },
           "metadata": {
             "$ref": "#/components/schemas/Metadata"
+          },
+          "repeat": {
+            "type": "integer"
           }
         }
       },
@@ -35,6 +38,9 @@
           },
           "queue_position": {
             "type": "integer"
+          },
+          "diagnostics": {
+            "$ref": "#/components/schemas/Diagnostics"
           }
         }
       },
@@ -42,6 +48,17 @@
         "type": "object",
         "properties": {
           "source": {
+            "type": "string"
+          },
+          "priority": {
+            "type": "integer"
+          }
+        }
+      },
+      "Diagnostics": {
+        "type": "object",
+        "properties": {
+          "route": {
             "type": "string"
           }
         }

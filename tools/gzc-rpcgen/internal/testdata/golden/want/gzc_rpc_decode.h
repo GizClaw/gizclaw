@@ -10,6 +10,7 @@ extern "C" {
 #endif
 
 int gzc_ping_response_decode_json(gzc_str_t json, gzc_ping_response_t *out_value);
+int gzc_speed_test_response_decode_json(gzc_str_t json, gzc_speed_test_response_t *out_value);
 int gzc_server_run_say_response_decode_json(gzc_str_t json, gzc_server_run_say_response_t *out_value);
 
 #ifdef __cplusplus

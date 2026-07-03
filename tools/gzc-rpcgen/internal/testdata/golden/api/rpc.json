@@ -11,6 +11,7 @@
         "type": "string",
         "enum": [
           "all.ping",
+          "all.speed_test.run",
           "server.run.say"
         ]
       },
@@ -21,6 +22,9 @@
             "oneOf": [
               {
                 "$ref": "./rpc/all.json#/components/schemas/PingRequest"
+              },
+              {
+                "$ref": "./rpc/all.json#/components/schemas/SpeedTestRequest"
               },
               {
                 "$ref": "./rpc/server.json#/components/schemas/ServerRunSayRequest"
@@ -36,6 +40,9 @@
             "oneOf": [
               {
                 "$ref": "./rpc/all.json#/components/schemas/PingResponse"
+              },
+              {
+                "$ref": "./rpc/all.json#/components/schemas/SpeedTestResponse"
               },
               {
                 "$ref": "./rpc/server.json#/components/schemas/ServerRunSayResponse"

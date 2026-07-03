@@ -10,6 +10,7 @@ extern "C" {
 #endif
 
 #define GZC_RPC_METHOD_ALL_PING "all.ping"
+#define GZC_RPC_METHOD_ALL_SPEED_TEST_RUN "all.speed_test.run"
 #define GZC_RPC_METHOD_SERVER_RUN_SAY "server.run.say"
 
 typedef struct {
@@ -19,7 +20,7 @@ typedef struct {
 } gzc_rpc_method_info_t;
 
 extern const gzc_rpc_method_info_t gzc_rpc_methods[];
-#define GZC_RPC_METHOD_COUNT 2
+#define GZC_RPC_METHOD_COUNT 3
 
 #ifdef __cplusplus
 }

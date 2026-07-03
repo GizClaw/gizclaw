@@ -11,6 +11,12 @@ int gzc_ping_response_decode_json(gzc_str_t json, gzc_ping_response_t *out_value
   memset(out_value, 0, sizeof(*out_value));
   gzc_str_t raw;
   int rc;
+  rc = gzc_json_find_field(json, "labels", &raw);
+  if (rc == GZC_OK) {
+    out_value->has_labels = true;
+    rc = (out_value->labels.raw = raw, GZC_OK);
+    if (rc != GZC_OK) { return rc; }
+  }
   rc = gzc_json_find_field(json, "ok", &raw);
   if (rc != GZC_OK) { return rc; }
   rc = gzc_json_parse_bool(raw, &out_value->ok);
@@ -18,6 +24,34 @@ int gzc_ping_response_decode_json(gzc_str_t json, gzc_ping_response_t *out_value
   rc = gzc_json_find_field(json, "server_time", &raw);
   if (rc != GZC_OK) { return rc; }
   rc = gzc_json_parse_i64(raw, &out_value->server_time);
+  if (rc != GZC_OK) { return rc; }
+  return GZC_OK;
+}
+
+int gzc_speed_test_response_decode_json(gzc_str_t json, gzc_speed_test_response_t *out_value) {
+  if (out_value == NULL) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  memset(out_value, 0, sizeof(*out_value));
+  gzc_str_t raw;
+  int rc;
+  rc = gzc_json_find_field(json, "down_content_length", &raw);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_parse_i64(raw, &out_value->down_content_length);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_find_field(json, "duration_ms", &raw);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_parse_f64(raw, &out_value->duration_ms);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_find_field(json, "samples", &raw);
+  if (rc == GZC_OK) {
+    out_value->has_samples = true;
+    rc = (out_value->samples.raw = raw, GZC_OK);
+    if (rc != GZC_OK) { return rc; }
+  }
+  rc = gzc_json_find_field(json, "up_content_length", &raw);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_parse_i64(raw, &out_value->up_content_length);
   if (rc != GZC_OK) { return rc; }
   return GZC_OK;
 }
@@ -33,6 +67,12 @@ int gzc_server_run_say_response_decode_json(gzc_str_t json, gzc_server_run_say_r
   if (rc != GZC_OK) { return rc; }
   rc = gzc_json_parse_bool(raw, &out_value->accepted);
   if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_find_field(json, "diagnostics", &raw);
+  if (rc == GZC_OK) {
+    out_value->has_diagnostics = true;
+    rc = (out_value->diagnostics.raw = raw, GZC_OK);
+    if (rc != GZC_OK) { return rc; }
+  }
   rc = gzc_json_find_field(json, "queue_position", &raw);
   if (rc == GZC_OK) {
     out_value->has_queue_position = true;

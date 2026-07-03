@@ -11,8 +11,10 @@ func TestGoldenCEncodeDecodeViaCgo(t *testing.T) {
 	}{
 		{"encode required fields", runGoldenCEncodeRequired},
 		{"encode optional fields", runGoldenCEncodeOptional},
+		{"encode speed test fields", runGoldenCEncodeSpeedTest},
 		{"decode required fields", runGoldenCDecodeRequired},
 		{"decode optional fields", runGoldenCDecodeOptional},
+		{"decode speed test fields", runGoldenCDecodeSpeedTest},
 		{"method constant", runGoldenCMethodConstant},
 	}
 	for _, tt := range tests {
