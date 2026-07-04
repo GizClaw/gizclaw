@@ -52,6 +52,8 @@ int gzc_model_get_request_encode_json(const gzc_platform_t *platform, const gzc_
 int gzc_model_create_request_encode_json(const gzc_platform_t *platform, const gzc_model_create_request_t *value, gzc_buf_t *out_json);
 int gzc_model_put_request_encode_json(const gzc_platform_t *platform, const gzc_model_put_request_t *value, gzc_buf_t *out_json);
 int gzc_model_delete_request_encode_json(const gzc_platform_t *platform, const gzc_model_delete_request_t *value, gzc_buf_t *out_json);
+int gzc_voice_list_request_encode_json(const gzc_platform_t *platform, const gzc_voice_list_request_t *value, gzc_buf_t *out_json);
+int gzc_voice_get_request_encode_json(const gzc_platform_t *platform, const gzc_voice_get_request_t *value, gzc_buf_t *out_json);
 int gzc_credential_list_request_encode_json(const gzc_platform_t *platform, const gzc_credential_list_request_t *value, gzc_buf_t *out_json);
 int gzc_credential_get_request_encode_json(const gzc_platform_t *platform, const gzc_credential_get_request_t *value, gzc_buf_t *out_json);
 int gzc_credential_create_request_encode_json(const gzc_platform_t *platform, const gzc_credential_create_request_t *value, gzc_buf_t *out_json);

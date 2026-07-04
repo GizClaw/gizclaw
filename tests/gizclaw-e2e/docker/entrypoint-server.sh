@@ -6,8 +6,10 @@ setup_dir="$repo_root/tests/gizclaw-e2e/setup"
 workspace_dir="$repo_root/tests/gizclaw-e2e/testdata/server-workspace"
 pid_file="$workspace_dir/gizclaw-server.pid"
 log_file="$workspace_dir/gizclaw-server.log"
+ready_file="/tmp/gizclaw-e2e-server-ready"
 
 cd "$repo_root"
+rm -f "$ready_file"
 
 export GIZCLAW_E2E_CONFIG_HOME="${GIZCLAW_E2E_CONFIG_HOME:-$repo_root/tests/gizclaw-e2e/testdata/cmd-config-home}"
 export GIZCLAW_E2E_SERVER_ADDR="${GIZCLAW_E2E_SERVER_ADDR:-127.0.0.1:9820}"
@@ -30,6 +32,7 @@ if [[ -z "$pid" ]] || ! kill -0 "$pid" 2>/dev/null; then
 fi
 
 echo "gizclaw e2e docker server ready pid=$pid log=$log_file"
+touch "$ready_file"
 
 while kill -0 "$pid" 2>/dev/null; do
   sleep 1

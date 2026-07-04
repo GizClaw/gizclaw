@@ -20,6 +20,7 @@ type Method struct {
 	ConstName    string
 	RequestName  string
 	ResponseName string
+	Kind         string
 	Request      Schema
 	Response     Schema
 }

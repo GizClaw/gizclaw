@@ -8,6 +8,7 @@
 #include "gzc_json.h"
 #include "gzc_platform.h"
 #include "gzc_rpc.h"
+#include "gzc_rpc_frame.h"
 #include "gzc_webrtc.h"
 
 #endif

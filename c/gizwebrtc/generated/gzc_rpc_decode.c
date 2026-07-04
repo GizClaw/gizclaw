@@ -1602,6 +1602,84 @@ int gzc_model_delete_response_decode_json(gzc_str_t json, gzc_model_delete_respo
   return GZC_OK;
 }
 
+int gzc_voice_list_response_decode_json(gzc_str_t json, gzc_voice_list_response_t *out_value) {
+  if (out_value == NULL) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  memset(out_value, 0, sizeof(*out_value));
+  gzc_str_t raw;
+  int rc;
+  rc = gzc_json_find_field(json, "has_next", &raw);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_parse_bool(raw, &out_value->has_next);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_find_field(json, "items", &raw);
+  if (rc != GZC_OK) { return rc; }
+  rc = (out_value->items.raw = raw, GZC_OK);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_find_field(json, "next_cursor", &raw);
+  if (rc == GZC_OK) {
+    out_value->has_next_cursor = true;
+    rc = gzc_json_parse_string(raw, &out_value->next_cursor);
+    if (rc != GZC_OK) { return rc; }
+  }
+  return GZC_OK;
+}
+
+int gzc_voice_get_response_decode_json(gzc_str_t json, gzc_voice_get_response_t *out_value) {
+  if (out_value == NULL) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  memset(out_value, 0, sizeof(*out_value));
+  gzc_str_t raw;
+  int rc;
+  rc = gzc_json_find_field(json, "created_at", &raw);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_parse_string(raw, &out_value->created_at);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_find_field(json, "description", &raw);
+  if (rc == GZC_OK) {
+    out_value->has_description = true;
+    rc = gzc_json_parse_string(raw, &out_value->description);
+    if (rc != GZC_OK) { return rc; }
+  }
+  rc = gzc_json_find_field(json, "id", &raw);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_parse_string(raw, &out_value->id);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_find_field(json, "name", &raw);
+  if (rc == GZC_OK) {
+    out_value->has_name = true;
+    rc = gzc_json_parse_string(raw, &out_value->name);
+    if (rc != GZC_OK) { return rc; }
+  }
+  rc = gzc_json_find_field(json, "provider", &raw);
+  if (rc != GZC_OK) { return rc; }
+  rc = (out_value->provider.raw = raw, GZC_OK);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_find_field(json, "provider_data", &raw);
+  if (rc == GZC_OK) {
+    out_value->has_provider_data = true;
+    rc = (out_value->provider_data.raw = raw, GZC_OK);
+    if (rc != GZC_OK) { return rc; }
+  }
+  rc = gzc_json_find_field(json, "source", &raw);
+  if (rc != GZC_OK) { return rc; }
+  rc = (out_value->source.raw = raw, GZC_OK);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_find_field(json, "synced_at", &raw);
+  if (rc == GZC_OK) {
+    out_value->has_synced_at = true;
+    rc = gzc_json_parse_string(raw, &out_value->synced_at);
+    if (rc != GZC_OK) { return rc; }
+  }
+  rc = gzc_json_find_field(json, "updated_at", &raw);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_parse_string(raw, &out_value->updated_at);
+  if (rc != GZC_OK) { return rc; }
+  return GZC_OK;
+}
+
 int gzc_credential_list_response_decode_json(gzc_str_t json, gzc_credential_list_response_t *out_value) {
   if (out_value == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;

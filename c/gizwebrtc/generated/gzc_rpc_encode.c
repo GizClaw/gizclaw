@@ -5,95 +5,97 @@
 #include "gzc_rpc_methods.h"
 
 const gzc_rpc_method_info_t gzc_rpc_methods[] = {
-  {GZC_RPC_METHOD_ALL_PING, "PingRequest", "PingResponse"},
-  {GZC_RPC_METHOD_ALL_SPEED_TEST_RUN, "SpeedTestRequest", "SpeedTestResponse"},
-  {GZC_RPC_METHOD_CLIENT_INFO_GET, "ClientGetInfoRequest", "ClientGetInfoResponse"},
-  {GZC_RPC_METHOD_CLIENT_IDENTIFIERS_GET, "ClientGetIdentifiersRequest", "ClientGetIdentifiersResponse"},
-  {GZC_RPC_METHOD_SERVER_INFO_GET, "ServerGetInfoRequest", "ServerGetInfoResponse"},
-  {GZC_RPC_METHOD_SERVER_INFO_PUT, "ServerPutInfoRequest", "ServerPutInfoResponse"},
-  {GZC_RPC_METHOD_SERVER_RUNTIME_GET, "ServerGetRuntimeRequest", "ServerGetRuntimeResponse"},
-  {GZC_RPC_METHOD_SERVER_STATUS_GET, "ServerGetStatusRequest", "ServerGetStatusResponse"},
-  {GZC_RPC_METHOD_SERVER_STATUS_PUT, "ServerPutStatusRequest", "ServerPutStatusResponse"},
-  {GZC_RPC_METHOD_SERVER_RUN_AGENT_GET, "ServerGetRunAgentRequest", "ServerGetRunAgentResponse"},
-  {GZC_RPC_METHOD_SERVER_RUN_AGENT_SET, "ServerSetRunAgentRequest", "ServerSetRunAgentResponse"},
-  {GZC_RPC_METHOD_SERVER_RUN_WORKSPACE_GET, "ServerGetRunWorkspaceRequest", "ServerGetRunWorkspaceResponse"},
-  {GZC_RPC_METHOD_SERVER_RUN_WORKSPACE_SET, "ServerSetRunWorkspaceRequest", "ServerSetRunWorkspaceResponse"},
-  {GZC_RPC_METHOD_SERVER_RUN_WORKSPACE_RELOAD, "ServerReloadRunWorkspaceRequest", "ServerReloadRunWorkspaceResponse"},
-  {GZC_RPC_METHOD_SERVER_RUN_WORKSPACE_HISTORY, "ServerListRunWorkspaceHistoryRequest", "ServerListRunWorkspaceHistoryResponse"},
-  {GZC_RPC_METHOD_SERVER_RUN_WORKSPACE_HISTORY_PLAY, "ServerPlayRunWorkspaceHistoryRequest", "ServerPlayRunWorkspaceHistoryResponse"},
-  {GZC_RPC_METHOD_SERVER_RUN_WORKSPACE_MEMORY_STATS, "ServerGetRunWorkspaceMemoryStatsRequest", "ServerGetRunWorkspaceMemoryStatsResponse"},
-  {GZC_RPC_METHOD_SERVER_RUN_WORKSPACE_RECALL, "ServerRunWorkspaceRecallRequest", "ServerRunWorkspaceRecallResponse"},
-  {GZC_RPC_METHOD_SERVER_RUN_RELOAD, "ServerReloadRunRequest", "ServerReloadRunResponse"},
-  {GZC_RPC_METHOD_SERVER_RUN_STATUS, "ServerGetRunStatusRequest", "ServerGetRunStatusResponse"},
-  {GZC_RPC_METHOD_SERVER_RUN_STOP, "ServerStopRunRequest", "ServerStopRunResponse"},
-  {GZC_RPC_METHOD_SERVER_RUN_SAY, "ServerRunSayRequest", "ServerRunSayResponse"},
-  {GZC_RPC_METHOD_SERVER_FIRMWARE_LIST, "FirmwareListRequest", "FirmwareListResponse"},
-  {GZC_RPC_METHOD_SERVER_FIRMWARE_GET, "FirmwareGetRequest", "FirmwareGetResponse"},
-  {GZC_RPC_METHOD_SERVER_FIRMWARE_FILES_DOWNLOAD, "FirmwareFilesDownloadRequest", "FirmwareFilesDownloadResponse"},
-  {GZC_RPC_METHOD_SERVER_WORKSPACE_LIST, "WorkspaceListRequest", "WorkspaceListResponse"},
-  {GZC_RPC_METHOD_SERVER_WORKSPACE_GET, "WorkspaceGetRequest", "WorkspaceGetResponse"},
-  {GZC_RPC_METHOD_SERVER_WORKSPACE_CREATE, "WorkspaceCreateRequest", "WorkspaceCreateResponse"},
-  {GZC_RPC_METHOD_SERVER_WORKSPACE_PUT, "WorkspacePutRequest", "WorkspacePutResponse"},
-  {GZC_RPC_METHOD_SERVER_WORKSPACE_DELETE, "WorkspaceDeleteRequest", "WorkspaceDeleteResponse"},
-  {GZC_RPC_METHOD_SERVER_WORKSPACE_HISTORY_LIST, "WorkspaceHistoryListRequest", "WorkspaceHistoryListResponse"},
-  {GZC_RPC_METHOD_SERVER_WORKSPACE_HISTORY_GET, "WorkspaceHistoryGetRequest", "WorkspaceHistoryGetResponse"},
-  {GZC_RPC_METHOD_SERVER_WORKSPACE_HISTORY_AUDIO_GET, "WorkspaceHistoryAudioGetRequest", "WorkspaceHistoryAudioGetResponse"},
-  {GZC_RPC_METHOD_SERVER_WORKFLOW_LIST, "WorkflowListRequest", "WorkflowListResponse"},
-  {GZC_RPC_METHOD_SERVER_WORKFLOW_GET, "WorkflowGetRequest", "WorkflowGetResponse"},
-  {GZC_RPC_METHOD_SERVER_WORKFLOW_CREATE, "WorkflowCreateRequest", "WorkflowCreateResponse"},
-  {GZC_RPC_METHOD_SERVER_WORKFLOW_PUT, "WorkflowPutRequest", "WorkflowPutResponse"},
-  {GZC_RPC_METHOD_SERVER_WORKFLOW_DELETE, "WorkflowDeleteRequest", "WorkflowDeleteResponse"},
-  {GZC_RPC_METHOD_SERVER_MODEL_LIST, "ModelListRequest", "ModelListResponse"},
-  {GZC_RPC_METHOD_SERVER_MODEL_GET, "ModelGetRequest", "ModelGetResponse"},
-  {GZC_RPC_METHOD_SERVER_MODEL_CREATE, "ModelCreateRequest", "ModelCreateResponse"},
-  {GZC_RPC_METHOD_SERVER_MODEL_PUT, "ModelPutRequest", "ModelPutResponse"},
-  {GZC_RPC_METHOD_SERVER_MODEL_DELETE, "ModelDeleteRequest", "ModelDeleteResponse"},
-  {GZC_RPC_METHOD_SERVER_CREDENTIAL_LIST, "CredentialListRequest", "CredentialListResponse"},
-  {GZC_RPC_METHOD_SERVER_CREDENTIAL_GET, "CredentialGetRequest", "CredentialGetResponse"},
-  {GZC_RPC_METHOD_SERVER_CREDENTIAL_CREATE, "CredentialCreateRequest", "CredentialCreateResponse"},
-  {GZC_RPC_METHOD_SERVER_CREDENTIAL_PUT, "CredentialPutRequest", "CredentialPutResponse"},
-  {GZC_RPC_METHOD_SERVER_CREDENTIAL_DELETE, "CredentialDeleteRequest", "CredentialDeleteResponse"},
-  {GZC_RPC_METHOD_SERVER_PET_LIST, "PetListRequest", "PetListResponse"},
-  {GZC_RPC_METHOD_SERVER_PET_GET, "PetGetRequest", "PetGetResponse"},
-  {GZC_RPC_METHOD_SERVER_PET_ADOPT, "PetAdoptRequest", "PetAdoptResponse"},
-  {GZC_RPC_METHOD_SERVER_PET_PUT, "PetPutRequest", "PetPutResponse"},
-  {GZC_RPC_METHOD_SERVER_PET_DELETE, "PetDeleteRequest", "PetDeleteResponse"},
-  {GZC_RPC_METHOD_SERVER_PET_FEED, "PetFeedRequest", "PetFeedResponse"},
-  {GZC_RPC_METHOD_SERVER_PET_WASH, "PetWashRequest", "PetWashResponse"},
-  {GZC_RPC_METHOD_SERVER_PET_PLAY, "PetPlayRequest", "PetPlayResponse"},
-  {GZC_RPC_METHOD_SERVER_WALLET_GET, "WalletGetRequest", "WalletGetResponse"},
-  {GZC_RPC_METHOD_SERVER_WALLET_TRANSACTIONS_LIST, "WalletTransactionsListRequest", "WalletTransactionsListResponse"},
-  {GZC_RPC_METHOD_SERVER_WALLET_TRANSACTIONS_GET, "WalletTransactionsGetRequest", "WalletTransactionsGetResponse"},
-  {GZC_RPC_METHOD_SERVER_CONTACT_LIST, "ContactListRequest", "ContactListResponse"},
-  {GZC_RPC_METHOD_SERVER_CONTACT_GET, "ContactGetRequest", "ContactGetResponse"},
-  {GZC_RPC_METHOD_SERVER_CONTACT_CREATE, "ContactCreateRequest", "ContactCreateResponse"},
-  {GZC_RPC_METHOD_SERVER_CONTACT_PUT, "ContactPutRequest", "ContactPutResponse"},
-  {GZC_RPC_METHOD_SERVER_CONTACT_DELETE, "ContactDeleteRequest", "ContactDeleteResponse"},
-  {GZC_RPC_METHOD_SERVER_FRIEND_INVITE_TOKEN_GET, "FriendInviteTokenGetRequest", "FriendInviteTokenGetResponse"},
-  {GZC_RPC_METHOD_SERVER_FRIEND_INVITE_TOKEN_CREATE, "FriendInviteTokenCreateRequest", "FriendInviteTokenCreateResponse"},
-  {GZC_RPC_METHOD_SERVER_FRIEND_INVITE_TOKEN_CLEAR, "FriendInviteTokenClearRequest", "FriendInviteTokenClearResponse"},
-  {GZC_RPC_METHOD_SERVER_FRIEND_ADD, "FriendAddRequest", "FriendAddResponse"},
-  {GZC_RPC_METHOD_SERVER_FRIEND_LIST, "FriendListRequest", "FriendListResponse"},
-  {GZC_RPC_METHOD_SERVER_FRIEND_DELETE, "FriendDeleteRequest", "FriendDeleteResponse"},
-  {GZC_RPC_METHOD_SERVER_FRIEND_GROUP_LIST, "FriendGroupListRequest", "FriendGroupListResponse"},
-  {GZC_RPC_METHOD_SERVER_FRIEND_GROUP_GET, "FriendGroupGetRequest", "FriendGroupGetResponse"},
-  {GZC_RPC_METHOD_SERVER_FRIEND_GROUP_CREATE, "FriendGroupCreateRequest", "FriendGroupCreateResponse"},
-  {GZC_RPC_METHOD_SERVER_FRIEND_GROUP_PUT, "FriendGroupPutRequest", "FriendGroupPutResponse"},
-  {GZC_RPC_METHOD_SERVER_FRIEND_GROUP_DELETE, "FriendGroupDeleteRequest", "FriendGroupDeleteResponse"},
-  {GZC_RPC_METHOD_SERVER_FRIEND_GROUP_INVITE_TOKEN_GET, "FriendGroupInviteTokenGetRequest", "FriendGroupInviteTokenGetResponse"},
-  {GZC_RPC_METHOD_SERVER_FRIEND_GROUP_INVITE_TOKEN_CREATE, "FriendGroupInviteTokenCreateRequest", "FriendGroupInviteTokenCreateResponse"},
-  {GZC_RPC_METHOD_SERVER_FRIEND_GROUP_INVITE_TOKEN_CLEAR, "FriendGroupInviteTokenClearRequest", "FriendGroupInviteTokenClearResponse"},
-  {GZC_RPC_METHOD_SERVER_FRIEND_GROUP_JOIN, "FriendGroupJoinRequest", "FriendGroupJoinResponse"},
-  {GZC_RPC_METHOD_SERVER_FRIEND_GROUP_MEMBERS_LIST, "FriendGroupMemberListRequest", "FriendGroupMemberListResponse"},
-  {GZC_RPC_METHOD_SERVER_FRIEND_GROUP_MEMBERS_ADD, "FriendGroupMemberAddRequest", "FriendGroupMemberAddResponse"},
-  {GZC_RPC_METHOD_SERVER_FRIEND_GROUP_MEMBERS_PUT, "FriendGroupMemberPutRequest", "FriendGroupMemberPutResponse"},
-  {GZC_RPC_METHOD_SERVER_FRIEND_GROUP_MEMBERS_DELETE, "FriendGroupMemberDeleteRequest", "FriendGroupMemberDeleteResponse"},
-  {GZC_RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_LIST, "FriendGroupMessageListRequest", "FriendGroupMessageListResponse"},
-  {GZC_RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_GET, "FriendGroupMessageGetRequest", "FriendGroupMessageGetResponse"},
-  {GZC_RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_SEND, "FriendGroupMessageSendRequest", "FriendGroupMessageSendResponse"},
-  {GZC_RPC_METHOD_SERVER_REWARD_LIST, "RewardListRequest", "RewardListResponse"},
-  {GZC_RPC_METHOD_SERVER_REWARD_GET, "RewardGetRequest", "RewardGetResponse"},
-  {GZC_RPC_METHOD_SERVER_REWARD_CLAIM, "RewardClaimRequest", "RewardClaimResponse"},
+  {GZC_RPC_METHOD_ALL_PING, "PingRequest", "PingResponse", GZC_RPC_METHOD_KIND_JSON},
+  {GZC_RPC_METHOD_ALL_SPEED_TEST_RUN, "SpeedTestRequest", "SpeedTestResponse", GZC_RPC_METHOD_KIND_BINARY_STREAM},
+  {GZC_RPC_METHOD_CLIENT_INFO_GET, "ClientGetInfoRequest", "ClientGetInfoResponse", GZC_RPC_METHOD_KIND_JSON},
+  {GZC_RPC_METHOD_CLIENT_IDENTIFIERS_GET, "ClientGetIdentifiersRequest", "ClientGetIdentifiersResponse", GZC_RPC_METHOD_KIND_JSON},
+  {GZC_RPC_METHOD_SERVER_INFO_GET, "ServerGetInfoRequest", "ServerGetInfoResponse", GZC_RPC_METHOD_KIND_JSON},
+  {GZC_RPC_METHOD_SERVER_INFO_PUT, "ServerPutInfoRequest", "ServerPutInfoResponse", GZC_RPC_METHOD_KIND_JSON},
+  {GZC_RPC_METHOD_SERVER_RUNTIME_GET, "ServerGetRuntimeRequest", "ServerGetRuntimeResponse", GZC_RPC_METHOD_KIND_JSON},
+  {GZC_RPC_METHOD_SERVER_STATUS_GET, "ServerGetStatusRequest", "ServerGetStatusResponse", GZC_RPC_METHOD_KIND_JSON},
+  {GZC_RPC_METHOD_SERVER_STATUS_PUT, "ServerPutStatusRequest", "ServerPutStatusResponse", GZC_RPC_METHOD_KIND_JSON},
+  {GZC_RPC_METHOD_SERVER_RUN_AGENT_GET, "ServerGetRunAgentRequest", "ServerGetRunAgentResponse", GZC_RPC_METHOD_KIND_JSON},
+  {GZC_RPC_METHOD_SERVER_RUN_AGENT_SET, "ServerSetRunAgentRequest", "ServerSetRunAgentResponse", GZC_RPC_METHOD_KIND_JSON},
+  {GZC_RPC_METHOD_SERVER_RUN_WORKSPACE_GET, "ServerGetRunWorkspaceRequest", "ServerGetRunWorkspaceResponse", GZC_RPC_METHOD_KIND_JSON},
+  {GZC_RPC_METHOD_SERVER_RUN_WORKSPACE_SET, "ServerSetRunWorkspaceRequest", "ServerSetRunWorkspaceResponse", GZC_RPC_METHOD_KIND_JSON},
+  {GZC_RPC_METHOD_SERVER_RUN_WORKSPACE_RELOAD, "ServerReloadRunWorkspaceRequest", "ServerReloadRunWorkspaceResponse", GZC_RPC_METHOD_KIND_JSON},
+  {GZC_RPC_METHOD_SERVER_RUN_WORKSPACE_HISTORY, "ServerListRunWorkspaceHistoryRequest", "ServerListRunWorkspaceHistoryResponse", GZC_RPC_METHOD_KIND_JSON},
+  {GZC_RPC_METHOD_SERVER_RUN_WORKSPACE_HISTORY_PLAY, "ServerPlayRunWorkspaceHistoryRequest", "ServerPlayRunWorkspaceHistoryResponse", GZC_RPC_METHOD_KIND_JSON},
+  {GZC_RPC_METHOD_SERVER_RUN_WORKSPACE_MEMORY_STATS, "ServerGetRunWorkspaceMemoryStatsRequest", "ServerGetRunWorkspaceMemoryStatsResponse", GZC_RPC_METHOD_KIND_JSON},
+  {GZC_RPC_METHOD_SERVER_RUN_WORKSPACE_RECALL, "ServerRunWorkspaceRecallRequest", "ServerRunWorkspaceRecallResponse", GZC_RPC_METHOD_KIND_JSON},
+  {GZC_RPC_METHOD_SERVER_RUN_RELOAD, "ServerReloadRunRequest", "ServerReloadRunResponse", GZC_RPC_METHOD_KIND_JSON},
+  {GZC_RPC_METHOD_SERVER_RUN_STATUS, "ServerGetRunStatusRequest", "ServerGetRunStatusResponse", GZC_RPC_METHOD_KIND_JSON},
+  {GZC_RPC_METHOD_SERVER_RUN_STOP, "ServerStopRunRequest", "ServerStopRunResponse", GZC_RPC_METHOD_KIND_JSON},
+  {GZC_RPC_METHOD_SERVER_RUN_SAY, "ServerRunSayRequest", "ServerRunSayResponse", GZC_RPC_METHOD_KIND_JSON},
+  {GZC_RPC_METHOD_SERVER_FIRMWARE_LIST, "FirmwareListRequest", "FirmwareListResponse", GZC_RPC_METHOD_KIND_JSON},
+  {GZC_RPC_METHOD_SERVER_FIRMWARE_GET, "FirmwareGetRequest", "FirmwareGetResponse", GZC_RPC_METHOD_KIND_JSON},
+  {GZC_RPC_METHOD_SERVER_FIRMWARE_FILES_DOWNLOAD, "FirmwareFilesDownloadRequest", "FirmwareFilesDownloadResponse", GZC_RPC_METHOD_KIND_BINARY_DOWNLOAD},
+  {GZC_RPC_METHOD_SERVER_WORKSPACE_LIST, "WorkspaceListRequest", "WorkspaceListResponse", GZC_RPC_METHOD_KIND_JSON},
+  {GZC_RPC_METHOD_SERVER_WORKSPACE_GET, "WorkspaceGetRequest", "WorkspaceGetResponse", GZC_RPC_METHOD_KIND_JSON},
+  {GZC_RPC_METHOD_SERVER_WORKSPACE_CREATE, "WorkspaceCreateRequest", "WorkspaceCreateResponse", GZC_RPC_METHOD_KIND_JSON},
+  {GZC_RPC_METHOD_SERVER_WORKSPACE_PUT, "WorkspacePutRequest", "WorkspacePutResponse", GZC_RPC_METHOD_KIND_JSON},
+  {GZC_RPC_METHOD_SERVER_WORKSPACE_DELETE, "WorkspaceDeleteRequest", "WorkspaceDeleteResponse", GZC_RPC_METHOD_KIND_JSON},
+  {GZC_RPC_METHOD_SERVER_WORKSPACE_HISTORY_LIST, "WorkspaceHistoryListRequest", "WorkspaceHistoryListResponse", GZC_RPC_METHOD_KIND_JSON},
+  {GZC_RPC_METHOD_SERVER_WORKSPACE_HISTORY_GET, "WorkspaceHistoryGetRequest", "WorkspaceHistoryGetResponse", GZC_RPC_METHOD_KIND_JSON},
+  {GZC_RPC_METHOD_SERVER_WORKSPACE_HISTORY_AUDIO_GET, "WorkspaceHistoryAudioGetRequest", "WorkspaceHistoryAudioGetResponse", GZC_RPC_METHOD_KIND_BINARY_DOWNLOAD},
+  {GZC_RPC_METHOD_SERVER_WORKFLOW_LIST, "WorkflowListRequest", "WorkflowListResponse", GZC_RPC_METHOD_KIND_JSON},
+  {GZC_RPC_METHOD_SERVER_WORKFLOW_GET, "WorkflowGetRequest", "WorkflowGetResponse", GZC_RPC_METHOD_KIND_JSON},
+  {GZC_RPC_METHOD_SERVER_WORKFLOW_CREATE, "WorkflowCreateRequest", "WorkflowCreateResponse", GZC_RPC_METHOD_KIND_JSON},
+  {GZC_RPC_METHOD_SERVER_WORKFLOW_PUT, "WorkflowPutRequest", "WorkflowPutResponse", GZC_RPC_METHOD_KIND_JSON},
+  {GZC_RPC_METHOD_SERVER_WORKFLOW_DELETE, "WorkflowDeleteRequest", "WorkflowDeleteResponse", GZC_RPC_METHOD_KIND_JSON},
+  {GZC_RPC_METHOD_SERVER_MODEL_LIST, "ModelListRequest", "ModelListResponse", GZC_RPC_METHOD_KIND_JSON},
+  {GZC_RPC_METHOD_SERVER_MODEL_GET, "ModelGetRequest", "ModelGetResponse", GZC_RPC_METHOD_KIND_JSON},
+  {GZC_RPC_METHOD_SERVER_MODEL_CREATE, "ModelCreateRequest", "ModelCreateResponse", GZC_RPC_METHOD_KIND_JSON},
+  {GZC_RPC_METHOD_SERVER_MODEL_PUT, "ModelPutRequest", "ModelPutResponse", GZC_RPC_METHOD_KIND_JSON},
+  {GZC_RPC_METHOD_SERVER_MODEL_DELETE, "ModelDeleteRequest", "ModelDeleteResponse", GZC_RPC_METHOD_KIND_JSON},
+  {GZC_RPC_METHOD_SERVER_VOICE_LIST, "VoiceListRequest", "VoiceListResponse", GZC_RPC_METHOD_KIND_JSON},
+  {GZC_RPC_METHOD_SERVER_VOICE_GET, "VoiceGetRequest", "VoiceGetResponse", GZC_RPC_METHOD_KIND_JSON},
+  {GZC_RPC_METHOD_SERVER_CREDENTIAL_LIST, "CredentialListRequest", "CredentialListResponse", GZC_RPC_METHOD_KIND_JSON},
+  {GZC_RPC_METHOD_SERVER_CREDENTIAL_GET, "CredentialGetRequest", "CredentialGetResponse", GZC_RPC_METHOD_KIND_JSON},
+  {GZC_RPC_METHOD_SERVER_CREDENTIAL_CREATE, "CredentialCreateRequest", "CredentialCreateResponse", GZC_RPC_METHOD_KIND_JSON},
+  {GZC_RPC_METHOD_SERVER_CREDENTIAL_PUT, "CredentialPutRequest", "CredentialPutResponse", GZC_RPC_METHOD_KIND_JSON},
+  {GZC_RPC_METHOD_SERVER_CREDENTIAL_DELETE, "CredentialDeleteRequest", "CredentialDeleteResponse", GZC_RPC_METHOD_KIND_JSON},
+  {GZC_RPC_METHOD_SERVER_PET_LIST, "PetListRequest", "PetListResponse", GZC_RPC_METHOD_KIND_JSON},
+  {GZC_RPC_METHOD_SERVER_PET_GET, "PetGetRequest", "PetGetResponse", GZC_RPC_METHOD_KIND_JSON},
+  {GZC_RPC_METHOD_SERVER_PET_ADOPT, "PetAdoptRequest", "PetAdoptResponse", GZC_RPC_METHOD_KIND_JSON},
+  {GZC_RPC_METHOD_SERVER_PET_PUT, "PetPutRequest", "PetPutResponse", GZC_RPC_METHOD_KIND_JSON},
+  {GZC_RPC_METHOD_SERVER_PET_DELETE, "PetDeleteRequest", "PetDeleteResponse", GZC_RPC_METHOD_KIND_JSON},
+  {GZC_RPC_METHOD_SERVER_PET_FEED, "PetFeedRequest", "PetFeedResponse", GZC_RPC_METHOD_KIND_JSON},
+  {GZC_RPC_METHOD_SERVER_PET_WASH, "PetWashRequest", "PetWashResponse", GZC_RPC_METHOD_KIND_JSON},
+  {GZC_RPC_METHOD_SERVER_PET_PLAY, "PetPlayRequest", "PetPlayResponse", GZC_RPC_METHOD_KIND_JSON},
+  {GZC_RPC_METHOD_SERVER_WALLET_GET, "WalletGetRequest", "WalletGetResponse", GZC_RPC_METHOD_KIND_JSON},
+  {GZC_RPC_METHOD_SERVER_WALLET_TRANSACTIONS_LIST, "WalletTransactionsListRequest", "WalletTransactionsListResponse", GZC_RPC_METHOD_KIND_JSON},
+  {GZC_RPC_METHOD_SERVER_WALLET_TRANSACTIONS_GET, "WalletTransactionsGetRequest", "WalletTransactionsGetResponse", GZC_RPC_METHOD_KIND_JSON},
+  {GZC_RPC_METHOD_SERVER_CONTACT_LIST, "ContactListRequest", "ContactListResponse", GZC_RPC_METHOD_KIND_JSON},
+  {GZC_RPC_METHOD_SERVER_CONTACT_GET, "ContactGetRequest", "ContactGetResponse", GZC_RPC_METHOD_KIND_JSON},
+  {GZC_RPC_METHOD_SERVER_CONTACT_CREATE, "ContactCreateRequest", "ContactCreateResponse", GZC_RPC_METHOD_KIND_JSON},
+  {GZC_RPC_METHOD_SERVER_CONTACT_PUT, "ContactPutRequest", "ContactPutResponse", GZC_RPC_METHOD_KIND_JSON},
+  {GZC_RPC_METHOD_SERVER_CONTACT_DELETE, "ContactDeleteRequest", "ContactDeleteResponse", GZC_RPC_METHOD_KIND_JSON},
+  {GZC_RPC_METHOD_SERVER_FRIEND_INVITE_TOKEN_GET, "FriendInviteTokenGetRequest", "FriendInviteTokenGetResponse", GZC_RPC_METHOD_KIND_JSON},
+  {GZC_RPC_METHOD_SERVER_FRIEND_INVITE_TOKEN_CREATE, "FriendInviteTokenCreateRequest", "FriendInviteTokenCreateResponse", GZC_RPC_METHOD_KIND_JSON},
+  {GZC_RPC_METHOD_SERVER_FRIEND_INVITE_TOKEN_CLEAR, "FriendInviteTokenClearRequest", "FriendInviteTokenClearResponse", GZC_RPC_METHOD_KIND_JSON},
+  {GZC_RPC_METHOD_SERVER_FRIEND_ADD, "FriendAddRequest", "FriendAddResponse", GZC_RPC_METHOD_KIND_JSON},
+  {GZC_RPC_METHOD_SERVER_FRIEND_LIST, "FriendListRequest", "FriendListResponse", GZC_RPC_METHOD_KIND_JSON},
+  {GZC_RPC_METHOD_SERVER_FRIEND_DELETE, "FriendDeleteRequest", "FriendDeleteResponse", GZC_RPC_METHOD_KIND_JSON},
+  {GZC_RPC_METHOD_SERVER_FRIEND_GROUP_LIST, "FriendGroupListRequest", "FriendGroupListResponse", GZC_RPC_METHOD_KIND_JSON},
+  {GZC_RPC_METHOD_SERVER_FRIEND_GROUP_GET, "FriendGroupGetRequest", "FriendGroupGetResponse", GZC_RPC_METHOD_KIND_JSON},
+  {GZC_RPC_METHOD_SERVER_FRIEND_GROUP_CREATE, "FriendGroupCreateRequest", "FriendGroupCreateResponse", GZC_RPC_METHOD_KIND_JSON},
+  {GZC_RPC_METHOD_SERVER_FRIEND_GROUP_PUT, "FriendGroupPutRequest", "FriendGroupPutResponse", GZC_RPC_METHOD_KIND_JSON},
+  {GZC_RPC_METHOD_SERVER_FRIEND_GROUP_DELETE, "FriendGroupDeleteRequest", "FriendGroupDeleteResponse", GZC_RPC_METHOD_KIND_JSON},
+  {GZC_RPC_METHOD_SERVER_FRIEND_GROUP_INVITE_TOKEN_GET, "FriendGroupInviteTokenGetRequest", "FriendGroupInviteTokenGetResponse", GZC_RPC_METHOD_KIND_JSON},
+  {GZC_RPC_METHOD_SERVER_FRIEND_GROUP_INVITE_TOKEN_CREATE, "FriendGroupInviteTokenCreateRequest", "FriendGroupInviteTokenCreateResponse", GZC_RPC_METHOD_KIND_JSON},
+  {GZC_RPC_METHOD_SERVER_FRIEND_GROUP_INVITE_TOKEN_CLEAR, "FriendGroupInviteTokenClearRequest", "FriendGroupInviteTokenClearResponse", GZC_RPC_METHOD_KIND_JSON},
+  {GZC_RPC_METHOD_SERVER_FRIEND_GROUP_JOIN, "FriendGroupJoinRequest", "FriendGroupJoinResponse", GZC_RPC_METHOD_KIND_JSON},
+  {GZC_RPC_METHOD_SERVER_FRIEND_GROUP_MEMBERS_LIST, "FriendGroupMemberListRequest", "FriendGroupMemberListResponse", GZC_RPC_METHOD_KIND_JSON},
+  {GZC_RPC_METHOD_SERVER_FRIEND_GROUP_MEMBERS_ADD, "FriendGroupMemberAddRequest", "FriendGroupMemberAddResponse", GZC_RPC_METHOD_KIND_JSON},
+  {GZC_RPC_METHOD_SERVER_FRIEND_GROUP_MEMBERS_PUT, "FriendGroupMemberPutRequest", "FriendGroupMemberPutResponse", GZC_RPC_METHOD_KIND_JSON},
+  {GZC_RPC_METHOD_SERVER_FRIEND_GROUP_MEMBERS_DELETE, "FriendGroupMemberDeleteRequest", "FriendGroupMemberDeleteResponse", GZC_RPC_METHOD_KIND_JSON},
+  {GZC_RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_LIST, "FriendGroupMessageListRequest", "FriendGroupMessageListResponse", GZC_RPC_METHOD_KIND_JSON},
+  {GZC_RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_GET, "FriendGroupMessageGetRequest", "FriendGroupMessageGetResponse", GZC_RPC_METHOD_KIND_JSON},
+  {GZC_RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_SEND, "FriendGroupMessageSendRequest", "FriendGroupMessageSendResponse", GZC_RPC_METHOD_KIND_JSON},
+  {GZC_RPC_METHOD_SERVER_REWARD_LIST, "RewardListRequest", "RewardListResponse", GZC_RPC_METHOD_KIND_JSON},
+  {GZC_RPC_METHOD_SERVER_REWARD_GET, "RewardGetRequest", "RewardGetResponse", GZC_RPC_METHOD_KIND_JSON},
+  {GZC_RPC_METHOD_SERVER_REWARD_CLAIM, "RewardClaimRequest", "RewardClaimResponse", GZC_RPC_METHOD_KIND_JSON},
 };
 
 int gzc_ping_request_encode_json(const gzc_platform_t *platform, const gzc_ping_request_t *value, gzc_buf_t *out_json) {
@@ -867,6 +869,40 @@ int gzc_model_put_request_encode_json(const gzc_platform_t *platform, const gzc_
 }
 
 int gzc_model_delete_request_encode_json(const gzc_platform_t *platform, const gzc_model_delete_request_t *value, gzc_buf_t *out_json) {
+  if (value == NULL || out_json == NULL) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  gzc_json_writer_t writer;
+  gzc_json_writer_init(&writer, platform, out_json);
+  int rc = gzc_json_object_begin(&writer);
+  if (rc != GZC_OK) { return rc; }
+  if (true) {
+    rc = gzc_json_field_str(&writer, "id", value->id);
+    if (rc != GZC_OK) { return rc; }
+  }
+  return gzc_json_object_end(&writer);
+}
+
+int gzc_voice_list_request_encode_json(const gzc_platform_t *platform, const gzc_voice_list_request_t *value, gzc_buf_t *out_json) {
+  if (value == NULL || out_json == NULL) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  gzc_json_writer_t writer;
+  gzc_json_writer_init(&writer, platform, out_json);
+  int rc = gzc_json_object_begin(&writer);
+  if (rc != GZC_OK) { return rc; }
+  if (value->has_cursor) {
+    rc = gzc_json_field_str(&writer, "cursor", value->cursor);
+    if (rc != GZC_OK) { return rc; }
+  }
+  if (value->has_limit) {
+    rc = gzc_json_field_i32(&writer, "limit", value->limit);
+    if (rc != GZC_OK) { return rc; }
+  }
+  return gzc_json_object_end(&writer);
+}
+
+int gzc_voice_get_request_encode_json(const gzc_platform_t *platform, const gzc_voice_get_request_t *value, gzc_buf_t *out_json) {
   if (value == NULL || out_json == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
   }

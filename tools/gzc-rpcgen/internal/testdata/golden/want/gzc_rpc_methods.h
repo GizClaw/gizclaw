@@ -13,10 +13,17 @@ extern "C" {
 #define GZC_RPC_METHOD_ALL_SPEED_TEST_RUN "all.speed_test.run"
 #define GZC_RPC_METHOD_SERVER_RUN_SAY "server.run.say"
 
+typedef enum {
+  GZC_RPC_METHOD_KIND_JSON = 0,
+  GZC_RPC_METHOD_KIND_BINARY_STREAM = 1,
+  GZC_RPC_METHOD_KIND_BINARY_DOWNLOAD = 2
+} gzc_rpc_method_kind_t;
+
 typedef struct {
   const char *method;
   const char *request_type;
   const char *response_type;
+  gzc_rpc_method_kind_t kind;
 } gzc_rpc_method_info_t;
 
 extern const gzc_rpc_method_info_t gzc_rpc_methods[];

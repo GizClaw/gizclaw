@@ -5,9 +5,9 @@
 #include "gzc_rpc_methods.h"
 
 const gzc_rpc_method_info_t gzc_rpc_methods[] = {
-  {GZC_RPC_METHOD_ALL_PING, "PingRequest", "PingResponse"},
-  {GZC_RPC_METHOD_ALL_SPEED_TEST_RUN, "SpeedTestRequest", "SpeedTestResponse"},
-  {GZC_RPC_METHOD_SERVER_RUN_SAY, "ServerRunSayRequest", "ServerRunSayResponse"},
+  {GZC_RPC_METHOD_ALL_PING, "PingRequest", "PingResponse", GZC_RPC_METHOD_KIND_JSON},
+  {GZC_RPC_METHOD_ALL_SPEED_TEST_RUN, "SpeedTestRequest", "SpeedTestResponse", GZC_RPC_METHOD_KIND_BINARY_STREAM},
+  {GZC_RPC_METHOD_SERVER_RUN_SAY, "ServerRunSayRequest", "ServerRunSayResponse", GZC_RPC_METHOD_KIND_JSON},
 };
 
 int gzc_ping_request_encode_json(const gzc_platform_t *platform, const gzc_ping_request_t *value, gzc_buf_t *out_json) {

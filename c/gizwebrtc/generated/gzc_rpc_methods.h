@@ -52,6 +52,8 @@ extern "C" {
 #define GZC_RPC_METHOD_SERVER_MODEL_CREATE "server.model.create"
 #define GZC_RPC_METHOD_SERVER_MODEL_PUT "server.model.put"
 #define GZC_RPC_METHOD_SERVER_MODEL_DELETE "server.model.delete"
+#define GZC_RPC_METHOD_SERVER_VOICE_LIST "server.voice.list"
+#define GZC_RPC_METHOD_SERVER_VOICE_GET "server.voice.get"
 #define GZC_RPC_METHOD_SERVER_CREDENTIAL_LIST "server.credential.list"
 #define GZC_RPC_METHOD_SERVER_CREDENTIAL_GET "server.credential.get"
 #define GZC_RPC_METHOD_SERVER_CREDENTIAL_CREATE "server.credential.create"
@@ -99,14 +101,21 @@ extern "C" {
 #define GZC_RPC_METHOD_SERVER_REWARD_GET "server.reward.get"
 #define GZC_RPC_METHOD_SERVER_REWARD_CLAIM "server.reward.claim"
 
+typedef enum {
+  GZC_RPC_METHOD_KIND_JSON = 0,
+  GZC_RPC_METHOD_KIND_BINARY_STREAM = 1,
+  GZC_RPC_METHOD_KIND_BINARY_DOWNLOAD = 2
+} gzc_rpc_method_kind_t;
+
 typedef struct {
   const char *method;
   const char *request_type;
   const char *response_type;
+  gzc_rpc_method_kind_t kind;
 } gzc_rpc_method_info_t;
 
 extern const gzc_rpc_method_info_t gzc_rpc_methods[];
-#define GZC_RPC_METHOD_COUNT 89
+#define GZC_RPC_METHOD_COUNT 91
 
 #ifdef __cplusplus
 }

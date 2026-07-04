@@ -80,11 +80,23 @@ func (l *loader) loadModel(cfg Config) (Model, error) {
 			ConstName:    methodConstName(cfg.Package, method),
 			RequestName:  reqName,
 			ResponseName: respName,
+			Kind:         methodKind(method),
 			Request:      schemaFromMap(reqName, reqSchema),
 			Response:     schemaFromMap(respName, respSchema),
 		})
 	}
 	return model, nil
+}
+
+func methodKind(method string) string {
+	switch method {
+	case "all.speed_test.run":
+		return "GZC_RPC_METHOD_KIND_BINARY_STREAM"
+	case "server.firmware.files.download", "server.workspace.history.audio.get":
+		return "GZC_RPC_METHOD_KIND_BINARY_DOWNLOAD"
+	default:
+		return "GZC_RPC_METHOD_KIND_JSON"
+	}
 }
 
 func componentSchemas(doc map[string]any) map[string]any {

@@ -15,10 +15,16 @@ func emitMethodsH(model Model) ([]byte, error) {
 		fmt.Fprintf(&b, "#define %s \"%s\"\n", method.ConstName, method.Value)
 	}
 	b.WriteString("\n")
+	b.WriteString("typedef enum {\n")
+	b.WriteString("  GZC_RPC_METHOD_KIND_JSON = 0,\n")
+	b.WriteString("  GZC_RPC_METHOD_KIND_BINARY_STREAM = 1,\n")
+	b.WriteString("  GZC_RPC_METHOD_KIND_BINARY_DOWNLOAD = 2\n")
+	b.WriteString("} gzc_rpc_method_kind_t;\n\n")
 	b.WriteString("typedef struct {\n")
 	b.WriteString("  const char *method;\n")
 	b.WriteString("  const char *request_type;\n")
 	b.WriteString("  const char *response_type;\n")
+	b.WriteString("  gzc_rpc_method_kind_t kind;\n")
 	b.WriteString("} gzc_rpc_method_info_t;\n\n")
 	b.WriteString("extern const gzc_rpc_method_info_t gzc_rpc_methods[];\n")
 	fmt.Fprintf(&b, "#define GZC_RPC_METHOD_COUNT %d\n\n", len(model.Methods))
@@ -31,7 +37,7 @@ func emitMethodsTable(model Model) string {
 	var b bytes.Buffer
 	b.WriteString("const gzc_rpc_method_info_t gzc_rpc_methods[] = {\n")
 	for _, method := range model.Methods {
-		fmt.Fprintf(&b, "  {%s, \"%s\", \"%s\"},\n", method.ConstName, method.RequestName, method.ResponseName)
+		fmt.Fprintf(&b, "  {%s, \"%s\", \"%s\", %s},\n", method.ConstName, method.RequestName, method.ResponseName, method.Kind)
 	}
 	b.WriteString("};\n")
 	return b.String()

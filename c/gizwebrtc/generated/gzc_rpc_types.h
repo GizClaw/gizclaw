@@ -269,6 +269,17 @@ typedef struct {
   gzc_str_t cursor;
   bool has_limit;
   int32_t limit;
+} gzc_voice_list_request_t;
+
+typedef struct {
+  gzc_str_t id;
+} gzc_voice_get_request_t;
+
+typedef struct {
+  bool has_cursor;
+  gzc_str_t cursor;
+  bool has_limit;
+  int32_t limit;
 } gzc_credential_list_request_t;
 
 typedef struct {
@@ -996,6 +1007,29 @@ typedef struct {
   gzc_str_t synced_at;
   gzc_str_t updated_at;
 } gzc_model_delete_response_t;
+
+typedef struct {
+  bool has_next;
+  gzc_json_t items;
+  bool has_next_cursor;
+  gzc_str_t next_cursor;
+} gzc_voice_list_response_t;
+
+typedef struct {
+  gzc_str_t created_at;
+  bool has_description;
+  gzc_str_t description;
+  gzc_str_t id;
+  bool has_name;
+  gzc_str_t name;
+  gzc_json_t provider;
+  bool has_provider_data;
+  gzc_json_t provider_data;
+  gzc_json_t source;
+  bool has_synced_at;
+  gzc_str_t synced_at;
+  gzc_str_t updated_at;
+} gzc_voice_get_response_t;
 
 typedef struct {
   bool has_next;

@@ -10,6 +10,7 @@ resource_dir="$testdata_dir/resources"
 bin_path="$testdata_dir/bin/gizclaw"
 env_file="$e2e_dir/.env"
 mode="${1:-reset}"
+selected_config_home="${GIZCLAW_E2E_CONFIG_HOME:-}"
 
 case "$mode" in
   clear|init|reset) ;;
@@ -24,6 +25,9 @@ if [[ -f "$env_file" ]]; then
   # shellcheck disable=SC1090
   source "$env_file"
   set +a
+fi
+if [[ -n "$selected_config_home" ]]; then
+  export GIZCLAW_E2E_CONFIG_HOME="$selected_config_home"
 fi
 
 config_home="${GIZCLAW_E2E_CONFIG_HOME:-$testdata_dir/cmd-config-home}"

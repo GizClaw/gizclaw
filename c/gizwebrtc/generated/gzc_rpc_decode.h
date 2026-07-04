@@ -52,6 +52,8 @@ int gzc_model_get_response_decode_json(gzc_str_t json, gzc_model_get_response_t 
 int gzc_model_create_response_decode_json(gzc_str_t json, gzc_model_create_response_t *out_value);
 int gzc_model_put_response_decode_json(gzc_str_t json, gzc_model_put_response_t *out_value);
 int gzc_model_delete_response_decode_json(gzc_str_t json, gzc_model_delete_response_t *out_value);
+int gzc_voice_list_response_decode_json(gzc_str_t json, gzc_voice_list_response_t *out_value);
+int gzc_voice_get_response_decode_json(gzc_str_t json, gzc_voice_get_response_t *out_value);
 int gzc_credential_list_response_decode_json(gzc_str_t json, gzc_credential_list_response_t *out_value);
 int gzc_credential_get_response_decode_json(gzc_str_t json, gzc_credential_get_response_t *out_value);
 int gzc_credential_create_response_decode_json(gzc_str_t json, gzc_credential_create_response_t *out_value);
