@@ -341,6 +341,19 @@ type ApproveRequest struct {
 	Role externalRef0.PeerRole `json:"role"`
 }
 
+// BadgeDefList defines model for BadgeDefList.
+type BadgeDefList struct {
+	HasNext    bool                    `json:"has_next"`
+	Items      []externalRef0.BadgeDef `json:"items"`
+	NextCursor *string                 `json:"next_cursor,omitempty"`
+}
+
+// BadgeDefUpsert defines model for BadgeDefUpsert.
+type BadgeDefUpsert struct {
+	Id   string                    `json:"id"`
+	Spec externalRef0.BadgeDefSpec `json:"spec"`
+}
+
 // CredentialList defines model for CredentialList.
 type CredentialList struct {
 	HasNext    bool                      `json:"has_next"`
@@ -384,6 +397,32 @@ type FirmwareUpsert struct {
 	Description *string                    `json:"description,omitempty"`
 	Name        string                     `json:"name"`
 	Slots       externalRef0.FirmwareSlots `json:"slots"`
+}
+
+// GameDefList defines model for GameDefList.
+type GameDefList struct {
+	HasNext    bool                   `json:"has_next"`
+	Items      []externalRef0.GameDef `json:"items"`
+	NextCursor *string                `json:"next_cursor,omitempty"`
+}
+
+// GameDefUpsert defines model for GameDefUpsert.
+type GameDefUpsert struct {
+	Id   string                   `json:"id"`
+	Spec externalRef0.GameDefSpec `json:"spec"`
+}
+
+// GameRulesetList defines model for GameRulesetList.
+type GameRulesetList struct {
+	HasNext    bool                       `json:"has_next"`
+	Items      []externalRef0.GameRuleset `json:"items"`
+	NextCursor *string                    `json:"next_cursor,omitempty"`
+}
+
+// GameRulesetUpsert defines model for GameRulesetUpsert.
+type GameRulesetUpsert struct {
+	Name string                       `json:"name"`
+	Spec externalRef0.GameRulesetSpec `json:"spec"`
 }
 
 // GeminiTenantList defines model for GeminiTenantList.
@@ -472,6 +511,19 @@ type OpenAITenantUpsert struct {
 	// Kind OpenAI-compatible endpoint kind.
 	Kind *externalRef0.OpenAITenantKind `json:"kind,omitempty"`
 	Name string                         `json:"name"`
+}
+
+// PetDefList defines model for PetDefList.
+type PetDefList struct {
+	HasNext    bool                  `json:"has_next"`
+	Items      []externalRef0.PetDef `json:"items"`
+	NextCursor *string               `json:"next_cursor,omitempty"`
+}
+
+// PetDefUpsert defines model for PetDefUpsert.
+type PetDefUpsert struct {
+	Id   string                  `json:"id"`
+	Spec externalRef0.PetDefSpec `json:"spec"`
 }
 
 // PublicKeyResponse defines model for PublicKeyResponse.
@@ -629,6 +681,15 @@ type ListACLViewsParams struct {
 	Limit *int32 `form:"limit,omitempty" json:"limit,omitempty"`
 }
 
+// ListBadgeDefsParams defines parameters for ListBadgeDefs.
+type ListBadgeDefsParams struct {
+	// Cursor Opaque cursor returned by the previous list response
+	Cursor *string `form:"cursor,omitempty" json:"cursor,omitempty"`
+
+	// Limit Maximum number of items to return. Omitted or non-positive values use the default page size; values above 200 are clamped.
+	Limit *int32 `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
 // ListCredentialsParams defines parameters for ListCredentials.
 type ListCredentialsParams struct {
 	// Provider Filter credentials by provider
@@ -704,6 +765,24 @@ type TreeFirmwareArtifactEntriesParams struct {
 // TreeFirmwareArtifactEntriesParamsChannel defines parameters for TreeFirmwareArtifactEntries.
 type TreeFirmwareArtifactEntriesParamsChannel string
 
+// ListGameDefsParams defines parameters for ListGameDefs.
+type ListGameDefsParams struct {
+	// Cursor Opaque cursor returned by the previous list response
+	Cursor *string `form:"cursor,omitempty" json:"cursor,omitempty"`
+
+	// Limit Maximum number of items to return. Omitted or non-positive values use the default page size; values above 200 are clamped.
+	Limit *int32 `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
+// ListGameRulesetsParams defines parameters for ListGameRulesets.
+type ListGameRulesetsParams struct {
+	// Cursor Opaque cursor returned by the previous list response
+	Cursor *string `form:"cursor,omitempty" json:"cursor,omitempty"`
+
+	// Limit Maximum number of items to return. Omitted or non-positive values use the default page size; values above 200 are clamped.
+	Limit *int32 `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
 // ListGeminiTenantsParams defines parameters for ListGeminiTenants.
 type ListGeminiTenantsParams struct {
 	// Cursor Opaque cursor returned by the previous list response
@@ -758,6 +837,15 @@ type ListPeersParams struct {
 	Limit *int32 `form:"limit,omitempty" json:"limit,omitempty"`
 }
 
+// ListPeerBadgesParams defines parameters for ListPeerBadges.
+type ListPeerBadgesParams struct {
+	// Cursor Opaque cursor returned by the previous list response
+	Cursor *string `form:"cursor,omitempty" json:"cursor,omitempty"`
+
+	// Limit Maximum number of items to return. Omitted or non-positive values use the default page size; values above 200 are clamped.
+	Limit *int32 `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
 // ListPeerFriendsParams defines parameters for ListPeerFriends.
 type ListPeerFriendsParams struct {
 	// Cursor Cursor returned by the previous list response.
@@ -765,6 +853,51 @@ type ListPeerFriendsParams struct {
 
 	// Limit Maximum number of items to return.
 	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
+// ListPeerGameResultsParams defines parameters for ListPeerGameResults.
+type ListPeerGameResultsParams struct {
+	// Cursor Opaque cursor returned by the previous list response
+	Cursor *string `form:"cursor,omitempty" json:"cursor,omitempty"`
+
+	// Limit Maximum number of items to return. Omitted or non-positive values use the default page size; values above 200 are clamped.
+	Limit *int32 `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
+// ListPeerPetsParams defines parameters for ListPeerPets.
+type ListPeerPetsParams struct {
+	// Cursor Opaque cursor returned by the previous list response
+	Cursor *string `form:"cursor,omitempty" json:"cursor,omitempty"`
+
+	// Limit Maximum number of items to return. Omitted or non-positive values use the default page size; values above 200 are clamped.
+	Limit *int32 `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
+// ListPeerPointsTransactionsParams defines parameters for ListPeerPointsTransactions.
+type ListPeerPointsTransactionsParams struct {
+	// Cursor Opaque cursor returned by the previous list response
+	Cursor *string `form:"cursor,omitempty" json:"cursor,omitempty"`
+
+	// Limit Maximum number of items to return. Omitted or non-positive values use the default page size; values above 200 are clamped.
+	Limit *int32 `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
+// ListPeerRewardGrantsParams defines parameters for ListPeerRewardGrants.
+type ListPeerRewardGrantsParams struct {
+	// Cursor Opaque cursor returned by the previous list response
+	Cursor *string `form:"cursor,omitempty" json:"cursor,omitempty"`
+
+	// Limit Maximum number of items to return. Omitted or non-positive values use the default page size; values above 200 are clamped.
+	Limit *int32 `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
+// ListPetDefsParams defines parameters for ListPetDefs.
+type ListPetDefsParams struct {
+	// Cursor Opaque cursor returned by the previous list response
+	Cursor *string `form:"cursor,omitempty" json:"cursor,omitempty"`
+
+	// Limit Maximum number of items to return. Omitted or non-positive values use the default page size; values above 200 are clamped.
+	Limit *int32 `form:"limit,omitempty" json:"limit,omitempty"`
 }
 
 // ListContactsParams defines parameters for ListContacts.
@@ -887,6 +1020,12 @@ type CreateACLViewJSONRequestBody = ACLViewUpsert
 // PutACLViewJSONRequestBody defines body for PutACLView for application/json ContentType.
 type PutACLViewJSONRequestBody = ACLViewUpsert
 
+// CreateBadgeDefJSONRequestBody defines body for CreateBadgeDef for application/json ContentType.
+type CreateBadgeDefJSONRequestBody = BadgeDefUpsert
+
+// PutBadgeDefJSONRequestBody defines body for PutBadgeDef for application/json ContentType.
+type PutBadgeDefJSONRequestBody = BadgeDefUpsert
+
 // CreateCredentialJSONRequestBody defines body for CreateCredential for application/json ContentType.
 type CreateCredentialJSONRequestBody = CredentialUpsert
 
@@ -904,6 +1043,18 @@ type CreateFirmwareJSONRequestBody = FirmwareUpsert
 
 // PutFirmwareJSONRequestBody defines body for PutFirmware for application/json ContentType.
 type PutFirmwareJSONRequestBody = FirmwareUpsert
+
+// CreateGameDefJSONRequestBody defines body for CreateGameDef for application/json ContentType.
+type CreateGameDefJSONRequestBody = GameDefUpsert
+
+// PutGameDefJSONRequestBody defines body for PutGameDef for application/json ContentType.
+type PutGameDefJSONRequestBody = GameDefUpsert
+
+// CreateGameRulesetJSONRequestBody defines body for CreateGameRuleset for application/json ContentType.
+type CreateGameRulesetJSONRequestBody = GameRulesetUpsert
+
+// PutGameRulesetJSONRequestBody defines body for PutGameRuleset for application/json ContentType.
+type PutGameRulesetJSONRequestBody = GameRulesetUpsert
 
 // CreateGeminiTenantJSONRequestBody defines body for CreateGeminiTenant for application/json ContentType.
 type CreateGeminiTenantJSONRequestBody = GeminiTenantUpsert
@@ -940,6 +1091,12 @@ type CreatePeerFriendJSONRequestBody = AdminFriendCreateRequest
 
 // PutPeerInfoJSONRequestBody defines body for PutPeerInfo for application/json ContentType.
 type PutPeerInfoJSONRequestBody = externalRef0.DeviceInfo
+
+// CreatePetDefJSONRequestBody defines body for CreatePetDef for application/json ContentType.
+type CreatePetDefJSONRequestBody = PetDefUpsert
+
+// PutPetDefJSONRequestBody defines body for PutPetDef for application/json ContentType.
+type PutPetDefJSONRequestBody = PetDefUpsert
 
 // PutResourceJSONRequestBody defines body for PutResource for application/json ContentType.
 type PutResourceJSONRequestBody = externalRef0.Resource
@@ -1127,6 +1284,31 @@ type ClientInterface interface {
 
 	PutACLView(ctx context.Context, name string, body PutACLViewJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ListBadgeDefs request
+	ListBadgeDefs(ctx context.Context, params *ListBadgeDefsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateBadgeDefWithBody request with any body
+	CreateBadgeDefWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateBadgeDef(ctx context.Context, body CreateBadgeDefJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteBadgeDef request
+	DeleteBadgeDef(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetBadgeDef request
+	GetBadgeDef(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PutBadgeDefWithBody request with any body
+	PutBadgeDefWithBody(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	PutBadgeDef(ctx context.Context, id string, body PutBadgeDefJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DownloadBadgeDefIcon request
+	DownloadBadgeDefIcon(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UploadBadgeDefIconWithBody request with any body
+	UploadBadgeDefIconWithBody(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListCredentials request
 	ListCredentials(ctx context.Context, params *ListCredentialsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -1210,6 +1392,44 @@ type ClientInterface interface {
 
 	// TreeFirmwareArtifactEntries request
 	TreeFirmwareArtifactEntries(ctx context.Context, name string, channel TreeFirmwareArtifactEntriesParamsChannel, params *TreeFirmwareArtifactEntriesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListGameDefs request
+	ListGameDefs(ctx context.Context, params *ListGameDefsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateGameDefWithBody request with any body
+	CreateGameDefWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateGameDef(ctx context.Context, body CreateGameDefJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteGameDef request
+	DeleteGameDef(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetGameDef request
+	GetGameDef(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PutGameDefWithBody request with any body
+	PutGameDefWithBody(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	PutGameDef(ctx context.Context, id string, body PutGameDefJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListGameRulesets request
+	ListGameRulesets(ctx context.Context, params *ListGameRulesetsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateGameRulesetWithBody request with any body
+	CreateGameRulesetWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateGameRuleset(ctx context.Context, body CreateGameRulesetJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteGameRuleset request
+	DeleteGameRuleset(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetGameRuleset request
+	GetGameRuleset(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PutGameRulesetWithBody request with any body
+	PutGameRulesetWithBody(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	PutGameRuleset(ctx context.Context, name string, body PutGameRulesetJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListGeminiTenants request
 	ListGeminiTenants(ctx context.Context, params *ListGeminiTenantsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -1316,6 +1536,12 @@ type ClientInterface interface {
 	// RefreshPeer request
 	RefreshPeer(ctx context.Context, publicKey string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ListPeerBadges request
+	ListPeerBadges(ctx context.Context, publicKey string, params *ListPeerBadgesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetPeerBadge request
+	GetPeerBadge(ctx context.Context, publicKey string, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetPeerConfig request
 	GetPeerConfig(ctx context.Context, publicKey string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -1338,6 +1564,12 @@ type ClientInterface interface {
 	// GetPeerFriend request
 	GetPeerFriend(ctx context.Context, publicKey string, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ListPeerGameResults request
+	ListPeerGameResults(ctx context.Context, publicKey string, params *ListPeerGameResultsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetPeerGameResult request
+	GetPeerGameResult(ctx context.Context, publicKey string, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetPeerInfo request
 	GetPeerInfo(ctx context.Context, publicKey string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -1346,8 +1578,54 @@ type ClientInterface interface {
 
 	PutPeerInfo(ctx context.Context, publicKey string, body PutPeerInfoJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ListPeerPets request
+	ListPeerPets(ctx context.Context, publicKey string, params *ListPeerPetsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetPeerPet request
+	GetPeerPet(ctx context.Context, publicKey string, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetPeerPoints request
+	GetPeerPoints(ctx context.Context, publicKey string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListPeerPointsTransactions request
+	ListPeerPointsTransactions(ctx context.Context, publicKey string, params *ListPeerPointsTransactionsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetPeerPointsTransaction request
+	GetPeerPointsTransaction(ctx context.Context, publicKey string, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListPeerRewardGrants request
+	ListPeerRewardGrants(ctx context.Context, publicKey string, params *ListPeerRewardGrantsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetPeerRewardGrant request
+	GetPeerRewardGrant(ctx context.Context, publicKey string, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetPeerRuntime request
 	GetPeerRuntime(ctx context.Context, publicKey string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListPetDefs request
+	ListPetDefs(ctx context.Context, params *ListPetDefsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreatePetDefWithBody request with any body
+	CreatePetDefWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreatePetDef(ctx context.Context, body CreatePetDefJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeletePetDef request
+	DeletePetDef(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetPetDef request
+	GetPetDef(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PutPetDefWithBody request with any body
+	PutPetDefWithBody(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	PutPetDef(ctx context.Context, id string, body PutPetDefJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DownloadPetDefAsset request
+	DownloadPetDefAsset(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UploadPetDefAssetWithBody request with any body
+	UploadPetDefAssetWithBody(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DeleteResource request
 	DeleteResource(ctx context.Context, kind ResourceKind, name string, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -1804,6 +2082,114 @@ func (c *Client) PutACLView(ctx context.Context, name string, body PutACLViewJSO
 	return c.Client.Do(req)
 }
 
+func (c *Client) ListBadgeDefs(ctx context.Context, params *ListBadgeDefsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListBadgeDefsRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateBadgeDefWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateBadgeDefRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateBadgeDef(ctx context.Context, body CreateBadgeDefJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateBadgeDefRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteBadgeDef(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteBadgeDefRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetBadgeDef(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetBadgeDefRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PutBadgeDefWithBody(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutBadgeDefRequestWithBody(c.Server, id, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PutBadgeDef(ctx context.Context, id string, body PutBadgeDefJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutBadgeDefRequest(c.Server, id, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DownloadBadgeDefIcon(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDownloadBadgeDefIconRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UploadBadgeDefIconWithBody(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUploadBadgeDefIconRequestWithBody(c.Server, id, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) ListCredentials(ctx context.Context, params *ListCredentialsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListCredentialsRequest(c.Server, params)
 	if err != nil {
@@ -2154,6 +2540,174 @@ func (c *Client) StatFirmwareArtifactEntry(ctx context.Context, name string, cha
 
 func (c *Client) TreeFirmwareArtifactEntries(ctx context.Context, name string, channel TreeFirmwareArtifactEntriesParamsChannel, params *TreeFirmwareArtifactEntriesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewTreeFirmwareArtifactEntriesRequest(c.Server, name, channel, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListGameDefs(ctx context.Context, params *ListGameDefsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListGameDefsRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateGameDefWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateGameDefRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateGameDef(ctx context.Context, body CreateGameDefJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateGameDefRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteGameDef(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteGameDefRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetGameDef(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetGameDefRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PutGameDefWithBody(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutGameDefRequestWithBody(c.Server, id, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PutGameDef(ctx context.Context, id string, body PutGameDefJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutGameDefRequest(c.Server, id, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListGameRulesets(ctx context.Context, params *ListGameRulesetsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListGameRulesetsRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateGameRulesetWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateGameRulesetRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateGameRuleset(ctx context.Context, body CreateGameRulesetJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateGameRulesetRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteGameRuleset(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteGameRulesetRequest(c.Server, name)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetGameRuleset(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetGameRulesetRequest(c.Server, name)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PutGameRulesetWithBody(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutGameRulesetRequestWithBody(c.Server, name, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PutGameRuleset(ctx context.Context, name string, body PutGameRulesetJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutGameRulesetRequest(c.Server, name, body)
 	if err != nil {
 		return nil, err
 	}
@@ -2620,6 +3174,30 @@ func (c *Client) RefreshPeer(ctx context.Context, publicKey string, reqEditors .
 	return c.Client.Do(req)
 }
 
+func (c *Client) ListPeerBadges(ctx context.Context, publicKey string, params *ListPeerBadgesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListPeerBadgesRequest(c.Server, publicKey, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetPeerBadge(ctx context.Context, publicKey string, id string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetPeerBadgeRequest(c.Server, publicKey, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) GetPeerConfig(ctx context.Context, publicKey string, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetPeerConfigRequest(c.Server, publicKey)
 	if err != nil {
@@ -2716,6 +3294,30 @@ func (c *Client) GetPeerFriend(ctx context.Context, publicKey string, id string,
 	return c.Client.Do(req)
 }
 
+func (c *Client) ListPeerGameResults(ctx context.Context, publicKey string, params *ListPeerGameResultsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListPeerGameResultsRequest(c.Server, publicKey, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetPeerGameResult(ctx context.Context, publicKey string, id string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetPeerGameResultRequest(c.Server, publicKey, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) GetPeerInfo(ctx context.Context, publicKey string, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetPeerInfoRequest(c.Server, publicKey)
 	if err != nil {
@@ -2752,8 +3354,200 @@ func (c *Client) PutPeerInfo(ctx context.Context, publicKey string, body PutPeer
 	return c.Client.Do(req)
 }
 
+func (c *Client) ListPeerPets(ctx context.Context, publicKey string, params *ListPeerPetsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListPeerPetsRequest(c.Server, publicKey, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetPeerPet(ctx context.Context, publicKey string, id string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetPeerPetRequest(c.Server, publicKey, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetPeerPoints(ctx context.Context, publicKey string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetPeerPointsRequest(c.Server, publicKey)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListPeerPointsTransactions(ctx context.Context, publicKey string, params *ListPeerPointsTransactionsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListPeerPointsTransactionsRequest(c.Server, publicKey, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetPeerPointsTransaction(ctx context.Context, publicKey string, id string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetPeerPointsTransactionRequest(c.Server, publicKey, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListPeerRewardGrants(ctx context.Context, publicKey string, params *ListPeerRewardGrantsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListPeerRewardGrantsRequest(c.Server, publicKey, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetPeerRewardGrant(ctx context.Context, publicKey string, id string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetPeerRewardGrantRequest(c.Server, publicKey, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) GetPeerRuntime(ctx context.Context, publicKey string, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetPeerRuntimeRequest(c.Server, publicKey)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListPetDefs(ctx context.Context, params *ListPetDefsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListPetDefsRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreatePetDefWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreatePetDefRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreatePetDef(ctx context.Context, body CreatePetDefJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreatePetDefRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeletePetDef(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeletePetDefRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetPetDef(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetPetDefRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PutPetDefWithBody(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutPetDefRequestWithBody(c.Server, id, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PutPetDef(ctx context.Context, id string, body PutPetDefJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutPetDefRequest(c.Server, id, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DownloadPetDefAsset(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDownloadPetDefAssetRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UploadPetDefAssetWithBody(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUploadPetDefAssetRequestWithBody(c.Server, id, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -4372,6 +5166,296 @@ func NewPutACLViewRequestWithBody(server string, name string, contentType string
 	return req, nil
 }
 
+// NewListBadgeDefsRequest generates requests for ListBadgeDefs
+func NewListBadgeDefsRequest(server string, params *ListBadgeDefsParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/badge-defs")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Cursor != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "cursor", *params.Cursor, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int32"}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateBadgeDefRequest calls the generic CreateBadgeDef builder with application/json body
+func NewCreateBadgeDefRequest(server string, body CreateBadgeDefJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateBadgeDefRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewCreateBadgeDefRequestWithBody generates requests for CreateBadgeDef with any type of body
+func NewCreateBadgeDefRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/badge-defs")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteBadgeDefRequest generates requests for DeleteBadgeDef
+func NewDeleteBadgeDefRequest(server string, id string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/badge-defs/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetBadgeDefRequest generates requests for GetBadgeDef
+func NewGetBadgeDefRequest(server string, id string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/badge-defs/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewPutBadgeDefRequest calls the generic PutBadgeDef builder with application/json body
+func NewPutBadgeDefRequest(server string, id string, body PutBadgeDefJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPutBadgeDefRequestWithBody(server, id, "application/json", bodyReader)
+}
+
+// NewPutBadgeDefRequestWithBody generates requests for PutBadgeDef with any type of body
+func NewPutBadgeDefRequestWithBody(server string, id string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/badge-defs/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PUT", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDownloadBadgeDefIconRequest generates requests for DownloadBadgeDefIcon
+func NewDownloadBadgeDefIconRequest(server string, id string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/badge-defs/%s/icon", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUploadBadgeDefIconRequestWithBody generates requests for UploadBadgeDefIcon with any type of body
+func NewUploadBadgeDefIconRequestWithBody(server string, id string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/badge-defs/%s/icon", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PUT", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewListCredentialsRequest generates requests for ListCredentials
 func NewListCredentialsRequest(server string, params *ListCredentialsParams) (*http.Request, error) {
 	var err error
@@ -5485,6 +6569,446 @@ func NewTreeFirmwareArtifactEntriesRequest(server string, name string, channel T
 	if err != nil {
 		return nil, err
 	}
+
+	return req, nil
+}
+
+// NewListGameDefsRequest generates requests for ListGameDefs
+func NewListGameDefsRequest(server string, params *ListGameDefsParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/game-defs")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Cursor != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "cursor", *params.Cursor, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int32"}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateGameDefRequest calls the generic CreateGameDef builder with application/json body
+func NewCreateGameDefRequest(server string, body CreateGameDefJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateGameDefRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewCreateGameDefRequestWithBody generates requests for CreateGameDef with any type of body
+func NewCreateGameDefRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/game-defs")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteGameDefRequest generates requests for DeleteGameDef
+func NewDeleteGameDefRequest(server string, id string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/game-defs/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetGameDefRequest generates requests for GetGameDef
+func NewGetGameDefRequest(server string, id string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/game-defs/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewPutGameDefRequest calls the generic PutGameDef builder with application/json body
+func NewPutGameDefRequest(server string, id string, body PutGameDefJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPutGameDefRequestWithBody(server, id, "application/json", bodyReader)
+}
+
+// NewPutGameDefRequestWithBody generates requests for PutGameDef with any type of body
+func NewPutGameDefRequestWithBody(server string, id string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/game-defs/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PUT", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewListGameRulesetsRequest generates requests for ListGameRulesets
+func NewListGameRulesetsRequest(server string, params *ListGameRulesetsParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/game-rulesets")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Cursor != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "cursor", *params.Cursor, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int32"}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateGameRulesetRequest calls the generic CreateGameRuleset builder with application/json body
+func NewCreateGameRulesetRequest(server string, body CreateGameRulesetJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateGameRulesetRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewCreateGameRulesetRequestWithBody generates requests for CreateGameRuleset with any type of body
+func NewCreateGameRulesetRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/game-rulesets")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteGameRulesetRequest generates requests for DeleteGameRuleset
+func NewDeleteGameRulesetRequest(server string, name string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/game-rulesets/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetGameRulesetRequest generates requests for GetGameRuleset
+func NewGetGameRulesetRequest(server string, name string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/game-rulesets/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewPutGameRulesetRequest calls the generic PutGameRuleset builder with application/json body
+func NewPutGameRulesetRequest(server string, name string, body PutGameRulesetJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPutGameRulesetRequestWithBody(server, name, "application/json", bodyReader)
+}
+
+// NewPutGameRulesetRequestWithBody generates requests for PutGameRuleset with any type of body
+func NewPutGameRulesetRequestWithBody(server string, name string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/game-rulesets/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PUT", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -6774,6 +8298,119 @@ func NewRefreshPeerRequest(server string, publicKey string) (*http.Request, erro
 	return req, nil
 }
 
+// NewListPeerBadgesRequest generates requests for ListPeerBadges
+func NewListPeerBadgesRequest(server string, publicKey string, params *ListPeerBadgesParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "publicKey", publicKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/peers/%s/badges", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Cursor != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "cursor", *params.Cursor, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int32"}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetPeerBadgeRequest generates requests for GetPeerBadge
+func NewGetPeerBadgeRequest(server string, publicKey string, id string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "publicKey", publicKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/peers/%s/badges/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewGetPeerConfigRequest generates requests for GetPeerConfig
 func NewGetPeerConfigRequest(server string, publicKey string) (*http.Request, error) {
 	var err error
@@ -7056,6 +8693,119 @@ func NewGetPeerFriendRequest(server string, publicKey string, id string) (*http.
 	return req, nil
 }
 
+// NewListPeerGameResultsRequest generates requests for ListPeerGameResults
+func NewListPeerGameResultsRequest(server string, publicKey string, params *ListPeerGameResultsParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "publicKey", publicKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/peers/%s/game-results", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Cursor != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "cursor", *params.Cursor, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int32"}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetPeerGameResultRequest generates requests for GetPeerGameResult
+func NewGetPeerGameResultRequest(server string, publicKey string, id string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "publicKey", publicKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/peers/%s/game-results/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewGetPeerInfoRequest generates requests for GetPeerInfo
 func NewGetPeerInfoRequest(server string, publicKey string) (*http.Request, error) {
 	var err error
@@ -7137,6 +8887,379 @@ func NewPutPeerInfoRequestWithBody(server string, publicKey string, contentType 
 	return req, nil
 }
 
+// NewListPeerPetsRequest generates requests for ListPeerPets
+func NewListPeerPetsRequest(server string, publicKey string, params *ListPeerPetsParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "publicKey", publicKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/peers/%s/pets", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Cursor != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "cursor", *params.Cursor, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int32"}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetPeerPetRequest generates requests for GetPeerPet
+func NewGetPeerPetRequest(server string, publicKey string, id string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "publicKey", publicKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/peers/%s/pets/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetPeerPointsRequest generates requests for GetPeerPoints
+func NewGetPeerPointsRequest(server string, publicKey string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "publicKey", publicKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/peers/%s/points", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewListPeerPointsTransactionsRequest generates requests for ListPeerPointsTransactions
+func NewListPeerPointsTransactionsRequest(server string, publicKey string, params *ListPeerPointsTransactionsParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "publicKey", publicKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/peers/%s/points/transactions", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Cursor != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "cursor", *params.Cursor, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int32"}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetPeerPointsTransactionRequest generates requests for GetPeerPointsTransaction
+func NewGetPeerPointsTransactionRequest(server string, publicKey string, id string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "publicKey", publicKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/peers/%s/points/transactions/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewListPeerRewardGrantsRequest generates requests for ListPeerRewardGrants
+func NewListPeerRewardGrantsRequest(server string, publicKey string, params *ListPeerRewardGrantsParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "publicKey", publicKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/peers/%s/reward-grants", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Cursor != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "cursor", *params.Cursor, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int32"}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetPeerRewardGrantRequest generates requests for GetPeerRewardGrant
+func NewGetPeerRewardGrantRequest(server string, publicKey string, id string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "publicKey", publicKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/peers/%s/reward-grants/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewGetPeerRuntimeRequest generates requests for GetPeerRuntime
 func NewGetPeerRuntimeRequest(server string, publicKey string) (*http.Request, error) {
 	var err error
@@ -7167,6 +9290,296 @@ func NewGetPeerRuntimeRequest(server string, publicKey string) (*http.Request, e
 	if err != nil {
 		return nil, err
 	}
+
+	return req, nil
+}
+
+// NewListPetDefsRequest generates requests for ListPetDefs
+func NewListPetDefsRequest(server string, params *ListPetDefsParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/pet-defs")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Cursor != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "cursor", *params.Cursor, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int32"}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreatePetDefRequest calls the generic CreatePetDef builder with application/json body
+func NewCreatePetDefRequest(server string, body CreatePetDefJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreatePetDefRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewCreatePetDefRequestWithBody generates requests for CreatePetDef with any type of body
+func NewCreatePetDefRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/pet-defs")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeletePetDefRequest generates requests for DeletePetDef
+func NewDeletePetDefRequest(server string, id string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/pet-defs/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetPetDefRequest generates requests for GetPetDef
+func NewGetPetDefRequest(server string, id string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/pet-defs/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewPutPetDefRequest calls the generic PutPetDef builder with application/json body
+func NewPutPetDefRequest(server string, id string, body PutPetDefJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPutPetDefRequestWithBody(server, id, "application/json", bodyReader)
+}
+
+// NewPutPetDefRequestWithBody generates requests for PutPetDef with any type of body
+func NewPutPetDefRequestWithBody(server string, id string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/pet-defs/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PUT", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDownloadPetDefAssetRequest generates requests for DownloadPetDefAsset
+func NewDownloadPetDefAssetRequest(server string, id string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/pet-defs/%s/asset", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUploadPetDefAssetRequestWithBody generates requests for UploadPetDefAsset with any type of body
+func NewUploadPetDefAssetRequestWithBody(server string, id string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/pet-defs/%s/asset", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PUT", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -9537,6 +11950,31 @@ type ClientWithResponsesInterface interface {
 
 	PutACLViewWithResponse(ctx context.Context, name string, body PutACLViewJSONRequestBody, reqEditors ...RequestEditorFn) (*PutACLViewResponse, error)
 
+	// ListBadgeDefsWithResponse request
+	ListBadgeDefsWithResponse(ctx context.Context, params *ListBadgeDefsParams, reqEditors ...RequestEditorFn) (*ListBadgeDefsResponse, error)
+
+	// CreateBadgeDefWithBodyWithResponse request with any body
+	CreateBadgeDefWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateBadgeDefResponse, error)
+
+	CreateBadgeDefWithResponse(ctx context.Context, body CreateBadgeDefJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateBadgeDefResponse, error)
+
+	// DeleteBadgeDefWithResponse request
+	DeleteBadgeDefWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*DeleteBadgeDefResponse, error)
+
+	// GetBadgeDefWithResponse request
+	GetBadgeDefWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*GetBadgeDefResponse, error)
+
+	// PutBadgeDefWithBodyWithResponse request with any body
+	PutBadgeDefWithBodyWithResponse(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutBadgeDefResponse, error)
+
+	PutBadgeDefWithResponse(ctx context.Context, id string, body PutBadgeDefJSONRequestBody, reqEditors ...RequestEditorFn) (*PutBadgeDefResponse, error)
+
+	// DownloadBadgeDefIconWithResponse request
+	DownloadBadgeDefIconWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*DownloadBadgeDefIconResponse, error)
+
+	// UploadBadgeDefIconWithBodyWithResponse request with any body
+	UploadBadgeDefIconWithBodyWithResponse(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UploadBadgeDefIconResponse, error)
+
 	// ListCredentialsWithResponse request
 	ListCredentialsWithResponse(ctx context.Context, params *ListCredentialsParams, reqEditors ...RequestEditorFn) (*ListCredentialsResponse, error)
 
@@ -9620,6 +12058,44 @@ type ClientWithResponsesInterface interface {
 
 	// TreeFirmwareArtifactEntriesWithResponse request
 	TreeFirmwareArtifactEntriesWithResponse(ctx context.Context, name string, channel TreeFirmwareArtifactEntriesParamsChannel, params *TreeFirmwareArtifactEntriesParams, reqEditors ...RequestEditorFn) (*TreeFirmwareArtifactEntriesResponse, error)
+
+	// ListGameDefsWithResponse request
+	ListGameDefsWithResponse(ctx context.Context, params *ListGameDefsParams, reqEditors ...RequestEditorFn) (*ListGameDefsResponse, error)
+
+	// CreateGameDefWithBodyWithResponse request with any body
+	CreateGameDefWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateGameDefResponse, error)
+
+	CreateGameDefWithResponse(ctx context.Context, body CreateGameDefJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateGameDefResponse, error)
+
+	// DeleteGameDefWithResponse request
+	DeleteGameDefWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*DeleteGameDefResponse, error)
+
+	// GetGameDefWithResponse request
+	GetGameDefWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*GetGameDefResponse, error)
+
+	// PutGameDefWithBodyWithResponse request with any body
+	PutGameDefWithBodyWithResponse(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutGameDefResponse, error)
+
+	PutGameDefWithResponse(ctx context.Context, id string, body PutGameDefJSONRequestBody, reqEditors ...RequestEditorFn) (*PutGameDefResponse, error)
+
+	// ListGameRulesetsWithResponse request
+	ListGameRulesetsWithResponse(ctx context.Context, params *ListGameRulesetsParams, reqEditors ...RequestEditorFn) (*ListGameRulesetsResponse, error)
+
+	// CreateGameRulesetWithBodyWithResponse request with any body
+	CreateGameRulesetWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateGameRulesetResponse, error)
+
+	CreateGameRulesetWithResponse(ctx context.Context, body CreateGameRulesetJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateGameRulesetResponse, error)
+
+	// DeleteGameRulesetWithResponse request
+	DeleteGameRulesetWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*DeleteGameRulesetResponse, error)
+
+	// GetGameRulesetWithResponse request
+	GetGameRulesetWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*GetGameRulesetResponse, error)
+
+	// PutGameRulesetWithBodyWithResponse request with any body
+	PutGameRulesetWithBodyWithResponse(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutGameRulesetResponse, error)
+
+	PutGameRulesetWithResponse(ctx context.Context, name string, body PutGameRulesetJSONRequestBody, reqEditors ...RequestEditorFn) (*PutGameRulesetResponse, error)
 
 	// ListGeminiTenantsWithResponse request
 	ListGeminiTenantsWithResponse(ctx context.Context, params *ListGeminiTenantsParams, reqEditors ...RequestEditorFn) (*ListGeminiTenantsResponse, error)
@@ -9726,6 +12202,12 @@ type ClientWithResponsesInterface interface {
 	// RefreshPeerWithResponse request
 	RefreshPeerWithResponse(ctx context.Context, publicKey string, reqEditors ...RequestEditorFn) (*RefreshPeerResponse, error)
 
+	// ListPeerBadgesWithResponse request
+	ListPeerBadgesWithResponse(ctx context.Context, publicKey string, params *ListPeerBadgesParams, reqEditors ...RequestEditorFn) (*ListPeerBadgesResponse, error)
+
+	// GetPeerBadgeWithResponse request
+	GetPeerBadgeWithResponse(ctx context.Context, publicKey string, id string, reqEditors ...RequestEditorFn) (*GetPeerBadgeResponse, error)
+
 	// GetPeerConfigWithResponse request
 	GetPeerConfigWithResponse(ctx context.Context, publicKey string, reqEditors ...RequestEditorFn) (*GetPeerConfigResponse, error)
 
@@ -9748,6 +12230,12 @@ type ClientWithResponsesInterface interface {
 	// GetPeerFriendWithResponse request
 	GetPeerFriendWithResponse(ctx context.Context, publicKey string, id string, reqEditors ...RequestEditorFn) (*GetPeerFriendResponse, error)
 
+	// ListPeerGameResultsWithResponse request
+	ListPeerGameResultsWithResponse(ctx context.Context, publicKey string, params *ListPeerGameResultsParams, reqEditors ...RequestEditorFn) (*ListPeerGameResultsResponse, error)
+
+	// GetPeerGameResultWithResponse request
+	GetPeerGameResultWithResponse(ctx context.Context, publicKey string, id string, reqEditors ...RequestEditorFn) (*GetPeerGameResultResponse, error)
+
 	// GetPeerInfoWithResponse request
 	GetPeerInfoWithResponse(ctx context.Context, publicKey string, reqEditors ...RequestEditorFn) (*GetPeerInfoResponse, error)
 
@@ -9756,8 +12244,54 @@ type ClientWithResponsesInterface interface {
 
 	PutPeerInfoWithResponse(ctx context.Context, publicKey string, body PutPeerInfoJSONRequestBody, reqEditors ...RequestEditorFn) (*PutPeerInfoResponse, error)
 
+	// ListPeerPetsWithResponse request
+	ListPeerPetsWithResponse(ctx context.Context, publicKey string, params *ListPeerPetsParams, reqEditors ...RequestEditorFn) (*ListPeerPetsResponse, error)
+
+	// GetPeerPetWithResponse request
+	GetPeerPetWithResponse(ctx context.Context, publicKey string, id string, reqEditors ...RequestEditorFn) (*GetPeerPetResponse, error)
+
+	// GetPeerPointsWithResponse request
+	GetPeerPointsWithResponse(ctx context.Context, publicKey string, reqEditors ...RequestEditorFn) (*GetPeerPointsResponse, error)
+
+	// ListPeerPointsTransactionsWithResponse request
+	ListPeerPointsTransactionsWithResponse(ctx context.Context, publicKey string, params *ListPeerPointsTransactionsParams, reqEditors ...RequestEditorFn) (*ListPeerPointsTransactionsResponse, error)
+
+	// GetPeerPointsTransactionWithResponse request
+	GetPeerPointsTransactionWithResponse(ctx context.Context, publicKey string, id string, reqEditors ...RequestEditorFn) (*GetPeerPointsTransactionResponse, error)
+
+	// ListPeerRewardGrantsWithResponse request
+	ListPeerRewardGrantsWithResponse(ctx context.Context, publicKey string, params *ListPeerRewardGrantsParams, reqEditors ...RequestEditorFn) (*ListPeerRewardGrantsResponse, error)
+
+	// GetPeerRewardGrantWithResponse request
+	GetPeerRewardGrantWithResponse(ctx context.Context, publicKey string, id string, reqEditors ...RequestEditorFn) (*GetPeerRewardGrantResponse, error)
+
 	// GetPeerRuntimeWithResponse request
 	GetPeerRuntimeWithResponse(ctx context.Context, publicKey string, reqEditors ...RequestEditorFn) (*GetPeerRuntimeResponse, error)
+
+	// ListPetDefsWithResponse request
+	ListPetDefsWithResponse(ctx context.Context, params *ListPetDefsParams, reqEditors ...RequestEditorFn) (*ListPetDefsResponse, error)
+
+	// CreatePetDefWithBodyWithResponse request with any body
+	CreatePetDefWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreatePetDefResponse, error)
+
+	CreatePetDefWithResponse(ctx context.Context, body CreatePetDefJSONRequestBody, reqEditors ...RequestEditorFn) (*CreatePetDefResponse, error)
+
+	// DeletePetDefWithResponse request
+	DeletePetDefWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*DeletePetDefResponse, error)
+
+	// GetPetDefWithResponse request
+	GetPetDefWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*GetPetDefResponse, error)
+
+	// PutPetDefWithBodyWithResponse request with any body
+	PutPetDefWithBodyWithResponse(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutPetDefResponse, error)
+
+	PutPetDefWithResponse(ctx context.Context, id string, body PutPetDefJSONRequestBody, reqEditors ...RequestEditorFn) (*PutPetDefResponse, error)
+
+	// DownloadPetDefAssetWithResponse request
+	DownloadPetDefAssetWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*DownloadPetDefAssetResponse, error)
+
+	// UploadPetDefAssetWithBodyWithResponse request with any body
+	UploadPetDefAssetWithBodyWithResponse(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UploadPetDefAssetResponse, error)
 
 	// DeleteResourceWithResponse request
 	DeleteResourceWithResponse(ctx context.Context, kind ResourceKind, name string, reqEditors ...RequestEditorFn) (*DeleteResourceResponse, error)
@@ -10318,6 +12852,174 @@ func (r PutACLViewResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r PutACLViewResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ListBadgeDefsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *BadgeDefList
+	JSON500      *externalRef0.ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r ListBadgeDefsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListBadgeDefsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type CreateBadgeDefResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *externalRef0.BadgeDef
+	JSON400      *externalRef0.ErrorResponse
+	JSON409      *externalRef0.ErrorResponse
+	JSON500      *externalRef0.ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateBadgeDefResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateBadgeDefResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DeleteBadgeDefResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *externalRef0.BadgeDef
+	JSON404      *externalRef0.ErrorResponse
+	JSON500      *externalRef0.ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteBadgeDefResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteBadgeDefResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetBadgeDefResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *externalRef0.BadgeDef
+	JSON404      *externalRef0.ErrorResponse
+	JSON500      *externalRef0.ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r GetBadgeDefResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetBadgeDefResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type PutBadgeDefResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *externalRef0.BadgeDef
+	JSON400      *externalRef0.ErrorResponse
+	JSON409      *externalRef0.ErrorResponse
+	JSON500      *externalRef0.ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r PutBadgeDefResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PutBadgeDefResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DownloadBadgeDefIconResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON404      *externalRef0.ErrorResponse
+	JSON500      *externalRef0.ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r DownloadBadgeDefIconResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DownloadBadgeDefIconResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type UploadBadgeDefIconResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *externalRef0.BadgeDef
+	JSON404      *externalRef0.ErrorResponse
+	JSON500      *externalRef0.ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r UploadBadgeDefIconResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UploadBadgeDefIconResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -10900,6 +13602,248 @@ func (r TreeFirmwareArtifactEntriesResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r TreeFirmwareArtifactEntriesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ListGameDefsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *GameDefList
+	JSON500      *externalRef0.ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r ListGameDefsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListGameDefsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type CreateGameDefResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *externalRef0.GameDef
+	JSON400      *externalRef0.ErrorResponse
+	JSON409      *externalRef0.ErrorResponse
+	JSON500      *externalRef0.ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateGameDefResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateGameDefResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DeleteGameDefResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *externalRef0.GameDef
+	JSON404      *externalRef0.ErrorResponse
+	JSON500      *externalRef0.ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteGameDefResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteGameDefResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetGameDefResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *externalRef0.GameDef
+	JSON404      *externalRef0.ErrorResponse
+	JSON500      *externalRef0.ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r GetGameDefResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetGameDefResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type PutGameDefResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *externalRef0.GameDef
+	JSON400      *externalRef0.ErrorResponse
+	JSON409      *externalRef0.ErrorResponse
+	JSON500      *externalRef0.ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r PutGameDefResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PutGameDefResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ListGameRulesetsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *GameRulesetList
+	JSON500      *externalRef0.ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r ListGameRulesetsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListGameRulesetsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type CreateGameRulesetResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *externalRef0.GameRuleset
+	JSON400      *externalRef0.ErrorResponse
+	JSON409      *externalRef0.ErrorResponse
+	JSON500      *externalRef0.ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateGameRulesetResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateGameRulesetResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DeleteGameRulesetResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *externalRef0.GameRuleset
+	JSON404      *externalRef0.ErrorResponse
+	JSON500      *externalRef0.ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteGameRulesetResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteGameRulesetResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetGameRulesetResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *externalRef0.GameRuleset
+	JSON404      *externalRef0.ErrorResponse
+	JSON500      *externalRef0.ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r GetGameRulesetResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetGameRulesetResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type PutGameRulesetResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *externalRef0.GameRuleset
+	JSON400      *externalRef0.ErrorResponse
+	JSON409      *externalRef0.ErrorResponse
+	JSON500      *externalRef0.ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r PutGameRulesetResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PutGameRulesetResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -11599,6 +14543,54 @@ func (r RefreshPeerResponse) StatusCode() int {
 	return 0
 }
 
+type ListPeerBadgesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *externalRef0.BadgeListResponse
+	JSON404      *externalRef0.ErrorResponse
+	JSON500      *externalRef0.ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r ListPeerBadgesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListPeerBadgesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetPeerBadgeResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *externalRef0.Badge
+	JSON404      *externalRef0.ErrorResponse
+	JSON500      *externalRef0.ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r GetPeerBadgeResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetPeerBadgeResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type GetPeerConfigResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -11746,6 +14738,54 @@ func (r GetPeerFriendResponse) StatusCode() int {
 	return 0
 }
 
+type ListPeerGameResultsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *externalRef0.GameResultListResponse
+	JSON404      *externalRef0.ErrorResponse
+	JSON500      *externalRef0.ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r ListPeerGameResultsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListPeerGameResultsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetPeerGameResultResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *externalRef0.GameResult
+	JSON404      *externalRef0.ErrorResponse
+	JSON500      *externalRef0.ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r GetPeerGameResultResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetPeerGameResultResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type GetPeerInfoResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -11793,6 +14833,174 @@ func (r PutPeerInfoResponse) StatusCode() int {
 	return 0
 }
 
+type ListPeerPetsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *externalRef0.PetListResponse
+	JSON404      *externalRef0.ErrorResponse
+	JSON500      *externalRef0.ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r ListPeerPetsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListPeerPetsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetPeerPetResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *externalRef0.Pet
+	JSON404      *externalRef0.ErrorResponse
+	JSON500      *externalRef0.ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r GetPeerPetResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetPeerPetResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetPeerPointsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *externalRef0.PointsAccount
+	JSON404      *externalRef0.ErrorResponse
+	JSON500      *externalRef0.ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r GetPeerPointsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetPeerPointsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ListPeerPointsTransactionsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *externalRef0.PointsTransactionListResponse
+	JSON404      *externalRef0.ErrorResponse
+	JSON500      *externalRef0.ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r ListPeerPointsTransactionsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListPeerPointsTransactionsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetPeerPointsTransactionResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *externalRef0.PointsTransaction
+	JSON404      *externalRef0.ErrorResponse
+	JSON500      *externalRef0.ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r GetPeerPointsTransactionResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetPeerPointsTransactionResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ListPeerRewardGrantsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *externalRef0.RewardGrantListResponse
+	JSON404      *externalRef0.ErrorResponse
+	JSON500      *externalRef0.ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r ListPeerRewardGrantsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListPeerRewardGrantsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetPeerRewardGrantResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *externalRef0.RewardGrant
+	JSON404      *externalRef0.ErrorResponse
+	JSON500      *externalRef0.ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r GetPeerRewardGrantResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetPeerRewardGrantResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type GetPeerRuntimeResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -11809,6 +15017,174 @@ func (r GetPeerRuntimeResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r GetPeerRuntimeResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ListPetDefsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *PetDefList
+	JSON500      *externalRef0.ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r ListPetDefsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListPetDefsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type CreatePetDefResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *externalRef0.PetDef
+	JSON400      *externalRef0.ErrorResponse
+	JSON409      *externalRef0.ErrorResponse
+	JSON500      *externalRef0.ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r CreatePetDefResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreatePetDefResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DeletePetDefResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *externalRef0.PetDef
+	JSON404      *externalRef0.ErrorResponse
+	JSON500      *externalRef0.ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r DeletePetDefResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeletePetDefResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetPetDefResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *externalRef0.PetDef
+	JSON404      *externalRef0.ErrorResponse
+	JSON500      *externalRef0.ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r GetPetDefResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetPetDefResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type PutPetDefResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *externalRef0.PetDef
+	JSON400      *externalRef0.ErrorResponse
+	JSON409      *externalRef0.ErrorResponse
+	JSON500      *externalRef0.ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r PutPetDefResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PutPetDefResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DownloadPetDefAssetResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON404      *externalRef0.ErrorResponse
+	JSON500      *externalRef0.ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r DownloadPetDefAssetResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DownloadPetDefAssetResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type UploadPetDefAssetResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *externalRef0.PetDef
+	JSON404      *externalRef0.ErrorResponse
+	JSON500      *externalRef0.ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r UploadPetDefAssetResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UploadPetDefAssetResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -13198,6 +16574,85 @@ func (c *ClientWithResponses) PutACLViewWithResponse(ctx context.Context, name s
 	return ParsePutACLViewResponse(rsp)
 }
 
+// ListBadgeDefsWithResponse request returning *ListBadgeDefsResponse
+func (c *ClientWithResponses) ListBadgeDefsWithResponse(ctx context.Context, params *ListBadgeDefsParams, reqEditors ...RequestEditorFn) (*ListBadgeDefsResponse, error) {
+	rsp, err := c.ListBadgeDefs(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListBadgeDefsResponse(rsp)
+}
+
+// CreateBadgeDefWithBodyWithResponse request with arbitrary body returning *CreateBadgeDefResponse
+func (c *ClientWithResponses) CreateBadgeDefWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateBadgeDefResponse, error) {
+	rsp, err := c.CreateBadgeDefWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateBadgeDefResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreateBadgeDefWithResponse(ctx context.Context, body CreateBadgeDefJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateBadgeDefResponse, error) {
+	rsp, err := c.CreateBadgeDef(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateBadgeDefResponse(rsp)
+}
+
+// DeleteBadgeDefWithResponse request returning *DeleteBadgeDefResponse
+func (c *ClientWithResponses) DeleteBadgeDefWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*DeleteBadgeDefResponse, error) {
+	rsp, err := c.DeleteBadgeDef(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteBadgeDefResponse(rsp)
+}
+
+// GetBadgeDefWithResponse request returning *GetBadgeDefResponse
+func (c *ClientWithResponses) GetBadgeDefWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*GetBadgeDefResponse, error) {
+	rsp, err := c.GetBadgeDef(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetBadgeDefResponse(rsp)
+}
+
+// PutBadgeDefWithBodyWithResponse request with arbitrary body returning *PutBadgeDefResponse
+func (c *ClientWithResponses) PutBadgeDefWithBodyWithResponse(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutBadgeDefResponse, error) {
+	rsp, err := c.PutBadgeDefWithBody(ctx, id, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePutBadgeDefResponse(rsp)
+}
+
+func (c *ClientWithResponses) PutBadgeDefWithResponse(ctx context.Context, id string, body PutBadgeDefJSONRequestBody, reqEditors ...RequestEditorFn) (*PutBadgeDefResponse, error) {
+	rsp, err := c.PutBadgeDef(ctx, id, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePutBadgeDefResponse(rsp)
+}
+
+// DownloadBadgeDefIconWithResponse request returning *DownloadBadgeDefIconResponse
+func (c *ClientWithResponses) DownloadBadgeDefIconWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*DownloadBadgeDefIconResponse, error) {
+	rsp, err := c.DownloadBadgeDefIcon(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDownloadBadgeDefIconResponse(rsp)
+}
+
+// UploadBadgeDefIconWithBodyWithResponse request with arbitrary body returning *UploadBadgeDefIconResponse
+func (c *ClientWithResponses) UploadBadgeDefIconWithBodyWithResponse(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UploadBadgeDefIconResponse, error) {
+	rsp, err := c.UploadBadgeDefIconWithBody(ctx, id, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUploadBadgeDefIconResponse(rsp)
+}
+
 // ListCredentialsWithResponse request returning *ListCredentialsResponse
 func (c *ClientWithResponses) ListCredentialsWithResponse(ctx context.Context, params *ListCredentialsParams, reqEditors ...RequestEditorFn) (*ListCredentialsResponse, error) {
 	rsp, err := c.ListCredentials(ctx, params, reqEditors...)
@@ -13460,6 +16915,128 @@ func (c *ClientWithResponses) TreeFirmwareArtifactEntriesWithResponse(ctx contex
 		return nil, err
 	}
 	return ParseTreeFirmwareArtifactEntriesResponse(rsp)
+}
+
+// ListGameDefsWithResponse request returning *ListGameDefsResponse
+func (c *ClientWithResponses) ListGameDefsWithResponse(ctx context.Context, params *ListGameDefsParams, reqEditors ...RequestEditorFn) (*ListGameDefsResponse, error) {
+	rsp, err := c.ListGameDefs(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListGameDefsResponse(rsp)
+}
+
+// CreateGameDefWithBodyWithResponse request with arbitrary body returning *CreateGameDefResponse
+func (c *ClientWithResponses) CreateGameDefWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateGameDefResponse, error) {
+	rsp, err := c.CreateGameDefWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateGameDefResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreateGameDefWithResponse(ctx context.Context, body CreateGameDefJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateGameDefResponse, error) {
+	rsp, err := c.CreateGameDef(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateGameDefResponse(rsp)
+}
+
+// DeleteGameDefWithResponse request returning *DeleteGameDefResponse
+func (c *ClientWithResponses) DeleteGameDefWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*DeleteGameDefResponse, error) {
+	rsp, err := c.DeleteGameDef(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteGameDefResponse(rsp)
+}
+
+// GetGameDefWithResponse request returning *GetGameDefResponse
+func (c *ClientWithResponses) GetGameDefWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*GetGameDefResponse, error) {
+	rsp, err := c.GetGameDef(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetGameDefResponse(rsp)
+}
+
+// PutGameDefWithBodyWithResponse request with arbitrary body returning *PutGameDefResponse
+func (c *ClientWithResponses) PutGameDefWithBodyWithResponse(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutGameDefResponse, error) {
+	rsp, err := c.PutGameDefWithBody(ctx, id, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePutGameDefResponse(rsp)
+}
+
+func (c *ClientWithResponses) PutGameDefWithResponse(ctx context.Context, id string, body PutGameDefJSONRequestBody, reqEditors ...RequestEditorFn) (*PutGameDefResponse, error) {
+	rsp, err := c.PutGameDef(ctx, id, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePutGameDefResponse(rsp)
+}
+
+// ListGameRulesetsWithResponse request returning *ListGameRulesetsResponse
+func (c *ClientWithResponses) ListGameRulesetsWithResponse(ctx context.Context, params *ListGameRulesetsParams, reqEditors ...RequestEditorFn) (*ListGameRulesetsResponse, error) {
+	rsp, err := c.ListGameRulesets(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListGameRulesetsResponse(rsp)
+}
+
+// CreateGameRulesetWithBodyWithResponse request with arbitrary body returning *CreateGameRulesetResponse
+func (c *ClientWithResponses) CreateGameRulesetWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateGameRulesetResponse, error) {
+	rsp, err := c.CreateGameRulesetWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateGameRulesetResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreateGameRulesetWithResponse(ctx context.Context, body CreateGameRulesetJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateGameRulesetResponse, error) {
+	rsp, err := c.CreateGameRuleset(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateGameRulesetResponse(rsp)
+}
+
+// DeleteGameRulesetWithResponse request returning *DeleteGameRulesetResponse
+func (c *ClientWithResponses) DeleteGameRulesetWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*DeleteGameRulesetResponse, error) {
+	rsp, err := c.DeleteGameRuleset(ctx, name, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteGameRulesetResponse(rsp)
+}
+
+// GetGameRulesetWithResponse request returning *GetGameRulesetResponse
+func (c *ClientWithResponses) GetGameRulesetWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*GetGameRulesetResponse, error) {
+	rsp, err := c.GetGameRuleset(ctx, name, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetGameRulesetResponse(rsp)
+}
+
+// PutGameRulesetWithBodyWithResponse request with arbitrary body returning *PutGameRulesetResponse
+func (c *ClientWithResponses) PutGameRulesetWithBodyWithResponse(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutGameRulesetResponse, error) {
+	rsp, err := c.PutGameRulesetWithBody(ctx, name, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePutGameRulesetResponse(rsp)
+}
+
+func (c *ClientWithResponses) PutGameRulesetWithResponse(ctx context.Context, name string, body PutGameRulesetJSONRequestBody, reqEditors ...RequestEditorFn) (*PutGameRulesetResponse, error) {
+	rsp, err := c.PutGameRuleset(ctx, name, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePutGameRulesetResponse(rsp)
 }
 
 // ListGeminiTenantsWithResponse request returning *ListGeminiTenantsResponse
@@ -13795,6 +17372,24 @@ func (c *ClientWithResponses) RefreshPeerWithResponse(ctx context.Context, publi
 	return ParseRefreshPeerResponse(rsp)
 }
 
+// ListPeerBadgesWithResponse request returning *ListPeerBadgesResponse
+func (c *ClientWithResponses) ListPeerBadgesWithResponse(ctx context.Context, publicKey string, params *ListPeerBadgesParams, reqEditors ...RequestEditorFn) (*ListPeerBadgesResponse, error) {
+	rsp, err := c.ListPeerBadges(ctx, publicKey, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListPeerBadgesResponse(rsp)
+}
+
+// GetPeerBadgeWithResponse request returning *GetPeerBadgeResponse
+func (c *ClientWithResponses) GetPeerBadgeWithResponse(ctx context.Context, publicKey string, id string, reqEditors ...RequestEditorFn) (*GetPeerBadgeResponse, error) {
+	rsp, err := c.GetPeerBadge(ctx, publicKey, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetPeerBadgeResponse(rsp)
+}
+
 // GetPeerConfigWithResponse request returning *GetPeerConfigResponse
 func (c *ClientWithResponses) GetPeerConfigWithResponse(ctx context.Context, publicKey string, reqEditors ...RequestEditorFn) (*GetPeerConfigResponse, error) {
 	rsp, err := c.GetPeerConfig(ctx, publicKey, reqEditors...)
@@ -13865,6 +17460,24 @@ func (c *ClientWithResponses) GetPeerFriendWithResponse(ctx context.Context, pub
 	return ParseGetPeerFriendResponse(rsp)
 }
 
+// ListPeerGameResultsWithResponse request returning *ListPeerGameResultsResponse
+func (c *ClientWithResponses) ListPeerGameResultsWithResponse(ctx context.Context, publicKey string, params *ListPeerGameResultsParams, reqEditors ...RequestEditorFn) (*ListPeerGameResultsResponse, error) {
+	rsp, err := c.ListPeerGameResults(ctx, publicKey, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListPeerGameResultsResponse(rsp)
+}
+
+// GetPeerGameResultWithResponse request returning *GetPeerGameResultResponse
+func (c *ClientWithResponses) GetPeerGameResultWithResponse(ctx context.Context, publicKey string, id string, reqEditors ...RequestEditorFn) (*GetPeerGameResultResponse, error) {
+	rsp, err := c.GetPeerGameResult(ctx, publicKey, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetPeerGameResultResponse(rsp)
+}
+
 // GetPeerInfoWithResponse request returning *GetPeerInfoResponse
 func (c *ClientWithResponses) GetPeerInfoWithResponse(ctx context.Context, publicKey string, reqEditors ...RequestEditorFn) (*GetPeerInfoResponse, error) {
 	rsp, err := c.GetPeerInfo(ctx, publicKey, reqEditors...)
@@ -13891,6 +17504,69 @@ func (c *ClientWithResponses) PutPeerInfoWithResponse(ctx context.Context, publi
 	return ParsePutPeerInfoResponse(rsp)
 }
 
+// ListPeerPetsWithResponse request returning *ListPeerPetsResponse
+func (c *ClientWithResponses) ListPeerPetsWithResponse(ctx context.Context, publicKey string, params *ListPeerPetsParams, reqEditors ...RequestEditorFn) (*ListPeerPetsResponse, error) {
+	rsp, err := c.ListPeerPets(ctx, publicKey, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListPeerPetsResponse(rsp)
+}
+
+// GetPeerPetWithResponse request returning *GetPeerPetResponse
+func (c *ClientWithResponses) GetPeerPetWithResponse(ctx context.Context, publicKey string, id string, reqEditors ...RequestEditorFn) (*GetPeerPetResponse, error) {
+	rsp, err := c.GetPeerPet(ctx, publicKey, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetPeerPetResponse(rsp)
+}
+
+// GetPeerPointsWithResponse request returning *GetPeerPointsResponse
+func (c *ClientWithResponses) GetPeerPointsWithResponse(ctx context.Context, publicKey string, reqEditors ...RequestEditorFn) (*GetPeerPointsResponse, error) {
+	rsp, err := c.GetPeerPoints(ctx, publicKey, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetPeerPointsResponse(rsp)
+}
+
+// ListPeerPointsTransactionsWithResponse request returning *ListPeerPointsTransactionsResponse
+func (c *ClientWithResponses) ListPeerPointsTransactionsWithResponse(ctx context.Context, publicKey string, params *ListPeerPointsTransactionsParams, reqEditors ...RequestEditorFn) (*ListPeerPointsTransactionsResponse, error) {
+	rsp, err := c.ListPeerPointsTransactions(ctx, publicKey, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListPeerPointsTransactionsResponse(rsp)
+}
+
+// GetPeerPointsTransactionWithResponse request returning *GetPeerPointsTransactionResponse
+func (c *ClientWithResponses) GetPeerPointsTransactionWithResponse(ctx context.Context, publicKey string, id string, reqEditors ...RequestEditorFn) (*GetPeerPointsTransactionResponse, error) {
+	rsp, err := c.GetPeerPointsTransaction(ctx, publicKey, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetPeerPointsTransactionResponse(rsp)
+}
+
+// ListPeerRewardGrantsWithResponse request returning *ListPeerRewardGrantsResponse
+func (c *ClientWithResponses) ListPeerRewardGrantsWithResponse(ctx context.Context, publicKey string, params *ListPeerRewardGrantsParams, reqEditors ...RequestEditorFn) (*ListPeerRewardGrantsResponse, error) {
+	rsp, err := c.ListPeerRewardGrants(ctx, publicKey, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListPeerRewardGrantsResponse(rsp)
+}
+
+// GetPeerRewardGrantWithResponse request returning *GetPeerRewardGrantResponse
+func (c *ClientWithResponses) GetPeerRewardGrantWithResponse(ctx context.Context, publicKey string, id string, reqEditors ...RequestEditorFn) (*GetPeerRewardGrantResponse, error) {
+	rsp, err := c.GetPeerRewardGrant(ctx, publicKey, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetPeerRewardGrantResponse(rsp)
+}
+
 // GetPeerRuntimeWithResponse request returning *GetPeerRuntimeResponse
 func (c *ClientWithResponses) GetPeerRuntimeWithResponse(ctx context.Context, publicKey string, reqEditors ...RequestEditorFn) (*GetPeerRuntimeResponse, error) {
 	rsp, err := c.GetPeerRuntime(ctx, publicKey, reqEditors...)
@@ -13898,6 +17574,85 @@ func (c *ClientWithResponses) GetPeerRuntimeWithResponse(ctx context.Context, pu
 		return nil, err
 	}
 	return ParseGetPeerRuntimeResponse(rsp)
+}
+
+// ListPetDefsWithResponse request returning *ListPetDefsResponse
+func (c *ClientWithResponses) ListPetDefsWithResponse(ctx context.Context, params *ListPetDefsParams, reqEditors ...RequestEditorFn) (*ListPetDefsResponse, error) {
+	rsp, err := c.ListPetDefs(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListPetDefsResponse(rsp)
+}
+
+// CreatePetDefWithBodyWithResponse request with arbitrary body returning *CreatePetDefResponse
+func (c *ClientWithResponses) CreatePetDefWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreatePetDefResponse, error) {
+	rsp, err := c.CreatePetDefWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreatePetDefResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreatePetDefWithResponse(ctx context.Context, body CreatePetDefJSONRequestBody, reqEditors ...RequestEditorFn) (*CreatePetDefResponse, error) {
+	rsp, err := c.CreatePetDef(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreatePetDefResponse(rsp)
+}
+
+// DeletePetDefWithResponse request returning *DeletePetDefResponse
+func (c *ClientWithResponses) DeletePetDefWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*DeletePetDefResponse, error) {
+	rsp, err := c.DeletePetDef(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeletePetDefResponse(rsp)
+}
+
+// GetPetDefWithResponse request returning *GetPetDefResponse
+func (c *ClientWithResponses) GetPetDefWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*GetPetDefResponse, error) {
+	rsp, err := c.GetPetDef(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetPetDefResponse(rsp)
+}
+
+// PutPetDefWithBodyWithResponse request with arbitrary body returning *PutPetDefResponse
+func (c *ClientWithResponses) PutPetDefWithBodyWithResponse(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutPetDefResponse, error) {
+	rsp, err := c.PutPetDefWithBody(ctx, id, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePutPetDefResponse(rsp)
+}
+
+func (c *ClientWithResponses) PutPetDefWithResponse(ctx context.Context, id string, body PutPetDefJSONRequestBody, reqEditors ...RequestEditorFn) (*PutPetDefResponse, error) {
+	rsp, err := c.PutPetDef(ctx, id, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePutPetDefResponse(rsp)
+}
+
+// DownloadPetDefAssetWithResponse request returning *DownloadPetDefAssetResponse
+func (c *ClientWithResponses) DownloadPetDefAssetWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*DownloadPetDefAssetResponse, error) {
+	rsp, err := c.DownloadPetDefAsset(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDownloadPetDefAssetResponse(rsp)
+}
+
+// UploadPetDefAssetWithBodyWithResponse request with arbitrary body returning *UploadPetDefAssetResponse
+func (c *ClientWithResponses) UploadPetDefAssetWithBodyWithResponse(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UploadPetDefAssetResponse, error) {
+	rsp, err := c.UploadPetDefAssetWithBody(ctx, id, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUploadPetDefAssetResponse(rsp)
 }
 
 // DeleteResourceWithResponse request returning *DeleteResourceResponse
@@ -15122,6 +18877,286 @@ func ParsePutACLViewResponse(rsp *http.Response) (*PutACLViewResponse, error) {
 	return response, nil
 }
 
+// ParseListBadgeDefsResponse parses an HTTP response from a ListBadgeDefsWithResponse call
+func ParseListBadgeDefsResponse(rsp *http.Response) (*ListBadgeDefsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListBadgeDefsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest BadgeDefList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateBadgeDefResponse parses an HTTP response from a CreateBadgeDefWithResponse call
+func ParseCreateBadgeDefResponse(rsp *http.Response) (*CreateBadgeDefResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateBadgeDefResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest externalRef0.BadgeDef
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteBadgeDefResponse parses an HTTP response from a DeleteBadgeDefWithResponse call
+func ParseDeleteBadgeDefResponse(rsp *http.Response) (*DeleteBadgeDefResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteBadgeDefResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest externalRef0.BadgeDef
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetBadgeDefResponse parses an HTTP response from a GetBadgeDefWithResponse call
+func ParseGetBadgeDefResponse(rsp *http.Response) (*GetBadgeDefResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetBadgeDefResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest externalRef0.BadgeDef
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePutBadgeDefResponse parses an HTTP response from a PutBadgeDefWithResponse call
+func ParsePutBadgeDefResponse(rsp *http.Response) (*PutBadgeDefResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PutBadgeDefResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest externalRef0.BadgeDef
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDownloadBadgeDefIconResponse parses an HTTP response from a DownloadBadgeDefIconWithResponse call
+func ParseDownloadBadgeDefIconResponse(rsp *http.Response) (*DownloadBadgeDefIconResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DownloadBadgeDefIconResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUploadBadgeDefIconResponse parses an HTTP response from a UploadBadgeDefIconWithResponse call
+func ParseUploadBadgeDefIconResponse(rsp *http.Response) (*UploadBadgeDefIconResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UploadBadgeDefIconResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest externalRef0.BadgeDef
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseListCredentialsResponse parses an HTTP response from a ListCredentialsWithResponse call
 func ParseListCredentialsResponse(rsp *http.Response) (*ListCredentialsResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -16111,6 +20146,420 @@ func ParseTreeFirmwareArtifactEntriesResponse(rsp *http.Response) (*TreeFirmware
 			return nil, err
 		}
 		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListGameDefsResponse parses an HTTP response from a ListGameDefsWithResponse call
+func ParseListGameDefsResponse(rsp *http.Response) (*ListGameDefsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListGameDefsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest GameDefList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateGameDefResponse parses an HTTP response from a CreateGameDefWithResponse call
+func ParseCreateGameDefResponse(rsp *http.Response) (*CreateGameDefResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateGameDefResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest externalRef0.GameDef
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteGameDefResponse parses an HTTP response from a DeleteGameDefWithResponse call
+func ParseDeleteGameDefResponse(rsp *http.Response) (*DeleteGameDefResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteGameDefResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest externalRef0.GameDef
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetGameDefResponse parses an HTTP response from a GetGameDefWithResponse call
+func ParseGetGameDefResponse(rsp *http.Response) (*GetGameDefResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetGameDefResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest externalRef0.GameDef
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePutGameDefResponse parses an HTTP response from a PutGameDefWithResponse call
+func ParsePutGameDefResponse(rsp *http.Response) (*PutGameDefResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PutGameDefResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest externalRef0.GameDef
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListGameRulesetsResponse parses an HTTP response from a ListGameRulesetsWithResponse call
+func ParseListGameRulesetsResponse(rsp *http.Response) (*ListGameRulesetsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListGameRulesetsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest GameRulesetList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateGameRulesetResponse parses an HTTP response from a CreateGameRulesetWithResponse call
+func ParseCreateGameRulesetResponse(rsp *http.Response) (*CreateGameRulesetResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateGameRulesetResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest externalRef0.GameRuleset
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteGameRulesetResponse parses an HTTP response from a DeleteGameRulesetWithResponse call
+func ParseDeleteGameRulesetResponse(rsp *http.Response) (*DeleteGameRulesetResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteGameRulesetResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest externalRef0.GameRuleset
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetGameRulesetResponse parses an HTTP response from a GetGameRulesetWithResponse call
+func ParseGetGameRulesetResponse(rsp *http.Response) (*GetGameRulesetResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetGameRulesetResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest externalRef0.GameRuleset
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePutGameRulesetResponse parses an HTTP response from a PutGameRulesetWithResponse call
+func ParsePutGameRulesetResponse(rsp *http.Response) (*PutGameRulesetResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PutGameRulesetResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest externalRef0.GameRuleset
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest externalRef0.ErrorResponse
@@ -17263,6 +21712,86 @@ func ParseRefreshPeerResponse(rsp *http.Response) (*RefreshPeerResponse, error) 
 	return response, nil
 }
 
+// ParseListPeerBadgesResponse parses an HTTP response from a ListPeerBadgesWithResponse call
+func ParseListPeerBadgesResponse(rsp *http.Response) (*ListPeerBadgesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListPeerBadgesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest externalRef0.BadgeListResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetPeerBadgeResponse parses an HTTP response from a GetPeerBadgeWithResponse call
+func ParseGetPeerBadgeResponse(rsp *http.Response) (*GetPeerBadgeResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetPeerBadgeResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest externalRef0.Badge
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseGetPeerConfigResponse parses an HTTP response from a GetPeerConfigWithResponse call
 func ParseGetPeerConfigResponse(rsp *http.Response) (*GetPeerConfigResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -17524,6 +22053,86 @@ func ParseGetPeerFriendResponse(rsp *http.Response) (*GetPeerFriendResponse, err
 	return response, nil
 }
 
+// ParseListPeerGameResultsResponse parses an HTTP response from a ListPeerGameResultsWithResponse call
+func ParseListPeerGameResultsResponse(rsp *http.Response) (*ListPeerGameResultsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListPeerGameResultsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest externalRef0.GameResultListResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetPeerGameResultResponse parses an HTTP response from a GetPeerGameResultWithResponse call
+func ParseGetPeerGameResultResponse(rsp *http.Response) (*GetPeerGameResultResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetPeerGameResultResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest externalRef0.GameResult
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseGetPeerInfoResponse parses an HTTP response from a GetPeerInfoWithResponse call
 func ParseGetPeerInfoResponse(rsp *http.Response) (*GetPeerInfoResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -17597,6 +22206,286 @@ func ParsePutPeerInfoResponse(rsp *http.Response) (*PutPeerInfoResponse, error) 
 	return response, nil
 }
 
+// ParseListPeerPetsResponse parses an HTTP response from a ListPeerPetsWithResponse call
+func ParseListPeerPetsResponse(rsp *http.Response) (*ListPeerPetsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListPeerPetsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest externalRef0.PetListResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetPeerPetResponse parses an HTTP response from a GetPeerPetWithResponse call
+func ParseGetPeerPetResponse(rsp *http.Response) (*GetPeerPetResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetPeerPetResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest externalRef0.Pet
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetPeerPointsResponse parses an HTTP response from a GetPeerPointsWithResponse call
+func ParseGetPeerPointsResponse(rsp *http.Response) (*GetPeerPointsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetPeerPointsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest externalRef0.PointsAccount
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListPeerPointsTransactionsResponse parses an HTTP response from a ListPeerPointsTransactionsWithResponse call
+func ParseListPeerPointsTransactionsResponse(rsp *http.Response) (*ListPeerPointsTransactionsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListPeerPointsTransactionsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest externalRef0.PointsTransactionListResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetPeerPointsTransactionResponse parses an HTTP response from a GetPeerPointsTransactionWithResponse call
+func ParseGetPeerPointsTransactionResponse(rsp *http.Response) (*GetPeerPointsTransactionResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetPeerPointsTransactionResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest externalRef0.PointsTransaction
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListPeerRewardGrantsResponse parses an HTTP response from a ListPeerRewardGrantsWithResponse call
+func ParseListPeerRewardGrantsResponse(rsp *http.Response) (*ListPeerRewardGrantsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListPeerRewardGrantsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest externalRef0.RewardGrantListResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetPeerRewardGrantResponse parses an HTTP response from a GetPeerRewardGrantWithResponse call
+func ParseGetPeerRewardGrantResponse(rsp *http.Response) (*GetPeerRewardGrantResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetPeerRewardGrantResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest externalRef0.RewardGrant
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseGetPeerRuntimeResponse parses an HTTP response from a GetPeerRuntimeWithResponse call
 func ParseGetPeerRuntimeResponse(rsp *http.Response) (*GetPeerRuntimeResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -17617,6 +22506,286 @@ func ParseGetPeerRuntimeResponse(rsp *http.Response) (*GetPeerRuntimeResponse, e
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListPetDefsResponse parses an HTTP response from a ListPetDefsWithResponse call
+func ParseListPetDefsResponse(rsp *http.Response) (*ListPetDefsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListPetDefsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest PetDefList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreatePetDefResponse parses an HTTP response from a CreatePetDefWithResponse call
+func ParseCreatePetDefResponse(rsp *http.Response) (*CreatePetDefResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreatePetDefResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest externalRef0.PetDef
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeletePetDefResponse parses an HTTP response from a DeletePetDefWithResponse call
+func ParseDeletePetDefResponse(rsp *http.Response) (*DeletePetDefResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeletePetDefResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest externalRef0.PetDef
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetPetDefResponse parses an HTTP response from a GetPetDefWithResponse call
+func ParseGetPetDefResponse(rsp *http.Response) (*GetPetDefResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetPetDefResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest externalRef0.PetDef
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePutPetDefResponse parses an HTTP response from a PutPetDefWithResponse call
+func ParsePutPetDefResponse(rsp *http.Response) (*PutPetDefResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PutPetDefResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest externalRef0.PetDef
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDownloadPetDefAssetResponse parses an HTTP response from a DownloadPetDefAssetWithResponse call
+func ParseDownloadPetDefAssetResponse(rsp *http.Response) (*DownloadPetDefAssetResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DownloadPetDefAssetResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUploadPetDefAssetResponse parses an HTTP response from a UploadPetDefAssetWithResponse call
+func ParseUploadPetDefAssetResponse(rsp *http.Response) (*UploadPetDefAssetResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UploadPetDefAssetResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest externalRef0.PetDef
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
 
 	}
 
@@ -19810,6 +24979,27 @@ type ServerInterface interface {
 	// Create or update an ACL view
 	// (PUT /acl/views/{name})
 	PutACLView(c *fiber.Ctx, name string) error
+	// List BadgeDefs
+	// (GET /badge-defs)
+	ListBadgeDefs(c *fiber.Ctx, params ListBadgeDefsParams) error
+	// Create a BadgeDef
+	// (POST /badge-defs)
+	CreateBadgeDef(c *fiber.Ctx) error
+	// Delete a BadgeDef
+	// (DELETE /badge-defs/{id})
+	DeleteBadgeDef(c *fiber.Ctx, id string) error
+	// Get a BadgeDef
+	// (GET /badge-defs/{id})
+	GetBadgeDef(c *fiber.Ctx, id string) error
+	// Create or update a BadgeDef
+	// (PUT /badge-defs/{id})
+	PutBadgeDef(c *fiber.Ctx, id string) error
+	// Download BadgeDefIcon
+	// (GET /badge-defs/{id}/icon)
+	DownloadBadgeDefIcon(c *fiber.Ctx, id string) error
+	// Upload BadgeDefIcon
+	// (PUT /badge-defs/{id}/icon)
+	UploadBadgeDefIcon(c *fiber.Ctx, id string) error
 	// List stored credentials
 	// (GET /credentials)
 	ListCredentials(c *fiber.Ctx, params ListCredentialsParams) error
@@ -19882,6 +25072,36 @@ type ServerInterface interface {
 	// Return firmware artifact tree entries
 	// (GET /firmwares/{name}/packages/{channel}/artifact/tree)
 	TreeFirmwareArtifactEntries(c *fiber.Ctx, name string, channel TreeFirmwareArtifactEntriesParamsChannel, params TreeFirmwareArtifactEntriesParams) error
+	// List GameDefs
+	// (GET /game-defs)
+	ListGameDefs(c *fiber.Ctx, params ListGameDefsParams) error
+	// Create a GameDef
+	// (POST /game-defs)
+	CreateGameDef(c *fiber.Ctx) error
+	// Delete a GameDef
+	// (DELETE /game-defs/{id})
+	DeleteGameDef(c *fiber.Ctx, id string) error
+	// Get a GameDef
+	// (GET /game-defs/{id})
+	GetGameDef(c *fiber.Ctx, id string) error
+	// Create or update a GameDef
+	// (PUT /game-defs/{id})
+	PutGameDef(c *fiber.Ctx, id string) error
+	// List GameRulesets
+	// (GET /game-rulesets)
+	ListGameRulesets(c *fiber.Ctx, params ListGameRulesetsParams) error
+	// Create a GameRuleset
+	// (POST /game-rulesets)
+	CreateGameRuleset(c *fiber.Ctx) error
+	// Delete a GameRuleset
+	// (DELETE /game-rulesets/{name})
+	DeleteGameRuleset(c *fiber.Ctx, name string) error
+	// Get a GameRuleset
+	// (GET /game-rulesets/{name})
+	GetGameRuleset(c *fiber.Ctx, name string) error
+	// Create or update a GameRuleset
+	// (PUT /game-rulesets/{name})
+	PutGameRuleset(c *fiber.Ctx, name string) error
 	// List all Gemini tenants
 	// (GET /gemini-tenants)
 	ListGeminiTenants(c *fiber.Ctx, params ListGeminiTenantsParams) error
@@ -19969,6 +25189,12 @@ type ServerInterface interface {
 	// Refresh peer info from connected device
 	// (POST /peers/{publicKey}/@refresh)
 	RefreshPeer(c *fiber.Ctx, publicKey string) error
+	// listPeerBadges
+	// (GET /peers/{publicKey}/badges)
+	ListPeerBadges(c *fiber.Ctx, publicKey string, params ListPeerBadgesParams) error
+	// getPeerBadge
+	// (GET /peers/{publicKey}/badges/{id})
+	GetPeerBadge(c *fiber.Ctx, publicKey string, id string) error
 	// Get peer configuration
 	// (GET /peers/{publicKey}/config)
 	GetPeerConfig(c *fiber.Ctx, publicKey string) error
@@ -19987,15 +25213,63 @@ type ServerInterface interface {
 	// Get one peer owner-view friend row
 	// (GET /peers/{publicKey}/friends/{id})
 	GetPeerFriend(c *fiber.Ctx, publicKey string, id string) error
+	// listPeerGameResults
+	// (GET /peers/{publicKey}/game-results)
+	ListPeerGameResults(c *fiber.Ctx, publicKey string, params ListPeerGameResultsParams) error
+	// getPeerGameResult
+	// (GET /peers/{publicKey}/game-results/{id})
+	GetPeerGameResult(c *fiber.Ctx, publicKey string, id string) error
 	// Get peer device info
 	// (GET /peers/{publicKey}/info)
 	GetPeerInfo(c *fiber.Ctx, publicKey string) error
 	// Update peer device info
 	// (PUT /peers/{publicKey}/info)
 	PutPeerInfo(c *fiber.Ctx, publicKey string) error
+	// listPeerPets
+	// (GET /peers/{publicKey}/pets)
+	ListPeerPets(c *fiber.Ctx, publicKey string, params ListPeerPetsParams) error
+	// getPeerPet
+	// (GET /peers/{publicKey}/pets/{id})
+	GetPeerPet(c *fiber.Ctx, publicKey string, id string) error
+	// getPeerPoints
+	// (GET /peers/{publicKey}/points)
+	GetPeerPoints(c *fiber.Ctx, publicKey string) error
+	// listPeerPointsTransactions
+	// (GET /peers/{publicKey}/points/transactions)
+	ListPeerPointsTransactions(c *fiber.Ctx, publicKey string, params ListPeerPointsTransactionsParams) error
+	// getPeerPointsTransaction
+	// (GET /peers/{publicKey}/points/transactions/{id})
+	GetPeerPointsTransaction(c *fiber.Ctx, publicKey string, id string) error
+	// listPeerRewardGrants
+	// (GET /peers/{publicKey}/reward-grants)
+	ListPeerRewardGrants(c *fiber.Ctx, publicKey string, params ListPeerRewardGrantsParams) error
+	// getPeerRewardGrant
+	// (GET /peers/{publicKey}/reward-grants/{id})
+	GetPeerRewardGrant(c *fiber.Ctx, publicKey string, id string) error
 	// Get peer runtime status
 	// (GET /peers/{publicKey}/runtime)
 	GetPeerRuntime(c *fiber.Ctx, publicKey string) error
+	// List PetDefs
+	// (GET /pet-defs)
+	ListPetDefs(c *fiber.Ctx, params ListPetDefsParams) error
+	// Create a PetDef
+	// (POST /pet-defs)
+	CreatePetDef(c *fiber.Ctx) error
+	// Delete a PetDef
+	// (DELETE /pet-defs/{id})
+	DeletePetDef(c *fiber.Ctx, id string) error
+	// Get a PetDef
+	// (GET /pet-defs/{id})
+	GetPetDef(c *fiber.Ctx, id string) error
+	// Create or update a PetDef
+	// (PUT /pet-defs/{id})
+	PutPetDef(c *fiber.Ctx, id string) error
+	// Download PetDefAsset
+	// (GET /pet-defs/{id}/asset)
+	DownloadPetDefAsset(c *fiber.Ctx, id string) error
+	// Upload PetDefAsset
+	// (PUT /pet-defs/{id}/asset)
+	UploadPetDefAsset(c *fiber.Ctx, id string) error
 	// Delete an admin resource
 	// (DELETE /resources/{kind}/{name})
 	DeleteResource(c *fiber.Ctx, kind ResourceKind, name string) error
@@ -20464,6 +25738,123 @@ func (siw *ServerInterfaceWrapper) PutACLView(c *fiber.Ctx) error {
 	}
 
 	return siw.Handler.PutACLView(c, name)
+}
+
+// ListBadgeDefs operation middleware
+func (siw *ServerInterfaceWrapper) ListBadgeDefs(c *fiber.Ctx) error {
+
+	var err error
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListBadgeDefsParams
+
+	var query url.Values
+	query, err = url.ParseQuery(string(c.Request().URI().QueryString()))
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for query string: %w", err).Error())
+	}
+
+	// ------------- Optional query parameter "cursor" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "cursor", query, &params.Cursor, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter cursor: %w", err).Error())
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", query, &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: "int32"})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter limit: %w", err).Error())
+	}
+
+	return siw.Handler.ListBadgeDefs(c, params)
+}
+
+// CreateBadgeDef operation middleware
+func (siw *ServerInterfaceWrapper) CreateBadgeDef(c *fiber.Ctx) error {
+
+	return siw.Handler.CreateBadgeDef(c)
+}
+
+// DeleteBadgeDef operation middleware
+func (siw *ServerInterfaceWrapper) DeleteBadgeDef(c *fiber.Ctx) error {
+
+	var err error
+
+	// ------------- Path parameter "id" -------------
+	var id string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
+	}
+
+	return siw.Handler.DeleteBadgeDef(c, id)
+}
+
+// GetBadgeDef operation middleware
+func (siw *ServerInterfaceWrapper) GetBadgeDef(c *fiber.Ctx) error {
+
+	var err error
+
+	// ------------- Path parameter "id" -------------
+	var id string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
+	}
+
+	return siw.Handler.GetBadgeDef(c, id)
+}
+
+// PutBadgeDef operation middleware
+func (siw *ServerInterfaceWrapper) PutBadgeDef(c *fiber.Ctx) error {
+
+	var err error
+
+	// ------------- Path parameter "id" -------------
+	var id string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
+	}
+
+	return siw.Handler.PutBadgeDef(c, id)
+}
+
+// DownloadBadgeDefIcon operation middleware
+func (siw *ServerInterfaceWrapper) DownloadBadgeDefIcon(c *fiber.Ctx) error {
+
+	var err error
+
+	// ------------- Path parameter "id" -------------
+	var id string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
+	}
+
+	return siw.Handler.DownloadBadgeDefIcon(c, id)
+}
+
+// UploadBadgeDefIcon operation middleware
+func (siw *ServerInterfaceWrapper) UploadBadgeDefIcon(c *fiber.Ctx) error {
+
+	var err error
+
+	// ------------- Path parameter "id" -------------
+	var id string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
+	}
+
+	return siw.Handler.UploadBadgeDefIcon(c, id)
 }
 
 // ListCredentials operation middleware
@@ -21000,6 +26391,176 @@ func (siw *ServerInterfaceWrapper) TreeFirmwareArtifactEntries(c *fiber.Ctx) err
 	return siw.Handler.TreeFirmwareArtifactEntries(c, name, channel, params)
 }
 
+// ListGameDefs operation middleware
+func (siw *ServerInterfaceWrapper) ListGameDefs(c *fiber.Ctx) error {
+
+	var err error
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListGameDefsParams
+
+	var query url.Values
+	query, err = url.ParseQuery(string(c.Request().URI().QueryString()))
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for query string: %w", err).Error())
+	}
+
+	// ------------- Optional query parameter "cursor" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "cursor", query, &params.Cursor, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter cursor: %w", err).Error())
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", query, &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: "int32"})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter limit: %w", err).Error())
+	}
+
+	return siw.Handler.ListGameDefs(c, params)
+}
+
+// CreateGameDef operation middleware
+func (siw *ServerInterfaceWrapper) CreateGameDef(c *fiber.Ctx) error {
+
+	return siw.Handler.CreateGameDef(c)
+}
+
+// DeleteGameDef operation middleware
+func (siw *ServerInterfaceWrapper) DeleteGameDef(c *fiber.Ctx) error {
+
+	var err error
+
+	// ------------- Path parameter "id" -------------
+	var id string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
+	}
+
+	return siw.Handler.DeleteGameDef(c, id)
+}
+
+// GetGameDef operation middleware
+func (siw *ServerInterfaceWrapper) GetGameDef(c *fiber.Ctx) error {
+
+	var err error
+
+	// ------------- Path parameter "id" -------------
+	var id string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
+	}
+
+	return siw.Handler.GetGameDef(c, id)
+}
+
+// PutGameDef operation middleware
+func (siw *ServerInterfaceWrapper) PutGameDef(c *fiber.Ctx) error {
+
+	var err error
+
+	// ------------- Path parameter "id" -------------
+	var id string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
+	}
+
+	return siw.Handler.PutGameDef(c, id)
+}
+
+// ListGameRulesets operation middleware
+func (siw *ServerInterfaceWrapper) ListGameRulesets(c *fiber.Ctx) error {
+
+	var err error
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListGameRulesetsParams
+
+	var query url.Values
+	query, err = url.ParseQuery(string(c.Request().URI().QueryString()))
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for query string: %w", err).Error())
+	}
+
+	// ------------- Optional query parameter "cursor" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "cursor", query, &params.Cursor, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter cursor: %w", err).Error())
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", query, &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: "int32"})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter limit: %w", err).Error())
+	}
+
+	return siw.Handler.ListGameRulesets(c, params)
+}
+
+// CreateGameRuleset operation middleware
+func (siw *ServerInterfaceWrapper) CreateGameRuleset(c *fiber.Ctx) error {
+
+	return siw.Handler.CreateGameRuleset(c)
+}
+
+// DeleteGameRuleset operation middleware
+func (siw *ServerInterfaceWrapper) DeleteGameRuleset(c *fiber.Ctx) error {
+
+	var err error
+
+	// ------------- Path parameter "name" -------------
+	var name string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "name", c.Params("name"), &name, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter name: %w", err).Error())
+	}
+
+	return siw.Handler.DeleteGameRuleset(c, name)
+}
+
+// GetGameRuleset operation middleware
+func (siw *ServerInterfaceWrapper) GetGameRuleset(c *fiber.Ctx) error {
+
+	var err error
+
+	// ------------- Path parameter "name" -------------
+	var name string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "name", c.Params("name"), &name, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter name: %w", err).Error())
+	}
+
+	return siw.Handler.GetGameRuleset(c, name)
+}
+
+// PutGameRuleset operation middleware
+func (siw *ServerInterfaceWrapper) PutGameRuleset(c *fiber.Ctx) error {
+
+	var err error
+
+	// ------------- Path parameter "name" -------------
+	var name string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "name", c.Params("name"), &name, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter name: %w", err).Error())
+	}
+
+	return siw.Handler.PutGameRuleset(c, name)
+}
+
 // ListGeminiTenants operation middleware
 func (siw *ServerInterfaceWrapper) ListGeminiTenants(c *fiber.Ctx) error {
 
@@ -21528,6 +27089,69 @@ func (siw *ServerInterfaceWrapper) RefreshPeer(c *fiber.Ctx) error {
 	return siw.Handler.RefreshPeer(c, publicKey)
 }
 
+// ListPeerBadges operation middleware
+func (siw *ServerInterfaceWrapper) ListPeerBadges(c *fiber.Ctx) error {
+
+	var err error
+
+	// ------------- Path parameter "publicKey" -------------
+	var publicKey string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "publicKey", c.Params("publicKey"), &publicKey, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter publicKey: %w", err).Error())
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListPeerBadgesParams
+
+	var query url.Values
+	query, err = url.ParseQuery(string(c.Request().URI().QueryString()))
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for query string: %w", err).Error())
+	}
+
+	// ------------- Optional query parameter "cursor" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "cursor", query, &params.Cursor, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter cursor: %w", err).Error())
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", query, &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: "int32"})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter limit: %w", err).Error())
+	}
+
+	return siw.Handler.ListPeerBadges(c, publicKey, params)
+}
+
+// GetPeerBadge operation middleware
+func (siw *ServerInterfaceWrapper) GetPeerBadge(c *fiber.Ctx) error {
+
+	var err error
+
+	// ------------- Path parameter "publicKey" -------------
+	var publicKey string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "publicKey", c.Params("publicKey"), &publicKey, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter publicKey: %w", err).Error())
+	}
+
+	// ------------- Path parameter "id" -------------
+	var id string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
+	}
+
+	return siw.Handler.GetPeerBadge(c, publicKey, id)
+}
+
 // GetPeerConfig operation middleware
 func (siw *ServerInterfaceWrapper) GetPeerConfig(c *fiber.Ctx) error {
 
@@ -21663,6 +27287,69 @@ func (siw *ServerInterfaceWrapper) GetPeerFriend(c *fiber.Ctx) error {
 	return siw.Handler.GetPeerFriend(c, publicKey, id)
 }
 
+// ListPeerGameResults operation middleware
+func (siw *ServerInterfaceWrapper) ListPeerGameResults(c *fiber.Ctx) error {
+
+	var err error
+
+	// ------------- Path parameter "publicKey" -------------
+	var publicKey string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "publicKey", c.Params("publicKey"), &publicKey, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter publicKey: %w", err).Error())
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListPeerGameResultsParams
+
+	var query url.Values
+	query, err = url.ParseQuery(string(c.Request().URI().QueryString()))
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for query string: %w", err).Error())
+	}
+
+	// ------------- Optional query parameter "cursor" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "cursor", query, &params.Cursor, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter cursor: %w", err).Error())
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", query, &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: "int32"})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter limit: %w", err).Error())
+	}
+
+	return siw.Handler.ListPeerGameResults(c, publicKey, params)
+}
+
+// GetPeerGameResult operation middleware
+func (siw *ServerInterfaceWrapper) GetPeerGameResult(c *fiber.Ctx) error {
+
+	var err error
+
+	// ------------- Path parameter "publicKey" -------------
+	var publicKey string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "publicKey", c.Params("publicKey"), &publicKey, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter publicKey: %w", err).Error())
+	}
+
+	// ------------- Path parameter "id" -------------
+	var id string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
+	}
+
+	return siw.Handler.GetPeerGameResult(c, publicKey, id)
+}
+
 // GetPeerInfo operation middleware
 func (siw *ServerInterfaceWrapper) GetPeerInfo(c *fiber.Ctx) error {
 
@@ -21695,6 +27382,211 @@ func (siw *ServerInterfaceWrapper) PutPeerInfo(c *fiber.Ctx) error {
 	return siw.Handler.PutPeerInfo(c, publicKey)
 }
 
+// ListPeerPets operation middleware
+func (siw *ServerInterfaceWrapper) ListPeerPets(c *fiber.Ctx) error {
+
+	var err error
+
+	// ------------- Path parameter "publicKey" -------------
+	var publicKey string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "publicKey", c.Params("publicKey"), &publicKey, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter publicKey: %w", err).Error())
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListPeerPetsParams
+
+	var query url.Values
+	query, err = url.ParseQuery(string(c.Request().URI().QueryString()))
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for query string: %w", err).Error())
+	}
+
+	// ------------- Optional query parameter "cursor" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "cursor", query, &params.Cursor, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter cursor: %w", err).Error())
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", query, &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: "int32"})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter limit: %w", err).Error())
+	}
+
+	return siw.Handler.ListPeerPets(c, publicKey, params)
+}
+
+// GetPeerPet operation middleware
+func (siw *ServerInterfaceWrapper) GetPeerPet(c *fiber.Ctx) error {
+
+	var err error
+
+	// ------------- Path parameter "publicKey" -------------
+	var publicKey string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "publicKey", c.Params("publicKey"), &publicKey, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter publicKey: %w", err).Error())
+	}
+
+	// ------------- Path parameter "id" -------------
+	var id string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
+	}
+
+	return siw.Handler.GetPeerPet(c, publicKey, id)
+}
+
+// GetPeerPoints operation middleware
+func (siw *ServerInterfaceWrapper) GetPeerPoints(c *fiber.Ctx) error {
+
+	var err error
+
+	// ------------- Path parameter "publicKey" -------------
+	var publicKey string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "publicKey", c.Params("publicKey"), &publicKey, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter publicKey: %w", err).Error())
+	}
+
+	return siw.Handler.GetPeerPoints(c, publicKey)
+}
+
+// ListPeerPointsTransactions operation middleware
+func (siw *ServerInterfaceWrapper) ListPeerPointsTransactions(c *fiber.Ctx) error {
+
+	var err error
+
+	// ------------- Path parameter "publicKey" -------------
+	var publicKey string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "publicKey", c.Params("publicKey"), &publicKey, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter publicKey: %w", err).Error())
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListPeerPointsTransactionsParams
+
+	var query url.Values
+	query, err = url.ParseQuery(string(c.Request().URI().QueryString()))
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for query string: %w", err).Error())
+	}
+
+	// ------------- Optional query parameter "cursor" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "cursor", query, &params.Cursor, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter cursor: %w", err).Error())
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", query, &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: "int32"})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter limit: %w", err).Error())
+	}
+
+	return siw.Handler.ListPeerPointsTransactions(c, publicKey, params)
+}
+
+// GetPeerPointsTransaction operation middleware
+func (siw *ServerInterfaceWrapper) GetPeerPointsTransaction(c *fiber.Ctx) error {
+
+	var err error
+
+	// ------------- Path parameter "publicKey" -------------
+	var publicKey string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "publicKey", c.Params("publicKey"), &publicKey, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter publicKey: %w", err).Error())
+	}
+
+	// ------------- Path parameter "id" -------------
+	var id string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
+	}
+
+	return siw.Handler.GetPeerPointsTransaction(c, publicKey, id)
+}
+
+// ListPeerRewardGrants operation middleware
+func (siw *ServerInterfaceWrapper) ListPeerRewardGrants(c *fiber.Ctx) error {
+
+	var err error
+
+	// ------------- Path parameter "publicKey" -------------
+	var publicKey string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "publicKey", c.Params("publicKey"), &publicKey, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter publicKey: %w", err).Error())
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListPeerRewardGrantsParams
+
+	var query url.Values
+	query, err = url.ParseQuery(string(c.Request().URI().QueryString()))
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for query string: %w", err).Error())
+	}
+
+	// ------------- Optional query parameter "cursor" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "cursor", query, &params.Cursor, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter cursor: %w", err).Error())
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", query, &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: "int32"})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter limit: %w", err).Error())
+	}
+
+	return siw.Handler.ListPeerRewardGrants(c, publicKey, params)
+}
+
+// GetPeerRewardGrant operation middleware
+func (siw *ServerInterfaceWrapper) GetPeerRewardGrant(c *fiber.Ctx) error {
+
+	var err error
+
+	// ------------- Path parameter "publicKey" -------------
+	var publicKey string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "publicKey", c.Params("publicKey"), &publicKey, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter publicKey: %w", err).Error())
+	}
+
+	// ------------- Path parameter "id" -------------
+	var id string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
+	}
+
+	return siw.Handler.GetPeerRewardGrant(c, publicKey, id)
+}
+
 // GetPeerRuntime operation middleware
 func (siw *ServerInterfaceWrapper) GetPeerRuntime(c *fiber.Ctx) error {
 
@@ -21709,6 +27601,123 @@ func (siw *ServerInterfaceWrapper) GetPeerRuntime(c *fiber.Ctx) error {
 	}
 
 	return siw.Handler.GetPeerRuntime(c, publicKey)
+}
+
+// ListPetDefs operation middleware
+func (siw *ServerInterfaceWrapper) ListPetDefs(c *fiber.Ctx) error {
+
+	var err error
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListPetDefsParams
+
+	var query url.Values
+	query, err = url.ParseQuery(string(c.Request().URI().QueryString()))
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for query string: %w", err).Error())
+	}
+
+	// ------------- Optional query parameter "cursor" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "cursor", query, &params.Cursor, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter cursor: %w", err).Error())
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", query, &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: "int32"})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter limit: %w", err).Error())
+	}
+
+	return siw.Handler.ListPetDefs(c, params)
+}
+
+// CreatePetDef operation middleware
+func (siw *ServerInterfaceWrapper) CreatePetDef(c *fiber.Ctx) error {
+
+	return siw.Handler.CreatePetDef(c)
+}
+
+// DeletePetDef operation middleware
+func (siw *ServerInterfaceWrapper) DeletePetDef(c *fiber.Ctx) error {
+
+	var err error
+
+	// ------------- Path parameter "id" -------------
+	var id string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
+	}
+
+	return siw.Handler.DeletePetDef(c, id)
+}
+
+// GetPetDef operation middleware
+func (siw *ServerInterfaceWrapper) GetPetDef(c *fiber.Ctx) error {
+
+	var err error
+
+	// ------------- Path parameter "id" -------------
+	var id string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
+	}
+
+	return siw.Handler.GetPetDef(c, id)
+}
+
+// PutPetDef operation middleware
+func (siw *ServerInterfaceWrapper) PutPetDef(c *fiber.Ctx) error {
+
+	var err error
+
+	// ------------- Path parameter "id" -------------
+	var id string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
+	}
+
+	return siw.Handler.PutPetDef(c, id)
+}
+
+// DownloadPetDefAsset operation middleware
+func (siw *ServerInterfaceWrapper) DownloadPetDefAsset(c *fiber.Ctx) error {
+
+	var err error
+
+	// ------------- Path parameter "id" -------------
+	var id string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
+	}
+
+	return siw.Handler.DownloadPetDefAsset(c, id)
+}
+
+// UploadPetDefAsset operation middleware
+func (siw *ServerInterfaceWrapper) UploadPetDefAsset(c *fiber.Ctx) error {
+
+	var err error
+
+	// ------------- Path parameter "id" -------------
+	var id string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
+	}
+
+	return siw.Handler.UploadPetDefAsset(c, id)
 }
 
 // DeleteResource operation middleware
@@ -22744,6 +28753,20 @@ func RegisterHandlersWithOptions(router fiber.Router, si ServerInterface, option
 
 	router.Put(options.BaseURL+"/acl/views/:name", wrapper.PutACLView)
 
+	router.Get(options.BaseURL+"/badge-defs", wrapper.ListBadgeDefs)
+
+	router.Post(options.BaseURL+"/badge-defs", wrapper.CreateBadgeDef)
+
+	router.Delete(options.BaseURL+"/badge-defs/:id", wrapper.DeleteBadgeDef)
+
+	router.Get(options.BaseURL+"/badge-defs/:id", wrapper.GetBadgeDef)
+
+	router.Put(options.BaseURL+"/badge-defs/:id", wrapper.PutBadgeDef)
+
+	router.Get(options.BaseURL+"/badge-defs/:id/icon", wrapper.DownloadBadgeDefIcon)
+
+	router.Put(options.BaseURL+"/badge-defs/:id/icon", wrapper.UploadBadgeDefIcon)
+
 	router.Get(options.BaseURL+"/credentials", wrapper.ListCredentials)
 
 	router.Post(options.BaseURL+"/credentials", wrapper.CreateCredential)
@@ -22791,6 +28814,26 @@ func RegisterHandlersWithOptions(router fiber.Router, si ServerInterface, option
 	router.Get(options.BaseURL+"/firmwares/:name/packages/:channel/artifact/stat", wrapper.StatFirmwareArtifactEntry)
 
 	router.Get(options.BaseURL+"/firmwares/:name/packages/:channel/artifact/tree", wrapper.TreeFirmwareArtifactEntries)
+
+	router.Get(options.BaseURL+"/game-defs", wrapper.ListGameDefs)
+
+	router.Post(options.BaseURL+"/game-defs", wrapper.CreateGameDef)
+
+	router.Delete(options.BaseURL+"/game-defs/:id", wrapper.DeleteGameDef)
+
+	router.Get(options.BaseURL+"/game-defs/:id", wrapper.GetGameDef)
+
+	router.Put(options.BaseURL+"/game-defs/:id", wrapper.PutGameDef)
+
+	router.Get(options.BaseURL+"/game-rulesets", wrapper.ListGameRulesets)
+
+	router.Post(options.BaseURL+"/game-rulesets", wrapper.CreateGameRuleset)
+
+	router.Delete(options.BaseURL+"/game-rulesets/:name", wrapper.DeleteGameRuleset)
+
+	router.Get(options.BaseURL+"/game-rulesets/:name", wrapper.GetGameRuleset)
+
+	router.Put(options.BaseURL+"/game-rulesets/:name", wrapper.PutGameRuleset)
 
 	router.Get(options.BaseURL+"/gemini-tenants", wrapper.ListGeminiTenants)
 
@@ -22850,6 +28893,10 @@ func RegisterHandlersWithOptions(router fiber.Router, si ServerInterface, option
 
 	router.Post(options.BaseURL+"/peers/:publicKey/@refresh", wrapper.RefreshPeer)
 
+	router.Get(options.BaseURL+"/peers/:publicKey/badges", wrapper.ListPeerBadges)
+
+	router.Get(options.BaseURL+"/peers/:publicKey/badges/:id", wrapper.GetPeerBadge)
+
 	router.Get(options.BaseURL+"/peers/:publicKey/config", wrapper.GetPeerConfig)
 
 	router.Put(options.BaseURL+"/peers/:publicKey/config", wrapper.PutPeerConfig)
@@ -22862,11 +28909,43 @@ func RegisterHandlersWithOptions(router fiber.Router, si ServerInterface, option
 
 	router.Get(options.BaseURL+"/peers/:publicKey/friends/:id", wrapper.GetPeerFriend)
 
+	router.Get(options.BaseURL+"/peers/:publicKey/game-results", wrapper.ListPeerGameResults)
+
+	router.Get(options.BaseURL+"/peers/:publicKey/game-results/:id", wrapper.GetPeerGameResult)
+
 	router.Get(options.BaseURL+"/peers/:publicKey/info", wrapper.GetPeerInfo)
 
 	router.Put(options.BaseURL+"/peers/:publicKey/info", wrapper.PutPeerInfo)
 
+	router.Get(options.BaseURL+"/peers/:publicKey/pets", wrapper.ListPeerPets)
+
+	router.Get(options.BaseURL+"/peers/:publicKey/pets/:id", wrapper.GetPeerPet)
+
+	router.Get(options.BaseURL+"/peers/:publicKey/points", wrapper.GetPeerPoints)
+
+	router.Get(options.BaseURL+"/peers/:publicKey/points/transactions", wrapper.ListPeerPointsTransactions)
+
+	router.Get(options.BaseURL+"/peers/:publicKey/points/transactions/:id", wrapper.GetPeerPointsTransaction)
+
+	router.Get(options.BaseURL+"/peers/:publicKey/reward-grants", wrapper.ListPeerRewardGrants)
+
+	router.Get(options.BaseURL+"/peers/:publicKey/reward-grants/:id", wrapper.GetPeerRewardGrant)
+
 	router.Get(options.BaseURL+"/peers/:publicKey/runtime", wrapper.GetPeerRuntime)
+
+	router.Get(options.BaseURL+"/pet-defs", wrapper.ListPetDefs)
+
+	router.Post(options.BaseURL+"/pet-defs", wrapper.CreatePetDef)
+
+	router.Delete(options.BaseURL+"/pet-defs/:id", wrapper.DeletePetDef)
+
+	router.Get(options.BaseURL+"/pet-defs/:id", wrapper.GetPetDef)
+
+	router.Put(options.BaseURL+"/pet-defs/:id", wrapper.PutPetDef)
+
+	router.Get(options.BaseURL+"/pet-defs/:id/asset", wrapper.DownloadPetDefAsset)
+
+	router.Put(options.BaseURL+"/pet-defs/:id/asset", wrapper.UploadPetDefAsset)
 
 	router.Delete(options.BaseURL+"/resources/:kind/:name", wrapper.DeleteResource)
 
@@ -23542,6 +29621,272 @@ func (response PutACLView400JSONResponse) VisitPutACLViewResponse(ctx *fiber.Ctx
 type PutACLView500JSONResponse externalRef0.ErrorResponse
 
 func (response PutACLView500JSONResponse) VisitPutACLViewResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type ListBadgeDefsRequestObject struct {
+	Params ListBadgeDefsParams
+}
+
+type ListBadgeDefsResponseObject interface {
+	VisitListBadgeDefsResponse(ctx *fiber.Ctx) error
+}
+
+type ListBadgeDefs200JSONResponse BadgeDefList
+
+func (response ListBadgeDefs200JSONResponse) VisitListBadgeDefsResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type ListBadgeDefs500JSONResponse externalRef0.ErrorResponse
+
+func (response ListBadgeDefs500JSONResponse) VisitListBadgeDefsResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type CreateBadgeDefRequestObject struct {
+	Body *CreateBadgeDefJSONRequestBody
+}
+
+type CreateBadgeDefResponseObject interface {
+	VisitCreateBadgeDefResponse(ctx *fiber.Ctx) error
+}
+
+type CreateBadgeDef200JSONResponse externalRef0.BadgeDef
+
+func (response CreateBadgeDef200JSONResponse) VisitCreateBadgeDefResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type CreateBadgeDef400JSONResponse externalRef0.ErrorResponse
+
+func (response CreateBadgeDef400JSONResponse) VisitCreateBadgeDefResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(400)
+
+	return ctx.JSON(&response)
+}
+
+type CreateBadgeDef409JSONResponse externalRef0.ErrorResponse
+
+func (response CreateBadgeDef409JSONResponse) VisitCreateBadgeDefResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
+
+	return ctx.JSON(&response)
+}
+
+type CreateBadgeDef500JSONResponse externalRef0.ErrorResponse
+
+func (response CreateBadgeDef500JSONResponse) VisitCreateBadgeDefResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type DeleteBadgeDefRequestObject struct {
+	Id string `json:"id"`
+}
+
+type DeleteBadgeDefResponseObject interface {
+	VisitDeleteBadgeDefResponse(ctx *fiber.Ctx) error
+}
+
+type DeleteBadgeDef200JSONResponse externalRef0.BadgeDef
+
+func (response DeleteBadgeDef200JSONResponse) VisitDeleteBadgeDefResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type DeleteBadgeDef404JSONResponse externalRef0.ErrorResponse
+
+func (response DeleteBadgeDef404JSONResponse) VisitDeleteBadgeDefResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type DeleteBadgeDef500JSONResponse externalRef0.ErrorResponse
+
+func (response DeleteBadgeDef500JSONResponse) VisitDeleteBadgeDefResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type GetBadgeDefRequestObject struct {
+	Id string `json:"id"`
+}
+
+type GetBadgeDefResponseObject interface {
+	VisitGetBadgeDefResponse(ctx *fiber.Ctx) error
+}
+
+type GetBadgeDef200JSONResponse externalRef0.BadgeDef
+
+func (response GetBadgeDef200JSONResponse) VisitGetBadgeDefResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type GetBadgeDef404JSONResponse externalRef0.ErrorResponse
+
+func (response GetBadgeDef404JSONResponse) VisitGetBadgeDefResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type GetBadgeDef500JSONResponse externalRef0.ErrorResponse
+
+func (response GetBadgeDef500JSONResponse) VisitGetBadgeDefResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type PutBadgeDefRequestObject struct {
+	Id   string `json:"id"`
+	Body *PutBadgeDefJSONRequestBody
+}
+
+type PutBadgeDefResponseObject interface {
+	VisitPutBadgeDefResponse(ctx *fiber.Ctx) error
+}
+
+type PutBadgeDef200JSONResponse externalRef0.BadgeDef
+
+func (response PutBadgeDef200JSONResponse) VisitPutBadgeDefResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type PutBadgeDef400JSONResponse externalRef0.ErrorResponse
+
+func (response PutBadgeDef400JSONResponse) VisitPutBadgeDefResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(400)
+
+	return ctx.JSON(&response)
+}
+
+type PutBadgeDef409JSONResponse externalRef0.ErrorResponse
+
+func (response PutBadgeDef409JSONResponse) VisitPutBadgeDefResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
+
+	return ctx.JSON(&response)
+}
+
+type PutBadgeDef500JSONResponse externalRef0.ErrorResponse
+
+func (response PutBadgeDef500JSONResponse) VisitPutBadgeDefResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type DownloadBadgeDefIconRequestObject struct {
+	Id string `json:"id"`
+}
+
+type DownloadBadgeDefIconResponseObject interface {
+	VisitDownloadBadgeDefIconResponse(ctx *fiber.Ctx) error
+}
+
+type DownloadBadgeDefIcon200ApplicationoctetStreamResponse struct {
+	Body          io.Reader
+	ContentLength int64
+}
+
+func (response DownloadBadgeDefIcon200ApplicationoctetStreamResponse) VisitDownloadBadgeDefIconResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/octet-stream")
+	if response.ContentLength != 0 {
+		ctx.Response().Header.Set("Content-Length", fmt.Sprint(response.ContentLength))
+	}
+	ctx.Status(200)
+
+	if closer, ok := response.Body.(io.ReadCloser); ok {
+		defer closer.Close()
+	}
+	_, err := io.Copy(ctx.Response().BodyWriter(), response.Body)
+	return err
+}
+
+type DownloadBadgeDefIcon404JSONResponse externalRef0.ErrorResponse
+
+func (response DownloadBadgeDefIcon404JSONResponse) VisitDownloadBadgeDefIconResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type DownloadBadgeDefIcon500JSONResponse externalRef0.ErrorResponse
+
+func (response DownloadBadgeDefIcon500JSONResponse) VisitDownloadBadgeDefIconResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type UploadBadgeDefIconRequestObject struct {
+	Id   string `json:"id"`
+	Body io.Reader
+}
+
+type UploadBadgeDefIconResponseObject interface {
+	VisitUploadBadgeDefIconResponse(ctx *fiber.Ctx) error
+}
+
+type UploadBadgeDefIcon200JSONResponse externalRef0.BadgeDef
+
+func (response UploadBadgeDefIcon200JSONResponse) VisitUploadBadgeDefIconResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type UploadBadgeDefIcon404JSONResponse externalRef0.ErrorResponse
+
+func (response UploadBadgeDefIcon404JSONResponse) VisitUploadBadgeDefIconResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type UploadBadgeDefIcon500JSONResponse externalRef0.ErrorResponse
+
+func (response UploadBadgeDefIcon500JSONResponse) VisitUploadBadgeDefIconResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(500)
 
@@ -24489,6 +30834,376 @@ func (response TreeFirmwareArtifactEntries404JSONResponse) VisitTreeFirmwareArti
 type TreeFirmwareArtifactEntries500JSONResponse externalRef0.ErrorResponse
 
 func (response TreeFirmwareArtifactEntries500JSONResponse) VisitTreeFirmwareArtifactEntriesResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type ListGameDefsRequestObject struct {
+	Params ListGameDefsParams
+}
+
+type ListGameDefsResponseObject interface {
+	VisitListGameDefsResponse(ctx *fiber.Ctx) error
+}
+
+type ListGameDefs200JSONResponse GameDefList
+
+func (response ListGameDefs200JSONResponse) VisitListGameDefsResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type ListGameDefs500JSONResponse externalRef0.ErrorResponse
+
+func (response ListGameDefs500JSONResponse) VisitListGameDefsResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type CreateGameDefRequestObject struct {
+	Body *CreateGameDefJSONRequestBody
+}
+
+type CreateGameDefResponseObject interface {
+	VisitCreateGameDefResponse(ctx *fiber.Ctx) error
+}
+
+type CreateGameDef200JSONResponse externalRef0.GameDef
+
+func (response CreateGameDef200JSONResponse) VisitCreateGameDefResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type CreateGameDef400JSONResponse externalRef0.ErrorResponse
+
+func (response CreateGameDef400JSONResponse) VisitCreateGameDefResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(400)
+
+	return ctx.JSON(&response)
+}
+
+type CreateGameDef409JSONResponse externalRef0.ErrorResponse
+
+func (response CreateGameDef409JSONResponse) VisitCreateGameDefResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
+
+	return ctx.JSON(&response)
+}
+
+type CreateGameDef500JSONResponse externalRef0.ErrorResponse
+
+func (response CreateGameDef500JSONResponse) VisitCreateGameDefResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type DeleteGameDefRequestObject struct {
+	Id string `json:"id"`
+}
+
+type DeleteGameDefResponseObject interface {
+	VisitDeleteGameDefResponse(ctx *fiber.Ctx) error
+}
+
+type DeleteGameDef200JSONResponse externalRef0.GameDef
+
+func (response DeleteGameDef200JSONResponse) VisitDeleteGameDefResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type DeleteGameDef404JSONResponse externalRef0.ErrorResponse
+
+func (response DeleteGameDef404JSONResponse) VisitDeleteGameDefResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type DeleteGameDef500JSONResponse externalRef0.ErrorResponse
+
+func (response DeleteGameDef500JSONResponse) VisitDeleteGameDefResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type GetGameDefRequestObject struct {
+	Id string `json:"id"`
+}
+
+type GetGameDefResponseObject interface {
+	VisitGetGameDefResponse(ctx *fiber.Ctx) error
+}
+
+type GetGameDef200JSONResponse externalRef0.GameDef
+
+func (response GetGameDef200JSONResponse) VisitGetGameDefResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type GetGameDef404JSONResponse externalRef0.ErrorResponse
+
+func (response GetGameDef404JSONResponse) VisitGetGameDefResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type GetGameDef500JSONResponse externalRef0.ErrorResponse
+
+func (response GetGameDef500JSONResponse) VisitGetGameDefResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type PutGameDefRequestObject struct {
+	Id   string `json:"id"`
+	Body *PutGameDefJSONRequestBody
+}
+
+type PutGameDefResponseObject interface {
+	VisitPutGameDefResponse(ctx *fiber.Ctx) error
+}
+
+type PutGameDef200JSONResponse externalRef0.GameDef
+
+func (response PutGameDef200JSONResponse) VisitPutGameDefResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type PutGameDef400JSONResponse externalRef0.ErrorResponse
+
+func (response PutGameDef400JSONResponse) VisitPutGameDefResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(400)
+
+	return ctx.JSON(&response)
+}
+
+type PutGameDef409JSONResponse externalRef0.ErrorResponse
+
+func (response PutGameDef409JSONResponse) VisitPutGameDefResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
+
+	return ctx.JSON(&response)
+}
+
+type PutGameDef500JSONResponse externalRef0.ErrorResponse
+
+func (response PutGameDef500JSONResponse) VisitPutGameDefResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type ListGameRulesetsRequestObject struct {
+	Params ListGameRulesetsParams
+}
+
+type ListGameRulesetsResponseObject interface {
+	VisitListGameRulesetsResponse(ctx *fiber.Ctx) error
+}
+
+type ListGameRulesets200JSONResponse GameRulesetList
+
+func (response ListGameRulesets200JSONResponse) VisitListGameRulesetsResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type ListGameRulesets500JSONResponse externalRef0.ErrorResponse
+
+func (response ListGameRulesets500JSONResponse) VisitListGameRulesetsResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type CreateGameRulesetRequestObject struct {
+	Body *CreateGameRulesetJSONRequestBody
+}
+
+type CreateGameRulesetResponseObject interface {
+	VisitCreateGameRulesetResponse(ctx *fiber.Ctx) error
+}
+
+type CreateGameRuleset200JSONResponse externalRef0.GameRuleset
+
+func (response CreateGameRuleset200JSONResponse) VisitCreateGameRulesetResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type CreateGameRuleset400JSONResponse externalRef0.ErrorResponse
+
+func (response CreateGameRuleset400JSONResponse) VisitCreateGameRulesetResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(400)
+
+	return ctx.JSON(&response)
+}
+
+type CreateGameRuleset409JSONResponse externalRef0.ErrorResponse
+
+func (response CreateGameRuleset409JSONResponse) VisitCreateGameRulesetResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
+
+	return ctx.JSON(&response)
+}
+
+type CreateGameRuleset500JSONResponse externalRef0.ErrorResponse
+
+func (response CreateGameRuleset500JSONResponse) VisitCreateGameRulesetResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type DeleteGameRulesetRequestObject struct {
+	Name string `json:"name"`
+}
+
+type DeleteGameRulesetResponseObject interface {
+	VisitDeleteGameRulesetResponse(ctx *fiber.Ctx) error
+}
+
+type DeleteGameRuleset200JSONResponse externalRef0.GameRuleset
+
+func (response DeleteGameRuleset200JSONResponse) VisitDeleteGameRulesetResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type DeleteGameRuleset404JSONResponse externalRef0.ErrorResponse
+
+func (response DeleteGameRuleset404JSONResponse) VisitDeleteGameRulesetResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type DeleteGameRuleset500JSONResponse externalRef0.ErrorResponse
+
+func (response DeleteGameRuleset500JSONResponse) VisitDeleteGameRulesetResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type GetGameRulesetRequestObject struct {
+	Name string `json:"name"`
+}
+
+type GetGameRulesetResponseObject interface {
+	VisitGetGameRulesetResponse(ctx *fiber.Ctx) error
+}
+
+type GetGameRuleset200JSONResponse externalRef0.GameRuleset
+
+func (response GetGameRuleset200JSONResponse) VisitGetGameRulesetResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type GetGameRuleset404JSONResponse externalRef0.ErrorResponse
+
+func (response GetGameRuleset404JSONResponse) VisitGetGameRulesetResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type GetGameRuleset500JSONResponse externalRef0.ErrorResponse
+
+func (response GetGameRuleset500JSONResponse) VisitGetGameRulesetResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type PutGameRulesetRequestObject struct {
+	Name string `json:"name"`
+	Body *PutGameRulesetJSONRequestBody
+}
+
+type PutGameRulesetResponseObject interface {
+	VisitPutGameRulesetResponse(ctx *fiber.Ctx) error
+}
+
+type PutGameRuleset200JSONResponse externalRef0.GameRuleset
+
+func (response PutGameRuleset200JSONResponse) VisitPutGameRulesetResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type PutGameRuleset400JSONResponse externalRef0.ErrorResponse
+
+func (response PutGameRuleset400JSONResponse) VisitPutGameRulesetResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(400)
+
+	return ctx.JSON(&response)
+}
+
+type PutGameRuleset409JSONResponse externalRef0.ErrorResponse
+
+func (response PutGameRuleset409JSONResponse) VisitPutGameRulesetResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
+
+	return ctx.JSON(&response)
+}
+
+type PutGameRuleset500JSONResponse externalRef0.ErrorResponse
+
+func (response PutGameRuleset500JSONResponse) VisitPutGameRulesetResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(500)
 
@@ -25489,6 +32204,78 @@ func (response RefreshPeer502JSONResponse) VisitRefreshPeerResponse(ctx *fiber.C
 	return ctx.JSON(&response)
 }
 
+type ListPeerBadgesRequestObject struct {
+	PublicKey string `json:"publicKey"`
+	Params    ListPeerBadgesParams
+}
+
+type ListPeerBadgesResponseObject interface {
+	VisitListPeerBadgesResponse(ctx *fiber.Ctx) error
+}
+
+type ListPeerBadges200JSONResponse externalRef0.BadgeListResponse
+
+func (response ListPeerBadges200JSONResponse) VisitListPeerBadgesResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type ListPeerBadges404JSONResponse externalRef0.ErrorResponse
+
+func (response ListPeerBadges404JSONResponse) VisitListPeerBadgesResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type ListPeerBadges500JSONResponse externalRef0.ErrorResponse
+
+func (response ListPeerBadges500JSONResponse) VisitListPeerBadgesResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type GetPeerBadgeRequestObject struct {
+	PublicKey string `json:"publicKey"`
+	Id        string `json:"id"`
+}
+
+type GetPeerBadgeResponseObject interface {
+	VisitGetPeerBadgeResponse(ctx *fiber.Ctx) error
+}
+
+type GetPeerBadge200JSONResponse externalRef0.Badge
+
+func (response GetPeerBadge200JSONResponse) VisitGetPeerBadgeResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type GetPeerBadge404JSONResponse externalRef0.ErrorResponse
+
+func (response GetPeerBadge404JSONResponse) VisitGetPeerBadgeResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type GetPeerBadge500JSONResponse externalRef0.ErrorResponse
+
+func (response GetPeerBadge500JSONResponse) VisitGetPeerBadgeResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
 type GetPeerConfigRequestObject struct {
 	PublicKey string `json:"publicKey"`
 }
@@ -25731,6 +32518,78 @@ func (response GetPeerFriend500JSONResponse) VisitGetPeerFriendResponse(ctx *fib
 	return ctx.JSON(&response)
 }
 
+type ListPeerGameResultsRequestObject struct {
+	PublicKey string `json:"publicKey"`
+	Params    ListPeerGameResultsParams
+}
+
+type ListPeerGameResultsResponseObject interface {
+	VisitListPeerGameResultsResponse(ctx *fiber.Ctx) error
+}
+
+type ListPeerGameResults200JSONResponse externalRef0.GameResultListResponse
+
+func (response ListPeerGameResults200JSONResponse) VisitListPeerGameResultsResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type ListPeerGameResults404JSONResponse externalRef0.ErrorResponse
+
+func (response ListPeerGameResults404JSONResponse) VisitListPeerGameResultsResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type ListPeerGameResults500JSONResponse externalRef0.ErrorResponse
+
+func (response ListPeerGameResults500JSONResponse) VisitListPeerGameResultsResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type GetPeerGameResultRequestObject struct {
+	PublicKey string `json:"publicKey"`
+	Id        string `json:"id"`
+}
+
+type GetPeerGameResultResponseObject interface {
+	VisitGetPeerGameResultResponse(ctx *fiber.Ctx) error
+}
+
+type GetPeerGameResult200JSONResponse externalRef0.GameResult
+
+func (response GetPeerGameResult200JSONResponse) VisitGetPeerGameResultResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type GetPeerGameResult404JSONResponse externalRef0.ErrorResponse
+
+func (response GetPeerGameResult404JSONResponse) VisitGetPeerGameResultResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type GetPeerGameResult500JSONResponse externalRef0.ErrorResponse
+
+func (response GetPeerGameResult500JSONResponse) VisitGetPeerGameResultResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
 type GetPeerInfoRequestObject struct {
 	PublicKey string `json:"publicKey"`
 }
@@ -25793,6 +32652,257 @@ func (response PutPeerInfo404JSONResponse) VisitPutPeerInfoResponse(ctx *fiber.C
 	return ctx.JSON(&response)
 }
 
+type ListPeerPetsRequestObject struct {
+	PublicKey string `json:"publicKey"`
+	Params    ListPeerPetsParams
+}
+
+type ListPeerPetsResponseObject interface {
+	VisitListPeerPetsResponse(ctx *fiber.Ctx) error
+}
+
+type ListPeerPets200JSONResponse externalRef0.PetListResponse
+
+func (response ListPeerPets200JSONResponse) VisitListPeerPetsResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type ListPeerPets404JSONResponse externalRef0.ErrorResponse
+
+func (response ListPeerPets404JSONResponse) VisitListPeerPetsResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type ListPeerPets500JSONResponse externalRef0.ErrorResponse
+
+func (response ListPeerPets500JSONResponse) VisitListPeerPetsResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type GetPeerPetRequestObject struct {
+	PublicKey string `json:"publicKey"`
+	Id        string `json:"id"`
+}
+
+type GetPeerPetResponseObject interface {
+	VisitGetPeerPetResponse(ctx *fiber.Ctx) error
+}
+
+type GetPeerPet200JSONResponse externalRef0.Pet
+
+func (response GetPeerPet200JSONResponse) VisitGetPeerPetResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type GetPeerPet404JSONResponse externalRef0.ErrorResponse
+
+func (response GetPeerPet404JSONResponse) VisitGetPeerPetResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type GetPeerPet500JSONResponse externalRef0.ErrorResponse
+
+func (response GetPeerPet500JSONResponse) VisitGetPeerPetResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type GetPeerPointsRequestObject struct {
+	PublicKey string `json:"publicKey"`
+}
+
+type GetPeerPointsResponseObject interface {
+	VisitGetPeerPointsResponse(ctx *fiber.Ctx) error
+}
+
+type GetPeerPoints200JSONResponse externalRef0.PointsAccount
+
+func (response GetPeerPoints200JSONResponse) VisitGetPeerPointsResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type GetPeerPoints404JSONResponse externalRef0.ErrorResponse
+
+func (response GetPeerPoints404JSONResponse) VisitGetPeerPointsResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type GetPeerPoints500JSONResponse externalRef0.ErrorResponse
+
+func (response GetPeerPoints500JSONResponse) VisitGetPeerPointsResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type ListPeerPointsTransactionsRequestObject struct {
+	PublicKey string `json:"publicKey"`
+	Params    ListPeerPointsTransactionsParams
+}
+
+type ListPeerPointsTransactionsResponseObject interface {
+	VisitListPeerPointsTransactionsResponse(ctx *fiber.Ctx) error
+}
+
+type ListPeerPointsTransactions200JSONResponse externalRef0.PointsTransactionListResponse
+
+func (response ListPeerPointsTransactions200JSONResponse) VisitListPeerPointsTransactionsResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type ListPeerPointsTransactions404JSONResponse externalRef0.ErrorResponse
+
+func (response ListPeerPointsTransactions404JSONResponse) VisitListPeerPointsTransactionsResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type ListPeerPointsTransactions500JSONResponse externalRef0.ErrorResponse
+
+func (response ListPeerPointsTransactions500JSONResponse) VisitListPeerPointsTransactionsResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type GetPeerPointsTransactionRequestObject struct {
+	PublicKey string `json:"publicKey"`
+	Id        string `json:"id"`
+}
+
+type GetPeerPointsTransactionResponseObject interface {
+	VisitGetPeerPointsTransactionResponse(ctx *fiber.Ctx) error
+}
+
+type GetPeerPointsTransaction200JSONResponse externalRef0.PointsTransaction
+
+func (response GetPeerPointsTransaction200JSONResponse) VisitGetPeerPointsTransactionResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type GetPeerPointsTransaction404JSONResponse externalRef0.ErrorResponse
+
+func (response GetPeerPointsTransaction404JSONResponse) VisitGetPeerPointsTransactionResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type GetPeerPointsTransaction500JSONResponse externalRef0.ErrorResponse
+
+func (response GetPeerPointsTransaction500JSONResponse) VisitGetPeerPointsTransactionResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type ListPeerRewardGrantsRequestObject struct {
+	PublicKey string `json:"publicKey"`
+	Params    ListPeerRewardGrantsParams
+}
+
+type ListPeerRewardGrantsResponseObject interface {
+	VisitListPeerRewardGrantsResponse(ctx *fiber.Ctx) error
+}
+
+type ListPeerRewardGrants200JSONResponse externalRef0.RewardGrantListResponse
+
+func (response ListPeerRewardGrants200JSONResponse) VisitListPeerRewardGrantsResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type ListPeerRewardGrants404JSONResponse externalRef0.ErrorResponse
+
+func (response ListPeerRewardGrants404JSONResponse) VisitListPeerRewardGrantsResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type ListPeerRewardGrants500JSONResponse externalRef0.ErrorResponse
+
+func (response ListPeerRewardGrants500JSONResponse) VisitListPeerRewardGrantsResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type GetPeerRewardGrantRequestObject struct {
+	PublicKey string `json:"publicKey"`
+	Id        string `json:"id"`
+}
+
+type GetPeerRewardGrantResponseObject interface {
+	VisitGetPeerRewardGrantResponse(ctx *fiber.Ctx) error
+}
+
+type GetPeerRewardGrant200JSONResponse externalRef0.RewardGrant
+
+func (response GetPeerRewardGrant200JSONResponse) VisitGetPeerRewardGrantResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type GetPeerRewardGrant404JSONResponse externalRef0.ErrorResponse
+
+func (response GetPeerRewardGrant404JSONResponse) VisitGetPeerRewardGrantResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type GetPeerRewardGrant500JSONResponse externalRef0.ErrorResponse
+
+func (response GetPeerRewardGrant500JSONResponse) VisitGetPeerRewardGrantResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
 type GetPeerRuntimeRequestObject struct {
 	PublicKey string `json:"publicKey"`
 }
@@ -25806,6 +32916,272 @@ type GetPeerRuntime200JSONResponse externalRef0.Runtime
 func (response GetPeerRuntime200JSONResponse) VisitGetPeerRuntimeResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type ListPetDefsRequestObject struct {
+	Params ListPetDefsParams
+}
+
+type ListPetDefsResponseObject interface {
+	VisitListPetDefsResponse(ctx *fiber.Ctx) error
+}
+
+type ListPetDefs200JSONResponse PetDefList
+
+func (response ListPetDefs200JSONResponse) VisitListPetDefsResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type ListPetDefs500JSONResponse externalRef0.ErrorResponse
+
+func (response ListPetDefs500JSONResponse) VisitListPetDefsResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type CreatePetDefRequestObject struct {
+	Body *CreatePetDefJSONRequestBody
+}
+
+type CreatePetDefResponseObject interface {
+	VisitCreatePetDefResponse(ctx *fiber.Ctx) error
+}
+
+type CreatePetDef200JSONResponse externalRef0.PetDef
+
+func (response CreatePetDef200JSONResponse) VisitCreatePetDefResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type CreatePetDef400JSONResponse externalRef0.ErrorResponse
+
+func (response CreatePetDef400JSONResponse) VisitCreatePetDefResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(400)
+
+	return ctx.JSON(&response)
+}
+
+type CreatePetDef409JSONResponse externalRef0.ErrorResponse
+
+func (response CreatePetDef409JSONResponse) VisitCreatePetDefResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
+
+	return ctx.JSON(&response)
+}
+
+type CreatePetDef500JSONResponse externalRef0.ErrorResponse
+
+func (response CreatePetDef500JSONResponse) VisitCreatePetDefResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type DeletePetDefRequestObject struct {
+	Id string `json:"id"`
+}
+
+type DeletePetDefResponseObject interface {
+	VisitDeletePetDefResponse(ctx *fiber.Ctx) error
+}
+
+type DeletePetDef200JSONResponse externalRef0.PetDef
+
+func (response DeletePetDef200JSONResponse) VisitDeletePetDefResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type DeletePetDef404JSONResponse externalRef0.ErrorResponse
+
+func (response DeletePetDef404JSONResponse) VisitDeletePetDefResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type DeletePetDef500JSONResponse externalRef0.ErrorResponse
+
+func (response DeletePetDef500JSONResponse) VisitDeletePetDefResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type GetPetDefRequestObject struct {
+	Id string `json:"id"`
+}
+
+type GetPetDefResponseObject interface {
+	VisitGetPetDefResponse(ctx *fiber.Ctx) error
+}
+
+type GetPetDef200JSONResponse externalRef0.PetDef
+
+func (response GetPetDef200JSONResponse) VisitGetPetDefResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type GetPetDef404JSONResponse externalRef0.ErrorResponse
+
+func (response GetPetDef404JSONResponse) VisitGetPetDefResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type GetPetDef500JSONResponse externalRef0.ErrorResponse
+
+func (response GetPetDef500JSONResponse) VisitGetPetDefResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type PutPetDefRequestObject struct {
+	Id   string `json:"id"`
+	Body *PutPetDefJSONRequestBody
+}
+
+type PutPetDefResponseObject interface {
+	VisitPutPetDefResponse(ctx *fiber.Ctx) error
+}
+
+type PutPetDef200JSONResponse externalRef0.PetDef
+
+func (response PutPetDef200JSONResponse) VisitPutPetDefResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type PutPetDef400JSONResponse externalRef0.ErrorResponse
+
+func (response PutPetDef400JSONResponse) VisitPutPetDefResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(400)
+
+	return ctx.JSON(&response)
+}
+
+type PutPetDef409JSONResponse externalRef0.ErrorResponse
+
+func (response PutPetDef409JSONResponse) VisitPutPetDefResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
+
+	return ctx.JSON(&response)
+}
+
+type PutPetDef500JSONResponse externalRef0.ErrorResponse
+
+func (response PutPetDef500JSONResponse) VisitPutPetDefResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type DownloadPetDefAssetRequestObject struct {
+	Id string `json:"id"`
+}
+
+type DownloadPetDefAssetResponseObject interface {
+	VisitDownloadPetDefAssetResponse(ctx *fiber.Ctx) error
+}
+
+type DownloadPetDefAsset200ApplicationoctetStreamResponse struct {
+	Body          io.Reader
+	ContentLength int64
+}
+
+func (response DownloadPetDefAsset200ApplicationoctetStreamResponse) VisitDownloadPetDefAssetResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/octet-stream")
+	if response.ContentLength != 0 {
+		ctx.Response().Header.Set("Content-Length", fmt.Sprint(response.ContentLength))
+	}
+	ctx.Status(200)
+
+	if closer, ok := response.Body.(io.ReadCloser); ok {
+		defer closer.Close()
+	}
+	_, err := io.Copy(ctx.Response().BodyWriter(), response.Body)
+	return err
+}
+
+type DownloadPetDefAsset404JSONResponse externalRef0.ErrorResponse
+
+func (response DownloadPetDefAsset404JSONResponse) VisitDownloadPetDefAssetResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type DownloadPetDefAsset500JSONResponse externalRef0.ErrorResponse
+
+func (response DownloadPetDefAsset500JSONResponse) VisitDownloadPetDefAssetResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type UploadPetDefAssetRequestObject struct {
+	Id   string `json:"id"`
+	Body io.Reader
+}
+
+type UploadPetDefAssetResponseObject interface {
+	VisitUploadPetDefAssetResponse(ctx *fiber.Ctx) error
+}
+
+type UploadPetDefAsset200JSONResponse externalRef0.PetDef
+
+func (response UploadPetDefAsset200JSONResponse) VisitUploadPetDefAssetResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type UploadPetDefAsset404JSONResponse externalRef0.ErrorResponse
+
+func (response UploadPetDefAsset404JSONResponse) VisitUploadPetDefAssetResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type UploadPetDefAsset500JSONResponse externalRef0.ErrorResponse
+
+func (response UploadPetDefAsset500JSONResponse) VisitUploadPetDefAssetResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
 
 	return ctx.JSON(&response)
 }
@@ -27863,6 +35239,27 @@ type StrictServerInterface interface {
 	// Create or update an ACL view
 	// (PUT /acl/views/{name})
 	PutACLView(ctx context.Context, request PutACLViewRequestObject) (PutACLViewResponseObject, error)
+	// List BadgeDefs
+	// (GET /badge-defs)
+	ListBadgeDefs(ctx context.Context, request ListBadgeDefsRequestObject) (ListBadgeDefsResponseObject, error)
+	// Create a BadgeDef
+	// (POST /badge-defs)
+	CreateBadgeDef(ctx context.Context, request CreateBadgeDefRequestObject) (CreateBadgeDefResponseObject, error)
+	// Delete a BadgeDef
+	// (DELETE /badge-defs/{id})
+	DeleteBadgeDef(ctx context.Context, request DeleteBadgeDefRequestObject) (DeleteBadgeDefResponseObject, error)
+	// Get a BadgeDef
+	// (GET /badge-defs/{id})
+	GetBadgeDef(ctx context.Context, request GetBadgeDefRequestObject) (GetBadgeDefResponseObject, error)
+	// Create or update a BadgeDef
+	// (PUT /badge-defs/{id})
+	PutBadgeDef(ctx context.Context, request PutBadgeDefRequestObject) (PutBadgeDefResponseObject, error)
+	// Download BadgeDefIcon
+	// (GET /badge-defs/{id}/icon)
+	DownloadBadgeDefIcon(ctx context.Context, request DownloadBadgeDefIconRequestObject) (DownloadBadgeDefIconResponseObject, error)
+	// Upload BadgeDefIcon
+	// (PUT /badge-defs/{id}/icon)
+	UploadBadgeDefIcon(ctx context.Context, request UploadBadgeDefIconRequestObject) (UploadBadgeDefIconResponseObject, error)
 	// List stored credentials
 	// (GET /credentials)
 	ListCredentials(ctx context.Context, request ListCredentialsRequestObject) (ListCredentialsResponseObject, error)
@@ -27935,6 +35332,36 @@ type StrictServerInterface interface {
 	// Return firmware artifact tree entries
 	// (GET /firmwares/{name}/packages/{channel}/artifact/tree)
 	TreeFirmwareArtifactEntries(ctx context.Context, request TreeFirmwareArtifactEntriesRequestObject) (TreeFirmwareArtifactEntriesResponseObject, error)
+	// List GameDefs
+	// (GET /game-defs)
+	ListGameDefs(ctx context.Context, request ListGameDefsRequestObject) (ListGameDefsResponseObject, error)
+	// Create a GameDef
+	// (POST /game-defs)
+	CreateGameDef(ctx context.Context, request CreateGameDefRequestObject) (CreateGameDefResponseObject, error)
+	// Delete a GameDef
+	// (DELETE /game-defs/{id})
+	DeleteGameDef(ctx context.Context, request DeleteGameDefRequestObject) (DeleteGameDefResponseObject, error)
+	// Get a GameDef
+	// (GET /game-defs/{id})
+	GetGameDef(ctx context.Context, request GetGameDefRequestObject) (GetGameDefResponseObject, error)
+	// Create or update a GameDef
+	// (PUT /game-defs/{id})
+	PutGameDef(ctx context.Context, request PutGameDefRequestObject) (PutGameDefResponseObject, error)
+	// List GameRulesets
+	// (GET /game-rulesets)
+	ListGameRulesets(ctx context.Context, request ListGameRulesetsRequestObject) (ListGameRulesetsResponseObject, error)
+	// Create a GameRuleset
+	// (POST /game-rulesets)
+	CreateGameRuleset(ctx context.Context, request CreateGameRulesetRequestObject) (CreateGameRulesetResponseObject, error)
+	// Delete a GameRuleset
+	// (DELETE /game-rulesets/{name})
+	DeleteGameRuleset(ctx context.Context, request DeleteGameRulesetRequestObject) (DeleteGameRulesetResponseObject, error)
+	// Get a GameRuleset
+	// (GET /game-rulesets/{name})
+	GetGameRuleset(ctx context.Context, request GetGameRulesetRequestObject) (GetGameRulesetResponseObject, error)
+	// Create or update a GameRuleset
+	// (PUT /game-rulesets/{name})
+	PutGameRuleset(ctx context.Context, request PutGameRulesetRequestObject) (PutGameRulesetResponseObject, error)
 	// List all Gemini tenants
 	// (GET /gemini-tenants)
 	ListGeminiTenants(ctx context.Context, request ListGeminiTenantsRequestObject) (ListGeminiTenantsResponseObject, error)
@@ -28022,6 +35449,12 @@ type StrictServerInterface interface {
 	// Refresh peer info from connected device
 	// (POST /peers/{publicKey}/@refresh)
 	RefreshPeer(ctx context.Context, request RefreshPeerRequestObject) (RefreshPeerResponseObject, error)
+	// listPeerBadges
+	// (GET /peers/{publicKey}/badges)
+	ListPeerBadges(ctx context.Context, request ListPeerBadgesRequestObject) (ListPeerBadgesResponseObject, error)
+	// getPeerBadge
+	// (GET /peers/{publicKey}/badges/{id})
+	GetPeerBadge(ctx context.Context, request GetPeerBadgeRequestObject) (GetPeerBadgeResponseObject, error)
 	// Get peer configuration
 	// (GET /peers/{publicKey}/config)
 	GetPeerConfig(ctx context.Context, request GetPeerConfigRequestObject) (GetPeerConfigResponseObject, error)
@@ -28040,15 +35473,63 @@ type StrictServerInterface interface {
 	// Get one peer owner-view friend row
 	// (GET /peers/{publicKey}/friends/{id})
 	GetPeerFriend(ctx context.Context, request GetPeerFriendRequestObject) (GetPeerFriendResponseObject, error)
+	// listPeerGameResults
+	// (GET /peers/{publicKey}/game-results)
+	ListPeerGameResults(ctx context.Context, request ListPeerGameResultsRequestObject) (ListPeerGameResultsResponseObject, error)
+	// getPeerGameResult
+	// (GET /peers/{publicKey}/game-results/{id})
+	GetPeerGameResult(ctx context.Context, request GetPeerGameResultRequestObject) (GetPeerGameResultResponseObject, error)
 	// Get peer device info
 	// (GET /peers/{publicKey}/info)
 	GetPeerInfo(ctx context.Context, request GetPeerInfoRequestObject) (GetPeerInfoResponseObject, error)
 	// Update peer device info
 	// (PUT /peers/{publicKey}/info)
 	PutPeerInfo(ctx context.Context, request PutPeerInfoRequestObject) (PutPeerInfoResponseObject, error)
+	// listPeerPets
+	// (GET /peers/{publicKey}/pets)
+	ListPeerPets(ctx context.Context, request ListPeerPetsRequestObject) (ListPeerPetsResponseObject, error)
+	// getPeerPet
+	// (GET /peers/{publicKey}/pets/{id})
+	GetPeerPet(ctx context.Context, request GetPeerPetRequestObject) (GetPeerPetResponseObject, error)
+	// getPeerPoints
+	// (GET /peers/{publicKey}/points)
+	GetPeerPoints(ctx context.Context, request GetPeerPointsRequestObject) (GetPeerPointsResponseObject, error)
+	// listPeerPointsTransactions
+	// (GET /peers/{publicKey}/points/transactions)
+	ListPeerPointsTransactions(ctx context.Context, request ListPeerPointsTransactionsRequestObject) (ListPeerPointsTransactionsResponseObject, error)
+	// getPeerPointsTransaction
+	// (GET /peers/{publicKey}/points/transactions/{id})
+	GetPeerPointsTransaction(ctx context.Context, request GetPeerPointsTransactionRequestObject) (GetPeerPointsTransactionResponseObject, error)
+	// listPeerRewardGrants
+	// (GET /peers/{publicKey}/reward-grants)
+	ListPeerRewardGrants(ctx context.Context, request ListPeerRewardGrantsRequestObject) (ListPeerRewardGrantsResponseObject, error)
+	// getPeerRewardGrant
+	// (GET /peers/{publicKey}/reward-grants/{id})
+	GetPeerRewardGrant(ctx context.Context, request GetPeerRewardGrantRequestObject) (GetPeerRewardGrantResponseObject, error)
 	// Get peer runtime status
 	// (GET /peers/{publicKey}/runtime)
 	GetPeerRuntime(ctx context.Context, request GetPeerRuntimeRequestObject) (GetPeerRuntimeResponseObject, error)
+	// List PetDefs
+	// (GET /pet-defs)
+	ListPetDefs(ctx context.Context, request ListPetDefsRequestObject) (ListPetDefsResponseObject, error)
+	// Create a PetDef
+	// (POST /pet-defs)
+	CreatePetDef(ctx context.Context, request CreatePetDefRequestObject) (CreatePetDefResponseObject, error)
+	// Delete a PetDef
+	// (DELETE /pet-defs/{id})
+	DeletePetDef(ctx context.Context, request DeletePetDefRequestObject) (DeletePetDefResponseObject, error)
+	// Get a PetDef
+	// (GET /pet-defs/{id})
+	GetPetDef(ctx context.Context, request GetPetDefRequestObject) (GetPetDefResponseObject, error)
+	// Create or update a PetDef
+	// (PUT /pet-defs/{id})
+	PutPetDef(ctx context.Context, request PutPetDefRequestObject) (PutPetDefResponseObject, error)
+	// Download PetDefAsset
+	// (GET /pet-defs/{id}/asset)
+	DownloadPetDefAsset(ctx context.Context, request DownloadPetDefAssetRequestObject) (DownloadPetDefAssetResponseObject, error)
+	// Upload PetDefAsset
+	// (PUT /pet-defs/{id}/asset)
+	UploadPetDefAsset(ctx context.Context, request UploadPetDefAssetRequestObject) (UploadPetDefAssetResponseObject, error)
 	// Delete an admin resource
 	// (DELETE /resources/{kind}/{name})
 	DeleteResource(ctx context.Context, request DeleteResourceRequestObject) (DeleteResourceResponseObject, error)
@@ -28677,6 +36158,211 @@ func (sh *strictHandler) PutACLView(ctx *fiber.Ctx, name string) error {
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
 	} else if validResponse, ok := response.(PutACLViewResponseObject); ok {
 		if err := validResponse.VisitPutACLViewResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// ListBadgeDefs operation middleware
+func (sh *strictHandler) ListBadgeDefs(ctx *fiber.Ctx, params ListBadgeDefsParams) error {
+	var request ListBadgeDefsRequestObject
+
+	request.Params = params
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.ListBadgeDefs(ctx.UserContext(), request.(ListBadgeDefsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListBadgeDefs")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(ListBadgeDefsResponseObject); ok {
+		if err := validResponse.VisitListBadgeDefsResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// CreateBadgeDef operation middleware
+func (sh *strictHandler) CreateBadgeDef(ctx *fiber.Ctx) error {
+	var request CreateBadgeDefRequestObject
+
+	var body CreateBadgeDefJSONRequestBody
+	if err := ctx.BodyParser(&body); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	}
+	request.Body = &body
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateBadgeDef(ctx.UserContext(), request.(CreateBadgeDefRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateBadgeDef")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(CreateBadgeDefResponseObject); ok {
+		if err := validResponse.VisitCreateBadgeDefResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// DeleteBadgeDef operation middleware
+func (sh *strictHandler) DeleteBadgeDef(ctx *fiber.Ctx, id string) error {
+	var request DeleteBadgeDefRequestObject
+
+	request.Id = id
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteBadgeDef(ctx.UserContext(), request.(DeleteBadgeDefRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteBadgeDef")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(DeleteBadgeDefResponseObject); ok {
+		if err := validResponse.VisitDeleteBadgeDefResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// GetBadgeDef operation middleware
+func (sh *strictHandler) GetBadgeDef(ctx *fiber.Ctx, id string) error {
+	var request GetBadgeDefRequestObject
+
+	request.Id = id
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.GetBadgeDef(ctx.UserContext(), request.(GetBadgeDefRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetBadgeDef")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(GetBadgeDefResponseObject); ok {
+		if err := validResponse.VisitGetBadgeDefResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// PutBadgeDef operation middleware
+func (sh *strictHandler) PutBadgeDef(ctx *fiber.Ctx, id string) error {
+	var request PutBadgeDefRequestObject
+
+	request.Id = id
+
+	var body PutBadgeDefJSONRequestBody
+	if err := ctx.BodyParser(&body); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	}
+	request.Body = &body
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.PutBadgeDef(ctx.UserContext(), request.(PutBadgeDefRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PutBadgeDef")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(PutBadgeDefResponseObject); ok {
+		if err := validResponse.VisitPutBadgeDefResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// DownloadBadgeDefIcon operation middleware
+func (sh *strictHandler) DownloadBadgeDefIcon(ctx *fiber.Ctx, id string) error {
+	var request DownloadBadgeDefIconRequestObject
+
+	request.Id = id
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.DownloadBadgeDefIcon(ctx.UserContext(), request.(DownloadBadgeDefIconRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DownloadBadgeDefIcon")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(DownloadBadgeDefIconResponseObject); ok {
+		if err := validResponse.VisitDownloadBadgeDefIconResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// UploadBadgeDefIcon operation middleware
+func (sh *strictHandler) UploadBadgeDefIcon(ctx *fiber.Ctx, id string) error {
+	var request UploadBadgeDefIconRequestObject
+
+	request.Id = id
+
+	body := ctx.Context().RequestBodyStream()
+	if body == nil {
+		body = bytes.NewReader(ctx.Request().Body())
+	}
+	request.Body = body
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.UploadBadgeDefIcon(ctx.UserContext(), request.(UploadBadgeDefIconRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UploadBadgeDefIcon")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(UploadBadgeDefIconResponseObject); ok {
+		if err := validResponse.VisitUploadBadgeDefIconResponse(ctx); err != nil {
 			return fiber.NewError(fiber.StatusBadRequest, err.Error())
 		}
 	} else if response != nil {
@@ -29372,6 +37058,296 @@ func (sh *strictHandler) TreeFirmwareArtifactEntries(ctx *fiber.Ctx, name string
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
 	} else if validResponse, ok := response.(TreeFirmwareArtifactEntriesResponseObject); ok {
 		if err := validResponse.VisitTreeFirmwareArtifactEntriesResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// ListGameDefs operation middleware
+func (sh *strictHandler) ListGameDefs(ctx *fiber.Ctx, params ListGameDefsParams) error {
+	var request ListGameDefsRequestObject
+
+	request.Params = params
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.ListGameDefs(ctx.UserContext(), request.(ListGameDefsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListGameDefs")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(ListGameDefsResponseObject); ok {
+		if err := validResponse.VisitListGameDefsResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// CreateGameDef operation middleware
+func (sh *strictHandler) CreateGameDef(ctx *fiber.Ctx) error {
+	var request CreateGameDefRequestObject
+
+	var body CreateGameDefJSONRequestBody
+	if err := ctx.BodyParser(&body); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	}
+	request.Body = &body
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateGameDef(ctx.UserContext(), request.(CreateGameDefRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateGameDef")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(CreateGameDefResponseObject); ok {
+		if err := validResponse.VisitCreateGameDefResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// DeleteGameDef operation middleware
+func (sh *strictHandler) DeleteGameDef(ctx *fiber.Ctx, id string) error {
+	var request DeleteGameDefRequestObject
+
+	request.Id = id
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteGameDef(ctx.UserContext(), request.(DeleteGameDefRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteGameDef")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(DeleteGameDefResponseObject); ok {
+		if err := validResponse.VisitDeleteGameDefResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// GetGameDef operation middleware
+func (sh *strictHandler) GetGameDef(ctx *fiber.Ctx, id string) error {
+	var request GetGameDefRequestObject
+
+	request.Id = id
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.GetGameDef(ctx.UserContext(), request.(GetGameDefRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetGameDef")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(GetGameDefResponseObject); ok {
+		if err := validResponse.VisitGetGameDefResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// PutGameDef operation middleware
+func (sh *strictHandler) PutGameDef(ctx *fiber.Ctx, id string) error {
+	var request PutGameDefRequestObject
+
+	request.Id = id
+
+	var body PutGameDefJSONRequestBody
+	if err := ctx.BodyParser(&body); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	}
+	request.Body = &body
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.PutGameDef(ctx.UserContext(), request.(PutGameDefRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PutGameDef")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(PutGameDefResponseObject); ok {
+		if err := validResponse.VisitPutGameDefResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// ListGameRulesets operation middleware
+func (sh *strictHandler) ListGameRulesets(ctx *fiber.Ctx, params ListGameRulesetsParams) error {
+	var request ListGameRulesetsRequestObject
+
+	request.Params = params
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.ListGameRulesets(ctx.UserContext(), request.(ListGameRulesetsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListGameRulesets")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(ListGameRulesetsResponseObject); ok {
+		if err := validResponse.VisitListGameRulesetsResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// CreateGameRuleset operation middleware
+func (sh *strictHandler) CreateGameRuleset(ctx *fiber.Ctx) error {
+	var request CreateGameRulesetRequestObject
+
+	var body CreateGameRulesetJSONRequestBody
+	if err := ctx.BodyParser(&body); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	}
+	request.Body = &body
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateGameRuleset(ctx.UserContext(), request.(CreateGameRulesetRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateGameRuleset")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(CreateGameRulesetResponseObject); ok {
+		if err := validResponse.VisitCreateGameRulesetResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// DeleteGameRuleset operation middleware
+func (sh *strictHandler) DeleteGameRuleset(ctx *fiber.Ctx, name string) error {
+	var request DeleteGameRulesetRequestObject
+
+	request.Name = name
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteGameRuleset(ctx.UserContext(), request.(DeleteGameRulesetRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteGameRuleset")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(DeleteGameRulesetResponseObject); ok {
+		if err := validResponse.VisitDeleteGameRulesetResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// GetGameRuleset operation middleware
+func (sh *strictHandler) GetGameRuleset(ctx *fiber.Ctx, name string) error {
+	var request GetGameRulesetRequestObject
+
+	request.Name = name
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.GetGameRuleset(ctx.UserContext(), request.(GetGameRulesetRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetGameRuleset")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(GetGameRulesetResponseObject); ok {
+		if err := validResponse.VisitGetGameRulesetResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// PutGameRuleset operation middleware
+func (sh *strictHandler) PutGameRuleset(ctx *fiber.Ctx, name string) error {
+	var request PutGameRulesetRequestObject
+
+	request.Name = name
+
+	var body PutGameRulesetJSONRequestBody
+	if err := ctx.BodyParser(&body); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	}
+	request.Body = &body
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.PutGameRuleset(ctx.UserContext(), request.(PutGameRulesetRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PutGameRuleset")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(PutGameRulesetResponseObject); ok {
+		if err := validResponse.VisitPutGameRulesetResponse(ctx); err != nil {
 			return fiber.NewError(fiber.StatusBadRequest, err.Error())
 		}
 	} else if response != nil {
@@ -30210,6 +38186,62 @@ func (sh *strictHandler) RefreshPeer(ctx *fiber.Ctx, publicKey string) error {
 	return nil
 }
 
+// ListPeerBadges operation middleware
+func (sh *strictHandler) ListPeerBadges(ctx *fiber.Ctx, publicKey string, params ListPeerBadgesParams) error {
+	var request ListPeerBadgesRequestObject
+
+	request.PublicKey = publicKey
+	request.Params = params
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.ListPeerBadges(ctx.UserContext(), request.(ListPeerBadgesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListPeerBadges")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(ListPeerBadgesResponseObject); ok {
+		if err := validResponse.VisitListPeerBadgesResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// GetPeerBadge operation middleware
+func (sh *strictHandler) GetPeerBadge(ctx *fiber.Ctx, publicKey string, id string) error {
+	var request GetPeerBadgeRequestObject
+
+	request.PublicKey = publicKey
+	request.Id = id
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.GetPeerBadge(ctx.UserContext(), request.(GetPeerBadgeRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetPeerBadge")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(GetPeerBadgeResponseObject); ok {
+		if err := validResponse.VisitGetPeerBadgeResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
 // GetPeerConfig operation middleware
 func (sh *strictHandler) GetPeerConfig(ctx *fiber.Ctx, publicKey string) error {
 	var request GetPeerConfigRequestObject
@@ -30387,6 +38419,62 @@ func (sh *strictHandler) GetPeerFriend(ctx *fiber.Ctx, publicKey string, id stri
 	return nil
 }
 
+// ListPeerGameResults operation middleware
+func (sh *strictHandler) ListPeerGameResults(ctx *fiber.Ctx, publicKey string, params ListPeerGameResultsParams) error {
+	var request ListPeerGameResultsRequestObject
+
+	request.PublicKey = publicKey
+	request.Params = params
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.ListPeerGameResults(ctx.UserContext(), request.(ListPeerGameResultsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListPeerGameResults")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(ListPeerGameResultsResponseObject); ok {
+		if err := validResponse.VisitListPeerGameResultsResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// GetPeerGameResult operation middleware
+func (sh *strictHandler) GetPeerGameResult(ctx *fiber.Ctx, publicKey string, id string) error {
+	var request GetPeerGameResultRequestObject
+
+	request.PublicKey = publicKey
+	request.Id = id
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.GetPeerGameResult(ctx.UserContext(), request.(GetPeerGameResultRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetPeerGameResult")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(GetPeerGameResultResponseObject); ok {
+		if err := validResponse.VisitGetPeerGameResultResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
 // GetPeerInfo operation middleware
 func (sh *strictHandler) GetPeerInfo(ctx *fiber.Ctx, publicKey string) error {
 	var request GetPeerInfoRequestObject
@@ -30447,6 +38535,201 @@ func (sh *strictHandler) PutPeerInfo(ctx *fiber.Ctx, publicKey string) error {
 	return nil
 }
 
+// ListPeerPets operation middleware
+func (sh *strictHandler) ListPeerPets(ctx *fiber.Ctx, publicKey string, params ListPeerPetsParams) error {
+	var request ListPeerPetsRequestObject
+
+	request.PublicKey = publicKey
+	request.Params = params
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.ListPeerPets(ctx.UserContext(), request.(ListPeerPetsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListPeerPets")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(ListPeerPetsResponseObject); ok {
+		if err := validResponse.VisitListPeerPetsResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// GetPeerPet operation middleware
+func (sh *strictHandler) GetPeerPet(ctx *fiber.Ctx, publicKey string, id string) error {
+	var request GetPeerPetRequestObject
+
+	request.PublicKey = publicKey
+	request.Id = id
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.GetPeerPet(ctx.UserContext(), request.(GetPeerPetRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetPeerPet")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(GetPeerPetResponseObject); ok {
+		if err := validResponse.VisitGetPeerPetResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// GetPeerPoints operation middleware
+func (sh *strictHandler) GetPeerPoints(ctx *fiber.Ctx, publicKey string) error {
+	var request GetPeerPointsRequestObject
+
+	request.PublicKey = publicKey
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.GetPeerPoints(ctx.UserContext(), request.(GetPeerPointsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetPeerPoints")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(GetPeerPointsResponseObject); ok {
+		if err := validResponse.VisitGetPeerPointsResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// ListPeerPointsTransactions operation middleware
+func (sh *strictHandler) ListPeerPointsTransactions(ctx *fiber.Ctx, publicKey string, params ListPeerPointsTransactionsParams) error {
+	var request ListPeerPointsTransactionsRequestObject
+
+	request.PublicKey = publicKey
+	request.Params = params
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.ListPeerPointsTransactions(ctx.UserContext(), request.(ListPeerPointsTransactionsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListPeerPointsTransactions")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(ListPeerPointsTransactionsResponseObject); ok {
+		if err := validResponse.VisitListPeerPointsTransactionsResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// GetPeerPointsTransaction operation middleware
+func (sh *strictHandler) GetPeerPointsTransaction(ctx *fiber.Ctx, publicKey string, id string) error {
+	var request GetPeerPointsTransactionRequestObject
+
+	request.PublicKey = publicKey
+	request.Id = id
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.GetPeerPointsTransaction(ctx.UserContext(), request.(GetPeerPointsTransactionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetPeerPointsTransaction")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(GetPeerPointsTransactionResponseObject); ok {
+		if err := validResponse.VisitGetPeerPointsTransactionResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// ListPeerRewardGrants operation middleware
+func (sh *strictHandler) ListPeerRewardGrants(ctx *fiber.Ctx, publicKey string, params ListPeerRewardGrantsParams) error {
+	var request ListPeerRewardGrantsRequestObject
+
+	request.PublicKey = publicKey
+	request.Params = params
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.ListPeerRewardGrants(ctx.UserContext(), request.(ListPeerRewardGrantsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListPeerRewardGrants")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(ListPeerRewardGrantsResponseObject); ok {
+		if err := validResponse.VisitListPeerRewardGrantsResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// GetPeerRewardGrant operation middleware
+func (sh *strictHandler) GetPeerRewardGrant(ctx *fiber.Ctx, publicKey string, id string) error {
+	var request GetPeerRewardGrantRequestObject
+
+	request.PublicKey = publicKey
+	request.Id = id
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.GetPeerRewardGrant(ctx.UserContext(), request.(GetPeerRewardGrantRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetPeerRewardGrant")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(GetPeerRewardGrantResponseObject); ok {
+		if err := validResponse.VisitGetPeerRewardGrantResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
 // GetPeerRuntime operation middleware
 func (sh *strictHandler) GetPeerRuntime(ctx *fiber.Ctx, publicKey string) error {
 	var request GetPeerRuntimeRequestObject
@@ -30466,6 +38749,211 @@ func (sh *strictHandler) GetPeerRuntime(ctx *fiber.Ctx, publicKey string) error 
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
 	} else if validResponse, ok := response.(GetPeerRuntimeResponseObject); ok {
 		if err := validResponse.VisitGetPeerRuntimeResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// ListPetDefs operation middleware
+func (sh *strictHandler) ListPetDefs(ctx *fiber.Ctx, params ListPetDefsParams) error {
+	var request ListPetDefsRequestObject
+
+	request.Params = params
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.ListPetDefs(ctx.UserContext(), request.(ListPetDefsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListPetDefs")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(ListPetDefsResponseObject); ok {
+		if err := validResponse.VisitListPetDefsResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// CreatePetDef operation middleware
+func (sh *strictHandler) CreatePetDef(ctx *fiber.Ctx) error {
+	var request CreatePetDefRequestObject
+
+	var body CreatePetDefJSONRequestBody
+	if err := ctx.BodyParser(&body); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	}
+	request.Body = &body
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.CreatePetDef(ctx.UserContext(), request.(CreatePetDefRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreatePetDef")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(CreatePetDefResponseObject); ok {
+		if err := validResponse.VisitCreatePetDefResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// DeletePetDef operation middleware
+func (sh *strictHandler) DeletePetDef(ctx *fiber.Ctx, id string) error {
+	var request DeletePetDefRequestObject
+
+	request.Id = id
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.DeletePetDef(ctx.UserContext(), request.(DeletePetDefRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeletePetDef")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(DeletePetDefResponseObject); ok {
+		if err := validResponse.VisitDeletePetDefResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// GetPetDef operation middleware
+func (sh *strictHandler) GetPetDef(ctx *fiber.Ctx, id string) error {
+	var request GetPetDefRequestObject
+
+	request.Id = id
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.GetPetDef(ctx.UserContext(), request.(GetPetDefRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetPetDef")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(GetPetDefResponseObject); ok {
+		if err := validResponse.VisitGetPetDefResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// PutPetDef operation middleware
+func (sh *strictHandler) PutPetDef(ctx *fiber.Ctx, id string) error {
+	var request PutPetDefRequestObject
+
+	request.Id = id
+
+	var body PutPetDefJSONRequestBody
+	if err := ctx.BodyParser(&body); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	}
+	request.Body = &body
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.PutPetDef(ctx.UserContext(), request.(PutPetDefRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PutPetDef")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(PutPetDefResponseObject); ok {
+		if err := validResponse.VisitPutPetDefResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// DownloadPetDefAsset operation middleware
+func (sh *strictHandler) DownloadPetDefAsset(ctx *fiber.Ctx, id string) error {
+	var request DownloadPetDefAssetRequestObject
+
+	request.Id = id
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.DownloadPetDefAsset(ctx.UserContext(), request.(DownloadPetDefAssetRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DownloadPetDefAsset")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(DownloadPetDefAssetResponseObject); ok {
+		if err := validResponse.VisitDownloadPetDefAssetResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// UploadPetDefAsset operation middleware
+func (sh *strictHandler) UploadPetDefAsset(ctx *fiber.Ctx, id string) error {
+	var request UploadPetDefAssetRequestObject
+
+	request.Id = id
+
+	body := ctx.Context().RequestBodyStream()
+	if body == nil {
+		body = bytes.NewReader(ctx.Request().Body())
+	}
+	request.Body = body
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.UploadPetDefAsset(ctx.UserContext(), request.(UploadPetDefAssetRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UploadPetDefAsset")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(UploadPetDefAssetResponseObject); ok {
+		if err := validResponse.VisitUploadPetDefAssetResponse(ctx); err != nil {
 			return fiber.NewError(fiber.StatusBadRequest, err.Error())
 		}
 	} else if response != nil {

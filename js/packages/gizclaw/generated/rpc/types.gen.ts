@@ -8,17 +8,17 @@ export type RpcRequest = {
     v: RpcVersion;
     id: string;
     method: RpcMethod;
-    params?: PingRequest | SpeedTestRequest | ClientGetInfoRequest | ClientGetIdentifiersRequest | ServerGetInfoRequest | DeviceInfo | ServerGetRuntimeRequest | ServerGetStatusRequest | PeerStatus | ServerGetRunAgentRequest | AgentSelection | ServerGetRunWorkspaceRequest | ServerReloadRunWorkspaceRequest | PeerRunHistoryListRequest | PeerRunHistoryPlayRequest | PeerRunMemoryStatsRequest | PeerRunRecallRequest | ServerReloadRunRequest | ServerGetRunStatusRequest | ServerStopRunRequest | ServerRunSayRequest | FirmwareListRequest | FirmwareGetRequest | FirmwareFilesDownloadRequest | WorkspaceListRequest | WorkspaceGetRequest | Workspace | WorkspacePutRequest | WorkspaceDeleteRequest | WorkspaceHistoryListRequest | WorkspaceHistoryGetRequest | WorkspaceHistoryAudioGetRequest | WorkflowListRequest | WorkflowGetRequest | WorkflowDocument | WorkflowPutRequest | WorkflowDeleteRequest | ModelListRequest | ModelGetRequest | Model | ModelPutRequest | ModelDeleteRequest | VoiceListRequest | VoiceGetRequest | CredentialListRequest | CredentialGetRequest | Credential | CredentialPutRequest | CredentialDeleteRequest | ContactListRequest | ContactGetRequest | ContactCreateRequest | ContactPutRequest | ContactDeleteRequest | FriendInviteTokenGetRequest | FriendInviteTokenCreateRequest | FriendInviteTokenClearRequest | FriendAddRequest | FriendListRequest | FriendDeleteRequest | FriendGroupListRequest | FriendGroupGetRequest | FriendGroupCreateRequest | FriendGroupPutRequest | FriendGroupDeleteRequest | FriendGroupInviteTokenGetRequest | FriendGroupInviteTokenCreateRequest | FriendGroupInviteTokenClearRequest | FriendGroupJoinRequest | FriendGroupMemberListRequest | FriendGroupMemberAddRequest | FriendGroupMemberPutRequest | FriendGroupMemberDeleteRequest | FriendGroupMessageListRequest | FriendGroupMessageGetRequest | FriendGroupMessageSendRequest;
+    params?: PingRequest | SpeedTestRequest | ClientGetInfoRequest | ClientGetIdentifiersRequest | ServerGetInfoRequest | DeviceInfo | ServerGetRuntimeRequest | ServerGetStatusRequest | PeerStatus | ServerGetRunAgentRequest | AgentSelection | ServerGetRunWorkspaceRequest | ServerReloadRunWorkspaceRequest | PeerRunHistoryListRequest | PeerRunHistoryPlayRequest | PeerRunMemoryStatsRequest | PeerRunRecallRequest | ServerReloadRunRequest | ServerGetRunStatusRequest | ServerStopRunRequest | ServerRunSayRequest | FirmwareListRequest | FirmwareGetRequest | FirmwareFilesDownloadRequest | WorkspaceListRequest | WorkspaceGetRequest | Workspace | WorkspacePutRequest | WorkspaceDeleteRequest | WorkspaceHistoryListRequest | WorkspaceHistoryGetRequest | WorkspaceHistoryAudioGetRequest | WorkflowListRequest | WorkflowGetRequest | WorkflowDocument | WorkflowPutRequest | WorkflowDeleteRequest | ModelListRequest | ModelGetRequest | Model | ModelPutRequest | ModelDeleteRequest | VoiceListRequest | VoiceGetRequest | CredentialListRequest | CredentialGetRequest | Credential | CredentialPutRequest | CredentialDeleteRequest | ContactListRequest | ContactGetRequest | ContactCreateRequest | ContactPutRequest | ContactDeleteRequest | FriendInviteTokenGetRequest | FriendInviteTokenCreateRequest | FriendInviteTokenClearRequest | FriendAddRequest | FriendListRequest | FriendDeleteRequest | FriendGroupListRequest | FriendGroupGetRequest | FriendGroupCreateRequest | FriendGroupPutRequest | FriendGroupDeleteRequest | FriendGroupInviteTokenGetRequest | FriendGroupInviteTokenCreateRequest | FriendGroupInviteTokenClearRequest | FriendGroupJoinRequest | FriendGroupMemberListRequest | FriendGroupMemberAddRequest | FriendGroupMemberPutRequest | FriendGroupMemberDeleteRequest | FriendGroupMessageListRequest | FriendGroupMessageGetRequest | FriendGroupMessageSendRequest | ServerGameRulesetGetRequest | GameplayListRequest | PetGetRequest | PetAdoptRequest | PetPutRequest | PetDeleteRequest | PetDriveRequest | ServerPointsGetRequest | GameplayGetRequest;
 };
 
 export type RpcResponse = {
     v: RpcVersion;
     id: string;
-    result?: PingResponse | SpeedTestResponse | RefreshInfo | RefreshIdentifiers | DeviceInfo | Runtime | PeerStatus | PeerRunAgent | PeerRunWorkspaceState | PeerRunHistoryListResponse | PeerRunHistoryPlayResponse | PeerRunMemoryStatsResponse | PeerRunRecallResponse | PeerRunStatus | ServerRunSayResponse | FirmwareListResponse | Firmware | FirmwareFilesDownloadResponse | WorkspaceListResponse | Workspace | PeerRunHistoryEntry | WorkspaceHistoryAudioGetResponse | WorkflowListResponse | WorkflowDocument | ModelListResponse | Model | VoiceListResponse | Voice | CredentialListResponse | Credential | ContactListResponse | ContactObject | FriendInviteTokenGetResponse | FriendInviteTokenCreateResponse | FriendInviteTokenClearResponse | FriendObject | FriendListResponse | FriendGroupListResponse | FriendGroupObject | FriendGroupInviteTokenGetResponse | FriendGroupInviteTokenCreateResponse | FriendGroupInviteTokenClearResponse | FriendGroupJoinResponse | FriendGroupMemberListResponse | FriendGroupMemberObject | FriendGroupMessageListResponse | FriendGroupMessageObject;
+    result?: PingResponse | SpeedTestResponse | RefreshInfo | RefreshIdentifiers | DeviceInfo | Runtime | PeerStatus | PeerRunAgent | PeerRunWorkspaceState | PeerRunHistoryListResponse | PeerRunHistoryPlayResponse | PeerRunMemoryStatsResponse | PeerRunRecallResponse | PeerRunStatus | ServerRunSayResponse | FirmwareListResponse | Firmware | FirmwareFilesDownloadResponse | WorkspaceListResponse | Workspace | PeerRunHistoryEntry | WorkspaceHistoryAudioGetResponse | WorkflowListResponse | WorkflowDocument | ModelListResponse | Model | VoiceListResponse | Voice | CredentialListResponse | Credential | ContactListResponse | ContactObject | FriendInviteTokenGetResponse | FriendInviteTokenCreateResponse | FriendInviteTokenClearResponse | FriendObject | FriendListResponse | FriendGroupListResponse | FriendGroupObject | FriendGroupInviteTokenGetResponse | FriendGroupInviteTokenCreateResponse | FriendGroupInviteTokenClearResponse | FriendGroupJoinResponse | FriendGroupMemberListResponse | FriendGroupMemberObject | FriendGroupMessageListResponse | FriendGroupMessageObject | GameRuleset | PetListResponse | Pet | PetAdoptResponse | PetDriveResponse | PointsAccount | PointsTransactionListResponse | PointsTransaction | BadgeListResponse | Badge | GameResultListResponse | GameResult | RewardGrantListResponse | RewardGrant;
     error?: RpcError;
 };
 
-export type RpcMethod = 'all.ping' | 'all.speed_test.run' | 'client.info.get' | 'client.identifiers.get' | 'server.info.get' | 'server.info.put' | 'server.runtime.get' | 'server.status.get' | 'server.status.put' | 'server.run.agent.get' | 'server.run.agent.set' | 'server.run.workspace.get' | 'server.run.workspace.set' | 'server.run.workspace.reload' | 'server.run.workspace.history' | 'server.run.workspace.history.play' | 'server.run.workspace.memory.stats' | 'server.run.workspace.recall' | 'server.run.reload' | 'server.run.status' | 'server.run.stop' | 'server.run.say' | 'server.firmware.list' | 'server.firmware.get' | 'server.firmware.files.download' | 'server.workspace.list' | 'server.workspace.get' | 'server.workspace.create' | 'server.workspace.put' | 'server.workspace.delete' | 'server.workspace.history.list' | 'server.workspace.history.get' | 'server.workspace.history.audio.get' | 'server.workflow.list' | 'server.workflow.get' | 'server.workflow.create' | 'server.workflow.put' | 'server.workflow.delete' | 'server.model.list' | 'server.model.get' | 'server.model.create' | 'server.model.put' | 'server.model.delete' | 'server.voice.list' | 'server.voice.get' | 'server.credential.list' | 'server.credential.get' | 'server.credential.create' | 'server.credential.put' | 'server.credential.delete' | 'server.contact.list' | 'server.contact.get' | 'server.contact.create' | 'server.contact.put' | 'server.contact.delete' | 'server.friend.invite_token.get' | 'server.friend.invite_token.create' | 'server.friend.invite_token.clear' | 'server.friend.add' | 'server.friend.list' | 'server.friend.delete' | 'server.friend_group.list' | 'server.friend_group.get' | 'server.friend_group.create' | 'server.friend_group.put' | 'server.friend_group.delete' | 'server.friend_group.invite_token.get' | 'server.friend_group.invite_token.create' | 'server.friend_group.invite_token.clear' | 'server.friend_group.join' | 'server.friend_group.members.list' | 'server.friend_group.members.add' | 'server.friend_group.members.put' | 'server.friend_group.members.delete' | 'server.friend_group.messages.list' | 'server.friend_group.messages.get' | 'server.friend_group.messages.send';
+export type RpcMethod = 'all.ping' | 'all.speed_test.run' | 'client.info.get' | 'client.identifiers.get' | 'server.info.get' | 'server.info.put' | 'server.runtime.get' | 'server.status.get' | 'server.status.put' | 'server.run.agent.get' | 'server.run.agent.set' | 'server.run.workspace.get' | 'server.run.workspace.set' | 'server.run.workspace.reload' | 'server.run.workspace.history' | 'server.run.workspace.history.play' | 'server.run.workspace.memory.stats' | 'server.run.workspace.recall' | 'server.run.reload' | 'server.run.status' | 'server.run.stop' | 'server.run.say' | 'server.firmware.list' | 'server.firmware.get' | 'server.firmware.files.download' | 'server.workspace.list' | 'server.workspace.get' | 'server.workspace.create' | 'server.workspace.put' | 'server.workspace.delete' | 'server.workspace.history.list' | 'server.workspace.history.get' | 'server.workspace.history.audio.get' | 'server.workflow.list' | 'server.workflow.get' | 'server.workflow.create' | 'server.workflow.put' | 'server.workflow.delete' | 'server.model.list' | 'server.model.get' | 'server.model.create' | 'server.model.put' | 'server.model.delete' | 'server.voice.list' | 'server.voice.get' | 'server.credential.list' | 'server.credential.get' | 'server.credential.create' | 'server.credential.put' | 'server.credential.delete' | 'server.contact.list' | 'server.contact.get' | 'server.contact.create' | 'server.contact.put' | 'server.contact.delete' | 'server.friend.invite_token.get' | 'server.friend.invite_token.create' | 'server.friend.invite_token.clear' | 'server.friend.add' | 'server.friend.list' | 'server.friend.delete' | 'server.friend_group.list' | 'server.friend_group.get' | 'server.friend_group.create' | 'server.friend_group.put' | 'server.friend_group.delete' | 'server.friend_group.invite_token.get' | 'server.friend_group.invite_token.create' | 'server.friend_group.invite_token.clear' | 'server.friend_group.join' | 'server.friend_group.members.list' | 'server.friend_group.members.add' | 'server.friend_group.members.put' | 'server.friend_group.members.delete' | 'server.friend_group.messages.list' | 'server.friend_group.messages.get' | 'server.friend_group.messages.send' | 'server.game_ruleset.get' | 'server.pet.list' | 'server.pet.get' | 'server.pet.adopt' | 'server.pet.put' | 'server.pet.delete' | 'server.pet.drive' | 'server.points.get' | 'server.points.transactions.list' | 'server.points.transactions.get' | 'server.badge.list' | 'server.badge.get' | 'server.game_result.list' | 'server.game_result.get' | 'server.reward_grant.list' | 'server.reward_grant.get';
 
 export type RpcVersion = 1;
 
@@ -379,6 +379,10 @@ export type ModelPutRequest = {
     body: Model;
 };
 
+export type ServerGameRulesetGetRequest = {
+    name?: string;
+};
+
 export type ServerGetInfoRequest = {
     [key: string]: never;
 };
@@ -401,6 +405,10 @@ export type ServerGetRuntimeRequest = {
 
 export type ServerGetStatusRequest = {
     [key: string]: never;
+};
+
+export type ServerPointsGetRequest = {
+    ruleset_name?: string;
 };
 
 export type ServerReloadRunRequest = {
@@ -640,6 +648,231 @@ export type FirmwareSlots = {
     beta: FirmwareSlot;
     develop: FirmwareSlot;
     pending: FirmwareSlot;
+};
+
+export type Badge = {
+    id: string;
+    owner_public_key: string;
+    badge_def_id: string;
+    exp: number;
+    level: number;
+    active: boolean;
+    progress: number;
+    created_at: string;
+    updated_at: string;
+};
+
+export type BadgeListResponse = {
+    items: Array<Badge>;
+    has_next: boolean;
+    next_cursor?: string;
+};
+
+export type GameResult = {
+    id: string;
+    owner_public_key: string;
+    ruleset_name: string;
+    pet_id: string;
+    game_def_id: string;
+    score?: number;
+    outcome?: string;
+    payload?: GameplayMetadata;
+    created_at: string;
+};
+
+export type GameResultListResponse = {
+    items: Array<GameResult>;
+    has_next: boolean;
+    next_cursor?: string;
+};
+
+export type GameRewardSpec = {
+    points_delta?: number;
+    pet_exp_delta?: number;
+    badge_exp_delta?: {
+        [key: string]: number;
+    };
+    life_delta?: StatMap;
+    ability_delta?: StatMap;
+};
+
+export type GameRuleset = {
+    name: string;
+    spec: GameRulesetSpec;
+    created_at: string;
+    updated_at: string;
+};
+
+export type GameRulesetDriveSpec = {
+    action_costs?: {
+        [key: string]: number;
+    };
+    default_reward?: GameRewardSpec;
+    action_rewards?: {
+        [key: string]: GameRewardSpec;
+    };
+    game_rewards?: {
+        [key: string]: GameRewardSpec;
+    };
+    life_decay_per_hour?: StatMap;
+};
+
+export type GameRulesetPetPoolEntry = {
+    petdef_id: string;
+    weight: number;
+    rarity?: string;
+    adoption_cost?: number;
+    workflow_name?: string;
+};
+
+export type GameRulesetPointsSpec = {
+    initial_balance?: number;
+};
+
+export type GameRulesetSpec = {
+    enabled: boolean;
+    description?: string;
+    default_workflow_name?: string;
+    points?: GameRulesetPointsSpec;
+    pet_pool: Array<GameRulesetPetPoolEntry>;
+    badge_def_ids?: Array<string>;
+    game_def_ids?: Array<string>;
+    drive?: GameRulesetDriveSpec;
+    metadata?: GameplayMetadata;
+};
+
+export type GameplayGetRequest = {
+    id: string;
+};
+
+export type GameplayListRequest = {
+    cursor?: string;
+    limit?: number;
+};
+
+export type GameplayMetadata = {
+    [key: string]: unknown;
+};
+
+export type Pet = {
+    id: string;
+    owner_public_key: string;
+    ruleset_name: string;
+    petdef_id: string;
+    display_name: string;
+    workspace_name: string;
+    workflow_name?: string;
+    life: StatMap;
+    ability: StatMap;
+    exp: number;
+    level: number;
+    last_active_at: string;
+    created_at: string;
+    updated_at: string;
+};
+
+export type PetAdoptRequest = {
+    ruleset_name?: string;
+    display_name?: string;
+};
+
+export type PetAdoptResponse = {
+    pet: Pet;
+    points: PointsAccount;
+    transaction: PointsTransaction;
+};
+
+export type PetDeleteRequest = {
+    id: string;
+};
+
+export type PetDriveGameResultInput = {
+    game_def_id: string;
+    score?: number;
+    outcome?: string;
+    payload?: GameplayMetadata;
+};
+
+export type PetDriveRequest = {
+    pet_id: string;
+    action?: string;
+    game_result?: PetDriveGameResultInput;
+};
+
+export type PetDriveResponse = {
+    pet: Pet;
+    points: PointsAccount;
+    game_result?: GameResult;
+    badges: Array<Badge>;
+    reward_grants: Array<RewardGrant>;
+    transactions: Array<PointsTransaction>;
+};
+
+export type PetGetRequest = {
+    id: string;
+};
+
+export type PetListResponse = {
+    items: Array<Pet>;
+    has_next: boolean;
+    next_cursor?: string;
+};
+
+export type PetPutRequest = {
+    id: string;
+    display_name: string;
+};
+
+export type PointsAccount = {
+    owner_public_key: string;
+    ruleset_name: string;
+    balance: number;
+    created_at: string;
+    updated_at: string;
+};
+
+export type PointsTransaction = {
+    id: string;
+    owner_public_key: string;
+    ruleset_name: string;
+    pet_id?: string;
+    game_result_id?: string;
+    reward_grant_id?: string;
+    delta: number;
+    balance_after: number;
+    reason: string;
+    created_at: string;
+};
+
+export type PointsTransactionListResponse = {
+    items: Array<PointsTransaction>;
+    has_next: boolean;
+    next_cursor?: string;
+};
+
+export type RewardGrant = {
+    id: string;
+    owner_public_key: string;
+    ruleset_name: string;
+    pet_id?: string;
+    game_result_id?: string;
+    points_delta: number;
+    pet_exp_delta: number;
+    badge_exp_delta: {
+        [key: string]: number;
+    };
+    reason?: string;
+    created_at: string;
+};
+
+export type RewardGrantListResponse = {
+    items: Array<RewardGrant>;
+    has_next: boolean;
+    next_cursor?: string;
+};
+
+export type StatMap = {
+    [key: string]: number;
 };
 
 export type HardwareInfo = {

@@ -203,6 +203,36 @@ func newWithOptions(cfg Config, newOpts newServerOptions) (srv *CmdServer, err e
 				return nil, fmt.Errorf("server: friend group message assets store: %w", err)
 			}
 		}
+		if storeExists(cfg, defaultGameRulesetsStore) {
+			if gizServer.GameRulesetStore, err = ss.KV(defaultGameRulesetsStore); err != nil {
+				return nil, fmt.Errorf("server: game rulesets store: %w", err)
+			}
+		}
+		if storeExists(cfg, defaultPetDefsStore) {
+			if gizServer.PetDefStore, err = ss.KV(defaultPetDefsStore); err != nil {
+				return nil, fmt.Errorf("server: pet defs store: %w", err)
+			}
+		}
+		if storeExists(cfg, defaultBadgeDefsStore) {
+			if gizServer.BadgeDefStore, err = ss.KV(defaultBadgeDefsStore); err != nil {
+				return nil, fmt.Errorf("server: badge defs store: %w", err)
+			}
+		}
+		if storeExists(cfg, defaultGameDefsStore) {
+			if gizServer.GameDefStore, err = ss.KV(defaultGameDefsStore); err != nil {
+				return nil, fmt.Errorf("server: game defs store: %w", err)
+			}
+		}
+		if storeExists(cfg, defaultGameplayAssetsStore) {
+			if gizServer.GameplayAssets, err = ss.ObjectStore(defaultGameplayAssetsStore); err != nil {
+				return nil, fmt.Errorf("server: gameplay assets store: %w", err)
+			}
+		}
+		if storeExists(cfg, defaultGameplayDBStore) {
+			if gizServer.GameplayDB, err = ss.SQL(defaultGameplayDBStore); err != nil {
+				return nil, fmt.Errorf("server: gameplay db store: %w", err)
+			}
+		}
 	}
 	return cmdSrv, nil
 }

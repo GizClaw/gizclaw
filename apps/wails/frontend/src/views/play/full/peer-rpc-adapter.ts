@@ -9,6 +9,13 @@ import {
   type FriendGroupObject as RPCFriendGroupObject,
   type FriendInviteTokenGetResponse as RPCFriendInviteTokenGetResponse,
   type FriendObject as RPCFriendObject,
+  type Badge as RPCBadge,
+  type GameResult as RPCGameResult,
+  type GameRuleset as RPCGameRuleset,
+  type Pet as RPCPet,
+  type PointsAccount as RPCPointsAccount,
+  type PointsTransaction as RPCPointsTransaction,
+  type RewardGrant as RPCRewardGrant,
   type PeerRPCClient,
   type PeerRunHistoryEntry as RPCPeerRunHistoryEntry,
   type PeerRunMemoryStatsResponse as RPCPeerRunMemoryStatsResponse,
@@ -132,7 +139,14 @@ export type FriendGroupMemberObject = RPCFriendGroupMemberObject;
 export type FriendGroupObject = RPCFriendGroupObject;
 export type FriendInviteTokenGetResponse = RPCFriendInviteTokenGetResponse;
 export type FriendObject = RPCFriendObject;
+export type BadgeObject = RPCBadge;
 export type Firmware = RPCFirmware;
+export type GameResultObject = RPCGameResult;
+export type GameRulesetObject = RPCGameRuleset;
+export type PetObject = RPCPet;
+export type PointsAccountObject = RPCPointsAccount;
+export type PointsTransactionObject = RPCPointsTransaction;
+export type RewardGrantObject = RPCRewardGrant;
 export type PeerRunHistoryEntry = RPCPeerRunHistoryEntry;
 export type PeerRunMemoryStatsResponse = RPCPeerRunMemoryStatsResponse & {
   updated_at?: string;
@@ -262,6 +276,23 @@ export const listPeerModels = (options?: RequestOptions) => currentDataClient ? 
 export const listPeerCredentials = (options?: RequestOptions) => currentDataClient ? snapshotResult("credentials") : callRPC(RPC_METHODS["server.credential.list"], options);
 export const listPeerVoices = (options?: RequestOptions) => currentDataClient ? snapshotResult("voices") : callRPC(RPC_METHODS["server.voice.list"], options);
 export const listClientVoices = listPeerVoices;
+
+export const getPeerGameRuleset = (options?: RequestOptions) => callRPC(RPC_METHODS["server.game_ruleset.get"], options);
+export const listPeerPets = (options?: RequestOptions) => callRPC(RPC_METHODS["server.pet.list"], options);
+export const getPeerPet = (options: RequestOptions) => callRPC(RPC_METHODS["server.pet.get"], options);
+export const adoptPeerPet = (options: RequestOptions) => callRPC(RPC_METHODS["server.pet.adopt"], options);
+export const putPeerPet = (options: RequestOptions) => callRPC(RPC_METHODS["server.pet.put"], options);
+export const deletePeerPet = (options: RequestOptions) => callRPC(RPC_METHODS["server.pet.delete"], options);
+export const drivePeerPet = (options: RequestOptions) => callRPC(RPC_METHODS["server.pet.drive"], options);
+export const getPeerPoints = (options?: RequestOptions) => callRPC(RPC_METHODS["server.points.get"], options);
+export const listPeerPointsTransactions = (options?: RequestOptions) => callRPC(RPC_METHODS["server.points.transactions.list"], options);
+export const getPeerPointsTransaction = (options: RequestOptions) => callRPC(RPC_METHODS["server.points.transactions.get"], options);
+export const listPeerBadges = (options?: RequestOptions) => callRPC(RPC_METHODS["server.badge.list"], options);
+export const getPeerBadge = (options: RequestOptions) => callRPC(RPC_METHODS["server.badge.get"], options);
+export const listPeerGameResults = (options?: RequestOptions) => callRPC(RPC_METHODS["server.game_result.list"], options);
+export const getPeerGameResult = (options: RequestOptions) => callRPC(RPC_METHODS["server.game_result.get"], options);
+export const listPeerRewardGrants = (options?: RequestOptions) => callRPC(RPC_METHODS["server.reward_grant.list"], options);
+export const getPeerRewardGrant = (options: RequestOptions) => callRPC(RPC_METHODS["server.reward_grant.get"], options);
 
 export const streamPlayableVoices = async (options?: RequestOptions): Promise<{ stream: AsyncGenerator<PlayVoiceStreamEvent> }> => ({
   stream: (async function* () {

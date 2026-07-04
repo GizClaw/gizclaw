@@ -30,6 +30,10 @@ const resourceKinds: ResourceKind[] = [
   "ACLRole",
   "ACLView",
   "Firmware",
+  "GameRuleset",
+  "PetDef",
+  "BadgeDef",
+  "GameDef",
   "Model",
   "DashScopeTenant",
   "GeminiTenant",
@@ -380,6 +384,30 @@ function resourceSpecTemplate(kind: ResourceKind): unknown {
       return { items: [] };
     case "PeerConfig":
       return {};
+    case "GameRuleset":
+      return {
+        enabled: true,
+        points: { initial_balance: 100 },
+        pet_pool: [{ petdef_id: "petdef-basic", weight: 100, adoption_cost: 10 }],
+        badge_def_ids: ["badge-basic"],
+        game_def_ids: ["game-basic"],
+        drive: {
+          action_costs: { bath: 5 },
+          action_rewards: { bath: { pet_exp_delta: 10, life_delta: { clean: 20 } } },
+          game_rewards: { "game-basic": { points_delta: 10, pet_exp_delta: 20, badge_exp_delta: { "badge-basic": 100 } } },
+          life_decay_per_hour: { hunger: 1 },
+        },
+      };
+    case "PetDef":
+      return {
+        display_name: "Starter Pet",
+        initial_life: { hunger: 100, clean: 100 },
+        initial_ability: { play: 1 },
+      };
+    case "BadgeDef":
+      return { display_name: "Starter Badge" };
+    case "GameDef":
+      return { display_name: "Starter Game", outcomes: ["win", "lose"] };
     default:
       return {};
   }
@@ -391,6 +419,14 @@ function resourceSummary(kind: ResourceKind): string {
       return "Apply multiple resources in one request. The server rejects get/delete for ResourceList.";
     case "PeerConfig":
       return "Desired peer configuration keyed by peer public key.";
+    case "GameRuleset":
+      return "Admin-managed gameplay ruleset for pet pools, point costs, drive rewards, and game rewards.";
+    case "PetDef":
+      return "Admin-managed pet definition used by ruleset adoption pools.";
+    case "BadgeDef":
+      return "Admin-managed badge definition that peer badge progress references.";
+    case "GameDef":
+      return "Admin-managed playable game definition used by pet drive game results.";
     default:
       return "Generic declarative resource backed by the admin resource API.";
   }

@@ -1,0 +1,73 @@
+---
+apiVersion: gizclaw.admin/v1alpha1
+kind: ResourceList
+metadata:
+  name: starter-gameplay
+spec:
+  items:
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: PetDef
+    metadata:
+      name: petdef-starter
+    spec:
+      display_name: Starter Pet
+      description: Starter pet for gameplay e2e coverage.
+      workflow_name: chatroom-direct
+      initial_life:
+        hunger: 100
+        clean: 100
+      initial_ability:
+        play: 1
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: BadgeDef
+    metadata:
+      name: badge-starter
+    spec:
+      display_name: Starter Badge
+      description: First gameplay badge used by e2e coverage.
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: GameDef
+    metadata:
+      name: game-starter
+    spec:
+      display_name: Starter Game
+      description: Starter score-based game used by e2e coverage.
+      outcomes:
+      - win
+      - lose
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: GameRuleset
+    metadata:
+      name: default-gameplay
+    spec:
+      enabled: true
+      description: Default gameplay e2e ruleset.
+      default_workflow_name: chatroom-direct
+      points:
+        initial_balance: 100
+      pet_pool:
+      - petdef_id: petdef-starter
+        weight: 100
+        rarity: common
+        adoption_cost: 10
+        workflow_name: chatroom-direct
+      badge_def_ids:
+      - badge-starter
+      game_def_ids:
+      - game-starter
+      drive:
+        action_costs:
+          bath: 5
+        action_rewards:
+          bath:
+            pet_exp_delta: 80
+            life_delta:
+              clean: 10
+        game_rewards:
+          game-starter:
+            points_delta: 20
+            pet_exp_delta: 25
+            badge_exp_delta:
+              badge-starter: 100
+        life_decay_per_hour:
+          hunger: 1

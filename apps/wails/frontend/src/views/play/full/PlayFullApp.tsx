@@ -2,7 +2,7 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react"
 import type { JSX, MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent } from "react";
 import OpenAI from "openai";
 import type { ChatCompletionMessageParam } from "openai/resources/chat/completions";
-import { ArrowLeft, Bot, Brain, BriefcaseBusiness, ChevronDown, Clock3, ContactRound, Database, KeyRound, Loader2, MessageCircle, Mic2, PackageCheck, Pencil, Play, Plus, RefreshCw, Search, SendHorizontal, Trash2, UserPlus, Users, Volume2, VolumeX, Workflow } from "lucide-react";
+import { ArrowLeft, Bot, Brain, BriefcaseBusiness, ChevronDown, Clock3, ContactRound, Database, KeyRound, Loader2, MessageCircle, Mic2, PackageCheck, PawPrint, Pencil, Play, Plus, RefreshCw, Search, SendHorizontal, Trash2, UserPlus, Users, Volume2, VolumeX, Workflow } from "lucide-react";
 import { toast } from "sonner";
 import {
   ActionBarPrimitive,
@@ -27,6 +27,9 @@ import {
 import {
   addPeerFriend,
   addPeerFriendGroupMember,
+  adoptPeerPet,
+  deletePeerPet,
+  drivePeerPet,
   clearPeerFriendGroupInviteToken,
   clearPeerFriendInviteToken,
   createPeerContact,
@@ -40,12 +43,15 @@ import {
   getPeerFriendGroup,
   getPeerFriendGroupInviteToken,
   getPeerFriendInviteToken,
+  getPeerGameRuleset,
+  getPeerPoints,
   getPeerWorkspaceHistoryAudio,
   getPeerRunWorkspace,
   getPeerRunWorkspaceDetails,
   getPeerRunWorkspaceMemoryStats,
   hasInjectedPlayDataClient,
   joinPeerFriendGroup,
+  listPeerBadges,
   listClientVoices,
   listPeerContacts,
   listPeerCredentials,
@@ -53,7 +59,11 @@ import {
   listPeerFriendGroupMembers,
   listPeerFriendGroups,
   listPeerFriends,
+  listPeerGameResults,
   listPeerModels,
+  listPeerPets,
+  listPeerPointsTransactions,
+  listPeerRewardGrants,
   listPeerVoices,
   listPeerWorkspaceHistory,
   listPeerWorkflows,
@@ -61,6 +71,7 @@ import {
   listPeerRunWorkspaceHistory,
   playPeerRunWorkspaceHistory,
   putPeerContact,
+  putPeerPet,
   putPeerFriendGroupMember,
   putPeerRunWorkspaceDetails,
   recallPeerRunWorkspaceMemory,
@@ -68,6 +79,7 @@ import {
   setPeerRunWorkspace,
   setPeerRunWorkspaceMode,
   streamPlayableVoices as streamPlayableVoicesSDK,
+  type BadgeObject,
   type ContactObject,
   type FriendGroupInviteTokenGetResponse,
   type FriendGroupMemberMutableRole,
@@ -76,13 +88,19 @@ import {
   type FriendInviteTokenGetResponse,
   type FriendObject,
   type Firmware,
+  type GameResultObject,
+  type GameRulesetObject,
   type PeerRunHistoryEntry,
   type PeerRunMemoryStatsResponse,
   type PeerRunRecallHit,
   type PeerRunRecallResponse,
+  type PetObject,
   type PlayWorkspaceMode,
   type PlayWorkspaceState,
   type PlayVoiceStreamEvent,
+  type PointsAccountObject,
+  type PointsTransactionObject,
+  type RewardGrantObject,
   type WebRtcSessionDescription,
   type Workspace,
   type WorkspaceParameters,
@@ -110,7 +128,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/components/ui/utils";
 import { DashboardEmptyState, DashboardPager, DashboardShell, DashboardTable, DashboardTableCard, type DashboardNavItem } from "@/dashboard";
 
-type Section = "overview" | "contacts" | "friends" | "friendGroups" | "workspaces" | "workflows" | "models" | "credentials" | "firmwares" | "voices";
+type Section = "overview" | "contacts" | "friends" | "friendGroups" | "gameplay" | "workspaces" | "workflows" | "models" | "credentials" | "firmwares" | "voices";
 type TopDrawer = "workspace" | "social-chat" | "test-chat" | null;
 
 type ModelSpec = {
@@ -246,6 +264,7 @@ const sections: Array<DashboardNavItem<Section>> = [
   { icon: ContactRound, id: "contacts", label: "Contacts" },
   { icon: UserPlus, id: "friends", label: "Friends" },
   { icon: Users, id: "friendGroups", label: "Groups" },
+  { icon: PawPrint, id: "gameplay", label: "Gameplay" },
   { icon: BriefcaseBusiness, id: "workspaces", label: "Workspaces" },
   { icon: Workflow, id: "workflows", label: "Workflows" },
   { icon: Bot, id: "models", label: "Models" },
@@ -381,6 +400,7 @@ export function PlayFullApp({ contextName, onSignOut }: { contextName?: string; 
                     <FriendGroupDetailPanel group={selectedGroup} onBack={() => setSelectedGroup(null)} onGroupChange={setSelectedGroup} onOpenChat={openSocialChat} />
                   )
                 ) : null}
+                {section === "gameplay" ? <GameplayPanel /> : null}
                 {section === "workspaces" ? <WorkspacesPanel /> : null}
                 {section === "workflows" ? <WorkflowsPanel /> : null}
                 {section === "models" ? <ModelsPanel initialModels={models} /> : null}
@@ -398,6 +418,310 @@ export function PlayFullApp({ contextName, onSignOut }: { contextName?: string; 
       </DashboardShell>
       <Toaster richColors />
     </>
+  );
+}
+
+function GameplayPanel(): JSX.Element {
+  const pets = usePagedList<PetObject>((cursor) => listGameplayPage<PetObject>(listPeerPets, cursor));
+  const badges = usePagedList<BadgeObject>((cursor) => listGameplayPage<BadgeObject>(listPeerBadges, cursor));
+  const transactions = usePagedList<PointsTransactionObject>((cursor) => listGameplayPage<PointsTransactionObject>(listPeerPointsTransactions, cursor));
+  const results = usePagedList<GameResultObject>((cursor) => listGameplayPage<GameResultObject>(listPeerGameResults, cursor));
+  const grants = usePagedList<RewardGrantObject>((cursor) => listGameplayPage<RewardGrantObject>(listPeerRewardGrants, cursor));
+  const [ruleset, setRuleset] = useState<GameRulesetObject | null>(null);
+  const [points, setPoints] = useState<PointsAccountObject | null>(null);
+  const [selectedPetID, setSelectedPetID] = useState("");
+  const [adoptName, setAdoptName] = useState("");
+  const [driveAction, setDriveAction] = useState("");
+  const [driveGameID, setDriveGameID] = useState("");
+  const [driveScore, setDriveScore] = useState("");
+  const [driveOutcome, setDriveOutcome] = useState("");
+  const [busy, setBusy] = useState("");
+  const [error, setError] = useState("");
+
+  const refreshSummary = useCallback(async (): Promise<void> => {
+    const [rulesetResult, pointsResult] = await Promise.all([
+      expectData(getPeerGameRuleset()),
+      expectData(getPeerPoints()),
+    ]);
+    setRuleset(rulesetResult as GameRulesetObject);
+    setPoints(pointsResult as PointsAccountObject);
+  }, []);
+
+  useEffect(() => {
+    void refreshSummary().catch((err) => setError(toMessage(err)));
+  }, [refreshSummary]);
+
+  useEffect(() => {
+    setSelectedPetID((current) => current || pets.page.items[0]?.id || "");
+  }, [pets.page.items]);
+
+  const refreshAll = async (): Promise<void> => {
+    setError("");
+    await refreshSummary();
+    pets.refresh();
+    badges.refresh();
+    transactions.refresh();
+    results.refresh();
+    grants.refresh();
+  };
+
+  const adopt = async (): Promise<void> => {
+    setBusy("adopt");
+    setError("");
+    try {
+      await expectData(adoptPeerPet({ body: { ...(adoptName.trim() !== "" ? { display_name: adoptName.trim() } : {}) } }));
+      setAdoptName("");
+      await refreshAll();
+    } catch (err) {
+      setError(toMessage(err));
+    } finally {
+      setBusy("");
+    }
+  };
+
+  const drive = async (): Promise<void> => {
+    if (selectedPetID.trim() === "") {
+      setError("Select a pet first.");
+      return;
+    }
+    setBusy("drive");
+    setError("");
+    try {
+      const body: Record<string, unknown> = {
+        pet_id: selectedPetID.trim(),
+        ...(driveAction.trim() !== "" ? { action: driveAction.trim() } : {}),
+      };
+      if (driveGameID.trim() !== "") {
+        body.game_result = {
+          game_def_id: driveGameID.trim(),
+          ...(driveScore.trim() !== "" ? { score: Number(driveScore) } : {}),
+          ...(driveOutcome.trim() !== "" ? { outcome: driveOutcome.trim() } : {}),
+        };
+      }
+      await expectData(drivePeerPet({ body }));
+      await refreshAll();
+    } catch (err) {
+      setError(toMessage(err));
+    } finally {
+      setBusy("");
+    }
+  };
+
+  const rename = async (pet: PetObject): Promise<void> => {
+    const name = window.prompt("Pet name", pet.display_name);
+    if (name == null || name.trim() === "") {
+      return;
+    }
+    setBusy(`rename:${pet.id}`);
+    setError("");
+    try {
+      await expectData(putPeerPet({ body: { id: pet.id, display_name: name.trim() } }));
+      await refreshAll();
+    } catch (err) {
+      setError(toMessage(err));
+    } finally {
+      setBusy("");
+    }
+  };
+
+  const remove = async (pet: PetObject): Promise<void> => {
+    if (!window.confirm(`Delete pet ${pet.display_name || pet.id}?`)) {
+      return;
+    }
+    setBusy(`delete:${pet.id}`);
+    setError("");
+    try {
+      await expectData(deletePeerPet({ body: { id: pet.id } }));
+      await refreshAll();
+    } catch (err) {
+      setError(toMessage(err));
+    } finally {
+      setBusy("");
+    }
+  };
+
+  return (
+    <div className="max-w-7xl space-y-4">
+      {error !== "" ? (
+        <Alert variant="destructive">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      ) : null}
+      <div className="grid gap-4 lg:grid-cols-3">
+        <Card>
+          <CardHeader>
+            <CardTitle>Ruleset</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2 text-sm">
+            <WorkspaceInfoItem label="Name" value={ruleset?.name ?? "-"} />
+            <WorkspaceInfoItem label="Enabled" value={ruleset == null ? "-" : String(ruleset.spec.enabled)} />
+            <WorkspaceInfoItem label="Pet Pool" value={String(ruleset?.spec.pet_pool?.length ?? 0)} />
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Points</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2 text-sm">
+            <WorkspaceInfoItem label="Ruleset" value={points?.ruleset_name ?? "-"} />
+            <WorkspaceInfoItem label="Balance" value={points == null ? "-" : String(points.balance)} />
+            <WorkspaceInfoItem label="Updated" value={formatDate(points?.updated_at)} />
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Adopt</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-3">
+            <Input onChange={(event) => setAdoptName(event.target.value)} placeholder="Display name" value={adoptName} />
+            <Button disabled={busy !== ""} onClick={() => void adopt()} type="button">
+              <PawPrint className="size-4" />
+              Adopt Pet
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between gap-3">
+          <CardTitle>Drive</CardTitle>
+          <Button disabled={busy !== ""} onClick={() => void refreshAll()} size="sm" type="button" variant="outline">
+            <RefreshCw className="size-4" />
+            Refresh
+          </Button>
+        </CardHeader>
+        <CardContent className="grid gap-3 md:grid-cols-[minmax(12rem,1fr)_minmax(8rem,0.75fr)_minmax(8rem,0.75fr)_minmax(6rem,0.5fr)_minmax(8rem,0.75fr)_auto]">
+          <Select onValueChange={setSelectedPetID} value={selectedPetID}>
+            <SelectTrigger>
+              <SelectValue placeholder="Pet" />
+            </SelectTrigger>
+            <SelectContent>
+              {pets.page.items.map((pet) => (
+                <SelectItem key={pet.id} value={pet.id}>
+                  {pet.display_name || pet.id}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Input onChange={(event) => setDriveAction(event.target.value)} placeholder="Action" value={driveAction} />
+          <Input onChange={(event) => setDriveGameID(event.target.value)} placeholder="Game ID" value={driveGameID} />
+          <Input onChange={(event) => setDriveScore(event.target.value)} placeholder="Score" type="number" value={driveScore} />
+          <Input onChange={(event) => setDriveOutcome(event.target.value)} placeholder="Outcome" value={driveOutcome} />
+          <Button disabled={busy !== "" || selectedPetID === ""} onClick={() => void drive()} type="button">
+            <Play className="size-4" />
+            Drive
+          </Button>
+        </CardContent>
+      </Card>
+      <GameplayPetTable busy={busy} pager={pets} onDelete={remove} onRename={rename} />
+      <div className="grid gap-4 xl:grid-cols-2">
+        <GameplayObjectTable columns={["badge_def_id", "exp", "level", "active"]} pager={badges} title="Badges" />
+        <GameplayObjectTable columns={["delta", "balance_after", "reason", "created_at"]} pager={transactions} title="Point Transactions" />
+        <GameplayObjectTable columns={["pet_id", "game_def_id", "score", "outcome", "created_at"]} pager={results} title="Game Results" />
+        <GameplayObjectTable columns={["pet_id", "points_delta", "pet_exp_delta", "reason", "created_at"]} pager={grants} title="Reward Grants" />
+      </div>
+    </div>
+  );
+}
+
+function GameplayPetTable({ busy, onDelete, onRename, pager }: { busy: string; onDelete: (pet: PetObject) => Promise<void>; onRename: (pet: PetObject) => Promise<void>; pager: ReturnType<typeof usePagedList<PetObject>> }): JSX.Element {
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between gap-3">
+        <CardTitle>Pets</CardTitle>
+        <PageAction canNext={pager.page.hasNext} canPrevious={pager.page.cursors.length > 1} loading={pager.page.loading} onNext={pager.next} onPrevious={pager.previous} onRefresh={pager.refresh} pageIndex={pager.page.cursors.length} />
+      </CardHeader>
+      <CardContent>
+        {pager.error !== "" ? (
+          <Alert variant="destructive">
+            <AlertDescription>{pager.error}</AlertDescription>
+          </Alert>
+        ) : pager.page.items.length === 0 ? (
+          <EmptyMessage description="Adopted pets will appear here." title="No pets" />
+        ) : (
+          <DashboardTable>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Pet</TableHead>
+                <TableHead>PetDef</TableHead>
+                <TableHead>Level</TableHead>
+                <TableHead>Exp</TableHead>
+                <TableHead>Life</TableHead>
+                <TableHead>Workspace</TableHead>
+                <TableHead className="w-36 text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {pager.page.items.map((pet) => (
+                <TableRow key={pet.id}>
+                  <TableCell>
+                    <div className="font-medium">{pet.display_name || pet.id}</div>
+                    <div className="font-mono text-xs text-muted-foreground">{pet.id}</div>
+                  </TableCell>
+                  <TableCell className="font-mono text-xs">{pet.petdef_id}</TableCell>
+                  <TableCell>{pet.level}</TableCell>
+                  <TableCell>{pet.exp}</TableCell>
+                  <TableCell className="max-w-52 truncate font-mono text-xs" title={jsonSummary(pet.life)}>{jsonSummary(pet.life)}</TableCell>
+                  <TableCell className="max-w-52 truncate font-mono text-xs" title={pet.workspace_name}>{pet.workspace_name}</TableCell>
+                  <TableCell>
+                    <div className="flex justify-end gap-2">
+                      <Button disabled={busy !== ""} onClick={() => void onRename(pet)} size="sm" type="button" variant="outline">
+                        <Pencil className="size-4" />
+                      </Button>
+                      <Button disabled={busy !== ""} onClick={() => void onDelete(pet)} size="sm" type="button" variant="outline">
+                        <Trash2 className="size-4" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </DashboardTable>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function GameplayObjectTable<T extends Record<string, unknown>>({ columns, pager, title }: { columns: string[]; pager: ReturnType<typeof usePagedList<T>>; title: string }): JSX.Element {
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between gap-3">
+        <CardTitle>{title}</CardTitle>
+        <PageAction canNext={pager.page.hasNext} canPrevious={pager.page.cursors.length > 1} loading={pager.page.loading} onNext={pager.next} onPrevious={pager.previous} onRefresh={pager.refresh} pageIndex={pager.page.cursors.length} />
+      </CardHeader>
+      <CardContent>
+        {pager.error !== "" ? (
+          <Alert variant="destructive">
+            <AlertDescription>{pager.error}</AlertDescription>
+          </Alert>
+        ) : pager.page.items.length === 0 ? (
+          <EmptyMessage description={`${title} will appear here when gameplay activity is recorded.`} title={`No ${title.toLowerCase()}`} />
+        ) : (
+          <DashboardTable>
+            <TableHeader>
+              <TableRow>
+                <TableHead>ID</TableHead>
+                {columns.map((column) => (
+                  <TableHead key={column}>{column.replaceAll("_", " ")}</TableHead>
+                ))}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {pager.page.items.map((item) => (
+                <TableRow key={String(item.id ?? JSON.stringify(item))}>
+                  <TableCell className="max-w-44 truncate font-mono text-xs" title={String(item.id ?? "")}>{String(item.id ?? "-")}</TableCell>
+                  {columns.map((column) => (
+                    <TableCell className="max-w-52 truncate text-sm" key={column} title={gameplayCell(item[column])}>
+                      {gameplayCell(item[column])}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))}
+            </TableBody>
+          </DashboardTable>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -4301,6 +4625,10 @@ function listFirmwaresPage(cursor: string): Promise<PageResponse<Firmware>> {
   return expectData(listPeerFirmwares({ query: pageQuery(cursor) })) as Promise<PageResponse<Firmware>>;
 }
 
+function listGameplayPage<T>(list: (options?: { query?: { cursor?: string; limit: number } }) => Promise<{ data?: unknown; error?: unknown }>, cursor: string): Promise<PageResponse<T>> {
+  return expectData(list({ query: pageQuery(cursor) })) as Promise<PageResponse<T>>;
+}
+
 async function streamPlayableVoices(onVoice: (voice: Voice) => void): Promise<void> {
   const result = await streamPlayableVoicesSDK({ query: { limit: 100, provider_kind: "volc-tenant" }, sseMaxRetryAttempts: 0 });
   for await (const payload of result.stream as AsyncIterable<PlayVoiceStreamEvent>) {
@@ -4700,6 +5028,16 @@ function jsonSummary(value: unknown): string {
     return "";
   }
   return text.length > 96 ? `${text.slice(0, 93)}...` : text;
+}
+
+function gameplayCell(value: unknown): string {
+  if (value == null) {
+    return "-";
+  }
+  if (typeof value === "string" && value.includes("T")) {
+    return formatDate(value);
+  }
+  return jsonSummary(value);
 }
 
 function loadChatSessions(): ChatSession[] {

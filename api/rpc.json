@@ -257,6 +257,54 @@
               },
               {
                 "$ref": "./rpc/server.json#/components/schemas/FriendGroupMessageSendRequest"
+              },
+              {
+                "$ref": "./rpc/server.json#/components/schemas/ServerGameRulesetGetRequest"
+              },
+              {
+                "$ref": "./rpc/server.json#/components/schemas/ServerPetListRequest"
+              },
+              {
+                "$ref": "./rpc/server.json#/components/schemas/ServerPetGetRequest"
+              },
+              {
+                "$ref": "./rpc/server.json#/components/schemas/ServerPetAdoptRequest"
+              },
+              {
+                "$ref": "./rpc/server.json#/components/schemas/ServerPetPutRequest"
+              },
+              {
+                "$ref": "./rpc/server.json#/components/schemas/ServerPetDeleteRequest"
+              },
+              {
+                "$ref": "./rpc/server.json#/components/schemas/ServerPetDriveRequest"
+              },
+              {
+                "$ref": "./rpc/server.json#/components/schemas/ServerPointsGetRequest"
+              },
+              {
+                "$ref": "./rpc/server.json#/components/schemas/ServerPointsTransactionListRequest"
+              },
+              {
+                "$ref": "./rpc/server.json#/components/schemas/ServerPointsTransactionGetRequest"
+              },
+              {
+                "$ref": "./rpc/server.json#/components/schemas/ServerBadgeListRequest"
+              },
+              {
+                "$ref": "./rpc/server.json#/components/schemas/ServerBadgeGetRequest"
+              },
+              {
+                "$ref": "./rpc/server.json#/components/schemas/ServerGameResultListRequest"
+              },
+              {
+                "$ref": "./rpc/server.json#/components/schemas/ServerGameResultGetRequest"
+              },
+              {
+                "$ref": "./rpc/server.json#/components/schemas/ServerRewardGrantListRequest"
+              },
+              {
+                "$ref": "./rpc/server.json#/components/schemas/ServerRewardGrantGetRequest"
               }
             ]
           }
@@ -507,6 +555,54 @@
               },
               {
                 "$ref": "./rpc/server.json#/components/schemas/FriendGroupMessageSendResponse"
+              },
+              {
+                "$ref": "./rpc/server.json#/components/schemas/ServerGameRulesetGetResponse"
+              },
+              {
+                "$ref": "./rpc/server.json#/components/schemas/ServerPetListResponse"
+              },
+              {
+                "$ref": "./rpc/server.json#/components/schemas/ServerPetGetResponse"
+              },
+              {
+                "$ref": "./rpc/server.json#/components/schemas/ServerPetAdoptResponse"
+              },
+              {
+                "$ref": "./rpc/server.json#/components/schemas/ServerPetPutResponse"
+              },
+              {
+                "$ref": "./rpc/server.json#/components/schemas/ServerPetDeleteResponse"
+              },
+              {
+                "$ref": "./rpc/server.json#/components/schemas/ServerPetDriveResponse"
+              },
+              {
+                "$ref": "./rpc/server.json#/components/schemas/ServerPointsGetResponse"
+              },
+              {
+                "$ref": "./rpc/server.json#/components/schemas/ServerPointsTransactionListResponse"
+              },
+              {
+                "$ref": "./rpc/server.json#/components/schemas/ServerPointsTransactionGetResponse"
+              },
+              {
+                "$ref": "./rpc/server.json#/components/schemas/ServerBadgeListResponse"
+              },
+              {
+                "$ref": "./rpc/server.json#/components/schemas/ServerBadgeGetResponse"
+              },
+              {
+                "$ref": "./rpc/server.json#/components/schemas/ServerGameResultListResponse"
+              },
+              {
+                "$ref": "./rpc/server.json#/components/schemas/ServerGameResultGetResponse"
+              },
+              {
+                "$ref": "./rpc/server.json#/components/schemas/ServerRewardGrantListResponse"
+              },
+              {
+                "$ref": "./rpc/server.json#/components/schemas/ServerRewardGrantGetResponse"
               }
             ]
           },
@@ -594,7 +690,23 @@
           "server.friend_group.members.delete",
           "server.friend_group.messages.list",
           "server.friend_group.messages.get",
-          "server.friend_group.messages.send"
+          "server.friend_group.messages.send",
+          "server.game_ruleset.get",
+          "server.pet.list",
+          "server.pet.get",
+          "server.pet.adopt",
+          "server.pet.put",
+          "server.pet.delete",
+          "server.pet.drive",
+          "server.points.get",
+          "server.points.transactions.list",
+          "server.points.transactions.get",
+          "server.badge.list",
+          "server.badge.get",
+          "server.game_result.list",
+          "server.game_result.get",
+          "server.reward_grant.list",
+          "server.reward_grant.get"
         ]
       },
       "RPCVersion": {
@@ -1031,6 +1143,86 @@
       "method": "server.friend_group.messages.send",
       "request": "./rpc/server.json#/components/schemas/FriendGroupMessageSendRequest",
       "response": "./rpc/server.json#/components/schemas/FriendGroupMessageSendResponse"
+    },
+    {
+      "method": "server.game_ruleset.get",
+      "request": "./rpc/server.json#/components/schemas/ServerGameRulesetGetRequest",
+      "response": "./rpc/server.json#/components/schemas/ServerGameRulesetGetResponse"
+    },
+    {
+      "method": "server.pet.list",
+      "request": "./rpc/server.json#/components/schemas/ServerPetListRequest",
+      "response": "./rpc/server.json#/components/schemas/ServerPetListResponse"
+    },
+    {
+      "method": "server.pet.get",
+      "request": "./rpc/server.json#/components/schemas/ServerPetGetRequest",
+      "response": "./rpc/server.json#/components/schemas/ServerPetGetResponse"
+    },
+    {
+      "method": "server.pet.adopt",
+      "request": "./rpc/server.json#/components/schemas/ServerPetAdoptRequest",
+      "response": "./rpc/server.json#/components/schemas/ServerPetAdoptResponse"
+    },
+    {
+      "method": "server.pet.put",
+      "request": "./rpc/server.json#/components/schemas/ServerPetPutRequest",
+      "response": "./rpc/server.json#/components/schemas/ServerPetPutResponse"
+    },
+    {
+      "method": "server.pet.delete",
+      "request": "./rpc/server.json#/components/schemas/ServerPetDeleteRequest",
+      "response": "./rpc/server.json#/components/schemas/ServerPetDeleteResponse"
+    },
+    {
+      "method": "server.pet.drive",
+      "request": "./rpc/server.json#/components/schemas/ServerPetDriveRequest",
+      "response": "./rpc/server.json#/components/schemas/ServerPetDriveResponse"
+    },
+    {
+      "method": "server.points.get",
+      "request": "./rpc/server.json#/components/schemas/ServerPointsGetRequest",
+      "response": "./rpc/server.json#/components/schemas/ServerPointsGetResponse"
+    },
+    {
+      "method": "server.points.transactions.list",
+      "request": "./rpc/server.json#/components/schemas/ServerPointsTransactionListRequest",
+      "response": "./rpc/server.json#/components/schemas/ServerPointsTransactionListResponse"
+    },
+    {
+      "method": "server.points.transactions.get",
+      "request": "./rpc/server.json#/components/schemas/ServerPointsTransactionGetRequest",
+      "response": "./rpc/server.json#/components/schemas/ServerPointsTransactionGetResponse"
+    },
+    {
+      "method": "server.badge.list",
+      "request": "./rpc/server.json#/components/schemas/ServerBadgeListRequest",
+      "response": "./rpc/server.json#/components/schemas/ServerBadgeListResponse"
+    },
+    {
+      "method": "server.badge.get",
+      "request": "./rpc/server.json#/components/schemas/ServerBadgeGetRequest",
+      "response": "./rpc/server.json#/components/schemas/ServerBadgeGetResponse"
+    },
+    {
+      "method": "server.game_result.list",
+      "request": "./rpc/server.json#/components/schemas/ServerGameResultListRequest",
+      "response": "./rpc/server.json#/components/schemas/ServerGameResultListResponse"
+    },
+    {
+      "method": "server.game_result.get",
+      "request": "./rpc/server.json#/components/schemas/ServerGameResultGetRequest",
+      "response": "./rpc/server.json#/components/schemas/ServerGameResultGetResponse"
+    },
+    {
+      "method": "server.reward_grant.list",
+      "request": "./rpc/server.json#/components/schemas/ServerRewardGrantListRequest",
+      "response": "./rpc/server.json#/components/schemas/ServerRewardGrantListResponse"
+    },
+    {
+      "method": "server.reward_grant.get",
+      "request": "./rpc/server.json#/components/schemas/ServerRewardGrantGetRequest",
+      "response": "./rpc/server.json#/components/schemas/ServerRewardGrantGetResponse"
     }
   ]
 }

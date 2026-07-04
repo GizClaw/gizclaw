@@ -59,7 +59,7 @@ Old e2e/user-story baseline:
 | Firmware list/create/detail/artifact browsing | `apps/wails/frontend/src/views/admin/full/pages/firmware` | `apps/wails/frontend/e2e/admin.spec.ts` |
 | ACL views/roles/policy bindings | `apps/wails/frontend/src/views/admin/full/pages/settings` | `apps/wails/frontend/e2e/admin.spec.ts` |
 | Social contacts/friends/friend groups/history audio | `apps/wails/frontend/src/views/admin/full/pages/social` | `apps/wails/frontend/e2e/admin.spec.ts` |
-| Gameplay badges/pet species | `apps/wails/frontend/src/views/admin/full/pages/business` | `apps/wails/frontend/e2e/admin.spec.ts` |
+| Gameplay definitions and rulesets | `apps/wails/frontend/src/views/admin/full/pages/resources/ResourcesPage.tsx` | `apps/wails/frontend/e2e/admin.spec.ts` |
 | Resource manager page | `apps/wails/frontend/src/views/admin/full/pages/resources/ResourcesPage.tsx` | `apps/wails/frontend/e2e/admin.spec.ts` |
 | Legacy memory placeholder | `apps/wails/frontend/src/views/admin/full/pages/memory/MemoryPage.tsx` | Not a parity gate: the old `origin/main` router also did not expose this placeholder page |
 
@@ -84,7 +84,7 @@ Admin transport mapping:
 | Social friend/group resources and chat targets | `apps/wails/frontend/src/views/play/full/PlayFullApp.tsx` | `apps/wails/frontend/e2e/play.spec.ts`, `tests/gizclaw-e2e/go/social` |
 | Firmware list/detail/download | `apps/wails/frontend/src/views/play/full/PlayFullApp.tsx` | `apps/wails/frontend/e2e/play.spec.ts`, `tests/gizclaw-e2e/go/rpc/server_firmware_test.go` |
 | Memory stats/recall/reload | `apps/wails/frontend/src/views/play/full/PlayFullApp.tsx` | `apps/wails/frontend/e2e/play.spec.ts` |
-| Gameplay wallet/reward/pet visibility and actions | `apps/wails/frontend/src/views/play/full/PlayFullApp.tsx` | `apps/wails/frontend/e2e/play.spec.ts`, `tests/gizclaw-e2e/go/rpc/server_pet_test.go`, `tests/gizclaw-e2e/go/rpc/server_reward_test.go`, `tests/gizclaw-e2e/go/rpc/server_wallet_test.go` |
+| Gameplay pets/points/badges/results/reward grants | `apps/wails/frontend/src/views/play/full/PlayFullApp.tsx` | `apps/wails/frontend/e2e/play.spec.ts`, `tests/gizclaw-e2e/go/rpc/server_gameplay_test.go` |
 
 Play transport mapping:
 

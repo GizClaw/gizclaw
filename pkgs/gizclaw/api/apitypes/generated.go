@@ -13,22 +13,88 @@ import (
 
 // Defines values for ACLPermission.
 const (
-	ACLPermissionAdmin  ACLPermission = "admin"
-	ACLPermissionCreate ACLPermission = "create"
-	ACLPermissionRead   ACLPermission = "read"
-	ACLPermissionUse    ACLPermission = "use"
+	ACLPermissionCredentialAdmin  ACLPermission = "credential.admin"
+	ACLPermissionCredentialRead   ACLPermission = "credential.read"
+	ACLPermissionCredentialUse    ACLPermission = "credential.use"
+	ACLPermissionEditor           ACLPermission = "editor"
+	ACLPermissionFirmwareAdmin    ACLPermission = "firmware.admin"
+	ACLPermissionFirmwareRead     ACLPermission = "firmware.read"
+	ACLPermissionGamerulesetAdmin ACLPermission = "gameruleset.admin"
+	ACLPermissionGamerulesetRead  ACLPermission = "gameruleset.read"
+	ACLPermissionGamerulesetUse   ACLPermission = "gameruleset.use"
+	ACLPermissionModelAdmin       ACLPermission = "model.admin"
+	ACLPermissionModelRead        ACLPermission = "model.read"
+	ACLPermissionModelUse         ACLPermission = "model.use"
+	ACLPermissionOwner            ACLPermission = "owner"
+	ACLPermissionViewAdmin        ACLPermission = "view.admin"
+	ACLPermissionViewRead         ACLPermission = "view.read"
+	ACLPermissionViewUse          ACLPermission = "view.use"
+	ACLPermissionViewer           ACLPermission = "viewer"
+	ACLPermissionVoiceAdmin       ACLPermission = "voice.admin"
+	ACLPermissionVoiceRead        ACLPermission = "voice.read"
+	ACLPermissionVoiceUse         ACLPermission = "voice.use"
+	ACLPermissionWorkflowAdmin    ACLPermission = "workflow.admin"
+	ACLPermissionWorkflowRead     ACLPermission = "workflow.read"
+	ACLPermissionWorkflowUse      ACLPermission = "workflow.use"
+	ACLPermissionWorkspaceAdmin   ACLPermission = "workspace.admin"
+	ACLPermissionWorkspaceRead    ACLPermission = "workspace.read"
+	ACLPermissionWorkspaceUse     ACLPermission = "workspace.use"
 )
 
 // Valid indicates whether the value is a known member of the ACLPermission enum.
 func (e ACLPermission) Valid() bool {
 	switch e {
-	case ACLPermissionAdmin:
+	case ACLPermissionCredentialAdmin:
 		return true
-	case ACLPermissionCreate:
+	case ACLPermissionCredentialRead:
 		return true
-	case ACLPermissionRead:
+	case ACLPermissionCredentialUse:
 		return true
-	case ACLPermissionUse:
+	case ACLPermissionEditor:
+		return true
+	case ACLPermissionFirmwareAdmin:
+		return true
+	case ACLPermissionFirmwareRead:
+		return true
+	case ACLPermissionGamerulesetAdmin:
+		return true
+	case ACLPermissionGamerulesetRead:
+		return true
+	case ACLPermissionGamerulesetUse:
+		return true
+	case ACLPermissionModelAdmin:
+		return true
+	case ACLPermissionModelRead:
+		return true
+	case ACLPermissionModelUse:
+		return true
+	case ACLPermissionOwner:
+		return true
+	case ACLPermissionViewAdmin:
+		return true
+	case ACLPermissionViewRead:
+		return true
+	case ACLPermissionViewUse:
+		return true
+	case ACLPermissionViewer:
+		return true
+	case ACLPermissionVoiceAdmin:
+		return true
+	case ACLPermissionVoiceRead:
+		return true
+	case ACLPermissionVoiceUse:
+		return true
+	case ACLPermissionWorkflowAdmin:
+		return true
+	case ACLPermissionWorkflowRead:
+		return true
+	case ACLPermissionWorkflowUse:
+		return true
+	case ACLPermissionWorkspaceAdmin:
+		return true
+	case ACLPermissionWorkspaceRead:
+		return true
+	case ACLPermissionWorkspaceUse:
 		return true
 	default:
 		return false
@@ -52,29 +118,26 @@ func (e ACLPolicyBindingResourceKind) Valid() bool {
 
 // Defines values for ACLResourceKind.
 const (
-	ACLResourceKindBadge      ACLResourceKind = "badge"
-	ACLResourceKindCredential ACLResourceKind = "credential"
-	ACLResourceKindFirmware   ACLResourceKind = "firmware"
-	ACLResourceKindModel      ACLResourceKind = "model"
-	ACLResourceKindPetSpecies ACLResourceKind = "pet_species"
-	ACLResourceKindView       ACLResourceKind = "view"
-	ACLResourceKindVoice      ACLResourceKind = "voice"
-	ACLResourceKindWorkflow   ACLResourceKind = "workflow"
-	ACLResourceKindWorkspace  ACLResourceKind = "workspace"
+	ACLResourceKindCredential  ACLResourceKind = "credential"
+	ACLResourceKindFirmware    ACLResourceKind = "firmware"
+	ACLResourceKindGameruleset ACLResourceKind = "gameruleset"
+	ACLResourceKindModel       ACLResourceKind = "model"
+	ACLResourceKindView        ACLResourceKind = "view"
+	ACLResourceKindVoice       ACLResourceKind = "voice"
+	ACLResourceKindWorkflow    ACLResourceKind = "workflow"
+	ACLResourceKindWorkspace   ACLResourceKind = "workspace"
 )
 
 // Valid indicates whether the value is a known member of the ACLResourceKind enum.
 func (e ACLResourceKind) Valid() bool {
 	switch e {
-	case ACLResourceKindBadge:
-		return true
 	case ACLResourceKindCredential:
 		return true
 	case ACLResourceKindFirmware:
 		return true
-	case ACLResourceKindModel:
+	case ACLResourceKindGameruleset:
 		return true
-	case ACLResourceKindPetSpecies:
+	case ACLResourceKindModel:
 		return true
 	case ACLResourceKindView:
 		return true
@@ -197,15 +260,15 @@ func (e ApplyAction) Valid() bool {
 	}
 }
 
-// Defines values for BadgeResourceKind.
+// Defines values for BadgeDefResourceKind.
 const (
-	BadgeResourceKindBadge BadgeResourceKind = "Badge"
+	BadgeDefResourceKindBadgeDef BadgeDefResourceKind = "BadgeDef"
 )
 
-// Valid indicates whether the value is a known member of the BadgeResourceKind enum.
-func (e BadgeResourceKind) Valid() bool {
+// Valid indicates whether the value is a known member of the BadgeDefResourceKind enum.
+func (e BadgeDefResourceKind) Valid() bool {
 	switch e {
-	case BadgeResourceKindBadge:
+	case BadgeDefResourceKindBadgeDef:
 		return true
 	default:
 		return false
@@ -572,6 +635,36 @@ func (e FriendResourceKind) Valid() bool {
 	}
 }
 
+// Defines values for GameDefResourceKind.
+const (
+	GameDefResourceKindGameDef GameDefResourceKind = "GameDef"
+)
+
+// Valid indicates whether the value is a known member of the GameDefResourceKind enum.
+func (e GameDefResourceKind) Valid() bool {
+	switch e {
+	case GameDefResourceKindGameDef:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for GameRulesetResourceKind.
+const (
+	GameRulesetResourceKindGameRuleset GameRulesetResourceKind = "GameRuleset"
+)
+
+// Valid indicates whether the value is a known member of the GameRulesetResourceKind enum.
+func (e GameRulesetResourceKind) Valid() bool {
+	switch e {
+	case GameRulesetResourceKindGameRuleset:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for GeminiTenantResourceKind.
 const (
 	GeminiTenantResourceKindGeminiTenant GeminiTenantResourceKind = "GeminiTenant"
@@ -914,15 +1007,15 @@ func (e PeerStreamKind) Valid() bool {
 	}
 }
 
-// Defines values for PetSpeciesResourceKind.
+// Defines values for PetDefResourceKind.
 const (
-	PetSpeciesResourceKindPetSpecies PetSpeciesResourceKind = "PetSpecies"
+	PetDefResourceKindPetDef PetDefResourceKind = "PetDef"
 )
 
-// Valid indicates whether the value is a known member of the PetSpeciesResourceKind enum.
-func (e PetSpeciesResourceKind) Valid() bool {
+// Valid indicates whether the value is a known member of the PetDefResourceKind enum.
+func (e PetDefResourceKind) Valid() bool {
 	switch e {
-	case PetSpeciesResourceKindPetSpecies:
+	case PetDefResourceKindPetDef:
 		return true
 	default:
 		return false
@@ -949,7 +1042,7 @@ const (
 	ResourceKindACLPolicyBinding       ResourceKind = "ACLPolicyBinding"
 	ResourceKindACLRole                ResourceKind = "ACLRole"
 	ResourceKindACLView                ResourceKind = "ACLView"
-	ResourceKindBadge                  ResourceKind = "Badge"
+	ResourceKindBadgeDef               ResourceKind = "BadgeDef"
 	ResourceKindContact                ResourceKind = "Contact"
 	ResourceKindCredential             ResourceKind = "Credential"
 	ResourceKindDashScopeTenant        ResourceKind = "DashScopeTenant"
@@ -958,12 +1051,14 @@ const (
 	ResourceKindFriendGroup            ResourceKind = "FriendGroup"
 	ResourceKindFriendGroupInviteToken ResourceKind = "FriendGroupInviteToken"
 	ResourceKindFriendGroupMember      ResourceKind = "FriendGroupMember"
+	ResourceKindGameDef                ResourceKind = "GameDef"
+	ResourceKindGameRuleset            ResourceKind = "GameRuleset"
 	ResourceKindGeminiTenant           ResourceKind = "GeminiTenant"
 	ResourceKindMiniMaxTenant          ResourceKind = "MiniMaxTenant"
 	ResourceKindModel                  ResourceKind = "Model"
 	ResourceKindOpenAITenant           ResourceKind = "OpenAITenant"
 	ResourceKindPeerConfig             ResourceKind = "PeerConfig"
-	ResourceKindPetSpecies             ResourceKind = "PetSpecies"
+	ResourceKindPetDef                 ResourceKind = "PetDef"
 	ResourceKindResourceList           ResourceKind = "ResourceList"
 	ResourceKindVoice                  ResourceKind = "Voice"
 	ResourceKindVolcTenant             ResourceKind = "VolcTenant"
@@ -980,7 +1075,7 @@ func (e ResourceKind) Valid() bool {
 		return true
 	case ResourceKindACLView:
 		return true
-	case ResourceKindBadge:
+	case ResourceKindBadgeDef:
 		return true
 	case ResourceKindContact:
 		return true
@@ -998,6 +1093,10 @@ func (e ResourceKind) Valid() bool {
 		return true
 	case ResourceKindFriendGroupMember:
 		return true
+	case ResourceKindGameDef:
+		return true
+	case ResourceKindGameRuleset:
+		return true
 	case ResourceKindGeminiTenant:
 		return true
 	case ResourceKindMiniMaxTenant:
@@ -1008,7 +1107,7 @@ func (e ResourceKind) Valid() bool {
 		return true
 	case ResourceKindPeerConfig:
 		return true
-	case ResourceKindPetSpecies:
+	case ResourceKindPetDef:
 		return true
 	case ResourceKindResourceList:
 		return true
@@ -1424,31 +1523,51 @@ type ApplyResult struct {
 
 // Badge defines model for Badge.
 type Badge struct {
-	CreatedAt   time.Time `json:"created_at"`
-	Description string    `json:"description"`
-	IconPath    string    `json:"icon_path"`
-	Id          string    `json:"id"`
-	Name        string    `json:"name"`
-	UpdatedAt   time.Time `json:"updated_at"`
+	Active         bool      `json:"active"`
+	BadgeDefId     string    `json:"badge_def_id"`
+	CreatedAt      time.Time `json:"created_at"`
+	Exp            int64     `json:"exp"`
+	Id             string    `json:"id"`
+	Level          int64     `json:"level"`
+	OwnerPublicKey string    `json:"owner_public_key"`
+	Progress       int64     `json:"progress"`
+	UpdatedAt      time.Time `json:"updated_at"`
 }
 
-// BadgeResource defines model for BadgeResource.
-type BadgeResource struct {
+// BadgeDef defines model for BadgeDef.
+type BadgeDef struct {
+	CreatedAt time.Time    `json:"created_at"`
+	IconPath  *string      `json:"icon_path,omitempty"`
+	Id        string       `json:"id"`
+	Spec      BadgeDefSpec `json:"spec"`
+	UpdatedAt time.Time    `json:"updated_at"`
+}
+
+// BadgeDefResource defines model for BadgeDefResource.
+type BadgeDefResource struct {
 	// ApiVersion API version for declarative GizClaw resources.
-	ApiVersion ResourceAPIVersion `json:"apiVersion"`
-	Kind       BadgeResourceKind  `json:"kind"`
-	Metadata   ResourceMetadata   `json:"metadata"`
-	Spec       BadgeSpec          `json:"spec"`
+	ApiVersion ResourceAPIVersion   `json:"apiVersion"`
+	Kind       BadgeDefResourceKind `json:"kind"`
+	Metadata   ResourceMetadata     `json:"metadata"`
+	Spec       BadgeDefSpec         `json:"spec"`
 }
 
-// BadgeResourceKind defines model for BadgeResource.Kind.
-type BadgeResourceKind string
+// BadgeDefResourceKind defines model for BadgeDefResource.Kind.
+type BadgeDefResourceKind string
 
-// BadgeSpec defines model for BadgeSpec.
-type BadgeSpec struct {
-	Description string  `json:"description"`
-	IconPath    *string `json:"icon_path,omitempty"`
-	Name        string  `json:"name"`
+// BadgeDefSpec defines model for BadgeDefSpec.
+type BadgeDefSpec struct {
+	Description *string           `json:"description,omitempty"`
+	DisplayName string            `json:"display_name"`
+	Metadata    *GameplayMetadata `json:"metadata,omitempty"`
+	Tags        *[]string         `json:"tags,omitempty"`
+}
+
+// BadgeListResponse defines model for BadgeListResponse.
+type BadgeListResponse struct {
+	HasNext    bool    `json:"has_next"`
+	Items      []Badge `json:"items"`
+	NextCursor *string `json:"next_cursor,omitempty"`
 }
 
 // ChatRoomMode defines model for ChatRoomMode.
@@ -1515,10 +1634,8 @@ type ContactResource struct {
 	// ApiVersion API version for declarative GizClaw resources.
 	ApiVersion ResourceAPIVersion  `json:"apiVersion"`
 	Kind       ContactResourceKind `json:"kind"`
-
-	// Metadata metadata.name must be owner_public_key:id; only id is a custom ID.
-	Metadata ResourceMetadata `json:"metadata"`
-	Spec     ContactSpec      `json:"spec"`
+	Metadata   ResourceMetadata    `json:"metadata"`
+	Spec       ContactSpec         `json:"spec"`
 }
 
 // ContactResourceKind defines model for ContactResource.Kind.
@@ -1528,7 +1645,7 @@ type ContactResourceKind string
 type ContactSpec struct {
 	DisplayName *string `json:"display_name,omitempty"`
 
-	// Id Owner-scoped contact custom ID. metadata.name must be owner_public_key:id.
+	// Id Owner-scoped contact id.
 	Id string `json:"id"`
 
 	// OwnerPublicKey Owner peer public key. metadata.name must be owner_public_key:id.
@@ -1988,10 +2105,8 @@ type FriendGroupInviteTokenResource struct {
 	// ApiVersion API version for declarative GizClaw resources.
 	ApiVersion ResourceAPIVersion                 `json:"apiVersion"`
 	Kind       FriendGroupInviteTokenResourceKind `json:"kind"`
-
-	// Metadata metadata.name is the friend group custom ID and must match spec.friend_group_id.
-	Metadata ResourceMetadata           `json:"metadata"`
-	Spec     FriendGroupInviteTokenSpec `json:"spec"`
+	Metadata   ResourceMetadata                   `json:"metadata"`
+	Spec       FriendGroupInviteTokenSpec         `json:"spec"`
 }
 
 // FriendGroupInviteTokenResourceKind defines model for FriendGroupInviteTokenResource.Kind.
@@ -1999,11 +2114,9 @@ type FriendGroupInviteTokenResourceKind string
 
 // FriendGroupInviteTokenSpec defines model for FriendGroupInviteTokenSpec.
 type FriendGroupInviteTokenSpec struct {
-	ExpiresAt time.Time `json:"expires_at"`
-
-	// FriendGroupId Friend group custom ID. The invite_token value is not a custom ID.
-	FriendGroupId string `json:"friend_group_id"`
-	InviteToken   string `json:"invite_token"`
+	ExpiresAt     time.Time `json:"expires_at"`
+	FriendGroupId string    `json:"friend_group_id"`
+	InviteToken   string    `json:"invite_token"`
 }
 
 // FriendGroupMemberResource defines model for FriendGroupMemberResource.
@@ -2011,10 +2124,8 @@ type FriendGroupMemberResource struct {
 	// ApiVersion API version for declarative GizClaw resources.
 	ApiVersion ResourceAPIVersion            `json:"apiVersion"`
 	Kind       FriendGroupMemberResourceKind `json:"kind"`
-
-	// Metadata metadata.name must be friend_group_id:peer_public_key; only friend_group_id is a custom ID.
-	Metadata ResourceMetadata      `json:"metadata"`
-	Spec     FriendGroupMemberSpec `json:"spec"`
+	Metadata   ResourceMetadata              `json:"metadata"`
+	Spec       FriendGroupMemberSpec         `json:"spec"`
 }
 
 // FriendGroupMemberResourceKind defines model for FriendGroupMemberResource.Kind.
@@ -2025,7 +2136,6 @@ type FriendGroupMemberRole string
 
 // FriendGroupMemberSpec defines model for FriendGroupMemberSpec.
 type FriendGroupMemberSpec struct {
-	// FriendGroupId Friend group custom ID. The peer_public_key segment is not a custom ID.
 	FriendGroupId string                `json:"friend_group_id"`
 	PeerPublicKey string                `json:"peer_public_key"`
 	Role          FriendGroupMemberRole `json:"role"`
@@ -2036,10 +2146,8 @@ type FriendGroupResource struct {
 	// ApiVersion API version for declarative GizClaw resources.
 	ApiVersion ResourceAPIVersion      `json:"apiVersion"`
 	Kind       FriendGroupResourceKind `json:"kind"`
-
-	// Metadata metadata.name is the friend group custom ID.
-	Metadata ResourceMetadata `json:"metadata"`
-	Spec     FriendGroupSpec  `json:"spec"`
+	Metadata   ResourceMetadata        `json:"metadata"`
+	Spec       FriendGroupSpec         `json:"spec"`
 }
 
 // FriendGroupResourceKind defines model for FriendGroupResource.Kind.
@@ -2073,6 +2181,135 @@ type FriendSpec struct {
 	// PeerPublicKey Canonical friend peer public key. Applying the resource creates both owner-view rows.
 	PeerPublicKey string `json:"peer_public_key"`
 }
+
+// GameDef defines model for GameDef.
+type GameDef struct {
+	CreatedAt time.Time   `json:"created_at"`
+	Id        string      `json:"id"`
+	Spec      GameDefSpec `json:"spec"`
+	UpdatedAt time.Time   `json:"updated_at"`
+}
+
+// GameDefResource defines model for GameDefResource.
+type GameDefResource struct {
+	// ApiVersion API version for declarative GizClaw resources.
+	ApiVersion ResourceAPIVersion  `json:"apiVersion"`
+	Kind       GameDefResourceKind `json:"kind"`
+	Metadata   ResourceMetadata    `json:"metadata"`
+	Spec       GameDefSpec         `json:"spec"`
+}
+
+// GameDefResourceKind defines model for GameDefResource.Kind.
+type GameDefResourceKind string
+
+// GameDefSpec defines model for GameDefSpec.
+type GameDefSpec struct {
+	Description *string           `json:"description,omitempty"`
+	DisplayName string            `json:"display_name"`
+	Metadata    *GameplayMetadata `json:"metadata,omitempty"`
+	Outcomes    *[]string         `json:"outcomes,omitempty"`
+	ScoreSchema *GameplayMetadata `json:"score_schema,omitempty"`
+	Tags        *[]string         `json:"tags,omitempty"`
+}
+
+// GameResult defines model for GameResult.
+type GameResult struct {
+	CreatedAt      time.Time         `json:"created_at"`
+	GameDefId      string            `json:"game_def_id"`
+	Id             string            `json:"id"`
+	Outcome        *string           `json:"outcome,omitempty"`
+	OwnerPublicKey string            `json:"owner_public_key"`
+	Payload        *GameplayMetadata `json:"payload,omitempty"`
+	PetId          string            `json:"pet_id"`
+	RulesetName    string            `json:"ruleset_name"`
+	Score          *int64            `json:"score,omitempty"`
+}
+
+// GameResultListResponse defines model for GameResultListResponse.
+type GameResultListResponse struct {
+	HasNext    bool         `json:"has_next"`
+	Items      []GameResult `json:"items"`
+	NextCursor *string      `json:"next_cursor,omitempty"`
+}
+
+// GameRewardSpec defines model for GameRewardSpec.
+type GameRewardSpec struct {
+	AbilityDelta  *StatMap          `json:"ability_delta,omitempty"`
+	BadgeExpDelta *map[string]int64 `json:"badge_exp_delta,omitempty"`
+	LifeDelta     *StatMap          `json:"life_delta,omitempty"`
+	PetExpDelta   *int64            `json:"pet_exp_delta,omitempty"`
+	PointsDelta   *int64            `json:"points_delta,omitempty"`
+}
+
+// GameRuleset defines model for GameRuleset.
+type GameRuleset struct {
+	CreatedAt time.Time       `json:"created_at"`
+	Name      string          `json:"name"`
+	Spec      GameRulesetSpec `json:"spec"`
+	UpdatedAt time.Time       `json:"updated_at"`
+}
+
+// GameRulesetDriveSpec defines model for GameRulesetDriveSpec.
+type GameRulesetDriveSpec struct {
+	ActionCosts      *map[string]int64          `json:"action_costs,omitempty"`
+	ActionRewards    *map[string]GameRewardSpec `json:"action_rewards,omitempty"`
+	DefaultReward    *GameRewardSpec            `json:"default_reward,omitempty"`
+	GameRewards      *map[string]GameRewardSpec `json:"game_rewards,omitempty"`
+	LifeDecayPerHour *StatMap                   `json:"life_decay_per_hour,omitempty"`
+}
+
+// GameRulesetPetPoolEntry defines model for GameRulesetPetPoolEntry.
+type GameRulesetPetPoolEntry struct {
+	AdoptionCost *int64  `json:"adoption_cost,omitempty"`
+	PetdefId     string  `json:"petdef_id"`
+	Rarity       *string `json:"rarity,omitempty"`
+	Weight       int64   `json:"weight"`
+	WorkflowName *string `json:"workflow_name,omitempty"`
+}
+
+// GameRulesetPointsSpec defines model for GameRulesetPointsSpec.
+type GameRulesetPointsSpec struct {
+	InitialBalance *int64 `json:"initial_balance,omitempty"`
+}
+
+// GameRulesetResource defines model for GameRulesetResource.
+type GameRulesetResource struct {
+	// ApiVersion API version for declarative GizClaw resources.
+	ApiVersion ResourceAPIVersion      `json:"apiVersion"`
+	Kind       GameRulesetResourceKind `json:"kind"`
+	Metadata   ResourceMetadata        `json:"metadata"`
+	Spec       GameRulesetSpec         `json:"spec"`
+}
+
+// GameRulesetResourceKind defines model for GameRulesetResource.Kind.
+type GameRulesetResourceKind string
+
+// GameRulesetSpec defines model for GameRulesetSpec.
+type GameRulesetSpec struct {
+	BadgeDefIds         *[]string                 `json:"badge_def_ids,omitempty"`
+	DefaultWorkflowName *string                   `json:"default_workflow_name,omitempty"`
+	Description         *string                   `json:"description,omitempty"`
+	Drive               *GameRulesetDriveSpec     `json:"drive,omitempty"`
+	Enabled             bool                      `json:"enabled"`
+	GameDefIds          *[]string                 `json:"game_def_ids,omitempty"`
+	Metadata            *GameplayMetadata         `json:"metadata,omitempty"`
+	PetPool             []GameRulesetPetPoolEntry `json:"pet_pool"`
+	Points              *GameRulesetPointsSpec    `json:"points,omitempty"`
+}
+
+// GameplayGetRequest defines model for GameplayGetRequest.
+type GameplayGetRequest struct {
+	Id string `json:"id"`
+}
+
+// GameplayListRequest defines model for GameplayListRequest.
+type GameplayListRequest struct {
+	Cursor *string `json:"cursor,omitempty"`
+	Limit  *int    `json:"limit,omitempty"`
+}
+
+// GameplayMetadata defines model for GameplayMetadata.
+type GameplayMetadata map[string]interface{}
 
 // GeminiCredentialBody defines model for GeminiCredentialBody.
 type GeminiCredentialBody struct {
@@ -2557,44 +2794,145 @@ type PeerStreamEventType string
 // PeerStreamKind defines model for PeerStreamKind.
 type PeerStreamKind string
 
-// PetSpecies defines model for PetSpecies.
-type PetSpecies struct {
-	CreatedAt    time.Time    `json:"created_at"`
-	Id           string       `json:"id"`
-	Name         string       `json:"name"`
-	PixaMetadata PixaMetadata `json:"pixa_metadata"`
-	PixaPath     string       `json:"pixa_path"`
-	UpdatedAt    time.Time    `json:"updated_at"`
+// Pet defines model for Pet.
+type Pet struct {
+	Ability        StatMap   `json:"ability"`
+	CreatedAt      time.Time `json:"created_at"`
+	DisplayName    string    `json:"display_name"`
+	Exp            int64     `json:"exp"`
+	Id             string    `json:"id"`
+	LastActiveAt   time.Time `json:"last_active_at"`
+	Level          int64     `json:"level"`
+	Life           StatMap   `json:"life"`
+	OwnerPublicKey string    `json:"owner_public_key"`
+	PetdefId       string    `json:"petdef_id"`
+	RulesetName    string    `json:"ruleset_name"`
+	UpdatedAt      time.Time `json:"updated_at"`
+	WorkflowName   *string   `json:"workflow_name,omitempty"`
+	WorkspaceName  string    `json:"workspace_name"`
 }
 
-// PetSpeciesResource defines model for PetSpeciesResource.
-type PetSpeciesResource struct {
+// PetAdoptRequest defines model for PetAdoptRequest.
+type PetAdoptRequest struct {
+	DisplayName *string `json:"display_name,omitempty"`
+	RulesetName *string `json:"ruleset_name,omitempty"`
+}
+
+// PetAdoptResponse defines model for PetAdoptResponse.
+type PetAdoptResponse struct {
+	Pet         Pet               `json:"pet"`
+	Points      PointsAccount     `json:"points"`
+	Transaction PointsTransaction `json:"transaction"`
+}
+
+// PetDef defines model for PetDef.
+type PetDef struct {
+	AssetPath *string    `json:"asset_path,omitempty"`
+	CreatedAt time.Time  `json:"created_at"`
+	Id        string     `json:"id"`
+	Spec      PetDefSpec `json:"spec"`
+	UpdatedAt time.Time  `json:"updated_at"`
+}
+
+// PetDefResource defines model for PetDefResource.
+type PetDefResource struct {
 	// ApiVersion API version for declarative GizClaw resources.
-	ApiVersion ResourceAPIVersion     `json:"apiVersion"`
-	Kind       PetSpeciesResourceKind `json:"kind"`
-	Metadata   ResourceMetadata       `json:"metadata"`
-	Spec       PetSpeciesSpec         `json:"spec"`
+	ApiVersion ResourceAPIVersion `json:"apiVersion"`
+	Kind       PetDefResourceKind `json:"kind"`
+	Metadata   ResourceMetadata   `json:"metadata"`
+	Spec       PetDefSpec         `json:"spec"`
 }
 
-// PetSpeciesResourceKind defines model for PetSpeciesResource.Kind.
-type PetSpeciesResourceKind string
+// PetDefResourceKind defines model for PetDefResource.Kind.
+type PetDefResourceKind string
 
-// PetSpeciesSpec defines model for PetSpeciesSpec.
-type PetSpeciesSpec struct {
-	Name     string  `json:"name"`
-	PixaPath *string `json:"pixa_path,omitempty"`
+// PetDefSpec defines model for PetDefSpec.
+type PetDefSpec struct {
+	Description    *string           `json:"description,omitempty"`
+	DisplayName    string            `json:"display_name"`
+	InitialAbility *StatMap          `json:"initial_ability,omitempty"`
+	InitialLife    *StatMap          `json:"initial_life,omitempty"`
+	Metadata       *GameplayMetadata `json:"metadata,omitempty"`
+	Tags           *[]string         `json:"tags,omitempty"`
+	WorkflowName   *string           `json:"workflow_name,omitempty"`
 }
 
-// PixaMetadata defines model for PixaMetadata.
-type PixaMetadata struct {
-	CanvasHeight int      `json:"canvas_height"`
-	CanvasWidth  int      `json:"canvas_width"`
-	ClipCount    int      `json:"clip_count"`
-	ClipNames    []string `json:"clip_names"`
-	ColorCount   int      `json:"color_count"`
-	FrameCount   int      `json:"frame_count"`
-	PayloadBytes int      `json:"payload_bytes"`
-	Version      int      `json:"version"`
+// PetDeleteRequest defines model for PetDeleteRequest.
+type PetDeleteRequest struct {
+	Id string `json:"id"`
+}
+
+// PetDriveGameResultInput defines model for PetDriveGameResultInput.
+type PetDriveGameResultInput struct {
+	GameDefId string            `json:"game_def_id"`
+	Outcome   *string           `json:"outcome,omitempty"`
+	Payload   *GameplayMetadata `json:"payload,omitempty"`
+	Score     *int64            `json:"score,omitempty"`
+}
+
+// PetDriveRequest defines model for PetDriveRequest.
+type PetDriveRequest struct {
+	Action     *string                  `json:"action,omitempty"`
+	GameResult *PetDriveGameResultInput `json:"game_result,omitempty"`
+	PetId      string                   `json:"pet_id"`
+}
+
+// PetDriveResponse defines model for PetDriveResponse.
+type PetDriveResponse struct {
+	Badges       []Badge             `json:"badges"`
+	GameResult   *GameResult         `json:"game_result,omitempty"`
+	Pet          Pet                 `json:"pet"`
+	Points       PointsAccount       `json:"points"`
+	RewardGrants []RewardGrant       `json:"reward_grants"`
+	Transactions []PointsTransaction `json:"transactions"`
+}
+
+// PetGetRequest defines model for PetGetRequest.
+type PetGetRequest struct {
+	Id string `json:"id"`
+}
+
+// PetListResponse defines model for PetListResponse.
+type PetListResponse struct {
+	HasNext    bool    `json:"has_next"`
+	Items      []Pet   `json:"items"`
+	NextCursor *string `json:"next_cursor,omitempty"`
+}
+
+// PetPutRequest defines model for PetPutRequest.
+type PetPutRequest struct {
+	DisplayName string `json:"display_name"`
+	Id          string `json:"id"`
+}
+
+// PointsAccount defines model for PointsAccount.
+type PointsAccount struct {
+	Balance        int64     `json:"balance"`
+	CreatedAt      time.Time `json:"created_at"`
+	OwnerPublicKey string    `json:"owner_public_key"`
+	RulesetName    string    `json:"ruleset_name"`
+	UpdatedAt      time.Time `json:"updated_at"`
+}
+
+// PointsTransaction defines model for PointsTransaction.
+type PointsTransaction struct {
+	BalanceAfter   int64     `json:"balance_after"`
+	CreatedAt      time.Time `json:"created_at"`
+	Delta          int64     `json:"delta"`
+	GameResultId   *string   `json:"game_result_id,omitempty"`
+	Id             string    `json:"id"`
+	OwnerPublicKey string    `json:"owner_public_key"`
+	PetId          *string   `json:"pet_id,omitempty"`
+	Reason         string    `json:"reason"`
+	RewardGrantId  *string   `json:"reward_grant_id,omitempty"`
+	RulesetName    string    `json:"ruleset_name"`
+}
+
+// PointsTransactionListResponse defines model for PointsTransactionListResponse.
+type PointsTransactionListResponse struct {
+	HasNext    bool                `json:"has_next"`
+	Items      []PointsTransaction `json:"items"`
+	NextCursor *string             `json:"next_cursor,omitempty"`
 }
 
 // RefreshIdentifiers defines model for RefreshIdentifiers.
@@ -2660,8 +2998,29 @@ type ResourceMetadata struct {
 	Annotations *map[string]string `json:"annotations,omitempty"`
 	Labels      *map[string]string `json:"labels,omitempty"`
 
-	// Name Resource name. Kind-specific rules apply. User-defined custom IDs use 8-48 lowercase ASCII characters, start with [a-z], end with [a-z0-9], and contain only [a-z0-9._-]. For PeerConfig this is the peer public key.
+	// Name Resource name. For PeerConfig this is the peer public key.
 	Name string `json:"name"`
+}
+
+// RewardGrant defines model for RewardGrant.
+type RewardGrant struct {
+	BadgeExpDelta  map[string]int64 `json:"badge_exp_delta"`
+	CreatedAt      time.Time        `json:"created_at"`
+	GameResultId   *string          `json:"game_result_id,omitempty"`
+	Id             string           `json:"id"`
+	OwnerPublicKey string           `json:"owner_public_key"`
+	PetExpDelta    int64            `json:"pet_exp_delta"`
+	PetId          *string          `json:"pet_id,omitempty"`
+	PointsDelta    int64            `json:"points_delta"`
+	Reason         *string          `json:"reason,omitempty"`
+	RulesetName    string           `json:"ruleset_name"`
+}
+
+// RewardGrantListResponse defines model for RewardGrantListResponse.
+type RewardGrantListResponse struct {
+	HasNext    bool          `json:"has_next"`
+	Items      []RewardGrant `json:"items"`
+	NextCursor *string       `json:"next_cursor,omitempty"`
 }
 
 // Runtime defines model for Runtime.
@@ -2686,6 +3045,9 @@ type ServerInfo struct {
 	ServerTime    int64  `json:"server_time"`
 	SignalingPath string `json:"signaling_path"`
 }
+
+// StatMap defines model for StatMap.
+type StatMap map[string]int64
 
 // Voice defines model for Voice.
 type Voice struct {
@@ -2840,10 +3202,8 @@ type WorkflowResource struct {
 	// ApiVersion API version for declarative GizClaw resources.
 	ApiVersion ResourceAPIVersion   `json:"apiVersion"`
 	Kind       WorkflowResourceKind `json:"kind"`
-
-	// Metadata metadata.name is the workflow custom ID.
-	Metadata ResourceMetadata `json:"metadata"`
-	Spec     WorkflowSpec     `json:"spec"`
+	Metadata   ResourceMetadata     `json:"metadata"`
+	Spec       WorkflowSpec         `json:"spec"`
 }
 
 // WorkflowResourceKind defines model for WorkflowResource.Kind.
@@ -2885,10 +3245,8 @@ type WorkspaceResource struct {
 	// ApiVersion API version for declarative GizClaw resources.
 	ApiVersion ResourceAPIVersion    `json:"apiVersion"`
 	Kind       WorkspaceResourceKind `json:"kind"`
-
-	// Metadata metadata.name is the workspace custom ID. spec.workflow_name is the referenced workflow custom ID.
-	Metadata ResourceMetadata `json:"metadata"`
-	Spec     WorkspaceSpec    `json:"spec"`
+	Metadata   ResourceMetadata      `json:"metadata"`
+	Spec       WorkspaceSpec         `json:"spec"`
 }
 
 // WorkspaceResourceKind defines model for WorkspaceResource.Kind.
@@ -2897,10 +3255,8 @@ type WorkspaceResourceKind string
 // WorkspaceSpec defines model for WorkspaceSpec.
 type WorkspaceSpec struct {
 	// Parameters Agent-specific workspace parameters. The shape is selected by agent_type.
-	Parameters *WorkspaceParameters `json:"parameters,omitempty"`
-
-	// WorkflowName Referenced workflow custom ID.
-	WorkflowName string `json:"workflow_name"`
+	Parameters   *WorkspaceParameters `json:"parameters,omitempty"`
+	WorkflowName string               `json:"workflow_name"`
 }
 
 // AsASTTranslateInternalSpeakerParameters returns the union data inside the ASTTranslateVoiceParameters as a ASTTranslateInternalSpeakerParameters
@@ -3779,24 +4135,24 @@ func (t *Resource) MergePeerConfigResource(v PeerConfigResource) error {
 	return err
 }
 
-// AsPetSpeciesResource returns the union data inside the Resource as a PetSpeciesResource
-func (t Resource) AsPetSpeciesResource() (PetSpeciesResource, error) {
-	var body PetSpeciesResource
+// AsGameRulesetResource returns the union data inside the Resource as a GameRulesetResource
+func (t Resource) AsGameRulesetResource() (GameRulesetResource, error) {
+	var body GameRulesetResource
 	err := json.Unmarshal(t.union, &body)
 	return body, err
 }
 
-// FromPetSpeciesResource overwrites any union data inside the Resource as the provided PetSpeciesResource
-func (t *Resource) FromPetSpeciesResource(v PetSpeciesResource) error {
-	v.Kind = "PetSpeciesResource"
+// FromGameRulesetResource overwrites any union data inside the Resource as the provided GameRulesetResource
+func (t *Resource) FromGameRulesetResource(v GameRulesetResource) error {
+	v.Kind = "GameRulesetResource"
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
 }
 
-// MergePetSpeciesResource performs a merge with any union data inside the Resource, using the provided PetSpeciesResource
-func (t *Resource) MergePetSpeciesResource(v PetSpeciesResource) error {
-	v.Kind = "PetSpeciesResource"
+// MergeGameRulesetResource performs a merge with any union data inside the Resource, using the provided GameRulesetResource
+func (t *Resource) MergeGameRulesetResource(v GameRulesetResource) error {
+	v.Kind = "GameRulesetResource"
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -3807,24 +4163,80 @@ func (t *Resource) MergePetSpeciesResource(v PetSpeciesResource) error {
 	return err
 }
 
-// AsBadgeResource returns the union data inside the Resource as a BadgeResource
-func (t Resource) AsBadgeResource() (BadgeResource, error) {
-	var body BadgeResource
+// AsPetDefResource returns the union data inside the Resource as a PetDefResource
+func (t Resource) AsPetDefResource() (PetDefResource, error) {
+	var body PetDefResource
 	err := json.Unmarshal(t.union, &body)
 	return body, err
 }
 
-// FromBadgeResource overwrites any union data inside the Resource as the provided BadgeResource
-func (t *Resource) FromBadgeResource(v BadgeResource) error {
-	v.Kind = "BadgeResource"
+// FromPetDefResource overwrites any union data inside the Resource as the provided PetDefResource
+func (t *Resource) FromPetDefResource(v PetDefResource) error {
+	v.Kind = "PetDefResource"
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
 }
 
-// MergeBadgeResource performs a merge with any union data inside the Resource, using the provided BadgeResource
-func (t *Resource) MergeBadgeResource(v BadgeResource) error {
-	v.Kind = "BadgeResource"
+// MergePetDefResource performs a merge with any union data inside the Resource, using the provided PetDefResource
+func (t *Resource) MergePetDefResource(v PetDefResource) error {
+	v.Kind = "PetDefResource"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsBadgeDefResource returns the union data inside the Resource as a BadgeDefResource
+func (t Resource) AsBadgeDefResource() (BadgeDefResource, error) {
+	var body BadgeDefResource
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromBadgeDefResource overwrites any union data inside the Resource as the provided BadgeDefResource
+func (t *Resource) FromBadgeDefResource(v BadgeDefResource) error {
+	v.Kind = "BadgeDefResource"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeBadgeDefResource performs a merge with any union data inside the Resource, using the provided BadgeDefResource
+func (t *Resource) MergeBadgeDefResource(v BadgeDefResource) error {
+	v.Kind = "BadgeDefResource"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsGameDefResource returns the union data inside the Resource as a GameDefResource
+func (t Resource) AsGameDefResource() (GameDefResource, error) {
+	var body GameDefResource
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromGameDefResource overwrites any union data inside the Resource as the provided GameDefResource
+func (t *Resource) FromGameDefResource(v GameDefResource) error {
+	v.Kind = "GameDefResource"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeGameDefResource performs a merge with any union data inside the Resource, using the provided GameDefResource
+func (t *Resource) MergeGameDefResource(v GameDefResource) error {
+	v.Kind = "GameDefResource"
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -3883,8 +4295,8 @@ func (t Resource) ValueByDiscriminator() (interface{}, error) {
 		return t.AsACLRoleResource()
 	case "ACLViewResource":
 		return t.AsACLViewResource()
-	case "BadgeResource":
-		return t.AsBadgeResource()
+	case "BadgeDefResource":
+		return t.AsBadgeDefResource()
 	case "ContactResource":
 		return t.AsContactResource()
 	case "CredentialResource":
@@ -3901,6 +4313,10 @@ func (t Resource) ValueByDiscriminator() (interface{}, error) {
 		return t.AsFriendGroupResource()
 	case "FriendResource":
 		return t.AsFriendResource()
+	case "GameDefResource":
+		return t.AsGameDefResource()
+	case "GameRulesetResource":
+		return t.AsGameRulesetResource()
 	case "GeminiTenantResource":
 		return t.AsGeminiTenantResource()
 	case "MiniMaxTenantResource":
@@ -3911,8 +4327,8 @@ func (t Resource) ValueByDiscriminator() (interface{}, error) {
 		return t.AsOpenAITenantResource()
 	case "PeerConfigResource":
 		return t.AsPeerConfigResource()
-	case "PetSpeciesResource":
-		return t.AsPetSpeciesResource()
+	case "PetDefResource":
+		return t.AsPetDefResource()
 	case "ResourceListResource":
 		return t.AsResourceListResource()
 	case "VoiceResource":

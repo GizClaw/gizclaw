@@ -68,6 +68,12 @@ const (
 	defaultFriendGroupBelongsStore       = "friend-group-belongs"
 	defaultFriendGroupMessagesStore      = "friend-group-messages"
 	defaultFriendGroupMessageAssetsStore = "friend-group-message-assets"
+	defaultGameRulesetsStore             = "game-rulesets"
+	defaultPetDefsStore                  = "pet-defs"
+	defaultBadgeDefsStore                = "badge-defs"
+	defaultGameDefsStore                 = "game-defs"
+	defaultGameplayAssetsStore           = "gameplay-assets"
+	defaultGameplayDBStore               = "gameplay-db"
 )
 
 func LoadConfig(path string) (ConfigFile, error) {

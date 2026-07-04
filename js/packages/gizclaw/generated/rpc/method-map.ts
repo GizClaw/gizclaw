@@ -4,6 +4,8 @@
 
 import type {
   AgentSelection,
+  Badge,
+  BadgeListResponse,
   ClientGetIdentifiersRequest,
   ClientGetInfoRequest,
   ContactCreateRequest,
@@ -63,6 +65,11 @@ import type {
   FriendListRequest,
   FriendListResponse,
   FriendObject,
+  GameResult,
+  GameResultListResponse,
+  GameRuleset,
+  GameplayGetRequest,
+  GameplayListRequest,
   Model,
   ModelDeleteRequest,
   ModelGetRequest,
@@ -82,17 +89,33 @@ import type {
   PeerRunStatus,
   PeerRunWorkspaceState,
   PeerStatus,
+  Pet,
+  PetAdoptRequest,
+  PetAdoptResponse,
+  PetDeleteRequest,
+  PetDriveRequest,
+  PetDriveResponse,
+  PetGetRequest,
+  PetListResponse,
+  PetPutRequest,
   PingRequest,
   PingResponse,
+  PointsAccount,
+  PointsTransaction,
+  PointsTransactionListResponse,
   RefreshIdentifiers,
   RefreshInfo,
+  RewardGrant,
+  RewardGrantListResponse,
   Runtime,
+  ServerGameRulesetGetRequest,
   ServerGetInfoRequest,
   ServerGetRunAgentRequest,
   ServerGetRunStatusRequest,
   ServerGetRunWorkspaceRequest,
   ServerGetRuntimeRequest,
   ServerGetStatusRequest,
+  ServerPointsGetRequest,
   ServerReloadRunRequest,
   ServerReloadRunWorkspaceRequest,
   ServerRunSayRequest,
@@ -431,6 +454,70 @@ export type RPCMethodMap = {
     request: FriendGroupMessageSendRequest;
     response: FriendGroupMessageObject;
   };
+  "server.game_ruleset.get": {
+    request: ServerGameRulesetGetRequest;
+    response: GameRuleset;
+  };
+  "server.pet.list": {
+    request: GameplayListRequest;
+    response: PetListResponse;
+  };
+  "server.pet.get": {
+    request: PetGetRequest;
+    response: Pet;
+  };
+  "server.pet.adopt": {
+    request: PetAdoptRequest;
+    response: PetAdoptResponse;
+  };
+  "server.pet.put": {
+    request: PetPutRequest;
+    response: Pet;
+  };
+  "server.pet.delete": {
+    request: PetDeleteRequest;
+    response: Pet;
+  };
+  "server.pet.drive": {
+    request: PetDriveRequest;
+    response: PetDriveResponse;
+  };
+  "server.points.get": {
+    request: ServerPointsGetRequest;
+    response: PointsAccount;
+  };
+  "server.points.transactions.list": {
+    request: GameplayListRequest;
+    response: PointsTransactionListResponse;
+  };
+  "server.points.transactions.get": {
+    request: GameplayGetRequest;
+    response: PointsTransaction;
+  };
+  "server.badge.list": {
+    request: GameplayListRequest;
+    response: BadgeListResponse;
+  };
+  "server.badge.get": {
+    request: GameplayGetRequest;
+    response: Badge;
+  };
+  "server.game_result.list": {
+    request: GameplayListRequest;
+    response: GameResultListResponse;
+  };
+  "server.game_result.get": {
+    request: GameplayGetRequest;
+    response: GameResult;
+  };
+  "server.reward_grant.list": {
+    request: GameplayListRequest;
+    response: RewardGrantListResponse;
+  };
+  "server.reward_grant.get": {
+    request: GameplayGetRequest;
+    response: RewardGrant;
+  };
 };
 
 export type RPCMethodName = keyof RPCMethodMap;
@@ -513,4 +600,20 @@ export const RPC_METHODS = {
   "server.friend_group.messages.list": "server.friend_group.messages.list",
   "server.friend_group.messages.get": "server.friend_group.messages.get",
   "server.friend_group.messages.send": "server.friend_group.messages.send",
+  "server.game_ruleset.get": "server.game_ruleset.get",
+  "server.pet.list": "server.pet.list",
+  "server.pet.get": "server.pet.get",
+  "server.pet.adopt": "server.pet.adopt",
+  "server.pet.put": "server.pet.put",
+  "server.pet.delete": "server.pet.delete",
+  "server.pet.drive": "server.pet.drive",
+  "server.points.get": "server.points.get",
+  "server.points.transactions.list": "server.points.transactions.list",
+  "server.points.transactions.get": "server.points.transactions.get",
+  "server.badge.list": "server.badge.list",
+  "server.badge.get": "server.badge.get",
+  "server.game_result.list": "server.game_result.list",
+  "server.game_result.get": "server.game_result.get",
+  "server.reward_grant.list": "server.reward_grant.list",
+  "server.reward_grant.get": "server.reward_grant.get",
 } as const satisfies Record<RPCMethodName, RPCMethodName>;

@@ -18,7 +18,8 @@
           "credential",
           "model",
           "view",
-          "firmware"
+          "firmware",
+          "gameruleset"
         ]
       },
       "ACLResource": {

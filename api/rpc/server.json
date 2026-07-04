@@ -1545,6 +1545,114 @@
             "$ref": "../type/firmware_artifact.json#/components/schemas/FirmwareArtifact"
           }
         }
+      },
+      "ServerGameRulesetGetRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string"
+          }
+        }
+      },
+      "ServerGameRulesetGetResponse": {
+        "$ref": "../type/gameplay.json#/components/schemas/GameRuleset"
+      },
+      "ServerPetListRequest": {
+        "$ref": "../type/gameplay.json#/components/schemas/GameplayListRequest"
+      },
+      "ServerPetListResponse": {
+        "$ref": "../type/gameplay.json#/components/schemas/PetListResponse"
+      },
+      "ServerPetGetRequest": {
+        "$ref": "../type/gameplay.json#/components/schemas/PetGetRequest"
+      },
+      "ServerPetGetResponse": {
+        "$ref": "../type/gameplay.json#/components/schemas/Pet"
+      },
+      "ServerPetAdoptRequest": {
+        "$ref": "../type/gameplay.json#/components/schemas/PetAdoptRequest"
+      },
+      "ServerPetAdoptResponse": {
+        "$ref": "../type/gameplay.json#/components/schemas/PetAdoptResponse"
+      },
+      "ServerPetPutRequest": {
+        "$ref": "../type/gameplay.json#/components/schemas/PetPutRequest"
+      },
+      "ServerPetPutResponse": {
+        "$ref": "../type/gameplay.json#/components/schemas/Pet"
+      },
+      "ServerPetDeleteRequest": {
+        "$ref": "../type/gameplay.json#/components/schemas/PetDeleteRequest"
+      },
+      "ServerPetDeleteResponse": {
+        "$ref": "../type/gameplay.json#/components/schemas/Pet"
+      },
+      "ServerPetDriveRequest": {
+        "$ref": "../type/gameplay.json#/components/schemas/PetDriveRequest"
+      },
+      "ServerPetDriveResponse": {
+        "$ref": "../type/gameplay.json#/components/schemas/PetDriveResponse"
+      },
+      "ServerPointsGetRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "ruleset_name": {
+            "type": "string"
+          }
+        }
+      },
+      "ServerPointsGetResponse": {
+        "$ref": "../type/gameplay.json#/components/schemas/PointsAccount"
+      },
+      "ServerPointsTransactionListRequest": {
+        "$ref": "../type/gameplay.json#/components/schemas/GameplayListRequest"
+      },
+      "ServerPointsTransactionListResponse": {
+        "$ref": "../type/gameplay.json#/components/schemas/PointsTransactionListResponse"
+      },
+      "ServerPointsTransactionGetRequest": {
+        "$ref": "../type/gameplay.json#/components/schemas/GameplayGetRequest"
+      },
+      "ServerPointsTransactionGetResponse": {
+        "$ref": "../type/gameplay.json#/components/schemas/PointsTransaction"
+      },
+      "ServerBadgeListRequest": {
+        "$ref": "../type/gameplay.json#/components/schemas/GameplayListRequest"
+      },
+      "ServerBadgeListResponse": {
+        "$ref": "../type/gameplay.json#/components/schemas/BadgeListResponse"
+      },
+      "ServerBadgeGetRequest": {
+        "$ref": "../type/gameplay.json#/components/schemas/GameplayGetRequest"
+      },
+      "ServerBadgeGetResponse": {
+        "$ref": "../type/gameplay.json#/components/schemas/Badge"
+      },
+      "ServerGameResultListRequest": {
+        "$ref": "../type/gameplay.json#/components/schemas/GameplayListRequest"
+      },
+      "ServerGameResultListResponse": {
+        "$ref": "../type/gameplay.json#/components/schemas/GameResultListResponse"
+      },
+      "ServerGameResultGetRequest": {
+        "$ref": "../type/gameplay.json#/components/schemas/GameplayGetRequest"
+      },
+      "ServerGameResultGetResponse": {
+        "$ref": "../type/gameplay.json#/components/schemas/GameResult"
+      },
+      "ServerRewardGrantListRequest": {
+        "$ref": "../type/gameplay.json#/components/schemas/GameplayListRequest"
+      },
+      "ServerRewardGrantListResponse": {
+        "$ref": "../type/gameplay.json#/components/schemas/RewardGrantListResponse"
+      },
+      "ServerRewardGrantGetRequest": {
+        "$ref": "../type/gameplay.json#/components/schemas/GameplayGetRequest"
+      },
+      "ServerRewardGrantGetResponse": {
+        "$ref": "../type/gameplay.json#/components/schemas/RewardGrant"
       }
     }
   }

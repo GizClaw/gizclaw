@@ -34,6 +34,7 @@ func NewCmd() *cobra.Command {
 		newFriendCmd(),
 		newFriendGroupCmd(),
 		newFirmwareCmd(),
+		newGameplayCmd(),
 	)
 	return cmd
 }

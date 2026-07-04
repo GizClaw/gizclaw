@@ -20,6 +20,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/device/firmware"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/gameplay"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/contact"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/friend"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/friendgroup"
@@ -49,6 +50,7 @@ type Server struct {
 	Contacts     *contact.Server
 	Friends      *friend.Server
 	FriendGroups *friendgroup.Server
+	Gameplay     *gameplay.Runtime
 }
 
 type WorkspaceHistoryService interface {
@@ -113,7 +115,23 @@ func IsMethod(method rpcapi.RPCMethod) bool {
 		rpcapi.RPCMethodServerFriendGroupMembersDelete,
 		rpcapi.RPCMethodServerFriendGroupMessagesList,
 		rpcapi.RPCMethodServerFriendGroupMessagesGet,
-		rpcapi.RPCMethodServerFriendGroupMessagesSend:
+		rpcapi.RPCMethodServerFriendGroupMessagesSend,
+		rpcapi.RPCMethodServerGameRulesetGet,
+		rpcapi.RPCMethodServerPetList,
+		rpcapi.RPCMethodServerPetGet,
+		rpcapi.RPCMethodServerPetAdopt,
+		rpcapi.RPCMethodServerPetPut,
+		rpcapi.RPCMethodServerPetDelete,
+		rpcapi.RPCMethodServerPetDrive,
+		rpcapi.RPCMethodServerPointsGet,
+		rpcapi.RPCMethodServerPointsTransactionsList,
+		rpcapi.RPCMethodServerPointsTransactionsGet,
+		rpcapi.RPCMethodServerBadgeList,
+		rpcapi.RPCMethodServerBadgeGet,
+		rpcapi.RPCMethodServerGameResultList,
+		rpcapi.RPCMethodServerGameResultGet,
+		rpcapi.RPCMethodServerRewardGrantList,
+		rpcapi.RPCMethodServerRewardGrantGet:
 		return true
 	default:
 		return false
@@ -235,6 +253,38 @@ func (s *Server) Dispatch(ctx context.Context, req *rpcapi.RPCRequest) (*rpcapi.
 		return s.handleFriendGroupMessagesGet(ctx, req), true, nil
 	case rpcapi.RPCMethodServerFriendGroupMessagesSend:
 		return s.handleFriendGroupMessagesSend(ctx, req), true, nil
+	case rpcapi.RPCMethodServerGameRulesetGet:
+		return s.handleGameRulesetGet(ctx, req), true, nil
+	case rpcapi.RPCMethodServerPetList:
+		return s.handlePetList(ctx, req), true, nil
+	case rpcapi.RPCMethodServerPetGet:
+		return s.handlePetGet(ctx, req), true, nil
+	case rpcapi.RPCMethodServerPetAdopt:
+		return s.handlePetAdopt(ctx, req), true, nil
+	case rpcapi.RPCMethodServerPetPut:
+		return s.handlePetPut(ctx, req), true, nil
+	case rpcapi.RPCMethodServerPetDelete:
+		return s.handlePetDelete(ctx, req), true, nil
+	case rpcapi.RPCMethodServerPetDrive:
+		return s.handlePetDrive(ctx, req), true, nil
+	case rpcapi.RPCMethodServerPointsGet:
+		return s.handlePointsGet(ctx, req), true, nil
+	case rpcapi.RPCMethodServerPointsTransactionsList:
+		return s.handlePointsTransactionsList(ctx, req), true, nil
+	case rpcapi.RPCMethodServerPointsTransactionsGet:
+		return s.handlePointsTransactionsGet(ctx, req), true, nil
+	case rpcapi.RPCMethodServerBadgeList:
+		return s.handleBadgeList(ctx, req), true, nil
+	case rpcapi.RPCMethodServerBadgeGet:
+		return s.handleBadgeGet(ctx, req), true, nil
+	case rpcapi.RPCMethodServerGameResultList:
+		return s.handleGameResultList(ctx, req), true, nil
+	case rpcapi.RPCMethodServerGameResultGet:
+		return s.handleGameResultGet(ctx, req), true, nil
+	case rpcapi.RPCMethodServerRewardGrantList:
+		return s.handleRewardGrantList(ctx, req), true, nil
+	case rpcapi.RPCMethodServerRewardGrantGet:
+		return s.handleRewardGrantGet(ctx, req), true, nil
 	default:
 		return nil, false, nil
 	}

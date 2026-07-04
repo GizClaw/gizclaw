@@ -23,6 +23,10 @@ storage:
     kind: sql
     sqlite:
       dir: data/history.sqlite
+  gameplay-db:
+    kind: sql
+    sqlite:
+      dir: data/gameplay.sqlite
 stores:
   peers:
     kind: keyvalue
@@ -101,6 +105,29 @@ stores:
     kind: objectstore
     storage: local-files
     prefix: friend-group-messages
+  game-rulesets:
+    kind: keyvalue
+    storage: memory
+    prefix: game-rulesets
+  pet-defs:
+    kind: keyvalue
+    storage: memory
+    prefix: pet-defs
+  badge-defs:
+    kind: keyvalue
+    storage: memory
+    prefix: badge-defs
+  game-defs:
+    kind: keyvalue
+    storage: memory
+    prefix: game-defs
+  gameplay-assets:
+    kind: objectstore
+    storage: local-files
+    prefix: gameplay
+  gameplay-db:
+    kind: sql
+    storage: gameplay-db
 peers:
   store: peers
 credentials:

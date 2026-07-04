@@ -39,6 +39,10 @@
           "Workflow",
           "Workspace",
           "PeerConfig",
+          "GameRuleset",
+          "PetDef",
+          "BadgeDef",
+          "GameDef",
           "ResourceList"
         ]
       },
@@ -129,6 +133,18 @@
             "$ref": "./peer_config.json#/components/schemas/PeerConfigResource"
           },
           {
+            "$ref": "./game_ruleset.json#/components/schemas/GameRulesetResource"
+          },
+          {
+            "$ref": "./pet_def.json#/components/schemas/PetDefResource"
+          },
+          {
+            "$ref": "./badge_def.json#/components/schemas/BadgeDefResource"
+          },
+          {
+            "$ref": "./game_def.json#/components/schemas/GameDefResource"
+          },
+          {
             "$ref": "./resource_list.json#/components/schemas/ResourceListResource"
           }
         ],
@@ -155,7 +171,11 @@
             "Workflow": "./workflow.json#/components/schemas/WorkflowResource",
             "Workspace": "./workspace.json#/components/schemas/WorkspaceResource",
             "PeerConfig": "./peer_config.json#/components/schemas/PeerConfigResource",
-            "ResourceList": "./resource_list.json#/components/schemas/ResourceListResource"
+            "ResourceList": "./resource_list.json#/components/schemas/ResourceListResource",
+            "GameRuleset": "./game_ruleset.json#/components/schemas/GameRulesetResource",
+            "PetDef": "./pet_def.json#/components/schemas/PetDefResource",
+            "BadgeDef": "./badge_def.json#/components/schemas/BadgeDefResource",
+            "GameDef": "./game_def.json#/components/schemas/GameDefResource"
           }
         }
       },

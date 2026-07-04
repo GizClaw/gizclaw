@@ -3365,3 +3365,15 @@ spec:
       subject:
         id: default-client
         kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-gameruleset-default-gameplay
+    spec:
+      resource:
+        id: default-gameplay
+        kind: gameruleset
+      role: default-client
+      subject:
+        id: default-client
+        kind: view

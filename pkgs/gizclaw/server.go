@@ -15,6 +15,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/device/firmware"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/gameplay"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/agenthost"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerrun"
@@ -66,6 +67,12 @@ type Server struct {
 	FriendGroupBelongStore       kv.Store
 	FriendGroupMessageStore      kv.Store
 	FriendGroupMessageAssets     objectstore.ObjectStore
+	GameRulesetStore             kv.Store
+	PetDefStore                  kv.Store
+	BadgeDefStore                kv.Store
+	GameDefStore                 kv.Store
+	GameplayAssets               objectstore.ObjectStore
+	GameplayDB                   *sql.DB
 	FriendGroupMessageDefaultTTL time.Duration
 	FriendGroupMessageMaxTTL     time.Duration
 	FriendGroupMessageCleanup    time.Duration
@@ -310,6 +317,12 @@ func (s *Server) init() error {
 		s.FriendGroupBelongStore == nil &&
 		s.FriendGroupMessageStore == nil &&
 		s.FriendGroupMessageAssets == nil &&
+		s.GameRulesetStore == nil &&
+		s.PetDefStore == nil &&
+		s.BadgeDefStore == nil &&
+		s.GameDefStore == nil &&
+		s.GameplayAssets == nil &&
+		s.GameplayDB == nil &&
 		s.FriendGroupMessageDefaultTTL == 0 &&
 		s.FriendGroupMessageMaxTTL == 0 &&
 		s.FriendGroupMessageCleanup == 0 &&
@@ -337,6 +350,10 @@ func (s *Server) init() error {
 	friendGroupMemberStore := moduleStore(s.FriendGroupMemberStore, s.PeerStore, "friend-group-members")
 	friendGroupBelongStore := moduleStore(s.FriendGroupBelongStore, s.PeerStore, "friend-group-belongs")
 	friendGroupMessageStore := moduleStore(s.FriendGroupMessageStore, s.PeerStore, "friend-group-messages")
+	gameRulesetStore := moduleStore(s.GameRulesetStore, s.PeerStore, "game-rulesets")
+	petDefStore := moduleStore(s.PetDefStore, s.PeerStore, "pet-defs")
+	badgeDefStore := moduleStore(s.BadgeDefStore, s.PeerStore, "badge-defs")
+	gameDefStore := moduleStore(s.GameDefStore, s.PeerStore, "game-defs")
 
 	publicLoginServer := publiclogin.NewServer(&s.LocalStatic, publicLoginStore)
 	sessions := publicLoginServer.SessionManager()
@@ -394,6 +411,23 @@ func (s *Server) init() error {
 		VoiceStore:      voiceStore,
 		CredentialStore: miniMaxCredentialStore,
 	}
+	gameplayCatalog := &gameplay.Catalog{
+		GameRulesets: gameRulesetStore,
+		PetDefs:      petDefStore,
+		BadgeDefs:    badgeDefStore,
+		GameDefs:     gameDefStore,
+		Assets:       s.GameplayAssets,
+	}
+	gameplayRuntime := &gameplay.Runtime{
+		DB:         s.GameplayDB,
+		Catalog:    gameplayCatalog,
+		Workspaces: workspaceServer,
+	}
+	if s.GameplayDB != nil {
+		if err := gameplayRuntime.Migration(context.Background()); err != nil {
+			return err
+		}
+	}
 	manager.ACL = aclServer
 	manager.AgentHost = agenthost.New(agenthost.ServiceResolver{
 		Workspaces: workspaceServer,
@@ -409,6 +443,7 @@ func (s *Server) init() error {
 	manager.Friends = friendServer
 	manager.FriendGroups = friendGroupServer
 	manager.ProviderTenants = providerTenantsServer
+	manager.Gameplay = gameplayRuntime
 	resourceManager := resourcemanager.New(resourcemanager.Services{
 		ACL:             aclServer,
 		Credentials:     credentialServer,
@@ -422,6 +457,7 @@ func (s *Server) init() error {
 		Contacts:        contactServer,
 		Friends:         friendServer,
 		FriendGroups:    friendGroupServer,
+		GameplayCatalog: gameplayCatalog,
 	})
 
 	s.manager = manager
@@ -439,6 +475,8 @@ func (s *Server) init() error {
 			Contacts:                    contactServer,
 			Friends:                     friendServer,
 			FriendGroups:                friendGroupServer,
+			CatalogAdminService:         gameplayCatalog,
+			Gameplay:                    gameplayRuntime,
 			ACL:                         aclServer,
 			ResourceManager:             resourceManager,
 		},

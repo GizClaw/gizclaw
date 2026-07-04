@@ -91,6 +91,9 @@ func TestNewWithLayeredStorageConfig(t *testing.T) {
 	if srv.ContactStore == nil || srv.FriendInviteTokenStore == nil || srv.FriendStore == nil || srv.FriendGroupStore == nil || srv.FriendGroupInviteTokenStore == nil || srv.FriendGroupMemberStore == nil || srv.FriendGroupMessageStore == nil || srv.FriendGroupMessageAssets == nil {
 		t.Fatalf("social stores not wired: %+v", srv.Server)
 	}
+	if srv.GameRulesetStore == nil || srv.PetDefStore == nil || srv.BadgeDefStore == nil || srv.GameDefStore == nil || srv.GameplayAssets == nil || srv.GameplayDB == nil {
+		t.Fatalf("gameplay stores not wired: %+v", srv.Server)
+	}
 	if srv.FriendGroupMessageDefaultTTL != 24*time.Hour || srv.FriendGroupMessageMaxTTL != 7*24*time.Hour || srv.FriendGroupMessageCleanup != 5*time.Minute || srv.FriendGroupMessageMaxBytes != 2097152 {
 		t.Fatalf("social timing config not wired: default=%v max=%v cleanup=%v bytes=%d", srv.FriendGroupMessageDefaultTTL, srv.FriendGroupMessageMaxTTL, srv.FriendGroupMessageCleanup, srv.FriendGroupMessageMaxBytes)
 	}
@@ -500,6 +503,7 @@ func validLayeredConfig(dir string) Config {
 			"memory":      {Kind: storage.KindKeyValue, Memory: &storage.MemoryConfig{}},
 			"local-files": {Kind: storage.KindObjectStore, FS: &storage.FSConfig{Dir: dir}},
 			"acl-db":      {Kind: storage.KindSQL, SQLite: &storage.SQLConfig{Dir: filepath.Join(dir, "acl.sqlite")}},
+			"gameplay-db": {Kind: storage.KindSQL, SQLite: &storage.SQLConfig{Dir: filepath.Join(dir, "gameplay.sqlite")}},
 		},
 		Stores: map[string]stores.Config{
 			"peers":                       {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "peers"},
@@ -520,6 +524,12 @@ func validLayeredConfig(dir string) Config {
 			"friend-group-messages":       {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "friend-group-messages"},
 			"friend-group-message-assets": {Kind: stores.KindObjectStore, Storage: "local-files", Prefix: "friend-group-messages"},
 			"acl":                         {Kind: stores.KindSQL, Storage: "acl-db"},
+			"game-rulesets":               {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "game-rulesets"},
+			"pet-defs":                    {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "pet-defs"},
+			"badge-defs":                  {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "badge-defs"},
+			"game-defs":                   {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "game-defs"},
+			"gameplay-assets":             {Kind: stores.KindObjectStore, Storage: "local-files", Prefix: "gameplay"},
+			"gameplay-db":                 {Kind: stores.KindSQL, Storage: "gameplay-db"},
 		},
 		FriendGroups: FriendGroupsConfig{
 			MessageDefaultTTL:      "24h",

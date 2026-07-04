@@ -427,6 +427,123 @@
       },
       "FirmwareSpecSlots": {
         "$ref": "./type/firmware_spec.json#/components/schemas/FirmwareSpecSlots"
+      },
+      "GameplayMetadata": {
+        "$ref": "./type/gameplay.json#/components/schemas/GameplayMetadata"
+      },
+      "StatMap": {
+        "$ref": "./type/gameplay.json#/components/schemas/StatMap"
+      },
+      "GameRulesetPointsSpec": {
+        "$ref": "./type/gameplay.json#/components/schemas/GameRulesetPointsSpec"
+      },
+      "GameRulesetPetPoolEntry": {
+        "$ref": "./type/gameplay.json#/components/schemas/GameRulesetPetPoolEntry"
+      },
+      "GameRewardSpec": {
+        "$ref": "./type/gameplay.json#/components/schemas/GameRewardSpec"
+      },
+      "GameRulesetDriveSpec": {
+        "$ref": "./type/gameplay.json#/components/schemas/GameRulesetDriveSpec"
+      },
+      "GameRulesetSpec": {
+        "$ref": "./type/gameplay.json#/components/schemas/GameRulesetSpec"
+      },
+      "GameRuleset": {
+        "$ref": "./type/gameplay.json#/components/schemas/GameRuleset"
+      },
+      "PetDefSpec": {
+        "$ref": "./type/gameplay.json#/components/schemas/PetDefSpec"
+      },
+      "PetDef": {
+        "$ref": "./type/gameplay.json#/components/schemas/PetDef"
+      },
+      "BadgeDefSpec": {
+        "$ref": "./type/gameplay.json#/components/schemas/BadgeDefSpec"
+      },
+      "BadgeDef": {
+        "$ref": "./type/gameplay.json#/components/schemas/BadgeDef"
+      },
+      "GameDefSpec": {
+        "$ref": "./type/gameplay.json#/components/schemas/GameDefSpec"
+      },
+      "GameDef": {
+        "$ref": "./type/gameplay.json#/components/schemas/GameDef"
+      },
+      "Pet": {
+        "$ref": "./type/gameplay.json#/components/schemas/Pet"
+      },
+      "Badge": {
+        "$ref": "./type/gameplay.json#/components/schemas/Badge"
+      },
+      "PointsAccount": {
+        "$ref": "./type/gameplay.json#/components/schemas/PointsAccount"
+      },
+      "PointsTransaction": {
+        "$ref": "./type/gameplay.json#/components/schemas/PointsTransaction"
+      },
+      "GameResult": {
+        "$ref": "./type/gameplay.json#/components/schemas/GameResult"
+      },
+      "RewardGrant": {
+        "$ref": "./type/gameplay.json#/components/schemas/RewardGrant"
+      },
+      "GameplayListRequest": {
+        "$ref": "./type/gameplay.json#/components/schemas/GameplayListRequest"
+      },
+      "PetListResponse": {
+        "$ref": "./type/gameplay.json#/components/schemas/PetListResponse"
+      },
+      "BadgeListResponse": {
+        "$ref": "./type/gameplay.json#/components/schemas/BadgeListResponse"
+      },
+      "PointsTransactionListResponse": {
+        "$ref": "./type/gameplay.json#/components/schemas/PointsTransactionListResponse"
+      },
+      "GameResultListResponse": {
+        "$ref": "./type/gameplay.json#/components/schemas/GameResultListResponse"
+      },
+      "RewardGrantListResponse": {
+        "$ref": "./type/gameplay.json#/components/schemas/RewardGrantListResponse"
+      },
+      "PetAdoptRequest": {
+        "$ref": "./type/gameplay.json#/components/schemas/PetAdoptRequest"
+      },
+      "PetAdoptResponse": {
+        "$ref": "./type/gameplay.json#/components/schemas/PetAdoptResponse"
+      },
+      "PetGetRequest": {
+        "$ref": "./type/gameplay.json#/components/schemas/PetGetRequest"
+      },
+      "PetPutRequest": {
+        "$ref": "./type/gameplay.json#/components/schemas/PetPutRequest"
+      },
+      "PetDeleteRequest": {
+        "$ref": "./type/gameplay.json#/components/schemas/PetDeleteRequest"
+      },
+      "PetDriveGameResultInput": {
+        "$ref": "./type/gameplay.json#/components/schemas/PetDriveGameResultInput"
+      },
+      "PetDriveRequest": {
+        "$ref": "./type/gameplay.json#/components/schemas/PetDriveRequest"
+      },
+      "PetDriveResponse": {
+        "$ref": "./type/gameplay.json#/components/schemas/PetDriveResponse"
+      },
+      "GameplayGetRequest": {
+        "$ref": "./type/gameplay.json#/components/schemas/GameplayGetRequest"
+      },
+      "GameRulesetResource": {
+        "$ref": "./resource/game_ruleset.json#/components/schemas/GameRulesetResource"
+      },
+      "PetDefResource": {
+        "$ref": "./resource/pet_def.json#/components/schemas/PetDefResource"
+      },
+      "BadgeDefResource": {
+        "$ref": "./resource/badge_def.json#/components/schemas/BadgeDefResource"
+      },
+      "GameDefResource": {
+        "$ref": "./resource/game_def.json#/components/schemas/GameDefResource"
       }
     }
   }
