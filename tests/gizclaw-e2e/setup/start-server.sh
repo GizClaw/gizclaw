@@ -10,12 +10,16 @@ bin_path="$testdata_dir/bin/gizclaw"
 pid_file="$workspace_dir/gizclaw-server.pid"
 log_file="$workspace_dir/gizclaw-server.log"
 env_file="$e2e_dir/.env"
+selected_config_home="${GIZCLAW_E2E_CONFIG_HOME:-}"
 
 if [[ -f "$env_file" ]]; then
   set -a
   # shellcheck disable=SC1090
   source "$env_file"
   set +a
+fi
+if [[ -n "$selected_config_home" ]]; then
+  export GIZCLAW_E2E_CONFIG_HOME="$selected_config_home"
 fi
 
 config_home="${GIZCLAW_E2E_CONFIG_HOME:-$testdata_dir/cmd-config-home}"

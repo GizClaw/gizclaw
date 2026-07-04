@@ -54,13 +54,56 @@ trap cleanup EXIT
 wait_http_ready() {
 	local url="$1"
 	local label="$2"
+	local service="${3:-}"
 	for _ in {1..300}; do
 		if curl -fsS --max-time 1 "$url" >/dev/null 2>&1; then
 			return 0
 		fi
+		if [[ "$docker_started" == "1" && -n "$service" ]]; then
+			local container_id container_state exit_code
+			container_id="$(docker compose -p "$docker_project" -f "$docker_dir/docker-compose.yaml" ps -q "$service" 2>/dev/null || true)"
+			if [[ -n "$container_id" ]]; then
+				container_state="$(docker inspect --format '{{.State.Status}}' "$container_id" 2>/dev/null || true)"
+				exit_code="$(docker inspect --format '{{.State.ExitCode}}' "$container_id" 2>/dev/null || true)"
+				if [[ "$container_state" == "exited" || "$container_state" == "dead" ]]; then
+					echo "$label container exited before becoming ready at $url (state=$container_state exit=$exit_code)" >&2
+					docker compose -p "$docker_project" -f "$docker_dir/docker-compose.yaml" logs --tail=200 "$service" >&2 || true
+					return 1
+				fi
+			fi
+		fi
 		sleep 0.2
 	done
 	echo "$label did not become ready at $url" >&2
+	if [[ "$docker_started" == "1" && -n "$service" ]]; then
+		docker compose -p "$docker_project" -f "$docker_dir/docker-compose.yaml" logs --tail=200 "$service" >&2 || true
+	fi
+	return 1
+}
+
+wait_docker_ready_file() {
+	local service="$1"
+	local ready_file="$2"
+	local label="$3"
+	for _ in {1..300}; do
+		local container_id container_state exit_code
+		container_id="$(docker compose -p "$docker_project" -f "$docker_dir/docker-compose.yaml" ps -q "$service" 2>/dev/null || true)"
+		if [[ -n "$container_id" ]]; then
+			container_state="$(docker inspect --format '{{.State.Status}}' "$container_id" 2>/dev/null || true)"
+			exit_code="$(docker inspect --format '{{.State.ExitCode}}' "$container_id" 2>/dev/null || true)"
+			if [[ "$container_state" == "exited" || "$container_state" == "dead" ]]; then
+				echo "$label container exited before ready marker $ready_file (state=$container_state exit=$exit_code)" >&2
+				docker compose -p "$docker_project" -f "$docker_dir/docker-compose.yaml" logs --tail=200 "$service" >&2 || true
+				return 1
+			fi
+			if docker exec "$container_id" test -f "$ready_file" >/dev/null 2>&1; then
+				return 0
+			fi
+		fi
+		sleep 0.2
+	done
+	echo "$label did not create ready marker $ready_file" >&2
+	docker compose -p "$docker_project" -f "$docker_dir/docker-compose.yaml" logs --tail=200 "$service" >&2 || true
 	return 1
 }
 
@@ -165,8 +208,9 @@ start_docker_stack() {
 	server_endpoint="127.0.0.1:${server_tcp_port}"
 	desktop_url="http://127.0.0.1:${desktop_port}"
 
-	wait_http_ready "http://$server_endpoint/server-info" "docker server"
-	wait_http_ready "$desktop_url" "docker desktop"
+	wait_http_ready "http://$server_endpoint/server-info" "docker server" "server"
+	wait_docker_ready_file "server" "/tmp/gizclaw-e2e-server-ready" "docker server"
+	wait_http_ready "$desktop_url" "docker desktop" "desktop"
 	materialize_docker_test_config "$server_endpoint" "$desktop_url"
 }
 
@@ -231,6 +275,9 @@ fi
 
 run_js_rpc_tests
 run_desktop_tests
+run_pkg "./tests/gizclaw-e2e/cgo/rpc"
+run_pkg "./tests/gizclaw-e2e/cgo/chat"
+run_pkg "./tests/gizclaw-e2e/cgo/social"
 run_pkg "./tests/gizclaw-e2e/go/admin"
 run_chat_pkg
 run_pkg "./tests/gizclaw-e2e/go/rpc"

@@ -20,7 +20,7 @@ services:
         bind:
           create_host_path: false
     healthcheck:
-      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:9820/server-info >/dev/null"]
+      test: ["CMD-SHELL", "test -f /tmp/gizclaw-e2e-server-ready && curl -fsS http://127.0.0.1:9820/server-info >/dev/null"]
       interval: 2s
       timeout: 1s
       retries: 60
