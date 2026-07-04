@@ -8,17 +8,17 @@ export type RpcRequest = {
     v: RpcVersion;
     id: string;
     method: RpcMethod;
-    params?: PingRequest | SpeedTestRequest | ClientGetInfoRequest | ClientGetIdentifiersRequest | ServerGetInfoRequest | DeviceInfo | ServerGetRuntimeRequest | ServerGetStatusRequest | PeerStatus | ServerGetRunAgentRequest | AgentSelection | ServerGetRunWorkspaceRequest | ServerReloadRunWorkspaceRequest | PeerRunHistoryListRequest | PeerRunHistoryPlayRequest | PeerRunMemoryStatsRequest | PeerRunRecallRequest | ServerReloadRunRequest | ServerGetRunStatusRequest | ServerStopRunRequest | ServerRunSayRequest | FirmwareListRequest | FirmwareGetRequest | FirmwareFilesDownloadRequest | WorkspaceListRequest | WorkspaceGetRequest | Workspace | WorkspacePutRequest | WorkspaceDeleteRequest | WorkspaceHistoryListRequest | WorkspaceHistoryGetRequest | WorkspaceHistoryAudioGetRequest | WorkflowListRequest | WorkflowGetRequest | WorkflowDocument | WorkflowPutRequest | WorkflowDeleteRequest | ModelListRequest | ModelGetRequest | Model | ModelPutRequest | ModelDeleteRequest | VoiceListRequest | VoiceGetRequest | CredentialListRequest | CredentialGetRequest | Credential | CredentialPutRequest | CredentialDeleteRequest | PetListRequest | PetGetRequest | PetAdoptRequest | PetPutRequest | PetDeleteRequest | PetActionRequest | WalletGetRequest | WalletTransactionsListRequest | WalletTransactionsGetRequest | ContactListRequest | ContactGetRequest | ContactCreateRequest | ContactPutRequest | ContactDeleteRequest | FriendInviteTokenGetRequest | FriendInviteTokenCreateRequest | FriendInviteTokenClearRequest | FriendAddRequest | FriendListRequest | FriendDeleteRequest | FriendGroupListRequest | FriendGroupGetRequest | FriendGroupCreateRequest | FriendGroupPutRequest | FriendGroupDeleteRequest | FriendGroupInviteTokenGetRequest | FriendGroupInviteTokenCreateRequest | FriendGroupInviteTokenClearRequest | FriendGroupJoinRequest | FriendGroupMemberListRequest | FriendGroupMemberAddRequest | FriendGroupMemberPutRequest | FriendGroupMemberDeleteRequest | FriendGroupMessageListRequest | FriendGroupMessageGetRequest | FriendGroupMessageSendRequest | RewardListRequest | RewardGetRequest | RewardClaimRequest;
+    params?: PingRequest | SpeedTestRequest | ClientGetInfoRequest | ClientGetIdentifiersRequest | ServerGetInfoRequest | DeviceInfo | ServerGetRuntimeRequest | ServerGetStatusRequest | PeerStatus | ServerGetRunAgentRequest | AgentSelection | ServerGetRunWorkspaceRequest | ServerReloadRunWorkspaceRequest | PeerRunHistoryListRequest | PeerRunHistoryPlayRequest | PeerRunMemoryStatsRequest | PeerRunRecallRequest | ServerReloadRunRequest | ServerGetRunStatusRequest | ServerStopRunRequest | ServerRunSayRequest | FirmwareListRequest | FirmwareGetRequest | FirmwareFilesDownloadRequest | WorkspaceListRequest | WorkspaceGetRequest | Workspace | WorkspacePutRequest | WorkspaceDeleteRequest | WorkspaceHistoryListRequest | WorkspaceHistoryGetRequest | WorkspaceHistoryAudioGetRequest | WorkflowListRequest | WorkflowGetRequest | WorkflowDocument | WorkflowPutRequest | WorkflowDeleteRequest | ModelListRequest | ModelGetRequest | Model | ModelPutRequest | ModelDeleteRequest | VoiceListRequest | VoiceGetRequest | CredentialListRequest | CredentialGetRequest | Credential | CredentialPutRequest | CredentialDeleteRequest | ContactListRequest | ContactGetRequest | ContactCreateRequest | ContactPutRequest | ContactDeleteRequest | FriendInviteTokenGetRequest | FriendInviteTokenCreateRequest | FriendInviteTokenClearRequest | FriendAddRequest | FriendListRequest | FriendDeleteRequest | FriendGroupListRequest | FriendGroupGetRequest | FriendGroupCreateRequest | FriendGroupPutRequest | FriendGroupDeleteRequest | FriendGroupInviteTokenGetRequest | FriendGroupInviteTokenCreateRequest | FriendGroupInviteTokenClearRequest | FriendGroupJoinRequest | FriendGroupMemberListRequest | FriendGroupMemberAddRequest | FriendGroupMemberPutRequest | FriendGroupMemberDeleteRequest | FriendGroupMessageListRequest | FriendGroupMessageGetRequest | FriendGroupMessageSendRequest;
 };
 
 export type RpcResponse = {
     v: RpcVersion;
     id: string;
-    result?: PingResponse | SpeedTestResponse | RefreshInfo | RefreshIdentifiers | DeviceInfo | Runtime | PeerStatus | PeerRunAgent | PeerRunWorkspaceState | PeerRunHistoryListResponse | PeerRunHistoryPlayResponse | PeerRunMemoryStatsResponse | PeerRunRecallResponse | PeerRunStatus | ServerRunSayResponse | FirmwareListResponse | Firmware | FirmwareFilesDownloadResponse | WorkspaceListResponse | Workspace | PeerRunHistoryEntry | WorkspaceHistoryAudioGetResponse | WorkflowListResponse | WorkflowDocument | ModelListResponse | Model | VoiceListResponse | Voice | CredentialListResponse | Credential | PetListResponse | PetObject | WalletObject | WalletTransactionsListResponse | WalletTransactionObject | ContactListResponse | ContactObject | FriendInviteTokenGetResponse | FriendInviteTokenCreateResponse | FriendInviteTokenClearResponse | FriendObject | FriendListResponse | FriendGroupListResponse | FriendGroupObject | FriendGroupInviteTokenGetResponse | FriendGroupInviteTokenCreateResponse | FriendGroupInviteTokenClearResponse | FriendGroupJoinResponse | FriendGroupMemberListResponse | FriendGroupMemberObject | FriendGroupMessageListResponse | FriendGroupMessageObject | RewardListResponse | RewardObject;
+    result?: PingResponse | SpeedTestResponse | RefreshInfo | RefreshIdentifiers | DeviceInfo | Runtime | PeerStatus | PeerRunAgent | PeerRunWorkspaceState | PeerRunHistoryListResponse | PeerRunHistoryPlayResponse | PeerRunMemoryStatsResponse | PeerRunRecallResponse | PeerRunStatus | ServerRunSayResponse | FirmwareListResponse | Firmware | FirmwareFilesDownloadResponse | WorkspaceListResponse | Workspace | PeerRunHistoryEntry | WorkspaceHistoryAudioGetResponse | WorkflowListResponse | WorkflowDocument | ModelListResponse | Model | VoiceListResponse | Voice | CredentialListResponse | Credential | ContactListResponse | ContactObject | FriendInviteTokenGetResponse | FriendInviteTokenCreateResponse | FriendInviteTokenClearResponse | FriendObject | FriendListResponse | FriendGroupListResponse | FriendGroupObject | FriendGroupInviteTokenGetResponse | FriendGroupInviteTokenCreateResponse | FriendGroupInviteTokenClearResponse | FriendGroupJoinResponse | FriendGroupMemberListResponse | FriendGroupMemberObject | FriendGroupMessageListResponse | FriendGroupMessageObject;
     error?: RpcError;
 };
 
-export type RpcMethod = 'all.ping' | 'all.speed_test.run' | 'client.info.get' | 'client.identifiers.get' | 'server.info.get' | 'server.info.put' | 'server.runtime.get' | 'server.status.get' | 'server.status.put' | 'server.run.agent.get' | 'server.run.agent.set' | 'server.run.workspace.get' | 'server.run.workspace.set' | 'server.run.workspace.reload' | 'server.run.workspace.history' | 'server.run.workspace.history.play' | 'server.run.workspace.memory.stats' | 'server.run.workspace.recall' | 'server.run.reload' | 'server.run.status' | 'server.run.stop' | 'server.run.say' | 'server.firmware.list' | 'server.firmware.get' | 'server.firmware.files.download' | 'server.workspace.list' | 'server.workspace.get' | 'server.workspace.create' | 'server.workspace.put' | 'server.workspace.delete' | 'server.workspace.history.list' | 'server.workspace.history.get' | 'server.workspace.history.audio.get' | 'server.workflow.list' | 'server.workflow.get' | 'server.workflow.create' | 'server.workflow.put' | 'server.workflow.delete' | 'server.model.list' | 'server.model.get' | 'server.model.create' | 'server.model.put' | 'server.model.delete' | 'server.voice.list' | 'server.voice.get' | 'server.credential.list' | 'server.credential.get' | 'server.credential.create' | 'server.credential.put' | 'server.credential.delete' | 'server.pet.list' | 'server.pet.get' | 'server.pet.adopt' | 'server.pet.put' | 'server.pet.delete' | 'server.pet.feed' | 'server.pet.wash' | 'server.pet.play' | 'server.wallet.get' | 'server.wallet.transactions.list' | 'server.wallet.transactions.get' | 'server.contact.list' | 'server.contact.get' | 'server.contact.create' | 'server.contact.put' | 'server.contact.delete' | 'server.friend.invite_token.get' | 'server.friend.invite_token.create' | 'server.friend.invite_token.clear' | 'server.friend.add' | 'server.friend.list' | 'server.friend.delete' | 'server.friend_group.list' | 'server.friend_group.get' | 'server.friend_group.create' | 'server.friend_group.put' | 'server.friend_group.delete' | 'server.friend_group.invite_token.get' | 'server.friend_group.invite_token.create' | 'server.friend_group.invite_token.clear' | 'server.friend_group.join' | 'server.friend_group.members.list' | 'server.friend_group.members.add' | 'server.friend_group.members.put' | 'server.friend_group.members.delete' | 'server.friend_group.messages.list' | 'server.friend_group.messages.get' | 'server.friend_group.messages.send' | 'server.reward.list' | 'server.reward.get' | 'server.reward.claim';
+export type RpcMethod = 'all.ping' | 'all.speed_test.run' | 'client.info.get' | 'client.identifiers.get' | 'server.info.get' | 'server.info.put' | 'server.runtime.get' | 'server.status.get' | 'server.status.put' | 'server.run.agent.get' | 'server.run.agent.set' | 'server.run.workspace.get' | 'server.run.workspace.set' | 'server.run.workspace.reload' | 'server.run.workspace.history' | 'server.run.workspace.history.play' | 'server.run.workspace.memory.stats' | 'server.run.workspace.recall' | 'server.run.reload' | 'server.run.status' | 'server.run.stop' | 'server.run.say' | 'server.firmware.list' | 'server.firmware.get' | 'server.firmware.files.download' | 'server.workspace.list' | 'server.workspace.get' | 'server.workspace.create' | 'server.workspace.put' | 'server.workspace.delete' | 'server.workspace.history.list' | 'server.workspace.history.get' | 'server.workspace.history.audio.get' | 'server.workflow.list' | 'server.workflow.get' | 'server.workflow.create' | 'server.workflow.put' | 'server.workflow.delete' | 'server.model.list' | 'server.model.get' | 'server.model.create' | 'server.model.put' | 'server.model.delete' | 'server.voice.list' | 'server.voice.get' | 'server.credential.list' | 'server.credential.get' | 'server.credential.create' | 'server.credential.put' | 'server.credential.delete' | 'server.contact.list' | 'server.contact.get' | 'server.contact.create' | 'server.contact.put' | 'server.contact.delete' | 'server.friend.invite_token.get' | 'server.friend.invite_token.create' | 'server.friend.invite_token.clear' | 'server.friend.add' | 'server.friend.list' | 'server.friend.delete' | 'server.friend_group.list' | 'server.friend_group.get' | 'server.friend_group.create' | 'server.friend_group.put' | 'server.friend_group.delete' | 'server.friend_group.invite_token.get' | 'server.friend_group.invite_token.create' | 'server.friend_group.invite_token.clear' | 'server.friend_group.join' | 'server.friend_group.members.list' | 'server.friend_group.members.add' | 'server.friend_group.members.put' | 'server.friend_group.members.delete' | 'server.friend_group.messages.list' | 'server.friend_group.messages.get' | 'server.friend_group.messages.send';
 
 export type RpcVersion = 1;
 
@@ -379,95 +379,6 @@ export type ModelPutRequest = {
     body: Model;
 };
 
-export type PetAbilityStats = {
-    level: number;
-    exp: number;
-    charm: number;
-    intelligence: number;
-    stamina: number;
-    luck: number;
-};
-
-export type PetActionRequest = {
-    pet_id: string;
-    prompt: string;
-};
-
-export type PetAdoptRequest = {
-    id?: string;
-    name: string;
-};
-
-export type PetDeleteRequest = {
-    id: string;
-};
-
-export type PetGetRequest = {
-    id: string;
-};
-
-export type PetLifeStats = {
-    satiety: number;
-    cleanliness: number;
-    mood: number;
-    energy: number;
-    health: number;
-};
-
-export type PetListRequest = {
-    cursor?: string;
-    limit?: number;
-};
-
-export type PetListResponse = {
-    items: Array<PetObject>;
-    has_next: boolean;
-    next_cursor?: string;
-};
-
-export type PetObject = {
-    id: string;
-    name: string;
-    species_id: string;
-    voice_id: string;
-    life: PetLifeStats;
-    ability: PetAbilityStats;
-    created_at: string;
-    updated_at: string;
-};
-
-export type PetPutRequest = {
-    id: string;
-    name: string;
-};
-
-export type RewardClaimRequest = {
-    prompt: string;
-};
-
-export type RewardGetRequest = {
-    id: string;
-};
-
-export type RewardListRequest = {
-    cursor?: string;
-    limit?: number;
-};
-
-export type RewardListResponse = {
-    items: Array<RewardObject>;
-    has_next: boolean;
-    next_cursor?: string;
-};
-
-export type RewardObject = {
-    id: string;
-    prompt: string;
-    badge_id: string;
-    point_amount: number;
-    created_at: string;
-};
-
 export type ServerGetInfoRequest = {
     [key: string]: never;
 };
@@ -526,41 +437,6 @@ export type VoiceListRequest = {
 
 export type VoiceListResponse = {
     items: Array<Voice>;
-    has_next: boolean;
-    next_cursor?: string;
-};
-
-export type WalletGetRequest = {
-    [key: string]: never;
-};
-
-export type WalletObject = {
-    id: string;
-    token_balance: number;
-    point_balance: number;
-    created_at: string;
-    updated_at: string;
-};
-
-export type WalletTransactionObject = {
-    id: string;
-    token_delta: number;
-    point_delta: number;
-    reason: 'pet_adopt' | 'pet_feed' | 'pet_wash' | 'pet_play' | 'reward_claim';
-    created_at: string;
-};
-
-export type WalletTransactionsGetRequest = {
-    id: string;
-};
-
-export type WalletTransactionsListRequest = {
-    cursor?: string;
-    limit?: number;
-};
-
-export type WalletTransactionsListResponse = {
-    items: Array<WalletTransactionObject>;
     has_next: boolean;
     next_cursor?: string;
 };

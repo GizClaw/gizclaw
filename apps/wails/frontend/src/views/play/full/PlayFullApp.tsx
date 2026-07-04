@@ -2,7 +2,7 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react"
 import type { JSX, MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent } from "react";
 import OpenAI from "openai";
 import type { ChatCompletionMessageParam } from "openai/resources/chat/completions";
-import { ArrowLeft, Bot, Brain, BriefcaseBusiness, ChevronDown, Clock3, Coins, ContactRound, Database, Gift, KeyRound, Loader2, MessageCircle, Mic2, PackageCheck, PawPrint, Pencil, Play, Plus, ReceiptText, RefreshCw, Search, SendHorizontal, Trash2, UserPlus, Users, Volume2, VolumeX, Workflow } from "lucide-react";
+import { ArrowLeft, Bot, Brain, BriefcaseBusiness, ChevronDown, Clock3, ContactRound, Database, KeyRound, Loader2, MessageCircle, Mic2, PackageCheck, Pencil, Play, Plus, RefreshCw, Search, SendHorizontal, Trash2, UserPlus, Users, Volume2, VolumeX, Workflow } from "lucide-react";
 import { toast } from "sonner";
 import {
   ActionBarPrimitive,
@@ -27,8 +27,6 @@ import {
 import {
   addPeerFriend,
   addPeerFriendGroupMember,
-  adoptPeerPet,
-  claimPeerReward,
   clearPeerFriendGroupInviteToken,
   clearPeerFriendInviteToken,
   createPeerContact,
@@ -38,8 +36,6 @@ import {
   deletePeerContact,
   deletePeerFriend,
   deletePeerFriendGroupMember,
-  deletePeerPet,
-  feedPeerPet,
   createWebRtcOffer,
   getPeerFriendGroup,
   getPeerFriendGroupInviteToken,
@@ -50,9 +46,6 @@ import {
   getPeerRunWorkspaceMemoryStats,
   hasInjectedPlayDataClient,
   joinPeerFriendGroup,
-  getPeerReward,
-  getPeerWallet,
-  getPeerWalletTransaction,
   listClientVoices,
   listPeerContacts,
   listPeerCredentials,
@@ -61,26 +54,20 @@ import {
   listPeerFriendGroups,
   listPeerFriends,
   listPeerModels,
-  listPeerPets,
-  listPeerRewards,
   listPeerVoices,
-  listPeerWalletTransactions,
   listPeerWorkspaceHistory,
   listPeerWorkflows,
   listPeerWorkspaces,
   listPeerRunWorkspaceHistory,
   playPeerRunWorkspaceHistory,
-  playWithPeerPet,
   putPeerContact,
   putPeerFriendGroupMember,
-  putPeerPet,
   putPeerRunWorkspaceDetails,
   recallPeerRunWorkspaceMemory,
   reloadPeerRunWorkspace,
   setPeerRunWorkspace,
   setPeerRunWorkspaceMode,
   streamPlayableVoices as streamPlayableVoicesSDK,
-  washPeerPet,
   type ContactObject,
   type FriendGroupInviteTokenGetResponse,
   type FriendGroupMemberMutableRole,
@@ -102,16 +89,6 @@ import {
 } from "./peer-rpc-adapter";
 
 import { expectData, toMessage } from "@/dashboard";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -133,7 +110,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/components/ui/utils";
 import { DashboardEmptyState, DashboardPager, DashboardShell, DashboardTable, DashboardTableCard, type DashboardNavItem } from "@/dashboard";
 
-type Section = "overview" | "contacts" | "friends" | "friendGroups" | "workspaces" | "workflows" | "models" | "credentials" | "firmwares" | "voices" | "pets" | "walletTransactions" | "rewards";
+type Section = "overview" | "contacts" | "friends" | "friendGroups" | "workspaces" | "workflows" | "models" | "credentials" | "firmwares" | "voices";
 type TopDrawer = "workspace" | "social-chat" | "test-chat" | null;
 
 type ModelSpec = {
@@ -201,43 +178,6 @@ type PagedState<T> = {
   items: T[];
   loading: boolean;
   nextCursor: string;
-};
-
-type WalletResource = {
-  created_at: string;
-  id: string;
-  point_balance: number;
-  token_balance: number;
-  updated_at?: string;
-};
-
-type PetStats = Record<string, number>;
-
-type PetResource = {
-  ability: PetStats;
-  created_at: string;
-  id: string;
-  life: PetStats;
-  name: string;
-  species_id: string;
-  updated_at: string;
-  voice_id: string;
-};
-
-type RewardResource = {
-  badge_id: string;
-  created_at: string;
-  id: string;
-  point_amount: number;
-  prompt: string;
-};
-
-type WalletTransactionResource = {
-  created_at: string;
-  id: string;
-  point_delta: number;
-  reason: string;
-  token_delta: number;
 };
 
 type ChatSession = {
@@ -312,9 +252,6 @@ const sections: Array<DashboardNavItem<Section>> = [
   { icon: KeyRound, id: "credentials", label: "Credentials" },
   { icon: PackageCheck, id: "firmwares", label: "Firmwares" },
   { icon: Mic2, id: "voices", label: "Voices" },
-  { icon: PawPrint, id: "pets", label: "Pets" },
-  { icon: ReceiptText, id: "walletTransactions", label: "Transactions" },
-  { icon: Gift, id: "rewards", label: "Rewards" },
 ];
 
 const chatSessionsKey = "gizclaw.openai.chat.sessions";
@@ -340,7 +277,6 @@ export function PlayFullApp({ contextName, onSignOut }: { contextName?: string; 
   const [section, setSection] = useState<Section>("overview");
   const [topDrawer, setTopDrawer] = useState<TopDrawer>(null);
   const [models, setModels] = useState<ModelSpec[]>([]);
-  const [wallet, setWallet] = useState<WalletResource | null>(null);
   const [selectedFriend, setSelectedFriend] = useState<FriendObject | null>(null);
   const [selectedGroup, setSelectedGroup] = useState<FriendGroupObject | null>(null);
   const [selectedFirmware, setSelectedFirmware] = useState<Firmware | null>(null);
@@ -354,7 +290,6 @@ export function PlayFullApp({ contextName, onSignOut }: { contextName?: string; 
     const failures: string[] = [];
     await Promise.all([
       listModels().then(setModels).catch((err: unknown) => failures.push(`models: ${toMessage(err)}`)),
-      getWallet().then(setWallet).catch(() => setWallet(null)),
     ]);
     if (failures.length > 0) {
       setError(failures.join("\n"));
@@ -374,9 +309,9 @@ export function PlayFullApp({ contextName, onSignOut }: { contextName?: string; 
   const counts = useMemo(
     () => ({
       models: models.length,
-      overview: wallet == null ? 0 : 1,
+      overview: 0,
     }),
-    [models.length, wallet],
+    [models.length],
   );
   const navGroups = useMemo(
     () => [
@@ -430,7 +365,7 @@ export function PlayFullApp({ contextName, onSignOut }: { contextName?: string; 
               <LoadingGrid />
             ) : (
               <>
-                {section === "overview" ? <OverviewPanel modelCount={models.length} wallet={wallet} /> : null}
+                {section === "overview" ? <OverviewPanel modelCount={models.length} /> : null}
                 {section === "contacts" ? <ContactsPanel /> : null}
                 {section === "friends" ? (
                   selectedFriend == null ? (
@@ -458,9 +393,6 @@ export function PlayFullApp({ contextName, onSignOut }: { contextName?: string; 
                   )
                 ) : null}
                 {section === "voices" ? <VoicesPanel /> : null}
-                {section === "pets" ? <PetsPanel /> : null}
-                {section === "walletTransactions" ? <WalletTransactionsPanel /> : null}
-                {section === "rewards" ? <RewardsPanel /> : null}
               </>
             )}
       </DashboardShell>
@@ -4086,40 +4018,9 @@ function FirmwareDetailPanel({ firmware, onBack }: { firmware: Firmware; onBack:
   );
 }
 
-function OverviewPanel({ modelCount, wallet }: { modelCount: number; wallet: WalletResource | null }): JSX.Element {
+function OverviewPanel({ modelCount }: { modelCount: number }): JSX.Element {
   return (
     <div className="grid max-w-6xl gap-4 md:grid-cols-2">
-      <Card>
-        <CardHeader>
-          <CardTitle>Wallet</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {wallet == null ? (
-            <EmptyMessage description="No wallet is visible for this context." title="No wallet" />
-          ) : (
-            <div className="grid gap-3 text-sm">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <div className="text-xs text-muted-foreground">Points</div>
-                  <div className="text-2xl font-semibold">{wallet.point_balance}</div>
-                </div>
-                <div>
-                  <div className="text-xs text-muted-foreground">Tokens</div>
-                  <div className="text-2xl font-semibold">{wallet.token_balance}</div>
-                </div>
-              </div>
-              <div>
-                <div className="text-xs text-muted-foreground">Wallet ID</div>
-                <div className="break-all font-mono text-xs">{wallet.id}</div>
-              </div>
-              <div>
-                <div className="text-xs text-muted-foreground">Updated</div>
-                <div>{formatDate(wallet.updated_at)}</div>
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
       <Card>
         <CardHeader>
           <CardTitle>Gateway</CardTitle>
@@ -4130,489 +4031,12 @@ function OverviewPanel({ modelCount, wallet }: { modelCount: number; wallet: Wal
               <div className="text-xs text-muted-foreground">Models</div>
               <div className="text-2xl font-semibold">{modelCount}</div>
             </div>
-            <div className="text-muted-foreground">ACL-controlled resources are listed in the resource sections. Peer-owned singleton state is shown here.</div>
+            <div className="text-muted-foreground">ACL-controlled resources are listed in the resource sections.</div>
           </div>
         </CardContent>
       </Card>
     </div>
   );
-}
-
-function WalletTransactionsPanel(): JSX.Element {
-  const loadPage = useCallback((cursor: string) => listWalletTransactionsPage(cursor), []);
-  const pager = usePagedList(loadPage);
-  const inspect = async (id: string): Promise<void> => {
-    const tx = await getWalletTransaction(id);
-    toast.success("Transaction loaded", { description: `${tx.reason}: points ${signedNumber(tx.point_delta)}, tokens ${signedNumber(tx.token_delta)}` });
-  };
-  return (
-    <div className="flex max-w-6xl flex-col gap-3">
-      {pager.error !== "" ? (
-        <Alert variant="destructive">
-          <AlertDescription>{pager.error}</AlertDescription>
-        </Alert>
-      ) : null}
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between gap-3">
-          <CardTitle>Wallet Transactions</CardTitle>
-          <PageAction canNext={pager.page.hasNext} canPrevious={pager.page.cursors.length > 1} loading={pager.page.loading} onNext={pager.next} onPrevious={pager.previous} onRefresh={pager.refresh} pageIndex={pager.page.cursors.length} />
-        </CardHeader>
-        <CardContent>
-          {pager.page.items.length === 0 ? (
-            <EmptyMessage description="No wallet transactions are visible for this context." title="No transactions" />
-          ) : (
-            <DashboardTable>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>ID</TableHead>
-                    <TableHead>Points</TableHead>
-                    <TableHead>Tokens</TableHead>
-                    <TableHead>Reason</TableHead>
-                    <TableHead>Created</TableHead>
-                    <TableHead className="w-24 text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {pager.page.items.map((tx) => (
-                    <TableRow key={tx.id}>
-                      <TableCell className="font-mono text-xs">{tx.id}</TableCell>
-                      <TableCell>{signedNumber(tx.point_delta)}</TableCell>
-                      <TableCell>{signedNumber(tx.token_delta)}</TableCell>
-                      <TableCell>{tx.reason}</TableCell>
-                      <TableCell className="text-muted-foreground">{formatDate(tx.created_at)}</TableCell>
-                      <TableCell className="text-right">
-                        <Button
-                          onClick={() => {
-                            void inspect(tx.id).catch((err: unknown) => toast.error("Transaction request failed", { description: toMessage(err) }));
-                          }}
-                          size="sm"
-                          type="button"
-                          variant="outline"
-                        >
-                          Inspect
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </DashboardTable>
-          )}
-        </CardContent>
-      </Card>
-    </div>
-  );
-}
-
-function PetsPanel(): JSX.Element {
-  const loadPage = useCallback((cursor: string) => listPetsPage(cursor), []);
-  const pager = usePagedList(loadPage);
-  const [dialog, setDialog] = useState<PetDialogState | null>(null);
-  const refreshAfter = async (message: string): Promise<void> => {
-    toast.success(message);
-    await pager.refresh();
-  };
-  return (
-    <div className="flex max-w-6xl flex-col gap-3">
-      {pager.error !== "" ? (
-        <Alert variant="destructive">
-          <AlertDescription>{pager.error}</AlertDescription>
-        </Alert>
-      ) : null}
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between gap-3">
-          <CardTitle>Pets</CardTitle>
-          <div className="flex items-center gap-2">
-            <Button onClick={() => setDialog({ kind: "adopt" })} size="sm" type="button">
-              <Plus data-icon="inline-start" />
-              Adopt
-            </Button>
-            <PageAction canNext={pager.page.hasNext} canPrevious={pager.page.cursors.length > 1} loading={pager.page.loading} onNext={pager.next} onPrevious={pager.previous} onRefresh={pager.refresh} pageIndex={pager.page.cursors.length} />
-          </div>
-        </CardHeader>
-        <CardContent>
-          {pager.page.items.length === 0 ? (
-            <EmptyMessage description="No pets are visible for this context." title="No pets" />
-          ) : (
-            <DashboardTable>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Life</TableHead>
-                    <TableHead>Ability</TableHead>
-                    <TableHead>Updated</TableHead>
-                    <TableHead className="w-[320px] text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {pager.page.items.map((pet) => (
-                    <TableRow key={pet.id}>
-                      <TableCell>
-                        <div className="font-medium">{pet.name}</div>
-                        <div className="font-mono text-xs text-muted-foreground">{pet.id}</div>
-                      </TableCell>
-                      <TableCell>{statsSummary(pet.life, ["mood", "health", "energy"])}</TableCell>
-                      <TableCell>{statsSummary(pet.ability, ["level", "exp", "stamina"])}</TableCell>
-                      <TableCell className="text-muted-foreground">{formatDate(pet.updated_at)}</TableCell>
-                      <TableCell>
-                        <div className="flex flex-wrap justify-end gap-2">
-                          <Button onClick={() => setDialog({ kind: "rename", pet })} size="sm" type="button" variant="outline">
-                            <Pencil data-icon="inline-start" />
-                            Rename
-                          </Button>
-                          <Button onClick={() => setDialog({ kind: "feed", pet })} size="sm" type="button" variant="outline">
-                            Feed
-                          </Button>
-                          <Button onClick={() => setDialog({ kind: "wash", pet })} size="sm" type="button" variant="outline">
-                            Wash
-                          </Button>
-                          <Button onClick={() => setDialog({ kind: "play", pet })} size="sm" type="button" variant="outline">
-                            Play
-                          </Button>
-                          <PetDeleteAction
-                            onDelete={async () => {
-                              await deletePet(pet.id);
-                              await refreshAfter("Pet deleted");
-                            }}
-                          />
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </DashboardTable>
-          )}
-        </CardContent>
-      </Card>
-      <PetDialog
-        onClose={() => setDialog(null)}
-        onSubmit={(state, value) =>
-          submitPetDialog(state, value)
-            .then(() => refreshAfter(petDialogSuccess(state.kind)))
-            .then(() => setDialog(null))
-        }
-        state={dialog}
-      />
-    </div>
-  );
-}
-
-function RewardsPanel(): JSX.Element {
-  const loadPage = useCallback((cursor: string) => listRewardsPage(cursor), []);
-  const pager = usePagedList(loadPage);
-  const [claimOpen, setClaimOpen] = useState(false);
-  const inspect = async (id: string): Promise<void> => {
-    const reward = await getReward(id);
-    toast.success("Reward loaded", { description: `${reward.point_amount} points for ${reward.badge_id}` });
-  };
-  return (
-    <div className="flex max-w-6xl flex-col gap-3">
-      {pager.error !== "" ? (
-        <Alert variant="destructive">
-          <AlertDescription>{pager.error}</AlertDescription>
-        </Alert>
-      ) : null}
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between gap-3">
-          <CardTitle>Rewards</CardTitle>
-          <div className="flex items-center gap-2">
-            <Button onClick={() => setClaimOpen(true)} size="sm" type="button">
-              <Gift data-icon="inline-start" />
-              Claim
-            </Button>
-            <PageAction canNext={pager.page.hasNext} canPrevious={pager.page.cursors.length > 1} loading={pager.page.loading} onNext={pager.next} onPrevious={pager.previous} onRefresh={pager.refresh} pageIndex={pager.page.cursors.length} />
-          </div>
-        </CardHeader>
-        <CardContent>
-          {pager.page.items.length === 0 ? (
-            <EmptyMessage description="No rewards are visible for this context." title="No rewards" />
-          ) : (
-            <DashboardTable>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>ID</TableHead>
-                    <TableHead>Prompt</TableHead>
-                    <TableHead>Badge</TableHead>
-                    <TableHead>Points</TableHead>
-                    <TableHead>Created</TableHead>
-                    <TableHead className="w-24 text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {pager.page.items.map((reward) => (
-                    <TableRow key={reward.id}>
-                      <TableCell className="font-mono text-xs">{reward.id}</TableCell>
-                      <TableCell className="max-w-sm truncate">{reward.prompt}</TableCell>
-                      <TableCell>{reward.badge_id}</TableCell>
-                      <TableCell>{reward.point_amount}</TableCell>
-                      <TableCell className="text-muted-foreground">{formatDate(reward.created_at)}</TableCell>
-                      <TableCell className="text-right">
-                        <Button
-                          onClick={() => {
-                            void inspect(reward.id).catch((err: unknown) => toast.error("Reward request failed", { description: toMessage(err) }));
-                          }}
-                          size="sm"
-                          type="button"
-                          variant="outline"
-                        >
-                          Inspect
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </DashboardTable>
-          )}
-        </CardContent>
-      </Card>
-      <PromptDialog
-        description="Submit a reward prompt through the current peer context."
-        label="Prompt"
-        onClose={() => setClaimOpen(false)}
-        onSubmit={(prompt) =>
-          claimReward(prompt)
-            .then(() => {
-              toast.success("Reward claimed");
-              return pager.refresh();
-            })
-            .then(() => setClaimOpen(false))
-        }
-        open={claimOpen}
-        submitLabel="Claim"
-        title="Claim Reward"
-      />
-    </div>
-  );
-}
-
-type PetDialogState =
-  | { kind: "adopt" }
-  | { kind: "feed"; pet: PetResource }
-  | { kind: "play"; pet: PetResource }
-  | { kind: "rename"; pet: PetResource }
-  | { kind: "wash"; pet: PetResource };
-
-function PetDialog({ onClose, onSubmit, state }: { onClose: () => void; onSubmit: (state: PetDialogState, value: string) => Promise<void>; state: PetDialogState | null }): JSX.Element {
-  const [value, setValue] = useState("");
-  const [saving, setSaving] = useState(false);
-  const open = state != null;
-
-  useEffect(() => {
-    if (state == null) {
-      setValue("");
-      return;
-    }
-    setValue(state.kind === "rename" ? state.pet.name : "");
-  }, [state]);
-
-  if (state == null) {
-    return <Dialog open={false} />;
-  }
-
-  const title = petDialogTitle(state);
-  const label = state.kind === "adopt" || state.kind === "rename" ? "Name" : "Prompt";
-  const submitLabel = state.kind === "adopt" ? "Adopt" : state.kind === "rename" ? "Save" : title;
-  const multiline = state.kind === "feed" || state.kind === "wash" || state.kind === "play";
-
-  const submit = async (): Promise<void> => {
-    setSaving(true);
-    try {
-      await onSubmit(state, value);
-    } catch (err) {
-      toast.error(`${title} failed`, { description: toMessage(err) });
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={(next) => (!next ? onClose() : undefined)}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
-          <DialogDescription>{petDialogDescription(state)}</DialogDescription>
-        </DialogHeader>
-        <FieldGroup>
-          <ShadField>
-            <FieldLabel htmlFor="pet-dialog-value">{label}</FieldLabel>
-            {multiline ? <Textarea id="pet-dialog-value" onChange={(event) => setValue(event.target.value)} rows={4} value={value} /> : <Input id="pet-dialog-value" onChange={(event) => setValue(event.target.value)} value={value} />}
-          </ShadField>
-        </FieldGroup>
-        <DialogFooter>
-          <Button disabled={saving} onClick={onClose} type="button" variant="outline">
-            Cancel
-          </Button>
-          <Button disabled={saving || value.trim() === ""} onClick={() => void submit()} type="button">
-            {submitLabel}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-function PromptDialog({
-  description,
-  label,
-  onClose,
-  onSubmit,
-  open,
-  submitLabel,
-  title,
-}: {
-  description: string;
-  label: string;
-  onClose: () => void;
-  onSubmit: (value: string) => Promise<void>;
-  open: boolean;
-  submitLabel: string;
-  title: string;
-}): JSX.Element {
-  const [value, setValue] = useState("");
-  const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    if (!open) {
-      setValue("");
-    }
-  }, [open]);
-
-  const submit = async (): Promise<void> => {
-    setSaving(true);
-    try {
-      await onSubmit(value);
-    } catch (err) {
-      toast.error(`${title} failed`, { description: toMessage(err) });
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={(next) => (!next ? onClose() : undefined)}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
-          <DialogDescription>{description}</DialogDescription>
-        </DialogHeader>
-        <FieldGroup>
-          <ShadField>
-            <FieldLabel htmlFor="prompt-dialog-value">{label}</FieldLabel>
-            <Textarea id="prompt-dialog-value" onChange={(event) => setValue(event.target.value)} rows={4} value={value} />
-          </ShadField>
-        </FieldGroup>
-        <DialogFooter>
-          <Button disabled={saving} onClick={onClose} type="button" variant="outline">
-            Cancel
-          </Button>
-          <Button disabled={saving || value.trim() === ""} onClick={() => void submit()} type="button">
-            {submitLabel}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-function PetDeleteAction({ onDelete }: { onDelete: () => Promise<void> }): JSX.Element {
-  const [open, setOpen] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const confirm = async (): Promise<void> => {
-    setSaving(true);
-    try {
-      await onDelete();
-      setOpen(false);
-    } finally {
-      setSaving(false);
-    }
-  };
-  return (
-    <AlertDialog open={open} onOpenChange={setOpen}>
-      <Button onClick={() => setOpen(true)} size="sm" type="button" variant="destructive">
-        <Trash2 data-icon="inline-start" />
-        Delete
-      </Button>
-      <AlertDialogContent size="sm">
-        <AlertDialogHeader>
-          <AlertDialogTitle>Delete Pet</AlertDialogTitle>
-          <AlertDialogDescription>This removes the pet owned by the current peer.</AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel disabled={saving}>Cancel</AlertDialogCancel>
-          <AlertDialogAction disabled={saving} onClick={(event) => {
-            event.preventDefault();
-            void confirm().catch((err: unknown) => toast.error("Pet delete failed", { description: toMessage(err) }));
-          }} variant="destructive">
-            Delete
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
-  );
-}
-
-function petDialogTitle(state: PetDialogState): string {
-  switch (state.kind) {
-    case "adopt":
-      return "Adopt Pet";
-    case "feed":
-      return "Feed Pet";
-    case "play":
-      return "Play With Pet";
-    case "rename":
-      return "Rename Pet";
-    case "wash":
-      return "Wash Pet";
-  }
-}
-
-function petDialogDescription(state: PetDialogState): string {
-  switch (state.kind) {
-    case "adopt":
-      return "Create a pet for the current peer.";
-    case "rename":
-      return `Update ${state.pet.name}.`;
-    default:
-      return `Send an action prompt for ${state.pet.name}.`;
-  }
-}
-
-function petDialogSuccess(kind: PetDialogState["kind"]): string {
-  switch (kind) {
-    case "adopt":
-      return "Pet adopted";
-    case "feed":
-      return "Pet fed";
-    case "play":
-      return "Pet played";
-    case "rename":
-      return "Pet renamed";
-    case "wash":
-      return "Pet washed";
-  }
-}
-
-function submitPetDialog(state: PetDialogState, value: string): Promise<PetResource> {
-  const trimmed = value.trim();
-  switch (state.kind) {
-    case "adopt":
-      return adoptPet(trimmed);
-    case "feed":
-      return runPetAction(state.pet.id, "feed", trimmed);
-    case "play":
-      return runPetAction(state.pet.id, "play", trimmed);
-    case "rename":
-      return updatePet(state.pet.id, trimmed);
-    case "wash":
-      return runPetAction(state.pet.id, "wash", trimmed);
-  }
-}
-
-function statsSummary(stats: PetStats, keys: string[]): string {
-  return keys.map((key) => `${key}: ${stats[key] ?? 0}`).join(" / ");
-}
-
-function signedNumber(value: number): string {
-  return value > 0 ? `+${value}` : String(value);
 }
 
 function firmwareSlotSummary(slot: Firmware["slots"]["stable"]): string {
@@ -4873,56 +4297,8 @@ function listVoicesPage(cursor: string): Promise<PageResponse<Voice>> {
   return expectData(listClientVoices({ query: pageQuery(cursor) })) as Promise<PageResponse<Voice>>;
 }
 
-function listPetsPage(cursor: string): Promise<PageResponse<PetResource>> {
-  return expectData(listPeerPets({ query: pageQuery(cursor) })) as Promise<PageResponse<PetResource>>;
-}
-
 function listFirmwaresPage(cursor: string): Promise<PageResponse<Firmware>> {
   return expectData(listPeerFirmwares({ query: pageQuery(cursor) })) as Promise<PageResponse<Firmware>>;
-}
-
-function adoptPet(name: string): Promise<PetResource> {
-  return expectData(adoptPeerPet({ body: { name } })) as Promise<PetResource>;
-}
-
-function updatePet(id: string, name: string): Promise<PetResource> {
-  return expectData(putPeerPet({ body: { id, name }, path: { id } })) as Promise<PetResource>;
-}
-
-function deletePet(id: string): Promise<PetResource> {
-  return expectData(deletePeerPet({ path: { id } })) as Promise<PetResource>;
-}
-
-function runPetAction(id: string, action: "feed" | "play" | "wash", prompt: string): Promise<PetResource> {
-  const options = { body: { pet_id: id, prompt }, path: { id } };
-  switch (action) {
-    case "feed":
-      return expectData(feedPeerPet(options)) as Promise<PetResource>;
-    case "play":
-      return expectData(playWithPeerPet(options)) as Promise<PetResource>;
-    case "wash":
-      return expectData(washPeerPet(options)) as Promise<PetResource>;
-  }
-}
-
-function listRewardsPage(cursor: string): Promise<PageResponse<RewardResource>> {
-  return expectData(listPeerRewards({ query: pageQuery(cursor) })) as Promise<PageResponse<RewardResource>>;
-}
-
-function getReward(id: string): Promise<RewardResource> {
-  return expectData(getPeerReward({ path: { id } })) as Promise<RewardResource>;
-}
-
-function claimReward(prompt: string): Promise<RewardResource> {
-  return expectData(claimPeerReward({ body: { prompt } })) as Promise<RewardResource>;
-}
-
-function listWalletTransactionsPage(cursor: string): Promise<PageResponse<WalletTransactionResource>> {
-  return expectData(listPeerWalletTransactions({ query: pageQuery(cursor) })) as Promise<PageResponse<WalletTransactionResource>>;
-}
-
-function getWalletTransaction(id: string): Promise<WalletTransactionResource> {
-  return expectData(getPeerWalletTransaction({ path: { id } })) as Promise<WalletTransactionResource>;
 }
 
 async function streamPlayableVoices(onVoice: (voice: Voice) => void): Promise<void> {
@@ -5256,10 +4632,6 @@ function parseWorkspaceParameters(text: string): WorkspaceParameters {
 function workspaceFeatureMessage(err: unknown): string {
   const message = toMessage(err).replace(/^HTTP 501 Not Implemented\s*/i, "").trim();
   return message === "" ? "This workspace feature is unavailable for the active agent." : message;
-}
-
-function getWallet(): Promise<WalletResource> {
-  return expectData(getPeerWallet()) as Promise<WalletResource>;
 }
 
 function pageQuery(cursor: string): { cursor?: string; limit: number } {

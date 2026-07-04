@@ -22,8 +22,6 @@ type Config struct {
 	Stores         map[string]stores.Config
 	Friends        FriendsConfig
 	FriendGroups   FriendGroupsConfig
-	SystemTasks    SystemTasksConfig
-	Gameplay       GameplayConfig
 }
 
 type FriendsConfig struct{}
@@ -33,24 +31,6 @@ type FriendGroupsConfig struct {
 	MessageMaxTTL          string `yaml:"message_max_ttl"`
 	MessageCleanupInterval string `yaml:"message_cleanup_interval"`
 	MessageMaxAudioBytes   int64  `yaml:"message_max_audio_bytes"`
-}
-
-type SystemTasksConfig struct {
-	RewardClaim RewardClaimTaskConfig `yaml:"reward_claim"`
-	PetAction   GeneratorTaskConfig   `yaml:"pet_action"`
-}
-
-type RewardClaimTaskConfig struct {
-	Generator string `yaml:"generator"`
-	Cooldown  string `yaml:"cooldown"`
-}
-
-type GeneratorTaskConfig struct {
-	Generator string `yaml:"generator"`
-}
-
-type GameplayConfig struct {
-	PetAdoptPointCost int64 `yaml:"pet_adopt_point_cost"`
 }
 
 type IdentityConfig struct {
@@ -66,8 +46,6 @@ type ConfigFile struct {
 	Stores         map[string]stores.Config  `yaml:"stores"`
 	Friends        FriendsConfig             `yaml:"friends"`
 	FriendGroups   FriendGroupsConfig        `yaml:"friend_groups"`
-	SystemTasks    SystemTasksConfig         `yaml:"system_tasks"`
-	Gameplay       GameplayConfig            `yaml:"gameplay"`
 }
 
 const (
@@ -81,13 +59,6 @@ const (
 	defaultWorkspacesStore               = "workspaces"
 	defaultWorkflowsStore                = "workflows"
 	defaultACLStore                      = "acl"
-	defaultPetSpeciesStore               = "pet-species"
-	defaultPetSpeciesAssetsStore         = "pet-species-assets"
-	defaultBadgesStore                   = "badges"
-	defaultBadgeAssetsStore              = "badge-assets"
-	defaultPetsStore                     = "pets"
-	defaultRewardsStore                  = "rewards"
-	defaultWalletsStore                  = "wallets"
 	defaultContactsStore                 = "contacts"
 	defaultFriendInviteTokensStore       = "friend-invite-tokens"
 	defaultFriendsStore                  = "friends"
@@ -113,8 +84,6 @@ func LoadConfig(path string) (ConfigFile, error) {
 		Stores         map[string]stores.Config  `yaml:"stores"`
 		Friends        FriendsConfig             `yaml:"friends"`
 		FriendGroups   FriendGroupsConfig        `yaml:"friend_groups"`
-		SystemTasks    SystemTasksConfig         `yaml:"system_tasks"`
-		Gameplay       GameplayConfig            `yaml:"gameplay"`
 	}
 	if err := yaml.Unmarshal(data, &raw); err != nil {
 		return ConfigFile{}, err
@@ -144,8 +113,6 @@ func LoadConfig(path string) (ConfigFile, error) {
 		Stores:         raw.Stores,
 		Friends:        raw.Friends,
 		FriendGroups:   raw.FriendGroups,
-		SystemTasks:    raw.SystemTasks,
-		Gameplay:       raw.Gameplay,
 	}
 	return cfg, nil
 }
@@ -185,8 +152,6 @@ func mergeFileConfig(cfg Config, fileCfg ConfigFile) (Config, error) {
 	}
 	cfg.Friends = mergeFriendsConfig(cfg.Friends, fileCfg.Friends)
 	cfg.FriendGroups = mergeFriendGroupsConfig(cfg.FriendGroups, fileCfg.FriendGroups)
-	cfg.SystemTasks = mergeSystemTasksConfig(cfg.SystemTasks, fileCfg.SystemTasks)
-	cfg.Gameplay = mergeGameplayConfig(cfg.Gameplay, fileCfg.Gameplay)
 	return cfg, nil
 }
 
@@ -207,36 +172,6 @@ func mergeFriendGroupsConfig(runtime FriendGroupsConfig, file FriendGroupsConfig
 	}
 	if runtime.MessageMaxAudioBytes == 0 {
 		runtime.MessageMaxAudioBytes = file.MessageMaxAudioBytes
-	}
-	return runtime
-}
-
-func mergeSystemTasksConfig(runtime SystemTasksConfig, file SystemTasksConfig) SystemTasksConfig {
-	runtime.RewardClaim = mergeRewardClaimTaskConfig(runtime.RewardClaim, file.RewardClaim)
-	runtime.PetAction = mergeGeneratorTaskConfig(runtime.PetAction, file.PetAction)
-	return runtime
-}
-
-func mergeRewardClaimTaskConfig(runtime RewardClaimTaskConfig, file RewardClaimTaskConfig) RewardClaimTaskConfig {
-	if runtime.Generator == "" {
-		runtime.Generator = file.Generator
-	}
-	if runtime.Cooldown == "" {
-		runtime.Cooldown = file.Cooldown
-	}
-	return runtime
-}
-
-func mergeGeneratorTaskConfig(runtime GeneratorTaskConfig, file GeneratorTaskConfig) GeneratorTaskConfig {
-	if runtime.Generator == "" {
-		runtime.Generator = file.Generator
-	}
-	return runtime
-}
-
-func mergeGameplayConfig(runtime GameplayConfig, file GameplayConfig) GameplayConfig {
-	if runtime.PetAdoptPointCost == 0 {
-		runtime.PetAdoptPointCost = file.PetAdoptPointCost
 	}
 	return runtime
 }
@@ -268,17 +203,6 @@ func (cfg Config) validate() error {
 	}
 	if err := validateHostPort("endpoint", cfg.Endpoint); err != nil {
 		return err
-	}
-	if err := validateOptionalModelPattern("system_tasks.reward_claim.generator", cfg.SystemTasks.RewardClaim.Generator); err != nil {
-		return err
-	}
-	if err := validateOptionalModelPattern("system_tasks.pet_action.generator", cfg.SystemTasks.PetAction.Generator); err != nil {
-		return err
-	}
-	if cfg.SystemTasks.RewardClaim.Cooldown != "" {
-		if _, err := time.ParseDuration(cfg.SystemTasks.RewardClaim.Cooldown); err != nil {
-			return fmt.Errorf("server: system_tasks.reward_claim.cooldown: %w", err)
-		}
 	}
 	if cfg.FriendGroups.MessageDefaultTTL != "" {
 		if _, err := parseConfigDuration(cfg.FriendGroups.MessageDefaultTTL); err != nil {
@@ -334,17 +258,6 @@ func validateHostPort(field, value string) error {
 	}
 	if strings.TrimSpace(port) == "" {
 		return fmt.Errorf("server: %s port is empty", field)
-	}
-	return nil
-}
-
-func validateOptionalModelPattern(field, pattern string) error {
-	pattern = strings.TrimSpace(pattern)
-	if pattern == "" {
-		return nil
-	}
-	if !strings.HasPrefix(pattern, "model/") || strings.TrimSpace(strings.TrimPrefix(pattern, "model/")) == "" {
-		return fmt.Errorf("server: %s must match model/<id>", field)
 	}
 	return nil
 }

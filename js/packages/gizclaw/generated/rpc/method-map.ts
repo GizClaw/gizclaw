@@ -82,23 +82,10 @@ import type {
   PeerRunStatus,
   PeerRunWorkspaceState,
   PeerStatus,
-  PetActionRequest,
-  PetAdoptRequest,
-  PetDeleteRequest,
-  PetGetRequest,
-  PetListRequest,
-  PetListResponse,
-  PetObject,
-  PetPutRequest,
   PingRequest,
   PingResponse,
   RefreshIdentifiers,
   RefreshInfo,
-  RewardClaimRequest,
-  RewardGetRequest,
-  RewardListRequest,
-  RewardListResponse,
-  RewardObject,
   Runtime,
   ServerGetInfoRequest,
   ServerGetRunAgentRequest,
@@ -117,12 +104,6 @@ import type {
   VoiceGetRequest,
   VoiceListRequest,
   VoiceListResponse,
-  WalletGetRequest,
-  WalletObject,
-  WalletTransactionObject,
-  WalletTransactionsGetRequest,
-  WalletTransactionsListRequest,
-  WalletTransactionsListResponse,
   WorkflowDeleteRequest,
   WorkflowDocument,
   WorkflowGetRequest,
@@ -342,50 +323,6 @@ export type RPCMethodMap = {
     request: CredentialDeleteRequest;
     response: Credential;
   };
-  "server.pet.list": {
-    request: PetListRequest;
-    response: PetListResponse;
-  };
-  "server.pet.get": {
-    request: PetGetRequest;
-    response: PetObject;
-  };
-  "server.pet.adopt": {
-    request: PetAdoptRequest;
-    response: PetObject;
-  };
-  "server.pet.put": {
-    request: PetPutRequest;
-    response: PetObject;
-  };
-  "server.pet.delete": {
-    request: PetDeleteRequest;
-    response: PetObject;
-  };
-  "server.pet.feed": {
-    request: PetActionRequest;
-    response: PetObject;
-  };
-  "server.pet.wash": {
-    request: PetActionRequest;
-    response: PetObject;
-  };
-  "server.pet.play": {
-    request: PetActionRequest;
-    response: PetObject;
-  };
-  "server.wallet.get": {
-    request: WalletGetRequest;
-    response: WalletObject;
-  };
-  "server.wallet.transactions.list": {
-    request: WalletTransactionsListRequest;
-    response: WalletTransactionsListResponse;
-  };
-  "server.wallet.transactions.get": {
-    request: WalletTransactionsGetRequest;
-    response: WalletTransactionObject;
-  };
   "server.contact.list": {
     request: ContactListRequest;
     response: ContactListResponse;
@@ -494,18 +431,6 @@ export type RPCMethodMap = {
     request: FriendGroupMessageSendRequest;
     response: FriendGroupMessageObject;
   };
-  "server.reward.list": {
-    request: RewardListRequest;
-    response: RewardListResponse;
-  };
-  "server.reward.get": {
-    request: RewardGetRequest;
-    response: RewardObject;
-  };
-  "server.reward.claim": {
-    request: RewardClaimRequest;
-    response: RewardObject;
-  };
 };
 
 export type RPCMethodName = keyof RPCMethodMap;
@@ -561,17 +486,6 @@ export const RPC_METHODS = {
   "server.credential.create": "server.credential.create",
   "server.credential.put": "server.credential.put",
   "server.credential.delete": "server.credential.delete",
-  "server.pet.list": "server.pet.list",
-  "server.pet.get": "server.pet.get",
-  "server.pet.adopt": "server.pet.adopt",
-  "server.pet.put": "server.pet.put",
-  "server.pet.delete": "server.pet.delete",
-  "server.pet.feed": "server.pet.feed",
-  "server.pet.wash": "server.pet.wash",
-  "server.pet.play": "server.pet.play",
-  "server.wallet.get": "server.wallet.get",
-  "server.wallet.transactions.list": "server.wallet.transactions.list",
-  "server.wallet.transactions.get": "server.wallet.transactions.get",
   "server.contact.list": "server.contact.list",
   "server.contact.get": "server.contact.get",
   "server.contact.create": "server.contact.create",
@@ -599,7 +513,4 @@ export const RPC_METHODS = {
   "server.friend_group.messages.list": "server.friend_group.messages.list",
   "server.friend_group.messages.get": "server.friend_group.messages.get",
   "server.friend_group.messages.send": "server.friend_group.messages.send",
-  "server.reward.list": "server.reward.list",
-  "server.reward.get": "server.reward.get",
-  "server.reward.claim": "server.reward.claim",
 } as const satisfies Record<RPCMethodName, RPCMethodName>;

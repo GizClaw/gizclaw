@@ -407,27 +407,6 @@
       "PeerStreamKind": {
         "$ref": "./type/peer_stream_event.json#/components/schemas/PeerStreamKind"
       },
-      "Badge": {
-        "$ref": "./type/badge.json#/components/schemas/Badge"
-      },
-      "BadgeSpec": {
-        "$ref": "./type/badge_spec.json#/components/schemas/BadgeSpec"
-      },
-      "BadgeResource": {
-        "$ref": "./resource/badge.json#/components/schemas/BadgeResource"
-      },
-      "PetSpecies": {
-        "$ref": "./type/pet_species.json#/components/schemas/PetSpecies"
-      },
-      "PetSpeciesSpec": {
-        "$ref": "./type/pet_species_spec.json#/components/schemas/PetSpeciesSpec"
-      },
-      "PetSpeciesResource": {
-        "$ref": "./resource/pet_species.json#/components/schemas/PetSpeciesResource"
-      },
-      "PixaMetadata": {
-        "$ref": "./type/pet_species.json#/components/schemas/PixaMetadata"
-      },
       "FirmwareArtifactEntry": {
         "$ref": "./type/firmware_artifact_entry.json#/components/schemas/FirmwareArtifactEntry"
       },

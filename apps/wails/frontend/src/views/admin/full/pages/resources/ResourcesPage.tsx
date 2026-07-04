@@ -1,20 +1,13 @@
-import { Download, FileJson, RefreshCw, Save, Search, Trash2, Upload } from "lucide-react";
-import type { ChangeEvent } from "react";
+import { FileJson, RefreshCw, Save, Search, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
 import {
   applyResource,
   deleteResource,
-  downloadBadgeIcon,
-  downloadPetSpeciesPixa,
   getResource,
   putResource,
-  uploadBadgeIcon,
-  uploadPetSpeciesPixa,
   type ApplyResult,
-  type Badge,
-  type PetSpecies,
   type Resource,
   type ResourceKind,
 } from "@gizclaw/gizclaw/admin";
@@ -47,12 +40,8 @@ const resourceKinds: ResourceKind[] = [
   "Workflow",
   "Workspace",
   "PeerConfig",
-  "PetSpecies",
-  "Badge",
   "ResourceList",
 ];
-
-const assetKinds = new Set<ResourceKind>(["PetSpecies", "Badge"]);
 
 type AdminResourceJSON = {
   apiVersion: "gizclaw.admin/v1alpha1";
@@ -72,14 +61,12 @@ export function ResourcesPage(): JSX.Element {
   const [resource, setResource] = useState<Resource | null>(null);
   const [resourceText, setResourceText] = useState(() => JSON.stringify(resourceTemplate(kind, name), null, 2));
   const [applyResult, setApplyResult] = useState<ApplyResult | null>(null);
-  const [assetResult, setAssetResult] = useState<Badge | PetSpecies | null>(null);
   const [loading, setLoading] = useState(false);
   const [acting, setActing] = useState("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
 
   const canAddressResource = name.trim() !== "" && kind !== "ResourceList";
-  const assetEnabled = assetKinds.has(kind) && name.trim() !== "";
 
   const syncURL = useCallback(
     (nextKind: ResourceKind, nextName: string) => {
@@ -96,7 +83,6 @@ export function ResourcesPage(): JSX.Element {
   const resetTemplate = useCallback((nextKind: ResourceKind, nextName: string) => {
     setResource(null);
     setApplyResult(null);
-    setAssetResult(null);
     setResourceText(JSON.stringify(resourceTemplate(nextKind, nextName), null, 2));
   }, []);
 
@@ -123,7 +109,6 @@ export function ResourcesPage(): JSX.Element {
     setError("");
     setNotice("");
     setApplyResult(null);
-    setAssetResult(null);
     try {
       const next = await expectData(getResource({ path: { kind, name: name.trim() } }));
       setResource(next);
@@ -184,7 +169,6 @@ export function ResourcesPage(): JSX.Element {
     setError("");
     setNotice("");
     setApplyResult(null);
-    setAssetResult(null);
     try {
       const body = parseResourceText();
       const result = await expectData(applyResource({ body: body as Resource }));
@@ -207,7 +191,6 @@ export function ResourcesPage(): JSX.Element {
     setError("");
     setNotice("");
     setApplyResult(null);
-    setAssetResult(null);
     try {
       if (kind === "ResourceList") {
         throw new Error("Use Apply for ResourceList bundles.");
@@ -230,7 +213,6 @@ export function ResourcesPage(): JSX.Element {
     setError("");
     setNotice("");
     setApplyResult(null);
-    setAssetResult(null);
     try {
       if (!canAddressResource) {
         throw new Error("Enter a resource name first.");
@@ -239,50 +221,6 @@ export function ResourcesPage(): JSX.Element {
       setResource(null);
       setResourceText(JSON.stringify(resourceTemplate(kind, name), null, 2));
       setNotice(`Deleted ${kind} ${name.trim()}.`);
-    } catch (err) {
-      setError(toMessage(err));
-    } finally {
-      setActing("");
-    }
-  };
-
-  const uploadAsset = async (event: ChangeEvent<HTMLInputElement>): Promise<void> => {
-    const file = event.target.files?.[0] ?? null;
-    event.target.value = "";
-    if (file === null) {
-      return;
-    }
-    setActing("asset-upload");
-    setError("");
-    setNotice("");
-    setAssetResult(null);
-    try {
-      const next =
-        kind === "PetSpecies"
-          ? await expectData(uploadPetSpeciesPixa({ body: file, path: { id: name.trim() } }))
-          : await expectData(uploadBadgeIcon({ body: file, path: { id: name.trim() } }));
-      setAssetResult(next);
-      setNotice(`Uploaded ${kind === "PetSpecies" ? ".pixa" : "icon"} for ${name.trim()}.`);
-      await load();
-    } catch (err) {
-      setError(toMessage(err));
-    } finally {
-      setActing("");
-    }
-  };
-
-  const downloadAsset = async (): Promise<void> => {
-    setActing("asset-download");
-    setError("");
-    setNotice("");
-    setAssetResult(null);
-    try {
-      const blob =
-        kind === "PetSpecies"
-          ? await expectData(downloadPetSpeciesPixa({ path: { id: name.trim() } }))
-          : await expectData(downloadBadgeIcon({ path: { id: name.trim() } }));
-      saveBlob(blob, `${name.trim()}${kind === "PetSpecies" ? ".pixa" : ".asset"}`);
-      setNotice(`Downloaded ${kind === "PetSpecies" ? ".pixa" : "icon"} for ${name.trim()}.`);
     } catch (err) {
       setError(toMessage(err));
     } finally {
@@ -355,23 +293,6 @@ export function ResourcesPage(): JSX.Element {
               </div>
             </FormField>
 
-            {assetKinds.has(kind) ? (
-              <FormField description="Assets require an existing PetSpecies or Badge resource." label={kind === "PetSpecies" ? "PIXA asset" : "Badge icon"}>
-                <div className="flex flex-wrap gap-2">
-                  <Button asChild className="min-w-fit shrink-0 whitespace-nowrap" disabled={!assetEnabled || acting !== ""} type="button" variant="outline">
-                    <label>
-                      <Upload className="size-4" />
-                      Upload
-                      <input className="sr-only" disabled={!assetEnabled || acting !== ""} onChange={(event) => void uploadAsset(event)} type="file" />
-                    </label>
-                  </Button>
-                  <Button className="min-w-fit shrink-0 whitespace-nowrap" disabled={!assetEnabled || acting !== ""} onClick={() => void downloadAsset()} type="button" variant="outline">
-                    <Download className="size-4" />
-                    Download
-                  </Button>
-                </div>
-              </FormField>
-            ) : null}
           </CardContent>
         </Card>
 
@@ -419,17 +340,7 @@ export function ResourcesPage(): JSX.Element {
         </Card>
       ) : null}
 
-      {assetResult !== null ? (
-        <Card>
-          <CardHeader>
-            <CardTitle>Asset Result</CardTitle>
-            <CardDescription>Resource metadata returned after the asset upload.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <pre className="max-h-[24rem] overflow-auto rounded-md bg-muted p-4 text-xs leading-5">{JSON.stringify(assetResult, null, 2)}</pre>
-          </CardContent>
-        </Card>
-      ) : resource === null && !loading ? (
+      {resource === null && !loading ? (
         <EmptyState description="Load an existing resource or edit the draft JSON and apply it." title="No resource loaded" />
       ) : null}
     </div>
@@ -465,9 +376,6 @@ function resourceNamePlaceholder(kind: ResourceKind): string {
 
 function resourceSpecTemplate(kind: ResourceKind): unknown {
   switch (kind) {
-    case "Badge":
-    case "PetSpecies":
-      return { name: "" };
     case "ResourceList":
       return { items: [] };
     case "PeerConfig":
@@ -481,10 +389,6 @@ function resourceSummary(kind: ResourceKind): string {
   switch (kind) {
     case "ResourceList":
       return "Apply multiple resources in one request. The server rejects get/delete for ResourceList.";
-    case "PetSpecies":
-      return "Pet species metadata plus .pixa asset upload/download.";
-    case "Badge":
-      return "Badge metadata plus icon upload/download.";
     case "PeerConfig":
       return "Desired peer configuration keyed by peer public key.";
     default:
@@ -494,15 +398,4 @@ function resourceSummary(kind: ResourceKind): string {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function saveBlob(blob: Blob | File, filename: string): void {
-  const url = window.URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = filename;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  window.URL.revokeObjectURL(url);
 }

@@ -104,8 +104,6 @@ test.beforeEach(async ({ page }) => {
           history: [],
           memoryStats: { total: 0 },
           models: [],
-          pets: [],
-          rewards: [],
           runWorkspace: {
             active_workspace_name: "",
             mode: "push",
@@ -113,8 +111,6 @@ test.beforeEach(async ({ page }) => {
             workspace_name: "",
           },
           voices: [],
-          wallet: null,
-          walletTransactions: [],
           warnings: [],
           workflows: [],
           workspaces: [],

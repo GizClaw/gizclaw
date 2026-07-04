@@ -128,53 +128,6 @@ stores:
     kind: sql
     storage: acl-db
 
-  # PetSpecies JSON metadata lives in main-kv under this prefix. The .pixa
-  # bytes live in the pet-species-assets logical object store.
-  pet-species:
-    kind: keyvalue
-    storage: main-kv
-    prefix: pet-species
-
-  # Badge JSON metadata lives in main-kv under this prefix. The icon bytes live
-  # in the badge-assets logical object store.
-  badges:
-    kind: keyvalue
-    storage: main-kv
-    prefix: badges
-
-  # Adopted pet records for peer-facing pet RPCs.
-  pets:
-    kind: keyvalue
-    storage: main-kv
-    prefix: pets
-
-  # Reward history records for peer-facing reward RPCs.
-  rewards:
-    kind: keyvalue
-    storage: main-kv
-    prefix: rewards
-
-  # Wallet balances and transactions use SQL so balance changes and transaction
-  # inserts can commit atomically.
-  wallets:
-    kind: sql
-    storage: wallet-db
-
-  # Logical object store for pet species .pixa files only. The physical object
-  # store is shared with other file payloads; this prefix keeps pet species
-  # assets under pet-species/.
-  pet-species-assets:
-    kind: objectstore
-    storage: local-assets
-    prefix: pet-species
-
-  # Logical object store for badge icon files only. This keeps badge assets
-  # under badges/.
-  badge-assets:
-    kind: objectstore
-    storage: local-assets
-    prefix: badges
-
   # Contact address-book records for peer-facing contact RPCs.
   contacts:
     kind: keyvalue
@@ -235,26 +188,6 @@ friend_groups:
   message_cleanup_interval: 5m
   # Maximum decoded audio bytes accepted by friend group message send.
   message_max_audio_bytes: 2097152
-
-# Server-side system task configuration.
-system_tasks:
-  reward_claim:
-    # GenX generator pattern used by reward.claim. "model/<id>" is a GenX
-    # pattern, not a filesystem path. The id after "model/" is a Model admin
-    # resource id, for example "model/qwen-flash".
-    generator: model/qwen-flash
-    # Minimum time between two reward.claim calls from the same peer.
-    cooldown: 30m
-  pet_action:
-    # GenX generator pattern used by pet.feed, pet.wash, and pet.play.
-    # The common setup uses the same model as reward_claim.
-    generator: model/qwen-flash
-
-# Peer-facing gameplay defaults.
-gameplay:
-  # Points deducted by pet.adopt before the pet is created.
-  # Set a negative value to disable the adoption charge.
-  pet_adopt_point_cost: 100
 ```
 
 ## Transport Config
@@ -300,24 +233,13 @@ for the context file schema and dialing behavior.
   configured: `peers`, `credentials`, `firmwares`, `minimax-tenants`, `voices`,
   `workspaces`, `workflows`, and `acl`.
 - Optional resource services are wired when their conventional logical stores
-  exist: `firmware-assets`, `agenthost`, `pet-species`,
-  `pet-species-assets`, `badges`, `badge-assets`, `pets`, `rewards`,
-  `wallets`, `contacts`, `friend-requests`, `friends`, `friend-groups`,
-  `friend-group-members`, `friend-group-messages`, and
+  exist: `firmware-assets`, `agenthost`, `contacts`, `friend-requests`,
+  `friends`, `friend-groups`, `friend-group-members`, `friend-group-messages`, and
   `friend-group-message-assets`.
-- `system_tasks.*.generator` values must use `model/<model-id>`. The model id
-  must match an admin `Model` resource, such as `qwen-flash`.
-- `gameplay.pet_adopt_point_cost` controls the point cost charged by
-  `pet.adopt`; a negative value disables the adoption charge.
-- `firmwares`, `pet-species`, and `badges` each use a KV metadata store plus a
-  separate object store for uploaded binary assets.
 - `agenthost` is optional for the server itself, but workspace agents such as
   Flowcraft should configure it as an object store so AgentHost can prepare
   per-workspace runtime prefixes and local runtime directories when supported
   by the object-store backend.
-- `pets` and `rewards` hold peer-facing JSON records in logical KV stores.
-- `wallets` is SQL-backed because wallet balance updates and transaction
-  inserts must commit atomically.
 - `contacts` stores current-peer address-book records. Contact objects are
   external contact data such as display name and phone number; they are not peer
   friend relationships.

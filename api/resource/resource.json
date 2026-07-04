@@ -39,9 +39,7 @@
           "Workflow",
           "Workspace",
           "PeerConfig",
-          "ResourceList",
-          "PetSpecies",
-          "Badge"
+          "ResourceList"
         ]
       },
       "ResourceMetadata": {
@@ -131,12 +129,6 @@
             "$ref": "./peer_config.json#/components/schemas/PeerConfigResource"
           },
           {
-            "$ref": "./pet_species.json#/components/schemas/PetSpeciesResource"
-          },
-          {
-            "$ref": "./badge.json#/components/schemas/BadgeResource"
-          },
-          {
             "$ref": "./resource_list.json#/components/schemas/ResourceListResource"
           }
         ],
@@ -163,9 +155,7 @@
             "Workflow": "./workflow.json#/components/schemas/WorkflowResource",
             "Workspace": "./workspace.json#/components/schemas/WorkspaceResource",
             "PeerConfig": "./peer_config.json#/components/schemas/PeerConfigResource",
-            "ResourceList": "./resource_list.json#/components/schemas/ResourceListResource",
-            "PetSpecies": "./pet_species.json#/components/schemas/PetSpeciesResource",
-            "Badge": "./badge.json#/components/schemas/BadgeResource"
+            "ResourceList": "./resource_list.json#/components/schemas/ResourceListResource"
           }
         }
       },

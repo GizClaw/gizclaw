@@ -178,7 +178,7 @@ func TestConnectHelp(t *testing.T) {
 		t.Fatal(err)
 	}
 	out := buf.String()
-	for _, want := range []string{"ping", "server-info", "set-name", "say", "test-speed", "pet", "wallet", "reward"} {
+	for _, want := range []string{"ping", "server-info", "set-name", "say", "test-speed", "contact", "firmware", "friend", "friend-group"} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("connect help missing %q: %s", want, out)
 		}
@@ -235,50 +235,6 @@ func TestTestSpeedHelp(t *testing.T) {
 	for _, want := range []string{"--context", "--up-content-length", "--down-content-length", "--timeout"} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("test-speed help missing %q: %s", want, out)
-		}
-	}
-}
-
-func TestConnectBusinessHelp(t *testing.T) {
-	for _, tc := range []struct {
-		args []string
-		want []string
-	}{
-		{[]string{"connect", "pet", "--help"}, []string{"list", "get", "adopt", "put", "delete", "feed", "wash", "play"}},
-		{[]string{"connect", "wallet", "--help"}, []string{"get", "transactions"}},
-		{[]string{"connect", "wallet", "transactions", "--help"}, []string{"list", "get"}},
-		{[]string{"connect", "reward", "--help"}, []string{"list", "get", "claim"}},
-	} {
-		root := New()
-		var buf bytes.Buffer
-		root.SetOut(&buf)
-		root.SetArgs(tc.args)
-		if err := root.Execute(); err != nil {
-			t.Fatalf("%v: %v", tc.args, err)
-		}
-		out := buf.String()
-		for _, want := range tc.want {
-			if !strings.Contains(out, want) {
-				t.Fatalf("%v help missing %q: %s", tc.args, want, out)
-			}
-		}
-	}
-}
-
-func TestConnectBusinessRejectsEmptyInput(t *testing.T) {
-	for _, tc := range []struct {
-		args []string
-		want string
-	}{
-		{[]string{"connect", "pet", "adopt", "--name", "   "}, "name must not be empty"},
-		{[]string{"connect", "pet", "put", "pet-a", "--name", "   "}, "name must not be empty"},
-		{[]string{"connect", "pet", "feed", "pet-a", "--prompt", "   "}, "prompt must not be empty"},
-		{[]string{"connect", "reward", "claim", "--prompt", "   "}, "prompt must not be empty"},
-	} {
-		root := New()
-		root.SetArgs(tc.args)
-		if err := root.Execute(); err == nil || !strings.Contains(err.Error(), tc.want) {
-			t.Fatalf("%v err=%v, want %q", tc.args, err, tc.want)
 		}
 	}
 }

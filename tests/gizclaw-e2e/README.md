@@ -209,7 +209,6 @@ resources/
   04-workflows/
   05-workspaces/
   06-firmwares/
-  07-gameplay/
   08-voices/
   09-social/
   90-acl/
@@ -229,12 +228,9 @@ Stable business resource IDs:
 - Run-control workspace: `direct-chatroom-workspace`
 - Family chatroom workspace: `family-circle-chatroom-workspace`
 - Model: `openai-gpt-4o-mini`
-- Gameplay system task models: `reward-claim`, `pet-action`
 - Credential: `openai-main-credential`
 - MiniMax voice metadata row: `minimax-narrator-clone`
 - Volc voice metadata row: `volc-tenant:volc-main:zh_female_vv_mars_bigtts`
-- Pet species: `rabbit`
-- Badge: `founder`
 - Firmware: `devkit-firmware-main`
 - Firmware channel/artifact: `stable` / `main`
 - Mutation-safe names: `mutation-flowcraft-workflow`,
@@ -253,14 +249,16 @@ The committed firmware metadata is applied through ResourceList YAML, and the
 downloadable firmware payload is the tar fixture at
 `testdata/assets/firmware/devkit-firmware-main.tar`.
 
-Provider-independent rows use schema-valid committed metadata. The full e2e
-catalog also includes real provider rows, so required provider credentials must
-be present in `.env`. `go/admin` owns provider voice sync verification and
-should run before chat voice tests.
+Provider-independent resource rows use schema-valid committed metadata, but the
+full e2e resource catalog also includes real provider rows. Required provider
+credential values must be present in `.env`; otherwise `reset_data.sh init/reset`
+fails fast and no partial e2e setup should be treated as valid. `go/admin` owns
+provider voice sync verification and should run before chat voice tests.
 
-Workspace history is runtime data. Docker setup must not seed history entries,
-message records, or replay audio directly; social and workspace e2e cases
-should create history by running the relevant client workflows.
+Workspace history is runtime data. `family-circle-chatroom-workspace` is a normal
+chatroom workspace target. `reset_data.sh` must not seed
+history entries or audio directly; social and workspace e2e cases should create
+history by running the relevant client workflows.
 
 ## Identities And CLI Config Homes
 

@@ -1,7 +1,0 @@
----
-apiVersion: gizclaw.admin/v1alpha1
-kind: PetSpecies
-metadata:
-  name: rabbit
-spec:
-  name: Rabbit

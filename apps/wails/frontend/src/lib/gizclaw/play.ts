@@ -24,13 +24,9 @@ export interface PlaySnapshot {
   history: PlayHistoryRow[];
   memoryStats?: PlayMemoryStats;
   models: PlayResourceRow[];
-  pets: PlayResourceRow[];
-  rewards: PlayResourceRow[];
   runWorkspace?: PlayWorkspaceState;
   voices: PlayResourceRow[];
   warnings: string[];
-  wallet?: PlayResourceRow;
-  walletTransactions: PlayResourceRow[];
   workflows: PlayResourceRow[];
   workspaces: PlayResourceRow[];
 }
@@ -131,10 +127,6 @@ export function createRPCPlayDataClient(rpc: PeerRPCClient): PlayDataClient {
         models,
         voices,
         credentials,
-        pets,
-        rewards,
-        wallet,
-        walletTransactions,
       ] = await Promise.all([
         captureCall(RPC_METHODS["server.run.workspace.get"], () => rpc.call(RPC_METHODS["server.run.workspace.get"], {})),
         captureCall(RPC_METHODS["server.run.workspace.history"], () => rpc.call(RPC_METHODS["server.run.workspace.history"], { limit: 30 })),
@@ -148,10 +140,6 @@ export function createRPCPlayDataClient(rpc: PeerRPCClient): PlayDataClient {
         captureCall(RPC_METHODS["server.model.list"], () => rpc.call(RPC_METHODS["server.model.list"], {})),
         captureCall(RPC_METHODS["server.voice.list"], () => rpc.call(RPC_METHODS["server.voice.list"], {})),
         captureCall(RPC_METHODS["server.credential.list"], () => rpc.call(RPC_METHODS["server.credential.list"], {})),
-        captureCall(RPC_METHODS["server.pet.list"], () => rpc.call(RPC_METHODS["server.pet.list"], {})),
-        captureCall(RPC_METHODS["server.reward.list"], () => rpc.call(RPC_METHODS["server.reward.list"], {})),
-        captureCall(RPC_METHODS["server.wallet.get"], () => rpc.call(RPC_METHODS["server.wallet.get"], {})),
-        captureCall(RPC_METHODS["server.wallet.transactions.list"], () => rpc.call(RPC_METHODS["server.wallet.transactions.list"], {})),
       ]);
       return {
         contacts: listItems(contacts.value).map((item) => itemToResourceRow(item, "contact")),
@@ -162,12 +150,8 @@ export function createRPCPlayDataClient(rpc: PeerRPCClient): PlayDataClient {
         history: listItems(history.value).map(itemToHistoryRow),
         memoryStats: memoryStatsToRow(memoryStats.value),
         models: listItems(models.value).map((item) => itemToResourceRow(item, "model")),
-        pets: listItems(pets.value).map((item) => itemToResourceRow(item, "pet")),
-        rewards: listItems(rewards.value).map((item) => itemToResourceRow(item, "reward")),
         runWorkspace: workspaceState(runWorkspace.value),
         voices: listItems(voices.value).map((item) => itemToResourceRow(item, "voice")),
-        wallet: isRecord(wallet.value) ? itemToResourceRow(wallet.value, "wallet") : undefined,
-        walletTransactions: listItems(walletTransactions.value).map((item) => itemToResourceRow(item, "wallet-transaction")),
         warnings: [
           runWorkspace,
           history,
@@ -181,10 +165,6 @@ export function createRPCPlayDataClient(rpc: PeerRPCClient): PlayDataClient {
           models,
           voices,
           credentials,
-          pets,
-          rewards,
-          wallet,
-          walletTransactions,
         ].flatMap((item) => (item.warning ? [item.warning] : [])),
         workflows: listItems(workflows.value).map((item) => itemToResourceRow(item, "workflow")),
         workspaces: listItems(workspaces.value).map((item) => itemToResourceRow(item, "workspace")),

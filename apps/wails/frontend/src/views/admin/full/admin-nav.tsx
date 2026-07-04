@@ -7,10 +7,8 @@ import {
   FolderKanban,
   KeyRound,
   LayoutDashboard,
-  Medal,
   Mic2,
   PackageCheck,
-  PawPrint,
   ServerCog,
   ShieldCheck,
   UsersRound,
@@ -56,13 +54,6 @@ export const adminNavGroups: Array<DashboardNavGroup<string>> = [
       { id: "/social/contacts", icon: ContactRound, label: "Contacts" },
       { id: "/social/friends", icon: UsersRound, label: "Friends" },
       { id: "/social/friend-groups", icon: UsersRound, label: "Friend Groups" },
-    ],
-  },
-  {
-    label: "Business",
-    items: [
-      { id: "/business/pet-species", icon: PawPrint, label: "Pet Species" },
-      { id: "/business/badges", icon: Medal, label: "Badges" },
     ],
   },
   {

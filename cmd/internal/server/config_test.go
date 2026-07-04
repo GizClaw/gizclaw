@@ -88,9 +88,6 @@ func TestNewWithLayeredStorageConfig(t *testing.T) {
 	if srv.AgentHostStore == nil {
 		t.Fatalf("agenthost store not wired: %+v", srv.Server)
 	}
-	if srv.PetSpeciesStore == nil || srv.PetSpeciesAssets == nil || srv.BadgeStore == nil || srv.BadgeAssets == nil || srv.PetStore == nil || srv.RewardStore == nil || srv.WalletDB == nil {
-		t.Fatalf("business stores not wired: %+v", srv.Server)
-	}
 	if srv.ContactStore == nil || srv.FriendInviteTokenStore == nil || srv.FriendStore == nil || srv.FriendGroupStore == nil || srv.FriendGroupInviteTokenStore == nil || srv.FriendGroupMemberStore == nil || srv.FriendGroupMessageStore == nil || srv.FriendGroupMessageAssets == nil {
 		t.Fatalf("social stores not wired: %+v", srv.Server)
 	}
@@ -139,12 +136,6 @@ func TestNewWithLayeredStorageReportsStoreErrors(t *testing.T) {
 	badAgentHostCfg.Stores["agenthost"] = stores.Config{Kind: stores.KindKeyValue, Storage: "memory", Prefix: "agenthost"}
 	if _, err := New(badAgentHostCfg); err == nil || !strings.Contains(err.Error(), "server: agenthost store:") {
 		t.Fatalf("New(bad agenthost store) = %v", err)
-	}
-
-	badPetSpeciesAssetsCfg := validLayeredConfig(dir)
-	badPetSpeciesAssetsCfg.Stores["pet-species-assets"] = stores.Config{Kind: stores.KindKeyValue, Storage: "memory", Prefix: "pet-species-assets"}
-	if _, err := New(badPetSpeciesAssetsCfg); err == nil || !strings.Contains(err.Error(), "server: pet_species assets store:") {
-		t.Fatalf("New(bad pet species assets store) = %v", err)
 	}
 
 	missingTenantCfg := validLayeredConfig(dir)
@@ -348,13 +339,6 @@ func TestMergeFileConfigKeepsRuntimeOverrides(t *testing.T) {
 			MessageCleanupInterval: "30s",
 			MessageMaxAudioBytes:   1024,
 		},
-		SystemTasks: SystemTasksConfig{
-			RewardClaim: RewardClaimTaskConfig{Generator: "model/runtime-reward", Cooldown: "5m"},
-			PetAction:   GeneratorTaskConfig{Generator: "model/runtime-pet"},
-		},
-		Gameplay: GameplayConfig{
-			PetAdoptPointCost: 25,
-		},
 	}
 	fileCfg := ConfigFile{
 		Listen:         "0.0.0.0:1234",
@@ -371,13 +355,6 @@ func TestMergeFileConfigKeepsRuntimeOverrides(t *testing.T) {
 			MessageMaxTTL:          "7d",
 			MessageCleanupInterval: "5m",
 			MessageMaxAudioBytes:   2048,
-		},
-		SystemTasks: SystemTasksConfig{
-			RewardClaim: RewardClaimTaskConfig{Generator: "model/file-reward", Cooldown: "30m"},
-			PetAction:   GeneratorTaskConfig{Generator: "model/file-pet"},
-		},
-		Gameplay: GameplayConfig{
-			PetAdoptPointCost: -1,
 		},
 	}
 
@@ -403,18 +380,9 @@ func TestMergeFileConfigKeepsRuntimeOverrides(t *testing.T) {
 	if merged.FriendGroups.MessageDefaultTTL != "2h" || merged.FriendGroups.MessageMaxTTL != "3d" || merged.FriendGroups.MessageCleanupInterval != "30s" || merged.FriendGroups.MessageMaxAudioBytes != 1024 {
 		t.Fatalf("FriendGroups = %+v", merged.FriendGroups)
 	}
-	if merged.SystemTasks.RewardClaim.Generator != "model/runtime-reward" || merged.SystemTasks.RewardClaim.Cooldown != "5m" || merged.SystemTasks.PetAction.Generator != "model/runtime-pet" {
-		t.Fatalf("SystemTasks = %+v", merged.SystemTasks)
-	}
-	if merged.Gameplay.PetAdoptPointCost != 25 {
-		t.Fatalf("Gameplay = %+v", merged.Gameplay)
-	}
-	fileOnly, err := mergeFileConfig(Config{}, fileCfg)
+	_, err = mergeFileConfig(Config{}, fileCfg)
 	if err != nil {
 		t.Fatalf("mergeFileConfig file-only error = %v", err)
-	}
-	if fileOnly.Gameplay.PetAdoptPointCost != -1 {
-		t.Fatalf("file-only Gameplay = %+v", fileOnly.Gameplay)
 	}
 }
 
@@ -467,9 +435,6 @@ func TestValidateReportsLayeredStorageMissingFields(t *testing.T) {
 		edit func(*Config)
 		want string
 	}{
-		{"bad reward generator", func(c *Config) { c.SystemTasks.RewardClaim.Generator = "voice/main" }, "server: system_tasks.reward_claim.generator must match model/<id>"},
-		{"bad pet generator", func(c *Config) { c.SystemTasks.PetAction.Generator = "voice/main" }, "server: system_tasks.pet_action.generator must match model/<id>"},
-		{"bad cooldown", func(c *Config) { c.SystemTasks.RewardClaim.Cooldown = "soon" }, "server: system_tasks.reward_claim.cooldown: time: invalid duration \"soon\""},
 		{"bad friend group default ttl", func(c *Config) { c.FriendGroups.MessageDefaultTTL = "later" }, "server: friend_groups.message_default_ttl: time: invalid duration \"later\""},
 		{"bad friend group max ttl", func(c *Config) { c.FriendGroups.MessageMaxTTL = "later" }, "server: friend_groups.message_max_ttl: time: invalid duration \"later\""},
 		{"bad friend group cleanup interval", func(c *Config) { c.FriendGroups.MessageCleanupInterval = "later" }, "server: friend_groups.message_cleanup_interval: time: invalid duration \"later\""},
@@ -535,7 +500,6 @@ func validLayeredConfig(dir string) Config {
 			"memory":      {Kind: storage.KindKeyValue, Memory: &storage.MemoryConfig{}},
 			"local-files": {Kind: storage.KindObjectStore, FS: &storage.FSConfig{Dir: dir}},
 			"acl-db":      {Kind: storage.KindSQL, SQLite: &storage.SQLConfig{Dir: filepath.Join(dir, "acl.sqlite")}},
-			"wallet-db":   {Kind: storage.KindSQL, SQLite: &storage.SQLConfig{Dir: filepath.Join(dir, "wallet.sqlite")}},
 		},
 		Stores: map[string]stores.Config{
 			"peers":                       {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "peers"},
@@ -547,10 +511,6 @@ func validLayeredConfig(dir string) Config {
 			"voices":                      {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "voices"},
 			"workspaces":                  {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "workspaces"},
 			"workflows":                   {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "workflows"},
-			"pet-species":                 {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "pet-species"},
-			"badges":                      {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "badges"},
-			"pets":                        {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "pets"},
-			"rewards":                     {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "rewards"},
 			"contacts":                    {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "contacts"},
 			"friend-invite-tokens":        {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "friend-invite-tokens"},
 			"friends":                     {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "friends"},
@@ -559,9 +519,6 @@ func validLayeredConfig(dir string) Config {
 			"friend-group-members":        {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "friend-group-members"},
 			"friend-group-messages":       {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "friend-group-messages"},
 			"friend-group-message-assets": {Kind: stores.KindObjectStore, Storage: "local-files", Prefix: "friend-group-messages"},
-			"pet-species-assets":          {Kind: stores.KindObjectStore, Storage: "local-files", Prefix: "pet-species"},
-			"badge-assets":                {Kind: stores.KindObjectStore, Storage: "local-files", Prefix: "badges"},
-			"wallets":                     {Kind: stores.KindSQL, Storage: "wallet-db"},
 			"acl":                         {Kind: stores.KindSQL, Storage: "acl-db"},
 		},
 		FriendGroups: FriendGroupsConfig{
@@ -569,10 +526,6 @@ func validLayeredConfig(dir string) Config {
 			MessageMaxTTL:          "7d",
 			MessageCleanupInterval: "5m",
 			MessageMaxAudioBytes:   2097152,
-		},
-		SystemTasks: SystemTasksConfig{
-			RewardClaim: RewardClaimTaskConfig{Generator: "model/reward-claim", Cooldown: "30m"},
-			PetAction:   GeneratorTaskConfig{Generator: "model/pet-action"},
 		},
 	}
 }

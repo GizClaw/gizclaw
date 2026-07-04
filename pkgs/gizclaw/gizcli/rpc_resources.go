@@ -116,62 +116,6 @@ func (c *rpcClient) DeleteCredential(ctx context.Context, conn net.Conn, id stri
 	return callResourceRPC(ctx, conn, id, rpcapi.RPCMethodServerCredentialDelete, request, (*rpcapi.RPCRequest_Params).FromCredentialDeleteRequest, rpcapi.RPCResponse_Result.AsCredentialDeleteResponse, "credential delete")
 }
 
-func (c *rpcClient) ListPets(ctx context.Context, conn net.Conn, id string, request rpcapi.PetListRequest) (*rpcapi.PetListResponse, error) {
-	return callResourceRPC(ctx, conn, id, rpcapi.RPCMethodServerPetList, request, (*rpcapi.RPCRequest_Params).FromPetListRequest, rpcapi.RPCResponse_Result.AsPetListResponse, "pet list")
-}
-
-func (c *rpcClient) GetPet(ctx context.Context, conn net.Conn, id string, request rpcapi.PetGetRequest) (*rpcapi.PetGetResponse, error) {
-	return callResourceRPC(ctx, conn, id, rpcapi.RPCMethodServerPetGet, request, (*rpcapi.RPCRequest_Params).FromPetGetRequest, rpcapi.RPCResponse_Result.AsPetGetResponse, "pet get")
-}
-
-func (c *rpcClient) AdoptPet(ctx context.Context, conn net.Conn, id string, request rpcapi.PetAdoptRequest) (*rpcapi.PetAdoptResponse, error) {
-	return callResourceRPC(ctx, conn, id, rpcapi.RPCMethodServerPetAdopt, request, (*rpcapi.RPCRequest_Params).FromPetAdoptRequest, rpcapi.RPCResponse_Result.AsPetAdoptResponse, "pet adopt")
-}
-
-func (c *rpcClient) PutPet(ctx context.Context, conn net.Conn, id string, request rpcapi.PetPutRequest) (*rpcapi.PetPutResponse, error) {
-	return callResourceRPC(ctx, conn, id, rpcapi.RPCMethodServerPetPut, request, (*rpcapi.RPCRequest_Params).FromPetPutRequest, rpcapi.RPCResponse_Result.AsPetPutResponse, "pet put")
-}
-
-func (c *rpcClient) DeletePet(ctx context.Context, conn net.Conn, id string, request rpcapi.PetDeleteRequest) (*rpcapi.PetDeleteResponse, error) {
-	return callResourceRPC(ctx, conn, id, rpcapi.RPCMethodServerPetDelete, request, (*rpcapi.RPCRequest_Params).FromPetDeleteRequest, rpcapi.RPCResponse_Result.AsPetDeleteResponse, "pet delete")
-}
-
-func (c *rpcClient) FeedPet(ctx context.Context, conn net.Conn, id string, request rpcapi.PetFeedRequest) (*rpcapi.PetFeedResponse, error) {
-	return callResourceRPC(ctx, conn, id, rpcapi.RPCMethodServerPetFeed, request, (*rpcapi.RPCRequest_Params).FromPetFeedRequest, rpcapi.RPCResponse_Result.AsPetFeedResponse, "pet feed")
-}
-
-func (c *rpcClient) WashPet(ctx context.Context, conn net.Conn, id string, request rpcapi.PetWashRequest) (*rpcapi.PetWashResponse, error) {
-	return callResourceRPC(ctx, conn, id, rpcapi.RPCMethodServerPetWash, request, (*rpcapi.RPCRequest_Params).FromPetWashRequest, rpcapi.RPCResponse_Result.AsPetWashResponse, "pet wash")
-}
-
-func (c *rpcClient) PlayPet(ctx context.Context, conn net.Conn, id string, request rpcapi.PetPlayRequest) (*rpcapi.PetPlayResponse, error) {
-	return callResourceRPC(ctx, conn, id, rpcapi.RPCMethodServerPetPlay, request, (*rpcapi.RPCRequest_Params).FromPetPlayRequest, rpcapi.RPCResponse_Result.AsPetPlayResponse, "pet play")
-}
-
-func (c *rpcClient) GetWallet(ctx context.Context, conn net.Conn, id string, request rpcapi.WalletGetRequest) (*rpcapi.WalletGetResponse, error) {
-	return callResourceRPC(ctx, conn, id, rpcapi.RPCMethodServerWalletGet, request, (*rpcapi.RPCRequest_Params).FromWalletGetRequest, rpcapi.RPCResponse_Result.AsWalletGetResponse, "wallet get")
-}
-
-func (c *rpcClient) ListWalletTransactions(ctx context.Context, conn net.Conn, id string, request rpcapi.WalletTransactionsListRequest) (*rpcapi.WalletTransactionsListResponse, error) {
-	return callResourceRPC(ctx, conn, id, rpcapi.RPCMethodServerWalletTransactionsList, request, (*rpcapi.RPCRequest_Params).FromWalletTransactionsListRequest, rpcapi.RPCResponse_Result.AsWalletTransactionsListResponse, "wallet transactions list")
-}
-
-func (c *rpcClient) GetWalletTransaction(ctx context.Context, conn net.Conn, id string, request rpcapi.WalletTransactionsGetRequest) (*rpcapi.WalletTransactionsGetResponse, error) {
-	return callResourceRPC(ctx, conn, id, rpcapi.RPCMethodServerWalletTransactionsGet, request, (*rpcapi.RPCRequest_Params).FromWalletTransactionsGetRequest, rpcapi.RPCResponse_Result.AsWalletTransactionsGetResponse, "wallet transactions get")
-}
-
-func (c *rpcClient) ListRewards(ctx context.Context, conn net.Conn, id string, request rpcapi.RewardListRequest) (*rpcapi.RewardListResponse, error) {
-	return callResourceRPC(ctx, conn, id, rpcapi.RPCMethodServerRewardList, request, (*rpcapi.RPCRequest_Params).FromRewardListRequest, rpcapi.RPCResponse_Result.AsRewardListResponse, "reward list")
-}
-
-func (c *rpcClient) GetReward(ctx context.Context, conn net.Conn, id string, request rpcapi.RewardGetRequest) (*rpcapi.RewardGetResponse, error) {
-	return callResourceRPC(ctx, conn, id, rpcapi.RPCMethodServerRewardGet, request, (*rpcapi.RPCRequest_Params).FromRewardGetRequest, rpcapi.RPCResponse_Result.AsRewardGetResponse, "reward get")
-}
-
-func (c *rpcClient) ClaimReward(ctx context.Context, conn net.Conn, id string, request rpcapi.RewardClaimRequest) (*rpcapi.RewardClaimResponse, error) {
-	return callResourceRPC(ctx, conn, id, rpcapi.RPCMethodServerRewardClaim, request, (*rpcapi.RPCRequest_Params).FromRewardClaimRequest, rpcapi.RPCResponse_Result.AsRewardClaimResponse, "reward claim")
-}
-
 func (c *rpcClient) ListContacts(ctx context.Context, conn net.Conn, id string, request rpcapi.ContactListRequest) (*rpcapi.ContactListResponse, error) {
 	return callResourceRPC(ctx, conn, id, rpcapi.RPCMethodServerContactList, request, (*rpcapi.RPCRequest_Params).FromContactListRequest, rpcapi.RPCResponse_Result.AsContactListResponse, "contact list")
 }

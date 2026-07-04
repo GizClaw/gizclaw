@@ -20,9 +20,6 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/device/firmware"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/gameplay/pet"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/gameplay/reward"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/gameplay/wallet"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/contact"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/friend"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/friendgroup"
@@ -49,9 +46,6 @@ type Server struct {
 	Models       model.ModelAdminService
 	Credentials  credential.CredentialAdminService
 	Voices       voice.VoiceAdminService
-	Pets         *pet.Server
-	Wallets      *wallet.Server
-	Rewards      *reward.Server
 	Contacts     *contact.Server
 	Friends      *friend.Server
 	FriendGroups *friendgroup.Server
@@ -93,20 +87,6 @@ func IsMethod(method rpcapi.RPCMethod) bool {
 		rpcapi.RPCMethodServerCredentialCreate,
 		rpcapi.RPCMethodServerCredentialPut,
 		rpcapi.RPCMethodServerCredentialDelete,
-		rpcapi.RPCMethodServerPetList,
-		rpcapi.RPCMethodServerPetGet,
-		rpcapi.RPCMethodServerPetAdopt,
-		rpcapi.RPCMethodServerPetPut,
-		rpcapi.RPCMethodServerPetDelete,
-		rpcapi.RPCMethodServerPetFeed,
-		rpcapi.RPCMethodServerPetWash,
-		rpcapi.RPCMethodServerPetPlay,
-		rpcapi.RPCMethodServerWalletGet,
-		rpcapi.RPCMethodServerWalletTransactionsList,
-		rpcapi.RPCMethodServerWalletTransactionsGet,
-		rpcapi.RPCMethodServerRewardList,
-		rpcapi.RPCMethodServerRewardGet,
-		rpcapi.RPCMethodServerRewardClaim,
 		rpcapi.RPCMethodServerContactList,
 		rpcapi.RPCMethodServerContactGet,
 		rpcapi.RPCMethodServerContactCreate,
@@ -201,34 +181,6 @@ func (s *Server) Dispatch(ctx context.Context, req *rpcapi.RPCRequest) (*rpcapi.
 		return s.handleCredentialPut(ctx, req)
 	case rpcapi.RPCMethodServerCredentialDelete:
 		return s.handleCredentialDelete(ctx, req), true, nil
-	case rpcapi.RPCMethodServerPetList:
-		return s.handlePetList(ctx, req), true, nil
-	case rpcapi.RPCMethodServerPetGet:
-		return s.handlePetGet(ctx, req), true, nil
-	case rpcapi.RPCMethodServerPetAdopt:
-		return s.handlePetAdopt(ctx, req), true, nil
-	case rpcapi.RPCMethodServerPetPut:
-		return s.handlePetPut(ctx, req), true, nil
-	case rpcapi.RPCMethodServerPetDelete:
-		return s.handlePetDelete(ctx, req), true, nil
-	case rpcapi.RPCMethodServerPetFeed:
-		return s.handlePetFeed(ctx, req), true, nil
-	case rpcapi.RPCMethodServerPetWash:
-		return s.handlePetWash(ctx, req), true, nil
-	case rpcapi.RPCMethodServerPetPlay:
-		return s.handlePetPlay(ctx, req), true, nil
-	case rpcapi.RPCMethodServerWalletGet:
-		return s.handleWalletGet(ctx, req), true, nil
-	case rpcapi.RPCMethodServerWalletTransactionsList:
-		return s.handleWalletTransactionsList(ctx, req), true, nil
-	case rpcapi.RPCMethodServerWalletTransactionsGet:
-		return s.handleWalletTransactionsGet(ctx, req), true, nil
-	case rpcapi.RPCMethodServerRewardList:
-		return s.handleRewardList(ctx, req), true, nil
-	case rpcapi.RPCMethodServerRewardGet:
-		return s.handleRewardGet(ctx, req), true, nil
-	case rpcapi.RPCMethodServerRewardClaim:
-		return s.handleRewardClaim(ctx, req), true, nil
 	case rpcapi.RPCMethodServerContactList:
 		return s.handleContactList(ctx, req), true, nil
 	case rpcapi.RPCMethodServerContactGet:

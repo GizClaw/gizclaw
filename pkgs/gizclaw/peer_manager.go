@@ -19,9 +19,6 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/device/firmware"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/gameplay/pet"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/gameplay/reward"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/gameplay/wallet"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/agenthost"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerrun"
@@ -53,9 +50,6 @@ type Manager struct {
 	Models       model.ModelAdminService
 	Credentials  credential.CredentialAdminService
 	Voices       voice.VoiceAdminService
-	Pets         *pet.Server
-	Wallets      *wallet.Server
-	Rewards      *reward.Server
 	Contacts     *contact.Server
 	Friends      *friend.Server
 	FriendGroups *friendgroup.Server

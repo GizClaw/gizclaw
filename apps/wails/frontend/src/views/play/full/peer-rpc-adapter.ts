@@ -263,21 +263,6 @@ export const listPeerCredentials = (options?: RequestOptions) => currentDataClie
 export const listPeerVoices = (options?: RequestOptions) => currentDataClient ? snapshotResult("voices") : callRPC(RPC_METHODS["server.voice.list"], options);
 export const listClientVoices = listPeerVoices;
 
-export const listPeerPets = (options?: RequestOptions) => currentDataClient ? snapshotResult("pets") : callRPC(RPC_METHODS["server.pet.list"], options);
-export const adoptPeerPet = (options: RequestOptions) => callRPC(RPC_METHODS["server.pet.adopt"], options);
-export const putPeerPet = (options: RequestOptions) => callRPC(RPC_METHODS["server.pet.put"], options);
-export const deletePeerPet = (options: RequestOptions) => callRPC(RPC_METHODS["server.pet.delete"], options);
-export const feedPeerPet = (options: RequestOptions) => callRPC(RPC_METHODS["server.pet.feed"], options);
-export const washPeerPet = (options: RequestOptions) => callRPC(RPC_METHODS["server.pet.wash"], options);
-export const playWithPeerPet = (options: RequestOptions) => callRPC(RPC_METHODS["server.pet.play"], options);
-
-export const getPeerWallet = async () => currentDataClient ? { data: (await currentDataClient.loadSnapshot()).wallet } : callRPC(RPC_METHODS["server.wallet.get"]);
-export const listPeerWalletTransactions = (options?: RequestOptions) => currentDataClient ? snapshotResult("walletTransactions") : callRPC(RPC_METHODS["server.wallet.transactions.list"], options);
-export const getPeerWalletTransaction = (options: RequestOptions) => callRPC(RPC_METHODS["server.wallet.transactions.get"], options);
-export const listPeerRewards = (options?: RequestOptions) => currentDataClient ? snapshotResult("rewards") : callRPC(RPC_METHODS["server.reward.list"], options);
-export const getPeerReward = (options: RequestOptions) => callRPC(RPC_METHODS["server.reward.get"], options);
-export const claimPeerReward = (options: RequestOptions) => callRPC(RPC_METHODS["server.reward.claim"], options);
-
 export const streamPlayableVoices = async (options?: RequestOptions): Promise<{ stream: AsyncGenerator<PlayVoiceStreamEvent> }> => ({
   stream: (async function* () {
     const result = await listPeerVoices(options);

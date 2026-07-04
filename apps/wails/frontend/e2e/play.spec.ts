@@ -28,8 +28,6 @@ test.beforeEach(async ({ page }) => {
       ],
       memoryStats: { total: 2 },
       models: [{ id: "fake-openai-chat-000", name: "Fake OpenAI Chat", title: "Fake OpenAI Chat" }],
-      pets: [{ id: "pet-main", name: "Main Pet", title: "Main Pet" }],
-      rewards: [{ id: "reward-claim", prompt: "Reward Claim", title: "Reward Claim" }],
       runWorkspace: {
         active_workspace_name: "flowcraft-chat",
         mode: "push",
@@ -37,8 +35,6 @@ test.beforeEach(async ({ page }) => {
         workspace_name: "flowcraft-chat",
       },
       voices: [{ id: "volc-voice-000", name: "Volc Voice", provider: { kind: "volc-tenant", name: "volc-tenant" }, source: "sync" }],
-      wallet: { id: "wallet-main", point_balance: 10, title: "Main Wallet", token_balance: 0 },
-      walletTransactions: [{ id: "wallet-tx-1", reason: "seed", title: "Wallet Transaction" }],
       warnings: [],
       workflows: [{ id: "flowcraft-chat", name: "Flowcraft Chat Workflow", title: "Flowcraft Chat Workflow" }],
       workspaces: [{ id: "flowcraft-chat", name: "flowcraft-chat", title: "Flowcraft Chat Workspace", workflow_name: "flowcraft-chat" }],
@@ -110,7 +106,8 @@ test("play view renders the full desktop play surface", async ({ page }) => {
 
   await expect(page.getByText("OpenAI Gateway")).toBeVisible();
   await expect(page.getByRole("button", { name: /Workspaces/ })).toBeVisible();
-  await expect(page.getByText("wallet-main")).toBeVisible();
+  await expect(page.getByText("ACL-controlled resources are listed in the resource sections.")).toBeVisible();
+  await expect(page.getByRole("button", { name: /Models 1/ })).toBeVisible();
 
   await page.getByRole("button", { name: /Workspaces/ }).click();
   await expect(page.getByRole("heading", { name: "Workspaces" })).toBeVisible();

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"time"
 
 	"github.com/GizClaw/gizclaw-go/cmd/internal/storage"
 	"github.com/GizClaw/gizclaw-go/cmd/internal/stores"
@@ -97,16 +96,6 @@ func newWithOptions(cfg Config, newOpts newServerOptions) (srv *CmdServer, err e
 		},
 	}
 	cmdSrv.Server = gizServer
-	gizServer.RewardClaimGenerator = cfg.SystemTasks.RewardClaim.Generator
-	gizServer.PetActionGenerator = cfg.SystemTasks.PetAction.Generator
-	gizServer.PetAdoptPointCost = cfg.Gameplay.PetAdoptPointCost
-	if cfg.SystemTasks.RewardClaim.Cooldown != "" {
-		cooldown, err := time.ParseDuration(cfg.SystemTasks.RewardClaim.Cooldown)
-		if err != nil {
-			return nil, fmt.Errorf("server: system_tasks.reward_claim.cooldown: %w", err)
-		}
-		gizServer.RewardClaimCooldown = cooldown
-	}
 	if cfg.FriendGroups.MessageDefaultTTL != "" {
 		ttl, err := parseConfigDuration(cfg.FriendGroups.MessageDefaultTTL)
 		if err != nil {
@@ -168,41 +157,6 @@ func newWithOptions(cfg Config, newOpts newServerOptions) (srv *CmdServer, err e
 		}
 		if gizServer.ACLDB, err = ss.SQL(defaultACLStore); err != nil {
 			return nil, fmt.Errorf("server: acl store: %w", err)
-		}
-		if storeExists(cfg, defaultPetSpeciesStore) {
-			if gizServer.PetSpeciesStore, err = ss.KV(defaultPetSpeciesStore); err != nil {
-				return nil, fmt.Errorf("server: pet_species store: %w", err)
-			}
-		}
-		if storeExists(cfg, defaultPetSpeciesAssetsStore) {
-			if gizServer.PetSpeciesAssets, err = ss.ObjectStore(defaultPetSpeciesAssetsStore); err != nil {
-				return nil, fmt.Errorf("server: pet_species assets store: %w", err)
-			}
-		}
-		if storeExists(cfg, defaultBadgesStore) {
-			if gizServer.BadgeStore, err = ss.KV(defaultBadgesStore); err != nil {
-				return nil, fmt.Errorf("server: badges store: %w", err)
-			}
-		}
-		if storeExists(cfg, defaultBadgeAssetsStore) {
-			if gizServer.BadgeAssets, err = ss.ObjectStore(defaultBadgeAssetsStore); err != nil {
-				return nil, fmt.Errorf("server: badges assets store: %w", err)
-			}
-		}
-		if storeExists(cfg, defaultPetsStore) {
-			if gizServer.PetStore, err = ss.KV(defaultPetsStore); err != nil {
-				return nil, fmt.Errorf("server: pets store: %w", err)
-			}
-		}
-		if storeExists(cfg, defaultRewardsStore) {
-			if gizServer.RewardStore, err = ss.KV(defaultRewardsStore); err != nil {
-				return nil, fmt.Errorf("server: rewards store: %w", err)
-			}
-		}
-		if storeExists(cfg, defaultWalletsStore) {
-			if gizServer.WalletDB, err = ss.SQL(defaultWalletsStore); err != nil {
-				return nil, fmt.Errorf("server: wallets store: %w", err)
-			}
 		}
 		if storeExists(cfg, defaultContactsStore) {
 			if gizServer.ContactStore, err = ss.KV(defaultContactsStore); err != nil {

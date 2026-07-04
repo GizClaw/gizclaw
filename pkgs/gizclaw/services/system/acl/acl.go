@@ -19,8 +19,6 @@ const (
 	ResourceKindCredential = apitypes.ACLResourceKindCredential
 	ResourceKindModel      = apitypes.ACLResourceKindModel
 	ResourceKindView       = apitypes.ACLResourceKindView
-	ResourceKindPetSpecies = apitypes.ACLResourceKindPetSpecies
-	ResourceKindBadge      = apitypes.ACLResourceKindBadge
 	ResourceKindFirmware   = apitypes.ACLResourceKindFirmware
 
 	CollectionResourceID = "__collection__"
@@ -128,20 +126,6 @@ func ModelResource(id string) apitypes.ACLResource {
 func VoiceResource(id string) apitypes.ACLResource {
 	return apitypes.ACLResource{
 		Kind: ResourceKindVoice,
-		Id:   id,
-	}
-}
-
-func PetSpeciesResource(id string) apitypes.ACLResource {
-	return apitypes.ACLResource{
-		Kind: ResourceKindPetSpecies,
-		Id:   id,
-	}
-}
-
-func BadgeResource(id string) apitypes.ACLResource {
-	return apitypes.ACLResource{
-		Kind: ResourceKindBadge,
 		Id:   id,
 	}
 }
