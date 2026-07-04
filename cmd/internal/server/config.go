@@ -52,7 +52,12 @@ type GameplayConfig struct {
 	PetAdoptPointCost int64 `yaml:"pet_adopt_point_cost"`
 }
 
+type IdentityConfig struct {
+	PrivateKey giznet.Key `yaml:"private-key"`
+}
+
 type ConfigFile struct {
+	Identity       IdentityConfig            `yaml:"identity"`
 	Endpoint       string                    `yaml:"endpoint"`
 	AdminPublicKey giznet.PublicKey          `yaml:"admin-public-key"`
 	Storage        map[string]storage.Config `yaml:"storage"`
@@ -98,6 +103,7 @@ func LoadConfig(path string) (ConfigFile, error) {
 		return ConfigFile{}, err
 	}
 	var raw struct {
+		Identity       *IdentityConfig           `yaml:"identity"`
 		Endpoint       string                    `yaml:"endpoint"`
 		AdminPublicKey *giznet.PublicKey         `yaml:"admin-public-key"`
 		Storage        map[string]storage.Config `yaml:"storage"`
@@ -114,7 +120,20 @@ func LoadConfig(path string) (ConfigFile, error) {
 	if err != nil {
 		return ConfigFile{}, err
 	}
+	var identity IdentityConfig
+	if raw.Identity != nil {
+		if raw.Identity.PrivateKey.IsZero() {
+			return ConfigFile{}, fmt.Errorf("server: invalid identity.private-key: zero key")
+		}
+		keyPair, err := giznet.NewKeyPair(raw.Identity.PrivateKey)
+		if err != nil {
+			return ConfigFile{}, fmt.Errorf("server: invalid identity.private-key: %w", err)
+		}
+		identity = *raw.Identity
+		identity.PrivateKey = keyPair.Private
+	}
 	cfg := ConfigFile{
+		Identity:       identity,
 		Endpoint:       raw.Endpoint,
 		AdminPublicKey: adminPublicKey,
 		Storage:        raw.Storage,

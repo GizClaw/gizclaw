@@ -41,7 +41,7 @@ inspect saved contexts, check connectivity, or read public server metadata.
 ## Behavior Notes
 
 - Contexts are local client profiles.
-- Each context stores an `identity.key` and a `config.yaml` containing server address and server public key.
+- Each context stores one `config.yaml` containing `identity.private-key`, server address, and server public key.
 - Default context storage:
   - Linux/macOS: `$XDG_CONFIG_HOME/gizclaw` or `~/.config/gizclaw`
   - Windows: `%AppData%/gizclaw`

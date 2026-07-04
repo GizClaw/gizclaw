@@ -1,3 +1,5 @@
+identity:
+  private-key: 2e2WTRZPMrjZzDYuFGfxqpHtxuU3xBkFrBND36yWxXVo
 description: E2E social peer A identity
 server:
   endpoint: 127.0.0.1:9820

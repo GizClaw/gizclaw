@@ -288,12 +288,9 @@ func writeSetupContextConfig(t *testing.T, path string, serverKey, clientKey *gi
 	if err := os.MkdirAll(contextDir, 0o755); err != nil {
 		t.Fatalf("create context dir: %v", err)
 	}
-	contextYAML := "server:\n  endpoint: 127.0.0.1:9820\n  public-key: " + serverKey.Public.String() + "\n"
+	contextYAML := "identity:\n  private-key: " + clientKey.Private.String() + "\nserver:\n  endpoint: 127.0.0.1:9820\n  public-key: " + serverKey.Public.String() + "\n"
 	if err := os.WriteFile(path, []byte(contextYAML), 0o644); err != nil {
 		t.Fatalf("write context config: %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(contextDir, "identity.key"), clientKey.Private[:], 0o600); err != nil {
-		t.Fatalf("write context identity: %v", err)
 	}
 }
 

@@ -61,13 +61,11 @@ Use this skill for server process management and server workspace configuration.
 ```text
 <workspace>/
 ├── config.yaml
-├── identity.key
 ├── serve.pid
 └── firmware/
 ```
 
-- `config.yaml`: server configuration.
-- `identity.key`: server identity, generated automatically if missing.
+- `config.yaml`: server configuration, including `identity.private-key`.
 - `serve.pid`: process mutual exclusion for foreground and service-managed starts.
 - `firmware/`: default firmware file storage if configured.
 

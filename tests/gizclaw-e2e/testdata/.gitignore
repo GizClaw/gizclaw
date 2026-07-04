@@ -10,14 +10,11 @@
 !workspaces/*.json
 !server-workspace/
 !server-workspace/config.yaml
-!server-workspace/identity.key
 !identities/
 !identities/*/
 !identities/*/config.yaml
-!identities/*/identity.key
 !cmd-config-home/
 !cmd-config-home/gizclaw/
 !cmd-config-home/gizclaw/current
 !cmd-config-home/gizclaw/*/
 !cmd-config-home/gizclaw/*/config.yaml
-!cmd-config-home/gizclaw/*/identity.key

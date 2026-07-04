@@ -23,8 +23,7 @@ gizclaw-desktop/
 ├── contexts/
 │   ├── current -> <context-name>
 │   └── <context-name>/
-│       ├── config.yaml
-│       └── identity.key
+│       └── config.yaml
 └── state.json
 ```
 

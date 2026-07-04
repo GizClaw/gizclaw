@@ -35,7 +35,7 @@ export const listDesktopContexts = <ThrowOnError extends boolean = false>(option
 /**
  * Create a local desktop context
  *
- * Creates a local desktop context and identity file. This does not register the peer, select a dashboard session, or contact a GizClaw server.
+ * Creates a local desktop context and identity. This does not register the peer, select a dashboard session, or contact a GizClaw server.
  */
 export const createDesktopContext = <ThrowOnError extends boolean = false>(options: Options<CreateDesktopContextData, ThrowOnError>) => (options.client ?? client).post<CreateDesktopContextResponses, CreateDesktopContextErrors, ThrowOnError>({
     url: '/desktop/contexts',
@@ -70,7 +70,7 @@ export const listDesktopViews = <ThrowOnError extends boolean = false>(options?:
 /**
  * End the active desktop view session
  *
- * Signs out of the current dashboard session and returns the app to the Welcome page. This clears only the active session; it must not delete or reset stored contexts or identity files.
+ * Signs out of the current dashboard session and returns the app to the Welcome page. This clears only the active session; it must not delete or reset stored contexts or identities.
  */
 export const endDesktopViewSession = <ThrowOnError extends boolean = false>(options?: Options<EndDesktopViewSessionData, ThrowOnError>) => (options?.client ?? client).delete<EndDesktopViewSessionResponses, EndDesktopViewSessionErrors, ThrowOnError>({ url: '/desktop/view-session', ...options });
 

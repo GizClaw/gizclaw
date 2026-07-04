@@ -227,8 +227,10 @@ func readSetupContextConfig(path string) (setupContextConfig, error) {
 	if err != nil {
 		return setupContextConfig{}, fmt.Errorf("read context config %s: %w", path, err)
 	}
-	contextDir := filepath.Dir(path)
 	var raw struct {
+		Identity struct {
+			PrivateKey giznet.Key `yaml:"private-key"`
+		} `yaml:"identity"`
 		Server struct {
 			Endpoint  string           `yaml:"endpoint"`
 			PublicKey giznet.PublicKey `yaml:"public-key"`
@@ -240,15 +242,9 @@ func readSetupContextConfig(path string) (setupContextConfig, error) {
 	if raw.Server.PublicKey.IsZero() {
 		return setupContextConfig{}, fmt.Errorf("decode context config %s: missing server public-key", path)
 	}
-	identityData, err := os.ReadFile(filepath.Join(contextDir, "identity.key"))
-	if err != nil {
-		return setupContextConfig{}, fmt.Errorf("read context identity %s: %w", filepath.Join(contextDir, "identity.key"), err)
+	if raw.Identity.PrivateKey.IsZero() {
+		return setupContextConfig{}, fmt.Errorf("decode context config %s: missing identity.private-key", path)
 	}
-	if len(identityData) != giznet.KeySize {
-		return setupContextConfig{}, fmt.Errorf("context identity length: got %d, want %d", len(identityData), giznet.KeySize)
-	}
-	var privateKey giznet.Key
-	copy(privateKey[:], identityData)
 	cfg := setupContextConfig{
 		Server: serverConfig{
 			Addr:         strings.TrimSpace(raw.Server.Endpoint),
@@ -257,7 +253,7 @@ func readSetupContextConfig(path string) (setupContextConfig, error) {
 			CipherMode:   string(gizwebrtc.CipherModeChaChaPoly),
 			SignalingURL: "http://" + strings.TrimSpace(raw.Server.Endpoint) + gizwebrtc.SignalingPath,
 		},
-		ClientPrivateKey: privateKey.String(),
+		ClientPrivateKey: raw.Identity.PrivateKey.String(),
 	}
 	return cfg, nil
 }

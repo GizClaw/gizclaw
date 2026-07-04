@@ -27,7 +27,7 @@ export type DesktopContext = {
      */
     endpoint: string;
     /**
-     * Public key derived from the local context identity file.
+     * Public key derived from the local context identity.
      */
     local_public_key?: string;
     name: string;

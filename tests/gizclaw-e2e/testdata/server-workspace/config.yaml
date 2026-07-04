@@ -1,3 +1,5 @@
+identity:
+  private-key: 287thuEga1hbBYjM7sxrY3eMoPAqpB3nJ81S8CEuNHKu
 endpoint: 127.0.0.1:9820
 admin-public-key: "6Ww6ANsXDCf91Yp7Tvi65hqpywjMmXqAoZDiq33kfCee"
 storage:
