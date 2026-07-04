@@ -184,6 +184,15 @@ test("admin view covers provider, AI, social, and settings sections", async ({ p
 
   await page.getByRole("button", { name: "Resources" }).click();
   await expect(page.getByRole("heading", { name: "Resources" })).toBeVisible();
+  const resourceJSON = page.getByRole("textbox").last();
+  await page.getByRole("combobox").click();
+  await page.getByRole("option", { name: "GameRuleset" }).click();
+  await expect(resourceJSON).toHaveValue(/"kind": "GameRuleset"/);
+  await expect(resourceJSON).toHaveValue(/"pet_pool"/);
+  await page.getByRole("combobox").click();
+  await page.getByRole("option", { name: "PetDef" }).click();
+  await expect(resourceJSON).toHaveValue(/"kind": "PetDef"/);
+  await expect(resourceJSON).toHaveValue(/"initial_life"/);
 
   await page.getByRole("button", { name: "Access Control" }).click();
   await expect(page.getByRole("heading", { name: "Access Control" })).toBeVisible();

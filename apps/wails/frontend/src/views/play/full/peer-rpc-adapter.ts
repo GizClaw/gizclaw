@@ -44,7 +44,23 @@ let currentRuntime: RuntimeContext | undefined;
 
 type PlayDataClientLike = {
   loadSnapshot(): Promise<any>;
+  adoptPet?(params: Record<string, unknown>): Promise<unknown>;
+  deletePet?(params: Record<string, unknown>): Promise<unknown>;
+  drivePet?(params: Record<string, unknown>): Promise<unknown>;
+  getBadge?(params: Record<string, unknown>): Promise<unknown>;
+  getGameResult?(params: Record<string, unknown>): Promise<unknown>;
+  getGameRuleset?(params: Record<string, unknown>): Promise<unknown>;
+  getPet?(params: Record<string, unknown>): Promise<unknown>;
+  getPoints?(params: Record<string, unknown>): Promise<unknown>;
+  getPointsTransaction?(params: Record<string, unknown>): Promise<unknown>;
+  getRewardGrant?(params: Record<string, unknown>): Promise<unknown>;
+  listBadges?(params: Record<string, unknown>): Promise<unknown>;
+  listGameResults?(params: Record<string, unknown>): Promise<unknown>;
+  listPets?(params: Record<string, unknown>): Promise<unknown>;
+  listPointsTransactions?(params: Record<string, unknown>): Promise<unknown>;
+  listRewardGrants?(params: Record<string, unknown>): Promise<unknown>;
   playHistory?(historyID: string): Promise<unknown>;
+  putPet?(params: Record<string, unknown>): Promise<unknown>;
   recallMemory?(query: string): Promise<unknown>;
   reloadWorkspace?(): Promise<unknown>;
   setWorkspace?(workspaceName: string): Promise<unknown>;
@@ -118,6 +134,21 @@ function params(options?: RequestOptions): Record<string, unknown> {
 
 function callRPC<M extends RPCMethodName>(method: M, options?: RequestOptions): Promise<ApiResult<RPCMethodMap[M]["response"]>> {
   return rpcResult(method, params(options) as RPCMethodMap[M]["request"]);
+}
+
+async function injectedResult<T>(method: keyof PlayDataClientLike, options?: RequestOptions): Promise<ApiResult<T>> {
+  if (currentDataClient == null) {
+    return { error: new Error("Play data client is not connected.") };
+  }
+  const fn = currentDataClient[method];
+  if (typeof fn !== "function") {
+    return { error: new Error(`Injected play data client does not implement ${String(method)}.`) };
+  }
+  try {
+    return { data: await (fn as (params: Record<string, unknown>) => Promise<T>)(params(options)) };
+  } catch (error) {
+    return { error };
+  }
 }
 
 async function callRPCBinary<M extends RPCMethodName>(method: M, options?: RequestOptions): Promise<ApiResult<{ body: Uint8Array; result: RPCMethodMap[M]["response"] }>> {
@@ -277,22 +308,22 @@ export const listPeerCredentials = (options?: RequestOptions) => currentDataClie
 export const listPeerVoices = (options?: RequestOptions) => currentDataClient ? snapshotResult("voices") : callRPC(RPC_METHODS["server.voice.list"], options);
 export const listClientVoices = listPeerVoices;
 
-export const getPeerGameRuleset = (options?: RequestOptions) => callRPC(RPC_METHODS["server.game_ruleset.get"], options);
-export const listPeerPets = (options?: RequestOptions) => callRPC(RPC_METHODS["server.pet.list"], options);
-export const getPeerPet = (options: RequestOptions) => callRPC(RPC_METHODS["server.pet.get"], options);
-export const adoptPeerPet = (options: RequestOptions) => callRPC(RPC_METHODS["server.pet.adopt"], options);
-export const putPeerPet = (options: RequestOptions) => callRPC(RPC_METHODS["server.pet.put"], options);
-export const deletePeerPet = (options: RequestOptions) => callRPC(RPC_METHODS["server.pet.delete"], options);
-export const drivePeerPet = (options: RequestOptions) => callRPC(RPC_METHODS["server.pet.drive"], options);
-export const getPeerPoints = (options?: RequestOptions) => callRPC(RPC_METHODS["server.points.get"], options);
-export const listPeerPointsTransactions = (options?: RequestOptions) => callRPC(RPC_METHODS["server.points.transactions.list"], options);
-export const getPeerPointsTransaction = (options: RequestOptions) => callRPC(RPC_METHODS["server.points.transactions.get"], options);
-export const listPeerBadges = (options?: RequestOptions) => callRPC(RPC_METHODS["server.badge.list"], options);
-export const getPeerBadge = (options: RequestOptions) => callRPC(RPC_METHODS["server.badge.get"], options);
-export const listPeerGameResults = (options?: RequestOptions) => callRPC(RPC_METHODS["server.game_result.list"], options);
-export const getPeerGameResult = (options: RequestOptions) => callRPC(RPC_METHODS["server.game_result.get"], options);
-export const listPeerRewardGrants = (options?: RequestOptions) => callRPC(RPC_METHODS["server.reward_grant.list"], options);
-export const getPeerRewardGrant = (options: RequestOptions) => callRPC(RPC_METHODS["server.reward_grant.get"], options);
+export const getPeerGameRuleset = (options?: RequestOptions) => currentDataClient ? injectedResult("getGameRuleset", options) : callRPC(RPC_METHODS["server.game_ruleset.get"], options);
+export const listPeerPets = (options?: RequestOptions) => currentDataClient ? injectedResult("listPets", options) : callRPC(RPC_METHODS["server.pet.list"], options);
+export const getPeerPet = (options: RequestOptions) => currentDataClient ? injectedResult("getPet", options) : callRPC(RPC_METHODS["server.pet.get"], options);
+export const adoptPeerPet = (options: RequestOptions) => currentDataClient ? injectedResult("adoptPet", options) : callRPC(RPC_METHODS["server.pet.adopt"], options);
+export const putPeerPet = (options: RequestOptions) => currentDataClient ? injectedResult("putPet", options) : callRPC(RPC_METHODS["server.pet.put"], options);
+export const deletePeerPet = (options: RequestOptions) => currentDataClient ? injectedResult("deletePet", options) : callRPC(RPC_METHODS["server.pet.delete"], options);
+export const drivePeerPet = (options: RequestOptions) => currentDataClient ? injectedResult("drivePet", options) : callRPC(RPC_METHODS["server.pet.drive"], options);
+export const getPeerPoints = (options?: RequestOptions) => currentDataClient ? injectedResult("getPoints", options) : callRPC(RPC_METHODS["server.points.get"], options);
+export const listPeerPointsTransactions = (options?: RequestOptions) => currentDataClient ? injectedResult("listPointsTransactions", options) : callRPC(RPC_METHODS["server.points.transactions.list"], options);
+export const getPeerPointsTransaction = (options: RequestOptions) => currentDataClient ? injectedResult("getPointsTransaction", options) : callRPC(RPC_METHODS["server.points.transactions.get"], options);
+export const listPeerBadges = (options?: RequestOptions) => currentDataClient ? injectedResult("listBadges", options) : callRPC(RPC_METHODS["server.badge.list"], options);
+export const getPeerBadge = (options: RequestOptions) => currentDataClient ? injectedResult("getBadge", options) : callRPC(RPC_METHODS["server.badge.get"], options);
+export const listPeerGameResults = (options?: RequestOptions) => currentDataClient ? injectedResult("listGameResults", options) : callRPC(RPC_METHODS["server.game_result.list"], options);
+export const getPeerGameResult = (options: RequestOptions) => currentDataClient ? injectedResult("getGameResult", options) : callRPC(RPC_METHODS["server.game_result.get"], options);
+export const listPeerRewardGrants = (options?: RequestOptions) => currentDataClient ? injectedResult("listRewardGrants", options) : callRPC(RPC_METHODS["server.reward_grant.list"], options);
+export const getPeerRewardGrant = (options: RequestOptions) => currentDataClient ? injectedResult("getRewardGrant", options) : callRPC(RPC_METHODS["server.reward_grant.get"], options);
 
 export const streamPlayableVoices = async (options?: RequestOptions): Promise<{ stream: AsyncGenerator<PlayVoiceStreamEvent> }> => ({
   stream: (async function* () {

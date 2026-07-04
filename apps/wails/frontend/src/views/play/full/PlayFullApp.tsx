@@ -422,11 +422,16 @@ export function PlayFullApp({ contextName, onSignOut }: { contextName?: string; 
 }
 
 function GameplayPanel(): JSX.Element {
-  const pets = usePagedList<PetObject>((cursor) => listGameplayPage<PetObject>(listPeerPets, cursor));
-  const badges = usePagedList<BadgeObject>((cursor) => listGameplayPage<BadgeObject>(listPeerBadges, cursor));
-  const transactions = usePagedList<PointsTransactionObject>((cursor) => listGameplayPage<PointsTransactionObject>(listPeerPointsTransactions, cursor));
-  const results = usePagedList<GameResultObject>((cursor) => listGameplayPage<GameResultObject>(listPeerGameResults, cursor));
-  const grants = usePagedList<RewardGrantObject>((cursor) => listGameplayPage<RewardGrantObject>(listPeerRewardGrants, cursor));
+  const loadPetsPage = useCallback((cursor: string) => listGameplayPage<PetObject>(listPeerPets, cursor), []);
+  const loadBadgesPage = useCallback((cursor: string) => listGameplayPage<BadgeObject>(listPeerBadges, cursor), []);
+  const loadTransactionsPage = useCallback((cursor: string) => listGameplayPage<PointsTransactionObject>(listPeerPointsTransactions, cursor), []);
+  const loadResultsPage = useCallback((cursor: string) => listGameplayPage<GameResultObject>(listPeerGameResults, cursor), []);
+  const loadGrantsPage = useCallback((cursor: string) => listGameplayPage<RewardGrantObject>(listPeerRewardGrants, cursor), []);
+  const pets = usePagedList<PetObject>(loadPetsPage);
+  const badges = usePagedList<BadgeObject>(loadBadgesPage);
+  const transactions = usePagedList<PointsTransactionObject>(loadTransactionsPage);
+  const results = usePagedList<GameResultObject>(loadResultsPage);
+  const grants = usePagedList<RewardGrantObject>(loadGrantsPage);
   const [ruleset, setRuleset] = useState<GameRulesetObject | null>(null);
   const [points, setPoints] = useState<PointsAccountObject | null>(null);
   const [selectedPetID, setSelectedPetID] = useState("");
