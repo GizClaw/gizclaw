@@ -11,6 +11,7 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminservice"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/customid"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
@@ -170,15 +171,19 @@ func validateDocument(doc apitypes.WorkflowDocument, expectedName string) (apity
 	if err := json.Unmarshal(raw, &env); err != nil {
 		return apitypes.WorkflowDocument{}, env, nil, err
 	}
-	env.Metadata.Name = strings.TrimSpace(env.Metadata.Name)
-	if env.Metadata.Name == "" {
-		return apitypes.WorkflowDocument{}, env, nil, errors.New("metadata.name is required")
+	if err := customid.ValidateField("metadata.name", env.Metadata.Name); err != nil {
+		return apitypes.WorkflowDocument{}, env, nil, err
 	}
 	if env.Spec == nil || bytes.Equal(bytes.TrimSpace(*env.Spec), []byte("null")) {
 		return apitypes.WorkflowDocument{}, env, nil, errors.New("spec is required")
 	}
-	if expectedName != "" && env.Metadata.Name != expectedName {
-		return apitypes.WorkflowDocument{}, env, nil, fmt.Errorf("metadata.name %q must match path name %q", env.Metadata.Name, expectedName)
+	if expectedName != "" {
+		if err := customid.ValidateField("path name", expectedName); err != nil {
+			return apitypes.WorkflowDocument{}, env, nil, err
+		}
+		if env.Metadata.Name != expectedName {
+			return apitypes.WorkflowDocument{}, env, nil, fmt.Errorf("metadata.name %q must match path name %q", env.Metadata.Name, expectedName)
+		}
 	}
 	if strings.TrimSpace(string(doc.Spec.Driver)) == "" {
 		return apitypes.WorkflowDocument{}, env, nil, errors.New("spec.driver is required")

@@ -27,7 +27,12 @@
             ]
           },
           "metadata": {
-            "$ref": "./resource.json#/components/schemas/ResourceMetadata"
+            "allOf": [
+              {
+                "$ref": "./resource.json#/components/schemas/ResourceMetadata"
+              }
+            ],
+            "description": "metadata.name must be friend_group_id:peer_public_key; only friend_group_id is a custom ID."
           },
           "spec": {
             "$ref": "#/components/schemas/FriendGroupMemberSpec"
@@ -43,7 +48,11 @@
         ],
         "properties": {
           "friend_group_id": {
-            "type": "string"
+            "type": "string",
+            "minLength": 8,
+            "maxLength": 48,
+            "pattern": "^[a-z][a-z0-9._-]{6,46}[a-z0-9]$",
+            "description": "Friend group custom ID. The peer_public_key segment is not a custom ID."
           },
           "peer_public_key": {
             "type": "string"

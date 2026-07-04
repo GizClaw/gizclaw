@@ -20,7 +20,7 @@ func TestServerWorkspacesCRUD(t *testing.T) {
 	seedWorkflow(t, srv, "workflow-1")
 
 	createBody := mustWorkspaceUpsert(t, `{
-		"name": "alpha",
+		"name": "alpha001",
 		"workflow_name": "workflow-1",
 		"parameters": {"mode": "demo"}
 	}`)
@@ -33,7 +33,7 @@ func TestServerWorkspacesCRUD(t *testing.T) {
 	if !ok {
 		t.Fatalf("CreateWorkspace() response = %#v", createResp)
 	}
-	if created.Name != "alpha" || created.WorkflowName != "workflow-1" {
+	if created.Name != "alpha001" || created.WorkflowName != "workflow-1" {
 		t.Fatalf("CreateWorkspace() workspace = %#v", created)
 	}
 	if created.CreatedAt.IsZero() || created.UpdatedAt.IsZero() || created.LastActiveAt.IsZero() {
@@ -42,7 +42,7 @@ func TestServerWorkspacesCRUD(t *testing.T) {
 	if !created.LastActiveAt.Equal(created.CreatedAt) {
 		t.Fatalf("CreateWorkspace() last_active_at = %s, want created_at %s", created.LastActiveAt, created.CreatedAt)
 	}
-	if len(runtime.prepared) != 1 || runtime.prepared[0] != "alpha" {
+	if len(runtime.prepared) != 1 || runtime.prepared[0] != "alpha001" {
 		t.Fatalf("runtime prepared after create = %#v", runtime.prepared)
 	}
 
@@ -54,11 +54,11 @@ func TestServerWorkspacesCRUD(t *testing.T) {
 	if !ok {
 		t.Fatalf("ListWorkspaces() response = %#v", listResp)
 	}
-	if len(listed.Items) != 1 || listed.Items[0].Name != "alpha" || listed.HasNext {
+	if len(listed.Items) != 1 || listed.Items[0].Name != "alpha001" || listed.HasNext {
 		t.Fatalf("ListWorkspaces() = %#v", listed)
 	}
 
-	getResp, err := srv.GetWorkspace(ctx, adminservice.GetWorkspaceRequestObject{Name: "alpha"})
+	getResp, err := srv.GetWorkspace(ctx, adminservice.GetWorkspaceRequestObject{Name: "alpha001"})
 	if err != nil {
 		t.Fatalf("GetWorkspace() error = %v", err)
 	}
@@ -66,17 +66,17 @@ func TestServerWorkspacesCRUD(t *testing.T) {
 	if !ok {
 		t.Fatalf("GetWorkspace() response = %#v", getResp)
 	}
-	if got.Name != "alpha" {
+	if got.Name != "alpha001" {
 		t.Fatalf("GetWorkspace() = %#v", got)
 	}
 
 	updateBody := mustWorkspaceUpsert(t, `{
-		"name": "alpha",
+		"name": "alpha001",
 		"workflow_name": "workflow-1",
 		"parameters": {"mode": "updated"}
 	}`)
 	putResp, err := srv.PutWorkspace(ctx, adminservice.PutWorkspaceRequestObject{
-		Name: "alpha",
+		Name: "alpha001",
 		Body: &updateBody,
 	})
 	if err != nil {
@@ -92,22 +92,22 @@ func TestServerWorkspacesCRUD(t *testing.T) {
 	if !updated.LastActiveAt.Equal(created.LastActiveAt) {
 		t.Fatalf("PutWorkspace() last_active_at = %s, want unchanged %s", updated.LastActiveAt, created.LastActiveAt)
 	}
-	if len(runtime.prepared) != 2 || runtime.prepared[1] != "alpha" {
+	if len(runtime.prepared) != 2 || runtime.prepared[1] != "alpha001" {
 		t.Fatalf("runtime prepared after put = %#v", runtime.prepared)
 	}
 
-	deleteResp, err := srv.DeleteWorkspace(ctx, adminservice.DeleteWorkspaceRequestObject{Name: "alpha"})
+	deleteResp, err := srv.DeleteWorkspace(ctx, adminservice.DeleteWorkspaceRequestObject{Name: "alpha001"})
 	if err != nil {
 		t.Fatalf("DeleteWorkspace() error = %v", err)
 	}
 	if _, ok := deleteResp.(adminservice.DeleteWorkspace200JSONResponse); !ok {
 		t.Fatalf("DeleteWorkspace() response = %#v", deleteResp)
 	}
-	if len(runtime.deleted) != 1 || runtime.deleted[0] != "alpha" {
+	if len(runtime.deleted) != 1 || runtime.deleted[0] != "alpha001" {
 		t.Fatalf("runtime deleted = %#v", runtime.deleted)
 	}
 
-	getAfterDelete, err := srv.GetWorkspace(ctx, adminservice.GetWorkspaceRequestObject{Name: "alpha"})
+	getAfterDelete, err := srv.GetWorkspace(ctx, adminservice.GetWorkspaceRequestObject{Name: "alpha001"})
 	if err != nil {
 		t.Fatalf("GetWorkspace() after delete error = %v", err)
 	}
@@ -167,7 +167,7 @@ func TestServerListWorkspacesPagination(t *testing.T) {
 	ctx := context.Background()
 	seedWorkflow(t, srv, "workflow-1")
 
-	for _, name := range []string{"alpha", "beta", "gamma"} {
+	for _, name := range []string{"alpha001", "beta0001", "gamma001"} {
 		body := adminservice.WorkspaceUpsert{
 			Name:         string(name),
 			WorkflowName: "workflow-1",
@@ -221,7 +221,7 @@ func TestServerRejectsInvalidWorkspaceReferences(t *testing.T) {
 	seedWorkflow(t, srv, "workflow-1")
 
 	missingWorkflow := mustWorkspaceUpsert(t, `{
-		"name": "alpha",
+		"name": "alpha001",
 		"workflow_name": "missing-workflow"
 	}`)
 	resp, err := srv.CreateWorkspace(ctx, adminservice.CreateWorkspaceRequestObject{Body: &missingWorkflow})
@@ -251,6 +251,18 @@ func TestServerRejectsInvalidWorkspaceReferences(t *testing.T) {
 	if _, ok := missingNameResp.(adminservice.CreateWorkspace400JSONResponse); !ok {
 		t.Fatalf("CreateWorkspace(missing name) response = %#v", missingNameResp)
 	}
+
+	invalidWorkflowName := mustWorkspaceUpsert(t, `{
+		"name": "alpha001",
+		"workflow_name": "Bad_Name"
+	}`)
+	invalidWorkflowResp, err := srv.CreateWorkspace(ctx, adminservice.CreateWorkspaceRequestObject{Body: &invalidWorkflowName})
+	if err != nil {
+		t.Fatalf("CreateWorkspace(invalid workflow name) error = %v", err)
+	}
+	if _, ok := invalidWorkflowResp.(adminservice.CreateWorkspace400JSONResponse); !ok {
+		t.Fatalf("CreateWorkspace(invalid workflow name) response = %#v", invalidWorkflowResp)
+	}
 }
 
 func TestServerPutRejectsPathNameMismatch(t *testing.T) {
@@ -261,11 +273,11 @@ func TestServerPutRejectsPathNameMismatch(t *testing.T) {
 	seedWorkflow(t, srv, "workflow-1")
 
 	body := mustWorkspaceUpsert(t, `{
-		"name": "other",
+		"name": "other001",
 		"workflow_name": "workflow-1"
 	}`)
 	resp, err := srv.PutWorkspace(ctx, adminservice.PutWorkspaceRequestObject{
-		Name: "expected",
+		Name: "expected1",
 		Body: &body,
 	})
 	if err != nil {
@@ -275,7 +287,7 @@ func TestServerPutRejectsPathNameMismatch(t *testing.T) {
 		t.Fatalf("PutWorkspace() response = %#v", resp)
 	}
 
-	nilPutResp, err := srv.PutWorkspace(ctx, adminservice.PutWorkspaceRequestObject{Name: "expected"})
+	nilPutResp, err := srv.PutWorkspace(ctx, adminservice.PutWorkspaceRequestObject{Name: "expected1"})
 	if err != nil {
 		t.Fatalf("PutWorkspace(nil body) error = %v", err)
 	}
@@ -294,7 +306,7 @@ func TestServerWorkspaceConflictAndMissingDelete(t *testing.T) {
 	seedWorkflow(t, srv, "workflow-1")
 
 	body := mustWorkspaceUpsert(t, `{
-		"name": "alpha",
+		"name": "alpha001",
 		"workflow_name": "workflow-1"
 	}`)
 	if _, err := srv.CreateWorkspace(ctx, adminservice.CreateWorkspaceRequestObject{Body: &body}); err != nil {

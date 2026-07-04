@@ -22,9 +22,9 @@ func TestServerWorkspaceHistoryServiceAuthorizesReadPaths(t *testing.T) {
 	auth := &historyServiceAuthorizer{}
 	srv.Authorizer = auth
 	ctx := context.Background()
-	seedWorkspace(t, srv, "demo")
+	seedWorkspace(t, srv, "demo0001")
 
-	entry, err := srv.AppendWorkspaceHistory(ctx, " demo ", AppendHistoryRequest{
+	entry, err := srv.AppendWorkspaceHistory(ctx, " demo0001 ", AppendHistoryRequest{
 		Type:  "agent",
 		Name:  "assistant",
 		Text:  "hello",
@@ -34,7 +34,7 @@ func TestServerWorkspaceHistoryServiceAuthorizesReadPaths(t *testing.T) {
 		t.Fatalf("AppendWorkspaceHistory() error = %v", err)
 	}
 	subject := acl.PublicKeySubject("gear-a")
-	list, err := srv.ListWorkspaceHistory(ctx, subject, "demo", apitypes.PeerRunHistoryListRequest{})
+	list, err := srv.ListWorkspaceHistory(ctx, subject, "demo0001", apitypes.PeerRunHistoryListRequest{})
 	if err != nil {
 		t.Fatalf("ListWorkspaceHistory() error = %v", err)
 	}
@@ -42,7 +42,7 @@ func TestServerWorkspaceHistoryServiceAuthorizesReadPaths(t *testing.T) {
 		t.Fatalf("ListWorkspaceHistory() = %+v", list)
 	}
 
-	got, err := srv.GetWorkspaceHistory(ctx, subject, "demo", entry.ID)
+	got, err := srv.GetWorkspaceHistory(ctx, subject, "demo0001", entry.ID)
 	if err != nil {
 		t.Fatalf("GetWorkspaceHistory() error = %v", err)
 	}
@@ -50,7 +50,7 @@ func TestServerWorkspaceHistoryServiceAuthorizesReadPaths(t *testing.T) {
 		t.Fatalf("GetWorkspaceHistory() = %+v", got)
 	}
 
-	r, err := srv.ReadWorkspaceHistoryAsset(ctx, subject, "demo", entry.Assets[0].Name)
+	r, err := srv.ReadWorkspaceHistoryAsset(ctx, subject, "demo0001", entry.Assets[0].Name)
 	if err != nil {
 		t.Fatalf("ReadWorkspaceHistoryAsset() error = %v", err)
 	}
@@ -68,7 +68,7 @@ func TestServerWorkspaceHistoryServiceAuthorizesReadPaths(t *testing.T) {
 		t.Fatalf("authorize requests = %+v", auth.requests)
 	}
 	for _, req := range auth.requests {
-		if req.Subject != subject || req.Resource != acl.WorkspaceResource("demo") || req.Permission != apitypes.ACLPermissionWorkspaceRead {
+		if req.Subject != subject || req.Resource != acl.WorkspaceResource("demo0001") || req.Permission != apitypes.ACLPermissionWorkspaceRead {
 			t.Fatalf("authorize request = %+v", req)
 		}
 	}
@@ -80,14 +80,14 @@ func TestServerAppendWorkspaceHistoryBumpsLastActiveAt(t *testing.T) {
 	srv := newTestServer(t)
 	srv.RuntimeStore = NewObjectRuntimeStore(objectstore.Dir(t.TempDir()))
 	ctx := context.Background()
-	seedWorkspace(t, srv, "demo")
+	seedWorkspace(t, srv, "demo0001")
 
-	before, err := getWorkspace(ctx, srv.Store, "demo")
+	before, err := getWorkspace(ctx, srv.Store, "demo0001")
 	if err != nil {
 		t.Fatalf("getWorkspace(before) error = %v", err)
 	}
 	entryCreatedAt := before.LastActiveAt.Add(2 * time.Hour)
-	entry, err := srv.AppendWorkspaceHistory(ctx, "demo", AppendHistoryRequest{
+	entry, err := srv.AppendWorkspaceHistory(ctx, "demo0001", AppendHistoryRequest{
 		CreatedAt: entryCreatedAt,
 		Name:      "assistant",
 		Text:      "hello",
@@ -99,7 +99,7 @@ func TestServerAppendWorkspaceHistoryBumpsLastActiveAt(t *testing.T) {
 	if !entry.CreatedAt.Equal(entryCreatedAt) {
 		t.Fatalf("entry created_at = %s, want %s", entry.CreatedAt, entryCreatedAt)
 	}
-	after, err := getWorkspace(ctx, srv.Store, "demo")
+	after, err := getWorkspace(ctx, srv.Store, "demo0001")
 	if err != nil {
 		t.Fatalf("getWorkspace(after) error = %v", err)
 	}
@@ -110,7 +110,7 @@ func TestServerAppendWorkspaceHistoryBumpsLastActiveAt(t *testing.T) {
 		t.Fatalf("updated_at = %s, want unchanged %s", after.UpdatedAt, before.UpdatedAt)
 	}
 
-	if _, err := srv.AppendWorkspaceHistory(ctx, "demo", AppendHistoryRequest{
+	if _, err := srv.AppendWorkspaceHistory(ctx, "demo0001", AppendHistoryRequest{
 		CreatedAt: before.LastActiveAt.Add(time.Minute),
 		Name:      "older",
 		Text:      "old",
@@ -118,7 +118,7 @@ func TestServerAppendWorkspaceHistoryBumpsLastActiveAt(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("AppendWorkspaceHistory(older) error = %v", err)
 	}
-	got, err := getWorkspace(ctx, srv.Store, "demo")
+	got, err := getWorkspace(ctx, srv.Store, "demo0001")
 	if err != nil {
 		t.Fatalf("getWorkspace(final) error = %v", err)
 	}
@@ -134,9 +134,9 @@ func TestServerWorkspaceHistoryServiceDeniesReadPaths(t *testing.T) {
 	srv.RuntimeStore = NewObjectRuntimeStore(objectstore.Dir(t.TempDir()))
 	srv.Authorizer = &historyServiceAuthorizer{err: acl.ErrDenied}
 	ctx := context.Background()
-	seedWorkspace(t, srv, "demo")
+	seedWorkspace(t, srv, "demo0001")
 
-	entry, err := srv.AppendWorkspaceHistory(ctx, "demo", AppendHistoryRequest{
+	entry, err := srv.AppendWorkspaceHistory(ctx, "demo0001", AppendHistoryRequest{
 		Type:  "agent",
 		Name:  "assistant",
 		Text:  "hello",
@@ -146,13 +146,13 @@ func TestServerWorkspaceHistoryServiceDeniesReadPaths(t *testing.T) {
 		t.Fatalf("AppendWorkspaceHistory() error = %v", err)
 	}
 	subject := acl.PublicKeySubject("gear-a")
-	if _, err := srv.ListWorkspaceHistory(ctx, subject, "demo", apitypes.PeerRunHistoryListRequest{}); !errors.Is(err, acl.ErrDenied) {
+	if _, err := srv.ListWorkspaceHistory(ctx, subject, "demo0001", apitypes.PeerRunHistoryListRequest{}); !errors.Is(err, acl.ErrDenied) {
 		t.Fatalf("ListWorkspaceHistory() error = %v", err)
 	}
-	if _, err := srv.GetWorkspaceHistory(ctx, subject, "demo", entry.ID); !errors.Is(err, acl.ErrDenied) {
+	if _, err := srv.GetWorkspaceHistory(ctx, subject, "demo0001", entry.ID); !errors.Is(err, acl.ErrDenied) {
 		t.Fatalf("GetWorkspaceHistory() error = %v", err)
 	}
-	if _, err := srv.ReadWorkspaceHistoryAsset(ctx, subject, "demo", entry.Assets[0].Name); !errors.Is(err, acl.ErrDenied) {
+	if _, err := srv.ReadWorkspaceHistoryAsset(ctx, subject, "demo0001", entry.Assets[0].Name); !errors.Is(err, acl.ErrDenied) {
 		t.Fatalf("ReadWorkspaceHistoryAsset() error = %v", err)
 	}
 }
@@ -161,7 +161,7 @@ func TestServerWorkspaceHistoryServiceErrors(t *testing.T) {
 	t.Parallel()
 
 	var nilServer *Server
-	if _, err := nilServer.AppendWorkspaceHistory(context.Background(), "demo", AppendHistoryRequest{}); err == nil || !strings.Contains(err.Error(), "nil server") {
+	if _, err := nilServer.AppendWorkspaceHistory(context.Background(), "demo0001", AppendHistoryRequest{}); err == nil || !strings.Contains(err.Error(), "nil server") {
 		t.Fatalf("nil AppendWorkspaceHistory() error = %v", err)
 	}
 
@@ -169,8 +169,8 @@ func TestServerWorkspaceHistoryServiceErrors(t *testing.T) {
 	if _, err := srv.AppendWorkspaceHistory(context.Background(), "", AppendHistoryRequest{}); err == nil || !strings.Contains(err.Error(), "name is required") {
 		t.Fatalf("AppendWorkspaceHistory(empty) error = %v", err)
 	}
-	seedWorkspace(t, srv, "demo")
-	if _, err := srv.AppendWorkspaceHistory(context.Background(), "demo", AppendHistoryRequest{}); err == nil || !strings.Contains(err.Error(), "runtime store") {
+	seedWorkspace(t, srv, "demo0001")
+	if _, err := srv.AppendWorkspaceHistory(context.Background(), "demo0001", AppendHistoryRequest{}); err == nil || !strings.Contains(err.Error(), "runtime store") {
 		t.Fatalf("AppendWorkspaceHistory(no runtime store) error = %v", err)
 	}
 }

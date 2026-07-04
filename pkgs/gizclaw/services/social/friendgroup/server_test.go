@@ -312,25 +312,25 @@ func TestAdminApplyFriendGroupAndGetMember(t *testing.T) {
 	workspaces := &recordingWorkspaceService{}
 	s.Workspaces = workspaces
 
-	group, err := s.AdminApplyFriendGroup(ctx, " family ", " Family ", strPtr("first"))
+	group, err := s.AdminApplyFriendGroup(ctx, "family01", " Family ", strPtr("first"))
 	if err != nil {
 		t.Fatalf("AdminApplyFriendGroup create: %v", err)
 	}
-	if got := socialutil.StringValue(group.Id); got != "family" {
-		t.Fatalf("created group id = %q, want family", got)
+	if got := socialutil.StringValue(group.Id); got != "family01" {
+		t.Fatalf("created group id = %q, want family01", got)
 	}
 	if got := socialutil.StringValue(group.Name); got != "Family" {
 		t.Fatalf("created group name = %q, want Family", got)
 	}
 	workspaceName := socialutil.StringValue(group.WorkspaceName)
-	if workspaceName != socialutil.GroupWorkspaceName("family") {
+	if workspaceName != socialutil.GroupWorkspaceName("family01") {
 		t.Fatalf("created workspace_name = %q", workspaceName)
 	}
 	if len(workspaces.created) != 1 || workspaces.created[0].Name != workspaceName {
 		t.Fatalf("created workspaces = %#v, want %q", workspaces.created, workspaceName)
 	}
 
-	updated, err := s.AdminApplyFriendGroup(ctx, "family", "Family+", strPtr(""))
+	updated, err := s.AdminApplyFriendGroup(ctx, "family01", "Family+", strPtr(""))
 	if err != nil {
 		t.Fatalf("AdminApplyFriendGroup update: %v", err)
 	}
@@ -347,15 +347,18 @@ func TestAdminApplyFriendGroupAndGetMember(t *testing.T) {
 	if _, err := s.AdminApplyFriendGroup(ctx, "", "Family", nil); err == nil {
 		t.Fatal("AdminApplyFriendGroup empty id error = nil")
 	}
-	if _, err := s.AdminApplyFriendGroup(ctx, "family", "", nil); err == nil {
+	if _, err := s.AdminApplyFriendGroup(ctx, " family01 ", "Family", nil); err == nil {
+		t.Fatal("AdminApplyFriendGroup padded id error = nil")
+	}
+	if _, err := s.AdminApplyFriendGroup(ctx, "family01", "", nil); err == nil {
 		t.Fatal("AdminApplyFriendGroup empty name error = nil")
 	}
 
-	member, err := s.AdminPutFriendGroupMember(ctx, "family", "peer-member", rpcapi.FriendGroupMemberRoleMember)
+	member, err := s.AdminPutFriendGroupMember(ctx, "family01", "peer-member", rpcapi.FriendGroupMemberRoleMember)
 	if err != nil {
 		t.Fatalf("AdminPutFriendGroupMember: %v", err)
 	}
-	gotMember, err := s.AdminGetFriendGroupMember(ctx, " family ", " peer-member ")
+	gotMember, err := s.AdminGetFriendGroupMember(ctx, " family01 ", " peer-member ")
 	if err != nil {
 		t.Fatalf("AdminGetFriendGroupMember: %v", err)
 	}
@@ -365,7 +368,7 @@ func TestAdminApplyFriendGroupAndGetMember(t *testing.T) {
 	if _, err := s.AdminGetFriendGroupMember(ctx, "missing", "peer-member"); !errors.Is(err, kv.ErrNotFound) {
 		t.Fatalf("AdminGetFriendGroupMember missing group error = %v, want kv.ErrNotFound", err)
 	}
-	if _, err := s.AdminGetFriendGroupMember(ctx, "family", "missing"); !errors.Is(err, kv.ErrNotFound) {
+	if _, err := s.AdminGetFriendGroupMember(ctx, "family01", "missing"); !errors.Is(err, kv.ErrNotFound) {
 		t.Fatalf("AdminGetFriendGroupMember missing member error = %v, want kv.ErrNotFound", err)
 	}
 }
@@ -377,11 +380,11 @@ func TestAdminApplyFriendGroupRollsBackWorkspaceOnGroupWriteFailure(t *testing.T
 	s.Workspaces = workspaces
 	s.Groups = failingSetStore{Store: kv.NewMemory(nil)}
 
-	if _, err := s.AdminApplyFriendGroup(ctx, "family", "Family", nil); err == nil {
+	if _, err := s.AdminApplyFriendGroup(ctx, "family01", "Family", nil); err == nil {
 		t.Fatal("AdminApplyFriendGroup with failing group store error = nil")
 	}
-	if len(workspaces.deleted) != 1 || workspaces.deleted[0] != socialutil.GroupWorkspaceName("family") {
-		t.Fatalf("deleted workspaces = %#v, want family workspace rollback", workspaces.deleted)
+	if len(workspaces.deleted) != 1 || workspaces.deleted[0] != socialutil.GroupWorkspaceName("family01") {
+		t.Fatalf("deleted workspaces = %#v, want family01 workspace rollback", workspaces.deleted)
 	}
 }
 
@@ -427,7 +430,7 @@ func TestMemberRollsBackWhenWorkspaceACLWriteFails(t *testing.T) {
 func TestAdminDeleteFriendGroupMemberRollsBackWhenBelongsDeleteFails(t *testing.T) {
 	ctx := context.Background()
 	s := newTestServer(t)
-	group, err := s.AdminApplyFriendGroup(ctx, "family", "Family", nil)
+	group, err := s.AdminApplyFriendGroup(ctx, "family01", "Family", nil)
 	if err != nil {
 		t.Fatalf("AdminApplyFriendGroup: %v", err)
 	}

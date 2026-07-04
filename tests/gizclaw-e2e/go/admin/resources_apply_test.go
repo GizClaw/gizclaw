@@ -3,6 +3,7 @@
 package admin_test
 
 import (
+	"net/http"
 	"testing"
 	"time"
 
@@ -63,6 +64,38 @@ func TestAdminAPIApplySocialResources(t *testing.T) {
 	applyAndRequire(t, env, apitypes.ResourceKindFriendGroupInviteToken, groupID, friendGroupInviteTokenResource(t, groupID, "e2e-mut-social-token", expiresAt))
 }
 
+func TestAdminAPIApplyRejectsInvalidCustomIDResources(t *testing.T) {
+	env := newAdminAPIHarness(t)
+
+	for _, tc := range []struct {
+		name     string
+		resource apitypes.Resource
+	}{
+		{
+			name:     "workflow metadata.name",
+			resource: workflowResource(t, "short"),
+		},
+		{
+			name:     "friend group metadata.name",
+			resource: friendGroupResource(t, "family", "Family", "invalid short group id"),
+		},
+		{
+			name:     "contact id segment",
+			resource: contactResource(t, env.peerKey+":alice", env.peerKey, "alice"),
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			resp, err := env.api.ApplyResourceWithResponse(env.ctx, tc.resource)
+			if err != nil {
+				t.Fatalf("apply invalid resource: %v", err)
+			}
+			if resp.StatusCode() != http.StatusBadRequest {
+				t.Fatalf("status = %d, want 400: %s", resp.StatusCode(), resp.Body)
+			}
+		})
+	}
+}
+
 func applyAndRequire(t *testing.T, env *adminAPIHarness, kind apitypes.ResourceKind, name string, resource apitypes.Resource) {
 	t.Helper()
 
@@ -74,6 +107,43 @@ func applyAndRequire(t *testing.T, env *adminAPIHarness, kind apitypes.ResourceK
 	if resp.JSON200 == nil || resp.JSON200.Kind != kind || resp.JSON200.Name != name {
 		t.Fatalf("apply %s %s = %#v", kind, name, resp.JSON200)
 	}
+}
+
+func workflowResource(t *testing.T, name string) apitypes.Resource {
+	t.Helper()
+
+	var resource apitypes.Resource
+	if err := resource.FromWorkflowResource(apitypes.WorkflowResource{
+		ApiVersion: apitypes.ResourceAPIVersionGizclawAdminv1alpha1,
+		Kind:       apitypes.WorkflowResourceKindWorkflow,
+		Metadata:   apitypes.ResourceMetadata{Name: name},
+		Spec: apitypes.WorkflowSpec{
+			Driver:    apitypes.WorkflowDriverFlowcraft,
+			Flowcraft: &apitypes.FlowcraftWorkflowSpec{},
+		},
+	}); err != nil {
+		t.Fatalf("build workflow resource: %v", err)
+	}
+	return resource
+}
+
+func contactResource(t *testing.T, name, owner, id string) apitypes.Resource {
+	t.Helper()
+
+	var resource apitypes.Resource
+	if err := resource.FromContactResource(apitypes.ContactResource{
+		ApiVersion: apitypes.ResourceAPIVersionGizclawAdminv1alpha1,
+		Kind:       apitypes.ContactResourceKindContact,
+		Metadata:   apitypes.ResourceMetadata{Name: name},
+		Spec: apitypes.ContactSpec{
+			OwnerPublicKey: owner,
+			Id:             id,
+			DisplayName:    ptr("Invalid Contact"),
+		},
+	}); err != nil {
+		t.Fatalf("build contact resource: %v", err)
+	}
+	return resource
 }
 
 func friendResource(t *testing.T, name, owner, peer string) apitypes.Resource {

@@ -11,6 +11,7 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminservice"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/customid"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
@@ -264,16 +265,21 @@ func normalizeWorkspaceTimestamps(workspace apitypes.Workspace) apitypes.Workspa
 }
 
 func normalizeWorkspaceUpsert(in adminservice.WorkspaceUpsert, expectedName string) (adminservice.WorkspaceUpsert, error) {
-	name := strings.TrimSpace(string(in.Name))
-	if name == "" {
-		return adminservice.WorkspaceUpsert{}, errors.New("name is required")
+	name := string(in.Name)
+	if err := customid.ValidateField("name", name); err != nil {
+		return adminservice.WorkspaceUpsert{}, err
 	}
-	if expectedName != "" && name != expectedName {
-		return adminservice.WorkspaceUpsert{}, fmt.Errorf("name %q must match path name %q", name, expectedName)
+	if expectedName != "" {
+		if err := customid.ValidateField("path name", expectedName); err != nil {
+			return adminservice.WorkspaceUpsert{}, err
+		}
+		if name != expectedName {
+			return adminservice.WorkspaceUpsert{}, fmt.Errorf("name %q must match path name %q", name, expectedName)
+		}
 	}
-	workflowName := strings.TrimSpace(string(in.WorkflowName))
-	if workflowName == "" {
-		return adminservice.WorkspaceUpsert{}, errors.New("workflow_name is required")
+	workflowName := string(in.WorkflowName)
+	if err := customid.ValidateField("workflow_name", workflowName); err != nil {
+		return adminservice.WorkspaceUpsert{}, err
 	}
 	return adminservice.WorkspaceUpsert{
 		Name:         string(name),

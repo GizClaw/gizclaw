@@ -9,6 +9,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminservice"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/customid"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/socialutil"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
@@ -371,6 +372,9 @@ func validateFriendGroupResource(item apitypes.FriendGroupResource) error {
 	if err := validateResourceHeader(item.ApiVersion, item.Metadata.Name); err != nil {
 		return err
 	}
+	if err := customid.ValidateField("metadata.name", item.Metadata.Name); err != nil {
+		return applyError(400, "INVALID_FRIEND_GROUP_RESOURCE", err.Error())
+	}
 	if strings.TrimSpace(item.Spec.Name) == "" {
 		return applyError(400, "INVALID_FRIEND_GROUP_RESOURCE", "spec.name is required")
 	}
@@ -380,6 +384,12 @@ func validateFriendGroupResource(item apitypes.FriendGroupResource) error {
 func validateFriendGroupInviteTokenResource(item apitypes.FriendGroupInviteTokenResource) error {
 	if err := validateResourceHeader(item.ApiVersion, item.Metadata.Name); err != nil {
 		return err
+	}
+	if err := customid.ValidateField("metadata.name", item.Metadata.Name); err != nil {
+		return applyError(400, "INVALID_FRIEND_GROUP_INVITE_TOKEN_RESOURCE", err.Error())
+	}
+	if err := customid.ValidateField("spec.friend_group_id", item.Spec.FriendGroupId); err != nil {
+		return applyError(400, "INVALID_FRIEND_GROUP_INVITE_TOKEN_RESOURCE", err.Error())
 	}
 	if item.Spec.FriendGroupId != item.Metadata.Name {
 		return applyError(400, "INVALID_FRIEND_GROUP_INVITE_TOKEN_RESOURCE", "metadata.name must match spec.friend_group_id")
@@ -394,15 +404,21 @@ func validateFriendGroupMemberResource(item apitypes.FriendGroupMemberResource) 
 	if err := validateResourceHeader(item.ApiVersion, item.Metadata.Name); err != nil {
 		return err
 	}
-	if strings.TrimSpace(item.Spec.FriendGroupId) == "" || strings.TrimSpace(item.Spec.PeerPublicKey) == "" {
-		return applyError(400, "INVALID_FRIEND_GROUP_MEMBER_RESOURCE", "spec.friend_group_id and spec.peer_public_key are required")
+	friendGroupID, peerID, err := friendGroupMemberResourceParts(item.Metadata.Name)
+	if err != nil {
+		return err
+	}
+	if err := customid.ValidateField("spec.friend_group_id", item.Spec.FriendGroupId); err != nil {
+		return applyError(400, "INVALID_FRIEND_GROUP_MEMBER_RESOURCE", err.Error())
+	}
+	if strings.TrimSpace(item.Spec.PeerPublicKey) == "" {
+		return applyError(400, "INVALID_FRIEND_GROUP_MEMBER_RESOURCE", "spec.peer_public_key is required")
 	}
 	if !item.Spec.Role.Valid() {
 		return applyError(400, "INVALID_FRIEND_GROUP_MEMBER_RESOURCE", "spec.role is invalid")
 	}
-	expected := friendGroupMemberResourceName(item.Spec.FriendGroupId, item.Spec.PeerPublicKey)
-	if item.Metadata.Name != expected {
-		return applyError(400, "INVALID_FRIEND_GROUP_MEMBER_RESOURCE", fmt.Sprintf("metadata.name must be %q", expected))
+	if item.Spec.FriendGroupId != friendGroupID || item.Spec.PeerPublicKey != peerID {
+		return applyError(400, "INVALID_FRIEND_GROUP_MEMBER_RESOURCE", fmt.Sprintf("metadata.name must be %q", friendGroupMemberResourceName(item.Spec.FriendGroupId, item.Spec.PeerPublicKey)))
 	}
 	return nil
 }
@@ -419,26 +435,25 @@ func friendResourcePeers(name string) (string, string, error) {
 }
 
 func contactResourceName(owner, id string) string {
-	return strings.TrimSpace(owner) + ":" + strings.TrimSpace(id)
+	return customid.OwnerScopedName(owner, id)
 }
 
 func contactResourceParts(name string) (string, string, error) {
-	owner, id, ok := strings.Cut(strings.TrimSpace(name), ":")
-	if !ok || strings.TrimSpace(owner) == "" || strings.TrimSpace(id) == "" {
-		return "", "", applyError(400, "INVALID_CONTACT_RESOURCE", "metadata.name must be owner_public_key:id")
+	owner, id, err := customid.SplitOwnerScopedName(name)
+	if err != nil {
+		return "", "", applyError(400, "INVALID_CONTACT_RESOURCE", err.Error())
 	}
-	return strings.TrimSpace(owner), strings.TrimSpace(id), nil
+	return owner, id, nil
 }
 
 func friendGroupMemberResourceName(friendGroupID, peerID string) string {
-	return strings.TrimSpace(friendGroupID) + ":" + strings.TrimSpace(peerID)
+	return customid.MembershipName(friendGroupID, peerID)
 }
 
 func friendGroupMemberResourceParts(name string) (string, string, error) {
-	name = strings.TrimSpace(name)
-	index := strings.LastIndex(name, ":")
-	if index <= 0 || index == len(name)-1 {
-		return "", "", applyError(400, "INVALID_FRIEND_GROUP_MEMBER_RESOURCE", "metadata.name must be friend_group_id:peer_public_key")
+	friendGroupID, peerID, err := customid.SplitMembershipName(name)
+	if err != nil {
+		return "", "", applyError(400, "INVALID_FRIEND_GROUP_MEMBER_RESOURCE", err.Error())
 	}
-	return name[:index], name[index+1:], nil
+	return friendGroupID, peerID, nil
 }

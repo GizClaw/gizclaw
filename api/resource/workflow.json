@@ -27,7 +27,12 @@
             ]
           },
           "metadata": {
-            "$ref": "./resource.json#/components/schemas/ResourceMetadata"
+            "allOf": [
+              {
+                "$ref": "./resource.json#/components/schemas/ResourceMetadata"
+              }
+            ],
+            "description": "metadata.name is the workflow custom ID."
           },
           "spec": {
             "$ref": "../type/workflow_spec.json#/components/schemas/WorkflowSpec"

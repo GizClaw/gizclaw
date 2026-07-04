@@ -9,6 +9,7 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminservice"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/customid"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/socialutil"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
@@ -103,9 +104,11 @@ func (s *Server) AdminListContacts(ctx context.Context, owner string, cursor *st
 }
 
 func (s *Server) AdminCreateContact(ctx context.Context, req adminservice.AdminContactCreateRequest) (adminservice.AdminContactObject, error) {
-	id := strings.TrimSpace(socialutil.StringValue(req.Id))
+	id := socialutil.StringValue(req.Id)
 	if id == "" {
 		id = s.newID()
+	} else if err := customid.ValidateField("contact id", id); err != nil {
+		return adminservice.AdminContactObject{}, err
 	}
 	item, err := s.createContact(ctx, req.OwnerPublicKey, id, req.DisplayName, req.PhoneNumber)
 	if err != nil {
@@ -115,6 +118,9 @@ func (s *Server) AdminCreateContact(ctx context.Context, req adminservice.AdminC
 }
 
 func (s *Server) AdminApplyContact(ctx context.Context, owner, id string, displayName, phoneNumber *string) (adminservice.AdminContactObject, error) {
+	if err := customid.ValidateField("contact id", id); err != nil {
+		return adminservice.AdminContactObject{}, err
+	}
 	item, err := s.upsertContact(ctx, owner, id, displayName, phoneNumber)
 	if err != nil {
 		return adminservice.AdminContactObject{}, err

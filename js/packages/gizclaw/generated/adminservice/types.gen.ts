@@ -340,6 +340,9 @@ export type BadgeResource = {
 export type ContactResource = {
     apiVersion: ResourceApiVersion;
     kind: 'Contact';
+    /**
+     * metadata.name must be owner_public_key:id; only id is a custom ID.
+     */
     metadata: ResourceMetadata;
     spec: ContactSpec;
 };
@@ -350,7 +353,7 @@ export type ContactSpec = {
      */
     owner_public_key: string;
     /**
-     * Owner-scoped contact id.
+     * Owner-scoped contact custom ID. metadata.name must be owner_public_key:id.
      */
     id: string;
     display_name?: string;
@@ -399,6 +402,9 @@ export type FriendSpec = {
 export type FriendGroupResource = {
     apiVersion: ResourceApiVersion;
     kind: 'FriendGroup';
+    /**
+     * metadata.name is the friend group custom ID.
+     */
     metadata: ResourceMetadata;
     spec: FriendGroupSpec;
 };
@@ -414,11 +420,17 @@ export type FriendGroupSpec = {
 export type FriendGroupInviteTokenResource = {
     apiVersion: ResourceApiVersion;
     kind: 'FriendGroupInviteToken';
+    /**
+     * metadata.name is the friend group custom ID and must match spec.friend_group_id.
+     */
     metadata: ResourceMetadata;
     spec: FriendGroupInviteTokenSpec;
 };
 
 export type FriendGroupInviteTokenSpec = {
+    /**
+     * Friend group custom ID. The invite_token value is not a custom ID.
+     */
     friend_group_id: string;
     invite_token: string;
     expires_at: string;
@@ -427,6 +439,9 @@ export type FriendGroupInviteTokenSpec = {
 export type FriendGroupMemberResource = {
     apiVersion: ResourceApiVersion;
     kind: 'FriendGroupMember';
+    /**
+     * metadata.name must be friend_group_id:peer_public_key; only friend_group_id is a custom ID.
+     */
     metadata: ResourceMetadata;
     spec: FriendGroupMemberSpec;
 };
@@ -434,6 +449,9 @@ export type FriendGroupMemberResource = {
 export type FriendGroupMemberRole = 'owner' | 'admin' | 'member';
 
 export type FriendGroupMemberSpec = {
+    /**
+     * Friend group custom ID. The peer_public_key segment is not a custom ID.
+     */
     friend_group_id: string;
     peer_public_key: string;
     role: FriendGroupMemberRole;
@@ -558,7 +576,7 @@ export type ResourceKind = 'Credential' | 'ACLPolicyBinding' | 'ACLRole' | 'ACLV
 
 export type ResourceMetadata = {
     /**
-     * Resource name. For PeerConfig this is the peer public key.
+     * Resource name. Kind-specific rules apply. User-defined custom IDs use 8-48 lowercase ASCII characters, start with [a-z], end with [a-z0-9], and contain only [a-z0-9._-]. For PeerConfig this is the peer public key.
      */
     name: string;
     annotations?: {
@@ -593,6 +611,9 @@ export type VolcTenantResource = {
 export type WorkflowResource = {
     apiVersion: ResourceApiVersion;
     kind: 'Workflow';
+    /**
+     * metadata.name is the workflow custom ID.
+     */
     metadata: ResourceMetadata;
     spec: WorkflowSpec;
 };
@@ -600,6 +621,9 @@ export type WorkflowResource = {
 export type WorkspaceResource = {
     apiVersion: ResourceApiVersion;
     kind: 'Workspace';
+    /**
+     * metadata.name is the workspace custom ID. spec.workflow_name is the referenced workflow custom ID.
+     */
     metadata: ResourceMetadata;
     spec: WorkspaceSpec;
 };
@@ -1714,6 +1738,9 @@ export type WorkspaceParameters = ({
 } & ChatRoomWorkspaceParameters);
 
 export type WorkspaceSpec = {
+    /**
+     * Referenced workflow custom ID.
+     */
     workflow_name: string;
     parameters?: WorkspaceParameters;
 };

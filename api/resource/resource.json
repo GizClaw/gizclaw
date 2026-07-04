@@ -52,7 +52,7 @@
         "properties": {
           "name": {
             "type": "string",
-            "description": "Resource name. For PeerConfig this is the peer public key."
+            "description": "Resource name. Kind-specific rules apply. User-defined custom IDs use 8-48 lowercase ASCII characters, start with [a-z], end with [a-z0-9], and contain only [a-z0-9._-]. For PeerConfig this is the peer public key."
           },
           "annotations": {
             "type": "object",

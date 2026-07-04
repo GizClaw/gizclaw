@@ -27,7 +27,12 @@
             ]
           },
           "metadata": {
-            "$ref": "./resource.json#/components/schemas/ResourceMetadata"
+            "allOf": [
+              {
+                "$ref": "./resource.json#/components/schemas/ResourceMetadata"
+              }
+            ],
+            "description": "metadata.name must be owner_public_key:id; only id is a custom ID."
           },
           "spec": {
             "$ref": "#/components/schemas/ContactSpec"
@@ -48,8 +53,10 @@
           },
           "id": {
             "type": "string",
-            "minLength": 1,
-            "description": "Owner-scoped contact id."
+            "minLength": 8,
+            "maxLength": 48,
+            "pattern": "^[a-z][a-z0-9._-]{6,46}[a-z0-9]$",
+            "description": "Owner-scoped contact custom ID. metadata.name must be owner_public_key:id."
           },
           "display_name": {
             "type": "string"
