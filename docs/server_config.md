@@ -44,11 +44,11 @@ storage:
     sqlite:
       dir: data/acl.sqlite
 
-  # SQL database for wallet balances and wallet transactions.
-  wallet-db:
+  # SQL database for peer-owned gameplay state and ledgers.
+  gameplay-db:
     kind: sql
     sqlite:
-      dir: data/wallet.sqlite
+      dir: data/gameplay.sqlite
 
   # Object storage backend for uploaded binary assets.
   # The local filesystem driver stores object keys under data/files. An OSS/S3
@@ -127,6 +127,38 @@ stores:
   acl:
     kind: sql
     storage: acl-db
+
+  # Admin-maintained gameplay catalog resources.
+  game-rulesets:
+    kind: keyvalue
+    storage: main-kv
+    prefix: game-rulesets
+
+  pet-defs:
+    kind: keyvalue
+    storage: main-kv
+    prefix: pet-defs
+
+  badge-defs:
+    kind: keyvalue
+    storage: main-kv
+    prefix: badge-defs
+
+  game-defs:
+    kind: keyvalue
+    storage: main-kv
+    prefix: game-defs
+
+  # Gameplay pet assets and badge icons.
+  gameplay-assets:
+    kind: objectstore
+    storage: local-assets
+    prefix: gameplay
+
+  # Peer-owned gameplay runtime state.
+  gameplay-db:
+    kind: sql
+    storage: gameplay-db
 
   # Contact address-book records for peer-facing contact RPCs.
   contacts:
@@ -236,6 +268,10 @@ for the context file schema and dialing behavior.
   exist: `firmware-assets`, `agenthost`, `contacts`, `friend-requests`,
   `friends`, `friend-groups`, `friend-group-members`, `friend-group-messages`, and
   `friend-group-message-assets`.
+- Gameplay catalog services are wired from `game-rulesets`, `pet-defs`,
+  `badge-defs`, and `game-defs`. Pet definition assets and badge icons use
+  `gameplay-assets`. Peer-owned pet, badge, points, game result, transaction,
+  and reward grant state uses the `gameplay-db` SQL store.
 - `agenthost` is optional for the server itself, but workspace agents such as
   Flowcraft should configure it as an object store so AgentHost can prepare
   per-workspace runtime prefixes and local runtime directories when supported

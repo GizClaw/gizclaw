@@ -2294,10 +2294,28 @@
             "format": "date-time",
             "type": "string"
           },
+          "difficulty": {
+            "type": "string"
+          },
+          "duration_ms": {
+            "format": "int64",
+            "type": "integer"
+          },
           "game_def_id": {
             "type": "string"
           },
           "id": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string"
+          },
+          "max_score": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "occurred_at": {
+            "format": "date-time",
             "type": "string"
           },
           "outcome": {
@@ -2326,6 +2344,7 @@
           "ruleset_name",
           "pet_id",
           "game_def_id",
+          "occurred_at",
           "created_at"
         ],
         "type": "object"
@@ -3615,7 +3634,25 @@
       "PetDriveGameResultInput": {
         "additionalProperties": false,
         "properties": {
+          "difficulty": {
+            "type": "string"
+          },
+          "duration_ms": {
+            "format": "int64",
+            "type": "integer"
+          },
           "game_def_id": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string"
+          },
+          "max_score": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "occurred_at": {
+            "format": "date-time",
             "type": "string"
           },
           "outcome": {
@@ -3833,6 +3870,12 @@
           },
           "ruleset_name": {
             "type": "string"
+          },
+          "source_id": {
+            "type": "string"
+          },
+          "source_type": {
+            "type": "string"
           }
         },
         "required": [
@@ -3842,6 +3885,8 @@
           "delta",
           "balance_after",
           "reason",
+          "source_type",
+          "source_id",
           "created_at"
         ],
         "type": "object"
@@ -4656,6 +4701,9 @@
       "RewardGrant": {
         "additionalProperties": false,
         "properties": {
+          "ability_delta": {
+            "$ref": "#/components/schemas/StatMap"
+          },
           "badge_exp_delta": {
             "additionalProperties": {
               "format": "int64",
@@ -4672,6 +4720,9 @@
           },
           "id": {
             "type": "string"
+          },
+          "life_delta": {
+            "$ref": "#/components/schemas/StatMap"
           },
           "owner_public_key": {
             "type": "string"
@@ -4692,6 +4743,12 @@
           },
           "ruleset_name": {
             "type": "string"
+          },
+          "source_id": {
+            "type": "string"
+          },
+          "source_type": {
+            "type": "string"
           }
         },
         "required": [
@@ -4701,6 +4758,8 @@
           "points_delta",
           "pet_exp_delta",
           "badge_exp_delta",
+          "source_type",
+          "source_id",
           "created_at"
         ],
         "type": "object"

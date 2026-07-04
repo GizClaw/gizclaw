@@ -31,9 +31,8 @@ These ResourceManager resources are directly backed by ACL resource kinds:
 | `Credential` | `credential` | Peer runtime list/get/use/update/delete and AI runtime checks use credential ACL. |
 | `Voice` | `voice` | Peer voice list/get and speech runtime checks use voice ACL. |
 | `ACLView` | `view` | Views are used as grouped ACL subjects and can also be addressed as ACL resources. |
-| `PetSpecies` | `pet_species` | Pet adoption checks species usability through ACL. |
-| `Badge` | `badge` | Reward badge grants check badge usability through ACL. |
 | `Firmware` | `firmware` | Peer firmware list/get/download checks use firmware ACL. |
+| `GameRuleset` | `gameruleset` | Peer gameplay entry points check ruleset ACL before using a ruleset. |
 
 These ResourceManager resources are not direct ACL resource kinds:
 
@@ -43,8 +42,9 @@ These ResourceManager resources are not direct ACL resource kinds:
 | `Contact`, `Friend`, `FriendGroup`, `FriendGroupInviteToken`, `FriendGroupMember` | Scoped by authenticated peer and social-service rules. Social friend/friend-group creation may create a backing workspace and grant workspace ACL. |
 | `PeerConfig` | Scoped by admin and peer config service rules. Firmware selected by peer config is still checked as a `firmware` ACL resource when peers read it. |
 | `DashScopeTenant`, `GeminiTenant`, `MiniMaxTenant`, `OpenAITenant`, `VolcTenant` | Provider configuration resources. Runtime access is mediated through referenced `model`, `voice`, and `credential` ACL resources. |
+| `PetDef`, `BadgeDef`, `GameDef` | Gameplay catalog resources selected through `GameRuleset`; they are not direct ACL resource kinds. |
+| `Pet`, `Badge`, `PointsAccount`, `PointsTransaction`, `GameResult`, `RewardGrant` | Peer-owned gameplay runtime state. Access is scoped by the authenticated peer owner. |
 | `ResourceList` | Apply/import wrapper only. |
-| Peer wallet, pet, and reward state | Peer-owned runtime state, not ResourceManager `ResourceKind` ACL resources. Access is scoped by the authenticated peer. |
 
 ## ACL Resource Kinds
 
@@ -56,9 +56,8 @@ These ResourceManager resources are not direct ACL resource kinds:
 | `credential` | Credential name or `__collection__` | `read`, `use`, `create`, `admin` |
 | `voice` | Voice id | `read`, `use` |
 | `view` | View name | ACL grouping and view administration |
-| `pet_species` | Pet species id | `use` |
-| `badge` | Badge id | `use` |
 | `firmware` | Firmware id | `read` |
+| `gameruleset` | Ruleset name | `read`, `use`, `admin` |
 
 The permission enum is shared across all ACL resource kinds. For example, a
 policy binding grants resource `{kind:"workspace", id:"demo"}` permission
@@ -129,8 +128,24 @@ for the resource kind being created.
 | Workspace history reads | Concrete `workspace` + `read` |
 | OpenAI-compatible AI calls | Referenced concrete `model` + `use` |
 | Peergenx calls | Referenced concrete resource + required generic permission |
-| `server.pet.adopt` | Selected concrete `pet_species` + `use` |
-| Reward badge grant | Selected concrete `badge` + `use` |
+| `server.game_ruleset.get` | Concrete `gameruleset` + `read` |
+| `server.pet.adopt` | Concrete `gameruleset` + `use` |
+
+Peer-owned gameplay runtime resources are isolated by caller public key instead
+of generic ACL resources:
+
+```text
+caller public key == owner_public_key
+```
+
+This owner check applies to:
+
+- `server.pet.{list,get,put,delete,drive}`
+- `server.points.get`
+- `server.points.transactions.{list,get}`
+- `server.badge.{list,get}`
+- `server.game_result.{list,get}`
+- `server.reward_grant.{list,get}`
 
 Social contact, friend, and friend-group RPCs are not authorized as
 `contact`, `friend`, or `friend_group` ACL resources. When a social relation
@@ -158,6 +173,5 @@ resource is created.
 | Shared credential for one peer | `pk:{peerPublicKey}` | `credential:{name}` | `read`, `use` |
 | Shared credential for a view | `view:{name}` | `credential:{name}` | `read`, `use` |
 | Shared voice for everyone | `all_peers` | `voice:{id}` | `read`, `use` |
-| Shared pet species for everyone | `all_peers` | `pet_species:{id}` | `use` |
-| Shared badge grant for everyone | `all_peers` | `badge:{id}` | `use` |
 | Shared firmware for one peer | `pk:{peerPublicKey}` | `firmware:{id}` | `read` |
+| Shared gameplay ruleset for a view | `view:{name}` | `gameruleset:{name}` | `read`, `use` |

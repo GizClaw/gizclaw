@@ -150,3 +150,13 @@ func rewardReason(action string, result *apitypes.GameResult) string {
 	}
 	return "time"
 }
+
+func rewardSource(action string, result *apitypes.GameResult, petID string) (string, string) {
+	if result != nil {
+		return "game_result", result.Id
+	}
+	if action != "" {
+		return "pet_action", action
+	}
+	return "time", petID
+}

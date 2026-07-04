@@ -70,6 +70,8 @@ func (r *Runtime) Migration(ctx context.Context) error {
 			delta INTEGER NOT NULL,
 			balance_after INTEGER NOT NULL,
 			reason TEXT NOT NULL,
+			source_type TEXT NOT NULL DEFAULT '',
+			source_id TEXT NOT NULL DEFAULT '',
 			created_at TEXT NOT NULL,
 			PRIMARY KEY(owner_public_key, id)
 		)`,
@@ -92,8 +94,13 @@ func (r *Runtime) Migration(ctx context.Context) error {
 			pet_id TEXT NOT NULL,
 			game_def_id TEXT NOT NULL,
 			score INTEGER,
+			max_score INTEGER,
+			difficulty TEXT,
 			outcome TEXT,
+			duration_ms INTEGER,
+			idempotency_key TEXT,
 			payload_json TEXT,
+			occurred_at TEXT NOT NULL DEFAULT '',
 			created_at TEXT NOT NULL,
 			PRIMARY KEY(owner_public_key, id)
 		)`,
@@ -106,6 +113,10 @@ func (r *Runtime) Migration(ctx context.Context) error {
 			points_delta INTEGER NOT NULL,
 			pet_exp_delta INTEGER NOT NULL,
 			badge_exp_delta_json TEXT NOT NULL,
+			life_delta_json TEXT NOT NULL DEFAULT '{}',
+			ability_delta_json TEXT NOT NULL DEFAULT '{}',
+			source_type TEXT NOT NULL DEFAULT '',
+			source_id TEXT NOT NULL DEFAULT '',
 			reason TEXT,
 			created_at TEXT NOT NULL,
 			PRIMARY KEY(owner_public_key, id)
@@ -114,6 +125,26 @@ func (r *Runtime) Migration(ctx context.Context) error {
 		if _, err := db.ExecContext(ctx, stmt); err != nil {
 			return err
 		}
+	}
+	for _, stmt := range []string{
+		`ALTER TABLE gameplay_points_transactions ADD COLUMN source_type TEXT NOT NULL DEFAULT ''`,
+		`ALTER TABLE gameplay_points_transactions ADD COLUMN source_id TEXT NOT NULL DEFAULT ''`,
+		`ALTER TABLE gameplay_game_results ADD COLUMN max_score INTEGER`,
+		`ALTER TABLE gameplay_game_results ADD COLUMN difficulty TEXT`,
+		`ALTER TABLE gameplay_game_results ADD COLUMN duration_ms INTEGER`,
+		`ALTER TABLE gameplay_game_results ADD COLUMN idempotency_key TEXT`,
+		`ALTER TABLE gameplay_game_results ADD COLUMN occurred_at TEXT NOT NULL DEFAULT ''`,
+		`ALTER TABLE gameplay_reward_grants ADD COLUMN life_delta_json TEXT NOT NULL DEFAULT '{}'`,
+		`ALTER TABLE gameplay_reward_grants ADD COLUMN ability_delta_json TEXT NOT NULL DEFAULT '{}'`,
+		`ALTER TABLE gameplay_reward_grants ADD COLUMN source_type TEXT NOT NULL DEFAULT ''`,
+		`ALTER TABLE gameplay_reward_grants ADD COLUMN source_id TEXT NOT NULL DEFAULT ''`,
+	} {
+		if _, err := db.ExecContext(ctx, stmt); err != nil && !isDuplicateColumnError(err) {
+			return err
+		}
+	}
+	if _, err := db.ExecContext(ctx, `CREATE UNIQUE INDEX IF NOT EXISTS gameplay_game_results_idempotency_idx ON gameplay_game_results(owner_public_key, ruleset_name, idempotency_key) WHERE idempotency_key IS NOT NULL AND idempotency_key <> ''`); err != nil {
+		return err
 	}
 	return nil
 }
@@ -188,7 +219,7 @@ func (r *Runtime) AdoptPet(ctx context.Context, owner string, req apitypes.PetAd
 		return apitypes.PetAdoptResponse{}, err
 	}
 	cost := int64Value(poolEntry.AdoptionCost)
-	txn, err := r.recordPointsTx(ctx, tx, &account, -cost, ruleset.Name, pet.Id, "", "", "pet.adopt", true)
+	txn, err := r.recordPointsTx(ctx, tx, &account, -cost, ruleset.Name, pet.Id, "", "", "pet.adopt", "pet", pet.Id, true)
 	if err != nil {
 		return apitypes.PetAdoptResponse{}, err
 	}
@@ -288,7 +319,7 @@ func (r *Runtime) DrivePet(ctx context.Context, owner string, req apitypes.PetDr
 	if action != "" {
 		cost := actionCost(ruleset, action)
 		if cost > 0 {
-			txn, err := r.applyPointsTx(ctx, tx, &account, -cost, ruleset.Name, pet.Id, "", "", "pet.drive."+action)
+			txn, err := r.applyPointsTx(ctx, tx, &account, -cost, ruleset.Name, pet.Id, "", "", "pet.drive."+action, "pet_action", action)
 			if err != nil {
 				return apitypes.PetDriveResponse{}, err
 			}
@@ -301,6 +332,17 @@ func (r *Runtime) DrivePet(ctx context.Context, owner string, req apitypes.PetDr
 		if err := r.validateGameResult(ctx, ruleset, req.GameResult.GameDefId); err != nil {
 			return apitypes.PetDriveResponse{}, err
 		}
+		if key := strings.TrimSpace(valueOrZero(req.GameResult.IdempotencyKey)); key != "" {
+			if _, err := findGameResultByIdempotencyKey(ctx, tx, owner, ruleset.Name, key); err == nil {
+				return apitypes.PetDriveResponse{}, fmt.Errorf("game result idempotency_key %q was already recorded", key)
+			} else if !errors.Is(err, sql.ErrNoRows) {
+				return apitypes.PetDriveResponse{}, err
+			}
+		}
+		occurredAt := now
+		if req.GameResult.OccurredAt != nil {
+			occurredAt = req.GameResult.OccurredAt.UTC()
+		}
 		gameResult := apitypes.GameResult{
 			Id:             r.newID(),
 			OwnerPublicKey: owner,
@@ -308,8 +350,13 @@ func (r *Runtime) DrivePet(ctx context.Context, owner string, req apitypes.PetDr
 			PetId:          pet.Id,
 			GameDefId:      req.GameResult.GameDefId,
 			Score:          req.GameResult.Score,
+			MaxScore:       req.GameResult.MaxScore,
+			Difficulty:     req.GameResult.Difficulty,
 			Outcome:        req.GameResult.Outcome,
+			DurationMs:     req.GameResult.DurationMs,
+			IdempotencyKey: req.GameResult.IdempotencyKey,
 			Payload:        req.GameResult.Payload,
+			OccurredAt:     occurredAt,
 			CreatedAt:      now,
 		}
 		if err := insertGameResult(ctx, tx, gameResult); err != nil {
@@ -319,6 +366,7 @@ func (r *Runtime) DrivePet(ctx context.Context, owner string, req apitypes.PetDr
 		reward = mergeRewards(reward, gameReward(ruleset, req.GameResult.GameDefId))
 	}
 	if !rewardEmpty(reward) {
+		sourceType, sourceID := rewardSource(action, result, pet.Id)
 		grant := apitypes.RewardGrant{
 			Id:             r.newID(),
 			OwnerPublicKey: owner,
@@ -327,6 +375,10 @@ func (r *Runtime) DrivePet(ctx context.Context, owner string, req apitypes.PetDr
 			PointsDelta:    int64Value(reward.PointsDelta),
 			PetExpDelta:    int64Value(reward.PetExpDelta),
 			BadgeExpDelta:  mapValue(reward.BadgeExpDelta),
+			LifeDelta:      reward.LifeDelta,
+			AbilityDelta:   reward.AbilityDelta,
+			SourceType:     sourceType,
+			SourceId:       sourceID,
 			Reason:         stringPtr(rewardReason(action, result)),
 			CreatedAt:      now,
 		}
@@ -346,7 +398,7 @@ func (r *Runtime) DrivePet(ctx context.Context, owner string, req apitypes.PetDr
 			if result != nil {
 				gameResultID = result.Id
 			}
-			txn, err := r.applyPointsTx(ctx, tx, &account, grant.PointsDelta, ruleset.Name, pet.Id, gameResultID, grant.Id, "reward.grant")
+			txn, err := r.applyPointsTx(ctx, tx, &account, grant.PointsDelta, ruleset.Name, pet.Id, gameResultID, grant.Id, "reward.grant", "reward_grant", grant.Id)
 			if err != nil {
 				return apitypes.PetDriveResponse{}, err
 			}
@@ -560,11 +612,11 @@ func (r *Runtime) ensureAccountTx(ctx context.Context, tx *sql.Tx, owner string,
 	return account, nil
 }
 
-func (r *Runtime) applyPointsTx(ctx context.Context, tx *sql.Tx, account *apitypes.PointsAccount, delta int64, rulesetName, petID, gameResultID, rewardGrantID, reason string) (apitypes.PointsTransaction, error) {
-	return r.recordPointsTx(ctx, tx, account, delta, rulesetName, petID, gameResultID, rewardGrantID, reason, false)
+func (r *Runtime) applyPointsTx(ctx context.Context, tx *sql.Tx, account *apitypes.PointsAccount, delta int64, rulesetName, petID, gameResultID, rewardGrantID, reason, sourceType, sourceID string) (apitypes.PointsTransaction, error) {
+	return r.recordPointsTx(ctx, tx, account, delta, rulesetName, petID, gameResultID, rewardGrantID, reason, sourceType, sourceID, false)
 }
 
-func (r *Runtime) recordPointsTx(ctx context.Context, tx *sql.Tx, account *apitypes.PointsAccount, delta int64, rulesetName, petID, gameResultID, rewardGrantID, reason string, recordZero bool) (apitypes.PointsTransaction, error) {
+func (r *Runtime) recordPointsTx(ctx context.Context, tx *sql.Tx, account *apitypes.PointsAccount, delta int64, rulesetName, petID, gameResultID, rewardGrantID, reason, sourceType, sourceID string, recordZero bool) (apitypes.PointsTransaction, error) {
 	if delta == 0 && !recordZero {
 		return apitypes.PointsTransaction{}, nil
 	}
@@ -588,6 +640,8 @@ func (r *Runtime) recordPointsTx(ctx context.Context, tx *sql.Tx, account *apity
 		Delta:          delta,
 		BalanceAfter:   next,
 		Reason:         reason,
+		SourceType:     sourceType,
+		SourceId:       sourceID,
 		CreatedAt:      now,
 	}
 	return txn, insertPointsTransaction(ctx, tx, txn)
@@ -701,4 +755,12 @@ func petLevel(exp int64) int64 {
 		exp = 0
 	}
 	return exp/100 + 1
+}
+
+func isDuplicateColumnError(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "duplicate column") || strings.Contains(msg, "already exists")
 }

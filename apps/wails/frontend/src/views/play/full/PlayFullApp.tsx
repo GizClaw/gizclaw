@@ -434,7 +434,11 @@ function GameplayPanel(): JSX.Element {
   const [driveAction, setDriveAction] = useState("");
   const [driveGameID, setDriveGameID] = useState("");
   const [driveScore, setDriveScore] = useState("");
+  const [driveMaxScore, setDriveMaxScore] = useState("");
+  const [driveDifficulty, setDriveDifficulty] = useState("");
   const [driveOutcome, setDriveOutcome] = useState("");
+  const [driveDurationMs, setDriveDurationMs] = useState("");
+  const [driveIdempotencyKey, setDriveIdempotencyKey] = useState("");
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
 
@@ -495,7 +499,11 @@ function GameplayPanel(): JSX.Element {
         body.game_result = {
           game_def_id: driveGameID.trim(),
           ...(driveScore.trim() !== "" ? { score: Number(driveScore) } : {}),
+          ...(driveMaxScore.trim() !== "" ? { max_score: Number(driveMaxScore) } : {}),
+          ...(driveDifficulty.trim() !== "" ? { difficulty: driveDifficulty.trim() } : {}),
           ...(driveOutcome.trim() !== "" ? { outcome: driveOutcome.trim() } : {}),
+          ...(driveDurationMs.trim() !== "" ? { duration_ms: Number(driveDurationMs) } : {}),
+          ...(driveIdempotencyKey.trim() !== "" ? { idempotency_key: driveIdempotencyKey.trim() } : {}),
         };
       }
       await expectData(drivePeerPet({ body }));
@@ -589,7 +597,7 @@ function GameplayPanel(): JSX.Element {
             Refresh
           </Button>
         </CardHeader>
-        <CardContent className="grid gap-3 md:grid-cols-[minmax(12rem,1fr)_minmax(8rem,0.75fr)_minmax(8rem,0.75fr)_minmax(6rem,0.5fr)_minmax(8rem,0.75fr)_auto]">
+        <CardContent className="grid gap-3 md:grid-cols-4 xl:grid-cols-[minmax(12rem,1fr)_repeat(7,minmax(7rem,0.75fr))_auto]">
           <Select onValueChange={setSelectedPetID} value={selectedPetID}>
             <SelectTrigger>
               <SelectValue placeholder="Pet" />
@@ -605,7 +613,11 @@ function GameplayPanel(): JSX.Element {
           <Input onChange={(event) => setDriveAction(event.target.value)} placeholder="Action" value={driveAction} />
           <Input onChange={(event) => setDriveGameID(event.target.value)} placeholder="Game ID" value={driveGameID} />
           <Input onChange={(event) => setDriveScore(event.target.value)} placeholder="Score" type="number" value={driveScore} />
+          <Input onChange={(event) => setDriveMaxScore(event.target.value)} placeholder="Max score" type="number" value={driveMaxScore} />
+          <Input onChange={(event) => setDriveDifficulty(event.target.value)} placeholder="Difficulty" value={driveDifficulty} />
           <Input onChange={(event) => setDriveOutcome(event.target.value)} placeholder="Outcome" value={driveOutcome} />
+          <Input onChange={(event) => setDriveDurationMs(event.target.value)} placeholder="Duration ms" type="number" value={driveDurationMs} />
+          <Input onChange={(event) => setDriveIdempotencyKey(event.target.value)} placeholder="Idempotency key" value={driveIdempotencyKey} />
           <Button disabled={busy !== "" || selectedPetID === ""} onClick={() => void drive()} type="button">
             <Play className="size-4" />
             Drive
@@ -615,9 +627,9 @@ function GameplayPanel(): JSX.Element {
       <GameplayPetTable busy={busy} pager={pets} onDelete={remove} onRename={rename} />
       <div className="grid gap-4 xl:grid-cols-2">
         <GameplayObjectTable columns={["badge_def_id", "exp", "level", "active"]} pager={badges} title="Badges" />
-        <GameplayObjectTable columns={["delta", "balance_after", "reason", "created_at"]} pager={transactions} title="Point Transactions" />
-        <GameplayObjectTable columns={["pet_id", "game_def_id", "score", "outcome", "created_at"]} pager={results} title="Game Results" />
-        <GameplayObjectTable columns={["pet_id", "points_delta", "pet_exp_delta", "reason", "created_at"]} pager={grants} title="Reward Grants" />
+        <GameplayObjectTable columns={["delta", "balance_after", "source_type", "source_id", "reason", "created_at"]} pager={transactions} title="Point Transactions" />
+        <GameplayObjectTable columns={["pet_id", "game_def_id", "score", "max_score", "difficulty", "outcome", "duration_ms", "idempotency_key", "occurred_at"]} pager={results} title="Game Results" />
+        <GameplayObjectTable columns={["pet_id", "points_delta", "pet_exp_delta", "source_type", "source_id", "reason", "created_at"]} pager={grants} title="Reward Grants" />
       </div>
     </div>
   );

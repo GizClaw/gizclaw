@@ -522,6 +522,8 @@
           "delta",
           "balance_after",
           "reason",
+          "source_type",
+          "source_id",
           "created_at"
         ],
         "additionalProperties": false,
@@ -555,6 +557,12 @@
           "reason": {
             "type": "string"
           },
+          "source_type": {
+            "type": "string"
+          },
+          "source_id": {
+            "type": "string"
+          },
           "created_at": {
             "type": "string",
             "format": "date-time"
@@ -569,6 +577,7 @@
           "ruleset_name",
           "pet_id",
           "game_def_id",
+          "occurred_at",
           "created_at"
         ],
         "additionalProperties": false,
@@ -592,11 +601,29 @@
             "type": "integer",
             "format": "int64"
           },
+          "max_score": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "difficulty": {
+            "type": "string"
+          },
           "outcome": {
+            "type": "string"
+          },
+          "duration_ms": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "idempotency_key": {
             "type": "string"
           },
           "payload": {
             "$ref": "#/components/schemas/GameplayMetadata"
+          },
+          "occurred_at": {
+            "type": "string",
+            "format": "date-time"
           },
           "created_at": {
             "type": "string",
@@ -613,6 +640,8 @@
           "points_delta",
           "pet_exp_delta",
           "badge_exp_delta",
+          "source_type",
+          "source_id",
           "created_at"
         ],
         "additionalProperties": false,
@@ -646,6 +675,18 @@
               "type": "integer",
               "format": "int64"
             }
+          },
+          "life_delta": {
+            "$ref": "#/components/schemas/StatMap"
+          },
+          "ability_delta": {
+            "$ref": "#/components/schemas/StatMap"
+          },
+          "source_type": {
+            "type": "string"
+          },
+          "source_id": {
+            "type": "string"
           },
           "reason": {
             "type": "string"
@@ -865,11 +906,29 @@
             "type": "integer",
             "format": "int64"
           },
+          "max_score": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "difficulty": {
+            "type": "string"
+          },
           "outcome": {
+            "type": "string"
+          },
+          "duration_ms": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "idempotency_key": {
             "type": "string"
           },
           "payload": {
             "$ref": "#/components/schemas/GameplayMetadata"
+          },
+          "occurred_at": {
+            "type": "string",
+            "format": "date-time"
           }
         }
       },

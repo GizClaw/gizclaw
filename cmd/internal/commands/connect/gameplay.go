@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/gizcli"
@@ -153,7 +154,12 @@ func newPetDriveCmd() *cobra.Command {
 	var action string
 	var game string
 	var score int64
+	var maxScore int64
+	var difficulty string
 	var outcome string
+	var durationMs int64
+	var idempotencyKey string
+	var occurredAt string
 	cmd := &cobra.Command{
 		Use:   "drive <pet-id>",
 		Short: "Drive pet gameplay state",
@@ -162,10 +168,23 @@ func newPetDriveCmd() *cobra.Command {
 			return runConnectJSON(cmd, opts, func(ctx context.Context, c *gizcli.Client) (any, error) {
 				req := rpcapi.ServerPetDriveRequest{PetId: args[0], Action: optionalString(action)}
 				if strings.TrimSpace(game) != "" {
+					var occurredAtValue *time.Time
+					if strings.TrimSpace(occurredAt) != "" {
+						parsed, err := time.Parse(time.RFC3339Nano, occurredAt)
+						if err != nil {
+							return nil, fmt.Errorf("parse --occurred-at: %w", err)
+						}
+						occurredAtValue = &parsed
+					}
 					req.GameResult = &rpcapi.PetDriveGameResultInput{
-						GameDefId: game,
-						Score:     optionalInt64(score),
-						Outcome:   optionalString(outcome),
+						GameDefId:      game,
+						Score:          optionalInt64(score),
+						MaxScore:       optionalInt64(maxScore),
+						Difficulty:     optionalString(difficulty),
+						Outcome:        optionalString(outcome),
+						DurationMs:     optionalInt64(durationMs),
+						IdempotencyKey: optionalString(idempotencyKey),
+						OccurredAt:     occurredAtValue,
 					}
 				}
 				return c.DrivePet(ctx, "server.pet.drive", req)
@@ -176,7 +195,12 @@ func newPetDriveCmd() *cobra.Command {
 	cmd.Flags().StringVar(&action, "action", "", "drive action")
 	cmd.Flags().StringVar(&game, "game", "", "game definition id")
 	cmd.Flags().Int64Var(&score, "score", 0, "game score")
+	cmd.Flags().Int64Var(&maxScore, "max-score", 0, "game max score")
+	cmd.Flags().StringVar(&difficulty, "difficulty", "", "game difficulty")
 	cmd.Flags().StringVar(&outcome, "outcome", "", "game outcome")
+	cmd.Flags().Int64Var(&durationMs, "duration-ms", 0, "game duration in milliseconds")
+	cmd.Flags().StringVar(&idempotencyKey, "idempotency-key", "", "game result idempotency key")
+	cmd.Flags().StringVar(&occurredAt, "occurred-at", "", "game result occurrence time in RFC3339 format")
 	return cmd
 }
 

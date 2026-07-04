@@ -675,8 +675,13 @@ export type GameResult = {
     pet_id: string;
     game_def_id: string;
     score?: number;
+    max_score?: number;
+    difficulty?: string;
     outcome?: string;
+    duration_ms?: number;
+    idempotency_key?: string;
     payload?: GameplayMetadata;
+    occurred_at: string;
     created_at: string;
 };
 
@@ -789,8 +794,13 @@ export type PetDeleteRequest = {
 export type PetDriveGameResultInput = {
     game_def_id: string;
     score?: number;
+    max_score?: number;
+    difficulty?: string;
     outcome?: string;
+    duration_ms?: number;
+    idempotency_key?: string;
     payload?: GameplayMetadata;
+    occurred_at?: string;
 };
 
 export type PetDriveRequest = {
@@ -841,6 +851,8 @@ export type PointsTransaction = {
     delta: number;
     balance_after: number;
     reason: string;
+    source_type: string;
+    source_id: string;
     created_at: string;
 };
 
@@ -861,6 +873,10 @@ export type RewardGrant = {
     badge_exp_delta: {
         [key: string]: number;
     };
+    life_delta?: StatMap;
+    ability_delta?: StatMap;
+    source_type: string;
+    source_id: string;
     reason?: string;
     created_at: string;
 };

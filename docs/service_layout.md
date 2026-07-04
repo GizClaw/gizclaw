@@ -51,7 +51,14 @@ Server Service
 ├── server.friend.{list,delete}
 ├── server.friend_group.{list,get,create,put,delete}
 ├── server.friend_group.members.{list,add,put,delete}
-└── server.friend_group.messages.{list,get,send}
+├── server.friend_group.messages.{list,get,send}
+├── server.game_ruleset.get
+├── server.pet.{list,get,adopt,put,delete,drive}
+├── server.points.get
+├── server.points.transactions.{list,get}
+├── server.badge.{list,get}
+├── server.game_result.{list,get}
+└── server.reward_grant.{list,get}
 
 Admin Service
 ├── /@apply POST
@@ -66,6 +73,12 @@ Admin Service
 │   └── @rollback
 ├── /credentials/{name} LIST, CREATE, GET, PUT, DELETE
 ├── /models/{id} LIST, CREATE, GET, PUT, DELETE
+├── /game-rulesets/{name} LIST, CREATE, GET, PUT, DELETE
+├── /pet-defs/{id} LIST, CREATE, GET, PUT, DELETE
+│   └── /asset GET, PUT
+├── /badge-defs/{id} LIST, CREATE, GET, PUT, DELETE
+│   └── /icon GET, PUT
+├── /game-defs/{id} LIST, CREATE, GET, PUT, DELETE
 ├── /dashscope-tenants/{name} LIST, CREATE, GET, PUT, DELETE
 ├── /gemini-tenants/{name} LIST, CREATE, GET, PUT, DELETE
 ├── /openai-tenants/{name} LIST, CREATE, GET, PUT, DELETE
@@ -88,6 +101,12 @@ Admin Service
 │   ├── /config GET, PUT
 │   ├── /runtime GET
 │   ├── /status GET
+│   ├── /pets/{id} LIST, GET
+│   ├── /badges/{id} LIST, GET
+│   ├── /points GET
+│   │   └── /transactions/{id} LIST, GET
+│   ├── /game-results/{id} LIST, GET
+│   ├── /reward-grants/{id} LIST, GET
 │   ├── @approve
 │   ├── @block
 │   └── @refresh

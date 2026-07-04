@@ -45,13 +45,21 @@ func TestRPCGameplayAdoptAndDrive(t *testing.T) {
 	}
 
 	score := int64(42)
+	maxScore := int64(100)
+	durationMs := int64(2345)
+	difficulty := "normal"
+	idempotencyKey := "rpc-result-1"
 	drive, err := env.peer.DrivePet(env.ctx, "shared.pet.drive", rpcapi.ServerPetDriveRequest{
 		PetId:  adopted.Pet.Id,
 		Action: testStringPtr("bath"),
 		GameResult: &rpcapi.PetDriveGameResultInput{
-			GameDefId: "game-starter",
-			Score:     &score,
-			Outcome:   testStringPtr("win"),
+			GameDefId:      "game-starter",
+			Score:          &score,
+			MaxScore:       &maxScore,
+			Difficulty:     &difficulty,
+			Outcome:        testStringPtr("win"),
+			DurationMs:     &durationMs,
+			IdempotencyKey: &idempotencyKey,
 		},
 	})
 	if err != nil {
@@ -66,6 +74,9 @@ func TestRPCGameplayAdoptAndDrive(t *testing.T) {
 	if drive.GameResult == nil || drive.GameResult.GameDefId != "game-starter" || drive.GameResult.Score == nil || *drive.GameResult.Score != score {
 		t.Fatalf("pet.drive game result = %#v", drive.GameResult)
 	}
+	if drive.GameResult.MaxScore == nil || *drive.GameResult.MaxScore != maxScore || drive.GameResult.DurationMs == nil || *drive.GameResult.DurationMs != durationMs || drive.GameResult.IdempotencyKey == nil || *drive.GameResult.IdempotencyKey != idempotencyKey {
+		t.Fatalf("pet.drive game result details = %#v", drive.GameResult)
+	}
 	if len(drive.Badges) != 1 || drive.Badges[0].BadgeDefId != "badge-starter" || !drive.Badges[0].Active || drive.Badges[0].Level != 1 {
 		t.Fatalf("pet.drive badges = %#v", drive.Badges)
 	}
@@ -74,6 +85,15 @@ func TestRPCGameplayAdoptAndDrive(t *testing.T) {
 	}
 	if len(drive.Transactions) != 2 || drive.Transactions[0].Delta != -5 || drive.Transactions[1].Delta != 20 {
 		t.Fatalf("pet.drive transactions = %#v", drive.Transactions)
+	}
+	if _, err := env.peer.DrivePet(env.ctx, "shared.pet.drive.duplicate", rpcapi.ServerPetDriveRequest{
+		PetId: adopted.Pet.Id,
+		GameResult: &rpcapi.PetDriveGameResultInput{
+			GameDefId:      "game-starter",
+			IdempotencyKey: &idempotencyKey,
+		},
+	}); err == nil {
+		t.Fatal("duplicate game result idempotency key should fail")
 	}
 
 	pets, err := env.peer.ListPets(env.ctx, "shared.pet.list", rpcapi.ServerPetListRequest{})

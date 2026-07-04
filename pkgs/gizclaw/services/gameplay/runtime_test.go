@@ -59,14 +59,26 @@ func TestRuntimeAdoptAndDrive(t *testing.T) {
 
 	now = now.Add(2 * time.Hour)
 	score := int64(321)
+	maxScore := int64(500)
+	duration := int64(12345)
+	occurredAt := now.Add(-5 * time.Minute)
+	idempotencyKey := "result-key-1"
+	difficulty := "normal"
 	outcome := "win"
+	payload := apitypes.GameplayMetadata{"round": float64(1)}
 	drive, err := runtime.DrivePet(ctx, "peer-a", apitypes.PetDriveRequest{
 		PetId:  adopted.Pet.Id,
 		Action: stringPtr("bath"),
 		GameResult: &apitypes.PetDriveGameResultInput{
-			GameDefId: "game-basic",
-			Score:     &score,
-			Outcome:   &outcome,
+			GameDefId:      "game-basic",
+			Score:          &score,
+			MaxScore:       &maxScore,
+			Difficulty:     &difficulty,
+			Outcome:        &outcome,
+			DurationMs:     &duration,
+			IdempotencyKey: &idempotencyKey,
+			Payload:        &payload,
+			OccurredAt:     &occurredAt,
 		},
 	})
 	if err != nil {
@@ -84,8 +96,14 @@ func TestRuntimeAdoptAndDrive(t *testing.T) {
 	if drive.GameResult == nil || drive.GameResult.Id != "game-result-1" || drive.GameResult.GameDefId != "game-basic" || valueOrZero(drive.GameResult.Score) != 321 {
 		t.Fatalf("game result = %#v", drive.GameResult)
 	}
+	if valueOrZero(drive.GameResult.MaxScore) != 500 || valueOrZero(drive.GameResult.Difficulty) != "normal" || valueOrZero(drive.GameResult.DurationMs) != 12345 || valueOrZero(drive.GameResult.IdempotencyKey) != "result-key-1" || !drive.GameResult.OccurredAt.Equal(occurredAt) {
+		t.Fatalf("game result details = %#v", drive.GameResult)
+	}
 	if len(drive.RewardGrants) != 1 || drive.RewardGrants[0].Id != "grant-1" || drive.RewardGrants[0].BadgeExpDelta["badge-basic"] != 100 {
 		t.Fatalf("reward grants = %#v", drive.RewardGrants)
+	}
+	if drive.RewardGrants[0].SourceType != "game_result" || drive.RewardGrants[0].SourceId != "game-result-1" || drive.RewardGrants[0].LifeDelta == nil || (*drive.RewardGrants[0].LifeDelta)["clean"] != 10 {
+		t.Fatalf("reward grant details = %#v", drive.RewardGrants[0])
 	}
 	if len(drive.Badges) != 1 || !drive.Badges[0].Active || drive.Badges[0].Level != 1 || drive.Badges[0].Progress != 0 {
 		t.Fatalf("badges = %#v", drive.Badges)
@@ -95,6 +113,18 @@ func TestRuntimeAdoptAndDrive(t *testing.T) {
 	}
 	if drive.Transactions[0].Delta != -10 || drive.Transactions[1].Delta != 30 || drive.Transactions[1].BalanceAfter != 55 {
 		t.Fatalf("transactions = %#v", drive.Transactions)
+	}
+	if drive.Transactions[0].SourceType != "pet_action" || drive.Transactions[0].SourceId != "bath" || drive.Transactions[1].SourceType != "reward_grant" || drive.Transactions[1].SourceId != "grant-1" {
+		t.Fatalf("transaction sources = %#v", drive.Transactions)
+	}
+	if _, err := runtime.DrivePet(ctx, "peer-a", apitypes.PetDriveRequest{
+		PetId: adopted.Pet.Id,
+		GameResult: &apitypes.PetDriveGameResultInput{
+			GameDefId:      "game-basic",
+			IdempotencyKey: &idempotencyKey,
+		},
+	}); err == nil {
+		t.Fatal("duplicate game result idempotency key should fail")
 	}
 
 	ruleset, err := runtime.GetGameRuleset(ctx, "default")

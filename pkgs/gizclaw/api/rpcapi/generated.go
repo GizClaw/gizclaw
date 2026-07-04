@@ -1845,8 +1845,13 @@ type GameDefSpec struct {
 // GameResult defines model for GameResult.
 type GameResult struct {
 	CreatedAt      time.Time         `json:"created_at"`
+	Difficulty     *string           `json:"difficulty,omitempty"`
+	DurationMs     *int64            `json:"duration_ms,omitempty"`
 	GameDefId      string            `json:"game_def_id"`
 	Id             string            `json:"id"`
+	IdempotencyKey *string           `json:"idempotency_key,omitempty"`
+	MaxScore       *int64            `json:"max_score,omitempty"`
+	OccurredAt     time.Time         `json:"occurred_at"`
 	Outcome        *string           `json:"outcome,omitempty"`
 	OwnerPublicKey string            `json:"owner_public_key"`
 	Payload        *GameplayMetadata `json:"payload,omitempty"`
@@ -2321,10 +2326,15 @@ type PetDeleteRequest struct {
 
 // PetDriveGameResultInput defines model for PetDriveGameResultInput.
 type PetDriveGameResultInput struct {
-	GameDefId string            `json:"game_def_id"`
-	Outcome   *string           `json:"outcome,omitempty"`
-	Payload   *GameplayMetadata `json:"payload,omitempty"`
-	Score     *int64            `json:"score,omitempty"`
+	Difficulty     *string           `json:"difficulty,omitempty"`
+	DurationMs     *int64            `json:"duration_ms,omitempty"`
+	GameDefId      string            `json:"game_def_id"`
+	IdempotencyKey *string           `json:"idempotency_key,omitempty"`
+	MaxScore       *int64            `json:"max_score,omitempty"`
+	OccurredAt     *time.Time        `json:"occurred_at,omitempty"`
+	Outcome        *string           `json:"outcome,omitempty"`
+	Payload        *GameplayMetadata `json:"payload,omitempty"`
+	Score          *int64            `json:"score,omitempty"`
 }
 
 // PetDriveRequest defines model for PetDriveRequest.
@@ -2393,6 +2403,8 @@ type PointsTransaction struct {
 	Reason         string    `json:"reason"`
 	RewardGrantId  *string   `json:"reward_grant_id,omitempty"`
 	RulesetName    string    `json:"ruleset_name"`
+	SourceId       string    `json:"source_id"`
+	SourceType     string    `json:"source_type"`
 }
 
 // PointsTransactionListResponse defines model for PointsTransactionListResponse.
@@ -2460,16 +2472,20 @@ type RefreshInfo struct {
 
 // RewardGrant defines model for RewardGrant.
 type RewardGrant struct {
+	AbilityDelta   *StatMap         `json:"ability_delta,omitempty"`
 	BadgeExpDelta  map[string]int64 `json:"badge_exp_delta"`
 	CreatedAt      time.Time        `json:"created_at"`
 	GameResultId   *string          `json:"game_result_id,omitempty"`
 	Id             string           `json:"id"`
+	LifeDelta      *StatMap         `json:"life_delta,omitempty"`
 	OwnerPublicKey string           `json:"owner_public_key"`
 	PetExpDelta    int64            `json:"pet_exp_delta"`
 	PetId          *string          `json:"pet_id,omitempty"`
 	PointsDelta    int64            `json:"points_delta"`
 	Reason         *string          `json:"reason,omitempty"`
 	RulesetName    string           `json:"ruleset_name"`
+	SourceId       string           `json:"source_id"`
+	SourceType     string           `json:"source_type"`
 }
 
 // RewardGrantListResponse defines model for RewardGrantListResponse.
