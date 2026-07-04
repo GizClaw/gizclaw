@@ -29,11 +29,19 @@ if [[ ! "$view_name" =~ ^[A-Za-z0-9._-]+$ ]]; then
   exit 2
 fi
 
+env_config_home="${GIZCLAW_E2E_CONFIG_HOME:-}"
+env_admin_context="${GIZCLAW_E2E_ADMIN_CONTEXT:-}"
 if [[ -f "$env_file" ]]; then
   set -a
   # shellcheck disable=SC1090
   source "$env_file"
   set +a
+fi
+if [[ -n "$env_config_home" ]]; then
+  GIZCLAW_E2E_CONFIG_HOME="$env_config_home"
+fi
+if [[ -n "$env_admin_context" ]]; then
+  GIZCLAW_E2E_ADMIN_CONTEXT="$env_admin_context"
 fi
 
 config_home="${GIZCLAW_E2E_CONFIG_HOME:-$testdata_dir/cmd-config-home}"
