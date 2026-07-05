@@ -14,23 +14,23 @@ func TestCSDKPing(t *testing.T) {
 }
 
 func TestCSDKServerRuntime(t *testing.T) {
-	t.Skip("cgo smoke currently covers Go-driven ping RPC")
+	runCSDKRPC(t, "server-runtime", cgointernal.CSDKServerRuntime)
 }
 
 func TestCSDKServerStatus(t *testing.T) {
-	t.Skip("cgo smoke currently covers Go-driven ping RPC")
+	runCSDKRPC(t, "server-status", cgointernal.CSDKServerStatus)
 }
 
 func TestCSDKSpeedTest(t *testing.T) {
-	t.Skip("cgo smoke currently covers Go-driven ping RPC")
+	runCSDKRPC(t, "speed-test", cgointernal.CSDKSpeedTest)
 }
 
 func TestCSDKFirmwareJSON(t *testing.T) {
-	t.Skip("cgo smoke currently covers Go-driven ping RPC")
+	runCSDKRPC(t, "firmware-json", cgointernal.CSDKFirmwareJSON)
 }
 
 func TestCSDKFirmwareDownload(t *testing.T) {
-	t.Skip("cgo smoke currently covers Go-driven ping RPC")
+	runCSDKRPC(t, "firmware-download", cgointernal.CSDKFirmwareDownload)
 }
 
 func runCSDKRPC(t *testing.T, scenario string, run func(t *testing.T, identityDir string)) {

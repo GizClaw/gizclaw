@@ -6,6 +6,12 @@ extern "C" {
 #endif
 
 typedef struct gzc_cgo_session gzc_cgo_session_t;
+typedef struct gzc_cgo_stream_frame {
+  int type;
+  unsigned char *data;
+  unsigned long len;
+} gzc_cgo_stream_frame_t;
+typedef struct gzc_service_channel gzc_service_channel_t;
 
 int gzc_cgo_session_open(
     const char *signaling_url,
@@ -23,6 +29,52 @@ int gzc_cgo_session_call_json(
     unsigned long *out_result_json_len,
     char *errbuf,
     unsigned long errbuf_len);
+int gzc_cgo_session_call_stream_collect(
+    gzc_cgo_session_t *session,
+    const char *method,
+    const char *params_json,
+    gzc_cgo_stream_frame_t **out_frames,
+    unsigned long *out_frame_count,
+    char *errbuf,
+    unsigned long errbuf_len);
+void gzc_cgo_stream_frames_free(gzc_cgo_stream_frame_t *frames, unsigned long frame_count);
+int gzc_cgo_session_open_service_channel(
+    gzc_cgo_session_t *session,
+    unsigned long long service,
+    int timeout_ms,
+    gzc_service_channel_t **out_channel,
+    char *errbuf,
+    unsigned long errbuf_len);
+int gzc_cgo_service_channel_send_json(
+    gzc_service_channel_t *channel,
+    const char *json,
+    char *errbuf,
+    unsigned long errbuf_len);
+int gzc_cgo_service_channel_read_frame(
+    gzc_service_channel_t *channel,
+    int timeout_ms,
+    int *out_type,
+    unsigned char **out_data,
+    unsigned long *out_data_len,
+    char *errbuf,
+    unsigned long errbuf_len);
+void gzc_cgo_service_channel_close(gzc_service_channel_t *channel);
+int gzc_cgo_session_send_packet(
+    gzc_cgo_session_t *session,
+    unsigned char protocol,
+    const unsigned char *payload,
+    unsigned long payload_len,
+    char *errbuf,
+    unsigned long errbuf_len);
+int gzc_cgo_session_read_packet(
+    gzc_cgo_session_t *session,
+    int timeout_ms,
+    unsigned char *out_protocol,
+    unsigned char **out_payload,
+    unsigned long *out_payload_len,
+    char *errbuf,
+    unsigned long errbuf_len);
+int gzc_cgo_session_poll(gzc_cgo_session_t *session, int timeout_ms, char *errbuf, unsigned long errbuf_len);
 void gzc_cgo_free(void *ptr);
 
 #ifdef __cplusplus
