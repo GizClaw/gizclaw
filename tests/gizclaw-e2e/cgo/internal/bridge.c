@@ -1,1 +1,1 @@
-#include "../../../../c/gizclaw/platformcgo/gzc_cgo_backend.c"
+#include "../../../../c/gizclaw/cgobackend/gzc_cgo_backend.c"

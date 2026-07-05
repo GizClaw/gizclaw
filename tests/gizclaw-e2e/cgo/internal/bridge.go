@@ -10,48 +10,37 @@ package internal
 import "C"
 
 import (
-	"bytes"
-	"context"
-	"crypto/aes"
-	"crypto/cipher"
-	"crypto/rand"
-	"crypto/sha256"
-	"fmt"
-	"io"
-	"net/http"
-	"time"
 	"unsafe"
 
+	"github.com/GizClaw/gizclaw-go/c/gizclaw/cgobackend"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
-	"golang.org/x/crypto/chacha20poly1305"
-	"golang.org/x/crypto/hkdf"
 	"runtime/cgo"
 )
 
-func backendFromHandle(handle C.uint64_t) *backend {
+type cgoSink struct {
+	cBackend unsafe.Pointer
+}
+
+func backendFromHandle(handle C.uint64_t) *cgobackend.Backend {
 	if handle == 0 {
 		return nil
 	}
 	h := cgo.Handle(uintptr(handle))
-	b, _ := h.Value().(*backend)
+	b, _ := h.Value().(*cgobackend.Backend)
 	return b
 }
 
 //export gzcGoBackendCreate
-func gzcGoBackendCreate(identityDir *C.char) C.uint64_t {
-	b, err := newBackend(C.GoString(identityDir))
-	if err != nil {
-		return 0
-	}
+func gzcGoBackendCreate() C.uint64_t {
+	b := cgobackend.New()
 	return C.uint64_t(cgo.NewHandle(b))
 }
 
 //export gzcGoBackendDestroy
 func gzcGoBackendDestroy(handle C.uint64_t) {
-	b := backendFromHandle(handle)
-	if b != nil {
-		b.clearCBackend()
-		b.close()
+	if b := backendFromHandle(handle); b != nil {
+		b.SetEventSink(nil)
+		b.Close()
 	}
 	cgo.Handle(uintptr(handle)).Delete()
 }
@@ -59,7 +48,7 @@ func gzcGoBackendDestroy(handle C.uint64_t) {
 //export gzcGoBackendSetCBackend
 func gzcGoBackendSetCBackend(handle C.uint64_t, cBackend *C.gzc_cgo_backend_t) {
 	if b := backendFromHandle(handle); b != nil {
-		b.setCBackend(unsafe.Pointer(cBackend))
+		b.SetEventSink(cgoSink{cBackend: unsafe.Pointer(cBackend)})
 	}
 }
 
@@ -68,15 +57,14 @@ func gzcGoRandom(out *C.uint8_t, length C.size_t) C.int {
 	if length == 0 {
 		return C.GZC_OK
 	}
-	if out == nil && length != 0 {
+	if out == nil {
 		return C.GZC_ERR_INVALID_ARGUMENT
 	}
 	n, ok := cIntLen(length)
 	if !ok {
 		return C.GZC_ERR_INVALID_ARGUMENT
 	}
-	outBytes := unsafe.Slice((*byte)(unsafe.Pointer(out)), n)
-	if _, err := io.ReadFull(rand.Reader, outBytes); err != nil {
+	if err := cgobackend.Random(unsafe.Slice((*byte)(unsafe.Pointer(out)), n)); err != nil {
 		return C.GZC_ERR_SIGNALING
 	}
 	return C.GZC_OK
@@ -84,32 +72,14 @@ func gzcGoRandom(out *C.uint8_t, length C.size_t) C.int {
 
 //export gzcGoTimeUnixMs
 func gzcGoTimeUnixMs() C.int64_t {
-	return C.int64_t(time.Now().UnixMilli())
-}
-
-//export gzcGoBackendClientConfig
-func gzcGoBackendClientConfig(handle C.uint64_t, signalingURL *C.char, signalingURLCap C.size_t, privateKey *C.char, privateKeyCap C.size_t, serverPublicKey *C.char, serverPublicKeyCap C.size_t) C.int {
-	b := backendFromHandle(handle)
-	if b == nil {
-		return C.GZC_ERR_INVALID_ARGUMENT
-	}
-	if rc := writeCString(signalingURL, signalingURLCap, "http://"+b.endpoint+signalingPath); rc != C.GZC_OK {
-		return rc
-	}
-	if rc := writeCString(privateKey, privateKeyCap, b.key.Private.String()); rc != C.GZC_OK {
-		return rc
-	}
-	return writeCString(serverPublicKey, serverPublicKeyCap, b.serverPK.String())
+	return C.int64_t(cgobackend.TimeUnixMs())
 }
 
 //export gzcGoHTTPRequest
 func gzcGoHTTPRequest(handle C.uint64_t, method C.int, urlData *C.char, urlLen C.size_t, headers *C.gzc_http_header_t, headerCount C.size_t, data *C.uint8_t, length C.size_t, outStatus *C.int, outData **C.uint8_t, outLen *C.size_t) C.int {
-	if backendFromHandle(handle) == nil || urlData == nil || outStatus == nil || outData == nil || outLen == nil {
+	b := backendFromHandle(handle)
+	if b == nil || urlData == nil || outStatus == nil || outData == nil || outLen == nil {
 		return C.GZC_ERR_INVALID_ARGUMENT
-	}
-	methodText, ok := httpMethod(method)
-	if !ok {
-		return C.GZC_ERR_UNSUPPORTED
 	}
 	url, ok := goString(urlData, urlLen)
 	if !ok {
@@ -119,40 +89,18 @@ func gzcGoHTTPRequest(handle C.uint64_t, method C.int, urlData *C.char, urlLen C
 	if !ok {
 		return C.GZC_ERR_INVALID_ARGUMENT
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-	defer cancel()
-	req, err := http.NewRequestWithContext(ctx, methodText, url, bytes.NewReader(body))
-	if err != nil {
-		return C.GZC_ERR_HTTP
-	}
 	headerList, ok := cHeaders(headers, headerCount)
 	if !ok {
 		return C.GZC_ERR_INVALID_ARGUMENT
 	}
-	for _, header := range headerList {
-		name, ok := goString(header.name.data, C.size_t(header.name.len))
-		if !ok {
-			return C.GZC_ERR_INVALID_ARGUMENT
-		}
-		value, ok := goString(header.value.data, C.size_t(header.value.len))
-		if !ok {
-			return C.GZC_ERR_INVALID_ARGUMENT
-		}
-		req.Header.Set(name, value)
-	}
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return C.GZC_ERR_HTTP
-	}
-	defer resp.Body.Close()
-	respBody, err := io.ReadAll(resp.Body)
+	resp, err := b.HTTPRequest(int(method), url, headerList, body)
 	if err != nil {
 		return C.GZC_ERR_HTTP
 	}
 	*outStatus = C.int(resp.StatusCode)
-	if len(respBody) > 0 {
-		*outData = (*C.uint8_t)(C.CBytes(respBody))
-		*outLen = C.size_t(len(respBody))
+	if len(resp.Body) > 0 {
+		*outData = (*C.uint8_t)(C.CBytes(resp.Body))
+		*outLen = C.size_t(len(resp.Body))
 	} else {
 		*outData = nil
 		*outLen = 0
@@ -165,9 +113,8 @@ func gzcGoKeyPairFromPrivate(privateKey *C.uint8_t, outPrivateKey *C.uint8_t, ou
 	if privateKey == nil || outPrivateKey == nil || outPublicKey == nil {
 		return C.GZC_ERR_INVALID_ARGUMENT
 	}
-	var private giznet.Key
-	copy(private[:], unsafe.Slice((*byte)(unsafe.Pointer(privateKey)), giznet.KeySize))
-	kp, err := giznet.NewKeyPair(private)
+	private := unsafe.Slice((*byte)(unsafe.Pointer(privateKey)), giznet.KeySize)
+	kp, err := cgobackend.KeyPairFromPrivate(private)
 	if err != nil {
 		return C.GZC_ERR_SIGNALING
 	}
@@ -181,15 +128,10 @@ func gzcGoDH(privateKey *C.uint8_t, remotePublicKey *C.uint8_t, outShared *C.uin
 	if privateKey == nil || remotePublicKey == nil || outShared == nil {
 		return C.GZC_ERR_INVALID_ARGUMENT
 	}
-	var private giznet.Key
-	var remote giznet.PublicKey
-	copy(private[:], unsafe.Slice((*byte)(unsafe.Pointer(privateKey)), giznet.KeySize))
-	copy(remote[:], unsafe.Slice((*byte)(unsafe.Pointer(remotePublicKey)), giznet.KeySize))
-	kp, err := giznet.NewKeyPair(private)
-	if err != nil {
-		return C.GZC_ERR_SIGNALING
-	}
-	shared, err := kp.DH(remote)
+	shared, err := cgobackend.DH(
+		unsafe.Slice((*byte)(unsafe.Pointer(privateKey)), giznet.KeySize),
+		unsafe.Slice((*byte)(unsafe.Pointer(remotePublicKey)), giznet.KeySize),
+	)
 	if err != nil {
 		return C.GZC_ERR_SIGNALING
 	}
@@ -214,13 +156,11 @@ func gzcGoHKDFSHA256(secret *C.uint8_t, secretLen C.size_t, salt *C.uint8_t, sal
 	if !ok {
 		return C.GZC_ERR_INVALID_ARGUMENT
 	}
-	infoBytes := []byte(infoText)
 	outLenInt, ok := cIntLen(outLen)
 	if !ok {
 		return C.GZC_ERR_INVALID_ARGUMENT
 	}
-	outBytes := unsafe.Slice((*byte)(unsafe.Pointer(out)), outLenInt)
-	if _, err := io.ReadFull(hkdf.New(sha256.New, secretBytes, saltBytes, infoBytes), outBytes); err != nil {
+	if err := cgobackend.HKDFSHA256(secretBytes, saltBytes, infoText, unsafe.Slice((*byte)(unsafe.Pointer(out)), outLenInt)); err != nil {
 		return C.GZC_ERR_SIGNALING
 	}
 	return C.GZC_OK
@@ -240,14 +180,6 @@ func gzcGoAEAD(seal bool, mode C.int, key *C.uint8_t, keyLen C.size_t, nonce *C.
 	if key == nil || nonce == nil || outData == nil || outLen == nil {
 		return C.GZC_ERR_INVALID_ARGUMENT
 	}
-	inputBytes, ok := goBytes(unsafe.Pointer(input), inputLen)
-	if !ok {
-		return C.GZC_ERR_INVALID_ARGUMENT
-	}
-	aadBytes, ok := goBytes(unsafe.Pointer(aad), aadLen)
-	if !ok {
-		return C.GZC_ERR_INVALID_ARGUMENT
-	}
 	keyBytes, ok := goBytes(unsafe.Pointer(key), keyLen)
 	if !ok {
 		return C.GZC_ERR_INVALID_ARGUMENT
@@ -256,21 +188,23 @@ func gzcGoAEAD(seal bool, mode C.int, key *C.uint8_t, keyLen C.size_t, nonce *C.
 	if !ok {
 		return C.GZC_ERR_INVALID_ARGUMENT
 	}
-	aead, err := newPlatformAEAD(mode, keyBytes)
-	if err != nil {
-		return C.GZC_ERR_UNSUPPORTED
+	inputBytes, ok := goBytes(unsafe.Pointer(input), inputLen)
+	if !ok {
+		return C.GZC_ERR_INVALID_ARGUMENT
 	}
-	if len(nonceBytes) != aead.NonceSize() {
+	aadBytes, ok := goBytes(unsafe.Pointer(aad), aadLen)
+	if !ok {
 		return C.GZC_ERR_INVALID_ARGUMENT
 	}
 	var out []byte
+	var err error
 	if seal {
-		out = aead.Seal(nil, nonceBytes, inputBytes, aadBytes)
+		out, err = cgobackend.AEADSeal(int(mode), keyBytes, nonceBytes, inputBytes, aadBytes)
 	} else {
-		out, err = aead.Open(nil, nonceBytes, inputBytes, aadBytes)
-		if err != nil {
-			return C.GZC_ERR_SIGNALING
-		}
+		out, err = cgobackend.AEADOpen(int(mode), keyBytes, nonceBytes, inputBytes, aadBytes)
+	}
+	if err != nil {
+		return C.GZC_ERR_SIGNALING
 	}
 	if len(out) > 0 {
 		*outData = (*C.uint8_t)(C.CBytes(out))
@@ -282,11 +216,131 @@ func gzcGoAEAD(seal bool, mode C.int, key *C.uint8_t, keyLen C.size_t, nonce *C.
 	return C.GZC_OK
 }
 
-func writeCString(dst *C.char, cap C.size_t, value string) C.int {
-	return writeCStringLen(dst, cap, value, nil)
+//export gzcGoPeerCreate
+func gzcGoPeerCreate(handle C.uint64_t) C.int {
+	if b := backendFromHandle(handle); b != nil {
+		if err := b.CreatePeer(); err != nil {
+			return C.GZC_ERR_WEBRTC
+		}
+		return C.GZC_OK
+	}
+	return C.GZC_ERR_INVALID_ARGUMENT
 }
 
-func writeCStringLen(dst *C.char, cap C.size_t, value string, outLen *C.size_t) C.int {
+//export gzcGoPeerStartOffer
+func gzcGoPeerStartOffer(handle C.uint64_t, outSDP **C.char, outLen *C.size_t) C.int {
+	b := backendFromHandle(handle)
+	if b == nil || outSDP == nil || outLen == nil {
+		return C.GZC_ERR_INVALID_ARGUMENT
+	}
+	sdp, err := b.StartOffer()
+	if err != nil {
+		return C.GZC_ERR_WEBRTC
+	}
+	mem := C.CBytes([]byte(sdp))
+	*outSDP = (*C.char)(mem)
+	*outLen = C.size_t(len(sdp))
+	return C.GZC_OK
+}
+
+//export gzcGoPeerSetRemoteSDP
+func gzcGoPeerSetRemoteSDP(handle C.uint64_t, sdp *C.char, length C.size_t) C.int {
+	b := backendFromHandle(handle)
+	if b == nil {
+		return C.GZC_ERR_INVALID_ARGUMENT
+	}
+	value, ok := goString(sdp, length)
+	if !ok {
+		return C.GZC_ERR_INVALID_ARGUMENT
+	}
+	if err := b.SetRemoteSDP(value); err != nil {
+		return C.GZC_ERR_WEBRTC
+	}
+	return C.GZC_OK
+}
+
+//export gzcGoPeerCreateDataChannel
+func gzcGoPeerCreateDataChannel(handle C.uint64_t, label *C.char, length C.size_t, channelID C.int, ordered C.bool, reliable C.bool) C.int {
+	b := backendFromHandle(handle)
+	if b == nil {
+		return C.GZC_ERR_INVALID_ARGUMENT
+	}
+	labelValue, ok := goString(label, length)
+	if !ok {
+		return C.GZC_ERR_INVALID_ARGUMENT
+	}
+	if err := b.CreateDataChannel(labelValue, int(channelID), bool(ordered), bool(reliable)); err != nil {
+		return C.GZC_ERR_WEBRTC
+	}
+	return C.GZC_OK
+}
+
+//export gzcGoPeerPoll
+func gzcGoPeerPoll(handle C.uint64_t, timeoutMS C.int) C.int {
+	if b := backendFromHandle(handle); b != nil {
+		b.Poll(int(timeoutMS))
+		return C.GZC_OK
+	}
+	return C.GZC_ERR_INVALID_ARGUMENT
+}
+
+//export gzcGoChannelSend
+func gzcGoChannelSend(handle C.uint64_t, channelID C.int, data *C.uint8_t, length C.size_t, isText C.bool) C.int {
+	b := backendFromHandle(handle)
+	if b == nil {
+		return C.GZC_ERR_INVALID_ARGUMENT
+	}
+	payload, ok := goBytes(unsafe.Pointer(data), length)
+	if !ok {
+		return C.GZC_ERR_INVALID_ARGUMENT
+	}
+	if err := b.Send(int(channelID), payload, bool(isText)); err != nil {
+		return C.GZC_ERR_WEBRTC
+	}
+	return C.GZC_OK
+}
+
+//export gzcGoChannelClose
+func gzcGoChannelClose(handle C.uint64_t, channelID C.int) {
+	if b := backendFromHandle(handle); b != nil {
+		b.CloseDataChannel(int(channelID))
+	}
+}
+
+//export gzcGoPeerClose
+func gzcGoPeerClose(handle C.uint64_t) {
+	if b := backendFromHandle(handle); b != nil {
+		b.Close()
+	}
+}
+
+func (s cgoSink) ChannelState(channelID int, state int) {
+	if s.cBackend == nil {
+		return
+	}
+	C.gzc_cgo_emit_channel_state(
+		(*C.gzc_cgo_backend_t)(s.cBackend),
+		C.int(channelID),
+		C.gzc_rtc_channel_state_t(state),
+	)
+}
+
+func (s cgoSink) ChannelMessage(channelID int, data []byte, isText bool) {
+	if s.cBackend == nil {
+		return
+	}
+	raw := C.CBytes(data)
+	defer C.free(raw)
+	C.gzc_cgo_emit_channel_message(
+		(*C.gzc_cgo_backend_t)(s.cBackend),
+		C.int(channelID),
+		(*C.uint8_t)(raw),
+		C.size_t(len(data)),
+		C.bool(isText),
+	)
+}
+
+func writeCString(dst *C.char, cap C.size_t, value string) C.int {
 	if dst == nil || cap == 0 {
 		return C.GZC_ERR_INVALID_ARGUMENT
 	}
@@ -300,9 +354,6 @@ func writeCStringLen(dst *C.char, cap C.size_t, value string, outLen *C.size_t) 
 	buf := unsafe.Slice((*byte)(unsafe.Pointer(dst)), capInt)
 	copy(buf, value)
 	buf[len(value)] = 0
-	if outLen != nil {
-		*outLen = C.size_t(len(value))
-	}
 	return C.GZC_OK
 }
 
@@ -310,7 +361,7 @@ func goBytes(ptr unsafe.Pointer, n C.size_t) ([]byte, bool) {
 	if n == 0 {
 		return nil, true
 	}
-	if ptr == nil && n != 0 {
+	if ptr == nil {
 		return nil, false
 	}
 	i, ok := cIntLen(n)
@@ -324,7 +375,7 @@ func goString(ptr *C.char, n C.size_t) (string, bool) {
 	if n == 0 {
 		return "", true
 	}
-	if ptr == nil && n != 0 {
+	if ptr == nil {
 		return "", false
 	}
 	i, ok := cIntLen(n)
@@ -342,28 +393,7 @@ func cIntLen(n C.size_t) (int, bool) {
 	return int(n), true
 }
 
-func httpMethod(method C.int) (string, bool) {
-	switch method {
-	case C.GZC_HTTP_METHOD_GET:
-		return http.MethodGet, true
-	case C.GZC_HTTP_METHOD_POST:
-		return http.MethodPost, true
-	case C.GZC_HTTP_METHOD_PUT:
-		return http.MethodPut, true
-	case C.GZC_HTTP_METHOD_PATCH:
-		return http.MethodPatch, true
-	case C.GZC_HTTP_METHOD_DELETE:
-		return http.MethodDelete, true
-	case C.GZC_HTTP_METHOD_HEAD:
-		return http.MethodHead, true
-	case C.GZC_HTTP_METHOD_OPTIONS:
-		return http.MethodOptions, true
-	default:
-		return "", false
-	}
-}
-
-func cHeaders(headers *C.gzc_http_header_t, count C.size_t) ([]C.gzc_http_header_t, bool) {
+func cHeaders(headers *C.gzc_http_header_t, count C.size_t) ([]cgobackend.HTTPHeader, bool) {
 	if headers == nil || count == 0 {
 		return nil, true
 	}
@@ -371,132 +401,20 @@ func cHeaders(headers *C.gzc_http_header_t, count C.size_t) ([]C.gzc_http_header
 	if !ok {
 		return nil, false
 	}
-	out := make([]C.gzc_http_header_t, countInt)
+	out := make([]cgobackend.HTTPHeader, 0, countInt)
 	size := unsafe.Sizeof(*headers)
 	base := uintptr(unsafe.Pointer(headers))
-	for i := range out {
-		out[i] = *(*C.gzc_http_header_t)(unsafe.Pointer(base + uintptr(i)*size))
+	for i := 0; i < countInt; i++ {
+		header := (*C.gzc_http_header_t)(unsafe.Pointer(base + uintptr(i)*size))
+		name, ok := goString(header.name.data, C.size_t(header.name.len))
+		if !ok {
+			return nil, false
+		}
+		value, ok := goString(header.value.data, C.size_t(header.value.len))
+		if !ok {
+			return nil, false
+		}
+		out = append(out, cgobackend.HTTPHeader{Name: name, Value: value})
 	}
 	return out, true
-}
-
-func newPlatformAEAD(mode C.int, key []byte) (cipher.AEAD, error) {
-	switch mode {
-	case C.GZC_CIPHER_CHACHA20_POLY1305:
-		return chacha20poly1305.New(key)
-	case C.GZC_CIPHER_AES_256_GCM:
-		block, err := aes.NewCipher(key)
-		if err != nil {
-			return nil, err
-		}
-		return cipher.NewGCM(block)
-	case C.GZC_CIPHER_PLAINTEXT:
-		return plaintextAEAD{}, nil
-	default:
-		return nil, fmt.Errorf("unsupported cipher mode %d", int(mode))
-	}
-}
-
-type plaintextAEAD struct{}
-
-func (plaintextAEAD) NonceSize() int { return 12 }
-func (plaintextAEAD) Overhead() int  { return 0 }
-func (plaintextAEAD) Seal(dst, _nonce, plaintext, _aad []byte) []byte {
-	return append(dst, plaintext...)
-}
-func (plaintextAEAD) Open(dst, _nonce, ciphertext, _aad []byte) ([]byte, error) {
-	return append(dst, ciphertext...), nil
-}
-
-//export gzcGoPeerCreate
-func gzcGoPeerCreate(handle C.uint64_t) C.int {
-	if b := backendFromHandle(handle); b != nil {
-		if err := b.createPeer(); err != nil {
-			return C.GZC_ERR_WEBRTC
-		}
-		return C.GZC_OK
-	}
-	return C.GZC_ERR_INVALID_ARGUMENT
-}
-
-//export gzcGoPeerStartOffer
-func gzcGoPeerStartOffer(handle C.uint64_t, outSDP **C.char, outLen *C.size_t) C.int {
-	b := backendFromHandle(handle)
-	if b == nil || outSDP == nil || outLen == nil {
-		return C.GZC_ERR_INVALID_ARGUMENT
-	}
-	sdp, err := b.startOffer()
-	if err != nil {
-		return C.GZC_ERR_WEBRTC
-	}
-	mem := C.CBytes([]byte(sdp))
-	*outSDP = (*C.char)(mem)
-	*outLen = C.size_t(len(sdp))
-	return C.GZC_OK
-}
-
-//export gzcGoPeerSetRemoteSDP
-func gzcGoPeerSetRemoteSDP(handle C.uint64_t, sdp *C.char, length C.size_t) C.int {
-	b := backendFromHandle(handle)
-	if b == nil {
-		return C.GZC_ERR_INVALID_ARGUMENT
-	}
-	if err := b.setRemoteSDP(string(C.GoBytes(unsafe.Pointer(sdp), C.int(length)))); err != nil {
-		return C.GZC_ERR_WEBRTC
-	}
-	return C.GZC_OK
-}
-
-//export gzcGoPeerCreateDataChannel
-func gzcGoPeerCreateDataChannel(handle C.uint64_t, label *C.char, length C.size_t, channelID C.int, ordered C.bool, reliable C.bool) C.int {
-	b := backendFromHandle(handle)
-	if b == nil {
-		return C.GZC_ERR_INVALID_ARGUMENT
-	}
-	if err := b.createDataChannel(
-		string(C.GoBytes(unsafe.Pointer(label), C.int(length))),
-		int(channelID),
-		bool(ordered),
-		bool(reliable),
-	); err != nil {
-		return C.GZC_ERR_WEBRTC
-	}
-	return C.GZC_OK
-}
-
-//export gzcGoPeerPoll
-func gzcGoPeerPoll(handle C.uint64_t, timeoutMS C.int) C.int {
-	if backendFromHandle(handle) == nil {
-		return C.GZC_ERR_INVALID_ARGUMENT
-	}
-	if timeoutMS > 0 {
-		time.Sleep(time.Duration(timeoutMS) * time.Millisecond)
-	}
-	return C.GZC_OK
-}
-
-//export gzcGoChannelSend
-func gzcGoChannelSend(handle C.uint64_t, channelID C.int, data *C.uint8_t, length C.size_t, isText C.bool) C.int {
-	b := backendFromHandle(handle)
-	if b == nil {
-		return C.GZC_ERR_INVALID_ARGUMENT
-	}
-	if err := b.send(int(channelID), C.GoBytes(unsafe.Pointer(data), C.int(length)), bool(isText)); err != nil {
-		return C.GZC_ERR_WEBRTC
-	}
-	return C.GZC_OK
-}
-
-//export gzcGoChannelClose
-func gzcGoChannelClose(handle C.uint64_t, channelID C.int) {
-	if b := backendFromHandle(handle); b != nil {
-		b.closeDataChannel(int(channelID))
-	}
-}
-
-//export gzcGoPeerClose
-func gzcGoPeerClose(handle C.uint64_t) {
-	if b := backendFromHandle(handle); b != nil {
-		b.close()
-	}
 }

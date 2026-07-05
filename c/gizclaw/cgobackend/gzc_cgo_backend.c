@@ -1,12 +1,13 @@
+//go:build ignore
+
 #include "gzc_cgo_backend.h"
 
 #include <stdlib.h>
 #include <string.h>
 
-uint64_t gzcGoBackendCreate(const char *identity_dir);
+uint64_t gzcGoBackendCreate(void);
 void gzcGoBackendDestroy(uint64_t handle);
 void gzcGoBackendSetCBackend(uint64_t handle, gzc_cgo_backend_t *backend);
-int gzcGoBackendClientConfig(uint64_t handle, char *signaling_url, size_t signaling_url_cap, char *private_key, size_t private_key_cap, char *server_public_key, size_t server_public_key_cap);
 int gzcGoHTTPRequest(uint64_t handle, int method, const char *url, size_t url_len, const gzc_http_header_t *headers, size_t header_count, const uint8_t *data, size_t len, int *out_status, uint8_t **out_data, size_t *out_len);
 int gzcGoKeyPairFromPrivate(const uint8_t *private_key, uint8_t *out_private_key, uint8_t *out_public_key);
 int gzcGoDH(const uint8_t *private_key, const uint8_t *remote_public_key, uint8_t *out_shared);
@@ -61,8 +62,8 @@ static void bridge_log(void *userdata, gzc_log_level_t level, gzc_str_t message)
   (void)message;
 }
 
-int gzc_cgo_backend_init(gzc_cgo_backend_t *backend, const char *identity_dir) {
-  if (backend == NULL || identity_dir == NULL) {
+int gzc_cgo_backend_init(gzc_cgo_backend_t *backend) {
+  if (backend == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
   memset(backend, 0, sizeof(*backend));
@@ -81,22 +82,9 @@ int gzc_cgo_backend_init(gzc_cgo_backend_t *backend, const char *identity_dir) {
   backend->rpc_channel.id = gzc_cgo_channel_rpc;
   backend->event_channel.backend = backend;
   backend->event_channel.id = gzc_cgo_channel_event;
-  backend->handle = gzcGoBackendCreate(identity_dir);
+  backend->handle = gzcGoBackendCreate();
   if (backend->handle == 0) {
     return GZC_ERR_WEBRTC;
-  }
-  int rc = gzcGoBackendClientConfig(
-      backend->handle,
-      backend->signaling_url,
-      sizeof(backend->signaling_url),
-      backend->private_key_text,
-      sizeof(backend->private_key_text),
-      backend->server_public_key_text,
-      sizeof(backend->server_public_key_text));
-  if (rc != GZC_OK) {
-    gzcGoBackendDestroy(backend->handle);
-    backend->handle = 0;
-    return rc;
   }
   gzcGoBackendSetCBackend(backend->handle, backend);
   return GZC_OK;
