@@ -146,7 +146,7 @@ Call flow:
 peer RPC pet.adopt(name, optional id)
   -> resolve current authenticated peer id
   -> reject duplicate pet id for this peer
-  -> select a usable PetSpecies with pet_species.use ACL
+  -> select a usable PetSpecies with `use` on the `pet_species` ACL resource
   -> select an available Voice
   -> wallet.AddTransaction(point_delta = -adoption_cost, reason = pet_adopt)
        -> ensure wallet row
@@ -251,9 +251,9 @@ reason = reward_claim
 point_delta = point_amount
 ```
 
-If `badge_id` is present, the badge must exist and pass the `badge.use` ACL
-check for the flow. Failed reward claims do not mutate wallet state or reward
-history and do not advance cooldown.
+If `badge_id` is present, the badge must exist and pass the `use` check on the
+`badge` ACL resource for the flow. Failed reward claims do not mutate wallet
+state or reward history and do not advance cooldown.
 
 Call flow:
 
@@ -267,7 +267,7 @@ peer RPC reward.claim(prompt)
   -> validate point_amount >= 0
   -> require badge_id or positive point_amount
   -> if badge_id is present:
-       load Badge and check badge.use ACL
+       load Badge and check `use` on the `badge` ACL resource
   -> if point_amount > 0:
        wallet.AddTransaction(point_delta = point_amount, reason = reward_claim)
        -> UPDATE wallet balance and INSERT wallet transaction in one SQL tx
