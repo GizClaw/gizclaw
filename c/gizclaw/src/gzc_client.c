@@ -210,7 +210,7 @@ int gzc_client_create(const gzc_client_config_t *config, gzc_client_t **out_clie
       config->webrtc->peer_create == NULL || config->webrtc->peer_start_offer == NULL ||
       config->webrtc->peer_set_remote_sdp == NULL || config->webrtc->peer_create_data_channel == NULL ||
       config->webrtc->channel_send == NULL || config->webrtc->peer_close == NULL ||
-      config->http->request == NULL || config->crypto->key_from_text == NULL) {
+      config->http->request == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
   const gzc_platform_t *platform = config->platform == NULL ? gzc_default_platform() : config->platform;
@@ -286,17 +286,11 @@ int gzc_client_connect(gzc_client_t *client) {
   signaling.crypto = client->config.crypto;
   signaling.cipher_mode = client->config.cipher_mode;
   signaling.signaling_url = client->config.signaling_url;
-  rc = client->config.crypto->key_from_text(
-      client->config.crypto->userdata,
-      client->config.private_key,
-      &signaling.private_key);
+  rc = gzc_key_from_text(client->config.private_key, &signaling.private_key);
   if (rc != GZC_OK) {
     goto fail;
   }
-  rc = client->config.crypto->key_from_text(
-      client->config.crypto->userdata,
-      client->config.server_public_key,
-      &signaling.remote_public_key);
+  rc = gzc_key_from_text(client->config.server_public_key, &signaling.remote_public_key);
   if (rc != GZC_OK) {
     goto fail;
   }

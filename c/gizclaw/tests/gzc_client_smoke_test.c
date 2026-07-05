@@ -263,30 +263,6 @@ static int test_keypair_from_private(void *userdata, const gzc_key_t *private_ke
   return GZC_OK;
 }
 
-static int test_key_from_text(void *userdata, gzc_str_t text, gzc_key_t *out_key) {
-  (void)userdata;
-  if (text.data == NULL || text.len == 0 || out_key == NULL) {
-    return GZC_ERR_INVALID_ARGUMENT;
-  }
-  memset(out_key, text.data[0], sizeof(*out_key));
-  return GZC_OK;
-}
-
-static int test_key_to_text(void *userdata, const gzc_key_t *key, char *out_text, size_t out_text_cap, size_t *out_text_len) {
-  (void)userdata;
-  (void)key;
-  const char *text = "client-public";
-  size_t len = strlen(text);
-  if (out_text == NULL || out_text_cap <= len) {
-    return GZC_ERR_NO_MEMORY;
-  }
-  memcpy(out_text, text, len + 1);
-  if (out_text_len != NULL) {
-    *out_text_len = len;
-  }
-  return GZC_OK;
-}
-
 static int test_dh(void *userdata, const gzc_keypair_t *local, const gzc_public_key_t *remote, gzc_key_t *out_shared) {
   (void)userdata;
   if (local == NULL || remote == NULL || out_shared == NULL) {
@@ -367,12 +343,24 @@ int main(void) {
   memset(&fake_crypto, 0, sizeof(fake_crypto));
   fake_crypto.platform = platform;
 
+  gzc_key_t roundtrip_key;
+  int rc = gzc_key_from_text(gzc_str_from_cstr(" 7gyGAp71YXQRoxmFBaHxofQXAipvgHyBKPyxmdSJxyvz\n"), &roundtrip_key);
+  if (expect(rc == GZC_OK, "key from text") != 0) {
+    return 1;
+  }
+  char roundtrip_text[GZC_KEY_TEXT_CAP];
+  size_t roundtrip_text_len = 0;
+  rc = gzc_key_to_text(&roundtrip_key, roundtrip_text, sizeof(roundtrip_text), &roundtrip_text_len);
+  if (expect(rc == GZC_OK && roundtrip_text_len == strlen("7gyGAp71YXQRoxmFBaHxofQXAipvgHyBKPyxmdSJxyvz") &&
+                 strcmp(roundtrip_text, "7gyGAp71YXQRoxmFBaHxofQXAipvgHyBKPyxmdSJxyvz") == 0,
+             "key to text") != 0) {
+    return 1;
+  }
+
   gzc_platform_crypto_t crypto;
   memset(&crypto, 0, sizeof(crypto));
   crypto.userdata = &fake_crypto;
   crypto.keypair_from_private = test_keypair_from_private;
-  crypto.key_from_text = test_key_from_text;
-  crypto.key_to_text = test_key_to_text;
   crypto.dh = test_dh;
   crypto.hkdf_sha256 = test_hkdf_sha256;
   crypto.aead_seal = test_aead_copy;
@@ -399,8 +387,8 @@ int main(void) {
   gzc_client_config_t config;
   memset(&config, 0, sizeof(config));
   config.signaling_url = gzc_str_from_cstr("https://example.invalid/signal");
-  config.server_public_key = gzc_str_from_cstr("server-public");
-  config.private_key = gzc_str_from_cstr("client-private");
+  config.server_public_key = gzc_str_from_cstr("8mfzTdZB1JA43QmNAMWfTfkj5GC9TJxJFveThi9tvK6J");
+  config.private_key = gzc_str_from_cstr("7gyGAp71YXQRoxmFBaHxofQXAipvgHyBKPyxmdSJxyvz");
   config.platform = platform;
   config.crypto = &crypto;
   config.http = &http;
@@ -409,7 +397,7 @@ int main(void) {
   config.connect_timeout_ms = 1000;
 
   gzc_client_t *client = NULL;
-  int rc = gzc_client_create(&config, &client);
+  rc = gzc_client_create(&config, &client);
   if (expect(rc == GZC_OK, "client create") != 0) {
     return 1;
   }

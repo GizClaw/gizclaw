@@ -17,8 +17,6 @@ typedef enum {
 typedef struct {
   void *userdata;
   int (*keypair_from_private)(void *userdata, const gzc_key_t *private_key, gzc_keypair_t *out_keypair);
-  int (*key_from_text)(void *userdata, gzc_str_t text, gzc_key_t *out_key);
-  int (*key_to_text)(void *userdata, const gzc_key_t *key, char *out_text, size_t out_text_cap, size_t *out_text_len);
   int (*dh)(void *userdata, const gzc_keypair_t *local, const gzc_public_key_t *remote, gzc_key_t *out_shared);
   int (*hkdf_sha256)(
       void *userdata,

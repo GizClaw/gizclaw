@@ -1,7 +1,7 @@
 #ifndef GZC_KEYS_H
 #define GZC_KEYS_H
 
-#include "gzc_common.h"
+#include "gzc_buffer.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -23,6 +23,8 @@ typedef struct {
 
 int gzc_key_from_bytes(const uint8_t *bytes, size_t len, gzc_key_t *out_key);
 int gzc_key_to_bytes(const gzc_key_t *key, uint8_t out_bytes[GZC_KEY_SIZE]);
+int gzc_key_from_text(gzc_str_t text, gzc_key_t *out_key);
+int gzc_key_to_text(const gzc_key_t *key, char *out_text, size_t out_text_cap, size_t *out_text_len);
 int gzc_key_is_zero(const gzc_key_t *key);
 
 #ifdef __cplusplus

@@ -180,8 +180,7 @@ int gzc_signaling_build_offer_request(
     gzc_http_request_t *out_request) {
   if (config == NULL || config->platform == NULL || config->crypto == NULL || exchange == NULL ||
       out_request == NULL || config->signaling_url.data == NULL || offer_sdp.data == NULL ||
-      config->crypto->keypair_from_private == NULL || config->crypto->key_to_text == NULL ||
-      config->crypto->dh == NULL || config->crypto->hkdf_sha256 == NULL ||
+      config->crypto->keypair_from_private == NULL || config->crypto->dh == NULL || config->crypto->hkdf_sha256 == NULL ||
       config->crypto->aead_seal == NULL || config->platform->random == NULL ||
       config->platform->time_unix_ms == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
@@ -225,12 +224,7 @@ int gzc_signaling_build_offer_request(
     return rc;
   }
   size_t public_key_text_len = 0;
-  rc = config->crypto->key_to_text(
-      config->crypto->userdata,
-      &keypair.public_key,
-      exchange->public_key_text,
-      sizeof(exchange->public_key_text),
-      &public_key_text_len);
+  rc = gzc_key_to_text(&keypair.public_key, exchange->public_key_text, sizeof(exchange->public_key_text), &public_key_text_len);
   if (rc != GZC_OK) {
     return rc;
   }

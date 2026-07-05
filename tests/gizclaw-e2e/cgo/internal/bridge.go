@@ -176,33 +176,6 @@ func gzcGoKeyPairFromPrivate(privateKey *C.uint8_t, outPrivateKey *C.uint8_t, ou
 	return C.GZC_OK
 }
 
-//export gzcGoKeyFromText
-func gzcGoKeyFromText(text *C.char, textLen C.size_t, outKey *C.uint8_t) C.int {
-	if text == nil || outKey == nil {
-		return C.GZC_ERR_INVALID_ARGUMENT
-	}
-	var key giznet.Key
-	textValue, ok := goString(text, textLen)
-	if !ok {
-		return C.GZC_ERR_INVALID_ARGUMENT
-	}
-	if err := key.UnmarshalText([]byte(textValue)); err != nil {
-		return C.GZC_ERR_INVALID_ARGUMENT
-	}
-	copy(unsafe.Slice((*byte)(unsafe.Pointer(outKey)), giznet.KeySize), key[:])
-	return C.GZC_OK
-}
-
-//export gzcGoKeyToText
-func gzcGoKeyToText(keyData *C.uint8_t, outText *C.char, outTextCap C.size_t, outTextLen *C.size_t) C.int {
-	if keyData == nil || outText == nil {
-		return C.GZC_ERR_INVALID_ARGUMENT
-	}
-	var key giznet.Key
-	copy(key[:], unsafe.Slice((*byte)(unsafe.Pointer(keyData)), giznet.KeySize))
-	return writeCStringLen(outText, outTextCap, key.String(), outTextLen)
-}
-
 //export gzcGoDH
 func gzcGoDH(privateKey *C.uint8_t, remotePublicKey *C.uint8_t, outShared *C.uint8_t) C.int {
 	if privateKey == nil || remotePublicKey == nil || outShared == nil {
