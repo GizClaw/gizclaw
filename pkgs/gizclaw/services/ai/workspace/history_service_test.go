@@ -68,7 +68,7 @@ func TestServerWorkspaceHistoryServiceAuthorizesReadPaths(t *testing.T) {
 		t.Fatalf("authorize requests = %+v", auth.requests)
 	}
 	for _, req := range auth.requests {
-		if req.Subject != subject || req.Resource != acl.WorkspaceResource("demo0001") || req.Permission != apitypes.ACLPermissionWorkspaceRead {
+		if req.Subject != subject || req.Resource != acl.WorkspaceResource("demo0001") || req.Permission != apitypes.ACLPermissionRead {
 			t.Fatalf("authorize request = %+v", req)
 		}
 	}

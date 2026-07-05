@@ -74,7 +74,7 @@ func TestApplyACLRoleResource(t *testing.T) {
 		"kind": "ACLRole",
 		"metadata": {"name": "e2e-client"},
 		"spec": {
-			"permissions": ["workspace.admin", "workflow.admin", "model.read"]
+			"permissions": ["admin", "read"]
 		}
 	}`)
 
@@ -97,7 +97,7 @@ func TestApplyACLRoleResource(t *testing.T) {
 		t.Fatalf("Get() error = %v", err)
 	}
 	data := string(mustMarshal(t, stored))
-	if !strings.Contains(data, `"kind":"ACLRole"`) || !strings.Contains(data, `"workspace.admin"`) {
+	if !strings.Contains(data, `"kind":"ACLRole"`) || !strings.Contains(data, `"admin"`) {
 		t.Fatalf("Get() resource = %s", data)
 	}
 	deleted, err := manager.Delete(context.Background(), apitypes.ResourceKindACLRole, "e2e-client")
@@ -112,7 +112,7 @@ func TestApplyACLRoleResource(t *testing.T) {
 
 func TestApplyACLPolicyBindingResource(t *testing.T) {
 	manager := newACLResourceManager(t)
-	if _, err := manager.services.ACL.PutRole(context.Background(), "workspace-reader", apitypes.ACLPermissionList{"workspace.read"}); err != nil {
+	if _, err := manager.services.ACL.PutRole(context.Background(), "workspace-reader", apitypes.ACLPermissionList{"read"}); err != nil {
 		t.Fatalf("PutRole() error = %v", err)
 	}
 	resource := mustResource(t, `{
@@ -143,7 +143,7 @@ func TestApplyACLPolicyBindingResource(t *testing.T) {
 	if err := manager.services.ACL.Authorize(context.Background(), acl.AuthorizeRequest{
 		Subject:    acl.PublicKeySubject("client-public-key"),
 		Resource:   acl.WorkspaceResource("e2e-workspace"),
-		Permission: apitypes.ACLPermissionWorkspaceRead,
+		Permission: apitypes.ACLPermissionRead,
 	}); err != nil {
 		t.Fatalf("Authorize() error = %v", err)
 	}
@@ -166,7 +166,7 @@ func TestApplyACLPolicyBindingResource(t *testing.T) {
 	if err := manager.services.ACL.Authorize(context.Background(), acl.AuthorizeRequest{
 		Subject:    acl.PublicKeySubject("client-public-key"),
 		Resource:   acl.WorkspaceResource("e2e-workspace"),
-		Permission: apitypes.ACLPermissionWorkspaceRead,
+		Permission: apitypes.ACLPermissionRead,
 	}); !errors.Is(err, acl.ErrDenied) {
 		t.Fatalf("Authorize(deleted) error = %v, want %v", err, acl.ErrDenied)
 	}

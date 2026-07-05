@@ -25,7 +25,7 @@ func TestPeerAuthorizerFallsBackToConfiguredView(t *testing.T) {
 	err = auth.Authorize(context.Background(), acl.AuthorizeRequest{
 		Subject:    acl.PublicKeySubject(key.Public.String()),
 		Resource:   acl.VoiceResource("openai-alloy"),
-		Permission: apitypes.ACLPermissionVoiceRead,
+		Permission: apitypes.ACLPermissionRead,
 	})
 	if err != nil {
 		t.Fatalf("Authorize() error = %v", err)
@@ -45,14 +45,14 @@ func TestPeerAuthorizerKeepsPKDenialWithoutView(t *testing.T) {
 	err = auth.Authorize(context.Background(), acl.AuthorizeRequest{
 		Subject:    acl.PublicKeySubject(key.Public.String()),
 		Resource:   acl.VoiceResource("openai-alloy"),
-		Permission: apitypes.ACLPermissionVoiceRead,
+		Permission: apitypes.ACLPermissionRead,
 	})
 	if !errors.Is(err, acl.ErrDenied) {
 		t.Fatalf("Authorize() error = %v, want %v", err, acl.ErrDenied)
 	}
 }
 
-func TestPeerAuthorizerFallsBackToViewCollectionResource(t *testing.T) {
+func TestPeerAuthorizerDoesNotFallbackToViewCollectionResource(t *testing.T) {
 	key, err := giznet.GenerateKeyPair()
 	if err != nil {
 		t.Fatalf("GenerateKeyPair() error = %v", err)
@@ -62,7 +62,7 @@ func TestPeerAuthorizerFallsBackToViewCollectionResource(t *testing.T) {
 		ACL: fakePeerACL{
 			allowedSubject:    acl.ViewSubject(view),
 			allowedResource:   acl.CollectionResource(acl.ResourceKindWorkspace),
-			allowedPermission: apitypes.ACLPermissionWorkspaceUse,
+			allowedPermission: apitypes.ACLPermissionUse,
 		},
 		Peers:     fakePeerConfigGetter{view: &view},
 		PublicKey: key.Public,
@@ -70,10 +70,10 @@ func TestPeerAuthorizerFallsBackToViewCollectionResource(t *testing.T) {
 	err = auth.Authorize(context.Background(), acl.AuthorizeRequest{
 		Subject:    acl.PublicKeySubject(key.Public.String()),
 		Resource:   acl.WorkspaceResource("flowcraft-voice"),
-		Permission: apitypes.ACLPermissionWorkspaceUse,
+		Permission: apitypes.ACLPermissionUse,
 	})
-	if err != nil {
-		t.Fatalf("Authorize() error = %v", err)
+	if !errors.Is(err, acl.ErrDenied) {
+		t.Fatalf("Authorize() error = %v, want %v", err, acl.ErrDenied)
 	}
 }
 

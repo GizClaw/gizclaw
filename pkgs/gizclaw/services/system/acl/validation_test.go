@@ -70,11 +70,18 @@ func TestPlannedResourceKindsAndPermissionsAreValid(t *testing.T) {
 		if _, err := CanonicalResource(apitypes.ACLResource{Kind: kind, Id: "demo"}); err != nil {
 			t.Fatalf("CanonicalResource(%q) error = %v", kind, err)
 		}
-		for _, suffix := range []string{"read", "use", "admin"} {
-			permission := apitypes.ACLPermission(string(kind) + "." + suffix)
-			if !permission.Valid() {
-				t.Fatalf("permission %q is not valid", permission)
-			}
+	}
+	for _, permission := range []apitypes.ACLPermission{
+		apitypes.ACLPermissionRead,
+		apitypes.ACLPermissionUse,
+		apitypes.ACLPermissionCreate,
+		apitypes.ACLPermissionAdmin,
+	} {
+		if !permission.Valid() {
+			t.Fatalf("permission %q is not valid", permission)
 		}
+	}
+	if apitypes.ACLPermission("workspace.read").Valid() {
+		t.Fatal("resource-specific permission workspace.read is valid")
 	}
 }

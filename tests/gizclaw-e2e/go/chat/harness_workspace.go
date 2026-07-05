@@ -173,9 +173,30 @@ func (c workspaceCase) applyConfig(cfg config) (config, error) {
 }
 
 func workspaceNameForCase(workflowName string, selected workspaceCase) string {
-	name := strings.Trim(strings.ToLower(strings.TrimSpace(workflowName))+"-"+string(selected), "-")
+	name := strings.Trim(strings.ToLower(strings.TrimSpace(workflowName))+"-"+selected.workspaceIDSuffix(), "-")
 	replacer := strings.NewReplacer("_", "-", ".", "-", " ", "-")
 	return compactWorkspaceName(replacer.Replace(name))
+}
+
+func (c workspaceCase) workspaceIDSuffix() string {
+	switch c {
+	case workspaceCasePushToTalkRoundtrip:
+		return "ptt"
+	case workspaceCasePushToTalkInterrupt:
+		return "ptt-int"
+	case workspaceCaseRealtimeRoundtrip:
+		return "rt"
+	case workspaceCaseRealtimeInterrupt:
+		return "rt-int"
+	case workspaceCaseRealtimeAutoSplit:
+		return "rt-auto"
+	case workspaceCaseHistoryReplay:
+		return "hist"
+	case workspaceCaseHumanReview:
+		return "review"
+	default:
+		return string(c)
+	}
 }
 
 func compactWorkspaceName(name string) string {

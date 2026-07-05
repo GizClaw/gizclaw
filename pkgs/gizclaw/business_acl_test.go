@@ -29,8 +29,8 @@ func TestFirstPetSpeciesSelectorRequiresUsePermission(t *testing.T) {
 		if req.Subject != acl.PublicKeySubject("peer-a") {
 			t.Fatalf("subject = %#v, want peer-a", req.Subject)
 		}
-		if req.Permission != apitypes.ACLPermissionPetSpeciesUse {
-			t.Fatalf("permission = %q, want pet_species.use", req.Permission)
+		if req.Permission != apitypes.ACLPermissionUse {
+			t.Fatalf("permission = %q, want use", req.Permission)
 		}
 		if req.Resource == acl.PetSpeciesResource("rabbit") {
 			return nil
@@ -99,7 +99,7 @@ func TestFirstPetSpeciesSelectorFallsBackToPeerView(t *testing.T) {
 	auth := fakePeerACL{
 		allowedSubject:    acl.ViewSubject(view),
 		allowedResource:   acl.PetSpeciesResource("rabbit"),
-		allowedPermission: apitypes.ACLPermissionPetSpeciesUse,
+		allowedPermission: apitypes.ACLPermissionUse,
 	}
 	got, err := (firstPetSpeciesSelector{
 		Service: species,
@@ -159,8 +159,8 @@ func TestBadgeGrantResolverRequiresUsePermission(t *testing.T) {
 		if req.Resource != acl.BadgeResource("founder") {
 			t.Fatalf("resource = %#v, want founder badge", req.Resource)
 		}
-		if req.Permission != apitypes.ACLPermissionBadgeUse {
-			t.Fatalf("permission = %q, want badge.use", req.Permission)
+		if req.Permission != apitypes.ACLPermissionUse {
+			t.Fatalf("permission = %q, want use", req.Permission)
 		}
 		return acl.ErrDenied
 	})
@@ -186,7 +186,7 @@ func TestBadgeGrantResolverSuccessAndConfigErrors(t *testing.T) {
 		t.Fatalf("CanGrantBadge(no ACL) error = nil, want error")
 	}
 	auth := businessACLFunc(func(_ context.Context, req acl.AuthorizeRequest) error {
-		if req.Resource != acl.BadgeResource("founder") || req.Permission != apitypes.ACLPermissionBadgeUse {
+		if req.Resource != acl.BadgeResource("founder") || req.Permission != apitypes.ACLPermissionUse {
 			t.Fatalf("authorize request = %#v", req)
 		}
 		return nil

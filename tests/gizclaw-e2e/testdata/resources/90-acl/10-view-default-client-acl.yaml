@@ -277,7 +277,7 @@ spec:
       resource:
         id: __collection__
         kind: workflow
-      role: standard-client
+      role: collection-creator
       subject:
         id: default-client
         kind: view
@@ -289,7 +289,391 @@ spec:
       resource:
         id: __collection__
         kind: workspace
-      role: standard-client
+      role: collection-creator
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-model-collection
+    spec:
+      resource:
+        id: __collection__
+        kind: model
+      role: collection-creator
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-credential-collection
+    spec:
+      resource:
+        id: __collection__
+        kind: credential
+      role: collection-creator
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-workflow-doubao-realtime-conversation
+    spec:
+      resource:
+        id: doubao-realtime-conversation
+        kind: workflow
+      role: default-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-workflow-flowcraft-chat-assistant
+    spec:
+      resource:
+        id: flowcraft-chat-assistant
+        kind: workflow
+      role: default-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-workflow-flowcraft-journey-guide
+    spec:
+      resource:
+        id: flowcraft-journey-guide
+        kind: workflow
+      role: default-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-workflow-flowcraft-multi-role-storyteller
+    spec:
+      resource:
+        id: flowcraft-multi-role-storyteller
+        kind: workflow
+      role: default-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-workflow-flowcraft-murder-mystery
+    spec:
+      resource:
+        id: flowcraft-murder-mystery
+        kind: workflow
+      role: default-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-workflow-flowcraft-poetry-adventure-li-bai
+    spec:
+      resource:
+        id: flowcraft-poetry-adventure-li-bai
+        kind: workflow
+      role: default-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-workflow-flowcraft-route-matcher
+    spec:
+      resource:
+        id: flowcraft-route-matcher
+        kind: workflow
+      role: default-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-workflow-flowcraft-tool-chat
+    spec:
+      resource:
+        id: flowcraft-tool-chat
+        kind: workflow
+      role: default-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-workflow-flowcraft-voice-assistant
+    spec:
+      resource:
+        id: flowcraft-voice-assistant
+        kind: workflow
+      role: default-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-workflow-flowcraft-werewolf-game
+    spec:
+      resource:
+        id: flowcraft-werewolf-game
+        kind: workflow
+      role: default-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-workflow-volc-ast-translate
+    spec:
+      resource:
+        id: volc-ast-translate
+        kind: workflow
+      role: default-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-workflow-volc-ast-translate-tts
+    spec:
+      resource:
+        id: volc-ast-translate-tts
+        kind: workflow
+      role: default-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-workflow-volc-ast-translate-zh-en
+    spec:
+      resource:
+        id: volc-ast-translate-zh-en
+        kind: workflow
+      role: default-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-workflow-volc-ast-translate-zh-jp
+    spec:
+      resource:
+        id: volc-ast-translate-zh-jp
+        kind: workflow
+      role: default-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-workspace-doubao-realtime-conversation
+    spec:
+      resource:
+        id: doubao-realtime-conversation
+        kind: workspace
+      role: default-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-workspace-flowcraft-chat-assistant
+    spec:
+      resource:
+        id: flowcraft-chat-assistant
+        kind: workspace
+      role: default-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-workspace-flowcraft-journey-guide
+    spec:
+      resource:
+        id: flowcraft-journey-guide
+        kind: workspace
+      role: default-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-workspace-flowcraft-multi-role-storyteller
+    spec:
+      resource:
+        id: flowcraft-multi-role-storyteller
+        kind: workspace
+      role: default-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-workspace-flowcraft-murder-mystery
+    spec:
+      resource:
+        id: flowcraft-murder-mystery
+        kind: workspace
+      role: default-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-workspace-flowcraft-poetry-adventure-li-bai
+    spec:
+      resource:
+        id: flowcraft-poetry-adventure-li-bai
+        kind: workspace
+      role: default-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-workspace-flowcraft-route-matcher
+    spec:
+      resource:
+        id: flowcraft-route-matcher
+        kind: workspace
+      role: default-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-workspace-flowcraft-tool-chat
+    spec:
+      resource:
+        id: flowcraft-tool-chat
+        kind: workspace
+      role: default-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-workspace-flowcraft-voice-assistant
+    spec:
+      resource:
+        id: flowcraft-voice-assistant
+        kind: workspace
+      role: default-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-workspace-flowcraft-werewolf-game
+    spec:
+      resource:
+        id: flowcraft-werewolf-game
+        kind: workspace
+      role: default-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-workspace-volc-ast-translate
+    spec:
+      resource:
+        id: volc-ast-translate
+        kind: workspace
+      role: default-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-workspace-volc-ast-translate-tts
+    spec:
+      resource:
+        id: volc-ast-translate-tts
+        kind: workspace
+      role: default-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-workspace-volc-ast-translate-zh-en
+    spec:
+      resource:
+        id: volc-ast-translate-zh-en
+        kind: workspace
+      role: default-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-workspace-volc-ast-translate-zh-jp
+    spec:
+      resource:
+        id: volc-ast-translate-zh-jp
+        kind: workspace
+      role: default-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-flowcraft-support-workflow
+    spec:
+      resource:
+        id: flowcraft-support
+        kind: workflow
+      role: default-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-support-desk-workspace
+    spec:
+      resource:
+        id: support-desk-workspace
+        kind: workspace
+      role: default-client
       subject:
         id: default-client
         kind: view
@@ -361,6 +745,42 @@ spec:
       resource:
         id: family-circle-chatroom
         kind: workflow
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-mutation-rpc-workflow
+    spec:
+      resource:
+        id: mutation-rpc-workflow
+        kind: workflow
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-mutation-flowcraft-workflow
+    spec:
+      resource:
+        id: mutation-flowcraft-workflow
+        kind: workflow
+      role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-mutation-rpc-workspace
+    spec:
+      resource:
+        id: mutation-rpc-workspace
+        kind: workspace
       role: standard-client
       subject:
         id: default-client

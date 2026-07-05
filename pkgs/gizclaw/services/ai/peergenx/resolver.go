@@ -101,13 +101,13 @@ func (s *Service) generatorConfigFromListedModel(ctx context.Context, model apit
 		return GeneratorConfig{}, false, nil
 	}
 	resource := modelResource(string(model.Id))
-	if err := s.authorize(ctx, resource, apitypes.ACLPermissionModelRead); err != nil {
+	if err := s.authorize(ctx, resource, apitypes.ACLPermissionRead); err != nil {
 		if errors.Is(err, ErrDenied) {
 			return GeneratorConfig{}, false, nil
 		}
 		return GeneratorConfig{}, false, err
 	}
-	if err := s.authorize(ctx, resource, apitypes.ACLPermissionModelUse); err != nil {
+	if err := s.authorize(ctx, resource, apitypes.ACLPermissionUse); err != nil {
 		if errors.Is(err, ErrDenied) {
 			return GeneratorConfig{}, false, nil
 		}
@@ -181,14 +181,14 @@ func (s *Service) resolveModel(ctx context.Context, id string) (apitypes.Model, 
 		return apitypes.Model{}, Tenant{}, apitypes.Credential{}, fmt.Errorf("%w: model getter is required", ErrNotConfigured)
 	}
 	resource := modelResource(id)
-	if err := s.authorize(ctx, resource, apitypes.ACLPermissionModelRead); err != nil {
+	if err := s.authorize(ctx, resource, apitypes.ACLPermissionRead); err != nil {
 		return apitypes.Model{}, Tenant{}, apitypes.Credential{}, err
 	}
 	model, err := s.getModel(ctx, id)
 	if err != nil {
 		return apitypes.Model{}, Tenant{}, apitypes.Credential{}, err
 	}
-	if err := s.authorize(ctx, resource, apitypes.ACLPermissionModelUse); err != nil {
+	if err := s.authorize(ctx, resource, apitypes.ACLPermissionUse); err != nil {
 		return apitypes.Model{}, Tenant{}, apitypes.Credential{}, err
 	}
 	tenant, credentialName, err := s.resolveModelTenant(ctx, model)
@@ -207,14 +207,14 @@ func (s *Service) resolveVoice(ctx context.Context, id string) (apitypes.Voice, 
 		return apitypes.Voice{}, Tenant{}, apitypes.Credential{}, fmt.Errorf("%w: voice getter is required", ErrNotConfigured)
 	}
 	resource := voiceResource(id)
-	if err := s.authorize(ctx, resource, apitypes.ACLPermissionVoiceRead); err != nil {
+	if err := s.authorize(ctx, resource, apitypes.ACLPermissionRead); err != nil {
 		return apitypes.Voice{}, Tenant{}, apitypes.Credential{}, err
 	}
 	voice, err := s.getVoice(ctx, id)
 	if err != nil {
 		return apitypes.Voice{}, Tenant{}, apitypes.Credential{}, err
 	}
-	if err := s.authorize(ctx, resource, apitypes.ACLPermissionVoiceUse); err != nil {
+	if err := s.authorize(ctx, resource, apitypes.ACLPermissionUse); err != nil {
 		return apitypes.Voice{}, Tenant{}, apitypes.Credential{}, err
 	}
 	tenant, credentialName, err := s.resolveVoiceTenant(ctx, voice)
@@ -236,10 +236,10 @@ func (s *Service) resolveCredential(ctx context.Context, name string) (apitypes.
 	if s == nil || s.Credentials == nil {
 		return apitypes.Credential{}, fmt.Errorf("%w: credential getter is required", ErrNotConfigured)
 	}
-	if err := s.authorize(ctx, credentialResource(name), apitypes.ACLPermissionCredentialRead); err != nil {
+	if err := s.authorize(ctx, credentialResource(name), apitypes.ACLPermissionRead); err != nil {
 		return apitypes.Credential{}, err
 	}
-	if err := s.authorize(ctx, credentialResource(name), apitypes.ACLPermissionCredentialUse); err != nil {
+	if err := s.authorize(ctx, credentialResource(name), apitypes.ACLPermissionUse); err != nil {
 		return apitypes.Credential{}, err
 	}
 	return s.getCredential(ctx, name)

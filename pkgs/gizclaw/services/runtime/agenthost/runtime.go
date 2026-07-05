@@ -298,7 +298,7 @@ func (s *Service) authorizeWorkspace(ctx context.Context, workspaceName string) 
 	return s.Authorizer.Authorize(ctx, acl.AuthorizeRequest{
 		Subject:    acl.PublicKeySubject(s.PublicKey.String()),
 		Resource:   acl.WorkspaceResource(workspaceName),
-		Permission: apitypes.ACLPermissionWorkspaceUse,
+		Permission: apitypes.ACLPermissionUse,
 	})
 }
 

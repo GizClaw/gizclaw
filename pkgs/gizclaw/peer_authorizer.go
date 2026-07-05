@@ -33,7 +33,7 @@ func (a peerAuthorizer) Authorize(ctx context.Context, request acl.AuthorizeRequ
 	if a.ACL == nil {
 		return errors.New("acl service not configured")
 	}
-	err := a.authorizeWithCollectionFallback(ctx, request)
+	err := a.ACL.Authorize(ctx, request)
 	if err == nil || !errors.Is(err, acl.ErrDenied) || !a.shouldTryView(request) {
 		return err
 	}
@@ -42,7 +42,7 @@ func (a peerAuthorizer) Authorize(ctx context.Context, request acl.AuthorizeRequ
 		return err
 	}
 	request.Subject = acl.ViewSubject(view)
-	viewErr := a.authorizeWithCollectionFallback(ctx, request)
+	viewErr := a.ACL.Authorize(ctx, request)
 	if viewErr == nil {
 		return nil
 	}
@@ -58,15 +58,6 @@ func (a peerAuthorizer) ListPolicyBindings(ctx context.Context, request acl.List
 		return nil, false, nil, errors.New("acl policy binding listing not configured")
 	}
 	return lister.ListPolicyBindings(ctx, request)
-}
-
-func (a peerAuthorizer) authorizeWithCollectionFallback(ctx context.Context, request acl.AuthorizeRequest) error {
-	err := a.ACL.Authorize(ctx, request)
-	if err == nil || !errors.Is(err, acl.ErrDenied) || !isCollectionFallbackResource(request.Resource) {
-		return err
-	}
-	request.Resource.Id = acl.CollectionResourceID
-	return a.ACL.Authorize(ctx, request)
 }
 
 func (a peerAuthorizer) shouldTryView(request acl.AuthorizeRequest) bool {
@@ -87,13 +78,4 @@ func (a peerAuthorizer) peerView(ctx context.Context) (string, bool) {
 	}
 	view := strings.TrimSpace(*config.View)
 	return view, view != ""
-}
-
-func isCollectionFallbackResource(resource apitypes.ACLResource) bool {
-	switch resource.Kind {
-	case apitypes.ACLResourceKindWorkflow, apitypes.ACLResourceKindWorkspace:
-		return resource.Id != "" && resource.Id != acl.CollectionResourceID
-	default:
-		return false
-	}
 }

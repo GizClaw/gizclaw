@@ -156,12 +156,11 @@ func TestServerACLBoundaries(t *testing.T) {
 	srv := newTestResourceServer()
 	srv.ACL = auth
 
-	auth.allow(acl.ResourceKindWorkflow, "workflow-a1", apitypes.ACLPermissionWorkflowAdmin)
+	auth.allow(acl.ResourceKindWorkflow, acl.CollectionResourceID, apitypes.ACLPermissionCreate)
 	requireNoRPCError(t, callRPC(t, srv, "workflow-create-a", rpcapi.RPCMethodServerWorkflowCreate, rpcParams(t, (*rpcapi.RPCRequest_Params).FromWorkflowCreateRequest, workflowDoc("workflow-a1"))))
-	auth.allow(acl.ResourceKindWorkflow, "workflow-b1", apitypes.ACLPermissionWorkflowAdmin)
 	requireNoRPCError(t, callRPC(t, srv, "workflow-create-b", rpcapi.RPCMethodServerWorkflowCreate, rpcParams(t, (*rpcapi.RPCRequest_Params).FromWorkflowCreateRequest, workflowDoc("workflow-b1"))))
 
-	auth.allow(acl.ResourceKindWorkspace, "workspace-a", apitypes.ACLPermissionWorkspaceAdmin)
+	auth.allow(acl.ResourceKindWorkspace, "workspace-a", apitypes.ACLPermissionAdmin)
 	denied := callRPC(t, srv, "workspace-create-denied", rpcapi.RPCMethodServerWorkspaceCreate, rpcParams(t, (*rpcapi.RPCRequest_Params).FromWorkspaceCreateRequest, rpcapi.WorkspaceCreateRequest{
 		Name:         "workspace-a",
 		WorkflowName: "workflow-a1",
@@ -170,21 +169,22 @@ func TestServerACLBoundaries(t *testing.T) {
 		t.Fatalf("workspace.create denied response = %#v", denied)
 	}
 
-	auth.allow(acl.ResourceKindWorkflow, "workflow-a1", apitypes.ACLPermissionWorkflowUse)
+	auth.allow(acl.ResourceKindWorkspace, acl.CollectionResourceID, apitypes.ACLPermissionCreate)
+	auth.allow(acl.ResourceKindWorkflow, "workflow-a1", apitypes.ACLPermissionUse)
 	requireNoRPCError(t, callRPC(t, srv, "workspace-create-allowed", rpcapi.RPCMethodServerWorkspaceCreate, rpcParams(t, (*rpcapi.RPCRequest_Params).FromWorkspaceCreateRequest, rpcapi.WorkspaceCreateRequest{
 		Name:         "workspace-a",
 		WorkflowName: "workflow-a1",
 	})))
 
-	auth.allow(acl.ResourceKindWorkspace, "workspace-b", apitypes.ACLPermissionWorkspaceAdmin)
-	auth.allow(acl.ResourceKindWorkflow, "workflow-b1", apitypes.ACLPermissionWorkflowUse)
+	auth.allow(acl.ResourceKindWorkspace, "workspace-b", apitypes.ACLPermissionAdmin)
+	auth.allow(acl.ResourceKindWorkflow, "workflow-b1", apitypes.ACLPermissionUse)
 	requireNoRPCError(t, callRPC(t, srv, "workspace-create-b", rpcapi.RPCMethodServerWorkspaceCreate, rpcParams(t, (*rpcapi.RPCRequest_Params).FromWorkspaceCreateRequest, rpcapi.WorkspaceCreateRequest{
 		Name:         "workspace-b",
 		WorkflowName: "workflow-b1",
 	})))
 
-	auth.allow(acl.ResourceKindWorkspace, "workspace-a", apitypes.ACLPermissionWorkspaceRead)
-	auth.allow(acl.ResourceKindWorkflow, "workflow-a1", apitypes.ACLPermissionWorkflowRead)
+	auth.allow(acl.ResourceKindWorkspace, "workspace-a", apitypes.ACLPermissionRead)
+	auth.allow(acl.ResourceKindWorkflow, "workflow-a1", apitypes.ACLPermissionRead)
 
 	workspaceList := callRPC(t, srv, "workspace-list-filtered", rpcapi.RPCMethodServerWorkspaceList, nil)
 	if got := mustResult(t, workspaceList.Result.AsWorkspaceListResponse); len(got.Items) != 1 || got.Items[0].Name != "workspace-a" {
@@ -195,8 +195,11 @@ func TestServerACLBoundaries(t *testing.T) {
 		t.Fatalf("filtered workflow.list = %#v", got)
 	}
 
-	if got := auth.count(ctx, acl.ResourceKindWorkflow, "workflow-a1", apitypes.ACLPermissionWorkflowUse); got == 0 {
-		t.Fatal("workspace.create did not check workflow.use")
+	if got := auth.count(ctx, acl.ResourceKindWorkflow, "workflow-a1", apitypes.ACLPermissionUse); got == 0 {
+		t.Fatal("workspace.create did not check use")
+	}
+	if got := auth.count(ctx, acl.ResourceKindWorkspace, acl.CollectionResourceID, apitypes.ACLPermissionCreate); got == 0 {
+		t.Fatal("workspace.create did not check collection create")
 	}
 }
 
@@ -206,11 +209,9 @@ func TestServerWorkspaceListPrefixUsesACLDiscovery(t *testing.T) {
 	srv := newTestResourceServer()
 	srv.ACL = auth
 
-	auth.allow(acl.ResourceKindWorkflow, "workflow-a1", apitypes.ACLPermissionWorkflowAdmin)
-	auth.allow(acl.ResourceKindWorkflow, "workflow-a1", apitypes.ACLPermissionWorkflowUse)
-	auth.allow(acl.ResourceKindWorkspace, "social-direct-visible", apitypes.ACLPermissionWorkspaceAdmin)
-	auth.allow(acl.ResourceKindWorkspace, "social-direct-hidden", apitypes.ACLPermissionWorkspaceAdmin)
-	auth.allow(acl.ResourceKindWorkspace, "social-group-visible", apitypes.ACLPermissionWorkspaceAdmin)
+	auth.allow(acl.ResourceKindWorkflow, acl.CollectionResourceID, apitypes.ACLPermissionCreate)
+	auth.allow(acl.ResourceKindWorkflow, "workflow-a1", apitypes.ACLPermissionUse)
+	auth.allow(acl.ResourceKindWorkspace, acl.CollectionResourceID, apitypes.ACLPermissionCreate)
 	requireNoRPCError(t, callRPC(t, srv, "workflow-create", rpcapi.RPCMethodServerWorkflowCreate, rpcParams(t, (*rpcapi.RPCRequest_Params).FromWorkflowCreateRequest, workflowDoc("workflow-a1"))))
 	for _, name := range []string{"social-direct-visible", "social-direct-hidden", "social-group-visible"} {
 		requireNoRPCError(t, callRPC(t, srv, "workspace-create-"+name, rpcapi.RPCMethodServerWorkspaceCreate, rpcParams(t, (*rpcapi.RPCRequest_Params).FromWorkspaceCreateRequest, rpcapi.WorkspaceCreateRequest{
@@ -225,8 +226,8 @@ func TestServerWorkspaceListPrefixUsesACLDiscovery(t *testing.T) {
 		{Id: "binding-visible", Policy: apitypes.ACLPolicy{Subject: acl.PublicKeySubject(srv.Caller.String()), Resource: acl.WorkspaceResource("social-direct-visible"), Role: "workspace-member"}},
 		{Id: "binding-group", Policy: apitypes.ACLPolicy{Subject: acl.PublicKeySubject(srv.Caller.String()), Resource: acl.WorkspaceResource("social-group-visible"), Role: "workspace-member"}},
 	}
-	auth.allow(acl.ResourceKindWorkspace, "social-direct-missing", apitypes.ACLPermissionWorkspaceRead)
-	auth.allow(acl.ResourceKindWorkspace, "social-direct-visible", apitypes.ACLPermissionWorkspaceRead)
+	auth.allow(acl.ResourceKindWorkspace, "social-direct-missing", apitypes.ACLPermissionRead)
+	auth.allow(acl.ResourceKindWorkspace, "social-direct-visible", apitypes.ACLPermissionRead)
 
 	limit := 1
 	resp := callRPC(t, srv, "workspace-list-prefix", rpcapi.RPCMethodServerWorkspaceList, rpcParams(t, (*rpcapi.RPCRequest_Params).FromWorkspaceListRequest, rpcapi.WorkspaceListRequest{
@@ -245,16 +246,16 @@ func TestServerWorkspaceListPrefixUsesACLDiscovery(t *testing.T) {
 	}
 	req := auth.listRequests[0]
 	if req.SubjectKind != acl.SubjectKindPublicKey || req.SubjectID != srv.Caller.String() || req.ResourceKind != acl.ResourceKindWorkspace ||
-		req.ResourceIDPrefix != "social-direct-" || req.Permission != apitypes.ACLPermissionWorkspaceRead {
+		req.ResourceIDPrefix != "social-direct-" || req.Permission != apitypes.ACLPermissionRead {
 		t.Fatalf("ACL discovery request = %+v", req)
 	}
-	if got := auth.count(ctx, acl.ResourceKindWorkspace, "social-direct-visible", apitypes.ACLPermissionWorkspaceRead); got == 0 {
+	if got := auth.count(ctx, acl.ResourceKindWorkspace, "social-direct-visible", apitypes.ACLPermissionRead); got == 0 {
 		t.Fatal("workspace.list prefix did not authorize visible workspace")
 	}
-	if got := auth.count(ctx, acl.ResourceKindWorkspace, "social-direct-hidden", apitypes.ACLPermissionWorkspaceRead); got == 0 {
+	if got := auth.count(ctx, acl.ResourceKindWorkspace, "social-direct-hidden", apitypes.ACLPermissionRead); got == 0 {
 		t.Fatal("workspace.list prefix did not authorize hidden workspace")
 	}
-	if got := auth.count(ctx, acl.ResourceKindWorkspace, "social-group-visible", apitypes.ACLPermissionWorkspaceRead); got != 0 {
+	if got := auth.count(ctx, acl.ResourceKindWorkspace, "social-group-visible", apitypes.ACLPermissionRead); got != 0 {
 		t.Fatal("workspace.list prefix checked workspace outside requested prefix")
 	}
 }
@@ -265,27 +266,46 @@ func TestServerWorkspaceWorkflowCreateUsesCollectionACL(t *testing.T) {
 	srv := newTestResourceServer()
 	srv.ACL = auth
 
-	auth.allow(acl.ResourceKindWorkflow, acl.CollectionResourceID, apitypes.ACLPermissionWorkflowAdmin)
-	auth.allow(acl.ResourceKindWorkflow, acl.CollectionResourceID, apitypes.ACLPermissionWorkflowUse)
-	auth.allow(acl.ResourceKindWorkspace, acl.CollectionResourceID, apitypes.ACLPermissionWorkspaceAdmin)
+	auth.allow(acl.ResourceKindWorkflow, acl.CollectionResourceID, apitypes.ACLPermissionCreate)
+	auth.allow(acl.ResourceKindWorkflow, "flow-dynamic", apitypes.ACLPermissionUse)
+	auth.allow(acl.ResourceKindWorkspace, acl.CollectionResourceID, apitypes.ACLPermissionCreate)
+	auth.allow(acl.ResourceKindModel, acl.CollectionResourceID, apitypes.ACLPermissionCreate)
+	auth.allow(acl.ResourceKindCredential, acl.CollectionResourceID, apitypes.ACLPermissionCreate)
 
 	requireNoRPCError(t, callRPC(t, srv, "workflow-create", rpcapi.RPCMethodServerWorkflowCreate, rpcParams(t, (*rpcapi.RPCRequest_Params).FromWorkflowCreateRequest, workflowDoc("flow-dynamic"))))
 	requireNoRPCError(t, callRPC(t, srv, "workspace-create", rpcapi.RPCMethodServerWorkspaceCreate, rpcParams(t, (*rpcapi.RPCRequest_Params).FromWorkspaceCreateRequest, rpcapi.WorkspaceCreateRequest{
 		Name:         "workspace-dynamic",
 		WorkflowName: "flow-dynamic",
 	})))
+	requireNoRPCError(t, callRPC(t, srv, "model-create", rpcapi.RPCMethodServerModelCreate, rpcParams(t, (*rpcapi.RPCRequest_Params).FromModelCreateRequest, rpcModel("model-dynamic"))))
+	requireNoRPCError(t, callRPC(t, srv, "credential-create", rpcapi.RPCMethodServerCredentialCreate, rpcParams(t, (*rpcapi.RPCRequest_Params).FromCredentialCreateRequest, rpcCredential("credential-dynamic", "sk-dynamic"))))
 
-	if got := auth.count(ctx, acl.ResourceKindWorkflow, "flow-dynamic", apitypes.ACLPermissionWorkflowAdmin); got == 0 {
-		t.Fatal("workflow.create did not first check concrete workflow")
+	if got := auth.count(ctx, acl.ResourceKindWorkflow, "flow-dynamic", apitypes.ACLPermissionAdmin); got != 0 {
+		t.Fatal("workflow.create checked concrete workflow admin")
 	}
-	if got := auth.count(ctx, acl.ResourceKindWorkflow, acl.CollectionResourceID, apitypes.ACLPermissionWorkflowAdmin); got == 0 {
-		t.Fatal("workflow.create did not fallback to workflow collection")
+	if got := auth.count(ctx, acl.ResourceKindWorkflow, acl.CollectionResourceID, apitypes.ACLPermissionCreate); got == 0 {
+		t.Fatal("workflow.create did not check workflow collection create")
 	}
-	if got := auth.count(ctx, acl.ResourceKindWorkspace, acl.CollectionResourceID, apitypes.ACLPermissionWorkspaceAdmin); got == 0 {
-		t.Fatal("workspace.create did not fallback to workspace collection")
+	if got := auth.count(ctx, acl.ResourceKindWorkspace, acl.CollectionResourceID, apitypes.ACLPermissionCreate); got == 0 {
+		t.Fatal("workspace.create did not check workspace collection create")
 	}
-	if got := auth.count(ctx, acl.ResourceKindWorkflow, acl.CollectionResourceID, apitypes.ACLPermissionWorkflowUse); got == 0 {
-		t.Fatal("workspace.create did not fallback to workflow collection use")
+	if got := auth.count(ctx, acl.ResourceKindWorkflow, "flow-dynamic", apitypes.ACLPermissionUse); got == 0 {
+		t.Fatal("workspace.create did not check concrete workflow use")
+	}
+	if got := auth.count(ctx, acl.ResourceKindWorkflow, acl.CollectionResourceID, apitypes.ACLPermissionUse); got != 0 {
+		t.Fatal("workspace.create checked workflow collection use")
+	}
+	if got := auth.count(ctx, acl.ResourceKindModel, "model-dynamic", apitypes.ACLPermissionAdmin); got != 0 {
+		t.Fatal("model.create checked concrete model admin")
+	}
+	if got := auth.count(ctx, acl.ResourceKindModel, acl.CollectionResourceID, apitypes.ACLPermissionCreate); got == 0 {
+		t.Fatal("model.create did not check model collection create")
+	}
+	if got := auth.count(ctx, acl.ResourceKindCredential, "credential-dynamic", apitypes.ACLPermissionAdmin); got != 0 {
+		t.Fatal("credential.create checked concrete credential admin")
+	}
+	if got := auth.count(ctx, acl.ResourceKindCredential, acl.CollectionResourceID, apitypes.ACLPermissionCreate); got == 0 {
+		t.Fatal("credential.create did not check credential collection create")
 	}
 }
 
@@ -436,8 +456,8 @@ func TestServerListVoicesFiltersByACL(t *testing.T) {
 		}
 	}
 
-	auth.allow(acl.ResourceKindVoice, "voice-a", apitypes.ACLPermissionVoiceRead)
-	auth.allow(acl.ResourceKindVoice, "provider:tenant:voice-c", apitypes.ACLPermissionVoiceRead)
+	auth.allow(acl.ResourceKindVoice, "voice-a", apitypes.ACLPermissionRead)
+	auth.allow(acl.ResourceKindVoice, "provider:tenant:voice-c", apitypes.ACLPermissionRead)
 	resp, err := srv.ListVoices(ctx, adminservice.ListVoicesRequestObject{})
 	if err != nil {
 		t.Fatalf("ListVoices() error = %v", err)
@@ -449,7 +469,7 @@ func TestServerListVoicesFiltersByACL(t *testing.T) {
 	if len(list.Items) != 2 || list.Items[0].Id != "provider:tenant:voice-c" || list.Items[1].Id != "voice-a" {
 		t.Fatalf("ListVoices() items = %#v", list.Items)
 	}
-	if got := auth.count(ctx, acl.ResourceKindVoice, "voice-b", apitypes.ACLPermissionVoiceRead); got == 0 {
+	if got := auth.count(ctx, acl.ResourceKindVoice, "voice-b", apitypes.ACLPermissionRead); got == 0 {
 		t.Fatal("ListVoices() did not check denied voice")
 	}
 
@@ -634,17 +654,17 @@ func TestServerFirmwareRPCUsesFirmwareReadACL(t *testing.T) {
 		FirmwareId: "devkit",
 	}))
 	requireRPCError(t, denied, rpcapi.RPCErrorCodeForbidden)
-	if got := auth.count(ctx, acl.ResourceKindFirmware, "devkit", apitypes.ACLPermissionFirmwareRead); got == 0 {
-		t.Fatal("firmware.get did not check firmware.read")
+	if got := auth.count(ctx, acl.ResourceKindFirmware, "devkit", apitypes.ACLPermissionRead); got == 0 {
+		t.Fatal("firmware.get did not check read")
 	}
 
-	auth.allow(acl.ResourceKindFirmware, "devkit", apitypes.ACLPermissionFirmwareRead)
+	auth.allow(acl.ResourceKindFirmware, "devkit", apitypes.ACLPermissionRead)
 	listResp := callRPC(t, srv, "firmware-list", rpcapi.RPCMethodServerFirmwareList, nil)
 	gotList := mustResult(t, listResp.Result.AsFirmwareListResponse)
 	if len(gotList.Items) != 1 || gotList.Items[0].Name != "devkit" {
 		t.Fatalf("firmware.list = %#v", gotList)
 	}
-	if got := auth.count(ctx, acl.ResourceKindFirmware, "otherkit", apitypes.ACLPermissionFirmwareRead); got == 0 {
+	if got := auth.count(ctx, acl.ResourceKindFirmware, "otherkit", apitypes.ACLPermissionRead); got == 0 {
 		t.Fatal("firmware.list did not check denied firmware")
 	}
 

@@ -38,12 +38,12 @@ func TestGeneratorAuthorizesBeforeReadingModel(t *testing.T) {
 	}
 
 	want := []string{
-		"auth:model:chat:model.read",
+		"auth:model:chat:read",
 		"get:model:chat",
-		"auth:model:chat:model.use",
+		"auth:model:chat:use",
 		"get:tenant:openai:main",
-		"auth:credential:openai-key:credential.read",
-		"auth:credential:openai-key:credential.use",
+		"auth:credential:openai-key:read",
+		"auth:credential:openai-key:use",
 		"get:credential:openai-key",
 		"build:generator:chat",
 		"call:generator:model/chat",
@@ -58,7 +58,7 @@ func TestGeneratorDeniedReadDoesNotReadModel(t *testing.T) {
 	events := []string{}
 	svc := New(Service{
 		Peer:       newTestPeer(),
-		Authorizer: &recordingAuthorizer{events: &events, deny: "auth:model:chat:model.read"},
+		Authorizer: &recordingAuthorizer{events: &events, deny: "auth:model:chat:read"},
 		Models:     fakeModels{events: &events},
 		Builder:    fakeBuilder{events: &events},
 	})
@@ -67,7 +67,7 @@ func TestGeneratorDeniedReadDoesNotReadModel(t *testing.T) {
 	if !errors.Is(err, ErrDenied) {
 		t.Fatalf("GenerateStream() error = %v, want %v", err, ErrDenied)
 	}
-	want := []string{"auth:model:chat:model.read"}
+	want := []string{"auth:model:chat:read"}
 	if !reflect.DeepEqual(events, want) {
 		t.Fatalf("events = %#v, want %#v", events, want)
 	}
@@ -94,12 +94,12 @@ func TestTransformerVoiceAuthorizesBeforeReadingVoiceAndCredential(t *testing.T)
 	}
 
 	want := []string{
-		"auth:voice:cancan:voice.read",
+		"auth:voice:cancan:read",
 		"get:voice:cancan",
-		"auth:voice:cancan:voice.use",
+		"auth:voice:cancan:use",
 		"get:tenant:volc:main",
-		"auth:credential:volc-token:credential.read",
-		"auth:credential:volc-token:credential.use",
+		"auth:credential:volc-token:read",
+		"auth:credential:volc-token:use",
 		"get:credential:volc-token",
 		"build:transformer:voice:cancan",
 		"call:transformer:voice/cancan",
@@ -126,12 +126,12 @@ func TestTransformerModelASRUsesVolcTenant(t *testing.T) {
 	}
 
 	want := []string{
-		"auth:model:asr:model.read",
+		"auth:model:asr:read",
 		"get:model:asr",
-		"auth:model:asr:model.use",
+		"auth:model:asr:use",
 		"get:tenant:volc:main",
-		"auth:credential:volc-token:credential.read",
-		"auth:credential:volc-token:credential.use",
+		"auth:credential:volc-token:read",
+		"auth:credential:volc-token:use",
 		"get:credential:volc-token",
 		"build:transformer:model:asr",
 		"call:transformer:model/asr",
@@ -158,12 +158,12 @@ func TestTransformerModelRealtimeUsesVolcTenant(t *testing.T) {
 	}
 
 	want := []string{
-		"auth:model:realtime:model.read",
+		"auth:model:realtime:read",
 		"get:model:realtime",
-		"auth:model:realtime:model.use",
+		"auth:model:realtime:use",
 		"get:tenant:volc:main",
-		"auth:credential:volc-token:credential.read",
-		"auth:credential:volc-token:credential.use",
+		"auth:credential:volc-token:read",
+		"auth:credential:volc-token:use",
 		"get:credential:volc-token",
 		"build:transformer:model:realtime",
 		"call:transformer:model/realtime",
@@ -190,12 +190,12 @@ func TestTransformerVoiceSupportsMiniMaxTenant(t *testing.T) {
 	}
 
 	want := []string{
-		"auth:voice:minimax:voice.read",
+		"auth:voice:minimax:read",
 		"get:voice:minimax",
-		"auth:voice:minimax:voice.use",
+		"auth:voice:minimax:use",
 		"get:tenant:minimax:main",
-		"auth:credential:minimax-key:credential.read",
-		"auth:credential:minimax-key:credential.use",
+		"auth:credential:minimax-key:read",
+		"auth:credential:minimax-key:use",
 		"get:credential:minimax-key",
 		"build:transformer:voice:minimax",
 		"call:transformer:voice/minimax",
@@ -210,7 +210,7 @@ func TestTransformerDeniedVoiceUseDoesNotReadCredential(t *testing.T) {
 	events := []string{}
 	svc := New(Service{
 		Peer:            newTestPeer(),
-		Authorizer:      &recordingAuthorizer{events: &events, deny: "auth:voice:cancan:voice.use"},
+		Authorizer:      &recordingAuthorizer{events: &events, deny: "auth:voice:cancan:use"},
 		Voices:          fakeVoices{events: &events},
 		Credentials:     fakeCredentials{events: &events},
 		ProviderTenants: fakeTenants{events: &events},
@@ -222,9 +222,9 @@ func TestTransformerDeniedVoiceUseDoesNotReadCredential(t *testing.T) {
 		t.Fatalf("Transform() error = %v, want %v", err, ErrDenied)
 	}
 	want := []string{
-		"auth:voice:cancan:voice.read",
+		"auth:voice:cancan:read",
 		"get:voice:cancan",
-		"auth:voice:cancan:voice.use",
+		"auth:voice:cancan:use",
 	}
 	if !reflect.DeepEqual(events, want) {
 		t.Fatalf("events = %#v, want %#v", events, want)
@@ -1086,12 +1086,12 @@ func TestGeneratorInvokeUsesResolvedModel(t *testing.T) {
 	}
 
 	want := []string{
-		"auth:model:chat:model.read",
+		"auth:model:chat:read",
 		"get:model:chat",
-		"auth:model:chat:model.use",
+		"auth:model:chat:use",
 		"get:tenant:openai:main",
-		"auth:credential:openai-key:credential.read",
-		"auth:credential:openai-key:credential.use",
+		"auth:credential:openai-key:read",
+		"auth:credential:openai-key:use",
 		"get:credential:openai-key",
 		"build:generator:chat",
 		"call:invoke:model/chat",
@@ -1136,7 +1136,7 @@ func TestListAccessibleGeneratorConfigsEnumeratesAuthorizedLLMs(t *testing.T) {
 	events := []string{}
 	svc := New(Service{
 		Peer:       newTestPeer(),
-		Authorizer: &recordingAuthorizer{events: &events, deny: "auth:model:denied:model.read"},
+		Authorizer: &recordingAuthorizer{events: &events, deny: "auth:model:denied:read"},
 		Models: fakeModels{events: &events, listItems: []apitypes.Model{
 			testModel("chat", apitypes.ModelKindLlm),
 			testModel("asr", apitypes.ModelKindAsr),
@@ -1155,13 +1155,13 @@ func TestListAccessibleGeneratorConfigsEnumeratesAuthorizedLLMs(t *testing.T) {
 	}
 	want := []string{
 		"list:models",
-		"auth:model:chat:model.read",
-		"auth:model:chat:model.use",
+		"auth:model:chat:read",
+		"auth:model:chat:use",
 		"get:tenant:openai:main",
-		"auth:credential:openai-key:credential.read",
-		"auth:credential:openai-key:credential.use",
+		"auth:credential:openai-key:read",
+		"auth:credential:openai-key:use",
 		"get:credential:openai-key",
-		"auth:model:denied:model.read",
+		"auth:model:denied:read",
 	}
 	if !reflect.DeepEqual(events, want) {
 		t.Fatalf("events = %#v, want %#v", events, want)
@@ -1187,7 +1187,7 @@ func TestListAccessibleGeneratorConfigsErrorsAndUseDenial(t *testing.T) {
 	events := []string{}
 	deniedUse := New(Service{
 		Peer:       newTestPeer(),
-		Authorizer: &recordingAuthorizer{events: &events, deny: "auth:model:denied:model.use"},
+		Authorizer: &recordingAuthorizer{events: &events, deny: "auth:model:denied:use"},
 		Models: fakeModels{events: &events, listItems: []apitypes.Model{
 			testModel("denied", apitypes.ModelKindLlm),
 		}},
@@ -1203,8 +1203,8 @@ func TestListAccessibleGeneratorConfigsErrorsAndUseDenial(t *testing.T) {
 	}
 	want := []string{
 		"list:models",
-		"auth:model:denied:model.read",
-		"auth:model:denied:model.use",
+		"auth:model:denied:read",
+		"auth:model:denied:use",
 	}
 	if !reflect.DeepEqual(events, want) {
 		t.Fatalf("denied use events = %#v, want %#v", events, want)

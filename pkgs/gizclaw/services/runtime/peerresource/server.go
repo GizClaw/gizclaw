@@ -314,7 +314,7 @@ func (s *Server) handleWorkspaceList(ctx context.Context, req *rpcapi.RPCRequest
 	}
 	items := make([]apitypes.Workspace, 0, len(list.Items))
 	for _, item := range list.Items {
-		err := s.authorizeErr(ctx, acl.WorkspaceResource(item.Name), apitypes.ACLPermissionWorkspaceRead)
+		err := s.authorizeErr(ctx, acl.WorkspaceResource(item.Name), apitypes.ACLPermissionRead)
 		if errors.Is(err, acl.ErrDenied) {
 			continue
 		}
@@ -346,7 +346,7 @@ func (s *Server) handleWorkspaceListByPrefix(ctx context.Context, requestID stri
 			SubjectID:        s.Caller.String(),
 			ResourceKind:     acl.ResourceKindWorkspace,
 			ResourceIDPrefix: prefix,
-			Permission:       apitypes.ACLPermissionWorkspaceRead,
+			Permission:       apitypes.ACLPermissionRead,
 		})
 		if err != nil {
 			return internalError(requestID, err.Error())
@@ -362,7 +362,7 @@ func (s *Server) handleWorkspaceListByPrefix(ctx context.Context, requestID stri
 				continue
 			}
 			seen[resourceID] = struct{}{}
-			err := s.authorizeErr(ctx, acl.WorkspaceResource(resourceID), apitypes.ACLPermissionWorkspaceRead)
+			err := s.authorizeErr(ctx, acl.WorkspaceResource(resourceID), apitypes.ACLPermissionRead)
 			if errors.Is(err, acl.ErrDenied) {
 				continue
 			}
@@ -412,7 +412,7 @@ func (s *Server) handleWorkspaceGet(ctx context.Context, req *rpcapi.RPCRequest)
 	if !ok {
 		return invalidParams(req.Id)
 	}
-	if resp := s.authorizeResponse(ctx, req.Id, acl.WorkspaceResource(params.Name), apitypes.ACLPermissionWorkspaceRead); resp != nil {
+	if resp := s.authorizeResponse(ctx, req.Id, acl.WorkspaceResource(params.Name), apitypes.ACLPermissionRead); resp != nil {
 		return resp
 	}
 	adminResp, err := s.Workspaces.GetWorkspace(ctx, adminservice.GetWorkspaceRequestObject{Name: params.Name})
@@ -430,10 +430,10 @@ func (s *Server) handleWorkspaceCreate(ctx context.Context, req *rpcapi.RPCReque
 	if !ok {
 		return invalidParams(req.Id), true, nil
 	}
-	if resp := s.authorizeResponse(ctx, req.Id, acl.WorkspaceResource(params.Name), apitypes.ACLPermissionWorkspaceAdmin); resp != nil {
+	if resp := s.authorizeResponse(ctx, req.Id, acl.CollectionResource(acl.ResourceKindWorkspace), apitypes.ACLPermissionCreate); resp != nil {
 		return resp, true, nil
 	}
-	if resp := s.authorizeResponse(ctx, req.Id, workflowResource(params.WorkflowName), apitypes.ACLPermissionWorkflowUse); resp != nil {
+	if resp := s.authorizeResponse(ctx, req.Id, workflowResource(params.WorkflowName), apitypes.ACLPermissionUse); resp != nil {
 		return resp, true, nil
 	}
 	body, err := convertType[adminservice.CreateWorkspaceJSONRequestBody](params)
@@ -455,10 +455,10 @@ func (s *Server) handleWorkspacePut(ctx context.Context, req *rpcapi.RPCRequest)
 	if !ok {
 		return invalidParams(req.Id), true, nil
 	}
-	if resp := s.authorizeResponse(ctx, req.Id, acl.WorkspaceResource(params.Name), apitypes.ACLPermissionWorkspaceAdmin); resp != nil {
+	if resp := s.authorizeResponse(ctx, req.Id, acl.WorkspaceResource(params.Name), apitypes.ACLPermissionAdmin); resp != nil {
 		return resp, true, nil
 	}
-	if resp := s.authorizeResponse(ctx, req.Id, workflowResource(params.Body.WorkflowName), apitypes.ACLPermissionWorkflowUse); resp != nil {
+	if resp := s.authorizeResponse(ctx, req.Id, workflowResource(params.Body.WorkflowName), apitypes.ACLPermissionUse); resp != nil {
 		return resp, true, nil
 	}
 	body, err := convertType[adminservice.PutWorkspaceJSONRequestBody](params.Body)
@@ -480,7 +480,7 @@ func (s *Server) handleWorkspaceDelete(ctx context.Context, req *rpcapi.RPCReque
 	if !ok {
 		return invalidParams(req.Id)
 	}
-	if resp := s.authorizeResponse(ctx, req.Id, acl.WorkspaceResource(params.Name), apitypes.ACLPermissionWorkspaceAdmin); resp != nil {
+	if resp := s.authorizeResponse(ctx, req.Id, acl.WorkspaceResource(params.Name), apitypes.ACLPermissionAdmin); resp != nil {
 		return resp
 	}
 	adminResp, err := s.Workspaces.DeleteWorkspace(ctx, adminservice.DeleteWorkspaceRequestObject{Name: params.Name})
@@ -646,7 +646,7 @@ func (s *Server) handleWorkflowList(ctx context.Context, req *rpcapi.RPCRequest)
 	}
 	items := make([]apitypes.WorkflowDocument, 0, len(list.Items))
 	for _, item := range list.Items {
-		err := s.authorizeErr(ctx, workflowResource(item.Metadata.Name), apitypes.ACLPermissionWorkflowRead)
+		err := s.authorizeErr(ctx, workflowResource(item.Metadata.Name), apitypes.ACLPermissionRead)
 		if errors.Is(err, acl.ErrDenied) {
 			continue
 		}
@@ -666,7 +666,7 @@ func (s *Server) handleWorkflowGet(ctx context.Context, req *rpcapi.RPCRequest) 
 	if !ok {
 		return invalidParams(req.Id)
 	}
-	if resp := s.authorizeResponse(ctx, req.Id, workflowResource(params.Name), apitypes.ACLPermissionWorkflowRead); resp != nil {
+	if resp := s.authorizeResponse(ctx, req.Id, workflowResource(params.Name), apitypes.ACLPermissionRead); resp != nil {
 		return resp
 	}
 	adminResp, err := s.Workflows.GetWorkflow(ctx, adminservice.GetWorkflowRequestObject{Name: params.Name})
@@ -684,7 +684,7 @@ func (s *Server) handleWorkflowCreate(ctx context.Context, req *rpcapi.RPCReques
 	if !ok {
 		return invalidParams(req.Id), true, nil
 	}
-	if resp := s.authorizeResponse(ctx, req.Id, workflowResource(params.Metadata.Name), apitypes.ACLPermissionWorkflowAdmin); resp != nil {
+	if resp := s.authorizeResponse(ctx, req.Id, acl.CollectionResource(acl.ResourceKindWorkflow), apitypes.ACLPermissionCreate); resp != nil {
 		return resp, true, nil
 	}
 	body, err := convertType[adminservice.CreateWorkflowJSONRequestBody](params)
@@ -706,7 +706,7 @@ func (s *Server) handleWorkflowPut(ctx context.Context, req *rpcapi.RPCRequest) 
 	if !ok {
 		return invalidParams(req.Id), true, nil
 	}
-	if resp := s.authorizeResponse(ctx, req.Id, workflowResource(params.Name), apitypes.ACLPermissionWorkflowAdmin); resp != nil {
+	if resp := s.authorizeResponse(ctx, req.Id, workflowResource(params.Name), apitypes.ACLPermissionAdmin); resp != nil {
 		return resp, true, nil
 	}
 	body, err := convertType[adminservice.PutWorkflowJSONRequestBody](params.Body)
@@ -728,7 +728,7 @@ func (s *Server) handleWorkflowDelete(ctx context.Context, req *rpcapi.RPCReques
 	if !ok {
 		return invalidParams(req.Id)
 	}
-	if resp := s.authorizeResponse(ctx, req.Id, workflowResource(params.Name), apitypes.ACLPermissionWorkflowAdmin); resp != nil {
+	if resp := s.authorizeResponse(ctx, req.Id, workflowResource(params.Name), apitypes.ACLPermissionAdmin); resp != nil {
 		return resp
 	}
 	adminResp, err := s.Workflows.DeleteWorkflow(ctx, adminservice.DeleteWorkflowRequestObject{Name: params.Name})
@@ -782,7 +782,7 @@ func (s *Server) handleModelCreate(ctx context.Context, req *rpcapi.RPCRequest) 
 	if !ok {
 		return invalidParams(req.Id), true, nil
 	}
-	if resp := s.authorizeResponse(ctx, req.Id, acl.ModelResource(params.Id), apitypes.ACLPermissionModelAdmin); resp != nil {
+	if resp := s.authorizeResponse(ctx, req.Id, acl.CollectionResource(acl.ResourceKindModel), apitypes.ACLPermissionCreate); resp != nil {
 		return resp, true, nil
 	}
 	body, err := convertType[adminservice.CreateModelJSONRequestBody](params)
@@ -804,7 +804,7 @@ func (s *Server) handleModelPut(ctx context.Context, req *rpcapi.RPCRequest) (*r
 	if !ok {
 		return invalidParams(req.Id), true, nil
 	}
-	if resp := s.authorizeResponse(ctx, req.Id, acl.ModelResource(params.Id), apitypes.ACLPermissionModelAdmin); resp != nil {
+	if resp := s.authorizeResponse(ctx, req.Id, acl.ModelResource(params.Id), apitypes.ACLPermissionAdmin); resp != nil {
 		return resp, true, nil
 	}
 	body, err := convertType[adminservice.PutModelJSONRequestBody](params.Body)
@@ -826,7 +826,7 @@ func (s *Server) handleModelDelete(ctx context.Context, req *rpcapi.RPCRequest) 
 	if !ok {
 		return invalidParams(req.Id)
 	}
-	if resp := s.authorizeResponse(ctx, req.Id, acl.ModelResource(params.Id), apitypes.ACLPermissionModelAdmin); resp != nil {
+	if resp := s.authorizeResponse(ctx, req.Id, acl.ModelResource(params.Id), apitypes.ACLPermissionAdmin); resp != nil {
 		return resp
 	}
 	adminResp, err := s.Models.DeleteModel(ctx, adminservice.DeleteModelRequestObject{Id: params.Id})
@@ -898,7 +898,7 @@ func (s *Server) handleCredentialList(ctx context.Context, req *rpcapi.RPCReques
 	}
 	items := make([]apitypes.Credential, 0, len(list.Items))
 	for _, item := range list.Items {
-		err := s.authorizeErr(ctx, acl.CredentialResource(item.Name), apitypes.ACLPermissionCredentialRead)
+		err := s.authorizeErr(ctx, acl.CredentialResource(item.Name), apitypes.ACLPermissionRead)
 		if errors.Is(err, acl.ErrDenied) {
 			continue
 		}
@@ -933,7 +933,7 @@ func (s *Server) handleCredentialCreate(ctx context.Context, req *rpcapi.RPCRequ
 	if !ok {
 		return invalidParams(req.Id), true, nil
 	}
-	if resp := s.authorizeResponse(ctx, req.Id, acl.CredentialResource(params.Name), apitypes.ACLPermissionCredentialAdmin); resp != nil {
+	if resp := s.authorizeResponse(ctx, req.Id, acl.CollectionResource(acl.ResourceKindCredential), apitypes.ACLPermissionCreate); resp != nil {
 		return resp, true, nil
 	}
 	body, err := convertType[adminservice.CreateCredentialJSONRequestBody](params)
@@ -955,7 +955,7 @@ func (s *Server) handleCredentialPut(ctx context.Context, req *rpcapi.RPCRequest
 	if !ok {
 		return invalidParams(req.Id), true, nil
 	}
-	if resp := s.authorizeResponse(ctx, req.Id, acl.CredentialResource(params.Name), apitypes.ACLPermissionCredentialAdmin); resp != nil {
+	if resp := s.authorizeResponse(ctx, req.Id, acl.CredentialResource(params.Name), apitypes.ACLPermissionAdmin); resp != nil {
 		return resp, true, nil
 	}
 	body, err := convertType[adminservice.PutCredentialJSONRequestBody](params.Body)
@@ -977,7 +977,7 @@ func (s *Server) handleCredentialDelete(ctx context.Context, req *rpcapi.RPCRequ
 	if !ok {
 		return invalidParams(req.Id)
 	}
-	if resp := s.authorizeResponse(ctx, req.Id, acl.CredentialResource(params.Name), apitypes.ACLPermissionCredentialAdmin); resp != nil {
+	if resp := s.authorizeResponse(ctx, req.Id, acl.CredentialResource(params.Name), apitypes.ACLPermissionAdmin); resp != nil {
 		return resp
 	}
 	adminResp, err := s.Credentials.DeleteCredential(ctx, adminservice.DeleteCredentialRequestObject{Name: params.Name})
@@ -1004,20 +1004,7 @@ func (s *Server) authorizeErr(ctx context.Context, resource apitypes.ACLResource
 		Permission: permission,
 	}
 	err := s.ACL.Authorize(ctx, request)
-	if err == nil || !errors.Is(err, acl.ErrDenied) || !isCollectionFallbackResource(resource) {
-		return err
-	}
-	request.Resource.Id = acl.CollectionResourceID
-	return s.ACL.Authorize(ctx, request)
-}
-
-func isCollectionFallbackResource(resource apitypes.ACLResource) bool {
-	switch resource.Kind {
-	case apitypes.ACLResourceKindWorkflow, apitypes.ACLResourceKindWorkspace:
-		return resource.Id != "" && resource.Id != acl.CollectionResourceID
-	default:
-		return false
-	}
+	return err
 }
 
 func adminRPCResponse[T any](id string, visit func(*fiber.Ctx) error, encode func(*rpcapi.RPCResponse_Result, T) error) *rpcapi.RPCResponse {

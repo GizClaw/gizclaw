@@ -125,7 +125,7 @@ func TestMembersMaintainBelongsAndWorkspaceACLBindings(t *testing.T) {
 	if err := baseACL.Authorize(ctx, acl.AuthorizeRequest{
 		Subject:    acl.PublicKeySubject("peer-a"),
 		Resource:   acl.WorkspaceResource(workspaceName),
-		Permission: apitypes.ACLPermissionWorkspaceUse,
+		Permission: apitypes.ACLPermissionUse,
 	}); err != nil {
 		t.Fatalf("owner workspace use authorize: %v", err)
 	}
@@ -137,7 +137,7 @@ func TestMembersMaintainBelongsAndWorkspaceACLBindings(t *testing.T) {
 	if err := baseACL.Authorize(ctx, acl.AuthorizeRequest{
 		Subject:    acl.PublicKeySubject("peer-b"),
 		Resource:   acl.WorkspaceResource(workspaceName),
-		Permission: apitypes.ACLPermissionWorkspaceUse,
+		Permission: apitypes.ACLPermissionUse,
 	}); err != nil {
 		t.Fatalf("member workspace use authorize: %v", err)
 	}
@@ -161,7 +161,7 @@ func TestMembersMaintainBelongsAndWorkspaceACLBindings(t *testing.T) {
 	if err := baseACL.Authorize(ctx, acl.AuthorizeRequest{
 		Subject:    acl.PublicKeySubject("peer-b"),
 		Resource:   acl.WorkspaceResource(workspaceName),
-		Permission: apitypes.ACLPermissionWorkspaceUse,
+		Permission: apitypes.ACLPermissionUse,
 	}); !errors.Is(err, acl.ErrDenied) {
 		t.Fatalf("deleted member workspace use authorize error = %v, want denied", err)
 	}
@@ -227,7 +227,7 @@ func TestAdminFriendGroupLifecycleMaintainsMembersBelongsAndWorkspaceACL(t *test
 	if err := baseACL.Authorize(ctx, acl.AuthorizeRequest{
 		Subject:    acl.PublicKeySubject("peer-owner"),
 		Resource:   acl.WorkspaceResource(workspaceName),
-		Permission: apitypes.ACLPermissionWorkspaceUse,
+		Permission: apitypes.ACLPermissionUse,
 	}); err != nil {
 		t.Fatalf("owner workspace authorize: %v", err)
 	}
@@ -261,7 +261,7 @@ func TestAdminFriendGroupLifecycleMaintainsMembersBelongsAndWorkspaceACL(t *test
 	if err := baseACL.Authorize(ctx, acl.AuthorizeRequest{
 		Subject:    acl.PublicKeySubject("peer-owner"),
 		Resource:   acl.WorkspaceResource(workspaceName),
-		Permission: apitypes.ACLPermissionWorkspaceUse,
+		Permission: apitypes.ACLPermissionUse,
 	}); !errors.Is(err, acl.ErrDenied) {
 		t.Fatalf("owner workspace authorize after delete = %v, want denied", err)
 	}
@@ -478,7 +478,7 @@ func TestJoinFriendGroupRollsBackWhenFinalReadFails(t *testing.T) {
 	if err := baseACL.Authorize(ctx, acl.AuthorizeRequest{
 		Subject:    acl.PublicKeySubject("peer-b"),
 		Resource:   acl.WorkspaceResource(workspaceName),
-		Permission: apitypes.ACLPermissionWorkspaceUse,
+		Permission: apitypes.ACLPermissionUse,
 	}); !errors.Is(err, acl.ErrDenied) {
 		t.Fatalf("workspace ACL after failed join error = %v, want denied", err)
 	}
@@ -542,7 +542,7 @@ func TestInviteTokensAndJoinLifecycle(t *testing.T) {
 	if err := baseACL.Authorize(ctx, acl.AuthorizeRequest{
 		Subject:    acl.PublicKeySubject("peer-b"),
 		Resource:   acl.WorkspaceResource(workspaceName),
-		Permission: apitypes.ACLPermissionWorkspaceUse,
+		Permission: apitypes.ACLPermissionUse,
 	}); err != nil {
 		t.Fatalf("joined peer workspace authorize: %v", err)
 	}
@@ -753,7 +753,7 @@ func TestDeleteClearsBelongsAndWorkspaceACLBeyondFirstPage(t *testing.T) {
 	if err := baseACL.Authorize(ctx, acl.AuthorizeRequest{
 		Subject:    acl.PublicKeySubject(lastPeer),
 		Resource:   acl.WorkspaceResource(workspaceName),
-		Permission: apitypes.ACLPermissionWorkspaceUse,
+		Permission: apitypes.ACLPermissionUse,
 	}); err != nil {
 		t.Fatalf("last member workspace use authorize before delete: %v", err)
 	}
@@ -764,7 +764,7 @@ func TestDeleteClearsBelongsAndWorkspaceACLBeyondFirstPage(t *testing.T) {
 	if err := baseACL.Authorize(ctx, acl.AuthorizeRequest{
 		Subject:    acl.PublicKeySubject(lastPeer),
 		Resource:   acl.WorkspaceResource(workspaceName),
-		Permission: apitypes.ACLPermissionWorkspaceUse,
+		Permission: apitypes.ACLPermissionUse,
 	}); !errors.Is(err, acl.ErrDenied) {
 		t.Fatalf("last member workspace use authorize after delete error = %v, want denied", err)
 	}
@@ -949,7 +949,7 @@ func TestCreateHandlesWorkspaceFailures(t *testing.T) {
 	if err := baseACL.Authorize(ctx, acl.AuthorizeRequest{
 		Subject:    acl.PublicKeySubject("peer-b"),
 		Resource:   acl.WorkspaceResource("workspace-a"),
-		Permission: apitypes.ACLPermissionWorkspaceUse,
+		Permission: apitypes.ACLPermissionUse,
 	}); err != nil {
 		t.Fatalf("peer-b workspace use after existing workspace: %v", err)
 	}

@@ -105,7 +105,7 @@ func TestPutRejectsMissingServicesByKind(t *testing.T) {
 		resource string
 	}{
 		{name: "acl policy binding", resource: `{"apiVersion":"gizclaw.admin/v1alpha1","kind":"ACLPolicyBinding","metadata":{"name":"binding"},"spec":{"subject":{"kind":"pk","id":"peer"},"resource":{"kind":"workspace","id":"workspace"},"role":"role"}}`},
-		{name: "acl role", resource: `{"apiVersion":"gizclaw.admin/v1alpha1","kind":"ACLRole","metadata":{"name":"role"},"spec":{"permissions":["workspace.read"]}}`},
+		{name: "acl role", resource: `{"apiVersion":"gizclaw.admin/v1alpha1","kind":"ACLRole","metadata":{"name":"role"},"spec":{"permissions":["read"]}}`},
 		{name: "credential", resource: `{"apiVersion":"gizclaw.admin/v1alpha1","kind":"Credential","metadata":{"name":"name"},"spec":{"provider":"minimax","body":{"api_key":"secret"}}}`},
 		{name: "firmware", resource: `{"apiVersion":"gizclaw.admin/v1alpha1","kind":"Firmware","metadata":{"name":"firmware"},"spec":{"slots":{"stable":{"description":"stable firmware"}}}}`},
 		{name: "badge", resource: `{"apiVersion":"gizclaw.admin/v1alpha1","kind":"Badge","metadata":{"name":"badge"},"spec":{"name":"Badge"}}`},
@@ -149,7 +149,7 @@ func TestPutRejectsUnsupportedVersionByKind(t *testing.T) {
 		resource string
 	}{
 		{name: "acl policy binding", resource: `{"apiVersion":"unsupported","kind":"ACLPolicyBinding","metadata":{"name":"binding"},"spec":{"subject":{"kind":"pk","id":"peer"},"resource":{"kind":"workspace","id":"workspace"},"role":"role"}}`},
-		{name: "acl role", resource: `{"apiVersion":"unsupported","kind":"ACLRole","metadata":{"name":"role"},"spec":{"permissions":["workspace.read"]}}`},
+		{name: "acl role", resource: `{"apiVersion":"unsupported","kind":"ACLRole","metadata":{"name":"role"},"spec":{"permissions":["read"]}}`},
 		{name: "credential", resource: `{"apiVersion":"unsupported","kind":"Credential","metadata":{"name":"name"},"spec":{"provider":"minimax","body":{"api_key":"secret"}}}`},
 		{name: "firmware", resource: `{"apiVersion":"unsupported","kind":"Firmware","metadata":{"name":"firmware"},"spec":{"slots":{"stable":{"description":"stable firmware"}}}}`},
 		{name: "badge", resource: `{"apiVersion":"unsupported","kind":"Badge","metadata":{"name":"badge"},"spec":{"name":"Badge"}}`},
@@ -336,7 +336,7 @@ func TestApplyRejectsMissingServicesByKind(t *testing.T) {
 		resource string
 	}{
 		{name: "acl policy binding", resource: `{"apiVersion":"gizclaw.admin/v1alpha1","kind":"ACLPolicyBinding","metadata":{"name":"binding"},"spec":{"subject":{"kind":"pk","id":"peer"},"resource":{"kind":"workspace","id":"workspace"},"role":"role"}}`},
-		{name: "acl role", resource: `{"apiVersion":"gizclaw.admin/v1alpha1","kind":"ACLRole","metadata":{"name":"role"},"spec":{"permissions":["workspace.read"]}}`},
+		{name: "acl role", resource: `{"apiVersion":"gizclaw.admin/v1alpha1","kind":"ACLRole","metadata":{"name":"role"},"spec":{"permissions":["read"]}}`},
 		{name: "credential", resource: `{"apiVersion":"gizclaw.admin/v1alpha1","kind":"Credential","metadata":{"name":"name"},"spec":{"provider":"minimax","body":{"api_key":"secret"}}}`},
 		{name: "firmware", resource: `{"apiVersion":"gizclaw.admin/v1alpha1","kind":"Firmware","metadata":{"name":"firmware"},"spec":{"slots":{"stable":{"description":"stable firmware"}}}}`},
 		{name: "badge", resource: `{"apiVersion":"gizclaw.admin/v1alpha1","kind":"Badge","metadata":{"name":"badge"},"spec":{"name":"Badge"}}`},
@@ -380,7 +380,7 @@ func TestApplyRejectsUnsupportedVersionByKind(t *testing.T) {
 		resource string
 	}{
 		{name: "acl policy binding", resource: `{"apiVersion":"unsupported","kind":"ACLPolicyBinding","metadata":{"name":"binding"},"spec":{"subject":{"kind":"pk","id":"peer"},"resource":{"kind":"workspace","id":"workspace"},"role":"role"}}`},
-		{name: "acl role", resource: `{"apiVersion":"unsupported","kind":"ACLRole","metadata":{"name":"role"},"spec":{"permissions":["workspace.read"]}}`},
+		{name: "acl role", resource: `{"apiVersion":"unsupported","kind":"ACLRole","metadata":{"name":"role"},"spec":{"permissions":["read"]}}`},
 		{name: "credential", resource: `{"apiVersion":"unsupported","kind":"Credential","metadata":{"name":"name"},"spec":{"provider":"minimax","body":{"api_key":"secret"}}}`},
 		{name: "firmware", resource: `{"apiVersion":"unsupported","kind":"Firmware","metadata":{"name":"firmware"},"spec":{"slots":{"stable":{"description":"stable firmware"}}}}`},
 		{name: "badge", resource: `{"apiVersion":"unsupported","kind":"Badge","metadata":{"name":"badge"},"spec":{"name":"Badge"}}`},

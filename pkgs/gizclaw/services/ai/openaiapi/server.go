@@ -290,7 +290,7 @@ func (s *Server) modelReadAllowed(ctx context.Context, id string) (bool, error) 
 	err := s.Authorizer.Authorize(ctx, acl.AuthorizeRequest{
 		Subject:    subject,
 		Resource:   acl.ModelResource(id),
-		Permission: apitypes.ACLPermissionModelRead,
+		Permission: apitypes.ACLPermissionRead,
 	})
 	if errors.Is(err, acl.ErrDenied) {
 		return false, nil
@@ -299,12 +299,12 @@ func (s *Server) modelReadAllowed(ctx context.Context, id string) (bool, error) 
 }
 
 func openAIModel(model apitypes.Model) openaiservice.Model {
-	owner := strings.TrimSpace(model.Provider.Name)
-	if owner == "" {
-		owner = strings.TrimSpace(string(model.Provider.Kind))
+	admin := strings.TrimSpace(model.Provider.Name)
+	if admin == "" {
+		admin = strings.TrimSpace(string(model.Provider.Kind))
 	}
-	if owner == "" {
-		owner = "gizclaw"
+	if admin == "" {
+		admin = "gizclaw"
 	}
 	created := model.CreatedAt.Unix()
 	if model.CreatedAt.IsZero() {
@@ -314,7 +314,7 @@ func openAIModel(model apitypes.Model) openaiservice.Model {
 		Id:      model.Id,
 		Object:  openaiservice.ModelObjectModel,
 		Created: created,
-		OwnedBy: owner,
+		OwnedBy: admin,
 	}
 }
 

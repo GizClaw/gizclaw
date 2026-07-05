@@ -604,12 +604,12 @@ func TestSocialResourcePutAndDeleteBranches(t *testing.T) {
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "FriendGroupMember",
 		"metadata": {"name": "family01:peer-a"},
-		"spec": {"friend_group_id": "family01", "peer_public_key": "peer-a", "role": "owner"}
+		"spec": {"friend_group_id": "family01", "peer_public_key": "peer-a", "role": "admin"}
 	}`))
 	if err != nil {
 		t.Fatalf("Put member returned error: %v", err)
 	}
-	if got, err := member.AsFriendGroupMemberResource(); err != nil || got.Spec.Role != apitypes.FriendGroupMemberRoleOwner {
+	if got, err := member.AsFriendGroupMemberResource(); err != nil || got.Spec.Role != apitypes.FriendGroupMemberRoleAdmin {
 		t.Fatalf("Put member resource = %#v, err = %v", got, err)
 	}
 

@@ -112,7 +112,7 @@ func (s *Server) authorizeHistoryRead(ctx context.Context, subject apitypes.ACLS
 	return s.Authorizer.Authorize(ctx, acl.AuthorizeRequest{
 		Subject:    subject,
 		Resource:   acl.WorkspaceResource(workspaceName),
-		Permission: apitypes.ACLPermissionWorkspaceRead,
+		Permission: apitypes.ACLPermissionRead,
 	})
 }
 

@@ -13,97 +13,22 @@ import (
 
 // Defines values for ACLPermission.
 const (
-	ACLPermissionBadgeAdmin      ACLPermission = "badge.admin"
-	ACLPermissionBadgeRead       ACLPermission = "badge.read"
-	ACLPermissionBadgeUse        ACLPermission = "badge.use"
-	ACLPermissionCredentialAdmin ACLPermission = "credential.admin"
-	ACLPermissionCredentialRead  ACLPermission = "credential.read"
-	ACLPermissionCredentialUse   ACLPermission = "credential.use"
-	ACLPermissionEditor          ACLPermission = "editor"
-	ACLPermissionFirmwareAdmin   ACLPermission = "firmware.admin"
-	ACLPermissionFirmwareRead    ACLPermission = "firmware.read"
-	ACLPermissionModelAdmin      ACLPermission = "model.admin"
-	ACLPermissionModelRead       ACLPermission = "model.read"
-	ACLPermissionModelUse        ACLPermission = "model.use"
-	ACLPermissionOwner           ACLPermission = "owner"
-	ACLPermissionPetSpeciesAdmin ACLPermission = "pet_species.admin"
-	ACLPermissionPetSpeciesRead  ACLPermission = "pet_species.read"
-	ACLPermissionPetSpeciesUse   ACLPermission = "pet_species.use"
-	ACLPermissionViewAdmin       ACLPermission = "view.admin"
-	ACLPermissionViewRead        ACLPermission = "view.read"
-	ACLPermissionViewUse         ACLPermission = "view.use"
-	ACLPermissionViewer          ACLPermission = "viewer"
-	ACLPermissionVoiceAdmin      ACLPermission = "voice.admin"
-	ACLPermissionVoiceRead       ACLPermission = "voice.read"
-	ACLPermissionVoiceUse        ACLPermission = "voice.use"
-	ACLPermissionWorkflowAdmin   ACLPermission = "workflow.admin"
-	ACLPermissionWorkflowRead    ACLPermission = "workflow.read"
-	ACLPermissionWorkflowUse     ACLPermission = "workflow.use"
-	ACLPermissionWorkspaceAdmin  ACLPermission = "workspace.admin"
-	ACLPermissionWorkspaceRead   ACLPermission = "workspace.read"
-	ACLPermissionWorkspaceUse    ACLPermission = "workspace.use"
+	ACLPermissionAdmin  ACLPermission = "admin"
+	ACLPermissionCreate ACLPermission = "create"
+	ACLPermissionRead   ACLPermission = "read"
+	ACLPermissionUse    ACLPermission = "use"
 )
 
 // Valid indicates whether the value is a known member of the ACLPermission enum.
 func (e ACLPermission) Valid() bool {
 	switch e {
-	case ACLPermissionBadgeAdmin:
+	case ACLPermissionAdmin:
 		return true
-	case ACLPermissionBadgeRead:
+	case ACLPermissionCreate:
 		return true
-	case ACLPermissionBadgeUse:
+	case ACLPermissionRead:
 		return true
-	case ACLPermissionCredentialAdmin:
-		return true
-	case ACLPermissionCredentialRead:
-		return true
-	case ACLPermissionCredentialUse:
-		return true
-	case ACLPermissionEditor:
-		return true
-	case ACLPermissionFirmwareAdmin:
-		return true
-	case ACLPermissionFirmwareRead:
-		return true
-	case ACLPermissionModelAdmin:
-		return true
-	case ACLPermissionModelRead:
-		return true
-	case ACLPermissionModelUse:
-		return true
-	case ACLPermissionOwner:
-		return true
-	case ACLPermissionPetSpeciesAdmin:
-		return true
-	case ACLPermissionPetSpeciesRead:
-		return true
-	case ACLPermissionPetSpeciesUse:
-		return true
-	case ACLPermissionViewAdmin:
-		return true
-	case ACLPermissionViewRead:
-		return true
-	case ACLPermissionViewUse:
-		return true
-	case ACLPermissionViewer:
-		return true
-	case ACLPermissionVoiceAdmin:
-		return true
-	case ACLPermissionVoiceRead:
-		return true
-	case ACLPermissionVoiceUse:
-		return true
-	case ACLPermissionWorkflowAdmin:
-		return true
-	case ACLPermissionWorkflowRead:
-		return true
-	case ACLPermissionWorkflowUse:
-		return true
-	case ACLPermissionWorkspaceAdmin:
-		return true
-	case ACLPermissionWorkspaceRead:
-		return true
-	case ACLPermissionWorkspaceUse:
+	case ACLPermissionUse:
 		return true
 	default:
 		return false

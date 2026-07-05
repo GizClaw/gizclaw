@@ -100,9 +100,9 @@ func PageItems[T any](items []T, cursor string, limit int, id func(T) string) It
 	return ItemPage[T]{Items: items[start:end], HasNext: hasNext, NextCursor: next}
 }
 
-func RequireOwner(owner string) error {
-	if strings.TrimSpace(owner) == "" {
-		return errors.New("social: owner is required")
+func RequireOwner(admin string) error {
+	if strings.TrimSpace(admin) == "" {
+		return errors.New("social: admin is required")
 	}
 	return nil
 }
@@ -160,16 +160,16 @@ func DeletePrefix(ctx context.Context, store kv.Store, prefix kv.Key) error {
 	return store.BatchDelete(ctx, keys)
 }
 
-func OwnerPrefix(root kv.Key, owner string) kv.Key {
-	return append(append(kv.Key{}, root...), EscapeStoreSegment(strings.TrimSpace(owner)))
+func OwnerPrefix(root kv.Key, admin string) kv.Key {
+	return append(append(kv.Key{}, root...), EscapeStoreSegment(strings.TrimSpace(admin)))
 }
 
-func ContactKey(owner, id string) kv.Key {
-	return append(OwnerPrefix(ContactsRoot, owner), EscapeStoreSegment(id))
+func ContactKey(admin, id string) kv.Key {
+	return append(OwnerPrefix(ContactsRoot, admin), EscapeStoreSegment(id))
 }
 
-func FriendKey(owner, id string) kv.Key {
-	return append(OwnerPrefix(FriendsRoot, owner), EscapeStoreSegment(id))
+func FriendKey(admin, id string) kv.Key {
+	return append(OwnerPrefix(FriendsRoot, admin), EscapeStoreSegment(id))
 }
 
 func FriendInviteTokenKey(peerPublicKey string) kv.Key {
@@ -229,8 +229,8 @@ func GroupRole(member rpcapi.FriendGroupMemberObject) rpcapi.FriendGroupMemberRo
 
 func WorkspaceACLRole() (string, apitypes.ACLPermissionList) {
 	return WorkspaceMemberRoleName, apitypes.ACLPermissionList{
-		apitypes.ACLPermissionWorkspaceRead,
-		apitypes.ACLPermissionWorkspaceUse,
+		apitypes.ACLPermissionRead,
+		apitypes.ACLPermissionUse,
 	}
 }
 
