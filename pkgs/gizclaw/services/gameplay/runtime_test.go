@@ -108,6 +108,18 @@ func TestRuntimeAdoptAndDrive(t *testing.T) {
 	if len(drive.Badges) != 1 || !drive.Badges[0].Active || drive.Badges[0].Level != 1 || drive.Badges[0].Progress != 0 {
 		t.Fatalf("badges = %#v", drive.Badges)
 	}
+	if ok, err := runtime.OwnerHasPetDef(ctx, "peer-a", "petdef-basic"); err != nil || !ok {
+		t.Fatalf("OwnerHasPetDef(peer-a, petdef-basic) = %v, %v", ok, err)
+	}
+	if ok, err := runtime.OwnerHasPetDef(ctx, "peer-b", "petdef-basic"); err != nil || ok {
+		t.Fatalf("OwnerHasPetDef(peer-b, petdef-basic) = %v, %v", ok, err)
+	}
+	if ok, err := runtime.OwnerHasBadgeDef(ctx, "peer-a", "badge-basic"); err != nil || !ok {
+		t.Fatalf("OwnerHasBadgeDef(peer-a, badge-basic) = %v, %v", ok, err)
+	}
+	if ok, err := runtime.OwnerHasBadgeDef(ctx, "peer-b", "badge-basic"); err != nil || ok {
+		t.Fatalf("OwnerHasBadgeDef(peer-b, badge-basic) = %v, %v", ok, err)
+	}
 	if len(drive.Transactions) != 2 {
 		t.Fatalf("transactions = %#v", drive.Transactions)
 	}

@@ -269,7 +269,7 @@ for the context file schema and dialing behavior.
   `friends`, `friend-groups`, `friend-group-members`, `friend-group-messages`, and
   `friend-group-message-assets`.
 - Gameplay catalog services are wired from `game-rulesets`, `pet-defs`,
-  `badge-defs`, and `game-defs`. Pet definition pixa files and badge PNG icons
+  `badge-defs`, and `game-defs`. Pet definition and badge pixa files
   use `gameplay-assets`. Peer-owned pet, badge, points, game result,
   transaction, and reward grant state uses the `gameplay-db` SQL store.
 - `agenthost` is optional for the server itself, but workspace agents such as
