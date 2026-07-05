@@ -565,7 +565,7 @@ func (s firstPetSpeciesSelector) SelectSpecies(ctx context.Context, owner string
 			if err := authorizer.Authorize(ctx, acl.AuthorizeRequest{
 				Subject:    acl.PublicKeySubject(owner),
 				Resource:   acl.PetSpeciesResource(item.Id),
-				Permission: apitypes.ACLPermissionPetSpeciesUse,
+				Permission: apitypes.ACLPermissionUse,
 			}); err == nil {
 				return item.Id, nil
 			} else if !errors.Is(err, acl.ErrDenied) {

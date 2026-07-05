@@ -29,7 +29,7 @@ func TestWorkspaceCaseAppliesInputMode(t *testing.T) {
 	if got.workspaceMode() != "realtime" {
 		t.Fatalf("realtime workspace mode = %q", got.workspaceMode())
 	}
-	if got.Workspace != "demo-workflow-realtime-roundtrip" {
+	if got.Workspace != "demo-workflow-rt" {
 		t.Fatalf("realtime workspace = %q", got.Workspace)
 	}
 	got, err = workspaceCaseRealtimeAutoSplit.applyConfig(got)
@@ -39,7 +39,7 @@ func TestWorkspaceCaseAppliesInputMode(t *testing.T) {
 	if got.workspaceMode() != "realtime" {
 		t.Fatalf("realtime auto split workspace mode = %q", got.workspaceMode())
 	}
-	if got.Workspace != "demo-workflow-realtime-auto-split-history" {
+	if got.Workspace != "demo-workflow-rt-auto" {
 		t.Fatalf("realtime auto split workspace = %q", got.Workspace)
 	}
 	got, err = workspaceCasePushToTalkInterrupt.applyConfig(got)
@@ -49,7 +49,7 @@ func TestWorkspaceCaseAppliesInputMode(t *testing.T) {
 	if got.workspaceMode() != "push_to_talk" {
 		t.Fatalf("push workspace mode = %q", got.workspaceMode())
 	}
-	if got.Workspace != "demo-workflow-push-to-talk-interrupt" {
+	if got.Workspace != "demo-workflow-ptt-int" {
 		t.Fatalf("push workspace = %q", got.Workspace)
 	}
 	got, err = workspaceCaseHistoryReplay.applyConfig(got)
@@ -59,7 +59,7 @@ func TestWorkspaceCaseAppliesInputMode(t *testing.T) {
 	if got.workspaceMode() != "push_to_talk" {
 		t.Fatalf("history-replay workspace mode = %q", got.workspaceMode())
 	}
-	if got.Workspace != "demo-workflow-history-replay" {
+	if got.Workspace != "demo-workflow-hist" {
 		t.Fatalf("history-replay workspace = %q", got.Workspace)
 	}
 	got, err = workspaceCaseHumanReview.applyConfig(got)
@@ -69,8 +69,15 @@ func TestWorkspaceCaseAppliesInputMode(t *testing.T) {
 	if got.workspaceMode() != "push_to_talk" {
 		t.Fatalf("human-review workspace mode = %q", got.workspaceMode())
 	}
-	if got.Workspace != "demo-workflow-human-review" {
+	if got.Workspace != "demo-workflow-review" {
 		t.Fatalf("human-review workspace = %q", got.Workspace)
+	}
+}
+
+func TestWorkspaceNameForCaseFitsCustomIDLimit(t *testing.T) {
+	name := workspaceNameForCase("flowcraft-poetry-adventure-li-bai", workspaceCaseRealtimeAutoSplit)
+	if len(name) > 48 {
+		t.Fatalf("workspace name length = %d, want <= 48: %q", len(name), name)
 	}
 }
 
@@ -401,7 +408,7 @@ func TestRunWiresClientTransportAndPersonaDriver(t *testing.T) {
 	serveDone <- nil
 	dialClientForRun = func(cfg config) (*gizcli.Client, <-chan error, error) {
 		dialed = true
-		if cfg.Workspace != "doubao-realtime-workflow-push-to-talk-roundtrip" || cfg.Models.LLM != "chat" {
+		if cfg.Workspace != "doubao-realtime-workflow-ptt" || cfg.Models.LLM != "chat" {
 			t.Fatalf("dial cfg = %+v", cfg)
 		}
 		return &gizcli.Client{}, serveDone, nil
@@ -461,7 +468,7 @@ func TestRunWiresClientTransportAndPersonaDriver(t *testing.T) {
 	if !dialed || !ensured || !selected || !transported || !ran {
 		t.Fatalf("hooks dial/ensure/select/transport/run = %t/%t/%t/%t/%t", dialed, ensured, selected, transported, ran)
 	}
-	if !strings.Contains(output, "workspace=doubao-realtime-workflow-push-to-talk-roundtrip") || !strings.Contains(output, "round=1") {
+	if !strings.Contains(output, "workspace=doubao-realtime-workflow-ptt") || !strings.Contains(output, "round=1") {
 		t.Fatalf("run output = %q", output)
 	}
 }

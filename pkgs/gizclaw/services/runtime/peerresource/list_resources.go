@@ -26,7 +26,7 @@ func (s *Server) ListModels(ctx context.Context, request adminservice.ListModels
 	}
 	items := make([]apitypes.Model, 0, len(list.Items))
 	for _, item := range list.Items {
-		err := s.authorizeErr(ctx, acl.ModelResource(item.Id), apitypes.ACLPermissionModelRead)
+		err := s.authorizeErr(ctx, acl.ModelResource(item.Id), apitypes.ACLPermissionRead)
 		if errors.Is(err, acl.ErrDenied) {
 			continue
 		}
@@ -43,7 +43,7 @@ func (s *Server) GetModel(ctx context.Context, request adminservice.GetModelRequ
 	if s.Models == nil {
 		return adminservice.GetModel500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "model service not configured")), nil
 	}
-	if err := s.authorizeErr(ctx, acl.ModelResource(request.Id), apitypes.ACLPermissionModelRead); err != nil {
+	if err := s.authorizeErr(ctx, acl.ModelResource(request.Id), apitypes.ACLPermissionRead); err != nil {
 		return adminservice.GetModel500JSONResponse(apitypes.NewErrorResponse("ACL_DENIED", err.Error())), nil
 	}
 	return s.Models.GetModel(ctx, request)
@@ -53,7 +53,7 @@ func (s *Server) GetCredential(ctx context.Context, request adminservice.GetCred
 	if s.Credentials == nil {
 		return adminservice.GetCredential500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "credential service not configured")), nil
 	}
-	if err := s.authorizeErr(ctx, acl.CredentialResource(request.Name), apitypes.ACLPermissionCredentialRead); err != nil {
+	if err := s.authorizeErr(ctx, acl.CredentialResource(request.Name), apitypes.ACLPermissionRead); err != nil {
 		return adminservice.GetCredential500JSONResponse(apitypes.NewErrorResponse("ACL_DENIED", err.Error())), nil
 	}
 	return s.Credentials.GetCredential(ctx, request)
@@ -89,7 +89,7 @@ func (s *Server) ListVoices(ctx context.Context, request adminservice.ListVoices
 			return resp, nil
 		}
 		for _, item := range list.Items {
-			err := s.authorizeErr(ctx, acl.VoiceResource(string(item.Id)), apitypes.ACLPermissionVoiceRead)
+			err := s.authorizeErr(ctx, acl.VoiceResource(string(item.Id)), apitypes.ACLPermissionRead)
 			if errors.Is(err, acl.ErrDenied) {
 				continue
 			}
@@ -115,7 +115,7 @@ func (s *Server) GetVoice(ctx context.Context, request adminservice.GetVoiceRequ
 		return adminservice.GetVoice500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "voice service not configured")), nil
 	}
 	id := string(request.Id)
-	if err := s.authorizeErr(ctx, acl.VoiceResource(id), apitypes.ACLPermissionVoiceRead); err != nil {
+	if err := s.authorizeErr(ctx, acl.VoiceResource(id), apitypes.ACLPermissionRead); err != nil {
 		return adminservice.GetVoice500JSONResponse(apitypes.NewErrorResponse("ACL_DENIED", err.Error())), nil
 	}
 	return s.Voices.GetVoice(ctx, request)

@@ -119,6 +119,6 @@ func (r badgeGrantResolver) CanGrantBadge(ctx context.Context, owner string, bad
 	return r.ACL.Authorize(ctx, acl.AuthorizeRequest{
 		Subject:    acl.PublicKeySubject(owner),
 		Resource:   acl.BadgeResource(badgeID),
-		Permission: apitypes.ACLPermissionBadgeUse,
+		Permission: apitypes.ACLPermissionUse,
 	})
 }

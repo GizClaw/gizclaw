@@ -13,6 +13,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminservice"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/customid"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/socialutil"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/acl"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
@@ -139,10 +140,12 @@ func (s *Server) AdminApplyFriendGroup(ctx context.Context, friendGroupID, name 
 	if err != nil {
 		return rpcapi.FriendGroupObject{}, err
 	}
-	friendGroupID = strings.TrimSpace(friendGroupID)
+	if err := customid.ValidateField("friend group id", friendGroupID); err != nil {
+		return rpcapi.FriendGroupObject{}, err
+	}
 	name = strings.TrimSpace(name)
-	if friendGroupID == "" || name == "" {
-		return rpcapi.FriendGroupObject{}, errors.New("social: friend group id and name are required")
+	if name == "" {
+		return rpcapi.FriendGroupObject{}, errors.New("social: friend group name is required")
 	}
 	if _, err := socialutil.ReadJSONValue[rpcapi.FriendGroupObject](ctx, friendGroups, socialutil.GroupKey(friendGroupID)); err == nil {
 		return s.putFriendGroup(ctx, friendGroupID, &name, description)

@@ -229,8 +229,8 @@ func GroupRole(member rpcapi.FriendGroupMemberObject) rpcapi.FriendGroupMemberRo
 
 func WorkspaceACLRole() (string, apitypes.ACLPermissionList) {
 	return WorkspaceMemberRoleName, apitypes.ACLPermissionList{
-		apitypes.ACLPermissionWorkspaceRead,
-		apitypes.ACLPermissionWorkspaceUse,
+		apitypes.ACLPermissionRead,
+		apitypes.ACLPermissionUse,
 	}
 }
 

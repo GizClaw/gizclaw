@@ -32,12 +32,12 @@ func TestSayUsesVoiceTransformerAndConsumesOutput(t *testing.T) {
 		t.Fatalf("Say() = %+v, want accepted", resp)
 	}
 	wantEvents := []string{
-		"auth:voice:cancan:voice.read",
+		"auth:voice:cancan:read",
 		"get:voice:cancan",
-		"auth:voice:cancan:voice.use",
+		"auth:voice:cancan:use",
 		"get:tenant:volc:main",
-		"auth:credential:volc-token:credential.read",
-		"auth:credential:volc-token:credential.use",
+		"auth:credential:volc-token:read",
+		"auth:credential:volc-token:use",
 		"get:credential:volc-token",
 		"build:transformer:voice:cancan",
 		"call:transformer:voice/cancan",

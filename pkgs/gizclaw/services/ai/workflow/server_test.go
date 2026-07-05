@@ -300,7 +300,7 @@ func TestServerPutRejectsPathNameMismatch(t *testing.T) {
 	}
 }
 
-func TestServerTrimsWorkflowNameBeforeStoring(t *testing.T) {
+func TestServerRejectsNonCanonicalWorkflowName(t *testing.T) {
 	t.Parallel()
 
 	srv := newTestServer(t)
@@ -319,21 +319,8 @@ func TestServerTrimsWorkflowNameBeforeStoring(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateWorkflow() error = %v", err)
 	}
-	if _, ok := resp.(adminservice.CreateWorkflow200JSONResponse); !ok {
+	if _, ok := resp.(adminservice.CreateWorkflow400JSONResponse); !ok {
 		t.Fatalf("CreateWorkflow() response = %#v", resp)
-	}
-
-	gotResp, err := srv.GetWorkflow(ctx, adminservice.GetWorkflowRequestObject{Name: "padded-workflow"})
-	if err != nil {
-		t.Fatalf("GetWorkflow() error = %v", err)
-	}
-	got, ok := gotResp.(adminservice.GetWorkflow200JSONResponse)
-	if !ok {
-		t.Fatalf("GetWorkflow() response = %#v", gotResp)
-	}
-	flowcraft := apitypes.WorkflowDocument(got)
-	if flowcraft.Metadata.Name != "padded-workflow" {
-		t.Fatalf("GetWorkflow() metadata.name = %q, want padded-workflow", flowcraft.Metadata.Name)
 	}
 }
 
@@ -343,7 +330,7 @@ func TestServerListWorkflowsPagination(t *testing.T) {
 	srv := newTestServer(t)
 	ctx := context.Background()
 
-	for _, name := range []string{"alpha", "beta", "gamma"} {
+	for _, name := range []string{"alpha001", "beta0001", "gamma001"} {
 		doc := mustDocument(t, fmt.Sprintf(`{
 			"metadata": {
 				"name": %q

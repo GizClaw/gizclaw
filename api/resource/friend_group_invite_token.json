@@ -27,7 +27,12 @@
             ]
           },
           "metadata": {
-            "$ref": "./resource.json#/components/schemas/ResourceMetadata"
+            "allOf": [
+              {
+                "$ref": "./resource.json#/components/schemas/ResourceMetadata"
+              }
+            ],
+            "description": "metadata.name is the friend group custom ID and must match spec.friend_group_id."
           },
           "spec": {
             "$ref": "#/components/schemas/FriendGroupInviteTokenSpec"
@@ -43,7 +48,11 @@
         ],
         "properties": {
           "friend_group_id": {
-            "type": "string"
+            "type": "string",
+            "minLength": 8,
+            "maxLength": 48,
+            "pattern": "^[a-z][a-z0-9._-]{6,46}[a-z0-9]$",
+            "description": "Friend group custom ID. The invite_token value is not a custom ID."
           },
           "invite_token": {
             "type": "string"

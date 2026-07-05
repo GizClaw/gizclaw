@@ -49,7 +49,7 @@ Admins own firmware publishing:
 2. Upload an `artifact.tar` package for the target channel.
 3. Release or rollback channel slots.
 4. Assign firmware selection to a peer config.
-5. Grant the peer `firmware.read` through ACL.
+5. Grant the peer `read` on the `firmware` ACL resource.
 
 Example CLI flow:
 
@@ -142,7 +142,7 @@ holds uploaded binary payloads.
 Peer firmware access is controlled by ACL:
 
 - admins manage firmware documents and uploads;
-- peers need `firmware.read` on a firmware resource before `list`, `get`, or
+- peers need `read` on a `firmware` ACL resource before `list`, `get`, or
   `download` can expose it;
 - artifact downloads are authorized through the same firmware read permission.
 

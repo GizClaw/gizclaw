@@ -35,7 +35,7 @@ func TestAdminAPIACLRolesListGetAndMutation(t *testing.T) {
 	_, _ = env.api.DeleteACLRoleWithResponse(env.ctx, name)
 	created, err := env.api.CreateACLRoleWithResponse(env.ctx, adminservice.ACLRoleUpsert{
 		Name:        name,
-		Permissions: apitypes.ACLPermissionList{apitypes.ACLPermissionWorkflowRead},
+		Permissions: apitypes.ACLPermissionList{apitypes.ACLPermissionRead},
 	})
 	if err != nil {
 		t.Fatalf("create ACL role: %v", err)

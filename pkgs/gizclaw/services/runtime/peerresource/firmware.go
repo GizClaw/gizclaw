@@ -37,7 +37,7 @@ func (s *Server) handleFirmwareList(ctx context.Context, req *rpcapi.RPCRequest)
 	}
 	items := make([]apitypes.Firmware, 0, len(list.Items))
 	for _, item := range list.Items {
-		err := s.authorizeErr(ctx, acl.FirmwareResource(item.Name), apitypes.ACLPermissionFirmwareRead)
+		err := s.authorizeErr(ctx, acl.FirmwareResource(item.Name), apitypes.ACLPermissionRead)
 		if errors.Is(err, acl.ErrDenied) {
 			continue
 		}
@@ -121,7 +121,7 @@ func (s *Server) firmwareGet(ctx context.Context, id string) (apitypes.Firmware,
 	if s.Firmwares == nil || s.Firmwares.Store == nil {
 		return apitypes.Firmware{}, errors.New("firmware service not configured")
 	}
-	if err := s.authorizeErr(ctx, acl.FirmwareResource(id), apitypes.ACLPermissionFirmwareRead); err != nil {
+	if err := s.authorizeErr(ctx, acl.FirmwareResource(id), apitypes.ACLPermissionRead); err != nil {
 		return apitypes.Firmware{}, err
 	}
 	return firmware.Get(ctx, s.Firmwares.Store, id)

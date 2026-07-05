@@ -12,14 +12,14 @@ func TestRoleCRUD(t *testing.T) {
 	server := migratedTestServer(t)
 	ctx := context.Background()
 
-	role, err := server.CreateRole(ctx, "workspace-reader", apitypes.ACLPermissionList{"workspace.read", "workspace.read"})
+	role, err := server.CreateRole(ctx, "workspace-reader", apitypes.ACLPermissionList{"read", "read"})
 	if err != nil {
 		t.Fatalf("CreateRole() error = %v", err)
 	}
-	if len(role.Permissions) != 1 || role.Permissions[0] != "workspace.read" {
+	if len(role.Permissions) != 1 || role.Permissions[0] != "read" {
 		t.Fatalf("CreateRole() permissions = %#v", role.Permissions)
 	}
-	if _, err := server.CreateRole(ctx, "workspace-reader", apitypes.ACLPermissionList{"workspace.read"}); !errors.Is(err, ErrRoleAlreadyExists) {
+	if _, err := server.CreateRole(ctx, "workspace-reader", apitypes.ACLPermissionList{"read"}); !errors.Is(err, ErrRoleAlreadyExists) {
 		t.Fatalf("CreateRole(duplicate) error = %v, want %v", err, ErrRoleAlreadyExists)
 	}
 	if _, err := server.CreateRole(ctx, "bad-permission", apitypes.ACLPermissionList{"workspace.destroy"}); err == nil {
@@ -32,14 +32,14 @@ func TestRoleCRUD(t *testing.T) {
 	if stored.Name != role.Name {
 		t.Fatalf("GetRole() = %q, want %q", stored.Name, role.Name)
 	}
-	stored, err = server.PutRole(ctx, "workspace-reader", apitypes.ACLPermissionList{"workspace.use"})
+	stored, err = server.PutRole(ctx, "workspace-reader", apitypes.ACLPermissionList{"use"})
 	if err != nil {
 		t.Fatalf("PutRole() error = %v", err)
 	}
-	if len(stored.Permissions) != 1 || stored.Permissions[0] != "workspace.use" {
+	if len(stored.Permissions) != 1 || stored.Permissions[0] != "use" {
 		t.Fatalf("PutRole() permissions = %#v", stored.Permissions)
 	}
-	if _, err := server.PutRole(ctx, "workspace-admin", apitypes.ACLPermissionList{"workspace.admin"}); err != nil {
+	if _, err := server.PutRole(ctx, "workspace-admin", apitypes.ACLPermissionList{"admin"}); err != nil {
 		t.Fatalf("PutRole(new) error = %v", err)
 	}
 	roles, hasNext, nextCursor, err := server.ListRoles(ctx, ListRolesRequest{Limit: 1})

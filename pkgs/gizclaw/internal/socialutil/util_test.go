@@ -128,7 +128,7 @@ func TestScalarHelpersAndRoles(t *testing.T) {
 		t.Fatalf("GroupInviteTokenKey = %#v, want escaped group key", got)
 	}
 	role, permissions := WorkspaceACLRole()
-	if role != WorkspaceMemberRoleName || len(permissions) != 2 || permissions[0] != apitypes.ACLPermissionWorkspaceRead || permissions[1] != apitypes.ACLPermissionWorkspaceUse {
+	if role != WorkspaceMemberRoleName || len(permissions) != 2 || permissions[0] != apitypes.ACLPermissionRead || permissions[1] != apitypes.ACLPermissionUse {
 		t.Fatalf("WorkspaceACLRole = %q %#v", role, permissions)
 	}
 	if got := WorkspaceACLBindingID("workspace/a", "peer b"); got != "social-chatroom-workspace:workspace%2Fa:peer+b" {

@@ -1,94 +1,163 @@
-# GizClaw ACL Matrix
+# GizClaw ACL
 
-This file lists the target ACL-managed subjects, resources, permissions, and
-business actions for Server Service and Admin Service.
+This document describes the current ACL model used by Server Service, Admin
+Service, and ResourceManager.
 
-The current ACL schema supports admin/runtime shared resources. Peer-owned
-wallet, pet, and reward state is scoped by the authenticated peer context and is
-not modeled as ACL resources.
+## Terms
 
-## Target ACL-Controlled Resource Kinds
+| Term | Meaning |
+| --- | --- |
+| `ResourceManager` | The admin apply/import layer for declarative resources. It accepts `ResourceKind` values such as `Workspace`, `Workflow`, `Credential`, `Contact`, and `FriendGroup`. |
+| `ResourceKind` | The declarative resource enum in `api/resource/resource.json`. It is broader than ACL and includes resources that are not directly protected by ACL policies. |
+| `ACLResource` | The target object of an ACL policy binding. It is stored as `kind:id` and is independent from the ResourceManager envelope type. |
+| `ACLResourceKind` | The ACL resource enum in `api/type/acl_resource.json`. Only these kinds can appear in `ACLPolicy.resource`. |
+| Collection resource | The synthetic `ACLResource` `{kind, "__collection__"}`. It is used only to authorize creating new concrete resources of that kind. |
+| Subject | The identity granted access by a policy binding: a peer public key, a view, or all peers. |
+| Role | A named reusable list of generic ACL permissions. |
+| Permission | One of the generic ACL permissions: `read`, `use`, `create`, or `admin`. Permissions are not resource-specific strings. |
 
-```text
-workspace
-workflow
-model
-credential
-voice
-view
-pet_species
-badge
-contact
-friend
-friend_request
-friend_group
-```
+ACL is intentionally narrower than ResourceManager. A ResourceManager resource
+can create or update server state without becoming an ACL resource kind.
+
+## ResourceManager Resources
+
+These ResourceManager resources are directly backed by ACL resource kinds:
+
+| ResourceManager kind | ACL resource kind | Notes |
+| --- | --- | --- |
+| `Workspace` | `workspace` | Peer runtime list/get/use/update/delete checks use workspace ACL. |
+| `Workflow` | `workflow` | Peer runtime list/get/use/update/delete checks use workflow ACL. |
+| `Model` | `model` | Peer runtime list/get/use/update/delete and AI runtime checks use model ACL. |
+| `Credential` | `credential` | Peer runtime list/get/use/update/delete and AI runtime checks use credential ACL. |
+| `Voice` | `voice` | Peer voice list/get and speech runtime checks use voice ACL. |
+| `ACLView` | `view` | Views are used as grouped ACL subjects and can also be addressed as ACL resources. |
+| `PetSpecies` | `pet_species` | Pet adoption checks species usability through ACL. |
+| `Badge` | `badge` | Reward badge grants check badge usability through ACL. |
+| `Firmware` | `firmware` | Peer firmware list/get/download checks use firmware ACL. |
+
+These ResourceManager resources are not direct ACL resource kinds:
+
+| ResourceManager kind | Access model |
+| --- | --- |
+| `ACLPolicyBinding`, `ACLRole` | Define ACL state; they are not themselves ACL resources. |
+| `Contact`, `Friend`, `FriendGroup`, `FriendGroupInviteToken`, `FriendGroupMember` | Scoped by authenticated peer and social-service rules. Social friend/friend-group creation may create a backing workspace and grant workspace ACL. |
+| `PeerConfig` | Scoped by admin and peer config service rules. Firmware selected by peer config is still checked as a `firmware` ACL resource when peers read it. |
+| `DashScopeTenant`, `GeminiTenant`, `MiniMaxTenant`, `OpenAITenant`, `VolcTenant` | Provider configuration resources. Runtime access is mediated through referenced `model`, `voice`, and `credential` ACL resources. |
+| `ResourceList` | Apply/import wrapper only. |
+| Peer wallet, pet, and reward state | Peer-owned runtime state, not ResourceManager `ResourceKind` ACL resources. Access is scoped by the authenticated peer. |
+
+## ACL Resource Kinds
+
+| ACL resource kind | Resource id | Runtime permissions currently checked |
+| --- | --- | --- |
+| `workspace` | Workspace name or `__collection__` | `read`, `use`, `create`, `admin` |
+| `workflow` | Workflow name or `__collection__` | `read`, `use`, `create`, `admin` |
+| `model` | Model id or `__collection__` | `read`, `use`, `create`, `admin` |
+| `credential` | Credential name or `__collection__` | `read`, `use`, `create`, `admin` |
+| `voice` | Voice id | `read`, `use` |
+| `view` | View name | ACL grouping and view administration |
+| `pet_species` | Pet species id | `use` |
+| `badge` | Badge id | `use` |
+| `firmware` | Firmware id | `read` |
+
+The permission enum is shared across all ACL resource kinds. For example, a
+policy binding grants resource `{kind:"workspace", id:"demo"}` permission
+`use`; it does not grant a string named `workspace.use`.
 
 ## Subjects
 
 | Subject kind | ID | Meaning |
 | --- | --- | --- |
-| `pk` | peer public key | One peer identity. |
-| `view` | view name | A grouped subject for curated access. |
-| `all_peers` | empty | Default subject that every connected peer can inherit. |
+| `pk` | Peer public key | One peer identity. |
+| `view` | View name | A grouped subject for curated access. |
+| `all_peers` | Empty | Default subject that every connected peer can inherit. |
 
-## Resource Matrix
+Authorization checks try the requested subject and then inherit matching
+`all_peers` bindings. Peer runtime authorization also checks the peer's
+concrete public-key subject first and then checks matching view subjects for
+the same concrete resource.
 
-| Resource kind | ID | Owner | Permissions | Server Service usage | Admin Service usage |
-| --- | --- | --- | --- | --- | --- |
-| `workspace` | workspace name | peer or admin | `workspace.{read,use,admin}` | `server.workspace.{list,get,create,put,delete}`, `server.run.reload` | `/workspaces/{name}` |
-| `workflow` | workflow name | peer or admin | `workflow.{read,use,admin}` | `server.workflow.{list,get,create,put,delete}`, `server.run.reload` | `/workflows/{name}` |
-| `model` | model id | peer or admin | `model.{read,use,admin}` | `server.model.{list,get,create,put,delete}`, `server.run.reload`, `server.run.say` | `/models/{id}` |
-| `credential` | credential name | peer or admin | `credential.{read,use,admin}` | `server.credential.{list,get,create,put,delete}`, `server.run.reload`, `server.run.say` | `/credentials/{name}` |
-| `voice` | voice id | admin | `voice.{read,use,admin}` | `server.run.say`, voice selection, and runtime use | `/voices/{id}` |
-| `view` | view name | admin | `view.{read,use,admin}` | read/use resources exposed by a view | `/acl/views/{name}` |
-| `pet_species` | species id | admin | `pet_species.{read,use,admin}` | pet adoption species selection | `/pet-species/{id}`, `/pet-species/{id}/pixa` |
-| `badge` | badge id | admin | `badge.{read,use,admin}` | reward badge grant validation | `/badges/{id}`, `/badges/{id}/icon` |
-| `contact` | contact id | peer | `contact.{read,use,admin}` | `server.contact.{list,get,create,put,delete}` | `/peers/{publicKey}/contacts/{id}` |
-| `friend` | friend relation id | peer pair | `friend.{read,use,admin}` | `server.friend.{list,delete}` | `/peers/{publicKey}/friends/{id}` |
-| `friend_request` | request id | peer pair | `friend_request.{read,use,admin}` | `server.friend.requests.{list,create}`, `server.friend.requests.accept`, `server.friend.requests.reject` | `/peers/{publicKey}/friend-requests/{id}` |
-| `friend_group` | friend group id | peer or admin | `friend_group.{read,use,admin}` | `server.friend_group.{list,get,create,put,delete}`, `server.friend_group.members.{list,add,put,delete}` | `/friend-groups/{id}` |
+## Permissions
 
-## Permission Mapping
-
-| Permission suffix | Meaning |
+| Permission | Meaning |
 | --- | --- |
-| `read` | List or get metadata/state for a resource. |
-| `use` | Use the resource at runtime or perform normal owner actions. |
-| `admin` | Create, update, delete, or manage ACL for the resource. |
+| `read` | List or get metadata/state for an existing concrete resource. |
+| `use` | Use an existing concrete resource at runtime. |
+| `create` | Create a new concrete resource. This is checked only against `{kind:"...", id:"__collection__"}`. |
+| `admin` | Update, delete, or administratively manage an existing concrete resource. |
 
-## Runtime ACL Checks
+`create` and `admin` are separate. Creating a resource through peer runtime RPC
+requires `create` on the collection resource, not `admin` on the future
+concrete id.
+
+## Collection Create Checks
+
+Collection resources use the reserved id `__collection__`:
+
+```text
+workspace:__collection__ + create
+workflow:__collection__ + create
+model:__collection__ + create
+credential:__collection__ + create
+```
+
+Create checks do not fall back from a concrete resource to a collection
+resource. The caller must be granted the exact collection `create` permission
+for the resource kind being created.
+
+## Runtime Checks
 
 | Operation | Required ACL checks |
 | --- | --- |
-| `server.run.agent.set` | target `workspace.use` |
-| `server.run.reload` | current pending agent workspace `workspace.use`, `workflow.use`, referenced `model.use`, referenced `credential.use` |
-| `server.run.say` | selected `voice.use`, selected TTS `model.use`, referenced `credential.use` |
-| `server.friend_group.messages.list` | `friend_group.read` |
-| `server.friend_group.messages.get` | `friend_group.read` |
-| `server.friend_group.messages.send` | `friend_group.use` |
-| `server.pet.adopt` | selected `pet_species.use` |
-| reward badge grant | generated `badge.use` |
+| `server.workspace.list/get` | Concrete `workspace` + `read` |
+| `server.workspace.create` | `workspace:__collection__` + `create`; referenced concrete `workflow` + `use` |
+| `server.workspace.put/delete` | Concrete `workspace` + `admin`; `put` also checks referenced concrete `workflow` + `use` |
+| `server.workflow.list/get` | Concrete `workflow` + `read` |
+| `server.workflow.create` | `workflow:__collection__` + `create` |
+| `server.workflow.put/delete` | Concrete `workflow` + `admin` |
+| `server.model.list/get` | Concrete `model` + `read` |
+| `server.model.create` | `model:__collection__` + `create` |
+| `server.model.put/delete` | Concrete `model` + `admin` |
+| `server.credential.list/get` | Concrete `credential` + `read` |
+| `server.credential.create` | `credential:__collection__` + `create` |
+| `server.credential.put/delete` | Concrete `credential` + `admin` |
+| `server.voice.list/get` | Concrete `voice` + `read` |
+| `server.firmware.list/get/download` | Concrete `firmware` + `read` |
+| `server.run.agent.set` | Target concrete `workspace` + `use` |
+| `server.run.reload` | Current pending agent concrete `workspace` + `use`; concrete `workflow` + `use`; referenced concrete `model` + `use`; referenced concrete `credential` + `use` |
+| `server.run.say` | Selected concrete `voice` + `use`; selected TTS concrete `model` + `use`; referenced concrete `credential` + `use` |
+| Workspace history reads | Concrete `workspace` + `read` |
+| OpenAI-compatible AI calls | Referenced concrete `model` + `use` |
+| Peergenx calls | Referenced concrete resource + required generic permission |
+| `server.pet.adopt` | Selected concrete `pet_species` + `use` |
+| Reward badge grant | Selected concrete `badge` + `use` |
+
+Social contact, friend, and friend-group RPCs are not authorized as
+`contact`, `friend`, or `friend_group` ACL resources. When a social relation
+creates a shared workspace, access to that workspace is represented by normal
+`workspace` ACL bindings.
 
 ## Default Ownership Rules
 
-| Create path | Subject to bind | Resource to bind | Role |
+| Create path | Subject to bind | Resource to bind | Permissions |
 | --- | --- | --- | --- |
-| Peer creates workspace | `pk:{peerPublicKey}` | `workspace:{name}` | workspace owner/admin |
-| Peer creates workflow | `pk:{peerPublicKey}` | `workflow:{name}` | workflow owner/admin |
-| Peer creates model | `pk:{peerPublicKey}` | `model:{id}` | model owner/admin |
-| Peer creates credential | `pk:{peerPublicKey}` | `credential:{name}` | credential owner/admin |
-| Peer creates contact | `pk:{peerPublicKey}` | `contact:{id}` | contact owner/admin |
-| Peer creates friend group | `pk:{peerPublicKey}` | `friend_group:{id}` | friend group owner/admin |
+| Peer creates workspace | `pk:{peerPublicKey}` | `workspace:{name}` | `read`, `use`, `admin` |
+| Peer creates workflow | `pk:{peerPublicKey}` | `workflow:{name}` | `read`, `use`, `admin` |
+| Peer creates model | `pk:{peerPublicKey}` | `model:{id}` | `read`, `use`, `admin` |
+| Peer creates credential | `pk:{peerPublicKey}` | `credential:{name}` | `read`, `use`, `admin` |
+
+The caller also needs the relevant collection `create` permission before the
+resource is created.
 
 ## Shared Resource Rules
 
-| Shared resource | Subject | Resource | Role |
+| Shared resource | Subject | Resource | Typical permissions |
 | --- | --- | --- | --- |
-| Built-in model for everyone | `all_peers` | `model:{id}` | model reader/user |
-| Built-in model for a friend group | `view:{name}` | `model:{id}` | model reader/user |
-| Shared credential for one peer | `pk:{peerPublicKey}` | `credential:{name}` | credential user |
-| Shared credential for a friend group | `view:{name}` | `credential:{name}` | credential user |
-| Shared voice for everyone | `all_peers` | `voice:{id}` | voice reader/user |
-| Shared pet species for everyone | `all_peers` | `pet_species:{id}` | pet species user |
-| Shared badge grant for everyone | `all_peers` | `badge:{id}` | badge user |
+| Built-in model for everyone | `all_peers` | `model:{id}` | `read`, `use` |
+| Built-in model for a view | `view:{name}` | `model:{id}` | `read`, `use` |
+| Shared credential for one peer | `pk:{peerPublicKey}` | `credential:{name}` | `read`, `use` |
+| Shared credential for a view | `view:{name}` | `credential:{name}` | `read`, `use` |
+| Shared voice for everyone | `all_peers` | `voice:{id}` | `read`, `use` |
+| Shared pet species for everyone | `all_peers` | `pet_species:{id}` | `use` |
+| Shared badge grant for everyone | `all_peers` | `badge:{id}` | `use` |
+| Shared firmware for one peer | `pk:{peerPublicKey}` | `firmware:{id}` | `read` |

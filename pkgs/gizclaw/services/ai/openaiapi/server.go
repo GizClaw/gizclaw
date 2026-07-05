@@ -290,7 +290,7 @@ func (s *Server) modelReadAllowed(ctx context.Context, id string) (bool, error) 
 	err := s.Authorizer.Authorize(ctx, acl.AuthorizeRequest{
 		Subject:    subject,
 		Resource:   acl.ModelResource(id),
-		Permission: apitypes.ACLPermissionModelRead,
+		Permission: apitypes.ACLPermissionRead,
 	})
 	if errors.Is(err, acl.ErrDenied) {
 		return false, nil

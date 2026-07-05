@@ -1814,11 +1814,11 @@ func TestBuildClawConfigInjectsPeerResolvedOpenAIModel(t *testing.T) {
 
 	wantPrefix := []string{
 		"list:models",
-		"auth:model:chat:model.read",
-		"auth:model:chat:model.use",
+		"auth:model:chat:read",
+		"auth:model:chat:use",
 		"get:tenant:openai:main",
-		"auth:credential:openai-key:credential.read",
-		"auth:credential:openai-key:credential.use",
+		"auth:credential:openai-key:read",
+		"auth:credential:openai-key:use",
 		"get:credential:openai-key",
 	}
 	if len(events) < len(wantPrefix) || !reflect.DeepEqual(events[:len(wantPrefix)], wantPrefix) {
@@ -2056,7 +2056,7 @@ func (t *recordingVoiceTransformer) Transform(_ context.Context, pattern string,
 	case "voice/voice-answer":
 		return &recordingVoiceStream{
 			input: input,
-			owner: t,
+			admin: t,
 			chunks: []*genx.MessageChunk{
 				{Role: genx.RoleModel, Part: &genx.Blob{MIMEType: "audio/opus", Data: []byte{0xaa}}},
 				{Role: genx.RoleModel, Part: &genx.Blob{MIMEType: "audio/opus"}, Ctrl: &genx.StreamCtrl{EndOfStream: true}},
@@ -2081,7 +2081,7 @@ func (t *recordingVoiceTransformer) appendText(text string) {
 
 type recordingVoiceStream struct {
 	input  genx.Stream
-	owner  *recordingVoiceTransformer
+	admin  *recordingVoiceTransformer
 	chunks []*genx.MessageChunk
 	once   sync.Once
 	err    error
@@ -2102,7 +2102,7 @@ func (s *recordingVoiceStream) Next() (*genx.MessageChunk, error) {
 				continue
 			}
 			if text, ok := chunk.Part.(genx.Text); ok && text != "" {
-				s.owner.appendText(string(text))
+				s.admin.appendText(string(text))
 			}
 		}
 	})

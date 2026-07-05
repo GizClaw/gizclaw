@@ -15,7 +15,11 @@
         ],
         "properties": {
           "workflow_name": {
-            "type": "string"
+            "type": "string",
+            "minLength": 8,
+            "maxLength": 48,
+            "pattern": "^[a-z][a-z0-9._-]{6,46}[a-z0-9]$",
+            "description": "Referenced workflow custom ID."
           },
           "parameters": {
             "$ref": "./workspace_parameters.json#/components/schemas/WorkspaceParameters"

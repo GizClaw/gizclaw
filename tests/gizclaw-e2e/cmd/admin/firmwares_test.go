@@ -160,7 +160,7 @@ func grantFirmwareRead(t *testing.T, h *clitest.Harness, peerContext string, fir
 	role := "firmware-reader"
 	roleResp, err := api.CreateACLRoleWithResponse(ctx, adminservice.ACLRoleUpsert{
 		Name:        role,
-		Permissions: apitypes.ACLPermissionList{apitypes.ACLPermissionFirmwareRead},
+		Permissions: apitypes.ACLPermissionList{apitypes.ACLPermissionRead},
 	})
 	if err != nil {
 		t.Fatalf("create firmware ACL role: %v", err)

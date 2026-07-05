@@ -39,7 +39,7 @@ func TestServerFriendGroupRPC(t *testing.T) {
 		t.Fatalf("friend_group.put name = %#v", updated.Name)
 	}
 	if updated.MyRole == nil || *updated.MyRole != rpcapi.FriendGroupMemberRoleOwner {
-		t.Fatalf("friend_group.put my_role = %#v, want owner", updated.MyRole)
+		t.Fatalf("friend_group.put my_role = %#v, want admin", updated.MyRole)
 	}
 
 	emptyToken, err := env.a.GetFriendGroupInviteToken(env.ctx, "friend_group.invite_token.get.empty", rpcapi.FriendGroupInviteTokenGetRequest{FriendGroupId: *group.Id})
@@ -108,7 +108,7 @@ func TestServerFriendGroupRPC(t *testing.T) {
 		t.Fatalf("friend_group.members.list: %v", err)
 	}
 	if len(members.Items) < 3 {
-		t.Fatalf("friend_group.members.list = %#v, want owner plus two members", members.Items)
+		t.Fatalf("friend_group.members.list = %#v, want admin plus two members", members.Items)
 	}
 	msg, err := env.b.SendFriendGroupMessage(env.ctx, "friend_group.messages.send", rpcapi.FriendGroupMessageSendRequest{
 		FriendGroupId:    *group.Id,

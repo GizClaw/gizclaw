@@ -119,14 +119,14 @@ func TestAdminContactCRUDAndPagination(t *testing.T) {
 
 	first, err := s.AdminCreateContact(ctx, adminservice.AdminContactCreateRequest{
 		OwnerPublicKey: "peer-a",
-		Id:             strPtr("alice"),
+		Id:             strPtr("alice001"),
 		DisplayName:    strPtr("Alice"),
 		PhoneNumber:    strPtr("+1 555 0100"),
 	})
 	if err != nil {
 		t.Fatalf("AdminCreateContact: %v", err)
 	}
-	if first.OwnerPublicKey != "peer-a" || first.Id != "alice" {
+	if first.OwnerPublicKey != "peer-a" || first.Id != "alice001" {
 		t.Fatalf("created contact = %+v", first)
 	}
 	if first.CreatedAt == nil || first.UpdatedAt == nil {
@@ -134,14 +134,14 @@ func TestAdminContactCRUDAndPagination(t *testing.T) {
 	}
 	if _, err := s.AdminCreateContact(ctx, adminservice.AdminContactCreateRequest{
 		OwnerPublicKey: "peer-a",
-		Id:             strPtr("alice"),
+		Id:             strPtr("alice001"),
 		DisplayName:    strPtr("Alice Again"),
 	}); err == nil {
 		t.Fatal("AdminCreateContact duplicate id error = nil")
 	}
 	if _, err := s.AdminCreateContact(ctx, adminservice.AdminContactCreateRequest{
 		OwnerPublicKey: "peer-a",
-		Id:             strPtr("alice-phone"),
+		Id:             strPtr("alice001-phone"),
 		PhoneNumber:    strPtr("+1 (555) 0100"),
 	}); err == nil {
 		t.Fatal("AdminCreateContact duplicate phone error = nil")
@@ -149,17 +149,17 @@ func TestAdminContactCRUDAndPagination(t *testing.T) {
 
 	if _, err := s.AdminCreateContact(ctx, adminservice.AdminContactCreateRequest{
 		OwnerPublicKey: "peer-a",
-		Id:             strPtr("bob"),
+		Id:             strPtr("bob00001"),
 		DisplayName:    strPtr("Bob"),
 	}); err != nil {
-		t.Fatalf("AdminCreateContact bob: %v", err)
+		t.Fatalf("AdminCreateContact bob00001: %v", err)
 	}
 	if _, err := s.AdminCreateContact(ctx, adminservice.AdminContactCreateRequest{
 		OwnerPublicKey: "peer-b",
-		Id:             strPtr("carol"),
+		Id:             strPtr("carol001"),
 		DisplayName:    strPtr("Carol"),
 	}); err != nil {
-		t.Fatalf("AdminCreateContact carol: %v", err)
+		t.Fatalf("AdminCreateContact carol001: %v", err)
 	}
 
 	page, err := s.AdminListContacts(ctx, "peer-a", nil, intPtr(1))
@@ -191,7 +191,7 @@ func TestAdminContactCRUDAndPagination(t *testing.T) {
 		t.Fatalf("global next page = %+v, want peer-b contact", globalNext)
 	}
 
-	updated, err := s.AdminPutContact(ctx, "peer-a", "alice", adminservice.AdminContactPutRequest{
+	updated, err := s.AdminPutContact(ctx, "peer-a", "alice001", adminservice.AdminContactPutRequest{
 		DisplayName: strPtr("Alice Zhang"),
 		PhoneNumber: strPtr("+1 555 0101"),
 	})
@@ -201,21 +201,21 @@ func TestAdminContactCRUDAndPagination(t *testing.T) {
 	if socialutil.StringValue(updated.DisplayName) != "Alice Zhang" || socialutil.StringValue(updated.PhoneNumber) != "+1 555 0101" {
 		t.Fatalf("updated contact = %+v", updated)
 	}
-	got, err := s.AdminGetContact(ctx, "peer-a", "alice")
+	got, err := s.AdminGetContact(ctx, "peer-a", "alice001")
 	if err != nil {
 		t.Fatalf("AdminGetContact: %v", err)
 	}
-	if got.Id != "alice" || got.OwnerPublicKey != "peer-a" {
+	if got.Id != "alice001" || got.OwnerPublicKey != "peer-a" {
 		t.Fatalf("got contact = %+v", got)
 	}
-	deleted, err := s.AdminDeleteContact(ctx, "peer-a", "alice")
+	deleted, err := s.AdminDeleteContact(ctx, "peer-a", "alice001")
 	if err != nil {
 		t.Fatalf("AdminDeleteContact: %v", err)
 	}
-	if deleted.Id != "alice" {
-		t.Fatalf("deleted contact id = %q, want alice", deleted.Id)
+	if deleted.Id != "alice001" {
+		t.Fatalf("deleted contact id = %q, want alice001", deleted.Id)
 	}
-	if _, err := s.AdminGetContact(ctx, "peer-a", "alice"); err == nil {
+	if _, err := s.AdminGetContact(ctx, "peer-a", "alice001"); err == nil {
 		t.Fatal("AdminGetContact deleted contact error = nil")
 	}
 }
@@ -224,7 +224,7 @@ func TestAdminApplyContactUpsertsAndPreservesCreatedAt(t *testing.T) {
 	ctx := context.Background()
 	s := newTestServer()
 
-	created, err := s.AdminApplyContact(ctx, "peer-a", "alice", strPtr("Alice"), strPtr("+1 555 0100"))
+	created, err := s.AdminApplyContact(ctx, "peer-a", "alice001", strPtr("Alice"), strPtr("+1 555 0100"))
 	if err != nil {
 		t.Fatalf("AdminApplyContact create: %v", err)
 	}
@@ -234,7 +234,7 @@ func TestAdminApplyContactUpsertsAndPreservesCreatedAt(t *testing.T) {
 	createdAt := *created.CreatedAt
 
 	s.Now = func() time.Time { return createdAt.Add(time.Hour) }
-	updated, err := s.AdminApplyContact(ctx, "peer-a", "alice", strPtr("Alice Zhang"), strPtr("+1 555 0101"))
+	updated, err := s.AdminApplyContact(ctx, "peer-a", "alice001", strPtr("Alice Zhang"), strPtr("+1 555 0101"))
 	if err != nil {
 		t.Fatalf("AdminApplyContact update: %v", err)
 	}
@@ -245,8 +245,24 @@ func TestAdminApplyContactUpsertsAndPreservesCreatedAt(t *testing.T) {
 		t.Fatalf("updated UpdatedAt = %v, want after %v", updated.UpdatedAt, createdAt)
 	}
 
-	if _, err := s.AdminApplyContact(ctx, "peer-a", "bob", strPtr("Bob"), strPtr("+1 (555) 0101")); err == nil {
+	if _, err := s.AdminApplyContact(ctx, "peer-a", "bob00001", strPtr("Bob"), strPtr("+1 (555) 0101")); err == nil {
 		t.Fatal("AdminApplyContact duplicate phone error = nil")
+	}
+}
+
+func TestAdminContactRejectsInvalidCustomID(t *testing.T) {
+	ctx := context.Background()
+	s := newTestServer()
+
+	if _, err := s.AdminCreateContact(ctx, adminservice.AdminContactCreateRequest{
+		OwnerPublicKey: "peer-a",
+		Id:             strPtr("alice"),
+		DisplayName:    strPtr("Alice"),
+	}); err == nil {
+		t.Fatal("AdminCreateContact accepted short id")
+	}
+	if _, err := s.AdminApplyContact(ctx, "peer-a", " alice001 ", strPtr("Alice"), nil); err == nil {
+		t.Fatal("AdminApplyContact accepted padded id")
 	}
 }
 

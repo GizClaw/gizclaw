@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminservice"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 )
 
@@ -111,4 +112,70 @@ func TestServerResourceACLRPC(t *testing.T) {
 		t.Fatalf("denied peer credential.get error = %v", err)
 	}
 	assertDeniedListsAreEmpty(t, env.ctx, denied)
+}
+
+func TestServerResourceCreateDoesNotGrantConcreteAdmin(t *testing.T) {
+	env := newServerResourceHarness(t)
+	admin := serverResourceAdminClient(t, env)
+
+	workflowName := "acl-create-only-workflow"
+	workspaceName := "acl-create-only-workspace"
+	modelID := "acl-create-only-model"
+	credentialName := "acl-create-only-credential"
+	t.Cleanup(func() {
+		_, _ = admin.DeleteWorkspaceWithResponse(env.ctx, workspaceName)
+		_, _ = admin.DeleteWorkflowWithResponse(env.ctx, workflowName)
+		_, _ = admin.DeleteModelWithResponse(env.ctx, modelID)
+		_, _ = admin.DeleteCredentialWithResponse(env.ctx, credentialName)
+	})
+	_, _ = admin.DeleteWorkspaceWithResponse(env.ctx, workspaceName)
+	_, _ = admin.DeleteWorkflowWithResponse(env.ctx, workflowName)
+	_, _ = admin.DeleteModelWithResponse(env.ctx, modelID)
+	_, _ = admin.DeleteCredentialWithResponse(env.ctx, credentialName)
+
+	if _, err := env.peer.CreateWorkflow(env.ctx, "acl.create_only.workflow.create", rpcWorkflow(workflowName, "create only workflow")); err != nil {
+		t.Fatalf("workflow.create create-only: %v", err)
+	}
+	if _, err := env.peer.PutWorkflow(env.ctx, "acl.create_only.workflow.put", rpcapi.WorkflowPutRequest{
+		Name: workflowName,
+		Body: rpcWorkflow(workflowName, "should be denied"),
+	}); err == nil || !strings.Contains(err.Error(), "acl: denied") {
+		t.Fatalf("workflow.put create-only error = %v", err)
+	}
+	if _, err := env.peer.CreateWorkspace(env.ctx, "acl.create_only.workspace.create", rpcapi.WorkspaceCreateRequest{
+		Name:         workspaceName,
+		WorkflowName: sharedWorkflow,
+	}); err != nil {
+		t.Fatalf("workspace.create create-only: %v", err)
+	}
+	if _, err := env.peer.DeleteWorkspace(env.ctx, "acl.create_only.workspace.delete", rpcapi.WorkspaceDeleteRequest{Name: workspaceName}); err == nil || !strings.Contains(err.Error(), "acl: denied") {
+		t.Fatalf("workspace.delete create-only error = %v", err)
+	}
+	if _, err := env.peer.CreateModel(env.ctx, "acl.create_only.model.create", rpcModel(modelID, "openai-main")); err != nil {
+		t.Fatalf("model.create create-only: %v", err)
+	}
+	if _, err := env.peer.PutModel(env.ctx, "acl.create_only.model.put", rpcapi.ModelPutRequest{
+		Id:   modelID,
+		Body: rpcModel(modelID, "openai-main"),
+	}); err == nil || !strings.Contains(err.Error(), "acl: denied") {
+		t.Fatalf("model.put create-only error = %v", err)
+	}
+	if _, err := env.peer.CreateCredential(env.ctx, "acl.create_only.credential.create", rpcCredential(credentialName, "sk-create-only")); err != nil {
+		t.Fatalf("credential.create create-only: %v", err)
+	}
+	if _, err := env.peer.DeleteCredential(env.ctx, "acl.create_only.credential.delete", rpcapi.CredentialDeleteRequest{Name: credentialName}); err == nil || !strings.Contains(err.Error(), "acl: denied") {
+		t.Fatalf("credential.delete create-only error = %v", err)
+	}
+}
+
+func serverResourceAdminClient(t *testing.T, env *serverResourceHarness) *adminservice.ClientWithResponses {
+	t.Helper()
+
+	adminClient := env.h.ConnectClientFromContext("admin-a")
+	t.Cleanup(func() { adminClient.Close() })
+	api, err := adminClient.ServerAdminClient()
+	if err != nil {
+		t.Fatalf("create admin API client: %v", err)
+	}
+	return api
 }

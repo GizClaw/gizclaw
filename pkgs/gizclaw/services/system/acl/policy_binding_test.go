@@ -14,7 +14,7 @@ import (
 func TestPolicyBindingCRUDAndAuthorize(t *testing.T) {
 	server := migratedTestServer(t)
 	ctx := context.Background()
-	if _, err := server.CreateRole(ctx, "workspace-reader", apitypes.ACLPermissionList{"workspace.read"}); err != nil {
+	if _, err := server.CreateRole(ctx, "workspace-reader", apitypes.ACLPermissionList{"read"}); err != nil {
 		t.Fatalf("CreateRole() error = %v", err)
 	}
 	policy := apitypes.ACLPolicy{
@@ -41,24 +41,24 @@ func TestPolicyBindingCRUDAndAuthorize(t *testing.T) {
 	if err := server.Authorize(ctx, AuthorizeRequest{
 		Subject:    PublicKeySubject("subject-a"),
 		Resource:   WorkspaceResource("workspace-a"),
-		Permission: "workspace.read",
+		Permission: "read",
 	}); err != nil {
 		t.Fatalf("Authorize() error = %v", err)
 	}
 	if err := server.Authorize(ctx, AuthorizeRequest{
 		Subject:    PublicKeySubject("subject-a"),
 		Resource:   WorkspaceResource("workspace-a"),
-		Permission: "workspace.use",
+		Permission: "use",
 	}); !errors.Is(err, ErrDenied) {
 		t.Fatalf("Authorize(ungranted) error = %v, want %v", err, ErrDenied)
 	}
-	if _, err := server.PutRole(ctx, "workspace-reader", apitypes.ACLPermissionList{"workspace.use"}); err != nil {
+	if _, err := server.PutRole(ctx, "workspace-reader", apitypes.ACLPermissionList{"use"}); err != nil {
 		t.Fatalf("PutRole() error = %v", err)
 	}
 	if err := server.Authorize(ctx, AuthorizeRequest{
 		Subject:    PublicKeySubject("subject-a"),
 		Resource:   WorkspaceResource("workspace-a"),
-		Permission: "workspace.use",
+		Permission: "use",
 	}); err != nil {
 		t.Fatalf("Authorize(updated role) error = %v", err)
 	}
@@ -73,7 +73,7 @@ func TestPolicyBindingCRUDAndAuthorize(t *testing.T) {
 func TestCreatePolicyBindingGeneratesID(t *testing.T) {
 	server := migratedTestServer(t)
 	ctx := context.Background()
-	if _, err := server.CreateRole(ctx, "workspace-reader", apitypes.ACLPermissionList{"workspace.read"}); err != nil {
+	if _, err := server.CreateRole(ctx, "workspace-reader", apitypes.ACLPermissionList{"read"}); err != nil {
 		t.Fatalf("CreateRole() error = %v", err)
 	}
 	longSubjectID := strings.Repeat("a", 64)
@@ -99,7 +99,7 @@ func TestCreatePolicyBindingGeneratesID(t *testing.T) {
 func TestPolicyBindingAllowsProviderScopedResourceIDs(t *testing.T) {
 	server := migratedTestServer(t)
 	ctx := context.Background()
-	if _, err := server.CreateRole(ctx, "voice-reader", apitypes.ACLPermissionList{"voice.read"}); err != nil {
+	if _, err := server.CreateRole(ctx, "voice-reader", apitypes.ACLPermissionList{"read"}); err != nil {
 		t.Fatalf("CreateRole() error = %v", err)
 	}
 	resource := VoiceResource("minimax-tenant:minimax-cn:Arabic_CalmWoman")
@@ -113,7 +113,7 @@ func TestPolicyBindingAllowsProviderScopedResourceIDs(t *testing.T) {
 	if err := server.Authorize(ctx, AuthorizeRequest{
 		Subject:    ViewSubject("play-openai"),
 		Resource:   resource,
-		Permission: apitypes.ACLPermissionVoiceRead,
+		Permission: apitypes.ACLPermissionRead,
 	}); err != nil {
 		t.Fatalf("Authorize(provider voice) error = %v", err)
 	}
@@ -124,7 +124,7 @@ func TestPolicyBindingListPutAndCleanupExpired(t *testing.T) {
 	server := migratedTestServer(t)
 	server.Now = func() time.Time { return now }
 	ctx := context.Background()
-	if _, err := server.CreateRole(ctx, "workspace-reader", apitypes.ACLPermissionList{"workspace.read"}); err != nil {
+	if _, err := server.CreateRole(ctx, "workspace-reader", apitypes.ACLPermissionList{"read"}); err != nil {
 		t.Fatalf("CreateRole() error = %v", err)
 	}
 	expiredAt := now.Add(-time.Second)
@@ -176,10 +176,10 @@ func TestPolicyBindingListPutAndCleanupExpired(t *testing.T) {
 func TestListPolicyBindingsFilters(t *testing.T) {
 	server := migratedTestServer(t)
 	ctx := context.Background()
-	if _, err := server.CreateRole(ctx, "workspace-reader", apitypes.ACLPermissionList{"workspace.read"}); err != nil {
+	if _, err := server.CreateRole(ctx, "workspace-reader", apitypes.ACLPermissionList{"read"}); err != nil {
 		t.Fatalf("CreateRole(reader) error = %v", err)
 	}
-	if _, err := server.CreateRole(ctx, "workspace-user", apitypes.ACLPermissionList{"workspace.use"}); err != nil {
+	if _, err := server.CreateRole(ctx, "workspace-user", apitypes.ACLPermissionList{"use"}); err != nil {
 		t.Fatalf("CreateRole(user) error = %v", err)
 	}
 	bindings := []struct {
@@ -199,7 +199,7 @@ func TestListPolicyBindingsFilters(t *testing.T) {
 		SubjectKind:  SubjectKindPublicKey,
 		SubjectID:    "subject-a",
 		ResourceKind: ResourceKindWorkspace,
-		Permission:   "workspace.read",
+		Permission:   "read",
 	})
 	if err != nil {
 		t.Fatalf("ListPolicyBindings(filters) error = %v", err)
@@ -219,10 +219,10 @@ func TestListPolicyBindingsFilters(t *testing.T) {
 func TestListPolicyBindingsResourceIDPrefixAndPagination(t *testing.T) {
 	server := migratedTestServer(t)
 	ctx := context.Background()
-	if _, err := server.CreateRole(ctx, "workspace-reader", apitypes.ACLPermissionList{"workspace.read"}); err != nil {
+	if _, err := server.CreateRole(ctx, "workspace-reader", apitypes.ACLPermissionList{"read"}); err != nil {
 		t.Fatalf("CreateRole(reader) error = %v", err)
 	}
-	if _, err := server.CreateRole(ctx, "workspace-user", apitypes.ACLPermissionList{"workspace.use"}); err != nil {
+	if _, err := server.CreateRole(ctx, "workspace-user", apitypes.ACLPermissionList{"use"}); err != nil {
 		t.Fatalf("CreateRole(user) error = %v", err)
 	}
 	bindings := []struct {
@@ -253,7 +253,7 @@ func TestListPolicyBindingsResourceIDPrefixAndPagination(t *testing.T) {
 		SubjectID:        "subject-a",
 		ResourceKind:     ResourceKindWorkspace,
 		ResourceIDPrefix: "social-direct-",
-		Permission:       "workspace.read",
+		Permission:       "read",
 	})
 	if err != nil {
 		t.Fatalf("ListPolicyBindings(prefix page 1) error = %v", err)
@@ -268,7 +268,7 @@ func TestListPolicyBindingsResourceIDPrefixAndPagination(t *testing.T) {
 		SubjectID:        "subject-a",
 		ResourceKind:     ResourceKindWorkspace,
 		ResourceIDPrefix: "social-direct-",
-		Permission:       "workspace.read",
+		Permission:       "read",
 	})
 	if err != nil {
 		t.Fatalf("ListPolicyBindings(prefix page 2) error = %v", err)
@@ -292,7 +292,7 @@ func TestListPolicyBindingsResourceIDPrefixAndPagination(t *testing.T) {
 func TestListPolicyBindingsDisplayOrder(t *testing.T) {
 	server := migratedTestServer(t)
 	ctx := context.Background()
-	if _, err := server.CreateRole(ctx, "workspace-reader", apitypes.ACLPermissionList{"workspace.read"}); err != nil {
+	if _, err := server.CreateRole(ctx, "workspace-reader", apitypes.ACLPermissionList{"read"}); err != nil {
 		t.Fatalf("CreateRole() error = %v", err)
 	}
 	bindings := []struct {
@@ -355,7 +355,7 @@ func TestListPolicyBindingsDisplayOrder(t *testing.T) {
 func TestPutPolicyBindingCreatesNewBinding(t *testing.T) {
 	server := migratedTestServer(t)
 	ctx := context.Background()
-	if _, err := server.CreateRole(ctx, "workspace-reader", apitypes.ACLPermissionList{"workspace.read"}); err != nil {
+	if _, err := server.CreateRole(ctx, "workspace-reader", apitypes.ACLPermissionList{"read"}); err != nil {
 		t.Fatalf("CreateRole() error = %v", err)
 	}
 	binding, err := server.PutPolicyBinding(ctx, "binding-a", 0, apitypes.ACLPolicy{

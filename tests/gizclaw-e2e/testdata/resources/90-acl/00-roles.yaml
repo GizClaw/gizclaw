@@ -11,39 +11,21 @@ spec:
       name: default-client
     spec:
       permissions:
-      - credential.read
-      - credential.use
-      - model.read
-      - model.use
-      - view.read
-      - view.use
-      - voice.read
-      - voice.use
-      - workflow.read
-      - workflow.use
-      - workspace.admin
-      - workspace.read
-      - workspace.use
+      - read
+      - use
   - apiVersion: gizclaw.admin/v1alpha1
     kind: ACLRole
     metadata:
       name: standard-client
     spec:
       permissions:
-      - badge.use
-      - credential.admin
-      - credential.read
-      - credential.use
-      - firmware.read
-      - model.admin
-      - model.read
-      - model.use
-      - pet_species.use
-      - voice.read
-      - voice.use
-      - workflow.admin
-      - workflow.read
-      - workflow.use
-      - workspace.admin
-      - workspace.read
-      - workspace.use
+      - read
+      - use
+      - admin
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLRole
+    metadata:
+      name: collection-creator
+    spec:
+      permissions:
+      - create

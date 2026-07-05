@@ -29,7 +29,7 @@ func TestAuthorizeValidation(t *testing.T) {
 	request := AuthorizeRequest{
 		Subject:    PublicKeySubject("z6Mk"),
 		Resource:   WorkspaceResource("demo"),
-		Permission: "workspace.use",
+		Permission: "use",
 	}
 	if err := server.Authorize(context.Background(), request); !errors.Is(err, ErrDenied) {
 		t.Fatalf("Authorize() error = %v, want %v", err, ErrDenied)
@@ -38,7 +38,7 @@ func TestAuthorizeValidation(t *testing.T) {
 	if err := server.Authorize(context.Background(), request); err == nil || !errors.Is(err, ErrDenied) && err.Error() != "acl: permission is required" {
 		t.Fatalf("empty permission error = %v", err)
 	}
-	request.Permission = "workspace.use"
+	request.Permission = "use"
 	request.Subject = apitypes.ACLSubject{}
 	if err := server.Authorize(context.Background(), request); err == nil {
 		t.Fatal("invalid subject Authorize() error = nil")
@@ -53,7 +53,7 @@ func TestAuthorizeValidation(t *testing.T) {
 func TestAuthorizeFallsBackToAllPeersSubject(t *testing.T) {
 	server := migratedTestServer(t)
 	ctx := context.Background()
-	if _, err := server.CreateRole(ctx, "workspace-reader", apitypes.ACLPermissionList{"workspace.read"}); err != nil {
+	if _, err := server.CreateRole(ctx, "workspace-reader", apitypes.ACLPermissionList{"read"}); err != nil {
 		t.Fatalf("CreateRole() error = %v", err)
 	}
 	if _, err := server.CreatePolicyBinding(ctx, "all-peers-reader", 0, apitypes.ACLPolicy{
@@ -66,7 +66,7 @@ func TestAuthorizeFallsBackToAllPeersSubject(t *testing.T) {
 	if err := server.Authorize(ctx, AuthorizeRequest{
 		Subject:    PublicKeySubject("subject-a"),
 		Resource:   WorkspaceResource("demo"),
-		Permission: "workspace.read",
+		Permission: "read",
 	}); err != nil {
 		t.Fatalf("Authorize(peer via all_peers) error = %v", err)
 	}
@@ -96,7 +96,7 @@ func TestCleanupQueueAndRun(t *testing.T) {
 func TestRunDeletesQueuedPolicyBinding(t *testing.T) {
 	server := migratedTestServer(t)
 	ctx := context.Background()
-	if _, err := server.CreateRole(ctx, "workspace-reader", apitypes.ACLPermissionList{"workspace.read"}); err != nil {
+	if _, err := server.CreateRole(ctx, "workspace-reader", apitypes.ACLPermissionList{"read"}); err != nil {
 		t.Fatalf("CreateRole() error = %v", err)
 	}
 	if _, err := server.CreatePolicyBinding(ctx, "binding-a", 0, apitypes.ACLPolicy{

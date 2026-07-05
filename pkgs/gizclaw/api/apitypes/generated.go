@@ -13,97 +13,22 @@ import (
 
 // Defines values for ACLPermission.
 const (
-	ACLPermissionBadgeAdmin      ACLPermission = "badge.admin"
-	ACLPermissionBadgeRead       ACLPermission = "badge.read"
-	ACLPermissionBadgeUse        ACLPermission = "badge.use"
-	ACLPermissionCredentialAdmin ACLPermission = "credential.admin"
-	ACLPermissionCredentialRead  ACLPermission = "credential.read"
-	ACLPermissionCredentialUse   ACLPermission = "credential.use"
-	ACLPermissionEditor          ACLPermission = "editor"
-	ACLPermissionFirmwareAdmin   ACLPermission = "firmware.admin"
-	ACLPermissionFirmwareRead    ACLPermission = "firmware.read"
-	ACLPermissionModelAdmin      ACLPermission = "model.admin"
-	ACLPermissionModelRead       ACLPermission = "model.read"
-	ACLPermissionModelUse        ACLPermission = "model.use"
-	ACLPermissionOwner           ACLPermission = "owner"
-	ACLPermissionPetSpeciesAdmin ACLPermission = "pet_species.admin"
-	ACLPermissionPetSpeciesRead  ACLPermission = "pet_species.read"
-	ACLPermissionPetSpeciesUse   ACLPermission = "pet_species.use"
-	ACLPermissionViewAdmin       ACLPermission = "view.admin"
-	ACLPermissionViewRead        ACLPermission = "view.read"
-	ACLPermissionViewUse         ACLPermission = "view.use"
-	ACLPermissionViewer          ACLPermission = "viewer"
-	ACLPermissionVoiceAdmin      ACLPermission = "voice.admin"
-	ACLPermissionVoiceRead       ACLPermission = "voice.read"
-	ACLPermissionVoiceUse        ACLPermission = "voice.use"
-	ACLPermissionWorkflowAdmin   ACLPermission = "workflow.admin"
-	ACLPermissionWorkflowRead    ACLPermission = "workflow.read"
-	ACLPermissionWorkflowUse     ACLPermission = "workflow.use"
-	ACLPermissionWorkspaceAdmin  ACLPermission = "workspace.admin"
-	ACLPermissionWorkspaceRead   ACLPermission = "workspace.read"
-	ACLPermissionWorkspaceUse    ACLPermission = "workspace.use"
+	ACLPermissionAdmin  ACLPermission = "admin"
+	ACLPermissionCreate ACLPermission = "create"
+	ACLPermissionRead   ACLPermission = "read"
+	ACLPermissionUse    ACLPermission = "use"
 )
 
 // Valid indicates whether the value is a known member of the ACLPermission enum.
 func (e ACLPermission) Valid() bool {
 	switch e {
-	case ACLPermissionBadgeAdmin:
+	case ACLPermissionAdmin:
 		return true
-	case ACLPermissionBadgeRead:
+	case ACLPermissionCreate:
 		return true
-	case ACLPermissionBadgeUse:
+	case ACLPermissionRead:
 		return true
-	case ACLPermissionCredentialAdmin:
-		return true
-	case ACLPermissionCredentialRead:
-		return true
-	case ACLPermissionCredentialUse:
-		return true
-	case ACLPermissionEditor:
-		return true
-	case ACLPermissionFirmwareAdmin:
-		return true
-	case ACLPermissionFirmwareRead:
-		return true
-	case ACLPermissionModelAdmin:
-		return true
-	case ACLPermissionModelRead:
-		return true
-	case ACLPermissionModelUse:
-		return true
-	case ACLPermissionOwner:
-		return true
-	case ACLPermissionPetSpeciesAdmin:
-		return true
-	case ACLPermissionPetSpeciesRead:
-		return true
-	case ACLPermissionPetSpeciesUse:
-		return true
-	case ACLPermissionViewAdmin:
-		return true
-	case ACLPermissionViewRead:
-		return true
-	case ACLPermissionViewUse:
-		return true
-	case ACLPermissionViewer:
-		return true
-	case ACLPermissionVoiceAdmin:
-		return true
-	case ACLPermissionVoiceRead:
-		return true
-	case ACLPermissionVoiceUse:
-		return true
-	case ACLPermissionWorkflowAdmin:
-		return true
-	case ACLPermissionWorkflowRead:
-		return true
-	case ACLPermissionWorkflowUse:
-		return true
-	case ACLPermissionWorkspaceAdmin:
-		return true
-	case ACLPermissionWorkspaceRead:
-		return true
-	case ACLPermissionWorkspaceUse:
+	case ACLPermissionUse:
 		return true
 	default:
 		return false
@@ -1590,8 +1515,10 @@ type ContactResource struct {
 	// ApiVersion API version for declarative GizClaw resources.
 	ApiVersion ResourceAPIVersion  `json:"apiVersion"`
 	Kind       ContactResourceKind `json:"kind"`
-	Metadata   ResourceMetadata    `json:"metadata"`
-	Spec       ContactSpec         `json:"spec"`
+
+	// Metadata metadata.name must be owner_public_key:id; only id is a custom ID.
+	Metadata ResourceMetadata `json:"metadata"`
+	Spec     ContactSpec      `json:"spec"`
 }
 
 // ContactResourceKind defines model for ContactResource.Kind.
@@ -1601,7 +1528,7 @@ type ContactResourceKind string
 type ContactSpec struct {
 	DisplayName *string `json:"display_name,omitempty"`
 
-	// Id Owner-scoped contact id.
+	// Id Owner-scoped contact custom ID. metadata.name must be owner_public_key:id.
 	Id string `json:"id"`
 
 	// OwnerPublicKey Owner peer public key. metadata.name must be owner_public_key:id.
@@ -2061,8 +1988,10 @@ type FriendGroupInviteTokenResource struct {
 	// ApiVersion API version for declarative GizClaw resources.
 	ApiVersion ResourceAPIVersion                 `json:"apiVersion"`
 	Kind       FriendGroupInviteTokenResourceKind `json:"kind"`
-	Metadata   ResourceMetadata                   `json:"metadata"`
-	Spec       FriendGroupInviteTokenSpec         `json:"spec"`
+
+	// Metadata metadata.name is the friend group custom ID and must match spec.friend_group_id.
+	Metadata ResourceMetadata           `json:"metadata"`
+	Spec     FriendGroupInviteTokenSpec `json:"spec"`
 }
 
 // FriendGroupInviteTokenResourceKind defines model for FriendGroupInviteTokenResource.Kind.
@@ -2070,9 +1999,11 @@ type FriendGroupInviteTokenResourceKind string
 
 // FriendGroupInviteTokenSpec defines model for FriendGroupInviteTokenSpec.
 type FriendGroupInviteTokenSpec struct {
-	ExpiresAt     time.Time `json:"expires_at"`
-	FriendGroupId string    `json:"friend_group_id"`
-	InviteToken   string    `json:"invite_token"`
+	ExpiresAt time.Time `json:"expires_at"`
+
+	// FriendGroupId Friend group custom ID. The invite_token value is not a custom ID.
+	FriendGroupId string `json:"friend_group_id"`
+	InviteToken   string `json:"invite_token"`
 }
 
 // FriendGroupMemberResource defines model for FriendGroupMemberResource.
@@ -2080,8 +2011,10 @@ type FriendGroupMemberResource struct {
 	// ApiVersion API version for declarative GizClaw resources.
 	ApiVersion ResourceAPIVersion            `json:"apiVersion"`
 	Kind       FriendGroupMemberResourceKind `json:"kind"`
-	Metadata   ResourceMetadata              `json:"metadata"`
-	Spec       FriendGroupMemberSpec         `json:"spec"`
+
+	// Metadata metadata.name must be friend_group_id:peer_public_key; only friend_group_id is a custom ID.
+	Metadata ResourceMetadata      `json:"metadata"`
+	Spec     FriendGroupMemberSpec `json:"spec"`
 }
 
 // FriendGroupMemberResourceKind defines model for FriendGroupMemberResource.Kind.
@@ -2092,6 +2025,7 @@ type FriendGroupMemberRole string
 
 // FriendGroupMemberSpec defines model for FriendGroupMemberSpec.
 type FriendGroupMemberSpec struct {
+	// FriendGroupId Friend group custom ID. The peer_public_key segment is not a custom ID.
 	FriendGroupId string                `json:"friend_group_id"`
 	PeerPublicKey string                `json:"peer_public_key"`
 	Role          FriendGroupMemberRole `json:"role"`
@@ -2102,8 +2036,10 @@ type FriendGroupResource struct {
 	// ApiVersion API version for declarative GizClaw resources.
 	ApiVersion ResourceAPIVersion      `json:"apiVersion"`
 	Kind       FriendGroupResourceKind `json:"kind"`
-	Metadata   ResourceMetadata        `json:"metadata"`
-	Spec       FriendGroupSpec         `json:"spec"`
+
+	// Metadata metadata.name is the friend group custom ID.
+	Metadata ResourceMetadata `json:"metadata"`
+	Spec     FriendGroupSpec  `json:"spec"`
 }
 
 // FriendGroupResourceKind defines model for FriendGroupResource.Kind.
@@ -2724,7 +2660,7 @@ type ResourceMetadata struct {
 	Annotations *map[string]string `json:"annotations,omitempty"`
 	Labels      *map[string]string `json:"labels,omitempty"`
 
-	// Name Resource name. For PeerConfig this is the peer public key.
+	// Name Resource name. Kind-specific rules apply. User-defined custom IDs use 8-48 lowercase ASCII characters, start with [a-z], end with [a-z0-9], and contain only [a-z0-9._-]. For PeerConfig this is the peer public key.
 	Name string `json:"name"`
 }
 
@@ -2904,8 +2840,10 @@ type WorkflowResource struct {
 	// ApiVersion API version for declarative GizClaw resources.
 	ApiVersion ResourceAPIVersion   `json:"apiVersion"`
 	Kind       WorkflowResourceKind `json:"kind"`
-	Metadata   ResourceMetadata     `json:"metadata"`
-	Spec       WorkflowSpec         `json:"spec"`
+
+	// Metadata metadata.name is the workflow custom ID.
+	Metadata ResourceMetadata `json:"metadata"`
+	Spec     WorkflowSpec     `json:"spec"`
 }
 
 // WorkflowResourceKind defines model for WorkflowResource.Kind.
@@ -2947,8 +2885,10 @@ type WorkspaceResource struct {
 	// ApiVersion API version for declarative GizClaw resources.
 	ApiVersion ResourceAPIVersion    `json:"apiVersion"`
 	Kind       WorkspaceResourceKind `json:"kind"`
-	Metadata   ResourceMetadata      `json:"metadata"`
-	Spec       WorkspaceSpec         `json:"spec"`
+
+	// Metadata metadata.name is the workspace custom ID. spec.workflow_name is the referenced workflow custom ID.
+	Metadata ResourceMetadata `json:"metadata"`
+	Spec     WorkspaceSpec    `json:"spec"`
 }
 
 // WorkspaceResourceKind defines model for WorkspaceResource.Kind.
@@ -2957,8 +2897,10 @@ type WorkspaceResourceKind string
 // WorkspaceSpec defines model for WorkspaceSpec.
 type WorkspaceSpec struct {
 	// Parameters Agent-specific workspace parameters. The shape is selected by agent_type.
-	Parameters   *WorkspaceParameters `json:"parameters,omitempty"`
-	WorkflowName string               `json:"workflow_name"`
+	Parameters *WorkspaceParameters `json:"parameters,omitempty"`
+
+	// WorkflowName Referenced workflow custom ID.
+	WorkflowName string `json:"workflow_name"`
 }
 
 // AsASTTranslateInternalSpeakerParameters returns the union data inside the ASTTranslateVoiceParameters as a ASTTranslateInternalSpeakerParameters
