@@ -31,7 +31,7 @@ func run(args []string, stderr io.Writer) int {
 	flags.SetOutput(stderr)
 	flags.StringVar(&cfg.SchemaPath, "schema", "api/rpc.json", "Source RPC OpenAPI schema")
 	flags.Var(&includes, "include", "Additional schema include root")
-	flags.StringVar(&cfg.OutDir, "out", "c/gizwebrtc/generated", "Generated C output directory")
+	flags.StringVar(&cfg.OutDir, "out", "c/gizclaw/generated", "Generated C output directory")
 	flags.StringVar(&cfg.Package, "package", "gzc", "C symbol prefix")
 	flags.BoolVar(&cfg.Check, "check", false, "Verify generated files are up to date")
 	flags.BoolVar(&cfg.Format, "format", true, "Format generated output")
