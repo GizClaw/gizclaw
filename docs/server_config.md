@@ -149,7 +149,7 @@ stores:
     storage: main-kv
     prefix: game-defs
 
-  # Gameplay pet assets and badge icons.
+  # Gameplay PetDef pixa files and BadgeDef PNG icons.
   gameplay-assets:
     kind: objectstore
     storage: local-assets
@@ -269,9 +269,9 @@ for the context file schema and dialing behavior.
   `friends`, `friend-groups`, `friend-group-members`, `friend-group-messages`, and
   `friend-group-message-assets`.
 - Gameplay catalog services are wired from `game-rulesets`, `pet-defs`,
-  `badge-defs`, and `game-defs`. Pet definition assets and badge icons use
-  `gameplay-assets`. Peer-owned pet, badge, points, game result, transaction,
-  and reward grant state uses the `gameplay-db` SQL store.
+  `badge-defs`, and `game-defs`. Pet definition pixa files and badge PNG icons
+  use `gameplay-assets`. Peer-owned pet, badge, points, game result,
+  transaction, and reward grant state uses the `gameplay-db` SQL store.
 - `agenthost` is optional for the server itself, but workspace agents such as
   Flowcraft should configure it as an object store so AgentHost can prepare
   per-workspace runtime prefixes and local runtime directories when supported

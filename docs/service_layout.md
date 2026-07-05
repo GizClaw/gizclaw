@@ -52,7 +52,11 @@ Server Service
 ├── server.friend_group.{list,get,create,put,delete}
 ├── server.friend_group.members.{list,add,put,delete}
 ├── server.friend_group.messages.{list,get,send}
+├── server.firmware.{list,get}
+├── server.firmware.files.download
 ├── server.game_ruleset.get
+├── server.pet_def.pixa.download
+├── server.badge_def.icon.download
 ├── server.pet.{list,get,adopt,put,delete,drive}
 ├── server.points.get
 ├── server.points.transactions.{list,get}
@@ -68,14 +72,16 @@ Admin Service
 ├── /acl/policy-bindings/{id} LIST, CREATE, GET, PUT, DELETE
 ├── /workflows/{name} LIST, CREATE, GET, PUT, DELETE
 ├── /firmwares/{name} LIST, CREATE, GET, PUT, DELETE
-│   ├── /bins/{channel}/{bin} PUT
-│   ├── @release
-│   └── @rollback
+│   └── /artifacts/{channel} GET, PUT, DELETE
+│       ├── /entries GET
+│       ├── /tree GET
+│       ├── /stat GET
+│       └── /download GET
 ├── /credentials/{name} LIST, CREATE, GET, PUT, DELETE
 ├── /models/{id} LIST, CREATE, GET, PUT, DELETE
 ├── /game-rulesets/{name} LIST, CREATE, GET, PUT, DELETE
 ├── /pet-defs/{id} LIST, CREATE, GET, PUT, DELETE
-│   └── /asset GET, PUT
+│   └── /pixa GET, PUT
 ├── /badge-defs/{id} LIST, CREATE, GET, PUT, DELETE
 │   └── /icon GET, PUT
 ├── /game-defs/{id} LIST, CREATE, GET, PUT, DELETE
