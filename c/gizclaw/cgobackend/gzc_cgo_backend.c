@@ -1,5 +1,3 @@
-//go:build ignore
-
 #include "gzc_cgo_backend.h"
 
 #include <stdlib.h>

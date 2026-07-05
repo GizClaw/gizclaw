@@ -1,5 +1,3 @@
-//go:build gizclaw_e2e
-
 package cgobackend
 
 import (

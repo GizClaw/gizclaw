@@ -1,38 +1,35 @@
-//go:build gizclaw_e2e
-
-package internal
+package cgobackend
 
 /*
-#cgo CFLAGS: -I. -I../../../../c/gizclaw/include -I../../../../c/gizclaw/generated
-#include "bridge.h"
+#cgo CFLAGS: -I. -I../include -I../generated
+#include "gzc_cgo_backend.h"
 #include <stdlib.h>
 */
 import "C"
 
 import (
+	"runtime/cgo"
 	"unsafe"
 
-	"github.com/GizClaw/gizclaw-go/c/gizclaw/cgobackend"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
-	"runtime/cgo"
 )
 
 type cgoSink struct {
 	cBackend unsafe.Pointer
 }
 
-func backendFromHandle(handle C.uint64_t) *cgobackend.Backend {
+func backendFromHandle(handle C.uint64_t) *Backend {
 	if handle == 0 {
 		return nil
 	}
 	h := cgo.Handle(uintptr(handle))
-	b, _ := h.Value().(*cgobackend.Backend)
+	b, _ := h.Value().(*Backend)
 	return b
 }
 
 //export gzcGoBackendCreate
 func gzcGoBackendCreate() C.uint64_t {
-	b := cgobackend.New()
+	b := New()
 	return C.uint64_t(cgo.NewHandle(b))
 }
 
@@ -64,7 +61,7 @@ func gzcGoRandom(out *C.uint8_t, length C.size_t) C.int {
 	if !ok {
 		return C.GZC_ERR_INVALID_ARGUMENT
 	}
-	if err := cgobackend.Random(unsafe.Slice((*byte)(unsafe.Pointer(out)), n)); err != nil {
+	if err := Random(unsafe.Slice((*byte)(unsafe.Pointer(out)), n)); err != nil {
 		return C.GZC_ERR_SIGNALING
 	}
 	return C.GZC_OK
@@ -72,7 +69,7 @@ func gzcGoRandom(out *C.uint8_t, length C.size_t) C.int {
 
 //export gzcGoTimeUnixMs
 func gzcGoTimeUnixMs() C.int64_t {
-	return C.int64_t(cgobackend.TimeUnixMs())
+	return C.int64_t(TimeUnixMs())
 }
 
 //export gzcGoHTTPRequest
@@ -114,7 +111,7 @@ func gzcGoKeyPairFromPrivate(privateKey *C.uint8_t, outPrivateKey *C.uint8_t, ou
 		return C.GZC_ERR_INVALID_ARGUMENT
 	}
 	private := unsafe.Slice((*byte)(unsafe.Pointer(privateKey)), giznet.KeySize)
-	kp, err := cgobackend.KeyPairFromPrivate(private)
+	kp, err := KeyPairFromPrivate(private)
 	if err != nil {
 		return C.GZC_ERR_SIGNALING
 	}
@@ -128,7 +125,7 @@ func gzcGoDH(privateKey *C.uint8_t, remotePublicKey *C.uint8_t, outShared *C.uin
 	if privateKey == nil || remotePublicKey == nil || outShared == nil {
 		return C.GZC_ERR_INVALID_ARGUMENT
 	}
-	shared, err := cgobackend.DH(
+	shared, err := DH(
 		unsafe.Slice((*byte)(unsafe.Pointer(privateKey)), giznet.KeySize),
 		unsafe.Slice((*byte)(unsafe.Pointer(remotePublicKey)), giznet.KeySize),
 	)
@@ -160,7 +157,7 @@ func gzcGoHKDFSHA256(secret *C.uint8_t, secretLen C.size_t, salt *C.uint8_t, sal
 	if !ok {
 		return C.GZC_ERR_INVALID_ARGUMENT
 	}
-	if err := cgobackend.HKDFSHA256(secretBytes, saltBytes, infoText, unsafe.Slice((*byte)(unsafe.Pointer(out)), outLenInt)); err != nil {
+	if err := HKDFSHA256(secretBytes, saltBytes, infoText, unsafe.Slice((*byte)(unsafe.Pointer(out)), outLenInt)); err != nil {
 		return C.GZC_ERR_SIGNALING
 	}
 	return C.GZC_OK
@@ -199,9 +196,9 @@ func gzcGoAEAD(seal bool, mode C.int, key *C.uint8_t, keyLen C.size_t, nonce *C.
 	var out []byte
 	var err error
 	if seal {
-		out, err = cgobackend.AEADSeal(int(mode), keyBytes, nonceBytes, inputBytes, aadBytes)
+		out, err = AEADSeal(int(mode), keyBytes, nonceBytes, inputBytes, aadBytes)
 	} else {
-		out, err = cgobackend.AEADOpen(int(mode), keyBytes, nonceBytes, inputBytes, aadBytes)
+		out, err = AEADOpen(int(mode), keyBytes, nonceBytes, inputBytes, aadBytes)
 	}
 	if err != nil {
 		return C.GZC_ERR_SIGNALING
@@ -393,7 +390,7 @@ func cIntLen(n C.size_t) (int, bool) {
 	return int(n), true
 }
 
-func cHeaders(headers *C.gzc_http_header_t, count C.size_t) ([]cgobackend.HTTPHeader, bool) {
+func cHeaders(headers *C.gzc_http_header_t, count C.size_t) ([]HTTPHeader, bool) {
 	if headers == nil || count == 0 {
 		return nil, true
 	}
@@ -401,7 +398,7 @@ func cHeaders(headers *C.gzc_http_header_t, count C.size_t) ([]cgobackend.HTTPHe
 	if !ok {
 		return nil, false
 	}
-	out := make([]cgobackend.HTTPHeader, 0, countInt)
+	out := make([]HTTPHeader, 0, countInt)
 	size := unsafe.Sizeof(*headers)
 	base := uintptr(unsafe.Pointer(headers))
 	for i := 0; i < countInt; i++ {
@@ -414,7 +411,7 @@ func cHeaders(headers *C.gzc_http_header_t, count C.size_t) ([]cgobackend.HTTPHe
 		if !ok {
 			return nil, false
 		}
-		out = append(out, cgobackend.HTTPHeader{Name: name, Value: value})
+		out = append(out, HTTPHeader{Name: name, Value: value})
 	}
 	return out, true
 }
