@@ -10,6 +10,7 @@
 typedef struct {
   gzc_cgo_backend_t backend;
   gzc_http_vtable_t http;
+  gzc_platform_crypto_t crypto;
   gzc_webrtc_vtable_t webrtc;
   gzc_client_t *client;
 } cgo_sdk_session_t;
@@ -43,14 +44,19 @@ static int session_open(cgo_sdk_session_t *session, const char *identity_dir, ch
   }
 
   gzc_cgo_backend_http_vtable(&session->backend, &session->http);
+  gzc_cgo_backend_crypto_vtable(&session->backend, &session->crypto);
   gzc_cgo_backend_webrtc_vtable(&session->backend, &session->webrtc);
 
   gzc_client_config_t config;
   memset(&config, 0, sizeof(config));
-  config.signaling_url = gzc_str_from_cstr("http://gizclaw-e2e/webrtc/v1/offer");
-  config.platform = gzc_default_platform();
+  config.signaling_url = gzc_str_from_cstr(session->backend.signaling_url);
+  config.server_public_key = gzc_str_from_cstr(session->backend.server_public_key_text);
+  config.private_key = gzc_str_from_cstr(session->backend.private_key_text);
+  config.platform = session->backend.platform;
+  config.crypto = &session->crypto;
   config.http = &session->http;
   config.webrtc = &session->webrtc;
+  config.cipher_mode = GZC_CIPHER_CHACHA20_POLY1305;
   config.connect_timeout_ms = 15000;
 
   rc = gzc_client_create(&config, &session->client);

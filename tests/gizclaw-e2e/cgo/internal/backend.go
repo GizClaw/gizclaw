@@ -3,7 +3,7 @@
 package internal
 
 /*
-#cgo CFLAGS: -I. -I../../../../c/gizwebrtc/include -I../../../../c/gizwebrtc/generated
+#cgo CFLAGS: -I. -I../../../../c/gizclaw/include -I../../../../c/gizclaw/generated
 #include "bridge.h"
 #include "sdk_driver.h"
 #include <stdlib.h>
@@ -11,19 +11,10 @@ package internal
 import "C"
 
 import (
-	"bytes"
-	"context"
-	"crypto/cipher"
-	"crypto/rand"
-	"crypto/sha256"
-	"encoding/base64"
 	"fmt"
-	"io"
-	"net/http"
 	"os"
 	"path/filepath"
 	"regexp"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -32,8 +23,6 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/stampedopus"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/pion/webrtc/v4"
-	"golang.org/x/crypto/chacha20poly1305"
-	"golang.org/x/crypto/hkdf"
 )
 
 const signalingPath = "/webrtc/v1/offer"
@@ -229,41 +218,6 @@ func (b *backend) setRemoteSDP(answer string) error {
 	return nil
 }
 
-func (b *backend) postOffer(ctx context.Context, offer []byte) ([]byte, error) {
-	var nonceRaw [16]byte
-	if _, err := rand.Read(nonceRaw[:]); err != nil {
-		return nil, err
-	}
-	nonce := base64.RawURLEncoding.EncodeToString(nonceRaw[:])
-	ts := time.Now().Unix()
-	reqAEAD, reqNonce, respAEAD, respNonce, err := deriveSignaling(b.key, b.serverPK, nonce, ts)
-	if err != nil {
-		return nil, err
-	}
-	body := reqAEAD.Seal(nil, reqNonce, offer, requestAAD(b.key.Public, ts, nonce))
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, "http://"+b.endpoint+signalingPath, bytes.NewReader(body))
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("Content-Type", "application/octet-stream")
-	req.Header.Set("X-Giznet-Public-Key", b.key.Public.String())
-	req.Header.Set("X-Giznet-Timestamp", strconv.FormatInt(ts, 10))
-	req.Header.Set("X-Giznet-Nonce", nonce)
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-	respBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("signaling failed: %s: %s", resp.Status, strings.TrimSpace(string(respBody)))
-	}
-	return respAEAD.Open(nil, respNonce, respBody, responseAAD(b.key.Public, ts, nonce))
-}
-
 func (b *backend) send(channelID int, data []byte, isText bool) error {
 	b.mu.Lock()
 	state := b.dcs[channelID]
@@ -372,58 +326,4 @@ func (b *backend) setCBackend(cBackend unsafe.Pointer) {
 	b.mu.Lock()
 	b.cBackend = cBackend
 	b.mu.Unlock()
-}
-
-func deriveSignaling(local *giznet.KeyPair, remote giznet.PublicKey, clientNonce string, ts int64) (cipher.AEAD, []byte, cipher.AEAD, []byte, error) {
-	shared, err := local.DH(remote)
-	if err != nil {
-		return nil, nil, nil, nil, err
-	}
-	nonceRaw, err := base64.RawURLEncoding.DecodeString(clientNonce)
-	if err != nil || len(nonceRaw) != 16 {
-		return nil, nil, nil, nil, fmt.Errorf("invalid signaling nonce")
-	}
-	salt := append([]byte{}, nonceRaw...)
-	salt = strconv.AppendInt(salt, ts, 10)
-	reqKey, err := hkdfBytes(shared[:], salt, "giznet/gizwebrtc/http-signaling/v1 c2s", chacha20poly1305.KeySize)
-	if err != nil {
-		return nil, nil, nil, nil, err
-	}
-	respKey, err := hkdfBytes(shared[:], salt, "giznet/gizwebrtc/http-signaling/v1 s2c", chacha20poly1305.KeySize)
-	if err != nil {
-		return nil, nil, nil, nil, err
-	}
-	reqNonce, err := hkdfBytes(shared[:], salt, "giznet/gizwebrtc/http-signaling/v1 c2s nonce", 12)
-	if err != nil {
-		return nil, nil, nil, nil, err
-	}
-	respNonce, err := hkdfBytes(shared[:], salt, "giznet/gizwebrtc/http-signaling/v1 s2c nonce", 12)
-	if err != nil {
-		return nil, nil, nil, nil, err
-	}
-	reqAEAD, err := chacha20poly1305.New(reqKey)
-	if err != nil {
-		return nil, nil, nil, nil, err
-	}
-	respAEAD, err := chacha20poly1305.New(respKey)
-	if err != nil {
-		return nil, nil, nil, nil, err
-	}
-	return reqAEAD, reqNonce, respAEAD, respNonce, nil
-}
-
-func hkdfBytes(secret, salt []byte, info string, n int) ([]byte, error) {
-	out := make([]byte, n)
-	if _, err := io.ReadFull(hkdf.New(sha256.New, secret, salt, []byte(info)), out); err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func requestAAD(client giznet.PublicKey, ts int64, nonce string) []byte {
-	return []byte(strings.Join([]string{"POST", signalingPath, client.String(), strconv.FormatInt(ts, 10), nonce}, "\n"))
-}
-
-func responseAAD(client giznet.PublicKey, ts int64, nonce string) []byte {
-	return []byte(strings.Join([]string{"POST", signalingPath, client.String(), strconv.FormatInt(ts, 10), nonce, "answer"}, "\n"))
 }

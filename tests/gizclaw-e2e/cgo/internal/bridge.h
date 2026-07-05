@@ -26,13 +26,19 @@ struct gzc_cgo_backend {
   struct gzc_rtc_channel packet_channel;
   struct gzc_rtc_channel rpc_channel;
   struct gzc_rtc_channel event_channel;
+  gzc_platform_t platform_impl;
   const gzc_platform_t *platform;
+  gzc_platform_crypto_t crypto;
+  char signaling_url[256];
+  char private_key_text[GZC_KEY_TEXT_CAP];
+  char server_public_key_text[GZC_KEY_TEXT_CAP];
 };
 
 int gzc_cgo_backend_init(gzc_cgo_backend_t *backend, const char *identity_dir);
 void gzc_cgo_backend_deinit(gzc_cgo_backend_t *backend);
 
 void gzc_cgo_backend_http_vtable(gzc_cgo_backend_t *backend, gzc_http_vtable_t *out_http);
+void gzc_cgo_backend_crypto_vtable(gzc_cgo_backend_t *backend, gzc_platform_crypto_t *out_crypto);
 void gzc_cgo_backend_webrtc_vtable(gzc_cgo_backend_t *backend, gzc_webrtc_vtable_t *out_webrtc);
 
 void gzc_cgo_emit_channel_state(gzc_cgo_backend_t *backend, int channel_id, gzc_rtc_channel_state_t state);

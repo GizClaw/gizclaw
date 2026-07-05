@@ -3,7 +3,7 @@
 package internal
 
 /*
-#cgo CFLAGS: -I. -I../../../../c/gizwebrtc/include -I../../../../c/gizwebrtc/generated
+#cgo CFLAGS: -I. -I../../../../c/gizclaw/include -I../../../../c/gizclaw/generated
 #include "gzc_common.h"
 #include "sdk_driver.h"
 #include <stdlib.h>

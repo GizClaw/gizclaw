@@ -34,6 +34,10 @@ typedef struct {
   int post_count;
 } fake_http_t;
 
+typedef struct {
+  const gzc_platform_t *platform;
+} fake_crypto_t;
+
 static int fake_peer_create(void *userdata, const gzc_webrtc_callbacks_t *callbacks, gzc_rtc_peer_t **out_peer) {
   fake_webrtc_t *fake = (fake_webrtc_t *)userdata;
   fake->callbacks = *callbacks;
@@ -232,10 +236,11 @@ static int count_stream_frame(void *userdata, const gzc_rpc_frame_t *frame) {
   return GZC_OK;
 }
 
-static int test_http_post(void *userdata, const gzc_http_request_t *request, gzc_http_response_t *out_response) {
+static int test_http_request(void *userdata, const gzc_http_request_t *request, gzc_http_response_t *out_response) {
   fake_http_t *fake = (fake_http_t *)userdata;
   fake->post_count++;
-  if (request == NULL || request->body == NULL || request->body_len == 0) {
+  if (request == NULL || request->method != GZC_HTTP_METHOD_POST || request->body == NULL || request->body_len == 0 ||
+      request->header_count != GZC_SIGNALING_HEADER_COUNT) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
   out_response->status_code = 200;
@@ -246,6 +251,97 @@ static int test_http_post(void *userdata, const gzc_http_request_t *request, gzc
 static void test_http_response_free(void *userdata, gzc_http_response_t *response) {
   fake_http_t *fake = (fake_http_t *)userdata;
   gzc_buf_free(&response->body, fake->platform);
+}
+
+static int test_keypair_from_private(void *userdata, const gzc_key_t *private_key, gzc_keypair_t *out_keypair) {
+  (void)userdata;
+  if (private_key == NULL || out_keypair == NULL) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  out_keypair->private_key = *private_key;
+  memset(&out_keypair->public_key, 0x22, sizeof(out_keypair->public_key));
+  return GZC_OK;
+}
+
+static int test_key_from_text(void *userdata, gzc_str_t text, gzc_key_t *out_key) {
+  (void)userdata;
+  if (text.data == NULL || text.len == 0 || out_key == NULL) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  memset(out_key, text.data[0], sizeof(*out_key));
+  return GZC_OK;
+}
+
+static int test_key_to_text(void *userdata, const gzc_key_t *key, char *out_text, size_t out_text_cap, size_t *out_text_len) {
+  (void)userdata;
+  (void)key;
+  const char *text = "client-public";
+  size_t len = strlen(text);
+  if (out_text == NULL || out_text_cap <= len) {
+    return GZC_ERR_NO_MEMORY;
+  }
+  memcpy(out_text, text, len + 1);
+  if (out_text_len != NULL) {
+    *out_text_len = len;
+  }
+  return GZC_OK;
+}
+
+static int test_dh(void *userdata, const gzc_keypair_t *local, const gzc_public_key_t *remote, gzc_key_t *out_shared) {
+  (void)userdata;
+  if (local == NULL || remote == NULL || out_shared == NULL) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  memset(out_shared, 0x33, sizeof(*out_shared));
+  return GZC_OK;
+}
+
+static int test_hkdf_sha256(
+    void *userdata,
+    const uint8_t *secret,
+    size_t secret_len,
+    const uint8_t *salt,
+    size_t salt_len,
+    gzc_str_t info,
+    uint8_t *out,
+    size_t out_len) {
+  (void)userdata;
+  (void)secret;
+  (void)secret_len;
+  (void)salt;
+  (void)salt_len;
+  (void)info;
+  if (out == NULL) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  memset(out, 0x44, out_len);
+  return GZC_OK;
+}
+
+static int test_aead_copy(
+    void *userdata,
+    gzc_cipher_mode_t mode,
+    const uint8_t *key,
+    size_t key_len,
+    const uint8_t *nonce,
+    size_t nonce_len,
+    const uint8_t *input,
+    size_t input_len,
+    const uint8_t *aad,
+    size_t aad_len,
+    gzc_buf_t *out) {
+  fake_crypto_t *fake = (fake_crypto_t *)userdata;
+  (void)mode;
+  (void)key;
+  (void)key_len;
+  (void)nonce;
+  (void)nonce_len;
+  (void)aad;
+  (void)aad_len;
+  if ((input == NULL && input_len != 0) || out == NULL) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  return gzc_buf_append(out, fake->platform, input, input_len);
 }
 
 static int expect(bool ok, const char *message) {
@@ -267,6 +363,21 @@ int main(void) {
   memset(&fake_http, 0, sizeof(fake_http));
   fake_http.platform = platform;
 
+  fake_crypto_t fake_crypto;
+  memset(&fake_crypto, 0, sizeof(fake_crypto));
+  fake_crypto.platform = platform;
+
+  gzc_platform_crypto_t crypto;
+  memset(&crypto, 0, sizeof(crypto));
+  crypto.userdata = &fake_crypto;
+  crypto.keypair_from_private = test_keypair_from_private;
+  crypto.key_from_text = test_key_from_text;
+  crypto.key_to_text = test_key_to_text;
+  crypto.dh = test_dh;
+  crypto.hkdf_sha256 = test_hkdf_sha256;
+  crypto.aead_seal = test_aead_copy;
+  crypto.aead_open = test_aead_copy;
+
   gzc_webrtc_vtable_t webrtc;
   memset(&webrtc, 0, sizeof(webrtc));
   webrtc.userdata = &fake_webrtc;
@@ -282,15 +393,19 @@ int main(void) {
   gzc_http_vtable_t http;
   memset(&http, 0, sizeof(http));
   http.userdata = &fake_http;
-  http.post = test_http_post;
+  http.request = test_http_request;
   http.response_free = test_http_response_free;
 
   gzc_client_config_t config;
   memset(&config, 0, sizeof(config));
   config.signaling_url = gzc_str_from_cstr("https://example.invalid/signal");
+  config.server_public_key = gzc_str_from_cstr("server-public");
+  config.private_key = gzc_str_from_cstr("client-private");
   config.platform = platform;
+  config.crypto = &crypto;
   config.http = &http;
   config.webrtc = &webrtc;
+  config.cipher_mode = GZC_CIPHER_PLAINTEXT;
   config.connect_timeout_ms = 1000;
 
   gzc_client_t *client = NULL;

@@ -3,6 +3,7 @@
 
 #include "gzc_http.h"
 #include "gzc_rpc_frame.h"
+#include "gzc_signaling.h"
 #include "gzc_webrtc.h"
 
 #ifdef __cplusplus
@@ -14,11 +15,13 @@ typedef struct gzc_service_channel gzc_service_channel_t;
 
 typedef struct {
   gzc_str_t signaling_url;
-  gzc_str_t public_key;
+  gzc_str_t server_public_key;
   gzc_str_t private_key;
   const gzc_platform_t *platform;
+  const gzc_platform_crypto_t *crypto;
   const gzc_http_vtable_t *http;
   const gzc_webrtc_vtable_t *webrtc;
+  gzc_cipher_mode_t cipher_mode;
   int connect_timeout_ms;
   void *userdata;
 } gzc_client_config_t;
