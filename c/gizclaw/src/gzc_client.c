@@ -206,10 +206,11 @@ static void close_rpc_channel(gzc_client_t *client) {
 
 int gzc_client_create(const gzc_client_config_t *config, gzc_client_t **out_client) {
   if (config == NULL || out_client == NULL || config->http == NULL || config->webrtc == NULL ||
+      config->crypto == NULL ||
       config->webrtc->peer_create == NULL || config->webrtc->peer_start_offer == NULL ||
       config->webrtc->peer_set_remote_sdp == NULL || config->webrtc->peer_create_data_channel == NULL ||
       config->webrtc->channel_send == NULL || config->webrtc->peer_close == NULL ||
-      config->http->post == NULL) {
+      config->http->request == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
   const gzc_platform_t *platform = config->platform == NULL ? gzc_default_platform() : config->platform;
@@ -279,28 +280,54 @@ int gzc_client_connect(gzc_client_t *client) {
     goto fail;
   }
 
+  gzc_signaling_config_t signaling;
+  memset(&signaling, 0, sizeof(signaling));
+  signaling.platform = client->config.platform;
+  signaling.crypto = client->config.crypto;
+  signaling.cipher_mode = client->config.cipher_mode;
+  signaling.signaling_url = client->config.signaling_url;
+  rc = gzc_key_from_text(client->config.private_key, &signaling.private_key);
+  if (rc != GZC_OK) {
+    goto fail;
+  }
+  rc = gzc_key_from_text(client->config.server_public_key, &signaling.remote_public_key);
+  if (rc != GZC_OK) {
+    goto fail;
+  }
+
+  gzc_signaling_exchange_t exchange;
+  memset(&exchange, 0, sizeof(exchange));
   gzc_http_request_t request;
-  memset(&request, 0, sizeof(request));
-  request.url = client->config.signaling_url;
-  request.body = client->local_sdp.data;
-  request.body_len = client->local_sdp.len;
+  rc = gzc_signaling_build_offer_request(
+      &signaling,
+      gzc_str_from_parts((const char *)client->local_sdp.data, client->local_sdp.len),
+      &exchange,
+      &request);
+  if (rc != GZC_OK) {
+    gzc_signaling_exchange_free(&exchange, client->config.platform);
+    goto fail;
+  }
   request.timeout_ms = timeout;
   gzc_http_response_t response;
   memset(&response, 0, sizeof(response));
   gzc_buf_init(&response.body);
-  rc = client->config.http->post(client->config.http->userdata, &request, &response);
-  if (rc == GZC_OK && (response.status_code < 200 || response.status_code >= 300)) {
-    rc = GZC_ERR_HTTP;
+  rc = client->config.http->request(client->config.http->userdata, &request, &response);
+  gzc_buf_t answer_sdp;
+  gzc_buf_init(&answer_sdp);
+  if (rc == GZC_OK) {
+    rc = gzc_signaling_parse_answer_response(&signaling, &exchange, &response, &answer_sdp);
   }
   if (rc == GZC_OK) {
-    gzc_str_t answer = gzc_str_from_parts((const char *)response.body.data, response.body.len);
+    gzc_str_t answer = gzc_str_from_parts((const char *)answer_sdp.data, answer_sdp.len);
     rc = client->config.webrtc->peer_set_remote_sdp(client->peer, GZC_RTC_SDP_ANSWER, answer);
   }
+  gzc_buf_free(&answer_sdp, client->config.platform);
   if (client->config.http->response_free != NULL) {
     client->config.http->response_free(client->config.http->userdata, &response);
   } else {
     gzc_buf_free(&response.body, client->config.platform);
   }
+  gzc_signaling_exchange_free(&exchange, client->config.platform);
   if (rc != GZC_OK) {
     goto fail;
   }
