@@ -14,6 +14,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/socialutil"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/acl"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
@@ -23,10 +24,17 @@ type Runtime struct {
 	DB          *sql.DB
 	Catalog     *Catalog
 	Workspaces  workspace.WorkspaceAdminService
+	ACL         ACL
 	Now         func() time.Time
 	NewID       func() string
 	PickWeight  func(total int64) int64
 	DecayPeriod time.Duration
+}
+
+type ACL interface {
+	PutRole(context.Context, string, apitypes.ACLPermissionList) (apitypes.ACLRole, error)
+	PutPolicyBinding(context.Context, string, float64, apitypes.ACLPolicy) (apitypes.ACLPolicyBinding, error)
+	DeletePolicyBinding(context.Context, string) (apitypes.ACLPolicyBinding, error)
 }
 
 func (r *Runtime) Migration(ctx context.Context) error {
@@ -185,9 +193,13 @@ func (r *Runtime) AdoptPet(ctx context.Context, owner string, req apitypes.PetAd
 	created := false
 	defer func() {
 		if !created && r.Workspaces != nil {
+			_ = r.revokePetWorkspace(ctx, workspaceName, owner)
 			_, _ = r.Workspaces.DeleteWorkspace(context.WithoutCancel(ctx), adminservice.DeleteWorkspaceRequestObject{Name: workspaceName})
 		}
 	}()
+	if err := r.grantPetWorkspace(ctx, workspaceName, owner); err != nil {
+		return apitypes.PetAdoptResponse{}, err
+	}
 	now := r.now()
 	pet := apitypes.Pet{
 		Id:             petID,
@@ -292,6 +304,7 @@ func (r *Runtime) DeletePet(ctx context.Context, owner, id string) (apitypes.Pet
 	if _, err := db.ExecContext(ctx, `DELETE FROM gameplay_pets WHERE owner_public_key = ? AND id = ?`, owner, pet.Id); err != nil {
 		return apitypes.Pet{}, err
 	}
+	_ = r.revokePetWorkspace(context.WithoutCancel(ctx), pet.WorkspaceName, owner)
 	if r.Workspaces != nil {
 		_, _ = r.Workspaces.DeleteWorkspace(context.WithoutCancel(ctx), adminservice.DeleteWorkspaceRequestObject{Name: pet.WorkspaceName})
 	}
@@ -616,6 +629,50 @@ func (r *Runtime) createPetWorkspace(ctx context.Context, name, workflowName str
 	default:
 		return fmt.Errorf("create pet workspace: unexpected response %T", resp)
 	}
+}
+
+func (r *Runtime) grantPetWorkspace(ctx context.Context, workspaceName, owner string) error {
+	if r == nil || r.ACL == nil {
+		return nil
+	}
+	roleName, permissions := socialutil.WorkspaceACLRole()
+	if _, err := r.ACL.PutRole(ctx, roleName, permissions); err != nil {
+		return err
+	}
+	owner = strings.TrimSpace(owner)
+	if owner == "" {
+		return nil
+	}
+	_, err := r.ACL.PutPolicyBinding(ctx, petWorkspaceACLBindingID(workspaceName, owner), 0, apitypes.ACLPolicy{
+		Subject: apitypes.ACLSubject{
+			Kind: apitypes.ACLSubjectKindPk,
+			Id:   owner,
+		},
+		Resource: apitypes.ACLResource{
+			Kind: apitypes.ACLResourceKindWorkspace,
+			Id:   workspaceName,
+		},
+		Role: roleName,
+	})
+	return err
+}
+
+func (r *Runtime) revokePetWorkspace(ctx context.Context, workspaceName, owner string) error {
+	if r == nil || r.ACL == nil {
+		return nil
+	}
+	owner = strings.TrimSpace(owner)
+	if owner == "" {
+		return nil
+	}
+	if _, err := r.ACL.DeletePolicyBinding(ctx, petWorkspaceACLBindingID(workspaceName, owner)); err != nil && !errors.Is(err, acl.ErrPolicyBindingNotFound) {
+		return err
+	}
+	return nil
+}
+
+func petWorkspaceACLBindingID(workspaceName, owner string) string {
+	return "gameplay-pet-workspace:" + socialutil.EscapeStoreSegment(workspaceName) + ":" + socialutil.EscapeStoreSegment(owner)
 }
 
 func (r *Runtime) ensureAccountTx(ctx context.Context, tx *sql.Tx, owner string, ruleset apitypes.GameRuleset) (apitypes.PointsAccount, error) {

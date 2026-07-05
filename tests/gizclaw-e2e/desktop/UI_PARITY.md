@@ -84,7 +84,7 @@ Admin transport mapping:
 | Social friend/group resources and chat targets | `apps/wails/frontend/src/views/play/full/PlayFullApp.tsx` | `apps/wails/frontend/e2e/play.spec.ts`, `tests/gizclaw-e2e/go/social` |
 | Firmware list/detail/download | `apps/wails/frontend/src/views/play/full/PlayFullApp.tsx` | `apps/wails/frontend/e2e/play.spec.ts`, `tests/gizclaw-e2e/go/rpc/server_firmware_test.go` |
 | Memory stats/recall/reload | `apps/wails/frontend/src/views/play/full/PlayFullApp.tsx` | `apps/wails/frontend/e2e/play.spec.ts` |
-| Gameplay pets/points/badges/results/reward grants | `apps/wails/frontend/src/views/play/full/PlayFullApp.tsx` | `apps/wails/frontend/e2e/play.spec.ts`, `tests/gizclaw-e2e/go/rpc/server_gameplay_test.go` |
+| Gameplay pets/points/badges/results/reward grants | `apps/wails/frontend/src/views/play/full/PlayFullApp.tsx` | `apps/wails/frontend/e2e/play.spec.ts`, `tests/gizclaw-e2e/go/gameplay` |
 
 Play transport mapping:
 

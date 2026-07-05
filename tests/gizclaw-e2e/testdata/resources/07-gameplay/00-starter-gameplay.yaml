@@ -12,7 +12,7 @@ spec:
     spec:
       display_name: Starter Pet
       description: Starter pet for gameplay e2e coverage.
-      workflow_name: chatroom-direct
+      workflow_name: pet-care-flowcraft
       initial_life:
         hunger: 100
         clean: 100
@@ -42,7 +42,7 @@ spec:
     spec:
       enabled: true
       description: Default gameplay e2e ruleset.
-      default_workflow_name: chatroom-direct
+      default_workflow_name: pet-care-flowcraft
       points:
         initial_balance: 100
       pet_pool:
@@ -50,7 +50,7 @@ spec:
         weight: 100
         rarity: common
         adoption_cost: 10
-        workflow_name: chatroom-direct
+        workflow_name: pet-care-flowcraft
       badge_def_ids:
       - badge-starter
       game_def_ids:

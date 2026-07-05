@@ -422,6 +422,7 @@ func (s *Server) init() error {
 		DB:         s.GameplayDB,
 		Catalog:    gameplayCatalog,
 		Workspaces: workspaceServer,
+		ACL:        aclServer,
 	}
 	if s.GameplayDB != nil {
 		if err := gameplayRuntime.Migration(context.Background()); err != nil {

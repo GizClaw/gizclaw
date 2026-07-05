@@ -1,0 +1,19 @@
+---
+apiVersion: gizclaw.admin/v1alpha1
+kind: ResourceList
+metadata:
+  name: view-default-client-gameplay-acl
+spec:
+  items:
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-workflow-pet-care
+    spec:
+      subject:
+        kind: view
+        id: default-client
+      resource:
+        kind: workflow
+        id: pet-care-flowcraft
+      role: default-client

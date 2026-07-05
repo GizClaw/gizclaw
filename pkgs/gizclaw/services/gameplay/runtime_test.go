@@ -25,6 +25,7 @@ func TestRuntimeAdoptAndDrive(t *testing.T) {
 		DB:         db,
 		Catalog:    catalog,
 		Workspaces: workspaces,
+		ACL:        &recordingACLService{},
 		Now: func() time.Time {
 			return now
 		},
@@ -213,6 +214,46 @@ func TestRuntimeAdoptAndDrive(t *testing.T) {
 	}
 	if deleted.Id != adopted.Pet.Id || len(workspaces.deleted) != 1 || workspaces.deleted[0] != "pet-pet-1" {
 		t.Fatalf("DeletePet() = %#v deletedWorkspaces=%#v", deleted, workspaces.deleted)
+	}
+}
+
+func TestRuntimeAdoptGrantsAndDeleteRevokesPetWorkspace(t *testing.T) {
+	ctx := context.Background()
+	now := time.Date(2026, 7, 5, 10, 0, 0, 0, time.UTC)
+	catalog := testCatalog(t, now)
+	seedGameplayCatalog(t, ctx, catalog)
+	workspaces := &recordingWorkspaceService{}
+	acl := &recordingACLService{}
+	runtime := &Runtime{
+		DB:         testDB(t),
+		Catalog:    catalog,
+		Workspaces: workspaces,
+		ACL:        acl,
+		Now:        func() time.Time { return now },
+		NewID:      sequentialIDs("pet-1", "adopt-txn"),
+	}
+
+	adopted, err := runtime.AdoptPet(ctx, "peer-a", apitypes.PetAdoptRequest{})
+	if err != nil {
+		t.Fatalf("AdoptPet() error = %v", err)
+	}
+	bindingID := petWorkspaceACLBindingID(adopted.Pet.WorkspaceName, "peer-a")
+	policy, ok := acl.bindings[bindingID]
+	if !ok {
+		t.Fatalf("workspace ACL binding %q was not created: %#v", bindingID, acl.bindings)
+	}
+	if policy.Subject.Kind != apitypes.ACLSubjectKindPk || policy.Subject.Id != "peer-a" || policy.Resource.Kind != apitypes.ACLResourceKindWorkspace || policy.Resource.Id != adopted.Pet.WorkspaceName {
+		t.Fatalf("workspace ACL policy = %#v", policy)
+	}
+
+	if _, err := runtime.DeletePet(ctx, "peer-a", adopted.Pet.Id); err != nil {
+		t.Fatalf("DeletePet() error = %v", err)
+	}
+	if _, ok := acl.bindings[bindingID]; ok {
+		t.Fatalf("workspace ACL binding %q was not revoked", bindingID)
+	}
+	if got := workspaces.deleted; len(got) != 1 || got[0] != adopted.Pet.WorkspaceName {
+		t.Fatalf("deleted workspaces = %#v", got)
 	}
 }
 
@@ -611,4 +652,34 @@ func (s workspaceResponseService) GetWorkspace(context.Context, adminservice.Get
 
 func (s workspaceResponseService) PutWorkspace(context.Context, adminservice.PutWorkspaceRequestObject) (adminservice.PutWorkspaceResponseObject, error) {
 	return adminservice.PutWorkspace500JSONResponse(apitypes.NewErrorResponse("UNIMPLEMENTED", "not implemented")), nil
+}
+
+type recordingACLService struct {
+	roles    map[string]apitypes.ACLPermissionList
+	bindings map[string]apitypes.ACLPolicy
+}
+
+func (s *recordingACLService) PutRole(_ context.Context, name string, permissions apitypes.ACLPermissionList) (apitypes.ACLRole, error) {
+	if s.roles == nil {
+		s.roles = map[string]apitypes.ACLPermissionList{}
+	}
+	s.roles[name] = permissions
+	return apitypes.ACLRole{Name: name, Permissions: permissions}, nil
+}
+
+func (s *recordingACLService) PutPolicyBinding(_ context.Context, id string, _ float64, policy apitypes.ACLPolicy) (apitypes.ACLPolicyBinding, error) {
+	if s.bindings == nil {
+		s.bindings = map[string]apitypes.ACLPolicy{}
+	}
+	s.bindings[id] = policy
+	return apitypes.ACLPolicyBinding{Id: id, Policy: policy}, nil
+}
+
+func (s *recordingACLService) DeletePolicyBinding(_ context.Context, id string) (apitypes.ACLPolicyBinding, error) {
+	if s.bindings == nil {
+		return apitypes.ACLPolicyBinding{}, nil
+	}
+	policy := s.bindings[id]
+	delete(s.bindings, id)
+	return apitypes.ACLPolicyBinding{Id: id, Policy: policy}, nil
 }

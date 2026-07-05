@@ -13,7 +13,7 @@ runs.
   Docker e2e environment. Invoke these scripts with `bash`.
 - `testdata/`: committed identities, resources, and ignored runtime output.
 - `cmd/`: user-facing `gizclaw` CLI e2e tests.
-- `go/`: Go Admin API, RPC, chat, and social e2e tests.
+- `go/`: Go Admin API, chat, gameplay, RPC, and social e2e tests.
 - `js/`: JavaScript/TypeScript e2e tests.
 - `desktop/`: Wails desktop shell e2e tests.
 
@@ -44,7 +44,8 @@ bash tests/gizclaw-e2e/run_tests.sh
 
 The script builds the host e2e CLI, starts the Docker Compose stack, waits for
 the server and desktop surface, writes a generated host-side runtime env, runs
-the ordered test suites, and stops the stack on success or failure.
+the ordered JS, desktop, Admin API, chat, gameplay, RPC, social, and selected
+CLI suites, and stops the stack on success or failure.
 
 For manual work, start only the Docker e2e environment:
 
@@ -163,7 +164,19 @@ go test -tags gizclaw_e2e -count=1 \
 
 go test -tags gizclaw_e2e -count=1 \
   -skip '^(TestHumanReview|TestServerSocialRPCHumanReview|TestSocialRealtimeHistoryRPC)$' \
+  ./tests/gizclaw-e2e/go/chat
+
+go test -tags gizclaw_e2e -count=1 \
+  -skip '^(TestHumanReview|TestServerSocialRPCHumanReview|TestSocialRealtimeHistoryRPC)$' \
+  ./tests/gizclaw-e2e/go/gameplay
+
+go test -tags gizclaw_e2e -count=1 \
+  -skip '^(TestHumanReview|TestServerSocialRPCHumanReview|TestSocialRealtimeHistoryRPC)$' \
   ./tests/gizclaw-e2e/go/rpc
+
+go test -tags gizclaw_e2e -count=1 \
+  -skip '^(TestHumanReview|TestServerSocialRPCHumanReview|TestSocialRealtimeHistoryRPC)$' \
+  ./tests/gizclaw-e2e/go/social
 
 go test -tags gizclaw_e2e -count=1 ./tests/gizclaw-e2e/desktop/...
 go test -tags gizclaw_e2e -count=1 ./tests/gizclaw-e2e/cmd/connect
@@ -209,6 +222,7 @@ resources/
   04-workflows/
   05-workspaces/
   06-firmwares/
+  07-gameplay/
   08-voices/
   09-social/
   90-acl/
