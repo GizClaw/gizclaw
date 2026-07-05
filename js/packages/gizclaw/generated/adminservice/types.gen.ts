@@ -688,7 +688,7 @@ export type FriendObject = {
 /**
  * ACL permission enum.
  */
-export type AclPermission = 'viewer' | 'editor' | 'owner' | 'workspace.read' | 'workspace.use' | 'workspace.admin' | 'workflow.read' | 'workflow.use' | 'workflow.admin' | 'voice.read' | 'voice.use' | 'voice.admin' | 'credential.read' | 'credential.use' | 'credential.admin' | 'model.read' | 'model.use' | 'model.admin' | 'view.read' | 'view.use' | 'view.admin' | 'pet_species.read' | 'pet_species.use' | 'pet_species.admin' | 'badge.read' | 'badge.use' | 'badge.admin' | 'firmware.read' | 'firmware.admin';
+export type AclPermission = 'read' | 'use' | 'create' | 'admin';
 
 export type AclPermissionList = Array<AclPermission>;
 

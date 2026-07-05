@@ -18,8 +18,8 @@ func (s *Server) handlePetList(ctx context.Context, req *rpcapi.RPCRequest) *rpc
 	if !ok {
 		return invalidParams(req.Id)
 	}
-	admin := s.Caller.String()
-	result, err := s.Pets.ListPets(ctx, admin, params)
+	owner := s.Caller.String()
+	result, err := s.Pets.ListPets(ctx, owner, params)
 	if err != nil {
 		return businessError(req.Id, err)
 	}
@@ -138,8 +138,8 @@ func (s *Server) handleWalletGet(ctx context.Context, req *rpcapi.RPCRequest) *r
 	if _, ok := decodeOptionalParams(req, rpcapi.RPCRequest_Params.AsWalletGetRequest); !ok {
 		return invalidParams(req.Id)
 	}
-	admin := s.Caller.String()
-	result, err := s.Wallets.GetWallet(ctx, admin)
+	owner := s.Caller.String()
+	result, err := s.Wallets.GetWallet(ctx, owner)
 	if err != nil {
 		return businessError(req.Id, err)
 	}
@@ -184,8 +184,8 @@ func (s *Server) handleRewardList(ctx context.Context, req *rpcapi.RPCRequest) *
 	if !ok {
 		return invalidParams(req.Id)
 	}
-	admin := s.Caller.String()
-	result, err := s.Rewards.ListRewards(ctx, admin, params)
+	owner := s.Caller.String()
+	result, err := s.Rewards.ListRewards(ctx, owner, params)
 	if err != nil {
 		return businessError(req.Id, err)
 	}

@@ -299,12 +299,12 @@ func (s *Server) modelReadAllowed(ctx context.Context, id string) (bool, error) 
 }
 
 func openAIModel(model apitypes.Model) openaiservice.Model {
-	admin := strings.TrimSpace(model.Provider.Name)
-	if admin == "" {
-		admin = strings.TrimSpace(string(model.Provider.Kind))
+	owner := strings.TrimSpace(model.Provider.Name)
+	if owner == "" {
+		owner = strings.TrimSpace(string(model.Provider.Kind))
 	}
-	if admin == "" {
-		admin = "gizclaw"
+	if owner == "" {
+		owner = "gizclaw"
 	}
 	created := model.CreatedAt.Unix()
 	if model.CreatedAt.IsZero() {
@@ -314,7 +314,7 @@ func openAIModel(model apitypes.Model) openaiservice.Model {
 		Id:      model.Id,
 		Object:  openaiservice.ModelObjectModel,
 		Created: created,
-		OwnedBy: admin,
+		OwnedBy: owner,
 	}
 }
 

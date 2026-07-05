@@ -15,19 +15,19 @@ import (
 func TestJSONPagingAndDeletePrefix(t *testing.T) {
 	ctx := context.Background()
 	store := kv.NewMemory(nil)
-	admin := " peer/a "
+	owner := " peer/a "
 	firstID := "id/a"
 	secondID := "id b"
 
 	first := rpcapi.ContactObject{Id: strPtr(firstID), DisplayName: strPtr("first")}
 	second := rpcapi.ContactObject{Id: strPtr(secondID), DisplayName: strPtr("second")}
-	if err := WriteJSON(ctx, store, ContactKey(admin, firstID), first); err != nil {
+	if err := WriteJSON(ctx, store, ContactKey(owner, firstID), first); err != nil {
 		t.Fatalf("WriteJSON first: %v", err)
 	}
-	if err := WriteJSON(ctx, store, ContactKey(admin, secondID), second); err != nil {
+	if err := WriteJSON(ctx, store, ContactKey(owner, secondID), second); err != nil {
 		t.Fatalf("WriteJSON second: %v", err)
 	}
-	got, err := ReadJSONValue[rpcapi.ContactObject](ctx, store, ContactKey(admin, firstID))
+	got, err := ReadJSONValue[rpcapi.ContactObject](ctx, store, ContactKey(owner, firstID))
 	if err != nil {
 		t.Fatalf("ReadJSONValue: %v", err)
 	}
@@ -35,14 +35,14 @@ func TestJSONPagingAndDeletePrefix(t *testing.T) {
 		t.Fatalf("ReadJSONValue = %#v, want first contact", got)
 	}
 
-	page, err := ListPage(ctx, store, OwnerPrefix(ContactsRoot, admin), "", 1)
+	page, err := ListPage(ctx, store, OwnerPrefix(ContactsRoot, owner), "", 1)
 	if err != nil {
 		t.Fatalf("ListPage first: %v", err)
 	}
 	if len(page.Items) != 1 || !page.HasNext || page.NextCursor == nil || *page.NextCursor != firstID {
 		t.Fatalf("ListPage first = %#v, want first item and cursor %q", page, firstID)
 	}
-	page, err = ListPage(ctx, store, OwnerPrefix(ContactsRoot, admin), *page.NextCursor, 1)
+	page, err = ListPage(ctx, store, OwnerPrefix(ContactsRoot, owner), *page.NextCursor, 1)
 	if err != nil {
 		t.Fatalf("ListPage second: %v", err)
 	}
@@ -50,10 +50,10 @@ func TestJSONPagingAndDeletePrefix(t *testing.T) {
 		t.Fatalf("ListPage second = %#v, want final item", page)
 	}
 
-	if err := DeletePrefix(ctx, store, OwnerPrefix(ContactsRoot, admin)); err != nil {
+	if err := DeletePrefix(ctx, store, OwnerPrefix(ContactsRoot, owner)); err != nil {
 		t.Fatalf("DeletePrefix: %v", err)
 	}
-	if _, err := store.Get(ctx, ContactKey(admin, firstID)); !errors.Is(err, kv.ErrNotFound) {
+	if _, err := store.Get(ctx, ContactKey(owner, firstID)); !errors.Is(err, kv.ErrNotFound) {
 		t.Fatalf("Get after DeletePrefix error = %v, want kv.ErrNotFound", err)
 	}
 }
@@ -122,7 +122,7 @@ func TestScalarHelpersAndRoles(t *testing.T) {
 		t.Fatalf("GroupBelongKey = %#v, want escaped peer/group key", got)
 	}
 	if got := FriendInviteTokenKey("peer/a"); len(got) != 2 || got[1] != "peer%2Fa" {
-		t.Fatalf("FriendInviteTokenKey = %#v, want escaped admin key", got)
+		t.Fatalf("FriendInviteTokenKey = %#v, want escaped owner key", got)
 	}
 	if got := GroupInviteTokenKey("group/a"); len(got) != 2 || got[1] != "group%2Fa" {
 		t.Fatalf("GroupInviteTokenKey = %#v, want escaped group key", got)

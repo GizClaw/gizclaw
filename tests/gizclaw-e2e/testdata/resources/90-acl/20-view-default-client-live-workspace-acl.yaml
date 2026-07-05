@@ -8,6 +8,18 @@ spec:
   - apiVersion: gizclaw.admin/v1alpha1
     kind: ACLPolicyBinding
     metadata:
+      name: view-default-client-live-workspace-direct-chatroom
+    spec:
+      subject:
+        kind: view
+        id: default-client
+      resource:
+        kind: workspace
+        id: direct-chatroom-workspace
+      role: standard-client
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
       name: view-default-client-live-workspace-doubao-realtime-conversation-ptt
     spec:
       subject:

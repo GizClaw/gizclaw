@@ -21,21 +21,14 @@ export const resourceKinds: AclResourceKind[] = [
   "view",
   "pet_species",
   "badge",
+  "firmware",
 ];
 
 export const commonPermissions: AclPermission[] = [
-  "viewer",
-  "editor",
-  "owner",
-  "credential.read",
-  "credential.use",
-  "credential.admin",
-  "pet_species.read",
-  "pet_species.use",
-  "pet_species.admin",
-  "badge.read",
-  "badge.use",
-  "badge.admin",
+  "read",
+  "use",
+  "create",
+  "admin",
 ];
 
 export function bindingFormFromBinding(binding: AclPolicyBinding): PolicyBindingFormState {

@@ -63,15 +63,10 @@ func newBackend(identityDir string) (*backend, error) {
 	if err != nil {
 		return nil, err
 	}
-	keyData, err := os.ReadFile(filepath.Join(identityDir, "identity.key"))
-	if err != nil {
-		return nil, err
-	}
-	if len(keyData) != giznet.KeySize {
-		return nil, fmt.Errorf("identity.key length=%d, want %d", len(keyData), giznet.KeySize)
-	}
 	var private giznet.Key
-	copy(private[:], keyData)
+	if err := private.UnmarshalText([]byte(matchConfig(string(cfg), `private-key:\s*"?([^"\s]+)"?`))); err != nil {
+		return nil, fmt.Errorf("identity.private-key: %w", err)
+	}
 	key, err := giznet.NewKeyPair(private)
 	if err != nil {
 		return nil, err
