@@ -19,9 +19,8 @@ export const resourceKinds: AclResourceKind[] = [
   "credential",
   "model",
   "view",
-  "pet_species",
-  "badge",
   "firmware",
+  "gameruleset",
 ];
 
 export const commonPermissions: AclPermission[] = [

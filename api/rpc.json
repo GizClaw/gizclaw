@@ -262,6 +262,12 @@
                 "$ref": "./rpc/server.json#/components/schemas/ServerGameRulesetGetRequest"
               },
               {
+                "$ref": "./rpc/server.json#/components/schemas/PetDefPixaDownloadRequest"
+              },
+              {
+                "$ref": "./rpc/server.json#/components/schemas/BadgeDefPixaDownloadRequest"
+              },
+              {
                 "$ref": "./rpc/server.json#/components/schemas/ServerPetListRequest"
               },
               {
@@ -560,6 +566,12 @@
                 "$ref": "./rpc/server.json#/components/schemas/ServerGameRulesetGetResponse"
               },
               {
+                "$ref": "./rpc/server.json#/components/schemas/PetDefPixaDownloadResponse"
+              },
+              {
+                "$ref": "./rpc/server.json#/components/schemas/BadgeDefPixaDownloadResponse"
+              },
+              {
                 "$ref": "./rpc/server.json#/components/schemas/ServerPetListResponse"
               },
               {
@@ -692,6 +704,8 @@
           "server.friend_group.messages.get",
           "server.friend_group.messages.send",
           "server.game_ruleset.get",
+          "server.pet_def.pixa.download",
+          "server.badge_def.pixa.download",
           "server.pet.list",
           "server.pet.get",
           "server.pet.adopt",
@@ -1148,6 +1162,16 @@
       "method": "server.game_ruleset.get",
       "request": "./rpc/server.json#/components/schemas/ServerGameRulesetGetRequest",
       "response": "./rpc/server.json#/components/schemas/ServerGameRulesetGetResponse"
+    },
+    {
+      "method": "server.pet_def.pixa.download",
+      "request": "./rpc/server.json#/components/schemas/PetDefPixaDownloadRequest",
+      "response": "./rpc/server.json#/components/schemas/PetDefPixaDownloadResponse"
+    },
+    {
+      "method": "server.badge_def.pixa.download",
+      "request": "./rpc/server.json#/components/schemas/BadgeDefPixaDownloadRequest",
+      "response": "./rpc/server.json#/components/schemas/BadgeDefPixaDownloadResponse"
     },
     {
       "method": "server.pet.list",

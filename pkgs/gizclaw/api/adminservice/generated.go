@@ -1303,11 +1303,11 @@ type ClientInterface interface {
 
 	PutBadgeDef(ctx context.Context, id string, body PutBadgeDefJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// DownloadBadgeDefIcon request
-	DownloadBadgeDefIcon(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// DownloadBadgeDefPixa request
+	DownloadBadgeDefPixa(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// UploadBadgeDefIconWithBody request with any body
-	UploadBadgeDefIconWithBody(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// UploadBadgeDefPixaWithBody request with any body
+	UploadBadgeDefPixaWithBody(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListCredentials request
 	ListCredentials(ctx context.Context, params *ListCredentialsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -1621,11 +1621,11 @@ type ClientInterface interface {
 
 	PutPetDef(ctx context.Context, id string, body PutPetDefJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// DownloadPetDefAsset request
-	DownloadPetDefAsset(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// DownloadPetDefPixa request
+	DownloadPetDefPixa(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// UploadPetDefAssetWithBody request with any body
-	UploadPetDefAssetWithBody(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// UploadPetDefPixaWithBody request with any body
+	UploadPetDefPixaWithBody(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DeleteResource request
 	DeleteResource(ctx context.Context, kind ResourceKind, name string, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -2166,8 +2166,8 @@ func (c *Client) PutBadgeDef(ctx context.Context, id string, body PutBadgeDefJSO
 	return c.Client.Do(req)
 }
 
-func (c *Client) DownloadBadgeDefIcon(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewDownloadBadgeDefIconRequest(c.Server, id)
+func (c *Client) DownloadBadgeDefPixa(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDownloadBadgeDefPixaRequest(c.Server, id)
 	if err != nil {
 		return nil, err
 	}
@@ -2178,8 +2178,8 @@ func (c *Client) DownloadBadgeDefIcon(ctx context.Context, id string, reqEditors
 	return c.Client.Do(req)
 }
 
-func (c *Client) UploadBadgeDefIconWithBody(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewUploadBadgeDefIconRequestWithBody(c.Server, id, contentType, body)
+func (c *Client) UploadBadgeDefPixaWithBody(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUploadBadgeDefPixaRequestWithBody(c.Server, id, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -3534,8 +3534,8 @@ func (c *Client) PutPetDef(ctx context.Context, id string, body PutPetDefJSONReq
 	return c.Client.Do(req)
 }
 
-func (c *Client) DownloadPetDefAsset(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewDownloadPetDefAssetRequest(c.Server, id)
+func (c *Client) DownloadPetDefPixa(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDownloadPetDefPixaRequest(c.Server, id)
 	if err != nil {
 		return nil, err
 	}
@@ -3546,8 +3546,8 @@ func (c *Client) DownloadPetDefAsset(ctx context.Context, id string, reqEditors 
 	return c.Client.Do(req)
 }
 
-func (c *Client) UploadPetDefAssetWithBody(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewUploadPetDefAssetRequestWithBody(c.Server, id, contentType, body)
+func (c *Client) UploadPetDefPixaWithBody(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUploadPetDefPixaRequestWithBody(c.Server, id, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -5386,8 +5386,8 @@ func NewPutBadgeDefRequestWithBody(server string, id string, contentType string,
 	return req, nil
 }
 
-// NewDownloadBadgeDefIconRequest generates requests for DownloadBadgeDefIcon
-func NewDownloadBadgeDefIconRequest(server string, id string) (*http.Request, error) {
+// NewDownloadBadgeDefPixaRequest generates requests for DownloadBadgeDefPixa
+func NewDownloadBadgeDefPixaRequest(server string, id string) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -5402,7 +5402,7 @@ func NewDownloadBadgeDefIconRequest(server string, id string) (*http.Request, er
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/badge-defs/%s/icon", pathParam0)
+	operationPath := fmt.Sprintf("/badge-defs/%s/pixa", pathParam0)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -5420,8 +5420,8 @@ func NewDownloadBadgeDefIconRequest(server string, id string) (*http.Request, er
 	return req, nil
 }
 
-// NewUploadBadgeDefIconRequestWithBody generates requests for UploadBadgeDefIcon with any type of body
-func NewUploadBadgeDefIconRequestWithBody(server string, id string, contentType string, body io.Reader) (*http.Request, error) {
+// NewUploadBadgeDefPixaRequestWithBody generates requests for UploadBadgeDefPixa with any type of body
+func NewUploadBadgeDefPixaRequestWithBody(server string, id string, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -5436,7 +5436,7 @@ func NewUploadBadgeDefIconRequestWithBody(server string, id string, contentType 
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/badge-defs/%s/icon", pathParam0)
+	operationPath := fmt.Sprintf("/badge-defs/%s/pixa", pathParam0)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -9514,8 +9514,8 @@ func NewPutPetDefRequestWithBody(server string, id string, contentType string, b
 	return req, nil
 }
 
-// NewDownloadPetDefAssetRequest generates requests for DownloadPetDefAsset
-func NewDownloadPetDefAssetRequest(server string, id string) (*http.Request, error) {
+// NewDownloadPetDefPixaRequest generates requests for DownloadPetDefPixa
+func NewDownloadPetDefPixaRequest(server string, id string) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -9530,7 +9530,7 @@ func NewDownloadPetDefAssetRequest(server string, id string) (*http.Request, err
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/pet-defs/%s/asset", pathParam0)
+	operationPath := fmt.Sprintf("/pet-defs/%s/pixa", pathParam0)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -9548,8 +9548,8 @@ func NewDownloadPetDefAssetRequest(server string, id string) (*http.Request, err
 	return req, nil
 }
 
-// NewUploadPetDefAssetRequestWithBody generates requests for UploadPetDefAsset with any type of body
-func NewUploadPetDefAssetRequestWithBody(server string, id string, contentType string, body io.Reader) (*http.Request, error) {
+// NewUploadPetDefPixaRequestWithBody generates requests for UploadPetDefPixa with any type of body
+func NewUploadPetDefPixaRequestWithBody(server string, id string, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -9564,7 +9564,7 @@ func NewUploadPetDefAssetRequestWithBody(server string, id string, contentType s
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/pet-defs/%s/asset", pathParam0)
+	operationPath := fmt.Sprintf("/pet-defs/%s/pixa", pathParam0)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -11969,11 +11969,11 @@ type ClientWithResponsesInterface interface {
 
 	PutBadgeDefWithResponse(ctx context.Context, id string, body PutBadgeDefJSONRequestBody, reqEditors ...RequestEditorFn) (*PutBadgeDefResponse, error)
 
-	// DownloadBadgeDefIconWithResponse request
-	DownloadBadgeDefIconWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*DownloadBadgeDefIconResponse, error)
+	// DownloadBadgeDefPixaWithResponse request
+	DownloadBadgeDefPixaWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*DownloadBadgeDefPixaResponse, error)
 
-	// UploadBadgeDefIconWithBodyWithResponse request with any body
-	UploadBadgeDefIconWithBodyWithResponse(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UploadBadgeDefIconResponse, error)
+	// UploadBadgeDefPixaWithBodyWithResponse request with any body
+	UploadBadgeDefPixaWithBodyWithResponse(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UploadBadgeDefPixaResponse, error)
 
 	// ListCredentialsWithResponse request
 	ListCredentialsWithResponse(ctx context.Context, params *ListCredentialsParams, reqEditors ...RequestEditorFn) (*ListCredentialsResponse, error)
@@ -12287,11 +12287,11 @@ type ClientWithResponsesInterface interface {
 
 	PutPetDefWithResponse(ctx context.Context, id string, body PutPetDefJSONRequestBody, reqEditors ...RequestEditorFn) (*PutPetDefResponse, error)
 
-	// DownloadPetDefAssetWithResponse request
-	DownloadPetDefAssetWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*DownloadPetDefAssetResponse, error)
+	// DownloadPetDefPixaWithResponse request
+	DownloadPetDefPixaWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*DownloadPetDefPixaResponse, error)
 
-	// UploadPetDefAssetWithBodyWithResponse request with any body
-	UploadPetDefAssetWithBodyWithResponse(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UploadPetDefAssetResponse, error)
+	// UploadPetDefPixaWithBodyWithResponse request with any body
+	UploadPetDefPixaWithBodyWithResponse(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UploadPetDefPixaResponse, error)
 
 	// DeleteResourceWithResponse request
 	DeleteResourceWithResponse(ctx context.Context, kind ResourceKind, name string, reqEditors ...RequestEditorFn) (*DeleteResourceResponse, error)
@@ -12979,7 +12979,7 @@ func (r PutBadgeDefResponse) StatusCode() int {
 	return 0
 }
 
-type DownloadBadgeDefIconResponse struct {
+type DownloadBadgeDefPixaResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON404      *externalRef0.ErrorResponse
@@ -12987,7 +12987,7 @@ type DownloadBadgeDefIconResponse struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r DownloadBadgeDefIconResponse) Status() string {
+func (r DownloadBadgeDefPixaResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -12995,14 +12995,14 @@ func (r DownloadBadgeDefIconResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r DownloadBadgeDefIconResponse) StatusCode() int {
+func (r DownloadBadgeDefPixaResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-type UploadBadgeDefIconResponse struct {
+type UploadBadgeDefPixaResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *externalRef0.BadgeDef
@@ -13011,7 +13011,7 @@ type UploadBadgeDefIconResponse struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r UploadBadgeDefIconResponse) Status() string {
+func (r UploadBadgeDefPixaResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -13019,7 +13019,7 @@ func (r UploadBadgeDefIconResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r UploadBadgeDefIconResponse) StatusCode() int {
+func (r UploadBadgeDefPixaResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -15144,7 +15144,7 @@ func (r PutPetDefResponse) StatusCode() int {
 	return 0
 }
 
-type DownloadPetDefAssetResponse struct {
+type DownloadPetDefPixaResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON404      *externalRef0.ErrorResponse
@@ -15152,7 +15152,7 @@ type DownloadPetDefAssetResponse struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r DownloadPetDefAssetResponse) Status() string {
+func (r DownloadPetDefPixaResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -15160,14 +15160,14 @@ func (r DownloadPetDefAssetResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r DownloadPetDefAssetResponse) StatusCode() int {
+func (r DownloadPetDefPixaResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-type UploadPetDefAssetResponse struct {
+type UploadPetDefPixaResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *externalRef0.PetDef
@@ -15176,7 +15176,7 @@ type UploadPetDefAssetResponse struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r UploadPetDefAssetResponse) Status() string {
+func (r UploadPetDefPixaResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -15184,7 +15184,7 @@ func (r UploadPetDefAssetResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r UploadPetDefAssetResponse) StatusCode() int {
+func (r UploadPetDefPixaResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -16635,22 +16635,22 @@ func (c *ClientWithResponses) PutBadgeDefWithResponse(ctx context.Context, id st
 	return ParsePutBadgeDefResponse(rsp)
 }
 
-// DownloadBadgeDefIconWithResponse request returning *DownloadBadgeDefIconResponse
-func (c *ClientWithResponses) DownloadBadgeDefIconWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*DownloadBadgeDefIconResponse, error) {
-	rsp, err := c.DownloadBadgeDefIcon(ctx, id, reqEditors...)
+// DownloadBadgeDefPixaWithResponse request returning *DownloadBadgeDefPixaResponse
+func (c *ClientWithResponses) DownloadBadgeDefPixaWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*DownloadBadgeDefPixaResponse, error) {
+	rsp, err := c.DownloadBadgeDefPixa(ctx, id, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseDownloadBadgeDefIconResponse(rsp)
+	return ParseDownloadBadgeDefPixaResponse(rsp)
 }
 
-// UploadBadgeDefIconWithBodyWithResponse request with arbitrary body returning *UploadBadgeDefIconResponse
-func (c *ClientWithResponses) UploadBadgeDefIconWithBodyWithResponse(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UploadBadgeDefIconResponse, error) {
-	rsp, err := c.UploadBadgeDefIconWithBody(ctx, id, contentType, body, reqEditors...)
+// UploadBadgeDefPixaWithBodyWithResponse request with arbitrary body returning *UploadBadgeDefPixaResponse
+func (c *ClientWithResponses) UploadBadgeDefPixaWithBodyWithResponse(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UploadBadgeDefPixaResponse, error) {
+	rsp, err := c.UploadBadgeDefPixaWithBody(ctx, id, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseUploadBadgeDefIconResponse(rsp)
+	return ParseUploadBadgeDefPixaResponse(rsp)
 }
 
 // ListCredentialsWithResponse request returning *ListCredentialsResponse
@@ -17637,22 +17637,22 @@ func (c *ClientWithResponses) PutPetDefWithResponse(ctx context.Context, id stri
 	return ParsePutPetDefResponse(rsp)
 }
 
-// DownloadPetDefAssetWithResponse request returning *DownloadPetDefAssetResponse
-func (c *ClientWithResponses) DownloadPetDefAssetWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*DownloadPetDefAssetResponse, error) {
-	rsp, err := c.DownloadPetDefAsset(ctx, id, reqEditors...)
+// DownloadPetDefPixaWithResponse request returning *DownloadPetDefPixaResponse
+func (c *ClientWithResponses) DownloadPetDefPixaWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*DownloadPetDefPixaResponse, error) {
+	rsp, err := c.DownloadPetDefPixa(ctx, id, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseDownloadPetDefAssetResponse(rsp)
+	return ParseDownloadPetDefPixaResponse(rsp)
 }
 
-// UploadPetDefAssetWithBodyWithResponse request with arbitrary body returning *UploadPetDefAssetResponse
-func (c *ClientWithResponses) UploadPetDefAssetWithBodyWithResponse(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UploadPetDefAssetResponse, error) {
-	rsp, err := c.UploadPetDefAssetWithBody(ctx, id, contentType, body, reqEditors...)
+// UploadPetDefPixaWithBodyWithResponse request with arbitrary body returning *UploadPetDefPixaResponse
+func (c *ClientWithResponses) UploadPetDefPixaWithBodyWithResponse(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UploadPetDefPixaResponse, error) {
+	rsp, err := c.UploadPetDefPixaWithBody(ctx, id, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseUploadPetDefAssetResponse(rsp)
+	return ParseUploadPetDefPixaResponse(rsp)
 }
 
 // DeleteResourceWithResponse request returning *DeleteResourceResponse
@@ -19084,15 +19084,15 @@ func ParsePutBadgeDefResponse(rsp *http.Response) (*PutBadgeDefResponse, error) 
 	return response, nil
 }
 
-// ParseDownloadBadgeDefIconResponse parses an HTTP response from a DownloadBadgeDefIconWithResponse call
-func ParseDownloadBadgeDefIconResponse(rsp *http.Response) (*DownloadBadgeDefIconResponse, error) {
+// ParseDownloadBadgeDefPixaResponse parses an HTTP response from a DownloadBadgeDefPixaWithResponse call
+func ParseDownloadBadgeDefPixaResponse(rsp *http.Response) (*DownloadBadgeDefPixaResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &DownloadBadgeDefIconResponse{
+	response := &DownloadBadgeDefPixaResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -19117,15 +19117,15 @@ func ParseDownloadBadgeDefIconResponse(rsp *http.Response) (*DownloadBadgeDefIco
 	return response, nil
 }
 
-// ParseUploadBadgeDefIconResponse parses an HTTP response from a UploadBadgeDefIconWithResponse call
-func ParseUploadBadgeDefIconResponse(rsp *http.Response) (*UploadBadgeDefIconResponse, error) {
+// ParseUploadBadgeDefPixaResponse parses an HTTP response from a UploadBadgeDefPixaWithResponse call
+func ParseUploadBadgeDefPixaResponse(rsp *http.Response) (*UploadBadgeDefPixaResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &UploadBadgeDefIconResponse{
+	response := &UploadBadgeDefPixaResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -22719,15 +22719,15 @@ func ParsePutPetDefResponse(rsp *http.Response) (*PutPetDefResponse, error) {
 	return response, nil
 }
 
-// ParseDownloadPetDefAssetResponse parses an HTTP response from a DownloadPetDefAssetWithResponse call
-func ParseDownloadPetDefAssetResponse(rsp *http.Response) (*DownloadPetDefAssetResponse, error) {
+// ParseDownloadPetDefPixaResponse parses an HTTP response from a DownloadPetDefPixaWithResponse call
+func ParseDownloadPetDefPixaResponse(rsp *http.Response) (*DownloadPetDefPixaResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &DownloadPetDefAssetResponse{
+	response := &DownloadPetDefPixaResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -22752,15 +22752,15 @@ func ParseDownloadPetDefAssetResponse(rsp *http.Response) (*DownloadPetDefAssetR
 	return response, nil
 }
 
-// ParseUploadPetDefAssetResponse parses an HTTP response from a UploadPetDefAssetWithResponse call
-func ParseUploadPetDefAssetResponse(rsp *http.Response) (*UploadPetDefAssetResponse, error) {
+// ParseUploadPetDefPixaResponse parses an HTTP response from a UploadPetDefPixaWithResponse call
+func ParseUploadPetDefPixaResponse(rsp *http.Response) (*UploadPetDefPixaResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &UploadPetDefAssetResponse{
+	response := &UploadPetDefPixaResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -24994,12 +24994,12 @@ type ServerInterface interface {
 	// Create or update a BadgeDef
 	// (PUT /badge-defs/{id})
 	PutBadgeDef(c *fiber.Ctx, id string) error
-	// Download BadgeDefIcon
-	// (GET /badge-defs/{id}/icon)
-	DownloadBadgeDefIcon(c *fiber.Ctx, id string) error
-	// Upload BadgeDefIcon
-	// (PUT /badge-defs/{id}/icon)
-	UploadBadgeDefIcon(c *fiber.Ctx, id string) error
+	// Download BadgeDefPixa
+	// (GET /badge-defs/{id}/pixa)
+	DownloadBadgeDefPixa(c *fiber.Ctx, id string) error
+	// Upload BadgeDefPixa
+	// (PUT /badge-defs/{id}/pixa)
+	UploadBadgeDefPixa(c *fiber.Ctx, id string) error
 	// List stored credentials
 	// (GET /credentials)
 	ListCredentials(c *fiber.Ctx, params ListCredentialsParams) error
@@ -25264,12 +25264,12 @@ type ServerInterface interface {
 	// Create or update a PetDef
 	// (PUT /pet-defs/{id})
 	PutPetDef(c *fiber.Ctx, id string) error
-	// Download PetDefAsset
-	// (GET /pet-defs/{id}/asset)
-	DownloadPetDefAsset(c *fiber.Ctx, id string) error
-	// Upload PetDefAsset
-	// (PUT /pet-defs/{id}/asset)
-	UploadPetDefAsset(c *fiber.Ctx, id string) error
+	// Download PetDefPixa
+	// (GET /pet-defs/{id}/pixa)
+	DownloadPetDefPixa(c *fiber.Ctx, id string) error
+	// Upload PetDefPixa
+	// (PUT /pet-defs/{id}/pixa)
+	UploadPetDefPixa(c *fiber.Ctx, id string) error
 	// Delete an admin resource
 	// (DELETE /resources/{kind}/{name})
 	DeleteResource(c *fiber.Ctx, kind ResourceKind, name string) error
@@ -25825,8 +25825,8 @@ func (siw *ServerInterfaceWrapper) PutBadgeDef(c *fiber.Ctx) error {
 	return siw.Handler.PutBadgeDef(c, id)
 }
 
-// DownloadBadgeDefIcon operation middleware
-func (siw *ServerInterfaceWrapper) DownloadBadgeDefIcon(c *fiber.Ctx) error {
+// DownloadBadgeDefPixa operation middleware
+func (siw *ServerInterfaceWrapper) DownloadBadgeDefPixa(c *fiber.Ctx) error {
 
 	var err error
 
@@ -25838,11 +25838,11 @@ func (siw *ServerInterfaceWrapper) DownloadBadgeDefIcon(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
 
-	return siw.Handler.DownloadBadgeDefIcon(c, id)
+	return siw.Handler.DownloadBadgeDefPixa(c, id)
 }
 
-// UploadBadgeDefIcon operation middleware
-func (siw *ServerInterfaceWrapper) UploadBadgeDefIcon(c *fiber.Ctx) error {
+// UploadBadgeDefPixa operation middleware
+func (siw *ServerInterfaceWrapper) UploadBadgeDefPixa(c *fiber.Ctx) error {
 
 	var err error
 
@@ -25854,7 +25854,7 @@ func (siw *ServerInterfaceWrapper) UploadBadgeDefIcon(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
 
-	return siw.Handler.UploadBadgeDefIcon(c, id)
+	return siw.Handler.UploadBadgeDefPixa(c, id)
 }
 
 // ListCredentials operation middleware
@@ -27688,8 +27688,8 @@ func (siw *ServerInterfaceWrapper) PutPetDef(c *fiber.Ctx) error {
 	return siw.Handler.PutPetDef(c, id)
 }
 
-// DownloadPetDefAsset operation middleware
-func (siw *ServerInterfaceWrapper) DownloadPetDefAsset(c *fiber.Ctx) error {
+// DownloadPetDefPixa operation middleware
+func (siw *ServerInterfaceWrapper) DownloadPetDefPixa(c *fiber.Ctx) error {
 
 	var err error
 
@@ -27701,11 +27701,11 @@ func (siw *ServerInterfaceWrapper) DownloadPetDefAsset(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
 
-	return siw.Handler.DownloadPetDefAsset(c, id)
+	return siw.Handler.DownloadPetDefPixa(c, id)
 }
 
-// UploadPetDefAsset operation middleware
-func (siw *ServerInterfaceWrapper) UploadPetDefAsset(c *fiber.Ctx) error {
+// UploadPetDefPixa operation middleware
+func (siw *ServerInterfaceWrapper) UploadPetDefPixa(c *fiber.Ctx) error {
 
 	var err error
 
@@ -27717,7 +27717,7 @@ func (siw *ServerInterfaceWrapper) UploadPetDefAsset(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
 	}
 
-	return siw.Handler.UploadPetDefAsset(c, id)
+	return siw.Handler.UploadPetDefPixa(c, id)
 }
 
 // DeleteResource operation middleware
@@ -28763,9 +28763,9 @@ func RegisterHandlersWithOptions(router fiber.Router, si ServerInterface, option
 
 	router.Put(options.BaseURL+"/badge-defs/:id", wrapper.PutBadgeDef)
 
-	router.Get(options.BaseURL+"/badge-defs/:id/icon", wrapper.DownloadBadgeDefIcon)
+	router.Get(options.BaseURL+"/badge-defs/:id/pixa", wrapper.DownloadBadgeDefPixa)
 
-	router.Put(options.BaseURL+"/badge-defs/:id/icon", wrapper.UploadBadgeDefIcon)
+	router.Put(options.BaseURL+"/badge-defs/:id/pixa", wrapper.UploadBadgeDefPixa)
 
 	router.Get(options.BaseURL+"/credentials", wrapper.ListCredentials)
 
@@ -28943,9 +28943,9 @@ func RegisterHandlersWithOptions(router fiber.Router, si ServerInterface, option
 
 	router.Put(options.BaseURL+"/pet-defs/:id", wrapper.PutPetDef)
 
-	router.Get(options.BaseURL+"/pet-defs/:id/asset", wrapper.DownloadPetDefAsset)
+	router.Get(options.BaseURL+"/pet-defs/:id/pixa", wrapper.DownloadPetDefPixa)
 
-	router.Put(options.BaseURL+"/pet-defs/:id/asset", wrapper.UploadPetDefAsset)
+	router.Put(options.BaseURL+"/pet-defs/:id/pixa", wrapper.UploadPetDefPixa)
 
 	router.Delete(options.BaseURL+"/resources/:kind/:name", wrapper.DeleteResource)
 
@@ -29812,20 +29812,20 @@ func (response PutBadgeDef500JSONResponse) VisitPutBadgeDefResponse(ctx *fiber.C
 	return ctx.JSON(&response)
 }
 
-type DownloadBadgeDefIconRequestObject struct {
+type DownloadBadgeDefPixaRequestObject struct {
 	Id string `json:"id"`
 }
 
-type DownloadBadgeDefIconResponseObject interface {
-	VisitDownloadBadgeDefIconResponse(ctx *fiber.Ctx) error
+type DownloadBadgeDefPixaResponseObject interface {
+	VisitDownloadBadgeDefPixaResponse(ctx *fiber.Ctx) error
 }
 
-type DownloadBadgeDefIcon200ApplicationoctetStreamResponse struct {
+type DownloadBadgeDefPixa200ApplicationoctetStreamResponse struct {
 	Body          io.Reader
 	ContentLength int64
 }
 
-func (response DownloadBadgeDefIcon200ApplicationoctetStreamResponse) VisitDownloadBadgeDefIconResponse(ctx *fiber.Ctx) error {
+func (response DownloadBadgeDefPixa200ApplicationoctetStreamResponse) VisitDownloadBadgeDefPixaResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/octet-stream")
 	if response.ContentLength != 0 {
 		ctx.Response().Header.Set("Content-Length", fmt.Sprint(response.ContentLength))
@@ -29839,54 +29839,54 @@ func (response DownloadBadgeDefIcon200ApplicationoctetStreamResponse) VisitDownl
 	return err
 }
 
-type DownloadBadgeDefIcon404JSONResponse externalRef0.ErrorResponse
+type DownloadBadgeDefPixa404JSONResponse externalRef0.ErrorResponse
 
-func (response DownloadBadgeDefIcon404JSONResponse) VisitDownloadBadgeDefIconResponse(ctx *fiber.Ctx) error {
+func (response DownloadBadgeDefPixa404JSONResponse) VisitDownloadBadgeDefPixaResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(404)
 
 	return ctx.JSON(&response)
 }
 
-type DownloadBadgeDefIcon500JSONResponse externalRef0.ErrorResponse
+type DownloadBadgeDefPixa500JSONResponse externalRef0.ErrorResponse
 
-func (response DownloadBadgeDefIcon500JSONResponse) VisitDownloadBadgeDefIconResponse(ctx *fiber.Ctx) error {
+func (response DownloadBadgeDefPixa500JSONResponse) VisitDownloadBadgeDefPixaResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(500)
 
 	return ctx.JSON(&response)
 }
 
-type UploadBadgeDefIconRequestObject struct {
+type UploadBadgeDefPixaRequestObject struct {
 	Id   string `json:"id"`
 	Body io.Reader
 }
 
-type UploadBadgeDefIconResponseObject interface {
-	VisitUploadBadgeDefIconResponse(ctx *fiber.Ctx) error
+type UploadBadgeDefPixaResponseObject interface {
+	VisitUploadBadgeDefPixaResponse(ctx *fiber.Ctx) error
 }
 
-type UploadBadgeDefIcon200JSONResponse externalRef0.BadgeDef
+type UploadBadgeDefPixa200JSONResponse externalRef0.BadgeDef
 
-func (response UploadBadgeDefIcon200JSONResponse) VisitUploadBadgeDefIconResponse(ctx *fiber.Ctx) error {
+func (response UploadBadgeDefPixa200JSONResponse) VisitUploadBadgeDefPixaResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(200)
 
 	return ctx.JSON(&response)
 }
 
-type UploadBadgeDefIcon404JSONResponse externalRef0.ErrorResponse
+type UploadBadgeDefPixa404JSONResponse externalRef0.ErrorResponse
 
-func (response UploadBadgeDefIcon404JSONResponse) VisitUploadBadgeDefIconResponse(ctx *fiber.Ctx) error {
+func (response UploadBadgeDefPixa404JSONResponse) VisitUploadBadgeDefPixaResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(404)
 
 	return ctx.JSON(&response)
 }
 
-type UploadBadgeDefIcon500JSONResponse externalRef0.ErrorResponse
+type UploadBadgeDefPixa500JSONResponse externalRef0.ErrorResponse
 
-func (response UploadBadgeDefIcon500JSONResponse) VisitUploadBadgeDefIconResponse(ctx *fiber.Ctx) error {
+func (response UploadBadgeDefPixa500JSONResponse) VisitUploadBadgeDefPixaResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(500)
 
@@ -33105,20 +33105,20 @@ func (response PutPetDef500JSONResponse) VisitPutPetDefResponse(ctx *fiber.Ctx) 
 	return ctx.JSON(&response)
 }
 
-type DownloadPetDefAssetRequestObject struct {
+type DownloadPetDefPixaRequestObject struct {
 	Id string `json:"id"`
 }
 
-type DownloadPetDefAssetResponseObject interface {
-	VisitDownloadPetDefAssetResponse(ctx *fiber.Ctx) error
+type DownloadPetDefPixaResponseObject interface {
+	VisitDownloadPetDefPixaResponse(ctx *fiber.Ctx) error
 }
 
-type DownloadPetDefAsset200ApplicationoctetStreamResponse struct {
+type DownloadPetDefPixa200ApplicationoctetStreamResponse struct {
 	Body          io.Reader
 	ContentLength int64
 }
 
-func (response DownloadPetDefAsset200ApplicationoctetStreamResponse) VisitDownloadPetDefAssetResponse(ctx *fiber.Ctx) error {
+func (response DownloadPetDefPixa200ApplicationoctetStreamResponse) VisitDownloadPetDefPixaResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/octet-stream")
 	if response.ContentLength != 0 {
 		ctx.Response().Header.Set("Content-Length", fmt.Sprint(response.ContentLength))
@@ -33132,54 +33132,54 @@ func (response DownloadPetDefAsset200ApplicationoctetStreamResponse) VisitDownlo
 	return err
 }
 
-type DownloadPetDefAsset404JSONResponse externalRef0.ErrorResponse
+type DownloadPetDefPixa404JSONResponse externalRef0.ErrorResponse
 
-func (response DownloadPetDefAsset404JSONResponse) VisitDownloadPetDefAssetResponse(ctx *fiber.Ctx) error {
+func (response DownloadPetDefPixa404JSONResponse) VisitDownloadPetDefPixaResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(404)
 
 	return ctx.JSON(&response)
 }
 
-type DownloadPetDefAsset500JSONResponse externalRef0.ErrorResponse
+type DownloadPetDefPixa500JSONResponse externalRef0.ErrorResponse
 
-func (response DownloadPetDefAsset500JSONResponse) VisitDownloadPetDefAssetResponse(ctx *fiber.Ctx) error {
+func (response DownloadPetDefPixa500JSONResponse) VisitDownloadPetDefPixaResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(500)
 
 	return ctx.JSON(&response)
 }
 
-type UploadPetDefAssetRequestObject struct {
+type UploadPetDefPixaRequestObject struct {
 	Id   string `json:"id"`
 	Body io.Reader
 }
 
-type UploadPetDefAssetResponseObject interface {
-	VisitUploadPetDefAssetResponse(ctx *fiber.Ctx) error
+type UploadPetDefPixaResponseObject interface {
+	VisitUploadPetDefPixaResponse(ctx *fiber.Ctx) error
 }
 
-type UploadPetDefAsset200JSONResponse externalRef0.PetDef
+type UploadPetDefPixa200JSONResponse externalRef0.PetDef
 
-func (response UploadPetDefAsset200JSONResponse) VisitUploadPetDefAssetResponse(ctx *fiber.Ctx) error {
+func (response UploadPetDefPixa200JSONResponse) VisitUploadPetDefPixaResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(200)
 
 	return ctx.JSON(&response)
 }
 
-type UploadPetDefAsset404JSONResponse externalRef0.ErrorResponse
+type UploadPetDefPixa404JSONResponse externalRef0.ErrorResponse
 
-func (response UploadPetDefAsset404JSONResponse) VisitUploadPetDefAssetResponse(ctx *fiber.Ctx) error {
+func (response UploadPetDefPixa404JSONResponse) VisitUploadPetDefPixaResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(404)
 
 	return ctx.JSON(&response)
 }
 
-type UploadPetDefAsset500JSONResponse externalRef0.ErrorResponse
+type UploadPetDefPixa500JSONResponse externalRef0.ErrorResponse
 
-func (response UploadPetDefAsset500JSONResponse) VisitUploadPetDefAssetResponse(ctx *fiber.Ctx) error {
+func (response UploadPetDefPixa500JSONResponse) VisitUploadPetDefPixaResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(500)
 
@@ -35254,12 +35254,12 @@ type StrictServerInterface interface {
 	// Create or update a BadgeDef
 	// (PUT /badge-defs/{id})
 	PutBadgeDef(ctx context.Context, request PutBadgeDefRequestObject) (PutBadgeDefResponseObject, error)
-	// Download BadgeDefIcon
-	// (GET /badge-defs/{id}/icon)
-	DownloadBadgeDefIcon(ctx context.Context, request DownloadBadgeDefIconRequestObject) (DownloadBadgeDefIconResponseObject, error)
-	// Upload BadgeDefIcon
-	// (PUT /badge-defs/{id}/icon)
-	UploadBadgeDefIcon(ctx context.Context, request UploadBadgeDefIconRequestObject) (UploadBadgeDefIconResponseObject, error)
+	// Download BadgeDefPixa
+	// (GET /badge-defs/{id}/pixa)
+	DownloadBadgeDefPixa(ctx context.Context, request DownloadBadgeDefPixaRequestObject) (DownloadBadgeDefPixaResponseObject, error)
+	// Upload BadgeDefPixa
+	// (PUT /badge-defs/{id}/pixa)
+	UploadBadgeDefPixa(ctx context.Context, request UploadBadgeDefPixaRequestObject) (UploadBadgeDefPixaResponseObject, error)
 	// List stored credentials
 	// (GET /credentials)
 	ListCredentials(ctx context.Context, request ListCredentialsRequestObject) (ListCredentialsResponseObject, error)
@@ -35524,12 +35524,12 @@ type StrictServerInterface interface {
 	// Create or update a PetDef
 	// (PUT /pet-defs/{id})
 	PutPetDef(ctx context.Context, request PutPetDefRequestObject) (PutPetDefResponseObject, error)
-	// Download PetDefAsset
-	// (GET /pet-defs/{id}/asset)
-	DownloadPetDefAsset(ctx context.Context, request DownloadPetDefAssetRequestObject) (DownloadPetDefAssetResponseObject, error)
-	// Upload PetDefAsset
-	// (PUT /pet-defs/{id}/asset)
-	UploadPetDefAsset(ctx context.Context, request UploadPetDefAssetRequestObject) (UploadPetDefAssetResponseObject, error)
+	// Download PetDefPixa
+	// (GET /pet-defs/{id}/pixa)
+	DownloadPetDefPixa(ctx context.Context, request DownloadPetDefPixaRequestObject) (DownloadPetDefPixaResponseObject, error)
+	// Upload PetDefPixa
+	// (PUT /pet-defs/{id}/pixa)
+	UploadPetDefPixa(ctx context.Context, request UploadPetDefPixaRequestObject) (UploadPetDefPixaResponseObject, error)
 	// Delete an admin resource
 	// (DELETE /resources/{kind}/{name})
 	DeleteResource(ctx context.Context, request DeleteResourceRequestObject) (DeleteResourceResponseObject, error)
@@ -36311,25 +36311,25 @@ func (sh *strictHandler) PutBadgeDef(ctx *fiber.Ctx, id string) error {
 	return nil
 }
 
-// DownloadBadgeDefIcon operation middleware
-func (sh *strictHandler) DownloadBadgeDefIcon(ctx *fiber.Ctx, id string) error {
-	var request DownloadBadgeDefIconRequestObject
+// DownloadBadgeDefPixa operation middleware
+func (sh *strictHandler) DownloadBadgeDefPixa(ctx *fiber.Ctx, id string) error {
+	var request DownloadBadgeDefPixaRequestObject
 
 	request.Id = id
 
 	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
-		return sh.ssi.DownloadBadgeDefIcon(ctx.UserContext(), request.(DownloadBadgeDefIconRequestObject))
+		return sh.ssi.DownloadBadgeDefPixa(ctx.UserContext(), request.(DownloadBadgeDefPixaRequestObject))
 	}
 	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "DownloadBadgeDefIcon")
+		handler = middleware(handler, "DownloadBadgeDefPixa")
 	}
 
 	response, err := handler(ctx, request)
 
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
-	} else if validResponse, ok := response.(DownloadBadgeDefIconResponseObject); ok {
-		if err := validResponse.VisitDownloadBadgeDefIconResponse(ctx); err != nil {
+	} else if validResponse, ok := response.(DownloadBadgeDefPixaResponseObject); ok {
+		if err := validResponse.VisitDownloadBadgeDefPixaResponse(ctx); err != nil {
 			return fiber.NewError(fiber.StatusBadRequest, err.Error())
 		}
 	} else if response != nil {
@@ -36338,9 +36338,9 @@ func (sh *strictHandler) DownloadBadgeDefIcon(ctx *fiber.Ctx, id string) error {
 	return nil
 }
 
-// UploadBadgeDefIcon operation middleware
-func (sh *strictHandler) UploadBadgeDefIcon(ctx *fiber.Ctx, id string) error {
-	var request UploadBadgeDefIconRequestObject
+// UploadBadgeDefPixa operation middleware
+func (sh *strictHandler) UploadBadgeDefPixa(ctx *fiber.Ctx, id string) error {
+	var request UploadBadgeDefPixaRequestObject
 
 	request.Id = id
 
@@ -36351,18 +36351,18 @@ func (sh *strictHandler) UploadBadgeDefIcon(ctx *fiber.Ctx, id string) error {
 	request.Body = body
 
 	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
-		return sh.ssi.UploadBadgeDefIcon(ctx.UserContext(), request.(UploadBadgeDefIconRequestObject))
+		return sh.ssi.UploadBadgeDefPixa(ctx.UserContext(), request.(UploadBadgeDefPixaRequestObject))
 	}
 	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "UploadBadgeDefIcon")
+		handler = middleware(handler, "UploadBadgeDefPixa")
 	}
 
 	response, err := handler(ctx, request)
 
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
-	} else if validResponse, ok := response.(UploadBadgeDefIconResponseObject); ok {
-		if err := validResponse.VisitUploadBadgeDefIconResponse(ctx); err != nil {
+	} else if validResponse, ok := response.(UploadBadgeDefPixaResponseObject); ok {
+		if err := validResponse.VisitUploadBadgeDefPixaResponse(ctx); err != nil {
 			return fiber.NewError(fiber.StatusBadRequest, err.Error())
 		}
 	} else if response != nil {
@@ -38902,25 +38902,25 @@ func (sh *strictHandler) PutPetDef(ctx *fiber.Ctx, id string) error {
 	return nil
 }
 
-// DownloadPetDefAsset operation middleware
-func (sh *strictHandler) DownloadPetDefAsset(ctx *fiber.Ctx, id string) error {
-	var request DownloadPetDefAssetRequestObject
+// DownloadPetDefPixa operation middleware
+func (sh *strictHandler) DownloadPetDefPixa(ctx *fiber.Ctx, id string) error {
+	var request DownloadPetDefPixaRequestObject
 
 	request.Id = id
 
 	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
-		return sh.ssi.DownloadPetDefAsset(ctx.UserContext(), request.(DownloadPetDefAssetRequestObject))
+		return sh.ssi.DownloadPetDefPixa(ctx.UserContext(), request.(DownloadPetDefPixaRequestObject))
 	}
 	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "DownloadPetDefAsset")
+		handler = middleware(handler, "DownloadPetDefPixa")
 	}
 
 	response, err := handler(ctx, request)
 
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
-	} else if validResponse, ok := response.(DownloadPetDefAssetResponseObject); ok {
-		if err := validResponse.VisitDownloadPetDefAssetResponse(ctx); err != nil {
+	} else if validResponse, ok := response.(DownloadPetDefPixaResponseObject); ok {
+		if err := validResponse.VisitDownloadPetDefPixaResponse(ctx); err != nil {
 			return fiber.NewError(fiber.StatusBadRequest, err.Error())
 		}
 	} else if response != nil {
@@ -38929,9 +38929,9 @@ func (sh *strictHandler) DownloadPetDefAsset(ctx *fiber.Ctx, id string) error {
 	return nil
 }
 
-// UploadPetDefAsset operation middleware
-func (sh *strictHandler) UploadPetDefAsset(ctx *fiber.Ctx, id string) error {
-	var request UploadPetDefAssetRequestObject
+// UploadPetDefPixa operation middleware
+func (sh *strictHandler) UploadPetDefPixa(ctx *fiber.Ctx, id string) error {
+	var request UploadPetDefPixaRequestObject
 
 	request.Id = id
 
@@ -38942,18 +38942,18 @@ func (sh *strictHandler) UploadPetDefAsset(ctx *fiber.Ctx, id string) error {
 	request.Body = body
 
 	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
-		return sh.ssi.UploadPetDefAsset(ctx.UserContext(), request.(UploadPetDefAssetRequestObject))
+		return sh.ssi.UploadPetDefPixa(ctx.UserContext(), request.(UploadPetDefPixaRequestObject))
 	}
 	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "UploadPetDefAsset")
+		handler = middleware(handler, "UploadPetDefPixa")
 	}
 
 	response, err := handler(ctx, request)
 
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
-	} else if validResponse, ok := response.(UploadPetDefAssetResponseObject); ok {
-		if err := validResponse.VisitUploadPetDefAssetResponse(ctx); err != nil {
+	} else if validResponse, ok := response.(UploadPetDefPixaResponseObject); ok {
+		if err := validResponse.VisitUploadPetDefPixaResponse(ctx); err != nil {
 			return fiber.NewError(fiber.StatusBadRequest, err.Error())
 		}
 	} else if response != nil {

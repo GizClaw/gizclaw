@@ -1,16 +1,22 @@
-import { FileJson, RefreshCw, Save, Search, Trash2 } from "lucide-react";
+import { Download, FileJson, RefreshCw, Save, Search, Trash2, Upload } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
+import { validatePixa, type PixaAsset } from "@gizclaw/pixa";
 
 import {
   applyResource,
   deleteResource,
+  downloadBadgeDefPixa,
+  downloadPetDefPixa,
   getResource,
   putResource,
+  uploadBadgeDefPixa,
+  uploadPetDefPixa,
   type ApplyResult,
   type Resource,
   type ResourceKind,
 } from "@gizclaw/gizclaw/admin";
+import { PixaPreviewDialog } from "@/components/pixa/PixaPreviewDialog";
 import { Badge as BadgePill } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -58,6 +64,13 @@ type AdminResourceJSON = {
   spec: unknown;
 };
 
+type PixaPreviewState = {
+  asset: PixaAsset;
+  blob?: Blob;
+  mode: "petdef" | "badgedef";
+  pendingUpload: boolean;
+};
+
 export function ResourcesPage(): JSX.Element {
   const [searchParams, setSearchParams] = useSearchParams();
   const [kind, setKind] = useState<ResourceKind>(() => parseResourceKind(searchParams.get("kind")) ?? "ResourceList");
@@ -69,6 +82,7 @@ export function ResourcesPage(): JSX.Element {
   const [acting, setActing] = useState("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [pixaPreview, setPixaPreview] = useState<PixaPreviewState | null>(null);
 
   const canAddressResource = name.trim() !== "" && kind !== "ResourceList";
 
@@ -232,7 +246,66 @@ export function ResourcesPage(): JSX.Element {
     }
   };
 
+  const readPixaFile = async (file: File): Promise<void> => {
+    const mode = kind === "PetDef" ? "petdef" : kind === "BadgeDef" ? "badgedef" : null;
+    if (mode == null) {
+      return;
+    }
+    setError("");
+    setNotice("");
+    try {
+      const buffer = await file.arrayBuffer();
+      const asset = validatePixa(buffer, mode);
+      setPixaPreview({ asset, blob: new Blob([buffer], { type: "application/octet-stream" }), mode, pendingUpload: true });
+    } catch (err) {
+      setError(toMessage(err));
+    }
+  };
+
+  const uploadPreviewPixa = async (): Promise<void> => {
+    if (pixaPreview?.blob == null || !canAddressResource) {
+      return;
+    }
+    setActing("pixa-upload");
+    setError("");
+    setNotice("");
+    try {
+      if (pixaPreview.mode === "petdef") {
+        await expectData(uploadPetDefPixa({ body: pixaPreview.blob, path: { id: name.trim() } }));
+      } else {
+        await expectData(uploadBadgeDefPixa({ body: pixaPreview.blob, path: { id: name.trim() } }));
+      }
+      setPixaPreview(null);
+      setNotice(`${kind} ${name.trim()} pixa uploaded.`);
+      await load();
+    } catch (err) {
+      setError(toMessage(err));
+    } finally {
+      setActing("");
+    }
+  };
+
+  const previewSavedPixa = async (): Promise<void> => {
+    if (!canAddressResource || (kind !== "PetDef" && kind !== "BadgeDef")) {
+      return;
+    }
+    const mode = kind === "PetDef" ? "petdef" : "badgedef";
+    setActing("pixa-download");
+    setError("");
+    setNotice("");
+    try {
+      const blob = await expectData(kind === "PetDef" ? downloadPetDefPixa({ path: { id: name.trim() } }) : downloadBadgeDefPixa({ path: { id: name.trim() } }));
+      const asset = validatePixa(await blob.arrayBuffer(), mode);
+      setPixaPreview({ asset, mode, pendingUpload: false });
+    } catch (err) {
+      setError(toMessage(err));
+    } finally {
+      setActing("");
+    }
+  };
+
   const selectedSummary = useMemo(() => resourceSummary(kind), [kind]);
+  const supportsPixa = kind === "PetDef" || kind === "BadgeDef";
 
   return (
     <div className="flex flex-col gap-6">
@@ -297,6 +370,37 @@ export function ResourcesPage(): JSX.Element {
               </div>
             </FormField>
 
+            {supportsPixa ? (
+              <div className="rounded-md border p-3">
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-medium">Pixa</p>
+                    <p className="text-xs text-muted-foreground">{kind === "PetDef" ? "Requires an idle clip." : "Requires a single-frame icon clip."}</p>
+                  </div>
+                  <Button disabled={!canAddressResource || acting !== ""} onClick={() => void previewSavedPixa()} size="icon" type="button" variant="outline">
+                    <Download className="size-4" />
+                  </Button>
+                </div>
+                <label className="flex cursor-pointer items-center justify-center gap-2 rounded-md border border-dashed px-3 py-4 text-sm text-muted-foreground hover:bg-muted/50">
+                  <Upload className="size-4" />
+                  Upload pixa
+                  <input
+                    accept=".pixa,application/octet-stream"
+                    className="sr-only"
+                    disabled={!canAddressResource || acting !== ""}
+                    onChange={(event) => {
+                      const file = event.target.files?.[0];
+                      event.target.value = "";
+                      if (file != null) {
+                        void readPixaFile(file);
+                      }
+                    }}
+                    type="file"
+                  />
+                </label>
+              </div>
+            ) : null}
+
           </CardContent>
         </Card>
 
@@ -346,6 +450,16 @@ export function ResourcesPage(): JSX.Element {
 
       {resource === null && !loading ? (
         <EmptyState description="Load an existing resource or edit the draft JSON and apply it." title="No resource loaded" />
+      ) : null}
+      {pixaPreview != null ? (
+        <PixaPreviewDialog
+          asset={pixaPreview.asset}
+          confirmLabel="Upload Pixa"
+          description={`${pixaPreview.mode === "petdef" ? "PetDef" : "BadgeDef"} pixa preview`}
+          onClose={() => setPixaPreview(null)}
+          onConfirm={pixaPreview.pendingUpload ? () => void uploadPreviewPixa() : undefined}
+          title={pixaPreview.pendingUpload ? "Preview Upload" : "Saved Pixa"}
+        />
       ) : null}
     </div>
   );

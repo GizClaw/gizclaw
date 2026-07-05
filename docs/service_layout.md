@@ -56,7 +56,7 @@ Server Service
 ├── server.firmware.files.download
 ├── server.game_ruleset.get
 ├── server.pet_def.pixa.download
-├── server.badge_def.icon.download
+├── server.badge_def.pixa.download
 ├── server.pet.{list,get,adopt,put,delete,drive}
 ├── server.points.get
 ├── server.points.transactions.{list,get}
@@ -83,7 +83,7 @@ Admin Service
 ├── /pet-defs/{id} LIST, CREATE, GET, PUT, DELETE
 │   └── /pixa GET, PUT
 ├── /badge-defs/{id} LIST, CREATE, GET, PUT, DELETE
-│   └── /icon GET, PUT
+│   └── /pixa GET, PUT
 ├── /game-defs/{id} LIST, CREATE, GET, PUT, DELETE
 ├── /dashscope-tenants/{name} LIST, CREATE, GET, PUT, DELETE
 ├── /gemini-tenants/{name} LIST, CREATE, GET, PUT, DELETE

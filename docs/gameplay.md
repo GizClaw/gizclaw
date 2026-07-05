@@ -12,7 +12,7 @@ Admin catalog
 ├── PetDef
 │   └── pixa
 ├── BadgeDef
-│   └── icon.png
+│   └── pixa
 └── GameDef
 
 Peer runtime state
@@ -141,26 +141,27 @@ experience.
 `BadgeDef` has one visual resource:
 
 ```text
-BadgeDef icon.png
+BadgeDef pixa
 ```
 
-The icon format should be PNG. Do not use `.ico` for gameplay badges.
+The badge visual format is the same pixa container used by PetDef. Badge pixa
+files use a single-frame `icon` clip.
 
 Target API/RPC naming:
 
 ```text
 Admin API
-├── PUT /badge-defs/{id}/icon
-└── GET /badge-defs/{id}/icon
+├── PUT /badge-defs/{id}/pixa
+└── GET /badge-defs/{id}/pixa
 
 Peer RPC
-└── server.badge_def.icon.download
+└── server.badge_def.pixa.download
 ```
 
 Content type:
 
 ```text
-image/png
+application/vnd.gizclaw.pixa
 ```
 
 ### GameDef
@@ -303,7 +304,7 @@ KV stores
 Object store
 └── gameplay-assets
     ├── pet-defs/{id}/pixa
-    └── badge-defs/{id}/icon.png
+    └── badge-defs/{id}/pixa
 
 SQL store
 └── gameplay-db
@@ -328,7 +329,7 @@ Admin API:
 /pet-defs/{id} LIST, CREATE, GET, PUT, DELETE
 /pet-defs/{id}/pixa GET, PUT
 /badge-defs/{id} LIST, CREATE, GET, PUT, DELETE
-/badge-defs/{id}/icon GET, PUT
+/badge-defs/{id}/pixa GET, PUT
 /game-defs/{id} LIST, CREATE, GET, PUT, DELETE
 ```
 
@@ -343,7 +344,7 @@ server.badge.{list,get}
 server.game_result.{list,get}
 server.reward_grant.{list,get}
 server.pet_def.pixa.download
-server.badge_def.icon.download
+server.badge_def.pixa.download
 ```
 
 The peer RPC download methods should use the same binary-frame download pattern

@@ -149,7 +149,7 @@ stores:
     storage: main-kv
     prefix: game-defs
 
-  # Gameplay PetDef pixa files and BadgeDef PNG icons.
+  # Gameplay PetDef and BadgeDef pixa files.
   gameplay-assets:
     kind: objectstore
     storage: local-assets

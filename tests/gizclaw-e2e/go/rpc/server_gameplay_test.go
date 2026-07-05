@@ -171,8 +171,8 @@ func applyGameplayACL(t *testing.T, h *clitest.Harness, contextName string) {
 	roleResp, err := api.PutACLRoleWithResponse(ctx, "default-client", adminservice.ACLRoleUpsert{
 		Name: "default-client",
 		Permissions: apitypes.ACLPermissionList{
-			apitypes.ACLPermissionGamerulesetRead,
-			apitypes.ACLPermissionGamerulesetUse,
+			apitypes.ACLPermissionRead,
+			apitypes.ACLPermissionUse,
 		},
 	})
 	if err != nil {

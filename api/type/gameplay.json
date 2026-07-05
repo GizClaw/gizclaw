@@ -240,7 +240,7 @@
           "spec": {
             "$ref": "#/components/schemas/PetDefSpec"
           },
-          "asset_path": {
+          "pixa_path": {
             "type": "string"
           },
           "created_at": {
@@ -293,7 +293,7 @@
           "spec": {
             "$ref": "#/components/schemas/BadgeDefSpec"
           },
-          "icon_path": {
+          "pixa_path": {
             "type": "string"
           },
           "created_at": {

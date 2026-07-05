@@ -343,6 +343,24 @@ func (c *Client) DownloadFirmware(ctx context.Context, id string, request rpcapi
 	return c.rpcClient().DownloadFirmware(ctx, stream, id, request, out)
 }
 
+func (c *Client) DownloadPetDefPixa(ctx context.Context, id string, request rpcapi.PetDefPixaDownloadRequest, out io.Writer) (PetDefPixaDownloadResult, error) {
+	stream, err := c.rpcConn()
+	if err != nil {
+		return PetDefPixaDownloadResult{}, err
+	}
+	defer func() { _ = stream.Close() }()
+	return c.rpcClient().DownloadPetDefPixa(ctx, stream, id, request, out)
+}
+
+func (c *Client) DownloadBadgeDefPixa(ctx context.Context, id string, request rpcapi.BadgeDefPixaDownloadRequest, out io.Writer) (BadgeDefPixaDownloadResult, error) {
+	stream, err := c.rpcConn()
+	if err != nil {
+		return BadgeDefPixaDownloadResult{}, err
+	}
+	defer func() { _ = stream.Close() }()
+	return c.rpcClient().DownloadBadgeDefPixa(ctx, stream, id, request, out)
+}
+
 func (c *Client) GetWorkspaceHistoryAudio(ctx context.Context, id string, request rpcapi.WorkspaceHistoryAudioGetRequest, out io.Writer) (WorkspaceHistoryAudioGetResult, error) {
 	stream, err := c.rpcConn()
 	if err != nil {

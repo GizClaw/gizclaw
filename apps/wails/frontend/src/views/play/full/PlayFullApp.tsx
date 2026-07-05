@@ -2,6 +2,7 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react"
 import type { JSX, MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent } from "react";
 import OpenAI from "openai";
 import type { ChatCompletionMessageParam } from "openai/resources/chat/completions";
+import { drawPixaFrame, parsePixa, pixaClipFrameIndex, selectPixaClip, type PixaAsset } from "@gizclaw/pixa";
 import { ArrowLeft, Bot, Brain, BriefcaseBusiness, ChevronDown, Clock3, ContactRound, Database, KeyRound, Loader2, MessageCircle, Mic2, PackageCheck, PawPrint, Pencil, Play, Plus, RefreshCw, Search, SendHorizontal, Trash2, UserPlus, Users, Volume2, VolumeX, Workflow } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -44,7 +45,9 @@ import {
   getPeerFriendGroupInviteToken,
   getPeerFriendInviteToken,
   getPeerGameRuleset,
+  getPeerBadgeDefPixa,
   getPeerPoints,
+  getPeerPetDefPixa,
   getPeerWorkspaceHistoryAudio,
   getPeerRunWorkspace,
   getPeerRunWorkspaceDetails,
@@ -444,6 +447,7 @@ function GameplayPanel(): JSX.Element {
   const [driveOutcome, setDriveOutcome] = useState("");
   const [driveDurationMs, setDriveDurationMs] = useState("");
   const [driveIdempotencyKey, setDriveIdempotencyKey] = useState("");
+  const [petClipByID, setPetClipByID] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
 
@@ -512,6 +516,7 @@ function GameplayPanel(): JSX.Element {
         };
       }
       await expectData(drivePeerPet({ body }));
+      setPetClipByID((current) => ({ ...current, [selectedPetID.trim()]: driveAction.trim() || "idle" }));
       await refreshAll();
     } catch (err) {
       setError(toMessage(err));
@@ -629,9 +634,9 @@ function GameplayPanel(): JSX.Element {
           </Button>
         </CardContent>
       </Card>
-      <GameplayPetTable busy={busy} pager={pets} onDelete={remove} onRename={rename} />
+      <GameplayPetTable busy={busy} pager={pets} petClipByID={petClipByID} onDelete={remove} onRename={rename} />
       <div className="grid gap-4 xl:grid-cols-2">
-        <GameplayObjectTable columns={["badge_def_id", "exp", "level", "active"]} pager={badges} title="Badges" />
+        <GameplayBadgeTable pager={badges} />
         <GameplayObjectTable columns={["delta", "balance_after", "source_type", "source_id", "reason", "created_at"]} pager={transactions} title="Point Transactions" />
         <GameplayObjectTable columns={["pet_id", "game_def_id", "score", "max_score", "difficulty", "outcome", "duration_ms", "idempotency_key", "occurred_at"]} pager={results} title="Game Results" />
         <GameplayObjectTable columns={["pet_id", "points_delta", "pet_exp_delta", "source_type", "source_id", "reason", "created_at"]} pager={grants} title="Reward Grants" />
@@ -640,7 +645,7 @@ function GameplayPanel(): JSX.Element {
   );
 }
 
-function GameplayPetTable({ busy, onDelete, onRename, pager }: { busy: string; onDelete: (pet: PetObject) => Promise<void>; onRename: (pet: PetObject) => Promise<void>; pager: ReturnType<typeof usePagedList<PetObject>> }): JSX.Element {
+function GameplayPetTable({ busy, onDelete, onRename, pager, petClipByID }: { busy: string; onDelete: (pet: PetObject) => Promise<void>; onRename: (pet: PetObject) => Promise<void>; pager: ReturnType<typeof usePagedList<PetObject>>; petClipByID: Record<string, string> }): JSX.Element {
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between gap-3">
@@ -671,8 +676,13 @@ function GameplayPetTable({ busy, onDelete, onRename, pager }: { busy: string; o
               {pager.page.items.map((pet) => (
                 <TableRow key={pet.id}>
                   <TableCell>
-                    <div className="font-medium">{pet.display_name || pet.id}</div>
-                    <div className="font-mono text-xs text-muted-foreground">{pet.id}</div>
+                    <div className="flex items-center gap-3">
+                      <GameplayPixaSprite clipName={petClipByID[pet.id] ?? "idle"} id={pet.petdef_id} type="petdef" />
+                      <div>
+                        <div className="font-medium">{pet.display_name || pet.id}</div>
+                        <div className="font-mono text-xs text-muted-foreground">{pet.id}</div>
+                      </div>
+                    </div>
                   </TableCell>
                   <TableCell className="font-mono text-xs">{pet.petdef_id}</TableCell>
                   <TableCell>{pet.level}</TableCell>
@@ -696,6 +706,124 @@ function GameplayPetTable({ busy, onDelete, onRename, pager }: { busy: string; o
         )}
       </CardContent>
     </Card>
+  );
+}
+
+function GameplayBadgeTable({ pager }: { pager: ReturnType<typeof usePagedList<BadgeObject>> }): JSX.Element {
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between gap-3">
+        <CardTitle>Badges</CardTitle>
+        <PageAction canNext={pager.page.hasNext} canPrevious={pager.page.cursors.length > 1} loading={pager.page.loading} onNext={pager.next} onPrevious={pager.previous} onRefresh={pager.refresh} pageIndex={pager.page.cursors.length} />
+      </CardHeader>
+      <CardContent>
+        {pager.error !== "" ? (
+          <Alert variant="destructive">
+            <AlertDescription>{pager.error}</AlertDescription>
+          </Alert>
+        ) : pager.page.items.length === 0 ? (
+          <EmptyMessage description="Badges will appear here when gameplay activity is recorded." title="No badges" />
+        ) : (
+          <DashboardTable>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Badge</TableHead>
+                <TableHead>Exp</TableHead>
+                <TableHead>Level</TableHead>
+                <TableHead>Active</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {pager.page.items.map((badge) => (
+                <TableRow key={badge.id}>
+                  <TableCell>
+                    <div className="flex items-center gap-3">
+                      <GameplayPixaSprite clipName="icon" id={badge.badge_def_id} type="badgedef" />
+                      <div>
+                        <div className="font-mono text-xs">{badge.badge_def_id}</div>
+                        <div className="font-mono text-xs text-muted-foreground">{badge.id}</div>
+                      </div>
+                    </div>
+                  </TableCell>
+                  <TableCell>{badge.exp}</TableCell>
+                  <TableCell>{badge.level}</TableCell>
+                  <TableCell>{badge.active ? "true" : "false"}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </DashboardTable>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function GameplayPixaSprite({ clipName, id, type }: { clipName: string; id: string; type: "petdef" | "badgedef" }): JSX.Element {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const [asset, setAsset] = useState<PixaAsset | null>(null);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+    setAsset(null);
+    setError("");
+    if (id.trim() === "") {
+      return;
+    }
+    void (async () => {
+      const result = type === "petdef" ? await getPeerPetDefPixa({ body: { id } }) : await getPeerBadgeDefPixa({ body: { id } });
+      if (cancelled) {
+        return;
+      }
+      if (result.error != null || result.data == null) {
+        setError(toMessage(result.error ?? "pixa unavailable"));
+        return;
+      }
+      try {
+        setAsset(parsePixa(await result.data.arrayBuffer()));
+      } catch (err) {
+        setError(toMessage(err));
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [id, type]);
+
+  useEffect(() => {
+    if (asset == null) {
+      return;
+    }
+    const canvas = canvasRef.current;
+    const ctx = canvas?.getContext("2d");
+    const clip = selectPixaClip(asset, clipName);
+    if (canvas == null || ctx == null || clip == null) {
+      return;
+    }
+    let raf = 0;
+    const startedAt = performance.now();
+    const tick = (now: number): void => {
+      try {
+        drawPixaFrame(ctx, asset, pixaClipFrameIndex(clip, now - startedAt));
+        setError("");
+      } catch (err) {
+        setError(toMessage(err));
+        return;
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [asset, clipName]);
+
+  return (
+    <div className="flex size-12 shrink-0 items-center justify-center rounded border bg-muted/30">
+      {asset == null || error !== "" ? (
+        <PawPrint className="size-5 text-muted-foreground" />
+      ) : (
+        <canvas ref={canvasRef} className="max-h-10 max-w-10 [image-rendering:pixelated]" />
+      )}
+    </div>
   );
 }
 

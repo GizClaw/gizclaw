@@ -33,6 +33,7 @@ export type PixaFrame = {
 };
 
 export type PixaAsset = {
+  bytes: Uint8Array;
   canvas: PixaCanvas;
   clipCount: number;
   clipOffset: number;
@@ -45,6 +46,14 @@ export type PixaAsset = {
   payloadLength: number;
   payloadOffset: number;
   version: number;
+};
+
+export type PixaValidationMode = "petdef" | "badgedef";
+
+export type PixaFrameRGBA = {
+  data: Uint8ClampedArray<ArrayBuffer>;
+  height: number;
+  width: number;
 };
 
 export class PixaParseError extends Error {
@@ -93,6 +102,7 @@ export function parsePixa(input: ArrayBuffer | ArrayBufferView): PixaAsset {
   const pixelCount = width * height;
 
   return {
+    bytes: new Uint8Array(view.buffer, view.byteOffset, view.byteLength),
     canvas: {
       height,
       pixelCount,
@@ -111,6 +121,95 @@ export function parsePixa(input: ArrayBuffer | ArrayBufferView): PixaAsset {
     payloadOffset,
     version,
   };
+}
+
+export function validatePixa(input: ArrayBuffer | ArrayBufferView, mode?: PixaValidationMode): PixaAsset {
+  const asset = parsePixa(input);
+  if (mode === "petdef") {
+    if (asset.clipCount === 0 || asset.frameCount === 0) {
+      throw new PixaParseError("PetDef PIXA must contain at least one clip and one frame.");
+    }
+    if (findPixaClip(asset, "idle") == null) {
+      throw new PixaParseError('PetDef PIXA must contain an "idle" clip.');
+    }
+  }
+  if (mode === "badgedef") {
+    const icon = findPixaClip(asset, "icon");
+    if (icon == null) {
+      throw new PixaParseError('BadgeDef PIXA must contain an "icon" clip.');
+    }
+    if (icon.frameCount !== 1) {
+      throw new PixaParseError("BadgeDef icon clip must contain exactly one frame.");
+    }
+    const frame = asset.frames[icon.firstFrame];
+    if (frame == null || frame.type !== "key") {
+      throw new PixaParseError("BadgeDef icon clip must reference a key frame.");
+    }
+  }
+  return asset;
+}
+
+export function findPixaClip(asset: PixaAsset, name: string): PixaClip | undefined {
+  return asset.clips.find((clip) => clip.name === name);
+}
+
+export function selectPixaClip(asset: PixaAsset, preferred?: string): PixaClip | undefined {
+  if (preferred != null && preferred.trim() !== "") {
+    const selected = findPixaClip(asset, preferred.trim());
+    if (selected != null) {
+      return selected;
+    }
+  }
+  return findPixaClip(asset, "idle") ?? asset.clips[0];
+}
+
+export function pixaClipFrameIndex(clip: PixaClip, elapsedMs: number): number {
+  if (clip.frameCount <= 0) {
+    return clip.firstFrame;
+  }
+  if (clip.totalDurationMs <= 0) {
+    return clip.firstFrame;
+  }
+  const elapsed = clip.loop ? positiveModulo(elapsedMs, clip.totalDurationMs) : Math.min(Math.max(elapsedMs, 0), Math.max(clip.totalDurationMs - 1, 0));
+  const averageFrameMs = clip.totalDurationMs / clip.frameCount;
+  return clip.firstFrame + Math.min(clip.frameCount - 1, Math.floor(elapsed / averageFrameMs));
+}
+
+export function renderPixaFrameRGBA(asset: PixaAsset, frameIndex: number): PixaFrameRGBA {
+  const frame = asset.frames[frameIndex];
+  if (frame == null) {
+    throw new PixaParseError(`PIXA frame ${frameIndex} does not exist.`);
+  }
+  if (frame.type !== "key") {
+    throw new PixaParseError(`PIXA frame ${frameIndex} is ${frame.type}; only key frames can be rendered.`);
+  }
+  if (frame.payloadLength < asset.canvas.rgb565ByteCount) {
+    throw new PixaParseError(`PIXA key frame payload is ${frame.payloadLength} bytes, expected ${asset.canvas.rgb565ByteCount}.`);
+  }
+  const start = asset.payloadOffset + frame.payloadOffset;
+  const end = start + asset.canvas.rgb565ByteCount;
+  if (end > asset.bytes.byteLength) {
+    throw new PixaParseError("PIXA key frame payload exceeds file length.");
+  }
+  const rgba = new Uint8ClampedArray(new ArrayBuffer(asset.canvas.pixelCount * 4));
+  for (let pixel = 0; pixel < asset.canvas.pixelCount; pixel += 1) {
+    const source = start + pixel * PIXA_RGB565_PIXEL_BYTES;
+    const value = asset.bytes[source] | (asset.bytes[source + 1] << 8);
+    const target = pixel * 4;
+    rgba[target] = ((value >> 11) & 0x1f) * 255 / 31;
+    rgba[target + 1] = ((value >> 5) & 0x3f) * 255 / 63;
+    rgba[target + 2] = (value & 0x1f) * 255 / 31;
+    rgba[target + 3] = 255;
+  }
+  return { data: rgba, height: asset.canvas.height, width: asset.canvas.width };
+}
+
+export function drawPixaFrame(ctx: CanvasRenderingContext2D, asset: PixaAsset, frameIndex: number): void {
+  const frame = renderPixaFrameRGBA(asset, frameIndex);
+  const image = new ImageData(frame.data, frame.width, frame.height);
+  ctx.canvas.width = frame.width;
+  ctx.canvas.height = frame.height;
+  ctx.putImageData(image, 0, 0);
 }
 
 function parseClips(view: DataView, clipOffset: number, clipCount: number, frameCount: number): PixaClip[] {
@@ -170,6 +269,10 @@ function requireRange(view: DataView, offset: number, length: number, label: str
   if (!Number.isSafeInteger(offset) || !Number.isSafeInteger(length) || offset < 0 || length < 0 || offset > view.byteLength || length > view.byteLength - offset) {
     throw new PixaParseError(`Invalid PIXA ${label} range.`);
   }
+}
+
+function positiveModulo(value: number, divisor: number): number {
+  return ((value % divisor) + divisor) % divisor;
 }
 
 function toDataView(input: ArrayBuffer | ArrayBufferView): DataView {

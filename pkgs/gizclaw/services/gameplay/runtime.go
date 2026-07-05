@@ -246,6 +246,19 @@ func (r *Runtime) GetPet(ctx context.Context, owner, id string) (apitypes.Pet, e
 	return scanPet(db.QueryRowContext(ctx, petSelectSQL()+` WHERE owner_public_key = ? AND id = ?`, owner, strings.TrimSpace(id)))
 }
 
+func (r *Runtime) OwnerHasPetDef(ctx context.Context, owner, petDefID string) (bool, error) {
+	db, err := r.db()
+	if err != nil {
+		return false, err
+	}
+	var exists int
+	err = db.QueryRowContext(ctx, `SELECT 1 FROM gameplay_pets WHERE owner_public_key = ? AND petdef_id = ? LIMIT 1`, owner, strings.TrimSpace(petDefID)).Scan(&exists)
+	if errors.Is(err, sql.ErrNoRows) {
+		return false, nil
+	}
+	return err == nil, err
+}
+
 func (r *Runtime) PutPet(ctx context.Context, owner string, req apitypes.PetPutRequest) (apitypes.Pet, error) {
 	pet, err := r.GetPet(ctx, owner, req.Id)
 	if err != nil {
@@ -471,6 +484,19 @@ func (r *Runtime) GetBadge(ctx context.Context, owner, id string) (apitypes.Badg
 		return apitypes.Badge{}, err
 	}
 	return scanBadge(db.QueryRowContext(ctx, badgeSelectSQL()+` WHERE owner_public_key = ? AND id = ?`, owner, strings.TrimSpace(id)))
+}
+
+func (r *Runtime) OwnerHasBadgeDef(ctx context.Context, owner, badgeDefID string) (bool, error) {
+	db, err := r.db()
+	if err != nil {
+		return false, err
+	}
+	var exists int
+	err = db.QueryRowContext(ctx, `SELECT 1 FROM gameplay_badges WHERE owner_public_key = ? AND badge_def_id = ? LIMIT 1`, owner, strings.TrimSpace(badgeDefID)).Scan(&exists)
+	if errors.Is(err, sql.ErrNoRows) {
+		return false, nil
+	}
+	return err == nil, err
 }
 
 func (r *Runtime) ListGameResults(ctx context.Context, owner string, req apitypes.GameplayListRequest) (apitypes.GameResultListResponse, error) {

@@ -5,6 +5,8 @@
 import type {
   AgentSelection,
   Badge,
+  BadgeDefPixaDownloadRequest,
+  BadgeDefPixaDownloadResponse,
   BadgeListResponse,
   ClientGetIdentifiersRequest,
   ClientGetInfoRequest,
@@ -92,6 +94,8 @@ import type {
   Pet,
   PetAdoptRequest,
   PetAdoptResponse,
+  PetDefPixaDownloadRequest,
+  PetDefPixaDownloadResponse,
   PetDeleteRequest,
   PetDriveRequest,
   PetDriveResponse,
@@ -458,6 +462,14 @@ export type RPCMethodMap = {
     request: ServerGameRulesetGetRequest;
     response: GameRuleset;
   };
+  "server.pet_def.pixa.download": {
+    request: PetDefPixaDownloadRequest;
+    response: PetDefPixaDownloadResponse;
+  };
+  "server.badge_def.pixa.download": {
+    request: BadgeDefPixaDownloadRequest;
+    response: BadgeDefPixaDownloadResponse;
+  };
   "server.pet.list": {
     request: GameplayListRequest;
     response: PetListResponse;
@@ -601,6 +613,8 @@ export const RPC_METHODS = {
   "server.friend_group.messages.get": "server.friend_group.messages.get",
   "server.friend_group.messages.send": "server.friend_group.messages.send",
   "server.game_ruleset.get": "server.game_ruleset.get",
+  "server.pet_def.pixa.download": "server.pet_def.pixa.download",
+  "server.badge_def.pixa.download": "server.badge_def.pixa.download",
   "server.pet.list": "server.pet.list",
   "server.pet.get": "server.pet.get",
   "server.pet.adopt": "server.pet.adopt",

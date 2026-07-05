@@ -65,7 +65,9 @@ func isPlannedServerMethod(method rpcapi.RPCMethod) bool {
 		rpcapi.RPCMethodServerFriendGroupMembersDelete,
 		rpcapi.RPCMethodServerFriendGroupMessagesList,
 		rpcapi.RPCMethodServerFriendGroupMessagesGet,
-		rpcapi.RPCMethodServerFriendGroupMessagesSend:
+		rpcapi.RPCMethodServerFriendGroupMessagesSend,
+		rpcapi.RPCMethodServerPetDefPixaDownload,
+		rpcapi.RPCMethodServerBadgeDefPixaDownload:
 		return true
 	default:
 		return false

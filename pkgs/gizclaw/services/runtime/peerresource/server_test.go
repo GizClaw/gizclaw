@@ -4,6 +4,8 @@ import (
 	"archive/tar"
 	"bytes"
 	"context"
+	"database/sql"
+	"encoding/binary"
 	"errors"
 	"io"
 	"net/http"
@@ -20,10 +22,12 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/device/firmware"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/gameplay"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/acl"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/objectstore"
+	_ "modernc.org/sqlite"
 )
 
 func TestServerAllowedCRUD(t *testing.T) {
@@ -611,6 +615,126 @@ func TestServerFirmwareRPCUsesFirmwareReadACL(t *testing.T) {
 	requireRPCError(t, missingBin, rpcapi.RPCErrorCodeNotFound)
 }
 
+func TestServerGameplayPixaDownloads(t *testing.T) {
+	ctx := context.Background()
+	caller := giznet.PublicKey{9}
+	now := time.Date(2026, 7, 6, 9, 0, 0, 0, time.UTC)
+	catalog := &gameplay.Catalog{
+		GameRulesets: kv.NewMemory(nil),
+		PetDefs:      kv.NewMemory(nil),
+		BadgeDefs:    kv.NewMemory(nil),
+		GameDefs:     kv.NewMemory(nil),
+		Assets:       objectstore.Dir(t.TempDir()),
+		Now:          func() time.Time { return now },
+	}
+	petPixa := peerresourceTestPixa(t, []string{"idle", "feed"})
+	badgePixa := peerresourceTestPixa(t, []string{"icon"})
+	if resp, err := catalog.CreatePetDef(ctx, adminservice.CreatePetDefRequestObject{Body: &adminservice.PetDefUpsert{Id: "petdef-a", Spec: apitypes.PetDefSpec{DisplayName: "Pet A"}}}); err != nil {
+		t.Fatalf("CreatePetDef error = %v", err)
+	} else if _, ok := resp.(adminservice.CreatePetDef200JSONResponse); !ok {
+		t.Fatalf("CreatePetDef response = %T", resp)
+	}
+	if resp, err := catalog.UploadPetDefPixa(ctx, adminservice.UploadPetDefPixaRequestObject{Id: "petdef-a", Body: bytes.NewReader(petPixa)}); err != nil {
+		t.Fatalf("UploadPetDefPixa error = %v", err)
+	} else if _, ok := resp.(adminservice.UploadPetDefPixa200JSONResponse); !ok {
+		t.Fatalf("UploadPetDefPixa response = %T", resp)
+	}
+	if resp, err := catalog.CreateBadgeDef(ctx, adminservice.CreateBadgeDefRequestObject{Body: &adminservice.BadgeDefUpsert{Id: "badge-a", Spec: apitypes.BadgeDefSpec{DisplayName: "Badge A"}}}); err != nil {
+		t.Fatalf("CreateBadgeDef error = %v", err)
+	} else if _, ok := resp.(adminservice.CreateBadgeDef200JSONResponse); !ok {
+		t.Fatalf("CreateBadgeDef response = %T", resp)
+	}
+	if resp, err := catalog.UploadBadgeDefPixa(ctx, adminservice.UploadBadgeDefPixaRequestObject{Id: "badge-a", Body: bytes.NewReader(badgePixa)}); err != nil {
+		t.Fatalf("UploadBadgeDefPixa error = %v", err)
+	} else if _, ok := resp.(adminservice.UploadBadgeDefPixa200JSONResponse); !ok {
+		t.Fatalf("UploadBadgeDefPixa response = %T", resp)
+	}
+	badgeDelta := map[string]int64{"badge-a": 100}
+	if resp, err := catalog.CreateGameRuleset(ctx, adminservice.CreateGameRulesetRequestObject{Body: &adminservice.GameRulesetUpsert{
+		Name: "default",
+		Spec: apitypes.GameRulesetSpec{
+			Enabled: true,
+			PetPool: []apitypes.GameRulesetPetPoolEntry{{
+				PetdefId: "petdef-a",
+				Weight:   1,
+			}},
+			BadgeDefIds: &[]string{"badge-a"},
+			Drive:       &apitypes.GameRulesetDriveSpec{DefaultReward: &apitypes.GameRewardSpec{BadgeExpDelta: &badgeDelta}},
+		},
+	}}); err != nil {
+		t.Fatalf("CreateGameRuleset error = %v", err)
+	} else if _, ok := resp.(adminservice.CreateGameRuleset200JSONResponse); !ok {
+		t.Fatalf("CreateGameRuleset response = %T", resp)
+	}
+	db, err := sql.Open("sqlite", ":memory:")
+	if err != nil {
+		t.Fatalf("sql.Open error = %v", err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+	workflowStore := kv.NewMemory(nil)
+	workflowServer := &workflow.Server{Store: workflowStore}
+	chatroomWorkflow, err := convertType[apitypes.WorkflowDocument](workflowDoc("chatroom"))
+	if err != nil {
+		t.Fatalf("convert workflow: %v", err)
+	}
+	if resp, err := workflowServer.CreateWorkflow(ctx, adminservice.CreateWorkflowRequestObject{Body: &chatroomWorkflow}); err != nil {
+		t.Fatalf("CreateWorkflow error = %v", err)
+	} else if _, ok := resp.(adminservice.CreateWorkflow200JSONResponse); !ok {
+		t.Fatalf("CreateWorkflow response = %T", resp)
+	}
+	ids := []string{"pet-a", "adopt-txn", "grant-a"}
+	runtime := &gameplay.Runtime{
+		DB:         db,
+		Catalog:    catalog,
+		Workspaces: &workspace.Server{Store: kv.NewMemory(nil), WorkflowStore: workflowStore},
+		Now:        func() time.Time { return now },
+		PickWeight: func(int64) int64 { return 0 },
+		NewID: func() string {
+			if len(ids) == 0 {
+				t.Fatal("unexpected id allocation")
+			}
+			id := ids[0]
+			ids = ids[1:]
+			return id
+		},
+	}
+	adopted, err := runtime.AdoptPet(ctx, caller.String(), apitypes.PetAdoptRequest{})
+	if err != nil {
+		t.Fatalf("AdoptPet error = %v", err)
+	}
+	if _, err := runtime.DrivePet(ctx, caller.String(), apitypes.PetDriveRequest{PetId: adopted.Pet.Id}); err != nil {
+		t.Fatalf("DrivePet error = %v", err)
+	}
+	auth := newRuleAuthorizer()
+	auth.allow(acl.ResourceKindGameRuleset, "default", apitypes.ACLPermissionRead)
+	srv := &Server{Caller: caller, ACL: auth, Gameplay: runtime}
+	petResp := callRPC(t, srv, "petdef-pixa-download", rpcapi.RPCMethodServerPetDefPixaDownload, rpcParams(t, (*rpcapi.RPCRequest_Params).FromPetDefPixaDownloadRequest, rpcapi.PetDefPixaDownloadRequest{Id: "petdef-a"}))
+	gotPet := mustResult(t, petResp.Result.AsPetDefPixaDownloadResponse)
+	if gotPet.Id != "petdef-a" || gotPet.SizeBytes != int64(len(petPixa)) || valueOrZero(gotPet.PixaPath) != "pet-defs/petdef-a/pixa" {
+		t.Fatalf("petdef pixa metadata = %#v", gotPet)
+	}
+	if got := auth.count(ctx, acl.ResourceKindGameRuleset, "default", apitypes.ACLPermissionRead); got == 0 {
+		t.Fatal("petdef pixa download did not check ruleset read ACL")
+	}
+	gotPetMetadata, petReader, rpcErr, err := srv.PreparePetDefPixaDownload(ctx, rpcapi.PetDefPixaDownloadRequest{Id: "petdef-a"})
+	if err != nil || rpcErr != nil {
+		t.Fatalf("PreparePetDefPixaDownload err = %v rpcErr = %+v", err, rpcErr)
+	}
+	defer petReader.Close()
+	if data, err := io.ReadAll(petReader); err != nil || !bytes.Equal(data, petPixa) || gotPetMetadata.SizeBytes != int64(len(petPixa)) {
+		t.Fatalf("petdef pixa data len=%d metadata=%#v err=%v", len(data), gotPetMetadata, err)
+	}
+	badgeResp := callRPC(t, srv, "badgedef-pixa-download", rpcapi.RPCMethodServerBadgeDefPixaDownload, rpcParams(t, (*rpcapi.RPCRequest_Params).FromBadgeDefPixaDownloadRequest, rpcapi.BadgeDefPixaDownloadRequest{Id: "badge-a"}))
+	gotBadge := mustResult(t, badgeResp.Result.AsBadgeDefPixaDownloadResponse)
+	if gotBadge.Id != "badge-a" || gotBadge.SizeBytes != int64(len(badgePixa)) || valueOrZero(gotBadge.PixaPath) != "badge-defs/badge-a/pixa" {
+		t.Fatalf("badgedef pixa metadata = %#v", gotBadge)
+	}
+
+	other := &Server{Caller: giznet.PublicKey{8}, ACL: newRuleAuthorizer(), Gameplay: runtime}
+	denied := callRPC(t, other, "petdef-pixa-denied", rpcapi.RPCMethodServerPetDefPixaDownload, rpcParams(t, (*rpcapi.RPCRequest_Params).FromPetDefPixaDownloadRequest, rpcapi.PetDefPixaDownloadRequest{Id: "petdef-a"}))
+	requireRPCError(t, denied, rpcapi.RPCErrorCodeForbidden)
+}
+
 func TestServerErrorPaths(t *testing.T) {
 	requiredMethods := []rpcapi.RPCMethod{
 		rpcapi.RPCMethodServerWorkspaceGet,
@@ -715,6 +839,53 @@ func peerresourceTarPayload(t *testing.T, files map[string]string) []byte {
 		t.Fatalf("Close tar: %v", err)
 	}
 	return buf.Bytes()
+}
+
+func peerresourceTestPixa(t *testing.T, clips []string) []byte {
+	t.Helper()
+	if len(clips) == 0 {
+		t.Fatal("peerresourceTestPixa requires at least one clip")
+	}
+	const (
+		headerSize       = 40
+		clipEntrySize    = 56
+		frameEntrySize   = 16
+		clipNameSize     = 32
+		paletteByteCount = 2
+	)
+	paletteOffset := headerSize
+	clipOffset := paletteOffset + paletteByteCount
+	frameOffset := clipOffset + len(clips)*clipEntrySize
+	payload := []byte{0x00, 0xf8, 0xe0, 0x07}
+	payloadOffset := frameOffset + frameEntrySize
+	data := make([]byte, payloadOffset+len(payload))
+	copy(data[:4], "PIXA")
+	binary.LittleEndian.PutUint16(data[4:6], 1)
+	binary.LittleEndian.PutUint16(data[6:8], headerSize)
+	binary.LittleEndian.PutUint16(data[8:10], 16)
+	binary.LittleEndian.PutUint16(data[10:12], 16)
+	binary.LittleEndian.PutUint16(data[12:14], 1)
+	binary.LittleEndian.PutUint16(data[14:16], uint16(len(clips)))
+	binary.LittleEndian.PutUint32(data[16:20], 1)
+	binary.LittleEndian.PutUint32(data[20:24], uint32(paletteOffset))
+	binary.LittleEndian.PutUint32(data[24:28], uint32(clipOffset))
+	binary.LittleEndian.PutUint32(data[28:32], uint32(frameOffset))
+	binary.LittleEndian.PutUint32(data[32:36], uint32(payloadOffset))
+	binary.LittleEndian.PutUint32(data[36:40], uint32(len(payload)))
+	for i, clip := range clips {
+		base := clipOffset + i*clipEntrySize
+		copy(data[base:base+clipNameSize], []byte(clip))
+		binary.LittleEndian.PutUint32(data[base+36:base+40], 0)
+		binary.LittleEndian.PutUint32(data[base+40:base+44], 1)
+		binary.LittleEndian.PutUint32(data[base+44:base+48], 120)
+		binary.LittleEndian.PutUint16(data[base+48:base+50], 1)
+	}
+	binary.LittleEndian.PutUint16(data[frameOffset:frameOffset+2], 120)
+	data[frameOffset+2] = 0
+	binary.LittleEndian.PutUint32(data[frameOffset+4:frameOffset+8], 0)
+	binary.LittleEndian.PutUint32(data[frameOffset+8:frameOffset+12], uint32(len(payload)))
+	copy(data[payloadOffset:], payload)
+	return data
 }
 
 func TestHelpers(t *testing.T) {

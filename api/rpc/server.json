@@ -1558,6 +1558,74 @@
       "ServerGameRulesetGetResponse": {
         "$ref": "../type/gameplay.json#/components/schemas/GameRuleset"
       },
+      "PetDefPixaDownloadRequest": {
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "PetDefPixaDownloadResponse": {
+        "type": "object",
+        "required": [
+          "id",
+          "size_bytes"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "pixa_path": {
+            "type": "string"
+          },
+          "size_bytes": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          }
+        }
+      },
+      "BadgeDefPixaDownloadRequest": {
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "BadgeDefPixaDownloadResponse": {
+        "type": "object",
+        "required": [
+          "id",
+          "size_bytes"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "pixa_path": {
+            "type": "string"
+          },
+          "size_bytes": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          }
+        }
+      },
       "ServerPetListRequest": {
         "$ref": "../type/gameplay.json#/components/schemas/GameplayListRequest"
       },

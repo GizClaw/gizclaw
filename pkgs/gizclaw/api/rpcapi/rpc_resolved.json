@@ -224,10 +224,10 @@
             "format": "date-time",
             "type": "string"
           },
-          "icon_path": {
+          "id": {
             "type": "string"
           },
-          "id": {
+          "pixa_path": {
             "type": "string"
           },
           "spec": {
@@ -243,6 +243,40 @@
           "spec",
           "created_at",
           "updated_at"
+        ],
+        "type": "object"
+      },
+      "BadgeDefPixaDownloadRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "BadgeDefPixaDownloadResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "pixa_path": {
+            "type": "string"
+          },
+          "size_bytes": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "size_bytes"
         ],
         "type": "object"
       },
@@ -3560,14 +3594,14 @@
       "PetDef": {
         "additionalProperties": false,
         "properties": {
-          "asset_path": {
-            "type": "string"
-          },
           "created_at": {
             "format": "date-time",
             "type": "string"
           },
           "id": {
+            "type": "string"
+          },
+          "pixa_path": {
             "type": "string"
           },
           "spec": {
@@ -3583,6 +3617,40 @@
           "spec",
           "created_at",
           "updated_at"
+        ],
+        "type": "object"
+      },
+      "PetDefPixaDownloadRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "PetDefPixaDownloadResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "pixa_path": {
+            "type": "string"
+          },
+          "size_bytes": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "size_bytes"
         ],
         "type": "object"
       },
@@ -4031,6 +4099,8 @@
           "server.friend_group.messages.get",
           "server.friend_group.messages.send",
           "server.game_ruleset.get",
+          "server.pet_def.pixa.download",
+          "server.badge_def.pixa.download",
           "server.pet.list",
           "server.pet.get",
           "server.pet.adopt",
@@ -4292,6 +4362,12 @@
               },
               {
                 "$ref": "#/components/schemas/ServerGameRulesetGetRequest"
+              },
+              {
+                "$ref": "#/components/schemas/PetDefPixaDownloadRequest"
+              },
+              {
+                "$ref": "#/components/schemas/BadgeDefPixaDownloadRequest"
               },
               {
                 "$ref": "#/components/schemas/ServerPetListRequest"
@@ -4594,6 +4670,12 @@
               },
               {
                 "$ref": "#/components/schemas/ServerGameRulesetGetResponse"
+              },
+              {
+                "$ref": "#/components/schemas/PetDefPixaDownloadResponse"
+              },
+              {
+                "$ref": "#/components/schemas/BadgeDefPixaDownloadResponse"
               },
               {
                 "$ref": "#/components/schemas/ServerPetListResponse"

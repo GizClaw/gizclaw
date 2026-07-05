@@ -1,6 +1,7 @@
 package gameplay
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -49,15 +50,15 @@ type CatalogAdminService interface {
 	DeletePetDef(context.Context, adminservice.DeletePetDefRequestObject) (adminservice.DeletePetDefResponseObject, error)
 	GetPetDef(context.Context, adminservice.GetPetDefRequestObject) (adminservice.GetPetDefResponseObject, error)
 	PutPetDef(context.Context, adminservice.PutPetDefRequestObject) (adminservice.PutPetDefResponseObject, error)
-	DownloadPetDefAsset(context.Context, adminservice.DownloadPetDefAssetRequestObject) (adminservice.DownloadPetDefAssetResponseObject, error)
-	UploadPetDefAsset(context.Context, adminservice.UploadPetDefAssetRequestObject) (adminservice.UploadPetDefAssetResponseObject, error)
+	DownloadPetDefPixa(context.Context, adminservice.DownloadPetDefPixaRequestObject) (adminservice.DownloadPetDefPixaResponseObject, error)
+	UploadPetDefPixa(context.Context, adminservice.UploadPetDefPixaRequestObject) (adminservice.UploadPetDefPixaResponseObject, error)
 	ListBadgeDefs(context.Context, adminservice.ListBadgeDefsRequestObject) (adminservice.ListBadgeDefsResponseObject, error)
 	CreateBadgeDef(context.Context, adminservice.CreateBadgeDefRequestObject) (adminservice.CreateBadgeDefResponseObject, error)
 	DeleteBadgeDef(context.Context, adminservice.DeleteBadgeDefRequestObject) (adminservice.DeleteBadgeDefResponseObject, error)
 	GetBadgeDef(context.Context, adminservice.GetBadgeDefRequestObject) (adminservice.GetBadgeDefResponseObject, error)
 	PutBadgeDef(context.Context, adminservice.PutBadgeDefRequestObject) (adminservice.PutBadgeDefResponseObject, error)
-	DownloadBadgeDefIcon(context.Context, adminservice.DownloadBadgeDefIconRequestObject) (adminservice.DownloadBadgeDefIconResponseObject, error)
-	UploadBadgeDefIcon(context.Context, adminservice.UploadBadgeDefIconRequestObject) (adminservice.UploadBadgeDefIconResponseObject, error)
+	DownloadBadgeDefPixa(context.Context, adminservice.DownloadBadgeDefPixaRequestObject) (adminservice.DownloadBadgeDefPixaResponseObject, error)
+	UploadBadgeDefPixa(context.Context, adminservice.UploadBadgeDefPixaRequestObject) (adminservice.UploadBadgeDefPixaResponseObject, error)
 	ListGameDefs(context.Context, adminservice.ListGameDefsRequestObject) (adminservice.ListGameDefsResponseObject, error)
 	CreateGameDef(context.Context, adminservice.CreateGameDefRequestObject) (adminservice.CreateGameDefResponseObject, error)
 	DeleteGameDef(context.Context, adminservice.DeleteGameDefRequestObject) (adminservice.DeleteGameDefResponseObject, error)
@@ -257,12 +258,12 @@ func (c *Catalog) PutPetDef(ctx context.Context, request adminservice.PutPetDefR
 		return adminservice.PutPetDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	createdAt := time.Time{}
-	var assetPath *string
+	var pixaPath *string
 	if err == nil {
 		createdAt = previous.CreatedAt
-		assetPath = previous.AssetPath
+		pixaPath = previous.PixaPath
 	}
-	item, err := c.buildPetDef(id, request.Body.Spec, assetPath, createdAt)
+	item, err := c.buildPetDef(id, request.Body.Spec, pixaPath, createdAt)
 	if err != nil {
 		return adminservice.PutPetDef400JSONResponse(apitypes.NewErrorResponse("INVALID_PET_DEF", err.Error())), nil
 	}
@@ -272,46 +273,53 @@ func (c *Catalog) PutPetDef(ctx context.Context, request adminservice.PutPetDefR
 	return adminservice.PutPetDef200JSONResponse(item), nil
 }
 
-func (c *Catalog) DownloadPetDefAsset(ctx context.Context, request adminservice.DownloadPetDefAssetRequestObject) (adminservice.DownloadPetDefAssetResponseObject, error) {
+func (c *Catalog) DownloadPetDefPixa(ctx context.Context, request adminservice.DownloadPetDefPixaRequestObject) (adminservice.DownloadPetDefPixaResponseObject, error) {
 	item, err := c.GetPetDefByID(ctx, request.Id)
 	if err != nil {
 		if errors.Is(err, kv.ErrNotFound) {
-			return adminservice.DownloadPetDefAsset404JSONResponse(apitypes.NewErrorResponse("PET_DEF_NOT_FOUND", err.Error())), nil
+			return adminservice.DownloadPetDefPixa404JSONResponse(apitypes.NewErrorResponse("PET_DEF_NOT_FOUND", err.Error())), nil
 		}
-		return adminservice.DownloadPetDefAsset500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminservice.DownloadPetDefPixa500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	reader, size, err := c.openAsset(valueOrZero(item.AssetPath))
+	reader, size, err := c.openAsset(valueOrZero(item.PixaPath))
 	if err != nil {
-		return adminservice.DownloadPetDefAsset404JSONResponse(apitypes.NewErrorResponse("PET_DEF_ASSET_NOT_FOUND", err.Error())), nil
+		return adminservice.DownloadPetDefPixa404JSONResponse(apitypes.NewErrorResponse("PET_DEF_PIXA_NOT_FOUND", err.Error())), nil
 	}
-	return adminservice.DownloadPetDefAsset200ApplicationoctetStreamResponse{Body: reader, ContentLength: size}, nil
+	return adminservice.DownloadPetDefPixa200ApplicationoctetStreamResponse{Body: reader, ContentLength: size}, nil
 }
 
-func (c *Catalog) UploadPetDefAsset(ctx context.Context, request adminservice.UploadPetDefAssetRequestObject) (adminservice.UploadPetDefAssetResponseObject, error) {
+func (c *Catalog) UploadPetDefPixa(ctx context.Context, request adminservice.UploadPetDefPixaRequestObject) (adminservice.UploadPetDefPixaResponseObject, error) {
 	if request.Body == nil {
-		return adminservice.UploadPetDefAsset500JSONResponse(apitypes.NewErrorResponse("INVALID_PET_DEF_ASSET", "request body required")), nil
+		return adminservice.UploadPetDefPixa500JSONResponse(apitypes.NewErrorResponse("INVALID_PET_DEF_PIXA", "request body required")), nil
 	}
 	store, err := c.store(c.PetDefs, "pet defs")
 	if err != nil {
-		return adminservice.UploadPetDefAsset500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminservice.UploadPetDefPixa500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	item, err := c.GetPetDefByID(ctx, request.Id)
 	if err != nil {
 		if errors.Is(err, kv.ErrNotFound) {
-			return adminservice.UploadPetDefAsset404JSONResponse(apitypes.NewErrorResponse("PET_DEF_NOT_FOUND", err.Error())), nil
+			return adminservice.UploadPetDefPixa404JSONResponse(apitypes.NewErrorResponse("PET_DEF_NOT_FOUND", err.Error())), nil
 		}
-		return adminservice.UploadPetDefAsset500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminservice.UploadPetDefPixa500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	assetPath := path.Join("pet-defs", item.Id, "asset")
-	if err := c.putAsset(assetPath, request.Body); err != nil {
-		return adminservice.UploadPetDefAsset500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+	data, err := io.ReadAll(request.Body)
+	if err != nil {
+		return adminservice.UploadPetDefPixa500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	item.AssetPath = &assetPath
+	if err := validatePetDefPixa(data); err != nil {
+		return adminservice.UploadPetDefPixa500JSONResponse(apitypes.NewErrorResponse("INVALID_PET_DEF_PIXA", err.Error())), nil
+	}
+	pixaPath := path.Join("pet-defs", item.Id, "pixa")
+	if err := c.putAsset(pixaPath, bytes.NewReader(data)); err != nil {
+		return adminservice.UploadPetDefPixa500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+	}
+	item.PixaPath = &pixaPath
 	item.UpdatedAt = c.now()
 	if err := writeJSON(ctx, store, petDefKey(item.Id), item); err != nil {
-		return adminservice.UploadPetDefAsset500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminservice.UploadPetDefPixa500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	return adminservice.UploadPetDefAsset200JSONResponse(item), nil
+	return adminservice.UploadPetDefPixa200JSONResponse(item), nil
 }
 
 func (c *Catalog) ListBadgeDefs(ctx context.Context, request adminservice.ListBadgeDefsRequestObject) (adminservice.ListBadgeDefsResponseObject, error) {
@@ -404,12 +412,12 @@ func (c *Catalog) PutBadgeDef(ctx context.Context, request adminservice.PutBadge
 		return adminservice.PutBadgeDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	createdAt := time.Time{}
-	var iconPath *string
+	var pixaPath *string
 	if err == nil {
 		createdAt = previous.CreatedAt
-		iconPath = previous.IconPath
+		pixaPath = previous.PixaPath
 	}
-	item, err := c.buildBadgeDef(id, request.Body.Spec, iconPath, createdAt)
+	item, err := c.buildBadgeDef(id, request.Body.Spec, pixaPath, createdAt)
 	if err != nil {
 		return adminservice.PutBadgeDef400JSONResponse(apitypes.NewErrorResponse("INVALID_BADGE_DEF", err.Error())), nil
 	}
@@ -419,46 +427,53 @@ func (c *Catalog) PutBadgeDef(ctx context.Context, request adminservice.PutBadge
 	return adminservice.PutBadgeDef200JSONResponse(item), nil
 }
 
-func (c *Catalog) DownloadBadgeDefIcon(ctx context.Context, request adminservice.DownloadBadgeDefIconRequestObject) (adminservice.DownloadBadgeDefIconResponseObject, error) {
+func (c *Catalog) DownloadBadgeDefPixa(ctx context.Context, request adminservice.DownloadBadgeDefPixaRequestObject) (adminservice.DownloadBadgeDefPixaResponseObject, error) {
 	item, err := c.GetBadgeDefByID(ctx, request.Id)
 	if err != nil {
 		if errors.Is(err, kv.ErrNotFound) {
-			return adminservice.DownloadBadgeDefIcon404JSONResponse(apitypes.NewErrorResponse("BADGE_DEF_NOT_FOUND", err.Error())), nil
+			return adminservice.DownloadBadgeDefPixa404JSONResponse(apitypes.NewErrorResponse("BADGE_DEF_NOT_FOUND", err.Error())), nil
 		}
-		return adminservice.DownloadBadgeDefIcon500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminservice.DownloadBadgeDefPixa500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	reader, size, err := c.openAsset(valueOrZero(item.IconPath))
+	reader, size, err := c.openAsset(valueOrZero(item.PixaPath))
 	if err != nil {
-		return adminservice.DownloadBadgeDefIcon404JSONResponse(apitypes.NewErrorResponse("BADGE_DEF_ICON_NOT_FOUND", err.Error())), nil
+		return adminservice.DownloadBadgeDefPixa404JSONResponse(apitypes.NewErrorResponse("BADGE_DEF_PIXA_NOT_FOUND", err.Error())), nil
 	}
-	return adminservice.DownloadBadgeDefIcon200ApplicationoctetStreamResponse{Body: reader, ContentLength: size}, nil
+	return adminservice.DownloadBadgeDefPixa200ApplicationoctetStreamResponse{Body: reader, ContentLength: size}, nil
 }
 
-func (c *Catalog) UploadBadgeDefIcon(ctx context.Context, request adminservice.UploadBadgeDefIconRequestObject) (adminservice.UploadBadgeDefIconResponseObject, error) {
+func (c *Catalog) UploadBadgeDefPixa(ctx context.Context, request adminservice.UploadBadgeDefPixaRequestObject) (adminservice.UploadBadgeDefPixaResponseObject, error) {
 	if request.Body == nil {
-		return adminservice.UploadBadgeDefIcon500JSONResponse(apitypes.NewErrorResponse("INVALID_BADGE_DEF_ICON", "request body required")), nil
+		return adminservice.UploadBadgeDefPixa500JSONResponse(apitypes.NewErrorResponse("INVALID_BADGE_DEF_PIXA", "request body required")), nil
 	}
 	store, err := c.store(c.BadgeDefs, "badge defs")
 	if err != nil {
-		return adminservice.UploadBadgeDefIcon500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminservice.UploadBadgeDefPixa500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	item, err := c.GetBadgeDefByID(ctx, request.Id)
 	if err != nil {
 		if errors.Is(err, kv.ErrNotFound) {
-			return adminservice.UploadBadgeDefIcon404JSONResponse(apitypes.NewErrorResponse("BADGE_DEF_NOT_FOUND", err.Error())), nil
+			return adminservice.UploadBadgeDefPixa404JSONResponse(apitypes.NewErrorResponse("BADGE_DEF_NOT_FOUND", err.Error())), nil
 		}
-		return adminservice.UploadBadgeDefIcon500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminservice.UploadBadgeDefPixa500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	iconPath := path.Join("badge-defs", item.Id, "icon")
-	if err := c.putAsset(iconPath, request.Body); err != nil {
-		return adminservice.UploadBadgeDefIcon500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+	data, err := io.ReadAll(request.Body)
+	if err != nil {
+		return adminservice.UploadBadgeDefPixa500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	item.IconPath = &iconPath
+	if err := validateBadgeDefPixa(data); err != nil {
+		return adminservice.UploadBadgeDefPixa500JSONResponse(apitypes.NewErrorResponse("INVALID_BADGE_DEF_PIXA", err.Error())), nil
+	}
+	pixaPath := path.Join("badge-defs", item.Id, "pixa")
+	if err := c.putAsset(pixaPath, bytes.NewReader(data)); err != nil {
+		return adminservice.UploadBadgeDefPixa500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+	}
+	item.PixaPath = &pixaPath
 	item.UpdatedAt = c.now()
 	if err := writeJSON(ctx, store, badgeDefKey(item.Id), item); err != nil {
-		return adminservice.UploadBadgeDefIcon500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminservice.UploadBadgeDefPixa500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	return adminservice.UploadBadgeDefIcon200JSONResponse(item), nil
+	return adminservice.UploadBadgeDefPixa200JSONResponse(item), nil
 }
 
 func (c *Catalog) ListGameDefs(ctx context.Context, request adminservice.ListGameDefsRequestObject) (adminservice.ListGameDefsResponseObject, error) {
@@ -648,7 +663,7 @@ func (c *Catalog) buildGameRuleset(name string, spec apitypes.GameRulesetSpec, c
 	return apitypes.GameRuleset{Name: name, Spec: spec, CreatedAt: createdAt, UpdatedAt: now}, nil
 }
 
-func (c *Catalog) buildPetDef(id string, spec apitypes.PetDefSpec, assetPath *string, createdAt time.Time) (apitypes.PetDef, error) {
+func (c *Catalog) buildPetDef(id string, spec apitypes.PetDefSpec, pixaPath *string, createdAt time.Time) (apitypes.PetDef, error) {
 	id = strings.TrimSpace(id)
 	if id == "" {
 		return apitypes.PetDef{}, errors.New("id is required")
@@ -660,10 +675,10 @@ func (c *Catalog) buildPetDef(id string, spec apitypes.PetDefSpec, assetPath *st
 	if createdAt.IsZero() {
 		createdAt = now
 	}
-	return apitypes.PetDef{Id: id, Spec: spec, AssetPath: assetPath, CreatedAt: createdAt, UpdatedAt: now}, nil
+	return apitypes.PetDef{Id: id, Spec: spec, PixaPath: pixaPath, CreatedAt: createdAt, UpdatedAt: now}, nil
 }
 
-func (c *Catalog) buildBadgeDef(id string, spec apitypes.BadgeDefSpec, iconPath *string, createdAt time.Time) (apitypes.BadgeDef, error) {
+func (c *Catalog) buildBadgeDef(id string, spec apitypes.BadgeDefSpec, pixaPath *string, createdAt time.Time) (apitypes.BadgeDef, error) {
 	id = strings.TrimSpace(id)
 	if id == "" {
 		return apitypes.BadgeDef{}, errors.New("id is required")
@@ -675,7 +690,7 @@ func (c *Catalog) buildBadgeDef(id string, spec apitypes.BadgeDefSpec, iconPath 
 	if createdAt.IsZero() {
 		createdAt = now
 	}
-	return apitypes.BadgeDef{Id: id, Spec: spec, IconPath: iconPath, CreatedAt: createdAt, UpdatedAt: now}, nil
+	return apitypes.BadgeDef{Id: id, Spec: spec, PixaPath: pixaPath, CreatedAt: createdAt, UpdatedAt: now}, nil
 }
 
 func (c *Catalog) buildGameDef(id string, spec apitypes.GameDefSpec, createdAt time.Time) (apitypes.GameDef, error) {
@@ -712,6 +727,10 @@ func (c *Catalog) putAsset(name string, reader io.Reader) error {
 		return errors.New("gameplay: assets store is not configured")
 	}
 	return c.Assets.Put(name, reader)
+}
+
+func (c *Catalog) OpenAsset(name string) (io.ReadCloser, int64, error) {
+	return c.openAsset(name)
 }
 
 func (c *Catalog) openAsset(name string) (io.ReadCloser, int64, error) {

@@ -3,6 +3,7 @@ package gameplay
 import (
 	"bytes"
 	"context"
+	"encoding/binary"
 	"io"
 	"testing"
 	"time"
@@ -59,20 +60,21 @@ func TestCatalogAdminCRUDAndAssets(t *testing.T) {
 	if list := requireResponse[adminservice.ListPetDefs200JSONResponse](t, listPetResp); len(list.Items) != 1 {
 		t.Fatalf("ListPetDefs() = %#v", list)
 	}
-	assetResp, err := catalog.UploadPetDefAsset(ctx, adminservice.UploadPetDefAssetRequestObject{Id: "petdef-a", Body: bytes.NewBufferString("pet-asset")})
+	petPixa := makeTestPixa(t, []string{"idle", "feed"}, 16, 16)
+	assetResp, err := catalog.UploadPetDefPixa(ctx, adminservice.UploadPetDefPixaRequestObject{Id: "petdef-a", Body: bytes.NewReader(petPixa)})
 	if err != nil {
-		t.Fatalf("UploadPetDefAsset() error = %v", err)
+		t.Fatalf("UploadPetDefPixa() error = %v", err)
 	}
-	if pet := requireResponse[adminservice.UploadPetDefAsset200JSONResponse](t, assetResp); pet.AssetPath == nil || *pet.AssetPath == "" {
-		t.Fatalf("UploadPetDefAsset() = %#v", pet)
+	if pet := requireResponse[adminservice.UploadPetDefPixa200JSONResponse](t, assetResp); pet.PixaPath == nil || *pet.PixaPath == "" {
+		t.Fatalf("UploadPetDefPixa() = %#v", pet)
 	}
-	downloadAssetResp, err := catalog.DownloadPetDefAsset(ctx, adminservice.DownloadPetDefAssetRequestObject{Id: "petdef-a"})
+	downloadAssetResp, err := catalog.DownloadPetDefPixa(ctx, adminservice.DownloadPetDefPixaRequestObject{Id: "petdef-a"})
 	if err != nil {
-		t.Fatalf("DownloadPetDefAsset() error = %v", err)
+		t.Fatalf("DownloadPetDefPixa() error = %v", err)
 	}
-	asset := requireResponse[adminservice.DownloadPetDefAsset200ApplicationoctetStreamResponse](t, downloadAssetResp)
-	if got := readAllString(t, asset.Body); got != "pet-asset" || asset.ContentLength != int64(len("pet-asset")) {
-		t.Fatalf("DownloadPetDefAsset() body=%q len=%d", got, asset.ContentLength)
+	asset := requireResponse[adminservice.DownloadPetDefPixa200ApplicationoctetStreamResponse](t, downloadAssetResp)
+	if got := readAllBytes(t, asset.Body); !bytes.Equal(got, petPixa) || asset.ContentLength != int64(len(petPixa)) {
+		t.Fatalf("DownloadPetDefPixa() len=%d want %d equal=%v", asset.ContentLength, len(petPixa), bytes.Equal(got, petPixa))
 	}
 
 	badgeResp, err := catalog.CreateBadgeDef(ctx, adminservice.CreateBadgeDefRequestObject{Body: &adminservice.BadgeDefUpsert{
@@ -105,20 +107,21 @@ func TestCatalogAdminCRUDAndAssets(t *testing.T) {
 	if list := requireResponse[adminservice.ListBadgeDefs200JSONResponse](t, listBadgeResp); len(list.Items) != 1 {
 		t.Fatalf("ListBadgeDefs() = %#v", list)
 	}
-	iconResp, err := catalog.UploadBadgeDefIcon(ctx, adminservice.UploadBadgeDefIconRequestObject{Id: "badge-a", Body: bytes.NewBufferString("badge-icon")})
+	badgePixa := makeTestPixa(t, []string{"icon"}, 16, 16)
+	iconResp, err := catalog.UploadBadgeDefPixa(ctx, adminservice.UploadBadgeDefPixaRequestObject{Id: "badge-a", Body: bytes.NewReader(badgePixa)})
 	if err != nil {
-		t.Fatalf("UploadBadgeDefIcon() error = %v", err)
+		t.Fatalf("UploadBadgeDefPixa() error = %v", err)
 	}
-	if badge := requireResponse[adminservice.UploadBadgeDefIcon200JSONResponse](t, iconResp); badge.IconPath == nil || *badge.IconPath == "" {
-		t.Fatalf("UploadBadgeDefIcon() = %#v", badge)
+	if badge := requireResponse[adminservice.UploadBadgeDefPixa200JSONResponse](t, iconResp); badge.PixaPath == nil || *badge.PixaPath == "" {
+		t.Fatalf("UploadBadgeDefPixa() = %#v", badge)
 	}
-	downloadIconResp, err := catalog.DownloadBadgeDefIcon(ctx, adminservice.DownloadBadgeDefIconRequestObject{Id: "badge-a"})
+	downloadIconResp, err := catalog.DownloadBadgeDefPixa(ctx, adminservice.DownloadBadgeDefPixaRequestObject{Id: "badge-a"})
 	if err != nil {
-		t.Fatalf("DownloadBadgeDefIcon() error = %v", err)
+		t.Fatalf("DownloadBadgeDefPixa() error = %v", err)
 	}
-	icon := requireResponse[adminservice.DownloadBadgeDefIcon200ApplicationoctetStreamResponse](t, downloadIconResp)
-	if got := readAllString(t, icon.Body); got != "badge-icon" || icon.ContentLength != int64(len("badge-icon")) {
-		t.Fatalf("DownloadBadgeDefIcon() body=%q len=%d", got, icon.ContentLength)
+	icon := requireResponse[adminservice.DownloadBadgeDefPixa200ApplicationoctetStreamResponse](t, downloadIconResp)
+	if got := readAllBytes(t, icon.Body); !bytes.Equal(got, badgePixa) || icon.ContentLength != int64(len(badgePixa)) {
+		t.Fatalf("DownloadBadgeDefPixa() len=%d want %d equal=%v", icon.ContentLength, len(badgePixa), bytes.Equal(got, badgePixa))
 	}
 
 	gameResp, err := catalog.CreateGameDef(ctx, adminservice.CreateGameDefRequestObject{Body: &adminservice.GameDefUpsert{
@@ -282,11 +285,11 @@ func TestCatalogAdminErrorsAndPagination(t *testing.T) {
 		t.Fatalf("second page = %#v", secondPage)
 	}
 
-	downloadPetAssetResp, err := catalog.DownloadPetDefAsset(ctx, adminservice.DownloadPetDefAssetRequestObject{Id: "pet-a"})
+	downloadPetAssetResp, err := catalog.DownloadPetDefPixa(ctx, adminservice.DownloadPetDefPixaRequestObject{Id: "pet-a"})
 	if err != nil {
-		t.Fatalf("DownloadPetDefAsset() error = %v", err)
+		t.Fatalf("DownloadPetDefPixa() error = %v", err)
 	}
-	requireResponse[adminservice.DownloadPetDefAsset404JSONResponse](t, downloadPetAssetResp)
+	requireResponse[adminservice.DownloadPetDefPixa404JSONResponse](t, downloadPetAssetResp)
 	putPetMissingBodyResp, err := catalog.PutPetDef(ctx, adminservice.PutPetDefRequestObject{Id: "pet-a"})
 	if err != nil {
 		t.Fatalf("PutPetDef() error = %v", err)
@@ -297,11 +300,16 @@ func TestCatalogAdminErrorsAndPagination(t *testing.T) {
 		t.Fatalf("DeletePetDef() error = %v", err)
 	}
 	requireResponse[adminservice.DeletePetDef404JSONResponse](t, deletePetMissingResp)
-	uploadPetAssetResp, err := catalog.UploadPetDefAsset(ctx, adminservice.UploadPetDefAssetRequestObject{Id: "pet-a"})
+	uploadPetAssetResp, err := catalog.UploadPetDefPixa(ctx, adminservice.UploadPetDefPixaRequestObject{Id: "pet-a"})
 	if err != nil {
-		t.Fatalf("UploadPetDefAsset() error = %v", err)
+		t.Fatalf("UploadPetDefPixa() error = %v", err)
 	}
-	requireResponse[adminservice.UploadPetDefAsset500JSONResponse](t, uploadPetAssetResp)
+	requireResponse[adminservice.UploadPetDefPixa500JSONResponse](t, uploadPetAssetResp)
+	invalidPetPixaResp, err := catalog.UploadPetDefPixa(ctx, adminservice.UploadPetDefPixaRequestObject{Id: "pet-a", Body: bytes.NewBufferString("not-pixa")})
+	if err != nil {
+		t.Fatalf("UploadPetDefPixa() invalid error = %v", err)
+	}
+	requireResponse[adminservice.UploadPetDefPixa500JSONResponse](t, invalidPetPixaResp)
 
 	badgeMissingResp, err := catalog.GetBadgeDef(ctx, adminservice.GetBadgeDefRequestObject{Id: "missing"})
 	if err != nil {
@@ -321,11 +329,11 @@ func TestCatalogAdminErrorsAndPagination(t *testing.T) {
 		t.Fatalf("CreateBadgeDef() error = %v", err)
 	}
 	requireResponse[adminservice.CreateBadgeDef200JSONResponse](t, badgeResp)
-	downloadBadgeIconResp, err := catalog.DownloadBadgeDefIcon(ctx, adminservice.DownloadBadgeDefIconRequestObject{Id: "badge-a"})
+	downloadBadgeIconResp, err := catalog.DownloadBadgeDefPixa(ctx, adminservice.DownloadBadgeDefPixaRequestObject{Id: "badge-a"})
 	if err != nil {
-		t.Fatalf("DownloadBadgeDefIcon() error = %v", err)
+		t.Fatalf("DownloadBadgeDefPixa() error = %v", err)
 	}
-	requireResponse[adminservice.DownloadBadgeDefIcon404JSONResponse](t, downloadBadgeIconResp)
+	requireResponse[adminservice.DownloadBadgeDefPixa404JSONResponse](t, downloadBadgeIconResp)
 	putBadgeMissingBodyResp, err := catalog.PutBadgeDef(ctx, adminservice.PutBadgeDefRequestObject{Id: "badge-a"})
 	if err != nil {
 		t.Fatalf("PutBadgeDef() error = %v", err)
@@ -336,11 +344,16 @@ func TestCatalogAdminErrorsAndPagination(t *testing.T) {
 		t.Fatalf("DeleteBadgeDef() error = %v", err)
 	}
 	requireResponse[adminservice.DeleteBadgeDef404JSONResponse](t, deleteBadgeMissingResp)
-	uploadBadgeIconResp, err := catalog.UploadBadgeDefIcon(ctx, adminservice.UploadBadgeDefIconRequestObject{Id: "badge-a"})
+	uploadBadgeIconResp, err := catalog.UploadBadgeDefPixa(ctx, adminservice.UploadBadgeDefPixaRequestObject{Id: "badge-a"})
 	if err != nil {
-		t.Fatalf("UploadBadgeDefIcon() error = %v", err)
+		t.Fatalf("UploadBadgeDefPixa() error = %v", err)
 	}
-	requireResponse[adminservice.UploadBadgeDefIcon500JSONResponse](t, uploadBadgeIconResp)
+	requireResponse[adminservice.UploadBadgeDefPixa500JSONResponse](t, uploadBadgeIconResp)
+	invalidBadgePixaResp, err := catalog.UploadBadgeDefPixa(ctx, adminservice.UploadBadgeDefPixaRequestObject{Id: "badge-a", Body: bytes.NewReader(makeTestPixa(t, []string{"idle"}, 16, 16))})
+	if err != nil {
+		t.Fatalf("UploadBadgeDefPixa() invalid error = %v", err)
+	}
+	requireResponse[adminservice.UploadBadgeDefPixa500JSONResponse](t, invalidBadgePixaResp)
 
 	gameMissingResp, err := catalog.GetGameDef(ctx, adminservice.GetGameDefRequestObject{Id: "missing"})
 	if err != nil {
@@ -400,11 +413,56 @@ func requireResponse[T any](t *testing.T, value any) T {
 	return resp
 }
 
-func readAllString(t *testing.T, reader io.Reader) string {
+func readAllBytes(t *testing.T, reader io.Reader) []byte {
 	t.Helper()
 	data, err := io.ReadAll(reader)
 	if err != nil {
 		t.Fatalf("read body: %v", err)
 	}
-	return string(data)
+	return data
+}
+
+func makeTestPixa(t *testing.T, clips []string, width uint16, height uint16) []byte {
+	t.Helper()
+	if len(clips) == 0 {
+		t.Fatal("makeTestPixa requires at least one clip")
+	}
+	const (
+		headerSize     = 40
+		clipEntrySize  = 56
+		frameEntrySize = 16
+	)
+	paletteOffset := headerSize
+	clipOffset := paletteOffset + 2
+	frameOffset := clipOffset + len(clips)*clipEntrySize
+	payload := []byte{0x00, 0xf8, 0xe0, 0x07}
+	payloadOffset := frameOffset + frameEntrySize
+	data := make([]byte, payloadOffset+len(payload))
+	copy(data[:4], "PIXA")
+	binary.LittleEndian.PutUint16(data[4:6], 1)
+	binary.LittleEndian.PutUint16(data[6:8], headerSize)
+	binary.LittleEndian.PutUint16(data[8:10], width)
+	binary.LittleEndian.PutUint16(data[10:12], height)
+	binary.LittleEndian.PutUint16(data[12:14], 1)
+	binary.LittleEndian.PutUint16(data[14:16], uint16(len(clips)))
+	binary.LittleEndian.PutUint32(data[16:20], 1)
+	binary.LittleEndian.PutUint32(data[20:24], uint32(paletteOffset))
+	binary.LittleEndian.PutUint32(data[24:28], uint32(clipOffset))
+	binary.LittleEndian.PutUint32(data[28:32], uint32(frameOffset))
+	binary.LittleEndian.PutUint32(data[32:36], uint32(payloadOffset))
+	binary.LittleEndian.PutUint32(data[36:40], uint32(len(payload)))
+	for i, clip := range clips {
+		base := clipOffset + i*clipEntrySize
+		copy(data[base:base+pixaClipNameSize], []byte(clip))
+		binary.LittleEndian.PutUint32(data[base+36:base+40], 0)
+		binary.LittleEndian.PutUint32(data[base+40:base+44], 1)
+		binary.LittleEndian.PutUint32(data[base+44:base+48], 120)
+		binary.LittleEndian.PutUint16(data[base+48:base+50], 1)
+	}
+	binary.LittleEndian.PutUint16(data[frameOffset:frameOffset+2], 120)
+	data[frameOffset+2] = 0
+	binary.LittleEndian.PutUint32(data[frameOffset+4:frameOffset+8], 0)
+	binary.LittleEndian.PutUint32(data[frameOffset+8:frameOffset+12], uint32(len(payload)))
+	copy(data[payloadOffset:], payload)
+	return data
 }

@@ -372,6 +372,9 @@ export type BadgeDefResource = {
 export type ContactResource = {
     apiVersion: ResourceApiVersion;
     kind: 'Contact';
+    /**
+     * metadata.name must be owner_public_key:id; only id is a custom ID.
+     */
     metadata: ResourceMetadata;
     spec: ContactSpec;
 };
@@ -382,7 +385,7 @@ export type ContactSpec = {
      */
     owner_public_key: string;
     /**
-     * Owner-scoped contact id.
+     * Owner-scoped contact custom ID. metadata.name must be owner_public_key:id.
      */
     id: string;
     display_name?: string;
@@ -431,6 +434,9 @@ export type FriendSpec = {
 export type FriendGroupResource = {
     apiVersion: ResourceApiVersion;
     kind: 'FriendGroup';
+    /**
+     * metadata.name is the friend group custom ID.
+     */
     metadata: ResourceMetadata;
     spec: FriendGroupSpec;
 };
@@ -446,11 +452,17 @@ export type FriendGroupSpec = {
 export type FriendGroupInviteTokenResource = {
     apiVersion: ResourceApiVersion;
     kind: 'FriendGroupInviteToken';
+    /**
+     * metadata.name is the friend group custom ID and must match spec.friend_group_id.
+     */
     metadata: ResourceMetadata;
     spec: FriendGroupInviteTokenSpec;
 };
 
 export type FriendGroupInviteTokenSpec = {
+    /**
+     * Friend group custom ID. The invite_token value is not a custom ID.
+     */
     friend_group_id: string;
     invite_token: string;
     expires_at: string;
@@ -459,6 +471,9 @@ export type FriendGroupInviteTokenSpec = {
 export type FriendGroupMemberResource = {
     apiVersion: ResourceApiVersion;
     kind: 'FriendGroupMember';
+    /**
+     * metadata.name must be friend_group_id:peer_public_key; only friend_group_id is a custom ID.
+     */
     metadata: ResourceMetadata;
     spec: FriendGroupMemberSpec;
 };
@@ -466,6 +481,9 @@ export type FriendGroupMemberResource = {
 export type FriendGroupMemberRole = 'owner' | 'admin' | 'member';
 
 export type FriendGroupMemberSpec = {
+    /**
+     * Friend group custom ID. The peer_public_key segment is not a custom ID.
+     */
     friend_group_id: string;
     peer_public_key: string;
     role: FriendGroupMemberRole;
@@ -608,7 +626,7 @@ export type ResourceKind = 'Credential' | 'ACLPolicyBinding' | 'ACLRole' | 'ACLV
 
 export type ResourceMetadata = {
     /**
-     * Resource name. For PeerConfig this is the peer public key.
+     * Resource name. Kind-specific rules apply. User-defined custom IDs use 8-48 lowercase ASCII characters, start with [a-z], end with [a-z0-9], and contain only [a-z0-9._-]. For PeerConfig this is the peer public key.
      */
     name: string;
     annotations?: {
@@ -643,6 +661,9 @@ export type VolcTenantResource = {
 export type WorkflowResource = {
     apiVersion: ResourceApiVersion;
     kind: 'Workflow';
+    /**
+     * metadata.name is the workflow custom ID.
+     */
     metadata: ResourceMetadata;
     spec: WorkflowSpec;
 };
@@ -650,6 +671,9 @@ export type WorkflowResource = {
 export type WorkspaceResource = {
     apiVersion: ResourceApiVersion;
     kind: 'Workspace';
+    /**
+     * metadata.name is the workspace custom ID. spec.workflow_name is the referenced workflow custom ID.
+     */
     metadata: ResourceMetadata;
     spec: WorkspaceSpec;
 };
@@ -714,7 +738,7 @@ export type FriendObject = {
 /**
  * ACL permission enum.
  */
-export type AclPermission = 'viewer' | 'editor' | 'owner' | 'workspace.read' | 'workspace.use' | 'workspace.admin' | 'workflow.read' | 'workflow.use' | 'workflow.admin' | 'voice.read' | 'voice.use' | 'voice.admin' | 'credential.read' | 'credential.use' | 'credential.admin' | 'model.read' | 'model.use' | 'model.admin' | 'view.read' | 'view.use' | 'view.admin' | 'firmware.read' | 'firmware.admin' | 'gameruleset.read' | 'gameruleset.use' | 'gameruleset.admin';
+export type AclPermission = 'read' | 'use' | 'create' | 'admin';
 
 export type AclPermissionList = Array<AclPermission>;
 
@@ -1025,7 +1049,7 @@ export type Badge = {
 export type BadgeDef = {
     id: string;
     spec: BadgeDefSpec;
-    icon_path?: string;
+    pixa_path?: string;
     created_at: string;
     updated_at: string;
 };
@@ -1161,7 +1185,7 @@ export type Pet = {
 export type PetDef = {
     id: string;
     spec: PetDefSpec;
-    asset_path?: string;
+    pixa_path?: string;
     created_at: string;
     updated_at: string;
 };
@@ -1954,6 +1978,9 @@ export type WorkspaceParameters = ({
 } & ChatRoomWorkspaceParameters);
 
 export type WorkspaceSpec = {
+    /**
+     * Referenced workflow custom ID.
+     */
     workflow_name: string;
     parameters?: WorkspaceParameters;
 };
@@ -7286,7 +7313,7 @@ export type PutGameDefResponses = {
 
 export type PutGameDefResponse = PutGameDefResponses[keyof PutGameDefResponses];
 
-export type DownloadPetDefAssetData = {
+export type DownloadPetDefPixaData = {
     body?: never;
     path: {
         /**
@@ -7295,12 +7322,12 @@ export type DownloadPetDefAssetData = {
         id: string;
     };
     query?: never;
-    url: '/pet-defs/{id}/asset';
+    url: '/pet-defs/{id}/pixa';
 };
 
-export type DownloadPetDefAssetErrors = {
+export type DownloadPetDefPixaErrors = {
     /**
-     * Asset not found
+     * Pixa not found
      */
     404: ErrorResponse;
     /**
@@ -7309,18 +7336,18 @@ export type DownloadPetDefAssetErrors = {
     500: ErrorResponse;
 };
 
-export type DownloadPetDefAssetError = DownloadPetDefAssetErrors[keyof DownloadPetDefAssetErrors];
+export type DownloadPetDefPixaError = DownloadPetDefPixaErrors[keyof DownloadPetDefPixaErrors];
 
-export type DownloadPetDefAssetResponses = {
+export type DownloadPetDefPixaResponses = {
     /**
-     * Asset bytes
+     * Pixa bytes
      */
     200: Blob | File;
 };
 
-export type DownloadPetDefAssetResponse = DownloadPetDefAssetResponses[keyof DownloadPetDefAssetResponses];
+export type DownloadPetDefPixaResponse = DownloadPetDefPixaResponses[keyof DownloadPetDefPixaResponses];
 
-export type UploadPetDefAssetData = {
+export type UploadPetDefPixaData = {
     body: Blob | File;
     path: {
         /**
@@ -7329,10 +7356,10 @@ export type UploadPetDefAssetData = {
         id: string;
     };
     query?: never;
-    url: '/pet-defs/{id}/asset';
+    url: '/pet-defs/{id}/pixa';
 };
 
-export type UploadPetDefAssetErrors = {
+export type UploadPetDefPixaErrors = {
     /**
      * Catalog item not found
      */
@@ -7343,18 +7370,18 @@ export type UploadPetDefAssetErrors = {
     500: ErrorResponse;
 };
 
-export type UploadPetDefAssetError = UploadPetDefAssetErrors[keyof UploadPetDefAssetErrors];
+export type UploadPetDefPixaError = UploadPetDefPixaErrors[keyof UploadPetDefPixaErrors];
 
-export type UploadPetDefAssetResponses = {
+export type UploadPetDefPixaResponses = {
     /**
      * Updated catalog item
      */
     200: PetDef;
 };
 
-export type UploadPetDefAssetResponse = UploadPetDefAssetResponses[keyof UploadPetDefAssetResponses];
+export type UploadPetDefPixaResponse = UploadPetDefPixaResponses[keyof UploadPetDefPixaResponses];
 
-export type DownloadBadgeDefIconData = {
+export type DownloadBadgeDefPixaData = {
     body?: never;
     path: {
         /**
@@ -7363,12 +7390,12 @@ export type DownloadBadgeDefIconData = {
         id: string;
     };
     query?: never;
-    url: '/badge-defs/{id}/icon';
+    url: '/badge-defs/{id}/pixa';
 };
 
-export type DownloadBadgeDefIconErrors = {
+export type DownloadBadgeDefPixaErrors = {
     /**
-     * Asset not found
+     * Pixa not found
      */
     404: ErrorResponse;
     /**
@@ -7377,18 +7404,18 @@ export type DownloadBadgeDefIconErrors = {
     500: ErrorResponse;
 };
 
-export type DownloadBadgeDefIconError = DownloadBadgeDefIconErrors[keyof DownloadBadgeDefIconErrors];
+export type DownloadBadgeDefPixaError = DownloadBadgeDefPixaErrors[keyof DownloadBadgeDefPixaErrors];
 
-export type DownloadBadgeDefIconResponses = {
+export type DownloadBadgeDefPixaResponses = {
     /**
-     * Asset bytes
+     * Pixa bytes
      */
     200: Blob | File;
 };
 
-export type DownloadBadgeDefIconResponse = DownloadBadgeDefIconResponses[keyof DownloadBadgeDefIconResponses];
+export type DownloadBadgeDefPixaResponse = DownloadBadgeDefPixaResponses[keyof DownloadBadgeDefPixaResponses];
 
-export type UploadBadgeDefIconData = {
+export type UploadBadgeDefPixaData = {
     body: Blob | File;
     path: {
         /**
@@ -7397,10 +7424,10 @@ export type UploadBadgeDefIconData = {
         id: string;
     };
     query?: never;
-    url: '/badge-defs/{id}/icon';
+    url: '/badge-defs/{id}/pixa';
 };
 
-export type UploadBadgeDefIconErrors = {
+export type UploadBadgeDefPixaErrors = {
     /**
      * Catalog item not found
      */
@@ -7411,16 +7438,16 @@ export type UploadBadgeDefIconErrors = {
     500: ErrorResponse;
 };
 
-export type UploadBadgeDefIconError = UploadBadgeDefIconErrors[keyof UploadBadgeDefIconErrors];
+export type UploadBadgeDefPixaError = UploadBadgeDefPixaErrors[keyof UploadBadgeDefPixaErrors];
 
-export type UploadBadgeDefIconResponses = {
+export type UploadBadgeDefPixaResponses = {
     /**
      * Updated catalog item
      */
     200: BadgeDef;
 };
 
-export type UploadBadgeDefIconResponse = UploadBadgeDefIconResponses[keyof UploadBadgeDefIconResponses];
+export type UploadBadgeDefPixaResponse = UploadBadgeDefPixaResponses[keyof UploadBadgeDefPixaResponses];
 
 export type ListPeerPetsData = {
     body?: never;

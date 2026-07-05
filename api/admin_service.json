@@ -8951,10 +8951,10 @@
         }
       }
     },
-    "/pet-defs/{id}/asset": {
+    "/pet-defs/{id}/pixa": {
       "get": {
-        "operationId": "downloadPetDefAsset",
-        "summary": "Download PetDefAsset",
+        "operationId": "downloadPetDefPixa",
+        "summary": "Download PetDefPixa",
         "tags": [
           "PetDefs"
         ],
@@ -8971,7 +8971,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Asset bytes",
+            "description": "Pixa bytes",
             "content": {
               "application/octet-stream": {
                 "schema": {
@@ -8982,7 +8982,7 @@
             }
           },
           "404": {
-            "description": "Asset not found",
+            "description": "Pixa not found",
             "content": {
               "application/json": {
                 "schema": {
@@ -9004,8 +9004,8 @@
         }
       },
       "put": {
-        "operationId": "uploadPetDefAsset",
-        "summary": "Upload PetDefAsset",
+        "operationId": "uploadPetDefPixa",
+        "summary": "Upload PetDefPixa",
         "tags": [
           "PetDefs"
         ],
@@ -9065,10 +9065,10 @@
         }
       }
     },
-    "/badge-defs/{id}/icon": {
+    "/badge-defs/{id}/pixa": {
       "get": {
-        "operationId": "downloadBadgeDefIcon",
-        "summary": "Download BadgeDefIcon",
+        "operationId": "downloadBadgeDefPixa",
+        "summary": "Download BadgeDefPixa",
         "tags": [
           "BadgeDefs"
         ],
@@ -9085,7 +9085,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Asset bytes",
+            "description": "Pixa bytes",
             "content": {
               "application/octet-stream": {
                 "schema": {
@@ -9096,7 +9096,7 @@
             }
           },
           "404": {
-            "description": "Asset not found",
+            "description": "Pixa not found",
             "content": {
               "application/json": {
                 "schema": {
@@ -9118,8 +9118,8 @@
         }
       },
       "put": {
-        "operationId": "uploadBadgeDefIcon",
-        "summary": "Upload BadgeDefIcon",
+        "operationId": "uploadBadgeDefPixa",
+        "summary": "Upload BadgeDefPixa",
         "tags": [
           "BadgeDefs"
         ],

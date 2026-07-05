@@ -479,6 +479,7 @@ const (
 	RPCMethodAllSpeedTestRun                    RPCMethod = "all.speed_test.run"
 	RPCMethodClientIdentifiersGet               RPCMethod = "client.identifiers.get"
 	RPCMethodClientInfoGet                      RPCMethod = "client.info.get"
+	RPCMethodServerBadgeDefPixaDownload         RPCMethod = "server.badge_def.pixa.download"
 	RPCMethodServerBadgeGet                     RPCMethod = "server.badge.get"
 	RPCMethodServerBadgeList                    RPCMethod = "server.badge.list"
 	RPCMethodServerContactCreate                RPCMethod = "server.contact.create"
@@ -527,6 +528,7 @@ const (
 	RPCMethodServerModelList                    RPCMethod = "server.model.list"
 	RPCMethodServerModelPut                     RPCMethod = "server.model.put"
 	RPCMethodServerPetAdopt                     RPCMethod = "server.pet.adopt"
+	RPCMethodServerPetDefPixaDownload           RPCMethod = "server.pet_def.pixa.download"
 	RPCMethodServerPetDelete                    RPCMethod = "server.pet.delete"
 	RPCMethodServerPetDrive                     RPCMethod = "server.pet.drive"
 	RPCMethodServerPetGet                       RPCMethod = "server.pet.get"
@@ -580,6 +582,8 @@ func (e RPCMethod) Valid() bool {
 	case RPCMethodClientIdentifiersGet:
 		return true
 	case RPCMethodClientInfoGet:
+		return true
+	case RPCMethodServerBadgeDefPixaDownload:
 		return true
 	case RPCMethodServerBadgeGet:
 		return true
@@ -676,6 +680,8 @@ func (e RPCMethod) Valid() bool {
 	case RPCMethodServerModelPut:
 		return true
 	case RPCMethodServerPetAdopt:
+		return true
+	case RPCMethodServerPetDefPixaDownload:
 		return true
 	case RPCMethodServerPetDelete:
 		return true
@@ -994,10 +1000,22 @@ type Badge struct {
 // BadgeDef defines model for BadgeDef.
 type BadgeDef struct {
 	CreatedAt time.Time    `json:"created_at"`
-	IconPath  *string      `json:"icon_path,omitempty"`
 	Id        string       `json:"id"`
+	PixaPath  *string      `json:"pixa_path,omitempty"`
 	Spec      BadgeDefSpec `json:"spec"`
 	UpdatedAt time.Time    `json:"updated_at"`
+}
+
+// BadgeDefPixaDownloadRequest defines model for BadgeDefPixaDownloadRequest.
+type BadgeDefPixaDownloadRequest struct {
+	Id string `json:"id"`
+}
+
+// BadgeDefPixaDownloadResponse defines model for BadgeDefPixaDownloadResponse.
+type BadgeDefPixaDownloadResponse struct {
+	Id        string  `json:"id"`
+	PixaPath  *string `json:"pixa_path,omitempty"`
+	SizeBytes int64   `json:"size_bytes"`
 }
 
 // BadgeDefSpec defines model for BadgeDefSpec.
@@ -2301,11 +2319,23 @@ type PetAdoptResponse struct {
 
 // PetDef defines model for PetDef.
 type PetDef struct {
-	AssetPath *string    `json:"asset_path,omitempty"`
 	CreatedAt time.Time  `json:"created_at"`
 	Id        string     `json:"id"`
+	PixaPath  *string    `json:"pixa_path,omitempty"`
 	Spec      PetDefSpec `json:"spec"`
 	UpdatedAt time.Time  `json:"updated_at"`
+}
+
+// PetDefPixaDownloadRequest defines model for PetDefPixaDownloadRequest.
+type PetDefPixaDownloadRequest struct {
+	Id string `json:"id"`
+}
+
+// PetDefPixaDownloadResponse defines model for PetDefPixaDownloadResponse.
+type PetDefPixaDownloadResponse struct {
+	Id        string  `json:"id"`
+	PixaPath  *string `json:"pixa_path,omitempty"`
+	SizeBytes int64   `json:"size_bytes"`
 }
 
 // PetDefSpec defines model for PetDefSpec.
@@ -5345,6 +5375,58 @@ func (t *RPCRequest_Params) MergeServerGameRulesetGetRequest(v ServerGameRuleset
 	return err
 }
 
+// AsPetDefPixaDownloadRequest returns the union data inside the RPCRequest_Params as a PetDefPixaDownloadRequest
+func (t RPCRequest_Params) AsPetDefPixaDownloadRequest() (PetDefPixaDownloadRequest, error) {
+	var body PetDefPixaDownloadRequest
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromPetDefPixaDownloadRequest overwrites any union data inside the RPCRequest_Params as the provided PetDefPixaDownloadRequest
+func (t *RPCRequest_Params) FromPetDefPixaDownloadRequest(v PetDefPixaDownloadRequest) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergePetDefPixaDownloadRequest performs a merge with any union data inside the RPCRequest_Params, using the provided PetDefPixaDownloadRequest
+func (t *RPCRequest_Params) MergePetDefPixaDownloadRequest(v PetDefPixaDownloadRequest) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsBadgeDefPixaDownloadRequest returns the union data inside the RPCRequest_Params as a BadgeDefPixaDownloadRequest
+func (t RPCRequest_Params) AsBadgeDefPixaDownloadRequest() (BadgeDefPixaDownloadRequest, error) {
+	var body BadgeDefPixaDownloadRequest
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromBadgeDefPixaDownloadRequest overwrites any union data inside the RPCRequest_Params as the provided BadgeDefPixaDownloadRequest
+func (t *RPCRequest_Params) FromBadgeDefPixaDownloadRequest(v BadgeDefPixaDownloadRequest) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeBadgeDefPixaDownloadRequest performs a merge with any union data inside the RPCRequest_Params, using the provided BadgeDefPixaDownloadRequest
+func (t *RPCRequest_Params) MergeBadgeDefPixaDownloadRequest(v BadgeDefPixaDownloadRequest) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
 // AsServerPetListRequest returns the union data inside the RPCRequest_Params as a ServerPetListRequest
 func (t RPCRequest_Params) AsServerPetListRequest() (ServerPetListRequest, error) {
 	var body ServerPetListRequest
@@ -7763,6 +7845,58 @@ func (t *RPCResponse_Result) FromServerGameRulesetGetResponse(v ServerGameRulese
 
 // MergeServerGameRulesetGetResponse performs a merge with any union data inside the RPCResponse_Result, using the provided ServerGameRulesetGetResponse
 func (t *RPCResponse_Result) MergeServerGameRulesetGetResponse(v ServerGameRulesetGetResponse) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsPetDefPixaDownloadResponse returns the union data inside the RPCResponse_Result as a PetDefPixaDownloadResponse
+func (t RPCResponse_Result) AsPetDefPixaDownloadResponse() (PetDefPixaDownloadResponse, error) {
+	var body PetDefPixaDownloadResponse
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromPetDefPixaDownloadResponse overwrites any union data inside the RPCResponse_Result as the provided PetDefPixaDownloadResponse
+func (t *RPCResponse_Result) FromPetDefPixaDownloadResponse(v PetDefPixaDownloadResponse) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergePetDefPixaDownloadResponse performs a merge with any union data inside the RPCResponse_Result, using the provided PetDefPixaDownloadResponse
+func (t *RPCResponse_Result) MergePetDefPixaDownloadResponse(v PetDefPixaDownloadResponse) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsBadgeDefPixaDownloadResponse returns the union data inside the RPCResponse_Result as a BadgeDefPixaDownloadResponse
+func (t RPCResponse_Result) AsBadgeDefPixaDownloadResponse() (BadgeDefPixaDownloadResponse, error) {
+	var body BadgeDefPixaDownloadResponse
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromBadgeDefPixaDownloadResponse overwrites any union data inside the RPCResponse_Result as the provided BadgeDefPixaDownloadResponse
+func (t *RPCResponse_Result) FromBadgeDefPixaDownloadResponse(v BadgeDefPixaDownloadResponse) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeBadgeDefPixaDownloadResponse performs a merge with any union data inside the RPCResponse_Result, using the provided BadgeDefPixaDownloadResponse
+func (t *RPCResponse_Result) MergeBadgeDefPixaDownloadResponse(v BadgeDefPixaDownloadResponse) error {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err

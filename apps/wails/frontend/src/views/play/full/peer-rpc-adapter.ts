@@ -47,6 +47,8 @@ type PlayDataClientLike = {
   adoptPet?(params: Record<string, unknown>): Promise<unknown>;
   deletePet?(params: Record<string, unknown>): Promise<unknown>;
   drivePet?(params: Record<string, unknown>): Promise<unknown>;
+  downloadBadgeDefPixa?(params: Record<string, unknown>): Promise<unknown>;
+  downloadPetDefPixa?(params: Record<string, unknown>): Promise<unknown>;
   getBadge?(params: Record<string, unknown>): Promise<unknown>;
   getGameResult?(params: Record<string, unknown>): Promise<unknown>;
   getGameRuleset?(params: Record<string, unknown>): Promise<unknown>;
@@ -315,11 +317,27 @@ export const adoptPeerPet = (options: RequestOptions) => currentDataClient ? inj
 export const putPeerPet = (options: RequestOptions) => currentDataClient ? injectedResult("putPet", options) : callRPC(RPC_METHODS["server.pet.put"], options);
 export const deletePeerPet = (options: RequestOptions) => currentDataClient ? injectedResult("deletePet", options) : callRPC(RPC_METHODS["server.pet.delete"], options);
 export const drivePeerPet = (options: RequestOptions) => currentDataClient ? injectedResult("drivePet", options) : callRPC(RPC_METHODS["server.pet.drive"], options);
+export const getPeerPetDefPixa = async (options: RequestOptions): Promise<ApiResult<Blob>> => {
+  if (currentDataClient != null) {
+    const result = await injectedResult<Blob | ArrayBuffer | Uint8Array>("downloadPetDefPixa", options);
+    return normalizeInjectedBinary(result);
+  }
+  const result = await callRPCBinary(RPC_METHODS["server.pet_def.pixa.download"], options);
+  return binaryBlobResult(result);
+};
 export const getPeerPoints = (options?: RequestOptions) => currentDataClient ? injectedResult("getPoints", options) : callRPC(RPC_METHODS["server.points.get"], options);
 export const listPeerPointsTransactions = (options?: RequestOptions) => currentDataClient ? injectedResult("listPointsTransactions", options) : callRPC(RPC_METHODS["server.points.transactions.list"], options);
 export const getPeerPointsTransaction = (options: RequestOptions) => currentDataClient ? injectedResult("getPointsTransaction", options) : callRPC(RPC_METHODS["server.points.transactions.get"], options);
 export const listPeerBadges = (options?: RequestOptions) => currentDataClient ? injectedResult("listBadges", options) : callRPC(RPC_METHODS["server.badge.list"], options);
 export const getPeerBadge = (options: RequestOptions) => currentDataClient ? injectedResult("getBadge", options) : callRPC(RPC_METHODS["server.badge.get"], options);
+export const getPeerBadgeDefPixa = async (options: RequestOptions): Promise<ApiResult<Blob>> => {
+  if (currentDataClient != null) {
+    const result = await injectedResult<Blob | ArrayBuffer | Uint8Array>("downloadBadgeDefPixa", options);
+    return normalizeInjectedBinary(result);
+  }
+  const result = await callRPCBinary(RPC_METHODS["server.badge_def.pixa.download"], options);
+  return binaryBlobResult(result);
+};
 export const listPeerGameResults = (options?: RequestOptions) => currentDataClient ? injectedResult("listGameResults", options) : callRPC(RPC_METHODS["server.game_result.list"], options);
 export const getPeerGameResult = (options: RequestOptions) => currentDataClient ? injectedResult("getGameResult", options) : callRPC(RPC_METHODS["server.game_result.get"], options);
 export const listPeerRewardGrants = (options?: RequestOptions) => currentDataClient ? injectedResult("listRewardGrants", options) : callRPC(RPC_METHODS["server.reward_grant.list"], options);
@@ -339,6 +357,30 @@ export const streamPlayableVoices = async (options?: RequestOptions): Promise<{ 
     yield { done: true };
   })(),
 });
+
+function binaryBlobResult<T>(result: ApiResult<{ body: Uint8Array; result: T }>): ApiResult<Blob> {
+  if (result.error != null || result.data == null) {
+    return { error: result.error ?? new Error("Binary response was empty.") };
+  }
+  const body = new Uint8Array(result.data.body.byteLength);
+  body.set(result.data.body);
+  return { data: new Blob([body.buffer], { type: "application/octet-stream" }) };
+}
+
+function normalizeInjectedBinary(result: ApiResult<Blob | ArrayBuffer | Uint8Array>): ApiResult<Blob> {
+  if (result.error != null || result.data == null) {
+    return { error: result.error ?? new Error("Injected binary response was empty.") };
+  }
+  if (result.data instanceof Blob) {
+    return { data: result.data };
+  }
+  if (result.data instanceof ArrayBuffer) {
+    return { data: new Blob([result.data], { type: "application/octet-stream" }) };
+  }
+  const body = new Uint8Array(result.data.byteLength);
+  body.set(result.data);
+  return { data: new Blob([body], { type: "application/octet-stream" }) };
+}
 
 export const createWebRtcOffer = async (_options: RequestOptions): Promise<ApiResult<WebRtcSessionDescription>> => {
   try {
