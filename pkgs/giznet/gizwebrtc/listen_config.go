@@ -3,9 +3,11 @@ package gizwebrtc
 import (
 	"fmt"
 	"net"
+	"os"
 	"strings"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
+	"github.com/pion/ice/v4"
 	"github.com/pion/logging"
 	"github.com/pion/webrtc/v4"
 )
@@ -32,6 +34,8 @@ type ListenConfig struct {
 	SecurityPolicy   giznet.SecurityPolicy
 	PeerEventHandler giznet.PeerEventHandler
 	CipherMode       CipherMode
+	NAT1To1IPs       []string
+	ICELite          bool
 }
 
 func Listen(key *giznet.KeyPair) (*Listener, error) {
@@ -80,6 +84,13 @@ func newPionAPI(c *ListenConfig) (*webrtc.API, []func() error, error) {
 
 	settingEngine := webrtc.SettingEngine{}
 	settingEngine.DetachDataChannels()
+	settingEngine.SetICEMulticastDNSMode(ice.MulticastDNSModeDisabled)
+	if iceLite(c) {
+		settingEngine.SetLite(true)
+	}
+	if ips := nat1To1IPs(c); len(ips) > 0 {
+		settingEngine.SetNAT1To1IPs(ips, webrtc.ICECandidateTypeHost)
+	}
 
 	var closers []func() error
 	udpAddr, tcpAddr := iceMuxAddrs(c)
@@ -119,7 +130,6 @@ func newPionAPI(c *ListenConfig) (*webrtc.API, []func() error, error) {
 	} else {
 		settingEngine.SetNetworkTypes([]webrtc.NetworkType{
 			webrtc.NetworkTypeUDP4,
-			webrtc.NetworkTypeTCP4,
 		})
 	}
 
@@ -129,18 +139,64 @@ func newPionAPI(c *ListenConfig) (*webrtc.API, []func() error, error) {
 	), closers, nil
 }
 
+func iceLite(c *ListenConfig) bool {
+	if c != nil && c.ICELite {
+		return true
+	}
+	value := strings.TrimSpace(os.Getenv("GIZCLAW_WEBRTC_ICE_LITE"))
+	if value == "" {
+		value = strings.TrimSpace(os.Getenv("GIZCLAW_E2E_WEBRTC_ICE_LITE"))
+	}
+	return value == "1" || strings.EqualFold(value, "true") || strings.EqualFold(value, "yes")
+}
+
+func nat1To1IPs(c *ListenConfig) []string {
+	if c != nil && len(c.NAT1To1IPs) > 0 {
+		return c.NAT1To1IPs
+	}
+	value := strings.TrimSpace(os.Getenv("GIZCLAW_WEBRTC_NAT1TO1_IPS"))
+	if value == "" {
+		value = strings.TrimSpace(os.Getenv("GIZCLAW_E2E_WEBRTC_NAT1TO1_IPS"))
+	}
+	if value == "" {
+		return nil
+	}
+	parts := strings.Split(value, ",")
+	out := parts[:0]
+	for _, part := range parts {
+		if part = strings.TrimSpace(part); part != "" {
+			out = append(out, part)
+		}
+	}
+	return out
+}
+
 func iceMuxAddrs(c *ListenConfig) (udpAddr string, tcpAddr string) {
 	if c == nil {
-		return "", ""
-	}
-	udpAddr = c.ICEUDPAddr
-	tcpAddr = c.ICETCPAddr
-	if c.ICEAddr != "" {
-		if udpAddr == "" {
-			udpAddr = c.ICEAddr
+		udpAddr = ""
+		tcpAddr = ""
+	} else {
+		udpAddr = c.ICEUDPAddr
+		tcpAddr = c.ICETCPAddr
+		if c.ICEAddr != "" {
+			if udpAddr == "" {
+				udpAddr = c.ICEAddr
+			}
+			if tcpAddr == "" {
+				tcpAddr = c.ICEAddr
+			}
 		}
+	}
+	if udpAddr == "" {
+		udpAddr = strings.TrimSpace(os.Getenv("GIZCLAW_WEBRTC_ICE_UDP_ADDR"))
+		if udpAddr == "" {
+			udpAddr = strings.TrimSpace(os.Getenv("GIZCLAW_E2E_WEBRTC_ICE_UDP_ADDR"))
+		}
+	}
+	if tcpAddr == "" {
+		tcpAddr = strings.TrimSpace(os.Getenv("GIZCLAW_WEBRTC_ICE_TCP_ADDR"))
 		if tcpAddr == "" {
-			tcpAddr = c.ICEAddr
+			tcpAddr = strings.TrimSpace(os.Getenv("GIZCLAW_E2E_WEBRTC_ICE_TCP_ADDR"))
 		}
 	}
 	return udpAddr, tcpAddr

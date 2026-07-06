@@ -171,8 +171,8 @@ static int open_rpc_channel(gzc_client_t *client, int timeout_ms) {
   if (client->rpc_channel != NULL && client->rpc_channel_open) {
     return GZC_OK;
   }
-  if (client->rpc_channel != NULL && client->config.webrtc->channel_close != NULL) {
-    client->config.webrtc->channel_close(client->rpc_channel);
+  if (client->rpc_channel != NULL) {
+    return wait_until(client, &client->rpc_channel_open, timeout_ms);
   }
   client->rpc_channel = NULL;
   client->rpc_channel_open = false;
@@ -266,6 +266,16 @@ int gzc_client_connect(gzc_client_t *client) {
   packet_cfg.ordered = false;
   packet_cfg.reliable = false;
   rc = client->config.webrtc->peer_create_data_channel(client->peer, &packet_cfg, &client->packet_channel);
+  if (rc != GZC_OK) {
+    goto fail;
+  }
+
+  gzc_rtc_channel_config_t rpc_cfg;
+  memset(&rpc_cfg, 0, sizeof(rpc_cfg));
+  rpc_cfg.label = gzc_str_from_cstr("giznet/v1/service/0");
+  rpc_cfg.ordered = true;
+  rpc_cfg.reliable = true;
+  rc = client->config.webrtc->peer_create_data_channel(client->peer, &rpc_cfg, &client->rpc_channel);
   if (rc != GZC_OK) {
     goto fail;
   }

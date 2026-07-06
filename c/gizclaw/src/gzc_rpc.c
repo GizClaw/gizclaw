@@ -52,6 +52,12 @@ static int read_frame(gzc_client_t *client, const gzc_platform_t *platform, int 
   return decode_frame_bytes(frame_bytes, out_frame);
 }
 
+static void close_rpc_channel_on_error(gzc_client_t *client, int rc) {
+  if (rc != GZC_OK) {
+    gzc_client_close_rpc_channel_internal(client);
+  }
+}
+
 static int send_request_envelope(
     gzc_client_t *client,
     const gzc_platform_t *platform,
@@ -251,11 +257,11 @@ int gzc_rpc_call_json(gzc_client_t *client, gzc_str_t method, gzc_str_t params_j
     }
     saw_response = true;
     rc = GZC_OK;
-    break;
+    continue;
   }
   gzc_buf_free(&text_response, platform);
   gzc_buf_free(&frame_bytes, platform);
-  gzc_client_close_rpc_channel_internal(client);
+  close_rpc_channel_on_error(client, rc);
   return rc;
 }
 
@@ -305,7 +311,7 @@ int gzc_rpc_call_stream(
     }
   }
   gzc_buf_free(&frame_bytes, platform);
-  gzc_client_close_rpc_channel_internal(client);
+  close_rpc_channel_on_error(client, rc);
   return rc;
 }
 

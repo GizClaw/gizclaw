@@ -8,6 +8,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
@@ -33,36 +34,56 @@ func handleRPCWithStream(
 	}
 	defer stream.Close()
 
+	for {
+		reuse := os.Getenv("GIZCLAW_RPC_STREAM_REUSE") == "1"
+		done, err := handleRPCStreamRequest(stream, dispatch, streamDispatch)
+		if err != nil {
+			return err
+		}
+		if done || !reuse {
+			return nil
+		}
+	}
+}
+
+func handleRPCStreamRequest(
+	stream *rpcStream,
+	dispatch func(context.Context, *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error),
+	streamDispatch rpcStreamDispatch,
+) (bool, error) {
 	req, requestEOS, err := stream.ReadRequestEnvelope()
 	if err != nil {
 		if errors.Is(err, io.EOF) || errors.Is(err, net.ErrClosed) {
-			return nil
+			return true, nil
 		}
-		return err
+		return false, err
 	}
 	if streamDispatch != nil {
 		handled, err := streamDispatch(stream.Context(), stream, req)
-		if handled || err != nil {
-			return err
+		if err != nil {
+			return false, err
+		}
+		if handled {
+			return false, nil
 		}
 	}
 	if !requestEOS {
 		if err := stream.ReadEOS(); err != nil {
-			return err
+			return false, err
 		}
 	}
 
-	ctx, stop := rpcConnContext(conn)
+	ctx, stop := rpcConnContext(stream.conn)
 	defer stop()
 
 	resp, err := dispatch(ctx, req)
 	if err != nil {
 		if ctx.Err() != nil {
 			if cause := context.Cause(ctx); cause != nil {
-				return cause
+				return false, cause
 			}
 		}
-		return err
+		return false, err
 	}
 	if resp == nil {
 		resp = &rpcapi.RPCResponse{V: rpcapi.RPCVersionV1, Id: req.Id}
@@ -75,17 +96,17 @@ func handleRPCWithStream(
 	}
 	if err := stream.WriteResponseEnvelope(resp); err != nil {
 		if errors.Is(err, io.EOF) || errors.Is(err, net.ErrClosed) {
-			return nil
+			return true, nil
 		}
-		return err
+		return false, err
 	}
 	if err := stream.WriteEOS(); err != nil {
 		if errors.Is(err, io.EOF) || errors.Is(err, net.ErrClosed) {
-			return nil
+			return true, nil
 		}
-		return err
+		return false, err
 	}
-	return nil
+	return false, nil
 }
 
 func handleRPCPing(ctx context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {

@@ -8,10 +8,16 @@ services:
         BASE_IMAGE: ${GIZCLAW_E2E_DOCKER_BASE_IMAGE:-gizclaw-go:linux-amd64-cn-base}
     environment:
       GIZCLAW_E2E_CONFIG_HOME: /src/tests/gizclaw-e2e/testdata/cmd-config-home
-      GIZCLAW_E2E_SERVER_ADDR: 127.0.0.1:9820
+      GIZCLAW_E2E_SERVER_ADDR: 0.0.0.0:9820
+      GIZCLAW_E2E_WEBRTC_NAT1TO1_IPS: ${GIZCLAW_E2E_WEBRTC_NAT1TO1_IPS:-}
+      GIZCLAW_E2E_WEBRTC_ICE_LITE: ${GIZCLAW_E2E_WEBRTC_ICE_LITE:-1}
+      GIZCLAW_E2E_WEBRTC_ICE_TCP_ADDR: ${GIZCLAW_E2E_WEBRTC_ICE_TCP_ADDR:-}
+      GIZCLAW_E2E_RPC_STREAM_REUSE: ${GIZCLAW_E2E_RPC_STREAM_REUSE:-1}
+      GIZCLAW_E2E_SKIP_PROVIDER_SYNC: "1"
     ports:
-      - "127.0.0.1:${GIZCLAW_E2E_DOCKER_SERVER_PORT:?set by run_tests.sh}:9820/tcp"
-      - "127.0.0.1:${GIZCLAW_E2E_DOCKER_SERVER_PORT:?set by run_tests.sh}:9820/udp"
+      - "${GIZCLAW_E2E_DOCKER_SERVER_BIND:-0.0.0.0}:${GIZCLAW_E2E_DOCKER_SERVER_PORT:?set by run_tests.sh}:9820/tcp"
+      - "${GIZCLAW_E2E_DOCKER_SERVER_BIND:-0.0.0.0}:${GIZCLAW_E2E_DOCKER_SERVER_PORT:?set by run_tests.sh}:9820/udp"
+      - "${GIZCLAW_E2E_DOCKER_SERVER_BIND:-0.0.0.0}:${GIZCLAW_E2E_DOCKER_SERVER_TCP_ICE_PORT:-9821}:9821/tcp"
     volumes:
       - type: bind
         source: ../.env
@@ -37,7 +43,7 @@ services:
       server:
         condition: service_healthy
     ports:
-      - "127.0.0.1::4191/tcp"
+      - "${GIZCLAW_E2E_DOCKER_DESKTOP_BIND:-0.0.0.0}::4191/tcp"
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:4191/ >/dev/null"]
       interval: 2s

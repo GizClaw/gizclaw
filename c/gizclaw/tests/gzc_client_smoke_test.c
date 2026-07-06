@@ -408,7 +408,7 @@ int main(void) {
   if (expect(fake_http.post_count == 1, "http post called once") != 0) {
     return 1;
   }
-  if (expect(fake_webrtc.create_channel_count == 1, "packet channel created during connect") != 0) {
+  if (expect(fake_webrtc.create_channel_count == 2, "packet and rpc channels created during connect") != 0) {
     return 1;
   }
 

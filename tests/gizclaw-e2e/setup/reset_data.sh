@@ -125,8 +125,10 @@ init_data() {
     apply_resource "$resource_file"
   done
 
-  XDG_CONFIG_HOME="$config_home" \
-    "$bin_path" admin volc-tenants sync-voices volc-main --context "$admin_context" >/dev/null
+  if [[ "${GIZCLAW_E2E_SKIP_PROVIDER_SYNC:-0}" != "1" ]]; then
+    XDG_CONFIG_HOME="$config_home" \
+      "$bin_path" admin volc-tenants sync-voices volc-main --context "$admin_context" >/dev/null
+  fi
 
   upload_firmware_asset() {
     local firmware_id="devkit-firmware-main"
