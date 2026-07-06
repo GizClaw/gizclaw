@@ -298,7 +298,7 @@ func ensureWorkspace(ctx context.Context, client runControlClient, cfg config) (
 	})
 	if err != nil {
 		if isRPCNotFound(err) {
-			return config{}, fmt.Errorf("get workflow %q (%s): not found; run tests/gizclaw-e2e/setup/reset_data.sh init before chat tests", cfg.Workflow.Name, workflowDisplayName)
+			return config{}, fmt.Errorf("get workflow %q (%s): not found; start the Docker e2e stack with bash tests/gizclaw-e2e/setup/docker-compose-up.sh before chat tests", cfg.Workflow.Name, workflowDisplayName)
 		}
 		return config{}, fmt.Errorf("get workflow %q (%s): %w", cfg.Workflow.Name, workflowDisplayName, err)
 	}

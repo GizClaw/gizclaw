@@ -4,17 +4,9 @@ set -euo pipefail
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd "$script_dir/../.." && pwd)"
 setup_dir="$script_dir/setup"
-env_file="$script_dir/.env"
-
-if [[ -f "$env_file" ]]; then
-  set -a
-  # shellcheck disable=SC1090
-  source "$env_file"
-  set +a
-fi
 
 cleanup() {
-  "$setup_dir/stop.sh" all >/dev/null 2>&1 || true
+  bash "$setup_dir/docker-compose-down.sh" >/dev/null 2>&1 || true
 }
 trap cleanup EXIT
 
@@ -25,11 +17,16 @@ run_pkg() {
   (cd "$repo_root" && go test -tags gizclaw_e2e -count=1 -run "$run_regexp" "$pkg")
 }
 
-echo "==> build e2e CLI"
-"$setup_dir/build.sh" >/dev/null
+echo "==> build host e2e CLI"
+mkdir -p "$script_dir/testdata/bin"
+(cd "$repo_root" && go build -o "$script_dir/testdata/bin/gizclaw" ./cmd/gizclaw)
 
-echo "==> reset e2e data"
-"$setup_dir/reset_data.sh" reset
+echo "==> start Docker e2e stack"
+bash "$setup_dir/docker-compose-up.sh"
+set -a
+# shellcheck disable=SC1090
+source "$script_dir/testdata/docker/current.env"
+set +a
 
 run_pkg "./tests/gizclaw-e2e/go/chat" '^TestHumanReview$'
 run_pkg "./tests/gizclaw-e2e/go/social" '^TestServerSocialRPCHumanReview$'

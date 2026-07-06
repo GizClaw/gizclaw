@@ -798,7 +798,7 @@ func (h *Harness) waitForSetupServerReady() {
 	if err := waitUntil(readyTimeout, func() error {
 		return h.probeSetupServer(setupConfigHome, setupContext, 2*time.Second)
 	}); err != nil {
-		h.t.Fatalf("setup server did not become ready: %v\nstart the Docker e2e stack with tests/gizclaw-e2e/run_tests.sh or docker compose -f tests/gizclaw-e2e/docker/docker-compose.yaml up -d --build", err)
+		h.t.Fatalf("setup server did not become ready: %v\nstart the Docker e2e stack with bash tests/gizclaw-e2e/setup/docker-compose-up.sh", err)
 	}
 }
 

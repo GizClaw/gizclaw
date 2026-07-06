@@ -9,10 +9,14 @@ business settings such as TTLs and system task generators.
 ## Example
 
 ```yaml
-# Single public endpoint the GizClaw server binds.
-# The same host:port serves HTTP public APIs and WebRTC signaling over TCP,
-# and WebRTC ICE over UDP. Signaling is fixed at /webrtc/v1/offer.
-endpoint: 0.0.0.0:9820
+# Local bind address. The same port serves HTTP public APIs and WebRTC
+# signaling over TCP, and WebRTC ICE over UDP.
+listen: 0.0.0.0:9820
+
+# Client-facing server address. LAN deployments should set this to the address
+# clients can actually reach. It is used by client contexts and advertised in
+# WebRTC ICE UDP host candidates when the host is a concrete IP.
+endpoint: 192.168.1.20:9820
 
 # Optional admin public key. When set, admin HTTP/RPC calls must authenticate as
 # this key. Leave empty only for local development or tests that inject runtime
@@ -255,25 +259,30 @@ gameplay:
 
 ## Transport Config
 
-The command server uses a single endpoint:
+The command server uses one local bind address and one client-facing endpoint:
 
 ```yaml
-endpoint: 0.0.0.0:9820
+listen: 0.0.0.0:9820
+endpoint: 192.168.1.20:9820
 ```
 
-Binding direction:
+Binding and dialing direction:
 
-- `endpoint/tcp` serves server-public HTTP APIs, including `/server-info`,
+- `listen/tcp` serves server-public HTTP APIs, including `/server-info`,
   `/login`, and the fixed WebRTC signaling path `/webrtc/v1/offer`.
-- `endpoint/udp` serves WebRTC ICE UDP.
+- `listen/udp` serves WebRTC ICE UDP.
+- `endpoint` is the public `host:port` clients use for server HTTP/signaling
+  and peer setup. When the host is a concrete IP, it is also advertised in
+  WebRTC ICE UDP host candidates.
 
-Default endpoint:
+Defaults:
 
-- `0.0.0.0:9820`
+- `listen`: `0.0.0.0:9820`
+- `endpoint`: defaults to `listen` when omitted.
 
 ## CLI Context Config
 
-CLI contexts use the same endpoint model. See [context_config.md](context_config.md)
+CLI contexts use the server `endpoint` value. See [context_config.md](context_config.md)
 for the context file schema and dialing behavior.
 
 ## Field Notes

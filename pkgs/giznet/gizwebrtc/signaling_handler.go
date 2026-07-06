@@ -130,7 +130,12 @@ func (l *Listener) acceptOffer(clientPK giznet.PublicKey, offerSDP string) (stri
 		_ = conn.Close()
 		return "", nil, fmt.Errorf("gizwebrtc: missing local answer")
 	}
-	return pc.LocalDescription().SDP, conn, nil
+	answerSDP, err := rewriteSDPUDPHostCandidates(pc.LocalDescription().SDP, l.cfg.PublicICEUDPAddr)
+	if err != nil {
+		_ = conn.Close()
+		return "", nil, err
+	}
+	return answerSDP, conn, nil
 }
 
 func parseHeaderPublicKey(text string) (giznet.PublicKey, error) {

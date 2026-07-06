@@ -15,6 +15,7 @@ import (
 
 type Config struct {
 	KeyPair        *giznet.KeyPair
+	Listen         string
 	Endpoint       string
 	AdminPublicKey giznet.PublicKey
 	Storage        map[string]storage.Config
@@ -58,6 +59,7 @@ type IdentityConfig struct {
 
 type ConfigFile struct {
 	Identity       IdentityConfig            `yaml:"identity"`
+	Listen         string                    `yaml:"listen"`
 	Endpoint       string                    `yaml:"endpoint"`
 	AdminPublicKey giznet.PublicKey          `yaml:"admin-public-key"`
 	Storage        map[string]storage.Config `yaml:"storage"`
@@ -104,6 +106,7 @@ func LoadConfig(path string) (ConfigFile, error) {
 	}
 	var raw struct {
 		Identity       *IdentityConfig           `yaml:"identity"`
+		Listen         string                    `yaml:"listen"`
 		Endpoint       string                    `yaml:"endpoint"`
 		AdminPublicKey *giznet.PublicKey         `yaml:"admin-public-key"`
 		Storage        map[string]storage.Config `yaml:"storage"`
@@ -134,6 +137,7 @@ func LoadConfig(path string) (ConfigFile, error) {
 	}
 	cfg := ConfigFile{
 		Identity:       identity,
+		Listen:         raw.Listen,
 		Endpoint:       raw.Endpoint,
 		AdminPublicKey: adminPublicKey,
 		Storage:        raw.Storage,
@@ -158,11 +162,15 @@ func resolveAdminPublicKey(publicKey *giznet.PublicKey) (giznet.PublicKey, error
 
 func DefaultConfig() Config {
 	return Config{
+		Listen:   "0.0.0.0:9820",
 		Endpoint: "0.0.0.0:9820",
 	}
 }
 
 func mergeFileConfig(cfg Config, fileCfg ConfigFile) (Config, error) {
+	if cfg.Listen == "" {
+		cfg.Listen = fileCfg.Listen
+	}
 	if cfg.Endpoint == "" {
 		cfg.Endpoint = fileCfg.Endpoint
 	}
@@ -235,8 +243,11 @@ func mergeGameplayConfig(runtime GameplayConfig, file GameplayConfig) GameplayCo
 
 func prepareConfig(cfg Config) (Config, error) {
 	defaults := DefaultConfig()
+	if cfg.Listen == "" {
+		cfg.Listen = defaults.Listen
+	}
 	if cfg.Endpoint == "" {
-		cfg.Endpoint = defaults.Endpoint
+		cfg.Endpoint = cfg.Listen
 	}
 	if err := cfg.validate(); err != nil {
 		return Config{}, err
@@ -252,7 +263,10 @@ func prepareConfig(cfg Config) (Config, error) {
 }
 
 func (cfg Config) validate() error {
-	if err := validateEndpoint(cfg.Endpoint); err != nil {
+	if err := validateHostPort("listen", cfg.Listen); err != nil {
+		return err
+	}
+	if err := validateHostPort("endpoint", cfg.Endpoint); err != nil {
 		return err
 	}
 	if err := validateOptionalModelPattern("system_tasks.reward_claim.generator", cfg.SystemTasks.RewardClaim.Generator); err != nil {
@@ -288,11 +302,11 @@ func (cfg Config) validate() error {
 }
 
 func (cfg Config) PublicAPIListenAddr() string {
-	return cfg.Endpoint
+	return cfg.Listen
 }
 
 func (cfg Config) ICEListenAddr() string {
-	return cfg.Endpoint
+	return cfg.Listen
 }
 
 func parseConfigDuration(value string) (time.Duration, error) {
@@ -307,19 +321,19 @@ func parseConfigDuration(value string) (time.Duration, error) {
 	return time.ParseDuration(value)
 }
 
-func validateEndpoint(endpoint string) error {
-	if strings.Contains(endpoint, "://") {
-		return fmt.Errorf("server: endpoint must be host:port, got %q", endpoint)
+func validateHostPort(field, value string) error {
+	if strings.Contains(value, "://") {
+		return fmt.Errorf("server: %s must be host:port, got %q", field, value)
 	}
-	host, port, err := net.SplitHostPort(endpoint)
+	host, port, err := net.SplitHostPort(value)
 	if err != nil {
-		return fmt.Errorf("server: invalid endpoint: %w", err)
+		return fmt.Errorf("server: invalid %s: %w", field, err)
 	}
 	if strings.TrimSpace(host) == "" {
-		return fmt.Errorf("server: endpoint host is empty")
+		return fmt.Errorf("server: %s host is empty", field)
 	}
 	if strings.TrimSpace(port) == "" {
-		return fmt.Errorf("server: endpoint port is empty")
+		return fmt.Errorf("server: %s port is empty", field)
 	}
 	return nil
 }

@@ -2,7 +2,7 @@
 set -euo pipefail
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-repo_root="$(cd "$script_dir/../../.." && pwd)"
+repo_root="$(cd "$script_dir/../../../.." && pwd)"
 e2e_dir="$repo_root/tests/gizclaw-e2e"
 testdata_dir="$e2e_dir/testdata"
 workspace_dir="$testdata_dir/server-workspace"
@@ -40,13 +40,13 @@ gear2_context="${GIZCLAW_E2E_CMD_GEAR2_CONTEXT:-gear2}"
 export input='${input}'
 
 clear_data() {
-  "$script_dir/stop.sh" server >/dev/null || true
-  rm -rf "$workspace_dir/data" "$workspace_dir/gizclaw-server.log" "$workspace_dir/gizclaw-server.pid"
+  rm -rf "$workspace_dir/data" "$workspace_dir/gizclaw-server.log" "$workspace_dir/gizclaw-server.pid" "$workspace_dir/serve.pid"
   "$bin_path" migrate --workspace "$workspace_dir"
 }
 
 require_e2e_credentials() {
   local missing=()
+  local placeholders=()
   local name
   for name in \
     GIZCLAW_E2E_DASHSCOPE_API_KEY \
@@ -64,15 +64,25 @@ require_e2e_credentials() {
     GIZCLAW_E2E_VOLC_ARK_API_KEY \
     GIZCLAW_E2E_VOLC_OPENAPI_ACCESS_KEY \
     GIZCLAW_E2E_VOLC_OPENAPI_ACCESS_KEY_ID; do
-    if [[ -z "${!name:-}" ]]; then
+    local value="${!name:-}"
+    local normalized="${value,,}"
+    if [[ -z "$value" ]]; then
       missing+=("$name")
+    elif [[ "$normalized" == *dummy* || "$normalized" == *placeholder* || "$normalized" == *replace* || "$normalized" == *example* ]]; then
+      placeholders+=("$name")
     fi
   done
 
   if [[ ${#missing[@]} -gt 0 ]]; then
     echo "missing required e2e credential env values:" >&2
     printf '  %s\n' "${missing[@]}" >&2
-    echo "copy tests/gizclaw-e2e/.env.example to tests/gizclaw-e2e/.env and fill every required credential before reset_data init/reset" >&2
+    echo "copy tests/gizclaw-e2e/.env.example to tests/gizclaw-e2e/.env and fill every required credential before Docker e2e setup" >&2
+    exit 2
+  fi
+  if [[ ${#placeholders[@]} -gt 0 ]]; then
+    echo "placeholder e2e credential env values are not valid for Docker e2e setup:" >&2
+    printf '  %s\n' "${placeholders[@]}" >&2
+    echo "replace placeholder values in tests/gizclaw-e2e/.env with real provider credentials before Docker e2e setup" >&2
     exit 2
   fi
 }
@@ -86,8 +96,6 @@ if [[ ! -x "$bin_path" ]]; then
 fi
 
 init_data() {
-  "$script_dir/start-server.sh" >/dev/null
-
   XDG_CONFIG_HOME="$config_home" \
     "$bin_path" connect set-name "E2E Admin" --context "$admin_context" >/dev/null
 

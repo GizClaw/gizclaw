@@ -44,6 +44,9 @@ func testKeyPair(t *testing.T, fill byte) *giznet.KeyPair {
 
 func TestDefaultConfig(t *testing.T) {
 	cfg := DefaultConfig()
+	if cfg.Listen != "0.0.0.0:9820" {
+		t.Fatalf("Listen = %q", cfg.Listen)
+	}
 	if cfg.Endpoint != "0.0.0.0:9820" {
 		t.Fatalf("Endpoint = %q", cfg.Endpoint)
 	}
@@ -182,6 +185,7 @@ func TestNewWithPreparedConfig(t *testing.T) {
 		t.Fatalf("KeyFromHex error = %v", err)
 	}
 	srv, err := New(Config{
+		Listen:         "127.0.0.1:1234",
 		Endpoint:       "127.0.0.1:1234",
 		AdminPublicKey: adminKey,
 		Stores: map[string]stores.Config{
@@ -206,6 +210,7 @@ func TestNewWithPreparedConfig(t *testing.T) {
 
 func TestNewWiresPeerListenerFactory(t *testing.T) {
 	srv, err := New(Config{
+		Listen:   "127.0.0.1:1234",
 		Endpoint: "127.0.0.1:1234",
 		Stores:   map[string]stores.Config{"peers": {Kind: stores.KindKeyValue, Backend: "memory"}},
 	})
@@ -220,7 +225,7 @@ func TestNewWiresPeerListenerFactory(t *testing.T) {
 }
 
 func TestConfigValidateRequiresStores(t *testing.T) {
-	cfg := Config{Endpoint: "127.0.0.1:9820"}
+	cfg := Config{Listen: "127.0.0.1:9820", Endpoint: "127.0.0.1:9820"}
 	if err := cfg.validate(); err != nil {
 		t.Fatalf("validate should allow default store names without service bindings: %v", err)
 	}
@@ -328,6 +333,7 @@ func TestMergeFileConfigKeepsRuntimeOverrides(t *testing.T) {
 		t.Fatalf("KeyFromHex file error = %v", err)
 	}
 	runtimeCfg := Config{
+		Listen:         "0.0.0.0:9999",
 		Endpoint:       "127.0.0.1:9999",
 		AdminPublicKey: adminKey,
 		Storage: map[string]storage.Config{
@@ -351,6 +357,7 @@ func TestMergeFileConfigKeepsRuntimeOverrides(t *testing.T) {
 		},
 	}
 	fileCfg := ConfigFile{
+		Listen:         "0.0.0.0:1234",
 		Endpoint:       "127.0.0.1:1234",
 		AdminPublicKey: fileAdminKey,
 		Storage: map[string]storage.Config{
@@ -380,6 +387,9 @@ func TestMergeFileConfigKeepsRuntimeOverrides(t *testing.T) {
 	}
 	if merged.Endpoint != "127.0.0.1:9999" {
 		t.Fatalf("Endpoint = %q", merged.Endpoint)
+	}
+	if merged.Listen != "0.0.0.0:9999" {
+		t.Fatalf("Listen = %q", merged.Listen)
 	}
 	if merged.AdminPublicKey != runtimeCfg.AdminPublicKey {
 		t.Fatalf("AdminPublicKey = %v, want %v", merged.AdminPublicKey, runtimeCfg.AdminPublicKey)
@@ -415,18 +425,23 @@ func TestValidateReportsSpecificMissingFields(t *testing.T) {
 		want string
 	}{
 		{
+			name: "invalid listen",
+			cfg:  Config{Listen: "http://127.0.0.1:9820", Endpoint: "127.0.0.1:9820"},
+			want: "server: listen must be host:port, got \"http://127.0.0.1:9820\"",
+		},
+		{
 			name: "invalid endpoint",
-			cfg:  Config{Endpoint: "http://127.0.0.1:9820"},
+			cfg:  Config{Listen: "127.0.0.1:9820", Endpoint: "http://127.0.0.1:9820"},
 			want: "server: endpoint must be host:port, got \"http://127.0.0.1:9820\"",
 		},
 		{
 			name: "empty endpoint host",
-			cfg:  Config{Endpoint: ":9820"},
+			cfg:  Config{Listen: "127.0.0.1:9820", Endpoint: ":9820"},
 			want: "server: endpoint host is empty",
 		},
 		{
 			name: "empty endpoint port",
-			cfg:  Config{Endpoint: "127.0.0.1:"},
+			cfg:  Config{Listen: "127.0.0.1:9820", Endpoint: "127.0.0.1:"},
 			want: "server: endpoint port is empty",
 		},
 	}
@@ -443,6 +458,7 @@ func TestValidateReportsSpecificMissingFields(t *testing.T) {
 
 func TestValidateReportsLayeredStorageMissingFields(t *testing.T) {
 	base := Config{
+		Listen:   "127.0.0.1:9820",
 		Endpoint: "127.0.0.1:9820",
 		Storage:  map[string]storage.Config{"memory": {Kind: storage.KindKeyValue, Memory: &storage.MemoryConfig{}}},
 	}
@@ -480,6 +496,9 @@ func TestPrepareConfigGeneratesKeyPairAndDefaultPorts(t *testing.T) {
 		t.Fatal("KeyPair should be generated")
 	}
 	defaults := DefaultConfig()
+	if cfg.Listen != defaults.Listen {
+		t.Fatalf("Listen = %q, want %q", cfg.Listen, defaults.Listen)
+	}
 	if cfg.Endpoint != defaults.Endpoint {
 		t.Fatalf("Endpoint = %q, want %q", cfg.Endpoint, defaults.Endpoint)
 	}
@@ -510,6 +529,7 @@ func TestNewRejectsMissingDefaultPeerStore(t *testing.T) {
 
 func validLayeredConfig(dir string) Config {
 	return Config{
+		Listen:   "127.0.0.1:1234",
 		Endpoint: "127.0.0.1:1234",
 		Storage: map[string]storage.Config{
 			"memory":      {Kind: storage.KindKeyValue, Memory: &storage.MemoryConfig{}},

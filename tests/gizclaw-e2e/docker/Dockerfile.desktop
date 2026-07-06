@@ -12,5 +12,6 @@ COPY js/packages/pixa/package.json js/packages/pixa/package.json
 RUN npm ci
 
 COPY . .
+RUN find tests/gizclaw-e2e/docker -name '*.sh' -exec chmod +x {} +
 
 ENTRYPOINT ["/src/tests/gizclaw-e2e/docker/entrypoint-desktop.sh"]

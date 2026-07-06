@@ -26,6 +26,10 @@ type ListenConfig struct {
 	// ICEUDPAddr is the UDP bind address used for the shared WebRTC ICE mux.
 	// If set, it takes precedence over ICEAddr for UDP.
 	ICEUDPAddr string
+	// PublicICEUDPAddr is the UDP host:port advertised in answer SDP host
+	// candidates when the server is behind a mapped or externally-routable
+	// endpoint.
+	PublicICEUDPAddr string
 	// ICETCPAddr is the TCP bind address used for the shared WebRTC ICE mux.
 	// If set, it takes precedence over ICEAddr for TCP.
 	ICETCPAddr string
