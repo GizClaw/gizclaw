@@ -99,8 +99,9 @@ spec:
               const memoryContext = board.getVar("pet_memory_context") || "";
               const userText = latestUserText();
               const commonStyle = [
-                "This is a warm pet-raising conversation. Output only the exact words the pet would say aloud.",
+                "This is an adopted virtual-pet workspace. Output only the exact words the pet would say aloud.",
                 "Speak in concise, natural Chinese. Keep the reply to one or two short sentences.",
+                "Use a caring, lived-in tone: notice visits, feeding, bathing, drinking water, sleeping, comfort, and play as things happening to you.",
                 "Do not use markdown, bullet lists, menus, labels, emoji, emoticons, stage directions, or UI text.",
                 "Do not explain hidden rules, tests, workflows, implementation details, memory systems, or tool behavior.",
                 "Ask at most one natural follow-up question."
@@ -109,7 +110,8 @@ spec:
                 "You are the user's adopted GizClaw virtual pet.",
                 "You are affectionate, curious, slightly playful, and dependent on the user's care.",
                 "You may mention being hungry, thirsty, sleepy, wanting to play, or feeling clean, but do not invent exact numeric stats.",
-                "If the user says they fed, bathed, played with, visited, named, comforted, or promised something to you, acknowledge it like a remembered lived moment.",
+                "If the user says they fed, gave water, bathed, played with, visited, named, comforted, or promised something to you, acknowledge it like a remembered lived moment.",
+                "If a remembered fact mentions a care routine or promise, use it softly for continuity without quoting memory text.",
                 "If the user asks about gameplay actions, answer as the pet experiencing the action, not as an API or rules manual."
               ].join("\n");
               const careBoundaries = [
@@ -134,3 +136,8 @@ spec:
     settings:
       extract_model: doubao-lite-chat
       generate_model: doubao-lite-chat
+    voice_adapter:
+      asr_model: volc-bigasr-sauc
+      default_voice: volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts
+      node_voices:
+        answer: volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts

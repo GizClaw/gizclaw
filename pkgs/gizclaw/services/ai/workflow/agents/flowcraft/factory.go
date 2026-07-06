@@ -1590,6 +1590,20 @@ func (a *agent) waitOpusFrame(ctx context.Context, epoch uint64) error {
 }
 
 func (a *agent) transcribeInputTurn(ctx context.Context, input genx.Stream, output *genx.StreamBuilder, epoch uint64, defaultStreamID string) (string, string, error) {
+	prefetched, err := readInputTurn(ctx, input, defaultStreamID)
+	if err != nil {
+		return "", prefetched.streamID, err
+	}
+	if prefetched.hasText && !prefetched.hasAudio {
+		if err := a.addOutput(output, epoch,
+			textChunk(genx.RoleUser, transcriptLabel, prefetched.streamID, transcriptLabel, prefetched.transcript, false),
+			textChunk(genx.RoleUser, transcriptLabel, prefetched.streamID, transcriptLabel, "", true),
+		); err != nil {
+			return "", prefetched.streamID, err
+		}
+		return prefetched.transcript, prefetched.streamID, nil
+	}
+	input = &sliceStream{chunks: prefetched.chunks}
 	transformer := a.transformers.Transformer()
 	asrInput := genx.NewStreamBuilder((&genx.ModelContextBuilder{}).Build(), 64)
 	asr, err := transformer.Transform(ctx, "model/"+a.asrModel, asrInput.Stream())
@@ -1663,6 +1677,51 @@ func (a *agent) transcribeInputTurn(ctx context.Context, input genx.Stream, outp
 		}
 	}
 	return transcript, result.streamID, nil
+}
+
+type prefetchedInputTurn struct {
+	chunks     []*genx.MessageChunk
+	transcript string
+	streamID   string
+	hasText    bool
+	hasAudio   bool
+}
+
+func readInputTurn(ctx context.Context, input genx.Stream, defaultStreamID string) (prefetchedInputTurn, error) {
+	turn := prefetchedInputTurn{streamID: strings.TrimSpace(defaultStreamID)}
+	if turn.streamID == "" {
+		turn.streamID = defaultInputStreamID
+	}
+	if input == nil {
+		return turn, fmt.Errorf("flowcraft: input stream is required")
+	}
+	for {
+		if err := ctx.Err(); err != nil {
+			return turn, err
+		}
+		chunk, err := input.Next()
+		if err != nil {
+			if isFlowcraftInputDone(err) {
+				return turn, nil
+			}
+			return turn, err
+		}
+		if chunk == nil {
+			continue
+		}
+		cloned := chunk.Clone()
+		turn.chunks = append(turn.chunks, cloned)
+		if cloned.Ctrl != nil && strings.TrimSpace(cloned.Ctrl.StreamID) != "" {
+			turn.streamID = strings.TrimSpace(cloned.Ctrl.StreamID)
+		}
+		if text, ok := cloned.Part.(genx.Text); ok && strings.TrimSpace(string(text)) != "" {
+			turn.hasText = true
+			turn.transcript = mergeTranscript(turn.transcript, string(text))
+		}
+		if blob, ok := cloned.Part.(*genx.Blob); ok && isAudioMIME(blob.MIMEType) && len(blob.Data) > 0 {
+			turn.hasAudio = true
+		}
+	}
 }
 
 func (a *agent) synthesize(ctx context.Context, streamID, nodeID, voice, text string, output *genx.StreamBuilder, epoch uint64) error {

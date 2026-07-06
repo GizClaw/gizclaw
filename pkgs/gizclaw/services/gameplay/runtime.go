@@ -612,7 +612,15 @@ func (r *Runtime) createPetWorkspace(ctx context.Context, name, workflowName str
 	if r == nil || r.Workspaces == nil {
 		return errors.New("gameplay: workspace service is not configured")
 	}
-	body := adminservice.WorkspaceUpsert{Name: name, WorkflowName: workflowName}
+	input := apitypes.WorkspaceInputModePushToTalk
+	var parameters apitypes.WorkspaceParameters
+	if err := parameters.FromFlowcraftWorkspaceParameters(apitypes.FlowcraftWorkspaceParameters{
+		AgentType: apitypes.FlowcraftWorkspaceParametersAgentTypeFlowcraft,
+		Input:     &input,
+	}); err != nil {
+		return err
+	}
+	body := adminservice.WorkspaceUpsert{Name: name, WorkflowName: workflowName, Parameters: &parameters}
 	resp, err := r.Workspaces.CreateWorkspace(ctx, adminservice.CreateWorkspaceRequestObject{Body: &body})
 	if err != nil {
 		return err

@@ -51,6 +51,16 @@ func TestRuntimeAdoptAndDrive(t *testing.T) {
 	if got := workspaces.created; len(got) != 1 || got[0].Name != "pet-pet-1" || got[0].WorkflowName != "pet-chat" {
 		t.Fatalf("created workspaces = %#v", got)
 	}
+	if workspaces.created[0].Parameters == nil {
+		t.Fatalf("created workspace parameters = nil")
+	}
+	workspaceParams, err := workspaces.created[0].Parameters.AsFlowcraftWorkspaceParameters()
+	if err != nil {
+		t.Fatalf("created workspace parameters: %v", err)
+	}
+	if workspaceParams.Input == nil || *workspaceParams.Input != apitypes.WorkspaceInputModePushToTalk {
+		t.Fatalf("created workspace input = %#v, want push-to-talk", workspaceParams.Input)
+	}
 	if adopted.Points.Balance != 35 {
 		t.Fatalf("adopted points balance = %d, want 35", adopted.Points.Balance)
 	}
