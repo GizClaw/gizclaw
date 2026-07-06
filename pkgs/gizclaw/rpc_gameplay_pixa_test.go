@@ -77,6 +77,9 @@ func TestRPCServerPetDefPixaDownloadStreamsBinary(t *testing.T) {
 	if frame.Type != rpcapi.FrameTypeEOS {
 		t.Fatalf("last frame type = %d, want EOS", frame.Type)
 	}
+	if err := clientSide.Close(); err != nil {
+		t.Fatalf("client close error = %v", err)
+	}
 	select {
 	case err := <-serverErrCh:
 		if err != nil {
