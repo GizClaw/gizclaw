@@ -1,0 +1,1007 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Gameplay Types",
+    "description": "Gameplay catalog and peer runtime schemas.",
+    "version": "1.0.0"
+  },
+  "paths": {},
+  "components": {
+    "schemas": {
+      "GameplayMetadata": {
+        "type": "object",
+        "additionalProperties": true
+      },
+      "StatMap": {
+        "type": "object",
+        "additionalProperties": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "GameRulesetPointsSpec": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "initial_balance": {
+            "type": "integer",
+            "format": "int64",
+            "default": 0
+          }
+        }
+      },
+      "GameRulesetPetPoolEntry": {
+        "type": "object",
+        "required": [
+          "petdef_id",
+          "weight"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "petdef_id": {
+            "type": "string"
+          },
+          "weight": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          },
+          "rarity": {
+            "type": "string"
+          },
+          "adoption_cost": {
+            "type": "integer",
+            "format": "int64",
+            "default": 0
+          },
+          "workflow_name": {
+            "type": "string"
+          }
+        }
+      },
+      "GameRewardSpec": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "points_delta": {
+            "type": "integer",
+            "format": "int64",
+            "default": 0
+          },
+          "pet_exp_delta": {
+            "type": "integer",
+            "format": "int64",
+            "default": 0
+          },
+          "badge_exp_delta": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          "life_delta": {
+            "$ref": "#/components/schemas/StatMap"
+          },
+          "ability_delta": {
+            "$ref": "#/components/schemas/StatMap"
+          }
+        }
+      },
+      "GameRulesetDriveSpec": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "action_costs": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          "default_reward": {
+            "$ref": "#/components/schemas/GameRewardSpec"
+          },
+          "action_rewards": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/GameRewardSpec"
+            }
+          },
+          "game_rewards": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/GameRewardSpec"
+            }
+          },
+          "life_decay_per_hour": {
+            "$ref": "#/components/schemas/StatMap"
+          }
+        }
+      },
+      "GameRulesetSpec": {
+        "type": "object",
+        "required": [
+          "enabled",
+          "pet_pool"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "description": {
+            "type": "string"
+          },
+          "default_workflow_name": {
+            "type": "string"
+          },
+          "points": {
+            "$ref": "#/components/schemas/GameRulesetPointsSpec"
+          },
+          "pet_pool": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GameRulesetPetPoolEntry"
+            }
+          },
+          "badge_def_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "game_def_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "drive": {
+            "$ref": "#/components/schemas/GameRulesetDriveSpec"
+          },
+          "metadata": {
+            "$ref": "#/components/schemas/GameplayMetadata"
+          }
+        }
+      },
+      "GameRuleset": {
+        "type": "object",
+        "required": [
+          "name",
+          "spec",
+          "created_at",
+          "updated_at"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "spec": {
+            "$ref": "#/components/schemas/GameRulesetSpec"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "PetDefSpec": {
+        "type": "object",
+        "required": [
+          "display_name"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "display_name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "workflow_name": {
+            "type": "string"
+          },
+          "initial_life": {
+            "$ref": "#/components/schemas/StatMap"
+          },
+          "initial_ability": {
+            "$ref": "#/components/schemas/StatMap"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "metadata": {
+            "$ref": "#/components/schemas/GameplayMetadata"
+          }
+        }
+      },
+      "PetDef": {
+        "type": "object",
+        "required": [
+          "id",
+          "spec",
+          "created_at",
+          "updated_at"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "spec": {
+            "$ref": "#/components/schemas/PetDefSpec"
+          },
+          "pixa_path": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "BadgeDefSpec": {
+        "type": "object",
+        "required": [
+          "display_name"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "display_name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "metadata": {
+            "$ref": "#/components/schemas/GameplayMetadata"
+          }
+        }
+      },
+      "BadgeDef": {
+        "type": "object",
+        "required": [
+          "id",
+          "spec",
+          "created_at",
+          "updated_at"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "spec": {
+            "$ref": "#/components/schemas/BadgeDefSpec"
+          },
+          "pixa_path": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "GameDefSpec": {
+        "type": "object",
+        "required": [
+          "display_name"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "display_name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "score_schema": {
+            "$ref": "#/components/schemas/GameplayMetadata"
+          },
+          "outcomes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "metadata": {
+            "$ref": "#/components/schemas/GameplayMetadata"
+          }
+        }
+      },
+      "GameDef": {
+        "type": "object",
+        "required": [
+          "id",
+          "spec",
+          "created_at",
+          "updated_at"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "spec": {
+            "$ref": "#/components/schemas/GameDefSpec"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "Pet": {
+        "type": "object",
+        "required": [
+          "id",
+          "owner_public_key",
+          "ruleset_name",
+          "petdef_id",
+          "display_name",
+          "workspace_name",
+          "life",
+          "ability",
+          "exp",
+          "level",
+          "last_active_at",
+          "created_at",
+          "updated_at"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "owner_public_key": {
+            "type": "string"
+          },
+          "ruleset_name": {
+            "type": "string"
+          },
+          "petdef_id": {
+            "type": "string"
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "workspace_name": {
+            "type": "string"
+          },
+          "workflow_name": {
+            "type": "string"
+          },
+          "life": {
+            "$ref": "#/components/schemas/StatMap"
+          },
+          "ability": {
+            "$ref": "#/components/schemas/StatMap"
+          },
+          "exp": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "level": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "last_active_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "Badge": {
+        "type": "object",
+        "required": [
+          "id",
+          "owner_public_key",
+          "badge_def_id",
+          "exp",
+          "level",
+          "active",
+          "progress",
+          "created_at",
+          "updated_at"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "owner_public_key": {
+            "type": "string"
+          },
+          "badge_def_id": {
+            "type": "string"
+          },
+          "exp": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "level": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "progress": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "PointsAccount": {
+        "type": "object",
+        "required": [
+          "owner_public_key",
+          "ruleset_name",
+          "balance",
+          "created_at",
+          "updated_at"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "owner_public_key": {
+            "type": "string"
+          },
+          "ruleset_name": {
+            "type": "string"
+          },
+          "balance": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "PointsTransaction": {
+        "type": "object",
+        "required": [
+          "id",
+          "owner_public_key",
+          "ruleset_name",
+          "delta",
+          "balance_after",
+          "reason",
+          "source_type",
+          "source_id",
+          "created_at"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "owner_public_key": {
+            "type": "string"
+          },
+          "ruleset_name": {
+            "type": "string"
+          },
+          "pet_id": {
+            "type": "string"
+          },
+          "game_result_id": {
+            "type": "string"
+          },
+          "reward_grant_id": {
+            "type": "string"
+          },
+          "delta": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "balance_after": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "source_type": {
+            "type": "string"
+          },
+          "source_id": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "GameResult": {
+        "type": "object",
+        "required": [
+          "id",
+          "owner_public_key",
+          "ruleset_name",
+          "pet_id",
+          "game_def_id",
+          "occurred_at",
+          "created_at"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "owner_public_key": {
+            "type": "string"
+          },
+          "ruleset_name": {
+            "type": "string"
+          },
+          "pet_id": {
+            "type": "string"
+          },
+          "game_def_id": {
+            "type": "string"
+          },
+          "score": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "max_score": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "difficulty": {
+            "type": "string"
+          },
+          "outcome": {
+            "type": "string"
+          },
+          "duration_ms": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "idempotency_key": {
+            "type": "string"
+          },
+          "payload": {
+            "$ref": "#/components/schemas/GameplayMetadata"
+          },
+          "occurred_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "RewardGrant": {
+        "type": "object",
+        "required": [
+          "id",
+          "owner_public_key",
+          "ruleset_name",
+          "points_delta",
+          "pet_exp_delta",
+          "badge_exp_delta",
+          "source_type",
+          "source_id",
+          "created_at"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "owner_public_key": {
+            "type": "string"
+          },
+          "ruleset_name": {
+            "type": "string"
+          },
+          "pet_id": {
+            "type": "string"
+          },
+          "game_result_id": {
+            "type": "string"
+          },
+          "points_delta": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "pet_exp_delta": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "badge_exp_delta": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          "life_delta": {
+            "$ref": "#/components/schemas/StatMap"
+          },
+          "ability_delta": {
+            "$ref": "#/components/schemas/StatMap"
+          },
+          "source_type": {
+            "type": "string"
+          },
+          "source_id": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "GameplayListRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "cursor": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      },
+      "PetListResponse": {
+        "type": "object",
+        "required": [
+          "items",
+          "has_next"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Pet"
+            }
+          },
+          "has_next": {
+            "type": "boolean"
+          },
+          "next_cursor": {
+            "type": "string"
+          }
+        }
+      },
+      "BadgeListResponse": {
+        "type": "object",
+        "required": [
+          "items",
+          "has_next"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Badge"
+            }
+          },
+          "has_next": {
+            "type": "boolean"
+          },
+          "next_cursor": {
+            "type": "string"
+          }
+        }
+      },
+      "PointsTransactionListResponse": {
+        "type": "object",
+        "required": [
+          "items",
+          "has_next"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PointsTransaction"
+            }
+          },
+          "has_next": {
+            "type": "boolean"
+          },
+          "next_cursor": {
+            "type": "string"
+          }
+        }
+      },
+      "GameResultListResponse": {
+        "type": "object",
+        "required": [
+          "items",
+          "has_next"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GameResult"
+            }
+          },
+          "has_next": {
+            "type": "boolean"
+          },
+          "next_cursor": {
+            "type": "string"
+          }
+        }
+      },
+      "RewardGrantListResponse": {
+        "type": "object",
+        "required": [
+          "items",
+          "has_next"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RewardGrant"
+            }
+          },
+          "has_next": {
+            "type": "boolean"
+          },
+          "next_cursor": {
+            "type": "string"
+          }
+        }
+      },
+      "PetAdoptRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "ruleset_name": {
+            "type": "string"
+          },
+          "display_name": {
+            "type": "string"
+          }
+        }
+      },
+      "PetAdoptResponse": {
+        "type": "object",
+        "required": [
+          "pet",
+          "points",
+          "transaction"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "pet": {
+            "$ref": "#/components/schemas/Pet"
+          },
+          "points": {
+            "$ref": "#/components/schemas/PointsAccount"
+          },
+          "transaction": {
+            "$ref": "#/components/schemas/PointsTransaction"
+          }
+        }
+      },
+      "PetGetRequest": {
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          }
+        }
+      },
+      "PetPutRequest": {
+        "type": "object",
+        "required": [
+          "id",
+          "display_name"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "display_name": {
+            "type": "string"
+          }
+        }
+      },
+      "PetDeleteRequest": {
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          }
+        }
+      },
+      "PetDriveGameResultInput": {
+        "type": "object",
+        "required": [
+          "game_def_id"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "game_def_id": {
+            "type": "string"
+          },
+          "score": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "max_score": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "difficulty": {
+            "type": "string"
+          },
+          "outcome": {
+            "type": "string"
+          },
+          "duration_ms": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "idempotency_key": {
+            "type": "string"
+          },
+          "payload": {
+            "$ref": "#/components/schemas/GameplayMetadata"
+          },
+          "occurred_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "PetDriveRequest": {
+        "type": "object",
+        "required": [
+          "pet_id"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "pet_id": {
+            "type": "string"
+          },
+          "action": {
+            "type": "string"
+          },
+          "game_result": {
+            "$ref": "#/components/schemas/PetDriveGameResultInput"
+          }
+        }
+      },
+      "PetDriveResponse": {
+        "type": "object",
+        "required": [
+          "pet",
+          "points",
+          "badges",
+          "reward_grants",
+          "transactions"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "pet": {
+            "$ref": "#/components/schemas/Pet"
+          },
+          "points": {
+            "$ref": "#/components/schemas/PointsAccount"
+          },
+          "game_result": {
+            "$ref": "#/components/schemas/GameResult"
+          },
+          "badges": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Badge"
+            }
+          },
+          "reward_grants": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RewardGrant"
+            }
+          },
+          "transactions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PointsTransaction"
+            }
+          }
+        }
+      },
+      "GameplayGetRequest": {
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

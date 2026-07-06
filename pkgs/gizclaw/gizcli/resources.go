@@ -139,90 +139,6 @@ func (c *Client) DeleteCredential(ctx context.Context, id string, request rpcapi
 	})
 }
 
-func (c *Client) ListPets(ctx context.Context, id string, request rpcapi.PetListRequest) (*rpcapi.PetListResponse, error) {
-	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.PetListResponse, error) {
-		return client.ListPets(ctx, conn, id, request)
-	})
-}
-
-func (c *Client) GetPet(ctx context.Context, id string, request rpcapi.PetGetRequest) (*rpcapi.PetGetResponse, error) {
-	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.PetGetResponse, error) {
-		return client.GetPet(ctx, conn, id, request)
-	})
-}
-
-func (c *Client) AdoptPet(ctx context.Context, id string, request rpcapi.PetAdoptRequest) (*rpcapi.PetAdoptResponse, error) {
-	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.PetAdoptResponse, error) {
-		return client.AdoptPet(ctx, conn, id, request)
-	})
-}
-
-func (c *Client) PutPet(ctx context.Context, id string, request rpcapi.PetPutRequest) (*rpcapi.PetPutResponse, error) {
-	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.PetPutResponse, error) {
-		return client.PutPet(ctx, conn, id, request)
-	})
-}
-
-func (c *Client) DeletePet(ctx context.Context, id string, request rpcapi.PetDeleteRequest) (*rpcapi.PetDeleteResponse, error) {
-	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.PetDeleteResponse, error) {
-		return client.DeletePet(ctx, conn, id, request)
-	})
-}
-
-func (c *Client) FeedPet(ctx context.Context, id string, request rpcapi.PetFeedRequest) (*rpcapi.PetFeedResponse, error) {
-	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.PetFeedResponse, error) {
-		return client.FeedPet(ctx, conn, id, request)
-	})
-}
-
-func (c *Client) WashPet(ctx context.Context, id string, request rpcapi.PetWashRequest) (*rpcapi.PetWashResponse, error) {
-	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.PetWashResponse, error) {
-		return client.WashPet(ctx, conn, id, request)
-	})
-}
-
-func (c *Client) PlayPet(ctx context.Context, id string, request rpcapi.PetPlayRequest) (*rpcapi.PetPlayResponse, error) {
-	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.PetPlayResponse, error) {
-		return client.PlayPet(ctx, conn, id, request)
-	})
-}
-
-func (c *Client) GetWallet(ctx context.Context, id string, request rpcapi.WalletGetRequest) (*rpcapi.WalletGetResponse, error) {
-	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.WalletGetResponse, error) {
-		return client.GetWallet(ctx, conn, id, request)
-	})
-}
-
-func (c *Client) ListWalletTransactions(ctx context.Context, id string, request rpcapi.WalletTransactionsListRequest) (*rpcapi.WalletTransactionsListResponse, error) {
-	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.WalletTransactionsListResponse, error) {
-		return client.ListWalletTransactions(ctx, conn, id, request)
-	})
-}
-
-func (c *Client) GetWalletTransaction(ctx context.Context, id string, request rpcapi.WalletTransactionsGetRequest) (*rpcapi.WalletTransactionsGetResponse, error) {
-	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.WalletTransactionsGetResponse, error) {
-		return client.GetWalletTransaction(ctx, conn, id, request)
-	})
-}
-
-func (c *Client) ListRewards(ctx context.Context, id string, request rpcapi.RewardListRequest) (*rpcapi.RewardListResponse, error) {
-	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.RewardListResponse, error) {
-		return client.ListRewards(ctx, conn, id, request)
-	})
-}
-
-func (c *Client) GetReward(ctx context.Context, id string, request rpcapi.RewardGetRequest) (*rpcapi.RewardGetResponse, error) {
-	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.RewardGetResponse, error) {
-		return client.GetReward(ctx, conn, id, request)
-	})
-}
-
-func (c *Client) ClaimReward(ctx context.Context, id string, request rpcapi.RewardClaimRequest) (*rpcapi.RewardClaimResponse, error) {
-	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.RewardClaimResponse, error) {
-		return client.ClaimReward(ctx, conn, id, request)
-	})
-}
-
 func (c *Client) ListContacts(ctx context.Context, id string, request rpcapi.ContactListRequest) (*rpcapi.ContactListResponse, error) {
 	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.ContactListResponse, error) {
 		return client.ListContacts(ctx, conn, id, request)
@@ -382,5 +298,101 @@ func (c *Client) GetFriendGroupMessage(ctx context.Context, id string, request r
 func (c *Client) SendFriendGroupMessage(ctx context.Context, id string, request rpcapi.FriendGroupMessageSendRequest) (*rpcapi.FriendGroupMessageSendResponse, error) {
 	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.FriendGroupMessageSendResponse, error) {
 		return client.SendFriendGroupMessage(ctx, conn, id, request)
+	})
+}
+
+func (c *Client) GetGameRuleset(ctx context.Context, id string, request rpcapi.ServerGameRulesetGetRequest) (*rpcapi.ServerGameRulesetGetResponse, error) {
+	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.ServerGameRulesetGetResponse, error) {
+		return client.GetGameRuleset(ctx, conn, id, request)
+	})
+}
+
+func (c *Client) ListPets(ctx context.Context, id string, request rpcapi.ServerPetListRequest) (*rpcapi.ServerPetListResponse, error) {
+	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.ServerPetListResponse, error) {
+		return client.ListPets(ctx, conn, id, request)
+	})
+}
+
+func (c *Client) GetPet(ctx context.Context, id string, request rpcapi.ServerPetGetRequest) (*rpcapi.ServerPetGetResponse, error) {
+	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.ServerPetGetResponse, error) {
+		return client.GetPet(ctx, conn, id, request)
+	})
+}
+
+func (c *Client) AdoptPet(ctx context.Context, id string, request rpcapi.ServerPetAdoptRequest) (*rpcapi.ServerPetAdoptResponse, error) {
+	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.ServerPetAdoptResponse, error) {
+		return client.AdoptPet(ctx, conn, id, request)
+	})
+}
+
+func (c *Client) PutPet(ctx context.Context, id string, request rpcapi.ServerPetPutRequest) (*rpcapi.ServerPetPutResponse, error) {
+	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.ServerPetPutResponse, error) {
+		return client.PutPet(ctx, conn, id, request)
+	})
+}
+
+func (c *Client) DeletePet(ctx context.Context, id string, request rpcapi.ServerPetDeleteRequest) (*rpcapi.ServerPetDeleteResponse, error) {
+	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.ServerPetDeleteResponse, error) {
+		return client.DeletePet(ctx, conn, id, request)
+	})
+}
+
+func (c *Client) DrivePet(ctx context.Context, id string, request rpcapi.ServerPetDriveRequest) (*rpcapi.ServerPetDriveResponse, error) {
+	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.ServerPetDriveResponse, error) {
+		return client.DrivePet(ctx, conn, id, request)
+	})
+}
+
+func (c *Client) GetPoints(ctx context.Context, id string, request rpcapi.ServerPointsGetRequest) (*rpcapi.ServerPointsGetResponse, error) {
+	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.ServerPointsGetResponse, error) {
+		return client.GetPoints(ctx, conn, id, request)
+	})
+}
+
+func (c *Client) ListPointsTransactions(ctx context.Context, id string, request rpcapi.ServerPointsTransactionListRequest) (*rpcapi.ServerPointsTransactionListResponse, error) {
+	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.ServerPointsTransactionListResponse, error) {
+		return client.ListPointsTransactions(ctx, conn, id, request)
+	})
+}
+
+func (c *Client) GetPointsTransaction(ctx context.Context, id string, request rpcapi.ServerPointsTransactionGetRequest) (*rpcapi.ServerPointsTransactionGetResponse, error) {
+	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.ServerPointsTransactionGetResponse, error) {
+		return client.GetPointsTransaction(ctx, conn, id, request)
+	})
+}
+
+func (c *Client) ListBadges(ctx context.Context, id string, request rpcapi.ServerBadgeListRequest) (*rpcapi.ServerBadgeListResponse, error) {
+	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.ServerBadgeListResponse, error) {
+		return client.ListBadges(ctx, conn, id, request)
+	})
+}
+
+func (c *Client) GetBadge(ctx context.Context, id string, request rpcapi.ServerBadgeGetRequest) (*rpcapi.ServerBadgeGetResponse, error) {
+	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.ServerBadgeGetResponse, error) {
+		return client.GetBadge(ctx, conn, id, request)
+	})
+}
+
+func (c *Client) ListGameResults(ctx context.Context, id string, request rpcapi.ServerGameResultListRequest) (*rpcapi.ServerGameResultListResponse, error) {
+	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.ServerGameResultListResponse, error) {
+		return client.ListGameResults(ctx, conn, id, request)
+	})
+}
+
+func (c *Client) GetGameResult(ctx context.Context, id string, request rpcapi.ServerGameResultGetRequest) (*rpcapi.ServerGameResultGetResponse, error) {
+	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.ServerGameResultGetResponse, error) {
+		return client.GetGameResult(ctx, conn, id, request)
+	})
+}
+
+func (c *Client) ListRewardGrants(ctx context.Context, id string, request rpcapi.ServerRewardGrantListRequest) (*rpcapi.ServerRewardGrantListResponse, error) {
+	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.ServerRewardGrantListResponse, error) {
+		return client.ListRewardGrants(ctx, conn, id, request)
+	})
+}
+
+func (c *Client) GetRewardGrant(ctx context.Context, id string, request rpcapi.ServerRewardGrantGetRequest) (*rpcapi.ServerRewardGrantGetResponse, error) {
+	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.ServerRewardGrantGetResponse, error) {
+		return client.GetRewardGrant(ctx, conn, id, request)
 	})
 }

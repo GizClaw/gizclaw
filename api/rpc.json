@@ -178,39 +178,6 @@
                 "$ref": "./rpc/server.json#/components/schemas/CredentialDeleteRequest"
               },
               {
-                "$ref": "./rpc/server.json#/components/schemas/PetListRequest"
-              },
-              {
-                "$ref": "./rpc/server.json#/components/schemas/PetGetRequest"
-              },
-              {
-                "$ref": "./rpc/server.json#/components/schemas/PetAdoptRequest"
-              },
-              {
-                "$ref": "./rpc/server.json#/components/schemas/PetPutRequest"
-              },
-              {
-                "$ref": "./rpc/server.json#/components/schemas/PetDeleteRequest"
-              },
-              {
-                "$ref": "./rpc/server.json#/components/schemas/PetFeedRequest"
-              },
-              {
-                "$ref": "./rpc/server.json#/components/schemas/PetWashRequest"
-              },
-              {
-                "$ref": "./rpc/server.json#/components/schemas/PetPlayRequest"
-              },
-              {
-                "$ref": "./rpc/server.json#/components/schemas/WalletGetRequest"
-              },
-              {
-                "$ref": "./rpc/server.json#/components/schemas/WalletTransactionsListRequest"
-              },
-              {
-                "$ref": "./rpc/server.json#/components/schemas/WalletTransactionsGetRequest"
-              },
-              {
                 "$ref": "./rpc/server.json#/components/schemas/ContactListRequest"
               },
               {
@@ -292,13 +259,58 @@
                 "$ref": "./rpc/server.json#/components/schemas/FriendGroupMessageSendRequest"
               },
               {
-                "$ref": "./rpc/server.json#/components/schemas/RewardListRequest"
+                "$ref": "./rpc/server.json#/components/schemas/ServerGameRulesetGetRequest"
               },
               {
-                "$ref": "./rpc/server.json#/components/schemas/RewardGetRequest"
+                "$ref": "./rpc/server.json#/components/schemas/PetDefPixaDownloadRequest"
               },
               {
-                "$ref": "./rpc/server.json#/components/schemas/RewardClaimRequest"
+                "$ref": "./rpc/server.json#/components/schemas/BadgeDefPixaDownloadRequest"
+              },
+              {
+                "$ref": "./rpc/server.json#/components/schemas/ServerPetListRequest"
+              },
+              {
+                "$ref": "./rpc/server.json#/components/schemas/ServerPetGetRequest"
+              },
+              {
+                "$ref": "./rpc/server.json#/components/schemas/ServerPetAdoptRequest"
+              },
+              {
+                "$ref": "./rpc/server.json#/components/schemas/ServerPetPutRequest"
+              },
+              {
+                "$ref": "./rpc/server.json#/components/schemas/ServerPetDeleteRequest"
+              },
+              {
+                "$ref": "./rpc/server.json#/components/schemas/ServerPetDriveRequest"
+              },
+              {
+                "$ref": "./rpc/server.json#/components/schemas/ServerPointsGetRequest"
+              },
+              {
+                "$ref": "./rpc/server.json#/components/schemas/ServerPointsTransactionListRequest"
+              },
+              {
+                "$ref": "./rpc/server.json#/components/schemas/ServerPointsTransactionGetRequest"
+              },
+              {
+                "$ref": "./rpc/server.json#/components/schemas/ServerBadgeListRequest"
+              },
+              {
+                "$ref": "./rpc/server.json#/components/schemas/ServerBadgeGetRequest"
+              },
+              {
+                "$ref": "./rpc/server.json#/components/schemas/ServerGameResultListRequest"
+              },
+              {
+                "$ref": "./rpc/server.json#/components/schemas/ServerGameResultGetRequest"
+              },
+              {
+                "$ref": "./rpc/server.json#/components/schemas/ServerRewardGrantListRequest"
+              },
+              {
+                "$ref": "./rpc/server.json#/components/schemas/ServerRewardGrantGetRequest"
               }
             ]
           }
@@ -470,39 +482,6 @@
                 "$ref": "./rpc/server.json#/components/schemas/CredentialDeleteResponse"
               },
               {
-                "$ref": "./rpc/server.json#/components/schemas/PetListResponse"
-              },
-              {
-                "$ref": "./rpc/server.json#/components/schemas/PetGetResponse"
-              },
-              {
-                "$ref": "./rpc/server.json#/components/schemas/PetAdoptResponse"
-              },
-              {
-                "$ref": "./rpc/server.json#/components/schemas/PetPutResponse"
-              },
-              {
-                "$ref": "./rpc/server.json#/components/schemas/PetDeleteResponse"
-              },
-              {
-                "$ref": "./rpc/server.json#/components/schemas/PetFeedResponse"
-              },
-              {
-                "$ref": "./rpc/server.json#/components/schemas/PetWashResponse"
-              },
-              {
-                "$ref": "./rpc/server.json#/components/schemas/PetPlayResponse"
-              },
-              {
-                "$ref": "./rpc/server.json#/components/schemas/WalletGetResponse"
-              },
-              {
-                "$ref": "./rpc/server.json#/components/schemas/WalletTransactionsListResponse"
-              },
-              {
-                "$ref": "./rpc/server.json#/components/schemas/WalletTransactionsGetResponse"
-              },
-              {
                 "$ref": "./rpc/server.json#/components/schemas/ContactListResponse"
               },
               {
@@ -584,13 +563,58 @@
                 "$ref": "./rpc/server.json#/components/schemas/FriendGroupMessageSendResponse"
               },
               {
-                "$ref": "./rpc/server.json#/components/schemas/RewardListResponse"
+                "$ref": "./rpc/server.json#/components/schemas/ServerGameRulesetGetResponse"
               },
               {
-                "$ref": "./rpc/server.json#/components/schemas/RewardGetResponse"
+                "$ref": "./rpc/server.json#/components/schemas/PetDefPixaDownloadResponse"
               },
               {
-                "$ref": "./rpc/server.json#/components/schemas/RewardClaimResponse"
+                "$ref": "./rpc/server.json#/components/schemas/BadgeDefPixaDownloadResponse"
+              },
+              {
+                "$ref": "./rpc/server.json#/components/schemas/ServerPetListResponse"
+              },
+              {
+                "$ref": "./rpc/server.json#/components/schemas/ServerPetGetResponse"
+              },
+              {
+                "$ref": "./rpc/server.json#/components/schemas/ServerPetAdoptResponse"
+              },
+              {
+                "$ref": "./rpc/server.json#/components/schemas/ServerPetPutResponse"
+              },
+              {
+                "$ref": "./rpc/server.json#/components/schemas/ServerPetDeleteResponse"
+              },
+              {
+                "$ref": "./rpc/server.json#/components/schemas/ServerPetDriveResponse"
+              },
+              {
+                "$ref": "./rpc/server.json#/components/schemas/ServerPointsGetResponse"
+              },
+              {
+                "$ref": "./rpc/server.json#/components/schemas/ServerPointsTransactionListResponse"
+              },
+              {
+                "$ref": "./rpc/server.json#/components/schemas/ServerPointsTransactionGetResponse"
+              },
+              {
+                "$ref": "./rpc/server.json#/components/schemas/ServerBadgeListResponse"
+              },
+              {
+                "$ref": "./rpc/server.json#/components/schemas/ServerBadgeGetResponse"
+              },
+              {
+                "$ref": "./rpc/server.json#/components/schemas/ServerGameResultListResponse"
+              },
+              {
+                "$ref": "./rpc/server.json#/components/schemas/ServerGameResultGetResponse"
+              },
+              {
+                "$ref": "./rpc/server.json#/components/schemas/ServerRewardGrantListResponse"
+              },
+              {
+                "$ref": "./rpc/server.json#/components/schemas/ServerRewardGrantGetResponse"
               }
             ]
           },
@@ -652,17 +676,6 @@
           "server.credential.create",
           "server.credential.put",
           "server.credential.delete",
-          "server.pet.list",
-          "server.pet.get",
-          "server.pet.adopt",
-          "server.pet.put",
-          "server.pet.delete",
-          "server.pet.feed",
-          "server.pet.wash",
-          "server.pet.play",
-          "server.wallet.get",
-          "server.wallet.transactions.list",
-          "server.wallet.transactions.get",
           "server.contact.list",
           "server.contact.get",
           "server.contact.create",
@@ -690,9 +703,24 @@
           "server.friend_group.messages.list",
           "server.friend_group.messages.get",
           "server.friend_group.messages.send",
-          "server.reward.list",
-          "server.reward.get",
-          "server.reward.claim"
+          "server.game_ruleset.get",
+          "server.pet_def.pixa.download",
+          "server.badge_def.pixa.download",
+          "server.pet.list",
+          "server.pet.get",
+          "server.pet.adopt",
+          "server.pet.put",
+          "server.pet.delete",
+          "server.pet.drive",
+          "server.points.get",
+          "server.points.transactions.list",
+          "server.points.transactions.get",
+          "server.badge.list",
+          "server.badge.get",
+          "server.game_result.list",
+          "server.game_result.get",
+          "server.reward_grant.list",
+          "server.reward_grant.get"
         ]
       },
       "RPCVersion": {
@@ -996,61 +1024,6 @@
       "response": "./rpc/server.json#/components/schemas/CredentialDeleteResponse"
     },
     {
-      "method": "server.pet.list",
-      "request": "./rpc/server.json#/components/schemas/PetListRequest",
-      "response": "./rpc/server.json#/components/schemas/PetListResponse"
-    },
-    {
-      "method": "server.pet.get",
-      "request": "./rpc/server.json#/components/schemas/PetGetRequest",
-      "response": "./rpc/server.json#/components/schemas/PetGetResponse"
-    },
-    {
-      "method": "server.pet.adopt",
-      "request": "./rpc/server.json#/components/schemas/PetAdoptRequest",
-      "response": "./rpc/server.json#/components/schemas/PetAdoptResponse"
-    },
-    {
-      "method": "server.pet.put",
-      "request": "./rpc/server.json#/components/schemas/PetPutRequest",
-      "response": "./rpc/server.json#/components/schemas/PetPutResponse"
-    },
-    {
-      "method": "server.pet.delete",
-      "request": "./rpc/server.json#/components/schemas/PetDeleteRequest",
-      "response": "./rpc/server.json#/components/schemas/PetDeleteResponse"
-    },
-    {
-      "method": "server.pet.feed",
-      "request": "./rpc/server.json#/components/schemas/PetFeedRequest",
-      "response": "./rpc/server.json#/components/schemas/PetFeedResponse"
-    },
-    {
-      "method": "server.pet.wash",
-      "request": "./rpc/server.json#/components/schemas/PetWashRequest",
-      "response": "./rpc/server.json#/components/schemas/PetWashResponse"
-    },
-    {
-      "method": "server.pet.play",
-      "request": "./rpc/server.json#/components/schemas/PetPlayRequest",
-      "response": "./rpc/server.json#/components/schemas/PetPlayResponse"
-    },
-    {
-      "method": "server.wallet.get",
-      "request": "./rpc/server.json#/components/schemas/WalletGetRequest",
-      "response": "./rpc/server.json#/components/schemas/WalletGetResponse"
-    },
-    {
-      "method": "server.wallet.transactions.list",
-      "request": "./rpc/server.json#/components/schemas/WalletTransactionsListRequest",
-      "response": "./rpc/server.json#/components/schemas/WalletTransactionsListResponse"
-    },
-    {
-      "method": "server.wallet.transactions.get",
-      "request": "./rpc/server.json#/components/schemas/WalletTransactionsGetRequest",
-      "response": "./rpc/server.json#/components/schemas/WalletTransactionsGetResponse"
-    },
-    {
       "method": "server.contact.list",
       "request": "./rpc/server.json#/components/schemas/ContactListRequest",
       "response": "./rpc/server.json#/components/schemas/ContactListResponse"
@@ -1186,19 +1159,94 @@
       "response": "./rpc/server.json#/components/schemas/FriendGroupMessageSendResponse"
     },
     {
-      "method": "server.reward.list",
-      "request": "./rpc/server.json#/components/schemas/RewardListRequest",
-      "response": "./rpc/server.json#/components/schemas/RewardListResponse"
+      "method": "server.game_ruleset.get",
+      "request": "./rpc/server.json#/components/schemas/ServerGameRulesetGetRequest",
+      "response": "./rpc/server.json#/components/schemas/ServerGameRulesetGetResponse"
     },
     {
-      "method": "server.reward.get",
-      "request": "./rpc/server.json#/components/schemas/RewardGetRequest",
-      "response": "./rpc/server.json#/components/schemas/RewardGetResponse"
+      "method": "server.pet_def.pixa.download",
+      "request": "./rpc/server.json#/components/schemas/PetDefPixaDownloadRequest",
+      "response": "./rpc/server.json#/components/schemas/PetDefPixaDownloadResponse"
     },
     {
-      "method": "server.reward.claim",
-      "request": "./rpc/server.json#/components/schemas/RewardClaimRequest",
-      "response": "./rpc/server.json#/components/schemas/RewardClaimResponse"
+      "method": "server.badge_def.pixa.download",
+      "request": "./rpc/server.json#/components/schemas/BadgeDefPixaDownloadRequest",
+      "response": "./rpc/server.json#/components/schemas/BadgeDefPixaDownloadResponse"
+    },
+    {
+      "method": "server.pet.list",
+      "request": "./rpc/server.json#/components/schemas/ServerPetListRequest",
+      "response": "./rpc/server.json#/components/schemas/ServerPetListResponse"
+    },
+    {
+      "method": "server.pet.get",
+      "request": "./rpc/server.json#/components/schemas/ServerPetGetRequest",
+      "response": "./rpc/server.json#/components/schemas/ServerPetGetResponse"
+    },
+    {
+      "method": "server.pet.adopt",
+      "request": "./rpc/server.json#/components/schemas/ServerPetAdoptRequest",
+      "response": "./rpc/server.json#/components/schemas/ServerPetAdoptResponse"
+    },
+    {
+      "method": "server.pet.put",
+      "request": "./rpc/server.json#/components/schemas/ServerPetPutRequest",
+      "response": "./rpc/server.json#/components/schemas/ServerPetPutResponse"
+    },
+    {
+      "method": "server.pet.delete",
+      "request": "./rpc/server.json#/components/schemas/ServerPetDeleteRequest",
+      "response": "./rpc/server.json#/components/schemas/ServerPetDeleteResponse"
+    },
+    {
+      "method": "server.pet.drive",
+      "request": "./rpc/server.json#/components/schemas/ServerPetDriveRequest",
+      "response": "./rpc/server.json#/components/schemas/ServerPetDriveResponse"
+    },
+    {
+      "method": "server.points.get",
+      "request": "./rpc/server.json#/components/schemas/ServerPointsGetRequest",
+      "response": "./rpc/server.json#/components/schemas/ServerPointsGetResponse"
+    },
+    {
+      "method": "server.points.transactions.list",
+      "request": "./rpc/server.json#/components/schemas/ServerPointsTransactionListRequest",
+      "response": "./rpc/server.json#/components/schemas/ServerPointsTransactionListResponse"
+    },
+    {
+      "method": "server.points.transactions.get",
+      "request": "./rpc/server.json#/components/schemas/ServerPointsTransactionGetRequest",
+      "response": "./rpc/server.json#/components/schemas/ServerPointsTransactionGetResponse"
+    },
+    {
+      "method": "server.badge.list",
+      "request": "./rpc/server.json#/components/schemas/ServerBadgeListRequest",
+      "response": "./rpc/server.json#/components/schemas/ServerBadgeListResponse"
+    },
+    {
+      "method": "server.badge.get",
+      "request": "./rpc/server.json#/components/schemas/ServerBadgeGetRequest",
+      "response": "./rpc/server.json#/components/schemas/ServerBadgeGetResponse"
+    },
+    {
+      "method": "server.game_result.list",
+      "request": "./rpc/server.json#/components/schemas/ServerGameResultListRequest",
+      "response": "./rpc/server.json#/components/schemas/ServerGameResultListResponse"
+    },
+    {
+      "method": "server.game_result.get",
+      "request": "./rpc/server.json#/components/schemas/ServerGameResultGetRequest",
+      "response": "./rpc/server.json#/components/schemas/ServerGameResultGetResponse"
+    },
+    {
+      "method": "server.reward_grant.list",
+      "request": "./rpc/server.json#/components/schemas/ServerRewardGrantListRequest",
+      "response": "./rpc/server.json#/components/schemas/ServerRewardGrantListResponse"
+    },
+    {
+      "method": "server.reward_grant.get",
+      "request": "./rpc/server.json#/components/schemas/ServerRewardGrantGetRequest",
+      "response": "./rpc/server.json#/components/schemas/ServerRewardGrantGetResponse"
     }
   ]
 }

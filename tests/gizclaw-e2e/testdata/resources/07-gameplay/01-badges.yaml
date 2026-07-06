@@ -1,8 +1,0 @@
----
-apiVersion: gizclaw.admin/v1alpha1
-kind: Badge
-metadata:
-  name: founder
-spec:
-  name: Founder
-  description: Early user badge

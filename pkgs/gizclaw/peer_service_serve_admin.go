@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"io/fs"
 	"net/http"
 
 	"github.com/gofiber/fiber/v2"
@@ -18,8 +17,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/device/firmware"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/gameplay/badge"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/gameplay/petspecies"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/gameplay"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/contact"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/friend"
@@ -28,7 +26,6 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/resourcemanager"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizhttp"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
 type adminService struct {
@@ -40,11 +37,11 @@ type adminService struct {
 	providertenants.ProviderTenantsAdminService
 	workspace.WorkspaceAdminService
 	workflow.WorkflowAdminService
-	PetSpecies      *petspecies.Server
-	Badges          *badge.Server
+	gameplay.CatalogAdminService
 	Contacts        *contact.Server
 	Friends         *friend.Server
 	FriendGroups    *friendgroup.Server
+	Gameplay        *gameplay.Runtime
 	ACL             *acl.Server
 	ResourceManager *resourcemanager.Manager
 }
@@ -67,137 +64,6 @@ func (s *PeerService) serveAdmin(conn giznet.Conn) error {
 		_ = conn.Close()
 	}()
 	return server.Serve()
-}
-
-func (s *adminService) UploadPetSpeciesPixa(ctx context.Context, request adminservice.UploadPetSpeciesPixaRequestObject) (adminservice.UploadPetSpeciesPixaResponseObject, error) {
-	if s == nil || s.PetSpecies == nil {
-		return adminservice.UploadPetSpeciesPixa500JSONResponse(apitypes.NewErrorResponse("PET_SPECIES_SERVICE_NOT_CONFIGURED", "pet species service is not configured")), nil
-	}
-	item, err := s.PetSpecies.UploadPixa(ctx, request.Id, request.Body)
-	if err != nil {
-		status, body := assetError(err)
-		switch status {
-		case http.StatusNotFound:
-			return adminservice.UploadPetSpeciesPixa404JSONResponse(body), nil
-		case http.StatusInternalServerError:
-			return adminservice.UploadPetSpeciesPixa500JSONResponse(body), nil
-		default:
-			return adminservice.UploadPetSpeciesPixa400JSONResponse(body), nil
-		}
-	}
-	return adminservice.UploadPetSpeciesPixa200JSONResponse(item), nil
-}
-
-func (s *adminService) DownloadPetSpeciesPixa(ctx context.Context, request adminservice.DownloadPetSpeciesPixaRequestObject) (adminservice.DownloadPetSpeciesPixaResponseObject, error) {
-	if s == nil || s.PetSpecies == nil {
-		return adminservice.DownloadPetSpeciesPixa500JSONResponse(apitypes.NewErrorResponse("PET_SPECIES_SERVICE_NOT_CONFIGURED", "pet species service is not configured")), nil
-	}
-	r, err := s.PetSpecies.DownloadPixa(ctx, request.Id)
-	if err != nil {
-		status, body := assetError(err)
-		switch status {
-		case http.StatusNotFound:
-			return adminservice.DownloadPetSpeciesPixa404JSONResponse(body), nil
-		case http.StatusInternalServerError:
-			return adminservice.DownloadPetSpeciesPixa500JSONResponse(body), nil
-		default:
-			return adminservice.DownloadPetSpeciesPixa400JSONResponse(body), nil
-		}
-	}
-	return adminservice.DownloadPetSpeciesPixa200ApplicationoctetStreamResponse{Body: r}, nil
-}
-
-func (s *adminService) ListPetSpecies(ctx context.Context, request adminservice.ListPetSpeciesRequestObject) (adminservice.ListPetSpeciesResponseObject, error) {
-	if s == nil || s.PetSpecies == nil {
-		return adminservice.ListPetSpecies500JSONResponse(apitypes.NewErrorResponse("PET_SPECIES_SERVICE_NOT_CONFIGURED", "pet species service is not configured")), nil
-	}
-	cursor := ""
-	if request.Params.Cursor != nil {
-		cursor = *request.Params.Cursor
-	}
-	limit := 0
-	if request.Params.Limit != nil {
-		limit = int(*request.Params.Limit)
-	}
-	items, hasNext, nextCursor, err := s.PetSpecies.List(ctx, cursor, limit)
-	if err != nil {
-		return adminservice.ListPetSpecies500JSONResponse(apitypes.NewErrorResponse("PET_SPECIES_LIST_FAILED", err.Error())), nil
-	}
-	return adminservice.ListPetSpecies200JSONResponse(adminservice.PetSpeciesList{
-		HasNext:    hasNext,
-		Items:      items,
-		NextCursor: nextCursor,
-	}), nil
-}
-
-func (s *adminService) UploadBadgeIcon(ctx context.Context, request adminservice.UploadBadgeIconRequestObject) (adminservice.UploadBadgeIconResponseObject, error) {
-	if s == nil || s.Badges == nil {
-		return adminservice.UploadBadgeIcon500JSONResponse(apitypes.NewErrorResponse("BADGE_SERVICE_NOT_CONFIGURED", "badge service is not configured")), nil
-	}
-	item, err := s.Badges.UploadIcon(ctx, request.Id, request.Body)
-	if err != nil {
-		status, body := assetError(err)
-		switch status {
-		case http.StatusNotFound:
-			return adminservice.UploadBadgeIcon404JSONResponse(body), nil
-		case http.StatusInternalServerError:
-			return adminservice.UploadBadgeIcon500JSONResponse(body), nil
-		default:
-			return adminservice.UploadBadgeIcon400JSONResponse(body), nil
-		}
-	}
-	return adminservice.UploadBadgeIcon200JSONResponse(item), nil
-}
-
-func (s *adminService) DownloadBadgeIcon(ctx context.Context, request adminservice.DownloadBadgeIconRequestObject) (adminservice.DownloadBadgeIconResponseObject, error) {
-	if s == nil || s.Badges == nil {
-		return adminservice.DownloadBadgeIcon500JSONResponse(apitypes.NewErrorResponse("BADGE_SERVICE_NOT_CONFIGURED", "badge service is not configured")), nil
-	}
-	r, err := s.Badges.DownloadIcon(ctx, request.Id)
-	if err != nil {
-		status, body := assetError(err)
-		switch status {
-		case http.StatusNotFound:
-			return adminservice.DownloadBadgeIcon404JSONResponse(body), nil
-		case http.StatusInternalServerError:
-			return adminservice.DownloadBadgeIcon500JSONResponse(body), nil
-		default:
-			return adminservice.DownloadBadgeIcon400JSONResponse(body), nil
-		}
-	}
-	return adminservice.DownloadBadgeIcon200ApplicationoctetStreamResponse{Body: r}, nil
-}
-
-func (s *adminService) ListBadges(ctx context.Context, request adminservice.ListBadgesRequestObject) (adminservice.ListBadgesResponseObject, error) {
-	if s == nil || s.Badges == nil {
-		return adminservice.ListBadges500JSONResponse(apitypes.NewErrorResponse("BADGE_SERVICE_NOT_CONFIGURED", "badge service is not configured")), nil
-	}
-	cursor := ""
-	if request.Params.Cursor != nil {
-		cursor = *request.Params.Cursor
-	}
-	limit := 0
-	if request.Params.Limit != nil {
-		limit = int(*request.Params.Limit)
-	}
-	items, hasNext, nextCursor, err := s.Badges.List(ctx, cursor, limit)
-	if err != nil {
-		return adminservice.ListBadges500JSONResponse(apitypes.NewErrorResponse("BADGE_LIST_FAILED", err.Error())), nil
-	}
-	return adminservice.ListBadges200JSONResponse(adminservice.BadgeList{
-		HasNext:    hasNext,
-		Items:      items,
-		NextCursor: nextCursor,
-	}), nil
-}
-
-func assetError(err error) (int, apitypes.ErrorResponse) {
-	switch {
-	case errors.Is(err, kv.ErrNotFound), errors.Is(err, fs.ErrNotExist):
-		return http.StatusNotFound, apitypes.NewErrorResponse("ASSET_NOT_FOUND", err.Error())
-	default:
-		return http.StatusBadRequest, apitypes.NewErrorResponse("INVALID_ASSET", err.Error())
-	}
 }
 
 func (s *adminService) ApplyResource(ctx context.Context, request adminservice.ApplyResourceRequestObject) (adminservice.ApplyResourceResponseObject, error) {

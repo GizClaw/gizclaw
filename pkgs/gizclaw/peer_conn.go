@@ -262,12 +262,10 @@ func (h *PeerConn) peerResources() *peerresource.Server {
 		Models:       manager.Models,
 		Credentials:  manager.Credentials,
 		Voices:       manager.Voices,
-		Pets:         manager.Pets,
-		Wallets:      manager.Wallets,
-		Rewards:      manager.Rewards,
 		Contacts:     manager.Contacts,
 		Friends:      manager.Friends,
 		FriendGroups: manager.FriendGroups,
+		Gameplay:     manager.Gameplay,
 	}
 }
 

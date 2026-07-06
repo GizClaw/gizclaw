@@ -13,15 +13,14 @@ const (
 	SubjectKindView      = apitypes.ACLSubjectKindView
 	SubjectKindAllPeers  = apitypes.ACLSubjectKindAllPeers
 
-	ResourceKindWorkspace  = apitypes.ACLResourceKindWorkspace
-	ResourceKindWorkflow   = apitypes.ACLResourceKindWorkflow
-	ResourceKindVoice      = apitypes.ACLResourceKindVoice
-	ResourceKindCredential = apitypes.ACLResourceKindCredential
-	ResourceKindModel      = apitypes.ACLResourceKindModel
-	ResourceKindView       = apitypes.ACLResourceKindView
-	ResourceKindPetSpecies = apitypes.ACLResourceKindPetSpecies
-	ResourceKindBadge      = apitypes.ACLResourceKindBadge
-	ResourceKindFirmware   = apitypes.ACLResourceKindFirmware
+	ResourceKindWorkspace   = apitypes.ACLResourceKindWorkspace
+	ResourceKindWorkflow    = apitypes.ACLResourceKindWorkflow
+	ResourceKindVoice       = apitypes.ACLResourceKindVoice
+	ResourceKindCredential  = apitypes.ACLResourceKindCredential
+	ResourceKindModel       = apitypes.ACLResourceKindModel
+	ResourceKindView        = apitypes.ACLResourceKindView
+	ResourceKindFirmware    = apitypes.ACLResourceKindFirmware
+	ResourceKindGameRuleset = apitypes.ACLResourceKindGameruleset
 
 	CollectionResourceID = "__collection__"
 )
@@ -132,23 +131,16 @@ func VoiceResource(id string) apitypes.ACLResource {
 	}
 }
 
-func PetSpeciesResource(id string) apitypes.ACLResource {
-	return apitypes.ACLResource{
-		Kind: ResourceKindPetSpecies,
-		Id:   id,
-	}
-}
-
-func BadgeResource(id string) apitypes.ACLResource {
-	return apitypes.ACLResource{
-		Kind: ResourceKindBadge,
-		Id:   id,
-	}
-}
-
 func FirmwareResource(id string) apitypes.ACLResource {
 	return apitypes.ACLResource{
 		Kind: ResourceKindFirmware,
+		Id:   id,
+	}
+}
+
+func GameRulesetResource(id string) apitypes.ACLResource {
+	return apitypes.ACLResource{
+		Kind: ResourceKindGameRuleset,
 		Id:   id,
 	}
 }

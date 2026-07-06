@@ -18,9 +18,8 @@
           "credential",
           "model",
           "view",
-          "pet_species",
-          "badge",
-          "firmware"
+          "firmware",
+          "gameruleset"
         ]
       },
       "ACLResource": {

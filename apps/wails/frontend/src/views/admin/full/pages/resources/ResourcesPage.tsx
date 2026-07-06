@@ -1,23 +1,22 @@
 import { Download, FileJson, RefreshCw, Save, Search, Trash2, Upload } from "lucide-react";
-import type { ChangeEvent } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
+import { validatePixa, type PixaAsset } from "@gizclaw/pixa";
 
 import {
   applyResource,
   deleteResource,
-  downloadBadgeIcon,
-  downloadPetSpeciesPixa,
+  downloadBadgeDefPixa,
+  downloadPetDefPixa,
   getResource,
   putResource,
-  uploadBadgeIcon,
-  uploadPetSpeciesPixa,
+  uploadBadgeDefPixa,
+  uploadPetDefPixa,
   type ApplyResult,
-  type Badge,
-  type PetSpecies,
   type Resource,
   type ResourceKind,
 } from "@gizclaw/gizclaw/admin";
+import { PixaPreviewDialog } from "@/components/pixa/PixaPreviewDialog";
 import { Badge as BadgePill } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -37,6 +36,10 @@ const resourceKinds: ResourceKind[] = [
   "ACLRole",
   "ACLView",
   "Firmware",
+  "GameRuleset",
+  "PetDef",
+  "BadgeDef",
+  "GameDef",
   "Model",
   "DashScopeTenant",
   "GeminiTenant",
@@ -47,12 +50,8 @@ const resourceKinds: ResourceKind[] = [
   "Workflow",
   "Workspace",
   "PeerConfig",
-  "PetSpecies",
-  "Badge",
   "ResourceList",
 ];
-
-const assetKinds = new Set<ResourceKind>(["PetSpecies", "Badge"]);
 
 type AdminResourceJSON = {
   apiVersion: "gizclaw.admin/v1alpha1";
@@ -65,6 +64,13 @@ type AdminResourceJSON = {
   spec: unknown;
 };
 
+type PixaPreviewState = {
+  asset: PixaAsset;
+  blob?: Blob;
+  mode: "petdef" | "badgedef";
+  pendingUpload: boolean;
+};
+
 export function ResourcesPage(): JSX.Element {
   const [searchParams, setSearchParams] = useSearchParams();
   const [kind, setKind] = useState<ResourceKind>(() => parseResourceKind(searchParams.get("kind")) ?? "ResourceList");
@@ -72,14 +78,13 @@ export function ResourcesPage(): JSX.Element {
   const [resource, setResource] = useState<Resource | null>(null);
   const [resourceText, setResourceText] = useState(() => JSON.stringify(resourceTemplate(kind, name), null, 2));
   const [applyResult, setApplyResult] = useState<ApplyResult | null>(null);
-  const [assetResult, setAssetResult] = useState<Badge | PetSpecies | null>(null);
   const [loading, setLoading] = useState(false);
   const [acting, setActing] = useState("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [pixaPreview, setPixaPreview] = useState<PixaPreviewState | null>(null);
 
   const canAddressResource = name.trim() !== "" && kind !== "ResourceList";
-  const assetEnabled = assetKinds.has(kind) && name.trim() !== "";
 
   const syncURL = useCallback(
     (nextKind: ResourceKind, nextName: string) => {
@@ -96,7 +101,6 @@ export function ResourcesPage(): JSX.Element {
   const resetTemplate = useCallback((nextKind: ResourceKind, nextName: string) => {
     setResource(null);
     setApplyResult(null);
-    setAssetResult(null);
     setResourceText(JSON.stringify(resourceTemplate(nextKind, nextName), null, 2));
   }, []);
 
@@ -123,7 +127,6 @@ export function ResourcesPage(): JSX.Element {
     setError("");
     setNotice("");
     setApplyResult(null);
-    setAssetResult(null);
     try {
       const next = await expectData(getResource({ path: { kind, name: name.trim() } }));
       setResource(next);
@@ -184,7 +187,6 @@ export function ResourcesPage(): JSX.Element {
     setError("");
     setNotice("");
     setApplyResult(null);
-    setAssetResult(null);
     try {
       const body = parseResourceText();
       const result = await expectData(applyResource({ body: body as Resource }));
@@ -207,7 +209,6 @@ export function ResourcesPage(): JSX.Element {
     setError("");
     setNotice("");
     setApplyResult(null);
-    setAssetResult(null);
     try {
       if (kind === "ResourceList") {
         throw new Error("Use Apply for ResourceList bundles.");
@@ -230,7 +231,6 @@ export function ResourcesPage(): JSX.Element {
     setError("");
     setNotice("");
     setApplyResult(null);
-    setAssetResult(null);
     try {
       if (!canAddressResource) {
         throw new Error("Enter a resource name first.");
@@ -246,23 +246,37 @@ export function ResourcesPage(): JSX.Element {
     }
   };
 
-  const uploadAsset = async (event: ChangeEvent<HTMLInputElement>): Promise<void> => {
-    const file = event.target.files?.[0] ?? null;
-    event.target.value = "";
-    if (file === null) {
+  const readPixaFile = async (file: File): Promise<void> => {
+    const mode = kind === "PetDef" ? "petdef" : kind === "BadgeDef" ? "badgedef" : null;
+    if (mode == null) {
       return;
     }
-    setActing("asset-upload");
     setError("");
     setNotice("");
-    setAssetResult(null);
     try {
-      const next =
-        kind === "PetSpecies"
-          ? await expectData(uploadPetSpeciesPixa({ body: file, path: { id: name.trim() } }))
-          : await expectData(uploadBadgeIcon({ body: file, path: { id: name.trim() } }));
-      setAssetResult(next);
-      setNotice(`Uploaded ${kind === "PetSpecies" ? ".pixa" : "icon"} for ${name.trim()}.`);
+      const buffer = await file.arrayBuffer();
+      const asset = validatePixa(buffer, mode);
+      setPixaPreview({ asset, blob: new Blob([buffer], { type: "application/octet-stream" }), mode, pendingUpload: true });
+    } catch (err) {
+      setError(toMessage(err));
+    }
+  };
+
+  const uploadPreviewPixa = async (): Promise<void> => {
+    if (pixaPreview?.blob == null || !canAddressResource) {
+      return;
+    }
+    setActing("pixa-upload");
+    setError("");
+    setNotice("");
+    try {
+      if (pixaPreview.mode === "petdef") {
+        await expectData(uploadPetDefPixa({ body: pixaPreview.blob, path: { id: name.trim() } }));
+      } else {
+        await expectData(uploadBadgeDefPixa({ body: pixaPreview.blob, path: { id: name.trim() } }));
+      }
+      setPixaPreview(null);
+      setNotice(`${kind} ${name.trim()} pixa uploaded.`);
       await load();
     } catch (err) {
       setError(toMessage(err));
@@ -271,18 +285,18 @@ export function ResourcesPage(): JSX.Element {
     }
   };
 
-  const downloadAsset = async (): Promise<void> => {
-    setActing("asset-download");
+  const previewSavedPixa = async (): Promise<void> => {
+    if (!canAddressResource || (kind !== "PetDef" && kind !== "BadgeDef")) {
+      return;
+    }
+    const mode = kind === "PetDef" ? "petdef" : "badgedef";
+    setActing("pixa-download");
     setError("");
     setNotice("");
-    setAssetResult(null);
     try {
-      const blob =
-        kind === "PetSpecies"
-          ? await expectData(downloadPetSpeciesPixa({ path: { id: name.trim() } }))
-          : await expectData(downloadBadgeIcon({ path: { id: name.trim() } }));
-      saveBlob(blob, `${name.trim()}${kind === "PetSpecies" ? ".pixa" : ".asset"}`);
-      setNotice(`Downloaded ${kind === "PetSpecies" ? ".pixa" : "icon"} for ${name.trim()}.`);
+      const blob = await expectData(kind === "PetDef" ? downloadPetDefPixa({ path: { id: name.trim() } }) : downloadBadgeDefPixa({ path: { id: name.trim() } }));
+      const asset = validatePixa(await blob.arrayBuffer(), mode);
+      setPixaPreview({ asset, mode, pendingUpload: false });
     } catch (err) {
       setError(toMessage(err));
     } finally {
@@ -291,6 +305,7 @@ export function ResourcesPage(): JSX.Element {
   };
 
   const selectedSummary = useMemo(() => resourceSummary(kind), [kind]);
+  const supportsPixa = kind === "PetDef" || kind === "BadgeDef";
 
   return (
     <div className="flex flex-col gap-6">
@@ -355,23 +370,37 @@ export function ResourcesPage(): JSX.Element {
               </div>
             </FormField>
 
-            {assetKinds.has(kind) ? (
-              <FormField description="Assets require an existing PetSpecies or Badge resource." label={kind === "PetSpecies" ? "PIXA asset" : "Badge icon"}>
-                <div className="flex flex-wrap gap-2">
-                  <Button asChild className="min-w-fit shrink-0 whitespace-nowrap" disabled={!assetEnabled || acting !== ""} type="button" variant="outline">
-                    <label>
-                      <Upload className="size-4" />
-                      Upload
-                      <input className="sr-only" disabled={!assetEnabled || acting !== ""} onChange={(event) => void uploadAsset(event)} type="file" />
-                    </label>
-                  </Button>
-                  <Button className="min-w-fit shrink-0 whitespace-nowrap" disabled={!assetEnabled || acting !== ""} onClick={() => void downloadAsset()} type="button" variant="outline">
+            {supportsPixa ? (
+              <div className="rounded-md border p-3">
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-medium">Pixa</p>
+                    <p className="text-xs text-muted-foreground">{kind === "PetDef" ? "Requires an idle clip." : "Requires a single-frame icon clip."}</p>
+                  </div>
+                  <Button disabled={!canAddressResource || acting !== ""} onClick={() => void previewSavedPixa()} size="icon" type="button" variant="outline">
                     <Download className="size-4" />
-                    Download
                   </Button>
                 </div>
-              </FormField>
+                <label className="flex cursor-pointer items-center justify-center gap-2 rounded-md border border-dashed px-3 py-4 text-sm text-muted-foreground hover:bg-muted/50">
+                  <Upload className="size-4" />
+                  Upload pixa
+                  <input
+                    accept=".pixa,application/octet-stream"
+                    className="sr-only"
+                    disabled={!canAddressResource || acting !== ""}
+                    onChange={(event) => {
+                      const file = event.target.files?.[0];
+                      event.target.value = "";
+                      if (file != null) {
+                        void readPixaFile(file);
+                      }
+                    }}
+                    type="file"
+                  />
+                </label>
+              </div>
             ) : null}
+
           </CardContent>
         </Card>
 
@@ -419,18 +448,18 @@ export function ResourcesPage(): JSX.Element {
         </Card>
       ) : null}
 
-      {assetResult !== null ? (
-        <Card>
-          <CardHeader>
-            <CardTitle>Asset Result</CardTitle>
-            <CardDescription>Resource metadata returned after the asset upload.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <pre className="max-h-[24rem] overflow-auto rounded-md bg-muted p-4 text-xs leading-5">{JSON.stringify(assetResult, null, 2)}</pre>
-          </CardContent>
-        </Card>
-      ) : resource === null && !loading ? (
+      {resource === null && !loading ? (
         <EmptyState description="Load an existing resource or edit the draft JSON and apply it." title="No resource loaded" />
+      ) : null}
+      {pixaPreview != null ? (
+        <PixaPreviewDialog
+          asset={pixaPreview.asset}
+          confirmLabel="Upload Pixa"
+          description={`${pixaPreview.mode === "petdef" ? "PetDef" : "BadgeDef"} pixa preview`}
+          onClose={() => setPixaPreview(null)}
+          onConfirm={pixaPreview.pendingUpload ? () => void uploadPreviewPixa() : undefined}
+          title={pixaPreview.pendingUpload ? "Preview Upload" : "Saved Pixa"}
+        />
       ) : null}
     </div>
   );
@@ -465,13 +494,34 @@ function resourceNamePlaceholder(kind: ResourceKind): string {
 
 function resourceSpecTemplate(kind: ResourceKind): unknown {
   switch (kind) {
-    case "Badge":
-    case "PetSpecies":
-      return { name: "" };
     case "ResourceList":
       return { items: [] };
     case "PeerConfig":
       return {};
+    case "GameRuleset":
+      return {
+        enabled: true,
+        points: { initial_balance: 100 },
+        pet_pool: [{ petdef_id: "petdef-basic", weight: 100, adoption_cost: 10 }],
+        badge_def_ids: ["badge-basic"],
+        game_def_ids: ["game-basic"],
+        drive: {
+          action_costs: { bath: 5 },
+          action_rewards: { bath: { pet_exp_delta: 10, life_delta: { clean: 20 } } },
+          game_rewards: { "game-basic": { points_delta: 10, pet_exp_delta: 20, badge_exp_delta: { "badge-basic": 100 } } },
+          life_decay_per_hour: { hunger: 1 },
+        },
+      };
+    case "PetDef":
+      return {
+        display_name: "Starter Pet",
+        initial_life: { hunger: 100, clean: 100 },
+        initial_ability: { play: 1 },
+      };
+    case "BadgeDef":
+      return { display_name: "Starter Badge" };
+    case "GameDef":
+      return { display_name: "Starter Game", outcomes: ["win", "lose"] };
     default:
       return {};
   }
@@ -481,12 +531,16 @@ function resourceSummary(kind: ResourceKind): string {
   switch (kind) {
     case "ResourceList":
       return "Apply multiple resources in one request. The server rejects get/delete for ResourceList.";
-    case "PetSpecies":
-      return "Pet species metadata plus .pixa asset upload/download.";
-    case "Badge":
-      return "Badge metadata plus icon upload/download.";
     case "PeerConfig":
       return "Desired peer configuration keyed by peer public key.";
+    case "GameRuleset":
+      return "Admin-managed gameplay ruleset for pet pools, point costs, drive rewards, and game rewards.";
+    case "PetDef":
+      return "Admin-managed pet definition used by ruleset adoption pools.";
+    case "BadgeDef":
+      return "Admin-managed badge definition that peer badge progress references.";
+    case "GameDef":
+      return "Admin-managed playable game definition used by pet drive game results.";
     default:
       return "Generic declarative resource backed by the admin resource API.";
   }
@@ -494,15 +548,4 @@ function resourceSummary(kind: ResourceKind): string {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function saveBlob(blob: Blob | File, filename: string): void {
-  const url = window.URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = filename;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  window.URL.revokeObjectURL(url);
 }

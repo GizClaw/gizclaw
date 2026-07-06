@@ -23,6 +23,10 @@ storage:
     kind: sql
     sqlite:
       dir: data/history.sqlite
+  gameplay-db:
+    kind: sql
+    sqlite:
+      dir: data/gameplay.sqlite
 stores:
   peers:
     kind: keyvalue
@@ -65,33 +69,6 @@ stores:
   history:
     kind: sql
     storage: history-db
-  pet-species:
-    kind: keyvalue
-    storage: memory
-    prefix: pet-species
-  pet-species-assets:
-    kind: objectstore
-    storage: local-files
-    prefix: pet-species
-  badges:
-    kind: keyvalue
-    storage: memory
-    prefix: badges
-  badge-assets:
-    kind: objectstore
-    storage: local-files
-    prefix: badges
-  pets:
-    kind: keyvalue
-    storage: memory
-    prefix: pets
-  rewards:
-    kind: keyvalue
-    storage: memory
-    prefix: rewards
-  wallets:
-    kind: sql
-    storage: history-db
   contacts:
     kind: keyvalue
     storage: memory
@@ -128,6 +105,29 @@ stores:
     kind: objectstore
     storage: local-files
     prefix: friend-group-messages
+  game-rulesets:
+    kind: keyvalue
+    storage: memory
+    prefix: game-rulesets
+  pet-defs:
+    kind: keyvalue
+    storage: memory
+    prefix: pet-defs
+  badge-defs:
+    kind: keyvalue
+    storage: memory
+    prefix: badge-defs
+  game-defs:
+    kind: keyvalue
+    storage: memory
+    prefix: game-defs
+  gameplay-assets:
+    kind: objectstore
+    storage: local-files
+    prefix: gameplay
+  gameplay-db:
+    kind: sql
+    storage: gameplay-db
 peers:
   store: peers
 credentials:
@@ -151,11 +151,3 @@ friend_groups:
   message_max_ttl: 7d
   message_cleanup_interval: 100ms
   message_max_audio_bytes: 67108864
-system_tasks:
-  reward_claim:
-    generator: model/reward-claim
-    cooldown: 1ms
-  pet_action:
-    generator: model/pet-action
-gameplay:
-  pet_adopt_point_cost: -1

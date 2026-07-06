@@ -222,18 +222,6 @@ export type DashScopeTenantList = {
     items: Array<DashScopeTenant>;
 };
 
-export type PetSpeciesList = {
-    has_next: boolean;
-    next_cursor?: string | null;
-    items: Array<PetSpecies>;
-};
-
-export type BadgeList = {
-    has_next: boolean;
-    next_cursor?: string | null;
-    items: Array<Badge>;
-};
-
 export type AdminFriendObject = {
     owner_public_key: string;
     id: string;
@@ -309,6 +297,50 @@ export type AdminFriendGroupInviteTokenPutRequest = {
     expires_at: string;
 };
 
+export type GameRulesetList = {
+    has_next: boolean;
+    next_cursor?: string | null;
+    items: Array<GameRuleset>;
+};
+
+export type PetDefList = {
+    has_next: boolean;
+    next_cursor?: string | null;
+    items: Array<PetDef>;
+};
+
+export type BadgeDefList = {
+    has_next: boolean;
+    next_cursor?: string | null;
+    items: Array<BadgeDef>;
+};
+
+export type GameDefList = {
+    has_next: boolean;
+    next_cursor?: string | null;
+    items: Array<GameDef>;
+};
+
+export type GameRulesetUpsert = {
+    name: string;
+    spec: GameRulesetSpec;
+};
+
+export type PetDefUpsert = {
+    id: string;
+    spec: PetDefSpec;
+};
+
+export type BadgeDefUpsert = {
+    id: string;
+    spec: BadgeDefSpec;
+};
+
+export type GameDefUpsert = {
+    id: string;
+    spec: GameDefSpec;
+};
+
 export type AclPolicyBindingResource = {
     apiVersion: ResourceApiVersion;
     kind: 'ACLPolicyBinding';
@@ -330,11 +362,11 @@ export type AclViewResource = {
     spec: AclViewSpec;
 };
 
-export type BadgeResource = {
+export type BadgeDefResource = {
     apiVersion: ResourceApiVersion;
-    kind: 'Badge';
+    kind: 'BadgeDef';
     metadata: ResourceMetadata;
-    spec: BadgeSpec;
+    spec: BadgeDefSpec;
 };
 
 export type ContactResource = {
@@ -457,6 +489,20 @@ export type FriendGroupMemberSpec = {
     role: FriendGroupMemberRole;
 };
 
+export type GameDefResource = {
+    apiVersion: ResourceApiVersion;
+    kind: 'GameDef';
+    metadata: ResourceMetadata;
+    spec: GameDefSpec;
+};
+
+export type GameRulesetResource = {
+    apiVersion: ResourceApiVersion;
+    kind: 'GameRuleset';
+    metadata: ResourceMetadata;
+    spec: GameRulesetSpec;
+};
+
 export type GeminiTenantResource = {
     apiVersion: ResourceApiVersion;
     kind: 'GeminiTenant';
@@ -492,11 +538,11 @@ export type PeerConfigResource = {
     spec: Configuration;
 };
 
-export type PetSpeciesResource = {
+export type PetDefResource = {
     apiVersion: ResourceApiVersion;
-    kind: 'PetSpecies';
+    kind: 'PetDef';
     metadata: ResourceMetadata;
-    spec: PetSpeciesSpec;
+    spec: PetDefSpec;
 };
 
 /**
@@ -557,10 +603,14 @@ export type Resource = ({
 } & WorkspaceResource) | ({
     kind: 'PeerConfigResource';
 } & PeerConfigResource) | ({
-    kind: 'PetSpeciesResource';
-} & PetSpeciesResource) | ({
-    kind: 'BadgeResource';
-} & BadgeResource) | ({
+    kind: 'GameRulesetResource';
+} & GameRulesetResource) | ({
+    kind: 'PetDefResource';
+} & PetDefResource) | ({
+    kind: 'BadgeDefResource';
+} & BadgeDefResource) | ({
+    kind: 'GameDefResource';
+} & GameDefResource) | ({
     kind: 'ResourceListResource';
 } & ResourceListResource);
 
@@ -572,7 +622,7 @@ export type ResourceApiVersion = 'gizclaw.admin/v1alpha1';
 /**
  * Declarative GizClaw resource kind.
  */
-export type ResourceKind = 'Credential' | 'ACLPolicyBinding' | 'ACLRole' | 'ACLView' | 'Firmware' | 'Contact' | 'Friend' | 'FriendGroup' | 'FriendGroupInviteToken' | 'FriendGroupMember' | 'Model' | 'DashScopeTenant' | 'GeminiTenant' | 'MiniMaxTenant' | 'OpenAITenant' | 'VolcTenant' | 'Voice' | 'Workflow' | 'Workspace' | 'PeerConfig' | 'ResourceList' | 'PetSpecies' | 'Badge';
+export type ResourceKind = 'Credential' | 'ACLPolicyBinding' | 'ACLRole' | 'ACLView' | 'Firmware' | 'Contact' | 'Friend' | 'FriendGroup' | 'FriendGroupInviteToken' | 'FriendGroupMember' | 'Model' | 'DashScopeTenant' | 'GeminiTenant' | 'MiniMaxTenant' | 'OpenAITenant' | 'VolcTenant' | 'Voice' | 'Workflow' | 'Workspace' | 'PeerConfig' | 'GameRuleset' | 'PetDef' | 'BadgeDef' | 'GameDef' | 'ResourceList';
 
 export type ResourceMetadata = {
     /**
@@ -725,7 +775,7 @@ export type AclResource = {
 /**
  * ACL resource identity kind.
  */
-export type AclResourceKind = 'workspace' | 'workflow' | 'voice' | 'credential' | 'model' | 'view' | 'pet_species' | 'badge' | 'firmware';
+export type AclResourceKind = 'workspace' | 'workflow' | 'voice' | 'credential' | 'model' | 'view' | 'firmware' | 'gameruleset';
 
 export type AclRole = {
     name: string;
@@ -763,21 +813,6 @@ export type AclView = {
 
 export type AclViewSpec = {
     description?: string;
-};
-
-export type Badge = {
-    id: string;
-    name: string;
-    description: string;
-    icon_path: string;
-    created_at: string;
-    updated_at: string;
-};
-
-export type BadgeSpec = {
-    name: string;
-    description: string;
-    icon_path?: string;
 };
 
 export type Configuration = {
@@ -997,6 +1032,236 @@ export type FirmwareSpecSlots = {
     beta: FirmwareSpecSlot;
     develop: FirmwareSpecSlot;
     pending: FirmwareSpecSlot;
+};
+
+export type Badge = {
+    id: string;
+    owner_public_key: string;
+    badge_def_id: string;
+    exp: number;
+    level: number;
+    active: boolean;
+    progress: number;
+    created_at: string;
+    updated_at: string;
+};
+
+export type BadgeDef = {
+    id: string;
+    spec: BadgeDefSpec;
+    pixa_path?: string;
+    created_at: string;
+    updated_at: string;
+};
+
+export type BadgeDefSpec = {
+    display_name: string;
+    description?: string;
+    tags?: Array<string>;
+    metadata?: GameplayMetadata;
+};
+
+export type BadgeListResponse = {
+    items: Array<Badge>;
+    has_next: boolean;
+    next_cursor?: string;
+};
+
+export type GameDef = {
+    id: string;
+    spec: GameDefSpec;
+    created_at: string;
+    updated_at: string;
+};
+
+export type GameDefSpec = {
+    display_name: string;
+    description?: string;
+    score_schema?: GameplayMetadata;
+    outcomes?: Array<string>;
+    tags?: Array<string>;
+    metadata?: GameplayMetadata;
+};
+
+export type GameResult = {
+    id: string;
+    owner_public_key: string;
+    ruleset_name: string;
+    pet_id: string;
+    game_def_id: string;
+    score?: number;
+    max_score?: number;
+    difficulty?: string;
+    outcome?: string;
+    duration_ms?: number;
+    idempotency_key?: string;
+    payload?: GameplayMetadata;
+    occurred_at: string;
+    created_at: string;
+};
+
+export type GameResultListResponse = {
+    items: Array<GameResult>;
+    has_next: boolean;
+    next_cursor?: string;
+};
+
+export type GameRewardSpec = {
+    points_delta?: number;
+    pet_exp_delta?: number;
+    badge_exp_delta?: {
+        [key: string]: number;
+    };
+    life_delta?: StatMap;
+    ability_delta?: StatMap;
+};
+
+export type GameRuleset = {
+    name: string;
+    spec: GameRulesetSpec;
+    created_at: string;
+    updated_at: string;
+};
+
+export type GameRulesetDriveSpec = {
+    action_costs?: {
+        [key: string]: number;
+    };
+    default_reward?: GameRewardSpec;
+    action_rewards?: {
+        [key: string]: GameRewardSpec;
+    };
+    game_rewards?: {
+        [key: string]: GameRewardSpec;
+    };
+    life_decay_per_hour?: StatMap;
+};
+
+export type GameRulesetPetPoolEntry = {
+    petdef_id: string;
+    weight: number;
+    rarity?: string;
+    adoption_cost?: number;
+    workflow_name?: string;
+};
+
+export type GameRulesetPointsSpec = {
+    initial_balance?: number;
+};
+
+export type GameRulesetSpec = {
+    enabled: boolean;
+    description?: string;
+    default_workflow_name?: string;
+    points?: GameRulesetPointsSpec;
+    pet_pool: Array<GameRulesetPetPoolEntry>;
+    badge_def_ids?: Array<string>;
+    game_def_ids?: Array<string>;
+    drive?: GameRulesetDriveSpec;
+    metadata?: GameplayMetadata;
+};
+
+export type GameplayMetadata = {
+    [key: string]: unknown;
+};
+
+export type Pet = {
+    id: string;
+    owner_public_key: string;
+    ruleset_name: string;
+    petdef_id: string;
+    display_name: string;
+    workspace_name: string;
+    workflow_name?: string;
+    life: StatMap;
+    ability: StatMap;
+    exp: number;
+    level: number;
+    last_active_at: string;
+    created_at: string;
+    updated_at: string;
+};
+
+export type PetDef = {
+    id: string;
+    spec: PetDefSpec;
+    pixa_path?: string;
+    created_at: string;
+    updated_at: string;
+};
+
+export type PetDefSpec = {
+    display_name: string;
+    description?: string;
+    workflow_name?: string;
+    initial_life?: StatMap;
+    initial_ability?: StatMap;
+    tags?: Array<string>;
+    metadata?: GameplayMetadata;
+};
+
+export type PetListResponse = {
+    items: Array<Pet>;
+    has_next: boolean;
+    next_cursor?: string;
+};
+
+export type PointsAccount = {
+    owner_public_key: string;
+    ruleset_name: string;
+    balance: number;
+    created_at: string;
+    updated_at: string;
+};
+
+export type PointsTransaction = {
+    id: string;
+    owner_public_key: string;
+    ruleset_name: string;
+    pet_id?: string;
+    game_result_id?: string;
+    reward_grant_id?: string;
+    delta: number;
+    balance_after: number;
+    reason: string;
+    source_type: string;
+    source_id: string;
+    created_at: string;
+};
+
+export type PointsTransactionListResponse = {
+    items: Array<PointsTransaction>;
+    has_next: boolean;
+    next_cursor?: string;
+};
+
+export type RewardGrant = {
+    id: string;
+    owner_public_key: string;
+    ruleset_name: string;
+    pet_id?: string;
+    game_result_id?: string;
+    points_delta: number;
+    pet_exp_delta: number;
+    badge_exp_delta: {
+        [key: string]: number;
+    };
+    life_delta?: StatMap;
+    ability_delta?: StatMap;
+    source_type: string;
+    source_id: string;
+    reason?: string;
+    created_at: string;
+};
+
+export type RewardGrantListResponse = {
+    items: Array<RewardGrant>;
+    has_next: boolean;
+    next_cursor?: string;
+};
+
+export type StatMap = {
+    [key: string]: number;
 };
 
 export type GeminiTenant = {
@@ -1230,31 +1495,6 @@ export type PeerRunHistoryListResponse = {
     has_next: boolean;
     next_cursor?: string;
     message?: string;
-};
-
-export type PetSpecies = {
-    id: string;
-    name: string;
-    pixa_path: string;
-    pixa_metadata: PixaMetadata;
-    created_at: string;
-    updated_at: string;
-};
-
-export type PixaMetadata = {
-    version: number;
-    canvas_width: number;
-    canvas_height: number;
-    color_count: number;
-    clip_count: number;
-    frame_count: number;
-    payload_bytes: number;
-    clip_names: Array<string>;
-};
-
-export type PetSpeciesSpec = {
-    name: string;
-    pixa_path?: string;
 };
 
 export type Registration = {
@@ -2776,158 +3016,6 @@ export type PutFriendGroupInviteTokenResponses = {
 };
 
 export type PutFriendGroupInviteTokenResponse = PutFriendGroupInviteTokenResponses[keyof PutFriendGroupInviteTokenResponses];
-
-export type DownloadPetSpeciesPixaData = {
-    body?: never;
-    path: {
-        /**
-         * Pet species id
-         */
-        id: string;
-    };
-    query?: never;
-    url: '/pet-species/{id}/pixa';
-};
-
-export type DownloadPetSpeciesPixaErrors = {
-    /**
-     * Invalid asset request
-     */
-    400: ErrorResponse;
-    /**
-     * Pet species or PIXA file not found
-     */
-    404: ErrorResponse;
-    /**
-     * Internal error
-     */
-    500: ErrorResponse;
-};
-
-export type DownloadPetSpeciesPixaError = DownloadPetSpeciesPixaErrors[keyof DownloadPetSpeciesPixaErrors];
-
-export type DownloadPetSpeciesPixaResponses = {
-    /**
-     * Raw PIXA file
-     */
-    200: Blob | File;
-};
-
-export type DownloadPetSpeciesPixaResponse = DownloadPetSpeciesPixaResponses[keyof DownloadPetSpeciesPixaResponses];
-
-export type UploadPetSpeciesPixaData = {
-    body: Blob | File;
-    path: {
-        /**
-         * Pet species id
-         */
-        id: string;
-    };
-    query?: never;
-    url: '/pet-species/{id}/pixa';
-};
-
-export type UploadPetSpeciesPixaErrors = {
-    /**
-     * Invalid PIXA file
-     */
-    400: ErrorResponse;
-    /**
-     * Pet species not found
-     */
-    404: ErrorResponse;
-    /**
-     * Internal error
-     */
-    500: ErrorResponse;
-};
-
-export type UploadPetSpeciesPixaError = UploadPetSpeciesPixaErrors[keyof UploadPetSpeciesPixaErrors];
-
-export type UploadPetSpeciesPixaResponses = {
-    /**
-     * Updated pet species metadata
-     */
-    200: PetSpecies;
-};
-
-export type UploadPetSpeciesPixaResponse = UploadPetSpeciesPixaResponses[keyof UploadPetSpeciesPixaResponses];
-
-export type DownloadBadgeIconData = {
-    body?: never;
-    path: {
-        /**
-         * Badge id
-         */
-        id: string;
-    };
-    query?: never;
-    url: '/badges/{id}/icon';
-};
-
-export type DownloadBadgeIconErrors = {
-    /**
-     * Invalid asset request
-     */
-    400: ErrorResponse;
-    /**
-     * Badge or icon file not found
-     */
-    404: ErrorResponse;
-    /**
-     * Internal error
-     */
-    500: ErrorResponse;
-};
-
-export type DownloadBadgeIconError = DownloadBadgeIconErrors[keyof DownloadBadgeIconErrors];
-
-export type DownloadBadgeIconResponses = {
-    /**
-     * Raw badge icon bytes
-     */
-    200: Blob | File;
-};
-
-export type DownloadBadgeIconResponse = DownloadBadgeIconResponses[keyof DownloadBadgeIconResponses];
-
-export type UploadBadgeIconData = {
-    body: Blob | File;
-    path: {
-        /**
-         * Badge id
-         */
-        id: string;
-    };
-    query?: never;
-    url: '/badges/{id}/icon';
-};
-
-export type UploadBadgeIconErrors = {
-    /**
-     * Invalid icon file
-     */
-    400: ErrorResponse;
-    /**
-     * Badge not found
-     */
-    404: ErrorResponse;
-    /**
-     * Internal error
-     */
-    500: ErrorResponse;
-};
-
-export type UploadBadgeIconError = UploadBadgeIconErrors[keyof UploadBadgeIconErrors];
-
-export type UploadBadgeIconResponses = {
-    /**
-     * Updated badge metadata
-     */
-    200: Badge;
-};
-
-export type UploadBadgeIconResponse = UploadBadgeIconResponses[keyof UploadBadgeIconResponses];
 
 export type ListAclViewsData = {
     body?: never;
@@ -6223,74 +6311,6 @@ export type GetPeerFriendResponses = {
 
 export type GetPeerFriendResponse = GetPeerFriendResponses[keyof GetPeerFriendResponses];
 
-export type ListPetSpeciesData = {
-    body?: never;
-    path?: never;
-    query?: {
-        /**
-         * Opaque cursor returned by the previous list response
-         */
-        cursor?: string;
-        /**
-         * Maximum number of items to return. Omitted or non-positive values use the default page size; values above 200 are clamped.
-         */
-        limit?: number;
-    };
-    url: '/pet-species';
-};
-
-export type ListPetSpeciesErrors = {
-    /**
-     * Internal error
-     */
-    500: ErrorResponse;
-};
-
-export type ListPetSpeciesError = ListPetSpeciesErrors[keyof ListPetSpeciesErrors];
-
-export type ListPetSpeciesResponses = {
-    /**
-     * List pet species
-     */
-    200: PetSpeciesList;
-};
-
-export type ListPetSpeciesResponse = ListPetSpeciesResponses[keyof ListPetSpeciesResponses];
-
-export type ListBadgesData = {
-    body?: never;
-    path?: never;
-    query?: {
-        /**
-         * Opaque cursor returned by the previous list response
-         */
-        cursor?: string;
-        /**
-         * Maximum number of items to return. Omitted or non-positive values use the default page size; values above 200 are clamped.
-         */
-        limit?: number;
-    };
-    url: '/badges';
-};
-
-export type ListBadgesErrors = {
-    /**
-     * Internal error
-     */
-    500: ErrorResponse;
-};
-
-export type ListBadgesError = ListBadgesErrors[keyof ListBadgesErrors];
-
-export type ListBadgesResponses = {
-    /**
-     * List badges
-     */
-    200: BadgeList;
-};
-
-export type ListBadgesResponse = ListBadgesResponses[keyof ListBadgesResponses];
-
 export type DeleteFirmwareArtifactData = {
     body?: never;
     path: {
@@ -6600,3 +6620,1270 @@ export type DownloadFirmwareArtifactEntryResponses = {
 };
 
 export type DownloadFirmwareArtifactEntryResponse = DownloadFirmwareArtifactEntryResponses[keyof DownloadFirmwareArtifactEntryResponses];
+
+export type ListGameRulesetsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Opaque cursor returned by the previous list response
+         */
+        cursor?: string;
+        /**
+         * Maximum number of items to return. Omitted or non-positive values use the default page size; values above 200 are clamped.
+         */
+        limit?: number;
+    };
+    url: '/game-rulesets';
+};
+
+export type ListGameRulesetsErrors = {
+    /**
+     * Internal error
+     */
+    500: ErrorResponse;
+};
+
+export type ListGameRulesetsError = ListGameRulesetsErrors[keyof ListGameRulesetsErrors];
+
+export type ListGameRulesetsResponses = {
+    /**
+     * GameRuleset list
+     */
+    200: GameRulesetList;
+};
+
+export type ListGameRulesetsResponse = ListGameRulesetsResponses[keyof ListGameRulesetsResponses];
+
+export type CreateGameRulesetData = {
+    body: GameRulesetUpsert;
+    path?: never;
+    query?: never;
+    url: '/game-rulesets';
+};
+
+export type CreateGameRulesetErrors = {
+    /**
+     * Invalid GameRuleset
+     */
+    400: ErrorResponse;
+    /**
+     * GameRuleset already exists
+     */
+    409: ErrorResponse;
+    /**
+     * Internal error
+     */
+    500: ErrorResponse;
+};
+
+export type CreateGameRulesetError = CreateGameRulesetErrors[keyof CreateGameRulesetErrors];
+
+export type CreateGameRulesetResponses = {
+    /**
+     * Created GameRuleset
+     */
+    200: GameRuleset;
+};
+
+export type CreateGameRulesetResponse = CreateGameRulesetResponses[keyof CreateGameRulesetResponses];
+
+export type DeleteGameRulesetData = {
+    body?: never;
+    path: {
+        /**
+         * GameRuleset identifier
+         */
+        name: string;
+    };
+    query?: never;
+    url: '/game-rulesets/{name}';
+};
+
+export type DeleteGameRulesetErrors = {
+    /**
+     * GameRuleset not found
+     */
+    404: ErrorResponse;
+    /**
+     * Internal error
+     */
+    500: ErrorResponse;
+};
+
+export type DeleteGameRulesetError = DeleteGameRulesetErrors[keyof DeleteGameRulesetErrors];
+
+export type DeleteGameRulesetResponses = {
+    /**
+     * Deleted GameRuleset
+     */
+    200: GameRuleset;
+};
+
+export type DeleteGameRulesetResponse = DeleteGameRulesetResponses[keyof DeleteGameRulesetResponses];
+
+export type GetGameRulesetData = {
+    body?: never;
+    path: {
+        /**
+         * GameRuleset identifier
+         */
+        name: string;
+    };
+    query?: never;
+    url: '/game-rulesets/{name}';
+};
+
+export type GetGameRulesetErrors = {
+    /**
+     * GameRuleset not found
+     */
+    404: ErrorResponse;
+    /**
+     * Internal error
+     */
+    500: ErrorResponse;
+};
+
+export type GetGameRulesetError = GetGameRulesetErrors[keyof GetGameRulesetErrors];
+
+export type GetGameRulesetResponses = {
+    /**
+     * GameRuleset
+     */
+    200: GameRuleset;
+};
+
+export type GetGameRulesetResponse = GetGameRulesetResponses[keyof GetGameRulesetResponses];
+
+export type PutGameRulesetData = {
+    body: GameRulesetUpsert;
+    path: {
+        /**
+         * GameRuleset identifier
+         */
+        name: string;
+    };
+    query?: never;
+    url: '/game-rulesets/{name}';
+};
+
+export type PutGameRulesetErrors = {
+    /**
+     * Invalid GameRuleset
+     */
+    400: ErrorResponse;
+    /**
+     * GameRuleset conflict
+     */
+    409: ErrorResponse;
+    /**
+     * Internal error
+     */
+    500: ErrorResponse;
+};
+
+export type PutGameRulesetError = PutGameRulesetErrors[keyof PutGameRulesetErrors];
+
+export type PutGameRulesetResponses = {
+    /**
+     * Stored GameRuleset
+     */
+    200: GameRuleset;
+};
+
+export type PutGameRulesetResponse = PutGameRulesetResponses[keyof PutGameRulesetResponses];
+
+export type ListPetDefsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Opaque cursor returned by the previous list response
+         */
+        cursor?: string;
+        /**
+         * Maximum number of items to return. Omitted or non-positive values use the default page size; values above 200 are clamped.
+         */
+        limit?: number;
+    };
+    url: '/pet-defs';
+};
+
+export type ListPetDefsErrors = {
+    /**
+     * Internal error
+     */
+    500: ErrorResponse;
+};
+
+export type ListPetDefsError = ListPetDefsErrors[keyof ListPetDefsErrors];
+
+export type ListPetDefsResponses = {
+    /**
+     * PetDef list
+     */
+    200: PetDefList;
+};
+
+export type ListPetDefsResponse = ListPetDefsResponses[keyof ListPetDefsResponses];
+
+export type CreatePetDefData = {
+    body: PetDefUpsert;
+    path?: never;
+    query?: never;
+    url: '/pet-defs';
+};
+
+export type CreatePetDefErrors = {
+    /**
+     * Invalid PetDef
+     */
+    400: ErrorResponse;
+    /**
+     * PetDef already exists
+     */
+    409: ErrorResponse;
+    /**
+     * Internal error
+     */
+    500: ErrorResponse;
+};
+
+export type CreatePetDefError = CreatePetDefErrors[keyof CreatePetDefErrors];
+
+export type CreatePetDefResponses = {
+    /**
+     * Created PetDef
+     */
+    200: PetDef;
+};
+
+export type CreatePetDefResponse = CreatePetDefResponses[keyof CreatePetDefResponses];
+
+export type DeletePetDefData = {
+    body?: never;
+    path: {
+        /**
+         * PetDef identifier
+         */
+        id: string;
+    };
+    query?: never;
+    url: '/pet-defs/{id}';
+};
+
+export type DeletePetDefErrors = {
+    /**
+     * PetDef not found
+     */
+    404: ErrorResponse;
+    /**
+     * Internal error
+     */
+    500: ErrorResponse;
+};
+
+export type DeletePetDefError = DeletePetDefErrors[keyof DeletePetDefErrors];
+
+export type DeletePetDefResponses = {
+    /**
+     * Deleted PetDef
+     */
+    200: PetDef;
+};
+
+export type DeletePetDefResponse = DeletePetDefResponses[keyof DeletePetDefResponses];
+
+export type GetPetDefData = {
+    body?: never;
+    path: {
+        /**
+         * PetDef identifier
+         */
+        id: string;
+    };
+    query?: never;
+    url: '/pet-defs/{id}';
+};
+
+export type GetPetDefErrors = {
+    /**
+     * PetDef not found
+     */
+    404: ErrorResponse;
+    /**
+     * Internal error
+     */
+    500: ErrorResponse;
+};
+
+export type GetPetDefError = GetPetDefErrors[keyof GetPetDefErrors];
+
+export type GetPetDefResponses = {
+    /**
+     * PetDef
+     */
+    200: PetDef;
+};
+
+export type GetPetDefResponse = GetPetDefResponses[keyof GetPetDefResponses];
+
+export type PutPetDefData = {
+    body: PetDefUpsert;
+    path: {
+        /**
+         * PetDef identifier
+         */
+        id: string;
+    };
+    query?: never;
+    url: '/pet-defs/{id}';
+};
+
+export type PutPetDefErrors = {
+    /**
+     * Invalid PetDef
+     */
+    400: ErrorResponse;
+    /**
+     * PetDef conflict
+     */
+    409: ErrorResponse;
+    /**
+     * Internal error
+     */
+    500: ErrorResponse;
+};
+
+export type PutPetDefError = PutPetDefErrors[keyof PutPetDefErrors];
+
+export type PutPetDefResponses = {
+    /**
+     * Stored PetDef
+     */
+    200: PetDef;
+};
+
+export type PutPetDefResponse = PutPetDefResponses[keyof PutPetDefResponses];
+
+export type ListBadgeDefsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Opaque cursor returned by the previous list response
+         */
+        cursor?: string;
+        /**
+         * Maximum number of items to return. Omitted or non-positive values use the default page size; values above 200 are clamped.
+         */
+        limit?: number;
+    };
+    url: '/badge-defs';
+};
+
+export type ListBadgeDefsErrors = {
+    /**
+     * Internal error
+     */
+    500: ErrorResponse;
+};
+
+export type ListBadgeDefsError = ListBadgeDefsErrors[keyof ListBadgeDefsErrors];
+
+export type ListBadgeDefsResponses = {
+    /**
+     * BadgeDef list
+     */
+    200: BadgeDefList;
+};
+
+export type ListBadgeDefsResponse = ListBadgeDefsResponses[keyof ListBadgeDefsResponses];
+
+export type CreateBadgeDefData = {
+    body: BadgeDefUpsert;
+    path?: never;
+    query?: never;
+    url: '/badge-defs';
+};
+
+export type CreateBadgeDefErrors = {
+    /**
+     * Invalid BadgeDef
+     */
+    400: ErrorResponse;
+    /**
+     * BadgeDef already exists
+     */
+    409: ErrorResponse;
+    /**
+     * Internal error
+     */
+    500: ErrorResponse;
+};
+
+export type CreateBadgeDefError = CreateBadgeDefErrors[keyof CreateBadgeDefErrors];
+
+export type CreateBadgeDefResponses = {
+    /**
+     * Created BadgeDef
+     */
+    200: BadgeDef;
+};
+
+export type CreateBadgeDefResponse = CreateBadgeDefResponses[keyof CreateBadgeDefResponses];
+
+export type DeleteBadgeDefData = {
+    body?: never;
+    path: {
+        /**
+         * BadgeDef identifier
+         */
+        id: string;
+    };
+    query?: never;
+    url: '/badge-defs/{id}';
+};
+
+export type DeleteBadgeDefErrors = {
+    /**
+     * BadgeDef not found
+     */
+    404: ErrorResponse;
+    /**
+     * Internal error
+     */
+    500: ErrorResponse;
+};
+
+export type DeleteBadgeDefError = DeleteBadgeDefErrors[keyof DeleteBadgeDefErrors];
+
+export type DeleteBadgeDefResponses = {
+    /**
+     * Deleted BadgeDef
+     */
+    200: BadgeDef;
+};
+
+export type DeleteBadgeDefResponse = DeleteBadgeDefResponses[keyof DeleteBadgeDefResponses];
+
+export type GetBadgeDefData = {
+    body?: never;
+    path: {
+        /**
+         * BadgeDef identifier
+         */
+        id: string;
+    };
+    query?: never;
+    url: '/badge-defs/{id}';
+};
+
+export type GetBadgeDefErrors = {
+    /**
+     * BadgeDef not found
+     */
+    404: ErrorResponse;
+    /**
+     * Internal error
+     */
+    500: ErrorResponse;
+};
+
+export type GetBadgeDefError = GetBadgeDefErrors[keyof GetBadgeDefErrors];
+
+export type GetBadgeDefResponses = {
+    /**
+     * BadgeDef
+     */
+    200: BadgeDef;
+};
+
+export type GetBadgeDefResponse = GetBadgeDefResponses[keyof GetBadgeDefResponses];
+
+export type PutBadgeDefData = {
+    body: BadgeDefUpsert;
+    path: {
+        /**
+         * BadgeDef identifier
+         */
+        id: string;
+    };
+    query?: never;
+    url: '/badge-defs/{id}';
+};
+
+export type PutBadgeDefErrors = {
+    /**
+     * Invalid BadgeDef
+     */
+    400: ErrorResponse;
+    /**
+     * BadgeDef conflict
+     */
+    409: ErrorResponse;
+    /**
+     * Internal error
+     */
+    500: ErrorResponse;
+};
+
+export type PutBadgeDefError = PutBadgeDefErrors[keyof PutBadgeDefErrors];
+
+export type PutBadgeDefResponses = {
+    /**
+     * Stored BadgeDef
+     */
+    200: BadgeDef;
+};
+
+export type PutBadgeDefResponse = PutBadgeDefResponses[keyof PutBadgeDefResponses];
+
+export type ListGameDefsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Opaque cursor returned by the previous list response
+         */
+        cursor?: string;
+        /**
+         * Maximum number of items to return. Omitted or non-positive values use the default page size; values above 200 are clamped.
+         */
+        limit?: number;
+    };
+    url: '/game-defs';
+};
+
+export type ListGameDefsErrors = {
+    /**
+     * Internal error
+     */
+    500: ErrorResponse;
+};
+
+export type ListGameDefsError = ListGameDefsErrors[keyof ListGameDefsErrors];
+
+export type ListGameDefsResponses = {
+    /**
+     * GameDef list
+     */
+    200: GameDefList;
+};
+
+export type ListGameDefsResponse = ListGameDefsResponses[keyof ListGameDefsResponses];
+
+export type CreateGameDefData = {
+    body: GameDefUpsert;
+    path?: never;
+    query?: never;
+    url: '/game-defs';
+};
+
+export type CreateGameDefErrors = {
+    /**
+     * Invalid GameDef
+     */
+    400: ErrorResponse;
+    /**
+     * GameDef already exists
+     */
+    409: ErrorResponse;
+    /**
+     * Internal error
+     */
+    500: ErrorResponse;
+};
+
+export type CreateGameDefError = CreateGameDefErrors[keyof CreateGameDefErrors];
+
+export type CreateGameDefResponses = {
+    /**
+     * Created GameDef
+     */
+    200: GameDef;
+};
+
+export type CreateGameDefResponse = CreateGameDefResponses[keyof CreateGameDefResponses];
+
+export type DeleteGameDefData = {
+    body?: never;
+    path: {
+        /**
+         * GameDef identifier
+         */
+        id: string;
+    };
+    query?: never;
+    url: '/game-defs/{id}';
+};
+
+export type DeleteGameDefErrors = {
+    /**
+     * GameDef not found
+     */
+    404: ErrorResponse;
+    /**
+     * Internal error
+     */
+    500: ErrorResponse;
+};
+
+export type DeleteGameDefError = DeleteGameDefErrors[keyof DeleteGameDefErrors];
+
+export type DeleteGameDefResponses = {
+    /**
+     * Deleted GameDef
+     */
+    200: GameDef;
+};
+
+export type DeleteGameDefResponse = DeleteGameDefResponses[keyof DeleteGameDefResponses];
+
+export type GetGameDefData = {
+    body?: never;
+    path: {
+        /**
+         * GameDef identifier
+         */
+        id: string;
+    };
+    query?: never;
+    url: '/game-defs/{id}';
+};
+
+export type GetGameDefErrors = {
+    /**
+     * GameDef not found
+     */
+    404: ErrorResponse;
+    /**
+     * Internal error
+     */
+    500: ErrorResponse;
+};
+
+export type GetGameDefError = GetGameDefErrors[keyof GetGameDefErrors];
+
+export type GetGameDefResponses = {
+    /**
+     * GameDef
+     */
+    200: GameDef;
+};
+
+export type GetGameDefResponse = GetGameDefResponses[keyof GetGameDefResponses];
+
+export type PutGameDefData = {
+    body: GameDefUpsert;
+    path: {
+        /**
+         * GameDef identifier
+         */
+        id: string;
+    };
+    query?: never;
+    url: '/game-defs/{id}';
+};
+
+export type PutGameDefErrors = {
+    /**
+     * Invalid GameDef
+     */
+    400: ErrorResponse;
+    /**
+     * GameDef conflict
+     */
+    409: ErrorResponse;
+    /**
+     * Internal error
+     */
+    500: ErrorResponse;
+};
+
+export type PutGameDefError = PutGameDefErrors[keyof PutGameDefErrors];
+
+export type PutGameDefResponses = {
+    /**
+     * Stored GameDef
+     */
+    200: GameDef;
+};
+
+export type PutGameDefResponse = PutGameDefResponses[keyof PutGameDefResponses];
+
+export type DownloadPetDefPixaData = {
+    body?: never;
+    path: {
+        /**
+         * Catalog item identifier
+         */
+        id: string;
+    };
+    query?: never;
+    url: '/pet-defs/{id}/pixa';
+};
+
+export type DownloadPetDefPixaErrors = {
+    /**
+     * Pixa not found
+     */
+    404: ErrorResponse;
+    /**
+     * Internal error
+     */
+    500: ErrorResponse;
+};
+
+export type DownloadPetDefPixaError = DownloadPetDefPixaErrors[keyof DownloadPetDefPixaErrors];
+
+export type DownloadPetDefPixaResponses = {
+    /**
+     * Pixa bytes
+     */
+    200: Blob | File;
+};
+
+export type DownloadPetDefPixaResponse = DownloadPetDefPixaResponses[keyof DownloadPetDefPixaResponses];
+
+export type UploadPetDefPixaData = {
+    body: Blob | File;
+    path: {
+        /**
+         * Catalog item identifier
+         */
+        id: string;
+    };
+    query?: never;
+    url: '/pet-defs/{id}/pixa';
+};
+
+export type UploadPetDefPixaErrors = {
+    /**
+     * Catalog item not found
+     */
+    404: ErrorResponse;
+    /**
+     * Internal error
+     */
+    500: ErrorResponse;
+};
+
+export type UploadPetDefPixaError = UploadPetDefPixaErrors[keyof UploadPetDefPixaErrors];
+
+export type UploadPetDefPixaResponses = {
+    /**
+     * Updated catalog item
+     */
+    200: PetDef;
+};
+
+export type UploadPetDefPixaResponse = UploadPetDefPixaResponses[keyof UploadPetDefPixaResponses];
+
+export type DownloadBadgeDefPixaData = {
+    body?: never;
+    path: {
+        /**
+         * Catalog item identifier
+         */
+        id: string;
+    };
+    query?: never;
+    url: '/badge-defs/{id}/pixa';
+};
+
+export type DownloadBadgeDefPixaErrors = {
+    /**
+     * Pixa not found
+     */
+    404: ErrorResponse;
+    /**
+     * Internal error
+     */
+    500: ErrorResponse;
+};
+
+export type DownloadBadgeDefPixaError = DownloadBadgeDefPixaErrors[keyof DownloadBadgeDefPixaErrors];
+
+export type DownloadBadgeDefPixaResponses = {
+    /**
+     * Pixa bytes
+     */
+    200: Blob | File;
+};
+
+export type DownloadBadgeDefPixaResponse = DownloadBadgeDefPixaResponses[keyof DownloadBadgeDefPixaResponses];
+
+export type UploadBadgeDefPixaData = {
+    body: Blob | File;
+    path: {
+        /**
+         * Catalog item identifier
+         */
+        id: string;
+    };
+    query?: never;
+    url: '/badge-defs/{id}/pixa';
+};
+
+export type UploadBadgeDefPixaErrors = {
+    /**
+     * Catalog item not found
+     */
+    404: ErrorResponse;
+    /**
+     * Internal error
+     */
+    500: ErrorResponse;
+};
+
+export type UploadBadgeDefPixaError = UploadBadgeDefPixaErrors[keyof UploadBadgeDefPixaErrors];
+
+export type UploadBadgeDefPixaResponses = {
+    /**
+     * Updated catalog item
+     */
+    200: BadgeDef;
+};
+
+export type UploadBadgeDefPixaResponse = UploadBadgeDefPixaResponses[keyof UploadBadgeDefPixaResponses];
+
+export type ListPeerPetsData = {
+    body?: never;
+    path: {
+        /**
+         * Peer public key
+         */
+        publicKey: string;
+    };
+    query?: {
+        /**
+         * Opaque cursor returned by the previous list response
+         */
+        cursor?: string;
+        /**
+         * Maximum number of items to return. Omitted or non-positive values use the default page size; values above 200 are clamped.
+         */
+        limit?: number;
+    };
+    url: '/peers/{publicKey}/pets';
+};
+
+export type ListPeerPetsErrors = {
+    /**
+     * Peer gameplay resource not found
+     */
+    404: ErrorResponse;
+    /**
+     * Internal error
+     */
+    500: ErrorResponse;
+};
+
+export type ListPeerPetsError = ListPeerPetsErrors[keyof ListPeerPetsErrors];
+
+export type ListPeerPetsResponses = {
+    /**
+     * PetListResponse
+     */
+    200: PetListResponse;
+};
+
+export type ListPeerPetsResponse = ListPeerPetsResponses[keyof ListPeerPetsResponses];
+
+export type GetPeerPetData = {
+    body?: never;
+    path: {
+        /**
+         * Peer public key
+         */
+        publicKey: string;
+        /**
+         * Resource identifier
+         */
+        id: string;
+    };
+    query?: never;
+    url: '/peers/{publicKey}/pets/{id}';
+};
+
+export type GetPeerPetErrors = {
+    /**
+     * Peer gameplay resource not found
+     */
+    404: ErrorResponse;
+    /**
+     * Internal error
+     */
+    500: ErrorResponse;
+};
+
+export type GetPeerPetError = GetPeerPetErrors[keyof GetPeerPetErrors];
+
+export type GetPeerPetResponses = {
+    /**
+     * Pet
+     */
+    200: Pet;
+};
+
+export type GetPeerPetResponse = GetPeerPetResponses[keyof GetPeerPetResponses];
+
+export type ListPeerBadgesData = {
+    body?: never;
+    path: {
+        /**
+         * Peer public key
+         */
+        publicKey: string;
+    };
+    query?: {
+        /**
+         * Opaque cursor returned by the previous list response
+         */
+        cursor?: string;
+        /**
+         * Maximum number of items to return. Omitted or non-positive values use the default page size; values above 200 are clamped.
+         */
+        limit?: number;
+    };
+    url: '/peers/{publicKey}/badges';
+};
+
+export type ListPeerBadgesErrors = {
+    /**
+     * Peer gameplay resource not found
+     */
+    404: ErrorResponse;
+    /**
+     * Internal error
+     */
+    500: ErrorResponse;
+};
+
+export type ListPeerBadgesError = ListPeerBadgesErrors[keyof ListPeerBadgesErrors];
+
+export type ListPeerBadgesResponses = {
+    /**
+     * BadgeListResponse
+     */
+    200: BadgeListResponse;
+};
+
+export type ListPeerBadgesResponse = ListPeerBadgesResponses[keyof ListPeerBadgesResponses];
+
+export type GetPeerBadgeData = {
+    body?: never;
+    path: {
+        /**
+         * Peer public key
+         */
+        publicKey: string;
+        /**
+         * Resource identifier
+         */
+        id: string;
+    };
+    query?: never;
+    url: '/peers/{publicKey}/badges/{id}';
+};
+
+export type GetPeerBadgeErrors = {
+    /**
+     * Peer gameplay resource not found
+     */
+    404: ErrorResponse;
+    /**
+     * Internal error
+     */
+    500: ErrorResponse;
+};
+
+export type GetPeerBadgeError = GetPeerBadgeErrors[keyof GetPeerBadgeErrors];
+
+export type GetPeerBadgeResponses = {
+    /**
+     * Badge
+     */
+    200: Badge;
+};
+
+export type GetPeerBadgeResponse = GetPeerBadgeResponses[keyof GetPeerBadgeResponses];
+
+export type GetPeerPointsData = {
+    body?: never;
+    path: {
+        /**
+         * Peer public key
+         */
+        publicKey: string;
+    };
+    query?: never;
+    url: '/peers/{publicKey}/points';
+};
+
+export type GetPeerPointsErrors = {
+    /**
+     * Points account not found
+     */
+    404: ErrorResponse;
+    /**
+     * Internal error
+     */
+    500: ErrorResponse;
+};
+
+export type GetPeerPointsError = GetPeerPointsErrors[keyof GetPeerPointsErrors];
+
+export type GetPeerPointsResponses = {
+    /**
+     * PointsAccount
+     */
+    200: PointsAccount;
+};
+
+export type GetPeerPointsResponse = GetPeerPointsResponses[keyof GetPeerPointsResponses];
+
+export type ListPeerPointsTransactionsData = {
+    body?: never;
+    path: {
+        /**
+         * Peer public key
+         */
+        publicKey: string;
+    };
+    query?: {
+        /**
+         * Opaque cursor returned by the previous list response
+         */
+        cursor?: string;
+        /**
+         * Maximum number of items to return. Omitted or non-positive values use the default page size; values above 200 are clamped.
+         */
+        limit?: number;
+    };
+    url: '/peers/{publicKey}/points/transactions';
+};
+
+export type ListPeerPointsTransactionsErrors = {
+    /**
+     * Peer gameplay resource not found
+     */
+    404: ErrorResponse;
+    /**
+     * Internal error
+     */
+    500: ErrorResponse;
+};
+
+export type ListPeerPointsTransactionsError = ListPeerPointsTransactionsErrors[keyof ListPeerPointsTransactionsErrors];
+
+export type ListPeerPointsTransactionsResponses = {
+    /**
+     * PointsTransactionListResponse
+     */
+    200: PointsTransactionListResponse;
+};
+
+export type ListPeerPointsTransactionsResponse = ListPeerPointsTransactionsResponses[keyof ListPeerPointsTransactionsResponses];
+
+export type GetPeerPointsTransactionData = {
+    body?: never;
+    path: {
+        /**
+         * Peer public key
+         */
+        publicKey: string;
+        /**
+         * Resource identifier
+         */
+        id: string;
+    };
+    query?: never;
+    url: '/peers/{publicKey}/points/transactions/{id}';
+};
+
+export type GetPeerPointsTransactionErrors = {
+    /**
+     * Peer gameplay resource not found
+     */
+    404: ErrorResponse;
+    /**
+     * Internal error
+     */
+    500: ErrorResponse;
+};
+
+export type GetPeerPointsTransactionError = GetPeerPointsTransactionErrors[keyof GetPeerPointsTransactionErrors];
+
+export type GetPeerPointsTransactionResponses = {
+    /**
+     * PointsTransaction
+     */
+    200: PointsTransaction;
+};
+
+export type GetPeerPointsTransactionResponse = GetPeerPointsTransactionResponses[keyof GetPeerPointsTransactionResponses];
+
+export type ListPeerGameResultsData = {
+    body?: never;
+    path: {
+        /**
+         * Peer public key
+         */
+        publicKey: string;
+    };
+    query?: {
+        /**
+         * Opaque cursor returned by the previous list response
+         */
+        cursor?: string;
+        /**
+         * Maximum number of items to return. Omitted or non-positive values use the default page size; values above 200 are clamped.
+         */
+        limit?: number;
+    };
+    url: '/peers/{publicKey}/game-results';
+};
+
+export type ListPeerGameResultsErrors = {
+    /**
+     * Peer gameplay resource not found
+     */
+    404: ErrorResponse;
+    /**
+     * Internal error
+     */
+    500: ErrorResponse;
+};
+
+export type ListPeerGameResultsError = ListPeerGameResultsErrors[keyof ListPeerGameResultsErrors];
+
+export type ListPeerGameResultsResponses = {
+    /**
+     * GameResultListResponse
+     */
+    200: GameResultListResponse;
+};
+
+export type ListPeerGameResultsResponse = ListPeerGameResultsResponses[keyof ListPeerGameResultsResponses];
+
+export type GetPeerGameResultData = {
+    body?: never;
+    path: {
+        /**
+         * Peer public key
+         */
+        publicKey: string;
+        /**
+         * Resource identifier
+         */
+        id: string;
+    };
+    query?: never;
+    url: '/peers/{publicKey}/game-results/{id}';
+};
+
+export type GetPeerGameResultErrors = {
+    /**
+     * Peer gameplay resource not found
+     */
+    404: ErrorResponse;
+    /**
+     * Internal error
+     */
+    500: ErrorResponse;
+};
+
+export type GetPeerGameResultError = GetPeerGameResultErrors[keyof GetPeerGameResultErrors];
+
+export type GetPeerGameResultResponses = {
+    /**
+     * GameResult
+     */
+    200: GameResult;
+};
+
+export type GetPeerGameResultResponse = GetPeerGameResultResponses[keyof GetPeerGameResultResponses];
+
+export type ListPeerRewardGrantsData = {
+    body?: never;
+    path: {
+        /**
+         * Peer public key
+         */
+        publicKey: string;
+    };
+    query?: {
+        /**
+         * Opaque cursor returned by the previous list response
+         */
+        cursor?: string;
+        /**
+         * Maximum number of items to return. Omitted or non-positive values use the default page size; values above 200 are clamped.
+         */
+        limit?: number;
+    };
+    url: '/peers/{publicKey}/reward-grants';
+};
+
+export type ListPeerRewardGrantsErrors = {
+    /**
+     * Peer gameplay resource not found
+     */
+    404: ErrorResponse;
+    /**
+     * Internal error
+     */
+    500: ErrorResponse;
+};
+
+export type ListPeerRewardGrantsError = ListPeerRewardGrantsErrors[keyof ListPeerRewardGrantsErrors];
+
+export type ListPeerRewardGrantsResponses = {
+    /**
+     * RewardGrantListResponse
+     */
+    200: RewardGrantListResponse;
+};
+
+export type ListPeerRewardGrantsResponse = ListPeerRewardGrantsResponses[keyof ListPeerRewardGrantsResponses];
+
+export type GetPeerRewardGrantData = {
+    body?: never;
+    path: {
+        /**
+         * Peer public key
+         */
+        publicKey: string;
+        /**
+         * Resource identifier
+         */
+        id: string;
+    };
+    query?: never;
+    url: '/peers/{publicKey}/reward-grants/{id}';
+};
+
+export type GetPeerRewardGrantErrors = {
+    /**
+     * Peer gameplay resource not found
+     */
+    404: ErrorResponse;
+    /**
+     * Internal error
+     */
+    500: ErrorResponse;
+};
+
+export type GetPeerRewardGrantError = GetPeerRewardGrantErrors[keyof GetPeerRewardGrantErrors];
+
+export type GetPeerRewardGrantResponses = {
+    /**
+     * RewardGrant
+     */
+    200: RewardGrant;
+};
+
+export type GetPeerRewardGrantResponse = GetPeerRewardGrantResponses[keyof GetPeerRewardGrantResponses];

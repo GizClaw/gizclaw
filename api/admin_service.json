@@ -64,6 +64,26 @@
       "description": "List and resolve peers"
     },
     {
+      "name": "GameplayDebug",
+      "description": "Admin read-only peer gameplay runtime inspection"
+    },
+    {
+      "name": "GameDefs",
+      "description": "Game definition catalog operations"
+    },
+    {
+      "name": "BadgeDefs",
+      "description": "Badge definition catalog operations"
+    },
+    {
+      "name": "PetDefs",
+      "description": "Pet definition catalog operations"
+    },
+    {
+      "name": "GameRulesets",
+      "description": "Gameplay ruleset catalog operations"
+    },
+    {
       "name": "Resource",
       "description": "Single peer CRUD and actions"
     },
@@ -1812,276 +1832,6 @@
           },
           "404": {
             "description": "Resource not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./types.json#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./types.json#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/pet-species/{id}/pixa": {
-      "put": {
-        "operationId": "uploadPetSpeciesPixa",
-        "summary": "Upload a pet species PIXA file",
-        "description": "Upload or replace the .pixa asset for an existing pet species resource.",
-        "tags": [
-          "BusinessAssets"
-        ],
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "description": "Pet species id",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/octet-stream": {
-              "schema": {
-                "type": "string",
-                "format": "binary"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Updated pet species metadata",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./types.json#/components/schemas/PetSpecies"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid PIXA file",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./types.json#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Pet species not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./types.json#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./types.json#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      },
-      "get": {
-        "operationId": "downloadPetSpeciesPixa",
-        "summary": "Download a pet species PIXA file",
-        "tags": [
-          "BusinessAssets"
-        ],
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "description": "Pet species id",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Raw PIXA file",
-            "content": {
-              "application/octet-stream": {
-                "schema": {
-                  "type": "string",
-                  "format": "binary"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid asset request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./types.json#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Pet species or PIXA file not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./types.json#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./types.json#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/badges/{id}/icon": {
-      "put": {
-        "operationId": "uploadBadgeIcon",
-        "summary": "Upload a badge icon",
-        "description": "Upload or replace the icon asset for an existing badge resource.",
-        "tags": [
-          "BusinessAssets"
-        ],
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "description": "Badge id",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/octet-stream": {
-              "schema": {
-                "type": "string",
-                "format": "binary"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Updated badge metadata",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./types.json#/components/schemas/Badge"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid icon file",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./types.json#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Badge not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./types.json#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./types.json#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      },
-      "get": {
-        "operationId": "downloadBadgeIcon",
-        "summary": "Download a badge icon",
-        "tags": [
-          "BusinessAssets"
-        ],
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "description": "Badge id",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Raw badge icon bytes",
-            "content": {
-              "application/octet-stream": {
-                "schema": {
-                  "type": "string",
-                  "format": "binary"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid asset request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./types.json#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Badge or icon file not found",
             "content": {
               "application/json": {
                 "schema": {
@@ -7484,112 +7234,6 @@
         }
       }
     },
-    "/pet-species": {
-      "get": {
-        "operationId": "listPetSpecies",
-        "summary": "List pet species",
-        "tags": [
-          "BusinessResources"
-        ],
-        "parameters": [
-          {
-            "name": "cursor",
-            "in": "query",
-            "required": false,
-            "description": "Opaque cursor returned by the previous list response",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "limit",
-            "in": "query",
-            "required": false,
-            "description": "Maximum number of items to return. Omitted or non-positive values use the default page size; values above 200 are clamped.",
-            "schema": {
-              "type": "integer",
-              "format": "int32",
-              "default": 50
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "List pet species",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PetSpeciesList"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./types.json#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/badges": {
-      "get": {
-        "operationId": "listBadges",
-        "summary": "List badges",
-        "tags": [
-          "BusinessResources"
-        ],
-        "parameters": [
-          {
-            "name": "cursor",
-            "in": "query",
-            "required": false,
-            "description": "Opaque cursor returned by the previous list response",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "limit",
-            "in": "query",
-            "required": false,
-            "description": "Maximum number of items to return. Omitted or non-positive values use the default page size; values above 200 are clamped.",
-            "schema": {
-              "type": "integer",
-              "format": "int32",
-              "default": 50
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "List badges",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BadgeList"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./types.json#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/firmwares/{name}/packages/{channel}/artifact.tar": {
       "get": {
         "operationId": "downloadFirmwareArtifact",
@@ -8150,6 +7794,2087 @@
           },
           "404": {
             "description": "Firmware, channel, artifact, or path not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/game-rulesets": {
+      "get": {
+        "operationId": "listGameRulesets",
+        "summary": "List GameRulesets",
+        "tags": [
+          "GameRulesets"
+        ],
+        "parameters": [
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "description": "Opaque cursor returned by the previous list response",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Maximum number of items to return. Omitted or non-positive values use the default page size; values above 200 are clamped.",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 50
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "GameRuleset list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GameRulesetList"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createGameRuleset",
+        "summary": "Create a GameRuleset",
+        "tags": [
+          "GameRulesets"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GameRulesetUpsert"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Created GameRuleset",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/GameRuleset"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid GameRuleset",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "GameRuleset already exists",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/game-rulesets/{name}": {
+      "get": {
+        "operationId": "getGameRuleset",
+        "summary": "Get a GameRuleset",
+        "tags": [
+          "GameRulesets"
+        ],
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "description": "GameRuleset identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "GameRuleset",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/GameRuleset"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "GameRuleset not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "putGameRuleset",
+        "summary": "Create or update a GameRuleset",
+        "tags": [
+          "GameRulesets"
+        ],
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "description": "GameRuleset identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GameRulesetUpsert"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Stored GameRuleset",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/GameRuleset"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid GameRuleset",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "GameRuleset conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteGameRuleset",
+        "summary": "Delete a GameRuleset",
+        "tags": [
+          "GameRulesets"
+        ],
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "description": "GameRuleset identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Deleted GameRuleset",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/GameRuleset"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "GameRuleset not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/pet-defs": {
+      "get": {
+        "operationId": "listPetDefs",
+        "summary": "List PetDefs",
+        "tags": [
+          "PetDefs"
+        ],
+        "parameters": [
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "description": "Opaque cursor returned by the previous list response",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Maximum number of items to return. Omitted or non-positive values use the default page size; values above 200 are clamped.",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 50
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "PetDef list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PetDefList"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createPetDef",
+        "summary": "Create a PetDef",
+        "tags": [
+          "PetDefs"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PetDefUpsert"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Created PetDef",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/PetDef"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid PetDef",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "PetDef already exists",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/pet-defs/{id}": {
+      "get": {
+        "operationId": "getPetDef",
+        "summary": "Get a PetDef",
+        "tags": [
+          "PetDefs"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "PetDef identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "PetDef",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/PetDef"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "PetDef not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "putPetDef",
+        "summary": "Create or update a PetDef",
+        "tags": [
+          "PetDefs"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "PetDef identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PetDefUpsert"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Stored PetDef",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/PetDef"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid PetDef",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "PetDef conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deletePetDef",
+        "summary": "Delete a PetDef",
+        "tags": [
+          "PetDefs"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "PetDef identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Deleted PetDef",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/PetDef"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "PetDef not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/badge-defs": {
+      "get": {
+        "operationId": "listBadgeDefs",
+        "summary": "List BadgeDefs",
+        "tags": [
+          "BadgeDefs"
+        ],
+        "parameters": [
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "description": "Opaque cursor returned by the previous list response",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Maximum number of items to return. Omitted or non-positive values use the default page size; values above 200 are clamped.",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 50
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "BadgeDef list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BadgeDefList"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createBadgeDef",
+        "summary": "Create a BadgeDef",
+        "tags": [
+          "BadgeDefs"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BadgeDefUpsert"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Created BadgeDef",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/BadgeDef"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid BadgeDef",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "BadgeDef already exists",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/badge-defs/{id}": {
+      "get": {
+        "operationId": "getBadgeDef",
+        "summary": "Get a BadgeDef",
+        "tags": [
+          "BadgeDefs"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "BadgeDef identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "BadgeDef",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/BadgeDef"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "BadgeDef not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "putBadgeDef",
+        "summary": "Create or update a BadgeDef",
+        "tags": [
+          "BadgeDefs"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "BadgeDef identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BadgeDefUpsert"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Stored BadgeDef",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/BadgeDef"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid BadgeDef",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "BadgeDef conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteBadgeDef",
+        "summary": "Delete a BadgeDef",
+        "tags": [
+          "BadgeDefs"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "BadgeDef identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Deleted BadgeDef",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/BadgeDef"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "BadgeDef not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/game-defs": {
+      "get": {
+        "operationId": "listGameDefs",
+        "summary": "List GameDefs",
+        "tags": [
+          "GameDefs"
+        ],
+        "parameters": [
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "description": "Opaque cursor returned by the previous list response",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Maximum number of items to return. Omitted or non-positive values use the default page size; values above 200 are clamped.",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 50
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "GameDef list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GameDefList"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createGameDef",
+        "summary": "Create a GameDef",
+        "tags": [
+          "GameDefs"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GameDefUpsert"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Created GameDef",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/GameDef"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid GameDef",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "GameDef already exists",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/game-defs/{id}": {
+      "get": {
+        "operationId": "getGameDef",
+        "summary": "Get a GameDef",
+        "tags": [
+          "GameDefs"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "GameDef identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "GameDef",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/GameDef"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "GameDef not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "putGameDef",
+        "summary": "Create or update a GameDef",
+        "tags": [
+          "GameDefs"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "GameDef identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GameDefUpsert"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Stored GameDef",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/GameDef"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid GameDef",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "GameDef conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteGameDef",
+        "summary": "Delete a GameDef",
+        "tags": [
+          "GameDefs"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "GameDef identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Deleted GameDef",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/GameDef"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "GameDef not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/pet-defs/{id}/pixa": {
+      "get": {
+        "operationId": "downloadPetDefPixa",
+        "summary": "Download PetDefPixa",
+        "tags": [
+          "PetDefs"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Catalog item identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Pixa bytes",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Pixa not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "uploadPetDefPixa",
+        "summary": "Upload PetDefPixa",
+        "tags": [
+          "PetDefs"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Catalog item identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/octet-stream": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated catalog item",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/PetDef"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Catalog item not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/badge-defs/{id}/pixa": {
+      "get": {
+        "operationId": "downloadBadgeDefPixa",
+        "summary": "Download BadgeDefPixa",
+        "tags": [
+          "BadgeDefs"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Catalog item identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Pixa bytes",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Pixa not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "uploadBadgeDefPixa",
+        "summary": "Upload BadgeDefPixa",
+        "tags": [
+          "BadgeDefs"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Catalog item identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/octet-stream": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated catalog item",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/BadgeDef"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Catalog item not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/peers/{publicKey}/pets": {
+      "get": {
+        "operationId": "listPeerPets",
+        "summary": "listPeerPets",
+        "tags": [
+          "GameplayDebug"
+        ],
+        "parameters": [
+          {
+            "name": "publicKey",
+            "in": "path",
+            "required": true,
+            "description": "Peer public key",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "description": "Opaque cursor returned by the previous list response",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Maximum number of items to return. Omitted or non-positive values use the default page size; values above 200 are clamped.",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 50
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "PetListResponse",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/PetListResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Peer gameplay resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/peers/{publicKey}/pets/{id}": {
+      "get": {
+        "operationId": "getPeerPet",
+        "summary": "getPeerPet",
+        "tags": [
+          "GameplayDebug"
+        ],
+        "parameters": [
+          {
+            "name": "publicKey",
+            "in": "path",
+            "required": true,
+            "description": "Peer public key",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Pet",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/Pet"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Peer gameplay resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/peers/{publicKey}/badges": {
+      "get": {
+        "operationId": "listPeerBadges",
+        "summary": "listPeerBadges",
+        "tags": [
+          "GameplayDebug"
+        ],
+        "parameters": [
+          {
+            "name": "publicKey",
+            "in": "path",
+            "required": true,
+            "description": "Peer public key",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "description": "Opaque cursor returned by the previous list response",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Maximum number of items to return. Omitted or non-positive values use the default page size; values above 200 are clamped.",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 50
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "BadgeListResponse",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/BadgeListResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Peer gameplay resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/peers/{publicKey}/badges/{id}": {
+      "get": {
+        "operationId": "getPeerBadge",
+        "summary": "getPeerBadge",
+        "tags": [
+          "GameplayDebug"
+        ],
+        "parameters": [
+          {
+            "name": "publicKey",
+            "in": "path",
+            "required": true,
+            "description": "Peer public key",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Badge",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/Badge"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Peer gameplay resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/peers/{publicKey}/points": {
+      "get": {
+        "operationId": "getPeerPoints",
+        "summary": "getPeerPoints",
+        "tags": [
+          "GameplayDebug"
+        ],
+        "parameters": [
+          {
+            "name": "publicKey",
+            "in": "path",
+            "required": true,
+            "description": "Peer public key",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "PointsAccount",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/PointsAccount"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Points account not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/peers/{publicKey}/points/transactions": {
+      "get": {
+        "operationId": "listPeerPointsTransactions",
+        "summary": "listPeerPointsTransactions",
+        "tags": [
+          "GameplayDebug"
+        ],
+        "parameters": [
+          {
+            "name": "publicKey",
+            "in": "path",
+            "required": true,
+            "description": "Peer public key",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "description": "Opaque cursor returned by the previous list response",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Maximum number of items to return. Omitted or non-positive values use the default page size; values above 200 are clamped.",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 50
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "PointsTransactionListResponse",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/PointsTransactionListResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Peer gameplay resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/peers/{publicKey}/points/transactions/{id}": {
+      "get": {
+        "operationId": "getPeerPointsTransaction",
+        "summary": "getPeerPointsTransaction",
+        "tags": [
+          "GameplayDebug"
+        ],
+        "parameters": [
+          {
+            "name": "publicKey",
+            "in": "path",
+            "required": true,
+            "description": "Peer public key",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "PointsTransaction",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/PointsTransaction"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Peer gameplay resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/peers/{publicKey}/game-results": {
+      "get": {
+        "operationId": "listPeerGameResults",
+        "summary": "listPeerGameResults",
+        "tags": [
+          "GameplayDebug"
+        ],
+        "parameters": [
+          {
+            "name": "publicKey",
+            "in": "path",
+            "required": true,
+            "description": "Peer public key",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "description": "Opaque cursor returned by the previous list response",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Maximum number of items to return. Omitted or non-positive values use the default page size; values above 200 are clamped.",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 50
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "GameResultListResponse",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/GameResultListResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Peer gameplay resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/peers/{publicKey}/game-results/{id}": {
+      "get": {
+        "operationId": "getPeerGameResult",
+        "summary": "getPeerGameResult",
+        "tags": [
+          "GameplayDebug"
+        ],
+        "parameters": [
+          {
+            "name": "publicKey",
+            "in": "path",
+            "required": true,
+            "description": "Peer public key",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "GameResult",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/GameResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Peer gameplay resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/peers/{publicKey}/reward-grants": {
+      "get": {
+        "operationId": "listPeerRewardGrants",
+        "summary": "listPeerRewardGrants",
+        "tags": [
+          "GameplayDebug"
+        ],
+        "parameters": [
+          {
+            "name": "publicKey",
+            "in": "path",
+            "required": true,
+            "description": "Peer public key",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "description": "Opaque cursor returned by the previous list response",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Maximum number of items to return. Omitted or non-positive values use the default page size; values above 200 are clamped.",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 50
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "RewardGrantListResponse",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/RewardGrantListResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Peer gameplay resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/peers/{publicKey}/reward-grants/{id}": {
+      "get": {
+        "operationId": "getPeerRewardGrant",
+        "summary": "getPeerRewardGrant",
+        "tags": [
+          "GameplayDebug"
+        ],
+        "parameters": [
+          {
+            "name": "publicKey",
+            "in": "path",
+            "required": true,
+            "description": "Peer public key",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "RewardGrant",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/RewardGrant"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Peer gameplay resource not found",
             "content": {
               "application/json": {
                 "schema": {
@@ -8947,50 +10672,6 @@
           }
         }
       },
-      "PetSpeciesList": {
-        "type": "object",
-        "required": [
-          "items",
-          "has_next"
-        ],
-        "properties": {
-          "has_next": {
-            "type": "boolean"
-          },
-          "next_cursor": {
-            "type": "string",
-            "nullable": true
-          },
-          "items": {
-            "type": "array",
-            "items": {
-              "$ref": "./types.json#/components/schemas/PetSpecies"
-            }
-          }
-        }
-      },
-      "BadgeList": {
-        "type": "object",
-        "required": [
-          "items",
-          "has_next"
-        ],
-        "properties": {
-          "has_next": {
-            "type": "boolean"
-          },
-          "next_cursor": {
-            "type": "string",
-            "nullable": true
-          },
-          "items": {
-            "type": "array",
-            "items": {
-              "$ref": "./types.json#/components/schemas/Badge"
-            }
-          }
-        }
-      },
       "AdminFriendObject": {
         "type": "object",
         "additionalProperties": false,
@@ -9244,6 +10925,158 @@
           "expires_at": {
             "type": "string",
             "format": "date-time"
+          }
+        }
+      },
+      "GameRulesetList": {
+        "type": "object",
+        "required": [
+          "items",
+          "has_next"
+        ],
+        "properties": {
+          "has_next": {
+            "type": "boolean"
+          },
+          "next_cursor": {
+            "type": "string",
+            "nullable": true
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "./types.json#/components/schemas/GameRuleset"
+            }
+          }
+        }
+      },
+      "PetDefList": {
+        "type": "object",
+        "required": [
+          "items",
+          "has_next"
+        ],
+        "properties": {
+          "has_next": {
+            "type": "boolean"
+          },
+          "next_cursor": {
+            "type": "string",
+            "nullable": true
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "./types.json#/components/schemas/PetDef"
+            }
+          }
+        }
+      },
+      "BadgeDefList": {
+        "type": "object",
+        "required": [
+          "items",
+          "has_next"
+        ],
+        "properties": {
+          "has_next": {
+            "type": "boolean"
+          },
+          "next_cursor": {
+            "type": "string",
+            "nullable": true
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "./types.json#/components/schemas/BadgeDef"
+            }
+          }
+        }
+      },
+      "GameDefList": {
+        "type": "object",
+        "required": [
+          "items",
+          "has_next"
+        ],
+        "properties": {
+          "has_next": {
+            "type": "boolean"
+          },
+          "next_cursor": {
+            "type": "string",
+            "nullable": true
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "./types.json#/components/schemas/GameDef"
+            }
+          }
+        }
+      },
+      "GameRulesetUpsert": {
+        "type": "object",
+        "required": [
+          "name",
+          "spec"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "spec": {
+            "$ref": "./types.json#/components/schemas/GameRulesetSpec"
+          }
+        }
+      },
+      "PetDefUpsert": {
+        "type": "object",
+        "required": [
+          "id",
+          "spec"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "spec": {
+            "$ref": "./types.json#/components/schemas/PetDefSpec"
+          }
+        }
+      },
+      "BadgeDefUpsert": {
+        "type": "object",
+        "required": [
+          "id",
+          "spec"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "spec": {
+            "$ref": "./types.json#/components/schemas/BadgeDefSpec"
+          }
+        }
+      },
+      "GameDefUpsert": {
+        "type": "object",
+        "required": [
+          "id",
+          "spec"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "spec": {
+            "$ref": "./types.json#/components/schemas/GameDefSpec"
           }
         }
       }

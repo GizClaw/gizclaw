@@ -6,10 +6,7 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/device/firmware"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/gameplay/badge"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/gameplay/petspecies"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/objectstore"
 )
 
 func TestGetRejectsUnknownKind(t *testing.T) {
@@ -51,14 +48,12 @@ func TestGetReturnsNotFoundByKind(t *testing.T) {
 		{name: "acl role", kind: apitypes.ResourceKindACLRole, manager: newACLResourceManager(t), wantCode: "RESOURCE_NOT_FOUND"},
 		{name: "credential", kind: apitypes.ResourceKindCredential, manager: New(Services{Credentials: newFakeCredentials()}), wantCode: "RESOURCE_NOT_FOUND"},
 		{name: "firmware", kind: apitypes.ResourceKindFirmware, manager: New(Services{Firmwares: &firmware.Server{Store: kv.NewMemory(nil)}}), wantCode: "RESOURCE_NOT_FOUND"},
-		{name: "badge", kind: apitypes.ResourceKindBadge, manager: New(Services{Badges: &badge.Server{Store: kv.NewMemory(nil), Assets: objectstore.Dir(t.TempDir())}}), wantCode: "RESOURCE_NOT_FOUND"},
 		{name: "peer config", kind: apitypes.ResourceKindPeerConfig, manager: New(Services{Peers: newFakePeers()}), wantCode: "GEAR_NOT_FOUND"},
 		{name: "model", kind: apitypes.ResourceKindModel, manager: newModelManager(), wantCode: "RESOURCE_NOT_FOUND"},
 		{name: "minimax tenant", kind: apitypes.ResourceKindMiniMaxTenant, manager: New(Services{ProviderTenants: newFakeMiniMax(),
 			Voices: newFakeMiniMax()}), wantCode: "RESOURCE_NOT_FOUND"},
 		{name: "voice", kind: apitypes.ResourceKindVoice, manager: New(Services{ProviderTenants: newFakeMiniMax(),
 			Voices: newFakeMiniMax()}), wantCode: "RESOURCE_NOT_FOUND"},
-		{name: "pet species", kind: apitypes.ResourceKindPetSpecies, manager: New(Services{PetSpecies: &petspecies.Server{Store: kv.NewMemory(nil), Assets: objectstore.Dir(t.TempDir())}}), wantCode: "RESOURCE_NOT_FOUND"},
 		{name: "workspace", kind: apitypes.ResourceKindWorkspace, manager: New(Services{Workspaces: newFakeWorkspaces()}), wantCode: "RESOURCE_NOT_FOUND"},
 		{name: "workflow", kind: apitypes.ResourceKindWorkflow, manager: New(Services{Workflows: newFakeWorkflows()}), wantCode: "RESOURCE_NOT_FOUND"},
 	}
@@ -108,7 +103,6 @@ func TestPutRejectsMissingServicesByKind(t *testing.T) {
 		{name: "acl role", resource: `{"apiVersion":"gizclaw.admin/v1alpha1","kind":"ACLRole","metadata":{"name":"role"},"spec":{"permissions":["read"]}}`},
 		{name: "credential", resource: `{"apiVersion":"gizclaw.admin/v1alpha1","kind":"Credential","metadata":{"name":"name"},"spec":{"provider":"minimax","body":{"api_key":"secret"}}}`},
 		{name: "firmware", resource: `{"apiVersion":"gizclaw.admin/v1alpha1","kind":"Firmware","metadata":{"name":"firmware"},"spec":{"slots":{"stable":{"description":"stable firmware"}}}}`},
-		{name: "badge", resource: `{"apiVersion":"gizclaw.admin/v1alpha1","kind":"Badge","metadata":{"name":"badge"},"spec":{"name":"Badge"}}`},
 		{name: "peer config", resource: `{"apiVersion":"gizclaw.admin/v1alpha1","kind":"PeerConfig","metadata":{"name":"peer"},"spec":{}}`},
 		{name: "model", resource: `{"apiVersion":"gizclaw.admin/v1alpha1","kind":"Model","metadata":{"name":"model"},"spec":{"kind":"llm","provider":{"kind":"openai-tenant","name":"main"},"source":"manual"}}`},
 		{name: "dashscope tenant", resource: `{"apiVersion":"gizclaw.admin/v1alpha1","kind":"DashScopeTenant","metadata":{"name":"tenant"},"spec":{"credential_name":"credential"}}`},
@@ -116,7 +110,6 @@ func TestPutRejectsMissingServicesByKind(t *testing.T) {
 		{name: "openai tenant", resource: `{"apiVersion":"gizclaw.admin/v1alpha1","kind":"OpenAITenant","metadata":{"name":"tenant"},"spec":{"credential_name":"credential"}}`},
 		{name: "minimax tenant", resource: `{"apiVersion":"gizclaw.admin/v1alpha1","kind":"MiniMaxTenant","metadata":{"name":"tenant"},"spec":{"app_id":"app","group_id":"group","credential_name":"credential"}}`},
 		{name: "voice", resource: `{"apiVersion":"gizclaw.admin/v1alpha1","kind":"Voice","metadata":{"name":"voice"},"spec":{"provider":{"kind":"minimax","name":"tenant"},"source":"manual"}}`},
-		{name: "pet species", resource: `{"apiVersion":"gizclaw.admin/v1alpha1","kind":"PetSpecies","metadata":{"name":"species"},"spec":{"name":"Species"}}`},
 		{name: "workspace", resource: `{"apiVersion":"gizclaw.admin/v1alpha1","kind":"Workspace","metadata":{"name":"workspace"},"spec":{"workflow_name":"workflow"}}`},
 		{name: "workflow", resource: `{"apiVersion":"gizclaw.admin/v1alpha1","kind":"Workflow","metadata":{"name":"workflow"},"spec":{"driver":"flowcraft","flowcraft":{}}}`},
 	}
@@ -135,10 +128,8 @@ func TestPutRejectsUnsupportedVersionByKind(t *testing.T) {
 		ACL:             aclManager.services.ACL,
 		Credentials:     newFakeCredentials(),
 		Firmwares:       &firmware.Server{Store: kv.NewMemory(nil)},
-		Badges:          &badge.Server{Store: kv.NewMemory(nil), Assets: objectstore.Dir(t.TempDir())},
 		Peers:           newFakePeers(),
 		Models:          newModelManager().services.Models,
-		PetSpecies:      &petspecies.Server{Store: kv.NewMemory(nil), Assets: objectstore.Dir(t.TempDir())},
 		ProviderTenants: newFakeMiniMax(),
 		Voices:          newFakeMiniMax(),
 		Workspaces:      newFakeWorkspaces(),
@@ -152,7 +143,6 @@ func TestPutRejectsUnsupportedVersionByKind(t *testing.T) {
 		{name: "acl role", resource: `{"apiVersion":"unsupported","kind":"ACLRole","metadata":{"name":"role"},"spec":{"permissions":["read"]}}`},
 		{name: "credential", resource: `{"apiVersion":"unsupported","kind":"Credential","metadata":{"name":"name"},"spec":{"provider":"minimax","body":{"api_key":"secret"}}}`},
 		{name: "firmware", resource: `{"apiVersion":"unsupported","kind":"Firmware","metadata":{"name":"firmware"},"spec":{"slots":{"stable":{"description":"stable firmware"}}}}`},
-		{name: "badge", resource: `{"apiVersion":"unsupported","kind":"Badge","metadata":{"name":"badge"},"spec":{"name":"Badge"}}`},
 		{name: "peer config", resource: `{"apiVersion":"unsupported","kind":"PeerConfig","metadata":{"name":"peer"},"spec":{}}`},
 		{name: "model", resource: `{"apiVersion":"unsupported","kind":"Model","metadata":{"name":"model"},"spec":{"kind":"llm","provider":{"kind":"openai-tenant","name":"main"},"source":"manual"}}`},
 		{name: "dashscope tenant", resource: `{"apiVersion":"unsupported","kind":"DashScopeTenant","metadata":{"name":"tenant"},"spec":{"credential_name":"credential"}}`},
@@ -161,7 +151,6 @@ func TestPutRejectsUnsupportedVersionByKind(t *testing.T) {
 		{name: "minimax tenant", resource: `{"apiVersion":"unsupported","kind":"MiniMaxTenant","metadata":{"name":"tenant"},"spec":{"app_id":"app","group_id":"group","credential_name":"credential"}}`},
 		{name: "resource list", resource: `{"apiVersion":"unsupported","kind":"ResourceList","metadata":{"name":"bundle"},"spec":{"items":[]}}`},
 		{name: "voice", resource: `{"apiVersion":"unsupported","kind":"Voice","metadata":{"name":"voice"},"spec":{"provider":{"kind":"minimax","name":"tenant"},"source":"manual"}}`},
-		{name: "pet species", resource: `{"apiVersion":"unsupported","kind":"PetSpecies","metadata":{"name":"species"},"spec":{"name":"Species"}}`},
 		{name: "workspace", resource: `{"apiVersion":"unsupported","kind":"Workspace","metadata":{"name":"workspace"},"spec":{"workflow_name":"workflow"}}`},
 		{name: "workflow", resource: `{"apiVersion":"unsupported","kind":"Workflow","metadata":{"name":"workflow"},"spec":{"driver":"flowcraft","flowcraft":{}}}`},
 	}
@@ -206,14 +195,12 @@ func TestDeleteRejectsMissingServicesByKind(t *testing.T) {
 		{name: "acl role", kind: apitypes.ResourceKindACLRole},
 		{name: "credential", kind: apitypes.ResourceKindCredential},
 		{name: "firmware", kind: apitypes.ResourceKindFirmware},
-		{name: "badge", kind: apitypes.ResourceKindBadge},
 		{name: "model", kind: apitypes.ResourceKindModel},
 		{name: "dashscope tenant", kind: apitypes.ResourceKindDashScopeTenant},
 		{name: "gemini tenant", kind: apitypes.ResourceKindGeminiTenant},
 		{name: "openai tenant", kind: apitypes.ResourceKindOpenAITenant},
 		{name: "minimax tenant", kind: apitypes.ResourceKindMiniMaxTenant},
 		{name: "voice", kind: apitypes.ResourceKindVoice},
-		{name: "pet species", kind: apitypes.ResourceKindPetSpecies},
 		{name: "workspace", kind: apitypes.ResourceKindWorkspace},
 		{name: "workflow", kind: apitypes.ResourceKindWorkflow},
 	}
@@ -236,13 +223,11 @@ func TestDeleteReturnsNotFoundByKind(t *testing.T) {
 		{name: "acl role", kind: apitypes.ResourceKindACLRole, manager: newACLResourceManager(t)},
 		{name: "credential", kind: apitypes.ResourceKindCredential, manager: New(Services{Credentials: newFakeCredentials()})},
 		{name: "firmware", kind: apitypes.ResourceKindFirmware, manager: New(Services{Firmwares: &firmware.Server{Store: kv.NewMemory(nil)}})},
-		{name: "badge", kind: apitypes.ResourceKindBadge, manager: New(Services{Badges: &badge.Server{Store: kv.NewMemory(nil), Assets: objectstore.Dir(t.TempDir())}})},
 		{name: "model", kind: apitypes.ResourceKindModel, manager: newModelManager()},
 		{name: "minimax tenant", kind: apitypes.ResourceKindMiniMaxTenant, manager: New(Services{ProviderTenants: newFakeMiniMax(),
 			Voices: newFakeMiniMax()})},
 		{name: "voice", kind: apitypes.ResourceKindVoice, manager: New(Services{ProviderTenants: newFakeMiniMax(),
 			Voices: newFakeMiniMax()})},
-		{name: "pet species", kind: apitypes.ResourceKindPetSpecies, manager: New(Services{PetSpecies: &petspecies.Server{Store: kv.NewMemory(nil), Assets: objectstore.Dir(t.TempDir())}})},
 		{name: "workspace", kind: apitypes.ResourceKindWorkspace, manager: New(Services{Workspaces: newFakeWorkspaces()})},
 		{name: "workflow", kind: apitypes.ResourceKindWorkflow, manager: New(Services{Workflows: newFakeWorkflows()})},
 	}
@@ -264,9 +249,7 @@ func TestDeleteRemovesResourcesByKind(t *testing.T) {
 	manager := New(Services{
 		Credentials:     credentials,
 		Firmwares:       &firmware.Server{Store: kv.NewMemory(nil)},
-		Badges:          &badge.Server{Store: kv.NewMemory(nil), Assets: objectstore.Dir(t.TempDir())},
 		Models:          models,
-		PetSpecies:      &petspecies.Server{Store: kv.NewMemory(nil), Assets: objectstore.Dir(t.TempDir())},
 		ProviderTenants: minimax,
 		Voices:          minimax,
 		Workspaces:      workspaces,
@@ -276,11 +259,9 @@ func TestDeleteRemovesResourcesByKind(t *testing.T) {
 	for _, resource := range []apitypes.Resource{
 		mustResource(t, `{"apiVersion":"gizclaw.admin/v1alpha1","kind":"Credential","metadata":{"name":"credential"},"spec":{"provider":"minimax","body":{"api_key":"secret"}}}`),
 		mustResource(t, `{"apiVersion":"gizclaw.admin/v1alpha1","kind":"Firmware","metadata":{"name":"firmware"},"spec":{"slots":{"stable":{"description":"stable firmware"}}}}`),
-		mustResource(t, `{"apiVersion":"gizclaw.admin/v1alpha1","kind":"Badge","metadata":{"name":"badge"},"spec":{"name":"Badge"}}`),
 		mustResource(t, `{"apiVersion":"gizclaw.admin/v1alpha1","kind":"Model","metadata":{"name":"model"},"spec":{"kind":"llm","provider":{"kind":"openai-tenant","name":"main"},"source":"manual"}}`),
 		mustResource(t, `{"apiVersion":"gizclaw.admin/v1alpha1","kind":"MiniMaxTenant","metadata":{"name":"tenant"},"spec":{"app_id":"app","group_id":"group","credential_name":"credential"}}`),
 		mustResource(t, `{"apiVersion":"gizclaw.admin/v1alpha1","kind":"Voice","metadata":{"name":"voice"},"spec":{"provider":{"kind":"minimax","name":"tenant"},"source":"manual"}}`),
-		mustResource(t, `{"apiVersion":"gizclaw.admin/v1alpha1","kind":"PetSpecies","metadata":{"name":"species"},"spec":{"name":"Species"}}`),
 		mustResource(t, `{"apiVersion":"gizclaw.admin/v1alpha1","kind":"Workflow","metadata":{"name":"workflow"},"spec":{"driver":"flowcraft","flowcraft":{}}}`),
 		mustResource(t, `{"apiVersion":"gizclaw.admin/v1alpha1","kind":"Workspace","metadata":{"name":"workspace"},"spec":{"workflow_name":"workflow"}}`),
 	} {
@@ -295,11 +276,9 @@ func TestDeleteRemovesResourcesByKind(t *testing.T) {
 	}{
 		{apitypes.ResourceKindCredential, "credential"},
 		{apitypes.ResourceKindFirmware, "firmware"},
-		{apitypes.ResourceKindBadge, "badge"},
 		{apitypes.ResourceKindModel, "model"},
 		{apitypes.ResourceKindMiniMaxTenant, "tenant"},
 		{apitypes.ResourceKindVoice, "voice"},
-		{apitypes.ResourceKindPetSpecies, "species"},
 		{apitypes.ResourceKindWorkspace, "workspace"},
 		{apitypes.ResourceKindWorkflow, "workflow"},
 	}
@@ -339,7 +318,6 @@ func TestApplyRejectsMissingServicesByKind(t *testing.T) {
 		{name: "acl role", resource: `{"apiVersion":"gizclaw.admin/v1alpha1","kind":"ACLRole","metadata":{"name":"role"},"spec":{"permissions":["read"]}}`},
 		{name: "credential", resource: `{"apiVersion":"gizclaw.admin/v1alpha1","kind":"Credential","metadata":{"name":"name"},"spec":{"provider":"minimax","body":{"api_key":"secret"}}}`},
 		{name: "firmware", resource: `{"apiVersion":"gizclaw.admin/v1alpha1","kind":"Firmware","metadata":{"name":"firmware"},"spec":{"slots":{"stable":{"description":"stable firmware"}}}}`},
-		{name: "badge", resource: `{"apiVersion":"gizclaw.admin/v1alpha1","kind":"Badge","metadata":{"name":"badge"},"spec":{"name":"Badge"}}`},
 		{name: "peer config", resource: `{"apiVersion":"gizclaw.admin/v1alpha1","kind":"PeerConfig","metadata":{"name":"peer"},"spec":{}}`},
 		{name: "model", resource: `{"apiVersion":"gizclaw.admin/v1alpha1","kind":"Model","metadata":{"name":"model"},"spec":{"kind":"llm","provider":{"kind":"openai-tenant","name":"main"},"source":"manual"}}`},
 		{name: "dashscope tenant", resource: `{"apiVersion":"gizclaw.admin/v1alpha1","kind":"DashScopeTenant","metadata":{"name":"tenant"},"spec":{"credential_name":"credential"}}`},
@@ -347,7 +325,6 @@ func TestApplyRejectsMissingServicesByKind(t *testing.T) {
 		{name: "openai tenant", resource: `{"apiVersion":"gizclaw.admin/v1alpha1","kind":"OpenAITenant","metadata":{"name":"tenant"},"spec":{"credential_name":"credential"}}`},
 		{name: "minimax tenant", resource: `{"apiVersion":"gizclaw.admin/v1alpha1","kind":"MiniMaxTenant","metadata":{"name":"tenant"},"spec":{"app_id":"app","group_id":"group","credential_name":"credential"}}`},
 		{name: "voice", resource: `{"apiVersion":"gizclaw.admin/v1alpha1","kind":"Voice","metadata":{"name":"voice"},"spec":{"provider":{"kind":"minimax","name":"tenant"},"source":"manual"}}`},
-		{name: "pet species", resource: `{"apiVersion":"gizclaw.admin/v1alpha1","kind":"PetSpecies","metadata":{"name":"species"},"spec":{"name":"Species"}}`},
 		{name: "workspace", resource: `{"apiVersion":"gizclaw.admin/v1alpha1","kind":"Workspace","metadata":{"name":"workspace"},"spec":{"workflow_name":"workflow"}}`},
 		{name: "workflow", resource: `{"apiVersion":"gizclaw.admin/v1alpha1","kind":"Workflow","metadata":{"name":"workflow"},"spec":{"driver":"flowcraft","flowcraft":{}}}`},
 	}
@@ -366,10 +343,8 @@ func TestApplyRejectsUnsupportedVersionByKind(t *testing.T) {
 		ACL:             aclManager.services.ACL,
 		Credentials:     newFakeCredentials(),
 		Firmwares:       &firmware.Server{Store: kv.NewMemory(nil)},
-		Badges:          &badge.Server{Store: kv.NewMemory(nil), Assets: objectstore.Dir(t.TempDir())},
 		Peers:           newFakePeers(),
 		Models:          newModelManager().services.Models,
-		PetSpecies:      &petspecies.Server{Store: kv.NewMemory(nil), Assets: objectstore.Dir(t.TempDir())},
 		ProviderTenants: newFakeMiniMax(),
 		Voices:          newFakeMiniMax(),
 		Workspaces:      newFakeWorkspaces(),
@@ -383,7 +358,6 @@ func TestApplyRejectsUnsupportedVersionByKind(t *testing.T) {
 		{name: "acl role", resource: `{"apiVersion":"unsupported","kind":"ACLRole","metadata":{"name":"role"},"spec":{"permissions":["read"]}}`},
 		{name: "credential", resource: `{"apiVersion":"unsupported","kind":"Credential","metadata":{"name":"name"},"spec":{"provider":"minimax","body":{"api_key":"secret"}}}`},
 		{name: "firmware", resource: `{"apiVersion":"unsupported","kind":"Firmware","metadata":{"name":"firmware"},"spec":{"slots":{"stable":{"description":"stable firmware"}}}}`},
-		{name: "badge", resource: `{"apiVersion":"unsupported","kind":"Badge","metadata":{"name":"badge"},"spec":{"name":"Badge"}}`},
 		{name: "peer config", resource: `{"apiVersion":"unsupported","kind":"PeerConfig","metadata":{"name":"peer"},"spec":{}}`},
 		{name: "model", resource: `{"apiVersion":"unsupported","kind":"Model","metadata":{"name":"model"},"spec":{"kind":"llm","provider":{"kind":"openai-tenant","name":"main"},"source":"manual"}}`},
 		{name: "dashscope tenant", resource: `{"apiVersion":"unsupported","kind":"DashScopeTenant","metadata":{"name":"tenant"},"spec":{"credential_name":"credential"}}`},
@@ -392,7 +366,6 @@ func TestApplyRejectsUnsupportedVersionByKind(t *testing.T) {
 		{name: "minimax tenant", resource: `{"apiVersion":"unsupported","kind":"MiniMaxTenant","metadata":{"name":"tenant"},"spec":{"app_id":"app","group_id":"group","credential_name":"credential"}}`},
 		{name: "resource list", resource: `{"apiVersion":"unsupported","kind":"ResourceList","metadata":{"name":"bundle"},"spec":{"items":[]}}`},
 		{name: "voice", resource: `{"apiVersion":"unsupported","kind":"Voice","metadata":{"name":"voice"},"spec":{"provider":{"kind":"minimax","name":"tenant"},"source":"manual"}}`},
-		{name: "pet species", resource: `{"apiVersion":"unsupported","kind":"PetSpecies","metadata":{"name":"species"},"spec":{"name":"Species"}}`},
 		{name: "workspace", resource: `{"apiVersion":"unsupported","kind":"Workspace","metadata":{"name":"workspace"},"spec":{"workflow_name":"workflow"}}`},
 		{name: "workflow", resource: `{"apiVersion":"unsupported","kind":"Workflow","metadata":{"name":"workflow"},"spec":{"driver":"flowcraft","flowcraft":{}}}`},
 	}

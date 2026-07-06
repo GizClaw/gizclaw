@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
+	"encoding/binary"
 	"errors"
 	"io"
 	"net/http"
@@ -21,9 +22,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/device/firmware"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/gameplay/pet"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/gameplay/reward"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/gameplay/wallet"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/gameplay"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/acl"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
@@ -524,87 +523,6 @@ func TestServerVoiceRPCErrorPaths(t *testing.T) {
 	requireRPCError(t, resp, rpcapi.RPCErrorCodeInternalError)
 }
 
-func TestServerBusinessDomainRPC(t *testing.T) {
-	srv := newTestResourceServer()
-	srv.ACL = allowAllAuthorizer{}
-
-	petAdopt := callRPC(t, srv, "pet-adopt", rpcapi.RPCMethodServerPetAdopt, rpcParams(t, (*rpcapi.RPCRequest_Params).FromPetAdoptRequest, rpcapi.PetAdoptRequest{
-		Id:   stringPtr("pet-a"),
-		Name: "navi",
-	}))
-	if got := mustResult(t, petAdopt.Result.AsPetAdoptResponse); got.Id != "pet-a" || got.SpeciesId != "rabbit" || got.VoiceId != "voice-a" {
-		t.Fatalf("pet.adopt = %#v", got)
-	}
-	petGet := callRPC(t, srv, "pet-get", rpcapi.RPCMethodServerPetGet, rpcParams(t, (*rpcapi.RPCRequest_Params).FromPetGetRequest, rpcapi.PetGetRequest{Id: "pet-a"}))
-	if got := mustResult(t, petGet.Result.AsPetGetResponse); got.Id != "pet-a" {
-		t.Fatalf("pet.get = %#v", got)
-	}
-	petPut := callRPC(t, srv, "pet-put", rpcapi.RPCMethodServerPetPut, rpcParams(t, (*rpcapi.RPCRequest_Params).FromPetPutRequest, rpcapi.PetPutRequest{Id: "pet-a", Name: "renamed"}))
-	if got := mustResult(t, petPut.Result.AsPetPutResponse); got.Name != "renamed" {
-		t.Fatalf("pet.put = %#v", got)
-	}
-	petFeed := callRPC(t, srv, "pet-feed", rpcapi.RPCMethodServerPetFeed, rpcParams(t, (*rpcapi.RPCRequest_Params).FromPetFeedRequest, rpcapi.PetFeedRequest{PetId: "pet-a", Prompt: "hungry"}))
-	if got := mustResult(t, petFeed.Result.AsPetFeedResponse); got.Life.Satiety != 65 {
-		t.Fatalf("pet.feed = %#v", got)
-	}
-	petWash := callRPC(t, srv, "pet-wash", rpcapi.RPCMethodServerPetWash, rpcParams(t, (*rpcapi.RPCRequest_Params).FromPetWashRequest, rpcapi.PetWashRequest{PetId: "pet-a", Prompt: "bath"}))
-	requireNoRPCError(t, petWash)
-	petPlay := callRPC(t, srv, "pet-play", rpcapi.RPCMethodServerPetPlay, rpcParams(t, (*rpcapi.RPCRequest_Params).FromPetPlayRequest, rpcapi.PetPlayRequest{PetId: "pet-a", Prompt: "game"}))
-	requireNoRPCError(t, petPlay)
-	petAdoptSecond := callRPC(t, srv, "pet-adopt-second", rpcapi.RPCMethodServerPetAdopt, rpcParams(t, (*rpcapi.RPCRequest_Params).FromPetAdoptRequest, rpcapi.PetAdoptRequest{
-		Id:   stringPtr("pet-b"),
-		Name: "delete-me",
-	}))
-	requireNoRPCError(t, petAdoptSecond)
-	petDelete := callRPC(t, srv, "pet-delete", rpcapi.RPCMethodServerPetDelete, rpcParams(t, (*rpcapi.RPCRequest_Params).FromPetDeleteRequest, rpcapi.PetDeleteRequest{Id: "pet-b"}))
-	if got := mustResult(t, petDelete.Result.AsPetDeleteResponse); got.Id != "pet-b" {
-		t.Fatalf("pet.delete = %#v", got)
-	}
-	petList := callRPC(t, srv, "pet-list", rpcapi.RPCMethodServerPetList, nil)
-	if got := mustResult(t, petList.Result.AsPetListResponse); len(got.Items) != 1 || got.Items[0].Id != "pet-a" {
-		t.Fatalf("pet.list = %#v", got)
-	}
-
-	rewardClaim := callRPC(t, srv, "reward-claim", rpcapi.RPCMethodServerRewardClaim, rpcParams(t, (*rpcapi.RPCRequest_Params).FromRewardClaimRequest, rpcapi.RewardClaimRequest{Prompt: "won a game"}))
-	reward := mustResult(t, rewardClaim.Result.AsRewardClaimResponse)
-	if reward.PointAmount != 8 || reward.Prompt != "won a game" {
-		t.Fatalf("reward.claim = %#v", reward)
-	}
-	rewardGet := callRPC(t, srv, "reward-get", rpcapi.RPCMethodServerRewardGet, rpcParams(t, (*rpcapi.RPCRequest_Params).FromRewardGetRequest, rpcapi.RewardGetRequest{Id: reward.Id}))
-	if got := mustResult(t, rewardGet.Result.AsRewardGetResponse); got.Id != reward.Id {
-		t.Fatalf("reward.get = %#v", got)
-	}
-	rewardList := callRPC(t, srv, "reward-list", rpcapi.RPCMethodServerRewardList, nil)
-	if got := mustResult(t, rewardList.Result.AsRewardListResponse); len(got.Items) != 1 || got.Items[0].Id != reward.Id {
-		t.Fatalf("reward.list = %#v", got)
-	}
-	walletGet := callRPC(t, srv, "wallet-get", rpcapi.RPCMethodServerWalletGet, nil)
-	if got := mustResult(t, walletGet.Result.AsWalletGetResponse); got.PointBalance != 8 {
-		t.Fatalf("wallet.get = %#v", got)
-	}
-	txList := callRPC(t, srv, "wallet-tx-list", rpcapi.RPCMethodServerWalletTransactionsList, nil)
-	txs := mustResult(t, txList.Result.AsWalletTransactionsListResponse)
-	if len(txs.Items) != 1 || txs.Items[0].Reason != rpcapi.WalletTransactionObjectReasonRewardClaim {
-		t.Fatalf("wallet.transactions.list = %#v", txs)
-	}
-	txGet := callRPC(t, srv, "wallet-tx-get", rpcapi.RPCMethodServerWalletTransactionsGet, rpcParams(t, (*rpcapi.RPCRequest_Params).FromWalletTransactionsGetRequest, rpcapi.WalletTransactionsGetRequest{Id: txs.Items[0].Id}))
-	if got := mustResult(t, txGet.Result.AsWalletTransactionsGetResponse); got.Id != txs.Items[0].Id {
-		t.Fatalf("wallet.transactions.get = %#v", got)
-	}
-}
-
-func TestServerBusinessDomainDoesNotUseResourceACL(t *testing.T) {
-	auth := newRuleAuthorizer()
-	srv := newTestResourceServer()
-	srv.ACL = auth
-
-	walletGet := callRPC(t, srv, "wallet-get", rpcapi.RPCMethodServerWalletGet, nil)
-	requireNoRPCError(t, walletGet)
-	if len(auth.calls) != 0 {
-		t.Fatalf("business RPC ACL checks = %#v, want none", auth.calls)
-	}
-}
-
 func TestServerFirmwareRPCUsesFirmwareReadACL(t *testing.T) {
 	ctx := context.Background()
 	auth := newRuleAuthorizer()
@@ -697,6 +615,126 @@ func TestServerFirmwareRPCUsesFirmwareReadACL(t *testing.T) {
 	requireRPCError(t, missingBin, rpcapi.RPCErrorCodeNotFound)
 }
 
+func TestServerGameplayPixaDownloads(t *testing.T) {
+	ctx := context.Background()
+	caller := giznet.PublicKey{9}
+	now := time.Date(2026, 7, 6, 9, 0, 0, 0, time.UTC)
+	catalog := &gameplay.Catalog{
+		GameRulesets: kv.NewMemory(nil),
+		PetDefs:      kv.NewMemory(nil),
+		BadgeDefs:    kv.NewMemory(nil),
+		GameDefs:     kv.NewMemory(nil),
+		Assets:       objectstore.Dir(t.TempDir()),
+		Now:          func() time.Time { return now },
+	}
+	petPixa := peerresourceTestPixa(t, []string{"idle", "feed"})
+	badgePixa := peerresourceTestPixa(t, []string{"icon"})
+	if resp, err := catalog.CreatePetDef(ctx, adminservice.CreatePetDefRequestObject{Body: &adminservice.PetDefUpsert{Id: "petdef-a", Spec: apitypes.PetDefSpec{DisplayName: "Pet A"}}}); err != nil {
+		t.Fatalf("CreatePetDef error = %v", err)
+	} else if _, ok := resp.(adminservice.CreatePetDef200JSONResponse); !ok {
+		t.Fatalf("CreatePetDef response = %T", resp)
+	}
+	if resp, err := catalog.UploadPetDefPixa(ctx, adminservice.UploadPetDefPixaRequestObject{Id: "petdef-a", Body: bytes.NewReader(petPixa)}); err != nil {
+		t.Fatalf("UploadPetDefPixa error = %v", err)
+	} else if _, ok := resp.(adminservice.UploadPetDefPixa200JSONResponse); !ok {
+		t.Fatalf("UploadPetDefPixa response = %T", resp)
+	}
+	if resp, err := catalog.CreateBadgeDef(ctx, adminservice.CreateBadgeDefRequestObject{Body: &adminservice.BadgeDefUpsert{Id: "badge-a", Spec: apitypes.BadgeDefSpec{DisplayName: "Badge A"}}}); err != nil {
+		t.Fatalf("CreateBadgeDef error = %v", err)
+	} else if _, ok := resp.(adminservice.CreateBadgeDef200JSONResponse); !ok {
+		t.Fatalf("CreateBadgeDef response = %T", resp)
+	}
+	if resp, err := catalog.UploadBadgeDefPixa(ctx, adminservice.UploadBadgeDefPixaRequestObject{Id: "badge-a", Body: bytes.NewReader(badgePixa)}); err != nil {
+		t.Fatalf("UploadBadgeDefPixa error = %v", err)
+	} else if _, ok := resp.(adminservice.UploadBadgeDefPixa200JSONResponse); !ok {
+		t.Fatalf("UploadBadgeDefPixa response = %T", resp)
+	}
+	badgeDelta := map[string]int64{"badge-a": 100}
+	if resp, err := catalog.CreateGameRuleset(ctx, adminservice.CreateGameRulesetRequestObject{Body: &adminservice.GameRulesetUpsert{
+		Name: "default",
+		Spec: apitypes.GameRulesetSpec{
+			Enabled: true,
+			PetPool: []apitypes.GameRulesetPetPoolEntry{{
+				PetdefId: "petdef-a",
+				Weight:   1,
+			}},
+			BadgeDefIds: &[]string{"badge-a"},
+			Drive:       &apitypes.GameRulesetDriveSpec{DefaultReward: &apitypes.GameRewardSpec{BadgeExpDelta: &badgeDelta}},
+		},
+	}}); err != nil {
+		t.Fatalf("CreateGameRuleset error = %v", err)
+	} else if _, ok := resp.(adminservice.CreateGameRuleset200JSONResponse); !ok {
+		t.Fatalf("CreateGameRuleset response = %T", resp)
+	}
+	db, err := sql.Open("sqlite", ":memory:")
+	if err != nil {
+		t.Fatalf("sql.Open error = %v", err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+	workflowStore := kv.NewMemory(nil)
+	workflowServer := &workflow.Server{Store: workflowStore}
+	chatroomWorkflow, err := convertType[apitypes.WorkflowDocument](workflowDoc("chatroom"))
+	if err != nil {
+		t.Fatalf("convert workflow: %v", err)
+	}
+	if resp, err := workflowServer.CreateWorkflow(ctx, adminservice.CreateWorkflowRequestObject{Body: &chatroomWorkflow}); err != nil {
+		t.Fatalf("CreateWorkflow error = %v", err)
+	} else if _, ok := resp.(adminservice.CreateWorkflow200JSONResponse); !ok {
+		t.Fatalf("CreateWorkflow response = %T", resp)
+	}
+	ids := []string{"pet-a", "adopt-txn", "grant-a"}
+	runtime := &gameplay.Runtime{
+		DB:         db,
+		Catalog:    catalog,
+		Workspaces: &workspace.Server{Store: kv.NewMemory(nil), WorkflowStore: workflowStore},
+		Now:        func() time.Time { return now },
+		PickWeight: func(int64) int64 { return 0 },
+		NewID: func() string {
+			if len(ids) == 0 {
+				t.Fatal("unexpected id allocation")
+			}
+			id := ids[0]
+			ids = ids[1:]
+			return id
+		},
+	}
+	adopted, err := runtime.AdoptPet(ctx, caller.String(), apitypes.PetAdoptRequest{})
+	if err != nil {
+		t.Fatalf("AdoptPet error = %v", err)
+	}
+	if _, err := runtime.DrivePet(ctx, caller.String(), apitypes.PetDriveRequest{PetId: adopted.Pet.Id}); err != nil {
+		t.Fatalf("DrivePet error = %v", err)
+	}
+	auth := newRuleAuthorizer()
+	auth.allow(acl.ResourceKindGameRuleset, "default", apitypes.ACLPermissionRead)
+	srv := &Server{Caller: caller, ACL: auth, Gameplay: runtime}
+	petResp := callRPC(t, srv, "petdef-pixa-download", rpcapi.RPCMethodServerPetDefPixaDownload, rpcParams(t, (*rpcapi.RPCRequest_Params).FromPetDefPixaDownloadRequest, rpcapi.PetDefPixaDownloadRequest{Id: "petdef-a"}))
+	gotPet := mustResult(t, petResp.Result.AsPetDefPixaDownloadResponse)
+	if gotPet.Id != "petdef-a" || gotPet.SizeBytes != int64(len(petPixa)) || valueOrZero(gotPet.PixaPath) != "pet-defs/petdef-a/pixa" {
+		t.Fatalf("petdef pixa metadata = %#v", gotPet)
+	}
+	if got := auth.count(ctx, acl.ResourceKindGameRuleset, "default", apitypes.ACLPermissionRead); got == 0 {
+		t.Fatal("petdef pixa download did not check ruleset read ACL")
+	}
+	gotPetMetadata, petReader, rpcErr, err := srv.PreparePetDefPixaDownload(ctx, rpcapi.PetDefPixaDownloadRequest{Id: "petdef-a"})
+	if err != nil || rpcErr != nil {
+		t.Fatalf("PreparePetDefPixaDownload err = %v rpcErr = %+v", err, rpcErr)
+	}
+	defer petReader.Close()
+	if data, err := io.ReadAll(petReader); err != nil || !bytes.Equal(data, petPixa) || gotPetMetadata.SizeBytes != int64(len(petPixa)) {
+		t.Fatalf("petdef pixa data len=%d metadata=%#v err=%v", len(data), gotPetMetadata, err)
+	}
+	badgeResp := callRPC(t, srv, "badgedef-pixa-download", rpcapi.RPCMethodServerBadgeDefPixaDownload, rpcParams(t, (*rpcapi.RPCRequest_Params).FromBadgeDefPixaDownloadRequest, rpcapi.BadgeDefPixaDownloadRequest{Id: "badge-a"}))
+	gotBadge := mustResult(t, badgeResp.Result.AsBadgeDefPixaDownloadResponse)
+	if gotBadge.Id != "badge-a" || gotBadge.SizeBytes != int64(len(badgePixa)) || valueOrZero(gotBadge.PixaPath) != "badge-defs/badge-a/pixa" {
+		t.Fatalf("badgedef pixa metadata = %#v", gotBadge)
+	}
+
+	other := &Server{Caller: giznet.PublicKey{8}, ACL: newRuleAuthorizer(), Gameplay: runtime}
+	denied := callRPC(t, other, "petdef-pixa-denied", rpcapi.RPCMethodServerPetDefPixaDownload, rpcParams(t, (*rpcapi.RPCRequest_Params).FromPetDefPixaDownloadRequest, rpcapi.PetDefPixaDownloadRequest{Id: "petdef-a"}))
+	requireRPCError(t, denied, rpcapi.RPCErrorCodeForbidden)
+}
+
 func TestServerErrorPaths(t *testing.T) {
 	requiredMethods := []rpcapi.RPCMethod{
 		rpcapi.RPCMethodServerWorkspaceGet,
@@ -715,16 +753,6 @@ func TestServerErrorPaths(t *testing.T) {
 		rpcapi.RPCMethodServerCredentialCreate,
 		rpcapi.RPCMethodServerCredentialPut,
 		rpcapi.RPCMethodServerCredentialDelete,
-		rpcapi.RPCMethodServerPetGet,
-		rpcapi.RPCMethodServerPetAdopt,
-		rpcapi.RPCMethodServerPetPut,
-		rpcapi.RPCMethodServerPetDelete,
-		rpcapi.RPCMethodServerPetFeed,
-		rpcapi.RPCMethodServerPetWash,
-		rpcapi.RPCMethodServerPetPlay,
-		rpcapi.RPCMethodServerWalletTransactionsGet,
-		rpcapi.RPCMethodServerRewardGet,
-		rpcapi.RPCMethodServerRewardClaim,
 	}
 
 	for _, method := range []rpcapi.RPCMethod{
@@ -748,17 +776,6 @@ func TestServerErrorPaths(t *testing.T) {
 		rpcapi.RPCMethodServerCredentialCreate,
 		rpcapi.RPCMethodServerCredentialPut,
 		rpcapi.RPCMethodServerCredentialDelete,
-		rpcapi.RPCMethodServerPetList,
-		rpcapi.RPCMethodServerPetGet,
-		rpcapi.RPCMethodServerPetAdopt,
-		rpcapi.RPCMethodServerPetPut,
-		rpcapi.RPCMethodServerPetDelete,
-		rpcapi.RPCMethodServerWalletGet,
-		rpcapi.RPCMethodServerWalletTransactionsList,
-		rpcapi.RPCMethodServerWalletTransactionsGet,
-		rpcapi.RPCMethodServerRewardList,
-		rpcapi.RPCMethodServerRewardGet,
-		rpcapi.RPCMethodServerRewardClaim,
 	} {
 		resp, handled, err := (&Server{}).Dispatch(context.Background(), &rpcapi.RPCRequest{Id: string(method), Method: method})
 		if err != nil || !handled {
@@ -778,10 +795,6 @@ func TestServerErrorPaths(t *testing.T) {
 		rpcapi.RPCMethodServerWorkflowList,
 		rpcapi.RPCMethodServerModelList,
 		rpcapi.RPCMethodServerCredentialList,
-		rpcapi.RPCMethodServerPetList,
-		rpcapi.RPCMethodServerWalletGet,
-		rpcapi.RPCMethodServerWalletTransactionsList,
-		rpcapi.RPCMethodServerRewardList,
 	} {
 		resp := callRPC(t, srv, "invalid-"+string(method), method, &rpcapi.RPCRequest_Params{})
 		requireRPCError(t, resp, rpcapi.RPCErrorCodeInvalidParams)
@@ -796,9 +809,6 @@ func TestServerErrorPaths(t *testing.T) {
 		{"workflow", rpcapi.RPCMethodServerWorkflowGet, rpcParams(t, (*rpcapi.RPCRequest_Params).FromWorkflowGetRequest, rpcapi.WorkflowGetRequest{Name: "missing"})},
 		{"model", rpcapi.RPCMethodServerModelGet, rpcParams(t, (*rpcapi.RPCRequest_Params).FromModelGetRequest, rpcapi.ModelGetRequest{Id: "missing"})},
 		{"credential", rpcapi.RPCMethodServerCredentialGet, rpcParams(t, (*rpcapi.RPCRequest_Params).FromCredentialGetRequest, rpcapi.CredentialGetRequest{Name: "missing"})},
-		{"pet", rpcapi.RPCMethodServerPetGet, rpcParams(t, (*rpcapi.RPCRequest_Params).FromPetGetRequest, rpcapi.PetGetRequest{Id: "missing"})},
-		{"reward", rpcapi.RPCMethodServerRewardGet, rpcParams(t, (*rpcapi.RPCRequest_Params).FromRewardGetRequest, rpcapi.RewardGetRequest{Id: "missing"})},
-		{"wallet transaction", rpcapi.RPCMethodServerWalletTransactionsGet, rpcParams(t, (*rpcapi.RPCRequest_Params).FromWalletTransactionsGetRequest, rpcapi.WalletTransactionsGetRequest{Id: "missing"})},
 	} {
 		t.Run(tc.name+"-not-found", func(t *testing.T) {
 			resp := callRPC(t, srv, tc.name+"-not-found", tc.method, tc.params)
@@ -829,6 +839,53 @@ func peerresourceTarPayload(t *testing.T, files map[string]string) []byte {
 		t.Fatalf("Close tar: %v", err)
 	}
 	return buf.Bytes()
+}
+
+func peerresourceTestPixa(t *testing.T, clips []string) []byte {
+	t.Helper()
+	if len(clips) == 0 {
+		t.Fatal("peerresourceTestPixa requires at least one clip")
+	}
+	const (
+		headerSize       = 40
+		clipEntrySize    = 56
+		frameEntrySize   = 16
+		clipNameSize     = 32
+		paletteByteCount = 2
+	)
+	paletteOffset := headerSize
+	clipOffset := paletteOffset + paletteByteCount
+	frameOffset := clipOffset + len(clips)*clipEntrySize
+	payload := []byte{0x00, 0xf8, 0xe0, 0x07}
+	payloadOffset := frameOffset + frameEntrySize
+	data := make([]byte, payloadOffset+len(payload))
+	copy(data[:4], "PIXA")
+	binary.LittleEndian.PutUint16(data[4:6], 1)
+	binary.LittleEndian.PutUint16(data[6:8], headerSize)
+	binary.LittleEndian.PutUint16(data[8:10], 16)
+	binary.LittleEndian.PutUint16(data[10:12], 16)
+	binary.LittleEndian.PutUint16(data[12:14], 1)
+	binary.LittleEndian.PutUint16(data[14:16], uint16(len(clips)))
+	binary.LittleEndian.PutUint32(data[16:20], 1)
+	binary.LittleEndian.PutUint32(data[20:24], uint32(paletteOffset))
+	binary.LittleEndian.PutUint32(data[24:28], uint32(clipOffset))
+	binary.LittleEndian.PutUint32(data[28:32], uint32(frameOffset))
+	binary.LittleEndian.PutUint32(data[32:36], uint32(payloadOffset))
+	binary.LittleEndian.PutUint32(data[36:40], uint32(len(payload)))
+	for i, clip := range clips {
+		base := clipOffset + i*clipEntrySize
+		copy(data[base:base+clipNameSize], []byte(clip))
+		binary.LittleEndian.PutUint32(data[base+36:base+40], 0)
+		binary.LittleEndian.PutUint32(data[base+40:base+44], 1)
+		binary.LittleEndian.PutUint32(data[base+44:base+48], 120)
+		binary.LittleEndian.PutUint16(data[base+48:base+50], 1)
+	}
+	binary.LittleEndian.PutUint16(data[frameOffset:frameOffset+2], 120)
+	data[frameOffset+2] = 0
+	binary.LittleEndian.PutUint32(data[frameOffset+4:frameOffset+8], 0)
+	binary.LittleEndian.PutUint32(data[frameOffset+8:frameOffset+12], uint32(len(payload)))
+	copy(data[payloadOffset:], payload)
+	return data
 }
 
 func TestHelpers(t *testing.T) {
@@ -873,14 +930,6 @@ func TestHelpers(t *testing.T) {
 
 func newTestResourceServer() *Server {
 	workflowStore := kv.NewMemory(nil)
-	walletServer := &wallet.Server{DB: newTestDB(nil), Now: func() time.Time { return time.Unix(1, 0).UTC() }}
-	rewardServer := &reward.Server{
-		Store:    kv.NewMemory(nil),
-		Wallet:   walletServer,
-		Decider:  fixedRewardDecision(rpcapi.RewardDecision{PointAmount: 8}),
-		Cooldown: -1,
-		Now:      func() time.Time { return time.Unix(1, 0).UTC() },
-	}
 	return &Server{
 		Caller:      giznet.PublicKey{1},
 		Workflows:   &workflow.Server{Store: workflowStore},
@@ -888,60 +937,7 @@ func newTestResourceServer() *Server {
 		Models:      &model.Server{Store: kv.NewMemory(nil), Now: func() time.Time { return time.Unix(1, 0).UTC() }},
 		Credentials: &credential.Server{Store: kv.NewMemory(nil)},
 		Voices:      &voice.Server{Store: kv.NewMemory(nil), Now: func() time.Time { return time.Unix(1, 0).UTC() }},
-		Pets: &pet.Server{
-			Store:           kv.NewMemory(nil),
-			Wallet:          walletServer,
-			SpeciesSelector: fixedSpecies("rabbit"),
-			VoiceSelector:   fixedVoice("voice-a"),
-			ActionDecider:   fixedPetDecision(rpcapi.PetActionDecision{LifeDelta: rpcapi.PetLifeStats{Satiety: 5}}),
-			AdoptPointCost:  -1,
-			Now:             func() time.Time { return time.Unix(1, 0).UTC() },
-		},
-		Wallets: walletServer,
-		Rewards: rewardServer,
 	}
-}
-
-func newTestDB(t *testing.T) *sql.DB {
-	db, err := sql.Open("sqlite", ":memory:")
-	if err != nil {
-		if t != nil {
-			t.Fatalf("open sqlite: %v", err)
-		}
-		panic(err)
-	}
-	if t != nil {
-		t.Cleanup(func() {
-			if err := db.Close(); err != nil && !errors.Is(err, sql.ErrConnDone) {
-				t.Fatalf("close sqlite: %v", err)
-			}
-		})
-	}
-	return db
-}
-
-type fixedSpecies string
-
-func (s fixedSpecies) SelectSpecies(context.Context, string) (string, error) {
-	return string(s), nil
-}
-
-type fixedVoice string
-
-func (v fixedVoice) SelectVoice(context.Context, string) (string, error) {
-	return string(v), nil
-}
-
-type fixedPetDecision rpcapi.PetActionDecision
-
-func (d fixedPetDecision) DecidePetAction(context.Context, string, string, rpcapi.PetObject) (rpcapi.PetActionDecision, error) {
-	return rpcapi.PetActionDecision(d), nil
-}
-
-type fixedRewardDecision rpcapi.RewardDecision
-
-func (d fixedRewardDecision) DecideReward(context.Context, string, string) (rpcapi.RewardDecision, error) {
-	return rpcapi.RewardDecision(d), nil
 }
 
 type fixedPeerConfigService struct {

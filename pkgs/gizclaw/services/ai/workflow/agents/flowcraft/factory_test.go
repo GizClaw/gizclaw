@@ -262,6 +262,41 @@ func TestAgentTransformRunsTurnAndClosesOutput(t *testing.T) {
 	}
 }
 
+func TestAgentTransformUsesTextInputAsTranscript(t *testing.T) {
+	claw := &recordingClaw{events: []flowclaw.Event{
+		{Type: flowclaw.EventToken, NodeID: "answer", Content: "我记得你来看我了"},
+	}}
+	a := &agent{
+		transformers: fakeTransformerProvider{transformer: fakeVoiceTransformer{}},
+		claw:         claw,
+		asrModel:     "asr",
+	}
+	stream, err := a.Transform(context.Background(), "ignored", &sliceStream{chunks: []*genx.MessageChunk{
+		{Part: genx.Text("你好，我今天来看看你。"), Ctrl: &genx.StreamCtrl{StreamID: "text-1", Label: transcriptLabel}},
+		{Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "text-1", Label: transcriptLabel, EndOfStream: true}},
+	}})
+	if err != nil {
+		t.Fatalf("Transform() error = %v", err)
+	}
+	chunks := drainChunks(t, stream)
+	if got := claw.Texts(); !reflect.DeepEqual(got, []string{"你好，我今天来看看你。"}) {
+		t.Fatalf("claw texts = %#v", got)
+	}
+	var sawTranscript, sawAnswer bool
+	for _, chunk := range chunks {
+		text, _ := chunk.Part.(genx.Text)
+		if chunk.Role == genx.RoleUser && chunk.Ctrl != nil && chunk.Ctrl.Label == transcriptLabel && text == "你好，我今天来看看你。" {
+			sawTranscript = true
+		}
+		if chunk.Role == genx.RoleModel && chunk.Ctrl != nil && chunk.Ctrl.Label == assistantLabel && text == "我记得你来看我了" {
+			sawAnswer = true
+		}
+	}
+	if !sawTranscript || !sawAnswer {
+		t.Fatalf("text transcript/answer not found transcript=%t answer=%t chunks=%#v", sawTranscript, sawAnswer, chunks)
+	}
+}
+
 func TestAgentTransformSelfStartsEmptyConversation(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()

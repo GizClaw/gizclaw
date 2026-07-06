@@ -35,10 +35,6 @@ storage:
     kind: sql
     sqlite:
       dir: data/acl.sqlite
-  wallet-db:
-    kind: sql
-    sqlite:
-      dir: data/wallet.sqlite
 stores:
   peers:
     kind: keyvalue
@@ -68,44 +64,9 @@ stores:
     kind: keyvalue
     storage: memory
     prefix: workflows
-  pet-species:
-    kind: keyvalue
-    storage: memory
-    prefix: pet-species
-  badges:
-    kind: keyvalue
-    storage: memory
-    prefix: badges
-  pets:
-    kind: keyvalue
-    storage: memory
-    prefix: pets
-  rewards:
-    kind: keyvalue
-    storage: memory
-    prefix: rewards
-  pet-species-assets:
-    kind: objectstore
-    storage: local-files
-    prefix: pet-species
-  badge-assets:
-    kind: objectstore
-    storage: local-files
-    prefix: badges
-  wallets:
-    kind: sql
-    storage: wallet-db
   acl:
     kind: sql
     storage: acl-db
-system_tasks:
-  reward_claim:
-    generator: model/reward-claim
-    cooldown: 30m
-  pet_action:
-    generator: model/pet-action
-gameplay:
-  pet_adopt_point_cost: -1
 `, serverKP.Private.String(), testKeyPair(t, 0xab).Public.String())), 0o644); err != nil {
 		t.Fatalf("WriteFile error = %v", err)
 	}
@@ -138,9 +99,6 @@ gameplay:
 	}
 	if got := cfg.Storage["acl-db"].SQLite.Dir; got != filepath.Join(workspace, "data", "acl.sqlite") {
 		t.Fatalf("acl db dir = %q", got)
-	}
-	if cfg.Gameplay.PetAdoptPointCost != -1 {
-		t.Fatalf("Gameplay = %+v", cfg.Gameplay)
 	}
 }
 
@@ -207,10 +165,6 @@ storage:
     kind: sql
     sqlite:
       dir: data/acl.sqlite
-  wallet-db:
-    kind: sql
-    sqlite:
-      dir: data/wallet.sqlite
 stores:
   fw-meta:
     kind: keyvalue
@@ -220,25 +174,9 @@ stores:
     kind: objectstore
     storage: fw-files
     prefix: firmware
-  pet-species-assets:
-    kind: objectstore
-    storage: fw-files
-    prefix: pet-species
-  badge-assets:
-    kind: objectstore
-    storage: fw-files
-    prefix: badges
-  wallets:
-    kind: sql
-    storage: wallet-db
   acl:
     kind: sql
     storage: acl-db
-system_tasks:
-  reward_claim:
-    generator: model/reward-claim
-  pet_action:
-    generator: model/pet-action
 `), 0o644); err != nil {
 		t.Fatalf("WriteFile error = %v", err)
 	}
@@ -358,10 +296,6 @@ storage:
     kind: sql
     sqlite:
       dir: data/acl.sqlite
-  wallet-db:
-    kind: sql
-    sqlite:
-      dir: data/wallet.sqlite
 stores:
   peers:
     kind: keyvalue
@@ -391,42 +325,9 @@ stores:
     kind: keyvalue
     storage: main-kv
     prefix: workflows
-  pet-species:
-    kind: keyvalue
-    storage: main-kv
-    prefix: pet-species
-  badges:
-    kind: keyvalue
-    storage: main-kv
-    prefix: badges
-  pets:
-    kind: keyvalue
-    storage: main-kv
-    prefix: pets
-  rewards:
-    kind: keyvalue
-    storage: main-kv
-    prefix: rewards
-  pet-species-assets:
-    kind: objectstore
-    storage: local-files
-    prefix: pet-species
-  badge-assets:
-    kind: objectstore
-    storage: local-files
-    prefix: badges
-  wallets:
-    kind: sql
-    storage: wallet-db
   acl:
     kind: sql
     storage: acl-db
-system_tasks:
-  reward_claim:
-    generator: model/reward-claim
-    cooldown: 30m
-  pet_action:
-    generator: model/pet-action
 `), 0o644); err != nil {
 		t.Fatalf("WriteFile config error = %v", err)
 	}

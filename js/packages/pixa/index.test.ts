@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { parsePixa, PixaParseError } from "./index.ts";
+import { parsePixa, pixaClipFrameIndex, renderPixaFrameRGBA, selectPixaClip, validatePixa, PixaParseError } from "./index.ts";
 
 test("parsePixa reads a valid PIXA header, clips, and frames", () => {
   const asset = parsePixa(makePixa({ clips: ["idle", "feed"], height: 96, width: 120 }));
@@ -67,6 +67,33 @@ test("parsePixa rejects invalid files", () => {
   );
 });
 
+test("validatePixa enforces PetDef and BadgeDef clip contracts", () => {
+  assert.equal(validatePixa(makePixa({ clips: ["idle", "feed"] }), "petdef").clips.length, 2);
+  assert.equal(validatePixa(makePixa({ clips: ["icon"] }), "badgedef").clips[0]?.name, "icon");
+  assert.throws(() => validatePixa(makePixa({ clips: ["feed"] }), "petdef"), /idle/);
+  assert.throws(() => validatePixa(makePixa({ clips: ["idle"] }), "badgedef"), /icon/);
+});
+
+test("selectPixaClip and pixaClipFrameIndex choose stable animation frames", () => {
+  const asset = parsePixa(makePixa({ clips: ["idle", "bath"], height: 1, width: 2 }));
+
+  assert.equal(selectPixaClip(asset, "bath")?.name, "bath");
+  assert.equal(selectPixaClip(asset, "missing")?.name, "idle");
+  const clip = selectPixaClip(asset, "bath");
+  assert.ok(clip);
+  assert.equal(pixaClipFrameIndex(clip, 0), 0);
+  assert.equal(pixaClipFrameIndex(clip, 250), 0);
+});
+
+test("renderPixaFrameRGBA decodes RGB565 key frames", () => {
+  const asset = parsePixa(makePixa({ clips: ["idle"], height: 1, width: 2 }));
+  const frame = renderPixaFrameRGBA(asset, 0);
+
+  assert.equal(frame.width, 2);
+  assert.equal(frame.height, 1);
+  assert.deepEqual(Array.from(frame.data), [255, 0, 0, 255, 0, 255, 0, 255]);
+});
+
 type MakePixaOptions = {
   clips: string[];
   height?: number;
@@ -113,6 +140,7 @@ function makePixa({ clips, height = 16, mutate, width = 16 }: MakePixaOptions): 
   view.setUint8(frameOffset + 2, 0);
   view.setUint32(frameOffset + 4, 0, true);
   view.setUint32(frameOffset + 8, payloadLength, true);
+  bytes.set([0x00, 0xf8, 0xe0, 0x07], payloadOffset);
   mutate?.(data);
   return data;
 }

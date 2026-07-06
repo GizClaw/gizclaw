@@ -44,7 +44,6 @@ test.beforeEach(async ({ page }) => {
       ]),
       "/acl/roles": pageResponse([{ name: "admin-role", permissions: ["read"], updated_at: "2026-07-01T00:00:00Z" }]),
       "/acl/views": pageResponse([{ name: "default-view", resources: [], updated_at: "2026-07-01T00:00:00Z" }]),
-      "/badges": pageResponse([{ id: "badge-helper", name: "Helper Badge", updated_at: "2026-07-01T00:00:00Z" }]),
       "/credentials": pageResponse([{ body: { api_key: "set" }, name: "fake-openai-credential-000", provider: "openai", updated_at: "2026-07-01T00:00:00Z" }]),
       "/dashscope-tenants": pageResponse([{ credential_name: "dashscope-credential", name: "dashscope-tenant", updated_at: "2026-07-01T00:00:00Z" }]),
       "/firmwares": pageResponse([{ name: "devkit-firmware-main", slots: { beta: {}, develop: {}, pending: {}, stable: {} }, updated_at: "2026-07-01T00:00:00Z" }]),
@@ -53,7 +52,6 @@ test.beforeEach(async ({ page }) => {
       "/models": pageResponse([{ id: "fake-openai-chat-000", kind: "chat", name: "Fake OpenAI chat model", provider: { kind: "openai-tenant", name: "openai-tenant" }, updated_at: "2026-07-01T00:00:00Z" }]),
       "/openai-tenants": pageResponse([{ credential_name: "openai-credential", name: "openai-tenant", updated_at: "2026-07-01T00:00:00Z" }]),
       "/peers": pageResponse([{ auto_registered: false, public_key: "peer-public-key-1", role: "peer", status: "approved", updated_at: "2026-07-01T00:00:00Z" }]),
-      "/pet-species": pageResponse([{ id: "pet-cat", name: "Pet Cat", updated_at: "2026-07-01T00:00:00Z" }]),
       "/server-info": { build_commit: "test-build", public_key: "server-public-key" },
       "/social/contacts": pageResponse([{ id: "contact-admin", name: "Admin Contact", owner_public_key: "peer-public-key-1" }]),
       "/social/friend-groups": pageResponse([{ id: "group-main", name: "Main Group", my_role: "owner", workspace_name: "group-workspace" }]),
@@ -136,7 +134,7 @@ test("admin view renders full resource manager pages", async ({ page }) => {
   await expect(page.getByText("peer-a <-> peer-b")).toBeVisible();
 });
 
-test("admin view covers provider, AI, social, business, and settings sections", async ({ page }) => {
+test("admin view covers provider, AI, social, and settings sections", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("button", { name: "Get Started" }).click();
 
@@ -184,16 +182,17 @@ test("admin view covers provider, AI, social, business, and settings sections", 
   await expect(page.getByRole("heading", { name: "Friend Groups" })).toBeVisible();
   await expect(page.getByText("group-main")).toBeVisible();
 
-  await page.getByRole("button", { name: "Pet Species" }).click();
-  await expect(page.getByRole("heading", { name: "Pet Species" })).toBeVisible();
-  await expect(page.getByText("pet-cat")).toBeVisible();
-
-  await page.getByRole("button", { name: "Badges" }).click();
-  await expect(page.getByRole("heading", { name: "Badges" })).toBeVisible();
-  await expect(page.getByText("badge-helper")).toBeVisible();
-
   await page.getByRole("button", { name: "Resources" }).click();
   await expect(page.getByRole("heading", { name: "Resources" })).toBeVisible();
+  const resourceJSON = page.getByRole("textbox").last();
+  await page.getByRole("combobox").click();
+  await page.getByRole("option", { name: "GameRuleset" }).click();
+  await expect(resourceJSON).toHaveValue(/"kind": "GameRuleset"/);
+  await expect(resourceJSON).toHaveValue(/"pet_pool"/);
+  await page.getByRole("combobox").click();
+  await page.getByRole("option", { name: "PetDef" }).click();
+  await expect(resourceJSON).toHaveValue(/"kind": "PetDef"/);
+  await expect(resourceJSON).toHaveValue(/"initial_life"/);
 
   await page.getByRole("button", { name: "Access Control" }).click();
   await expect(page.getByRole("heading", { name: "Access Control" })).toBeVisible();

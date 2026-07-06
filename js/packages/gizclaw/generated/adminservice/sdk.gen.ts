@@ -2,7 +2,7 @@
 
 import type { Client, Options as Options2, TDataShape } from './client/index.ts';
 import { client } from './client.gen.ts';
-import type { ApplyResourceData, ApplyResourceErrors, ApplyResourceResponses, ApprovePeerData, ApprovePeerErrors, ApprovePeerResponses, BlockPeerData, BlockPeerErrors, BlockPeerResponses, CreateAclPolicyBindingData, CreateAclPolicyBindingErrors, CreateAclPolicyBindingResponses, CreateAclRoleData, CreateAclRoleErrors, CreateAclRoleResponses, CreateAclViewData, CreateAclViewErrors, CreateAclViewResponses, CreateContactData, CreateContactErrors, CreateContactResponses, CreateCredentialData, CreateCredentialErrors, CreateCredentialResponses, CreateDashScopeTenantData, CreateDashScopeTenantErrors, CreateDashScopeTenantResponses, CreateFirmwareData, CreateFirmwareErrors, CreateFirmwareResponses, CreateFriendData, CreateFriendErrors, CreateFriendGroupData, CreateFriendGroupErrors, CreateFriendGroupMemberData, CreateFriendGroupMemberErrors, CreateFriendGroupMemberResponses, CreateFriendGroupResponses, CreateFriendResponses, CreateGeminiTenantData, CreateGeminiTenantErrors, CreateGeminiTenantResponses, CreateMiniMaxTenantData, CreateMiniMaxTenantErrors, CreateMiniMaxTenantResponses, CreateModelData, CreateModelErrors, CreateModelResponses, CreateOpenAiTenantData, CreateOpenAiTenantErrors, CreateOpenAiTenantResponses, CreatePeerFriendData, CreatePeerFriendErrors, CreatePeerFriendResponses, CreateVoiceData, CreateVoiceErrors, CreateVoiceResponses, CreateVolcTenantData, CreateVolcTenantErrors, CreateVolcTenantResponses, CreateWorkflowData, CreateWorkflowErrors, CreateWorkflowResponses, CreateWorkspaceData, CreateWorkspaceErrors, CreateWorkspaceResponses, DeleteAclPolicyBindingData, DeleteAclPolicyBindingErrors, DeleteAclPolicyBindingResponses, DeleteAclRoleData, DeleteAclRoleErrors, DeleteAclRoleResponses, DeleteAclViewData, DeleteAclViewErrors, DeleteAclViewResponses, DeleteContactData, DeleteContactErrors, DeleteContactResponses, DeleteCredentialData, DeleteCredentialErrors, DeleteCredentialResponses, DeleteDashScopeTenantData, DeleteDashScopeTenantErrors, DeleteDashScopeTenantResponses, DeleteFirmwareArtifactData, DeleteFirmwareArtifactErrors, DeleteFirmwareArtifactResponses, DeleteFirmwareData, DeleteFirmwareErrors, DeleteFirmwareResponses, DeleteFriendData, DeleteFriendErrors, DeleteFriendGroupData, DeleteFriendGroupErrors, DeleteFriendGroupInviteTokenData, DeleteFriendGroupInviteTokenErrors, DeleteFriendGroupInviteTokenResponses, DeleteFriendGroupMemberData, DeleteFriendGroupMemberErrors, DeleteFriendGroupMemberResponses, DeleteFriendGroupResponses, DeleteFriendResponses, DeleteGeminiTenantData, DeleteGeminiTenantErrors, DeleteGeminiTenantResponses, DeleteMiniMaxTenantData, DeleteMiniMaxTenantErrors, DeleteMiniMaxTenantResponses, DeleteModelData, DeleteModelErrors, DeleteModelResponses, DeleteOpenAiTenantData, DeleteOpenAiTenantErrors, DeleteOpenAiTenantResponses, DeletePeerData, DeletePeerErrors, DeletePeerFriendData, DeletePeerFriendErrors, DeletePeerFriendResponses, DeletePeerResponses, DeleteResourceData, DeleteResourceErrors, DeleteResourceResponses, DeleteVoiceData, DeleteVoiceErrors, DeleteVoiceResponses, DeleteVolcTenantData, DeleteVolcTenantErrors, DeleteVolcTenantResponses, DeleteWorkflowData, DeleteWorkflowErrors, DeleteWorkflowResponses, DeleteWorkspaceData, DeleteWorkspaceErrors, DeleteWorkspaceResponses, DownloadBadgeIconData, DownloadBadgeIconErrors, DownloadBadgeIconResponses, DownloadFirmwareArtifactData, DownloadFirmwareArtifactEntryData, DownloadFirmwareArtifactEntryErrors, DownloadFirmwareArtifactEntryResponses, DownloadFirmwareArtifactErrors, DownloadFirmwareArtifactResponses, DownloadPetSpeciesPixaData, DownloadPetSpeciesPixaErrors, DownloadPetSpeciesPixaResponses, DownloadWorkspaceHistoryAudioData, DownloadWorkspaceHistoryAudioErrors, DownloadWorkspaceHistoryAudioResponses, FindPubKeyByImeiData, FindPubKeyByImeiErrors, FindPubKeyByImeiResponses, FindPubKeyBySnData, FindPubKeyBySnErrors, FindPubKeyBySnResponses, GetAclPolicyBindingData, GetAclPolicyBindingErrors, GetAclPolicyBindingResponses, GetAclRoleData, GetAclRoleErrors, GetAclRoleResponses, GetAclViewData, GetAclViewErrors, GetAclViewResponses, GetContactData, GetContactErrors, GetContactResponses, GetCredentialData, GetCredentialErrors, GetCredentialResponses, GetDashScopeTenantData, GetDashScopeTenantErrors, GetDashScopeTenantResponses, GetFirmwareData, GetFirmwareErrors, GetFirmwareResponses, GetFriendData, GetFriendErrors, GetFriendGroupData, GetFriendGroupErrors, GetFriendGroupInviteTokenData, GetFriendGroupInviteTokenErrors, GetFriendGroupInviteTokenResponses, GetFriendGroupResponses, GetFriendResponses, GetGeminiTenantData, GetGeminiTenantErrors, GetGeminiTenantResponses, GetMiniMaxTenantData, GetMiniMaxTenantErrors, GetMiniMaxTenantResponses, GetModelData, GetModelErrors, GetModelResponses, GetOpenAiTenantData, GetOpenAiTenantErrors, GetOpenAiTenantResponses, GetPeerConfigData, GetPeerConfigErrors, GetPeerConfigResponses, GetPeerData, GetPeerErrors, GetPeerFriendData, GetPeerFriendErrors, GetPeerFriendResponses, GetPeerInfoData, GetPeerInfoErrors, GetPeerInfoResponses, GetPeerResponses, GetPeerRuntimeData, GetPeerRuntimeResponses, GetResourceData, GetResourceErrors, GetResourceResponses, GetVoiceData, GetVoiceErrors, GetVoiceResponses, GetVolcTenantData, GetVolcTenantErrors, GetVolcTenantResponses, GetWorkflowData, GetWorkflowErrors, GetWorkflowResponses, GetWorkspaceData, GetWorkspaceErrors, GetWorkspaceHistoryData, GetWorkspaceHistoryErrors, GetWorkspaceHistoryResponses, GetWorkspaceResponses, ListAclPolicyBindingsData, ListAclPolicyBindingsErrors, ListAclPolicyBindingsResponses, ListAclRolesData, ListAclRolesErrors, ListAclRolesResponses, ListAclViewsData, ListAclViewsErrors, ListAclViewsResponses, ListBadgesData, ListBadgesErrors, ListBadgesResponses, ListContactsData, ListContactsErrors, ListContactsResponses, ListCredentialsData, ListCredentialsErrors, ListCredentialsResponses, ListDashScopeTenantsData, ListDashScopeTenantsErrors, ListDashScopeTenantsResponses, ListFirmwareArtifactEntriesData, ListFirmwareArtifactEntriesErrors, ListFirmwareArtifactEntriesResponses, ListFirmwaresData, ListFirmwaresErrors, ListFirmwaresResponses, ListFriendGroupMembersData, ListFriendGroupMembersErrors, ListFriendGroupMembersResponses, ListFriendGroupsData, ListFriendGroupsErrors, ListFriendGroupsResponses, ListFriendsData, ListFriendsErrors, ListFriendsResponses, ListGeminiTenantsData, ListGeminiTenantsErrors, ListGeminiTenantsResponses, ListMiniMaxTenantsData, ListMiniMaxTenantsErrors, ListMiniMaxTenantsResponses, ListModelsData, ListModelsErrors, ListModelsResponses, ListOpenAiTenantsData, ListOpenAiTenantsErrors, ListOpenAiTenantsResponses, ListPeerFriendsData, ListPeerFriendsErrors, ListPeerFriendsResponses, ListPeersData, ListPeersErrors, ListPeersResponses, ListPetSpeciesData, ListPetSpeciesErrors, ListPetSpeciesResponses, ListVoicesData, ListVoicesErrors, ListVoicesResponses, ListVolcTenantsData, ListVolcTenantsErrors, ListVolcTenantsResponses, ListWorkflowsData, ListWorkflowsErrors, ListWorkflowsResponses, ListWorkspaceHistoryData, ListWorkspaceHistoryErrors, ListWorkspaceHistoryResponses, ListWorkspacesData, ListWorkspacesErrors, ListWorkspacesResponses, PutAclPolicyBindingData, PutAclPolicyBindingErrors, PutAclPolicyBindingResponses, PutAclRoleData, PutAclRoleErrors, PutAclRoleResponses, PutAclViewData, PutAclViewErrors, PutAclViewResponses, PutContactData, PutContactErrors, PutContactResponses, PutCredentialData, PutCredentialErrors, PutCredentialResponses, PutDashScopeTenantData, PutDashScopeTenantErrors, PutDashScopeTenantResponses, PutFirmwareData, PutFirmwareErrors, PutFirmwareResponses, PutFriendGroupData, PutFriendGroupErrors, PutFriendGroupInviteTokenData, PutFriendGroupInviteTokenErrors, PutFriendGroupInviteTokenResponses, PutFriendGroupMemberData, PutFriendGroupMemberErrors, PutFriendGroupMemberResponses, PutFriendGroupResponses, PutGeminiTenantData, PutGeminiTenantErrors, PutGeminiTenantResponses, PutMiniMaxTenantData, PutMiniMaxTenantErrors, PutMiniMaxTenantResponses, PutModelData, PutModelErrors, PutModelResponses, PutOpenAiTenantData, PutOpenAiTenantErrors, PutOpenAiTenantResponses, PutPeerConfigData, PutPeerConfigErrors, PutPeerConfigResponses, PutPeerInfoData, PutPeerInfoErrors, PutPeerInfoResponses, PutResourceData, PutResourceErrors, PutResourceResponses, PutVoiceData, PutVoiceErrors, PutVoiceResponses, PutVolcTenantData, PutVolcTenantErrors, PutVolcTenantResponses, PutWorkflowData, PutWorkflowErrors, PutWorkflowResponses, PutWorkspaceData, PutWorkspaceErrors, PutWorkspaceResponses, RefreshPeerData, RefreshPeerErrors, RefreshPeerResponses, ReleaseFirmwareData, ReleaseFirmwareErrors, ReleaseFirmwareResponses, RollbackFirmwareData, RollbackFirmwareErrors, RollbackFirmwareResponses, StatFirmwareArtifactEntryData, StatFirmwareArtifactEntryErrors, StatFirmwareArtifactEntryResponses, SyncMiniMaxTenantVoicesData, SyncMiniMaxTenantVoicesErrors, SyncMiniMaxTenantVoicesResponses, SyncVolcTenantVoicesData, SyncVolcTenantVoicesErrors, SyncVolcTenantVoicesResponses, TreeFirmwareArtifactEntriesData, TreeFirmwareArtifactEntriesErrors, TreeFirmwareArtifactEntriesResponses, UploadBadgeIconData, UploadBadgeIconErrors, UploadBadgeIconResponses, UploadFirmwareArtifactData, UploadFirmwareArtifactErrors, UploadFirmwareArtifactResponses, UploadPetSpeciesPixaData, UploadPetSpeciesPixaErrors, UploadPetSpeciesPixaResponses } from './types.gen.ts';
+import type { ApplyResourceData, ApplyResourceErrors, ApplyResourceResponses, ApprovePeerData, ApprovePeerErrors, ApprovePeerResponses, BlockPeerData, BlockPeerErrors, BlockPeerResponses, CreateAclPolicyBindingData, CreateAclPolicyBindingErrors, CreateAclPolicyBindingResponses, CreateAclRoleData, CreateAclRoleErrors, CreateAclRoleResponses, CreateAclViewData, CreateAclViewErrors, CreateAclViewResponses, CreateBadgeDefData, CreateBadgeDefErrors, CreateBadgeDefResponses, CreateContactData, CreateContactErrors, CreateContactResponses, CreateCredentialData, CreateCredentialErrors, CreateCredentialResponses, CreateDashScopeTenantData, CreateDashScopeTenantErrors, CreateDashScopeTenantResponses, CreateFirmwareData, CreateFirmwareErrors, CreateFirmwareResponses, CreateFriendData, CreateFriendErrors, CreateFriendGroupData, CreateFriendGroupErrors, CreateFriendGroupMemberData, CreateFriendGroupMemberErrors, CreateFriendGroupMemberResponses, CreateFriendGroupResponses, CreateFriendResponses, CreateGameDefData, CreateGameDefErrors, CreateGameDefResponses, CreateGameRulesetData, CreateGameRulesetErrors, CreateGameRulesetResponses, CreateGeminiTenantData, CreateGeminiTenantErrors, CreateGeminiTenantResponses, CreateMiniMaxTenantData, CreateMiniMaxTenantErrors, CreateMiniMaxTenantResponses, CreateModelData, CreateModelErrors, CreateModelResponses, CreateOpenAiTenantData, CreateOpenAiTenantErrors, CreateOpenAiTenantResponses, CreatePeerFriendData, CreatePeerFriendErrors, CreatePeerFriendResponses, CreatePetDefData, CreatePetDefErrors, CreatePetDefResponses, CreateVoiceData, CreateVoiceErrors, CreateVoiceResponses, CreateVolcTenantData, CreateVolcTenantErrors, CreateVolcTenantResponses, CreateWorkflowData, CreateWorkflowErrors, CreateWorkflowResponses, CreateWorkspaceData, CreateWorkspaceErrors, CreateWorkspaceResponses, DeleteAclPolicyBindingData, DeleteAclPolicyBindingErrors, DeleteAclPolicyBindingResponses, DeleteAclRoleData, DeleteAclRoleErrors, DeleteAclRoleResponses, DeleteAclViewData, DeleteAclViewErrors, DeleteAclViewResponses, DeleteBadgeDefData, DeleteBadgeDefErrors, DeleteBadgeDefResponses, DeleteContactData, DeleteContactErrors, DeleteContactResponses, DeleteCredentialData, DeleteCredentialErrors, DeleteCredentialResponses, DeleteDashScopeTenantData, DeleteDashScopeTenantErrors, DeleteDashScopeTenantResponses, DeleteFirmwareArtifactData, DeleteFirmwareArtifactErrors, DeleteFirmwareArtifactResponses, DeleteFirmwareData, DeleteFirmwareErrors, DeleteFirmwareResponses, DeleteFriendData, DeleteFriendErrors, DeleteFriendGroupData, DeleteFriendGroupErrors, DeleteFriendGroupInviteTokenData, DeleteFriendGroupInviteTokenErrors, DeleteFriendGroupInviteTokenResponses, DeleteFriendGroupMemberData, DeleteFriendGroupMemberErrors, DeleteFriendGroupMemberResponses, DeleteFriendGroupResponses, DeleteFriendResponses, DeleteGameDefData, DeleteGameDefErrors, DeleteGameDefResponses, DeleteGameRulesetData, DeleteGameRulesetErrors, DeleteGameRulesetResponses, DeleteGeminiTenantData, DeleteGeminiTenantErrors, DeleteGeminiTenantResponses, DeleteMiniMaxTenantData, DeleteMiniMaxTenantErrors, DeleteMiniMaxTenantResponses, DeleteModelData, DeleteModelErrors, DeleteModelResponses, DeleteOpenAiTenantData, DeleteOpenAiTenantErrors, DeleteOpenAiTenantResponses, DeletePeerData, DeletePeerErrors, DeletePeerFriendData, DeletePeerFriendErrors, DeletePeerFriendResponses, DeletePeerResponses, DeletePetDefData, DeletePetDefErrors, DeletePetDefResponses, DeleteResourceData, DeleteResourceErrors, DeleteResourceResponses, DeleteVoiceData, DeleteVoiceErrors, DeleteVoiceResponses, DeleteVolcTenantData, DeleteVolcTenantErrors, DeleteVolcTenantResponses, DeleteWorkflowData, DeleteWorkflowErrors, DeleteWorkflowResponses, DeleteWorkspaceData, DeleteWorkspaceErrors, DeleteWorkspaceResponses, DownloadBadgeDefPixaData, DownloadBadgeDefPixaErrors, DownloadBadgeDefPixaResponses, DownloadFirmwareArtifactData, DownloadFirmwareArtifactEntryData, DownloadFirmwareArtifactEntryErrors, DownloadFirmwareArtifactEntryResponses, DownloadFirmwareArtifactErrors, DownloadFirmwareArtifactResponses, DownloadPetDefPixaData, DownloadPetDefPixaErrors, DownloadPetDefPixaResponses, DownloadWorkspaceHistoryAudioData, DownloadWorkspaceHistoryAudioErrors, DownloadWorkspaceHistoryAudioResponses, FindPubKeyByImeiData, FindPubKeyByImeiErrors, FindPubKeyByImeiResponses, FindPubKeyBySnData, FindPubKeyBySnErrors, FindPubKeyBySnResponses, GetAclPolicyBindingData, GetAclPolicyBindingErrors, GetAclPolicyBindingResponses, GetAclRoleData, GetAclRoleErrors, GetAclRoleResponses, GetAclViewData, GetAclViewErrors, GetAclViewResponses, GetBadgeDefData, GetBadgeDefErrors, GetBadgeDefResponses, GetContactData, GetContactErrors, GetContactResponses, GetCredentialData, GetCredentialErrors, GetCredentialResponses, GetDashScopeTenantData, GetDashScopeTenantErrors, GetDashScopeTenantResponses, GetFirmwareData, GetFirmwareErrors, GetFirmwareResponses, GetFriendData, GetFriendErrors, GetFriendGroupData, GetFriendGroupErrors, GetFriendGroupInviteTokenData, GetFriendGroupInviteTokenErrors, GetFriendGroupInviteTokenResponses, GetFriendGroupResponses, GetFriendResponses, GetGameDefData, GetGameDefErrors, GetGameDefResponses, GetGameRulesetData, GetGameRulesetErrors, GetGameRulesetResponses, GetGeminiTenantData, GetGeminiTenantErrors, GetGeminiTenantResponses, GetMiniMaxTenantData, GetMiniMaxTenantErrors, GetMiniMaxTenantResponses, GetModelData, GetModelErrors, GetModelResponses, GetOpenAiTenantData, GetOpenAiTenantErrors, GetOpenAiTenantResponses, GetPeerBadgeData, GetPeerBadgeErrors, GetPeerBadgeResponses, GetPeerConfigData, GetPeerConfigErrors, GetPeerConfigResponses, GetPeerData, GetPeerErrors, GetPeerFriendData, GetPeerFriendErrors, GetPeerFriendResponses, GetPeerGameResultData, GetPeerGameResultErrors, GetPeerGameResultResponses, GetPeerInfoData, GetPeerInfoErrors, GetPeerInfoResponses, GetPeerPetData, GetPeerPetErrors, GetPeerPetResponses, GetPeerPointsData, GetPeerPointsErrors, GetPeerPointsResponses, GetPeerPointsTransactionData, GetPeerPointsTransactionErrors, GetPeerPointsTransactionResponses, GetPeerResponses, GetPeerRewardGrantData, GetPeerRewardGrantErrors, GetPeerRewardGrantResponses, GetPeerRuntimeData, GetPeerRuntimeResponses, GetPetDefData, GetPetDefErrors, GetPetDefResponses, GetResourceData, GetResourceErrors, GetResourceResponses, GetVoiceData, GetVoiceErrors, GetVoiceResponses, GetVolcTenantData, GetVolcTenantErrors, GetVolcTenantResponses, GetWorkflowData, GetWorkflowErrors, GetWorkflowResponses, GetWorkspaceData, GetWorkspaceErrors, GetWorkspaceHistoryData, GetWorkspaceHistoryErrors, GetWorkspaceHistoryResponses, GetWorkspaceResponses, ListAclPolicyBindingsData, ListAclPolicyBindingsErrors, ListAclPolicyBindingsResponses, ListAclRolesData, ListAclRolesErrors, ListAclRolesResponses, ListAclViewsData, ListAclViewsErrors, ListAclViewsResponses, ListBadgeDefsData, ListBadgeDefsErrors, ListBadgeDefsResponses, ListContactsData, ListContactsErrors, ListContactsResponses, ListCredentialsData, ListCredentialsErrors, ListCredentialsResponses, ListDashScopeTenantsData, ListDashScopeTenantsErrors, ListDashScopeTenantsResponses, ListFirmwareArtifactEntriesData, ListFirmwareArtifactEntriesErrors, ListFirmwareArtifactEntriesResponses, ListFirmwaresData, ListFirmwaresErrors, ListFirmwaresResponses, ListFriendGroupMembersData, ListFriendGroupMembersErrors, ListFriendGroupMembersResponses, ListFriendGroupsData, ListFriendGroupsErrors, ListFriendGroupsResponses, ListFriendsData, ListFriendsErrors, ListFriendsResponses, ListGameDefsData, ListGameDefsErrors, ListGameDefsResponses, ListGameRulesetsData, ListGameRulesetsErrors, ListGameRulesetsResponses, ListGeminiTenantsData, ListGeminiTenantsErrors, ListGeminiTenantsResponses, ListMiniMaxTenantsData, ListMiniMaxTenantsErrors, ListMiniMaxTenantsResponses, ListModelsData, ListModelsErrors, ListModelsResponses, ListOpenAiTenantsData, ListOpenAiTenantsErrors, ListOpenAiTenantsResponses, ListPeerBadgesData, ListPeerBadgesErrors, ListPeerBadgesResponses, ListPeerFriendsData, ListPeerFriendsErrors, ListPeerFriendsResponses, ListPeerGameResultsData, ListPeerGameResultsErrors, ListPeerGameResultsResponses, ListPeerPetsData, ListPeerPetsErrors, ListPeerPetsResponses, ListPeerPointsTransactionsData, ListPeerPointsTransactionsErrors, ListPeerPointsTransactionsResponses, ListPeerRewardGrantsData, ListPeerRewardGrantsErrors, ListPeerRewardGrantsResponses, ListPeersData, ListPeersErrors, ListPeersResponses, ListPetDefsData, ListPetDefsErrors, ListPetDefsResponses, ListVoicesData, ListVoicesErrors, ListVoicesResponses, ListVolcTenantsData, ListVolcTenantsErrors, ListVolcTenantsResponses, ListWorkflowsData, ListWorkflowsErrors, ListWorkflowsResponses, ListWorkspaceHistoryData, ListWorkspaceHistoryErrors, ListWorkspaceHistoryResponses, ListWorkspacesData, ListWorkspacesErrors, ListWorkspacesResponses, PutAclPolicyBindingData, PutAclPolicyBindingErrors, PutAclPolicyBindingResponses, PutAclRoleData, PutAclRoleErrors, PutAclRoleResponses, PutAclViewData, PutAclViewErrors, PutAclViewResponses, PutBadgeDefData, PutBadgeDefErrors, PutBadgeDefResponses, PutContactData, PutContactErrors, PutContactResponses, PutCredentialData, PutCredentialErrors, PutCredentialResponses, PutDashScopeTenantData, PutDashScopeTenantErrors, PutDashScopeTenantResponses, PutFirmwareData, PutFirmwareErrors, PutFirmwareResponses, PutFriendGroupData, PutFriendGroupErrors, PutFriendGroupInviteTokenData, PutFriendGroupInviteTokenErrors, PutFriendGroupInviteTokenResponses, PutFriendGroupMemberData, PutFriendGroupMemberErrors, PutFriendGroupMemberResponses, PutFriendGroupResponses, PutGameDefData, PutGameDefErrors, PutGameDefResponses, PutGameRulesetData, PutGameRulesetErrors, PutGameRulesetResponses, PutGeminiTenantData, PutGeminiTenantErrors, PutGeminiTenantResponses, PutMiniMaxTenantData, PutMiniMaxTenantErrors, PutMiniMaxTenantResponses, PutModelData, PutModelErrors, PutModelResponses, PutOpenAiTenantData, PutOpenAiTenantErrors, PutOpenAiTenantResponses, PutPeerConfigData, PutPeerConfigErrors, PutPeerConfigResponses, PutPeerInfoData, PutPeerInfoErrors, PutPeerInfoResponses, PutPetDefData, PutPetDefErrors, PutPetDefResponses, PutResourceData, PutResourceErrors, PutResourceResponses, PutVoiceData, PutVoiceErrors, PutVoiceResponses, PutVolcTenantData, PutVolcTenantErrors, PutVolcTenantResponses, PutWorkflowData, PutWorkflowErrors, PutWorkflowResponses, PutWorkspaceData, PutWorkspaceErrors, PutWorkspaceResponses, RefreshPeerData, RefreshPeerErrors, RefreshPeerResponses, ReleaseFirmwareData, ReleaseFirmwareErrors, ReleaseFirmwareResponses, RollbackFirmwareData, RollbackFirmwareErrors, RollbackFirmwareResponses, StatFirmwareArtifactEntryData, StatFirmwareArtifactEntryErrors, StatFirmwareArtifactEntryResponses, SyncMiniMaxTenantVoicesData, SyncMiniMaxTenantVoicesErrors, SyncMiniMaxTenantVoicesResponses, SyncVolcTenantVoicesData, SyncVolcTenantVoicesErrors, SyncVolcTenantVoicesResponses, TreeFirmwareArtifactEntriesData, TreeFirmwareArtifactEntriesErrors, TreeFirmwareArtifactEntriesResponses, UploadBadgeDefPixaData, UploadBadgeDefPixaErrors, UploadBadgeDefPixaResponses, UploadFirmwareArtifactData, UploadFirmwareArtifactErrors, UploadFirmwareArtifactResponses, UploadPetDefPixaData, UploadPetDefPixaErrors, UploadPetDefPixaResponses } from './types.gen.ts';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -217,46 +217,6 @@ export const putFriendGroupInviteToken = <ThrowOnError extends boolean = false>(
     ...options,
     headers: {
         'Content-Type': 'application/json',
-        ...options.headers
-    }
-});
-
-/**
- * Download a pet species PIXA file
- */
-export const downloadPetSpeciesPixa = <ThrowOnError extends boolean = false>(options: Options<DownloadPetSpeciesPixaData, ThrowOnError>) => (options.client ?? client).get<DownloadPetSpeciesPixaResponses, DownloadPetSpeciesPixaErrors, ThrowOnError>({ url: '/pet-species/{id}/pixa', ...options });
-
-/**
- * Upload a pet species PIXA file
- *
- * Upload or replace the .pixa asset for an existing pet species resource.
- */
-export const uploadPetSpeciesPixa = <ThrowOnError extends boolean = false>(options: Options<UploadPetSpeciesPixaData, ThrowOnError>) => (options.client ?? client).put<UploadPetSpeciesPixaResponses, UploadPetSpeciesPixaErrors, ThrowOnError>({
-    bodySerializer: null,
-    url: '/pet-species/{id}/pixa',
-    ...options,
-    headers: {
-        'Content-Type': 'application/octet-stream',
-        ...options.headers
-    }
-});
-
-/**
- * Download a badge icon
- */
-export const downloadBadgeIcon = <ThrowOnError extends boolean = false>(options: Options<DownloadBadgeIconData, ThrowOnError>) => (options.client ?? client).get<DownloadBadgeIconResponses, DownloadBadgeIconErrors, ThrowOnError>({ url: '/badges/{id}/icon', ...options });
-
-/**
- * Upload a badge icon
- *
- * Upload or replace the icon asset for an existing badge resource.
- */
-export const uploadBadgeIcon = <ThrowOnError extends boolean = false>(options: Options<UploadBadgeIconData, ThrowOnError>) => (options.client ?? client).put<UploadBadgeIconResponses, UploadBadgeIconErrors, ThrowOnError>({
-    bodySerializer: null,
-    url: '/badges/{id}/icon',
-    ...options,
-    headers: {
-        'Content-Type': 'application/octet-stream',
         ...options.headers
     }
 });
@@ -960,16 +920,6 @@ export const deletePeerFriend = <ThrowOnError extends boolean = false>(options: 
 export const getPeerFriend = <ThrowOnError extends boolean = false>(options: Options<GetPeerFriendData, ThrowOnError>) => (options.client ?? client).get<GetPeerFriendResponses, GetPeerFriendErrors, ThrowOnError>({ url: '/peers/{publicKey}/friends/{id}', ...options });
 
 /**
- * List pet species
- */
-export const listPetSpecies = <ThrowOnError extends boolean = false>(options?: Options<ListPetSpeciesData, ThrowOnError>) => (options?.client ?? client).get<ListPetSpeciesResponses, ListPetSpeciesErrors, ThrowOnError>({ url: '/pet-species', ...options });
-
-/**
- * List badges
- */
-export const listBadges = <ThrowOnError extends boolean = false>(options?: Options<ListBadgesData, ThrowOnError>) => (options?.client ?? client).get<ListBadgesResponses, ListBadgesErrors, ThrowOnError>({ url: '/badges', ...options });
-
-/**
  * Delete a firmware channel artifact
  *
  * Delete artifact.tar, extracted files, manifest, and channel artifact metadata.
@@ -1025,3 +975,250 @@ export const statFirmwareArtifactEntry = <ThrowOnError extends boolean = false>(
  * Download one regular file extracted from the channel artifact.
  */
 export const downloadFirmwareArtifactEntry = <ThrowOnError extends boolean = false>(options: Options<DownloadFirmwareArtifactEntryData, ThrowOnError>) => (options.client ?? client).get<DownloadFirmwareArtifactEntryResponses, DownloadFirmwareArtifactEntryErrors, ThrowOnError>({ url: '/firmwares/{name}/packages/{channel}/artifact/dl', ...options });
+
+/**
+ * List GameRulesets
+ */
+export const listGameRulesets = <ThrowOnError extends boolean = false>(options?: Options<ListGameRulesetsData, ThrowOnError>) => (options?.client ?? client).get<ListGameRulesetsResponses, ListGameRulesetsErrors, ThrowOnError>({ url: '/game-rulesets', ...options });
+
+/**
+ * Create a GameRuleset
+ */
+export const createGameRuleset = <ThrowOnError extends boolean = false>(options: Options<CreateGameRulesetData, ThrowOnError>) => (options.client ?? client).post<CreateGameRulesetResponses, CreateGameRulesetErrors, ThrowOnError>({
+    url: '/game-rulesets',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Delete a GameRuleset
+ */
+export const deleteGameRuleset = <ThrowOnError extends boolean = false>(options: Options<DeleteGameRulesetData, ThrowOnError>) => (options.client ?? client).delete<DeleteGameRulesetResponses, DeleteGameRulesetErrors, ThrowOnError>({ url: '/game-rulesets/{name}', ...options });
+
+/**
+ * Get a GameRuleset
+ */
+export const getGameRuleset = <ThrowOnError extends boolean = false>(options: Options<GetGameRulesetData, ThrowOnError>) => (options.client ?? client).get<GetGameRulesetResponses, GetGameRulesetErrors, ThrowOnError>({ url: '/game-rulesets/{name}', ...options });
+
+/**
+ * Create or update a GameRuleset
+ */
+export const putGameRuleset = <ThrowOnError extends boolean = false>(options: Options<PutGameRulesetData, ThrowOnError>) => (options.client ?? client).put<PutGameRulesetResponses, PutGameRulesetErrors, ThrowOnError>({
+    url: '/game-rulesets/{name}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * List PetDefs
+ */
+export const listPetDefs = <ThrowOnError extends boolean = false>(options?: Options<ListPetDefsData, ThrowOnError>) => (options?.client ?? client).get<ListPetDefsResponses, ListPetDefsErrors, ThrowOnError>({ url: '/pet-defs', ...options });
+
+/**
+ * Create a PetDef
+ */
+export const createPetDef = <ThrowOnError extends boolean = false>(options: Options<CreatePetDefData, ThrowOnError>) => (options.client ?? client).post<CreatePetDefResponses, CreatePetDefErrors, ThrowOnError>({
+    url: '/pet-defs',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Delete a PetDef
+ */
+export const deletePetDef = <ThrowOnError extends boolean = false>(options: Options<DeletePetDefData, ThrowOnError>) => (options.client ?? client).delete<DeletePetDefResponses, DeletePetDefErrors, ThrowOnError>({ url: '/pet-defs/{id}', ...options });
+
+/**
+ * Get a PetDef
+ */
+export const getPetDef = <ThrowOnError extends boolean = false>(options: Options<GetPetDefData, ThrowOnError>) => (options.client ?? client).get<GetPetDefResponses, GetPetDefErrors, ThrowOnError>({ url: '/pet-defs/{id}', ...options });
+
+/**
+ * Create or update a PetDef
+ */
+export const putPetDef = <ThrowOnError extends boolean = false>(options: Options<PutPetDefData, ThrowOnError>) => (options.client ?? client).put<PutPetDefResponses, PutPetDefErrors, ThrowOnError>({
+    url: '/pet-defs/{id}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * List BadgeDefs
+ */
+export const listBadgeDefs = <ThrowOnError extends boolean = false>(options?: Options<ListBadgeDefsData, ThrowOnError>) => (options?.client ?? client).get<ListBadgeDefsResponses, ListBadgeDefsErrors, ThrowOnError>({ url: '/badge-defs', ...options });
+
+/**
+ * Create a BadgeDef
+ */
+export const createBadgeDef = <ThrowOnError extends boolean = false>(options: Options<CreateBadgeDefData, ThrowOnError>) => (options.client ?? client).post<CreateBadgeDefResponses, CreateBadgeDefErrors, ThrowOnError>({
+    url: '/badge-defs',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Delete a BadgeDef
+ */
+export const deleteBadgeDef = <ThrowOnError extends boolean = false>(options: Options<DeleteBadgeDefData, ThrowOnError>) => (options.client ?? client).delete<DeleteBadgeDefResponses, DeleteBadgeDefErrors, ThrowOnError>({ url: '/badge-defs/{id}', ...options });
+
+/**
+ * Get a BadgeDef
+ */
+export const getBadgeDef = <ThrowOnError extends boolean = false>(options: Options<GetBadgeDefData, ThrowOnError>) => (options.client ?? client).get<GetBadgeDefResponses, GetBadgeDefErrors, ThrowOnError>({ url: '/badge-defs/{id}', ...options });
+
+/**
+ * Create or update a BadgeDef
+ */
+export const putBadgeDef = <ThrowOnError extends boolean = false>(options: Options<PutBadgeDefData, ThrowOnError>) => (options.client ?? client).put<PutBadgeDefResponses, PutBadgeDefErrors, ThrowOnError>({
+    url: '/badge-defs/{id}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * List GameDefs
+ */
+export const listGameDefs = <ThrowOnError extends boolean = false>(options?: Options<ListGameDefsData, ThrowOnError>) => (options?.client ?? client).get<ListGameDefsResponses, ListGameDefsErrors, ThrowOnError>({ url: '/game-defs', ...options });
+
+/**
+ * Create a GameDef
+ */
+export const createGameDef = <ThrowOnError extends boolean = false>(options: Options<CreateGameDefData, ThrowOnError>) => (options.client ?? client).post<CreateGameDefResponses, CreateGameDefErrors, ThrowOnError>({
+    url: '/game-defs',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Delete a GameDef
+ */
+export const deleteGameDef = <ThrowOnError extends boolean = false>(options: Options<DeleteGameDefData, ThrowOnError>) => (options.client ?? client).delete<DeleteGameDefResponses, DeleteGameDefErrors, ThrowOnError>({ url: '/game-defs/{id}', ...options });
+
+/**
+ * Get a GameDef
+ */
+export const getGameDef = <ThrowOnError extends boolean = false>(options: Options<GetGameDefData, ThrowOnError>) => (options.client ?? client).get<GetGameDefResponses, GetGameDefErrors, ThrowOnError>({ url: '/game-defs/{id}', ...options });
+
+/**
+ * Create or update a GameDef
+ */
+export const putGameDef = <ThrowOnError extends boolean = false>(options: Options<PutGameDefData, ThrowOnError>) => (options.client ?? client).put<PutGameDefResponses, PutGameDefErrors, ThrowOnError>({
+    url: '/game-defs/{id}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Download PetDefPixa
+ */
+export const downloadPetDefPixa = <ThrowOnError extends boolean = false>(options: Options<DownloadPetDefPixaData, ThrowOnError>) => (options.client ?? client).get<DownloadPetDefPixaResponses, DownloadPetDefPixaErrors, ThrowOnError>({ url: '/pet-defs/{id}/pixa', ...options });
+
+/**
+ * Upload PetDefPixa
+ */
+export const uploadPetDefPixa = <ThrowOnError extends boolean = false>(options: Options<UploadPetDefPixaData, ThrowOnError>) => (options.client ?? client).put<UploadPetDefPixaResponses, UploadPetDefPixaErrors, ThrowOnError>({
+    bodySerializer: null,
+    url: '/pet-defs/{id}/pixa',
+    ...options,
+    headers: {
+        'Content-Type': 'application/octet-stream',
+        ...options.headers
+    }
+});
+
+/**
+ * Download BadgeDefPixa
+ */
+export const downloadBadgeDefPixa = <ThrowOnError extends boolean = false>(options: Options<DownloadBadgeDefPixaData, ThrowOnError>) => (options.client ?? client).get<DownloadBadgeDefPixaResponses, DownloadBadgeDefPixaErrors, ThrowOnError>({ url: '/badge-defs/{id}/pixa', ...options });
+
+/**
+ * Upload BadgeDefPixa
+ */
+export const uploadBadgeDefPixa = <ThrowOnError extends boolean = false>(options: Options<UploadBadgeDefPixaData, ThrowOnError>) => (options.client ?? client).put<UploadBadgeDefPixaResponses, UploadBadgeDefPixaErrors, ThrowOnError>({
+    bodySerializer: null,
+    url: '/badge-defs/{id}/pixa',
+    ...options,
+    headers: {
+        'Content-Type': 'application/octet-stream',
+        ...options.headers
+    }
+});
+
+/**
+ * listPeerPets
+ */
+export const listPeerPets = <ThrowOnError extends boolean = false>(options: Options<ListPeerPetsData, ThrowOnError>) => (options.client ?? client).get<ListPeerPetsResponses, ListPeerPetsErrors, ThrowOnError>({ url: '/peers/{publicKey}/pets', ...options });
+
+/**
+ * getPeerPet
+ */
+export const getPeerPet = <ThrowOnError extends boolean = false>(options: Options<GetPeerPetData, ThrowOnError>) => (options.client ?? client).get<GetPeerPetResponses, GetPeerPetErrors, ThrowOnError>({ url: '/peers/{publicKey}/pets/{id}', ...options });
+
+/**
+ * listPeerBadges
+ */
+export const listPeerBadges = <ThrowOnError extends boolean = false>(options: Options<ListPeerBadgesData, ThrowOnError>) => (options.client ?? client).get<ListPeerBadgesResponses, ListPeerBadgesErrors, ThrowOnError>({ url: '/peers/{publicKey}/badges', ...options });
+
+/**
+ * getPeerBadge
+ */
+export const getPeerBadge = <ThrowOnError extends boolean = false>(options: Options<GetPeerBadgeData, ThrowOnError>) => (options.client ?? client).get<GetPeerBadgeResponses, GetPeerBadgeErrors, ThrowOnError>({ url: '/peers/{publicKey}/badges/{id}', ...options });
+
+/**
+ * getPeerPoints
+ */
+export const getPeerPoints = <ThrowOnError extends boolean = false>(options: Options<GetPeerPointsData, ThrowOnError>) => (options.client ?? client).get<GetPeerPointsResponses, GetPeerPointsErrors, ThrowOnError>({ url: '/peers/{publicKey}/points', ...options });
+
+/**
+ * listPeerPointsTransactions
+ */
+export const listPeerPointsTransactions = <ThrowOnError extends boolean = false>(options: Options<ListPeerPointsTransactionsData, ThrowOnError>) => (options.client ?? client).get<ListPeerPointsTransactionsResponses, ListPeerPointsTransactionsErrors, ThrowOnError>({ url: '/peers/{publicKey}/points/transactions', ...options });
+
+/**
+ * getPeerPointsTransaction
+ */
+export const getPeerPointsTransaction = <ThrowOnError extends boolean = false>(options: Options<GetPeerPointsTransactionData, ThrowOnError>) => (options.client ?? client).get<GetPeerPointsTransactionResponses, GetPeerPointsTransactionErrors, ThrowOnError>({ url: '/peers/{publicKey}/points/transactions/{id}', ...options });
+
+/**
+ * listPeerGameResults
+ */
+export const listPeerGameResults = <ThrowOnError extends boolean = false>(options: Options<ListPeerGameResultsData, ThrowOnError>) => (options.client ?? client).get<ListPeerGameResultsResponses, ListPeerGameResultsErrors, ThrowOnError>({ url: '/peers/{publicKey}/game-results', ...options });
+
+/**
+ * getPeerGameResult
+ */
+export const getPeerGameResult = <ThrowOnError extends boolean = false>(options: Options<GetPeerGameResultData, ThrowOnError>) => (options.client ?? client).get<GetPeerGameResultResponses, GetPeerGameResultErrors, ThrowOnError>({ url: '/peers/{publicKey}/game-results/{id}', ...options });
+
+/**
+ * listPeerRewardGrants
+ */
+export const listPeerRewardGrants = <ThrowOnError extends boolean = false>(options: Options<ListPeerRewardGrantsData, ThrowOnError>) => (options.client ?? client).get<ListPeerRewardGrantsResponses, ListPeerRewardGrantsErrors, ThrowOnError>({ url: '/peers/{publicKey}/reward-grants', ...options });
+
+/**
+ * getPeerRewardGrant
+ */
+export const getPeerRewardGrant = <ThrowOnError extends boolean = false>(options: Options<GetPeerRewardGrantData, ThrowOnError>) => (options.client ?? client).get<GetPeerRewardGrantResponses, GetPeerRewardGrantErrors, ThrowOnError>({ url: '/peers/{publicKey}/reward-grants/{id}', ...options });

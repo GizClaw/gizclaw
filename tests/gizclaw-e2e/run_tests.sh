@@ -112,6 +112,7 @@ run_pkg "./tests/gizclaw-e2e/cgo/chat"
 run_pkg "./tests/gizclaw-e2e/cgo/social"
 run_pkg "./tests/gizclaw-e2e/go/admin"
 run_chat_pkg
+run_pkg "./tests/gizclaw-e2e/go/gameplay"
 run_pkg "./tests/gizclaw-e2e/go/rpc"
 run_pkg "./tests/gizclaw-e2e/go/social"
 run_pkg "./tests/gizclaw-e2e/cmd/connect"

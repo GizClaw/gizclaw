@@ -16,10 +16,6 @@ pkg/gizclaw/services/social/friend
 pkg/gizclaw/services/social/friendgroup
 ```
 
-Gameplay resources remain separate packages under
-`pkg/gizclaw/services/gameplay`, such as `pet`, `petspecies`, `badge`,
-`reward`, and `wallet`.
-
 ## Doc Style
 
 - Business RPC-style methods use dotted names: `service.resource.method`.
@@ -48,13 +44,6 @@ Server Service
 ├── server.credential.{list,get,create,put,delete}
 ├── server.run.agent.{get,set}
 ├── server.run.{reload,status,stop}
-├── server.pet.{list,get,adopt,put,delete}
-├── server.pet.feed
-├── server.pet.wash
-├── server.pet.play
-├── server.wallet.get
-├── server.wallet.transactions.list
-├── server.wallet.transactions.get
 ├── server.contact.{list,get,create,put,delete}
 ├── server.friend.requests.{list,create}
 ├── server.friend.requests.accept
@@ -63,8 +52,17 @@ Server Service
 ├── server.friend_group.{list,get,create,put,delete}
 ├── server.friend_group.members.{list,add,put,delete}
 ├── server.friend_group.messages.{list,get,send}
-├── server.reward.{list,get}
-└── server.reward.claim
+├── server.firmware.{list,get}
+├── server.firmware.files.download
+├── server.game_ruleset.get
+├── server.pet_def.pixa.download
+├── server.badge_def.pixa.download
+├── server.pet.{list,get,adopt,put,delete,drive}
+├── server.points.get
+├── server.points.transactions.{list,get}
+├── server.badge.{list,get}
+├── server.game_result.{list,get}
+└── server.reward_grant.{list,get}
 
 Admin Service
 ├── /@apply POST
@@ -72,17 +70,21 @@ Admin Service
 ├── /acl/views/{name} LIST, CREATE, GET, PUT, DELETE
 ├── /acl/roles/{name} LIST, CREATE, GET, PUT, DELETE
 ├── /acl/policy-bindings/{id} LIST, CREATE, GET, PUT, DELETE
-├── /pet-species/{id} LIST, CREATE, GET, PUT, DELETE
-│   └── /pixa GET, PUT
-├── /badges/{id} LIST, CREATE, GET, PUT, DELETE
-│   └── /icon GET, PUT
 ├── /workflows/{name} LIST, CREATE, GET, PUT, DELETE
 ├── /firmwares/{name} LIST, CREATE, GET, PUT, DELETE
-│   ├── /bins/{channel}/{bin} PUT
-│   ├── @release
-│   └── @rollback
+│   └── /artifacts/{channel} GET, PUT, DELETE
+│       ├── /entries GET
+│       ├── /tree GET
+│       ├── /stat GET
+│       └── /download GET
 ├── /credentials/{name} LIST, CREATE, GET, PUT, DELETE
 ├── /models/{id} LIST, CREATE, GET, PUT, DELETE
+├── /game-rulesets/{name} LIST, CREATE, GET, PUT, DELETE
+├── /pet-defs/{id} LIST, CREATE, GET, PUT, DELETE
+│   └── /pixa GET, PUT
+├── /badge-defs/{id} LIST, CREATE, GET, PUT, DELETE
+│   └── /pixa GET, PUT
+├── /game-defs/{id} LIST, CREATE, GET, PUT, DELETE
 ├── /dashscope-tenants/{name} LIST, CREATE, GET, PUT, DELETE
 ├── /gemini-tenants/{name} LIST, CREATE, GET, PUT, DELETE
 ├── /openai-tenants/{name} LIST, CREATE, GET, PUT, DELETE
@@ -92,9 +94,6 @@ Admin Service
 │   └── @sync-voices
 ├── /voices/{id} LIST, CREATE, GET, PUT, DELETE
 ├── /workspaces/{name} LIST, CREATE, GET, PUT, DELETE
-├── /peers/{publicKey}/pets/{id} LIST, GET
-├── /peers/{publicKey}/wallet GET
-│   └── /transactions LIST, GET
 ├── /peers/{publicKey}/contacts/{id} LIST, CREATE, GET, PUT, DELETE
 ├── /peers/{publicKey}/friend-requests/{id} LIST, CREATE, GET, PUT, DELETE
 │   ├── @accept
@@ -103,14 +102,17 @@ Admin Service
 ├── /friend-groups/{id} LIST, CREATE, GET, PUT, DELETE
 │   ├── /members LIST, CREATE, GET, PUT, DELETE
 │   └── /messages LIST, CREATE, GET
-├── /game-results/{id} LIST, CREATE, GET
-├── /rewards/{id} LIST, CREATE, GET
-│   └── @claim
 ├── /peers/{publicKey} LIST, GET, DELETE
 │   ├── /info GET, PUT
 │   ├── /config GET, PUT
 │   ├── /runtime GET
 │   ├── /status GET
+│   ├── /pets/{id} LIST, GET
+│   ├── /badges/{id} LIST, GET
+│   ├── /points GET
+│   │   └── /transactions/{id} LIST, GET
+│   ├── /game-results/{id} LIST, GET
+│   ├── /reward-grants/{id} LIST, GET
 │   ├── @approve
 │   ├── @block
 │   └── @refresh

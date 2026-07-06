@@ -7,7 +7,6 @@ import { VoiceDetailPage } from "./pages/ai/VoiceDetailPage";
 import { VoicesListPage } from "./pages/ai/VoicesListPage";
 import { WorkflowsListPage } from "./pages/ai/WorkflowsListPage";
 import { WorkspacesListPage } from "./pages/ai/WorkspacesListPage";
-import { BadgeDetailPage, BadgesPage, PetSpeciesDetailPage, PetSpeciesPage } from "./pages/business/BusinessResourcePage";
 import { FirmwareCreatePage } from "./pages/firmware/FirmwareCreatePage";
 import { FirmwareDetailPage } from "./pages/firmware/FirmwareDetailPage";
 import { FirmwaresListPage } from "./pages/firmware/FirmwaresListPage";
@@ -71,10 +70,6 @@ export function AppRoutes({ contextName, onSignOut }: { contextName?: string; on
         <Route element={<Navigate replace to="/ai/workflows" />} path="ai/workspace-templates" />
         <Route element={<Navigate replace to="/ai/workflows" />} path="workspace-templates" />
         <Route element={<WorkspacesListPage />} path="ai/workspaces" />
-        <Route element={<PetSpeciesPage />} path="business/pet-species" />
-        <Route element={<PetSpeciesDetailPage />} path="business/pet-species/:id" />
-        <Route element={<BadgesPage />} path="business/badges" />
-        <Route element={<BadgeDetailPage />} path="business/badges/:id" />
         <Route element={<ResourcesPage />} path="resources" />
         <Route element={<ContactsListPage />} path="social/contacts" />
         <Route element={<ContactDetailPage />} path="social/contacts/:ownerPublicKey/:id" />

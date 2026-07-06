@@ -48,21 +48,21 @@ func TestDirPutGetListDelete(t *testing.T) {
 
 func TestDirDeletePrefix(t *testing.T) {
 	store := Dir(t.TempDir())
-	for _, name := range []string{"pets/a.pixa", "pets/nested/b.pixa", "badges/icon.png"} {
+	for _, name := range []string{"alpha/a.bin", "alpha/nested/b.bin", "beta/icon.png"} {
 		if err := store.Put(name, reader(name)); err != nil {
 			t.Fatalf("Put(%q): %v", name, err)
 		}
 	}
 
-	if err := store.DeletePrefix("pets"); err != nil {
+	if err := store.DeletePrefix("alpha"); err != nil {
 		t.Fatalf("DeletePrefix: %v", err)
 	}
 	items, err := store.List("")
 	if err != nil {
 		t.Fatalf("List: %v", err)
 	}
-	if len(items) != 1 || items[0].Name != "badges/icon.png" {
-		t.Fatalf("remaining items = %#v, want badges/icon.png", items)
+	if len(items) != 1 || items[0].Name != "beta/icon.png" {
+		t.Fatalf("remaining items = %#v, want beta/icon.png", items)
 	}
 }
 

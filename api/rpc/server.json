@@ -741,243 +741,6 @@
       "CredentialDeleteResponse": {
         "$ref": "../type/credential.json#/components/schemas/Credential"
       },
-      "PetObject": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string"
-          },
-          "species_id": {
-            "type": "string"
-          },
-          "voice_id": {
-            "type": "string"
-          },
-          "life": {
-            "$ref": "#/components/schemas/PetLifeStats"
-          },
-          "ability": {
-            "$ref": "#/components/schemas/PetAbilityStats"
-          },
-          "created_at": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "updated_at": {
-            "type": "string",
-            "format": "date-time"
-          }
-        },
-        "required": [
-          "id",
-          "name",
-          "species_id",
-          "voice_id",
-          "life",
-          "ability",
-          "created_at",
-          "updated_at"
-        ]
-      },
-      "PetListRequest": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "cursor": {
-            "type": "string"
-          },
-          "limit": {
-            "type": "integer",
-            "x-go-type-skip-optional-pointer": true
-          }
-        }
-      },
-      "PetListResponse": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "items": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/PetObject"
-            }
-          },
-          "has_next": {
-            "type": "boolean"
-          },
-          "next_cursor": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "items",
-          "has_next"
-        ]
-      },
-      "PetGetRequest": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "id": {
-            "type": "string",
-            "minLength": 1
-          }
-        },
-        "required": [
-          "id"
-        ]
-      },
-      "PetGetResponse": {
-        "$ref": "#/components/schemas/PetObject"
-      },
-      "PetPutRequest": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "id": {
-            "type": "string",
-            "minLength": 1
-          },
-          "name": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "name"
-        ]
-      },
-      "PetPutResponse": {
-        "$ref": "#/components/schemas/PetObject"
-      },
-      "PetDeleteRequest": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "id": {
-            "type": "string",
-            "minLength": 1
-          }
-        },
-        "required": [
-          "id"
-        ]
-      },
-      "PetDeleteResponse": {
-        "$ref": "#/components/schemas/PetObject"
-      },
-      "PetFeedRequest": {
-        "$ref": "#/components/schemas/PetActionRequest"
-      },
-      "PetFeedResponse": {
-        "$ref": "#/components/schemas/PetObject"
-      },
-      "PetPlayRequest": {
-        "$ref": "#/components/schemas/PetActionRequest"
-      },
-      "PetPlayResponse": {
-        "$ref": "#/components/schemas/PetObject"
-      },
-      "RewardObject": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "prompt": {
-            "type": "string"
-          },
-          "badge_id": {
-            "type": "string"
-          },
-          "point_amount": {
-            "type": "integer",
-            "format": "int64"
-          },
-          "created_at": {
-            "type": "string",
-            "format": "date-time"
-          }
-        },
-        "required": [
-          "id",
-          "prompt",
-          "badge_id",
-          "point_amount",
-          "created_at"
-        ]
-      },
-      "RewardListRequest": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "cursor": {
-            "type": "string"
-          },
-          "limit": {
-            "type": "integer",
-            "x-go-type-skip-optional-pointer": true
-          }
-        }
-      },
-      "RewardListResponse": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "items": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/RewardObject"
-            }
-          },
-          "has_next": {
-            "type": "boolean"
-          },
-          "next_cursor": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "items",
-          "has_next"
-        ]
-      },
-      "RewardGetRequest": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "id": {
-            "type": "string",
-            "minLength": 1
-          }
-        },
-        "required": [
-          "id"
-        ]
-      },
-      "RewardGetResponse": {
-        "$ref": "#/components/schemas/RewardObject"
-      },
-      "RewardClaimRequest": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "prompt": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "prompt"
-        ]
-      },
-      "RewardClaimResponse": {
-        "$ref": "#/components/schemas/RewardObject"
-      },
       "ContactObject": {
         "type": "object",
         "additionalProperties": false,
@@ -1677,275 +1440,6 @@
       "FriendGroupMessageSendResponse": {
         "$ref": "#/components/schemas/FriendGroupMessageObject"
       },
-      "WalletGetRequest": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {}
-      },
-      "WalletObject": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "token_balance": {
-            "type": "integer",
-            "format": "int64"
-          },
-          "point_balance": {
-            "type": "integer",
-            "format": "int64"
-          },
-          "created_at": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "updated_at": {
-            "type": "string",
-            "format": "date-time"
-          }
-        },
-        "required": [
-          "id",
-          "token_balance",
-          "point_balance",
-          "created_at",
-          "updated_at"
-        ]
-      },
-      "WalletGetResponse": {
-        "$ref": "#/components/schemas/WalletObject"
-      },
-      "WalletTransactionObject": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "token_delta": {
-            "type": "integer",
-            "format": "int64"
-          },
-          "point_delta": {
-            "type": "integer",
-            "format": "int64"
-          },
-          "reason": {
-            "type": "string",
-            "enum": [
-              "pet_adopt",
-              "pet_feed",
-              "pet_wash",
-              "pet_play",
-              "reward_claim"
-            ]
-          },
-          "created_at": {
-            "type": "string",
-            "format": "date-time"
-          }
-        },
-        "required": [
-          "id",
-          "token_delta",
-          "point_delta",
-          "reason",
-          "created_at"
-        ]
-      },
-      "WalletTransactionsListRequest": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "cursor": {
-            "type": "string"
-          },
-          "limit": {
-            "type": "integer",
-            "x-go-type-skip-optional-pointer": true
-          }
-        }
-      },
-      "WalletTransactionsListResponse": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "items": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/WalletTransactionObject"
-            }
-          },
-          "has_next": {
-            "type": "boolean"
-          },
-          "next_cursor": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "items",
-          "has_next"
-        ]
-      },
-      "PetLifeStats": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "satiety": {
-            "type": "integer"
-          },
-          "cleanliness": {
-            "type": "integer"
-          },
-          "mood": {
-            "type": "integer"
-          },
-          "energy": {
-            "type": "integer"
-          },
-          "health": {
-            "type": "integer"
-          }
-        },
-        "required": [
-          "satiety",
-          "cleanliness",
-          "mood",
-          "energy",
-          "health"
-        ]
-      },
-      "PetAbilityStats": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "level": {
-            "type": "integer"
-          },
-          "exp": {
-            "type": "integer",
-            "format": "int64"
-          },
-          "charm": {
-            "type": "integer"
-          },
-          "intelligence": {
-            "type": "integer"
-          },
-          "stamina": {
-            "type": "integer"
-          },
-          "luck": {
-            "type": "integer"
-          }
-        },
-        "required": [
-          "level",
-          "exp",
-          "charm",
-          "intelligence",
-          "stamina",
-          "luck"
-        ]
-      },
-      "PetAdoptRequest": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "name"
-        ]
-      },
-      "PetAdoptResponse": {
-        "$ref": "#/components/schemas/PetObject"
-      },
-      "PetActionRequest": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "pet_id": {
-            "type": "string",
-            "minLength": 1
-          },
-          "prompt": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "pet_id",
-          "prompt"
-        ]
-      },
-      "PetWashRequest": {
-        "$ref": "#/components/schemas/PetActionRequest"
-      },
-      "PetWashResponse": {
-        "$ref": "#/components/schemas/PetObject"
-      },
-      "PetActionDecision": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "point_delta": {
-            "type": "integer",
-            "format": "int64"
-          },
-          "life_delta": {
-            "$ref": "#/components/schemas/PetLifeStats"
-          },
-          "ability_delta": {
-            "$ref": "#/components/schemas/PetAbilityStats"
-          }
-        },
-        "required": [
-          "point_delta",
-          "life_delta",
-          "ability_delta"
-        ]
-      },
-      "RewardDecision": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "badge_id": {
-            "type": "string"
-          },
-          "point_amount": {
-            "type": "integer",
-            "format": "int64"
-          }
-        },
-        "required": [
-          "badge_id",
-          "point_amount"
-        ]
-      },
-      "WalletTransactionsGetRequest": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "id": {
-            "type": "string",
-            "minLength": 1
-          }
-        },
-        "required": [
-          "id"
-        ]
-      },
-      "WalletTransactionsGetResponse": {
-        "$ref": "#/components/schemas/WalletTransactionObject"
-      },
       "FriendGroupMemberRole": {
         "type": "string",
         "enum": [
@@ -2051,6 +1545,182 @@
             "$ref": "../type/firmware_artifact.json#/components/schemas/FirmwareArtifact"
           }
         }
+      },
+      "ServerGameRulesetGetRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string"
+          }
+        }
+      },
+      "ServerGameRulesetGetResponse": {
+        "$ref": "../type/gameplay.json#/components/schemas/GameRuleset"
+      },
+      "PetDefPixaDownloadRequest": {
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "PetDefPixaDownloadResponse": {
+        "type": "object",
+        "required": [
+          "id",
+          "size_bytes"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "pixa_path": {
+            "type": "string"
+          },
+          "size_bytes": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          }
+        }
+      },
+      "BadgeDefPixaDownloadRequest": {
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "BadgeDefPixaDownloadResponse": {
+        "type": "object",
+        "required": [
+          "id",
+          "size_bytes"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "pixa_path": {
+            "type": "string"
+          },
+          "size_bytes": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          }
+        }
+      },
+      "ServerPetListRequest": {
+        "$ref": "../type/gameplay.json#/components/schemas/GameplayListRequest"
+      },
+      "ServerPetListResponse": {
+        "$ref": "../type/gameplay.json#/components/schemas/PetListResponse"
+      },
+      "ServerPetGetRequest": {
+        "$ref": "../type/gameplay.json#/components/schemas/PetGetRequest"
+      },
+      "ServerPetGetResponse": {
+        "$ref": "../type/gameplay.json#/components/schemas/Pet"
+      },
+      "ServerPetAdoptRequest": {
+        "$ref": "../type/gameplay.json#/components/schemas/PetAdoptRequest"
+      },
+      "ServerPetAdoptResponse": {
+        "$ref": "../type/gameplay.json#/components/schemas/PetAdoptResponse"
+      },
+      "ServerPetPutRequest": {
+        "$ref": "../type/gameplay.json#/components/schemas/PetPutRequest"
+      },
+      "ServerPetPutResponse": {
+        "$ref": "../type/gameplay.json#/components/schemas/Pet"
+      },
+      "ServerPetDeleteRequest": {
+        "$ref": "../type/gameplay.json#/components/schemas/PetDeleteRequest"
+      },
+      "ServerPetDeleteResponse": {
+        "$ref": "../type/gameplay.json#/components/schemas/Pet"
+      },
+      "ServerPetDriveRequest": {
+        "$ref": "../type/gameplay.json#/components/schemas/PetDriveRequest"
+      },
+      "ServerPetDriveResponse": {
+        "$ref": "../type/gameplay.json#/components/schemas/PetDriveResponse"
+      },
+      "ServerPointsGetRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "ruleset_name": {
+            "type": "string"
+          }
+        }
+      },
+      "ServerPointsGetResponse": {
+        "$ref": "../type/gameplay.json#/components/schemas/PointsAccount"
+      },
+      "ServerPointsTransactionListRequest": {
+        "$ref": "../type/gameplay.json#/components/schemas/GameplayListRequest"
+      },
+      "ServerPointsTransactionListResponse": {
+        "$ref": "../type/gameplay.json#/components/schemas/PointsTransactionListResponse"
+      },
+      "ServerPointsTransactionGetRequest": {
+        "$ref": "../type/gameplay.json#/components/schemas/GameplayGetRequest"
+      },
+      "ServerPointsTransactionGetResponse": {
+        "$ref": "../type/gameplay.json#/components/schemas/PointsTransaction"
+      },
+      "ServerBadgeListRequest": {
+        "$ref": "../type/gameplay.json#/components/schemas/GameplayListRequest"
+      },
+      "ServerBadgeListResponse": {
+        "$ref": "../type/gameplay.json#/components/schemas/BadgeListResponse"
+      },
+      "ServerBadgeGetRequest": {
+        "$ref": "../type/gameplay.json#/components/schemas/GameplayGetRequest"
+      },
+      "ServerBadgeGetResponse": {
+        "$ref": "../type/gameplay.json#/components/schemas/Badge"
+      },
+      "ServerGameResultListRequest": {
+        "$ref": "../type/gameplay.json#/components/schemas/GameplayListRequest"
+      },
+      "ServerGameResultListResponse": {
+        "$ref": "../type/gameplay.json#/components/schemas/GameResultListResponse"
+      },
+      "ServerGameResultGetRequest": {
+        "$ref": "../type/gameplay.json#/components/schemas/GameplayGetRequest"
+      },
+      "ServerGameResultGetResponse": {
+        "$ref": "../type/gameplay.json#/components/schemas/GameResult"
+      },
+      "ServerRewardGrantListRequest": {
+        "$ref": "../type/gameplay.json#/components/schemas/GameplayListRequest"
+      },
+      "ServerRewardGrantListResponse": {
+        "$ref": "../type/gameplay.json#/components/schemas/RewardGrantListResponse"
+      },
+      "ServerRewardGrantGetRequest": {
+        "$ref": "../type/gameplay.json#/components/schemas/GameplayGetRequest"
+      },
+      "ServerRewardGrantGetResponse": {
+        "$ref": "../type/gameplay.json#/components/schemas/RewardGrant"
       }
     }
   }

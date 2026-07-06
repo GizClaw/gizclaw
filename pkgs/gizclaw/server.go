@@ -4,27 +4,18 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"fmt"
 	"net/http"
-	"strings"
 	"sync"
 	"time"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminservice"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/credential"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/model"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/peergenx"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/providertenants"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/voice"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/device/firmware"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/gameplay/badge"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/gameplay/pet"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/gameplay/petspecies"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/gameplay/reward"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/gameplay/wallet"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/gameplay"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/agenthost"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerrun"
@@ -67,13 +58,6 @@ type Server struct {
 	WorkspaceStore               kv.Store
 	WorkflowStore                kv.Store
 	PublicLoginStore             kv.Store
-	PetStore                     kv.Store
-	PetSpeciesStore              kv.Store
-	PetSpeciesAssets             objectstore.ObjectStore
-	BadgeStore                   kv.Store
-	BadgeAssets                  objectstore.ObjectStore
-	WalletDB                     *sql.DB
-	RewardStore                  kv.Store
 	ContactStore                 kv.Store
 	FriendInviteTokenStore       kv.Store
 	FriendStore                  kv.Store
@@ -83,14 +67,16 @@ type Server struct {
 	FriendGroupBelongStore       kv.Store
 	FriendGroupMessageStore      kv.Store
 	FriendGroupMessageAssets     objectstore.ObjectStore
+	GameRulesetStore             kv.Store
+	PetDefStore                  kv.Store
+	BadgeDefStore                kv.Store
+	GameDefStore                 kv.Store
+	GameplayAssets               objectstore.ObjectStore
+	GameplayDB                   *sql.DB
 	FriendGroupMessageDefaultTTL time.Duration
 	FriendGroupMessageMaxTTL     time.Duration
 	FriendGroupMessageCleanup    time.Duration
 	FriendGroupMessageMaxBytes   int64
-	RewardClaimGenerator         string
-	RewardClaimCooldown          time.Duration
-	PetActionGenerator           string
-	PetAdoptPointCost            int64
 	BuildCommit                  string
 	PublicEndpoint               string
 	ACLDB                        *sql.DB
@@ -322,13 +308,6 @@ func (s *Server) init() error {
 		s.WorkflowStore == nil &&
 		s.PeerRunStore == nil &&
 		s.PublicLoginStore == nil &&
-		s.PetStore == nil &&
-		s.PetSpeciesStore == nil &&
-		s.PetSpeciesAssets == nil &&
-		s.BadgeStore == nil &&
-		s.BadgeAssets == nil &&
-		s.WalletDB == nil &&
-		s.RewardStore == nil &&
 		s.ContactStore == nil &&
 		s.FriendInviteTokenStore == nil &&
 		s.FriendStore == nil &&
@@ -338,13 +317,16 @@ func (s *Server) init() error {
 		s.FriendGroupBelongStore == nil &&
 		s.FriendGroupMessageStore == nil &&
 		s.FriendGroupMessageAssets == nil &&
+		s.GameRulesetStore == nil &&
+		s.PetDefStore == nil &&
+		s.BadgeDefStore == nil &&
+		s.GameDefStore == nil &&
+		s.GameplayAssets == nil &&
+		s.GameplayDB == nil &&
 		s.FriendGroupMessageDefaultTTL == 0 &&
 		s.FriendGroupMessageMaxTTL == 0 &&
 		s.FriendGroupMessageCleanup == 0 &&
-		s.FriendGroupMessageMaxBytes == 0 &&
-		s.RewardClaimGenerator == "" &&
-		s.RewardClaimCooldown == 0 &&
-		s.PetActionGenerator == ""
+		s.FriendGroupMessageMaxBytes == 0
 	peerStore := s.PeerStore
 	if legacySharedStore {
 		peerStore = kv.Prefixed(s.PeerStore, kv.Key{"peers"})
@@ -360,10 +342,6 @@ func (s *Server) init() error {
 	workflowStore := moduleStore(s.WorkflowStore, s.PeerStore, "workflows")
 	peerRunStore := moduleStore(s.PeerRunStore, s.PeerStore, "peer-run")
 	publicLoginStore := moduleStore(s.PublicLoginStore, s.PeerStore, "public-login")
-	petStore := moduleStore(s.PetStore, s.PeerStore, "pets")
-	petSpeciesStore := moduleStore(s.PetSpeciesStore, s.PeerStore, "pet-species")
-	badgeStore := moduleStore(s.BadgeStore, s.PeerStore, "badges")
-	rewardStore := moduleStore(s.RewardStore, s.PeerStore, "rewards")
 	contactStore := moduleStore(s.ContactStore, s.PeerStore, "contacts")
 	friendInviteTokenStore := moduleStore(s.FriendInviteTokenStore, s.PeerStore, "friend-invite-tokens")
 	friendStore := moduleStore(s.FriendStore, s.PeerStore, "friends")
@@ -372,6 +350,10 @@ func (s *Server) init() error {
 	friendGroupMemberStore := moduleStore(s.FriendGroupMemberStore, s.PeerStore, "friend-group-members")
 	friendGroupBelongStore := moduleStore(s.FriendGroupBelongStore, s.PeerStore, "friend-group-belongs")
 	friendGroupMessageStore := moduleStore(s.FriendGroupMessageStore, s.PeerStore, "friend-group-messages")
+	gameRulesetStore := moduleStore(s.GameRulesetStore, s.PeerStore, "game-rulesets")
+	petDefStore := moduleStore(s.PetDefStore, s.PeerStore, "pet-defs")
+	badgeDefStore := moduleStore(s.BadgeDefStore, s.PeerStore, "badge-defs")
+	gameDefStore := moduleStore(s.GameDefStore, s.PeerStore, "game-defs")
 
 	publicLoginServer := publiclogin.NewServer(&s.LocalStatic, publicLoginStore)
 	sessions := publicLoginServer.SessionManager()
@@ -400,25 +382,6 @@ func (s *Server) init() error {
 		aclServer = &acl.Server{DB: s.ACLDB}
 	}
 	workspaceServer.Authorizer = aclServer
-	var walletServer *wallet.Server
-	if s.WalletDB != nil {
-		walletServer = &wallet.Server{DB: s.WalletDB}
-	}
-	petSpeciesServer := &petspecies.Server{Store: petSpeciesStore, Assets: s.PetSpeciesAssets}
-	badgeServer := &badge.Server{Store: badgeStore, Assets: s.BadgeAssets}
-	rewardServer := &reward.Server{
-		Store:         rewardStore,
-		Wallet:        walletServer,
-		BadgeResolver: badgeGrantResolver{Badges: badgeServer, ACL: aclServer},
-		Cooldown:      s.RewardClaimCooldown,
-	}
-	petServer := &pet.Server{
-		Store:           petStore,
-		Wallet:          walletServer,
-		SpeciesSelector: firstPetSpeciesSelector{Service: petSpeciesServer, ACL: aclServer, Peers: peersServer},
-		VoiceSelector:   firstVoiceSelector{Service: voiceServer},
-		AdoptPointCost:  s.PetAdoptPointCost,
-	}
 	contactServer := &contact.Server{
 		Store: contactStore,
 	}
@@ -448,24 +411,22 @@ func (s *Server) init() error {
 		VoiceStore:      voiceStore,
 		CredentialStore: miniMaxCredentialStore,
 	}
-	systemGenerator := model.NewGenerator(peergenx.Service{
-		Peer:            systemTaskPeer(s.LocalStatic.Public),
-		Authorizer:      systemTaskAuthorizer{},
-		Models:          modelServer,
-		Voices:          voiceServer,
-		Credentials:     credentialServer,
-		ProviderTenants: providerTenantsServer,
-	})
-	if strings.TrimSpace(s.RewardClaimGenerator) != "" {
-		rewardServer.Decider = genxRewardDecider{
-			Generator: systemGenerator,
-			Pattern:   s.RewardClaimGenerator,
-		}
+	gameplayCatalog := &gameplay.Catalog{
+		GameRulesets: gameRulesetStore,
+		PetDefs:      petDefStore,
+		BadgeDefs:    badgeDefStore,
+		GameDefs:     gameDefStore,
+		Assets:       s.GameplayAssets,
 	}
-	if strings.TrimSpace(s.PetActionGenerator) != "" {
-		petServer.ActionDecider = genxPetActionDecider{
-			Generator: systemGenerator,
-			Pattern:   s.PetActionGenerator,
+	gameplayRuntime := &gameplay.Runtime{
+		DB:         s.GameplayDB,
+		Catalog:    gameplayCatalog,
+		Workspaces: workspaceServer,
+		ACL:        aclServer,
+	}
+	if s.GameplayDB != nil {
+		if err := gameplayRuntime.Migration(context.Background()); err != nil {
+			return err
 		}
 	}
 	manager.ACL = aclServer
@@ -479,21 +440,17 @@ func (s *Server) init() error {
 	manager.Models = modelServer
 	manager.Credentials = credentialServer
 	manager.Voices = voiceServer
-	manager.Pets = petServer
-	manager.Wallets = walletServer
-	manager.Rewards = rewardServer
 	manager.Contacts = contactServer
 	manager.Friends = friendServer
 	manager.FriendGroups = friendGroupServer
 	manager.ProviderTenants = providerTenantsServer
+	manager.Gameplay = gameplayRuntime
 	resourceManager := resourcemanager.New(resourcemanager.Services{
 		ACL:             aclServer,
 		Credentials:     credentialServer,
 		Firmwares:       firmwareServer,
-		Badges:          badgeServer,
 		Peers:           peersServer,
 		Models:          modelServer,
-		PetSpecies:      petSpeciesServer,
 		ProviderTenants: providerTenantsServer,
 		Voices:          voiceServer,
 		Workspaces:      workspaceServer,
@@ -501,6 +458,7 @@ func (s *Server) init() error {
 		Contacts:        contactServer,
 		Friends:         friendServer,
 		FriendGroups:    friendGroupServer,
+		GameplayCatalog: gameplayCatalog,
 	})
 
 	s.manager = manager
@@ -515,11 +473,11 @@ func (s *Server) init() error {
 			ProviderTenantsAdminService: providerTenantsServer,
 			WorkspaceAdminService:       workspaceServer,
 			WorkflowAdminService:        workflowServer,
-			PetSpecies:                  petSpeciesServer,
-			Badges:                      badgeServer,
 			Contacts:                    contactServer,
 			Friends:                     friendServer,
 			FriendGroups:                friendGroupServer,
+			CatalogAdminService:         gameplayCatalog,
+			Gameplay:                    gameplayRuntime,
 			ACL:                         aclServer,
 			ResourceManager:             resourceManager,
 		},
@@ -539,85 +497,6 @@ func (s *Server) init() error {
 	mux.Handle(gizwebrtc.SignalingPath, publicHandler)
 	s.httpHandler = httpLabelSetHandler(mux)
 	return nil
-}
-
-type firstPetSpeciesSelector struct {
-	Service *petspecies.Server
-	ACL     aclAuthorizer
-	Peers   peerConfigGetter
-}
-
-func (s firstPetSpeciesSelector) SelectSpecies(ctx context.Context, owner string) (string, error) {
-	if s.Service == nil {
-		return "", errors.New("pet species service not configured")
-	}
-	if s.ACL == nil {
-		return "", errors.New("acl service not configured")
-	}
-	cursor := ""
-	authorizer := s.authorizer(owner)
-	for {
-		items, hasNext, next, err := s.Service.List(ctx, cursor, 50)
-		if err != nil {
-			return "", err
-		}
-		for _, item := range items {
-			if err := authorizer.Authorize(ctx, acl.AuthorizeRequest{
-				Subject:    acl.PublicKeySubject(owner),
-				Resource:   acl.PetSpeciesResource(item.Id),
-				Permission: apitypes.ACLPermissionUse,
-			}); err == nil {
-				return item.Id, nil
-			} else if !errors.Is(err, acl.ErrDenied) {
-				return "", err
-			}
-		}
-		if !hasNext || next == nil {
-			break
-		}
-		cursor = *next
-	}
-	return "", errors.New("no usable pet species available")
-}
-
-func (s firstPetSpeciesSelector) authorizer(owner string) aclAuthorizer {
-	if s.Peers == nil {
-		return s.ACL
-	}
-	var pk giznet.PublicKey
-	if err := pk.UnmarshalText([]byte(owner)); err != nil {
-		return s.ACL
-	}
-	return peerAuthorizer{
-		ACL:       s.ACL,
-		Peers:     s.Peers,
-		PublicKey: pk,
-	}
-}
-
-type firstVoiceSelector struct {
-	Service voice.VoiceAdminService
-}
-
-func (s firstVoiceSelector) SelectVoice(ctx context.Context, owner string) (string, error) {
-	if s.Service == nil {
-		return "", errors.New("voice service not configured")
-	}
-	limit := int32(1)
-	resp, err := s.Service.ListVoices(ctx, adminservice.ListVoicesRequestObject{
-		Params: adminservice.ListVoicesParams{Limit: &limit},
-	})
-	if err != nil {
-		return "", err
-	}
-	list, ok := resp.(adminservice.ListVoices200JSONResponse)
-	if !ok {
-		return "", fmt.Errorf("voice list returned %T", resp)
-	}
-	if len(list.Items) == 0 {
-		return "", errors.New("no voices available")
-	}
-	return list.Items[0].Id, nil
 }
 
 func moduleStore(configured, fallback kv.Store, defaultPrefix string) kv.Store {

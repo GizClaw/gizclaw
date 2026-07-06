@@ -788,30 +788,6 @@ spec:
   - apiVersion: gizclaw.admin/v1alpha1
     kind: ACLPolicyBinding
     metadata:
-      name: view-default-client-pet-species-rabbit
-    spec:
-      resource:
-        id: rabbit
-        kind: pet_species
-      role: standard-client
-      subject:
-        id: default-client
-        kind: view
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: ACLPolicyBinding
-    metadata:
-      name: view-default-client-badge-founder
-    spec:
-      resource:
-        id: founder
-        kind: badge
-      role: standard-client
-      subject:
-        id: default-client
-        kind: view
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: ACLPolicyBinding
-    metadata:
       name: view-default-client-mutation-model
     spec:
       resource:
@@ -3362,6 +3338,18 @@ spec:
         id: devkit-firmware-079
         kind: firmware
       role: standard-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-gameruleset-default-gameplay
+    spec:
+      resource:
+        id: default-gameplay
+        kind: gameruleset
+      role: default-client
       subject:
         id: default-client
         kind: view

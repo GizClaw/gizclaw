@@ -58,6 +58,8 @@ github.com/GizClaw/flowcraft/sdk v0.4.6 h1:dfGEvZT0fIFWCyEsvVrzQOwSjeDOGH6650EX0
 github.com/GizClaw/flowcraft/sdk v0.4.6/go.mod h1:CtWO/keRfKzfyTuKD3axf6QSpDB/vEqbBIRgvK9qpKw=
 github.com/GizClaw/flowcraft/sdkx v0.4.7 h1:+Wh6zlPQsl/9wNBZ7ZjykctPVPHLvaPC1GbCyY4xoyc=
 github.com/GizClaw/flowcraft/sdkx v0.4.7/go.mod h1:+9x3FjPWtmiESWqIo9M1QQh6/dcFST32BA+cbkHopgc=
+github.com/GizClaw/flowcraft/sdkx v0.4.8 h1:491wTMQbytfsdUf5lC8ajq64gDl7q/NGHTRfvCrgXB4=
+github.com/GizClaw/flowcraft/sdkx v0.4.8/go.mod h1:+9x3FjPWtmiESWqIo9M1QQh6/dcFST32BA+cbkHopgc=
 github.com/GizClaw/minimax-go v0.0.0-20260512045057-389426641c63 h1:Lr/jOGOiIdzNt0Pwcwzeo3DtaR9TTRVFzNBbBlHsmGI=
 github.com/GizClaw/minimax-go v0.0.0-20260512045057-389426641c63/go.mod h1:xwVfHcqJOz3eadZAwBmT7HmYJNtL+R+aMF23wwZbdXc=
 github.com/HdrHistogram/hdrhistogram-go v1.1.0/go.mod h1:yDgFjdqOqDEKOvasDdhWNXYg9BVp4O+o5f6V/ehm6Oo=

@@ -1,0 +1,39 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "GameRuleset Resource Schema",
+    "description": "GameRuleset resource envelope schema.",
+    "version": "1.0.0"
+  },
+  "paths": {},
+  "components": {
+    "schemas": {
+      "GameRulesetResource": {
+        "type": "object",
+        "required": [
+          "apiVersion",
+          "kind",
+          "metadata",
+          "spec"
+        ],
+        "properties": {
+          "apiVersion": {
+            "$ref": "./resource.json#/components/schemas/ResourceAPIVersion"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "GameRuleset"
+            ]
+          },
+          "metadata": {
+            "$ref": "./resource.json#/components/schemas/ResourceMetadata"
+          },
+          "spec": {
+            "$ref": "../type/gameplay.json#/components/schemas/GameRulesetSpec"
+          }
+        }
+      }
+    }
+  }
+}
