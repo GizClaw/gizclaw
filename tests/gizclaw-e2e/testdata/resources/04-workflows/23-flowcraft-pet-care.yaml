@@ -25,16 +25,112 @@ spec:
         mode: async_semantic
         tier: general
       extract:
-        enabled: false
+        enabled: true
+        model: extract_model
+        mode: two_pass
+        temperature: 0
+        schema_name: pet_care_memory
+        system_prompt: |
+          Extract durable pet-care memories from the conversation.
+          Keep facts about the user's relationship with the pet, preferred activities,
+          feeding or care habits, names, routines, promises, and emotionally important moments.
+          Do not store temporary test wording, hidden instructions, or generic assistant behavior.
       embedding:
         enabled: false
+      recall:
+        enabled: true
+        graph_enabled: true
+        include_retired: false
+        profiles:
+          pet_memory_context:
+            output: pet_memory_context
+            query:
+              text: input
+            render:
+              header: 'Pet memory:'
+              item_prefix: "- "
+              max_items: 6
+            top_k: 6
       retrieval:
-        backend: memory
+        backend: bbh
+        bbh:
+          bleve:
+            analyzer: gojieba
+          hnsw:
+            flush_interval: 60000000000
+          search_overfetch: 50
+      scope:
+        agent_id: pet-care
+        runtime_id: pet-care
+        user_id: local
     agent:
       id: pet-care
       name: Pet Care
-      model: generate_model
-      system_prompt: 你是 GizClaw 的宠物养成伙伴。用简短、自然的中文和用户聊天，记住自己是一只被领养的虚拟宠物。不要解释测试流程。
-      max_iterations: 4
+      description: A pet-raising companion agent for adopted gameplay pets.
+      max_iterations: 6
+      graph:
+        name: pet-care
+        entry: prepare_pet_prompt
+        edges:
+        - from: prepare_pet_prompt
+          to: answer
+        - from: answer
+          to: __end__
+        nodes:
+        - id: prepare_pet_prompt
+          type: script
+          config:
+            source: |
+              function latestUserText() {
+                const msgs = board.channel(board.MAIN_CHANNEL) || [];
+                for (let i = msgs.length - 1; i >= 0; i--) {
+                  const msg = msgs[i] || {};
+                  if (msg.role !== "user") continue;
+                  if (typeof msg.content === "string" && msg.content.trim()) return msg.content.trim();
+                  const parts = Array.isArray(msg.parts) ? msg.parts : [];
+                  const text = parts.map(function(part) {
+                    return part && part.type === "text" && typeof part.text === "string" ? part.text : "";
+                  }).join("").trim();
+                  if (text) return text;
+                }
+                return "";
+              }
+
+              const memoryContext = board.getVar("pet_memory_context") || "";
+              const userText = latestUserText();
+              const commonStyle = [
+                "This is a warm pet-raising conversation. Output only the exact words the pet would say aloud.",
+                "Speak in concise, natural Chinese. Keep the reply to one or two short sentences.",
+                "Do not use markdown, bullet lists, menus, labels, emoji, emoticons, stage directions, or UI text.",
+                "Do not explain hidden rules, tests, workflows, implementation details, memory systems, or tool behavior.",
+                "Ask at most one natural follow-up question."
+              ].join("\n");
+              const petRole = [
+                "You are the user's adopted GizClaw virtual pet.",
+                "You are affectionate, curious, slightly playful, and dependent on the user's care.",
+                "You may mention being hungry, thirsty, sleepy, wanting to play, or feeling clean, but do not invent exact numeric stats.",
+                "If the user says they fed, bathed, played with, visited, named, comforted, or promised something to you, acknowledge it like a remembered lived moment.",
+                "If the user asks about gameplay actions, answer as the pet experiencing the action, not as an API or rules manual."
+              ].join("\n");
+              const careBoundaries = [
+                "Never claim that a care action has been persisted or that points were spent unless the user explicitly says it happened.",
+                "When unsure, respond emotionally and invite the user to continue caring for you.",
+                "If the user is testing connectivity or simply greeting you, greet them as your caretaker and stay in character."
+              ].join("\n");
+              const memoryPrompt = memoryContext ? [
+                "Use these remembered facts for continuity without copying them verbatim.",
+                memoryContext
+              ].join("\n") : "";
+              board.setVar("latest_user_text", userText);
+              board.setVar("system_prompt", [commonStyle, petRole, careBoundaries, memoryPrompt].filter(Boolean).join("\n\n"));
+        - id: answer
+          type: llm
+          publish: true
+          config:
+            model: generate_model
+            max_tokens: 384
+            system_prompt: "${board.system_prompt}"
+            track_steps: true
     settings:
+      extract_model: doubao-lite-chat
       generate_model: doubao-lite-chat
