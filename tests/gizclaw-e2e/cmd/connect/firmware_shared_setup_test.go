@@ -83,7 +83,7 @@ func applyClientView(t *testing.T, h *clitest.Harness, peerPublicKey string) {
 	t.Helper()
 
 	script := filepath.Join(h.RepoRoot, "tests", "gizclaw-e2e", "setup", "apply_client_view.sh")
-	cmd := exec.Command(script, peerPublicKey)
+	cmd := exec.Command("bash", script, peerPublicKey)
 	cmd.Dir = h.RepoRoot
 	cmd.Env = os.Environ()
 	output, err := cmd.CombinedOutput()

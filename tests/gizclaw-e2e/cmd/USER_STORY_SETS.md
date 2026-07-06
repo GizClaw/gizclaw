@@ -1,6 +1,6 @@
 # CLI User Story Sets
 
-`tests/gizclaw-e2e/cmd` contains process-level e2e tests for the real `gizclaw` CLI binary built by `setup/build.sh`.
+`tests/gizclaw-e2e/cmd` contains process-level e2e tests for the real `gizclaw` CLI binary built by the Docker e2e test runner.
 
 These tests execute `testdata/bin/gizclaw` through `os/exec`. They should not use typed clients as the primary assertion path, and they should not use `go run`.
 

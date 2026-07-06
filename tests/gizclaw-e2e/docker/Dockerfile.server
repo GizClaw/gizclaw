@@ -3,6 +3,10 @@ FROM ${BASE_IMAGE}
 
 WORKDIR /src
 
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends gettext-base \
+ && rm -rf /var/lib/apt/lists/*
+
 COPY package.json package-lock.json ./
 COPY apps/wails/frontend/package.json apps/wails/frontend/package.json
 COPY js/package.json js/package.json
@@ -15,5 +19,6 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 COPY . .
+RUN find tests/gizclaw-e2e/docker -name '*.sh' -exec chmod +x {} +
 
 ENTRYPOINT ["/src/tests/gizclaw-e2e/docker/entrypoint-server.sh"]

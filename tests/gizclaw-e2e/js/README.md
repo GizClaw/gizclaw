@@ -23,7 +23,7 @@ Current coverage:
 Run through the default Docker e2e gate:
 
 ```bash
-./tests/gizclaw-e2e/run_tests.sh
+bash tests/gizclaw-e2e/run_tests.sh
 ```
 
 For focused manual runs, start the Docker Compose stack from the repository

@@ -209,7 +209,7 @@ func requireBusinessCatalog(t *testing.T, h *clitest.Harness) {
 			t.Fatalf("business model.get %s: %v", id, err)
 		}
 		if resp.JSON200 == nil {
-			t.Skipf("business RPC e2e requires reset_data to apply OpenAI system task model %q; status=%d body=%s", id, resp.StatusCode(), strings.TrimSpace(string(resp.Body)))
+			t.Skipf("business RPC e2e requires Docker setup to apply OpenAI system task model %q; status=%d body=%s", id, resp.StatusCode(), strings.TrimSpace(string(resp.Body)))
 		}
 	}
 }

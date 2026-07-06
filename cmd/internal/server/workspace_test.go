@@ -20,6 +20,7 @@ func TestPrepareWorkspaceConfigLoadsWorkspaceConfig(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(workspace, workspaceConfigFile), []byte(fmt.Sprintf(`
 identity:
   private-key: %q
+listen: "127.0.0.1:39001"
 endpoint: "127.0.0.1:39001"
 admin-public-key: %q
 storage:
@@ -119,6 +120,9 @@ gameplay:
 	if cfg.KeyPair.Public != serverKP.Public {
 		t.Fatalf("KeyPair.Public = %v, want %v", cfg.KeyPair.Public, serverKP.Public)
 	}
+	if cfg.Listen != "127.0.0.1:39001" {
+		t.Fatalf("Listen = %q", cfg.Listen)
+	}
 	if cfg.Endpoint != "127.0.0.1:39001" {
 		t.Fatalf("Endpoint = %q", cfg.Endpoint)
 	}
@@ -159,6 +163,9 @@ peers:
 		t.Fatalf("prepareWorkspaceConfig error = %v", err)
 	}
 	defaults := DefaultConfig()
+	if cfg.Listen != defaults.Listen {
+		t.Fatalf("default listen = %q, want %q", cfg.Listen, defaults.Listen)
+	}
 	if cfg.Endpoint != defaults.Endpoint {
 		t.Fatalf("default endpoint = %q, want %q", cfg.Endpoint, defaults.Endpoint)
 	}

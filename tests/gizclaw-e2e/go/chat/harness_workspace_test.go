@@ -651,7 +651,7 @@ func TestEnsureWorkspaceReturnsSetupHintWhenWorkflowMissing(t *testing.T) {
 		Agent:     "doubao-realtime",
 		Workflow:  workflowConfig{Name: "workflow-a", Model: "realtime"},
 	})
-	if err == nil || !strings.Contains(err.Error(), "reset_data.sh") {
+	if err == nil || !strings.Contains(err.Error(), "docker-compose-up.sh") {
 		t.Fatalf("ensureWorkspace() error = %v", err)
 	}
 }

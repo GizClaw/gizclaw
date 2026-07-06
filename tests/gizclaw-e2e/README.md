@@ -1,165 +1,204 @@
 # GizClaw E2E
 
-This directory contains the manual/setup-driven GizClaw e2e suites. These tests
-depend on a prepared local e2e server, a shared business resource set, and
-committed WebRTC identities. Go test files in this tree require the
-`gizclaw_e2e` build tag so they are not pulled into ordinary `go test ./...`
+This directory contains the Docker-backed GizClaw e2e environment and the test
+suites that run against it. Go test files in this tree require the
+`gizclaw_e2e` build tag so they are not included in ordinary `go test ./...`
 runs.
 
-## Modules
+## Directory Layout
 
-- `testdata/`: committed identity/resource data plus ignored generated runtime files.
-- `docker/`: Docker Compose e2e stack for the setup server and desktop surface.
-- `setup/`: local fallback scripts and container-internal setup steps for
-  building the CLI, resetting shared data, granting the default client view,
-  and stopping local fallback services.
-- `cmd/`: user-facing `gizclaw` CLI command e2e tests.
+- `docker/`: Docker Compose services, entrypoints, and container-only setup
+  scripts.
+- `setup/`: host-facing tools for starting, stopping, and interacting with the
+  Docker e2e environment. Invoke these scripts with `bash`.
+- `testdata/`: committed identities, resources, and ignored runtime output.
+- `cmd/`: user-facing `gizclaw` CLI e2e tests.
 - `go/`: Go Admin API, RPC, chat, and social e2e tests.
-- `js/`: reserved JavaScript/TypeScript package e2e suites.
-- `desktop/`: Wails desktop shell e2e suites, with Admin and Play coverage added
-  as those views are rewritten.
+- `js/`: JavaScript/TypeScript e2e tests.
+- `desktop/`: Wails desktop shell e2e tests.
 
-## Standard Flow
+## Credentials
 
-1. Copy `tests/gizclaw-e2e/.env.example` to `tests/gizclaw-e2e/.env`, then fill
-   provider credential values. The same file may also override context roles
-   when running against existing local or remote dev contexts. Runtime
-   addresses, resource names, resource IDs, model IDs, voice IDs, and e2e
-   identity keys are committed fixtures, not env values.
-
-2. Run the default ordered WebRTC e2e gate:
+Copy the example file and fill every provider credential before starting the
+Docker e2e environment:
 
 ```sh
-./tests/gizclaw-e2e/run_tests.sh
+cp tests/gizclaw-e2e/.env.example tests/gizclaw-e2e/.env
 ```
 
-The script builds the host e2e CLI, starts an isolated Docker Compose stack,
-waits for the Docker server and Docker desktop surface, writes generated
-host-side config under `testdata/docker/<project>/`, then runs JS WebRTC,
-desktop shell, Go Admin API, chat, RPC, social, and selected CLI suites one at
-a time. It excludes human-review cases, which require separate interactive
-audio review. It stops the Compose stack on success or failure.
+`tests/gizclaw-e2e/.env` is for provider credentials only. Do not put runtime
+addresses, config homes, identity directories, resource IDs, model IDs, voice
+IDs, or e2e identity keys in `.env`.
 
-For debugging, the same flow can be run manually.
+The setup fails before resource initialization if any required credential is
+missing or still looks like a placeholder. Do not commit real provider keys,
+tokens, app secrets, or access keys.
 
-Human-review cases are not part of the default e2e gate. Run them explicitly:
+## Start The Environment
+
+Run the full ordered e2e gate:
 
 ```sh
-./tests/gizclaw-e2e/run_human_review_tests.sh
+bash tests/gizclaw-e2e/run_tests.sh
 ```
 
-3. Start a Docker e2e stack manually:
+The script builds the host e2e CLI, starts the Docker Compose stack, waits for
+the server and desktop surface, writes a generated host-side runtime env, runs
+the ordered test suites, and stops the stack on success or failure.
+
+For manual work, start only the Docker e2e environment:
 
 ```sh
-docker build -f build/Dockerfile.cn.base \
-  -t gizclaw-go:linux-amd64-cn-base \
-  build
-
-project=gizclaw-e2e-manual
-compose_file=tests/gizclaw-e2e/docker/docker-compose.yaml
-export GIZCLAW_E2E_DOCKER_SERVER_PORT=19820
-docker compose -p "$project" -f "$compose_file" up -d --build
-
-server_tcp_port=$(docker compose -p "$project" -f "$compose_file" port --protocol tcp server 9820 | awk -F: '{print $NF}')
-server_udp_port=$(docker compose -p "$project" -f "$compose_file" port --protocol udp server 9820 | awk -F: '{print $NF}')
-test "$server_tcp_port" = "$server_udp_port"
-desktop_port=$(docker compose -p "$project" -f "$compose_file" port desktop 4191 | awk -F: '{print $NF}')
-
-export GIZCLAW_E2E_SERVER_ENDPOINT="127.0.0.1:${server_tcp_port}"
-export GIZCLAW_E2E_DESKTOP_URL="http://127.0.0.1:${desktop_port}"
+bash tests/gizclaw-e2e/setup/docker-compose-up.sh
 ```
 
-`GIZCLAW_E2E_DOCKER_SERVER_PORT` is the host port used for both TCP and UDP
-mapping of the container's `9820` endpoint. It must not collide with another
-local service.
+By default, the setup picks a random free host port and writes client contexts
+that use `127.0.0.1:<port>`.
 
-The Compose file owns Docker lifecycle. Use normal Compose commands for logs,
-status, and shutdown:
+For LAN firmware clients, publish an address that the client can reach:
 
 ```sh
-docker compose -p "$project" -f "$compose_file" logs -f
-docker compose -p "$project" -f "$compose_file" down -v
+GIZCLAW_E2E_SERVER_HOST=192.168.1.20 \
+  bash tests/gizclaw-e2e/setup/docker-compose-up.sh
 ```
 
-4. Build the host e2e CLI binary:
+To choose the mapped port explicitly:
 
 ```sh
-./tests/gizclaw-e2e/setup/build.sh
+GIZCLAW_E2E_DOCKER_SERVER_PORT=19820 \
+GIZCLAW_E2E_SERVER_ENDPOINT=192.168.1.20:19820 \
+  bash tests/gizclaw-e2e/setup/docker-compose-up.sh
 ```
 
-5. Local fallback only: start the e2e server on the committed fixed endpoint:
+The same host port is mapped to container `9820/tcp` and `9820/udp`. The server
+binds `listen: 0.0.0.0:9820` inside the container. Generated client contexts use
+the public `endpoint`, and the WebRTC answer advertises that endpoint for ICE
+UDP host candidates when the endpoint host is a concrete IP.
 
-```sh
-./tests/gizclaw-e2e/setup/start-server.sh
+This setup expects clients to reach the published TCP and UDP port directly. It
+does not configure STUN, TURN, mDNS, ICE Lite, or ICE TCP.
+
+## Runtime Env
+
+Manual startup writes runtime state under:
+
+```text
+tests/gizclaw-e2e/testdata/docker/<project>/
+  cmd-config-home/
+  identities/
+  docker.env
 ```
 
-This path is not the default e2e lifecycle. It is useful for debugging a single
-local checkout when port collisions are not a concern.
+It also writes the latest environment path:
 
-6. Local fallback only: clear and initialize server resources:
-
-```sh
-./tests/gizclaw-e2e/setup/reset_data.sh
+```text
+tests/gizclaw-e2e/testdata/docker/current.env
 ```
 
-To let another peer public key use the default shared client view, apply a
-`PeerConfig` for that key:
+Source it before running host-side manual commands:
 
 ```sh
-./tests/gizclaw-e2e/setup/apply_client_view.sh <peer-public-key>
+source tests/gizclaw-e2e/testdata/docker/current.env
 ```
 
-`reset_data.sh` only rebuilds resource state: provider tenants, models,
-workflows, workspaces, firmware metadata, ACL rows, and social graph
-resources. It does not call provider sync operations. It must not seed runtime
-history, message records, replay audio, or other non-resource state.
+Important values in `current.env`:
 
-7. Run Go API/RPC tests that create runtime state:
+- `GIZCLAW_E2E_SERVER_ENDPOINT`: client-facing server endpoint.
+- `GIZCLAW_E2E_SERVER_PUBLIC_KEY`: server public key for CLI contexts.
+- `GIZCLAW_E2E_CONFIG_HOME`: generated CLI config home used by cmd tests.
+- `GIZCLAW_E2E_IDENTITIES_HOME`: generated identity directory used by Go/JS
+  harnesses.
+- `GIZCLAW_E2E_DESKTOP_URL`: Docker desktop surface URL.
+- `GIZCLAW_E2E_DOCKER_PROJECT`: Docker Compose project name.
+
+## Create A Context Home
+
+Use a separate `XDG_CONFIG_HOME` when you want to interact with the e2e server
+without modifying your normal GizClaw CLI contexts.
+
+Start the Docker e2e environment, then run:
 
 ```sh
-go test -tags gizclaw_e2e -count=1 -skip '^(TestHumanReview|TestServerSocialRPCHumanReview)$' ./tests/gizclaw-e2e/go/admin
-go test -tags gizclaw_e2e -count=1 -skip '^(TestHumanReview|TestServerSocialRPCHumanReview)$' ./tests/gizclaw-e2e/go/chat
-go test -tags gizclaw_e2e -count=1 -skip '^(TestHumanReview|TestServerSocialRPCHumanReview)$' ./tests/gizclaw-e2e/go/rpc
-go test -tags gizclaw_e2e -count=1 -skip '^(TestHumanReview|TestServerSocialRPCHumanReview)$' ./tests/gizclaw-e2e/go/social
+source tests/gizclaw-e2e/testdata/docker/current.env
+
+mkdir -p tests/gizclaw-e2e/testdata/bin
+go build -o tests/gizclaw-e2e/testdata/bin/gizclaw ./cmd/gizclaw
+
+export XDG_CONFIG_HOME="$(mktemp -d)"
+gizclaw_bin="tests/gizclaw-e2e/testdata/bin/gizclaw"
+
+"$gizclaw_bin" context create my-e2e \
+  --server "$GIZCLAW_E2E_SERVER_ENDPOINT" \
+  --public-key "$GIZCLAW_E2E_SERVER_PUBLIC_KEY" \
+  --description "Manual e2e context"
+
+"$gizclaw_bin" context use my-e2e
+"$gizclaw_bin" context info
 ```
 
-8. Run desktop shell tests against the same setup context model:
+`context create` generates a new client identity. If that identity should use
+the default shared client view, pass its `identity_public` from
+`gizclaw context info` to the Docker-backed setup server:
 
 ```sh
+bash tests/gizclaw-e2e/setup/apply_client_view.sh <identity_public>
+```
+
+Then regular CLI commands can use the context:
+
+```sh
+"$gizclaw_bin" connect set-name "Manual E2E Client" --context my-e2e
+"$gizclaw_bin" connect ping --context my-e2e
+```
+
+## Run Manual Tests
+
+Start the environment and source `current.env`, then run focused suites:
+
+```sh
+go test -tags gizclaw_e2e -count=1 \
+  -skip '^(TestHumanReview|TestServerSocialRPCHumanReview|TestSocialRealtimeHistoryRPC)$' \
+  ./tests/gizclaw-e2e/go/admin
+
+go test -tags gizclaw_e2e -count=1 \
+  -skip '^(TestHumanReview|TestServerSocialRPCHumanReview|TestSocialRealtimeHistoryRPC)$' \
+  ./tests/gizclaw-e2e/go/rpc
+
 go test -tags gizclaw_e2e -count=1 ./tests/gizclaw-e2e/desktop/...
-```
-
-When `GIZCLAW_E2E_DESKTOP_URL` is set, Playwright uses that existing desktop
-surface and does not start a local Vite process. For manual frontend inspection
-outside the Docker e2e lifecycle, start the Vite app directly:
-
-```sh
-npm --workspace @gizclaw/desktop run dev
-```
-
-9. Run CLI story tests against the same setup-created server and resource
-   catalog:
-
-```sh
 go test -tags gizclaw_e2e -count=1 ./tests/gizclaw-e2e/cmd/connect
 ```
 
-10. Stop local fallback services when finished:
+Human-review cases are separate because they require interactive audio review:
 
 ```sh
-./tests/gizclaw-e2e/setup/stop.sh
+bash tests/gizclaw-e2e/run_human_review_tests.sh
 ```
 
-The full e2e run is intentionally ordered. The Docker server initializes
-resource state through the setup scripts, and Go/JS/Desktop tests exercise the
-server and create runtime state through public API/RPC paths. Do not make tests
-depend on setup-created runtime records.
+## Stop The Environment
 
-## Test Data
+Stop the current Docker e2e environment and remove generated runtime state:
 
-`testdata/resources` is the business resource set used by Go, JS, desktop, and
-cmd tests. It is organized by resource domain instead of by test
-surface:
+```sh
+bash tests/gizclaw-e2e/setup/docker-compose-down.sh
+```
+
+Generated server data, Docker runtime contexts, and binaries stay ignored:
+
+```text
+tests/gizclaw-e2e/testdata/server-workspace/data/
+tests/gizclaw-e2e/testdata/docker/
+tests/gizclaw-e2e/testdata/bin/
+```
+
+## Resource Set
+
+Docker setup creates a small real deployment: provider tenants, model rows,
+voice rows, workflows, workspaces, firmware entries, ACL policy bindings, and
+social graph rows. Client, CLI, and UI tests should use this shared business
+resource set instead of adding private per-test or UI-specific resource groups.
+Tests may still create and delete `mutation-*` resources for mutation coverage.
+
+Resource fixtures live under `testdata/resources`:
 
 ```text
 resources/
@@ -176,42 +215,9 @@ resources/
   assets/
 ```
 
-Resource fixture filenames use a local numeric prefix inside each resource
-domain directory, for example `00-credentials/00-openai.yaml` or
-`04-workflows/06-flowcraft-chat.yaml`. The directory prefix controls
-cross-resource apply order, and the file prefix controls order within that
-resource domain. `gizclaw admin apply` accepts JSON and YAML, but committed e2e
-resource fixtures should use `.yaml`.
-
 Only credential-like provider values should be environment placeholders, such as
-`${GIZCLAW_E2E_OPENAI_API_KEY}`. Values are supplied by
-`tests/gizclaw-e2e/.env` during setup. `reset_data.sh init/reset` fails before
-starting setup when any required provider credential is missing. Do not commit
-real provider keys, tokens, app secrets, or access keys. Stable e2e identity key
-pairs are committed config fixtures, not env values.
-
-`~/Work/haivivi/env` can be used as a private source for local provider values.
-For example, Volc/Doubao maps `bytedance_ark_token` to
-`GIZCLAW_E2E_VOLC_ARK_API_KEY`, and maps `bytedance_speech_app_id`,
-`bytedance_speech_access_token`, and `bytedance_speech_search_api_key` to the
-matching `GIZCLAW_E2E_DOUBAO_*` values. MiniMax maps `minimax_cn_key` /
-`minimax_cn_group_id` and
-`minimax_global_key` / `minimax_global_group_id` to the matching
-`GIZCLAW_E2E_MINIMAX_*` values in `.env`. Qwen should be represented by the
-DashScope provider (`GIZCLAW_E2E_DASHSCOPE_API_KEY`) when a DashScope/Tongyi
-credential is available.
-
-Generated runtime data under `testdata/server-workspace/data/` and generated
-binaries under `testdata/bin/` stay ignored.
-
-## Resource Set
-
-`setup/reset_data.sh init` creates a resource set that looks like a small real
-deployment: provider tenants, model rows, voice rows, workflows, workspaces,
-firmware entries, ACL policy bindings, and social graph rows. Client, CLI, and
-UI tests should be written around this business resource set instead of adding
-private per-test or UI-specific resource groups. Tests may still create and delete
-`mutation-*` resources for mutation coverage.
+`${GIZCLAW_E2E_OPENAI_API_KEY}`. Values are supplied by `.env` during Docker
+setup.
 
 Stable business resource IDs:
 
@@ -222,7 +228,7 @@ Stable business resource IDs:
 - Run-control workspace: `direct-chatroom-workspace`
 - Family chatroom workspace: `family-circle-chatroom-workspace`
 - Model: `openai-gpt-4o-mini`
-- Gameplay system task models: `reward-claim`, `pet-action` (Volc/Doubao credentials required)
+- Gameplay system task models: `reward-claim`, `pet-action`
 - Credential: `openai-main-credential`
 - MiniMax voice metadata row: `minimax-narrator-clone`
 - Volc voice metadata row: `volc-tenant:volc-main:zh_female_vv_mars_bigtts`
@@ -230,8 +236,9 @@ Stable business resource IDs:
 - Badge: `founder`
 - Firmware: `devkit-firmware-main`
 - Firmware channel/artifact: `stable` / `main`
-- Mutation-safe names: `mutation-flowcraft-workflow`, `mutation-flowcraft-workspace`,
-  `mutation-openai-model`, `mutation-openai-credential`
+- Mutation-safe names: `mutation-flowcraft-workflow`,
+  `mutation-flowcraft-workspace`, `mutation-openai-model`,
+  `mutation-openai-credential`
 
 Bulk fake resource prefixes:
 
@@ -241,29 +248,18 @@ Bulk fake resource prefixes:
 - `fake-openai-credential-000` through `fake-openai-credential-049`
 - `devkit-firmware-000` through `devkit-firmware-079`
 
-The committed firmware metadata is applied through ResourceList YAML, but the
-downloadable firmware payload is a real tar fixture at
-`testdata/assets/firmware/devkit-firmware-main.tar`. During init,
-`reset_data.sh` uploads that tar with:
+The committed firmware metadata is applied through ResourceList YAML, and the
+downloadable firmware payload is the tar fixture at
+`testdata/assets/firmware/devkit-firmware-main.tar`.
 
-```sh
-gizclaw admin firmwares upload-artifact devkit-firmware-main \
-  --channel stable \
-  -f testdata/assets/firmware/devkit-firmware-main.tar
-```
+Provider-independent rows use schema-valid committed metadata. The full e2e
+catalog also includes real provider rows, so required provider credentials must
+be present in `.env`. `go/admin` owns provider voice sync verification and
+should run before chat voice tests.
 
-Provider-independent resource rows use schema-valid committed metadata, but the
-full e2e resource catalog also includes real provider rows. Required provider
-credential values must be present in `.env`; otherwise `reset_data.sh init/reset`
-fails fast and no partial e2e setup should be treated as valid. `reward-claim`
-and `pet-action` are Volc/Doubao-backed gameplay system task model rows.
-`go/admin` owns provider voice sync verification and should run before chat
-voice tests.
-
-Workspace history is runtime data. `family-circle-chatroom-workspace` is a normal
-chatroom workspace target. `reset_data.sh` must not seed
-history entries or audio directly; social and workspace e2e cases should create
-history by running the relevant client workflows.
+Workspace history is runtime data. Docker setup must not seed history entries,
+message records, or replay audio directly; social and workspace e2e cases
+should create history by running the relevant client workflows.
 
 ## Identities And CLI Config Homes
 
@@ -287,58 +283,28 @@ Stable identities:
 - `social-a`: primary social peer.
 - `social-b`: secondary social peer.
 
-`testdata/cmd-config-home` is the only committed `XDG_CONFIG_HOME`-style config
-root. It is used by `cmd/` tests because those tests exercise real CLI context
-behavior.
+`testdata/cmd-config-home` is the committed CLI config root used by `cmd/`
+tests. Docker e2e runs copy it into the generated runtime directory and rewrite
+server endpoints there, leaving committed fixtures unchanged.
 
-Context overrides in `.env` select identities:
+## Test Suite Notes
 
-- `GIZCLAW_E2E_IDENTITIES_HOME`: defaults to
-  `tests/gizclaw-e2e/testdata/identities`.
-- `GIZCLAW_E2E_ADMIN_IDENTITY`: committed default is `admin`.
-- `GIZCLAW_E2E_PEER_IDENTITY`: committed default is `peer`.
-- `GIZCLAW_E2E_SOCIAL_PERSON_A_IDENTITY`: committed default is `social-a`.
-- `GIZCLAW_E2E_SOCIAL_PERSON_B_IDENTITY`: committed default is `social-b`.
+`go/admin` contains typed Admin HTTP API contract coverage using the generated
+`adminservice` client.
 
-`GIZCLAW_E2E_CONFIG_HOME` is only for CLI config-home tests and setup scripts.
-It defaults to `tests/gizclaw-e2e/testdata/cmd-config-home`.
-`GIZCLAW_E2E_CMD_GEAR1_CONTEXT` and `GIZCLAW_E2E_CMD_GEAR2_CONTEXT` can
-override the setup script peer contexts inside that CLI config home.
-
-Transport is not configured with an environment variable. GizClaw e2e uses
-WebRTC only; server and context configs use a single `endpoint`.
-
-## Go Tests
-
-`go/admin` contains typed Admin HTTP API contract coverage using the
-generated `adminservice` client. It verifies Swagger-defined request/response
-schemas, pagination, binary upload/download where the current Admin API exposes
-it, provider voice sync prerequisites for chat tests, and selected
-mutation-safe paths against the shared setup server.
-
-`go/rpc` contains typed RPC coverage. Test files should be grouped by RPC
-module prefix, and individual methods should be split by `Test...` functions.
+`go/rpc` contains typed RPC coverage. Test files should be grouped by RPC module
+prefix, and individual methods should be split by `Test...` functions.
 
 `go/chat` contains workspace-backed voice conversation and history cases as
-ordinary `_test.go` files. It should not use a custom `main.go -case ...`
-dispatcher.
+ordinary `_test.go` files.
 
 `go/social` contains friend and friend-group behavior. These tests are
-client-driven, not CLI-story driven, and should cover relation changes,
-workspace ACL visibility, message rounds, `workspace.history.updated`, history
-list/get cursor behavior, and history replay.
-
-## CLI Tests
+client-driven and should cover relation changes, workspace ACL visibility,
+message rounds, `workspace.history.updated`, history list/get cursor behavior,
+and history replay.
 
 `cmd` tests run the real `gizclaw` binary from `testdata/bin/gizclaw` through
 Go `os/exec`. They should not use `go run` and should not shortcut through
 typed clients.
 
-The `cmd` layout mirrors the real CLI command hierarchy: `root`, `gen-key`,
-`context`, `serve`, `service`, `migrate`, `connect`, and `admin`. Each command
-directory has one `USER_STORIES.md` plus focused `_test.go` files.
-
-## UI Tests
-
-The old CLI-served browser UI e2e tree has been removed. Desktop UI coverage is
-rebuilt under `desktop/` with the Wails follow-up issues.
+`desktop` contains Wails desktop shell coverage.

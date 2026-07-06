@@ -8,15 +8,11 @@ services:
         BASE_IMAGE: ${GIZCLAW_E2E_DOCKER_BASE_IMAGE:-gizclaw-go:linux-amd64-cn-base}
     environment:
       GIZCLAW_E2E_CONFIG_HOME: /src/tests/gizclaw-e2e/testdata/cmd-config-home
-      GIZCLAW_E2E_SERVER_ADDR: 0.0.0.0:9820
-      GIZCLAW_E2E_WEBRTC_NAT1TO1_IPS: ${GIZCLAW_E2E_WEBRTC_NAT1TO1_IPS:-}
-      GIZCLAW_E2E_WEBRTC_ICE_LITE: ${GIZCLAW_E2E_WEBRTC_ICE_LITE:-1}
-      GIZCLAW_E2E_WEBRTC_ICE_TCP_ADDR: ${GIZCLAW_E2E_WEBRTC_ICE_TCP_ADDR:-}
+      GIZCLAW_E2E_SERVER_ENDPOINT: ${GIZCLAW_E2E_SERVER_ENDPOINT:?set by docker-compose-up.sh}
       GIZCLAW_E2E_SKIP_PROVIDER_SYNC: "1"
     ports:
-      - "${GIZCLAW_E2E_DOCKER_SERVER_BIND:-0.0.0.0}:${GIZCLAW_E2E_DOCKER_SERVER_PORT:?set by run_tests.sh}:9820/tcp"
-      - "${GIZCLAW_E2E_DOCKER_SERVER_BIND:-0.0.0.0}:${GIZCLAW_E2E_DOCKER_SERVER_PORT:?set by run_tests.sh}:9820/udp"
-      - "${GIZCLAW_E2E_DOCKER_SERVER_BIND:-0.0.0.0}:${GIZCLAW_E2E_DOCKER_SERVER_TCP_ICE_PORT:-9821}:9821/tcp"
+      - "${GIZCLAW_E2E_DOCKER_SERVER_BIND:-0.0.0.0}:${GIZCLAW_E2E_DOCKER_SERVER_PORT:?set by docker-compose-up.sh}:9820/tcp"
+      - "${GIZCLAW_E2E_DOCKER_SERVER_BIND:-0.0.0.0}:${GIZCLAW_E2E_DOCKER_SERVER_PORT:?set by docker-compose-up.sh}:9820/udp"
     volumes:
       - type: bind
         source: ../.env
@@ -29,7 +25,7 @@ services:
       interval: 2s
       timeout: 1s
       retries: 60
-      start_period: 10s
+      start_period: 300s
 
   desktop:
     platform: linux/amd64

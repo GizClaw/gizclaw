@@ -121,5 +121,5 @@ current:
   dependencies, and old `cmd/internal/cmdhttp` UI proxy handlers are absent.
 - `npm --prefix apps/wails/frontend run test:e2e`,
   `go test -tags gizclaw_e2e -count=1 ./tests/gizclaw-e2e/desktop/...`, and the
-  default Docker-backed `./tests/gizclaw-e2e/run_tests.sh` must pass before
+  default Docker-backed `bash tests/gizclaw-e2e/run_tests.sh` must pass before
   #109 is closed.

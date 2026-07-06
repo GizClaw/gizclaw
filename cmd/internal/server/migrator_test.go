@@ -46,6 +46,7 @@ func TestCmdMigratorCloseHandlesNilState(t *testing.T) {
 func TestMigrateWorkspaceRunsACLMigrationFromWorkspaceConfig(t *testing.T) {
 	root := t.TempDir()
 	if err := os.WriteFile(filepath.Join(root, workspaceConfigFile), []byte(`
+listen: "127.0.0.1:0"
 endpoint: "127.0.0.1:0"
 storage:
   acl-db:
@@ -64,6 +65,7 @@ stores:
 	}
 
 	migrator, err := NewMigrator(Config{
+		Listen:   "127.0.0.1:0",
 		Endpoint: "127.0.0.1:0",
 		Storage: map[string]storage.Config{
 			"acl-db": {Kind: storage.KindSQL, SQLite: &storage.SQLConfig{Dir: filepath.Join(root, "data", "acl.sqlite")}},
@@ -84,6 +86,7 @@ stores:
 func TestMigrateWorkspaceMigratesLegacyPeerRole(t *testing.T) {
 	root := t.TempDir()
 	if err := os.WriteFile(filepath.Join(root, workspaceConfigFile), []byte(`
+listen: "127.0.0.1:0"
 endpoint: "127.0.0.1:0"
 storage:
   peer-db:

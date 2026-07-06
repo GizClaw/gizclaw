@@ -31,7 +31,7 @@ func AssertServerAvailable(t *testing.T, identityDir string) {
 	client := http.Client{Timeout: time.Second}
 	resp, err := client.Get("http://" + endpoint + "/server-info")
 	if err != nil {
-		t.Fatalf("gizclaw e2e setup server is required at %s; run ./tests/gizclaw-e2e/run_tests.sh: %v", endpoint, err)
+		t.Fatalf("gizclaw e2e setup server is required at %s; run bash tests/gizclaw-e2e/setup/docker-compose-up.sh: %v", endpoint, err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
