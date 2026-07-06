@@ -263,6 +263,18 @@ func TestICEMuxAddrs(t *testing.T) {
 	}
 }
 
+func TestNAT1To1IPsFromConfig(t *testing.T) {
+	if got := nat1To1IPs(&ListenConfig{NAT1To1IPs: []string{"198.51.100.10"}}); len(got) != 1 || got[0] != "198.51.100.10" {
+		t.Fatalf("nat1To1IPs(config) = %#v", got)
+	}
+}
+
+func TestICELiteFromConfig(t *testing.T) {
+	if !iceLite(&ListenConfig{ICELite: true}) {
+		t.Fatal("iceLite(config) = false, want true")
+	}
+}
+
 func TestNewPionAPICleansUDPWhenTCPBindFails(t *testing.T) {
 	udpProbe, err := net.ListenPacket("udp", "127.0.0.1:0")
 	if err != nil {

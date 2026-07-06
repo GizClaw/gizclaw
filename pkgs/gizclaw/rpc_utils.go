@@ -8,7 +8,6 @@ import (
 	"io"
 	"net"
 	"net/http"
-	"os"
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
@@ -35,12 +34,11 @@ func handleRPCWithStream(
 	defer stream.Close()
 
 	for {
-		reuse := os.Getenv("GIZCLAW_RPC_STREAM_REUSE") == "1"
 		done, err := handleRPCStreamRequest(stream, dispatch, streamDispatch)
 		if err != nil {
 			return err
 		}
-		if done || !reuse {
+		if done {
 			return nil
 		}
 	}
@@ -74,9 +72,8 @@ func handleRPCStreamRequest(
 	}
 
 	ctx, stop := rpcConnContext(stream.conn)
-	defer stop()
-
 	resp, err := dispatch(ctx, req)
+	stop()
 	if err != nil {
 		if ctx.Err() != nil {
 			if cause := context.Cause(ctx); cause != nil {

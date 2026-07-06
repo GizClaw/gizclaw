@@ -135,11 +135,8 @@ func (h *PeerConn) serveRPC() error {
 }
 
 // Ping opens a fresh RPC stream, sends one ping, and closes it.
-//
-// Our current RPC transport uses one giznet service stream per round trip so
-// multiple RPC requests can run concurrently on separate streams. This is closer to
-// HTTP/1.0-style request lifecycles; HTTP/1.1-style stream reuse is not
-// supported yet.
+// RPC servers also accept multiple sequential requests on a single stream for
+// firmware clients that keep their service data channel open.
 func (h *PeerConn) Ping(ctx context.Context, id string) (*rpcapi.PingResponse, error) {
 	stream, err := h.rpcConn()
 	if err != nil {

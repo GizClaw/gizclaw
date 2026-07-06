@@ -47,6 +47,9 @@ func TestRPCSpeedTest(t *testing.T) {
 			if result.Duration <= 0 {
 				t.Fatalf("Duration = %v, want positive", result.Duration)
 			}
+			if err := clientSide.Close(); err != nil {
+				t.Fatalf("client close error = %v", err)
+			}
 			if err := <-serverErr; err != nil {
 				t.Fatalf("server Handle error = %v", err)
 			}

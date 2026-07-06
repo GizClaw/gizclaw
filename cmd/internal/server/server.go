@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"os"
+	"strings"
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/cmd/internal/storage"
@@ -77,11 +79,8 @@ func New(cfg Config) (srv *CmdServer, err error) {
 		PublicEndpoint: cfg.Endpoint,
 		PeerListenerFactories: []gizclaw.PeerListenerFactory{
 			func(opts gizclaw.PeerListenerOptions) (giznet.Listener, error) {
-				l, err := (&gizwebrtc.ListenConfig{
-					ICEUDPAddr:       cfg.ICEListenAddr(),
-					SecurityPolicy:   opts.SecurityPolicy,
-					PeerEventHandler: opts.PeerEventHandler,
-				}).Listen(opts.KeyPair)
+				listenConfig := webRTCListenConfig(cfg, opts)
+				l, err := (&listenConfig).Listen(opts.KeyPair)
 				if err != nil {
 					return nil, err
 				}
@@ -245,6 +244,46 @@ func New(cfg Config) (srv *CmdServer, err error) {
 		}
 	}
 	return cmdSrv, nil
+}
+
+func webRTCListenConfig(cfg Config, opts gizclaw.PeerListenerOptions) gizwebrtc.ListenConfig {
+	return gizwebrtc.ListenConfig{
+		ICEUDPAddr:       cfg.ICEListenAddr(),
+		ICETCPAddr:       firstEnv("GIZCLAW_WEBRTC_ICE_TCP_ADDR", "GIZCLAW_E2E_WEBRTC_ICE_TCP_ADDR"),
+		NAT1To1IPs:       envCSV("GIZCLAW_WEBRTC_NAT1TO1_IPS", "GIZCLAW_E2E_WEBRTC_NAT1TO1_IPS"),
+		ICELite:          envBool("GIZCLAW_WEBRTC_ICE_LITE", "GIZCLAW_E2E_WEBRTC_ICE_LITE"),
+		SecurityPolicy:   opts.SecurityPolicy,
+		PeerEventHandler: opts.PeerEventHandler,
+	}
+}
+
+func firstEnv(names ...string) string {
+	for _, name := range names {
+		if value := strings.TrimSpace(os.Getenv(name)); value != "" {
+			return value
+		}
+	}
+	return ""
+}
+
+func envBool(names ...string) bool {
+	value := firstEnv(names...)
+	return value == "1" || strings.EqualFold(value, "true") || strings.EqualFold(value, "yes")
+}
+
+func envCSV(names ...string) []string {
+	value := firstEnv(names...)
+	if value == "" {
+		return nil
+	}
+	parts := strings.Split(value, ",")
+	out := parts[:0]
+	for _, part := range parts {
+		if part = strings.TrimSpace(part); part != "" {
+			out = append(out, part)
+		}
+	}
+	return out
 }
 
 func storeExists(cfg Config, name string) bool {

@@ -355,6 +355,7 @@ func callRPCPairErr[T any](server *rpcServer, call func(net.Conn) (*T, error)) (
 	}()
 
 	result, err := call(clientSide)
+	_ = clientSide.Close()
 	if serverErr := <-errCh; serverErr != nil {
 		return nil, serverErr
 	}

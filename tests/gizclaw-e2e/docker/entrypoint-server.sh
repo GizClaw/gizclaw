@@ -24,10 +24,8 @@ perl -0pi -e 's/^endpoint:\s*[^\n]+/endpoint: 0.0.0.0:9820/m' "$workspace_dir/co
 
 "$setup_dir/build.sh" >/dev/null
 runtime_ice_tcp_addr="${GIZCLAW_E2E_WEBRTC_ICE_TCP_ADDR:-}"
-runtime_rpc_stream_reuse="${GIZCLAW_E2E_RPC_STREAM_REUSE:-1}"
 unset GIZCLAW_E2E_WEBRTC_ICE_TCP_ADDR
 unset GIZCLAW_WEBRTC_ICE_TCP_ADDR
-unset GIZCLAW_RPC_STREAM_REUSE
 "$setup_dir/reset_data.sh" reset
 
 if [[ ! -f "$pid_file" ]]; then
@@ -42,7 +40,7 @@ if [[ -z "$pid" ]] || ! kill -0 "$pid" 2>/dev/null; then
   exit 1
 fi
 
-if [[ -n "$runtime_ice_tcp_addr" || "$runtime_rpc_stream_reuse" == "1" ]]; then
+if [[ -n "$runtime_ice_tcp_addr" ]]; then
   kill "$pid" 2>/dev/null || true
   for _ in {1..50}; do
     if ! kill -0 "$pid" 2>/dev/null; then
@@ -53,9 +51,6 @@ if [[ -n "$runtime_ice_tcp_addr" || "$runtime_rpc_stream_reuse" == "1" ]]; then
   rm -f "$pid_file"
   if [[ -n "$runtime_ice_tcp_addr" ]]; then
     export GIZCLAW_E2E_WEBRTC_ICE_TCP_ADDR="$runtime_ice_tcp_addr"
-  fi
-  if [[ "$runtime_rpc_stream_reuse" == "1" ]]; then
-    export GIZCLAW_RPC_STREAM_REUSE=1
   fi
   nohup "$repo_root/tests/gizclaw-e2e/testdata/bin/gizclaw" serve --force "$workspace_dir" >"$log_file" 2>&1 </dev/null &
   pid="$!"

@@ -60,6 +60,39 @@ func TestRPCClientPingSingleRequestResponse(t *testing.T) {
 	}
 }
 
+func TestRPCServerHandleReusesStreamByDefault(t *testing.T) {
+	serverSide, clientSide := net.Pipe()
+	defer serverSide.Close()
+	defer clientSide.Close()
+
+	serverErrCh := make(chan error, 1)
+	go func() {
+		serverErrCh <- (&rpcServer{}).Handle(serverSide)
+	}()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	first, err := callRPCPing(ctx, clientSide, "req-1")
+	if err != nil {
+		t.Fatalf("Ping(req-1) error = %v", err)
+	}
+	second, err := callRPCPing(ctx, clientSide, "req-2")
+	if err != nil {
+		t.Fatalf("Ping(req-2) error = %v", err)
+	}
+	if first.ServerTime <= 0 || second.ServerTime <= 0 {
+		t.Fatalf("server times = %d, %d; want positive", first.ServerTime, second.ServerTime)
+	}
+
+	if err := clientSide.Close(); err != nil {
+		t.Fatalf("client close error = %v", err)
+	}
+	if err := <-serverErrCh; err != nil {
+		t.Fatalf("server Handle error = %v", err)
+	}
+}
+
 func TestRPCClientCallContextTimeout(t *testing.T) {
 	serverSide, clientSide := net.Pipe()
 	defer serverSide.Close()
