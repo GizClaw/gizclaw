@@ -1,6 +1,7 @@
 package server
 
 import (
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -31,16 +32,23 @@ func TestConfigListenAddrs(t *testing.T) {
 func TestWebRTCListenConfigUsesListenAndPublicEndpoint(t *testing.T) {
 	policy := testSecurityPolicy{}
 	handler := testPeerEventHandler{}
+	iceTCPListener := &testListener{addr: testAddr("0.0.0.0:9820")}
 	cfg := webRTCListenConfig(Config{Listen: "0.0.0.0:9820", Endpoint: "192.168.1.20:19820"}, gizclaw.PeerListenerOptions{
 		SecurityPolicy:   policy,
 		PeerEventHandler: handler,
-	})
+	}, iceTCPListener)
 
 	if cfg.ICEUDPAddr != "0.0.0.0:9820" || cfg.ICETCPAddr != "" {
 		t.Fatalf("ICE addrs = %q, %q", cfg.ICEUDPAddr, cfg.ICETCPAddr)
 	}
+	if cfg.ICETCPListener != iceTCPListener {
+		t.Fatal("ICETCPListener not preserved")
+	}
 	if cfg.PublicICEUDPAddr != "192.168.1.20:19820" {
 		t.Fatalf("PublicICEUDPAddr = %q", cfg.PublicICEUDPAddr)
+	}
+	if cfg.PublicICETCPAddr != "192.168.1.20:19820" {
+		t.Fatalf("PublicICETCPAddr = %q", cfg.PublicICETCPAddr)
 	}
 	if len(cfg.NAT1To1IPs) != 0 {
 		t.Fatalf("NAT1To1IPs = %#v", cfg.NAT1To1IPs)
@@ -57,16 +65,22 @@ func TestWebRTCListenConfigUsesListenAndPublicEndpoint(t *testing.T) {
 }
 
 func TestWebRTCListenConfigSkipsUnspecifiedPublicEndpoint(t *testing.T) {
-	cfg := webRTCListenConfig(Config{Listen: "0.0.0.0:9820", Endpoint: "0.0.0.0:9820"}, gizclaw.PeerListenerOptions{})
+	cfg := webRTCListenConfig(Config{Listen: "0.0.0.0:9820", Endpoint: "0.0.0.0:9820"}, gizclaw.PeerListenerOptions{}, nil)
 	if cfg.PublicICEUDPAddr != "" {
 		t.Fatalf("PublicICEUDPAddr = %q, want empty", cfg.PublicICEUDPAddr)
+	}
+	if cfg.PublicICETCPAddr != "" {
+		t.Fatalf("PublicICETCPAddr = %q, want empty", cfg.PublicICETCPAddr)
 	}
 }
 
 func TestWebRTCListenConfigSkipsHostnamePublicEndpoint(t *testing.T) {
-	cfg := webRTCListenConfig(Config{Listen: "0.0.0.0:9820", Endpoint: "example.com:9820"}, gizclaw.PeerListenerOptions{})
+	cfg := webRTCListenConfig(Config{Listen: "0.0.0.0:9820", Endpoint: "example.com:9820"}, gizclaw.PeerListenerOptions{}, nil)
 	if cfg.PublicICEUDPAddr != "" {
 		t.Fatalf("PublicICEUDPAddr = %q, want empty", cfg.PublicICEUDPAddr)
+	}
+	if cfg.PublicICETCPAddr != "" {
+		t.Fatalf("PublicICETCPAddr = %q, want empty", cfg.PublicICETCPAddr)
 	}
 }
 
@@ -83,3 +97,16 @@ func (testSecurityPolicy) AllowService(giznet.PublicKey, uint64) bool {
 type testPeerEventHandler struct{}
 
 func (testPeerEventHandler) HandlePeerEvent(giznet.PeerEvent) {}
+
+type testAddr string
+
+func (a testAddr) Network() string { return "tcp" }
+func (a testAddr) String() string  { return string(a) }
+
+type testListener struct {
+	addr testAddr
+}
+
+func (l *testListener) Accept() (net.Conn, error) { return nil, net.ErrClosed }
+func (l *testListener) Close() error              { return nil }
+func (l *testListener) Addr() net.Addr            { return l.addr }

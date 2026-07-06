@@ -311,6 +311,66 @@ func TestNewPionAPICleansUDPWhenTCPBindFails(t *testing.T) {
 	}
 }
 
+func TestNewPionAPIRejectsICETCPListenerAndAddrConflict(t *testing.T) {
+	for _, tt := range []struct {
+		name string
+		cfg  func(net.Listener) *ListenConfig
+	}{
+		{
+			name: "ICETCPAddr",
+			cfg: func(listener net.Listener) *ListenConfig {
+				return &ListenConfig{ICETCPAddr: "127.0.0.1:0", ICETCPListener: listener}
+			},
+		},
+		{
+			name: "ICEAddr",
+			cfg: func(listener net.Listener) *ListenConfig {
+				return &ListenConfig{ICEAddr: "127.0.0.1:0", ICETCPListener: listener}
+			},
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			tcpListener, err := net.Listen("tcp", "127.0.0.1:0")
+			if err != nil {
+				t.Fatalf("Listen tcp error = %v", err)
+			}
+			defer tcpListener.Close()
+
+			_, closers, err := newPionAPI(tt.cfg(tcpListener))
+			for _, closeFn := range closers {
+				_ = closeFn()
+			}
+			if err == nil {
+				t.Fatalf("newPionAPI with %s and ICETCPListener error = nil", tt.name)
+			}
+		})
+	}
+}
+
+func TestNewPionAPITakesOwnershipOfICETCPListener(t *testing.T) {
+	tcpListener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("Listen tcp error = %v", err)
+	}
+
+	_, closers, err := newPionAPI(&ListenConfig{ICETCPListener: tcpListener})
+	if err != nil {
+		_ = tcpListener.Close()
+		t.Fatalf("newPionAPI error = %v", err)
+	}
+	for _, closeFn := range closers {
+		if err := closeFn(); err != nil && !errors.Is(err, net.ErrClosed) {
+			t.Fatalf("closeFn error = %v", err)
+		}
+	}
+
+	conn, err := net.DialTimeout("tcp", tcpListener.Addr().String(), 50*time.Millisecond)
+	if err == nil {
+		_ = conn.Close()
+		t.Fatal("dial to ICETCPListener succeeded after close")
+	}
+}
+
 func TestSignalingCryptoModesAndAAD(t *testing.T) {
 	serverKey, err := giznet.GenerateKeyPair()
 	if err != nil {

@@ -184,16 +184,17 @@ func ServeContext(ctx context.Context, workspace string, opts ServeOptions) erro
 		}
 	}
 
-	srv, err := New(cfg)
-	if err != nil {
-		return err
-	}
-	defer srv.Close()
 	publicListener, err := net.Listen("tcp", cfg.PublicAPIListenAddr())
 	if err != nil {
 		return fmt.Errorf("server: listen public http: %w", err)
 	}
-	defer publicListener.Close()
+	publicMux := newPublicTCPMux(publicListener)
+	defer publicMux.Close()
+	srv, err := newWithOptions(cfg, newServerOptions{ICETCPListener: publicMux.ICETCPListener()})
+	if err != nil {
+		return err
+	}
+	defer srv.Close()
 	publicHTTP := &http.Server{Handler: srv}
 	releasePID, err := acquireWorkspacePID(root, opts.Force)
 	if err != nil {
@@ -209,7 +210,7 @@ func ServeContext(ctx context.Context, workspace string, opts ServeOptions) erro
 		errCh <- srv.Serve()
 	}()
 	go func() {
-		err := publicHTTP.Serve(publicListener)
+		err := publicHTTP.Serve(publicMux.HTTPListener())
 		if errors.Is(err, http.ErrServerClosed) || errors.Is(err, net.ErrClosed) {
 			err = nil
 		}

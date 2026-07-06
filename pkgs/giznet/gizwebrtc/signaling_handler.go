@@ -130,7 +130,7 @@ func (l *Listener) acceptOffer(clientPK giznet.PublicKey, offerSDP string) (stri
 		_ = conn.Close()
 		return "", nil, fmt.Errorf("gizwebrtc: missing local answer")
 	}
-	answerSDP, err := rewriteSDPUDPHostCandidates(pc.LocalDescription().SDP, l.cfg.PublicICEUDPAddr)
+	answerSDP, err := rewriteSDPHostCandidates(pc.LocalDescription().SDP, l.cfg.PublicICEUDPAddr, l.cfg.PublicICETCPAddr)
 	if err != nil {
 		_ = conn.Close()
 		return "", nil, err

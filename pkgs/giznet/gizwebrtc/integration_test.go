@@ -11,6 +11,7 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/stampedopus"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
+	"github.com/pion/webrtc/v4"
 )
 
 type allowAllPolicy struct{}
@@ -179,6 +180,62 @@ func TestDialSignalingWithFixedICEPort(t *testing.T) {
 	}
 }
 
+func TestDialSignalingOverTCPOnlyICE(t *testing.T) {
+	serverKey, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("GenerateKeyPair(server) error = %v", err)
+	}
+	clientKey, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("GenerateKeyPair(client) error = %v", err)
+	}
+	iceTCPListener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("Listen ICE TCP error = %v", err)
+	}
+	serverListener, err := (&ListenConfig{
+		ICETCPListener:   iceTCPListener,
+		PublicICETCPAddr: iceTCPListener.Addr().String(),
+		CipherMode:       CipherModePlaintext,
+		SecurityPolicy:   allowAllPolicy{},
+	}).Listen(serverKey)
+	if err != nil {
+		t.Fatalf("Listen error = %v", err)
+	}
+	defer serverListener.Close()
+	httpServer := httptest.NewServer(serverListener.SignalingHandler())
+	defer httpServer.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	clientListener, clientConn, err := Dial(ctx, clientKey, serverKey.Public, DialConfig{
+		API:            newTCPOnlyClientAPI(),
+		SignalingURL:   httpServer.URL + SignalingPath,
+		CipherMode:     CipherModePlaintext,
+		SecurityPolicy: allowAllPolicy{},
+	})
+	if err != nil {
+		t.Fatalf("Dial error = %v", err)
+	}
+	defer clientListener.Close()
+	defer clientConn.Close()
+
+	serverConn := acceptConn(t, serverListener)
+	defer serverConn.Close()
+
+	if _, err := clientConn.Write(0x42, []byte("tcp packet")); err != nil {
+		t.Fatalf("client packet Write error = %v", err)
+	}
+	buf := make([]byte, 64)
+	proto, n, err := serverConn.Read(buf)
+	if err != nil {
+		t.Fatalf("server packet Read error = %v", err)
+	}
+	if proto != 0x42 || string(buf[:n]) != "tcp packet" {
+		t.Fatalf("server packet proto=%d payload=%q", proto, string(buf[:n]))
+	}
+}
+
 func TestPacketWriteRejectsLargePayload(t *testing.T) {
 	if _, err := writePacket(nil, 1, nil); !errors.Is(err, ErrPacketChannel) {
 		t.Fatalf("writePacket nil err = %v, want %v", err, ErrPacketChannel)
@@ -187,6 +244,14 @@ func TestPacketWriteRejectsLargePayload(t *testing.T) {
 	if _, err := writePacket(noopPacketRaw{}, 1, payload); !errors.Is(err, ErrPacketTooLarge) {
 		t.Fatalf("writePacket large err = %v, want %v", err, ErrPacketTooLarge)
 	}
+}
+
+func newTCPOnlyClientAPI() *webrtc.API {
+	settingEngine := webrtc.SettingEngine{}
+	settingEngine.DetachDataChannels()
+	settingEngine.SetIncludeLoopbackCandidate(true)
+	settingEngine.SetNetworkTypes([]webrtc.NetworkType{webrtc.NetworkTypeTCP4})
+	return webrtc.NewAPI(webrtc.WithSettingEngine(settingEngine))
 }
 
 func readDirectPacketWithTimeout(t *testing.T, conn *Conn) (byte, []byte) {

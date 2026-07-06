@@ -48,7 +48,15 @@ func (s *CmdServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 // New wires an already prepared in-memory config into a command server.
+type newServerOptions struct {
+	ICETCPListener net.Listener
+}
+
 func New(cfg Config) (srv *CmdServer, err error) {
+	return newWithOptions(cfg, newServerOptions{})
+}
+
+func newWithOptions(cfg Config, newOpts newServerOptions) (srv *CmdServer, err error) {
 	cfg, err = prepareConfig(cfg)
 	if err != nil {
 		return nil, err
@@ -78,7 +86,7 @@ func New(cfg Config) (srv *CmdServer, err error) {
 		PublicEndpoint: cfg.Endpoint,
 		PeerListenerFactories: []gizclaw.PeerListenerFactory{
 			func(opts gizclaw.PeerListenerOptions) (giznet.Listener, error) {
-				listenConfig := webRTCListenConfig(cfg, opts)
+				listenConfig := webRTCListenConfig(cfg, opts, newOpts.ICETCPListener)
 				l, err := (&listenConfig).Listen(opts.KeyPair)
 				if err != nil {
 					return nil, err
@@ -245,16 +253,19 @@ func New(cfg Config) (srv *CmdServer, err error) {
 	return cmdSrv, nil
 }
 
-func webRTCListenConfig(cfg Config, opts gizclaw.PeerListenerOptions) gizwebrtc.ListenConfig {
+func webRTCListenConfig(cfg Config, opts gizclaw.PeerListenerOptions, iceTCPListener net.Listener) gizwebrtc.ListenConfig {
+	publicAddr := publicICEAddr(cfg)
 	return gizwebrtc.ListenConfig{
 		ICEUDPAddr:       cfg.ICEListenAddr(),
-		PublicICEUDPAddr: publicICEUDPAddr(cfg),
+		ICETCPListener:   iceTCPListener,
+		PublicICEUDPAddr: publicAddr,
+		PublicICETCPAddr: publicAddr,
 		SecurityPolicy:   opts.SecurityPolicy,
 		PeerEventHandler: opts.PeerEventHandler,
 	}
 }
 
-func publicICEUDPAddr(cfg Config) string {
+func publicICEAddr(cfg Config) string {
 	host, _, err := net.SplitHostPort(cfg.Endpoint)
 	if err != nil {
 		return ""

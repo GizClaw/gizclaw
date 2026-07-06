@@ -33,6 +33,15 @@ type ListenConfig struct {
 	// ICETCPAddr is the TCP bind address used for the shared WebRTC ICE mux.
 	// If set, it takes precedence over ICEAddr for TCP.
 	ICETCPAddr string
+	// ICETCPListener is an already-bound TCP listener used for the shared
+	// WebRTC ICE mux. Listen takes ownership of this listener after success and
+	// closes it when the returned Listener is closed. ICETCPAddr and ICEAddr
+	// must not also request a TCP bind when this is set.
+	ICETCPListener net.Listener
+	// PublicICETCPAddr is the TCP host:port advertised in answer SDP host
+	// candidates when the server is behind a mapped or externally-routable
+	// endpoint.
+	PublicICETCPAddr string
 
 	SecurityPolicy   giznet.SecurityPolicy
 	PeerEventHandler giznet.PeerEventHandler
@@ -97,6 +106,9 @@ func newPionAPI(c *ListenConfig) (*webrtc.API, []func() error, error) {
 
 	var closers []func() error
 	udpAddr, tcpAddr := iceMuxAddrs(c)
+	if c != nil && c.ICETCPListener != nil && tcpAddr != "" {
+		return nil, nil, fmt.Errorf("gizwebrtc: ICETCPListener conflicts with ICEAddr or ICETCPAddr")
+	}
 	var networkTypes []webrtc.NetworkType
 	if udpAddr != "" {
 		if isLoopbackICEAddr(udpAddr) {
@@ -112,21 +124,32 @@ func newPionAPI(c *ListenConfig) (*webrtc.API, []func() error, error) {
 		networkTypes = append(networkTypes, webrtc.NetworkTypeUDP4)
 	}
 
-	if tcpAddr != "" {
-		if isLoopbackICEAddr(tcpAddr) {
+	if tcpAddr != "" || (c != nil && c.ICETCPListener != nil) {
+		tcpListener := net.Listener(nil)
+		if c != nil {
+			tcpListener = c.ICETCPListener
+		}
+		if tcpAddr != "" && isLoopbackICEAddr(tcpAddr) {
 			settingEngine.SetIncludeLoopbackCandidate(true)
 		}
 		logger := logging.NewDefaultLoggerFactory().NewLogger("gizwebrtc")
-		tcpListener, err := net.Listen("tcp", tcpAddr)
-		if err != nil {
-			for _, closeFn := range closers {
-				_ = closeFn()
+		if tcpListener == nil {
+			var err error
+			tcpListener, err = net.Listen("tcp", tcpAddr)
+			if err != nil {
+				for _, closeFn := range closers {
+					_ = closeFn()
+				}
+				return nil, nil, fmt.Errorf("gizwebrtc: listen ICE TCP: %w", err)
 			}
-			return nil, nil, fmt.Errorf("gizwebrtc: listen ICE TCP: %w", err)
 		}
-		closers = append(closers, tcpListener.Close)
-		settingEngine.SetICETCPMux(webrtc.NewICETCPMux(logger, tcpListener, 0))
+		if tcpAddr == "" && isLoopbackICEAddr(tcpListener.Addr().String()) {
+			settingEngine.SetIncludeLoopbackCandidate(true)
+		}
+		tcpMux := webrtc.NewICETCPMux(logger, tcpListener, 0)
+		closers = append(closers, tcpMux.Close)
 		networkTypes = append(networkTypes, webrtc.NetworkTypeTCP4)
+		settingEngine.SetICETCPMux(tcpMux)
 	}
 	if len(networkTypes) > 0 {
 		settingEngine.SetNetworkTypes(networkTypes)

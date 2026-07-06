@@ -73,10 +73,11 @@ GIZCLAW_E2E_SERVER_ENDPOINT=192.168.1.20:19820 \
 The same host port is mapped to container `9820/tcp` and `9820/udp`. The server
 binds `listen: 0.0.0.0:9820` inside the container. Generated client contexts use
 the public `endpoint`, and the WebRTC answer advertises that endpoint for ICE
-UDP host candidates when the endpoint host is a concrete IP.
+UDP and TCP host candidates when the endpoint host is a concrete IP. ICE TCP
+shares the same public TCP endpoint as HTTP APIs and WebRTC signaling.
 
 This setup expects clients to reach the published TCP and UDP port directly. It
-does not configure STUN, TURN, mDNS, ICE Lite, or ICE TCP.
+does not configure STUN, TURN, mDNS, or ICE Lite.
 
 ## Runtime Env
 
