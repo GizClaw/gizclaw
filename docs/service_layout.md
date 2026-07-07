@@ -23,6 +23,9 @@ pkg/gizclaw/services/social/friendgroup
 - Resource endpoints use path-first notation: `/path OPERATION[, OPERATION]`.
 - Custom HTTP verbs are listed under their resource path as subtree items: `@verb`.
 
+Peer-reported status updates are projected from telemetry packets into
+`server.status.get`; there is no peer-facing `server.status.put` RPC method.
+
 ```text
 All Service
 └── all.ping
@@ -34,7 +37,7 @@ Client Service
 Server Service
 ├── server.info.{get,put}
 ├── server.runtime.get
-├── server.status.{get,put}
+├── server.status.get
 ├── server.run.say
 ├── /server-info GET
 ├── /login POST

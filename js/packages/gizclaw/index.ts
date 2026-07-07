@@ -21,6 +21,7 @@ export const RPC_FRAME_TYPE_BINARY = 2;
 export const RPC_FRAME_TYPE_TEXT = 3;
 const DATA_CHANNEL_SEND_RETRY_DELAY_MS = 5;
 const DATA_CHANNEL_SEND_RETRY_LIMIT = 20;
+const PACKET_DATA_CHANNEL_OPEN_TIMEOUT_MS = 30000;
 const giznetPacketDataChannels = new WeakMap<object, WebRTCRPCDataChannel>();
 
 export type RPCID = string;
@@ -85,6 +86,11 @@ export type ConnectGiznetWebRTCOptions = {
   prepareOffer: (offerSDP: string) => Promise<PreparedGiznetWebRTCOffer>;
   sendOffer?: (offer: PreparedGiznetWebRTCOffer, signal?: AbortSignal) => Promise<Blob>;
   signal?: AbortSignal;
+};
+
+export type SendGiznetWebRTCTelemetryOptions = {
+  signal?: AbortSignal;
+  timeoutMs?: number;
 };
 
 export type GiznetServerInfo = {
@@ -539,15 +545,18 @@ export function getGiznetWebRTCPacketDataChannel(pc: RTCPeerConnection): WebRTCR
   return giznetPacketDataChannels.get(pc);
 }
 
-export async function sendGiznetWebRTCTelemetry(pc: RTCPeerConnection, frame: TelemetryFrame): Promise<void> {
+export async function sendGiznetWebRTCTelemetry(
+  pc: RTCPeerConnection,
+  frame: TelemetryFrame,
+  options: SendGiznetWebRTCTelemetryOptions = {},
+): Promise<void> {
   const channel = getGiznetWebRTCPacketDataChannel(pc);
   if (channel == null) {
     throw new Error("giznet WebRTC packet data channel is not available");
   }
   const packet = encodeTelemetryPacket(frame);
-  await new Promise<void>((resolve, reject) => {
-    sendDataChannelMessage(channel, packet, reject, resolve);
-  });
+  await waitForDataChannelOpen(channel, options.signal, options.timeoutMs ?? PACKET_DATA_CHANNEL_OPEN_TIMEOUT_MS);
+  channel.send(packet);
 }
 
 export async function sendGiznetWebRTCOffer(
@@ -994,18 +1003,70 @@ function abortError(): Error {
   return err;
 }
 
-function sendDataChannelMessage(
-  channel: WebRTCRPCDataChannel,
-  payload: DataChannelPayload,
-  onError: (err: unknown) => void,
-  onSent: () => void = () => {},
-): void {
+function waitForDataChannelOpen(channel: WebRTCRPCDataChannel, signal?: AbortSignal, timeoutMs = 30000): Promise<void> {
+  if (channel.readyState === "open") {
+    return Promise.resolve();
+  }
+  if (channel.readyState === "closed") {
+    return Promise.reject(new Error(`RTCDataChannel.readyState is ${JSON.stringify(channel.readyState)}, want "open"`));
+  }
+  return new Promise((resolve, reject) => {
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+    let settled = false;
+    const cleanup = (): void => {
+      if (timeout != null) {
+        clearTimeout(timeout);
+      }
+      signal?.removeEventListener("abort", onAbort);
+      channel.removeEventListener("open", onOpen);
+      channel.removeEventListener("close", onClose);
+      channel.removeEventListener("error", onError);
+    };
+    const settle = (fn: () => void): void => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      cleanup();
+      fn();
+    };
+    const onOpen = (): void => {
+      if (channel.readyState === "open") {
+        settle(resolve);
+      }
+    };
+    const onClose = (): void => {
+      settle(() => reject(new Error("RTCDataChannel closed before opening")));
+    };
+    const onError = (): void => {
+      settle(() => reject(new Error("RTCDataChannel failed before opening")));
+    };
+    const onAbort = (): void => {
+      settle(() => reject(abortError()));
+    };
+    if (signal?.aborted) {
+      reject(abortError());
+      return;
+    }
+    signal?.addEventListener("abort", onAbort, { once: true });
+    channel.addEventListener("open", onOpen);
+    channel.addEventListener("close", onClose);
+    channel.addEventListener("error", onError);
+    if (timeoutMs > 0) {
+      timeout = setTimeout(() => {
+        settle(() => reject(new Error(`RTCDataChannel did not open within ${timeoutMs}ms`)));
+      }, timeoutMs);
+    }
+    onOpen();
+  });
+}
+
+function sendDataChannelMessage(channel: WebRTCRPCDataChannel, payload: DataChannelPayload, onError: (err: unknown) => void): void {
   let retries = 0;
   const send = (): void => {
     if (channel.readyState === "open") {
       try {
         channel.send(payload);
-        onSent();
       } catch (err) {
         onError(err);
       }

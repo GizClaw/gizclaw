@@ -307,6 +307,35 @@ test("sendGiznetWebRTCTelemetry waits for the packet channel to open", async () 
   assert.equal(pc.channels[0]?.sent.length, 1);
 });
 
+test("sendGiznetWebRTCTelemetry waits beyond the RPC send retry budget", async () => {
+  const pc = new FakePeerConnection();
+  prepareGiznetWebRTCPeerConnection(pc as unknown as RTCPeerConnection);
+  const promise = sendGiznetWebRTCTelemetry(pc as unknown as RTCPeerConnection, {
+    observedAtUnixMs: 1000,
+    observations: [batteryTelemetry({ percent: 82 })],
+  }, { timeoutMs: 1000 });
+
+  await new Promise((resolve) => setTimeout(resolve, 150));
+  assert.equal(pc.channels[0]?.sent.length, 0);
+  pc.channels[0]?.open();
+  await promise;
+
+  assert.equal(pc.channels[0]?.sent.length, 1);
+});
+
+test("sendGiznetWebRTCTelemetry rejects when the packet channel does not open", async () => {
+  const pc = new FakePeerConnection();
+  prepareGiznetWebRTCPeerConnection(pc as unknown as RTCPeerConnection);
+
+  await assert.rejects(
+    sendGiznetWebRTCTelemetry(pc as unknown as RTCPeerConnection, {
+      observedAtUnixMs: 1000,
+      observations: [batteryTelemetry({ percent: 82 })],
+    }, { timeoutMs: 1 }),
+    /did not open/,
+  );
+});
+
 test("encodeTelemetryPacket prefixes protobuf telemetry payload", () => {
   const packet = encodeTelemetryPacket({
     sequence: 7,
