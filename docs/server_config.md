@@ -160,6 +160,16 @@ stores:
     kind: sql
     storage: gameplay-db
 
+  # Queryable metrics store for server metrics and peer telemetry samples. This
+  # store writes through Prometheus remote write and queries through the
+  # Prometheus HTTP API. It does not use Pushgateway.
+  metrics:
+    kind: metrics
+    prometheus:
+      remote_write_url: https://write.prometheus-cn-shanghai.volces.com/workspaces/<workspace-id>/api/v1/write
+      query_url: https://query.prometheus-cn-shanghai.volces.com/workspaces/<workspace-id>
+      bearer_token: your-vmp-bearer-token
+
   # Contact address-book records for peer-facing contact RPCs.
   contacts:
     kind: keyvalue
