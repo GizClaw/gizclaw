@@ -62,13 +62,34 @@ type Manager struct {
 
 	mu    sync.RWMutex
 	peers map[giznet.PublicKey]*activePeer
+
+	telemetryStatusMu    sync.Mutex
+	telemetryStatusLocks map[giznet.PublicKey]*sync.Mutex
 }
 
 func NewManager(peersService *peer.Server) *Manager {
 	return &Manager{
-		Peers: peersService,
-		peers: make(map[giznet.PublicKey]*activePeer),
+		Peers:                peersService,
+		peers:                make(map[giznet.PublicKey]*activePeer),
+		telemetryStatusLocks: make(map[giznet.PublicKey]*sync.Mutex),
 	}
+}
+
+func (m *Manager) telemetryStatusLock(publicKey giznet.PublicKey) *sync.Mutex {
+	if m == nil {
+		return nil
+	}
+	m.telemetryStatusMu.Lock()
+	defer m.telemetryStatusMu.Unlock()
+	if m.telemetryStatusLocks == nil {
+		m.telemetryStatusLocks = make(map[giznet.PublicKey]*sync.Mutex)
+	}
+	lock := m.telemetryStatusLocks[publicKey]
+	if lock == nil {
+		lock = &sync.Mutex{}
+		m.telemetryStatusLocks[publicKey] = lock
+	}
+	return lock
 }
 
 func (m *Manager) allowService(ctx context.Context, publicKey giznet.PublicKey, service uint64) bool {

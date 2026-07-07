@@ -2,6 +2,7 @@ package peertelemetry
 
 import (
 	"context"
+	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
@@ -27,27 +28,23 @@ func (s StatusSync) SyncTelemetryStatus(ctx context.Context, peer giznet.PublicK
 	if err != nil {
 		return err
 	}
-	stale := false
+	currentReportedAt := status.ReportedAt
+	changed := false
 	if !patch.ReportedAt.IsZero() {
 		reportedAt := patch.ReportedAt.UTC()
-		if status.ReportedAt != nil && reportedAt.Before(status.ReportedAt.UTC()) {
-			stale = true
-		} else {
+		if status.ReportedAt == nil || reportedAt.After(status.ReportedAt.UTC()) {
 			status.ReportedAt = &reportedAt
+			changed = true
 		}
 	}
-	changed := false
-	if patch.BatteryPercent != nil && (!stale || status.BatteryPercent == nil) {
+	if patch.BatteryPercent != nil && shouldApplyTelemetryStatusField(currentReportedAt, status.BatteryPercent == nil, patch.BatteryPercentAt, patch.ReportedAt) {
 		value := *patch.BatteryPercent
 		status.BatteryPercent = &value
 		changed = true
 	}
-	if patch.Charging != nil && (!stale || status.Charging == nil) {
+	if patch.Charging != nil && shouldApplyTelemetryStatusField(currentReportedAt, status.Charging == nil, patch.ChargingAt, patch.ReportedAt) {
 		value := *patch.Charging
 		status.Charging = &value
-		changed = true
-	}
-	if !patch.ReportedAt.IsZero() && !stale {
 		changed = true
 	}
 	if !changed {
@@ -55,4 +52,20 @@ func (s StatusSync) SyncTelemetryStatus(ctx context.Context, peer giznet.PublicK
 	}
 	_, err = s.Store.PutStatus(ctx, peer, status)
 	return err
+}
+
+func shouldApplyTelemetryStatusField(currentReportedAt *time.Time, currentMissing bool, fieldAt time.Time, fallback time.Time) bool {
+	if currentReportedAt == nil {
+		return true
+	}
+	if fieldAt.IsZero() {
+		fieldAt = fallback
+	}
+	if fieldAt.IsZero() {
+		return currentMissing
+	}
+	if fieldAt.UTC().Before(currentReportedAt.UTC()) {
+		return currentMissing
+	}
+	return true
 }

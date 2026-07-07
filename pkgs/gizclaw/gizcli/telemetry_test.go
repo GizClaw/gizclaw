@@ -4,6 +4,7 @@ import (
 	"net"
 	"strings"
 	"testing"
+	"time"
 
 	telemetrypb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/telemetry"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
@@ -34,12 +35,32 @@ func TestClientSendTelemetryFrame(t *testing.T) {
 	if err := proto.Unmarshal(conn.payload, &frame); err != nil {
 		t.Fatalf("decode telemetry payload: %v", err)
 	}
+	if frame.ObservedAtUnixMs <= 0 {
+		t.Fatalf("ObservedAtUnixMs = %d, want client-side timestamp", frame.ObservedAtUnixMs)
+	}
+	if skew := time.Since(time.UnixMilli(frame.ObservedAtUnixMs)); skew < -time.Second || skew > time.Second {
+		t.Fatalf("ObservedAtUnixMs = %d, outside current send window", frame.ObservedAtUnixMs)
+	}
 	if len(frame.Observations) != 1 {
 		t.Fatalf("observations = %d, want 1", len(frame.Observations))
 	}
 	battery := frame.Observations[0].GetBattery()
 	if battery == nil || battery.Percent == nil || *battery.Percent != 87 || battery.Charging == nil || !*battery.Charging {
 		t.Fatalf("battery = %#v", battery)
+	}
+
+	presetPercent := 1.0
+	preset := &telemetrypb.TelemetryFrame{
+		ObservedAtUnixMs: 1234,
+		Observations: []*telemetrypb.Observation{{
+			Body: &telemetrypb.Observation_Battery{Battery: &telemetrypb.BatteryObservation{Percent: &presetPercent}},
+		}},
+	}
+	if err := client.SendTelemetryFrame(preset); err != nil {
+		t.Fatalf("SendTelemetryFrame(preset) error = %v", err)
+	}
+	if preset.ObservedAtUnixMs != 1234 {
+		t.Fatalf("SendTelemetryFrame mutated preset observed_at = %d", preset.ObservedAtUnixMs)
 	}
 }
 

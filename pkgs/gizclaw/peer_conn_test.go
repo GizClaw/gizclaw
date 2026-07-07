@@ -351,12 +351,14 @@ func TestPeerConnServeDirectPacketsDoesNotBlockOnTelemetry(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Marshal() error = %v", err)
 	}
+	packets := []peerConnTestPacket{{protocol: ProtocolTelemetry, payload: payload}}
+	for i := 0; i < peerConnTelemetryQueueSize+5; i++ {
+		packets = append(packets, peerConnTestPacket{protocol: ProtocolTelemetry, payload: payload})
+	}
+	packets = append(packets, peerConnTestPacket{protocol: ProtocolStampedOpus, payload: stampedopus.Pack(123, []byte{1, 2, 3})})
 	conn := &peerConnPacketConn{
 		testGiznetConn: testGiznetConn{publicKey: keyPair.Public},
-		packets: []peerConnTestPacket{
-			{protocol: ProtocolTelemetry, payload: payload},
-			{protocol: ProtocolStampedOpus, payload: stampedopus.Pack(123, []byte{1, 2, 3})},
-		},
+		packets:        packets,
 	}
 	metricStore := newPeerConnBlockingMetrics()
 	manager := NewManager(&peer.Server{Store: kv.NewMemory(nil)})
@@ -390,12 +392,30 @@ func TestPeerConnServeDirectPacketsDoesNotBlockOnTelemetry(t *testing.T) {
 	case <-time.After(time.Second):
 		t.Fatal("timed out waiting for telemetry metrics append to finish")
 	}
-	if got := conn.reads; got != 3 {
-		t.Fatalf("direct packet reads = %d, want 3", got)
+	if got, want := conn.reads, len(packets)+1; got != want {
+		t.Fatalf("direct packet reads = %d, want %d", got, want)
 	}
 	_, err = manager.PeerRun.GetStatus(ctx, keyPair.Public)
 	if err != nil {
 		t.Fatalf("GetStatus() error = %v", err)
+	}
+}
+
+func TestManagerTelemetryStatusLockIsScopedByPeer(t *testing.T) {
+	first, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("GenerateKeyPair(first) error = %v", err)
+	}
+	second, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("GenerateKeyPair(second) error = %v", err)
+	}
+	manager := NewManager(&peer.Server{Store: kv.NewMemory(nil)})
+	if a, b := manager.telemetryStatusLock(first.Public), manager.telemetryStatusLock(first.Public); a == nil || a != b {
+		t.Fatalf("same peer status locks = %p and %p, want same non-nil lock", a, b)
+	}
+	if a, b := manager.telemetryStatusLock(first.Public), manager.telemetryStatusLock(second.Public); a == nil || b == nil || a == b {
+		t.Fatalf("different peer status locks = %p and %p, want different non-nil locks", a, b)
 	}
 }
 
@@ -519,6 +539,7 @@ type peerConnBlockingMetrics struct {
 	release  chan struct{}
 	finished chan struct{}
 	once     sync.Once
+	finish   sync.Once
 }
 
 func newPeerConnBlockingMetrics() *peerConnBlockingMetrics {
@@ -531,7 +552,7 @@ func newPeerConnBlockingMetrics() *peerConnBlockingMetrics {
 
 func (s *peerConnBlockingMetrics) Append(ctx context.Context, samples []metrics.Sample) error {
 	s.once.Do(func() { close(s.started) })
-	defer close(s.finished)
+	defer s.finish.Do(func() { close(s.finished) })
 	select {
 	case <-ctx.Done():
 		return ctx.Err()

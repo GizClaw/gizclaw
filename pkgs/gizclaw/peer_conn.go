@@ -35,6 +35,7 @@ var (
 const peerConnMixerFormat = pcm.L16Mono16K
 
 const peerConnOpusFrameDuration = 20 * time.Millisecond
+const peerConnTelemetryQueueSize = 32
 
 // PeerConn is the in-memory runtime for one active peer connection.
 // It wraps the existing PeerService bundle and serves one live conn at a time.
@@ -47,7 +48,6 @@ type PeerConn struct {
 	agentInput             *peerRealtimeSource
 	agentInputMu           sync.Mutex
 	events                 *peerStreamEventBroker
-	telemetryStatusMu      sync.Mutex
 	serverGenX             *peergenx.Service
 	mixer                  *pcm.Mixer
 	rpc                    *rpcServer
@@ -385,6 +385,16 @@ func (h *PeerConn) broadcastAgentOutputError(_ context.Context, _ string, err er
 
 func (h *PeerConn) serveDirectPackets() error {
 	buf := make([]byte, 64*1024)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	telemetryPackets := make(chan []byte, peerConnTelemetryQueueSize)
+	telemetryDone := make(chan struct{})
+	go h.processTelemetryPackets(ctx, telemetryPackets, telemetryDone)
+	defer func() {
+		cancel()
+		close(telemetryPackets)
+		<-telemetryDone
+	}()
 	for {
 		protocol, n, err := h.Conn.Read(buf)
 		if err != nil {
@@ -408,14 +418,31 @@ func (h *PeerConn) serveDirectPackets() error {
 			}
 		case ProtocolTelemetry:
 			payload := append([]byte(nil), buf[:n]...)
-			go func() {
-				if err := h.handleTelemetryPacket(context.Background(), payload); err != nil {
-					slog.Warn("gizclaw: peer telemetry packet ignored", "error", err)
-				}
-			}()
+			select {
+			case telemetryPackets <- payload:
+			default:
+				slog.Warn("gizclaw: peer telemetry packet dropped", "reason", "queue_full")
+			}
 		default:
 			// Unknown direct packets are ignored by the echo slice; service
 			// protocols continue to be handled by service streams.
+		}
+	}
+}
+
+func (h *PeerConn) processTelemetryPackets(ctx context.Context, packets <-chan []byte, done chan<- struct{}) {
+	defer close(done)
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case payload, ok := <-packets:
+			if !ok {
+				return
+			}
+			if err := h.handleTelemetryPacket(ctx, payload); err != nil && !errors.Is(err, context.Canceled) {
+				slog.Warn("gizclaw: peer telemetry packet ignored", "error", err)
+			}
 		}
 	}
 }
@@ -425,14 +452,15 @@ func (h *PeerConn) handleTelemetryPacket(ctx context.Context, payload []byte) er
 		return ErrNilPeerConnService
 	}
 	manager := h.Service.manager
+	peer := h.Conn.PublicKey()
 	service := &peertelemetry.Service{
 		Metrics: manager.Metrics,
 		Status: peerConnTelemetryStatusSync{
-			mu:   &h.telemetryStatusMu,
+			mu:   manager.telemetryStatusLock(peer),
 			next: peertelemetry.StatusSync{Store: manager.PeerRun},
 		},
 	}
-	return service.ReportPacket(ctx, h.Conn.PublicKey(), payload)
+	return service.ReportPacket(ctx, peer, payload)
 }
 
 type peerConnTelemetryStatusSync struct {

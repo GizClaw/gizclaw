@@ -292,6 +292,23 @@ test("encodeTelemetryPacket prefixes protobuf telemetry payload", () => {
   ]);
 });
 
+test("encodeTelemetryPacket stamps frames before send", () => {
+  const originalNow = Date.now;
+  Date.now = () => 1234;
+  try {
+    const frame = {
+      observations: [batteryTelemetry({ percent: 82 })],
+    };
+    const packet = encodeTelemetryPacket(frame);
+
+    assert.equal(frame.observations.length, 1);
+    assert.equal((frame as { observedAtUnixMs?: number }).observedAtUnixMs, undefined);
+    assert.deepEqual([...packet.slice(1, 4)], [16, 210, 9]);
+  } finally {
+    Date.now = originalNow;
+  }
+});
+
 test("encodeTelemetryPacket rejects observations with multiple bodies", () => {
   assert.throws(
     () => encodeTelemetryPacket({

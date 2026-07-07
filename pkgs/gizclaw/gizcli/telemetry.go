@@ -2,6 +2,7 @@ package gizcli
 
 import (
 	"fmt"
+	"time"
 
 	telemetrypb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/telemetry"
 	"google.golang.org/protobuf/proto"
@@ -18,6 +19,10 @@ func (c *Client) SendTelemetryFrame(frame *telemetrypb.TelemetryFrame) error {
 	conn := c.PeerConn()
 	if conn == nil {
 		return fmt.Errorf("gizclaw: client is not connected")
+	}
+	if frame.ObservedAtUnixMs == 0 {
+		frame = proto.Clone(frame).(*telemetrypb.TelemetryFrame)
+		frame.ObservedAtUnixMs = time.Now().UTC().UnixMilli()
 	}
 	payload, err := proto.Marshal(frame)
 	if err != nil {

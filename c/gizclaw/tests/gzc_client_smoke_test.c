@@ -528,7 +528,6 @@ int main(void) {
   gzc_telemetry_frame_t telemetry_frame;
   memset(&telemetry_frame, 0, sizeof(telemetry_frame));
   telemetry_frame.sequence = 7;
-  telemetry_frame.observed_at_unix_ms = 123456;
   telemetry_frame.observations = &observation;
   telemetry_frame.observation_count = 1;
   if (expect(telemetry_frame.observations[0].battery.percent == 77, "telemetry public structs are usable") != 0) {
@@ -540,6 +539,13 @@ int main(void) {
   }
   if (expect(fake_webrtc.sent.len > 1 && fake_webrtc.sent.data[0] == GZC_PROTOCOL_TELEMETRY,
              "encoded telemetry packet is protocol-prefixed") != 0) {
+    return 1;
+  }
+  if (expect(telemetry_frame.observed_at_unix_ms == 0, "send telemetry does not mutate frame timestamp") != 0) {
+    return 1;
+  }
+  if (expect(fake_webrtc.sent.len > 4 && fake_webrtc.sent.data[3] == 0x10,
+             "send telemetry stamps observed_at_unix_ms") != 0) {
     return 1;
   }
 

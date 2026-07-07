@@ -293,9 +293,13 @@ int gzc_client_send_telemetry(gzc_client_t *client, const gzc_telemetry_frame_t 
     return GZC_ERR_INVALID_ARGUMENT;
   }
   const gzc_platform_t *platform = gzc_client_platform(client);
+  gzc_telemetry_frame_t stamped_frame = *frame;
+  if (stamped_frame.observed_at_unix_ms == 0 && platform != NULL && platform->time_unix_ms != NULL) {
+    stamped_frame.observed_at_unix_ms = platform->time_unix_ms(platform->userdata);
+  }
   gzc_buf_t payload;
   gzc_buf_init(&payload);
-  int rc = gzc_telemetry_encode_frame(frame, platform, &payload);
+  int rc = gzc_telemetry_encode_frame(&stamped_frame, platform, &payload);
   if (rc == GZC_OK) {
     rc = gzc_client_send_packet(client, GZC_PROTOCOL_TELEMETRY, payload.data, payload.len);
   }

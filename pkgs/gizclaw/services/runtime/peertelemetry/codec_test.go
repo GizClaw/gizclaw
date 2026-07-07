@@ -493,6 +493,36 @@ func TestStatusSyncEdges(t *testing.T) {
 	if store.status.BatteryPercent == nil || *store.status.BatteryPercent != 10 {
 		t.Fatalf("stale missing field BatteryPercent = %#v, want 10", store.status.BatteryPercent)
 	}
+
+	store.puts = 0
+	currentCharging := false
+	store.status = apitypes.PeerStatus{
+		ReportedAt:     &currentReportedAt,
+		BatteryPercent: &currentPercent,
+		Charging:       &currentCharging,
+	}
+	newReportedAt := currentReportedAt.Add(time.Second)
+	if err := (StatusSync{Store: store}).SyncTelemetryStatus(context.Background(), peer, StatusPatch{
+		ReportedAt:       newReportedAt,
+		BatteryPercent:   intPtr(10),
+		BatteryPercentAt: currentReportedAt.Add(-time.Second),
+		Charging:         boolPtr(true),
+		ChargingAt:       newReportedAt,
+	}); err != nil {
+		t.Fatalf("SyncTelemetryStatus(mixed field times) error = %v", err)
+	}
+	if store.puts != 1 {
+		t.Fatalf("mixed field times puts = %d, want 1", store.puts)
+	}
+	if store.status.BatteryPercent == nil || *store.status.BatteryPercent != 80 {
+		t.Fatalf("mixed field times BatteryPercent = %#v, want preserved 80", store.status.BatteryPercent)
+	}
+	if store.status.Charging == nil || !*store.status.Charging {
+		t.Fatalf("mixed field times Charging = %#v, want true", store.status.Charging)
+	}
+	if store.status.ReportedAt == nil || !store.status.ReportedAt.Equal(newReportedAt) {
+		t.Fatalf("mixed field times ReportedAt = %#v, want %s", store.status.ReportedAt, newReportedAt)
+	}
 }
 
 func marshalFrame(t *testing.T, frame *telemetrypb.TelemetryFrame) []byte {
@@ -577,5 +607,9 @@ func (s *fakeStatusStore) PutStatus(_ context.Context, _ giznet.PublicKey, statu
 }
 
 func intPtr(v int) *int {
+	return &v
+}
+
+func boolPtr(v bool) *bool {
 	return &v
 }
