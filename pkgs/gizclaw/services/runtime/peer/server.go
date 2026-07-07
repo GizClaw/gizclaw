@@ -37,6 +37,7 @@ type Server struct {
 	Endpoint        string
 	ServerPublicKey giznet.PublicKey
 	SignalingPath   string
+	ICETCP          bool
 	PeerManager     PeerManager
 
 	mu sync.Mutex
@@ -306,7 +307,7 @@ func (s *Server) GetServerInfo(_ context.Context, _ serverpublic.GetServerInfoRe
 			Tcp bool `json:"tcp"`
 			Udp bool `json:"udp"`
 		}{
-			Tcp: false,
+			Tcp: s.ICETCP,
 			Udp: true,
 		},
 		Protocol:      "gizclaw-webrtc",

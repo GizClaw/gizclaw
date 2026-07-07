@@ -2,7 +2,11 @@ package server
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
+	"net"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -11,6 +15,7 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/cmd/internal/storage"
 	"github.com/GizClaw/gizclaw-go/cmd/internal/stores"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 )
 
@@ -100,6 +105,97 @@ stores:
 	if got := cfg.Storage["acl-db"].SQLite.Dir; got != filepath.Join(workspace, "data", "acl.sqlite") {
 		t.Fatalf("acl db dir = %q", got)
 	}
+}
+
+func TestServeContextServerInfoReportsTCPICE(t *testing.T) {
+	addr := localTCPUDPAddr(t)
+	workspace := t.TempDir()
+	if err := os.WriteFile(filepath.Join(workspace, workspaceConfigFile), []byte(fmt.Sprintf(`
+listen: %q
+endpoint: %q
+stores:
+  peers:
+    kind: keyvalue
+    backend: memory
+`, addr, addr)), 0o644); err != nil {
+		t.Fatalf("WriteFile error = %v", err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- ServeContext(ctx, workspace, ServeOptions{Force: true})
+	}()
+	t.Cleanup(func() {
+		cancel()
+		if err := <-errCh; err != nil && !errors.Is(err, context.Canceled) {
+			t.Fatalf("ServeContext shutdown error = %v", err)
+		}
+	})
+
+	info := waitForServerInfo(t, "http://"+addr+"/server-info")
+	if !info.Ice.Udp || !info.Ice.Tcp {
+		t.Fatalf("server-info ice = %+v, want udp=true tcp=true", info.Ice)
+	}
+	if info.Endpoint != addr {
+		t.Fatalf("server-info endpoint = %q, want %q", info.Endpoint, addr)
+	}
+}
+
+func localTCPUDPAddr(t *testing.T) string {
+	t.Helper()
+	for range 10 {
+		tcpListener, err := net.Listen("tcp", "127.0.0.1:0")
+		if err != nil {
+			t.Fatalf("Listen tcp error = %v", err)
+		}
+		addr := tcpListener.Addr().String()
+		host, port, err := net.SplitHostPort(addr)
+		if err != nil {
+			tcpListener.Close()
+			t.Fatalf("SplitHostPort error = %v", err)
+		}
+		udpConn, err := net.ListenPacket("udp", net.JoinHostPort(host, port))
+		if err == nil {
+			udpConn.Close()
+			tcpListener.Close()
+			return addr
+		}
+		tcpListener.Close()
+	}
+	t.Fatal("could not find an available TCP/UDP localhost port")
+	return ""
+}
+
+func waitForServerInfo(t *testing.T, url string) apitypes.ServerInfo {
+	t.Helper()
+	client := http.Client{Timeout: 200 * time.Millisecond}
+	deadline := time.Now().Add(5 * time.Second)
+	var lastErr error
+	for time.Now().Before(deadline) {
+		resp, err := client.Get(url)
+		if err != nil {
+			lastErr = err
+			time.Sleep(50 * time.Millisecond)
+			continue
+		}
+		var info apitypes.ServerInfo
+		decodeErr := json.NewDecoder(resp.Body).Decode(&info)
+		closeErr := resp.Body.Close()
+		if resp.StatusCode == http.StatusOK && decodeErr == nil && closeErr == nil {
+			return info
+		}
+		if decodeErr != nil {
+			lastErr = decodeErr
+		} else if closeErr != nil {
+			lastErr = closeErr
+		} else {
+			lastErr = fmt.Errorf("status %s", resp.Status)
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	t.Fatalf("server-info was not ready: %v", lastErr)
+	return apitypes.ServerInfo{}
 }
 
 func TestPrepareWorkspaceConfigUsesDefaultPorts(t *testing.T) {

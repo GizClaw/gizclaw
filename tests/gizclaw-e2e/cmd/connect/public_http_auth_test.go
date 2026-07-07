@@ -3,9 +3,11 @@
 package connect_test
 
 import (
+	"encoding/json"
 	"net/http"
 	"testing"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	clitest "github.com/GizClaw/gizclaw-go/tests/gizclaw-e2e/cmd"
 )
 
@@ -20,7 +22,17 @@ func TestPublicHTTPAuthUserStory(t *testing.T) {
 	if serverInfoResp.StatusCode != http.StatusOK {
 		t.Fatalf("GET server-info status = %d", serverInfoResp.StatusCode)
 	}
-	_ = serverInfoResp.Body.Close()
+	var serverInfo apitypes.ServerInfo
+	if err := json.NewDecoder(serverInfoResp.Body).Decode(&serverInfo); err != nil {
+		_ = serverInfoResp.Body.Close()
+		t.Fatalf("decode server-info: %v", err)
+	}
+	if err := serverInfoResp.Body.Close(); err != nil {
+		t.Fatalf("close server-info body: %v", err)
+	}
+	if !serverInfo.Ice.Udp || !serverInfo.Ice.Tcp {
+		t.Fatalf("server-info ice = %+v, want udp=true tcp=true", serverInfo.Ice)
+	}
 
 	_ = h.PublicHTTPLogin("device-http")
 }

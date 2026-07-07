@@ -491,6 +491,22 @@ func TestServerPublicHandlers(t *testing.T) {
 	}
 }
 
+func TestGetServerInfoReportsICETCP(t *testing.T) {
+	server := &Server{ICETCP: true}
+
+	serverInfoResp, err := server.GetServerInfo(context.Background(), serverpublic.GetServerInfoRequestObject{})
+	if err != nil {
+		t.Fatalf("GetServerInfo error: %v", err)
+	}
+	serverInfo, ok := serverInfoResp.(serverpublic.GetServerInfo200JSONResponse)
+	if !ok {
+		t.Fatalf("GetServerInfo response type = %T", serverInfoResp)
+	}
+	if !serverInfo.Ice.Udp || !serverInfo.Ice.Tcp {
+		t.Fatalf("GetServerInfo ice = %+v, want udp=true tcp=true", serverInfo.Ice)
+	}
+}
+
 func TestServerPublicHandlersPutInfoConfigAndRuntime(t *testing.T) {
 	now := time.Unix(1_700_500_000, 0).UTC()
 	runtimeAddr := "10.0.0.1:8888"

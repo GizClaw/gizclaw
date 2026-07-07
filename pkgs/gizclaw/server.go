@@ -79,6 +79,7 @@ type Server struct {
 	FriendGroupMessageMaxBytes   int64
 	BuildCommit                  string
 	PublicEndpoint               string
+	PublicICETCP                 bool
 	ACLDB                        *sql.DB
 	WebRTCSignalingHandler       http.Handler
 
@@ -363,6 +364,7 @@ func (s *Server) init() error {
 		Endpoint:        s.PublicEndpoint,
 		ServerPublicKey: s.LocalStatic.Public,
 		SignalingPath:   gizwebrtc.SignalingPath,
+		ICETCP:          s.PublicICETCP,
 	}
 	manager := NewManager(peersServer)
 	manager.PeerRun = &peerrun.Server{Store: peerRunStore}
