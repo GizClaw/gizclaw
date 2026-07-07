@@ -826,7 +826,7 @@ int gzc_client_send_packet(gzc_client_t *client, uint8_t protocol, const uint8_t
       client->config.webrtc == NULL || client->config.webrtc->channel_send == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
-  if (len > GZC_RPC_MAX_FRAME_SIZE) {
+  if (len > GZC_RPC_MAX_FRAME_SIZE - 1) {
     return GZC_ERR_RPC;
   }
   gzc_buf_t message;

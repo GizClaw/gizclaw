@@ -277,11 +277,12 @@ test("prepareGiznetWebRTCPeerConnection creates packet channel and audio transce
   assert.deepEqual(pc.transceivers, [{ kind: "audio", init: { direction: "sendrecv" } }]);
 });
 
-test("sendGiznetWebRTCTelemetry uses the prepared packet channel", () => {
+test("sendGiznetWebRTCTelemetry uses the prepared packet channel", async () => {
   const pc = new FakePeerConnection();
   prepareGiznetWebRTCPeerConnection(pc as unknown as RTCPeerConnection);
+  pc.channels[0]?.open();
 
-  sendGiznetWebRTCTelemetry(pc as unknown as RTCPeerConnection, {
+  await sendGiznetWebRTCTelemetry(pc as unknown as RTCPeerConnection, {
     observedAtUnixMs: 1000,
     observations: [batteryTelemetry({ percent: 82 })],
   });
@@ -289,6 +290,21 @@ test("sendGiznetWebRTCTelemetry uses the prepared packet channel", () => {
   assert.equal(pc.channels[0]?.sent.length, 1);
   const packet = new Uint8Array(pc.channels[0]?.sent[0] ?? new ArrayBuffer(0));
   assert.equal(packet[0], GIZCLAW_PROTOCOL_TELEMETRY);
+});
+
+test("sendGiznetWebRTCTelemetry waits for the packet channel to open", async () => {
+  const pc = new FakePeerConnection();
+  prepareGiznetWebRTCPeerConnection(pc as unknown as RTCPeerConnection);
+  const promise = sendGiznetWebRTCTelemetry(pc as unknown as RTCPeerConnection, {
+    observedAtUnixMs: 1000,
+    observations: [batteryTelemetry({ percent: 82 })],
+  });
+
+  assert.equal(pc.channels[0]?.sent.length, 0);
+  pc.channels[0]?.open();
+  await promise;
+
+  assert.equal(pc.channels[0]?.sent.length, 1);
 });
 
 test("encodeTelemetryPacket prefixes protobuf telemetry payload", () => {

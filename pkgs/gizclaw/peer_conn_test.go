@@ -393,12 +393,12 @@ func TestPeerConnServeDirectPacketsDoesNotBlockOnTelemetry(t *testing.T) {
 	if got, want := conn.reads, len(packets)+1; got != want {
 		t.Fatalf("direct packet reads = %d, want %d", got, want)
 	}
+	close(metricStore.release)
 	select {
 	case <-metricStore.finished:
 	case <-time.After(time.Second):
 		t.Fatal("timed out waiting for telemetry metrics append to finish")
 	}
-	close(metricStore.release)
 	_, err = manager.PeerRun.GetStatus(ctx, keyPair.Public)
 	if err != nil {
 		t.Fatalf("GetStatus() error = %v", err)
@@ -562,15 +562,13 @@ func newPeerConnBlockingMetrics() *peerConnBlockingMetrics {
 	}
 }
 
-func (s *peerConnBlockingMetrics) Append(ctx context.Context, samples []metrics.Sample) error {
+func (s *peerConnBlockingMetrics) Append(_ context.Context, samples []metrics.Sample) error {
 	s.once.Do(func() { close(s.started) })
 	defer s.finish.Do(func() { close(s.finished) })
 	select {
-	case <-ctx.Done():
-		return ctx.Err()
 	case <-s.release:
 	}
-	return s.peerConnFakeMetrics.Append(ctx, samples)
+	return s.peerConnFakeMetrics.Append(context.Background(), samples)
 }
 
 type peerConnTestPacket struct {

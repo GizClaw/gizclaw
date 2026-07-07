@@ -256,7 +256,8 @@ static int telemetry_encode_observation(const gzc_telemetry_observation_t *obser
 }
 
 int gzc_telemetry_encode_frame(const gzc_telemetry_frame_t *frame, const gzc_platform_t *platform, gzc_buf_t *out_payload) {
-  if (frame == NULL || out_payload == NULL || (frame->observations == NULL && frame->observation_count != 0)) {
+  if (frame == NULL || out_payload == NULL || frame->observation_count == 0 ||
+      (frame->observations == NULL && frame->observation_count != 0)) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
   const gzc_platform_t *alloc = platform == NULL ? gzc_default_platform() : platform;

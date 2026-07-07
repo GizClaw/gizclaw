@@ -525,19 +525,25 @@ int main(void) {
     return 1;
   }
   memset(max_telemetry_payload, 0xa5, GZC_RPC_MAX_FRAME_SIZE);
-  rc = gzc_client_send_packet(client, GZC_PROTOCOL_TELEMETRY, max_telemetry_payload, GZC_RPC_MAX_FRAME_SIZE);
+  rc = gzc_client_send_packet(client, GZC_PROTOCOL_TELEMETRY, max_telemetry_payload, GZC_RPC_MAX_FRAME_SIZE - 1);
   if (expect(rc == GZC_OK, "send max telemetry packet") != 0) {
     platform->free(platform->userdata, max_telemetry_payload);
     return 1;
   }
-  if (expect(fake_webrtc.sent.len == GZC_RPC_MAX_FRAME_SIZE + 1 && fake_webrtc.sent.data[0] == GZC_PROTOCOL_TELEMETRY,
+  if (expect(fake_webrtc.sent.len == GZC_RPC_MAX_FRAME_SIZE && fake_webrtc.sent.data[0] == GZC_PROTOCOL_TELEMETRY,
              "max telemetry packet includes protocol byte") != 0) {
     platform->free(platform->userdata, max_telemetry_payload);
     return 1;
   }
-  rc = gzc_client_send_packet(client, GZC_PROTOCOL_TELEMETRY, max_telemetry_payload, GZC_RPC_MAX_FRAME_SIZE + 1);
+  rc = gzc_client_send_packet(client, GZC_PROTOCOL_TELEMETRY, max_telemetry_payload, GZC_RPC_MAX_FRAME_SIZE);
   platform->free(platform->userdata, max_telemetry_payload);
   if (expect(rc == GZC_ERR_RPC, "reject oversized telemetry packet") != 0) {
+    return 1;
+  }
+  gzc_telemetry_frame_t empty_telemetry_frame;
+  memset(&empty_telemetry_frame, 0, sizeof(empty_telemetry_frame));
+  rc = gzc_client_send_telemetry(client, &empty_telemetry_frame);
+  if (expect(rc == GZC_ERR_INVALID_ARGUMENT, "reject empty telemetry frame") != 0) {
     return 1;
   }
   gzc_telemetry_observation_t observation;

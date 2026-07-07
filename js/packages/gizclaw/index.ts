@@ -1,6 +1,6 @@
 import type { CreateGiznetWebRtcOfferData } from "./generated/serverpublic/types.gen";
 import { base58Decode, prepareEncryptedGiznetWebRTCOffer } from "./signaling.ts";
-import { sendTelemetryPacket, type TelemetryFrame } from "./telemetry.ts";
+import { encodeTelemetryPacket, type TelemetryFrame } from "./telemetry.ts";
 export * from "./telemetry.ts";
 
 export const WEBRTC_RPC_DATA_CHANNEL_LABEL = "rpc";
@@ -539,12 +539,15 @@ export function getGiznetWebRTCPacketDataChannel(pc: RTCPeerConnection): WebRTCR
   return giznetPacketDataChannels.get(pc);
 }
 
-export function sendGiznetWebRTCTelemetry(pc: RTCPeerConnection, frame: TelemetryFrame): void {
+export async function sendGiznetWebRTCTelemetry(pc: RTCPeerConnection, frame: TelemetryFrame): Promise<void> {
   const channel = getGiznetWebRTCPacketDataChannel(pc);
   if (channel == null) {
     throw new Error("giznet WebRTC packet data channel is not available");
   }
-  sendTelemetryPacket(channel, frame);
+  const packet = encodeTelemetryPacket(frame);
+  await new Promise<void>((resolve, reject) => {
+    sendDataChannelMessage(channel, packet, reject, resolve);
+  });
 }
 
 export async function sendGiznetWebRTCOffer(
@@ -991,12 +994,18 @@ function abortError(): Error {
   return err;
 }
 
-function sendDataChannelMessage(channel: WebRTCRPCDataChannel, payload: DataChannelPayload, onError: (err: unknown) => void): void {
+function sendDataChannelMessage(
+  channel: WebRTCRPCDataChannel,
+  payload: DataChannelPayload,
+  onError: (err: unknown) => void,
+  onSent: () => void = () => {},
+): void {
   let retries = 0;
   const send = (): void => {
     if (channel.readyState === "open") {
       try {
         channel.send(payload);
+        onSent();
       } catch (err) {
         onError(err);
       }

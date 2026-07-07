@@ -414,7 +414,6 @@ func (h *PeerConn) serveDirectPackets() error {
 		case <-telemetryDone:
 		case <-time.After(peerConnTelemetryShutdownTimeout):
 			cancel()
-			<-telemetryDone
 		}
 	}()
 	for {
