@@ -32,7 +32,7 @@ export GIZCLAW_E2E_SERVER_ENDPOINT="$container_server_endpoint"
 : "${GIZCLAW_E2E_VOLC_LOG_ACCESS_KEY_SECRET:=volc-access-key-secret}"
 
 envsubst '${GIZCLAW_E2E_SERVER_ENDPOINT}' \
-  < "$repo_root/tests/gizclaw-e2e/docker/server-workspace.config.yaml.template" \
+  < "$repo_root/tests/gizclaw-e2e/testdata/server-workspace/config.yaml.template" \
   > "$workspace_dir/config.yaml"
 awk \
   -v enabled="$GIZCLAW_E2E_VOLC_LOG_ENABLED" \

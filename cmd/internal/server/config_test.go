@@ -299,8 +299,7 @@ func TestLoadConfigRejectsInvalidLogConfig(t *testing.T) {
 
 func TestE2ELogConfigFixturesUseReadablePlaceholders(t *testing.T) {
 	for _, path := range []string{
-		filepath.Join("..", "..", "..", "tests", "gizclaw-e2e", "testdata", "server-workspace", "config.yaml"),
-		filepath.Join("..", "..", "..", "tests", "gizclaw-e2e", "docker", "server-workspace.config.yaml.template"),
+		filepath.Join("..", "..", "..", "tests", "gizclaw-e2e", "testdata", "server-workspace", "config.yaml.template"),
 	} {
 		t.Run(path, func(t *testing.T) {
 			cfg, err := LoadConfig(path)

@@ -170,36 +170,63 @@ func (h *Harness) UseSetupServer() {
 	h.t.Helper()
 
 	workspaceDir := filepath.Join(h.RepoRoot, "tests", "gizclaw-e2e", "testdata", "server-workspace")
-	configPath := filepath.Join(workspaceDir, "config.yaml")
-	data, err := os.ReadFile(configPath)
-	if err != nil {
-		h.t.Fatalf("read setup server config %q: %v", configPath, err)
-	}
-	var cfg serverWorkspaceConfig
-	if err := yaml.Unmarshal(data, &cfg); err != nil {
-		h.t.Fatalf("parse setup server config %q: %v", configPath, err)
-	}
-	keyPair, err := keyPairFromConfigPrivateKey(cfg.Identity.PrivateKey)
-	if err != nil {
-		h.t.Fatalf("load setup server identity from config: %v", err)
-	}
-	serverAddr := serverWorkspaceEndpoint(cfg)
-	if strings.TrimSpace(serverAddr) == "" {
-		h.t.Fatalf("setup server config %q has empty server address", configPath)
+	runtimeEnv := e2eRuntimeEnv(h)
+	serverAddr := strings.TrimSpace(runtimeEnv["GIZCLAW_E2E_SERVER_ENDPOINT"])
+	serverPublicKey := strings.TrimSpace(runtimeEnv["GIZCLAW_E2E_SERVER_PUBLIC_KEY"])
+	if serverAddr == "" || serverPublicKey == "" {
+		h.t.Fatalf("setup server requires GIZCLAW_E2E_SERVER_ENDPOINT and GIZCLAW_E2E_SERVER_PUBLIC_KEY; start Docker e2e and source tests/gizclaw-e2e/testdata/docker/current.env")
 	}
 
 	h.ServerWorkspace = workspaceDir
 	h.ServerAddr = serverAddr
-	h.ServerPublicKey = keyPair.Public.String()
+	h.ServerPublicKey = serverPublicKey
 	h.applySetupContextServer()
 	h.waitForSetupServerReady()
+}
+
+func e2eRuntimeEnv(h *Harness) map[string]string {
+	h.t.Helper()
+
+	values := map[string]string{}
+	for _, key := range []string{
+		"GIZCLAW_E2E_CONFIG_HOME",
+		"GIZCLAW_E2E_ADMIN_CONTEXT",
+		"GIZCLAW_E2E_SERVER_ENDPOINT",
+		"GIZCLAW_E2E_SERVER_PUBLIC_KEY",
+	} {
+		if value := strings.TrimSpace(os.Getenv(key)); value != "" {
+			values[key] = value
+		}
+	}
+
+	currentEnv := filepath.Join(h.RepoRoot, "tests", "gizclaw-e2e", "testdata", "docker", "current.env")
+	data, err := os.ReadFile(currentEnv)
+	if err != nil {
+		return values
+	}
+	for _, line := range strings.Split(string(data), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		key, value, ok := strings.Cut(line, "=")
+		if !ok {
+			continue
+		}
+		key = strings.TrimSpace(key)
+		if _, exists := values[key]; !exists {
+			values[key] = strings.TrimSpace(value)
+		}
+	}
+	return values
 }
 
 func (h *Harness) applySetupContextServer() {
 	h.t.Helper()
 
-	setupConfigHome := strings.TrimSpace(os.Getenv("GIZCLAW_E2E_CONFIG_HOME"))
-	setupContext := strings.TrimSpace(os.Getenv("GIZCLAW_E2E_ADMIN_CONTEXT"))
+	runtimeEnv := e2eRuntimeEnv(h)
+	setupConfigHome := strings.TrimSpace(runtimeEnv["GIZCLAW_E2E_CONFIG_HOME"])
+	setupContext := strings.TrimSpace(runtimeEnv["GIZCLAW_E2E_ADMIN_CONTEXT"])
 	if setupConfigHome == "" && setupContext == "" {
 		return
 	}
@@ -848,7 +875,7 @@ func (h *Harness) renderServerFixture(fixtureName string, replacements map[strin
 
 	var data []byte
 	if fixtureName == "server_config.yaml" {
-		fixturePath := filepath.Join(h.RepoRoot, "tests", "gizclaw-e2e", "testdata", "server-workspace", "config.yaml")
+		fixturePath := filepath.Join(h.RepoRoot, "tests", "gizclaw-e2e", "testdata", "server-workspace", "config.yaml.template")
 		var err error
 		data, err = os.ReadFile(fixturePath)
 		if err != nil {
@@ -871,8 +898,12 @@ func (h *Harness) renderServerFixture(fixtureName string, replacements map[strin
 		h.ServerAddr = listenAddr
 		rendered = strings.ReplaceAll(rendered, "listen: 127.0.0.1:9820", "listen: "+listenAddr)
 		rendered = strings.ReplaceAll(rendered, `listen: "127.0.0.1:9820"`, fmt.Sprintf(`listen: "%s"`, listenAddr))
+		rendered = strings.ReplaceAll(rendered, "listen: 0.0.0.0:9820", "listen: "+listenAddr)
+		rendered = strings.ReplaceAll(rendered, `listen: "0.0.0.0:9820"`, fmt.Sprintf(`listen: "%s"`, listenAddr))
 		rendered = strings.ReplaceAll(rendered, "endpoint: 127.0.0.1:9820", "endpoint: "+listenAddr)
 		rendered = strings.ReplaceAll(rendered, `endpoint: "127.0.0.1:9820"`, fmt.Sprintf(`endpoint: "%s"`, listenAddr))
+		rendered = strings.ReplaceAll(rendered, "endpoint: ${GIZCLAW_E2E_SERVER_ENDPOINT}", "endpoint: "+listenAddr)
+		rendered = strings.ReplaceAll(rendered, `endpoint: "${GIZCLAW_E2E_SERVER_ENDPOINT}"`, fmt.Sprintf(`endpoint: "%s"`, listenAddr))
 	}
 
 	targetPath := filepath.Join(h.ServerWorkspace, "config.yaml")
