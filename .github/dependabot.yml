@@ -1,0 +1,71 @@
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: gomod
+    directory: /
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: gomod
+    directory: /apps/wails
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: gomod
+    directory: /examples/audio_player
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: gomod
+    directory: /examples/genx
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: gomod
+    directory: /examples/songs
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: gomod
+    directory: /examples/voiceprint
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: gomod
+    directory: /examples/webrtc_sfu
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: npm
+    directory: /apps/wails/frontend
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: npm
+    directory: /js
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: npm
+    directory: /js/packages/gizclaw
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: npm
+    directory: /js/packages/pixa
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: npm
+    directory: /tests/gizclaw-e2e/js
+    schedule:
+      interval: weekly

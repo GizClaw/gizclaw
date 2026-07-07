@@ -6,6 +6,7 @@
 [![Go Reference](https://pkg.go.dev/badge/github.com/GizClaw/gizclaw-go.svg)](https://pkg.go.dev/github.com/GizClaw/gizclaw-go)
 [![Go Version](https://img.shields.io/github/go-mod/go-version/GizClaw/gizclaw?filename=go.mod)](go.mod)
 [![Release](https://img.shields.io/github/v/release/GizClaw/gizclaw?include_prereleases&sort=semver)](https://github.com/GizClaw/gizclaw/releases)
+[![License](https://img.shields.io/badge/license-BSD--3--Clause-blue)](LICENSE)
 ![Transport](https://img.shields.io/badge/transport-WebRTC-0ea5e9)
 ![SDK](https://img.shields.io/badge/SDK-C%20%7C%20JS%20%7C%20Go-22c55e)
 ![Status](https://img.shields.io/badge/status-active%20development-f59e0b)
