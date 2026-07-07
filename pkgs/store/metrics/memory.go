@@ -25,8 +25,9 @@ type memorySeries struct {
 }
 
 type memorySelector struct {
-	name     string
-	matchers []memoryMatcher
+	aggregation Aggregation
+	name        string
+	matchers    []memoryMatcher
 }
 
 type memoryMatcher struct {
@@ -87,6 +88,10 @@ func (s *MemoryStore) Query(ctx context.Context, query Query) (SeriesSet, error)
 	if err != nil {
 		return nil, err
 	}
+	evalTime := query.Time.UTC()
+	if evalTime.IsZero() {
+		evalTime = time.Now().UTC()
+	}
 	if s == nil {
 		return nil, fmt.Errorf("metrics: memory store is nil")
 	}
@@ -95,12 +100,29 @@ func (s *MemoryStore) Query(ctx context.Context, query Query) (SeriesSet, error)
 	if s.closed {
 		return nil, fmt.Errorf("metrics: memory store is closed")
 	}
+	if selector.aggregation != "" {
+		values := []float64{}
+		for _, series := range s.series {
+			if !selector.matches(series) {
+				continue
+			}
+			point, ok := latestPoint(series.points, evalTime)
+			if ok {
+				values = append(values, point.Value)
+			}
+		}
+		if len(values) == 0 {
+			return SeriesSet{}, nil
+		}
+		return SeriesSet{{Name: string(selector.aggregation), Points: []Point{{Timestamp: evalTime, Value: aggregateMemoryValues(selector.aggregation, values)}}}}, nil
+	}
+
 	out := SeriesSet{}
 	for _, series := range s.series {
 		if !selector.matches(series) {
 			continue
 		}
-		point, ok := latestPoint(series.points, query.Time)
+		point, ok := latestPoint(series.points, evalTime)
 		if !ok {
 			continue
 		}
@@ -141,12 +163,35 @@ func (s *MemoryStore) QueryRange(ctx context.Context, query RangeQuery) (SeriesS
 	if s.closed {
 		return nil, fmt.Errorf("metrics: memory store is closed")
 	}
+	if selector.aggregation != "" {
+		points := []Point{}
+		for ts := query.Start.UTC(); !ts.After(query.End); ts = ts.Add(query.Step) {
+			values := []float64{}
+			for _, series := range s.series {
+				if !selector.matches(series) {
+					continue
+				}
+				point, ok := latestPoint(series.points, ts)
+				if ok {
+					values = append(values, point.Value)
+				}
+			}
+			if len(values) > 0 {
+				points = append(points, Point{Timestamp: ts, Value: aggregateMemoryValues(selector.aggregation, values)})
+			}
+		}
+		if len(points) == 0 {
+			return SeriesSet{}, nil
+		}
+		return SeriesSet{{Name: string(selector.aggregation), Points: points}}, nil
+	}
+
 	out := SeriesSet{}
 	for _, series := range s.series {
 		if !selector.matches(series) {
 			continue
 		}
-		points := pointsInRange(series.points, query.Start, query.End)
+		points := pointsInRange(series.points, query.Start.UTC(), query.End.UTC(), query.Step)
 		if len(points) == 0 {
 			continue
 		}
@@ -171,9 +216,6 @@ func latestPoint(points []Point, at time.Time) (Point, bool) {
 	if len(points) == 0 {
 		return Point{}, false
 	}
-	if at.IsZero() {
-		return points[len(points)-1], true
-	}
 	for i := len(points) - 1; i >= 0; i-- {
 		if !points[i].Timestamp.After(at) {
 			return points[i], true
@@ -182,19 +224,34 @@ func latestPoint(points []Point, at time.Time) (Point, bool) {
 	return Point{}, false
 }
 
-func pointsInRange(points []Point, start, end time.Time) []Point {
-	out := make([]Point, 0, len(points))
-	for _, point := range points {
-		if point.Timestamp.Before(start) || point.Timestamp.After(end) {
-			continue
+func pointsInRange(points []Point, start, end time.Time, step time.Duration) []Point {
+	out := []Point{}
+	for ts := start; !ts.After(end); ts = ts.Add(step) {
+		point, ok := latestPoint(points, ts)
+		if ok {
+			out = append(out, Point{Timestamp: ts, Value: point.Value})
 		}
-		out = append(out, point)
 	}
 	return out
 }
 
 func parseMemorySelector(expr string) (memorySelector, error) {
 	expr = strings.TrimSpace(expr)
+	aggregation, inner, ok, err := parseMemoryAggregation(expr)
+	if err != nil {
+		return memorySelector{}, err
+	}
+	if ok {
+		selector, err := parseMemorySelector(inner)
+		if err != nil {
+			return memorySelector{}, err
+		}
+		if selector.aggregation != "" {
+			return memorySelector{}, fmt.Errorf("metrics: nested aggregate expression %q is unsupported", expr)
+		}
+		selector.aggregation = aggregation
+		return selector, nil
+	}
 	open := strings.IndexByte(expr, '{')
 	if open < 0 {
 		if err := ValidateMetricName(expr); err != nil {
@@ -222,6 +279,25 @@ func parseMemorySelector(expr string) (memorySelector, error) {
 		selector.matchers = append(selector.matchers, matcher)
 	}
 	return selector, nil
+}
+
+func parseMemoryAggregation(expr string) (Aggregation, string, bool, error) {
+	open := strings.IndexByte(expr, '(')
+	if open < 0 || !strings.HasSuffix(expr, ")") {
+		return "", "", false, nil
+	}
+	name := strings.TrimSpace(expr[:open])
+	inner := strings.TrimSpace(expr[open+1 : len(expr)-1])
+	if inner == "" {
+		return "", "", false, fmt.Errorf("metrics: aggregate expression %q is empty", expr)
+	}
+	aggregation := Aggregation(name)
+	switch aggregation {
+	case AggregationAvg, AggregationMin, AggregationMax, AggregationSum, AggregationCount:
+		return aggregation, inner, true, nil
+	default:
+		return "", "", false, nil
+	}
 }
 
 func splitSelectorMatchers(body string) []string {
@@ -262,7 +338,7 @@ func parseMemoryMatcher(text string) (memoryMatcher, error) {
 		}
 		matcher := memoryMatcher{name: name, op: op, value: value}
 		if op == MatchRegexp || op == MatchNotRegexp {
-			re, err := regexp.Compile(value)
+			re, err := regexp.Compile("^(?:" + value + ")$")
 			if err != nil {
 				return memoryMatcher{}, fmt.Errorf("metrics: invalid label matcher regexp %q: %w", value, err)
 			}
@@ -299,6 +375,37 @@ func (s memorySelector) matches(series *memorySeries) bool {
 		}
 	}
 	return true
+}
+
+func aggregateMemoryValues(aggregation Aggregation, values []float64) float64 {
+	switch aggregation {
+	case AggregationAvg:
+		return aggregateMemoryValues(AggregationSum, values) / float64(len(values))
+	case AggregationMin:
+		out := values[0]
+		for _, value := range values[1:] {
+			if value < out {
+				out = value
+			}
+		}
+		return out
+	case AggregationMax:
+		out := values[0]
+		for _, value := range values[1:] {
+			if value > out {
+				out = value
+			}
+		}
+		return out
+	case AggregationCount:
+		return float64(len(values))
+	default:
+		var out float64
+		for _, value := range values {
+			out += value
+		}
+		return out
+	}
 }
 
 func memorySeriesKey(name string, labels map[string]string) string {

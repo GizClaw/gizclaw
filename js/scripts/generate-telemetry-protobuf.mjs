@@ -29,13 +29,15 @@ export type TelemetryFrame = {
   observations?: Observation[];
 };
 
-export type Observation = {
+export type ObservationBase = {
   observedAtDeltaMs?: number;
-  battery?: BatteryObservation;
-  gnss?: GnssObservation;
-  network?: NetworkObservation;
-  system?: SystemObservation;
 };
+
+export type Observation =
+  | (ObservationBase & { battery: BatteryObservation; gnss?: never; network?: never; system?: never })
+  | (ObservationBase & { battery?: never; gnss: GnssObservation; network?: never; system?: never })
+  | (ObservationBase & { battery?: never; gnss?: never; network: NetworkObservation; system?: never })
+  | (ObservationBase & { battery?: never; gnss?: never; network?: never; system: SystemObservation });
 
 export type BatteryObservation = {
   percent?: number;
@@ -85,6 +87,10 @@ function encodeObservation(message: Observation): Uint8Array {
   const writer = new ProtoWriter();
   if (message.observedAtDeltaMs != null) {
     writer.int32(1, message.observedAtDeltaMs);
+  }
+  const bodyCount = Number(message.battery != null) + Number(message.gnss != null) + Number(message.network != null) + Number(message.system != null);
+  if (bodyCount !== 1) {
+    throw new Error(\`telemetry observation must have exactly one body, got \${bodyCount}\`);
   }
   if (message.battery != null) {
     writer.message(10, encodeBatteryObservation(message.battery));

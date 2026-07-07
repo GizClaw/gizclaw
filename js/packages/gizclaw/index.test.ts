@@ -290,6 +290,18 @@ test("encodeTelemetryPacket prefixes protobuf telemetry payload", () => {
   ]);
 });
 
+test("encodeTelemetryPacket rejects observations with multiple bodies", () => {
+  assert.throws(
+    () => encodeTelemetryPacket({
+      observations: [{
+        battery: { percent: 82 },
+        system: { temperatureC: 33 },
+      } as any],
+    }),
+    /exactly one body/,
+  );
+});
+
 test("waitForICEGatheringComplete resolves when completion races listener registration", async () => {
   const pc = new FakeICEPeerConnection();
   pc.completeAfterFirstListener = true;
