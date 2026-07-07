@@ -50,6 +50,25 @@ func TestMemoryStoreAppendQueryAndRange(t *testing.T) {
 	}
 }
 
+func TestMemoryStoreAppendInvalidBatchDoesNotMutate(t *testing.T) {
+	store := NewMemoryStore()
+	base := time.Unix(100, 0).UTC()
+	err := store.Append(context.Background(), []Sample{
+		{Name: "metric_a", Labels: map[string]string{"peer_id": "p1"}, Timestamp: base, Value: 1},
+		{Name: "bad-name", Timestamp: base, Value: 2},
+	})
+	if err == nil || !strings.Contains(err.Error(), "invalid metric name") {
+		t.Fatalf("Append invalid batch error = %v, want invalid metric name", err)
+	}
+	got, err := store.Query(context.Background(), Query{Expression: "metric_a", Time: base})
+	if err != nil {
+		t.Fatalf("Query after invalid batch: %v", err)
+	}
+	if len(got) != 0 {
+		t.Fatalf("invalid batch mutated store: %+v", got)
+	}
+}
+
 func TestMemoryStoreMatchersAndErrors(t *testing.T) {
 	store := NewMemoryStore()
 	base := time.Unix(100, 0).UTC()

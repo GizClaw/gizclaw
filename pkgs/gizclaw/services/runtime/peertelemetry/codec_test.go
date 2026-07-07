@@ -477,6 +477,22 @@ func TestStatusSyncEdges(t *testing.T) {
 	if store.status.BatteryPercent == nil || *store.status.BatteryPercent != 80 {
 		t.Fatalf("stale patch BatteryPercent = %#v, want preserved 80", store.status.BatteryPercent)
 	}
+	store.status = apitypes.PeerStatus{ReportedAt: &currentReportedAt}
+	if err := (StatusSync{Store: store}).SyncTelemetryStatus(context.Background(), peer, StatusPatch{
+		ReportedAt:     staleReportedAt,
+		BatteryPercent: intPtr(10),
+	}); err != nil {
+		t.Fatalf("SyncTelemetryStatus(stale missing field) error = %v", err)
+	}
+	if store.puts != 1 {
+		t.Fatalf("stale missing field puts = %d, want 1", store.puts)
+	}
+	if store.status.ReportedAt == nil || !store.status.ReportedAt.Equal(currentReportedAt) {
+		t.Fatalf("stale missing field ReportedAt = %#v, want preserved %s", store.status.ReportedAt, currentReportedAt)
+	}
+	if store.status.BatteryPercent == nil || *store.status.BatteryPercent != 10 {
+		t.Fatalf("stale missing field BatteryPercent = %#v, want 10", store.status.BatteryPercent)
+	}
 }
 
 func marshalFrame(t *testing.T, frame *telemetrypb.TelemetryFrame) []byte {

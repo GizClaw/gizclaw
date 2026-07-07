@@ -47,6 +47,7 @@ type PeerConn struct {
 	agentInput             *peerRealtimeSource
 	agentInputMu           sync.Mutex
 	events                 *peerStreamEventBroker
+	telemetryStatusMu      sync.Mutex
 	serverGenX             *peergenx.Service
 	mixer                  *pcm.Mixer
 	rpc                    *rpcServer
@@ -426,9 +427,29 @@ func (h *PeerConn) handleTelemetryPacket(ctx context.Context, payload []byte) er
 	manager := h.Service.manager
 	service := &peertelemetry.Service{
 		Metrics: manager.Metrics,
-		Status:  peertelemetry.StatusSync{Store: manager.PeerRun},
+		Status: peerConnTelemetryStatusSync{
+			mu:   &h.telemetryStatusMu,
+			next: peertelemetry.StatusSync{Store: manager.PeerRun},
+		},
 	}
 	return service.ReportPacket(ctx, h.Conn.PublicKey(), payload)
+}
+
+type peerConnTelemetryStatusSync struct {
+	mu   *sync.Mutex
+	next peertelemetry.StatusService
+}
+
+func (s peerConnTelemetryStatusSync) SyncTelemetryStatus(ctx context.Context, peer giznet.PublicKey, patch peertelemetry.StatusPatch) error {
+	if s.next == nil {
+		return peertelemetry.ErrStatusServiceNil
+	}
+	if s.mu == nil {
+		return s.next.SyncTelemetryStatus(ctx, peer, patch)
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.next.SyncTelemetryStatus(ctx, peer, patch)
 }
 
 func (h *PeerConn) pushAgentInputChunk(ctx context.Context, chunk *genx.MessageChunk) error {

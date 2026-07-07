@@ -27,20 +27,31 @@ func (s StatusSync) SyncTelemetryStatus(ctx context.Context, peer giznet.PublicK
 	if err != nil {
 		return err
 	}
+	stale := false
 	if !patch.ReportedAt.IsZero() {
 		reportedAt := patch.ReportedAt.UTC()
 		if status.ReportedAt != nil && reportedAt.Before(status.ReportedAt.UTC()) {
-			return nil
+			stale = true
+		} else {
+			status.ReportedAt = &reportedAt
 		}
-		status.ReportedAt = &reportedAt
 	}
-	if patch.BatteryPercent != nil {
+	changed := false
+	if patch.BatteryPercent != nil && (!stale || status.BatteryPercent == nil) {
 		value := *patch.BatteryPercent
 		status.BatteryPercent = &value
+		changed = true
 	}
-	if patch.Charging != nil {
+	if patch.Charging != nil && (!stale || status.Charging == nil) {
 		value := *patch.Charging
 		status.Charging = &value
+		changed = true
+	}
+	if !patch.ReportedAt.IsZero() && !stale {
+		changed = true
+	}
+	if !changed {
+		return nil
 	}
 	_, err = s.Store.PutStatus(ctx, peer, status)
 	return err

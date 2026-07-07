@@ -62,6 +62,8 @@ func (s *MemoryStore) Append(ctx context.Context, samples []Sample) error {
 		if err := validateSample(sample); err != nil {
 			return err
 		}
+	}
+	for _, sample := range samples {
 		labels := cloneLabels(sample.Labels)
 		key := memorySeriesKey(sample.Name, labels)
 		series := s.series[key]

@@ -399,6 +399,52 @@ func TestPeerConnServeDirectPacketsDoesNotBlockOnTelemetry(t *testing.T) {
 	}
 }
 
+func TestPeerConnTelemetryStatusSyncSerializesCalls(t *testing.T) {
+	keyPair, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("GenerateKeyPair error = %v", err)
+	}
+	next := &peerConnBlockingStatusSync{
+		entered: make(chan struct{}, 2),
+		release: make(chan struct{}),
+	}
+	syncer := peerConnTelemetryStatusSync{
+		mu:   &sync.Mutex{},
+		next: next,
+	}
+	errCh := make(chan error, 2)
+	go func() {
+		errCh <- syncer.SyncTelemetryStatus(context.Background(), keyPair.Public, peertelemetry.StatusPatch{BatteryPercent: peerConnIntPtr(10)})
+	}()
+	select {
+	case <-next.entered:
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for first status sync")
+	}
+	go func() {
+		errCh <- syncer.SyncTelemetryStatus(context.Background(), keyPair.Public, peertelemetry.StatusPatch{Charging: peerConnBoolPtr(true)})
+	}()
+	select {
+	case <-next.entered:
+		t.Fatal("second status sync entered before first released")
+	case <-time.After(100 * time.Millisecond):
+	}
+	close(next.release)
+	for i := 0; i < 2; i++ {
+		select {
+		case err := <-errCh:
+			if err != nil {
+				t.Fatalf("SyncTelemetryStatus() error = %v", err)
+			}
+		case <-time.After(time.Second):
+			t.Fatal("timed out waiting for status sync to finish")
+		}
+	}
+	if next.calls != 2 {
+		t.Fatalf("status sync calls = %d, want 2", next.calls)
+	}
+}
+
 func TestPeerConnReloadsRuntimeWhenInputIsInactive(t *testing.T) {
 	ctx := context.Background()
 	keyPair, err := giznet.GenerateKeyPair()
@@ -513,6 +559,27 @@ func (c *peerConnPacketConn) Read(buf []byte) (byte, int, error) {
 	packet := c.packets[0]
 	c.packets = c.packets[1:]
 	return packet.protocol, copy(buf, packet.payload), nil
+}
+
+type peerConnBlockingStatusSync struct {
+	entered chan struct{}
+	release chan struct{}
+	calls   int
+}
+
+func (s *peerConnBlockingStatusSync) SyncTelemetryStatus(context.Context, giznet.PublicKey, peertelemetry.StatusPatch) error {
+	s.calls++
+	s.entered <- struct{}{}
+	<-s.release
+	return nil
+}
+
+func peerConnBoolPtr(v bool) *bool {
+	return &v
+}
+
+func peerConnIntPtr(v int) *int {
+	return &v
 }
 
 func TestPeerConnPCMChunkToInt16(t *testing.T) {
