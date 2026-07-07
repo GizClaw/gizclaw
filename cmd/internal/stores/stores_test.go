@@ -6,6 +6,8 @@ import (
 	"database/sql/driver"
 	"errors"
 	"io"
+	"net/http"
+	"net/http/httptest"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -13,6 +15,7 @@ import (
 	physicalstorage "github.com/GizClaw/gizclaw-go/cmd/internal/storage"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/graph"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/metrics"
 	"github.com/goccy/go-yaml"
 )
 
@@ -461,6 +464,84 @@ func TestNewGraphUnknownBackend(t *testing.T) {
 		"g": {Kind: KindGraph, Backend: "neo4j"},
 	}); err == nil {
 		t.Fatal("expected error for unknown graph backend")
+	}
+}
+
+// --- Metrics ---
+
+func TestMetricsPrometheus(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/v1/query" {
+			t.Fatalf("path = %q", r.URL.Path)
+		}
+		if got := r.Header.Get("Authorization"); got != "Bearer token" {
+			t.Fatalf("Authorization = %q", got)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, `{"status":"success","data":{"resultType":"vector","result":[{"metric":{"__name__":"gizclaw_peer_battery_percent","peer_id":"p1"},"value":[10,"82"]}]}}`)
+	}))
+	defer server.Close()
+
+	var wrapper struct {
+		Stores map[string]Config `yaml:"stores"`
+	}
+	if err := yaml.Unmarshal([]byte(`
+stores:
+  metrics:
+    kind: metrics
+    prometheus:
+      remote_write_url: `+server.URL+`/api/v1/write
+      query_url: `+server.URL+`
+      bearer_token: token
+`), &wrapper); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	reg, err := New(wrapper.Stores)
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	defer reg.Close()
+
+	st, err := reg.Metrics("metrics")
+	if err != nil {
+		t.Fatalf("Metrics(metrics): %v", err)
+	}
+	series, err := st.Query(context.Background(), metrics.Query{Expression: "gizclaw_peer_battery_percent"})
+	if err != nil {
+		t.Fatalf("Query: %v", err)
+	}
+	if len(series) != 1 || series[0].Name != "gizclaw_peer_battery_percent" || series[0].Labels["peer_id"] != "p1" {
+		t.Fatalf("series = %+v", series)
+	}
+}
+
+func TestMetricsNotFound(t *testing.T) {
+	reg := mustStores(t, t.TempDir(), []byte(`
+stores:
+  mem:
+    kind: keyvalue
+    backend: memory
+`))
+	defer reg.Close()
+
+	if _, err := reg.Metrics("missing"); err == nil {
+		t.Fatal("expected error for missing metrics store")
+	}
+	if _, err := reg.Metrics("mem"); err == nil {
+		t.Fatal("expected error for wrong kind lookup")
+	}
+}
+
+func TestNewMetricsRequiresPrometheusConfig(t *testing.T) {
+	if _, err := New(map[string]Config{
+		"metrics": {Kind: KindMetrics},
+	}); err == nil || !strings.Contains(err.Error(), "requires prometheus config") {
+		t.Fatalf("New metrics missing prometheus err = %v", err)
+	}
+	if _, err := New(map[string]Config{
+		"metrics": {Kind: KindMetrics, Prometheus: &metrics.PrometheusConfig{QueryURL: "http://example.test"}},
+	}); err == nil || !strings.Contains(err.Error(), "remote_write_url is required") {
+		t.Fatalf("New metrics missing remote_write_url err = %v", err)
 	}
 }
 

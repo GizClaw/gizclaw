@@ -15,6 +15,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/cmd/internal/storage"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/graph"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/metrics"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/objectstore"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/vecstore"
 )
@@ -24,6 +25,7 @@ const (
 	KindKeyValue    = storage.KindKeyValue
 	KindVecStore    = storage.KindVecStore
 	KindGraph       = "graph"
+	KindMetrics     = "metrics"
 	KindObjectStore = storage.KindObjectStore
 	KindSQL         = storage.KindSQL
 )
@@ -45,6 +47,8 @@ type Config struct {
 	Store   string `yaml:"store"`   // graph backend "kv": reference to a logical keyvalue store
 	Dim     int    `yaml:"dim"`     // legacy vecstore dimension field
 	DSN     string `yaml:"dsn"`     // legacy sql connection string field
+
+	Prometheus *metrics.PrometheusConfig `yaml:"prometheus"`
 }
 
 // Stores holds named logical store instances created eagerly by NewWithStorage.
@@ -55,6 +59,7 @@ type Stores struct {
 	vecs         map[string]vecstore.Index
 	objects      map[string]objectstore.ObjectStore
 	graphs       map[string]graph.Graph
+	metrics      map[string]metrics.Store
 	sqls         map[string]*sql.DB
 	logicClosers []io.Closer
 }
@@ -101,6 +106,7 @@ func NewWithStorage(physical *storage.Storage, configs map[string]Config) (*Stor
 		vecs:    make(map[string]vecstore.Index),
 		objects: make(map[string]objectstore.ObjectStore),
 		graphs:  make(map[string]graph.Graph),
+		metrics: make(map[string]metrics.Store),
 		sqls:    make(map[string]*sql.DB),
 	}
 	ok := false
@@ -145,6 +151,13 @@ func NewWithStorage(physical *storage.Storage, configs map[string]Config) (*Stor
 				name string
 				cfg  Config
 			}{name, cfg})
+		case KindMetrics:
+			st, err := s.newMetrics(name, cfg)
+			if err != nil {
+				return nil, err
+			}
+			s.metrics[name] = st
+			s.logicClosers = append(s.logicClosers, st)
 		default:
 			return nil, fmt.Errorf("stores: %q has unknown kind %q", name, cfg.Kind)
 		}
@@ -204,6 +217,15 @@ func (r *Stores) ObjectStore(name string) (objectstore.ObjectStore, error) {
 	s, ok := r.objects[name]
 	if !ok {
 		return nil, fmt.Errorf("stores: objectstore %q not found", name)
+	}
+	return s, nil
+}
+
+// Metrics returns the named metrics.Store.
+func (r *Stores) Metrics(name string) (metrics.Store, error) {
+	s, ok := r.metrics[name]
+	if !ok {
+		return nil, fmt.Errorf("stores: metrics %q not found", name)
 	}
 	return s, nil
 }
@@ -281,6 +303,17 @@ func (r *Stores) newGraph(name string, cfg Config) (graph.Graph, error) {
 	}
 }
 
+func (r *Stores) newMetrics(name string, cfg Config) (metrics.Store, error) {
+	if cfg.Prometheus == nil {
+		return nil, fmt.Errorf("stores: metrics %q requires prometheus config", name)
+	}
+	st, err := metrics.NewPrometheusStore(*cfg.Prometheus)
+	if err != nil {
+		return nil, fmt.Errorf("stores: metrics %q prometheus: %w", name, err)
+	}
+	return st, nil
+}
+
 func (r *Stores) newSQL(name string, cfg Config) (*sql.DB, error) {
 	if cfg.Storage == "" {
 		return nil, fmt.Errorf("stores: sql %q requires storage reference", name)
@@ -324,7 +357,7 @@ func legacyStorageConfigs(configs map[string]Config) map[string]storage.Config {
 	}
 	out := make(map[string]storage.Config, len(configs))
 	for name, cfg := range configs {
-		if cfg.Kind == KindGraph {
+		if cfg.Kind == KindGraph || cfg.Kind == KindMetrics {
 			continue
 		}
 		out[name] = storage.Config{
