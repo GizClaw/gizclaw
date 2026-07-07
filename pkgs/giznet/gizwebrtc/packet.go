@@ -15,7 +15,7 @@ func writePacket(raw datachannel.ReadWriteCloserDeadliner, protocol byte, payloa
 	if raw == nil {
 		return 0, ErrPacketChannel
 	}
-	if 1+len(payload) > maxPacketMessageSize {
+	if len(payload) > maxPacketMessageSize-1 {
 		return 0, ErrPacketTooLarge
 	}
 	msg := make([]byte, 1+len(payload))
