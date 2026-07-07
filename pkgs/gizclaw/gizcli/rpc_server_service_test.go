@@ -23,9 +23,6 @@ func TestRPCServerServiceClientWrappers(t *testing.T) {
 	runRPCResultWrapperTest(t, rpcapi.RPCMethodServerStatusGet, rpcapi.ServerGetStatusResponse{}, (*rpcapi.RPCResponse_Result).FromServerGetStatusResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.ServerGetStatusResponse, error) {
 		return client.GetServerStatus(ctx, conn, "server-status-get")
 	})
-	runRPCResultWrapperTest(t, rpcapi.RPCMethodServerStatusPut, rpcapi.ServerPutStatusResponse{}, (*rpcapi.RPCResponse_Result).FromServerPutStatusResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.ServerPutStatusResponse, error) {
-		return client.PutServerStatus(ctx, conn, "server-status-put", rpcapi.ServerPutStatusRequest{})
-	})
 	runRPCResultWrapperTest(t, rpcapi.RPCMethodServerRunAgentGet, rpcapi.ServerGetRunAgentResponse{}, (*rpcapi.RPCResponse_Result).FromServerGetRunAgentResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.ServerGetRunAgentResponse, error) {
 		return client.GetServerRunAgent(ctx, conn, "server-run-agent-get")
 	})

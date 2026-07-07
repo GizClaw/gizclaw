@@ -11,7 +11,9 @@ import (
 	"runtime/cgo"
 	"unsafe"
 
+	telemetrypb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/telemetry"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
+	"google.golang.org/protobuf/proto"
 )
 
 type cgoSink struct {
@@ -103,6 +105,169 @@ func gzcGoHTTPRequest(handle C.uint64_t, method C.int, urlData *C.char, urlLen C
 		*outLen = 0
 	}
 	return C.GZC_OK
+}
+
+//export gzcGoTelemetryEncode
+func gzcGoTelemetryEncode(frame *C.gzc_telemetry_frame_t, outData **C.uint8_t, outLen *C.size_t) C.int {
+	if frame == nil || outData == nil || outLen == nil {
+		return C.GZC_ERR_INVALID_ARGUMENT
+	}
+	observationsLen, ok := cIntLen(frame.observation_count)
+	if !ok || observationsLen == 0 || frame.observations == nil {
+		return C.GZC_ERR_INVALID_ARGUMENT
+	}
+	observations := unsafe.Slice(frame.observations, observationsLen)
+	msg := &telemetrypb.TelemetryFrame{
+		Sequence:         uint32(frame.sequence),
+		ObservedAtUnixMs: int64(frame.observed_at_unix_ms),
+		Observations:     make([]*telemetrypb.Observation, 0, observationsLen),
+	}
+	for _, observation := range observations {
+		next, ok := cTelemetryObservation(observation)
+		if !ok {
+			return C.GZC_ERR_INVALID_ARGUMENT
+		}
+		msg.Observations = append(msg.Observations, next)
+	}
+	encoded, err := proto.Marshal(msg)
+	if err != nil {
+		return C.GZC_ERR_INVALID_ARGUMENT
+	}
+	if len(encoded) == 0 {
+		*outData = nil
+		*outLen = 0
+		return C.GZC_OK
+	}
+	*outData = (*C.uint8_t)(C.CBytes(encoded))
+	*outLen = C.size_t(len(encoded))
+	return C.GZC_OK
+}
+
+func cTelemetryObservation(observation C.gzc_telemetry_observation_t) (*telemetrypb.Observation, bool) {
+	out := &telemetrypb.Observation{ObservedAtDeltaMs: int32(observation.observed_at_delta_ms)}
+	switch observation.kind {
+	case C.GZC_TELEMETRY_OBSERVATION_BATTERY:
+		out.Body = &telemetrypb.Observation_Battery{Battery: cTelemetryBattery(observation.battery)}
+	case C.GZC_TELEMETRY_OBSERVATION_GNSS:
+		out.Body = &telemetrypb.Observation_Gnss{Gnss: cTelemetryGNSS(observation.gnss)}
+	case C.GZC_TELEMETRY_OBSERVATION_NETWORK:
+		network, ok := cTelemetryNetwork(observation.network)
+		if !ok {
+			return nil, false
+		}
+		out.Body = &telemetrypb.Observation_Network{Network: network}
+	case C.GZC_TELEMETRY_OBSERVATION_SYSTEM:
+		system, ok := cTelemetrySystem(observation.system)
+		if !ok {
+			return nil, false
+		}
+		out.Body = &telemetrypb.Observation_System{System: system}
+	default:
+		return nil, false
+	}
+	return out, true
+}
+
+func cTelemetryBattery(value C.gzc_telemetry_battery_t) *telemetrypb.BatteryObservation {
+	out := &telemetrypb.BatteryObservation{}
+	if value.has_percent {
+		v := float64(value.percent)
+		out.Percent = &v
+	}
+	if value.has_charging {
+		v := bool(value.charging)
+		out.Charging = &v
+	}
+	if value.has_voltage_mv {
+		v := float64(value.voltage_mv)
+		out.VoltageMv = &v
+	}
+	return out
+}
+
+func cTelemetryGNSS(value C.gzc_telemetry_gnss_t) *telemetrypb.GnssObservation {
+	out := &telemetrypb.GnssObservation{
+		Latitude:  float64(value.latitude),
+		Longitude: float64(value.longitude),
+	}
+	if value.has_altitude_m {
+		v := float64(value.altitude_m)
+		out.AltitudeM = &v
+	}
+	if value.has_accuracy_m {
+		v := float64(value.accuracy_m)
+		out.AccuracyM = &v
+	}
+	return out
+}
+
+func cTelemetryNetwork(value C.gzc_telemetry_network_t) (*telemetrypb.NetworkObservation, bool) {
+	out := &telemetrypb.NetworkObservation{}
+	if value.has_rssi_dbm {
+		v := float64(value.rssi_dbm)
+		out.RssiDbm = &v
+	}
+	if value.has_signal_level {
+		v := float64(value.signal_level)
+		out.SignalLevel = &v
+	}
+	if value.has_rat {
+		v, ok := goString(value.rat.data, value.rat.len)
+		if !ok {
+			return nil, false
+		}
+		out.Rat = &v
+	}
+	if value.has_operator_name {
+		v, ok := goString(value.operator_name.data, value.operator_name.len)
+		if !ok {
+			return nil, false
+		}
+		out.Operator = &v
+	}
+	if value.has_connected {
+		v := bool(value.connected)
+		out.Connected = &v
+	}
+	return out, true
+}
+
+func cTelemetrySystem(value C.gzc_telemetry_system_t) (*telemetrypb.SystemObservation, bool) {
+	out := &telemetrypb.SystemObservation{}
+	if value.has_uptime_seconds {
+		v := float64(value.uptime_seconds)
+		out.UptimeSeconds = &v
+	}
+	if value.has_free_memory_bytes {
+		v := float64(value.free_memory_bytes)
+		out.FreeMemoryBytes = &v
+	}
+	if value.has_temperature_c {
+		v := float64(value.temperature_c)
+		out.TemperatureC = &v
+	}
+	if value.has_firmware_version {
+		v, ok := goString(value.firmware_version.data, value.firmware_version.len)
+		if !ok {
+			return nil, false
+		}
+		out.FirmwareVersion = &v
+	}
+	if value.has_software_version {
+		v, ok := goString(value.software_version.data, value.software_version.len)
+		if !ok {
+			return nil, false
+		}
+		out.SoftwareVersion = &v
+	}
+	if value.has_hardware_version {
+		v, ok := goString(value.hardware_version.data, value.hardware_version.len)
+		if !ok {
+			return nil, false
+		}
+		out.HardwareVersion = &v
+	}
+	return out, true
 }
 
 //export gzcGoKeyPairFromPrivate

@@ -55,18 +55,6 @@ func (c *rpcClient) GetServerStatus(ctx context.Context, conn net.Conn, id strin
 	return result, nil
 }
 
-func (c *rpcClient) PutServerStatus(ctx context.Context, conn net.Conn, id string, status rpcapi.ServerPutStatusRequest) (*rpcapi.ServerPutStatusResponse, error) {
-	params, err := newRPCRequestParams(status, (*rpcapi.RPCRequest_Params).FromServerPutStatusRequest)
-	if err != nil {
-		return nil, err
-	}
-	result, err := callRPCResult(ctx, conn, newRPCRequest(id, rpcapi.RPCMethodServerStatusPut, params), rpcapi.RPCResponse_Result.AsServerPutStatusResponse)
-	if err != nil {
-		return nil, wrapRPCResultError("peer status", err)
-	}
-	return result, nil
-}
-
 func (c *rpcClient) GetServerRunAgent(ctx context.Context, conn net.Conn, id string) (*rpcapi.ServerGetRunAgentResponse, error) {
 	params, err := newRPCRequestParams(rpcapi.ServerGetRunAgentRequest{}, (*rpcapi.RPCRequest_Params).FromServerGetRunAgentRequest)
 	if err != nil {

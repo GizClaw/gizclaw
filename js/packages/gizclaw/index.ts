@@ -1,5 +1,6 @@
 import type { CreateGiznetWebRtcOfferData } from "./generated/serverpublic/types.gen";
 import { base58Decode, prepareEncryptedGiznetWebRTCOffer } from "./signaling.ts";
+export * from "./telemetry.ts";
 
 export const WEBRTC_RPC_DATA_CHANNEL_LABEL = "rpc";
 export const WEBRTC_EVENT_DATA_CHANNEL_LABEL = "event";
@@ -11,7 +12,8 @@ export const GIZCLAW_SERVICE_RPC = 0x00;
 export const GIZCLAW_SERVICE_SERVER_PUBLIC = 0x01;
 export const GIZCLAW_SERVICE_OPENAI = 0x02;
 export const GIZCLAW_SERVICE_ADMIN = 0x10;
-export const GIZCLAW_SERVICE_EVENT = 0x20;
+export const GIZCLAW_SERVICE_AGENT_STREAM = 0x20;
+export const GIZCLAW_SERVICE_EVENT = GIZCLAW_SERVICE_AGENT_STREAM;
 export const RPC_FRAME_TYPE_EOS = 0;
 export const RPC_FRAME_TYPE_JSON = 1;
 export const RPC_FRAME_TYPE_BINARY = 2;

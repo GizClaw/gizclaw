@@ -28,6 +28,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/friendgroup"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/acl"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/metrics"
 )
 
 var (
@@ -57,6 +58,7 @@ type Manager struct {
 	Gameplay     *gameplay.Runtime
 
 	ProviderTenants providertenants.ProviderTenantsAdminService
+	Metrics         metrics.Store
 
 	mu    sync.RWMutex
 	peers map[giznet.PublicKey]*activePeer
@@ -71,7 +73,7 @@ func NewManager(peersService *peer.Server) *Manager {
 
 func (m *Manager) allowService(ctx context.Context, publicKey giznet.PublicKey, service uint64) bool {
 	switch service {
-	case ServiceRPC, ServiceServerPublic, ServiceOpenAI, ServiceEvent:
+	case ServiceRPC, ServiceServerPublic, ServiceOpenAI, ServiceAgentStream:
 		return true
 	}
 	switch service {

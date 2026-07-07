@@ -11,7 +11,7 @@ import (
 
 const peerStreamEventVersion = 1
 
-// DialPeerEventStream opens a reliable bidirectional peer event stream.
+// DialPeerEventStream opens the reliable bidirectional agent stream event channel.
 func (c *Client) DialPeerEventStream() (net.Conn, error) {
 	if c == nil {
 		return nil, fmt.Errorf("gizclaw: nil client")
@@ -20,7 +20,7 @@ func (c *Client) DialPeerEventStream() (net.Conn, error) {
 	if conn == nil {
 		return nil, fmt.Errorf("gizclaw: client is not connected")
 	}
-	stream, err := conn.Dial(ServiceEvent)
+	stream, err := conn.Dial(ServiceAgentStream)
 	if err != nil {
 		return nil, fmt.Errorf("gizclaw: dial peer event stream: %w", err)
 	}

@@ -17,12 +17,17 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/openaiservice"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
+	telemetrypb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/telemetry"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/openaiapi"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/agenthost"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerrun"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peertelemetry"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/acl"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/metrics"
+	"google.golang.org/protobuf/proto"
 )
 
 func TestPeerConnHelpersAndRPCHandle(t *testing.T) {
@@ -276,6 +281,57 @@ func TestPeerConnCloseStopsAgentRuntime(t *testing.T) {
 	}
 }
 
+func TestPeerConnHandleTelemetryPacket(t *testing.T) {
+	ctx := context.Background()
+	keyPair, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("GenerateKeyPair error = %v", err)
+	}
+	peerRun := &peerrun.Server{Store: kv.NewMemory(nil)}
+	metricStore := &peerConnFakeMetrics{}
+	manager := NewManager(&peer.Server{Store: kv.NewMemory(nil)})
+	manager.PeerRun = peerRun
+	manager.Metrics = metricStore
+	conn := &testGiznetConn{publicKey: keyPair.Public}
+	peerConn := &PeerConn{
+		Conn:    conn,
+		Service: &PeerService{manager: manager},
+	}
+	percent := 77.0
+	charging := true
+	payload, err := proto.Marshal(&telemetrypb.TelemetryFrame{
+		ObservedAtUnixMs: time.Unix(300, 0).UnixMilli(),
+		Observations: []*telemetrypb.Observation{{
+			Body: &telemetrypb.Observation_Battery{Battery: &telemetrypb.BatteryObservation{
+				Percent:  &percent,
+				Charging: &charging,
+			}},
+		}},
+	})
+	if err != nil {
+		t.Fatalf("Marshal() error = %v", err)
+	}
+	if err := peerConn.handleTelemetryPacket(ctx, payload); err != nil {
+		t.Fatalf("handleTelemetryPacket() error = %v", err)
+	}
+	if len(metricStore.samples) != 2 {
+		t.Fatalf("metrics samples = %d, want 2", len(metricStore.samples))
+	}
+	if metricStore.samples[0].Name != peertelemetry.MetricBatteryPercent || metricStore.samples[0].Value != 77 {
+		t.Fatalf("first metric = %+v", metricStore.samples[0])
+	}
+	status, err := peerRun.GetStatus(ctx, keyPair.Public)
+	if err != nil {
+		t.Fatalf("GetStatus() error = %v", err)
+	}
+	if status.BatteryPercent == nil || *status.BatteryPercent != 77 {
+		t.Fatalf("BatteryPercent = %#v, want 77", status.BatteryPercent)
+	}
+	if status.Charging == nil || !*status.Charging {
+		t.Fatalf("Charging = %#v, want true", status.Charging)
+	}
+}
+
 func TestPeerConnReloadsRuntimeWhenInputIsInactive(t *testing.T) {
 	ctx := context.Background()
 	keyPair, err := giznet.GenerateKeyPair()
@@ -321,6 +377,27 @@ func TestPeerConnReloadsRuntimeWhenInputIsInactive(t *testing.T) {
 	case <-time.After(time.Second):
 		t.Fatal("timed out waiting for pushed chunk")
 	}
+}
+
+type peerConnFakeMetrics struct {
+	samples []metrics.Sample
+}
+
+func (s *peerConnFakeMetrics) Append(_ context.Context, samples []metrics.Sample) error {
+	s.samples = append(s.samples, samples...)
+	return nil
+}
+
+func (s *peerConnFakeMetrics) Query(context.Context, metrics.Query) (metrics.SeriesSet, error) {
+	return nil, nil
+}
+
+func (s *peerConnFakeMetrics) QueryRange(context.Context, metrics.RangeQuery) (metrics.SeriesSet, error) {
+	return nil, nil
+}
+
+func (s *peerConnFakeMetrics) Close() error {
+	return nil
 }
 
 func TestPeerConnPCMChunkToInt16(t *testing.T) {

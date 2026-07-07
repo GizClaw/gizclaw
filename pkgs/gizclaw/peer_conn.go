@@ -20,6 +20,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/peergenx"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/agenthost"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerresource"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peertelemetry"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"golang.org/x/sync/errgroup"
 )
@@ -322,7 +323,7 @@ func (h *PeerConn) close() error {
 }
 
 func (h *PeerConn) serveEvents() error {
-	listener := h.Conn.ListenService(ServiceEvent)
+	listener := h.Conn.ListenService(ServiceAgentStream)
 	defer func() {
 		_ = listener.Close()
 	}()
@@ -404,11 +405,27 @@ func (h *PeerConn) serveDirectPackets() error {
 			if err := h.pushAgentInputChunk(context.Background(), chunk); err != nil {
 				return err
 			}
+		case ProtocolTelemetry:
+			if err := h.handleTelemetryPacket(context.Background(), buf[:n]); err != nil {
+				slog.Warn("gizclaw: peer telemetry packet ignored", "error", err)
+			}
 		default:
 			// Unknown direct packets are ignored by the echo slice; service
 			// protocols continue to be handled by service streams.
 		}
 	}
+}
+
+func (h *PeerConn) handleTelemetryPacket(ctx context.Context, payload []byte) error {
+	if h == nil || h.Conn == nil || h.Service == nil || h.Service.manager == nil {
+		return ErrNilPeerConnService
+	}
+	manager := h.Service.manager
+	service := &peertelemetry.Service{
+		Metrics: manager.Metrics,
+		Status:  peertelemetry.StatusSync{Store: manager.PeerRun},
+	}
+	return service.ReportPacket(ctx, h.Conn.PublicKey(), payload)
 }
 
 func (h *PeerConn) pushAgentInputChunk(ctx context.Context, chunk *genx.MessageChunk) error {

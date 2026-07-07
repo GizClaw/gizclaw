@@ -168,7 +168,7 @@ func (r *ClientWebRTCRegistration) registerEventDataChannel(dc *webrtc.DataChann
 			_ = dc.Close()
 			return
 		}
-		eventStream, err := conn.Dial(ServiceEvent)
+		eventStream, err := conn.Dial(ServiceAgentStream)
 		if err != nil {
 			slog.Debug("gizclaw: dial event stream for webrtc failed", "error", err)
 			_ = dc.Close()

@@ -328,6 +328,37 @@ int gzc_cgo_session_send_packet(
   return GZC_OK;
 }
 
+int gzc_cgo_session_send_battery_telemetry(
+    gzc_cgo_session_t *session,
+    double percent,
+    int charging,
+    char *errbuf,
+    unsigned long errbuf_len) {
+  if (session == NULL) {
+    return fail(errbuf, errbuf_len, "send battery telemetry", GZC_ERR_INVALID_ARGUMENT);
+  }
+  gzc_telemetry_observation_t observation;
+  memset(&observation, 0, sizeof(observation));
+  observation.kind = GZC_TELEMETRY_OBSERVATION_BATTERY;
+  observation.battery.has_percent = true;
+  observation.battery.percent = percent;
+  observation.battery.has_charging = true;
+  observation.battery.charging = charging != 0;
+
+  gzc_telemetry_frame_t frame;
+  memset(&frame, 0, sizeof(frame));
+  frame.observations = &observation;
+  frame.observation_count = 1;
+  int rc = gzc_client_send_telemetry(session->client, &frame);
+  if (rc != GZC_OK) {
+    return fail(errbuf, errbuf_len, "send battery telemetry", rc);
+  }
+  if (errbuf != NULL && errbuf_len > 0) {
+    errbuf[0] = 0;
+  }
+  return GZC_OK;
+}
+
 int gzc_cgo_session_read_packet(
     gzc_cgo_session_t *session,
     int timeout_ms,

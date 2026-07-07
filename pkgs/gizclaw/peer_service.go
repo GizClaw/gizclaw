@@ -17,10 +17,12 @@ const (
 	ServiceServerPublic uint64 = 0x01
 	ServiceOpenAI       uint64 = 0x02
 	ServiceAdmin        uint64 = 0x10
-	ServiceEvent        uint64 = 0x20
+	ServiceAgentStream  uint64 = 0x20
+	ServiceEvent               = ServiceAgentStream
 
 	ProtocolEvent       byte = 0x03
 	ProtocolStampedOpus byte = 0x10
+	ProtocolTelemetry   byte = 0x11
 )
 
 type serverPublic struct {

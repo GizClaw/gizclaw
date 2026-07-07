@@ -28,6 +28,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/metrics"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/objectstore"
 	"golang.org/x/sync/errgroup"
 )
@@ -73,6 +74,7 @@ type Server struct {
 	GameDefStore                 kv.Store
 	GameplayAssets               objectstore.ObjectStore
 	GameplayDB                   *sql.DB
+	MetricsStore                 metrics.Store
 	FriendGroupMessageDefaultTTL time.Duration
 	FriendGroupMessageMaxTTL     time.Duration
 	FriendGroupMessageCleanup    time.Duration
@@ -324,6 +326,7 @@ func (s *Server) init() error {
 		s.GameDefStore == nil &&
 		s.GameplayAssets == nil &&
 		s.GameplayDB == nil &&
+		s.MetricsStore == nil &&
 		s.FriendGroupMessageDefaultTTL == 0 &&
 		s.FriendGroupMessageMaxTTL == 0 &&
 		s.FriendGroupMessageCleanup == 0 &&
@@ -447,6 +450,7 @@ func (s *Server) init() error {
 	manager.FriendGroups = friendGroupServer
 	manager.ProviderTenants = providerTenantsServer
 	manager.Gameplay = gameplayRuntime
+	manager.Metrics = s.MetricsStore
 	resourceManager := resourcemanager.New(resourcemanager.Services{
 		ACL:             aclServer,
 		Credentials:     credentialServer,

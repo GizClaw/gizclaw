@@ -554,7 +554,6 @@ const (
 	RPCMethodServerRunWorkspaceSet              RPCMethod = "server.run.workspace.set"
 	RPCMethodServerRuntimeGet                   RPCMethod = "server.runtime.get"
 	RPCMethodServerStatusGet                    RPCMethod = "server.status.get"
-	RPCMethodServerStatusPut                    RPCMethod = "server.status.put"
 	RPCMethodServerVoiceGet                     RPCMethod = "server.voice.get"
 	RPCMethodServerVoiceList                    RPCMethod = "server.voice.list"
 	RPCMethodServerWorkflowCreate               RPCMethod = "server.workflow.create"
@@ -732,8 +731,6 @@ func (e RPCMethod) Valid() bool {
 	case RPCMethodServerRuntimeGet:
 		return true
 	case RPCMethodServerStatusGet:
-		return true
-	case RPCMethodServerStatusPut:
 		return true
 	case RPCMethodServerVoiceGet:
 		return true
@@ -2682,12 +2679,6 @@ type ServerPutInfoRequest = DeviceInfo
 // ServerPutInfoResponse defines model for ServerPutInfoResponse.
 type ServerPutInfoResponse = DeviceInfo
 
-// ServerPutStatusRequest defines model for ServerPutStatusRequest.
-type ServerPutStatusRequest = PeerStatus
-
-// ServerPutStatusResponse defines model for ServerPutStatusResponse.
-type ServerPutStatusResponse = PeerStatus
-
 // ServerReloadRunRequest defines model for ServerReloadRunRequest.
 type ServerReloadRunRequest = map[string]interface{}
 
@@ -3545,32 +3536,6 @@ func (t *RPCRequest_Params) FromServerGetStatusRequest(v ServerGetStatusRequest)
 
 // MergeServerGetStatusRequest performs a merge with any union data inside the RPCRequest_Params, using the provided ServerGetStatusRequest
 func (t *RPCRequest_Params) MergeServerGetStatusRequest(v ServerGetStatusRequest) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsServerPutStatusRequest returns the union data inside the RPCRequest_Params as a ServerPutStatusRequest
-func (t RPCRequest_Params) AsServerPutStatusRequest() (ServerPutStatusRequest, error) {
-	var body ServerPutStatusRequest
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromServerPutStatusRequest overwrites any union data inside the RPCRequest_Params as the provided ServerPutStatusRequest
-func (t *RPCRequest_Params) FromServerPutStatusRequest(v ServerPutStatusRequest) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeServerPutStatusRequest performs a merge with any union data inside the RPCRequest_Params, using the provided ServerPutStatusRequest
-func (t *RPCRequest_Params) MergeServerPutStatusRequest(v ServerPutStatusRequest) error {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -6025,32 +5990,6 @@ func (t *RPCResponse_Result) FromServerGetStatusResponse(v ServerGetStatusRespon
 
 // MergeServerGetStatusResponse performs a merge with any union data inside the RPCResponse_Result, using the provided ServerGetStatusResponse
 func (t *RPCResponse_Result) MergeServerGetStatusResponse(v ServerGetStatusResponse) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsServerPutStatusResponse returns the union data inside the RPCResponse_Result as a ServerPutStatusResponse
-func (t RPCResponse_Result) AsServerPutStatusResponse() (ServerPutStatusResponse, error) {
-	var body ServerPutStatusResponse
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromServerPutStatusResponse overwrites any union data inside the RPCResponse_Result as the provided ServerPutStatusResponse
-func (t *RPCResponse_Result) FromServerPutStatusResponse(v ServerPutStatusResponse) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeServerPutStatusResponse performs a merge with any union data inside the RPCResponse_Result, using the provided ServerPutStatusResponse
-func (t *RPCResponse_Result) MergeServerPutStatusResponse(v ServerPutStatusResponse) error {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err

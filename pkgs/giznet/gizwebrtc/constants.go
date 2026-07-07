@@ -9,6 +9,9 @@ const (
 	// ProtocolStampedOpus mirrors gizclaw.ProtocolStampedOpus without importing
 	// pkg/gizclaw from the transport package.
 	ProtocolStampedOpus byte = 0x10
+	// ProtocolTelemetry mirrors gizclaw.ProtocolTelemetry without importing
+	// pkg/gizclaw from the transport package.
+	ProtocolTelemetry byte = 0x11
 
 	maxPacketMessageSize = 64 * 1024
 	streamChunkSize      = 1400

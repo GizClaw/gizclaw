@@ -77,6 +77,7 @@ const (
 	defaultGameDefsStore                 = "game-defs"
 	defaultGameplayAssetsStore           = "gameplay-assets"
 	defaultGameplayDBStore               = "gameplay-db"
+	defaultMetricsStore                  = "metrics"
 )
 
 func LoadConfig(path string) (ConfigFile, error) {

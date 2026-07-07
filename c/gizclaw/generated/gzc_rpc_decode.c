@@ -242,58 +242,6 @@ int gzc_server_get_status_response_decode_json(gzc_str_t json, gzc_server_get_st
   return GZC_OK;
 }
 
-int gzc_server_put_status_response_decode_json(gzc_str_t json, gzc_server_put_status_response_t *out_value) {
-  if (out_value == NULL) {
-    return GZC_ERR_INVALID_ARGUMENT;
-  }
-  memset(out_value, 0, sizeof(*out_value));
-  gzc_str_t raw;
-  int rc;
-  rc = gzc_json_find_field(json, "battery_percent", &raw);
-  if (rc == GZC_OK) {
-    out_value->has_battery_percent = true;
-    rc = gzc_json_parse_i32(raw, &out_value->battery_percent);
-    if (rc != GZC_OK) { return rc; }
-  }
-  rc = gzc_json_find_field(json, "charging", &raw);
-  if (rc == GZC_OK) {
-    out_value->has_charging = true;
-    rc = gzc_json_parse_bool(raw, &out_value->charging);
-    if (rc != GZC_OK) { return rc; }
-  }
-  rc = gzc_json_find_field(json, "details", &raw);
-  if (rc == GZC_OK) {
-    out_value->has_details = true;
-    rc = (out_value->details.raw = raw, GZC_OK);
-    if (rc != GZC_OK) { return rc; }
-  }
-  rc = gzc_json_find_field(json, "labels", &raw);
-  if (rc == GZC_OK) {
-    out_value->has_labels = true;
-    rc = (out_value->labels.raw = raw, GZC_OK);
-    if (rc != GZC_OK) { return rc; }
-  }
-  rc = gzc_json_find_field(json, "muted", &raw);
-  if (rc == GZC_OK) {
-    out_value->has_muted = true;
-    rc = gzc_json_parse_bool(raw, &out_value->muted);
-    if (rc != GZC_OK) { return rc; }
-  }
-  rc = gzc_json_find_field(json, "reported_at", &raw);
-  if (rc == GZC_OK) {
-    out_value->has_reported_at = true;
-    rc = gzc_json_parse_string(raw, &out_value->reported_at);
-    if (rc != GZC_OK) { return rc; }
-  }
-  rc = gzc_json_find_field(json, "volume", &raw);
-  if (rc == GZC_OK) {
-    out_value->has_volume = true;
-    rc = gzc_json_parse_i32(raw, &out_value->volume);
-    if (rc != GZC_OK) { return rc; }
-  }
-  return GZC_OK;
-}
-
 int gzc_server_get_run_agent_response_decode_json(gzc_str_t json, gzc_server_get_run_agent_response_t *out_value) {
   if (out_value == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
@@ -1848,408 +1796,6 @@ int gzc_credential_delete_response_decode_json(gzc_str_t json, gzc_credential_de
   return GZC_OK;
 }
 
-int gzc_pet_list_response_decode_json(gzc_str_t json, gzc_pet_list_response_t *out_value) {
-  if (out_value == NULL) {
-    return GZC_ERR_INVALID_ARGUMENT;
-  }
-  memset(out_value, 0, sizeof(*out_value));
-  gzc_str_t raw;
-  int rc;
-  rc = gzc_json_find_field(json, "has_next", &raw);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_parse_bool(raw, &out_value->has_next);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_find_field(json, "items", &raw);
-  if (rc != GZC_OK) { return rc; }
-  rc = (out_value->items.raw = raw, GZC_OK);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_find_field(json, "next_cursor", &raw);
-  if (rc == GZC_OK) {
-    out_value->has_next_cursor = true;
-    rc = gzc_json_parse_string(raw, &out_value->next_cursor);
-    if (rc != GZC_OK) { return rc; }
-  }
-  return GZC_OK;
-}
-
-int gzc_pet_get_response_decode_json(gzc_str_t json, gzc_pet_get_response_t *out_value) {
-  if (out_value == NULL) {
-    return GZC_ERR_INVALID_ARGUMENT;
-  }
-  memset(out_value, 0, sizeof(*out_value));
-  gzc_str_t raw;
-  int rc;
-  rc = gzc_json_find_field(json, "ability", &raw);
-  if (rc != GZC_OK) { return rc; }
-  rc = (out_value->ability.raw = raw, GZC_OK);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_find_field(json, "created_at", &raw);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_parse_string(raw, &out_value->created_at);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_find_field(json, "id", &raw);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_parse_string(raw, &out_value->id);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_find_field(json, "life", &raw);
-  if (rc != GZC_OK) { return rc; }
-  rc = (out_value->life.raw = raw, GZC_OK);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_find_field(json, "name", &raw);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_parse_string(raw, &out_value->name);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_find_field(json, "species_id", &raw);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_parse_string(raw, &out_value->species_id);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_find_field(json, "updated_at", &raw);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_parse_string(raw, &out_value->updated_at);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_find_field(json, "voice_id", &raw);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_parse_string(raw, &out_value->voice_id);
-  if (rc != GZC_OK) { return rc; }
-  return GZC_OK;
-}
-
-int gzc_pet_adopt_response_decode_json(gzc_str_t json, gzc_pet_adopt_response_t *out_value) {
-  if (out_value == NULL) {
-    return GZC_ERR_INVALID_ARGUMENT;
-  }
-  memset(out_value, 0, sizeof(*out_value));
-  gzc_str_t raw;
-  int rc;
-  rc = gzc_json_find_field(json, "ability", &raw);
-  if (rc != GZC_OK) { return rc; }
-  rc = (out_value->ability.raw = raw, GZC_OK);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_find_field(json, "created_at", &raw);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_parse_string(raw, &out_value->created_at);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_find_field(json, "id", &raw);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_parse_string(raw, &out_value->id);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_find_field(json, "life", &raw);
-  if (rc != GZC_OK) { return rc; }
-  rc = (out_value->life.raw = raw, GZC_OK);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_find_field(json, "name", &raw);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_parse_string(raw, &out_value->name);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_find_field(json, "species_id", &raw);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_parse_string(raw, &out_value->species_id);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_find_field(json, "updated_at", &raw);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_parse_string(raw, &out_value->updated_at);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_find_field(json, "voice_id", &raw);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_parse_string(raw, &out_value->voice_id);
-  if (rc != GZC_OK) { return rc; }
-  return GZC_OK;
-}
-
-int gzc_pet_put_response_decode_json(gzc_str_t json, gzc_pet_put_response_t *out_value) {
-  if (out_value == NULL) {
-    return GZC_ERR_INVALID_ARGUMENT;
-  }
-  memset(out_value, 0, sizeof(*out_value));
-  gzc_str_t raw;
-  int rc;
-  rc = gzc_json_find_field(json, "ability", &raw);
-  if (rc != GZC_OK) { return rc; }
-  rc = (out_value->ability.raw = raw, GZC_OK);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_find_field(json, "created_at", &raw);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_parse_string(raw, &out_value->created_at);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_find_field(json, "id", &raw);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_parse_string(raw, &out_value->id);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_find_field(json, "life", &raw);
-  if (rc != GZC_OK) { return rc; }
-  rc = (out_value->life.raw = raw, GZC_OK);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_find_field(json, "name", &raw);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_parse_string(raw, &out_value->name);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_find_field(json, "species_id", &raw);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_parse_string(raw, &out_value->species_id);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_find_field(json, "updated_at", &raw);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_parse_string(raw, &out_value->updated_at);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_find_field(json, "voice_id", &raw);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_parse_string(raw, &out_value->voice_id);
-  if (rc != GZC_OK) { return rc; }
-  return GZC_OK;
-}
-
-int gzc_pet_delete_response_decode_json(gzc_str_t json, gzc_pet_delete_response_t *out_value) {
-  if (out_value == NULL) {
-    return GZC_ERR_INVALID_ARGUMENT;
-  }
-  memset(out_value, 0, sizeof(*out_value));
-  gzc_str_t raw;
-  int rc;
-  rc = gzc_json_find_field(json, "ability", &raw);
-  if (rc != GZC_OK) { return rc; }
-  rc = (out_value->ability.raw = raw, GZC_OK);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_find_field(json, "created_at", &raw);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_parse_string(raw, &out_value->created_at);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_find_field(json, "id", &raw);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_parse_string(raw, &out_value->id);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_find_field(json, "life", &raw);
-  if (rc != GZC_OK) { return rc; }
-  rc = (out_value->life.raw = raw, GZC_OK);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_find_field(json, "name", &raw);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_parse_string(raw, &out_value->name);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_find_field(json, "species_id", &raw);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_parse_string(raw, &out_value->species_id);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_find_field(json, "updated_at", &raw);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_parse_string(raw, &out_value->updated_at);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_find_field(json, "voice_id", &raw);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_parse_string(raw, &out_value->voice_id);
-  if (rc != GZC_OK) { return rc; }
-  return GZC_OK;
-}
-
-int gzc_pet_feed_response_decode_json(gzc_str_t json, gzc_pet_feed_response_t *out_value) {
-  if (out_value == NULL) {
-    return GZC_ERR_INVALID_ARGUMENT;
-  }
-  memset(out_value, 0, sizeof(*out_value));
-  gzc_str_t raw;
-  int rc;
-  rc = gzc_json_find_field(json, "ability", &raw);
-  if (rc != GZC_OK) { return rc; }
-  rc = (out_value->ability.raw = raw, GZC_OK);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_find_field(json, "created_at", &raw);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_parse_string(raw, &out_value->created_at);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_find_field(json, "id", &raw);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_parse_string(raw, &out_value->id);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_find_field(json, "life", &raw);
-  if (rc != GZC_OK) { return rc; }
-  rc = (out_value->life.raw = raw, GZC_OK);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_find_field(json, "name", &raw);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_parse_string(raw, &out_value->name);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_find_field(json, "species_id", &raw);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_parse_string(raw, &out_value->species_id);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_find_field(json, "updated_at", &raw);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_parse_string(raw, &out_value->updated_at);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_find_field(json, "voice_id", &raw);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_parse_string(raw, &out_value->voice_id);
-  if (rc != GZC_OK) { return rc; }
-  return GZC_OK;
-}
-
-int gzc_pet_wash_response_decode_json(gzc_str_t json, gzc_pet_wash_response_t *out_value) {
-  if (out_value == NULL) {
-    return GZC_ERR_INVALID_ARGUMENT;
-  }
-  memset(out_value, 0, sizeof(*out_value));
-  gzc_str_t raw;
-  int rc;
-  rc = gzc_json_find_field(json, "ability", &raw);
-  if (rc != GZC_OK) { return rc; }
-  rc = (out_value->ability.raw = raw, GZC_OK);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_find_field(json, "created_at", &raw);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_parse_string(raw, &out_value->created_at);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_find_field(json, "id", &raw);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_parse_string(raw, &out_value->id);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_find_field(json, "life", &raw);
-  if (rc != GZC_OK) { return rc; }
-  rc = (out_value->life.raw = raw, GZC_OK);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_find_field(json, "name", &raw);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_parse_string(raw, &out_value->name);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_find_field(json, "species_id", &raw);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_parse_string(raw, &out_value->species_id);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_find_field(json, "updated_at", &raw);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_parse_string(raw, &out_value->updated_at);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_find_field(json, "voice_id", &raw);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_parse_string(raw, &out_value->voice_id);
-  if (rc != GZC_OK) { return rc; }
-  return GZC_OK;
-}
-
-int gzc_pet_play_response_decode_json(gzc_str_t json, gzc_pet_play_response_t *out_value) {
-  if (out_value == NULL) {
-    return GZC_ERR_INVALID_ARGUMENT;
-  }
-  memset(out_value, 0, sizeof(*out_value));
-  gzc_str_t raw;
-  int rc;
-  rc = gzc_json_find_field(json, "ability", &raw);
-  if (rc != GZC_OK) { return rc; }
-  rc = (out_value->ability.raw = raw, GZC_OK);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_find_field(json, "created_at", &raw);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_parse_string(raw, &out_value->created_at);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_find_field(json, "id", &raw);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_parse_string(raw, &out_value->id);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_find_field(json, "life", &raw);
-  if (rc != GZC_OK) { return rc; }
-  rc = (out_value->life.raw = raw, GZC_OK);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_find_field(json, "name", &raw);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_parse_string(raw, &out_value->name);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_find_field(json, "species_id", &raw);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_parse_string(raw, &out_value->species_id);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_find_field(json, "updated_at", &raw);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_parse_string(raw, &out_value->updated_at);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_find_field(json, "voice_id", &raw);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_parse_string(raw, &out_value->voice_id);
-  if (rc != GZC_OK) { return rc; }
-  return GZC_OK;
-}
-
-int gzc_wallet_get_response_decode_json(gzc_str_t json, gzc_wallet_get_response_t *out_value) {
-  if (out_value == NULL) {
-    return GZC_ERR_INVALID_ARGUMENT;
-  }
-  memset(out_value, 0, sizeof(*out_value));
-  gzc_str_t raw;
-  int rc;
-  rc = gzc_json_find_field(json, "created_at", &raw);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_parse_string(raw, &out_value->created_at);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_find_field(json, "id", &raw);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_parse_string(raw, &out_value->id);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_find_field(json, "point_balance", &raw);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_parse_i64(raw, &out_value->point_balance);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_find_field(json, "token_balance", &raw);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_parse_i64(raw, &out_value->token_balance);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_find_field(json, "updated_at", &raw);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_parse_string(raw, &out_value->updated_at);
-  if (rc != GZC_OK) { return rc; }
-  return GZC_OK;
-}
-
-int gzc_wallet_transactions_list_response_decode_json(gzc_str_t json, gzc_wallet_transactions_list_response_t *out_value) {
-  if (out_value == NULL) {
-    return GZC_ERR_INVALID_ARGUMENT;
-  }
-  memset(out_value, 0, sizeof(*out_value));
-  gzc_str_t raw;
-  int rc;
-  rc = gzc_json_find_field(json, "has_next", &raw);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_parse_bool(raw, &out_value->has_next);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_find_field(json, "items", &raw);
-  if (rc != GZC_OK) { return rc; }
-  rc = (out_value->items.raw = raw, GZC_OK);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_find_field(json, "next_cursor", &raw);
-  if (rc == GZC_OK) {
-    out_value->has_next_cursor = true;
-    rc = gzc_json_parse_string(raw, &out_value->next_cursor);
-    if (rc != GZC_OK) { return rc; }
-  }
-  return GZC_OK;
-}
-
-int gzc_wallet_transactions_get_response_decode_json(gzc_str_t json, gzc_wallet_transactions_get_response_t *out_value) {
-  if (out_value == NULL) {
-    return GZC_ERR_INVALID_ARGUMENT;
-  }
-  memset(out_value, 0, sizeof(*out_value));
-  gzc_str_t raw;
-  int rc;
-  rc = gzc_json_find_field(json, "created_at", &raw);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_parse_string(raw, &out_value->created_at);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_find_field(json, "id", &raw);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_parse_string(raw, &out_value->id);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_find_field(json, "point_delta", &raw);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_parse_i64(raw, &out_value->point_delta);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_find_field(json, "reason", &raw);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_parse_string(raw, &out_value->reason);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_find_field(json, "token_delta", &raw);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_parse_i64(raw, &out_value->token_delta);
-  if (rc != GZC_OK) { return rc; }
-  return GZC_OK;
-}
-
 int gzc_contact_list_response_decode_json(gzc_str_t json, gzc_contact_list_response_t *out_value) {
   if (out_value == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
@@ -3224,7 +2770,81 @@ int gzc_friend_group_message_send_response_decode_json(gzc_str_t json, gzc_frien
   return GZC_OK;
 }
 
-int gzc_reward_list_response_decode_json(gzc_str_t json, gzc_reward_list_response_t *out_value) {
+int gzc_server_game_ruleset_get_response_decode_json(gzc_str_t json, gzc_server_game_ruleset_get_response_t *out_value) {
+  if (out_value == NULL) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  memset(out_value, 0, sizeof(*out_value));
+  gzc_str_t raw;
+  int rc;
+  rc = gzc_json_find_field(json, "created_at", &raw);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_parse_string(raw, &out_value->created_at);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_find_field(json, "name", &raw);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_parse_string(raw, &out_value->name);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_find_field(json, "spec", &raw);
+  if (rc != GZC_OK) { return rc; }
+  rc = (out_value->spec.raw = raw, GZC_OK);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_find_field(json, "updated_at", &raw);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_parse_string(raw, &out_value->updated_at);
+  if (rc != GZC_OK) { return rc; }
+  return GZC_OK;
+}
+
+int gzc_pet_def_pixa_download_response_decode_json(gzc_str_t json, gzc_pet_def_pixa_download_response_t *out_value) {
+  if (out_value == NULL) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  memset(out_value, 0, sizeof(*out_value));
+  gzc_str_t raw;
+  int rc;
+  rc = gzc_json_find_field(json, "id", &raw);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_parse_string(raw, &out_value->id);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_find_field(json, "pixa_path", &raw);
+  if (rc == GZC_OK) {
+    out_value->has_pixa_path = true;
+    rc = gzc_json_parse_string(raw, &out_value->pixa_path);
+    if (rc != GZC_OK) { return rc; }
+  }
+  rc = gzc_json_find_field(json, "size_bytes", &raw);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_parse_i64(raw, &out_value->size_bytes);
+  if (rc != GZC_OK) { return rc; }
+  return GZC_OK;
+}
+
+int gzc_badge_def_pixa_download_response_decode_json(gzc_str_t json, gzc_badge_def_pixa_download_response_t *out_value) {
+  if (out_value == NULL) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  memset(out_value, 0, sizeof(*out_value));
+  gzc_str_t raw;
+  int rc;
+  rc = gzc_json_find_field(json, "id", &raw);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_parse_string(raw, &out_value->id);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_find_field(json, "pixa_path", &raw);
+  if (rc == GZC_OK) {
+    out_value->has_pixa_path = true;
+    rc = gzc_json_parse_string(raw, &out_value->pixa_path);
+    if (rc != GZC_OK) { return rc; }
+  }
+  rc = gzc_json_find_field(json, "size_bytes", &raw);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_parse_i64(raw, &out_value->size_bytes);
+  if (rc != GZC_OK) { return rc; }
+  return GZC_OK;
+}
+
+int gzc_server_pet_list_response_decode_json(gzc_str_t json, gzc_server_pet_list_response_t *out_value) {
   if (out_value == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
@@ -3248,62 +2868,656 @@ int gzc_reward_list_response_decode_json(gzc_str_t json, gzc_reward_list_respons
   return GZC_OK;
 }
 
-int gzc_reward_get_response_decode_json(gzc_str_t json, gzc_reward_get_response_t *out_value) {
+int gzc_server_pet_get_response_decode_json(gzc_str_t json, gzc_server_pet_get_response_t *out_value) {
   if (out_value == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
   memset(out_value, 0, sizeof(*out_value));
   gzc_str_t raw;
   int rc;
-  rc = gzc_json_find_field(json, "badge_id", &raw);
+  rc = gzc_json_find_field(json, "ability", &raw);
   if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_parse_string(raw, &out_value->badge_id);
+  rc = (out_value->ability.raw = raw, GZC_OK);
   if (rc != GZC_OK) { return rc; }
   rc = gzc_json_find_field(json, "created_at", &raw);
   if (rc != GZC_OK) { return rc; }
   rc = gzc_json_parse_string(raw, &out_value->created_at);
   if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_find_field(json, "display_name", &raw);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_parse_string(raw, &out_value->display_name);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_find_field(json, "exp", &raw);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_parse_i64(raw, &out_value->exp);
+  if (rc != GZC_OK) { return rc; }
   rc = gzc_json_find_field(json, "id", &raw);
   if (rc != GZC_OK) { return rc; }
   rc = gzc_json_parse_string(raw, &out_value->id);
   if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_find_field(json, "point_amount", &raw);
+  rc = gzc_json_find_field(json, "last_active_at", &raw);
   if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_parse_i64(raw, &out_value->point_amount);
+  rc = gzc_json_parse_string(raw, &out_value->last_active_at);
   if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_find_field(json, "prompt", &raw);
+  rc = gzc_json_find_field(json, "level", &raw);
   if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_parse_string(raw, &out_value->prompt);
+  rc = gzc_json_parse_i64(raw, &out_value->level);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_find_field(json, "life", &raw);
+  if (rc != GZC_OK) { return rc; }
+  rc = (out_value->life.raw = raw, GZC_OK);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_find_field(json, "owner_public_key", &raw);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_parse_string(raw, &out_value->owner_public_key);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_find_field(json, "petdef_id", &raw);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_parse_string(raw, &out_value->petdef_id);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_find_field(json, "ruleset_name", &raw);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_parse_string(raw, &out_value->ruleset_name);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_find_field(json, "updated_at", &raw);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_parse_string(raw, &out_value->updated_at);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_find_field(json, "workflow_name", &raw);
+  if (rc == GZC_OK) {
+    out_value->has_workflow_name = true;
+    rc = gzc_json_parse_string(raw, &out_value->workflow_name);
+    if (rc != GZC_OK) { return rc; }
+  }
+  rc = gzc_json_find_field(json, "workspace_name", &raw);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_parse_string(raw, &out_value->workspace_name);
   if (rc != GZC_OK) { return rc; }
   return GZC_OK;
 }
 
-int gzc_reward_claim_response_decode_json(gzc_str_t json, gzc_reward_claim_response_t *out_value) {
+int gzc_server_pet_adopt_response_decode_json(gzc_str_t json, gzc_server_pet_adopt_response_t *out_value) {
   if (out_value == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
   memset(out_value, 0, sizeof(*out_value));
   gzc_str_t raw;
   int rc;
-  rc = gzc_json_find_field(json, "badge_id", &raw);
+  rc = gzc_json_find_field(json, "pet", &raw);
   if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_parse_string(raw, &out_value->badge_id);
+  rc = (out_value->pet.raw = raw, GZC_OK);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_find_field(json, "points", &raw);
+  if (rc != GZC_OK) { return rc; }
+  rc = (out_value->points.raw = raw, GZC_OK);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_find_field(json, "transaction", &raw);
+  if (rc != GZC_OK) { return rc; }
+  rc = (out_value->transaction.raw = raw, GZC_OK);
+  if (rc != GZC_OK) { return rc; }
+  return GZC_OK;
+}
+
+int gzc_server_pet_put_response_decode_json(gzc_str_t json, gzc_server_pet_put_response_t *out_value) {
+  if (out_value == NULL) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  memset(out_value, 0, sizeof(*out_value));
+  gzc_str_t raw;
+  int rc;
+  rc = gzc_json_find_field(json, "ability", &raw);
+  if (rc != GZC_OK) { return rc; }
+  rc = (out_value->ability.raw = raw, GZC_OK);
   if (rc != GZC_OK) { return rc; }
   rc = gzc_json_find_field(json, "created_at", &raw);
   if (rc != GZC_OK) { return rc; }
   rc = gzc_json_parse_string(raw, &out_value->created_at);
   if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_find_field(json, "display_name", &raw);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_parse_string(raw, &out_value->display_name);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_find_field(json, "exp", &raw);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_parse_i64(raw, &out_value->exp);
+  if (rc != GZC_OK) { return rc; }
   rc = gzc_json_find_field(json, "id", &raw);
   if (rc != GZC_OK) { return rc; }
   rc = gzc_json_parse_string(raw, &out_value->id);
   if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_find_field(json, "point_amount", &raw);
+  rc = gzc_json_find_field(json, "last_active_at", &raw);
   if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_parse_i64(raw, &out_value->point_amount);
+  rc = gzc_json_parse_string(raw, &out_value->last_active_at);
   if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_find_field(json, "prompt", &raw);
+  rc = gzc_json_find_field(json, "level", &raw);
   if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_parse_string(raw, &out_value->prompt);
+  rc = gzc_json_parse_i64(raw, &out_value->level);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_find_field(json, "life", &raw);
+  if (rc != GZC_OK) { return rc; }
+  rc = (out_value->life.raw = raw, GZC_OK);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_find_field(json, "owner_public_key", &raw);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_parse_string(raw, &out_value->owner_public_key);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_find_field(json, "petdef_id", &raw);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_parse_string(raw, &out_value->petdef_id);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_find_field(json, "ruleset_name", &raw);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_parse_string(raw, &out_value->ruleset_name);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_find_field(json, "updated_at", &raw);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_parse_string(raw, &out_value->updated_at);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_find_field(json, "workflow_name", &raw);
+  if (rc == GZC_OK) {
+    out_value->has_workflow_name = true;
+    rc = gzc_json_parse_string(raw, &out_value->workflow_name);
+    if (rc != GZC_OK) { return rc; }
+  }
+  rc = gzc_json_find_field(json, "workspace_name", &raw);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_parse_string(raw, &out_value->workspace_name);
+  if (rc != GZC_OK) { return rc; }
+  return GZC_OK;
+}
+
+int gzc_server_pet_delete_response_decode_json(gzc_str_t json, gzc_server_pet_delete_response_t *out_value) {
+  if (out_value == NULL) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  memset(out_value, 0, sizeof(*out_value));
+  gzc_str_t raw;
+  int rc;
+  rc = gzc_json_find_field(json, "ability", &raw);
+  if (rc != GZC_OK) { return rc; }
+  rc = (out_value->ability.raw = raw, GZC_OK);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_find_field(json, "created_at", &raw);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_parse_string(raw, &out_value->created_at);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_find_field(json, "display_name", &raw);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_parse_string(raw, &out_value->display_name);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_find_field(json, "exp", &raw);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_parse_i64(raw, &out_value->exp);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_find_field(json, "id", &raw);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_parse_string(raw, &out_value->id);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_find_field(json, "last_active_at", &raw);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_parse_string(raw, &out_value->last_active_at);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_find_field(json, "level", &raw);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_parse_i64(raw, &out_value->level);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_find_field(json, "life", &raw);
+  if (rc != GZC_OK) { return rc; }
+  rc = (out_value->life.raw = raw, GZC_OK);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_find_field(json, "owner_public_key", &raw);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_parse_string(raw, &out_value->owner_public_key);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_find_field(json, "petdef_id", &raw);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_parse_string(raw, &out_value->petdef_id);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_find_field(json, "ruleset_name", &raw);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_parse_string(raw, &out_value->ruleset_name);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_find_field(json, "updated_at", &raw);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_parse_string(raw, &out_value->updated_at);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_find_field(json, "workflow_name", &raw);
+  if (rc == GZC_OK) {
+    out_value->has_workflow_name = true;
+    rc = gzc_json_parse_string(raw, &out_value->workflow_name);
+    if (rc != GZC_OK) { return rc; }
+  }
+  rc = gzc_json_find_field(json, "workspace_name", &raw);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_parse_string(raw, &out_value->workspace_name);
+  if (rc != GZC_OK) { return rc; }
+  return GZC_OK;
+}
+
+int gzc_server_pet_drive_response_decode_json(gzc_str_t json, gzc_server_pet_drive_response_t *out_value) {
+  if (out_value == NULL) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  memset(out_value, 0, sizeof(*out_value));
+  gzc_str_t raw;
+  int rc;
+  rc = gzc_json_find_field(json, "badges", &raw);
+  if (rc != GZC_OK) { return rc; }
+  rc = (out_value->badges.raw = raw, GZC_OK);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_find_field(json, "game_result", &raw);
+  if (rc == GZC_OK) {
+    out_value->has_game_result = true;
+    rc = (out_value->game_result.raw = raw, GZC_OK);
+    if (rc != GZC_OK) { return rc; }
+  }
+  rc = gzc_json_find_field(json, "pet", &raw);
+  if (rc != GZC_OK) { return rc; }
+  rc = (out_value->pet.raw = raw, GZC_OK);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_find_field(json, "points", &raw);
+  if (rc != GZC_OK) { return rc; }
+  rc = (out_value->points.raw = raw, GZC_OK);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_find_field(json, "reward_grants", &raw);
+  if (rc != GZC_OK) { return rc; }
+  rc = (out_value->reward_grants.raw = raw, GZC_OK);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_find_field(json, "transactions", &raw);
+  if (rc != GZC_OK) { return rc; }
+  rc = (out_value->transactions.raw = raw, GZC_OK);
+  if (rc != GZC_OK) { return rc; }
+  return GZC_OK;
+}
+
+int gzc_server_points_get_response_decode_json(gzc_str_t json, gzc_server_points_get_response_t *out_value) {
+  if (out_value == NULL) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  memset(out_value, 0, sizeof(*out_value));
+  gzc_str_t raw;
+  int rc;
+  rc = gzc_json_find_field(json, "balance", &raw);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_parse_i64(raw, &out_value->balance);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_find_field(json, "created_at", &raw);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_parse_string(raw, &out_value->created_at);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_find_field(json, "owner_public_key", &raw);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_parse_string(raw, &out_value->owner_public_key);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_find_field(json, "ruleset_name", &raw);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_parse_string(raw, &out_value->ruleset_name);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_find_field(json, "updated_at", &raw);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_parse_string(raw, &out_value->updated_at);
+  if (rc != GZC_OK) { return rc; }
+  return GZC_OK;
+}
+
+int gzc_server_points_transaction_list_response_decode_json(gzc_str_t json, gzc_server_points_transaction_list_response_t *out_value) {
+  if (out_value == NULL) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  memset(out_value, 0, sizeof(*out_value));
+  gzc_str_t raw;
+  int rc;
+  rc = gzc_json_find_field(json, "has_next", &raw);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_parse_bool(raw, &out_value->has_next);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_find_field(json, "items", &raw);
+  if (rc != GZC_OK) { return rc; }
+  rc = (out_value->items.raw = raw, GZC_OK);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_find_field(json, "next_cursor", &raw);
+  if (rc == GZC_OK) {
+    out_value->has_next_cursor = true;
+    rc = gzc_json_parse_string(raw, &out_value->next_cursor);
+    if (rc != GZC_OK) { return rc; }
+  }
+  return GZC_OK;
+}
+
+int gzc_server_points_transaction_get_response_decode_json(gzc_str_t json, gzc_server_points_transaction_get_response_t *out_value) {
+  if (out_value == NULL) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  memset(out_value, 0, sizeof(*out_value));
+  gzc_str_t raw;
+  int rc;
+  rc = gzc_json_find_field(json, "balance_after", &raw);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_parse_i64(raw, &out_value->balance_after);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_find_field(json, "created_at", &raw);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_parse_string(raw, &out_value->created_at);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_find_field(json, "delta", &raw);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_parse_i64(raw, &out_value->delta);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_find_field(json, "game_result_id", &raw);
+  if (rc == GZC_OK) {
+    out_value->has_game_result_id = true;
+    rc = gzc_json_parse_string(raw, &out_value->game_result_id);
+    if (rc != GZC_OK) { return rc; }
+  }
+  rc = gzc_json_find_field(json, "id", &raw);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_parse_string(raw, &out_value->id);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_find_field(json, "owner_public_key", &raw);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_parse_string(raw, &out_value->owner_public_key);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_find_field(json, "pet_id", &raw);
+  if (rc == GZC_OK) {
+    out_value->has_pet_id = true;
+    rc = gzc_json_parse_string(raw, &out_value->pet_id);
+    if (rc != GZC_OK) { return rc; }
+  }
+  rc = gzc_json_find_field(json, "reason", &raw);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_parse_string(raw, &out_value->reason);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_find_field(json, "reward_grant_id", &raw);
+  if (rc == GZC_OK) {
+    out_value->has_reward_grant_id = true;
+    rc = gzc_json_parse_string(raw, &out_value->reward_grant_id);
+    if (rc != GZC_OK) { return rc; }
+  }
+  rc = gzc_json_find_field(json, "ruleset_name", &raw);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_parse_string(raw, &out_value->ruleset_name);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_find_field(json, "source_id", &raw);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_parse_string(raw, &out_value->source_id);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_find_field(json, "source_type", &raw);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_parse_string(raw, &out_value->source_type);
+  if (rc != GZC_OK) { return rc; }
+  return GZC_OK;
+}
+
+int gzc_server_badge_list_response_decode_json(gzc_str_t json, gzc_server_badge_list_response_t *out_value) {
+  if (out_value == NULL) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  memset(out_value, 0, sizeof(*out_value));
+  gzc_str_t raw;
+  int rc;
+  rc = gzc_json_find_field(json, "has_next", &raw);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_parse_bool(raw, &out_value->has_next);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_find_field(json, "items", &raw);
+  if (rc != GZC_OK) { return rc; }
+  rc = (out_value->items.raw = raw, GZC_OK);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_find_field(json, "next_cursor", &raw);
+  if (rc == GZC_OK) {
+    out_value->has_next_cursor = true;
+    rc = gzc_json_parse_string(raw, &out_value->next_cursor);
+    if (rc != GZC_OK) { return rc; }
+  }
+  return GZC_OK;
+}
+
+int gzc_server_badge_get_response_decode_json(gzc_str_t json, gzc_server_badge_get_response_t *out_value) {
+  if (out_value == NULL) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  memset(out_value, 0, sizeof(*out_value));
+  gzc_str_t raw;
+  int rc;
+  rc = gzc_json_find_field(json, "active", &raw);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_parse_bool(raw, &out_value->active);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_find_field(json, "badge_def_id", &raw);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_parse_string(raw, &out_value->badge_def_id);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_find_field(json, "created_at", &raw);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_parse_string(raw, &out_value->created_at);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_find_field(json, "exp", &raw);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_parse_i64(raw, &out_value->exp);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_find_field(json, "id", &raw);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_parse_string(raw, &out_value->id);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_find_field(json, "level", &raw);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_parse_i64(raw, &out_value->level);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_find_field(json, "owner_public_key", &raw);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_parse_string(raw, &out_value->owner_public_key);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_find_field(json, "progress", &raw);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_parse_i64(raw, &out_value->progress);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_find_field(json, "updated_at", &raw);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_parse_string(raw, &out_value->updated_at);
+  if (rc != GZC_OK) { return rc; }
+  return GZC_OK;
+}
+
+int gzc_server_game_result_list_response_decode_json(gzc_str_t json, gzc_server_game_result_list_response_t *out_value) {
+  if (out_value == NULL) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  memset(out_value, 0, sizeof(*out_value));
+  gzc_str_t raw;
+  int rc;
+  rc = gzc_json_find_field(json, "has_next", &raw);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_parse_bool(raw, &out_value->has_next);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_find_field(json, "items", &raw);
+  if (rc != GZC_OK) { return rc; }
+  rc = (out_value->items.raw = raw, GZC_OK);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_find_field(json, "next_cursor", &raw);
+  if (rc == GZC_OK) {
+    out_value->has_next_cursor = true;
+    rc = gzc_json_parse_string(raw, &out_value->next_cursor);
+    if (rc != GZC_OK) { return rc; }
+  }
+  return GZC_OK;
+}
+
+int gzc_server_game_result_get_response_decode_json(gzc_str_t json, gzc_server_game_result_get_response_t *out_value) {
+  if (out_value == NULL) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  memset(out_value, 0, sizeof(*out_value));
+  gzc_str_t raw;
+  int rc;
+  rc = gzc_json_find_field(json, "created_at", &raw);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_parse_string(raw, &out_value->created_at);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_find_field(json, "difficulty", &raw);
+  if (rc == GZC_OK) {
+    out_value->has_difficulty = true;
+    rc = gzc_json_parse_string(raw, &out_value->difficulty);
+    if (rc != GZC_OK) { return rc; }
+  }
+  rc = gzc_json_find_field(json, "duration_ms", &raw);
+  if (rc == GZC_OK) {
+    out_value->has_duration_ms = true;
+    rc = gzc_json_parse_i64(raw, &out_value->duration_ms);
+    if (rc != GZC_OK) { return rc; }
+  }
+  rc = gzc_json_find_field(json, "game_def_id", &raw);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_parse_string(raw, &out_value->game_def_id);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_find_field(json, "id", &raw);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_parse_string(raw, &out_value->id);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_find_field(json, "idempotency_key", &raw);
+  if (rc == GZC_OK) {
+    out_value->has_idempotency_key = true;
+    rc = gzc_json_parse_string(raw, &out_value->idempotency_key);
+    if (rc != GZC_OK) { return rc; }
+  }
+  rc = gzc_json_find_field(json, "max_score", &raw);
+  if (rc == GZC_OK) {
+    out_value->has_max_score = true;
+    rc = gzc_json_parse_i64(raw, &out_value->max_score);
+    if (rc != GZC_OK) { return rc; }
+  }
+  rc = gzc_json_find_field(json, "occurred_at", &raw);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_parse_string(raw, &out_value->occurred_at);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_find_field(json, "outcome", &raw);
+  if (rc == GZC_OK) {
+    out_value->has_outcome = true;
+    rc = gzc_json_parse_string(raw, &out_value->outcome);
+    if (rc != GZC_OK) { return rc; }
+  }
+  rc = gzc_json_find_field(json, "owner_public_key", &raw);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_parse_string(raw, &out_value->owner_public_key);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_find_field(json, "payload", &raw);
+  if (rc == GZC_OK) {
+    out_value->has_payload = true;
+    rc = (out_value->payload.raw = raw, GZC_OK);
+    if (rc != GZC_OK) { return rc; }
+  }
+  rc = gzc_json_find_field(json, "pet_id", &raw);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_parse_string(raw, &out_value->pet_id);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_find_field(json, "ruleset_name", &raw);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_parse_string(raw, &out_value->ruleset_name);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_find_field(json, "score", &raw);
+  if (rc == GZC_OK) {
+    out_value->has_score = true;
+    rc = gzc_json_parse_i64(raw, &out_value->score);
+    if (rc != GZC_OK) { return rc; }
+  }
+  return GZC_OK;
+}
+
+int gzc_server_reward_grant_list_response_decode_json(gzc_str_t json, gzc_server_reward_grant_list_response_t *out_value) {
+  if (out_value == NULL) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  memset(out_value, 0, sizeof(*out_value));
+  gzc_str_t raw;
+  int rc;
+  rc = gzc_json_find_field(json, "has_next", &raw);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_parse_bool(raw, &out_value->has_next);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_find_field(json, "items", &raw);
+  if (rc != GZC_OK) { return rc; }
+  rc = (out_value->items.raw = raw, GZC_OK);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_find_field(json, "next_cursor", &raw);
+  if (rc == GZC_OK) {
+    out_value->has_next_cursor = true;
+    rc = gzc_json_parse_string(raw, &out_value->next_cursor);
+    if (rc != GZC_OK) { return rc; }
+  }
+  return GZC_OK;
+}
+
+int gzc_server_reward_grant_get_response_decode_json(gzc_str_t json, gzc_server_reward_grant_get_response_t *out_value) {
+  if (out_value == NULL) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  memset(out_value, 0, sizeof(*out_value));
+  gzc_str_t raw;
+  int rc;
+  rc = gzc_json_find_field(json, "ability_delta", &raw);
+  if (rc == GZC_OK) {
+    out_value->has_ability_delta = true;
+    rc = (out_value->ability_delta.raw = raw, GZC_OK);
+    if (rc != GZC_OK) { return rc; }
+  }
+  rc = gzc_json_find_field(json, "badge_exp_delta", &raw);
+  if (rc != GZC_OK) { return rc; }
+  rc = (out_value->badge_exp_delta.raw = raw, GZC_OK);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_find_field(json, "created_at", &raw);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_parse_string(raw, &out_value->created_at);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_find_field(json, "game_result_id", &raw);
+  if (rc == GZC_OK) {
+    out_value->has_game_result_id = true;
+    rc = gzc_json_parse_string(raw, &out_value->game_result_id);
+    if (rc != GZC_OK) { return rc; }
+  }
+  rc = gzc_json_find_field(json, "id", &raw);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_parse_string(raw, &out_value->id);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_find_field(json, "life_delta", &raw);
+  if (rc == GZC_OK) {
+    out_value->has_life_delta = true;
+    rc = (out_value->life_delta.raw = raw, GZC_OK);
+    if (rc != GZC_OK) { return rc; }
+  }
+  rc = gzc_json_find_field(json, "owner_public_key", &raw);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_parse_string(raw, &out_value->owner_public_key);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_find_field(json, "pet_exp_delta", &raw);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_parse_i64(raw, &out_value->pet_exp_delta);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_find_field(json, "pet_id", &raw);
+  if (rc == GZC_OK) {
+    out_value->has_pet_id = true;
+    rc = gzc_json_parse_string(raw, &out_value->pet_id);
+    if (rc != GZC_OK) { return rc; }
+  }
+  rc = gzc_json_find_field(json, "points_delta", &raw);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_parse_i64(raw, &out_value->points_delta);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_find_field(json, "reason", &raw);
+  if (rc == GZC_OK) {
+    out_value->has_reason = true;
+    rc = gzc_json_parse_string(raw, &out_value->reason);
+    if (rc != GZC_OK) { return rc; }
+  }
+  rc = gzc_json_find_field(json, "ruleset_name", &raw);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_parse_string(raw, &out_value->ruleset_name);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_find_field(json, "source_id", &raw);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_parse_string(raw, &out_value->source_id);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_find_field(json, "source_type", &raw);
+  if (rc != GZC_OK) { return rc; }
+  rc = gzc_json_parse_string(raw, &out_value->source_type);
   if (rc != GZC_OK) { return rc; }
   return GZC_OK;
 }

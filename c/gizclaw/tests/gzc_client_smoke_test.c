@@ -163,6 +163,10 @@ static size_t first_frame_size(const gzc_buf_t *bytes) {
 
 static int test_channel_send(gzc_rtc_channel_t *channel, const uint8_t *data, size_t len, bool is_text) {
   fake_webrtc_t *fake = global_fake_webrtc;
+  if (channel == &fake->packet_channel && !is_text) {
+    gzc_buf_reset(&fake->sent);
+    return gzc_buf_append(&fake->sent, fake->platform, data, len);
+  }
   if (channel != &fake->rpc_channel || is_text) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
@@ -505,6 +509,31 @@ int main(void) {
     return 1;
   }
   fake_webrtc.response_mode = FAKE_RESPONSE_JSON;
+
+  const uint8_t telemetry_payload[] = {0x01, 0x02, 0x03};
+  rc = gzc_client_send_packet(client, GZC_PROTOCOL_TELEMETRY, telemetry_payload, sizeof(telemetry_payload));
+  if (expect(rc == GZC_OK, "send telemetry packet") != 0) {
+    return 1;
+  }
+  if (expect(fake_webrtc.sent.len == sizeof(telemetry_payload) + 1 && fake_webrtc.sent.data[0] == GZC_PROTOCOL_TELEMETRY &&
+                 memcmp(fake_webrtc.sent.data + 1, telemetry_payload, sizeof(telemetry_payload)) == 0,
+             "telemetry packet is protocol-prefixed") != 0) {
+    return 1;
+  }
+  gzc_telemetry_observation_t observation;
+  memset(&observation, 0, sizeof(observation));
+  observation.kind = GZC_TELEMETRY_OBSERVATION_BATTERY;
+  observation.battery.has_percent = true;
+  observation.battery.percent = 77;
+  gzc_telemetry_frame_t telemetry_frame;
+  memset(&telemetry_frame, 0, sizeof(telemetry_frame));
+  telemetry_frame.sequence = 7;
+  telemetry_frame.observed_at_unix_ms = 123456;
+  telemetry_frame.observations = &observation;
+  telemetry_frame.observation_count = 1;
+  if (expect(telemetry_frame.observations[0].battery.percent == 77, "telemetry public structs are usable") != 0) {
+    return 1;
+  }
 
   gzc_buf_t large_params;
   gzc_buf_init(&large_params);

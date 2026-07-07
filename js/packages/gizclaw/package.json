@@ -7,7 +7,8 @@
     "./admin": "./admin.ts",
     "./rpc": "./rpc.ts",
     "./serverpublic": "./serverpublic.ts",
-    "./signaling": "./signaling.ts"
+    "./signaling": "./signaling.ts",
+    "./telemetry": "./telemetry.ts"
   },
   "scripts": {
     "test": "node --test --experimental-strip-types index.test.ts"

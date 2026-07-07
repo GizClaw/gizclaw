@@ -17,7 +17,6 @@ int gzc_server_get_info_response_decode_json(gzc_str_t json, gzc_server_get_info
 int gzc_server_put_info_response_decode_json(gzc_str_t json, gzc_server_put_info_response_t *out_value);
 int gzc_server_get_runtime_response_decode_json(gzc_str_t json, gzc_server_get_runtime_response_t *out_value);
 int gzc_server_get_status_response_decode_json(gzc_str_t json, gzc_server_get_status_response_t *out_value);
-int gzc_server_put_status_response_decode_json(gzc_str_t json, gzc_server_put_status_response_t *out_value);
 int gzc_server_get_run_agent_response_decode_json(gzc_str_t json, gzc_server_get_run_agent_response_t *out_value);
 int gzc_server_set_run_agent_response_decode_json(gzc_str_t json, gzc_server_set_run_agent_response_t *out_value);
 int gzc_server_get_run_workspace_response_decode_json(gzc_str_t json, gzc_server_get_run_workspace_response_t *out_value);
@@ -59,17 +58,6 @@ int gzc_credential_get_response_decode_json(gzc_str_t json, gzc_credential_get_r
 int gzc_credential_create_response_decode_json(gzc_str_t json, gzc_credential_create_response_t *out_value);
 int gzc_credential_put_response_decode_json(gzc_str_t json, gzc_credential_put_response_t *out_value);
 int gzc_credential_delete_response_decode_json(gzc_str_t json, gzc_credential_delete_response_t *out_value);
-int gzc_pet_list_response_decode_json(gzc_str_t json, gzc_pet_list_response_t *out_value);
-int gzc_pet_get_response_decode_json(gzc_str_t json, gzc_pet_get_response_t *out_value);
-int gzc_pet_adopt_response_decode_json(gzc_str_t json, gzc_pet_adopt_response_t *out_value);
-int gzc_pet_put_response_decode_json(gzc_str_t json, gzc_pet_put_response_t *out_value);
-int gzc_pet_delete_response_decode_json(gzc_str_t json, gzc_pet_delete_response_t *out_value);
-int gzc_pet_feed_response_decode_json(gzc_str_t json, gzc_pet_feed_response_t *out_value);
-int gzc_pet_wash_response_decode_json(gzc_str_t json, gzc_pet_wash_response_t *out_value);
-int gzc_pet_play_response_decode_json(gzc_str_t json, gzc_pet_play_response_t *out_value);
-int gzc_wallet_get_response_decode_json(gzc_str_t json, gzc_wallet_get_response_t *out_value);
-int gzc_wallet_transactions_list_response_decode_json(gzc_str_t json, gzc_wallet_transactions_list_response_t *out_value);
-int gzc_wallet_transactions_get_response_decode_json(gzc_str_t json, gzc_wallet_transactions_get_response_t *out_value);
 int gzc_contact_list_response_decode_json(gzc_str_t json, gzc_contact_list_response_t *out_value);
 int gzc_contact_get_response_decode_json(gzc_str_t json, gzc_contact_get_response_t *out_value);
 int gzc_contact_create_response_decode_json(gzc_str_t json, gzc_contact_create_response_t *out_value);
@@ -97,9 +85,24 @@ int gzc_friend_group_member_delete_response_decode_json(gzc_str_t json, gzc_frie
 int gzc_friend_group_message_list_response_decode_json(gzc_str_t json, gzc_friend_group_message_list_response_t *out_value);
 int gzc_friend_group_message_get_response_decode_json(gzc_str_t json, gzc_friend_group_message_get_response_t *out_value);
 int gzc_friend_group_message_send_response_decode_json(gzc_str_t json, gzc_friend_group_message_send_response_t *out_value);
-int gzc_reward_list_response_decode_json(gzc_str_t json, gzc_reward_list_response_t *out_value);
-int gzc_reward_get_response_decode_json(gzc_str_t json, gzc_reward_get_response_t *out_value);
-int gzc_reward_claim_response_decode_json(gzc_str_t json, gzc_reward_claim_response_t *out_value);
+int gzc_server_game_ruleset_get_response_decode_json(gzc_str_t json, gzc_server_game_ruleset_get_response_t *out_value);
+int gzc_pet_def_pixa_download_response_decode_json(gzc_str_t json, gzc_pet_def_pixa_download_response_t *out_value);
+int gzc_badge_def_pixa_download_response_decode_json(gzc_str_t json, gzc_badge_def_pixa_download_response_t *out_value);
+int gzc_server_pet_list_response_decode_json(gzc_str_t json, gzc_server_pet_list_response_t *out_value);
+int gzc_server_pet_get_response_decode_json(gzc_str_t json, gzc_server_pet_get_response_t *out_value);
+int gzc_server_pet_adopt_response_decode_json(gzc_str_t json, gzc_server_pet_adopt_response_t *out_value);
+int gzc_server_pet_put_response_decode_json(gzc_str_t json, gzc_server_pet_put_response_t *out_value);
+int gzc_server_pet_delete_response_decode_json(gzc_str_t json, gzc_server_pet_delete_response_t *out_value);
+int gzc_server_pet_drive_response_decode_json(gzc_str_t json, gzc_server_pet_drive_response_t *out_value);
+int gzc_server_points_get_response_decode_json(gzc_str_t json, gzc_server_points_get_response_t *out_value);
+int gzc_server_points_transaction_list_response_decode_json(gzc_str_t json, gzc_server_points_transaction_list_response_t *out_value);
+int gzc_server_points_transaction_get_response_decode_json(gzc_str_t json, gzc_server_points_transaction_get_response_t *out_value);
+int gzc_server_badge_list_response_decode_json(gzc_str_t json, gzc_server_badge_list_response_t *out_value);
+int gzc_server_badge_get_response_decode_json(gzc_str_t json, gzc_server_badge_get_response_t *out_value);
+int gzc_server_game_result_list_response_decode_json(gzc_str_t json, gzc_server_game_result_list_response_t *out_value);
+int gzc_server_game_result_get_response_decode_json(gzc_str_t json, gzc_server_game_result_get_response_t *out_value);
+int gzc_server_reward_grant_list_response_decode_json(gzc_str_t json, gzc_server_reward_grant_list_response_t *out_value);
+int gzc_server_reward_grant_get_response_decode_json(gzc_str_t json, gzc_server_reward_grant_get_response_t *out_value);
 
 #ifdef __cplusplus
 }

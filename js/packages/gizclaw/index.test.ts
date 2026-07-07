@@ -4,6 +4,7 @@ import { x25519 } from "@noble/curves/ed25519.js";
 
 import {
   GIZCLAW_SERVICE_ADMIN,
+  GIZCLAW_PROTOCOL_TELEMETRY,
   GIZCLAW_SERVICE_RPC,
   GIZNET_WEBRTC_PACKET_DATA_CHANNEL_LABEL,
   GIZNET_WEBRTC_SIGNALING_PATH,
@@ -13,8 +14,10 @@ import {
   WebRTCRPCClient,
   WebRTCRPCError,
   createAdminAPIFetch,
+  batteryTelemetry,
   createWebRTCFetch,
   decodeFrames,
+  encodeTelemetryPacket,
   encodeFrame,
   encodeRPCResponse,
   fetchGiznetServerInfo,
@@ -267,6 +270,24 @@ test("prepareGiznetWebRTCPeerConnection creates packet channel and audio transce
   assert.equal(pc.channels[0]?.label, GIZNET_WEBRTC_PACKET_DATA_CHANNEL_LABEL);
   assert.deepEqual(pc.channels[0]?.options, { maxRetransmits: 0, ordered: false });
   assert.deepEqual(pc.transceivers, [{ kind: "audio", init: { direction: "sendrecv" } }]);
+});
+
+test("encodeTelemetryPacket prefixes protobuf telemetry payload", () => {
+  const packet = encodeTelemetryPacket({
+    sequence: 7,
+    observedAtUnixMs: 1000,
+    observations: [batteryTelemetry({ percent: 82, charging: true })],
+  });
+
+  assert.equal(packet[0], GIZCLAW_PROTOCOL_TELEMETRY);
+  assert.deepEqual([...packet.slice(1)], [
+    8, 7,
+    16, 232, 7,
+    26, 13,
+    82, 11,
+    9, 0, 0, 0, 0, 0, 128, 84, 64,
+    16, 1,
+  ]);
 });
 
 test("waitForICEGatheringComplete resolves when completion races listener registration", async () => {

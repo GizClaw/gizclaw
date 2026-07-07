@@ -7,5 +7,6 @@
 #include "../../../../c/gizclaw/src/gzc_rpc.c"
 #include "../../../../c/gizclaw/src/gzc_rpc_frame.c"
 #include "../../../../c/gizclaw/src/gzc_signaling.c"
+#include "../../../../c/gizclaw/src/gzc_telemetry.c"
 #include "../../../../c/gizclaw/generated/gzc_rpc_encode.c"
 #include "../../../../c/gizclaw/generated/gzc_rpc_decode.c"
