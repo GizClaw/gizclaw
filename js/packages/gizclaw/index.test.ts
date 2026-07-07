@@ -23,7 +23,9 @@ import {
   encodeRPCResponse,
   fetchGiznetServerInfo,
   giznetServiceDataChannelLabel,
+  getGiznetWebRTCPacketDataChannel,
   prepareGiznetWebRTCPeerConnection,
+  sendGiznetWebRTCTelemetry,
   sendGiznetWebRTCOffer,
   systemTelemetry,
   waitForICEGatheringComplete,
@@ -271,7 +273,22 @@ test("prepareGiznetWebRTCPeerConnection creates packet channel and audio transce
 
   assert.equal(pc.channels[0]?.label, GIZNET_WEBRTC_PACKET_DATA_CHANNEL_LABEL);
   assert.deepEqual(pc.channels[0]?.options, { maxRetransmits: 0, ordered: false });
+  assert.equal(getGiznetWebRTCPacketDataChannel(pc as unknown as RTCPeerConnection), pc.channels[0]);
   assert.deepEqual(pc.transceivers, [{ kind: "audio", init: { direction: "sendrecv" } }]);
+});
+
+test("sendGiznetWebRTCTelemetry uses the prepared packet channel", () => {
+  const pc = new FakePeerConnection();
+  prepareGiznetWebRTCPeerConnection(pc as unknown as RTCPeerConnection);
+
+  sendGiznetWebRTCTelemetry(pc as unknown as RTCPeerConnection, {
+    observedAtUnixMs: 1000,
+    observations: [batteryTelemetry({ percent: 82 })],
+  });
+
+  assert.equal(pc.channels[0]?.sent.length, 1);
+  const packet = new Uint8Array(pc.channels[0]?.sent[0] ?? new ArrayBuffer(0));
+  assert.equal(packet[0], GIZCLAW_PROTOCOL_TELEMETRY);
 });
 
 test("encodeTelemetryPacket prefixes protobuf telemetry payload", () => {
@@ -319,6 +336,13 @@ test("encodeTelemetryPacket rejects observations with multiple bodies", () => {
       } as any],
     }),
     /exactly one body/,
+  );
+});
+
+test("encodeTelemetryPacket rejects empty frames before encoding", () => {
+  assert.throws(
+    () => encodeTelemetryPacket({}),
+    /at least one observation/,
   );
 });
 

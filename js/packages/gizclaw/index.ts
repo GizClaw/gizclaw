@@ -1,5 +1,6 @@
 import type { CreateGiznetWebRtcOfferData } from "./generated/serverpublic/types.gen";
 import { base58Decode, prepareEncryptedGiznetWebRTCOffer } from "./signaling.ts";
+import { sendTelemetryPacket, type TelemetryFrame } from "./telemetry.ts";
 export * from "./telemetry.ts";
 
 export const WEBRTC_RPC_DATA_CHANNEL_LABEL = "rpc";
@@ -20,6 +21,7 @@ export const RPC_FRAME_TYPE_BINARY = 2;
 export const RPC_FRAME_TYPE_TEXT = 3;
 const DATA_CHANNEL_SEND_RETRY_DELAY_MS = 5;
 const DATA_CHANNEL_SEND_RETRY_LIMIT = 20;
+const giznetPacketDataChannels = new WeakMap<object, WebRTCRPCDataChannel>();
 
 export type RPCID = string;
 
@@ -520,14 +522,29 @@ export function prepareGiznetWebRTCPeerConnection(
   options: Pick<ConnectGiznetWebRTCOptions, "addAudioTransceiver" | "createPacketDataChannel"> = {},
 ): void {
   if (options.createPacketDataChannel !== false) {
-    pc.createDataChannel(GIZNET_WEBRTC_PACKET_DATA_CHANNEL_LABEL, {
+    const packetDataChannel = pc.createDataChannel(GIZNET_WEBRTC_PACKET_DATA_CHANNEL_LABEL, {
       maxRetransmits: 0,
       ordered: false,
     });
+    giznetPacketDataChannels.set(pc, packetDataChannel);
+  } else {
+    giznetPacketDataChannels.delete(pc);
   }
   if (options.addAudioTransceiver !== false && typeof pc.addTransceiver === "function") {
     pc.addTransceiver("audio", { direction: "sendrecv" });
   }
+}
+
+export function getGiznetWebRTCPacketDataChannel(pc: RTCPeerConnection): WebRTCRPCDataChannel | undefined {
+  return giznetPacketDataChannels.get(pc);
+}
+
+export function sendGiznetWebRTCTelemetry(pc: RTCPeerConnection, frame: TelemetryFrame): void {
+  const channel = getGiznetWebRTCPacketDataChannel(pc);
+  if (channel == null) {
+    throw new Error("giznet WebRTC packet data channel is not available");
+  }
+  sendTelemetryPacket(channel, frame);
 }
 
 export async function sendGiznetWebRTCOffer(

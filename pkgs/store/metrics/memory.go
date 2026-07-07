@@ -13,9 +13,10 @@ import (
 
 // MemoryStore keeps metric samples in process memory.
 type MemoryStore struct {
-	mu     sync.RWMutex
-	series map[string]*memorySeries
-	closed bool
+	mu       sync.RWMutex
+	series   map[string]*memorySeries
+	lookback time.Duration
+	closed   bool
 }
 
 type memorySeries struct {
@@ -37,10 +38,15 @@ type memoryMatcher struct {
 	re    *regexp.Regexp
 }
 
+const MemoryStoreDefaultLookback = 5 * time.Minute
+
 // NewMemoryStore creates an in-process metrics store for tests and embedded
 // single-process integrations.
 func NewMemoryStore() *MemoryStore {
-	return &MemoryStore{series: make(map[string]*memorySeries)}
+	return &MemoryStore{
+		series:   make(map[string]*memorySeries),
+		lookback: MemoryStoreDefaultLookback,
+	}
 }
 
 func (s *MemoryStore) Append(ctx context.Context, samples []Sample) error {
@@ -108,7 +114,7 @@ func (s *MemoryStore) Query(ctx context.Context, query Query) (SeriesSet, error)
 			if !selector.matches(series) {
 				continue
 			}
-			point, ok := latestPoint(series.points, evalTime)
+			point, ok := latestPoint(series.points, evalTime, s.lookback)
 			if ok {
 				values = append(values, point.Value)
 			}
@@ -124,7 +130,7 @@ func (s *MemoryStore) Query(ctx context.Context, query Query) (SeriesSet, error)
 		if !selector.matches(series) {
 			continue
 		}
-		point, ok := latestPoint(series.points, evalTime)
+		point, ok := latestPoint(series.points, evalTime, s.lookback)
 		if !ok {
 			continue
 		}
@@ -173,7 +179,7 @@ func (s *MemoryStore) QueryRange(ctx context.Context, query RangeQuery) (SeriesS
 				if !selector.matches(series) {
 					continue
 				}
-				point, ok := latestPoint(series.points, ts)
+				point, ok := latestPoint(series.points, ts, s.lookback)
 				if ok {
 					values = append(values, point.Value)
 				}
@@ -193,7 +199,7 @@ func (s *MemoryStore) QueryRange(ctx context.Context, query RangeQuery) (SeriesS
 		if !selector.matches(series) {
 			continue
 		}
-		points := pointsInRange(series.points, query.Start.UTC(), query.End.UTC(), query.Step)
+		points := pointsInRange(series.points, query.Start.UTC(), query.End.UTC(), query.Step, s.lookback)
 		if len(points) == 0 {
 			continue
 		}
@@ -214,22 +220,25 @@ func (s *MemoryStore) Close() error {
 	return nil
 }
 
-func latestPoint(points []Point, at time.Time) (Point, bool) {
+func latestPoint(points []Point, at time.Time, lookback time.Duration) (Point, bool) {
 	if len(points) == 0 {
 		return Point{}, false
 	}
 	for i := len(points) - 1; i >= 0; i-- {
 		if !points[i].Timestamp.After(at) {
+			if lookback > 0 && at.Sub(points[i].Timestamp) > lookback {
+				return Point{}, false
+			}
 			return points[i], true
 		}
 	}
 	return Point{}, false
 }
 
-func pointsInRange(points []Point, start, end time.Time, step time.Duration) []Point {
+func pointsInRange(points []Point, start, end time.Time, step time.Duration, lookback time.Duration) []Point {
 	out := []Point{}
 	for ts := start; !ts.After(end); ts = ts.Add(step) {
-		point, ok := latestPoint(points, ts)
+		point, ok := latestPoint(points, ts, lookback)
 		if ok {
 			out = append(out, Point{Timestamp: ts, Value: point.Value})
 		}

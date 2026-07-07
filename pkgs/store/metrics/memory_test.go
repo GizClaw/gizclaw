@@ -79,14 +79,14 @@ func TestMemoryStoreMatchersAndErrors(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("Append: %v", err)
 	}
-	got, err := store.Query(context.Background(), Query{Expression: `metric_a{peer_id=~"peer-[ab]"}`})
+	got, err := store.Query(context.Background(), Query{Expression: `metric_a{peer_id=~"peer-[ab]"}`, Time: base})
 	if err != nil {
 		t.Fatalf("Query regexp: %v", err)
 	}
 	if len(got) != 2 {
 		t.Fatalf("regexp query series = %d, want 2: %+v", len(got), got)
 	}
-	got, err = store.Query(context.Background(), Query{Expression: `metric_a{peer_id=~"peer-a"}`})
+	got, err = store.Query(context.Background(), Query{Expression: `metric_a{peer_id=~"peer-a"}`, Time: base})
 	if err != nil {
 		t.Fatalf("Query anchored regexp: %v", err)
 	}
@@ -178,6 +178,65 @@ func TestMemoryStoreRangeHonorsStepAndAggregates(t *testing.T) {
 		t.Fatalf("aggregate range = %+v, want 3 points", got)
 	}
 	if got[0].Points[0].Value != 11 || got[0].Points[1].Value != 12 || got[0].Points[2].Value != 23 {
+		t.Fatalf("aggregate range points = %+v", got[0].Points)
+	}
+}
+
+func TestMemoryStoreQueriesRespectLookback(t *testing.T) {
+	store := NewMemoryStore()
+	base := time.Unix(1000, 0).UTC()
+	if err := store.Append(context.Background(), []Sample{
+		{Name: "metric_a", Labels: map[string]string{"peer_id": "p1"}, Timestamp: base, Value: 1},
+		{Name: "metric_a", Labels: map[string]string{"peer_id": "p2"}, Timestamp: base.Add(6 * time.Minute), Value: 2},
+	}); err != nil {
+		t.Fatalf("Append: %v", err)
+	}
+
+	got, err := store.Query(context.Background(), Query{
+		Expression: "metric_a",
+		Time:       base.Add(MemoryStoreDefaultLookback).Add(time.Millisecond),
+	})
+	if err != nil {
+		t.Fatalf("Query: %v", err)
+	}
+	if len(got) != 0 {
+		t.Fatalf("stale instant query = %+v, want empty", got)
+	}
+
+	got, err = store.QueryRange(context.Background(), RangeQuery{
+		Expression: "metric_a",
+		Start:      base,
+		End:        base.Add(6 * time.Minute),
+		Step:       3 * time.Minute,
+	})
+	if err != nil {
+		t.Fatalf("QueryRange: %v", err)
+	}
+	if len(got) != 2 {
+		t.Fatalf("range series = %+v, want 2 series", got)
+	}
+	for _, series := range got {
+		if series.Labels["peer_id"] == "p1" && len(series.Points) != 2 {
+			t.Fatalf("p1 points = %+v, want points only within lookback", series.Points)
+		}
+		if series.Labels["peer_id"] == "p2" && len(series.Points) != 1 {
+			t.Fatalf("p2 points = %+v, want fresh point only", series.Points)
+		}
+	}
+
+	got, err = store.QueryRange(context.Background(), RangeQuery{
+		Expression: "sum(metric_a)",
+		Start:      base,
+		End:        base.Add(6 * time.Minute),
+		Step:       3 * time.Minute,
+	})
+	if err != nil {
+		t.Fatalf("QueryRange aggregate: %v", err)
+	}
+	if len(got) != 1 || len(got[0].Points) != 3 {
+		t.Fatalf("aggregate range = %+v, want 3 non-empty points", got)
+	}
+	if got[0].Points[0].Value != 1 || got[0].Points[1].Value != 1 || got[0].Points[2].Value != 2 {
 		t.Fatalf("aggregate range points = %+v", got[0].Points)
 	}
 }

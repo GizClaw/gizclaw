@@ -207,7 +207,10 @@ func TestServiceReportWithMemoryMetricsStoreQueriesTelemetrySamples(t *testing.T
 	if err != nil {
 		t.Fatalf("gnss selector: %v", err)
 	}
-	got, err = store.Query(context.Background(), metrics.Query{Expression: gnssQuery})
+	got, err = store.Query(context.Background(), metrics.Query{
+		Expression: gnssQuery,
+		Time:       base.Add(2 * time.Second),
+	})
 	if err != nil {
 		t.Fatalf("Query gnss: %v", err)
 	}

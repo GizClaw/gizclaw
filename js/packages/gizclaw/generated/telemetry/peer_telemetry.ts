@@ -56,8 +56,8 @@ export function encodeTelemetryFrame(message: TelemetryFrame): Uint8Array {
   if (message.observedAtUnixMs != null) {
     writer.int64(2, message.observedAtUnixMs);
   }
-  for (const observation of message.observations ?? []) {
-    writer.message(3, encodeObservation(observation));
+  for (const item of message.observations ?? []) {
+    writer.message(3, encodeObservation(item));
   }
   return writer.finish();
 }
