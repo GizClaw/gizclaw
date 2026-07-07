@@ -1150,6 +1150,10 @@ export type PeerStatus = {
     muted?: boolean;
     battery_percent?: number;
     charging?: boolean;
+    gnss_latitude?: number;
+    gnss_longitude?: number;
+    gnss_altitude_m?: number;
+    gnss_accuracy_m?: number;
     labels?: {
         [key: string]: string;
     };

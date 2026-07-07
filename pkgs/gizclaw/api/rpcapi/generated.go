@@ -2277,6 +2277,10 @@ type PeerStatus struct {
 	BatteryPercent *int                    `json:"battery_percent,omitempty"`
 	Charging       *bool                   `json:"charging,omitempty"`
 	Details        *map[string]interface{} `json:"details,omitempty"`
+	GnssAccuracyM  *float32                `json:"gnss_accuracy_m,omitempty"`
+	GnssAltitudeM  *float32                `json:"gnss_altitude_m,omitempty"`
+	GnssLatitude   *float32                `json:"gnss_latitude,omitempty"`
+	GnssLongitude  *float32                `json:"gnss_longitude,omitempty"`
 	Labels         *map[string]string      `json:"labels,omitempty"`
 	Muted          *bool                   `json:"muted,omitempty"`
 	ReportedAt     *time.Time              `json:"reported_at,omitempty"`

@@ -600,6 +600,14 @@ typedef struct {
   bool charging;
   bool has_details;
   gzc_json_t details;
+  bool has_gnss_accuracy_m;
+  double gnss_accuracy_m;
+  bool has_gnss_altitude_m;
+  double gnss_altitude_m;
+  bool has_gnss_latitude;
+  double gnss_latitude;
+  bool has_gnss_longitude;
+  double gnss_longitude;
   bool has_labels;
   gzc_json_t labels;
   bool has_muted;

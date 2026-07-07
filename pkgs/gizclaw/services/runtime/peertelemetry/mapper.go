@@ -32,10 +32,23 @@ type StatusPatch struct {
 	BatteryPercentAt time.Time
 	Charging         *bool
 	ChargingAt       time.Time
+	GNSSLatitude     *float64
+	GNSSLatitudeAt   time.Time
+	GNSSLongitude    *float64
+	GNSSLongitudeAt  time.Time
+	GNSSAltitudeM    *float64
+	GNSSAltitudeMAt  time.Time
+	GNSSAccuracyM    *float64
+	GNSSAccuracyMAt  time.Time
 }
 
 func (p StatusPatch) Empty() bool {
-	return p.BatteryPercent == nil && p.Charging == nil
+	return p.BatteryPercent == nil &&
+		p.Charging == nil &&
+		p.GNSSLatitude == nil &&
+		p.GNSSLongitude == nil &&
+		p.GNSSAltitudeM == nil &&
+		p.GNSSAccuracyM == nil
 }
 
 func MapFrame(peer giznet.PublicKey, frame *telemetrypb.TelemetryFrame, baseTime time.Time) ([]metrics.Sample, StatusPatch, error) {
@@ -62,11 +75,12 @@ func MapFrame(peer giznet.PublicKey, frame *telemetrypb.TelemetryFrame, baseTime
 			samples = append(samples, next...)
 			mergeStatusPatch(&status, patch)
 		case *telemetrypb.Observation_Gnss:
-			next, err := mapGNSS(body.Gnss, labels, ts)
+			next, patch, err := mapGNSS(body.Gnss, labels, ts)
 			if err != nil {
 				return nil, StatusPatch{}, err
 			}
 			samples = append(samples, next...)
+			mergeStatusPatch(&status, patch)
 		case *telemetrypb.Observation_Network:
 			next, err := mapNetwork(body.Network, labels, ts)
 			if err != nil {
@@ -118,33 +132,48 @@ func mapBattery(obs *telemetrypb.BatteryObservation, labels map[string]string, t
 	return samples, patch, nil
 }
 
-func mapGNSS(obs *telemetrypb.GnssObservation, labels map[string]string, ts time.Time) ([]metrics.Sample, error) {
+func mapGNSS(obs *telemetrypb.GnssObservation, labels map[string]string, ts time.Time) ([]metrics.Sample, StatusPatch, error) {
 	if obs == nil {
-		return nil, fmt.Errorf("%w: gnss observation is nil", ErrInvalidFrame)
+		return nil, StatusPatch{}, fmt.Errorf("%w: gnss observation is nil", ErrInvalidFrame)
 	}
 	if err := validateFiniteRange("gnss latitude", obs.GetLatitude(), -90, 90); err != nil {
-		return nil, err
+		return nil, StatusPatch{}, err
 	}
 	if err := validateFiniteRange("gnss longitude", obs.GetLongitude(), -180, 180); err != nil {
-		return nil, err
+		return nil, StatusPatch{}, err
 	}
+	latitude := obs.GetLatitude()
+	longitude := obs.GetLongitude()
 	samples := []metrics.Sample{
-		sample(MetricGNSSLatitude, labels, ts, obs.GetLatitude()),
-		sample(MetricGNSSLongitude, labels, ts, obs.GetLongitude()),
+		sample(MetricGNSSLatitude, labels, ts, latitude),
+		sample(MetricGNSSLongitude, labels, ts, longitude),
+	}
+	patch := StatusPatch{
+		ReportedAt:      ts,
+		GNSSLatitude:    &latitude,
+		GNSSLatitudeAt:  ts,
+		GNSSLongitude:   &longitude,
+		GNSSLongitudeAt: ts,
 	}
 	if obs.AltitudeM != nil {
 		if err := validateFinite("gnss altitude_m", *obs.AltitudeM); err != nil {
-			return nil, err
+			return nil, StatusPatch{}, err
 		}
-		samples = append(samples, sample(MetricGNSSAltitudeM, labels, ts, *obs.AltitudeM))
+		altitude := *obs.AltitudeM
+		samples = append(samples, sample(MetricGNSSAltitudeM, labels, ts, altitude))
+		patch.GNSSAltitudeM = &altitude
+		patch.GNSSAltitudeMAt = ts
 	}
 	if obs.AccuracyM != nil {
 		if err := validateNonNegativeFinite("gnss accuracy_m", *obs.AccuracyM); err != nil {
-			return nil, err
+			return nil, StatusPatch{}, err
 		}
-		samples = append(samples, sample(MetricGNSSAccuracyM, labels, ts, *obs.AccuracyM))
+		accuracy := *obs.AccuracyM
+		samples = append(samples, sample(MetricGNSSAccuracyM, labels, ts, accuracy))
+		patch.GNSSAccuracyM = &accuracy
+		patch.GNSSAccuracyMAt = ts
 	}
-	return samples, nil
+	return samples, patch, nil
 }
 
 func mapNetwork(obs *telemetrypb.NetworkObservation, labels map[string]string, ts time.Time) ([]metrics.Sample, error) {
@@ -231,6 +260,22 @@ func mergeStatusPatch(dst *StatusPatch, src StatusPatch) {
 	if src.Charging != nil && (dst.Charging == nil || !src.ChargingAt.Before(dst.ChargingAt)) {
 		dst.Charging = src.Charging
 		dst.ChargingAt = src.ChargingAt
+	}
+	if src.GNSSLatitude != nil && (dst.GNSSLatitude == nil || !src.GNSSLatitudeAt.Before(dst.GNSSLatitudeAt)) {
+		dst.GNSSLatitude = src.GNSSLatitude
+		dst.GNSSLatitudeAt = src.GNSSLatitudeAt
+	}
+	if src.GNSSLongitude != nil && (dst.GNSSLongitude == nil || !src.GNSSLongitudeAt.Before(dst.GNSSLongitudeAt)) {
+		dst.GNSSLongitude = src.GNSSLongitude
+		dst.GNSSLongitudeAt = src.GNSSLongitudeAt
+	}
+	if src.GNSSAltitudeM != nil && (dst.GNSSAltitudeM == nil || !src.GNSSAltitudeMAt.Before(dst.GNSSAltitudeMAt)) {
+		dst.GNSSAltitudeM = src.GNSSAltitudeM
+		dst.GNSSAltitudeMAt = src.GNSSAltitudeMAt
+	}
+	if src.GNSSAccuracyM != nil && (dst.GNSSAccuracyM == nil || !src.GNSSAccuracyMAt.Before(dst.GNSSAccuracyMAt)) {
+		dst.GNSSAccuracyM = src.GNSSAccuracyM
+		dst.GNSSAccuracyMAt = src.GNSSAccuracyMAt
 	}
 }
 

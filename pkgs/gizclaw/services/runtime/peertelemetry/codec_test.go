@@ -130,8 +130,21 @@ func TestServiceReportPacketAppendsMetricsAndSyncsFixedStatus(t *testing.T) {
 	if status.Charging == nil || !*status.Charging {
 		t.Fatalf("Charging = %#v, want true", status.Charging)
 	}
-	if status.ReportedAt == nil || !status.ReportedAt.Equal(base) {
-		t.Fatalf("ReportedAt = %#v, want %s", status.ReportedAt, base)
+	if status.GnssLatitude == nil || *status.GnssLatitude != float32(31.2) {
+		t.Fatalf("GnssLatitude = %#v, want 31.2", status.GnssLatitude)
+	}
+	if status.GnssLongitude == nil || *status.GnssLongitude != float32(121.4) {
+		t.Fatalf("GnssLongitude = %#v, want 121.4", status.GnssLongitude)
+	}
+	if status.GnssAltitudeM == nil || *status.GnssAltitudeM != float32(12.5) {
+		t.Fatalf("GnssAltitudeM = %#v, want 12.5", status.GnssAltitudeM)
+	}
+	if status.GnssAccuracyM == nil || *status.GnssAccuracyM != float32(2.25) {
+		t.Fatalf("GnssAccuracyM = %#v, want 2.25", status.GnssAccuracyM)
+	}
+	gnssAt := base.Add(10 * time.Millisecond)
+	if status.ReportedAt == nil || !status.ReportedAt.Equal(gnssAt) {
+		t.Fatalf("ReportedAt = %#v, want %s", status.ReportedAt, gnssAt)
 	}
 	if status.Volume == nil || *status.Volume != 33 {
 		t.Fatalf("Volume = %#v, want preserved 33", status.Volume)
@@ -597,6 +610,42 @@ func TestStatusSyncEdges(t *testing.T) {
 	if store.status.ReportedAt == nil || !store.status.ReportedAt.Equal(newReportedAt) {
 		t.Fatalf("per-field freshness ReportedAt = %#v, want preserved %s", store.status.ReportedAt, newReportedAt)
 	}
+
+	store.puts = 0
+	currentLatitude := float32(31.2)
+	currentLongitude := float32(121.4)
+	gnssDetails := telemetryStatusDetails(
+		telemetryStatusGNSSLatitudeAtKey, currentReportedAt,
+		telemetryStatusGNSSLongitudeAtKey, newReportedAt,
+	)
+	store.status = apitypes.PeerStatus{
+		ReportedAt:    &newReportedAt,
+		GnssLatitude:  &currentLatitude,
+		GnssLongitude: &currentLongitude,
+		Details:       &gnssDetails,
+	}
+	latitudeRefreshAt := currentReportedAt.Add(500 * time.Millisecond)
+	if err := (StatusSync{Store: store}).SyncTelemetryStatus(context.Background(), peer, StatusPatch{
+		ReportedAt:      latitudeRefreshAt,
+		GNSSLatitude:    float64Ptr(31.3),
+		GNSSLatitudeAt:  latitudeRefreshAt,
+		GNSSLongitude:   float64Ptr(121.5),
+		GNSSLongitudeAt: latitudeRefreshAt,
+	}); err != nil {
+		t.Fatalf("SyncTelemetryStatus(gnss per-field freshness) error = %v", err)
+	}
+	if store.puts != 1 {
+		t.Fatalf("gnss per-field freshness puts = %d, want 1", store.puts)
+	}
+	if store.status.GnssLatitude == nil || *store.status.GnssLatitude != float32(31.3) {
+		t.Fatalf("gnss per-field freshness GnssLatitude = %#v, want refreshed 31.3", store.status.GnssLatitude)
+	}
+	if store.status.GnssLongitude == nil || *store.status.GnssLongitude != float32(121.4) {
+		t.Fatalf("gnss per-field freshness GnssLongitude = %#v, want preserved 121.4", store.status.GnssLongitude)
+	}
+	if store.status.ReportedAt == nil || !store.status.ReportedAt.Equal(newReportedAt) {
+		t.Fatalf("gnss per-field freshness ReportedAt = %#v, want preserved %s", store.status.ReportedAt, newReportedAt)
+	}
 }
 
 func marshalFrame(t *testing.T, frame *telemetrypb.TelemetryFrame) []byte {
@@ -685,6 +734,10 @@ func intPtr(v int) *int {
 }
 
 func boolPtr(v bool) *bool {
+	return &v
+}
+
+func float64Ptr(v float64) *float64 {
 	return &v
 }
 

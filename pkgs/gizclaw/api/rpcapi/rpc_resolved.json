@@ -3470,6 +3470,23 @@
             "additionalProperties": true,
             "type": "object"
           },
+          "gnss_accuracy_m": {
+            "minimum": 0,
+            "type": "number"
+          },
+          "gnss_altitude_m": {
+            "type": "number"
+          },
+          "gnss_latitude": {
+            "maximum": 90,
+            "minimum": -90,
+            "type": "number"
+          },
+          "gnss_longitude": {
+            "maximum": 180,
+            "minimum": -180,
+            "type": "number"
+          },
           "labels": {
             "additionalProperties": {
               "type": "string"

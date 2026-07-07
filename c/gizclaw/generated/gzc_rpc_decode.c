@@ -215,6 +215,30 @@ int gzc_server_get_status_response_decode_json(gzc_str_t json, gzc_server_get_st
     rc = (out_value->details.raw = raw, GZC_OK);
     if (rc != GZC_OK) { return rc; }
   }
+  rc = gzc_json_find_field(json, "gnss_accuracy_m", &raw);
+  if (rc == GZC_OK) {
+    out_value->has_gnss_accuracy_m = true;
+    rc = gzc_json_parse_f64(raw, &out_value->gnss_accuracy_m);
+    if (rc != GZC_OK) { return rc; }
+  }
+  rc = gzc_json_find_field(json, "gnss_altitude_m", &raw);
+  if (rc == GZC_OK) {
+    out_value->has_gnss_altitude_m = true;
+    rc = gzc_json_parse_f64(raw, &out_value->gnss_altitude_m);
+    if (rc != GZC_OK) { return rc; }
+  }
+  rc = gzc_json_find_field(json, "gnss_latitude", &raw);
+  if (rc == GZC_OK) {
+    out_value->has_gnss_latitude = true;
+    rc = gzc_json_parse_f64(raw, &out_value->gnss_latitude);
+    if (rc != GZC_OK) { return rc; }
+  }
+  rc = gzc_json_find_field(json, "gnss_longitude", &raw);
+  if (rc == GZC_OK) {
+    out_value->has_gnss_longitude = true;
+    rc = gzc_json_parse_f64(raw, &out_value->gnss_longitude);
+    if (rc != GZC_OK) { return rc; }
+  }
   rc = gzc_json_find_field(json, "labels", &raw);
   if (rc == GZC_OK) {
     out_value->has_labels = true;
