@@ -216,6 +216,69 @@ func TestServiceReportWithMemoryMetricsStoreQueriesTelemetrySamples(t *testing.T
 	}
 }
 
+func TestServiceReportBoundsMetricsAppendContext(t *testing.T) {
+	peer := testPublicKey(t)
+	percent := 73.0
+	metricsStore := &fakeMetricsStore{}
+	service := &Service{
+		Metrics:              metricsStore,
+		Status:               StatusSync{Store: &fakeStatusStore{}},
+		MetricsAppendTimeout: 50 * time.Millisecond,
+	}
+	if err := service.Report(context.Background(), peer, &telemetrypb.TelemetryFrame{
+		Observations: []*telemetrypb.Observation{{
+			Body: &telemetrypb.Observation_Battery{Battery: &telemetrypb.BatteryObservation{Percent: &percent}},
+		}},
+	}); err != nil {
+		t.Fatalf("Report() error = %v", err)
+	}
+	if !metricsStore.deadlineSet {
+		t.Fatal("metrics Append context has no deadline")
+	}
+	if got := time.Until(metricsStore.deadline); got <= 0 || got > time.Second {
+		t.Fatalf("metrics Append deadline remaining = %s, want a short positive deadline", got)
+	}
+}
+
+func TestMapFrameStatusUsesLatestBatteryObservationTime(t *testing.T) {
+	peer := testPublicKey(t)
+	base := time.Unix(900, 0).UTC()
+	olderPercent := 10.0
+	newerPercent := 80.0
+	olderCharging := false
+	newerCharging := true
+	_, patch, err := MapFrame(peer, &telemetrypb.TelemetryFrame{
+		Observations: []*telemetrypb.Observation{
+			{
+				ObservedAtDeltaMs: 1000,
+				Body: &telemetrypb.Observation_Battery{Battery: &telemetrypb.BatteryObservation{
+					Percent:  &newerPercent,
+					Charging: &newerCharging,
+				}},
+			},
+			{
+				ObservedAtDeltaMs: 100,
+				Body: &telemetrypb.Observation_Battery{Battery: &telemetrypb.BatteryObservation{
+					Percent:  &olderPercent,
+					Charging: &olderCharging,
+				}},
+			},
+		},
+	}, base)
+	if err != nil {
+		t.Fatalf("MapFrame() error = %v", err)
+	}
+	if patch.ReportedAt != base.Add(time.Second) {
+		t.Fatalf("ReportedAt = %s, want latest observation time", patch.ReportedAt)
+	}
+	if patch.BatteryPercent == nil || *patch.BatteryPercent != 80 {
+		t.Fatalf("BatteryPercent = %#v, want latest value 80", patch.BatteryPercent)
+	}
+	if patch.Charging == nil || !*patch.Charging {
+		t.Fatalf("Charging = %#v, want latest value true", patch.Charging)
+	}
+}
+
 func TestMapFrameRejectsInvalidNumbers(t *testing.T) {
 	peer := testPublicKey(t)
 	percent := math.NaN()
@@ -399,14 +462,17 @@ func assertSample(t *testing.T, samples []metrics.Sample, name string, ts time.T
 }
 
 type fakeMetricsStore struct {
-	samples []metrics.Sample
-	err     error
+	samples     []metrics.Sample
+	err         error
+	deadlineSet bool
+	deadline    time.Time
 }
 
-func (s *fakeMetricsStore) Append(_ context.Context, samples []metrics.Sample) error {
+func (s *fakeMetricsStore) Append(ctx context.Context, samples []metrics.Sample) error {
 	if s.err != nil {
 		return s.err
 	}
+	s.deadline, s.deadlineSet = ctx.Deadline()
 	s.samples = append(s.samples, samples...)
 	return nil
 }

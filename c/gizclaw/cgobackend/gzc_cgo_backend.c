@@ -22,8 +22,6 @@ int gzcGoPeerPoll(uint64_t handle, int timeout_ms);
 int gzcGoChannelSend(uint64_t handle, int channel_id, const uint8_t *data, size_t len, bool is_text);
 void gzcGoChannelClose(uint64_t handle, int channel_id);
 void gzcGoPeerClose(uint64_t handle);
-int gzcGoTelemetryEncode(const gzc_telemetry_frame_t *frame, uint8_t **out_data, size_t *out_len);
-
 enum {
   gzc_cgo_channel_packet = 0,
   gzc_cgo_channel_rpc = 1,
@@ -431,21 +429,4 @@ void gzc_cgo_emit_channel_message(gzc_cgo_backend_t *backend, int channel_id, co
       data,
       len,
       is_text);
-}
-
-int gzc_telemetry_encode_frame(const gzc_telemetry_frame_t *frame, const gzc_platform_t *platform, gzc_buf_t *out_payload) {
-  if (frame == NULL || out_payload == NULL) {
-    return GZC_ERR_INVALID_ARGUMENT;
-  }
-  const gzc_platform_t *alloc = platform == NULL ? gzc_default_platform() : platform;
-  uint8_t *raw = NULL;
-  size_t raw_len = 0;
-  int rc = gzcGoTelemetryEncode(frame, &raw, &raw_len);
-  if (rc != GZC_OK) {
-    return rc;
-  }
-  gzc_buf_reset(out_payload);
-  rc = gzc_buf_append(out_payload, alloc, raw, raw_len);
-  free(raw);
-  return rc;
 }

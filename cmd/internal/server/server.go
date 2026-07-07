@@ -234,10 +234,10 @@ func newWithOptions(cfg Config, newOpts newServerOptions) (srv *CmdServer, err e
 				return nil, fmt.Errorf("server: gameplay db store: %w", err)
 			}
 		}
-		if storeExists(cfg, defaultMetricsStore) {
-			if gizServer.MetricsStore, err = ss.Metrics(defaultMetricsStore); err != nil {
-				return nil, fmt.Errorf("server: metrics store: %w", err)
-			}
+	}
+	if storeExists(cfg, defaultMetricsStore) {
+		if gizServer.MetricsStore, err = ss.Metrics(defaultMetricsStore); err != nil {
+			return nil, fmt.Errorf("server: metrics store: %w", err)
 		}
 	}
 	return cmdSrv, nil

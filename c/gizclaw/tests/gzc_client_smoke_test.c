@@ -534,6 +534,14 @@ int main(void) {
   if (expect(telemetry_frame.observations[0].battery.percent == 77, "telemetry public structs are usable") != 0) {
     return 1;
   }
+  rc = gzc_client_send_telemetry(client, &telemetry_frame);
+  if (expect(rc == GZC_OK, "send encoded telemetry frame") != 0) {
+    return 1;
+  }
+  if (expect(fake_webrtc.sent.len > 1 && fake_webrtc.sent.data[0] == GZC_PROTOCOL_TELEMETRY,
+             "encoded telemetry packet is protocol-prefixed") != 0) {
+    return 1;
+  }
 
   gzc_buf_t large_params;
   gzc_buf_init(&large_params);

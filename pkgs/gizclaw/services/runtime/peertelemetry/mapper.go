@@ -217,6 +217,9 @@ func boolValue(value bool) float64 {
 }
 
 func mergeStatusPatch(dst *StatusPatch, src StatusPatch) {
+	if !dst.ReportedAt.IsZero() && src.ReportedAt.Before(dst.ReportedAt) {
+		return
+	}
 	if src.ReportedAt.After(dst.ReportedAt) || dst.ReportedAt.IsZero() {
 		dst.ReportedAt = src.ReportedAt
 	}

@@ -21,14 +21,17 @@ var (
 	ErrStatusServiceNil = errors.New("peertelemetry: status service is nil")
 )
 
+const defaultMetricsAppendTimeout = 2 * time.Second
+
 type StatusService interface {
 	SyncTelemetryStatus(context.Context, giznet.PublicKey, StatusPatch) error
 }
 
 type Service struct {
-	Metrics metrics.Store
-	Status  StatusService
-	Now     func() time.Time
+	Metrics              metrics.Store
+	Status               StatusService
+	Now                  func() time.Time
+	MetricsAppendTimeout time.Duration
 }
 
 func (s *Service) ReportPacket(ctx context.Context, peer giznet.PublicKey, payload []byte) error {
@@ -67,11 +70,20 @@ func (s *Service) Report(ctx context.Context, peer giznet.PublicKey, frame *tele
 		}
 	}
 	if len(samples) > 0 && s.Metrics != nil {
-		if err := s.Metrics.Append(ctx, samples); err != nil {
+		metricsCtx, cancel := context.WithTimeout(ctx, s.metricsAppendTimeout())
+		defer cancel()
+		if err := s.Metrics.Append(metricsCtx, samples); err != nil {
 			errs = append(errs, fmt.Errorf("peertelemetry: append metrics: %w", err))
 		}
 	}
 	return errors.Join(errs...)
+}
+
+func (s *Service) metricsAppendTimeout() time.Duration {
+	if s != nil && s.MetricsAppendTimeout > 0 {
+		return s.MetricsAppendTimeout
+	}
+	return defaultMetricsAppendTimeout
 }
 
 func Decode(payload []byte) (*telemetrypb.TelemetryFrame, error) {

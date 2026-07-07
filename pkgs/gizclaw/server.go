@@ -326,7 +326,6 @@ func (s *Server) init() error {
 		s.GameDefStore == nil &&
 		s.GameplayAssets == nil &&
 		s.GameplayDB == nil &&
-		s.MetricsStore == nil &&
 		s.FriendGroupMessageDefaultTTL == 0 &&
 		s.FriendGroupMessageMaxTTL == 0 &&
 		s.FriendGroupMessageCleanup == 0 &&
