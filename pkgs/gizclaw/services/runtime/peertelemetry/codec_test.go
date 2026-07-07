@@ -279,6 +279,41 @@ func TestMapFrameStatusUsesLatestBatteryObservationTime(t *testing.T) {
 	}
 }
 
+func TestMapFrameStatusPreservesMissingFieldsFromOlderObservations(t *testing.T) {
+	peer := testPublicKey(t)
+	base := time.Unix(901, 0).UTC()
+	olderPercent := 10.0
+	newerCharging := true
+	_, patch, err := MapFrame(peer, &telemetrypb.TelemetryFrame{
+		Observations: []*telemetrypb.Observation{
+			{
+				ObservedAtDeltaMs: 1000,
+				Body: &telemetrypb.Observation_Battery{Battery: &telemetrypb.BatteryObservation{
+					Charging: &newerCharging,
+				}},
+			},
+			{
+				ObservedAtDeltaMs: 100,
+				Body: &telemetrypb.Observation_Battery{Battery: &telemetrypb.BatteryObservation{
+					Percent: &olderPercent,
+				}},
+			},
+		},
+	}, base)
+	if err != nil {
+		t.Fatalf("MapFrame() error = %v", err)
+	}
+	if patch.ReportedAt != base.Add(time.Second) {
+		t.Fatalf("ReportedAt = %s, want latest observation time", patch.ReportedAt)
+	}
+	if patch.BatteryPercent == nil || *patch.BatteryPercent != 10 {
+		t.Fatalf("BatteryPercent = %#v, want older missing field value 10", patch.BatteryPercent)
+	}
+	if patch.Charging == nil || !*patch.Charging {
+		t.Fatalf("Charging = %#v, want latest value true", patch.Charging)
+	}
+}
+
 func TestMapFrameRejectsInvalidNumbers(t *testing.T) {
 	peer := testPublicKey(t)
 	percent := math.NaN()
@@ -424,6 +459,23 @@ func TestStatusSyncEdges(t *testing.T) {
 	}
 	if store.puts != 0 {
 		t.Fatalf("empty patch puts = %d, want 0", store.puts)
+	}
+	currentReportedAt := time.Unix(200, 0).UTC()
+	store.status.ReportedAt = &currentReportedAt
+	currentPercent := 80
+	store.status.BatteryPercent = &currentPercent
+	staleReportedAt := currentReportedAt.Add(-time.Second)
+	if err := (StatusSync{Store: store}).SyncTelemetryStatus(context.Background(), peer, StatusPatch{
+		ReportedAt:     staleReportedAt,
+		BatteryPercent: intPtr(10),
+	}); err != nil {
+		t.Fatalf("SyncTelemetryStatus(stale patch) error = %v", err)
+	}
+	if store.puts != 0 {
+		t.Fatalf("stale patch puts = %d, want 0", store.puts)
+	}
+	if store.status.BatteryPercent == nil || *store.status.BatteryPercent != 80 {
+		t.Fatalf("stale patch BatteryPercent = %#v, want preserved 80", store.status.BatteryPercent)
 	}
 }
 

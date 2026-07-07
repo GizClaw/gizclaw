@@ -19,6 +19,7 @@ export type {
 } from "./generated/telemetry/peer_telemetry.ts";
 
 export const GIZCLAW_PROTOCOL_TELEMETRY = 0x11;
+export const GIZCLAW_MAX_PACKET_MESSAGE_SIZE = 64 * 1024;
 
 export function batteryTelemetry(input: BatteryObservation): Observation {
   return { battery: input };
@@ -38,6 +39,9 @@ export function systemTelemetry(input: SystemObservation): Observation {
 
 export function encodeTelemetryPacket(frame: TelemetryFrame): Uint8Array {
   const body = encodeTelemetryFrame(frame);
+  if (body.length > GIZCLAW_MAX_PACKET_MESSAGE_SIZE - 1) {
+    throw new Error(`telemetry packet payload is ${body.length} bytes, maximum is ${GIZCLAW_MAX_PACKET_MESSAGE_SIZE - 1}`);
+  }
   const packet = new Uint8Array(body.length + 1);
   packet[0] = GIZCLAW_PROTOCOL_TELEMETRY;
   packet.set(body, 1);

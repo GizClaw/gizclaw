@@ -406,9 +406,12 @@ func (h *PeerConn) serveDirectPackets() error {
 				return err
 			}
 		case ProtocolTelemetry:
-			if err := h.handleTelemetryPacket(context.Background(), buf[:n]); err != nil {
-				slog.Warn("gizclaw: peer telemetry packet ignored", "error", err)
-			}
+			payload := append([]byte(nil), buf[:n]...)
+			go func() {
+				if err := h.handleTelemetryPacket(context.Background(), payload); err != nil {
+					slog.Warn("gizclaw: peer telemetry packet ignored", "error", err)
+				}
+			}()
 		default:
 			// Unknown direct packets are ignored by the echo slice; service
 			// protocols continue to be handled by service streams.

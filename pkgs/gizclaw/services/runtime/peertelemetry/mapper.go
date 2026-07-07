@@ -27,9 +27,11 @@ const (
 )
 
 type StatusPatch struct {
-	ReportedAt     time.Time
-	BatteryPercent *int
-	Charging       *bool
+	ReportedAt       time.Time
+	BatteryPercent   *int
+	BatteryPercentAt time.Time
+	Charging         *bool
+	ChargingAt       time.Time
 }
 
 func (p StatusPatch) Empty() bool {
@@ -98,11 +100,13 @@ func mapBattery(obs *telemetrypb.BatteryObservation, labels map[string]string, t
 		samples = append(samples, sample(MetricBatteryPercent, labels, ts, percent))
 		asInt := int(math.Round(percent))
 		patch.BatteryPercent = &asInt
+		patch.BatteryPercentAt = ts
 	}
 	if obs.Charging != nil {
 		samples = append(samples, sample(MetricBatteryCharging, labels, ts, boolValue(*obs.Charging)))
 		charging := *obs.Charging
 		patch.Charging = &charging
+		patch.ChargingAt = ts
 	}
 	if obs.VoltageMv != nil {
 		voltage := *obs.VoltageMv
@@ -217,17 +221,16 @@ func boolValue(value bool) float64 {
 }
 
 func mergeStatusPatch(dst *StatusPatch, src StatusPatch) {
-	if !dst.ReportedAt.IsZero() && src.ReportedAt.Before(dst.ReportedAt) {
-		return
-	}
 	if src.ReportedAt.After(dst.ReportedAt) || dst.ReportedAt.IsZero() {
 		dst.ReportedAt = src.ReportedAt
 	}
-	if src.BatteryPercent != nil {
+	if src.BatteryPercent != nil && (dst.BatteryPercent == nil || !src.BatteryPercentAt.Before(dst.BatteryPercentAt)) {
 		dst.BatteryPercent = src.BatteryPercent
+		dst.BatteryPercentAt = src.BatteryPercentAt
 	}
-	if src.Charging != nil {
+	if src.Charging != nil && (dst.Charging == nil || !src.ChargingAt.Before(dst.ChargingAt)) {
 		dst.Charging = src.Charging
+		dst.ChargingAt = src.ChargingAt
 	}
 }
 

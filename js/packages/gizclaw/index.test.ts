@@ -4,6 +4,7 @@ import { x25519 } from "@noble/curves/ed25519.js";
 
 import {
   GIZCLAW_SERVICE_ADMIN,
+  GIZCLAW_MAX_PACKET_MESSAGE_SIZE,
   GIZCLAW_PROTOCOL_TELEMETRY,
   GIZCLAW_SERVICE_RPC,
   GIZNET_WEBRTC_PACKET_DATA_CHANNEL_LABEL,
@@ -24,6 +25,7 @@ import {
   giznetServiceDataChannelLabel,
   prepareGiznetWebRTCPeerConnection,
   sendGiznetWebRTCOffer,
+  systemTelemetry,
   waitForICEGatheringComplete,
 } from "./index.ts";
 import { createPeerRPCClient } from "./rpc.ts";
@@ -299,6 +301,15 @@ test("encodeTelemetryPacket rejects observations with multiple bodies", () => {
       } as any],
     }),
     /exactly one body/,
+  );
+});
+
+test("encodeTelemetryPacket rejects oversized packets", () => {
+  assert.throws(
+    () => encodeTelemetryPacket({
+      observations: [systemTelemetry({ firmwareVersion: "x".repeat(GIZCLAW_MAX_PACKET_MESSAGE_SIZE) })],
+    }),
+    /maximum/,
   );
 });
 

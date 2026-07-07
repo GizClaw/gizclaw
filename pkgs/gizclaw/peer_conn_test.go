@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/pcm"
+	"github.com/GizClaw/gizclaw-go/pkgs/audio/stampedopus"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminservice"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
@@ -332,6 +333,72 @@ func TestPeerConnHandleTelemetryPacket(t *testing.T) {
 	}
 }
 
+func TestPeerConnServeDirectPacketsDoesNotBlockOnTelemetry(t *testing.T) {
+	ctx := context.Background()
+	keyPair, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("GenerateKeyPair error = %v", err)
+	}
+	percent := 77.0
+	payload, err := proto.Marshal(&telemetrypb.TelemetryFrame{
+		ObservedAtUnixMs: time.Unix(300, 0).UnixMilli(),
+		Observations: []*telemetrypb.Observation{{
+			Body: &telemetrypb.Observation_Battery{Battery: &telemetrypb.BatteryObservation{
+				Percent: &percent,
+			}},
+		}},
+	})
+	if err != nil {
+		t.Fatalf("Marshal() error = %v", err)
+	}
+	conn := &peerConnPacketConn{
+		testGiznetConn: testGiznetConn{publicKey: keyPair.Public},
+		packets: []peerConnTestPacket{
+			{protocol: ProtocolTelemetry, payload: payload},
+			{protocol: ProtocolStampedOpus, payload: stampedopus.Pack(123, []byte{1, 2, 3})},
+		},
+	}
+	metricStore := newPeerConnBlockingMetrics()
+	manager := NewManager(&peer.Server{Store: kv.NewMemory(nil)})
+	manager.PeerRun = &peerrun.Server{Store: kv.NewMemory(nil)}
+	manager.Metrics = metricStore
+	peerConn := &PeerConn{
+		Conn:    conn,
+		Service: &PeerService{manager: manager},
+	}
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- peerConn.serveDirectPackets()
+	}()
+
+	select {
+	case <-metricStore.started:
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for telemetry metrics append")
+	}
+	select {
+	case err := <-errCh:
+		if err != nil {
+			t.Fatalf("serveDirectPackets() error = %v", err)
+		}
+	case <-time.After(200 * time.Millisecond):
+		t.Fatal("serveDirectPackets blocked behind telemetry metrics append")
+	}
+	close(metricStore.release)
+	select {
+	case <-metricStore.finished:
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for telemetry metrics append to finish")
+	}
+	if got := conn.reads; got != 3 {
+		t.Fatalf("direct packet reads = %d, want 3", got)
+	}
+	_, err = manager.PeerRun.GetStatus(ctx, keyPair.Public)
+	if err != nil {
+		t.Fatalf("GetStatus() error = %v", err)
+	}
+}
+
 func TestPeerConnReloadsRuntimeWhenInputIsInactive(t *testing.T) {
 	ctx := context.Background()
 	keyPair, err := giznet.GenerateKeyPair()
@@ -398,6 +465,54 @@ func (s *peerConnFakeMetrics) QueryRange(context.Context, metrics.RangeQuery) (m
 
 func (s *peerConnFakeMetrics) Close() error {
 	return nil
+}
+
+type peerConnBlockingMetrics struct {
+	peerConnFakeMetrics
+	started  chan struct{}
+	release  chan struct{}
+	finished chan struct{}
+	once     sync.Once
+}
+
+func newPeerConnBlockingMetrics() *peerConnBlockingMetrics {
+	return &peerConnBlockingMetrics{
+		started:  make(chan struct{}),
+		release:  make(chan struct{}),
+		finished: make(chan struct{}),
+	}
+}
+
+func (s *peerConnBlockingMetrics) Append(ctx context.Context, samples []metrics.Sample) error {
+	s.once.Do(func() { close(s.started) })
+	defer close(s.finished)
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-s.release:
+	}
+	return s.peerConnFakeMetrics.Append(ctx, samples)
+}
+
+type peerConnTestPacket struct {
+	protocol byte
+	payload  []byte
+}
+
+type peerConnPacketConn struct {
+	testGiznetConn
+	packets []peerConnTestPacket
+	reads   int
+}
+
+func (c *peerConnPacketConn) Read(buf []byte) (byte, int, error) {
+	c.reads++
+	if len(c.packets) == 0 {
+		return 0, 0, giznet.ErrClosed
+	}
+	packet := c.packets[0]
+	c.packets = c.packets[1:]
+	return packet.protocol, copy(buf, packet.payload), nil
 }
 
 func TestPeerConnPCMChunkToInt16(t *testing.T) {

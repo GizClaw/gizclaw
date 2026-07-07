@@ -29,6 +29,9 @@ func (s StatusSync) SyncTelemetryStatus(ctx context.Context, peer giznet.PublicK
 	}
 	if !patch.ReportedAt.IsZero() {
 		reportedAt := patch.ReportedAt.UTC()
+		if status.ReportedAt != nil && reportedAt.Before(status.ReportedAt.UTC()) {
+			return nil
+		}
 		status.ReportedAt = &reportedAt
 	}
 	if patch.BatteryPercent != nil {
