@@ -17,7 +17,7 @@ import (
 var (
 	ErrInvalidPeer      = errors.New("peertelemetry: invalid peer")
 	ErrInvalidFrame     = errors.New("peertelemetry: invalid frame")
-	ErrMetricsStoreNil  = errors.New("peertelemetry: metrics store is nil")
+	ErrServiceNil       = errors.New("peertelemetry: service is nil")
 	ErrStatusServiceNil = errors.New("peertelemetry: status service is nil")
 )
 
@@ -55,21 +55,23 @@ func (s *Service) Report(ctx context.Context, peer giznet.PublicKey, frame *tele
 	if err != nil {
 		return err
 	}
-	if s == nil || s.Metrics == nil {
-		return ErrMetricsStoreNil
+	if s == nil {
+		return ErrServiceNil
 	}
-	if err := s.Metrics.Append(ctx, samples); err != nil {
-		return fmt.Errorf("peertelemetry: append metrics: %w", err)
-	}
+	var errs []error
 	if !status.Empty() {
 		if s.Status == nil {
-			return ErrStatusServiceNil
-		}
-		if err := s.Status.SyncTelemetryStatus(ctx, peer, status); err != nil {
-			return fmt.Errorf("peertelemetry: sync status: %w", err)
+			errs = append(errs, ErrStatusServiceNil)
+		} else if err := s.Status.SyncTelemetryStatus(ctx, peer, status); err != nil {
+			errs = append(errs, fmt.Errorf("peertelemetry: sync status: %w", err))
 		}
 	}
-	return nil
+	if len(samples) > 0 && s.Metrics != nil {
+		if err := s.Metrics.Append(ctx, samples); err != nil {
+			errs = append(errs, fmt.Errorf("peertelemetry: append metrics: %w", err))
+		}
+	}
+	return errors.Join(errs...)
 }
 
 func Decode(payload []byte) (*telemetrypb.TelemetryFrame, error) {

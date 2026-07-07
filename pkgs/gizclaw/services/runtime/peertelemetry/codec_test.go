@@ -193,8 +193,16 @@ func TestServiceReportRejectsInvalidInputsAndMissingDependencies(t *testing.T) {
 	if err := (&Service{Metrics: &fakeMetricsStore{}}).Report(context.Background(), peer, nil); !errors.Is(err, ErrInvalidFrame) {
 		t.Fatalf("Report(nil frame) error = %v, want %v", err, ErrInvalidFrame)
 	}
-	if err := (&Service{}).Report(context.Background(), peer, frame); !errors.Is(err, ErrMetricsStoreNil) {
-		t.Fatalf("Report(nil metrics) error = %v, want %v", err, ErrMetricsStoreNil)
+	var nilService *Service
+	if err := nilService.Report(context.Background(), peer, frame); !errors.Is(err, ErrServiceNil) {
+		t.Fatalf("Report(nil service) error = %v, want %v", err, ErrServiceNil)
+	}
+	statusStore := &fakeStatusStore{}
+	if err := (&Service{Status: StatusSync{Store: statusStore}}).Report(context.Background(), peer, frame); err != nil {
+		t.Fatalf("Report(nil metrics) error = %v, want nil", err)
+	}
+	if statusStore.puts != 1 {
+		t.Fatalf("Report(nil metrics) status puts = %d, want 1", statusStore.puts)
 	}
 	if err := (&Service{Metrics: &fakeMetricsStore{}}).Report(context.Background(), peer, frame); !errors.Is(err, ErrStatusServiceNil) {
 		t.Fatalf("Report(nil status) error = %v, want %v", err, ErrStatusServiceNil)
@@ -210,12 +218,16 @@ func TestServiceReportPropagatesStoreErrors(t *testing.T) {
 		}},
 	}
 	metricsErr := errors.New("metrics down")
+	statusStore := &fakeStatusStore{}
 	service := &Service{
 		Metrics: &fakeMetricsStore{err: metricsErr},
-		Status:  StatusSync{Store: &fakeStatusStore{}},
+		Status:  StatusSync{Store: statusStore},
 	}
 	if err := service.Report(context.Background(), peer, frame); !errors.Is(err, metricsErr) {
 		t.Fatalf("Report(metrics error) = %v, want %v", err, metricsErr)
+	}
+	if got := statusStore.puts; got != 1 {
+		t.Fatalf("Report(metrics error) status puts = %d, want 1", got)
 	}
 	statusErr := errors.New("status down")
 	service = &Service{
