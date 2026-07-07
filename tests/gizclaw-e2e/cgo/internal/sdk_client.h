@@ -71,6 +71,10 @@ int gzc_cgo_session_send_battery_telemetry(
     int charging,
     char *errbuf,
     unsigned long errbuf_len);
+int gzc_cgo_session_send_full_telemetry(
+    gzc_cgo_session_t *session,
+    char *errbuf,
+    unsigned long errbuf_len);
 int gzc_cgo_session_read_packet(
     gzc_cgo_session_t *session,
     int timeout_ms,

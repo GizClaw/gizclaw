@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import wrtc from "@roamhq/wrtc";
-import { connectGiznetWebRTCFromEndpoint } from "@gizclaw/gizclaw";
+import { GIZNET_WEBRTC_PACKET_DATA_CHANNEL_LABEL, connectGiznetWebRTCFromEndpoint } from "@gizclaw/gizclaw";
 import { base58Decode } from "@gizclaw/gizclaw/signaling";
 
 export const repoRoot = path.resolve(import.meta.dirname, "../../../..");
@@ -21,6 +21,28 @@ export async function connectSetupPeer(identityDir: string): Promise<wrtc.RTCPee
   });
   await new Promise((resolve) => setTimeout(resolve, 100));
   return pc;
+}
+
+export type SetupPeerWithPacketChannel = {
+  packetChannel: RTCDataChannel;
+  pc: wrtc.RTCPeerConnection;
+};
+
+export async function connectSetupPeerWithPacketChannel(identityDir: string): Promise<SetupPeerWithPacketChannel> {
+  const identity = await loadIdentity(identityDir);
+  const pc = new wrtc.RTCPeerConnection();
+  const packetChannel = pc.createDataChannel(GIZNET_WEBRTC_PACKET_DATA_CHANNEL_LABEL, {
+    maxRetransmits: 0,
+    ordered: false,
+  }) as unknown as RTCDataChannel;
+  await connectGiznetWebRTCFromEndpoint({
+    clientPrivateKey: identity.clientPrivateKey,
+    createPacketDataChannel: false,
+    endpoint: identity.endpoint,
+    pc: pc as unknown as RTCPeerConnection,
+  });
+  await waitForDataChannelOpen(packetChannel);
+  return { packetChannel, pc };
 }
 
 export async function loadIdentity(dir: string): Promise<Identity> {
@@ -51,6 +73,33 @@ export async function assertSetupServerAvailable(endpoint: string): Promise<void
 
 export function closePeerConnection(pc: wrtc.RTCPeerConnection): void {
   pc.close();
+}
+
+function waitForDataChannelOpen(channel: RTCDataChannel): Promise<void> {
+  if (channel.readyState === "open") {
+    return Promise.resolve();
+  }
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      cleanup();
+      reject(new Error(`packet data channel readyState is ${channel.readyState}, want open`));
+    }, 10_000);
+    const onOpen = (): void => {
+      cleanup();
+      resolve();
+    };
+    const onClose = (): void => {
+      cleanup();
+      reject(new Error("packet data channel closed before opening"));
+    };
+    const cleanup = (): void => {
+      clearTimeout(timer);
+      channel.removeEventListener("open", onOpen);
+      channel.removeEventListener("close", onClose);
+    };
+    channel.addEventListener("open", onOpen);
+    channel.addEventListener("close", onClose);
+  });
 }
 
 function matchConfig(config: string, pattern: RegExp): string {

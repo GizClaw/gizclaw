@@ -24,6 +24,7 @@ import (
 	"time"
 	"unsafe"
 
+	_ "github.com/GizClaw/gizclaw-go/c/gizclaw/cgobackend"
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codec/ogg"
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/stampedopus"
 )
@@ -209,6 +210,22 @@ func (c *Client) SendBatteryTelemetry(percent float64, charging bool) error {
 	return nil
 }
 
+func (c *Client) SendFullTelemetry() error {
+	if c == nil || c.session == nil {
+		return fmt.Errorf("closed C SDK client")
+	}
+	errbuf := make([]byte, 1024)
+	rc := C.gzc_cgo_session_send_full_telemetry(
+		c.session,
+		(*C.char)(unsafe.Pointer(&errbuf[0])),
+		C.ulong(len(errbuf)),
+	)
+	if rc != C.GZC_OK {
+		return fmt.Errorf("send full telemetry rc=%d: %s", int(rc), cString(errbuf))
+	}
+	return nil
+}
+
 func (c *Client) ReadPacket(timeout time.Duration) (byte, []byte, error) {
 	if c == nil || c.session == nil {
 		return 0, nil, fmt.Errorf("closed C SDK client")
@@ -357,7 +374,7 @@ func CSDKServerStatus(t *testing.T, identityDir string) {
 	client := newTestClient(t, identityDir)
 	defer client.Close()
 
-	if err := client.SendBatteryTelemetry(87, true); err != nil {
+	if err := client.SendFullTelemetry(); err != nil {
 		t.Fatal(err)
 	}
 	var result json.RawMessage
@@ -369,7 +386,7 @@ func CSDKServerStatus(t *testing.T, identityDir string) {
 	for {
 		result = mustCallJSON(t, client, "server.status.get", `{}`)
 		decodeJSON(t, "server.status.get", result, &getResponse)
-		if getResponse.BatteryPercent != nil && *getResponse.BatteryPercent == 87 &&
+		if getResponse.BatteryPercent != nil && *getResponse.BatteryPercent == 91 &&
 			getResponse.Charging != nil && *getResponse.Charging {
 			return
 		}

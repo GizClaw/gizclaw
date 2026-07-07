@@ -144,6 +144,78 @@ func TestServiceReportPacketAppendsMetricsAndSyncsFixedStatus(t *testing.T) {
 	}
 }
 
+func TestServiceReportWithMemoryMetricsStoreQueriesTelemetrySamples(t *testing.T) {
+	peer := testPublicKey(t)
+	base := time.Unix(800, 0).UTC()
+	percent := 70.0
+	nextPercent := 71.0
+	latitude := 31.2
+	longitude := 121.4
+	store := metrics.NewMemoryStore()
+	service := &Service{
+		Metrics: store,
+		Status:  StatusSync{Store: &fakeStatusStore{}},
+	}
+	if err := service.Report(context.Background(), peer, &telemetrypb.TelemetryFrame{
+		ObservedAtUnixMs: base.UnixMilli(),
+		Observations: []*telemetrypb.Observation{
+			{Body: &telemetrypb.Observation_Battery{Battery: &telemetrypb.BatteryObservation{Percent: &percent}}},
+			{ObservedAtDeltaMs: 1000, Body: &telemetrypb.Observation_Battery{Battery: &telemetrypb.BatteryObservation{Percent: &nextPercent}}},
+			{ObservedAtDeltaMs: 2000, Body: &telemetrypb.Observation_Gnss{Gnss: &telemetrypb.GnssObservation{
+				Latitude:  latitude,
+				Longitude: longitude,
+			}}},
+		},
+	}); err != nil {
+		t.Fatalf("Report() error = %v", err)
+	}
+
+	batteryQuery, err := (metrics.Selector{
+		Name:     MetricBatteryPercent,
+		Matchers: []metrics.LabelMatcher{{Name: "peer_id", Op: metrics.MatchEqual, Value: peer.String()}},
+	}).Expression()
+	if err != nil {
+		t.Fatalf("battery selector: %v", err)
+	}
+	got, err := store.Query(context.Background(), metrics.Query{
+		Expression: batteryQuery,
+		Time:       base.Add(1500 * time.Millisecond),
+	})
+	if err != nil {
+		t.Fatalf("Query battery: %v", err)
+	}
+	if len(got) != 1 || len(got[0].Points) != 1 || got[0].Points[0].Value != 71 {
+		t.Fatalf("battery query = %+v, want latest 71", got)
+	}
+	got, err = store.QueryRange(context.Background(), metrics.RangeQuery{
+		Expression: batteryQuery,
+		Start:      base,
+		End:        base.Add(time.Second),
+		Step:       time.Second,
+	})
+	if err != nil {
+		t.Fatalf("QueryRange battery: %v", err)
+	}
+	if len(got) != 1 || len(got[0].Points) != 2 {
+		t.Fatalf("battery range = %+v, want 2 points", got)
+	}
+
+	gnssQuery, err := (metrics.Selector{
+		Name:     MetricGNSSLatitude,
+		Matchers: []metrics.LabelMatcher{{Name: "peer_id", Op: metrics.MatchEqual, Value: peer.String()}},
+	}).Expression()
+	if err != nil {
+		t.Fatalf("gnss selector: %v", err)
+	}
+	got, err = store.Query(context.Background(), metrics.Query{Expression: gnssQuery})
+	if err != nil {
+		t.Fatalf("Query gnss: %v", err)
+	}
+	if len(got) != 1 || got[0].Points[0].Value != 31.2 {
+		t.Fatalf("gnss query = %+v, want latitude 31.2", got)
+	}
+}
+
 func TestMapFrameRejectsInvalidNumbers(t *testing.T) {
 	peer := testPublicKey(t)
 	percent := math.NaN()

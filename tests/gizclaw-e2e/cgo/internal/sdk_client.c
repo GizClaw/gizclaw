@@ -359,6 +359,76 @@ int gzc_cgo_session_send_battery_telemetry(
   return GZC_OK;
 }
 
+int gzc_cgo_session_send_full_telemetry(
+    gzc_cgo_session_t *session,
+    char *errbuf,
+    unsigned long errbuf_len) {
+  if (session == NULL) {
+    return fail(errbuf, errbuf_len, "send full telemetry", GZC_ERR_INVALID_ARGUMENT);
+  }
+  gzc_telemetry_observation_t observations[4];
+  memset(observations, 0, sizeof(observations));
+
+  observations[0].kind = GZC_TELEMETRY_OBSERVATION_BATTERY;
+  observations[0].battery.has_percent = true;
+  observations[0].battery.percent = 91;
+  observations[0].battery.has_charging = true;
+  observations[0].battery.charging = true;
+  observations[0].battery.has_voltage_mv = true;
+  observations[0].battery.voltage_mv = 4120;
+
+  observations[1].observed_at_delta_ms = 10;
+  observations[1].kind = GZC_TELEMETRY_OBSERVATION_GNSS;
+  observations[1].gnss.latitude = 31.2304;
+  observations[1].gnss.longitude = 121.4737;
+  observations[1].gnss.has_altitude_m = true;
+  observations[1].gnss.altitude_m = 12.5;
+  observations[1].gnss.has_accuracy_m = true;
+  observations[1].gnss.accuracy_m = 4.2;
+
+  observations[2].observed_at_delta_ms = 20;
+  observations[2].kind = GZC_TELEMETRY_OBSERVATION_NETWORK;
+  observations[2].network.has_rssi_dbm = true;
+  observations[2].network.rssi_dbm = -67;
+  observations[2].network.has_signal_level = true;
+  observations[2].network.signal_level = 4;
+  observations[2].network.has_rat = true;
+  observations[2].network.rat = gzc_str_from_cstr("lte");
+  observations[2].network.has_operator_name = true;
+  observations[2].network.operator_name = gzc_str_from_cstr("test-operator");
+  observations[2].network.has_connected = true;
+  observations[2].network.connected = true;
+
+  observations[3].observed_at_delta_ms = 30;
+  observations[3].kind = GZC_TELEMETRY_OBSERVATION_SYSTEM;
+  observations[3].system.has_uptime_seconds = true;
+  observations[3].system.uptime_seconds = 3600;
+  observations[3].system.has_free_memory_bytes = true;
+  observations[3].system.free_memory_bytes = 262144;
+  observations[3].system.has_temperature_c = true;
+  observations[3].system.temperature_c = 36.5;
+  observations[3].system.has_firmware_version = true;
+  observations[3].system.firmware_version = gzc_str_from_cstr("e2e-cgo-fw");
+  observations[3].system.has_software_version = true;
+  observations[3].system.software_version = gzc_str_from_cstr("e2e-cgo-sw");
+  observations[3].system.has_hardware_version = true;
+  observations[3].system.hardware_version = gzc_str_from_cstr("e2e-cgo-hw");
+
+  gzc_telemetry_frame_t frame;
+  memset(&frame, 0, sizeof(frame));
+  frame.sequence = 1;
+  frame.observations = observations;
+  frame.observation_count = sizeof(observations) / sizeof(observations[0]);
+  int rc = gzc_client_send_telemetry(session->client, &frame);
+  if (rc != GZC_OK) {
+    return fail(errbuf, errbuf_len, "send full telemetry", rc);
+  }
+  if (errbuf != NULL && errbuf_len > 0) {
+    errbuf[0] = 0;
+  }
+  return GZC_OK;
+}
+
 int gzc_cgo_session_read_packet(
     gzc_cgo_session_t *session,
     int timeout_ms,
