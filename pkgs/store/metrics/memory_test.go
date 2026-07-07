@@ -93,6 +93,18 @@ func TestMemoryStoreMatchersAndErrors(t *testing.T) {
 	if len(got) != 1 || got[0].Labels["peer_id"] != "peer-a" {
 		t.Fatalf("anchored regexp query = %+v, want only peer-a", got)
 	}
+	if err := store.Append(context.Background(), []Sample{
+		{Name: "metric_b", Labels: map[string]string{"label": "a!=b", "pattern": "x=y"}, Timestamp: base, Value: 4},
+	}); err != nil {
+		t.Fatalf("Append operator label values: %v", err)
+	}
+	got, err = store.Query(context.Background(), Query{Expression: `metric_b{label="a!=b",pattern=~"x=y"}`, Time: base})
+	if err != nil {
+		t.Fatalf("Query operator label values: %v", err)
+	}
+	if len(got) != 1 || got[0].Labels["label"] != "a!=b" {
+		t.Fatalf("operator label value query = %+v, want metric_b", got)
+	}
 	if _, err := store.Query(context.Background(), Query{Expression: `metric_a{peer_id=`}); err == nil || !strings.Contains(err.Error(), "unsupported") {
 		t.Fatalf("bad selector error = %v", err)
 	}

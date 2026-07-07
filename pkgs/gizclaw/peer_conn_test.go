@@ -334,6 +334,10 @@ func TestPeerConnHandleTelemetryPacket(t *testing.T) {
 }
 
 func TestPeerConnServeDirectPacketsDoesNotBlockOnTelemetry(t *testing.T) {
+	originalShutdownTimeout := peerConnTelemetryShutdownTimeout
+	peerConnTelemetryShutdownTimeout = 50 * time.Millisecond
+	t.Cleanup(func() { peerConnTelemetryShutdownTimeout = originalShutdownTimeout })
+
 	ctx := context.Background()
 	keyPair, err := giznet.GenerateKeyPair()
 	if err != nil {
@@ -380,29 +384,21 @@ func TestPeerConnServeDirectPacketsDoesNotBlockOnTelemetry(t *testing.T) {
 	}
 	select {
 	case err := <-errCh:
-		t.Fatalf("serveDirectPackets returned before draining telemetry: %v", err)
-	case <-time.After(200 * time.Millisecond):
-	}
-	if got, want := conn.reads, len(packets)+1; got != want {
-		t.Fatalf("direct packet reads = %d, want %d", got, want)
-	}
-	close(metricStore.release)
-	select {
-	case err := <-errCh:
 		if err != nil {
 			t.Fatalf("serveDirectPackets() error = %v", err)
 		}
 	case <-time.After(time.Second):
-		t.Fatal("timed out waiting for serveDirectPackets to drain telemetry")
+		t.Fatal("serveDirectPackets stayed blocked behind telemetry shutdown")
+	}
+	if got, want := conn.reads, len(packets)+1; got != want {
+		t.Fatalf("direct packet reads = %d, want %d", got, want)
 	}
 	select {
 	case <-metricStore.finished:
 	case <-time.After(time.Second):
 		t.Fatal("timed out waiting for telemetry metrics append to finish")
 	}
-	if len(metricStore.samples) == 0 {
-		t.Fatal("drained telemetry did not append metrics")
-	}
+	close(metricStore.release)
 	_, err = manager.PeerRun.GetStatus(ctx, keyPair.Public)
 	if err != nil {
 		t.Fatalf("GetStatus() error = %v", err)

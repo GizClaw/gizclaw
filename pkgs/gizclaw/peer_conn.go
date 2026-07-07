@@ -37,6 +37,8 @@ const peerConnMixerFormat = pcm.L16Mono16K
 const peerConnOpusFrameDuration = 20 * time.Millisecond
 const peerConnTelemetryQueueSize = 32
 
+var peerConnTelemetryShutdownTimeout = 2 * time.Second
+
 // PeerConn is the in-memory runtime for one active peer connection.
 // It wraps the existing PeerService bundle and serves one live conn at a time.
 type PeerConn struct {
@@ -408,8 +410,12 @@ func (h *PeerConn) serveDirectPackets() error {
 	go h.processTelemetryPackets(ctx, telemetryPackets, telemetryDone)
 	defer func() {
 		close(telemetryPackets)
-		<-telemetryDone
-		cancel()
+		select {
+		case <-telemetryDone:
+		case <-time.After(peerConnTelemetryShutdownTimeout):
+			cancel()
+			<-telemetryDone
+		}
 	}()
 	for {
 		protocol, n, err := h.Conn.Read(buf)

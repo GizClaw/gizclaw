@@ -16,6 +16,14 @@ func (c *Client) SendTelemetryFrame(frame *telemetrypb.TelemetryFrame) error {
 	if frame == nil {
 		return fmt.Errorf("gizclaw: nil telemetry frame")
 	}
+	if len(frame.GetObservations()) == 0 {
+		return fmt.Errorf("gizclaw: telemetry frame observations are required")
+	}
+	for i, observation := range frame.GetObservations() {
+		if observation == nil || observation.GetBody() == nil {
+			return fmt.Errorf("gizclaw: telemetry observation %d body is required", i)
+		}
+	}
 	conn := c.PeerConn()
 	if conn == nil {
 		return fmt.Errorf("gizclaw: client is not connected")

@@ -19,7 +19,20 @@ func TestClientSendTelemetryFrame(t *testing.T) {
 	if err := (&Client{}).SendTelemetryFrame(nil); err == nil || !strings.Contains(err.Error(), "nil telemetry frame") {
 		t.Fatalf("nil frame SendTelemetryFrame() error = %v", err)
 	}
-	if err := (&Client{}).SendTelemetryFrame(&telemetrypb.TelemetryFrame{}); err == nil || !strings.Contains(err.Error(), "not connected") {
+	if err := (&Client{}).SendTelemetryFrame(&telemetrypb.TelemetryFrame{}); err == nil || !strings.Contains(err.Error(), "observations are required") {
+		t.Fatalf("empty frame SendTelemetryFrame() error = %v", err)
+	}
+	if err := (&Client{}).SendTelemetryFrame(&telemetrypb.TelemetryFrame{
+		Observations: []*telemetrypb.Observation{{}},
+	}); err == nil || !strings.Contains(err.Error(), "observation 0 body is required") {
+		t.Fatalf("missing body SendTelemetryFrame() error = %v", err)
+	}
+	percent := 1.0
+	if err := (&Client{}).SendTelemetryFrame(&telemetrypb.TelemetryFrame{
+		Observations: []*telemetrypb.Observation{{
+			Body: &telemetrypb.Observation_Battery{Battery: &telemetrypb.BatteryObservation{Percent: &percent}},
+		}},
+	}); err == nil || !strings.Contains(err.Error(), "not connected") {
 		t.Fatalf("disconnected SendTelemetryFrame() error = %v", err)
 	}
 
@@ -49,11 +62,10 @@ func TestClientSendTelemetryFrame(t *testing.T) {
 		t.Fatalf("battery = %#v", battery)
 	}
 
-	presetPercent := 1.0
 	preset := &telemetrypb.TelemetryFrame{
 		ObservedAtUnixMs: 1234,
 		Observations: []*telemetrypb.Observation{{
-			Body: &telemetrypb.Observation_Battery{Battery: &telemetrypb.BatteryObservation{Percent: &presetPercent}},
+			Body: &telemetrypb.Observation_Battery{Battery: &telemetrypb.BatteryObservation{Percent: &percent}},
 		}},
 	}
 	if err := client.SendTelemetryFrame(preset); err != nil {

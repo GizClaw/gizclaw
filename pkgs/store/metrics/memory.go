@@ -334,30 +334,54 @@ func splitSelectorMatchers(body string) []string {
 }
 
 func parseMemoryMatcher(text string) (memoryMatcher, error) {
-	for _, op := range []MatchOp{MatchNotRegexp, MatchRegexp, MatchNotEqual, MatchEqual} {
-		idx := strings.Index(text, string(op))
-		if idx < 0 {
+	idx, op, ok := memoryMatcherOperator(text)
+	if !ok {
+		return memoryMatcher{}, fmt.Errorf("metrics: invalid label matcher %q", text)
+	}
+	name := strings.TrimSpace(text[:idx])
+	if err := ValidateLabelName(name); err != nil {
+		return memoryMatcher{}, err
+	}
+	value, err := strconv.Unquote(strings.TrimSpace(text[idx+len(op):]))
+	if err != nil {
+		return memoryMatcher{}, fmt.Errorf("metrics: invalid label matcher value %q: %w", text, err)
+	}
+	matcher := memoryMatcher{name: name, op: op, value: value}
+	if op == MatchRegexp || op == MatchNotRegexp {
+		re, err := regexp.Compile("^(?:" + value + ")$")
+		if err != nil {
+			return memoryMatcher{}, fmt.Errorf("metrics: invalid label matcher regexp %q: %w", value, err)
+		}
+		matcher.re = re
+	}
+	return matcher, nil
+}
+
+func memoryMatcherOperator(text string) (int, MatchOp, bool) {
+	inQuote := false
+	escaped := false
+	for i := 0; i < len(text); i++ {
+		ch := text[i]
+		switch {
+		case escaped:
+			escaped = false
+			continue
+		case ch == '\\':
+			escaped = true
+			continue
+		case ch == '"':
+			inQuote = !inQuote
+			continue
+		case inQuote:
 			continue
 		}
-		name := strings.TrimSpace(text[:idx])
-		if err := ValidateLabelName(name); err != nil {
-			return memoryMatcher{}, err
-		}
-		value, err := strconv.Unquote(strings.TrimSpace(text[idx+len(op):]))
-		if err != nil {
-			return memoryMatcher{}, fmt.Errorf("metrics: invalid label matcher value %q: %w", text, err)
-		}
-		matcher := memoryMatcher{name: name, op: op, value: value}
-		if op == MatchRegexp || op == MatchNotRegexp {
-			re, err := regexp.Compile("^(?:" + value + ")$")
-			if err != nil {
-				return memoryMatcher{}, fmt.Errorf("metrics: invalid label matcher regexp %q: %w", value, err)
+		for _, op := range []MatchOp{MatchNotRegexp, MatchRegexp, MatchNotEqual, MatchEqual} {
+			if strings.HasPrefix(text[i:], string(op)) {
+				return i, op, true
 			}
-			matcher.re = re
 		}
-		return matcher, nil
 	}
-	return memoryMatcher{}, fmt.Errorf("metrics: invalid label matcher %q", text)
+	return -1, "", false
 }
 
 func (s memorySelector) matches(series *memorySeries) bool {
