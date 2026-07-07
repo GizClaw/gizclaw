@@ -317,13 +317,55 @@ func TestMapFrameStatusPreservesMissingFieldsFromOlderObservations(t *testing.T)
 func TestMapFrameRejectsInvalidNumbers(t *testing.T) {
 	peer := testPublicKey(t)
 	percent := math.NaN()
-	_, _, err := MapFrame(peer, &telemetrypb.TelemetryFrame{
-		Observations: []*telemetrypb.Observation{{
-			Body: &telemetrypb.Observation_Battery{Battery: &telemetrypb.BatteryObservation{Percent: &percent}},
-		}},
-	}, time.Unix(1, 0).UTC())
-	if !errors.Is(err, ErrInvalidFrame) {
-		t.Fatalf("MapFrame(NaN) error = %v, want %v", err, ErrInvalidFrame)
+	negative := -1.0
+	cases := []struct {
+		name        string
+		observation *telemetrypb.Observation
+	}{
+		{
+			name: "battery percent NaN",
+			observation: &telemetrypb.Observation{
+				Body: &telemetrypb.Observation_Battery{Battery: &telemetrypb.BatteryObservation{Percent: &percent}},
+			},
+		},
+		{
+			name: "battery voltage negative",
+			observation: &telemetrypb.Observation{
+				Body: &telemetrypb.Observation_Battery{Battery: &telemetrypb.BatteryObservation{VoltageMv: &negative}},
+			},
+		},
+		{
+			name: "gnss accuracy negative",
+			observation: &telemetrypb.Observation{
+				Body: &telemetrypb.Observation_Gnss{Gnss: &telemetrypb.GnssObservation{
+					Latitude:  30,
+					Longitude: 120,
+					AccuracyM: &negative,
+				}},
+			},
+		},
+		{
+			name: "system uptime negative",
+			observation: &telemetrypb.Observation{
+				Body: &telemetrypb.Observation_System{System: &telemetrypb.SystemObservation{UptimeSeconds: &negative}},
+			},
+		},
+		{
+			name: "system free memory negative",
+			observation: &telemetrypb.Observation{
+				Body: &telemetrypb.Observation_System{System: &telemetrypb.SystemObservation{FreeMemoryBytes: &negative}},
+			},
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, _, err := MapFrame(peer, &telemetrypb.TelemetryFrame{
+				Observations: []*telemetrypb.Observation{tc.observation},
+			}, time.Unix(1, 0).UTC())
+			if !errors.Is(err, ErrInvalidFrame) {
+				t.Fatalf("MapFrame() error = %v, want %v", err, ErrInvalidFrame)
+			}
+		})
 	}
 }
 
@@ -496,10 +538,15 @@ func TestStatusSyncEdges(t *testing.T) {
 
 	store.puts = 0
 	currentCharging := false
+	currentDetails := telemetryStatusDetails(
+		telemetryStatusBatteryPercentAtKey, currentReportedAt,
+		telemetryStatusChargingAtKey, currentReportedAt,
+	)
 	store.status = apitypes.PeerStatus{
 		ReportedAt:     &currentReportedAt,
 		BatteryPercent: &currentPercent,
 		Charging:       &currentCharging,
+		Details:        &currentDetails,
 	}
 	newReportedAt := currentReportedAt.Add(time.Second)
 	if err := (StatusSync{Store: store}).SyncTelemetryStatus(context.Background(), peer, StatusPatch{
@@ -522,6 +569,30 @@ func TestStatusSyncEdges(t *testing.T) {
 	}
 	if store.status.ReportedAt == nil || !store.status.ReportedAt.Equal(newReportedAt) {
 		t.Fatalf("mixed field times ReportedAt = %#v, want %s", store.status.ReportedAt, newReportedAt)
+	}
+	details := telemetryStatusDetails(
+		telemetryStatusBatteryPercentAtKey, currentReportedAt,
+		telemetryStatusChargingAtKey, newReportedAt,
+	)
+	store.status = apitypes.PeerStatus{
+		ReportedAt:     &newReportedAt,
+		BatteryPercent: intPtr(80),
+		Charging:       boolPtr(true),
+		Details:        &details,
+	}
+	percentRefreshAt := currentReportedAt.Add(500 * time.Millisecond)
+	if err := (StatusSync{Store: store}).SyncTelemetryStatus(context.Background(), peer, StatusPatch{
+		ReportedAt:       percentRefreshAt,
+		BatteryPercent:   intPtr(81),
+		BatteryPercentAt: percentRefreshAt,
+	}); err != nil {
+		t.Fatalf("SyncTelemetryStatus(per-field freshness) error = %v", err)
+	}
+	if store.status.BatteryPercent == nil || *store.status.BatteryPercent != 81 {
+		t.Fatalf("per-field freshness BatteryPercent = %#v, want refreshed 81", store.status.BatteryPercent)
+	}
+	if store.status.ReportedAt == nil || !store.status.ReportedAt.Equal(newReportedAt) {
+		t.Fatalf("per-field freshness ReportedAt = %#v, want preserved %s", store.status.ReportedAt, newReportedAt)
 	}
 }
 
@@ -612,4 +683,14 @@ func intPtr(v int) *int {
 
 func boolPtr(v bool) *bool {
 	return &v
+}
+
+func telemetryStatusDetails(items ...interface{}) map[string]interface{} {
+	fields := map[string]interface{}{}
+	for i := 0; i+1 < len(items); i += 2 {
+		key, _ := items[i].(string)
+		at, _ := items[i+1].(time.Time)
+		fields[key] = at.UTC().UnixMilli()
+	}
+	return map[string]interface{}{telemetryStatusDetailsKey: fields}
 }

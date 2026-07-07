@@ -48,6 +48,7 @@ type PeerConn struct {
 	agentInput             *peerRealtimeSource
 	agentInputMu           sync.Mutex
 	events                 *peerStreamEventBroker
+	telemetryStatusMu      *sync.Mutex
 	serverGenX             *peergenx.Service
 	mixer                  *pcm.Mixer
 	rpc                    *rpcServer
@@ -387,13 +388,28 @@ func (h *PeerConn) serveDirectPackets() error {
 	buf := make([]byte, 64*1024)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+	var peer giznet.PublicKey
+	if h != nil && h.Conn != nil {
+		peer = h.Conn.PublicKey()
+	}
+	var manager *Manager
+	if h != nil && h.Service != nil {
+		manager = h.Service.manager
+	}
+	if manager != nil && !peer.IsZero() {
+		h.telemetryStatusMu = manager.retainTelemetryStatusLock(peer, true)
+		defer func() {
+			h.telemetryStatusMu = nil
+			manager.releaseTelemetryStatusLock(peer)
+		}()
+	}
 	telemetryPackets := make(chan []byte, peerConnTelemetryQueueSize)
 	telemetryDone := make(chan struct{})
 	go h.processTelemetryPackets(ctx, telemetryPackets, telemetryDone)
 	defer func() {
-		cancel()
 		close(telemetryPackets)
 		<-telemetryDone
+		cancel()
 	}()
 	for {
 		protocol, n, err := h.Conn.Read(buf)
@@ -432,17 +448,9 @@ func (h *PeerConn) serveDirectPackets() error {
 
 func (h *PeerConn) processTelemetryPackets(ctx context.Context, packets <-chan []byte, done chan<- struct{}) {
 	defer close(done)
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case payload, ok := <-packets:
-			if !ok {
-				return
-			}
-			if err := h.handleTelemetryPacket(ctx, payload); err != nil && !errors.Is(err, context.Canceled) {
-				slog.Warn("gizclaw: peer telemetry packet ignored", "error", err)
-			}
+	for payload := range packets {
+		if err := h.handleTelemetryPacket(ctx, payload); err != nil && !errors.Is(err, context.Canceled) {
+			slog.Warn("gizclaw: peer telemetry packet ignored", "error", err)
 		}
 	}
 }
@@ -456,11 +464,21 @@ func (h *PeerConn) handleTelemetryPacket(ctx context.Context, payload []byte) er
 	service := &peertelemetry.Service{
 		Metrics: manager.Metrics,
 		Status: peerConnTelemetryStatusSync{
-			mu:   manager.telemetryStatusLock(peer),
+			mu:   h.telemetryStatusLock(peer),
 			next: peertelemetry.StatusSync{Store: manager.PeerRun},
 		},
 	}
 	return service.ReportPacket(ctx, peer, payload)
+}
+
+func (h *PeerConn) telemetryStatusLock(peer giznet.PublicKey) *sync.Mutex {
+	if h != nil && h.telemetryStatusMu != nil {
+		return h.telemetryStatusMu
+	}
+	if h == nil || h.Service == nil || h.Service.manager == nil {
+		return nil
+	}
+	return h.Service.manager.telemetryStatusLock(peer)
 }
 
 type peerConnTelemetryStatusSync struct {

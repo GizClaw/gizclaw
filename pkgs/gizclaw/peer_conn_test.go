@@ -380,20 +380,28 @@ func TestPeerConnServeDirectPacketsDoesNotBlockOnTelemetry(t *testing.T) {
 	}
 	select {
 	case err := <-errCh:
+		t.Fatalf("serveDirectPackets returned before draining telemetry: %v", err)
+	case <-time.After(200 * time.Millisecond):
+	}
+	if got, want := conn.reads, len(packets)+1; got != want {
+		t.Fatalf("direct packet reads = %d, want %d", got, want)
+	}
+	close(metricStore.release)
+	select {
+	case err := <-errCh:
 		if err != nil {
 			t.Fatalf("serveDirectPackets() error = %v", err)
 		}
-	case <-time.After(200 * time.Millisecond):
-		t.Fatal("serveDirectPackets blocked behind telemetry metrics append")
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for serveDirectPackets to drain telemetry")
 	}
-	close(metricStore.release)
 	select {
 	case <-metricStore.finished:
 	case <-time.After(time.Second):
 		t.Fatal("timed out waiting for telemetry metrics append to finish")
 	}
-	if got, want := conn.reads, len(packets)+1; got != want {
-		t.Fatalf("direct packet reads = %d, want %d", got, want)
+	if len(metricStore.samples) == 0 {
+		t.Fatal("drained telemetry did not append metrics")
 	}
 	_, err = manager.PeerRun.GetStatus(ctx, keyPair.Public)
 	if err != nil {
@@ -416,6 +424,14 @@ func TestManagerTelemetryStatusLockIsScopedByPeer(t *testing.T) {
 	}
 	if a, b := manager.telemetryStatusLock(first.Public), manager.telemetryStatusLock(second.Public); a == nil || b == nil || a == b {
 		t.Fatalf("different peer status locks = %p and %p, want different non-nil locks", a, b)
+	}
+	retained := manager.retainTelemetryStatusLock(first.Public, true)
+	if retained == nil {
+		t.Fatal("retainTelemetryStatusLock returned nil")
+	}
+	manager.releaseTelemetryStatusLock(first.Public)
+	if _, ok := manager.telemetryStatusLocks[first.Public]; ok {
+		t.Fatal("releaseTelemetryStatusLock should delete unreferenced peer lock")
 	}
 }
 

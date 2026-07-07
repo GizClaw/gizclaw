@@ -110,7 +110,7 @@ func mapBattery(obs *telemetrypb.BatteryObservation, labels map[string]string, t
 	}
 	if obs.VoltageMv != nil {
 		voltage := *obs.VoltageMv
-		if err := validateFinite("battery voltage_mv", voltage); err != nil {
+		if err := validateNonNegativeFinite("battery voltage_mv", voltage); err != nil {
 			return nil, StatusPatch{}, err
 		}
 		samples = append(samples, sample(MetricBatteryVoltageMv, labels, ts, voltage))
@@ -139,7 +139,7 @@ func mapGNSS(obs *telemetrypb.GnssObservation, labels map[string]string, ts time
 		samples = append(samples, sample(MetricGNSSAltitudeM, labels, ts, *obs.AltitudeM))
 	}
 	if obs.AccuracyM != nil {
-		if err := validateFinite("gnss accuracy_m", *obs.AccuracyM); err != nil {
+		if err := validateNonNegativeFinite("gnss accuracy_m", *obs.AccuracyM); err != nil {
 			return nil, err
 		}
 		samples = append(samples, sample(MetricGNSSAccuracyM, labels, ts, *obs.AccuracyM))
@@ -176,13 +176,13 @@ func mapSystem(obs *telemetrypb.SystemObservation, labels map[string]string, ts 
 	}
 	samples := make([]metrics.Sample, 0, 3)
 	if obs.UptimeSeconds != nil {
-		if err := validateFinite("system uptime_seconds", *obs.UptimeSeconds); err != nil {
+		if err := validateNonNegativeFinite("system uptime_seconds", *obs.UptimeSeconds); err != nil {
 			return nil, err
 		}
 		samples = append(samples, sample(MetricSystemUptime, labels, ts, *obs.UptimeSeconds))
 	}
 	if obs.FreeMemoryBytes != nil {
-		if err := validateFinite("system free_memory_bytes", *obs.FreeMemoryBytes); err != nil {
+		if err := validateNonNegativeFinite("system free_memory_bytes", *obs.FreeMemoryBytes); err != nil {
 			return nil, err
 		}
 		samples = append(samples, sample(MetricSystemFreeMemory, labels, ts, *obs.FreeMemoryBytes))
@@ -249,4 +249,8 @@ func validateFiniteRange(name string, value, min, max float64) error {
 		return fmt.Errorf("%w: %s must be between %g and %g", ErrInvalidFrame, name, min, max)
 	}
 	return nil
+}
+
+func validateNonNegativeFinite(name string, value float64) error {
+	return validateFiniteRange(name, value, 0, math.Inf(1))
 }

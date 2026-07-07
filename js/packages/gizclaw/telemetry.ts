@@ -38,7 +38,7 @@ export function systemTelemetry(input: SystemObservation): Observation {
 }
 
 export function encodeTelemetryPacket(frame: TelemetryFrame): Uint8Array {
-  const stampedFrame = frame.observedAtUnixMs == null ? { ...frame, observedAtUnixMs: Date.now() } : frame;
+  const stampedFrame = frame.observedAtUnixMs == null || frame.observedAtUnixMs === 0 ? { ...frame, observedAtUnixMs: Date.now() } : frame;
   const body = encodeTelemetryFrame(stampedFrame);
   if (body.length > GIZCLAW_MAX_PACKET_MESSAGE_SIZE - 1) {
     throw new Error(`telemetry packet payload is ${body.length} bytes, maximum is ${GIZCLAW_MAX_PACKET_MESSAGE_SIZE - 1}`);

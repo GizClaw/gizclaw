@@ -40,6 +40,11 @@ type activePeer struct {
 	conn giznet.Conn
 }
 
+type telemetryStatusLock struct {
+	mu   sync.Mutex
+	refs int
+}
+
 type Manager struct {
 	Peers     *peer.Server
 	PeerRun   *peerrun.Server
@@ -64,32 +69,57 @@ type Manager struct {
 	peers map[giznet.PublicKey]*activePeer
 
 	telemetryStatusMu    sync.Mutex
-	telemetryStatusLocks map[giznet.PublicKey]*sync.Mutex
+	telemetryStatusLocks map[giznet.PublicKey]*telemetryStatusLock
 }
 
 func NewManager(peersService *peer.Server) *Manager {
 	return &Manager{
 		Peers:                peersService,
 		peers:                make(map[giznet.PublicKey]*activePeer),
-		telemetryStatusLocks: make(map[giznet.PublicKey]*sync.Mutex),
+		telemetryStatusLocks: make(map[giznet.PublicKey]*telemetryStatusLock),
 	}
 }
 
 func (m *Manager) telemetryStatusLock(publicKey giznet.PublicKey) *sync.Mutex {
+	return m.retainTelemetryStatusLock(publicKey, false)
+}
+
+func (m *Manager) retainTelemetryStatusLock(publicKey giznet.PublicKey, ref bool) *sync.Mutex {
 	if m == nil {
 		return nil
 	}
 	m.telemetryStatusMu.Lock()
 	defer m.telemetryStatusMu.Unlock()
 	if m.telemetryStatusLocks == nil {
-		m.telemetryStatusLocks = make(map[giznet.PublicKey]*sync.Mutex)
+		m.telemetryStatusLocks = make(map[giznet.PublicKey]*telemetryStatusLock)
 	}
-	lock := m.telemetryStatusLocks[publicKey]
-	if lock == nil {
-		lock = &sync.Mutex{}
-		m.telemetryStatusLocks[publicKey] = lock
+	entry := m.telemetryStatusLocks[publicKey]
+	if entry == nil {
+		entry = &telemetryStatusLock{}
+		m.telemetryStatusLocks[publicKey] = entry
 	}
-	return lock
+	if ref {
+		entry.refs++
+	}
+	return &entry.mu
+}
+
+func (m *Manager) releaseTelemetryStatusLock(publicKey giznet.PublicKey) {
+	if m == nil {
+		return
+	}
+	m.telemetryStatusMu.Lock()
+	defer m.telemetryStatusMu.Unlock()
+	entry := m.telemetryStatusLocks[publicKey]
+	if entry == nil {
+		return
+	}
+	if entry.refs > 0 {
+		entry.refs--
+	}
+	if entry.refs == 0 {
+		delete(m.telemetryStatusLocks, publicKey)
+	}
 }
 
 func (m *Manager) allowService(ctx context.Context, publicKey giznet.PublicKey, service uint64) bool {

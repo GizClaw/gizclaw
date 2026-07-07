@@ -297,12 +297,13 @@ test("encodeTelemetryPacket stamps frames before send", () => {
   Date.now = () => 1234;
   try {
     const frame = {
+      observedAtUnixMs: 0,
       observations: [batteryTelemetry({ percent: 82 })],
     };
     const packet = encodeTelemetryPacket(frame);
 
     assert.equal(frame.observations.length, 1);
-    assert.equal((frame as { observedAtUnixMs?: number }).observedAtUnixMs, undefined);
+    assert.equal(frame.observedAtUnixMs, 0);
     assert.deepEqual([...packet.slice(1, 4)], [16, 210, 9]);
   } finally {
     Date.now = originalNow;
