@@ -32,6 +32,23 @@
           "charging": {
             "type": "boolean"
           },
+          "gnss_latitude": {
+            "type": "number",
+            "minimum": -90,
+            "maximum": 90
+          },
+          "gnss_longitude": {
+            "type": "number",
+            "minimum": -180,
+            "maximum": 180
+          },
+          "gnss_altitude_m": {
+            "type": "number"
+          },
+          "gnss_accuracy_m": {
+            "type": "number",
+            "minimum": 0
+          },
           "labels": {
             "type": "object",
             "additionalProperties": {

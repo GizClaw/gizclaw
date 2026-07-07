@@ -95,32 +95,6 @@ func (s *rpcServer) handleGetStatus(ctx context.Context, req *rpcapi.RPCRequest)
 	return newRPCResultResponse(req.Id, result, (*rpcapi.RPCResponse_Result).FromServerGetStatusResponse)
 }
 
-func (s *rpcServer) handlePutStatus(ctx context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
-	if req.Params == nil {
-		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeInvalidParams, Message: "missing params"}.RPCResponse(), nil
-	}
-	params, err := req.Params.AsServerPutStatusRequest()
-	if err != nil {
-		return rpcInvalidParams(req.Id), nil
-	}
-	body, err := convertRPCType[apitypes.PeerStatus](params)
-	if err != nil {
-		return nil, err
-	}
-	if s.peerRun == nil {
-		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeInternalError, Message: "peer run service not configured"}.RPCResponse(), nil
-	}
-	resp, err := s.peerRun.PutStatus(ctx, s.callerPublicKey, body)
-	if err != nil {
-		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeBadRequest, Message: err.Error()}.RPCResponse(), nil
-	}
-	result, err := convertRPCType[rpcapi.ServerPutStatusResponse](resp)
-	if err != nil {
-		return nil, err
-	}
-	return newRPCResultResponse(req.Id, result, (*rpcapi.RPCResponse_Result).FromServerPutStatusResponse)
-}
-
 func (s *rpcServer) handleGetRunAgent(ctx context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
 	if err := validateRPCParams(req.Params, rpcapi.RPCRequest_Params.AsServerGetRunAgentRequest); err != nil {
 		return rpcInvalidParams(req.Id), nil

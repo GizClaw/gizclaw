@@ -38,12 +38,6 @@
       "ServerGetStatusResponse": {
         "$ref": "../type/peer_status.json#/components/schemas/PeerStatus"
       },
-      "ServerPutStatusRequest": {
-        "$ref": "../type/peer_status.json#/components/schemas/PeerStatus"
-      },
-      "ServerPutStatusResponse": {
-        "$ref": "../type/peer_status.json#/components/schemas/PeerStatus"
-      },
       "ServerGetRunAgentRequest": {
         "type": "object",
         "additionalProperties": false,

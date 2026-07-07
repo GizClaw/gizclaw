@@ -20,6 +20,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/peergenx"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/agenthost"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerresource"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peertelemetry"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"golang.org/x/sync/errgroup"
 )
@@ -34,6 +35,9 @@ var (
 const peerConnMixerFormat = pcm.L16Mono16K
 
 const peerConnOpusFrameDuration = 20 * time.Millisecond
+const peerConnTelemetryQueueSize = 32
+
+var peerConnTelemetryShutdownTimeout = 2 * time.Second
 
 // PeerConn is the in-memory runtime for one active peer connection.
 // It wraps the existing PeerService bundle and serves one live conn at a time.
@@ -46,6 +50,7 @@ type PeerConn struct {
 	agentInput             *peerRealtimeSource
 	agentInputMu           sync.Mutex
 	events                 *peerStreamEventBroker
+	telemetryStatusMu      *sync.Mutex
 	serverGenX             *peergenx.Service
 	mixer                  *pcm.Mixer
 	rpc                    *rpcServer
@@ -322,7 +327,7 @@ func (h *PeerConn) close() error {
 }
 
 func (h *PeerConn) serveEvents() error {
-	listener := h.Conn.ListenService(ServiceEvent)
+	listener := h.Conn.ListenService(ServiceAgentStream)
 	defer func() {
 		_ = listener.Close()
 	}()
@@ -383,6 +388,34 @@ func (h *PeerConn) broadcastAgentOutputError(_ context.Context, _ string, err er
 
 func (h *PeerConn) serveDirectPackets() error {
 	buf := make([]byte, 64*1024)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	var peer giznet.PublicKey
+	if h != nil && h.Conn != nil {
+		peer = h.Conn.PublicKey()
+	}
+	var manager *Manager
+	if h != nil && h.Service != nil {
+		manager = h.Service.manager
+	}
+	if manager != nil && !peer.IsZero() {
+		h.telemetryStatusMu = manager.retainTelemetryStatusLock(peer, true)
+		defer func() {
+			h.telemetryStatusMu = nil
+			manager.releaseTelemetryStatusLock(peer)
+		}()
+	}
+	telemetryPackets := make(chan []byte, peerConnTelemetryQueueSize)
+	telemetryDone := make(chan struct{})
+	go h.processTelemetryPackets(ctx, telemetryPackets, telemetryDone)
+	defer func() {
+		close(telemetryPackets)
+		select {
+		case <-telemetryDone:
+		case <-time.After(peerConnTelemetryShutdownTimeout):
+			cancel()
+		}
+	}()
 	for {
 		protocol, n, err := h.Conn.Read(buf)
 		if err != nil {
@@ -404,11 +437,70 @@ func (h *PeerConn) serveDirectPackets() error {
 			if err := h.pushAgentInputChunk(context.Background(), chunk); err != nil {
 				return err
 			}
+		case ProtocolTelemetry:
+			payload := append([]byte(nil), buf[:n]...)
+			select {
+			case telemetryPackets <- payload:
+			default:
+				slog.Warn("gizclaw: peer telemetry packet dropped", "reason", "queue_full")
+			}
 		default:
 			// Unknown direct packets are ignored by the echo slice; service
 			// protocols continue to be handled by service streams.
 		}
 	}
+}
+
+func (h *PeerConn) processTelemetryPackets(ctx context.Context, packets <-chan []byte, done chan<- struct{}) {
+	defer close(done)
+	for payload := range packets {
+		if err := h.handleTelemetryPacket(ctx, payload); err != nil && !errors.Is(err, context.Canceled) {
+			slog.Warn("gizclaw: peer telemetry packet ignored", "error", err)
+		}
+	}
+}
+
+func (h *PeerConn) handleTelemetryPacket(ctx context.Context, payload []byte) error {
+	if h == nil || h.Conn == nil || h.Service == nil || h.Service.manager == nil {
+		return ErrNilPeerConnService
+	}
+	manager := h.Service.manager
+	peer := h.Conn.PublicKey()
+	service := &peertelemetry.Service{
+		Metrics: manager.Metrics,
+		Status: peerConnTelemetryStatusSync{
+			mu:   h.telemetryStatusLock(peer),
+			next: peertelemetry.StatusSync{Store: manager.PeerRun},
+		},
+	}
+	return service.ReportPacket(ctx, peer, payload)
+}
+
+func (h *PeerConn) telemetryStatusLock(peer giznet.PublicKey) *sync.Mutex {
+	if h != nil && h.telemetryStatusMu != nil {
+		return h.telemetryStatusMu
+	}
+	if h == nil || h.Service == nil || h.Service.manager == nil {
+		return nil
+	}
+	return h.Service.manager.telemetryStatusLock(peer)
+}
+
+type peerConnTelemetryStatusSync struct {
+	mu   *sync.Mutex
+	next peertelemetry.StatusService
+}
+
+func (s peerConnTelemetryStatusSync) SyncTelemetryStatus(ctx context.Context, peer giznet.PublicKey, patch peertelemetry.StatusPatch) error {
+	if s.next == nil {
+		return peertelemetry.ErrStatusServiceNil
+	}
+	if s.mu == nil {
+		return s.next.SyncTelemetryStatus(ctx, peer, patch)
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.next.SyncTelemetryStatus(ctx, peer, patch)
 }
 
 func (h *PeerConn) pushAgentInputChunk(ctx context.Context, chunk *genx.MessageChunk) error {

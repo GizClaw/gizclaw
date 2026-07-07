@@ -1,5 +1,7 @@
 import type { CreateGiznetWebRtcOfferData } from "./generated/serverpublic/types.gen";
 import { base58Decode, prepareEncryptedGiznetWebRTCOffer } from "./signaling.ts";
+import { encodeTelemetryPacket, type TelemetryFrame } from "./telemetry.ts";
+export * from "./telemetry.ts";
 
 export const WEBRTC_RPC_DATA_CHANNEL_LABEL = "rpc";
 export const WEBRTC_EVENT_DATA_CHANNEL_LABEL = "event";
@@ -11,13 +13,16 @@ export const GIZCLAW_SERVICE_RPC = 0x00;
 export const GIZCLAW_SERVICE_SERVER_PUBLIC = 0x01;
 export const GIZCLAW_SERVICE_OPENAI = 0x02;
 export const GIZCLAW_SERVICE_ADMIN = 0x10;
-export const GIZCLAW_SERVICE_EVENT = 0x20;
+export const GIZCLAW_SERVICE_AGENT_STREAM = 0x20;
+export const GIZCLAW_SERVICE_EVENT = GIZCLAW_SERVICE_AGENT_STREAM;
 export const RPC_FRAME_TYPE_EOS = 0;
 export const RPC_FRAME_TYPE_JSON = 1;
 export const RPC_FRAME_TYPE_BINARY = 2;
 export const RPC_FRAME_TYPE_TEXT = 3;
 const DATA_CHANNEL_SEND_RETRY_DELAY_MS = 5;
 const DATA_CHANNEL_SEND_RETRY_LIMIT = 20;
+const PACKET_DATA_CHANNEL_OPEN_TIMEOUT_MS = 30000;
+const giznetPacketDataChannels = new WeakMap<object, WebRTCRPCDataChannel>();
 
 export type RPCID = string;
 
@@ -81,6 +86,11 @@ export type ConnectGiznetWebRTCOptions = {
   prepareOffer: (offerSDP: string) => Promise<PreparedGiznetWebRTCOffer>;
   sendOffer?: (offer: PreparedGiznetWebRTCOffer, signal?: AbortSignal) => Promise<Blob>;
   signal?: AbortSignal;
+};
+
+export type SendGiznetWebRTCTelemetryOptions = {
+  signal?: AbortSignal;
+  timeoutMs?: number;
 };
 
 export type GiznetServerInfo = {
@@ -518,14 +528,35 @@ export function prepareGiznetWebRTCPeerConnection(
   options: Pick<ConnectGiznetWebRTCOptions, "addAudioTransceiver" | "createPacketDataChannel"> = {},
 ): void {
   if (options.createPacketDataChannel !== false) {
-    pc.createDataChannel(GIZNET_WEBRTC_PACKET_DATA_CHANNEL_LABEL, {
+    const packetDataChannel = pc.createDataChannel(GIZNET_WEBRTC_PACKET_DATA_CHANNEL_LABEL, {
       maxRetransmits: 0,
       ordered: false,
     });
+    giznetPacketDataChannels.set(pc, packetDataChannel);
+  } else {
+    giznetPacketDataChannels.delete(pc);
   }
   if (options.addAudioTransceiver !== false && typeof pc.addTransceiver === "function") {
     pc.addTransceiver("audio", { direction: "sendrecv" });
   }
+}
+
+export function getGiznetWebRTCPacketDataChannel(pc: RTCPeerConnection): WebRTCRPCDataChannel | undefined {
+  return giznetPacketDataChannels.get(pc);
+}
+
+export async function sendGiznetWebRTCTelemetry(
+  pc: RTCPeerConnection,
+  frame: TelemetryFrame,
+  options: SendGiznetWebRTCTelemetryOptions = {},
+): Promise<void> {
+  const channel = getGiznetWebRTCPacketDataChannel(pc);
+  if (channel == null) {
+    throw new Error("giznet WebRTC packet data channel is not available");
+  }
+  const packet = encodeTelemetryPacket(frame);
+  await waitForDataChannelOpen(channel, options.signal, options.timeoutMs ?? PACKET_DATA_CHANNEL_OPEN_TIMEOUT_MS);
+  channel.send(packet);
 }
 
 export async function sendGiznetWebRTCOffer(
@@ -970,6 +1001,64 @@ function abortError(): Error {
   const err = new Error("The operation was aborted.");
   err.name = "AbortError";
   return err;
+}
+
+function waitForDataChannelOpen(channel: WebRTCRPCDataChannel, signal?: AbortSignal, timeoutMs = 30000): Promise<void> {
+  if (channel.readyState === "open") {
+    return Promise.resolve();
+  }
+  if (channel.readyState === "closed") {
+    return Promise.reject(new Error(`RTCDataChannel.readyState is ${JSON.stringify(channel.readyState)}, want "open"`));
+  }
+  return new Promise((resolve, reject) => {
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+    let settled = false;
+    const cleanup = (): void => {
+      if (timeout != null) {
+        clearTimeout(timeout);
+      }
+      signal?.removeEventListener("abort", onAbort);
+      channel.removeEventListener("open", onOpen);
+      channel.removeEventListener("close", onClose);
+      channel.removeEventListener("error", onError);
+    };
+    const settle = (fn: () => void): void => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      cleanup();
+      fn();
+    };
+    const onOpen = (): void => {
+      if (channel.readyState === "open") {
+        settle(resolve);
+      }
+    };
+    const onClose = (): void => {
+      settle(() => reject(new Error("RTCDataChannel closed before opening")));
+    };
+    const onError = (): void => {
+      settle(() => reject(new Error("RTCDataChannel failed before opening")));
+    };
+    const onAbort = (): void => {
+      settle(() => reject(abortError()));
+    };
+    if (signal?.aborted) {
+      reject(abortError());
+      return;
+    }
+    signal?.addEventListener("abort", onAbort, { once: true });
+    channel.addEventListener("open", onOpen);
+    channel.addEventListener("close", onClose);
+    channel.addEventListener("error", onError);
+    if (timeoutMs > 0) {
+      timeout = setTimeout(() => {
+        settle(() => reject(new Error(`RTCDataChannel did not open within ${timeoutMs}ms`)));
+      }, timeoutMs);
+    }
+    onOpen();
+  });
 }
 
 function sendDataChannelMessage(channel: WebRTCRPCDataChannel, payload: DataChannelPayload, onError: (err: unknown) => void): void {

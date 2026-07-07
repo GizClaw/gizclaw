@@ -52,9 +52,6 @@
                 "$ref": "./rpc/server.json#/components/schemas/ServerGetStatusRequest"
               },
               {
-                "$ref": "./rpc/server.json#/components/schemas/ServerPutStatusRequest"
-              },
-              {
                 "$ref": "./rpc/server.json#/components/schemas/ServerGetRunAgentRequest"
               },
               {
@@ -356,9 +353,6 @@
                 "$ref": "./rpc/server.json#/components/schemas/ServerGetStatusResponse"
               },
               {
-                "$ref": "./rpc/server.json#/components/schemas/ServerPutStatusResponse"
-              },
-              {
                 "$ref": "./rpc/server.json#/components/schemas/ServerGetRunAgentResponse"
               },
               {
@@ -634,7 +628,6 @@
           "server.info.put",
           "server.runtime.get",
           "server.status.get",
-          "server.status.put",
           "server.run.agent.get",
           "server.run.agent.set",
           "server.run.workspace.get",
@@ -812,11 +805,6 @@
       "method": "server.status.get",
       "request": "./rpc/server.json#/components/schemas/ServerGetStatusRequest",
       "response": "./rpc/server.json#/components/schemas/ServerGetStatusResponse"
-    },
-    {
-      "method": "server.status.put",
-      "request": "./rpc/server.json#/components/schemas/ServerPutStatusRequest",
-      "response": "./rpc/server.json#/components/schemas/ServerPutStatusResponse"
     },
     {
       "method": "server.run.agent.get",

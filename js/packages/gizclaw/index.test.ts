@@ -4,6 +4,8 @@ import { x25519 } from "@noble/curves/ed25519.js";
 
 import {
   GIZCLAW_SERVICE_ADMIN,
+  GIZCLAW_MAX_PACKET_MESSAGE_SIZE,
+  GIZCLAW_PROTOCOL_TELEMETRY,
   GIZCLAW_SERVICE_RPC,
   GIZNET_WEBRTC_PACKET_DATA_CHANNEL_LABEL,
   GIZNET_WEBRTC_SIGNALING_PATH,
@@ -13,14 +15,19 @@ import {
   WebRTCRPCClient,
   WebRTCRPCError,
   createAdminAPIFetch,
+  batteryTelemetry,
   createWebRTCFetch,
   decodeFrames,
+  encodeTelemetryPacket,
   encodeFrame,
   encodeRPCResponse,
   fetchGiznetServerInfo,
   giznetServiceDataChannelLabel,
+  getGiznetWebRTCPacketDataChannel,
   prepareGiznetWebRTCPeerConnection,
+  sendGiznetWebRTCTelemetry,
   sendGiznetWebRTCOffer,
+  systemTelemetry,
   waitForICEGatheringComplete,
 } from "./index.ts";
 import { createPeerRPCClient } from "./rpc.ts";
@@ -266,7 +273,131 @@ test("prepareGiznetWebRTCPeerConnection creates packet channel and audio transce
 
   assert.equal(pc.channels[0]?.label, GIZNET_WEBRTC_PACKET_DATA_CHANNEL_LABEL);
   assert.deepEqual(pc.channels[0]?.options, { maxRetransmits: 0, ordered: false });
+  assert.equal(getGiznetWebRTCPacketDataChannel(pc as unknown as RTCPeerConnection), pc.channels[0]);
   assert.deepEqual(pc.transceivers, [{ kind: "audio", init: { direction: "sendrecv" } }]);
+});
+
+test("sendGiznetWebRTCTelemetry uses the prepared packet channel", async () => {
+  const pc = new FakePeerConnection();
+  prepareGiznetWebRTCPeerConnection(pc as unknown as RTCPeerConnection);
+  pc.channels[0]?.open();
+
+  await sendGiznetWebRTCTelemetry(pc as unknown as RTCPeerConnection, {
+    observedAtUnixMs: 1000,
+    observations: [batteryTelemetry({ percent: 82 })],
+  });
+
+  assert.equal(pc.channels[0]?.sent.length, 1);
+  const packet = new Uint8Array(pc.channels[0]?.sent[0] ?? new ArrayBuffer(0));
+  assert.equal(packet[0], GIZCLAW_PROTOCOL_TELEMETRY);
+});
+
+test("sendGiznetWebRTCTelemetry waits for the packet channel to open", async () => {
+  const pc = new FakePeerConnection();
+  prepareGiznetWebRTCPeerConnection(pc as unknown as RTCPeerConnection);
+  const promise = sendGiznetWebRTCTelemetry(pc as unknown as RTCPeerConnection, {
+    observedAtUnixMs: 1000,
+    observations: [batteryTelemetry({ percent: 82 })],
+  });
+
+  assert.equal(pc.channels[0]?.sent.length, 0);
+  pc.channels[0]?.open();
+  await promise;
+
+  assert.equal(pc.channels[0]?.sent.length, 1);
+});
+
+test("sendGiznetWebRTCTelemetry waits beyond the RPC send retry budget", async () => {
+  const pc = new FakePeerConnection();
+  prepareGiznetWebRTCPeerConnection(pc as unknown as RTCPeerConnection);
+  const promise = sendGiznetWebRTCTelemetry(pc as unknown as RTCPeerConnection, {
+    observedAtUnixMs: 1000,
+    observations: [batteryTelemetry({ percent: 82 })],
+  }, { timeoutMs: 1000 });
+
+  await new Promise((resolve) => setTimeout(resolve, 150));
+  assert.equal(pc.channels[0]?.sent.length, 0);
+  pc.channels[0]?.open();
+  await promise;
+
+  assert.equal(pc.channels[0]?.sent.length, 1);
+});
+
+test("sendGiznetWebRTCTelemetry rejects when the packet channel does not open", async () => {
+  const pc = new FakePeerConnection();
+  prepareGiznetWebRTCPeerConnection(pc as unknown as RTCPeerConnection);
+
+  await assert.rejects(
+    sendGiznetWebRTCTelemetry(pc as unknown as RTCPeerConnection, {
+      observedAtUnixMs: 1000,
+      observations: [batteryTelemetry({ percent: 82 })],
+    }, { timeoutMs: 1 }),
+    /did not open/,
+  );
+});
+
+test("encodeTelemetryPacket prefixes protobuf telemetry payload", () => {
+  const packet = encodeTelemetryPacket({
+    sequence: 7,
+    observedAtUnixMs: 1000,
+    observations: [batteryTelemetry({ percent: 82, charging: true })],
+  });
+
+  assert.equal(packet[0], GIZCLAW_PROTOCOL_TELEMETRY);
+  assert.deepEqual([...packet.slice(1)], [
+    8, 7,
+    16, 232, 7,
+    26, 13,
+    82, 11,
+    9, 0, 0, 0, 0, 0, 128, 84, 64,
+    16, 1,
+  ]);
+});
+
+test("encodeTelemetryPacket stamps frames before send", () => {
+  const originalNow = Date.now;
+  Date.now = () => 1234;
+  try {
+    const frame = {
+      observedAtUnixMs: 0,
+      observations: [batteryTelemetry({ percent: 82 })],
+    };
+    const packet = encodeTelemetryPacket(frame);
+
+    assert.equal(frame.observations.length, 1);
+    assert.equal(frame.observedAtUnixMs, 0);
+    assert.deepEqual([...packet.slice(1, 4)], [16, 210, 9]);
+  } finally {
+    Date.now = originalNow;
+  }
+});
+
+test("encodeTelemetryPacket rejects observations with multiple bodies", () => {
+  assert.throws(
+    () => encodeTelemetryPacket({
+      observations: [{
+        battery: { percent: 82 },
+        system: { temperatureC: 33 },
+      } as any],
+    }),
+    /exactly one body/,
+  );
+});
+
+test("encodeTelemetryPacket rejects empty frames before encoding", () => {
+  assert.throws(
+    () => encodeTelemetryPacket({}),
+    /at least one observation/,
+  );
+});
+
+test("encodeTelemetryPacket rejects oversized packets", () => {
+  assert.throws(
+    () => encodeTelemetryPacket({
+      observations: [systemTelemetry({ firmwareVersion: "x".repeat(GIZCLAW_MAX_PACKET_MESSAGE_SIZE) })],
+    }),
+    /maximum/,
+  );
 });
 
 test("waitForICEGatheringComplete resolves when completion races listener registration", async () => {

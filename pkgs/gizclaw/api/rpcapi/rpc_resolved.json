@@ -3470,6 +3470,23 @@
             "additionalProperties": true,
             "type": "object"
           },
+          "gnss_accuracy_m": {
+            "minimum": 0,
+            "type": "number"
+          },
+          "gnss_altitude_m": {
+            "type": "number"
+          },
+          "gnss_latitude": {
+            "maximum": 90,
+            "minimum": -90,
+            "type": "number"
+          },
+          "gnss_longitude": {
+            "maximum": 180,
+            "minimum": -180,
+            "type": "number"
+          },
           "labels": {
             "additionalProperties": {
               "type": "string"
@@ -4029,7 +4046,6 @@
           "server.info.put",
           "server.runtime.get",
           "server.status.get",
-          "server.status.put",
           "server.run.agent.get",
           "server.run.agent.set",
           "server.run.workspace.get",
@@ -4152,9 +4168,6 @@
               },
               {
                 "$ref": "#/components/schemas/ServerGetStatusRequest"
-              },
-              {
-                "$ref": "#/components/schemas/ServerPutStatusRequest"
               },
               {
                 "$ref": "#/components/schemas/ServerGetRunAgentRequest"
@@ -4460,9 +4473,6 @@
               },
               {
                 "$ref": "#/components/schemas/ServerGetStatusResponse"
-              },
-              {
-                "$ref": "#/components/schemas/ServerPutStatusResponse"
               },
               {
                 "$ref": "#/components/schemas/ServerGetRunAgentResponse"
@@ -5062,12 +5072,6 @@
       },
       "ServerPutInfoResponse": {
         "$ref": "#/components/schemas/DeviceInfo"
-      },
-      "ServerPutStatusRequest": {
-        "$ref": "#/components/schemas/PeerStatus"
-      },
-      "ServerPutStatusResponse": {
-        "$ref": "#/components/schemas/PeerStatus"
       },
       "ServerReloadRunRequest": {
         "additionalProperties": false,

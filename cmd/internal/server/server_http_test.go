@@ -6,8 +6,10 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/GizClaw/gizclaw-go/cmd/internal/stores"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/metrics"
 )
 
 func TestCmdServerServeHTTPNilServerReturnsNotFound(t *testing.T) {
@@ -16,6 +18,30 @@ func TestCmdServerServeHTTPNilServerReturnsNotFound(t *testing.T) {
 	(*CmdServer)(nil).ServeHTTP(rec, req)
 	if rec.Code != http.StatusNotFound {
 		t.Fatalf("nil server status = %d, want %d", rec.Code, http.StatusNotFound)
+	}
+}
+
+func TestNewWithOptionsWiresLegacyMetricsStore(t *testing.T) {
+	srv, err := newWithOptions(Config{
+		Listen:   "127.0.0.1:0",
+		Endpoint: "127.0.0.1:0",
+		Stores: map[string]stores.Config{
+			defaultPeersStore: {Kind: stores.KindKeyValue, Backend: "memory"},
+			defaultMetricsStore: {
+				Kind: stores.KindMetrics,
+				Prometheus: &metrics.PrometheusConfig{
+					RemoteWriteURL: "http://127.0.0.1:1/api/v1/write",
+					QueryURL:       "http://127.0.0.1:1",
+				},
+			},
+		},
+	}, newServerOptions{})
+	if err != nil {
+		t.Fatalf("newWithOptions() error = %v", err)
+	}
+	defer srv.Close()
+	if srv.Server.MetricsStore == nil {
+		t.Fatal("MetricsStore is nil")
 	}
 }
 

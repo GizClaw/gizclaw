@@ -244,6 +244,15 @@ func TestPacketWriteRejectsLargePayload(t *testing.T) {
 	if _, err := writePacket(noopPacketRaw{}, 1, payload); !errors.Is(err, ErrPacketTooLarge) {
 		t.Fatalf("writePacket large err = %v, want %v", err, ErrPacketTooLarge)
 	}
+	payload = make([]byte, maxPacketMessageSize-1)
+	raw := &recordingPacketRaw{}
+	n, err := writePacket(raw, 1, payload)
+	if err != nil {
+		t.Fatalf("writePacket max payload error = %v", err)
+	}
+	if n != len(payload) || len(raw.writes) != maxPacketMessageSize {
+		t.Fatalf("writePacket max payload n=%d write_len=%d, want %d", n, len(raw.writes), maxPacketMessageSize)
+	}
 }
 
 func newTCPOnlyClientAPI() *webrtc.API {
@@ -337,3 +346,13 @@ func (noopPacketRaw) WriteDataChannel([]byte, bool) (int, error) {
 func (noopPacketRaw) Close() error                     { return nil }
 func (noopPacketRaw) SetReadDeadline(time.Time) error  { return nil }
 func (noopPacketRaw) SetWriteDeadline(time.Time) error { return nil }
+
+type recordingPacketRaw struct {
+	noopPacketRaw
+	writes []byte
+}
+
+func (r *recordingPacketRaw) WriteDataChannel(data []byte, _ bool) (int, error) {
+	r.writes = append(r.writes[:0], data...)
+	return len(data), nil
+}

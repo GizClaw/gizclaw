@@ -11,6 +11,7 @@
 #include "gzc_rpc.h"
 #include "gzc_rpc_frame.h"
 #include "gzc_signaling.h"
+#include "gzc_telemetry.h"
 #include "gzc_webrtc.h"
 
 #endif

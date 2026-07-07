@@ -51,7 +51,8 @@ func TestRPCServerPeerMethods(t *testing.T) {
 		recall:      apitypes.PeerRunRecallResponse{Available: true, Hits: []apitypes.PeerRunRecallHit{{Id: "m1", Score: 0.9, Snippet: "hello"}}},
 	}
 	serverGenX := &fakeRPCServerGenXService{}
-	server := &rpcServer{peer: fake, peerRun: &peerrun.Server{Store: kv.NewMemory(nil)}, peerRunRuntime: runRuntime, serverGenX: serverGenX, callerPublicKey: publicKey}
+	peerRun := &peerrun.Server{Store: kv.NewMemory(nil)}
+	server := &rpcServer{peer: fake, peerRun: peerRun, peerRunRuntime: runRuntime, serverGenX: serverGenX, callerPublicKey: publicKey}
 	client := &rpcClient{}
 
 	info := callRPCPair(t, server, func(conn net.Conn) (*rpcapi.ServerGetInfoResponse, error) {
@@ -78,17 +79,14 @@ func TestRPCServerPeerMethods(t *testing.T) {
 		t.Fatalf("GetRuntime() = %+v", runtime)
 	}
 
-	volume := 55
-	status := callRPCPair(t, server, func(conn net.Conn) (*rpcapi.ServerPutStatusResponse, error) {
-		return client.PutServerStatus(context.Background(), conn, "put-status", rpcapi.ServerPutStatusRequest{Volume: &volume})
-	})
-	if status.Volume == nil || *status.Volume != volume {
-		t.Fatalf("PutStatus() = %+v", status)
+	battery := 55
+	if _, err := peerRun.PutStatus(context.Background(), publicKey, apitypes.PeerStatus{BatteryPercent: &battery}); err != nil {
+		t.Fatalf("seed PutStatus() error = %v", err)
 	}
 	gotStatus := callRPCPair(t, server, func(conn net.Conn) (*rpcapi.ServerGetStatusResponse, error) {
 		return client.GetServerStatus(context.Background(), conn, "get-status")
 	})
-	if gotStatus.Volume == nil || *gotStatus.Volume != volume {
+	if gotStatus.BatteryPercent == nil || *gotStatus.BatteryPercent != battery {
 		t.Fatalf("GetStatus() = %+v", gotStatus)
 	}
 

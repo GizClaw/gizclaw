@@ -22,7 +22,6 @@ int gzcGoPeerPoll(uint64_t handle, int timeout_ms);
 int gzcGoChannelSend(uint64_t handle, int channel_id, const uint8_t *data, size_t len, bool is_text);
 void gzcGoChannelClose(uint64_t handle, int channel_id);
 void gzcGoPeerClose(uint64_t handle);
-
 enum {
   gzc_cgo_channel_packet = 0,
   gzc_cgo_channel_rpc = 1,

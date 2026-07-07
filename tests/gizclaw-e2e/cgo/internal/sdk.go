@@ -24,6 +24,7 @@ import (
 	"time"
 	"unsafe"
 
+	_ "github.com/GizClaw/gizclaw-go/c/gizclaw/cgobackend"
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codec/ogg"
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/stampedopus"
 )
@@ -187,6 +188,44 @@ func (c *Client) SendPacket(protocol byte, payload []byte) error {
 	return nil
 }
 
+func (c *Client) SendBatteryTelemetry(percent float64, charging bool) error {
+	if c == nil || c.session == nil {
+		return fmt.Errorf("closed C SDK client")
+	}
+	errbuf := make([]byte, 1024)
+	chargingFlag := C.int(0)
+	if charging {
+		chargingFlag = 1
+	}
+	rc := C.gzc_cgo_session_send_battery_telemetry(
+		c.session,
+		C.double(percent),
+		chargingFlag,
+		(*C.char)(unsafe.Pointer(&errbuf[0])),
+		C.ulong(len(errbuf)),
+	)
+	if rc != C.GZC_OK {
+		return fmt.Errorf("send battery telemetry rc=%d: %s", int(rc), cString(errbuf))
+	}
+	return nil
+}
+
+func (c *Client) SendFullTelemetry() error {
+	if c == nil || c.session == nil {
+		return fmt.Errorf("closed C SDK client")
+	}
+	errbuf := make([]byte, 1024)
+	rc := C.gzc_cgo_session_send_full_telemetry(
+		c.session,
+		(*C.char)(unsafe.Pointer(&errbuf[0])),
+		C.ulong(len(errbuf)),
+	)
+	if rc != C.GZC_OK {
+		return fmt.Errorf("send full telemetry rc=%d: %s", int(rc), cString(errbuf))
+	}
+	return nil
+}
+
 func (c *Client) ReadPacket(timeout time.Duration) (byte, []byte, error) {
 	if c == nil || c.session == nil {
 		return 0, nil, fmt.Errorf("closed C SDK client")
@@ -333,37 +372,30 @@ func CSDKServerRuntime(t *testing.T, identityDir string) {
 func CSDKServerStatus(t *testing.T, identityDir string) {
 	t.Helper()
 	client := newTestClient(t, identityDir)
-	result := mustCallJSON(t, client, "server.status.put", `{"volume":42,"battery_percent":87,"charging":true,"muted":false,"labels":{"mode":"cgo-rpc"}}`)
-	var putResponse struct {
-		Volume         *int               `json:"volume"`
-		BatteryPercent *int               `json:"battery_percent"`
-		Charging       *bool              `json:"charging"`
-		Muted          *bool              `json:"muted"`
-		Labels         *map[string]string `json:"labels"`
-	}
-	decodeJSON(t, "server.status.put", result, &putResponse)
-	if putResponse.Volume == nil || *putResponse.Volume != 42 ||
-		putResponse.BatteryPercent == nil || *putResponse.BatteryPercent != 87 ||
-		putResponse.Charging == nil || !*putResponse.Charging ||
-		putResponse.Muted == nil || *putResponse.Muted {
-		t.Fatalf("invalid server.status.put: %s", string(result))
-	}
-	client.Close()
-
-	client = newTestClient(t, identityDir)
 	defer client.Close()
-	result = mustCallJSON(t, client, "server.status.get", `{}`)
+
+	if err := client.SendFullTelemetry(); err != nil {
+		t.Fatal(err)
+	}
+	var result json.RawMessage
 	var getResponse struct {
-		Volume         *int               `json:"volume"`
-		BatteryPercent *int               `json:"battery_percent"`
-		Labels         *map[string]string `json:"labels"`
+		BatteryPercent *int  `json:"battery_percent"`
+		Charging       *bool `json:"charging"`
 	}
-	decodeJSON(t, "server.status.get", result, &getResponse)
-	if getResponse.Volume == nil || *getResponse.Volume != 42 ||
-		getResponse.BatteryPercent == nil || *getResponse.BatteryPercent != 87 ||
-		getResponse.Labels == nil || (*getResponse.Labels)["mode"] != "cgo-rpc" {
-		t.Fatalf("invalid server.status.get: %s", string(result))
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		result = mustCallJSON(t, client, "server.status.get", `{}`)
+		decodeJSON(t, "server.status.get", result, &getResponse)
+		if getResponse.BatteryPercent != nil && *getResponse.BatteryPercent == 91 &&
+			getResponse.Charging != nil && *getResponse.Charging {
+			return
+		}
+		if time.Now().After(deadline) {
+			break
+		}
+		time.Sleep(100 * time.Millisecond)
 	}
+	t.Fatalf("server.status.get did not reflect telemetry: %s", string(result))
 }
 
 func CSDKSpeedTest(t *testing.T, identityDir string) {

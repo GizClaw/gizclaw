@@ -21,6 +21,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/metrics"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/objectstore"
 )
 
@@ -66,6 +67,36 @@ func TestServerListenValidatesReceiverAndLocalStatic(t *testing.T) {
 			t.Fatalf("Listen() empty local static private key err = %v", err)
 		}
 	})
+}
+
+func TestServerInitKeepsLegacyPeerPrefixWithMetricsStore(t *testing.T) {
+	keyPair, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("GenerateKeyPair() error = %v", err)
+	}
+	baseStore := kv.NewMemory(nil)
+	server := &Server{
+		LocalStatic:  *keyPair,
+		PeerStore:    baseStore,
+		MetricsStore: metrics.NewMemoryStore(),
+	}
+	if err := server.init(); err != nil {
+		t.Fatalf("init() error = %v", err)
+	}
+
+	peerKeyPair, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("GenerateKeyPair(peer) error = %v", err)
+	}
+	if _, err := server.manager.Peers.EnsureConnectedPeer(context.Background(), peerKeyPair.Public); err != nil {
+		t.Fatalf("EnsureConnectedPeer() error = %v", err)
+	}
+	if _, err := baseStore.Get(context.Background(), kv.Key{"peers", "by-pubkey", peerKeyPair.Public.String()}); err != nil {
+		t.Fatalf("prefixed peer key missing: %v", err)
+	}
+	if _, err := baseStore.Get(context.Background(), kv.Key{"by-pubkey", peerKeyPair.Public.String()}); !errors.Is(err, kv.ErrNotFound) {
+		t.Fatalf("root peer key error = %v, want ErrNotFound", err)
+	}
 }
 
 func TestServerServeReturnsNilAfterClose(t *testing.T) {

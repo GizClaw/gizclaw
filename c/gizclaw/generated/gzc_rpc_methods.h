@@ -17,7 +17,6 @@ extern "C" {
 #define GZC_RPC_METHOD_SERVER_INFO_PUT "server.info.put"
 #define GZC_RPC_METHOD_SERVER_RUNTIME_GET "server.runtime.get"
 #define GZC_RPC_METHOD_SERVER_STATUS_GET "server.status.get"
-#define GZC_RPC_METHOD_SERVER_STATUS_PUT "server.status.put"
 #define GZC_RPC_METHOD_SERVER_RUN_AGENT_GET "server.run.agent.get"
 #define GZC_RPC_METHOD_SERVER_RUN_AGENT_SET "server.run.agent.set"
 #define GZC_RPC_METHOD_SERVER_RUN_WORKSPACE_GET "server.run.workspace.get"
@@ -59,17 +58,6 @@ extern "C" {
 #define GZC_RPC_METHOD_SERVER_CREDENTIAL_CREATE "server.credential.create"
 #define GZC_RPC_METHOD_SERVER_CREDENTIAL_PUT "server.credential.put"
 #define GZC_RPC_METHOD_SERVER_CREDENTIAL_DELETE "server.credential.delete"
-#define GZC_RPC_METHOD_SERVER_PET_LIST "server.pet.list"
-#define GZC_RPC_METHOD_SERVER_PET_GET "server.pet.get"
-#define GZC_RPC_METHOD_SERVER_PET_ADOPT "server.pet.adopt"
-#define GZC_RPC_METHOD_SERVER_PET_PUT "server.pet.put"
-#define GZC_RPC_METHOD_SERVER_PET_DELETE "server.pet.delete"
-#define GZC_RPC_METHOD_SERVER_PET_FEED "server.pet.feed"
-#define GZC_RPC_METHOD_SERVER_PET_WASH "server.pet.wash"
-#define GZC_RPC_METHOD_SERVER_PET_PLAY "server.pet.play"
-#define GZC_RPC_METHOD_SERVER_WALLET_GET "server.wallet.get"
-#define GZC_RPC_METHOD_SERVER_WALLET_TRANSACTIONS_LIST "server.wallet.transactions.list"
-#define GZC_RPC_METHOD_SERVER_WALLET_TRANSACTIONS_GET "server.wallet.transactions.get"
 #define GZC_RPC_METHOD_SERVER_CONTACT_LIST "server.contact.list"
 #define GZC_RPC_METHOD_SERVER_CONTACT_GET "server.contact.get"
 #define GZC_RPC_METHOD_SERVER_CONTACT_CREATE "server.contact.create"
@@ -97,9 +85,24 @@ extern "C" {
 #define GZC_RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_LIST "server.friend_group.messages.list"
 #define GZC_RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_GET "server.friend_group.messages.get"
 #define GZC_RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_SEND "server.friend_group.messages.send"
-#define GZC_RPC_METHOD_SERVER_REWARD_LIST "server.reward.list"
-#define GZC_RPC_METHOD_SERVER_REWARD_GET "server.reward.get"
-#define GZC_RPC_METHOD_SERVER_REWARD_CLAIM "server.reward.claim"
+#define GZC_RPC_METHOD_SERVER_GAME_RULESET_GET "server.game_ruleset.get"
+#define GZC_RPC_METHOD_SERVER_PET_DEF_PIXA_DOWNLOAD "server.pet_def.pixa.download"
+#define GZC_RPC_METHOD_SERVER_BADGE_DEF_PIXA_DOWNLOAD "server.badge_def.pixa.download"
+#define GZC_RPC_METHOD_SERVER_PET_LIST "server.pet.list"
+#define GZC_RPC_METHOD_SERVER_PET_GET "server.pet.get"
+#define GZC_RPC_METHOD_SERVER_PET_ADOPT "server.pet.adopt"
+#define GZC_RPC_METHOD_SERVER_PET_PUT "server.pet.put"
+#define GZC_RPC_METHOD_SERVER_PET_DELETE "server.pet.delete"
+#define GZC_RPC_METHOD_SERVER_PET_DRIVE "server.pet.drive"
+#define GZC_RPC_METHOD_SERVER_POINTS_GET "server.points.get"
+#define GZC_RPC_METHOD_SERVER_POINTS_TRANSACTIONS_LIST "server.points.transactions.list"
+#define GZC_RPC_METHOD_SERVER_POINTS_TRANSACTIONS_GET "server.points.transactions.get"
+#define GZC_RPC_METHOD_SERVER_BADGE_LIST "server.badge.list"
+#define GZC_RPC_METHOD_SERVER_BADGE_GET "server.badge.get"
+#define GZC_RPC_METHOD_SERVER_GAME_RESULT_LIST "server.game_result.list"
+#define GZC_RPC_METHOD_SERVER_GAME_RESULT_GET "server.game_result.get"
+#define GZC_RPC_METHOD_SERVER_REWARD_GRANT_LIST "server.reward_grant.list"
+#define GZC_RPC_METHOD_SERVER_REWARD_GRANT_GET "server.reward_grant.get"
 
 typedef enum {
   GZC_RPC_METHOD_KIND_JSON = 0,
@@ -115,7 +118,7 @@ typedef struct {
 } gzc_rpc_method_info_t;
 
 extern const gzc_rpc_method_info_t gzc_rpc_methods[];
-#define GZC_RPC_METHOD_COUNT 91
+#define GZC_RPC_METHOD_COUNT 94
 
 #ifdef __cplusplus
 }

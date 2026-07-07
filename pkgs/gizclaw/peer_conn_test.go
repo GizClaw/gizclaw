@@ -12,17 +12,23 @@ import (
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/pcm"
+	"github.com/GizClaw/gizclaw-go/pkgs/audio/stampedopus"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminservice"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/openaiservice"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
+	telemetrypb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/telemetry"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/openaiapi"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/agenthost"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerrun"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peertelemetry"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/acl"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/metrics"
+	"google.golang.org/protobuf/proto"
 )
 
 func TestPeerConnHelpersAndRPCHandle(t *testing.T) {
@@ -276,6 +282,201 @@ func TestPeerConnCloseStopsAgentRuntime(t *testing.T) {
 	}
 }
 
+func TestPeerConnHandleTelemetryPacket(t *testing.T) {
+	ctx := context.Background()
+	keyPair, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("GenerateKeyPair error = %v", err)
+	}
+	peerRun := &peerrun.Server{Store: kv.NewMemory(nil)}
+	metricStore := &peerConnFakeMetrics{}
+	manager := NewManager(&peer.Server{Store: kv.NewMemory(nil)})
+	manager.PeerRun = peerRun
+	manager.Metrics = metricStore
+	conn := &testGiznetConn{publicKey: keyPair.Public}
+	peerConn := &PeerConn{
+		Conn:    conn,
+		Service: &PeerService{manager: manager},
+	}
+	percent := 77.0
+	charging := true
+	payload, err := proto.Marshal(&telemetrypb.TelemetryFrame{
+		ObservedAtUnixMs: time.Unix(300, 0).UnixMilli(),
+		Observations: []*telemetrypb.Observation{{
+			Body: &telemetrypb.Observation_Battery{Battery: &telemetrypb.BatteryObservation{
+				Percent:  &percent,
+				Charging: &charging,
+			}},
+		}},
+	})
+	if err != nil {
+		t.Fatalf("Marshal() error = %v", err)
+	}
+	if err := peerConn.handleTelemetryPacket(ctx, payload); err != nil {
+		t.Fatalf("handleTelemetryPacket() error = %v", err)
+	}
+	if len(metricStore.samples) != 2 {
+		t.Fatalf("metrics samples = %d, want 2", len(metricStore.samples))
+	}
+	if metricStore.samples[0].Name != peertelemetry.MetricBatteryPercent || metricStore.samples[0].Value != 77 {
+		t.Fatalf("first metric = %+v", metricStore.samples[0])
+	}
+	status, err := peerRun.GetStatus(ctx, keyPair.Public)
+	if err != nil {
+		t.Fatalf("GetStatus() error = %v", err)
+	}
+	if status.BatteryPercent == nil || *status.BatteryPercent != 77 {
+		t.Fatalf("BatteryPercent = %#v, want 77", status.BatteryPercent)
+	}
+	if status.Charging == nil || !*status.Charging {
+		t.Fatalf("Charging = %#v, want true", status.Charging)
+	}
+}
+
+func TestPeerConnServeDirectPacketsDoesNotBlockOnTelemetry(t *testing.T) {
+	originalShutdownTimeout := peerConnTelemetryShutdownTimeout
+	peerConnTelemetryShutdownTimeout = 50 * time.Millisecond
+	t.Cleanup(func() { peerConnTelemetryShutdownTimeout = originalShutdownTimeout })
+
+	ctx := context.Background()
+	keyPair, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("GenerateKeyPair error = %v", err)
+	}
+	percent := 77.0
+	payload, err := proto.Marshal(&telemetrypb.TelemetryFrame{
+		ObservedAtUnixMs: time.Unix(300, 0).UnixMilli(),
+		Observations: []*telemetrypb.Observation{{
+			Body: &telemetrypb.Observation_Battery{Battery: &telemetrypb.BatteryObservation{
+				Percent: &percent,
+			}},
+		}},
+	})
+	if err != nil {
+		t.Fatalf("Marshal() error = %v", err)
+	}
+	packets := []peerConnTestPacket{{protocol: ProtocolTelemetry, payload: payload}}
+	for i := 0; i < peerConnTelemetryQueueSize+5; i++ {
+		packets = append(packets, peerConnTestPacket{protocol: ProtocolTelemetry, payload: payload})
+	}
+	packets = append(packets, peerConnTestPacket{protocol: ProtocolStampedOpus, payload: stampedopus.Pack(123, []byte{1, 2, 3})})
+	conn := &peerConnPacketConn{
+		testGiznetConn: testGiznetConn{publicKey: keyPair.Public},
+		packets:        packets,
+	}
+	metricStore := newPeerConnBlockingMetrics()
+	manager := NewManager(&peer.Server{Store: kv.NewMemory(nil)})
+	manager.PeerRun = &peerrun.Server{Store: kv.NewMemory(nil)}
+	manager.Metrics = metricStore
+	peerConn := &PeerConn{
+		Conn:    conn,
+		Service: &PeerService{manager: manager},
+	}
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- peerConn.serveDirectPackets()
+	}()
+
+	select {
+	case <-metricStore.started:
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for telemetry metrics append")
+	}
+	select {
+	case err := <-errCh:
+		if err != nil {
+			t.Fatalf("serveDirectPackets() error = %v", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("serveDirectPackets stayed blocked behind telemetry shutdown")
+	}
+	if got, want := conn.reads, len(packets)+1; got != want {
+		t.Fatalf("direct packet reads = %d, want %d", got, want)
+	}
+	close(metricStore.release)
+	select {
+	case <-metricStore.finished:
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for telemetry metrics append to finish")
+	}
+	_, err = manager.PeerRun.GetStatus(ctx, keyPair.Public)
+	if err != nil {
+		t.Fatalf("GetStatus() error = %v", err)
+	}
+}
+
+func TestManagerTelemetryStatusLockIsScopedByPeer(t *testing.T) {
+	first, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("GenerateKeyPair(first) error = %v", err)
+	}
+	second, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("GenerateKeyPair(second) error = %v", err)
+	}
+	manager := NewManager(&peer.Server{Store: kv.NewMemory(nil)})
+	if a, b := manager.telemetryStatusLock(first.Public), manager.telemetryStatusLock(first.Public); a == nil || a != b {
+		t.Fatalf("same peer status locks = %p and %p, want same non-nil lock", a, b)
+	}
+	if a, b := manager.telemetryStatusLock(first.Public), manager.telemetryStatusLock(second.Public); a == nil || b == nil || a == b {
+		t.Fatalf("different peer status locks = %p and %p, want different non-nil locks", a, b)
+	}
+	retained := manager.retainTelemetryStatusLock(first.Public, true)
+	if retained == nil {
+		t.Fatal("retainTelemetryStatusLock returned nil")
+	}
+	manager.releaseTelemetryStatusLock(first.Public)
+	if _, ok := manager.telemetryStatusLocks[first.Public]; ok {
+		t.Fatal("releaseTelemetryStatusLock should delete unreferenced peer lock")
+	}
+}
+
+func TestPeerConnTelemetryStatusSyncSerializesCalls(t *testing.T) {
+	keyPair, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("GenerateKeyPair error = %v", err)
+	}
+	next := &peerConnBlockingStatusSync{
+		entered: make(chan struct{}, 2),
+		release: make(chan struct{}),
+	}
+	syncer := peerConnTelemetryStatusSync{
+		mu:   &sync.Mutex{},
+		next: next,
+	}
+	errCh := make(chan error, 2)
+	go func() {
+		errCh <- syncer.SyncTelemetryStatus(context.Background(), keyPair.Public, peertelemetry.StatusPatch{BatteryPercent: peerConnIntPtr(10)})
+	}()
+	select {
+	case <-next.entered:
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for first status sync")
+	}
+	go func() {
+		errCh <- syncer.SyncTelemetryStatus(context.Background(), keyPair.Public, peertelemetry.StatusPatch{Charging: peerConnBoolPtr(true)})
+	}()
+	select {
+	case <-next.entered:
+		t.Fatal("second status sync entered before first released")
+	case <-time.After(100 * time.Millisecond):
+	}
+	close(next.release)
+	for i := 0; i < 2; i++ {
+		select {
+		case err := <-errCh:
+			if err != nil {
+				t.Fatalf("SyncTelemetryStatus() error = %v", err)
+			}
+		case <-time.After(time.Second):
+			t.Fatal("timed out waiting for status sync to finish")
+		}
+	}
+	if next.calls != 2 {
+		t.Fatalf("status sync calls = %d, want 2", next.calls)
+	}
+}
+
 func TestPeerConnReloadsRuntimeWhenInputIsInactive(t *testing.T) {
 	ctx := context.Background()
 	keyPair, err := giznet.GenerateKeyPair()
@@ -321,6 +522,95 @@ func TestPeerConnReloadsRuntimeWhenInputIsInactive(t *testing.T) {
 	case <-time.After(time.Second):
 		t.Fatal("timed out waiting for pushed chunk")
 	}
+}
+
+type peerConnFakeMetrics struct {
+	samples []metrics.Sample
+}
+
+func (s *peerConnFakeMetrics) Append(_ context.Context, samples []metrics.Sample) error {
+	s.samples = append(s.samples, samples...)
+	return nil
+}
+
+func (s *peerConnFakeMetrics) Query(context.Context, metrics.Query) (metrics.SeriesSet, error) {
+	return nil, nil
+}
+
+func (s *peerConnFakeMetrics) QueryRange(context.Context, metrics.RangeQuery) (metrics.SeriesSet, error) {
+	return nil, nil
+}
+
+func (s *peerConnFakeMetrics) Close() error {
+	return nil
+}
+
+type peerConnBlockingMetrics struct {
+	peerConnFakeMetrics
+	started  chan struct{}
+	release  chan struct{}
+	finished chan struct{}
+	once     sync.Once
+	finish   sync.Once
+}
+
+func newPeerConnBlockingMetrics() *peerConnBlockingMetrics {
+	return &peerConnBlockingMetrics{
+		started:  make(chan struct{}),
+		release:  make(chan struct{}),
+		finished: make(chan struct{}),
+	}
+}
+
+func (s *peerConnBlockingMetrics) Append(_ context.Context, samples []metrics.Sample) error {
+	s.once.Do(func() { close(s.started) })
+	defer s.finish.Do(func() { close(s.finished) })
+	select {
+	case <-s.release:
+	}
+	return s.peerConnFakeMetrics.Append(context.Background(), samples)
+}
+
+type peerConnTestPacket struct {
+	protocol byte
+	payload  []byte
+}
+
+type peerConnPacketConn struct {
+	testGiznetConn
+	packets []peerConnTestPacket
+	reads   int
+}
+
+func (c *peerConnPacketConn) Read(buf []byte) (byte, int, error) {
+	c.reads++
+	if len(c.packets) == 0 {
+		return 0, 0, giznet.ErrClosed
+	}
+	packet := c.packets[0]
+	c.packets = c.packets[1:]
+	return packet.protocol, copy(buf, packet.payload), nil
+}
+
+type peerConnBlockingStatusSync struct {
+	entered chan struct{}
+	release chan struct{}
+	calls   int
+}
+
+func (s *peerConnBlockingStatusSync) SyncTelemetryStatus(context.Context, giznet.PublicKey, peertelemetry.StatusPatch) error {
+	s.calls++
+	s.entered <- struct{}{}
+	<-s.release
+	return nil
+}
+
+func peerConnBoolPtr(v bool) *bool {
+	return &v
+}
+
+func peerConnIntPtr(v int) *int {
+	return &v
 }
 
 func TestPeerConnPCMChunkToInt16(t *testing.T) {

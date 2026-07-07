@@ -48,23 +48,6 @@ typedef struct {
 } gzc_server_get_status_request_t;
 
 typedef struct {
-  bool has_battery_percent;
-  int32_t battery_percent;
-  bool has_charging;
-  bool charging;
-  bool has_details;
-  gzc_json_t details;
-  bool has_labels;
-  gzc_json_t labels;
-  bool has_muted;
-  bool muted;
-  bool has_reported_at;
-  gzc_str_t reported_at;
-  bool has_volume;
-  int32_t volume;
-} gzc_server_put_status_request_t;
-
-typedef struct {
   int _empty;
 } gzc_server_get_run_agent_request_t;
 
@@ -310,62 +293,6 @@ typedef struct {
   gzc_str_t cursor;
   bool has_limit;
   int32_t limit;
-} gzc_pet_list_request_t;
-
-typedef struct {
-  gzc_str_t id;
-} gzc_pet_get_request_t;
-
-typedef struct {
-  bool has_id;
-  gzc_str_t id;
-  gzc_str_t name;
-} gzc_pet_adopt_request_t;
-
-typedef struct {
-  gzc_str_t id;
-  gzc_str_t name;
-} gzc_pet_put_request_t;
-
-typedef struct {
-  gzc_str_t id;
-} gzc_pet_delete_request_t;
-
-typedef struct {
-  gzc_str_t pet_id;
-  gzc_str_t prompt;
-} gzc_pet_feed_request_t;
-
-typedef struct {
-  gzc_str_t pet_id;
-  gzc_str_t prompt;
-} gzc_pet_wash_request_t;
-
-typedef struct {
-  gzc_str_t pet_id;
-  gzc_str_t prompt;
-} gzc_pet_play_request_t;
-
-typedef struct {
-  int _empty;
-} gzc_wallet_get_request_t;
-
-typedef struct {
-  bool has_cursor;
-  gzc_str_t cursor;
-  bool has_limit;
-  int32_t limit;
-} gzc_wallet_transactions_list_request_t;
-
-typedef struct {
-  gzc_str_t id;
-} gzc_wallet_transactions_get_request_t;
-
-typedef struct {
-  bool has_cursor;
-  gzc_str_t cursor;
-  bool has_limit;
-  int32_t limit;
 } gzc_contact_list_request_t;
 
 typedef struct {
@@ -512,19 +439,101 @@ typedef struct {
 } gzc_friend_group_message_send_request_t;
 
 typedef struct {
+  bool has_name;
+  gzc_str_t name;
+} gzc_server_game_ruleset_get_request_t;
+
+typedef struct {
+  gzc_str_t id;
+} gzc_pet_def_pixa_download_request_t;
+
+typedef struct {
+  gzc_str_t id;
+} gzc_badge_def_pixa_download_request_t;
+
+typedef struct {
   bool has_cursor;
   gzc_str_t cursor;
   bool has_limit;
   int32_t limit;
-} gzc_reward_list_request_t;
+} gzc_server_pet_list_request_t;
 
 typedef struct {
   gzc_str_t id;
-} gzc_reward_get_request_t;
+} gzc_server_pet_get_request_t;
 
 typedef struct {
-  gzc_str_t prompt;
-} gzc_reward_claim_request_t;
+  bool has_display_name;
+  gzc_str_t display_name;
+  bool has_ruleset_name;
+  gzc_str_t ruleset_name;
+} gzc_server_pet_adopt_request_t;
+
+typedef struct {
+  gzc_str_t display_name;
+  gzc_str_t id;
+} gzc_server_pet_put_request_t;
+
+typedef struct {
+  gzc_str_t id;
+} gzc_server_pet_delete_request_t;
+
+typedef struct {
+  bool has_action;
+  gzc_str_t action;
+  bool has_game_result;
+  gzc_json_t game_result;
+  gzc_str_t pet_id;
+} gzc_server_pet_drive_request_t;
+
+typedef struct {
+  bool has_ruleset_name;
+  gzc_str_t ruleset_name;
+} gzc_server_points_get_request_t;
+
+typedef struct {
+  bool has_cursor;
+  gzc_str_t cursor;
+  bool has_limit;
+  int32_t limit;
+} gzc_server_points_transaction_list_request_t;
+
+typedef struct {
+  gzc_str_t id;
+} gzc_server_points_transaction_get_request_t;
+
+typedef struct {
+  bool has_cursor;
+  gzc_str_t cursor;
+  bool has_limit;
+  int32_t limit;
+} gzc_server_badge_list_request_t;
+
+typedef struct {
+  gzc_str_t id;
+} gzc_server_badge_get_request_t;
+
+typedef struct {
+  bool has_cursor;
+  gzc_str_t cursor;
+  bool has_limit;
+  int32_t limit;
+} gzc_server_game_result_list_request_t;
+
+typedef struct {
+  gzc_str_t id;
+} gzc_server_game_result_get_request_t;
+
+typedef struct {
+  bool has_cursor;
+  gzc_str_t cursor;
+  bool has_limit;
+  int32_t limit;
+} gzc_server_reward_grant_list_request_t;
+
+typedef struct {
+  gzc_str_t id;
+} gzc_server_reward_grant_get_request_t;
 
 typedef struct {
   int64_t server_time;
@@ -591,6 +600,14 @@ typedef struct {
   bool charging;
   bool has_details;
   gzc_json_t details;
+  bool has_gnss_accuracy_m;
+  double gnss_accuracy_m;
+  bool has_gnss_altitude_m;
+  double gnss_altitude_m;
+  bool has_gnss_latitude;
+  double gnss_latitude;
+  bool has_gnss_longitude;
+  double gnss_longitude;
   bool has_labels;
   gzc_json_t labels;
   bool has_muted;
@@ -600,23 +617,6 @@ typedef struct {
   bool has_volume;
   int32_t volume;
 } gzc_server_get_status_response_t;
-
-typedef struct {
-  bool has_battery_percent;
-  int32_t battery_percent;
-  bool has_charging;
-  bool charging;
-  bool has_details;
-  gzc_json_t details;
-  bool has_labels;
-  gzc_json_t labels;
-  bool has_muted;
-  bool muted;
-  bool has_reported_at;
-  gzc_str_t reported_at;
-  bool has_volume;
-  int32_t volume;
-} gzc_server_put_status_response_t;
 
 typedef struct {
   bool has_active;
@@ -1083,113 +1083,6 @@ typedef struct {
   gzc_json_t items;
   bool has_next_cursor;
   gzc_str_t next_cursor;
-} gzc_pet_list_response_t;
-
-typedef struct {
-  gzc_json_t ability;
-  gzc_str_t created_at;
-  gzc_str_t id;
-  gzc_json_t life;
-  gzc_str_t name;
-  gzc_str_t species_id;
-  gzc_str_t updated_at;
-  gzc_str_t voice_id;
-} gzc_pet_get_response_t;
-
-typedef struct {
-  gzc_json_t ability;
-  gzc_str_t created_at;
-  gzc_str_t id;
-  gzc_json_t life;
-  gzc_str_t name;
-  gzc_str_t species_id;
-  gzc_str_t updated_at;
-  gzc_str_t voice_id;
-} gzc_pet_adopt_response_t;
-
-typedef struct {
-  gzc_json_t ability;
-  gzc_str_t created_at;
-  gzc_str_t id;
-  gzc_json_t life;
-  gzc_str_t name;
-  gzc_str_t species_id;
-  gzc_str_t updated_at;
-  gzc_str_t voice_id;
-} gzc_pet_put_response_t;
-
-typedef struct {
-  gzc_json_t ability;
-  gzc_str_t created_at;
-  gzc_str_t id;
-  gzc_json_t life;
-  gzc_str_t name;
-  gzc_str_t species_id;
-  gzc_str_t updated_at;
-  gzc_str_t voice_id;
-} gzc_pet_delete_response_t;
-
-typedef struct {
-  gzc_json_t ability;
-  gzc_str_t created_at;
-  gzc_str_t id;
-  gzc_json_t life;
-  gzc_str_t name;
-  gzc_str_t species_id;
-  gzc_str_t updated_at;
-  gzc_str_t voice_id;
-} gzc_pet_feed_response_t;
-
-typedef struct {
-  gzc_json_t ability;
-  gzc_str_t created_at;
-  gzc_str_t id;
-  gzc_json_t life;
-  gzc_str_t name;
-  gzc_str_t species_id;
-  gzc_str_t updated_at;
-  gzc_str_t voice_id;
-} gzc_pet_wash_response_t;
-
-typedef struct {
-  gzc_json_t ability;
-  gzc_str_t created_at;
-  gzc_str_t id;
-  gzc_json_t life;
-  gzc_str_t name;
-  gzc_str_t species_id;
-  gzc_str_t updated_at;
-  gzc_str_t voice_id;
-} gzc_pet_play_response_t;
-
-typedef struct {
-  gzc_str_t created_at;
-  gzc_str_t id;
-  int64_t point_balance;
-  int64_t token_balance;
-  gzc_str_t updated_at;
-} gzc_wallet_get_response_t;
-
-typedef struct {
-  bool has_next;
-  gzc_json_t items;
-  bool has_next_cursor;
-  gzc_str_t next_cursor;
-} gzc_wallet_transactions_list_response_t;
-
-typedef struct {
-  gzc_str_t created_at;
-  gzc_str_t id;
-  int64_t point_delta;
-  gzc_str_t reason;
-  int64_t token_delta;
-} gzc_wallet_transactions_get_response_t;
-
-typedef struct {
-  bool has_next;
-  gzc_json_t items;
-  bool has_next_cursor;
-  gzc_str_t next_cursor;
 } gzc_contact_list_response_t;
 
 typedef struct {
@@ -1499,27 +1392,214 @@ typedef struct {
 } gzc_friend_group_message_send_response_t;
 
 typedef struct {
+  gzc_str_t created_at;
+  gzc_str_t name;
+  gzc_json_t spec;
+  gzc_str_t updated_at;
+} gzc_server_game_ruleset_get_response_t;
+
+typedef struct {
+  gzc_str_t id;
+  bool has_pixa_path;
+  gzc_str_t pixa_path;
+  int64_t size_bytes;
+} gzc_pet_def_pixa_download_response_t;
+
+typedef struct {
+  gzc_str_t id;
+  bool has_pixa_path;
+  gzc_str_t pixa_path;
+  int64_t size_bytes;
+} gzc_badge_def_pixa_download_response_t;
+
+typedef struct {
   bool has_next;
   gzc_json_t items;
   bool has_next_cursor;
   gzc_str_t next_cursor;
-} gzc_reward_list_response_t;
+} gzc_server_pet_list_response_t;
 
 typedef struct {
-  gzc_str_t badge_id;
+  gzc_json_t ability;
   gzc_str_t created_at;
+  gzc_str_t display_name;
+  int64_t exp;
   gzc_str_t id;
-  int64_t point_amount;
-  gzc_str_t prompt;
-} gzc_reward_get_response_t;
+  gzc_str_t last_active_at;
+  int64_t level;
+  gzc_json_t life;
+  gzc_str_t owner_public_key;
+  gzc_str_t petdef_id;
+  gzc_str_t ruleset_name;
+  gzc_str_t updated_at;
+  bool has_workflow_name;
+  gzc_str_t workflow_name;
+  gzc_str_t workspace_name;
+} gzc_server_pet_get_response_t;
 
 typedef struct {
-  gzc_str_t badge_id;
+  gzc_json_t pet;
+  gzc_json_t points;
+  gzc_json_t transaction;
+} gzc_server_pet_adopt_response_t;
+
+typedef struct {
+  gzc_json_t ability;
   gzc_str_t created_at;
+  gzc_str_t display_name;
+  int64_t exp;
   gzc_str_t id;
-  int64_t point_amount;
-  gzc_str_t prompt;
-} gzc_reward_claim_response_t;
+  gzc_str_t last_active_at;
+  int64_t level;
+  gzc_json_t life;
+  gzc_str_t owner_public_key;
+  gzc_str_t petdef_id;
+  gzc_str_t ruleset_name;
+  gzc_str_t updated_at;
+  bool has_workflow_name;
+  gzc_str_t workflow_name;
+  gzc_str_t workspace_name;
+} gzc_server_pet_put_response_t;
+
+typedef struct {
+  gzc_json_t ability;
+  gzc_str_t created_at;
+  gzc_str_t display_name;
+  int64_t exp;
+  gzc_str_t id;
+  gzc_str_t last_active_at;
+  int64_t level;
+  gzc_json_t life;
+  gzc_str_t owner_public_key;
+  gzc_str_t petdef_id;
+  gzc_str_t ruleset_name;
+  gzc_str_t updated_at;
+  bool has_workflow_name;
+  gzc_str_t workflow_name;
+  gzc_str_t workspace_name;
+} gzc_server_pet_delete_response_t;
+
+typedef struct {
+  gzc_json_t badges;
+  bool has_game_result;
+  gzc_json_t game_result;
+  gzc_json_t pet;
+  gzc_json_t points;
+  gzc_json_t reward_grants;
+  gzc_json_t transactions;
+} gzc_server_pet_drive_response_t;
+
+typedef struct {
+  int64_t balance;
+  gzc_str_t created_at;
+  gzc_str_t owner_public_key;
+  gzc_str_t ruleset_name;
+  gzc_str_t updated_at;
+} gzc_server_points_get_response_t;
+
+typedef struct {
+  bool has_next;
+  gzc_json_t items;
+  bool has_next_cursor;
+  gzc_str_t next_cursor;
+} gzc_server_points_transaction_list_response_t;
+
+typedef struct {
+  int64_t balance_after;
+  gzc_str_t created_at;
+  int64_t delta;
+  bool has_game_result_id;
+  gzc_str_t game_result_id;
+  gzc_str_t id;
+  gzc_str_t owner_public_key;
+  bool has_pet_id;
+  gzc_str_t pet_id;
+  gzc_str_t reason;
+  bool has_reward_grant_id;
+  gzc_str_t reward_grant_id;
+  gzc_str_t ruleset_name;
+  gzc_str_t source_id;
+  gzc_str_t source_type;
+} gzc_server_points_transaction_get_response_t;
+
+typedef struct {
+  bool has_next;
+  gzc_json_t items;
+  bool has_next_cursor;
+  gzc_str_t next_cursor;
+} gzc_server_badge_list_response_t;
+
+typedef struct {
+  bool active;
+  gzc_str_t badge_def_id;
+  gzc_str_t created_at;
+  int64_t exp;
+  gzc_str_t id;
+  int64_t level;
+  gzc_str_t owner_public_key;
+  int64_t progress;
+  gzc_str_t updated_at;
+} gzc_server_badge_get_response_t;
+
+typedef struct {
+  bool has_next;
+  gzc_json_t items;
+  bool has_next_cursor;
+  gzc_str_t next_cursor;
+} gzc_server_game_result_list_response_t;
+
+typedef struct {
+  gzc_str_t created_at;
+  bool has_difficulty;
+  gzc_str_t difficulty;
+  bool has_duration_ms;
+  int64_t duration_ms;
+  gzc_str_t game_def_id;
+  gzc_str_t id;
+  bool has_idempotency_key;
+  gzc_str_t idempotency_key;
+  bool has_max_score;
+  int64_t max_score;
+  gzc_str_t occurred_at;
+  bool has_outcome;
+  gzc_str_t outcome;
+  gzc_str_t owner_public_key;
+  bool has_payload;
+  gzc_json_t payload;
+  gzc_str_t pet_id;
+  gzc_str_t ruleset_name;
+  bool has_score;
+  int64_t score;
+} gzc_server_game_result_get_response_t;
+
+typedef struct {
+  bool has_next;
+  gzc_json_t items;
+  bool has_next_cursor;
+  gzc_str_t next_cursor;
+} gzc_server_reward_grant_list_response_t;
+
+typedef struct {
+  bool has_ability_delta;
+  gzc_json_t ability_delta;
+  gzc_json_t badge_exp_delta;
+  gzc_str_t created_at;
+  bool has_game_result_id;
+  gzc_str_t game_result_id;
+  gzc_str_t id;
+  bool has_life_delta;
+  gzc_json_t life_delta;
+  gzc_str_t owner_public_key;
+  int64_t pet_exp_delta;
+  bool has_pet_id;
+  gzc_str_t pet_id;
+  int64_t points_delta;
+  bool has_reason;
+  gzc_str_t reason;
+  gzc_str_t ruleset_name;
+  gzc_str_t source_id;
+  gzc_str_t source_type;
+} gzc_server_reward_grant_get_response_t;
 
 #ifdef __cplusplus
 }

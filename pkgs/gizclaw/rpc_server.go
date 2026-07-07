@@ -19,7 +19,6 @@ type rpcPeerService interface {
 
 type rpcPeerRunService interface {
 	GetStatus(context.Context, giznet.PublicKey) (apitypes.PeerStatus, error)
-	PutStatus(context.Context, giznet.PublicKey, apitypes.PeerStatus) (apitypes.PeerStatus, error)
 	GetRunAgent(context.Context, giznet.PublicKey) (apitypes.PeerRunAgent, error)
 	SetRunAgent(context.Context, giznet.PublicKey, apitypes.AgentSelection) (apitypes.PeerRunAgent, error)
 }
@@ -91,8 +90,6 @@ func (s *rpcServer) dispatch(ctx context.Context, req *rpcapi.RPCRequest) (*rpca
 		return s.handleGetRuntime(ctx, req)
 	case rpcapi.RPCMethodServerStatusGet:
 		return s.handleGetStatus(ctx, req)
-	case rpcapi.RPCMethodServerStatusPut:
-		return s.handlePutStatus(ctx, req)
 	case rpcapi.RPCMethodServerRunAgentGet:
 		return s.handleGetRunAgent(ctx, req)
 	case rpcapi.RPCMethodServerRunAgentSet:

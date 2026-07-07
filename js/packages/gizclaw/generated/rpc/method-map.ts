@@ -182,10 +182,6 @@ export type RPCMethodMap = {
     request: ServerGetStatusRequest;
     response: PeerStatus;
   };
-  "server.status.put": {
-    request: PeerStatus;
-    response: PeerStatus;
-  };
   "server.run.agent.get": {
     request: ServerGetRunAgentRequest;
     response: PeerRunAgent;
@@ -543,7 +539,6 @@ export const RPC_METHODS = {
   "server.info.put": "server.info.put",
   "server.runtime.get": "server.runtime.get",
   "server.status.get": "server.status.get",
-  "server.status.put": "server.status.put",
   "server.run.agent.get": "server.run.agent.get",
   "server.run.agent.set": "server.run.agent.set",
   "server.run.workspace.get": "server.run.workspace.get",
