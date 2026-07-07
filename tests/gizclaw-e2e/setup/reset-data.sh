@@ -122,7 +122,8 @@ require_e2e_credentials() {
     GIZCLAW_E2E_VOLC_OPENAPI_ACCESS_KEY \
     GIZCLAW_E2E_VOLC_OPENAPI_ACCESS_KEY_ID; do
     local value="${!name:-}"
-    local normalized="${value,,}"
+    local normalized
+    normalized="$(printf '%s' "$value" | tr '[:upper:]' '[:lower:]')"
     if [[ -z "$value" ]]; then
       missing+=("$name")
     elif [[ "$normalized" == *dummy* || "$normalized" == *placeholder* || "$normalized" == *replace* || "$normalized" == *example* ]]; then
@@ -243,6 +244,24 @@ apply_resource() {
   run_gizclaw admin apply --context "$admin_context" -f "$resource_file"
 }
 
+delete_firmware_artifact_if_exists() {
+  local firmware_id="$1"
+  local channel="$2"
+  local output status
+  set +e
+  output="$(run_gizclaw admin firmwares delete-artifact "$firmware_id" --channel "$channel" --context "$admin_context" 2>&1)"
+  status=$?
+  set -e
+  if [[ $status -eq 0 ]]; then
+    return 0
+  fi
+  if [[ "$output" == *"FIRMWARE_ARTIFACT_NOT_FOUND"* || "$output" == *"RESOURCE_NOT_FOUND"* || "$output" == *"NOT_FOUND"* || "$output" == *"unexpected status 404"* ]]; then
+    return 0
+  fi
+  printf '%s\n' "$output" >&2
+  return "$status"
+}
+
 init_data() {
   run_gizclaw connect set-name "E2E Admin" --context "$admin_context" >/dev/null
   if [[ -n "$gear1_context" ]]; then
@@ -277,6 +296,7 @@ init_data() {
     echo "missing firmware fixture asset: $asset_path" >&2
     exit 2
   fi
+  delete_firmware_artifact_if_exists "$firmware_id" "$channel"
   run_gizclaw admin firmwares upload-artifact "$firmware_id" --channel "$channel" -f "$asset_path" --context "$admin_context" >/dev/null
 }
 
