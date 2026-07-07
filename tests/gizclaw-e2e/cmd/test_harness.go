@@ -869,6 +869,8 @@ func (h *Harness) renderServerFixture(fixtureName string, replacements map[strin
 	}
 	if listenAddr := replacements[fixtureListenAddrToken]; listenAddr != "" {
 		h.ServerAddr = listenAddr
+		rendered = strings.ReplaceAll(rendered, "listen: 127.0.0.1:9820", "listen: "+listenAddr)
+		rendered = strings.ReplaceAll(rendered, `listen: "127.0.0.1:9820"`, fmt.Sprintf(`listen: "%s"`, listenAddr))
 		rendered = strings.ReplaceAll(rendered, "endpoint: 127.0.0.1:9820", "endpoint: "+listenAddr)
 		rendered = strings.ReplaceAll(rendered, `endpoint: "127.0.0.1:9820"`, fmt.Sprintf(`endpoint: "%s"`, listenAddr))
 	}

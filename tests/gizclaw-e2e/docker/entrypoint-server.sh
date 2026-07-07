@@ -14,10 +14,49 @@ rm -f "$ready_file"
 
 export GIZCLAW_E2E_CONFIG_HOME="${GIZCLAW_E2E_CONFIG_HOME:-$repo_root/tests/gizclaw-e2e/testdata/cmd-config-home}"
 : "${GIZCLAW_E2E_SERVER_ENDPOINT:?missing GIZCLAW_E2E_SERVER_ENDPOINT}"
+container_config_home="$GIZCLAW_E2E_CONFIG_HOME"
+container_server_endpoint="$GIZCLAW_E2E_SERVER_ENDPOINT"
+if [[ -f "$repo_root/tests/gizclaw-e2e/.env" ]]; then
+  set -a
+  # shellcheck disable=SC1091
+  source "$repo_root/tests/gizclaw-e2e/.env"
+  set +a
+fi
+export GIZCLAW_E2E_CONFIG_HOME="$container_config_home"
+export GIZCLAW_E2E_SERVER_ENDPOINT="$container_server_endpoint"
+: "${GIZCLAW_E2E_VOLC_LOG_ENABLED:=false}"
+: "${GIZCLAW_E2E_VOLC_LOG_ENDPOINT:=https://tls-cn-beijing.volces.com}"
+: "${GIZCLAW_E2E_VOLC_LOG_REGION:=cn-beijing}"
+: "${GIZCLAW_E2E_VOLC_LOG_TOPIC_ID:=gizclaw-server-log-topic}"
+: "${GIZCLAW_E2E_VOLC_LOG_ACCESS_KEY_ID:=volc-access-key-id}"
+: "${GIZCLAW_E2E_VOLC_LOG_ACCESS_KEY_SECRET:=volc-access-key-secret}"
 
 envsubst '${GIZCLAW_E2E_SERVER_ENDPOINT}' \
   < "$repo_root/tests/gizclaw-e2e/docker/server-workspace.config.yaml.template" \
   > "$workspace_dir/config.yaml"
+awk \
+  -v enabled="$GIZCLAW_E2E_VOLC_LOG_ENABLED" \
+  -v endpoint="$GIZCLAW_E2E_VOLC_LOG_ENDPOINT" \
+  -v region="$GIZCLAW_E2E_VOLC_LOG_REGION" \
+  -v topic_id="$GIZCLAW_E2E_VOLC_LOG_TOPIC_ID" \
+  -v access_key_id="$GIZCLAW_E2E_VOLC_LOG_ACCESS_KEY_ID" \
+  -v access_key_secret="$GIZCLAW_E2E_VOLC_LOG_ACCESS_KEY_SECRET" '
+function quote_yaml(value) {
+  gsub(/\\/, "\\\\", value)
+  gsub(/"/, "\\\"", value)
+  return "\"" value "\""
+}
+/^  volc:/ { in_volc = 1; print; next }
+in_volc && /^    enabled:/ { print "    enabled: " enabled; next }
+in_volc && /^    endpoint:/ { print "    endpoint: " quote_yaml(endpoint); next }
+in_volc && /^    region:/ { print "    region: " quote_yaml(region); next }
+in_volc && /^    topic_id:/ { print "    topic_id: " quote_yaml(topic_id); next }
+in_volc && /^    access_key_id:/ { print "    access_key_id: " quote_yaml(access_key_id); next }
+in_volc && /^    access_key_secret:/ { print "    access_key_secret: " quote_yaml(access_key_secret); next }
+in_volc && /^  [^ ]/ { in_volc = 0 }
+{ print }
+' "$workspace_dir/config.yaml" > "$workspace_dir/config.yaml.tmp"
+mv "$workspace_dir/config.yaml.tmp" "$workspace_dir/config.yaml"
 
 "$setup_dir/build.sh" >/dev/null
 "$setup_dir/reset_data.sh" clear
