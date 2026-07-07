@@ -77,9 +77,11 @@ export const createClient = (config: Config = {}): Client => {
 
     let request: Request | undefined;
     let response: Response | undefined;
+    let resolvedOptions: ResolvedRequestOptions | undefined;
 
     try {
       const { opts, url } = await beforeRequest(options);
+      resolvedOptions = opts;
       const requestInit: ReqInit = {
         redirect: 'follow',
         ...opts,
@@ -201,7 +203,7 @@ export const createClient = (config: Config = {}): Client => {
 
       for (const fn of interceptors.error.fns) {
         if (fn) {
-          finalError = await fn(finalError, response, request, options as ResolvedRequestOptions);
+          finalError = await fn(finalError, response, request, resolvedOptions ?? (options as ResolvedRequestOptions));
         }
       }
 
