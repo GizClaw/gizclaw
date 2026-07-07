@@ -8,7 +8,9 @@ import (
 	"io"
 	"iter"
 	"strings"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/GizClaw/doubao-speech-go"
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codec/ogg"
@@ -95,6 +97,9 @@ func TestDoubaoASTTranslateSplitsProviderSubtitleSegments(t *testing.T) {
 		WithDoubaoASTTranslateTargetLanguage("ja"),
 	)
 	fake := &fakeASTTranslateSession{
+		beforeRecv:        make(chan struct{}),
+		notifySentAudioAt: 2,
+		sentAudioNotify:   make(chan struct{}),
 		events: []*doubaospeech.ASTTranslateEvent{
 			{Type: doubaospeech.ASTEventSourceSubtitleStart},
 			{Type: doubaospeech.ASTEventSourceSubtitleResponse, Text: "第一段"},
@@ -141,6 +146,8 @@ func TestDoubaoASTTranslateSplitsProviderSubtitleSegments(t *testing.T) {
 	if err := input.Close(); err != nil {
 		t.Fatalf("Close(input): %v", err)
 	}
+	fake.waitSentAudio(t)
+	close(fake.beforeRecv)
 
 	chunks := readAllASTTranslateChunks(t, out)
 	assertASTTranslateTextChunk(t, chunks, genx.RoleUser, doubaoASTTranslateTranscriptLabel, "turn-1", "第一段")
@@ -480,22 +487,37 @@ func TestDoubaoASTTranslateIgnoresLateInterruptedStreamChunks(t *testing.T) {
 }
 
 type fakeASTTranslateSession struct {
-	events    []*doubaospeech.ASTTranslateEvent
-	sentAudio [][]byte
-	finished  bool
-	closed    bool
-	closeCh   chan struct{}
-	doneCh    chan struct{}
+	events            []*doubaospeech.ASTTranslateEvent
+	beforeRecv        chan struct{}
+	sentAudioNotify   chan struct{}
+	notifySentAudioAt int
+	closeCh           chan struct{}
+	doneCh            chan struct{}
+
+	mu                  sync.Mutex
+	sentAudio           [][]byte
+	finished            bool
+	closed              bool
+	sentAudioNotifyOnce sync.Once
 }
 
 func (s *fakeASTTranslateSession) SendAudio(_ context.Context, audio []byte) error {
 	cp := append([]byte(nil), audio...)
+	s.mu.Lock()
 	s.sentAudio = append(s.sentAudio, cp)
+	if s.sentAudioNotify != nil && s.notifySentAudioAt > 0 && len(s.sentAudio) >= s.notifySentAudioAt {
+		s.sentAudioNotifyOnce.Do(func() {
+			close(s.sentAudioNotify)
+		})
+	}
+	s.mu.Unlock()
 	return nil
 }
 
 func (s *fakeASTTranslateSession) Finish(context.Context) error {
+	s.mu.Lock()
 	s.finished = true
+	s.mu.Unlock()
 	return nil
 }
 
@@ -506,6 +528,9 @@ func (s *fakeASTTranslateSession) Recv() iter.Seq2[*doubaospeech.ASTTranslateEve
 				close(s.doneCh)
 				s.doneCh = nil
 			}()
+		}
+		if s.beforeRecv != nil {
+			<-s.beforeRecv
 		}
 		if s.closeCh != nil {
 			<-s.closeCh
@@ -526,12 +551,28 @@ func (s *fakeASTTranslateSession) Recv() iter.Seq2[*doubaospeech.ASTTranslateEve
 }
 
 func (s *fakeASTTranslateSession) Close() error {
+	s.mu.Lock()
 	s.closed = true
+	s.mu.Unlock()
 	if s.closeCh != nil {
 		close(s.closeCh)
 		s.closeCh = nil
 	}
 	return nil
+}
+
+func (s *fakeASTTranslateSession) waitSentAudio(t *testing.T) {
+	t.Helper()
+	if s.sentAudioNotify == nil || s.notifySentAudioAt <= 0 {
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	select {
+	case <-s.sentAudioNotify:
+	case <-ctx.Done():
+		t.Fatalf("timed out waiting for %d sent audio chunks", s.notifySentAudioAt)
+	}
 }
 
 func readAllASTTranslateChunks(t *testing.T, stream genx.Stream) []*genx.MessageChunk {

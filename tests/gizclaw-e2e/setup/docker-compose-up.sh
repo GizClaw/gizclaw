@@ -50,16 +50,13 @@ write_runtime_env() {
   local config_home="$2"
   local identities_home="$3"
   local desktop_url="${4:-}"
-  local server_public_key
 
-  server_public_key="$(awk '/public-key:/ {print $2; exit}' "$config_home/gizclaw/admin/config.yaml" | tr -d '\"')"
   cat >"$state_dir/docker.env" <<EOF
 GIZCLAW_E2E_CONFIG_HOME=$config_home
 GIZCLAW_E2E_IDENTITIES_HOME=$identities_home
 GIZCLAW_E2E_JS_IDENTITY_DIR=$identities_home/peer
 GIZCLAW_E2E_JS_ADMIN_IDENTITY_DIR=$identities_home/admin
 GIZCLAW_E2E_SERVER_ENDPOINT=$GIZCLAW_E2E_SERVER_ENDPOINT
-GIZCLAW_E2E_SERVER_PUBLIC_KEY=$server_public_key
 GIZCLAW_E2E_DESKTOP_URL=$desktop_url
 GIZCLAW_E2E_DOCKER_PROJECT=$GIZCLAW_E2E_DOCKER_PROJECT
 GIZCLAW_E2E_DOCKER_SERVER_PORT=$GIZCLAW_E2E_DOCKER_SERVER_PORT

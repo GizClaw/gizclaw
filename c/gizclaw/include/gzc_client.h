@@ -14,8 +14,7 @@ typedef struct gzc_client gzc_client_t;
 typedef struct gzc_service_channel gzc_service_channel_t;
 
 typedef struct {
-  gzc_str_t signaling_url;
-  gzc_str_t server_public_key;
+  gzc_str_t server_endpoint;
   gzc_str_t private_key;
   const gzc_platform_t *platform;
   const gzc_platform_crypto_t *crypto;

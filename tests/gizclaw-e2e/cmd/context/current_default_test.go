@@ -6,7 +6,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	clitest "github.com/GizClaw/gizclaw-go/tests/gizclaw-e2e/cmd"
 )
 
@@ -16,11 +15,7 @@ func TestCurrentContextDefaultUserStory(t *testing.T) {
 	h.CreateContext("valid").MustSucceed(t)
 	h.WaitForPing("valid")
 
-	wrongKey, err := giznet.GenerateKeyPair()
-	if err != nil {
-		t.Fatalf("generate wrong server key: %v", err)
-	}
-	h.CreateContextWith("invalid", h.ServerAddr, wrongKey.Private.String()).MustSucceed(t)
+	h.CreateContextWith("invalid", "127.0.0.1:1").MustSucceed(t)
 
 	h.UseContext("valid").MustSucceed(t)
 	validPing, err := h.RunCLIUntilSuccess("connect", "ping")

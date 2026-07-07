@@ -4,8 +4,11 @@ package chat
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
+	"net/url"
 	"sort"
 	"strings"
 	"time"
@@ -249,7 +252,7 @@ func dialClient(cfg config) (*gizcli.Client, <-chan error, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	serverPK, err := parsePublicKey(cfg.Server.PublicKey)
+	serverPK, signalingURL, err := fetchChatServerInfo(cfg.Server.Addr)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -259,7 +262,7 @@ func dialClient(cfg config) (*gizcli.Client, <-chan error, error) {
 			ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 			defer cancel()
 			return gizwebrtc.Dial(ctx, key, serverPK, gizwebrtc.DialConfig{
-				SignalingURL:   cfg.Server.SignalingURL,
+				SignalingURL:   signalingURL,
 				CipherMode:     gizwebrtc.CipherMode(cfg.Server.CipherMode),
 				SecurityPolicy: securityPolicy,
 			})
@@ -273,6 +276,55 @@ func dialClient(cfg config) (*gizcli.Client, <-chan error, error) {
 		done <- client.Serve()
 	}()
 	return client, done, nil
+}
+
+func fetchChatServerInfo(endpoint string) (giznet.PublicKey, string, error) {
+	var zero giznet.PublicKey
+	endpoint = strings.TrimSpace(endpoint)
+	if endpoint == "" {
+		return zero, "", fmt.Errorf("server endpoint is empty")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://"+endpoint+"/server-info", nil)
+	if err != nil {
+		return zero, "", err
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return zero, "", err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return zero, "", fmt.Errorf("server-info status=%d", resp.StatusCode)
+	}
+	var body struct {
+		PublicKey     string `json:"public_key"`
+		Protocol      string `json:"protocol"`
+		SignalingPath string `json:"signaling_path"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+		return zero, "", err
+	}
+	if body.Protocol != "" && body.Protocol != "gizclaw-webrtc" {
+		return zero, "", fmt.Errorf("server-info protocol=%q", body.Protocol)
+	}
+	serverPK, err := parsePublicKey(strings.TrimSpace(body.PublicKey))
+	if err != nil {
+		return zero, "", fmt.Errorf("server-info public_key: %w", err)
+	}
+	if serverPK.IsZero() {
+		return zero, "", fmt.Errorf("server-info public_key is zero")
+	}
+	signalingPath := strings.TrimSpace(body.SignalingPath)
+	if signalingPath == "" {
+		signalingPath = gizwebrtc.SignalingPath
+	}
+	if !strings.HasPrefix(signalingPath, "/") || strings.HasPrefix(signalingPath, "//") {
+		return zero, "", fmt.Errorf("server-info signaling_path=%q", signalingPath)
+	}
+	signalingURL := url.URL{Scheme: "http", Host: endpoint, Path: signalingPath}
+	return serverPK, signalingURL.String(), nil
 }
 
 type runControlClient interface {

@@ -48,11 +48,9 @@ type interruptConfig struct {
 }
 
 type serverConfig struct {
-	Addr         string `json:"addr"`
-	PublicKey    string `json:"public_key"`
-	Transport    string `json:"transport"`
-	CipherMode   string `json:"cipher_mode"`
-	SignalingURL string `json:"signaling_url,omitempty"`
+	Addr       string `json:"addr"`
+	Transport  string `json:"transport"`
+	CipherMode string `json:"cipher_mode"`
 }
 
 type modelConfig struct {
@@ -232,26 +230,20 @@ func readSetupContextConfig(path string) (setupContextConfig, error) {
 			PrivateKey giznet.Key `yaml:"private-key"`
 		} `yaml:"identity"`
 		Server struct {
-			Endpoint  string           `yaml:"endpoint"`
-			PublicKey giznet.PublicKey `yaml:"public-key"`
+			Endpoint string `yaml:"endpoint"`
 		} `yaml:"server"`
 	}
 	if err := yaml.Unmarshal(data, &raw); err != nil {
 		return setupContextConfig{}, fmt.Errorf("decode context config %s: %w", path, err)
-	}
-	if raw.Server.PublicKey.IsZero() {
-		return setupContextConfig{}, fmt.Errorf("decode context config %s: missing server public-key", path)
 	}
 	if raw.Identity.PrivateKey.IsZero() {
 		return setupContextConfig{}, fmt.Errorf("decode context config %s: missing identity.private-key", path)
 	}
 	cfg := setupContextConfig{
 		Server: serverConfig{
-			Addr:         strings.TrimSpace(raw.Server.Endpoint),
-			PublicKey:    raw.Server.PublicKey.String(),
-			Transport:    "webrtc",
-			CipherMode:   string(gizwebrtc.CipherModeChaChaPoly),
-			SignalingURL: "http://" + strings.TrimSpace(raw.Server.Endpoint) + gizwebrtc.SignalingPath,
+			Addr:       strings.TrimSpace(raw.Server.Endpoint),
+			Transport:  "webrtc",
+			CipherMode: string(gizwebrtc.CipherModeChaChaPoly),
 		},
 		ClientPrivateKey: raw.Identity.PrivateKey.String(),
 	}
@@ -265,7 +257,6 @@ func (c *config) applySetupContextConfig(contextCfg setupContextConfig) {
 
 func (c *config) validate() error {
 	c.Server.Addr = strings.TrimSpace(c.Server.Addr)
-	c.Server.PublicKey = strings.TrimSpace(c.Server.PublicKey)
 	c.Server.Transport = normalizeChatTransport(c.Server.Transport)
 	c.Server.CipherMode = normalizeCipherMode(strings.TrimSpace(c.Server.CipherMode))
 	c.Workspace = strings.TrimSpace(c.Workspace)
@@ -315,9 +306,6 @@ func (c *config) validate() error {
 
 	if c.Server.Addr == "" {
 		return fmt.Errorf("server.addr is required")
-	}
-	if _, err := parsePublicKey(c.Server.PublicKey); err != nil {
-		return fmt.Errorf("server.public_key: %w", err)
 	}
 	if c.Server.CipherMode == "" {
 		c.Server.CipherMode = string(gizwebrtc.CipherModeChaChaPoly)

@@ -7,24 +7,7 @@ import (
 	"testing"
 
 	"github.com/GizClaw/gizclaw-go/cmd/internal/clicontext"
-	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 )
-
-func testPublicKeyText(fill byte) string {
-	kp, err := giznet.NewKeyPair(testPrivateKey(fill))
-	if err != nil {
-		panic(err)
-	}
-	return kp.Public.String()
-}
-
-func testPrivateKey(fill byte) giznet.Key {
-	var key giznet.Key
-	for i := range key {
-		key[i] = fill
-	}
-	return key
-}
 
 func TestContextCreateStoresDescription(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
@@ -36,8 +19,6 @@ func TestContextCreateStoresDescription(t *testing.T) {
 		"local",
 		"--server",
 		"127.0.0.1:9820",
-		"--public-key",
-		testPublicKeyText(0xab),
 		"--description",
 		"Local dev",
 	})
@@ -64,12 +45,10 @@ func TestContextCommandsManageContexts(t *testing.T) {
 	executeContextCmd(t,
 		"create", "alpha",
 		"--server", "127.0.0.1:9820",
-		"--public-key", testPublicKeyText(0xab),
 	)
 	executeContextCmd(t,
 		"create", "beta",
 		"--server", "127.0.0.1:9821",
-		"--public-key", testPublicKeyText(0xcd),
 		"--description", "Beta context",
 	)
 

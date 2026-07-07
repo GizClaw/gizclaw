@@ -181,12 +181,8 @@ func TestReadSetupContextConfigErrors(t *testing.T) {
 }
 
 func TestConfigValidationRejectsMissingSecret(t *testing.T) {
-	serverKey, err := giznet.GenerateKeyPair()
-	if err != nil {
-		t.Fatalf("GenerateKeyPair(server): %v", err)
-	}
 	cfg := config{
-		Server:   serverConfig{Addr: "127.0.0.1:9820", PublicKey: serverKey.Public.String()},
+		Server:   serverConfig{Addr: "127.0.0.1:9820"},
 		Agent:    "doubao-realtime",
 		Models:   modelConfig{LLM: "chat", TTS: "tts", ASR: "asr", Realtime: "realtime"},
 		Workflow: workflowConfig{Name: "demo"},
@@ -200,17 +196,13 @@ func TestConfigValidationRejectsMissingSecret(t *testing.T) {
 }
 
 func TestConfigValidationErrors(t *testing.T) {
-	serverKey, err := giznet.GenerateKeyPair()
-	if err != nil {
-		t.Fatalf("GenerateKeyPair(server): %v", err)
-	}
 	clientKey, err := giznet.GenerateKeyPair()
 	if err != nil {
 		t.Fatalf("GenerateKeyPair(client): %v", err)
 	}
 	valid := func() config {
 		return config{
-			Server:           serverConfig{Addr: "127.0.0.1:9820", PublicKey: serverKey.Public.String()},
+			Server:           serverConfig{Addr: "127.0.0.1:9820"},
 			Agent:            "doubao-realtime",
 			Models:           modelConfig{LLM: "chat", TTS: "tts", ASR: "asr", Realtime: "realtime"},
 			Workflow:         workflowConfig{Name: "demo"},
@@ -227,7 +219,6 @@ func TestConfigValidationErrors(t *testing.T) {
 		want string
 	}{
 		{"addr", func(c *config) { c.Server.Addr = "" }, "server.addr"},
-		{"public key", func(c *config) { c.Server.PublicKey = "bad" }, "server.public_key"},
 		{"workflow name", func(c *config) { c.Workflow.Name = "" }, "workflow.name"},
 		{"agent", func(c *config) { c.Agent = "" }, "agent"},
 		{"llm", func(c *config) { c.Models.LLM = "" }, "models.llm"},
@@ -281,6 +272,7 @@ func TestConfigWorkspaceMode(t *testing.T) {
 
 func writeSetupContextConfig(t *testing.T, path string, serverKey, clientKey *giznet.KeyPair, cipherMode string) {
 	t.Helper()
+	_ = serverKey
 	if cipherMode == "" {
 		cipherMode = string(gizwebrtc.CipherModeChaChaPoly)
 	}
@@ -288,7 +280,7 @@ func writeSetupContextConfig(t *testing.T, path string, serverKey, clientKey *gi
 	if err := os.MkdirAll(contextDir, 0o755); err != nil {
 		t.Fatalf("create context dir: %v", err)
 	}
-	contextYAML := "identity:\n  private-key: " + clientKey.Private.String() + "\nserver:\n  endpoint: 127.0.0.1:9820\n  public-key: " + serverKey.Public.String() + "\n"
+	contextYAML := "identity:\n  private-key: " + clientKey.Private.String() + "\nserver:\n  endpoint: 127.0.0.1:9820\n"
 	if err := os.WriteFile(path, []byte(contextYAML), 0o644); err != nil {
 		t.Fatalf("write context config: %v", err)
 	}

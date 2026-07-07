@@ -12,7 +12,6 @@ test.beforeEach(async ({ page }) => {
         endpoint: "127.0.0.1:9820",
         local_public_key: "local-public-key",
         name: "local",
-        server_public_key: "server-public-key",
       },
       {
         current: false,
@@ -20,7 +19,6 @@ test.beforeEach(async ({ page }) => {
         endpoint: "127.0.0.1:19820",
         local_public_key: "remote-public-key",
         name: "remote",
-        server_public_key: "remote-server-public-key",
       },
     ];
     const views = [
@@ -32,7 +30,6 @@ test.beforeEach(async ({ page }) => {
       return {
         context,
         private_key_base64: "cHJpdmF0ZS1rZXktbWF0ZXJpYWw=",
-        signaling_url: `http://${context.endpoint}/webrtc/v1/offer`,
       };
     };
     window.__GIZCLAW_DESKTOP_TEST_API__ = {
@@ -58,7 +55,6 @@ test.beforeEach(async ({ page }) => {
           endpoint: req.endpoint,
           local_public_key: "created-public-key",
           name: req.name,
-          server_public_key: req.server_public_key,
         };
         contexts.push(created);
         return created;

@@ -6,16 +6,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	clitest "github.com/GizClaw/gizclaw-go/tests/gizclaw-e2e/cmd"
 )
 
 func TestContextInfoAndShowUserStory(t *testing.T) {
 	h := clitest.NewSetupHarness(t, "104-context-info-show")
-	betaKey, err := giznet.GenerateKeyPair()
-	if err != nil {
-		t.Fatalf("generate beta server key: %v", err)
-	}
 
 	noCurrent := h.RunCLI("context", "info")
 	if noCurrent.Err == nil {
@@ -23,7 +18,7 @@ func TestContextInfoAndShowUserStory(t *testing.T) {
 	}
 
 	h.CreateContext("alpha").MustSucceed(t)
-	h.CreateContextWith("beta", "127.0.0.1:9821", betaKey.Private.String()).MustSucceed(t)
+	h.CreateContextWith("beta", "127.0.0.1:9821").MustSucceed(t)
 	h.UseContext("beta").MustSucceed(t)
 
 	info := h.RunCLI("context", "info")

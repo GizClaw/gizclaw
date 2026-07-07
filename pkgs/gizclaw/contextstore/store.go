@@ -20,13 +20,12 @@ type Store struct {
 
 // CreateOptions holds optional settings for a newly-created context.
 type CreateOptions struct {
-	Description     string
-	ServerPublicKey string
+	Description string
 }
 
 // Create creates a new context directory with a generated key pair and config.
-func (s *Store) Create(name, endpoint, serverPublicKey string) error {
-	return s.CreateWithOptions(name, endpoint, CreateOptions{ServerPublicKey: serverPublicKey})
+func (s *Store) Create(name, endpoint string) error {
+	return s.CreateWithOptions(name, endpoint, CreateOptions{})
 }
 
 // CreateWithOptions creates a new context directory with a generated key pair and config.
@@ -41,18 +40,6 @@ func (s *Store) CreateWithOptions(name, endpoint string, opts CreateOptions) err
 	if _, err := os.Stat(dir); err == nil {
 		return fmt.Errorf("contextstore: %q already exists", name)
 	}
-	publicKeyText := strings.TrimSpace(opts.ServerPublicKey)
-	if publicKeyText == "" {
-		return fmt.Errorf("contextstore: missing server public key")
-	}
-	var serverPublicKey giznet.PublicKey
-	if err := serverPublicKey.UnmarshalText([]byte(publicKeyText)); err != nil {
-		return fmt.Errorf("contextstore: invalid server public key: %w", err)
-	}
-	if serverPublicKey.IsZero() {
-		return fmt.Errorf("contextstore: invalid server public key: zero key")
-	}
-
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return fmt.Errorf("contextstore: mkdir: %w", err)
 	}
@@ -67,8 +54,7 @@ func (s *Store) CreateWithOptions(name, endpoint string, opts CreateOptions) err
 			PrivateKey: keyPair.Private,
 		},
 		Server: ServerConfig{
-			Endpoint:  endpoint,
-			PublicKey: serverPublicKey,
+			Endpoint: endpoint,
 		},
 	}
 	data, err := yaml.Marshal(cfg)

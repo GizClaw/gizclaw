@@ -258,6 +258,134 @@ static const char *skip_value(const char *p, const char *end) {
   return NULL;
 }
 
+static const char *validate_json_value(const char *p, const char *end);
+
+static const char *validate_json_number(const char *p, const char *end) {
+  if (p < end && *p == '-') {
+    p++;
+  }
+  if (p >= end || !isdigit((unsigned char)*p)) {
+    return NULL;
+  }
+  while (p < end && isdigit((unsigned char)*p)) {
+    p++;
+  }
+  if (p < end && *p == '.') {
+    p++;
+    if (p >= end || !isdigit((unsigned char)*p)) {
+      return NULL;
+    }
+    while (p < end && isdigit((unsigned char)*p)) {
+      p++;
+    }
+  }
+  if (p < end && (*p == 'e' || *p == 'E')) {
+    p++;
+    if (p < end && (*p == '+' || *p == '-')) {
+      p++;
+    }
+    if (p >= end || !isdigit((unsigned char)*p)) {
+      return NULL;
+    }
+    while (p < end && isdigit((unsigned char)*p)) {
+      p++;
+    }
+  }
+  return p;
+}
+
+static const char *validate_json_array(const char *p, const char *end) {
+  if (p >= end || *p != '[') {
+    return NULL;
+  }
+  p = skip_ws(p + 1, end);
+  if (p < end && *p == ']') {
+    return p + 1;
+  }
+  while (p < end) {
+    p = validate_json_value(p, end);
+    if (p == NULL) {
+      return NULL;
+    }
+    p = skip_ws(p, end);
+    if (p < end && *p == ',') {
+      p = skip_ws(p + 1, end);
+      continue;
+    }
+    if (p < end && *p == ']') {
+      return p + 1;
+    }
+    return NULL;
+  }
+  return NULL;
+}
+
+static const char *validate_json_object(const char *p, const char *end) {
+  if (p >= end || *p != '{') {
+    return NULL;
+  }
+  p = skip_ws(p + 1, end);
+  if (p < end && *p == '}') {
+    return p + 1;
+  }
+  while (p < end) {
+    if (*p != '"') {
+      return NULL;
+    }
+    p = skip_string(p, end);
+    if (p == NULL) {
+      return NULL;
+    }
+    p = skip_ws(p, end);
+    if (p >= end || *p != ':') {
+      return NULL;
+    }
+    p = validate_json_value(skip_ws(p + 1, end), end);
+    if (p == NULL) {
+      return NULL;
+    }
+    p = skip_ws(p, end);
+    if (p < end && *p == ',') {
+      p = skip_ws(p + 1, end);
+      continue;
+    }
+    if (p < end && *p == '}') {
+      return p + 1;
+    }
+    return NULL;
+  }
+  return NULL;
+}
+
+static const char *validate_json_value(const char *p, const char *end) {
+  p = skip_ws(p, end);
+  if (p >= end) {
+    return NULL;
+  }
+  if (*p == '"') {
+    return skip_string(p, end);
+  }
+  if (*p == '{') {
+    return validate_json_object(p, end);
+  }
+  if (*p == '[') {
+    return validate_json_array(p, end);
+  }
+  if (*p == '-' || isdigit((unsigned char)*p)) {
+    return validate_json_number(p, end);
+  }
+  if ((end - p) >= 4 && memcmp(p, "true", 4) == 0) {
+    return p + 4;
+  }
+  if ((end - p) >= 5 && memcmp(p, "false", 5) == 0) {
+    return p + 5;
+  }
+  if ((end - p) >= 4 && memcmp(p, "null", 4) == 0) {
+    return p + 4;
+  }
+  return NULL;
+}
+
 int gzc_json_find_field(gzc_str_t object_json, const char *name, gzc_str_t *out_raw) {
   if (object_json.data == NULL || name == NULL || out_raw == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
@@ -308,6 +436,23 @@ int gzc_json_find_field(gzc_str_t object_json, const char *name, gzc_str_t *out_
     }
     return GZC_ERR_JSON;
   }
+}
+
+int gzc_json_validate_object(gzc_str_t object_json) {
+  if (object_json.data == NULL) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  const char *p = skip_ws(object_json.data, object_json.data + object_json.len);
+  const char *end = object_json.data + object_json.len;
+  if (p >= end || *p != '{') {
+    return GZC_ERR_JSON;
+  }
+  const char *value_end = validate_json_object(p, end);
+  if (value_end == NULL) {
+    return GZC_ERR_JSON;
+  }
+  value_end = skip_ws(value_end, end);
+  return value_end == end ? GZC_OK : GZC_ERR_JSON;
 }
 
 int gzc_json_parse_string(gzc_str_t raw_json, gzc_str_t *out) {

@@ -27,27 +27,25 @@ func NewCmd() *cobra.Command {
 }
 
 type contextInfo struct {
-	Name            string `json:"name"`
-	Description     string `json:"description,omitempty"`
-	Current         bool   `json:"current"`
-	ServerEndpoint  string `json:"server_endpoint"`
-	ServerPublicKey string `json:"server_public_key"`
-	IdentityPublic  string `json:"identity_public"`
+	Name           string `json:"name"`
+	Description    string `json:"description,omitempty"`
+	Current        bool   `json:"current"`
+	ServerEndpoint string `json:"server_endpoint"`
+	IdentityPublic string `json:"identity_public"`
 }
 
 func buildContextInfo(ctx *clicontext.CLIContext, current string) contextInfo {
 	return contextInfo{
-		Name:            ctx.Name,
-		Description:     ctx.Config.Description,
-		Current:         ctx.Name == current,
-		ServerEndpoint:  ctx.Config.Server.Endpoint,
-		ServerPublicKey: ctx.Config.Server.PublicKey.String(),
-		IdentityPublic:  ctx.KeyPair.Public.String(),
+		Name:           ctx.Name,
+		Description:    ctx.Config.Description,
+		Current:        ctx.Name == current,
+		ServerEndpoint: ctx.Config.Server.Endpoint,
+		IdentityPublic: ctx.KeyPair.Public.String(),
 	}
 }
 
 func newCreateCmd() *cobra.Command {
-	var serverAddr, publicKey, description string
+	var serverAddr, description string
 
 	cmd := &cobra.Command{
 		Use:   "create <name>",
@@ -60,8 +58,7 @@ func newCreateCmd() *cobra.Command {
 			}
 			name := args[0]
 			if err := store.CreateWithOptions(name, serverAddr, clicontext.CreateOptions{
-				ServerPublicKey: publicKey,
-				Description:     description,
+				Description: description,
 			}); err != nil {
 				return err
 			}
@@ -71,10 +68,8 @@ func newCreateCmd() *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&serverAddr, "server", "", "server endpoint (host:port)")
-	cmd.Flags().StringVar(&publicKey, "public-key", "", "server public key (base58btc)")
 	cmd.Flags().StringVar(&description, "description", "", "human-readable context description")
 	_ = cmd.MarkFlagRequired("server")
-	_ = cmd.MarkFlagRequired("public-key")
 
 	return cmd
 }

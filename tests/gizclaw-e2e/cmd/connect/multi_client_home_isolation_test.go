@@ -15,8 +15,8 @@ func TestMultiClientHomeIsolationUserStory(t *testing.T) {
 	first := clitest.NewHarness(t, "402-multi-client-home-isolation")
 	second := clitest.NewHarness(t, "402-multi-client-home-isolation")
 
-	first.CreateContextWith("alpha", server.ServerAddr, server.ServerPublicKey).MustSucceed(t)
-	second.CreateContextWith("beta", server.ServerAddr, server.ServerPublicKey).MustSucceed(t)
+	first.CreateContextWith("alpha", server.ServerAddr).MustSucceed(t)
+	second.CreateContextWith("beta", server.ServerAddr).MustSucceed(t)
 
 	firstList := first.ListContexts()
 	firstList.MustSucceed(t)

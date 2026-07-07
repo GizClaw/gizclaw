@@ -31,6 +31,7 @@ func (allowAllSecurityPolicy) AllowService(giznet.PublicKey, uint64) bool {
 func resetConnectHooks(t *testing.T) {
 	t.Helper()
 	origDialFromContext := dialFromContext
+	origFetchServerInfo := fetchServerInfo
 	origDialClient := dialClient
 	origServeClient := serveClient
 	origProbeReady := probeReady
@@ -38,12 +39,26 @@ func resetConnectHooks(t *testing.T) {
 	origPoll := connectPollInterval
 	t.Cleanup(func() {
 		dialFromContext = origDialFromContext
+		fetchServerInfo = origFetchServerInfo
 		dialClient = origDialClient
 		serveClient = origServeClient
 		probeReady = origProbeReady
 		connectReadyTimeout = origTimeout
 		connectPollInterval = origPoll
 	})
+}
+
+func newServerInfoHTTPServer(t *testing.T, body string) (endpoint string, close func()) {
+	t.Helper()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/server-info" {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(body))
+	}))
+	return strings.TrimPrefix(server.URL, "http://"), server.Close
 }
 
 func testServerPublicKeyText(fill byte) string {
@@ -74,32 +89,61 @@ func TestDialFromContextNoActiveContext(t *testing.T) {
 	}
 }
 
-func TestDialFromContextInvalidServerPublicKey(t *testing.T) {
+func TestDialFromContextInvalidServerInfoPublicKey(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 
+	endpoint, closeServer := newServerInfoHTTPServer(t, `{"protocol":"gizclaw-webrtc","public_key":"not-a-key","signaling_path":"/webrtc/v1/offer"}`)
+	defer closeServer()
 	store, err := clicontext.DefaultStore()
 	if err != nil {
 		t.Fatalf("DefaultStore error = %v", err)
 	}
-	if err := store.Create("local", "127.0.0.1:9820", testServerPublicKeyText(0xab)); err != nil {
+	if err := store.Create("local", endpoint); err != nil {
 		t.Fatalf("Create error = %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(store.Root, "local", "config.yaml"), []byte(`
-identity:
-  private-key: `+testServerPrivateKey(0xac).String()+`
-server:
-  endpoint: 127.0.0.1:9820
-  public-key: not-a-key
-`), 0o644); err != nil {
-		t.Fatalf("WriteFile error = %v", err)
 	}
 
 	_, _, _, err = DialFromContext("local")
-	if err == nil {
-		t.Fatal("DialFromContext should fail on invalid server public key")
-	}
-	if !strings.Contains(err.Error(), "parse config") {
+	if err == nil || !strings.Contains(err.Error(), "server-info invalid public_key") {
 		t.Fatalf("DialFromContext error = %v", err)
+	}
+}
+
+func TestDialFromContextMissingServerInfoPublicKey(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+
+	endpoint, closeServer := newServerInfoHTTPServer(t, `{"protocol":"gizclaw-webrtc","signaling_path":"/webrtc/v1/offer"}`)
+	defer closeServer()
+	store, err := clicontext.DefaultStore()
+	if err != nil {
+		t.Fatalf("DefaultStore error = %v", err)
+	}
+	if err := store.Create("local", endpoint); err != nil {
+		t.Fatalf("Create error = %v", err)
+	}
+
+	_, _, _, err = DialFromContext("local")
+	if err == nil || !strings.Contains(err.Error(), "server-info missing public_key") {
+		t.Fatalf("DialFromContext error = %v", err)
+	}
+}
+
+func TestFetchServerPublicInfoDefaultsSignalingPath(t *testing.T) {
+	endpoint, closeServer := newServerInfoHTTPServer(t, `{"protocol":"gizclaw-webrtc","public_key":"`+testServerPublicKeyText(0xab)+`"}`)
+	defer closeServer()
+
+	info, err := fetchServerPublicInfo(context.Background(), endpoint)
+	if err != nil {
+		t.Fatalf("fetchServerPublicInfo error = %v", err)
+	}
+	if info.SignalingURL != "http://"+endpoint+gizwebrtc.SignalingPath {
+		t.Fatalf("signaling URL = %q", info.SignalingURL)
+	}
+}
+
+func TestFetchServerPublicInfoReportsFetchFailure(t *testing.T) {
+	_, err := fetchServerPublicInfo(context.Background(), "127.0.0.1:1")
+	if err == nil || !strings.Contains(err.Error(), "server-info fetch") {
+		t.Fatalf("fetchServerPublicInfo error = %v", err)
 	}
 }
 
@@ -110,7 +154,9 @@ func TestDialFromContextUsesCurrentContext(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DefaultStore error = %v", err)
 	}
-	if err := store.Create("local", "127.0.0.1:9820", testServerPublicKeyText(0xab)); err != nil {
+	endpoint, closeServer := newServerInfoHTTPServer(t, `{"protocol":"gizclaw-webrtc","public_key":"`+testServerPublicKeyText(0xab)+`","signaling_path":"/webrtc/v1/offer"}`)
+	defer closeServer()
+	if err := store.Create("local", endpoint); err != nil {
 		t.Fatalf("Create error = %v", err)
 	}
 
@@ -124,7 +170,7 @@ func TestDialFromContextUsesCurrentContext(t *testing.T) {
 	if serverPK.String() != testServerPublicKeyText(0xab) {
 		t.Fatalf("server public key = %s", serverPK)
 	}
-	if serverAddr != "127.0.0.1:9820" {
+	if serverAddr != endpoint {
 		t.Fatalf("server address = %q", serverAddr)
 	}
 }
@@ -148,7 +194,13 @@ func TestDialFromContextUsesWebRTCTransport(t *testing.T) {
 		t.Fatalf("gizwebrtc Listen error = %v", err)
 	}
 	defer serverListener.Close()
-	httpServer := httptest.NewServer(serverListener.SignalingHandler())
+	mux := http.NewServeMux()
+	mux.HandleFunc("/server-info", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"protocol":"gizclaw-webrtc","public_key":"` + serverKey.Public.String() + `","signaling_path":"/custom/offer"}`))
+	})
+	mux.Handle("/custom/offer", serverListener.SignalingHandler())
+	httpServer := httptest.NewServer(mux)
 	defer httpServer.Close()
 	serverURL := strings.TrimPrefix(httpServer.URL, "http://")
 
@@ -156,9 +208,7 @@ func TestDialFromContextUsesWebRTCTransport(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DefaultStore error = %v", err)
 	}
-	if err := store.CreateWithOptions("webrtc", serverURL, clicontext.CreateOptions{
-		ServerPublicKey: serverKey.Public.String(),
-	}); err != nil {
+	if err := store.Create("webrtc", serverURL); err != nil {
 		t.Fatalf("CreateWithOptions error = %v", err)
 	}
 	if err := os.WriteFile(filepath.Join(store.Root, "webrtc", "config.yaml"), []byte(`
@@ -166,7 +216,6 @@ identity:
   private-key: `+clientKey.String()+`
 server:
   endpoint: `+serverURL+`
-  public-key: `+serverKey.Public.String()+`
 `), 0o600); err != nil {
 		t.Fatalf("write context config: %v", err)
 	}

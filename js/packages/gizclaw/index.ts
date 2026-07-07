@@ -1,4 +1,5 @@
 import type { CreateGiznetWebRtcOfferData } from "./generated/serverpublic/types.gen";
+import { base58Decode, prepareEncryptedGiznetWebRTCOffer } from "./signaling.ts";
 
 export const WEBRTC_RPC_DATA_CHANNEL_LABEL = "rpc";
 export const WEBRTC_EVENT_DATA_CHANNEL_LABEL = "event";
@@ -80,6 +81,27 @@ export type ConnectGiznetWebRTCOptions = {
   prepareOffer: (offerSDP: string) => Promise<PreparedGiznetWebRTCOffer>;
   sendOffer?: (offer: PreparedGiznetWebRTCOffer, signal?: AbortSignal) => Promise<Blob>;
   signal?: AbortSignal;
+};
+
+export type GiznetServerInfo = {
+  endpoint?: string;
+  protocol?: string;
+  public_key: string;
+  signaling_path?: string;
+};
+
+export type ServerInfoBootstrapOptions = {
+  baseUrl?: string;
+  endpoint?: string;
+  fetch?: typeof fetch;
+  signal?: AbortSignal;
+};
+
+export type ConnectGiznetWebRTCFromEndpointOptions = Omit<ConnectGiznetWebRTCOptions, "prepareOffer" | "sendOffer"> & {
+  baseUrl?: string;
+  clientPrivateKey: Uint8Array;
+  clientPublicKey?: Uint8Array | string;
+  endpoint?: string;
 };
 
 export type WebRTCRPCClientOptions = {
@@ -418,6 +440,77 @@ export async function connectGiznetWebRTC(options: ConnectGiznetWebRTCOptions): 
   const answerSDP = await prepared.openAnswer(encryptedAnswer);
   await options.pc.setRemoteDescription({ sdp: answerSDP, type: "answer" });
   return options.pc;
+}
+
+export async function connectGiznetWebRTCFromEndpoint(options: ConnectGiznetWebRTCFromEndpointOptions): Promise<RTCPeerConnection> {
+  const serverInfo = await fetchGiznetServerInfo(options);
+  const signalingPath = normalizeServerInfoSignalingPath(serverInfo.signaling_path);
+  return connectGiznetWebRTC({
+    ...options,
+    prepareOffer: (offerSDP) =>
+      prepareEncryptedGiznetWebRTCOffer(
+        {
+          clientPrivateKey: options.clientPrivateKey,
+          clientPublicKey: options.clientPublicKey,
+          serverPublicKey: serverInfo.public_key,
+        },
+        offerSDP,
+      ),
+    sendOffer: (offer, signal) =>
+      sendGiznetWebRTCOffer(offer, {
+        baseUrl: serverInfoBaseURL(options),
+        fetch: options.fetch,
+        signal,
+        url: signalingPath,
+      }),
+  });
+}
+
+export async function fetchGiznetServerInfo(options: ServerInfoBootstrapOptions = {}): Promise<GiznetServerInfo> {
+  const fetchImpl = options.fetch ?? globalThis.fetch;
+  const response = await fetchImpl(new URL("/server-info", serverInfoBaseURL(options)), { signal: options.signal });
+  if (!response.ok) {
+    const body = await response.text().catch(() => "");
+    const suffix = body.trim() === "" ? "" : `: ${body.trim()}`;
+    throw new Error(`server-info failed: ${response.status} ${response.statusText}${suffix}`);
+  }
+  const serverInfo = (await response.json()) as Partial<GiznetServerInfo>;
+  if (serverInfo.protocol != null && serverInfo.protocol !== "gizclaw-webrtc") {
+    throw new Error(`server-info protocol = ${serverInfo.protocol}, want gizclaw-webrtc`);
+  }
+  if (typeof serverInfo.public_key !== "string" || serverInfo.public_key.trim() === "") {
+    throw new Error("server-info missing public_key");
+  }
+  const publicKey = base58Decode(serverInfo.public_key.trim());
+  if (publicKey.length !== 32 || publicKey.every((byte) => byte === 0)) {
+    throw new Error("server-info invalid public_key");
+  }
+  return {
+    ...serverInfo,
+    public_key: serverInfo.public_key.trim(),
+    signaling_path: normalizeServerInfoSignalingPath(serverInfo.signaling_path),
+  };
+}
+
+function serverInfoBaseURL(options: Pick<ServerInfoBootstrapOptions, "baseUrl" | "endpoint">): string {
+  if (options.baseUrl != null) {
+    return options.baseUrl;
+  }
+  if (options.endpoint != null) {
+    return `http://${options.endpoint}`;
+  }
+  return typeof location === "undefined" ? "http://gizclaw.local" : location.origin;
+}
+
+function normalizeServerInfoSignalingPath(path: string | undefined): string {
+  const value = path?.trim() ?? "";
+  if (value === "") {
+    return GIZNET_WEBRTC_SIGNALING_PATH;
+  }
+  if (!value.startsWith("/") || value.startsWith("//")) {
+    throw new Error(`server-info invalid signaling_path ${value}`);
+  }
+  return value;
 }
 
 export function prepareGiznetWebRTCPeerConnection(

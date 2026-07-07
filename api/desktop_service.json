@@ -330,8 +330,7 @@
         "required": [
           "current",
           "endpoint",
-          "name",
-          "server_public_key"
+          "name"
         ],
         "additionalProperties": false,
         "properties": {
@@ -353,9 +352,6 @@
           "name": {
             "type": "string",
             "minLength": 1
-          },
-          "server_public_key": {
-            "type": "string"
           }
         }
       },
@@ -378,8 +374,7 @@
         "type": "object",
         "required": [
           "endpoint",
-          "name",
-          "server_public_key"
+          "name"
         ],
         "additionalProperties": false,
         "properties": {
@@ -392,10 +387,6 @@
             "example": "127.0.0.1:9820"
           },
           "name": {
-            "type": "string",
-            "minLength": 1
-          },
-          "server_public_key": {
             "type": "string",
             "minLength": 1
           }
@@ -419,8 +410,7 @@
         "description": "Runtime connection material injected when serving the selected dashboard view page. This schema is for generated frontend types only and is not returned by a REST endpoint. The private key is for in-memory WebRTC use and must not be persisted in browser storage.",
         "required": [
           "context",
-          "private_key_base64",
-          "signaling_url"
+          "private_key_base64"
         ],
         "additionalProperties": false,
         "properties": {
@@ -431,11 +421,6 @@
             "type": "string",
             "description": "Base64-encoded local private key for in-memory frontend use. This value must not be persisted in browser storage.",
             "format": "byte"
-          },
-          "signaling_url": {
-            "type": "string",
-            "format": "uri",
-            "example": "http://127.0.0.1:9820/webrtc/v1/offer"
           }
         }
       },

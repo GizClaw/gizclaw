@@ -10,8 +10,8 @@ import (
 )
 
 func TestNormalizeLegacyLongFlags(t *testing.T) {
-	got := normalizeLegacyLongFlags([]string{"context", "create", "demo", "-server=127.0.0.1:9820", "-public-key", "pk", "--help", "-h"})
-	want := []string{"context", "create", "demo", "--server=127.0.0.1:9820", "--public-key", "pk", "--help", "-h"}
+	got := normalizeLegacyLongFlags([]string{"context", "create", "demo", "-server=127.0.0.1:9820", "-description", "demo", "--help", "-h"})
+	want := []string{"context", "create", "demo", "--server=127.0.0.1:9820", "--description", "demo", "--help", "-h"}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("normalizeLegacyLongFlags() = %#v, want %#v", got, want)
 	}

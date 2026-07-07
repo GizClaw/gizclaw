@@ -24,7 +24,6 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/GizClaw/gizclaw-go/c/gizclaw/cgobackend"
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codec/ogg"
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/stampedopus"
 )
@@ -49,18 +48,15 @@ func NewClient(identityDir string) (*Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	cSignalingURL := C.CString(cfg.signalingURL)
-	defer C.free(unsafe.Pointer(cSignalingURL))
+	cEndpoint := C.CString(cfg.endpoint)
+	defer C.free(unsafe.Pointer(cEndpoint))
 	cPrivateKey := C.CString(cfg.privateKey)
 	defer C.free(unsafe.Pointer(cPrivateKey))
-	cServerPublicKey := C.CString(cfg.serverPublicKey)
-	defer C.free(unsafe.Pointer(cServerPublicKey))
 	errbuf := make([]byte, 1024)
 	var session *C.gzc_cgo_session_t
 	rc := C.gzc_cgo_session_open(
-		cSignalingURL,
+		cEndpoint,
 		cPrivateKey,
-		cServerPublicKey,
 		&session,
 		(*C.char)(unsafe.Pointer(&errbuf[0])),
 		C.ulong(len(errbuf)),
@@ -822,9 +818,8 @@ func cString(buf []byte) string {
 }
 
 type clientConfig struct {
-	signalingURL    string
-	privateKey      string
-	serverPublicKey string
+	endpoint   string
+	privateKey string
 }
 
 func readClientConfig(identityDir string) (clientConfig, error) {
@@ -835,14 +830,12 @@ func readClientConfig(identityDir string) (clientConfig, error) {
 	config := string(data)
 	endpoint := matchConfigValue(config, `endpoint:\s*"?([^"\s]+)"?`)
 	privateKey := matchConfigValue(config, `private-key:\s*"?([^"\s]+)"?`)
-	serverPublicKey := matchConfigValue(config, `public-key:\s*"?([^"\s]+)"?`)
-	if endpoint == "" || privateKey == "" || serverPublicKey == "" {
+	if endpoint == "" || privateKey == "" {
 		return clientConfig{}, fmt.Errorf("incomplete C SDK identity config %s", filepath.Join(identityDir, "config.yaml"))
 	}
 	return clientConfig{
-		signalingURL:    "http://" + endpoint + cgobackend.SignalingPath,
-		privateKey:      privateKey,
-		serverPublicKey: serverPublicKey,
+		endpoint:   endpoint,
+		privateKey: privateKey,
 	}, nil
 }
 

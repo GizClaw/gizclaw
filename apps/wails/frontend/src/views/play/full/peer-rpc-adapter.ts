@@ -1,4 +1,4 @@
-import { sendGiznetWebRTCOffer } from "@gizclaw/gizclaw";
+import { fetchGiznetServerInfo, sendGiznetWebRTCOffer } from "@gizclaw/gizclaw";
 import {
   RPC_METHODS,
   type ContactObject as RPCContactObject,
@@ -396,18 +396,22 @@ export const createWebRtcOffer = async (_options: RequestOptions): Promise<ApiRe
     if (!runtime.private_key_base64) {
       throw new Error("Workspace voice signaling requires injected private key material.");
     }
-    if (!runtime.signaling_url) {
-      throw new Error("Workspace voice signaling requires a signaling URL.");
+    if (!runtime.context.endpoint) {
+      throw new Error("Workspace voice signaling requires a server endpoint.");
     }
+    const serverInfo = await fetchGiznetServerInfo({ endpoint: runtime.context.endpoint });
     const offer = await prepareEncryptedGiznetWebRTCOffer(
       {
         clientPrivateKey: base64Decode(runtime.private_key_base64),
         clientPublicKey: runtime.context.local_public_key,
-        serverPublicKey: runtime.context.server_public_key,
+        serverPublicKey: serverInfo.public_key,
       },
       sdp,
     );
-    const encryptedAnswer = await sendGiznetWebRTCOffer(offer, { url: runtime.signaling_url });
+    const encryptedAnswer = await sendGiznetWebRTCOffer(offer, {
+      baseUrl: `http://${runtime.context.endpoint}`,
+      url: serverInfo.signaling_path,
+    });
     const answerSDP = await offer.openAnswer(encryptedAnswer);
     return { data: { sdp: answerSDP, type: "answer" } };
   } catch (error) {

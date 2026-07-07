@@ -20,9 +20,9 @@ import {
   listWorkflows,
   listWorkspaces,
 } from "@gizclaw/gizclaw/admin";
-import { connectGiznetWebRTC, sendGiznetWebRTCOffer } from "@gizclaw/gizclaw";
+import { connectGiznetWebRTCFromEndpoint } from "@gizclaw/gizclaw";
 import type { WebRTCRPCDataChannelFactory } from "@gizclaw/gizclaw";
-import { base64Decode, prepareEncryptedGiznetWebRTCOffer } from "@gizclaw/gizclaw/signaling";
+import { base64Decode } from "@gizclaw/gizclaw/signaling";
 import type { RuntimeContext } from "../runtime/types";
 
 export interface AdminDataClient {
@@ -90,26 +90,19 @@ export async function connectAdminPeerConnection(runtime: RuntimeContext): Promi
   if (!runtime.private_key_base64) {
     throw new Error("Admin WebRTC session requires injected private key material.");
   }
-  if (!runtime.signaling_url) {
-    throw new Error("Admin WebRTC session requires a signaling URL.");
+  if (!runtime.context.endpoint) {
+    throw new Error("Admin WebRTC session requires a server endpoint.");
   }
   const pc = new RTCPeerConnection();
   const controller = new AbortController();
   const timeout = window.setTimeout(() => controller.abort(), 15_000);
-  await connectGiznetWebRTC({
+  await connectGiznetWebRTCFromEndpoint({
     addAudioTransceiver: false,
+    clientPrivateKey: base64Decode(runtime.private_key_base64),
+    clientPublicKey: runtime.context.local_public_key,
     createPacketDataChannel: true,
+    endpoint: runtime.context.endpoint,
     pc,
-    prepareOffer: (offerSDP) =>
-      prepareEncryptedGiznetWebRTCOffer(
-        {
-          clientPrivateKey: base64Decode(runtime.private_key_base64 ?? ""),
-          clientPublicKey: runtime.context?.local_public_key,
-          serverPublicKey: runtime.context?.server_public_key ?? "",
-        },
-        offerSDP,
-    ),
-    sendOffer: (offer, signal) => sendGiznetWebRTCOffer(offer, { signal, url: runtime.signaling_url }),
     signal: controller.signal,
   }).finally(() => window.clearTimeout(timeout));
   return pc;

@@ -17,6 +17,7 @@ import {
   decodeFrames,
   encodeFrame,
   encodeRPCResponse,
+  fetchGiznetServerInfo,
   giznetServiceDataChannelLabel,
   prepareGiznetWebRTCPeerConnection,
   sendGiznetWebRTCOffer,
@@ -307,6 +308,69 @@ test("sendGiznetWebRTCOffer posts the server public signaling request", async ()
   assert.equal(captured?.headers.get("x-giznet-public-key"), "peer-pk");
   assert.equal(captured?.headers.get("x-giznet-timestamp"), "123");
   assert.equal(captured?.headers.get("x-giznet-nonce"), "nonce");
+});
+
+test("fetchGiznetServerInfo validates server metadata", async () => {
+  const serverPublicKey = base58Encode(x25519.getPublicKey(new Uint8Array(32).fill(2)));
+  let captured: Request | undefined;
+
+  const info = await fetchGiznetServerInfo({
+    baseUrl: "http://localhost:9820",
+    fetch: async (input, init) => {
+      captured = new Request(input, init);
+      return Response.json({
+        protocol: "gizclaw-webrtc",
+        public_key: serverPublicKey,
+        signaling_path: "/custom/offer",
+      });
+    },
+  });
+
+  assert.equal(captured?.url, "http://localhost:9820/server-info");
+  assert.equal(info.public_key, serverPublicKey);
+  assert.equal(info.signaling_path, "/custom/offer");
+});
+
+test("fetchGiznetServerInfo defaults signaling path and reports HTTP failures", async () => {
+  const serverPublicKey = base58Encode(x25519.getPublicKey(new Uint8Array(32).fill(2)));
+  const info = await fetchGiznetServerInfo({
+    baseUrl: "http://localhost:9820",
+    fetch: async () =>
+      Response.json({
+        protocol: "gizclaw-webrtc",
+        public_key: serverPublicKey,
+      }),
+  });
+
+  assert.equal(info.signaling_path, "/webrtc/v1/offer");
+  await assert.rejects(
+    fetchGiznetServerInfo({
+      baseUrl: "http://localhost:9820",
+      fetch: async () => new Response("not ready", { status: 503, statusText: "Service Unavailable" }),
+    }),
+    /server-info failed: 503 Service Unavailable: not ready/,
+  );
+});
+
+test("fetchGiznetServerInfo rejects missing or invalid server public key", async () => {
+  await assert.rejects(
+    fetchGiznetServerInfo({
+      baseUrl: "http://localhost:9820",
+      fetch: async () => Response.json({ protocol: "gizclaw-webrtc" }),
+    }),
+    /missing public_key/,
+  );
+  await assert.rejects(
+    fetchGiznetServerInfo({
+      baseUrl: "http://localhost:9820",
+      fetch: async () =>
+        Response.json({
+          protocol: "gizclaw-webrtc",
+          public_key: "not-a-key",
+        }),
+    }),
+    /invalid base58 character|invalid public_key/,
+  );
 });
 
 test("prepareEncryptedGiznetWebRTCOffer builds a browser-safe encrypted offer", async () => {

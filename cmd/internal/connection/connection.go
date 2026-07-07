@@ -2,7 +2,11 @@ package connection
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"net/http"
+	"net/url"
+	"strings"
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/cmd/internal/clicontext"
@@ -10,6 +14,13 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
 )
+
+const serverInfoTimeout = 5 * time.Second
+
+type serverInfoMetadata struct {
+	PublicKey    giznet.PublicKey
+	SignalingURL string
+}
 
 func DialFromContext(name string) (*gizcli.Client, giznet.PublicKey, string, error) {
 	store, err := clicontext.DefaultStore()
@@ -28,9 +39,12 @@ func DialFromContext(name string) (*gizcli.Client, giznet.PublicKey, string, err
 	if cliCtx == nil {
 		return nil, giznet.PublicKey{}, "", fmt.Errorf("no active context; run 'gizclaw context create' first")
 	}
-	serverPK, err := cliCtx.ServerPublicKey()
+
+	ctx, cancel := context.WithTimeout(context.Background(), serverInfoTimeout)
+	defer cancel()
+	info, err := fetchServerInfo(ctx, cliCtx.Config.Server.Endpoint)
 	if err != nil {
-		return nil, giznet.PublicKey{}, "", fmt.Errorf("invalid server public key: %w", err)
+		return nil, giznet.PublicKey{}, "", err
 	}
 	return &gizcli.Client{
 		KeyPair: cliCtx.KeyPair,
@@ -39,7 +53,7 @@ func DialFromContext(name string) (*gizcli.Client, giznet.PublicKey, string, err
 			ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 			defer cancel()
 			l, conn, err := gizwebrtc.Dial(ctx, key, serverPK, gizwebrtc.DialConfig{
-				SignalingURL:   cliCtx.Config.Server.SignalingURL(),
+				SignalingURL:   info.SignalingURL,
 				SecurityPolicy: securityPolicy,
 			})
 			if err != nil {
@@ -47,10 +61,11 @@ func DialFromContext(name string) (*gizcli.Client, giznet.PublicKey, string, err
 			}
 			return l, conn, nil
 		},
-	}, serverPK, cliCtx.Config.Server.Endpoint, nil
+	}, info.PublicKey, cliCtx.Config.Server.Endpoint, nil
 }
 
 var dialFromContext = DialFromContext
+var fetchServerInfo = fetchServerPublicInfo
 var dialClient = func(c *gizcli.Client, serverPK giznet.PublicKey, serverAddr string) error {
 	return c.Dial(serverPK, serverAddr)
 }
@@ -60,6 +75,51 @@ var serveClient = func(c *gizcli.Client) error {
 var probeReady = probeServerPublicReady
 var connectReadyTimeout = 5 * time.Second
 var connectPollInterval = 10 * time.Millisecond
+
+func fetchServerPublicInfo(ctx context.Context, endpoint string) (serverInfoMetadata, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://"+endpoint+"/server-info", nil)
+	if err != nil {
+		return serverInfoMetadata{}, fmt.Errorf("server-info request: %w", err)
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return serverInfoMetadata{}, fmt.Errorf("server-info fetch: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return serverInfoMetadata{}, fmt.Errorf("server-info status: %s", resp.Status)
+	}
+	var body struct {
+		PublicKey     string `json:"public_key"`
+		Protocol      string `json:"protocol"`
+		SignalingPath string `json:"signaling_path"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+		return serverInfoMetadata{}, fmt.Errorf("server-info decode: %w", err)
+	}
+	if body.Protocol != "" && body.Protocol != "gizclaw-webrtc" {
+		return serverInfoMetadata{}, fmt.Errorf("server-info protocol = %q, want gizclaw-webrtc", body.Protocol)
+	}
+	var serverPK giznet.PublicKey
+	if strings.TrimSpace(body.PublicKey) == "" {
+		return serverInfoMetadata{}, fmt.Errorf("server-info missing public_key")
+	}
+	if err := serverPK.UnmarshalText([]byte(strings.TrimSpace(body.PublicKey))); err != nil {
+		return serverInfoMetadata{}, fmt.Errorf("server-info invalid public_key: %w", err)
+	}
+	if serverPK.IsZero() {
+		return serverInfoMetadata{}, fmt.Errorf("server-info invalid public_key: zero key")
+	}
+	signalingPath := strings.TrimSpace(body.SignalingPath)
+	if signalingPath == "" {
+		signalingPath = gizwebrtc.SignalingPath
+	}
+	if !strings.HasPrefix(signalingPath, "/") || strings.HasPrefix(signalingPath, "//") {
+		return serverInfoMetadata{}, fmt.Errorf("server-info invalid signaling_path %q", signalingPath)
+	}
+	signalingURL := url.URL{Scheme: "http", Host: endpoint, Path: signalingPath}
+	return serverInfoMetadata{PublicKey: serverPK, SignalingURL: signalingURL.String()}, nil
+}
 
 func ConnectFromContext(name string) (*gizcli.Client, error) {
 	c, serverPK, serverAddr, err := dialFromContext(name)

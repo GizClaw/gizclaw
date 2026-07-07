@@ -1,31 +1,23 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import wrtc from "@roamhq/wrtc";
-import { connectGiznetWebRTC, sendGiznetWebRTCOffer } from "@gizclaw/gizclaw";
-import { base58Decode, prepareEncryptedGiznetWebRTCOffer } from "@gizclaw/gizclaw/signaling";
+import { connectGiznetWebRTCFromEndpoint } from "@gizclaw/gizclaw";
+import { base58Decode } from "@gizclaw/gizclaw/signaling";
 
 export const repoRoot = path.resolve(import.meta.dirname, "../../../..");
 
 export type Identity = {
   clientPrivateKey: Uint8Array;
   endpoint: string;
-  serverPublicKey: string;
 };
 
 export async function connectSetupPeer(identityDir: string): Promise<wrtc.RTCPeerConnection> {
   const identity = await loadIdentity(identityDir);
   const pc = new wrtc.RTCPeerConnection();
-  await connectGiznetWebRTC({
+  await connectGiznetWebRTCFromEndpoint({
+    clientPrivateKey: identity.clientPrivateKey,
+    endpoint: identity.endpoint,
     pc: pc as unknown as RTCPeerConnection,
-    prepareOffer: (offerSDP) =>
-      prepareEncryptedGiznetWebRTCOffer(
-        {
-          clientPrivateKey: identity.clientPrivateKey,
-          serverPublicKey: identity.serverPublicKey,
-        },
-        offerSDP,
-      ),
-    sendOffer: (offer, signal) => sendGiznetWebRTCOffer(offer, { baseUrl: `http://${identity.endpoint}`, signal }),
   });
   await new Promise((resolve) => setTimeout(resolve, 100));
   return pc;
@@ -40,7 +32,6 @@ export async function loadIdentity(dir: string): Promise<Identity> {
   return {
     clientPrivateKey: privateKey,
     endpoint: matchConfig(config, /endpoint:\s*([^\s]+)/),
-    serverPublicKey: matchConfig(config, /server:[\s\S]*public-key:\s*"?([^"\s]+)"?/),
   };
 }
 

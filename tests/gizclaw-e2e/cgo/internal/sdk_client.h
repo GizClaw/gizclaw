@@ -14,9 +14,8 @@ typedef struct gzc_cgo_stream_frame {
 typedef struct gzc_service_channel gzc_service_channel_t;
 
 int gzc_cgo_session_open(
-    const char *signaling_url,
+    const char *server_endpoint,
     const char *private_key,
-    const char *server_public_key,
     gzc_cgo_session_t **out_session,
     char *errbuf,
     unsigned long errbuf_len);
