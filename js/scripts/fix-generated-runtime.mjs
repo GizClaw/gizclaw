@@ -34,8 +34,8 @@ async function rewriteTree(url) {
     "      const { opts, url } = await beforeRequest(options);\n      resolvedOptions = opts;\n      const requestInit: ReqInit = {",
   );
   after = after.replaceAll(
-    "finalError = await fn(finalError, response, request, options as ResolvedRequestOptions);",
-    "finalError = await fn(finalError, response, request, resolvedOptions ?? (options as ResolvedRequestOptions));",
+    "      for (const fn of interceptors.error.fns) {\n        if (fn) {\n          finalError = await fn(finalError, response, request, options as ResolvedRequestOptions);\n        }\n      }",
+    "      if (resolvedOptions) {\n        for (const fn of interceptors.error.fns) {\n          if (fn) {\n            finalError = await fn(finalError, response, request, resolvedOptions);\n          }\n        }\n      }",
   );
 
   if (after !== before) {

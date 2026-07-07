@@ -201,9 +201,11 @@ export const createClient = (config: Config = {}): Client => {
     } catch (error) {
       let finalError = error;
 
-      for (const fn of interceptors.error.fns) {
-        if (fn) {
-          finalError = await fn(finalError, response, request, resolvedOptions ?? (options as ResolvedRequestOptions));
+      if (resolvedOptions) {
+        for (const fn of interceptors.error.fns) {
+          if (fn) {
+            finalError = await fn(finalError, response, request, resolvedOptions);
+          }
         }
       }
 
