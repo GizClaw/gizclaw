@@ -27,6 +27,7 @@ type Conn struct {
 	remoteAddr net.Addr
 
 	packetMu  sync.RWMutex
+	packetDC  *webrtc.DataChannel
 	packetRaw datachannel.ReadWriteCloserDeadliner
 
 	serviceMu sync.Mutex
@@ -222,6 +223,9 @@ func (c *Conn) Close() error {
 			_ = s.Close()
 		}
 		c.packetMu.Lock()
+		if c.packetDC != nil {
+			_ = c.packetDC.Close()
+		}
 		if c.packetRaw != nil {
 			_ = c.packetRaw.Close()
 		}
@@ -243,6 +247,11 @@ func (c *Conn) validate() error {
 
 func (c *Conn) handleDataChannel(dc *webrtc.DataChannel) {
 	label := dc.Label()
+	if label == packetLabel {
+		dc.OnClose(func() {
+			_ = c.Close()
+		})
+	}
 	dc.OnOpen(func() {
 		raw, err := dc.DetachWithDeadline()
 		if err != nil {
@@ -250,7 +259,7 @@ func (c *Conn) handleDataChannel(dc *webrtc.DataChannel) {
 			return
 		}
 		if label == packetLabel {
-			c.setPacketRaw(raw)
+			c.setPacket(dc, raw)
 			return
 		}
 		service, ok := parseServiceLabel(label)
@@ -280,13 +289,14 @@ func (c *Conn) handleDataChannel(dc *webrtc.DataChannel) {
 	})
 }
 
-func (c *Conn) setPacketRaw(raw datachannel.ReadWriteCloserDeadliner) {
+func (c *Conn) setPacket(dc *webrtc.DataChannel, raw datachannel.ReadWriteCloserDeadliner) {
 	c.packetMu.Lock()
 	if c.packetRaw != nil {
 		c.packetMu.Unlock()
 		_ = raw.Close()
 		return
 	}
+	c.packetDC = dc
 	c.packetRaw = raw
 	c.packetMu.Unlock()
 	close(c.readyCh)

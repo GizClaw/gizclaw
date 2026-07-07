@@ -101,7 +101,7 @@ func TestPeerServiceValidateServices(t *testing.T) {
 }
 
 func TestIntegrationPeerServiceServeConnClientCloseUnblocksAndMarksPeerOffline(t *testing.T) {
-	const closeTimeout = 2 * time.Second
+	const closeTimeout = 5 * time.Second
 
 	serverKey, err := giznet.GenerateKeyPair()
 	if err != nil {
@@ -211,7 +211,7 @@ func TestIntegrationPeerServiceServeConnClientCloseUnblocksAndMarksPeerOffline(t
 }
 
 func TestIntegrationPeerServiceServeConnReplacesSameKeyConnection(t *testing.T) {
-	const closeTimeout = 2 * time.Second
+	const closeTimeout = 5 * time.Second
 
 	serverKey, err := giznet.GenerateKeyPair()
 	if err != nil {

@@ -20,6 +20,10 @@ const (
 )
 
 type ListenConfig struct {
+	// API optionally supplies a preconfigured Pion API. When nil, Listen
+	// builds one from the ICE and cipher settings below.
+	API *webrtc.API
+
 	// ICEAddr is the UDP/TCP bind address used for shared WebRTC ICE muxes.
 	// If empty, Pion uses its default ephemeral ICE sockets.
 	ICEAddr string
@@ -61,9 +65,14 @@ func (c *ListenConfig) Listen(key *giznet.KeyPair) (*Listener, error) {
 	if c == nil {
 		c = &ListenConfig{}
 	}
-	api, closers, err := newPionAPI(c)
-	if err != nil {
-		return nil, err
+	api := c.API
+	var closers []func() error
+	if api == nil {
+		var err error
+		api, closers, err = newPionAPI(c)
+		if err != nil {
+			return nil, err
+		}
 	}
 	l := &Listener{
 		key:        key,
