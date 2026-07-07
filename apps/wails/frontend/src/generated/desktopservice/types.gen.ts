@@ -31,7 +31,6 @@ export type DesktopContext = {
      */
     local_public_key?: string;
     name: string;
-    server_public_key: string;
 };
 
 export type DesktopContextList = {
@@ -45,7 +44,6 @@ export type CreateDesktopContextRequest = {
      */
     endpoint: string;
     name: string;
-    server_public_key: string;
 };
 
 export type SelectDesktopContextRequest = {
@@ -61,7 +59,6 @@ export type DesktopInjectedRuntime = {
      * Base64-encoded local private key for in-memory frontend use. This value must not be persisted in browser storage.
      */
     private_key_base64: string;
-    signaling_url: string;
 };
 
 export type DesktopAppState = {

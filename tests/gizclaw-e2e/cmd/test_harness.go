@@ -10,6 +10,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -80,9 +81,9 @@ type cliContextConfig struct {
 		PrivateKey giznet.Key `yaml:"private-key"`
 	} `yaml:"identity"`
 	Server struct {
-		Endpoint  string `yaml:"endpoint"`
-		PublicKey string `yaml:"public-key"`
+		Endpoint string `yaml:"endpoint"`
 	} `yaml:"server"`
+	signalingURL string
 }
 
 type contextAlias struct {
@@ -249,12 +250,8 @@ func (h *Harness) applySetupContextServer() {
 	if strings.TrimSpace(cliContextDialAddr(cfg)) == "" {
 		h.t.Fatalf("setup context config %q has empty server address", configPath)
 	}
-	if strings.TrimSpace(cfg.Server.PublicKey) == "" {
-		h.t.Fatalf("setup context config %q has empty server public key", configPath)
-	}
 
 	h.ServerAddr = cliContextDialAddr(cfg)
-	h.ServerPublicKey = strings.TrimSpace(cfg.Server.PublicKey)
 }
 
 func (h *Harness) StartServerFromFixture(fixtureName string) {
@@ -343,15 +340,14 @@ func (h *Harness) startServerProcess() {
 
 func (h *Harness) CreateContext(name string) Result {
 	h.t.Helper()
-	return h.CreateContextWith(name, h.ServerAddr, h.ServerPublicKey)
+	return h.CreateContextWith(name, h.ServerAddr)
 }
 
-func (h *Harness) CreateContextWith(name, serverAddr, serverPublicKey string) Result {
+func (h *Harness) CreateContextWith(name, serverAddr string) Result {
 	h.t.Helper()
 	args := []string{
 		"context", "create", name,
 		"--server", serverAddr,
-		"--public-key", serverPublicKey,
 	}
 	h.t.Logf("create context %s endpoint=%s", name, serverAddr)
 	return h.RunCLI(args...)
@@ -381,7 +377,6 @@ func (h *Harness) EnsureContext(name string) Result {
 		return Result{Args: []string{"ensure-context", name}, Err: err, Stderr: err.Error()}
 	}
 	cfg.Server.Endpoint = h.ServerAddr
-	cfg.Server.PublicKey = h.ServerPublicKey
 	h.t.Logf("ensure context %s endpoint=%s", name, cfg.Server.Endpoint)
 	data, err := yaml.Marshal(cfg)
 	if err != nil {
@@ -413,7 +408,6 @@ func (h *Harness) InstallFixedAdminContext(name string) Result {
 		return Result{Args: []string{"install-fixed-admin-context", name}, Err: err, Stderr: err.Error()}
 	}
 	cfg.Server.Endpoint = h.ServerAddr
-	cfg.Server.PublicKey = h.ServerPublicKey
 	h.t.Logf("install fixed admin context %s endpoint=%s", name, cfg.Server.Endpoint)
 	data, err := yaml.Marshal(cfg)
 	if err != nil {
@@ -666,7 +660,11 @@ func (h *Harness) connectClientFromContext(name string) (*gizcli.Client, error) 
 		return nil, fmt.Errorf("load context identity from config: %w", err)
 	}
 
-	serverPublicKey := h.serverPublicKeyFromContextConfig(cfg)
+	serverPublicKey, signalingURL, err := fetchE2EServerInfo(cliContextDialAddr(cfg))
+	if err != nil {
+		return nil, err
+	}
+	cfg.signalingURL = signalingURL
 	h.t.Logf("connect context %s endpoint=%s", name, cliContextDialAddr(cfg))
 
 	client := &gizcli.Client{
@@ -766,13 +764,12 @@ func (h *Harness) waitForServerIdentity() {
 func (h *Harness) waitForServerReady() {
 	h.t.Helper()
 
-	var serverPublicKey giznet.PublicKey
-	if err := serverPublicKey.UnmarshalText([]byte(h.ServerPublicKey)); err != nil {
-		h.t.Fatalf("parse server public key: %v", err)
-	}
-
 	if err := waitUntil(readyTimeout, func() error {
 		if err := h.serverProcessError(); err != nil {
+			return err
+		}
+		serverPublicKey, signalingURL, err := fetchE2EServerInfo(h.ServerAddr)
+		if err != nil {
 			return err
 		}
 
@@ -782,6 +779,7 @@ func (h *Harness) waitForServerReady() {
 		}
 		cfg := cliContextConfig{}
 		cfg.Server.Endpoint = h.ServerAddr
+		cfg.signalingURL = signalingURL
 		client := &gizcli.Client{KeyPair: keyPair, DialTransport: e2eDialTransport(cfg)}
 		if err := client.Dial(serverPublicKey, h.ServerAddr); err != nil {
 			_ = client.Close()
@@ -935,18 +933,6 @@ func (h *Harness) contextDir(name string) string {
 	return filepath.Join(h.contextRoot(), name)
 }
 
-func (h *Harness) serverPublicKeyFromContextConfig(cfg cliContextConfig) giznet.PublicKey {
-	h.t.Helper()
-	var serverPublicKey giznet.PublicKey
-	if err := serverPublicKey.UnmarshalText([]byte(strings.TrimSpace(cfg.Server.PublicKey))); err != nil {
-		h.t.Fatalf("parse context server public key: %v", err)
-	}
-	if serverPublicKey.IsZero() {
-		h.t.Fatal("context server public key is zero")
-	}
-	return serverPublicKey
-}
-
 func e2eDialTransport(cfg cliContextConfig) gizcli.DialTransportFunc {
 	return func(key *giznet.KeyPair, serverPK giznet.PublicKey, serverAddr string, securityPolicy giznet.SecurityPolicy) (giznet.Listener, giznet.Conn, error) {
 		if strings.TrimSpace(cfg.Server.Endpoint) == "" {
@@ -966,7 +952,54 @@ func cliContextDialAddr(cfg cliContextConfig) string {
 }
 
 func cliContextSignalingURL(cfg cliContextConfig) string {
+	if strings.TrimSpace(cfg.signalingURL) != "" {
+		return strings.TrimSpace(cfg.signalingURL)
+	}
 	return "http://" + cliContextDialAddr(cfg) + gizwebrtc.SignalingPath
+}
+
+func fetchE2EServerInfo(endpoint string) (giznet.PublicKey, string, error) {
+	var zero giznet.PublicKey
+	endpoint = strings.TrimSpace(endpoint)
+	if endpoint == "" {
+		return zero, "", fmt.Errorf("server endpoint is empty")
+	}
+	client := http.Client{Timeout: probeTimeout}
+	resp, err := client.Get("http://" + endpoint + "/server-info")
+	if err != nil {
+		return zero, "", err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return zero, "", fmt.Errorf("server-info status=%d", resp.StatusCode)
+	}
+	var body struct {
+		PublicKey     string `json:"public_key"`
+		Protocol      string `json:"protocol"`
+		SignalingPath string `json:"signaling_path"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+		return zero, "", err
+	}
+	if body.Protocol != "" && body.Protocol != "gizclaw-webrtc" {
+		return zero, "", fmt.Errorf("server-info protocol=%q", body.Protocol)
+	}
+	var serverPublicKey giznet.PublicKey
+	if err := serverPublicKey.UnmarshalText([]byte(strings.TrimSpace(body.PublicKey))); err != nil {
+		return zero, "", fmt.Errorf("server-info public_key: %w", err)
+	}
+	if serverPublicKey.IsZero() {
+		return zero, "", fmt.Errorf("server-info public_key is zero")
+	}
+	signalingPath := strings.TrimSpace(body.SignalingPath)
+	if signalingPath == "" {
+		signalingPath = gizwebrtc.SignalingPath
+	}
+	if !strings.HasPrefix(signalingPath, "/") || strings.HasPrefix(signalingPath, "//") {
+		return zero, "", fmt.Errorf("server-info signaling_path=%q", signalingPath)
+	}
+	signalingURL := url.URL{Scheme: "http", Host: endpoint, Path: signalingPath}
+	return serverPublicKey, signalingURL.String(), nil
 }
 
 func serverWorkspaceEndpoint(cfg serverWorkspaceConfig) string {

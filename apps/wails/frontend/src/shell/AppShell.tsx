@@ -252,7 +252,6 @@ function CreateContextForm({ onCreate }: { onCreate(req: CreateContextRequest): 
   const [form, setForm] = useState<CreateContextRequest>({
     endpoint: "",
     name: "",
-    server_public_key: "",
   });
 
   function update(key: keyof CreateContextRequest, value: string) {
@@ -281,10 +280,6 @@ function CreateContextForm({ onCreate }: { onCreate(req: CreateContextRequest): 
               placeholder="127.0.0.1:9820"
               value={form.endpoint}
             />
-          </div>
-          <div className="field">
-            <label htmlFor="context-server-key">Server public key</label>
-            <TextInput id="context-server-key" onChange={(e) => update("server_public_key", e.target.value)} value={form.server_public_key} />
           </div>
           <div className="field">
             <label htmlFor="context-description">Description</label>

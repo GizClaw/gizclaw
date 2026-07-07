@@ -5,7 +5,6 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/apps/wails/internal/appconfig"
 	"github.com/GizClaw/gizclaw-go/apps/wails/internal/bridge"
-	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 )
 
 func TestNewAppUsesConfiguredHome(t *testing.T) {
@@ -22,19 +21,14 @@ func TestNewAppUsesConfiguredHome(t *testing.T) {
 }
 
 func TestAppExposesContextRuntimeWithoutServerAccess(t *testing.T) {
-	serverKey, err := giznet.GenerateKeyPair()
-	if err != nil {
-		t.Fatalf("GenerateKeyPair() error = %v", err)
-	}
 	app, err := NewAppWithPaths(appconfig.NewPaths(t.TempDir()))
 	if err != nil {
 		t.Fatalf("NewAppWithPaths() error = %v", err)
 	}
 	created, err := app.CreateContext(bridge.CreateContextRequest{
-		Description:     "Local e2e",
-		Endpoint:        "127.0.0.1:9820",
-		Name:            "local",
-		ServerPublicKey: serverKey.Public.String(),
+		Description: "Local e2e",
+		Endpoint:    "127.0.0.1:9820",
+		Name:        "local",
 	})
 	if err != nil {
 		t.Fatalf("CreateContext() error = %v", err)
@@ -60,7 +54,7 @@ func TestAppExposesContextRuntimeWithoutServerAccess(t *testing.T) {
 	if err != nil {
 		t.Fatalf("InjectedRuntime() error = %v", err)
 	}
-	if runtime.Context == nil || runtime.SignalingURL != "http://127.0.0.1:9820/webrtc/v1/offer" || runtime.PrivateKeyBase64 == "" {
+	if runtime.Context == nil || runtime.Context.Endpoint != "127.0.0.1:9820" || runtime.PrivateKeyBase64 == "" {
 		t.Fatalf("runtime = %+v", runtime)
 	}
 	ended, err := app.EndViewSession()

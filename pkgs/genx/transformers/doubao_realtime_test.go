@@ -254,11 +254,13 @@ func TestDoubaoRealtimeInterruptsPendingResponseBeforeTTS(t *testing.T) {
 	eventsDrained := make(chan struct{})
 	releaseEvents := make(chan struct{})
 	allowNextInput := make(chan struct{})
+	firstDrained := make(chan struct{})
 	session := &fakeDoubaoRealtimeSession{
 		events: []*doubaospeech.RealtimeEvent{
 			{Type: doubaospeech.EventASRResponse, Text: "第一段"},
 			{Type: doubaospeech.EventASREnded},
 		},
+		beforeRecv:       firstDrained,
 		eventsDrained:    eventsDrained,
 		blockAfterEvents: releaseEvents,
 	}
@@ -274,7 +276,8 @@ func TestDoubaoRealtimeInterruptsPendingResponseBeforeTTS(t *testing.T) {
 			{Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{1, 0, 2, 0}}, Ctrl: &genx.StreamCtrl{StreamID: "turn-1"}},
 			{Ctrl: &genx.StreamCtrl{StreamID: "turn-1", EndOfStream: true}},
 		},
-		gate: allowNextInput,
+		gate:         allowNextInput,
+		firstDrained: firstDrained,
 		rest: []*genx.MessageChunk{
 			{Ctrl: &genx.StreamCtrl{StreamID: "turn-2", BeginOfStream: true}},
 		},

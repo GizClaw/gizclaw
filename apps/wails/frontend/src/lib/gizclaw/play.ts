@@ -1,6 +1,6 @@
-import { connectGiznetWebRTC, sendGiznetWebRTCOffer } from "@gizclaw/gizclaw";
+import { connectGiznetWebRTCFromEndpoint } from "@gizclaw/gizclaw";
 import { RPC_METHODS, createPeerRPCClient, type PeerRPCClient } from "@gizclaw/gizclaw/rpc";
-import { base64Decode, prepareEncryptedGiznetWebRTCOffer } from "@gizclaw/gizclaw/signaling";
+import { base64Decode } from "@gizclaw/gizclaw/signaling";
 import type { RuntimeContext } from "../runtime/types";
 
 export interface PlayDataClient {
@@ -72,22 +72,15 @@ export async function connectPlayPeerConnection(runtime: RuntimeContext): Promis
   if (!runtime.private_key_base64) {
     throw new Error("Play WebRTC session requires injected private key material.");
   }
-  if (!runtime.signaling_url) {
-    throw new Error("Play WebRTC session requires a signaling URL.");
+  if (!runtime.context.endpoint) {
+    throw new Error("Play WebRTC session requires a server endpoint.");
   }
   const pc = new RTCPeerConnection();
-  await connectGiznetWebRTC({
+  await connectGiznetWebRTCFromEndpoint({
+    clientPrivateKey: base64Decode(runtime.private_key_base64),
+    clientPublicKey: runtime.context.local_public_key,
+    endpoint: runtime.context.endpoint,
     pc,
-    prepareOffer: (offerSDP) =>
-      prepareEncryptedGiznetWebRTCOffer(
-        {
-          clientPrivateKey: base64Decode(runtime.private_key_base64 ?? ""),
-          clientPublicKey: runtime.context?.local_public_key,
-          serverPublicKey: runtime.context?.server_public_key ?? "",
-        },
-        offerSDP,
-    ),
-    sendOffer: (offer, signal) => sendGiznetWebRTCOffer(offer, { signal, url: runtime.signaling_url }),
   });
   return pc;
 }

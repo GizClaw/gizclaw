@@ -11,25 +11,22 @@ import (
 )
 
 type ContextSummary struct {
-	Current         bool   `json:"current"`
-	Description     string `json:"description,omitempty"`
-	Endpoint        string `json:"endpoint"`
-	LocalPublicKey  string `json:"local_public_key,omitempty"`
-	Name            string `json:"name"`
-	ServerPublicKey string `json:"server_public_key"`
+	Current        bool   `json:"current"`
+	Description    string `json:"description,omitempty"`
+	Endpoint       string `json:"endpoint"`
+	LocalPublicKey string `json:"local_public_key,omitempty"`
+	Name           string `json:"name"`
 }
 
 type RuntimeContext struct {
 	Context          *ContextSummary `json:"context,omitempty"`
 	PrivateKeyBase64 string          `json:"private_key_base64,omitempty"`
-	SignalingURL     string          `json:"signaling_url,omitempty"`
 }
 
 type CreateContextRequest struct {
-	Description     string `json:"description,omitempty"`
-	Endpoint        string `json:"endpoint"`
-	Name            string `json:"name"`
-	ServerPublicKey string `json:"server_public_key"`
+	Description string `json:"description,omitempty"`
+	Endpoint    string `json:"endpoint"`
+	Name        string `json:"name"`
 }
 
 type ContextBridge struct {
@@ -96,8 +93,7 @@ func (b *ContextBridge) CreateContext(_ context.Context, req CreateContextReques
 		return ContextSummary{}, fmt.Errorf("desktop bridge: context name is required")
 	}
 	if err := b.Store.CreateWithOptions(name, strings.TrimSpace(req.Endpoint), contextstore.CreateOptions{
-		Description:     strings.TrimSpace(req.Description),
-		ServerPublicKey: strings.TrimSpace(req.ServerPublicKey),
+		Description: strings.TrimSpace(req.Description),
 	}); err != nil {
 		return ContextSummary{}, err
 	}
@@ -124,17 +120,15 @@ func (b *ContextBridge) RuntimeContext(context.Context) (RuntimeContext, error) 
 	return RuntimeContext{
 		Context:          &dto,
 		PrivateKeyBase64: base64.StdEncoding.EncodeToString(current.KeyPair.Private[:]),
-		SignalingURL:     current.Config.Server.SignalingURL(),
 	}, nil
 }
 
 func contextSummary(summary contextstore.Summary) ContextSummary {
 	return ContextSummary{
-		Current:         summary.Current,
-		Description:     summary.Description,
-		Endpoint:        summary.Endpoint,
-		LocalPublicKey:  summary.LocalPublicKey.String(),
-		Name:            summary.Name,
-		ServerPublicKey: summary.ServerPublicKey.String(),
+		Current:        summary.Current,
+		Description:    summary.Description,
+		Endpoint:       summary.Endpoint,
+		LocalPublicKey: summary.LocalPublicKey.String(),
+		Name:           summary.Name,
 	}
 }

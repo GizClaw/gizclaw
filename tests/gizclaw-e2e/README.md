@@ -106,7 +106,6 @@ source tests/gizclaw-e2e/testdata/docker/current.env
 Important values in `current.env`:
 
 - `GIZCLAW_E2E_SERVER_ENDPOINT`: client-facing server endpoint.
-- `GIZCLAW_E2E_SERVER_PUBLIC_KEY`: server public key for CLI contexts.
 - `GIZCLAW_E2E_CONFIG_HOME`: generated CLI config home used by cmd tests.
 - `GIZCLAW_E2E_IDENTITIES_HOME`: generated identity directory used by Go/JS
   harnesses.
@@ -131,7 +130,6 @@ gizclaw_bin="tests/gizclaw-e2e/testdata/bin/gizclaw"
 
 "$gizclaw_bin" context create my-e2e \
   --server "$GIZCLAW_E2E_SERVER_ENDPOINT" \
-  --public-key "$GIZCLAW_E2E_SERVER_PUBLIC_KEY" \
   --description "Manual e2e context"
 
 "$gizclaw_bin" context use my-e2e
@@ -318,7 +316,6 @@ identity:
   private-key: <client-private-key>
 server:
   endpoint: 127.0.0.1:9820
-  public-key: <server-public-key>
 ```
 
 Stable identities:

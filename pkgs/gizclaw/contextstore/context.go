@@ -15,8 +15,7 @@ const ConfigFile = "config.yaml"
 
 // ServerConfig holds the connection info for a remote server.
 type ServerConfig struct {
-	Endpoint  string           `yaml:"endpoint"`
-	PublicKey giznet.PublicKey `yaml:"public-key"`
+	Endpoint string `yaml:"endpoint"`
 }
 
 // IdentityConfig holds the local identity material for this context.
@@ -39,19 +38,13 @@ type Context struct {
 	KeyPair *giznet.KeyPair
 }
 
-// ServerPublicKey returns the configured server public key.
-func (c *Context) ServerPublicKey() (giznet.PublicKey, error) {
-	return c.Config.Server.PublicKey, nil
-}
-
 // Summary is the lightweight context metadata used by list UIs and e2e harnesses.
 type Summary struct {
-	Name            string
-	Description     string
-	Current         bool
-	Endpoint        string
-	ServerPublicKey giznet.PublicKey
-	LocalPublicKey  giznet.PublicKey
+	Name           string
+	Description    string
+	Current        bool
+	Endpoint       string
+	LocalPublicKey giznet.PublicKey
 }
 
 // Load reads a context from its directory.
@@ -83,11 +76,10 @@ func LoadSummary(dir string) (Summary, error) {
 		return Summary{}, err
 	}
 	summary := Summary{
-		Name:            filepath.Base(dir),
-		Description:     ctx.Description,
-		Endpoint:        ctx.Server.Endpoint,
-		ServerPublicKey: ctx.Server.PublicKey,
-		LocalPublicKey:  kp.Public,
+		Name:           filepath.Base(dir),
+		Description:    ctx.Description,
+		Endpoint:       ctx.Server.Endpoint,
+		LocalPublicKey: kp.Public,
 	}
 	return summary, nil
 }
@@ -110,9 +102,6 @@ func LoadConfig(dir string) (Config, error) {
 		return Config{}, err
 	}
 	cfg.Identity.PrivateKey = kp.Private
-	if cfg.Server.PublicKey.IsZero() {
-		return Config{}, fmt.Errorf("contextstore: missing server.public-key")
-	}
 	return cfg, nil
 }
 
@@ -150,9 +139,4 @@ func validateEndpoint(field, endpoint string) error {
 // PublicAPIAddr returns the HTTP endpoint host:port.
 func (s ServerConfig) PublicAPIAddr() string {
 	return s.Endpoint
-}
-
-// SignalingURL returns the server-public WebRTC signaling URL.
-func (s ServerConfig) SignalingURL() string {
-	return "http://" + s.Endpoint + "/webrtc/v1/offer"
 }

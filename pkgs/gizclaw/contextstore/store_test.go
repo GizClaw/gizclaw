@@ -10,14 +10,9 @@ import (
 )
 
 func TestStoreCreateLoadListEndpointContext(t *testing.T) {
-	serverKey, err := giznet.GenerateKeyPair()
-	if err != nil {
-		t.Fatal(err)
-	}
 	store := &Store{Root: t.TempDir()}
 	if err := store.CreateWithOptions("local", "127.0.0.1:9820", CreateOptions{
-		Description:     "Local dev",
-		ServerPublicKey: serverKey.Public.String(),
+		Description: "Local dev",
 	}); err != nil {
 		t.Fatalf("CreateWithOptions() error = %v", err)
 	}
@@ -41,9 +36,6 @@ func TestStoreCreateLoadListEndpointContext(t *testing.T) {
 	if len(entries) != 1 || entries[0].Name() != ConfigFile {
 		t.Fatalf("context files = %#v, want only %s", entries, ConfigFile)
 	}
-	if ctx.Config.Server.SignalingURL() != "http://127.0.0.1:9820/webrtc/v1/offer" {
-		t.Fatalf("SignalingURL() = %q", ctx.Config.Server.SignalingURL())
-	}
 	summaries, err := store.ListSummaries()
 	if err != nil {
 		t.Fatalf("ListSummaries() error = %v", err)
@@ -54,13 +46,9 @@ func TestStoreCreateLoadListEndpointContext(t *testing.T) {
 }
 
 func TestStoreUseLoadByNameAndDelete(t *testing.T) {
-	serverKey, err := giznet.GenerateKeyPair()
-	if err != nil {
-		t.Fatal(err)
-	}
 	store := &Store{Root: t.TempDir()}
 	for _, name := range []string{"alpha", "beta"} {
-		if err := store.Create(name, "127.0.0.1:9820", serverKey.Public.String()); err != nil {
+		if err := store.Create(name, "127.0.0.1:9820"); err != nil {
 			t.Fatalf("Create(%q) error = %v", name, err)
 		}
 	}
@@ -142,45 +130,18 @@ func TestStoreUseLoadByNameAndDeleteRejectInvalidOrMissingNames(t *testing.T) {
 	}
 }
 
-func TestStoreCreateRejectsInvalidServerPublicKey(t *testing.T) {
-	store := &Store{Root: t.TempDir()}
-	for _, tc := range []struct {
-		name      string
-		publicKey string
-		want      string
-	}{
-		{name: "missing", publicKey: "", want: "missing server public key"},
-		{name: "invalid", publicKey: "not-a-public-key", want: "invalid server public key"},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			err := store.Create("ctx-"+tc.name, "127.0.0.1:9820", tc.publicKey)
-			if err == nil || !strings.Contains(err.Error(), tc.want) {
-				t.Fatalf("Create() error = %v, want %q", err, tc.want)
-			}
-		})
-	}
-}
-
 func TestStoreCreateRejectsDuplicateName(t *testing.T) {
-	serverKey, err := giznet.GenerateKeyPair()
-	if err != nil {
-		t.Fatal(err)
-	}
 	store := &Store{Root: t.TempDir()}
-	if err := store.Create("local", "127.0.0.1:9820", serverKey.Public.String()); err != nil {
+	if err := store.Create("local", "127.0.0.1:9820"); err != nil {
 		t.Fatalf("Create(local) error = %v", err)
 	}
-	err = store.Create("local", "127.0.0.1:9820", serverKey.Public.String())
+	err := store.Create("local", "127.0.0.1:9820")
 	if err == nil || !strings.Contains(err.Error(), "already exists") {
 		t.Fatalf("duplicate Create() error = %v", err)
 	}
 }
 
 func TestContextHelpersAndSummary(t *testing.T) {
-	serverKey, err := giznet.GenerateKeyPair()
-	if err != nil {
-		t.Fatal(err)
-	}
 	clientKey, err := giznet.GenerateKeyPair()
 	if err != nil {
 		t.Fatal(err)
@@ -192,7 +153,6 @@ identity:
   private-key: `+clientKey.Private.String()+`
 server:
   endpoint: 127.0.0.1:9820
-  public-key: `+serverKey.Public.String()+`
 `), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -203,14 +163,6 @@ server:
 	}
 	if cfg.Server.PublicAPIAddr() != "127.0.0.1:9820" {
 		t.Fatalf("PublicAPIAddr() = %q", cfg.Server.PublicAPIAddr())
-	}
-	ctx := &Context{Config: cfg}
-	gotKey, err := ctx.ServerPublicKey()
-	if err != nil {
-		t.Fatalf("ServerPublicKey() error = %v", err)
-	}
-	if gotKey != serverKey.Public {
-		t.Fatalf("ServerPublicKey() = %v, want %v", gotKey, serverKey.Public)
 	}
 
 	summary, err := LoadSummary(dir)
@@ -223,10 +175,6 @@ server:
 }
 
 func TestLoadConfigNormalizesIdentityPrivateKey(t *testing.T) {
-	serverKey, err := giznet.GenerateKeyPair()
-	if err != nil {
-		t.Fatal(err)
-	}
 	var rawPrivate giznet.Key
 	for i := range rawPrivate {
 		rawPrivate[i] = 0xff
@@ -241,7 +189,6 @@ identity:
   private-key: `+rawPrivate.String()+`
 server:
   endpoint: 127.0.0.1:9820
-  public-key: `+serverKey.Public.String()+`
 `), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -256,21 +203,16 @@ server:
 }
 
 func TestLoadConfigRejectsMissingAndMalformedConfig(t *testing.T) {
-	serverKey, err := giznet.GenerateKeyPair()
-	if err != nil {
-		t.Fatal(err)
-	}
 	for _, tc := range []struct {
 		name string
 		body string
 		want string
 	}{
 		{name: "bad-yaml", body: "server: [", want: "parse config"},
-		{name: "missing-identity", body: "server:\n  endpoint: 127.0.0.1:9820\n  public-key: " + serverKey.Public.String() + "\n", want: "missing identity.private-key"},
-		{name: "missing-endpoint", body: "identity:\n  private-key: " + testPrivateKey(t, 0xaa).String() + "\nserver:\n  public-key: " + serverKey.Public.String() + "\n", want: "missing server.endpoint"},
-		{name: "url-endpoint", body: "identity:\n  private-key: " + testPrivateKey(t, 0xaa).String() + "\nserver:\n  endpoint: http://127.0.0.1:9820\n  public-key: " + serverKey.Public.String() + "\n", want: "host:port"},
-		{name: "missing-public-key", body: "identity:\n  private-key: " + testPrivateKey(t, 0xaa).String() + "\nserver:\n  endpoint: 127.0.0.1:9820\n", want: "missing server.public-key"},
-		{name: "empty-host", body: "identity:\n  private-key: " + testPrivateKey(t, 0xaa).String() + "\nserver:\n  endpoint: :9820\n  public-key: " + serverKey.Public.String() + "\n", want: "host is empty"},
+		{name: "missing-identity", body: "server:\n  endpoint: 127.0.0.1:9820\n", want: "missing identity.private-key"},
+		{name: "missing-endpoint", body: "identity:\n  private-key: " + testPrivateKey(t, 0xaa).String() + "\nserver: {}\n", want: "missing server.endpoint"},
+		{name: "url-endpoint", body: "identity:\n  private-key: " + testPrivateKey(t, 0xaa).String() + "\nserver:\n  endpoint: http://127.0.0.1:9820\n", want: "host:port"},
+		{name: "empty-host", body: "identity:\n  private-key: " + testPrivateKey(t, 0xaa).String() + "\nserver:\n  endpoint: :9820\n", want: "host is empty"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			dir := t.TempDir()
@@ -296,7 +238,6 @@ identity:
   private-key: 11111111111111111111111111111111
 server:
   endpoint: 127.0.0.1:9820
-  public-key: 11111111111111111111111111111111
   extra: value
 `), 0o600); err != nil {
 		t.Fatal(err)
@@ -307,12 +248,8 @@ server:
 }
 
 func TestCreateRejectsEndpointURL(t *testing.T) {
-	serverKey, err := giznet.GenerateKeyPair()
-	if err != nil {
-		t.Fatal(err)
-	}
 	store := &Store{Root: t.TempDir()}
-	err = store.Create("bad", "http://127.0.0.1:9820", serverKey.Public.String())
+	err := store.Create("bad", "http://127.0.0.1:9820")
 	if err == nil || !strings.Contains(err.Error(), "host:port") {
 		t.Fatalf("Create() error = %v", err)
 	}

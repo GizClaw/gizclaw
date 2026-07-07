@@ -31,12 +31,19 @@ typedef struct {
 
 typedef struct {
   const gzc_platform_t *platform;
+  const char *server_info_body;
+  int get_count;
   int post_count;
 } fake_http_t;
 
 typedef struct {
   const gzc_platform_t *platform;
 } fake_crypto_t;
+
+static bool str_eq_cstr(gzc_str_t value, const char *want) {
+  size_t want_len = strlen(want);
+  return value.len == want_len && strncmp(value.data, want, want_len) == 0;
+}
 
 static int fake_peer_create(void *userdata, const gzc_webrtc_callbacks_t *callbacks, gzc_rtc_peer_t **out_peer) {
   fake_webrtc_t *fake = (fake_webrtc_t *)userdata;
@@ -238,13 +245,28 @@ static int count_stream_frame(void *userdata, const gzc_rpc_frame_t *frame) {
 
 static int test_http_request(void *userdata, const gzc_http_request_t *request, gzc_http_response_t *out_response) {
   fake_http_t *fake = (fake_http_t *)userdata;
-  fake->post_count++;
-  if (request == NULL || request->method != GZC_HTTP_METHOD_POST || request->body == NULL || request->body_len == 0 ||
-      request->header_count != GZC_SIGNALING_HEADER_COUNT) {
+  if (request == NULL || out_response == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
   out_response->status_code = 200;
   gzc_buf_init(&out_response->body);
+  if (request->method == GZC_HTTP_METHOD_GET) {
+    fake->get_count++;
+    if (!str_eq_cstr(request->url, "http://example.invalid:9820/server-info")) {
+      return GZC_ERR_INVALID_ARGUMENT;
+    }
+    const char *body = fake->server_info_body == NULL
+                           ? "{\"protocol\":\"gizclaw-webrtc\",\"public_key\":\"8mfzTdZB1JA43QmNAMWfTfkj5GC9TJxJFveThi9tvK6J\",\"signaling_path\":\"/custom/offer\"}"
+                           : fake->server_info_body;
+    return gzc_buf_append_cstr(&out_response->body, fake->platform, body);
+  }
+  fake->post_count++;
+  if (request->method != GZC_HTTP_METHOD_POST ||
+      !str_eq_cstr(request->url, "http://example.invalid:9820/custom/offer") ||
+      request->body == NULL || request->body_len == 0 ||
+      request->header_count != GZC_SIGNALING_HEADER_COUNT) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
   return gzc_buf_append_cstr(&out_response->body, fake->platform, "v=0\r\nfake-answer\r\n");
 }
 
@@ -386,8 +408,7 @@ int main(void) {
 
   gzc_client_config_t config;
   memset(&config, 0, sizeof(config));
-  config.signaling_url = gzc_str_from_cstr("https://example.invalid/signal");
-  config.server_public_key = gzc_str_from_cstr("8mfzTdZB1JA43QmNAMWfTfkj5GC9TJxJFveThi9tvK6J");
+  config.server_endpoint = gzc_str_from_cstr("example.invalid:9820");
   config.private_key = gzc_str_from_cstr("7gyGAp71YXQRoxmFBaHxofQXAipvgHyBKPyxmdSJxyvz");
   config.platform = platform;
   config.crypto = &crypto;
@@ -405,10 +426,22 @@ int main(void) {
   if (expect(rc == GZC_OK, "client connect") != 0) {
     return 1;
   }
+  if (expect(fake_http.get_count == 1, "server-info get called once") != 0) {
+    return 1;
+  }
   if (expect(fake_http.post_count == 1, "http post called once") != 0) {
     return 1;
   }
   if (expect(fake_webrtc.create_channel_count == 2, "packet and rpc channels created during connect") != 0) {
+    return 1;
+  }
+
+  gzc_json_t malformed_json = {gzc_str_from_cstr("{\"public_key\":\"x\",}")};
+  if (expect(gzc_json_validate_object(malformed_json.raw) == GZC_ERR_JSON, "malformed object rejected") != 0) {
+    return 1;
+  }
+  malformed_json.raw = gzc_str_from_cstr("{\"value\":-}");
+  if (expect(gzc_json_validate_object(malformed_json.raw) == GZC_ERR_JSON, "malformed number rejected") != 0) {
     return 1;
   }
 

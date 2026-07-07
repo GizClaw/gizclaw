@@ -43,6 +43,127 @@ static int copy_str(gzc_client_t *client, gzc_str_t src, gzc_buf_t *dst) {
   return gzc_buf_append(dst, client->config.platform, src.data, src.len);
 }
 
+static bool str_empty(gzc_str_t value) {
+  return value.data == NULL || value.len == 0;
+}
+
+static bool str_eq_cstr(gzc_str_t value, const char *want) {
+  size_t want_len = strlen(want);
+  return value.len == want_len && strncmp(value.data, want, want_len) == 0;
+}
+
+static int build_endpoint_url(gzc_client_t *client, gzc_str_t path, gzc_buf_t *out_url) {
+  if (client == NULL || out_url == NULL || str_empty(client->config.server_endpoint) ||
+      str_empty(path) || path.data[0] != '/' || (path.len >= 2 && path.data[1] == '/')) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  gzc_buf_reset(out_url);
+  int rc = gzc_buf_append_cstr(out_url, client->config.platform, "http://");
+  if (rc != GZC_OK) {
+    return rc;
+  }
+  rc = gzc_buf_append_str(out_url, client->config.platform, client->config.server_endpoint);
+  if (rc != GZC_OK) {
+    return rc;
+  }
+  return gzc_buf_append_str(out_url, client->config.platform, path);
+}
+
+static void free_http_response(gzc_client_t *client, gzc_http_response_t *response) {
+  if (client->config.http->response_free != NULL) {
+    client->config.http->response_free(client->config.http->userdata, response);
+  } else {
+    gzc_buf_free(&response->body, client->config.platform);
+  }
+}
+
+static int load_server_info(gzc_client_t *client, int timeout_ms, gzc_signaling_config_t *signaling, gzc_buf_t *signaling_url) {
+  if (client == NULL || signaling == NULL || signaling_url == NULL) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  if (str_empty(client->config.server_endpoint)) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+
+  gzc_buf_t server_info_url;
+  gzc_buf_init(&server_info_url);
+  int rc = build_endpoint_url(client, gzc_str_from_cstr("/server-info"), &server_info_url);
+  if (rc != GZC_OK) {
+    gzc_buf_free(&server_info_url, client->config.platform);
+    return rc;
+  }
+
+  gzc_http_request_t request;
+  memset(&request, 0, sizeof(request));
+  request.method = GZC_HTTP_METHOD_GET;
+  request.url = gzc_str_from_parts((const char *)server_info_url.data, server_info_url.len);
+  request.timeout_ms = timeout_ms;
+
+  gzc_http_response_t response;
+  memset(&response, 0, sizeof(response));
+  gzc_buf_init(&response.body);
+  rc = client->config.http->request(client->config.http->userdata, &request, &response);
+  gzc_buf_free(&server_info_url, client->config.platform);
+  if (rc != GZC_OK) {
+    free_http_response(client, &response);
+    return rc;
+  }
+  if (gzc_http_status_has_error(response.status_code)) {
+    free_http_response(client, &response);
+    return GZC_ERR_HTTP;
+  }
+
+  gzc_str_t body = gzc_str_from_parts((const char *)response.body.data, response.body.len);
+  rc = gzc_json_validate_object(body);
+  if (rc != GZC_OK) {
+    free_http_response(client, &response);
+    return rc;
+  }
+  gzc_str_t raw;
+  rc = gzc_json_find_field(body, "public_key", &raw);
+  if (rc == GZC_OK) {
+    gzc_str_t public_key;
+    rc = gzc_json_parse_string(raw, &public_key);
+    if (rc == GZC_OK) {
+      rc = gzc_key_from_text(public_key, &signaling->remote_public_key);
+    }
+    if (rc == GZC_OK && gzc_key_is_zero(&signaling->remote_public_key)) {
+      rc = GZC_ERR_INVALID_ARGUMENT;
+    }
+  }
+  if (rc != GZC_OK) {
+    free_http_response(client, &response);
+    return rc;
+  }
+
+  rc = gzc_json_find_field(body, "protocol", &raw);
+  if (rc == GZC_OK) {
+    gzc_str_t protocol;
+    rc = gzc_json_parse_string(raw, &protocol);
+    if (rc != GZC_OK || !str_eq_cstr(protocol, "gizclaw-webrtc")) {
+      free_http_response(client, &response);
+      return rc == GZC_OK ? GZC_ERR_UNSUPPORTED : rc;
+    }
+  }
+
+  gzc_str_t signaling_path = gzc_str_from_cstr(GZC_SIGNALING_PATH);
+  rc = gzc_json_find_field(body, "signaling_path", &raw);
+  if (rc == GZC_OK) {
+    rc = gzc_json_parse_string(raw, &signaling_path);
+    if (rc != GZC_OK) {
+      free_http_response(client, &response);
+      return rc;
+    }
+  }
+  rc = build_endpoint_url(client, signaling_path, signaling_url);
+  free_http_response(client, &response);
+  if (rc != GZC_OK) {
+    return rc;
+  }
+  signaling->signaling_url = gzc_str_from_parts((const char *)signaling_url->data, signaling_url->len);
+  return GZC_OK;
+}
+
 static int append_framed_rx(gzc_buf_t *rx, const gzc_platform_t *platform, const uint8_t *data, size_t len) {
   if (rx == NULL || (data == NULL && len != 0) || len > GZC_RPC_MAX_FRAME_SIZE) {
     return GZC_ERR_INVALID_ARGUMENT;
@@ -295,13 +416,15 @@ int gzc_client_connect(gzc_client_t *client) {
   signaling.platform = client->config.platform;
   signaling.crypto = client->config.crypto;
   signaling.cipher_mode = client->config.cipher_mode;
-  signaling.signaling_url = client->config.signaling_url;
   rc = gzc_key_from_text(client->config.private_key, &signaling.private_key);
   if (rc != GZC_OK) {
     goto fail;
   }
-  rc = gzc_key_from_text(client->config.server_public_key, &signaling.remote_public_key);
+  gzc_buf_t signaling_url;
+  gzc_buf_init(&signaling_url);
+  rc = load_server_info(client, timeout, &signaling, &signaling_url);
   if (rc != GZC_OK) {
+    gzc_buf_free(&signaling_url, client->config.platform);
     goto fail;
   }
 
@@ -315,6 +438,7 @@ int gzc_client_connect(gzc_client_t *client) {
       &request);
   if (rc != GZC_OK) {
     gzc_signaling_exchange_free(&exchange, client->config.platform);
+    gzc_buf_free(&signaling_url, client->config.platform);
     goto fail;
   }
   request.timeout_ms = timeout;
@@ -338,6 +462,7 @@ int gzc_client_connect(gzc_client_t *client) {
     gzc_buf_free(&response.body, client->config.platform);
   }
   gzc_signaling_exchange_free(&exchange, client->config.platform);
+  gzc_buf_free(&signaling_url, client->config.platform);
   if (rc != GZC_OK) {
     goto fail;
   }

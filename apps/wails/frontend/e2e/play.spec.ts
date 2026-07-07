@@ -8,7 +8,6 @@ test.beforeEach(async ({ page }) => {
       endpoint: "127.0.0.1:9820",
       local_public_key: "local-public-key",
       name: "local",
-      server_public_key: "server-public-key",
     };
     const actions: string[] = [];
     let session = { active: false };
@@ -82,7 +81,7 @@ test.beforeEach(async ({ page }) => {
         return session;
       },
       async InjectedRuntime() {
-        return { context, private_key_base64: "cHJpdmF0ZS1rZXktbWF0ZXJpYWw=", signaling_url: "http://127.0.0.1:9820/webrtc/v1/offer" };
+        return { context, private_key_base64: "cHJpdmF0ZS1rZXktbWF0ZXJpYWw=" };
       },
       async ListContexts() {
         return [context];

@@ -12,15 +12,10 @@ import (
 )
 
 func TestContextBridgeListSelectAndRuntime(t *testing.T) {
-	serverKey, err := giznet.GenerateKeyPair()
-	if err != nil {
-		t.Fatalf("GenerateKeyPair() error = %v", err)
-	}
 	root := t.TempDir()
 	store := &contextstore.Store{Root: filepath.Join(root, "contexts")}
 	if err := store.CreateWithOptions("local", "127.0.0.1:9820", contextstore.CreateOptions{
-		Description:     "Local context",
-		ServerPublicKey: serverKey.Public.String(),
+		Description: "Local context",
 	}); err != nil {
 		t.Fatalf("CreateWithOptions() error = %v", err)
 	}
@@ -48,9 +43,6 @@ func TestContextBridgeListSelectAndRuntime(t *testing.T) {
 	if runtime.Context == nil || runtime.Context.Name != "local" {
 		t.Fatalf("RuntimeContext() = %+v", runtime)
 	}
-	if runtime.SignalingURL != "http://127.0.0.1:9820/webrtc/v1/offer" {
-		t.Fatalf("SignalingURL = %q", runtime.SignalingURL)
-	}
 	privateKey, err := base64.StdEncoding.DecodeString(runtime.PrivateKeyBase64)
 	if err != nil {
 		t.Fatalf("PrivateKeyBase64 decode error = %v", err)
@@ -69,19 +61,14 @@ func TestContextBridgeListSelectAndRuntime(t *testing.T) {
 }
 
 func TestContextBridgeCreateContext(t *testing.T) {
-	serverKey, err := giznet.GenerateKeyPair()
-	if err != nil {
-		t.Fatalf("GenerateKeyPair() error = %v", err)
-	}
 	root := t.TempDir()
 	paths := appconfig.NewPaths(root)
 	bridge := NewContextBridge(&contextstore.Store{Root: paths.ContextDir}, appconfig.StateStore{File: paths.StateFile})
 
 	created, err := bridge.CreateContext(context.Background(), CreateContextRequest{
-		Description:     "Dev server",
-		Endpoint:        "127.0.0.1:9820",
-		Name:            "dev",
-		ServerPublicKey: serverKey.Public.String(),
+		Description: "Dev server",
+		Endpoint:    "127.0.0.1:9820",
+		Name:        "dev",
 	})
 	if err != nil {
 		t.Fatalf("CreateContext() error = %v", err)
@@ -119,20 +106,16 @@ func TestContextBridgeGuards(t *testing.T) {
 	if err != nil {
 		t.Fatalf("RuntimeContext(empty current) error = %v", err)
 	}
-	if runtime.Context != nil || runtime.PrivateKeyBase64 != "" || runtime.SignalingURL != "" {
+	if runtime.Context != nil || runtime.PrivateKeyBase64 != "" {
 		t.Fatalf("RuntimeContext(empty current) = %+v", runtime)
 	}
 }
 
 func TestAppBridgeBootstrap(t *testing.T) {
-	serverKey, err := giznet.GenerateKeyPair()
-	if err != nil {
-		t.Fatalf("GenerateKeyPair() error = %v", err)
-	}
 	root := t.TempDir()
 	paths := appconfig.NewPaths(root)
 	store := &contextstore.Store{Root: paths.ContextDir}
-	if err := store.Create("local", "127.0.0.1:9820", serverKey.Public.String()); err != nil {
+	if err := store.Create("local", "127.0.0.1:9820"); err != nil {
 		t.Fatalf("Create() error = %v", err)
 	}
 	if err := store.Use("local"); err != nil {
@@ -225,14 +208,10 @@ func TestAppBridgeViewSessionGuards(t *testing.T) {
 }
 
 func TestAppBridgeNormalizesUnknownView(t *testing.T) {
-	serverKey, err := giznet.GenerateKeyPair()
-	if err != nil {
-		t.Fatalf("GenerateKeyPair() error = %v", err)
-	}
 	root := t.TempDir()
 	paths := appconfig.NewPaths(root)
 	store := &contextstore.Store{Root: paths.ContextDir}
-	if err := store.Create("local", "127.0.0.1:9820", serverKey.Public.String()); err != nil {
+	if err := store.Create("local", "127.0.0.1:9820"); err != nil {
 		t.Fatalf("Create() error = %v", err)
 	}
 	state := appconfig.StateStore{File: paths.StateFile}

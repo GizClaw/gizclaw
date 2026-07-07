@@ -29,6 +29,7 @@ int gzc_json_field_raw(gzc_json_writer_t *writer, const char *name, gzc_str_t ra
 int gzc_json_write_string(gzc_json_writer_t *writer, gzc_str_t value);
 
 int gzc_json_find_field(gzc_str_t object_json, const char *name, gzc_str_t *out_raw);
+int gzc_json_validate_object(gzc_str_t object_json);
 int gzc_json_parse_string(gzc_str_t raw_json, gzc_str_t *out);
 int gzc_json_parse_i64(gzc_str_t raw_json, int64_t *out);
 int gzc_json_parse_i32(gzc_str_t raw_json, int32_t *out);

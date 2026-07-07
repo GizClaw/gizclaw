@@ -12,7 +12,6 @@ identity:
   private-key: <client-private-key>
 server:
   endpoint: 127.0.0.1:9820
-  public-key: <server-public-key>
 ```
 
 ## Fields
@@ -21,8 +20,6 @@ server:
   launchers.
 - `identity.private-key` is the local client private key for this context.
 - `server.endpoint` is the server `host:port` value without a URL scheme.
-- `server.public-key` is the server static public key and is the trust anchor
-  for the context.
 
 ## Transport Behavior
 
@@ -35,8 +32,9 @@ http://server.endpoint/webrtc/v1/offer
 server.endpoint over UDP for WebRTC ICE
 ```
 
-The WebRTC signaling path is fixed by the protocol and is not stored in the
-context config:
+The client fetches `http://server.endpoint/server-info` before dialing. The
+server-info response provides the server public key and the signaling path. The
+signaling path is not stored in the context config.
 
 ```text
 /webrtc/v1/offer
