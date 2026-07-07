@@ -153,6 +153,38 @@ Then regular CLI commands can use the context:
 "$gizclaw_bin" connect ping --context my-e2e
 ```
 
+## Reset Seed Data
+
+Use the host-side setup script when you want to seed the standard e2e resource
+set through an admin context, including a remote service:
+
+```sh
+bash tests/gizclaw-e2e/setup/reset-data.sh reset --context remote-admin
+```
+
+The script reads provider credentials from `tests/gizclaw-e2e/.env`, deletes
+known fixture resources through `gizclaw admin delete`, then applies the
+fixtures, syncs Volc voices, and uploads the firmware fixture artifact. The
+admin context is the only required context. It uses your normal GizClaw context
+home by default. Pass `--config-home` for an isolated context home:
+
+```sh
+source tests/gizclaw-e2e/testdata/docker/current.env
+bash tests/gizclaw-e2e/setup/reset-data.sh init \
+  --context admin \
+  --config-home "$GIZCLAW_E2E_CONFIG_HOME"
+```
+
+When the selected context home also contains e2e device contexts, set
+`GIZCLAW_E2E_CMD_GEAR1_CONTEXT` and `GIZCLAW_E2E_CMD_GEAR2_CONTEXT` to update
+their display names during `init`.
+
+Supported modes:
+
+- `init`: apply fixtures without deleting existing resources.
+- `clear`: delete known fixture resources only.
+- `reset`: `clear` then `init`.
+
 ## Run Manual Tests
 
 Start the environment and source `current.env`, then run focused suites:
