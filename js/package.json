@@ -6,6 +6,6 @@
     "gen:sdk": "openapi-ts && node scripts/fix-generated-imports.mjs && node scripts/generate-rpc-method-map.mjs"
   },
   "devDependencies": {
-    "@hey-api/openapi-ts": "^0.96.0"
+    "@hey-api/openapi-ts": "^0.99.0"
   }
 }
