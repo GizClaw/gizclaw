@@ -1,8 +1,17 @@
 identity:
   private-key: 287thuEga1hbBYjM7sxrY3eMoPAqpB3nJ81S8CEuNHKu
-listen: 127.0.0.1:9820
-endpoint: 127.0.0.1:9820
+listen: 0.0.0.0:9820
+endpoint: ${GIZCLAW_E2E_SERVER_ENDPOINT}
 admin-public-key: "6Ww6ANsXDCf91Yp7Tvi65hqpywjMmXqAoZDiq33kfCee"
+log:
+  level: info
+  volc:
+    enabled: false
+    endpoint: https://tls-cn-beijing.volces.com
+    region: cn-beijing
+    topic_id: gizclaw-server-log-topic
+    access_key_id: volc-access-key-id
+    access_key_secret: volc-access-key-secret
 storage:
   memory:
     kind: keyvalue
@@ -69,6 +78,29 @@ stores:
   history:
     kind: sql
     storage: history-db
+  game-rulesets:
+    kind: keyvalue
+    storage: memory
+    prefix: game-rulesets
+  pet-defs:
+    kind: keyvalue
+    storage: memory
+    prefix: pet-defs
+  badge-defs:
+    kind: keyvalue
+    storage: memory
+    prefix: badge-defs
+  game-defs:
+    kind: keyvalue
+    storage: memory
+    prefix: game-defs
+  gameplay-assets:
+    kind: objectstore
+    storage: local-files
+    prefix: gameplay
+  gameplay-db:
+    kind: sql
+    storage: gameplay-db
   contacts:
     kind: keyvalue
     storage: memory
@@ -105,29 +137,6 @@ stores:
     kind: objectstore
     storage: local-files
     prefix: friend-group-messages
-  game-rulesets:
-    kind: keyvalue
-    storage: memory
-    prefix: game-rulesets
-  pet-defs:
-    kind: keyvalue
-    storage: memory
-    prefix: pet-defs
-  badge-defs:
-    kind: keyvalue
-    storage: memory
-    prefix: badge-defs
-  game-defs:
-    kind: keyvalue
-    storage: memory
-    prefix: game-defs
-  gameplay-assets:
-    kind: objectstore
-    storage: local-files
-    prefix: gameplay
-  gameplay-db:
-    kind: sql
-    storage: gameplay-db
 peers:
   store: peers
 credentials:
@@ -151,3 +160,11 @@ friend_groups:
   message_max_ttl: 7d
   message_cleanup_interval: 100ms
   message_max_audio_bytes: 67108864
+system_tasks:
+  reward_claim:
+    generator: model/reward-claim
+    cooldown: 1ms
+  pet_action:
+    generator: model/pet-action
+gameplay:
+  pet_adopt_point_cost: -1

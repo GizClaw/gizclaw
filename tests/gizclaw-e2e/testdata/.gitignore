@@ -9,7 +9,7 @@
 !workspaces/
 !workspaces/*.json
 !server-workspace/
-!server-workspace/config.yaml
+!server-workspace/config.yaml.template
 !identities/
 !identities/*/
 !identities/*/config.yaml

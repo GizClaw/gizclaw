@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/GizClaw/gizclaw-go/cmd/internal/logging"
 	"github.com/GizClaw/gizclaw-go/cmd/internal/storage"
 	"github.com/GizClaw/gizclaw-go/cmd/internal/stores"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw"
@@ -49,6 +50,9 @@ func TestDefaultConfig(t *testing.T) {
 	}
 	if cfg.Endpoint != "0.0.0.0:9820" {
 		t.Fatalf("Endpoint = %q", cfg.Endpoint)
+	}
+	if cfg.Log.Level != "info" {
+		t.Fatalf("Log.Level = %q, want info", cfg.Log.Level)
 	}
 }
 
@@ -245,6 +249,84 @@ func TestLoadConfigReadsAdminPublicKey(t *testing.T) {
 	}
 }
 
+func TestLoadConfigReadsAndExpandsLogConfig(t *testing.T) {
+	t.Setenv("GIZCLAW_TEST_VOLC_AK", "ak")
+	t.Setenv("GIZCLAW_TEST_VOLC_SK", "sk")
+	path := filepath.Join(t.TempDir(), "config.yaml")
+	data := `
+log:
+  level: debug
+  volc:
+    enabled: true
+    endpoint: https://tls-cn-beijing.volces.com
+    region: cn-beijing
+    topic_id: test-topic
+    access_key_id: ${GIZCLAW_TEST_VOLC_AK}
+    access_key_secret: ${GIZCLAW_TEST_VOLC_SK}
+`
+	if err := os.WriteFile(path, []byte(data), 0o644); err != nil {
+		t.Fatalf("WriteFile error = %v", err)
+	}
+
+	cfg, err := LoadConfig(path)
+	if err != nil {
+		t.Fatalf("LoadConfig error = %v", err)
+	}
+	if cfg.Log.Level != "debug" {
+		t.Fatalf("Log.Level = %q", cfg.Log.Level)
+	}
+	if !cfg.Log.Volc.Enabled || cfg.Log.Volc.AccessKeyID != "ak" || cfg.Log.Volc.AccessKeySecret != "sk" {
+		t.Fatalf("Log.Volc = %+v", cfg.Log.Volc)
+	}
+}
+
+func TestLoadConfigRejectsInvalidLogConfig(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.yaml")
+	if err := os.WriteFile(path, []byte("log:\n  level: verbose\n"), 0o644); err != nil {
+		t.Fatalf("WriteFile error = %v", err)
+	}
+	if _, err := LoadConfig(path); err == nil || !strings.Contains(err.Error(), "log.level") {
+		t.Fatalf("LoadConfig invalid log level err = %v", err)
+	}
+
+	if err := os.WriteFile(path, []byte("log:\n  volc:\n    enabled: true\n"), 0o644); err != nil {
+		t.Fatalf("WriteFile enabled error = %v", err)
+	}
+	if _, err := LoadConfig(path); err == nil || !strings.Contains(err.Error(), "log.volc.endpoint") {
+		t.Fatalf("LoadConfig invalid volc err = %v", err)
+	}
+}
+
+func TestE2ELogConfigFixturesUseReadablePlaceholders(t *testing.T) {
+	for _, path := range []string{
+		filepath.Join("..", "..", "..", "tests", "gizclaw-e2e", "testdata", "server-workspace", "config.yaml.template"),
+	} {
+		t.Run(path, func(t *testing.T) {
+			cfg, err := LoadConfig(path)
+			if err != nil {
+				t.Fatalf("LoadConfig(%s) error = %v", path, err)
+			}
+			if cfg.Log.Level != "info" {
+				t.Fatalf("fixture log level = %q, want info", cfg.Log.Level)
+			}
+			if cfg.Log.Volc.Enabled {
+				t.Fatal("fixture Volc logging should be disabled")
+			}
+			for name, value := range map[string]string{
+				"endpoint":          cfg.Log.Volc.Endpoint,
+				"region":            cfg.Log.Volc.Region,
+				"topic_id":          cfg.Log.Volc.TopicID,
+				"access_key_id":     cfg.Log.Volc.AccessKeyID,
+				"access_key_secret": cfg.Log.Volc.AccessKeySecret,
+			} {
+				if value == "" || strings.Contains(value, "${") {
+					t.Fatalf("fixture log.volc.%s = %q, want readable placeholder", name, value)
+				}
+			}
+		})
+	}
+}
+
 func TestLoadConfigRejectsInvalidIdentityPrivateKey(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.yaml")
 	if err := os.WriteFile(path, []byte("identity:\n  private-key: \"not-a-key\"\n"), 0o644); err != nil {
@@ -342,6 +424,7 @@ func TestMergeFileConfigKeepsRuntimeOverrides(t *testing.T) {
 			MessageCleanupInterval: "30s",
 			MessageMaxAudioBytes:   1024,
 		},
+		Log: logging.Config{Level: "error"},
 	}
 	fileCfg := ConfigFile{
 		Listen:         "0.0.0.0:1234",
@@ -359,6 +442,7 @@ func TestMergeFileConfigKeepsRuntimeOverrides(t *testing.T) {
 			MessageCleanupInterval: "5m",
 			MessageMaxAudioBytes:   2048,
 		},
+		Log: logging.Config{Level: "warn"},
 	}
 
 	merged, err := mergeFileConfig(runtimeCfg, fileCfg)
@@ -383,9 +467,15 @@ func TestMergeFileConfigKeepsRuntimeOverrides(t *testing.T) {
 	if merged.FriendGroups.MessageDefaultTTL != "2h" || merged.FriendGroups.MessageMaxTTL != "3d" || merged.FriendGroups.MessageCleanupInterval != "30s" || merged.FriendGroups.MessageMaxAudioBytes != 1024 {
 		t.Fatalf("FriendGroups = %+v", merged.FriendGroups)
 	}
-	_, err = mergeFileConfig(Config{}, fileCfg)
+	if merged.Log.Level != "error" {
+		t.Fatalf("runtime Log should win, got %+v", merged.Log)
+	}
+	merged, err = mergeFileConfig(Config{}, fileCfg)
 	if err != nil {
 		t.Fatalf("mergeFileConfig file-only error = %v", err)
+	}
+	if merged.Log.Level != "warn" {
+		t.Fatalf("file Log should be used when runtime is empty, got %+v", merged.Log)
 	}
 }
 

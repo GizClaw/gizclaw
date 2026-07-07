@@ -6,8 +6,6 @@ import (
 	"net"
 	"net/http"
 
-	"golang.org/x/sync/errgroup"
-
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/serverpublic"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/publiclogin"
@@ -63,14 +61,21 @@ func (s *PeerService) ServeConn(conn giznet.Conn) error {
 		_ = oldConn.Close()
 	}
 
-	var g errgroup.Group
-	g.Go(func() error { return s.serveAdmin(conn) })
-	g.Go(func() error { return s.servePublic(conn) })
+	errCh := make(chan error, 2)
+	go func() { errCh <- s.serveAdmin(conn) }()
+	go func() { errCh <- s.servePublic(conn) }()
 
-	if err := g.Wait(); err != nil && !isPeerServiceClosed(err) {
-		return err
+	var errs []error
+	for i := 0; i < 2; i++ {
+		err := <-errCh
+		if i == 0 {
+			_ = conn.Close()
+		}
+		if err != nil && !isPeerServiceClosed(err) {
+			errs = append(errs, err)
+		}
 	}
-	return nil
+	return errors.Join(errs...)
 }
 
 func isPeerServiceClosed(err error) bool {

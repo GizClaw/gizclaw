@@ -69,13 +69,16 @@ func Dial(ctx context.Context, key *giznet.KeyPair, serverPK giznet.PublicKey, c
 		_ = l.Close()
 		return nil, nil, err
 	}
+	packetDC.OnClose(func() {
+		_ = conn.Close()
+	})
 	packetDC.OnOpen(func() {
 		raw, err := packetDC.DetachWithDeadline()
 		if err != nil {
 			_ = conn.Close()
 			return
 		}
-		conn.setPacketRaw(raw)
+		conn.setPacket(packetDC, raw)
 	})
 
 	gatherComplete := webrtc.GatheringCompletePromise(pc)

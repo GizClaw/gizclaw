@@ -23,6 +23,18 @@ endpoint: 192.168.1.20:9820
 # admin identity another way.
 admin-public-key: "AzmxuX8okxz4eLD1s5qfpNfD68B35Kpsagqmn6dRydfS"
 
+# Server process logging. Stderr text logging is always active. Volc TLS
+# forwarding is optional and disabled by default.
+log:
+  level: info
+  volc:
+    enabled: false
+    endpoint: https://tls-cn-beijing.volces.com
+    region: cn-beijing
+    topic_id: gizclaw-server-log-topic
+    access_key_id: volc-access-key-id
+    access_key_secret: volc-access-key-secret
+
 # Physical storage backends. These are concrete persistence engines.
 storage:
   # In-memory key/value backend. Useful for tests and throwaway local servers.
@@ -254,6 +266,19 @@ Defaults:
 
 - `listen`: `0.0.0.0:9820`
 - `endpoint`: defaults to `listen` when omitted.
+
+## Logging Config
+
+The server always writes text logs to stderr. Set `log.level` to `debug`,
+`info`, `warn`, or `error` to control the minimum emitted level.
+
+Volc TLS forwarding is enabled only when `log.volc.enabled` is true. When
+enabled, `endpoint`, `region`, `topic_id`, `access_key_id`, and
+`access_key_secret` are required after environment variable expansion.
+
+The server logging config intentionally does not expose stderr format, caller
+source, Volc filename, shard hash, nanosecond timestamp, or alternate auth-mode
+knobs. Those are internal sink details.
 
 ## CLI Context Config
 

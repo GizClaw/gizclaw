@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/GizClaw/gizclaw-go/cmd/internal/logging"
 	"github.com/GizClaw/gizclaw-go/cmd/internal/storage"
 	"github.com/GizClaw/gizclaw-go/cmd/internal/stores"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
@@ -20,6 +21,7 @@ type Config struct {
 	AdminPublicKey giznet.PublicKey
 	Storage        map[string]storage.Config
 	Stores         map[string]stores.Config
+	Log            logging.Config
 	Friends        FriendsConfig
 	FriendGroups   FriendGroupsConfig
 }
@@ -44,6 +46,7 @@ type ConfigFile struct {
 	AdminPublicKey giznet.PublicKey          `yaml:"admin-public-key"`
 	Storage        map[string]storage.Config `yaml:"storage"`
 	Stores         map[string]stores.Config  `yaml:"stores"`
+	Log            logging.Config            `yaml:"log"`
 	Friends        FriendsConfig             `yaml:"friends"`
 	FriendGroups   FriendGroupsConfig        `yaml:"friend_groups"`
 }
@@ -88,6 +91,7 @@ func LoadConfig(path string) (ConfigFile, error) {
 		AdminPublicKey *giznet.PublicKey         `yaml:"admin-public-key"`
 		Storage        map[string]storage.Config `yaml:"storage"`
 		Stores         map[string]stores.Config  `yaml:"stores"`
+		Log            logging.Config            `yaml:"log"`
 		Friends        FriendsConfig             `yaml:"friends"`
 		FriendGroups   FriendGroupsConfig        `yaml:"friend_groups"`
 	}
@@ -97,6 +101,10 @@ func LoadConfig(path string) (ConfigFile, error) {
 	adminPublicKey, err := resolveAdminPublicKey(raw.AdminPublicKey)
 	if err != nil {
 		return ConfigFile{}, err
+	}
+	logCfg, err := logging.PrepareConfig(raw.Log)
+	if err != nil {
+		return ConfigFile{}, fmt.Errorf("server: %w", err)
 	}
 	var identity IdentityConfig
 	if raw.Identity != nil {
@@ -117,6 +125,7 @@ func LoadConfig(path string) (ConfigFile, error) {
 		AdminPublicKey: adminPublicKey,
 		Storage:        raw.Storage,
 		Stores:         raw.Stores,
+		Log:            logCfg,
 		Friends:        raw.Friends,
 		FriendGroups:   raw.FriendGroups,
 	}
@@ -137,6 +146,7 @@ func DefaultConfig() Config {
 	return Config{
 		Listen:   "0.0.0.0:9820",
 		Endpoint: "0.0.0.0:9820",
+		Log:      logging.DefaultConfig(),
 	}
 }
 
@@ -155,6 +165,9 @@ func mergeFileConfig(cfg Config, fileCfg ConfigFile) (Config, error) {
 	}
 	if len(cfg.Storage) == 0 {
 		cfg.Storage = fileCfg.Storage
+	}
+	if cfg.Log.IsZero() {
+		cfg.Log = fileCfg.Log
 	}
 	cfg.Friends = mergeFriendsConfig(cfg.Friends, fileCfg.Friends)
 	cfg.FriendGroups = mergeFriendGroupsConfig(cfg.FriendGroups, fileCfg.FriendGroups)
@@ -190,6 +203,11 @@ func prepareConfig(cfg Config) (Config, error) {
 	if cfg.Endpoint == "" {
 		cfg.Endpoint = cfg.Listen
 	}
+	logCfg, err := logging.PrepareConfig(cfg.Log)
+	if err != nil {
+		return Config{}, fmt.Errorf("server: %w", err)
+	}
+	cfg.Log = logCfg
 	if err := cfg.validate(); err != nil {
 		return Config{}, err
 	}
@@ -209,6 +227,9 @@ func (cfg Config) validate() error {
 	}
 	if err := validateHostPort("endpoint", cfg.Endpoint); err != nil {
 		return err
+	}
+	if _, err := logging.PrepareConfig(cfg.Log); err != nil {
+		return fmt.Errorf("server: %w", err)
 	}
 	if cfg.FriendGroups.MessageDefaultTTL != "" {
 		if _, err := parseConfigDuration(cfg.FriendGroups.MessageDefaultTTL); err != nil {

@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/GizClaw/gizclaw-go/cmd/internal/logging"
 	"github.com/GizClaw/gizclaw-go/cmd/internal/storage"
 	"github.com/GizClaw/gizclaw-go/cmd/internal/stores"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
@@ -355,6 +356,109 @@ func TestForceServeReturnsWorkspaceLoadError(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "load config") {
 		t.Fatalf("force serve err = %v, want workspace load error", err)
 	}
+}
+
+func TestServeContextClosesLoggerOnStartupFailure(t *testing.T) {
+	workspace := t.TempDir()
+	if err := os.WriteFile(filepath.Join(workspace, workspaceConfigFile), []byte(`
+listen: 127.0.0.1:0
+endpoint: 127.0.0.1:9820
+log:
+  level: debug
+stores:
+  bad:
+    kind: keyvalue
+    backend: unknown
+peers:
+  store: bad
+`), 0o644); err != nil {
+		t.Fatalf("WriteFile error = %v", err)
+	}
+
+	installed := false
+	closed := false
+	closeErr := errors.New("close logger")
+	restoreLoggingInstaller(t, func(cfg logging.Config) (func() error, error) {
+		installed = true
+		if cfg.Level != "debug" {
+			t.Fatalf("log config = %+v, want debug", cfg)
+		}
+		return func() error {
+			closed = true
+			return closeErr
+		}, nil
+	})
+
+	err := ServeContext(context.Background(), workspace, ServeOptions{Force: true})
+	if err == nil {
+		t.Fatal("ServeContext should fail when New cannot build stores")
+	}
+	if !errors.Is(err, closeErr) {
+		t.Fatalf("ServeContext error = %v, want logger cleanup error", err)
+	}
+	if !installed {
+		t.Fatal("logger was not installed before startup work")
+	}
+	if !closed {
+		t.Fatal("logger cleanup was not called on startup failure")
+	}
+}
+
+func TestServeContextClosesLoggerOnShutdown(t *testing.T) {
+	workspace := t.TempDir()
+	if err := os.WriteFile(filepath.Join(workspace, workspaceConfigFile), []byte(`
+listen: 127.0.0.1:0
+endpoint: 127.0.0.1:9820
+stores:
+  peers:
+    kind: keyvalue
+    backend: memory
+`), 0o644); err != nil {
+		t.Fatalf("WriteFile error = %v", err)
+	}
+
+	installed := make(chan struct{})
+	closed := make(chan struct{})
+	restoreLoggingInstaller(t, func(logging.Config) (func() error, error) {
+		close(installed)
+		return func() error {
+			close(closed)
+			return nil
+		}, nil
+	})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- ServeContext(ctx, workspace, ServeOptions{Force: true})
+	}()
+	select {
+	case <-installed:
+	case <-time.After(5 * time.Second):
+		cancel()
+		t.Fatal("logger was not installed")
+	}
+	cancel()
+	select {
+	case err := <-errCh:
+		if err != nil {
+			t.Fatalf("ServeContext shutdown error = %v", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("ServeContext did not return after cancellation")
+	}
+	select {
+	case <-closed:
+	case <-time.After(time.Second):
+		t.Fatal("logger cleanup was not called on shutdown")
+	}
+}
+
+func restoreLoggingInstaller(t *testing.T, fn func(logging.Config) (func() error, error)) {
+	t.Helper()
+	old := installConfiguredLogger
+	installConfiguredLogger = fn
+	t.Cleanup(func() { installConfiguredLogger = old })
 }
 
 func TestServeReturnsServerBuildError(t *testing.T) {

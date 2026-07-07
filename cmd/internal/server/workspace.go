@@ -14,6 +14,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/GizClaw/gizclaw-go/cmd/internal/logging"
 	"github.com/GizClaw/gizclaw-go/cmd/internal/storage"
 	"github.com/GizClaw/gizclaw-go/cmd/internal/stores"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
@@ -21,6 +22,8 @@ import (
 
 const workspaceConfigFile = "config.yaml"
 const workspacePIDFile = "serve.pid"
+
+var installConfiguredLogger = logging.InstallDefault
 
 type ServeOptions struct {
 	Force bool
@@ -158,7 +161,7 @@ func Serve(workspace string) error {
 	return ServeWithOptions(workspace, ServeOptions{})
 }
 
-func ServeContext(ctx context.Context, workspace string, opts ServeOptions) error {
+func ServeContext(ctx context.Context, workspace string, opts ServeOptions) (err error) {
 	root, err := resolveWorkspaceRoot(workspace)
 	if err != nil {
 		return err
@@ -170,6 +173,13 @@ func ServeContext(ctx context.Context, workspace string, opts ServeOptions) erro
 	if err != nil {
 		return err
 	}
+	closeLogger, err := installConfiguredLogger(cfg.Log)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		err = errors.Join(err, closeLogger())
+	}()
 	if storeExists(cfg, defaultACLStore) {
 		migrator, err := NewMigrator(cfg)
 		if err != nil {
@@ -206,8 +216,9 @@ func ServeContext(ctx context.Context, workspace string, opts ServeOptions) erro
 		return err
 	}
 	errCh := make(chan error, 2)
+	gizServer := srv.Server
 	go func() {
-		errCh <- srv.Serve()
+		errCh <- gizServer.Serve()
 	}()
 	go func() {
 		err := publicHTTP.Serve(publicMux.HTTPListener())
