@@ -3,6 +3,15 @@ identity:
 listen: 127.0.0.1:9820
 endpoint: 127.0.0.1:9820
 admin-public-key: "6Ww6ANsXDCf91Yp7Tvi65hqpywjMmXqAoZDiq33kfCee"
+log:
+  level: info
+  volc:
+    enabled: false
+    endpoint: https://tls-cn-beijing.volces.com
+    region: cn-beijing
+    topic_id: gizclaw-server-log-topic
+    access_key_id: volc-access-key-id
+    access_key_secret: volc-access-key-secret
 storage:
   memory:
     kind: keyvalue

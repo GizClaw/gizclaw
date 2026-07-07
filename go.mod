@@ -31,6 +31,7 @@ require (
 	github.com/spf13/cobra v1.10.2
 	github.com/tphakala/go-audio-resampling v0.0.0-20251123212058-a9dde25e8eea
 	github.com/valyala/fasthttp v1.51.0
+	github.com/volcengine/volc-sdk-golang v1.0.246
 	github.com/volcengine/volcengine-go-sdk v1.2.14
 	golang.org/x/crypto v0.49.0
 	golang.org/x/sync v0.20.0
@@ -86,6 +87,9 @@ require (
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/fsnotify/fsnotify v1.9.0 // indirect
 	github.com/getkin/kin-openapi v0.133.0 // indirect
+	github.com/go-kit/kit v0.12.0 // indirect
+	github.com/go-kit/log v0.2.1 // indirect
+	github.com/go-logfmt/logfmt v0.6.0 // indirect
 	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-openapi/jsonpointer v0.21.0 // indirect
@@ -120,6 +124,7 @@ require (
 	github.com/oasdiff/yaml v0.0.0-20250309154309-f31be36b4037 // indirect
 	github.com/oasdiff/yaml3 v0.0.0-20250309153720-d2182401db90 // indirect
 	github.com/perimeterx/marshmallow v1.1.5 // indirect
+	github.com/pierrec/lz4 v2.6.1+incompatible // indirect
 	github.com/pion/dtls/v3 v3.1.2 // indirect
 	github.com/pion/interceptor v0.1.44 // indirect
 	github.com/pion/mdns/v2 v2.1.0 // indirect
@@ -130,6 +135,7 @@ require (
 	github.com/pion/stun/v3 v3.1.1 // indirect
 	github.com/pion/transport/v4 v4.0.1 // indirect
 	github.com/pion/turn/v4 v4.1.4 // indirect
+	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pkoukk/tiktoken-go v0.1.8 // indirect
 	github.com/prometheus/client_model v0.6.1 // indirect
 	github.com/prometheus/common v0.55.0 // indirect
@@ -149,7 +155,6 @@ require (
 	github.com/viterin/partial v1.1.0 // indirect
 	github.com/viterin/vek v0.4.2 // indirect
 	github.com/vmware-labs/yaml-jsonpath v0.3.2 // indirect
-	github.com/volcengine/volc-sdk-golang v1.0.246 // indirect
 	github.com/wlynxg/anet v0.0.5 // indirect
 	github.com/woodsbury/decimal128 v1.3.0 // indirect
 	github.com/yanyiwu/gojieba v1.4.7 // indirect
@@ -180,6 +185,7 @@ require (
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260427160629-7cedc36a6bc4 // indirect
 	google.golang.org/grpc v1.80.0 // indirect
 	google.golang.org/protobuf v1.36.11 // indirect
+	gopkg.in/natefinch/lumberjack.v2 v2.2.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	modernc.org/libc v1.72.3 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
