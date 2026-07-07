@@ -1,93 +1,84 @@
-# AGENTS Guide (Repository Review Strategy)
-
-## Table of Contents
-
-- [Repository Context](#repository-context)
-- [Repository Documentation](#repository-documentation)
-- [Development & Merge Workflow](#development--merge-workflow)
-- [Review Policy](#review-policy)
-- [Reviewer Output Expectations](#reviewer-output-expectations)
-- [Non-Goals](#non-goals)
+# AGENTS Guide
 
 ## Repository Context
 
-- This is a **pure Go** repository.
-- The project does **not** use Bazel.
-- The team does **not** use pull requests for this repo.
-- The repository has a **GitHub Actions CI workflow** for automated checks.
+- GizClaw is an out-of-the-box agent runtime and edge server mesh for GizClaw
+  devices.
+- This is a Go-first repository, not a Go-only repository. The repo also owns
+  OpenAPI/RPC schemas, generated SDK surfaces, JavaScript packages, C-facing
+  bindings, Wails desktop code, documentation, GitHub Actions, and e2e
+  harnesses.
+- The project does not use Bazel.
+- GitHub Actions CI is present, but local review and validation still matter.
 
-Even with CI, quality gates must still be enforced during local development and manual review.
+## Work Style
 
-## Repository Documentation
+- Inspect the current code, docs, issue, or workflow before changing behavior.
+- Keep changes tied to the requested issue, design, or review scope.
+- Do not present roadmap items as completed product features.
+- Prefer final-state docs and issue text over migration-history narration.
+- Mainline work is issue-driven local development. PR metadata checks are not
+  required unless the task explicitly asks for PR review or PR cleanup.
 
-- [`api/README.md`](api/README.md): explains the source OpenAPI definitions,
-  generated Go API packages, and API schema maintenance workflow.
+## Validation
 
-## Development & Merge Workflow
-
-1. Implement changes locally.
-2. Run local validation before merge.
-3. Perform code review against task/design requirements.
-4. Merge directly after issues are resolved.
-
-No PR metadata (title/body/checks) is required in this repo.
+- For Go behavior changes, run `go test ./...` unless a scoped equivalent is
+  clearly justified by the change.
+- For API or schema changes, regenerate committed generated code and run the
+  relevant Go, JavaScript, C, or e2e checks for the changed contract.
+- For docs, README, and workflow-only changes, use focused validation such as
+  `git diff --check`, YAML parsing, and workflow/static checks.
+- For fuzz-test work, fuzz seeds must pass under normal `go test`; targeted
+  fuzz campaigns can use `go test -run=^$ -fuzz=Fuzz -fuzztime=...`.
+- Record the validation commands and results in the final response.
 
 ## Review Policy
 
-### 1) Scope & Requirement Compliance
+- Verify scope and requirement compliance before reviewing implementation
+  details.
+- Check logic correctness, edge cases, error handling, cleanup behavior, and API
+  compatibility.
+- Reject placeholder implementations, fake outputs, dead registrations, and
+  TODO-only behavior.
+- Check dependency hygiene and avoid unintended external-provider coupling.
+- When code changes generated API surfaces, verify generated files are fresh and
+  consistent with source schemas.
+- For tests, prefer coverage that matches risk and ownership. Avoid mechanical
+  test-file splitting rules when fuzz, integration, e2e, or generated-code
+  coverage is the better fit.
 
-- Changes must match the approved task/design scope.
-- Out-of-scope additions require explicit confirmation and documentation updates.
+## Security And Dependencies
 
-### 2) Static Code Review (Required)
+- Do not commit secrets, local credentials, build artifacts, logs, or temporary
+  files.
+- Keep `LICENSE`, `SECURITY.md`, and `.github/dependabot.yml` deliberate and
+  current.
+- GitHub Actions dependencies should remain pinned by commit SHA.
+- Dependabot configuration should cover GitHub Actions, Go modules, npm
+  packages, and maintained submodules in this repo.
+- Treat firmware artifacts, config parsers, RPC framing, SDK decoders, and
+  workflow inputs as untrusted boundaries.
 
-- Verify logic correctness and edge cases.
-- Verify error handling (no silent failures on critical paths).
-- Reject placeholder implementations (TODO stubs, fake outputs, dead registrations).
-- Check dependency hygiene (avoid unintended external/provider coupling).
+## Commit Hygiene
 
-### 3) Local Validation (Required)
-
-Developers must run local checks and record results before merge, even when CI is available:
-
-- `go test ./...` (or a scoped equivalent with justification)
-- Any additional task-specific verification commands
-
-### 3.1) Go Test Coverage Baseline (Per Package)
-
-Coverage must be evaluated **per package** (not only repository-wide average).
-
-- **Minimum passing baseline:** coverage must be **above 80%** for each package.
-- **Excellent:** coverage is **90% or above**.
-- **Unqualified:** coverage is **below 60%** (must be rejected).
-
-Suggested interpretation for review decisions:
-
-- `>= 90%`: Excellent
-- `> 80% and < 90%`: Pass
-- `>= 60% and <= 80%`: Below baseline (needs fixes or explicit approval)
-- `< 60%`: Fail
-
-### 3.2) Unit Test File Mapping Convention
-
-- Keep a **1:1 mapping** between source and unit-test files whenever possible.
-- For `foo.go`, prefer a single corresponding `foo_test.go` (avoid splitting tests for the same source into multiple files without clear reason).
-
-### 4) Commit Hygiene
-
-- Do not commit temporary files, logs, build artifacts, or secrets.
+- Keep unrelated changes out of the same commit.
+- Use clear `{module}: {subject}` commit titles, for example `repo: update
+  security metadata` or `giznet: tighten webrtc stream cleanup`.
+- Do not rewrite or revert user changes unless explicitly requested.
 - `openteam/` is local workspace metadata and must remain ignored.
 
 ## Reviewer Output Expectations
 
 Review feedback should include:
 
-- Clear pass/fail status
-- File/line references for each issue
-- Actionable fix guidance
-- Priority levels (e.g., P0/P1/P2)
+- clear pass/fail status;
+- file and line references for each issue;
+- actionable fix guidance;
+- priority levels such as `P0`, `P1`, or `P2`.
 
 ## Non-Goals
 
-- No PR title/description checks (not applicable in this repository workflow).
-- No Bazel-related requirements (not used in this repository).
+- No Bazel checks.
+- No PR title or PR body checks unless the active task explicitly uses a PR.
+- No fixed repository-wide coverage percentage gate for every change; use
+  change-specific risk and validation instead.
