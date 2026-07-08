@@ -520,6 +520,18 @@ int main(void) {
              "telemetry packet is protocol-prefixed") != 0) {
     return 1;
   }
+  size_t sent_len_before_reserved = fake_webrtc.sent.len;
+  rc = gzc_client_send_packet(client, 0x11, telemetry_payload, sizeof(telemetry_payload));
+  if (expect(rc == GZC_ERR_INVALID_ARGUMENT, "reject legacy reserved telemetry protocol") != 0) {
+    return 1;
+  }
+  if (expect(fake_webrtc.sent.len == sent_len_before_reserved, "reserved telemetry protocol is not sent") != 0) {
+    return 1;
+  }
+  rc = gzc_client_send_packet(client, 0x3f, telemetry_payload, sizeof(telemetry_payload));
+  if (expect(rc == GZC_ERR_INVALID_ARGUMENT, "reject reserved packet protocol") != 0) {
+    return 1;
+  }
   uint8_t *max_telemetry_payload = (uint8_t *)platform->malloc(platform->userdata, GZC_RPC_MAX_FRAME_SIZE);
   if (expect(max_telemetry_payload != NULL, "allocate max telemetry packet") != 0) {
     return 1;
