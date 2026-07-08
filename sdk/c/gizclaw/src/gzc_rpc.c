@@ -385,19 +385,52 @@ int gzc_rpc_call_stream(
   }
   gzc_buf_t frame_bytes;
   gzc_buf_init(&frame_bytes);
+  gzc_buf_t envelope;
+  gzc_buf_init(&envelope);
   gzc_rpc_frame_t frame;
   bool saw_response = false;
+  bool saw_continuation = false;
   for (;;) {
     rc = read_frame(client, platform, 5000, &frame_bytes, &frame);
     if (rc != GZC_OK) {
       break;
     }
     if (frame.type == GZC_RPC_FRAME_EOS) {
+      if (saw_continuation && !saw_response) {
+        gzc_rpc_frame_t response_frame;
+        memset(&response_frame, 0, sizeof(response_frame));
+        response_frame.type = GZC_RPC_FRAME_BINARY;
+        response_frame.data = envelope.data;
+        response_frame.len = envelope.len;
+        gzc_rpc_response_t response;
+        rc = gzc_rpc_decode_response_envelope(gzc_str_from_parts((const char *)response_frame.data, response_frame.len), &response);
+        if (rc != GZC_OK) {
+          break;
+        }
+        saw_response = true;
+        rc = on_frame(userdata, &response_frame);
+        if (rc != GZC_OK) {
+          break;
+        }
+        if (response.has_error) {
+          rc = GZC_ERR_RPC;
+          break;
+        }
+        continue;
+      }
       rc = saw_response ? GZC_OK : GZC_ERR_RPC;
       break;
     }
     if (!saw_response) {
-      if (frame.type != GZC_RPC_FRAME_BINARY) {
+      if (frame.type == GZC_RPC_FRAME_TEXT) {
+        saw_continuation = true;
+        rc = gzc_buf_append(&envelope, platform, frame.data, frame.len);
+        if (rc != GZC_OK) {
+          break;
+        }
+        continue;
+      }
+      if (frame.type != GZC_RPC_FRAME_BINARY || saw_continuation) {
         rc = GZC_ERR_RPC;
         break;
       }
@@ -406,13 +439,13 @@ int gzc_rpc_call_stream(
       if (rc != GZC_OK) {
         break;
       }
-      if (response.has_error) {
-        rc = GZC_ERR_RPC;
-        break;
-      }
       saw_response = true;
       rc = on_frame(userdata, &frame);
       if (rc != GZC_OK) {
+        break;
+      }
+      if (response.has_error) {
+        rc = GZC_ERR_RPC;
         break;
       }
       continue;
@@ -426,6 +459,7 @@ int gzc_rpc_call_stream(
       break;
     }
   }
+  gzc_buf_free(&envelope, platform);
   gzc_buf_free(&frame_bytes, platform);
   close_rpc_channel_on_error(client, rc);
   return rc;

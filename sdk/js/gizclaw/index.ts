@@ -22,6 +22,7 @@ export const RPC_FRAME_TYPE_EOS = 0;
 export const RPC_FRAME_TYPE_JSON = 1;
 export const RPC_FRAME_TYPE_BINARY = 2;
 export const RPC_FRAME_TYPE_TEXT = 3;
+const RPC_MAX_FRAME_PAYLOAD_SIZE = 0xffff;
 const DATA_CHANNEL_SEND_RETRY_DELAY_MS = 5;
 const DATA_CHANNEL_SEND_RETRY_LIMIT = 20;
 const PACKET_DATA_CHANNEL_OPEN_TIMEOUT_MS = 30000;
@@ -644,11 +645,11 @@ export function giznetServiceDataChannelLabel(service: number): string {
 }
 
 export function encodeRPCRequest(request: RPCRequest): ArrayBuffer {
-  return concatBytes([encodeFrame(RPC_FRAME_TYPE_BINARY, encodeRPCRequestEnvelope(request)), encodeFrame(RPC_FRAME_TYPE_EOS)]);
+  return concatBytes([...encodeRPCEnvelopeFrames(encodeRPCRequestEnvelope(request)), encodeFrame(RPC_FRAME_TYPE_EOS)]);
 }
 
 export function encodeRPCResponse(response: RPCResponse, method: string): ArrayBuffer {
-  return concatBytes([encodeFrame(RPC_FRAME_TYPE_BINARY, encodeRPCResponseEnvelope(response, method)), encodeFrame(RPC_FRAME_TYPE_EOS)]);
+  return concatBytes([...encodeRPCEnvelopeFrames(encodeRPCResponseEnvelope(response, method)), encodeFrame(RPC_FRAME_TYPE_EOS)]);
 }
 
 export function encodeJSONFrame(value: unknown): ArrayBuffer {
@@ -683,6 +684,17 @@ function encodeRPCResponseEnvelope(response: RPCResponse, method: string): Uint8
     writer.bytes(2, encodeRPCResponsePayload(method, response.result ?? {}));
   }
   return writer.finish();
+}
+
+function encodeRPCEnvelopeFrames(envelope: Uint8Array): ArrayBuffer[] {
+  if (envelope.length <= RPC_MAX_FRAME_PAYLOAD_SIZE) {
+    return [encodeFrame(RPC_FRAME_TYPE_BINARY, envelope)];
+  }
+  const frames: ArrayBuffer[] = [];
+  for (let offset = 0; offset < envelope.length; offset += RPC_MAX_FRAME_PAYLOAD_SIZE) {
+    frames.push(encodeFrame(RPC_FRAME_TYPE_TEXT, envelope.slice(offset, offset + RPC_MAX_FRAME_PAYLOAD_SIZE)));
+  }
+  return frames;
 }
 
 function decodeRPCResponseEnvelope<TResult>(payload: Uint8Array, method: string): RPCResponse<TResult> {
@@ -737,7 +749,7 @@ export function encodeFrame(type: number, payload: Uint8Array = new Uint8Array()
 	if (!Number.isInteger(type) || type < 0 || type > 0xffff) {
 		throw new Error(`invalid RPC frame type: ${type}`);
 	}
-  if (payload.length > 0xffff) {
+  if (payload.length > RPC_MAX_FRAME_PAYLOAD_SIZE) {
     throw new Error(`RPC frame too large: ${payload.length}`);
   }
   if (type === RPC_FRAME_TYPE_EOS && payload.length !== 0) {

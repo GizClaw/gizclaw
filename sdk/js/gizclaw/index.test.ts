@@ -93,6 +93,26 @@ test("WebRTCRPCClient sends protobuf RPC over an rpc data channel", async () => 
   assert.equal(channel.closed, true);
 });
 
+test("WebRTCRPCClient splits oversized request envelopes into continuation frames", async () => {
+  const pc = new FakePeerConnection();
+  const client = new WebRTCRPCClient(pc, { createID: () => "req-large" });
+
+  const promise = client.call<{ accepted: boolean }>("server.run.say", { text: "x".repeat(70000) });
+  const channel = pc.lastChannel();
+  channel.open();
+
+  const frames = decodeFrames(channel.sent[0] ?? new ArrayBuffer(0));
+  assert.equal(frames.length >= 3, true);
+  assert.equal(frames[0]?.type, RPC_FRAME_TYPE_TEXT);
+  assert.equal(frames[0]?.payload.length, 0xffff);
+  assert.equal(frames[frames.length - 1]?.type, RPC_FRAME_TYPE_EOS);
+  assert.equal(frames.slice(0, -1).every((frame) => frame.type === RPC_FRAME_TYPE_TEXT), true);
+
+  channel.receive(encodeRPCResponse({ id: "req-large", result: { accepted: true }, v: 1 }, "server.run.say"));
+
+  assert.deepEqual(await promise, { accepted: true });
+});
+
 test("WebRTCRPCClient decodes Go-compatible protobuf payload bytes", async () => {
   const pc = new FakePeerConnection();
   const client = new WebRTCRPCClient(pc, { createID: () => "req-go" });
