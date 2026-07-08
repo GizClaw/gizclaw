@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminservice"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 )
 
@@ -116,10 +116,10 @@ func TestOpenAITenantServiceResponseErrors(t *testing.T) {
 	_, _, err := manager.getOpenAITenant(context.Background(), "tenant")
 	assertResourceError(t, err, 500, "INTERNAL_ERROR")
 
-	err = manager.putOpenAITenant(context.Background(), "tenant", adminservice.OpenAITenantUpsert{})
+	err = manager.putOpenAITenant(context.Background(), "tenant", adminhttp.OpenAITenantUpsert{})
 	assertResourceError(t, err, 500, "INTERNAL_ERROR")
 	manager = New(Services{ProviderTenants: errorModelService{openAIPutStatus: 400}})
-	err = manager.putOpenAITenant(context.Background(), "tenant", adminservice.OpenAITenantUpsert{})
+	err = manager.putOpenAITenant(context.Background(), "tenant", adminhttp.OpenAITenantUpsert{})
 	assertResourceError(t, err, 400, "INVALID_OPENAI_TENANT")
 
 	manager = New(Services{ProviderTenants: errorModelService{}})

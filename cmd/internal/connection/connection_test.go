@@ -127,23 +127,23 @@ func TestDialFromContextMissingServerInfoPublicKey(t *testing.T) {
 	}
 }
 
-func TestFetchServerPublicInfoDefaultsSignalingPath(t *testing.T) {
+func TestFetchPeerHTTPInfoDefaultsSignalingPath(t *testing.T) {
 	endpoint, closeServer := newServerInfoHTTPServer(t, `{"protocol":"gizclaw-webrtc","public_key":"`+testServerPublicKeyText(0xab)+`"}`)
 	defer closeServer()
 
-	info, err := fetchServerPublicInfo(context.Background(), endpoint)
+	info, err := fetchPeerHTTPInfo(context.Background(), endpoint)
 	if err != nil {
-		t.Fatalf("fetchServerPublicInfo error = %v", err)
+		t.Fatalf("fetchPeerHTTPInfo error = %v", err)
 	}
 	if info.SignalingURL != "http://"+endpoint+gizwebrtc.SignalingPath {
 		t.Fatalf("signaling URL = %q", info.SignalingURL)
 	}
 }
 
-func TestFetchServerPublicInfoReportsFetchFailure(t *testing.T) {
-	_, err := fetchServerPublicInfo(context.Background(), "127.0.0.1:1")
+func TestFetchPeerHTTPInfoReportsFetchFailure(t *testing.T) {
+	_, err := fetchPeerHTTPInfo(context.Background(), "127.0.0.1:1")
 	if err == nil || !strings.Contains(err.Error(), "server-info fetch") {
-		t.Fatalf("fetchServerPublicInfo error = %v", err)
+		t.Fatalf("fetchPeerHTTPInfo error = %v", err)
 	}
 }
 
@@ -379,27 +379,27 @@ func TestConnectFromContextTimesOut(t *testing.T) {
 	}
 }
 
-func TestProbeServerPublicReadyNilClient(t *testing.T) {
-	err := probeServerPublicReady(nil)
+func TestProbePeerHTTPReadyNilClient(t *testing.T) {
+	err := probePeerHTTPReady(nil)
 	if err == nil {
-		t.Fatal("probeServerPublicReady should fail for nil client")
+		t.Fatal("probePeerHTTPReady should fail for nil client")
 	}
 	if !strings.Contains(err.Error(), "nil client") {
-		t.Fatalf("probeServerPublicReady error = %v", err)
+		t.Fatalf("probePeerHTTPReady error = %v", err)
 	}
 }
 
-func TestProbeServerPublicReadyRequiresConnection(t *testing.T) {
-	err := probeServerPublicReady(&gizcli.Client{})
+func TestProbePeerHTTPReadyRequiresConnection(t *testing.T) {
+	err := probePeerHTTPReady(&gizcli.Client{})
 	if err == nil {
-		t.Fatal("probeServerPublicReady should fail without connection")
+		t.Fatal("probePeerHTTPReady should fail without connection")
 	}
 	if !strings.Contains(err.Error(), "not connected") {
-		t.Fatalf("probeServerPublicReady error = %v", err)
+		t.Fatalf("probePeerHTTPReady error = %v", err)
 	}
 }
 
-func TestProbeServerPublicReadyConnectedClient(t *testing.T) {
+func TestProbePeerHTTPReadyConnectedClient(t *testing.T) {
 	serverKey, err := giznet.GenerateKeyPair()
 	if err != nil {
 		t.Fatalf("GenerateKeyPair(server) error = %v", err)
@@ -453,7 +453,7 @@ func TestProbeServerPublicReadyConnectedClient(t *testing.T) {
 	}
 	defer serverConn.Close()
 
-	server := gizhttp.NewServer(serverConn, gizcli.ServiceServerPublic, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := gizhttp.NewServer(serverConn, gizcli.ServicePeerHTTP, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/server-info" {
 			http.NotFound(w, r)
 			return
@@ -477,7 +477,7 @@ func TestProbeServerPublicReadyConnectedClient(t *testing.T) {
 		}
 	}()
 
-	if err := probeServerPublicReady(client); err != nil {
-		t.Fatalf("probeServerPublicReady error = %v", err)
+	if err := probePeerHTTPReady(client); err != nil {
+		t.Fatalf("probePeerHTTPReady error = %v", err)
 	}
 }

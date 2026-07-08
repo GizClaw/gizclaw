@@ -79,7 +79,7 @@ func TestPeerServiceValidateServices(t *testing.T) {
 			service: &PeerService{
 				admin:   &adminService{},
 				manager: &Manager{},
-				public:  &serverPublic{},
+				public:  &peerHTTP{},
 			},
 		},
 	}
@@ -116,7 +116,7 @@ func TestIntegrationPeerServiceServeConnClientCloseUnblocksAndMarksPeerOffline(t
 		testGiznetSecurityPolicy{
 			allowService: func(_ giznet.PublicKey, service uint64) bool {
 				switch service {
-				case ServiceAdmin, ServiceServerPublic, ServiceRPC:
+				case ServiceAdminHTTP, ServicePeerHTTP, ServicePeerRPC:
 					return true
 				default:
 					return false
@@ -142,7 +142,7 @@ func TestIntegrationPeerServiceServeConnClientCloseUnblocksAndMarksPeerOffline(t
 	}()
 
 	client := &http.Client{
-		Transport: gizhttp.NewRoundTripper(clientConn, ServiceServerPublic),
+		Transport: gizhttp.NewRoundTripper(clientConn, ServicePeerHTTP),
 		Timeout:   time.Second,
 	}
 	if err := waitUntil(testReadyTimeout, func() error {
@@ -235,7 +235,7 @@ func TestIntegrationPeerServiceServeConnReplacesSameKeyConnection(t *testing.T) 
 		testGiznetSecurityPolicy{
 			allowService: func(_ giznet.PublicKey, service uint64) bool {
 				switch service {
-				case ServiceAdmin, ServiceServerPublic, ServiceRPC:
+				case ServiceAdminHTTP, ServicePeerHTTP, ServicePeerRPC:
 					return true
 				default:
 					return false
@@ -263,7 +263,7 @@ func TestIntegrationPeerServiceServeConnReplacesSameKeyConnection(t *testing.T) 
 		testGiznetSecurityPolicy{
 			allowService: func(_ giznet.PublicKey, service uint64) bool {
 				switch service {
-				case ServiceAdmin, ServiceServerPublic, ServiceRPC:
+				case ServiceAdminHTTP, ServicePeerHTTP, ServicePeerRPC:
 					return true
 				default:
 					return false

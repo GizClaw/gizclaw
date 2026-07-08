@@ -8,6 +8,6 @@ Planned scope:
 
 - `server.status.{get,put}` state primitives.
 - `server.run.agent.{get,set}` active/pending agent selection primitives.
-- Shared validation and storage shape used by later Server Service modules.
+- Shared validation and storage shape used by later peer RPC modules.
 
 This package should not implement AgentHost or business-domain behavior.

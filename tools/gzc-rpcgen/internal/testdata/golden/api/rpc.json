@@ -21,10 +21,10 @@
           "params": {
             "oneOf": [
               {
-                "$ref": "./rpc/all.json#/components/schemas/PingRequest"
+                "$ref": "./rpc/common.json#/components/schemas/PingRequest"
               },
               {
-                "$ref": "./rpc/all.json#/components/schemas/SpeedTestRequest"
+                "$ref": "./rpc/common.json#/components/schemas/SpeedTestRequest"
               },
               {
                 "$ref": "./rpc/server.json#/components/schemas/ServerRunSayRequest"
@@ -39,10 +39,10 @@
           "result": {
             "oneOf": [
               {
-                "$ref": "./rpc/all.json#/components/schemas/PingResponse"
+                "$ref": "./rpc/common.json#/components/schemas/PingResponse"
               },
               {
-                "$ref": "./rpc/all.json#/components/schemas/SpeedTestResponse"
+                "$ref": "./rpc/common.json#/components/schemas/SpeedTestResponse"
               },
               {
                 "$ref": "./rpc/server.json#/components/schemas/ServerRunSayResponse"

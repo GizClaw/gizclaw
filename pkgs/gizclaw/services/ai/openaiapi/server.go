@@ -19,9 +19,9 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx/transformers"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminservice"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/openaiservice"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/openaihttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/acl"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 )
@@ -31,11 +31,11 @@ type Authorizer interface {
 }
 
 type ModelLister interface {
-	ListModels(context.Context, adminservice.ListModelsRequestObject) (adminservice.ListModelsResponseObject, error)
+	ListModels(context.Context, adminhttp.ListModelsRequestObject) (adminhttp.ListModelsResponseObject, error)
 }
 
 type VoiceLister interface {
-	ListVoices(context.Context, adminservice.ListVoicesRequestObject) (adminservice.ListVoicesResponseObject, error)
+	ListVoices(context.Context, adminhttp.ListVoicesRequestObject) (adminhttp.ListVoicesResponseObject, error)
 }
 
 type Server struct {
@@ -48,18 +48,18 @@ type Server struct {
 	Now         func() time.Time
 }
 
-var _ openaiservice.StrictServerInterface = (*Server)(nil)
+var _ openaihttp.StrictServerInterface = (*Server)(nil)
 
-func (s *Server) ListModels(ctx context.Context, _ openaiservice.ListModelsRequestObject) (openaiservice.ListModelsResponseObject, error) {
+func (s *Server) ListModels(ctx context.Context, _ openaihttp.ListModelsRequestObject) (openaihttp.ListModelsResponseObject, error) {
 	if s == nil || s.Models == nil {
 		return nil, errors.New("openaiapi: model service is not configured")
 	}
-	var out []openaiservice.Model
+	var out []openaihttp.Model
 	cursor := (*string)(nil)
 	limit := int32(200)
 	for {
-		resp, err := s.Models.ListModels(ctx, adminservice.ListModelsRequestObject{
-			Params: adminservice.ListModelsParams{Cursor: cursor, Limit: &limit},
+		resp, err := s.Models.ListModels(ctx, adminhttp.ListModelsRequestObject{
+			Params: adminhttp.ListModelsParams{Cursor: cursor, Limit: &limit},
 		})
 		if err != nil {
 			return nil, err
@@ -81,28 +81,28 @@ func (s *Server) ListModels(ctx context.Context, _ openaiservice.ListModelsReque
 		cursor = list.NextCursor
 	}
 	if out == nil {
-		out = []openaiservice.Model{}
+		out = []openaihttp.Model{}
 	}
-	return openaiservice.ListModels200JSONResponse{Object: "list", Data: out}, nil
+	return openaihttp.ListModels200JSONResponse{Object: "list", Data: out}, nil
 }
 
-func (s *Server) ListVoices(ctx context.Context, params adminservice.ListVoicesParams) (adminservice.VoiceList, error) {
+func (s *Server) ListVoices(ctx context.Context, params adminhttp.ListVoicesParams) (adminhttp.VoiceList, error) {
 	if s == nil || s.Voices == nil {
-		return adminservice.VoiceList{}, errors.New("openaiapi: voice service is not configured")
+		return adminhttp.VoiceList{}, errors.New("openaiapi: voice service is not configured")
 	}
-	resp, err := s.Voices.ListVoices(ctx, adminservice.ListVoicesRequestObject{Params: params})
+	resp, err := s.Voices.ListVoices(ctx, adminhttp.ListVoicesRequestObject{Params: params})
 	if err != nil {
-		return adminservice.VoiceList{}, err
+		return adminhttp.VoiceList{}, err
 	}
 	switch typed := resp.(type) {
-	case adminservice.ListVoices200JSONResponse:
-		return adminservice.VoiceList(typed), nil
+	case adminhttp.ListVoices200JSONResponse:
+		return adminhttp.VoiceList(typed), nil
 	default:
-		return adminservice.VoiceList{}, fmt.Errorf("openaiapi: list voices response %T", resp)
+		return adminhttp.VoiceList{}, fmt.Errorf("openaiapi: list voices response %T", resp)
 	}
 }
 
-func (s *Server) CreateChatCompletion(ctx context.Context, request openaiservice.CreateChatCompletionRequestObject) (openaiservice.CreateChatCompletionResponseObject, error) {
+func (s *Server) CreateChatCompletion(ctx context.Context, request openaihttp.CreateChatCompletionRequestObject) (openaihttp.CreateChatCompletionResponseObject, error) {
 	if request.Body == nil {
 		return nil, errors.New("openaiapi: request body is required")
 	}
@@ -128,7 +128,7 @@ func (s *Server) CreateChatCompletion(ctx context.Context, request openaiservice
 			err := writeChatCompletionSSE(pw, stream, model, s.now())
 			_ = pw.CloseWithError(err)
 		}()
-		return openaiservice.CreateChatCompletion200TexteventStreamResponse{Body: pr}, nil
+		return openaihttp.CreateChatCompletion200TexteventStreamResponse{Body: pr}, nil
 	}
 	text, err := readTextStream(stream)
 	if err != nil {
@@ -136,25 +136,25 @@ func (s *Server) CreateChatCompletion(ctx context.Context, request openaiservice
 	}
 	finish := "stop"
 	now := s.now()
-	return openaiservice.CreateChatCompletion200JSONResponse{
+	return openaihttp.CreateChatCompletion200JSONResponse{
 		Id:      idWithPrefix("chatcmpl", func() time.Time { return now }),
 		Object:  "chat.completion",
 		Created: now.Unix(),
 		Model:   model,
-		Choices: []openaiservice.ChatCompletionChoice{
+		Choices: []openaihttp.ChatCompletionChoice{
 			{
 				FinishReason: &finish,
 				Index:        0,
-				Message: openaiservice.ChatCompletionResponseMessage{
+				Message: openaihttp.ChatCompletionResponseMessage{
 					Content: &text,
-					Role:    openaiservice.ChatCompletionResponseMessageRoleAssistant,
+					Role:    openaihttp.ChatCompletionResponseMessageRoleAssistant,
 				},
 			},
 		},
 	}, nil
 }
 
-func (s *Server) CreateSpeech(ctx context.Context, request openaiservice.CreateSpeechRequestObject) (openaiservice.CreateSpeechResponseObject, error) {
+func (s *Server) CreateSpeech(ctx context.Context, request openaihttp.CreateSpeechRequestObject) (openaihttp.CreateSpeechResponseObject, error) {
 	if request.Body == nil {
 		return nil, errors.New("openaiapi: request body is required")
 	}
@@ -180,7 +180,7 @@ func (s *Server) CreateSpeech(ctx context.Context, request openaiservice.CreateS
 			err := writeSpeechSSE(pw, stream, contentType)
 			_ = pw.CloseWithError(err)
 		}()
-		return openaiservice.CreateSpeech200TexteventStreamResponse{Body: pr}, nil
+		return openaihttp.CreateSpeech200TexteventStreamResponse{Body: pr}, nil
 	}
 	audio, contentType, err := readBlobStreamWithMIME(stream, contentType)
 	if err != nil {
@@ -193,17 +193,17 @@ func (s *Server) CreateSpeech(ctx context.Context, request openaiservice.CreateS
 	}, nil
 }
 
-func speechWantsSSE(body *openaiservice.CreateSpeechRequest) bool {
+func speechWantsSSE(body *openaihttp.CreateSpeechRequest) bool {
 	if body == nil {
 		return false
 	}
 	if body.Stream != nil && *body.Stream {
 		return true
 	}
-	return body.StreamFormat != nil && *body.StreamFormat == openaiservice.Sse
+	return body.StreamFormat != nil && *body.StreamFormat == openaihttp.Sse
 }
 
-func speechContentType(body *openaiservice.CreateSpeechRequest) string {
+func speechContentType(body *openaihttp.CreateSpeechRequest) string {
 	if body == nil || body.ResponseFormat == nil {
 		return "audio/mpeg"
 	}
@@ -225,7 +225,7 @@ func speechContentType(body *openaiservice.CreateSpeechRequest) string {
 	}
 }
 
-func (s *Server) CreateTranscription(ctx context.Context, request openaiservice.CreateTranscriptionRequestObject) (openaiservice.CreateTranscriptionResponseObject, error) {
+func (s *Server) CreateTranscription(ctx context.Context, request openaihttp.CreateTranscriptionRequestObject) (openaihttp.CreateTranscriptionResponseObject, error) {
 	form, err := parseTranscriptionForm(request.Body)
 	if err != nil {
 		return nil, err
@@ -248,13 +248,13 @@ func (s *Server) CreateTranscription(ctx context.Context, request openaiservice.
 			err := writeTranscriptionSSE(pw, stream)
 			_ = pw.CloseWithError(err)
 		}()
-		return openaiservice.CreateTranscription200TexteventStreamResponse{Body: pr}, nil
+		return openaihttp.CreateTranscription200TexteventStreamResponse{Body: pr}, nil
 	}
 	text, err := readTextStream(stream)
 	if err != nil {
 		return nil, err
 	}
-	return openaiservice.CreateTranscription200JSONResponse{Text: text}, nil
+	return openaihttp.CreateTranscription200JSONResponse{Text: text}, nil
 }
 
 func transcriptionAcceptsEventStream(accept string) bool {
@@ -270,12 +270,12 @@ func transcriptionAcceptsEventStream(accept string) bool {
 	return false
 }
 
-func modelListFromResponse(resp adminservice.ListModelsResponseObject) (adminservice.ModelList, error) {
+func modelListFromResponse(resp adminhttp.ListModelsResponseObject) (adminhttp.ModelList, error) {
 	switch v := resp.(type) {
-	case adminservice.ListModels200JSONResponse:
-		return adminservice.ModelList(v), nil
+	case adminhttp.ListModels200JSONResponse:
+		return adminhttp.ModelList(v), nil
 	default:
-		return adminservice.ModelList{}, fmt.Errorf("openaiapi: list models response %T", resp)
+		return adminhttp.ModelList{}, fmt.Errorf("openaiapi: list models response %T", resp)
 	}
 }
 
@@ -298,7 +298,7 @@ func (s *Server) modelReadAllowed(ctx context.Context, id string) (bool, error) 
 	return err == nil, err
 }
 
-func openAIModel(model apitypes.Model) openaiservice.Model {
+func openAIModel(model apitypes.Model) openaihttp.Model {
 	owner := strings.TrimSpace(model.Provider.Name)
 	if owner == "" {
 		owner = strings.TrimSpace(string(model.Provider.Kind))
@@ -310,15 +310,15 @@ func openAIModel(model apitypes.Model) openaiservice.Model {
 	if model.CreatedAt.IsZero() {
 		created = 0
 	}
-	return openaiservice.Model{
+	return openaihttp.Model{
 		Id:      model.Id,
-		Object:  openaiservice.ModelObjectModel,
+		Object:  openaihttp.ModelObjectModel,
 		Created: created,
 		OwnedBy: owner,
 	}
 }
 
-func buildModelContext(body *openaiservice.CreateChatCompletionRequest) (genx.ModelContext, error) {
+func buildModelContext(body *openaihttp.CreateChatCompletionRequest) (genx.ModelContext, error) {
 	var b genx.ModelContextBuilder
 	if body.Temperature != nil {
 		b.Params = &genx.ModelParams{Temperature: *body.Temperature}
@@ -359,7 +359,7 @@ func buildModelContext(body *openaiservice.CreateChatCompletionRequest) (genx.Mo
 	return b.Build(), nil
 }
 
-func thinkingExtraFields(options *openaiservice.ThinkingOptions) map[string]any {
+func thinkingExtraFields(options *openaihttp.ThinkingOptions) map[string]any {
 	out := map[string]any{}
 	if options.Enabled != nil {
 		out["enable_thinking"] = *options.Enabled
@@ -423,7 +423,7 @@ func parseInputAudio(value any) (*genx.Blob, error) {
 	return &genx.Blob{MIMEType: "audio/" + format, Data: decoded}, nil
 }
 
-func speechPattern(body *openaiservice.CreateSpeechRequest) (string, error) {
+func speechPattern(body *openaihttp.CreateSpeechRequest) (string, error) {
 	voice := strings.TrimSpace(body.Voice)
 	if voice != "" {
 		return "voice/" + voice, nil
@@ -612,29 +612,29 @@ func writeChatCompletionSSE(w io.Writer, stream genx.Stream, model string, now t
 		if !ok || text == "" {
 			continue
 		}
-		delta := openaiservice.ChatCompletionStreamResponseDelta{Content: stringPtr(string(text))}
+		delta := openaihttp.ChatCompletionStreamResponseDelta{Content: stringPtr(string(text))}
 		if !sentRole {
-			role := openaiservice.ChatCompletionStreamResponseDeltaRoleAssistant
+			role := openaihttp.ChatCompletionStreamResponseDeltaRoleAssistant
 			delta.Role = &role
 			sentRole = true
 		}
-		if err := writeSSEData(w, openaiservice.CreateChatCompletionStreamResponse{
+		if err := writeSSEData(w, openaihttp.CreateChatCompletionStreamResponse{
 			Id:      id,
-			Object:  openaiservice.ChatCompletionChunk,
+			Object:  openaihttp.ChatCompletionChunk,
 			Created: created,
 			Model:   model,
-			Choices: []openaiservice.ChatCompletionChunkChoice{{Index: 0, Delta: delta}},
+			Choices: []openaihttp.ChatCompletionChunkChoice{{Index: 0, Delta: delta}},
 		}); err != nil {
 			return err
 		}
 	}
 	finish := "stop"
-	if err := writeSSEData(w, openaiservice.CreateChatCompletionStreamResponse{
+	if err := writeSSEData(w, openaihttp.CreateChatCompletionStreamResponse{
 		Id:      id,
-		Object:  openaiservice.ChatCompletionChunk,
+		Object:  openaihttp.ChatCompletionChunk,
 		Created: created,
 		Model:   model,
-		Choices: []openaiservice.ChatCompletionChunkChoice{{Index: 0, FinishReason: &finish}},
+		Choices: []openaihttp.ChatCompletionChunkChoice{{Index: 0, FinishReason: &finish}},
 	}); err != nil {
 		return err
 	}
@@ -672,7 +672,7 @@ func writeSpeechSSE(w io.Writer, stream genx.Stream, contentType string) error {
 		}
 	}
 	done := true
-	return writeSSEData(w, openaiservice.CreateSpeechResponseStreamEvent{
+	return writeSSEData(w, openaihttp.CreateSpeechResponseStreamEvent{
 		Type: "speech.audio.done",
 		Done: &done,
 	})
@@ -683,7 +683,7 @@ func writeSpeechAudioDelta(w io.Writer, data []byte) error {
 		return nil
 	}
 	audio := base64.StdEncoding.EncodeToString(data)
-	return writeSSEData(w, openaiservice.CreateSpeechResponseStreamEvent{
+	return writeSSEData(w, openaihttp.CreateSpeechResponseStreamEvent{
 		Type:  "speech.audio.delta",
 		Audio: &audio,
 	})
@@ -708,7 +708,7 @@ func writeTranscriptionSSE(w io.Writer, stream genx.Stream) error {
 		}
 		delta := string(text)
 		full.WriteString(delta)
-		if err := writeSSEData(w, openaiservice.CreateTranscriptionResponseStreamEvent{
+		if err := writeSSEData(w, openaihttp.CreateTranscriptionResponseStreamEvent{
 			Type:  "transcript.text.delta",
 			Delta: &delta,
 		}); err != nil {
@@ -716,7 +716,7 @@ func writeTranscriptionSSE(w io.Writer, stream genx.Stream) error {
 		}
 	}
 	done := full.String()
-	return writeSSEData(w, openaiservice.CreateTranscriptionResponseStreamEvent{
+	return writeSSEData(w, openaihttp.CreateTranscriptionResponseStreamEvent{
 		Type: "transcript.text.done",
 		Text: &done,
 	})

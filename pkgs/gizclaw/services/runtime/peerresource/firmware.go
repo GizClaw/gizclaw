@@ -6,7 +6,7 @@ import (
 	"io"
 	"strings"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminservice"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/device/firmware"
@@ -22,13 +22,13 @@ func (s *Server) handleFirmwareList(ctx context.Context, req *rpcapi.RPCRequest)
 	if !ok {
 		return invalidParams(req.Id)
 	}
-	resp, err := s.Firmwares.ListFirmwares(ctx, adminservice.ListFirmwaresRequestObject{
-		Params: adminservice.ListFirmwaresParams{Cursor: params.Cursor, Limit: int32Ptr(params.Limit)},
+	resp, err := s.Firmwares.ListFirmwares(ctx, adminhttp.ListFirmwaresRequestObject{
+		Params: adminhttp.ListFirmwaresParams{Cursor: params.Cursor, Limit: int32Ptr(params.Limit)},
 	})
 	if err != nil {
 		return internalError(req.Id, err.Error())
 	}
-	list, rpcResp, err := adminResult[adminservice.FirmwareList](resp.VisitListFirmwaresResponse)
+	list, rpcResp, err := adminResult[adminhttp.FirmwareList](resp.VisitListFirmwaresResponse)
 	if err != nil {
 		return internalError(req.Id, err.Error())
 	}
@@ -46,7 +46,7 @@ func (s *Server) handleFirmwareList(ctx context.Context, req *rpcapi.RPCRequest)
 		}
 		items = append(items, item)
 	}
-	return resultResponse(req.Id, adminservice.FirmwareList{Items: items, HasNext: list.HasNext, NextCursor: list.NextCursor}, (*rpcapi.RPCResponse_Result).FromFirmwareListResponse)
+	return resultResponse(req.Id, adminhttp.FirmwareList{Items: items, HasNext: list.HasNext, NextCursor: list.NextCursor}, (*rpcapi.RPCResponse_Result).FromFirmwareListResponse)
 }
 
 func (s *Server) handleFirmwareGet(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {

@@ -8,60 +8,60 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminservice"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
 var geminiTenantsRoot = kv.Key{"gemini-tenants", "by-name"}
 
-func (s *Server) ListGeminiTenants(ctx context.Context, request adminservice.ListGeminiTenantsRequestObject) (adminservice.ListGeminiTenantsResponseObject, error) {
+func (s *Server) ListGeminiTenants(ctx context.Context, request adminhttp.ListGeminiTenantsRequestObject) (adminhttp.ListGeminiTenantsResponseObject, error) {
 	store, err := s.store()
 	if err != nil {
-		return adminservice.ListGeminiTenants500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.ListGeminiTenants500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	cursor, limit := normalizeListParams(request.Params.Cursor, request.Params.Limit)
 	items, hasNext, nextCursor, err := listGeminiTenantsPage(ctx, store, cursor, limit)
 	if err != nil {
-		return adminservice.ListGeminiTenants500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.ListGeminiTenants500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	return adminservice.ListGeminiTenants200JSONResponse(adminservice.GeminiTenantList{
+	return adminhttp.ListGeminiTenants200JSONResponse(adminhttp.GeminiTenantList{
 		HasNext:    hasNext,
 		Items:      items,
 		NextCursor: nextCursor,
 	}), nil
 }
 
-func (s *Server) CreateGeminiTenant(ctx context.Context, request adminservice.CreateGeminiTenantRequestObject) (adminservice.CreateGeminiTenantResponseObject, error) {
+func (s *Server) CreateGeminiTenant(ctx context.Context, request adminhttp.CreateGeminiTenantRequestObject) (adminhttp.CreateGeminiTenantResponseObject, error) {
 	store, err := s.store()
 	if err != nil {
-		return adminservice.CreateGeminiTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.CreateGeminiTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	if request.Body == nil {
-		return adminservice.CreateGeminiTenant400JSONResponse(apitypes.NewErrorResponse("INVALID_GEMINI_TENANT", "request body required")), nil
+		return adminhttp.CreateGeminiTenant400JSONResponse(apitypes.NewErrorResponse("INVALID_GEMINI_TENANT", "request body required")), nil
 	}
 	tenant, err := normalizeGeminiTenantUpsert(*request.Body, "")
 	if err != nil {
-		return adminservice.CreateGeminiTenant400JSONResponse(apitypes.NewErrorResponse("INVALID_GEMINI_TENANT", err.Error())), nil
+		return adminhttp.CreateGeminiTenant400JSONResponse(apitypes.NewErrorResponse("INVALID_GEMINI_TENANT", err.Error())), nil
 	}
 	if _, err := store.Get(ctx, geminiTenantKey(string(tenant.Name))); err == nil {
-		return adminservice.CreateGeminiTenant409JSONResponse(apitypes.NewErrorResponse("GEMINI_TENANT_ALREADY_EXISTS", fmt.Sprintf("Gemini tenant %q already exists", tenant.Name))), nil
+		return adminhttp.CreateGeminiTenant409JSONResponse(apitypes.NewErrorResponse("GEMINI_TENANT_ALREADY_EXISTS", fmt.Sprintf("Gemini tenant %q already exists", tenant.Name))), nil
 	} else if !errors.Is(err, kv.ErrNotFound) {
-		return adminservice.CreateGeminiTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.CreateGeminiTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	now := s.now()
 	tenant.CreatedAt = now
 	tenant.UpdatedAt = now
 	if err := writeGeminiTenant(ctx, store, tenant); err != nil {
-		return adminservice.CreateGeminiTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.CreateGeminiTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	return adminservice.CreateGeminiTenant200JSONResponse(tenant), nil
+	return adminhttp.CreateGeminiTenant200JSONResponse(tenant), nil
 }
 
-func (s *Server) GetGeminiTenant(ctx context.Context, request adminservice.GetGeminiTenantRequestObject) (adminservice.GetGeminiTenantResponseObject, error) {
+func (s *Server) GetGeminiTenant(ctx context.Context, request adminhttp.GetGeminiTenantRequestObject) (adminhttp.GetGeminiTenantResponseObject, error) {
 	store, err := s.store()
 	if err != nil {
-		return adminservice.GetGeminiTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.GetGeminiTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	name, err := url.PathUnescape(string(request.Name))
 	if err != nil {
@@ -70,20 +70,20 @@ func (s *Server) GetGeminiTenant(ctx context.Context, request adminservice.GetGe
 	tenant, err := getGeminiTenant(ctx, store, name)
 	if err != nil {
 		if errors.Is(err, kv.ErrNotFound) {
-			return adminservice.GetGeminiTenant404JSONResponse(apitypes.NewErrorResponse("GEMINI_TENANT_NOT_FOUND", fmt.Sprintf("Gemini tenant %q not found", name))), nil
+			return adminhttp.GetGeminiTenant404JSONResponse(apitypes.NewErrorResponse("GEMINI_TENANT_NOT_FOUND", fmt.Sprintf("Gemini tenant %q not found", name))), nil
 		}
-		return adminservice.GetGeminiTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.GetGeminiTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	return adminservice.GetGeminiTenant200JSONResponse(tenant), nil
+	return adminhttp.GetGeminiTenant200JSONResponse(tenant), nil
 }
 
-func (s *Server) PutGeminiTenant(ctx context.Context, request adminservice.PutGeminiTenantRequestObject) (adminservice.PutGeminiTenantResponseObject, error) {
+func (s *Server) PutGeminiTenant(ctx context.Context, request adminhttp.PutGeminiTenantRequestObject) (adminhttp.PutGeminiTenantResponseObject, error) {
 	store, err := s.store()
 	if err != nil {
-		return adminservice.PutGeminiTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.PutGeminiTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	if request.Body == nil {
-		return adminservice.PutGeminiTenant400JSONResponse(apitypes.NewErrorResponse("INVALID_GEMINI_TENANT", "request body required")), nil
+		return adminhttp.PutGeminiTenant400JSONResponse(apitypes.NewErrorResponse("INVALID_GEMINI_TENANT", "request body required")), nil
 	}
 	name, err := url.PathUnescape(string(request.Name))
 	if err != nil {
@@ -91,11 +91,11 @@ func (s *Server) PutGeminiTenant(ctx context.Context, request adminservice.PutGe
 	}
 	tenant, err := normalizeGeminiTenantUpsert(*request.Body, name)
 	if err != nil {
-		return adminservice.PutGeminiTenant400JSONResponse(apitypes.NewErrorResponse("INVALID_GEMINI_TENANT", err.Error())), nil
+		return adminhttp.PutGeminiTenant400JSONResponse(apitypes.NewErrorResponse("INVALID_GEMINI_TENANT", err.Error())), nil
 	}
 	previous, err := getGeminiTenant(ctx, store, name)
 	if err != nil && !errors.Is(err, kv.ErrNotFound) {
-		return adminservice.PutGeminiTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.PutGeminiTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	now := s.now()
 	tenant.CreatedAt = now
@@ -104,15 +104,15 @@ func (s *Server) PutGeminiTenant(ctx context.Context, request adminservice.PutGe
 		tenant.CreatedAt = previous.CreatedAt
 	}
 	if err := writeGeminiTenant(ctx, store, tenant); err != nil {
-		return adminservice.PutGeminiTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.PutGeminiTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	return adminservice.PutGeminiTenant200JSONResponse(tenant), nil
+	return adminhttp.PutGeminiTenant200JSONResponse(tenant), nil
 }
 
-func (s *Server) DeleteGeminiTenant(ctx context.Context, request adminservice.DeleteGeminiTenantRequestObject) (adminservice.DeleteGeminiTenantResponseObject, error) {
+func (s *Server) DeleteGeminiTenant(ctx context.Context, request adminhttp.DeleteGeminiTenantRequestObject) (adminhttp.DeleteGeminiTenantResponseObject, error) {
 	store, err := s.store()
 	if err != nil {
-		return adminservice.DeleteGeminiTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.DeleteGeminiTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	name, err := url.PathUnescape(string(request.Name))
 	if err != nil {
@@ -121,17 +121,17 @@ func (s *Server) DeleteGeminiTenant(ctx context.Context, request adminservice.De
 	tenant, err := getGeminiTenant(ctx, store, name)
 	if err != nil {
 		if errors.Is(err, kv.ErrNotFound) {
-			return adminservice.DeleteGeminiTenant404JSONResponse(apitypes.NewErrorResponse("GEMINI_TENANT_NOT_FOUND", fmt.Sprintf("Gemini tenant %q not found", name))), nil
+			return adminhttp.DeleteGeminiTenant404JSONResponse(apitypes.NewErrorResponse("GEMINI_TENANT_NOT_FOUND", fmt.Sprintf("Gemini tenant %q not found", name))), nil
 		}
-		return adminservice.DeleteGeminiTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.DeleteGeminiTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	if err := store.Delete(ctx, geminiTenantKey(string(tenant.Name))); err != nil {
-		return adminservice.DeleteGeminiTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.DeleteGeminiTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	return adminservice.DeleteGeminiTenant200JSONResponse(tenant), nil
+	return adminhttp.DeleteGeminiTenant200JSONResponse(tenant), nil
 }
 
-func normalizeGeminiTenantUpsert(in adminservice.GeminiTenantUpsert, expectedName string) (apitypes.GeminiTenant, error) {
+func normalizeGeminiTenantUpsert(in adminhttp.GeminiTenantUpsert, expectedName string) (apitypes.GeminiTenant, error) {
 	name := strings.TrimSpace(string(in.Name))
 	if name == "" {
 		return apitypes.GeminiTenant{}, errors.New("name is required")

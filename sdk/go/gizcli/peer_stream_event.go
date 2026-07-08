@@ -20,7 +20,7 @@ func (c *Client) DialPeerEventStream() (net.Conn, error) {
 	if conn == nil {
 		return nil, fmt.Errorf("gizclaw: client is not connected")
 	}
-	stream, err := conn.Dial(ServiceAgentStream)
+	stream, err := conn.Dial(EventStreamAgent)
 	if err != nil {
 		return nil, fmt.Errorf("gizclaw: dial peer event stream: %w", err)
 	}

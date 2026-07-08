@@ -1,4 +1,4 @@
-package openaiservice
+package openaihttp
 
 import (
 	"bytes"

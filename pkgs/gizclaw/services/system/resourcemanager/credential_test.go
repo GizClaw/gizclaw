@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminservice"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 )
 
@@ -200,11 +200,11 @@ func TestCredentialServiceErrorResponses(t *testing.T) {
 
 	credentials.getStatus = 0
 	credentials.putStatus = 400
-	err = manager.putCredential(context.Background(), "bad", adminservice.CredentialUpsert{})
+	err = manager.putCredential(context.Background(), "bad", adminhttp.CredentialUpsert{})
 	assertResourceError(t, err, 400, "INVALID_CREDENTIAL")
 
 	credentials.putStatus = 500
-	err = manager.putCredential(context.Background(), "bad", adminservice.CredentialUpsert{})
+	err = manager.putCredential(context.Background(), "bad", adminhttp.CredentialUpsert{})
 	assertResourceError(t, err, 500, "INTERNAL_ERROR")
 }
 
@@ -219,42 +219,42 @@ func newFakeCredentials() *fakeCredentials {
 	return &fakeCredentials{items: map[string]apitypes.Credential{}}
 }
 
-func (f *fakeCredentials) ListCredentials(context.Context, adminservice.ListCredentialsRequestObject) (adminservice.ListCredentialsResponseObject, error) {
+func (f *fakeCredentials) ListCredentials(context.Context, adminhttp.ListCredentialsRequestObject) (adminhttp.ListCredentialsResponseObject, error) {
 	return nil, nil
 }
 
-func (f *fakeCredentials) CreateCredential(context.Context, adminservice.CreateCredentialRequestObject) (adminservice.CreateCredentialResponseObject, error) {
+func (f *fakeCredentials) CreateCredential(context.Context, adminhttp.CreateCredentialRequestObject) (adminhttp.CreateCredentialResponseObject, error) {
 	return nil, nil
 }
 
-func (f *fakeCredentials) DeleteCredential(_ context.Context, request adminservice.DeleteCredentialRequestObject) (adminservice.DeleteCredentialResponseObject, error) {
+func (f *fakeCredentials) DeleteCredential(_ context.Context, request adminhttp.DeleteCredentialRequestObject) (adminhttp.DeleteCredentialResponseObject, error) {
 	name := mustUnescapePathParam(string(request.Name))
 	item, ok := f.items[name]
 	if !ok {
-		return adminservice.DeleteCredential404JSONResponse(apitypes.NewErrorResponse("CREDENTIAL_NOT_FOUND", "not found")), nil
+		return adminhttp.DeleteCredential404JSONResponse(apitypes.NewErrorResponse("CREDENTIAL_NOT_FOUND", "not found")), nil
 	}
 	delete(f.items, name)
-	return adminservice.DeleteCredential200JSONResponse(item), nil
+	return adminhttp.DeleteCredential200JSONResponse(item), nil
 }
 
-func (f *fakeCredentials) GetCredential(_ context.Context, request adminservice.GetCredentialRequestObject) (adminservice.GetCredentialResponseObject, error) {
+func (f *fakeCredentials) GetCredential(_ context.Context, request adminhttp.GetCredentialRequestObject) (adminhttp.GetCredentialResponseObject, error) {
 	if f.getStatus == 500 {
-		return adminservice.GetCredential500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "failed")), nil
+		return adminhttp.GetCredential500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "failed")), nil
 	}
 	name := mustUnescapePathParam(string(request.Name))
 	item, ok := f.items[name]
 	if !ok {
-		return adminservice.GetCredential404JSONResponse(apitypes.NewErrorResponse("CREDENTIAL_NOT_FOUND", "not found")), nil
+		return adminhttp.GetCredential404JSONResponse(apitypes.NewErrorResponse("CREDENTIAL_NOT_FOUND", "not found")), nil
 	}
-	return adminservice.GetCredential200JSONResponse(item), nil
+	return adminhttp.GetCredential200JSONResponse(item), nil
 }
 
-func (f *fakeCredentials) PutCredential(_ context.Context, request adminservice.PutCredentialRequestObject) (adminservice.PutCredentialResponseObject, error) {
+func (f *fakeCredentials) PutCredential(_ context.Context, request adminhttp.PutCredentialRequestObject) (adminhttp.PutCredentialResponseObject, error) {
 	switch f.putStatus {
 	case 400:
-		return adminservice.PutCredential400JSONResponse(apitypes.NewErrorResponse("INVALID_CREDENTIAL", "invalid")), nil
+		return adminhttp.PutCredential400JSONResponse(apitypes.NewErrorResponse("INVALID_CREDENTIAL", "invalid")), nil
 	case 500:
-		return adminservice.PutCredential500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "failed")), nil
+		return adminhttp.PutCredential500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "failed")), nil
 	}
 	f.putCount++
 	name := mustUnescapePathParam(string(request.Name))
@@ -269,5 +269,5 @@ func (f *fakeCredentials) PutCredential(_ context.Context, request adminservice.
 		UpdatedAt:   now,
 	}
 	f.items[name] = item
-	return adminservice.PutCredential200JSONResponse(item), nil
+	return adminhttp.PutCredential200JSONResponse(item), nil
 }

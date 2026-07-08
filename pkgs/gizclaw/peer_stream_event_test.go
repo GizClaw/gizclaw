@@ -236,7 +236,7 @@ type recordingDirectPackets struct {
 }
 
 func (w *recordingDirectPackets) Write(protocol byte, payload []byte) (int, error) {
-	if protocol != ProtocolStampedOpus {
+	if protocol != PacketStampedOpus {
 		return 0, errors.New("unexpected protocol")
 	}
 	w.ch <- append([]byte(nil), payload...)

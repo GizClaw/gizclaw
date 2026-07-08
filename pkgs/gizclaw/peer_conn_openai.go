@@ -7,16 +7,16 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminservice"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/openaiservice"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/openaihttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/openaiapi"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizhttp"
 )
 
 func (h *PeerConn) serveOpenAI() error {
 	handler := h.openAIHTTPHandler()
-	server := gizhttp.NewServer(h.Conn, ServiceOpenAI, handler)
+	server := gizhttp.NewServer(h.Conn, ServicePeerOpenAI, handler)
 	defer func() {
 		_ = server.Shutdown(context.Background())
 	}()
@@ -45,17 +45,17 @@ func (h *PeerConn) openAIHTTPHandler() http.Handler {
 
 func newOpenAIHTTPHandler(svc *openaiapi.Server) http.Handler {
 	app := fiber.New(fiber.Config{DisableStartupMessage: true, StreamRequestBody: true})
-	openaiservice.RegisterHandlersWithOptions(app, openaiservice.NewStrictHandler(svc, nil), openaiservice.FiberServerOptions{
+	openaihttp.RegisterHandlersWithOptions(app, openaihttp.NewStrictHandler(svc, nil), openaihttp.FiberServerOptions{
 		BaseURL: "/v1",
 	})
 	app.Get("/v1/voices", func(c *fiber.Ctx) error {
-		params := adminservice.ListVoicesParams{}
+		params := adminhttp.ListVoicesParams{}
 		if source := c.Query("source"); source != "" {
-			value := adminservice.VoiceSource(source)
+			value := adminhttp.VoiceSource(source)
 			params.Source = &value
 		}
 		if providerKind := c.Query("providerKind", c.Query("provider_kind")); providerKind != "" {
-			value := adminservice.VoiceProviderKind(providerKind)
+			value := adminhttp.VoiceProviderKind(providerKind)
 			params.ProviderKind = &value
 		}
 		if providerName := c.Query("providerName", c.Query("provider_name")); providerName != "" {

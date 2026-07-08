@@ -1,11 +1,11 @@
 export default [
   {
-    input: "../../api/admin_service.json",
-    output: "gizclaw/generated/adminservice",
+    input: "../../api/admin_http.json",
+    output: "gizclaw/generated/adminhttp",
   },
   {
-    input: "../../api/server_public.json",
-    output: "gizclaw/generated/serverpublic",
+    input: "../../api/peer_http.json",
+    output: "gizclaw/generated/peerhttp",
   },
   {
     input: "../../api/rpc.json",

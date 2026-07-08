@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminservice"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
@@ -374,12 +374,12 @@ type fakeWorkspaceService struct {
 	runtime workspace.Runtime
 }
 
-func (s fakeWorkspaceService) GetWorkspace(_ context.Context, request adminservice.GetWorkspaceRequestObject) (adminservice.GetWorkspaceResponseObject, error) {
+func (s fakeWorkspaceService) GetWorkspace(_ context.Context, request adminhttp.GetWorkspaceRequestObject) (adminhttp.GetWorkspaceResponseObject, error) {
 	item, ok := s.items[string(request.Name)]
 	if !ok {
-		return adminservice.GetWorkspace404JSONResponse(apitypes.NewErrorResponse("WORKSPACE_NOT_FOUND", "not found")), nil
+		return adminhttp.GetWorkspace404JSONResponse(apitypes.NewErrorResponse("WORKSPACE_NOT_FOUND", "not found")), nil
 	}
-	return adminservice.GetWorkspace200JSONResponse(item), nil
+	return adminhttp.GetWorkspace200JSONResponse(item), nil
 }
 
 func (s fakeWorkspaceService) GetWorkspaceRuntime(context.Context, string) (workspace.Runtime, error) {
@@ -391,12 +391,12 @@ type fakeWorkflowService struct {
 	items map[string]apitypes.WorkflowDocument
 }
 
-func (s fakeWorkflowService) GetWorkflow(_ context.Context, request adminservice.GetWorkflowRequestObject) (adminservice.GetWorkflowResponseObject, error) {
+func (s fakeWorkflowService) GetWorkflow(_ context.Context, request adminhttp.GetWorkflowRequestObject) (adminhttp.GetWorkflowResponseObject, error) {
 	item, ok := s.items[string(request.Name)]
 	if !ok {
-		return adminservice.GetWorkflow404JSONResponse(apitypes.NewErrorResponse("WORKFLOW_NOT_FOUND", "not found")), nil
+		return adminhttp.GetWorkflow404JSONResponse(apitypes.NewErrorResponse("WORKFLOW_NOT_FOUND", "not found")), nil
 	}
-	return adminservice.GetWorkflow200JSONResponse(item), nil
+	return adminhttp.GetWorkflow200JSONResponse(item), nil
 }
 
 func mustWorkflow(t *testing.T, name string) apitypes.WorkflowDocument {

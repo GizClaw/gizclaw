@@ -5,7 +5,7 @@ package admin_test
 import (
 	"testing"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminservice"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 )
 
@@ -13,7 +13,7 @@ func TestAdminAPIWorkspacesListGetPaginationAndMutation(t *testing.T) {
 	env := newAdminAPIHarness(t)
 
 	all := collectAdminPages(t, 25, func(cursor *string, limit int32) ([]apitypes.Workspace, bool, *string) {
-		resp, err := env.api.ListWorkspacesWithResponse(env.ctx, &adminservice.ListWorkspacesParams{Cursor: cursor, Limit: &limit})
+		resp, err := env.api.ListWorkspacesWithResponse(env.ctx, &adminhttp.ListWorkspacesParams{Cursor: cursor, Limit: &limit})
 		if err != nil {
 			t.Fatalf("list workspaces: %v", err)
 		}
@@ -37,7 +37,7 @@ func TestAdminAPIWorkspacesListGetPaginationAndMutation(t *testing.T) {
 
 	name := mutationName("workspace")
 	_, _ = env.api.DeleteWorkspaceWithResponse(env.ctx, name)
-	created, err := env.api.CreateWorkspaceWithResponse(env.ctx, adminservice.WorkspaceUpsert{
+	created, err := env.api.CreateWorkspaceWithResponse(env.ctx, adminhttp.WorkspaceUpsert{
 		Name:         name,
 		WorkflowName: "flowcraft-support",
 		Parameters:   flowcraftWorkspaceParameters(t, apitypes.WorkspaceInputModePushToTalk),

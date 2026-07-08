@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminservice"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/customid"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/socialutil"
@@ -54,34 +54,34 @@ func (s *Server) CreateContact(ctx context.Context, owner string, req rpcapi.Con
 	return s.createContact(ctx, owner, s.newID(), req.DisplayName, req.PhoneNumber)
 }
 
-func (s *Server) AdminListContacts(ctx context.Context, owner string, cursor *string, limit *int) (adminservice.AdminContactListResponse, error) {
+func (s *Server) AdminListContacts(ctx context.Context, owner string, cursor *string, limit *int) (adminhttp.AdminContactListResponse, error) {
 	store, err := s.store()
 	if err != nil {
-		return adminservice.AdminContactListResponse{}, err
+		return adminhttp.AdminContactListResponse{}, err
 	}
 	owner = strings.TrimSpace(owner)
 	if owner != "" {
 		page, err := s.ListContacts(ctx, owner, rpcapi.ContactListRequest{Cursor: cursor, Limit: limit})
 		if err != nil {
-			return adminservice.AdminContactListResponse{}, err
+			return adminhttp.AdminContactListResponse{}, err
 		}
-		items := make([]adminservice.AdminContactObject, 0, len(page.Items))
+		items := make([]adminhttp.AdminContactObject, 0, len(page.Items))
 		for _, item := range page.Items {
 			items = append(items, adminContactObject(owner, item))
 		}
-		return adminservice.AdminContactListResponse{Items: items, HasNext: page.HasNext, NextCursor: page.NextCursor}, nil
+		return adminhttp.AdminContactListResponse{Items: items, HasNext: page.HasNext, NextCursor: page.NextCursor}, nil
 	}
 
 	_, pageLimit := socialutil.NormalizeListParams("", socialutil.IntValue(limit))
 	entries, err := kv.ListAfter(ctx, store, socialutil.ContactsRoot, adminContactCursorAfter(socialutil.StringValue(cursor)), pageLimit+1)
 	if err != nil {
-		return adminservice.AdminContactListResponse{}, err
+		return adminhttp.AdminContactListResponse{}, err
 	}
 	hasNext := len(entries) > pageLimit
 	if hasNext {
 		entries = entries[:pageLimit]
 	}
-	items := make([]adminservice.AdminContactObject, 0, len(entries))
+	items := make([]adminhttp.AdminContactObject, 0, len(entries))
 	for _, entry := range entries {
 		owner, ok := adminContactOwner(entry.Key)
 		if !ok {
@@ -89,7 +89,7 @@ func (s *Server) AdminListContacts(ctx context.Context, owner string, cursor *st
 		}
 		var item rpcapi.ContactObject
 		if err := json.Unmarshal(entry.Value, &item); err != nil {
-			return adminservice.AdminContactListResponse{}, err
+			return adminhttp.AdminContactListResponse{}, err
 		}
 		items = append(items, adminContactObject(owner, item))
 	}
@@ -100,54 +100,54 @@ func (s *Server) AdminListContacts(ctx context.Context, owner string, cursor *st
 			next = &cursor
 		}
 	}
-	return adminservice.AdminContactListResponse{Items: items, HasNext: hasNext, NextCursor: next}, nil
+	return adminhttp.AdminContactListResponse{Items: items, HasNext: hasNext, NextCursor: next}, nil
 }
 
-func (s *Server) AdminCreateContact(ctx context.Context, req adminservice.AdminContactCreateRequest) (adminservice.AdminContactObject, error) {
+func (s *Server) AdminCreateContact(ctx context.Context, req adminhttp.AdminContactCreateRequest) (adminhttp.AdminContactObject, error) {
 	id := socialutil.StringValue(req.Id)
 	if id == "" {
 		id = s.newID()
 	} else if err := customid.ValidateField("contact id", id); err != nil {
-		return adminservice.AdminContactObject{}, err
+		return adminhttp.AdminContactObject{}, err
 	}
 	item, err := s.createContact(ctx, req.OwnerPublicKey, id, req.DisplayName, req.PhoneNumber)
 	if err != nil {
-		return adminservice.AdminContactObject{}, err
+		return adminhttp.AdminContactObject{}, err
 	}
 	return adminContactObject(req.OwnerPublicKey, item), nil
 }
 
-func (s *Server) AdminApplyContact(ctx context.Context, owner, id string, displayName, phoneNumber *string) (adminservice.AdminContactObject, error) {
+func (s *Server) AdminApplyContact(ctx context.Context, owner, id string, displayName, phoneNumber *string) (adminhttp.AdminContactObject, error) {
 	if err := customid.ValidateField("contact id", id); err != nil {
-		return adminservice.AdminContactObject{}, err
+		return adminhttp.AdminContactObject{}, err
 	}
 	item, err := s.upsertContact(ctx, owner, id, displayName, phoneNumber)
 	if err != nil {
-		return adminservice.AdminContactObject{}, err
+		return adminhttp.AdminContactObject{}, err
 	}
 	return adminContactObject(owner, item), nil
 }
 
-func (s *Server) AdminGetContact(ctx context.Context, owner, id string) (adminservice.AdminContactObject, error) {
+func (s *Server) AdminGetContact(ctx context.Context, owner, id string) (adminhttp.AdminContactObject, error) {
 	item, err := s.GetContact(ctx, owner, rpcapi.ContactGetRequest{Id: strings.TrimSpace(id)})
 	if err != nil {
-		return adminservice.AdminContactObject{}, err
+		return adminhttp.AdminContactObject{}, err
 	}
 	return adminContactObject(owner, item), nil
 }
 
-func (s *Server) AdminPutContact(ctx context.Context, owner, id string, req adminservice.AdminContactPutRequest) (adminservice.AdminContactObject, error) {
+func (s *Server) AdminPutContact(ctx context.Context, owner, id string, req adminhttp.AdminContactPutRequest) (adminhttp.AdminContactObject, error) {
 	item, err := s.PutContact(ctx, owner, rpcapi.ContactPutRequest{Id: strings.TrimSpace(id), DisplayName: req.DisplayName, PhoneNumber: req.PhoneNumber})
 	if err != nil {
-		return adminservice.AdminContactObject{}, err
+		return adminhttp.AdminContactObject{}, err
 	}
 	return adminContactObject(owner, item), nil
 }
 
-func (s *Server) AdminDeleteContact(ctx context.Context, owner, id string) (adminservice.AdminContactObject, error) {
+func (s *Server) AdminDeleteContact(ctx context.Context, owner, id string) (adminhttp.AdminContactObject, error) {
 	item, err := s.DeleteContact(ctx, owner, rpcapi.ContactDeleteRequest{Id: strings.TrimSpace(id)})
 	if err != nil {
-		return adminservice.AdminContactObject{}, err
+		return adminhttp.AdminContactObject{}, err
 	}
 	return adminContactObject(owner, item), nil
 }
@@ -317,8 +317,8 @@ func (s *Server) newID() string {
 	return socialutil.NewID()
 }
 
-func adminContactObject(owner string, item rpcapi.ContactObject) adminservice.AdminContactObject {
-	return adminservice.AdminContactObject{
+func adminContactObject(owner string, item rpcapi.ContactObject) adminhttp.AdminContactObject {
+	return adminhttp.AdminContactObject{
 		OwnerPublicKey: strings.TrimSpace(owner),
 		Id:             socialutil.StringValue(item.Id),
 		DisplayName:    item.DisplayName,

@@ -68,7 +68,7 @@ func newTestWebRTCAPI(t *testing.T) *webrtc.API {
 	var mediaEngine webrtc.MediaEngine
 	if err := mediaEngine.RegisterCodec(webrtc.RTPCodecParameters{
 		RTPCodecCapability: webrtc.RTPCodecCapability{
-			MimeType:    webrtc.MimeTypeOpus,
+			MimeType:    MediaStreamOpus,
 			ClockRate:   48000,
 			Channels:    2,
 			SDPFmtpLine: "minptime=10;useinbandfec=1",

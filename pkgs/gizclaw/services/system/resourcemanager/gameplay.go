@@ -3,7 +3,7 @@ package resourcemanager
 import (
 	"context"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminservice"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 )
 
@@ -131,41 +131,41 @@ func (m *Manager) getGameRuleset(ctx context.Context, name string) (apitypes.Gam
 	if m.services.GameplayCatalog == nil {
 		return apitypes.GameRuleset{}, false, missingService("gameplay catalog")
 	}
-	response, err := m.services.GameplayCatalog.GetGameRuleset(ctx, adminservice.GetGameRulesetRequestObject{Name: name})
+	response, err := m.services.GameplayCatalog.GetGameRuleset(ctx, adminhttp.GetGameRulesetRequestObject{Name: name})
 	if err != nil {
 		return apitypes.GameRuleset{}, false, err
 	}
 	switch response := response.(type) {
-	case adminservice.GetGameRuleset200JSONResponse:
+	case adminhttp.GetGameRuleset200JSONResponse:
 		return apitypes.GameRuleset(response), true, nil
-	case adminservice.GetGameRuleset404JSONResponse:
+	case adminhttp.GetGameRuleset404JSONResponse:
 		return apitypes.GameRuleset{}, false, nil
-	case adminservice.GetGameRuleset500JSONResponse:
+	case adminhttp.GetGameRuleset500JSONResponse:
 		return apitypes.GameRuleset{}, false, responseError(500, "GET_GAME_RULESET_FAILED", "failed to get game ruleset", response)
 	default:
 		return apitypes.GameRuleset{}, false, unexpectedResponse("GetGameRuleset", response)
 	}
 }
 
-func (m *Manager) putGameRuleset(ctx context.Context, name string, body adminservice.GameRulesetUpsert) error {
+func (m *Manager) putGameRuleset(ctx context.Context, name string, body adminhttp.GameRulesetUpsert) error {
 	if m.services.GameplayCatalog == nil {
 		return missingService("gameplay catalog")
 	}
-	response, err := m.services.GameplayCatalog.PutGameRuleset(ctx, adminservice.PutGameRulesetRequestObject{Name: name, Body: &body})
+	response, err := m.services.GameplayCatalog.PutGameRuleset(ctx, adminhttp.PutGameRulesetRequestObject{Name: name, Body: &body})
 	return putGameplayResponse("PutGameRuleset", response, err)
 }
 
 func (m *Manager) deleteGameRuleset(ctx context.Context, name string) (apitypes.GameRuleset, bool, error) {
-	response, err := m.services.GameplayCatalog.DeleteGameRuleset(ctx, adminservice.DeleteGameRulesetRequestObject{Name: name})
+	response, err := m.services.GameplayCatalog.DeleteGameRuleset(ctx, adminhttp.DeleteGameRulesetRequestObject{Name: name})
 	if err != nil {
 		return apitypes.GameRuleset{}, false, err
 	}
 	switch response := response.(type) {
-	case adminservice.DeleteGameRuleset200JSONResponse:
+	case adminhttp.DeleteGameRuleset200JSONResponse:
 		return apitypes.GameRuleset(response), true, nil
-	case adminservice.DeleteGameRuleset404JSONResponse:
+	case adminhttp.DeleteGameRuleset404JSONResponse:
 		return apitypes.GameRuleset{}, false, nil
-	case adminservice.DeleteGameRuleset500JSONResponse:
+	case adminhttp.DeleteGameRuleset500JSONResponse:
 		return apitypes.GameRuleset{}, false, responseError(500, "DELETE_GAME_RULESET_FAILED", "failed to delete game ruleset", response)
 	default:
 		return apitypes.GameRuleset{}, false, unexpectedResponse("DeleteGameRuleset", response)
@@ -176,41 +176,41 @@ func (m *Manager) getPetDef(ctx context.Context, id string) (apitypes.PetDef, bo
 	if m.services.GameplayCatalog == nil {
 		return apitypes.PetDef{}, false, missingService("gameplay catalog")
 	}
-	response, err := m.services.GameplayCatalog.GetPetDef(ctx, adminservice.GetPetDefRequestObject{Id: id})
+	response, err := m.services.GameplayCatalog.GetPetDef(ctx, adminhttp.GetPetDefRequestObject{Id: id})
 	if err != nil {
 		return apitypes.PetDef{}, false, err
 	}
 	switch response := response.(type) {
-	case adminservice.GetPetDef200JSONResponse:
+	case adminhttp.GetPetDef200JSONResponse:
 		return apitypes.PetDef(response), true, nil
-	case adminservice.GetPetDef404JSONResponse:
+	case adminhttp.GetPetDef404JSONResponse:
 		return apitypes.PetDef{}, false, nil
-	case adminservice.GetPetDef500JSONResponse:
+	case adminhttp.GetPetDef500JSONResponse:
 		return apitypes.PetDef{}, false, responseError(500, "GET_PET_DEF_FAILED", "failed to get pet def", response)
 	default:
 		return apitypes.PetDef{}, false, unexpectedResponse("GetPetDef", response)
 	}
 }
 
-func (m *Manager) putPetDef(ctx context.Context, id string, body adminservice.PetDefUpsert) error {
+func (m *Manager) putPetDef(ctx context.Context, id string, body adminhttp.PetDefUpsert) error {
 	if m.services.GameplayCatalog == nil {
 		return missingService("gameplay catalog")
 	}
-	response, err := m.services.GameplayCatalog.PutPetDef(ctx, adminservice.PutPetDefRequestObject{Id: id, Body: &body})
+	response, err := m.services.GameplayCatalog.PutPetDef(ctx, adminhttp.PutPetDefRequestObject{Id: id, Body: &body})
 	return putGameplayResponse("PutPetDef", response, err)
 }
 
 func (m *Manager) deletePetDef(ctx context.Context, id string) (apitypes.PetDef, bool, error) {
-	response, err := m.services.GameplayCatalog.DeletePetDef(ctx, adminservice.DeletePetDefRequestObject{Id: id})
+	response, err := m.services.GameplayCatalog.DeletePetDef(ctx, adminhttp.DeletePetDefRequestObject{Id: id})
 	if err != nil {
 		return apitypes.PetDef{}, false, err
 	}
 	switch response := response.(type) {
-	case adminservice.DeletePetDef200JSONResponse:
+	case adminhttp.DeletePetDef200JSONResponse:
 		return apitypes.PetDef(response), true, nil
-	case adminservice.DeletePetDef404JSONResponse:
+	case adminhttp.DeletePetDef404JSONResponse:
 		return apitypes.PetDef{}, false, nil
-	case adminservice.DeletePetDef500JSONResponse:
+	case adminhttp.DeletePetDef500JSONResponse:
 		return apitypes.PetDef{}, false, responseError(500, "DELETE_PET_DEF_FAILED", "failed to delete pet def", response)
 	default:
 		return apitypes.PetDef{}, false, unexpectedResponse("DeletePetDef", response)
@@ -221,41 +221,41 @@ func (m *Manager) getBadgeDef(ctx context.Context, id string) (apitypes.BadgeDef
 	if m.services.GameplayCatalog == nil {
 		return apitypes.BadgeDef{}, false, missingService("gameplay catalog")
 	}
-	response, err := m.services.GameplayCatalog.GetBadgeDef(ctx, adminservice.GetBadgeDefRequestObject{Id: id})
+	response, err := m.services.GameplayCatalog.GetBadgeDef(ctx, adminhttp.GetBadgeDefRequestObject{Id: id})
 	if err != nil {
 		return apitypes.BadgeDef{}, false, err
 	}
 	switch response := response.(type) {
-	case adminservice.GetBadgeDef200JSONResponse:
+	case adminhttp.GetBadgeDef200JSONResponse:
 		return apitypes.BadgeDef(response), true, nil
-	case adminservice.GetBadgeDef404JSONResponse:
+	case adminhttp.GetBadgeDef404JSONResponse:
 		return apitypes.BadgeDef{}, false, nil
-	case adminservice.GetBadgeDef500JSONResponse:
+	case adminhttp.GetBadgeDef500JSONResponse:
 		return apitypes.BadgeDef{}, false, responseError(500, "GET_BADGE_DEF_FAILED", "failed to get badge def", response)
 	default:
 		return apitypes.BadgeDef{}, false, unexpectedResponse("GetBadgeDef", response)
 	}
 }
 
-func (m *Manager) putBadgeDef(ctx context.Context, id string, body adminservice.BadgeDefUpsert) error {
+func (m *Manager) putBadgeDef(ctx context.Context, id string, body adminhttp.BadgeDefUpsert) error {
 	if m.services.GameplayCatalog == nil {
 		return missingService("gameplay catalog")
 	}
-	response, err := m.services.GameplayCatalog.PutBadgeDef(ctx, adminservice.PutBadgeDefRequestObject{Id: id, Body: &body})
+	response, err := m.services.GameplayCatalog.PutBadgeDef(ctx, adminhttp.PutBadgeDefRequestObject{Id: id, Body: &body})
 	return putGameplayResponse("PutBadgeDef", response, err)
 }
 
 func (m *Manager) deleteBadgeDef(ctx context.Context, id string) (apitypes.BadgeDef, bool, error) {
-	response, err := m.services.GameplayCatalog.DeleteBadgeDef(ctx, adminservice.DeleteBadgeDefRequestObject{Id: id})
+	response, err := m.services.GameplayCatalog.DeleteBadgeDef(ctx, adminhttp.DeleteBadgeDefRequestObject{Id: id})
 	if err != nil {
 		return apitypes.BadgeDef{}, false, err
 	}
 	switch response := response.(type) {
-	case adminservice.DeleteBadgeDef200JSONResponse:
+	case adminhttp.DeleteBadgeDef200JSONResponse:
 		return apitypes.BadgeDef(response), true, nil
-	case adminservice.DeleteBadgeDef404JSONResponse:
+	case adminhttp.DeleteBadgeDef404JSONResponse:
 		return apitypes.BadgeDef{}, false, nil
-	case adminservice.DeleteBadgeDef500JSONResponse:
+	case adminhttp.DeleteBadgeDef500JSONResponse:
 		return apitypes.BadgeDef{}, false, responseError(500, "DELETE_BADGE_DEF_FAILED", "failed to delete badge def", response)
 	default:
 		return apitypes.BadgeDef{}, false, unexpectedResponse("DeleteBadgeDef", response)
@@ -266,41 +266,41 @@ func (m *Manager) getGameDef(ctx context.Context, id string) (apitypes.GameDef, 
 	if m.services.GameplayCatalog == nil {
 		return apitypes.GameDef{}, false, missingService("gameplay catalog")
 	}
-	response, err := m.services.GameplayCatalog.GetGameDef(ctx, adminservice.GetGameDefRequestObject{Id: id})
+	response, err := m.services.GameplayCatalog.GetGameDef(ctx, adminhttp.GetGameDefRequestObject{Id: id})
 	if err != nil {
 		return apitypes.GameDef{}, false, err
 	}
 	switch response := response.(type) {
-	case adminservice.GetGameDef200JSONResponse:
+	case adminhttp.GetGameDef200JSONResponse:
 		return apitypes.GameDef(response), true, nil
-	case adminservice.GetGameDef404JSONResponse:
+	case adminhttp.GetGameDef404JSONResponse:
 		return apitypes.GameDef{}, false, nil
-	case adminservice.GetGameDef500JSONResponse:
+	case adminhttp.GetGameDef500JSONResponse:
 		return apitypes.GameDef{}, false, responseError(500, "GET_GAME_DEF_FAILED", "failed to get game def", response)
 	default:
 		return apitypes.GameDef{}, false, unexpectedResponse("GetGameDef", response)
 	}
 }
 
-func (m *Manager) putGameDef(ctx context.Context, id string, body adminservice.GameDefUpsert) error {
+func (m *Manager) putGameDef(ctx context.Context, id string, body adminhttp.GameDefUpsert) error {
 	if m.services.GameplayCatalog == nil {
 		return missingService("gameplay catalog")
 	}
-	response, err := m.services.GameplayCatalog.PutGameDef(ctx, adminservice.PutGameDefRequestObject{Id: id, Body: &body})
+	response, err := m.services.GameplayCatalog.PutGameDef(ctx, adminhttp.PutGameDefRequestObject{Id: id, Body: &body})
 	return putGameplayResponse("PutGameDef", response, err)
 }
 
 func (m *Manager) deleteGameDef(ctx context.Context, id string) (apitypes.GameDef, bool, error) {
-	response, err := m.services.GameplayCatalog.DeleteGameDef(ctx, adminservice.DeleteGameDefRequestObject{Id: id})
+	response, err := m.services.GameplayCatalog.DeleteGameDef(ctx, adminhttp.DeleteGameDefRequestObject{Id: id})
 	if err != nil {
 		return apitypes.GameDef{}, false, err
 	}
 	switch response := response.(type) {
-	case adminservice.DeleteGameDef200JSONResponse:
+	case adminhttp.DeleteGameDef200JSONResponse:
 		return apitypes.GameDef(response), true, nil
-	case adminservice.DeleteGameDef404JSONResponse:
+	case adminhttp.DeleteGameDef404JSONResponse:
 		return apitypes.GameDef{}, false, nil
-	case adminservice.DeleteGameDef500JSONResponse:
+	case adminhttp.DeleteGameDef500JSONResponse:
 		return apitypes.GameDef{}, false, responseError(500, "DELETE_GAME_DEF_FAILED", "failed to delete game def", response)
 	default:
 		return apitypes.GameDef{}, false, unexpectedResponse("DeleteGameDef", response)
@@ -312,54 +312,54 @@ func putGameplayResponse(operation string, response any, err error) error {
 		return err
 	}
 	switch response := response.(type) {
-	case adminservice.PutGameRuleset200JSONResponse,
-		adminservice.PutPetDef200JSONResponse,
-		adminservice.PutBadgeDef200JSONResponse,
-		adminservice.PutGameDef200JSONResponse:
+	case adminhttp.PutGameRuleset200JSONResponse,
+		adminhttp.PutPetDef200JSONResponse,
+		adminhttp.PutBadgeDef200JSONResponse,
+		adminhttp.PutGameDef200JSONResponse:
 		return nil
-	case adminservice.PutGameRuleset400JSONResponse:
+	case adminhttp.PutGameRuleset400JSONResponse:
 		return responseError(400, "PUT_GAME_RULESET_FAILED", "failed to put game ruleset", response)
-	case adminservice.PutPetDef400JSONResponse:
+	case adminhttp.PutPetDef400JSONResponse:
 		return responseError(400, "PUT_PET_DEF_FAILED", "failed to put pet def", response)
-	case adminservice.PutBadgeDef400JSONResponse:
+	case adminhttp.PutBadgeDef400JSONResponse:
 		return responseError(400, "PUT_BADGE_DEF_FAILED", "failed to put badge def", response)
-	case adminservice.PutGameDef400JSONResponse:
+	case adminhttp.PutGameDef400JSONResponse:
 		return responseError(400, "PUT_GAME_DEF_FAILED", "failed to put game def", response)
-	case adminservice.PutGameRuleset409JSONResponse:
+	case adminhttp.PutGameRuleset409JSONResponse:
 		return responseError(409, "PUT_GAME_RULESET_FAILED", "failed to put game ruleset", response)
-	case adminservice.PutPetDef409JSONResponse:
+	case adminhttp.PutPetDef409JSONResponse:
 		return responseError(409, "PUT_PET_DEF_FAILED", "failed to put pet def", response)
-	case adminservice.PutBadgeDef409JSONResponse:
+	case adminhttp.PutBadgeDef409JSONResponse:
 		return responseError(409, "PUT_BADGE_DEF_FAILED", "failed to put badge def", response)
-	case adminservice.PutGameDef409JSONResponse:
+	case adminhttp.PutGameDef409JSONResponse:
 		return responseError(409, "PUT_GAME_DEF_FAILED", "failed to put game def", response)
-	case adminservice.PutGameRuleset500JSONResponse:
+	case adminhttp.PutGameRuleset500JSONResponse:
 		return responseError(500, "PUT_GAME_RULESET_FAILED", "failed to put game ruleset", response)
-	case adminservice.PutPetDef500JSONResponse:
+	case adminhttp.PutPetDef500JSONResponse:
 		return responseError(500, "PUT_PET_DEF_FAILED", "failed to put pet def", response)
-	case adminservice.PutBadgeDef500JSONResponse:
+	case adminhttp.PutBadgeDef500JSONResponse:
 		return responseError(500, "PUT_BADGE_DEF_FAILED", "failed to put badge def", response)
-	case adminservice.PutGameDef500JSONResponse:
+	case adminhttp.PutGameDef500JSONResponse:
 		return responseError(500, "PUT_GAME_DEF_FAILED", "failed to put game def", response)
 	default:
 		return unexpectedResponse(operation, response)
 	}
 }
 
-func gameRulesetUpsert(resource apitypes.GameRulesetResource) adminservice.GameRulesetUpsert {
-	return adminservice.GameRulesetUpsert{Name: resource.Metadata.Name, Spec: resource.Spec}
+func gameRulesetUpsert(resource apitypes.GameRulesetResource) adminhttp.GameRulesetUpsert {
+	return adminhttp.GameRulesetUpsert{Name: resource.Metadata.Name, Spec: resource.Spec}
 }
 
-func petDefUpsert(resource apitypes.PetDefResource) adminservice.PetDefUpsert {
-	return adminservice.PetDefUpsert{Id: resource.Metadata.Name, Spec: resource.Spec}
+func petDefUpsert(resource apitypes.PetDefResource) adminhttp.PetDefUpsert {
+	return adminhttp.PetDefUpsert{Id: resource.Metadata.Name, Spec: resource.Spec}
 }
 
-func badgeDefUpsert(resource apitypes.BadgeDefResource) adminservice.BadgeDefUpsert {
-	return adminservice.BadgeDefUpsert{Id: resource.Metadata.Name, Spec: resource.Spec}
+func badgeDefUpsert(resource apitypes.BadgeDefResource) adminhttp.BadgeDefUpsert {
+	return adminhttp.BadgeDefUpsert{Id: resource.Metadata.Name, Spec: resource.Spec}
 }
 
-func gameDefUpsert(resource apitypes.GameDefResource) adminservice.GameDefUpsert {
-	return adminservice.GameDefUpsert{Id: resource.Metadata.Name, Spec: resource.Spec}
+func gameDefUpsert(resource apitypes.GameDefResource) adminhttp.GameDefUpsert {
+	return adminhttp.GameDefUpsert{Id: resource.Metadata.Name, Spec: resource.Spec}
 }
 
 func resourceFromGameRuleset(item apitypes.GameRuleset) (apitypes.Resource, error) {

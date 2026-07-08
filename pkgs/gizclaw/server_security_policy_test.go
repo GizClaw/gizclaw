@@ -32,10 +32,10 @@ func TestServerSecurityPolicyAllowsPublicServiceForActivePeer(t *testing.T) {
 	}
 
 	policy := testServerSecurityPolicy(service)
-	if policy.AllowService(keyPair.Public, ServiceAdmin) {
+	if policy.AllowService(keyPair.Public, ServiceAdminHTTP) {
 		t.Fatal("active peer should not allow admin service without admin role")
 	}
-	if !policy.AllowService(keyPair.Public, ServiceServerPublic) {
+	if !policy.AllowService(keyPair.Public, ServicePeerHTTP) {
 		t.Fatal("active peer should allow server public service")
 	}
 	if policy.AllowService(keyPair.Public, 0xffff) {
@@ -61,7 +61,7 @@ func TestServerSecurityPolicyAllowsAdminServiceForActiveAdminPeer(t *testing.T) 
 	}
 
 	policy := testServerSecurityPolicy(service)
-	if !policy.AllowService(keyPair.Public, ServiceAdmin) {
+	if !policy.AllowService(keyPair.Public, ServiceAdminHTTP) {
 		t.Fatal("active admin peer should allow admin service")
 	}
 }
@@ -77,7 +77,7 @@ func TestServerSecurityPolicyRequiresAdminRoleForAdminService(t *testing.T) {
 		t.Fatalf("EnsureConnectedPeer error = %v", err)
 	}
 	policy := testServerSecurityPolicy(service)
-	if policy.AllowService(keyPair.Public, ServiceAdmin) {
+	if policy.AllowService(keyPair.Public, ServiceAdminHTTP) {
 		t.Fatal("non-admin peer should not allow admin service")
 	}
 	stored, err := service.LoadPeer(context.Background(), keyPair.Public)
@@ -91,10 +91,10 @@ func TestServerSecurityPolicyRequiresAdminRoleForAdminService(t *testing.T) {
 
 func TestServerSecurityPolicyAllowsPublicServicesWithoutPeerLookup(t *testing.T) {
 	policy := (*ServerSecurityPolicy)(&Server{manager: &Manager{}})
-	if !policy.AllowService(giznet.PublicKey{}, ServiceRPC) {
+	if !policy.AllowService(giznet.PublicKey{}, ServicePeerRPC) {
 		t.Fatal("policy should allow rpc service")
 	}
-	if !policy.AllowService(giznet.PublicKey{}, ServiceServerPublic) {
+	if !policy.AllowService(giznet.PublicKey{}, ServicePeerHTTP) {
 		t.Fatal("policy should allow server public service")
 	}
 }
@@ -106,7 +106,7 @@ func TestServerSecurityPolicyDeniesAdminServiceForUnknownPeer(t *testing.T) {
 	}
 
 	policy := testServerSecurityPolicy(&peer.Server{Store: mustBadgerInMemory(t, nil)})
-	if policy.AllowService(keyPair.Public, ServiceAdmin) {
+	if policy.AllowService(keyPair.Public, ServiceAdminHTTP) {
 		t.Fatal("unknown peer should not allow admin service")
 	}
 }
@@ -130,7 +130,7 @@ func TestServerSecurityPolicyDeniesProtectedServicesForBlockedPeer(t *testing.T)
 	}
 
 	policy := testServerSecurityPolicy(service)
-	if policy.AllowService(keyPair.Public, ServiceAdmin) {
+	if policy.AllowService(keyPair.Public, ServiceAdminHTTP) {
 		t.Fatal("blocked peer should not allow admin service")
 	}
 	if policy.AllowService(keyPair.Public, 0xffff) {

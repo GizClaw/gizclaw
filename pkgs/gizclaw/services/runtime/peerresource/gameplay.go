@@ -7,7 +7,7 @@ import (
 	"io"
 	"strings"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminservice"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/gameplay"
@@ -161,15 +161,15 @@ func (s *Server) authorizeMatchingGameRuleset(ctx context.Context, catalog *game
 	limit := int32(200)
 	cursor := ""
 	for {
-		params := adminservice.ListGameRulesetsParams{Limit: &limit}
+		params := adminhttp.ListGameRulesetsParams{Limit: &limit}
 		if cursor != "" {
 			params.Cursor = &cursor
 		}
-		resp, err := catalog.ListGameRulesets(ctx, adminservice.ListGameRulesetsRequestObject{Params: params})
+		resp, err := catalog.ListGameRulesets(ctx, adminhttp.ListGameRulesetsRequestObject{Params: params})
 		if err != nil {
 			return false, err
 		}
-		list, ok := resp.(adminservice.ListGameRulesets200JSONResponse)
+		list, ok := resp.(adminhttp.ListGameRulesets200JSONResponse)
 		if !ok {
 			return false, fmt.Errorf("list game rulesets returned %T", resp)
 		}

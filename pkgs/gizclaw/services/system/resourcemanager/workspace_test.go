@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminservice"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 )
 
@@ -151,11 +151,11 @@ func TestWorkspaceServiceErrorResponses(t *testing.T) {
 
 	workspaces.getStatus = 0
 	workspaces.putStatus = 400
-	err = manager.putWorkspace(context.Background(), "demo", adminservice.WorkspaceUpsert{})
+	err = manager.putWorkspace(context.Background(), "demo", adminhttp.WorkspaceUpsert{})
 	assertResourceError(t, err, 400, "INVALID_WORKSPACE")
 
 	workspaces.putStatus = 500
-	err = manager.putWorkspace(context.Background(), "demo", adminservice.WorkspaceUpsert{})
+	err = manager.putWorkspace(context.Background(), "demo", adminhttp.WorkspaceUpsert{})
 	assertResourceError(t, err, 500, "INTERNAL_ERROR")
 }
 
@@ -170,40 +170,40 @@ func newFakeWorkspaces() *fakeWorkspaces {
 	return &fakeWorkspaces{items: map[string]apitypes.Workspace{}}
 }
 
-func (f *fakeWorkspaces) ListWorkspaces(context.Context, adminservice.ListWorkspacesRequestObject) (adminservice.ListWorkspacesResponseObject, error) {
+func (f *fakeWorkspaces) ListWorkspaces(context.Context, adminhttp.ListWorkspacesRequestObject) (adminhttp.ListWorkspacesResponseObject, error) {
 	return nil, nil
 }
 
-func (f *fakeWorkspaces) CreateWorkspace(context.Context, adminservice.CreateWorkspaceRequestObject) (adminservice.CreateWorkspaceResponseObject, error) {
+func (f *fakeWorkspaces) CreateWorkspace(context.Context, adminhttp.CreateWorkspaceRequestObject) (adminhttp.CreateWorkspaceResponseObject, error) {
 	return nil, nil
 }
 
-func (f *fakeWorkspaces) DeleteWorkspace(_ context.Context, request adminservice.DeleteWorkspaceRequestObject) (adminservice.DeleteWorkspaceResponseObject, error) {
+func (f *fakeWorkspaces) DeleteWorkspace(_ context.Context, request adminhttp.DeleteWorkspaceRequestObject) (adminhttp.DeleteWorkspaceResponseObject, error) {
 	item, ok := f.items[string(request.Name)]
 	if !ok {
-		return adminservice.DeleteWorkspace404JSONResponse(apitypes.NewErrorResponse("WORKSPACE_NOT_FOUND", "not found")), nil
+		return adminhttp.DeleteWorkspace404JSONResponse(apitypes.NewErrorResponse("WORKSPACE_NOT_FOUND", "not found")), nil
 	}
 	delete(f.items, string(request.Name))
-	return adminservice.DeleteWorkspace200JSONResponse(item), nil
+	return adminhttp.DeleteWorkspace200JSONResponse(item), nil
 }
 
-func (f *fakeWorkspaces) GetWorkspace(_ context.Context, request adminservice.GetWorkspaceRequestObject) (adminservice.GetWorkspaceResponseObject, error) {
+func (f *fakeWorkspaces) GetWorkspace(_ context.Context, request adminhttp.GetWorkspaceRequestObject) (adminhttp.GetWorkspaceResponseObject, error) {
 	if f.getStatus == 500 {
-		return adminservice.GetWorkspace500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "failed")), nil
+		return adminhttp.GetWorkspace500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "failed")), nil
 	}
 	item, ok := f.items[string(request.Name)]
 	if !ok {
-		return adminservice.GetWorkspace404JSONResponse(apitypes.NewErrorResponse("WORKSPACE_NOT_FOUND", "not found")), nil
+		return adminhttp.GetWorkspace404JSONResponse(apitypes.NewErrorResponse("WORKSPACE_NOT_FOUND", "not found")), nil
 	}
-	return adminservice.GetWorkspace200JSONResponse(item), nil
+	return adminhttp.GetWorkspace200JSONResponse(item), nil
 }
 
-func (f *fakeWorkspaces) PutWorkspace(_ context.Context, request adminservice.PutWorkspaceRequestObject) (adminservice.PutWorkspaceResponseObject, error) {
+func (f *fakeWorkspaces) PutWorkspace(_ context.Context, request adminhttp.PutWorkspaceRequestObject) (adminhttp.PutWorkspaceResponseObject, error) {
 	switch f.putStatus {
 	case 400:
-		return adminservice.PutWorkspace400JSONResponse(apitypes.NewErrorResponse("INVALID_WORKSPACE", "invalid")), nil
+		return adminhttp.PutWorkspace400JSONResponse(apitypes.NewErrorResponse("INVALID_WORKSPACE", "invalid")), nil
 	case 500:
-		return adminservice.PutWorkspace500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "failed")), nil
+		return adminhttp.PutWorkspace500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "failed")), nil
 	}
 	f.putCount++
 	body := *request.Body
@@ -216,5 +216,5 @@ func (f *fakeWorkspaces) PutWorkspace(_ context.Context, request adminservice.Pu
 		WorkflowName: body.WorkflowName,
 	}
 	f.items[string(request.Name)] = item
-	return adminservice.PutWorkspace200JSONResponse(item), nil
+	return adminhttp.PutWorkspace200JSONResponse(item), nil
 }

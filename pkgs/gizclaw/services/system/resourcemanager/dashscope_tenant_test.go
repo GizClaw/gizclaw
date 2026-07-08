@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminservice"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 )
 
@@ -112,10 +112,10 @@ func TestDashScopeTenantServiceResponseErrors(t *testing.T) {
 	_, _, err := manager.getDashScopeTenant(context.Background(), "tenant")
 	assertResourceError(t, err, 500, "INTERNAL_ERROR")
 
-	err = manager.putDashScopeTenant(context.Background(), "tenant", adminservice.DashScopeTenantUpsert{})
+	err = manager.putDashScopeTenant(context.Background(), "tenant", adminhttp.DashScopeTenantUpsert{})
 	assertResourceError(t, err, 500, "INTERNAL_ERROR")
 	manager = New(Services{ProviderTenants: errorModelService{dashScopePutStatus: 400}})
-	err = manager.putDashScopeTenant(context.Background(), "tenant", adminservice.DashScopeTenantUpsert{})
+	err = manager.putDashScopeTenant(context.Background(), "tenant", adminhttp.DashScopeTenantUpsert{})
 	assertResourceError(t, err, 400, "INVALID_DASHSCOPE_TENANT")
 
 	manager = New(Services{ProviderTenants: errorModelService{}})

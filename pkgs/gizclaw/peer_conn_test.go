@@ -14,9 +14,9 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/pcm"
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/stampedopus"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminservice"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/openaiservice"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/openaihttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	telemetrypb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/telemetry"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/openaiapi"
@@ -119,11 +119,11 @@ func TestPeerConnHelpersAndRPCHandle(t *testing.T) {
 		if err != nil {
 			t.Fatalf("GenerateKeyPair() error = %v", err)
 		}
-		var voiceRequests []adminservice.ListVoicesRequestObject
+		var voiceRequests []adminhttp.ListVoicesRequestObject
 		handler := newOpenAIHTTPHandler(&openaiapi.Server{
 			Caller: keyPair.Public,
-			Models: peerConnModelListerFunc(func(context.Context, adminservice.ListModelsRequestObject) (adminservice.ListModelsResponseObject, error) {
-				return adminservice.ListModels200JSONResponse(adminservice.ModelList{Items: []apitypes.Model{
+			Models: peerConnModelListerFunc(func(context.Context, adminhttp.ListModelsRequestObject) (adminhttp.ListModelsResponseObject, error) {
+				return adminhttp.ListModels200JSONResponse(adminhttp.ModelList{Items: []apitypes.Model{
 					{Id: "chat", Provider: apitypes.ModelProvider{Name: "main"}},
 				}}), nil
 			}),
@@ -133,9 +133,9 @@ func TestPeerConnHelpersAndRPCHandle(t *testing.T) {
 				}
 				return nil
 			}),
-			Voices: peerConnVoiceListerFunc(func(_ context.Context, req adminservice.ListVoicesRequestObject) (adminservice.ListVoicesResponseObject, error) {
+			Voices: peerConnVoiceListerFunc(func(_ context.Context, req adminhttp.ListVoicesRequestObject) (adminhttp.ListVoicesResponseObject, error) {
 				voiceRequests = append(voiceRequests, req)
-				return adminservice.ListVoices200JSONResponse(adminservice.VoiceList{Items: []apitypes.Voice{
+				return adminhttp.ListVoices200JSONResponse(adminhttp.VoiceList{Items: []apitypes.Voice{
 					{
 						Id: "voice-a",
 						Provider: apitypes.VoiceProvider{
@@ -154,7 +154,7 @@ func TestPeerConnHelpersAndRPCHandle(t *testing.T) {
 		if resp.Code != http.StatusOK {
 			t.Fatalf("GET /v1/models status = %d body=%s", resp.Code, resp.Body.String())
 		}
-		var models openaiservice.ListModelsResponse
+		var models openaihttp.ListModelsResponse
 		if err := json.Unmarshal(resp.Body.Bytes(), &models); err != nil {
 			t.Fatalf("decode /v1/models response: %v", err)
 		}
@@ -201,15 +201,15 @@ func TestPeerConnHelpersAndRPCHandle(t *testing.T) {
 	})
 }
 
-type peerConnModelListerFunc func(context.Context, adminservice.ListModelsRequestObject) (adminservice.ListModelsResponseObject, error)
+type peerConnModelListerFunc func(context.Context, adminhttp.ListModelsRequestObject) (adminhttp.ListModelsResponseObject, error)
 
-func (f peerConnModelListerFunc) ListModels(ctx context.Context, req adminservice.ListModelsRequestObject) (adminservice.ListModelsResponseObject, error) {
+func (f peerConnModelListerFunc) ListModels(ctx context.Context, req adminhttp.ListModelsRequestObject) (adminhttp.ListModelsResponseObject, error) {
 	return f(ctx, req)
 }
 
-type peerConnVoiceListerFunc func(context.Context, adminservice.ListVoicesRequestObject) (adminservice.ListVoicesResponseObject, error)
+type peerConnVoiceListerFunc func(context.Context, adminhttp.ListVoicesRequestObject) (adminhttp.ListVoicesResponseObject, error)
 
-func (f peerConnVoiceListerFunc) ListVoices(ctx context.Context, req adminservice.ListVoicesRequestObject) (adminservice.ListVoicesResponseObject, error) {
+func (f peerConnVoiceListerFunc) ListVoices(ctx context.Context, req adminhttp.ListVoicesRequestObject) (adminhttp.ListVoicesResponseObject, error) {
 	return f(ctx, req)
 }
 
@@ -355,11 +355,11 @@ func TestPeerConnServeDirectPacketsDoesNotBlockOnTelemetry(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Marshal() error = %v", err)
 	}
-	packets := []peerConnTestPacket{{protocol: ProtocolTelemetry, payload: payload}}
+	packets := []peerConnTestPacket{{protocol: EventStreamTelemetry, payload: payload}}
 	for i := 0; i < peerConnTelemetryQueueSize+5; i++ {
-		packets = append(packets, peerConnTestPacket{protocol: ProtocolTelemetry, payload: payload})
+		packets = append(packets, peerConnTestPacket{protocol: EventStreamTelemetry, payload: payload})
 	}
-	packets = append(packets, peerConnTestPacket{protocol: ProtocolStampedOpus, payload: stampedopus.Pack(123, []byte{1, 2, 3})})
+	packets = append(packets, peerConnTestPacket{protocol: PacketStampedOpus, payload: stampedopus.Pack(123, []byte{1, 2, 3})})
 	conn := &peerConnPacketConn{
 		testGiznetConn: testGiznetConn{publicKey: keyPair.Public},
 		packets:        packets,

@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminservice"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
@@ -19,7 +19,7 @@ func TestServerVoiceCRUDAndFilters(t *testing.T) {
 			return now
 		},
 	}
-	body := adminservice.VoiceUpsert{
+	body := adminhttp.VoiceUpsert{
 		Id:     "manual:voice-1",
 		Source: apitypes.VoiceSourceManual,
 		Provider: apitypes.VoiceProvider{
@@ -27,11 +27,11 @@ func TestServerVoiceCRUDAndFilters(t *testing.T) {
 			Name: "main",
 		},
 	}
-	createdResp, err := srv.CreateVoice(ctx, adminservice.CreateVoiceRequestObject{Body: &body})
+	createdResp, err := srv.CreateVoice(ctx, adminhttp.CreateVoiceRequestObject{Body: &body})
 	if err != nil {
 		t.Fatalf("CreateVoice() error = %v", err)
 	}
-	created, ok := createdResp.(adminservice.CreateVoice200JSONResponse)
+	created, ok := createdResp.(adminhttp.CreateVoice200JSONResponse)
 	if !ok {
 		t.Fatalf("CreateVoice() response = %#v", createdResp)
 	}
@@ -39,11 +39,11 @@ func TestServerVoiceCRUDAndFilters(t *testing.T) {
 		t.Fatalf("created timestamps = %s/%s, want %s", created.CreatedAt, created.UpdatedAt, now)
 	}
 
-	source := adminservice.VoiceSource(apitypes.VoiceSourceManual)
-	providerKind := adminservice.VoiceProviderKind("openai-tenant")
+	source := adminhttp.VoiceSource(apitypes.VoiceSourceManual)
+	providerKind := adminhttp.VoiceProviderKind("openai-tenant")
 	providerName := "main"
-	listResp, err := srv.ListVoices(ctx, adminservice.ListVoicesRequestObject{
-		Params: adminservice.ListVoicesParams{
+	listResp, err := srv.ListVoices(ctx, adminhttp.ListVoicesRequestObject{
+		Params: adminhttp.ListVoicesParams{
 			ProviderKind: &providerKind,
 			ProviderName: &providerName,
 			Source:       &source,
@@ -52,7 +52,7 @@ func TestServerVoiceCRUDAndFilters(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ListVoices() error = %v", err)
 	}
-	listed, ok := listResp.(adminservice.ListVoices200JSONResponse)
+	listed, ok := listResp.(adminhttp.ListVoices200JSONResponse)
 	if !ok {
 		t.Fatalf("ListVoices() response = %#v", listResp)
 	}
@@ -62,11 +62,11 @@ func TestServerVoiceCRUDAndFilters(t *testing.T) {
 
 	description := "updated"
 	body.Description = &description
-	putResp, err := srv.PutVoice(ctx, adminservice.PutVoiceRequestObject{Id: "manual:voice-1", Body: &body})
+	putResp, err := srv.PutVoice(ctx, adminhttp.PutVoiceRequestObject{Id: "manual:voice-1", Body: &body})
 	if err != nil {
 		t.Fatalf("PutVoice() error = %v", err)
 	}
-	updated, ok := putResp.(adminservice.PutVoice200JSONResponse)
+	updated, ok := putResp.(adminhttp.PutVoice200JSONResponse)
 	if !ok {
 		t.Fatalf("PutVoice() response = %#v", putResp)
 	}
@@ -77,26 +77,26 @@ func TestServerVoiceCRUDAndFilters(t *testing.T) {
 		t.Fatalf("updated timestamps = %s/%s, want %s", updated.CreatedAt, updated.UpdatedAt, now)
 	}
 
-	getResp, err := srv.GetVoice(ctx, adminservice.GetVoiceRequestObject{Id: "manual:voice-1"})
+	getResp, err := srv.GetVoice(ctx, adminhttp.GetVoiceRequestObject{Id: "manual:voice-1"})
 	if err != nil {
 		t.Fatalf("GetVoice() error = %v", err)
 	}
-	if _, ok := getResp.(adminservice.GetVoice200JSONResponse); !ok {
+	if _, ok := getResp.(adminhttp.GetVoice200JSONResponse); !ok {
 		t.Fatalf("GetVoice() response = %#v", getResp)
 	}
 
-	deleteResp, err := srv.DeleteVoice(ctx, adminservice.DeleteVoiceRequestObject{Id: "manual:voice-1"})
+	deleteResp, err := srv.DeleteVoice(ctx, adminhttp.DeleteVoiceRequestObject{Id: "manual:voice-1"})
 	if err != nil {
 		t.Fatalf("DeleteVoice() error = %v", err)
 	}
-	if _, ok := deleteResp.(adminservice.DeleteVoice200JSONResponse); !ok {
+	if _, ok := deleteResp.(adminhttp.DeleteVoice200JSONResponse); !ok {
 		t.Fatalf("DeleteVoice() response = %#v", deleteResp)
 	}
-	missingResp, err := srv.GetVoice(ctx, adminservice.GetVoiceRequestObject{Id: "manual:voice-1"})
+	missingResp, err := srv.GetVoice(ctx, adminhttp.GetVoiceRequestObject{Id: "manual:voice-1"})
 	if err != nil {
 		t.Fatalf("GetVoice(missing) error = %v", err)
 	}
-	if _, ok := missingResp.(adminservice.GetVoice404JSONResponse); !ok {
+	if _, ok := missingResp.(adminhttp.GetVoice404JSONResponse); !ok {
 		t.Fatalf("GetVoice(missing) response = %#v", missingResp)
 	}
 }
@@ -229,17 +229,17 @@ func TestServerVoiceValidationAndPagination(t *testing.T) {
 	now := time.Date(2026, 2, 3, 4, 5, 6, 0, time.UTC)
 	srv := &Server{Store: store, Now: func() time.Time { return now }}
 
-	if resp, err := (*Server)(nil).ListVoices(ctx, adminservice.ListVoicesRequestObject{}); err != nil {
+	if resp, err := (*Server)(nil).ListVoices(ctx, adminhttp.ListVoicesRequestObject{}); err != nil {
 		t.Fatalf("ListVoices(nil server) error = %v", err)
-	} else if _, ok := resp.(adminservice.ListVoices500JSONResponse); !ok {
+	} else if _, ok := resp.(adminhttp.ListVoices500JSONResponse); !ok {
 		t.Fatalf("ListVoices(nil server) response = %#v", resp)
 	}
-	if resp, err := srv.CreateVoice(ctx, adminservice.CreateVoiceRequestObject{}); err != nil {
+	if resp, err := srv.CreateVoice(ctx, adminhttp.CreateVoiceRequestObject{}); err != nil {
 		t.Fatalf("CreateVoice(nil body) error = %v", err)
-	} else if _, ok := resp.(adminservice.CreateVoice400JSONResponse); !ok {
+	} else if _, ok := resp.(adminhttp.CreateVoice400JSONResponse); !ok {
 		t.Fatalf("CreateVoice(nil body) response = %#v", resp)
 	}
-	if resp, err := srv.CreateVoice(ctx, adminservice.CreateVoiceRequestObject{Body: &adminservice.VoiceUpsert{
+	if resp, err := srv.CreateVoice(ctx, adminhttp.CreateVoiceRequestObject{Body: &adminhttp.VoiceUpsert{
 		Id:     "manual:bad",
 		Source: apitypes.VoiceSource("bad"),
 		Provider: apitypes.VoiceProvider{
@@ -248,46 +248,46 @@ func TestServerVoiceValidationAndPagination(t *testing.T) {
 		},
 	}}); err != nil {
 		t.Fatalf("CreateVoice(invalid source) error = %v", err)
-	} else if _, ok := resp.(adminservice.CreateVoice400JSONResponse); !ok {
+	} else if _, ok := resp.(adminhttp.CreateVoice400JSONResponse); !ok {
 		t.Fatalf("CreateVoice(invalid source) response = %#v", resp)
 	}
 
 	first := voiceUpsert("manual:voice-a", "main")
 	second := voiceUpsert("manual:voice-b", "main")
-	for _, body := range []adminservice.VoiceUpsert{first, second} {
-		if resp, err := srv.CreateVoice(ctx, adminservice.CreateVoiceRequestObject{Body: &body}); err != nil {
+	for _, body := range []adminhttp.VoiceUpsert{first, second} {
+		if resp, err := srv.CreateVoice(ctx, adminhttp.CreateVoiceRequestObject{Body: &body}); err != nil {
 			t.Fatalf("CreateVoice(%s) error = %v", body.Id, err)
-		} else if _, ok := resp.(adminservice.CreateVoice200JSONResponse); !ok {
+		} else if _, ok := resp.(adminhttp.CreateVoice200JSONResponse); !ok {
 			t.Fatalf("CreateVoice(%s) response = %#v", body.Id, resp)
 		}
 	}
-	if resp, err := srv.CreateVoice(ctx, adminservice.CreateVoiceRequestObject{Body: &first}); err != nil {
+	if resp, err := srv.CreateVoice(ctx, adminhttp.CreateVoiceRequestObject{Body: &first}); err != nil {
 		t.Fatalf("CreateVoice(duplicate) error = %v", err)
-	} else if _, ok := resp.(adminservice.CreateVoice409JSONResponse); !ok {
+	} else if _, ok := resp.(adminhttp.CreateVoice409JSONResponse); !ok {
 		t.Fatalf("CreateVoice(duplicate) response = %#v", resp)
 	}
 
 	limit := int32(1)
-	pageResp, err := srv.ListVoices(ctx, adminservice.ListVoicesRequestObject{
-		Params: adminservice.ListVoicesParams{Limit: &limit},
+	pageResp, err := srv.ListVoices(ctx, adminhttp.ListVoicesRequestObject{
+		Params: adminhttp.ListVoicesParams{Limit: &limit},
 	})
 	if err != nil {
 		t.Fatalf("ListVoices(page 1) error = %v", err)
 	}
-	page, ok := pageResp.(adminservice.ListVoices200JSONResponse)
+	page, ok := pageResp.(adminhttp.ListVoices200JSONResponse)
 	if !ok {
 		t.Fatalf("ListVoices(page 1) response = %#v", pageResp)
 	}
 	if len(page.Items) != 1 || !page.HasNext || page.NextCursor == nil {
 		t.Fatalf("ListVoices(page 1) = %#v", page)
 	}
-	pageResp, err = srv.ListVoices(ctx, adminservice.ListVoicesRequestObject{
-		Params: adminservice.ListVoicesParams{Cursor: page.NextCursor, Limit: &limit},
+	pageResp, err = srv.ListVoices(ctx, adminhttp.ListVoicesRequestObject{
+		Params: adminhttp.ListVoicesParams{Cursor: page.NextCursor, Limit: &limit},
 	})
 	if err != nil {
 		t.Fatalf("ListVoices(page 2) error = %v", err)
 	}
-	page, ok = pageResp.(adminservice.ListVoices200JSONResponse)
+	page, ok = pageResp.(adminhttp.ListVoices200JSONResponse)
 	if !ok {
 		t.Fatalf("ListVoices(page 2) response = %#v", pageResp)
 	}
@@ -295,15 +295,15 @@ func TestServerVoiceValidationAndPagination(t *testing.T) {
 		t.Fatalf("ListVoices(page 2) = %#v", page)
 	}
 
-	if resp, err := srv.PutVoice(ctx, adminservice.PutVoiceRequestObject{Id: "manual:voice-a"}); err != nil {
+	if resp, err := srv.PutVoice(ctx, adminhttp.PutVoiceRequestObject{Id: "manual:voice-a"}); err != nil {
 		t.Fatalf("PutVoice(nil body) error = %v", err)
-	} else if _, ok := resp.(adminservice.PutVoice400JSONResponse); !ok {
+	} else if _, ok := resp.(adminhttp.PutVoice400JSONResponse); !ok {
 		t.Fatalf("PutVoice(nil body) response = %#v", resp)
 	}
 	mismatch := voiceUpsert("manual:other", "main")
-	if resp, err := srv.PutVoice(ctx, adminservice.PutVoiceRequestObject{Id: "manual:voice-a", Body: &mismatch}); err != nil {
+	if resp, err := srv.PutVoice(ctx, adminhttp.PutVoiceRequestObject{Id: "manual:voice-a", Body: &mismatch}); err != nil {
 		t.Fatalf("PutVoice(id mismatch) error = %v", err)
-	} else if _, ok := resp.(adminservice.PutVoice400JSONResponse); !ok {
+	} else if _, ok := resp.(adminhttp.PutVoice400JSONResponse); !ok {
 		t.Fatalf("PutVoice(id mismatch) response = %#v", resp)
 	}
 
@@ -316,15 +316,15 @@ func TestServerVoiceValidationAndPagination(t *testing.T) {
 		t.Fatalf("Write(sync voice) error = %v", err)
 	}
 	syncUpdate := voiceUpsert("sync:voice", "main")
-	if resp, err := srv.PutVoice(ctx, adminservice.PutVoiceRequestObject{Id: "sync:voice", Body: &syncUpdate}); err != nil {
+	if resp, err := srv.PutVoice(ctx, adminhttp.PutVoiceRequestObject{Id: "sync:voice", Body: &syncUpdate}); err != nil {
 		t.Fatalf("PutVoice(sync) error = %v", err)
-	} else if _, ok := resp.(adminservice.PutVoice409JSONResponse); !ok {
+	} else if _, ok := resp.(adminhttp.PutVoice409JSONResponse); !ok {
 		t.Fatalf("PutVoice(sync) response = %#v", resp)
 	}
 
-	if resp, err := srv.DeleteVoice(ctx, adminservice.DeleteVoiceRequestObject{Id: "missing"}); err != nil {
+	if resp, err := srv.DeleteVoice(ctx, adminhttp.DeleteVoiceRequestObject{Id: "missing"}); err != nil {
 		t.Fatalf("DeleteVoice(missing) error = %v", err)
-	} else if _, ok := resp.(adminservice.DeleteVoice404JSONResponse); !ok {
+	} else if _, ok := resp.(adminhttp.DeleteVoice404JSONResponse); !ok {
 		t.Fatalf("DeleteVoice(missing) response = %#v", resp)
 	}
 }
@@ -353,10 +353,10 @@ func TestVoiceBoundaryBranches(t *testing.T) {
 	if normalized.ProviderData == nil || ProviderDataString(normalized, "voice_id") != "voice-1" {
 		t.Fatalf("normalized provider data = %#v", normalized.ProviderData)
 	}
-	if _, err := normalizeVoiceUpsert(adminservice.VoiceUpsert{Id: "manual:missing-source"}, ""); err == nil {
+	if _, err := normalizeVoiceUpsert(adminhttp.VoiceUpsert{Id: "manual:missing-source"}, ""); err == nil {
 		t.Fatalf("normalizeVoiceUpsert(missing source) error = nil, want error")
 	}
-	if _, err := normalizeVoiceUpsert(adminservice.VoiceUpsert{
+	if _, err := normalizeVoiceUpsert(adminhttp.VoiceUpsert{
 		Id:     "manual:missing-kind",
 		Source: apitypes.VoiceSourceManual,
 		Provider: apitypes.VoiceProvider{
@@ -383,14 +383,14 @@ func TestVoiceBoundaryBranches(t *testing.T) {
 	if err := Write(ctx, store, syncVoice, nil); err != nil {
 		t.Fatalf("Write(sync voice) error = %v", err)
 	}
-	source := adminservice.VoiceSource(apitypes.VoiceSourceManual)
-	pageResp, err := (&Server{Store: store}).ListVoices(ctx, adminservice.ListVoicesRequestObject{
-		Params: adminservice.ListVoicesParams{Source: &source},
+	source := adminhttp.VoiceSource(apitypes.VoiceSourceManual)
+	pageResp, err := (&Server{Store: store}).ListVoices(ctx, adminhttp.ListVoicesRequestObject{
+		Params: adminhttp.ListVoicesParams{Source: &source},
 	})
 	if err != nil {
 		t.Fatalf("ListVoices(source mismatch) error = %v", err)
 	}
-	page, ok := pageResp.(adminservice.ListVoices200JSONResponse)
+	page, ok := pageResp.(adminhttp.ListVoices200JSONResponse)
 	if !ok {
 		t.Fatalf("ListVoices(source mismatch) response = %#v", pageResp)
 	}
@@ -412,8 +412,8 @@ func (s customStringer) String() string {
 	return string(s)
 }
 
-func voiceUpsert(id, providerName string) adminservice.VoiceUpsert {
-	return adminservice.VoiceUpsert{
+func voiceUpsert(id, providerName string) adminhttp.VoiceUpsert {
+	return adminhttp.VoiceUpsert{
 		Id:     id,
 		Source: apitypes.VoiceSourceManual,
 		Provider: apitypes.VoiceProvider{

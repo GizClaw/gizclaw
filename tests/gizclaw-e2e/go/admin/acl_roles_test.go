@@ -5,14 +5,14 @@ package admin_test
 import (
 	"testing"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminservice"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 )
 
 func TestAdminAPIACLRolesListGetAndMutation(t *testing.T) {
 	env := newAdminAPIHarness(t)
 
-	list, err := env.api.ListACLRolesWithResponse(env.ctx, &adminservice.ListACLRolesParams{Limit: ptr[int32](100)})
+	list, err := env.api.ListACLRolesWithResponse(env.ctx, &adminhttp.ListACLRolesParams{Limit: ptr[int32](100)})
 	if err != nil {
 		t.Fatalf("list ACL roles: %v", err)
 	}
@@ -33,7 +33,7 @@ func TestAdminAPIACLRolesListGetAndMutation(t *testing.T) {
 
 	name := mutationName("acl-role")
 	_, _ = env.api.DeleteACLRoleWithResponse(env.ctx, name)
-	created, err := env.api.CreateACLRoleWithResponse(env.ctx, adminservice.ACLRoleUpsert{
+	created, err := env.api.CreateACLRoleWithResponse(env.ctx, adminhttp.ACLRoleUpsert{
 		Name:        name,
 		Permissions: apitypes.ACLPermissionList{apitypes.ACLPermissionRead},
 	})

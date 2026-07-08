@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminservice"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 )
 
@@ -17,7 +17,7 @@ func TestAdminAPIFirmwaresListGetPaginationAndUpload(t *testing.T) {
 	env := newAdminAPIHarness(t)
 
 	all := collectAdminPages(t, 20, func(cursor *string, limit int32) ([]apitypes.Firmware, bool, *string) {
-		resp, err := env.api.ListFirmwaresWithResponse(env.ctx, &adminservice.ListFirmwaresParams{Cursor: cursor, Limit: &limit})
+		resp, err := env.api.ListFirmwaresWithResponse(env.ctx, &adminhttp.ListFirmwaresParams{Cursor: cursor, Limit: &limit})
 		if err != nil {
 			t.Fatalf("list firmwares: %v", err)
 		}
@@ -41,7 +41,7 @@ func TestAdminAPIFirmwaresListGetPaginationAndUpload(t *testing.T) {
 
 	name := mutationName("firmware")
 	_, _ = env.api.DeleteFirmwareWithResponse(env.ctx, name)
-	created, err := env.api.CreateFirmwareWithResponse(env.ctx, adminservice.FirmwareUpsert{
+	created, err := env.api.CreateFirmwareWithResponse(env.ctx, adminhttp.FirmwareUpsert{
 		Name:        name,
 		Description: ptr("Admin API mutation firmware"),
 		Slots:       firmwareSlots("Admin API stable firmware"),
@@ -60,7 +60,7 @@ func TestAdminAPIFirmwaresListGetPaginationAndUpload(t *testing.T) {
 		"config/device.json":      `{"modules":["main","voice_dsp"]}`,
 		"docs/release-notes.txt":  "admin api artifact release notes",
 	})
-	upload, err := env.api.UploadFirmwareArtifactWithBodyWithResponse(env.ctx, name, adminservice.UploadFirmwareArtifactParamsChannelStable, "application/x-tar", bytes.NewReader(payload))
+	upload, err := env.api.UploadFirmwareArtifactWithBodyWithResponse(env.ctx, name, adminhttp.UploadFirmwareArtifactParamsChannelStable, "application/x-tar", bytes.NewReader(payload))
 	if err != nil {
 		t.Fatalf("upload firmware artifact: %v", err)
 	}
@@ -68,7 +68,7 @@ func TestAdminAPIFirmwaresListGetPaginationAndUpload(t *testing.T) {
 	if upload.JSON200 == nil || upload.JSON200.Slots.Stable.Artifact == nil {
 		t.Fatalf("upload firmware artifact = %#v", upload.JSON200)
 	}
-	list, err := env.api.ListFirmwareArtifactEntriesWithResponse(env.ctx, name, adminservice.ListFirmwareArtifactEntriesParamsChannelStable, nil)
+	list, err := env.api.ListFirmwareArtifactEntriesWithResponse(env.ctx, name, adminhttp.ListFirmwareArtifactEntriesParamsChannelStable, nil)
 	if err != nil {
 		t.Fatalf("list firmware artifact entries: %v", err)
 	}
@@ -77,7 +77,7 @@ func TestAdminAPIFirmwaresListGetPaginationAndUpload(t *testing.T) {
 		t.Fatalf("artifact list = %#v", list.JSON200)
 	}
 	firmwarePath := "firmware"
-	listFirmware, err := env.api.ListFirmwareArtifactEntriesWithResponse(env.ctx, name, adminservice.ListFirmwareArtifactEntriesParamsChannelStable, &adminservice.ListFirmwareArtifactEntriesParams{Path: &firmwarePath})
+	listFirmware, err := env.api.ListFirmwareArtifactEntriesWithResponse(env.ctx, name, adminhttp.ListFirmwareArtifactEntriesParamsChannelStable, &adminhttp.ListFirmwareArtifactEntriesParams{Path: &firmwarePath})
 	if err != nil {
 		t.Fatalf("list firmware artifact firmware dir: %v", err)
 	}
@@ -85,7 +85,7 @@ func TestAdminAPIFirmwaresListGetPaginationAndUpload(t *testing.T) {
 	if listFirmware.JSON200 == nil || !artifactEntriesContain(listFirmware.JSON200.Items, "firmware/main.bin", "firmware/voice_dsp.bin") {
 		t.Fatalf("artifact firmware list = %#v", listFirmware.JSON200)
 	}
-	tree, err := env.api.TreeFirmwareArtifactEntriesWithResponse(env.ctx, name, adminservice.TreeFirmwareArtifactEntriesParamsChannel("stable"), nil)
+	tree, err := env.api.TreeFirmwareArtifactEntriesWithResponse(env.ctx, name, adminhttp.TreeFirmwareArtifactEntriesParamsChannel("stable"), nil)
 	if err != nil {
 		t.Fatalf("tree firmware artifact entries: %v", err)
 	}
@@ -94,7 +94,7 @@ func TestAdminAPIFirmwaresListGetPaginationAndUpload(t *testing.T) {
 		t.Fatalf("artifact tree = %#v", tree.JSON200)
 	}
 	statPath := "assets/icons/status.png"
-	stat, err := env.api.StatFirmwareArtifactEntryWithResponse(env.ctx, name, adminservice.StatFirmwareArtifactEntryParamsChannelStable, &adminservice.StatFirmwareArtifactEntryParams{Path: &statPath})
+	stat, err := env.api.StatFirmwareArtifactEntryWithResponse(env.ctx, name, adminhttp.StatFirmwareArtifactEntryParamsChannelStable, &adminhttp.StatFirmwareArtifactEntryParams{Path: &statPath})
 	if err != nil {
 		t.Fatalf("stat firmware artifact entry: %v", err)
 	}
@@ -102,7 +102,7 @@ func TestAdminAPIFirmwaresListGetPaginationAndUpload(t *testing.T) {
 	if stat.JSON200 == nil || stat.JSON200.Entry == nil || stat.JSON200.Entry.Path != statPath || stat.JSON200.Entry.Size <= 0 || !strings.Contains(ptrValue(stat.JSON200.Entry.ContentType), "image/png") {
 		t.Fatalf("artifact stat = %#v", stat.JSON200)
 	}
-	downloadEntry, err := env.api.DownloadFirmwareArtifactEntryWithResponse(env.ctx, name, adminservice.DownloadFirmwareArtifactEntryParamsChannelStable, &adminservice.DownloadFirmwareArtifactEntryParams{Path: "firmware/main.bin"})
+	downloadEntry, err := env.api.DownloadFirmwareArtifactEntryWithResponse(env.ctx, name, adminhttp.DownloadFirmwareArtifactEntryParamsChannelStable, &adminhttp.DownloadFirmwareArtifactEntryParams{Path: "firmware/main.bin"})
 	if err != nil {
 		t.Fatalf("download firmware artifact entry: %v", err)
 	}
@@ -110,14 +110,14 @@ func TestAdminAPIFirmwaresListGetPaginationAndUpload(t *testing.T) {
 	if !bytes.Contains(downloadEntry.Body, []byte("admin api main firmware payload")) {
 		t.Fatalf("artifact entry payload = %q", string(downloadEntry.Body))
 	}
-	downloadTar, err := env.api.DownloadFirmwareArtifactWithResponse(env.ctx, name, adminservice.DownloadFirmwareArtifactParamsChannelStable)
+	downloadTar, err := env.api.DownloadFirmwareArtifactWithResponse(env.ctx, name, adminhttp.DownloadFirmwareArtifactParamsChannelStable)
 	if err != nil {
 		t.Fatalf("download firmware artifact tar: %v", err)
 	}
 	requireStatusOK(t, downloadTar, downloadTar.Body)
 	requireTarEntries(t, downloadTar.Body, "firmware/main.bin", "assets/icons/status.png", "config/device.json")
 
-	deletedArtifact, err := env.api.DeleteFirmwareArtifactWithResponse(env.ctx, name, adminservice.DeleteFirmwareArtifactParamsChannelStable)
+	deletedArtifact, err := env.api.DeleteFirmwareArtifactWithResponse(env.ctx, name, adminhttp.DeleteFirmwareArtifactParamsChannelStable)
 	if err != nil {
 		t.Fatalf("delete firmware artifact: %v", err)
 	}

@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminservice"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
@@ -25,11 +25,11 @@ func TestServerWorkspacesCRUD(t *testing.T) {
 		"parameters": {"mode": "demo"}
 	}`)
 
-	createResp, err := srv.CreateWorkspace(ctx, adminservice.CreateWorkspaceRequestObject{Body: &createBody})
+	createResp, err := srv.CreateWorkspace(ctx, adminhttp.CreateWorkspaceRequestObject{Body: &createBody})
 	if err != nil {
 		t.Fatalf("CreateWorkspace() error = %v", err)
 	}
-	created, ok := createResp.(adminservice.CreateWorkspace200JSONResponse)
+	created, ok := createResp.(adminhttp.CreateWorkspace200JSONResponse)
 	if !ok {
 		t.Fatalf("CreateWorkspace() response = %#v", createResp)
 	}
@@ -46,11 +46,11 @@ func TestServerWorkspacesCRUD(t *testing.T) {
 		t.Fatalf("runtime prepared after create = %#v", runtime.prepared)
 	}
 
-	listResp, err := srv.ListWorkspaces(ctx, adminservice.ListWorkspacesRequestObject{})
+	listResp, err := srv.ListWorkspaces(ctx, adminhttp.ListWorkspacesRequestObject{})
 	if err != nil {
 		t.Fatalf("ListWorkspaces() error = %v", err)
 	}
-	listed, ok := listResp.(adminservice.ListWorkspaces200JSONResponse)
+	listed, ok := listResp.(adminhttp.ListWorkspaces200JSONResponse)
 	if !ok {
 		t.Fatalf("ListWorkspaces() response = %#v", listResp)
 	}
@@ -58,11 +58,11 @@ func TestServerWorkspacesCRUD(t *testing.T) {
 		t.Fatalf("ListWorkspaces() = %#v", listed)
 	}
 
-	getResp, err := srv.GetWorkspace(ctx, adminservice.GetWorkspaceRequestObject{Name: "alpha001"})
+	getResp, err := srv.GetWorkspace(ctx, adminhttp.GetWorkspaceRequestObject{Name: "alpha001"})
 	if err != nil {
 		t.Fatalf("GetWorkspace() error = %v", err)
 	}
-	got, ok := getResp.(adminservice.GetWorkspace200JSONResponse)
+	got, ok := getResp.(adminhttp.GetWorkspace200JSONResponse)
 	if !ok {
 		t.Fatalf("GetWorkspace() response = %#v", getResp)
 	}
@@ -75,14 +75,14 @@ func TestServerWorkspacesCRUD(t *testing.T) {
 		"workflow_name": "workflow-1",
 		"parameters": {"mode": "updated"}
 	}`)
-	putResp, err := srv.PutWorkspace(ctx, adminservice.PutWorkspaceRequestObject{
+	putResp, err := srv.PutWorkspace(ctx, adminhttp.PutWorkspaceRequestObject{
 		Name: "alpha001",
 		Body: &updateBody,
 	})
 	if err != nil {
 		t.Fatalf("PutWorkspace() error = %v", err)
 	}
-	updated, ok := putResp.(adminservice.PutWorkspace200JSONResponse)
+	updated, ok := putResp.(adminhttp.PutWorkspace200JSONResponse)
 	if !ok {
 		t.Fatalf("PutWorkspace() response = %#v", putResp)
 	}
@@ -96,22 +96,22 @@ func TestServerWorkspacesCRUD(t *testing.T) {
 		t.Fatalf("runtime prepared after put = %#v", runtime.prepared)
 	}
 
-	deleteResp, err := srv.DeleteWorkspace(ctx, adminservice.DeleteWorkspaceRequestObject{Name: "alpha001"})
+	deleteResp, err := srv.DeleteWorkspace(ctx, adminhttp.DeleteWorkspaceRequestObject{Name: "alpha001"})
 	if err != nil {
 		t.Fatalf("DeleteWorkspace() error = %v", err)
 	}
-	if _, ok := deleteResp.(adminservice.DeleteWorkspace200JSONResponse); !ok {
+	if _, ok := deleteResp.(adminhttp.DeleteWorkspace200JSONResponse); !ok {
 		t.Fatalf("DeleteWorkspace() response = %#v", deleteResp)
 	}
 	if len(runtime.deleted) != 1 || runtime.deleted[0] != "alpha001" {
 		t.Fatalf("runtime deleted = %#v", runtime.deleted)
 	}
 
-	getAfterDelete, err := srv.GetWorkspace(ctx, adminservice.GetWorkspaceRequestObject{Name: "alpha001"})
+	getAfterDelete, err := srv.GetWorkspace(ctx, adminhttp.GetWorkspaceRequestObject{Name: "alpha001"})
 	if err != nil {
 		t.Fatalf("GetWorkspace() after delete error = %v", err)
 	}
-	if _, ok := getAfterDelete.(adminservice.GetWorkspace404JSONResponse); !ok {
+	if _, ok := getAfterDelete.(adminhttp.GetWorkspace404JSONResponse); !ok {
 		t.Fatalf("GetWorkspace() after delete response = %#v", getAfterDelete)
 	}
 }
@@ -145,11 +145,11 @@ func TestServerWorkspaceLastActiveBackfillsLegacyRecords(t *testing.T) {
 		t.Fatalf("getWorkspace() last_active_at = %s, want created_at %s", got.LastActiveAt, createdAt)
 	}
 
-	listResp, err := srv.ListWorkspaces(ctx, adminservice.ListWorkspacesRequestObject{})
+	listResp, err := srv.ListWorkspaces(ctx, adminhttp.ListWorkspacesRequestObject{})
 	if err != nil {
 		t.Fatalf("ListWorkspaces() error = %v", err)
 	}
-	listed, ok := listResp.(adminservice.ListWorkspaces200JSONResponse)
+	listed, ok := listResp.(adminhttp.ListWorkspaces200JSONResponse)
 	if !ok || len(listed.Items) != 1 {
 		t.Fatalf("ListWorkspaces() response = %#v", listResp)
 	}
@@ -168,23 +168,23 @@ func TestServerListWorkspacesPagination(t *testing.T) {
 	seedWorkflow(t, srv, "workflow-1")
 
 	for _, name := range []string{"alpha001", "beta0001", "gamma001"} {
-		body := adminservice.WorkspaceUpsert{
+		body := adminhttp.WorkspaceUpsert{
 			Name:         string(name),
 			WorkflowName: "workflow-1",
 		}
-		if _, err := srv.CreateWorkspace(ctx, adminservice.CreateWorkspaceRequestObject{Body: &body}); err != nil {
+		if _, err := srv.CreateWorkspace(ctx, adminhttp.CreateWorkspaceRequestObject{Body: &body}); err != nil {
 			t.Fatalf("CreateWorkspace(%q) error = %v", name, err)
 		}
 	}
 
 	limit := int32(1)
-	firstResp, err := srv.ListWorkspaces(ctx, adminservice.ListWorkspacesRequestObject{
-		Params: adminservice.ListWorkspacesParams{Limit: &limit},
+	firstResp, err := srv.ListWorkspaces(ctx, adminhttp.ListWorkspacesRequestObject{
+		Params: adminhttp.ListWorkspacesParams{Limit: &limit},
 	})
 	if err != nil {
 		t.Fatalf("ListWorkspaces(first page) error = %v", err)
 	}
-	first, ok := firstResp.(adminservice.ListWorkspaces200JSONResponse)
+	first, ok := firstResp.(adminhttp.ListWorkspaces200JSONResponse)
 	if !ok {
 		t.Fatalf("ListWorkspaces(first page) response = %#v", firstResp)
 	}
@@ -193,8 +193,8 @@ func TestServerListWorkspacesPagination(t *testing.T) {
 	}
 
 	cursor := string(*first.NextCursor)
-	secondResp, err := srv.ListWorkspaces(ctx, adminservice.ListWorkspacesRequestObject{
-		Params: adminservice.ListWorkspacesParams{
+	secondResp, err := srv.ListWorkspaces(ctx, adminhttp.ListWorkspacesRequestObject{
+		Params: adminhttp.ListWorkspacesParams{
 			Cursor: &cursor,
 			Limit:  &limit,
 		},
@@ -202,7 +202,7 @@ func TestServerListWorkspacesPagination(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ListWorkspaces(second page) error = %v", err)
 	}
-	second, ok := secondResp.(adminservice.ListWorkspaces200JSONResponse)
+	second, ok := secondResp.(adminhttp.ListWorkspaces200JSONResponse)
 	if !ok {
 		t.Fatalf("ListWorkspaces(second page) response = %#v", secondResp)
 	}
@@ -224,19 +224,19 @@ func TestServerRejectsInvalidWorkspaceReferences(t *testing.T) {
 		"name": "alpha001",
 		"workflow_name": "missing-workflow"
 	}`)
-	resp, err := srv.CreateWorkspace(ctx, adminservice.CreateWorkspaceRequestObject{Body: &missingWorkflow})
+	resp, err := srv.CreateWorkspace(ctx, adminhttp.CreateWorkspaceRequestObject{Body: &missingWorkflow})
 	if err != nil {
 		t.Fatalf("CreateWorkspace(missing workflow) error = %v", err)
 	}
-	if _, ok := resp.(adminservice.CreateWorkspace400JSONResponse); !ok {
+	if _, ok := resp.(adminhttp.CreateWorkspace400JSONResponse); !ok {
 		t.Fatalf("CreateWorkspace(missing workflow) response = %#v", resp)
 	}
 
-	nilCreateResp, err := srv.CreateWorkspace(ctx, adminservice.CreateWorkspaceRequestObject{})
+	nilCreateResp, err := srv.CreateWorkspace(ctx, adminhttp.CreateWorkspaceRequestObject{})
 	if err != nil {
 		t.Fatalf("CreateWorkspace(nil body) error = %v", err)
 	}
-	if _, ok := nilCreateResp.(adminservice.CreateWorkspace400JSONResponse); !ok {
+	if _, ok := nilCreateResp.(adminhttp.CreateWorkspace400JSONResponse); !ok {
 		t.Fatalf("CreateWorkspace(nil body) response = %#v", nilCreateResp)
 	}
 
@@ -244,11 +244,11 @@ func TestServerRejectsInvalidWorkspaceReferences(t *testing.T) {
 		"name": " ",
 		"workflow_name": "workflow-1"
 	}`)
-	missingNameResp, err := srv.CreateWorkspace(ctx, adminservice.CreateWorkspaceRequestObject{Body: &missingName})
+	missingNameResp, err := srv.CreateWorkspace(ctx, adminhttp.CreateWorkspaceRequestObject{Body: &missingName})
 	if err != nil {
 		t.Fatalf("CreateWorkspace(missing name) error = %v", err)
 	}
-	if _, ok := missingNameResp.(adminservice.CreateWorkspace400JSONResponse); !ok {
+	if _, ok := missingNameResp.(adminhttp.CreateWorkspace400JSONResponse); !ok {
 		t.Fatalf("CreateWorkspace(missing name) response = %#v", missingNameResp)
 	}
 
@@ -256,11 +256,11 @@ func TestServerRejectsInvalidWorkspaceReferences(t *testing.T) {
 		"name": "alpha001",
 		"workflow_name": "Bad_Name"
 	}`)
-	invalidWorkflowResp, err := srv.CreateWorkspace(ctx, adminservice.CreateWorkspaceRequestObject{Body: &invalidWorkflowName})
+	invalidWorkflowResp, err := srv.CreateWorkspace(ctx, adminhttp.CreateWorkspaceRequestObject{Body: &invalidWorkflowName})
 	if err != nil {
 		t.Fatalf("CreateWorkspace(invalid workflow name) error = %v", err)
 	}
-	if _, ok := invalidWorkflowResp.(adminservice.CreateWorkspace400JSONResponse); !ok {
+	if _, ok := invalidWorkflowResp.(adminhttp.CreateWorkspace400JSONResponse); !ok {
 		t.Fatalf("CreateWorkspace(invalid workflow name) response = %#v", invalidWorkflowResp)
 	}
 }
@@ -276,22 +276,22 @@ func TestServerPutRejectsPathNameMismatch(t *testing.T) {
 		"name": "other001",
 		"workflow_name": "workflow-1"
 	}`)
-	resp, err := srv.PutWorkspace(ctx, adminservice.PutWorkspaceRequestObject{
+	resp, err := srv.PutWorkspace(ctx, adminhttp.PutWorkspaceRequestObject{
 		Name: "expected1",
 		Body: &body,
 	})
 	if err != nil {
 		t.Fatalf("PutWorkspace() error = %v", err)
 	}
-	if _, ok := resp.(adminservice.PutWorkspace400JSONResponse); !ok {
+	if _, ok := resp.(adminhttp.PutWorkspace400JSONResponse); !ok {
 		t.Fatalf("PutWorkspace() response = %#v", resp)
 	}
 
-	nilPutResp, err := srv.PutWorkspace(ctx, adminservice.PutWorkspaceRequestObject{Name: "expected1"})
+	nilPutResp, err := srv.PutWorkspace(ctx, adminhttp.PutWorkspaceRequestObject{Name: "expected1"})
 	if err != nil {
 		t.Fatalf("PutWorkspace(nil body) error = %v", err)
 	}
-	if _, ok := nilPutResp.(adminservice.PutWorkspace400JSONResponse); !ok {
+	if _, ok := nilPutResp.(adminhttp.PutWorkspace400JSONResponse); !ok {
 		t.Fatalf("PutWorkspace(nil body) response = %#v", nilPutResp)
 	}
 }
@@ -309,22 +309,22 @@ func TestServerWorkspaceConflictAndMissingDelete(t *testing.T) {
 		"name": "alpha001",
 		"workflow_name": "workflow-1"
 	}`)
-	if _, err := srv.CreateWorkspace(ctx, adminservice.CreateWorkspaceRequestObject{Body: &body}); err != nil {
+	if _, err := srv.CreateWorkspace(ctx, adminhttp.CreateWorkspaceRequestObject{Body: &body}); err != nil {
 		t.Fatalf("CreateWorkspace(seed) error = %v", err)
 	}
-	duplicateResp, err := srv.CreateWorkspace(ctx, adminservice.CreateWorkspaceRequestObject{Body: &body})
+	duplicateResp, err := srv.CreateWorkspace(ctx, adminhttp.CreateWorkspaceRequestObject{Body: &body})
 	if err != nil {
 		t.Fatalf("CreateWorkspace(duplicate) error = %v", err)
 	}
-	if _, ok := duplicateResp.(adminservice.CreateWorkspace409JSONResponse); !ok {
+	if _, ok := duplicateResp.(adminhttp.CreateWorkspace409JSONResponse); !ok {
 		t.Fatalf("CreateWorkspace(duplicate) response = %#v", duplicateResp)
 	}
 
-	deleteResp, err := srv.DeleteWorkspace(ctx, adminservice.DeleteWorkspaceRequestObject{Name: "missing"})
+	deleteResp, err := srv.DeleteWorkspace(ctx, adminhttp.DeleteWorkspaceRequestObject{Name: "missing"})
 	if err != nil {
 		t.Fatalf("DeleteWorkspace(missing) error = %v", err)
 	}
-	if _, ok := deleteResp.(adminservice.DeleteWorkspace404JSONResponse); !ok {
+	if _, ok := deleteResp.(adminhttp.DeleteWorkspace404JSONResponse); !ok {
 		t.Fatalf("DeleteWorkspace(missing) response = %#v", deleteResp)
 	}
 	if len(runtime.deleted) != 1 || runtime.deleted[0] != "missing" {
@@ -385,10 +385,10 @@ func seedWorkflow(t *testing.T, srv *Server, name string) {
 	}
 }
 
-func mustWorkspaceUpsert(t *testing.T, raw string) adminservice.WorkspaceUpsert {
+func mustWorkspaceUpsert(t *testing.T, raw string) adminhttp.WorkspaceUpsert {
 	t.Helper()
 
-	var upsert adminservice.WorkspaceUpsert
+	var upsert adminhttp.WorkspaceUpsert
 	if err := json.Unmarshal([]byte(raw), &upsert); err != nil {
 		t.Fatalf("json.Unmarshal() error = %v", err)
 	}

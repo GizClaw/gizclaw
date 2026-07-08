@@ -1,4 +1,4 @@
-package: serverpublic
+package: peerhttp
 generate:
   fiber-server: true
   strict-server: true

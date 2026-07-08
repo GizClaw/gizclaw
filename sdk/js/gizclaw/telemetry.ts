@@ -18,7 +18,7 @@ export type {
   TelemetryFrame,
 } from "./generated/telemetry/peer_telemetry.ts";
 
-export const GIZCLAW_PROTOCOL_TELEMETRY = 0x11;
+export const GIZCLAW_EVENT_STREAM_TELEMETRY = 0x11;
 export const GIZCLAW_MAX_PACKET_MESSAGE_SIZE = 64 * 1024;
 const TELEMETRY_OBSERVATION_BODY_KEYS = ["battery", "gnss", "network", "system"] as const;
 
@@ -46,7 +46,7 @@ export function encodeTelemetryPacket(frame: TelemetryFrame): Uint8Array {
     throw new Error(`telemetry packet payload is ${body.length} bytes, maximum is ${GIZCLAW_MAX_PACKET_MESSAGE_SIZE - 1}`);
   }
   const packet = new Uint8Array(body.length + 1);
-  packet[0] = GIZCLAW_PROTOCOL_TELEMETRY;
+  packet[0] = GIZCLAW_EVENT_STREAM_TELEMETRY;
   packet.set(body, 1);
   return packet;
 }

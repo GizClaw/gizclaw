@@ -18,7 +18,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminservice"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/objectstore"
@@ -41,60 +41,60 @@ type artifactManifest struct {
 	Entries []apitypes.FirmwareArtifactEntry `json:"entries"`
 }
 
-func (s *Server) DownloadFirmwareArtifact(ctx context.Context, request adminservice.DownloadFirmwareArtifactRequestObject) (adminservice.DownloadFirmwareArtifactResponseObject, error) {
+func (s *Server) DownloadFirmwareArtifact(ctx context.Context, request adminhttp.DownloadFirmwareArtifactRequestObject) (adminhttp.DownloadFirmwareArtifactResponseObject, error) {
 	_, slot, _, err := s.getArtifactSlot(ctx, request.Name, string(request.Channel))
 	if err != nil {
 		return downloadArtifactError(err), nil
 	}
 	if slot.Artifact == nil {
-		return adminservice.DownloadFirmwareArtifact404JSONResponse(apitypes.NewErrorResponse("FIRMWARE_ARTIFACT_NOT_FOUND", errArtifactNotFound.Error())), nil
+		return adminhttp.DownloadFirmwareArtifact404JSONResponse(apitypes.NewErrorResponse("FIRMWARE_ARTIFACT_NOT_FOUND", errArtifactNotFound.Error())), nil
 	}
 	assets, err := s.assets()
 	if err != nil {
-		return adminservice.DownloadFirmwareArtifact500JSONResponse(apitypes.NewErrorResponse("FIRMWARE_ASSETS_NOT_CONFIGURED", err.Error())), nil
+		return adminhttp.DownloadFirmwareArtifact500JSONResponse(apitypes.NewErrorResponse("FIRMWARE_ASSETS_NOT_CONFIGURED", err.Error())), nil
 	}
 	reader, err := assets.Get(slot.Artifact.TarPath)
 	if err != nil {
-		return adminservice.DownloadFirmwareArtifact404JSONResponse(apitypes.NewErrorResponse("FIRMWARE_ARTIFACT_NOT_FOUND", err.Error())), nil
+		return adminhttp.DownloadFirmwareArtifact404JSONResponse(apitypes.NewErrorResponse("FIRMWARE_ARTIFACT_NOT_FOUND", err.Error())), nil
 	}
-	return adminservice.DownloadFirmwareArtifact200ApplicationxTarResponse{Body: reader, ContentLength: slot.Artifact.Size}, nil
+	return adminhttp.DownloadFirmwareArtifact200ApplicationxTarResponse{Body: reader, ContentLength: slot.Artifact.Size}, nil
 }
 
-func (s *Server) UploadFirmwareArtifact(ctx context.Context, request adminservice.UploadFirmwareArtifactRequestObject) (adminservice.UploadFirmwareArtifactResponseObject, error) {
+func (s *Server) UploadFirmwareArtifact(ctx context.Context, request adminhttp.UploadFirmwareArtifactRequestObject) (adminhttp.UploadFirmwareArtifactResponseObject, error) {
 	item, _, channel, err := s.getArtifactSlot(ctx, request.Name, string(request.Channel))
 	if err != nil {
 		return uploadArtifactError(err), nil
 	}
 	slot, _ := slotForChannel(&item.Slots, channel)
 	if request.Body == nil {
-		return adminservice.UploadFirmwareArtifact400JSONResponse(apitypes.NewErrorResponse("INVALID_FIRMWARE_ARTIFACT", "request body required")), nil
+		return adminhttp.UploadFirmwareArtifact400JSONResponse(apitypes.NewErrorResponse("INVALID_FIRMWARE_ARTIFACT", "request body required")), nil
 	}
 	assets, err := s.assets()
 	if err != nil {
-		return adminservice.UploadFirmwareArtifact500JSONResponse(apitypes.NewErrorResponse("FIRMWARE_ASSETS_NOT_CONFIGURED", err.Error())), nil
+		return adminhttp.UploadFirmwareArtifact500JSONResponse(apitypes.NewErrorResponse("FIRMWARE_ASSETS_NOT_CONFIGURED", err.Error())), nil
 	}
 	prefix := firmwareArtifactPrefix(item.Name, channel)
 	if exists, err := artifactPrefixHasObjects(assets, prefix); err != nil {
-		return adminservice.UploadFirmwareArtifact500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.UploadFirmwareArtifact500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	} else if exists || slot.Artifact != nil {
-		return adminservice.UploadFirmwareArtifact409JSONResponse(apitypes.NewErrorResponse("FIRMWARE_ARTIFACT_EXISTS", errArtifactExists.Error())), nil
+		return adminhttp.UploadFirmwareArtifact409JSONResponse(apitypes.NewErrorResponse("FIRMWARE_ARTIFACT_EXISTS", errArtifactExists.Error())), nil
 	}
 	artifact, err := writeArtifactPackage(ctx, assets, item.Name, channel, request.Body, s.now())
 	if err != nil {
 		if errors.Is(err, errInvalidArtifact) {
-			return adminservice.UploadFirmwareArtifact400JSONResponse(apitypes.NewErrorResponse("INVALID_FIRMWARE_ARTIFACT", err.Error())), nil
+			return adminhttp.UploadFirmwareArtifact400JSONResponse(apitypes.NewErrorResponse("INVALID_FIRMWARE_ARTIFACT", err.Error())), nil
 		}
-		return adminservice.UploadFirmwareArtifact500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.UploadFirmwareArtifact500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	slot.Artifact = &artifact
 	item.UpdatedAt = artifact.UploadedAt
 	if err := Write(ctx, s.Store, item); err != nil {
-		return adminservice.UploadFirmwareArtifact500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.UploadFirmwareArtifact500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	return adminservice.UploadFirmwareArtifact200JSONResponse(item), nil
+	return adminhttp.UploadFirmwareArtifact200JSONResponse(item), nil
 }
 
-func (s *Server) DeleteFirmwareArtifact(ctx context.Context, request adminservice.DeleteFirmwareArtifactRequestObject) (adminservice.DeleteFirmwareArtifactResponseObject, error) {
+func (s *Server) DeleteFirmwareArtifact(ctx context.Context, request adminhttp.DeleteFirmwareArtifactRequestObject) (adminhttp.DeleteFirmwareArtifactResponseObject, error) {
 	item, _, channel, err := s.getArtifactSlot(ctx, request.Name, string(request.Channel))
 	if err != nil {
 		return deleteArtifactError(err), nil
@@ -102,37 +102,37 @@ func (s *Server) DeleteFirmwareArtifact(ctx context.Context, request adminservic
 	slot, _ := slotForChannel(&item.Slots, channel)
 	assets, err := s.assets()
 	if err != nil {
-		return adminservice.DeleteFirmwareArtifact500JSONResponse(apitypes.NewErrorResponse("FIRMWARE_ASSETS_NOT_CONFIGURED", err.Error())), nil
+		return adminhttp.DeleteFirmwareArtifact500JSONResponse(apitypes.NewErrorResponse("FIRMWARE_ASSETS_NOT_CONFIGURED", err.Error())), nil
 	}
 	prefix := firmwareArtifactPrefix(item.Name, channel)
 	exists, err := artifactPrefixHasObjects(assets, prefix)
 	if err != nil {
-		return adminservice.DeleteFirmwareArtifact500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.DeleteFirmwareArtifact500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	if slot.Artifact == nil && !exists {
-		return adminservice.DeleteFirmwareArtifact404JSONResponse(apitypes.NewErrorResponse("FIRMWARE_ARTIFACT_NOT_FOUND", errArtifactNotFound.Error())), nil
+		return adminhttp.DeleteFirmwareArtifact404JSONResponse(apitypes.NewErrorResponse("FIRMWARE_ARTIFACT_NOT_FOUND", errArtifactNotFound.Error())), nil
 	}
 	if slot.Artifact != nil {
 		slot.Artifact = nil
 		item.UpdatedAt = s.now()
 		if err := Write(ctx, s.Store, item); err != nil {
-			return adminservice.DeleteFirmwareArtifact500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+			return adminhttp.DeleteFirmwareArtifact500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 		}
 	}
 	if err := assets.DeletePrefix(prefix); err != nil {
-		return adminservice.DeleteFirmwareArtifact500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.DeleteFirmwareArtifact500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	return adminservice.DeleteFirmwareArtifact200JSONResponse(item), nil
+	return adminhttp.DeleteFirmwareArtifact200JSONResponse(item), nil
 }
 
-func (s *Server) ListFirmwareArtifactEntries(ctx context.Context, request adminservice.ListFirmwareArtifactEntriesRequestObject) (adminservice.ListFirmwareArtifactEntriesResponseObject, error) {
+func (s *Server) ListFirmwareArtifactEntries(ctx context.Context, request adminhttp.ListFirmwareArtifactEntriesRequestObject) (adminhttp.ListFirmwareArtifactEntriesResponseObject, error) {
 	item, slot, channel, err := s.getArtifactSlot(ctx, request.Name, string(request.Channel))
 	if err != nil {
 		return listArtifactError(err), nil
 	}
 	target, err := normalizeArtifactPath(valueOrEmpty(request.Params.Path), true)
 	if err != nil {
-		return adminservice.ListFirmwareArtifactEntries400JSONResponse(apitypes.NewErrorResponse("INVALID_FIRMWARE_ARTIFACT_PATH", err.Error())), nil
+		return adminhttp.ListFirmwareArtifactEntries400JSONResponse(apitypes.NewErrorResponse("INVALID_FIRMWARE_ARTIFACT_PATH", err.Error())), nil
 	}
 	manifest, err := s.readArtifactManifest(slot)
 	if err != nil {
@@ -142,7 +142,7 @@ func (s *Server) ListFirmwareArtifactEntries(ctx context.Context, request admins
 	if err != nil {
 		return listArtifactError(err), nil
 	}
-	return adminservice.ListFirmwareArtifactEntries200JSONResponse(apitypes.FirmwareArtifactList{
+	return adminhttp.ListFirmwareArtifactEntries200JSONResponse(apitypes.FirmwareArtifactList{
 		FirmwareId: item.Name,
 		Channel:    channel,
 		Path:       target,
@@ -150,14 +150,14 @@ func (s *Server) ListFirmwareArtifactEntries(ctx context.Context, request admins
 	}), nil
 }
 
-func (s *Server) TreeFirmwareArtifactEntries(ctx context.Context, request adminservice.TreeFirmwareArtifactEntriesRequestObject) (adminservice.TreeFirmwareArtifactEntriesResponseObject, error) {
+func (s *Server) TreeFirmwareArtifactEntries(ctx context.Context, request adminhttp.TreeFirmwareArtifactEntriesRequestObject) (adminhttp.TreeFirmwareArtifactEntriesResponseObject, error) {
 	item, slot, channel, err := s.getArtifactSlot(ctx, request.Name, string(request.Channel))
 	if err != nil {
 		return treeArtifactError(err), nil
 	}
 	target, err := normalizeArtifactPath(valueOrEmpty(request.Params.Path), true)
 	if err != nil {
-		return adminservice.TreeFirmwareArtifactEntries400JSONResponse(apitypes.NewErrorResponse("INVALID_FIRMWARE_ARTIFACT_PATH", err.Error())), nil
+		return adminhttp.TreeFirmwareArtifactEntries400JSONResponse(apitypes.NewErrorResponse("INVALID_FIRMWARE_ARTIFACT_PATH", err.Error())), nil
 	}
 	manifest, err := s.readArtifactManifest(slot)
 	if err != nil {
@@ -167,7 +167,7 @@ func (s *Server) TreeFirmwareArtifactEntries(ctx context.Context, request admins
 	if err != nil {
 		return treeArtifactError(err), nil
 	}
-	return adminservice.TreeFirmwareArtifactEntries200JSONResponse(apitypes.FirmwareArtifactTree{
+	return adminhttp.TreeFirmwareArtifactEntries200JSONResponse(apitypes.FirmwareArtifactTree{
 		FirmwareId: item.Name,
 		Channel:    channel,
 		Path:       target,
@@ -175,14 +175,14 @@ func (s *Server) TreeFirmwareArtifactEntries(ctx context.Context, request admins
 	}), nil
 }
 
-func (s *Server) StatFirmwareArtifactEntry(ctx context.Context, request adminservice.StatFirmwareArtifactEntryRequestObject) (adminservice.StatFirmwareArtifactEntryResponseObject, error) {
+func (s *Server) StatFirmwareArtifactEntry(ctx context.Context, request adminhttp.StatFirmwareArtifactEntryRequestObject) (adminhttp.StatFirmwareArtifactEntryResponseObject, error) {
 	item, slot, channel, err := s.getArtifactSlot(ctx, request.Name, string(request.Channel))
 	if err != nil {
 		return statArtifactError(err), nil
 	}
 	target, err := normalizeArtifactPath(valueOrEmpty(request.Params.Path), true)
 	if err != nil {
-		return adminservice.StatFirmwareArtifactEntry400JSONResponse(apitypes.NewErrorResponse("INVALID_FIRMWARE_ARTIFACT_PATH", err.Error())), nil
+		return adminhttp.StatFirmwareArtifactEntry400JSONResponse(apitypes.NewErrorResponse("INVALID_FIRMWARE_ARTIFACT_PATH", err.Error())), nil
 	}
 	manifest, err := s.readArtifactManifest(slot)
 	if err != nil {
@@ -194,10 +194,10 @@ func (s *Server) StatFirmwareArtifactEntry(ctx context.Context, request adminser
 	}
 	stats.FirmwareId = item.Name
 	stats.Channel = channel
-	return adminservice.StatFirmwareArtifactEntry200JSONResponse(stats), nil
+	return adminhttp.StatFirmwareArtifactEntry200JSONResponse(stats), nil
 }
 
-func (s *Server) DownloadFirmwareArtifactEntry(ctx context.Context, request adminservice.DownloadFirmwareArtifactEntryRequestObject) (adminservice.DownloadFirmwareArtifactEntryResponseObject, error) {
+func (s *Server) DownloadFirmwareArtifactEntry(ctx context.Context, request adminhttp.DownloadFirmwareArtifactEntryRequestObject) (adminhttp.DownloadFirmwareArtifactEntryResponseObject, error) {
 	_, slot, _, err := s.getArtifactSlot(ctx, request.Name, string(request.Channel))
 	if err != nil {
 		return downloadEntryError(err), nil
@@ -206,7 +206,7 @@ func (s *Server) DownloadFirmwareArtifactEntry(ctx context.Context, request admi
 	if err != nil {
 		return downloadEntryError(err), nil
 	}
-	return adminservice.DownloadFirmwareArtifactEntry200ApplicationoctetStreamResponse{Body: reader, ContentLength: entry.Size}, nil
+	return adminhttp.DownloadFirmwareArtifactEntry200ApplicationoctetStreamResponse{Body: reader, ContentLength: entry.Size}, nil
 }
 
 func (s *Server) PrepareArtifactEntryDownload(ctx context.Context, name, channel, filePath string) (apitypes.FirmwareArtifact, apitypes.FirmwareArtifactEntry, io.ReadCloser, error) {
@@ -622,75 +622,75 @@ func (c *byteCounter) Write(p []byte) (int, error) {
 	return len(p), nil
 }
 
-func downloadArtifactError(err error) adminservice.DownloadFirmwareArtifactResponseObject {
+func downloadArtifactError(err error) adminhttp.DownloadFirmwareArtifactResponseObject {
 	switch {
 	case errors.Is(err, kv.ErrNotFound), errors.Is(err, errChannelNotFound), errors.Is(err, errArtifactNotFound):
-		return adminservice.DownloadFirmwareArtifact404JSONResponse(apitypes.NewErrorResponse("FIRMWARE_ARTIFACT_NOT_FOUND", err.Error()))
+		return adminhttp.DownloadFirmwareArtifact404JSONResponse(apitypes.NewErrorResponse("FIRMWARE_ARTIFACT_NOT_FOUND", err.Error()))
 	default:
-		return adminservice.DownloadFirmwareArtifact500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error()))
+		return adminhttp.DownloadFirmwareArtifact500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error()))
 	}
 }
 
-func uploadArtifactError(err error) adminservice.UploadFirmwareArtifactResponseObject {
+func uploadArtifactError(err error) adminhttp.UploadFirmwareArtifactResponseObject {
 	switch {
 	case errors.Is(err, kv.ErrNotFound), errors.Is(err, errChannelNotFound):
-		return adminservice.UploadFirmwareArtifact404JSONResponse(apitypes.NewErrorResponse("FIRMWARE_NOT_FOUND", err.Error()))
+		return adminhttp.UploadFirmwareArtifact404JSONResponse(apitypes.NewErrorResponse("FIRMWARE_NOT_FOUND", err.Error()))
 	case errors.Is(err, errInvalidArtifact), errors.Is(err, errInvalidChannel):
-		return adminservice.UploadFirmwareArtifact400JSONResponse(apitypes.NewErrorResponse("INVALID_FIRMWARE_ARTIFACT", err.Error()))
+		return adminhttp.UploadFirmwareArtifact400JSONResponse(apitypes.NewErrorResponse("INVALID_FIRMWARE_ARTIFACT", err.Error()))
 	default:
-		return adminservice.UploadFirmwareArtifact500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error()))
+		return adminhttp.UploadFirmwareArtifact500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error()))
 	}
 }
 
-func deleteArtifactError(err error) adminservice.DeleteFirmwareArtifactResponseObject {
+func deleteArtifactError(err error) adminhttp.DeleteFirmwareArtifactResponseObject {
 	switch {
 	case errors.Is(err, kv.ErrNotFound), errors.Is(err, errChannelNotFound), errors.Is(err, errArtifactNotFound):
-		return adminservice.DeleteFirmwareArtifact404JSONResponse(apitypes.NewErrorResponse("FIRMWARE_ARTIFACT_NOT_FOUND", err.Error()))
+		return adminhttp.DeleteFirmwareArtifact404JSONResponse(apitypes.NewErrorResponse("FIRMWARE_ARTIFACT_NOT_FOUND", err.Error()))
 	default:
-		return adminservice.DeleteFirmwareArtifact500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error()))
+		return adminhttp.DeleteFirmwareArtifact500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error()))
 	}
 }
 
-func listArtifactError(err error) adminservice.ListFirmwareArtifactEntriesResponseObject {
-	switch {
-	case errors.Is(err, errInvalidArtifact):
-		return adminservice.ListFirmwareArtifactEntries400JSONResponse(apitypes.NewErrorResponse("INVALID_FIRMWARE_ARTIFACT_PATH", err.Error()))
-	case errors.Is(err, kv.ErrNotFound), errors.Is(err, errChannelNotFound), errors.Is(err, errArtifactNotFound):
-		return adminservice.ListFirmwareArtifactEntries404JSONResponse(apitypes.NewErrorResponse("FIRMWARE_ARTIFACT_NOT_FOUND", err.Error()))
-	default:
-		return adminservice.ListFirmwareArtifactEntries500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error()))
-	}
-}
-
-func treeArtifactError(err error) adminservice.TreeFirmwareArtifactEntriesResponseObject {
+func listArtifactError(err error) adminhttp.ListFirmwareArtifactEntriesResponseObject {
 	switch {
 	case errors.Is(err, errInvalidArtifact):
-		return adminservice.TreeFirmwareArtifactEntries400JSONResponse(apitypes.NewErrorResponse("INVALID_FIRMWARE_ARTIFACT_PATH", err.Error()))
+		return adminhttp.ListFirmwareArtifactEntries400JSONResponse(apitypes.NewErrorResponse("INVALID_FIRMWARE_ARTIFACT_PATH", err.Error()))
 	case errors.Is(err, kv.ErrNotFound), errors.Is(err, errChannelNotFound), errors.Is(err, errArtifactNotFound):
-		return adminservice.TreeFirmwareArtifactEntries404JSONResponse(apitypes.NewErrorResponse("FIRMWARE_ARTIFACT_NOT_FOUND", err.Error()))
+		return adminhttp.ListFirmwareArtifactEntries404JSONResponse(apitypes.NewErrorResponse("FIRMWARE_ARTIFACT_NOT_FOUND", err.Error()))
 	default:
-		return adminservice.TreeFirmwareArtifactEntries500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error()))
+		return adminhttp.ListFirmwareArtifactEntries500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error()))
 	}
 }
 
-func statArtifactError(err error) adminservice.StatFirmwareArtifactEntryResponseObject {
+func treeArtifactError(err error) adminhttp.TreeFirmwareArtifactEntriesResponseObject {
 	switch {
 	case errors.Is(err, errInvalidArtifact):
-		return adminservice.StatFirmwareArtifactEntry400JSONResponse(apitypes.NewErrorResponse("INVALID_FIRMWARE_ARTIFACT_PATH", err.Error()))
+		return adminhttp.TreeFirmwareArtifactEntries400JSONResponse(apitypes.NewErrorResponse("INVALID_FIRMWARE_ARTIFACT_PATH", err.Error()))
 	case errors.Is(err, kv.ErrNotFound), errors.Is(err, errChannelNotFound), errors.Is(err, errArtifactNotFound):
-		return adminservice.StatFirmwareArtifactEntry404JSONResponse(apitypes.NewErrorResponse("FIRMWARE_ARTIFACT_NOT_FOUND", err.Error()))
+		return adminhttp.TreeFirmwareArtifactEntries404JSONResponse(apitypes.NewErrorResponse("FIRMWARE_ARTIFACT_NOT_FOUND", err.Error()))
 	default:
-		return adminservice.StatFirmwareArtifactEntry500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error()))
+		return adminhttp.TreeFirmwareArtifactEntries500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error()))
 	}
 }
 
-func downloadEntryError(err error) adminservice.DownloadFirmwareArtifactEntryResponseObject {
+func statArtifactError(err error) adminhttp.StatFirmwareArtifactEntryResponseObject {
 	switch {
 	case errors.Is(err, errInvalidArtifact):
-		return adminservice.DownloadFirmwareArtifactEntry400JSONResponse(apitypes.NewErrorResponse("INVALID_FIRMWARE_ARTIFACT_PATH", err.Error()))
+		return adminhttp.StatFirmwareArtifactEntry400JSONResponse(apitypes.NewErrorResponse("INVALID_FIRMWARE_ARTIFACT_PATH", err.Error()))
 	case errors.Is(err, kv.ErrNotFound), errors.Is(err, errChannelNotFound), errors.Is(err, errArtifactNotFound):
-		return adminservice.DownloadFirmwareArtifactEntry404JSONResponse(apitypes.NewErrorResponse("FIRMWARE_ARTIFACT_NOT_FOUND", err.Error()))
+		return adminhttp.StatFirmwareArtifactEntry404JSONResponse(apitypes.NewErrorResponse("FIRMWARE_ARTIFACT_NOT_FOUND", err.Error()))
 	default:
-		return adminservice.DownloadFirmwareArtifactEntry500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error()))
+		return adminhttp.StatFirmwareArtifactEntry500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error()))
+	}
+}
+
+func downloadEntryError(err error) adminhttp.DownloadFirmwareArtifactEntryResponseObject {
+	switch {
+	case errors.Is(err, errInvalidArtifact):
+		return adminhttp.DownloadFirmwareArtifactEntry400JSONResponse(apitypes.NewErrorResponse("INVALID_FIRMWARE_ARTIFACT_PATH", err.Error()))
+	case errors.Is(err, kv.ErrNotFound), errors.Is(err, errChannelNotFound), errors.Is(err, errArtifactNotFound):
+		return adminhttp.DownloadFirmwareArtifactEntry404JSONResponse(apitypes.NewErrorResponse("FIRMWARE_ARTIFACT_NOT_FOUND", err.Error()))
+	default:
+		return adminhttp.DownloadFirmwareArtifactEntry500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error()))
 	}
 }

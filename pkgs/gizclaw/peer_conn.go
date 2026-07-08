@@ -118,7 +118,7 @@ func (h *PeerConn) servePackets() error {
 }
 
 func (h *PeerConn) serveRPC() error {
-	listener := h.Conn.ListenService(ServiceRPC)
+	listener := h.Conn.ListenService(ServicePeerRPC)
 	defer func() {
 		_ = listener.Close()
 	}()
@@ -153,7 +153,7 @@ func (h *PeerConn) Ping(ctx context.Context, id string) (*rpcapi.PingResponse, e
 
 func (h *PeerConn) rpcConn() (net.Conn, error) {
 	conn := h.Conn
-	stream, err := conn.Dial(ServiceRPC)
+	stream, err := conn.Dial(ServicePeerRPC)
 	if err != nil {
 		return nil, fmt.Errorf("gizclaw: dial rpc stream: %w", err)
 	}
@@ -327,7 +327,7 @@ func (h *PeerConn) close() error {
 }
 
 func (h *PeerConn) serveEvents() error {
-	listener := h.Conn.ListenService(ServiceAgentStream)
+	listener := h.Conn.ListenService(EventStreamAgent)
 	defer func() {
 		_ = listener.Close()
 	}()
@@ -429,7 +429,7 @@ func (h *PeerConn) serveDirectPackets() error {
 			return err
 		}
 		switch protocol {
-		case ProtocolStampedOpus:
+		case PacketStampedOpus:
 			chunk, ok := stampedOpusChunk(buf[:n])
 			if !ok {
 				continue
@@ -437,7 +437,7 @@ func (h *PeerConn) serveDirectPackets() error {
 			if err := h.pushAgentInputChunk(context.Background(), chunk); err != nil {
 				return err
 			}
-		case ProtocolTelemetry:
+		case EventStreamTelemetry:
 			payload := append([]byte(nil), buf[:n]...)
 			select {
 			case telemetryPackets <- payload:
@@ -570,7 +570,7 @@ func (h *PeerConn) streamMixedAudio(hasWrittenBefore bool) (wrote bool, err erro
 			wrote = true
 		}
 		payload := stampedopus.Pack(h.lastOpusFrameTimestamp.Load(), packet)
-		if _, err := h.Conn.Write(ProtocolStampedOpus, payload); err != nil {
+		if _, err := h.Conn.Write(PacketStampedOpus, payload); err != nil {
 			return wrote, err
 		}
 		h.lastOpusFrameTimestamp.Add(uint64(peerConnOpusFrameDuration / time.Millisecond))

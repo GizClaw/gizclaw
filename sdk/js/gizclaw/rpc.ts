@@ -1,4 +1,4 @@
-import { GIZCLAW_SERVICE_RPC, WebRTCRPCClient } from "./index.ts";
+import { GIZCLAW_SERVICE_PEER_RPC, WebRTCRPCClient } from "./index.ts";
 import type { RPCBinaryCallResult, RPCCallOptions, WebRTCRPCClientOptions, WebRTCRPCDataChannelFactory } from "./index.ts";
 import type { RPCMethodMap, RPCMethodName } from "./generated/rpc/method-map.ts";
 
@@ -18,7 +18,7 @@ export class PeerRPCClient {
         ? pc
         : new WebRTCRPCClient(pc, {
             ...options,
-            service: GIZCLAW_SERVICE_RPC,
+            service: GIZCLAW_SERVICE_PEER_RPC,
           });
   }
 

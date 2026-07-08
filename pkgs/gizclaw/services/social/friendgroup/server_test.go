@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminservice"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/socialutil"
@@ -929,7 +929,7 @@ func TestCreateHandlesWorkspaceFailures(t *testing.T) {
 
 	s = newTestServer(t)
 	s.Workspaces = failingWorkspaceService{
-		createResp: adminservice.CreateWorkspace500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "failed")),
+		createResp: adminhttp.CreateWorkspace500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "failed")),
 	}
 	if _, err := s.CreateFriendGroup(ctx, "peer-a", rpcapi.FriendGroupCreateRequest{Name: "room"}); err == nil {
 		t.Fatal("CreateFriendGroup with workspace failure response = nil")
@@ -1173,42 +1173,42 @@ func (s failingDeletePrefixStore) DeletePrefix(string) error {
 }
 
 type recordingWorkspaceService struct {
-	created []adminservice.WorkspaceUpsert
+	created []adminhttp.WorkspaceUpsert
 	deleted []string
 }
 
-func (s *recordingWorkspaceService) CreateWorkspace(_ context.Context, req adminservice.CreateWorkspaceRequestObject) (adminservice.CreateWorkspaceResponseObject, error) {
+func (s *recordingWorkspaceService) CreateWorkspace(_ context.Context, req adminhttp.CreateWorkspaceRequestObject) (adminhttp.CreateWorkspaceResponseObject, error) {
 	if req.Body == nil {
-		return adminservice.CreateWorkspace400JSONResponse(apitypes.NewErrorResponse("INVALID_WORKSPACE", "request body required")), nil
+		return adminhttp.CreateWorkspace400JSONResponse(apitypes.NewErrorResponse("INVALID_WORKSPACE", "request body required")), nil
 	}
 	for _, workspace := range s.created {
 		if workspace.Name == req.Body.Name {
-			return adminservice.CreateWorkspace409JSONResponse(apitypes.NewErrorResponse("WORKSPACE_ALREADY_EXISTS", "exists")), nil
+			return adminhttp.CreateWorkspace409JSONResponse(apitypes.NewErrorResponse("WORKSPACE_ALREADY_EXISTS", "exists")), nil
 		}
 	}
 	s.created = append(s.created, *req.Body)
-	return adminservice.CreateWorkspace200JSONResponse(apitypes.Workspace{Name: req.Body.Name, WorkflowName: req.Body.WorkflowName, Parameters: req.Body.Parameters}), nil
+	return adminhttp.CreateWorkspace200JSONResponse(apitypes.Workspace{Name: req.Body.Name, WorkflowName: req.Body.WorkflowName, Parameters: req.Body.Parameters}), nil
 }
 
-func (s *recordingWorkspaceService) DeleteWorkspace(_ context.Context, req adminservice.DeleteWorkspaceRequestObject) (adminservice.DeleteWorkspaceResponseObject, error) {
+func (s *recordingWorkspaceService) DeleteWorkspace(_ context.Context, req adminhttp.DeleteWorkspaceRequestObject) (adminhttp.DeleteWorkspaceResponseObject, error) {
 	s.deleted = append(s.deleted, req.Name)
-	return adminservice.DeleteWorkspace200JSONResponse(apitypes.Workspace{Name: req.Name}), nil
+	return adminhttp.DeleteWorkspace200JSONResponse(apitypes.Workspace{Name: req.Name}), nil
 }
 
 type failingWorkspaceService struct {
-	createResp adminservice.CreateWorkspaceResponseObject
+	createResp adminhttp.CreateWorkspaceResponseObject
 	createErr  error
 }
 
-func (s failingWorkspaceService) CreateWorkspace(context.Context, adminservice.CreateWorkspaceRequestObject) (adminservice.CreateWorkspaceResponseObject, error) {
+func (s failingWorkspaceService) CreateWorkspace(context.Context, adminhttp.CreateWorkspaceRequestObject) (adminhttp.CreateWorkspaceResponseObject, error) {
 	if s.createErr != nil {
 		return nil, s.createErr
 	}
 	return s.createResp, nil
 }
 
-func (s failingWorkspaceService) DeleteWorkspace(context.Context, adminservice.DeleteWorkspaceRequestObject) (adminservice.DeleteWorkspaceResponseObject, error) {
-	return adminservice.DeleteWorkspace404JSONResponse(apitypes.NewErrorResponse("WORKSPACE_NOT_FOUND", "missing")), nil
+func (s failingWorkspaceService) DeleteWorkspace(context.Context, adminhttp.DeleteWorkspaceRequestObject) (adminhttp.DeleteWorkspaceResponseObject, error) {
+	return adminhttp.DeleteWorkspace404JSONResponse(apitypes.NewErrorResponse("WORKSPACE_NOT_FOUND", "missing")), nil
 }
 
 type failingACL struct {

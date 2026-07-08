@@ -2,7 +2,7 @@
 
 Tracking issue: https://github.com/GizClaw/gizclaw-go/issues/19
 
-This package is reserved for Server Service RPCs that expose existing resource
+This package is reserved for peer RPC methods that expose existing resource
 domains to a peer through ACL-controlled resource APIs.
 
 Planned scope:

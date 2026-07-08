@@ -1,4 +1,4 @@
-import type { CreateGiznetWebRtcOfferData } from "./generated/serverpublic/types.gen";
+import type { CreateGiznetWebRtcOfferData } from "./generated/peerhttp/types.gen";
 import { base58Decode, prepareEncryptedGiznetWebRTCOffer } from "./signaling.ts";
 import { encodeTelemetryPacket, type TelemetryFrame } from "./telemetry.ts";
 export * from "./telemetry.ts";
@@ -9,12 +9,13 @@ export const GIZNET_WEBRTC_PACKET_DATA_CHANNEL_LABEL = "giznet/v1/packet";
 export const GIZNET_WEBRTC_SERVICE_DATA_CHANNEL_PREFIX = "giznet/v1/service/";
 export const GIZNET_WEBRTC_SIGNALING_PATH = "/webrtc/v1/offer";
 export const RPC_VERSION = 1;
-export const GIZCLAW_SERVICE_RPC = 0x00;
-export const GIZCLAW_SERVICE_SERVER_PUBLIC = 0x01;
-export const GIZCLAW_SERVICE_OPENAI = 0x02;
-export const GIZCLAW_SERVICE_ADMIN = 0x10;
-export const GIZCLAW_SERVICE_AGENT_STREAM = 0x20;
-export const GIZCLAW_SERVICE_EVENT = GIZCLAW_SERVICE_AGENT_STREAM;
+export const GIZCLAW_SERVICE_PEER_RPC = 0x00;
+export const GIZCLAW_SERVICE_PEER_HTTP = 0x01;
+export const GIZCLAW_SERVICE_PEER_OPENAI = 0x02;
+export const GIZCLAW_SERVICE_ADMIN_HTTP = 0x10;
+export const GIZCLAW_EVENT_STREAM_AGENT = 0x20;
+export const GIZCLAW_MEDIA_STREAM_OPUS = "audio/opus";
+export const GIZCLAW_PACKET_STAMPED_OPUS = 0x10;
 export const RPC_FRAME_TYPE_EOS = 0;
 export const RPC_FRAME_TYPE_JSON = 1;
 export const RPC_FRAME_TYPE_BINARY = 2;
@@ -151,7 +152,7 @@ export class WebRTCRPCClient {
 
   constructor(pc: WebRTCRPCDataChannelFactory, options: WebRTCRPCClientOptions = {}) {
     this.pc = pc;
-    this.channelLabel = options.channelLabel ?? giznetServiceDataChannelLabel(options.service ?? GIZCLAW_SERVICE_RPC);
+    this.channelLabel = options.channelLabel ?? giznetServiceDataChannelLabel(options.service ?? GIZCLAW_SERVICE_PEER_RPC);
     this.createID = options.createID ?? defaultRPCID;
     this.requestTimeoutMs = options.requestTimeoutMs ?? 30000;
   }
@@ -419,7 +420,7 @@ export type WebRTCServiceFetchOptions = {
 };
 
 export function createWebRTCServiceFetch(pc: WebRTCRPCDataChannelFactory, options: WebRTCServiceFetchOptions = {}): typeof fetch {
-  const service = options.service ?? GIZCLAW_SERVICE_ADMIN;
+  const service = options.service ?? GIZCLAW_SERVICE_ADMIN_HTTP;
   const host = options.host ?? "gizclaw";
   const timeoutMs = options.requestTimeoutMs ?? 30000;
   return async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
@@ -432,7 +433,7 @@ export function createWebRTCServiceFetch(pc: WebRTCRPCDataChannelFactory, option
 }
 
 export function createAdminAPIFetch(pc: WebRTCRPCDataChannelFactory, options: Omit<WebRTCServiceFetchOptions, "service"> = {}): typeof fetch {
-  return createWebRTCServiceFetch(pc, { ...options, service: GIZCLAW_SERVICE_ADMIN });
+  return createWebRTCServiceFetch(pc, { ...options, service: GIZCLAW_SERVICE_ADMIN_HTTP });
 }
 
 export async function connectGiznetWebRTC(options: ConnectGiznetWebRTCOptions): Promise<RTCPeerConnection> {

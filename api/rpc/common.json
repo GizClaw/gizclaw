@@ -1,7 +1,7 @@
 {
   "openapi": "3.0.3",
   "info": {
-    "title": "RPC All Service Types",
+    "title": "Common RPC Types",
     "description": "Schemas for all-peer common RPC methods.",
     "version": "1.0.0"
   },

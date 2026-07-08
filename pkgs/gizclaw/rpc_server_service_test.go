@@ -11,8 +11,8 @@ import (
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/peerhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/serverpublic"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/peergenx"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerrun"
@@ -381,16 +381,16 @@ type fakeRPCServerInfoService struct {
 	err           apitypes.ErrorResponse
 }
 
-func (f *fakeRPCServerInfoService) GetServerInfo(ctx context.Context, _ serverpublic.GetServerInfoRequestObject) (serverpublic.GetServerInfoResponseObject, error) {
+func (f *fakeRPCServerInfoService) GetServerInfo(ctx context.Context, _ peerhttp.GetServerInfoRequestObject) (peerhttp.GetServerInfoResponseObject, error) {
 	if f.t != nil && f.wantPublicKey != (giznet.PublicKey{}) {
-		if got := serverpublic.CallerPublicKey(ctx); got != f.wantPublicKey {
+		if got := peerhttp.CallerPublicKey(ctx); got != f.wantPublicKey {
 			f.t.Fatalf("caller public key = %s, want %s", got, f.wantPublicKey)
 		}
 	}
 	if f.err.Error.Code != "" {
-		return serverpublic.GetServerInfo400JSONResponse(f.err), nil
+		return peerhttp.GetServerInfo400JSONResponse(f.err), nil
 	}
-	return serverpublic.GetServerInfo200JSONResponse(f.info), nil
+	return peerhttp.GetServerInfo200JSONResponse(f.info), nil
 }
 
 func (f *fakeRPCPeerService) GetSelfInfo(_ context.Context, publicKey giznet.PublicKey) (apitypes.DeviceInfo, error) {

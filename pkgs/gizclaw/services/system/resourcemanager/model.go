@@ -3,7 +3,7 @@ package resourcemanager
 import (
 	"context"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminservice"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 )
 
@@ -42,35 +42,35 @@ func (m *Manager) applyModel(ctx context.Context, resource apitypes.Resource) (a
 }
 
 func (m *Manager) getModel(ctx context.Context, id string) (apitypes.Model, bool, error) {
-	response, err := m.services.Models.GetModel(ctx, adminservice.GetModelRequestObject{Id: id})
+	response, err := m.services.Models.GetModel(ctx, adminhttp.GetModelRequestObject{Id: id})
 	if err != nil {
 		return apitypes.Model{}, false, err
 	}
 	switch response := response.(type) {
-	case adminservice.GetModel200JSONResponse:
+	case adminhttp.GetModel200JSONResponse:
 		return apitypes.Model(response), true, nil
-	case adminservice.GetModel404JSONResponse:
+	case adminhttp.GetModel404JSONResponse:
 		return apitypes.Model{}, false, nil
-	case adminservice.GetModel500JSONResponse:
+	case adminhttp.GetModel500JSONResponse:
 		return apitypes.Model{}, false, responseError(500, "GET_MODEL_FAILED", "failed to get model", response)
 	default:
 		return apitypes.Model{}, false, unexpectedResponse("GetModel", response)
 	}
 }
 
-func (m *Manager) putModel(ctx context.Context, id string, body adminservice.ModelUpsert) error {
-	response, err := m.services.Models.PutModel(ctx, adminservice.PutModelRequestObject{Id: id, Body: &body})
+func (m *Manager) putModel(ctx context.Context, id string, body adminhttp.ModelUpsert) error {
+	response, err := m.services.Models.PutModel(ctx, adminhttp.PutModelRequestObject{Id: id, Body: &body})
 	if err != nil {
 		return err
 	}
 	switch response := response.(type) {
-	case adminservice.PutModel200JSONResponse:
+	case adminhttp.PutModel200JSONResponse:
 		return nil
-	case adminservice.PutModel400JSONResponse:
+	case adminhttp.PutModel400JSONResponse:
 		return responseError(400, "PUT_MODEL_FAILED", "failed to put model", response)
-	case adminservice.PutModel409JSONResponse:
+	case adminhttp.PutModel409JSONResponse:
 		return responseError(409, "PUT_MODEL_FAILED", "failed to put model", response)
-	case adminservice.PutModel500JSONResponse:
+	case adminhttp.PutModel500JSONResponse:
 		return responseError(500, "PUT_MODEL_FAILED", "failed to put model", response)
 	default:
 		return unexpectedResponse("PutModel", response)
@@ -78,16 +78,16 @@ func (m *Manager) putModel(ctx context.Context, id string, body adminservice.Mod
 }
 
 func (m *Manager) deleteModel(ctx context.Context, id string) (apitypes.Model, bool, error) {
-	response, err := m.services.Models.DeleteModel(ctx, adminservice.DeleteModelRequestObject{Id: id})
+	response, err := m.services.Models.DeleteModel(ctx, adminhttp.DeleteModelRequestObject{Id: id})
 	if err != nil {
 		return apitypes.Model{}, false, err
 	}
 	switch response := response.(type) {
-	case adminservice.DeleteModel200JSONResponse:
+	case adminhttp.DeleteModel200JSONResponse:
 		return apitypes.Model(response), true, nil
-	case adminservice.DeleteModel404JSONResponse:
+	case adminhttp.DeleteModel404JSONResponse:
 		return apitypes.Model{}, false, nil
-	case adminservice.DeleteModel500JSONResponse:
+	case adminhttp.DeleteModel500JSONResponse:
 		return apitypes.Model{}, false, responseError(500, "DELETE_MODEL_FAILED", "failed to delete model", response)
 	default:
 		return apitypes.Model{}, false, unexpectedResponse("DeleteModel", response)
@@ -106,8 +106,8 @@ func modelSpec(model apitypes.Model) apitypes.ModelSpec {
 	}
 }
 
-func modelUpsert(resource apitypes.ModelResource) adminservice.ModelUpsert {
-	return adminservice.ModelUpsert{
+func modelUpsert(resource apitypes.ModelResource) adminhttp.ModelUpsert {
+	return adminhttp.ModelUpsert{
 		Capabilities: resource.Spec.Capabilities,
 		Description:  resource.Spec.Description,
 		Id:           string(resource.Metadata.Name),

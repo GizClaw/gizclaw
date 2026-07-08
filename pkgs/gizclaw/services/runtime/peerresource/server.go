@@ -11,7 +11,7 @@ import (
 	"net/http/httptest"
 	"strings"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminservice"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/credential"
@@ -307,13 +307,13 @@ func (s *Server) handleWorkspaceList(ctx context.Context, req *rpcapi.RPCRequest
 	if strings.TrimSpace(valueOrZero(params.Prefix)) != "" {
 		return s.handleWorkspaceListByPrefix(ctx, req.Id, params)
 	}
-	resp, err := s.Workspaces.ListWorkspaces(ctx, adminservice.ListWorkspacesRequestObject{
-		Params: adminservice.ListWorkspacesParams{Cursor: params.Cursor, Limit: int32Ptr(params.Limit)},
+	resp, err := s.Workspaces.ListWorkspaces(ctx, adminhttp.ListWorkspacesRequestObject{
+		Params: adminhttp.ListWorkspacesParams{Cursor: params.Cursor, Limit: int32Ptr(params.Limit)},
 	})
 	if err != nil {
 		return internalError(req.Id, err.Error())
 	}
-	list, rpcResp, err := adminResult[adminservice.WorkspaceList](resp.VisitListWorkspacesResponse)
+	list, rpcResp, err := adminResult[adminhttp.WorkspaceList](resp.VisitListWorkspacesResponse)
 	if err != nil {
 		return internalError(req.Id, err.Error())
 	}
@@ -331,7 +331,7 @@ func (s *Server) handleWorkspaceList(ctx context.Context, req *rpcapi.RPCRequest
 		}
 		items = append(items, item)
 	}
-	return resultResponse(req.Id, adminservice.WorkspaceList{Items: items, HasNext: list.HasNext, NextCursor: list.NextCursor}, (*rpcapi.RPCResponse_Result).FromWorkspaceListResponse)
+	return resultResponse(req.Id, adminhttp.WorkspaceList{Items: items, HasNext: list.HasNext, NextCursor: list.NextCursor}, (*rpcapi.RPCResponse_Result).FromWorkspaceListResponse)
 }
 
 func (s *Server) handleWorkspaceListByPrefix(ctx context.Context, requestID string, params rpcapi.WorkspaceListRequest) *rpcapi.RPCResponse {
@@ -397,11 +397,11 @@ func (s *Server) handleWorkspaceListByPrefix(ctx context.Context, requestID stri
 		}
 		cursor = *nextCursor
 	}
-	return resultResponse(requestID, adminservice.WorkspaceList{Items: items, HasNext: hasNext, NextCursor: nextCursor}, (*rpcapi.RPCResponse_Result).FromWorkspaceListResponse)
+	return resultResponse(requestID, adminhttp.WorkspaceList{Items: items, HasNext: hasNext, NextCursor: nextCursor}, (*rpcapi.RPCResponse_Result).FromWorkspaceListResponse)
 }
 
 func (s *Server) getWorkspaceForList(ctx context.Context, requestID, name string) (apitypes.Workspace, *rpcapi.RPCResponse, error) {
-	resp, err := s.Workspaces.GetWorkspace(ctx, adminservice.GetWorkspaceRequestObject{Name: name})
+	resp, err := s.Workspaces.GetWorkspace(ctx, adminhttp.GetWorkspaceRequestObject{Name: name})
 	if err != nil {
 		return apitypes.Workspace{}, nil, err
 	}
@@ -423,7 +423,7 @@ func (s *Server) handleWorkspaceGet(ctx context.Context, req *rpcapi.RPCRequest)
 	if resp := s.authorizeResponse(ctx, req.Id, acl.WorkspaceResource(params.Name), apitypes.ACLPermissionRead); resp != nil {
 		return resp
 	}
-	adminResp, err := s.Workspaces.GetWorkspace(ctx, adminservice.GetWorkspaceRequestObject{Name: params.Name})
+	adminResp, err := s.Workspaces.GetWorkspace(ctx, adminhttp.GetWorkspaceRequestObject{Name: params.Name})
 	if err != nil {
 		return internalError(req.Id, err.Error())
 	}
@@ -444,11 +444,11 @@ func (s *Server) handleWorkspaceCreate(ctx context.Context, req *rpcapi.RPCReque
 	if resp := s.authorizeResponse(ctx, req.Id, workflowResource(params.WorkflowName), apitypes.ACLPermissionUse); resp != nil {
 		return resp, true, nil
 	}
-	body, err := convertType[adminservice.CreateWorkspaceJSONRequestBody](params)
+	body, err := convertType[adminhttp.CreateWorkspaceJSONRequestBody](params)
 	if err != nil {
 		return nil, true, err
 	}
-	adminResp, err := s.Workspaces.CreateWorkspace(ctx, adminservice.CreateWorkspaceRequestObject{Body: &body})
+	adminResp, err := s.Workspaces.CreateWorkspace(ctx, adminhttp.CreateWorkspaceRequestObject{Body: &body})
 	if err != nil {
 		return internalError(req.Id, err.Error()), true, nil
 	}
@@ -469,11 +469,11 @@ func (s *Server) handleWorkspacePut(ctx context.Context, req *rpcapi.RPCRequest)
 	if resp := s.authorizeResponse(ctx, req.Id, workflowResource(params.Body.WorkflowName), apitypes.ACLPermissionUse); resp != nil {
 		return resp, true, nil
 	}
-	body, err := convertType[adminservice.PutWorkspaceJSONRequestBody](params.Body)
+	body, err := convertType[adminhttp.PutWorkspaceJSONRequestBody](params.Body)
 	if err != nil {
 		return nil, true, err
 	}
-	adminResp, err := s.Workspaces.PutWorkspace(ctx, adminservice.PutWorkspaceRequestObject{Name: params.Name, Body: &body})
+	adminResp, err := s.Workspaces.PutWorkspace(ctx, adminhttp.PutWorkspaceRequestObject{Name: params.Name, Body: &body})
 	if err != nil {
 		return internalError(req.Id, err.Error()), true, nil
 	}
@@ -491,7 +491,7 @@ func (s *Server) handleWorkspaceDelete(ctx context.Context, req *rpcapi.RPCReque
 	if resp := s.authorizeResponse(ctx, req.Id, acl.WorkspaceResource(params.Name), apitypes.ACLPermissionAdmin); resp != nil {
 		return resp
 	}
-	adminResp, err := s.Workspaces.DeleteWorkspace(ctx, adminservice.DeleteWorkspaceRequestObject{Name: params.Name})
+	adminResp, err := s.Workspaces.DeleteWorkspace(ctx, adminhttp.DeleteWorkspaceRequestObject{Name: params.Name})
 	if err != nil {
 		return internalError(req.Id, err.Error())
 	}
@@ -639,13 +639,13 @@ func (s *Server) handleWorkflowList(ctx context.Context, req *rpcapi.RPCRequest)
 	if !ok {
 		return invalidParams(req.Id)
 	}
-	resp, err := s.Workflows.ListWorkflows(ctx, adminservice.ListWorkflowsRequestObject{
-		Params: adminservice.ListWorkflowsParams{Cursor: params.Cursor, Limit: int32Ptr(params.Limit)},
+	resp, err := s.Workflows.ListWorkflows(ctx, adminhttp.ListWorkflowsRequestObject{
+		Params: adminhttp.ListWorkflowsParams{Cursor: params.Cursor, Limit: int32Ptr(params.Limit)},
 	})
 	if err != nil {
 		return internalError(req.Id, err.Error())
 	}
-	list, rpcResp, err := adminResult[adminservice.WorkflowList](resp.VisitListWorkflowsResponse)
+	list, rpcResp, err := adminResult[adminhttp.WorkflowList](resp.VisitListWorkflowsResponse)
 	if err != nil {
 		return internalError(req.Id, err.Error())
 	}
@@ -663,7 +663,7 @@ func (s *Server) handleWorkflowList(ctx context.Context, req *rpcapi.RPCRequest)
 		}
 		items = append(items, item)
 	}
-	return resultResponse(req.Id, adminservice.WorkflowList{Items: items, HasNext: list.HasNext, NextCursor: list.NextCursor}, (*rpcapi.RPCResponse_Result).FromWorkflowListResponse)
+	return resultResponse(req.Id, adminhttp.WorkflowList{Items: items, HasNext: list.HasNext, NextCursor: list.NextCursor}, (*rpcapi.RPCResponse_Result).FromWorkflowListResponse)
 }
 
 func (s *Server) handleWorkflowGet(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
@@ -677,7 +677,7 @@ func (s *Server) handleWorkflowGet(ctx context.Context, req *rpcapi.RPCRequest) 
 	if resp := s.authorizeResponse(ctx, req.Id, workflowResource(params.Name), apitypes.ACLPermissionRead); resp != nil {
 		return resp
 	}
-	adminResp, err := s.Workflows.GetWorkflow(ctx, adminservice.GetWorkflowRequestObject{Name: params.Name})
+	adminResp, err := s.Workflows.GetWorkflow(ctx, adminhttp.GetWorkflowRequestObject{Name: params.Name})
 	if err != nil {
 		return internalError(req.Id, err.Error())
 	}
@@ -695,11 +695,11 @@ func (s *Server) handleWorkflowCreate(ctx context.Context, req *rpcapi.RPCReques
 	if resp := s.authorizeResponse(ctx, req.Id, acl.CollectionResource(acl.ResourceKindWorkflow), apitypes.ACLPermissionCreate); resp != nil {
 		return resp, true, nil
 	}
-	body, err := convertType[adminservice.CreateWorkflowJSONRequestBody](params)
+	body, err := convertType[adminhttp.CreateWorkflowJSONRequestBody](params)
 	if err != nil {
 		return nil, true, err
 	}
-	adminResp, err := s.Workflows.CreateWorkflow(ctx, adminservice.CreateWorkflowRequestObject{Body: &body})
+	adminResp, err := s.Workflows.CreateWorkflow(ctx, adminhttp.CreateWorkflowRequestObject{Body: &body})
 	if err != nil {
 		return internalError(req.Id, err.Error()), true, nil
 	}
@@ -717,11 +717,11 @@ func (s *Server) handleWorkflowPut(ctx context.Context, req *rpcapi.RPCRequest) 
 	if resp := s.authorizeResponse(ctx, req.Id, workflowResource(params.Name), apitypes.ACLPermissionAdmin); resp != nil {
 		return resp, true, nil
 	}
-	body, err := convertType[adminservice.PutWorkflowJSONRequestBody](params.Body)
+	body, err := convertType[adminhttp.PutWorkflowJSONRequestBody](params.Body)
 	if err != nil {
 		return nil, true, err
 	}
-	adminResp, err := s.Workflows.PutWorkflow(ctx, adminservice.PutWorkflowRequestObject{Name: params.Name, Body: &body})
+	adminResp, err := s.Workflows.PutWorkflow(ctx, adminhttp.PutWorkflowRequestObject{Name: params.Name, Body: &body})
 	if err != nil {
 		return internalError(req.Id, err.Error()), true, nil
 	}
@@ -739,7 +739,7 @@ func (s *Server) handleWorkflowDelete(ctx context.Context, req *rpcapi.RPCReques
 	if resp := s.authorizeResponse(ctx, req.Id, workflowResource(params.Name), apitypes.ACLPermissionAdmin); resp != nil {
 		return resp
 	}
-	adminResp, err := s.Workflows.DeleteWorkflow(ctx, adminservice.DeleteWorkflowRequestObject{Name: params.Name})
+	adminResp, err := s.Workflows.DeleteWorkflow(ctx, adminhttp.DeleteWorkflowRequestObject{Name: params.Name})
 	if err != nil {
 		return internalError(req.Id, err.Error())
 	}
@@ -751,13 +751,13 @@ func (s *Server) handleModelList(ctx context.Context, req *rpcapi.RPCRequest) *r
 	if !ok {
 		return invalidParams(req.Id)
 	}
-	resp, err := s.ListModels(ctx, adminservice.ListModelsRequestObject{
-		Params: adminservice.ListModelsParams{Cursor: params.Cursor, Limit: int32Ptr(params.Limit)},
+	resp, err := s.ListModels(ctx, adminhttp.ListModelsRequestObject{
+		Params: adminhttp.ListModelsParams{Cursor: params.Cursor, Limit: int32Ptr(params.Limit)},
 	})
 	if err != nil {
 		return internalError(req.Id, err.Error())
 	}
-	list, rpcResp, err := adminResult[adminservice.ModelList](resp.VisitListModelsResponse)
+	list, rpcResp, err := adminResult[adminhttp.ModelList](resp.VisitListModelsResponse)
 	if err != nil {
 		return internalError(req.Id, err.Error())
 	}
@@ -775,7 +775,7 @@ func (s *Server) handleModelGet(ctx context.Context, req *rpcapi.RPCRequest) *rp
 	if !ok {
 		return invalidParams(req.Id)
 	}
-	adminResp, err := s.GetModel(ctx, adminservice.GetModelRequestObject{Id: params.Id})
+	adminResp, err := s.GetModel(ctx, adminhttp.GetModelRequestObject{Id: params.Id})
 	if err != nil {
 		return internalError(req.Id, err.Error())
 	}
@@ -793,11 +793,11 @@ func (s *Server) handleModelCreate(ctx context.Context, req *rpcapi.RPCRequest) 
 	if resp := s.authorizeResponse(ctx, req.Id, acl.CollectionResource(acl.ResourceKindModel), apitypes.ACLPermissionCreate); resp != nil {
 		return resp, true, nil
 	}
-	body, err := convertType[adminservice.CreateModelJSONRequestBody](params)
+	body, err := convertType[adminhttp.CreateModelJSONRequestBody](params)
 	if err != nil {
 		return nil, true, err
 	}
-	adminResp, err := s.Models.CreateModel(ctx, adminservice.CreateModelRequestObject{Body: &body})
+	adminResp, err := s.Models.CreateModel(ctx, adminhttp.CreateModelRequestObject{Body: &body})
 	if err != nil {
 		return internalError(req.Id, err.Error()), true, nil
 	}
@@ -815,11 +815,11 @@ func (s *Server) handleModelPut(ctx context.Context, req *rpcapi.RPCRequest) (*r
 	if resp := s.authorizeResponse(ctx, req.Id, acl.ModelResource(params.Id), apitypes.ACLPermissionAdmin); resp != nil {
 		return resp, true, nil
 	}
-	body, err := convertType[adminservice.PutModelJSONRequestBody](params.Body)
+	body, err := convertType[adminhttp.PutModelJSONRequestBody](params.Body)
 	if err != nil {
 		return nil, true, err
 	}
-	adminResp, err := s.Models.PutModel(ctx, adminservice.PutModelRequestObject{Id: params.Id, Body: &body})
+	adminResp, err := s.Models.PutModel(ctx, adminhttp.PutModelRequestObject{Id: params.Id, Body: &body})
 	if err != nil {
 		return internalError(req.Id, err.Error()), true, nil
 	}
@@ -837,7 +837,7 @@ func (s *Server) handleModelDelete(ctx context.Context, req *rpcapi.RPCRequest) 
 	if resp := s.authorizeResponse(ctx, req.Id, acl.ModelResource(params.Id), apitypes.ACLPermissionAdmin); resp != nil {
 		return resp
 	}
-	adminResp, err := s.Models.DeleteModel(ctx, adminservice.DeleteModelRequestObject{Id: params.Id})
+	adminResp, err := s.Models.DeleteModel(ctx, adminhttp.DeleteModelRequestObject{Id: params.Id})
 	if err != nil {
 		return internalError(req.Id, err.Error())
 	}
@@ -852,13 +852,13 @@ func (s *Server) handleVoiceList(ctx context.Context, req *rpcapi.RPCRequest) *r
 	if !ok {
 		return invalidParams(req.Id)
 	}
-	resp, err := s.ListVoices(ctx, adminservice.ListVoicesRequestObject{
-		Params: adminservice.ListVoicesParams{Cursor: params.Cursor, Limit: int32Ptr(params.Limit)},
+	resp, err := s.ListVoices(ctx, adminhttp.ListVoicesRequestObject{
+		Params: adminhttp.ListVoicesParams{Cursor: params.Cursor, Limit: int32Ptr(params.Limit)},
 	})
 	if err != nil {
 		return internalError(req.Id, err.Error())
 	}
-	list, rpcResp, err := adminResult[adminservice.VoiceList](resp.VisitListVoicesResponse)
+	list, rpcResp, err := adminResult[adminhttp.VoiceList](resp.VisitListVoicesResponse)
 	if err != nil {
 		return internalError(req.Id, err.Error())
 	}
@@ -876,7 +876,7 @@ func (s *Server) handleVoiceGet(ctx context.Context, req *rpcapi.RPCRequest) *rp
 	if !ok {
 		return invalidParams(req.Id)
 	}
-	adminResp, err := s.GetVoice(ctx, adminservice.GetVoiceRequestObject{Id: params.Id})
+	adminResp, err := s.GetVoice(ctx, adminhttp.GetVoiceRequestObject{Id: params.Id})
 	if err != nil {
 		return internalError(req.Id, err.Error())
 	}
@@ -891,13 +891,13 @@ func (s *Server) handleCredentialList(ctx context.Context, req *rpcapi.RPCReques
 	if !ok {
 		return invalidParams(req.Id)
 	}
-	resp, err := s.Credentials.ListCredentials(ctx, adminservice.ListCredentialsRequestObject{
-		Params: adminservice.ListCredentialsParams{Cursor: params.Cursor, Limit: int32Ptr(params.Limit)},
+	resp, err := s.Credentials.ListCredentials(ctx, adminhttp.ListCredentialsRequestObject{
+		Params: adminhttp.ListCredentialsParams{Cursor: params.Cursor, Limit: int32Ptr(params.Limit)},
 	})
 	if err != nil {
 		return internalError(req.Id, err.Error())
 	}
-	list, rpcResp, err := adminResult[adminservice.CredentialList](resp.VisitListCredentialsResponse)
+	list, rpcResp, err := adminResult[adminhttp.CredentialList](resp.VisitListCredentialsResponse)
 	if err != nil {
 		return internalError(req.Id, err.Error())
 	}
@@ -915,7 +915,7 @@ func (s *Server) handleCredentialList(ctx context.Context, req *rpcapi.RPCReques
 		}
 		items = append(items, item)
 	}
-	return resultResponse(req.Id, adminservice.CredentialList{Items: items, HasNext: list.HasNext, NextCursor: list.NextCursor}, (*rpcapi.RPCResponse_Result).FromCredentialListResponse)
+	return resultResponse(req.Id, adminhttp.CredentialList{Items: items, HasNext: list.HasNext, NextCursor: list.NextCursor}, (*rpcapi.RPCResponse_Result).FromCredentialListResponse)
 }
 
 func (s *Server) handleCredentialGet(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
@@ -926,7 +926,7 @@ func (s *Server) handleCredentialGet(ctx context.Context, req *rpcapi.RPCRequest
 	if !ok {
 		return invalidParams(req.Id)
 	}
-	adminResp, err := s.GetCredential(ctx, adminservice.GetCredentialRequestObject{Name: params.Name})
+	adminResp, err := s.GetCredential(ctx, adminhttp.GetCredentialRequestObject{Name: params.Name})
 	if err != nil {
 		return internalError(req.Id, err.Error())
 	}
@@ -944,11 +944,11 @@ func (s *Server) handleCredentialCreate(ctx context.Context, req *rpcapi.RPCRequ
 	if resp := s.authorizeResponse(ctx, req.Id, acl.CollectionResource(acl.ResourceKindCredential), apitypes.ACLPermissionCreate); resp != nil {
 		return resp, true, nil
 	}
-	body, err := convertType[adminservice.CreateCredentialJSONRequestBody](params)
+	body, err := convertType[adminhttp.CreateCredentialJSONRequestBody](params)
 	if err != nil {
 		return nil, true, err
 	}
-	adminResp, err := s.Credentials.CreateCredential(ctx, adminservice.CreateCredentialRequestObject{Body: &body})
+	adminResp, err := s.Credentials.CreateCredential(ctx, adminhttp.CreateCredentialRequestObject{Body: &body})
 	if err != nil {
 		return internalError(req.Id, err.Error()), true, nil
 	}
@@ -966,11 +966,11 @@ func (s *Server) handleCredentialPut(ctx context.Context, req *rpcapi.RPCRequest
 	if resp := s.authorizeResponse(ctx, req.Id, acl.CredentialResource(params.Name), apitypes.ACLPermissionAdmin); resp != nil {
 		return resp, true, nil
 	}
-	body, err := convertType[adminservice.PutCredentialJSONRequestBody](params.Body)
+	body, err := convertType[adminhttp.PutCredentialJSONRequestBody](params.Body)
 	if err != nil {
 		return nil, true, err
 	}
-	adminResp, err := s.Credentials.PutCredential(ctx, adminservice.PutCredentialRequestObject{Name: params.Name, Body: &body})
+	adminResp, err := s.Credentials.PutCredential(ctx, adminhttp.PutCredentialRequestObject{Name: params.Name, Body: &body})
 	if err != nil {
 		return internalError(req.Id, err.Error()), true, nil
 	}
@@ -988,7 +988,7 @@ func (s *Server) handleCredentialDelete(ctx context.Context, req *rpcapi.RPCRequ
 	if resp := s.authorizeResponse(ctx, req.Id, acl.CredentialResource(params.Name), apitypes.ACLPermissionAdmin); resp != nil {
 		return resp
 	}
-	adminResp, err := s.Credentials.DeleteCredential(ctx, adminservice.DeleteCredentialRequestObject{Name: params.Name})
+	adminResp, err := s.Credentials.DeleteCredential(ctx, adminhttp.DeleteCredentialRequestObject{Name: params.Name})
 	if err != nil {
 		return internalError(req.Id, err.Error())
 	}

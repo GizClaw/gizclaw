@@ -5,7 +5,7 @@ package admin_test
 import (
 	"testing"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminservice"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 )
 
@@ -13,7 +13,7 @@ func TestAdminAPICredentialsListGetPaginationAndMutation(t *testing.T) {
 	env := newAdminAPIHarness(t)
 
 	all := collectAdminPages(t, 20, func(cursor *string, limit int32) ([]apitypes.Credential, bool, *string) {
-		resp, err := env.api.ListCredentialsWithResponse(env.ctx, &adminservice.ListCredentialsParams{Cursor: cursor, Limit: &limit})
+		resp, err := env.api.ListCredentialsWithResponse(env.ctx, &adminhttp.ListCredentialsParams{Cursor: cursor, Limit: &limit})
 		if err != nil {
 			t.Fatalf("list credentials: %v", err)
 		}
@@ -37,7 +37,7 @@ func TestAdminAPICredentialsListGetPaginationAndMutation(t *testing.T) {
 
 	name := mutationName("credential")
 	_, _ = env.api.DeleteCredentialWithResponse(env.ctx, name)
-	created, err := env.api.CreateCredentialWithResponse(env.ctx, adminservice.CredentialUpsert{
+	created, err := env.api.CreateCredentialWithResponse(env.ctx, adminhttp.CredentialUpsert{
 		Name:        name,
 		Provider:    "openai",
 		Description: ptr("Admin API mutation credential"),

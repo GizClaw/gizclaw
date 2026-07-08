@@ -5,14 +5,14 @@ package admin_test
 import (
 	"testing"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminservice"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 )
 
 func TestAdminAPIACLViewsListGetAndMutation(t *testing.T) {
 	env := newAdminAPIHarness(t)
 
-	list, err := env.api.ListACLViewsWithResponse(env.ctx, &adminservice.ListACLViewsParams{Limit: ptr[int32](100)})
+	list, err := env.api.ListACLViewsWithResponse(env.ctx, &adminhttp.ListACLViewsParams{Limit: ptr[int32](100)})
 	if err != nil {
 		t.Fatalf("list ACL views: %v", err)
 	}
@@ -33,7 +33,7 @@ func TestAdminAPIACLViewsListGetAndMutation(t *testing.T) {
 
 	name := mutationName("acl-view")
 	_, _ = env.api.DeleteACLViewWithResponse(env.ctx, name)
-	created, err := env.api.CreateACLViewWithResponse(env.ctx, adminservice.ACLViewUpsert{
+	created, err := env.api.CreateACLViewWithResponse(env.ctx, adminhttp.ACLViewUpsert{
 		Name:        name,
 		Description: ptr("Admin API mutation ACL view"),
 	})

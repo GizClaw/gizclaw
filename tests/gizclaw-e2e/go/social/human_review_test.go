@@ -20,7 +20,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codecconv"
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/portaudio"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminservice"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/sdk/go/gizcli"
@@ -141,7 +141,7 @@ func setEnvFallback(t *testing.T, key string, fallbacks ...string) {
 	}
 }
 
-func putSocialHumanReviewPeerConfig(t *testing.T, api *adminservice.ClientWithResponses, publicKey string) {
+func putSocialHumanReviewPeerConfig(t *testing.T, api *adminhttp.ClientWithResponses, publicKey string) {
 	t.Helper()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -263,7 +263,7 @@ func readSocialHumanReviewHistoryAudio(t *testing.T, ctx context.Context, client
 func synthesizeSocialHumanReviewSpeech(t *testing.T, ctx context.Context, client *gizcli.Client, text string) ([]byte, [][]byte) {
 	t.Helper()
 
-	httpClient := client.HTTPClient(gizcli.ServiceOpenAI)
+	httpClient := client.HTTPClient(gizcli.ServicePeerOpenAI)
 	httpClient.Timeout = 90 * time.Second
 	body, err := json.Marshal(map[string]string{
 		"input":           text,

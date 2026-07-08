@@ -128,7 +128,7 @@ func TestConnListenServiceReuseAndWriteRoutes(t *testing.T) {
 	if n, err := conn.Write(0x42, []byte("packet")); err != nil || n != len("packet") {
 		t.Fatalf("packet Write n=%d err=%v", n, err)
 	}
-	if n, err := conn.Write(ProtocolStampedOpus, stampedOpusForTest()); err != nil || n != len(stampedOpusForTest()) {
+	if n, err := conn.Write(PacketStampedOpus, stampedOpusForTest()); err != nil || n != len(stampedOpusForTest()) {
 		t.Fatalf("opus Write n=%d err=%v", n, err)
 	}
 	if len(writer.samples) != 1 {

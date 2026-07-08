@@ -42,7 +42,7 @@ func TestClientFirmwareMethodsUseRPCConnection(t *testing.T) {
 	client, serverConn, cleanup := connectedFirmwareTestClient(t)
 	defer cleanup()
 
-	listener := serverConn.ListenService(ServiceRPC)
+	listener := serverConn.ListenService(ServicePeerRPC)
 	defer listener.Close()
 
 	serverErrCh := make(chan error, 3)

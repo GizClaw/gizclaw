@@ -16,7 +16,7 @@ import (
 	"github.com/volcengine/volcengine-go-sdk/volcengine/session"
 	"github.com/volcengine/volcengine-go-sdk/volcengine/universal"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminservice"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	voicecatalog "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/voice"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
@@ -40,60 +40,60 @@ type VolcSpeakerClient interface {
 
 type VolcSpeakerClientFactory func(context.Context, apitypes.Credential, apitypes.VolcTenant) (VolcSpeakerClient, error)
 
-func (s *Server) ListVolcTenants(ctx context.Context, request adminservice.ListVolcTenantsRequestObject) (adminservice.ListVolcTenantsResponseObject, error) {
+func (s *Server) ListVolcTenants(ctx context.Context, request adminhttp.ListVolcTenantsRequestObject) (adminhttp.ListVolcTenantsResponseObject, error) {
 	store, err := s.volcTenantStore()
 	if err != nil {
-		return adminservice.ListVolcTenants500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.ListVolcTenants500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	cursor, limit := normalizeListParams(request.Params.Cursor, request.Params.Limit)
 	items, hasNext, nextCursor, err := listVolcTenantsPage(ctx, store, cursor, limit)
 	if err != nil {
-		return adminservice.ListVolcTenants500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.ListVolcTenants500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	return adminservice.ListVolcTenants200JSONResponse(adminservice.VolcTenantList{
+	return adminhttp.ListVolcTenants200JSONResponse(adminhttp.VolcTenantList{
 		HasNext:    hasNext,
 		Items:      items,
 		NextCursor: nextCursor,
 	}), nil
 }
 
-func (s *Server) CreateVolcTenant(ctx context.Context, request adminservice.CreateVolcTenantRequestObject) (adminservice.CreateVolcTenantResponseObject, error) {
+func (s *Server) CreateVolcTenant(ctx context.Context, request adminhttp.CreateVolcTenantRequestObject) (adminhttp.CreateVolcTenantResponseObject, error) {
 	store, err := s.volcTenantStore()
 	if err != nil {
-		return adminservice.CreateVolcTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.CreateVolcTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	if request.Body == nil {
-		return adminservice.CreateVolcTenant400JSONResponse(apitypes.NewErrorResponse("INVALID_VOLC_TENANT", "request body required")), nil
+		return adminhttp.CreateVolcTenant400JSONResponse(apitypes.NewErrorResponse("INVALID_VOLC_TENANT", "request body required")), nil
 	}
 	tenant, err := normalizeVolcTenantUpsert(*request.Body, "")
 	if err != nil {
-		return adminservice.CreateVolcTenant400JSONResponse(apitypes.NewErrorResponse("INVALID_VOLC_TENANT", err.Error())), nil
+		return adminhttp.CreateVolcTenant400JSONResponse(apitypes.NewErrorResponse("INVALID_VOLC_TENANT", err.Error())), nil
 	}
 	credentialStore, err := s.credentialStore()
 	if err != nil {
-		return adminservice.CreateVolcTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.CreateVolcTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	if err := validateVolcTenantReferences(ctx, credentialStore, tenant); err != nil {
-		return adminservice.CreateVolcTenant400JSONResponse(apitypes.NewErrorResponse("INVALID_VOLC_TENANT", err.Error())), nil
+		return adminhttp.CreateVolcTenant400JSONResponse(apitypes.NewErrorResponse("INVALID_VOLC_TENANT", err.Error())), nil
 	}
 	if _, err := store.Get(ctx, volcTenantKey(string(tenant.Name))); err == nil {
-		return adminservice.CreateVolcTenant409JSONResponse(apitypes.NewErrorResponse("VOLC_TENANT_ALREADY_EXISTS", fmt.Sprintf("Volcengine tenant %q already exists", tenant.Name))), nil
+		return adminhttp.CreateVolcTenant409JSONResponse(apitypes.NewErrorResponse("VOLC_TENANT_ALREADY_EXISTS", fmt.Sprintf("Volcengine tenant %q already exists", tenant.Name))), nil
 	} else if !errors.Is(err, kv.ErrNotFound) {
-		return adminservice.CreateVolcTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.CreateVolcTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	now := s.now()
 	tenant.CreatedAt = now
 	tenant.UpdatedAt = now
 	if err := writeVolcTenant(ctx, store, tenant); err != nil {
-		return adminservice.CreateVolcTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.CreateVolcTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	return adminservice.CreateVolcTenant200JSONResponse(tenant), nil
+	return adminhttp.CreateVolcTenant200JSONResponse(tenant), nil
 }
 
-func (s *Server) DeleteVolcTenant(ctx context.Context, request adminservice.DeleteVolcTenantRequestObject) (adminservice.DeleteVolcTenantResponseObject, error) {
+func (s *Server) DeleteVolcTenant(ctx context.Context, request adminhttp.DeleteVolcTenantRequestObject) (adminhttp.DeleteVolcTenantResponseObject, error) {
 	store, err := s.volcTenantStore()
 	if err != nil {
-		return adminservice.DeleteVolcTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.DeleteVolcTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	name, err := url.PathUnescape(string(request.Name))
 	if err != nil {
@@ -102,27 +102,27 @@ func (s *Server) DeleteVolcTenant(ctx context.Context, request adminservice.Dele
 	tenant, err := getVolcTenant(ctx, store, name)
 	if err != nil {
 		if errors.Is(err, kv.ErrNotFound) {
-			return adminservice.DeleteVolcTenant404JSONResponse(apitypes.NewErrorResponse("VOLC_TENANT_NOT_FOUND", fmt.Sprintf("Volcengine tenant %q not found", name))), nil
+			return adminhttp.DeleteVolcTenant404JSONResponse(apitypes.NewErrorResponse("VOLC_TENANT_NOT_FOUND", fmt.Sprintf("Volcengine tenant %q not found", name))), nil
 		}
-		return adminservice.DeleteVolcTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.DeleteVolcTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	voiceStore, err := s.voiceStore()
 	if err != nil {
-		return adminservice.DeleteVolcTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.DeleteVolcTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	if err := deleteVolcTenantVoices(ctx, voiceStore, tenant.Name); err != nil {
-		return adminservice.DeleteVolcTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.DeleteVolcTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	if err := store.Delete(ctx, volcTenantKey(string(tenant.Name))); err != nil {
-		return adminservice.DeleteVolcTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.DeleteVolcTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	return adminservice.DeleteVolcTenant200JSONResponse(tenant), nil
+	return adminhttp.DeleteVolcTenant200JSONResponse(tenant), nil
 }
 
-func (s *Server) GetVolcTenant(ctx context.Context, request adminservice.GetVolcTenantRequestObject) (adminservice.GetVolcTenantResponseObject, error) {
+func (s *Server) GetVolcTenant(ctx context.Context, request adminhttp.GetVolcTenantRequestObject) (adminhttp.GetVolcTenantResponseObject, error) {
 	store, err := s.volcTenantStore()
 	if err != nil {
-		return adminservice.GetVolcTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.GetVolcTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	name, err := url.PathUnescape(string(request.Name))
 	if err != nil {
@@ -131,20 +131,20 @@ func (s *Server) GetVolcTenant(ctx context.Context, request adminservice.GetVolc
 	tenant, err := getVolcTenant(ctx, store, name)
 	if err != nil {
 		if errors.Is(err, kv.ErrNotFound) {
-			return adminservice.GetVolcTenant404JSONResponse(apitypes.NewErrorResponse("VOLC_TENANT_NOT_FOUND", fmt.Sprintf("Volcengine tenant %q not found", name))), nil
+			return adminhttp.GetVolcTenant404JSONResponse(apitypes.NewErrorResponse("VOLC_TENANT_NOT_FOUND", fmt.Sprintf("Volcengine tenant %q not found", name))), nil
 		}
-		return adminservice.GetVolcTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.GetVolcTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	return adminservice.GetVolcTenant200JSONResponse(tenant), nil
+	return adminhttp.GetVolcTenant200JSONResponse(tenant), nil
 }
 
-func (s *Server) PutVolcTenant(ctx context.Context, request adminservice.PutVolcTenantRequestObject) (adminservice.PutVolcTenantResponseObject, error) {
+func (s *Server) PutVolcTenant(ctx context.Context, request adminhttp.PutVolcTenantRequestObject) (adminhttp.PutVolcTenantResponseObject, error) {
 	store, err := s.volcTenantStore()
 	if err != nil {
-		return adminservice.PutVolcTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.PutVolcTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	if request.Body == nil {
-		return adminservice.PutVolcTenant400JSONResponse(apitypes.NewErrorResponse("INVALID_VOLC_TENANT", "request body required")), nil
+		return adminhttp.PutVolcTenant400JSONResponse(apitypes.NewErrorResponse("INVALID_VOLC_TENANT", "request body required")), nil
 	}
 	name, err := url.PathUnescape(string(request.Name))
 	if err != nil {
@@ -152,18 +152,18 @@ func (s *Server) PutVolcTenant(ctx context.Context, request adminservice.PutVolc
 	}
 	tenant, err := normalizeVolcTenantUpsert(*request.Body, name)
 	if err != nil {
-		return adminservice.PutVolcTenant400JSONResponse(apitypes.NewErrorResponse("INVALID_VOLC_TENANT", err.Error())), nil
+		return adminhttp.PutVolcTenant400JSONResponse(apitypes.NewErrorResponse("INVALID_VOLC_TENANT", err.Error())), nil
 	}
 	credentialStore, err := s.credentialStore()
 	if err != nil {
-		return adminservice.PutVolcTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.PutVolcTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	if err := validateVolcTenantReferences(ctx, credentialStore, tenant); err != nil {
-		return adminservice.PutVolcTenant400JSONResponse(apitypes.NewErrorResponse("INVALID_VOLC_TENANT", err.Error())), nil
+		return adminhttp.PutVolcTenant400JSONResponse(apitypes.NewErrorResponse("INVALID_VOLC_TENANT", err.Error())), nil
 	}
 	previous, err := getVolcTenant(ctx, store, name)
 	if err != nil && !errors.Is(err, kv.ErrNotFound) {
-		return adminservice.PutVolcTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.PutVolcTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	now := s.now()
 	tenant.CreatedAt = now
@@ -173,23 +173,23 @@ func (s *Server) PutVolcTenant(ctx context.Context, request adminservice.PutVolc
 		tenant.LastSyncedAt = cloneTime(previous.LastSyncedAt)
 	}
 	if err := writeVolcTenant(ctx, store, tenant); err != nil {
-		return adminservice.PutVolcTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.PutVolcTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	return adminservice.PutVolcTenant200JSONResponse(tenant), nil
+	return adminhttp.PutVolcTenant200JSONResponse(tenant), nil
 }
 
-func (s *Server) SyncVolcTenantVoices(ctx context.Context, request adminservice.SyncVolcTenantVoicesRequestObject) (adminservice.SyncVolcTenantVoicesResponseObject, error) {
+func (s *Server) SyncVolcTenantVoices(ctx context.Context, request adminhttp.SyncVolcTenantVoicesRequestObject) (adminhttp.SyncVolcTenantVoicesResponseObject, error) {
 	tenantStore, err := s.volcTenantStore()
 	if err != nil {
-		return adminservice.SyncVolcTenantVoices500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.SyncVolcTenantVoices500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	voiceStore, err := s.voiceStore()
 	if err != nil {
-		return adminservice.SyncVolcTenantVoices500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.SyncVolcTenantVoices500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	credentialStore, err := s.credentialStore()
 	if err != nil {
-		return adminservice.SyncVolcTenantVoices500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.SyncVolcTenantVoices500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	name, err := url.PathUnescape(string(request.Name))
 	if err != nil {
@@ -198,40 +198,40 @@ func (s *Server) SyncVolcTenantVoices(ctx context.Context, request adminservice.
 	tenant, err := getVolcTenant(ctx, tenantStore, name)
 	if err != nil {
 		if errors.Is(err, kv.ErrNotFound) {
-			return adminservice.SyncVolcTenantVoices404JSONResponse(apitypes.NewErrorResponse("VOLC_TENANT_NOT_FOUND", fmt.Sprintf("Volcengine tenant %q not found", name))), nil
+			return adminhttp.SyncVolcTenantVoices404JSONResponse(apitypes.NewErrorResponse("VOLC_TENANT_NOT_FOUND", fmt.Sprintf("Volcengine tenant %q not found", name))), nil
 		}
-		return adminservice.SyncVolcTenantVoices500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.SyncVolcTenantVoices500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	credential, err := getCredential(ctx, credentialStore, string(tenant.CredentialName))
 	if err != nil {
 		if errors.Is(err, kv.ErrNotFound) {
-			return adminservice.SyncVolcTenantVoices400JSONResponse(apitypes.NewErrorResponse("INVALID_VOLC_TENANT", fmt.Sprintf("credential %q not found", tenant.CredentialName))), nil
+			return adminhttp.SyncVolcTenantVoices400JSONResponse(apitypes.NewErrorResponse("INVALID_VOLC_TENANT", fmt.Sprintf("credential %q not found", tenant.CredentialName))), nil
 		}
-		return adminservice.SyncVolcTenantVoices500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.SyncVolcTenantVoices500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	appID, _, _, err := volcCredentialValues(credential)
 	if err != nil {
-		return adminservice.SyncVolcTenantVoices400JSONResponse(apitypes.NewErrorResponse("INVALID_VOLC_TENANT", err.Error())), nil
+		return adminhttp.SyncVolcTenantVoices400JSONResponse(apitypes.NewErrorResponse("INVALID_VOLC_TENANT", err.Error())), nil
 	}
 	client, err := s.volcSpeakerClientForTenant(ctx, credential, tenant)
 	if err != nil {
-		return adminservice.SyncVolcTenantVoices400JSONResponse(apitypes.NewErrorResponse("INVALID_VOLC_TENANT", err.Error())), nil
+		return adminhttp.SyncVolcTenantVoices400JSONResponse(apitypes.NewErrorResponse("INVALID_VOLC_TENANT", err.Error())), nil
 	}
 	upstream, err := listAllVolcSpeakers(ctx, client, tenant, appID)
 	if err != nil {
-		return adminservice.SyncVolcTenantVoices502JSONResponse(apitypes.NewErrorResponse("VOLC_SYNC_FAILED", err.Error())), nil
+		return adminhttp.SyncVolcTenantVoices502JSONResponse(apitypes.NewErrorResponse("VOLC_SYNC_FAILED", err.Error())), nil
 	}
 	now := s.now()
 	createdCount, updatedCount, deletedCount, err := reconcileVolcTenantVoices(ctx, voiceStore, tenant, upstream, now)
 	if err != nil {
-		return adminservice.SyncVolcTenantVoices500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.SyncVolcTenantVoices500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	tenant.LastSyncedAt = &now
 	tenant.UpdatedAt = now
 	if err := writeVolcTenant(ctx, tenantStore, tenant); err != nil {
-		return adminservice.SyncVolcTenantVoices500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.SyncVolcTenantVoices500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	return adminservice.SyncVolcTenantVoices200JSONResponse(adminservice.VolcSyncVoicesResult{
+	return adminhttp.SyncVolcTenantVoices200JSONResponse(adminhttp.VolcSyncVoicesResult{
 		CreatedCount: createdCount,
 		DeletedCount: deletedCount,
 		SyncedAt:     now,
@@ -257,7 +257,7 @@ func listVolcTenantsPage(ctx context.Context, store kv.Store, cursor string, lim
 	return items, hasNext, nextCursor, nil
 }
 
-func normalizeVolcTenantUpsert(in adminservice.VolcTenantUpsert, expectedName string) (apitypes.VolcTenant, error) {
+func normalizeVolcTenantUpsert(in adminhttp.VolcTenantUpsert, expectedName string) (apitypes.VolcTenant, error) {
 	name := strings.TrimSpace(string(in.Name))
 	if name == "" {
 		return apitypes.VolcTenant{}, errors.New("name is required")

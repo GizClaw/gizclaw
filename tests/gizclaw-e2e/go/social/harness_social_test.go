@@ -13,7 +13,7 @@ import (
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminservice"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/sdk/go/gizcli"
@@ -93,7 +93,7 @@ func setSocialChatWorkspaceInputMode(t *testing.T, h *clitest.Harness, workspace
 	if err := params.FromChatRoomWorkspaceParameters(typed); err != nil {
 		t.Fatalf("encode social workspace %q parameters: %v", workspaceName, err)
 	}
-	body := adminservice.WorkspaceUpsert{
+	body := adminhttp.WorkspaceUpsert{
 		Name:         string(got.JSON200.Name),
 		WorkflowName: string(got.JSON200.WorkflowName),
 		Parameters:   &params,

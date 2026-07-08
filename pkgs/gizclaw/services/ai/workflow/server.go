@@ -9,7 +9,7 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminservice"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/customid"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
@@ -27,11 +27,11 @@ type Server struct {
 }
 
 type WorkflowAdminService interface {
-	ListWorkflows(context.Context, adminservice.ListWorkflowsRequestObject) (adminservice.ListWorkflowsResponseObject, error)
-	CreateWorkflow(context.Context, adminservice.CreateWorkflowRequestObject) (adminservice.CreateWorkflowResponseObject, error)
-	DeleteWorkflow(context.Context, adminservice.DeleteWorkflowRequestObject) (adminservice.DeleteWorkflowResponseObject, error)
-	GetWorkflow(context.Context, adminservice.GetWorkflowRequestObject) (adminservice.GetWorkflowResponseObject, error)
-	PutWorkflow(context.Context, adminservice.PutWorkflowRequestObject) (adminservice.PutWorkflowResponseObject, error)
+	ListWorkflows(context.Context, adminhttp.ListWorkflowsRequestObject) (adminhttp.ListWorkflowsResponseObject, error)
+	CreateWorkflow(context.Context, adminhttp.CreateWorkflowRequestObject) (adminhttp.CreateWorkflowResponseObject, error)
+	DeleteWorkflow(context.Context, adminhttp.DeleteWorkflowRequestObject) (adminhttp.DeleteWorkflowResponseObject, error)
+	GetWorkflow(context.Context, adminhttp.GetWorkflowRequestObject) (adminhttp.GetWorkflowResponseObject, error)
+	PutWorkflow(context.Context, adminhttp.PutWorkflowRequestObject) (adminhttp.PutWorkflowResponseObject, error)
 }
 
 var _ WorkflowAdminService = (*Server)(nil)
@@ -45,57 +45,57 @@ type workflowMetadata struct {
 	Name string `json:"name"`
 }
 
-func (s *Server) ListWorkflows(ctx context.Context, request adminservice.ListWorkflowsRequestObject) (adminservice.ListWorkflowsResponseObject, error) {
+func (s *Server) ListWorkflows(ctx context.Context, request adminhttp.ListWorkflowsRequestObject) (adminhttp.ListWorkflowsResponseObject, error) {
 	if s == nil || s.Store == nil {
-		return adminservice.ListWorkflows500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "workflow store not configured")), nil
+		return adminhttp.ListWorkflows500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "workflow store not configured")), nil
 	}
 	cursor, limit := normalizeListParams(request.Params.Cursor, request.Params.Limit)
 	entries, err := kv.ListAfter(ctx, s.Store, workflowsRoot, cursorAfterKey(workflowsRoot, cursor), limit+1)
 	if err != nil {
-		return adminservice.ListWorkflows500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.ListWorkflows500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	pageEntries, hasNext, nextCursor := paginateEntries(entries, limit)
 	items := make([]apitypes.WorkflowDocument, 0)
 	for _, entry := range pageEntries {
 		doc, err := decodeDocument(entry.Value)
 		if err != nil {
-			return adminservice.ListWorkflows500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+			return adminhttp.ListWorkflows500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 		}
 		items = append(items, doc)
 	}
-	return adminservice.ListWorkflows200JSONResponse(adminservice.WorkflowList{
+	return adminhttp.ListWorkflows200JSONResponse(adminhttp.WorkflowList{
 		HasNext:    hasNext,
 		Items:      items,
 		NextCursor: nextCursor,
 	}), nil
 }
 
-func (s *Server) CreateWorkflow(ctx context.Context, request adminservice.CreateWorkflowRequestObject) (adminservice.CreateWorkflowResponseObject, error) {
+func (s *Server) CreateWorkflow(ctx context.Context, request adminhttp.CreateWorkflowRequestObject) (adminhttp.CreateWorkflowResponseObject, error) {
 	if s == nil || s.Store == nil {
-		return adminservice.CreateWorkflow500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "workflow store not configured")), nil
+		return adminhttp.CreateWorkflow500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "workflow store not configured")), nil
 	}
 	if request.Body == nil {
-		return adminservice.CreateWorkflow400JSONResponse(apitypes.NewErrorResponse("INVALID_WORKFLOW", "request body required")), nil
+		return adminhttp.CreateWorkflow400JSONResponse(apitypes.NewErrorResponse("INVALID_WORKFLOW", "request body required")), nil
 	}
 	doc, env, raw, err := validateDocument(*request.Body, "")
 	if err != nil {
-		return adminservice.CreateWorkflow400JSONResponse(apitypes.NewErrorResponse("INVALID_WORKFLOW", err.Error())), nil
+		return adminhttp.CreateWorkflow400JSONResponse(apitypes.NewErrorResponse("INVALID_WORKFLOW", err.Error())), nil
 	}
 	key := workflowKey(env.Metadata.Name)
 	if _, err := s.Store.Get(ctx, key); err == nil {
-		return adminservice.CreateWorkflow409JSONResponse(apitypes.NewErrorResponse("WORKFLOW_ALREADY_EXISTS", fmt.Sprintf("workflow %q already exists", env.Metadata.Name))), nil
+		return adminhttp.CreateWorkflow409JSONResponse(apitypes.NewErrorResponse("WORKFLOW_ALREADY_EXISTS", fmt.Sprintf("workflow %q already exists", env.Metadata.Name))), nil
 	} else if !errors.Is(err, kv.ErrNotFound) {
-		return adminservice.CreateWorkflow500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.CreateWorkflow500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	if err := s.Store.Set(ctx, key, raw); err != nil {
-		return adminservice.CreateWorkflow500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.CreateWorkflow500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	return adminservice.CreateWorkflow200JSONResponse(doc), nil
+	return adminhttp.CreateWorkflow200JSONResponse(doc), nil
 }
 
-func (s *Server) DeleteWorkflow(ctx context.Context, request adminservice.DeleteWorkflowRequestObject) (adminservice.DeleteWorkflowResponseObject, error) {
+func (s *Server) DeleteWorkflow(ctx context.Context, request adminhttp.DeleteWorkflowRequestObject) (adminhttp.DeleteWorkflowResponseObject, error) {
 	if s == nil || s.Store == nil {
-		return adminservice.DeleteWorkflow500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "workflow store not configured")), nil
+		return adminhttp.DeleteWorkflow500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "workflow store not configured")), nil
 	}
 	name, err := url.PathUnescape(string(request.Name))
 	if err != nil {
@@ -105,23 +105,23 @@ func (s *Server) DeleteWorkflow(ctx context.Context, request adminservice.Delete
 	data, err := s.Store.Get(ctx, key)
 	if err != nil {
 		if errors.Is(err, kv.ErrNotFound) {
-			return adminservice.DeleteWorkflow404JSONResponse(apitypes.NewErrorResponse("WORKFLOW_NOT_FOUND", fmt.Sprintf("workflow %q not found", name))), nil
+			return adminhttp.DeleteWorkflow404JSONResponse(apitypes.NewErrorResponse("WORKFLOW_NOT_FOUND", fmt.Sprintf("workflow %q not found", name))), nil
 		}
-		return adminservice.DeleteWorkflow500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.DeleteWorkflow500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	doc, err := decodeDocument(data)
 	if err != nil {
-		return adminservice.DeleteWorkflow500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.DeleteWorkflow500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	if err := s.Store.Delete(ctx, key); err != nil {
-		return adminservice.DeleteWorkflow500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.DeleteWorkflow500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	return adminservice.DeleteWorkflow200JSONResponse(doc), nil
+	return adminhttp.DeleteWorkflow200JSONResponse(doc), nil
 }
 
-func (s *Server) GetWorkflow(ctx context.Context, request adminservice.GetWorkflowRequestObject) (adminservice.GetWorkflowResponseObject, error) {
+func (s *Server) GetWorkflow(ctx context.Context, request adminhttp.GetWorkflowRequestObject) (adminhttp.GetWorkflowResponseObject, error) {
 	if s == nil || s.Store == nil {
-		return adminservice.GetWorkflow500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "workflow store not configured")), nil
+		return adminhttp.GetWorkflow500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "workflow store not configured")), nil
 	}
 	name, err := url.PathUnescape(string(request.Name))
 	if err != nil {
@@ -130,23 +130,23 @@ func (s *Server) GetWorkflow(ctx context.Context, request adminservice.GetWorkfl
 	data, err := s.Store.Get(ctx, workflowKey(name))
 	if err != nil {
 		if errors.Is(err, kv.ErrNotFound) {
-			return adminservice.GetWorkflow404JSONResponse(apitypes.NewErrorResponse("WORKFLOW_NOT_FOUND", fmt.Sprintf("workflow %q not found", name))), nil
+			return adminhttp.GetWorkflow404JSONResponse(apitypes.NewErrorResponse("WORKFLOW_NOT_FOUND", fmt.Sprintf("workflow %q not found", name))), nil
 		}
-		return adminservice.GetWorkflow500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.GetWorkflow500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	doc, err := decodeDocument(data)
 	if err != nil {
-		return adminservice.GetWorkflow500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.GetWorkflow500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	return adminservice.GetWorkflow200JSONResponse(doc), nil
+	return adminhttp.GetWorkflow200JSONResponse(doc), nil
 }
 
-func (s *Server) PutWorkflow(ctx context.Context, request adminservice.PutWorkflowRequestObject) (adminservice.PutWorkflowResponseObject, error) {
+func (s *Server) PutWorkflow(ctx context.Context, request adminhttp.PutWorkflowRequestObject) (adminhttp.PutWorkflowResponseObject, error) {
 	if s == nil || s.Store == nil {
-		return adminservice.PutWorkflow500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "workflow store not configured")), nil
+		return adminhttp.PutWorkflow500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "workflow store not configured")), nil
 	}
 	if request.Body == nil {
-		return adminservice.PutWorkflow400JSONResponse(apitypes.NewErrorResponse("INVALID_WORKFLOW", "request body required")), nil
+		return adminhttp.PutWorkflow400JSONResponse(apitypes.NewErrorResponse("INVALID_WORKFLOW", "request body required")), nil
 	}
 	name, err := url.PathUnescape(string(request.Name))
 	if err != nil {
@@ -154,12 +154,12 @@ func (s *Server) PutWorkflow(ctx context.Context, request adminservice.PutWorkfl
 	}
 	doc, env, raw, err := validateDocument(*request.Body, name)
 	if err != nil {
-		return adminservice.PutWorkflow400JSONResponse(apitypes.NewErrorResponse("INVALID_WORKFLOW", err.Error())), nil
+		return adminhttp.PutWorkflow400JSONResponse(apitypes.NewErrorResponse("INVALID_WORKFLOW", err.Error())), nil
 	}
 	if err := s.Store.Set(ctx, workflowKey(env.Metadata.Name), raw); err != nil {
-		return adminservice.PutWorkflow500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.PutWorkflow500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	return adminservice.PutWorkflow200JSONResponse(doc), nil
+	return adminhttp.PutWorkflow200JSONResponse(doc), nil
 }
 
 func validateDocument(doc apitypes.WorkflowDocument, expectedName string) (apitypes.WorkflowDocument, documentEnvelope, []byte, error) {

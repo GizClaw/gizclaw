@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminservice"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/sdk/go/gizcli"
@@ -163,14 +163,14 @@ func applyDefaultClientView(t *testing.T, h *clitest.Harness, contextName string
 	applyPeerWorkspacePrefixBinding(t, h, api, contextName)
 }
 
-func applyPeerWorkspacePrefixBinding(t *testing.T, h *clitest.Harness, api *adminservice.ClientWithResponses, contextName string) {
+func applyPeerWorkspacePrefixBinding(t *testing.T, h *clitest.Harness, api *adminhttp.ClientWithResponses, contextName string) {
 	t.Helper()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	peerPublicKey := h.ContextPublicKey(contextName)
 	id := "e2e-rpc-workspace-prefix-" + peerPublicKey + "-" + sharedChatroomWorkspace
-	resp, err := api.CreateACLPolicyBindingWithResponse(ctx, adminservice.ACLPolicyBindingUpsert{
+	resp, err := api.CreateACLPolicyBindingWithResponse(ctx, adminhttp.ACLPolicyBindingUpsert{
 		Id: &id,
 		Policy: apitypes.ACLPolicy{
 			Subject: apitypes.ACLSubject{

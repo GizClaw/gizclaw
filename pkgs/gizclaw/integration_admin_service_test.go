@@ -7,7 +7,7 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminservice"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 )
 
 func TestIntegrationAdminServiceWorkflowLifecycle(t *testing.T) {
@@ -99,7 +99,7 @@ func TestIntegrationAdminServiceWorkspaceLifecycle(t *testing.T) {
 		t.Fatalf("CreateWorkflow error: %v", err)
 	}
 
-	createBody := adminservice.WorkspaceUpsert{
+	createBody := adminhttp.WorkspaceUpsert{
 		Name:         "demo-workspace",
 		WorkflowName: "demo-workflow",
 	}
@@ -127,7 +127,7 @@ func TestIntegrationAdminServiceWorkspaceLifecycle(t *testing.T) {
 		t.Fatalf("GetWorkspace workflow = %q", got.WorkflowName)
 	}
 
-	updated, err := putWorkspace(context.Background(), admin, "demo-workspace", adminservice.WorkspaceUpsert{
+	updated, err := putWorkspace(context.Background(), admin, "demo-workspace", adminhttp.WorkspaceUpsert{
 		Name:         "demo-workspace",
 		WorkflowName: "demo-workflow",
 		Parameters:   testFlowcraftWorkspaceParameters(),
@@ -237,10 +237,10 @@ func mustWorkflowDocument(t *testing.T, raw string) apitypes.WorkflowDocument {
 	return doc
 }
 
-func mustCredentialUpsert(t *testing.T, raw string) adminservice.CredentialUpsert {
+func mustCredentialUpsert(t *testing.T, raw string) adminhttp.CredentialUpsert {
 	t.Helper()
 
-	var upsert adminservice.CredentialUpsert
+	var upsert adminhttp.CredentialUpsert
 	if err := json.Unmarshal([]byte(raw), &upsert); err != nil {
 		t.Fatalf("json.Unmarshal() error = %v", err)
 	}

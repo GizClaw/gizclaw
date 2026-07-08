@@ -5,14 +5,14 @@ package admin_test
 import (
 	"testing"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminservice"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 )
 
 func TestAdminAPIACLPolicyBindingsListGetAndMutation(t *testing.T) {
 	env := newAdminAPIHarness(t)
 
-	list, err := env.api.ListACLPolicyBindingsWithResponse(env.ctx, &adminservice.ListACLPolicyBindingsParams{Limit: ptr[int32](200)})
+	list, err := env.api.ListACLPolicyBindingsWithResponse(env.ctx, &adminhttp.ListACLPolicyBindingsParams{Limit: ptr[int32](200)})
 	if err != nil {
 		t.Fatalf("list ACL policy bindings: %v", err)
 	}
@@ -35,7 +35,7 @@ func TestAdminAPIACLPolicyBindingsListGetAndMutation(t *testing.T) {
 
 	bindingID := mutationName("acl-binding")
 	_, _ = env.api.DeleteACLPolicyBindingWithResponse(env.ctx, bindingID)
-	created, err := env.api.CreateACLPolicyBindingWithResponse(env.ctx, adminservice.ACLPolicyBindingUpsert{
+	created, err := env.api.CreateACLPolicyBindingWithResponse(env.ctx, adminhttp.ACLPolicyBindingUpsert{
 		Id: ptr(bindingID),
 		Policy: apitypes.ACLPolicy{
 			Subject:  apitypes.ACLSubject{Kind: apitypes.ACLSubjectKindPk, Id: env.peerKey},

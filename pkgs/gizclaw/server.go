@@ -486,9 +486,9 @@ func (s *Server) init() error {
 			ACL:                         aclServer,
 			ResourceManager:             resourceManager,
 		},
-		public: &serverPublic{
-			ServerPublicService: peersServer,
-			ServerPublic:        publicLoginServer,
+		public: &peerHTTP{
+			PeerHTTPService: peersServer,
+			PeerHTTP:        publicLoginServer,
 			WebRTCSignalingHandler: func() http.Handler {
 				return s.WebRTCSignalingHandler
 			},

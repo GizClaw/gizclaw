@@ -3,7 +3,7 @@ package resourcemanager
 import (
 	"context"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminservice"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 )
 
@@ -42,16 +42,16 @@ func (m *Manager) applyWorkflow(ctx context.Context, resource apitypes.Resource)
 }
 
 func (m *Manager) getWorkflow(ctx context.Context, name string) (apitypes.WorkflowDocument, bool, error) {
-	response, err := m.services.Workflows.GetWorkflow(ctx, adminservice.GetWorkflowRequestObject{Name: name})
+	response, err := m.services.Workflows.GetWorkflow(ctx, adminhttp.GetWorkflowRequestObject{Name: name})
 	if err != nil {
 		return apitypes.WorkflowDocument{}, false, err
 	}
 	switch response := response.(type) {
-	case adminservice.GetWorkflow200JSONResponse:
+	case adminhttp.GetWorkflow200JSONResponse:
 		return apitypes.WorkflowDocument(response), true, nil
-	case adminservice.GetWorkflow404JSONResponse:
+	case adminhttp.GetWorkflow404JSONResponse:
 		return apitypes.WorkflowDocument{}, false, nil
-	case adminservice.GetWorkflow500JSONResponse:
+	case adminhttp.GetWorkflow500JSONResponse:
 		return apitypes.WorkflowDocument{}, false, responseError(500, "GET_WORKFLOW_FAILED", "failed to get workflow", response)
 	default:
 		return apitypes.WorkflowDocument{}, false, unexpectedResponse("GetWorkflow", response)
@@ -59,16 +59,16 @@ func (m *Manager) getWorkflow(ctx context.Context, name string) (apitypes.Workfl
 }
 
 func (m *Manager) putWorkflow(ctx context.Context, name string, body apitypes.WorkflowDocument) error {
-	response, err := m.services.Workflows.PutWorkflow(ctx, adminservice.PutWorkflowRequestObject{Name: name, Body: &body})
+	response, err := m.services.Workflows.PutWorkflow(ctx, adminhttp.PutWorkflowRequestObject{Name: name, Body: &body})
 	if err != nil {
 		return err
 	}
 	switch response := response.(type) {
-	case adminservice.PutWorkflow200JSONResponse:
+	case adminhttp.PutWorkflow200JSONResponse:
 		return nil
-	case adminservice.PutWorkflow400JSONResponse:
+	case adminhttp.PutWorkflow400JSONResponse:
 		return responseError(400, "PUT_WORKFLOW_FAILED", "failed to put workflow", response)
-	case adminservice.PutWorkflow500JSONResponse:
+	case adminhttp.PutWorkflow500JSONResponse:
 		return responseError(500, "PUT_WORKFLOW_FAILED", "failed to put workflow", response)
 	default:
 		return unexpectedResponse("PutWorkflow", response)
@@ -76,16 +76,16 @@ func (m *Manager) putWorkflow(ctx context.Context, name string, body apitypes.Wo
 }
 
 func (m *Manager) deleteWorkflow(ctx context.Context, name string) (apitypes.WorkflowDocument, bool, error) {
-	response, err := m.services.Workflows.DeleteWorkflow(ctx, adminservice.DeleteWorkflowRequestObject{Name: name})
+	response, err := m.services.Workflows.DeleteWorkflow(ctx, adminhttp.DeleteWorkflowRequestObject{Name: name})
 	if err != nil {
 		return apitypes.WorkflowDocument{}, false, err
 	}
 	switch response := response.(type) {
-	case adminservice.DeleteWorkflow200JSONResponse:
+	case adminhttp.DeleteWorkflow200JSONResponse:
 		return apitypes.WorkflowDocument(response), true, nil
-	case adminservice.DeleteWorkflow404JSONResponse:
+	case adminhttp.DeleteWorkflow404JSONResponse:
 		return apitypes.WorkflowDocument{}, false, nil
-	case adminservice.DeleteWorkflow500JSONResponse:
+	case adminhttp.DeleteWorkflow500JSONResponse:
 		return apitypes.WorkflowDocument{}, false, responseError(500, "DELETE_WORKFLOW_FAILED", "failed to delete workflow", response)
 	default:
 		return apitypes.WorkflowDocument{}, false, unexpectedResponse("DeleteWorkflow", response)

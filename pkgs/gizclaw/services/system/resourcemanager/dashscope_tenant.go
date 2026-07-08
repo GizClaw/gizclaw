@@ -3,7 +3,7 @@ package resourcemanager
 import (
 	"context"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminservice"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 )
 
@@ -42,33 +42,33 @@ func (m *Manager) applyDashScopeTenant(ctx context.Context, resource apitypes.Re
 }
 
 func (m *Manager) getDashScopeTenant(ctx context.Context, name string) (apitypes.DashScopeTenant, bool, error) {
-	response, err := m.services.ProviderTenants.GetDashScopeTenant(ctx, adminservice.GetDashScopeTenantRequestObject{Name: name})
+	response, err := m.services.ProviderTenants.GetDashScopeTenant(ctx, adminhttp.GetDashScopeTenantRequestObject{Name: name})
 	if err != nil {
 		return apitypes.DashScopeTenant{}, false, err
 	}
 	switch response := response.(type) {
-	case adminservice.GetDashScopeTenant200JSONResponse:
+	case adminhttp.GetDashScopeTenant200JSONResponse:
 		return apitypes.DashScopeTenant(response), true, nil
-	case adminservice.GetDashScopeTenant404JSONResponse:
+	case adminhttp.GetDashScopeTenant404JSONResponse:
 		return apitypes.DashScopeTenant{}, false, nil
-	case adminservice.GetDashScopeTenant500JSONResponse:
+	case adminhttp.GetDashScopeTenant500JSONResponse:
 		return apitypes.DashScopeTenant{}, false, responseError(500, "GET_DASHSCOPE_TENANT_FAILED", "failed to get DashScope tenant", response)
 	default:
 		return apitypes.DashScopeTenant{}, false, unexpectedResponse("GetDashScopeTenant", response)
 	}
 }
 
-func (m *Manager) putDashScopeTenant(ctx context.Context, name string, body adminservice.DashScopeTenantUpsert) error {
-	response, err := m.services.ProviderTenants.PutDashScopeTenant(ctx, adminservice.PutDashScopeTenantRequestObject{Name: name, Body: &body})
+func (m *Manager) putDashScopeTenant(ctx context.Context, name string, body adminhttp.DashScopeTenantUpsert) error {
+	response, err := m.services.ProviderTenants.PutDashScopeTenant(ctx, adminhttp.PutDashScopeTenantRequestObject{Name: name, Body: &body})
 	if err != nil {
 		return err
 	}
 	switch response := response.(type) {
-	case adminservice.PutDashScopeTenant200JSONResponse:
+	case adminhttp.PutDashScopeTenant200JSONResponse:
 		return nil
-	case adminservice.PutDashScopeTenant400JSONResponse:
+	case adminhttp.PutDashScopeTenant400JSONResponse:
 		return responseError(400, "PUT_DASHSCOPE_TENANT_FAILED", "failed to put DashScope tenant", response)
-	case adminservice.PutDashScopeTenant500JSONResponse:
+	case adminhttp.PutDashScopeTenant500JSONResponse:
 		return responseError(500, "PUT_DASHSCOPE_TENANT_FAILED", "failed to put DashScope tenant", response)
 	default:
 		return unexpectedResponse("PutDashScopeTenant", response)
@@ -76,16 +76,16 @@ func (m *Manager) putDashScopeTenant(ctx context.Context, name string, body admi
 }
 
 func (m *Manager) deleteDashScopeTenant(ctx context.Context, name string) (apitypes.DashScopeTenant, bool, error) {
-	response, err := m.services.ProviderTenants.DeleteDashScopeTenant(ctx, adminservice.DeleteDashScopeTenantRequestObject{Name: name})
+	response, err := m.services.ProviderTenants.DeleteDashScopeTenant(ctx, adminhttp.DeleteDashScopeTenantRequestObject{Name: name})
 	if err != nil {
 		return apitypes.DashScopeTenant{}, false, err
 	}
 	switch response := response.(type) {
-	case adminservice.DeleteDashScopeTenant200JSONResponse:
+	case adminhttp.DeleteDashScopeTenant200JSONResponse:
 		return apitypes.DashScopeTenant(response), true, nil
-	case adminservice.DeleteDashScopeTenant404JSONResponse:
+	case adminhttp.DeleteDashScopeTenant404JSONResponse:
 		return apitypes.DashScopeTenant{}, false, nil
-	case adminservice.DeleteDashScopeTenant500JSONResponse:
+	case adminhttp.DeleteDashScopeTenant500JSONResponse:
 		return apitypes.DashScopeTenant{}, false, responseError(500, "DELETE_DASHSCOPE_TENANT_FAILED", "failed to delete DashScope tenant", response)
 	default:
 		return apitypes.DashScopeTenant{}, false, unexpectedResponse("DeleteDashScopeTenant", response)
@@ -100,8 +100,8 @@ func dashScopeTenantSpec(item apitypes.DashScopeTenant) apitypes.DashScopeTenant
 	}
 }
 
-func dashScopeTenantUpsert(resource apitypes.DashScopeTenantResource) adminservice.DashScopeTenantUpsert {
-	return adminservice.DashScopeTenantUpsert{
+func dashScopeTenantUpsert(resource apitypes.DashScopeTenantResource) adminhttp.DashScopeTenantUpsert {
+	return adminhttp.DashScopeTenantUpsert{
 		BaseUrl:        resource.Spec.BaseUrl,
 		CredentialName: resource.Spec.CredentialName,
 		Description:    resource.Spec.Description,

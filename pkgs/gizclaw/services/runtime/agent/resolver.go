@@ -6,7 +6,7 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminservice"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
@@ -78,16 +78,16 @@ func ParseWorkspacePattern(pattern string) (string, error) {
 }
 
 func (r ServiceResolver) getWorkspace(ctx context.Context, name string) (apitypes.Workspace, error) {
-	response, err := r.Workspaces.GetWorkspace(ctx, adminservice.GetWorkspaceRequestObject{Name: string(name)})
+	response, err := r.Workspaces.GetWorkspace(ctx, adminhttp.GetWorkspaceRequestObject{Name: string(name)})
 	if err != nil {
 		return apitypes.Workspace{}, err
 	}
 	switch response := response.(type) {
-	case adminservice.GetWorkspace200JSONResponse:
+	case adminhttp.GetWorkspace200JSONResponse:
 		return apitypes.Workspace(response), nil
-	case adminservice.GetWorkspace404JSONResponse:
+	case adminhttp.GetWorkspace404JSONResponse:
 		return apitypes.Workspace{}, fmt.Errorf("agent: workspace %q not found", name)
-	case adminservice.GetWorkspace500JSONResponse:
+	case adminhttp.GetWorkspace500JSONResponse:
 		return apitypes.Workspace{}, fmt.Errorf("agent: get workspace %q failed: %s", name, response.Error.Message)
 	default:
 		return apitypes.Workspace{}, fmt.Errorf("agent: unexpected GetWorkspace response %T", response)
@@ -95,16 +95,16 @@ func (r ServiceResolver) getWorkspace(ctx context.Context, name string) (apitype
 }
 
 func (r ServiceResolver) getWorkflow(ctx context.Context, name string) (apitypes.WorkflowDocument, error) {
-	response, err := r.Workflows.GetWorkflow(ctx, adminservice.GetWorkflowRequestObject{Name: string(name)})
+	response, err := r.Workflows.GetWorkflow(ctx, adminhttp.GetWorkflowRequestObject{Name: string(name)})
 	if err != nil {
 		return apitypes.WorkflowDocument{}, err
 	}
 	switch response := response.(type) {
-	case adminservice.GetWorkflow200JSONResponse:
+	case adminhttp.GetWorkflow200JSONResponse:
 		return apitypes.WorkflowDocument(response), nil
-	case adminservice.GetWorkflow404JSONResponse:
+	case adminhttp.GetWorkflow404JSONResponse:
 		return apitypes.WorkflowDocument{}, fmt.Errorf("agent: workflow %q not found", name)
-	case adminservice.GetWorkflow500JSONResponse:
+	case adminhttp.GetWorkflow500JSONResponse:
 		return apitypes.WorkflowDocument{}, fmt.Errorf("agent: get workflow %q failed: %s", name, response.Error.Message)
 	default:
 		return apitypes.WorkflowDocument{}, fmt.Errorf("agent: unexpected GetWorkflow response %T", response)

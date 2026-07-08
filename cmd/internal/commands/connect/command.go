@@ -10,7 +10,7 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/cmd/internal/connection"
 	"github.com/GizClaw/gizclaw-go/cmd/internal/deviceapi"
-	"github.com/GizClaw/gizclaw-go/cmd/internal/publicapi"
+	"github.com/GizClaw/gizclaw-go/cmd/internal/peerapi"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/sdk/go/gizcli"
 	"github.com/spf13/cobra"
@@ -91,7 +91,7 @@ func newServerInfoCmd() *cobra.Command {
 				return err
 			}
 			defer c.Close()
-			info, err := publicapi.GetServerInfo(context.Background(), c)
+			info, err := peerapi.GetServerInfo(context.Background(), c)
 			if err != nil {
 				return err
 			}

@@ -1,0 +1,9 @@
+package: openaihttp
+generate:
+  fiber-server: true
+  strict-server: true
+  models: true
+output-options:
+  user-templates:
+    strict/strict-fiber.tmpl: ../adminhttp/templates/strict/strict-fiber.tmpl
+    strict/strict-fiber-interface.tmpl: ../adminhttp/templates/strict/strict-fiber-interface.tmpl

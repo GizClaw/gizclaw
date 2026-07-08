@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/serverpublic"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/peerhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
@@ -152,8 +152,8 @@ func TestServerLoginHandler(t *testing.T) {
 		t.Fatalf("SessionManager did not refresh after store change")
 	}
 
-	resp, err := server.Login(context.Background(), serverpublic.LoginRequestObject{
-		Params: serverpublic.LoginParams{
+	resp, err := server.Login(context.Background(), peerhttp.LoginRequestObject{
+		Params: peerhttp.LoginParams{
 			XPublicKey:    deviceKey.Public.String(),
 			Authorization: "Bearer " + assertion,
 		},
@@ -161,11 +161,11 @@ func TestServerLoginHandler(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Login error = %v", err)
 	}
-	ok, isOK := resp.(serverpublic.Login200JSONResponse)
+	ok, isOK := resp.(peerhttp.Login200JSONResponse)
 	if !isOK {
 		t.Fatalf("Login response type = %T", resp)
 	}
-	if ok.AccessToken == "" || ok.TokenType != serverpublic.Bearer || ok.ExpiresAt == 0 {
+	if ok.AccessToken == "" || ok.TokenType != peerhttp.Bearer || ok.ExpiresAt == 0 {
 		t.Fatalf("Login response = %+v", ok)
 	}
 }
@@ -191,7 +191,7 @@ func TestServerLoginHandlerRejectsInvalidRequests(t *testing.T) {
 	tests := []struct {
 		name    string
 		server  *Server
-		params  serverpublic.LoginParams
+		params  peerhttp.LoginParams
 		wantErr string
 	}{
 		{
@@ -202,7 +202,7 @@ func TestServerLoginHandlerRejectsInvalidRequests(t *testing.T) {
 		{
 			name:   "invalid public key",
 			server: NewServer(serverKey, kv.NewMemory(nil)),
-			params: serverpublic.LoginParams{
+			params: peerhttp.LoginParams{
 				XPublicKey:    "not-a-key",
 				Authorization: "Bearer " + assertion,
 			},
@@ -211,7 +211,7 @@ func TestServerLoginHandlerRejectsInvalidRequests(t *testing.T) {
 		{
 			name:   "missing assertion",
 			server: NewServer(serverKey, kv.NewMemory(nil)),
-			params: serverpublic.LoginParams{
+			params: peerhttp.LoginParams{
 				XPublicKey:    deviceKey.Public.String(),
 				Authorization: assertion,
 			},
@@ -220,7 +220,7 @@ func TestServerLoginHandlerRejectsInvalidRequests(t *testing.T) {
 		{
 			name:   "issuer mismatch",
 			server: NewServer(serverKey, kv.NewMemory(nil)),
-			params: serverpublic.LoginParams{
+			params: peerhttp.LoginParams{
 				XPublicKey:    otherKey.Public.String(),
 				Authorization: "Bearer " + assertion,
 			},
@@ -230,11 +230,11 @@ func TestServerLoginHandlerRejectsInvalidRequests(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			resp, err := tt.server.Login(context.Background(), serverpublic.LoginRequestObject{Params: tt.params})
+			resp, err := tt.server.Login(context.Background(), peerhttp.LoginRequestObject{Params: tt.params})
 			if err != nil {
 				t.Fatalf("Login error = %v", err)
 			}
-			unauthorized, ok := resp.(serverpublic.Login401JSONResponse)
+			unauthorized, ok := resp.(peerhttp.Login401JSONResponse)
 			if !ok {
 				t.Fatalf("Login response type = %T", resp)
 			}

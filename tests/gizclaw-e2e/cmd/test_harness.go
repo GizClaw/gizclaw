@@ -694,7 +694,7 @@ func (h *Harness) connectClientFromContext(name string) (*gizcli.Client, error) 
 		}
 
 		ctx, cancel := context.WithTimeout(context.Background(), probeTimeout)
-		err := probeServerPublicReady(ctx, client)
+		err := probePeerHTTPReady(ctx, client)
 		cancel()
 		if err == nil {
 			return client, nil
@@ -802,7 +802,7 @@ func (h *Harness) waitForServerReady() {
 			}
 
 			ctx, cancel := context.WithTimeout(context.Background(), probeTimeout)
-			err = probeServerPublicReady(ctx, client)
+			err = probePeerHTTPReady(ctx, client)
 			cancel()
 			if err == nil {
 				return nil
@@ -1184,8 +1184,8 @@ func keyPairFromConfigPrivateKey(privateKey giznet.Key) (*giznet.KeyPair, error)
 	return giznet.NewKeyPair(privateKey)
 }
 
-func probeServerPublicReady(ctx context.Context, client *gizcli.Client) error {
-	api, err := client.ServerPublicClient()
+func probePeerHTTPReady(ctx context.Context, client *gizcli.Client) error {
+	api, err := client.PeerHTTPClient()
 	if err != nil {
 		return err
 	}

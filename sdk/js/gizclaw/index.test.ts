@@ -3,10 +3,10 @@ import test from "node:test";
 import { x25519 } from "@noble/curves/ed25519.js";
 
 import {
-  GIZCLAW_SERVICE_ADMIN,
+  GIZCLAW_SERVICE_ADMIN_HTTP,
   GIZCLAW_MAX_PACKET_MESSAGE_SIZE,
-  GIZCLAW_PROTOCOL_TELEMETRY,
-  GIZCLAW_SERVICE_RPC,
+  GIZCLAW_EVENT_STREAM_TELEMETRY,
+  GIZCLAW_SERVICE_PEER_RPC,
   GIZNET_WEBRTC_PACKET_DATA_CHANNEL_LABEL,
   GIZNET_WEBRTC_SIGNALING_PATH,
   RPC_FRAME_TYPE_EOS,
@@ -41,7 +41,7 @@ test("WebRTCRPCClient sends JSON-RPC over an rpc data channel", async () => {
   const channel = pc.lastChannel();
   channel.open();
 
-  assert.equal(channel.label, giznetServiceDataChannelLabel(GIZCLAW_SERVICE_RPC));
+  assert.equal(channel.label, giznetServiceDataChannelLabel(GIZCLAW_SERVICE_PEER_RPC));
   const frames = decodeFrames(channel.sent[0] ?? new ArrayBuffer(0));
   assert.equal(frames.length, 2);
   assert.equal(frames[0]?.type, RPC_FRAME_TYPE_JSON);
@@ -188,7 +188,7 @@ test("createWebRTCFetch turns generated-client fetch calls into RPC calls", asyn
   assert.deepEqual(calls, [{ method: "server.run.workspace.get", params: {} }]);
 });
 
-test("createAdminAPIFetch sends HTTP over the admin service channel", async () => {
+test("createAdminAPIFetch sends HTTP over the admin HTTP service channel", async () => {
   const pc = new FakePeerConnection();
   const adminFetch = createAdminAPIFetch(pc);
   const promise = adminFetch("http://gizclaw/peers?limit=10", {
@@ -199,7 +199,7 @@ test("createAdminAPIFetch sends HTTP over the admin service channel", async () =
   const channel = pc.lastChannel();
   channel.open();
 
-  assert.equal(channel.label, giznetServiceDataChannelLabel(GIZCLAW_SERVICE_ADMIN));
+  assert.equal(channel.label, giznetServiceDataChannelLabel(GIZCLAW_SERVICE_ADMIN_HTTP));
   await channel.waitForSent();
   const requestText = new TextDecoder().decode(channel.sent[0] ?? new ArrayBuffer(0));
   assert.match(requestText, /^GET \/peers\?limit=10 HTTP\/1\.1\r\n/);
@@ -289,7 +289,7 @@ test("sendGiznetWebRTCTelemetry uses the prepared packet channel", async () => {
 
   assert.equal(pc.channels[0]?.sent.length, 1);
   const packet = new Uint8Array(pc.channels[0]?.sent[0] ?? new ArrayBuffer(0));
-  assert.equal(packet[0], GIZCLAW_PROTOCOL_TELEMETRY);
+  assert.equal(packet[0], GIZCLAW_EVENT_STREAM_TELEMETRY);
 });
 
 test("sendGiznetWebRTCTelemetry waits for the packet channel to open", async () => {
@@ -343,7 +343,7 @@ test("encodeTelemetryPacket prefixes protobuf telemetry payload", () => {
     observations: [batteryTelemetry({ percent: 82, charging: true })],
   });
 
-  assert.equal(packet[0], GIZCLAW_PROTOCOL_TELEMETRY);
+  assert.equal(packet[0], GIZCLAW_EVENT_STREAM_TELEMETRY);
   assert.deepEqual([...packet.slice(1)], [
     8, 7,
     16, 232, 7,
@@ -409,7 +409,7 @@ test("waitForICEGatheringComplete resolves when completion races listener regist
   assert.equal(pc.iceGatheringState, "complete");
 });
 
-test("sendGiznetWebRTCOffer posts the server public signaling request", async () => {
+test("sendGiznetWebRTCOffer posts the peer HTTP signaling request", async () => {
   const body = new Blob([new Uint8Array([1, 2, 3])]);
   const answer = new Blob([new Uint8Array([4, 5])]);
   let captured: Request | undefined;

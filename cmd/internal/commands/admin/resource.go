@@ -11,7 +11,7 @@ import (
 	"strings"
 
 	"github.com/GizClaw/gizclaw-go/cmd/internal/connection"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminservice"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/goccy/go-yaml"
 	"github.com/spf13/cobra"
@@ -25,9 +25,9 @@ type resourceClient interface {
 }
 
 type adminResourceAPI interface {
-	ApplyResourceWithResponse(ctx context.Context, body adminservice.ApplyResourceJSONRequestBody, reqEditors ...adminservice.RequestEditorFn) (*adminservice.ApplyResourceResponse, error)
-	DeleteResourceWithResponse(ctx context.Context, kind adminservice.ResourceKind, name string, reqEditors ...adminservice.RequestEditorFn) (*adminservice.DeleteResourceResponse, error)
-	GetResourceWithResponse(ctx context.Context, kind adminservice.ResourceKind, name string, reqEditors ...adminservice.RequestEditorFn) (*adminservice.GetResourceResponse, error)
+	ApplyResourceWithResponse(ctx context.Context, body adminhttp.ApplyResourceJSONRequestBody, reqEditors ...adminhttp.RequestEditorFn) (*adminhttp.ApplyResourceResponse, error)
+	DeleteResourceWithResponse(ctx context.Context, kind adminhttp.ResourceKind, name string, reqEditors ...adminhttp.RequestEditorFn) (*adminhttp.DeleteResourceResponse, error)
+	GetResourceWithResponse(ctx context.Context, kind adminhttp.ResourceKind, name string, reqEditors ...adminhttp.RequestEditorFn) (*adminhttp.GetResourceResponse, error)
 }
 
 type resourceClientBridge struct {

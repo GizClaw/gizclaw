@@ -13,9 +13,9 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminservice"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/peerhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/serverpublic"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizhttp"
 	"golang.org/x/sync/errgroup"
@@ -185,17 +185,17 @@ func (c *Client) HTTPClientWithTimeout(service uint64, timeout time.Duration) *h
 	return client
 }
 
-func (c *Client) ServerAdminClient() (*adminservice.ClientWithResponses, error) {
-	return adminservice.NewClientWithResponses(
+func (c *Client) ServerAdminClient() (*adminhttp.ClientWithResponses, error) {
+	return adminhttp.NewClientWithResponses(
 		"http://gizclaw",
-		adminservice.WithHTTPClient(c.HTTPClientWithTimeout(ServiceAdmin, defaultAdminHTTPClientTimeout)),
+		adminhttp.WithHTTPClient(c.HTTPClientWithTimeout(ServiceAdminHTTP, defaultAdminHTTPClientTimeout)),
 	)
 }
 
-func (c *Client) ServerPublicClient() (*serverpublic.ClientWithResponses, error) {
-	return serverpublic.NewClientWithResponses(
+func (c *Client) PeerHTTPClient() (*peerhttp.ClientWithResponses, error) {
+	return peerhttp.NewClientWithResponses(
 		"http://gizclaw",
-		serverpublic.WithHTTPClient(c.HTTPClient(ServiceServerPublic)),
+		peerhttp.WithHTTPClient(c.HTTPClient(ServicePeerHTTP)),
 	)
 }
 
@@ -378,7 +378,7 @@ func (c *Client) rpcConn() (net.Conn, error) {
 	if conn == nil {
 		return nil, fmt.Errorf("gizclaw: client is not connected")
 	}
-	stream, err := conn.Dial(ServiceRPC)
+	stream, err := conn.Dial(ServicePeerRPC)
 	if err != nil {
 		return nil, fmt.Errorf("gizclaw: dial rpc stream: %w", err)
 	}
@@ -420,7 +420,7 @@ func (c *Client) serveRPC() error {
 	if conn == nil {
 		return nil
 	}
-	listener := conn.ListenService(ServiceRPC)
+	listener := conn.ListenService(ServicePeerRPC)
 	defer func() {
 		_ = listener.Close()
 	}()

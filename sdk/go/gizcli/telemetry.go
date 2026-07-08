@@ -39,7 +39,7 @@ func (c *Client) SendTelemetryFrame(frame *telemetrypb.TelemetryFrame) error {
 	if len(payload) == 0 {
 		return fmt.Errorf("gizclaw: empty telemetry frame")
 	}
-	if _, err := conn.Write(ProtocolTelemetry, payload); err != nil {
+	if _, err := conn.Write(EventStreamTelemetry, payload); err != nil {
 		return fmt.Errorf("gizclaw: send telemetry frame: %w", err)
 	}
 	return nil

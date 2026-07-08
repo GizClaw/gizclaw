@@ -5,14 +5,14 @@ package admin_test
 import (
 	"testing"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminservice"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 )
 
 func TestAdminAPIVoicesListAndGet(t *testing.T) {
 	env := newAdminAPIHarness(t)
 
-	resp, err := env.api.ListVoicesWithResponse(env.ctx, &adminservice.ListVoicesParams{Limit: ptr[int32](50)})
+	resp, err := env.api.ListVoicesWithResponse(env.ctx, &adminhttp.ListVoicesParams{Limit: ptr[int32](50)})
 	if err != nil {
 		t.Fatalf("list voices: %v", err)
 	}

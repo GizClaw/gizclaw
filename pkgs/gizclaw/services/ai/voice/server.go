@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminservice"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
@@ -32,11 +32,11 @@ type Server struct {
 }
 
 type VoiceAdminService interface {
-	CreateVoice(context.Context, adminservice.CreateVoiceRequestObject) (adminservice.CreateVoiceResponseObject, error)
-	ListVoices(context.Context, adminservice.ListVoicesRequestObject) (adminservice.ListVoicesResponseObject, error)
-	DeleteVoice(context.Context, adminservice.DeleteVoiceRequestObject) (adminservice.DeleteVoiceResponseObject, error)
-	GetVoice(context.Context, adminservice.GetVoiceRequestObject) (adminservice.GetVoiceResponseObject, error)
-	PutVoice(context.Context, adminservice.PutVoiceRequestObject) (adminservice.PutVoiceResponseObject, error)
+	CreateVoice(context.Context, adminhttp.CreateVoiceRequestObject) (adminhttp.CreateVoiceResponseObject, error)
+	ListVoices(context.Context, adminhttp.ListVoicesRequestObject) (adminhttp.ListVoicesResponseObject, error)
+	DeleteVoice(context.Context, adminhttp.DeleteVoiceRequestObject) (adminhttp.DeleteVoiceResponseObject, error)
+	GetVoice(context.Context, adminhttp.GetVoiceRequestObject) (adminhttp.GetVoiceResponseObject, error)
+	PutVoice(context.Context, adminhttp.PutVoiceRequestObject) (adminhttp.PutVoiceResponseObject, error)
 }
 
 var _ VoiceAdminService = (*Server)(nil)
@@ -47,36 +47,36 @@ type Filters struct {
 	ProviderName *string
 }
 
-func (s *Server) CreateVoice(ctx context.Context, request adminservice.CreateVoiceRequestObject) (adminservice.CreateVoiceResponseObject, error) {
+func (s *Server) CreateVoice(ctx context.Context, request adminhttp.CreateVoiceRequestObject) (adminhttp.CreateVoiceResponseObject, error) {
 	store, err := s.store()
 	if err != nil {
-		return adminservice.CreateVoice500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.CreateVoice500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	if request.Body == nil {
-		return adminservice.CreateVoice400JSONResponse(apitypes.NewErrorResponse("INVALID_VOICE", "request body required")), nil
+		return adminhttp.CreateVoice400JSONResponse(apitypes.NewErrorResponse("INVALID_VOICE", "request body required")), nil
 	}
 	voice, err := normalizeVoiceUpsert(*request.Body, "")
 	if err != nil {
-		return adminservice.CreateVoice400JSONResponse(apitypes.NewErrorResponse("INVALID_VOICE", err.Error())), nil
+		return adminhttp.CreateVoice400JSONResponse(apitypes.NewErrorResponse("INVALID_VOICE", err.Error())), nil
 	}
 	if _, err := store.Get(ctx, voiceKey(string(voice.Id))); err == nil {
-		return adminservice.CreateVoice409JSONResponse(apitypes.NewErrorResponse("VOICE_ALREADY_EXISTS", fmt.Sprintf("voice %q already exists", voice.Id))), nil
+		return adminhttp.CreateVoice409JSONResponse(apitypes.NewErrorResponse("VOICE_ALREADY_EXISTS", fmt.Sprintf("voice %q already exists", voice.Id))), nil
 	} else if !errors.Is(err, kv.ErrNotFound) {
-		return adminservice.CreateVoice500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.CreateVoice500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	now := s.now()
 	voice.CreatedAt = now
 	voice.UpdatedAt = now
 	if err := Write(ctx, store, voice, nil); err != nil {
-		return adminservice.CreateVoice500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.CreateVoice500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	return adminservice.CreateVoice200JSONResponse(voice), nil
+	return adminhttp.CreateVoice200JSONResponse(voice), nil
 }
 
-func (s *Server) ListVoices(ctx context.Context, request adminservice.ListVoicesRequestObject) (adminservice.ListVoicesResponseObject, error) {
+func (s *Server) ListVoices(ctx context.Context, request adminhttp.ListVoicesRequestObject) (adminhttp.ListVoicesResponseObject, error) {
 	store, err := s.store()
 	if err != nil {
-		return adminservice.ListVoices500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.ListVoices500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	cursor, limit := normalizeListParams(request.Params.Cursor, request.Params.Limit)
 	filters := Filters{}
@@ -100,19 +100,19 @@ func (s *Server) ListVoices(ctx context.Context, request adminservice.ListVoices
 	}
 	items, hasNext, nextCursor, err := listPage(ctx, store, filters, cursor, limit)
 	if err != nil {
-		return adminservice.ListVoices500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.ListVoices500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	return adminservice.ListVoices200JSONResponse(adminservice.VoiceList{
+	return adminhttp.ListVoices200JSONResponse(adminhttp.VoiceList{
 		HasNext:    hasNext,
 		Items:      items,
 		NextCursor: nextCursor,
 	}), nil
 }
 
-func (s *Server) DeleteVoice(ctx context.Context, request adminservice.DeleteVoiceRequestObject) (adminservice.DeleteVoiceResponseObject, error) {
+func (s *Server) DeleteVoice(ctx context.Context, request adminhttp.DeleteVoiceRequestObject) (adminhttp.DeleteVoiceResponseObject, error) {
 	store, err := s.store()
 	if err != nil {
-		return adminservice.DeleteVoice500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.DeleteVoice500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	id, err := url.PathUnescape(string(request.Id))
 	if err != nil {
@@ -121,20 +121,20 @@ func (s *Server) DeleteVoice(ctx context.Context, request adminservice.DeleteVoi
 	voice, err := Get(ctx, store, id)
 	if err != nil {
 		if errors.Is(err, kv.ErrNotFound) {
-			return adminservice.DeleteVoice404JSONResponse(apitypes.NewErrorResponse("VOICE_NOT_FOUND", fmt.Sprintf("voice %q not found", id))), nil
+			return adminhttp.DeleteVoice404JSONResponse(apitypes.NewErrorResponse("VOICE_NOT_FOUND", fmt.Sprintf("voice %q not found", id))), nil
 		}
-		return adminservice.DeleteVoice500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.DeleteVoice500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	if err := Delete(ctx, store, voice); err != nil {
-		return adminservice.DeleteVoice500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.DeleteVoice500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	return adminservice.DeleteVoice200JSONResponse(voice), nil
+	return adminhttp.DeleteVoice200JSONResponse(voice), nil
 }
 
-func (s *Server) GetVoice(ctx context.Context, request adminservice.GetVoiceRequestObject) (adminservice.GetVoiceResponseObject, error) {
+func (s *Server) GetVoice(ctx context.Context, request adminhttp.GetVoiceRequestObject) (adminhttp.GetVoiceResponseObject, error) {
 	store, err := s.store()
 	if err != nil {
-		return adminservice.GetVoice500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.GetVoice500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	id, err := url.PathUnescape(string(request.Id))
 	if err != nil {
@@ -143,20 +143,20 @@ func (s *Server) GetVoice(ctx context.Context, request adminservice.GetVoiceRequ
 	voice, err := Get(ctx, store, id)
 	if err != nil {
 		if errors.Is(err, kv.ErrNotFound) {
-			return adminservice.GetVoice404JSONResponse(apitypes.NewErrorResponse("VOICE_NOT_FOUND", fmt.Sprintf("voice %q not found", id))), nil
+			return adminhttp.GetVoice404JSONResponse(apitypes.NewErrorResponse("VOICE_NOT_FOUND", fmt.Sprintf("voice %q not found", id))), nil
 		}
-		return adminservice.GetVoice500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.GetVoice500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	return adminservice.GetVoice200JSONResponse(voice), nil
+	return adminhttp.GetVoice200JSONResponse(voice), nil
 }
 
-func (s *Server) PutVoice(ctx context.Context, request adminservice.PutVoiceRequestObject) (adminservice.PutVoiceResponseObject, error) {
+func (s *Server) PutVoice(ctx context.Context, request adminhttp.PutVoiceRequestObject) (adminhttp.PutVoiceResponseObject, error) {
 	store, err := s.store()
 	if err != nil {
-		return adminservice.PutVoice500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.PutVoice500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	if request.Body == nil {
-		return adminservice.PutVoice400JSONResponse(apitypes.NewErrorResponse("INVALID_VOICE", "request body required")), nil
+		return adminhttp.PutVoice400JSONResponse(apitypes.NewErrorResponse("INVALID_VOICE", "request body required")), nil
 	}
 	id, err := url.PathUnescape(string(request.Id))
 	if err != nil {
@@ -164,11 +164,11 @@ func (s *Server) PutVoice(ctx context.Context, request adminservice.PutVoiceRequ
 	}
 	voice, err := normalizeVoiceUpsert(*request.Body, id)
 	if err != nil {
-		return adminservice.PutVoice400JSONResponse(apitypes.NewErrorResponse("INVALID_VOICE", err.Error())), nil
+		return adminhttp.PutVoice400JSONResponse(apitypes.NewErrorResponse("INVALID_VOICE", err.Error())), nil
 	}
 	previous, err := Get(ctx, store, id)
 	if err != nil && !errors.Is(err, kv.ErrNotFound) {
-		return adminservice.PutVoice500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.PutVoice500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	now := s.now()
 	voice.CreatedAt = now
@@ -176,7 +176,7 @@ func (s *Server) PutVoice(ctx context.Context, request adminservice.PutVoiceRequ
 	var previousPtr *apitypes.Voice
 	if err == nil {
 		if previous.Source == apitypes.VoiceSourceSync {
-			return adminservice.PutVoice409JSONResponse(apitypes.NewErrorResponse("SYNC_VOICE_READ_ONLY", fmt.Sprintf("voice %q has source sync and cannot be modified via API", previous.Id))), nil
+			return adminhttp.PutVoice409JSONResponse(apitypes.NewErrorResponse("SYNC_VOICE_READ_ONLY", fmt.Sprintf("voice %q has source sync and cannot be modified via API", previous.Id))), nil
 		}
 		voice.CreatedAt = previous.CreatedAt
 		voice.SyncedAt = cloneTime(previous.SyncedAt)
@@ -184,9 +184,9 @@ func (s *Server) PutVoice(ctx context.Context, request adminservice.PutVoiceRequ
 		previousPtr = &previousCopy
 	}
 	if err := Write(ctx, store, voice, previousPtr); err != nil {
-		return adminservice.PutVoice500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.PutVoice500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	return adminservice.PutVoice200JSONResponse(voice), nil
+	return adminhttp.PutVoice200JSONResponse(voice), nil
 }
 
 func ProviderData(kind apitypes.VoiceProviderKind, values map[string]interface{}) *apitypes.VoiceProviderData {
@@ -461,7 +461,7 @@ func (s *Server) now() time.Time {
 	return time.Now().UTC()
 }
 
-func normalizeVoiceUpsert(in adminservice.VoiceUpsert, expectedID string) (apitypes.Voice, error) {
+func normalizeVoiceUpsert(in adminhttp.VoiceUpsert, expectedID string) (apitypes.Voice, error) {
 	id := strings.TrimSpace(string(in.Id))
 	if id == "" {
 		return apitypes.Voice{}, errors.New("id is required")

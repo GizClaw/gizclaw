@@ -6,7 +6,7 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminservice"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 )
 
@@ -16,7 +16,7 @@ func TestAdminAPIPeerFriendsListGetCreateDelete(t *testing.T) {
 
 	_, _ = env.api.DeletePeerFriendWithResponse(env.ctx, env.adminKey, relationID)
 	_, _ = env.api.DeletePeerFriendWithResponse(env.ctx, env.adminKey, env.peerKey)
-	created, err := env.api.CreatePeerFriendWithResponse(env.ctx, env.adminKey, adminservice.AdminFriendCreateRequest{
+	created, err := env.api.CreatePeerFriendWithResponse(env.ctx, env.adminKey, adminhttp.AdminFriendCreateRequest{
 		PeerPublicKey: env.peerKey,
 	})
 	if err != nil {
@@ -37,7 +37,7 @@ func TestAdminAPIPeerFriendsListGetCreateDelete(t *testing.T) {
 	}
 
 	ownerRows := collectAdminPagesInt(t, 1, func(cursor *string, limit int) ([]rpcapi.FriendObject, bool, *string) {
-		resp, err := env.api.ListPeerFriendsWithResponse(env.ctx, env.adminKey, &adminservice.ListPeerFriendsParams{Cursor: cursor, Limit: &limit})
+		resp, err := env.api.ListPeerFriendsWithResponse(env.ctx, env.adminKey, &adminhttp.ListPeerFriendsParams{Cursor: cursor, Limit: &limit})
 		if err != nil {
 			t.Fatalf("list owner friends: %v", err)
 		}
@@ -54,7 +54,7 @@ func TestAdminAPIPeerFriendsListGetCreateDelete(t *testing.T) {
 		return *item.Id
 	})
 
-	peerRows, err := env.api.ListPeerFriendsWithResponse(env.ctx, env.peerKey, &adminservice.ListPeerFriendsParams{Limit: ptr(10)})
+	peerRows, err := env.api.ListPeerFriendsWithResponse(env.ctx, env.peerKey, &adminhttp.ListPeerFriendsParams{Limit: ptr(10)})
 	if err != nil {
 		t.Fatalf("list peer friends: %v", err)
 	}

@@ -14,7 +14,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminservice"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	clitest "github.com/GizClaw/gizclaw-go/tests/gizclaw-e2e/cmd"
@@ -158,7 +158,7 @@ func grantFirmwareRead(t *testing.T, h *clitest.Harness, peerContext string, fir
 	defer cancel()
 
 	role := "firmware-reader"
-	roleResp, err := api.CreateACLRoleWithResponse(ctx, adminservice.ACLRoleUpsert{
+	roleResp, err := api.CreateACLRoleWithResponse(ctx, adminhttp.ACLRoleUpsert{
 		Name:        role,
 		Permissions: apitypes.ACLPermissionList{apitypes.ACLPermissionRead},
 	})
@@ -169,7 +169,7 @@ func grantFirmwareRead(t *testing.T, h *clitest.Harness, peerContext string, fir
 		t.Fatalf("create firmware ACL role status %d: %s", roleResp.StatusCode(), strings.TrimSpace(string(roleResp.Body)))
 	}
 	bindingID := fmt.Sprintf("firmware-read-%s-%s", peerContext, firmwareID)
-	bindingResp, err := api.CreateACLPolicyBindingWithResponse(ctx, adminservice.ACLPolicyBindingUpsert{
+	bindingResp, err := api.CreateACLPolicyBindingWithResponse(ctx, adminhttp.ACLPolicyBindingUpsert{
 		Id: &bindingID,
 		Policy: apitypes.ACLPolicy{
 			Subject:  apitypes.ACLSubject{Kind: apitypes.ACLSubjectKindPk, Id: h.ContextPublicKey(peerContext)},

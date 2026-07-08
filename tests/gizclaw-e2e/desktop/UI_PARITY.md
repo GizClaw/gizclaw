@@ -68,7 +68,7 @@ Admin transport mapping:
 - Old same-origin Admin HTTP calls are replaced by
   `@gizclaw/gizclaw/admin`.
 - Generated Admin API code lives in
-  `sdk/js/gizclaw/generated/adminservice`.
+  `sdk/js/gizclaw/generated/adminhttp`.
 - WebRTC Admin API fetch transport is implemented in
   `sdk/js/gizclaw/index.ts`.
 

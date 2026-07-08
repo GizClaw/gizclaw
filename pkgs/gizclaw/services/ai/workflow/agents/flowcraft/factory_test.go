@@ -21,7 +21,7 @@ import (
 	flowclaw "github.com/GizClaw/flowcraft/sdkx/claw"
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codec/ogg"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminservice"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/peergenx"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
@@ -2637,17 +2637,17 @@ func appendEvent(events *[]string, event string) {
 	}
 }
 
-func (f fakeModels) GetModel(_ context.Context, request adminservice.GetModelRequestObject) (adminservice.GetModelResponseObject, error) {
+func (f fakeModels) GetModel(_ context.Context, request adminhttp.GetModelRequestObject) (adminhttp.GetModelResponseObject, error) {
 	appendEvent(f.events, "get:model:"+request.Id)
-	return adminservice.GetModel200JSONResponse(f.model(request.Id)), nil
+	return adminhttp.GetModel200JSONResponse(f.model(request.Id)), nil
 }
 
-func (f fakeModels) ListModels(_ context.Context, request adminservice.ListModelsRequestObject) (adminservice.ListModelsResponseObject, error) {
+func (f fakeModels) ListModels(_ context.Context, request adminhttp.ListModelsRequestObject) (adminhttp.ListModelsResponseObject, error) {
 	appendEvent(f.events, "list:models")
 	if request.Params.Cursor != nil && *request.Params.Cursor != "" {
-		return adminservice.ListModels200JSONResponse(adminservice.ModelList{}), nil
+		return adminhttp.ListModels200JSONResponse(adminhttp.ModelList{}), nil
 	}
-	return adminservice.ListModels200JSONResponse(adminservice.ModelList{
+	return adminhttp.ListModels200JSONResponse(adminhttp.ModelList{
 		Items: []apitypes.Model{
 			f.model("chat"),
 			f.model("extract"),
@@ -2700,9 +2700,9 @@ type fakeVoices struct {
 	events *[]string
 }
 
-func (f fakeVoices) GetVoice(_ context.Context, request adminservice.GetVoiceRequestObject) (adminservice.GetVoiceResponseObject, error) {
+func (f fakeVoices) GetVoice(_ context.Context, request adminhttp.GetVoiceRequestObject) (adminhttp.GetVoiceResponseObject, error) {
 	*f.events = append(*f.events, "get:voice:"+request.Id)
-	return adminservice.GetVoice200JSONResponse(apitypes.Voice{
+	return adminhttp.GetVoice200JSONResponse(apitypes.Voice{
 		Id: request.Id,
 		Provider: apitypes.VoiceProvider{
 			Kind: apitypes.VoiceProviderKindVolcTenant,
@@ -2715,17 +2715,17 @@ type fakeCredentials struct {
 	events *[]string
 }
 
-func (f fakeCredentials) GetCredential(_ context.Context, request adminservice.GetCredentialRequestObject) (adminservice.GetCredentialResponseObject, error) {
+func (f fakeCredentials) GetCredential(_ context.Context, request adminhttp.GetCredentialRequestObject) (adminhttp.GetCredentialResponseObject, error) {
 	*f.events = append(*f.events, "get:credential:"+request.Name)
 	if request.Name == "volc-key" {
-		return adminservice.GetCredential200JSONResponse(apitypes.Credential{
+		return adminhttp.GetCredential200JSONResponse(apitypes.Credential{
 			Name: request.Name,
 			Body: testVolcCredentialBodyFromStrings(map[string]string{
 				"api_key": "test-key",
 			}),
 		}), nil
 	}
-	return adminservice.GetCredential200JSONResponse(apitypes.Credential{
+	return adminhttp.GetCredential200JSONResponse(apitypes.Credential{
 		Name: request.Name,
 		Body: testOpenAICredentialBody("test-key"),
 	}), nil
@@ -2735,36 +2735,36 @@ type fakeTenants struct {
 	events *[]string
 }
 
-func (f fakeTenants) GetOpenAITenant(_ context.Context, request adminservice.GetOpenAITenantRequestObject) (adminservice.GetOpenAITenantResponseObject, error) {
+func (f fakeTenants) GetOpenAITenant(_ context.Context, request adminhttp.GetOpenAITenantRequestObject) (adminhttp.GetOpenAITenantResponseObject, error) {
 	*f.events = append(*f.events, "get:tenant:openai:"+request.Name)
 	baseURL := "https://llm.example/v1"
-	return adminservice.GetOpenAITenant200JSONResponse(apitypes.OpenAITenant{
+	return adminhttp.GetOpenAITenant200JSONResponse(apitypes.OpenAITenant{
 		Name:           request.Name,
 		CredentialName: "openai-key",
 		BaseUrl:        &baseURL,
 	}), nil
 }
 
-func (f fakeTenants) GetGeminiTenant(_ context.Context, request adminservice.GetGeminiTenantRequestObject) (adminservice.GetGeminiTenantResponseObject, error) {
+func (f fakeTenants) GetGeminiTenant(_ context.Context, request adminhttp.GetGeminiTenantRequestObject) (adminhttp.GetGeminiTenantResponseObject, error) {
 	*f.events = append(*f.events, "get:tenant:gemini:"+request.Name)
-	return adminservice.GetGeminiTenant200JSONResponse(apitypes.GeminiTenant{
+	return adminhttp.GetGeminiTenant200JSONResponse(apitypes.GeminiTenant{
 		Name:           request.Name,
 		CredentialName: "gemini-key",
 	}), nil
 }
 
-func (f fakeTenants) GetDashScopeTenant(context.Context, adminservice.GetDashScopeTenantRequestObject) (adminservice.GetDashScopeTenantResponseObject, error) {
+func (f fakeTenants) GetDashScopeTenant(context.Context, adminhttp.GetDashScopeTenantRequestObject) (adminhttp.GetDashScopeTenantResponseObject, error) {
 	panic("unexpected dashscope tenant lookup")
 }
 
-func (f fakeTenants) GetMiniMaxTenant(context.Context, adminservice.GetMiniMaxTenantRequestObject) (adminservice.GetMiniMaxTenantResponseObject, error) {
+func (f fakeTenants) GetMiniMaxTenant(context.Context, adminhttp.GetMiniMaxTenantRequestObject) (adminhttp.GetMiniMaxTenantResponseObject, error) {
 	panic("unexpected minimax tenant lookup")
 }
 
-func (f fakeTenants) GetVolcTenant(_ context.Context, request adminservice.GetVolcTenantRequestObject) (adminservice.GetVolcTenantResponseObject, error) {
+func (f fakeTenants) GetVolcTenant(_ context.Context, request adminhttp.GetVolcTenantRequestObject) (adminhttp.GetVolcTenantResponseObject, error) {
 	*f.events = append(*f.events, "get:tenant:volc:"+request.Name)
 	region := "cn-beijing"
-	return adminservice.GetVolcTenant200JSONResponse(apitypes.VolcTenant{
+	return adminhttp.GetVolcTenant200JSONResponse(apitypes.VolcTenant{
 		Name:           request.Name,
 		CredentialName: "volc-key",
 		Region:         &region,

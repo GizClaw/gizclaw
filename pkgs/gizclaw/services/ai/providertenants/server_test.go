@@ -14,7 +14,7 @@ import (
 
 	"github.com/volcengine/volcengine-go-sdk/service/speechsaasprod"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminservice"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
@@ -40,11 +40,11 @@ func TestServerMiniMaxTenantsCRUD(t *testing.T) {
 		"base_url": "https://api.minimax.chat",
 		"description": "primary tenant"
 	}`)
-	createResp, err := srv.CreateMiniMaxTenant(ctx, adminservice.CreateMiniMaxTenantRequestObject{Body: &createBody})
+	createResp, err := srv.CreateMiniMaxTenant(ctx, adminhttp.CreateMiniMaxTenantRequestObject{Body: &createBody})
 	if err != nil {
 		t.Fatalf("CreateMiniMaxTenant() error = %v", err)
 	}
-	created, ok := createResp.(adminservice.CreateMiniMaxTenant200JSONResponse)
+	created, ok := createResp.(adminhttp.CreateMiniMaxTenant200JSONResponse)
 	if !ok {
 		t.Fatalf("CreateMiniMaxTenant() response = %#v", createResp)
 	}
@@ -55,11 +55,11 @@ func TestServerMiniMaxTenantsCRUD(t *testing.T) {
 		t.Fatalf("CreateMiniMaxTenant() timestamps = %#v", created)
 	}
 
-	getResp, err := srv.GetMiniMaxTenant(ctx, adminservice.GetMiniMaxTenantRequestObject{Name: "tenant-a"})
+	getResp, err := srv.GetMiniMaxTenant(ctx, adminhttp.GetMiniMaxTenantRequestObject{Name: "tenant-a"})
 	if err != nil {
 		t.Fatalf("GetMiniMaxTenant() error = %v", err)
 	}
-	got, ok := getResp.(adminservice.GetMiniMaxTenant200JSONResponse)
+	got, ok := getResp.(adminhttp.GetMiniMaxTenant200JSONResponse)
 	if !ok {
 		t.Fatalf("GetMiniMaxTenant() response = %#v", getResp)
 	}
@@ -74,14 +74,14 @@ func TestServerMiniMaxTenantsCRUD(t *testing.T) {
 		"credential_name": "cred-main",
 		"description": "updated tenant"
 	}`)
-	putResp, err := srv.PutMiniMaxTenant(ctx, adminservice.PutMiniMaxTenantRequestObject{
+	putResp, err := srv.PutMiniMaxTenant(ctx, adminhttp.PutMiniMaxTenantRequestObject{
 		Name: "tenant-a",
 		Body: &updateBody,
 	})
 	if err != nil {
 		t.Fatalf("PutMiniMaxTenant() error = %v", err)
 	}
-	updated, ok := putResp.(adminservice.PutMiniMaxTenant200JSONResponse)
+	updated, ok := putResp.(adminhttp.PutMiniMaxTenant200JSONResponse)
 	if !ok {
 		t.Fatalf("PutMiniMaxTenant() response = %#v", putResp)
 	}
@@ -92,11 +92,11 @@ func TestServerMiniMaxTenantsCRUD(t *testing.T) {
 		t.Fatalf("PutMiniMaxTenant() tenant = %#v", updated)
 	}
 
-	listResp, err := srv.ListMiniMaxTenants(ctx, adminservice.ListMiniMaxTenantsRequestObject{})
+	listResp, err := srv.ListMiniMaxTenants(ctx, adminhttp.ListMiniMaxTenantsRequestObject{})
 	if err != nil {
 		t.Fatalf("ListMiniMaxTenants() error = %v", err)
 	}
-	listed, ok := listResp.(adminservice.ListMiniMaxTenants200JSONResponse)
+	listed, ok := listResp.(adminhttp.ListMiniMaxTenants200JSONResponse)
 	if !ok {
 		t.Fatalf("ListMiniMaxTenants() response = %#v", listResp)
 	}
@@ -139,11 +139,11 @@ func TestServerMiniMaxTenantsCRUD(t *testing.T) {
 		t.Fatalf("writeVoice(manual) error = %v", err)
 	}
 
-	deleteResp, err := srv.DeleteMiniMaxTenant(ctx, adminservice.DeleteMiniMaxTenantRequestObject{Name: "tenant-a"})
+	deleteResp, err := srv.DeleteMiniMaxTenant(ctx, adminhttp.DeleteMiniMaxTenantRequestObject{Name: "tenant-a"})
 	if err != nil {
 		t.Fatalf("DeleteMiniMaxTenant() error = %v", err)
 	}
-	if _, ok := deleteResp.(adminservice.DeleteMiniMaxTenant200JSONResponse); !ok {
+	if _, ok := deleteResp.(adminhttp.DeleteMiniMaxTenant200JSONResponse); !ok {
 		t.Fatalf("DeleteMiniMaxTenant() response = %#v", deleteResp)
 	}
 	if _, err := getVoice(ctx, voiceStore, string(voice.Id)); err != kv.ErrNotFound {
@@ -167,24 +167,24 @@ func TestServerMiniMaxTenantsPaginationAndValidation(t *testing.T) {
 		UpdatedAt: srv.now(),
 	})
 
-	for _, body := range []adminservice.MiniMaxTenantUpsert{
+	for _, body := range []adminhttp.MiniMaxTenantUpsert{
 		{Name: "alpha", AppId: "app-a", GroupId: "group-a", CredentialName: "cred-main"},
 		{Name: "beta", AppId: "app-b", GroupId: "group-b", CredentialName: "cred-main"},
 		{Name: "gamma", AppId: "app-c", GroupId: "group-c", CredentialName: "cred-main"},
 	} {
-		if _, err := srv.CreateMiniMaxTenant(ctx, adminservice.CreateMiniMaxTenantRequestObject{Body: &body}); err != nil {
+		if _, err := srv.CreateMiniMaxTenant(ctx, adminhttp.CreateMiniMaxTenantRequestObject{Body: &body}); err != nil {
 			t.Fatalf("CreateMiniMaxTenant(%q) error = %v", body.Name, err)
 		}
 	}
 
 	limit := int32(1)
-	firstResp, err := srv.ListMiniMaxTenants(ctx, adminservice.ListMiniMaxTenantsRequestObject{
-		Params: adminservice.ListMiniMaxTenantsParams{Limit: &limit},
+	firstResp, err := srv.ListMiniMaxTenants(ctx, adminhttp.ListMiniMaxTenantsRequestObject{
+		Params: adminhttp.ListMiniMaxTenantsParams{Limit: &limit},
 	})
 	if err != nil {
 		t.Fatalf("ListMiniMaxTenants(first page) error = %v", err)
 	}
-	first, ok := firstResp.(adminservice.ListMiniMaxTenants200JSONResponse)
+	first, ok := firstResp.(adminhttp.ListMiniMaxTenants200JSONResponse)
 	if !ok {
 		t.Fatalf("ListMiniMaxTenants(first page) response = %#v", firstResp)
 	}
@@ -193,8 +193,8 @@ func TestServerMiniMaxTenantsPaginationAndValidation(t *testing.T) {
 	}
 
 	cursor := string(*first.NextCursor)
-	secondResp, err := srv.ListMiniMaxTenants(ctx, adminservice.ListMiniMaxTenantsRequestObject{
-		Params: adminservice.ListMiniMaxTenantsParams{
+	secondResp, err := srv.ListMiniMaxTenants(ctx, adminhttp.ListMiniMaxTenantsRequestObject{
+		Params: adminhttp.ListMiniMaxTenantsParams{
 			Cursor: &cursor,
 			Limit:  &limit,
 		},
@@ -202,7 +202,7 @@ func TestServerMiniMaxTenantsPaginationAndValidation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ListMiniMaxTenants(second page) error = %v", err)
 	}
-	second, ok := secondResp.(adminservice.ListMiniMaxTenants200JSONResponse)
+	second, ok := secondResp.(adminhttp.ListMiniMaxTenants200JSONResponse)
 	if !ok {
 		t.Fatalf("ListMiniMaxTenants(second page) response = %#v", secondResp)
 	}
@@ -210,48 +210,48 @@ func TestServerMiniMaxTenantsPaginationAndValidation(t *testing.T) {
 		t.Fatalf("ListMiniMaxTenants(second page) = %#v", second)
 	}
 
-	invalidBody := adminservice.MiniMaxTenantUpsert{
+	invalidBody := adminhttp.MiniMaxTenantUpsert{
 		Name:           "missing-cred",
 		GroupId:        "group-x",
 		CredentialName: "not-found",
 	}
-	invalidResp, err := srv.CreateMiniMaxTenant(ctx, adminservice.CreateMiniMaxTenantRequestObject{Body: &invalidBody})
+	invalidResp, err := srv.CreateMiniMaxTenant(ctx, adminhttp.CreateMiniMaxTenantRequestObject{Body: &invalidBody})
 	if err != nil {
 		t.Fatalf("CreateMiniMaxTenant(missing cred) error = %v", err)
 	}
-	if _, ok := invalidResp.(adminservice.CreateMiniMaxTenant400JSONResponse); !ok {
+	if _, ok := invalidResp.(adminhttp.CreateMiniMaxTenant400JSONResponse); !ok {
 		t.Fatalf("CreateMiniMaxTenant(missing cred) response = %#v", invalidResp)
 	}
 
-	nilCreateResp, err := srv.CreateMiniMaxTenant(ctx, adminservice.CreateMiniMaxTenantRequestObject{})
+	nilCreateResp, err := srv.CreateMiniMaxTenant(ctx, adminhttp.CreateMiniMaxTenantRequestObject{})
 	if err != nil {
 		t.Fatalf("CreateMiniMaxTenant(nil body) error = %v", err)
 	}
-	if _, ok := nilCreateResp.(adminservice.CreateMiniMaxTenant400JSONResponse); !ok {
+	if _, ok := nilCreateResp.(adminhttp.CreateMiniMaxTenant400JSONResponse); !ok {
 		t.Fatalf("CreateMiniMaxTenant(nil body) response = %#v", nilCreateResp)
 	}
 
-	nilPutResp, err := srv.PutMiniMaxTenant(ctx, adminservice.PutMiniMaxTenantRequestObject{Name: "tenant-a"})
+	nilPutResp, err := srv.PutMiniMaxTenant(ctx, adminhttp.PutMiniMaxTenantRequestObject{Name: "tenant-a"})
 	if err != nil {
 		t.Fatalf("PutMiniMaxTenant(nil body) error = %v", err)
 	}
-	if _, ok := nilPutResp.(adminservice.PutMiniMaxTenant400JSONResponse); !ok {
+	if _, ok := nilPutResp.(adminhttp.PutMiniMaxTenant400JSONResponse); !ok {
 		t.Fatalf("PutMiniMaxTenant(nil body) response = %#v", nilPutResp)
 	}
 
-	getMissingResp, err := srv.GetMiniMaxTenant(ctx, adminservice.GetMiniMaxTenantRequestObject{Name: "missing"})
+	getMissingResp, err := srv.GetMiniMaxTenant(ctx, adminhttp.GetMiniMaxTenantRequestObject{Name: "missing"})
 	if err != nil {
 		t.Fatalf("GetMiniMaxTenant(missing) error = %v", err)
 	}
-	if _, ok := getMissingResp.(adminservice.GetMiniMaxTenant404JSONResponse); !ok {
+	if _, ok := getMissingResp.(adminhttp.GetMiniMaxTenant404JSONResponse); !ok {
 		t.Fatalf("GetMiniMaxTenant(missing) response = %#v", getMissingResp)
 	}
 
-	deleteMissingResp, err := srv.DeleteMiniMaxTenant(ctx, adminservice.DeleteMiniMaxTenantRequestObject{Name: "missing"})
+	deleteMissingResp, err := srv.DeleteMiniMaxTenant(ctx, adminhttp.DeleteMiniMaxTenantRequestObject{Name: "missing"})
 	if err != nil {
 		t.Fatalf("DeleteMiniMaxTenant(missing) error = %v", err)
 	}
-	if _, ok := deleteMissingResp.(adminservice.DeleteMiniMaxTenant404JSONResponse); !ok {
+	if _, ok := deleteMissingResp.(adminhttp.DeleteMiniMaxTenant404JSONResponse); !ok {
 		t.Fatalf("DeleteMiniMaxTenant(missing) response = %#v", deleteMissingResp)
 	}
 }
@@ -313,11 +313,11 @@ func TestServerMiniMaxCredentialValidation(t *testing.T) {
 		t.Fatalf("miniMaxCredentialForTenant(missing) error = %v", err)
 	}
 
-	missingTenantResp, err := srv.SyncMiniMaxTenantVoices(ctx, adminservice.SyncMiniMaxTenantVoicesRequestObject{Name: "missing"})
+	missingTenantResp, err := srv.SyncMiniMaxTenantVoices(ctx, adminhttp.SyncMiniMaxTenantVoicesRequestObject{Name: "missing"})
 	if err != nil {
 		t.Fatalf("SyncMiniMaxTenantVoices(missing tenant) error = %v", err)
 	}
-	if _, ok := missingTenantResp.(adminservice.SyncMiniMaxTenantVoices404JSONResponse); !ok {
+	if _, ok := missingTenantResp.(adminhttp.SyncMiniMaxTenantVoices404JSONResponse); !ok {
 		t.Fatalf("SyncMiniMaxTenantVoices(missing tenant) response = %#v", missingTenantResp)
 	}
 }
@@ -496,11 +496,11 @@ func TestServerMiniMaxStoreNotConfigured(t *testing.T) {
 
 	srv := &Server{}
 	ctx := context.Background()
-	listResp, err := srv.ListMiniMaxTenants(ctx, adminservice.ListMiniMaxTenantsRequestObject{})
+	listResp, err := srv.ListMiniMaxTenants(ctx, adminhttp.ListMiniMaxTenantsRequestObject{})
 	if err != nil {
 		t.Fatalf("ListMiniMaxTenants() error = %v", err)
 	}
-	if _, ok := listResp.(adminservice.ListMiniMaxTenants500JSONResponse); !ok {
+	if _, ok := listResp.(adminhttp.ListMiniMaxTenants500JSONResponse); !ok {
 		t.Fatalf("ListMiniMaxTenants() response = %#v", listResp)
 	}
 }
@@ -595,15 +595,15 @@ func TestServerMiniMaxTenantValidationAndConflictPaths(t *testing.T) {
 		"group_id": "group-1",
 		"credential_name": "cred-main"
 	}`)
-	if _, err := srv.CreateMiniMaxTenant(ctx, adminservice.CreateMiniMaxTenantRequestObject{Body: &body}); err != nil {
+	if _, err := srv.CreateMiniMaxTenant(ctx, adminhttp.CreateMiniMaxTenantRequestObject{Body: &body}); err != nil {
 		t.Fatalf("CreateMiniMaxTenant(seed) error = %v", err)
 	}
 
-	conflictResp, err := srv.CreateMiniMaxTenant(ctx, adminservice.CreateMiniMaxTenantRequestObject{Body: &body})
+	conflictResp, err := srv.CreateMiniMaxTenant(ctx, adminhttp.CreateMiniMaxTenantRequestObject{Body: &body})
 	if err != nil {
 		t.Fatalf("CreateMiniMaxTenant(conflict) error = %v", err)
 	}
-	if _, ok := conflictResp.(adminservice.CreateMiniMaxTenant409JSONResponse); !ok {
+	if _, ok := conflictResp.(adminhttp.CreateMiniMaxTenant409JSONResponse); !ok {
 		t.Fatalf("CreateMiniMaxTenant(conflict) response = %#v", conflictResp)
 	}
 
@@ -613,14 +613,14 @@ func TestServerMiniMaxTenantValidationAndConflictPaths(t *testing.T) {
 		"group_id": "group-1",
 		"credential_name": "cred-main"
 	}`)
-	pathMismatchResp, err := srv.PutMiniMaxTenant(ctx, adminservice.PutMiniMaxTenantRequestObject{
+	pathMismatchResp, err := srv.PutMiniMaxTenant(ctx, adminhttp.PutMiniMaxTenantRequestObject{
 		Name: "tenant-a",
 		Body: &pathMismatch,
 	})
 	if err != nil {
 		t.Fatalf("PutMiniMaxTenant(path mismatch) error = %v", err)
 	}
-	if _, ok := pathMismatchResp.(adminservice.PutMiniMaxTenant400JSONResponse); !ok {
+	if _, ok := pathMismatchResp.(adminhttp.PutMiniMaxTenant400JSONResponse); !ok {
 		t.Fatalf("PutMiniMaxTenant(path mismatch) response = %#v", pathMismatchResp)
 	}
 
@@ -631,19 +631,19 @@ func TestServerMiniMaxTenantValidationAndConflictPaths(t *testing.T) {
 		"credential_name": "cred-main",
 		"base_url": "not-a-url"
 	}`)
-	invalidBaseURLResp, err := srv.CreateMiniMaxTenant(ctx, adminservice.CreateMiniMaxTenantRequestObject{Body: &invalidBaseURL})
+	invalidBaseURLResp, err := srv.CreateMiniMaxTenant(ctx, adminhttp.CreateMiniMaxTenantRequestObject{Body: &invalidBaseURL})
 	if err != nil {
 		t.Fatalf("CreateMiniMaxTenant(invalid base_url) error = %v", err)
 	}
-	if _, ok := invalidBaseURLResp.(adminservice.CreateMiniMaxTenant400JSONResponse); !ok {
+	if _, ok := invalidBaseURLResp.(adminhttp.CreateMiniMaxTenant400JSONResponse); !ok {
 		t.Fatalf("CreateMiniMaxTenant(invalid base_url) response = %#v", invalidBaseURLResp)
 	}
 
-	deleteMissingResp, err := srv.DeleteMiniMaxTenant(ctx, adminservice.DeleteMiniMaxTenantRequestObject{Name: "missing"})
+	deleteMissingResp, err := srv.DeleteMiniMaxTenant(ctx, adminhttp.DeleteMiniMaxTenantRequestObject{Name: "missing"})
 	if err != nil {
 		t.Fatalf("DeleteMiniMaxTenant(missing) error = %v", err)
 	}
-	if _, ok := deleteMissingResp.(adminservice.DeleteMiniMaxTenant404JSONResponse); !ok {
+	if _, ok := deleteMissingResp.(adminhttp.DeleteMiniMaxTenant404JSONResponse); !ok {
 		t.Fatalf("DeleteMiniMaxTenant(missing) response = %#v", deleteMissingResp)
 	}
 }
@@ -696,15 +696,15 @@ func TestServerSyncMiniMaxTenantVoicesUsesTenantBaseURL(t *testing.T) {
 		"credential_name": "cred-main"
 	}`)
 	tenantBody.BaseUrl = stringPtr(upstream.URL)
-	if _, err := srv.CreateMiniMaxTenant(ctx, adminservice.CreateMiniMaxTenantRequestObject{Body: &tenantBody}); err != nil {
+	if _, err := srv.CreateMiniMaxTenant(ctx, adminhttp.CreateMiniMaxTenantRequestObject{Body: &tenantBody}); err != nil {
 		t.Fatalf("CreateMiniMaxTenant() error = %v", err)
 	}
 
-	resp, err := srv.SyncMiniMaxTenantVoices(ctx, adminservice.SyncMiniMaxTenantVoicesRequestObject{Name: "tenant-a"})
+	resp, err := srv.SyncMiniMaxTenantVoices(ctx, adminhttp.SyncMiniMaxTenantVoicesRequestObject{Name: "tenant-a"})
 	if err != nil {
 		t.Fatalf("SyncMiniMaxTenantVoices() error = %v", err)
 	}
-	syncResp, ok := resp.(adminservice.SyncMiniMaxTenantVoices200JSONResponse)
+	syncResp, ok := resp.(adminhttp.SyncMiniMaxTenantVoices200JSONResponse)
 	if !ok {
 		t.Fatalf("SyncMiniMaxTenantVoices() response = %#v", resp)
 	}
@@ -767,15 +767,15 @@ func TestServerSyncMiniMaxTenantVoicesRetriesTransientEOF(t *testing.T) {
 		"credential_name": "cred-main"
 	}`)
 	tenantBody.BaseUrl = stringPtr(upstream.URL)
-	if _, err := srv.CreateMiniMaxTenant(ctx, adminservice.CreateMiniMaxTenantRequestObject{Body: &tenantBody}); err != nil {
+	if _, err := srv.CreateMiniMaxTenant(ctx, adminhttp.CreateMiniMaxTenantRequestObject{Body: &tenantBody}); err != nil {
 		t.Fatalf("CreateMiniMaxTenant() error = %v", err)
 	}
 
-	resp, err := srv.SyncMiniMaxTenantVoices(ctx, adminservice.SyncMiniMaxTenantVoicesRequestObject{Name: "tenant-a"})
+	resp, err := srv.SyncMiniMaxTenantVoices(ctx, adminhttp.SyncMiniMaxTenantVoicesRequestObject{Name: "tenant-a"})
 	if err != nil {
 		t.Fatalf("SyncMiniMaxTenantVoices() error = %v", err)
 	}
-	syncResp, ok := resp.(adminservice.SyncMiniMaxTenantVoices200JSONResponse)
+	syncResp, ok := resp.(adminhttp.SyncMiniMaxTenantVoices200JSONResponse)
 	if !ok {
 		t.Fatalf("SyncMiniMaxTenantVoices() response = %#v", resp)
 	}
@@ -810,15 +810,15 @@ func TestServerSyncMiniMaxTenantVoicesCredentialRejected(t *testing.T) {
 		"credential_name": "cred-main"
 	}`)
 	tenantBody.BaseUrl = stringPtr(upstream.URL)
-	if _, err := srv.CreateMiniMaxTenant(ctx, adminservice.CreateMiniMaxTenantRequestObject{Body: &tenantBody}); err != nil {
+	if _, err := srv.CreateMiniMaxTenant(ctx, adminhttp.CreateMiniMaxTenantRequestObject{Body: &tenantBody}); err != nil {
 		t.Fatalf("CreateMiniMaxTenant() error = %v", err)
 	}
 
-	resp, err := srv.SyncMiniMaxTenantVoices(ctx, adminservice.SyncMiniMaxTenantVoicesRequestObject{Name: "tenant-a"})
+	resp, err := srv.SyncMiniMaxTenantVoices(ctx, adminhttp.SyncMiniMaxTenantVoicesRequestObject{Name: "tenant-a"})
 	if err != nil {
 		t.Fatalf("SyncMiniMaxTenantVoices() error = %v", err)
 	}
-	rejected, ok := resp.(adminservice.SyncMiniMaxTenantVoices400JSONResponse)
+	rejected, ok := resp.(adminhttp.SyncMiniMaxTenantVoices400JSONResponse)
 	if !ok {
 		t.Fatalf("SyncMiniMaxTenantVoices() response = %#v, want 400", resp)
 	}
@@ -864,15 +864,15 @@ func TestServerSyncMiniMaxTenantVoicesFallsBackAfterRegionalAuthError(t *testing
 		"credential_name": "cred-main"
 	}`)
 	tenantBody.BaseUrl = stringPtr(rejecting.URL)
-	if _, err := srv.CreateMiniMaxTenant(ctx, adminservice.CreateMiniMaxTenantRequestObject{Body: &tenantBody}); err != nil {
+	if _, err := srv.CreateMiniMaxTenant(ctx, adminhttp.CreateMiniMaxTenantRequestObject{Body: &tenantBody}); err != nil {
 		t.Fatalf("CreateMiniMaxTenant() error = %v", err)
 	}
 
-	resp, err := srv.SyncMiniMaxTenantVoices(ctx, adminservice.SyncMiniMaxTenantVoicesRequestObject{Name: "tenant-a"})
+	resp, err := srv.SyncMiniMaxTenantVoices(ctx, adminhttp.SyncMiniMaxTenantVoicesRequestObject{Name: "tenant-a"})
 	if err != nil {
 		t.Fatalf("SyncMiniMaxTenantVoices() error = %v", err)
 	}
-	synced, ok := resp.(adminservice.SyncMiniMaxTenantVoices200JSONResponse)
+	synced, ok := resp.(adminhttp.SyncMiniMaxTenantVoices200JSONResponse)
 	if !ok {
 		t.Fatalf("SyncMiniMaxTenantVoices() response = %#v", resp)
 	}
@@ -924,7 +924,7 @@ func TestServerSyncMiniMaxTenantVoicesReconcile(t *testing.T) {
 		"credential_name": "cred-main"
 	}`)
 	tenantBody.BaseUrl = stringPtr(upstream.URL)
-	if _, err := srv.CreateMiniMaxTenant(ctx, adminservice.CreateMiniMaxTenantRequestObject{Body: &tenantBody}); err != nil {
+	if _, err := srv.CreateMiniMaxTenant(ctx, adminhttp.CreateMiniMaxTenantRequestObject{Body: &tenantBody}); err != nil {
 		t.Fatalf("CreateMiniMaxTenant() error = %v", err)
 	}
 	manualVoice := apitypes.Voice{
@@ -945,11 +945,11 @@ func TestServerSyncMiniMaxTenantVoicesReconcile(t *testing.T) {
 		t.Fatalf("writeVoice(manual) error = %v", err)
 	}
 
-	firstResp, err := srv.SyncMiniMaxTenantVoices(ctx, adminservice.SyncMiniMaxTenantVoicesRequestObject{Name: "tenant-a"})
+	firstResp, err := srv.SyncMiniMaxTenantVoices(ctx, adminhttp.SyncMiniMaxTenantVoicesRequestObject{Name: "tenant-a"})
 	if err != nil {
 		t.Fatalf("first SyncMiniMaxTenantVoices() error = %v", err)
 	}
-	first, ok := firstResp.(adminservice.SyncMiniMaxTenantVoices200JSONResponse)
+	first, ok := firstResp.(adminhttp.SyncMiniMaxTenantVoices200JSONResponse)
 	if !ok {
 		t.Fatalf("first SyncMiniMaxTenantVoices() response = %#v", firstResp)
 	}
@@ -958,11 +958,11 @@ func TestServerSyncMiniMaxTenantVoicesReconcile(t *testing.T) {
 	}
 
 	stage.Store(1)
-	secondResp, err := srv.SyncMiniMaxTenantVoices(ctx, adminservice.SyncMiniMaxTenantVoicesRequestObject{Name: "tenant-a"})
+	secondResp, err := srv.SyncMiniMaxTenantVoices(ctx, adminhttp.SyncMiniMaxTenantVoicesRequestObject{Name: "tenant-a"})
 	if err != nil {
 		t.Fatalf("second SyncMiniMaxTenantVoices() error = %v", err)
 	}
-	second, ok := secondResp.(adminservice.SyncMiniMaxTenantVoices200JSONResponse)
+	second, ok := secondResp.(adminhttp.SyncMiniMaxTenantVoices200JSONResponse)
 	if !ok {
 		t.Fatalf("second SyncMiniMaxTenantVoices() response = %#v", secondResp)
 	}
@@ -1043,15 +1043,15 @@ func TestServerSyncMiniMaxTenantVoicesFetchesAllVoiceTypes(t *testing.T) {
 		"credential_name": "cred-main"
 	}`)
 	tenantBody.BaseUrl = stringPtr(upstream.URL)
-	if _, err := srv.CreateMiniMaxTenant(ctx, adminservice.CreateMiniMaxTenantRequestObject{Body: &tenantBody}); err != nil {
+	if _, err := srv.CreateMiniMaxTenant(ctx, adminhttp.CreateMiniMaxTenantRequestObject{Body: &tenantBody}); err != nil {
 		t.Fatalf("CreateMiniMaxTenant() error = %v", err)
 	}
 
-	resp, err := srv.SyncMiniMaxTenantVoices(ctx, adminservice.SyncMiniMaxTenantVoicesRequestObject{Name: "tenant-a"})
+	resp, err := srv.SyncMiniMaxTenantVoices(ctx, adminhttp.SyncMiniMaxTenantVoicesRequestObject{Name: "tenant-a"})
 	if err != nil {
 		t.Fatalf("SyncMiniMaxTenantVoices() error = %v", err)
 	}
-	syncResp, ok := resp.(adminservice.SyncMiniMaxTenantVoices200JSONResponse)
+	syncResp, ok := resp.(adminhttp.SyncMiniMaxTenantVoices200JSONResponse)
 	if !ok {
 		t.Fatalf("SyncMiniMaxTenantVoices() response = %#v", resp)
 	}
@@ -1120,38 +1120,38 @@ func TestServerVolcTenantsCRUDAndSyncVoices(t *testing.T) {
 	}
 
 	resourceIDs := []string{"seed-tts-2.0", "seed-icl-2.0"}
-	createBody := adminservice.VolcTenantUpsert{
+	createBody := adminhttp.VolcTenantUpsert{
 		Name:           "tenant-a",
 		CredentialName: "volc-main",
 		Region:         stringPtr("cn-beijing"),
 		ResourceIds:    &resourceIDs,
 		Description:    stringPtr("primary tenant"),
 	}
-	createResp, err := srv.CreateVolcTenant(ctx, adminservice.CreateVolcTenantRequestObject{Body: &createBody})
+	createResp, err := srv.CreateVolcTenant(ctx, adminhttp.CreateVolcTenantRequestObject{Body: &createBody})
 	if err != nil {
 		t.Fatalf("CreateVolcTenant() error = %v", err)
 	}
-	created, ok := createResp.(adminservice.CreateVolcTenant200JSONResponse)
+	created, ok := createResp.(adminhttp.CreateVolcTenant200JSONResponse)
 	if !ok {
 		t.Fatalf("CreateVolcTenant() response = %#v", createResp)
 	}
 	if created.Name != "tenant-a" || created.CredentialName != "volc-main" {
 		t.Fatalf("CreateVolcTenant() tenant = %#v", created)
 	}
-	listResp, err := srv.ListVolcTenants(ctx, adminservice.ListVolcTenantsRequestObject{})
+	listResp, err := srv.ListVolcTenants(ctx, adminhttp.ListVolcTenantsRequestObject{})
 	if err != nil {
 		t.Fatalf("ListVolcTenants() error = %v", err)
 	}
-	listed, ok := listResp.(adminservice.ListVolcTenants200JSONResponse)
+	listed, ok := listResp.(adminhttp.ListVolcTenants200JSONResponse)
 	if !ok || len(listed.Items) != 1 || listed.Items[0].Name != "tenant-a" {
 		t.Fatalf("ListVolcTenants() response = %#v", listResp)
 	}
 
-	syncResp, err := srv.SyncVolcTenantVoices(ctx, adminservice.SyncVolcTenantVoicesRequestObject{Name: "tenant-a"})
+	syncResp, err := srv.SyncVolcTenantVoices(ctx, adminhttp.SyncVolcTenantVoicesRequestObject{Name: "tenant-a"})
 	if err != nil {
 		t.Fatalf("SyncVolcTenantVoices() error = %v", err)
 	}
-	synced, ok := syncResp.(adminservice.SyncVolcTenantVoices200JSONResponse)
+	synced, ok := syncResp.(adminhttp.SyncVolcTenantVoices200JSONResponse)
 	if !ok {
 		t.Fatalf("SyncVolcTenantVoices() response = %#v", syncResp)
 	}
@@ -1201,11 +1201,11 @@ func TestServerVolcTenantsCRUDAndSyncVoices(t *testing.T) {
 			State:          "Success",
 		}},
 	}}
-	resyncResp, err := srv.SyncVolcTenantVoices(ctx, adminservice.SyncVolcTenantVoicesRequestObject{Name: "tenant-a"})
+	resyncResp, err := srv.SyncVolcTenantVoices(ctx, adminhttp.SyncVolcTenantVoicesRequestObject{Name: "tenant-a"})
 	if err != nil {
 		t.Fatalf("SyncVolcTenantVoices(resync) error = %v", err)
 	}
-	resynced, ok := resyncResp.(adminservice.SyncVolcTenantVoices200JSONResponse)
+	resynced, ok := resyncResp.(adminhttp.SyncVolcTenantVoices200JSONResponse)
 	if !ok {
 		t.Fatalf("SyncVolcTenantVoices(resync) response = %#v", resyncResp)
 	}
@@ -1213,11 +1213,11 @@ func TestServerVolcTenantsCRUDAndSyncVoices(t *testing.T) {
 		t.Fatalf("SyncVolcTenantVoices(resync) result = %#v", resynced)
 	}
 
-	deleteResp, err := srv.DeleteVolcTenant(ctx, adminservice.DeleteVolcTenantRequestObject{Name: "tenant-a"})
+	deleteResp, err := srv.DeleteVolcTenant(ctx, adminhttp.DeleteVolcTenantRequestObject{Name: "tenant-a"})
 	if err != nil {
 		t.Fatalf("DeleteVolcTenant() error = %v", err)
 	}
-	if _, ok := deleteResp.(adminservice.DeleteVolcTenant200JSONResponse); !ok {
+	if _, ok := deleteResp.(adminhttp.DeleteVolcTenant200JSONResponse); !ok {
 		t.Fatalf("DeleteVolcTenant() response = %#v", deleteResp)
 	}
 	if _, err := getVoice(ctx, srv.VoiceStore, "volc-tenant:tenant-a:S_female_1"); err != kv.ErrNotFound {
@@ -1231,16 +1231,16 @@ func TestServerVolcTenantPutGetAndValidation(t *testing.T) {
 	srv := newTestServer(t)
 	ctx := context.Background()
 
-	invalidBody := adminservice.VolcTenantUpsert{
+	invalidBody := adminhttp.VolcTenantUpsert{
 		Name:           "tenant-a",
 		CredentialName: "missing-credential",
 		Endpoint:       stringPtr("not-a-url"),
 	}
-	invalidResp, err := srv.PutVolcTenant(ctx, adminservice.PutVolcTenantRequestObject{Name: "tenant-a", Body: &invalidBody})
+	invalidResp, err := srv.PutVolcTenant(ctx, adminhttp.PutVolcTenantRequestObject{Name: "tenant-a", Body: &invalidBody})
 	if err != nil {
 		t.Fatalf("PutVolcTenant(invalid) error = %v", err)
 	}
-	if _, ok := invalidResp.(adminservice.PutVolcTenant400JSONResponse); !ok {
+	if _, ok := invalidResp.(adminhttp.PutVolcTenant400JSONResponse); !ok {
 		t.Fatalf("PutVolcTenant(invalid) response = %#v, want 400", invalidResp)
 	}
 
@@ -1252,7 +1252,7 @@ func TestServerVolcTenantPutGetAndValidation(t *testing.T) {
 		UpdatedAt: srv.now(),
 	})
 	resourceIDs := []string{" seed-tts-2.0 ", "", "seed-tts-2.0", "seed-icl-2.0"}
-	body := adminservice.VolcTenantUpsert{
+	body := adminhttp.VolcTenantUpsert{
 		Name:           "tenant-a",
 		CredentialName: "volc-main",
 		Endpoint:       stringPtr("https://speech.example.com/"),
@@ -1260,11 +1260,11 @@ func TestServerVolcTenantPutGetAndValidation(t *testing.T) {
 		ResourceIds:    &resourceIDs,
 		Description:    stringPtr(" primary "),
 	}
-	putResp, err := srv.PutVolcTenant(ctx, adminservice.PutVolcTenantRequestObject{Name: "tenant-a", Body: &body})
+	putResp, err := srv.PutVolcTenant(ctx, adminhttp.PutVolcTenantRequestObject{Name: "tenant-a", Body: &body})
 	if err != nil {
 		t.Fatalf("PutVolcTenant() error = %v", err)
 	}
-	put, ok := putResp.(adminservice.PutVolcTenant200JSONResponse)
+	put, ok := putResp.(adminhttp.PutVolcTenant200JSONResponse)
 	if !ok {
 		t.Fatalf("PutVolcTenant() response = %#v", putResp)
 	}
@@ -1275,11 +1275,11 @@ func TestServerVolcTenantPutGetAndValidation(t *testing.T) {
 		t.Fatalf("PutVolcTenant() resource_ids = %#v", put.ResourceIds)
 	}
 
-	getResp, err := srv.GetVolcTenant(ctx, adminservice.GetVolcTenantRequestObject{Name: "tenant-a"})
+	getResp, err := srv.GetVolcTenant(ctx, adminhttp.GetVolcTenantRequestObject{Name: "tenant-a"})
 	if err != nil {
 		t.Fatalf("GetVolcTenant() error = %v", err)
 	}
-	got, ok := getResp.(adminservice.GetVolcTenant200JSONResponse)
+	got, ok := getResp.(adminhttp.GetVolcTenant200JSONResponse)
 	if !ok || got.CredentialName != "volc-main" {
 		t.Fatalf("GetVolcTenant() response = %#v", getResp)
 	}
@@ -1290,19 +1290,19 @@ func TestServerVolcTenantErrorResponses(t *testing.T) {
 
 	srv := newTestServer(t)
 	ctx := context.Background()
-	if resp, err := srv.CreateVolcTenant(ctx, adminservice.CreateVolcTenantRequestObject{}); err != nil {
+	if resp, err := srv.CreateVolcTenant(ctx, adminhttp.CreateVolcTenantRequestObject{}); err != nil {
 		t.Fatalf("CreateVolcTenant(nil body) error = %v", err)
-	} else if _, ok := resp.(adminservice.CreateVolcTenant400JSONResponse); !ok {
+	} else if _, ok := resp.(adminhttp.CreateVolcTenant400JSONResponse); !ok {
 		t.Fatalf("CreateVolcTenant(nil body) response = %#v, want 400", resp)
 	}
-	if resp, err := srv.GetVolcTenant(ctx, adminservice.GetVolcTenantRequestObject{Name: "missing"}); err != nil {
+	if resp, err := srv.GetVolcTenant(ctx, adminhttp.GetVolcTenantRequestObject{Name: "missing"}); err != nil {
 		t.Fatalf("GetVolcTenant(missing) error = %v", err)
-	} else if _, ok := resp.(adminservice.GetVolcTenant404JSONResponse); !ok {
+	} else if _, ok := resp.(adminhttp.GetVolcTenant404JSONResponse); !ok {
 		t.Fatalf("GetVolcTenant(missing) response = %#v, want 404", resp)
 	}
-	if resp, err := srv.DeleteVolcTenant(ctx, adminservice.DeleteVolcTenantRequestObject{Name: "missing"}); err != nil {
+	if resp, err := srv.DeleteVolcTenant(ctx, adminhttp.DeleteVolcTenantRequestObject{Name: "missing"}); err != nil {
 		t.Fatalf("DeleteVolcTenant(missing) error = %v", err)
-	} else if _, ok := resp.(adminservice.DeleteVolcTenant404JSONResponse); !ok {
+	} else if _, ok := resp.(adminhttp.DeleteVolcTenant404JSONResponse); !ok {
 		t.Fatalf("DeleteVolcTenant(missing) response = %#v, want 404", resp)
 	}
 
@@ -1313,61 +1313,61 @@ func TestServerVolcTenantErrorResponses(t *testing.T) {
 		CreatedAt: srv.now(),
 		UpdatedAt: srv.now(),
 	})
-	createBody := adminservice.VolcTenantUpsert{
+	createBody := adminhttp.VolcTenantUpsert{
 		Name:           "tenant-a",
 		CredentialName: "volc-main",
 	}
-	if _, err := srv.CreateVolcTenant(ctx, adminservice.CreateVolcTenantRequestObject{Body: &createBody}); err != nil {
+	if _, err := srv.CreateVolcTenant(ctx, adminhttp.CreateVolcTenantRequestObject{Body: &createBody}); err != nil {
 		t.Fatalf("CreateVolcTenant() error = %v", err)
 	}
-	if resp, err := srv.CreateVolcTenant(ctx, adminservice.CreateVolcTenantRequestObject{Body: &createBody}); err != nil {
+	if resp, err := srv.CreateVolcTenant(ctx, adminhttp.CreateVolcTenantRequestObject{Body: &createBody}); err != nil {
 		t.Fatalf("CreateVolcTenant(duplicate) error = %v", err)
-	} else if _, ok := resp.(adminservice.CreateVolcTenant409JSONResponse); !ok {
+	} else if _, ok := resp.(adminhttp.CreateVolcTenant409JSONResponse); !ok {
 		t.Fatalf("CreateVolcTenant(duplicate) response = %#v, want 409", resp)
 	}
 	mismatchBody := createBody
 	mismatchBody.Name = "other"
-	if resp, err := srv.PutVolcTenant(ctx, adminservice.PutVolcTenantRequestObject{Name: "tenant-a", Body: &mismatchBody}); err != nil {
+	if resp, err := srv.PutVolcTenant(ctx, adminhttp.PutVolcTenantRequestObject{Name: "tenant-a", Body: &mismatchBody}); err != nil {
 		t.Fatalf("PutVolcTenant(mismatch) error = %v", err)
-	} else if _, ok := resp.(adminservice.PutVolcTenant400JSONResponse); !ok {
+	} else if _, ok := resp.(adminhttp.PutVolcTenant400JSONResponse); !ok {
 		t.Fatalf("PutVolcTenant(mismatch) response = %#v, want 400", resp)
 	}
-	if resp, err := srv.SyncVolcTenantVoices(ctx, adminservice.SyncVolcTenantVoicesRequestObject{Name: "missing"}); err != nil {
+	if resp, err := srv.SyncVolcTenantVoices(ctx, adminhttp.SyncVolcTenantVoicesRequestObject{Name: "missing"}); err != nil {
 		t.Fatalf("SyncVolcTenantVoices(missing) error = %v", err)
-	} else if _, ok := resp.(adminservice.SyncVolcTenantVoices404JSONResponse); !ok {
+	} else if _, ok := resp.(adminhttp.SyncVolcTenantVoices404JSONResponse); !ok {
 		t.Fatalf("SyncVolcTenantVoices(missing) response = %#v, want 404", resp)
 	}
 
 	srv.VolcSpeakerClientFactory = func(context.Context, apitypes.Credential, apitypes.VolcTenant) (VolcSpeakerClient, error) {
 		return nil, errors.New("factory rejected")
 	}
-	if resp, err := srv.SyncVolcTenantVoices(ctx, adminservice.SyncVolcTenantVoicesRequestObject{Name: "tenant-a"}); err != nil {
+	if resp, err := srv.SyncVolcTenantVoices(ctx, adminhttp.SyncVolcTenantVoicesRequestObject{Name: "tenant-a"}); err != nil {
 		t.Fatalf("SyncVolcTenantVoices(factory error) error = %v", err)
-	} else if _, ok := resp.(adminservice.SyncVolcTenantVoices400JSONResponse); !ok {
+	} else if _, ok := resp.(adminhttp.SyncVolcTenantVoices400JSONResponse); !ok {
 		t.Fatalf("SyncVolcTenantVoices(factory error) response = %#v, want 400", resp)
 	}
 
 	srv.VolcSpeakerClientFactory = func(context.Context, apitypes.Credential, apitypes.VolcTenant) (VolcSpeakerClient, error) {
 		return &fakeVolcSpeakerClient{speakersErr: errors.New("speakers unavailable"), timbresErr: errors.New("timbres unavailable")}, nil
 	}
-	if resp, err := srv.SyncVolcTenantVoices(ctx, adminservice.SyncVolcTenantVoicesRequestObject{Name: "tenant-a"}); err != nil {
+	if resp, err := srv.SyncVolcTenantVoices(ctx, adminhttp.SyncVolcTenantVoicesRequestObject{Name: "tenant-a"}); err != nil {
 		t.Fatalf("SyncVolcTenantVoices(upstream error) error = %v", err)
-	} else if _, ok := resp.(adminservice.SyncVolcTenantVoices502JSONResponse); !ok {
+	} else if _, ok := resp.(adminhttp.SyncVolcTenantVoices502JSONResponse); !ok {
 		t.Fatalf("SyncVolcTenantVoices(upstream error) response = %#v, want 502", resp)
 	}
 
 	resourceIDs := []string{"seed-tts-2.0"}
 	updateBody := createBody
 	updateBody.ResourceIds = &resourceIDs
-	if _, err := srv.PutVolcTenant(ctx, adminservice.PutVolcTenantRequestObject{Name: "tenant-a", Body: &updateBody}); err != nil {
+	if _, err := srv.PutVolcTenant(ctx, adminhttp.PutVolcTenantRequestObject{Name: "tenant-a", Body: &updateBody}); err != nil {
 		t.Fatalf("PutVolcTenant(resource ids) error = %v", err)
 	}
 	srv.VolcSpeakerClientFactory = func(context.Context, apitypes.Credential, apitypes.VolcTenant) (VolcSpeakerClient, error) {
 		return &fakeVolcSpeakerClient{trainStatusErr: errors.New("train status unavailable")}, nil
 	}
-	if resp, err := srv.SyncVolcTenantVoices(ctx, adminservice.SyncVolcTenantVoicesRequestObject{Name: "tenant-a"}); err != nil {
+	if resp, err := srv.SyncVolcTenantVoices(ctx, adminhttp.SyncVolcTenantVoicesRequestObject{Name: "tenant-a"}); err != nil {
 		t.Fatalf("SyncVolcTenantVoices(train status error) error = %v", err)
-	} else if _, ok := resp.(adminservice.SyncVolcTenantVoices502JSONResponse); !ok {
+	} else if _, ok := resp.(adminhttp.SyncVolcTenantVoices502JSONResponse); !ok {
 		t.Fatalf("SyncVolcTenantVoices(train status error) response = %#v, want 502", resp)
 	}
 
@@ -1379,9 +1379,9 @@ func TestServerVolcTenantErrorResponses(t *testing.T) {
 			Statuses:   []volcSpeakerStatus{{ResourceID: "seed-tts-2.0"}},
 		}}}, nil
 	}
-	if resp, err := srv.SyncVolcTenantVoices(ctx, adminservice.SyncVolcTenantVoicesRequestObject{Name: "tenant-a"}); err != nil {
+	if resp, err := srv.SyncVolcTenantVoices(ctx, adminhttp.SyncVolcTenantVoicesRequestObject{Name: "tenant-a"}); err != nil {
 		t.Fatalf("SyncVolcTenantVoices(missing speaker id) error = %v", err)
-	} else if _, ok := resp.(adminservice.SyncVolcTenantVoices502JSONResponse); !ok {
+	} else if _, ok := resp.(adminhttp.SyncVolcTenantVoices502JSONResponse); !ok {
 		t.Fatalf("SyncVolcTenantVoices(missing speaker id) response = %#v, want 502", resp)
 	}
 }
@@ -1407,19 +1407,19 @@ func TestServerVolcSyncPublicOnlySkipsTrainStatusAPI(t *testing.T) {
 	srv.VolcSpeakerClientFactory = func(context.Context, apitypes.Credential, apitypes.VolcTenant) (VolcSpeakerClient, error) {
 		return fakeClient, nil
 	}
-	createBody := adminservice.VolcTenantUpsert{
+	createBody := adminhttp.VolcTenantUpsert{
 		Name:           "tenant-a",
 		CredentialName: "volc-main",
 	}
-	if _, err := srv.CreateVolcTenant(ctx, adminservice.CreateVolcTenantRequestObject{Body: &createBody}); err != nil {
+	if _, err := srv.CreateVolcTenant(ctx, adminhttp.CreateVolcTenantRequestObject{Body: &createBody}); err != nil {
 		t.Fatalf("CreateVolcTenant() error = %v", err)
 	}
 
-	syncResp, err := srv.SyncVolcTenantVoices(ctx, adminservice.SyncVolcTenantVoicesRequestObject{Name: "tenant-a"})
+	syncResp, err := srv.SyncVolcTenantVoices(ctx, adminhttp.SyncVolcTenantVoicesRequestObject{Name: "tenant-a"})
 	if err != nil {
 		t.Fatalf("SyncVolcTenantVoices() error = %v", err)
 	}
-	synced, ok := syncResp.(adminservice.SyncVolcTenantVoices200JSONResponse)
+	synced, ok := syncResp.(adminhttp.SyncVolcTenantVoices200JSONResponse)
 	if !ok {
 		t.Fatalf("SyncVolcTenantVoices() response = %#v", syncResp)
 	}
@@ -1458,19 +1458,19 @@ func TestServerVolcSyncTimbreFallbackMapsICLResourceID(t *testing.T) {
 		return fakeClient, nil
 	}
 	resourceIDs := []string{"seed-tts-1.0", "seed-tts-2.0", "seed-icl-2.0"}
-	createBody := adminservice.VolcTenantUpsert{
+	createBody := adminhttp.VolcTenantUpsert{
 		Name:           "tenant-a",
 		CredentialName: "volc-main",
 		ResourceIds:    &resourceIDs,
 	}
-	if _, err := srv.CreateVolcTenant(ctx, adminservice.CreateVolcTenantRequestObject{Body: &createBody}); err != nil {
+	if _, err := srv.CreateVolcTenant(ctx, adminhttp.CreateVolcTenantRequestObject{Body: &createBody}); err != nil {
 		t.Fatalf("CreateVolcTenant() error = %v", err)
 	}
-	syncResp, err := srv.SyncVolcTenantVoices(ctx, adminservice.SyncVolcTenantVoicesRequestObject{Name: "tenant-a"})
+	syncResp, err := srv.SyncVolcTenantVoices(ctx, adminhttp.SyncVolcTenantVoicesRequestObject{Name: "tenant-a"})
 	if err != nil {
 		t.Fatalf("SyncVolcTenantVoices() error = %v", err)
 	}
-	if synced, ok := syncResp.(adminservice.SyncVolcTenantVoices200JSONResponse); !ok || synced.CreatedCount != 2 {
+	if synced, ok := syncResp.(adminhttp.SyncVolcTenantVoices200JSONResponse); !ok || synced.CreatedCount != 2 {
 		t.Fatalf("SyncVolcTenantVoices() response = %#v", syncResp)
 	}
 	icl := requireStoredVoice(t, srv, ctx, "volc-tenant:tenant-a:ICL_en_female_cc_cm_v1_tob")
@@ -1488,25 +1488,25 @@ func TestServerVolcTenantStoreNotConfigured(t *testing.T) {
 
 	srv := &Server{}
 	ctx := context.Background()
-	createBody := adminservice.VolcTenantUpsert{Name: "tenant-a", CredentialName: "cred"}
+	createBody := adminhttp.VolcTenantUpsert{Name: "tenant-a", CredentialName: "cred"}
 	for name, call := range map[string]func() (interface{}, error){
 		"ListVolcTenants": func() (interface{}, error) {
-			return srv.ListVolcTenants(ctx, adminservice.ListVolcTenantsRequestObject{})
+			return srv.ListVolcTenants(ctx, adminhttp.ListVolcTenantsRequestObject{})
 		},
 		"CreateVolcTenant": func() (interface{}, error) {
-			return srv.CreateVolcTenant(ctx, adminservice.CreateVolcTenantRequestObject{Body: &createBody})
+			return srv.CreateVolcTenant(ctx, adminhttp.CreateVolcTenantRequestObject{Body: &createBody})
 		},
 		"DeleteVolcTenant": func() (interface{}, error) {
-			return srv.DeleteVolcTenant(ctx, adminservice.DeleteVolcTenantRequestObject{Name: "tenant-a"})
+			return srv.DeleteVolcTenant(ctx, adminhttp.DeleteVolcTenantRequestObject{Name: "tenant-a"})
 		},
 		"GetVolcTenant": func() (interface{}, error) {
-			return srv.GetVolcTenant(ctx, adminservice.GetVolcTenantRequestObject{Name: "tenant-a"})
+			return srv.GetVolcTenant(ctx, adminhttp.GetVolcTenantRequestObject{Name: "tenant-a"})
 		},
 		"PutVolcTenant": func() (interface{}, error) {
-			return srv.PutVolcTenant(ctx, adminservice.PutVolcTenantRequestObject{Name: "tenant-a", Body: &createBody})
+			return srv.PutVolcTenant(ctx, adminhttp.PutVolcTenantRequestObject{Name: "tenant-a", Body: &createBody})
 		},
 		"SyncVolcTenantVoices": func() (interface{}, error) {
-			return srv.SyncVolcTenantVoices(ctx, adminservice.SyncVolcTenantVoicesRequestObject{Name: "tenant-a"})
+			return srv.SyncVolcTenantVoices(ctx, adminhttp.SyncVolcTenantVoicesRequestObject{Name: "tenant-a"})
 		},
 	} {
 		resp, err := call()
@@ -1514,12 +1514,12 @@ func TestServerVolcTenantStoreNotConfigured(t *testing.T) {
 			t.Fatalf("%s() error = %v", name, err)
 		}
 		switch resp.(type) {
-		case adminservice.ListVolcTenants500JSONResponse,
-			adminservice.CreateVolcTenant500JSONResponse,
-			adminservice.DeleteVolcTenant500JSONResponse,
-			adminservice.GetVolcTenant500JSONResponse,
-			adminservice.PutVolcTenant500JSONResponse,
-			adminservice.SyncVolcTenantVoices500JSONResponse:
+		case adminhttp.ListVolcTenants500JSONResponse,
+			adminhttp.CreateVolcTenant500JSONResponse,
+			adminhttp.DeleteVolcTenant500JSONResponse,
+			adminhttp.GetVolcTenant500JSONResponse,
+			adminhttp.PutVolcTenant500JSONResponse,
+			adminhttp.SyncVolcTenantVoices500JSONResponse:
 		default:
 			t.Fatalf("%s() response = %#v, want 500 response", name, resp)
 		}
@@ -1538,18 +1538,18 @@ func TestServerVolcSyncRejectsInvalidCredential(t *testing.T) {
 		CreatedAt: srv.now(),
 		UpdatedAt: srv.now(),
 	})
-	createBody := adminservice.VolcTenantUpsert{
+	createBody := adminhttp.VolcTenantUpsert{
 		Name:           "tenant-a",
 		CredentialName: "volc-main",
 	}
-	if _, err := srv.CreateVolcTenant(ctx, adminservice.CreateVolcTenantRequestObject{Body: &createBody}); err != nil {
+	if _, err := srv.CreateVolcTenant(ctx, adminhttp.CreateVolcTenantRequestObject{Body: &createBody}); err != nil {
 		t.Fatalf("CreateVolcTenant() error = %v", err)
 	}
-	resp, err := srv.SyncVolcTenantVoices(ctx, adminservice.SyncVolcTenantVoicesRequestObject{Name: "tenant-a"})
+	resp, err := srv.SyncVolcTenantVoices(ctx, adminhttp.SyncVolcTenantVoicesRequestObject{Name: "tenant-a"})
 	if err != nil {
 		t.Fatalf("SyncVolcTenantVoices() error = %v", err)
 	}
-	rejected, ok := resp.(adminservice.SyncVolcTenantVoices400JSONResponse)
+	rejected, ok := resp.(adminhttp.SyncVolcTenantVoices400JSONResponse)
 	if !ok {
 		t.Fatalf("SyncVolcTenantVoices() response = %#v, want 400", resp)
 	}
@@ -1933,20 +1933,20 @@ func seedCredential(t *testing.T, srv *Server, credential apitypes.Credential) {
 	}
 }
 
-func mustMiniMaxTenantUpsert(t *testing.T, raw string) adminservice.MiniMaxTenantUpsert {
+func mustMiniMaxTenantUpsert(t *testing.T, raw string) adminhttp.MiniMaxTenantUpsert {
 	t.Helper()
 
-	var upsert adminservice.MiniMaxTenantUpsert
+	var upsert adminhttp.MiniMaxTenantUpsert
 	if err := json.Unmarshal([]byte(raw), &upsert); err != nil {
 		t.Fatalf("json.Unmarshal() error = %v", err)
 	}
 	return upsert
 }
 
-func mustVoiceUpsert(t *testing.T, raw string) adminservice.VoiceUpsert {
+func mustVoiceUpsert(t *testing.T, raw string) adminhttp.VoiceUpsert {
 	t.Helper()
 
-	var upsert adminservice.VoiceUpsert
+	var upsert adminhttp.VoiceUpsert
 	if err := json.Unmarshal([]byte(raw), &upsert); err != nil {
 		t.Fatalf("json.Unmarshal() error = %v", err)
 	}

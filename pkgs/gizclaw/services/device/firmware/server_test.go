@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminservice"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/objectstore"
@@ -25,19 +25,19 @@ func TestServerCRUDReleaseRollback(t *testing.T) {
 	now := time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC)
 	s := &Server{Store: kv.NewMemory(nil), Now: func() time.Time { return now }}
 
-	create, err := s.CreateFirmware(ctx, adminservice.CreateFirmwareRequestObject{Body: ptr(firmwareUpsert("devkit", "stable-1", "beta-1", "develop-1", "pending-1"))})
+	create, err := s.CreateFirmware(ctx, adminhttp.CreateFirmwareRequestObject{Body: ptr(firmwareUpsert("devkit", "stable-1", "beta-1", "develop-1", "pending-1"))})
 	if err != nil {
 		t.Fatalf("CreateFirmware error = %v", err)
 	}
-	if _, ok := create.(adminservice.CreateFirmware200JSONResponse); !ok {
+	if _, ok := create.(adminhttp.CreateFirmware200JSONResponse); !ok {
 		t.Fatalf("CreateFirmware response = %T", create)
 	}
 
-	released, err := s.ReleaseFirmware(ctx, adminservice.ReleaseFirmwareRequestObject{Name: "devkit"})
+	released, err := s.ReleaseFirmware(ctx, adminhttp.ReleaseFirmwareRequestObject{Name: "devkit"})
 	if err != nil {
 		t.Fatalf("ReleaseFirmware error = %v", err)
 	}
-	releasedItem := apitypes.Firmware(released.(adminservice.ReleaseFirmware200JSONResponse))
+	releasedItem := apitypes.Firmware(released.(adminhttp.ReleaseFirmware200JSONResponse))
 	if got := slotDescription(releasedItem.Slots.Develop); got != "beta-1" {
 		t.Fatalf("released develop = %q", got)
 	}
@@ -51,11 +51,11 @@ func TestServerCRUDReleaseRollback(t *testing.T) {
 		t.Fatalf("released pending should be empty: %+v", releasedItem.Slots.Pending)
 	}
 
-	rolledBack, err := s.RollbackFirmware(ctx, adminservice.RollbackFirmwareRequestObject{Name: "devkit"})
+	rolledBack, err := s.RollbackFirmware(ctx, adminhttp.RollbackFirmwareRequestObject{Name: "devkit"})
 	if err != nil {
 		t.Fatalf("RollbackFirmware error = %v", err)
 	}
-	rolledBackItem := apitypes.Firmware(rolledBack.(adminservice.RollbackFirmware200JSONResponse))
+	rolledBackItem := apitypes.Firmware(rolledBack.(adminhttp.RollbackFirmware200JSONResponse))
 	if got := slotDescription(rolledBackItem.Slots.Stable); got != "stable-1" {
 		t.Fatalf("rolled back stable = %q", got)
 	}
@@ -63,11 +63,11 @@ func TestServerCRUDReleaseRollback(t *testing.T) {
 		t.Fatalf("rolled back pending = %q", got)
 	}
 
-	list, err := s.ListFirmwares(ctx, adminservice.ListFirmwaresRequestObject{})
+	list, err := s.ListFirmwares(ctx, adminhttp.ListFirmwaresRequestObject{})
 	if err != nil {
 		t.Fatalf("ListFirmwares error = %v", err)
 	}
-	if got := len(adminservice.FirmwareList(list.(adminservice.ListFirmwares200JSONResponse)).Items); got != 1 {
+	if got := len(adminhttp.FirmwareList(list.(adminhttp.ListFirmwares200JSONResponse)).Items); got != 1 {
 		t.Fatalf("ListFirmwares len = %d", got)
 	}
 }
@@ -75,17 +75,17 @@ func TestServerCRUDReleaseRollback(t *testing.T) {
 func TestServerRejectsOperationLeavingStableEmpty(t *testing.T) {
 	ctx := context.Background()
 	s := &Server{Store: kv.NewMemory(nil)}
-	if _, err := s.CreateFirmware(ctx, adminservice.CreateFirmwareRequestObject{Body: ptr(firmwareUpsert("devkit", "stable-1", "", "", ""))}); err != nil {
+	if _, err := s.CreateFirmware(ctx, adminhttp.CreateFirmwareRequestObject{Body: ptr(firmwareUpsert("devkit", "stable-1", "", "", ""))}); err != nil {
 		t.Fatalf("CreateFirmware error = %v", err)
 	}
-	if response, err := s.ReleaseFirmware(ctx, adminservice.ReleaseFirmwareRequestObject{Name: "devkit"}); err != nil {
+	if response, err := s.ReleaseFirmware(ctx, adminhttp.ReleaseFirmwareRequestObject{Name: "devkit"}); err != nil {
 		t.Fatalf("ReleaseFirmware error = %v", err)
-	} else if _, ok := response.(adminservice.ReleaseFirmware409JSONResponse); !ok {
+	} else if _, ok := response.(adminhttp.ReleaseFirmware409JSONResponse); !ok {
 		t.Fatalf("ReleaseFirmware response = %T, want 409", response)
 	}
-	if response, err := s.RollbackFirmware(ctx, adminservice.RollbackFirmwareRequestObject{Name: "devkit"}); err != nil {
+	if response, err := s.RollbackFirmware(ctx, adminhttp.RollbackFirmwareRequestObject{Name: "devkit"}); err != nil {
 		t.Fatalf("RollbackFirmware error = %v", err)
-	} else if _, ok := response.(adminservice.RollbackFirmware409JSONResponse); !ok {
+	} else if _, ok := response.(adminhttp.RollbackFirmware409JSONResponse); !ok {
 		t.Fatalf("RollbackFirmware response = %T, want 409", response)
 	}
 }
@@ -104,14 +104,14 @@ func TestServerPutGetDeleteFirmware(t *testing.T) {
 		},
 	}
 
-	put, err := s.PutFirmware(ctx, adminservice.PutFirmwareRequestObject{
+	put, err := s.PutFirmware(ctx, adminhttp.PutFirmwareRequestObject{
 		Name: "devkit",
 		Body: ptr(firmwareUpsertWithArtifact("devkit", "1.0.0")),
 	})
 	if err != nil {
 		t.Fatalf("PutFirmware error = %v", err)
 	}
-	putItem := apitypes.Firmware(put.(adminservice.PutFirmware200JSONResponse))
+	putItem := apitypes.Firmware(put.(adminhttp.PutFirmware200JSONResponse))
 	if putItem.CreatedAt != createdAt || putItem.UpdatedAt != createdAt {
 		t.Fatalf("first put timestamps = %s/%s, want %s", putItem.CreatedAt, putItem.UpdatedAt, createdAt)
 	}
@@ -119,11 +119,11 @@ func TestServerPutGetDeleteFirmware(t *testing.T) {
 	update := firmwareUpsertWithArtifact("devkit", "1.1.0")
 	description := " updated firmware "
 	update.Description = &description
-	updated, err := s.PutFirmware(ctx, adminservice.PutFirmwareRequestObject{Name: "devkit", Body: ptr(update)})
+	updated, err := s.PutFirmware(ctx, adminhttp.PutFirmwareRequestObject{Name: "devkit", Body: ptr(update)})
 	if err != nil {
 		t.Fatalf("PutFirmware update error = %v", err)
 	}
-	updatedItem := apitypes.Firmware(updated.(adminservice.PutFirmware200JSONResponse))
+	updatedItem := apitypes.Firmware(updated.(adminhttp.PutFirmware200JSONResponse))
 	if updatedItem.CreatedAt != createdAt || updatedItem.UpdatedAt != updatedAt {
 		t.Fatalf("updated timestamps = %s/%s, want %s/%s", updatedItem.CreatedAt, updatedItem.UpdatedAt, createdAt, updatedAt)
 	}
@@ -131,24 +131,24 @@ func TestServerPutGetDeleteFirmware(t *testing.T) {
 		t.Fatalf("updated description = %v", updatedItem.Description)
 	}
 
-	got, err := s.GetFirmware(ctx, adminservice.GetFirmwareRequestObject{Name: "devkit"})
+	got, err := s.GetFirmware(ctx, adminhttp.GetFirmwareRequestObject{Name: "devkit"})
 	if err != nil {
 		t.Fatalf("GetFirmware error = %v", err)
 	}
-	if item := apitypes.Firmware(got.(adminservice.GetFirmware200JSONResponse)); slotDescription(item.Slots.Stable) != "1.1.0" {
+	if item := apitypes.Firmware(got.(adminhttp.GetFirmware200JSONResponse)); slotDescription(item.Slots.Stable) != "1.1.0" {
 		t.Fatalf("GetFirmware stable = %+v", item.Slots.Stable)
 	}
 
-	deleted, err := s.DeleteFirmware(ctx, adminservice.DeleteFirmwareRequestObject{Name: "devkit"})
+	deleted, err := s.DeleteFirmware(ctx, adminhttp.DeleteFirmwareRequestObject{Name: "devkit"})
 	if err != nil {
 		t.Fatalf("DeleteFirmware error = %v", err)
 	}
-	if item := apitypes.Firmware(deleted.(adminservice.DeleteFirmware200JSONResponse)); item.Name != "devkit" {
+	if item := apitypes.Firmware(deleted.(adminhttp.DeleteFirmware200JSONResponse)); item.Name != "devkit" {
 		t.Fatalf("DeleteFirmware item = %+v", item)
 	}
-	if response, err := s.GetFirmware(ctx, adminservice.GetFirmwareRequestObject{Name: "devkit"}); err != nil {
+	if response, err := s.GetFirmware(ctx, adminhttp.GetFirmwareRequestObject{Name: "devkit"}); err != nil {
 		t.Fatalf("GetFirmware after delete error = %v", err)
-	} else if _, ok := response.(adminservice.GetFirmware404JSONResponse); !ok {
+	} else if _, ok := response.(adminhttp.GetFirmware404JSONResponse); !ok {
 		t.Fatalf("GetFirmware after delete response = %T, want 404", response)
 	}
 }
@@ -157,27 +157,27 @@ func TestServerCreateAndPutValidation(t *testing.T) {
 	ctx := context.Background()
 	s := &Server{Store: kv.NewMemory(nil)}
 
-	if response, err := s.CreateFirmware(ctx, adminservice.CreateFirmwareRequestObject{}); err != nil {
+	if response, err := s.CreateFirmware(ctx, adminhttp.CreateFirmwareRequestObject{}); err != nil {
 		t.Fatalf("CreateFirmware nil body error = %v", err)
-	} else if _, ok := response.(adminservice.CreateFirmware400JSONResponse); !ok {
+	} else if _, ok := response.(adminhttp.CreateFirmware400JSONResponse); !ok {
 		t.Fatalf("CreateFirmware nil body response = %T, want 400", response)
 	}
-	if response, err := s.CreateFirmware(ctx, adminservice.CreateFirmwareRequestObject{Body: ptr(firmwareUpsert("", "", "", "", ""))}); err != nil {
+	if response, err := s.CreateFirmware(ctx, adminhttp.CreateFirmwareRequestObject{Body: ptr(firmwareUpsert("", "", "", "", ""))}); err != nil {
 		t.Fatalf("CreateFirmware empty name error = %v", err)
-	} else if _, ok := response.(adminservice.CreateFirmware400JSONResponse); !ok {
+	} else if _, ok := response.(adminhttp.CreateFirmware400JSONResponse); !ok {
 		t.Fatalf("CreateFirmware empty name response = %T, want 400", response)
 	}
-	if response, err := s.PutFirmware(ctx, adminservice.PutFirmwareRequestObject{Name: "devkit", Body: ptr(firmwareUpsert("other", "", "", "", ""))}); err != nil {
+	if response, err := s.PutFirmware(ctx, adminhttp.PutFirmwareRequestObject{Name: "devkit", Body: ptr(firmwareUpsert("other", "", "", "", ""))}); err != nil {
 		t.Fatalf("PutFirmware name mismatch error = %v", err)
-	} else if _, ok := response.(adminservice.PutFirmware400JSONResponse); !ok {
+	} else if _, ok := response.(adminhttp.PutFirmware400JSONResponse); !ok {
 		t.Fatalf("PutFirmware name mismatch response = %T, want 400", response)
 	}
-	if _, err := s.CreateFirmware(ctx, adminservice.CreateFirmwareRequestObject{Body: ptr(firmwareUpsertWithArtifact("devkit", "1.0.0"))}); err != nil {
+	if _, err := s.CreateFirmware(ctx, adminhttp.CreateFirmwareRequestObject{Body: ptr(firmwareUpsertWithArtifact("devkit", "1.0.0"))}); err != nil {
 		t.Fatalf("CreateFirmware first error = %v", err)
 	}
-	if response, err := s.CreateFirmware(ctx, adminservice.CreateFirmwareRequestObject{Body: ptr(firmwareUpsertWithArtifact("devkit", "1.0.0"))}); err != nil {
+	if response, err := s.CreateFirmware(ctx, adminhttp.CreateFirmwareRequestObject{Body: ptr(firmwareUpsertWithArtifact("devkit", "1.0.0"))}); err != nil {
 		t.Fatalf("CreateFirmware duplicate error = %v", err)
-	} else if _, ok := response.(adminservice.CreateFirmware409JSONResponse); !ok {
+	} else if _, ok := response.(adminhttp.CreateFirmware409JSONResponse); !ok {
 		t.Fatalf("CreateFirmware duplicate response = %T, want 409", response)
 	}
 }
@@ -187,7 +187,7 @@ func TestServerUploadFirmwareArtifactExtractsTarAndMetadata(t *testing.T) {
 	now := time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC)
 	assets := objectstore.Dir(t.TempDir())
 	s := &Server{Store: kv.NewMemory(nil), Assets: assets, Now: func() time.Time { return now }}
-	if _, err := s.CreateFirmware(ctx, adminservice.CreateFirmwareRequestObject{Body: ptr(firmwareUpsertWithArtifact("devkit", "1.0.0"))}); err != nil {
+	if _, err := s.CreateFirmware(ctx, adminhttp.CreateFirmwareRequestObject{Body: ptr(firmwareUpsertWithArtifact("devkit", "1.0.0"))}); err != nil {
 		t.Fatalf("CreateFirmware error = %v", err)
 	}
 
@@ -197,7 +197,7 @@ func TestServerUploadFirmwareArtifactExtractsTarAndMetadata(t *testing.T) {
 		"assets/icons/app":   "icon",
 		"assets/icons/.keep": "",
 	})
-	resp, err := s.UploadFirmwareArtifact(ctx, adminservice.UploadFirmwareArtifactRequestObject{
+	resp, err := s.UploadFirmwareArtifact(ctx, adminhttp.UploadFirmwareArtifactRequestObject{
 		Name:    "devkit",
 		Channel: stableChannel,
 		Body:    bytes.NewReader(payload),
@@ -205,7 +205,7 @@ func TestServerUploadFirmwareArtifactExtractsTarAndMetadata(t *testing.T) {
 	if err != nil {
 		t.Fatalf("UploadFirmwareArtifact error = %v", err)
 	}
-	item := apitypes.Firmware(resp.(adminservice.UploadFirmwareArtifact200JSONResponse))
+	item := apitypes.Firmware(resp.(adminhttp.UploadFirmwareArtifact200JSONResponse))
 	artifact := item.Slots.Stable.Artifact
 	if artifact == nil {
 		t.Fatalf("stable artifacts = %+v", artifact)
@@ -245,53 +245,53 @@ func TestServerUploadFirmwareArtifactExtractsTarAndMetadata(t *testing.T) {
 		t.Fatalf("uploaded object = %q", data)
 	}
 
-	list, err := s.ListFirmwareArtifactEntries(ctx, adminservice.ListFirmwareArtifactEntriesRequestObject{
+	list, err := s.ListFirmwareArtifactEntries(ctx, adminhttp.ListFirmwareArtifactEntriesRequestObject{
 		Name:    "devkit",
 		Channel: stableChannel,
 	})
 	if err != nil {
 		t.Fatalf("ListFirmwareArtifactEntries error = %v", err)
 	}
-	root := apitypes.FirmwareArtifactList(list.(adminservice.ListFirmwareArtifactEntries200JSONResponse))
+	root := apitypes.FirmwareArtifactList(list.(adminhttp.ListFirmwareArtifactEntries200JSONResponse))
 	if entryPaths(root.Items) != "assets,firmware.bin" {
 		t.Fatalf("root items = %+v", root.Items)
 	}
 
-	tree, err := s.TreeFirmwareArtifactEntries(ctx, adminservice.TreeFirmwareArtifactEntriesRequestObject{
+	tree, err := s.TreeFirmwareArtifactEntries(ctx, adminhttp.TreeFirmwareArtifactEntriesRequestObject{
 		Name:    "devkit",
 		Channel: stableChannel,
 	})
 	if err != nil {
 		t.Fatalf("TreeFirmwareArtifactEntries error = %v", err)
 	}
-	all := apitypes.FirmwareArtifactTree(tree.(adminservice.TreeFirmwareArtifactEntries200JSONResponse))
+	all := apitypes.FirmwareArtifactTree(tree.(adminhttp.TreeFirmwareArtifactEntries200JSONResponse))
 	if got := entryPaths(all.Items); got != "assets,assets/icons,assets/icons/.keep,assets/icons/app,assets/readme.txt,firmware.bin" {
 		t.Fatalf("tree paths = %s", got)
 	}
 
 	assetDir := "assets"
-	stat, err := s.StatFirmwareArtifactEntry(ctx, adminservice.StatFirmwareArtifactEntryRequestObject{
+	stat, err := s.StatFirmwareArtifactEntry(ctx, adminhttp.StatFirmwareArtifactEntryRequestObject{
 		Name:    "devkit",
 		Channel: stableChannel,
-		Params:  adminservice.StatFirmwareArtifactEntryParams{Path: &assetDir},
+		Params:  adminhttp.StatFirmwareArtifactEntryParams{Path: &assetDir},
 	})
 	if err != nil {
 		t.Fatalf("StatFirmwareArtifactEntry error = %v", err)
 	}
-	stats := apitypes.FirmwareArtifactStats(stat.(adminservice.StatFirmwareArtifactEntry200JSONResponse))
+	stats := apitypes.FirmwareArtifactStats(stat.(adminhttp.StatFirmwareArtifactEntry200JSONResponse))
 	if stats.FilesCount != 3 || stats.TotalSize != int64(len("hello asset")+len("icon")) {
 		t.Fatalf("stats = %+v", stats)
 	}
 
-	entry, err := s.DownloadFirmwareArtifactEntry(ctx, adminservice.DownloadFirmwareArtifactEntryRequestObject{
+	entry, err := s.DownloadFirmwareArtifactEntry(ctx, adminhttp.DownloadFirmwareArtifactEntryRequestObject{
 		Name:    "devkit",
 		Channel: stableChannel,
-		Params:  adminservice.DownloadFirmwareArtifactEntryParams{Path: "assets/readme.txt"},
+		Params:  adminhttp.DownloadFirmwareArtifactEntryParams{Path: "assets/readme.txt"},
 	})
 	if err != nil {
 		t.Fatalf("DownloadFirmwareArtifactEntry error = %v", err)
 	}
-	entryBody, err := io.ReadAll(entry.(adminservice.DownloadFirmwareArtifactEntry200ApplicationoctetStreamResponse).Body)
+	entryBody, err := io.ReadAll(entry.(adminhttp.DownloadFirmwareArtifactEntry200ApplicationoctetStreamResponse).Body)
 	if err != nil {
 		t.Fatalf("read entry: %v", err)
 	}
@@ -299,13 +299,13 @@ func TestServerUploadFirmwareArtifactExtractsTarAndMetadata(t *testing.T) {
 		t.Fatalf("entry body = %q", entryBody)
 	}
 
-	if conflict, err := s.UploadFirmwareArtifact(ctx, adminservice.UploadFirmwareArtifactRequestObject{
+	if conflict, err := s.UploadFirmwareArtifact(ctx, adminhttp.UploadFirmwareArtifactRequestObject{
 		Name:    "devkit",
 		Channel: stableChannel,
 		Body:    bytes.NewReader(payload),
 	}); err != nil {
 		t.Fatalf("UploadFirmwareArtifact conflict error = %v", err)
-	} else if _, ok := conflict.(adminservice.UploadFirmwareArtifact409JSONResponse); !ok {
+	} else if _, ok := conflict.(adminhttp.UploadFirmwareArtifact409JSONResponse); !ok {
 		t.Fatalf("UploadFirmwareArtifact conflict response = %T, want 409", conflict)
 	}
 }
@@ -314,22 +314,22 @@ func TestServerDeleteFirmwareArtifactAllowsReupload(t *testing.T) {
 	ctx := context.Background()
 	assets := objectstore.Dir(t.TempDir())
 	s := &Server{Store: kv.NewMemory(nil), Assets: assets}
-	if _, err := s.CreateFirmware(ctx, adminservice.CreateFirmwareRequestObject{Body: ptr(firmwareUpsertWithArtifact("devkit", "1.0.0"))}); err != nil {
+	if _, err := s.CreateFirmware(ctx, adminhttp.CreateFirmwareRequestObject{Body: ptr(firmwareUpsertWithArtifact("devkit", "1.0.0"))}); err != nil {
 		t.Fatalf("CreateFirmware error = %v", err)
 	}
 	payload := tarPayload(t, map[string]string{"firmware.bin": "payload"})
-	if _, err := s.UploadFirmwareArtifact(ctx, adminservice.UploadFirmwareArtifactRequestObject{Name: "devkit", Channel: stableChannel, Body: bytes.NewReader(payload)}); err != nil {
+	if _, err := s.UploadFirmwareArtifact(ctx, adminhttp.UploadFirmwareArtifactRequestObject{Name: "devkit", Channel: stableChannel, Body: bytes.NewReader(payload)}); err != nil {
 		t.Fatalf("UploadFirmwareArtifact error = %v", err)
 	}
 
-	resp, err := s.DeleteFirmwareArtifact(ctx, adminservice.DeleteFirmwareArtifactRequestObject{
+	resp, err := s.DeleteFirmwareArtifact(ctx, adminhttp.DeleteFirmwareArtifactRequestObject{
 		Name:    "devkit",
 		Channel: stableChannel,
 	})
 	if err != nil {
 		t.Fatalf("DeleteFirmwareArtifact error = %v", err)
 	}
-	item := apitypes.Firmware(resp.(adminservice.DeleteFirmwareArtifact200JSONResponse))
+	item := apitypes.Firmware(resp.(adminhttp.DeleteFirmwareArtifact200JSONResponse))
 	if item.Slots.Stable.Artifact != nil {
 		t.Fatalf("artifact after delete = %+v", item.Slots.Stable.Artifact)
 	}
@@ -340,7 +340,7 @@ func TestServerDeleteFirmwareArtifactAllowsReupload(t *testing.T) {
 	if len(objects) != 0 {
 		t.Fatalf("artifact objects after delete = %+v", objects)
 	}
-	if _, err := s.UploadFirmwareArtifact(ctx, adminservice.UploadFirmwareArtifactRequestObject{Name: "devkit", Channel: stableChannel, Body: bytes.NewReader(payload)}); err != nil {
+	if _, err := s.UploadFirmwareArtifact(ctx, adminhttp.UploadFirmwareArtifactRequestObject{Name: "devkit", Channel: stableChannel, Body: bytes.NewReader(payload)}); err != nil {
 		t.Fatalf("UploadFirmwareArtifact after delete error = %v", err)
 	}
 }
@@ -349,11 +349,11 @@ func TestServerUploadFirmwareArtifactRejectsUnsafeTarPath(t *testing.T) {
 	ctx := context.Background()
 	assets := objectstore.Dir(t.TempDir())
 	s := &Server{Store: kv.NewMemory(nil), Assets: assets}
-	if _, err := s.CreateFirmware(ctx, adminservice.CreateFirmwareRequestObject{Body: ptr(firmwareUpsertWithArtifact("devkit", "1.0.0"))}); err != nil {
+	if _, err := s.CreateFirmware(ctx, adminhttp.CreateFirmwareRequestObject{Body: ptr(firmwareUpsertWithArtifact("devkit", "1.0.0"))}); err != nil {
 		t.Fatalf("CreateFirmware error = %v", err)
 	}
 	payload := tarPayload(t, map[string]string{"../bad.bin": "payload"})
-	resp, err := s.UploadFirmwareArtifact(ctx, adminservice.UploadFirmwareArtifactRequestObject{
+	resp, err := s.UploadFirmwareArtifact(ctx, adminhttp.UploadFirmwareArtifactRequestObject{
 		Name:    "devkit",
 		Channel: stableChannel,
 		Body:    bytes.NewReader(payload),
@@ -361,7 +361,7 @@ func TestServerUploadFirmwareArtifactRejectsUnsafeTarPath(t *testing.T) {
 	if err != nil {
 		t.Fatalf("UploadFirmwareArtifact error = %v", err)
 	}
-	if _, ok := resp.(adminservice.UploadFirmwareArtifact400JSONResponse); !ok {
+	if _, ok := resp.(adminhttp.UploadFirmwareArtifact400JSONResponse); !ok {
 		t.Fatalf("UploadFirmwareArtifact response = %T, want 400", resp)
 	}
 }
@@ -394,10 +394,10 @@ func TestServerUploadFirmwareArtifactRejectsTarWithoutFilesAndPathConflicts(t *t
 			ctx := context.Background()
 			assets := objectstore.Dir(t.TempDir())
 			s := &Server{Store: kv.NewMemory(nil), Assets: assets}
-			if _, err := s.CreateFirmware(ctx, adminservice.CreateFirmwareRequestObject{Body: ptr(firmwareUpsertWithArtifact("devkit", "1.0.0"))}); err != nil {
+			if _, err := s.CreateFirmware(ctx, adminhttp.CreateFirmwareRequestObject{Body: ptr(firmwareUpsertWithArtifact("devkit", "1.0.0"))}); err != nil {
 				t.Fatalf("CreateFirmware error = %v", err)
 			}
-			resp, err := s.UploadFirmwareArtifact(ctx, adminservice.UploadFirmwareArtifactRequestObject{
+			resp, err := s.UploadFirmwareArtifact(ctx, adminhttp.UploadFirmwareArtifactRequestObject{
 				Name:    "devkit",
 				Channel: stableChannel,
 				Body:    bytes.NewReader(tc.payload),
@@ -405,7 +405,7 @@ func TestServerUploadFirmwareArtifactRejectsTarWithoutFilesAndPathConflicts(t *t
 			if err != nil {
 				t.Fatalf("UploadFirmwareArtifact error = %v", err)
 			}
-			if _, ok := resp.(adminservice.UploadFirmwareArtifact400JSONResponse); !ok {
+			if _, ok := resp.(adminhttp.UploadFirmwareArtifact400JSONResponse); !ok {
 				t.Fatalf("UploadFirmwareArtifact response = %T, want 400", resp)
 			}
 		})
@@ -416,20 +416,20 @@ func TestServerPutPreservesUploadedArtifact(t *testing.T) {
 	ctx := context.Background()
 	assets := objectstore.Dir(t.TempDir())
 	s := &Server{Store: kv.NewMemory(nil), Assets: assets}
-	if _, err := s.CreateFirmware(ctx, adminservice.CreateFirmwareRequestObject{Body: ptr(firmwareUpsertWithArtifact("devkit", "1.0.0"))}); err != nil {
+	if _, err := s.CreateFirmware(ctx, adminhttp.CreateFirmwareRequestObject{Body: ptr(firmwareUpsertWithArtifact("devkit", "1.0.0"))}); err != nil {
 		t.Fatalf("CreateFirmware error = %v", err)
 	}
 	payload := tarPayload(t, map[string]string{"firmware.bin": "payload"})
-	if _, err := s.UploadFirmwareArtifact(ctx, adminservice.UploadFirmwareArtifactRequestObject{Name: "devkit", Channel: stableChannel, Body: bytes.NewReader(payload)}); err != nil {
+	if _, err := s.UploadFirmwareArtifact(ctx, adminhttp.UploadFirmwareArtifactRequestObject{Name: "devkit", Channel: stableChannel, Body: bytes.NewReader(payload)}); err != nil {
 		t.Fatalf("UploadFirmwareArtifact error = %v", err)
 	}
 
 	update := firmwareUpsertWithArtifact("devkit", "1.1.0")
-	updated, err := s.PutFirmware(ctx, adminservice.PutFirmwareRequestObject{Name: "devkit", Body: ptr(update)})
+	updated, err := s.PutFirmware(ctx, adminhttp.PutFirmwareRequestObject{Name: "devkit", Body: ptr(update)})
 	if err != nil {
 		t.Fatalf("PutFirmware preserving metadata error = %v", err)
 	}
-	item := apitypes.Firmware(updated.(adminservice.PutFirmware200JSONResponse))
+	item := apitypes.Firmware(updated.(adminhttp.PutFirmware200JSONResponse))
 	artifact := item.Slots.Stable.Artifact
 	if artifact == nil || artifact.TarPath != "devkit/stable/artifact/artifact.tar" {
 		t.Fatalf("preserved artifact = %+v", artifact)
@@ -440,26 +440,26 @@ func TestServerListFirmwaresPagination(t *testing.T) {
 	ctx := context.Background()
 	s := &Server{Store: kv.NewMemory(nil)}
 	for _, name := range []string{"devkit", "p4_func_ev", "waveshare"} {
-		if _, err := s.CreateFirmware(ctx, adminservice.CreateFirmwareRequestObject{Body: ptr(firmwareUpsertWithArtifact(name, "1.0.0"))}); err != nil {
+		if _, err := s.CreateFirmware(ctx, adminhttp.CreateFirmwareRequestObject{Body: ptr(firmwareUpsertWithArtifact(name, "1.0.0"))}); err != nil {
 			t.Fatalf("CreateFirmware(%s) error = %v", name, err)
 		}
 	}
 
 	limit := int32(2)
-	first, err := s.ListFirmwares(ctx, adminservice.ListFirmwaresRequestObject{Params: adminservice.ListFirmwaresParams{Limit: &limit}})
+	first, err := s.ListFirmwares(ctx, adminhttp.ListFirmwaresRequestObject{Params: adminhttp.ListFirmwaresParams{Limit: &limit}})
 	if err != nil {
 		t.Fatalf("ListFirmwares first error = %v", err)
 	}
-	firstPage := adminservice.FirmwareList(first.(adminservice.ListFirmwares200JSONResponse))
+	firstPage := adminhttp.FirmwareList(first.(adminhttp.ListFirmwares200JSONResponse))
 	if len(firstPage.Items) != 2 || !firstPage.HasNext || firstPage.NextCursor == nil {
 		t.Fatalf("first page = %+v", firstPage)
 	}
 
-	second, err := s.ListFirmwares(ctx, adminservice.ListFirmwaresRequestObject{Params: adminservice.ListFirmwaresParams{Cursor: firstPage.NextCursor, Limit: &limit}})
+	second, err := s.ListFirmwares(ctx, adminhttp.ListFirmwaresRequestObject{Params: adminhttp.ListFirmwaresParams{Cursor: firstPage.NextCursor, Limit: &limit}})
 	if err != nil {
 		t.Fatalf("ListFirmwares second error = %v", err)
 	}
-	secondPage := adminservice.FirmwareList(second.(adminservice.ListFirmwares200JSONResponse))
+	secondPage := adminhttp.FirmwareList(second.(adminhttp.ListFirmwares200JSONResponse))
 	if len(secondPage.Items) != 1 || secondPage.HasNext || secondPage.NextCursor != nil {
 		t.Fatalf("second page = %+v", secondPage)
 	}
@@ -468,20 +468,20 @@ func TestServerListFirmwaresPagination(t *testing.T) {
 func TestServerStoreNotConfigured(t *testing.T) {
 	ctx := context.Background()
 	s := &Server{}
-	if response, err := s.ListFirmwares(ctx, adminservice.ListFirmwaresRequestObject{}); err != nil {
+	if response, err := s.ListFirmwares(ctx, adminhttp.ListFirmwaresRequestObject{}); err != nil {
 		t.Fatalf("ListFirmwares error = %v", err)
-	} else if _, ok := response.(adminservice.ListFirmwares500JSONResponse); !ok {
+	} else if _, ok := response.(adminhttp.ListFirmwares500JSONResponse); !ok {
 		t.Fatalf("ListFirmwares response = %T, want 500", response)
 	}
-	if response, err := s.GetFirmware(ctx, adminservice.GetFirmwareRequestObject{Name: "devkit"}); err != nil {
+	if response, err := s.GetFirmware(ctx, adminhttp.GetFirmwareRequestObject{Name: "devkit"}); err != nil {
 		t.Fatalf("GetFirmware error = %v", err)
-	} else if _, ok := response.(adminservice.GetFirmware500JSONResponse); !ok {
+	} else if _, ok := response.(adminhttp.GetFirmware500JSONResponse); !ok {
 		t.Fatalf("GetFirmware response = %T, want 500", response)
 	}
 }
 
-func firmwareUpsert(name, stable, beta, develop, pending string) adminservice.FirmwareUpsert {
-	return adminservice.FirmwareUpsert{
+func firmwareUpsert(name, stable, beta, develop, pending string) adminhttp.FirmwareUpsert {
+	return adminhttp.FirmwareUpsert{
 		Name: name,
 		Slots: apitypes.FirmwareSlots{
 			Stable:  firmwareSlot(stable),
@@ -492,7 +492,7 @@ func firmwareUpsert(name, stable, beta, develop, pending string) adminservice.Fi
 	}
 }
 
-func firmwareUpsertWithArtifact(name, stable string) adminservice.FirmwareUpsert {
+func firmwareUpsertWithArtifact(name, stable string) adminhttp.FirmwareUpsert {
 	return firmwareUpsert(name, stable, "", "", "")
 }
 

@@ -31,11 +31,11 @@ func TestGeneratorResolvesRefsFromIncludeRoots(t *testing.T) {
   "openapi":"3.0.3",
   "components":{"schemas":{
     "RPCMethod":{"type":"string","enum":["all.ping"]},
-    "RPCRequest":{"type":"object","properties":{"params":{"oneOf":[{"$ref":"rpc/all.json#/components/schemas/PingRequest"}]}}},
-    "RPCResponse":{"type":"object","properties":{"result":{"oneOf":[{"$ref":"rpc/all.json#/components/schemas/PingResponse"}]}}}
+    "RPCRequest":{"type":"object","properties":{"params":{"oneOf":[{"$ref":"rpc/common.json#/components/schemas/PingRequest"}]}}},
+    "RPCResponse":{"type":"object","properties":{"result":{"oneOf":[{"$ref":"rpc/common.json#/components/schemas/PingResponse"}]}}}
   }}
 }`)
-	writeFile(t, filepath.Join(includeDir, "rpc", "all.json"), `{
+	writeFile(t, filepath.Join(includeDir, "rpc", "common.json"), `{
   "openapi":"3.0.3",
   "components":{"schemas":{
     "PingRequest":{"type":"object","properties":{}},
@@ -58,11 +58,11 @@ func TestGeneratorCheckReportsDrift(t *testing.T) {
   "openapi":"3.0.3",
   "components":{"schemas":{
     "RPCMethod":{"type":"string","enum":["all.ping"]},
-    "RPCRequest":{"type":"object","properties":{"params":{"oneOf":[{"$ref":"./rpc/all.json#/components/schemas/PingRequest"}]}}},
-    "RPCResponse":{"type":"object","properties":{"result":{"oneOf":[{"$ref":"./rpc/all.json#/components/schemas/PingResponse"}]}}}
+    "RPCRequest":{"type":"object","properties":{"params":{"oneOf":[{"$ref":"./rpc/common.json#/components/schemas/PingRequest"}]}}},
+    "RPCResponse":{"type":"object","properties":{"result":{"oneOf":[{"$ref":"./rpc/common.json#/components/schemas/PingResponse"}]}}}
   }}
 }`)
-	writeFile(t, filepath.Join(root, "api", "rpc", "all.json"), `{
+	writeFile(t, filepath.Join(root, "api", "rpc", "common.json"), `{
   "openapi":"3.0.3",
   "components":{"schemas":{
     "PingRequest":{"type":"object","properties":{}},

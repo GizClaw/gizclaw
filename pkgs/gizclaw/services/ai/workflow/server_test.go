@@ -7,7 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminservice"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 	"github.com/gofiber/fiber/v2"
@@ -35,11 +35,11 @@ func TestServerWorkflowsCRUD(t *testing.T) {
 		}
 	}`)
 
-	createResp, err := srv.CreateWorkflow(ctx, adminservice.CreateWorkflowRequestObject{Body: &createDoc})
+	createResp, err := srv.CreateWorkflow(ctx, adminhttp.CreateWorkflowRequestObject{Body: &createDoc})
 	if err != nil {
 		t.Fatalf("CreateWorkflow() error = %v", err)
 	}
-	created, ok := createResp.(adminservice.CreateWorkflow200JSONResponse)
+	created, ok := createResp.(adminhttp.CreateWorkflow200JSONResponse)
 	if !ok {
 		t.Fatalf("CreateWorkflow() response = %#v", createResp)
 	}
@@ -47,11 +47,11 @@ func TestServerWorkflowsCRUD(t *testing.T) {
 		t.Fatalf("CreateWorkflow() driver = %q", got)
 	}
 
-	listResp, err := srv.ListWorkflows(ctx, adminservice.ListWorkflowsRequestObject{})
+	listResp, err := srv.ListWorkflows(ctx, adminhttp.ListWorkflowsRequestObject{})
 	if err != nil {
 		t.Fatalf("ListWorkflows() error = %v", err)
 	}
-	listed, ok := listResp.(adminservice.ListWorkflows200JSONResponse)
+	listed, ok := listResp.(adminhttp.ListWorkflows200JSONResponse)
 	if !ok {
 		t.Fatalf("ListWorkflows() response = %#v", listResp)
 	}
@@ -59,11 +59,11 @@ func TestServerWorkflowsCRUD(t *testing.T) {
 		t.Fatalf("ListWorkflows() = %#v", listed)
 	}
 
-	getResp, err := srv.GetWorkflow(ctx, adminservice.GetWorkflowRequestObject{Name: "demo-assistant"})
+	getResp, err := srv.GetWorkflow(ctx, adminhttp.GetWorkflowRequestObject{Name: "demo-assistant"})
 	if err != nil {
 		t.Fatalf("GetWorkflow() error = %v", err)
 	}
-	gotDoc, ok := getResp.(adminservice.GetWorkflow200JSONResponse)
+	gotDoc, ok := getResp.(adminhttp.GetWorkflow200JSONResponse)
 	if !ok {
 		t.Fatalf("GetWorkflow() response = %#v", getResp)
 	}
@@ -86,14 +86,14 @@ func TestServerWorkflowsCRUD(t *testing.T) {
 			}
 		}
 	}`)
-	putResp, err := srv.PutWorkflow(ctx, adminservice.PutWorkflowRequestObject{
+	putResp, err := srv.PutWorkflow(ctx, adminhttp.PutWorkflowRequestObject{
 		Name: "demo-assistant",
 		Body: &updateDoc,
 	})
 	if err != nil {
 		t.Fatalf("PutWorkflow() error = %v", err)
 	}
-	putDoc, ok := putResp.(adminservice.PutWorkflow200JSONResponse)
+	putDoc, ok := putResp.(adminhttp.PutWorkflow200JSONResponse)
 	if !ok {
 		t.Fatalf("PutWorkflow() response = %#v", putResp)
 	}
@@ -102,19 +102,19 @@ func TestServerWorkflowsCRUD(t *testing.T) {
 		t.Fatalf("PutWorkflow() description = %#v", putSingle.Metadata.Description)
 	}
 
-	deleteResp, err := srv.DeleteWorkflow(ctx, adminservice.DeleteWorkflowRequestObject{Name: "demo-assistant"})
+	deleteResp, err := srv.DeleteWorkflow(ctx, adminhttp.DeleteWorkflowRequestObject{Name: "demo-assistant"})
 	if err != nil {
 		t.Fatalf("DeleteWorkflow() error = %v", err)
 	}
-	if _, ok := deleteResp.(adminservice.DeleteWorkflow200JSONResponse); !ok {
+	if _, ok := deleteResp.(adminhttp.DeleteWorkflow200JSONResponse); !ok {
 		t.Fatalf("DeleteWorkflow() response = %#v", deleteResp)
 	}
 
-	getAfterDelete, err := srv.GetWorkflow(ctx, adminservice.GetWorkflowRequestObject{Name: "demo-assistant"})
+	getAfterDelete, err := srv.GetWorkflow(ctx, adminhttp.GetWorkflowRequestObject{Name: "demo-assistant"})
 	if err != nil {
 		t.Fatalf("GetWorkflow() after delete error = %v", err)
 	}
-	if _, ok := getAfterDelete.(adminservice.GetWorkflow404JSONResponse); !ok {
+	if _, ok := getAfterDelete.(adminhttp.GetWorkflow404JSONResponse); !ok {
 		t.Fatalf("GetWorkflow() after delete response = %#v", getAfterDelete)
 	}
 }
@@ -133,11 +133,11 @@ func TestServerRejectsUnknownWorkflowDriver(t *testing.T) {
 		}
 	}`)
 
-	resp, err := srv.CreateWorkflow(ctx, adminservice.CreateWorkflowRequestObject{Body: &doc})
+	resp, err := srv.CreateWorkflow(ctx, adminhttp.CreateWorkflowRequestObject{Body: &doc})
 	if err != nil {
 		t.Fatalf("CreateWorkflow() error = %v", err)
 	}
-	if _, ok := resp.(adminservice.CreateWorkflow400JSONResponse); !ok {
+	if _, ok := resp.(adminhttp.CreateWorkflow400JSONResponse); !ok {
 		t.Fatalf("CreateWorkflow() response = %#v", resp)
 	}
 }
@@ -157,11 +157,11 @@ func TestServerAcceptsEmptyFlowcraftSpec(t *testing.T) {
 		}
 	}`)
 
-	resp, err := srv.CreateWorkflow(ctx, adminservice.CreateWorkflowRequestObject{Body: &doc})
+	resp, err := srv.CreateWorkflow(ctx, adminhttp.CreateWorkflowRequestObject{Body: &doc})
 	if err != nil {
 		t.Fatalf("CreateWorkflow() error = %v", err)
 	}
-	created, ok := resp.(adminservice.CreateWorkflow200JSONResponse)
+	created, ok := resp.(adminhttp.CreateWorkflow200JSONResponse)
 	if !ok {
 		t.Fatalf("CreateWorkflow() response = %#v", resp)
 	}
@@ -194,11 +194,11 @@ func TestServerAcceptsChatRoomWorkflowSpec(t *testing.T) {
 		}
 	}`)
 
-	resp, err := srv.CreateWorkflow(ctx, adminservice.CreateWorkflowRequestObject{Body: &doc})
+	resp, err := srv.CreateWorkflow(ctx, adminhttp.CreateWorkflowRequestObject{Body: &doc})
 	if err != nil {
 		t.Fatalf("CreateWorkflow(chatroom) error = %v", err)
 	}
-	created, ok := resp.(adminservice.CreateWorkflow200JSONResponse)
+	created, ok := resp.(adminhttp.CreateWorkflow200JSONResponse)
 	if !ok {
 		t.Fatalf("CreateWorkflow(chatroom) response = %#v", resp)
 	}
@@ -225,11 +225,11 @@ func TestServerRejectsInvalidChatRoomWorkflowSpec(t *testing.T) {
 		}`),
 	}
 	for name, doc := range cases {
-		resp, err := srv.CreateWorkflow(ctx, adminservice.CreateWorkflowRequestObject{Body: &doc})
+		resp, err := srv.CreateWorkflow(ctx, adminhttp.CreateWorkflowRequestObject{Body: &doc})
 		if err != nil {
 			t.Fatalf("CreateWorkflow(%s) error = %v", name, err)
 		}
-		if _, ok := resp.(adminservice.CreateWorkflow400JSONResponse); !ok {
+		if _, ok := resp.(adminhttp.CreateWorkflow400JSONResponse); !ok {
 			t.Fatalf("CreateWorkflow(%s) response = %#v", name, resp)
 		}
 	}
@@ -248,11 +248,11 @@ func TestServerCreateWorkflowRequiresName(t *testing.T) {
 		}
 	}`)
 
-	resp, err := srv.CreateWorkflow(ctx, adminservice.CreateWorkflowRequestObject{Body: &doc})
+	resp, err := srv.CreateWorkflow(ctx, adminhttp.CreateWorkflowRequestObject{Body: &doc})
 	if err != nil {
 		t.Fatalf("CreateWorkflow() error = %v", err)
 	}
-	if _, ok := resp.(adminservice.CreateWorkflow400JSONResponse); !ok {
+	if _, ok := resp.(adminhttp.CreateWorkflow400JSONResponse); !ok {
 		t.Fatalf("CreateWorkflow() response = %#v", resp)
 	}
 }
@@ -272,30 +272,30 @@ func TestServerPutRejectsPathNameMismatch(t *testing.T) {
 		}
 	}`)
 
-	resp, err := srv.PutWorkflow(ctx, adminservice.PutWorkflowRequestObject{
+	resp, err := srv.PutWorkflow(ctx, adminhttp.PutWorkflowRequestObject{
 		Name: "expected-name",
 		Body: &doc,
 	})
 	if err != nil {
 		t.Fatalf("PutWorkflow() error = %v", err)
 	}
-	if _, ok := resp.(adminservice.PutWorkflow400JSONResponse); !ok {
+	if _, ok := resp.(adminhttp.PutWorkflow400JSONResponse); !ok {
 		t.Fatalf("PutWorkflow() response = %#v", resp)
 	}
 
-	nilCreateResp, err := srv.CreateWorkflow(ctx, adminservice.CreateWorkflowRequestObject{})
+	nilCreateResp, err := srv.CreateWorkflow(ctx, adminhttp.CreateWorkflowRequestObject{})
 	if err != nil {
 		t.Fatalf("CreateWorkflow(nil body) error = %v", err)
 	}
-	if _, ok := nilCreateResp.(adminservice.CreateWorkflow400JSONResponse); !ok {
+	if _, ok := nilCreateResp.(adminhttp.CreateWorkflow400JSONResponse); !ok {
 		t.Fatalf("CreateWorkflow(nil body) response = %#v", nilCreateResp)
 	}
 
-	nilPutResp, err := srv.PutWorkflow(ctx, adminservice.PutWorkflowRequestObject{Name: "expected-name"})
+	nilPutResp, err := srv.PutWorkflow(ctx, adminhttp.PutWorkflowRequestObject{Name: "expected-name"})
 	if err != nil {
 		t.Fatalf("PutWorkflow(nil body) error = %v", err)
 	}
-	if _, ok := nilPutResp.(adminservice.PutWorkflow400JSONResponse); !ok {
+	if _, ok := nilPutResp.(adminhttp.PutWorkflow400JSONResponse); !ok {
 		t.Fatalf("PutWorkflow(nil body) response = %#v", nilPutResp)
 	}
 }
@@ -315,11 +315,11 @@ func TestServerRejectsNonCanonicalWorkflowName(t *testing.T) {
 		}
 	}`)
 
-	resp, err := srv.CreateWorkflow(ctx, adminservice.CreateWorkflowRequestObject{Body: &doc})
+	resp, err := srv.CreateWorkflow(ctx, adminhttp.CreateWorkflowRequestObject{Body: &doc})
 	if err != nil {
 		t.Fatalf("CreateWorkflow() error = %v", err)
 	}
-	if _, ok := resp.(adminservice.CreateWorkflow400JSONResponse); !ok {
+	if _, ok := resp.(adminhttp.CreateWorkflow400JSONResponse); !ok {
 		t.Fatalf("CreateWorkflow() response = %#v", resp)
 	}
 }
@@ -340,19 +340,19 @@ func TestServerListWorkflowsPagination(t *testing.T) {
 				"flowcraft": {}
 			}
 		}`, name))
-		if _, err := srv.CreateWorkflow(ctx, adminservice.CreateWorkflowRequestObject{Body: &doc}); err != nil {
+		if _, err := srv.CreateWorkflow(ctx, adminhttp.CreateWorkflowRequestObject{Body: &doc}); err != nil {
 			t.Fatalf("CreateWorkflow(%q) error = %v", name, err)
 		}
 	}
 
 	limit := int32(1)
-	firstResp, err := srv.ListWorkflows(ctx, adminservice.ListWorkflowsRequestObject{
-		Params: adminservice.ListWorkflowsParams{Limit: &limit},
+	firstResp, err := srv.ListWorkflows(ctx, adminhttp.ListWorkflowsRequestObject{
+		Params: adminhttp.ListWorkflowsParams{Limit: &limit},
 	})
 	if err != nil {
 		t.Fatalf("ListWorkflows(first page) error = %v", err)
 	}
-	first, ok := firstResp.(adminservice.ListWorkflows200JSONResponse)
+	first, ok := firstResp.(adminhttp.ListWorkflows200JSONResponse)
 	if !ok {
 		t.Fatalf("ListWorkflows(first page) response = %#v", firstResp)
 	}
@@ -361,8 +361,8 @@ func TestServerListWorkflowsPagination(t *testing.T) {
 	}
 
 	cursor := string(*first.NextCursor)
-	secondResp, err := srv.ListWorkflows(ctx, adminservice.ListWorkflowsRequestObject{
-		Params: adminservice.ListWorkflowsParams{
+	secondResp, err := srv.ListWorkflows(ctx, adminhttp.ListWorkflowsRequestObject{
+		Params: adminhttp.ListWorkflowsParams{
 			Cursor: &cursor,
 			Limit:  &limit,
 		},
@@ -370,7 +370,7 @@ func TestServerListWorkflowsPagination(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ListWorkflows(second page) error = %v", err)
 	}
-	second, ok := secondResp.(adminservice.ListWorkflows200JSONResponse)
+	second, ok := secondResp.(adminhttp.ListWorkflows200JSONResponse)
 	if !ok {
 		t.Fatalf("ListWorkflows(second page) response = %#v", secondResp)
 	}
@@ -391,22 +391,22 @@ func TestServerWorkflowConflictAndMissingDelete(t *testing.T) {
 			"flowcraft": {}
 		}
 	}`)
-	if _, err := srv.CreateWorkflow(ctx, adminservice.CreateWorkflowRequestObject{Body: &doc}); err != nil {
+	if _, err := srv.CreateWorkflow(ctx, adminhttp.CreateWorkflowRequestObject{Body: &doc}); err != nil {
 		t.Fatalf("CreateWorkflow(seed) error = %v", err)
 	}
-	duplicateResp, err := srv.CreateWorkflow(ctx, adminservice.CreateWorkflowRequestObject{Body: &doc})
+	duplicateResp, err := srv.CreateWorkflow(ctx, adminhttp.CreateWorkflowRequestObject{Body: &doc})
 	if err != nil {
 		t.Fatalf("CreateWorkflow(duplicate) error = %v", err)
 	}
-	if _, ok := duplicateResp.(adminservice.CreateWorkflow409JSONResponse); !ok {
+	if _, ok := duplicateResp.(adminhttp.CreateWorkflow409JSONResponse); !ok {
 		t.Fatalf("CreateWorkflow(duplicate) response = %#v", duplicateResp)
 	}
 
-	deleteResp, err := srv.DeleteWorkflow(ctx, adminservice.DeleteWorkflowRequestObject{Name: "missing"})
+	deleteResp, err := srv.DeleteWorkflow(ctx, adminhttp.DeleteWorkflowRequestObject{Name: "missing"})
 	if err != nil {
 		t.Fatalf("DeleteWorkflow(missing) error = %v", err)
 	}
-	if _, ok := deleteResp.(adminservice.DeleteWorkflow404JSONResponse); !ok {
+	if _, ok := deleteResp.(adminhttp.DeleteWorkflow404JSONResponse); !ok {
 		t.Fatalf("DeleteWorkflow(missing) response = %#v", deleteResp)
 	}
 }
@@ -424,25 +424,25 @@ func TestServerWorkflowStoreNotConfigured(t *testing.T) {
 		}
 	}`)
 
-	listResp, err := srv.ListWorkflows(ctx, adminservice.ListWorkflowsRequestObject{})
+	listResp, err := srv.ListWorkflows(ctx, adminhttp.ListWorkflowsRequestObject{})
 	if err != nil {
 		t.Fatalf("ListWorkflows() error = %v", err)
 	}
-	if _, ok := listResp.(adminservice.ListWorkflows500JSONResponse); !ok {
+	if _, ok := listResp.(adminhttp.ListWorkflows500JSONResponse); !ok {
 		t.Fatalf("ListWorkflows() response = %#v", listResp)
 	}
-	createResp, err := srv.CreateWorkflow(ctx, adminservice.CreateWorkflowRequestObject{Body: &doc})
+	createResp, err := srv.CreateWorkflow(ctx, adminhttp.CreateWorkflowRequestObject{Body: &doc})
 	if err != nil {
 		t.Fatalf("CreateWorkflow() error = %v", err)
 	}
-	if _, ok := createResp.(adminservice.CreateWorkflow500JSONResponse); !ok {
+	if _, ok := createResp.(adminhttp.CreateWorkflow500JSONResponse); !ok {
 		t.Fatalf("CreateWorkflow() response = %#v", createResp)
 	}
-	getResp, err := srv.GetWorkflow(ctx, adminservice.GetWorkflowRequestObject{Name: "missing-store"})
+	getResp, err := srv.GetWorkflow(ctx, adminhttp.GetWorkflowRequestObject{Name: "missing-store"})
 	if err != nil {
 		t.Fatalf("GetWorkflow() error = %v", err)
 	}
-	if _, ok := getResp.(adminservice.GetWorkflow500JSONResponse); !ok {
+	if _, ok := getResp.(adminhttp.GetWorkflow500JSONResponse); !ok {
 		t.Fatalf("GetWorkflow() response = %#v", getResp)
 	}
 }
@@ -458,11 +458,11 @@ func TestServerRejectsMissingWorkflowRequiredFields(t *testing.T) {
 		"spec":   `{"metadata":{"name":"bad"}}`,
 	} {
 		doc := mustDocument(t, raw)
-		resp, err := srv.CreateWorkflow(ctx, adminservice.CreateWorkflowRequestObject{Body: &doc})
+		resp, err := srv.CreateWorkflow(ctx, adminhttp.CreateWorkflowRequestObject{Body: &doc})
 		if err != nil {
 			t.Fatalf("CreateWorkflow(%s) error = %v", name, err)
 		}
-		if _, ok := resp.(adminservice.CreateWorkflow400JSONResponse); !ok {
+		if _, ok := resp.(adminhttp.CreateWorkflow400JSONResponse); !ok {
 			t.Fatalf("CreateWorkflow(%s) response = %#v", name, resp)
 		}
 	}
@@ -477,11 +477,11 @@ func TestServerRejectsUnsupportedWorkflowDriver(t *testing.T) {
 		"metadata": {"name": "bad-version"},
 		"spec": {"driver": "example-invalid"}
 	}`)
-	resp, err := srv.CreateWorkflow(ctx, adminservice.CreateWorkflowRequestObject{Body: &doc})
+	resp, err := srv.CreateWorkflow(ctx, adminhttp.CreateWorkflowRequestObject{Body: &doc})
 	if err != nil {
 		t.Fatalf("CreateWorkflow(bad driver) error = %v", err)
 	}
-	if _, ok := resp.(adminservice.CreateWorkflow400JSONResponse); !ok {
+	if _, ok := resp.(adminhttp.CreateWorkflow400JSONResponse); !ok {
 		t.Fatalf("CreateWorkflow(bad driver) response = %#v", resp)
 	}
 }

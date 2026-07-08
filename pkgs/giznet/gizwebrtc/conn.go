@@ -50,7 +50,7 @@ type sampleWriter interface {
 
 func newConn(pk giznet.PublicKey, pc *webrtc.PeerConnection, policy giznet.SecurityPolicy, role string) (*Conn, error) {
 	audioTrack, err := webrtc.NewTrackLocalStaticSample(webrtc.RTPCodecCapability{
-		MimeType:  webrtc.MimeTypeOpus,
+		MimeType:  MediaStreamOpus,
 		ClockRate: 48000,
 		Channels:  2,
 	}, "giznet-opus", "giznet")
@@ -76,7 +76,7 @@ func newConn(pk giznet.PublicKey, pc *webrtc.PeerConnection, policy giznet.Secur
 	}
 	pc.OnDataChannel(c.handleDataChannel)
 	pc.OnTrack(func(track *webrtc.TrackRemote, _ *webrtc.RTPReceiver) {
-		if strings.EqualFold(track.Codec().MimeType, webrtc.MimeTypeOpus) {
+		if strings.EqualFold(track.Codec().MimeType, MediaStreamOpus) {
 			go c.readRemoteOpus(track)
 		}
 	})
@@ -168,7 +168,7 @@ func (c *Conn) Write(protocol byte, payload []byte) (int, error) {
 	if err := c.validate(); err != nil {
 		return 0, err
 	}
-	if protocol == ProtocolStampedOpus {
+	if protocol == PacketStampedOpus {
 		return c.writeOpus(payload)
 	}
 	c.packetMu.RLock()
@@ -355,7 +355,7 @@ func (c *Conn) readRemoteOpus(track *webrtc.TrackRemote) {
 
 func (c *Conn) enqueueRemoteOpusFrame(frame []byte) {
 	payload := stampedopus.Pack(uint64(time.Now().UnixMilli()), frame)
-	c.enqueuePacket(directPacket{protocol: ProtocolStampedOpus, payload: payload})
+	c.enqueuePacket(directPacket{protocol: PacketStampedOpus, payload: payload})
 }
 
 func serviceLabel(service uint64) string {

@@ -15,7 +15,7 @@ import (
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/serverpublic"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/peerhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
@@ -50,10 +50,10 @@ type LoginAssertionClaims struct {
 	Nonce string `json:"nonce"`
 }
 
-type LoginResponse = serverpublic.LoginResult
+type LoginResponse = peerhttp.LoginResult
 
-type ServerPublic interface {
-	Login(context.Context, serverpublic.LoginRequestObject) (serverpublic.LoginResponseObject, error)
+type PeerHTTP interface {
+	Login(context.Context, peerhttp.LoginRequestObject) (peerhttp.LoginResponseObject, error)
 }
 
 type Server struct {
@@ -64,7 +64,7 @@ type Server struct {
 	sessions *SessionManager
 }
 
-var _ ServerPublic = (*Server)(nil)
+var _ PeerHTTP = (*Server)(nil)
 
 func NewServer(keyPair *giznet.KeyPair, store kv.Store) *Server {
 	return &Server{
@@ -86,23 +86,23 @@ func (s *Server) SessionManager() *SessionManager {
 	return s.sessions
 }
 
-func (s *Server) Login(ctx context.Context, request serverpublic.LoginRequestObject) (serverpublic.LoginResponseObject, error) {
+func (s *Server) Login(ctx context.Context, request peerhttp.LoginRequestObject) (peerhttp.LoginResponseObject, error) {
 	if s == nil || s.KeyPair == nil || s.Store == nil {
-		return serverpublic.Login401JSONResponse(apitypes.NewErrorResponse("UNSUPPORTED_LOGIN", "login is not configured")), nil
+		return peerhttp.Login401JSONResponse(apitypes.NewErrorResponse("UNSUPPORTED_LOGIN", "login is not configured")), nil
 	}
 	var publicKey giznet.PublicKey
 	if err := publicKey.UnmarshalText([]byte(request.Params.XPublicKey)); err != nil {
-		return serverpublic.Login401JSONResponse(apitypes.NewErrorResponse("INVALID_PUBLIC_KEY", err.Error())), nil
+		return peerhttp.Login401JSONResponse(apitypes.NewErrorResponse("INVALID_PUBLIC_KEY", err.Error())), nil
 	}
 	assertion := bearerToken(request.Params.Authorization)
 	if assertion == "" {
-		return serverpublic.Login401JSONResponse(apitypes.NewErrorResponse("MISSING_ASSERTION", "missing bearer assertion")), nil
+		return peerhttp.Login401JSONResponse(apitypes.NewErrorResponse("MISSING_ASSERTION", "missing bearer assertion")), nil
 	}
 	result, err := s.SessionManager().login(ctx, s.KeyPair, publicKey, assertion)
 	if err != nil {
-		return serverpublic.Login401JSONResponse(apitypes.NewErrorResponse("INVALID_ASSERTION", err.Error())), nil
+		return peerhttp.Login401JSONResponse(apitypes.NewErrorResponse("INVALID_ASSERTION", err.Error())), nil
 	}
-	return serverpublic.Login200JSONResponse(result), nil
+	return peerhttp.Login200JSONResponse(result), nil
 }
 
 type SessionManager struct {
@@ -204,7 +204,7 @@ func (m *SessionManager) login(ctx context.Context, serverKeyPair *giznet.KeyPai
 	}
 	return LoginResponse{
 		AccessToken: token,
-		TokenType:   serverpublic.Bearer,
+		TokenType:   peerhttp.Bearer,
 		ExpiresAt:   expiresAt.UnixMilli(),
 	}, nil
 }

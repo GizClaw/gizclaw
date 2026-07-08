@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminservice"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	clitest "github.com/GizClaw/gizclaw-go/tests/gizclaw-e2e/cmd"
 )
@@ -20,7 +20,7 @@ import (
 type adminAPIHarness struct {
 	ctx      context.Context
 	h        *clitest.Harness
-	api      *adminservice.ClientWithResponses
+	api      *adminhttp.ClientWithResponses
 	adminKey string
 	adminSN  string
 	peerKey  string

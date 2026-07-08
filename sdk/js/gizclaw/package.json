@@ -6,7 +6,7 @@
     ".": "./index.ts",
     "./admin": "./admin.ts",
     "./rpc": "./rpc.ts",
-    "./serverpublic": "./serverpublic.ts",
+    "./peerhttp": "./peerhttp.ts",
     "./signaling": "./signaling.ts",
     "./telemetry": "./telemetry.ts"
   },
