@@ -79,6 +79,31 @@ export type ServerSentEventsResult<TData = unknown, TReturn = void, TNext = unkn
   >;
 };
 
+class SseHttpError extends Error {
+  status: number;
+  statusText: string;
+  error: unknown;
+
+  constructor(status: number, statusText: string, error: unknown) {
+    super(`SSE failed: ${status} ${statusText}`);
+    this.status = status;
+    this.statusText = statusText;
+    this.error = error;
+  }
+}
+
+async function parseSseErrorResponse(response: Response): Promise<unknown> {
+  const text = await response.text();
+  if (text === '') {
+    return new Error(`SSE failed: ${response.status} ${response.statusText}`);
+  }
+  try {
+    return JSON.parse(text);
+  } catch {
+    return text;
+  }
+}
+
 export function createSseClient<TData = unknown>({
   onRequest,
   onSseError,
@@ -132,7 +157,9 @@ export function createSseClient<TData = unknown>({
         const _fetch = options.fetch ?? globalThis.fetch;
         const response = await _fetch(request);
 
-        if (!response.ok) throw new Error(`SSE failed: ${response.status} ${response.statusText}`);
+        if (!response.ok) {
+          throw new SseHttpError(response.status, response.statusText, await parseSseErrorResponse(response));
+        }
 
         if (!response.body) throw new Error('No body in SSE response');
 
@@ -222,9 +249,14 @@ export function createSseClient<TData = unknown>({
 
         break; // exit loop on normal completion
       } catch (error) {
-        // connection failed or aborted; retry after delay
-        onSseError?.(error);
+        const reportedError = error instanceof SseHttpError ? error.error : error;
+        onSseError?.(reportedError);
 
+        if (error instanceof SseHttpError) {
+          throw reportedError;
+        }
+
+        // connection failed or aborted; retry after delay
         if (sseMaxRetryAttempts !== undefined && attempt >= sseMaxRetryAttempts) {
           break; // stop after firing error
         }

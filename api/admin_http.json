@@ -184,8 +184,18 @@
             "content": {
               "text/event-stream": {
                 "schema": {
-                  "type": "string",
-                  "description": "SSE stream. event: log uses ServerLogEntry JSON data; event: end uses ServerLogStreamEnd JSON data; event: error uses ErrorResponse JSON data."
+                  "description": "SSE stream event payload. event: log uses ServerLogEntry JSON data; event: end uses ServerLogStreamEnd JSON data; event: error uses ErrorResponse JSON data.",
+                  "oneOf": [
+                    {
+                      "$ref": "./types.json#/components/schemas/ServerLogEntry"
+                    },
+                    {
+                      "$ref": "./types.json#/components/schemas/ServerLogStreamEnd"
+                    },
+                    {
+                      "$ref": "./types.json#/components/schemas/ErrorResponse"
+                    }
+                  ]
                 }
               }
             }

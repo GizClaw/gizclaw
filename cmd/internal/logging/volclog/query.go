@@ -34,7 +34,8 @@ type queryCursor struct {
 }
 
 func NewQueryService(config Config) (*QueryService, error) {
-	if _, err := validateConfig(config); err != nil {
+	config, err := validateConfig(config)
+	if err != nil {
 		return nil, err
 	}
 	client := tls.NewClient(config.Endpoint, config.AccessKeyID, config.AccessKeySecret, "", config.Region)
@@ -85,7 +86,7 @@ func (s *QueryService) StreamServerLogs(ctx context.Context, req gizclaw.ServerL
 			EndTime:   query.EndTimeMs,
 			Limit:     callLimit,
 			Context:   providerContext,
-			Sort:      strings.ToUpper(query.Order),
+			Sort:      query.Order,
 		})
 		if err != nil {
 			return gizclaw.ServerLogStreamEnd{}, gizclaw.ServerLogBackendError(err)

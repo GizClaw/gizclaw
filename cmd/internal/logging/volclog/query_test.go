@@ -66,7 +66,7 @@ func TestQueryServiceStreamsLogsAndCursor(t *testing.T) {
 		t.Fatalf("requests len = %d", len(client.requests))
 	}
 	req := client.requests[0]
-	if req.TopicID != "topic-a" || req.Query != "level:ERROR" || req.Sort != "DESC" || req.Limit != 1 {
+	if req.TopicID != "topic-a" || req.Query != "level:ERROR" || req.Sort != "desc" || req.Limit != 1 {
 		t.Fatalf("provider request = %#v", req)
 	}
 	if strings.Contains(*end.NextCursor, "provider-next") {
@@ -113,7 +113,7 @@ func TestQueryServiceContinuesFromCursorAndValidatesMismatch(t *testing.T) {
 		t.Fatalf("requests len = %d", len(client.requests))
 	}
 	req := client.requests[0]
-	if req.Context != "ctx-1" || req.Query != "*" || req.StartTime != 1000 || req.EndTime != 2000 || req.Sort != "ASC" {
+	if req.Context != "ctx-1" || req.Query != "*" || req.StartTime != 1000 || req.EndTime != 2000 || req.Sort != "asc" {
 		t.Fatalf("cursor request = %#v", req)
 	}
 }
@@ -200,14 +200,18 @@ func TestQueryServiceInvalidInputs(t *testing.T) {
 
 func TestNewQueryServiceValidatesConfig(t *testing.T) {
 	base := Config{
-		Endpoint:        "https://tls-cn-beijing.volces.com",
-		Region:          "cn-beijing",
-		TopicID:         "topic",
-		AccessKeyID:     "ak",
-		AccessKeySecret: "sk",
+		Endpoint:        " https://tls-cn-beijing.volces.com ",
+		Region:          " cn-beijing ",
+		TopicID:         " topic ",
+		AccessKeyID:     " ak ",
+		AccessKeySecret: " sk ",
 	}
-	if service, err := NewQueryService(base); err != nil || service == nil {
+	service, err := NewQueryService(base)
+	if err != nil || service == nil {
 		t.Fatalf("NewQueryService() service=%v err=%v", service, err)
+	}
+	if service.topicID != "topic" {
+		t.Fatalf("topicID = %q", service.topicID)
 	}
 	base.TopicID = ""
 	if _, err := NewQueryService(base); err == nil || !strings.Contains(err.Error(), "topic") {

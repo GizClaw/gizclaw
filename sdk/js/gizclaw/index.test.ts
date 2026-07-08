@@ -30,6 +30,7 @@ import {
   systemTelemetry,
   waitForICEGatheringComplete,
 } from "./index.ts";
+import { createSseClient } from "./generated/adminservice/core/serverSentEvents.gen.ts";
 import { createPeerRPCClient } from "./rpc.ts";
 import { base58Decode, base58Encode, base64Decode, prepareEncryptedGiznetWebRTCOffer } from "./signaling.ts";
 
@@ -264,6 +265,58 @@ test("createAdminAPIFetch resolves close-delimited HTTP service responses", asyn
   const response = await promise;
   assert.equal(response.status, 200);
   assert.equal(await response.text(), "hello");
+});
+
+test("SSE client parses HTTP JSON errors without retrying", async () => {
+  const errorBody = { error: { code: "LOG_QUERY_NOT_CONFIGURED", message: "server log query backend is not configured" } };
+  const seenErrors: Array<unknown> = [];
+  let attempts = 0;
+  const result = createSseClient({
+    fetch: async () => {
+      attempts++;
+      return new Response(JSON.stringify(errorBody), {
+        status: 501,
+        headers: { "Content-Type": "application/json" },
+      });
+    },
+    onSseError: (error) => seenErrors.push(error),
+    sseSleepFn: async () => {
+      throw new Error("SSE HTTP errors must not be retried");
+    },
+    url: "http://gizclaw/logs/stream",
+  });
+
+  await assert.rejects(
+    async () => {
+      for await (const _event of result.stream) {
+        // noop
+      }
+    },
+    (error) => {
+      assert.deepEqual(error, errorBody);
+      return true;
+    },
+  );
+  assert.equal(attempts, 1);
+  assert.deepEqual(seenErrors, [errorBody]);
+});
+
+test("SSE client yields parsed JSON event objects", async () => {
+  const result = createSseClient<{ 200: { message: string } }>({
+    fetch: async () =>
+      new Response('event: log\ndata: {"message":"ready"}\n\n', {
+        status: 200,
+        headers: { "Content-Type": "text/event-stream" },
+      }),
+    url: "http://gizclaw/logs/stream",
+  });
+
+  const events: Array<unknown> = [];
+  for await (const event of result.stream) {
+    events.push(event);
+  }
+
+  assert.deepEqual(events, [{ message: "ready" }]);
 });
 
 test("prepareGiznetWebRTCPeerConnection creates packet channel and audio transceiver", () => {

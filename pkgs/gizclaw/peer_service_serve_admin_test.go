@@ -397,6 +397,20 @@ func TestAdminServerLogsPostStartErrorUsesSSE(t *testing.T) {
 	}
 }
 
+func TestWaitFirstServerLogEventPrefersBufferedEventOverDone(t *testing.T) {
+	t.Parallel()
+
+	events := make(chan serverLogEvent, 1)
+	done := make(chan error, 1)
+	events <- serverLogEvent{name: "log", data: ServerLogEntry{Message: "first"}}
+	done <- ServerLogBackendError(errors.New("search failed"))
+
+	event, err, hasFirst, donePending := waitFirstServerLogEvent(context.Background(), events, done)
+	if !hasFirst || event.name != "log" || err != nil || !donePending {
+		t.Fatalf("waitFirstServerLogEvent() event=%#v err=%v hasFirst=%v donePending=%v", event, err, hasFirst, donePending)
+	}
+}
+
 func TestAdminServerLogsAllowsCursorOnlyContinuation(t *testing.T) {
 	t.Parallel()
 

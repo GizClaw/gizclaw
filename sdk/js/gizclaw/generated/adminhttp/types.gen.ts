@@ -1520,6 +1520,54 @@ export type Runtime = {
     tx_bytes?: number;
 };
 
+export type ServerLogEntry = {
+    /**
+     * Unix millisecond timestamp for display and filtering.
+     */
+    time_ms: number;
+    /**
+     * Optional Unix nanosecond timestamp when the backend provides it.
+     */
+    time_ns?: number;
+    /**
+     * Normalized log level.
+     */
+    level: string;
+    /**
+     * Log message.
+     */
+    message: string;
+    /**
+     * Backend source, initially gizclaw for server logs written by the Volc sink.
+     */
+    source: string;
+    /**
+     * Backend path or filename, initially slog.
+     */
+    path: string;
+    /**
+     * Additional structured log fields.
+     */
+    fields: {
+        [key: string]: string;
+    };
+};
+
+export type ServerLogStreamEnd = {
+    /**
+     * Number of log events emitted before the stream ended.
+     */
+    count: number;
+    /**
+     * Whether another page is available.
+     */
+    has_next: boolean;
+    /**
+     * Opaque cursor for the next page.
+     */
+    next_cursor?: string;
+};
+
 export type Voice = {
     id: string;
     source: VoiceSource;
@@ -2061,9 +2109,9 @@ export type StreamServerLogsError = StreamServerLogsErrors[keyof StreamServerLog
 
 export type StreamServerLogsResponses = {
     /**
-     * SSE stream. event: log uses ServerLogEntry JSON data; event: end uses ServerLogStreamEnd JSON data; event: error uses ErrorResponse JSON data.
+     * SSE stream event payload. event: log uses ServerLogEntry JSON data; event: end uses ServerLogStreamEnd JSON data; event: error uses ErrorResponse JSON data.
      */
-    200: string;
+    200: ServerLogEntry | ServerLogStreamEnd | ErrorResponse;
 };
 
 export type StreamServerLogsResponse = StreamServerLogsResponses[keyof StreamServerLogsResponses];

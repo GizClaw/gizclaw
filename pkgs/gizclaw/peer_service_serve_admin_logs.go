@@ -122,7 +122,7 @@ func (response streamServerLogsResponse) VisitStreamServerLogsResponse(ctx *fibe
 		done <- err
 	}()
 
-	first, err, hasFirst := waitFirstServerLogEvent(streamCtx, events, done)
+	first, err, hasFirst, donePending := waitFirstServerLogEvent(streamCtx, events, done)
 	if err != nil && !hasFirst {
 		cancel()
 		status, body := serverLogQueryErrorResponse(err)
@@ -135,7 +135,6 @@ func (response streamServerLogsResponse) VisitStreamServerLogsResponse(ctx *fibe
 			return ctx.Status(http.StatusBadGateway).JSON(adminservice.StreamServerLogs502JSONResponse(body))
 		}
 	}
-	donePending := hasFirst
 
 	ctx.Response().Header.Set("Content-Type", "text/event-stream")
 	ctx.Response().Header.Set("Cache-Control", "no-cache")
@@ -171,17 +170,33 @@ func (response streamServerLogsResponse) VisitStreamServerLogsResponse(ctx *fibe
 	return nil
 }
 
-func waitFirstServerLogEvent(ctx context.Context, events <-chan serverLogEvent, done <-chan error) (serverLogEvent, error, bool) {
+func waitFirstServerLogEvent(ctx context.Context, events <-chan serverLogEvent, done <-chan error) (serverLogEvent, error, bool, bool) {
 	select {
 	case event, ok := <-events:
 		if !ok {
-			return serverLogEvent{}, <-done, false
+			return serverLogEvent{}, <-done, false, false
 		}
-		return event, nil, true
+		return event, nil, true, true
+	default:
+	}
+
+	select {
+	case event, ok := <-events:
+		if !ok {
+			return serverLogEvent{}, <-done, false, false
+		}
+		return event, nil, true, true
 	case err := <-done:
-		return serverLogEvent{}, err, false
+		select {
+		case event, ok := <-events:
+			if ok {
+				return event, err, true, false
+			}
+		default:
+		}
+		return serverLogEvent{}, err, false, false
 	case <-ctx.Done():
-		return serverLogEvent{}, ctx.Err(), false
+		return serverLogEvent{}, ctx.Err(), false, false
 	}
 }
 
