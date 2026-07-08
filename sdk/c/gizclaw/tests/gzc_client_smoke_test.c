@@ -791,7 +791,16 @@ int main(void) {
       gzc_str_from_cstr(GZC_RPC_METHOD_ALL_PING),
       gzc_str_from_parts((const char *)large_params.data, large_params.len),
       &response);
-  if (expect(rc == GZC_ERR_INVALID_ARGUMENT, "reject oversized protobuf request envelope") != 0) {
+  if (expect(rc == GZC_OK, "send oversized protobuf request envelope as continuation frames") != 0) {
+    gzc_buf_free(&large_params, platform);
+    return 1;
+  }
+  rc = gzc_rpc_frame_decode(fake_webrtc.sent.data, first_frame_size(&fake_webrtc.sent), &sent_frame);
+  if (expect(rc == GZC_OK && sent_frame.type == GZC_RPC_FRAME_TEXT, "oversized request starts with text continuation frame") != 0) {
+    gzc_buf_free(&large_params, platform);
+    return 1;
+  }
+  if (expect(response.result_payload.len > 0, "oversized rpc call captured result payload") != 0) {
     gzc_buf_free(&large_params, platform);
     return 1;
   }

@@ -190,7 +190,7 @@ func schemaFromProtoMessage(name string, msg protoMessage, enums map[string]bool
 
 func ctypeForProtoField(field protoField, enums map[string]bool) CType {
 	if field.Repeated || field.Map {
-		return CType{Kind: CTypeJSON, Name: "gzc_json_t"}
+		return CType{Kind: CTypeJSON, Name: "gzc_rpc_payload_t"}
 	}
 	switch field.Type {
 	case "string", "bytes":
@@ -207,6 +207,6 @@ func ctypeForProtoField(field protoField, enums map[string]bool) CType {
 		if enums[field.Type] {
 			return CType{Kind: CTypeI32, Name: "int32_t"}
 		}
-		return CType{Kind: CTypeJSON, Name: "gzc_json_t"}
+		return CType{Kind: CTypeJSON, Name: "gzc_rpc_payload_t"}
 	}
 }

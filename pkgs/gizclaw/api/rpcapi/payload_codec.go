@@ -64,6 +64,23 @@ func decodeRPCResponsePayload(method RPCMethod, payload []byte) (*RPCResponse_Re
 	return &RPCResponse_Result{union: data}, nil
 }
 
+// EncodeRPCRequestPayloadJSON converts JSON-shaped request params into the
+// method-specific protobuf payload used on the Peer RPC wire.
+func EncodeRPCRequestPayloadJSON(method RPCMethod, jsonPayload []byte) ([]byte, error) {
+	params := &RPCRequest_Params{union: append([]byte(nil), jsonPayload...)}
+	return encodeRPCRequestPayload(method, params)
+}
+
+// DecodeRPCResponsePayloadJSON converts a method-specific protobuf response
+// payload into the JSON-shaped result used by test and CLI harnesses.
+func DecodeRPCResponsePayloadJSON(method RPCMethod, payload []byte) ([]byte, error) {
+	result, err := decodeRPCResponsePayload(method, payload)
+	if err != nil {
+		return nil, err
+	}
+	return result.MarshalJSON()
+}
+
 func encodeRPCPayloadMessage(messageName string, jsonPayload []byte) ([]byte, error) {
 	msg, err := newRPCPayloadMessage(messageName)
 	if err != nil {
@@ -184,10 +201,10 @@ func isOneofValueWrapper(desc protoreflect.MessageDescriptor) bool {
 }
 
 func setOneofWrapper(msg protoreflect.Message, value any, parent map[string]any) error {
-	if field := discriminatorOneofField(msg.Descriptor(), parent); field != nil {
+	obj, _ := value.(map[string]any)
+	if field := discriminatorOneofField(msg.Descriptor(), obj, parent); field != nil {
 		return setProtoField(msg, field, value, nil)
 	}
-	obj, _ := value.(map[string]any)
 	var best protoreflect.FieldDescriptor
 	bestScore := -1
 	fields := msg.Descriptor().Fields()
@@ -213,20 +230,25 @@ func setOneofWrapper(msg protoreflect.Message, value any, parent map[string]any)
 	return setProtoField(msg, best, value, nil)
 }
 
-func discriminatorOneofField(desc protoreflect.MessageDescriptor, parent map[string]any) protoreflect.FieldDescriptor {
-	if parent == nil {
-		return nil
-	}
+func discriminatorOneofField(desc protoreflect.MessageDescriptor, value, parent map[string]any) protoreflect.FieldDescriptor {
 	var discriminator string
 	switch desc.Name() {
 	case "CredentialBody":
-		discriminator, _ = parent["provider"].(string)
+		if parent != nil {
+			discriminator, _ = parent["provider"].(string)
+		}
 	case "ModelProviderData", "VoiceProviderData":
-		if provider, _ := parent["provider"].(map[string]any); provider != nil {
+		if parent != nil {
+			provider, _ := parent["provider"].(map[string]any)
 			discriminator, _ = provider["kind"].(string)
 		}
 	case "WorkspaceParameters":
-		discriminator, _ = parent["agent_type"].(string)
+		if value != nil {
+			discriminator, _ = value["agent_type"].(string)
+		}
+		if discriminator == "" && parent != nil {
+			discriminator, _ = parent["agent_type"].(string)
+		}
 	}
 	if discriminator == "" {
 		return nil

@@ -19,10 +19,22 @@ static int append_frame(const gzc_platform_t *platform, gzc_buf_t *out, gzc_rpc_
 }
 
 static int append_binary_envelope_frame(const gzc_platform_t *platform, gzc_buf_t *out, const uint8_t *data, size_t len) {
-  if (len > GZC_RPC_MAX_FRAME_SIZE) {
-    return GZC_ERR_INVALID_ARGUMENT;
+  if (len <= GZC_RPC_MAX_FRAME_SIZE) {
+    return append_frame(platform, out, GZC_RPC_FRAME_BINARY, data, len);
   }
-  return append_frame(platform, out, GZC_RPC_FRAME_BINARY, data, len);
+  size_t offset = 0;
+  while (offset < len) {
+    size_t chunk = len - offset;
+    if (chunk > GZC_RPC_MAX_FRAME_SIZE) {
+      chunk = GZC_RPC_MAX_FRAME_SIZE;
+    }
+    int rc = append_frame(platform, out, GZC_RPC_FRAME_TEXT, data + offset, chunk);
+    if (rc != GZC_OK) {
+      return rc;
+    }
+    offset += chunk;
+  }
+  return GZC_OK;
 }
 
 static int append_varint(const gzc_platform_t *platform, gzc_buf_t *out, uint64_t value) {

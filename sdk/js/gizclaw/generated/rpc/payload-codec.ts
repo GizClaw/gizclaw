@@ -5628,12 +5628,12 @@ const ENUM_DESCS: Record<string, EnumDesc> = {
   },
   "ASTTranslateWorkspaceParametersAgentType": {
     "byName": {
-      "ast_translate": 1,
+      "ast-translate": 1,
       "unspecified": 0
     },
     "byNumber": {
       "0": "",
-      "1": "ast_translate"
+      "1": "ast-translate"
     }
   },
   "ChatRoomMode": {
@@ -5712,12 +5712,12 @@ const ENUM_DESCS: Record<string, EnumDesc> = {
   },
   "DoubaoRealtimeWorkspaceParametersAgentType": {
     "byName": {
-      "doubao_realtime": 1,
+      "doubao-realtime": 1,
       "unspecified": 0
     },
     "byNumber": {
       "0": "",
-      "1": "doubao_realtime"
+      "1": "doubao-realtime"
     }
   },
   "FirmwareArtifactEntryType": {
@@ -5830,18 +5830,18 @@ const ENUM_DESCS: Record<string, EnumDesc> = {
   },
   "ModelProviderKind": {
     "byName": {
-      "dashscope_tenant": 2,
-      "gemini_tenant": 1,
-      "openai_tenant": 3,
+      "dashscope-tenant": 2,
+      "gemini-tenant": 1,
+      "openai-tenant": 3,
       "unspecified": 0,
-      "volc_tenant": 4
+      "volc-tenant": 4
     },
     "byNumber": {
       "0": "",
-      "1": "gemini_tenant",
-      "2": "dashscope_tenant",
-      "3": "openai_tenant",
-      "4": "volc_tenant"
+      "1": "gemini-tenant",
+      "2": "dashscope-tenant",
+      "3": "openai-tenant",
+      "4": "volc-tenant"
     }
   },
   "ModelSource": {
@@ -5900,20 +5900,20 @@ const ENUM_DESCS: Record<string, EnumDesc> = {
   },
   "VoiceProviderKind": {
     "byName": {
-      "dashscope_tenant": 2,
-      "gemini_tenant": 1,
-      "minimax_tenant": 4,
-      "openai_tenant": 3,
+      "dashscope-tenant": 2,
+      "gemini-tenant": 1,
+      "minimax-tenant": 4,
+      "openai-tenant": 3,
       "unspecified": 0,
-      "volc_tenant": 5
+      "volc-tenant": 5
     },
     "byNumber": {
       "0": "",
-      "1": "gemini_tenant",
-      "2": "dashscope_tenant",
-      "3": "openai_tenant",
-      "4": "minimax_tenant",
-      "5": "volc_tenant"
+      "1": "gemini-tenant",
+      "2": "dashscope-tenant",
+      "3": "openai-tenant",
+      "4": "minimax-tenant",
+      "5": "volc-tenant"
     }
   },
   "VoiceSource": {
@@ -5944,17 +5944,17 @@ const ENUM_DESCS: Record<string, EnumDesc> = {
   },
   "WorkflowDriver": {
     "byName": {
-      "ast_translate": 3,
+      "ast-translate": 3,
       "chatroom": 4,
-      "doubao_realtime": 2,
+      "doubao-realtime": 2,
       "flowcraft": 1,
       "unspecified": 0
     },
     "byNumber": {
       "0": "",
       "1": "flowcraft",
-      "2": "doubao_realtime",
-      "3": "ast_translate",
+      "2": "doubao-realtime",
+      "3": "ast-translate",
       "4": "chatroom"
     }
   },
@@ -5972,13 +5972,13 @@ const ENUM_DESCS: Record<string, EnumDesc> = {
   },
   "WorkspaceInputMode": {
     "byName": {
-      "push_to_talk": 1,
+      "push-to-talk": 1,
       "realtime": 2,
       "unspecified": 0
     },
     "byNumber": {
       "0": "",
-      "1": "push_to_talk",
+      "1": "push-to-talk",
       "2": "realtime"
     }
   }
@@ -6005,7 +6005,7 @@ function encodePayload(messages: Record<string, string>, method: string, value: 
   if (message == null) {
     throw new Error(`unknown RPC method: ${method}`);
   }
-  return encodeMessage(message, value ?? {});
+  return encodeMessage(message, value ?? {}, undefined);
 }
 
 function decodePayload(messages: Record<string, string>, method: string, payload: Uint8Array): unknown {
@@ -6016,19 +6016,19 @@ function decodePayload(messages: Record<string, string>, method: string, payload
   return decodeMessage(message, payload);
 }
 
-function encodeMessage(type: string, value: unknown): Uint8Array {
+function encodeMessage(type: string, value: unknown, parent: Record<string, unknown> | undefined): Uint8Array {
   const desc = messageDesc(type);
   const writer = new ProtoWriter();
   const fields = desc.fields;
   const single = singleValueField(desc);
   if (single != null) {
-    encodeField(writer, single, value);
+    encodeField(writer, single, value, parent);
     return writer.finish();
   }
   if (isOneofValueWrapper(desc)) {
-    const selected = selectOneofField(desc, value);
+    const selected = selectOneofField(type, desc, value, parent);
     if (selected != null) {
-      encodeField(writer, selected, value);
+      encodeField(writer, selected, value, undefined);
     }
     return writer.finish();
   }
@@ -6044,7 +6044,7 @@ function encodeMessage(type: string, value: unknown): Uint8Array {
     if (fieldValue === undefined || fieldValue === null) {
       continue;
     }
-    encodeField(writer, field, fieldValue);
+    encodeField(writer, field, fieldValue, object);
   }
   return writer.finish();
 }
@@ -6098,13 +6098,13 @@ function decodeMessageFields(desc: MessageDesc, payload: Uint8Array): Record<str
   return out;
 }
 
-function encodeField(writer: ProtoWriter, field: FieldDesc, value: unknown): void {
+function encodeField(writer: ProtoWriter, field: FieldDesc, value: unknown, parent: Record<string, unknown> | undefined): void {
   if (field.repeated) {
     if (!Array.isArray(value)) {
       throw new Error(`protobuf field ${field.name} expects array`);
     }
     for (const item of value) {
-      encodeSingularField(writer, field, item);
+      encodeSingularField(writer, field, item, undefined);
     }
     return;
   }
@@ -6113,19 +6113,19 @@ function encodeField(writer: ProtoWriter, field: FieldDesc, value: unknown): voi
     for (const [key, item] of Object.entries(map)) {
       const entry = new ProtoWriter();
       entry.string(1, key);
-      encodeType(entry, 2, field.mapValue, item);
+      encodeType(entry, 2, field.mapValue, item, undefined);
       writer.bytes(field.number, entry.finish());
     }
     return;
   }
-  encodeSingularField(writer, field, value);
+  encodeSingularField(writer, field, value, parent);
 }
 
-function encodeSingularField(writer: ProtoWriter, field: FieldDesc, value: unknown): void {
-  encodeType(writer, field.number, field.type, value);
+function encodeSingularField(writer: ProtoWriter, field: FieldDesc, value: unknown, parent: Record<string, unknown> | undefined): void {
+  encodeType(writer, field.number, field.type, value, parent);
 }
 
-function encodeType(writer: ProtoWriter, number: number, type: string, value: unknown): void {
+function encodeType(writer: ProtoWriter, number: number, type: string, value: unknown, parent: Record<string, unknown> | undefined): void {
   switch (type) {
     case "bool":
       writer.bool(number, Boolean(value));
@@ -6162,7 +6162,7 @@ function encodeType(writer: ProtoWriter, number: number, type: string, value: un
         writer.int32(number, enumNumber(type, value));
         return;
       }
-      writer.bytes(number, encodeMessage(type, value ?? {}));
+      writer.bytes(number, encodeMessage(type, value ?? {}, parent));
       return;
   }
 }
@@ -6233,8 +6233,16 @@ function isOneofValueWrapper(desc: MessageDesc): boolean {
   return desc.fields.length > 0 && desc.fields.every((field) => field.oneof === true);
 }
 
-function selectOneofField(desc: MessageDesc, value: unknown): FieldDesc | undefined {
+function selectOneofField(type: string, desc: MessageDesc, value: unknown, parent: Record<string, unknown> | undefined): FieldDesc | undefined {
   const object = isRecord(value) ? value : {};
+  const discriminator = oneofDiscriminator(type, object, parent);
+  const fieldName = discriminator == null ? undefined : oneofDiscriminatorFieldName(type, discriminator);
+  if (fieldName != null) {
+    const field = desc.fields.find((candidate) => candidate.name === fieldName);
+    if (field != null) {
+      return field;
+    }
+  }
   let best: FieldDesc | undefined;
   let bestScore = -1;
   for (const field of desc.fields) {
@@ -6255,6 +6263,59 @@ function selectOneofField(desc: MessageDesc, value: unknown): FieldDesc | undefi
   return best;
 }
 
+function oneofDiscriminator(type: string, value: Record<string, unknown>, parent: Record<string, unknown> | undefined): string | undefined {
+  switch (type) {
+    case "CredentialBody":
+      return typeof parent?.provider === "string" ? parent.provider : undefined;
+    case "ModelProviderData":
+    case "VoiceProviderData": {
+      const provider = parent?.provider;
+      return isRecord(provider) && typeof provider.kind === "string" ? provider.kind : undefined;
+    }
+    case "WorkspaceParameters":
+      return typeof value.agent_type === "string" ? value.agent_type : typeof parent?.agent_type === "string" ? parent.agent_type : undefined;
+    default:
+      return undefined;
+  }
+}
+
+function oneofDiscriminatorFieldName(type: string, discriminator: string): string | undefined {
+  switch (type) {
+    case "CredentialBody":
+      return ({
+        "openai": "open_aicredential_body",
+        "gemini": "gemini_credential_body",
+        "dashscope": "dash_scope_credential_body",
+        "minimax": "mini_max_credential_body",
+        "volc": "volc_credential_body",
+      } as Record<string, string>)[discriminator];
+    case "ModelProviderData":
+      return ({
+        "gemini-tenant": "gemini_tenant_model_provider_data",
+        "dashscope-tenant": "dash_scope_tenant_model_provider_data",
+        "openai-tenant": "open_aitenant_model_provider_data",
+        "volc-tenant": "volc_tenant_model_provider_data",
+      } as Record<string, string>)[discriminator];
+    case "VoiceProviderData":
+      return ({
+        "gemini-tenant": "gemini_tenant_voice_provider_data",
+        "dashscope-tenant": "dash_scope_tenant_voice_provider_data",
+        "openai-tenant": "open_aitenant_voice_provider_data",
+        "minimax-tenant": "mini_max_tenant_voice_provider_data",
+        "volc-tenant": "volc_tenant_voice_provider_data",
+      } as Record<string, string>)[discriminator];
+    case "WorkspaceParameters":
+      return ({
+        "flowcraft": "flowcraft_workspace_parameters",
+        "doubao-realtime": "doubao_realtime_workspace_parameters",
+        "ast-translate": "asttranslate_workspace_parameters",
+        "chatroom": "chat_room_workspace_parameters",
+      } as Record<string, string>)[discriminator];
+    default:
+      return undefined;
+  }
+}
+
 function enumNumber(type: string, value: unknown): number {
   const desc = ENUM_DESCS[type];
   if (desc == null) {
@@ -6263,8 +6324,8 @@ function enumNumber(type: string, value: unknown): number {
   if (typeof value === "number") {
     return value;
   }
-  const key = String(value ?? "").replaceAll("-", "_").toLowerCase();
-  return desc.byName[key] ?? 0;
+  const key = String(value ?? "").toLowerCase();
+  return desc.byName[key] ?? desc.byName[key.replaceAll("-", "_")] ?? 0;
 }
 
 function enumName(type: string, value: number): string {

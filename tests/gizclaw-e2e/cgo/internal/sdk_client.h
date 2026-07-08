@@ -20,18 +20,20 @@ int gzc_cgo_session_open(
     char *errbuf,
     unsigned long errbuf_len);
 void gzc_cgo_session_close(gzc_cgo_session_t *session);
-int gzc_cgo_session_call_json(
+int gzc_cgo_session_call_rpc_payload(
     gzc_cgo_session_t *session,
     const char *method,
-    const char *params_payload,
-    char **out_result_payload,
+    const unsigned char *params_payload,
+    unsigned long params_payload_len,
+    unsigned char **out_result_payload,
     unsigned long *out_result_payload_len,
     char *errbuf,
     unsigned long errbuf_len);
 int gzc_cgo_session_call_stream_collect(
     gzc_cgo_session_t *session,
     const char *method,
-    const char *params_payload,
+    const unsigned char *params_payload,
+    unsigned long params_payload_len,
     gzc_cgo_stream_frame_t **out_frames,
     unsigned long *out_frame_count,
     char *errbuf,

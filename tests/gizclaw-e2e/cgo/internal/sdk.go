@@ -86,17 +86,25 @@ func (c *Client) CallJSON(method string, params json.RawMessage) (json.RawMessag
 	if len(params) == 0 {
 		params = json.RawMessage(`{}`)
 	}
+	methodID := rpcapi.RPCMethod(method)
+	paramsPayload, err := rpcapi.EncodeRPCRequestPayloadJSON(methodID, params)
+	if err != nil {
+		return nil, fmt.Errorf("encode %s request payload: %w", method, err)
+	}
 	cMethod := C.CString(method)
 	defer C.free(unsafe.Pointer(cMethod))
-	cParams := C.CString(string(params))
-	defer C.free(unsafe.Pointer(cParams))
+	var cParams *C.uchar
+	if len(paramsPayload) > 0 {
+		cParams = (*C.uchar)(unsafe.Pointer(&paramsPayload[0]))
+	}
 	errbuf := make([]byte, 1024)
-	var result *C.char
+	var result *C.uchar
 	var resultLen C.ulong
-	rc := C.gzc_cgo_session_call_json(
+	rc := C.gzc_cgo_session_call_rpc_payload(
 		c.session,
 		cMethod,
 		cParams,
+		C.ulong(len(paramsPayload)),
 		&result,
 		&resultLen,
 		(*C.char)(unsafe.Pointer(&errbuf[0])),
@@ -106,7 +114,12 @@ func (c *Client) CallJSON(method string, params json.RawMessage) (json.RawMessag
 		return nil, fmt.Errorf("call %s rc=%d: %s", method, int(rc), cString(errbuf))
 	}
 	defer C.gzc_cgo_free(unsafe.Pointer(result))
-	return append([]byte(nil), C.GoBytes(unsafe.Pointer(result), C.int(resultLen))...), nil
+	resultPayload := C.GoBytes(unsafe.Pointer(result), C.int(resultLen))
+	resultJSON, err := rpcapi.DecodeRPCResponsePayloadJSON(methodID, resultPayload)
+	if err != nil {
+		return nil, fmt.Errorf("decode %s response payload: %w", method, err)
+	}
+	return resultJSON, nil
 }
 
 func (c *Client) CallStream(method string, params json.RawMessage) ([]StreamFrame, error) {
@@ -116,10 +129,16 @@ func (c *Client) CallStream(method string, params json.RawMessage) ([]StreamFram
 	if len(params) == 0 {
 		params = json.RawMessage(`{}`)
 	}
+	paramsPayload, err := rpcapi.EncodeRPCRequestPayloadJSON(rpcapi.RPCMethod(method), params)
+	if err != nil {
+		return nil, fmt.Errorf("encode %s stream request payload: %w", method, err)
+	}
 	cMethod := C.CString(method)
 	defer C.free(unsafe.Pointer(cMethod))
-	cParams := C.CString(string(params))
-	defer C.free(unsafe.Pointer(cParams))
+	var cParams *C.uchar
+	if len(paramsPayload) > 0 {
+		cParams = (*C.uchar)(unsafe.Pointer(&paramsPayload[0]))
+	}
 	errbuf := make([]byte, 1024)
 	var frames *C.gzc_cgo_stream_frame_t
 	var frameCount C.ulong
@@ -127,6 +146,7 @@ func (c *Client) CallStream(method string, params json.RawMessage) ([]StreamFram
 		c.session,
 		cMethod,
 		cParams,
+		C.ulong(len(paramsPayload)),
 		&frames,
 		&frameCount,
 		(*C.char)(unsafe.Pointer(&errbuf[0])),

@@ -31,6 +31,7 @@ import {
   waitForICEGatheringComplete,
 } from "./index.ts";
 import { createSseClient } from "./generated/adminhttp/core/serverSentEvents.gen.ts";
+import { decodeRPCRequestPayload, encodeRPCRequestPayload } from "./generated/rpc/payload-codec.ts";
 import { createPeerRPCClient } from "./rpc.ts";
 import { base58Decode, base58Encode, base64Decode, prepareEncryptedGiznetWebRTCOffer } from "./signaling.ts";
 
@@ -108,6 +109,25 @@ test("WebRTCRPCClient decodes Go-compatible protobuf payload bytes", async () =>
   ]));
 
   assert.deepEqual(await promise, { server_time: 995 });
+});
+
+test("RPC payload codec selects workspace oneofs from discriminators", () => {
+  const payload = encodeRPCRequestPayload("server.workspace.create", {
+    created_at: "now",
+    last_active_at: "now",
+    name: "main",
+    parameters: {
+      agent_type: "doubao-realtime",
+    },
+    updated_at: "now",
+    workflow_name: "chat",
+  });
+
+  const decoded = decodeRPCRequestPayload("server.workspace.create", payload) as {
+    parameters?: { agent_type?: string; input?: string };
+  };
+
+  assert.equal(decoded.parameters?.agent_type, "doubao-realtime");
 });
 
 test("WebRTCRPCClient reassembles response frames split across messages", async () => {

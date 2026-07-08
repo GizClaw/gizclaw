@@ -3,11 +3,15 @@
 #ifndef GZC_RPC_TYPES_H
 #define GZC_RPC_TYPES_H
 
-#include "gzc_json.h"
+#include "gzc_platform.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+typedef struct {
+  gzc_str_t raw;
+} gzc_rpc_payload_t;
 
 typedef struct {
   int64_t client_send_time;
@@ -31,7 +35,7 @@ typedef struct {
 } gzc_server_get_info_request_t;
 
 typedef struct {
-  gzc_json_t value;
+  gzc_rpc_payload_t value;
 } gzc_server_put_info_request_t;
 
 typedef struct {
@@ -47,7 +51,7 @@ typedef struct {
 } gzc_server_get_run_agent_request_t;
 
 typedef struct {
-  gzc_json_t value;
+  gzc_rpc_payload_t value;
 } gzc_server_set_run_agent_request_t;
 
 typedef struct {
@@ -55,7 +59,7 @@ typedef struct {
 } gzc_server_get_run_workspace_request_t;
 
 typedef struct {
-  gzc_json_t value;
+  gzc_rpc_payload_t value;
 } gzc_server_set_run_workspace_request_t;
 
 typedef struct {
@@ -63,19 +67,19 @@ typedef struct {
 } gzc_server_reload_run_workspace_request_t;
 
 typedef struct {
-  gzc_json_t value;
+  gzc_rpc_payload_t value;
 } gzc_server_list_run_workspace_history_request_t;
 
 typedef struct {
-  gzc_json_t value;
+  gzc_rpc_payload_t value;
 } gzc_server_play_run_workspace_history_request_t;
 
 typedef struct {
-  gzc_json_t value;
+  gzc_rpc_payload_t value;
 } gzc_server_get_run_workspace_memory_stats_request_t;
 
 typedef struct {
-  gzc_json_t value;
+  gzc_rpc_payload_t value;
 } gzc_server_run_workspace_recall_request_t;
 
 typedef struct {
@@ -131,11 +135,11 @@ typedef struct {
 } gzc_workspace_get_request_t;
 
 typedef struct {
-  gzc_json_t value;
+  gzc_rpc_payload_t value;
 } gzc_workspace_create_request_t;
 
 typedef struct {
-  gzc_json_t body;
+  gzc_rpc_payload_t body;
   gzc_str_t name;
 } gzc_workspace_put_request_t;
 
@@ -175,11 +179,11 @@ typedef struct {
 } gzc_workflow_get_request_t;
 
 typedef struct {
-  gzc_json_t value;
+  gzc_rpc_payload_t value;
 } gzc_workflow_create_request_t;
 
 typedef struct {
-  gzc_json_t body;
+  gzc_rpc_payload_t body;
   gzc_str_t name;
 } gzc_workflow_put_request_t;
 
@@ -199,11 +203,11 @@ typedef struct {
 } gzc_model_get_request_t;
 
 typedef struct {
-  gzc_json_t value;
+  gzc_rpc_payload_t value;
 } gzc_model_create_request_t;
 
 typedef struct {
-  gzc_json_t body;
+  gzc_rpc_payload_t body;
   gzc_str_t id;
 } gzc_model_put_request_t;
 
@@ -234,11 +238,11 @@ typedef struct {
 } gzc_credential_get_request_t;
 
 typedef struct {
-  gzc_json_t value;
+  gzc_rpc_payload_t value;
 } gzc_credential_create_request_t;
 
 typedef struct {
-  gzc_json_t body;
+  gzc_rpc_payload_t body;
   gzc_str_t name;
 } gzc_credential_put_request_t;
 
@@ -410,27 +414,27 @@ typedef struct {
 } gzc_badge_def_pixa_download_request_t;
 
 typedef struct {
-  gzc_json_t value;
+  gzc_rpc_payload_t value;
 } gzc_server_pet_list_request_t;
 
 typedef struct {
-  gzc_json_t value;
+  gzc_rpc_payload_t value;
 } gzc_server_pet_get_request_t;
 
 typedef struct {
-  gzc_json_t value;
+  gzc_rpc_payload_t value;
 } gzc_server_pet_adopt_request_t;
 
 typedef struct {
-  gzc_json_t value;
+  gzc_rpc_payload_t value;
 } gzc_server_pet_put_request_t;
 
 typedef struct {
-  gzc_json_t value;
+  gzc_rpc_payload_t value;
 } gzc_server_pet_delete_request_t;
 
 typedef struct {
-  gzc_json_t value;
+  gzc_rpc_payload_t value;
 } gzc_server_pet_drive_request_t;
 
 typedef struct {
@@ -439,35 +443,35 @@ typedef struct {
 } gzc_server_points_get_request_t;
 
 typedef struct {
-  gzc_json_t value;
+  gzc_rpc_payload_t value;
 } gzc_server_points_transaction_list_request_t;
 
 typedef struct {
-  gzc_json_t value;
+  gzc_rpc_payload_t value;
 } gzc_server_points_transaction_get_request_t;
 
 typedef struct {
-  gzc_json_t value;
+  gzc_rpc_payload_t value;
 } gzc_server_badge_list_request_t;
 
 typedef struct {
-  gzc_json_t value;
+  gzc_rpc_payload_t value;
 } gzc_server_badge_get_request_t;
 
 typedef struct {
-  gzc_json_t value;
+  gzc_rpc_payload_t value;
 } gzc_server_game_result_list_request_t;
 
 typedef struct {
-  gzc_json_t value;
+  gzc_rpc_payload_t value;
 } gzc_server_game_result_get_request_t;
 
 typedef struct {
-  gzc_json_t value;
+  gzc_rpc_payload_t value;
 } gzc_server_reward_grant_list_request_t;
 
 typedef struct {
-  gzc_json_t value;
+  gzc_rpc_payload_t value;
 } gzc_server_reward_grant_get_request_t;
 
 typedef struct {
@@ -480,75 +484,75 @@ typedef struct {
 } gzc_speed_test_response_t;
 
 typedef struct {
-  gzc_json_t value;
+  gzc_rpc_payload_t value;
 } gzc_client_get_info_response_t;
 
 typedef struct {
-  gzc_json_t value;
+  gzc_rpc_payload_t value;
 } gzc_client_get_identifiers_response_t;
 
 typedef struct {
-  gzc_json_t value;
+  gzc_rpc_payload_t value;
 } gzc_server_get_info_response_t;
 
 typedef struct {
-  gzc_json_t value;
+  gzc_rpc_payload_t value;
 } gzc_server_put_info_response_t;
 
 typedef struct {
-  gzc_json_t value;
+  gzc_rpc_payload_t value;
 } gzc_server_get_runtime_response_t;
 
 typedef struct {
-  gzc_json_t value;
+  gzc_rpc_payload_t value;
 } gzc_server_get_status_response_t;
 
 typedef struct {
-  gzc_json_t value;
+  gzc_rpc_payload_t value;
 } gzc_server_get_run_agent_response_t;
 
 typedef struct {
-  gzc_json_t value;
+  gzc_rpc_payload_t value;
 } gzc_server_set_run_agent_response_t;
 
 typedef struct {
-  gzc_json_t value;
+  gzc_rpc_payload_t value;
 } gzc_server_get_run_workspace_response_t;
 
 typedef struct {
-  gzc_json_t value;
+  gzc_rpc_payload_t value;
 } gzc_server_set_run_workspace_response_t;
 
 typedef struct {
-  gzc_json_t value;
+  gzc_rpc_payload_t value;
 } gzc_server_reload_run_workspace_response_t;
 
 typedef struct {
-  gzc_json_t value;
+  gzc_rpc_payload_t value;
 } gzc_server_list_run_workspace_history_response_t;
 
 typedef struct {
-  gzc_json_t value;
+  gzc_rpc_payload_t value;
 } gzc_server_play_run_workspace_history_response_t;
 
 typedef struct {
-  gzc_json_t value;
+  gzc_rpc_payload_t value;
 } gzc_server_get_run_workspace_memory_stats_response_t;
 
 typedef struct {
-  gzc_json_t value;
+  gzc_rpc_payload_t value;
 } gzc_server_run_workspace_recall_response_t;
 
 typedef struct {
-  gzc_json_t value;
+  gzc_rpc_payload_t value;
 } gzc_server_reload_run_response_t;
 
 typedef struct {
-  gzc_json_t value;
+  gzc_rpc_payload_t value;
 } gzc_server_get_run_status_response_t;
 
 typedef struct {
-  gzc_json_t value;
+  gzc_rpc_payload_t value;
 } gzc_server_stop_run_response_t;
 
 typedef struct {
@@ -557,52 +561,52 @@ typedef struct {
 
 typedef struct {
   bool has_next;
-  gzc_json_t items;
+  gzc_rpc_payload_t items;
   bool has_next_cursor;
   gzc_str_t next_cursor;
 } gzc_firmware_list_response_t;
 
 typedef struct {
-  gzc_json_t value;
+  gzc_rpc_payload_t value;
 } gzc_firmware_get_response_t;
 
 typedef struct {
-  gzc_json_t artifact;
+  gzc_rpc_payload_t artifact;
   int32_t channel;
-  gzc_json_t file;
+  gzc_rpc_payload_t file;
   gzc_str_t firmware_id;
   gzc_str_t path;
 } gzc_firmware_files_download_response_t;
 
 typedef struct {
   bool has_next;
-  gzc_json_t items;
+  gzc_rpc_payload_t items;
   bool has_next_cursor;
   gzc_str_t next_cursor;
 } gzc_workspace_list_response_t;
 
 typedef struct {
-  gzc_json_t value;
+  gzc_rpc_payload_t value;
 } gzc_workspace_get_response_t;
 
 typedef struct {
-  gzc_json_t value;
+  gzc_rpc_payload_t value;
 } gzc_workspace_create_response_t;
 
 typedef struct {
-  gzc_json_t value;
+  gzc_rpc_payload_t value;
 } gzc_workspace_put_response_t;
 
 typedef struct {
-  gzc_json_t value;
+  gzc_rpc_payload_t value;
 } gzc_workspace_delete_response_t;
 
 typedef struct {
-  gzc_json_t value;
+  gzc_rpc_payload_t value;
 } gzc_workspace_history_list_response_t;
 
 typedef struct {
-  gzc_json_t value;
+  gzc_rpc_payload_t value;
 } gzc_workspace_history_get_response_t;
 
 typedef struct {
@@ -614,105 +618,105 @@ typedef struct {
 
 typedef struct {
   bool has_next;
-  gzc_json_t items;
+  gzc_rpc_payload_t items;
   bool has_next_cursor;
   gzc_str_t next_cursor;
 } gzc_workflow_list_response_t;
 
 typedef struct {
-  gzc_json_t value;
+  gzc_rpc_payload_t value;
 } gzc_workflow_get_response_t;
 
 typedef struct {
-  gzc_json_t value;
+  gzc_rpc_payload_t value;
 } gzc_workflow_create_response_t;
 
 typedef struct {
-  gzc_json_t value;
+  gzc_rpc_payload_t value;
 } gzc_workflow_put_response_t;
 
 typedef struct {
-  gzc_json_t value;
+  gzc_rpc_payload_t value;
 } gzc_workflow_delete_response_t;
 
 typedef struct {
   bool has_next;
-  gzc_json_t items;
+  gzc_rpc_payload_t items;
   bool has_next_cursor;
   gzc_str_t next_cursor;
 } gzc_model_list_response_t;
 
 typedef struct {
-  gzc_json_t value;
+  gzc_rpc_payload_t value;
 } gzc_model_get_response_t;
 
 typedef struct {
-  gzc_json_t value;
+  gzc_rpc_payload_t value;
 } gzc_model_create_response_t;
 
 typedef struct {
-  gzc_json_t value;
+  gzc_rpc_payload_t value;
 } gzc_model_put_response_t;
 
 typedef struct {
-  gzc_json_t value;
+  gzc_rpc_payload_t value;
 } gzc_model_delete_response_t;
 
 typedef struct {
   bool has_next;
-  gzc_json_t items;
+  gzc_rpc_payload_t items;
   bool has_next_cursor;
   gzc_str_t next_cursor;
 } gzc_voice_list_response_t;
 
 typedef struct {
-  gzc_json_t value;
+  gzc_rpc_payload_t value;
 } gzc_voice_get_response_t;
 
 typedef struct {
   bool has_next;
-  gzc_json_t items;
+  gzc_rpc_payload_t items;
   bool has_next_cursor;
   gzc_str_t next_cursor;
 } gzc_credential_list_response_t;
 
 typedef struct {
-  gzc_json_t value;
+  gzc_rpc_payload_t value;
 } gzc_credential_get_response_t;
 
 typedef struct {
-  gzc_json_t value;
+  gzc_rpc_payload_t value;
 } gzc_credential_create_response_t;
 
 typedef struct {
-  gzc_json_t value;
+  gzc_rpc_payload_t value;
 } gzc_credential_put_response_t;
 
 typedef struct {
-  gzc_json_t value;
+  gzc_rpc_payload_t value;
 } gzc_credential_delete_response_t;
 
 typedef struct {
   bool has_next;
-  gzc_json_t items;
+  gzc_rpc_payload_t items;
   bool has_next_cursor;
   gzc_str_t next_cursor;
 } gzc_contact_list_response_t;
 
 typedef struct {
-  gzc_json_t value;
+  gzc_rpc_payload_t value;
 } gzc_contact_get_response_t;
 
 typedef struct {
-  gzc_json_t value;
+  gzc_rpc_payload_t value;
 } gzc_contact_create_response_t;
 
 typedef struct {
-  gzc_json_t value;
+  gzc_rpc_payload_t value;
 } gzc_contact_put_response_t;
 
 typedef struct {
-  gzc_json_t value;
+  gzc_rpc_payload_t value;
 } gzc_contact_delete_response_t;
 
 typedef struct {
@@ -732,41 +736,41 @@ typedef struct {
 } gzc_friend_invite_token_clear_response_t;
 
 typedef struct {
-  gzc_json_t value;
+  gzc_rpc_payload_t value;
 } gzc_friend_add_response_t;
 
 typedef struct {
   bool has_next;
-  gzc_json_t items;
+  gzc_rpc_payload_t items;
   bool has_next_cursor;
   gzc_str_t next_cursor;
 } gzc_friend_list_response_t;
 
 typedef struct {
-  gzc_json_t value;
+  gzc_rpc_payload_t value;
 } gzc_friend_delete_response_t;
 
 typedef struct {
   bool has_next;
-  gzc_json_t items;
+  gzc_rpc_payload_t items;
   bool has_next_cursor;
   gzc_str_t next_cursor;
 } gzc_friend_group_list_response_t;
 
 typedef struct {
-  gzc_json_t value;
+  gzc_rpc_payload_t value;
 } gzc_friend_group_get_response_t;
 
 typedef struct {
-  gzc_json_t value;
+  gzc_rpc_payload_t value;
 } gzc_friend_group_create_response_t;
 
 typedef struct {
-  gzc_json_t value;
+  gzc_rpc_payload_t value;
 } gzc_friend_group_put_response_t;
 
 typedef struct {
-  gzc_json_t value;
+  gzc_rpc_payload_t value;
 } gzc_friend_group_delete_response_t;
 
 typedef struct {
@@ -786,46 +790,46 @@ typedef struct {
 } gzc_friend_group_invite_token_clear_response_t;
 
 typedef struct {
-  gzc_json_t group;
-  gzc_json_t member;
+  gzc_rpc_payload_t group;
+  gzc_rpc_payload_t member;
 } gzc_friend_group_join_response_t;
 
 typedef struct {
   bool has_next;
-  gzc_json_t items;
+  gzc_rpc_payload_t items;
   bool has_next_cursor;
   gzc_str_t next_cursor;
 } gzc_friend_group_member_list_response_t;
 
 typedef struct {
-  gzc_json_t value;
+  gzc_rpc_payload_t value;
 } gzc_friend_group_member_add_response_t;
 
 typedef struct {
-  gzc_json_t value;
+  gzc_rpc_payload_t value;
 } gzc_friend_group_member_put_response_t;
 
 typedef struct {
-  gzc_json_t value;
+  gzc_rpc_payload_t value;
 } gzc_friend_group_member_delete_response_t;
 
 typedef struct {
   bool has_next;
-  gzc_json_t items;
+  gzc_rpc_payload_t items;
   bool has_next_cursor;
   gzc_str_t next_cursor;
 } gzc_friend_group_message_list_response_t;
 
 typedef struct {
-  gzc_json_t value;
+  gzc_rpc_payload_t value;
 } gzc_friend_group_message_get_response_t;
 
 typedef struct {
-  gzc_json_t value;
+  gzc_rpc_payload_t value;
 } gzc_friend_group_message_send_response_t;
 
 typedef struct {
-  gzc_json_t value;
+  gzc_rpc_payload_t value;
 } gzc_server_game_ruleset_get_response_t;
 
 typedef struct {
@@ -843,63 +847,63 @@ typedef struct {
 } gzc_badge_def_pixa_download_response_t;
 
 typedef struct {
-  gzc_json_t value;
+  gzc_rpc_payload_t value;
 } gzc_server_pet_list_response_t;
 
 typedef struct {
-  gzc_json_t value;
+  gzc_rpc_payload_t value;
 } gzc_server_pet_get_response_t;
 
 typedef struct {
-  gzc_json_t value;
+  gzc_rpc_payload_t value;
 } gzc_server_pet_adopt_response_t;
 
 typedef struct {
-  gzc_json_t value;
+  gzc_rpc_payload_t value;
 } gzc_server_pet_put_response_t;
 
 typedef struct {
-  gzc_json_t value;
+  gzc_rpc_payload_t value;
 } gzc_server_pet_delete_response_t;
 
 typedef struct {
-  gzc_json_t value;
+  gzc_rpc_payload_t value;
 } gzc_server_pet_drive_response_t;
 
 typedef struct {
-  gzc_json_t value;
+  gzc_rpc_payload_t value;
 } gzc_server_points_get_response_t;
 
 typedef struct {
-  gzc_json_t value;
+  gzc_rpc_payload_t value;
 } gzc_server_points_transaction_list_response_t;
 
 typedef struct {
-  gzc_json_t value;
+  gzc_rpc_payload_t value;
 } gzc_server_points_transaction_get_response_t;
 
 typedef struct {
-  gzc_json_t value;
+  gzc_rpc_payload_t value;
 } gzc_server_badge_list_response_t;
 
 typedef struct {
-  gzc_json_t value;
+  gzc_rpc_payload_t value;
 } gzc_server_badge_get_response_t;
 
 typedef struct {
-  gzc_json_t value;
+  gzc_rpc_payload_t value;
 } gzc_server_game_result_list_response_t;
 
 typedef struct {
-  gzc_json_t value;
+  gzc_rpc_payload_t value;
 } gzc_server_game_result_get_response_t;
 
 typedef struct {
-  gzc_json_t value;
+  gzc_rpc_payload_t value;
 } gzc_server_reward_grant_list_response_t;
 
 typedef struct {
-  gzc_json_t value;
+  gzc_rpc_payload_t value;
 } gzc_server_reward_grant_get_response_t;
 
 #ifdef __cplusplus

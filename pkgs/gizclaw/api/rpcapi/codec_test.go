@@ -266,6 +266,18 @@ func TestPayloadCodecSelectsProviderOneofFromDiscriminator(t *testing.T) {
 	if _, ok := credential.GetBody().GetValue().(*rpcpb.CredentialBody_DashScopeCredentialBody); !ok {
 		t.Fatalf("credential body oneof = %T, want DashScopeCredentialBody", credential.GetBody().GetValue())
 	}
+
+	workspacePayload, err := encodeRPCPayloadMessage("WorkspaceParameters", []byte(`{"agent_type":"chatroom","input":"push-to-talk"}`))
+	if err != nil {
+		t.Fatalf("encode workspace parameters error = %v", err)
+	}
+	var workspace rpcpb.WorkspaceParameters
+	if err := proto.Unmarshal(workspacePayload, &workspace); err != nil {
+		t.Fatalf("unmarshal workspace parameters error = %v", err)
+	}
+	if _, ok := workspace.GetValue().(*rpcpb.WorkspaceParameters_ChatRoomWorkspaceParameters); !ok {
+		t.Fatalf("workspace parameters oneof = %T, want ChatRoomWorkspaceParameters", workspace.GetValue())
+	}
 }
 
 func TestRPCMethodValid(t *testing.T) {
