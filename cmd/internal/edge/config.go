@@ -1,0 +1,152 @@
+package edge
+
+import (
+	"errors"
+	"fmt"
+	"os"
+	"path/filepath"
+
+	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
+	"github.com/goccy/go-yaml"
+)
+
+const workspaceConfigFile = "config.yaml"
+
+const (
+	TLSCertSourceDisabled = "disabled"
+	TLSCertSourceEdgeRPC  = "edge-rpc"
+	TLSCertSourceFile     = "file"
+)
+
+// ErrRuntimeNotImplemented is returned after edge configuration is loaded and
+// validated while the data-plane runtime is still under construction.
+var ErrRuntimeNotImplemented = errors.New("edge: runtime not implemented")
+
+type Config struct {
+	KeyPair  *giznet.KeyPair
+	Listen   string
+	Endpoint string
+	Upstream UpstreamConfig
+	TLS      TLSConfig
+}
+
+type IdentityConfig struct {
+	PrivateKey giznet.Key `yaml:"private-key"`
+}
+
+type UpstreamConfig struct {
+	Endpoint  string           `yaml:"endpoint"`
+	PublicKey giznet.PublicKey `yaml:"public-key"`
+}
+
+type TLSConfig struct {
+	CertSource string `yaml:"cert-source"`
+}
+
+type ConfigFile struct {
+	Identity IdentityConfig `yaml:"identity"`
+	Listen   string         `yaml:"listen"`
+	Endpoint string         `yaml:"endpoint"`
+	Upstream UpstreamConfig `yaml:"upstream"`
+	TLS      TLSConfig      `yaml:"tls"`
+}
+
+func LoadConfig(path string) (ConfigFile, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return ConfigFile{}, err
+	}
+	return parseConfigData(data)
+}
+
+func parseConfigData(data []byte) (ConfigFile, error) {
+	var raw ConfigFile
+	if err := yaml.Unmarshal(data, &raw); err != nil {
+		return ConfigFile{}, err
+	}
+	if raw.TLS.CertSource == "" {
+		raw.TLS.CertSource = TLSCertSourceDisabled
+	}
+	return raw, nil
+}
+
+func DefaultConfig() Config {
+	return Config{
+		Listen:   "0.0.0.0:9821",
+		Endpoint: "0.0.0.0:9821",
+		TLS: TLSConfig{
+			CertSource: TLSCertSourceDisabled,
+		},
+	}
+}
+
+func PrepareWorkspaceConfig(root string) (Config, error) {
+	fileCfg, err := LoadConfig(filepath.Join(root, workspaceConfigFile))
+	if err != nil {
+		return Config{}, fmt.Errorf("edge: load config: %w", err)
+	}
+	return prepareConfig(Config{}, fileCfg)
+}
+
+func prepareConfig(cfg Config, fileCfg ConfigFile) (Config, error) {
+	if cfg.Listen == "" {
+		cfg.Listen = fileCfg.Listen
+	}
+	if cfg.Endpoint == "" {
+		cfg.Endpoint = fileCfg.Endpoint
+	}
+	if cfg.Upstream.Endpoint == "" {
+		cfg.Upstream.Endpoint = fileCfg.Upstream.Endpoint
+	}
+	if cfg.Upstream.PublicKey.IsZero() {
+		cfg.Upstream.PublicKey = fileCfg.Upstream.PublicKey
+	}
+	if cfg.TLS.CertSource == "" || cfg.TLS.CertSource == TLSCertSourceDisabled {
+		cfg.TLS = fileCfg.TLS
+	}
+	if cfg.TLS.CertSource == "" {
+		cfg.TLS.CertSource = TLSCertSourceDisabled
+	}
+	if fileCfg.Identity.PrivateKey.IsZero() {
+		return Config{}, fmt.Errorf("edge: invalid identity.private-key: zero key")
+	}
+	keyPair, err := giznet.NewKeyPair(fileCfg.Identity.PrivateKey)
+	if err != nil {
+		return Config{}, fmt.Errorf("edge: invalid identity.private-key: %w", err)
+	}
+	cfg.KeyPair = keyPair
+	if cfg.Listen == "" {
+		cfg.Listen = DefaultConfig().Listen
+	}
+	if cfg.Endpoint == "" {
+		cfg.Endpoint = cfg.Listen
+	}
+	if err := cfg.validate(); err != nil {
+		return Config{}, err
+	}
+	return cfg, nil
+}
+
+func (cfg Config) validate() error {
+	if cfg.KeyPair == nil {
+		return fmt.Errorf("edge: missing identity.private-key")
+	}
+	if cfg.Listen == "" {
+		return fmt.Errorf("edge: missing listen")
+	}
+	if cfg.Endpoint == "" {
+		return fmt.Errorf("edge: missing endpoint")
+	}
+	if cfg.Upstream.Endpoint == "" {
+		return fmt.Errorf("edge: missing upstream.endpoint")
+	}
+	if cfg.Upstream.PublicKey.IsZero() {
+		return fmt.Errorf("edge: invalid upstream.public-key: zero key")
+	}
+	switch cfg.TLS.CertSource {
+	case TLSCertSourceDisabled, TLSCertSourceEdgeRPC, TLSCertSourceFile:
+		return nil
+	default:
+		return fmt.Errorf("edge: invalid tls.cert-source %q", cfg.TLS.CertSource)
+	}
+}

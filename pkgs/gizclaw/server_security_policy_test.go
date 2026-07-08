@@ -66,7 +66,7 @@ func TestServerSecurityPolicyAllowsAdminServiceForActiveAdminPeer(t *testing.T) 
 	}
 }
 
-func TestServerSecurityPolicyAllowsEdgeRPCOnlyForActiveEdgeNode(t *testing.T) {
+func TestServerSecurityPolicyAllowsEdgeServicesOnlyForActiveEdgeNode(t *testing.T) {
 	ctx := context.Background()
 	edgeKey, err := giznet.GenerateKeyPair()
 	if err != nil {
@@ -103,14 +103,23 @@ func TestServerSecurityPolicyAllowsEdgeRPCOnlyForActiveEdgeNode(t *testing.T) {
 	}
 
 	policy := testServerSecurityPolicy(service)
+	if !policy.AllowService(edgeKey.Public, ServiceEdgeHTTP) {
+		t.Fatal("active edge-node should allow edge HTTP")
+	}
 	if !policy.AllowService(edgeKey.Public, ServiceEdgeRPC) {
 		t.Fatal("active edge-node should allow edge RPC")
 	}
 	if policy.AllowService(edgeKey.Public, ServiceAdminHTTP) {
 		t.Fatal("edge-node should not allow admin HTTP")
 	}
+	if policy.AllowService(clientKey.Public, ServiceEdgeHTTP) {
+		t.Fatal("active client should not allow edge HTTP")
+	}
 	if policy.AllowService(clientKey.Public, ServiceEdgeRPC) {
 		t.Fatal("active client should not allow edge RPC")
+	}
+	if policy.AllowService(blockedKey.Public, ServiceEdgeHTTP) {
+		t.Fatal("blocked edge-node should not allow edge HTTP")
 	}
 	if policy.AllowService(blockedKey.Public, ServiceEdgeRPC) {
 		t.Fatal("blocked edge-node should not allow edge RPC")
@@ -147,6 +156,9 @@ func TestServerSecurityPolicyAllowsPublicServicesWithoutPeerLookup(t *testing.T)
 	}
 	if !policy.AllowService(giznet.PublicKey{}, ServicePeerHTTP) {
 		t.Fatal("policy should allow server public service")
+	}
+	if policy.AllowService(giznet.PublicKey{}, ServiceEdgeHTTP) {
+		t.Fatal("policy should not allow edge HTTP service without peer lookup")
 	}
 }
 

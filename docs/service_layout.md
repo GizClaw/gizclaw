@@ -13,6 +13,7 @@ ServicePeerRPC    = 0x00
 ServicePeerHTTP   = 0x01
 ServicePeerOpenAI = 0x02
 ServiceAdminHTTP  = 0x10
+ServiceEdgeHTTP   = 0x30
 ServiceEdgeRPC    = 0x31
 ```
 
@@ -100,6 +101,14 @@ When the optional peer/public TCP HTTP face is enabled, the same
 OpenAI-compatible handler is mounted under `/openai/v1/...`. The underlying
 conn-service contract remains `ServicePeerOpenAI`; these routes are not part of
 the Peer HTTP schema.
+
+## Edge HTTP Surface
+
+The edge HTTP surface uses `ServiceEdgeHTTP`. It is only for authorized
+`edge-node` peers forwarding browser/device public API requests to the
+authoritative server over giznet/WebRTC DataChannel. It is not an admin
+surface, and the caller peer identity remains the incoming token subject rather
+than the edge-node transport public key.
 
 ## Edge RPC Surface
 

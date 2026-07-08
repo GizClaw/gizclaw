@@ -20,10 +20,12 @@ const (
 	ServicePeerHTTP uint64 = 0x01
 	// ServicePeerOpenAI is the reliable peer OpenAI-compatible HTTP service stream.
 	ServicePeerOpenAI uint64 = 0x02
+	// ServiceEdgeHTTP is the reliable edge-node HTTP forwarding service stream.
+	ServiceEdgeHTTP uint64 = 0x30
+	// ServiceEdgeRPC is the reliable edge-node control RPC service stream.
+	ServiceEdgeRPC uint64 = 0x31
 	// ServiceAdminHTTP is the reliable admin HTTP service stream.
 	ServiceAdminHTTP uint64 = 0x10
-	// ServiceEdgeRPC is the reliable edge route control service stream.
-	ServiceEdgeRPC uint64 = 0x31
 
 	// EventStreamAgent is the reliable agent event stream.
 	EventStreamAgent uint64 = 0x20
