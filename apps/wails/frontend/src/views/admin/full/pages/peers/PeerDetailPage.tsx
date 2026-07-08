@@ -32,6 +32,7 @@ import { PageHeader, PageSummaryCard } from "@/dashboard";
 import { StatusBadge } from "@/dashboard";
 import { usePeerDetail } from "../../hooks/usePeerDetail";
 import { formatDate, formatShortKey, peerTitle } from "../../lib/format";
+import { PeerTelemetryPanel } from "./PeerTelemetryPanel";
 
 export function PeerDetailPage(): JSX.Element {
   const params = useParams();
@@ -268,9 +269,10 @@ export function PeerDetailPage(): JSX.Element {
           {peerNotice !== null ? <NoticeBanner message={peerNotice.message} tone={peerNotice.tone} /> : null}
 
           <Tabs className="space-y-4" defaultValue="info">
-            <TabsList className="grid h-auto w-full grid-cols-3 lg:w-[26rem]">
+            <TabsList className="grid h-auto w-full grid-cols-4 lg:w-[34rem]">
               <TabsTrigger value="info">Info</TabsTrigger>
               <TabsTrigger value="edit">Edit</TabsTrigger>
+              <TabsTrigger value="telemetry">Telemetry</TabsTrigger>
               <TabsTrigger value="cli">CLI</TabsTrigger>
             </TabsList>
 
@@ -424,6 +426,10 @@ export function PeerDetailPage(): JSX.Element {
                 </Card>
 
               </div>
+            </TabsContent>
+
+            <TabsContent className="space-y-4" value="telemetry">
+              <PeerTelemetryPanel publicKey={registration.public_key} />
             </TabsContent>
 
             <TabsContent className="space-y-4" value="cli">

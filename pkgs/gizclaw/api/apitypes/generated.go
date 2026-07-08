@@ -941,6 +941,105 @@ func (e PeerStreamKind) Valid() bool {
 	}
 }
 
+// Defines values for PeerTelemetryAggregate.
+const (
+	PeerTelemetryAggregateAvg   PeerTelemetryAggregate = "avg"
+	PeerTelemetryAggregateCount PeerTelemetryAggregate = "count"
+	PeerTelemetryAggregateLast  PeerTelemetryAggregate = "last"
+	PeerTelemetryAggregateMax   PeerTelemetryAggregate = "max"
+	PeerTelemetryAggregateMin   PeerTelemetryAggregate = "min"
+	PeerTelemetryAggregateSum   PeerTelemetryAggregate = "sum"
+)
+
+// Valid indicates whether the value is a known member of the PeerTelemetryAggregate enum.
+func (e PeerTelemetryAggregate) Valid() bool {
+	switch e {
+	case PeerTelemetryAggregateAvg:
+		return true
+	case PeerTelemetryAggregateCount:
+		return true
+	case PeerTelemetryAggregateLast:
+		return true
+	case PeerTelemetryAggregateMax:
+		return true
+	case PeerTelemetryAggregateMin:
+		return true
+	case PeerTelemetryAggregateSum:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PeerTelemetryField.
+const (
+	PeerTelemetryFieldBatteryCharging       PeerTelemetryField = "battery.charging"
+	PeerTelemetryFieldBatteryPercent        PeerTelemetryField = "battery.percent"
+	PeerTelemetryFieldBatteryVoltageMv      PeerTelemetryField = "battery.voltage_mv"
+	PeerTelemetryFieldGnssAccuracyM         PeerTelemetryField = "gnss.accuracy_m"
+	PeerTelemetryFieldGnssAltitudeM         PeerTelemetryField = "gnss.altitude_m"
+	PeerTelemetryFieldGnssLatitude          PeerTelemetryField = "gnss.latitude"
+	PeerTelemetryFieldGnssLongitude         PeerTelemetryField = "gnss.longitude"
+	PeerTelemetryFieldNetworkConnected      PeerTelemetryField = "network.connected"
+	PeerTelemetryFieldNetworkRssiDbm        PeerTelemetryField = "network.rssi_dbm"
+	PeerTelemetryFieldNetworkSignalLevel    PeerTelemetryField = "network.signal_level"
+	PeerTelemetryFieldSystemFreeMemoryBytes PeerTelemetryField = "system.free_memory_bytes"
+	PeerTelemetryFieldSystemTemperatureC    PeerTelemetryField = "system.temperature_c"
+	PeerTelemetryFieldSystemUptimeSeconds   PeerTelemetryField = "system.uptime_seconds"
+)
+
+// Valid indicates whether the value is a known member of the PeerTelemetryField enum.
+func (e PeerTelemetryField) Valid() bool {
+	switch e {
+	case PeerTelemetryFieldBatteryCharging:
+		return true
+	case PeerTelemetryFieldBatteryPercent:
+		return true
+	case PeerTelemetryFieldBatteryVoltageMv:
+		return true
+	case PeerTelemetryFieldGnssAccuracyM:
+		return true
+	case PeerTelemetryFieldGnssAltitudeM:
+		return true
+	case PeerTelemetryFieldGnssLatitude:
+		return true
+	case PeerTelemetryFieldGnssLongitude:
+		return true
+	case PeerTelemetryFieldNetworkConnected:
+		return true
+	case PeerTelemetryFieldNetworkRssiDbm:
+		return true
+	case PeerTelemetryFieldNetworkSignalLevel:
+		return true
+	case PeerTelemetryFieldSystemFreeMemoryBytes:
+		return true
+	case PeerTelemetryFieldSystemTemperatureC:
+		return true
+	case PeerTelemetryFieldSystemUptimeSeconds:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PeerTelemetryOrder.
+const (
+	PeerTelemetryOrderAsc  PeerTelemetryOrder = "asc"
+	PeerTelemetryOrderDesc PeerTelemetryOrder = "desc"
+)
+
+// Valid indicates whether the value is a known member of the PeerTelemetryOrder enum.
+func (e PeerTelemetryOrder) Valid() bool {
+	switch e {
+	case PeerTelemetryOrderAsc:
+		return true
+	case PeerTelemetryOrderDesc:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for PetDefResourceKind.
 const (
 	PetDefResourceKindPetDef PetDefResourceKind = "PetDef"
@@ -2747,6 +2846,65 @@ type PeerStreamEventType string
 
 // PeerStreamKind defines model for PeerStreamKind.
 type PeerStreamKind string
+
+// PeerTelemetryAggregate Bucket aggregate mode for peer telemetry range data.
+type PeerTelemetryAggregate string
+
+// PeerTelemetryAggregatePoint defines model for PeerTelemetryAggregatePoint.
+type PeerTelemetryAggregatePoint struct {
+	BucketStartTimeMs int64   `json:"bucket_start_time_ms"`
+	Value             float64 `json:"value"`
+}
+
+// PeerTelemetryAggregateResponse defines model for PeerTelemetryAggregateResponse.
+type PeerTelemetryAggregateResponse struct {
+	// Aggregate Bucket aggregate mode for peer telemetry range data.
+	Aggregate PeerTelemetryAggregate `json:"aggregate"`
+	BucketMs  int64                  `json:"bucket_ms"`
+
+	// Field Queryable peer telemetry field name.
+	Field         PeerTelemetryField            `json:"field"`
+	PeerPublicKey string                        `json:"peer_public_key"`
+	Points        []PeerTelemetryAggregatePoint `json:"points"`
+}
+
+// PeerTelemetryField Queryable peer telemetry field name.
+type PeerTelemetryField string
+
+// PeerTelemetryLatestResponse defines model for PeerTelemetryLatestResponse.
+type PeerTelemetryLatestResponse struct {
+	PeerPublicKey string               `json:"peer_public_key"`
+	Values        []PeerTelemetryValue `json:"values"`
+}
+
+// PeerTelemetryOrder Telemetry point ordering.
+type PeerTelemetryOrder string
+
+// PeerTelemetryPoint defines model for PeerTelemetryPoint.
+type PeerTelemetryPoint struct {
+	ObservedAtUnixMs int64   `json:"observed_at_unix_ms"`
+	Value            float64 `json:"value"`
+}
+
+// PeerTelemetryRangeResponse defines model for PeerTelemetryRangeResponse.
+type PeerTelemetryRangeResponse struct {
+	EndTimeMs int64 `json:"end_time_ms"`
+
+	// Field Queryable peer telemetry field name.
+	Field         PeerTelemetryField   `json:"field"`
+	PeerPublicKey string               `json:"peer_public_key"`
+	Points        []PeerTelemetryPoint `json:"points"`
+	StartTimeMs   int64                `json:"start_time_ms"`
+	StepMs        int64                `json:"step_ms"`
+}
+
+// PeerTelemetryValue defines model for PeerTelemetryValue.
+type PeerTelemetryValue struct {
+	// Field Queryable peer telemetry field name.
+	Field            PeerTelemetryField `json:"field"`
+	ObservedAtUnixMs int64              `json:"observed_at_unix_ms"`
+	Value            float64            `json:"value"`
+}
 
 // Pet defines model for Pet.
 type Pet struct {

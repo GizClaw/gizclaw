@@ -137,6 +137,9 @@ stores:
     kind: objectstore
     storage: local-files
     prefix: friend-group-messages
+  metrics:
+    kind: metrics
+    memory: {}
 peers:
   store: peers
 credentials:

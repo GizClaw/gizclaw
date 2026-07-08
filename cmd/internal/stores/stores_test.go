@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	physicalstorage "github.com/GizClaw/gizclaw-go/cmd/internal/storage"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/graph"
@@ -535,13 +536,55 @@ stores:
 func TestNewMetricsRequiresPrometheusConfig(t *testing.T) {
 	if _, err := New(map[string]Config{
 		"metrics": {Kind: KindMetrics},
-	}); err == nil || !strings.Contains(err.Error(), "requires prometheus config") {
+	}); err == nil || !strings.Contains(err.Error(), "requires prometheus or memory config") {
 		t.Fatalf("New metrics missing prometheus err = %v", err)
 	}
 	if _, err := New(map[string]Config{
 		"metrics": {Kind: KindMetrics, Prometheus: &metrics.PrometheusConfig{QueryURL: "http://example.test"}},
 	}); err == nil || !strings.Contains(err.Error(), "remote_write_url is required") {
 		t.Fatalf("New metrics missing remote_write_url err = %v", err)
+	}
+}
+
+func TestMetricsMemory(t *testing.T) {
+	var wrapper struct {
+		Stores map[string]Config `yaml:"stores"`
+	}
+	if err := yaml.Unmarshal([]byte(`
+stores:
+  metrics:
+    kind: metrics
+    memory: {}
+`), &wrapper); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	reg, err := New(wrapper.Stores)
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	defer reg.Close()
+
+	st, err := reg.Metrics("metrics")
+	if err != nil {
+		t.Fatalf("Metrics(metrics): %v", err)
+	}
+	if err := st.Append(context.Background(), []metrics.Sample{{
+		Name:      "gizclaw_peer_battery_percent",
+		Labels:    map[string]string{"peer_id": "p1"},
+		Timestamp: time.Unix(10, 0).UTC(),
+		Value:     82,
+	}}); err != nil {
+		t.Fatalf("Append: %v", err)
+	}
+	series, err := st.Query(context.Background(), metrics.Query{
+		Expression: `gizclaw_peer_battery_percent{peer_id="p1"}`,
+		Time:       time.Unix(10, 0).UTC(),
+	})
+	if err != nil {
+		t.Fatalf("Query: %v", err)
+	}
+	if len(series) != 1 || len(series[0].Points) != 1 || series[0].Points[0].Value != 82 {
+		t.Fatalf("series = %+v", series)
 	}
 }
 

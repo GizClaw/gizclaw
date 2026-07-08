@@ -1,0 +1,200 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Peer Telemetry Query Types",
+    "description": "Admin peer telemetry query schemas.",
+    "version": "1.0.0"
+  },
+  "paths": {},
+  "components": {
+    "schemas": {
+      "PeerTelemetryField": {
+        "type": "string",
+        "description": "Queryable peer telemetry field name.",
+        "enum": [
+          "battery.percent",
+          "battery.charging",
+          "battery.voltage_mv",
+          "gnss.latitude",
+          "gnss.longitude",
+          "gnss.altitude_m",
+          "gnss.accuracy_m",
+          "network.rssi_dbm",
+          "network.signal_level",
+          "network.connected",
+          "system.uptime_seconds",
+          "system.free_memory_bytes",
+          "system.temperature_c"
+        ]
+      },
+      "PeerTelemetryAggregate": {
+        "type": "string",
+        "description": "Bucket aggregate mode for peer telemetry range data.",
+        "enum": [
+          "avg",
+          "min",
+          "max",
+          "sum",
+          "count",
+          "last"
+        ]
+      },
+      "PeerTelemetryOrder": {
+        "type": "string",
+        "description": "Telemetry point ordering.",
+        "enum": [
+          "asc",
+          "desc"
+        ],
+        "default": "asc"
+      },
+      "PeerTelemetryValue": {
+        "type": "object",
+        "required": [
+          "field",
+          "value",
+          "observed_at_unix_ms"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "field": {
+            "$ref": "#/components/schemas/PeerTelemetryField"
+          },
+          "value": {
+            "type": "number",
+            "format": "double"
+          },
+          "observed_at_unix_ms": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "PeerTelemetryPoint": {
+        "type": "object",
+        "required": [
+          "observed_at_unix_ms",
+          "value"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "observed_at_unix_ms": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "value": {
+            "type": "number",
+            "format": "double"
+          }
+        }
+      },
+      "PeerTelemetryAggregatePoint": {
+        "type": "object",
+        "required": [
+          "bucket_start_time_ms",
+          "value"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "bucket_start_time_ms": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "value": {
+            "type": "number",
+            "format": "double"
+          }
+        }
+      },
+      "PeerTelemetryLatestResponse": {
+        "type": "object",
+        "required": [
+          "peer_public_key",
+          "values"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "peer_public_key": {
+            "type": "string"
+          },
+          "values": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PeerTelemetryValue"
+            }
+          }
+        }
+      },
+      "PeerTelemetryRangeResponse": {
+        "type": "object",
+        "required": [
+          "peer_public_key",
+          "field",
+          "start_time_ms",
+          "end_time_ms",
+          "step_ms",
+          "points"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "peer_public_key": {
+            "type": "string"
+          },
+          "field": {
+            "$ref": "#/components/schemas/PeerTelemetryField"
+          },
+          "start_time_ms": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "end_time_ms": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "step_ms": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "points": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PeerTelemetryPoint"
+            }
+          }
+        }
+      },
+      "PeerTelemetryAggregateResponse": {
+        "type": "object",
+        "required": [
+          "peer_public_key",
+          "field",
+          "aggregate",
+          "bucket_ms",
+          "points"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "peer_public_key": {
+            "type": "string"
+          },
+          "field": {
+            "$ref": "#/components/schemas/PeerTelemetryField"
+          },
+          "aggregate": {
+            "$ref": "#/components/schemas/PeerTelemetryAggregate"
+          },
+          "bucket_ms": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "points": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PeerTelemetryAggregatePoint"
+            }
+          }
+        }
+      }
+    }
+  }
+}

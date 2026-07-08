@@ -90,6 +90,9 @@ run_js_rpc_tests() {
 	echo "==> node tests/gizclaw-e2e/js/admin"
 	(cd "$repo_root/tests/gizclaw-e2e/js" && npm run test:admin)
 
+	echo "==> node tests/gizclaw-e2e/js/admin telemetry"
+	(cd "$repo_root/tests/gizclaw-e2e/js" && npm run test:admin-telemetry)
+
 	echo "==> node tests/gizclaw-e2e/js/rpc"
 	(cd "$repo_root/tests/gizclaw-e2e/js" && npm run test:rpc)
 }

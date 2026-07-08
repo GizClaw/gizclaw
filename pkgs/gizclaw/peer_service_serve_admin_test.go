@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -17,10 +18,13 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peertelemetry"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/friend"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/friendgroup"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/resourcemanager"
+	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/metrics"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/objectstore"
 )
 
@@ -428,6 +432,108 @@ func TestAdminServerLogsAllowsCursorOnlyContinuation(t *testing.T) {
 	if logs.req.StartTimeSet || logs.req.EndTimeSet || logs.req.FilterSet || logs.req.OrderSet {
 		t.Fatalf("unexpected explicit query fields = %#v", logs.req)
 	}
+}
+
+func TestAdminPeerTelemetryLatest(t *testing.T) {
+	t.Parallel()
+
+	peer := adminTelemetryTestPeer()
+	now := time.Now().UTC()
+	store := metrics.NewMemoryStore()
+	if err := store.Append(context.Background(), []metrics.Sample{{
+		Name:      peertelemetry.MetricBatteryPercent,
+		Labels:    map[string]string{"peer_id": peer.String()},
+		Timestamp: now.Add(-time.Minute),
+		Value:     91,
+	}}); err != nil {
+		t.Fatalf("Append() error = %v", err)
+	}
+	app := fiber.New(fiber.Config{DisableStartupMessage: true})
+	adminhttp.RegisterHandlers(app, adminhttp.NewStrictHandler(&adminService{
+		PeerTelemetry: &peertelemetry.AdminService{
+			Metrics: store,
+			Now: func() time.Time {
+				return now
+			},
+		},
+	}, nil))
+
+	rec := serveAdminAsset(app, http.MethodGet, "/peers/"+peer.String()+"/telemetry/latest?fields=battery.percent", "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("latest status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	var response apitypes.PeerTelemetryLatestResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
+		t.Fatalf("latest JSON error = %v", err)
+	}
+	if response.PeerPublicKey != peer.String() || len(response.Values) != 1 {
+		t.Fatalf("latest response = %#v", response)
+	}
+	if got := response.Values[0]; got.Field != apitypes.PeerTelemetryFieldBatteryPercent || got.Value != 91 {
+		t.Fatalf("latest value = %#v", got)
+	}
+}
+
+func TestAdminPeerTelemetryRange(t *testing.T) {
+	t.Parallel()
+
+	peer := adminTelemetryTestPeer()
+	start := time.Now().UTC().Add(-10 * time.Minute).Truncate(time.Second)
+	store := metrics.NewMemoryStore()
+	if err := store.Append(context.Background(), []metrics.Sample{
+		{Name: peertelemetry.MetricGNSSLatitude, Labels: map[string]string{"peer_id": peer.String()}, Timestamp: start, Value: 37.1},
+		{Name: peertelemetry.MetricGNSSLatitude, Labels: map[string]string{"peer_id": peer.String()}, Timestamp: start.Add(time.Minute), Value: 37.2},
+	}); err != nil {
+		t.Fatalf("Append() error = %v", err)
+	}
+	app := fiber.New(fiber.Config{DisableStartupMessage: true})
+	adminhttp.RegisterHandlers(app, adminhttp.NewStrictHandler(&adminService{
+		PeerTelemetry: &peertelemetry.AdminService{Metrics: store},
+	}, nil))
+
+	path := "/peers/" + peer.String() + "/telemetry?field=gnss.latitude&start_time_ms=" +
+		strconv.FormatInt(start.UnixMilli(), 10) + "&end_time_ms=" +
+		strconv.FormatInt(start.Add(time.Minute).UnixMilli(), 10) + "&step_ms=60000&limit=2&order=desc"
+	rec := serveAdminAsset(app, http.MethodGet, path, "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("range status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	var response apitypes.PeerTelemetryRangeResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
+		t.Fatalf("range JSON error = %v", err)
+	}
+	if len(response.Points) != 2 || response.Points[0].Value != 37.2 || response.Points[1].Value != 37.1 {
+		t.Fatalf("range points = %#v", response.Points)
+	}
+}
+
+func TestAdminPeerTelemetryErrors(t *testing.T) {
+	t.Parallel()
+
+	peer := adminTelemetryTestPeer()
+	app := fiber.New(fiber.Config{DisableStartupMessage: true})
+	adminhttp.RegisterHandlers(app, adminhttp.NewStrictHandler(&adminService{}, nil))
+	rec := serveAdminAsset(app, http.MethodGet, "/peers/"+peer.String()+"/telemetry/latest", "")
+	if rec.Code != http.StatusInternalServerError || !strings.Contains(rec.Body.String(), "TELEMETRY_QUERY_NOT_CONFIGURED") {
+		t.Fatalf("unconfigured status=%d body=%s", rec.Code, rec.Body.String())
+	}
+
+	app = fiber.New(fiber.Config{DisableStartupMessage: true})
+	adminhttp.RegisterHandlers(app, adminhttp.NewStrictHandler(&adminService{
+		PeerTelemetry: &peertelemetry.AdminService{Metrics: metrics.NewMemoryStore()},
+	}, nil))
+	rec = serveAdminAsset(app, http.MethodGet, "/peers/"+peer.String()+"/telemetry/latest?fields=bad", "")
+	if rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), "INVALID_TELEMETRY_QUERY") {
+		t.Fatalf("bad field status=%d body=%s", rec.Code, rec.Body.String())
+	}
+}
+
+func adminTelemetryTestPeer() giznet.PublicKey {
+	var peer giznet.PublicKey
+	for i := range peer {
+		peer[i] = byte(255 - i)
+	}
+	return peer
 }
 
 func TestAdminSocialErrorClassifiesServiceConfigurationFailures(t *testing.T) {

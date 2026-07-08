@@ -1,14 +1,16 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
+import { x25519 } from "@noble/curves/ed25519.js";
 import wrtc from "@roamhq/wrtc";
 import { GIZNET_WEBRTC_PACKET_DATA_CHANNEL_LABEL, connectGiznetWebRTCFromEndpoint } from "@gizclaw/gizclaw";
-import { base58Decode } from "@gizclaw/gizclaw/signaling";
+import { base58Decode, base58Encode } from "@gizclaw/gizclaw/signaling";
 
 export const repoRoot = path.resolve(import.meta.dirname, "../../../..");
 
 export type Identity = {
   clientPrivateKey: Uint8Array;
   endpoint: string;
+  publicKey: string;
 };
 
 export async function connectSetupPeer(identityDir: string): Promise<wrtc.RTCPeerConnection> {
@@ -54,6 +56,7 @@ export async function loadIdentity(dir: string): Promise<Identity> {
   return {
     clientPrivateKey: privateKey,
     endpoint: matchConfig(config, /endpoint:\s*([^\s]+)/),
+    publicKey: base58Encode(x25519.getPublicKey(privateKey)),
   };
 }
 
