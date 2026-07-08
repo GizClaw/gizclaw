@@ -49,6 +49,7 @@ into multiple binary body frames by the method implementation.
 
 Peer RPC request and response envelopes use `Binary` frames containing protobuf
 messages from `api/rpc/common.proto` and `api/rpc/peer.proto`.
+Method-specific payload messages are generated in `api/rpc/payload.proto`.
 
 `JSON` and `Text` frame types remain reserved for non-RPC stream families that
 need them. They are not valid Peer RPC request or response envelope frames.
@@ -89,9 +90,9 @@ message RpcResponse {
 append-only and must not be reused. SDKs may expose dotted method names for
 developer ergonomics, but the wire envelope uses `RpcMethod`.
 
-`payload` carries the method-specific request or response payload for the
-selected method. RPC errors use protobuf `RpcError` with stable numeric error
-codes and a human-readable message.
+`payload` carries the method-specific protobuf request or response message for
+the selected method. RPC errors use protobuf `RpcError` with stable numeric
+error codes and a human-readable message.
 
 ## Streaming Responses
 

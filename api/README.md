@@ -10,6 +10,8 @@ interfaces, and shared API types under `pkgs/gizclaw/api/`.
   GizClaw HTTP API surfaces.
 - `rpc/common.proto` defines shared Peer RPC envelopes, errors, and stream frames.
 - `rpc/peer.proto` defines the Peer RPC request envelope and method registry.
+- `rpc/payload.proto` defines generated method-specific Peer RPC payload
+  messages from the RPC DTO schema set.
 - `rpc.json`, `rpc/common.json`, and `rpc/client.json` are transitional DTO
   generation inputs for method payload helpers while #157 is moving payloads to
   protobuf messages. They are not the Peer RPC wire protocol source.
@@ -32,6 +34,7 @@ Generated Go code lives outside this directory:
 - `pkgs/gizclaw/api/rpcapi/generated.go`
 - `pkgs/gizclaw/api/rpcproto/common.pb.go`
 - `pkgs/gizclaw/api/rpcproto/peer.pb.go`
+- `pkgs/gizclaw/api/rpcproto/payload.pb.go`
 - `pkgs/gizclaw/api/peerhttp/generated.go`
 
 Current generated TypeScript SDK code lives under `sdk/js/gizclaw/`:
