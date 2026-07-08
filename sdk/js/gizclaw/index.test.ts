@@ -11,6 +11,7 @@ import {
   GIZNET_WEBRTC_SIGNALING_PATH,
   RPC_FRAME_TYPE_EOS,
   RPC_FRAME_TYPE_BINARY,
+  RPC_FRAME_TYPE_TEXT,
   WebRTCRPCClient,
   WebRTCRPCError,
   createAdminAPIFetch,
@@ -65,6 +66,25 @@ test("WebRTCRPCClient reassembles response frames split across messages", async 
   const response = new Uint8Array(encodeRPCResponse({ id: "req-split", result: { ok: true }, v: 1 }));
   channel.receiveBytes(response.slice(0, 5));
   channel.receiveBytes(response.slice(5));
+
+  assert.deepEqual(await promise, { ok: true });
+});
+
+test("WebRTCRPCClient reassembles oversized protobuf envelope continuation frames", async () => {
+  const pc = new FakePeerConnection();
+  const client = new WebRTCRPCClient(pc, { createID: () => "req-continuation" });
+
+  const promise = client.call<{ ok: boolean }>("server.run.workspace.get", {});
+  const channel = pc.lastChannel();
+  channel.open();
+
+  const responseFrames = decodeFrames(encodeRPCResponse({ id: "req-continuation", result: { ok: true }, v: 1 }));
+  const envelope = responseFrames[0]?.payload;
+  assert.ok(envelope);
+  const split = Math.floor(envelope.length / 2);
+  channel.receive(encodeFrame(RPC_FRAME_TYPE_TEXT, envelope.slice(0, split)));
+  channel.receive(encodeFrame(RPC_FRAME_TYPE_TEXT, envelope.slice(split)));
+  channel.receive(encodeFrame(RPC_FRAME_TYPE_EOS));
 
   assert.deepEqual(await promise, { ok: true });
 });

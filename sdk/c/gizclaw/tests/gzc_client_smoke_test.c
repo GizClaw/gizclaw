@@ -14,7 +14,8 @@ struct gzc_rtc_channel {
 
 typedef enum {
   FAKE_RESPONSE_PROTO = 0,
-  FAKE_RESPONSE_BINARY_STREAM = 1
+  FAKE_RESPONSE_PROTO_CONTINUATION = 1,
+  FAKE_RESPONSE_BINARY_STREAM = 2
 } fake_response_mode_t;
 
 typedef struct {
@@ -309,7 +310,13 @@ static int test_channel_send(gzc_rtc_channel_t *channel, const uint8_t *data, si
   if (rc == GZC_OK) {
     rc = append_test_proto_bytes(fake->platform, &response_payload, 2, (const uint8_t *)response, strlen(response));
   }
-  if (rc == GZC_OK) {
+  if (rc == GZC_OK && fake->response_mode == FAKE_RESPONSE_PROTO_CONTINUATION) {
+    size_t split = response_payload.len / 2;
+    rc = append_test_frame(fake->platform, &framed, GZC_RPC_FRAME_TEXT, response_payload.data, split);
+    if (rc == GZC_OK) {
+      rc = append_test_frame(fake->platform, &framed, GZC_RPC_FRAME_TEXT, response_payload.data + split, response_payload.len - split);
+    }
+  } else if (rc == GZC_OK) {
     rc = append_test_frame(fake->platform, &framed, GZC_RPC_FRAME_BINARY, response_payload.data, response_payload.len);
   }
   if (rc != GZC_OK) {
@@ -594,6 +601,16 @@ int main(void) {
     return 1;
   }
   if (expect(method_id == gzc_rpc_methods[0].method_id, "request method id value") != 0) {
+    return 1;
+  }
+
+  fake_webrtc.response_mode = FAKE_RESPONSE_PROTO_CONTINUATION;
+  memset(&response, 0, sizeof(response));
+  rc = gzc_rpc_call(client, gzc_str_from_cstr(GZC_RPC_METHOD_ALL_PING), gzc_str_from_parts((const char *)params.data, params.len), &response);
+  if (expect(rc == GZC_OK, "rpc call continuation response") != 0) {
+    return 1;
+  }
+  if (expect(response.result_payload.len > 0, "rpc call continuation captured result payload") != 0) {
     return 1;
   }
 

@@ -868,6 +868,7 @@ function tryReadRPCResponse<TResult>(
 ): { response: RPCResponse<TResult>; rest: Uint8Array<ArrayBufferLike> } | null {
   let offset = 0;
   let response: RPCResponse<TResult> | undefined;
+  const envelopeChunks: Uint8Array[] = [];
   for (;;) {
     if (buffer.length - offset < 4) {
       return null;
@@ -881,19 +882,29 @@ function tryReadRPCResponse<TResult>(
     offset += 4;
     const payload = buffer.slice(offset, offset + length);
     offset += length;
-      if (type === RPC_FRAME_TYPE_EOS) {
-        if (length !== 0) {
-          throw new Error("RPC EOS frame must be empty.");
-        }
-        if (response == null) {
-          throw new Error("RPC response EOS before protobuf frame.");
-        }
-        return { response, rest: buffer.slice(offset) };
+    if (type === RPC_FRAME_TYPE_EOS) {
+      if (length !== 0) {
+        throw new Error("RPC EOS frame must be empty.");
       }
+      if (response == null && envelopeChunks.length > 0) {
+        response = decodeRPCResponseEnvelope<TResult>(concatByteArrays(envelopeChunks));
+      }
+      if (response == null) {
+        throw new Error("RPC response EOS before protobuf frame.");
+      }
+      return { response, rest: buffer.slice(offset) };
+    }
+    if (type === RPC_FRAME_TYPE_TEXT) {
+      if (response != null) {
+        throw new Error("RPC response contains continuation after protobuf frame.");
+      }
+      envelopeChunks.push(copyBytes(payload));
+      continue;
+    }
     if (type !== RPC_FRAME_TYPE_BINARY) {
       throw new Error(`rpc: expected protobuf binary frame, got type ${type}`);
     }
-    if (response != null) {
+    if (response != null || envelopeChunks.length > 0) {
       throw new Error("RPC response contains multiple protobuf frames.");
     }
     response = decodeRPCResponseEnvelope<TResult>(payload);

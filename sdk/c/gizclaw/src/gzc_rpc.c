@@ -348,24 +348,51 @@ int gzc_rpc_call(gzc_client_t *client, gzc_str_t method, gzc_str_t params_payloa
   }
 
   gzc_buf_t frame_bytes;
-	gzc_buf_init(&frame_bytes);
-	gzc_rpc_frame_t frame;
-	bool saw_response = false;
-	for (;;) {
-		rc = read_frame(client, platform, 5000, &frame_bytes, &frame);
-		if (rc != GZC_OK) {
-			break;
-		}
-		if (frame.type == GZC_RPC_FRAME_EOS) {
-			rc = saw_response ? GZC_OK : GZC_ERR_RPC;
-			break;
-		}
-		if (frame.type != GZC_RPC_FRAME_BINARY || saw_response) {
-			rc = GZC_ERR_RPC;
-			break;
-		}
-		gzc_str_t response_payload;
-		rc = gzc_client_store_rpc_response_internal(client, frame.data, frame.len, &response_payload);
+  gzc_buf_t envelope;
+  gzc_buf_init(&frame_bytes);
+  gzc_buf_init(&envelope);
+  gzc_rpc_frame_t frame;
+  bool saw_response = false;
+  bool saw_continuation = false;
+  for (;;) {
+    rc = read_frame(client, platform, 5000, &frame_bytes, &frame);
+    if (rc != GZC_OK) {
+      break;
+    }
+    if (frame.type == GZC_RPC_FRAME_EOS) {
+      if (saw_continuation && !saw_response) {
+        gzc_str_t response_payload;
+        rc = gzc_client_store_rpc_response_internal(client, envelope.data, envelope.len, &response_payload);
+        if (rc != GZC_OK) {
+          break;
+        }
+        rc = gzc_rpc_decode_response_envelope(response_payload, out_response);
+        if (rc != GZC_OK) {
+          break;
+        }
+        saw_response = true;
+      }
+      rc = saw_response ? GZC_OK : GZC_ERR_RPC;
+      break;
+    }
+    if (frame.type == GZC_RPC_FRAME_TEXT) {
+      if (saw_response) {
+        rc = GZC_ERR_RPC;
+        break;
+      }
+      saw_continuation = true;
+      rc = gzc_buf_append(&envelope, platform, frame.data, frame.len);
+      if (rc != GZC_OK) {
+        break;
+      }
+      continue;
+    }
+    if (frame.type != GZC_RPC_FRAME_BINARY || saw_response || saw_continuation) {
+      rc = GZC_ERR_RPC;
+      break;
+    }
+    gzc_str_t response_payload;
+    rc = gzc_client_store_rpc_response_internal(client, frame.data, frame.len, &response_payload);
     if (rc != GZC_OK) {
       break;
     }
@@ -374,10 +401,11 @@ int gzc_rpc_call(gzc_client_t *client, gzc_str_t method, gzc_str_t params_payloa
       break;
     }
     saw_response = true;
-		rc = GZC_OK;
-		continue;
-	}
-	gzc_buf_free(&frame_bytes, platform);
+    rc = GZC_OK;
+    continue;
+  }
+  gzc_buf_free(&envelope, platform);
+  gzc_buf_free(&frame_bytes, platform);
   close_rpc_channel_on_error(client, rc);
   return rc;
 }
