@@ -54,8 +54,11 @@ func TestDesktopAdminTelemetryPlaywright(t *testing.T) {
 
 	adminKeyPair := server.ContextKeyPair(adminContext)
 	privateKeyBase64 := base64.StdEncoding.EncodeToString(adminKeyPair.Private[:])
-	screenshotPath := filepath.Join(server.RepoRoot, "apps", "wails", "frontend", "test-results", "admin-telemetry", "peer-telemetry-tab.png")
-	if err := os.MkdirAll(filepath.Dir(screenshotPath), 0o755); err != nil {
+	screenshotDir := filepath.Join(server.RepoRoot, "apps", "wails", "frontend", "test-results", "admin-telemetry")
+	screenshotPath := filepath.Join(screenshotDir, "peer-telemetry-tab.png")
+	panelScreenshotPath := filepath.Join(screenshotDir, "peer-telemetry-panel.png")
+	mapScreenshotPath := filepath.Join(screenshotDir, "peer-telemetry-map.png")
+	if err := os.MkdirAll(screenshotDir, 0o755); err != nil {
 		t.Fatalf("create screenshot dir: %v", err)
 	}
 
@@ -65,13 +68,19 @@ func TestDesktopAdminTelemetryPlaywright(t *testing.T) {
 	t.Setenv("GIZCLAW_E2E_ADMIN_TELEMETRY_PRIVATE_KEY_BASE64", privateKeyBase64)
 	t.Setenv("GIZCLAW_E2E_ADMIN_TELEMETRY_PEER_PUBLIC_KEY", peerKey)
 	t.Setenv("GIZCLAW_E2E_ADMIN_TELEMETRY_SCREENSHOT", screenshotPath)
+	t.Setenv("GIZCLAW_E2E_ADMIN_TELEMETRY_PANEL_SCREENSHOT", panelScreenshotPath)
+	t.Setenv("GIZCLAW_E2E_ADMIN_TELEMETRY_MAP_SCREENSHOT", mapScreenshotPath)
 
 	frontend := desktop.NewHarness(t)
 	frontend.RunForShell(t, frontend.FrontendDir(), "npx", "playwright", "test", "e2e/admin-telemetry-real.spec.ts")
-	if _, err := os.Stat(screenshotPath); err != nil {
-		t.Fatalf("telemetry screenshot missing at %s: %v", screenshotPath, err)
+	for _, path := range []string{screenshotPath, panelScreenshotPath, mapScreenshotPath} {
+		if _, err := os.Stat(path); err != nil {
+			t.Fatalf("telemetry screenshot missing at %s: %v", path, err)
+		}
 	}
 	t.Logf("admin telemetry screenshot: %s", screenshotPath)
+	t.Logf("admin telemetry panel screenshot: %s", panelScreenshotPath)
+	t.Logf("admin telemetry map screenshot: %s", mapScreenshotPath)
 }
 
 func telemetryFixtureFrame(sequence uint32, at time.Time, index int) *telemetrypb.TelemetryFrame {

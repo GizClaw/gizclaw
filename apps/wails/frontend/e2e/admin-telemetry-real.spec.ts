@@ -14,6 +14,8 @@ const localPublicKey = process.env.GIZCLAW_E2E_ADMIN_TELEMETRY_PUBLIC_KEY ?? "";
 const privateKeyBase64 = process.env.GIZCLAW_E2E_ADMIN_TELEMETRY_PRIVATE_KEY_BASE64 ?? "";
 const peerPublicKey = process.env.GIZCLAW_E2E_ADMIN_TELEMETRY_PEER_PUBLIC_KEY ?? "";
 const screenshotPath = process.env.GIZCLAW_E2E_ADMIN_TELEMETRY_SCREENSHOT ?? "test-results/admin-telemetry/peer-telemetry-tab.png";
+const telemetryPanelScreenshotPath = process.env.GIZCLAW_E2E_ADMIN_TELEMETRY_PANEL_SCREENSHOT ?? "test-results/admin-telemetry/peer-telemetry-panel.png";
+const telemetryMapScreenshotPath = process.env.GIZCLAW_E2E_ADMIN_TELEMETRY_MAP_SCREENSHOT ?? "test-results/admin-telemetry/peer-telemetry-map.png";
 
 test.skip(missingEnv.length > 0, `real admin telemetry e2e requires ${missingEnv.join(", ")}`);
 
@@ -69,6 +71,7 @@ test.beforeEach(async ({ page }) => {
 });
 
 test("admin telemetry tab renders seeded peer telemetry and writes screenshot artifact", async ({ page }) => {
+  await page.setViewportSize({ height: 1400, width: 1800 });
   await page.goto("/");
   await page.getByRole("button", { name: "Get Started" }).click();
 
@@ -91,6 +94,14 @@ test("admin telemetry tab renders seeded peer telemetry and writes screenshot ar
   await expect(page.getByText("Trajectory").first()).toBeVisible();
   await expect(page.getByText(/sampled points|No points/)).toBeVisible();
 
+  const telemetryPanel = page.getByRole("tabpanel", { name: "Telemetry" });
+  const mapCard = telemetryPanel.getByText("Trajectory").first().locator('xpath=ancestor::*[@data-slot="card"][1]');
+  await mapCard.scrollIntoViewIfNeeded();
+
   await page.screenshot({ fullPage: true, path: screenshotPath });
+  await telemetryPanel.screenshot({ path: telemetryPanelScreenshotPath });
+  await mapCard.screenshot({ path: telemetryMapScreenshotPath });
   console.log(`admin telemetry screenshot: ${screenshotPath}`);
+  console.log(`admin telemetry panel screenshot: ${telemetryPanelScreenshotPath}`);
+  console.log(`admin telemetry map screenshot: ${telemetryMapScreenshotPath}`);
 });
