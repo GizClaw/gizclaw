@@ -305,7 +305,7 @@ func TestAdminWorkspaceHistoryHandlersServePersistedHistoryAndOggAudio(t *testin
 func TestAdminServerLogsStreamsLogAndEndEvents(t *testing.T) {
 	t.Parallel()
 
-	timeNs := int64(1783403541016789000)
+	timeNs := "1783403541016789000"
 	logs := &fakeServerLogQuery{
 		entries: []ServerLogEntry{{
 			TimeMs:  1783403541016,

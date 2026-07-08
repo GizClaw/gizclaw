@@ -26,9 +26,8 @@
             "description": "Unix millisecond timestamp for display and filtering."
           },
           "time_ns": {
-            "type": "integer",
-            "format": "int64",
-            "description": "Optional Unix nanosecond timestamp when the backend provides it."
+            "type": "string",
+            "description": "Optional Unix nanosecond timestamp as a decimal string when the backend provides it."
           },
           "level": {
             "type": "string",

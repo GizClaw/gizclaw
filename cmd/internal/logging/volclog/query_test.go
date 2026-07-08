@@ -22,6 +22,8 @@ func TestQueryServiceStreamsLogsAndCursor(t *testing.T) {
 					{
 						"__time__":    json.Number("1783403541016"),
 						"__time_ns__": "789000",
+						"time_ms":     "user-time-ms",
+						"time_ns":     "user-time-ns",
 						"level":       "error",
 						"msg":         "agenthost failed",
 						"error":       "boom",
@@ -50,13 +52,13 @@ func TestQueryServiceStreamsLogsAndCursor(t *testing.T) {
 		t.Fatalf("entries len = %d", len(entries))
 	}
 	got := entries[0]
-	if got.TimeMs != 1783403541016 || got.TimeNs == nil || *got.TimeNs != 1783403541016789000 {
+	if got.TimeMs != 1783403541016 || got.TimeNs == nil || *got.TimeNs != "1783403541016789000" {
 		t.Fatalf("entry time = %d/%v", got.TimeMs, got.TimeNs)
 	}
 	if got.Level != "ERROR" || got.Message != "agenthost failed" || got.Source != "gizclaw" || got.Path != "slog" {
 		t.Fatalf("entry normalized fields = %#v", got)
 	}
-	if got.Fields["error"] != "boom" || got.Fields["request_id"] != "req-1" {
+	if got.Fields["error"] != "boom" || got.Fields["request_id"] != "req-1" || got.Fields["time_ms"] != "user-time-ms" || got.Fields["time_ns"] != "user-time-ns" {
 		t.Fatalf("entry fields = %#v", got.Fields)
 	}
 	if !end.HasNext || end.NextCursor == nil || *end.NextCursor == "" || end.Count != 1 {

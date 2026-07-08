@@ -1526,9 +1526,9 @@ export type ServerLogEntry = {
      */
     time_ms: number;
     /**
-     * Optional Unix nanosecond timestamp when the backend provides it.
+     * Optional Unix nanosecond timestamp as a decimal string when the backend provides it.
      */
-    time_ns?: number;
+    time_ns?: string;
     /**
      * Normalized log level.
      */

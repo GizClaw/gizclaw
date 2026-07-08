@@ -3031,8 +3031,8 @@ type ServerLogEntry struct {
 	// TimeMs Unix millisecond timestamp for display and filtering.
 	TimeMs int64 `json:"time_ms"`
 
-	// TimeNs Optional Unix nanosecond timestamp when the backend provides it.
-	TimeNs *int64 `json:"time_ns,omitempty"`
+	// TimeNs Optional Unix nanosecond timestamp as a decimal string when the backend provides it.
+	TimeNs *string `json:"time_ns,omitempty"`
 }
 
 // ServerLogStreamEnd defines model for ServerLogStreamEnd.

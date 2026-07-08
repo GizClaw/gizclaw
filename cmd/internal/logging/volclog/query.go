@@ -215,11 +215,12 @@ func volcLogEntry(raw map[string]interface{}) gizclaw.ServerLogEntry {
 		}
 		fields[key] = logFieldString(value)
 	}
-	timeMs := firstInt64(raw, "time_ms", "__time__", "_time_", "Time", "time")
-	var timeNs *int64
-	if ns, ok := firstInt64OK(raw, "time_ns", "__time_ns__", "_time_ns_"); ok {
+	timeMs := firstInt64(raw, "__time__", "_time_", "Time", "time", "time_ms")
+	var timeNs *string
+	if ns, ok := firstInt64OK(raw, "__time_ns__", "_time_ns_", "time_ns"); ok {
 		normalized := normalizeLogTimeNs(timeMs, ns)
-		timeNs = &normalized
+		formatted := strconv.FormatInt(normalized, 10)
+		timeNs = &formatted
 	}
 	level := strings.ToUpper(firstString(raw, "level"))
 	if level == "" {
@@ -246,7 +247,7 @@ func normalizeLogTimeNs(timeMs, ns int64) int64 {
 
 func reservedLogField(key string) bool {
 	switch key {
-	case "time_ms", "__time__", "_time_", "Time", "time", "time_ns", "__time_ns__", "_time_ns_", "level", "msg", "message", "__source__", "source", "__path__", "__filename__", "path":
+	case "__time__", "_time_", "Time", "time", "__time_ns__", "_time_ns_", "level", "msg", "message", "__source__", "source", "__path__", "__filename__", "path":
 		return true
 	default:
 		return false

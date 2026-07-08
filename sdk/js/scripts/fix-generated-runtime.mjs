@@ -49,10 +49,13 @@ async function rewriteTree(url) {
 
 async function rewriteSseRuntime(url) {
   const before = await readFile(url, "utf8");
-  let after = before.replace(
-    "export function createSseClient<TData = unknown>({\n",
-    "class SseHttpError extends Error {\n  status: number;\n  statusText: string;\n  error: unknown;\n\n  constructor(status: number, statusText: string, error: unknown) {\n    super(`SSE failed: ${status} ${statusText}`);\n    this.status = status;\n    this.statusText = statusText;\n    this.error = error;\n  }\n}\n\nasync function parseSseErrorResponse(response: Response): Promise<unknown> {\n  const text = await response.text();\n  if (text === '') {\n    return new Error(`SSE failed: ${response.status} ${response.statusText}`);\n  }\n  try {\n    return JSON.parse(text);\n  } catch {\n    return text;\n  }\n}\n\nexport function createSseClient<TData = unknown>({\n",
-  );
+  let after = before;
+  if (!after.includes("class SseHttpError extends Error")) {
+    after = after.replace(
+      "export function createSseClient<TData = unknown>({\n",
+      "class SseHttpError extends Error {\n  status: number;\n  statusText: string;\n  error: unknown;\n\n  constructor(status: number, statusText: string, error: unknown) {\n    super(`SSE failed: ${status} ${statusText}`);\n    this.status = status;\n    this.statusText = statusText;\n    this.error = error;\n  }\n}\n\nasync function parseSseErrorResponse(response: Response): Promise<unknown> {\n  const text = await response.text();\n  if (text === '') {\n    return new Error(`SSE failed: ${response.status} ${response.statusText}`);\n  }\n  try {\n    return JSON.parse(text);\n  } catch {\n    return text;\n  }\n}\n\nexport function createSseClient<TData = unknown>({\n",
+    );
+  }
   after = after.replace(
     "        if (!response.ok) throw new Error(`SSE failed: ${response.status} ${response.statusText}`);\n",
     "        if (!response.ok) {\n          throw new SseHttpError(response.status, response.statusText, await parseSseErrorResponse(response));\n        }\n",
