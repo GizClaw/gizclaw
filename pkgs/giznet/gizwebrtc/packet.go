@@ -50,7 +50,10 @@ func readPacket(raw datachannel.ReadWriteCloserDeadliner) (directPacket, error) 
 }
 
 func validatePacketProtocol(protocol byte) error {
-	if protocol == giznet.ProtocolServiceStream {
+	if protocol == giznet.ProtocolStampedOpusPacket {
+		return nil
+	}
+	if protocol < 0x40 {
 		return giznet.ErrPacketProtocol
 	}
 	return nil

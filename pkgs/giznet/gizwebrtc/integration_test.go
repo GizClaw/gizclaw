@@ -240,21 +240,37 @@ func TestPacketWriteRejectsLargePayload(t *testing.T) {
 	if _, err := writePacket(noopPacketRaw{}, giznet.ProtocolServiceStream, nil); !errors.Is(err, giznet.ErrPacketProtocol) {
 		t.Fatalf("writePacket service-stream protocol err = %v, want %v", err, giznet.ErrPacketProtocol)
 	}
-	if _, err := writePacket(nil, 1, nil); !errors.Is(err, ErrPacketChannel) {
+	if _, err := writePacket(nil, 0x40, nil); !errors.Is(err, ErrPacketChannel) {
 		t.Fatalf("writePacket nil err = %v, want %v", err, ErrPacketChannel)
 	}
 	payload := make([]byte, maxPacketMessageSize)
-	if _, err := writePacket(noopPacketRaw{}, 1, payload); !errors.Is(err, giznet.ErrPacketTooLarge) {
+	if _, err := writePacket(noopPacketRaw{}, 0x40, payload); !errors.Is(err, giznet.ErrPacketTooLarge) {
 		t.Fatalf("writePacket large err = %v, want %v", err, giznet.ErrPacketTooLarge)
 	}
 	payload = make([]byte, maxPacketMessageSize-1)
 	raw := &recordingPacketRaw{}
-	n, err := writePacket(raw, 1, payload)
+	n, err := writePacket(raw, 0x40, payload)
 	if err != nil {
 		t.Fatalf("writePacket max payload error = %v", err)
 	}
 	if n != len(payload) || len(raw.writes) != maxPacketMessageSize {
 		t.Fatalf("writePacket max payload n=%d write_len=%d, want %d", n, len(raw.writes), maxPacketMessageSize)
+	}
+}
+
+func TestPacketRejectsReservedProtocols(t *testing.T) {
+	for _, protocol := range []byte{0x01, 0x0f, 0x11, 0x3f} {
+		t.Run(fmt.Sprintf("write_%02x", protocol), func(t *testing.T) {
+			if _, err := writePacket(noopPacketRaw{}, protocol, nil); !errors.Is(err, giznet.ErrPacketProtocol) {
+				t.Fatalf("writePacket reserved protocol err = %v, want %v", err, giznet.ErrPacketProtocol)
+			}
+		})
+		t.Run(fmt.Sprintf("read_%02x", protocol), func(t *testing.T) {
+			raw := &fakeStreamRaw{reads: [][]byte{{protocol, 'x'}}}
+			if _, err := readPacket(raw); !errors.Is(err, giznet.ErrPacketProtocol) {
+				t.Fatalf("readPacket reserved protocol err = %v, want %v", err, giznet.ErrPacketProtocol)
+			}
+		})
 	}
 }
 
