@@ -134,8 +134,14 @@ func (s *rpcServer) handleSpeedTest(ctx context.Context, stream *rpcStream, req 
 	if err != nil {
 		return err
 	}
-	if err := stream.WriteResponseForMethod(req.Method, result); err != nil {
+	metadataEOS, err := stream.WriteResponseEnvelopeForMethod(req.Method, result)
+	if err != nil {
 		return err
+	}
+	if metadataEOS {
+		if err := stream.WriteEOS(); err != nil {
+			return err
+		}
 	}
 
 	var g errgroup.Group
@@ -188,7 +194,7 @@ func validateSpeedTestRequest(request rpcapi.SpeedTestRequest) error {
 }
 
 func writeRPCErrorResponse(stream *rpcStream, id string, code rpcapi.RPCErrorCode, message string) error {
-	if err := stream.WriteResponse(rpcapi.Error{RequestID: id, Code: code, Message: message}.RPCResponse()); err != nil {
+	if _, err := stream.WriteResponseEnvelope(rpcapi.Error{RequestID: id, Code: code, Message: message}.RPCResponse()); err != nil {
 		return err
 	}
 	return stream.WriteEOS()

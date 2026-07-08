@@ -85,6 +85,9 @@ func decodeFieldExpr(field Field) string {
 	case CTypeF64:
 		return fmt.Sprintf("gzc_rpc_proto_read_double(payload, wire_type, &offset, &out_value->%s)", field.CName)
 	default:
+		if field.Repeated || field.Map {
+			return fmt.Sprintf("gzc_rpc_proto_read_repeated_payload(payload, %d, wire_type, &offset, &out_value->%s)", field.Number, field.CName)
+		}
 		return fmt.Sprintf("gzc_rpc_proto_read_str(payload, wire_type, &offset, &out_value->%s.raw)", field.CName)
 	}
 }
@@ -142,6 +145,19 @@ static int gzc_rpc_proto_read_str(gzc_str_t payload, uint32_t wire_type, size_t 
     return GZC_ERR_RPC;
   }
   return gzc_rpc_proto_read_len((const uint8_t *)payload.data, payload.len, offset, out);
+}
+
+static int gzc_rpc_proto_read_repeated_payload(gzc_str_t payload, uint32_t field_number, uint32_t wire_type, size_t *offset, gzc_rpc_payload_t *out) {
+  gzc_str_t ignored = {0};
+  if (wire_type != 2u || out == NULL) {
+    return GZC_ERR_RPC;
+  }
+  if (out->count == 0u) {
+    out->raw = payload;
+    out->field_number = field_number;
+  }
+  out->count += 1u;
+  return gzc_rpc_proto_read_len((const uint8_t *)payload.data, payload.len, offset, &ignored);
 }
 `
 	}

@@ -115,7 +115,7 @@ func TestRPCServerStreamDispatchUsesConsumedContinuationEOS(t *testing.T) {
 				if err != nil {
 					return false, err
 				}
-				if err := stream.WriteResponseEnvelopeForMethod(req.Method, resp); err != nil {
+				if _, err := stream.WriteResponseEnvelopeForMethod(req.Method, resp); err != nil {
 					return false, err
 				}
 				if err := stream.WriteEOS(); err != nil {

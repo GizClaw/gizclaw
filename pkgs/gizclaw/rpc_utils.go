@@ -96,7 +96,7 @@ func handleRPCStreamRequest(
 	if resp.V == 0 {
 		resp.V = rpcapi.RPCVersionV1
 	}
-	if err := stream.WriteResponseEnvelopeForMethod(req.Method, resp); err != nil {
+	if _, err := stream.WriteResponseEnvelopeForMethod(req.Method, resp); err != nil {
 		if errors.Is(err, io.EOF) || errors.Is(err, net.ErrClosed) {
 			return true, nil
 		}

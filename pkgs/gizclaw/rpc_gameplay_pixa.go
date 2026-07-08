@@ -41,8 +41,14 @@ func (s *rpcServer) handlePetDefPixaDownload(ctx context.Context, stream *rpcStr
 	if err != nil {
 		return err
 	}
-	if err := stream.WriteResponseForMethod(req.Method, resp); err != nil {
+	metadataEOS, err := stream.WriteResponseEnvelopeForMethod(req.Method, resp)
+	if err != nil {
 		return err
+	}
+	if metadataEOS {
+		if err := stream.WriteEOS(); err != nil {
+			return err
+		}
 	}
 	if err := writeReaderBinaryFrames(stream, reader); err != nil {
 		if errors.Is(err, io.EOF) {
@@ -81,8 +87,14 @@ func (s *rpcServer) handleBadgeDefPixaDownload(ctx context.Context, stream *rpcS
 	if err != nil {
 		return err
 	}
-	if err := stream.WriteResponseForMethod(req.Method, resp); err != nil {
+	metadataEOS, err := stream.WriteResponseEnvelopeForMethod(req.Method, resp)
+	if err != nil {
 		return err
+	}
+	if metadataEOS {
+		if err := stream.WriteEOS(); err != nil {
+			return err
+		}
 	}
 	if err := writeReaderBinaryFrames(stream, reader); err != nil {
 		if errors.Is(err, io.EOF) {

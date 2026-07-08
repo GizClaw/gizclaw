@@ -132,6 +132,78 @@ func TestDownloadFirmwareReturnsRPCError(t *testing.T) {
 	}
 }
 
+func TestDownloadFirmwareReadsContinuationMetadata(t *testing.T) {
+	serverSide, clientSide := net.Pipe()
+	defer serverSide.Close()
+	defer clientSide.Close()
+
+	largePath := strings.Repeat("firmware/", 9000)
+	payload := []byte("firmware-payload")
+	serverErrCh := make(chan error, 1)
+	go func() {
+		serverStream, err := newRPCStream(context.Background(), serverSide)
+		if err != nil {
+			serverErrCh <- err
+			return
+		}
+		defer serverStream.Close()
+		req, requestEOS, err := serverStream.ReadRequestEnvelope()
+		if err != nil {
+			serverErrCh <- err
+			return
+		}
+		if !requestEOS {
+			if err := serverStream.ReadEOS(); err != nil {
+				serverErrCh <- err
+				return
+			}
+		}
+		resp := resourceResponse(req.Id, rpcapi.FirmwareFilesDownloadResponse{
+			FirmwareId: "devkit",
+			Channel:    rpcapi.FirmwareChannelNameStable,
+			Path:       largePath,
+			Artifact:   rpcapi.FirmwareArtifact{TarPath: "devkit/stable/artifact/artifact.tar", Size: 1024, ContentType: "application/x-tar"},
+			File:       rpcapi.FirmwareArtifactEntry{Path: largePath, Type: rpcapi.FirmwareArtifactEntryTypeFile, Size: int64(len(payload))},
+		}, (*rpcapi.RPCResponse_Result).FromFirmwareFilesDownloadResponse)
+		metadataEOS, err := serverStream.WriteResponseEnvelopeForMethod(req.Method, resp)
+		if err != nil {
+			serverErrCh <- err
+			return
+		}
+		if metadataEOS {
+			if err := serverStream.WriteEOS(); err != nil {
+				serverErrCh <- err
+				return
+			}
+		}
+		if err := serverStream.WriteFrame(rpcapi.Frame{Type: rpcapi.FrameTypeBinary, Payload: payload}); err != nil {
+			serverErrCh <- err
+			return
+		}
+		serverErrCh <- serverStream.WriteEOS()
+	}()
+
+	client := &rpcClient{}
+	var out bytes.Buffer
+	download, err := client.DownloadFirmware(context.Background(), clientSide, "firmware-download", rpcapi.FirmwareFilesDownloadRequest{
+		FirmwareId: "devkit",
+		Channel:    rpcapi.FirmwareChannelNameStable,
+		Path:       "firmware.bin",
+	}, &out)
+	if err != nil {
+		t.Fatalf("DownloadFirmware continuation metadata error = %v", err)
+	}
+	if download.Metadata.Path != largePath || download.Metadata.File.Path != largePath {
+		t.Fatalf("DownloadFirmware metadata path len=%d file path len=%d", len(download.Metadata.Path), len(download.Metadata.File.Path))
+	}
+	if download.Bytes != int64(len(payload)) || out.String() != string(payload) {
+		t.Fatalf("DownloadFirmware = %#v payload=%q", download, out.String())
+	}
+	if err := <-serverErrCh; err != nil {
+		t.Fatalf("server error = %v", err)
+	}
+}
+
 func connectedFirmwareTestClient(t *testing.T) (*Client, giznet.Conn, func()) {
 	t.Helper()
 	serverKey, err := giznet.GenerateKeyPair()

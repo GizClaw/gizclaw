@@ -37,4 +37,6 @@ type Field struct {
 	Number   int
 	Type     CType
 	Required bool
+	Repeated bool
+	Map      bool
 }

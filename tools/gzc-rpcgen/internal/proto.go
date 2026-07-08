@@ -182,6 +182,8 @@ func schemaFromProtoMessage(name string, msg protoMessage, enums map[string]bool
 			Number:   field.Number,
 			Type:     ctypeForProtoField(field, enums),
 			Required: !field.Optional,
+			Repeated: field.Repeated,
+			Map:      field.Map,
 		})
 	}
 	sortFields(out.Fields)

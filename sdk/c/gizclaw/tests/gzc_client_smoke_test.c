@@ -683,6 +683,33 @@ int main(void) {
     return 1;
   }
 
+  gzc_buf_t list_payload;
+  gzc_buf_init(&list_payload);
+  rc = append_test_proto_varint(platform, &list_payload, 1, 0);
+  if (rc == GZC_OK) {
+    rc = append_test_proto_bytes(platform, &list_payload, 2, (const uint8_t *)"first", strlen("first"));
+  }
+  if (rc == GZC_OK) {
+    rc = append_test_proto_bytes(platform, &list_payload, 2, (const uint8_t *)"second", strlen("second"));
+  }
+  if (expect(rc == GZC_OK, "build repeated list payload") != 0) {
+    gzc_buf_free(&list_payload, platform);
+    return 1;
+  }
+  gzc_firmware_list_response_t firmware_list;
+  rc = gzc_firmware_list_response_decode_proto(gzc_str_from_parts((const char *)list_payload.data, list_payload.len), &firmware_list);
+  if (expect(rc == GZC_OK, "decode repeated list payload") != 0) {
+    gzc_buf_free(&list_payload, platform);
+    return 1;
+  }
+  if (expect(firmware_list.items.count == 2 && firmware_list.items.field_number == 2 &&
+                 firmware_list.items.raw.len == list_payload.len,
+             "repeated payload preserves all entries") != 0) {
+    gzc_buf_free(&list_payload, platform);
+    return 1;
+  }
+  gzc_buf_free(&list_payload, platform);
+
   fake_webrtc.response_mode = FAKE_RESPONSE_BINARY_STREAM;
   stream_count_t stream_count;
   memset(&stream_count, 0, sizeof(stream_count));

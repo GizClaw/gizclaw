@@ -11,6 +11,8 @@ extern "C" {
 
 typedef struct {
   gzc_str_t raw;
+  uint32_t field_number;
+  size_t count;
 } gzc_rpc_payload_t;
 
 typedef struct {

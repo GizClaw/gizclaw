@@ -45,6 +45,19 @@ static int gzc_rpc_proto_read_str(gzc_str_t payload, uint32_t wire_type, size_t 
   return gzc_rpc_proto_read_len((const uint8_t *)payload.data, payload.len, offset, out);
 }
 
+static int gzc_rpc_proto_read_repeated_payload(gzc_str_t payload, uint32_t field_number, uint32_t wire_type, size_t *offset, gzc_rpc_payload_t *out) {
+  gzc_str_t ignored = {0};
+  if (wire_type != 2u || out == NULL) {
+    return GZC_ERR_RPC;
+  }
+  if (out->count == 0u) {
+    out->raw = payload;
+    out->field_number = field_number;
+  }
+  out->count += 1u;
+  return gzc_rpc_proto_read_len((const uint8_t *)payload.data, payload.len, offset, &ignored);
+}
+
 static int gzc_rpc_proto_read_bool(gzc_str_t payload, uint32_t wire_type, size_t *offset, bool *out) {
   uint64_t value = 0;
   if (wire_type != 0u || out == NULL) {
@@ -742,7 +755,7 @@ int gzc_firmware_list_response_decode_proto(gzc_str_t payload, gzc_firmware_list
       if (rc != GZC_OK) { return rc; }
       break;
     case 2:
-      rc = gzc_rpc_proto_read_str(payload, wire_type, &offset, &out_value->items.raw);
+      rc = gzc_rpc_proto_read_repeated_payload(payload, 2, wire_type, &offset, &out_value->items);
       if (rc != GZC_OK) { return rc; }
       break;
     case 3:
@@ -854,7 +867,7 @@ int gzc_workspace_list_response_decode_proto(gzc_str_t payload, gzc_workspace_li
       if (rc != GZC_OK) { return rc; }
       break;
     case 2:
-      rc = gzc_rpc_proto_read_str(payload, wire_type, &offset, &out_value->items.raw);
+      rc = gzc_rpc_proto_read_repeated_payload(payload, 2, wire_type, &offset, &out_value->items);
       if (rc != GZC_OK) { return rc; }
       break;
     case 3:
@@ -1107,7 +1120,7 @@ int gzc_workflow_list_response_decode_proto(gzc_str_t payload, gzc_workflow_list
       if (rc != GZC_OK) { return rc; }
       break;
     case 2:
-      rc = gzc_rpc_proto_read_str(payload, wire_type, &offset, &out_value->items.raw);
+      rc = gzc_rpc_proto_read_repeated_payload(payload, 2, wire_type, &offset, &out_value->items);
       if (rc != GZC_OK) { return rc; }
       break;
     case 3:
@@ -1261,7 +1274,7 @@ int gzc_model_list_response_decode_proto(gzc_str_t payload, gzc_model_list_respo
       if (rc != GZC_OK) { return rc; }
       break;
     case 2:
-      rc = gzc_rpc_proto_read_str(payload, wire_type, &offset, &out_value->items.raw);
+      rc = gzc_rpc_proto_read_repeated_payload(payload, 2, wire_type, &offset, &out_value->items);
       if (rc != GZC_OK) { return rc; }
       break;
     case 3:
@@ -1415,7 +1428,7 @@ int gzc_voice_list_response_decode_proto(gzc_str_t payload, gzc_voice_list_respo
       if (rc != GZC_OK) { return rc; }
       break;
     case 2:
-      rc = gzc_rpc_proto_read_str(payload, wire_type, &offset, &out_value->items.raw);
+      rc = gzc_rpc_proto_read_repeated_payload(payload, 2, wire_type, &offset, &out_value->items);
       if (rc != GZC_OK) { return rc; }
       break;
     case 3:
@@ -1482,7 +1495,7 @@ int gzc_credential_list_response_decode_proto(gzc_str_t payload, gzc_credential_
       if (rc != GZC_OK) { return rc; }
       break;
     case 2:
-      rc = gzc_rpc_proto_read_str(payload, wire_type, &offset, &out_value->items.raw);
+      rc = gzc_rpc_proto_read_repeated_payload(payload, 2, wire_type, &offset, &out_value->items);
       if (rc != GZC_OK) { return rc; }
       break;
     case 3:
@@ -1636,7 +1649,7 @@ int gzc_contact_list_response_decode_proto(gzc_str_t payload, gzc_contact_list_r
       if (rc != GZC_OK) { return rc; }
       break;
     case 2:
-      rc = gzc_rpc_proto_read_str(payload, wire_type, &offset, &out_value->items.raw);
+      rc = gzc_rpc_proto_read_repeated_payload(payload, 2, wire_type, &offset, &out_value->items);
       if (rc != GZC_OK) { return rc; }
       break;
     case 3:
@@ -1896,7 +1909,7 @@ int gzc_friend_list_response_decode_proto(gzc_str_t payload, gzc_friend_list_res
       if (rc != GZC_OK) { return rc; }
       break;
     case 2:
-      rc = gzc_rpc_proto_read_str(payload, wire_type, &offset, &out_value->items.raw);
+      rc = gzc_rpc_proto_read_repeated_payload(payload, 2, wire_type, &offset, &out_value->items);
       if (rc != GZC_OK) { return rc; }
       break;
     case 3:
@@ -1963,7 +1976,7 @@ int gzc_friend_group_list_response_decode_proto(gzc_str_t payload, gzc_friend_gr
       if (rc != GZC_OK) { return rc; }
       break;
     case 2:
-      rc = gzc_rpc_proto_read_str(payload, wire_type, &offset, &out_value->items.raw);
+      rc = gzc_rpc_proto_read_repeated_payload(payload, 2, wire_type, &offset, &out_value->items);
       if (rc != GZC_OK) { return rc; }
       break;
     case 3:
@@ -2227,7 +2240,7 @@ int gzc_friend_group_member_list_response_decode_proto(gzc_str_t payload, gzc_fr
       if (rc != GZC_OK) { return rc; }
       break;
     case 2:
-      rc = gzc_rpc_proto_read_str(payload, wire_type, &offset, &out_value->items.raw);
+      rc = gzc_rpc_proto_read_repeated_payload(payload, 2, wire_type, &offset, &out_value->items);
       if (rc != GZC_OK) { return rc; }
       break;
     case 3:
@@ -2352,7 +2365,7 @@ int gzc_friend_group_message_list_response_decode_proto(gzc_str_t payload, gzc_f
       if (rc != GZC_OK) { return rc; }
       break;
     case 2:
-      rc = gzc_rpc_proto_read_str(payload, wire_type, &offset, &out_value->items.raw);
+      rc = gzc_rpc_proto_read_repeated_payload(payload, 2, wire_type, &offset, &out_value->items);
       if (rc != GZC_OK) { return rc; }
       break;
     case 3:

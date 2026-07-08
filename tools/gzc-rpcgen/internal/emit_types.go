@@ -11,7 +11,7 @@ func emitTypesH(model Model) ([]byte, error) {
 	b.WriteString("#ifndef GZC_RPC_TYPES_H\n#define GZC_RPC_TYPES_H\n\n")
 	b.WriteString("#include \"gzc_platform.h\"\n\n")
 	b.WriteString("#ifdef __cplusplus\nextern \"C\" {\n#endif\n\n")
-	b.WriteString("typedef struct {\n  gzc_str_t raw;\n} gzc_rpc_payload_t;\n\n")
+	b.WriteString("typedef struct {\n  gzc_str_t raw;\n  uint32_t field_number;\n  size_t count;\n} gzc_rpc_payload_t;\n\n")
 	schemas := append(uniqueSchemas(model, func(m Method) Schema { return m.Request }), uniqueSchemas(model, func(m Method) Schema { return m.Response })...)
 	seen := map[string]bool{}
 	for _, schema := range schemas {

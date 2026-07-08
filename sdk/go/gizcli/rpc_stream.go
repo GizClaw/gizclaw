@@ -187,7 +187,8 @@ func (s *rpcStream) WriteRequestEnvelope(req *rpcapi.RPCRequest) error {
 	if err != nil {
 		return err
 	}
-	return s.writeProtobufEnvelope(frame.Payload)
+	_, err = s.writeProtobufEnvelope(frame.Payload)
+	return err
 }
 
 func (s *rpcStream) ReadResponse() (*rpcapi.RPCResponse, error) {
@@ -246,18 +247,18 @@ func (s *rpcStream) WriteResponseForMethod(method rpcapi.RPCMethod, resp *rpcapi
 	return s.WriteFrame(frame)
 }
 
-func (s *rpcStream) WriteResponseEnvelope(resp *rpcapi.RPCResponse) error {
+func (s *rpcStream) WriteResponseEnvelope(resp *rpcapi.RPCResponse) (bool, error) {
 	frame, err := rpcapi.NewResponseFrame(resp)
 	if err != nil {
-		return err
+		return false, err
 	}
 	return s.writeProtobufEnvelope(frame.Payload)
 }
 
-func (s *rpcStream) WriteResponseEnvelopeForMethod(method rpcapi.RPCMethod, resp *rpcapi.RPCResponse) error {
+func (s *rpcStream) WriteResponseEnvelopeForMethod(method rpcapi.RPCMethod, resp *rpcapi.RPCResponse) (bool, error) {
 	frame, err := rpcapi.NewResponseFrameForMethod(method, resp)
 	if err != nil {
-		return err
+		return false, err
 	}
 	return s.writeProtobufEnvelope(frame.Payload)
 }
@@ -281,18 +282,18 @@ func (s *rpcStream) Responses() iter.Seq2[*rpcapi.RPCResponse, error] {
 	}
 }
 
-func (s *rpcStream) writeProtobufEnvelope(data []byte) error {
+func (s *rpcStream) writeProtobufEnvelope(data []byte) (bool, error) {
 	if len(data) <= rpcapi.MaxFrameSize {
-		return s.WriteFrame(rpcapi.Frame{Type: rpcapi.FrameTypeBinary, Payload: data})
+		return false, s.WriteFrame(rpcapi.Frame{Type: rpcapi.FrameTypeBinary, Payload: data})
 	}
 	for len(data) > 0 {
 		n := min(len(data), rpcapi.MaxFrameSize)
 		if err := s.WriteFrame(rpcapi.Frame{Type: rpcapi.FrameTypeText, Payload: data[:n]}); err != nil {
-			return err
+			return false, err
 		}
 		data = data[n:]
 	}
-	return nil
+	return true, nil
 }
 
 func (s *rpcStream) decodeRequestEnvelope(first rpcapi.Frame) (*rpcapi.RPCRequest, bool, error) {

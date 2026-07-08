@@ -41,12 +41,14 @@ func (c *rpcClient) DownloadFirmware(ctx context.Context, conn net.Conn, id stri
 	if err := stream.WriteEOS(); err != nil {
 		return FirmwareDownloadResult{}, err
 	}
-	resp, err := stream.ReadResponseForMethod(rpcapi.RPCMethodServerFirmwareFilesDownload)
+	resp, responseEOS, err := stream.ReadResponseEnvelopeForMethod(rpcapi.RPCMethodServerFirmwareFilesDownload)
 	if err != nil {
 		return FirmwareDownloadResult{}, err
 	}
 	if resp.Error != nil {
-		_ = stream.ReadEOS()
+		if !responseEOS {
+			_ = stream.ReadEOS()
+		}
 		return FirmwareDownloadResult{}, fmt.Errorf("rpc: %w", rpcapi.Error{RequestID: resp.Id, Code: resp.Error.Code, Message: resp.Error.Message})
 	}
 	if resp.Result == nil {
