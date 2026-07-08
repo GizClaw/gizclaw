@@ -112,7 +112,7 @@ func TestAdminAggregateLastBuildsPromQLOverTime(t *testing.T) {
 	store := &fakeAdminMetricsStore{series: metrics.SeriesSet{{
 		Name: "last_over_time",
 		Points: []metrics.Point{{
-			Timestamp: start,
+			Timestamp: start.Add(time.Minute),
 			Value:     42,
 		}},
 	}}}
@@ -129,8 +129,14 @@ func TestAdminAggregateLastBuildsPromQLOverTime(t *testing.T) {
 	if store.rangeQuery.Step != time.Minute {
 		t.Fatalf("aggregate step = %s, want 1m", store.rangeQuery.Step)
 	}
+	if store.rangeQuery.Start != start.Add(time.Minute) {
+		t.Fatalf("aggregate start = %s, want %s", store.rangeQuery.Start, start.Add(time.Minute))
+	}
 	if response.Aggregate != apitypes.PeerTelemetryAggregateLast || response.BucketMs != 60000 || len(response.Points) != 1 {
 		t.Fatalf("response = %#v", response)
+	}
+	if response.Points[0].BucketStartTimeMs != start.UnixMilli() {
+		t.Fatalf("bucket_start_time_ms = %d, want %d", response.Points[0].BucketStartTimeMs, start.UnixMilli())
 	}
 }
 

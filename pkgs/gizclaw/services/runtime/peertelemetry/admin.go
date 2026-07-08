@@ -134,14 +134,18 @@ func (s *AdminService) Aggregate(ctx context.Context, peer giznet.PublicKey, fie
 	if bucket <= 0 {
 		return apitypes.PeerTelemetryAggregateResponse{}, fmt.Errorf("%w: bucket_ms must be > 0", ErrInvalidQuery)
 	}
-	if countRangePoints(start, end, bucket) > maxAdminRangeLimit {
+	evalStart := start.Add(bucket)
+	if evalStart.After(end) {
+		return apitypes.PeerTelemetryAggregateResponse{}, fmt.Errorf("%w: bucket_ms must fit within the requested range", ErrInvalidQuery)
+	}
+	if countRangePoints(evalStart, end, bucket) > maxAdminRangeLimit {
 		return apitypes.PeerTelemetryAggregateResponse{}, fmt.Errorf("%w: requested bucket count exceeds %d", ErrInvalidQuery, maxAdminRangeLimit)
 	}
 	expr, err := aggregateExpression(peer, field, aggregate, bucket)
 	if err != nil {
 		return apitypes.PeerTelemetryAggregateResponse{}, err
 	}
-	series, err := s.Metrics.QueryRange(ctx, metrics.RangeQuery{Expression: expr, Start: start, End: end, Step: bucket})
+	series, err := s.Metrics.QueryRange(ctx, metrics.RangeQuery{Expression: expr, Start: evalStart, End: end, Step: bucket})
 	if err != nil {
 		return apitypes.PeerTelemetryAggregateResponse{}, fmt.Errorf("peertelemetry: aggregate %s %s: %w", field, aggregate, err)
 	}
@@ -150,7 +154,7 @@ func (s *AdminService) Aggregate(ctx context.Context, peer giznet.PublicKey, fie
 		Field:         field,
 		Aggregate:     aggregate,
 		BucketMs:      bucket.Milliseconds(),
-		Points:        aggregatePointsFromSeries(series),
+		Points:        aggregatePointsFromSeries(series, bucket),
 	}, nil
 }
 
@@ -377,12 +381,12 @@ func telemetryPointsFromSeries(series metrics.SeriesSet) []apitypes.PeerTelemetr
 	return points
 }
 
-func aggregatePointsFromSeries(series metrics.SeriesSet) []apitypes.PeerTelemetryAggregatePoint {
+func aggregatePointsFromSeries(series metrics.SeriesSet, bucket time.Duration) []apitypes.PeerTelemetryAggregatePoint {
 	points := make([]apitypes.PeerTelemetryAggregatePoint, 0)
 	for _, item := range series {
 		for _, point := range item.Points {
 			points = append(points, apitypes.PeerTelemetryAggregatePoint{
-				BucketStartTimeMs: point.Timestamp.UnixMilli(),
+				BucketStartTimeMs: point.Timestamp.Add(-bucket).UnixMilli(),
 				Value:             point.Value,
 			})
 		}

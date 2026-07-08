@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { Activity, BatteryCharging, Cpu, MapPinned, Radio, RefreshCw, Route, Sigma } from "lucide-react";
 import maplibregl from "maplibre-gl";
+import type { StyleSpecification } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 
 import { expectData, toMessage } from "@/dashboard";
@@ -81,6 +82,18 @@ const windowOptions: WindowOption[] = [
 ];
 
 const aggregateOptions: PeerTelemetryAggregate[] = ["avg", "min", "max", "sum", "count", "last"];
+
+const offlineRouteMapStyle: StyleSpecification = {
+  version: 8,
+  sources: {},
+  layers: [
+    {
+      id: "background",
+      type: "background",
+      paint: { "background-color": "#eef2f7" },
+    },
+  ],
+};
 
 export function PeerTelemetryPanel({ publicKey }: { publicKey: string }): JSX.Element {
   const [field, setField] = useState<PeerTelemetryField>("battery.percent");
@@ -411,7 +424,7 @@ function TelemetryRouteMap({ points }: { points: RoutePoint[] }): JSX.Element {
     try {
       map = new maplibregl.Map({
         container,
-        style: "https://demotiles.maplibre.org/style.json",
+        style: offlineRouteMapStyle,
         center: [points[0].lng, points[0].lat],
         zoom: 12,
         attributionControl: false,
@@ -421,7 +434,7 @@ function TelemetryRouteMap({ points }: { points: RoutePoint[] }): JSX.Element {
       return;
     }
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
-    map.on("error", () => setMapError("Map tiles unavailable"));
+    map.on("error", () => setMapError("Map rendering unavailable"));
     map.on("load", () => {
       const coordinates = points.map((point) => [point.lng, point.lat]);
       map.addSource("telemetry-route", {
