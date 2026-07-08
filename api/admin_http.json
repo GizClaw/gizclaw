@@ -1200,7 +1200,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "./rpc/server.json#/components/schemas/FriendGroupListResponse"
+                  "$ref": "./type/server.json#/components/schemas/FriendGroupListResponse"
                 }
               }
             }
@@ -1259,7 +1259,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "./rpc/server.json#/components/schemas/FriendGroupObject"
+                  "$ref": "./type/server.json#/components/schemas/FriendGroupObject"
                 }
               }
             }
@@ -1321,7 +1321,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "./rpc/server.json#/components/schemas/FriendGroupObject"
+                  "$ref": "./type/server.json#/components/schemas/FriendGroupObject"
                 }
               }
             }
@@ -1391,7 +1391,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "./rpc/server.json#/components/schemas/FriendGroupObject"
+                  "$ref": "./type/server.json#/components/schemas/FriendGroupObject"
                 }
               }
             }
@@ -1451,7 +1451,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "./rpc/server.json#/components/schemas/FriendGroupObject"
+                  "$ref": "./type/server.json#/components/schemas/FriendGroupObject"
                 }
               }
             }
@@ -1531,7 +1531,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "./rpc/server.json#/components/schemas/FriendGroupMemberListResponse"
+                  "$ref": "./type/server.json#/components/schemas/FriendGroupMemberListResponse"
                 }
               }
             }
@@ -1601,7 +1601,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "./rpc/server.json#/components/schemas/FriendGroupMemberObject"
+                  "$ref": "./type/server.json#/components/schemas/FriendGroupMemberObject"
                 }
               }
             }
@@ -1682,7 +1682,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "./rpc/server.json#/components/schemas/FriendGroupMemberObject"
+                  "$ref": "./type/server.json#/components/schemas/FriendGroupMemberObject"
                 }
               }
             }
@@ -1751,7 +1751,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "./rpc/server.json#/components/schemas/FriendGroupMemberObject"
+                  "$ref": "./type/server.json#/components/schemas/FriendGroupMemberObject"
                 }
               }
             }
@@ -1813,7 +1813,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "./rpc/server.json#/components/schemas/FriendGroupInviteTokenGetResponse"
+                  "$ref": "./type/server.json#/components/schemas/FriendGroupInviteTokenGetResponse"
                 }
               }
             }
@@ -1883,7 +1883,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "./rpc/server.json#/components/schemas/FriendGroupInviteTokenGetResponse"
+                  "$ref": "./type/server.json#/components/schemas/FriendGroupInviteTokenGetResponse"
                 }
               }
             }
@@ -1943,7 +1943,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "./rpc/server.json#/components/schemas/FriendGroupInviteTokenClearResponse"
+                  "$ref": "./type/server.json#/components/schemas/FriendGroupInviteTokenClearResponse"
                 }
               }
             }
@@ -6274,7 +6274,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "./rpc/server.json#/components/schemas/WorkspaceHistoryListResponse"
+                  "$ref": "./type/server.json#/components/schemas/WorkspaceHistoryListResponse"
                 }
               }
             }
@@ -6345,7 +6345,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "./rpc/server.json#/components/schemas/WorkspaceHistoryGetResponse"
+                  "$ref": "./type/server.json#/components/schemas/WorkspaceHistoryGetResponse"
                 }
               }
             }
@@ -7385,7 +7385,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "./rpc/server.json#/components/schemas/FriendListResponse"
+                  "$ref": "./type/server.json#/components/schemas/FriendListResponse"
                 }
               }
             }
@@ -7455,7 +7455,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "./rpc/server.json#/components/schemas/FriendObject"
+                  "$ref": "./type/server.json#/components/schemas/FriendObject"
                 }
               }
             }
@@ -7526,7 +7526,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "./rpc/server.json#/components/schemas/FriendObject"
+                  "$ref": "./type/server.json#/components/schemas/FriendObject"
                 }
               }
             }
@@ -7595,7 +7595,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "./rpc/server.json#/components/schemas/FriendObject"
+                  "$ref": "./type/server.json#/components/schemas/FriendObject"
                 }
               }
             }
@@ -11293,7 +11293,7 @@
             "minLength": 1
           },
           "role": {
-            "$ref": "./rpc/server.json#/components/schemas/FriendGroupMemberRole"
+            "$ref": "./type/server.json#/components/schemas/FriendGroupMemberRole"
           }
         }
       },
@@ -11305,7 +11305,7 @@
         ],
         "properties": {
           "role": {
-            "$ref": "./rpc/server.json#/components/schemas/FriendGroupMemberRole"
+            "$ref": "./type/server.json#/components/schemas/FriendGroupMemberRole"
           }
         }
       },

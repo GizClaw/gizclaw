@@ -3,38 +3,48 @@
 // Do not edit by hand.
 
 import type {
-  AgentSelection,
-  Badge,
   BadgeDefPixaDownloadRequest,
   BadgeDefPixaDownloadResponse,
-  BadgeListResponse,
   ClientGetIdentifiersRequest,
+  ClientGetIdentifiersResponse,
   ClientGetInfoRequest,
+  ClientGetInfoResponse,
   ContactCreateRequest,
+  ContactCreateResponse,
   ContactDeleteRequest,
+  ContactDeleteResponse,
   ContactGetRequest,
+  ContactGetResponse,
   ContactListRequest,
   ContactListResponse,
-  ContactObject,
   ContactPutRequest,
-  Credential,
+  ContactPutResponse,
+  CredentialCreateRequest,
+  CredentialCreateResponse,
   CredentialDeleteRequest,
+  CredentialDeleteResponse,
   CredentialGetRequest,
+  CredentialGetResponse,
   CredentialListRequest,
   CredentialListResponse,
   CredentialPutRequest,
-  DeviceInfo,
-  Firmware,
+  CredentialPutResponse,
   FirmwareFilesDownloadRequest,
   FirmwareFilesDownloadResponse,
   FirmwareGetRequest,
+  FirmwareGetResponse,
   FirmwareListRequest,
   FirmwareListResponse,
   FriendAddRequest,
+  FriendAddResponse,
   FriendDeleteRequest,
+  FriendDeleteResponse,
   FriendGroupCreateRequest,
+  FriendGroupCreateResponse,
   FriendGroupDeleteRequest,
+  FriendGroupDeleteResponse,
   FriendGroupGetRequest,
+  FriendGroupGetResponse,
   FriendGroupInviteTokenClearRequest,
   FriendGroupInviteTokenClearResponse,
   FriendGroupInviteTokenCreateRequest,
@@ -46,18 +56,21 @@ import type {
   FriendGroupListRequest,
   FriendGroupListResponse,
   FriendGroupMemberAddRequest,
+  FriendGroupMemberAddResponse,
   FriendGroupMemberDeleteRequest,
+  FriendGroupMemberDeleteResponse,
   FriendGroupMemberListRequest,
   FriendGroupMemberListResponse,
-  FriendGroupMemberObject,
   FriendGroupMemberPutRequest,
+  FriendGroupMemberPutResponse,
   FriendGroupMessageGetRequest,
+  FriendGroupMessageGetResponse,
   FriendGroupMessageListRequest,
   FriendGroupMessageListResponse,
-  FriendGroupMessageObject,
   FriendGroupMessageSendRequest,
-  FriendGroupObject,
+  FriendGroupMessageSendResponse,
   FriendGroupPutRequest,
+  FriendGroupPutResponse,
   FriendInviteTokenClearRequest,
   FriendInviteTokenClearResponse,
   FriendInviteTokenCreateRequest,
@@ -66,87 +79,118 @@ import type {
   FriendInviteTokenGetResponse,
   FriendListRequest,
   FriendListResponse,
-  FriendObject,
-  GameResult,
-  GameResultListResponse,
-  GameRuleset,
-  GameplayGetRequest,
-  GameplayListRequest,
-  Model,
+  ModelCreateRequest,
+  ModelCreateResponse,
   ModelDeleteRequest,
+  ModelDeleteResponse,
   ModelGetRequest,
+  ModelGetResponse,
   ModelListRequest,
   ModelListResponse,
   ModelPutRequest,
-  PeerRunAgent,
-  PeerRunHistoryEntry,
-  PeerRunHistoryListRequest,
-  PeerRunHistoryListResponse,
-  PeerRunHistoryPlayRequest,
-  PeerRunHistoryPlayResponse,
-  PeerRunMemoryStatsRequest,
-  PeerRunMemoryStatsResponse,
-  PeerRunRecallRequest,
-  PeerRunRecallResponse,
-  PeerRunStatus,
-  PeerRunWorkspaceState,
-  PeerStatus,
-  Pet,
-  PetAdoptRequest,
-  PetAdoptResponse,
+  ModelPutResponse,
   PetDefPixaDownloadRequest,
   PetDefPixaDownloadResponse,
-  PetDeleteRequest,
-  PetDriveRequest,
-  PetDriveResponse,
-  PetGetRequest,
-  PetListResponse,
-  PetPutRequest,
   PingRequest,
   PingResponse,
-  PointsAccount,
-  PointsTransaction,
-  PointsTransactionListResponse,
-  RefreshIdentifiers,
-  RefreshInfo,
-  RewardGrant,
-  RewardGrantListResponse,
-  Runtime,
+  ServerBadgeGetRequest,
+  ServerBadgeGetResponse,
+  ServerBadgeListRequest,
+  ServerBadgeListResponse,
+  ServerGameResultGetRequest,
+  ServerGameResultGetResponse,
+  ServerGameResultListRequest,
+  ServerGameResultListResponse,
   ServerGameRulesetGetRequest,
+  ServerGameRulesetGetResponse,
   ServerGetInfoRequest,
+  ServerGetInfoResponse,
   ServerGetRunAgentRequest,
+  ServerGetRunAgentResponse,
   ServerGetRunStatusRequest,
+  ServerGetRunStatusResponse,
+  ServerGetRunWorkspaceMemoryStatsRequest,
+  ServerGetRunWorkspaceMemoryStatsResponse,
   ServerGetRunWorkspaceRequest,
+  ServerGetRunWorkspaceResponse,
   ServerGetRuntimeRequest,
+  ServerGetRuntimeResponse,
   ServerGetStatusRequest,
+  ServerGetStatusResponse,
+  ServerListRunWorkspaceHistoryRequest,
+  ServerListRunWorkspaceHistoryResponse,
+  ServerPetAdoptRequest,
+  ServerPetAdoptResponse,
+  ServerPetDeleteRequest,
+  ServerPetDeleteResponse,
+  ServerPetDriveRequest,
+  ServerPetDriveResponse,
+  ServerPetGetRequest,
+  ServerPetGetResponse,
+  ServerPetListRequest,
+  ServerPetListResponse,
+  ServerPetPutRequest,
+  ServerPetPutResponse,
+  ServerPlayRunWorkspaceHistoryRequest,
+  ServerPlayRunWorkspaceHistoryResponse,
   ServerPointsGetRequest,
+  ServerPointsGetResponse,
+  ServerPointsTransactionGetRequest,
+  ServerPointsTransactionGetResponse,
+  ServerPointsTransactionListRequest,
+  ServerPointsTransactionListResponse,
+  ServerPutInfoRequest,
+  ServerPutInfoResponse,
   ServerReloadRunRequest,
+  ServerReloadRunResponse,
   ServerReloadRunWorkspaceRequest,
+  ServerReloadRunWorkspaceResponse,
+  ServerRewardGrantGetRequest,
+  ServerRewardGrantGetResponse,
+  ServerRewardGrantListRequest,
+  ServerRewardGrantListResponse,
   ServerRunSayRequest,
   ServerRunSayResponse,
+  ServerRunWorkspaceRecallRequest,
+  ServerRunWorkspaceRecallResponse,
+  ServerSetRunAgentRequest,
+  ServerSetRunAgentResponse,
+  ServerSetRunWorkspaceRequest,
+  ServerSetRunWorkspaceResponse,
   ServerStopRunRequest,
+  ServerStopRunResponse,
   SpeedTestRequest,
   SpeedTestResponse,
-  Voice,
   VoiceGetRequest,
+  VoiceGetResponse,
   VoiceListRequest,
   VoiceListResponse,
+  WorkflowCreateRequest,
+  WorkflowCreateResponse,
   WorkflowDeleteRequest,
-  WorkflowDocument,
+  WorkflowDeleteResponse,
   WorkflowGetRequest,
+  WorkflowGetResponse,
   WorkflowListRequest,
   WorkflowListResponse,
   WorkflowPutRequest,
-  Workspace,
+  WorkflowPutResponse,
+  WorkspaceCreateRequest,
+  WorkspaceCreateResponse,
   WorkspaceDeleteRequest,
+  WorkspaceDeleteResponse,
   WorkspaceGetRequest,
+  WorkspaceGetResponse,
   WorkspaceHistoryAudioGetRequest,
   WorkspaceHistoryAudioGetResponse,
   WorkspaceHistoryGetRequest,
+  WorkspaceHistoryGetResponse,
   WorkspaceHistoryListRequest,
+  WorkspaceHistoryListResponse,
   WorkspaceListRequest,
   WorkspaceListResponse,
-  WorkspacePutRequest
+  WorkspacePutRequest,
+  WorkspacePutResponse
 } from "./types.gen.ts";
 
 export type RPCMethodMap = {
@@ -160,75 +204,75 @@ export type RPCMethodMap = {
   };
   "client.info.get": {
     request: ClientGetInfoRequest;
-    response: RefreshInfo;
+    response: ClientGetInfoResponse;
   };
   "client.identifiers.get": {
     request: ClientGetIdentifiersRequest;
-    response: RefreshIdentifiers;
+    response: ClientGetIdentifiersResponse;
   };
   "server.info.get": {
     request: ServerGetInfoRequest;
-    response: DeviceInfo;
+    response: ServerGetInfoResponse;
   };
   "server.info.put": {
-    request: DeviceInfo;
-    response: DeviceInfo;
+    request: ServerPutInfoRequest;
+    response: ServerPutInfoResponse;
   };
   "server.runtime.get": {
     request: ServerGetRuntimeRequest;
-    response: Runtime;
+    response: ServerGetRuntimeResponse;
   };
   "server.status.get": {
     request: ServerGetStatusRequest;
-    response: PeerStatus;
+    response: ServerGetStatusResponse;
   };
   "server.run.agent.get": {
     request: ServerGetRunAgentRequest;
-    response: PeerRunAgent;
+    response: ServerGetRunAgentResponse;
   };
   "server.run.agent.set": {
-    request: AgentSelection;
-    response: PeerRunAgent;
+    request: ServerSetRunAgentRequest;
+    response: ServerSetRunAgentResponse;
   };
   "server.run.workspace.get": {
     request: ServerGetRunWorkspaceRequest;
-    response: PeerRunWorkspaceState;
+    response: ServerGetRunWorkspaceResponse;
   };
   "server.run.workspace.set": {
-    request: AgentSelection;
-    response: PeerRunWorkspaceState;
+    request: ServerSetRunWorkspaceRequest;
+    response: ServerSetRunWorkspaceResponse;
   };
   "server.run.workspace.reload": {
     request: ServerReloadRunWorkspaceRequest;
-    response: PeerRunWorkspaceState;
+    response: ServerReloadRunWorkspaceResponse;
   };
   "server.run.workspace.history": {
-    request: PeerRunHistoryListRequest;
-    response: PeerRunHistoryListResponse;
+    request: ServerListRunWorkspaceHistoryRequest;
+    response: ServerListRunWorkspaceHistoryResponse;
   };
   "server.run.workspace.history.play": {
-    request: PeerRunHistoryPlayRequest;
-    response: PeerRunHistoryPlayResponse;
+    request: ServerPlayRunWorkspaceHistoryRequest;
+    response: ServerPlayRunWorkspaceHistoryResponse;
   };
   "server.run.workspace.memory.stats": {
-    request: PeerRunMemoryStatsRequest;
-    response: PeerRunMemoryStatsResponse;
+    request: ServerGetRunWorkspaceMemoryStatsRequest;
+    response: ServerGetRunWorkspaceMemoryStatsResponse;
   };
   "server.run.workspace.recall": {
-    request: PeerRunRecallRequest;
-    response: PeerRunRecallResponse;
+    request: ServerRunWorkspaceRecallRequest;
+    response: ServerRunWorkspaceRecallResponse;
   };
   "server.run.reload": {
     request: ServerReloadRunRequest;
-    response: PeerRunStatus;
+    response: ServerReloadRunResponse;
   };
   "server.run.status": {
     request: ServerGetRunStatusRequest;
-    response: PeerRunStatus;
+    response: ServerGetRunStatusResponse;
   };
   "server.run.stop": {
     request: ServerStopRunRequest;
-    response: PeerRunStatus;
+    response: ServerStopRunResponse;
   };
   "server.run.say": {
     request: ServerRunSayRequest;
@@ -240,7 +284,7 @@ export type RPCMethodMap = {
   };
   "server.firmware.get": {
     request: FirmwareGetRequest;
-    response: Firmware;
+    response: FirmwareGetResponse;
   };
   "server.firmware.files.download": {
     request: FirmwareFilesDownloadRequest;
@@ -252,27 +296,27 @@ export type RPCMethodMap = {
   };
   "server.workspace.get": {
     request: WorkspaceGetRequest;
-    response: Workspace;
+    response: WorkspaceGetResponse;
   };
   "server.workspace.create": {
-    request: Workspace;
-    response: Workspace;
+    request: WorkspaceCreateRequest;
+    response: WorkspaceCreateResponse;
   };
   "server.workspace.put": {
     request: WorkspacePutRequest;
-    response: Workspace;
+    response: WorkspacePutResponse;
   };
   "server.workspace.delete": {
     request: WorkspaceDeleteRequest;
-    response: Workspace;
+    response: WorkspaceDeleteResponse;
   };
   "server.workspace.history.list": {
     request: WorkspaceHistoryListRequest;
-    response: PeerRunHistoryListResponse;
+    response: WorkspaceHistoryListResponse;
   };
   "server.workspace.history.get": {
     request: WorkspaceHistoryGetRequest;
-    response: PeerRunHistoryEntry;
+    response: WorkspaceHistoryGetResponse;
   };
   "server.workspace.history.audio.get": {
     request: WorkspaceHistoryAudioGetRequest;
@@ -284,19 +328,19 @@ export type RPCMethodMap = {
   };
   "server.workflow.get": {
     request: WorkflowGetRequest;
-    response: WorkflowDocument;
+    response: WorkflowGetResponse;
   };
   "server.workflow.create": {
-    request: WorkflowDocument;
-    response: WorkflowDocument;
+    request: WorkflowCreateRequest;
+    response: WorkflowCreateResponse;
   };
   "server.workflow.put": {
     request: WorkflowPutRequest;
-    response: WorkflowDocument;
+    response: WorkflowPutResponse;
   };
   "server.workflow.delete": {
     request: WorkflowDeleteRequest;
-    response: WorkflowDocument;
+    response: WorkflowDeleteResponse;
   };
   "server.model.list": {
     request: ModelListRequest;
@@ -304,19 +348,19 @@ export type RPCMethodMap = {
   };
   "server.model.get": {
     request: ModelGetRequest;
-    response: Model;
+    response: ModelGetResponse;
   };
   "server.model.create": {
-    request: Model;
-    response: Model;
+    request: ModelCreateRequest;
+    response: ModelCreateResponse;
   };
   "server.model.put": {
     request: ModelPutRequest;
-    response: Model;
+    response: ModelPutResponse;
   };
   "server.model.delete": {
     request: ModelDeleteRequest;
-    response: Model;
+    response: ModelDeleteResponse;
   };
   "server.voice.list": {
     request: VoiceListRequest;
@@ -324,7 +368,7 @@ export type RPCMethodMap = {
   };
   "server.voice.get": {
     request: VoiceGetRequest;
-    response: Voice;
+    response: VoiceGetResponse;
   };
   "server.credential.list": {
     request: CredentialListRequest;
@@ -332,19 +376,19 @@ export type RPCMethodMap = {
   };
   "server.credential.get": {
     request: CredentialGetRequest;
-    response: Credential;
+    response: CredentialGetResponse;
   };
   "server.credential.create": {
-    request: Credential;
-    response: Credential;
+    request: CredentialCreateRequest;
+    response: CredentialCreateResponse;
   };
   "server.credential.put": {
     request: CredentialPutRequest;
-    response: Credential;
+    response: CredentialPutResponse;
   };
   "server.credential.delete": {
     request: CredentialDeleteRequest;
-    response: Credential;
+    response: CredentialDeleteResponse;
   };
   "server.contact.list": {
     request: ContactListRequest;
@@ -352,19 +396,19 @@ export type RPCMethodMap = {
   };
   "server.contact.get": {
     request: ContactGetRequest;
-    response: ContactObject;
+    response: ContactGetResponse;
   };
   "server.contact.create": {
     request: ContactCreateRequest;
-    response: ContactObject;
+    response: ContactCreateResponse;
   };
   "server.contact.put": {
     request: ContactPutRequest;
-    response: ContactObject;
+    response: ContactPutResponse;
   };
   "server.contact.delete": {
     request: ContactDeleteRequest;
-    response: ContactObject;
+    response: ContactDeleteResponse;
   };
   "server.friend.invite_token.get": {
     request: FriendInviteTokenGetRequest;
@@ -380,7 +424,7 @@ export type RPCMethodMap = {
   };
   "server.friend.add": {
     request: FriendAddRequest;
-    response: FriendObject;
+    response: FriendAddResponse;
   };
   "server.friend.list": {
     request: FriendListRequest;
@@ -388,7 +432,7 @@ export type RPCMethodMap = {
   };
   "server.friend.delete": {
     request: FriendDeleteRequest;
-    response: FriendObject;
+    response: FriendDeleteResponse;
   };
   "server.friend_group.list": {
     request: FriendGroupListRequest;
@@ -396,19 +440,19 @@ export type RPCMethodMap = {
   };
   "server.friend_group.get": {
     request: FriendGroupGetRequest;
-    response: FriendGroupObject;
+    response: FriendGroupGetResponse;
   };
   "server.friend_group.create": {
     request: FriendGroupCreateRequest;
-    response: FriendGroupObject;
+    response: FriendGroupCreateResponse;
   };
   "server.friend_group.put": {
     request: FriendGroupPutRequest;
-    response: FriendGroupObject;
+    response: FriendGroupPutResponse;
   };
   "server.friend_group.delete": {
     request: FriendGroupDeleteRequest;
-    response: FriendGroupObject;
+    response: FriendGroupDeleteResponse;
   };
   "server.friend_group.invite_token.get": {
     request: FriendGroupInviteTokenGetRequest;
@@ -432,15 +476,15 @@ export type RPCMethodMap = {
   };
   "server.friend_group.members.add": {
     request: FriendGroupMemberAddRequest;
-    response: FriendGroupMemberObject;
+    response: FriendGroupMemberAddResponse;
   };
   "server.friend_group.members.put": {
     request: FriendGroupMemberPutRequest;
-    response: FriendGroupMemberObject;
+    response: FriendGroupMemberPutResponse;
   };
   "server.friend_group.members.delete": {
     request: FriendGroupMemberDeleteRequest;
-    response: FriendGroupMemberObject;
+    response: FriendGroupMemberDeleteResponse;
   };
   "server.friend_group.messages.list": {
     request: FriendGroupMessageListRequest;
@@ -448,15 +492,15 @@ export type RPCMethodMap = {
   };
   "server.friend_group.messages.get": {
     request: FriendGroupMessageGetRequest;
-    response: FriendGroupMessageObject;
+    response: FriendGroupMessageGetResponse;
   };
   "server.friend_group.messages.send": {
     request: FriendGroupMessageSendRequest;
-    response: FriendGroupMessageObject;
+    response: FriendGroupMessageSendResponse;
   };
   "server.game_ruleset.get": {
     request: ServerGameRulesetGetRequest;
-    response: GameRuleset;
+    response: ServerGameRulesetGetResponse;
   };
   "server.pet_def.pixa.download": {
     request: PetDefPixaDownloadRequest;
@@ -467,64 +511,64 @@ export type RPCMethodMap = {
     response: BadgeDefPixaDownloadResponse;
   };
   "server.pet.list": {
-    request: GameplayListRequest;
-    response: PetListResponse;
+    request: ServerPetListRequest;
+    response: ServerPetListResponse;
   };
   "server.pet.get": {
-    request: PetGetRequest;
-    response: Pet;
+    request: ServerPetGetRequest;
+    response: ServerPetGetResponse;
   };
   "server.pet.adopt": {
-    request: PetAdoptRequest;
-    response: PetAdoptResponse;
+    request: ServerPetAdoptRequest;
+    response: ServerPetAdoptResponse;
   };
   "server.pet.put": {
-    request: PetPutRequest;
-    response: Pet;
+    request: ServerPetPutRequest;
+    response: ServerPetPutResponse;
   };
   "server.pet.delete": {
-    request: PetDeleteRequest;
-    response: Pet;
+    request: ServerPetDeleteRequest;
+    response: ServerPetDeleteResponse;
   };
   "server.pet.drive": {
-    request: PetDriveRequest;
-    response: PetDriveResponse;
+    request: ServerPetDriveRequest;
+    response: ServerPetDriveResponse;
   };
   "server.points.get": {
     request: ServerPointsGetRequest;
-    response: PointsAccount;
+    response: ServerPointsGetResponse;
   };
   "server.points.transactions.list": {
-    request: GameplayListRequest;
-    response: PointsTransactionListResponse;
+    request: ServerPointsTransactionListRequest;
+    response: ServerPointsTransactionListResponse;
   };
   "server.points.transactions.get": {
-    request: GameplayGetRequest;
-    response: PointsTransaction;
+    request: ServerPointsTransactionGetRequest;
+    response: ServerPointsTransactionGetResponse;
   };
   "server.badge.list": {
-    request: GameplayListRequest;
-    response: BadgeListResponse;
+    request: ServerBadgeListRequest;
+    response: ServerBadgeListResponse;
   };
   "server.badge.get": {
-    request: GameplayGetRequest;
-    response: Badge;
+    request: ServerBadgeGetRequest;
+    response: ServerBadgeGetResponse;
   };
   "server.game_result.list": {
-    request: GameplayListRequest;
-    response: GameResultListResponse;
+    request: ServerGameResultListRequest;
+    response: ServerGameResultListResponse;
   };
   "server.game_result.get": {
-    request: GameplayGetRequest;
-    response: GameResult;
+    request: ServerGameResultGetRequest;
+    response: ServerGameResultGetResponse;
   };
   "server.reward_grant.list": {
-    request: GameplayListRequest;
-    response: RewardGrantListResponse;
+    request: ServerRewardGrantListRequest;
+    response: ServerRewardGrantListResponse;
   };
   "server.reward_grant.get": {
-    request: GameplayGetRequest;
-    response: RewardGrant;
+    request: ServerRewardGrantGetRequest;
+    response: ServerRewardGrantGetResponse;
   };
 };
 
@@ -626,3 +670,100 @@ export const RPC_METHODS = {
   "server.reward_grant.list": "server.reward_grant.list",
   "server.reward_grant.get": "server.reward_grant.get",
 } as const satisfies Record<RPCMethodName, RPCMethodName>;
+
+export const RPC_METHOD_IDS = {
+  "all.ping": 1,
+  "all.speed_test.run": 2,
+  "client.info.get": 3,
+  "client.identifiers.get": 4,
+  "server.info.get": 5,
+  "server.info.put": 6,
+  "server.runtime.get": 7,
+  "server.status.get": 8,
+  "server.run.agent.get": 9,
+  "server.run.agent.set": 10,
+  "server.run.workspace.get": 11,
+  "server.run.workspace.set": 12,
+  "server.run.workspace.reload": 13,
+  "server.run.workspace.history": 14,
+  "server.run.workspace.history.play": 15,
+  "server.run.workspace.memory.stats": 16,
+  "server.run.workspace.recall": 17,
+  "server.run.reload": 18,
+  "server.run.status": 19,
+  "server.run.stop": 20,
+  "server.run.say": 21,
+  "server.firmware.list": 22,
+  "server.firmware.get": 23,
+  "server.firmware.files.download": 24,
+  "server.workspace.list": 25,
+  "server.workspace.get": 26,
+  "server.workspace.create": 27,
+  "server.workspace.put": 28,
+  "server.workspace.delete": 29,
+  "server.workspace.history.list": 30,
+  "server.workspace.history.get": 31,
+  "server.workspace.history.audio.get": 32,
+  "server.workflow.list": 33,
+  "server.workflow.get": 34,
+  "server.workflow.create": 35,
+  "server.workflow.put": 36,
+  "server.workflow.delete": 37,
+  "server.model.list": 38,
+  "server.model.get": 39,
+  "server.model.create": 40,
+  "server.model.put": 41,
+  "server.model.delete": 42,
+  "server.voice.list": 43,
+  "server.voice.get": 44,
+  "server.credential.list": 45,
+  "server.credential.get": 46,
+  "server.credential.create": 47,
+  "server.credential.put": 48,
+  "server.credential.delete": 49,
+  "server.contact.list": 50,
+  "server.contact.get": 51,
+  "server.contact.create": 52,
+  "server.contact.put": 53,
+  "server.contact.delete": 54,
+  "server.friend.invite_token.get": 55,
+  "server.friend.invite_token.create": 56,
+  "server.friend.invite_token.clear": 57,
+  "server.friend.add": 58,
+  "server.friend.list": 59,
+  "server.friend.delete": 60,
+  "server.friend_group.list": 61,
+  "server.friend_group.get": 62,
+  "server.friend_group.create": 63,
+  "server.friend_group.put": 64,
+  "server.friend_group.delete": 65,
+  "server.friend_group.invite_token.get": 66,
+  "server.friend_group.invite_token.create": 67,
+  "server.friend_group.invite_token.clear": 68,
+  "server.friend_group.join": 69,
+  "server.friend_group.members.list": 70,
+  "server.friend_group.members.add": 71,
+  "server.friend_group.members.put": 72,
+  "server.friend_group.members.delete": 73,
+  "server.friend_group.messages.list": 74,
+  "server.friend_group.messages.get": 75,
+  "server.friend_group.messages.send": 76,
+  "server.game_ruleset.get": 77,
+  "server.pet_def.pixa.download": 78,
+  "server.badge_def.pixa.download": 79,
+  "server.pet.list": 80,
+  "server.pet.get": 81,
+  "server.pet.adopt": 82,
+  "server.pet.put": 83,
+  "server.pet.delete": 84,
+  "server.pet.drive": 85,
+  "server.points.get": 86,
+  "server.points.transactions.list": 87,
+  "server.points.transactions.get": 88,
+  "server.badge.list": 89,
+  "server.badge.get": 90,
+  "server.game_result.list": 91,
+  "server.game_result.get": 92,
+  "server.reward_grant.list": 93,
+  "server.reward_grant.get": 94,
+} as const satisfies Record<RPCMethodName, number>;

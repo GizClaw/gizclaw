@@ -5,7 +5,7 @@ generate:
   client: true
   models: true
 import-mapping:
-  ./rpc/server.json: github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi
+  ./type/server.json: github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi
   ./types.json: github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes
 output-options:
   skip-prune: true

@@ -678,63 +678,6 @@ export type WorkspaceResource = {
     spec: WorkspaceSpec;
 };
 
-export type FriendGroupInviteTokenClearResponse = {
-    [key: string]: never;
-};
-
-export type FriendGroupInviteTokenGetResponse = {
-    invite_token?: string;
-    expires_at?: string;
-};
-
-export type FriendGroupListResponse = {
-    items: Array<FriendGroupObject>;
-    has_next: boolean;
-    next_cursor?: string;
-};
-
-export type FriendGroupMemberListResponse = {
-    items: Array<FriendGroupMemberObject>;
-    has_next: boolean;
-    next_cursor?: string;
-};
-
-export type FriendGroupMemberObject = {
-    id?: string;
-    friend_group_id?: string;
-    peer_public_key?: string;
-    role?: ServerFriendGroupMemberRole;
-    created_at?: string;
-    updated_at?: string;
-};
-
-export type ServerFriendGroupMemberRole = 'owner' | 'admin' | 'member';
-
-export type FriendGroupObject = {
-    id?: string;
-    name?: string;
-    description?: string;
-    created_by_peer_public_key?: string;
-    workspace_name?: string;
-    created_at?: string;
-    updated_at?: string;
-    my_role?: ServerFriendGroupMemberRole;
-};
-
-export type FriendListResponse = {
-    items: Array<FriendObject>;
-    has_next: boolean;
-    next_cursor?: string;
-};
-
-export type FriendObject = {
-    id?: string;
-    peer_public_key?: string;
-    workspace_name?: string;
-    created_at?: string;
-    updated_at?: string;
-};
-
 /**
  * ACL permission enum.
  */
@@ -1571,6 +1514,63 @@ export type Runtime = {
     last_addr?: string;
     rx_bytes?: number;
     tx_bytes?: number;
+};
+
+export type FriendGroupInviteTokenClearResponse = {
+    [key: string]: never;
+};
+
+export type FriendGroupInviteTokenGetResponse = {
+    invite_token?: string;
+    expires_at?: string;
+};
+
+export type FriendGroupListResponse = {
+    items: Array<FriendGroupObject>;
+    has_next: boolean;
+    next_cursor?: string;
+};
+
+export type FriendGroupMemberListResponse = {
+    items: Array<FriendGroupMemberObject>;
+    has_next: boolean;
+    next_cursor?: string;
+};
+
+export type FriendGroupMemberObject = {
+    id?: string;
+    friend_group_id?: string;
+    peer_public_key?: string;
+    role?: ServerFriendGroupMemberRole;
+    created_at?: string;
+    updated_at?: string;
+};
+
+export type ServerFriendGroupMemberRole = 'owner' | 'admin' | 'member';
+
+export type FriendGroupObject = {
+    id?: string;
+    name?: string;
+    description?: string;
+    created_by_peer_public_key?: string;
+    workspace_name?: string;
+    created_at?: string;
+    updated_at?: string;
+    my_role?: ServerFriendGroupMemberRole;
+};
+
+export type FriendListResponse = {
+    items: Array<FriendObject>;
+    has_next: boolean;
+    next_cursor?: string;
+};
+
+export type FriendObject = {
+    id?: string;
+    peer_public_key?: string;
+    workspace_name?: string;
+    created_at?: string;
+    updated_at?: string;
 };
 
 export type ServerLogEntry = {

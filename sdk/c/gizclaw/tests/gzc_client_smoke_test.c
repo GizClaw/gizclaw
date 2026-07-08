@@ -13,7 +13,7 @@ struct gzc_rtc_channel {
 };
 
 typedef enum {
-  FAKE_RESPONSE_JSON = 0,
+  FAKE_RESPONSE_PROTO = 0,
   FAKE_RESPONSE_BINARY_STREAM = 1
 } fake_response_mode_t;
 
@@ -154,6 +154,91 @@ static int append_test_frame(const gzc_platform_t *platform, gzc_buf_t *out, gzc
   return gzc_rpc_frame_encode(platform, &frame, out);
 }
 
+static int append_test_varint(const gzc_platform_t *platform, gzc_buf_t *out, uint64_t value) {
+  uint8_t buf[10];
+  size_t n = 0;
+  do {
+    uint8_t b = (uint8_t)(value & 0x7fu);
+    value >>= 7;
+    if (value != 0) {
+      b |= 0x80u;
+    }
+    buf[n++] = b;
+  } while (value != 0 && n < sizeof(buf));
+  return gzc_buf_append(out, platform, buf, n);
+}
+
+static int append_test_key(const gzc_platform_t *platform, gzc_buf_t *out, unsigned field, unsigned wire_type) {
+  return append_test_varint(platform, out, ((uint64_t)field << 3) | wire_type);
+}
+
+static int append_test_proto_bytes(const gzc_platform_t *platform, gzc_buf_t *out, unsigned field, const uint8_t *data, size_t len) {
+  int rc = append_test_key(platform, out, field, 2);
+  if (rc != GZC_OK) {
+    return rc;
+  }
+  rc = append_test_varint(platform, out, len);
+  if (rc != GZC_OK) {
+    return rc;
+  }
+  return gzc_buf_append(out, platform, data, len);
+}
+
+static int read_test_varint(const uint8_t *data, size_t len, size_t *offset, uint64_t *out) {
+  uint64_t value = 0;
+  unsigned shift = 0;
+  while (*offset < len && shift <= 63) {
+    uint8_t b = data[(*offset)++];
+    value |= ((uint64_t)(b & 0x7fu)) << shift;
+    if ((b & 0x80u) == 0) {
+      *out = value;
+      return GZC_OK;
+    }
+    shift += 7;
+  }
+  return GZC_ERR_RPC;
+}
+
+static int read_test_proto_method_id(gzc_str_t payload, unsigned *out_method_id) {
+  size_t offset = 0;
+  while (offset < payload.len) {
+    uint64_t key = 0;
+    int rc = read_test_varint((const uint8_t *)payload.data, payload.len, &offset, &key);
+    if (rc != GZC_OK) {
+      return rc;
+    }
+    unsigned field = (unsigned)(key >> 3);
+    unsigned wire_type = (unsigned)(key & 0x7u);
+    if (field == 2 && wire_type == 0) {
+      uint64_t value = 0;
+      rc = read_test_varint((const uint8_t *)payload.data, payload.len, &offset, &value);
+      if (rc != GZC_OK) {
+        return rc;
+      }
+      *out_method_id = (unsigned)value;
+      return GZC_OK;
+    }
+    if (wire_type == 0) {
+      uint64_t ignored = 0;
+      rc = read_test_varint((const uint8_t *)payload.data, payload.len, &offset, &ignored);
+    } else if (wire_type == 2) {
+      uint64_t size = 0;
+      rc = read_test_varint((const uint8_t *)payload.data, payload.len, &offset, &size);
+      if (rc == GZC_OK && size <= payload.len - offset) {
+        offset += (size_t)size;
+      } else if (rc == GZC_OK) {
+        rc = GZC_ERR_RPC;
+      }
+    } else {
+      rc = GZC_ERR_RPC;
+    }
+    if (rc != GZC_OK) {
+      return rc;
+    }
+  }
+  return GZC_ERR_RPC;
+}
+
 static size_t first_frame_size(const gzc_buf_t *bytes) {
   if (bytes == NULL || bytes->len < 4) {
     return 0;
@@ -200,16 +285,21 @@ static int test_channel_send(gzc_rtc_channel_t *channel, const uint8_t *data, si
     gzc_buf_free(&framed, fake->platform);
     return rc;
   }
-  const char *response = "{\"v\":1,\"id\":\"1\",\"result\":{\"server_time\":99}}";
+  const char *response_id = "1";
+  const char *response = "{\"server_time\":99}";
+  gzc_buf_t response_payload;
   gzc_buf_t framed;
+  gzc_buf_init(&response_payload);
   gzc_buf_init(&framed);
-  gzc_rpc_frame_t json_frame;
-  memset(&json_frame, 0, sizeof(json_frame));
-  json_frame.type = GZC_RPC_FRAME_JSON;
-  json_frame.data = (const uint8_t *)response;
-  json_frame.len = strlen(response);
-  rc = gzc_rpc_frame_encode(fake->platform, &json_frame, &framed);
+  rc = append_test_proto_bytes(fake->platform, &response_payload, 1, (const uint8_t *)response_id, strlen(response_id));
+  if (rc == GZC_OK) {
+    rc = append_test_proto_bytes(fake->platform, &response_payload, 2, (const uint8_t *)response, strlen(response));
+  }
+  if (rc == GZC_OK) {
+    rc = append_test_frame(fake->platform, &framed, GZC_RPC_FRAME_BINARY, response_payload.data, response_payload.len);
+  }
   if (rc != GZC_OK) {
+    gzc_buf_free(&response_payload, fake->platform);
     return rc;
   }
   gzc_rpc_frame_t eos_frame;
@@ -217,6 +307,7 @@ static int test_channel_send(gzc_rtc_channel_t *channel, const uint8_t *data, si
   eos_frame.type = GZC_RPC_FRAME_EOS;
   rc = gzc_rpc_frame_encode(fake->platform, &eos_frame, &framed);
   if (rc != GZC_OK) {
+    gzc_buf_free(&response_payload, fake->platform);
     gzc_buf_free(&framed, fake->platform);
     return rc;
   }
@@ -227,7 +318,8 @@ static int test_channel_send(gzc_rtc_channel_t *channel, const uint8_t *data, si
       NULL,
       framed.data,
       framed.len,
-      false);
+          false);
+  gzc_buf_free(&response_payload, fake->platform);
   gzc_buf_free(&framed, fake->platform);
   return GZC_OK;
 }
@@ -459,11 +551,11 @@ int main(void) {
     return 1;
   }
   gzc_rpc_response_t response;
-  rc = gzc_rpc_call_json(client, gzc_str_from_cstr(GZC_RPC_METHOD_ALL_PING), gzc_str_from_parts((const char *)params.data, params.len), &response);
-  if (expect(rc == GZC_OK, "rpc call json") != 0) {
+  rc = gzc_rpc_call(client, gzc_str_from_cstr(GZC_RPC_METHOD_ALL_PING), gzc_str_from_parts((const char *)params.data, params.len), &response);
+  if (expect(rc == GZC_OK, "rpc call") != 0) {
     return 1;
   }
-  if (expect(response.result_json.len > 0, "rpc call captured result json") != 0) {
+  if (expect(response.result_payload.len > 0, "rpc call captured result payload") != 0) {
     return 1;
   }
   if (expect(fake_webrtc.sent.len > 0, "channel send captured payload") != 0) {
@@ -471,19 +563,15 @@ int main(void) {
   }
   gzc_rpc_frame_t sent_frame;
   rc = gzc_rpc_frame_decode(fake_webrtc.sent.data, first_frame_size(&fake_webrtc.sent), &sent_frame);
-  if (expect(rc == GZC_OK && sent_frame.type == GZC_RPC_FRAME_JSON, "request json frame") != 0) {
+  if (expect(rc == GZC_OK && sent_frame.type == GZC_RPC_FRAME_BINARY, "request protobuf frame") != 0) {
     return 1;
   }
-  gzc_str_t method_raw;
-  rc = gzc_json_find_field(gzc_str_from_parts((const char *)sent_frame.data, sent_frame.len), "method", &method_raw);
-  if (expect(rc == GZC_OK, "request method field") != 0) {
+  unsigned method_id = 0;
+  rc = read_test_proto_method_id(gzc_str_from_parts((const char *)sent_frame.data, sent_frame.len), &method_id);
+  if (expect(rc == GZC_OK, "request method id field") != 0) {
     return 1;
   }
-  gzc_str_t method;
-  rc = gzc_json_parse_string(method_raw, &method);
-  if (expect(rc == GZC_OK && method.len == strlen(GZC_RPC_METHOD_ALL_PING) &&
-                 strncmp(method.data, GZC_RPC_METHOD_ALL_PING, method.len) == 0,
-             "request method value") != 0) {
+  if (expect(method_id == gzc_rpc_methods[0].method_id, "request method id value") != 0) {
     return 1;
   }
 
@@ -508,7 +596,7 @@ int main(void) {
   if (expect(stream_count.frame_count == 2 && stream_count.binary_bytes == 3, "stream binary frames counted") != 0) {
     return 1;
   }
-  fake_webrtc.response_mode = FAKE_RESPONSE_JSON;
+  fake_webrtc.response_mode = FAKE_RESPONSE_PROTO;
 
   const uint8_t telemetry_payload[] = {0x01, 0x02, 0x03};
   rc = gzc_client_send_packet(client, GZC_PROTOCOL_TELEMETRY, telemetry_payload, sizeof(telemetry_payload));
@@ -636,16 +724,13 @@ int main(void) {
   if (expect(rc == GZC_OK, "build large params") != 0) {
     return 1;
   }
-  rc = gzc_rpc_call_json(
+  rc = gzc_rpc_call(
       client,
       gzc_str_from_cstr(GZC_RPC_METHOD_ALL_PING),
       gzc_str_from_parts((const char *)large_params.data, large_params.len),
       &response);
-  if (expect(rc == GZC_OK, "rpc call json with large params") != 0) {
-    return 1;
-  }
-  rc = gzc_rpc_frame_decode(fake_webrtc.sent.data, first_frame_size(&fake_webrtc.sent), &sent_frame);
-  if (expect(rc == GZC_OK && sent_frame.type == GZC_RPC_FRAME_TEXT, "large request starts with text frame") != 0) {
+  if (expect(rc == GZC_ERR_INVALID_ARGUMENT, "reject oversized protobuf request envelope") != 0) {
+    gzc_buf_free(&large_params, platform);
     return 1;
   }
   gzc_buf_free(&large_params, platform);

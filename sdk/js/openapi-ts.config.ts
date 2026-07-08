@@ -8,10 +8,6 @@ export default [
     output: "gizclaw/generated/peerhttp",
   },
   {
-    input: "../../api/rpc.json",
-    output: "gizclaw/generated/rpc",
-  },
-  {
     input: "../../api/desktop_service.json",
     output: "../../apps/wails/frontend/src/generated/desktopservice",
   },

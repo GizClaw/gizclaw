@@ -145,6 +145,23 @@ func TestRPCMethodValid(t *testing.T) {
 	}
 }
 
+func TestProtoMethodRegistry(t *testing.T) {
+	if err := ValidateProtoMethodRegistry(); err != nil {
+		t.Fatalf("ValidateProtoMethodRegistry() error = %v", err)
+	}
+	protoMethod, err := ProtoMethod(RPCMethodAllPing)
+	if err != nil {
+		t.Fatalf("ProtoMethod() error = %v", err)
+	}
+	method, err := MethodFromProto(protoMethod)
+	if err != nil {
+		t.Fatalf("MethodFromProto() error = %v", err)
+	}
+	if method != RPCMethodAllPing {
+		t.Fatalf("MethodFromProto() = %q, want %q", method, RPCMethodAllPing)
+	}
+}
+
 func assertRequestUnion[T any](
 	t *testing.T,
 	name string,
@@ -281,30 +298,30 @@ func (w *recordingBuffersWriter) WriteBuffers(buffers net.Buffers) (int64, error
 	return total, nil
 }
 
-func TestReadRequestAndResponseRejectInvalidJSON(t *testing.T) {
+func TestReadRequestAndResponseRejectInvalidProtobuf(t *testing.T) {
 	var reqBuf bytes.Buffer
-	if err := WriteFrame(&reqBuf, Frame{Type: FrameTypeJSON, Payload: []byte("{")}); err != nil {
+	if err := WriteFrame(&reqBuf, Frame{Type: FrameTypeBinary, Payload: []byte("{")}); err != nil {
 		t.Fatalf("WriteFrame(request) error = %v", err)
 	}
 	if _, err := ReadRequest(&reqBuf); err == nil {
-		t.Fatal("ReadRequest() should fail for invalid JSON")
+		t.Fatal("ReadRequest() should fail for invalid protobuf")
 	}
 
 	var respBuf bytes.Buffer
-	if err := WriteFrame(&respBuf, Frame{Type: FrameTypeJSON, Payload: []byte("{")}); err != nil {
+	if err := WriteFrame(&respBuf, Frame{Type: FrameTypeBinary, Payload: []byte("{")}); err != nil {
 		t.Fatalf("WriteFrame(response) error = %v", err)
 	}
 	if _, err := ReadResponse(&respBuf); err == nil {
-		t.Fatal("ReadResponse() should fail for invalid JSON")
+		t.Fatal("ReadResponse() should fail for invalid protobuf")
 	}
 }
 
-func TestReadRequestAndResponseRejectNonJSONFrames(t *testing.T) {
+func TestReadRequestAndResponseRejectNonProtobufFrames(t *testing.T) {
 	var reqBuf bytes.Buffer
-	if err := WriteFrame(&reqBuf, Frame{Type: FrameTypeBinary, Payload: []byte("{}")}); err != nil {
+	if err := WriteFrame(&reqBuf, Frame{Type: FrameTypeJSON, Payload: []byte("{}")}); err != nil {
 		t.Fatalf("WriteFrame(request) error = %v", err)
 	}
-	if _, err := ReadRequest(&reqBuf); err == nil || err.Error() != "rpc: unmarshal request: rpc: expected JSON frame, got type 2" {
+	if _, err := ReadRequest(&reqBuf); err == nil || err.Error() != "rpc: unmarshal request: rpc: expected protobuf binary frame, got type 1" {
 		t.Fatalf("ReadRequest() err = %v", err)
 	}
 
@@ -312,7 +329,7 @@ func TestReadRequestAndResponseRejectNonJSONFrames(t *testing.T) {
 	if err := WriteFrame(&respBuf, Frame{Type: FrameTypeText, Payload: []byte("{}")}); err != nil {
 		t.Fatalf("WriteFrame(response) error = %v", err)
 	}
-	if _, err := ReadResponse(&respBuf); err == nil || err.Error() != "rpc: unmarshal response: rpc: expected JSON frame, got type 3" {
+	if _, err := ReadResponse(&respBuf); err == nil || err.Error() != "rpc: unmarshal response: rpc: expected protobuf binary frame, got type 3" {
 		t.Fatalf("ReadResponse() err = %v", err)
 	}
 }
@@ -450,13 +467,13 @@ func TestWriteResponsesPropagatesSequenceError(t *testing.T) {
 	}
 }
 
-func TestReadResponsesRejectsNonJSONFrame(t *testing.T) {
+func TestReadResponsesRejectsInvalidProtobufFrame(t *testing.T) {
 	var buf bytes.Buffer
 	if err := WriteFrame(&buf, Frame{Type: FrameTypeBinary, Payload: []byte("{}")}); err != nil {
 		t.Fatalf("WriteFrame() error = %v", err)
 	}
 	for _, err := range ReadResponses(&buf) {
-		if err == nil || err.Error() != "rpc: unmarshal response: rpc: expected JSON frame, got type 2" {
+		if err == nil {
 			t.Fatalf("ReadResponses() err = %v", err)
 		}
 		return

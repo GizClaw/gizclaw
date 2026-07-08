@@ -1,11 +1,8 @@
 package gizclaw
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
-	"fmt"
 	"iter"
 	"net"
 	"sync"
@@ -160,28 +157,16 @@ func (s *rpcStream) ReadRequest() (*rpcapi.RPCRequest, error) {
 	if err != nil {
 		return nil, err
 	}
-	var req rpcapi.RPCRequest
-	if err := rpcapi.DecodeJSONFrame(frame, &req); err != nil {
-		return nil, err
-	}
-	return &req, nil
+	return rpcapi.DecodeRequestFrame(frame)
 }
 
 func (s *rpcStream) ReadRequestEnvelope() (*rpcapi.RPCRequest, bool, error) {
-	frame, err := s.ReadFrame()
-	if err != nil {
-		return nil, false, err
-	}
-	var req rpcapi.RPCRequest
-	consumedEOS, err := s.decodeJSONEnvelope(frame, &req)
-	if err != nil {
-		return nil, consumedEOS, err
-	}
-	return &req, consumedEOS, nil
+	req, err := s.ReadRequest()
+	return req, false, err
 }
 
 func (s *rpcStream) WriteRequest(req *rpcapi.RPCRequest) error {
-	frame, err := rpcapi.NewJSONFrame(req)
+	frame, err := rpcapi.NewRequestFrame(req)
 	if err != nil {
 		return err
 	}
@@ -189,7 +174,7 @@ func (s *rpcStream) WriteRequest(req *rpcapi.RPCRequest) error {
 }
 
 func (s *rpcStream) WriteRequestEnvelope(req *rpcapi.RPCRequest) error {
-	return s.writeJSONEnvelope(req)
+	return s.WriteRequest(req)
 }
 
 func (s *rpcStream) ReadResponse() (*rpcapi.RPCResponse, error) {
@@ -197,28 +182,16 @@ func (s *rpcStream) ReadResponse() (*rpcapi.RPCResponse, error) {
 	if err != nil {
 		return nil, err
 	}
-	var resp rpcapi.RPCResponse
-	if err := rpcapi.DecodeJSONFrame(frame, &resp); err != nil {
-		return nil, err
-	}
-	return &resp, nil
+	return rpcapi.DecodeResponseFrame(frame)
 }
 
 func (s *rpcStream) ReadResponseEnvelope() (*rpcapi.RPCResponse, bool, error) {
-	frame, err := s.ReadFrame()
-	if err != nil {
-		return nil, false, err
-	}
-	var resp rpcapi.RPCResponse
-	consumedEOS, err := s.decodeJSONEnvelope(frame, &resp)
-	if err != nil {
-		return nil, consumedEOS, err
-	}
-	return &resp, consumedEOS, nil
+	resp, err := s.ReadResponse()
+	return resp, false, err
 }
 
 func (s *rpcStream) WriteResponse(resp *rpcapi.RPCResponse) error {
-	frame, err := rpcapi.NewJSONFrame(resp)
+	frame, err := rpcapi.NewResponseFrame(resp)
 	if err != nil {
 		return err
 	}
@@ -226,7 +199,7 @@ func (s *rpcStream) WriteResponse(resp *rpcapi.RPCResponse) error {
 }
 
 func (s *rpcStream) WriteResponseEnvelope(resp *rpcapi.RPCResponse) error {
-	return s.writeJSONEnvelope(resp)
+	return s.WriteResponse(resp)
 }
 
 func (s *rpcStream) Responses() iter.Seq2[*rpcapi.RPCResponse, error] {
@@ -236,61 +209,15 @@ func (s *rpcStream) Responses() iter.Seq2[*rpcapi.RPCResponse, error] {
 				yield(nil, err)
 				return
 			}
-			var resp rpcapi.RPCResponse
-			if err := rpcapi.DecodeJSONFrame(frame, &resp); err != nil {
+			resp, err := rpcapi.DecodeResponseFrame(frame)
+			if err != nil {
 				yield(nil, err)
 				return
 			}
-			if !yield(&resp, nil) {
+			if !yield(resp, nil) {
 				return
 			}
 		}
-	}
-}
-
-func (s *rpcStream) writeJSONEnvelope(v any) error {
-	data, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-	if len(data) <= rpcapi.MaxFrameSize {
-		return s.WriteFrame(rpcapi.Frame{Type: rpcapi.FrameTypeJSON, Payload: data})
-	}
-	for len(data) > 0 {
-		n := min(len(data), rpcapi.MaxFrameSize)
-		if err := s.WriteFrame(rpcapi.Frame{Type: rpcapi.FrameTypeText, Payload: data[:n]}); err != nil {
-			return err
-		}
-		data = data[n:]
-	}
-	return nil
-}
-
-func (s *rpcStream) decodeJSONEnvelope(first rpcapi.Frame, v any) (bool, error) {
-	switch first.Type {
-	case rpcapi.FrameTypeJSON:
-		return false, json.Unmarshal(first.Payload, v)
-	case rpcapi.FrameTypeText:
-		var buf bytes.Buffer
-		buf.Write(first.Payload)
-		for {
-			frame, err := s.ReadFrame()
-			if err != nil {
-				return false, err
-			}
-			if frame.Type == rpcapi.FrameTypeEOS {
-				if err := json.Unmarshal(buf.Bytes(), v); err != nil {
-					return true, err
-				}
-				return true, nil
-			}
-			if frame.Type != rpcapi.FrameTypeText {
-				return false, fmt.Errorf("rpc: expected JSON continuation frame, got type %d", frame.Type)
-			}
-			buf.Write(frame.Payload)
-		}
-	default:
-		return false, fmt.Errorf("rpc: expected JSON frame, got type %d", first.Type)
 	}
 }
 

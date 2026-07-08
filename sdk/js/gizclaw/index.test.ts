@@ -11,7 +11,6 @@ import {
   GIZNET_WEBRTC_SIGNALING_PATH,
   RPC_FRAME_TYPE_EOS,
   RPC_FRAME_TYPE_BINARY,
-  RPC_FRAME_TYPE_JSON,
   WebRTCRPCClient,
   WebRTCRPCError,
   createAdminAPIFetch,
@@ -34,7 +33,7 @@ import { createSseClient } from "./generated/adminhttp/core/serverSentEvents.gen
 import { createPeerRPCClient } from "./rpc.ts";
 import { base58Decode, base58Encode, base64Decode, prepareEncryptedGiznetWebRTCOffer } from "./signaling.ts";
 
-test("WebRTCRPCClient sends JSON-RPC over an rpc data channel", async () => {
+test("WebRTCRPCClient sends protobuf RPC over an rpc data channel", async () => {
   const pc = new FakePeerConnection();
   const client = new WebRTCRPCClient(pc, { createID: () => "req-1" });
 
@@ -45,14 +44,9 @@ test("WebRTCRPCClient sends JSON-RPC over an rpc data channel", async () => {
   assert.equal(channel.label, giznetServiceDataChannelLabel(GIZCLAW_SERVICE_PEER_RPC));
   const frames = decodeFrames(channel.sent[0] ?? new ArrayBuffer(0));
   assert.equal(frames.length, 2);
-  assert.equal(frames[0]?.type, RPC_FRAME_TYPE_JSON);
+  assert.equal(frames[0]?.type, RPC_FRAME_TYPE_BINARY);
+  assert.ok((frames[0]?.payload.length ?? 0) > 0);
   assert.equal(frames[1]?.type, RPC_FRAME_TYPE_EOS);
-  assert.deepEqual(JSON.parse(new TextDecoder().decode(frames[0]?.payload)), {
-    id: "req-1",
-    method: "server.run.workspace.get",
-    params: {},
-    v: 1,
-  });
 
   channel.receive(encodeRPCResponse({ id: "req-1", result: { ok: true }, v: 1 }));
 
@@ -99,7 +93,7 @@ test("WebRTCRPCClient reads metadata plus binary response frames", async () => {
   const channel = pc.lastChannel();
   channel.open();
 
-  channel.receive(encodeFrame(RPC_FRAME_TYPE_JSON, new TextEncoder().encode(JSON.stringify({ id: "req-binary", result: { mime_type: "audio/ogg", size_bytes: 5 }, v: 1 }))));
+  channel.receive(encodeRPCResponse({ id: "req-binary", result: { mime_type: "audio/ogg", size_bytes: 5 }, v: 1 }).slice(0, -4));
   channel.receive(encodeFrame(RPC_FRAME_TYPE_BINARY, new Uint8Array([1, 2])));
   channel.receive(encodeFrame(RPC_FRAME_TYPE_BINARY, new Uint8Array([3, 4, 5])));
   channel.receive(encodeFrame(RPC_FRAME_TYPE_EOS));

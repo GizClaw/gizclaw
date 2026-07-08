@@ -12,12 +12,12 @@ extern "C" {
 typedef struct {
   int code;
   gzc_str_t message;
-  gzc_str_t data_json;
+  gzc_str_t data_payload;
 } gzc_rpc_error_t;
 
 typedef struct {
   gzc_str_t id;
-  gzc_str_t result_json;
+  gzc_str_t result_payload;
   bool has_error;
   gzc_rpc_error_t error;
 } gzc_rpc_response_t;
@@ -28,14 +28,14 @@ int gzc_rpc_encode_request_envelope(
     const gzc_platform_t *platform,
     gzc_str_t id,
     gzc_str_t method,
-    gzc_str_t params_json,
-    gzc_buf_t *out_json);
-int gzc_rpc_decode_response_envelope(gzc_str_t response_json, gzc_rpc_response_t *out_response);
-int gzc_rpc_call_json(gzc_client_t *client, gzc_str_t method, gzc_str_t params_json, gzc_rpc_response_t *out_response);
+    gzc_str_t params_payload,
+    gzc_buf_t *out_payload);
+int gzc_rpc_decode_response_envelope(gzc_str_t response_payload, gzc_rpc_response_t *out_response);
+int gzc_rpc_call(gzc_client_t *client, gzc_str_t method, gzc_str_t params_payload, gzc_rpc_response_t *out_response);
 int gzc_rpc_call_stream(
     gzc_client_t *client,
     gzc_str_t method,
-    gzc_str_t params_json,
+    gzc_str_t params_payload,
     gzc_rpc_frame_cb on_frame,
     void *userdata);
 int gzc_rpc_send_frame(gzc_client_t *client, const gzc_rpc_frame_t *frame);

@@ -23,15 +23,15 @@ void gzc_cgo_session_close(gzc_cgo_session_t *session);
 int gzc_cgo_session_call_json(
     gzc_cgo_session_t *session,
     const char *method,
-    const char *params_json,
-    char **out_result_json,
-    unsigned long *out_result_json_len,
+    const char *params_payload,
+    char **out_result_payload,
+    unsigned long *out_result_payload_len,
     char *errbuf,
     unsigned long errbuf_len);
 int gzc_cgo_session_call_stream_collect(
     gzc_cgo_session_t *session,
     const char *method,
-    const char *params_json,
+    const char *params_payload,
     gzc_cgo_stream_frame_t **out_frames,
     unsigned long *out_frame_count,
     char *errbuf,

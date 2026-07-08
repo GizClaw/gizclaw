@@ -6,13 +6,15 @@ interfaces, and shared API types under `pkgs/gizclaw/api/`.
 
 ## Layout
 
-- `admin_http.json`, `peer_http.json`, `desktop_service.json`, and
-  `rpc.json` define GizClaw API surfaces or shared protocol documents.
+- `admin_http.json`, `peer_http.json`, and `desktop_service.json` define
+  GizClaw HTTP API surfaces.
+- `rpc/peer_rpc.proto` defines the Peer RPC wire protocol.
 - `openai-compat/v1/service.json` defines the OpenAI-compatible HTTP surface.
 - `types.json` collects shared schemas and exposes them through
   `#/components/schemas`.
 - `type/*.json` contains reusable shared schema definitions.
-- `rpc/*.json` contains reusable RPC method schema definitions.
+- `type/server.json` contains shared DTO schemas still referenced by
+  Admin HTTP generation. These files are not the Peer RPC wire protocol source.
 - `resource/*.json` contains declarative admin resource schemas used by
   `admin apply`, `admin show`, and related resource APIs.
 
@@ -24,6 +26,7 @@ Generated Go code lives outside this directory:
 - `pkgs/gizclaw/api/apitypes/generated.go`
 - `pkgs/gizclaw/api/openaihttp/generated.go`
 - `pkgs/gizclaw/api/rpcapi/generated.go`
+- `pkgs/gizclaw/api/rpcproto/peer_rpc.pb.go`
 - `pkgs/gizclaw/api/peerhttp/generated.go`
 
 Current generated TypeScript SDK code lives under `sdk/js/gizclaw/`:
@@ -46,7 +49,7 @@ Common commands:
 go generate ./pkgs/gizclaw/api/adminhttp
 go generate ./pkgs/gizclaw/api/apitypes
 go generate ./pkgs/gizclaw/api/openaihttp
-go generate ./pkgs/gizclaw/api/rpcapi
+go generate ./pkgs/gizclaw/api/rpcproto
 go generate ./pkgs/gizclaw/api/peerhttp
 ```
 

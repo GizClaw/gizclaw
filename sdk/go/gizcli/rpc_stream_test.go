@@ -92,16 +92,11 @@ func TestRPCStreamResponses(t *testing.T) {
 	}
 }
 
-func TestRPCStreamChunkedJSONEnvelope(t *testing.T) {
+func TestRPCStreamRejectsOversizedProtobufEnvelope(t *testing.T) {
 	serverSide, clientSide := net.Pipe()
 	defer serverSide.Close()
 	defer clientSide.Close()
 
-	serverStream, err := newRPCStream(context.Background(), serverSide)
-	if err != nil {
-		t.Fatalf("newRPCStream(server) error = %v", err)
-	}
-	defer serverStream.Close()
 	clientStream, err := newRPCStream(context.Background(), clientSide)
 	if err != nil {
 		t.Fatalf("newRPCStream(client) error = %v", err)
@@ -109,56 +104,13 @@ func TestRPCStreamChunkedJSONEnvelope(t *testing.T) {
 	defer clientStream.Close()
 
 	largeID := string(bytes.Repeat([]byte("r"), rpcapi.MaxFrameSize+1024))
-	errCh := make(chan error, 1)
-	go func() {
-		if err := clientStream.WriteRequestEnvelope(&rpcapi.RPCRequest{
-			V:      rpcapi.RPCVersionV1,
-			Id:     largeID,
-			Method: rpcapi.RPCMethodAllPing,
-		}); err != nil {
-			errCh <- err
-			return
-		}
-		errCh <- clientStream.WriteEOS()
-	}()
-
-	req, consumedEOS, err := serverStream.ReadRequestEnvelope()
-	if err != nil {
-		t.Fatalf("ReadRequestEnvelope() error = %v", err)
-	}
-	if !consumedEOS {
-		t.Fatal("ReadRequestEnvelope() consumedEOS = false, want true")
-	}
-	if req.Id != largeID {
-		t.Fatalf("ReadRequestEnvelope() id length = %d, want %d", len(req.Id), len(largeID))
-	}
-	if err := <-errCh; err != nil {
-		t.Fatalf("client write error = %v", err)
-	}
-
-	largeMessage := string(bytes.Repeat([]byte("e"), rpcapi.MaxFrameSize+1024))
-	go func() {
-		if err := serverStream.WriteResponseEnvelope(rpcapi.Error{RequestID: "large", Code: -1, Message: largeMessage}.RPCResponse()); err != nil {
-			errCh <- err
-			return
-		}
-		errCh <- serverStream.WriteEOS()
-	}()
-	resp, consumedEOS, err := clientStream.ReadResponseEnvelope()
-	if err != nil {
-		t.Fatalf("ReadResponseEnvelope() error = %v", err)
-	}
-	if !consumedEOS {
-		t.Fatal("ReadResponseEnvelope() consumedEOS = false, want true")
-	}
-	if resp.Error == nil {
-		t.Fatal("ReadResponseEnvelope() error = nil")
-	}
-	if resp.Error.Message != largeMessage {
-		t.Fatalf("ReadResponseEnvelope() error length = %d, want %d", len(resp.Error.Message), len(largeMessage))
-	}
-	if err := <-errCh; err != nil {
-		t.Fatalf("server write error = %v", err)
+	err = clientStream.WriteRequestEnvelope(&rpcapi.RPCRequest{
+		V:      rpcapi.RPCVersionV1,
+		Id:     largeID,
+		Method: rpcapi.RPCMethodAllPing,
+	})
+	if err == nil {
+		t.Fatal("WriteRequestEnvelope() should reject a protobuf frame larger than MaxFrameSize")
 	}
 }
 
@@ -180,7 +132,7 @@ func TestRPCStreamWriteRequestKeepsSingleFrameLimit(t *testing.T) {
 		Method: rpcapi.RPCMethodAllPing,
 	})
 	if err == nil {
-		t.Fatal("WriteRequest() should reject a JSON frame larger than MaxFrameSize")
+		t.Fatal("WriteRequest() should reject a protobuf frame larger than MaxFrameSize")
 	}
 }
 

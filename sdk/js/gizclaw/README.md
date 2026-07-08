@@ -51,8 +51,8 @@ uint16 frame_type little-endian
 payload bytes
 ```
 
-The request is a JSON frame followed by an EOS frame. The response is a JSON
-frame followed by an EOS frame.
+Peer RPC request and response envelopes are protobuf binary frames followed by
+an EOS frame.
 
 ## HTTP Over Data Channel
 
