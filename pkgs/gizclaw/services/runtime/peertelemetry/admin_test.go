@@ -131,6 +131,52 @@ func TestAdminLatestFallsBackPastStoreLookback(t *testing.T) {
 	}
 }
 
+func TestAdminLatestFallbackUsesBoundedOverTimeQueries(t *testing.T) {
+	t.Parallel()
+
+	peer := adminTestPeer()
+	observedAt := time.Unix(1783403541, 123000000).UTC()
+	valueExpr := `gizclaw_peer_battery_percent{peer_id="` + peer.String() + `"}`
+	timestampExpr := `timestamp(` + valueExpr + `)`
+	fallbackValueExpr := `last_over_time(` + valueExpr + `[720h])`
+	fallbackTimestampExpr := `last_over_time(timestamp(` + valueExpr + `)[720h:1m])`
+	store := &fakeAdminMetricsStore{seriesByExpr: map[string]metrics.SeriesSet{
+		valueExpr:     {},
+		timestampExpr: {},
+		fallbackValueExpr: {{
+			Name: "last_over_time",
+			Points: []metrics.Point{{
+				Timestamp: observedAt.Add(time.Hour),
+				Value:     74,
+			}},
+		}},
+		fallbackTimestampExpr: {{
+			Name: "last_over_time",
+			Points: []metrics.Point{{
+				Timestamp: observedAt.Add(time.Hour),
+				Value:     float64(observedAt.UnixMilli()) / 1000,
+			}},
+		}},
+	}}
+	service := &AdminService{Metrics: store, Now: func() time.Time {
+		return observedAt.Add(time.Hour)
+	}}
+
+	response, err := service.Latest(context.Background(), peer, []apitypes.PeerTelemetryField{apitypes.PeerTelemetryFieldBatteryPercent})
+	if err != nil {
+		t.Fatalf("Latest() error = %v", err)
+	}
+	if len(store.queries) != 3 {
+		t.Fatalf("queries = %#v, want instant value plus fallback value/timestamp", store.queries)
+	}
+	if store.queries[1].Expression != fallbackValueExpr || store.queries[2].Expression != fallbackTimestampExpr {
+		t.Fatalf("fallback queries = %#v, want bounded over-time expressions", store.queries[1:])
+	}
+	if len(response.Values) != 1 || response.Values[0].ObservedAtUnixMs != observedAt.UnixMilli() || response.Values[0].Value != 74 {
+		t.Fatalf("response = %#v", response)
+	}
+}
+
 func TestAdminQueryRangeDerivesStepAndOrdersDesc(t *testing.T) {
 	t.Parallel()
 
@@ -187,6 +233,33 @@ func TestAdminQueryRangeIncludesExactStartSample(t *testing.T) {
 	}
 	if len(response.Points) != 2 || response.Points[0].Value != 70 || response.Points[1].Value != 71 {
 		t.Fatalf("points = %#v, want exact start and window end samples", response.Points)
+	}
+}
+
+func TestAdminQueryRangeIncludesTrailingPartialWindow(t *testing.T) {
+	t.Parallel()
+
+	peer := adminTestPeer()
+	start := time.Unix(1783400000, 0).UTC()
+	end := start.Add(10 * time.Minute)
+	store := metrics.NewMemoryStore()
+	if err := store.Append(context.Background(), []metrics.Sample{
+		{Name: MetricBatteryPercent, Labels: map[string]string{"peer_id": peer.String()}, Timestamp: start.Add(6 * time.Minute), Value: 71},
+		{Name: MetricBatteryPercent, Labels: map[string]string{"peer_id": peer.String()}, Timestamp: end, Value: 72},
+	}); err != nil {
+		t.Fatalf("Append() error = %v", err)
+	}
+	service := &AdminService{Metrics: store}
+
+	response, err := service.QueryRange(context.Background(), peer, apitypes.PeerTelemetryFieldBatteryPercent, start, end, 4*time.Minute, 10, apitypes.PeerTelemetryOrderAsc)
+	if err != nil {
+		t.Fatalf("QueryRange() error = %v", err)
+	}
+	if len(response.Points) != 2 || response.Points[0].Value != 71 || response.Points[1].Value != 72 {
+		t.Fatalf("points = %#v, want aligned point plus trailing end point", response.Points)
+	}
+	if response.Points[1].ObservedAtUnixMs != end.UnixMilli() {
+		t.Fatalf("tail timestamp = %d, want end %d", response.Points[1].ObservedAtUnixMs, end.UnixMilli())
 	}
 }
 

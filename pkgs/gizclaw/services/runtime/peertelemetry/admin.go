@@ -24,6 +24,7 @@ const (
 	minAdminStep           = time.Second
 	defaultLatestLookback  = 30 * 24 * time.Hour
 	exactStartLookback     = time.Millisecond
+	latestTimestampStep    = time.Minute
 )
 
 type AdminService struct {
@@ -112,20 +113,15 @@ func (s *AdminService) QueryRange(ctx context.Context, peer giznet.PublicKey, fi
 	if point, ok, err := s.exactPointAt(ctx, peer, field, start); err != nil {
 		return apitypes.PeerTelemetryRangeResponse{}, err
 	} else if ok {
-		points = append(points, apitypes.PeerTelemetryPoint{
-			ObservedAtUnixMs: point.Timestamp.UnixMilli(),
-			Value:            point.Value,
-		})
-		slices.SortFunc(points, func(a, b apitypes.PeerTelemetryPoint) int {
-			if a.ObservedAtUnixMs < b.ObservedAtUnixMs {
-				return -1
-			}
-			if a.ObservedAtUnixMs > b.ObservedAtUnixMs {
-				return 1
-			}
-			return 0
-		})
+		points = appendTelemetryPoint(points, point)
 	}
+	if point, ok, err := s.rangePointAt(ctx, expr, field, end); err != nil {
+		return apitypes.PeerTelemetryRangeResponse{}, err
+	} else if ok {
+		point.Timestamp = end
+		points = appendTelemetryPoint(points, point)
+	}
+	sortTelemetryPoints(points)
 	if order == apitypes.PeerTelemetryOrderDesc {
 		slices.Reverse(points)
 	}
@@ -204,7 +200,7 @@ func (s *AdminService) latestPoint(ctx context.Context, peer giznet.PublicKey, f
 			return point, true, nil
 		}
 	}
-	fallbackExpr, err := rawRangeExpression(peer, field, defaultLatestLookback)
+	fallbackExpr, err := latestExpression(peer, field, defaultLatestLookback)
 	if err != nil {
 		return metrics.Point{}, false, err
 	}
@@ -213,7 +209,23 @@ func (s *AdminService) latestPoint(ctx context.Context, peer giznet.PublicKey, f
 		return metrics.Point{}, false, fmt.Errorf("peertelemetry: query latest fallback %s: %w", field, err)
 	}
 	point, ok = latestPointFromSeries(series)
-	return point, ok, nil
+	if !ok {
+		return metrics.Point{}, false, nil
+	}
+	fallbackTimestampExpr, err := latestTimestampExpression(peer, field, defaultLatestLookback, latestTimestampStep)
+	if err != nil {
+		return metrics.Point{}, false, err
+	}
+	timestampSeries, err := s.Metrics.Query(ctx, metrics.Query{Expression: fallbackTimestampExpr, Time: at})
+	if err != nil {
+		return metrics.Point{}, false, fmt.Errorf("peertelemetry: query latest fallback timestamp %s: %w", field, err)
+	}
+	timestampPoint, ok := latestPointFromSeries(timestampSeries)
+	if !ok {
+		return metrics.Point{}, false, nil
+	}
+	point.Timestamp = time.UnixMilli(int64(math.Round(timestampPoint.Value * 1000))).UTC()
+	return point, true, nil
 }
 
 func (s *AdminService) exactPointAt(ctx context.Context, peer giznet.PublicKey, field apitypes.PeerTelemetryField, at time.Time) (metrics.Point, bool, error) {
@@ -230,6 +242,15 @@ func (s *AdminService) exactPointAt(ctx context.Context, peer giznet.PublicKey, 
 		return metrics.Point{}, false, nil
 	}
 	return point, true, nil
+}
+
+func (s *AdminService) rangePointAt(ctx context.Context, expr string, field apitypes.PeerTelemetryField, at time.Time) (metrics.Point, bool, error) {
+	series, err := s.Metrics.Query(ctx, metrics.Query{Expression: expr, Time: at})
+	if err != nil {
+		return metrics.Point{}, false, fmt.Errorf("peertelemetry: query range tail %s: %w", field, err)
+	}
+	point, ok := latestPointFromSeries(series)
+	return point, ok, nil
 }
 
 func normalizeFields(fields []apitypes.PeerTelemetryField) ([]apitypes.PeerTelemetryField, error) {
@@ -345,6 +366,22 @@ func rawRangeExpression(peer giznet.PublicKey, field apitypes.PeerTelemetryField
 		return "", err
 	}
 	return fmt.Sprintf("%s[%s]", selector, promDuration), nil
+}
+
+func latestTimestampExpression(peer giznet.PublicKey, field apitypes.PeerTelemetryField, lookback, resolution time.Duration) (string, error) {
+	selector, err := selectorExpression(peer, field)
+	if err != nil {
+		return "", err
+	}
+	promLookback, err := promQLDuration(lookback)
+	if err != nil {
+		return "", err
+	}
+	promResolution, err := promQLDuration(resolution)
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("last_over_time(timestamp(%s)[%s:%s])", selector, promLookback, promResolution), nil
 }
 
 func rangeSampleExpression(peer giznet.PublicKey, field apitypes.PeerTelemetryField, window time.Duration) (string, error) {
@@ -495,6 +532,22 @@ func telemetryPointsFromSeries(series metrics.SeriesSet) []apitypes.PeerTelemetr
 			})
 		}
 	}
+	sortTelemetryPoints(points)
+	return points
+}
+
+func appendTelemetryPoint(points []apitypes.PeerTelemetryPoint, point metrics.Point) []apitypes.PeerTelemetryPoint {
+	unixMs := point.Timestamp.UnixMilli()
+	for index := range points {
+		if points[index].ObservedAtUnixMs == unixMs {
+			points[index].Value = point.Value
+			return points
+		}
+	}
+	return append(points, apitypes.PeerTelemetryPoint{ObservedAtUnixMs: unixMs, Value: point.Value})
+}
+
+func sortTelemetryPoints(points []apitypes.PeerTelemetryPoint) {
 	slices.SortFunc(points, func(a, b apitypes.PeerTelemetryPoint) int {
 		if a.ObservedAtUnixMs < b.ObservedAtUnixMs {
 			return -1
@@ -504,7 +557,6 @@ func telemetryPointsFromSeries(series metrics.SeriesSet) []apitypes.PeerTelemetr
 		}
 		return 0
 	})
-	return points
 }
 
 func aggregatePointsFromSeries(series metrics.SeriesSet, bucket time.Duration) []apitypes.PeerTelemetryAggregatePoint {

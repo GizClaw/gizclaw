@@ -41,6 +41,14 @@ func TestMemoryStoreAppendQueryAndRange(t *testing.T) {
 		t.Fatalf("timestamp query = %+v", got)
 	}
 
+	got, err = store.Query(context.Background(), Query{Expression: "last_over_time(timestamp(" + query + ")[30m:1m])", Time: base.Add(20 * time.Minute)})
+	if err != nil {
+		t.Fatalf("Query timestamp subquery: %v", err)
+	}
+	if len(got) != 1 || len(got[0].Points) != 1 || got[0].Points[0].Value != float64(base.Add(time.Second).UnixMilli())/1000 {
+		t.Fatalf("timestamp subquery = %+v", got)
+	}
+
 	got, err = store.QueryRange(context.Background(), RangeQuery{
 		Expression: query,
 		Start:      base,

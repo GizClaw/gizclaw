@@ -129,7 +129,11 @@ func (s *MemoryStore) Query(ctx context.Context, query Query) (SeriesSet, error)
 			if !selector.matches(series) {
 				continue
 			}
-			point, ok := rangeFunctionPoint(series.points, evalTime.Add(-selector.rangeDuration), evalTime, selector.rangeFunction, evalTime, true)
+			points := series.points
+			if selector.timestamp {
+				points = timestampPoints(points)
+			}
+			point, ok := rangeFunctionPoint(points, evalTime.Add(-selector.rangeDuration), evalTime, selector.rangeFunction, evalTime, true)
 			if !ok {
 				continue
 			}
@@ -242,7 +246,11 @@ func (s *MemoryStore) QueryRange(ctx context.Context, query RangeQuery) (SeriesS
 			}
 			points := []Point{}
 			for ts := query.Start.UTC(); !ts.After(query.End); ts = ts.Add(query.Step) {
-				point, ok := rangeFunctionPoint(series.points, ts.Add(-selector.rangeDuration), ts, selector.rangeFunction, ts, false)
+				sourcePoints := series.points
+				if selector.timestamp {
+					sourcePoints = timestampPoints(sourcePoints)
+				}
+				point, ok := rangeFunctionPoint(sourcePoints, ts.Add(-selector.rangeDuration), ts, selector.rangeFunction, ts, false)
 				if ok {
 					points = append(points, point)
 				}
@@ -330,6 +338,17 @@ func pointsInRange(points []Point, start, end time.Time, step time.Duration, loo
 	return out
 }
 
+func timestampPoints(points []Point) []Point {
+	out := make([]Point, 0, len(points))
+	for _, point := range points {
+		out = append(out, Point{
+			Timestamp: point.Timestamp,
+			Value:     float64(point.Timestamp.UnixMilli()) / float64(time.Second/time.Millisecond),
+		})
+	}
+	return out
+}
+
 func rangeFunctionPoint(points []Point, start, end time.Time, fn memoryRangeFunction, timestamp time.Time, preserveLastTimestamp bool) (Point, bool) {
 	window := pointsInWindow(points, start, end)
 	if len(window) == 0 {
@@ -395,7 +414,7 @@ func parseMemorySelector(expr string) (memorySelector, error) {
 		if err != nil {
 			return memorySelector{}, err
 		}
-		if selector.aggregation != "" || selector.rangeFunction != "" || selector.rawRange || selector.timestamp {
+		if selector.aggregation != "" || selector.rangeFunction != "" || selector.rawRange {
 			return memorySelector{}, fmt.Errorf("metrics: nested range expression %q is unsupported", expr)
 		}
 		selector.rangeFunction = rangeFunction
@@ -496,6 +515,9 @@ func parseMemoryRangeFunction(expr string) (memoryRangeFunction, string, time.Du
 	}
 	selector := strings.TrimSpace(inner[:rangeOpen])
 	durationText := strings.TrimSpace(inner[rangeOpen+1 : len(inner)-1])
+	if beforeResolution, _, ok := strings.Cut(durationText, ":"); ok {
+		durationText = strings.TrimSpace(beforeResolution)
+	}
 	duration, err := time.ParseDuration(durationText)
 	if err != nil || duration <= 0 {
 		return "", "", 0, true, fmt.Errorf("metrics: invalid range duration %q", durationText)
