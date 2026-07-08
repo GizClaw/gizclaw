@@ -19,8 +19,8 @@ func Run(cfg Config) error {
 	if cfg.Package == "" {
 		cfg.Package = "gzc"
 	}
-	if cfg.SchemaPath == "" || cfg.OutDir == "" {
-		return fmt.Errorf("-schema and -out are required")
+	if cfg.OutDir == "" {
+		return fmt.Errorf("-out is required")
 	}
 	l := &loader{docs: map[string]map[string]any{}}
 	for _, dir := range cfg.IncludeDirs {
@@ -42,6 +42,9 @@ func Run(cfg Config) error {
 }
 
 func (l *loader) loadModel(cfg Config) (Model, error) {
+	if cfg.SchemaPath == "" {
+		return loadProtoModel(cfg)
+	}
 	root, err := l.loadDoc(cfg.SchemaPath)
 	if err != nil {
 		return Model{}, err

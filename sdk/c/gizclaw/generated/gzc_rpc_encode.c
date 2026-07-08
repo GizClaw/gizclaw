@@ -400,7 +400,7 @@ int gzc_firmware_list_request_encode_proto(const gzc_platform_t *platform, const
     if (rc != GZC_OK) { return rc; }
   }
   if (value->has_limit) {
-    rc = gzc_rpc_proto_append_varint(platform, out_payload, 2, (uint64_t)(uint32_t)value->limit);
+    rc = gzc_rpc_proto_append_varint(platform, out_payload, 2, (uint64_t)value->limit);
     if (rc != GZC_OK) { return rc; }
   }
   return GZC_OK;
@@ -426,7 +426,7 @@ int gzc_firmware_files_download_request_encode_proto(const gzc_platform_t *platf
   gzc_buf_reset(out_payload);
   int rc;
   if (true) {
-    rc = gzc_rpc_proto_append_bytes(platform, out_payload, 1, (const uint8_t *)value->channel.raw.data, value->channel.raw.len);
+    rc = gzc_rpc_proto_append_varint(platform, out_payload, 1, (uint64_t)(uint32_t)value->channel);
     if (rc != GZC_OK) { return rc; }
   }
   if (true) {
@@ -451,7 +451,7 @@ int gzc_workspace_list_request_encode_proto(const gzc_platform_t *platform, cons
     if (rc != GZC_OK) { return rc; }
   }
   if (value->has_limit) {
-    rc = gzc_rpc_proto_append_varint(platform, out_payload, 2, (uint64_t)(uint32_t)value->limit);
+    rc = gzc_rpc_proto_append_varint(platform, out_payload, 2, (uint64_t)value->limit);
     if (rc != GZC_OK) { return rc; }
   }
   if (value->has_prefix) {
@@ -528,11 +528,11 @@ int gzc_workspace_history_list_request_encode_proto(const gzc_platform_t *platfo
     if (rc != GZC_OK) { return rc; }
   }
   if (value->has_limit) {
-    rc = gzc_rpc_proto_append_varint(platform, out_payload, 2, (uint64_t)(uint32_t)value->limit);
+    rc = gzc_rpc_proto_append_varint(platform, out_payload, 2, (uint64_t)value->limit);
     if (rc != GZC_OK) { return rc; }
   }
   if (value->has_order) {
-    rc = gzc_rpc_proto_append_bytes(platform, out_payload, 3, (const uint8_t *)value->order.data, value->order.len);
+    rc = gzc_rpc_proto_append_varint(platform, out_payload, 3, (uint64_t)(uint32_t)value->order);
     if (rc != GZC_OK) { return rc; }
   }
   if (true) {
@@ -587,7 +587,7 @@ int gzc_workflow_list_request_encode_proto(const gzc_platform_t *platform, const
     if (rc != GZC_OK) { return rc; }
   }
   if (value->has_limit) {
-    rc = gzc_rpc_proto_append_varint(platform, out_payload, 2, (uint64_t)(uint32_t)value->limit);
+    rc = gzc_rpc_proto_append_varint(platform, out_payload, 2, (uint64_t)value->limit);
     if (rc != GZC_OK) { return rc; }
   }
   return GZC_OK;
@@ -660,7 +660,7 @@ int gzc_model_list_request_encode_proto(const gzc_platform_t *platform, const gz
     if (rc != GZC_OK) { return rc; }
   }
   if (value->has_limit) {
-    rc = gzc_rpc_proto_append_varint(platform, out_payload, 2, (uint64_t)(uint32_t)value->limit);
+    rc = gzc_rpc_proto_append_varint(platform, out_payload, 2, (uint64_t)value->limit);
     if (rc != GZC_OK) { return rc; }
   }
   return GZC_OK;
@@ -733,7 +733,7 @@ int gzc_voice_list_request_encode_proto(const gzc_platform_t *platform, const gz
     if (rc != GZC_OK) { return rc; }
   }
   if (value->has_limit) {
-    rc = gzc_rpc_proto_append_varint(platform, out_payload, 2, (uint64_t)(uint32_t)value->limit);
+    rc = gzc_rpc_proto_append_varint(platform, out_payload, 2, (uint64_t)value->limit);
     if (rc != GZC_OK) { return rc; }
   }
   return GZC_OK;
@@ -763,7 +763,7 @@ int gzc_credential_list_request_encode_proto(const gzc_platform_t *platform, con
     if (rc != GZC_OK) { return rc; }
   }
   if (value->has_limit) {
-    rc = gzc_rpc_proto_append_varint(platform, out_payload, 2, (uint64_t)(uint32_t)value->limit);
+    rc = gzc_rpc_proto_append_varint(platform, out_payload, 2, (uint64_t)value->limit);
     if (rc != GZC_OK) { return rc; }
   }
   return GZC_OK;
@@ -836,7 +836,7 @@ int gzc_contact_list_request_encode_proto(const gzc_platform_t *platform, const 
     if (rc != GZC_OK) { return rc; }
   }
   if (value->has_limit) {
-    rc = gzc_rpc_proto_append_varint(platform, out_payload, 2, (uint64_t)(uint32_t)value->limit);
+    rc = gzc_rpc_proto_append_varint(platform, out_payload, 2, (uint64_t)value->limit);
     if (rc != GZC_OK) { return rc; }
   }
   return GZC_OK;
@@ -957,7 +957,7 @@ int gzc_friend_list_request_encode_proto(const gzc_platform_t *platform, const g
     if (rc != GZC_OK) { return rc; }
   }
   if (value->has_limit) {
-    rc = gzc_rpc_proto_append_varint(platform, out_payload, 2, (uint64_t)(uint32_t)value->limit);
+    rc = gzc_rpc_proto_append_varint(platform, out_payload, 2, (uint64_t)value->limit);
     if (rc != GZC_OK) { return rc; }
   }
   return GZC_OK;
@@ -987,7 +987,7 @@ int gzc_friend_group_list_request_encode_proto(const gzc_platform_t *platform, c
     if (rc != GZC_OK) { return rc; }
   }
   if (value->has_limit) {
-    rc = gzc_rpc_proto_append_varint(platform, out_payload, 2, (uint64_t)(uint32_t)value->limit);
+    rc = gzc_rpc_proto_append_varint(platform, out_payload, 2, (uint64_t)value->limit);
     if (rc != GZC_OK) { return rc; }
   }
   return GZC_OK;
@@ -1124,7 +1124,7 @@ int gzc_friend_group_member_list_request_encode_proto(const gzc_platform_t *plat
     if (rc != GZC_OK) { return rc; }
   }
   if (value->has_limit) {
-    rc = gzc_rpc_proto_append_varint(platform, out_payload, 3, (uint64_t)(uint32_t)value->limit);
+    rc = gzc_rpc_proto_append_varint(platform, out_payload, 3, (uint64_t)value->limit);
     if (rc != GZC_OK) { return rc; }
   }
   return GZC_OK;
@@ -1145,7 +1145,7 @@ int gzc_friend_group_member_add_request_encode_proto(const gzc_platform_t *platf
     if (rc != GZC_OK) { return rc; }
   }
   if (true) {
-    rc = gzc_rpc_proto_append_bytes(platform, out_payload, 3, (const uint8_t *)value->role.raw.data, value->role.raw.len);
+    rc = gzc_rpc_proto_append_varint(platform, out_payload, 3, (uint64_t)(uint32_t)value->role);
     if (rc != GZC_OK) { return rc; }
   }
   return GZC_OK;
@@ -1166,7 +1166,7 @@ int gzc_friend_group_member_put_request_encode_proto(const gzc_platform_t *platf
     if (rc != GZC_OK) { return rc; }
   }
   if (true) {
-    rc = gzc_rpc_proto_append_bytes(platform, out_payload, 3, (const uint8_t *)value->role.raw.data, value->role.raw.len);
+    rc = gzc_rpc_proto_append_varint(platform, out_payload, 3, (uint64_t)(uint32_t)value->role);
     if (rc != GZC_OK) { return rc; }
   }
   return GZC_OK;
@@ -1204,7 +1204,7 @@ int gzc_friend_group_message_list_request_encode_proto(const gzc_platform_t *pla
     if (rc != GZC_OK) { return rc; }
   }
   if (value->has_limit) {
-    rc = gzc_rpc_proto_append_varint(platform, out_payload, 3, (uint64_t)(uint32_t)value->limit);
+    rc = gzc_rpc_proto_append_varint(platform, out_payload, 3, (uint64_t)value->limit);
     if (rc != GZC_OK) { return rc; }
   }
   return GZC_OK;
@@ -1246,7 +1246,7 @@ int gzc_friend_group_message_send_request_encode_proto(const gzc_platform_t *pla
     if (rc != GZC_OK) { return rc; }
   }
   if (value->has_ttl_seconds) {
-    rc = gzc_rpc_proto_append_varint(platform, out_payload, 4, (uint64_t)(uint32_t)value->ttl_seconds);
+    rc = gzc_rpc_proto_append_varint(platform, out_payload, 4, (uint64_t)value->ttl_seconds);
     if (rc != GZC_OK) { return rc; }
   }
   return GZC_OK;

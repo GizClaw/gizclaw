@@ -29,7 +29,7 @@ func run(args []string, stderr io.Writer) int {
 	cfg := rpcgen.Config{}
 	flags := flag.NewFlagSet("gzc-rpcgen", flag.ContinueOnError)
 	flags.SetOutput(stderr)
-	flags.StringVar(&cfg.SchemaPath, "schema", "api/rpc.json", "Source RPC OpenAPI schema")
+	flags.StringVar(&cfg.SchemaPath, "schema", "", "Legacy RPC OpenAPI schema; leave empty to generate from protobuf")
 	flags.StringVar(&cfg.ProtoPath, "proto", "", "Peer RPC protobuf schema with numeric method ids")
 	flags.StringVar(&cfg.PayloadProtoPath, "payload-proto", "", "Peer RPC method payload protobuf schema with field numbers")
 	flags.Var(&includes, "include", "Additional schema include root")

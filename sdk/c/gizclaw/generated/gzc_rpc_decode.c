@@ -58,6 +58,19 @@ static int gzc_rpc_proto_read_bool(gzc_str_t payload, uint32_t wire_type, size_t
   return GZC_OK;
 }
 
+static int gzc_rpc_proto_read_i32(gzc_str_t payload, uint32_t wire_type, size_t *offset, int32_t *out) {
+  uint64_t value = 0;
+  if (wire_type != 0u || out == NULL) {
+    return GZC_ERR_RPC;
+  }
+  int rc = gzc_rpc_proto_read_varint((const uint8_t *)payload.data, payload.len, offset, &value);
+  if (rc != GZC_OK) {
+    return rc;
+  }
+  *out = (int32_t)value;
+  return GZC_OK;
+}
+
 static int gzc_rpc_proto_read_i64(gzc_str_t payload, uint32_t wire_type, size_t *offset, int64_t *out) {
   uint64_t value = 0;
   if (wire_type != 0u || out == NULL) {
@@ -796,7 +809,7 @@ int gzc_firmware_files_download_response_decode_proto(gzc_str_t payload, gzc_fir
       if (rc != GZC_OK) { return rc; }
       break;
     case 2:
-      rc = gzc_rpc_proto_read_str(payload, wire_type, &offset, &out_value->channel.raw);
+      rc = gzc_rpc_proto_read_i32(payload, wire_type, &offset, &out_value->channel);
       if (rc != GZC_OK) { return rc; }
       break;
     case 3:

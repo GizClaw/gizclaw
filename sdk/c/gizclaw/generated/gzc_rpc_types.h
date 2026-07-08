@@ -104,7 +104,7 @@ typedef struct {
   bool has_cursor;
   gzc_str_t cursor;
   bool has_limit;
-  int32_t limit;
+  int64_t limit;
 } gzc_firmware_list_request_t;
 
 typedef struct {
@@ -112,7 +112,7 @@ typedef struct {
 } gzc_firmware_get_request_t;
 
 typedef struct {
-  gzc_json_t channel;
+  int32_t channel;
   gzc_str_t firmware_id;
   gzc_str_t path;
 } gzc_firmware_files_download_request_t;
@@ -121,7 +121,7 @@ typedef struct {
   bool has_cursor;
   gzc_str_t cursor;
   bool has_limit;
-  int32_t limit;
+  int64_t limit;
   bool has_prefix;
   gzc_str_t prefix;
 } gzc_workspace_list_request_t;
@@ -147,9 +147,9 @@ typedef struct {
   bool has_cursor;
   gzc_str_t cursor;
   bool has_limit;
-  int32_t limit;
+  int64_t limit;
   bool has_order;
-  gzc_str_t order;
+  int32_t order;
   gzc_str_t workspace_name;
 } gzc_workspace_history_list_request_t;
 
@@ -167,7 +167,7 @@ typedef struct {
   bool has_cursor;
   gzc_str_t cursor;
   bool has_limit;
-  int32_t limit;
+  int64_t limit;
 } gzc_workflow_list_request_t;
 
 typedef struct {
@@ -191,7 +191,7 @@ typedef struct {
   bool has_cursor;
   gzc_str_t cursor;
   bool has_limit;
-  int32_t limit;
+  int64_t limit;
 } gzc_model_list_request_t;
 
 typedef struct {
@@ -215,7 +215,7 @@ typedef struct {
   bool has_cursor;
   gzc_str_t cursor;
   bool has_limit;
-  int32_t limit;
+  int64_t limit;
 } gzc_voice_list_request_t;
 
 typedef struct {
@@ -226,7 +226,7 @@ typedef struct {
   bool has_cursor;
   gzc_str_t cursor;
   bool has_limit;
-  int32_t limit;
+  int64_t limit;
 } gzc_credential_list_request_t;
 
 typedef struct {
@@ -250,7 +250,7 @@ typedef struct {
   bool has_cursor;
   gzc_str_t cursor;
   bool has_limit;
-  int32_t limit;
+  int64_t limit;
 } gzc_contact_list_request_t;
 
 typedef struct {
@@ -296,7 +296,7 @@ typedef struct {
   bool has_cursor;
   gzc_str_t cursor;
   bool has_limit;
-  int32_t limit;
+  int64_t limit;
 } gzc_friend_list_request_t;
 
 typedef struct {
@@ -307,7 +307,7 @@ typedef struct {
   bool has_cursor;
   gzc_str_t cursor;
   bool has_limit;
-  int32_t limit;
+  int64_t limit;
 } gzc_friend_group_list_request_t;
 
 typedef struct {
@@ -354,19 +354,19 @@ typedef struct {
   bool has_friend_group_id;
   gzc_str_t friend_group_id;
   bool has_limit;
-  int32_t limit;
+  int64_t limit;
 } gzc_friend_group_member_list_request_t;
 
 typedef struct {
   gzc_str_t friend_group_id;
   gzc_str_t peer_public_key;
-  gzc_json_t role;
+  int32_t role;
 } gzc_friend_group_member_add_request_t;
 
 typedef struct {
   gzc_str_t friend_group_id;
   gzc_str_t id;
-  gzc_json_t role;
+  int32_t role;
 } gzc_friend_group_member_put_request_t;
 
 typedef struct {
@@ -380,7 +380,7 @@ typedef struct {
   bool has_friend_group_id;
   gzc_str_t friend_group_id;
   bool has_limit;
-  int32_t limit;
+  int64_t limit;
 } gzc_friend_group_message_list_request_t;
 
 typedef struct {
@@ -393,7 +393,7 @@ typedef struct {
   gzc_str_t audio_content_type;
   gzc_str_t friend_group_id;
   bool has_ttl_seconds;
-  int32_t ttl_seconds;
+  int64_t ttl_seconds;
 } gzc_friend_group_message_send_request_t;
 
 typedef struct {
@@ -568,7 +568,7 @@ typedef struct {
 
 typedef struct {
   gzc_json_t artifact;
-  gzc_json_t channel;
+  int32_t channel;
   gzc_json_t file;
   gzc_str_t firmware_id;
   gzc_str_t path;
