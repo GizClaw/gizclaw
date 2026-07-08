@@ -33,9 +33,11 @@ type openAPIDoc struct {
 }
 
 type generator struct {
-	schemas map[string]schema
-	needed  map[string]bool
-	enums   map[string][]string
+	schemas        map[string]schema
+	needed         map[string]bool
+	enums          map[string][]string
+	messageNumbers map[string]map[string]int32
+	enumNumbers    map[string]map[string]int32
 }
 
 func main() {
@@ -66,9 +68,14 @@ func run(args []string) error {
 		return fmt.Errorf("%s: %w", schemaPath, err)
 	}
 	g := &generator{
-		schemas: doc.Components.Schemas,
-		needed:  map[string]bool{},
-		enums:   map[string][]string{},
+		schemas:        doc.Components.Schemas,
+		needed:         map[string]bool{},
+		enums:          map[string][]string{},
+		messageNumbers: map[string]map[string]int32{},
+		enumNumbers:    map[string]map[string]int32{},
+	}
+	if err := g.loadExistingNumbers(outPath); err != nil {
+		return err
 	}
 	if err := g.collectRPCPayloads(); err != nil {
 		return err
@@ -161,7 +168,7 @@ func (g *generator) emit() ([]byte, error) {
 	}
 	enumNames := sortedEnumNames(g.enums)
 	for _, name := range enumNames {
-		emitEnum(&buf, name, g.enums[name])
+		g.emitEnum(&buf, name, g.enums[name])
 	}
 	for _, name := range names {
 		if err := g.emitMessage(&buf, name, g.schemas[name]); err != nil {
@@ -194,18 +201,20 @@ func (g *generator) collectEnums(typeName string, s schema) error {
 	return nil
 }
 
-func emitEnum(buf *bytes.Buffer, name string, values []string) {
+func (g *generator) emitEnum(buf *bytes.Buffer, name string, values []string) {
 	buf.WriteString("enum " + name + " {\n")
 	prefix := protoEnumPrefix(name)
 	buf.WriteString("  " + prefix + "_UNSPECIFIED = 0;\n")
 	seen := map[string]int{}
-	for i, value := range values {
+	usedNumbers := map[int32]bool{0: true}
+	for _, value := range values {
 		constName := prefix + "_" + protoEnumValue(value)
 		if seen[constName] > 0 {
 			constName += "_" + strconv.Itoa(seen[constName]+1)
 		}
 		seen[constName]++
-		fmt.Fprintf(buf, "  %s = %d;\n", constName, i+1)
+		number := g.allocateEnumNumber(name, constName, usedNumbers)
+		fmt.Fprintf(buf, "  %s = %d;\n", constName, number)
 	}
 	buf.WriteString("}\n\n")
 }
@@ -227,7 +236,8 @@ func (g *generator) emitMessage(buf *bytes.Buffer, name string, s schema) error 
 	if len(choices) > 0 {
 		buf.WriteString("message " + name + " {\n")
 		buf.WriteString("  oneof value {\n")
-		for i, choice := range choices {
+		usedNumbers := map[int32]bool{}
+		for _, choice := range choices {
 			typeName, fieldName, err := g.fieldType(name, "value", choice)
 			if err != nil {
 				return err
@@ -235,7 +245,8 @@ func (g *generator) emitMessage(buf *bytes.Buffer, name string, s schema) error 
 			if refName, ok := schemaRefName(choice.Ref); ok {
 				fieldName = lowerSnake(refName)
 			}
-			fmt.Fprintf(buf, "    %s %s = %d;\n", typeName, uniqueFieldName(fieldName, nil), i+1)
+			fieldName = uniqueFieldName(fieldName, nil)
+			fmt.Fprintf(buf, "    %s %s = %d;\n", typeName, fieldName, g.allocateFieldNumber(name, fieldName, usedNumbers))
 		}
 		buf.WriteString("  }\n")
 		buf.WriteString("}\n\n")
@@ -251,7 +262,7 @@ func (g *generator) emitMessage(buf *bytes.Buffer, name string, s schema) error 
 	}
 	required := requiredSet(s.Required)
 	used := map[string]bool{}
-	fieldNo := 1
+	usedNumbers := map[int32]bool{}
 	for _, propName := range sortedSchemaKeys(s.Properties) {
 		prop := s.Properties[propName]
 		typeName, fieldName, err := g.fieldType(name, propName, prop)
@@ -262,12 +273,11 @@ func (g *generator) emitMessage(buf *bytes.Buffer, name string, s schema) error 
 			typeName = "optional " + typeName
 		}
 		fieldName = uniqueFieldName(fieldName, used)
-		fmt.Fprintf(buf, "  %s %s = %d;\n", typeName, fieldName, fieldNo)
-		fieldNo++
+		fmt.Fprintf(buf, "  %s %s = %d;\n", typeName, fieldName, g.allocateFieldNumber(name, fieldName, usedNumbers))
 	}
 	if isOpenObject(s) {
 		fieldName := uniqueFieldName("extra_fields", used)
-		fmt.Fprintf(buf, "  google.protobuf.Struct %s = %d;\n", fieldName, fieldNo)
+		fmt.Fprintf(buf, "  google.protobuf.Struct %s = %d;\n", fieldName, g.allocateFieldNumber(name, fieldName, usedNumbers))
 	}
 	buf.WriteString("}\n\n")
 	return nil
@@ -508,6 +518,131 @@ func protoEnumValue(value string) string {
 		return "VALUE"
 	}
 	return name
+}
+
+func isReservedFieldNumber(n int32) bool {
+	return n >= 19000 && n <= 19999
+}
+
+func (g *generator) loadExistingNumbers(path string) error {
+	data, err := os.ReadFile(path)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	messageRe := regexp.MustCompile(`^\s*message\s+([A-Za-z_]\w*)\s*\{`)
+	enumRe := regexp.MustCompile(`^\s*enum\s+([A-Za-z_]\w*)\s*\{`)
+	fieldRe := regexp.MustCompile(`^\s*(?:optional\s+|repeated\s+)?(?:map<[^>]+>|[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*)\s+([A-Za-z_]\w*)\s*=\s*(\d+)\s*;`)
+	enumValueRe := regexp.MustCompile(`^\s*([A-Z][A-Z0-9_]*)\s*=\s*(-?\d+)\s*;`)
+	var messageName string
+	var enumName string
+	depth := 0
+	for _, line := range strings.Split(string(data), "\n") {
+		if messageName == "" && enumName == "" {
+			if match := messageRe.FindStringSubmatch(line); match != nil {
+				messageName = match[1]
+				depth = braceDelta(line)
+				if g.messageNumbers[messageName] == nil {
+					g.messageNumbers[messageName] = map[string]int32{}
+				}
+				continue
+			}
+			if match := enumRe.FindStringSubmatch(line); match != nil {
+				enumName = match[1]
+				depth = braceDelta(line)
+				if g.enumNumbers[enumName] == nil {
+					g.enumNumbers[enumName] = map[string]int32{}
+				}
+				continue
+			}
+		}
+		if messageName != "" {
+			if match := fieldRe.FindStringSubmatch(line); match != nil {
+				n, err := strconv.ParseInt(match[2], 10, 32)
+				if err != nil {
+					return fmt.Errorf("%s field %s.%s: %w", path, messageName, match[1], err)
+				}
+				g.messageNumbers[messageName][match[1]] = int32(n)
+			}
+			depth += braceDelta(line)
+			if depth <= 0 {
+				messageName = ""
+			}
+			continue
+		}
+		if enumName != "" {
+			if match := enumValueRe.FindStringSubmatch(line); match != nil {
+				n, err := strconv.ParseInt(match[2], 10, 32)
+				if err != nil {
+					return fmt.Errorf("%s enum %s.%s: %w", path, enumName, match[1], err)
+				}
+				g.enumNumbers[enumName][match[1]] = int32(n)
+			}
+			depth += braceDelta(line)
+			if depth <= 0 {
+				enumName = ""
+			}
+		}
+	}
+	return nil
+}
+
+func braceDelta(line string) int {
+	return strings.Count(line, "{") - strings.Count(line, "}")
+}
+
+func (g *generator) allocateFieldNumber(messageName, fieldName string, used map[int32]bool) int32 {
+	if n := g.messageNumbers[messageName][fieldName]; n > 0 && !used[n] {
+		used[n] = true
+		return n
+	}
+	n := nextAvailableNumber(g.messageNumbers[messageName], used, 536870911)
+	if g.messageNumbers[messageName] == nil {
+		g.messageNumbers[messageName] = map[string]int32{}
+	}
+	g.messageNumbers[messageName][fieldName] = n
+	return n
+}
+
+func (g *generator) allocateEnumNumber(enumName, valueName string, used map[int32]bool) int32 {
+	if n := g.enumNumbers[enumName][valueName]; n > 0 && !used[n] {
+		used[n] = true
+		return n
+	}
+	n := nextAvailableNumber(g.enumNumbers[enumName], used, 2147483647)
+	if g.enumNumbers[enumName] == nil {
+		g.enumNumbers[enumName] = map[string]int32{}
+	}
+	g.enumNumbers[enumName][valueName] = n
+	return n
+}
+
+func nextAvailableNumber(existing map[string]int32, used map[int32]bool, max int32) int32 {
+	var n int32 = 1
+	for _, existingNumber := range existing {
+		if existingNumber >= n {
+			n = existingNumber + 1
+		}
+	}
+	for isReservedFieldNumber(n) || used[n] || existingNumberUsed(existing, n) {
+		n++
+		if n > max {
+			n = 1
+		}
+	}
+	used[n] = true
+	return n
+}
+
+func existingNumberUsed(existing map[string]int32, n int32) bool {
+	for _, existingNumber := range existing {
+		if existingNumber == n {
+			return true
+		}
+	}
+	return false
 }
 
 func writeIfChanged(path string, data []byte) error {
