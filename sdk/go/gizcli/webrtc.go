@@ -18,6 +18,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/stampedopus"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
+	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 )
 
 const (
@@ -363,14 +364,14 @@ func (r *ClientWebRTCRegistration) forwardWebRTCAudioTrackToPeerStampedOpus(trac
 
 		timestamp := baseWallMillis + webRTCRTPMillisDelta(webRTCOpusClockRate, baseRTPTimestamp, packet.Timestamp)
 		payload := stampedopus.Pack(timestamp, packet.Payload)
-		if _, err := conn.Write(PacketStampedOpus, payload); err != nil {
+		if _, err := conn.Write(giznet.ProtocolStampedOpusPacket, payload); err != nil {
 			return err
 		}
 	}
 }
 
 func (r *ClientWebRTCRegistration) forwardPeerStampedOpusToWebRTCAudio() {
-	packets, unsubscribe := r.client.subscribePeerPackets(PacketStampedOpus, 32)
+	packets, unsubscribe := r.client.subscribePeerPackets(giznet.ProtocolStampedOpusPacket, 32)
 	defer unsubscribe()
 
 	var sequenceNumber uint16

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/stampedopus"
+	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/pion/webrtc/v4"
 	"github.com/pion/webrtc/v4/pkg/media"
 )
@@ -61,8 +62,8 @@ func TestRemoteOpusFrameRoutesThroughConnReadAsStampedOpus(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Read error = %v", err)
 	}
-	if protocol != PacketStampedOpus {
-		t.Fatalf("protocol = %d, want %d", protocol, PacketStampedOpus)
+	if protocol != giznet.ProtocolStampedOpusPacket {
+		t.Fatalf("protocol = %d, want %d", protocol, giznet.ProtocolStampedOpusPacket)
 	}
 	ts, gotFrame, ok := stampedopus.Unpack(buf[:n])
 	if !ok {

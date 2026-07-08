@@ -198,10 +198,10 @@ func TestClientRegisterToWebRTCValidationAndClose(t *testing.T) {
 
 func TestClientPeerPacketSubscriptionCopiesAndUnsubscribes(t *testing.T) {
 	client := &Client{}
-	packets, unsubscribe := client.subscribePeerPackets(PacketStampedOpus, 1)
+	packets, unsubscribe := client.subscribePeerPackets(giznet.ProtocolStampedOpusPacket, 1)
 
 	payload := []byte("frame")
-	client.dispatchPeerPacket(PacketStampedOpus, payload)
+	client.dispatchPeerPacket(giznet.ProtocolStampedOpusPacket, payload)
 	payload[0] = 'x'
 
 	select {
@@ -214,7 +214,7 @@ func TestClientPeerPacketSubscriptionCopiesAndUnsubscribes(t *testing.T) {
 	}
 
 	unsubscribe()
-	client.dispatchPeerPacket(PacketStampedOpus, []byte("dropped"))
+	client.dispatchPeerPacket(giznet.ProtocolStampedOpusPacket, []byte("dropped"))
 
 	select {
 	case got := <-packets:

@@ -15,6 +15,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/agenthost"
+	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 )
 
 const peerStreamEventVersion = 1
@@ -160,7 +161,7 @@ func (o peerAgentOutput) writeStampedOpus(chunk *genx.MessageChunk, frame []byte
 		timestamp = uint64(chunk.Ctrl.Timestamp)
 	}
 	payload := stampedopus.Pack(timestamp, frame)
-	_, err := o.Conn.Write(PacketStampedOpus, payload)
+	_, err := o.Conn.Write(giznet.ProtocolStampedOpusPacket, payload)
 	return err
 }
 

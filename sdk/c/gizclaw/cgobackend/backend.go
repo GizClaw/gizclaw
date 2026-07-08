@@ -22,9 +22,8 @@ import (
 )
 
 const (
-	SignalingPath     = "/webrtc/v1/offer"
-	PacketStampedOpus = giznet.ProtocolStampedOpusPacket
-	MediaStreamOpus   = "audio/opus"
+	SignalingPath   = "/webrtc/v1/offer"
+	MediaStreamOpus = "audio/opus"
 
 	HTTPMethodGet     = 1
 	HTTPMethodPost    = 2
@@ -365,7 +364,7 @@ func (b *Backend) forwardRemoteOpus(track *webrtc.TrackRemote) {
 		}
 		payload := stampedopus.Pack(uint64(time.Now().UnixMilli()), packet.Payload)
 		message := make([]byte, 1+len(payload))
-		message[0] = PacketStampedOpus
+		message[0] = giznet.ProtocolStampedOpusPacket
 		copy(message[1:], payload)
 		b.emitChannelMessage(0, message, false)
 	}

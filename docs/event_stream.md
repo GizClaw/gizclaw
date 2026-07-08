@@ -33,8 +33,7 @@ stream.
 ## Stamped Opus Packet Bridge
 
 `ProtocolStampedOpusPacket` is the giznet well-known direct packet protocol byte
-`0x10`. `PacketStampedOpus` is retained as a compatibility alias in peer-facing
-code.
+`0x10`. `PacketStampedOpus` is the old name for this protocol.
 
 The bridge maps WebRTC RTP Opus payloads to stamped Opus packets toward the
 peer, and maps peer stamped Opus packets back to the WebRTC audio track. This

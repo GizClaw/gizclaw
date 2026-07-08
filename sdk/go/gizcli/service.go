@@ -17,6 +17,4 @@ const (
 
 	// MediaStreamOpus is the WebRTC Opus media stream codec.
 	MediaStreamOpus = "audio/opus"
-	// PacketStampedOpus is the internal stamped Opus packet bridge.
-	PacketStampedOpus byte = 0x10
 )
