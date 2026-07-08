@@ -167,12 +167,17 @@ func (s *AdminService) Aggregate(ctx context.Context, peer giznet.PublicKey, fie
 	if err != nil {
 		return apitypes.PeerTelemetryAggregateResponse{}, fmt.Errorf("peertelemetry: aggregate %s %s: %w", field, aggregate, err)
 	}
+	points := aggregatePointsFromSeries(series, bucket)
+	points, err = s.includeAggregateStartBoundary(ctx, peer, field, start, bucket, aggregate, points)
+	if err != nil {
+		return apitypes.PeerTelemetryAggregateResponse{}, err
+	}
 	return apitypes.PeerTelemetryAggregateResponse{
 		PeerPublicKey: peer.String(),
 		Field:         field,
 		Aggregate:     aggregate,
 		BucketMs:      bucket.Milliseconds(),
-		Points:        aggregatePointsFromSeries(series, bucket),
+		Points:        points,
 	}, nil
 }
 
@@ -251,6 +256,46 @@ func (s *AdminService) rangePointAt(ctx context.Context, expr string, field apit
 	}
 	point, ok := latestPointFromSeries(series)
 	return point, ok, nil
+}
+
+func (s *AdminService) includeAggregateStartBoundary(
+	ctx context.Context,
+	peer giznet.PublicKey,
+	field apitypes.PeerTelemetryField,
+	start time.Time,
+	bucket time.Duration,
+	aggregate apitypes.PeerTelemetryAggregate,
+	points []apitypes.PeerTelemetryAggregatePoint,
+) ([]apitypes.PeerTelemetryAggregatePoint, error) {
+	startPoint, ok, err := s.exactPointAt(ctx, peer, field, start)
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return points, nil
+	}
+	expr, err := rawRangeExpression(peer, field, bucket)
+	if err != nil {
+		return nil, err
+	}
+	series, err := s.Metrics.Query(ctx, metrics.Query{Expression: expr, Time: start.Add(bucket)})
+	if err != nil {
+		return nil, fmt.Errorf("peertelemetry: query aggregate start bucket %s: %w", field, err)
+	}
+	bucketPoints := []metrics.Point{startPoint}
+	for _, item := range series {
+		for _, point := range item.Points {
+			bucketPoints = appendMetricPoint(bucketPoints, point)
+		}
+	}
+	value, ok := aggregateMetricPoints(bucketPoints, aggregate)
+	if !ok {
+		return points, nil
+	}
+	return upsertAggregatePoint(points, apitypes.PeerTelemetryAggregatePoint{
+		BucketStartTimeMs: start.UnixMilli(),
+		Value:             value,
+	}), nil
 }
 
 func normalizeFields(fields []apitypes.PeerTelemetryField) ([]apitypes.PeerTelemetryField, error) {
@@ -569,6 +614,84 @@ func aggregatePointsFromSeries(series metrics.SeriesSet, bucket time.Duration) [
 			})
 		}
 	}
+	slices.SortFunc(points, func(a, b apitypes.PeerTelemetryAggregatePoint) int {
+		if a.BucketStartTimeMs < b.BucketStartTimeMs {
+			return -1
+		}
+		if a.BucketStartTimeMs > b.BucketStartTimeMs {
+			return 1
+		}
+		return 0
+	})
+	return points
+}
+
+func aggregateMetricPoints(points []metrics.Point, aggregate apitypes.PeerTelemetryAggregate) (float64, bool) {
+	if len(points) == 0 {
+		return 0, false
+	}
+	switch aggregate {
+	case apitypes.PeerTelemetryAggregateAvg:
+		sum := 0.0
+		for _, point := range points {
+			sum += point.Value
+		}
+		return sum / float64(len(points)), true
+	case apitypes.PeerTelemetryAggregateMin:
+		value := points[0].Value
+		for _, point := range points[1:] {
+			if point.Value < value {
+				value = point.Value
+			}
+		}
+		return value, true
+	case apitypes.PeerTelemetryAggregateMax:
+		value := points[0].Value
+		for _, point := range points[1:] {
+			if point.Value > value {
+				value = point.Value
+			}
+		}
+		return value, true
+	case apitypes.PeerTelemetryAggregateSum:
+		sum := 0.0
+		for _, point := range points {
+			sum += point.Value
+		}
+		return sum, true
+	case apitypes.PeerTelemetryAggregateCount:
+		return float64(len(points)), true
+	case apitypes.PeerTelemetryAggregateLast:
+		latest := points[0]
+		for _, point := range points[1:] {
+			if point.Timestamp.After(latest.Timestamp) {
+				latest = point
+			}
+		}
+		return latest.Value, true
+	default:
+		return 0, false
+	}
+}
+
+func appendMetricPoint(points []metrics.Point, point metrics.Point) []metrics.Point {
+	for index := range points {
+		if points[index].Timestamp.Equal(point.Timestamp) {
+			points[index] = point
+			return points
+		}
+	}
+	return append(points, point)
+}
+
+func upsertAggregatePoint(points []apitypes.PeerTelemetryAggregatePoint, point apitypes.PeerTelemetryAggregatePoint) []apitypes.PeerTelemetryAggregatePoint {
+	for index := range points {
+		if points[index].BucketStartTimeMs == point.BucketStartTimeMs {
+			points[index].Value = point.Value
+			return points
+		}
+	}
+	points = append(points, point)
 	slices.SortFunc(points, func(a, b apitypes.PeerTelemetryAggregatePoint) int {
 		if a.BucketStartTimeMs < b.BucketStartTimeMs {
 			return -1

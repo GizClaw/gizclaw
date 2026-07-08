@@ -377,6 +377,64 @@ func TestAdminAggregateLastBuildsPromQLOverTime(t *testing.T) {
 	}
 }
 
+func TestAdminAggregateIncludesStartBoundarySample(t *testing.T) {
+	t.Parallel()
+
+	peer := adminTestPeer()
+	start := time.Unix(1783400000, 0).UTC()
+	store := metrics.NewMemoryStore()
+	if err := store.Append(context.Background(), []metrics.Sample{
+		{Name: MetricBatteryPercent, Labels: map[string]string{"peer_id": peer.String()}, Timestamp: start, Value: 70},
+		{Name: MetricBatteryPercent, Labels: map[string]string{"peer_id": peer.String()}, Timestamp: start.Add(30 * time.Second), Value: 71},
+		{Name: MetricBatteryPercent, Labels: map[string]string{"peer_id": peer.String()}, Timestamp: start.Add(90 * time.Second), Value: 72},
+	}); err != nil {
+		t.Fatalf("Append() error = %v", err)
+	}
+	service := &AdminService{Metrics: store}
+
+	response, err := service.Aggregate(context.Background(), peer, apitypes.PeerTelemetryFieldBatteryPercent, start, start.Add(2*time.Minute), time.Minute, apitypes.PeerTelemetryAggregateCount)
+	if err != nil {
+		t.Fatalf("Aggregate() error = %v", err)
+	}
+	if len(response.Points) != 2 {
+		t.Fatalf("points = %#v, want 2 buckets", response.Points)
+	}
+	if response.Points[0].BucketStartTimeMs != start.UnixMilli() || response.Points[0].Value != 2 {
+		t.Fatalf("first bucket = %#v, want inclusive count of 2", response.Points[0])
+	}
+	if response.Points[1].BucketStartTimeMs != start.Add(time.Minute).UnixMilli() || response.Points[1].Value != 1 {
+		t.Fatalf("second bucket = %#v, want count of 1", response.Points[1])
+	}
+}
+
+func TestAdminAggregateLastReturnsStartBoundaryOnlyBucket(t *testing.T) {
+	t.Parallel()
+
+	peer := adminTestPeer()
+	start := time.Unix(1783400000, 0).UTC()
+	store := metrics.NewMemoryStore()
+	if err := store.Append(context.Background(), []metrics.Sample{{
+		Name:      MetricSystemTemperature,
+		Labels:    map[string]string{"peer_id": peer.String()},
+		Timestamp: start,
+		Value:     25,
+	}}); err != nil {
+		t.Fatalf("Append() error = %v", err)
+	}
+	service := &AdminService{Metrics: store}
+
+	response, err := service.Aggregate(context.Background(), peer, apitypes.PeerTelemetryFieldSystemTemperatureC, start, start.Add(time.Minute), time.Minute, apitypes.PeerTelemetryAggregateLast)
+	if err != nil {
+		t.Fatalf("Aggregate() error = %v", err)
+	}
+	if len(response.Points) != 1 {
+		t.Fatalf("points = %#v, want start-boundary bucket", response.Points)
+	}
+	if response.Points[0].BucketStartTimeMs != start.UnixMilli() || response.Points[0].Value != 25 {
+		t.Fatalf("first bucket = %#v, want start-boundary last value", response.Points[0])
+	}
+}
+
 func TestAdminQueryValidation(t *testing.T) {
 	t.Parallel()
 
