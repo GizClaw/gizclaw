@@ -15,6 +15,8 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw"
 )
 
+const nanosPerMillisecond int64 = 1_000_000
+
 type searchLogsClient interface {
 	SearchLogsV2(request *tls.SearchLogsRequest) (*tls.SearchLogsResponse, error)
 }
@@ -216,7 +218,8 @@ func volcLogEntry(raw map[string]interface{}) gizclaw.ServerLogEntry {
 	timeMs := firstInt64(raw, "time_ms", "__time__", "_time_", "Time", "time")
 	var timeNs *int64
 	if ns, ok := firstInt64OK(raw, "time_ns", "__time_ns__", "_time_ns_"); ok {
-		timeNs = &ns
+		normalized := normalizeLogTimeNs(timeMs, ns)
+		timeNs = &normalized
 	}
 	level := strings.ToUpper(firstString(raw, "level"))
 	if level == "" {
@@ -232,6 +235,13 @@ func volcLogEntry(raw map[string]interface{}) gizclaw.ServerLogEntry {
 		Path:    firstStringDefault(raw, "slog", "__path__", "__filename__", "path"),
 		Fields:  fields,
 	}
+}
+
+func normalizeLogTimeNs(timeMs, ns int64) int64 {
+	if timeMs > 0 && ns >= 0 && ns < nanosPerMillisecond {
+		return timeMs*nanosPerMillisecond + ns
+	}
+	return ns
 }
 
 func reservedLogField(key string) bool {

@@ -20,12 +20,12 @@ func TestQueryServiceStreamsLogsAndCursor(t *testing.T) {
 				Context:  "provider-next",
 				Logs: []map[string]interface{}{
 					{
-						"__time__":   json.Number("1783403541016"),
-						"time_ns":    "1783403541016789000",
-						"level":      "error",
-						"msg":        "agenthost failed",
-						"error":      "boom",
-						"request_id": "req-1",
+						"__time__":    json.Number("1783403541016"),
+						"__time_ns__": "789000",
+						"level":       "error",
+						"msg":         "agenthost failed",
+						"error":       "boom",
+						"request_id":  "req-1",
 					},
 				},
 			},
