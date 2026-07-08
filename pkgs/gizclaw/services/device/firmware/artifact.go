@@ -296,6 +296,11 @@ func writeArtifactPackage(ctx context.Context, assets objectstore.ObjectStore, n
 	if err != nil {
 		_ = pw.CloseWithError(err)
 		<-putErrCh
+		if errors.Is(err, errInvalidArtifact) {
+			if cleanupErr := assets.DeletePrefix(prefix); cleanupErr != nil {
+				return apitypes.FirmwareArtifact{}, fmt.Errorf("cleanup invalid firmware artifact %q/%q: %w", name, channel, cleanupErr)
+			}
+		}
 		return apitypes.FirmwareArtifact{}, err
 	}
 	if err := pw.Close(); err != nil {
@@ -370,6 +375,9 @@ func extractArtifactTar(_ context.Context, assets objectstore.ObjectStore, files
 				return nil, err
 			}
 			if err := assets.Put(objectPath, tr); err != nil {
+				if errors.Is(err, io.ErrUnexpectedEOF) {
+					return nil, fmt.Errorf("%w: write tar entry %q: %v", errInvalidArtifact, entryPath, err)
+				}
 				return nil, err
 			}
 			entries[entryPath] = entry

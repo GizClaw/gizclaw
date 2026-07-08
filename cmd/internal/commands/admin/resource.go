@@ -228,7 +228,24 @@ func decodeJSONResource(data []byte) (apitypes.Resource, error) {
 	if err := json.Unmarshal(data, &resource); err != nil {
 		return apitypes.Resource{}, err
 	}
+	if err := validateResourceKind(resource); err != nil {
+		return apitypes.Resource{}, err
+	}
 	return resource, nil
+}
+
+func validateResourceKind(resource apitypes.Resource) error {
+	kind, err := resource.Discriminator()
+	if err != nil {
+		return err
+	}
+	if apitypes.ResourceKind(kind).Valid() {
+		return nil
+	}
+	if _, err := resource.ValueByDiscriminator(); err == nil {
+		return nil
+	}
+	return fmt.Errorf("unknown resource kind %q", kind)
 }
 
 func decodeYAMLResource(data []byte) (apitypes.Resource, error) {

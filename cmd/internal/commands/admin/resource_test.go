@@ -283,6 +283,33 @@ func TestAdminResourceApplyRejectsUnsupportedResourceFileExtension(t *testing.T)
 	}
 }
 
+func TestAdminResourceApplyRejectsUnknownResourceKind(t *testing.T) {
+	_, err := decodeResourceData("unknown.json", []byte(`{
+		"apiVersion": "gizclaw.admin/v1alpha1",
+		"kind": "Unknown",
+		"metadata": {"name": "unknown"},
+		"spec": {}
+	}`))
+	if err == nil || !strings.Contains(err.Error(), `unknown resource kind "Unknown"`) {
+		t.Fatalf("decodeResourceData unknown kind error = %v", err)
+	}
+}
+
+func TestAdminResourceApplyAcceptsGeneratedResourceKindAlias(t *testing.T) {
+	_, err := decodeResourceData("credential.json", []byte(`{
+		"apiVersion": "gizclaw.admin/v1alpha1",
+		"kind": "CredentialResource",
+		"metadata": {"name": "credential-alias"},
+		"spec": {
+			"provider": "minimax",
+			"body": {"api_key": "secret"}
+		}
+	}`))
+	if err != nil {
+		t.Fatalf("decodeResourceData generated alias error = %v", err)
+	}
+}
+
 func TestAdminResourceApplyRejectsMissingEnv(t *testing.T) {
 	resourceFile := filepath.Join(t.TempDir(), "credential.json")
 	if err := os.WriteFile(resourceFile, []byte(`{

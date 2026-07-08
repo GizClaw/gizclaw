@@ -85,6 +85,10 @@ func LoadConfig(path string) (ConfigFile, error) {
 	if err != nil {
 		return ConfigFile{}, err
 	}
+	return parseConfigData(data)
+}
+
+func parseConfigData(data []byte) (ConfigFile, error) {
 	var raw struct {
 		Identity       *IdentityConfig           `yaml:"identity"`
 		Listen         string                    `yaml:"listen"`
