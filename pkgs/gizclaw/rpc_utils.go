@@ -57,6 +57,11 @@ func handleRPCStreamRequest(
 		return false, err
 	}
 	if streamDispatch != nil {
+		previousRequestEOSAlreadyConsumed := stream.requestEOSAlreadyConsumed
+		stream.requestEOSAlreadyConsumed = requestEOS
+		defer func() {
+			stream.requestEOSAlreadyConsumed = previousRequestEOSAlreadyConsumed
+		}()
 		handled, err := streamDispatch(stream.Context(), stream, req)
 		if err != nil {
 			return false, err

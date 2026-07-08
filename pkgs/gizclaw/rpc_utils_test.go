@@ -1,6 +1,7 @@
 package gizclaw
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"net"
@@ -90,6 +91,85 @@ func TestRPCServerHandleReusesStreamByDefault(t *testing.T) {
 	}
 	if err := <-serverErrCh; err != nil {
 		t.Fatalf("server Handle error = %v", err)
+	}
+}
+
+func TestRPCServerStreamDispatchUsesConsumedContinuationEOS(t *testing.T) {
+	serverSide, clientSide := net.Pipe()
+	defer serverSide.Close()
+	defer clientSide.Close()
+
+	serverErrCh := make(chan error, 1)
+	go func() {
+		serverErrCh <- handleRPCWithStream(
+			serverSide,
+			func(context.Context, *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
+				t.Error("non-stream dispatch should not be called")
+				return nil, nil
+			},
+			func(_ context.Context, stream *rpcStream, req *rpcapi.RPCRequest) (bool, error) {
+				if err := stream.ReadEOS(); err != nil {
+					return false, err
+				}
+				resp, err := newRPCPingResponse(req.Id, rpcapi.PingResponse{ServerTime: 123})
+				if err != nil {
+					return false, err
+				}
+				if err := stream.WriteResponseEnvelopeForMethod(req.Method, resp); err != nil {
+					return false, err
+				}
+				if err := stream.WriteEOS(); err != nil {
+					return false, err
+				}
+				return true, nil
+			},
+		)
+	}()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	clientStream, err := newRPCStream(ctx, clientSide)
+	if err != nil {
+		t.Fatalf("newRPCStream(client) error = %v", err)
+	}
+	defer clientStream.Close()
+
+	req := &rpcapi.RPCRequest{
+		V:      rpcapi.RPCVersionV1,
+		Id:     string(bytes.Repeat([]byte("r"), rpcapi.MaxFrameSize+1024)),
+		Method: rpcapi.RPCMethodAllPing,
+	}
+	if err := clientStream.WriteRequestEnvelope(req); err != nil {
+		t.Fatalf("WriteRequestEnvelope() error = %v", err)
+	}
+	if err := clientStream.WriteEOS(); err != nil {
+		t.Fatalf("WriteEOS() error = %v", err)
+	}
+
+	resp, responseEOS, err := clientStream.ReadResponseEnvelopeForMethod(rpcapi.RPCMethodAllPing)
+	if err != nil {
+		t.Fatalf("ReadResponseEnvelopeForMethod() error = %v", err)
+	}
+	if !responseEOS {
+		if err := clientStream.ReadEOS(); err != nil {
+			t.Fatalf("ReadEOS() error = %v", err)
+		}
+	}
+	if resp.Id != req.Id {
+		t.Fatalf("response id = %q, want %q", resp.Id, req.Id)
+	}
+	got, err := resp.Result.AsPingResponse()
+	if err != nil {
+		t.Fatalf("AsPingResponse() error = %v", err)
+	}
+	if got.ServerTime != 123 {
+		t.Fatalf("server_time = %d, want 123", got.ServerTime)
+	}
+	if err := clientSide.Close(); err != nil {
+		t.Fatalf("client close error = %v", err)
+	}
+	if err := <-serverErrCh; err != nil {
+		t.Fatalf("server error = %v", err)
 	}
 }
 

@@ -9,6 +9,7 @@ type FieldDesc = {
   repeated?: boolean;
   mapValue?: string;
   oneof?: boolean;
+  optional?: boolean;
 };
 
 type MessageDesc = {
@@ -19,6 +20,1217 @@ type EnumDesc = {
   byName: Record<string, number>;
   byNumber: Record<number, string>;
 };
+
+export type ASTTranslateExternalVoiceParameters = {
+  "tts_voice": string;
+};
+export type ASTTranslateInternalSpeakerParameters = {
+  "is_custom_speaker"?: boolean;
+  "speaker_id": string;
+  "speech_rate"?: number;
+  "tts_resource_id"?: string;
+};
+export type ASTTranslateVoiceParameters = ASTTranslateInternalSpeakerParameters | ASTTranslateExternalVoiceParameters;
+export type ASTTranslateWorkflowSpec = {
+  "denoise"?: boolean;
+  "enable_source_language_detect"?: boolean;
+  "is_custom_speaker"?: boolean;
+  "mode"?: string | number;
+  "resource_id"?: string;
+  "speaker_id"?: string;
+  "speech_rate"?: number;
+  "translation_model": string;
+  "tts_resource_id"?: string;
+  "voice"?: ASTTranslateVoiceParameters;
+};
+export type ASTTranslateWorkspaceParameters = {
+  "agent_type": string | number;
+  "denoise"?: boolean;
+  "e2e"?: boolean;
+  "enable_source_language_detect"?: boolean;
+  "input"?: string | number;
+  "is_custom_speaker"?: boolean;
+  "lang_pair"?: string;
+  "mode"?: string | number;
+  "speaker_id"?: string;
+  "speech_rate"?: number;
+  "translation_model"?: string;
+  "tts_resource_id"?: string;
+  "voice"?: ASTTranslateVoiceParameters;
+};
+export type AgentSelection = {
+  "workspace_name": string;
+};
+export type Badge = {
+  "active": boolean;
+  "badge_def_id": string;
+  "created_at": string;
+  "exp": number;
+  "id": string;
+  "level": number;
+  "owner_public_key": string;
+  "progress": number;
+  "updated_at": string;
+};
+export type BadgeDefPixaDownloadRequest = {
+  "id": string;
+};
+export type BadgeDefPixaDownloadResponse = {
+  "id": string;
+  "pixa_path"?: string;
+  "size_bytes": number;
+};
+export type BadgeListResponse = {
+  "has_next": boolean;
+  "items": Badge[];
+  "next_cursor"?: string;
+};
+export type ChatRoomWorkflowHistorySpec = {
+  "ttl"?: string;
+};
+export type ChatRoomWorkflowSpec = {
+  "history"?: ChatRoomWorkflowHistorySpec;
+  "transcript"?: ChatRoomWorkflowTranscriptSpec;
+};
+export type ChatRoomWorkflowTranscriptSpec = {
+  "asr_model"?: string;
+  "enabled"?: boolean;
+};
+export type ChatRoomWorkspaceHistoryParameters = {
+  "ttl"?: string;
+};
+export type ChatRoomWorkspaceParameters = {
+  "agent_type": string | number;
+  "history"?: ChatRoomWorkspaceHistoryParameters;
+  "input"?: string | number;
+  "mode"?: string | number;
+  "transcript"?: ChatRoomWorkspaceTranscriptParameters;
+};
+export type ChatRoomWorkspaceTranscriptParameters = {
+  "asr_model"?: string;
+  "enabled"?: boolean;
+};
+export type ClientGetIdentifiersRequest = Record<string, never>;
+export type ClientGetIdentifiersResponse = RefreshIdentifiers;
+export type ClientGetInfoRequest = Record<string, never>;
+export type ClientGetInfoResponse = RefreshInfo;
+export type ContactCreateRequest = {
+  "display_name"?: string;
+  "phone_number"?: string;
+};
+export type ContactCreateResponse = ContactObject;
+export type ContactDeleteRequest = {
+  "id": string;
+};
+export type ContactDeleteResponse = ContactObject;
+export type ContactGetRequest = {
+  "id": string;
+};
+export type ContactGetResponse = ContactObject;
+export type ContactListRequest = {
+  "cursor"?: string;
+  "limit"?: number;
+};
+export type ContactListResponse = {
+  "has_next": boolean;
+  "items": ContactObject[];
+  "next_cursor"?: string;
+};
+export type ContactObject = {
+  "created_at"?: string;
+  "display_name"?: string;
+  "id"?: string;
+  "phone_number"?: string;
+  "updated_at"?: string;
+};
+export type ContactPutRequest = {
+  "display_name"?: string;
+  "id": string;
+  "phone_number"?: string;
+};
+export type ContactPutResponse = ContactObject;
+export type Credential = {
+  "body"?: CredentialBody;
+  "created_at": string;
+  "description"?: string;
+  "name": string;
+  "provider": string;
+  "updated_at": string;
+};
+export type CredentialBody = OpenAICredentialBody | GeminiCredentialBody | DashScopeCredentialBody | MiniMaxCredentialBody | VolcCredentialBody;
+export type CredentialCreateRequest = Credential;
+export type CredentialCreateResponse = Credential;
+export type CredentialDeleteRequest = {
+  "name": string;
+};
+export type CredentialDeleteResponse = Credential;
+export type CredentialGetRequest = {
+  "name": string;
+};
+export type CredentialGetResponse = Credential;
+export type CredentialListRequest = {
+  "cursor"?: string;
+  "limit"?: number;
+};
+export type CredentialListResponse = {
+  "has_next": boolean;
+  "items": Credential[];
+  "next_cursor"?: string;
+};
+export type CredentialPutRequest = {
+  "body"?: Credential;
+  "name": string;
+};
+export type CredentialPutResponse = Credential;
+export type DashScopeCredentialBody = {
+  "api_key"?: string;
+  "base_url"?: string;
+  "token"?: string;
+};
+export type DashScopeTenantModelProviderData = {
+  "api_mode"?: string | number;
+  "upstream_model"?: string;
+};
+export type DashScopeTenantVoiceProviderData = {
+  "raw": Record<string, unknown>;
+  "voice_id"?: string;
+};
+export type DeviceInfo = {
+  "hardware"?: HardwareInfo;
+  "name"?: string;
+  "sn"?: string;
+};
+export type DoubaoRealtimeAIGCMetadata = {
+  "content_producer"?: string;
+  "content_propagator"?: string;
+  "enable"?: boolean;
+  "produce_id"?: string;
+  "propagate_id"?: string;
+};
+export type DoubaoRealtimeASRContext = {
+  "correct_words": Record<string, string>;
+  "hotwords": DoubaoRealtimeASRHotword[];
+};
+export type DoubaoRealtimeASRExtension = {
+  "extra"?: DoubaoRealtimeASRExtra;
+};
+export type DoubaoRealtimeASRExtra = {
+  "boosting_table_id"?: string;
+  "boosting_table_name"?: string;
+  "context"?: DoubaoRealtimeASRContext;
+  "enable_asr_twopass"?: boolean;
+  "enable_custom_vad"?: boolean;
+  "end_smooth_window_ms"?: number;
+  "regex_correct_table_id"?: string;
+  "regex_correct_table_name"?: string;
+};
+export type DoubaoRealtimeASRHotword = {
+  "word": string;
+};
+export type DoubaoRealtimeAudio = {
+  "input"?: DoubaoRealtimeAudioInput;
+  "output"?: DoubaoRealtimeAudioOutput;
+};
+export type DoubaoRealtimeAudioFormat = {
+  "rate": number;
+  "type": string | number;
+};
+export type DoubaoRealtimeAudioInput = {
+  "format"?: DoubaoRealtimeAudioFormat;
+};
+export type DoubaoRealtimeAudioOutput = {
+  "format"?: DoubaoRealtimeAudioFormat;
+  "loudness"?: number;
+  "speed"?: number;
+  "voice"?: string;
+};
+export type DoubaoRealtimeDialogExtension = {
+  "extra"?: DoubaoRealtimeDialogExtra;
+};
+export type DoubaoRealtimeDialogExtra = {
+  "audit_response"?: string;
+  "enable_conversation_truncate"?: boolean;
+  "enable_loudness_norm"?: boolean;
+  "enable_music"?: boolean;
+  "enable_user_query_exit"?: boolean;
+  "enable_volc_websearch"?: boolean;
+  "strict_audit"?: boolean;
+  "volc_websearch_bot_id"?: string;
+  "volc_websearch_no_result_message"?: string;
+  "volc_websearch_result_count"?: number;
+  "volc_websearch_type"?: string | number;
+};
+export type DoubaoRealtimeExtension = {
+  "asr"?: DoubaoRealtimeASRExtension;
+  "dialog"?: DoubaoRealtimeDialogExtension;
+  "tts"?: DoubaoRealtimeTTSExtension;
+};
+export type DoubaoRealtimeFunctionTool = {
+  "description"?: string;
+  "name": string;
+  "parameters"?: DoubaoRealtimeJSONSchema;
+  "strict"?: boolean;
+  "type": string | number;
+};
+export type DoubaoRealtimeJSONSchema = {
+  "additional_properties"?: boolean;
+  "any_of": DoubaoRealtimeJSONSchema[];
+  "description"?: string;
+  "enum": string[];
+  "items"?: DoubaoRealtimeJSONSchema;
+  "max_length"?: number;
+  "maximum"?: number;
+  "min_length"?: number;
+  "minimum"?: number;
+  "properties": Record<string, DoubaoRealtimeJSONSchema>;
+  "required": string[];
+  "type"?: string;
+};
+export type DoubaoRealtimeTTSExtension = {
+  "extra"?: DoubaoRealtimeTTSExtra;
+};
+export type DoubaoRealtimeTTSExtra = {
+  "aigc_metadata"?: DoubaoRealtimeAIGCMetadata;
+  "explicit_dialect"?: string;
+  "tts_2_0_model"?: string;
+};
+export type DoubaoRealtimeWorkflowSpec = {
+  "audio"?: DoubaoRealtimeAudio;
+  "extension"?: DoubaoRealtimeExtension;
+  "instructions"?: string;
+  "model": string;
+  "tools": DoubaoRealtimeFunctionTool[];
+};
+export type DoubaoRealtimeWorkspaceParameters = {
+  "agent_type": string | number;
+  "audio"?: DoubaoRealtimeAudio;
+  "e2e"?: boolean;
+  "extension"?: DoubaoRealtimeExtension;
+  "input"?: string | number;
+  "instructions"?: string;
+  "model"?: string;
+  "tools": DoubaoRealtimeFunctionTool[];
+};
+export type Firmware = {
+  "created_at": string;
+  "description"?: string;
+  "name": string;
+  "slots"?: FirmwareSlots;
+  "updated_at": string;
+};
+export type FirmwareArtifact = {
+  "content_type": string;
+  "files_path": string;
+  "manifest_path": string;
+  "sha256": string;
+  "size": number;
+  "tar_path": string;
+  "uploaded_at": string;
+};
+export type FirmwareArtifactEntry = {
+  "content_type"?: string;
+  "mod_time": string;
+  "mode": number;
+  "path": string;
+  "size": number;
+  "type": string | number;
+};
+export type FirmwareFilesDownloadRequest = {
+  "channel": string | number;
+  "firmware_id": string;
+  "path": string;
+};
+export type FirmwareFilesDownloadResponse = {
+  "artifact"?: FirmwareArtifact;
+  "channel": string | number;
+  "file"?: FirmwareArtifactEntry;
+  "firmware_id": string;
+  "path": string;
+};
+export type FirmwareGetRequest = {
+  "firmware_id": string;
+};
+export type FirmwareGetResponse = Firmware;
+export type FirmwareListRequest = {
+  "cursor"?: string;
+  "limit"?: number;
+};
+export type FirmwareListResponse = {
+  "has_next": boolean;
+  "items": Firmware[];
+  "next_cursor"?: string;
+};
+export type FirmwareSlot = {
+  "artifact"?: FirmwareArtifact;
+  "description"?: string;
+};
+export type FirmwareSlots = {
+  "beta"?: FirmwareSlot;
+  "develop"?: FirmwareSlot;
+  "pending"?: FirmwareSlot;
+  "stable"?: FirmwareSlot;
+};
+export type FlowcraftConversationParameters = {
+  "agent_initiative_policy"?: string | number;
+  "initiative"?: string | number;
+};
+export type FlowcraftWorkflowSpec = {
+  "fields": Record<string, unknown>;
+};
+export type FlowcraftWorkspaceParameters = {
+  "agent_type": string | number;
+  "conversation"?: FlowcraftConversationParameters;
+  "e2e"?: boolean;
+  "embedding_model"?: string;
+  "extract_model"?: string;
+  "generate_model"?: string;
+  "input"?: string | number;
+};
+export type FriendAddRequest = {
+  "invite_token": string;
+};
+export type FriendAddResponse = FriendObject;
+export type FriendDeleteRequest = {
+  "id": string;
+};
+export type FriendDeleteResponse = FriendObject;
+export type FriendGroupCreateRequest = {
+  "description"?: string;
+  "name": string;
+};
+export type FriendGroupCreateResponse = FriendGroupObject;
+export type FriendGroupDeleteRequest = {
+  "id": string;
+};
+export type FriendGroupDeleteResponse = FriendGroupObject;
+export type FriendGroupGetRequest = {
+  "id": string;
+};
+export type FriendGroupGetResponse = FriendGroupObject;
+export type FriendGroupInviteTokenClearRequest = {
+  "friend_group_id": string;
+};
+export type FriendGroupInviteTokenClearResponse = Record<string, never>;
+export type FriendGroupInviteTokenCreateRequest = {
+  "friend_group_id": string;
+};
+export type FriendGroupInviteTokenCreateResponse = {
+  "expires_at": string;
+  "invite_token": string;
+};
+export type FriendGroupInviteTokenGetRequest = {
+  "friend_group_id": string;
+};
+export type FriendGroupInviteTokenGetResponse = {
+  "expires_at"?: string;
+  "invite_token"?: string;
+};
+export type FriendGroupJoinRequest = {
+  "invite_token": string;
+};
+export type FriendGroupJoinResponse = {
+  "group"?: FriendGroupObject;
+  "member"?: FriendGroupMemberObject;
+};
+export type FriendGroupListRequest = {
+  "cursor"?: string;
+  "limit"?: number;
+};
+export type FriendGroupListResponse = {
+  "has_next": boolean;
+  "items": FriendGroupObject[];
+  "next_cursor"?: string;
+};
+export type FriendGroupMemberAddRequest = {
+  "friend_group_id": string;
+  "peer_public_key": string;
+  "role": string | number;
+};
+export type FriendGroupMemberAddResponse = FriendGroupMemberObject;
+export type FriendGroupMemberDeleteRequest = {
+  "friend_group_id": string;
+  "id": string;
+};
+export type FriendGroupMemberDeleteResponse = FriendGroupMemberObject;
+export type FriendGroupMemberListRequest = {
+  "cursor"?: string;
+  "friend_group_id"?: string;
+  "limit"?: number;
+};
+export type FriendGroupMemberListResponse = {
+  "has_next": boolean;
+  "items": FriendGroupMemberObject[];
+  "next_cursor"?: string;
+};
+export type FriendGroupMemberObject = {
+  "created_at"?: string;
+  "friend_group_id"?: string;
+  "id"?: string;
+  "peer_public_key"?: string;
+  "role"?: string | number;
+  "updated_at"?: string;
+};
+export type FriendGroupMemberPutRequest = {
+  "friend_group_id": string;
+  "id": string;
+  "role": string | number;
+};
+export type FriendGroupMemberPutResponse = FriendGroupMemberObject;
+export type FriendGroupMessageGetRequest = {
+  "friend_group_id": string;
+  "id": string;
+};
+export type FriendGroupMessageGetResponse = FriendGroupMessageObject;
+export type FriendGroupMessageListRequest = {
+  "cursor"?: string;
+  "friend_group_id"?: string;
+  "limit"?: number;
+};
+export type FriendGroupMessageListResponse = {
+  "has_next": boolean;
+  "items": FriendGroupMessageObject[];
+  "next_cursor"?: string;
+};
+export type FriendGroupMessageObject = {
+  "audio_content_type"?: string;
+  "audio_path"?: string;
+  "audio_size_bytes"?: number;
+  "created_at"?: string;
+  "expires_at"?: string;
+  "friend_group_id"?: string;
+  "id"?: string;
+  "sender_peer_public_key"?: string;
+  "ttl_seconds"?: number;
+};
+export type FriendGroupMessageSendRequest = {
+  "audio_base64": string;
+  "audio_content_type": string;
+  "friend_group_id": string;
+  "ttl_seconds"?: number;
+};
+export type FriendGroupMessageSendResponse = FriendGroupMessageObject;
+export type FriendGroupObject = {
+  "created_at"?: string;
+  "created_by_peer_public_key"?: string;
+  "description"?: string;
+  "id"?: string;
+  "my_role"?: string | number;
+  "name"?: string;
+  "updated_at"?: string;
+  "workspace_name"?: string;
+};
+export type FriendGroupPutRequest = {
+  "description"?: string;
+  "id": string;
+  "name"?: string;
+};
+export type FriendGroupPutResponse = FriendGroupObject;
+export type FriendInviteTokenClearRequest = Record<string, never>;
+export type FriendInviteTokenClearResponse = Record<string, never>;
+export type FriendInviteTokenCreateRequest = Record<string, never>;
+export type FriendInviteTokenCreateResponse = {
+  "expires_at": string;
+  "invite_token": string;
+};
+export type FriendInviteTokenGetRequest = Record<string, never>;
+export type FriendInviteTokenGetResponse = {
+  "expires_at"?: string;
+  "invite_token"?: string;
+};
+export type FriendListRequest = {
+  "cursor"?: string;
+  "limit"?: number;
+};
+export type FriendListResponse = {
+  "has_next": boolean;
+  "items": FriendObject[];
+  "next_cursor"?: string;
+};
+export type FriendObject = {
+  "created_at"?: string;
+  "id"?: string;
+  "peer_public_key"?: string;
+  "updated_at"?: string;
+  "workspace_name"?: string;
+};
+export type GameResult = {
+  "created_at": string;
+  "difficulty"?: string;
+  "duration_ms"?: number;
+  "game_def_id": string;
+  "id": string;
+  "idempotency_key"?: string;
+  "max_score"?: number;
+  "occurred_at": string;
+  "outcome"?: string;
+  "owner_public_key": string;
+  "payload"?: GameplayMetadata;
+  "pet_id": string;
+  "ruleset_name": string;
+  "score"?: number;
+};
+export type GameResultListResponse = {
+  "has_next": boolean;
+  "items": GameResult[];
+  "next_cursor"?: string;
+};
+export type GameRewardSpec = {
+  "ability_delta"?: StatMap;
+  "badge_exp_delta": Record<string, number>;
+  "life_delta"?: StatMap;
+  "pet_exp_delta"?: number;
+  "points_delta"?: number;
+};
+export type GameRuleset = {
+  "created_at": string;
+  "name": string;
+  "spec"?: GameRulesetSpec;
+  "updated_at": string;
+};
+export type GameRulesetDriveSpec = {
+  "action_costs": Record<string, number>;
+  "action_rewards": Record<string, GameRewardSpec>;
+  "default_reward"?: GameRewardSpec;
+  "game_rewards": Record<string, GameRewardSpec>;
+  "life_decay_per_hour"?: StatMap;
+};
+export type GameRulesetPetPoolEntry = {
+  "adoption_cost"?: number;
+  "petdef_id": string;
+  "rarity"?: string;
+  "weight": number;
+  "workflow_name"?: string;
+};
+export type GameRulesetPointsSpec = {
+  "initial_balance"?: number;
+};
+export type GameRulesetSpec = {
+  "badge_def_ids": string[];
+  "default_workflow_name"?: string;
+  "description"?: string;
+  "drive"?: GameRulesetDriveSpec;
+  "enabled": boolean;
+  "game_def_ids": string[];
+  "metadata"?: GameplayMetadata;
+  "pet_pool": GameRulesetPetPoolEntry[];
+  "points"?: GameRulesetPointsSpec;
+};
+export type GameplayGetRequest = {
+  "id": string;
+};
+export type GameplayListRequest = {
+  "cursor"?: string;
+  "limit"?: number;
+};
+export type GameplayMetadata = {
+  "fields": Record<string, unknown>;
+};
+export type GeminiCredentialBody = {
+  "api_key"?: string;
+  "base_url"?: string;
+  "token"?: string;
+};
+export type GeminiTenantModelProviderData = {
+  "upstream_model"?: string;
+};
+export type GeminiTenantVoiceProviderData = {
+  "raw": Record<string, unknown>;
+  "voice_id"?: string;
+};
+export type HardwareInfo = {
+  "hardware_revision"?: string;
+  "imeis": PeerIMEI[];
+  "labels": PeerLabel[];
+  "manufacturer"?: string;
+  "model"?: string;
+};
+export type MiniMaxCredentialBody = {
+  "api_key"?: string;
+  "base_url"?: string;
+  "minimax_voice_base_url"?: string;
+  "token"?: string;
+  "voice_base_url"?: string;
+};
+export type MiniMaxTenantVoiceProviderData = {
+  "format"?: string;
+  "model"?: string;
+  "raw": Record<string, unknown>;
+  "sample_rate"?: number;
+  "voice_id"?: string;
+  "voice_type"?: string;
+};
+export type Model = {
+  "capabilities"?: ModelCapabilities;
+  "created_at": string;
+  "description"?: string;
+  "id": string;
+  "kind": string | number;
+  "name"?: string;
+  "provider"?: ModelProvider;
+  "provider_data"?: ModelProviderData;
+  "source": string | number;
+  "synced_at"?: string;
+  "updated_at": string;
+};
+export type ModelCapabilities = {
+  "json_output"?: boolean;
+  "system_role"?: boolean;
+  "temperature"?: boolean;
+  "text_only"?: boolean;
+  "thinking"?: ModelThinkingCapability;
+  "tool_calls"?: boolean;
+};
+export type ModelCreateRequest = Model;
+export type ModelCreateResponse = Model;
+export type ModelDeleteRequest = {
+  "id": string;
+};
+export type ModelDeleteResponse = Model;
+export type ModelGetRequest = {
+  "id": string;
+};
+export type ModelGetResponse = Model;
+export type ModelListRequest = {
+  "cursor"?: string;
+  "limit"?: number;
+};
+export type ModelListResponse = {
+  "has_next": boolean;
+  "items": Model[];
+  "next_cursor"?: string;
+};
+export type ModelProvider = {
+  "kind": string | number;
+  "name": string;
+};
+export type ModelProviderData = GeminiTenantModelProviderData | DashScopeTenantModelProviderData | OpenAITenantModelProviderData | VolcTenantModelProviderData;
+export type ModelPutRequest = {
+  "body"?: Model;
+  "id": string;
+};
+export type ModelPutResponse = Model;
+export type ModelThinkingCapability = {
+  "default_level"?: string;
+  "level_param"?: string;
+  "levels": string[];
+  "param"?: string;
+  "supported": boolean;
+};
+export type OpenAICredentialBody = {
+  "api_key"?: string;
+  "base_url"?: string;
+  "organization"?: string;
+  "project"?: string;
+  "token"?: string;
+};
+export type OpenAITenantModelProviderData = {
+  "default_thinking_level"?: string;
+  "support_json_output"?: boolean;
+  "support_text_only"?: boolean;
+  "support_thinking"?: boolean;
+  "support_tool_calls"?: boolean;
+  "thinking_level_param"?: string;
+  "thinking_levels": string[];
+  "thinking_param"?: string;
+  "upstream_model"?: string;
+  "use_system_role"?: boolean;
+};
+export type OpenAITenantVoiceProviderData = {
+  "raw": Record<string, unknown>;
+  "voice_id"?: string;
+};
+export type PeerIMEI = {
+  "name"?: string;
+  "serial": string;
+  "tac": string;
+};
+export type PeerLabel = {
+  "key": string;
+  "value": string;
+};
+export type PeerRunAgent = {
+  "active"?: AgentSelection;
+  "pending"?: AgentSelection;
+};
+export type PeerRunHistoryEntry = {
+  "created_at": string;
+  "gear_id"?: string;
+  "id": string;
+  "name": string;
+  "replay_available": boolean;
+  "text": string;
+  "type": string | number;
+};
+export type PeerRunHistoryListRequest = {
+  "cursor"?: string;
+  "limit"?: number;
+  "order"?: string | number;
+};
+export type PeerRunHistoryListResponse = {
+  "available": boolean;
+  "has_next": boolean;
+  "items": PeerRunHistoryEntry[];
+  "message"?: string;
+  "next_cursor"?: string;
+};
+export type PeerRunHistoryPlayRequest = {
+  "history_id": string;
+};
+export type PeerRunHistoryPlayResponse = {
+  "accepted": boolean;
+  "history_id": string;
+  "message"?: string;
+  "state": string;
+};
+export type PeerRunMemoryStatsRequest = Record<string, never>;
+export type PeerRunMemoryStatsResponse = {
+  "available": boolean;
+  "backend"?: string;
+  "embedding_enabled"?: boolean;
+  "embedding_status"?: string;
+  "enabled": boolean;
+  "index_status"?: string;
+  "item_count": number;
+  "last_updated_at"?: string;
+  "message"?: string;
+  "metadata": Record<string, unknown>;
+  "storage_bytes": number;
+};
+export type PeerRunRecallHit = {
+  "created_at"?: string;
+  "id": string;
+  "metadata": Record<string, unknown>;
+  "score": number;
+  "snippet": string;
+  "source_id"?: string;
+  "source_type"?: string;
+};
+export type PeerRunRecallRequest = {
+  "filters": Record<string, unknown>;
+  "limit"?: number;
+  "query": string;
+};
+export type PeerRunRecallResponse = {
+  "available": boolean;
+  "hits": PeerRunRecallHit[];
+  "message"?: string;
+};
+export type PeerRunStatus = {
+  "message"?: string;
+  "started_at"?: string;
+  "state": string | number;
+  "updated_at"?: string;
+  "workspace_name"?: string;
+};
+export type PeerRunWorkspaceState = {
+  "active_workspace_name"?: string;
+  "agent_type"?: string;
+  "history_available"?: boolean;
+  "memory_stats_available"?: boolean;
+  "message"?: string;
+  "pending_workspace_name"?: string;
+  "recall_available"?: boolean;
+  "runtime_state": string | number;
+  "selected_workspace_name"?: string;
+  "started_at"?: string;
+  "updated_at"?: string;
+  "workflow_name"?: string;
+  "workspace_name": string;
+};
+export type PeerStatus = {
+  "battery_percent"?: number;
+  "charging"?: boolean;
+  "details": Record<string, unknown>;
+  "gnss_accuracy_m"?: number;
+  "gnss_altitude_m"?: number;
+  "gnss_latitude"?: number;
+  "gnss_longitude"?: number;
+  "labels": Record<string, string>;
+  "muted"?: boolean;
+  "reported_at"?: string;
+  "volume"?: number;
+};
+export type Pet = {
+  "ability"?: StatMap;
+  "created_at": string;
+  "display_name": string;
+  "exp": number;
+  "id": string;
+  "last_active_at": string;
+  "level": number;
+  "life"?: StatMap;
+  "owner_public_key": string;
+  "petdef_id": string;
+  "ruleset_name": string;
+  "updated_at": string;
+  "workflow_name"?: string;
+  "workspace_name": string;
+};
+export type PetAdoptRequest = {
+  "display_name"?: string;
+  "ruleset_name"?: string;
+};
+export type PetAdoptResponse = {
+  "pet"?: Pet;
+  "points"?: PointsAccount;
+  "transaction"?: PointsTransaction;
+};
+export type PetDefPixaDownloadRequest = {
+  "id": string;
+};
+export type PetDefPixaDownloadResponse = {
+  "id": string;
+  "pixa_path"?: string;
+  "size_bytes": number;
+};
+export type PetDeleteRequest = {
+  "id": string;
+};
+export type PetDriveGameResultInput = {
+  "difficulty"?: string;
+  "duration_ms"?: number;
+  "game_def_id": string;
+  "idempotency_key"?: string;
+  "max_score"?: number;
+  "occurred_at"?: string;
+  "outcome"?: string;
+  "payload"?: GameplayMetadata;
+  "score"?: number;
+};
+export type PetDriveRequest = {
+  "action"?: string;
+  "game_result"?: PetDriveGameResultInput;
+  "pet_id": string;
+};
+export type PetDriveResponse = {
+  "badges": Badge[];
+  "game_result"?: GameResult;
+  "pet"?: Pet;
+  "points"?: PointsAccount;
+  "reward_grants": RewardGrant[];
+  "transactions": PointsTransaction[];
+};
+export type PetGetRequest = {
+  "id": string;
+};
+export type PetListResponse = {
+  "has_next": boolean;
+  "items": Pet[];
+  "next_cursor"?: string;
+};
+export type PetPutRequest = {
+  "display_name": string;
+  "id": string;
+};
+export type PingRequest = {
+  "client_send_time": number;
+};
+export type PingResponse = {
+  "server_time": number;
+};
+export type PointsAccount = {
+  "balance": number;
+  "created_at": string;
+  "owner_public_key": string;
+  "ruleset_name": string;
+  "updated_at": string;
+};
+export type PointsTransaction = {
+  "balance_after": number;
+  "created_at": string;
+  "delta": number;
+  "game_result_id"?: string;
+  "id": string;
+  "owner_public_key": string;
+  "pet_id"?: string;
+  "reason": string;
+  "reward_grant_id"?: string;
+  "ruleset_name": string;
+  "source_id": string;
+  "source_type": string;
+};
+export type PointsTransactionListResponse = {
+  "has_next": boolean;
+  "items": PointsTransaction[];
+  "next_cursor"?: string;
+};
+export type RefreshIdentifiers = {
+  "imeis": PeerIMEI[];
+  "labels": PeerLabel[];
+  "sn"?: string;
+};
+export type RefreshInfo = {
+  "hardware_revision"?: string;
+  "manufacturer"?: string;
+  "model"?: string;
+  "name"?: string;
+};
+export type RewardGrant = {
+  "ability_delta"?: StatMap;
+  "badge_exp_delta": Record<string, number>;
+  "created_at": string;
+  "game_result_id"?: string;
+  "id": string;
+  "life_delta"?: StatMap;
+  "owner_public_key": string;
+  "pet_exp_delta": number;
+  "pet_id"?: string;
+  "points_delta": number;
+  "reason"?: string;
+  "ruleset_name": string;
+  "source_id": string;
+  "source_type": string;
+};
+export type RewardGrantListResponse = {
+  "has_next": boolean;
+  "items": RewardGrant[];
+  "next_cursor"?: string;
+};
+export type Runtime = {
+  "last_addr"?: string;
+  "last_seen_at": string;
+  "online": boolean;
+  "rx_bytes"?: number;
+  "tx_bytes"?: number;
+};
+export type ServerBadgeGetRequest = GameplayGetRequest;
+export type ServerBadgeGetResponse = Badge;
+export type ServerBadgeListRequest = GameplayListRequest;
+export type ServerBadgeListResponse = BadgeListResponse;
+export type ServerGameResultGetRequest = GameplayGetRequest;
+export type ServerGameResultGetResponse = GameResult;
+export type ServerGameResultListRequest = GameplayListRequest;
+export type ServerGameResultListResponse = GameResultListResponse;
+export type ServerGameRulesetGetRequest = {
+  "name"?: string;
+};
+export type ServerGameRulesetGetResponse = GameRuleset;
+export type ServerGetInfoRequest = Record<string, never>;
+export type ServerGetInfoResponse = DeviceInfo;
+export type ServerGetRunAgentRequest = Record<string, never>;
+export type ServerGetRunAgentResponse = PeerRunAgent;
+export type ServerGetRunStatusRequest = Record<string, never>;
+export type ServerGetRunStatusResponse = PeerRunStatus;
+export type ServerGetRunWorkspaceMemoryStatsRequest = PeerRunMemoryStatsRequest;
+export type ServerGetRunWorkspaceMemoryStatsResponse = PeerRunMemoryStatsResponse;
+export type ServerGetRunWorkspaceRequest = Record<string, never>;
+export type ServerGetRunWorkspaceResponse = PeerRunWorkspaceState;
+export type ServerGetRuntimeRequest = Record<string, never>;
+export type ServerGetRuntimeResponse = Runtime;
+export type ServerGetStatusRequest = Record<string, never>;
+export type ServerGetStatusResponse = PeerStatus;
+export type ServerListRunWorkspaceHistoryRequest = PeerRunHistoryListRequest;
+export type ServerListRunWorkspaceHistoryResponse = PeerRunHistoryListResponse;
+export type ServerPetAdoptRequest = PetAdoptRequest;
+export type ServerPetAdoptResponse = PetAdoptResponse;
+export type ServerPetDeleteRequest = PetDeleteRequest;
+export type ServerPetDeleteResponse = Pet;
+export type ServerPetDriveRequest = PetDriveRequest;
+export type ServerPetDriveResponse = PetDriveResponse;
+export type ServerPetGetRequest = PetGetRequest;
+export type ServerPetGetResponse = Pet;
+export type ServerPetListRequest = GameplayListRequest;
+export type ServerPetListResponse = PetListResponse;
+export type ServerPetPutRequest = PetPutRequest;
+export type ServerPetPutResponse = Pet;
+export type ServerPlayRunWorkspaceHistoryRequest = PeerRunHistoryPlayRequest;
+export type ServerPlayRunWorkspaceHistoryResponse = PeerRunHistoryPlayResponse;
+export type ServerPointsGetRequest = {
+  "ruleset_name"?: string;
+};
+export type ServerPointsGetResponse = PointsAccount;
+export type ServerPointsTransactionGetRequest = GameplayGetRequest;
+export type ServerPointsTransactionGetResponse = PointsTransaction;
+export type ServerPointsTransactionListRequest = GameplayListRequest;
+export type ServerPointsTransactionListResponse = PointsTransactionListResponse;
+export type ServerPutInfoRequest = DeviceInfo;
+export type ServerPutInfoResponse = DeviceInfo;
+export type ServerReloadRunRequest = Record<string, never>;
+export type ServerReloadRunResponse = PeerRunStatus;
+export type ServerReloadRunWorkspaceRequest = Record<string, never>;
+export type ServerReloadRunWorkspaceResponse = PeerRunWorkspaceState;
+export type ServerRewardGrantGetRequest = GameplayGetRequest;
+export type ServerRewardGrantGetResponse = RewardGrant;
+export type ServerRewardGrantListRequest = GameplayListRequest;
+export type ServerRewardGrantListResponse = RewardGrantListResponse;
+export type ServerRunSayRequest = {
+  "credential_name"?: string;
+  "model_id"?: string;
+  "text": string;
+  "voice_id"?: string;
+};
+export type ServerRunSayResponse = {
+  "accepted": boolean;
+};
+export type ServerRunWorkspaceRecallRequest = PeerRunRecallRequest;
+export type ServerRunWorkspaceRecallResponse = PeerRunRecallResponse;
+export type ServerSetRunAgentRequest = AgentSelection;
+export type ServerSetRunAgentResponse = PeerRunAgent;
+export type ServerSetRunWorkspaceRequest = AgentSelection;
+export type ServerSetRunWorkspaceResponse = PeerRunWorkspaceState;
+export type ServerStopRunRequest = Record<string, never>;
+export type ServerStopRunResponse = PeerRunStatus;
+export type SpeedTestRequest = {
+  "down_content_length": number;
+  "up_content_length": number;
+};
+export type SpeedTestResponse = {
+  "down_content_length": number;
+  "up_content_length": number;
+};
+export type StatMap = Record<string, number>;
+export type Voice = {
+  "created_at": string;
+  "description"?: string;
+  "id": string;
+  "name"?: string;
+  "provider"?: VoiceProvider;
+  "provider_data"?: VoiceProviderData;
+  "source": string | number;
+  "synced_at"?: string;
+  "updated_at": string;
+};
+export type VoiceGetRequest = {
+  "id": string;
+};
+export type VoiceGetResponse = Voice;
+export type VoiceListRequest = {
+  "cursor"?: string;
+  "limit"?: number;
+};
+export type VoiceListResponse = {
+  "has_next": boolean;
+  "items": Voice[];
+  "next_cursor"?: string;
+};
+export type VoiceProvider = {
+  "kind": string | number;
+  "name": string;
+};
+export type VoiceProviderData = GeminiTenantVoiceProviderData | DashScopeTenantVoiceProviderData | OpenAITenantVoiceProviderData | MiniMaxTenantVoiceProviderData | VolcTenantVoiceProviderData;
+export type VolcCredentialBody = {
+  "api_key"?: string;
+  "app_id"?: string;
+  "openapi_access_key"?: string;
+  "openapi_access_key_id"?: string;
+  "search_api_key"?: string;
+};
+export type VolcTenantModelProviderData = {
+  "api_mode"?: string | number;
+  "default_thinking_level"?: string;
+  "resource_id"?: string;
+  "support_json_output"?: boolean;
+  "support_text_only"?: boolean;
+  "support_thinking"?: boolean;
+  "support_tool_calls"?: boolean;
+  "thinking_level_param"?: string;
+  "thinking_levels": string[];
+  "thinking_param"?: string;
+  "upstream_model"?: string;
+  "use_system_role"?: boolean;
+};
+export type VolcTenantVoiceProviderData = {
+  "raw": Record<string, unknown>;
+  "resource_id"?: string;
+  "state"?: string;
+  "status"?: string;
+  "voice_id"?: string;
+};
+export type WorkflowCreateRequest = WorkflowDocument;
+export type WorkflowCreateResponse = WorkflowDocument;
+export type WorkflowDeleteRequest = {
+  "name": string;
+};
+export type WorkflowDeleteResponse = WorkflowDocument;
+export type WorkflowDocument = {
+  "metadata"?: WorkflowMetadata;
+  "spec"?: WorkflowSpec;
+};
+export type WorkflowGetRequest = {
+  "name": string;
+};
+export type WorkflowGetResponse = WorkflowDocument;
+export type WorkflowListRequest = {
+  "cursor"?: string;
+  "limit"?: number;
+};
+export type WorkflowListResponse = {
+  "has_next": boolean;
+  "items": WorkflowDocument[];
+  "next_cursor"?: string;
+};
+export type WorkflowMetadata = {
+  "description"?: string;
+  "name": string;
+};
+export type WorkflowPutRequest = {
+  "body"?: WorkflowDocument;
+  "name": string;
+};
+export type WorkflowPutResponse = WorkflowDocument;
+export type WorkflowSpec = {
+  "ast_translate"?: ASTTranslateWorkflowSpec;
+  "chatroom"?: ChatRoomWorkflowSpec;
+  "doubao_realtime"?: DoubaoRealtimeWorkflowSpec;
+  "driver": string | number;
+  "flowcraft"?: FlowcraftWorkflowSpec;
+};
+export type Workspace = {
+  "created_at": string;
+  "last_active_at": string;
+  "name": string;
+  "parameters"?: WorkspaceParameters;
+  "updated_at": string;
+  "workflow_name": string;
+};
+export type WorkspaceCreateRequest = Workspace;
+export type WorkspaceCreateResponse = Workspace;
+export type WorkspaceDeleteRequest = {
+  "name": string;
+};
+export type WorkspaceDeleteResponse = Workspace;
+export type WorkspaceGetRequest = {
+  "name": string;
+};
+export type WorkspaceGetResponse = Workspace;
+export type WorkspaceHistoryAudioGetRequest = {
+  "history_id": string;
+  "workspace_name": string;
+};
+export type WorkspaceHistoryAudioGetResponse = {
+  "history_id": string;
+  "mime_type": string;
+  "size_bytes": number;
+  "workspace_name": string;
+};
+export type WorkspaceHistoryGetRequest = {
+  "history_id": string;
+  "workspace_name": string;
+};
+export type WorkspaceHistoryGetResponse = PeerRunHistoryEntry;
+export type WorkspaceHistoryListRequest = {
+  "cursor"?: string;
+  "limit"?: number;
+  "order"?: string | number;
+  "workspace_name": string;
+};
+export type WorkspaceHistoryListResponse = PeerRunHistoryListResponse;
+export type WorkspaceListRequest = {
+  "cursor"?: string;
+  "limit"?: number;
+  "prefix"?: string;
+};
+export type WorkspaceListResponse = {
+  "has_next": boolean;
+  "items": Workspace[];
+  "next_cursor"?: string;
+};
+export type WorkspaceParameters = FlowcraftWorkspaceParameters | DoubaoRealtimeWorkspaceParameters | ASTTranslateWorkspaceParameters | ChatRoomWorkspaceParameters;
+export type WorkspacePutRequest = {
+  "body"?: Workspace;
+  "name": string;
+};
+export type WorkspacePutResponse = Workspace;
 
 const REQUEST_PAYLOAD_MESSAGES: Record<string, string> = {
   "all.ping": "PingRequest",
@@ -236,6 +1448,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "is_custom_speaker",
         "number": 1,
+        "optional": true,
         "type": "bool"
       },
       {
@@ -246,11 +1459,13 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "speech_rate",
         "number": 3,
+        "optional": true,
         "type": "int64"
       },
       {
         "name": "tts_resource_id",
         "number": 4,
+        "optional": true,
         "type": "string"
       }
     ]
@@ -276,36 +1491,43 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "denoise",
         "number": 1,
+        "optional": true,
         "type": "bool"
       },
       {
         "name": "enable_source_language_detect",
         "number": 2,
+        "optional": true,
         "type": "bool"
       },
       {
         "name": "is_custom_speaker",
         "number": 3,
+        "optional": true,
         "type": "bool"
       },
       {
         "name": "mode",
         "number": 4,
+        "optional": true,
         "type": "ASTTranslateMode"
       },
       {
         "name": "resource_id",
         "number": 5,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "speaker_id",
         "number": 6,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "speech_rate",
         "number": 7,
+        "optional": true,
         "type": "int64"
       },
       {
@@ -316,11 +1538,13 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "tts_resource_id",
         "number": 9,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "voice",
         "number": 10,
+        "optional": true,
         "type": "ASTTranslateVoiceParameters"
       }
     ]
@@ -335,61 +1559,73 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "denoise",
         "number": 2,
+        "optional": true,
         "type": "bool"
       },
       {
         "name": "e2e",
         "number": 3,
+        "optional": true,
         "type": "bool"
       },
       {
         "name": "enable_source_language_detect",
         "number": 4,
+        "optional": true,
         "type": "bool"
       },
       {
         "name": "input",
         "number": 5,
+        "optional": true,
         "type": "WorkspaceInputMode"
       },
       {
         "name": "is_custom_speaker",
         "number": 6,
+        "optional": true,
         "type": "bool"
       },
       {
         "name": "lang_pair",
         "number": 7,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "mode",
         "number": 8,
+        "optional": true,
         "type": "ASTTranslateMode"
       },
       {
         "name": "speaker_id",
         "number": 9,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "speech_rate",
         "number": 10,
+        "optional": true,
         "type": "int64"
       },
       {
         "name": "translation_model",
         "number": 11,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "tts_resource_id",
         "number": 12,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "voice",
         "number": 13,
+        "optional": true,
         "type": "ASTTranslateVoiceParameters"
       }
     ]
@@ -462,6 +1698,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "pixa_path",
         "number": 2,
+        "optional": true,
         "type": "string"
       },
       {
@@ -487,6 +1724,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "next_cursor",
         "number": 3,
+        "optional": true,
         "type": "string"
       }
     ]
@@ -496,6 +1734,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "ttl",
         "number": 1,
+        "optional": true,
         "type": "string"
       }
     ]
@@ -510,6 +1749,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "transcript",
         "number": 2,
+        "optional": true,
         "type": "ChatRoomWorkflowTranscriptSpec"
       }
     ]
@@ -519,11 +1759,13 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "asr_model",
         "number": 1,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "enabled",
         "number": 2,
+        "optional": true,
         "type": "bool"
       }
     ]
@@ -533,6 +1775,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "ttl",
         "number": 1,
+        "optional": true,
         "type": "string"
       }
     ]
@@ -547,21 +1790,25 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "history",
         "number": 2,
+        "optional": true,
         "type": "ChatRoomWorkspaceHistoryParameters"
       },
       {
         "name": "input",
         "number": 3,
+        "optional": true,
         "type": "WorkspaceInputMode"
       },
       {
         "name": "mode",
         "number": 4,
+        "optional": true,
         "type": "ChatRoomMode"
       },
       {
         "name": "transcript",
         "number": 5,
+        "optional": true,
         "type": "ChatRoomWorkspaceTranscriptParameters"
       }
     ]
@@ -571,11 +1818,13 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "asr_model",
         "number": 1,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "enabled",
         "number": 2,
+        "optional": true,
         "type": "bool"
       }
     ]
@@ -609,11 +1858,13 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "display_name",
         "number": 1,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "phone_number",
         "number": 2,
+        "optional": true,
         "type": "string"
       }
     ]
@@ -668,11 +1919,13 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "cursor",
         "number": 1,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "limit",
         "number": 2,
+        "optional": true,
         "type": "int64"
       }
     ]
@@ -693,6 +1946,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "next_cursor",
         "number": 3,
+        "optional": true,
         "type": "string"
       }
     ]
@@ -702,26 +1956,31 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "created_at",
         "number": 1,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "display_name",
         "number": 2,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "id",
         "number": 3,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "phone_number",
         "number": 4,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "updated_at",
         "number": 5,
+        "optional": true,
         "type": "string"
       }
     ]
@@ -731,6 +1990,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "display_name",
         "number": 1,
+        "optional": true,
         "type": "string"
       },
       {
@@ -741,6 +2001,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "phone_number",
         "number": 3,
+        "optional": true,
         "type": "string"
       }
     ]
@@ -769,6 +2030,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "description",
         "number": 3,
+        "optional": true,
         "type": "string"
       },
       {
@@ -881,11 +2143,13 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "cursor",
         "number": 1,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "limit",
         "number": 2,
+        "optional": true,
         "type": "int64"
       }
     ]
@@ -906,6 +2170,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "next_cursor",
         "number": 3,
+        "optional": true,
         "type": "string"
       }
     ]
@@ -938,16 +2203,19 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "api_key",
         "number": 1,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "base_url",
         "number": 2,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "token",
         "number": 3,
+        "optional": true,
         "type": "string"
       }
     ]
@@ -957,11 +2225,13 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "api_mode",
         "number": 1,
+        "optional": true,
         "type": "DashScopeTenantModelProviderDataApiMode"
       },
       {
         "name": "upstream_model",
         "number": 2,
+        "optional": true,
         "type": "string"
       }
     ]
@@ -976,6 +2246,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "voice_id",
         "number": 2,
+        "optional": true,
         "type": "string"
       }
     ]
@@ -985,16 +2256,19 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "hardware",
         "number": 1,
+        "optional": true,
         "type": "HardwareInfo"
       },
       {
         "name": "name",
         "number": 2,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "sn",
         "number": 3,
+        "optional": true,
         "type": "string"
       }
     ]
@@ -1004,26 +2278,31 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "content_producer",
         "number": 1,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "content_propagator",
         "number": 2,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "enable",
         "number": 3,
+        "optional": true,
         "type": "bool"
       },
       {
         "name": "produce_id",
         "number": 4,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "propagate_id",
         "number": 5,
+        "optional": true,
         "type": "string"
       }
     ]
@@ -1049,6 +2328,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "extra",
         "number": 1,
+        "optional": true,
         "type": "DoubaoRealtimeASRExtra"
       }
     ]
@@ -1058,41 +2338,49 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "boosting_table_id",
         "number": 1,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "boosting_table_name",
         "number": 2,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "context",
         "number": 3,
+        "optional": true,
         "type": "DoubaoRealtimeASRContext"
       },
       {
         "name": "enable_asr_twopass",
         "number": 4,
+        "optional": true,
         "type": "bool"
       },
       {
         "name": "enable_custom_vad",
         "number": 5,
+        "optional": true,
         "type": "bool"
       },
       {
         "name": "end_smooth_window_ms",
         "number": 6,
+        "optional": true,
         "type": "int64"
       },
       {
         "name": "regex_correct_table_id",
         "number": 7,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "regex_correct_table_name",
         "number": 8,
+        "optional": true,
         "type": "string"
       }
     ]
@@ -1153,16 +2441,19 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "loudness",
         "number": 2,
+        "optional": true,
         "type": "int64"
       },
       {
         "name": "speed",
         "number": 3,
+        "optional": true,
         "type": "int64"
       },
       {
         "name": "voice",
         "number": 4,
+        "optional": true,
         "type": "string"
       }
     ]
@@ -1172,6 +2463,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "extra",
         "number": 1,
+        "optional": true,
         "type": "DoubaoRealtimeDialogExtra"
       }
     ]
@@ -1181,56 +2473,67 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "audit_response",
         "number": 1,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "enable_conversation_truncate",
         "number": 2,
+        "optional": true,
         "type": "bool"
       },
       {
         "name": "enable_loudness_norm",
         "number": 3,
+        "optional": true,
         "type": "bool"
       },
       {
         "name": "enable_music",
         "number": 4,
+        "optional": true,
         "type": "bool"
       },
       {
         "name": "enable_user_query_exit",
         "number": 5,
+        "optional": true,
         "type": "bool"
       },
       {
         "name": "enable_volc_websearch",
         "number": 6,
+        "optional": true,
         "type": "bool"
       },
       {
         "name": "strict_audit",
         "number": 7,
+        "optional": true,
         "type": "bool"
       },
       {
         "name": "volc_websearch_bot_id",
         "number": 8,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "volc_websearch_no_result_message",
         "number": 9,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "volc_websearch_result_count",
         "number": 10,
+        "optional": true,
         "type": "int64"
       },
       {
         "name": "volc_websearch_type",
         "number": 11,
+        "optional": true,
         "type": "DoubaoRealtimeDialogExtraVolcWebsearchType"
       }
     ]
@@ -1240,16 +2543,19 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "asr",
         "number": 1,
+        "optional": true,
         "type": "DoubaoRealtimeASRExtension"
       },
       {
         "name": "dialog",
         "number": 2,
+        "optional": true,
         "type": "DoubaoRealtimeDialogExtension"
       },
       {
         "name": "tts",
         "number": 3,
+        "optional": true,
         "type": "DoubaoRealtimeTTSExtension"
       }
     ]
@@ -1259,6 +2565,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "description",
         "number": 1,
+        "optional": true,
         "type": "string"
       },
       {
@@ -1269,11 +2576,13 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "parameters",
         "number": 3,
+        "optional": true,
         "type": "DoubaoRealtimeJSONSchema"
       },
       {
         "name": "strict",
         "number": 4,
+        "optional": true,
         "type": "bool"
       },
       {
@@ -1288,6 +2597,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "additional_properties",
         "number": 1,
+        "optional": true,
         "type": "bool"
       },
       {
@@ -1299,6 +2609,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "description",
         "number": 3,
+        "optional": true,
         "type": "string"
       },
       {
@@ -1310,26 +2621,31 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "items",
         "number": 5,
+        "optional": true,
         "type": "DoubaoRealtimeJSONSchema"
       },
       {
         "name": "max_length",
         "number": 6,
+        "optional": true,
         "type": "int64"
       },
       {
         "name": "maximum",
         "number": 7,
+        "optional": true,
         "type": "double"
       },
       {
         "name": "min_length",
         "number": 8,
+        "optional": true,
         "type": "int64"
       },
       {
         "name": "minimum",
         "number": 9,
+        "optional": true,
         "type": "double"
       },
       {
@@ -1347,6 +2663,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "type",
         "number": 12,
+        "optional": true,
         "type": "string"
       }
     ]
@@ -1356,6 +2673,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "extra",
         "number": 1,
+        "optional": true,
         "type": "DoubaoRealtimeTTSExtra"
       }
     ]
@@ -1365,16 +2683,19 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "aigc_metadata",
         "number": 1,
+        "optional": true,
         "type": "DoubaoRealtimeAIGCMetadata"
       },
       {
         "name": "explicit_dialect",
         "number": 2,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "tts_2_0_model",
         "number": 3,
+        "optional": true,
         "type": "string"
       }
     ]
@@ -1384,16 +2705,19 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "audio",
         "number": 1,
+        "optional": true,
         "type": "DoubaoRealtimeAudio"
       },
       {
         "name": "extension",
         "number": 2,
+        "optional": true,
         "type": "DoubaoRealtimeExtension"
       },
       {
         "name": "instructions",
         "number": 3,
+        "optional": true,
         "type": "string"
       },
       {
@@ -1419,31 +2743,37 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "audio",
         "number": 2,
+        "optional": true,
         "type": "DoubaoRealtimeAudio"
       },
       {
         "name": "e2e",
         "number": 3,
+        "optional": true,
         "type": "bool"
       },
       {
         "name": "extension",
         "number": 4,
+        "optional": true,
         "type": "DoubaoRealtimeExtension"
       },
       {
         "name": "input",
         "number": 5,
+        "optional": true,
         "type": "WorkspaceInputMode"
       },
       {
         "name": "instructions",
         "number": 6,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "model",
         "number": 7,
+        "optional": true,
         "type": "string"
       },
       {
@@ -1464,6 +2794,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "description",
         "number": 2,
+        "optional": true,
         "type": "string"
       },
       {
@@ -1527,6 +2858,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "content_type",
         "number": 1,
+        "optional": true,
         "type": "string"
       },
       {
@@ -1627,11 +2959,13 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "cursor",
         "number": 1,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "limit",
         "number": 2,
+        "optional": true,
         "type": "int64"
       }
     ]
@@ -1652,6 +2986,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "next_cursor",
         "number": 3,
+        "optional": true,
         "type": "string"
       }
     ]
@@ -1661,11 +2996,13 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "artifact",
         "number": 1,
+        "optional": true,
         "type": "FirmwareArtifact"
       },
       {
         "name": "description",
         "number": 2,
+        "optional": true,
         "type": "string"
       }
     ]
@@ -1699,11 +3036,13 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "agent_initiative_policy",
         "number": 1,
+        "optional": true,
         "type": "FlowcraftConversationParametersAgentInitiativePolicy"
       },
       {
         "name": "initiative",
         "number": 2,
+        "optional": true,
         "type": "FlowcraftConversationParametersInitiative"
       }
     ]
@@ -1727,31 +3066,37 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "conversation",
         "number": 2,
+        "optional": true,
         "type": "FlowcraftConversationParameters"
       },
       {
         "name": "e2e",
         "number": 3,
+        "optional": true,
         "type": "bool"
       },
       {
         "name": "embedding_model",
         "number": 4,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "extract_model",
         "number": 5,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "generate_model",
         "number": 6,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "input",
         "number": 7,
+        "optional": true,
         "type": "WorkspaceInputMode"
       }
     ]
@@ -1797,6 +3142,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "description",
         "number": 1,
+        "optional": true,
         "type": "string"
       },
       {
@@ -1900,11 +3246,13 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "expires_at",
         "number": 1,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "invite_token",
         "number": 2,
+        "optional": true,
         "type": "string"
       }
     ]
@@ -1937,11 +3285,13 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "cursor",
         "number": 1,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "limit",
         "number": 2,
+        "optional": true,
         "type": "int64"
       }
     ]
@@ -1962,6 +3312,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "next_cursor",
         "number": 3,
+        "optional": true,
         "type": "string"
       }
     ]
@@ -2022,16 +3373,19 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "cursor",
         "number": 1,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "friend_group_id",
         "number": 2,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "limit",
         "number": 3,
+        "optional": true,
         "type": "int64"
       }
     ]
@@ -2052,6 +3406,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "next_cursor",
         "number": 3,
+        "optional": true,
         "type": "string"
       }
     ]
@@ -2061,31 +3416,37 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "created_at",
         "number": 1,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "friend_group_id",
         "number": 2,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "id",
         "number": 3,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "peer_public_key",
         "number": 4,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "role",
         "number": 5,
+        "optional": true,
         "type": "FriendGroupMemberRole"
       },
       {
         "name": "updated_at",
         "number": 6,
+        "optional": true,
         "type": "string"
       }
     ]
@@ -2146,16 +3507,19 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "cursor",
         "number": 1,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "friend_group_id",
         "number": 2,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "limit",
         "number": 3,
+        "optional": true,
         "type": "int64"
       }
     ]
@@ -2176,6 +3540,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "next_cursor",
         "number": 3,
+        "optional": true,
         "type": "string"
       }
     ]
@@ -2185,46 +3550,55 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "audio_content_type",
         "number": 1,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "audio_path",
         "number": 2,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "audio_size_bytes",
         "number": 3,
+        "optional": true,
         "type": "int64"
       },
       {
         "name": "created_at",
         "number": 4,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "expires_at",
         "number": 5,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "friend_group_id",
         "number": 6,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "id",
         "number": 7,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "sender_peer_public_key",
         "number": 8,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "ttl_seconds",
         "number": 9,
+        "optional": true,
         "type": "int64"
       }
     ]
@@ -2249,6 +3623,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "ttl_seconds",
         "number": 4,
+        "optional": true,
         "type": "int64"
       }
     ]
@@ -2267,41 +3642,49 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "created_at",
         "number": 1,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "created_by_peer_public_key",
         "number": 2,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "description",
         "number": 3,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "id",
         "number": 4,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "my_role",
         "number": 5,
+        "optional": true,
         "type": "FriendGroupMemberRole"
       },
       {
         "name": "name",
         "number": 6,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "updated_at",
         "number": 7,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "workspace_name",
         "number": 8,
+        "optional": true,
         "type": "string"
       }
     ]
@@ -2311,6 +3694,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "description",
         "number": 1,
+        "optional": true,
         "type": "string"
       },
       {
@@ -2321,6 +3705,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "name",
         "number": 3,
+        "optional": true,
         "type": "string"
       }
     ]
@@ -2365,11 +3750,13 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "expires_at",
         "number": 1,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "invite_token",
         "number": 2,
+        "optional": true,
         "type": "string"
       }
     ]
@@ -2379,11 +3766,13 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "cursor",
         "number": 1,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "limit",
         "number": 2,
+        "optional": true,
         "type": "int64"
       }
     ]
@@ -2404,6 +3793,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "next_cursor",
         "number": 3,
+        "optional": true,
         "type": "string"
       }
     ]
@@ -2413,26 +3803,31 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "created_at",
         "number": 1,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "id",
         "number": 2,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "peer_public_key",
         "number": 3,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "updated_at",
         "number": 4,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "workspace_name",
         "number": 5,
+        "optional": true,
         "type": "string"
       }
     ]
@@ -2451,11 +3846,13 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "cursor",
         "number": 1,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "limit",
         "number": 2,
+        "optional": true,
         "type": "int64"
       }
     ]
@@ -2479,11 +3876,13 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "difficulty",
         "number": 2,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "duration_ms",
         "number": 3,
+        "optional": true,
         "type": "int64"
       },
       {
@@ -2499,11 +3898,13 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "idempotency_key",
         "number": 6,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "max_score",
         "number": 7,
+        "optional": true,
         "type": "int64"
       },
       {
@@ -2514,6 +3915,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "outcome",
         "number": 9,
+        "optional": true,
         "type": "string"
       },
       {
@@ -2524,6 +3926,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "payload",
         "number": 11,
+        "optional": true,
         "type": "GameplayMetadata"
       },
       {
@@ -2539,6 +3942,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "score",
         "number": 14,
+        "optional": true,
         "type": "int64"
       }
     ]
@@ -2559,6 +3963,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "next_cursor",
         "number": 3,
+        "optional": true,
         "type": "string"
       }
     ]
@@ -2568,6 +3973,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "ability_delta",
         "number": 1,
+        "optional": true,
         "type": "StatMap"
       },
       {
@@ -2579,16 +3985,19 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "life_delta",
         "number": 3,
+        "optional": true,
         "type": "StatMap"
       },
       {
         "name": "pet_exp_delta",
         "number": 4,
+        "optional": true,
         "type": "int64"
       },
       {
         "name": "points_delta",
         "number": 5,
+        "optional": true,
         "type": "int64"
       }
     ]
@@ -2634,6 +4043,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "default_reward",
         "number": 3,
+        "optional": true,
         "type": "GameRewardSpec"
       },
       {
@@ -2645,6 +4055,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "life_decay_per_hour",
         "number": 5,
+        "optional": true,
         "type": "StatMap"
       }
     ]
@@ -2654,6 +4065,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "adoption_cost",
         "number": 1,
+        "optional": true,
         "type": "int64"
       },
       {
@@ -2664,6 +4076,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "rarity",
         "number": 3,
+        "optional": true,
         "type": "string"
       },
       {
@@ -2674,6 +4087,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "workflow_name",
         "number": 5,
+        "optional": true,
         "type": "string"
       }
     ]
@@ -2683,6 +4097,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "initial_balance",
         "number": 1,
+        "optional": true,
         "type": "int64"
       }
     ]
@@ -2698,16 +4113,19 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "default_workflow_name",
         "number": 2,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "description",
         "number": 3,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "drive",
         "number": 4,
+        "optional": true,
         "type": "GameRulesetDriveSpec"
       },
       {
@@ -2724,6 +4142,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "metadata",
         "number": 7,
+        "optional": true,
         "type": "GameplayMetadata"
       },
       {
@@ -2735,6 +4154,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "points",
         "number": 9,
+        "optional": true,
         "type": "GameRulesetPointsSpec"
       }
     ]
@@ -2744,16 +4164,19 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "api_key",
         "number": 1,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "base_url",
         "number": 2,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "token",
         "number": 3,
+        "optional": true,
         "type": "string"
       }
     ]
@@ -2763,6 +4186,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "upstream_model",
         "number": 1,
+        "optional": true,
         "type": "string"
       }
     ]
@@ -2777,6 +4201,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "voice_id",
         "number": 2,
+        "optional": true,
         "type": "string"
       }
     ]
@@ -2786,6 +4211,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "hardware_revision",
         "number": 1,
+        "optional": true,
         "type": "string"
       },
       {
@@ -2803,11 +4229,13 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "manufacturer",
         "number": 4,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "model",
         "number": 5,
+        "optional": true,
         "type": "string"
       }
     ]
@@ -2817,26 +4245,31 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "api_key",
         "number": 1,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "base_url",
         "number": 2,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "minimax_voice_base_url",
         "number": 3,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "token",
         "number": 4,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "voice_base_url",
         "number": 5,
+        "optional": true,
         "type": "string"
       }
     ]
@@ -2846,11 +4279,13 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "format",
         "number": 1,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "model",
         "number": 2,
+        "optional": true,
         "type": "string"
       },
       {
@@ -2861,16 +4296,19 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "sample_rate",
         "number": 4,
+        "optional": true,
         "type": "int64"
       },
       {
         "name": "voice_id",
         "number": 5,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "voice_type",
         "number": 6,
+        "optional": true,
         "type": "string"
       }
     ]
@@ -2880,6 +4318,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "capabilities",
         "number": 1,
+        "optional": true,
         "type": "ModelCapabilities"
       },
       {
@@ -2890,6 +4329,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "description",
         "number": 3,
+        "optional": true,
         "type": "string"
       },
       {
@@ -2905,6 +4345,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "name",
         "number": 6,
+        "optional": true,
         "type": "string"
       },
       {
@@ -2915,6 +4356,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "provider_data",
         "number": 8,
+        "optional": true,
         "type": "ModelProviderData"
       },
       {
@@ -2925,6 +4367,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "synced_at",
         "number": 10,
+        "optional": true,
         "type": "string"
       },
       {
@@ -2939,31 +4382,37 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "json_output",
         "number": 1,
+        "optional": true,
         "type": "bool"
       },
       {
         "name": "system_role",
         "number": 2,
+        "optional": true,
         "type": "bool"
       },
       {
         "name": "temperature",
         "number": 3,
+        "optional": true,
         "type": "bool"
       },
       {
         "name": "text_only",
         "number": 4,
+        "optional": true,
         "type": "bool"
       },
       {
         "name": "thinking",
         "number": 5,
+        "optional": true,
         "type": "ModelThinkingCapability"
       },
       {
         "name": "tool_calls",
         "number": 6,
+        "optional": true,
         "type": "bool"
       }
     ]
@@ -3027,11 +4476,13 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "cursor",
         "number": 1,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "limit",
         "number": 2,
+        "optional": true,
         "type": "int64"
       }
     ]
@@ -3052,6 +4503,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "next_cursor",
         "number": 3,
+        "optional": true,
         "type": "string"
       }
     ]
@@ -3126,11 +4578,13 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "default_level",
         "number": 1,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "level_param",
         "number": 2,
+        "optional": true,
         "type": "string"
       },
       {
@@ -3142,6 +4596,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "param",
         "number": 4,
+        "optional": true,
         "type": "string"
       },
       {
@@ -3156,26 +4611,31 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "api_key",
         "number": 1,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "base_url",
         "number": 2,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "organization",
         "number": 3,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "project",
         "number": 4,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "token",
         "number": 5,
+        "optional": true,
         "type": "string"
       }
     ]
@@ -3185,31 +4645,37 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "default_thinking_level",
         "number": 1,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "support_json_output",
         "number": 2,
+        "optional": true,
         "type": "bool"
       },
       {
         "name": "support_text_only",
         "number": 3,
+        "optional": true,
         "type": "bool"
       },
       {
         "name": "support_thinking",
         "number": 4,
+        "optional": true,
         "type": "bool"
       },
       {
         "name": "support_tool_calls",
         "number": 5,
+        "optional": true,
         "type": "bool"
       },
       {
         "name": "thinking_level_param",
         "number": 6,
+        "optional": true,
         "type": "string"
       },
       {
@@ -3221,16 +4687,19 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "thinking_param",
         "number": 8,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "upstream_model",
         "number": 9,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "use_system_role",
         "number": 10,
+        "optional": true,
         "type": "bool"
       }
     ]
@@ -3245,6 +4714,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "voice_id",
         "number": 2,
+        "optional": true,
         "type": "string"
       }
     ]
@@ -3254,6 +4724,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "name",
         "number": 1,
+        "optional": true,
         "type": "string"
       },
       {
@@ -3287,11 +4758,13 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "active",
         "number": 1,
+        "optional": true,
         "type": "AgentSelection"
       },
       {
         "name": "pending",
         "number": 2,
+        "optional": true,
         "type": "AgentSelection"
       }
     ]
@@ -3306,6 +4779,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "gear_id",
         "number": 2,
+        "optional": true,
         "type": "string"
       },
       {
@@ -3340,16 +4814,19 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "cursor",
         "number": 1,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "limit",
         "number": 2,
+        "optional": true,
         "type": "int64"
       },
       {
         "name": "order",
         "number": 3,
+        "optional": true,
         "type": "PeerRunHistoryListRequestOrder"
       }
     ]
@@ -3375,11 +4852,13 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "message",
         "number": 4,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "next_cursor",
         "number": 5,
+        "optional": true,
         "type": "string"
       }
     ]
@@ -3408,6 +4887,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "message",
         "number": 3,
+        "optional": true,
         "type": "string"
       },
       {
@@ -3430,16 +4910,19 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "backend",
         "number": 2,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "embedding_enabled",
         "number": 3,
+        "optional": true,
         "type": "bool"
       },
       {
         "name": "embedding_status",
         "number": 4,
+        "optional": true,
         "type": "string"
       },
       {
@@ -3450,6 +4933,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "index_status",
         "number": 6,
+        "optional": true,
         "type": "string"
       },
       {
@@ -3460,11 +4944,13 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "last_updated_at",
         "number": 8,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "message",
         "number": 9,
+        "optional": true,
         "type": "string"
       },
       {
@@ -3484,6 +4970,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "created_at",
         "number": 1,
+        "optional": true,
         "type": "string"
       },
       {
@@ -3509,11 +4996,13 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "source_id",
         "number": 6,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "source_type",
         "number": 7,
+        "optional": true,
         "type": "string"
       }
     ]
@@ -3528,6 +5017,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "limit",
         "number": 2,
+        "optional": true,
         "type": "int64"
       },
       {
@@ -3553,6 +5043,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "message",
         "number": 3,
+        "optional": true,
         "type": "string"
       }
     ]
@@ -3562,11 +5053,13 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "message",
         "number": 1,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "started_at",
         "number": 2,
+        "optional": true,
         "type": "string"
       },
       {
@@ -3577,11 +5070,13 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "updated_at",
         "number": 4,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "workspace_name",
         "number": 5,
+        "optional": true,
         "type": "string"
       }
     ]
@@ -3591,36 +5086,43 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "active_workspace_name",
         "number": 1,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "agent_type",
         "number": 2,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "history_available",
         "number": 3,
+        "optional": true,
         "type": "bool"
       },
       {
         "name": "memory_stats_available",
         "number": 4,
+        "optional": true,
         "type": "bool"
       },
       {
         "name": "message",
         "number": 5,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "pending_workspace_name",
         "number": 6,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "recall_available",
         "number": 7,
+        "optional": true,
         "type": "bool"
       },
       {
@@ -3631,21 +5133,25 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "selected_workspace_name",
         "number": 9,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "started_at",
         "number": 10,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "updated_at",
         "number": 11,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "workflow_name",
         "number": 12,
+        "optional": true,
         "type": "string"
       },
       {
@@ -3660,11 +5166,13 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "battery_percent",
         "number": 1,
+        "optional": true,
         "type": "int64"
       },
       {
         "name": "charging",
         "number": 2,
+        "optional": true,
         "type": "bool"
       },
       {
@@ -3675,21 +5183,25 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "gnss_accuracy_m",
         "number": 4,
+        "optional": true,
         "type": "double"
       },
       {
         "name": "gnss_altitude_m",
         "number": 5,
+        "optional": true,
         "type": "double"
       },
       {
         "name": "gnss_latitude",
         "number": 6,
+        "optional": true,
         "type": "double"
       },
       {
         "name": "gnss_longitude",
         "number": 7,
+        "optional": true,
         "type": "double"
       },
       {
@@ -3701,16 +5213,19 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "muted",
         "number": 9,
+        "optional": true,
         "type": "bool"
       },
       {
         "name": "reported_at",
         "number": 10,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "volume",
         "number": 11,
+        "optional": true,
         "type": "int64"
       }
     ]
@@ -3780,6 +5295,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "workflow_name",
         "number": 13,
+        "optional": true,
         "type": "string"
       },
       {
@@ -3794,11 +5310,13 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "display_name",
         "number": 1,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "ruleset_name",
         "number": 2,
+        "optional": true,
         "type": "string"
       }
     ]
@@ -3841,6 +5359,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "pixa_path",
         "number": 2,
+        "optional": true,
         "type": "string"
       },
       {
@@ -3864,11 +5383,13 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "difficulty",
         "number": 1,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "duration_ms",
         "number": 2,
+        "optional": true,
         "type": "int64"
       },
       {
@@ -3879,31 +5400,37 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "idempotency_key",
         "number": 4,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "max_score",
         "number": 5,
+        "optional": true,
         "type": "int64"
       },
       {
         "name": "occurred_at",
         "number": 6,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "outcome",
         "number": 7,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "payload",
         "number": 8,
+        "optional": true,
         "type": "GameplayMetadata"
       },
       {
         "name": "score",
         "number": 9,
+        "optional": true,
         "type": "int64"
       }
     ]
@@ -3913,11 +5440,13 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "action",
         "number": 1,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "game_result",
         "number": 2,
+        "optional": true,
         "type": "PetDriveGameResultInput"
       },
       {
@@ -3938,6 +5467,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "game_result",
         "number": 2,
+        "optional": true,
         "type": "GameResult"
       },
       {
@@ -3989,6 +5519,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "next_cursor",
         "number": 3,
+        "optional": true,
         "type": "string"
       }
     ]
@@ -4074,6 +5605,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "game_result_id",
         "number": 4,
+        "optional": true,
         "type": "string"
       },
       {
@@ -4089,6 +5621,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "pet_id",
         "number": 7,
+        "optional": true,
         "type": "string"
       },
       {
@@ -4099,6 +5632,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "reward_grant_id",
         "number": 9,
+        "optional": true,
         "type": "string"
       },
       {
@@ -4134,6 +5668,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "next_cursor",
         "number": 3,
+        "optional": true,
         "type": "string"
       }
     ]
@@ -4155,6 +5690,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "sn",
         "number": 3,
+        "optional": true,
         "type": "string"
       }
     ]
@@ -4164,21 +5700,25 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "hardware_revision",
         "number": 1,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "manufacturer",
         "number": 2,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "model",
         "number": 3,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "name",
         "number": 4,
+        "optional": true,
         "type": "string"
       }
     ]
@@ -4188,6 +5728,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "ability_delta",
         "number": 1,
+        "optional": true,
         "type": "StatMap"
       },
       {
@@ -4204,6 +5745,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "game_result_id",
         "number": 4,
+        "optional": true,
         "type": "string"
       },
       {
@@ -4214,6 +5756,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "life_delta",
         "number": 6,
+        "optional": true,
         "type": "StatMap"
       },
       {
@@ -4229,6 +5772,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "pet_id",
         "number": 9,
+        "optional": true,
         "type": "string"
       },
       {
@@ -4239,6 +5783,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "reason",
         "number": 11,
+        "optional": true,
         "type": "string"
       },
       {
@@ -4274,6 +5819,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "next_cursor",
         "number": 3,
+        "optional": true,
         "type": "string"
       }
     ]
@@ -4283,6 +5829,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "last_addr",
         "number": 1,
+        "optional": true,
         "type": "string"
       },
       {
@@ -4298,11 +5845,13 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "rx_bytes",
         "number": 4,
+        "optional": true,
         "type": "uint64"
       },
       {
         "name": "tx_bytes",
         "number": 5,
+        "optional": true,
         "type": "uint64"
       }
     ]
@@ -4384,6 +5933,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "name",
         "number": 1,
+        "optional": true,
         "type": "string"
       }
     ]
@@ -4636,6 +6186,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "ruleset_name",
         "number": 1,
+        "optional": true,
         "type": "string"
       }
     ]
@@ -4768,11 +6319,13 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "credential_name",
         "number": 1,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "model_id",
         "number": 2,
+        "optional": true,
         "type": "string"
       },
       {
@@ -4783,6 +6336,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "voice_id",
         "number": 4,
+        "optional": true,
         "type": "string"
       }
     ]
@@ -4910,6 +6464,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "description",
         "number": 2,
+        "optional": true,
         "type": "string"
       },
       {
@@ -4920,6 +6475,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "name",
         "number": 4,
+        "optional": true,
         "type": "string"
       },
       {
@@ -4930,6 +6486,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "provider_data",
         "number": 6,
+        "optional": true,
         "type": "VoiceProviderData"
       },
       {
@@ -4940,6 +6497,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "synced_at",
         "number": 8,
+        "optional": true,
         "type": "string"
       },
       {
@@ -4972,11 +6530,13 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "cursor",
         "number": 1,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "limit",
         "number": 2,
+        "optional": true,
         "type": "int64"
       }
     ]
@@ -4997,6 +6557,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "next_cursor",
         "number": 3,
+        "optional": true,
         "type": "string"
       }
     ]
@@ -5054,26 +6615,31 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "api_key",
         "number": 1,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "app_id",
         "number": 2,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "openapi_access_key",
         "number": 3,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "openapi_access_key_id",
         "number": 4,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "search_api_key",
         "number": 5,
+        "optional": true,
         "type": "string"
       }
     ]
@@ -5083,41 +6649,49 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "api_mode",
         "number": 1,
+        "optional": true,
         "type": "VolcTenantModelProviderDataApiMode"
       },
       {
         "name": "default_thinking_level",
         "number": 2,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "resource_id",
         "number": 3,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "support_json_output",
         "number": 4,
+        "optional": true,
         "type": "bool"
       },
       {
         "name": "support_text_only",
         "number": 5,
+        "optional": true,
         "type": "bool"
       },
       {
         "name": "support_thinking",
         "number": 6,
+        "optional": true,
         "type": "bool"
       },
       {
         "name": "support_tool_calls",
         "number": 7,
+        "optional": true,
         "type": "bool"
       },
       {
         "name": "thinking_level_param",
         "number": 8,
+        "optional": true,
         "type": "string"
       },
       {
@@ -5129,16 +6703,19 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "thinking_param",
         "number": 10,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "upstream_model",
         "number": 11,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "use_system_role",
         "number": 12,
+        "optional": true,
         "type": "bool"
       }
     ]
@@ -5153,21 +6730,25 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "resource_id",
         "number": 2,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "state",
         "number": 3,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "status",
         "number": 4,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "voice_id",
         "number": 5,
+        "optional": true,
         "type": "string"
       }
     ]
@@ -5245,11 +6826,13 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "cursor",
         "number": 1,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "limit",
         "number": 2,
+        "optional": true,
         "type": "int64"
       }
     ]
@@ -5270,6 +6853,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "next_cursor",
         "number": 3,
+        "optional": true,
         "type": "string"
       }
     ]
@@ -5279,6 +6863,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "description",
         "number": 1,
+        "optional": true,
         "type": "string"
       },
       {
@@ -5316,16 +6901,19 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "ast_translate",
         "number": 1,
+        "optional": true,
         "type": "ASTTranslateWorkflowSpec"
       },
       {
         "name": "chatroom",
         "number": 2,
+        "optional": true,
         "type": "ChatRoomWorkflowSpec"
       },
       {
         "name": "doubao_realtime",
         "number": 3,
+        "optional": true,
         "type": "DoubaoRealtimeWorkflowSpec"
       },
       {
@@ -5336,6 +6924,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "flowcraft",
         "number": 5,
+        "optional": true,
         "type": "FlowcraftWorkflowSpec"
       }
     ]
@@ -5360,6 +6949,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "parameters",
         "number": 4,
+        "optional": true,
         "type": "WorkspaceParameters"
       },
       {
@@ -5494,16 +7084,19 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "cursor",
         "number": 1,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "limit",
         "number": 2,
+        "optional": true,
         "type": "int64"
       },
       {
         "name": "order",
         "number": 3,
+        "optional": true,
         "type": "WorkspaceHistoryListRequestOrder"
       },
       {
@@ -5527,16 +7120,19 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "cursor",
         "number": 1,
+        "optional": true,
         "type": "string"
       },
       {
         "name": "limit",
         "number": 2,
+        "optional": true,
         "type": "int64"
       },
       {
         "name": "prefix",
         "number": 3,
+        "optional": true,
         "type": "string"
       }
     ]
@@ -5557,6 +7153,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "next_cursor",
         "number": 3,
+        "optional": true,
         "type": "string"
       }
     ]
@@ -6064,7 +7661,7 @@ function decodeMessage(type: string, payload: Uint8Array): unknown {
     }
     return {};
   }
-  return values;
+  return withMessageDefaults(desc, values);
 }
 
 function decodeMessageFields(desc: MessageDesc, payload: Uint8Array): Record<string, unknown> {
@@ -6128,7 +7725,10 @@ function encodeSingularField(writer: ProtoWriter, field: FieldDesc, value: unkno
 function encodeType(writer: ProtoWriter, number: number, type: string, value: unknown, parent: Record<string, unknown> | undefined): void {
   switch (type) {
     case "bool":
-      writer.bool(number, Boolean(value));
+      if (typeof value !== "boolean") {
+        throw new Error(`protobuf bool field expects boolean, got ${typeof value}`);
+      }
+      writer.bool(number, value);
       return;
     case "bytes":
       writer.bytes(number, decodeBase64(String(value ?? "")));
@@ -6231,6 +7831,52 @@ function singleValueField(desc: MessageDesc): FieldDesc | undefined {
 
 function isOneofValueWrapper(desc: MessageDesc): boolean {
   return desc.fields.length > 0 && desc.fields.every((field) => field.oneof === true);
+}
+
+function withMessageDefaults(desc: MessageDesc, values: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const field of desc.fields) {
+    if (Object.prototype.hasOwnProperty.call(values, field.name)) {
+      out[field.name] = values[field.name];
+      continue;
+    }
+    if (field.repeated) {
+      out[field.name] = [];
+      continue;
+    }
+    if (field.mapValue != null) {
+      out[field.name] = {};
+      continue;
+    }
+    if (!fieldHasPresence(field)) {
+      out[field.name] = emptyTypeValue(field.type);
+    }
+  }
+  return out;
+}
+
+function fieldHasPresence(field: FieldDesc): boolean {
+  return field.optional === true || field.oneof === true || isMessageType(field.type);
+}
+
+function isMessageType(type: string): boolean {
+  return ENUM_DESCS[type] == null && !isScalarType(type);
+}
+
+function isScalarType(type: string): boolean {
+  switch (type) {
+    case "bool":
+    case "bytes":
+    case "double":
+    case "int32":
+    case "int64":
+    case "string":
+    case "uint32":
+    case "uint64":
+      return true;
+    default:
+      return false;
+  }
 }
 
 function selectOneofField(type: string, desc: MessageDesc, value: unknown, parent: Record<string, unknown> | undefined): FieldDesc | undefined {
@@ -6463,6 +8109,9 @@ function emptyTypeValue(type: string): unknown {
     case "uint64":
       return 0;
     default:
+      if (ENUM_DESCS[type] != null) {
+        return "";
+      }
       return {};
   }
 }

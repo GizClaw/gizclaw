@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 import { x25519 } from "@noble/curves/ed25519.js";
 
@@ -31,7 +32,7 @@ import {
   waitForICEGatheringComplete,
 } from "./index.ts";
 import { createSseClient } from "./generated/adminhttp/core/serverSentEvents.gen.ts";
-import { decodeRPCRequestPayload, encodeRPCRequestPayload } from "./generated/rpc/payload-codec.ts";
+import { decodeRPCRequestPayload, decodeRPCResponsePayload, encodeRPCRequestPayload } from "./generated/rpc/payload-codec.ts";
 import { createPeerRPCClient } from "./rpc.ts";
 import { base58Decode, base58Encode, base64Decode, prepareEncryptedGiznetWebRTCOffer } from "./signaling.ts";
 
@@ -130,6 +131,43 @@ test("RPC payload codec selects workspace oneofs from discriminators", () => {
   assert.equal(decoded.parameters?.agent_type, "doubao-realtime");
 });
 
+test("RPC method map preserves generated payload types", () => {
+  const source = readFileSync(new URL("./generated/rpc/method-map.ts", import.meta.url), "utf8");
+
+  assert.match(source, /request: PingRequest;/);
+  assert.match(source, /response: PingResponse;/);
+  assert.doesNotMatch(source, /request: unknown;/);
+  assert.doesNotMatch(source, /response: unknown;/);
+});
+
+test("RPC payload codec decodes omitted proto3 defaults", () => {
+  assert.deepEqual(decodeRPCResponsePayload("all.speed_test.run", new Uint8Array()), {
+    down_content_length: 0,
+    up_content_length: 0,
+  });
+  assert.deepEqual(decodeRPCResponsePayload("server.workspace.list", new Uint8Array()), {
+    has_next: false,
+    items: [],
+  });
+});
+
+test("RPC payload codec rejects string values for bool fields", () => {
+  assert.throws(
+    () => encodeRPCRequestPayload("server.workspace.create", {
+      created_at: "now",
+      last_active_at: "now",
+      name: "main",
+      parameters: {
+        agent_type: "doubao-realtime",
+        e2e: "false",
+      },
+      updated_at: "now",
+      workflow_name: "chat",
+    }),
+    /protobuf bool field expects boolean/,
+  );
+});
+
 test("WebRTCRPCClient reassembles response frames split across messages", async () => {
   const pc = new FakePeerConnection();
   const client = new WebRTCRPCClient(pc, { createID: () => "req-split" });
@@ -194,7 +232,12 @@ test("WebRTCRPCClient reads metadata plus binary response frames", async () => {
   channel.receive(encodeFrame(RPC_FRAME_TYPE_EOS));
 
   const result = await promise;
-  assert.deepEqual(result.result, { mime_type: "audio/ogg", size_bytes: 5 });
+  assert.deepEqual(result.result, {
+    history_id: "",
+    mime_type: "audio/ogg",
+    size_bytes: 5,
+    workspace_name: "",
+  });
   assert.deepEqual(result.body, new Uint8Array([1, 2, 3, 4, 5]));
   assert.equal(channel.closed, true);
 });

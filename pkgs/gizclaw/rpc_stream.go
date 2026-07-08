@@ -17,9 +17,10 @@ type rpcStream struct {
 	ctx  context.Context
 	conn net.Conn
 
-	stopOnce sync.Once
-	stop     chan struct{}
-	done     chan struct{}
+	stopOnce                  sync.Once
+	stop                      chan struct{}
+	done                      chan struct{}
+	requestEOSAlreadyConsumed bool
 }
 
 type rpcRequest struct {
@@ -93,6 +94,10 @@ func (s *rpcStream) WriteEOS() error {
 }
 
 func (s *rpcStream) ReadEOS() error {
+	if s.requestEOSAlreadyConsumed {
+		s.requestEOSAlreadyConsumed = false
+		return nil
+	}
 	frame, err := s.ReadFrame()
 	if err != nil {
 		return err
