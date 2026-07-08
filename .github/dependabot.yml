@@ -51,7 +51,7 @@ updates:
       interval: weekly
 
   - package-ecosystem: npm
-    directory: /js
+    directory: /sdk/js
     schedule:
       interval: weekly
 
