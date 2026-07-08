@@ -502,7 +502,7 @@ func TestAdminPeerTelemetryRange(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
 		t.Fatalf("range JSON error = %v", err)
 	}
-	if len(response.Points) != 1 || response.Points[0].Value != 37.2 {
+	if len(response.Points) != 2 || response.Points[0].Value != 37.2 || response.Points[1].Value != 37.1 {
 		t.Fatalf("range points = %#v", response.Points)
 	}
 }

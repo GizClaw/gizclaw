@@ -13,10 +13,14 @@ import (
 )
 
 type fakeAdminMetricsStore struct {
-	query      metrics.Query
-	rangeQuery metrics.RangeQuery
-	series     metrics.SeriesSet
-	err        error
+	query        metrics.Query
+	queries      []metrics.Query
+	rangeQuery   metrics.RangeQuery
+	series       metrics.SeriesSet
+	querySeries  metrics.SeriesSet
+	rangeSeries  metrics.SeriesSet
+	seriesByExpr map[string]metrics.SeriesSet
+	err          error
 }
 
 func (s *fakeAdminMetricsStore) Append(context.Context, []metrics.Sample) error {
@@ -28,6 +32,15 @@ func (s *fakeAdminMetricsStore) Query(ctx context.Context, query metrics.Query) 
 		return nil, err
 	}
 	s.query = query
+	s.queries = append(s.queries, query)
+	if s.seriesByExpr != nil {
+		if series, ok := s.seriesByExpr[query.Expression]; ok {
+			return series, s.err
+		}
+	}
+	if s.querySeries != nil {
+		return s.querySeries, s.err
+	}
 	return s.series, s.err
 }
 
@@ -36,6 +49,9 @@ func (s *fakeAdminMetricsStore) QueryRange(ctx context.Context, query metrics.Ra
 		return nil, err
 	}
 	s.rangeQuery = query
+	if s.rangeSeries != nil {
+		return s.rangeSeries, s.err
+	}
 	return s.series, s.err
 }
 
@@ -48,13 +64,24 @@ func TestAdminLatestQueriesSelectedField(t *testing.T) {
 
 	peer := adminTestPeer()
 	observedAt := time.Unix(1783403541, 123000000).UTC()
-	store := &fakeAdminMetricsStore{series: metrics.SeriesSet{{
-		Name: MetricBatteryPercent,
-		Points: []metrics.Point{{
-			Timestamp: observedAt,
-			Value:     87,
+	valueExpr := `gizclaw_peer_battery_percent{peer_id="` + peer.String() + `"}`
+	timestampExpr := `timestamp(` + valueExpr + `)`
+	store := &fakeAdminMetricsStore{seriesByExpr: map[string]metrics.SeriesSet{
+		valueExpr: {{
+			Name: MetricBatteryPercent,
+			Points: []metrics.Point{{
+				Timestamp: observedAt.Add(time.Minute),
+				Value:     87,
+			}},
 		}},
-	}}}
+		timestampExpr: {{
+			Name: "timestamp",
+			Points: []metrics.Point{{
+				Timestamp: observedAt.Add(time.Minute),
+				Value:     float64(observedAt.UnixMilli()) / 1000,
+			}},
+		}},
+	}}
 	service := &AdminService{Metrics: store, Now: func() time.Time {
 		return observedAt.Add(time.Minute)
 	}}
@@ -63,9 +90,8 @@ func TestAdminLatestQueriesSelectedField(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Latest() error = %v", err)
 	}
-	wantExpr := `gizclaw_peer_battery_percent{peer_id="` + peer.String() + `"}[720h]`
-	if store.query.Expression != wantExpr {
-		t.Fatalf("query expression = %q, want %q", store.query.Expression, wantExpr)
+	if len(store.queries) != 2 || store.queries[0].Expression != valueExpr || store.queries[1].Expression != timestampExpr {
+		t.Fatalf("queries = %#v, want value and timestamp expressions", store.queries)
 	}
 	if response.PeerPublicKey != peer.String() || len(response.Values) != 1 {
 		t.Fatalf("response = %#v", response)
@@ -111,7 +137,7 @@ func TestAdminQueryRangeDerivesStepAndOrdersDesc(t *testing.T) {
 	peer := adminTestPeer()
 	start := time.UnixMilli(1000).UTC()
 	end := start.Add(4 * time.Minute)
-	store := &fakeAdminMetricsStore{series: metrics.SeriesSet{{
+	store := &fakeAdminMetricsStore{querySeries: metrics.SeriesSet{}, series: metrics.SeriesSet{{
 		Name: MetricGNSSLatitude,
 		Points: []metrics.Point{
 			{Timestamp: start, Value: 1},
@@ -137,6 +163,30 @@ func TestAdminQueryRangeDerivesStepAndOrdersDesc(t *testing.T) {
 	}
 	if len(response.Points) != 3 || response.Points[0].Value != 3 || response.Points[2].Value != 1 {
 		t.Fatalf("points = %#v", response.Points)
+	}
+}
+
+func TestAdminQueryRangeIncludesExactStartSample(t *testing.T) {
+	t.Parallel()
+
+	peer := adminTestPeer()
+	start := time.Unix(1783400000, 0).UTC()
+	end := start.Add(time.Minute)
+	store := metrics.NewMemoryStore()
+	if err := store.Append(context.Background(), []metrics.Sample{
+		{Name: MetricBatteryPercent, Labels: map[string]string{"peer_id": peer.String()}, Timestamp: start, Value: 70},
+		{Name: MetricBatteryPercent, Labels: map[string]string{"peer_id": peer.String()}, Timestamp: end, Value: 71},
+	}); err != nil {
+		t.Fatalf("Append() error = %v", err)
+	}
+	service := &AdminService{Metrics: store}
+
+	response, err := service.QueryRange(context.Background(), peer, apitypes.PeerTelemetryFieldBatteryPercent, start, end, time.Minute, 2, apitypes.PeerTelemetryOrderAsc)
+	if err != nil {
+		t.Fatalf("QueryRange() error = %v", err)
+	}
+	if len(response.Points) != 2 || response.Points[0].Value != 70 || response.Points[1].Value != 71 {
+		t.Fatalf("points = %#v, want exact start and window end samples", response.Points)
 	}
 }
 
@@ -192,6 +242,28 @@ func TestAdminQueryRangeAllowsOnePointAutoStep(t *testing.T) {
 	}
 	if len(response.Points) != 1 || response.Points[0].Value != 77 {
 		t.Fatalf("points = %#v, want one point", response.Points)
+	}
+}
+
+func TestAdminQueryRangeRoundsAutoStepToMilliseconds(t *testing.T) {
+	t.Parallel()
+
+	peer := adminTestPeer()
+	start := time.Unix(1783400000, 0).UTC()
+	end := start.Add(time.Hour)
+	store := &fakeAdminMetricsStore{querySeries: metrics.SeriesSet{}, rangeSeries: metrics.SeriesSet{}}
+	service := &AdminService{Metrics: store}
+
+	_, err := service.QueryRange(context.Background(), peer, apitypes.PeerTelemetryFieldBatteryPercent, start, end, 0, 0, apitypes.PeerTelemetryOrderAsc)
+	if err != nil {
+		t.Fatalf("QueryRange() error = %v", err)
+	}
+	if store.rangeQuery.Step%time.Millisecond != 0 {
+		t.Fatalf("step = %s, want millisecond aligned", store.rangeQuery.Step)
+	}
+	wantExpr := `last_over_time(gizclaw_peer_battery_percent{peer_id="` + peer.String() + `"}[15063ms])`
+	if store.rangeQuery.Expression != wantExpr {
+		t.Fatalf("range expression = %q, want %q", store.rangeQuery.Expression, wantExpr)
 	}
 }
 

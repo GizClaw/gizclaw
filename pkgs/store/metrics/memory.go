@@ -30,6 +30,7 @@ type memorySelector struct {
 	rangeFunction memoryRangeFunction
 	rangeDuration time.Duration
 	rawRange      bool
+	timestamp     bool
 	name          string
 	matchers      []memoryMatcher
 }
@@ -148,6 +149,24 @@ func (s *MemoryStore) Query(ctx context.Context, query Query) (SeriesSet, error)
 				continue
 			}
 			out = append(out, Series{Name: series.name, Labels: cloneLabels(series.labels), Points: points})
+		}
+		sortSeries(out)
+		return out, nil
+	}
+	if selector.timestamp {
+		out := SeriesSet{}
+		for _, series := range s.series {
+			if !selector.matches(series) {
+				continue
+			}
+			point, ok := latestPoint(series.points, evalTime, s.lookback)
+			if !ok {
+				continue
+			}
+			out = append(out, Series{Name: "timestamp", Labels: cloneLabels(series.labels), Points: []Point{{
+				Timestamp: evalTime,
+				Value:     float64(point.Timestamp.UnixMilli()) / float64(time.Second/time.Millisecond),
+			}}})
 		}
 		sortSeries(out)
 		return out, nil
@@ -376,7 +395,7 @@ func parseMemorySelector(expr string) (memorySelector, error) {
 		if err != nil {
 			return memorySelector{}, err
 		}
-		if selector.aggregation != "" || selector.rangeFunction != "" || selector.rawRange {
+		if selector.aggregation != "" || selector.rangeFunction != "" || selector.rawRange || selector.timestamp {
 			return memorySelector{}, fmt.Errorf("metrics: nested range expression %q is unsupported", expr)
 		}
 		selector.rangeFunction = rangeFunction
@@ -392,11 +411,26 @@ func parseMemorySelector(expr string) (memorySelector, error) {
 		if err != nil {
 			return memorySelector{}, err
 		}
-		if selector.aggregation != "" || selector.rangeFunction != "" || selector.rawRange {
+		if selector.aggregation != "" || selector.rangeFunction != "" || selector.rawRange || selector.timestamp {
 			return memorySelector{}, fmt.Errorf("metrics: nested range expression %q is unsupported", expr)
 		}
 		selector.rawRange = true
 		selector.rangeDuration = duration
+		return selector, nil
+	}
+	inner, ok, err = parseMemoryTimestamp(expr)
+	if err != nil {
+		return memorySelector{}, err
+	}
+	if ok {
+		selector, err := parseMemorySelector(inner)
+		if err != nil {
+			return memorySelector{}, err
+		}
+		if selector.aggregation != "" || selector.rangeFunction != "" || selector.rawRange || selector.timestamp {
+			return memorySelector{}, fmt.Errorf("metrics: nested timestamp expression %q is unsupported", expr)
+		}
+		selector.timestamp = true
 		return selector, nil
 	}
 	aggregation, inner, ok, err := parseMemoryAggregation(expr)
@@ -408,7 +442,7 @@ func parseMemorySelector(expr string) (memorySelector, error) {
 		if err != nil {
 			return memorySelector{}, err
 		}
-		if selector.aggregation != "" || selector.rangeFunction != "" || selector.rawRange {
+		if selector.aggregation != "" || selector.rangeFunction != "" || selector.rawRange || selector.timestamp {
 			return memorySelector{}, fmt.Errorf("metrics: nested aggregate expression %q is unsupported", expr)
 		}
 		selector.aggregation = aggregation
@@ -484,6 +518,21 @@ func parseMemoryRawRangeSelector(expr string) (string, time.Duration, bool, erro
 		return "", 0, true, fmt.Errorf("metrics: invalid range duration %q", durationText)
 	}
 	return selector, duration, true, nil
+}
+
+func parseMemoryTimestamp(expr string) (string, bool, error) {
+	open := strings.IndexByte(expr, '(')
+	if open < 0 || !strings.HasSuffix(expr, ")") {
+		return "", false, nil
+	}
+	if strings.TrimSpace(expr[:open]) != "timestamp" {
+		return "", false, nil
+	}
+	inner := strings.TrimSpace(expr[open+1 : len(expr)-1])
+	if inner == "" {
+		return "", true, fmt.Errorf("metrics: timestamp expression %q is empty", expr)
+	}
+	return inner, true, nil
 }
 
 func parseMemoryAggregation(expr string) (Aggregation, string, bool, error) {

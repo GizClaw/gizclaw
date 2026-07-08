@@ -351,7 +351,7 @@ export function PeerTelemetryPanel({ publicKey }: { publicKey: string }): JSX.El
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <AggregateTable field={selectedField.value} points={state.aggregate} unit={selectedField.unit} />
+                <AggregateTable aggregate={aggregate} field={selectedField.value} points={state.aggregate} unit={selectedField.unit} />
               </CardContent>
             </Card>
           </div>
@@ -514,10 +514,22 @@ function TelemetryRouteMap({ points }: { points: RoutePoint[] }): JSX.Element {
   );
 }
 
-function AggregateTable({ field, points, unit }: { field: PeerTelemetryField; points: PeerTelemetryAggregatePoint[]; unit: string }): JSX.Element {
+function AggregateTable({
+  aggregate,
+  field,
+  points,
+  unit,
+}: {
+  aggregate: PeerTelemetryAggregate;
+  field: PeerTelemetryField;
+  points: PeerTelemetryAggregatePoint[];
+  unit: string;
+}): JSX.Element {
   if (points.length === 0) {
     return <div className="flex h-64 items-center justify-center rounded-lg border border-dashed text-sm text-muted-foreground">No buckets</div>;
   }
+  const valueUnit = aggregate === "count" ? "" : unit;
+  const valueField = aggregate === "count" ? undefined : field;
   return (
     <div className="max-h-64 overflow-auto rounded-lg border">
       <Table>
@@ -531,7 +543,7 @@ function AggregateTable({ field, points, unit }: { field: PeerTelemetryField; po
           {points.slice(-12).reverse().map((point) => (
             <TableRow key={point.bucket_start_time_ms}>
               <TableCell>{formatDateTime(point.bucket_start_time_ms)}</TableCell>
-              <TableCell className="text-right font-mono">{formatNumber(point.value, unit, field)}</TableCell>
+              <TableCell className="text-right font-mono">{formatNumber(point.value, valueUnit, valueField)}</TableCell>
             </TableRow>
           ))}
         </TableBody>
