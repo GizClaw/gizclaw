@@ -72,3 +72,33 @@ enum WorkspaceInputMode {
 		}
 	}
 }
+
+func TestGenerateGoRPCAPIPayloadMap(t *testing.T) {
+	dir := t.TempDir()
+	protoOut := filepath.Join(dir, "payload.proto")
+	goOut := filepath.Join(dir, "payload_proto_gen.go")
+	err := run([]string{
+		"-schema", "../../pkgs/gizclaw/api/rpcapi/rpc_resolved.json",
+		"-out", protoOut,
+		"-go-rpcapi-out", goOut,
+	})
+	if err != nil {
+		t.Fatalf("run() error = %v", err)
+	}
+	data, err := os.ReadFile(goOut)
+	if err != nil {
+		t.Fatalf("ReadFile() error = %v", err)
+	}
+	text := string(data)
+	for _, want := range []string{
+		"package rpcapi",
+		"var rpcRequestPayloadMessages = map[RPCMethod]string{",
+		"RPCMethodAllPing: \"PingRequest\"",
+		"var rpcResponsePayloadMessages = map[RPCMethod]string{",
+		"RPCMethodAllPing: \"PingResponse\"",
+	} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("generated Go payload map missing %q", want)
+		}
+	}
+}

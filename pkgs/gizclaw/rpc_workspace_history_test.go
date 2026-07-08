@@ -51,7 +51,7 @@ func TestRPCServerWorkspaceHistoryAudioGetStreamsBinary(t *testing.T) {
 		t.Fatalf("WriteEOS() error = %v", err)
 	}
 
-	resp, err := stream.ReadResponse()
+	resp, err := stream.ReadResponseForMethod(rpcapi.RPCMethodServerWorkspaceHistoryAudioGet)
 	if err != nil {
 		t.Fatalf("ReadResponse() error = %v", err)
 	}

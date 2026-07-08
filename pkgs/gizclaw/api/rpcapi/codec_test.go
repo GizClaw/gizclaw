@@ -8,6 +8,9 @@ import (
 	"net"
 	"testing"
 	"time"
+
+	rpcpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto"
+	"google.golang.org/protobuf/proto"
 )
 
 func TestFrameRequestResponseRoundTrip(t *testing.T) {
@@ -110,6 +113,67 @@ func TestRPCUnionTypes(t *testing.T) {
 	assertResponseUnion(t, "ServerGetRuntime", ServerGetRuntimeResponse{Online: true, LastSeenAt: now}, (*RPCResponse_Result).FromServerGetRuntimeResponse, RPCResponse_Result.AsServerGetRuntimeResponse, (*RPCResponse_Result).MergeServerGetRuntimeResponse)
 	assertResponseUnion(t, "ClientGetInfo", ClientGetInfoResponse{Name: stringPtr("peer-1")}, (*RPCResponse_Result).FromClientGetInfoResponse, RPCResponse_Result.AsClientGetInfoResponse, (*RPCResponse_Result).MergeClientGetInfoResponse)
 	assertResponseUnion(t, "ClientGetIdentifiers", ClientGetIdentifiersResponse{Sn: stringPtr("sn-1")}, (*RPCResponse_Result).FromClientGetIdentifiersResponse, RPCResponse_Result.AsClientGetIdentifiersResponse, (*RPCResponse_Result).MergeClientGetIdentifiersResponse)
+}
+
+func TestMethodPayloadsUseProtobufBytes(t *testing.T) {
+	var params RPCRequest_Params
+	if err := params.FromPingRequest(PingRequest{ClientSendTime: 123}); err != nil {
+		t.Fatalf("FromPingRequest() error = %v", err)
+	}
+	reqMsg, err := EncodeRPCRequest(&RPCRequest{
+		V:      RPCVersionV1,
+		Id:     "req-1",
+		Method: RPCMethodAllPing,
+		Params: &params,
+	})
+	if err != nil {
+		t.Fatalf("EncodeRPCRequest() error = %v", err)
+	}
+	if bytes.Contains(reqMsg.GetPayload(), []byte("client_send_time")) {
+		t.Fatalf("request payload is JSON: %q", reqMsg.GetPayload())
+	}
+	var protoReq rpcpb.PingRequest
+	if err := proto.Unmarshal(reqMsg.GetPayload(), &protoReq); err != nil {
+		t.Fatalf("protobuf request payload unmarshal error = %v", err)
+	}
+	if protoReq.GetClientSendTime() != 123 {
+		t.Fatalf("protobuf request payload = %+v", protoReq)
+	}
+
+	var result RPCResponse_Result
+	if err := result.FromPingResponse(PingResponse{ServerTime: 456}); err != nil {
+		t.Fatalf("FromPingResponse() error = %v", err)
+	}
+	respMsg, err := EncodeRPCResponseForMethod(RPCMethodAllPing, &RPCResponse{
+		V:      RPCVersionV1,
+		Id:     "req-1",
+		Result: &result,
+	})
+	if err != nil {
+		t.Fatalf("EncodeRPCResponseForMethod() error = %v", err)
+	}
+	if bytes.Contains(respMsg.GetPayload(), []byte("server_time")) {
+		t.Fatalf("response payload is JSON: %q", respMsg.GetPayload())
+	}
+	var protoResp rpcpb.PingResponse
+	if err := proto.Unmarshal(respMsg.GetPayload(), &protoResp); err != nil {
+		t.Fatalf("protobuf response payload unmarshal error = %v", err)
+	}
+	if protoResp.GetServerTime() != 456 {
+		t.Fatalf("protobuf response payload = %+v", protoResp)
+	}
+
+	decoded, err := DecodeRPCResponseForMethod(RPCMethodAllPing, respMsg)
+	if err != nil {
+		t.Fatalf("DecodeRPCResponseForMethod() error = %v", err)
+	}
+	got, err := decoded.Result.AsPingResponse()
+	if err != nil {
+		t.Fatalf("AsPingResponse() error = %v", err)
+	}
+	if got.ServerTime != 456 {
+		t.Fatalf("decoded response = %+v", got)
+	}
 }
 
 func TestRPCMethodValid(t *testing.T) {

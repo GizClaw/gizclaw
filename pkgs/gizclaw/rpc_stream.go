@@ -198,12 +198,32 @@ func (s *rpcStream) ReadResponse() (*rpcapi.RPCResponse, error) {
 	return rpcapi.DecodeResponseFrame(frame)
 }
 
+func (s *rpcStream) ReadResponseForMethod(method rpcapi.RPCMethod) (*rpcapi.RPCResponse, error) {
+	frame, err := s.ReadFrame()
+	if err != nil {
+		return nil, err
+	}
+	return rpcapi.DecodeResponseFrameForMethod(method, frame)
+}
+
 func (s *rpcStream) ReadResponseEnvelope() (*rpcapi.RPCResponse, bool, error) {
 	frame, err := s.ReadFrame()
 	if err != nil {
 		return nil, false, err
 	}
 	resp, consumedEOS, err := s.decodeResponseEnvelope(frame)
+	if err != nil {
+		return nil, consumedEOS, err
+	}
+	return resp, consumedEOS, nil
+}
+
+func (s *rpcStream) ReadResponseEnvelopeForMethod(method rpcapi.RPCMethod) (*rpcapi.RPCResponse, bool, error) {
+	frame, err := s.ReadFrame()
+	if err != nil {
+		return nil, false, err
+	}
+	resp, consumedEOS, err := s.decodeResponseEnvelopeForMethod(method, frame)
 	if err != nil {
 		return nil, consumedEOS, err
 	}
@@ -218,8 +238,24 @@ func (s *rpcStream) WriteResponse(resp *rpcapi.RPCResponse) error {
 	return s.WriteFrame(frame)
 }
 
+func (s *rpcStream) WriteResponseForMethod(method rpcapi.RPCMethod, resp *rpcapi.RPCResponse) error {
+	frame, err := rpcapi.NewResponseFrameForMethod(method, resp)
+	if err != nil {
+		return err
+	}
+	return s.WriteFrame(frame)
+}
+
 func (s *rpcStream) WriteResponseEnvelope(resp *rpcapi.RPCResponse) error {
 	frame, err := rpcapi.NewResponseFrame(resp)
+	if err != nil {
+		return err
+	}
+	return s.writeProtobufEnvelope(frame.Payload)
+}
+
+func (s *rpcStream) WriteResponseEnvelopeForMethod(method rpcapi.RPCMethod, resp *rpcapi.RPCResponse) error {
+	frame, err := rpcapi.NewResponseFrameForMethod(method, resp)
 	if err != nil {
 		return err
 	}
@@ -287,6 +323,23 @@ func (s *rpcStream) decodeResponseEnvelope(first rpcapi.Frame) (*rpcapi.RPCRespo
 			return nil, false, err
 		}
 		resp, err := rpcapi.DecodeResponseFrame(rpcapi.Frame{Type: rpcapi.FrameTypeBinary, Payload: payload})
+		return resp, true, err
+	default:
+		return nil, false, fmt.Errorf("rpc: expected protobuf binary frame, got type %d", first.Type)
+	}
+}
+
+func (s *rpcStream) decodeResponseEnvelopeForMethod(method rpcapi.RPCMethod, first rpcapi.Frame) (*rpcapi.RPCResponse, bool, error) {
+	switch first.Type {
+	case rpcapi.FrameTypeBinary:
+		resp, err := rpcapi.DecodeResponseFrameForMethod(method, first)
+		return resp, false, err
+	case rpcapi.FrameTypeText:
+		payload, err := s.readProtobufEnvelopeContinuation(first)
+		if err != nil {
+			return nil, false, err
+		}
+		resp, err := rpcapi.DecodeResponseFrameForMethod(method, rpcapi.Frame{Type: rpcapi.FrameTypeBinary, Payload: payload})
 		return resp, true, err
 	default:
 		return nil, false, fmt.Errorf("rpc: expected protobuf binary frame, got type %d", first.Type)

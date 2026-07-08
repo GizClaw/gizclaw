@@ -43,7 +43,7 @@ func (s *rpcServer) handleFirmwareBinDownload(ctx context.Context, stream *rpcSt
 	if err != nil {
 		return err
 	}
-	if err := stream.WriteResponse(resp); err != nil {
+	if err := stream.WriteResponseForMethod(req.Method, resp); err != nil {
 		return err
 	}
 	if err := writeReaderBinaryFrames(stream, reader); err != nil {

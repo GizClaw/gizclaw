@@ -31,7 +31,7 @@ func TestRPCClientPingSingleRequestResponse(t *testing.T) {
 			serverErrCh <- err
 			return
 		}
-		if err := writeRPCResponseWithEOS(serverSide, resp); err != nil {
+		if err := writeRPCResponseWithEOS(serverSide, req.Method, resp); err != nil {
 			serverErrCh <- err
 			return
 		}
@@ -187,7 +187,7 @@ func TestRPCClientPingErrorPaths(t *testing.T) {
 
 		go func() {
 			req, _ := readRPCRequestWithEOS(serverSide)
-			_ = writeRPCResponseWithEOS(serverSide, rpcapi.Error{RequestID: req.Id, Code: -1, Message: "boom"}.RPCResponse())
+			_ = writeRPCResponseWithEOS(serverSide, req.Method, rpcapi.Error{RequestID: req.Id, Code: -1, Message: "boom"}.RPCResponse())
 		}()
 
 		_, err := callRPCPing(context.Background(), clientSide, "ping-error")
@@ -210,7 +210,7 @@ func TestRPCClientPingErrorPaths(t *testing.T) {
 
 		go func() {
 			req, _ := readRPCRequestWithEOS(serverSide)
-			_ = writeRPCResponseWithEOS(serverSide, &rpcapi.RPCResponse{V: rpcapi.RPCVersionV1, Id: req.Id})
+			_ = writeRPCResponseWithEOS(serverSide, req.Method, &rpcapi.RPCResponse{V: rpcapi.RPCVersionV1, Id: req.Id})
 		}()
 
 		_, err := callRPCPing(context.Background(), clientSide, "ping-missing")
@@ -238,8 +238,8 @@ func readRPCRequestWithEOS(conn net.Conn) (*rpcapi.RPCRequest, error) {
 	return req, nil
 }
 
-func writeRPCResponseWithEOS(conn net.Conn, resp *rpcapi.RPCResponse) error {
-	if err := rpcapi.WriteResponse(conn, resp); err != nil {
+func writeRPCResponseWithEOS(conn net.Conn, method rpcapi.RPCMethod, resp *rpcapi.RPCResponse) error {
+	if err := rpcapi.WriteResponseForMethod(conn, method, resp); err != nil {
 		return err
 	}
 	return rpcapi.WriteEOS(conn)

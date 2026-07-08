@@ -364,7 +364,7 @@ func TestClientRPCHandle(t *testing.T) {
 			t.Fatalf("WriteEOS() error = %v", err)
 		}
 
-		resp, err := rpcapi.ReadResponse(clientSide)
+		resp, err := rpcapi.ReadResponseForMethod(clientSide, rpcapi.RPCMethodAllPing)
 		if err != nil {
 			t.Fatalf("ReadResponse() error = %v", err)
 		}

@@ -235,6 +235,7 @@ func TestRPCServerContextCancelsWhenConnCloses(t *testing.T) {
 	server := &rpcServer{peer: &fakeRPCPeerService{waitPutInfoContext: true}}
 	errCh := make(chan error, 1)
 	go func() {
+		defer serverSide.Close()
 		errCh <- server.Handle(serverSide)
 	}()
 
@@ -349,6 +350,7 @@ func callRPCPairErr[T any](server *rpcServer, call func(net.Conn) (*T, error)) (
 
 	errCh := make(chan error, 1)
 	go func() {
+		defer serverSide.Close()
 		errCh <- server.Handle(serverSide)
 	}()
 

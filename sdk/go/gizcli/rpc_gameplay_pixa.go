@@ -38,7 +38,7 @@ func (c *rpcClient) DownloadPetDefPixa(ctx context.Context, conn net.Conn, id st
 	if err := stream.WriteEOS(); err != nil {
 		return PetDefPixaDownloadResult{}, err
 	}
-	resp, err := stream.ReadResponse()
+	resp, err := stream.ReadResponseForMethod(rpcapi.RPCMethodServerPetDefPixaDownload)
 	if err != nil {
 		return PetDefPixaDownloadResult{}, err
 	}
@@ -79,7 +79,7 @@ func (c *rpcClient) DownloadBadgeDefPixa(ctx context.Context, conn net.Conn, id 
 	if err := stream.WriteEOS(); err != nil {
 		return BadgeDefPixaDownloadResult{}, err
 	}
-	resp, err := stream.ReadResponse()
+	resp, err := stream.ReadResponseForMethod(rpcapi.RPCMethodServerBadgeDefPixaDownload)
 	if err != nil {
 		return BadgeDefPixaDownloadResult{}, err
 	}

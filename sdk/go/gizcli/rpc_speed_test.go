@@ -135,7 +135,7 @@ func TestCallRPCSpeedTestRoundTrip(t *testing.T) {
 			serverErrCh <- err
 			return
 		}
-		if err := stream.WriteResponse(resp); err != nil {
+		if err := stream.WriteResponseForMethod(req.Method, resp); err != nil {
 			serverErrCh <- err
 			return
 		}

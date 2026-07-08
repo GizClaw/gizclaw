@@ -84,7 +84,7 @@ func callRPCSpeedTest(ctx context.Context, conn net.Conn, id string, request rpc
 			}
 			return err
 		}
-		resp, err := stream.ReadResponse()
+		resp, err := stream.ReadResponseForMethod(rpcapi.RPCMethodAllSpeedTestRun)
 		if err != nil {
 			return stopUpload(err)
 		}

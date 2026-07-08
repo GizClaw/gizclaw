@@ -73,7 +73,7 @@ func handleRPCWithStream(
 	if resp.V == 0 {
 		resp.V = rpcapi.RPCVersionV1
 	}
-	if err := stream.WriteResponseEnvelope(resp); err != nil {
+	if err := stream.WriteResponseEnvelopeForMethod(req.Method, resp); err != nil {
 		if errors.Is(err, io.EOF) || errors.Is(err, net.ErrClosed) {
 			return nil
 		}
@@ -157,7 +157,7 @@ func callRPC(ctx context.Context, conn net.Conn, req *rpcapi.RPCRequest) (*rpcap
 	if err := stream.WriteEOS(); err != nil {
 		return nil, err
 	}
-	resp, responseEOS, err := stream.ReadResponseEnvelope()
+	resp, responseEOS, err := stream.ReadResponseEnvelopeForMethod(req.Method)
 	if err != nil {
 		return nil, err
 	}

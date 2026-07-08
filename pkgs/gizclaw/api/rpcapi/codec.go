@@ -216,6 +216,15 @@ func NewResponseFrame(resp *RPCResponse) (Frame, error) {
 	return NewProtobufFrame(msg)
 }
 
+// NewResponseFrameForMethod marshals a response with a method-specific protobuf payload.
+func NewResponseFrameForMethod(method RPCMethod, resp *RPCResponse) (Frame, error) {
+	msg, err := EncodeRPCResponseForMethod(method, resp)
+	if err != nil {
+		return Frame{}, err
+	}
+	return NewProtobufFrame(msg)
+}
+
 // DecodeResponseFrame unmarshals one protobuf binary frame into an RPC response.
 func DecodeResponseFrame(frame Frame) (*RPCResponse, error) {
 	var msg rpcpb.RpcResponse
@@ -223,6 +232,15 @@ func DecodeResponseFrame(frame Frame) (*RPCResponse, error) {
 		return nil, err
 	}
 	return DecodeRPCResponse(&msg)
+}
+
+// DecodeResponseFrameForMethod unmarshals one protobuf binary frame using a method-specific payload schema.
+func DecodeResponseFrameForMethod(method RPCMethod, frame Frame) (*RPCResponse, error) {
+	var msg rpcpb.RpcResponse
+	if err := DecodeProtobufFrame(frame, &msg); err != nil {
+		return nil, err
+	}
+	return DecodeRPCResponseForMethod(method, &msg)
 }
 
 // WriteRequest writes an RPC request as one protobuf binary frame.
@@ -260,9 +278,31 @@ func ReadResponse(r io.Reader) (*RPCResponse, error) {
 	return resp, nil
 }
 
+// ReadResponseForMethod reads an RPC response and decodes its method-specific protobuf payload.
+func ReadResponseForMethod(r io.Reader, method RPCMethod) (*RPCResponse, error) {
+	frame, err := ReadFrame(r)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := DecodeResponseFrameForMethod(method, frame)
+	if err != nil {
+		return nil, fmt.Errorf("rpc: unmarshal response: %w", err)
+	}
+	return resp, nil
+}
+
 // WriteResponse writes an RPC response as one protobuf binary frame.
 func WriteResponse(w io.Writer, resp *RPCResponse) error {
 	frame, err := NewResponseFrame(resp)
+	if err != nil {
+		return err
+	}
+	return WriteFrame(w, frame)
+}
+
+// WriteResponseForMethod writes an RPC response with a method-specific protobuf payload.
+func WriteResponseForMethod(w io.Writer, method RPCMethod, resp *RPCResponse) error {
+	frame, err := NewResponseFrameForMethod(method, resp)
 	if err != nil {
 		return err
 	}
@@ -313,7 +353,10 @@ func EncodeRPCRequest(req *RPCRequest) (*rpcpb.RpcRequest, error) {
 	}
 	var payload []byte
 	if req.Params != nil {
-		payload = append([]byte(nil), req.Params.union...)
+		payload, err = encodeRPCRequestPayload(req.Method, req.Params)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return &rpcpb.RpcRequest{
 		Id:      req.Id,
@@ -331,9 +374,9 @@ func DecodeRPCRequest(msg *rpcpb.RpcRequest) (*RPCRequest, error) {
 	if err != nil {
 		return nil, err
 	}
-	var params *RPCRequest_Params
-	if len(msg.GetPayload()) > 0 {
-		params = &RPCRequest_Params{union: append([]byte(nil), msg.GetPayload()...)}
+	params, err := decodeRPCRequestPayload(method, msg.GetPayload())
+	if err != nil {
+		return nil, err
 	}
 	return &RPCRequest{
 		V:      RPCVersionV1,
@@ -361,6 +404,29 @@ func EncodeRPCResponse(resp *RPCResponse) (*rpcpb.RpcResponse, error) {
 	return msg, nil
 }
 
+// EncodeRPCResponseForMethod converts a typed RPC response into the protobuf wire envelope
+// using the method-specific protobuf payload schema.
+func EncodeRPCResponseForMethod(method RPCMethod, resp *RPCResponse) (*rpcpb.RpcResponse, error) {
+	if resp == nil {
+		return nil, fmt.Errorf("rpc: nil response")
+	}
+	msg := &rpcpb.RpcResponse{Id: resp.Id}
+	switch {
+	case resp.Error != nil:
+		msg.Body = &rpcpb.RpcResponse_Error{Error: &rpcpb.RpcError{
+			Code:    rpcpb.RpcErrorCode(resp.Error.Code),
+			Message: resp.Error.Message,
+		}}
+	case resp.Result != nil:
+		payload, err := encodeRPCResponsePayload(method, resp.Result)
+		if err != nil {
+			return nil, err
+		}
+		msg.Body = &rpcpb.RpcResponse_Payload{Payload: payload}
+	}
+	return msg, nil
+}
+
 // DecodeRPCResponse converts the protobuf wire envelope into the public typed RPC response.
 func DecodeRPCResponse(msg *rpcpb.RpcResponse) (*RPCResponse, error) {
 	if msg == nil {
@@ -379,6 +445,33 @@ func DecodeRPCResponse(msg *rpcpb.RpcResponse) (*RPCResponse, error) {
 	}
 	if payload := msg.GetPayload(); payload != nil {
 		resp.Result = &RPCResponse_Result{union: append([]byte(nil), payload...)}
+	}
+	return resp, nil
+}
+
+// DecodeRPCResponseForMethod converts a protobuf wire envelope into a typed RPC response
+// using the method-specific protobuf payload schema.
+func DecodeRPCResponseForMethod(method RPCMethod, msg *rpcpb.RpcResponse) (*RPCResponse, error) {
+	if msg == nil {
+		return nil, fmt.Errorf("rpc: nil protobuf response")
+	}
+	resp := &RPCResponse{
+		V:  RPCVersionV1,
+		Id: msg.GetId(),
+	}
+	if rpcErr := msg.GetError(); rpcErr != nil {
+		resp.Error = &RPCError{
+			Code:    RPCErrorCode(rpcErr.GetCode()),
+			Message: rpcErr.GetMessage(),
+		}
+		return resp, nil
+	}
+	if _, ok := msg.GetBody().(*rpcpb.RpcResponse_Payload); ok {
+		result, err := decodeRPCResponsePayload(method, msg.GetPayload())
+		if err != nil {
+			return nil, err
+		}
+		resp.Result = result
 	}
 	return resp, nil
 }

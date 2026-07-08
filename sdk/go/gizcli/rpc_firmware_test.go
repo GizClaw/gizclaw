@@ -114,7 +114,7 @@ func TestDownloadFirmwareReturnsRPCError(t *testing.T) {
 			Code:      rpcapi.RPCErrorCodeNotFound,
 			Message:   "firmware artifact not found",
 		}.RPCResponse()
-		serverErrCh <- writeRPCResponseWithEOS(serverSide, resp)
+		serverErrCh <- writeRPCResponseWithEOS(serverSide, req.Method, resp)
 	}()
 
 	client := &rpcClient{}
@@ -203,7 +203,7 @@ func serveFirmwareRPCResponse[T any](
 		return
 	}
 	resp := resourceResponse(req.Id, response, encode)
-	if err := rpcapi.WriteResponse(stream, resp); err != nil {
+	if err := rpcapi.WriteResponseForMethod(stream, wantMethod, resp); err != nil {
 		errCh <- err
 		return
 	}

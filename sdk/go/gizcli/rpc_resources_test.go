@@ -214,7 +214,7 @@ func runRPCResultWrapperTest[Resp any](
 			serverErrCh <- &unexpectedRPCMethodError{got: req.Method, want: wantMethod}
 			return
 		}
-		serverErrCh <- writeRPCResponseWithEOS(serverSide, resourceResponse(req.Id, response, encode))
+		serverErrCh <- writeRPCResponseWithEOS(serverSide, req.Method, resourceResponse(req.Id, response, encode))
 	}()
 
 	resp, err := call(context.Background(), clientSide)
@@ -271,7 +271,7 @@ func runFirmwareDownloadWrapperTest(t *testing.T, client *rpcClient) {
 			Artifact:   rpcapi.FirmwareArtifact{TarPath: "devkit/stable/artifact/artifact.tar", Size: 1024, ContentType: "application/x-tar"},
 			File:       rpcapi.FirmwareArtifactEntry{Path: "firmware.bin", Type: rpcapi.FirmwareArtifactEntryTypeFile, Size: int64(len(payload))},
 		}, (*rpcapi.RPCResponse_Result).FromFirmwareFilesDownloadResponse)
-		if err := rpcapi.WriteResponse(serverSide, resp); err != nil {
+		if err := rpcapi.WriteResponseForMethod(serverSide, req.Method, resp); err != nil {
 			serverErrCh <- err
 			return
 		}
@@ -319,7 +319,7 @@ func runPetDefPixaDownloadWrapperTest(t *testing.T, client *rpcClient) {
 			return
 		}
 		resp := resourceResponse(req.Id, rpcapi.PetDefPixaDownloadResponse{Id: "petdef-a", PixaPath: &pixaPath, SizeBytes: int64(len(payload))}, (*rpcapi.RPCResponse_Result).FromPetDefPixaDownloadResponse)
-		if err := rpcapi.WriteResponse(serverSide, resp); err != nil {
+		if err := rpcapi.WriteResponseForMethod(serverSide, req.Method, resp); err != nil {
 			serverErrCh <- err
 			return
 		}
@@ -363,7 +363,7 @@ func runBadgeDefPixaDownloadWrapperTest(t *testing.T, client *rpcClient) {
 			return
 		}
 		resp := resourceResponse(req.Id, rpcapi.BadgeDefPixaDownloadResponse{Id: "badge-a", PixaPath: &pixaPath, SizeBytes: int64(len(payload))}, (*rpcapi.RPCResponse_Result).FromBadgeDefPixaDownloadResponse)
-		if err := rpcapi.WriteResponse(serverSide, resp); err != nil {
+		if err := rpcapi.WriteResponseForMethod(serverSide, req.Method, resp); err != nil {
 			serverErrCh <- err
 			return
 		}
@@ -411,7 +411,7 @@ func runWorkspaceHistoryAudioGetWrapperTest(t *testing.T, client *rpcClient) {
 			MimeType:      "audio/opus",
 			SizeBytes:     int64(len(payload)),
 		}, (*rpcapi.RPCResponse_Result).FromWorkspaceHistoryAudioGetResponse)
-		if err := rpcapi.WriteResponse(serverSide, resp); err != nil {
+		if err := rpcapi.WriteResponseForMethod(serverSide, req.Method, resp); err != nil {
 			serverErrCh <- err
 			return
 		}

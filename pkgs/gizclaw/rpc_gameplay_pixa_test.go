@@ -48,7 +48,7 @@ func TestRPCServerPetDefPixaDownloadStreamsBinary(t *testing.T) {
 		t.Fatalf("WriteEOS() error = %v", err)
 	}
 
-	resp, err := stream.ReadResponse()
+	resp, err := stream.ReadResponseForMethod(rpcapi.RPCMethodServerPetDefPixaDownload)
 	if err != nil {
 		t.Fatalf("ReadResponse() error = %v", err)
 	}

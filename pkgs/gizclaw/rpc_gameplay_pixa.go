@@ -41,7 +41,7 @@ func (s *rpcServer) handlePetDefPixaDownload(ctx context.Context, stream *rpcStr
 	if err != nil {
 		return err
 	}
-	if err := stream.WriteResponse(resp); err != nil {
+	if err := stream.WriteResponseForMethod(req.Method, resp); err != nil {
 		return err
 	}
 	if err := writeReaderBinaryFrames(stream, reader); err != nil {
@@ -81,7 +81,7 @@ func (s *rpcServer) handleBadgeDefPixaDownload(ctx context.Context, stream *rpcS
 	if err != nil {
 		return err
 	}
-	if err := stream.WriteResponse(resp); err != nil {
+	if err := stream.WriteResponseForMethod(req.Method, resp); err != nil {
 		return err
 	}
 	if err := writeReaderBinaryFrames(stream, reader); err != nil {

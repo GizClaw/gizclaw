@@ -33,7 +33,7 @@ func (c *rpcClient) GetWorkspaceHistoryAudio(ctx context.Context, conn net.Conn,
 	if err := stream.WriteEOS(); err != nil {
 		return WorkspaceHistoryAudioGetResult{}, err
 	}
-	resp, err := stream.ReadResponse()
+	resp, err := stream.ReadResponseForMethod(rpcapi.RPCMethodServerWorkspaceHistoryAudioGet)
 	if err != nil {
 		return WorkspaceHistoryAudioGetResult{}, err
 	}

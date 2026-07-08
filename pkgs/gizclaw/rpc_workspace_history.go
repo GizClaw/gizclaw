@@ -41,7 +41,7 @@ func (s *rpcServer) handleWorkspaceHistoryAudioGet(ctx context.Context, stream *
 	if err != nil {
 		return err
 	}
-	if err := stream.WriteResponse(resp); err != nil {
+	if err := stream.WriteResponseForMethod(req.Method, resp); err != nil {
 		return err
 	}
 	return writeReaderBinaryFrames(stream, reader)
