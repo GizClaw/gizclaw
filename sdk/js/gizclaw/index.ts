@@ -182,6 +182,17 @@ export class WebRTCRPCClient {
   async request<TResult = unknown, TParams = unknown>(request: RPCRequest<TParams>, options: RPCCallOptions = {}): Promise<RPCResponse<TResult>> {
     const channel = this.pc.createDataChannel(this.channelLabel, { ordered: true });
     channel.binaryType = "arraybuffer";
+    let encodedRequest: ArrayBuffer;
+    try {
+      encodedRequest = encodeRPCRequest(request);
+    } catch (err) {
+      try {
+        channel.close();
+      } catch {
+        // Ignore close races from browsers that already closed the channel.
+      }
+      throw err;
+    }
 
     const timeoutMs = options.timeoutMs ?? this.requestTimeoutMs;
     const abortSignal = options.signal;
@@ -221,7 +232,7 @@ export class WebRTCRPCClient {
         settle(() => reject(abortError()));
       };
       const onOpen = (): void => {
-        sendDataChannelMessage(channel, encodeRPCRequest(request), (err) => settle(() => reject(err)));
+        sendDataChannelMessage(channel, encodedRequest, (err) => settle(() => reject(err)));
       };
       const onMessage = (event: MessageEvent): void => {
         messageQueue = messageQueue.then(async () => {
@@ -286,6 +297,17 @@ export class WebRTCRPCClient {
   ): Promise<{ body: Uint8Array; response: RPCResponse<TResult> }> {
     const channel = this.pc.createDataChannel(this.channelLabel, { ordered: true });
     channel.binaryType = "arraybuffer";
+    let encodedRequest: ArrayBuffer;
+    try {
+      encodedRequest = encodeRPCRequest(request);
+    } catch (err) {
+      try {
+        channel.close();
+      } catch {
+        // Ignore close races from browsers that already closed the channel.
+      }
+      throw err;
+    }
 
     const timeoutMs = options.timeoutMs ?? this.requestTimeoutMs;
     const abortSignal = options.signal;
@@ -325,7 +347,7 @@ export class WebRTCRPCClient {
         settle(() => reject(abortError()));
       };
       const onOpen = (): void => {
-        sendDataChannelMessage(channel, encodeRPCRequest(request), (err) => settle(() => reject(err)));
+        sendDataChannelMessage(channel, encodedRequest, (err) => settle(() => reject(err)));
       };
       const onMessage = (event: MessageEvent): void => {
         messageQueue = messageQueue.then(async () => {

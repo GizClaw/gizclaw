@@ -48,7 +48,7 @@ into multiple binary body frames by the method implementation.
 ```
 
 Peer RPC request and response envelopes use `Binary` frames containing protobuf
-messages from `api/rpc/peer_rpc.proto`.
+messages from `api/rpc/common.proto` and `api/rpc/peer.proto`.
 
 `JSON` and `Text` frame types remain reserved for non-RPC stream families that
 need them. They are not valid Peer RPC request or response envelope frames.
@@ -61,7 +61,7 @@ EOS frames must have size `0`, so an EOS frame is four zero bytes:
 
 ## Protobuf Envelopes
 
-`api/rpc/peer_rpc.proto` is the canonical Peer RPC wire schema.
+`api/rpc/common.proto` and `api/rpc/peer.proto` are the canonical Peer RPC wire schemas.
 
 Requests use `gizclaw.rpc.v1.RpcRequest`:
 

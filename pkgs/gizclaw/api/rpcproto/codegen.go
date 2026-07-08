@@ -1,3 +1,3 @@
 package rpcpb
 
-//go:generate protoc --go_out=. --go_opt=paths=source_relative --proto_path=../../../../api/rpc ../../../../api/rpc/peer_rpc.proto
+//go:generate protoc --go_out=. --go_opt=paths=source_relative --proto_path=../../../../api/rpc ../../../../api/rpc/common.proto ../../../../api/rpc/peer.proto

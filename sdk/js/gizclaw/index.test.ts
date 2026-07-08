@@ -121,6 +121,24 @@ test("WebRTCRPCClient rejects RPC error responses", async () => {
   });
 });
 
+test("WebRTCRPCClient rejects unknown methods before data channel open", async () => {
+  const pc = new FakePeerConnection();
+  const client = new WebRTCRPCClient(pc, { createID: () => "req-unknown", requestTimeoutMs: 0 });
+
+  await assert.rejects(client.call("peer.unknown", {}), /unknown RPC method: peer\.unknown/);
+  assert.equal(pc.lastChannel().closed, true);
+  assert.equal(pc.lastChannel().sent.length, 0);
+});
+
+test("WebRTCRPCClient rejects unknown binary methods before data channel open", async () => {
+  const pc = new FakePeerConnection();
+  const client = new WebRTCRPCClient(pc, { createID: () => "req-unknown-binary", requestTimeoutMs: 0 });
+
+  await assert.rejects(client.callBinary("peer.unknown", {}), /unknown RPC method: peer\.unknown/);
+  assert.equal(pc.lastChannel().closed, true);
+  assert.equal(pc.lastChannel().sent.length, 0);
+});
+
 test("WebRTCRPCClient honors AbortSignal", async () => {
   const pc = new FakePeerConnection();
   const client = new WebRTCRPCClient(pc, { createID: () => "req-3", requestTimeoutMs: 0 });

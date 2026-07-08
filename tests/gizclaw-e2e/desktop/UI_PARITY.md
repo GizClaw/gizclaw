@@ -93,7 +93,7 @@ Play transport mapping:
 - Generated peer RPC method/request/response typing lives in
   `sdk/js/gizclaw/generated/rpc`.
 - The generated RPC method map and numeric method IDs are produced from
-  `api/rpc/peer_rpc.proto`.
+  `api/rpc/common.proto` and `api/rpc/peer.proto`.
 
 ## Final Acceptance Evidence
 

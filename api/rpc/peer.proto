@@ -10,40 +10,6 @@ message RpcRequest {
   bytes payload = 3;
 }
 
-message RpcResponse {
-  string id = 1;
-  oneof body {
-    bytes payload = 2;
-    RpcError error = 3;
-  }
-}
-
-message RpcStreamFrame {
-  string id = 1;
-  oneof body {
-    bytes payload = 2;
-    RpcError error = 3;
-    RpcStreamEnd end = 4;
-  }
-}
-
-message RpcError {
-  RpcErrorCode code = 1;
-  string message = 2;
-}
-
-message RpcStreamEnd {}
-
-enum RpcErrorCode {
-  RPC_ERROR_CODE_UNSPECIFIED = 0;
-  RPC_ERROR_CODE_PARSE_ERROR = -32700;
-  RPC_ERROR_CODE_INVALID_REQUEST = -32600;
-  RPC_ERROR_CODE_METHOD_NOT_FOUND = -32601;
-  RPC_ERROR_CODE_INVALID_PARAMS = -32602;
-  RPC_ERROR_CODE_INTERNAL_ERROR = -32603;
-  RPC_ERROR_CODE_NOT_FOUND = 404;
-}
-
 enum RpcMethod {
   RPC_METHOD_UNSPECIFIED = 0;
   // rpc: all.ping request=PingRequest response=PingResponse

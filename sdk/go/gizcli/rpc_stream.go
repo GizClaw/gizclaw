@@ -1,8 +1,10 @@
 package gizcli
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"iter"
 	"net"
 	"sync"
@@ -161,8 +163,15 @@ func (s *rpcStream) ReadRequest() (*rpcapi.RPCRequest, error) {
 }
 
 func (s *rpcStream) ReadRequestEnvelope() (*rpcapi.RPCRequest, bool, error) {
-	req, err := s.ReadRequest()
-	return req, false, err
+	frame, err := s.ReadFrame()
+	if err != nil {
+		return nil, false, err
+	}
+	req, consumedEOS, err := s.decodeRequestEnvelope(frame)
+	if err != nil {
+		return nil, consumedEOS, err
+	}
+	return req, consumedEOS, nil
 }
 
 func (s *rpcStream) WriteRequest(req *rpcapi.RPCRequest) error {
@@ -174,7 +183,11 @@ func (s *rpcStream) WriteRequest(req *rpcapi.RPCRequest) error {
 }
 
 func (s *rpcStream) WriteRequestEnvelope(req *rpcapi.RPCRequest) error {
-	return s.WriteRequest(req)
+	frame, err := rpcapi.NewRequestFrame(req)
+	if err != nil {
+		return err
+	}
+	return s.writeProtobufEnvelope(frame.Payload)
 }
 
 func (s *rpcStream) ReadResponse() (*rpcapi.RPCResponse, error) {
@@ -186,8 +199,15 @@ func (s *rpcStream) ReadResponse() (*rpcapi.RPCResponse, error) {
 }
 
 func (s *rpcStream) ReadResponseEnvelope() (*rpcapi.RPCResponse, bool, error) {
-	resp, err := s.ReadResponse()
-	return resp, false, err
+	frame, err := s.ReadFrame()
+	if err != nil {
+		return nil, false, err
+	}
+	resp, consumedEOS, err := s.decodeResponseEnvelope(frame)
+	if err != nil {
+		return nil, consumedEOS, err
+	}
+	return resp, consumedEOS, nil
 }
 
 func (s *rpcStream) WriteResponse(resp *rpcapi.RPCResponse) error {
@@ -199,7 +219,11 @@ func (s *rpcStream) WriteResponse(resp *rpcapi.RPCResponse) error {
 }
 
 func (s *rpcStream) WriteResponseEnvelope(resp *rpcapi.RPCResponse) error {
-	return s.WriteResponse(resp)
+	frame, err := rpcapi.NewResponseFrame(resp)
+	if err != nil {
+		return err
+	}
+	return s.writeProtobufEnvelope(frame.Payload)
 }
 
 func (s *rpcStream) Responses() iter.Seq2[*rpcapi.RPCResponse, error] {
@@ -218,6 +242,72 @@ func (s *rpcStream) Responses() iter.Seq2[*rpcapi.RPCResponse, error] {
 				return
 			}
 		}
+	}
+}
+
+func (s *rpcStream) writeProtobufEnvelope(data []byte) error {
+	if len(data) <= rpcapi.MaxFrameSize {
+		return s.WriteFrame(rpcapi.Frame{Type: rpcapi.FrameTypeBinary, Payload: data})
+	}
+	for len(data) > 0 {
+		n := min(len(data), rpcapi.MaxFrameSize)
+		if err := s.WriteFrame(rpcapi.Frame{Type: rpcapi.FrameTypeText, Payload: data[:n]}); err != nil {
+			return err
+		}
+		data = data[n:]
+	}
+	return nil
+}
+
+func (s *rpcStream) decodeRequestEnvelope(first rpcapi.Frame) (*rpcapi.RPCRequest, bool, error) {
+	switch first.Type {
+	case rpcapi.FrameTypeBinary:
+		req, err := rpcapi.DecodeRequestFrame(first)
+		return req, false, err
+	case rpcapi.FrameTypeText:
+		payload, err := s.readProtobufEnvelopeContinuation(first)
+		if err != nil {
+			return nil, false, err
+		}
+		req, err := rpcapi.DecodeRequestFrame(rpcapi.Frame{Type: rpcapi.FrameTypeBinary, Payload: payload})
+		return req, true, err
+	default:
+		return nil, false, fmt.Errorf("rpc: expected protobuf binary frame, got type %d", first.Type)
+	}
+}
+
+func (s *rpcStream) decodeResponseEnvelope(first rpcapi.Frame) (*rpcapi.RPCResponse, bool, error) {
+	switch first.Type {
+	case rpcapi.FrameTypeBinary:
+		resp, err := rpcapi.DecodeResponseFrame(first)
+		return resp, false, err
+	case rpcapi.FrameTypeText:
+		payload, err := s.readProtobufEnvelopeContinuation(first)
+		if err != nil {
+			return nil, false, err
+		}
+		resp, err := rpcapi.DecodeResponseFrame(rpcapi.Frame{Type: rpcapi.FrameTypeBinary, Payload: payload})
+		return resp, true, err
+	default:
+		return nil, false, fmt.Errorf("rpc: expected protobuf binary frame, got type %d", first.Type)
+	}
+}
+
+func (s *rpcStream) readProtobufEnvelopeContinuation(first rpcapi.Frame) ([]byte, error) {
+	var buf bytes.Buffer
+	buf.Write(first.Payload)
+	for {
+		frame, err := s.ReadFrame()
+		if err != nil {
+			return nil, err
+		}
+		if frame.Type == rpcapi.FrameTypeEOS {
+			return buf.Bytes(), nil
+		}
+		if frame.Type != rpcapi.FrameTypeText {
+			return nil, fmt.Errorf("rpc: expected protobuf continuation frame, got type %d", frame.Type)
+		}
+		buf.Write(frame.Payload)
 	}
 }
 
