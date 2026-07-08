@@ -10,11 +10,7 @@ interfaces, and shared API types under `pkgs/gizclaw/api/`.
   GizClaw HTTP API surfaces.
 - `rpc/common.proto` defines shared Peer RPC envelopes, errors, and stream frames.
 - `rpc/peer.proto` defines the Peer RPC request envelope and method registry.
-- `rpc/payload.proto` defines generated method-specific Peer RPC payload
-  messages from the RPC DTO schema set.
-- `rpc.json`, `rpc/common.json`, and `rpc/client.json` are transitional DTO
-  generation inputs for method payload helpers while #157 is moving payloads to
-  protobuf messages. They are not the Peer RPC wire protocol source.
+- `rpc/payload.proto` defines method-specific Peer RPC payload messages.
 - `openai-compat/v1/service.json` defines the OpenAI-compatible HTTP surface.
 - `types.json` collects shared schemas and exposes them through
   `#/components/schemas`.
@@ -57,6 +53,7 @@ Common commands:
 go generate ./pkgs/gizclaw/api/adminhttp
 go generate ./pkgs/gizclaw/api/apitypes
 go generate ./pkgs/gizclaw/api/openaihttp
+go generate ./pkgs/gizclaw/api/rpcapi
 go generate ./pkgs/gizclaw/api/rpcproto
 go generate ./pkgs/gizclaw/api/peerhttp
 ```

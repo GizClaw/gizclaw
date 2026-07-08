@@ -9,30 +9,16 @@ import (
 	rpcgen "github.com/GizClaw/gizclaw-go/tools/gzc-rpcgen/internal"
 )
 
-type includeFlags []string
-
-func (f *includeFlags) String() string {
-	return fmt.Sprint([]string(*f))
-}
-
-func (f *includeFlags) Set(value string) error {
-	*f = append(*f, value)
-	return nil
-}
-
 func main() {
 	os.Exit(run(os.Args[1:], os.Stderr))
 }
 
 func run(args []string, stderr io.Writer) int {
-	var includes includeFlags
 	cfg := rpcgen.Config{}
 	flags := flag.NewFlagSet("gzc-rpcgen", flag.ContinueOnError)
 	flags.SetOutput(stderr)
-	flags.StringVar(&cfg.SchemaPath, "schema", "", "Legacy RPC OpenAPI schema; leave empty to generate from protobuf")
 	flags.StringVar(&cfg.ProtoPath, "proto", "", "Peer RPC protobuf schema with numeric method ids")
 	flags.StringVar(&cfg.PayloadProtoPath, "payload-proto", "", "Peer RPC method payload protobuf schema with field numbers")
-	flags.Var(&includes, "include", "Additional schema include root")
 	flags.StringVar(&cfg.OutDir, "out", "sdk/c/gizclaw/generated", "Generated C output directory")
 	flags.StringVar(&cfg.Package, "package", "gzc", "C symbol prefix")
 	flags.BoolVar(&cfg.Check, "check", false, "Verify generated files are up to date")
@@ -40,7 +26,6 @@ func run(args []string, stderr io.Writer) int {
 	if err := flags.Parse(args); err != nil {
 		return 2
 	}
-	cfg.IncludeDirs = includes
 
 	if err := rpcgen.Run(cfg); err != nil {
 		fmt.Fprintf(stderr, "gzc-rpcgen: %v\n", err)

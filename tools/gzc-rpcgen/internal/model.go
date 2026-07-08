@@ -1,10 +1,8 @@
 package rpcgen
 
 type Config struct {
-	SchemaPath       string
 	ProtoPath        string
 	PayloadProtoPath string
-	IncludeDirs      []string
 	OutDir           string
 	Package          string
 	Check            bool
@@ -29,9 +27,8 @@ type Method struct {
 }
 
 type Schema struct {
-	Name     string
-	Fields   []Field
-	Original map[string]any
+	Name   string
+	Fields []Field
 }
 
 type Field struct {

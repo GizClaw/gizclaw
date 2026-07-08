@@ -461,7 +461,7 @@ func workflowSpec(cfg config) rpcapi.WorkflowSpec {
 			Model:        cfg.Workflow.Model,
 			Instructions: optionalString(cfg.Workflow.Instructions),
 			Audio:        cfg.Workflow.Audio,
-			Tools:        cfg.Workflow.Tools,
+			Tools:        optionalFunctionTools(cfg.Workflow.Tools),
 			Extension:    cfg.Workflow.Extension,
 		},
 	}
@@ -514,7 +514,7 @@ func workspaceDocument(cfg config) (rpcapi.WorkspaceCreateRequest, error) {
 			Model:        optionalString(cfg.Workflow.Parameters.Model),
 			Instructions: optionalString(cfg.Workflow.Parameters.Instructions),
 			Audio:        cfg.Workflow.Parameters.Audio,
-			Tools:        cfg.Workflow.Parameters.Tools,
+			Tools:        optionalFunctionTools(cfg.Workflow.Parameters.Tools),
 			Extension:    cfg.Workflow.Parameters.Extension,
 		}
 		if err := parameters.FromDoubaoRealtimeWorkspaceParameters(typed); err != nil {
@@ -549,6 +549,13 @@ func optionalASTTranslateMode(value string) *rpcapi.ASTTranslateMode {
 	}
 	mode := rpcapi.ASTTranslateMode(value)
 	return &mode
+}
+
+func optionalFunctionTools(value *[]rpcapi.DoubaoRealtimeFunctionTool) []rpcapi.DoubaoRealtimeFunctionTool {
+	if value == nil {
+		return nil
+	}
+	return *value
 }
 
 func astTranslateWorkspaceVoiceParams(value workspaceVoiceConfig) *rpcapi.ASTTranslateVoiceParameters {

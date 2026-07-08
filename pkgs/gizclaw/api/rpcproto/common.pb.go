@@ -30,7 +30,10 @@ const (
 	RpcErrorCode_RPC_ERROR_CODE_METHOD_NOT_FOUND RpcErrorCode = -32601
 	RpcErrorCode_RPC_ERROR_CODE_INVALID_PARAMS   RpcErrorCode = -32602
 	RpcErrorCode_RPC_ERROR_CODE_INTERNAL_ERROR   RpcErrorCode = -32603
+	RpcErrorCode_RPC_ERROR_CODE_BAD_REQUEST      RpcErrorCode = 400
+	RpcErrorCode_RPC_ERROR_CODE_FORBIDDEN        RpcErrorCode = 403
 	RpcErrorCode_RPC_ERROR_CODE_NOT_FOUND        RpcErrorCode = 404
+	RpcErrorCode_RPC_ERROR_CODE_CONFLICT         RpcErrorCode = 409
 )
 
 // Enum value maps for RpcErrorCode.
@@ -42,7 +45,10 @@ var (
 		-32601: "RPC_ERROR_CODE_METHOD_NOT_FOUND",
 		-32602: "RPC_ERROR_CODE_INVALID_PARAMS",
 		-32603: "RPC_ERROR_CODE_INTERNAL_ERROR",
+		400:    "RPC_ERROR_CODE_BAD_REQUEST",
+		403:    "RPC_ERROR_CODE_FORBIDDEN",
 		404:    "RPC_ERROR_CODE_NOT_FOUND",
+		409:    "RPC_ERROR_CODE_CONFLICT",
 	}
 	RpcErrorCode_value = map[string]int32{
 		"RPC_ERROR_CODE_UNSPECIFIED":      0,
@@ -51,7 +57,10 @@ var (
 		"RPC_ERROR_CODE_METHOD_NOT_FOUND": -32601,
 		"RPC_ERROR_CODE_INVALID_PARAMS":   -32602,
 		"RPC_ERROR_CODE_INTERNAL_ERROR":   -32603,
+		"RPC_ERROR_CODE_BAD_REQUEST":      400,
+		"RPC_ERROR_CODE_FORBIDDEN":        403,
 		"RPC_ERROR_CODE_NOT_FOUND":        404,
+		"RPC_ERROR_CODE_CONFLICT":         409,
 	}
 )
 
@@ -385,15 +394,18 @@ const file_common_proto_rawDesc = "" +
 	"\bRpcError\x120\n" +
 	"\x04code\x18\x01 \x01(\x0e2\x1c.gizclaw.rpc.v1.RpcErrorCodeR\x04code\x12\x18\n" +
 	"\amessage\x18\x02 \x01(\tR\amessage\"\x0e\n" +
-	"\fRpcStreamEnd*\xa9\x02\n" +
+	"\fRpcStreamEnd*\x87\x03\n" +
 	"\fRpcErrorCode\x12\x1e\n" +
 	"\x1aRPC_ERROR_CODE_UNSPECIFIED\x10\x00\x12'\n" +
 	"\x1aRPC_ERROR_CODE_PARSE_ERROR\x10Ā\xfe\xff\xff\xff\xff\xff\xff\x01\x12+\n" +
 	"\x1eRPC_ERROR_CODE_INVALID_REQUEST\x10\xa8\x81\xfe\xff\xff\xff\xff\xff\xff\x01\x12,\n" +
 	"\x1fRPC_ERROR_CODE_METHOD_NOT_FOUND\x10\xa7\x81\xfe\xff\xff\xff\xff\xff\xff\x01\x12*\n" +
 	"\x1dRPC_ERROR_CODE_INVALID_PARAMS\x10\xa6\x81\xfe\xff\xff\xff\xff\xff\xff\x01\x12*\n" +
-	"\x1dRPC_ERROR_CODE_INTERNAL_ERROR\x10\xa5\x81\xfe\xff\xff\xff\xff\xff\xff\x01\x12\x1d\n" +
-	"\x18RPC_ERROR_CODE_NOT_FOUND\x10\x94\x03B?Z=github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto;rpcpbb\x06proto3"
+	"\x1dRPC_ERROR_CODE_INTERNAL_ERROR\x10\xa5\x81\xfe\xff\xff\xff\xff\xff\xff\x01\x12\x1f\n" +
+	"\x1aRPC_ERROR_CODE_BAD_REQUEST\x10\x90\x03\x12\x1d\n" +
+	"\x18RPC_ERROR_CODE_FORBIDDEN\x10\x93\x03\x12\x1d\n" +
+	"\x18RPC_ERROR_CODE_NOT_FOUND\x10\x94\x03\x12\x1c\n" +
+	"\x17RPC_ERROR_CODE_CONFLICT\x10\x99\x03B?Z=github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto;rpcpbb\x06proto3"
 
 var (
 	file_common_proto_rawDescOnce sync.Once

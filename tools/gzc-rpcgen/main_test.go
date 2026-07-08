@@ -7,37 +7,13 @@ import (
 	"testing"
 )
 
-func TestIncludeFlags(t *testing.T) {
-	var flags includeFlags
-	if err := flags.Set("api"); err != nil {
-		t.Fatalf("Set() error = %v", err)
-	}
-	if got := flags.String(); got != "[api]" {
-		t.Fatalf("String() = %q, want [api]", got)
-	}
-}
-
 func TestRunGeneratesFiles(t *testing.T) {
 	root := t.TempDir()
-	writeTestFile(t, filepath.Join(root, "api", "rpc.json"), `{
-  "openapi":"3.0.3",
-  "components":{"schemas":{
-    "RPCMethod":{"type":"string","enum":["all.ping"]},
-    "RPCRequest":{"type":"object","properties":{"params":{"oneOf":[{"$ref":"./rpc/common.json#/components/schemas/PingRequest"}]}}},
-    "RPCResponse":{"type":"object","properties":{"result":{"oneOf":[{"$ref":"./rpc/common.json#/components/schemas/PingResponse"}]}}}
-  }}
-}`)
-	writeTestFile(t, filepath.Join(root, "api", "rpc", "common.json"), `{
-  "openapi":"3.0.3",
-  "components":{"schemas":{
-    "PingRequest":{"type":"object","required":["client_send_time"],"properties":{"client_send_time":{"type":"integer","format":"int64"}}},
-    "PingResponse":{"type":"object","required":["server_time"],"properties":{"server_time":{"type":"integer","format":"int64"}}}
-  }}
-}`)
+	writeTestProtoFiles(t, root)
 	var stderr bytes.Buffer
 	code := run([]string{
-		"-schema", filepath.Join(root, "api", "rpc.json"),
-		"-include", filepath.Join(root, "api"),
+		"-proto", filepath.Join(root, "peer.proto"),
+		"-payload-proto", filepath.Join(root, "payload.proto"),
 		"-out", filepath.Join(root, "out"),
 		"-package", "gzc",
 	}, &stderr)
@@ -47,6 +23,30 @@ func TestRunGeneratesFiles(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(root, "out", "gzc_rpc_generated.h")); err != nil {
 		t.Fatalf("generated header missing: %v", err)
 	}
+}
+
+func writeTestProtoFiles(t *testing.T, root string) {
+	t.Helper()
+	writeTestFile(t, filepath.Join(root, "peer.proto"), `syntax = "proto3";
+package gizclaw.rpc.v1;
+
+enum RpcMethod {
+  RPC_METHOD_UNSPECIFIED = 0;
+  // rpc: all.ping request=PingRequest response=PingResponse
+  RPC_METHOD_ALL_PING = 42;
+}
+`)
+	writeTestFile(t, filepath.Join(root, "payload.proto"), `syntax = "proto3";
+package gizclaw.rpc.v1;
+
+message PingRequest {
+  int64 client_send_time = 1;
+}
+
+message PingResponse {
+  int64 server_time = 1;
+}
+`)
 }
 
 func writeTestFile(t *testing.T, path, data string) {
