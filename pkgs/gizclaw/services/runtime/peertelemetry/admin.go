@@ -156,7 +156,7 @@ func (s *AdminService) Aggregate(ctx context.Context, peer giznet.PublicKey, fie
 	if evalStart.After(end) {
 		return apitypes.PeerTelemetryAggregateResponse{}, fmt.Errorf("%w: bucket_ms must fit within the requested range", ErrInvalidQuery)
 	}
-	if countRangePoints(evalStart, end, bucket) > maxAdminRangeLimit {
+	if countAggregateRangePoints(start, end, bucket) > maxAdminRangeLimit {
 		return apitypes.PeerTelemetryAggregateResponse{}, fmt.Errorf("%w: requested bucket count exceeds %d", ErrInvalidQuery, maxAdminRangeLimit)
 	}
 	expr, err := aggregateExpression(peer, field, aggregate, bucket)
@@ -168,6 +168,10 @@ func (s *AdminService) Aggregate(ctx context.Context, peer giznet.PublicKey, fie
 		return apitypes.PeerTelemetryAggregateResponse{}, fmt.Errorf("peertelemetry: aggregate %s %s: %w", field, aggregate, err)
 	}
 	points := aggregatePointsFromSeries(series, bucket)
+	points, err = s.includeAggregateTail(ctx, peer, field, start, end, bucket, aggregate, points)
+	if err != nil {
+		return apitypes.PeerTelemetryAggregateResponse{}, err
+	}
 	points, err = s.includeAggregateStartBoundary(ctx, peer, field, start, bucket, aggregate, points)
 	if err != nil {
 		return apitypes.PeerTelemetryAggregateResponse{}, err
@@ -256,6 +260,40 @@ func (s *AdminService) rangePointAt(ctx context.Context, expr string, field apit
 	}
 	point, ok := latestPointFromSeries(series)
 	return point, ok, nil
+}
+
+func (s *AdminService) includeAggregateTail(
+	ctx context.Context,
+	peer giznet.PublicKey,
+	field apitypes.PeerTelemetryField,
+	start time.Time,
+	end time.Time,
+	bucket time.Duration,
+	aggregate apitypes.PeerTelemetryAggregate,
+	points []apitypes.PeerTelemetryAggregatePoint,
+) ([]apitypes.PeerTelemetryAggregatePoint, error) {
+	elapsed := end.Sub(start)
+	tail := elapsed % bucket
+	if tail == 0 {
+		return points, nil
+	}
+	bucketStart := end.Add(-tail)
+	expr, err := aggregateExpression(peer, field, aggregate, tail)
+	if err != nil {
+		return nil, err
+	}
+	series, err := s.Metrics.Query(ctx, metrics.Query{Expression: expr, Time: end})
+	if err != nil {
+		return nil, fmt.Errorf("peertelemetry: query aggregate tail %s %s: %w", field, aggregate, err)
+	}
+	point, ok := latestPointFromSeries(series)
+	if !ok {
+		return points, nil
+	}
+	return upsertAggregatePoint(points, apitypes.PeerTelemetryAggregatePoint{
+		BucketStartTimeMs: bucketStart.UnixMilli(),
+		Value:             point.Value,
+	}), nil
 }
 
 func (s *AdminService) includeAggregateStartBoundary(
@@ -532,6 +570,15 @@ func countRangePoints(start, end time.Time, step time.Duration) int {
 		return 0
 	}
 	return int(end.Sub(start)/step) + 1
+}
+
+func countAggregateRangePoints(start, end time.Time, bucket time.Duration) int {
+	evalStart := start.Add(bucket)
+	count := countRangePoints(evalStart, end, bucket)
+	if end.Sub(start)%bucket != 0 {
+		count++
+	}
+	return count
 }
 
 func promQLDuration(d time.Duration) (string, error) {

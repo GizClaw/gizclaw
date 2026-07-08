@@ -407,6 +407,36 @@ func TestAdminAggregateIncludesStartBoundarySample(t *testing.T) {
 	}
 }
 
+func TestAdminAggregateIncludesTrailingPartialBucket(t *testing.T) {
+	t.Parallel()
+
+	peer := adminTestPeer()
+	start := time.Unix(1783400000, 0).UTC()
+	end := start.Add(90 * time.Minute)
+	store := metrics.NewMemoryStore()
+	if err := store.Append(context.Background(), []metrics.Sample{
+		{Name: MetricBatteryPercent, Labels: map[string]string{"peer_id": peer.String()}, Timestamp: start.Add(30 * time.Minute), Value: 70},
+		{Name: MetricBatteryPercent, Labels: map[string]string{"peer_id": peer.String()}, Timestamp: start.Add(75 * time.Minute), Value: 71},
+	}); err != nil {
+		t.Fatalf("Append() error = %v", err)
+	}
+	service := &AdminService{Metrics: store}
+
+	response, err := service.Aggregate(context.Background(), peer, apitypes.PeerTelemetryFieldBatteryPercent, start, end, time.Hour, apitypes.PeerTelemetryAggregateCount)
+	if err != nil {
+		t.Fatalf("Aggregate() error = %v", err)
+	}
+	if len(response.Points) != 2 {
+		t.Fatalf("points = %#v, want full and trailing buckets", response.Points)
+	}
+	if response.Points[0].BucketStartTimeMs != start.UnixMilli() || response.Points[0].Value != 1 {
+		t.Fatalf("first bucket = %#v, want count of 1", response.Points[0])
+	}
+	if response.Points[1].BucketStartTimeMs != start.Add(time.Hour).UnixMilli() || response.Points[1].Value != 1 {
+		t.Fatalf("tail bucket = %#v, want trailing partial count of 1", response.Points[1])
+	}
+}
+
 func TestAdminAggregateLastReturnsStartBoundaryOnlyBucket(t *testing.T) {
 	t.Parallel()
 
