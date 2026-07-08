@@ -9,13 +9,17 @@ import (
 	"math"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/volcengine/volc-sdk-golang/service/tls"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw"
 )
 
-const nanosPerMillisecond int64 = 1_000_000
+const (
+	nanosPerMillisecond int64 = 1_000_000
+	defaultQueryTimeout       = 30 * time.Second
+)
 
 type searchLogsClient interface {
 	SearchLogsV2(ctx context.Context, request *tls.SearchLogsRequest) (*tls.SearchLogsResponse, error)
@@ -67,6 +71,10 @@ func NewQueryService(config Config) (*QueryService, error) {
 		return nil, err
 	}
 	client := tls.NewClient(config.Endpoint, config.AccessKeyID, config.AccessKeySecret, "", config.Region)
+	client.SetTimeout(defaultQueryTimeout)
+	retryPolicy := client.GetRetryPolicy()
+	retryPolicy.TotalTimeout = defaultQueryTimeout
+	client.SetRetryPolicy(retryPolicy)
 	return NewQueryServiceWithClient(config.TopicID, contextSearchLogsClient{client: client}), nil
 }
 

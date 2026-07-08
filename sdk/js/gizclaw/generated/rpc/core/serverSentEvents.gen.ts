@@ -92,8 +92,21 @@ class SseHttpError extends Error {
   }
 }
 
+function isJsonSseErrorResponse(value: unknown): boolean {
+  if (value == null || typeof value !== 'object') {
+    return false;
+  }
+  return 'error' in value && (value as { error?: unknown }).error !== undefined;
+}
+
 function isRetryableSseHttpError(error: SseHttpError): boolean {
-  return error.status === 408 || error.status === 429 || (error.status >= 500 && error.status !== 501);
+  if (error.status === 408 || error.status === 429) {
+    return true;
+  }
+  if (error.status < 500 || error.status === 501) {
+    return false;
+  }
+  return !isJsonSseErrorResponse(error.error);
 }
 
 async function parseSseErrorResponse(response: Response): Promise<unknown> {

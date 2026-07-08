@@ -246,6 +246,20 @@ func TestNewQueryServiceValidatesConfig(t *testing.T) {
 	if service.topicID != "topic" {
 		t.Fatalf("topicID = %q", service.topicID)
 	}
+	wrappedClient, ok := service.client.(contextSearchLogsClient)
+	if !ok {
+		t.Fatalf("client type = %T", service.client)
+	}
+	tlsClient, ok := wrappedClient.client.(*tls.LsClient)
+	if !ok {
+		t.Fatalf("wrapped client type = %T", wrappedClient.client)
+	}
+	if timeout := tlsClient.GetHttpClient().Timeout; timeout != defaultQueryTimeout {
+		t.Fatalf("query timeout = %v, want %v", timeout, defaultQueryTimeout)
+	}
+	if timeout := tlsClient.GetRetryPolicy().TotalTimeout; timeout != defaultQueryTimeout {
+		t.Fatalf("retry timeout = %v, want %v", timeout, defaultQueryTimeout)
+	}
 	base.TopicID = ""
 	if _, err := NewQueryService(base); err == nil || !strings.Contains(err.Error(), "topic") {
 		t.Fatalf("NewQueryService missing topic err = %v", err)

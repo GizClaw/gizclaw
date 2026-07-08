@@ -301,6 +301,37 @@ test("SSE client parses HTTP JSON errors without retrying", async () => {
   assert.deepEqual(seenErrors, [errorBody]);
 });
 
+test("SSE client does not retry backend JSON errors", async () => {
+  const errorBody = { error: { code: "LOG_BACKEND_ERROR", message: "backend search failed" } };
+  let attempts = 0;
+  const result = createSseClient({
+    fetch: async () => {
+      attempts++;
+      return new Response(JSON.stringify(errorBody), {
+        status: 502,
+        headers: { "Content-Type": "application/json" },
+      });
+    },
+    sseSleepFn: async () => {
+      throw new Error("SSE JSON backend errors must not be retried");
+    },
+    url: "http://gizclaw/logs/stream",
+  });
+
+  await assert.rejects(
+    async () => {
+      for await (const _event of result.stream) {
+        // noop
+      }
+    },
+    (error) => {
+      assert.deepEqual(error, errorBody);
+      return true;
+    },
+  );
+  assert.equal(attempts, 1);
+});
+
 test("SSE client retries transient HTTP errors", async () => {
   const seenErrors: Array<unknown> = [];
   let attempts = 0;

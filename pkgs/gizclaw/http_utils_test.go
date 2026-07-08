@@ -1,6 +1,7 @@
 package gizclaw
 
 import (
+	"context"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -9,6 +10,8 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 )
+
+type fiberHTTPHandlerContextKey struct{}
 
 func TestFiberHTTPHandlerHidesPanicDetail(t *testing.T) {
 	app := fiber.New(fiber.Config{DisableStartupMessage: true})
@@ -78,5 +81,31 @@ func TestFiberHTTPHandlerStreamsResponseBody(t *testing.T) {
 	}
 	if string(rest) != "second\n" {
 		t.Fatalf("rest body = %q, want second", rest)
+	}
+}
+
+func TestFiberHTTPHandlerPropagatesRequestContext(t *testing.T) {
+	app := fiber.New(fiber.Config{DisableStartupMessage: true})
+	app.Get("/ctx", func(ctx *fiber.Ctx) error {
+		if got := ctx.UserContext().Value(fiberHTTPHandlerContextKey{}); got != "request-value" {
+			t.Fatalf("context value = %v", got)
+		}
+		select {
+		case <-ctx.UserContext().Done():
+			return ctx.SendStatus(http.StatusNoContent)
+		default:
+			t.Fatal("request context cancellation was not propagated")
+			return nil
+		}
+	})
+
+	baseCtx, cancel := context.WithCancel(context.WithValue(context.Background(), fiberHTTPHandlerContextKey{}, "request-value"))
+	cancel()
+	req := httptest.NewRequest(http.MethodGet, "/ctx", nil).WithContext(baseCtx)
+	rec := httptest.NewRecorder()
+	fiberHTTPHandler(app).ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("status = %d body=%s", rec.Code, rec.Body.String())
 	}
 }

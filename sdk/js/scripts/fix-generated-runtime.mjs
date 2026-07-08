@@ -63,6 +63,10 @@ async function rewriteSseRuntime(url) {
     );
   }
   after = after.replace(
+    "function isRetryableSseHttpError(error: SseHttpError): boolean {\n  return error.status === 408 || error.status === 429 || (error.status >= 500 && error.status !== 501);\n}\n\n",
+    "function isJsonSseErrorResponse(value: unknown): boolean {\n  if (value == null || typeof value !== 'object') {\n    return false;\n  }\n  return 'error' in value && (value as { error?: unknown }).error !== undefined;\n}\n\nfunction isRetryableSseHttpError(error: SseHttpError): boolean {\n  if (error.status === 408 || error.status === 429) {\n    return true;\n  }\n  if (error.status < 500 || error.status === 501) {\n    return false;\n  }\n  return !isJsonSseErrorResponse(error.error);\n}\n\n",
+  );
+  after = after.replace(
     "        if (!response.ok) throw new Error(`SSE failed: ${response.status} ${response.statusText}`);\n",
     "        if (!response.ok) {\n          throw new SseHttpError(response.status, response.statusText, await parseSseErrorResponse(response));\n        }\n",
   );
