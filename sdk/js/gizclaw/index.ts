@@ -1,5 +1,6 @@
 import type { CreateGiznetWebRtcOfferData } from "./generated/peerhttp/types.gen";
 import { RPC_METHOD_IDS } from "./generated/rpc/method-map.ts";
+import { decodeRPCResponsePayload, encodeRPCRequestPayload, encodeRPCResponsePayload } from "./generated/rpc/payload-codec.ts";
 import { base58Decode, prepareEncryptedGiznetWebRTCOffer } from "./signaling.ts";
 import { encodeTelemetryPacket, type TelemetryFrame } from "./telemetry.ts";
 export * from "./telemetry.ts";
@@ -242,7 +243,7 @@ export class WebRTCRPCClient {
           try {
             const chunk = await messageDataBytes(event.data);
             buffer = appendBytes(buffer, chunk);
-            const parsed = tryReadRPCResponse<TResult>(buffer);
+            const parsed = tryReadRPCResponse<TResult>(buffer, request.method);
             if (parsed == null) {
               return;
             }
@@ -357,7 +358,7 @@ export class WebRTCRPCClient {
           try {
             const chunk = await messageDataBytes(event.data);
             buffer = appendBytes(buffer, chunk);
-            const parsed = tryReadRPCBinaryResponse<TResult>(buffer);
+            const parsed = tryReadRPCBinaryResponse<TResult>(buffer, request.method);
             if (parsed == null) {
               return;
             }
@@ -646,8 +647,8 @@ export function encodeRPCRequest(request: RPCRequest): ArrayBuffer {
   return concatBytes([encodeFrame(RPC_FRAME_TYPE_BINARY, encodeRPCRequestEnvelope(request)), encodeFrame(RPC_FRAME_TYPE_EOS)]);
 }
 
-export function encodeRPCResponse(response: RPCResponse): ArrayBuffer {
-  return concatBytes([encodeFrame(RPC_FRAME_TYPE_BINARY, encodeRPCResponseEnvelope(response)), encodeFrame(RPC_FRAME_TYPE_EOS)]);
+export function encodeRPCResponse(response: RPCResponse, method: string): ArrayBuffer {
+  return concatBytes([encodeFrame(RPC_FRAME_TYPE_BINARY, encodeRPCResponseEnvelope(response, method)), encodeFrame(RPC_FRAME_TYPE_EOS)]);
 }
 
 export function encodeJSONFrame(value: unknown): ArrayBuffer {
@@ -662,11 +663,11 @@ function encodeRPCRequestEnvelope(request: RPCRequest): Uint8Array {
   const writer = new ProtoWriter();
   writer.string(1, request.id);
   writer.uint32(2, method);
-  writer.bytes(3, new TextEncoder().encode(JSON.stringify(request.params ?? {})));
+  writer.bytes(3, encodeRPCRequestPayload(request.method, request.params ?? {}));
   return writer.finish();
 }
 
-function encodeRPCResponseEnvelope(response: RPCResponse): Uint8Array {
+function encodeRPCResponseEnvelope(response: RPCResponse, method: string): Uint8Array {
   const writer = new ProtoWriter();
   if (response.id != null) {
     writer.string(1, response.id);
@@ -677,12 +678,12 @@ function encodeRPCResponseEnvelope(response: RPCResponse): Uint8Array {
     error.string(2, response.error.message);
     writer.bytes(3, error.finish());
   } else {
-    writer.bytes(2, new TextEncoder().encode(JSON.stringify(response.result ?? {})));
+    writer.bytes(2, encodeRPCResponsePayload(method, response.result ?? {}));
   }
   return writer.finish();
 }
 
-function decodeRPCResponseEnvelope<TResult>(payload: Uint8Array): RPCResponse<TResult> {
+function decodeRPCResponseEnvelope<TResult>(payload: Uint8Array, method: string): RPCResponse<TResult> {
   const reader = new ProtoReader(payload);
   const response: RPCResponse<TResult> = { v: RPC_VERSION };
   while (!reader.done()) {
@@ -693,7 +694,7 @@ function decodeRPCResponseEnvelope<TResult>(payload: Uint8Array): RPCResponse<TR
         break;
       case 2: {
         const body = reader.bytes(field);
-        response.result = (body.length === 0 ? undefined : JSON.parse(new TextDecoder().decode(body))) as TResult;
+        response.result = decodeRPCResponsePayload(method, body) as TResult;
         break;
       }
       case 3:
@@ -865,6 +866,7 @@ export function tryParseHTTPResponse(buffer: Uint8Array<ArrayBufferLike>, closed
 
 function tryReadRPCResponse<TResult>(
   buffer: Uint8Array<ArrayBufferLike>,
+  method: string,
 ): { response: RPCResponse<TResult>; rest: Uint8Array<ArrayBufferLike> } | null {
   let offset = 0;
   let response: RPCResponse<TResult> | undefined;
@@ -887,7 +889,7 @@ function tryReadRPCResponse<TResult>(
         throw new Error("RPC EOS frame must be empty.");
       }
       if (response == null && envelopeChunks.length > 0) {
-        response = decodeRPCResponseEnvelope<TResult>(concatByteArrays(envelopeChunks));
+        response = decodeRPCResponseEnvelope<TResult>(concatByteArrays(envelopeChunks), method);
       }
       if (response == null) {
         throw new Error("RPC response EOS before protobuf frame.");
@@ -907,12 +909,13 @@ function tryReadRPCResponse<TResult>(
     if (response != null || envelopeChunks.length > 0) {
       throw new Error("RPC response contains multiple protobuf frames.");
     }
-    response = decodeRPCResponseEnvelope<TResult>(payload);
+    response = decodeRPCResponseEnvelope<TResult>(payload, method);
   }
 }
 
 function tryReadRPCBinaryResponse<TResult>(
   buffer: Uint8Array<ArrayBufferLike>,
+  method: string,
 ): { body: Uint8Array; response: RPCResponse<TResult>; rest: Uint8Array<ArrayBufferLike> } | null {
   let offset = 0;
   let response: RPCResponse<TResult> | undefined;
@@ -943,7 +946,7 @@ function tryReadRPCBinaryResponse<TResult>(
       if (type !== RPC_FRAME_TYPE_BINARY) {
         throw new Error(`rpc: expected protobuf binary frame, got type ${type}`);
       }
-      response = decodeRPCResponseEnvelope<TResult>(payload);
+      response = decodeRPCResponseEnvelope<TResult>(payload, method);
       continue;
     }
     if (type !== RPC_FRAME_TYPE_BINARY) {

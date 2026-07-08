@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "gen:telemetry": "node scripts/generate-telemetry-protobuf.mjs",
-    "gen:sdk": "openapi-ts && node scripts/fix-generated-imports.mjs && node scripts/fix-generated-runtime.mjs && node scripts/generate-rpc-method-map.mjs",
+    "gen:sdk": "openapi-ts && node scripts/fix-generated-imports.mjs && node scripts/fix-generated-runtime.mjs && node scripts/generate-rpc-method-map.mjs && node scripts/generate-rpc-payload-codec.mjs",
     "test": "npm test --prefix gizclaw"
   },
   "devDependencies": {
