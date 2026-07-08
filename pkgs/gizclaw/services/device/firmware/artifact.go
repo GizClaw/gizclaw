@@ -296,6 +296,11 @@ func writeArtifactPackage(ctx context.Context, assets objectstore.ObjectStore, n
 	if err != nil {
 		_ = pw.CloseWithError(err)
 		<-putErrCh
+		if errors.Is(err, errInvalidArtifact) {
+			if cleanupErr := assets.DeletePrefix(prefix); cleanupErr != nil {
+				return apitypes.FirmwareArtifact{}, fmt.Errorf("cleanup invalid firmware artifact %q/%q: %w", name, channel, cleanupErr)
+			}
+		}
 		return apitypes.FirmwareArtifact{}, err
 	}
 	if err := pw.Close(); err != nil {

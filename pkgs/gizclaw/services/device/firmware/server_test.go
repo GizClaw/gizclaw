@@ -384,6 +384,25 @@ func TestServerUploadFirmwareArtifactRejectsTruncatedTarEntry(t *testing.T) {
 	if _, ok := resp.(adminservice.UploadFirmwareArtifact400JSONResponse); !ok {
 		t.Fatalf("UploadFirmwareArtifact response = %T, want 400", resp)
 	}
+	objects, err := assets.List(firmwareArtifactPrefix("devkit", stableChannel))
+	if err != nil {
+		t.Fatalf("List artifact prefix after truncated upload: %v", err)
+	}
+	if len(objects) != 0 {
+		t.Fatalf("artifact objects after truncated upload = %+v", objects)
+	}
+	validPayload := tarPayload(t, map[string]string{"firmware.bin": "payload"})
+	resp, err = s.UploadFirmwareArtifact(ctx, adminservice.UploadFirmwareArtifactRequestObject{
+		Name:    "devkit",
+		Channel: stableChannel,
+		Body:    bytes.NewReader(validPayload),
+	})
+	if err != nil {
+		t.Fatalf("UploadFirmwareArtifact retry error = %v", err)
+	}
+	if _, ok := resp.(adminservice.UploadFirmwareArtifact200JSONResponse); !ok {
+		t.Fatalf("UploadFirmwareArtifact retry response = %T, want 200", resp)
+	}
 }
 
 func TestServerUploadFirmwareArtifactRejectsTarWithoutFilesAndPathConflicts(t *testing.T) {
