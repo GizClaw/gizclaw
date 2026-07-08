@@ -883,7 +883,12 @@ int gzc_client_read_packet(gzc_client_t *client, int timeout_ms, uint8_t *out_pr
     }
   }
   size_t payload_len = message_size - 3;
-  *out_protocol = client->packet_rx.data[2];
+  uint8_t protocol = client->packet_rx.data[2];
+  if (!valid_packet_protocol(protocol)) {
+    consume_rx(&client->packet_rx, message_size);
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  *out_protocol = protocol;
   gzc_buf_reset(out_payload);
   int rc = gzc_buf_append(out_payload, client->config.platform, client->packet_rx.data + 3, payload_len);
   if (rc != GZC_OK) {
