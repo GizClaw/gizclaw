@@ -31,6 +31,11 @@ struct gzc_client {
   bool closed;
 };
 
+enum {
+  gzc_protocol_stamped_opus_packet = 0x10,
+  gzc_protocol_custom_start = 0x40,
+};
+
 static int64_t now_ms(gzc_client_t *client) {
   if (client->config.platform != NULL && client->config.platform->time_unix_ms != NULL) {
     return client->config.platform->time_unix_ms(client->config.platform->userdata);
@@ -50,6 +55,10 @@ static bool str_empty(gzc_str_t value) {
 static bool str_eq_cstr(gzc_str_t value, const char *want) {
   size_t want_len = strlen(want);
   return value.len == want_len && strncmp(value.data, want, want_len) == 0;
+}
+
+static bool valid_packet_protocol(uint8_t protocol) {
+  return protocol == gzc_protocol_stamped_opus_packet || protocol >= gzc_protocol_custom_start;
 }
 
 static int build_endpoint_url(gzc_client_t *client, gzc_str_t path, gzc_buf_t *out_url) {
@@ -829,6 +838,9 @@ int gzc_client_send_packet(gzc_client_t *client, uint8_t protocol, const uint8_t
   if (len > GZC_RPC_MAX_FRAME_SIZE - 1) {
     return GZC_ERR_RPC;
   }
+  if (!valid_packet_protocol(protocol)) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
   gzc_buf_t message;
   gzc_buf_init(&message);
   int rc = gzc_buf_append(&message, client->config.platform, &protocol, 1);
@@ -871,7 +883,12 @@ int gzc_client_read_packet(gzc_client_t *client, int timeout_ms, uint8_t *out_pr
     }
   }
   size_t payload_len = message_size - 3;
-  *out_protocol = client->packet_rx.data[2];
+  uint8_t protocol = client->packet_rx.data[2];
+  if (!valid_packet_protocol(protocol)) {
+    consume_rx(&client->packet_rx, message_size);
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  *out_protocol = protocol;
   gzc_buf_reset(out_payload);
   int rc = gzc_buf_append(out_payload, client->config.platform, client->packet_rx.data + 3, payload_len);
   if (rc != GZC_OK) {

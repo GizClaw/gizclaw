@@ -3,6 +3,8 @@ package gizwebrtc
 import (
 	"net"
 	"sync"
+
+	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 )
 
 type ServiceListener struct {
@@ -24,23 +26,23 @@ func newServiceListener(conn *Conn, service uint64) *ServiceListener {
 
 func (l *ServiceListener) Accept() (net.Conn, error) {
 	if l == nil {
-		return nil, ErrNilConn
+		return nil, giznet.ErrNilConn
 	}
 	select {
 	case <-l.closeCh:
-		return nil, ErrServiceClosed
+		return nil, giznet.ErrServiceMuxClosed
 	default:
 	}
 	select {
 	case c, ok := <-l.ch:
 		if !ok {
-			return nil, ErrServiceClosed
+			return nil, giznet.ErrServiceMuxClosed
 		}
 		return c, nil
 	case <-l.closeCh:
-		return nil, ErrServiceClosed
+		return nil, giznet.ErrServiceMuxClosed
 	case <-l.conn.closeCh:
-		return nil, ErrConnClosed
+		return nil, giznet.ErrConnClosed
 	}
 }
 
@@ -48,13 +50,13 @@ func (l *ServiceListener) enqueue(c net.Conn) error {
 	select {
 	case <-l.closeCh:
 		_ = c.Close()
-		return ErrServiceClosed
+		return giznet.ErrServiceMuxClosed
 	default:
 	}
 	select {
 	case <-l.conn.closeCh:
 		_ = c.Close()
-		return ErrConnClosed
+		return giznet.ErrConnClosed
 	default:
 	}
 	select {
@@ -62,10 +64,10 @@ func (l *ServiceListener) enqueue(c net.Conn) error {
 		return nil
 	case <-l.closeCh:
 		_ = c.Close()
-		return ErrServiceClosed
+		return giznet.ErrServiceMuxClosed
 	case <-l.conn.closeCh:
 		_ = c.Close()
-		return ErrConnClosed
+		return giznet.ErrConnClosed
 	}
 }
 

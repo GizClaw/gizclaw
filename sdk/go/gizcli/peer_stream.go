@@ -12,6 +12,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/stampedopus"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 )
 
 type PeerStream struct {
@@ -46,7 +47,7 @@ func (c *Client) OpenPeerStream(buffer int) (*PeerStream, error) {
 	if err != nil {
 		return nil, err
 	}
-	packets, unsubscribe := c.subscribePeerPackets(PacketStampedOpus, buffer)
+	packets, unsubscribe := c.subscribePeerPackets(giznet.ProtocolStampedOpusPacket, buffer)
 	stream := &PeerStream{
 		events:      eventStream,
 		packets:     packets,
@@ -113,7 +114,7 @@ func (s *PeerStream) Push(ctx context.Context, chunk *genx.MessageChunk) error {
 	if chunk.Ctrl != nil && chunk.Ctrl.Timestamp > 0 {
 		timestamp = uint64(chunk.Ctrl.Timestamp)
 	}
-	_, err := s.conn.Write(PacketStampedOpus, stampedopus.Pack(timestamp, blob.Data))
+	_, err := s.conn.Write(giznet.ProtocolStampedOpusPacket, stampedopus.Pack(timestamp, blob.Data))
 	return err
 }
 

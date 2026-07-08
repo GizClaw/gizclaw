@@ -429,7 +429,7 @@ func (h *PeerConn) serveDirectPackets() error {
 			return err
 		}
 		switch protocol {
-		case PacketStampedOpus:
+		case giznet.ProtocolStampedOpusPacket:
 			chunk, ok := stampedOpusChunk(buf[:n])
 			if !ok {
 				continue
@@ -570,7 +570,7 @@ func (h *PeerConn) streamMixedAudio(hasWrittenBefore bool) (wrote bool, err erro
 			wrote = true
 		}
 		payload := stampedopus.Pack(h.lastOpusFrameTimestamp.Load(), packet)
-		if _, err := h.Conn.Write(PacketStampedOpus, payload); err != nil {
+		if _, err := h.Conn.Write(giznet.ProtocolStampedOpusPacket, payload); err != nil {
 			return wrote, err
 		}
 		h.lastOpusFrameTimestamp.Add(uint64(peerConnOpusFrameDuration / time.Millisecond))

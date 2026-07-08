@@ -14,7 +14,7 @@
 | Agent event stream | Reliable framed event stream on `EventStreamAgent`. |
 | Telemetry event stream | Unreliable direct packet event stream on `EventStreamTelemetry`. |
 | Opus media stream | WebRTC Opus media channel identified by `MediaStreamOpus`. |
-| Stamped Opus packet bridge | Internal direct packet bridge identified by `PacketStampedOpus`. |
+| Stamped Opus packet bridge | Giznet well-known direct packet bridge identified by `ProtocolStampedOpusPacket`. |
 
 ## Constant Names
 
@@ -24,10 +24,15 @@ ServicePeerHTTP       = 0x01
 ServicePeerOpenAI     = 0x02
 ServiceAdminHTTP      = 0x10
 EventStreamAgent      = 0x20
-EventStreamTelemetry  = 0x11
+EventStreamTelemetry  = 0x40
 MediaStreamOpus       = "audio/opus"
-PacketStampedOpus     = 0x10
+ProtocolServiceStream = 0x00
+ProtocolStampedOpusPacket = 0x10
 ```
+
+Giznet direct packet protocol bytes `0x00` through `0x3f` are reserved for
+well-known giznet protocols. Values `0x40` through `0xff` are available for
+application/custom direct packet protocols.
 
 ## Old Name Replacements
 
@@ -40,7 +45,8 @@ PacketStampedOpus     = 0x10
 | `ServiceAgentStream` | `EventStreamAgent` |
 | `ServiceEvent` | `EventStreamAgent` |
 | `ProtocolTelemetry` | `EventStreamTelemetry` |
-| `ProtocolStampedOpus` | `PacketStampedOpus` |
+| `ProtocolStampedOpus` | `ProtocolStampedOpusPacket` |
+| `PacketStampedOpus` | `ProtocolStampedOpusPacket` |
 | `ProtocolEvent` | Removed |
 | `serverpublic` | `peerhttp` |
 | `adminservice` | `adminhttp` |

@@ -6,12 +6,6 @@ const (
 	serviceLabelPrefix = "giznet/v1/service/"
 	packetLabel        = "giznet/v1/packet"
 
-	// PacketStampedOpus mirrors gizclaw.PacketStampedOpus without importing
-	// pkg/gizclaw from the transport package.
-	PacketStampedOpus byte = 0x10
-	// EventStreamTelemetry mirrors gizclaw.EventStreamTelemetry without importing
-	// pkg/gizclaw from the transport package.
-	EventStreamTelemetry byte = 0x11
 	// MediaStreamOpus mirrors gizclaw.MediaStreamOpus without importing
 	// pkg/gizclaw from the transport package.
 	MediaStreamOpus = "audio/opus"

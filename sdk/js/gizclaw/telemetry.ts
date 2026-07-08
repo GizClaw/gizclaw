@@ -18,7 +18,7 @@ export type {
   TelemetryFrame,
 } from "./generated/telemetry/peer_telemetry.ts";
 
-export const GIZCLAW_EVENT_STREAM_TELEMETRY = 0x11;
+export const GIZCLAW_EVENT_STREAM_TELEMETRY = 0x40;
 export const GIZCLAW_MAX_PACKET_MESSAGE_SIZE = 64 * 1024;
 const TELEMETRY_OBSERVATION_BODY_KEYS = ["battery", "gnss", "network", "system"] as const;
 

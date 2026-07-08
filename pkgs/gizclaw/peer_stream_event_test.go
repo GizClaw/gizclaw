@@ -12,6 +12,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/stampedopus"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 )
 
 func TestPeerStreamEventFrameRoundTrip(t *testing.T) {
@@ -236,7 +237,7 @@ type recordingDirectPackets struct {
 }
 
 func (w *recordingDirectPackets) Write(protocol byte, payload []byte) (int, error) {
-	if protocol != PacketStampedOpus {
+	if protocol != giznet.ProtocolStampedOpusPacket {
 		return 0, errors.New("unexpected protocol")
 	}
 	w.ch <- append([]byte(nil), payload...)

@@ -359,7 +359,7 @@ func TestPeerConnServeDirectPacketsDoesNotBlockOnTelemetry(t *testing.T) {
 	for i := 0; i < peerConnTelemetryQueueSize+5; i++ {
 		packets = append(packets, peerConnTestPacket{protocol: EventStreamTelemetry, payload: payload})
 	}
-	packets = append(packets, peerConnTestPacket{protocol: PacketStampedOpus, payload: stampedopus.Pack(123, []byte{1, 2, 3})})
+	packets = append(packets, peerConnTestPacket{protocol: giznet.ProtocolStampedOpusPacket, payload: stampedopus.Pack(123, []byte{1, 2, 3})})
 	conn := &peerConnPacketConn{
 		testGiznetConn: testGiznetConn{publicKey: keyPair.Public},
 		packets:        packets,

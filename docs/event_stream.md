@@ -15,7 +15,8 @@ because its semantic contract is an event stream.
 
 ## Telemetry Event Stream
 
-`EventStreamTelemetry` is an unreliable direct packet protocol byte `0x11`.
+`EventStreamTelemetry` is an unreliable application/custom direct packet
+protocol byte `0x40`.
 
 It carries peer/device telemetry samples encoded from
 `api/telemetry/peer_telemetry.proto`. Telemetry is an event stream conceptually,
@@ -31,7 +32,8 @@ stream.
 
 ## Stamped Opus Packet Bridge
 
-`PacketStampedOpus` is the internal direct packet protocol byte `0x10`.
+`ProtocolStampedOpusPacket` is the giznet well-known direct packet protocol byte
+`0x10`. `PacketStampedOpus` is the old name for this protocol.
 
 The bridge maps WebRTC RTP Opus payloads to stamped Opus packets toward the
 peer, and maps peer stamped Opus packets back to the WebRTC audio track. This

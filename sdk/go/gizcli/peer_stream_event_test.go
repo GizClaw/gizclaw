@@ -11,6 +11,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/stampedopus"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 )
 
 func TestDialPeerEventStreamValidation(t *testing.T) {
@@ -313,7 +314,7 @@ type recordingPeerPacketWriter struct {
 }
 
 func (w *recordingPeerPacketWriter) Write(protocol byte, payload []byte) (int, error) {
-	if protocol != PacketStampedOpus {
+	if protocol != giznet.ProtocolStampedOpusPacket {
 		return 0, nil
 	}
 	w.ch <- append([]byte(nil), payload...)

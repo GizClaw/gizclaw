@@ -520,6 +520,53 @@ int main(void) {
              "telemetry packet is protocol-prefixed") != 0) {
     return 1;
   }
+  size_t sent_len_before_reserved = fake_webrtc.sent.len;
+  rc = gzc_client_send_packet(client, 0x11, telemetry_payload, sizeof(telemetry_payload));
+  if (expect(rc == GZC_ERR_INVALID_ARGUMENT, "reject legacy reserved telemetry protocol") != 0) {
+    return 1;
+  }
+  if (expect(fake_webrtc.sent.len == sent_len_before_reserved, "reserved telemetry protocol is not sent") != 0) {
+    return 1;
+  }
+  rc = gzc_client_send_packet(client, 0x3f, telemetry_payload, sizeof(telemetry_payload));
+  if (expect(rc == GZC_ERR_INVALID_ARGUMENT, "reject reserved packet protocol") != 0) {
+    return 1;
+  }
+  gzc_buf_t received_packet_payload;
+  gzc_buf_init(&received_packet_payload);
+  uint8_t received_protocol = 0;
+  const uint8_t reserved_received_packet[] = {0x11, 0xaa};
+  fake_webrtc.callbacks.on_channel_message(
+      fake_webrtc.callbacks.userdata,
+      &fake_webrtc.peer,
+      &fake_webrtc.packet_channel,
+      NULL,
+      reserved_received_packet,
+      sizeof(reserved_received_packet),
+      false);
+  rc = gzc_client_read_packet(client, 0, &received_protocol, &received_packet_payload);
+  if (expect(rc == GZC_ERR_INVALID_ARGUMENT, "reject received legacy reserved packet protocol") != 0) {
+    gzc_buf_free(&received_packet_payload, platform);
+    return 1;
+  }
+  const uint8_t valid_received_packet[] = {GZC_PROTOCOL_TELEMETRY, 0xbb, 0xcc};
+  fake_webrtc.callbacks.on_channel_message(
+      fake_webrtc.callbacks.userdata,
+      &fake_webrtc.peer,
+      &fake_webrtc.packet_channel,
+      NULL,
+      valid_received_packet,
+      sizeof(valid_received_packet),
+      false);
+  rc = gzc_client_read_packet(client, 0, &received_protocol, &received_packet_payload);
+  if (expect(rc == GZC_OK && received_protocol == GZC_PROTOCOL_TELEMETRY &&
+                 received_packet_payload.len == sizeof(valid_received_packet) - 1 &&
+                 memcmp(received_packet_payload.data, valid_received_packet + 1, received_packet_payload.len) == 0,
+             "read valid received telemetry packet") != 0) {
+    gzc_buf_free(&received_packet_payload, platform);
+    return 1;
+  }
+  gzc_buf_free(&received_packet_payload, platform);
   uint8_t *max_telemetry_payload = (uint8_t *)platform->malloc(platform->userdata, GZC_RPC_MAX_FRAME_SIZE);
   if (expect(max_telemetry_payload != NULL, "allocate max telemetry packet") != 0) {
     return 1;

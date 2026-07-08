@@ -8,6 +8,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/pion/datachannel"
 )
 
@@ -57,7 +58,7 @@ func newDataChannelConn(raw datachannel.ReadWriteCloserDeadliner, flow dataChann
 
 func (c *dataChannelConn) Read(p []byte) (int, error) {
 	if c == nil || c.raw == nil {
-		return 0, ErrConnClosed
+		return 0, giznet.ErrConnClosed
 	}
 	c.readMu.Lock()
 	if len(c.pending) > 0 {
@@ -90,7 +91,7 @@ func (c *dataChannelConn) Read(p []byte) (int, error) {
 
 func (c *dataChannelConn) Write(p []byte) (int, error) {
 	if c == nil || c.raw == nil {
-		return 0, ErrConnClosed
+		return 0, giznet.ErrConnClosed
 	}
 	c.writeMu.Lock()
 	defer c.writeMu.Unlock()
@@ -147,7 +148,7 @@ func (c *dataChannelConn) RemoteAddr() net.Addr {
 
 func (c *dataChannelConn) SetDeadline(t time.Time) error {
 	if c == nil || c.raw == nil {
-		return ErrConnClosed
+		return giznet.ErrConnClosed
 	}
 	if err := c.raw.SetReadDeadline(t); err != nil {
 		return err
@@ -157,14 +158,14 @@ func (c *dataChannelConn) SetDeadline(t time.Time) error {
 
 func (c *dataChannelConn) SetReadDeadline(t time.Time) error {
 	if c == nil || c.raw == nil {
-		return ErrConnClosed
+		return giznet.ErrConnClosed
 	}
 	return c.raw.SetReadDeadline(t)
 }
 
 func (c *dataChannelConn) SetWriteDeadline(t time.Time) error {
 	if c == nil || c.raw == nil {
-		return ErrConnClosed
+		return giznet.ErrConnClosed
 	}
 	c.deadlineMu.Lock()
 	c.writeDeadline = t
@@ -177,7 +178,7 @@ func (c *dataChannelConn) SetWriteDeadline(t time.Time) error {
 func (c *dataChannelConn) waitWriteBudget() error {
 	for {
 		if c.closed.Load() {
-			return ErrConnClosed
+			return giznet.ErrConnClosed
 		}
 		if c.flow == nil || c.flow.BufferedAmount() < streamWriteHighWater {
 			return nil
@@ -199,7 +200,7 @@ func (c *dataChannelConn) waitWriteBudget() error {
 			if timer != nil {
 				timer.Stop()
 			}
-			return ErrConnClosed
+			return giznet.ErrConnClosed
 		case <-deadlineWake:
 		case <-timerCh:
 			return os.ErrDeadlineExceeded

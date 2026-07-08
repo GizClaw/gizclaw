@@ -9,7 +9,7 @@
 extern "C" {
 #endif
 
-#define GZC_PROTOCOL_TELEMETRY ((uint8_t)0x11)
+#define GZC_PROTOCOL_TELEMETRY ((uint8_t)0x40)
 
 typedef enum {
   GZC_TELEMETRY_OBSERVATION_BATTERY = 1,
