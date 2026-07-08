@@ -26,7 +26,10 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codec/ogg"
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/stampedopus"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
+	rpcpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto"
 	_ "github.com/GizClaw/gizclaw-go/sdk/c/gizclaw/cgobackend"
+	"google.golang.org/protobuf/proto"
 )
 
 type Client struct {
@@ -410,18 +413,20 @@ func CSDKSpeedTest(t *testing.T, identityDir string) {
 	var binaryBytes int
 	for _, frame := range frames {
 		switch frame.Type {
-		case int(C.GZC_RPC_FRAME_JSON):
-			result := streamResultJSON(t, "all.speed_test.run", frame.Data)
-			var response struct {
-				DownContentLength int `json:"down_content_length"`
-				UpContentLength   int `json:"up_content_length"`
-			}
-			decodeJSON(t, "all.speed_test.run", result, &response)
-			if response.DownContentLength != 4096 || response.UpContentLength != 0 {
-				t.Fatalf("invalid speed test ack: %s", string(result))
-			}
-			sawAck = true
 		case int(C.GZC_RPC_FRAME_BINARY):
+			if !sawAck {
+				result := streamResultProtobuf(t, "all.speed_test.run", frame.Data)
+				var response struct {
+					DownContentLength int `json:"down_content_length"`
+					UpContentLength   int `json:"up_content_length"`
+				}
+				decodeJSON(t, "all.speed_test.run", result, &response)
+				if response.DownContentLength != 4096 || response.UpContentLength != 0 {
+					t.Fatalf("invalid speed test ack: %s", string(result))
+				}
+				sawAck = true
+				continue
+			}
 			binaryBytes += len(frame.Data)
 		default:
 			t.Fatalf("unexpected speed test frame type %d", frame.Type)
@@ -468,18 +473,20 @@ func CSDKFirmwareDownload(t *testing.T, identityDir string) {
 	var sawMarker bool
 	for _, frame := range frames {
 		switch frame.Type {
-		case int(C.GZC_RPC_FRAME_JSON):
-			result := streamResultJSON(t, "server.firmware.files.download", frame.Data)
-			var response struct {
-				FirmwareID string `json:"firmware_id"`
-				Path       string `json:"path"`
-			}
-			decodeJSON(t, "server.firmware.files.download", result, &response)
-			if response.FirmwareID != "devkit-firmware-main" || response.Path != "firmware/main.bin" {
-				t.Fatalf("invalid firmware download metadata: %s", string(result))
-			}
-			sawMetadata = true
 		case int(C.GZC_RPC_FRAME_BINARY):
+			if !sawMetadata {
+				result := streamResultProtobuf(t, "server.firmware.files.download", frame.Data)
+				var response struct {
+					FirmwareID string `json:"firmware_id"`
+					Path       string `json:"path"`
+				}
+				decodeJSON(t, "server.firmware.files.download", result, &response)
+				if response.FirmwareID != "devkit-firmware-main" || response.Path != "firmware/main.bin" {
+					t.Fatalf("invalid firmware download metadata: %s", string(result))
+				}
+				sawMetadata = true
+				continue
+			}
 			binaryBytes += len(frame.Data)
 			if bytes.Contains(frame.Data, []byte("GIZCLAW_MAIN_FIRMWARE_V1")) {
 				sawMarker = true
@@ -779,23 +786,27 @@ func decodeJSON(t *testing.T, label string, data []byte, out any) {
 	}
 }
 
-func streamResultJSON(t *testing.T, label string, frame []byte) json.RawMessage {
+func streamResultProtobuf(t *testing.T, method string, frame []byte) json.RawMessage {
 	t.Helper()
-	var envelope struct {
-		Result json.RawMessage `json:"result"`
-		Error  *struct {
-			Code    int    `json:"code"`
-			Message string `json:"message"`
-		} `json:"error"`
+	var envelope rpcpb.RpcResponse
+	if err := proto.Unmarshal(frame, &envelope); err != nil {
+		t.Fatalf("decode %s protobuf stream envelope: %v", method, err)
 	}
-	decodeJSON(t, label+" envelope", frame, &envelope)
-	if envelope.Error != nil {
-		t.Fatalf("%s stream error: %d %s", label, envelope.Error.Code, envelope.Error.Message)
+	response, err := rpcapi.DecodeRPCResponseForMethod(rpcapi.RPCMethod(method), &envelope)
+	if err != nil {
+		t.Fatalf("decode %s protobuf stream result: %v", method, err)
 	}
-	if len(envelope.Result) == 0 {
-		t.Fatalf("%s stream envelope has empty result: %s", label, string(frame))
+	if response.Error != nil {
+		t.Fatalf("%s stream error: %d %s", method, response.Error.Code, response.Error.Message)
 	}
-	return envelope.Result
+	if response.Result == nil {
+		t.Fatalf("%s stream envelope has empty result", method)
+	}
+	result, err := response.Result.MarshalJSON()
+	if err != nil {
+		t.Fatalf("marshal %s stream result JSON: %v", method, err)
+	}
+	return result
 }
 
 func setChatWorkspace(t *testing.T, client *Client, workspaceName string) {
