@@ -1,0 +1,96 @@
+import { expect, test } from "@playwright/test";
+
+const requiredEnvNames = [
+  "GIZCLAW_E2E_ADMIN_TELEMETRY_CONTEXT_NAME",
+  "GIZCLAW_E2E_ADMIN_TELEMETRY_ENDPOINT",
+  "GIZCLAW_E2E_ADMIN_TELEMETRY_PUBLIC_KEY",
+  "GIZCLAW_E2E_ADMIN_TELEMETRY_PRIVATE_KEY_BASE64",
+  "GIZCLAW_E2E_ADMIN_TELEMETRY_PEER_PUBLIC_KEY",
+];
+const missingEnv = requiredEnvNames.filter((name) => (process.env[name] ?? "").trim() === "");
+const contextName = process.env.GIZCLAW_E2E_ADMIN_TELEMETRY_CONTEXT_NAME ?? "";
+const endpoint = process.env.GIZCLAW_E2E_ADMIN_TELEMETRY_ENDPOINT ?? "";
+const localPublicKey = process.env.GIZCLAW_E2E_ADMIN_TELEMETRY_PUBLIC_KEY ?? "";
+const privateKeyBase64 = process.env.GIZCLAW_E2E_ADMIN_TELEMETRY_PRIVATE_KEY_BASE64 ?? "";
+const peerPublicKey = process.env.GIZCLAW_E2E_ADMIN_TELEMETRY_PEER_PUBLIC_KEY ?? "";
+const screenshotPath = process.env.GIZCLAW_E2E_ADMIN_TELEMETRY_SCREENSHOT ?? "test-results/admin-telemetry/peer-telemetry-tab.png";
+
+test.skip(missingEnv.length > 0, `real admin telemetry e2e requires ${missingEnv.join(", ")}`);
+
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(
+    ({ contextName, endpoint, localPublicKey, privateKeyBase64 }) => {
+      const context = {
+        current: true,
+        description: "Local telemetry e2e server",
+        endpoint,
+        local_public_key: localPublicKey,
+        name: contextName,
+      };
+      let session = { active: false };
+      const views = [
+        { description: "Manage GizClaw server resources.", id: "admin", title: "Admin" },
+        { description: "Use workspaces, chat history, social, and firmware flows.", id: "play", title: "Play" },
+      ];
+      window.__GIZCLAW_DESKTOP_TEST_API__ = {
+        async Bootstrap() {
+          return { contexts: [context], state: { last_context: contextName, last_view: "admin" }, view_session: session, views };
+        },
+        async CreateContext() {
+          return context;
+        },
+        async EndViewSession() {
+          session = { active: false };
+          return session;
+        },
+        async GetViewSession() {
+          return session;
+        },
+        async InjectedRuntime() {
+          return { context, private_key_base64: privateKeyBase64 };
+        },
+        async ListContexts() {
+          return [context];
+        },
+        async ListViews() {
+          return views;
+        },
+        async SelectContext() {
+          return context;
+        },
+        async StartViewSession(req) {
+          session = { active: true, context_name: req.context_name, view: req.view };
+          return session;
+        },
+      };
+    },
+    { contextName, endpoint, localPublicKey, privateKeyBase64 },
+  );
+});
+
+test("admin telemetry tab renders seeded peer telemetry and writes screenshot artifact", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Get Started" }).click();
+
+  await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible({ timeout: 20_000 });
+  await page.getByRole("button", { name: "Peers" }).first().click();
+  await expect(page.getByRole("heading", { name: "Peers" })).toBeVisible();
+  await expect(page.getByText(peerPublicKey)).toBeVisible();
+
+  await page.getByRole("link").filter({ hasText: peerPublicKey }).click();
+  await expect(page.getByText(peerPublicKey).first()).toBeVisible();
+  await page.getByRole("tab", { name: "Telemetry" }).click();
+
+  await expect(page.getByText("Latest").first()).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByText("Battery").first()).toBeVisible();
+  await expect(page.getByText("GNSS").first()).toBeVisible();
+  await expect(page.getByText("Network").first()).toBeVisible();
+  await expect(page.getByText("System").first()).toBeVisible();
+  await expect(page.getByText("71 %").first()).toBeVisible();
+  await expect(page.getByText("-61 dBm").first()).toBeVisible();
+  await expect(page.getByText("Trajectory").first()).toBeVisible();
+  await expect(page.getByText(/sampled points|No points/)).toBeVisible();
+
+  await page.screenshot({ fullPage: true, path: screenshotPath });
+  console.log(`admin telemetry screenshot: ${screenshotPath}`);
+});

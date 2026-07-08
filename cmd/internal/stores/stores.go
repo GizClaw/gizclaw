@@ -49,6 +49,7 @@ type Config struct {
 	DSN     string `yaml:"dsn"`     // legacy sql connection string field
 
 	Prometheus *metrics.PrometheusConfig `yaml:"prometheus"`
+	Memory     *struct{}                 `yaml:"memory"`
 }
 
 // Stores holds named logical store instances created eagerly by NewWithStorage.
@@ -304,14 +305,17 @@ func (r *Stores) newGraph(name string, cfg Config) (graph.Graph, error) {
 }
 
 func (r *Stores) newMetrics(name string, cfg Config) (metrics.Store, error) {
-	if cfg.Prometheus == nil {
-		return nil, fmt.Errorf("stores: metrics %q requires prometheus config", name)
+	if cfg.Memory != nil || cfg.Backend == "memory" {
+		return metrics.NewMemoryStore(), nil
 	}
-	st, err := metrics.NewPrometheusStore(*cfg.Prometheus)
-	if err != nil {
-		return nil, fmt.Errorf("stores: metrics %q prometheus: %w", name, err)
+	if cfg.Prometheus != nil {
+		st, err := metrics.NewPrometheusStore(*cfg.Prometheus)
+		if err != nil {
+			return nil, fmt.Errorf("stores: metrics %q prometheus: %w", name, err)
+		}
+		return st, nil
 	}
-	return st, nil
+	return nil, fmt.Errorf("stores: metrics %q requires prometheus or memory config", name)
 }
 
 func (r *Stores) newSQL(name string, cfg Config) (*sql.DB, error) {
