@@ -6,14 +6,14 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminservice"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 )
 
 func TestAdminLogStreamUnconfiguredBackend(t *testing.T) {
 	t.Parallel()
 
 	h := newAdminAPIHarness(t)
-	resp, err := h.api.StreamServerLogsWithResponse(h.ctx, &adminservice.StreamServerLogsParams{
+	resp, err := h.api.StreamServerLogsWithResponse(h.ctx, &adminhttp.StreamServerLogsParams{
 		StartTimeMs: ptr(int64(1783400000000)),
 		EndTimeMs:   ptr(int64(1783403600000)),
 	})

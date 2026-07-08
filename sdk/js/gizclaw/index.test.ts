@@ -30,7 +30,7 @@ import {
   systemTelemetry,
   waitForICEGatheringComplete,
 } from "./index.ts";
-import { createSseClient } from "./generated/adminservice/core/serverSentEvents.gen.ts";
+import { createSseClient } from "./generated/adminhttp/core/serverSentEvents.gen.ts";
 import { createPeerRPCClient } from "./rpc.ts";
 import { base58Decode, base58Encode, base64Decode, prepareEncryptedGiznetWebRTCOffer } from "./signaling.ts";
 

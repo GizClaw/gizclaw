@@ -11,7 +11,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminservice"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 )
 
@@ -26,13 +26,13 @@ type streamServerLogsResponse struct {
 	request ServerLogStreamRequest
 }
 
-func (s *adminService) StreamServerLogs(ctx context.Context, request adminservice.StreamServerLogsRequestObject) (adminservice.StreamServerLogsResponseObject, error) {
+func (s *adminService) StreamServerLogs(ctx context.Context, request adminhttp.StreamServerLogsRequestObject) (adminhttp.StreamServerLogsResponseObject, error) {
 	streamReq, err := serverLogStreamRequestFromParams(request.Params)
 	if err != nil {
-		return adminservice.StreamServerLogs400JSONResponse(apitypes.NewErrorResponse("INVALID_LOG_QUERY", err.Error())), nil
+		return adminhttp.StreamServerLogs400JSONResponse(apitypes.NewErrorResponse("INVALID_LOG_QUERY", err.Error())), nil
 	}
 	if s.ServerLogs == nil {
-		return adminservice.StreamServerLogs501JSONResponse(LogQueryNotConfiguredResponse()), nil
+		return adminhttp.StreamServerLogs501JSONResponse(LogQueryNotConfiguredResponse()), nil
 	}
 	return streamServerLogsResponse{ctx: ctx, service: s.ServerLogs, request: streamReq}, nil
 }
@@ -41,7 +41,7 @@ func LogQueryNotConfiguredResponse() apitypes.ErrorResponse {
 	return apitypes.NewErrorResponse("LOG_QUERY_NOT_CONFIGURED", "server log query backend is not configured")
 }
 
-func serverLogStreamRequestFromParams(params adminservice.StreamServerLogsParams) (ServerLogStreamRequest, error) {
+func serverLogStreamRequestFromParams(params adminhttp.StreamServerLogsParams) (ServerLogStreamRequest, error) {
 	req := ServerLogStreamRequest{
 		Filter: "*",
 		Limit:  defaultServerLogStreamLimit,
@@ -128,11 +128,11 @@ func (response streamServerLogsResponse) VisitStreamServerLogsResponse(ctx *fibe
 		status, body := serverLogQueryErrorResponse(err)
 		switch status {
 		case http.StatusBadRequest:
-			return ctx.Status(status).JSON(adminservice.StreamServerLogs400JSONResponse(body))
+			return ctx.Status(status).JSON(adminhttp.StreamServerLogs400JSONResponse(body))
 		case http.StatusNotImplemented:
-			return ctx.Status(status).JSON(adminservice.StreamServerLogs501JSONResponse(body))
+			return ctx.Status(status).JSON(adminhttp.StreamServerLogs501JSONResponse(body))
 		default:
-			return ctx.Status(http.StatusBadGateway).JSON(adminservice.StreamServerLogs502JSONResponse(body))
+			return ctx.Status(http.StatusBadGateway).JSON(adminhttp.StreamServerLogs502JSONResponse(body))
 		}
 	}
 
