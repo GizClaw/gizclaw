@@ -366,6 +366,26 @@ func TestServerUploadFirmwareArtifactRejectsUnsafeTarPath(t *testing.T) {
 	}
 }
 
+func TestServerUploadFirmwareArtifactRejectsTruncatedTarEntry(t *testing.T) {
+	ctx := context.Background()
+	assets := objectstore.Dir(t.TempDir())
+	s := &Server{Store: kv.NewMemory(nil), Assets: assets}
+	if _, err := s.CreateFirmware(ctx, adminservice.CreateFirmwareRequestObject{Body: ptr(firmwareUpsertWithArtifact("devkit", "1.0.0"))}); err != nil {
+		t.Fatalf("CreateFirmware error = %v", err)
+	}
+	resp, err := s.UploadFirmwareArtifact(ctx, adminservice.UploadFirmwareArtifactRequestObject{
+		Name:    "devkit",
+		Channel: stableChannel,
+		Body:    bytes.NewReader(truncatedTarPayload(t)),
+	})
+	if err != nil {
+		t.Fatalf("UploadFirmwareArtifact error = %v", err)
+	}
+	if _, ok := resp.(adminservice.UploadFirmwareArtifact400JSONResponse); !ok {
+		t.Fatalf("UploadFirmwareArtifact response = %T, want 400", resp)
+	}
+}
+
 func TestServerUploadFirmwareArtifactRejectsTarWithoutFilesAndPathConflicts(t *testing.T) {
 	for _, tc := range []struct {
 		name    string
@@ -557,6 +577,19 @@ func tarPayloadWithEntries(t *testing.T, entries []tarTestEntry) []byte {
 	}
 	if err := tw.Close(); err != nil {
 		t.Fatalf("Close tar: %v", err)
+	}
+	return buf.Bytes()
+}
+
+func truncatedTarPayload(t *testing.T) []byte {
+	t.Helper()
+	var buf bytes.Buffer
+	tw := tar.NewWriter(&buf)
+	if err := tw.WriteHeader(&tar.Header{Name: "firmware.bin", Mode: 0644, Size: 8, Typeflag: tar.TypeReg}); err != nil {
+		t.Fatalf("WriteHeader truncated tar: %v", err)
+	}
+	if _, err := tw.Write([]byte("x")); err != nil {
+		t.Fatalf("Write truncated tar body: %v", err)
 	}
 	return buf.Bytes()
 }
