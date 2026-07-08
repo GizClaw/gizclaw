@@ -75,6 +75,7 @@ type Server struct {
 	GameplayAssets               objectstore.ObjectStore
 	GameplayDB                   *sql.DB
 	MetricsStore                 metrics.Store
+	ServerLogQuery               ServerLogQueryService
 	FriendGroupMessageDefaultTTL time.Duration
 	FriendGroupMessageMaxTTL     time.Duration
 	FriendGroupMessageCleanup    time.Duration
@@ -485,6 +486,7 @@ func (s *Server) init() error {
 			Gameplay:                    gameplayRuntime,
 			ACL:                         aclServer,
 			ResourceManager:             resourceManager,
+			ServerLogs:                  s.ServerLogQuery,
 		},
 		public: &peerHTTP{
 			PeerHTTPService: peersServer,

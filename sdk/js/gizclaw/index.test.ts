@@ -30,6 +30,7 @@ import {
   systemTelemetry,
   waitForICEGatheringComplete,
 } from "./index.ts";
+import { createSseClient } from "./generated/adminhttp/core/serverSentEvents.gen.ts";
 import { createPeerRPCClient } from "./rpc.ts";
 import { base58Decode, base58Encode, base64Decode, prepareEncryptedGiznetWebRTCOffer } from "./signaling.ts";
 
@@ -264,6 +265,123 @@ test("createAdminAPIFetch resolves close-delimited HTTP service responses", asyn
   const response = await promise;
   assert.equal(response.status, 200);
   assert.equal(await response.text(), "hello");
+});
+
+test("SSE client parses HTTP JSON errors without retrying", async () => {
+  const errorBody = { error: { code: "LOG_QUERY_NOT_CONFIGURED", message: "server log query backend is not configured" } };
+  const seenErrors: Array<unknown> = [];
+  let attempts = 0;
+  const result = createSseClient({
+    fetch: async () => {
+      attempts++;
+      return new Response(JSON.stringify(errorBody), {
+        status: 501,
+        headers: { "Content-Type": "application/json" },
+      });
+    },
+    onSseError: (error) => seenErrors.push(error),
+    sseSleepFn: async () => {
+      throw new Error("SSE HTTP errors must not be retried");
+    },
+    url: "http://gizclaw/logs/stream",
+  });
+
+  await assert.rejects(
+    async () => {
+      for await (const _event of result.stream) {
+        // noop
+      }
+    },
+    (error) => {
+      assert.deepEqual(error, errorBody);
+      return true;
+    },
+  );
+  assert.equal(attempts, 1);
+  assert.deepEqual(seenErrors, [errorBody]);
+});
+
+test("SSE client does not retry backend JSON errors", async () => {
+  const errorBody = { error: { code: "LOG_BACKEND_ERROR", message: "backend search failed" } };
+  let attempts = 0;
+  const result = createSseClient({
+    fetch: async () => {
+      attempts++;
+      return new Response(JSON.stringify(errorBody), {
+        status: 502,
+        headers: { "Content-Type": "application/json" },
+      });
+    },
+    sseSleepFn: async () => {
+      throw new Error("SSE JSON backend errors must not be retried");
+    },
+    url: "http://gizclaw/logs/stream",
+  });
+
+  await assert.rejects(
+    async () => {
+      for await (const _event of result.stream) {
+        // noop
+      }
+    },
+    (error) => {
+      assert.deepEqual(error, errorBody);
+      return true;
+    },
+  );
+  assert.equal(attempts, 1);
+});
+
+test("SSE client retries transient HTTP errors", async () => {
+  const seenErrors: Array<unknown> = [];
+  let attempts = 0;
+  let sleeps = 0;
+  const result = createSseClient<{ 200: { message: string } }>({
+    fetch: async () => {
+      attempts++;
+      if (attempts < 3) {
+        return new Response("temporarily unavailable", { status: 503 });
+      }
+      return new Response('event: log\ndata: {"message":"ready"}\n\n', {
+        status: 200,
+        headers: { "Content-Type": "text/event-stream" },
+      });
+    },
+    onSseError: (error) => seenErrors.push(error),
+    sseMaxRetryAttempts: 3,
+    sseSleepFn: async () => {
+      sleeps++;
+    },
+    url: "http://gizclaw/logs/stream",
+  });
+
+  const events: Array<unknown> = [];
+  for await (const event of result.stream) {
+    events.push(event);
+  }
+
+  assert.equal(attempts, 3);
+  assert.equal(sleeps, 2);
+  assert.deepEqual(seenErrors, ["temporarily unavailable", "temporarily unavailable"]);
+  assert.deepEqual(events, [{ message: "ready" }]);
+});
+
+test("SSE client yields parsed JSON event objects", async () => {
+  const result = createSseClient<{ 200: { message: string } }>({
+    fetch: async () =>
+      new Response('event: log\ndata: {"message":"ready"}\n\n', {
+        status: 200,
+        headers: { "Content-Type": "text/event-stream" },
+      }),
+    url: "http://gizclaw/logs/stream",
+  });
+
+  const events: Array<unknown> = [];
+  for await (const event of result.stream) {
+    events.push(event);
+  }
+
+  assert.deepEqual(events, [{ message: "ready" }]);
 });
 
 test("prepareGiznetWebRTCPeerConnection creates packet channel and audio transceiver", () => {

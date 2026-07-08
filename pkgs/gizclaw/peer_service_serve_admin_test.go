@@ -302,6 +302,134 @@ func TestAdminWorkspaceHistoryHandlersServePersistedHistoryAndOggAudio(t *testin
 	}
 }
 
+func TestAdminServerLogsStreamsLogAndEndEvents(t *testing.T) {
+	t.Parallel()
+
+	timeNs := "1783403541016789000"
+	logs := &fakeServerLogQuery{
+		entries: []ServerLogEntry{{
+			TimeMs:  1783403541016,
+			TimeNs:  &timeNs,
+			Level:   "ERROR",
+			Message: "agenthost failed",
+			Source:  "gizclaw",
+			Path:    "slog",
+			Fields:  map[string]string{"error": "boom"},
+		}},
+		end: ServerLogStreamEnd{Count: 1, HasNext: true, NextCursor: adminTestStringPtr("cursor-1")},
+	}
+	app := fiber.New(fiber.Config{DisableStartupMessage: true})
+	adminhttp.RegisterHandlers(app, adminhttp.NewStrictHandler(&adminService{ServerLogs: logs}, nil))
+
+	rec := serveAdminAsset(app, http.MethodGet, "/logs/stream?filter=level:ERROR&start_time_ms=1783400000000&end_time_ms=1783403600000&limit=10&order=desc", "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET logs status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	if !strings.HasPrefix(rec.Header().Get("Content-Type"), "text/event-stream") {
+		t.Fatalf("content-type = %q", rec.Header().Get("Content-Type"))
+	}
+	body := rec.Body.String()
+	for _, want := range []string{
+		"event: log\n",
+		`"time_ms":1783403541016`,
+		`"level":"ERROR"`,
+		"event: end\n",
+		`"next_cursor":"cursor-1"`,
+	} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("body missing %q: %s", want, body)
+		}
+	}
+	if logs.req.Filter != "level:ERROR" || logs.req.StartTimeMs != 1783400000000 || logs.req.EndTimeMs != 1783403600000 || logs.req.Limit != 10 || logs.req.Order != ServerLogOrderDesc {
+		t.Fatalf("request = %#v", logs.req)
+	}
+}
+
+func TestAdminServerLogsErrors(t *testing.T) {
+	t.Parallel()
+
+	app := fiber.New(fiber.Config{DisableStartupMessage: true})
+	adminhttp.RegisterHandlers(app, adminhttp.NewStrictHandler(&adminService{}, nil))
+	rec := serveAdminAsset(app, http.MethodGet, "/logs/stream?start_time_ms=1000&end_time_ms=2000", "")
+	if rec.Code != http.StatusNotImplemented || !strings.Contains(rec.Body.String(), "LOG_QUERY_NOT_CONFIGURED") {
+		t.Fatalf("unconfigured status=%d body=%s", rec.Code, rec.Body.String())
+	}
+
+	app = fiber.New(fiber.Config{DisableStartupMessage: true})
+	adminhttp.RegisterHandlers(app, adminhttp.NewStrictHandler(&adminService{ServerLogs: &fakeServerLogQuery{}}, nil))
+	rec = serveAdminAsset(app, http.MethodGet, "/logs/stream?end_time_ms=2000", "")
+	if rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), "INVALID_LOG_QUERY") {
+		t.Fatalf("bad request status=%d body=%s", rec.Code, rec.Body.String())
+	}
+
+	app = fiber.New(fiber.Config{DisableStartupMessage: true})
+	adminhttp.RegisterHandlers(app, adminhttp.NewStrictHandler(&adminService{ServerLogs: &fakeServerLogQuery{err: ServerLogBackendError(errors.New("denied"))}}, nil))
+	rec = serveAdminAsset(app, http.MethodGet, "/logs/stream?start_time_ms=1000&end_time_ms=2000", "")
+	if rec.Code != http.StatusBadGateway || !strings.Contains(rec.Body.String(), "LOG_QUERY_BACKEND_ERROR") {
+		t.Fatalf("pre-stream backend status=%d body=%s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestAdminServerLogsPostStartErrorUsesSSE(t *testing.T) {
+	t.Parallel()
+
+	logs := &fakeServerLogQuery{
+		entries: []ServerLogEntry{{
+			TimeMs:  1000,
+			Level:   "INFO",
+			Message: "first",
+			Source:  "gizclaw",
+			Path:    "slog",
+			Fields:  map[string]string{},
+		}},
+		err: ServerLogBackendError(errors.New("search failed")),
+	}
+	app := fiber.New(fiber.Config{DisableStartupMessage: true})
+	adminhttp.RegisterHandlers(app, adminhttp.NewStrictHandler(&adminService{ServerLogs: logs}, nil))
+
+	rec := serveAdminAsset(app, http.MethodGet, "/logs/stream?start_time_ms=1000&end_time_ms=2000", "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("post-start status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	body := rec.Body.String()
+	if !strings.Contains(body, "event: log\n") || !strings.Contains(body, "event: error\n") || !strings.Contains(body, "LOG_QUERY_BACKEND_ERROR") {
+		t.Fatalf("post-start body = %s", body)
+	}
+}
+
+func TestWaitFirstServerLogEventPrefersBufferedEventOverDone(t *testing.T) {
+	t.Parallel()
+
+	events := make(chan serverLogEvent, 1)
+	done := make(chan error, 1)
+	events <- serverLogEvent{name: "log", data: ServerLogEntry{Message: "first"}}
+	done <- ServerLogBackendError(errors.New("search failed"))
+
+	event, err, hasFirst, donePending := waitFirstServerLogEvent(context.Background(), events, done)
+	if !hasFirst || event.name != "log" || err != nil || !donePending {
+		t.Fatalf("waitFirstServerLogEvent() event=%#v err=%v hasFirst=%v donePending=%v", event, err, hasFirst, donePending)
+	}
+}
+
+func TestAdminServerLogsAllowsCursorOnlyContinuation(t *testing.T) {
+	t.Parallel()
+
+	logs := &fakeServerLogQuery{end: ServerLogStreamEnd{}}
+	app := fiber.New(fiber.Config{DisableStartupMessage: true})
+	adminhttp.RegisterHandlers(app, adminhttp.NewStrictHandler(&adminService{ServerLogs: logs}, nil))
+
+	rec := serveAdminAsset(app, http.MethodGet, "/logs/stream?cursor=opaque&limit=2", "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("cursor status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	if logs.req.Cursor != "opaque" || logs.req.Limit != 2 {
+		t.Fatalf("request = %#v", logs.req)
+	}
+	if logs.req.StartTimeSet || logs.req.EndTimeSet || logs.req.FilterSet || logs.req.OrderSet {
+		t.Fatalf("unexpected explicit query fields = %#v", logs.req)
+	}
+}
+
 func TestAdminSocialErrorClassifiesServiceConfigurationFailures(t *testing.T) {
 	t.Parallel()
 
@@ -340,6 +468,26 @@ type fakeAdminWorkspaceHistory struct {
 	list  apitypes.PeerRunHistoryListResponse
 	entry workspace.HistoryEntry
 	audio []byte
+}
+
+type fakeServerLogQuery struct {
+	req     ServerLogStreamRequest
+	entries []ServerLogEntry
+	end     ServerLogStreamEnd
+	err     error
+}
+
+func (f *fakeServerLogQuery) StreamServerLogs(_ context.Context, req ServerLogStreamRequest, emit func(ServerLogEntry) error) (ServerLogStreamEnd, error) {
+	f.req = req
+	for _, entry := range f.entries {
+		if err := emit(entry); err != nil {
+			return ServerLogStreamEnd{}, err
+		}
+	}
+	if f.err != nil {
+		return ServerLogStreamEnd{}, f.err
+	}
+	return f.end, nil
 }
 
 func (f *fakeAdminWorkspaceHistory) ListWorkspaces(context.Context, adminhttp.ListWorkspacesRequestObject) (adminhttp.ListWorkspacesResponseObject, error) {

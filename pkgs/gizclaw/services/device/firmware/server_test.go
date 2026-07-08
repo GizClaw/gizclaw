@@ -370,10 +370,10 @@ func TestServerUploadFirmwareArtifactRejectsTruncatedTarEntry(t *testing.T) {
 	ctx := context.Background()
 	assets := objectstore.Dir(t.TempDir())
 	s := &Server{Store: kv.NewMemory(nil), Assets: assets}
-	if _, err := s.CreateFirmware(ctx, adminservice.CreateFirmwareRequestObject{Body: ptr(firmwareUpsertWithArtifact("devkit", "1.0.0"))}); err != nil {
+	if _, err := s.CreateFirmware(ctx, adminhttp.CreateFirmwareRequestObject{Body: ptr(firmwareUpsertWithArtifact("devkit", "1.0.0"))}); err != nil {
 		t.Fatalf("CreateFirmware error = %v", err)
 	}
-	resp, err := s.UploadFirmwareArtifact(ctx, adminservice.UploadFirmwareArtifactRequestObject{
+	resp, err := s.UploadFirmwareArtifact(ctx, adminhttp.UploadFirmwareArtifactRequestObject{
 		Name:    "devkit",
 		Channel: stableChannel,
 		Body:    bytes.NewReader(truncatedTarPayload(t)),
@@ -381,7 +381,7 @@ func TestServerUploadFirmwareArtifactRejectsTruncatedTarEntry(t *testing.T) {
 	if err != nil {
 		t.Fatalf("UploadFirmwareArtifact error = %v", err)
 	}
-	if _, ok := resp.(adminservice.UploadFirmwareArtifact400JSONResponse); !ok {
+	if _, ok := resp.(adminhttp.UploadFirmwareArtifact400JSONResponse); !ok {
 		t.Fatalf("UploadFirmwareArtifact response = %T, want 400", resp)
 	}
 	objects, err := assets.List(firmwareArtifactPrefix("devkit", stableChannel))
@@ -392,7 +392,7 @@ func TestServerUploadFirmwareArtifactRejectsTruncatedTarEntry(t *testing.T) {
 		t.Fatalf("artifact objects after truncated upload = %+v", objects)
 	}
 	validPayload := tarPayload(t, map[string]string{"firmware.bin": "payload"})
-	resp, err = s.UploadFirmwareArtifact(ctx, adminservice.UploadFirmwareArtifactRequestObject{
+	resp, err = s.UploadFirmwareArtifact(ctx, adminhttp.UploadFirmwareArtifactRequestObject{
 		Name:    "devkit",
 		Channel: stableChannel,
 		Body:    bytes.NewReader(validPayload),
@@ -400,7 +400,7 @@ func TestServerUploadFirmwareArtifactRejectsTruncatedTarEntry(t *testing.T) {
 	if err != nil {
 		t.Fatalf("UploadFirmwareArtifact retry error = %v", err)
 	}
-	if _, ok := resp.(adminservice.UploadFirmwareArtifact200JSONResponse); !ok {
+	if _, ok := resp.(adminhttp.UploadFirmwareArtifact200JSONResponse); !ok {
 		t.Fatalf("UploadFirmwareArtifact retry response = %T, want 200", resp)
 	}
 }

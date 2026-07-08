@@ -101,6 +101,7 @@ func fiberHTTPHandler(app *fiber.App) http.Handler {
 
 		var fctx fasthttp.RequestCtx
 		fctx.Init(req, remoteAddr, nil)
+		fctx.SetUserValue("__local_user_context__", r.Context())
 		func() {
 			defer func() {
 				if recovered := recover(); recovered != nil {

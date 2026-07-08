@@ -792,6 +792,27 @@ type ListGeminiTenantsParams struct {
 	Limit *int32 `form:"limit,omitempty" json:"limit,omitempty"`
 }
 
+// StreamServerLogsParams defines parameters for StreamServerLogs.
+type StreamServerLogsParams struct {
+	// Filter Backend log query expression. Defaults to *.
+	Filter *string `form:"filter,omitempty" json:"filter,omitempty"`
+
+	// StartTimeMs Inclusive search start time in Unix milliseconds. Required for the first page.
+	StartTimeMs *int64 `form:"start_time_ms,omitempty" json:"start_time_ms,omitempty"`
+
+	// EndTimeMs Exclusive search end time in Unix milliseconds. Required for the first page.
+	EndTimeMs *int64 `form:"end_time_ms,omitempty" json:"end_time_ms,omitempty"`
+
+	// Limit Maximum log records emitted by this stream page. Defaults to 100 and is clamped by the server.
+	Limit *int32 `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Order Result order.
+	Order *string `form:"order,omitempty" json:"order,omitempty"`
+
+	// Cursor Opaque cursor returned by the previous end event.
+	Cursor *string `form:"cursor,omitempty" json:"cursor,omitempty"`
+}
+
 // ListMiniMaxTenantsParams defines parameters for ListMiniMaxTenants.
 type ListMiniMaxTenantsParams struct {
 	// Cursor Opaque cursor returned by the previous list response
@@ -1449,6 +1470,9 @@ type ClientInterface interface {
 	PutGeminiTenantWithBody(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	PutGeminiTenant(ctx context.Context, name string, body PutGeminiTenantJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// StreamServerLogs request
+	StreamServerLogs(ctx context.Context, params *StreamServerLogsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListMiniMaxTenants request
 	ListMiniMaxTenants(ctx context.Context, params *ListMiniMaxTenantsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -2792,6 +2816,18 @@ func (c *Client) PutGeminiTenantWithBody(ctx context.Context, name string, conte
 
 func (c *Client) PutGeminiTenant(ctx context.Context, name string, body PutGeminiTenantJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewPutGeminiTenantRequest(c.Server, name, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) StreamServerLogs(ctx context.Context, params *StreamServerLogsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewStreamServerLogsRequest(c.Server, params)
 	if err != nil {
 		return nil, err
 	}
@@ -7229,6 +7265,135 @@ func NewPutGeminiTenantRequestWithBody(server string, name string, contentType s
 	}
 
 	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewStreamServerLogsRequest generates requests for StreamServerLogs
+func NewStreamServerLogsRequest(server string, params *StreamServerLogsParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/logs/stream")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Filter != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "filter", *params.Filter, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.StartTimeMs != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "start_time_ms", *params.StartTimeMs, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int64"}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.EndTimeMs != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "end_time_ms", *params.EndTimeMs, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int64"}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int32"}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Order != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "order", *params.Order, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Cursor != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "cursor", *params.Cursor, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
 
 	return req, nil
 }
@@ -12116,6 +12281,9 @@ type ClientWithResponsesInterface interface {
 
 	PutGeminiTenantWithResponse(ctx context.Context, name string, body PutGeminiTenantJSONRequestBody, reqEditors ...RequestEditorFn) (*PutGeminiTenantResponse, error)
 
+	// StreamServerLogsWithResponse request
+	StreamServerLogsWithResponse(ctx context.Context, params *StreamServerLogsParams, reqEditors ...RequestEditorFn) (*StreamServerLogsResponse, error)
+
 	// ListMiniMaxTenantsWithResponse request
 	ListMiniMaxTenantsWithResponse(ctx context.Context, params *ListMiniMaxTenantsParams, reqEditors ...RequestEditorFn) (*ListMiniMaxTenantsResponse, error)
 
@@ -13964,6 +14132,30 @@ func (r PutGeminiTenantResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r PutGeminiTenantResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type StreamServerLogsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON400      *externalRef0.ErrorResponse
+	JSON501      *externalRef0.ErrorResponse
+	JSON502      *externalRef0.ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r StreamServerLogsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r StreamServerLogsResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -17098,6 +17290,15 @@ func (c *ClientWithResponses) PutGeminiTenantWithResponse(ctx context.Context, n
 		return nil, err
 	}
 	return ParsePutGeminiTenantResponse(rsp)
+}
+
+// StreamServerLogsWithResponse request returning *StreamServerLogsResponse
+func (c *ClientWithResponses) StreamServerLogsWithResponse(ctx context.Context, params *StreamServerLogsParams, reqEditors ...RequestEditorFn) (*StreamServerLogsResponse, error) {
+	rsp, err := c.StreamServerLogs(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseStreamServerLogsResponse(rsp)
 }
 
 // ListMiniMaxTenantsWithResponse request returning *ListMiniMaxTenantsResponse
@@ -20767,6 +20968,46 @@ func ParsePutGeminiTenantResponse(rsp *http.Response) (*PutGeminiTenantResponse,
 			return nil, err
 		}
 		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseStreamServerLogsResponse parses an HTTP response from a StreamServerLogsWithResponse call
+func ParseStreamServerLogsResponse(rsp *http.Response) (*StreamServerLogsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &StreamServerLogsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON501 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 502:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON502 = &dest
 
 	}
 
@@ -25117,6 +25358,9 @@ type ServerInterface interface {
 	// Create or update a Gemini tenant
 	// (PUT /gemini-tenants/{name})
 	PutGeminiTenant(c *fiber.Ctx, name string) error
+	// Stream server log query results
+	// (GET /logs/stream)
+	StreamServerLogs(c *fiber.Ctx, params StreamServerLogsParams) error
 	// List all MiniMax tenants
 	// (GET /minimax-tenants)
 	ListMiniMaxTenants(c *fiber.Ctx, params ListMiniMaxTenantsParams) error
@@ -26644,6 +26888,65 @@ func (siw *ServerInterfaceWrapper) PutGeminiTenant(c *fiber.Ctx) error {
 	}
 
 	return siw.Handler.PutGeminiTenant(c, name)
+}
+
+// StreamServerLogs operation middleware
+func (siw *ServerInterfaceWrapper) StreamServerLogs(c *fiber.Ctx) error {
+
+	var err error
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params StreamServerLogsParams
+
+	var query url.Values
+	query, err = url.ParseQuery(string(c.Request().URI().QueryString()))
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for query string: %w", err).Error())
+	}
+
+	// ------------- Optional query parameter "filter" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "filter", query, &params.Filter, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter filter: %w", err).Error())
+	}
+
+	// ------------- Optional query parameter "start_time_ms" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "start_time_ms", query, &params.StartTimeMs, runtime.BindQueryParameterOptions{Type: "integer", Format: "int64"})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter start_time_ms: %w", err).Error())
+	}
+
+	// ------------- Optional query parameter "end_time_ms" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "end_time_ms", query, &params.EndTimeMs, runtime.BindQueryParameterOptions{Type: "integer", Format: "int64"})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter end_time_ms: %w", err).Error())
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", query, &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: "int32"})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter limit: %w", err).Error())
+	}
+
+	// ------------- Optional query parameter "order" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "order", query, &params.Order, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter order: %w", err).Error())
+	}
+
+	// ------------- Optional query parameter "cursor" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "cursor", query, &params.Cursor, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter cursor: %w", err).Error())
+	}
+
+	return siw.Handler.StreamServerLogs(c, params)
 }
 
 // ListMiniMaxTenants operation middleware
@@ -28844,6 +29147,8 @@ func RegisterHandlersWithOptions(router fiber.Router, si ServerInterface, option
 	router.Get(options.BaseURL+"/gemini-tenants/:name", wrapper.GetGeminiTenant)
 
 	router.Put(options.BaseURL+"/gemini-tenants/:name", wrapper.PutGeminiTenant)
+
+	router.Get(options.BaseURL+"/logs/stream", wrapper.StreamServerLogs)
 
 	router.Get(options.BaseURL+"/minimax-tenants", wrapper.ListMiniMaxTenants)
 
@@ -31382,6 +31687,60 @@ type PutGeminiTenant500JSONResponse externalRef0.ErrorResponse
 func (response PutGeminiTenant500JSONResponse) VisitPutGeminiTenantResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type StreamServerLogsRequestObject struct {
+	Params StreamServerLogsParams
+}
+
+type StreamServerLogsResponseObject interface {
+	VisitStreamServerLogsResponse(ctx *fiber.Ctx) error
+}
+
+type StreamServerLogs200TexteventStreamResponse struct {
+	Body          io.Reader
+	ContentLength int64
+}
+
+func (response StreamServerLogs200TexteventStreamResponse) VisitStreamServerLogsResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "text/event-stream")
+	if response.ContentLength != 0 {
+		ctx.Response().Header.Set("Content-Length", fmt.Sprint(response.ContentLength))
+	}
+	ctx.Status(200)
+
+	if closer, ok := response.Body.(io.ReadCloser); ok {
+		defer closer.Close()
+	}
+	_, err := io.Copy(ctx.Response().BodyWriter(), response.Body)
+	return err
+}
+
+type StreamServerLogs400JSONResponse externalRef0.ErrorResponse
+
+func (response StreamServerLogs400JSONResponse) VisitStreamServerLogsResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(400)
+
+	return ctx.JSON(&response)
+}
+
+type StreamServerLogs501JSONResponse externalRef0.ErrorResponse
+
+func (response StreamServerLogs501JSONResponse) VisitStreamServerLogsResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(501)
+
+	return ctx.JSON(&response)
+}
+
+type StreamServerLogs502JSONResponse externalRef0.ErrorResponse
+
+func (response StreamServerLogs502JSONResponse) VisitStreamServerLogsResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(502)
 
 	return ctx.JSON(&response)
 }
@@ -35377,6 +35736,9 @@ type StrictServerInterface interface {
 	// Create or update a Gemini tenant
 	// (PUT /gemini-tenants/{name})
 	PutGeminiTenant(ctx context.Context, request PutGeminiTenantRequestObject) (PutGeminiTenantResponseObject, error)
+	// Stream server log query results
+	// (GET /logs/stream)
+	StreamServerLogs(ctx context.Context, request StreamServerLogsRequestObject) (StreamServerLogsResponseObject, error)
 	// List all MiniMax tenants
 	// (GET /minimax-tenants)
 	ListMiniMaxTenants(ctx context.Context, request ListMiniMaxTenantsRequestObject) (ListMiniMaxTenantsResponseObject, error)
@@ -37493,6 +37855,33 @@ func (sh *strictHandler) PutGeminiTenant(ctx *fiber.Ctx, name string) error {
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
 	} else if validResponse, ok := response.(PutGeminiTenantResponseObject); ok {
 		if err := validResponse.VisitPutGeminiTenantResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// StreamServerLogs operation middleware
+func (sh *strictHandler) StreamServerLogs(ctx *fiber.Ctx, params StreamServerLogsParams) error {
+	var request StreamServerLogsRequestObject
+
+	request.Params = params
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.StreamServerLogs(ctx.UserContext(), request.(StreamServerLogsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "StreamServerLogs")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(StreamServerLogsResponseObject); ok {
+		if err := validResponse.VisitStreamServerLogsResponse(ctx); err != nil {
 			return fiber.NewError(fiber.StatusBadRequest, err.Error())
 		}
 	} else if response != nil {

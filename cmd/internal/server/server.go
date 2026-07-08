@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/http"
 
+	"github.com/GizClaw/gizclaw-go/cmd/internal/logging/volclog"
 	"github.com/GizClaw/gizclaw-go/cmd/internal/storage"
 	"github.com/GizClaw/gizclaw-go/cmd/internal/stores"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw"
@@ -95,6 +96,19 @@ func newWithOptions(cfg Config, newOpts newServerOptions) (srv *CmdServer, err e
 				return l, nil
 			},
 		},
+	}
+	if cfg.Log.Volc.Enabled {
+		logQuery, err := volclog.NewQueryService(volclog.Config{
+			Endpoint:        cfg.Log.Volc.Endpoint,
+			Region:          cfg.Log.Volc.Region,
+			TopicID:         cfg.Log.Volc.TopicID,
+			AccessKeyID:     cfg.Log.Volc.AccessKeyID,
+			AccessKeySecret: cfg.Log.Volc.AccessKeySecret,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("server: log query: %w", err)
+		}
+		gizServer.ServerLogQuery = logQuery
 	}
 	cmdSrv.Server = gizServer
 	if cfg.FriendGroups.MessageDefaultTTL != "" {

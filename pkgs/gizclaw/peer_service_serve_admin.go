@@ -44,6 +44,7 @@ type adminService struct {
 	Gameplay        *gameplay.Runtime
 	ACL             *acl.Server
 	ResourceManager *resourcemanager.Manager
+	ServerLogs      ServerLogQueryService
 }
 
 var _ adminhttp.StrictServerInterface = (*adminService)(nil)

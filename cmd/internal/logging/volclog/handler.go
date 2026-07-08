@@ -3,7 +3,6 @@ package volclog
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"log/slog"
 	"strconv"
@@ -54,25 +53,10 @@ var newProducer = func(cfg *producer.Config) Producer {
 
 // NewHandler creates and starts a Volc TLS handler.
 func NewHandler(config Config) (*Handler, error) {
-	config.Endpoint = strings.TrimSpace(config.Endpoint)
-	config.Region = strings.TrimSpace(config.Region)
-	config.TopicID = strings.TrimSpace(config.TopicID)
-	config.AccessKeyID = strings.TrimSpace(config.AccessKeyID)
-	config.AccessKeySecret = strings.TrimSpace(config.AccessKeySecret)
-	if config.Endpoint == "" {
-		return nil, errors.New("volclog: endpoint is required")
-	}
-	if config.Region == "" {
-		return nil, errors.New("volclog: region is required")
-	}
-	if config.TopicID == "" {
-		return nil, errors.New("volclog: topic id is required")
-	}
-	if config.AccessKeyID == "" {
-		return nil, errors.New("volclog: access key id is required")
-	}
-	if config.AccessKeySecret == "" {
-		return nil, errors.New("volclog: access key secret is required")
+	var err error
+	config, err = validateConfig(config)
+	if err != nil {
+		return nil, err
 	}
 	producerConfig := producer.GetDefaultProducerConfig()
 	producerConfig.ClientConfig = common.ClientConfig{

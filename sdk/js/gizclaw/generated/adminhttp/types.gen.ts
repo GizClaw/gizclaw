@@ -1520,6 +1520,54 @@ export type Runtime = {
     tx_bytes?: number;
 };
 
+export type ServerLogEntry = {
+    /**
+     * Unix millisecond timestamp for display and filtering.
+     */
+    time_ms: number;
+    /**
+     * Optional Unix nanosecond timestamp as a decimal string when the backend provides it.
+     */
+    time_ns?: string;
+    /**
+     * Normalized log level.
+     */
+    level: string;
+    /**
+     * Log message.
+     */
+    message: string;
+    /**
+     * Backend source, initially gizclaw for server logs written by the Volc sink.
+     */
+    source: string;
+    /**
+     * Backend path or filename, initially slog.
+     */
+    path: string;
+    /**
+     * Additional structured log fields.
+     */
+    fields: {
+        [key: string]: string;
+    };
+};
+
+export type ServerLogStreamEnd = {
+    /**
+     * Number of log events emitted before the stream ended.
+     */
+    count: number;
+    /**
+     * Whether another page is available.
+     */
+    has_next: boolean;
+    /**
+     * Opaque cursor for the next page.
+     */
+    next_cursor?: string;
+};
+
 export type Voice = {
     id: string;
     source: VoiceSource;
@@ -2009,6 +2057,64 @@ export type ModelSource2 = ModelSource;
  * Filter models by provider kind
  */
 export type ModelProviderKind2 = ModelProviderKind;
+
+export type StreamServerLogsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Backend log query expression. Defaults to *.
+         */
+        filter?: string;
+        /**
+         * Inclusive search start time in Unix milliseconds. Required for the first page.
+         */
+        start_time_ms?: number;
+        /**
+         * Exclusive search end time in Unix milliseconds. Required for the first page.
+         */
+        end_time_ms?: number;
+        /**
+         * Maximum log records emitted by this stream page. Defaults to 100 and is clamped by the server.
+         */
+        limit?: number;
+        /**
+         * Result order.
+         */
+        order?: string;
+        /**
+         * Opaque cursor returned by the previous end event.
+         */
+        cursor?: string;
+    };
+    url: '/logs/stream';
+};
+
+export type StreamServerLogsErrors = {
+    /**
+     * Invalid log query parameters or cursor
+     */
+    400: ErrorResponse;
+    /**
+     * Log query backend is not configured
+     */
+    501: ErrorResponse;
+    /**
+     * Backend search failed before the stream started
+     */
+    502: ErrorResponse;
+};
+
+export type StreamServerLogsError = StreamServerLogsErrors[keyof StreamServerLogsErrors];
+
+export type StreamServerLogsResponses = {
+    /**
+     * SSE stream event payload. event: log uses ServerLogEntry JSON data; event: end uses ServerLogStreamEnd JSON data; event: error uses ErrorResponse JSON data.
+     */
+    200: ServerLogEntry | ServerLogStreamEnd | ErrorResponse;
+};
+
+export type StreamServerLogsResponse = StreamServerLogsResponses[keyof StreamServerLogsResponses];
 
 export type ApplyResourceData = {
     body: Resource;
