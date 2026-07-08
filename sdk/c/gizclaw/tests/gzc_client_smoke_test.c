@@ -261,11 +261,24 @@ static int test_channel_send(gzc_rtc_channel_t *channel, const uint8_t *data, si
     return rc;
   }
   if (fake->response_mode == FAKE_RESPONSE_BINARY_STREAM) {
+    const char *response_id = "1";
+    const char *response = "{\"down_content_length\":3,\"up_content_length\":0}";
     const uint8_t first[] = {0x01, 0x02};
     const uint8_t second[] = {0x03};
+    gzc_buf_t response_payload;
     gzc_buf_t framed;
+    gzc_buf_init(&response_payload);
     gzc_buf_init(&framed);
-    rc = append_test_frame(fake->platform, &framed, GZC_RPC_FRAME_BINARY, first, sizeof(first));
+    rc = append_test_proto_bytes(fake->platform, &response_payload, 1, (const uint8_t *)response_id, strlen(response_id));
+    if (rc == GZC_OK) {
+      rc = append_test_proto_bytes(fake->platform, &response_payload, 2, (const uint8_t *)response, strlen(response));
+    }
+    if (rc == GZC_OK) {
+      rc = append_test_frame(fake->platform, &framed, GZC_RPC_FRAME_BINARY, response_payload.data, response_payload.len);
+    }
+    if (rc == GZC_OK) {
+      rc = append_test_frame(fake->platform, &framed, GZC_RPC_FRAME_BINARY, first, sizeof(first));
+    }
     if (rc == GZC_OK) {
       rc = append_test_frame(fake->platform, &framed, GZC_RPC_FRAME_BINARY, second, sizeof(second));
     }
@@ -282,6 +295,7 @@ static int test_channel_send(gzc_rtc_channel_t *channel, const uint8_t *data, si
           framed.len,
           false);
     }
+    gzc_buf_free(&response_payload, fake->platform);
     gzc_buf_free(&framed, fake->platform);
     return rc;
   }
@@ -325,13 +339,21 @@ static int test_channel_send(gzc_rtc_channel_t *channel, const uint8_t *data, si
 }
 
 typedef struct {
+  size_t json_count;
   size_t frame_count;
   size_t binary_bytes;
 } stream_count_t;
 
 static int count_stream_frame(void *userdata, const gzc_rpc_frame_t *frame) {
   stream_count_t *count = (stream_count_t *)userdata;
-  if (count == NULL || frame == NULL || frame->type != GZC_RPC_FRAME_BINARY) {
+  if (count == NULL || frame == NULL) {
+    return GZC_ERR_RPC;
+  }
+  if (frame->type == GZC_RPC_FRAME_JSON) {
+    count->json_count++;
+    return GZC_OK;
+  }
+  if (frame->type != GZC_RPC_FRAME_BINARY) {
     return GZC_ERR_RPC;
   }
   count->frame_count++;
@@ -593,7 +615,7 @@ int main(void) {
   if (expect(rc == GZC_OK, "rpc call stream") != 0) {
     return 1;
   }
-  if (expect(stream_count.frame_count == 2 && stream_count.binary_bytes == 3, "stream binary frames counted") != 0) {
+  if (expect(stream_count.json_count == 1 && stream_count.frame_count == 2 && stream_count.binary_bytes == 3, "stream frames counted") != 0) {
     return 1;
   }
   fake_webrtc.response_mode = FAKE_RESPONSE_PROTO;

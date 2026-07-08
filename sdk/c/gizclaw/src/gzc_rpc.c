@@ -120,6 +120,73 @@ static int method_id(gzc_str_t method, unsigned *out_id) {
   return GZC_ERR_RPC;
 }
 
+static int encode_response_callback_json(const gzc_platform_t *platform, const gzc_rpc_response_t *response, gzc_buf_t *out_json) {
+  if (response == NULL || out_json == NULL) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  gzc_json_writer_t writer;
+  gzc_json_writer_init(&writer, platform, out_json);
+  int rc = gzc_json_object_begin(&writer);
+  if (rc != GZC_OK) {
+    return rc;
+  }
+  if (response->id.data != NULL) {
+    rc = gzc_json_field_str(&writer, "id", response->id);
+    if (rc != GZC_OK) {
+      return rc;
+    }
+  }
+  if (response->has_error) {
+    gzc_buf_t error_json;
+    gzc_buf_init(&error_json);
+    gzc_json_writer_t error_writer;
+    gzc_json_writer_init(&error_writer, platform, &error_json);
+    rc = gzc_json_object_begin(&error_writer);
+    if (rc == GZC_OK) {
+      rc = gzc_json_field_i32(&error_writer, "code", response->error.code);
+    }
+    if (rc == GZC_OK) {
+      rc = gzc_json_field_str(&error_writer, "message", response->error.message);
+    }
+    if (rc == GZC_OK) {
+      rc = gzc_json_object_end(&error_writer);
+    }
+    if (rc == GZC_OK) {
+      rc = gzc_json_field_raw(&writer, "error", gzc_str_from_parts((const char *)error_json.data, error_json.len));
+    }
+    gzc_buf_free(&error_json, platform);
+    if (rc != GZC_OK) {
+      return rc;
+    }
+  } else {
+    rc = gzc_json_field_raw(&writer, "result", response->result_payload);
+    if (rc != GZC_OK) {
+      return rc;
+    }
+  }
+  return gzc_json_object_end(&writer);
+}
+
+static int forward_response_envelope_as_json(
+    const gzc_platform_t *platform,
+    const gzc_rpc_response_t *response,
+    gzc_rpc_frame_cb on_frame,
+    void *userdata) {
+  gzc_buf_t json;
+  gzc_buf_init(&json);
+  int rc = encode_response_callback_json(platform, response, &json);
+  if (rc == GZC_OK) {
+    gzc_rpc_frame_t callback_frame;
+    memset(&callback_frame, 0, sizeof(callback_frame));
+    callback_frame.type = GZC_RPC_FRAME_JSON;
+    callback_frame.data = json.data;
+    callback_frame.len = json.len;
+    rc = on_frame(userdata, &callback_frame);
+  }
+  gzc_buf_free(&json, platform);
+  return rc;
+}
+
 static int decode_frame_bytes(gzc_buf_t *frame_bytes, gzc_rpc_frame_t *out_frame) {
   if (frame_bytes == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
@@ -346,13 +413,35 @@ int gzc_rpc_call_stream(
   gzc_buf_t frame_bytes;
   gzc_buf_init(&frame_bytes);
   gzc_rpc_frame_t frame;
+  bool saw_response = false;
   for (;;) {
     rc = read_frame(client, platform, 5000, &frame_bytes, &frame);
     if (rc != GZC_OK) {
       break;
     }
     if (frame.type == GZC_RPC_FRAME_EOS) {
-      rc = GZC_OK;
+      rc = saw_response ? GZC_OK : GZC_ERR_RPC;
+      break;
+    }
+    if (!saw_response) {
+      if (frame.type != GZC_RPC_FRAME_BINARY) {
+        rc = GZC_ERR_RPC;
+        break;
+      }
+      gzc_rpc_response_t response;
+      rc = gzc_rpc_decode_response_envelope(gzc_str_from_parts((const char *)frame.data, frame.len), &response);
+      if (rc != GZC_OK) {
+        break;
+      }
+      saw_response = true;
+      rc = forward_response_envelope_as_json(platform, &response, on_frame, userdata);
+      if (rc != GZC_OK) {
+        break;
+      }
+      continue;
+    }
+    if (frame.type == GZC_RPC_FRAME_JSON || frame.type == GZC_RPC_FRAME_TEXT) {
+      rc = GZC_ERR_RPC;
       break;
     }
     rc = on_frame(userdata, &frame);
