@@ -18,7 +18,33 @@ import (
 const nanosPerMillisecond int64 = 1_000_000
 
 type searchLogsClient interface {
+	SearchLogsV2(ctx context.Context, request *tls.SearchLogsRequest) (*tls.SearchLogsResponse, error)
+}
+
+type volcSearchLogsClient interface {
 	SearchLogsV2(request *tls.SearchLogsRequest) (*tls.SearchLogsResponse, error)
+}
+
+type contextSearchLogsClient struct {
+	client volcSearchLogsClient
+}
+
+func (c contextSearchLogsClient) SearchLogsV2(ctx context.Context, request *tls.SearchLogsRequest) (*tls.SearchLogsResponse, error) {
+	type result struct {
+		response *tls.SearchLogsResponse
+		err      error
+	}
+	done := make(chan result, 1)
+	go func() {
+		response, err := c.client.SearchLogsV2(request)
+		done <- result{response: response, err: err}
+	}()
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	case result := <-done:
+		return result.response, result.err
+	}
 }
 
 type QueryService struct {
@@ -41,7 +67,7 @@ func NewQueryService(config Config) (*QueryService, error) {
 		return nil, err
 	}
 	client := tls.NewClient(config.Endpoint, config.AccessKeyID, config.AccessKeySecret, "", config.Region)
-	return NewQueryServiceWithClient(config.TopicID, client), nil
+	return NewQueryServiceWithClient(config.TopicID, contextSearchLogsClient{client: client}), nil
 }
 
 func NewQueryServiceWithClient(topicID string, client searchLogsClient) *QueryService {
@@ -81,7 +107,7 @@ func (s *QueryService) StreamServerLogs(ctx context.Context, req gizclaw.ServerL
 		if callLimit > math.MaxInt32 {
 			callLimit = math.MaxInt32
 		}
-		resp, err := s.client.SearchLogsV2(&tls.SearchLogsRequest{
+		resp, err := s.client.SearchLogsV2(ctx, &tls.SearchLogsRequest{
 			TopicID:   s.topicID,
 			Query:     query.Filter,
 			StartTime: query.StartTimeMs,

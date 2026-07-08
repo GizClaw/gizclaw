@@ -67,6 +67,9 @@ func TestQueryServiceStreamsLogsAndCursor(t *testing.T) {
 	if len(client.requests) != 1 {
 		t.Fatalf("requests len = %d", len(client.requests))
 	}
+	if client.contexts[0] == nil {
+		t.Fatal("provider request context is nil")
+	}
 	req := client.requests[0]
 	if req.TopicID != "topic-a" || req.Query != "level:ERROR" || req.Sort != "desc" || req.Limit != 1 {
 		t.Fatalf("provider request = %#v", req)
@@ -177,6 +180,34 @@ func TestQueryServiceCancellationAndProviderErrors(t *testing.T) {
 	}, nil); !errors.Is(err, context.Canceled) {
 		t.Fatalf("cancel err = %v", err)
 	}
+
+	ctx, cancel = context.WithCancel(context.Background())
+	client := &fakeSearchClient{block: make(chan struct{})}
+	service = NewQueryServiceWithClient("topic-a", client)
+	errCh := make(chan error, 1)
+	go func() {
+		_, err := service.StreamServerLogs(ctx, gizclaw.ServerLogStreamRequest{
+			Filter:      "*",
+			StartTimeMs: 1000,
+			EndTimeMs:   2000,
+			Limit:       10,
+			Order:       gizclaw.ServerLogOrderAsc,
+		}, nil)
+		errCh <- err
+	}()
+	cancel()
+	if err := <-errCh; !errors.Is(err, context.Canceled) {
+		t.Fatalf("cancel during search err = %v", err)
+	}
+
+	rawClient := &fakeVolcSearchClient{block: make(chan struct{})}
+	wrappedClient := contextSearchLogsClient{client: rawClient}
+	ctx, cancel = context.WithCancel(context.Background())
+	cancel()
+	if _, err := wrappedClient.SearchLogsV2(ctx, &tls.SearchLogsRequest{TopicID: "topic-a"}); !errors.Is(err, context.Canceled) {
+		t.Fatalf("wrapped cancel err = %v", err)
+	}
+	close(rawClient.block)
 }
 
 func TestQueryServiceInvalidInputs(t *testing.T) {
@@ -223,12 +254,33 @@ func TestNewQueryServiceValidatesConfig(t *testing.T) {
 
 type fakeSearchClient struct {
 	requests  []*tls.SearchLogsRequest
+	contexts  []context.Context
 	responses []*tls.SearchLogsResponse
 	err       error
+	block     chan struct{}
 }
 
-func (c *fakeSearchClient) SearchLogsV2(request *tls.SearchLogsRequest) (*tls.SearchLogsResponse, error) {
+type fakeVolcSearchClient struct {
+	block chan struct{}
+}
+
+func (c *fakeVolcSearchClient) SearchLogsV2(*tls.SearchLogsRequest) (*tls.SearchLogsResponse, error) {
+	if c.block != nil {
+		<-c.block
+	}
+	return &tls.SearchLogsResponse{ListOver: true}, nil
+}
+
+func (c *fakeSearchClient) SearchLogsV2(ctx context.Context, request *tls.SearchLogsRequest) (*tls.SearchLogsResponse, error) {
 	c.requests = append(c.requests, request)
+	c.contexts = append(c.contexts, ctx)
+	if c.block != nil {
+		select {
+		case <-c.block:
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
+	}
 	if c.err != nil {
 		return nil, c.err
 	}

@@ -53,7 +53,13 @@ async function rewriteSseRuntime(url) {
   if (!after.includes("class SseHttpError extends Error")) {
     after = after.replace(
       "export function createSseClient<TData = unknown>({\n",
-      "class SseHttpError extends Error {\n  status: number;\n  statusText: string;\n  error: unknown;\n\n  constructor(status: number, statusText: string, error: unknown) {\n    super(`SSE failed: ${status} ${statusText}`);\n    this.status = status;\n    this.statusText = statusText;\n    this.error = error;\n  }\n}\n\nasync function parseSseErrorResponse(response: Response): Promise<unknown> {\n  const text = await response.text();\n  if (text === '') {\n    return new Error(`SSE failed: ${response.status} ${response.statusText}`);\n  }\n  try {\n    return JSON.parse(text);\n  } catch {\n    return text;\n  }\n}\n\nexport function createSseClient<TData = unknown>({\n",
+      "class SseHttpError extends Error {\n  status: number;\n  statusText: string;\n  error: unknown;\n\n  constructor(status: number, statusText: string, error: unknown) {\n    super(`SSE failed: ${status} ${statusText}`);\n    this.status = status;\n    this.statusText = statusText;\n    this.error = error;\n  }\n}\n\nfunction isRetryableSseHttpError(error: SseHttpError): boolean {\n  return error.status === 408 || error.status === 429 || (error.status >= 500 && error.status !== 501);\n}\n\nasync function parseSseErrorResponse(response: Response): Promise<unknown> {\n  const text = await response.text();\n  if (text === '') {\n    return new Error(`SSE failed: ${response.status} ${response.statusText}`);\n  }\n  try {\n    return JSON.parse(text);\n  } catch {\n    return text;\n  }\n}\n\nexport function createSseClient<TData = unknown>({\n",
+    );
+  }
+  if (!after.includes("function isRetryableSseHttpError(error: SseHttpError): boolean")) {
+    after = after.replace(
+      "async function parseSseErrorResponse(response: Response): Promise<unknown> {\n",
+      "function isRetryableSseHttpError(error: SseHttpError): boolean {\n  return error.status === 408 || error.status === 429 || (error.status >= 500 && error.status !== 501);\n}\n\nasync function parseSseErrorResponse(response: Response): Promise<unknown> {\n",
     );
   }
   after = after.replace(
@@ -62,7 +68,11 @@ async function rewriteSseRuntime(url) {
   );
   after = after.replace(
     "      } catch (error) {\n        // connection failed or aborted; retry after delay\n        onSseError?.(error);\n\n        if (sseMaxRetryAttempts !== undefined && attempt >= sseMaxRetryAttempts) {\n",
-    "      } catch (error) {\n        const reportedError = error instanceof SseHttpError ? error.error : error;\n        onSseError?.(reportedError);\n\n        if (error instanceof SseHttpError) {\n          throw reportedError;\n        }\n\n        // connection failed or aborted; retry after delay\n        if (sseMaxRetryAttempts !== undefined && attempt >= sseMaxRetryAttempts) {\n",
+    "      } catch (error) {\n        const reportedError = error instanceof SseHttpError ? error.error : error;\n        onSseError?.(reportedError);\n\n        if (error instanceof SseHttpError && !isRetryableSseHttpError(error)) {\n          throw reportedError;\n        }\n\n        // connection failed or aborted; retry after delay\n        if (sseMaxRetryAttempts !== undefined && attempt >= sseMaxRetryAttempts) {\n",
+  );
+  after = after.replace(
+    "        if (error instanceof SseHttpError) {\n          throw reportedError;\n        }\n",
+    "        if (error instanceof SseHttpError && !isRetryableSseHttpError(error)) {\n          throw reportedError;\n        }\n",
   );
 
   if (after !== before) {

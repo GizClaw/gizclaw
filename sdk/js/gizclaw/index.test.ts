@@ -301,6 +301,40 @@ test("SSE client parses HTTP JSON errors without retrying", async () => {
   assert.deepEqual(seenErrors, [errorBody]);
 });
 
+test("SSE client retries transient HTTP errors", async () => {
+  const seenErrors: Array<unknown> = [];
+  let attempts = 0;
+  let sleeps = 0;
+  const result = createSseClient<{ 200: { message: string } }>({
+    fetch: async () => {
+      attempts++;
+      if (attempts < 3) {
+        return new Response("temporarily unavailable", { status: 503 });
+      }
+      return new Response('event: log\ndata: {"message":"ready"}\n\n', {
+        status: 200,
+        headers: { "Content-Type": "text/event-stream" },
+      });
+    },
+    onSseError: (error) => seenErrors.push(error),
+    sseMaxRetryAttempts: 3,
+    sseSleepFn: async () => {
+      sleeps++;
+    },
+    url: "http://gizclaw/logs/stream",
+  });
+
+  const events: Array<unknown> = [];
+  for await (const event of result.stream) {
+    events.push(event);
+  }
+
+  assert.equal(attempts, 3);
+  assert.equal(sleeps, 2);
+  assert.deepEqual(seenErrors, ["temporarily unavailable", "temporarily unavailable"]);
+  assert.deepEqual(events, [{ message: "ready" }]);
+});
+
 test("SSE client yields parsed JSON event objects", async () => {
   const result = createSseClient<{ 200: { message: string } }>({
     fetch: async () =>

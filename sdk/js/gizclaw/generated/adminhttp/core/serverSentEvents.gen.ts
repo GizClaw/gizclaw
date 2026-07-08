@@ -92,6 +92,10 @@ class SseHttpError extends Error {
   }
 }
 
+function isRetryableSseHttpError(error: SseHttpError): boolean {
+  return error.status === 408 || error.status === 429 || (error.status >= 500 && error.status !== 501);
+}
+
 async function parseSseErrorResponse(response: Response): Promise<unknown> {
   const text = await response.text();
   if (text === '') {
@@ -252,7 +256,7 @@ export function createSseClient<TData = unknown>({
         const reportedError = error instanceof SseHttpError ? error.error : error;
         onSseError?.(reportedError);
 
-        if (error instanceof SseHttpError) {
+        if (error instanceof SseHttpError && !isRetryableSseHttpError(error)) {
           throw reportedError;
         }
 
