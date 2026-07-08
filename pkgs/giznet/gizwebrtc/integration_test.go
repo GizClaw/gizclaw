@@ -237,6 +237,9 @@ func TestDialSignalingOverTCPOnlyICE(t *testing.T) {
 }
 
 func TestPacketWriteRejectsLargePayload(t *testing.T) {
+	if _, err := writePacket(noopPacketRaw{}, giznet.ProtocolServiceStream, nil); !errors.Is(err, giznet.ErrPacketProtocol) {
+		t.Fatalf("writePacket service-stream protocol err = %v, want %v", err, giznet.ErrPacketProtocol)
+	}
 	if _, err := writePacket(nil, 1, nil); !errors.Is(err, ErrPacketChannel) {
 		t.Fatalf("writePacket nil err = %v, want %v", err, ErrPacketChannel)
 	}
@@ -252,6 +255,13 @@ func TestPacketWriteRejectsLargePayload(t *testing.T) {
 	}
 	if n != len(payload) || len(raw.writes) != maxPacketMessageSize {
 		t.Fatalf("writePacket max payload n=%d write_len=%d, want %d", n, len(raw.writes), maxPacketMessageSize)
+	}
+}
+
+func TestPacketReadRejectsServiceStreamProtocol(t *testing.T) {
+	raw := &fakeStreamRaw{reads: [][]byte{{giznet.ProtocolServiceStream, 'x'}}}
+	if _, err := readPacket(raw); !errors.Is(err, giznet.ErrPacketProtocol) {
+		t.Fatalf("readPacket service-stream protocol err = %v, want %v", err, giznet.ErrPacketProtocol)
 	}
 }
 

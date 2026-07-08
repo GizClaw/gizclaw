@@ -10,6 +10,7 @@ var (
 
 	ErrPacketTooLarge = errors.New("giznet: packet too large")
 	ErrPacketBuffer   = errors.New("giznet: packet buffer too small")
+	ErrPacketProtocol = errors.New("giznet: invalid packet protocol")
 
 	ErrNoSession         = errors.New("giznet: no established session")
 	ErrPeerNotFound      = errors.New("giznet: peer not found")

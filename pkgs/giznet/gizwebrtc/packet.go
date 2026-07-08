@@ -13,6 +13,9 @@ type directPacket struct {
 }
 
 func writePacket(raw datachannel.ReadWriteCloserDeadliner, protocol byte, payload []byte) (int, error) {
+	if err := validatePacketProtocol(protocol); err != nil {
+		return 0, err
+	}
 	if raw == nil {
 		return 0, ErrPacketChannel
 	}
@@ -37,8 +40,18 @@ func readPacket(raw datachannel.ReadWriteCloserDeadliner) (directPacket, error) 
 	if n < 1 {
 		return directPacket{}, fmt.Errorf("gizwebrtc: empty packet message")
 	}
+	if err := validatePacketProtocol(buf[0]); err != nil {
+		return directPacket{}, err
+	}
 	return directPacket{
 		protocol: buf[0],
 		payload:  append([]byte(nil), buf[1:n]...),
 	}, nil
+}
+
+func validatePacketProtocol(protocol byte) error {
+	if protocol == giznet.ProtocolServiceStream {
+		return giznet.ErrPacketProtocol
+	}
+	return nil
 }
