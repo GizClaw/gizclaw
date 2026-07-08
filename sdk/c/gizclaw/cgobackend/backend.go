@@ -23,7 +23,7 @@ import (
 
 const (
 	SignalingPath     = "/webrtc/v1/offer"
-	PacketStampedOpus = 0x10
+	PacketStampedOpus = giznet.ProtocolStampedOpusPacket
 	MediaStreamOpus   = "audio/opus"
 
 	HTTPMethodGet     = 1

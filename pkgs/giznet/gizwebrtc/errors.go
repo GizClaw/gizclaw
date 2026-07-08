@@ -11,8 +11,8 @@ var (
 	ErrNilConn          = giznet.ErrNilConn
 	ErrClosed           = giznet.ErrClosed
 	ErrConnClosed       = giznet.ErrConnClosed
-	ErrPacketTooLarge   = errors.New("gizwebrtc: packet too large")
-	ErrPacketBuffer     = errors.New("gizwebrtc: packet buffer too small")
+	ErrPacketTooLarge   = giznet.ErrPacketTooLarge
+	ErrPacketBuffer     = giznet.ErrPacketBuffer
 	ErrPacketChannel    = errors.New("gizwebrtc: packet channel not ready")
 	ErrInvalidLabel     = errors.New("gizwebrtc: invalid data channel label")
 	ErrServiceClosed    = giznet.ErrServiceMuxClosed

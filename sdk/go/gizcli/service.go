@@ -13,7 +13,7 @@ const (
 	// EventStreamAgent is the reliable agent event stream.
 	EventStreamAgent uint64 = 0x20
 	// EventStreamTelemetry is the unreliable telemetry event packet.
-	EventStreamTelemetry byte = 0x11
+	EventStreamTelemetry byte = 0x40
 
 	// MediaStreamOpus is the WebRTC Opus media stream codec.
 	MediaStreamOpus = "audio/opus"

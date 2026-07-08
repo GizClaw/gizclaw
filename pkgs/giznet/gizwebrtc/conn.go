@@ -168,7 +168,7 @@ func (c *Conn) Write(protocol byte, payload []byte) (int, error) {
 	if err := c.validate(); err != nil {
 		return 0, err
 	}
-	if protocol == PacketStampedOpus {
+	if protocol == giznet.ProtocolStampedOpusPacket {
 		return c.writeOpus(payload)
 	}
 	c.packetMu.RLock()
@@ -355,7 +355,7 @@ func (c *Conn) readRemoteOpus(track *webrtc.TrackRemote) {
 
 func (c *Conn) enqueueRemoteOpusFrame(frame []byte) {
 	payload := stampedopus.Pack(uint64(time.Now().UnixMilli()), frame)
-	c.enqueuePacket(directPacket{protocol: PacketStampedOpus, payload: payload})
+	c.enqueuePacket(directPacket{protocol: giznet.ProtocolStampedOpusPacket, payload: payload})
 }
 
 func serviceLabel(service uint64) string {

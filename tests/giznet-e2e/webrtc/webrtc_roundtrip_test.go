@@ -277,12 +277,12 @@ func roundTripStampedOpus(t *testing.T, client, server giznet.Conn) {
 	t.Helper()
 	frame := []byte{0x00, 0xaa, 0xbb}
 	payload := stampedopus.Pack(uint64(time.Now().UnixMilli()), frame)
-	if _, err := client.Write(gizwebrtc.PacketStampedOpus, payload); err != nil {
+	if _, err := client.Write(giznet.ProtocolStampedOpusPacket, payload); err != nil {
 		t.Fatalf("client stamped opus Write error = %v", err)
 	}
 	gotProtocol, gotPayload := readPacket(t, server)
-	if gotProtocol != gizwebrtc.PacketStampedOpus {
-		t.Fatalf("stamped opus proto=%d, want %d", gotProtocol, gizwebrtc.PacketStampedOpus)
+	if gotProtocol != giznet.ProtocolStampedOpusPacket {
+		t.Fatalf("stamped opus proto=%d, want %d", gotProtocol, giznet.ProtocolStampedOpusPacket)
 	}
 	if _, gotFrame, ok := stampedopus.Unpack(gotPayload); !ok || !bytes.Equal(gotFrame, frame) {
 		t.Fatalf("stamped opus payload=%v frame=%v ok=%t, want frame=%v", gotPayload, gotFrame, ok, frame)
