@@ -3,6 +3,7 @@ package rpcapi
 import (
 	"bytes"
 	"encoding/binary"
+	"encoding/json"
 	"errors"
 	"io"
 	"net"
@@ -173,6 +174,97 @@ func TestMethodPayloadsUseProtobufBytes(t *testing.T) {
 	}
 	if got.ServerTime != 456 {
 		t.Fatalf("decoded response = %+v", got)
+	}
+}
+
+func TestDecodeRPCRequestPreservesMissingPayload(t *testing.T) {
+	msg := &rpcpb.RpcRequest{
+		Id:     "req-1",
+		Method: rpcpb.RpcMethod_RPC_METHOD_SERVER_INFO_PUT,
+	}
+	req, err := DecodeRPCRequest(msg)
+	if err != nil {
+		t.Fatalf("DecodeRPCRequest() error = %v", err)
+	}
+	if req.Params != nil {
+		t.Fatalf("DecodeRPCRequest().Params = %+v, want nil", req.Params)
+	}
+
+	msg.Payload = []byte{}
+	req, err = DecodeRPCRequest(msg)
+	if err != nil {
+		t.Fatalf("DecodeRPCRequest(empty payload) error = %v", err)
+	}
+	if req.Params == nil {
+		t.Fatal("DecodeRPCRequest(empty payload).Params = nil, want present empty payload")
+	}
+}
+
+func TestPayloadCodecPreservesJSONShapes(t *testing.T) {
+	structPayload, err := encodeRPCPayloadMessage("ServerRunWorkspaceRecallRequest", []byte(`{"filters":{"score":1,"nested":{"weight":2}}}`))
+	if err != nil {
+		t.Fatalf("encode struct payload error = %v", err)
+	}
+	if len(structPayload) == 0 {
+		t.Fatal("struct payload is empty")
+	}
+
+	enumPayload, err := encodeRPCPayloadMessage("ChatRoomWorkspaceParameters", []byte(`{"input":"push-to-talk"}`))
+	if err != nil {
+		t.Fatalf("encode enum payload error = %v", err)
+	}
+	enumJSON, err := decodeRPCPayloadMessage("ChatRoomWorkspaceParameters", enumPayload)
+	if err != nil {
+		t.Fatalf("decode enum payload error = %v", err)
+	}
+	var enumOut map[string]any
+	if err := json.Unmarshal(enumJSON, &enumOut); err != nil {
+		t.Fatalf("unmarshal enum payload JSON error = %v", err)
+	}
+	if enumOut["input"] != "push-to-talk" {
+		t.Fatalf("decoded enum input = %v, want push-to-talk", enumOut["input"])
+	}
+
+	zeroJSON, err := decodeRPCPayloadMessage("FirmwareListResponse", nil)
+	if err != nil {
+		t.Fatalf("decode zero payload error = %v", err)
+	}
+	var zeroOut map[string]any
+	if err := json.Unmarshal(zeroJSON, &zeroOut); err != nil {
+		t.Fatalf("unmarshal zero payload JSON error = %v", err)
+	}
+	if value, ok := zeroOut["has_next"]; !ok || value != false {
+		t.Fatalf("decoded has_next = %v, present=%v, want false and present", value, ok)
+	}
+
+	statPayload, err := encodeRPCPayloadMessage("StatMap", []byte(`{"hunger":1,"clean":2}`))
+	if err != nil {
+		t.Fatalf("encode stat map error = %v", err)
+	}
+	statJSON, err := decodeRPCPayloadMessage("StatMap", statPayload)
+	if err != nil {
+		t.Fatalf("decode stat map error = %v", err)
+	}
+	var statOut map[string]any
+	if err := json.Unmarshal(statJSON, &statOut); err != nil {
+		t.Fatalf("unmarshal stat map JSON error = %v", err)
+	}
+	if statOut["hunger"] != float64(1) || statOut["clean"] != float64(2) {
+		t.Fatalf("decoded stat map = %+v", statOut)
+	}
+}
+
+func TestPayloadCodecSelectsProviderOneofFromDiscriminator(t *testing.T) {
+	payload, err := encodeRPCPayloadMessage("Credential", []byte(`{"provider":"dashscope","name":"cred","created_at":"now","updated_at":"now","body":{"api_key":"key"}}`))
+	if err != nil {
+		t.Fatalf("encode credential error = %v", err)
+	}
+	var credential rpcpb.Credential
+	if err := proto.Unmarshal(payload, &credential); err != nil {
+		t.Fatalf("unmarshal credential error = %v", err)
+	}
+	if _, ok := credential.GetBody().GetValue().(*rpcpb.CredentialBody_DashScopeCredentialBody); !ok {
+		t.Fatalf("credential body oneof = %T, want DashScopeCredentialBody", credential.GetBody().GetValue())
 	}
 }
 

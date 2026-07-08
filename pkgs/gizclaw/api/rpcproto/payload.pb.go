@@ -16938,6 +16938,7 @@ func (x *SpeedTestResponse) GetUpContentLength() int64 {
 
 type StatMap struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
+	Value         map[string]int64       `protobuf:"bytes,1,rep,name=value,proto3" json:"value,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"varint,2,opt,name=value"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -16970,6 +16971,13 @@ func (x *StatMap) ProtoReflect() protoreflect.Message {
 // Deprecated: Use StatMap.ProtoReflect.Descriptor instead.
 func (*StatMap) Descriptor() ([]byte, []int) {
 	return file_payload_proto_rawDescGZIP(), []int{268}
+}
+
+func (x *StatMap) GetValue() map[string]int64 {
+	if x != nil {
+		return x.Value
+	}
+	return nil
 }
 
 type Voice struct {
@@ -20935,8 +20943,13 @@ const file_payload_proto_rawDesc = "" +
 	"\x11up_content_length\x18\x02 \x01(\x03R\x0fupContentLength\"o\n" +
 	"\x11SpeedTestResponse\x12.\n" +
 	"\x13down_content_length\x18\x01 \x01(\x03R\x11downContentLength\x12*\n" +
-	"\x11up_content_length\x18\x02 \x01(\x03R\x0fupContentLength\"\t\n" +
-	"\aStatMap\"\xad\x03\n" +
+	"\x11up_content_length\x18\x02 \x01(\x03R\x0fupContentLength\"}\n" +
+	"\aStatMap\x128\n" +
+	"\x05value\x18\x01 \x03(\v2\".gizclaw.rpc.v1.StatMap.ValueEntryR\x05value\x1a8\n" +
+	"\n" +
+	"ValueEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\x03R\x05value:\x028\x01\"\xad\x03\n" +
 	"\x05Voice\x12\x1d\n" +
 	"\n" +
 	"created_at\x18\x01 \x01(\tR\tcreatedAt\x12%\n" +
@@ -21292,7 +21305,7 @@ func file_payload_proto_rawDescGZIP() []byte {
 }
 
 var file_payload_proto_enumTypes = make([]protoimpl.EnumInfo, 28)
-var file_payload_proto_msgTypes = make([]protoimpl.MessageInfo, 318)
+var file_payload_proto_msgTypes = make([]protoimpl.MessageInfo, 319)
 var file_payload_proto_goTypes = []any{
 	(ASTTranslateMode)(0),                                     // 0: gizclaw.rpc.v1.ASTTranslateMode
 	(ASTTranslateWorkspaceParametersAgentType)(0),             // 1: gizclaw.rpc.v1.ASTTranslateWorkspaceParametersAgentType
@@ -21640,7 +21653,8 @@ var file_payload_proto_goTypes = []any{
 	nil,                                                       // 343: gizclaw.rpc.v1.GameRulesetDriveSpec.GameRewardsEntry
 	nil,                                                       // 344: gizclaw.rpc.v1.PeerStatus.LabelsEntry
 	nil,                                                       // 345: gizclaw.rpc.v1.RewardGrant.BadgeExpDeltaEntry
-	(*structpb.Struct)(nil),                                   // 346: google.protobuf.Struct
+	nil,                                                       // 346: gizclaw.rpc.v1.StatMap.ValueEntry
+	(*structpb.Struct)(nil),                                   // 347: google.protobuf.Struct
 }
 var file_payload_proto_depIdxs = []int32{
 	29,  // 0: gizclaw.rpc.v1.ASTTranslateVoiceParameters.asttranslate_internal_speaker_parameters:type_name -> gizclaw.rpc.v1.ASTTranslateInternalSpeakerParameters
@@ -21680,7 +21694,7 @@ var file_payload_proto_depIdxs = []int32{
 	59,  // 34: gizclaw.rpc.v1.CredentialPutRequest.body:type_name -> gizclaw.rpc.v1.Credential
 	59,  // 35: gizclaw.rpc.v1.CredentialPutResponse.value:type_name -> gizclaw.rpc.v1.Credential
 	4,   // 36: gizclaw.rpc.v1.DashScopeTenantModelProviderData.api_mode:type_name -> gizclaw.rpc.v1.DashScopeTenantModelProviderDataApiMode
-	346, // 37: gizclaw.rpc.v1.DashScopeTenantVoiceProviderData.raw:type_name -> google.protobuf.Struct
+	347, // 37: gizclaw.rpc.v1.DashScopeTenantVoiceProviderData.raw:type_name -> google.protobuf.Struct
 	169, // 38: gizclaw.rpc.v1.DeviceInfo.hardware:type_name -> gizclaw.rpc.v1.HardwareInfo
 	338, // 39: gizclaw.rpc.v1.DoubaoRealtimeASRContext.correct_words:type_name -> gizclaw.rpc.v1.DoubaoRealtimeASRContext.CorrectWordsEntry
 	79,  // 40: gizclaw.rpc.v1.DoubaoRealtimeASRContext.hotwords:type_name -> gizclaw.rpc.v1.DoubaoRealtimeASRHotword
@@ -21726,7 +21740,7 @@ var file_payload_proto_depIdxs = []int32{
 	102, // 80: gizclaw.rpc.v1.FirmwareSlots.stable:type_name -> gizclaw.rpc.v1.FirmwareSlot
 	11,  // 81: gizclaw.rpc.v1.FlowcraftConversationParameters.agent_initiative_policy:type_name -> gizclaw.rpc.v1.FlowcraftConversationParametersAgentInitiativePolicy
 	12,  // 82: gizclaw.rpc.v1.FlowcraftConversationParameters.initiative:type_name -> gizclaw.rpc.v1.FlowcraftConversationParametersInitiative
-	346, // 83: gizclaw.rpc.v1.FlowcraftWorkflowSpec.fields:type_name -> google.protobuf.Struct
+	347, // 83: gizclaw.rpc.v1.FlowcraftWorkflowSpec.fields:type_name -> google.protobuf.Struct
 	13,  // 84: gizclaw.rpc.v1.FlowcraftWorkspaceParameters.agent_type:type_name -> gizclaw.rpc.v1.FlowcraftWorkspaceParametersAgentType
 	104, // 85: gizclaw.rpc.v1.FlowcraftWorkspaceParameters.conversation:type_name -> gizclaw.rpc.v1.FlowcraftConversationParameters
 	27,  // 86: gizclaw.rpc.v1.FlowcraftWorkspaceParameters.input:type_name -> gizclaw.rpc.v1.WorkspaceInputMode
@@ -21766,11 +21780,11 @@ var file_payload_proto_depIdxs = []int32{
 	165, // 120: gizclaw.rpc.v1.GameRulesetSpec.metadata:type_name -> gizclaw.rpc.v1.GameplayMetadata
 	160, // 121: gizclaw.rpc.v1.GameRulesetSpec.pet_pool:type_name -> gizclaw.rpc.v1.GameRulesetPetPoolEntry
 	161, // 122: gizclaw.rpc.v1.GameRulesetSpec.points:type_name -> gizclaw.rpc.v1.GameRulesetPointsSpec
-	346, // 123: gizclaw.rpc.v1.GameplayMetadata.fields:type_name -> google.protobuf.Struct
-	346, // 124: gizclaw.rpc.v1.GeminiTenantVoiceProviderData.raw:type_name -> google.protobuf.Struct
+	347, // 123: gizclaw.rpc.v1.GameplayMetadata.fields:type_name -> google.protobuf.Struct
+	347, // 124: gizclaw.rpc.v1.GeminiTenantVoiceProviderData.raw:type_name -> google.protobuf.Struct
 	190, // 125: gizclaw.rpc.v1.HardwareInfo.imeis:type_name -> gizclaw.rpc.v1.PeerIMEI
 	191, // 126: gizclaw.rpc.v1.HardwareInfo.labels:type_name -> gizclaw.rpc.v1.PeerLabel
-	346, // 127: gizclaw.rpc.v1.MiniMaxTenantVoiceProviderData.raw:type_name -> google.protobuf.Struct
+	347, // 127: gizclaw.rpc.v1.MiniMaxTenantVoiceProviderData.raw:type_name -> google.protobuf.Struct
 	173, // 128: gizclaw.rpc.v1.Model.capabilities:type_name -> gizclaw.rpc.v1.ModelCapabilities
 	16,  // 129: gizclaw.rpc.v1.Model.kind:type_name -> gizclaw.rpc.v1.ModelKind
 	182, // 130: gizclaw.rpc.v1.Model.provider:type_name -> gizclaw.rpc.v1.ModelProvider
@@ -21789,19 +21803,19 @@ var file_payload_proto_depIdxs = []int32{
 	305, // 143: gizclaw.rpc.v1.ModelProviderData.volc_tenant_model_provider_data:type_name -> gizclaw.rpc.v1.VolcTenantModelProviderData
 	172, // 144: gizclaw.rpc.v1.ModelPutRequest.body:type_name -> gizclaw.rpc.v1.Model
 	172, // 145: gizclaw.rpc.v1.ModelPutResponse.value:type_name -> gizclaw.rpc.v1.Model
-	346, // 146: gizclaw.rpc.v1.OpenAITenantVoiceProviderData.raw:type_name -> google.protobuf.Struct
+	347, // 146: gizclaw.rpc.v1.OpenAITenantVoiceProviderData.raw:type_name -> google.protobuf.Struct
 	33,  // 147: gizclaw.rpc.v1.PeerRunAgent.active:type_name -> gizclaw.rpc.v1.AgentSelection
 	33,  // 148: gizclaw.rpc.v1.PeerRunAgent.pending:type_name -> gizclaw.rpc.v1.AgentSelection
 	19,  // 149: gizclaw.rpc.v1.PeerRunHistoryEntry.type:type_name -> gizclaw.rpc.v1.PeerRunHistoryEntryType
 	20,  // 150: gizclaw.rpc.v1.PeerRunHistoryListRequest.order:type_name -> gizclaw.rpc.v1.PeerRunHistoryListRequestOrder
 	193, // 151: gizclaw.rpc.v1.PeerRunHistoryListResponse.items:type_name -> gizclaw.rpc.v1.PeerRunHistoryEntry
-	346, // 152: gizclaw.rpc.v1.PeerRunMemoryStatsResponse.metadata:type_name -> google.protobuf.Struct
-	346, // 153: gizclaw.rpc.v1.PeerRunRecallHit.metadata:type_name -> google.protobuf.Struct
-	346, // 154: gizclaw.rpc.v1.PeerRunRecallRequest.filters:type_name -> google.protobuf.Struct
+	347, // 152: gizclaw.rpc.v1.PeerRunMemoryStatsResponse.metadata:type_name -> google.protobuf.Struct
+	347, // 153: gizclaw.rpc.v1.PeerRunRecallHit.metadata:type_name -> google.protobuf.Struct
+	347, // 154: gizclaw.rpc.v1.PeerRunRecallRequest.filters:type_name -> google.protobuf.Struct
 	200, // 155: gizclaw.rpc.v1.PeerRunRecallResponse.hits:type_name -> gizclaw.rpc.v1.PeerRunRecallHit
 	21,  // 156: gizclaw.rpc.v1.PeerRunStatus.state:type_name -> gizclaw.rpc.v1.PeerRunStatusState
 	21,  // 157: gizclaw.rpc.v1.PeerRunWorkspaceState.runtime_state:type_name -> gizclaw.rpc.v1.PeerRunStatusState
-	346, // 158: gizclaw.rpc.v1.PeerStatus.details:type_name -> google.protobuf.Struct
+	347, // 158: gizclaw.rpc.v1.PeerStatus.details:type_name -> google.protobuf.Struct
 	344, // 159: gizclaw.rpc.v1.PeerStatus.labels:type_name -> gizclaw.rpc.v1.PeerStatus.LabelsEntry
 	296, // 160: gizclaw.rpc.v1.Pet.ability:type_name -> gizclaw.rpc.v1.StatMap
 	296, // 161: gizclaw.rpc.v1.Pet.life:type_name -> gizclaw.rpc.v1.StatMap
@@ -21877,56 +21891,57 @@ var file_payload_proto_depIdxs = []int32{
 	33,  // 231: gizclaw.rpc.v1.ServerSetRunWorkspaceRequest.value:type_name -> gizclaw.rpc.v1.AgentSelection
 	204, // 232: gizclaw.rpc.v1.ServerSetRunWorkspaceResponse.value:type_name -> gizclaw.rpc.v1.PeerRunWorkspaceState
 	203, // 233: gizclaw.rpc.v1.ServerStopRunResponse.value:type_name -> gizclaw.rpc.v1.PeerRunStatus
-	302, // 234: gizclaw.rpc.v1.Voice.provider:type_name -> gizclaw.rpc.v1.VoiceProvider
-	303, // 235: gizclaw.rpc.v1.Voice.provider_data:type_name -> gizclaw.rpc.v1.VoiceProviderData
-	23,  // 236: gizclaw.rpc.v1.Voice.source:type_name -> gizclaw.rpc.v1.VoiceSource
-	297, // 237: gizclaw.rpc.v1.VoiceGetResponse.value:type_name -> gizclaw.rpc.v1.Voice
-	297, // 238: gizclaw.rpc.v1.VoiceListResponse.items:type_name -> gizclaw.rpc.v1.Voice
-	22,  // 239: gizclaw.rpc.v1.VoiceProvider.kind:type_name -> gizclaw.rpc.v1.VoiceProviderKind
-	168, // 240: gizclaw.rpc.v1.VoiceProviderData.gemini_tenant_voice_provider_data:type_name -> gizclaw.rpc.v1.GeminiTenantVoiceProviderData
-	73,  // 241: gizclaw.rpc.v1.VoiceProviderData.dash_scope_tenant_voice_provider_data:type_name -> gizclaw.rpc.v1.DashScopeTenantVoiceProviderData
-	189, // 242: gizclaw.rpc.v1.VoiceProviderData.open_aitenant_voice_provider_data:type_name -> gizclaw.rpc.v1.OpenAITenantVoiceProviderData
-	171, // 243: gizclaw.rpc.v1.VoiceProviderData.mini_max_tenant_voice_provider_data:type_name -> gizclaw.rpc.v1.MiniMaxTenantVoiceProviderData
-	306, // 244: gizclaw.rpc.v1.VoiceProviderData.volc_tenant_voice_provider_data:type_name -> gizclaw.rpc.v1.VolcTenantVoiceProviderData
-	24,  // 245: gizclaw.rpc.v1.VolcTenantModelProviderData.api_mode:type_name -> gizclaw.rpc.v1.VolcTenantModelProviderDataApiMode
-	346, // 246: gizclaw.rpc.v1.VolcTenantVoiceProviderData.raw:type_name -> google.protobuf.Struct
-	311, // 247: gizclaw.rpc.v1.WorkflowCreateRequest.value:type_name -> gizclaw.rpc.v1.WorkflowDocument
-	311, // 248: gizclaw.rpc.v1.WorkflowCreateResponse.value:type_name -> gizclaw.rpc.v1.WorkflowDocument
-	311, // 249: gizclaw.rpc.v1.WorkflowDeleteResponse.value:type_name -> gizclaw.rpc.v1.WorkflowDocument
-	316, // 250: gizclaw.rpc.v1.WorkflowDocument.metadata:type_name -> gizclaw.rpc.v1.WorkflowMetadata
-	319, // 251: gizclaw.rpc.v1.WorkflowDocument.spec:type_name -> gizclaw.rpc.v1.WorkflowSpec
-	311, // 252: gizclaw.rpc.v1.WorkflowGetResponse.value:type_name -> gizclaw.rpc.v1.WorkflowDocument
-	311, // 253: gizclaw.rpc.v1.WorkflowListResponse.items:type_name -> gizclaw.rpc.v1.WorkflowDocument
-	311, // 254: gizclaw.rpc.v1.WorkflowPutRequest.body:type_name -> gizclaw.rpc.v1.WorkflowDocument
-	311, // 255: gizclaw.rpc.v1.WorkflowPutResponse.value:type_name -> gizclaw.rpc.v1.WorkflowDocument
-	31,  // 256: gizclaw.rpc.v1.WorkflowSpec.ast_translate:type_name -> gizclaw.rpc.v1.ASTTranslateWorkflowSpec
-	39,  // 257: gizclaw.rpc.v1.WorkflowSpec.chatroom:type_name -> gizclaw.rpc.v1.ChatRoomWorkflowSpec
-	91,  // 258: gizclaw.rpc.v1.WorkflowSpec.doubao_realtime:type_name -> gizclaw.rpc.v1.DoubaoRealtimeWorkflowSpec
-	25,  // 259: gizclaw.rpc.v1.WorkflowSpec.driver:type_name -> gizclaw.rpc.v1.WorkflowDriver
-	105, // 260: gizclaw.rpc.v1.WorkflowSpec.flowcraft:type_name -> gizclaw.rpc.v1.FlowcraftWorkflowSpec
-	335, // 261: gizclaw.rpc.v1.Workspace.parameters:type_name -> gizclaw.rpc.v1.WorkspaceParameters
-	320, // 262: gizclaw.rpc.v1.WorkspaceCreateRequest.value:type_name -> gizclaw.rpc.v1.Workspace
-	320, // 263: gizclaw.rpc.v1.WorkspaceCreateResponse.value:type_name -> gizclaw.rpc.v1.Workspace
-	320, // 264: gizclaw.rpc.v1.WorkspaceDeleteResponse.value:type_name -> gizclaw.rpc.v1.Workspace
-	320, // 265: gizclaw.rpc.v1.WorkspaceGetResponse.value:type_name -> gizclaw.rpc.v1.Workspace
-	193, // 266: gizclaw.rpc.v1.WorkspaceHistoryGetResponse.value:type_name -> gizclaw.rpc.v1.PeerRunHistoryEntry
-	26,  // 267: gizclaw.rpc.v1.WorkspaceHistoryListRequest.order:type_name -> gizclaw.rpc.v1.WorkspaceHistoryListRequestOrder
-	195, // 268: gizclaw.rpc.v1.WorkspaceHistoryListResponse.value:type_name -> gizclaw.rpc.v1.PeerRunHistoryListResponse
-	320, // 269: gizclaw.rpc.v1.WorkspaceListResponse.items:type_name -> gizclaw.rpc.v1.Workspace
-	106, // 270: gizclaw.rpc.v1.WorkspaceParameters.flowcraft_workspace_parameters:type_name -> gizclaw.rpc.v1.FlowcraftWorkspaceParameters
-	92,  // 271: gizclaw.rpc.v1.WorkspaceParameters.doubao_realtime_workspace_parameters:type_name -> gizclaw.rpc.v1.DoubaoRealtimeWorkspaceParameters
-	32,  // 272: gizclaw.rpc.v1.WorkspaceParameters.asttranslate_workspace_parameters:type_name -> gizclaw.rpc.v1.ASTTranslateWorkspaceParameters
-	42,  // 273: gizclaw.rpc.v1.WorkspaceParameters.chat_room_workspace_parameters:type_name -> gizclaw.rpc.v1.ChatRoomWorkspaceParameters
-	320, // 274: gizclaw.rpc.v1.WorkspacePutRequest.body:type_name -> gizclaw.rpc.v1.Workspace
-	320, // 275: gizclaw.rpc.v1.WorkspacePutResponse.value:type_name -> gizclaw.rpc.v1.Workspace
-	88,  // 276: gizclaw.rpc.v1.DoubaoRealtimeJSONSchema.PropertiesEntry.value:type_name -> gizclaw.rpc.v1.DoubaoRealtimeJSONSchema
-	157, // 277: gizclaw.rpc.v1.GameRulesetDriveSpec.ActionRewardsEntry.value:type_name -> gizclaw.rpc.v1.GameRewardSpec
-	157, // 278: gizclaw.rpc.v1.GameRulesetDriveSpec.GameRewardsEntry.value:type_name -> gizclaw.rpc.v1.GameRewardSpec
-	279, // [279:279] is the sub-list for method output_type
-	279, // [279:279] is the sub-list for method input_type
-	279, // [279:279] is the sub-list for extension type_name
-	279, // [279:279] is the sub-list for extension extendee
-	0,   // [0:279] is the sub-list for field type_name
+	346, // 234: gizclaw.rpc.v1.StatMap.value:type_name -> gizclaw.rpc.v1.StatMap.ValueEntry
+	302, // 235: gizclaw.rpc.v1.Voice.provider:type_name -> gizclaw.rpc.v1.VoiceProvider
+	303, // 236: gizclaw.rpc.v1.Voice.provider_data:type_name -> gizclaw.rpc.v1.VoiceProviderData
+	23,  // 237: gizclaw.rpc.v1.Voice.source:type_name -> gizclaw.rpc.v1.VoiceSource
+	297, // 238: gizclaw.rpc.v1.VoiceGetResponse.value:type_name -> gizclaw.rpc.v1.Voice
+	297, // 239: gizclaw.rpc.v1.VoiceListResponse.items:type_name -> gizclaw.rpc.v1.Voice
+	22,  // 240: gizclaw.rpc.v1.VoiceProvider.kind:type_name -> gizclaw.rpc.v1.VoiceProviderKind
+	168, // 241: gizclaw.rpc.v1.VoiceProviderData.gemini_tenant_voice_provider_data:type_name -> gizclaw.rpc.v1.GeminiTenantVoiceProviderData
+	73,  // 242: gizclaw.rpc.v1.VoiceProviderData.dash_scope_tenant_voice_provider_data:type_name -> gizclaw.rpc.v1.DashScopeTenantVoiceProviderData
+	189, // 243: gizclaw.rpc.v1.VoiceProviderData.open_aitenant_voice_provider_data:type_name -> gizclaw.rpc.v1.OpenAITenantVoiceProviderData
+	171, // 244: gizclaw.rpc.v1.VoiceProviderData.mini_max_tenant_voice_provider_data:type_name -> gizclaw.rpc.v1.MiniMaxTenantVoiceProviderData
+	306, // 245: gizclaw.rpc.v1.VoiceProviderData.volc_tenant_voice_provider_data:type_name -> gizclaw.rpc.v1.VolcTenantVoiceProviderData
+	24,  // 246: gizclaw.rpc.v1.VolcTenantModelProviderData.api_mode:type_name -> gizclaw.rpc.v1.VolcTenantModelProviderDataApiMode
+	347, // 247: gizclaw.rpc.v1.VolcTenantVoiceProviderData.raw:type_name -> google.protobuf.Struct
+	311, // 248: gizclaw.rpc.v1.WorkflowCreateRequest.value:type_name -> gizclaw.rpc.v1.WorkflowDocument
+	311, // 249: gizclaw.rpc.v1.WorkflowCreateResponse.value:type_name -> gizclaw.rpc.v1.WorkflowDocument
+	311, // 250: gizclaw.rpc.v1.WorkflowDeleteResponse.value:type_name -> gizclaw.rpc.v1.WorkflowDocument
+	316, // 251: gizclaw.rpc.v1.WorkflowDocument.metadata:type_name -> gizclaw.rpc.v1.WorkflowMetadata
+	319, // 252: gizclaw.rpc.v1.WorkflowDocument.spec:type_name -> gizclaw.rpc.v1.WorkflowSpec
+	311, // 253: gizclaw.rpc.v1.WorkflowGetResponse.value:type_name -> gizclaw.rpc.v1.WorkflowDocument
+	311, // 254: gizclaw.rpc.v1.WorkflowListResponse.items:type_name -> gizclaw.rpc.v1.WorkflowDocument
+	311, // 255: gizclaw.rpc.v1.WorkflowPutRequest.body:type_name -> gizclaw.rpc.v1.WorkflowDocument
+	311, // 256: gizclaw.rpc.v1.WorkflowPutResponse.value:type_name -> gizclaw.rpc.v1.WorkflowDocument
+	31,  // 257: gizclaw.rpc.v1.WorkflowSpec.ast_translate:type_name -> gizclaw.rpc.v1.ASTTranslateWorkflowSpec
+	39,  // 258: gizclaw.rpc.v1.WorkflowSpec.chatroom:type_name -> gizclaw.rpc.v1.ChatRoomWorkflowSpec
+	91,  // 259: gizclaw.rpc.v1.WorkflowSpec.doubao_realtime:type_name -> gizclaw.rpc.v1.DoubaoRealtimeWorkflowSpec
+	25,  // 260: gizclaw.rpc.v1.WorkflowSpec.driver:type_name -> gizclaw.rpc.v1.WorkflowDriver
+	105, // 261: gizclaw.rpc.v1.WorkflowSpec.flowcraft:type_name -> gizclaw.rpc.v1.FlowcraftWorkflowSpec
+	335, // 262: gizclaw.rpc.v1.Workspace.parameters:type_name -> gizclaw.rpc.v1.WorkspaceParameters
+	320, // 263: gizclaw.rpc.v1.WorkspaceCreateRequest.value:type_name -> gizclaw.rpc.v1.Workspace
+	320, // 264: gizclaw.rpc.v1.WorkspaceCreateResponse.value:type_name -> gizclaw.rpc.v1.Workspace
+	320, // 265: gizclaw.rpc.v1.WorkspaceDeleteResponse.value:type_name -> gizclaw.rpc.v1.Workspace
+	320, // 266: gizclaw.rpc.v1.WorkspaceGetResponse.value:type_name -> gizclaw.rpc.v1.Workspace
+	193, // 267: gizclaw.rpc.v1.WorkspaceHistoryGetResponse.value:type_name -> gizclaw.rpc.v1.PeerRunHistoryEntry
+	26,  // 268: gizclaw.rpc.v1.WorkspaceHistoryListRequest.order:type_name -> gizclaw.rpc.v1.WorkspaceHistoryListRequestOrder
+	195, // 269: gizclaw.rpc.v1.WorkspaceHistoryListResponse.value:type_name -> gizclaw.rpc.v1.PeerRunHistoryListResponse
+	320, // 270: gizclaw.rpc.v1.WorkspaceListResponse.items:type_name -> gizclaw.rpc.v1.Workspace
+	106, // 271: gizclaw.rpc.v1.WorkspaceParameters.flowcraft_workspace_parameters:type_name -> gizclaw.rpc.v1.FlowcraftWorkspaceParameters
+	92,  // 272: gizclaw.rpc.v1.WorkspaceParameters.doubao_realtime_workspace_parameters:type_name -> gizclaw.rpc.v1.DoubaoRealtimeWorkspaceParameters
+	32,  // 273: gizclaw.rpc.v1.WorkspaceParameters.asttranslate_workspace_parameters:type_name -> gizclaw.rpc.v1.ASTTranslateWorkspaceParameters
+	42,  // 274: gizclaw.rpc.v1.WorkspaceParameters.chat_room_workspace_parameters:type_name -> gizclaw.rpc.v1.ChatRoomWorkspaceParameters
+	320, // 275: gizclaw.rpc.v1.WorkspacePutRequest.body:type_name -> gizclaw.rpc.v1.Workspace
+	320, // 276: gizclaw.rpc.v1.WorkspacePutResponse.value:type_name -> gizclaw.rpc.v1.Workspace
+	88,  // 277: gizclaw.rpc.v1.DoubaoRealtimeJSONSchema.PropertiesEntry.value:type_name -> gizclaw.rpc.v1.DoubaoRealtimeJSONSchema
+	157, // 278: gizclaw.rpc.v1.GameRulesetDriveSpec.ActionRewardsEntry.value:type_name -> gizclaw.rpc.v1.GameRewardSpec
+	157, // 279: gizclaw.rpc.v1.GameRulesetDriveSpec.GameRewardsEntry.value:type_name -> gizclaw.rpc.v1.GameRewardSpec
+	280, // [280:280] is the sub-list for method output_type
+	280, // [280:280] is the sub-list for method input_type
+	280, // [280:280] is the sub-list for extension type_name
+	280, // [280:280] is the sub-list for extension extendee
+	0,   // [0:280] is the sub-list for field type_name
 }
 
 func init() { file_payload_proto_init() }
@@ -22096,7 +22111,7 @@ func file_payload_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_payload_proto_rawDesc), len(file_payload_proto_rawDesc)),
 			NumEnums:      28,
-			NumMessages:   318,
+			NumMessages:   319,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

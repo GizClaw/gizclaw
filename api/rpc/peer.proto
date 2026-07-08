@@ -7,7 +7,7 @@ option go_package = "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto;rpc
 message RpcRequest {
   string id = 1;
   RpcMethod method = 2;
-  bytes payload = 3;
+  optional bytes payload = 3;
 }
 
 enum RpcMethod {

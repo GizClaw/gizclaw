@@ -374,9 +374,13 @@ func DecodeRPCRequest(msg *rpcpb.RpcRequest) (*RPCRequest, error) {
 	if err != nil {
 		return nil, err
 	}
-	params, err := decodeRPCRequestPayload(method, msg.GetPayload())
-	if err != nil {
-		return nil, err
+	var params *RPCRequest_Params
+	if msg.Payload != nil {
+		var err error
+		params, err = decodeRPCRequestPayload(method, msg.GetPayload())
+		if err != nil {
+			return nil, err
+		}
 	}
 	return &RPCRequest{
 		V:      RPCVersionV1,

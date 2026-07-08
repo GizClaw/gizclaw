@@ -444,7 +444,7 @@ type RpcRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	Method        RpcMethod              `protobuf:"varint,2,opt,name=method,proto3,enum=gizclaw.rpc.v1.RpcMethod" json:"method,omitempty"`
-	Payload       []byte                 `protobuf:"bytes,3,opt,name=payload,proto3" json:"payload,omitempty"`
+	Payload       []byte                 `protobuf:"bytes,3,opt,name=payload,proto3,oneof" json:"payload,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -505,12 +505,14 @@ var File_peer_proto protoreflect.FileDescriptor
 const file_peer_proto_rawDesc = "" +
 	"\n" +
 	"\n" +
-	"peer.proto\x12\x0egizclaw.rpc.v1\"i\n" +
+	"peer.proto\x12\x0egizclaw.rpc.v1\"z\n" +
 	"\n" +
 	"RpcRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x121\n" +
-	"\x06method\x18\x02 \x01(\x0e2\x19.gizclaw.rpc.v1.RpcMethodR\x06method\x12\x18\n" +
-	"\apayload\x18\x03 \x01(\fR\apayload*\xbd\x1d\n" +
+	"\x06method\x18\x02 \x01(\x0e2\x19.gizclaw.rpc.v1.RpcMethodR\x06method\x12\x1d\n" +
+	"\apayload\x18\x03 \x01(\fH\x00R\apayload\x88\x01\x01B\n" +
+	"\n" +
+	"\b_payload*\xbd\x1d\n" +
 	"\tRpcMethod\x12\x1a\n" +
 	"\x16RPC_METHOD_UNSPECIFIED\x10\x00\x12\x17\n" +
 	"\x13RPC_METHOD_ALL_PING\x10\x01\x12!\n" +
@@ -641,6 +643,7 @@ func file_peer_proto_init() {
 	if File_peer_proto != nil {
 		return
 	}
+	file_peer_proto_msgTypes[0].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{

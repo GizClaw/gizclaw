@@ -129,10 +129,10 @@ func decodeJSONObject(data []byte) (any, error) {
 func fillProtoMessage(msg protoreflect.Message, value any) error {
 	desc := msg.Descriptor()
 	if fd := singleValueField(desc); fd != nil {
-		return setProtoField(msg, fd, value)
+		return setProtoField(msg, fd, value, nil)
 	}
 	if isOneofValueWrapper(desc) {
-		return setOneofWrapper(msg, value)
+		return setOneofWrapper(msg, value, nil)
 	}
 	obj, ok := value.(map[string]any)
 	if !ok {
@@ -153,7 +153,7 @@ func fillProtoMessage(msg protoreflect.Message, value any) error {
 		if fd == nil {
 			continue
 		}
-		if err := setProtoField(msg, fd, fieldValue); err != nil {
+		if err := setProtoField(msg, fd, fieldValue, obj); err != nil {
 			return fmt.Errorf("%s: %w", name, err)
 		}
 	}
@@ -183,7 +183,10 @@ func isOneofValueWrapper(desc protoreflect.MessageDescriptor) bool {
 	return desc.Fields().Len() > 0
 }
 
-func setOneofWrapper(msg protoreflect.Message, value any) error {
+func setOneofWrapper(msg protoreflect.Message, value any, parent map[string]any) error {
+	if field := discriminatorOneofField(msg.Descriptor(), parent); field != nil {
+		return setProtoField(msg, field, value, nil)
+	}
 	obj, _ := value.(map[string]any)
 	var best protoreflect.FieldDescriptor
 	bestScore := -1
@@ -207,10 +210,89 @@ func setOneofWrapper(msg protoreflect.Message, value any) error {
 	if best == nil {
 		return fmt.Errorf("no oneof payload candidate for %s", msg.Descriptor().FullName())
 	}
-	return setProtoField(msg, best, value)
+	return setProtoField(msg, best, value, nil)
 }
 
-func setProtoField(msg protoreflect.Message, fd protoreflect.FieldDescriptor, value any) error {
+func discriminatorOneofField(desc protoreflect.MessageDescriptor, parent map[string]any) protoreflect.FieldDescriptor {
+	if parent == nil {
+		return nil
+	}
+	var discriminator string
+	switch desc.Name() {
+	case "CredentialBody":
+		discriminator, _ = parent["provider"].(string)
+	case "ModelProviderData", "VoiceProviderData":
+		if provider, _ := parent["provider"].(map[string]any); provider != nil {
+			discriminator, _ = provider["kind"].(string)
+		}
+	case "WorkspaceParameters":
+		discriminator, _ = parent["agent_type"].(string)
+	}
+	if discriminator == "" {
+		return nil
+	}
+	fieldName := oneofDiscriminatorFieldName(desc.Name(), discriminator)
+	if fieldName == "" {
+		return nil
+	}
+	return desc.Fields().ByName(protoreflect.Name(fieldName))
+}
+
+func oneofDiscriminatorFieldName(desc protoreflect.Name, discriminator string) string {
+	switch desc {
+	case "CredentialBody":
+		switch discriminator {
+		case "openai":
+			return "open_aicredential_body"
+		case "gemini":
+			return "gemini_credential_body"
+		case "dashscope":
+			return "dash_scope_credential_body"
+		case "minimax":
+			return "mini_max_credential_body"
+		case "volc":
+			return "volc_credential_body"
+		}
+	case "ModelProviderData":
+		switch discriminator {
+		case "gemini-tenant":
+			return "gemini_tenant_model_provider_data"
+		case "dashscope-tenant":
+			return "dash_scope_tenant_model_provider_data"
+		case "openai-tenant":
+			return "open_aitenant_model_provider_data"
+		case "volc-tenant":
+			return "volc_tenant_model_provider_data"
+		}
+	case "VoiceProviderData":
+		switch discriminator {
+		case "gemini-tenant":
+			return "gemini_tenant_voice_provider_data"
+		case "dashscope-tenant":
+			return "dash_scope_tenant_voice_provider_data"
+		case "openai-tenant":
+			return "open_aitenant_voice_provider_data"
+		case "minimax-tenant":
+			return "mini_max_tenant_voice_provider_data"
+		case "volc-tenant":
+			return "volc_tenant_voice_provider_data"
+		}
+	case "WorkspaceParameters":
+		switch discriminator {
+		case "flowcraft":
+			return "flowcraft_workspace_parameters"
+		case "doubao-realtime":
+			return "doubao_realtime_workspace_parameters"
+		case "ast-translate":
+			return "asttranslate_workspace_parameters"
+		case "chatroom":
+			return "chat_room_workspace_parameters"
+		}
+	}
+	return ""
+}
+
+func setProtoField(msg protoreflect.Message, fd protoreflect.FieldDescriptor, value any, parent map[string]any) error {
 	if fd.IsMap() {
 		obj, ok := value.(map[string]any)
 		if !ok {
@@ -222,7 +304,7 @@ func setProtoField(msg protoreflect.Message, fd protoreflect.FieldDescriptor, va
 			if err != nil {
 				return err
 			}
-			mapValue, err := protoFieldValue(fd.MapValue(), item)
+			mapValue, err := protoFieldValue(fd.MapValue(), item, nil)
 			if err != nil {
 				return fmt.Errorf("%s: %w", key, err)
 			}
@@ -237,7 +319,7 @@ func setProtoField(msg protoreflect.Message, fd protoreflect.FieldDescriptor, va
 		}
 		list := msg.Mutable(fd).List()
 		for i, item := range items {
-			fieldValue, err := protoFieldValue(fd, item)
+			fieldValue, err := protoFieldValue(fd, item, nil)
 			if err != nil {
 				return fmt.Errorf("[%d]: %w", i, err)
 			}
@@ -245,7 +327,7 @@ func setProtoField(msg protoreflect.Message, fd protoreflect.FieldDescriptor, va
 		}
 		return nil
 	}
-	fieldValue, err := protoFieldValue(fd, value)
+	fieldValue, err := protoFieldValue(fd, value, parent)
 	if err != nil {
 		return err
 	}
@@ -277,7 +359,7 @@ func protoMapKey(fd protoreflect.FieldDescriptor, value string) (protoreflect.Ma
 	}
 }
 
-func protoFieldValue(fd protoreflect.FieldDescriptor, value any) (protoreflect.Value, error) {
+func protoFieldValue(fd protoreflect.FieldDescriptor, value any, parent map[string]any) (protoreflect.Value, error) {
 	switch fd.Kind() {
 	case protoreflect.BoolKind:
 		b, ok := value.(bool)
@@ -331,19 +413,66 @@ func protoFieldValue(fd protoreflect.FieldDescriptor, value any) (protoreflect.V
 			if !ok {
 				return protoreflect.Value{}, fmt.Errorf("expected object for google.protobuf.Struct, got %T", value)
 			}
-			st, err := structpb.NewStruct(obj)
+			normalized, err := normalizeStructMap(obj)
+			if err != nil {
+				return protoreflect.Value{}, err
+			}
+			st, err := structpb.NewStruct(normalized)
 			if err != nil {
 				return protoreflect.Value{}, err
 			}
 			return protoreflect.ValueOfMessage(st.ProtoReflect()), nil
 		}
 		child := dynamicpb.NewMessage(fd.Message())
+		if isOneofValueWrapper(child.Descriptor()) {
+			if err := setOneofWrapper(child, value, parent); err != nil {
+				return protoreflect.Value{}, err
+			}
+			return protoreflect.ValueOfMessage(child), nil
+		}
 		if err := fillProtoMessage(child, value); err != nil {
 			return protoreflect.Value{}, err
 		}
 		return protoreflect.ValueOfMessage(child), nil
 	default:
 		return protoreflect.Value{}, fmt.Errorf("unsupported protobuf kind %s", fd.Kind())
+	}
+}
+
+func normalizeStructMap(obj map[string]any) (map[string]any, error) {
+	out := make(map[string]any, len(obj))
+	for key, value := range obj {
+		normalized, err := normalizeStructValue(value)
+		if err != nil {
+			return nil, fmt.Errorf("%s: %w", key, err)
+		}
+		out[key] = normalized
+	}
+	return out, nil
+}
+
+func normalizeStructValue(value any) (any, error) {
+	switch v := value.(type) {
+	case json.Number:
+		n, err := strconv.ParseFloat(v.String(), 64)
+		if err != nil {
+			return nil, err
+		}
+		return n, nil
+	case map[string]any:
+		return normalizeStructMap(v)
+	case []any:
+		out := make([]any, len(v))
+		for i, item := range v {
+			normalized, err := normalizeStructValue(item)
+			if err != nil {
+				return nil, fmt.Errorf("[%d]: %w", i, err)
+			}
+			out[i] = normalized
+		}
+		return out, nil
+	default:
+		return value, nil
 	}
 }
 
@@ -354,10 +483,12 @@ func protoEnumNumber(desc protoreflect.EnumDescriptor, value any) (protoreflect.
 			return 0, nil
 		}
 		want := strings.ToUpper(strings.ReplaceAll(v, "-", "_"))
+		wantCompact := strings.ReplaceAll(want, "_", "")
 		values := desc.Values()
 		for i := 0; i < values.Len(); i++ {
 			ev := values.Get(i)
-			if enumJSONName(desc, ev) == want {
+			name := enumJSONName(desc, ev)
+			if name == want || strings.ReplaceAll(name, "_", "") == wantCompact {
 				return ev.Number(), nil
 			}
 		}
@@ -488,6 +619,9 @@ func protoFieldPresent(msg protoreflect.Message, fd protoreflect.FieldDescriptor
 	if fd.HasPresence() {
 		return msg.Has(fd)
 	}
+	if !fd.HasPresence() {
+		return true
+	}
 	return !protoValueIsZero(fd, msg.Get(fd))
 }
 
@@ -531,7 +665,7 @@ func protoScalarJSONValue(fd protoreflect.FieldDescriptor, value protoreflect.Va
 		if ev == nil || ev.Number() == 0 {
 			return "", nil
 		}
-		return strings.ToLower(enumJSONName(fd.Enum(), ev)), nil
+		return enumValueJSONString(fd.Enum(), ev), nil
 	case protoreflect.Int32Kind, protoreflect.Sint32Kind, protoreflect.Sfixed32Kind:
 		return int(value.Int()), nil
 	case protoreflect.Int64Kind, protoreflect.Sint64Kind, protoreflect.Sfixed64Kind:
@@ -562,6 +696,26 @@ func protoScalarJSONValue(fd protoreflect.FieldDescriptor, value protoreflect.Va
 	default:
 		return nil, fmt.Errorf("unsupported protobuf kind %s", fd.Kind())
 	}
+}
+
+func enumValueJSONString(desc protoreflect.EnumDescriptor, value protoreflect.EnumValueDescriptor) string {
+	name := enumJSONName(desc, value)
+	if mapped, ok := enumJSONValueOverrides[name]; ok {
+		return mapped
+	}
+	return strings.ToLower(name)
+}
+
+var enumJSONValueOverrides = map[string]string{
+	"AST_TRANSLATE":     "ast-translate",
+	"DASH_SCOPE_TENANT": "dashscope-tenant",
+	"DOUBAO_REALTIME":   "doubao-realtime",
+	"GEMINI_TENANT":     "gemini-tenant",
+	"MINI_MAX":          "minimax",
+	"MINIMAX_TENANT":    "minimax-tenant",
+	"OPENAI_TENANT":     "openai-tenant",
+	"PUSH_TO_TALK":      "push-to-talk",
+	"VOLC_TENANT":       "volc-tenant",
 }
 
 func protoValueIsZero(fd protoreflect.FieldDescriptor, value protoreflect.Value) bool {

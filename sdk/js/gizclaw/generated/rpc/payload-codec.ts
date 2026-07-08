@@ -4891,7 +4891,14 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
     ]
   },
   "StatMap": {
-    "fields": []
+    "fields": [
+      {
+        "mapValue": "int64",
+        "name": "value",
+        "number": 1,
+        "type": "map"
+      }
+    ]
   },
   "Voice": {
     "fields": [

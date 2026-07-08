@@ -663,7 +663,9 @@ function encodeRPCRequestEnvelope(request: RPCRequest): Uint8Array {
   const writer = new ProtoWriter();
   writer.string(1, request.id);
   writer.uint32(2, method);
-  writer.bytes(3, encodeRPCRequestPayload(request.method, request.params ?? {}));
+  if ("params" in request) {
+    writer.bytes(3, encodeRPCRequestPayload(request.method, request.params ?? {}));
+  }
   return writer.finish();
 }
 

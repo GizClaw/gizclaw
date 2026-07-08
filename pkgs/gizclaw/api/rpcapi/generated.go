@@ -2586,7 +2586,7 @@ type SpeedTestResponse struct {
 }
 
 // StatMap defines model for StatMap.
-type StatMap = map[string]interface{}
+type StatMap = map[string]int64
 
 // Voice defines model for Voice.
 type Voice struct {

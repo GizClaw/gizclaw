@@ -1717,6 +1717,7 @@ message SpeedTestResponse {
 }
 
 message StatMap {
+  map<string, int64> value = 1;
 }
 
 message Voice {

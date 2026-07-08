@@ -4,7 +4,6 @@ import type { RPCMethodMap, RPCMethodName } from "./generated/rpc/method-map.ts"
 
 export type { RPCMethodMap, RPCMethodName } from "./generated/rpc/method-map.ts";
 export { RPC_METHODS } from "./generated/rpc/method-map.ts";
-export type * from "./generated/rpc/types.gen";
 
 export type PeerRPCClientOptions = Omit<WebRTCRPCClientOptions, "service">;
 export type PeerRPCCaller = Pick<WebRTCRPCClient, "call" | "callBinary">;
