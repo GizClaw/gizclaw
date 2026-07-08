@@ -16,7 +16,7 @@ import (
 	"github.com/openai/openai-go/shared"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminservice"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/openaiapi"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/acl"
@@ -46,8 +46,8 @@ func TestPeerConnOpenAIServiceWithOpenAISDK(t *testing.T) {
 	var sawTranscriptionStream bool
 	handler := newOpenAIHTTPHandler(&openaiapi.Server{
 		Caller: clientKey.Public,
-		Models: peerConnModelListerFunc(func(context.Context, adminservice.ListModelsRequestObject) (adminservice.ListModelsResponseObject, error) {
-			return adminservice.ListModels200JSONResponse(adminservice.ModelList{Items: []apitypes.Model{
+		Models: peerConnModelListerFunc(func(context.Context, adminhttp.ListModelsRequestObject) (adminhttp.ListModelsResponseObject, error) {
+			return adminhttp.ListModels200JSONResponse(adminhttp.ModelList{Items: []apitypes.Model{
 				{
 					Id: "chat",
 					Provider: apitypes.ModelProvider{
@@ -119,14 +119,14 @@ func TestPeerConnOpenAIServiceWithOpenAISDK(t *testing.T) {
 			return nil, nil
 		}),
 	})
-	server := gizhttp.NewServer(serverConn, ServiceOpenAI, handler)
+	server := gizhttp.NewServer(serverConn, ServicePeerOpenAI, handler)
 	defer server.Shutdown(context.Background())
 	serverErrCh := make(chan error, 1)
 	go func() {
 		serverErrCh <- server.Serve()
 	}()
 
-	httpClient := gizhttp.NewClient(clientConn, ServiceOpenAI)
+	httpClient := gizhttp.NewClient(clientConn, ServicePeerOpenAI)
 	sdk := openai.NewClient(
 		option.WithAPIKey("test"),
 		option.WithBaseURL("http://gizclaw.test/v1"),
@@ -240,8 +240,8 @@ func TestPeerConnOpenAIServiceStreamsChatThroughProxy(t *testing.T) {
 	releaseSecond := make(chan struct{})
 	handler := newOpenAIHTTPHandler(&openaiapi.Server{
 		Caller: clientKey.Public,
-		Models: peerConnModelListerFunc(func(context.Context, adminservice.ListModelsRequestObject) (adminservice.ListModelsResponseObject, error) {
-			return adminservice.ListModels200JSONResponse(adminservice.ModelList{Items: []apitypes.Model{{
+		Models: peerConnModelListerFunc(func(context.Context, adminhttp.ListModelsRequestObject) (adminhttp.ListModelsResponseObject, error) {
+			return adminhttp.ListModels200JSONResponse(adminhttp.ModelList{Items: []apitypes.Model{{
 				Id: "chat",
 				Provider: apitypes.ModelProvider{
 					Kind: apitypes.ModelProviderKindOpenaiTenant,
@@ -264,7 +264,7 @@ func TestPeerConnOpenAIServiceStreamsChatThroughProxy(t *testing.T) {
 			return sb.Stream(), nil
 		}),
 	})
-	server := gizhttp.NewServer(serverConn, ServiceOpenAI, handler)
+	server := gizhttp.NewServer(serverConn, ServicePeerOpenAI, handler)
 	defer server.Shutdown(context.Background())
 	serverErrCh := make(chan error, 1)
 	go func() {
@@ -273,7 +273,7 @@ func TestPeerConnOpenAIServiceStreamsChatThroughProxy(t *testing.T) {
 
 	target := &url.URL{Scheme: "http", Host: "gizclaw"}
 	proxy := httputil.NewSingleHostReverseProxy(target)
-	proxy.Transport = gizhttp.NewRoundTripper(clientConn, ServiceOpenAI)
+	proxy.Transport = gizhttp.NewRoundTripper(clientConn, ServicePeerOpenAI)
 	proxyServer := httptest.NewServer(proxy)
 	defer proxyServer.Close()
 	sdk := openai.NewClient(

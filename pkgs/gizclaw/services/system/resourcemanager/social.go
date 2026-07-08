@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminservice"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/customid"
@@ -179,32 +179,32 @@ func (m *Manager) applyFriendGroupMember(ctx context.Context, resource apitypes.
 	return applyResult(apitypes.ApplyActionCreated, apitypes.ResourceKindFriendGroupMember, item.Metadata.Name), nil
 }
 
-func (m *Manager) getFriend(ctx context.Context, name string) (adminservice.AdminFriendObject, bool, error) {
+func (m *Manager) getFriend(ctx context.Context, name string) (adminhttp.AdminFriendObject, bool, error) {
 	owner, _, err := friendResourcePeers(name)
 	if err != nil {
-		return adminservice.AdminFriendObject{}, false, err
+		return adminhttp.AdminFriendObject{}, false, err
 	}
 	item, err := m.services.Friends.AdminGetFriend(ctx, owner, name)
 	if errors.Is(err, kv.ErrNotFound) {
-		return adminservice.AdminFriendObject{}, false, nil
+		return adminhttp.AdminFriendObject{}, false, nil
 	}
 	if err != nil {
-		return adminservice.AdminFriendObject{}, false, err
+		return adminhttp.AdminFriendObject{}, false, err
 	}
 	return item, true, nil
 }
 
-func (m *Manager) getContact(ctx context.Context, name string) (adminservice.AdminContactObject, bool, error) {
+func (m *Manager) getContact(ctx context.Context, name string) (adminhttp.AdminContactObject, bool, error) {
 	owner, id, err := contactResourceParts(name)
 	if err != nil {
-		return adminservice.AdminContactObject{}, false, err
+		return adminhttp.AdminContactObject{}, false, err
 	}
 	item, err := m.services.Contacts.AdminGetContact(ctx, owner, id)
 	if errors.Is(err, kv.ErrNotFound) {
-		return adminservice.AdminContactObject{}, false, nil
+		return adminhttp.AdminContactObject{}, false, nil
 	}
 	if err != nil {
-		return adminservice.AdminContactObject{}, false, err
+		return adminhttp.AdminContactObject{}, false, err
 	}
 	return item, true, nil
 }
@@ -249,7 +249,7 @@ func (m *Manager) getFriendGroupMember(ctx context.Context, name string) (rpcapi
 	return item, true, nil
 }
 
-func resourceFromFriend(item adminservice.AdminFriendObject) (apitypes.Resource, error) {
+func resourceFromFriend(item adminhttp.AdminFriendObject) (apitypes.Resource, error) {
 	return marshalResource(apitypes.FriendResource{
 		ApiVersion: apitypes.ResourceAPIVersionGizclawAdminv1alpha1,
 		Kind:       apitypes.FriendResourceKindFriend,
@@ -258,7 +258,7 @@ func resourceFromFriend(item adminservice.AdminFriendObject) (apitypes.Resource,
 	})
 }
 
-func resourceFromContact(item adminservice.AdminContactObject) (apitypes.Resource, error) {
+func resourceFromContact(item adminhttp.AdminContactObject) (apitypes.Resource, error) {
 	return marshalResource(apitypes.ContactResource{
 		ApiVersion: apitypes.ResourceAPIVersionGizclawAdminv1alpha1,
 		Kind:       apitypes.ContactResourceKindContact,
@@ -295,14 +295,14 @@ func resourceFromFriendGroupMember(item rpcapi.FriendGroupMemberObject) (apitype
 	})
 }
 
-func friendSpec(item adminservice.AdminFriendObject) apitypes.FriendSpec {
+func friendSpec(item adminhttp.AdminFriendObject) apitypes.FriendSpec {
 	return apitypes.FriendSpec{
 		OwnerPublicKey: item.OwnerPublicKey,
 		PeerPublicKey:  item.PeerPublicKey,
 	}
 }
 
-func contactSpec(item adminservice.AdminContactObject) apitypes.ContactSpec {
+func contactSpec(item adminhttp.AdminContactObject) apitypes.ContactSpec {
 	return apitypes.ContactSpec{
 		OwnerPublicKey: item.OwnerPublicKey,
 		Id:             item.Id,

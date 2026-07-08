@@ -70,12 +70,12 @@ func TestDialSignalingPacketAndServiceStream(t *testing.T) {
 	}
 
 	opusFrame := []byte{0x00, 0xaa, 0xbb}
-	if _, err := clientConn.Write(ProtocolStampedOpus, stampedopus.Pack(uint64(time.Now().UnixMilli()), opusFrame)); err != nil {
+	if _, err := clientConn.Write(PacketStampedOpus, stampedopus.Pack(uint64(time.Now().UnixMilli()), opusFrame)); err != nil {
 		t.Fatalf("client opus Write error = %v", err)
 	}
 	proto, payload := readDirectPacketWithTimeout(t, serverConn)
-	if proto != ProtocolStampedOpus {
-		t.Fatalf("server opus proto=%d, want %d", proto, ProtocolStampedOpus)
+	if proto != PacketStampedOpus {
+		t.Fatalf("server opus proto=%d, want %d", proto, PacketStampedOpus)
 	}
 	_, gotFrame, ok := stampedopus.Unpack(payload)
 	if !ok {

@@ -22,8 +22,9 @@ import (
 )
 
 const (
-	SignalingPath       = "/webrtc/v1/offer"
-	ProtocolStampedOpus = 0x10
+	SignalingPath     = "/webrtc/v1/offer"
+	PacketStampedOpus = 0x10
+	MediaStreamOpus   = "audio/opus"
 
 	HTTPMethodGet     = 1
 	HTTPMethodPost    = 2
@@ -189,7 +190,7 @@ func (b *Backend) CreatePeer() error {
 		return err
 	}
 	pc.OnTrack(func(track *webrtc.TrackRemote, _ *webrtc.RTPReceiver) {
-		if strings.EqualFold(track.Codec().MimeType, webrtc.MimeTypeOpus) {
+		if strings.EqualFold(track.Codec().MimeType, MediaStreamOpus) {
 			go b.forwardRemoteOpus(track)
 		}
 	})
@@ -364,7 +365,7 @@ func (b *Backend) forwardRemoteOpus(track *webrtc.TrackRemote) {
 		}
 		payload := stampedopus.Pack(uint64(time.Now().UnixMilli()), packet.Payload)
 		message := make([]byte, 1+len(payload))
-		message[0] = ProtocolStampedOpus
+		message[0] = PacketStampedOpus
 		copy(message[1:], payload)
 		b.emitChannelMessage(0, message, false)
 	}

@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminservice"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
@@ -31,45 +31,45 @@ type Server struct {
 }
 
 type ModelAdminService interface {
-	CreateModel(context.Context, adminservice.CreateModelRequestObject) (adminservice.CreateModelResponseObject, error)
-	ListModels(context.Context, adminservice.ListModelsRequestObject) (adminservice.ListModelsResponseObject, error)
-	DeleteModel(context.Context, adminservice.DeleteModelRequestObject) (adminservice.DeleteModelResponseObject, error)
-	GetModel(context.Context, adminservice.GetModelRequestObject) (adminservice.GetModelResponseObject, error)
-	PutModel(context.Context, adminservice.PutModelRequestObject) (adminservice.PutModelResponseObject, error)
+	CreateModel(context.Context, adminhttp.CreateModelRequestObject) (adminhttp.CreateModelResponseObject, error)
+	ListModels(context.Context, adminhttp.ListModelsRequestObject) (adminhttp.ListModelsResponseObject, error)
+	DeleteModel(context.Context, adminhttp.DeleteModelRequestObject) (adminhttp.DeleteModelResponseObject, error)
+	GetModel(context.Context, adminhttp.GetModelRequestObject) (adminhttp.GetModelResponseObject, error)
+	PutModel(context.Context, adminhttp.PutModelRequestObject) (adminhttp.PutModelResponseObject, error)
 }
 
 var _ ModelAdminService = (*Server)(nil)
 
-func (s *Server) CreateModel(ctx context.Context, request adminservice.CreateModelRequestObject) (adminservice.CreateModelResponseObject, error) {
+func (s *Server) CreateModel(ctx context.Context, request adminhttp.CreateModelRequestObject) (adminhttp.CreateModelResponseObject, error) {
 	store, err := s.store()
 	if err != nil {
-		return adminservice.CreateModel500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.CreateModel500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	if request.Body == nil {
-		return adminservice.CreateModel400JSONResponse(apitypes.NewErrorResponse("INVALID_MODEL", "request body required")), nil
+		return adminhttp.CreateModel400JSONResponse(apitypes.NewErrorResponse("INVALID_MODEL", "request body required")), nil
 	}
 	model, err := normalizeModelUpsert(*request.Body, "")
 	if err != nil {
-		return adminservice.CreateModel400JSONResponse(apitypes.NewErrorResponse("INVALID_MODEL", err.Error())), nil
+		return adminhttp.CreateModel400JSONResponse(apitypes.NewErrorResponse("INVALID_MODEL", err.Error())), nil
 	}
 	if _, err := store.Get(ctx, modelKey(string(model.Id))); err == nil {
-		return adminservice.CreateModel409JSONResponse(apitypes.NewErrorResponse("MODEL_ALREADY_EXISTS", fmt.Sprintf("model %q already exists", model.Id))), nil
+		return adminhttp.CreateModel409JSONResponse(apitypes.NewErrorResponse("MODEL_ALREADY_EXISTS", fmt.Sprintf("model %q already exists", model.Id))), nil
 	} else if !errors.Is(err, kv.ErrNotFound) {
-		return adminservice.CreateModel500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.CreateModel500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	now := s.now()
 	model.CreatedAt = now
 	model.UpdatedAt = now
 	if err := writeModel(ctx, store, model, nil); err != nil {
-		return adminservice.CreateModel500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.CreateModel500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	return adminservice.CreateModel200JSONResponse(model), nil
+	return adminhttp.CreateModel200JSONResponse(model), nil
 }
 
-func (s *Server) ListModels(ctx context.Context, request adminservice.ListModelsRequestObject) (adminservice.ListModelsResponseObject, error) {
+func (s *Server) ListModels(ctx context.Context, request adminhttp.ListModelsRequestObject) (adminhttp.ListModelsResponseObject, error) {
 	store, err := s.store()
 	if err != nil {
-		return adminservice.ListModels500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.ListModels500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	cursor, limit := normalizeListParams(request.Params.Cursor, request.Params.Limit)
 	filters := modelFilters{}
@@ -93,19 +93,19 @@ func (s *Server) ListModels(ctx context.Context, request adminservice.ListModels
 	}
 	items, hasNext, nextCursor, err := listModelsPage(ctx, store, filters, cursor, limit)
 	if err != nil {
-		return adminservice.ListModels500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.ListModels500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	return adminservice.ListModels200JSONResponse(adminservice.ModelList{
+	return adminhttp.ListModels200JSONResponse(adminhttp.ModelList{
 		HasNext:    hasNext,
 		Items:      items,
 		NextCursor: nextCursor,
 	}), nil
 }
 
-func (s *Server) DeleteModel(ctx context.Context, request adminservice.DeleteModelRequestObject) (adminservice.DeleteModelResponseObject, error) {
+func (s *Server) DeleteModel(ctx context.Context, request adminhttp.DeleteModelRequestObject) (adminhttp.DeleteModelResponseObject, error) {
 	store, err := s.store()
 	if err != nil {
-		return adminservice.DeleteModel500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.DeleteModel500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	id, err := url.PathUnescape(string(request.Id))
 	if err != nil {
@@ -114,20 +114,20 @@ func (s *Server) DeleteModel(ctx context.Context, request adminservice.DeleteMod
 	model, err := getModel(ctx, store, id)
 	if err != nil {
 		if errors.Is(err, kv.ErrNotFound) {
-			return adminservice.DeleteModel404JSONResponse(apitypes.NewErrorResponse("MODEL_NOT_FOUND", fmt.Sprintf("model %q not found", id))), nil
+			return adminhttp.DeleteModel404JSONResponse(apitypes.NewErrorResponse("MODEL_NOT_FOUND", fmt.Sprintf("model %q not found", id))), nil
 		}
-		return adminservice.DeleteModel500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.DeleteModel500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	if err := deleteModel(ctx, store, model); err != nil {
-		return adminservice.DeleteModel500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.DeleteModel500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	return adminservice.DeleteModel200JSONResponse(model), nil
+	return adminhttp.DeleteModel200JSONResponse(model), nil
 }
 
-func (s *Server) GetModel(ctx context.Context, request adminservice.GetModelRequestObject) (adminservice.GetModelResponseObject, error) {
+func (s *Server) GetModel(ctx context.Context, request adminhttp.GetModelRequestObject) (adminhttp.GetModelResponseObject, error) {
 	store, err := s.store()
 	if err != nil {
-		return adminservice.GetModel500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.GetModel500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	id, err := url.PathUnescape(string(request.Id))
 	if err != nil {
@@ -136,20 +136,20 @@ func (s *Server) GetModel(ctx context.Context, request adminservice.GetModelRequ
 	model, err := getModel(ctx, store, id)
 	if err != nil {
 		if errors.Is(err, kv.ErrNotFound) {
-			return adminservice.GetModel404JSONResponse(apitypes.NewErrorResponse("MODEL_NOT_FOUND", fmt.Sprintf("model %q not found", id))), nil
+			return adminhttp.GetModel404JSONResponse(apitypes.NewErrorResponse("MODEL_NOT_FOUND", fmt.Sprintf("model %q not found", id))), nil
 		}
-		return adminservice.GetModel500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.GetModel500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	return adminservice.GetModel200JSONResponse(model), nil
+	return adminhttp.GetModel200JSONResponse(model), nil
 }
 
-func (s *Server) PutModel(ctx context.Context, request adminservice.PutModelRequestObject) (adminservice.PutModelResponseObject, error) {
+func (s *Server) PutModel(ctx context.Context, request adminhttp.PutModelRequestObject) (adminhttp.PutModelResponseObject, error) {
 	store, err := s.store()
 	if err != nil {
-		return adminservice.PutModel500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.PutModel500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	if request.Body == nil {
-		return adminservice.PutModel400JSONResponse(apitypes.NewErrorResponse("INVALID_MODEL", "request body required")), nil
+		return adminhttp.PutModel400JSONResponse(apitypes.NewErrorResponse("INVALID_MODEL", "request body required")), nil
 	}
 	id, err := url.PathUnescape(string(request.Id))
 	if err != nil {
@@ -157,11 +157,11 @@ func (s *Server) PutModel(ctx context.Context, request adminservice.PutModelRequ
 	}
 	model, err := normalizeModelUpsert(*request.Body, id)
 	if err != nil {
-		return adminservice.PutModel400JSONResponse(apitypes.NewErrorResponse("INVALID_MODEL", err.Error())), nil
+		return adminhttp.PutModel400JSONResponse(apitypes.NewErrorResponse("INVALID_MODEL", err.Error())), nil
 	}
 	previous, err := getModel(ctx, store, id)
 	if err != nil && !errors.Is(err, kv.ErrNotFound) {
-		return adminservice.PutModel500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.PutModel500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	now := s.now()
 	model.CreatedAt = now
@@ -169,7 +169,7 @@ func (s *Server) PutModel(ctx context.Context, request adminservice.PutModelRequ
 	var previousPtr *apitypes.Model
 	if err == nil {
 		if previous.Source == apitypes.ModelSourceSync {
-			return adminservice.PutModel409JSONResponse(apitypes.NewErrorResponse("SYNC_MODEL_READ_ONLY", fmt.Sprintf("model %q has source sync and cannot be modified via API", previous.Id))), nil
+			return adminhttp.PutModel409JSONResponse(apitypes.NewErrorResponse("SYNC_MODEL_READ_ONLY", fmt.Sprintf("model %q has source sync and cannot be modified via API", previous.Id))), nil
 		}
 		model.CreatedAt = previous.CreatedAt
 		model.SyncedAt = cloneTime(previous.SyncedAt)
@@ -177,9 +177,9 @@ func (s *Server) PutModel(ctx context.Context, request adminservice.PutModelRequ
 		previousPtr = &previousCopy
 	}
 	if err := writeModel(ctx, store, model, previousPtr); err != nil {
-		return adminservice.PutModel500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.PutModel500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	return adminservice.PutModel200JSONResponse(model), nil
+	return adminhttp.PutModel200JSONResponse(model), nil
 }
 
 type modelFilters struct {
@@ -188,7 +188,7 @@ type modelFilters struct {
 	providerName *string
 }
 
-func normalizeModelUpsert(in adminservice.ModelUpsert, expectedID string) (apitypes.Model, error) {
+func normalizeModelUpsert(in adminhttp.ModelUpsert, expectedID string) (apitypes.Model, error) {
 	id := strings.TrimSpace(string(in.Id))
 	if id == "" {
 		return apitypes.Model{}, errors.New("id is required")

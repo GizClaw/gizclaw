@@ -14,7 +14,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminservice"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/friend"
@@ -27,11 +27,11 @@ import (
 func TestAdminServiceApplyResourceRequiresBody(t *testing.T) {
 	t.Parallel()
 
-	resp, err := (&adminService{}).ApplyResource(context.Background(), adminservice.ApplyResourceRequestObject{})
+	resp, err := (&adminService{}).ApplyResource(context.Background(), adminhttp.ApplyResourceRequestObject{})
 	if err != nil {
 		t.Fatalf("ApplyResource() error = %v", err)
 	}
-	got, ok := resp.(adminservice.ApplyResource400JSONResponse)
+	got, ok := resp.(adminhttp.ApplyResource400JSONResponse)
 	if !ok {
 		t.Fatalf("ApplyResource() response = %T", resp)
 	}
@@ -52,34 +52,34 @@ func TestAdminServiceResourceMethodsHandleValidationAndManagerErrors(t *testing.
 	}`)
 	service := &adminService{}
 
-	applyResp, err := service.ApplyResource(context.Background(), adminservice.ApplyResourceRequestObject{JSONBody: &resource})
+	applyResp, err := service.ApplyResource(context.Background(), adminhttp.ApplyResourceRequestObject{JSONBody: &resource})
 	if err != nil {
 		t.Fatalf("ApplyResource() error = %v", err)
 	}
-	if got, ok := applyResp.(adminservice.ApplyResource500JSONResponse); !ok || got.Error.Code != "RESOURCE_MANAGER_NOT_CONFIGURED" {
+	if got, ok := applyResp.(adminhttp.ApplyResource500JSONResponse); !ok || got.Error.Code != "RESOURCE_MANAGER_NOT_CONFIGURED" {
 		t.Fatalf("ApplyResource() response = %T %+v", applyResp, applyResp)
 	}
 
-	getResp, err := service.GetResource(context.Background(), adminservice.GetResourceRequestObject{
+	getResp, err := service.GetResource(context.Background(), adminhttp.GetResourceRequestObject{
 		Kind: apitypes.ResourceKindCredential,
 		Name: "minimax-main",
 	})
 	if err != nil {
 		t.Fatalf("GetResource() error = %v", err)
 	}
-	if got, ok := getResp.(adminservice.GetResource500JSONResponse); !ok || got.Error.Code != "RESOURCE_MANAGER_NOT_CONFIGURED" {
+	if got, ok := getResp.(adminhttp.GetResource500JSONResponse); !ok || got.Error.Code != "RESOURCE_MANAGER_NOT_CONFIGURED" {
 		t.Fatalf("GetResource() response = %T %+v", getResp, getResp)
 	}
 
-	putResp, err := service.PutResource(context.Background(), adminservice.PutResourceRequestObject{})
+	putResp, err := service.PutResource(context.Background(), adminhttp.PutResourceRequestObject{})
 	if err != nil {
 		t.Fatalf("PutResource(nil body) error = %v", err)
 	}
-	if got, ok := putResp.(adminservice.PutResource400JSONResponse); !ok || got.Error.Code != "INVALID_RESOURCE" {
+	if got, ok := putResp.(adminhttp.PutResource400JSONResponse); !ok || got.Error.Code != "INVALID_RESOURCE" {
 		t.Fatalf("PutResource(nil body) response = %T %+v", putResp, putResp)
 	}
 
-	putResp, err = service.PutResource(context.Background(), adminservice.PutResourceRequestObject{
+	putResp, err = service.PutResource(context.Background(), adminhttp.PutResourceRequestObject{
 		Kind:     apitypes.ResourceKindWorkspace,
 		Name:     "minimax-main",
 		JSONBody: &resource,
@@ -87,11 +87,11 @@ func TestAdminServiceResourceMethodsHandleValidationAndManagerErrors(t *testing.
 	if err != nil {
 		t.Fatalf("PutResource(path mismatch) error = %v", err)
 	}
-	if got, ok := putResp.(adminservice.PutResource400JSONResponse); !ok || got.Error.Code != "INVALID_RESOURCE_PATH" {
+	if got, ok := putResp.(adminhttp.PutResource400JSONResponse); !ok || got.Error.Code != "INVALID_RESOURCE_PATH" {
 		t.Fatalf("PutResource(path mismatch) response = %T %+v", putResp, putResp)
 	}
 
-	putResp, err = service.PutResource(context.Background(), adminservice.PutResourceRequestObject{
+	putResp, err = service.PutResource(context.Background(), adminhttp.PutResourceRequestObject{
 		Kind:     apitypes.ResourceKindCredential,
 		Name:     "minimax-main",
 		JSONBody: &resource,
@@ -99,18 +99,18 @@ func TestAdminServiceResourceMethodsHandleValidationAndManagerErrors(t *testing.
 	if err != nil {
 		t.Fatalf("PutResource(manager error) error = %v", err)
 	}
-	if got, ok := putResp.(adminservice.PutResource500JSONResponse); !ok || got.Error.Code != "RESOURCE_MANAGER_NOT_CONFIGURED" {
+	if got, ok := putResp.(adminhttp.PutResource500JSONResponse); !ok || got.Error.Code != "RESOURCE_MANAGER_NOT_CONFIGURED" {
 		t.Fatalf("PutResource(manager error) response = %T %+v", putResp, putResp)
 	}
 
-	deleteResp, err := service.DeleteResource(context.Background(), adminservice.DeleteResourceRequestObject{
+	deleteResp, err := service.DeleteResource(context.Background(), adminhttp.DeleteResourceRequestObject{
 		Kind: apitypes.ResourceKindCredential,
 		Name: "minimax-main",
 	})
 	if err != nil {
 		t.Fatalf("DeleteResource() error = %v", err)
 	}
-	if got, ok := deleteResp.(adminservice.DeleteResource500JSONResponse); !ok || got.Error.Code != "RESOURCE_MANAGER_NOT_CONFIGURED" {
+	if got, ok := deleteResp.(adminhttp.DeleteResource500JSONResponse); !ok || got.Error.Code != "RESOURCE_MANAGER_NOT_CONFIGURED" {
 		t.Fatalf("DeleteResource() response = %T %+v", deleteResp, deleteResp)
 	}
 }
@@ -188,7 +188,7 @@ func TestAdminSocialHandlersUseDomainServices(t *testing.T) {
 		NewID:         func() string { return "group-a" },
 	}
 	app := fiber.New(fiber.Config{DisableStartupMessage: true})
-	adminservice.RegisterHandlers(app, adminservice.NewStrictHandler(&adminService{Friends: friendService, FriendGroups: groupService}, nil))
+	adminhttp.RegisterHandlers(app, adminhttp.NewStrictHandler(&adminService{Friends: friendService, FriendGroups: groupService}, nil))
 
 	rec := serveAdminJSON(app, http.MethodPost, "/social/friends", `{"owner_public_key":"peer-a","peer_public_key":"peer-b"}`)
 	if rec.Code != http.StatusOK {
@@ -286,7 +286,7 @@ func TestAdminWorkspaceHistoryHandlersServePersistedHistoryAndOggAudio(t *testin
 		audio: []byte("ogg-opus"),
 	}
 	app := fiber.New(fiber.Config{DisableStartupMessage: true})
-	adminservice.RegisterHandlers(app, adminservice.NewStrictHandler(&adminService{WorkspaceAdminService: history}, nil))
+	adminhttp.RegisterHandlers(app, adminhttp.NewStrictHandler(&adminService{WorkspaceAdminService: history}, nil))
 
 	rec := serveAdminAsset(app, http.MethodGet, "/workspaces/workspace-a/history?order=asc&limit=1", "")
 	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"id":"history-a"`) {
@@ -342,23 +342,23 @@ type fakeAdminWorkspaceHistory struct {
 	audio []byte
 }
 
-func (f *fakeAdminWorkspaceHistory) ListWorkspaces(context.Context, adminservice.ListWorkspacesRequestObject) (adminservice.ListWorkspacesResponseObject, error) {
+func (f *fakeAdminWorkspaceHistory) ListWorkspaces(context.Context, adminhttp.ListWorkspacesRequestObject) (adminhttp.ListWorkspacesResponseObject, error) {
 	return nil, nil
 }
 
-func (f *fakeAdminWorkspaceHistory) CreateWorkspace(context.Context, adminservice.CreateWorkspaceRequestObject) (adminservice.CreateWorkspaceResponseObject, error) {
+func (f *fakeAdminWorkspaceHistory) CreateWorkspace(context.Context, adminhttp.CreateWorkspaceRequestObject) (adminhttp.CreateWorkspaceResponseObject, error) {
 	return nil, nil
 }
 
-func (f *fakeAdminWorkspaceHistory) DeleteWorkspace(context.Context, adminservice.DeleteWorkspaceRequestObject) (adminservice.DeleteWorkspaceResponseObject, error) {
+func (f *fakeAdminWorkspaceHistory) DeleteWorkspace(context.Context, adminhttp.DeleteWorkspaceRequestObject) (adminhttp.DeleteWorkspaceResponseObject, error) {
 	return nil, nil
 }
 
-func (f *fakeAdminWorkspaceHistory) GetWorkspace(context.Context, adminservice.GetWorkspaceRequestObject) (adminservice.GetWorkspaceResponseObject, error) {
+func (f *fakeAdminWorkspaceHistory) GetWorkspace(context.Context, adminhttp.GetWorkspaceRequestObject) (adminhttp.GetWorkspaceResponseObject, error) {
 	return nil, nil
 }
 
-func (f *fakeAdminWorkspaceHistory) PutWorkspace(context.Context, adminservice.PutWorkspaceRequestObject) (adminservice.PutWorkspaceResponseObject, error) {
+func (f *fakeAdminWorkspaceHistory) PutWorkspace(context.Context, adminhttp.PutWorkspaceRequestObject) (adminhttp.PutWorkspaceResponseObject, error) {
 	return nil, nil
 }
 

@@ -3,7 +3,7 @@ package resourcemanager
 import (
 	"context"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminservice"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 )
 
@@ -42,33 +42,33 @@ func (m *Manager) applyFirmware(ctx context.Context, resource apitypes.Resource)
 }
 
 func (m *Manager) getFirmware(ctx context.Context, name string) (apitypes.Firmware, bool, error) {
-	response, err := m.services.Firmwares.GetFirmware(ctx, adminservice.GetFirmwareRequestObject{Name: name})
+	response, err := m.services.Firmwares.GetFirmware(ctx, adminhttp.GetFirmwareRequestObject{Name: name})
 	if err != nil {
 		return apitypes.Firmware{}, false, err
 	}
 	switch response := response.(type) {
-	case adminservice.GetFirmware200JSONResponse:
+	case adminhttp.GetFirmware200JSONResponse:
 		return apitypes.Firmware(response), true, nil
-	case adminservice.GetFirmware404JSONResponse:
+	case adminhttp.GetFirmware404JSONResponse:
 		return apitypes.Firmware{}, false, nil
-	case adminservice.GetFirmware500JSONResponse:
+	case adminhttp.GetFirmware500JSONResponse:
 		return apitypes.Firmware{}, false, responseError(500, "GET_FIRMWARE_FAILED", "failed to get firmware", response)
 	default:
 		return apitypes.Firmware{}, false, unexpectedResponse("GetFirmware", response)
 	}
 }
 
-func (m *Manager) putFirmware(ctx context.Context, name string, body adminservice.FirmwareUpsert) error {
-	response, err := m.services.Firmwares.PutFirmware(ctx, adminservice.PutFirmwareRequestObject{Name: name, Body: &body})
+func (m *Manager) putFirmware(ctx context.Context, name string, body adminhttp.FirmwareUpsert) error {
+	response, err := m.services.Firmwares.PutFirmware(ctx, adminhttp.PutFirmwareRequestObject{Name: name, Body: &body})
 	if err != nil {
 		return err
 	}
 	switch response := response.(type) {
-	case adminservice.PutFirmware200JSONResponse:
+	case adminhttp.PutFirmware200JSONResponse:
 		return nil
-	case adminservice.PutFirmware400JSONResponse:
+	case adminhttp.PutFirmware400JSONResponse:
 		return responseError(400, "PUT_FIRMWARE_FAILED", "failed to put firmware", response)
-	case adminservice.PutFirmware500JSONResponse:
+	case adminhttp.PutFirmware500JSONResponse:
 		return responseError(500, "PUT_FIRMWARE_FAILED", "failed to put firmware", response)
 	default:
 		return unexpectedResponse("PutFirmware", response)
@@ -76,16 +76,16 @@ func (m *Manager) putFirmware(ctx context.Context, name string, body adminservic
 }
 
 func (m *Manager) deleteFirmware(ctx context.Context, name string) (apitypes.Firmware, bool, error) {
-	response, err := m.services.Firmwares.DeleteFirmware(ctx, adminservice.DeleteFirmwareRequestObject{Name: name})
+	response, err := m.services.Firmwares.DeleteFirmware(ctx, adminhttp.DeleteFirmwareRequestObject{Name: name})
 	if err != nil {
 		return apitypes.Firmware{}, false, err
 	}
 	switch response := response.(type) {
-	case adminservice.DeleteFirmware200JSONResponse:
+	case adminhttp.DeleteFirmware200JSONResponse:
 		return apitypes.Firmware(response), true, nil
-	case adminservice.DeleteFirmware404JSONResponse:
+	case adminhttp.DeleteFirmware404JSONResponse:
 		return apitypes.Firmware{}, false, nil
-	case adminservice.DeleteFirmware500JSONResponse:
+	case adminhttp.DeleteFirmware500JSONResponse:
 		return apitypes.Firmware{}, false, responseError(500, "DELETE_FIRMWARE_FAILED", "failed to delete firmware", response)
 	default:
 		return apitypes.Firmware{}, false, unexpectedResponse("DeleteFirmware", response)
@@ -99,8 +99,8 @@ func firmwareSpec(item apitypes.Firmware) apitypes.FirmwareSpec {
 	}
 }
 
-func firmwareUpsert(resource apitypes.FirmwareResource) adminservice.FirmwareUpsert {
-	return adminservice.FirmwareUpsert{
+func firmwareUpsert(resource apitypes.FirmwareResource) adminhttp.FirmwareUpsert {
+	return adminhttp.FirmwareUpsert{
 		Description: resource.Spec.Description,
 		Name:        string(resource.Metadata.Name),
 		Slots:       firmwareRuntimeSlots(resource.Spec.Slots),

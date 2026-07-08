@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminservice"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/acl"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
@@ -103,6 +103,6 @@ type fakePeerConfigGetter struct {
 	view *string
 }
 
-func (g fakePeerConfigGetter) GetPeerConfig(context.Context, adminservice.GetPeerConfigRequestObject) (adminservice.GetPeerConfigResponseObject, error) {
-	return adminservice.GetPeerConfig200JSONResponse(apitypes.Configuration{View: g.view}), nil
+func (g fakePeerConfigGetter) GetPeerConfig(context.Context, adminhttp.GetPeerConfigRequestObject) (adminhttp.GetPeerConfigResponseObject, error) {
+	return adminhttp.GetPeerConfig200JSONResponse(apitypes.Configuration{View: g.view}), nil
 }

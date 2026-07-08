@@ -1,7 +1,7 @@
 {
   "openapi": "3.0.3",
   "info": {
-    "title": "RPC Client Service Types",
+    "title": "Client RPC Types",
     "description": "Schemas for client-provided RPC methods.",
     "version": "1.0.0"
   },

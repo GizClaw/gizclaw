@@ -46,7 +46,7 @@ func (c *Client) OpenPeerStream(buffer int) (*PeerStream, error) {
 	if err != nil {
 		return nil, err
 	}
-	packets, unsubscribe := c.subscribePeerPackets(ProtocolStampedOpus, buffer)
+	packets, unsubscribe := c.subscribePeerPackets(PacketStampedOpus, buffer)
 	stream := &PeerStream{
 		events:      eventStream,
 		packets:     packets,
@@ -113,7 +113,7 @@ func (s *PeerStream) Push(ctx context.Context, chunk *genx.MessageChunk) error {
 	if chunk.Ctrl != nil && chunk.Ctrl.Timestamp > 0 {
 		timestamp = uint64(chunk.Ctrl.Timestamp)
 	}
-	_, err := s.conn.Write(ProtocolStampedOpus, stampedopus.Pack(timestamp, blob.Data))
+	_, err := s.conn.Write(PacketStampedOpus, stampedopus.Pack(timestamp, blob.Data))
 	return err
 }
 

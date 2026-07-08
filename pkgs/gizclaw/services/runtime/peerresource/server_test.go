@@ -13,7 +13,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminservice"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/credential"
@@ -446,22 +446,22 @@ func TestServerListVoicesFiltersByACL(t *testing.T) {
 
 	for _, id := range []string{"voice-a", "voice-b", "provider:tenant:voice-c"} {
 		body := testVoiceUpsert(id)
-		resp, err := srv.Voices.CreateVoice(ctx, adminservice.CreateVoiceRequestObject{Body: &body})
+		resp, err := srv.Voices.CreateVoice(ctx, adminhttp.CreateVoiceRequestObject{Body: &body})
 		if err != nil {
 			t.Fatalf("CreateVoice(%s) error = %v", id, err)
 		}
-		if _, ok := resp.(adminservice.CreateVoice200JSONResponse); !ok {
+		if _, ok := resp.(adminhttp.CreateVoice200JSONResponse); !ok {
 			t.Fatalf("CreateVoice(%s) response = %#v", id, resp)
 		}
 	}
 
 	auth.allow(acl.ResourceKindVoice, "voice-a", apitypes.ACLPermissionRead)
 	auth.allow(acl.ResourceKindVoice, "provider:tenant:voice-c", apitypes.ACLPermissionRead)
-	resp, err := srv.ListVoices(ctx, adminservice.ListVoicesRequestObject{})
+	resp, err := srv.ListVoices(ctx, adminhttp.ListVoicesRequestObject{})
 	if err != nil {
 		t.Fatalf("ListVoices() error = %v", err)
 	}
-	list, ok := resp.(adminservice.ListVoices200JSONResponse)
+	list, ok := resp.(adminhttp.ListVoices200JSONResponse)
 	if !ok {
 		t.Fatalf("ListVoices() response = %#v", resp)
 	}
@@ -502,7 +502,7 @@ func TestServerVoiceRPCErrorPaths(t *testing.T) {
 	requireRPCError(t, resp, rpcapi.RPCErrorCodeInvalidParams)
 
 	body := testVoiceUpsert("voice-a")
-	if _, err := srv.Voices.CreateVoice(context.Background(), adminservice.CreateVoiceRequestObject{Body: &body}); err != nil {
+	if _, err := srv.Voices.CreateVoice(context.Background(), adminhttp.CreateVoiceRequestObject{Body: &body}); err != nil {
 		t.Fatalf("CreateVoice() error = %v", err)
 	}
 	denied := newRuleAuthorizer()
@@ -517,7 +517,7 @@ func TestServerVoiceRPCErrorPaths(t *testing.T) {
 	upstreamError := newTestResourceServer()
 	upstreamError.ACL = allowAllAuthorizer{}
 	upstreamError.Voices = fakeVoiceAdminService{
-		list: adminservice.ListVoices500JSONResponse(apitypes.NewErrorResponse("VOICE_ERROR", "failed")),
+		list: adminhttp.ListVoices500JSONResponse(apitypes.NewErrorResponse("VOICE_ERROR", "failed")),
 	}
 	resp = callRPC(t, upstreamError, "voice-list-upstream-error", rpcapi.RPCMethodServerVoiceList, rpcParams(t, (*rpcapi.RPCRequest_Params).FromVoiceListRequest, rpcapi.VoiceListRequest{}))
 	requireRPCError(t, resp, rpcapi.RPCErrorCodeInternalError)
@@ -528,7 +528,7 @@ func TestServerFirmwareRPCUsesFirmwareReadACL(t *testing.T) {
 	auth := newRuleAuthorizer()
 	description := "main stable firmware"
 	firmwareServer := &firmware.Server{Store: kv.NewMemory(nil), Assets: objectstore.Dir(t.TempDir()), Now: func() time.Time { return time.Unix(1, 0).UTC() }}
-	create := adminservice.FirmwareUpsert{
+	create := adminhttp.FirmwareUpsert{
 		Name: "devkit",
 		Slots: apitypes.FirmwareSlots{
 			Stable: apitypes.FirmwareSlot{
@@ -536,29 +536,29 @@ func TestServerFirmwareRPCUsesFirmwareReadACL(t *testing.T) {
 			},
 		},
 	}
-	if resp, err := firmwareServer.CreateFirmware(ctx, adminservice.CreateFirmwareRequestObject{Body: &create}); err != nil {
+	if resp, err := firmwareServer.CreateFirmware(ctx, adminhttp.CreateFirmwareRequestObject{Body: &create}); err != nil {
 		t.Fatalf("CreateFirmware error = %v", err)
-	} else if _, ok := resp.(adminservice.CreateFirmware200JSONResponse); !ok {
+	} else if _, ok := resp.(adminhttp.CreateFirmware200JSONResponse); !ok {
 		t.Fatalf("CreateFirmware response = %T", resp)
 	}
-	other := adminservice.FirmwareUpsert{
+	other := adminhttp.FirmwareUpsert{
 		Name: "otherkit",
 		Slots: apitypes.FirmwareSlots{
 			Stable: apitypes.FirmwareSlot{Description: stringPtr("other stable firmware")},
 		},
 	}
-	if resp, err := firmwareServer.CreateFirmware(ctx, adminservice.CreateFirmwareRequestObject{Body: &other}); err != nil {
+	if resp, err := firmwareServer.CreateFirmware(ctx, adminhttp.CreateFirmwareRequestObject{Body: &other}); err != nil {
 		t.Fatalf("CreateFirmware other error = %v", err)
-	} else if _, ok := resp.(adminservice.CreateFirmware200JSONResponse); !ok {
+	} else if _, ok := resp.(adminhttp.CreateFirmware200JSONResponse); !ok {
 		t.Fatalf("CreateFirmware other response = %T", resp)
 	}
-	if resp, err := firmwareServer.UploadFirmwareArtifact(ctx, adminservice.UploadFirmwareArtifactRequestObject{
+	if resp, err := firmwareServer.UploadFirmwareArtifact(ctx, adminhttp.UploadFirmwareArtifactRequestObject{
 		Name:    "devkit",
 		Channel: "stable",
 		Body:    bytes.NewReader(peerresourceTarPayload(t, map[string]string{"firmware.bin": "firmware payload"})),
 	}); err != nil {
 		t.Fatalf("UploadFirmwareArtifact error = %v", err)
-	} else if _, ok := resp.(adminservice.UploadFirmwareArtifact200JSONResponse); !ok {
+	} else if _, ok := resp.(adminhttp.UploadFirmwareArtifact200JSONResponse); !ok {
 		t.Fatalf("UploadFirmwareArtifact response = %T", resp)
 	}
 
@@ -629,28 +629,28 @@ func TestServerGameplayPixaDownloads(t *testing.T) {
 	}
 	petPixa := peerresourceTestPixa(t, []string{"idle", "feed"})
 	badgePixa := peerresourceTestPixa(t, []string{"icon"})
-	if resp, err := catalog.CreatePetDef(ctx, adminservice.CreatePetDefRequestObject{Body: &adminservice.PetDefUpsert{Id: "petdef-a", Spec: apitypes.PetDefSpec{DisplayName: "Pet A"}}}); err != nil {
+	if resp, err := catalog.CreatePetDef(ctx, adminhttp.CreatePetDefRequestObject{Body: &adminhttp.PetDefUpsert{Id: "petdef-a", Spec: apitypes.PetDefSpec{DisplayName: "Pet A"}}}); err != nil {
 		t.Fatalf("CreatePetDef error = %v", err)
-	} else if _, ok := resp.(adminservice.CreatePetDef200JSONResponse); !ok {
+	} else if _, ok := resp.(adminhttp.CreatePetDef200JSONResponse); !ok {
 		t.Fatalf("CreatePetDef response = %T", resp)
 	}
-	if resp, err := catalog.UploadPetDefPixa(ctx, adminservice.UploadPetDefPixaRequestObject{Id: "petdef-a", Body: bytes.NewReader(petPixa)}); err != nil {
+	if resp, err := catalog.UploadPetDefPixa(ctx, adminhttp.UploadPetDefPixaRequestObject{Id: "petdef-a", Body: bytes.NewReader(petPixa)}); err != nil {
 		t.Fatalf("UploadPetDefPixa error = %v", err)
-	} else if _, ok := resp.(adminservice.UploadPetDefPixa200JSONResponse); !ok {
+	} else if _, ok := resp.(adminhttp.UploadPetDefPixa200JSONResponse); !ok {
 		t.Fatalf("UploadPetDefPixa response = %T", resp)
 	}
-	if resp, err := catalog.CreateBadgeDef(ctx, adminservice.CreateBadgeDefRequestObject{Body: &adminservice.BadgeDefUpsert{Id: "badge-a", Spec: apitypes.BadgeDefSpec{DisplayName: "Badge A"}}}); err != nil {
+	if resp, err := catalog.CreateBadgeDef(ctx, adminhttp.CreateBadgeDefRequestObject{Body: &adminhttp.BadgeDefUpsert{Id: "badge-a", Spec: apitypes.BadgeDefSpec{DisplayName: "Badge A"}}}); err != nil {
 		t.Fatalf("CreateBadgeDef error = %v", err)
-	} else if _, ok := resp.(adminservice.CreateBadgeDef200JSONResponse); !ok {
+	} else if _, ok := resp.(adminhttp.CreateBadgeDef200JSONResponse); !ok {
 		t.Fatalf("CreateBadgeDef response = %T", resp)
 	}
-	if resp, err := catalog.UploadBadgeDefPixa(ctx, adminservice.UploadBadgeDefPixaRequestObject{Id: "badge-a", Body: bytes.NewReader(badgePixa)}); err != nil {
+	if resp, err := catalog.UploadBadgeDefPixa(ctx, adminhttp.UploadBadgeDefPixaRequestObject{Id: "badge-a", Body: bytes.NewReader(badgePixa)}); err != nil {
 		t.Fatalf("UploadBadgeDefPixa error = %v", err)
-	} else if _, ok := resp.(adminservice.UploadBadgeDefPixa200JSONResponse); !ok {
+	} else if _, ok := resp.(adminhttp.UploadBadgeDefPixa200JSONResponse); !ok {
 		t.Fatalf("UploadBadgeDefPixa response = %T", resp)
 	}
 	badgeDelta := map[string]int64{"badge-a": 100}
-	if resp, err := catalog.CreateGameRuleset(ctx, adminservice.CreateGameRulesetRequestObject{Body: &adminservice.GameRulesetUpsert{
+	if resp, err := catalog.CreateGameRuleset(ctx, adminhttp.CreateGameRulesetRequestObject{Body: &adminhttp.GameRulesetUpsert{
 		Name: "default",
 		Spec: apitypes.GameRulesetSpec{
 			Enabled: true,
@@ -663,7 +663,7 @@ func TestServerGameplayPixaDownloads(t *testing.T) {
 		},
 	}}); err != nil {
 		t.Fatalf("CreateGameRuleset error = %v", err)
-	} else if _, ok := resp.(adminservice.CreateGameRuleset200JSONResponse); !ok {
+	} else if _, ok := resp.(adminhttp.CreateGameRuleset200JSONResponse); !ok {
 		t.Fatalf("CreateGameRuleset response = %T", resp)
 	}
 	db, err := sql.Open("sqlite", ":memory:")
@@ -677,9 +677,9 @@ func TestServerGameplayPixaDownloads(t *testing.T) {
 	if err != nil {
 		t.Fatalf("convert workflow: %v", err)
 	}
-	if resp, err := workflowServer.CreateWorkflow(ctx, adminservice.CreateWorkflowRequestObject{Body: &chatroomWorkflow}); err != nil {
+	if resp, err := workflowServer.CreateWorkflow(ctx, adminhttp.CreateWorkflowRequestObject{Body: &chatroomWorkflow}); err != nil {
 		t.Fatalf("CreateWorkflow error = %v", err)
-	} else if _, ok := resp.(adminservice.CreateWorkflow200JSONResponse); !ok {
+	} else if _, ok := resp.(adminhttp.CreateWorkflow200JSONResponse); !ok {
 		t.Fatalf("CreateWorkflow response = %T", resp)
 	}
 	ids := []string{"pet-a", "adopt-txn", "grant-a"}
@@ -1042,8 +1042,8 @@ func rpcCredential(name, key string) rpcapi.Credential {
 	}
 }
 
-func testVoiceUpsert(id string) adminservice.VoiceUpsert {
-	return adminservice.VoiceUpsert{
+func testVoiceUpsert(id string) adminhttp.VoiceUpsert {
+	return adminhttp.VoiceUpsert{
 		Id:     id,
 		Source: apitypes.VoiceSourceManual,
 		Provider: apitypes.VoiceProvider{
@@ -1068,26 +1068,26 @@ func (a errorAuthorizer) Authorize(context.Context, acl.AuthorizeRequest) error 
 }
 
 type fakeVoiceAdminService struct {
-	list adminservice.ListVoicesResponseObject
+	list adminhttp.ListVoicesResponseObject
 }
 
-func (s fakeVoiceAdminService) CreateVoice(context.Context, adminservice.CreateVoiceRequestObject) (adminservice.CreateVoiceResponseObject, error) {
+func (s fakeVoiceAdminService) CreateVoice(context.Context, adminhttp.CreateVoiceRequestObject) (adminhttp.CreateVoiceResponseObject, error) {
 	return nil, errors.New("unexpected CreateVoice")
 }
 
-func (s fakeVoiceAdminService) ListVoices(context.Context, adminservice.ListVoicesRequestObject) (adminservice.ListVoicesResponseObject, error) {
+func (s fakeVoiceAdminService) ListVoices(context.Context, adminhttp.ListVoicesRequestObject) (adminhttp.ListVoicesResponseObject, error) {
 	return s.list, nil
 }
 
-func (s fakeVoiceAdminService) DeleteVoice(context.Context, adminservice.DeleteVoiceRequestObject) (adminservice.DeleteVoiceResponseObject, error) {
+func (s fakeVoiceAdminService) DeleteVoice(context.Context, adminhttp.DeleteVoiceRequestObject) (adminhttp.DeleteVoiceResponseObject, error) {
 	return nil, errors.New("unexpected DeleteVoice")
 }
 
-func (s fakeVoiceAdminService) GetVoice(context.Context, adminservice.GetVoiceRequestObject) (adminservice.GetVoiceResponseObject, error) {
+func (s fakeVoiceAdminService) GetVoice(context.Context, adminhttp.GetVoiceRequestObject) (adminhttp.GetVoiceResponseObject, error) {
 	return nil, errors.New("unexpected GetVoice")
 }
 
-func (s fakeVoiceAdminService) PutVoice(context.Context, adminservice.PutVoiceRequestObject) (adminservice.PutVoiceResponseObject, error) {
+func (s fakeVoiceAdminService) PutVoice(context.Context, adminhttp.PutVoiceRequestObject) (adminhttp.PutVoiceResponseObject, error) {
 	return nil, errors.New("unexpected PutVoice")
 }
 

@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminservice"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/objectstore"
@@ -40,75 +40,75 @@ type Catalog struct {
 }
 
 type CatalogAdminService interface {
-	ListGameRulesets(context.Context, adminservice.ListGameRulesetsRequestObject) (adminservice.ListGameRulesetsResponseObject, error)
-	CreateGameRuleset(context.Context, adminservice.CreateGameRulesetRequestObject) (adminservice.CreateGameRulesetResponseObject, error)
-	DeleteGameRuleset(context.Context, adminservice.DeleteGameRulesetRequestObject) (adminservice.DeleteGameRulesetResponseObject, error)
-	GetGameRuleset(context.Context, adminservice.GetGameRulesetRequestObject) (adminservice.GetGameRulesetResponseObject, error)
-	PutGameRuleset(context.Context, adminservice.PutGameRulesetRequestObject) (adminservice.PutGameRulesetResponseObject, error)
-	ListPetDefs(context.Context, adminservice.ListPetDefsRequestObject) (adminservice.ListPetDefsResponseObject, error)
-	CreatePetDef(context.Context, adminservice.CreatePetDefRequestObject) (adminservice.CreatePetDefResponseObject, error)
-	DeletePetDef(context.Context, adminservice.DeletePetDefRequestObject) (adminservice.DeletePetDefResponseObject, error)
-	GetPetDef(context.Context, adminservice.GetPetDefRequestObject) (adminservice.GetPetDefResponseObject, error)
-	PutPetDef(context.Context, adminservice.PutPetDefRequestObject) (adminservice.PutPetDefResponseObject, error)
-	DownloadPetDefPixa(context.Context, adminservice.DownloadPetDefPixaRequestObject) (adminservice.DownloadPetDefPixaResponseObject, error)
-	UploadPetDefPixa(context.Context, adminservice.UploadPetDefPixaRequestObject) (adminservice.UploadPetDefPixaResponseObject, error)
-	ListBadgeDefs(context.Context, adminservice.ListBadgeDefsRequestObject) (adminservice.ListBadgeDefsResponseObject, error)
-	CreateBadgeDef(context.Context, adminservice.CreateBadgeDefRequestObject) (adminservice.CreateBadgeDefResponseObject, error)
-	DeleteBadgeDef(context.Context, adminservice.DeleteBadgeDefRequestObject) (adminservice.DeleteBadgeDefResponseObject, error)
-	GetBadgeDef(context.Context, adminservice.GetBadgeDefRequestObject) (adminservice.GetBadgeDefResponseObject, error)
-	PutBadgeDef(context.Context, adminservice.PutBadgeDefRequestObject) (adminservice.PutBadgeDefResponseObject, error)
-	DownloadBadgeDefPixa(context.Context, adminservice.DownloadBadgeDefPixaRequestObject) (adminservice.DownloadBadgeDefPixaResponseObject, error)
-	UploadBadgeDefPixa(context.Context, adminservice.UploadBadgeDefPixaRequestObject) (adminservice.UploadBadgeDefPixaResponseObject, error)
-	ListGameDefs(context.Context, adminservice.ListGameDefsRequestObject) (adminservice.ListGameDefsResponseObject, error)
-	CreateGameDef(context.Context, adminservice.CreateGameDefRequestObject) (adminservice.CreateGameDefResponseObject, error)
-	DeleteGameDef(context.Context, adminservice.DeleteGameDefRequestObject) (adminservice.DeleteGameDefResponseObject, error)
-	GetGameDef(context.Context, adminservice.GetGameDefRequestObject) (adminservice.GetGameDefResponseObject, error)
-	PutGameDef(context.Context, adminservice.PutGameDefRequestObject) (adminservice.PutGameDefResponseObject, error)
+	ListGameRulesets(context.Context, adminhttp.ListGameRulesetsRequestObject) (adminhttp.ListGameRulesetsResponseObject, error)
+	CreateGameRuleset(context.Context, adminhttp.CreateGameRulesetRequestObject) (adminhttp.CreateGameRulesetResponseObject, error)
+	DeleteGameRuleset(context.Context, adminhttp.DeleteGameRulesetRequestObject) (adminhttp.DeleteGameRulesetResponseObject, error)
+	GetGameRuleset(context.Context, adminhttp.GetGameRulesetRequestObject) (adminhttp.GetGameRulesetResponseObject, error)
+	PutGameRuleset(context.Context, adminhttp.PutGameRulesetRequestObject) (adminhttp.PutGameRulesetResponseObject, error)
+	ListPetDefs(context.Context, adminhttp.ListPetDefsRequestObject) (adminhttp.ListPetDefsResponseObject, error)
+	CreatePetDef(context.Context, adminhttp.CreatePetDefRequestObject) (adminhttp.CreatePetDefResponseObject, error)
+	DeletePetDef(context.Context, adminhttp.DeletePetDefRequestObject) (adminhttp.DeletePetDefResponseObject, error)
+	GetPetDef(context.Context, adminhttp.GetPetDefRequestObject) (adminhttp.GetPetDefResponseObject, error)
+	PutPetDef(context.Context, adminhttp.PutPetDefRequestObject) (adminhttp.PutPetDefResponseObject, error)
+	DownloadPetDefPixa(context.Context, adminhttp.DownloadPetDefPixaRequestObject) (adminhttp.DownloadPetDefPixaResponseObject, error)
+	UploadPetDefPixa(context.Context, adminhttp.UploadPetDefPixaRequestObject) (adminhttp.UploadPetDefPixaResponseObject, error)
+	ListBadgeDefs(context.Context, adminhttp.ListBadgeDefsRequestObject) (adminhttp.ListBadgeDefsResponseObject, error)
+	CreateBadgeDef(context.Context, adminhttp.CreateBadgeDefRequestObject) (adminhttp.CreateBadgeDefResponseObject, error)
+	DeleteBadgeDef(context.Context, adminhttp.DeleteBadgeDefRequestObject) (adminhttp.DeleteBadgeDefResponseObject, error)
+	GetBadgeDef(context.Context, adminhttp.GetBadgeDefRequestObject) (adminhttp.GetBadgeDefResponseObject, error)
+	PutBadgeDef(context.Context, adminhttp.PutBadgeDefRequestObject) (adminhttp.PutBadgeDefResponseObject, error)
+	DownloadBadgeDefPixa(context.Context, adminhttp.DownloadBadgeDefPixaRequestObject) (adminhttp.DownloadBadgeDefPixaResponseObject, error)
+	UploadBadgeDefPixa(context.Context, adminhttp.UploadBadgeDefPixaRequestObject) (adminhttp.UploadBadgeDefPixaResponseObject, error)
+	ListGameDefs(context.Context, adminhttp.ListGameDefsRequestObject) (adminhttp.ListGameDefsResponseObject, error)
+	CreateGameDef(context.Context, adminhttp.CreateGameDefRequestObject) (adminhttp.CreateGameDefResponseObject, error)
+	DeleteGameDef(context.Context, adminhttp.DeleteGameDefRequestObject) (adminhttp.DeleteGameDefResponseObject, error)
+	GetGameDef(context.Context, adminhttp.GetGameDefRequestObject) (adminhttp.GetGameDefResponseObject, error)
+	PutGameDef(context.Context, adminhttp.PutGameDefRequestObject) (adminhttp.PutGameDefResponseObject, error)
 }
 
 var _ CatalogAdminService = (*Catalog)(nil)
 
-func (c *Catalog) ListGameRulesets(ctx context.Context, request adminservice.ListGameRulesetsRequestObject) (adminservice.ListGameRulesetsResponseObject, error) {
+func (c *Catalog) ListGameRulesets(ctx context.Context, request adminhttp.ListGameRulesetsRequestObject) (adminhttp.ListGameRulesetsResponseObject, error) {
 	store, err := c.store(c.GameRulesets, "game rulesets")
 	if err != nil {
-		return adminservice.ListGameRulesets500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.ListGameRulesets500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	cursor, limit := normalizeListParams(request.Params.Cursor, request.Params.Limit)
 	items, hasNext, nextCursor, err := listJSON[apitypes.GameRuleset](ctx, store, gameRulesetsRoot, cursor, limit)
 	if err != nil {
-		return adminservice.ListGameRulesets500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.ListGameRulesets500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	return adminservice.ListGameRulesets200JSONResponse(adminservice.GameRulesetList{Items: items, HasNext: hasNext, NextCursor: nextCursor}), nil
+	return adminhttp.ListGameRulesets200JSONResponse(adminhttp.GameRulesetList{Items: items, HasNext: hasNext, NextCursor: nextCursor}), nil
 }
 
-func (c *Catalog) CreateGameRuleset(ctx context.Context, request adminservice.CreateGameRulesetRequestObject) (adminservice.CreateGameRulesetResponseObject, error) {
+func (c *Catalog) CreateGameRuleset(ctx context.Context, request adminhttp.CreateGameRulesetRequestObject) (adminhttp.CreateGameRulesetResponseObject, error) {
 	if request.Body == nil {
-		return adminservice.CreateGameRuleset400JSONResponse(apitypes.NewErrorResponse("INVALID_GAME_RULESET", "request body required")), nil
+		return adminhttp.CreateGameRuleset400JSONResponse(apitypes.NewErrorResponse("INVALID_GAME_RULESET", "request body required")), nil
 	}
 	store, err := c.store(c.GameRulesets, "game rulesets")
 	if err != nil {
-		return adminservice.CreateGameRuleset500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.CreateGameRuleset500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	name := strings.TrimSpace(request.Body.Name)
 	item, err := c.buildGameRuleset(name, request.Body.Spec, time.Time{})
 	if err != nil {
-		return adminservice.CreateGameRuleset400JSONResponse(apitypes.NewErrorResponse("INVALID_GAME_RULESET", err.Error())), nil
+		return adminhttp.CreateGameRuleset400JSONResponse(apitypes.NewErrorResponse("INVALID_GAME_RULESET", err.Error())), nil
 	}
 	if _, err := store.Get(ctx, rulesetKey(item.Name)); err == nil {
-		return adminservice.CreateGameRuleset409JSONResponse(apitypes.NewErrorResponse("GAME_RULESET_ALREADY_EXISTS", fmt.Sprintf("game ruleset %q already exists", item.Name))), nil
+		return adminhttp.CreateGameRuleset409JSONResponse(apitypes.NewErrorResponse("GAME_RULESET_ALREADY_EXISTS", fmt.Sprintf("game ruleset %q already exists", item.Name))), nil
 	} else if !errors.Is(err, kv.ErrNotFound) {
-		return adminservice.CreateGameRuleset500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.CreateGameRuleset500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	if err := writeJSON(ctx, store, rulesetKey(item.Name), item); err != nil {
-		return adminservice.CreateGameRuleset500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.CreateGameRuleset500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	return adminservice.CreateGameRuleset200JSONResponse(item), nil
+	return adminhttp.CreateGameRuleset200JSONResponse(item), nil
 }
 
-func (c *Catalog) DeleteGameRuleset(ctx context.Context, request adminservice.DeleteGameRulesetRequestObject) (adminservice.DeleteGameRulesetResponseObject, error) {
+func (c *Catalog) DeleteGameRuleset(ctx context.Context, request adminhttp.DeleteGameRulesetRequestObject) (adminhttp.DeleteGameRulesetResponseObject, error) {
 	store, err := c.store(c.GameRulesets, "game rulesets")
 	if err != nil {
-		return adminservice.DeleteGameRuleset500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.DeleteGameRuleset500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	name, err := pathID(request.Name)
 	if err != nil {
@@ -117,34 +117,34 @@ func (c *Catalog) DeleteGameRuleset(ctx context.Context, request adminservice.De
 	item, err := readJSON[apitypes.GameRuleset](ctx, store, rulesetKey(name))
 	if err != nil {
 		if errors.Is(err, kv.ErrNotFound) {
-			return adminservice.DeleteGameRuleset404JSONResponse(apitypes.NewErrorResponse("GAME_RULESET_NOT_FOUND", fmt.Sprintf("game ruleset %q not found", name))), nil
+			return adminhttp.DeleteGameRuleset404JSONResponse(apitypes.NewErrorResponse("GAME_RULESET_NOT_FOUND", fmt.Sprintf("game ruleset %q not found", name))), nil
 		}
-		return adminservice.DeleteGameRuleset500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.DeleteGameRuleset500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	if err := store.Delete(ctx, rulesetKey(name)); err != nil {
-		return adminservice.DeleteGameRuleset500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.DeleteGameRuleset500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	return adminservice.DeleteGameRuleset200JSONResponse(item), nil
+	return adminhttp.DeleteGameRuleset200JSONResponse(item), nil
 }
 
-func (c *Catalog) GetGameRuleset(ctx context.Context, request adminservice.GetGameRulesetRequestObject) (adminservice.GetGameRulesetResponseObject, error) {
+func (c *Catalog) GetGameRuleset(ctx context.Context, request adminhttp.GetGameRulesetRequestObject) (adminhttp.GetGameRulesetResponseObject, error) {
 	item, err := c.GetGameRulesetByName(ctx, request.Name)
 	if err != nil {
 		if errors.Is(err, kv.ErrNotFound) {
-			return adminservice.GetGameRuleset404JSONResponse(apitypes.NewErrorResponse("GAME_RULESET_NOT_FOUND", err.Error())), nil
+			return adminhttp.GetGameRuleset404JSONResponse(apitypes.NewErrorResponse("GAME_RULESET_NOT_FOUND", err.Error())), nil
 		}
-		return adminservice.GetGameRuleset500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.GetGameRuleset500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	return adminservice.GetGameRuleset200JSONResponse(item), nil
+	return adminhttp.GetGameRuleset200JSONResponse(item), nil
 }
 
-func (c *Catalog) PutGameRuleset(ctx context.Context, request adminservice.PutGameRulesetRequestObject) (adminservice.PutGameRulesetResponseObject, error) {
+func (c *Catalog) PutGameRuleset(ctx context.Context, request adminhttp.PutGameRulesetRequestObject) (adminhttp.PutGameRulesetResponseObject, error) {
 	if request.Body == nil {
-		return adminservice.PutGameRuleset400JSONResponse(apitypes.NewErrorResponse("INVALID_GAME_RULESET", "request body required")), nil
+		return adminhttp.PutGameRuleset400JSONResponse(apitypes.NewErrorResponse("INVALID_GAME_RULESET", "request body required")), nil
 	}
 	store, err := c.store(c.GameRulesets, "game rulesets")
 	if err != nil {
-		return adminservice.PutGameRuleset500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.PutGameRuleset500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	name, err := pathID(request.Name)
 	if err != nil {
@@ -152,7 +152,7 @@ func (c *Catalog) PutGameRuleset(ctx context.Context, request adminservice.PutGa
 	}
 	previous, err := readJSON[apitypes.GameRuleset](ctx, store, rulesetKey(name))
 	if err != nil && !errors.Is(err, kv.ErrNotFound) {
-		return adminservice.PutGameRuleset500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.PutGameRuleset500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	createdAt := time.Time{}
 	if err == nil {
@@ -160,55 +160,55 @@ func (c *Catalog) PutGameRuleset(ctx context.Context, request adminservice.PutGa
 	}
 	item, err := c.buildGameRuleset(name, request.Body.Spec, createdAt)
 	if err != nil {
-		return adminservice.PutGameRuleset400JSONResponse(apitypes.NewErrorResponse("INVALID_GAME_RULESET", err.Error())), nil
+		return adminhttp.PutGameRuleset400JSONResponse(apitypes.NewErrorResponse("INVALID_GAME_RULESET", err.Error())), nil
 	}
 	if err := writeJSON(ctx, store, rulesetKey(item.Name), item); err != nil {
-		return adminservice.PutGameRuleset500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.PutGameRuleset500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	return adminservice.PutGameRuleset200JSONResponse(item), nil
+	return adminhttp.PutGameRuleset200JSONResponse(item), nil
 }
 
-func (c *Catalog) ListPetDefs(ctx context.Context, request adminservice.ListPetDefsRequestObject) (adminservice.ListPetDefsResponseObject, error) {
+func (c *Catalog) ListPetDefs(ctx context.Context, request adminhttp.ListPetDefsRequestObject) (adminhttp.ListPetDefsResponseObject, error) {
 	store, err := c.store(c.PetDefs, "pet defs")
 	if err != nil {
-		return adminservice.ListPetDefs500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.ListPetDefs500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	cursor, limit := normalizeListParams(request.Params.Cursor, request.Params.Limit)
 	items, hasNext, nextCursor, err := listJSON[apitypes.PetDef](ctx, store, petDefsRoot, cursor, limit)
 	if err != nil {
-		return adminservice.ListPetDefs500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.ListPetDefs500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	return adminservice.ListPetDefs200JSONResponse(adminservice.PetDefList{Items: items, HasNext: hasNext, NextCursor: nextCursor}), nil
+	return adminhttp.ListPetDefs200JSONResponse(adminhttp.PetDefList{Items: items, HasNext: hasNext, NextCursor: nextCursor}), nil
 }
 
-func (c *Catalog) CreatePetDef(ctx context.Context, request adminservice.CreatePetDefRequestObject) (adminservice.CreatePetDefResponseObject, error) {
+func (c *Catalog) CreatePetDef(ctx context.Context, request adminhttp.CreatePetDefRequestObject) (adminhttp.CreatePetDefResponseObject, error) {
 	if request.Body == nil {
-		return adminservice.CreatePetDef400JSONResponse(apitypes.NewErrorResponse("INVALID_PET_DEF", "request body required")), nil
+		return adminhttp.CreatePetDef400JSONResponse(apitypes.NewErrorResponse("INVALID_PET_DEF", "request body required")), nil
 	}
 	store, err := c.store(c.PetDefs, "pet defs")
 	if err != nil {
-		return adminservice.CreatePetDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.CreatePetDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	id := strings.TrimSpace(request.Body.Id)
 	item, err := c.buildPetDef(id, request.Body.Spec, nil, time.Time{})
 	if err != nil {
-		return adminservice.CreatePetDef400JSONResponse(apitypes.NewErrorResponse("INVALID_PET_DEF", err.Error())), nil
+		return adminhttp.CreatePetDef400JSONResponse(apitypes.NewErrorResponse("INVALID_PET_DEF", err.Error())), nil
 	}
 	if _, err := store.Get(ctx, petDefKey(item.Id)); err == nil {
-		return adminservice.CreatePetDef409JSONResponse(apitypes.NewErrorResponse("PET_DEF_ALREADY_EXISTS", fmt.Sprintf("pet def %q already exists", item.Id))), nil
+		return adminhttp.CreatePetDef409JSONResponse(apitypes.NewErrorResponse("PET_DEF_ALREADY_EXISTS", fmt.Sprintf("pet def %q already exists", item.Id))), nil
 	} else if !errors.Is(err, kv.ErrNotFound) {
-		return adminservice.CreatePetDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.CreatePetDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	if err := writeJSON(ctx, store, petDefKey(item.Id), item); err != nil {
-		return adminservice.CreatePetDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.CreatePetDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	return adminservice.CreatePetDef200JSONResponse(item), nil
+	return adminhttp.CreatePetDef200JSONResponse(item), nil
 }
 
-func (c *Catalog) DeletePetDef(ctx context.Context, request adminservice.DeletePetDefRequestObject) (adminservice.DeletePetDefResponseObject, error) {
+func (c *Catalog) DeletePetDef(ctx context.Context, request adminhttp.DeletePetDefRequestObject) (adminhttp.DeletePetDefResponseObject, error) {
 	store, err := c.store(c.PetDefs, "pet defs")
 	if err != nil {
-		return adminservice.DeletePetDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.DeletePetDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	id, err := pathID(request.Id)
 	if err != nil {
@@ -217,37 +217,37 @@ func (c *Catalog) DeletePetDef(ctx context.Context, request adminservice.DeleteP
 	item, err := readJSON[apitypes.PetDef](ctx, store, petDefKey(id))
 	if err != nil {
 		if errors.Is(err, kv.ErrNotFound) {
-			return adminservice.DeletePetDef404JSONResponse(apitypes.NewErrorResponse("PET_DEF_NOT_FOUND", fmt.Sprintf("pet def %q not found", id))), nil
+			return adminhttp.DeletePetDef404JSONResponse(apitypes.NewErrorResponse("PET_DEF_NOT_FOUND", fmt.Sprintf("pet def %q not found", id))), nil
 		}
-		return adminservice.DeletePetDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.DeletePetDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	if err := store.Delete(ctx, petDefKey(id)); err != nil {
-		return adminservice.DeletePetDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.DeletePetDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	if c.Assets != nil {
 		_ = c.Assets.DeletePrefix(path.Join("pet-defs", id))
 	}
-	return adminservice.DeletePetDef200JSONResponse(item), nil
+	return adminhttp.DeletePetDef200JSONResponse(item), nil
 }
 
-func (c *Catalog) GetPetDef(ctx context.Context, request adminservice.GetPetDefRequestObject) (adminservice.GetPetDefResponseObject, error) {
+func (c *Catalog) GetPetDef(ctx context.Context, request adminhttp.GetPetDefRequestObject) (adminhttp.GetPetDefResponseObject, error) {
 	item, err := c.GetPetDefByID(ctx, request.Id)
 	if err != nil {
 		if errors.Is(err, kv.ErrNotFound) {
-			return adminservice.GetPetDef404JSONResponse(apitypes.NewErrorResponse("PET_DEF_NOT_FOUND", err.Error())), nil
+			return adminhttp.GetPetDef404JSONResponse(apitypes.NewErrorResponse("PET_DEF_NOT_FOUND", err.Error())), nil
 		}
-		return adminservice.GetPetDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.GetPetDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	return adminservice.GetPetDef200JSONResponse(item), nil
+	return adminhttp.GetPetDef200JSONResponse(item), nil
 }
 
-func (c *Catalog) PutPetDef(ctx context.Context, request adminservice.PutPetDefRequestObject) (adminservice.PutPetDefResponseObject, error) {
+func (c *Catalog) PutPetDef(ctx context.Context, request adminhttp.PutPetDefRequestObject) (adminhttp.PutPetDefResponseObject, error) {
 	if request.Body == nil {
-		return adminservice.PutPetDef400JSONResponse(apitypes.NewErrorResponse("INVALID_PET_DEF", "request body required")), nil
+		return adminhttp.PutPetDef400JSONResponse(apitypes.NewErrorResponse("INVALID_PET_DEF", "request body required")), nil
 	}
 	store, err := c.store(c.PetDefs, "pet defs")
 	if err != nil {
-		return adminservice.PutPetDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.PutPetDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	id, err := pathID(request.Id)
 	if err != nil {
@@ -255,7 +255,7 @@ func (c *Catalog) PutPetDef(ctx context.Context, request adminservice.PutPetDefR
 	}
 	previous, err := readJSON[apitypes.PetDef](ctx, store, petDefKey(id))
 	if err != nil && !errors.Is(err, kv.ErrNotFound) {
-		return adminservice.PutPetDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.PutPetDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	createdAt := time.Time{}
 	var pixaPath *string
@@ -265,104 +265,104 @@ func (c *Catalog) PutPetDef(ctx context.Context, request adminservice.PutPetDefR
 	}
 	item, err := c.buildPetDef(id, request.Body.Spec, pixaPath, createdAt)
 	if err != nil {
-		return adminservice.PutPetDef400JSONResponse(apitypes.NewErrorResponse("INVALID_PET_DEF", err.Error())), nil
+		return adminhttp.PutPetDef400JSONResponse(apitypes.NewErrorResponse("INVALID_PET_DEF", err.Error())), nil
 	}
 	if err := writeJSON(ctx, store, petDefKey(item.Id), item); err != nil {
-		return adminservice.PutPetDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.PutPetDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	return adminservice.PutPetDef200JSONResponse(item), nil
+	return adminhttp.PutPetDef200JSONResponse(item), nil
 }
 
-func (c *Catalog) DownloadPetDefPixa(ctx context.Context, request adminservice.DownloadPetDefPixaRequestObject) (adminservice.DownloadPetDefPixaResponseObject, error) {
+func (c *Catalog) DownloadPetDefPixa(ctx context.Context, request adminhttp.DownloadPetDefPixaRequestObject) (adminhttp.DownloadPetDefPixaResponseObject, error) {
 	item, err := c.GetPetDefByID(ctx, request.Id)
 	if err != nil {
 		if errors.Is(err, kv.ErrNotFound) {
-			return adminservice.DownloadPetDefPixa404JSONResponse(apitypes.NewErrorResponse("PET_DEF_NOT_FOUND", err.Error())), nil
+			return adminhttp.DownloadPetDefPixa404JSONResponse(apitypes.NewErrorResponse("PET_DEF_NOT_FOUND", err.Error())), nil
 		}
-		return adminservice.DownloadPetDefPixa500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.DownloadPetDefPixa500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	reader, size, err := c.openAsset(valueOrZero(item.PixaPath))
 	if err != nil {
-		return adminservice.DownloadPetDefPixa404JSONResponse(apitypes.NewErrorResponse("PET_DEF_PIXA_NOT_FOUND", err.Error())), nil
+		return adminhttp.DownloadPetDefPixa404JSONResponse(apitypes.NewErrorResponse("PET_DEF_PIXA_NOT_FOUND", err.Error())), nil
 	}
-	return adminservice.DownloadPetDefPixa200ApplicationoctetStreamResponse{Body: reader, ContentLength: size}, nil
+	return adminhttp.DownloadPetDefPixa200ApplicationoctetStreamResponse{Body: reader, ContentLength: size}, nil
 }
 
-func (c *Catalog) UploadPetDefPixa(ctx context.Context, request adminservice.UploadPetDefPixaRequestObject) (adminservice.UploadPetDefPixaResponseObject, error) {
+func (c *Catalog) UploadPetDefPixa(ctx context.Context, request adminhttp.UploadPetDefPixaRequestObject) (adminhttp.UploadPetDefPixaResponseObject, error) {
 	if request.Body == nil {
-		return adminservice.UploadPetDefPixa500JSONResponse(apitypes.NewErrorResponse("INVALID_PET_DEF_PIXA", "request body required")), nil
+		return adminhttp.UploadPetDefPixa500JSONResponse(apitypes.NewErrorResponse("INVALID_PET_DEF_PIXA", "request body required")), nil
 	}
 	store, err := c.store(c.PetDefs, "pet defs")
 	if err != nil {
-		return adminservice.UploadPetDefPixa500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.UploadPetDefPixa500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	item, err := c.GetPetDefByID(ctx, request.Id)
 	if err != nil {
 		if errors.Is(err, kv.ErrNotFound) {
-			return adminservice.UploadPetDefPixa404JSONResponse(apitypes.NewErrorResponse("PET_DEF_NOT_FOUND", err.Error())), nil
+			return adminhttp.UploadPetDefPixa404JSONResponse(apitypes.NewErrorResponse("PET_DEF_NOT_FOUND", err.Error())), nil
 		}
-		return adminservice.UploadPetDefPixa500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.UploadPetDefPixa500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	data, err := io.ReadAll(request.Body)
 	if err != nil {
-		return adminservice.UploadPetDefPixa500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.UploadPetDefPixa500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	if err := validatePetDefPixa(data); err != nil {
-		return adminservice.UploadPetDefPixa500JSONResponse(apitypes.NewErrorResponse("INVALID_PET_DEF_PIXA", err.Error())), nil
+		return adminhttp.UploadPetDefPixa500JSONResponse(apitypes.NewErrorResponse("INVALID_PET_DEF_PIXA", err.Error())), nil
 	}
 	pixaPath := path.Join("pet-defs", item.Id, "pixa")
 	if err := c.putAsset(pixaPath, bytes.NewReader(data)); err != nil {
-		return adminservice.UploadPetDefPixa500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.UploadPetDefPixa500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	item.PixaPath = &pixaPath
 	item.UpdatedAt = c.now()
 	if err := writeJSON(ctx, store, petDefKey(item.Id), item); err != nil {
-		return adminservice.UploadPetDefPixa500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.UploadPetDefPixa500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	return adminservice.UploadPetDefPixa200JSONResponse(item), nil
+	return adminhttp.UploadPetDefPixa200JSONResponse(item), nil
 }
 
-func (c *Catalog) ListBadgeDefs(ctx context.Context, request adminservice.ListBadgeDefsRequestObject) (adminservice.ListBadgeDefsResponseObject, error) {
+func (c *Catalog) ListBadgeDefs(ctx context.Context, request adminhttp.ListBadgeDefsRequestObject) (adminhttp.ListBadgeDefsResponseObject, error) {
 	store, err := c.store(c.BadgeDefs, "badge defs")
 	if err != nil {
-		return adminservice.ListBadgeDefs500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.ListBadgeDefs500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	cursor, limit := normalizeListParams(request.Params.Cursor, request.Params.Limit)
 	items, hasNext, nextCursor, err := listJSON[apitypes.BadgeDef](ctx, store, badgeDefsRoot, cursor, limit)
 	if err != nil {
-		return adminservice.ListBadgeDefs500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.ListBadgeDefs500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	return adminservice.ListBadgeDefs200JSONResponse(adminservice.BadgeDefList{Items: items, HasNext: hasNext, NextCursor: nextCursor}), nil
+	return adminhttp.ListBadgeDefs200JSONResponse(adminhttp.BadgeDefList{Items: items, HasNext: hasNext, NextCursor: nextCursor}), nil
 }
 
-func (c *Catalog) CreateBadgeDef(ctx context.Context, request adminservice.CreateBadgeDefRequestObject) (adminservice.CreateBadgeDefResponseObject, error) {
+func (c *Catalog) CreateBadgeDef(ctx context.Context, request adminhttp.CreateBadgeDefRequestObject) (adminhttp.CreateBadgeDefResponseObject, error) {
 	if request.Body == nil {
-		return adminservice.CreateBadgeDef400JSONResponse(apitypes.NewErrorResponse("INVALID_BADGE_DEF", "request body required")), nil
+		return adminhttp.CreateBadgeDef400JSONResponse(apitypes.NewErrorResponse("INVALID_BADGE_DEF", "request body required")), nil
 	}
 	store, err := c.store(c.BadgeDefs, "badge defs")
 	if err != nil {
-		return adminservice.CreateBadgeDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.CreateBadgeDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	id := strings.TrimSpace(request.Body.Id)
 	item, err := c.buildBadgeDef(id, request.Body.Spec, nil, time.Time{})
 	if err != nil {
-		return adminservice.CreateBadgeDef400JSONResponse(apitypes.NewErrorResponse("INVALID_BADGE_DEF", err.Error())), nil
+		return adminhttp.CreateBadgeDef400JSONResponse(apitypes.NewErrorResponse("INVALID_BADGE_DEF", err.Error())), nil
 	}
 	if _, err := store.Get(ctx, badgeDefKey(item.Id)); err == nil {
-		return adminservice.CreateBadgeDef409JSONResponse(apitypes.NewErrorResponse("BADGE_DEF_ALREADY_EXISTS", fmt.Sprintf("badge def %q already exists", item.Id))), nil
+		return adminhttp.CreateBadgeDef409JSONResponse(apitypes.NewErrorResponse("BADGE_DEF_ALREADY_EXISTS", fmt.Sprintf("badge def %q already exists", item.Id))), nil
 	} else if !errors.Is(err, kv.ErrNotFound) {
-		return adminservice.CreateBadgeDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.CreateBadgeDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	if err := writeJSON(ctx, store, badgeDefKey(item.Id), item); err != nil {
-		return adminservice.CreateBadgeDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.CreateBadgeDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	return adminservice.CreateBadgeDef200JSONResponse(item), nil
+	return adminhttp.CreateBadgeDef200JSONResponse(item), nil
 }
 
-func (c *Catalog) DeleteBadgeDef(ctx context.Context, request adminservice.DeleteBadgeDefRequestObject) (adminservice.DeleteBadgeDefResponseObject, error) {
+func (c *Catalog) DeleteBadgeDef(ctx context.Context, request adminhttp.DeleteBadgeDefRequestObject) (adminhttp.DeleteBadgeDefResponseObject, error) {
 	store, err := c.store(c.BadgeDefs, "badge defs")
 	if err != nil {
-		return adminservice.DeleteBadgeDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.DeleteBadgeDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	id, err := pathID(request.Id)
 	if err != nil {
@@ -371,37 +371,37 @@ func (c *Catalog) DeleteBadgeDef(ctx context.Context, request adminservice.Delet
 	item, err := readJSON[apitypes.BadgeDef](ctx, store, badgeDefKey(id))
 	if err != nil {
 		if errors.Is(err, kv.ErrNotFound) {
-			return adminservice.DeleteBadgeDef404JSONResponse(apitypes.NewErrorResponse("BADGE_DEF_NOT_FOUND", fmt.Sprintf("badge def %q not found", id))), nil
+			return adminhttp.DeleteBadgeDef404JSONResponse(apitypes.NewErrorResponse("BADGE_DEF_NOT_FOUND", fmt.Sprintf("badge def %q not found", id))), nil
 		}
-		return adminservice.DeleteBadgeDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.DeleteBadgeDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	if err := store.Delete(ctx, badgeDefKey(id)); err != nil {
-		return adminservice.DeleteBadgeDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.DeleteBadgeDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	if c.Assets != nil {
 		_ = c.Assets.DeletePrefix(path.Join("badge-defs", id))
 	}
-	return adminservice.DeleteBadgeDef200JSONResponse(item), nil
+	return adminhttp.DeleteBadgeDef200JSONResponse(item), nil
 }
 
-func (c *Catalog) GetBadgeDef(ctx context.Context, request adminservice.GetBadgeDefRequestObject) (adminservice.GetBadgeDefResponseObject, error) {
+func (c *Catalog) GetBadgeDef(ctx context.Context, request adminhttp.GetBadgeDefRequestObject) (adminhttp.GetBadgeDefResponseObject, error) {
 	item, err := c.GetBadgeDefByID(ctx, request.Id)
 	if err != nil {
 		if errors.Is(err, kv.ErrNotFound) {
-			return adminservice.GetBadgeDef404JSONResponse(apitypes.NewErrorResponse("BADGE_DEF_NOT_FOUND", err.Error())), nil
+			return adminhttp.GetBadgeDef404JSONResponse(apitypes.NewErrorResponse("BADGE_DEF_NOT_FOUND", err.Error())), nil
 		}
-		return adminservice.GetBadgeDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.GetBadgeDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	return adminservice.GetBadgeDef200JSONResponse(item), nil
+	return adminhttp.GetBadgeDef200JSONResponse(item), nil
 }
 
-func (c *Catalog) PutBadgeDef(ctx context.Context, request adminservice.PutBadgeDefRequestObject) (adminservice.PutBadgeDefResponseObject, error) {
+func (c *Catalog) PutBadgeDef(ctx context.Context, request adminhttp.PutBadgeDefRequestObject) (adminhttp.PutBadgeDefResponseObject, error) {
 	if request.Body == nil {
-		return adminservice.PutBadgeDef400JSONResponse(apitypes.NewErrorResponse("INVALID_BADGE_DEF", "request body required")), nil
+		return adminhttp.PutBadgeDef400JSONResponse(apitypes.NewErrorResponse("INVALID_BADGE_DEF", "request body required")), nil
 	}
 	store, err := c.store(c.BadgeDefs, "badge defs")
 	if err != nil {
-		return adminservice.PutBadgeDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.PutBadgeDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	id, err := pathID(request.Id)
 	if err != nil {
@@ -409,7 +409,7 @@ func (c *Catalog) PutBadgeDef(ctx context.Context, request adminservice.PutBadge
 	}
 	previous, err := readJSON[apitypes.BadgeDef](ctx, store, badgeDefKey(id))
 	if err != nil && !errors.Is(err, kv.ErrNotFound) {
-		return adminservice.PutBadgeDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.PutBadgeDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	createdAt := time.Time{}
 	var pixaPath *string
@@ -419,104 +419,104 @@ func (c *Catalog) PutBadgeDef(ctx context.Context, request adminservice.PutBadge
 	}
 	item, err := c.buildBadgeDef(id, request.Body.Spec, pixaPath, createdAt)
 	if err != nil {
-		return adminservice.PutBadgeDef400JSONResponse(apitypes.NewErrorResponse("INVALID_BADGE_DEF", err.Error())), nil
+		return adminhttp.PutBadgeDef400JSONResponse(apitypes.NewErrorResponse("INVALID_BADGE_DEF", err.Error())), nil
 	}
 	if err := writeJSON(ctx, store, badgeDefKey(item.Id), item); err != nil {
-		return adminservice.PutBadgeDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.PutBadgeDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	return adminservice.PutBadgeDef200JSONResponse(item), nil
+	return adminhttp.PutBadgeDef200JSONResponse(item), nil
 }
 
-func (c *Catalog) DownloadBadgeDefPixa(ctx context.Context, request adminservice.DownloadBadgeDefPixaRequestObject) (adminservice.DownloadBadgeDefPixaResponseObject, error) {
+func (c *Catalog) DownloadBadgeDefPixa(ctx context.Context, request adminhttp.DownloadBadgeDefPixaRequestObject) (adminhttp.DownloadBadgeDefPixaResponseObject, error) {
 	item, err := c.GetBadgeDefByID(ctx, request.Id)
 	if err != nil {
 		if errors.Is(err, kv.ErrNotFound) {
-			return adminservice.DownloadBadgeDefPixa404JSONResponse(apitypes.NewErrorResponse("BADGE_DEF_NOT_FOUND", err.Error())), nil
+			return adminhttp.DownloadBadgeDefPixa404JSONResponse(apitypes.NewErrorResponse("BADGE_DEF_NOT_FOUND", err.Error())), nil
 		}
-		return adminservice.DownloadBadgeDefPixa500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.DownloadBadgeDefPixa500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	reader, size, err := c.openAsset(valueOrZero(item.PixaPath))
 	if err != nil {
-		return adminservice.DownloadBadgeDefPixa404JSONResponse(apitypes.NewErrorResponse("BADGE_DEF_PIXA_NOT_FOUND", err.Error())), nil
+		return adminhttp.DownloadBadgeDefPixa404JSONResponse(apitypes.NewErrorResponse("BADGE_DEF_PIXA_NOT_FOUND", err.Error())), nil
 	}
-	return adminservice.DownloadBadgeDefPixa200ApplicationoctetStreamResponse{Body: reader, ContentLength: size}, nil
+	return adminhttp.DownloadBadgeDefPixa200ApplicationoctetStreamResponse{Body: reader, ContentLength: size}, nil
 }
 
-func (c *Catalog) UploadBadgeDefPixa(ctx context.Context, request adminservice.UploadBadgeDefPixaRequestObject) (adminservice.UploadBadgeDefPixaResponseObject, error) {
+func (c *Catalog) UploadBadgeDefPixa(ctx context.Context, request adminhttp.UploadBadgeDefPixaRequestObject) (adminhttp.UploadBadgeDefPixaResponseObject, error) {
 	if request.Body == nil {
-		return adminservice.UploadBadgeDefPixa500JSONResponse(apitypes.NewErrorResponse("INVALID_BADGE_DEF_PIXA", "request body required")), nil
+		return adminhttp.UploadBadgeDefPixa500JSONResponse(apitypes.NewErrorResponse("INVALID_BADGE_DEF_PIXA", "request body required")), nil
 	}
 	store, err := c.store(c.BadgeDefs, "badge defs")
 	if err != nil {
-		return adminservice.UploadBadgeDefPixa500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.UploadBadgeDefPixa500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	item, err := c.GetBadgeDefByID(ctx, request.Id)
 	if err != nil {
 		if errors.Is(err, kv.ErrNotFound) {
-			return adminservice.UploadBadgeDefPixa404JSONResponse(apitypes.NewErrorResponse("BADGE_DEF_NOT_FOUND", err.Error())), nil
+			return adminhttp.UploadBadgeDefPixa404JSONResponse(apitypes.NewErrorResponse("BADGE_DEF_NOT_FOUND", err.Error())), nil
 		}
-		return adminservice.UploadBadgeDefPixa500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.UploadBadgeDefPixa500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	data, err := io.ReadAll(request.Body)
 	if err != nil {
-		return adminservice.UploadBadgeDefPixa500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.UploadBadgeDefPixa500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	if err := validateBadgeDefPixa(data); err != nil {
-		return adminservice.UploadBadgeDefPixa500JSONResponse(apitypes.NewErrorResponse("INVALID_BADGE_DEF_PIXA", err.Error())), nil
+		return adminhttp.UploadBadgeDefPixa500JSONResponse(apitypes.NewErrorResponse("INVALID_BADGE_DEF_PIXA", err.Error())), nil
 	}
 	pixaPath := path.Join("badge-defs", item.Id, "pixa")
 	if err := c.putAsset(pixaPath, bytes.NewReader(data)); err != nil {
-		return adminservice.UploadBadgeDefPixa500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.UploadBadgeDefPixa500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	item.PixaPath = &pixaPath
 	item.UpdatedAt = c.now()
 	if err := writeJSON(ctx, store, badgeDefKey(item.Id), item); err != nil {
-		return adminservice.UploadBadgeDefPixa500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.UploadBadgeDefPixa500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	return adminservice.UploadBadgeDefPixa200JSONResponse(item), nil
+	return adminhttp.UploadBadgeDefPixa200JSONResponse(item), nil
 }
 
-func (c *Catalog) ListGameDefs(ctx context.Context, request adminservice.ListGameDefsRequestObject) (adminservice.ListGameDefsResponseObject, error) {
+func (c *Catalog) ListGameDefs(ctx context.Context, request adminhttp.ListGameDefsRequestObject) (adminhttp.ListGameDefsResponseObject, error) {
 	store, err := c.store(c.GameDefs, "game defs")
 	if err != nil {
-		return adminservice.ListGameDefs500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.ListGameDefs500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	cursor, limit := normalizeListParams(request.Params.Cursor, request.Params.Limit)
 	items, hasNext, nextCursor, err := listJSON[apitypes.GameDef](ctx, store, gameDefsRoot, cursor, limit)
 	if err != nil {
-		return adminservice.ListGameDefs500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.ListGameDefs500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	return adminservice.ListGameDefs200JSONResponse(adminservice.GameDefList{Items: items, HasNext: hasNext, NextCursor: nextCursor}), nil
+	return adminhttp.ListGameDefs200JSONResponse(adminhttp.GameDefList{Items: items, HasNext: hasNext, NextCursor: nextCursor}), nil
 }
 
-func (c *Catalog) CreateGameDef(ctx context.Context, request adminservice.CreateGameDefRequestObject) (adminservice.CreateGameDefResponseObject, error) {
+func (c *Catalog) CreateGameDef(ctx context.Context, request adminhttp.CreateGameDefRequestObject) (adminhttp.CreateGameDefResponseObject, error) {
 	if request.Body == nil {
-		return adminservice.CreateGameDef400JSONResponse(apitypes.NewErrorResponse("INVALID_GAME_DEF", "request body required")), nil
+		return adminhttp.CreateGameDef400JSONResponse(apitypes.NewErrorResponse("INVALID_GAME_DEF", "request body required")), nil
 	}
 	store, err := c.store(c.GameDefs, "game defs")
 	if err != nil {
-		return adminservice.CreateGameDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.CreateGameDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	id := strings.TrimSpace(request.Body.Id)
 	item, err := c.buildGameDef(id, request.Body.Spec, time.Time{})
 	if err != nil {
-		return adminservice.CreateGameDef400JSONResponse(apitypes.NewErrorResponse("INVALID_GAME_DEF", err.Error())), nil
+		return adminhttp.CreateGameDef400JSONResponse(apitypes.NewErrorResponse("INVALID_GAME_DEF", err.Error())), nil
 	}
 	if _, err := store.Get(ctx, gameDefKey(item.Id)); err == nil {
-		return adminservice.CreateGameDef409JSONResponse(apitypes.NewErrorResponse("GAME_DEF_ALREADY_EXISTS", fmt.Sprintf("game def %q already exists", item.Id))), nil
+		return adminhttp.CreateGameDef409JSONResponse(apitypes.NewErrorResponse("GAME_DEF_ALREADY_EXISTS", fmt.Sprintf("game def %q already exists", item.Id))), nil
 	} else if !errors.Is(err, kv.ErrNotFound) {
-		return adminservice.CreateGameDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.CreateGameDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	if err := writeJSON(ctx, store, gameDefKey(item.Id), item); err != nil {
-		return adminservice.CreateGameDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.CreateGameDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	return adminservice.CreateGameDef200JSONResponse(item), nil
+	return adminhttp.CreateGameDef200JSONResponse(item), nil
 }
 
-func (c *Catalog) DeleteGameDef(ctx context.Context, request adminservice.DeleteGameDefRequestObject) (adminservice.DeleteGameDefResponseObject, error) {
+func (c *Catalog) DeleteGameDef(ctx context.Context, request adminhttp.DeleteGameDefRequestObject) (adminhttp.DeleteGameDefResponseObject, error) {
 	store, err := c.store(c.GameDefs, "game defs")
 	if err != nil {
-		return adminservice.DeleteGameDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.DeleteGameDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	id, err := pathID(request.Id)
 	if err != nil {
@@ -525,34 +525,34 @@ func (c *Catalog) DeleteGameDef(ctx context.Context, request adminservice.Delete
 	item, err := readJSON[apitypes.GameDef](ctx, store, gameDefKey(id))
 	if err != nil {
 		if errors.Is(err, kv.ErrNotFound) {
-			return adminservice.DeleteGameDef404JSONResponse(apitypes.NewErrorResponse("GAME_DEF_NOT_FOUND", fmt.Sprintf("game def %q not found", id))), nil
+			return adminhttp.DeleteGameDef404JSONResponse(apitypes.NewErrorResponse("GAME_DEF_NOT_FOUND", fmt.Sprintf("game def %q not found", id))), nil
 		}
-		return adminservice.DeleteGameDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.DeleteGameDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	if err := store.Delete(ctx, gameDefKey(id)); err != nil {
-		return adminservice.DeleteGameDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.DeleteGameDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	return adminservice.DeleteGameDef200JSONResponse(item), nil
+	return adminhttp.DeleteGameDef200JSONResponse(item), nil
 }
 
-func (c *Catalog) GetGameDef(ctx context.Context, request adminservice.GetGameDefRequestObject) (adminservice.GetGameDefResponseObject, error) {
+func (c *Catalog) GetGameDef(ctx context.Context, request adminhttp.GetGameDefRequestObject) (adminhttp.GetGameDefResponseObject, error) {
 	item, err := c.GetGameDefByID(ctx, request.Id)
 	if err != nil {
 		if errors.Is(err, kv.ErrNotFound) {
-			return adminservice.GetGameDef404JSONResponse(apitypes.NewErrorResponse("GAME_DEF_NOT_FOUND", err.Error())), nil
+			return adminhttp.GetGameDef404JSONResponse(apitypes.NewErrorResponse("GAME_DEF_NOT_FOUND", err.Error())), nil
 		}
-		return adminservice.GetGameDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.GetGameDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	return adminservice.GetGameDef200JSONResponse(item), nil
+	return adminhttp.GetGameDef200JSONResponse(item), nil
 }
 
-func (c *Catalog) PutGameDef(ctx context.Context, request adminservice.PutGameDefRequestObject) (adminservice.PutGameDefResponseObject, error) {
+func (c *Catalog) PutGameDef(ctx context.Context, request adminhttp.PutGameDefRequestObject) (adminhttp.PutGameDefResponseObject, error) {
 	if request.Body == nil {
-		return adminservice.PutGameDef400JSONResponse(apitypes.NewErrorResponse("INVALID_GAME_DEF", "request body required")), nil
+		return adminhttp.PutGameDef400JSONResponse(apitypes.NewErrorResponse("INVALID_GAME_DEF", "request body required")), nil
 	}
 	store, err := c.store(c.GameDefs, "game defs")
 	if err != nil {
-		return adminservice.PutGameDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.PutGameDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	id, err := pathID(request.Id)
 	if err != nil {
@@ -560,7 +560,7 @@ func (c *Catalog) PutGameDef(ctx context.Context, request adminservice.PutGameDe
 	}
 	previous, err := readJSON[apitypes.GameDef](ctx, store, gameDefKey(id))
 	if err != nil && !errors.Is(err, kv.ErrNotFound) {
-		return adminservice.PutGameDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.PutGameDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	createdAt := time.Time{}
 	if err == nil {
@@ -568,12 +568,12 @@ func (c *Catalog) PutGameDef(ctx context.Context, request adminservice.PutGameDe
 	}
 	item, err := c.buildGameDef(id, request.Body.Spec, createdAt)
 	if err != nil {
-		return adminservice.PutGameDef400JSONResponse(apitypes.NewErrorResponse("INVALID_GAME_DEF", err.Error())), nil
+		return adminhttp.PutGameDef400JSONResponse(apitypes.NewErrorResponse("INVALID_GAME_DEF", err.Error())), nil
 	}
 	if err := writeJSON(ctx, store, gameDefKey(item.Id), item); err != nil {
-		return adminservice.PutGameDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.PutGameDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	return adminservice.PutGameDef200JSONResponse(item), nil
+	return adminhttp.PutGameDef200JSONResponse(item), nil
 }
 
 func (c *Catalog) GetGameRulesetByName(ctx context.Context, name string) (apitypes.GameRuleset, error) {

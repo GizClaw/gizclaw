@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminservice"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/sdk/go/gizcli"
 	clitest "github.com/GizClaw/gizclaw-go/tests/gizclaw-e2e/cmd"
@@ -63,7 +63,7 @@ func applyGameplayACL(t *testing.T, h *clitest.Harness, contextName string) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	roleResp, err := api.PutACLRoleWithResponse(ctx, "default-client", adminservice.ACLRoleUpsert{
+	roleResp, err := api.PutACLRoleWithResponse(ctx, "default-client", adminhttp.ACLRoleUpsert{
 		Name: "default-client",
 		Permissions: apitypes.ACLPermissionList{
 			apitypes.ACLPermissionRead,
@@ -87,10 +87,10 @@ func applyGameplayACL(t *testing.T, h *clitest.Harness, contextName string) {
 	createGameplayViewBinding(t, ctx, api, "gameplay-default-ruleset-"+h.ContextPublicKey(contextName), apitypes.ACLResourceKindGameruleset, "default-gameplay")
 }
 
-func createGameplayViewBinding(t *testing.T, ctx context.Context, api *adminservice.ClientWithResponses, id string, kind apitypes.ACLResourceKind, resourceID string) {
+func createGameplayViewBinding(t *testing.T, ctx context.Context, api *adminhttp.ClientWithResponses, id string, kind apitypes.ACLResourceKind, resourceID string) {
 	t.Helper()
 
-	bindingResp, err := api.CreateACLPolicyBindingWithResponse(ctx, adminservice.ACLPolicyBindingUpsert{
+	bindingResp, err := api.CreateACLPolicyBindingWithResponse(ctx, adminhttp.ACLPolicyBindingUpsert{
 		Id: &id,
 		Policy: apitypes.ACLPolicy{
 			Subject:  apitypes.ACLSubject{Kind: apitypes.ACLSubjectKindView, Id: "default-client"},

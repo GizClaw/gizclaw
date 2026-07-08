@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminservice"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 )
 
@@ -168,7 +168,7 @@ func TestServerResourceCreateDoesNotGrantConcreteAdmin(t *testing.T) {
 	}
 }
 
-func serverResourceAdminClient(t *testing.T, env *serverResourceHarness) *adminservice.ClientWithResponses {
+func serverResourceAdminClient(t *testing.T, env *serverResourceHarness) *adminhttp.ClientWithResponses {
 	t.Helper()
 
 	adminClient := env.h.ConnectClientFromContext("admin-a")

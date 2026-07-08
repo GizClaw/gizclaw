@@ -13,7 +13,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/sdk/go/gizcli"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminservice"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
@@ -172,7 +172,7 @@ func waitForServerReady(addr string, pk giznet.PublicKey, cipherMode gizwebrtc.C
 			default:
 			}
 
-			if err := probeServerPublicReady(client); err == nil {
+			if err := probePeerHTTPReady(client); err == nil {
 				_ = client.Close()
 				return nil
 			}
@@ -220,13 +220,13 @@ func startTestClient(t *testing.T, c *gizcli.Client, serverPK giznet.PublicKey, 
 			return fmt.Errorf("client stopped before ready")
 		default:
 		}
-		return probeServerPublicReady(c)
+		return probePeerHTTPReady(c)
 	}); err != nil {
 		t.Fatalf("test client did not become ready: %v", err)
 	}
 }
 
-func probeServerPublicReady(c *gizcli.Client) error {
+func probePeerHTTPReady(c *gizcli.Client) error {
 	ctx, cancel := context.WithTimeout(context.Background(), testProbeTimeout)
 	defer cancel()
 	_, err := getServerInfo(ctx, c)
@@ -263,7 +263,7 @@ func ensurePeerInfo(t testing.TB, c *gizcli.Client, info apitypes.DeviceInfo) st
 }
 
 func getServerInfo(ctx context.Context, c *gizcli.Client) (apitypes.ServerInfo, error) {
-	api, err := c.ServerPublicClient()
+	api, err := c.PeerHTTPClient()
 	if err != nil {
 		return apitypes.ServerInfo{}, err
 	}
@@ -326,7 +326,7 @@ func listWorkflows(ctx context.Context, c *gizcli.Client) ([]apitypes.WorkflowDo
 	var cursor *string
 	items := make([]apitypes.WorkflowDocument, 0)
 	for {
-		resp, err := api.ListWorkflowsWithResponse(ctx, &adminservice.ListWorkflowsParams{
+		resp, err := api.ListWorkflowsWithResponse(ctx, &adminhttp.ListWorkflowsParams{
 			Cursor: cursor,
 			Limit:  &limit,
 		})
@@ -414,7 +414,7 @@ func listWorkspaces(ctx context.Context, c *gizcli.Client) ([]apitypes.Workspace
 	var cursor *string
 	items := make([]apitypes.Workspace, 0)
 	for {
-		resp, err := api.ListWorkspacesWithResponse(ctx, &adminservice.ListWorkspacesParams{
+		resp, err := api.ListWorkspacesWithResponse(ctx, &adminhttp.ListWorkspacesParams{
 			Cursor: cursor,
 			Limit:  &limit,
 		})
@@ -433,7 +433,7 @@ func listWorkspaces(ctx context.Context, c *gizcli.Client) ([]apitypes.Workspace
 	}
 }
 
-func createWorkspace(ctx context.Context, c *gizcli.Client, body adminservice.WorkspaceUpsert) (apitypes.Workspace, error) {
+func createWorkspace(ctx context.Context, c *gizcli.Client, body adminhttp.WorkspaceUpsert) (apitypes.Workspace, error) {
 	api, err := c.ServerAdminClient()
 	if err != nil {
 		return apitypes.Workspace{}, err
@@ -463,7 +463,7 @@ func getWorkspace(ctx context.Context, c *gizcli.Client, name string) (apitypes.
 	return apitypes.Workspace{}, responseError(resp.StatusCode(), resp.Body, resp.JSON404, resp.JSON500)
 }
 
-func putWorkspace(ctx context.Context, c *gizcli.Client, name string, body adminservice.WorkspaceUpsert) (apitypes.Workspace, error) {
+func putWorkspace(ctx context.Context, c *gizcli.Client, name string, body adminhttp.WorkspaceUpsert) (apitypes.Workspace, error) {
 	api, err := c.ServerAdminClient()
 	if err != nil {
 		return apitypes.Workspace{}, err
@@ -502,7 +502,7 @@ func listCredentials(ctx context.Context, c *gizcli.Client, provider *string) ([
 	var cursor *string
 	items := make([]apitypes.Credential, 0)
 	for {
-		resp, err := api.ListCredentialsWithResponse(ctx, &adminservice.ListCredentialsParams{
+		resp, err := api.ListCredentialsWithResponse(ctx, &adminhttp.ListCredentialsParams{
 			Provider: provider,
 			Cursor:   cursor,
 			Limit:    &limit,
@@ -522,7 +522,7 @@ func listCredentials(ctx context.Context, c *gizcli.Client, provider *string) ([
 	}
 }
 
-func createCredential(ctx context.Context, c *gizcli.Client, body adminservice.CredentialUpsert) (apitypes.Credential, error) {
+func createCredential(ctx context.Context, c *gizcli.Client, body adminhttp.CredentialUpsert) (apitypes.Credential, error) {
 	api, err := c.ServerAdminClient()
 	if err != nil {
 		return apitypes.Credential{}, err
@@ -552,7 +552,7 @@ func getCredential(ctx context.Context, c *gizcli.Client, name string) (apitypes
 	return apitypes.Credential{}, responseError(resp.StatusCode(), resp.Body, resp.JSON404, resp.JSON500)
 }
 
-func putCredential(ctx context.Context, c *gizcli.Client, name string, body adminservice.CredentialUpsert) (apitypes.Credential, error) {
+func putCredential(ctx context.Context, c *gizcli.Client, name string, body adminhttp.CredentialUpsert) (apitypes.Credential, error) {
 	api, err := c.ServerAdminClient()
 	if err != nil {
 		return apitypes.Credential{}, err
@@ -591,7 +591,7 @@ func listPeers(ctx context.Context, c *gizcli.Client) ([]apitypes.Registration, 
 	var cursor *string
 	items := make([]apitypes.Registration, 0)
 	for {
-		resp, err := api.ListPeersWithResponse(ctx, &adminservice.ListPeersParams{
+		resp, err := api.ListPeersWithResponse(ctx, &adminhttp.ListPeersParams{
 			Cursor: cursor,
 			Limit:  &limit,
 		})
@@ -660,7 +660,7 @@ func approvePeer(ctx context.Context, c *gizcli.Client, publicKey string, role a
 	if err != nil {
 		return apitypes.Registration{}, err
 	}
-	resp, err := api.ApprovePeerWithResponse(ctx, publicKey, adminservice.ApproveRequest{Role: role})
+	resp, err := api.ApprovePeerWithResponse(ctx, publicKey, adminhttp.ApproveRequest{Role: role})
 	if err != nil {
 		return apitypes.Registration{}, err
 	}
@@ -760,19 +760,19 @@ func deletePeer(ctx context.Context, c *gizcli.Client, publicKey string) (apityp
 	return apitypes.Registration{}, responseError(resp.StatusCode(), resp.Body, resp.JSON404)
 }
 
-func refreshPeer(ctx context.Context, c *gizcli.Client, publicKey string) (adminservice.RefreshResult, error) {
+func refreshPeer(ctx context.Context, c *gizcli.Client, publicKey string) (adminhttp.RefreshResult, error) {
 	api, err := c.ServerAdminClient()
 	if err != nil {
-		return adminservice.RefreshResult{}, err
+		return adminhttp.RefreshResult{}, err
 	}
 	resp, err := api.RefreshPeerWithResponse(ctx, publicKey)
 	if err != nil {
-		return adminservice.RefreshResult{}, err
+		return adminhttp.RefreshResult{}, err
 	}
 	if resp.JSON200 != nil {
 		return *resp.JSON200, nil
 	}
-	return adminservice.RefreshResult{}, responseError(resp.StatusCode(), resp.Body, resp.JSON404, resp.JSON409, resp.JSON502)
+	return adminhttp.RefreshResult{}, responseError(resp.StatusCode(), resp.Body, resp.JSON404, resp.JSON409, resp.JSON502)
 }
 
 func responseError(status int, body []byte, errs ...interface{}) error {

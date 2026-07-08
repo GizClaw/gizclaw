@@ -59,7 +59,7 @@ func (c *Client) RegisterTo(pc *webrtc.PeerConnection) (*ClientWebRTCRegistratio
 
 	audioTrack, err := webrtc.NewTrackLocalStaticRTP(
 		webrtc.RTPCodecCapability{
-			MimeType:  webrtc.MimeTypeOpus,
+			MimeType:  MediaStreamOpus,
 			ClockRate: webRTCOpusClockRate,
 			Channels:  2,
 		},
@@ -168,7 +168,7 @@ func (r *ClientWebRTCRegistration) registerEventDataChannel(dc *webrtc.DataChann
 			_ = dc.Close()
 			return
 		}
-		eventStream, err := conn.Dial(ServiceAgentStream)
+		eventStream, err := conn.Dial(EventStreamAgent)
 		if err != nil {
 			slog.Debug("gizclaw: dial event stream for webrtc failed", "error", err)
 			_ = dc.Close()
@@ -314,7 +314,7 @@ func (r *ClientWebRTCRegistration) registerRemoteTrack(track *webrtc.TrackRemote
 
 	codec := track.Codec()
 	switch {
-	case track.Kind() == webrtc.RTPCodecTypeAudio && strings.EqualFold(codec.MimeType, webrtc.MimeTypeOpus):
+	case track.Kind() == webrtc.RTPCodecTypeAudio && strings.EqualFold(codec.MimeType, MediaStreamOpus):
 		go func() {
 			if err := r.forwardWebRTCAudioTrackToPeerStampedOpus(track); err != nil && !errors.Is(err, context.Canceled) {
 				slog.Debug("gizclaw: forward webrtc opus track failed", "error", err)
@@ -363,14 +363,14 @@ func (r *ClientWebRTCRegistration) forwardWebRTCAudioTrackToPeerStampedOpus(trac
 
 		timestamp := baseWallMillis + webRTCRTPMillisDelta(webRTCOpusClockRate, baseRTPTimestamp, packet.Timestamp)
 		payload := stampedopus.Pack(timestamp, packet.Payload)
-		if _, err := conn.Write(ProtocolStampedOpus, payload); err != nil {
+		if _, err := conn.Write(PacketStampedOpus, payload); err != nil {
 			return err
 		}
 	}
 }
 
 func (r *ClientWebRTCRegistration) forwardPeerStampedOpusToWebRTCAudio() {
-	packets, unsubscribe := r.client.subscribePeerPackets(ProtocolStampedOpus, 32)
+	packets, unsubscribe := r.client.subscribePeerPackets(PacketStampedOpus, 32)
 	defer unsubscribe()
 
 	var sequenceNumber uint16

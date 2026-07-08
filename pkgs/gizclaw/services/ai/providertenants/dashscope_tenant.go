@@ -8,60 +8,60 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminservice"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
 var dashScopeTenantsRoot = kv.Key{"dashscope-tenants", "by-name"}
 
-func (s *Server) ListDashScopeTenants(ctx context.Context, request adminservice.ListDashScopeTenantsRequestObject) (adminservice.ListDashScopeTenantsResponseObject, error) {
+func (s *Server) ListDashScopeTenants(ctx context.Context, request adminhttp.ListDashScopeTenantsRequestObject) (adminhttp.ListDashScopeTenantsResponseObject, error) {
 	store, err := s.store()
 	if err != nil {
-		return adminservice.ListDashScopeTenants500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.ListDashScopeTenants500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	cursor, limit := normalizeListParams(request.Params.Cursor, request.Params.Limit)
 	items, hasNext, nextCursor, err := listDashScopeTenantsPage(ctx, store, cursor, limit)
 	if err != nil {
-		return adminservice.ListDashScopeTenants500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.ListDashScopeTenants500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	return adminservice.ListDashScopeTenants200JSONResponse(adminservice.DashScopeTenantList{
+	return adminhttp.ListDashScopeTenants200JSONResponse(adminhttp.DashScopeTenantList{
 		HasNext:    hasNext,
 		Items:      items,
 		NextCursor: nextCursor,
 	}), nil
 }
 
-func (s *Server) CreateDashScopeTenant(ctx context.Context, request adminservice.CreateDashScopeTenantRequestObject) (adminservice.CreateDashScopeTenantResponseObject, error) {
+func (s *Server) CreateDashScopeTenant(ctx context.Context, request adminhttp.CreateDashScopeTenantRequestObject) (adminhttp.CreateDashScopeTenantResponseObject, error) {
 	store, err := s.store()
 	if err != nil {
-		return adminservice.CreateDashScopeTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.CreateDashScopeTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	if request.Body == nil {
-		return adminservice.CreateDashScopeTenant400JSONResponse(apitypes.NewErrorResponse("INVALID_DASHSCOPE_TENANT", "request body required")), nil
+		return adminhttp.CreateDashScopeTenant400JSONResponse(apitypes.NewErrorResponse("INVALID_DASHSCOPE_TENANT", "request body required")), nil
 	}
 	tenant, err := normalizeDashScopeTenantUpsert(*request.Body, "")
 	if err != nil {
-		return adminservice.CreateDashScopeTenant400JSONResponse(apitypes.NewErrorResponse("INVALID_DASHSCOPE_TENANT", err.Error())), nil
+		return adminhttp.CreateDashScopeTenant400JSONResponse(apitypes.NewErrorResponse("INVALID_DASHSCOPE_TENANT", err.Error())), nil
 	}
 	if _, err := store.Get(ctx, dashScopeTenantKey(string(tenant.Name))); err == nil {
-		return adminservice.CreateDashScopeTenant409JSONResponse(apitypes.NewErrorResponse("DASHSCOPE_TENANT_ALREADY_EXISTS", fmt.Sprintf("DashScope tenant %q already exists", tenant.Name))), nil
+		return adminhttp.CreateDashScopeTenant409JSONResponse(apitypes.NewErrorResponse("DASHSCOPE_TENANT_ALREADY_EXISTS", fmt.Sprintf("DashScope tenant %q already exists", tenant.Name))), nil
 	} else if !errors.Is(err, kv.ErrNotFound) {
-		return adminservice.CreateDashScopeTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.CreateDashScopeTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	now := s.now()
 	tenant.CreatedAt = now
 	tenant.UpdatedAt = now
 	if err := writeDashScopeTenant(ctx, store, tenant); err != nil {
-		return adminservice.CreateDashScopeTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.CreateDashScopeTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	return adminservice.CreateDashScopeTenant200JSONResponse(tenant), nil
+	return adminhttp.CreateDashScopeTenant200JSONResponse(tenant), nil
 }
 
-func (s *Server) GetDashScopeTenant(ctx context.Context, request adminservice.GetDashScopeTenantRequestObject) (adminservice.GetDashScopeTenantResponseObject, error) {
+func (s *Server) GetDashScopeTenant(ctx context.Context, request adminhttp.GetDashScopeTenantRequestObject) (adminhttp.GetDashScopeTenantResponseObject, error) {
 	store, err := s.store()
 	if err != nil {
-		return adminservice.GetDashScopeTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.GetDashScopeTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	name, err := url.PathUnescape(string(request.Name))
 	if err != nil {
@@ -70,20 +70,20 @@ func (s *Server) GetDashScopeTenant(ctx context.Context, request adminservice.Ge
 	tenant, err := getDashScopeTenant(ctx, store, name)
 	if err != nil {
 		if errors.Is(err, kv.ErrNotFound) {
-			return adminservice.GetDashScopeTenant404JSONResponse(apitypes.NewErrorResponse("DASHSCOPE_TENANT_NOT_FOUND", fmt.Sprintf("DashScope tenant %q not found", name))), nil
+			return adminhttp.GetDashScopeTenant404JSONResponse(apitypes.NewErrorResponse("DASHSCOPE_TENANT_NOT_FOUND", fmt.Sprintf("DashScope tenant %q not found", name))), nil
 		}
-		return adminservice.GetDashScopeTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.GetDashScopeTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	return adminservice.GetDashScopeTenant200JSONResponse(tenant), nil
+	return adminhttp.GetDashScopeTenant200JSONResponse(tenant), nil
 }
 
-func (s *Server) PutDashScopeTenant(ctx context.Context, request adminservice.PutDashScopeTenantRequestObject) (adminservice.PutDashScopeTenantResponseObject, error) {
+func (s *Server) PutDashScopeTenant(ctx context.Context, request adminhttp.PutDashScopeTenantRequestObject) (adminhttp.PutDashScopeTenantResponseObject, error) {
 	store, err := s.store()
 	if err != nil {
-		return adminservice.PutDashScopeTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.PutDashScopeTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	if request.Body == nil {
-		return adminservice.PutDashScopeTenant400JSONResponse(apitypes.NewErrorResponse("INVALID_DASHSCOPE_TENANT", "request body required")), nil
+		return adminhttp.PutDashScopeTenant400JSONResponse(apitypes.NewErrorResponse("INVALID_DASHSCOPE_TENANT", "request body required")), nil
 	}
 	name, err := url.PathUnescape(string(request.Name))
 	if err != nil {
@@ -91,11 +91,11 @@ func (s *Server) PutDashScopeTenant(ctx context.Context, request adminservice.Pu
 	}
 	tenant, err := normalizeDashScopeTenantUpsert(*request.Body, name)
 	if err != nil {
-		return adminservice.PutDashScopeTenant400JSONResponse(apitypes.NewErrorResponse("INVALID_DASHSCOPE_TENANT", err.Error())), nil
+		return adminhttp.PutDashScopeTenant400JSONResponse(apitypes.NewErrorResponse("INVALID_DASHSCOPE_TENANT", err.Error())), nil
 	}
 	previous, err := getDashScopeTenant(ctx, store, name)
 	if err != nil && !errors.Is(err, kv.ErrNotFound) {
-		return adminservice.PutDashScopeTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.PutDashScopeTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	now := s.now()
 	tenant.CreatedAt = now
@@ -104,15 +104,15 @@ func (s *Server) PutDashScopeTenant(ctx context.Context, request adminservice.Pu
 		tenant.CreatedAt = previous.CreatedAt
 	}
 	if err := writeDashScopeTenant(ctx, store, tenant); err != nil {
-		return adminservice.PutDashScopeTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.PutDashScopeTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	return adminservice.PutDashScopeTenant200JSONResponse(tenant), nil
+	return adminhttp.PutDashScopeTenant200JSONResponse(tenant), nil
 }
 
-func (s *Server) DeleteDashScopeTenant(ctx context.Context, request adminservice.DeleteDashScopeTenantRequestObject) (adminservice.DeleteDashScopeTenantResponseObject, error) {
+func (s *Server) DeleteDashScopeTenant(ctx context.Context, request adminhttp.DeleteDashScopeTenantRequestObject) (adminhttp.DeleteDashScopeTenantResponseObject, error) {
 	store, err := s.store()
 	if err != nil {
-		return adminservice.DeleteDashScopeTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.DeleteDashScopeTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	name, err := url.PathUnescape(string(request.Name))
 	if err != nil {
@@ -121,17 +121,17 @@ func (s *Server) DeleteDashScopeTenant(ctx context.Context, request adminservice
 	tenant, err := getDashScopeTenant(ctx, store, name)
 	if err != nil {
 		if errors.Is(err, kv.ErrNotFound) {
-			return adminservice.DeleteDashScopeTenant404JSONResponse(apitypes.NewErrorResponse("DASHSCOPE_TENANT_NOT_FOUND", fmt.Sprintf("DashScope tenant %q not found", name))), nil
+			return adminhttp.DeleteDashScopeTenant404JSONResponse(apitypes.NewErrorResponse("DASHSCOPE_TENANT_NOT_FOUND", fmt.Sprintf("DashScope tenant %q not found", name))), nil
 		}
-		return adminservice.DeleteDashScopeTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.DeleteDashScopeTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	if err := store.Delete(ctx, dashScopeTenantKey(string(tenant.Name))); err != nil {
-		return adminservice.DeleteDashScopeTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.DeleteDashScopeTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	return adminservice.DeleteDashScopeTenant200JSONResponse(tenant), nil
+	return adminhttp.DeleteDashScopeTenant200JSONResponse(tenant), nil
 }
 
-func normalizeDashScopeTenantUpsert(in adminservice.DashScopeTenantUpsert, expectedName string) (apitypes.DashScopeTenant, error) {
+func normalizeDashScopeTenantUpsert(in adminhttp.DashScopeTenantUpsert, expectedName string) (apitypes.DashScopeTenant, error) {
 	name := strings.TrimSpace(string(in.Name))
 	if name == "" {
 		return apitypes.DashScopeTenant{}, errors.New("name is required")

@@ -6,7 +6,7 @@ interfaces, and shared API types under `pkgs/gizclaw/api/`.
 
 ## Layout
 
-- `admin_service.json`, `server_public.json`, `desktop_service.json`, and
+- `admin_http.json`, `peer_http.json`, `desktop_service.json`, and
   `rpc.json` define GizClaw API surfaces or shared protocol documents.
 - `openai-compat/v1/service.json` defines the OpenAI-compatible HTTP surface.
 - `types.json` collects shared schemas and exposes them through
@@ -20,17 +20,17 @@ interfaces, and shared API types under `pkgs/gizclaw/api/`.
 
 Generated Go code lives outside this directory:
 
-- `pkgs/gizclaw/api/adminservice/generated.go`
+- `pkgs/gizclaw/api/adminhttp/generated.go`
 - `pkgs/gizclaw/api/apitypes/generated.go`
-- `pkgs/gizclaw/api/openaiservice/generated.go`
+- `pkgs/gizclaw/api/openaihttp/generated.go`
 - `pkgs/gizclaw/api/rpcapi/generated.go`
-- `pkgs/gizclaw/api/serverpublic/generated.go`
+- `pkgs/gizclaw/api/peerhttp/generated.go`
 
 Current generated TypeScript SDK code lives under `sdk/js/gizclaw/`:
 
-- `sdk/js/gizclaw/generated/adminservice`
+- `sdk/js/gizclaw/generated/adminhttp`
 - `sdk/js/gizclaw/generated/rpc`
-- `sdk/js/gizclaw/generated/serverpublic`
+- `sdk/js/gizclaw/generated/peerhttp`
 
 The old browser `client_service` API and CLI-served UI TypeScript clients were
 removed as part of the desktop clean break. Desktop UI code should consume the
@@ -43,11 +43,11 @@ regenerate the corresponding Go and/or TypeScript package.
 Common commands:
 
 ```sh
-go generate ./pkgs/gizclaw/api/adminservice
+go generate ./pkgs/gizclaw/api/adminhttp
 go generate ./pkgs/gizclaw/api/apitypes
-go generate ./pkgs/gizclaw/api/openaiservice
+go generate ./pkgs/gizclaw/api/openaihttp
 go generate ./pkgs/gizclaw/api/rpcapi
-go generate ./pkgs/gizclaw/api/serverpublic
+go generate ./pkgs/gizclaw/api/peerhttp
 ```
 
 Regenerate TypeScript SDK packages with:

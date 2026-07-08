@@ -27,7 +27,7 @@ async function main(): Promise<void> {
 
 main().then(
   () => {
-    console.log("ok - Node WebRTC SDK fetches Admin API over the admin service channel");
+    console.log("ok - Node WebRTC SDK fetches Admin API over the admin HTTP service channel");
     process.exit(0);
   },
   (err: unknown) => {

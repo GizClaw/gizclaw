@@ -114,7 +114,7 @@ func runConfig(configPath, contextConfigPath string, selectedCase workspaceCase)
 		cfg = ensured
 	}
 
-	openaiHTTPClient := client.HTTPClient(gizcli.ServiceOpenAI)
+	openaiHTTPClient := client.HTTPClient(gizcli.ServicePeerOpenAI)
 	openaiHTTPClient.Timeout = cfg.timeout
 	openaiClient := openai.NewClient(
 		option.WithAPIKey("gizclaw-peer"),

@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminservice"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 )
 
@@ -66,10 +66,10 @@ func TestAdminAPISyncMiniMaxTenantVoices(t *testing.T) {
 		t.Fatalf("sync MiniMax tenant voices = %#v", resp.JSON200)
 	}
 
-	providerKind := adminservice.VoiceProviderKind(apitypes.VoiceProviderKindMinimaxTenant)
-	source := adminservice.VoiceSource(apitypes.VoiceSourceSync)
+	providerKind := adminhttp.VoiceProviderKind(apitypes.VoiceProviderKindMinimaxTenant)
+	source := adminhttp.VoiceSource(apitypes.VoiceSourceSync)
 	limit := int32(50)
-	voices, err := env.api.ListVoicesWithResponse(ctx, &adminservice.ListVoicesParams{
+	voices, err := env.api.ListVoicesWithResponse(ctx, &adminhttp.ListVoicesParams{
 		Limit:        &limit,
 		ProviderKind: &providerKind,
 		ProviderName: &tenantName,

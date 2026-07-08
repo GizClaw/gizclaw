@@ -1,4 +1,4 @@
-package: adminservice
+package: adminhttp
 generate:
   fiber-server: true
   strict-server: true

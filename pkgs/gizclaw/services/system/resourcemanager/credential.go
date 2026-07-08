@@ -3,7 +3,7 @@ package resourcemanager
 import (
 	"context"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminservice"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 )
 
@@ -42,33 +42,33 @@ func (m *Manager) applyCredential(ctx context.Context, resource apitypes.Resourc
 }
 
 func (m *Manager) getCredential(ctx context.Context, name string) (apitypes.Credential, bool, error) {
-	response, err := m.services.Credentials.GetCredential(ctx, adminservice.GetCredentialRequestObject{Name: name})
+	response, err := m.services.Credentials.GetCredential(ctx, adminhttp.GetCredentialRequestObject{Name: name})
 	if err != nil {
 		return apitypes.Credential{}, false, err
 	}
 	switch response := response.(type) {
-	case adminservice.GetCredential200JSONResponse:
+	case adminhttp.GetCredential200JSONResponse:
 		return apitypes.Credential(response), true, nil
-	case adminservice.GetCredential404JSONResponse:
+	case adminhttp.GetCredential404JSONResponse:
 		return apitypes.Credential{}, false, nil
-	case adminservice.GetCredential500JSONResponse:
+	case adminhttp.GetCredential500JSONResponse:
 		return apitypes.Credential{}, false, responseError(500, "GET_CREDENTIAL_FAILED", "failed to get credential", response)
 	default:
 		return apitypes.Credential{}, false, unexpectedResponse("GetCredential", response)
 	}
 }
 
-func (m *Manager) putCredential(ctx context.Context, name string, body adminservice.CredentialUpsert) error {
-	response, err := m.services.Credentials.PutCredential(ctx, adminservice.PutCredentialRequestObject{Name: name, Body: &body})
+func (m *Manager) putCredential(ctx context.Context, name string, body adminhttp.CredentialUpsert) error {
+	response, err := m.services.Credentials.PutCredential(ctx, adminhttp.PutCredentialRequestObject{Name: name, Body: &body})
 	if err != nil {
 		return err
 	}
 	switch response := response.(type) {
-	case adminservice.PutCredential200JSONResponse:
+	case adminhttp.PutCredential200JSONResponse:
 		return nil
-	case adminservice.PutCredential400JSONResponse:
+	case adminhttp.PutCredential400JSONResponse:
 		return responseError(400, "PUT_CREDENTIAL_FAILED", "failed to put credential", response)
-	case adminservice.PutCredential500JSONResponse:
+	case adminhttp.PutCredential500JSONResponse:
 		return responseError(500, "PUT_CREDENTIAL_FAILED", "failed to put credential", response)
 	default:
 		return unexpectedResponse("PutCredential", response)
@@ -76,16 +76,16 @@ func (m *Manager) putCredential(ctx context.Context, name string, body adminserv
 }
 
 func (m *Manager) deleteCredential(ctx context.Context, name string) (apitypes.Credential, bool, error) {
-	response, err := m.services.Credentials.DeleteCredential(ctx, adminservice.DeleteCredentialRequestObject{Name: name})
+	response, err := m.services.Credentials.DeleteCredential(ctx, adminhttp.DeleteCredentialRequestObject{Name: name})
 	if err != nil {
 		return apitypes.Credential{}, false, err
 	}
 	switch response := response.(type) {
-	case adminservice.DeleteCredential200JSONResponse:
+	case adminhttp.DeleteCredential200JSONResponse:
 		return apitypes.Credential(response), true, nil
-	case adminservice.DeleteCredential404JSONResponse:
+	case adminhttp.DeleteCredential404JSONResponse:
 		return apitypes.Credential{}, false, nil
-	case adminservice.DeleteCredential500JSONResponse:
+	case adminhttp.DeleteCredential500JSONResponse:
 		return apitypes.Credential{}, false, responseError(500, "DELETE_CREDENTIAL_FAILED", "failed to delete credential", response)
 	default:
 		return apitypes.Credential{}, false, unexpectedResponse("DeleteCredential", response)
@@ -100,8 +100,8 @@ func credentialSpec(credential apitypes.Credential) apitypes.CredentialSpec {
 	}
 }
 
-func credentialUpsert(resource apitypes.CredentialResource) adminservice.CredentialUpsert {
-	return adminservice.CredentialUpsert{
+func credentialUpsert(resource apitypes.CredentialResource) adminhttp.CredentialUpsert {
+	return adminhttp.CredentialUpsert{
 		Body:        resource.Spec.Body,
 		Description: resource.Spec.Description,
 		Name:        string(resource.Metadata.Name),

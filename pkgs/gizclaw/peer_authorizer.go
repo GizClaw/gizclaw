@@ -5,7 +5,7 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminservice"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/acl"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
@@ -20,7 +20,7 @@ type aclPolicyBindingLister interface {
 }
 
 type peerConfigGetter interface {
-	GetPeerConfig(context.Context, adminservice.GetPeerConfigRequestObject) (adminservice.GetPeerConfigResponseObject, error)
+	GetPeerConfig(context.Context, adminhttp.GetPeerConfigRequestObject) (adminhttp.GetPeerConfigResponseObject, error)
 }
 
 type peerAuthorizer struct {
@@ -68,11 +68,11 @@ func (a peerAuthorizer) peerView(ctx context.Context) (string, bool) {
 	if a.Peers == nil {
 		return "", false
 	}
-	resp, err := a.Peers.GetPeerConfig(ctx, adminservice.GetPeerConfigRequestObject{PublicKey: a.PublicKey.String()})
+	resp, err := a.Peers.GetPeerConfig(ctx, adminhttp.GetPeerConfigRequestObject{PublicKey: a.PublicKey.String()})
 	if err != nil {
 		return "", false
 	}
-	config, ok := resp.(adminservice.GetPeerConfig200JSONResponse)
+	config, ok := resp.(adminhttp.GetPeerConfig200JSONResponse)
 	if !ok || config.View == nil {
 		return "", false
 	}

@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminservice"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 )
 
@@ -171,42 +171,42 @@ func newFakeWorkflows() *fakeWorkflows {
 	return &fakeWorkflows{items: map[string]apitypes.WorkflowDocument{}}
 }
 
-func (f *fakeWorkflows) ListWorkflows(context.Context, adminservice.ListWorkflowsRequestObject) (adminservice.ListWorkflowsResponseObject, error) {
+func (f *fakeWorkflows) ListWorkflows(context.Context, adminhttp.ListWorkflowsRequestObject) (adminhttp.ListWorkflowsResponseObject, error) {
 	return nil, nil
 }
 
-func (f *fakeWorkflows) CreateWorkflow(context.Context, adminservice.CreateWorkflowRequestObject) (adminservice.CreateWorkflowResponseObject, error) {
+func (f *fakeWorkflows) CreateWorkflow(context.Context, adminhttp.CreateWorkflowRequestObject) (adminhttp.CreateWorkflowResponseObject, error) {
 	return nil, nil
 }
 
-func (f *fakeWorkflows) DeleteWorkflow(_ context.Context, request adminservice.DeleteWorkflowRequestObject) (adminservice.DeleteWorkflowResponseObject, error) {
+func (f *fakeWorkflows) DeleteWorkflow(_ context.Context, request adminhttp.DeleteWorkflowRequestObject) (adminhttp.DeleteWorkflowResponseObject, error) {
 	item, ok := f.items[string(request.Name)]
 	if !ok {
-		return adminservice.DeleteWorkflow404JSONResponse(apitypes.NewErrorResponse("WORKFLOW_NOT_FOUND", "not found")), nil
+		return adminhttp.DeleteWorkflow404JSONResponse(apitypes.NewErrorResponse("WORKFLOW_NOT_FOUND", "not found")), nil
 	}
 	delete(f.items, string(request.Name))
-	return adminservice.DeleteWorkflow200JSONResponse(item), nil
+	return adminhttp.DeleteWorkflow200JSONResponse(item), nil
 }
 
-func (f *fakeWorkflows) GetWorkflow(_ context.Context, request adminservice.GetWorkflowRequestObject) (adminservice.GetWorkflowResponseObject, error) {
+func (f *fakeWorkflows) GetWorkflow(_ context.Context, request adminhttp.GetWorkflowRequestObject) (adminhttp.GetWorkflowResponseObject, error) {
 	if f.getStatus == 500 {
-		return adminservice.GetWorkflow500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "failed")), nil
+		return adminhttp.GetWorkflow500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "failed")), nil
 	}
 	item, ok := f.items[string(request.Name)]
 	if !ok {
-		return adminservice.GetWorkflow404JSONResponse(apitypes.NewErrorResponse("WORKFLOW_NOT_FOUND", "not found")), nil
+		return adminhttp.GetWorkflow404JSONResponse(apitypes.NewErrorResponse("WORKFLOW_NOT_FOUND", "not found")), nil
 	}
-	return adminservice.GetWorkflow200JSONResponse(item), nil
+	return adminhttp.GetWorkflow200JSONResponse(item), nil
 }
 
-func (f *fakeWorkflows) PutWorkflow(_ context.Context, request adminservice.PutWorkflowRequestObject) (adminservice.PutWorkflowResponseObject, error) {
+func (f *fakeWorkflows) PutWorkflow(_ context.Context, request adminhttp.PutWorkflowRequestObject) (adminhttp.PutWorkflowResponseObject, error) {
 	switch f.putStatus {
 	case 400:
-		return adminservice.PutWorkflow400JSONResponse(apitypes.NewErrorResponse("INVALID_WORKFLOW", "invalid")), nil
+		return adminhttp.PutWorkflow400JSONResponse(apitypes.NewErrorResponse("INVALID_WORKFLOW", "invalid")), nil
 	case 500:
-		return adminservice.PutWorkflow500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "failed")), nil
+		return adminhttp.PutWorkflow500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "failed")), nil
 	}
 	f.putCount++
 	f.items[string(request.Name)] = *request.Body
-	return adminservice.PutWorkflow200JSONResponse(*request.Body), nil
+	return adminhttp.PutWorkflow200JSONResponse(*request.Body), nil
 }

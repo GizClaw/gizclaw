@@ -3,7 +3,7 @@ package resourcemanager
 import (
 	"context"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminservice"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 )
 
@@ -42,33 +42,33 @@ func (m *Manager) applyGeminiTenant(ctx context.Context, resource apitypes.Resou
 }
 
 func (m *Manager) getGeminiTenant(ctx context.Context, name string) (apitypes.GeminiTenant, bool, error) {
-	response, err := m.services.ProviderTenants.GetGeminiTenant(ctx, adminservice.GetGeminiTenantRequestObject{Name: name})
+	response, err := m.services.ProviderTenants.GetGeminiTenant(ctx, adminhttp.GetGeminiTenantRequestObject{Name: name})
 	if err != nil {
 		return apitypes.GeminiTenant{}, false, err
 	}
 	switch response := response.(type) {
-	case adminservice.GetGeminiTenant200JSONResponse:
+	case adminhttp.GetGeminiTenant200JSONResponse:
 		return apitypes.GeminiTenant(response), true, nil
-	case adminservice.GetGeminiTenant404JSONResponse:
+	case adminhttp.GetGeminiTenant404JSONResponse:
 		return apitypes.GeminiTenant{}, false, nil
-	case adminservice.GetGeminiTenant500JSONResponse:
+	case adminhttp.GetGeminiTenant500JSONResponse:
 		return apitypes.GeminiTenant{}, false, responseError(500, "GET_GEMINI_TENANT_FAILED", "failed to get Gemini tenant", response)
 	default:
 		return apitypes.GeminiTenant{}, false, unexpectedResponse("GetGeminiTenant", response)
 	}
 }
 
-func (m *Manager) putGeminiTenant(ctx context.Context, name string, body adminservice.GeminiTenantUpsert) error {
-	response, err := m.services.ProviderTenants.PutGeminiTenant(ctx, adminservice.PutGeminiTenantRequestObject{Name: name, Body: &body})
+func (m *Manager) putGeminiTenant(ctx context.Context, name string, body adminhttp.GeminiTenantUpsert) error {
+	response, err := m.services.ProviderTenants.PutGeminiTenant(ctx, adminhttp.PutGeminiTenantRequestObject{Name: name, Body: &body})
 	if err != nil {
 		return err
 	}
 	switch response := response.(type) {
-	case adminservice.PutGeminiTenant200JSONResponse:
+	case adminhttp.PutGeminiTenant200JSONResponse:
 		return nil
-	case adminservice.PutGeminiTenant400JSONResponse:
+	case adminhttp.PutGeminiTenant400JSONResponse:
 		return responseError(400, "PUT_GEMINI_TENANT_FAILED", "failed to put Gemini tenant", response)
-	case adminservice.PutGeminiTenant500JSONResponse:
+	case adminhttp.PutGeminiTenant500JSONResponse:
 		return responseError(500, "PUT_GEMINI_TENANT_FAILED", "failed to put Gemini tenant", response)
 	default:
 		return unexpectedResponse("PutGeminiTenant", response)
@@ -76,16 +76,16 @@ func (m *Manager) putGeminiTenant(ctx context.Context, name string, body adminse
 }
 
 func (m *Manager) deleteGeminiTenant(ctx context.Context, name string) (apitypes.GeminiTenant, bool, error) {
-	response, err := m.services.ProviderTenants.DeleteGeminiTenant(ctx, adminservice.DeleteGeminiTenantRequestObject{Name: name})
+	response, err := m.services.ProviderTenants.DeleteGeminiTenant(ctx, adminhttp.DeleteGeminiTenantRequestObject{Name: name})
 	if err != nil {
 		return apitypes.GeminiTenant{}, false, err
 	}
 	switch response := response.(type) {
-	case adminservice.DeleteGeminiTenant200JSONResponse:
+	case adminhttp.DeleteGeminiTenant200JSONResponse:
 		return apitypes.GeminiTenant(response), true, nil
-	case adminservice.DeleteGeminiTenant404JSONResponse:
+	case adminhttp.DeleteGeminiTenant404JSONResponse:
 		return apitypes.GeminiTenant{}, false, nil
-	case adminservice.DeleteGeminiTenant500JSONResponse:
+	case adminhttp.DeleteGeminiTenant500JSONResponse:
 		return apitypes.GeminiTenant{}, false, responseError(500, "DELETE_GEMINI_TENANT_FAILED", "failed to delete Gemini tenant", response)
 	default:
 		return apitypes.GeminiTenant{}, false, unexpectedResponse("DeleteGeminiTenant", response)
@@ -102,8 +102,8 @@ func geminiTenantSpec(item apitypes.GeminiTenant) apitypes.GeminiTenantSpec {
 	}
 }
 
-func geminiTenantUpsert(resource apitypes.GeminiTenantResource) adminservice.GeminiTenantUpsert {
-	return adminservice.GeminiTenantUpsert{
+func geminiTenantUpsert(resource apitypes.GeminiTenantResource) adminhttp.GeminiTenantUpsert {
+	return adminhttp.GeminiTenantUpsert{
 		BaseUrl:        resource.Spec.BaseUrl,
 		CredentialName: resource.Spec.CredentialName,
 		Description:    resource.Spec.Description,

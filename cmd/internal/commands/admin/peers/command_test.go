@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminservice"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/sdk/go/gizcli"
@@ -150,8 +150,8 @@ func stubPeerCommandClients(t *testing.T) func() {
 	deletePeer = func(context.Context, *gizcli.Client, string) (apitypes.Registration, error) {
 		return registration, nil
 	}
-	refreshPeer = func(context.Context, *gizcli.Client, string) (adminservice.RefreshResult, error) {
-		return adminservice.RefreshResult{Peer: apitypes.Peer{PublicKey: devicePublicKey.String()}}, nil
+	refreshPeer = func(context.Context, *gizcli.Client, string) (adminhttp.RefreshResult, error) {
+		return adminhttp.RefreshResult{Peer: apitypes.Peer{PublicKey: devicePublicKey.String()}}, nil
 	}
 
 	return func() {

@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminservice"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/device/firmware"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
@@ -139,7 +139,7 @@ func TestFirmwareResourcePutAndErrors(t *testing.T) {
 	}
 
 	badRequest := New(Services{Firmwares: firmwareServiceWithPut400{}})
-	if err := badRequest.putFirmware(ctx, "devkit", adminservice.FirmwareUpsert{Name: "other"}); !isResourceError(err, 400, "INVALID_FIRMWARE") {
+	if err := badRequest.putFirmware(ctx, "devkit", adminhttp.FirmwareUpsert{Name: "other"}); !isResourceError(err, 400, "INVALID_FIRMWARE") {
 		t.Fatalf("putFirmware bad request error = %v", err)
 	}
 
@@ -147,7 +147,7 @@ func TestFirmwareResourcePutAndErrors(t *testing.T) {
 	if _, _, err := transportError.getFirmware(ctx, "devkit"); err == nil || err.Error() != "transport failed" {
 		t.Fatalf("getFirmware transport error = %v", err)
 	}
-	if err := transportError.putFirmware(ctx, "devkit", adminservice.FirmwareUpsert{Name: "devkit"}); err == nil || err.Error() != "transport failed" {
+	if err := transportError.putFirmware(ctx, "devkit", adminhttp.FirmwareUpsert{Name: "devkit"}); err == nil || err.Error() != "transport failed" {
 		t.Fatalf("putFirmware transport error = %v", err)
 	}
 	if _, _, err := transportError.deleteFirmware(ctx, "devkit"); err == nil || err.Error() != "transport failed" {
@@ -207,75 +207,75 @@ type firmwareServiceWithTransportError struct {
 	err error
 }
 
-func (firmwareServiceWithPut400) PutFirmware(context.Context, adminservice.PutFirmwareRequestObject) (adminservice.PutFirmwareResponseObject, error) {
-	return adminservice.PutFirmware400JSONResponse(apitypes.NewErrorResponse("INVALID_FIRMWARE", "invalid firmware")), nil
+func (firmwareServiceWithPut400) PutFirmware(context.Context, adminhttp.PutFirmwareRequestObject) (adminhttp.PutFirmwareResponseObject, error) {
+	return adminhttp.PutFirmware400JSONResponse(apitypes.NewErrorResponse("INVALID_FIRMWARE", "invalid firmware")), nil
 }
 
-func (s firmwareServiceWithTransportError) DeleteFirmware(context.Context, adminservice.DeleteFirmwareRequestObject) (adminservice.DeleteFirmwareResponseObject, error) {
+func (s firmwareServiceWithTransportError) DeleteFirmware(context.Context, adminhttp.DeleteFirmwareRequestObject) (adminhttp.DeleteFirmwareResponseObject, error) {
 	return nil, s.err
 }
 
-func (s firmwareServiceWithTransportError) GetFirmware(context.Context, adminservice.GetFirmwareRequestObject) (adminservice.GetFirmwareResponseObject, error) {
+func (s firmwareServiceWithTransportError) GetFirmware(context.Context, adminhttp.GetFirmwareRequestObject) (adminhttp.GetFirmwareResponseObject, error) {
 	return nil, s.err
 }
 
-func (s firmwareServiceWithTransportError) PutFirmware(context.Context, adminservice.PutFirmwareRequestObject) (adminservice.PutFirmwareResponseObject, error) {
+func (s firmwareServiceWithTransportError) PutFirmware(context.Context, adminhttp.PutFirmwareRequestObject) (adminhttp.PutFirmwareResponseObject, error) {
 	return nil, s.err
 }
 
-func (unexpectedFirmwareService) ListFirmwares(context.Context, adminservice.ListFirmwaresRequestObject) (adminservice.ListFirmwaresResponseObject, error) {
+func (unexpectedFirmwareService) ListFirmwares(context.Context, adminhttp.ListFirmwaresRequestObject) (adminhttp.ListFirmwaresResponseObject, error) {
 	return nil, nil
 }
 
-func (unexpectedFirmwareService) CreateFirmware(context.Context, adminservice.CreateFirmwareRequestObject) (adminservice.CreateFirmwareResponseObject, error) {
+func (unexpectedFirmwareService) CreateFirmware(context.Context, adminhttp.CreateFirmwareRequestObject) (adminhttp.CreateFirmwareResponseObject, error) {
 	return nil, nil
 }
 
-func (unexpectedFirmwareService) DeleteFirmware(context.Context, adminservice.DeleteFirmwareRequestObject) (adminservice.DeleteFirmwareResponseObject, error) {
+func (unexpectedFirmwareService) DeleteFirmware(context.Context, adminhttp.DeleteFirmwareRequestObject) (adminhttp.DeleteFirmwareResponseObject, error) {
 	return nil, nil
 }
 
-func (unexpectedFirmwareService) GetFirmware(context.Context, adminservice.GetFirmwareRequestObject) (adminservice.GetFirmwareResponseObject, error) {
+func (unexpectedFirmwareService) GetFirmware(context.Context, adminhttp.GetFirmwareRequestObject) (adminhttp.GetFirmwareResponseObject, error) {
 	return nil, nil
 }
 
-func (unexpectedFirmwareService) PutFirmware(context.Context, adminservice.PutFirmwareRequestObject) (adminservice.PutFirmwareResponseObject, error) {
+func (unexpectedFirmwareService) PutFirmware(context.Context, adminhttp.PutFirmwareRequestObject) (adminhttp.PutFirmwareResponseObject, error) {
 	return nil, nil
 }
 
-func (unexpectedFirmwareService) ReleaseFirmware(context.Context, adminservice.ReleaseFirmwareRequestObject) (adminservice.ReleaseFirmwareResponseObject, error) {
+func (unexpectedFirmwareService) ReleaseFirmware(context.Context, adminhttp.ReleaseFirmwareRequestObject) (adminhttp.ReleaseFirmwareResponseObject, error) {
 	return nil, nil
 }
 
-func (unexpectedFirmwareService) RollbackFirmware(context.Context, adminservice.RollbackFirmwareRequestObject) (adminservice.RollbackFirmwareResponseObject, error) {
+func (unexpectedFirmwareService) RollbackFirmware(context.Context, adminhttp.RollbackFirmwareRequestObject) (adminhttp.RollbackFirmwareResponseObject, error) {
 	return nil, nil
 }
 
-func (unexpectedFirmwareService) DownloadFirmwareArtifact(context.Context, adminservice.DownloadFirmwareArtifactRequestObject) (adminservice.DownloadFirmwareArtifactResponseObject, error) {
+func (unexpectedFirmwareService) DownloadFirmwareArtifact(context.Context, adminhttp.DownloadFirmwareArtifactRequestObject) (adminhttp.DownloadFirmwareArtifactResponseObject, error) {
 	return nil, nil
 }
 
-func (unexpectedFirmwareService) UploadFirmwareArtifact(context.Context, adminservice.UploadFirmwareArtifactRequestObject) (adminservice.UploadFirmwareArtifactResponseObject, error) {
+func (unexpectedFirmwareService) UploadFirmwareArtifact(context.Context, adminhttp.UploadFirmwareArtifactRequestObject) (adminhttp.UploadFirmwareArtifactResponseObject, error) {
 	return nil, nil
 }
 
-func (unexpectedFirmwareService) DeleteFirmwareArtifact(context.Context, adminservice.DeleteFirmwareArtifactRequestObject) (adminservice.DeleteFirmwareArtifactResponseObject, error) {
+func (unexpectedFirmwareService) DeleteFirmwareArtifact(context.Context, adminhttp.DeleteFirmwareArtifactRequestObject) (adminhttp.DeleteFirmwareArtifactResponseObject, error) {
 	return nil, nil
 }
 
-func (unexpectedFirmwareService) ListFirmwareArtifactEntries(context.Context, adminservice.ListFirmwareArtifactEntriesRequestObject) (adminservice.ListFirmwareArtifactEntriesResponseObject, error) {
+func (unexpectedFirmwareService) ListFirmwareArtifactEntries(context.Context, adminhttp.ListFirmwareArtifactEntriesRequestObject) (adminhttp.ListFirmwareArtifactEntriesResponseObject, error) {
 	return nil, nil
 }
 
-func (unexpectedFirmwareService) TreeFirmwareArtifactEntries(context.Context, adminservice.TreeFirmwareArtifactEntriesRequestObject) (adminservice.TreeFirmwareArtifactEntriesResponseObject, error) {
+func (unexpectedFirmwareService) TreeFirmwareArtifactEntries(context.Context, adminhttp.TreeFirmwareArtifactEntriesRequestObject) (adminhttp.TreeFirmwareArtifactEntriesResponseObject, error) {
 	return nil, nil
 }
 
-func (unexpectedFirmwareService) StatFirmwareArtifactEntry(context.Context, adminservice.StatFirmwareArtifactEntryRequestObject) (adminservice.StatFirmwareArtifactEntryResponseObject, error) {
+func (unexpectedFirmwareService) StatFirmwareArtifactEntry(context.Context, adminhttp.StatFirmwareArtifactEntryRequestObject) (adminhttp.StatFirmwareArtifactEntryResponseObject, error) {
 	return nil, nil
 }
 
-func (unexpectedFirmwareService) DownloadFirmwareArtifactEntry(context.Context, adminservice.DownloadFirmwareArtifactEntryRequestObject) (adminservice.DownloadFirmwareArtifactEntryResponseObject, error) {
+func (unexpectedFirmwareService) DownloadFirmwareArtifactEntry(context.Context, adminhttp.DownloadFirmwareArtifactEntryRequestObject) (adminhttp.DownloadFirmwareArtifactEntryResponseObject, error) {
 	return nil, nil
 }
 

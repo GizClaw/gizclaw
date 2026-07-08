@@ -28,10 +28,10 @@
           "params": {
             "oneOf": [
               {
-                "$ref": "./rpc/all.json#/components/schemas/PingRequest"
+                "$ref": "./rpc/common.json#/components/schemas/PingRequest"
               },
               {
-                "$ref": "./rpc/all.json#/components/schemas/SpeedTestRequest"
+                "$ref": "./rpc/common.json#/components/schemas/SpeedTestRequest"
               },
               {
                 "$ref": "./rpc/client.json#/components/schemas/ClientGetInfoRequest"
@@ -329,10 +329,10 @@
           "result": {
             "oneOf": [
               {
-                "$ref": "./rpc/all.json#/components/schemas/PingResponse"
+                "$ref": "./rpc/common.json#/components/schemas/PingResponse"
               },
               {
-                "$ref": "./rpc/all.json#/components/schemas/SpeedTestResponse"
+                "$ref": "./rpc/common.json#/components/schemas/SpeedTestResponse"
               },
               {
                 "$ref": "./rpc/client.json#/components/schemas/ClientGetInfoResponse"
@@ -768,13 +768,13 @@
   "x-gizclaw-rpc-methods": [
     {
       "method": "all.ping",
-      "request": "./rpc/all.json#/components/schemas/PingRequest",
-      "response": "./rpc/all.json#/components/schemas/PingResponse"
+      "request": "./rpc/common.json#/components/schemas/PingRequest",
+      "response": "./rpc/common.json#/components/schemas/PingResponse"
     },
     {
       "method": "all.speed_test.run",
-      "request": "./rpc/all.json#/components/schemas/SpeedTestRequest",
-      "response": "./rpc/all.json#/components/schemas/SpeedTestResponse"
+      "request": "./rpc/common.json#/components/schemas/SpeedTestRequest",
+      "response": "./rpc/common.json#/components/schemas/SpeedTestResponse"
     },
     {
       "method": "client.info.get",

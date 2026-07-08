@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminservice"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/acl"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/objectstore"
@@ -179,12 +179,12 @@ func seedWorkspace(t *testing.T, srv *Server, name string) {
 	t.Helper()
 
 	seedWorkflow(t, srv, "workflow-1")
-	body := adminservice.WorkspaceUpsert{Name: name, WorkflowName: "workflow-1"}
-	resp, err := srv.CreateWorkspace(context.Background(), adminservice.CreateWorkspaceRequestObject{Body: &body})
+	body := adminhttp.WorkspaceUpsert{Name: name, WorkflowName: "workflow-1"}
+	resp, err := srv.CreateWorkspace(context.Background(), adminhttp.CreateWorkspaceRequestObject{Body: &body})
 	if err != nil {
 		t.Fatalf("CreateWorkspace() error = %v", err)
 	}
-	if _, ok := resp.(adminservice.CreateWorkspace200JSONResponse); !ok {
+	if _, ok := resp.(adminhttp.CreateWorkspace200JSONResponse); !ok {
 		t.Fatalf("CreateWorkspace() response = %#v", resp)
 	}
 }

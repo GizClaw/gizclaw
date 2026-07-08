@@ -8,7 +8,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminservice"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/credential"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/model"
@@ -46,17 +46,17 @@ type adminService struct {
 	ResourceManager *resourcemanager.Manager
 }
 
-var _ adminservice.StrictServerInterface = (*adminService)(nil)
+var _ adminhttp.StrictServerInterface = (*adminService)(nil)
 
 func (s *PeerService) serveAdmin(conn giznet.Conn) error {
 	app := fiber.New(fiber.Config{DisableStartupMessage: true, StreamRequestBody: true})
 	app.Use(func(ctx *fiber.Ctx) error {
 		return ctx.Next()
 	})
-	handler := adminservice.NewStrictHandler(s.admin, nil)
-	adminservice.RegisterHandlers(app, handler)
+	handler := adminhttp.NewStrictHandler(s.admin, nil)
+	adminhttp.RegisterHandlers(app, handler)
 
-	server := gizhttp.NewServer(conn, ServiceAdmin, fiberHTTPHandler(app))
+	server := gizhttp.NewServer(conn, ServiceAdminHTTP, fiberHTTPHandler(app))
 	defer func() {
 		_ = server.Shutdown(context.Background())
 	}()
@@ -66,78 +66,78 @@ func (s *PeerService) serveAdmin(conn giznet.Conn) error {
 	return server.Serve()
 }
 
-func (s *adminService) ApplyResource(ctx context.Context, request adminservice.ApplyResourceRequestObject) (adminservice.ApplyResourceResponseObject, error) {
+func (s *adminService) ApplyResource(ctx context.Context, request adminhttp.ApplyResourceRequestObject) (adminhttp.ApplyResourceResponseObject, error) {
 	if request.JSONBody == nil {
-		return adminservice.ApplyResource400JSONResponse(apitypes.NewErrorResponse("INVALID_RESOURCE", "request body is required")), nil
+		return adminhttp.ApplyResource400JSONResponse(apitypes.NewErrorResponse("INVALID_RESOURCE", "request body is required")), nil
 	}
 	result, err := s.ResourceManager.Apply(ctx, *request.JSONBody)
 	if err != nil {
 		status, body := resourceManagerError(err)
 		switch status {
 		case http.StatusBadRequest:
-			return adminservice.ApplyResource400JSONResponse(body), nil
+			return adminhttp.ApplyResource400JSONResponse(body), nil
 		case http.StatusConflict:
-			return adminservice.ApplyResource409JSONResponse(body), nil
+			return adminhttp.ApplyResource409JSONResponse(body), nil
 		default:
-			return adminservice.ApplyResource500JSONResponse(body), nil
+			return adminhttp.ApplyResource500JSONResponse(body), nil
 		}
 	}
-	return adminservice.ApplyResource200JSONResponse(result), nil
+	return adminhttp.ApplyResource200JSONResponse(result), nil
 }
 
-func (s *adminService) GetResource(ctx context.Context, request adminservice.GetResourceRequestObject) (adminservice.GetResourceResponseObject, error) {
+func (s *adminService) GetResource(ctx context.Context, request adminhttp.GetResourceRequestObject) (adminhttp.GetResourceResponseObject, error) {
 	resource, err := s.ResourceManager.Get(ctx, request.Kind, request.Name)
 	if err != nil {
 		status, body := resourceManagerError(err)
 		switch status {
 		case http.StatusBadRequest:
-			return adminservice.GetResource400JSONResponse(body), nil
+			return adminhttp.GetResource400JSONResponse(body), nil
 		case http.StatusNotFound:
-			return adminservice.GetResource404JSONResponse(body), nil
+			return adminhttp.GetResource404JSONResponse(body), nil
 		default:
-			return adminservice.GetResource500JSONResponse(body), nil
+			return adminhttp.GetResource500JSONResponse(body), nil
 		}
 	}
 	return resource200JSONResponse{Resource: resource}, nil
 }
 
-func (s *adminService) PutResource(ctx context.Context, request adminservice.PutResourceRequestObject) (adminservice.PutResourceResponseObject, error) {
+func (s *adminService) PutResource(ctx context.Context, request adminhttp.PutResourceRequestObject) (adminhttp.PutResourceResponseObject, error) {
 	if request.JSONBody == nil {
-		return adminservice.PutResource400JSONResponse(apitypes.NewErrorResponse("INVALID_RESOURCE", "request body is required")), nil
+		return adminhttp.PutResource400JSONResponse(apitypes.NewErrorResponse("INVALID_RESOURCE", "request body is required")), nil
 	}
 	if err := validateResourcePathMatch(*request.JSONBody, request.Kind, request.Name); err != nil {
-		return adminservice.PutResource400JSONResponse(apitypes.NewErrorResponse("INVALID_RESOURCE_PATH", err.Error())), nil
+		return adminhttp.PutResource400JSONResponse(apitypes.NewErrorResponse("INVALID_RESOURCE_PATH", err.Error())), nil
 	}
 	resource, err := s.ResourceManager.Put(ctx, *request.JSONBody)
 	if err != nil {
 		status, body := resourceManagerError(err)
 		switch status {
 		case http.StatusBadRequest:
-			return adminservice.PutResource400JSONResponse(body), nil
+			return adminhttp.PutResource400JSONResponse(body), nil
 		case http.StatusNotFound:
-			return adminservice.PutResource404JSONResponse(body), nil
+			return adminhttp.PutResource404JSONResponse(body), nil
 		case http.StatusConflict:
-			return adminservice.PutResource409JSONResponse(body), nil
+			return adminhttp.PutResource409JSONResponse(body), nil
 		default:
-			return adminservice.PutResource500JSONResponse(body), nil
+			return adminhttp.PutResource500JSONResponse(body), nil
 		}
 	}
 	return resource200JSONResponse{Resource: resource}, nil
 }
 
-func (s *adminService) DeleteResource(ctx context.Context, request adminservice.DeleteResourceRequestObject) (adminservice.DeleteResourceResponseObject, error) {
+func (s *adminService) DeleteResource(ctx context.Context, request adminhttp.DeleteResourceRequestObject) (adminhttp.DeleteResourceResponseObject, error) {
 	resource, err := s.ResourceManager.Delete(ctx, request.Kind, request.Name)
 	if err != nil {
 		status, body := resourceManagerError(err)
 		switch status {
 		case http.StatusBadRequest:
-			return adminservice.DeleteResource400JSONResponse(body), nil
+			return adminhttp.DeleteResource400JSONResponse(body), nil
 		case http.StatusNotFound:
-			return adminservice.DeleteResource404JSONResponse(body), nil
+			return adminhttp.DeleteResource404JSONResponse(body), nil
 		case http.StatusConflict:
-			return adminservice.DeleteResource409JSONResponse(body), nil
+			return adminhttp.DeleteResource409JSONResponse(body), nil
 		default:
-			return adminservice.DeleteResource500JSONResponse(body), nil
+			return adminhttp.DeleteResource500JSONResponse(body), nil
 		}
 	}
 	return resource200JSONResponse{Resource: resource}, nil

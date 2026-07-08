@@ -6,12 +6,15 @@ const (
 	serviceLabelPrefix = "giznet/v1/service/"
 	packetLabel        = "giznet/v1/packet"
 
-	// ProtocolStampedOpus mirrors gizclaw.ProtocolStampedOpus without importing
+	// PacketStampedOpus mirrors gizclaw.PacketStampedOpus without importing
 	// pkg/gizclaw from the transport package.
-	ProtocolStampedOpus byte = 0x10
-	// ProtocolTelemetry mirrors gizclaw.ProtocolTelemetry without importing
+	PacketStampedOpus byte = 0x10
+	// EventStreamTelemetry mirrors gizclaw.EventStreamTelemetry without importing
 	// pkg/gizclaw from the transport package.
-	ProtocolTelemetry byte = 0x11
+	EventStreamTelemetry byte = 0x11
+	// MediaStreamOpus mirrors gizclaw.MediaStreamOpus without importing
+	// pkg/gizclaw from the transport package.
+	MediaStreamOpus = "audio/opus"
 
 	maxPacketMessageSize = 64 * 1024
 	streamChunkSize      = 1400

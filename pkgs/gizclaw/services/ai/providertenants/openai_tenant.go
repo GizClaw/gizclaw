@@ -8,60 +8,60 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminservice"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
 var openAITenantsRoot = kv.Key{"openai-tenants", "by-name"}
 
-func (s *Server) ListOpenAITenants(ctx context.Context, request adminservice.ListOpenAITenantsRequestObject) (adminservice.ListOpenAITenantsResponseObject, error) {
+func (s *Server) ListOpenAITenants(ctx context.Context, request adminhttp.ListOpenAITenantsRequestObject) (adminhttp.ListOpenAITenantsResponseObject, error) {
 	store, err := s.store()
 	if err != nil {
-		return adminservice.ListOpenAITenants500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.ListOpenAITenants500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	cursor, limit := normalizeListParams(request.Params.Cursor, request.Params.Limit)
 	items, hasNext, nextCursor, err := listOpenAITenantsPage(ctx, store, cursor, limit)
 	if err != nil {
-		return adminservice.ListOpenAITenants500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.ListOpenAITenants500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	return adminservice.ListOpenAITenants200JSONResponse(adminservice.OpenAITenantList{
+	return adminhttp.ListOpenAITenants200JSONResponse(adminhttp.OpenAITenantList{
 		HasNext:    hasNext,
 		Items:      items,
 		NextCursor: nextCursor,
 	}), nil
 }
 
-func (s *Server) CreateOpenAITenant(ctx context.Context, request adminservice.CreateOpenAITenantRequestObject) (adminservice.CreateOpenAITenantResponseObject, error) {
+func (s *Server) CreateOpenAITenant(ctx context.Context, request adminhttp.CreateOpenAITenantRequestObject) (adminhttp.CreateOpenAITenantResponseObject, error) {
 	store, err := s.store()
 	if err != nil {
-		return adminservice.CreateOpenAITenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.CreateOpenAITenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	if request.Body == nil {
-		return adminservice.CreateOpenAITenant400JSONResponse(apitypes.NewErrorResponse("INVALID_OPENAI_TENANT", "request body required")), nil
+		return adminhttp.CreateOpenAITenant400JSONResponse(apitypes.NewErrorResponse("INVALID_OPENAI_TENANT", "request body required")), nil
 	}
 	tenant, err := normalizeOpenAITenantUpsert(*request.Body, "")
 	if err != nil {
-		return adminservice.CreateOpenAITenant400JSONResponse(apitypes.NewErrorResponse("INVALID_OPENAI_TENANT", err.Error())), nil
+		return adminhttp.CreateOpenAITenant400JSONResponse(apitypes.NewErrorResponse("INVALID_OPENAI_TENANT", err.Error())), nil
 	}
 	if _, err := store.Get(ctx, openAITenantKey(string(tenant.Name))); err == nil {
-		return adminservice.CreateOpenAITenant409JSONResponse(apitypes.NewErrorResponse("OPENAI_TENANT_ALREADY_EXISTS", fmt.Sprintf("OpenAI tenant %q already exists", tenant.Name))), nil
+		return adminhttp.CreateOpenAITenant409JSONResponse(apitypes.NewErrorResponse("OPENAI_TENANT_ALREADY_EXISTS", fmt.Sprintf("OpenAI tenant %q already exists", tenant.Name))), nil
 	} else if !errors.Is(err, kv.ErrNotFound) {
-		return adminservice.CreateOpenAITenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.CreateOpenAITenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	now := s.now()
 	tenant.CreatedAt = now
 	tenant.UpdatedAt = now
 	if err := writeOpenAITenant(ctx, store, tenant); err != nil {
-		return adminservice.CreateOpenAITenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.CreateOpenAITenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	return adminservice.CreateOpenAITenant200JSONResponse(tenant), nil
+	return adminhttp.CreateOpenAITenant200JSONResponse(tenant), nil
 }
 
-func (s *Server) GetOpenAITenant(ctx context.Context, request adminservice.GetOpenAITenantRequestObject) (adminservice.GetOpenAITenantResponseObject, error) {
+func (s *Server) GetOpenAITenant(ctx context.Context, request adminhttp.GetOpenAITenantRequestObject) (adminhttp.GetOpenAITenantResponseObject, error) {
 	store, err := s.store()
 	if err != nil {
-		return adminservice.GetOpenAITenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.GetOpenAITenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	name, err := url.PathUnescape(string(request.Name))
 	if err != nil {
@@ -70,20 +70,20 @@ func (s *Server) GetOpenAITenant(ctx context.Context, request adminservice.GetOp
 	tenant, err := getOpenAITenant(ctx, store, name)
 	if err != nil {
 		if errors.Is(err, kv.ErrNotFound) {
-			return adminservice.GetOpenAITenant404JSONResponse(apitypes.NewErrorResponse("OPENAI_TENANT_NOT_FOUND", fmt.Sprintf("OpenAI tenant %q not found", name))), nil
+			return adminhttp.GetOpenAITenant404JSONResponse(apitypes.NewErrorResponse("OPENAI_TENANT_NOT_FOUND", fmt.Sprintf("OpenAI tenant %q not found", name))), nil
 		}
-		return adminservice.GetOpenAITenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.GetOpenAITenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	return adminservice.GetOpenAITenant200JSONResponse(tenant), nil
+	return adminhttp.GetOpenAITenant200JSONResponse(tenant), nil
 }
 
-func (s *Server) PutOpenAITenant(ctx context.Context, request adminservice.PutOpenAITenantRequestObject) (adminservice.PutOpenAITenantResponseObject, error) {
+func (s *Server) PutOpenAITenant(ctx context.Context, request adminhttp.PutOpenAITenantRequestObject) (adminhttp.PutOpenAITenantResponseObject, error) {
 	store, err := s.store()
 	if err != nil {
-		return adminservice.PutOpenAITenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.PutOpenAITenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	if request.Body == nil {
-		return adminservice.PutOpenAITenant400JSONResponse(apitypes.NewErrorResponse("INVALID_OPENAI_TENANT", "request body required")), nil
+		return adminhttp.PutOpenAITenant400JSONResponse(apitypes.NewErrorResponse("INVALID_OPENAI_TENANT", "request body required")), nil
 	}
 	name, err := url.PathUnescape(string(request.Name))
 	if err != nil {
@@ -91,11 +91,11 @@ func (s *Server) PutOpenAITenant(ctx context.Context, request adminservice.PutOp
 	}
 	tenant, err := normalizeOpenAITenantUpsert(*request.Body, name)
 	if err != nil {
-		return adminservice.PutOpenAITenant400JSONResponse(apitypes.NewErrorResponse("INVALID_OPENAI_TENANT", err.Error())), nil
+		return adminhttp.PutOpenAITenant400JSONResponse(apitypes.NewErrorResponse("INVALID_OPENAI_TENANT", err.Error())), nil
 	}
 	previous, err := getOpenAITenant(ctx, store, name)
 	if err != nil && !errors.Is(err, kv.ErrNotFound) {
-		return adminservice.PutOpenAITenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.PutOpenAITenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	now := s.now()
 	tenant.CreatedAt = now
@@ -104,15 +104,15 @@ func (s *Server) PutOpenAITenant(ctx context.Context, request adminservice.PutOp
 		tenant.CreatedAt = previous.CreatedAt
 	}
 	if err := writeOpenAITenant(ctx, store, tenant); err != nil {
-		return adminservice.PutOpenAITenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.PutOpenAITenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	return adminservice.PutOpenAITenant200JSONResponse(tenant), nil
+	return adminhttp.PutOpenAITenant200JSONResponse(tenant), nil
 }
 
-func (s *Server) DeleteOpenAITenant(ctx context.Context, request adminservice.DeleteOpenAITenantRequestObject) (adminservice.DeleteOpenAITenantResponseObject, error) {
+func (s *Server) DeleteOpenAITenant(ctx context.Context, request adminhttp.DeleteOpenAITenantRequestObject) (adminhttp.DeleteOpenAITenantResponseObject, error) {
 	store, err := s.store()
 	if err != nil {
-		return adminservice.DeleteOpenAITenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.DeleteOpenAITenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	name, err := url.PathUnescape(string(request.Name))
 	if err != nil {
@@ -121,17 +121,17 @@ func (s *Server) DeleteOpenAITenant(ctx context.Context, request adminservice.De
 	tenant, err := getOpenAITenant(ctx, store, name)
 	if err != nil {
 		if errors.Is(err, kv.ErrNotFound) {
-			return adminservice.DeleteOpenAITenant404JSONResponse(apitypes.NewErrorResponse("OPENAI_TENANT_NOT_FOUND", fmt.Sprintf("OpenAI tenant %q not found", name))), nil
+			return adminhttp.DeleteOpenAITenant404JSONResponse(apitypes.NewErrorResponse("OPENAI_TENANT_NOT_FOUND", fmt.Sprintf("OpenAI tenant %q not found", name))), nil
 		}
-		return adminservice.DeleteOpenAITenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.DeleteOpenAITenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	if err := store.Delete(ctx, openAITenantKey(string(tenant.Name))); err != nil {
-		return adminservice.DeleteOpenAITenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.DeleteOpenAITenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	return adminservice.DeleteOpenAITenant200JSONResponse(tenant), nil
+	return adminhttp.DeleteOpenAITenant200JSONResponse(tenant), nil
 }
 
-func normalizeOpenAITenantUpsert(in adminservice.OpenAITenantUpsert, expectedName string) (apitypes.OpenAITenant, error) {
+func normalizeOpenAITenantUpsert(in adminhttp.OpenAITenantUpsert, expectedName string) (apitypes.OpenAITenant, error) {
 	name := strings.TrimSpace(string(in.Name))
 	if name == "" {
 		return apitypes.OpenAITenant{}, errors.New("name is required")

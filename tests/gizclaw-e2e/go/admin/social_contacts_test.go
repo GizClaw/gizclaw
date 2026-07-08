@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminservice"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 )
 
 func TestAdminAPIContactsListGetCreatePutDelete(t *testing.T) {
@@ -15,7 +15,7 @@ func TestAdminAPIContactsListGetCreatePutDelete(t *testing.T) {
 	contactID := mutationName("contact")
 	phone := fmt.Sprintf("+1555%d", time.Now().UnixNano()%1000000000)
 
-	created, err := env.api.CreateContactWithResponse(env.ctx, adminservice.AdminContactCreateRequest{
+	created, err := env.api.CreateContactWithResponse(env.ctx, adminhttp.AdminContactCreateRequest{
 		OwnerPublicKey: env.adminKey,
 		Id:             ptr(contactID),
 		DisplayName:    ptr("Admin API Contact"),
@@ -30,7 +30,7 @@ func TestAdminAPIContactsListGetCreatePutDelete(t *testing.T) {
 	}
 	t.Cleanup(func() { _, _ = env.api.DeleteContactWithResponse(env.ctx, env.adminKey, contactID) })
 
-	duplicate, err := env.api.CreateContactWithResponse(env.ctx, adminservice.AdminContactCreateRequest{
+	duplicate, err := env.api.CreateContactWithResponse(env.ctx, adminhttp.AdminContactCreateRequest{
 		OwnerPublicKey: env.adminKey,
 		Id:             ptr(mutationName("contact-dup")),
 		PhoneNumber:    ptr(phone),
@@ -51,8 +51,8 @@ func TestAdminAPIContactsListGetCreatePutDelete(t *testing.T) {
 		t.Fatalf("got contact = %#v", got.JSON200)
 	}
 
-	ownerRows := collectAdminPagesInt(t, 1, func(cursor *string, limit int) ([]adminservice.AdminContactObject, bool, *string) {
-		resp, err := env.api.ListContactsWithResponse(env.ctx, &adminservice.ListContactsParams{OwnerPublicKey: ptr(env.adminKey), Cursor: cursor, Limit: &limit})
+	ownerRows := collectAdminPagesInt(t, 1, func(cursor *string, limit int) ([]adminhttp.AdminContactObject, bool, *string) {
+		resp, err := env.api.ListContactsWithResponse(env.ctx, &adminhttp.ListContactsParams{OwnerPublicKey: ptr(env.adminKey), Cursor: cursor, Limit: &limit})
 		if err != nil {
 			t.Fatalf("list owner contacts: %v", err)
 		}
@@ -62,12 +62,12 @@ func TestAdminAPIContactsListGetCreatePutDelete(t *testing.T) {
 		}
 		return resp.JSON200.Items, resp.JSON200.HasNext, resp.JSON200.NextCursor
 	})
-	requireName(t, ownerRows, contactID, func(item adminservice.AdminContactObject) string {
+	requireName(t, ownerRows, contactID, func(item adminhttp.AdminContactObject) string {
 		return item.Id
 	})
 
-	allRows := collectAdminPagesInt(t, 2, func(cursor *string, limit int) ([]adminservice.AdminContactObject, bool, *string) {
-		resp, err := env.api.ListContactsWithResponse(env.ctx, &adminservice.ListContactsParams{Cursor: cursor, Limit: &limit})
+	allRows := collectAdminPagesInt(t, 2, func(cursor *string, limit int) ([]adminhttp.AdminContactObject, bool, *string) {
+		resp, err := env.api.ListContactsWithResponse(env.ctx, &adminhttp.ListContactsParams{Cursor: cursor, Limit: &limit})
 		if err != nil {
 			t.Fatalf("list contacts: %v", err)
 		}
@@ -77,14 +77,14 @@ func TestAdminAPIContactsListGetCreatePutDelete(t *testing.T) {
 		}
 		return resp.JSON200.Items, resp.JSON200.HasNext, resp.JSON200.NextCursor
 	})
-	requireName(t, allRows, contactID, func(item adminservice.AdminContactObject) string {
+	requireName(t, allRows, contactID, func(item adminhttp.AdminContactObject) string {
 		if item.OwnerPublicKey == env.adminKey {
 			return item.Id
 		}
 		return ""
 	})
 
-	updated, err := env.api.PutContactWithResponse(env.ctx, env.adminKey, contactID, adminservice.AdminContactPutRequest{
+	updated, err := env.api.PutContactWithResponse(env.ctx, env.adminKey, contactID, adminhttp.AdminContactPutRequest{
 		DisplayName: ptr("Renamed Contact"),
 		PhoneNumber: ptr(phone + "1"),
 	})

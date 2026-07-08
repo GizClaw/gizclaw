@@ -10,7 +10,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/adaptor"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/serverpublic"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/peerhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizhttp"
@@ -23,11 +23,11 @@ func TestPublicFiberAdapterServerInfo(t *testing.T) {
 		if base == nil {
 			base = context.Background()
 		}
-		ctx.SetUserContext(serverpublic.WithCallerPublicKey(base, giznet.PublicKey{1}))
+		ctx.SetUserContext(peerhttp.WithCallerPublicKey(base, giznet.PublicKey{1}))
 		return ctx.Next()
 	})
-	serverpublic.RegisterHandlers(app, serverpublic.NewStrictHandler(&serverPublic{
-		ServerPublicService: &peer.Server{
+	peerhttp.RegisterHandlers(app, peerhttp.NewStrictHandler(&peerHTTP{
+		PeerHTTPService: &peer.Server{
 			BuildCommit:     "test-build",
 			ServerPublicKey: giznet.PublicKey{1},
 		},
@@ -44,8 +44,8 @@ func TestPublicFiberAdapterServerInfo(t *testing.T) {
 
 func TestPeerServicePublicHTTPHandlerAllowsBrowserPreflight(t *testing.T) {
 	service := &PeerService{
-		public: &serverPublic{
-			ServerPublicService: &peer.Server{
+		public: &peerHTTP{
+			PeerHTTPService: &peer.Server{
 				BuildCommit:     "test-build",
 				ServerPublicKey: giznet.PublicKey{1},
 			},
@@ -73,8 +73,8 @@ func TestPeerServicePublicHTTPHandlerAllowsBrowserPreflight(t *testing.T) {
 
 func TestPeerServicePublicHTTPHandlerAddsCORSHeaders(t *testing.T) {
 	service := &PeerService{
-		public: &serverPublic{
-			ServerPublicService: &peer.Server{
+		public: &peerHTTP{
+			PeerHTTPService: &peer.Server{
 				BuildCommit:     "test-build",
 				ServerPublicKey: giznet.PublicKey{1},
 			},
@@ -108,7 +108,7 @@ func TestPeerServicePublicRoundTrip(t *testing.T) {
 	conn, serverConn := newTestWebRTCConnPair(t, serverKey, clientKey,
 		testGiznetSecurityPolicy{
 			allowService: func(_ giznet.PublicKey, service uint64) bool {
-				return service == ServiceServerPublic
+				return service == ServicePeerHTTP
 			},
 		},
 		testGiznetSecurityPolicy{})
@@ -121,8 +121,8 @@ func TestPeerServicePublicRoundTrip(t *testing.T) {
 	}
 	service := &PeerService{
 		manager: NewManager(peersServer),
-		public: &serverPublic{
-			ServerPublicService: peersServer,
+		public: &peerHTTP{
+			PeerHTTPService: peersServer,
 		},
 	}
 	serveErrCh := make(chan error, 1)
@@ -130,7 +130,7 @@ func TestPeerServicePublicRoundTrip(t *testing.T) {
 		serveErrCh <- service.servePublic(serverConn)
 	}()
 
-	client := &http.Client{Transport: gizhttp.NewRoundTripper(conn, ServiceServerPublic)}
+	client := &http.Client{Transport: gizhttp.NewRoundTripper(conn, ServicePeerHTTP)}
 	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, "http://gizclaw/server-info", nil)
 	if err != nil {
 		t.Fatalf("http.NewRequest error = %v", err)

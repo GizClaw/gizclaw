@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminservice"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 )
 
@@ -515,11 +515,11 @@ func TestMiniMaxServiceErrorResponses(t *testing.T) {
 
 	minimax.getTenantStatus = 0
 	minimax.putTenantStatus = 400
-	err = manager.putMiniMaxTenant(context.Background(), "main", adminservice.MiniMaxTenantUpsert{})
+	err = manager.putMiniMaxTenant(context.Background(), "main", adminhttp.MiniMaxTenantUpsert{})
 	assertResourceError(t, err, 400, "INVALID_MINIMAX_TENANT")
 
 	minimax.putTenantStatus = 500
-	err = manager.putMiniMaxTenant(context.Background(), "main", adminservice.MiniMaxTenantUpsert{})
+	err = manager.putMiniMaxTenant(context.Background(), "main", adminhttp.MiniMaxTenantUpsert{})
 	assertResourceError(t, err, 500, "INTERNAL_ERROR")
 
 	minimax.getVoiceStatus = 500
@@ -536,7 +536,7 @@ func TestMiniMaxServiceErrorResponses(t *testing.T) {
 		{status: 500, code: "INTERNAL_ERROR"},
 	} {
 		minimax.putVoiceStatus = tc.status
-		err = manager.putVoice(context.Background(), "voice", adminservice.VoiceUpsert{})
+		err = manager.putVoice(context.Background(), "voice", adminhttp.VoiceUpsert{})
 		assertResourceError(t, err, tc.status, tc.code)
 	}
 }
@@ -574,7 +574,7 @@ func TestVolcAndVoiceServiceDeleteErrors(t *testing.T) {
 		{status: 500, code: "INTERNAL_ERROR"},
 	} {
 		minimax.putTenantStatus = tc.status
-		err = manager.putVolcTenant(context.Background(), "volc-main", adminservice.VolcTenantUpsert{})
+		err = manager.putVolcTenant(context.Background(), "volc-main", adminhttp.VolcTenantUpsert{})
 		assertResourceError(t, err, tc.status, tc.code)
 	}
 }
@@ -627,100 +627,100 @@ func newFakeMiniMax() *fakeMiniMax {
 	}
 }
 
-func (f *fakeMiniMax) ListMiniMaxTenants(context.Context, adminservice.ListMiniMaxTenantsRequestObject) (adminservice.ListMiniMaxTenantsResponseObject, error) {
+func (f *fakeMiniMax) ListMiniMaxTenants(context.Context, adminhttp.ListMiniMaxTenantsRequestObject) (adminhttp.ListMiniMaxTenantsResponseObject, error) {
 	return nil, nil
 }
 
-func (f *fakeMiniMax) CreateDashScopeTenant(context.Context, adminservice.CreateDashScopeTenantRequestObject) (adminservice.CreateDashScopeTenantResponseObject, error) {
+func (f *fakeMiniMax) CreateDashScopeTenant(context.Context, adminhttp.CreateDashScopeTenantRequestObject) (adminhttp.CreateDashScopeTenantResponseObject, error) {
 	return nil, nil
 }
 
-func (f *fakeMiniMax) ListDashScopeTenants(context.Context, adminservice.ListDashScopeTenantsRequestObject) (adminservice.ListDashScopeTenantsResponseObject, error) {
+func (f *fakeMiniMax) ListDashScopeTenants(context.Context, adminhttp.ListDashScopeTenantsRequestObject) (adminhttp.ListDashScopeTenantsResponseObject, error) {
 	return nil, nil
 }
 
-func (f *fakeMiniMax) DeleteDashScopeTenant(context.Context, adminservice.DeleteDashScopeTenantRequestObject) (adminservice.DeleteDashScopeTenantResponseObject, error) {
+func (f *fakeMiniMax) DeleteDashScopeTenant(context.Context, adminhttp.DeleteDashScopeTenantRequestObject) (adminhttp.DeleteDashScopeTenantResponseObject, error) {
 	return nil, nil
 }
 
-func (f *fakeMiniMax) GetDashScopeTenant(context.Context, adminservice.GetDashScopeTenantRequestObject) (adminservice.GetDashScopeTenantResponseObject, error) {
+func (f *fakeMiniMax) GetDashScopeTenant(context.Context, adminhttp.GetDashScopeTenantRequestObject) (adminhttp.GetDashScopeTenantResponseObject, error) {
 	return nil, nil
 }
 
-func (f *fakeMiniMax) PutDashScopeTenant(context.Context, adminservice.PutDashScopeTenantRequestObject) (adminservice.PutDashScopeTenantResponseObject, error) {
+func (f *fakeMiniMax) PutDashScopeTenant(context.Context, adminhttp.PutDashScopeTenantRequestObject) (adminhttp.PutDashScopeTenantResponseObject, error) {
 	return nil, nil
 }
 
-func (f *fakeMiniMax) CreateGeminiTenant(context.Context, adminservice.CreateGeminiTenantRequestObject) (adminservice.CreateGeminiTenantResponseObject, error) {
+func (f *fakeMiniMax) CreateGeminiTenant(context.Context, adminhttp.CreateGeminiTenantRequestObject) (adminhttp.CreateGeminiTenantResponseObject, error) {
 	return nil, nil
 }
 
-func (f *fakeMiniMax) ListGeminiTenants(context.Context, adminservice.ListGeminiTenantsRequestObject) (adminservice.ListGeminiTenantsResponseObject, error) {
+func (f *fakeMiniMax) ListGeminiTenants(context.Context, adminhttp.ListGeminiTenantsRequestObject) (adminhttp.ListGeminiTenantsResponseObject, error) {
 	return nil, nil
 }
 
-func (f *fakeMiniMax) DeleteGeminiTenant(context.Context, adminservice.DeleteGeminiTenantRequestObject) (adminservice.DeleteGeminiTenantResponseObject, error) {
+func (f *fakeMiniMax) DeleteGeminiTenant(context.Context, adminhttp.DeleteGeminiTenantRequestObject) (adminhttp.DeleteGeminiTenantResponseObject, error) {
 	return nil, nil
 }
 
-func (f *fakeMiniMax) GetGeminiTenant(context.Context, adminservice.GetGeminiTenantRequestObject) (adminservice.GetGeminiTenantResponseObject, error) {
+func (f *fakeMiniMax) GetGeminiTenant(context.Context, adminhttp.GetGeminiTenantRequestObject) (adminhttp.GetGeminiTenantResponseObject, error) {
 	return nil, nil
 }
 
-func (f *fakeMiniMax) PutGeminiTenant(context.Context, adminservice.PutGeminiTenantRequestObject) (adminservice.PutGeminiTenantResponseObject, error) {
+func (f *fakeMiniMax) PutGeminiTenant(context.Context, adminhttp.PutGeminiTenantRequestObject) (adminhttp.PutGeminiTenantResponseObject, error) {
 	return nil, nil
 }
 
-func (f *fakeMiniMax) CreateOpenAITenant(context.Context, adminservice.CreateOpenAITenantRequestObject) (adminservice.CreateOpenAITenantResponseObject, error) {
+func (f *fakeMiniMax) CreateOpenAITenant(context.Context, adminhttp.CreateOpenAITenantRequestObject) (adminhttp.CreateOpenAITenantResponseObject, error) {
 	return nil, nil
 }
 
-func (f *fakeMiniMax) ListOpenAITenants(context.Context, adminservice.ListOpenAITenantsRequestObject) (adminservice.ListOpenAITenantsResponseObject, error) {
+func (f *fakeMiniMax) ListOpenAITenants(context.Context, adminhttp.ListOpenAITenantsRequestObject) (adminhttp.ListOpenAITenantsResponseObject, error) {
 	return nil, nil
 }
 
-func (f *fakeMiniMax) DeleteOpenAITenant(context.Context, adminservice.DeleteOpenAITenantRequestObject) (adminservice.DeleteOpenAITenantResponseObject, error) {
+func (f *fakeMiniMax) DeleteOpenAITenant(context.Context, adminhttp.DeleteOpenAITenantRequestObject) (adminhttp.DeleteOpenAITenantResponseObject, error) {
 	return nil, nil
 }
 
-func (f *fakeMiniMax) GetOpenAITenant(context.Context, adminservice.GetOpenAITenantRequestObject) (adminservice.GetOpenAITenantResponseObject, error) {
+func (f *fakeMiniMax) GetOpenAITenant(context.Context, adminhttp.GetOpenAITenantRequestObject) (adminhttp.GetOpenAITenantResponseObject, error) {
 	return nil, nil
 }
 
-func (f *fakeMiniMax) PutOpenAITenant(context.Context, adminservice.PutOpenAITenantRequestObject) (adminservice.PutOpenAITenantResponseObject, error) {
+func (f *fakeMiniMax) PutOpenAITenant(context.Context, adminhttp.PutOpenAITenantRequestObject) (adminhttp.PutOpenAITenantResponseObject, error) {
 	return nil, nil
 }
 
-func (f *fakeMiniMax) CreateMiniMaxTenant(context.Context, adminservice.CreateMiniMaxTenantRequestObject) (adminservice.CreateMiniMaxTenantResponseObject, error) {
+func (f *fakeMiniMax) CreateMiniMaxTenant(context.Context, adminhttp.CreateMiniMaxTenantRequestObject) (adminhttp.CreateMiniMaxTenantResponseObject, error) {
 	return nil, nil
 }
 
-func (f *fakeMiniMax) DeleteMiniMaxTenant(_ context.Context, request adminservice.DeleteMiniMaxTenantRequestObject) (adminservice.DeleteMiniMaxTenantResponseObject, error) {
+func (f *fakeMiniMax) DeleteMiniMaxTenant(_ context.Context, request adminhttp.DeleteMiniMaxTenantRequestObject) (adminhttp.DeleteMiniMaxTenantResponseObject, error) {
 	tenant, ok := f.tenants[string(request.Name)]
 	if !ok {
-		return adminservice.DeleteMiniMaxTenant404JSONResponse(apitypes.NewErrorResponse("MINIMAX_TENANT_NOT_FOUND", "not found")), nil
+		return adminhttp.DeleteMiniMaxTenant404JSONResponse(apitypes.NewErrorResponse("MINIMAX_TENANT_NOT_FOUND", "not found")), nil
 	}
 	delete(f.tenants, string(request.Name))
-	return adminservice.DeleteMiniMaxTenant200JSONResponse(tenant), nil
+	return adminhttp.DeleteMiniMaxTenant200JSONResponse(tenant), nil
 }
 
-func (f *fakeMiniMax) GetMiniMaxTenant(_ context.Context, request adminservice.GetMiniMaxTenantRequestObject) (adminservice.GetMiniMaxTenantResponseObject, error) {
+func (f *fakeMiniMax) GetMiniMaxTenant(_ context.Context, request adminhttp.GetMiniMaxTenantRequestObject) (adminhttp.GetMiniMaxTenantResponseObject, error) {
 	if f.getTenantStatus == 500 {
-		return adminservice.GetMiniMaxTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "failed")), nil
+		return adminhttp.GetMiniMaxTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "failed")), nil
 	}
 	tenant, ok := f.tenants[string(request.Name)]
 	if !ok {
-		return adminservice.GetMiniMaxTenant404JSONResponse(apitypes.NewErrorResponse("MINIMAX_TENANT_NOT_FOUND", "not found")), nil
+		return adminhttp.GetMiniMaxTenant404JSONResponse(apitypes.NewErrorResponse("MINIMAX_TENANT_NOT_FOUND", "not found")), nil
 	}
-	return adminservice.GetMiniMaxTenant200JSONResponse(tenant), nil
+	return adminhttp.GetMiniMaxTenant200JSONResponse(tenant), nil
 }
 
-func (f *fakeMiniMax) PutMiniMaxTenant(_ context.Context, request adminservice.PutMiniMaxTenantRequestObject) (adminservice.PutMiniMaxTenantResponseObject, error) {
+func (f *fakeMiniMax) PutMiniMaxTenant(_ context.Context, request adminhttp.PutMiniMaxTenantRequestObject) (adminhttp.PutMiniMaxTenantResponseObject, error) {
 	switch f.putTenantStatus {
 	case 400:
-		return adminservice.PutMiniMaxTenant400JSONResponse(apitypes.NewErrorResponse("INVALID_MINIMAX_TENANT", "invalid")), nil
+		return adminhttp.PutMiniMaxTenant400JSONResponse(apitypes.NewErrorResponse("INVALID_MINIMAX_TENANT", "invalid")), nil
 	case 500:
-		return adminservice.PutMiniMaxTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "failed")), nil
+		return adminhttp.PutMiniMaxTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "failed")), nil
 	}
 	f.putTenantCount++
 	body := *request.Body
@@ -735,47 +735,47 @@ func (f *fakeMiniMax) PutMiniMaxTenant(_ context.Context, request adminservice.P
 		UpdatedAt:      now,
 	}
 	f.tenants[string(request.Name)] = tenant
-	return adminservice.PutMiniMaxTenant200JSONResponse(tenant), nil
+	return adminhttp.PutMiniMaxTenant200JSONResponse(tenant), nil
 }
 
-func (f *fakeMiniMax) SyncMiniMaxTenantVoices(context.Context, adminservice.SyncMiniMaxTenantVoicesRequestObject) (adminservice.SyncMiniMaxTenantVoicesResponseObject, error) {
+func (f *fakeMiniMax) SyncMiniMaxTenantVoices(context.Context, adminhttp.SyncMiniMaxTenantVoicesRequestObject) (adminhttp.SyncMiniMaxTenantVoicesResponseObject, error) {
 	return nil, nil
 }
 
-func (f *fakeMiniMax) ListVolcTenants(context.Context, adminservice.ListVolcTenantsRequestObject) (adminservice.ListVolcTenantsResponseObject, error) {
+func (f *fakeMiniMax) ListVolcTenants(context.Context, adminhttp.ListVolcTenantsRequestObject) (adminhttp.ListVolcTenantsResponseObject, error) {
 	return nil, nil
 }
 
-func (f *fakeMiniMax) CreateVolcTenant(context.Context, adminservice.CreateVolcTenantRequestObject) (adminservice.CreateVolcTenantResponseObject, error) {
+func (f *fakeMiniMax) CreateVolcTenant(context.Context, adminhttp.CreateVolcTenantRequestObject) (adminhttp.CreateVolcTenantResponseObject, error) {
 	return nil, nil
 }
 
-func (f *fakeMiniMax) DeleteVolcTenant(_ context.Context, request adminservice.DeleteVolcTenantRequestObject) (adminservice.DeleteVolcTenantResponseObject, error) {
+func (f *fakeMiniMax) DeleteVolcTenant(_ context.Context, request adminhttp.DeleteVolcTenantRequestObject) (adminhttp.DeleteVolcTenantResponseObject, error) {
 	tenant, ok := f.volcTenants[string(request.Name)]
 	if !ok {
-		return adminservice.DeleteVolcTenant404JSONResponse(apitypes.NewErrorResponse("VOLC_TENANT_NOT_FOUND", "not found")), nil
+		return adminhttp.DeleteVolcTenant404JSONResponse(apitypes.NewErrorResponse("VOLC_TENANT_NOT_FOUND", "not found")), nil
 	}
 	delete(f.volcTenants, string(request.Name))
-	return adminservice.DeleteVolcTenant200JSONResponse(tenant), nil
+	return adminhttp.DeleteVolcTenant200JSONResponse(tenant), nil
 }
 
-func (f *fakeMiniMax) GetVolcTenant(_ context.Context, request adminservice.GetVolcTenantRequestObject) (adminservice.GetVolcTenantResponseObject, error) {
+func (f *fakeMiniMax) GetVolcTenant(_ context.Context, request adminhttp.GetVolcTenantRequestObject) (adminhttp.GetVolcTenantResponseObject, error) {
 	if f.getTenantStatus == 500 {
-		return adminservice.GetVolcTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "failed")), nil
+		return adminhttp.GetVolcTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "failed")), nil
 	}
 	tenant, ok := f.volcTenants[string(request.Name)]
 	if !ok {
-		return adminservice.GetVolcTenant404JSONResponse(apitypes.NewErrorResponse("VOLC_TENANT_NOT_FOUND", "not found")), nil
+		return adminhttp.GetVolcTenant404JSONResponse(apitypes.NewErrorResponse("VOLC_TENANT_NOT_FOUND", "not found")), nil
 	}
-	return adminservice.GetVolcTenant200JSONResponse(tenant), nil
+	return adminhttp.GetVolcTenant200JSONResponse(tenant), nil
 }
 
-func (f *fakeMiniMax) PutVolcTenant(_ context.Context, request adminservice.PutVolcTenantRequestObject) (adminservice.PutVolcTenantResponseObject, error) {
+func (f *fakeMiniMax) PutVolcTenant(_ context.Context, request adminhttp.PutVolcTenantRequestObject) (adminhttp.PutVolcTenantResponseObject, error) {
 	switch f.putTenantStatus {
 	case 400:
-		return adminservice.PutVolcTenant400JSONResponse(apitypes.NewErrorResponse("INVALID_VOLC_TENANT", "invalid")), nil
+		return adminhttp.PutVolcTenant400JSONResponse(apitypes.NewErrorResponse("INVALID_VOLC_TENANT", "invalid")), nil
 	case 500:
-		return adminservice.PutVolcTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "failed")), nil
+		return adminhttp.PutVolcTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "failed")), nil
 	}
 	f.putVolcCount++
 	body := *request.Body
@@ -791,49 +791,49 @@ func (f *fakeMiniMax) PutVolcTenant(_ context.Context, request adminservice.PutV
 		UpdatedAt:      now,
 	}
 	f.volcTenants[string(request.Name)] = tenant
-	return adminservice.PutVolcTenant200JSONResponse(tenant), nil
+	return adminhttp.PutVolcTenant200JSONResponse(tenant), nil
 }
 
-func (f *fakeMiniMax) SyncVolcTenantVoices(context.Context, adminservice.SyncVolcTenantVoicesRequestObject) (adminservice.SyncVolcTenantVoicesResponseObject, error) {
+func (f *fakeMiniMax) SyncVolcTenantVoices(context.Context, adminhttp.SyncVolcTenantVoicesRequestObject) (adminhttp.SyncVolcTenantVoicesResponseObject, error) {
 	return nil, nil
 }
 
-func (f *fakeMiniMax) CreateVoice(context.Context, adminservice.CreateVoiceRequestObject) (adminservice.CreateVoiceResponseObject, error) {
+func (f *fakeMiniMax) CreateVoice(context.Context, adminhttp.CreateVoiceRequestObject) (adminhttp.CreateVoiceResponseObject, error) {
 	return nil, nil
 }
 
-func (f *fakeMiniMax) ListVoices(context.Context, adminservice.ListVoicesRequestObject) (adminservice.ListVoicesResponseObject, error) {
+func (f *fakeMiniMax) ListVoices(context.Context, adminhttp.ListVoicesRequestObject) (adminhttp.ListVoicesResponseObject, error) {
 	return nil, nil
 }
 
-func (f *fakeMiniMax) DeleteVoice(_ context.Context, request adminservice.DeleteVoiceRequestObject) (adminservice.DeleteVoiceResponseObject, error) {
+func (f *fakeMiniMax) DeleteVoice(_ context.Context, request adminhttp.DeleteVoiceRequestObject) (adminhttp.DeleteVoiceResponseObject, error) {
 	voice, ok := f.voices[string(request.Id)]
 	if !ok {
-		return adminservice.DeleteVoice404JSONResponse(apitypes.NewErrorResponse("VOICE_NOT_FOUND", "not found")), nil
+		return adminhttp.DeleteVoice404JSONResponse(apitypes.NewErrorResponse("VOICE_NOT_FOUND", "not found")), nil
 	}
 	delete(f.voices, string(request.Id))
-	return adminservice.DeleteVoice200JSONResponse(voice), nil
+	return adminhttp.DeleteVoice200JSONResponse(voice), nil
 }
 
-func (f *fakeMiniMax) GetVoice(_ context.Context, request adminservice.GetVoiceRequestObject) (adminservice.GetVoiceResponseObject, error) {
+func (f *fakeMiniMax) GetVoice(_ context.Context, request adminhttp.GetVoiceRequestObject) (adminhttp.GetVoiceResponseObject, error) {
 	if f.getVoiceStatus == 500 {
-		return adminservice.GetVoice500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "failed")), nil
+		return adminhttp.GetVoice500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "failed")), nil
 	}
 	voice, ok := f.voices[string(request.Id)]
 	if !ok {
-		return adminservice.GetVoice404JSONResponse(apitypes.NewErrorResponse("VOICE_NOT_FOUND", "not found")), nil
+		return adminhttp.GetVoice404JSONResponse(apitypes.NewErrorResponse("VOICE_NOT_FOUND", "not found")), nil
 	}
-	return adminservice.GetVoice200JSONResponse(voice), nil
+	return adminhttp.GetVoice200JSONResponse(voice), nil
 }
 
-func (f *fakeMiniMax) PutVoice(_ context.Context, request adminservice.PutVoiceRequestObject) (adminservice.PutVoiceResponseObject, error) {
+func (f *fakeMiniMax) PutVoice(_ context.Context, request adminhttp.PutVoiceRequestObject) (adminhttp.PutVoiceResponseObject, error) {
 	switch f.putVoiceStatus {
 	case 400:
-		return adminservice.PutVoice400JSONResponse(apitypes.NewErrorResponse("INVALID_VOICE", "invalid")), nil
+		return adminhttp.PutVoice400JSONResponse(apitypes.NewErrorResponse("INVALID_VOICE", "invalid")), nil
 	case 409:
-		return adminservice.PutVoice409JSONResponse(apitypes.NewErrorResponse("VOICE_CONFLICT", "conflict")), nil
+		return adminhttp.PutVoice409JSONResponse(apitypes.NewErrorResponse("VOICE_CONFLICT", "conflict")), nil
 	case 500:
-		return adminservice.PutVoice500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "failed")), nil
+		return adminhttp.PutVoice500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "failed")), nil
 	}
 	f.putVoiceCount++
 	body := *request.Body
@@ -849,5 +849,5 @@ func (f *fakeMiniMax) PutVoice(_ context.Context, request adminservice.PutVoiceR
 		UpdatedAt:    now,
 	}
 	f.voices[string(request.Id)] = voice
-	return adminservice.PutVoice200JSONResponse(voice), nil
+	return adminhttp.PutVoice200JSONResponse(voice), nil
 }

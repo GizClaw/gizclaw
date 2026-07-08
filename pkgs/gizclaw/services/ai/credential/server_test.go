@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminservice"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
@@ -56,11 +56,11 @@ func TestServerCredentialsCRUD(t *testing.T) {
 		"description": "primary openai credential",
 		"body": {"api_key": "sk-test"}
 	}`)
-	createResp, err := srv.CreateCredential(ctx, adminservice.CreateCredentialRequestObject{Body: &createBody})
+	createResp, err := srv.CreateCredential(ctx, adminhttp.CreateCredentialRequestObject{Body: &createBody})
 	if err != nil {
 		t.Fatalf("CreateCredential() error = %v", err)
 	}
-	created, ok := createResp.(adminservice.CreateCredential200JSONResponse)
+	created, ok := createResp.(adminhttp.CreateCredential200JSONResponse)
 	if !ok {
 		t.Fatalf("CreateCredential() response = %#v", createResp)
 	}
@@ -71,11 +71,11 @@ func TestServerCredentialsCRUD(t *testing.T) {
 		t.Fatalf("CreateCredential() body = %#v", created.Body)
 	}
 
-	getResp, err := srv.GetCredential(ctx, adminservice.GetCredentialRequestObject{Name: "openai-primary"})
+	getResp, err := srv.GetCredential(ctx, adminhttp.GetCredentialRequestObject{Name: "openai-primary"})
 	if err != nil {
 		t.Fatalf("GetCredential() error = %v", err)
 	}
-	got, ok := getResp.(adminservice.GetCredential200JSONResponse)
+	got, ok := getResp.(adminhttp.GetCredential200JSONResponse)
 	if !ok {
 		t.Fatalf("GetCredential() response = %#v", getResp)
 	}
@@ -92,14 +92,14 @@ func TestServerCredentialsCRUD(t *testing.T) {
 			"description": "migrated credential",
 			"body": {"api_key": "volc-api-key"}
 	}`)
-	putResp, err := srv.PutCredential(ctx, adminservice.PutCredentialRequestObject{
+	putResp, err := srv.PutCredential(ctx, adminhttp.PutCredentialRequestObject{
 		Name: "openai-primary",
 		Body: &updateBody,
 	})
 	if err != nil {
 		t.Fatalf("PutCredential() error = %v", err)
 	}
-	updated, ok := putResp.(adminservice.PutCredential200JSONResponse)
+	updated, ok := putResp.(adminhttp.PutCredential200JSONResponse)
 	if !ok {
 		t.Fatalf("PutCredential() response = %#v", putResp)
 	}
@@ -111,13 +111,13 @@ func TestServerCredentialsCRUD(t *testing.T) {
 	}
 
 	oldProvider := string("openai")
-	oldListResp, err := srv.ListCredentials(ctx, adminservice.ListCredentialsRequestObject{
-		Params: adminservice.ListCredentialsParams{Provider: &oldProvider},
+	oldListResp, err := srv.ListCredentials(ctx, adminhttp.ListCredentialsRequestObject{
+		Params: adminhttp.ListCredentialsParams{Provider: &oldProvider},
 	})
 	if err != nil {
 		t.Fatalf("ListCredentials(old provider) error = %v", err)
 	}
-	oldList, ok := oldListResp.(adminservice.ListCredentials200JSONResponse)
+	oldList, ok := oldListResp.(adminhttp.ListCredentials200JSONResponse)
 	if !ok {
 		t.Fatalf("ListCredentials(old provider) response = %#v", oldListResp)
 	}
@@ -126,13 +126,13 @@ func TestServerCredentialsCRUD(t *testing.T) {
 	}
 
 	newProvider := string("volc")
-	newListResp, err := srv.ListCredentials(ctx, adminservice.ListCredentialsRequestObject{
-		Params: adminservice.ListCredentialsParams{Provider: &newProvider},
+	newListResp, err := srv.ListCredentials(ctx, adminhttp.ListCredentialsRequestObject{
+		Params: adminhttp.ListCredentialsParams{Provider: &newProvider},
 	})
 	if err != nil {
 		t.Fatalf("ListCredentials(new provider) error = %v", err)
 	}
-	newList, ok := newListResp.(adminservice.ListCredentials200JSONResponse)
+	newList, ok := newListResp.(adminhttp.ListCredentials200JSONResponse)
 	if !ok {
 		t.Fatalf("ListCredentials(new provider) response = %#v", newListResp)
 	}
@@ -143,19 +143,19 @@ func TestServerCredentialsCRUD(t *testing.T) {
 		t.Fatalf("ListCredentials(new provider) body = %#v", newList.Items[0].Body)
 	}
 
-	deleteResp, err := srv.DeleteCredential(ctx, adminservice.DeleteCredentialRequestObject{Name: "openai-primary"})
+	deleteResp, err := srv.DeleteCredential(ctx, adminhttp.DeleteCredentialRequestObject{Name: "openai-primary"})
 	if err != nil {
 		t.Fatalf("DeleteCredential() error = %v", err)
 	}
-	if _, ok := deleteResp.(adminservice.DeleteCredential200JSONResponse); !ok {
+	if _, ok := deleteResp.(adminhttp.DeleteCredential200JSONResponse); !ok {
 		t.Fatalf("DeleteCredential() response = %#v", deleteResp)
 	}
 
-	getAfterDelete, err := srv.GetCredential(ctx, adminservice.GetCredentialRequestObject{Name: "openai-primary"})
+	getAfterDelete, err := srv.GetCredential(ctx, adminhttp.GetCredentialRequestObject{Name: "openai-primary"})
 	if err != nil {
 		t.Fatalf("GetCredential() after delete error = %v", err)
 	}
-	if _, ok := getAfterDelete.(adminservice.GetCredential404JSONResponse); !ok {
+	if _, ok := getAfterDelete.(adminhttp.GetCredential404JSONResponse); !ok {
 		t.Fatalf("GetCredential() after delete response = %#v", getAfterDelete)
 	}
 }
@@ -172,15 +172,15 @@ func TestServerListCredentialsPaginationAndFilter(t *testing.T) {
 		`{"name":"gamma","provider":"minimax","body":{"api_key":"c"}}`,
 	} {
 		body := mustCredentialUpsert(t, raw)
-		if _, err := srv.CreateCredential(ctx, adminservice.CreateCredentialRequestObject{Body: &body}); err != nil {
+		if _, err := srv.CreateCredential(ctx, adminhttp.CreateCredentialRequestObject{Body: &body}); err != nil {
 			t.Fatalf("CreateCredential(%s) error = %v", raw, err)
 		}
 	}
 
 	limit := int32(1)
 	provider := string("openai")
-	firstResp, err := srv.ListCredentials(ctx, adminservice.ListCredentialsRequestObject{
-		Params: adminservice.ListCredentialsParams{
+	firstResp, err := srv.ListCredentials(ctx, adminhttp.ListCredentialsRequestObject{
+		Params: adminhttp.ListCredentialsParams{
 			Provider: &provider,
 			Limit:    &limit,
 		},
@@ -188,7 +188,7 @@ func TestServerListCredentialsPaginationAndFilter(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ListCredentials(first page) error = %v", err)
 	}
-	first, ok := firstResp.(adminservice.ListCredentials200JSONResponse)
+	first, ok := firstResp.(adminhttp.ListCredentials200JSONResponse)
 	if !ok {
 		t.Fatalf("ListCredentials(first page) response = %#v", firstResp)
 	}
@@ -197,8 +197,8 @@ func TestServerListCredentialsPaginationAndFilter(t *testing.T) {
 	}
 
 	cursor := string(*first.NextCursor)
-	secondResp, err := srv.ListCredentials(ctx, adminservice.ListCredentialsRequestObject{
-		Params: adminservice.ListCredentialsParams{
+	secondResp, err := srv.ListCredentials(ctx, adminhttp.ListCredentialsRequestObject{
+		Params: adminhttp.ListCredentialsParams{
 			Provider: &provider,
 			Cursor:   &cursor,
 			Limit:    &limit,
@@ -207,7 +207,7 @@ func TestServerListCredentialsPaginationAndFilter(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ListCredentials(second page) error = %v", err)
 	}
-	second, ok := secondResp.(adminservice.ListCredentials200JSONResponse)
+	second, ok := secondResp.(adminhttp.ListCredentials200JSONResponse)
 	if !ok {
 		t.Fatalf("ListCredentials(second page) response = %#v", secondResp)
 	}
@@ -218,13 +218,13 @@ func TestServerListCredentialsPaginationAndFilter(t *testing.T) {
 		t.Fatalf("ListCredentials(second page) body = %#v", second.Items[0].Body)
 	}
 
-	allResp, err := srv.ListCredentials(ctx, adminservice.ListCredentialsRequestObject{
-		Params: adminservice.ListCredentialsParams{Limit: &limit},
+	allResp, err := srv.ListCredentials(ctx, adminhttp.ListCredentialsRequestObject{
+		Params: adminhttp.ListCredentialsParams{Limit: &limit},
 	})
 	if err != nil {
 		t.Fatalf("ListCredentials(all first page) error = %v", err)
 	}
-	allFirst, ok := allResp.(adminservice.ListCredentials200JSONResponse)
+	allFirst, ok := allResp.(adminhttp.ListCredentials200JSONResponse)
 	if !ok {
 		t.Fatalf("ListCredentials(all first page) response = %#v", allResp)
 	}
@@ -243,11 +243,11 @@ func TestServerRejectsMissingBodyOnCreateAndNewPut(t *testing.T) {
 		"name": "alpha",
 		"provider": "openai"
 	}`)
-	createResp, err := srv.CreateCredential(ctx, adminservice.CreateCredentialRequestObject{Body: &createBody})
+	createResp, err := srv.CreateCredential(ctx, adminhttp.CreateCredentialRequestObject{Body: &createBody})
 	if err != nil {
 		t.Fatalf("CreateCredential() error = %v", err)
 	}
-	if _, ok := createResp.(adminservice.CreateCredential400JSONResponse); !ok {
+	if _, ok := createResp.(adminhttp.CreateCredential400JSONResponse); !ok {
 		t.Fatalf("CreateCredential() response = %#v", createResp)
 	}
 
@@ -255,30 +255,30 @@ func TestServerRejectsMissingBodyOnCreateAndNewPut(t *testing.T) {
 		"name": "beta",
 		"provider": "openai"
 	}`)
-	putResp, err := srv.PutCredential(ctx, adminservice.PutCredentialRequestObject{
+	putResp, err := srv.PutCredential(ctx, adminhttp.PutCredentialRequestObject{
 		Name: "beta",
 		Body: &putBody,
 	})
 	if err != nil {
 		t.Fatalf("PutCredential() error = %v", err)
 	}
-	if _, ok := putResp.(adminservice.PutCredential400JSONResponse); !ok {
+	if _, ok := putResp.(adminhttp.PutCredential400JSONResponse); !ok {
 		t.Fatalf("PutCredential() response = %#v", putResp)
 	}
 
-	nilCreateResp, err := srv.CreateCredential(ctx, adminservice.CreateCredentialRequestObject{})
+	nilCreateResp, err := srv.CreateCredential(ctx, adminhttp.CreateCredentialRequestObject{})
 	if err != nil {
 		t.Fatalf("CreateCredential(nil body) error = %v", err)
 	}
-	if _, ok := nilCreateResp.(adminservice.CreateCredential400JSONResponse); !ok {
+	if _, ok := nilCreateResp.(adminhttp.CreateCredential400JSONResponse); !ok {
 		t.Fatalf("CreateCredential(nil body) response = %#v", nilCreateResp)
 	}
 
-	nilPutResp, err := srv.PutCredential(ctx, adminservice.PutCredentialRequestObject{Name: "beta"})
+	nilPutResp, err := srv.PutCredential(ctx, adminhttp.PutCredentialRequestObject{Name: "beta"})
 	if err != nil {
 		t.Fatalf("PutCredential(nil body) error = %v", err)
 	}
-	if _, ok := nilPutResp.(adminservice.PutCredential400JSONResponse); !ok {
+	if _, ok := nilPutResp.(adminhttp.PutCredential400JSONResponse); !ok {
 		t.Fatalf("PutCredential(nil body) response = %#v", nilPutResp)
 	}
 }
@@ -294,11 +294,11 @@ func TestServerValidatesBodyForProvider(t *testing.T) {
 		"provider": "openai",
 		"body": {"token": "tok-test"}
 	}`)
-	tokenResp, err := srv.CreateCredential(ctx, adminservice.CreateCredentialRequestObject{Body: &tokenOnly})
+	tokenResp, err := srv.CreateCredential(ctx, adminhttp.CreateCredentialRequestObject{Body: &tokenOnly})
 	if err != nil {
 		t.Fatalf("CreateCredential(token body) error = %v", err)
 	}
-	if _, ok := tokenResp.(adminservice.CreateCredential200JSONResponse); !ok {
+	if _, ok := tokenResp.(adminhttp.CreateCredential200JSONResponse); !ok {
 		t.Fatalf("CreateCredential(token body) response = %#v", tokenResp)
 	}
 
@@ -307,11 +307,11 @@ func TestServerValidatesBodyForProvider(t *testing.T) {
 		"provider": "openai",
 		"body": {"openapi_access_key_id": "ak-test"}
 	}`)
-	wrongResp, err := srv.CreateCredential(ctx, adminservice.CreateCredentialRequestObject{Body: &wrongBody})
+	wrongResp, err := srv.CreateCredential(ctx, adminhttp.CreateCredentialRequestObject{Body: &wrongBody})
 	if err != nil {
 		t.Fatalf("CreateCredential(wrong body) error = %v", err)
 	}
-	if _, ok := wrongResp.(adminservice.CreateCredential400JSONResponse); !ok {
+	if _, ok := wrongResp.(adminhttp.CreateCredential400JSONResponse); !ok {
 		t.Fatalf("CreateCredential(wrong body) response = %#v", wrongResp)
 	}
 
@@ -320,11 +320,11 @@ func TestServerValidatesBodyForProvider(t *testing.T) {
 		"provider": "volc",
 		"body": {}
 	}`)
-	emptyResp, err := srv.CreateCredential(ctx, adminservice.CreateCredentialRequestObject{Body: &emptyObject})
+	emptyResp, err := srv.CreateCredential(ctx, adminhttp.CreateCredentialRequestObject{Body: &emptyObject})
 	if err != nil {
 		t.Fatalf("CreateCredential(empty body) error = %v", err)
 	}
-	if _, ok := emptyResp.(adminservice.CreateCredential400JSONResponse); !ok {
+	if _, ok := emptyResp.(adminhttp.CreateCredential400JSONResponse); !ok {
 		t.Fatalf("CreateCredential(empty body) response = %#v", emptyResp)
 	}
 
@@ -333,11 +333,11 @@ func TestServerValidatesBodyForProvider(t *testing.T) {
 		"provider": "custom",
 		"body": {"api_key": "sk-test"}
 	}`)
-	unknownResp, err := srv.CreateCredential(ctx, adminservice.CreateCredentialRequestObject{Body: &unknownProvider})
+	unknownResp, err := srv.CreateCredential(ctx, adminhttp.CreateCredentialRequestObject{Body: &unknownProvider})
 	if err != nil {
 		t.Fatalf("CreateCredential(unknown provider) error = %v", err)
 	}
-	if _, ok := unknownResp.(adminservice.CreateCredential400JSONResponse); !ok {
+	if _, ok := unknownResp.(adminhttp.CreateCredential400JSONResponse); !ok {
 		t.Fatalf("CreateCredential(unknown provider) response = %#v", unknownResp)
 	}
 }
@@ -386,7 +386,7 @@ func TestServerPutRetainsExistingSecretForSameMethod(t *testing.T) {
 		"description": "first",
 		"body": {"api_key": "sk-test"}
 	}`)
-	if _, err := srv.CreateCredential(ctx, adminservice.CreateCredentialRequestObject{Body: &createBody}); err != nil {
+	if _, err := srv.CreateCredential(ctx, adminhttp.CreateCredentialRequestObject{Body: &createBody}); err != nil {
 		t.Fatalf("CreateCredential() error = %v", err)
 	}
 
@@ -395,14 +395,14 @@ func TestServerPutRetainsExistingSecretForSameMethod(t *testing.T) {
 		"provider": "openai",
 		"description": "second"
 	}`)
-	putResp, err := srv.PutCredential(ctx, adminservice.PutCredentialRequestObject{
+	putResp, err := srv.PutCredential(ctx, adminhttp.PutCredentialRequestObject{
 		Name: "alpha",
 		Body: &putBody,
 	})
 	if err != nil {
 		t.Fatalf("PutCredential() error = %v", err)
 	}
-	if _, ok := putResp.(adminservice.PutCredential200JSONResponse); !ok {
+	if _, ok := putResp.(adminhttp.PutCredential200JSONResponse); !ok {
 		t.Fatalf("PutCredential() response = %#v", putResp)
 	}
 
@@ -429,14 +429,14 @@ func TestServerPutRejectsPathNameMismatch(t *testing.T) {
 		"provider": "openai",
 		"body": {"api_key": "sk-test"}
 	}`)
-	resp, err := srv.PutCredential(ctx, adminservice.PutCredentialRequestObject{
+	resp, err := srv.PutCredential(ctx, adminhttp.PutCredentialRequestObject{
 		Name: "expected",
 		Body: &body,
 	})
 	if err != nil {
 		t.Fatalf("PutCredential() error = %v", err)
 	}
-	if _, ok := resp.(adminservice.PutCredential400JSONResponse); !ok {
+	if _, ok := resp.(adminhttp.PutCredential400JSONResponse); !ok {
 		t.Fatalf("PutCredential() response = %#v", resp)
 	}
 }
@@ -452,14 +452,14 @@ func TestServerCredentialValidationAndMissingPaths(t *testing.T) {
 		"provider": "openai",
 		"body": {"api_key": "sk-test"}
 	}`)
-	if _, err := srv.CreateCredential(ctx, adminservice.CreateCredentialRequestObject{Body: &duplicate}); err != nil {
+	if _, err := srv.CreateCredential(ctx, adminhttp.CreateCredentialRequestObject{Body: &duplicate}); err != nil {
 		t.Fatalf("CreateCredential(seed) error = %v", err)
 	}
-	dupResp, err := srv.CreateCredential(ctx, adminservice.CreateCredentialRequestObject{Body: &duplicate})
+	dupResp, err := srv.CreateCredential(ctx, adminhttp.CreateCredentialRequestObject{Body: &duplicate})
 	if err != nil {
 		t.Fatalf("CreateCredential(duplicate) error = %v", err)
 	}
-	if _, ok := dupResp.(adminservice.CreateCredential409JSONResponse); !ok {
+	if _, ok := dupResp.(adminhttp.CreateCredential409JSONResponse); !ok {
 		t.Fatalf("CreateCredential(duplicate) response = %#v", dupResp)
 	}
 
@@ -467,19 +467,19 @@ func TestServerCredentialValidationAndMissingPaths(t *testing.T) {
 		"name": "bad",
 		"body": {"api_key": "sk-test"}
 	}`)
-	badResp, err := srv.CreateCredential(ctx, adminservice.CreateCredentialRequestObject{Body: &missingProvider})
+	badResp, err := srv.CreateCredential(ctx, adminhttp.CreateCredentialRequestObject{Body: &missingProvider})
 	if err != nil {
 		t.Fatalf("CreateCredential(missing provider) error = %v", err)
 	}
-	if _, ok := badResp.(adminservice.CreateCredential400JSONResponse); !ok {
+	if _, ok := badResp.(adminhttp.CreateCredential400JSONResponse); !ok {
 		t.Fatalf("CreateCredential(missing provider) response = %#v", badResp)
 	}
 
-	missingDelete, err := srv.DeleteCredential(ctx, adminservice.DeleteCredentialRequestObject{Name: "missing"})
+	missingDelete, err := srv.DeleteCredential(ctx, adminhttp.DeleteCredentialRequestObject{Name: "missing"})
 	if err != nil {
 		t.Fatalf("DeleteCredential(missing) error = %v", err)
 	}
-	if _, ok := missingDelete.(adminservice.DeleteCredential404JSONResponse); !ok {
+	if _, ok := missingDelete.(adminhttp.DeleteCredential404JSONResponse); !ok {
 		t.Fatalf("DeleteCredential(missing) response = %#v", missingDelete)
 	}
 }
@@ -495,10 +495,10 @@ func newTestServer(t *testing.T) *Server {
 	return &Server{Store: store}
 }
 
-func mustCredentialUpsert(t *testing.T, raw string) adminservice.CredentialUpsert {
+func mustCredentialUpsert(t *testing.T, raw string) adminhttp.CredentialUpsert {
 	t.Helper()
 
-	var upsert adminservice.CredentialUpsert
+	var upsert adminhttp.CredentialUpsert
 	if err := json.Unmarshal([]byte(raw), &upsert); err != nil {
 		t.Fatalf("json.Unmarshal() error = %v", err)
 	}

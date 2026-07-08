@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminservice"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/socialutil"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
@@ -117,7 +117,7 @@ func TestAdminContactCRUDAndPagination(t *testing.T) {
 	ctx := context.Background()
 	s := newTestServer()
 
-	first, err := s.AdminCreateContact(ctx, adminservice.AdminContactCreateRequest{
+	first, err := s.AdminCreateContact(ctx, adminhttp.AdminContactCreateRequest{
 		OwnerPublicKey: "peer-a",
 		Id:             strPtr("alice001"),
 		DisplayName:    strPtr("Alice"),
@@ -132,14 +132,14 @@ func TestAdminContactCRUDAndPagination(t *testing.T) {
 	if first.CreatedAt == nil || first.UpdatedAt == nil {
 		t.Fatalf("created timestamps = created:%v updated:%v", first.CreatedAt, first.UpdatedAt)
 	}
-	if _, err := s.AdminCreateContact(ctx, adminservice.AdminContactCreateRequest{
+	if _, err := s.AdminCreateContact(ctx, adminhttp.AdminContactCreateRequest{
 		OwnerPublicKey: "peer-a",
 		Id:             strPtr("alice001"),
 		DisplayName:    strPtr("Alice Again"),
 	}); err == nil {
 		t.Fatal("AdminCreateContact duplicate id error = nil")
 	}
-	if _, err := s.AdminCreateContact(ctx, adminservice.AdminContactCreateRequest{
+	if _, err := s.AdminCreateContact(ctx, adminhttp.AdminContactCreateRequest{
 		OwnerPublicKey: "peer-a",
 		Id:             strPtr("alice001-phone"),
 		PhoneNumber:    strPtr("+1 (555) 0100"),
@@ -147,14 +147,14 @@ func TestAdminContactCRUDAndPagination(t *testing.T) {
 		t.Fatal("AdminCreateContact duplicate phone error = nil")
 	}
 
-	if _, err := s.AdminCreateContact(ctx, adminservice.AdminContactCreateRequest{
+	if _, err := s.AdminCreateContact(ctx, adminhttp.AdminContactCreateRequest{
 		OwnerPublicKey: "peer-a",
 		Id:             strPtr("bob00001"),
 		DisplayName:    strPtr("Bob"),
 	}); err != nil {
 		t.Fatalf("AdminCreateContact bob00001: %v", err)
 	}
-	if _, err := s.AdminCreateContact(ctx, adminservice.AdminContactCreateRequest{
+	if _, err := s.AdminCreateContact(ctx, adminhttp.AdminContactCreateRequest{
 		OwnerPublicKey: "peer-b",
 		Id:             strPtr("carol001"),
 		DisplayName:    strPtr("Carol"),
@@ -191,7 +191,7 @@ func TestAdminContactCRUDAndPagination(t *testing.T) {
 		t.Fatalf("global next page = %+v, want peer-b contact", globalNext)
 	}
 
-	updated, err := s.AdminPutContact(ctx, "peer-a", "alice001", adminservice.AdminContactPutRequest{
+	updated, err := s.AdminPutContact(ctx, "peer-a", "alice001", adminhttp.AdminContactPutRequest{
 		DisplayName: strPtr("Alice Zhang"),
 		PhoneNumber: strPtr("+1 555 0101"),
 	})
@@ -254,7 +254,7 @@ func TestAdminContactRejectsInvalidCustomID(t *testing.T) {
 	ctx := context.Background()
 	s := newTestServer()
 
-	if _, err := s.AdminCreateContact(ctx, adminservice.AdminContactCreateRequest{
+	if _, err := s.AdminCreateContact(ctx, adminhttp.AdminContactCreateRequest{
 		OwnerPublicKey: "peer-a",
 		Id:             strPtr("alice"),
 		DisplayName:    strPtr("Alice"),

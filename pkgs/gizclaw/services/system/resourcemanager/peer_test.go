@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminservice"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 )
 
@@ -134,66 +134,66 @@ func newFakePeers() *fakePeers {
 	return &fakePeers{configs: map[string]apitypes.Configuration{}}
 }
 
-func (f *fakePeers) ListPeers(context.Context, adminservice.ListPeersRequestObject) (adminservice.ListPeersResponseObject, error) {
+func (f *fakePeers) ListPeers(context.Context, adminhttp.ListPeersRequestObject) (adminhttp.ListPeersResponseObject, error) {
 	return nil, nil
 }
 
-func (f *fakePeers) FindPubKeyByIMEI(context.Context, adminservice.FindPubKeyByIMEIRequestObject) (adminservice.FindPubKeyByIMEIResponseObject, error) {
+func (f *fakePeers) FindPubKeyByIMEI(context.Context, adminhttp.FindPubKeyByIMEIRequestObject) (adminhttp.FindPubKeyByIMEIResponseObject, error) {
 	return nil, nil
 }
 
-func (f *fakePeers) FindPubKeyBySN(context.Context, adminservice.FindPubKeyBySNRequestObject) (adminservice.FindPubKeyBySNResponseObject, error) {
+func (f *fakePeers) FindPubKeyBySN(context.Context, adminhttp.FindPubKeyBySNRequestObject) (adminhttp.FindPubKeyBySNResponseObject, error) {
 	return nil, nil
 }
 
-func (f *fakePeers) DeletePeer(context.Context, adminservice.DeletePeerRequestObject) (adminservice.DeletePeerResponseObject, error) {
+func (f *fakePeers) DeletePeer(context.Context, adminhttp.DeletePeerRequestObject) (adminhttp.DeletePeerResponseObject, error) {
 	return nil, nil
 }
 
-func (f *fakePeers) GetPeer(context.Context, adminservice.GetPeerRequestObject) (adminservice.GetPeerResponseObject, error) {
+func (f *fakePeers) GetPeer(context.Context, adminhttp.GetPeerRequestObject) (adminhttp.GetPeerResponseObject, error) {
 	return nil, nil
 }
 
-func (f *fakePeers) GetPeerConfig(_ context.Context, request adminservice.GetPeerConfigRequestObject) (adminservice.GetPeerConfigResponseObject, error) {
+func (f *fakePeers) GetPeerConfig(_ context.Context, request adminhttp.GetPeerConfigRequestObject) (adminhttp.GetPeerConfigResponseObject, error) {
 	config, ok := f.configs[string(request.PublicKey)]
 	if !ok {
-		return adminservice.GetPeerConfig404JSONResponse(apitypes.NewErrorResponse("GEAR_NOT_FOUND", "not found")), nil
+		return adminhttp.GetPeerConfig404JSONResponse(apitypes.NewErrorResponse("GEAR_NOT_FOUND", "not found")), nil
 	}
-	return adminservice.GetPeerConfig200JSONResponse(config), nil
+	return adminhttp.GetPeerConfig200JSONResponse(config), nil
 }
 
-func (f *fakePeers) PutPeerConfig(_ context.Context, request adminservice.PutPeerConfigRequestObject) (adminservice.PutPeerConfigResponseObject, error) {
+func (f *fakePeers) PutPeerConfig(_ context.Context, request adminhttp.PutPeerConfigRequestObject) (adminhttp.PutPeerConfigResponseObject, error) {
 	switch f.putStatus {
 	case 400:
-		return adminservice.PutPeerConfig400JSONResponse(apitypes.NewErrorResponse("INVALID_PARAMS", "invalid")), nil
+		return adminhttp.PutPeerConfig400JSONResponse(apitypes.NewErrorResponse("INVALID_PARAMS", "invalid")), nil
 	case 404:
-		return adminservice.PutPeerConfig404JSONResponse(apitypes.NewErrorResponse("GEAR_NOT_FOUND", "not found")), nil
+		return adminhttp.PutPeerConfig404JSONResponse(apitypes.NewErrorResponse("GEAR_NOT_FOUND", "not found")), nil
 	}
 	f.putCount++
 	f.configs[string(request.PublicKey)] = *request.Body
-	return adminservice.PutPeerConfig200JSONResponse(*request.Body), nil
+	return adminhttp.PutPeerConfig200JSONResponse(*request.Body), nil
 }
 
-func (f *fakePeers) GetPeerInfo(context.Context, adminservice.GetPeerInfoRequestObject) (adminservice.GetPeerInfoResponseObject, error) {
+func (f *fakePeers) GetPeerInfo(context.Context, adminhttp.GetPeerInfoRequestObject) (adminhttp.GetPeerInfoResponseObject, error) {
 	return nil, nil
 }
 
-func (f *fakePeers) PutPeerInfo(context.Context, adminservice.PutPeerInfoRequestObject) (adminservice.PutPeerInfoResponseObject, error) {
+func (f *fakePeers) PutPeerInfo(context.Context, adminhttp.PutPeerInfoRequestObject) (adminhttp.PutPeerInfoResponseObject, error) {
 	return nil, nil
 }
 
-func (f *fakePeers) GetPeerRuntime(context.Context, adminservice.GetPeerRuntimeRequestObject) (adminservice.GetPeerRuntimeResponseObject, error) {
+func (f *fakePeers) GetPeerRuntime(context.Context, adminhttp.GetPeerRuntimeRequestObject) (adminhttp.GetPeerRuntimeResponseObject, error) {
 	return nil, nil
 }
 
-func (f *fakePeers) ApprovePeer(context.Context, adminservice.ApprovePeerRequestObject) (adminservice.ApprovePeerResponseObject, error) {
+func (f *fakePeers) ApprovePeer(context.Context, adminhttp.ApprovePeerRequestObject) (adminhttp.ApprovePeerResponseObject, error) {
 	return nil, nil
 }
 
-func (f *fakePeers) BlockPeer(context.Context, adminservice.BlockPeerRequestObject) (adminservice.BlockPeerResponseObject, error) {
+func (f *fakePeers) BlockPeer(context.Context, adminhttp.BlockPeerRequestObject) (adminhttp.BlockPeerResponseObject, error) {
 	return nil, nil
 }
 
-func (f *fakePeers) RefreshPeer(context.Context, adminservice.RefreshPeerRequestObject) (adminservice.RefreshPeerResponseObject, error) {
+func (f *fakePeers) RefreshPeer(context.Context, adminhttp.RefreshPeerRequestObject) (adminhttp.RefreshPeerResponseObject, error) {
 	return nil, nil
 }

@@ -73,10 +73,10 @@ func TestClientAccessorsAndConversions(t *testing.T) {
 	if got := client.ServerPublicKey(); got != keyPair.Public {
 		t.Fatalf("ServerPublicKey() = %v, want %v", got, keyPair.Public)
 	}
-	if got := client.HTTPClient(ServiceRPC).Timeout; got != defaultHTTPClientTimeout {
+	if got := client.HTTPClient(ServicePeerRPC).Timeout; got != defaultHTTPClientTimeout {
 		t.Fatalf("HTTPClient().Timeout = %v, want %v", got, defaultHTTPClientTimeout)
 	}
-	if got := client.HTTPClientWithTimeout(ServiceAdmin, 3*time.Minute).Timeout; got != 3*time.Minute {
+	if got := client.HTTPClientWithTimeout(ServiceAdminHTTP, 3*time.Minute).Timeout; got != 3*time.Minute {
 		t.Fatalf("HTTPClientWithTimeout().Timeout = %v, want %v", got, 3*time.Minute)
 	}
 
@@ -171,14 +171,14 @@ func TestClientLifecycleWithoutConnection(t *testing.T) {
 		t.Fatalf("ServerPublicKey() after Close() = %v, want zero", client.ServerPublicKey())
 	}
 
-	if httpClient := client.HTTPClient(ServiceRPC); httpClient == nil {
+	if httpClient := client.HTTPClient(ServicePeerRPC); httpClient == nil {
 		t.Fatal("HTTPClient() = nil")
 	}
 	if adminClient, err := client.ServerAdminClient(); err != nil || adminClient == nil {
 		t.Fatalf("ServerAdminClient() = %v, %v", adminClient, err)
 	}
-	if publicClient, err := client.ServerPublicClient(); err != nil || publicClient == nil {
-		t.Fatalf("ServerPublicClient() = %v, %v", publicClient, err)
+	if publicClient, err := client.PeerHTTPClient(); err != nil || publicClient == nil {
+		t.Fatalf("PeerHTTPClient() = %v, %v", publicClient, err)
 	}
 }
 
@@ -304,8 +304,8 @@ func TestClientSecurityPolicyAllowsExpectedPeerAndService(t *testing.T) {
 	if !(clientSecurityPolicy{}).AllowPeer(giznet.PublicKey{}) {
 		t.Fatal("AllowPeer() = false, want true")
 	}
-	if !(clientSecurityPolicy{}).AllowService(giznet.PublicKey{}, ServiceRPC) {
-		t.Fatal("AllowService(ServiceRPC) = false, want true")
+	if !(clientSecurityPolicy{}).AllowService(giznet.PublicKey{}, ServicePeerRPC) {
+		t.Fatal("AllowService(ServicePeerRPC) = false, want true")
 	}
 }
 

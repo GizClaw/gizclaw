@@ -1,5 +1,5 @@
 import {
-  type AdminServiceClient,
+  type AdminHTTPClient,
   createAdminAPIClient,
   listAclPolicyBindings,
   listAclRoles,
@@ -119,7 +119,7 @@ export async function connectAdminSession(runtime: RuntimeContext): Promise<Admi
   };
 }
 
-export function createGeneratedAdminDataClient(client: AdminServiceClient): AdminDataClient {
+export function createGeneratedAdminDataClient(client: AdminHTTPClient): AdminDataClient {
   return {
     async listSections(): Promise<AdminSection[]> {
       const sections: AdminSection[] = [];

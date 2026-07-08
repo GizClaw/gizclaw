@@ -9,34 +9,34 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/serverpublic"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/peerhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
 )
 
-type serverPublicContentTypeContextKey struct{}
+type peerHTTPContentTypeContextKey struct{}
 
-func withServerPublicContentType(ctx context.Context, contentType string) context.Context {
+func withPeerHTTPContentType(ctx context.Context, contentType string) context.Context {
 	if ctx == nil {
 		ctx = context.Background()
 	}
 	if strings.TrimSpace(contentType) == "" {
 		return ctx
 	}
-	return context.WithValue(ctx, serverPublicContentTypeContextKey{}, contentType)
+	return context.WithValue(ctx, peerHTTPContentTypeContextKey{}, contentType)
 }
 
-func serverPublicContentType(ctx context.Context) string {
-	value, _ := ctx.Value(serverPublicContentTypeContextKey{}).(string)
+func peerHTTPContentType(ctx context.Context) string {
+	value, _ := ctx.Value(peerHTTPContentTypeContextKey{}).(string)
 	return value
 }
 
-func (s *serverPublic) CreateGiznetWebRTCOffer(ctx context.Context, request serverpublic.CreateGiznetWebRTCOfferRequestObject) (serverpublic.CreateGiznetWebRTCOfferResponseObject, error) {
+func (s *peerHTTP) CreateGiznetWebRTCOffer(ctx context.Context, request peerhttp.CreateGiznetWebRTCOfferRequestObject) (peerhttp.CreateGiznetWebRTCOfferResponseObject, error) {
 	var handler http.Handler
 	if s != nil && s.WebRTCSignalingHandler != nil {
 		handler = s.WebRTCSignalingHandler()
 	}
 	if handler == nil {
-		return serverpublic.CreateGiznetWebRTCOffer503JSONResponse{Error: "webrtc_signaling_listener_unavailable"}, nil
+		return peerhttp.CreateGiznetWebRTCOffer503JSONResponse{Error: "webrtc_signaling_listener_unavailable"}, nil
 	}
 	body := request.Body
 	if body == nil {
@@ -46,7 +46,7 @@ func (s *serverPublic) CreateGiznetWebRTCOffer(ctx context.Context, request serv
 	if err != nil {
 		return nil, err
 	}
-	contentType := serverPublicContentType(ctx)
+	contentType := peerHTTPContentType(ctx)
 	if contentType == "" {
 		contentType = "application/octet-stream"
 	}
@@ -100,9 +100,9 @@ func (r *signalingResponseRecorder) status() int {
 	return r.statusCode
 }
 
-func createGiznetWebRTCOfferResponse(status int, body []byte) (serverpublic.CreateGiznetWebRTCOfferResponseObject, error) {
+func createGiznetWebRTCOfferResponse(status int, body []byte) (peerhttp.CreateGiznetWebRTCOfferResponseObject, error) {
 	if status == http.StatusOK {
-		return serverpublic.CreateGiznetWebRTCOffer200ApplicationoctetStreamResponse{
+		return peerhttp.CreateGiznetWebRTCOffer200ApplicationoctetStreamResponse{
 			Body:          bytes.NewReader(body),
 			ContentLength: int64(len(body)),
 		}, nil
@@ -110,28 +110,28 @@ func createGiznetWebRTCOfferResponse(status int, body []byte) (serverpublic.Crea
 	payload := signalingErrorPayload(status, body)
 	switch status {
 	case http.StatusBadRequest:
-		return serverpublic.CreateGiznetWebRTCOffer400JSONResponse(payload), nil
+		return peerhttp.CreateGiznetWebRTCOffer400JSONResponse(payload), nil
 	case http.StatusUnauthorized:
-		return serverpublic.CreateGiznetWebRTCOffer401JSONResponse(payload), nil
+		return peerhttp.CreateGiznetWebRTCOffer401JSONResponse(payload), nil
 	case http.StatusForbidden:
-		return serverpublic.CreateGiznetWebRTCOffer403JSONResponse(payload), nil
+		return peerhttp.CreateGiznetWebRTCOffer403JSONResponse(payload), nil
 	case http.StatusConflict:
-		return serverpublic.CreateGiznetWebRTCOffer409JSONResponse(payload), nil
+		return peerhttp.CreateGiznetWebRTCOffer409JSONResponse(payload), nil
 	case http.StatusRequestEntityTooLarge:
-		return serverpublic.CreateGiznetWebRTCOffer413JSONResponse(payload), nil
+		return peerhttp.CreateGiznetWebRTCOffer413JSONResponse(payload), nil
 	case http.StatusUnsupportedMediaType:
-		return serverpublic.CreateGiznetWebRTCOffer415JSONResponse(payload), nil
+		return peerhttp.CreateGiznetWebRTCOffer415JSONResponse(payload), nil
 	case http.StatusInternalServerError:
-		return serverpublic.CreateGiznetWebRTCOffer500JSONResponse(payload), nil
+		return peerhttp.CreateGiznetWebRTCOffer500JSONResponse(payload), nil
 	case http.StatusServiceUnavailable:
-		return serverpublic.CreateGiznetWebRTCOffer503JSONResponse(payload), nil
+		return peerhttp.CreateGiznetWebRTCOffer503JSONResponse(payload), nil
 	default:
 		return nil, fmt.Errorf("gizclaw: unsupported webrtc signaling status %d: %s", status, strings.TrimSpace(string(body)))
 	}
 }
 
-func signalingErrorPayload(status int, body []byte) serverpublic.GiznetWebRTCSignalingError {
-	var payload serverpublic.GiznetWebRTCSignalingError
+func signalingErrorPayload(status int, body []byte) peerhttp.GiznetWebRTCSignalingError {
+	var payload peerhttp.GiznetWebRTCSignalingError
 	if err := json.Unmarshal(body, &payload); err == nil && strings.TrimSpace(payload.Error) != "" {
 		return payload
 	}

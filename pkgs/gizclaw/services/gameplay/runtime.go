@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminservice"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/socialutil"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
@@ -194,7 +194,7 @@ func (r *Runtime) AdoptPet(ctx context.Context, owner string, req apitypes.PetAd
 	defer func() {
 		if !created && r.Workspaces != nil {
 			_ = r.revokePetWorkspace(ctx, workspaceName, owner)
-			_, _ = r.Workspaces.DeleteWorkspace(context.WithoutCancel(ctx), adminservice.DeleteWorkspaceRequestObject{Name: workspaceName})
+			_, _ = r.Workspaces.DeleteWorkspace(context.WithoutCancel(ctx), adminhttp.DeleteWorkspaceRequestObject{Name: workspaceName})
 		}
 	}()
 	if err := r.grantPetWorkspace(ctx, workspaceName, owner); err != nil {
@@ -306,7 +306,7 @@ func (r *Runtime) DeletePet(ctx context.Context, owner, id string) (apitypes.Pet
 	}
 	_ = r.revokePetWorkspace(context.WithoutCancel(ctx), pet.WorkspaceName, owner)
 	if r.Workspaces != nil {
-		_, _ = r.Workspaces.DeleteWorkspace(context.WithoutCancel(ctx), adminservice.DeleteWorkspaceRequestObject{Name: pet.WorkspaceName})
+		_, _ = r.Workspaces.DeleteWorkspace(context.WithoutCancel(ctx), adminhttp.DeleteWorkspaceRequestObject{Name: pet.WorkspaceName})
 	}
 	return pet, nil
 }
@@ -620,19 +620,19 @@ func (r *Runtime) createPetWorkspace(ctx context.Context, name, workflowName str
 	}); err != nil {
 		return err
 	}
-	body := adminservice.WorkspaceUpsert{Name: name, WorkflowName: workflowName, Parameters: &parameters}
-	resp, err := r.Workspaces.CreateWorkspace(ctx, adminservice.CreateWorkspaceRequestObject{Body: &body})
+	body := adminhttp.WorkspaceUpsert{Name: name, WorkflowName: workflowName, Parameters: &parameters}
+	resp, err := r.Workspaces.CreateWorkspace(ctx, adminhttp.CreateWorkspaceRequestObject{Body: &body})
 	if err != nil {
 		return err
 	}
 	switch v := resp.(type) {
-	case adminservice.CreateWorkspace200JSONResponse:
+	case adminhttp.CreateWorkspace200JSONResponse:
 		return nil
-	case adminservice.CreateWorkspace409JSONResponse:
+	case adminhttp.CreateWorkspace409JSONResponse:
 		return fmt.Errorf("create pet workspace: %s", v.Error.Message)
-	case adminservice.CreateWorkspace400JSONResponse:
+	case adminhttp.CreateWorkspace400JSONResponse:
 		return fmt.Errorf("create pet workspace: %s", v.Error.Message)
-	case adminservice.CreateWorkspace500JSONResponse:
+	case adminhttp.CreateWorkspace500JSONResponse:
 		return fmt.Errorf("create pet workspace: %s", v.Error.Message)
 	default:
 		return fmt.Errorf("create pet workspace: unexpected response %T", resp)

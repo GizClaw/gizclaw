@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminservice"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 )
 
@@ -390,7 +390,7 @@ func TestResourceClientBridgeApplyAndGet(t *testing.T) {
 		}
 	}`)
 	api := &fakeAdminResourceAPI{
-		applyResp: &adminservice.ApplyResourceResponse{
+		applyResp: &adminhttp.ApplyResourceResponse{
 			JSON200: &apitypes.ApplyResult{
 				Action:     apitypes.ApplyActionUpdated,
 				ApiVersion: apitypes.ResourceAPIVersionGizclawAdminv1alpha1,
@@ -398,10 +398,10 @@ func TestResourceClientBridgeApplyAndGet(t *testing.T) {
 				Name:       "minimax-main",
 			},
 		},
-		deleteResp: &adminservice.DeleteResourceResponse{
+		deleteResp: &adminhttp.DeleteResourceResponse{
 			JSON200: &resource,
 		},
-		getResp: &adminservice.GetResourceResponse{
+		getResp: &adminhttp.GetResourceResponse{
 			JSON200: &resource,
 		},
 	}
@@ -447,9 +447,9 @@ func TestResourceClientBridgeStructuredErrors(t *testing.T) {
 	errResp := apitypes.NewErrorResponse("APPLY_NOT_IMPLEMENTED", "admin apply is not implemented yet")
 	bridge := &resourceClientBridge{
 		api: &fakeAdminResourceAPI{
-			applyResp:  &adminservice.ApplyResourceResponse{JSON501: &errResp},
-			deleteResp: &adminservice.DeleteResourceResponse{JSON500: &errResp},
-			getResp:    &adminservice.GetResourceResponse{JSON501: &errResp},
+			applyResp:  &adminhttp.ApplyResourceResponse{JSON501: &errResp},
+			deleteResp: &adminhttp.DeleteResourceResponse{JSON500: &errResp},
+			getResp:    &adminhttp.GetResourceResponse{JSON501: &errResp},
 		},
 	}
 
@@ -586,23 +586,23 @@ func (f *fakeResourceClient) GetResource(_ context.Context, kind apitypes.Resour
 func (f *fakeResourceClient) Close() error { return nil }
 
 type fakeAdminResourceAPI struct {
-	applyResp  *adminservice.ApplyResourceResponse
+	applyResp  *adminhttp.ApplyResourceResponse
 	applyErr   error
-	deleteResp *adminservice.DeleteResourceResponse
+	deleteResp *adminhttp.DeleteResourceResponse
 	deleteErr  error
-	getResp    *adminservice.GetResourceResponse
+	getResp    *adminhttp.GetResourceResponse
 	getErr     error
 }
 
-func (f *fakeAdminResourceAPI) ApplyResourceWithResponse(context.Context, adminservice.ApplyResourceJSONRequestBody, ...adminservice.RequestEditorFn) (*adminservice.ApplyResourceResponse, error) {
+func (f *fakeAdminResourceAPI) ApplyResourceWithResponse(context.Context, adminhttp.ApplyResourceJSONRequestBody, ...adminhttp.RequestEditorFn) (*adminhttp.ApplyResourceResponse, error) {
 	return f.applyResp, f.applyErr
 }
 
-func (f *fakeAdminResourceAPI) DeleteResourceWithResponse(context.Context, adminservice.ResourceKind, string, ...adminservice.RequestEditorFn) (*adminservice.DeleteResourceResponse, error) {
+func (f *fakeAdminResourceAPI) DeleteResourceWithResponse(context.Context, adminhttp.ResourceKind, string, ...adminhttp.RequestEditorFn) (*adminhttp.DeleteResourceResponse, error) {
 	return f.deleteResp, f.deleteErr
 }
 
-func (f *fakeAdminResourceAPI) GetResourceWithResponse(context.Context, adminservice.ResourceKind, string, ...adminservice.RequestEditorFn) (*adminservice.GetResourceResponse, error) {
+func (f *fakeAdminResourceAPI) GetResourceWithResponse(context.Context, adminhttp.ResourceKind, string, ...adminhttp.RequestEditorFn) (*adminhttp.GetResourceResponse, error) {
 	return f.getResp, f.getErr
 }
 

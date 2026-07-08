@@ -65,18 +65,18 @@ func DialFromContext(name string) (*gizcli.Client, giznet.PublicKey, string, err
 }
 
 var dialFromContext = DialFromContext
-var fetchServerInfo = fetchServerPublicInfo
+var fetchServerInfo = fetchPeerHTTPInfo
 var dialClient = func(c *gizcli.Client, serverPK giznet.PublicKey, serverAddr string) error {
 	return c.Dial(serverPK, serverAddr)
 }
 var serveClient = func(c *gizcli.Client) error {
 	return c.Serve()
 }
-var probeReady = probeServerPublicReady
+var probeReady = probePeerHTTPReady
 var connectReadyTimeout = 5 * time.Second
 var connectPollInterval = 10 * time.Millisecond
 
-func fetchServerPublicInfo(ctx context.Context, endpoint string) (serverInfoMetadata, error) {
+func fetchPeerHTTPInfo(ctx context.Context, endpoint string) (serverInfoMetadata, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://"+endpoint+"/server-info", nil)
 	if err != nil {
 		return serverInfoMetadata{}, fmt.Errorf("server-info request: %w", err)
@@ -153,7 +153,7 @@ func ConnectFromContext(name string) (*gizcli.Client, error) {
 	return nil, fmt.Errorf("gizclaw: timeout waiting for client readiness")
 }
 
-func probeServerPublicReady(c *gizcli.Client) error {
+func probePeerHTTPReady(c *gizcli.Client) error {
 	if c == nil {
 		return fmt.Errorf("gizclaw: nil client")
 	}
@@ -162,7 +162,7 @@ func probeServerPublicReady(c *gizcli.Client) error {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
 	defer cancel()
-	api, err := c.ServerPublicClient()
+	api, err := c.PeerHTTPClient()
 	if err != nil {
 		return err
 	}

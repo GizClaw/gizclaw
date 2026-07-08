@@ -41,8 +41,8 @@ func TestClientSendTelemetryFrame(t *testing.T) {
 	if err := client.SendBatteryTelemetry(87, true); err != nil {
 		t.Fatalf("SendBatteryTelemetry() error = %v", err)
 	}
-	if conn.protocol != ProtocolTelemetry {
-		t.Fatalf("protocol = %#x, want %#x", conn.protocol, ProtocolTelemetry)
+	if conn.protocol != EventStreamTelemetry {
+		t.Fatalf("protocol = %#x, want %#x", conn.protocol, EventStreamTelemetry)
 	}
 	var frame telemetrypb.TelemetryFrame
 	if err := proto.Unmarshal(conn.payload, &frame); err != nil {

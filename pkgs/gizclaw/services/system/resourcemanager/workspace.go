@@ -3,7 +3,7 @@ package resourcemanager
 import (
 	"context"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminservice"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 )
 
@@ -42,33 +42,33 @@ func (m *Manager) applyWorkspace(ctx context.Context, resource apitypes.Resource
 }
 
 func (m *Manager) getWorkspace(ctx context.Context, name string) (apitypes.Workspace, bool, error) {
-	response, err := m.services.Workspaces.GetWorkspace(ctx, adminservice.GetWorkspaceRequestObject{Name: name})
+	response, err := m.services.Workspaces.GetWorkspace(ctx, adminhttp.GetWorkspaceRequestObject{Name: name})
 	if err != nil {
 		return apitypes.Workspace{}, false, err
 	}
 	switch response := response.(type) {
-	case adminservice.GetWorkspace200JSONResponse:
+	case adminhttp.GetWorkspace200JSONResponse:
 		return apitypes.Workspace(response), true, nil
-	case adminservice.GetWorkspace404JSONResponse:
+	case adminhttp.GetWorkspace404JSONResponse:
 		return apitypes.Workspace{}, false, nil
-	case adminservice.GetWorkspace500JSONResponse:
+	case adminhttp.GetWorkspace500JSONResponse:
 		return apitypes.Workspace{}, false, responseError(500, "GET_WORKSPACE_FAILED", "failed to get workspace", response)
 	default:
 		return apitypes.Workspace{}, false, unexpectedResponse("GetWorkspace", response)
 	}
 }
 
-func (m *Manager) putWorkspace(ctx context.Context, name string, body adminservice.WorkspaceUpsert) error {
-	response, err := m.services.Workspaces.PutWorkspace(ctx, adminservice.PutWorkspaceRequestObject{Name: name, Body: &body})
+func (m *Manager) putWorkspace(ctx context.Context, name string, body adminhttp.WorkspaceUpsert) error {
+	response, err := m.services.Workspaces.PutWorkspace(ctx, adminhttp.PutWorkspaceRequestObject{Name: name, Body: &body})
 	if err != nil {
 		return err
 	}
 	switch response := response.(type) {
-	case adminservice.PutWorkspace200JSONResponse:
+	case adminhttp.PutWorkspace200JSONResponse:
 		return nil
-	case adminservice.PutWorkspace400JSONResponse:
+	case adminhttp.PutWorkspace400JSONResponse:
 		return responseError(400, "PUT_WORKSPACE_FAILED", "failed to put workspace", response)
-	case adminservice.PutWorkspace500JSONResponse:
+	case adminhttp.PutWorkspace500JSONResponse:
 		return responseError(500, "PUT_WORKSPACE_FAILED", "failed to put workspace", response)
 	default:
 		return unexpectedResponse("PutWorkspace", response)
@@ -76,16 +76,16 @@ func (m *Manager) putWorkspace(ctx context.Context, name string, body adminservi
 }
 
 func (m *Manager) deleteWorkspace(ctx context.Context, name string) (apitypes.Workspace, bool, error) {
-	response, err := m.services.Workspaces.DeleteWorkspace(ctx, adminservice.DeleteWorkspaceRequestObject{Name: name})
+	response, err := m.services.Workspaces.DeleteWorkspace(ctx, adminhttp.DeleteWorkspaceRequestObject{Name: name})
 	if err != nil {
 		return apitypes.Workspace{}, false, err
 	}
 	switch response := response.(type) {
-	case adminservice.DeleteWorkspace200JSONResponse:
+	case adminhttp.DeleteWorkspace200JSONResponse:
 		return apitypes.Workspace(response), true, nil
-	case adminservice.DeleteWorkspace404JSONResponse:
+	case adminhttp.DeleteWorkspace404JSONResponse:
 		return apitypes.Workspace{}, false, nil
-	case adminservice.DeleteWorkspace500JSONResponse:
+	case adminhttp.DeleteWorkspace500JSONResponse:
 		return apitypes.Workspace{}, false, responseError(500, "DELETE_WORKSPACE_FAILED", "failed to delete workspace", response)
 	default:
 		return apitypes.Workspace{}, false, unexpectedResponse("DeleteWorkspace", response)
@@ -99,8 +99,8 @@ func workspaceSpec(workspace apitypes.Workspace) apitypes.WorkspaceSpec {
 	}
 }
 
-func workspaceUpsert(resource apitypes.WorkspaceResource) adminservice.WorkspaceUpsert {
-	return adminservice.WorkspaceUpsert{
+func workspaceUpsert(resource apitypes.WorkspaceResource) adminhttp.WorkspaceUpsert {
+	return adminhttp.WorkspaceUpsert{
 		Name:         string(resource.Metadata.Name),
 		Parameters:   resource.Spec.Parameters,
 		WorkflowName: resource.Spec.WorkflowName,

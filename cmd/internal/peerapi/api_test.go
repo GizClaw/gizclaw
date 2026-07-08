@@ -1,4 +1,4 @@
-package publicapi
+package peerapi
 
 import (
 	"context"
@@ -7,24 +7,24 @@ import (
 	"testing"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/serverpublic"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/peerhttp"
 	"github.com/GizClaw/gizclaw-go/sdk/go/gizcli"
 )
 
-type fakeServerPublicAPI struct {
-	resp *serverpublic.GetServerInfoResponse
+type fakePeerHTTPAPI struct {
+	resp *peerhttp.GetServerInfoResponse
 	err  error
 }
 
-func (f fakeServerPublicAPI) GetServerInfoWithResponse(context.Context, ...serverpublic.RequestEditorFn) (*serverpublic.GetServerInfoResponse, error) {
+func (f fakePeerHTTPAPI) GetServerInfoWithResponse(context.Context, ...peerhttp.RequestEditorFn) (*peerhttp.GetServerInfoResponse, error) {
 	return f.resp, f.err
 }
 
 func TestGetServerInfoReturnsJSON200(t *testing.T) {
-	t.Cleanup(func() { serverPublicClientFrom = defaultServerPublicClientFrom })
+	t.Cleanup(func() { peerHTTPClientFrom = defaultPeerHTTPClientFrom })
 	want := apitypes.ServerInfo{PublicKey: "pk"}
-	serverPublicClientFrom = func(*gizcli.Client) (serverPublicAPI, error) {
-		return fakeServerPublicAPI{resp: &serverpublic.GetServerInfoResponse{JSON200: &want}}, nil
+	peerHTTPClientFrom = func(*gizcli.Client) (peerHTTPAPI, error) {
+		return fakePeerHTTPAPI{resp: &peerhttp.GetServerInfoResponse{JSON200: &want}}, nil
 	}
 	got, err := GetServerInfo(context.Background(), nil)
 	if err != nil {
@@ -36,8 +36,8 @@ func TestGetServerInfoReturnsJSON200(t *testing.T) {
 }
 
 func TestGetServerInfoPropagatesClientError(t *testing.T) {
-	t.Cleanup(func() { serverPublicClientFrom = defaultServerPublicClientFrom })
-	serverPublicClientFrom = func(*gizcli.Client) (serverPublicAPI, error) {
+	t.Cleanup(func() { peerHTTPClientFrom = defaultPeerHTTPClientFrom })
+	peerHTTPClientFrom = func(*gizcli.Client) (peerHTTPAPI, error) {
 		return nil, errors.New("offline")
 	}
 	_, err := GetServerInfo(context.Background(), nil)
@@ -47,9 +47,9 @@ func TestGetServerInfoPropagatesClientError(t *testing.T) {
 }
 
 func TestGetServerInfoPropagatesRequestError(t *testing.T) {
-	t.Cleanup(func() { serverPublicClientFrom = defaultServerPublicClientFrom })
-	serverPublicClientFrom = func(*gizcli.Client) (serverPublicAPI, error) {
-		return fakeServerPublicAPI{err: errors.New("request failed")}, nil
+	t.Cleanup(func() { peerHTTPClientFrom = defaultPeerHTTPClientFrom })
+	peerHTTPClientFrom = func(*gizcli.Client) (peerHTTPAPI, error) {
+		return fakePeerHTTPAPI{err: errors.New("request failed")}, nil
 	}
 	_, err := GetServerInfo(context.Background(), nil)
 	if err == nil || err.Error() != "request failed" {
@@ -58,9 +58,9 @@ func TestGetServerInfoPropagatesRequestError(t *testing.T) {
 }
 
 func TestGetServerInfoConvertsResponseError(t *testing.T) {
-	t.Cleanup(func() { serverPublicClientFrom = defaultServerPublicClientFrom })
-	serverPublicClientFrom = func(*gizcli.Client) (serverPublicAPI, error) {
-		return fakeServerPublicAPI{resp: &serverpublic.GetServerInfoResponse{Body: []byte("bad"), HTTPResponse: nil}}, nil
+	t.Cleanup(func() { peerHTTPClientFrom = defaultPeerHTTPClientFrom })
+	peerHTTPClientFrom = func(*gizcli.Client) (peerHTTPAPI, error) {
+		return fakePeerHTTPAPI{resp: &peerhttp.GetServerInfoResponse{Body: []byte("bad"), HTTPResponse: nil}}, nil
 	}
 	_, err := GetServerInfo(context.Background(), nil)
 	if err == nil || !strings.Contains(err.Error(), "bad") {

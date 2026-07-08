@@ -3,7 +3,7 @@ package peer
 import (
 	"encoding/json"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminservice"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 )
 
@@ -19,12 +19,12 @@ func convertViaJSON[T any](in any) (T, error) {
 	return out, nil
 }
 
-func toAdminRegistrationList(items []apitypes.Peer, hasNext bool, nextCursor *string) adminservice.RegistrationList {
+func toAdminRegistrationList(items []apitypes.Peer, hasNext bool, nextCursor *string) adminhttp.RegistrationList {
 	out := make([]apitypes.Registration, 0, len(items))
 	for _, item := range items {
 		out = append(out, toAdminRegistration(item))
 	}
-	return adminservice.RegistrationList{
+	return adminhttp.RegistrationList{
 		HasNext:    hasNext,
 		Items:      out,
 		NextCursor: nextCursor,

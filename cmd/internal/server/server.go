@@ -281,7 +281,7 @@ func (p adminPublicKeySecurityPolicy) AllowPeer(giznet.PublicKey) bool {
 }
 
 func (p adminPublicKeySecurityPolicy) AllowService(publicKey giznet.PublicKey, service uint64) bool {
-	return service == gizclaw.ServiceAdmin && publicKey == p.PublicKey
+	return service == gizclaw.ServiceAdminHTTP && publicKey == p.PublicKey
 }
 
 func newStoreRegistry(cfg Config) (*stores.Stores, error) {

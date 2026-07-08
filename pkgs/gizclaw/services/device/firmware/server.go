@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminservice"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/objectstore"
@@ -29,71 +29,71 @@ type Server struct {
 }
 
 type FirmwareAdminService interface {
-	ListFirmwares(context.Context, adminservice.ListFirmwaresRequestObject) (adminservice.ListFirmwaresResponseObject, error)
-	CreateFirmware(context.Context, adminservice.CreateFirmwareRequestObject) (adminservice.CreateFirmwareResponseObject, error)
-	DeleteFirmware(context.Context, adminservice.DeleteFirmwareRequestObject) (adminservice.DeleteFirmwareResponseObject, error)
-	GetFirmware(context.Context, adminservice.GetFirmwareRequestObject) (adminservice.GetFirmwareResponseObject, error)
-	PutFirmware(context.Context, adminservice.PutFirmwareRequestObject) (adminservice.PutFirmwareResponseObject, error)
-	ReleaseFirmware(context.Context, adminservice.ReleaseFirmwareRequestObject) (adminservice.ReleaseFirmwareResponseObject, error)
-	RollbackFirmware(context.Context, adminservice.RollbackFirmwareRequestObject) (adminservice.RollbackFirmwareResponseObject, error)
-	DownloadFirmwareArtifact(context.Context, adminservice.DownloadFirmwareArtifactRequestObject) (adminservice.DownloadFirmwareArtifactResponseObject, error)
-	UploadFirmwareArtifact(context.Context, adminservice.UploadFirmwareArtifactRequestObject) (adminservice.UploadFirmwareArtifactResponseObject, error)
-	DeleteFirmwareArtifact(context.Context, adminservice.DeleteFirmwareArtifactRequestObject) (adminservice.DeleteFirmwareArtifactResponseObject, error)
-	ListFirmwareArtifactEntries(context.Context, adminservice.ListFirmwareArtifactEntriesRequestObject) (adminservice.ListFirmwareArtifactEntriesResponseObject, error)
-	TreeFirmwareArtifactEntries(context.Context, adminservice.TreeFirmwareArtifactEntriesRequestObject) (adminservice.TreeFirmwareArtifactEntriesResponseObject, error)
-	StatFirmwareArtifactEntry(context.Context, adminservice.StatFirmwareArtifactEntryRequestObject) (adminservice.StatFirmwareArtifactEntryResponseObject, error)
-	DownloadFirmwareArtifactEntry(context.Context, adminservice.DownloadFirmwareArtifactEntryRequestObject) (adminservice.DownloadFirmwareArtifactEntryResponseObject, error)
+	ListFirmwares(context.Context, adminhttp.ListFirmwaresRequestObject) (adminhttp.ListFirmwaresResponseObject, error)
+	CreateFirmware(context.Context, adminhttp.CreateFirmwareRequestObject) (adminhttp.CreateFirmwareResponseObject, error)
+	DeleteFirmware(context.Context, adminhttp.DeleteFirmwareRequestObject) (adminhttp.DeleteFirmwareResponseObject, error)
+	GetFirmware(context.Context, adminhttp.GetFirmwareRequestObject) (adminhttp.GetFirmwareResponseObject, error)
+	PutFirmware(context.Context, adminhttp.PutFirmwareRequestObject) (adminhttp.PutFirmwareResponseObject, error)
+	ReleaseFirmware(context.Context, adminhttp.ReleaseFirmwareRequestObject) (adminhttp.ReleaseFirmwareResponseObject, error)
+	RollbackFirmware(context.Context, adminhttp.RollbackFirmwareRequestObject) (adminhttp.RollbackFirmwareResponseObject, error)
+	DownloadFirmwareArtifact(context.Context, adminhttp.DownloadFirmwareArtifactRequestObject) (adminhttp.DownloadFirmwareArtifactResponseObject, error)
+	UploadFirmwareArtifact(context.Context, adminhttp.UploadFirmwareArtifactRequestObject) (adminhttp.UploadFirmwareArtifactResponseObject, error)
+	DeleteFirmwareArtifact(context.Context, adminhttp.DeleteFirmwareArtifactRequestObject) (adminhttp.DeleteFirmwareArtifactResponseObject, error)
+	ListFirmwareArtifactEntries(context.Context, adminhttp.ListFirmwareArtifactEntriesRequestObject) (adminhttp.ListFirmwareArtifactEntriesResponseObject, error)
+	TreeFirmwareArtifactEntries(context.Context, adminhttp.TreeFirmwareArtifactEntriesRequestObject) (adminhttp.TreeFirmwareArtifactEntriesResponseObject, error)
+	StatFirmwareArtifactEntry(context.Context, adminhttp.StatFirmwareArtifactEntryRequestObject) (adminhttp.StatFirmwareArtifactEntryResponseObject, error)
+	DownloadFirmwareArtifactEntry(context.Context, adminhttp.DownloadFirmwareArtifactEntryRequestObject) (adminhttp.DownloadFirmwareArtifactEntryResponseObject, error)
 }
 
 var _ FirmwareAdminService = (*Server)(nil)
 
-func (s *Server) ListFirmwares(ctx context.Context, request adminservice.ListFirmwaresRequestObject) (adminservice.ListFirmwaresResponseObject, error) {
+func (s *Server) ListFirmwares(ctx context.Context, request adminhttp.ListFirmwaresRequestObject) (adminhttp.ListFirmwaresResponseObject, error) {
 	store, err := s.store()
 	if err != nil {
-		return adminservice.ListFirmwares500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.ListFirmwares500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	cursor, limit := normalizeListParams(request.Params.Cursor, request.Params.Limit)
 	items, hasNext, nextCursor, err := listFirmwarePage(ctx, store, cursor, limit)
 	if err != nil {
-		return adminservice.ListFirmwares500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.ListFirmwares500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	return adminservice.ListFirmwares200JSONResponse(adminservice.FirmwareList{
+	return adminhttp.ListFirmwares200JSONResponse(adminhttp.FirmwareList{
 		HasNext:    hasNext,
 		Items:      items,
 		NextCursor: nextCursor,
 	}), nil
 }
 
-func (s *Server) CreateFirmware(ctx context.Context, request adminservice.CreateFirmwareRequestObject) (adminservice.CreateFirmwareResponseObject, error) {
+func (s *Server) CreateFirmware(ctx context.Context, request adminhttp.CreateFirmwareRequestObject) (adminhttp.CreateFirmwareResponseObject, error) {
 	store, err := s.store()
 	if err != nil {
-		return adminservice.CreateFirmware500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.CreateFirmware500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	if request.Body == nil {
-		return adminservice.CreateFirmware400JSONResponse(apitypes.NewErrorResponse("INVALID_FIRMWARE", "request body required")), nil
+		return adminhttp.CreateFirmware400JSONResponse(apitypes.NewErrorResponse("INVALID_FIRMWARE", "request body required")), nil
 	}
 	item, err := normalizeFirmwareUpsert(*request.Body, "")
 	if err != nil {
-		return adminservice.CreateFirmware400JSONResponse(apitypes.NewErrorResponse("INVALID_FIRMWARE", err.Error())), nil
+		return adminhttp.CreateFirmware400JSONResponse(apitypes.NewErrorResponse("INVALID_FIRMWARE", err.Error())), nil
 	}
 	if _, err := Get(ctx, store, item.Name); err == nil {
-		return adminservice.CreateFirmware409JSONResponse(apitypes.NewErrorResponse("FIRMWARE_ALREADY_EXISTS", fmt.Sprintf("firmware %q already exists", item.Name))), nil
+		return adminhttp.CreateFirmware409JSONResponse(apitypes.NewErrorResponse("FIRMWARE_ALREADY_EXISTS", fmt.Sprintf("firmware %q already exists", item.Name))), nil
 	} else if !errors.Is(err, kv.ErrNotFound) {
-		return adminservice.CreateFirmware500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.CreateFirmware500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	now := s.now()
 	item.CreatedAt = now
 	item.UpdatedAt = now
 	if err := Write(ctx, store, item); err != nil {
-		return adminservice.CreateFirmware500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.CreateFirmware500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	return adminservice.CreateFirmware200JSONResponse(item), nil
+	return adminhttp.CreateFirmware200JSONResponse(item), nil
 }
 
-func (s *Server) DeleteFirmware(ctx context.Context, request adminservice.DeleteFirmwareRequestObject) (adminservice.DeleteFirmwareResponseObject, error) {
+func (s *Server) DeleteFirmware(ctx context.Context, request adminhttp.DeleteFirmwareRequestObject) (adminhttp.DeleteFirmwareResponseObject, error) {
 	store, err := s.store()
 	if err != nil {
-		return adminservice.DeleteFirmware500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.DeleteFirmware500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	name, err := url.PathUnescape(string(request.Name))
 	if err != nil {
@@ -102,23 +102,23 @@ func (s *Server) DeleteFirmware(ctx context.Context, request adminservice.Delete
 	item, err := Get(ctx, store, name)
 	if err != nil {
 		if errors.Is(err, kv.ErrNotFound) {
-			return adminservice.DeleteFirmware404JSONResponse(apitypes.NewErrorResponse("FIRMWARE_NOT_FOUND", fmt.Sprintf("firmware %q not found", name))), nil
+			return adminhttp.DeleteFirmware404JSONResponse(apitypes.NewErrorResponse("FIRMWARE_NOT_FOUND", fmt.Sprintf("firmware %q not found", name))), nil
 		}
-		return adminservice.DeleteFirmware500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.DeleteFirmware500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	if err := store.Delete(ctx, firmwareKey(name)); err != nil {
-		return adminservice.DeleteFirmware500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.DeleteFirmware500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	if err := s.deleteAssetPrefix(name); err != nil {
-		return adminservice.DeleteFirmware500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.DeleteFirmware500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	return adminservice.DeleteFirmware200JSONResponse(item), nil
+	return adminhttp.DeleteFirmware200JSONResponse(item), nil
 }
 
-func (s *Server) GetFirmware(ctx context.Context, request adminservice.GetFirmwareRequestObject) (adminservice.GetFirmwareResponseObject, error) {
+func (s *Server) GetFirmware(ctx context.Context, request adminhttp.GetFirmwareRequestObject) (adminhttp.GetFirmwareResponseObject, error) {
 	store, err := s.store()
 	if err != nil {
-		return adminservice.GetFirmware500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.GetFirmware500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	name, err := url.PathUnescape(string(request.Name))
 	if err != nil {
@@ -127,20 +127,20 @@ func (s *Server) GetFirmware(ctx context.Context, request adminservice.GetFirmwa
 	item, err := Get(ctx, store, name)
 	if err != nil {
 		if errors.Is(err, kv.ErrNotFound) {
-			return adminservice.GetFirmware404JSONResponse(apitypes.NewErrorResponse("FIRMWARE_NOT_FOUND", fmt.Sprintf("firmware %q not found", name))), nil
+			return adminhttp.GetFirmware404JSONResponse(apitypes.NewErrorResponse("FIRMWARE_NOT_FOUND", fmt.Sprintf("firmware %q not found", name))), nil
 		}
-		return adminservice.GetFirmware500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.GetFirmware500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	return adminservice.GetFirmware200JSONResponse(item), nil
+	return adminhttp.GetFirmware200JSONResponse(item), nil
 }
 
-func (s *Server) PutFirmware(ctx context.Context, request adminservice.PutFirmwareRequestObject) (adminservice.PutFirmwareResponseObject, error) {
+func (s *Server) PutFirmware(ctx context.Context, request adminhttp.PutFirmwareRequestObject) (adminhttp.PutFirmwareResponseObject, error) {
 	store, err := s.store()
 	if err != nil {
-		return adminservice.PutFirmware500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.PutFirmware500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	if request.Body == nil {
-		return adminservice.PutFirmware400JSONResponse(apitypes.NewErrorResponse("INVALID_FIRMWARE", "request body required")), nil
+		return adminhttp.PutFirmware400JSONResponse(apitypes.NewErrorResponse("INVALID_FIRMWARE", "request body required")), nil
 	}
 	name, err := url.PathUnescape(string(request.Name))
 	if err != nil {
@@ -148,11 +148,11 @@ func (s *Server) PutFirmware(ctx context.Context, request adminservice.PutFirmwa
 	}
 	item, err := normalizeFirmwareUpsert(*request.Body, name)
 	if err != nil {
-		return adminservice.PutFirmware400JSONResponse(apitypes.NewErrorResponse("INVALID_FIRMWARE", err.Error())), nil
+		return adminhttp.PutFirmware400JSONResponse(apitypes.NewErrorResponse("INVALID_FIRMWARE", err.Error())), nil
 	}
 	previous, err := Get(ctx, store, name)
 	if err != nil && !errors.Is(err, kv.ErrNotFound) {
-		return adminservice.PutFirmware500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.PutFirmware500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	now := s.now()
 	item.CreatedAt = now
@@ -162,25 +162,25 @@ func (s *Server) PutFirmware(ctx context.Context, request adminservice.PutFirmwa
 		mergeArtifactMetadata(previous.Slots, &item.Slots)
 	}
 	if err := Write(ctx, store, item); err != nil {
-		return adminservice.PutFirmware500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.PutFirmware500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	return adminservice.PutFirmware200JSONResponse(item), nil
+	return adminhttp.PutFirmware200JSONResponse(item), nil
 }
 
-func (s *Server) ReleaseFirmware(ctx context.Context, request adminservice.ReleaseFirmwareRequestObject) (adminservice.ReleaseFirmwareResponseObject, error) {
+func (s *Server) ReleaseFirmware(ctx context.Context, request adminhttp.ReleaseFirmwareRequestObject) (adminhttp.ReleaseFirmwareResponseObject, error) {
 	item, err := s.updateSlots(ctx, request.Name, releaseSlots)
 	if err != nil {
 		return releaseError(request.Name, err), nil
 	}
-	return adminservice.ReleaseFirmware200JSONResponse(item), nil
+	return adminhttp.ReleaseFirmware200JSONResponse(item), nil
 }
 
-func (s *Server) RollbackFirmware(ctx context.Context, request adminservice.RollbackFirmwareRequestObject) (adminservice.RollbackFirmwareResponseObject, error) {
+func (s *Server) RollbackFirmware(ctx context.Context, request adminhttp.RollbackFirmwareRequestObject) (adminhttp.RollbackFirmwareResponseObject, error) {
 	item, err := s.updateSlots(ctx, request.Name, rollbackSlots)
 	if err != nil {
 		return rollbackError(request.Name, err), nil
 	}
-	return adminservice.RollbackFirmware200JSONResponse(item), nil
+	return adminhttp.RollbackFirmware200JSONResponse(item), nil
 }
 
 var (
@@ -233,24 +233,24 @@ func rollbackSlots(slots apitypes.FirmwareSlots) apitypes.FirmwareSlots {
 
 var errStableEmpty = errors.New("stable slot must not be empty after operation")
 
-func releaseError(name string, err error) adminservice.ReleaseFirmwareResponseObject {
+func releaseError(name string, err error) adminhttp.ReleaseFirmwareResponseObject {
 	if errors.Is(err, kv.ErrNotFound) {
-		return adminservice.ReleaseFirmware404JSONResponse(apitypes.NewErrorResponse("FIRMWARE_NOT_FOUND", fmt.Sprintf("firmware %q not found", name)))
+		return adminhttp.ReleaseFirmware404JSONResponse(apitypes.NewErrorResponse("FIRMWARE_NOT_FOUND", fmt.Sprintf("firmware %q not found", name)))
 	}
 	if errors.Is(err, errStableEmpty) {
-		return adminservice.ReleaseFirmware409JSONResponse(apitypes.NewErrorResponse("FIRMWARE_STABLE_EMPTY", err.Error()))
+		return adminhttp.ReleaseFirmware409JSONResponse(apitypes.NewErrorResponse("FIRMWARE_STABLE_EMPTY", err.Error()))
 	}
-	return adminservice.ReleaseFirmware500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error()))
+	return adminhttp.ReleaseFirmware500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error()))
 }
 
-func rollbackError(name string, err error) adminservice.RollbackFirmwareResponseObject {
+func rollbackError(name string, err error) adminhttp.RollbackFirmwareResponseObject {
 	if errors.Is(err, kv.ErrNotFound) {
-		return adminservice.RollbackFirmware404JSONResponse(apitypes.NewErrorResponse("FIRMWARE_NOT_FOUND", fmt.Sprintf("firmware %q not found", name)))
+		return adminhttp.RollbackFirmware404JSONResponse(apitypes.NewErrorResponse("FIRMWARE_NOT_FOUND", fmt.Sprintf("firmware %q not found", name)))
 	}
 	if errors.Is(err, errStableEmpty) {
-		return adminservice.RollbackFirmware409JSONResponse(apitypes.NewErrorResponse("FIRMWARE_STABLE_EMPTY", err.Error()))
+		return adminhttp.RollbackFirmware409JSONResponse(apitypes.NewErrorResponse("FIRMWARE_STABLE_EMPTY", err.Error()))
 	}
-	return adminservice.RollbackFirmware500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error()))
+	return adminhttp.RollbackFirmware500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error()))
 }
 
 func Get(ctx context.Context, store kv.Store, name string) (apitypes.Firmware, error) {
@@ -293,7 +293,7 @@ func listFirmwarePage(ctx context.Context, store kv.Store, cursor string, limit 
 	return items, hasNext, nextCursor, nil
 }
 
-func normalizeFirmwareUpsert(in adminservice.FirmwareUpsert, expectedName string) (apitypes.Firmware, error) {
+func normalizeFirmwareUpsert(in adminhttp.FirmwareUpsert, expectedName string) (apitypes.Firmware, error) {
 	name := strings.TrimSpace(in.Name)
 	if name == "" {
 		return apitypes.Firmware{}, errors.New("name is required")

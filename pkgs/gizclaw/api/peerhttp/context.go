@@ -1,4 +1,4 @@
-package serverpublic
+package peerhttp
 
 import (
 	"context"

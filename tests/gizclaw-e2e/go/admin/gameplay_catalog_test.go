@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminservice"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	clitest "github.com/GizClaw/gizclaw-go/tests/gizclaw-e2e/cmd"
 )
@@ -28,7 +28,7 @@ func TestAdminAPIGameplayCatalogUserStory(t *testing.T) {
 		_, _ = env.api.DeletePetDefWithResponse(env.ctx, petID)
 	})
 
-	petResp, err := env.api.CreatePetDefWithResponse(env.ctx, adminservice.PetDefUpsert{
+	petResp, err := env.api.CreatePetDefWithResponse(env.ctx, adminhttp.PetDefUpsert{
 		Id: petID,
 		Spec: apitypes.PetDefSpec{
 			DisplayName: "Admin E2E PetDef",
@@ -60,7 +60,7 @@ func TestAdminAPIGameplayCatalogUserStory(t *testing.T) {
 		t.Fatalf("pet def pixa body len = %d want %d", len(assetGet.Body), len(petPixa))
 	}
 
-	badgeResp, err := env.api.CreateBadgeDefWithResponse(env.ctx, adminservice.BadgeDefUpsert{
+	badgeResp, err := env.api.CreateBadgeDefWithResponse(env.ctx, adminhttp.BadgeDefUpsert{
 		Id:   badgeID,
 		Spec: apitypes.BadgeDefSpec{DisplayName: "Admin E2E BadgeDef"},
 	})
@@ -83,7 +83,7 @@ func TestAdminAPIGameplayCatalogUserStory(t *testing.T) {
 		t.Fatalf("badge def pixa body len = %d want %d", len(iconGet.Body), len(badgePixa))
 	}
 
-	gameResp, err := env.api.CreateGameDefWithResponse(env.ctx, adminservice.GameDefUpsert{
+	gameResp, err := env.api.CreateGameDefWithResponse(env.ctx, adminhttp.GameDefUpsert{
 		Id: gameID,
 		Spec: apitypes.GameDefSpec{
 			DisplayName: "Admin E2E GameDef",
@@ -97,7 +97,7 @@ func TestAdminAPIGameplayCatalogUserStory(t *testing.T) {
 
 	initialBalance := int64(25)
 	adoptionCost := int64(7)
-	rulesetResp, err := env.api.CreateGameRulesetWithResponse(env.ctx, adminservice.GameRulesetUpsert{
+	rulesetResp, err := env.api.CreateGameRulesetWithResponse(env.ctx, adminhttp.GameRulesetUpsert{
 		Name: rulesetName,
 		Spec: apitypes.GameRulesetSpec{
 			Enabled: true,
@@ -120,7 +120,7 @@ func TestAdminAPIGameplayCatalogUserStory(t *testing.T) {
 		t.Fatalf("create game ruleset = %#v", rulesetResp.JSON200)
 	}
 
-	listResp, err := env.api.ListGameRulesetsWithResponse(env.ctx, &adminservice.ListGameRulesetsParams{Limit: ptr[int32](100)})
+	listResp, err := env.api.ListGameRulesetsWithResponse(env.ctx, &adminhttp.ListGameRulesetsParams{Limit: ptr[int32](100)})
 	if err != nil {
 		t.Fatalf("list game rulesets: %v", err)
 	}

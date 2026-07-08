@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminservice"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
@@ -295,15 +295,15 @@ func TestServiceReloadClosesInputOnTransformError(t *testing.T) {
 
 func TestServiceResolverResponseErrors(t *testing.T) {
 	resolver := ServiceResolver{
-		Workspaces: responseWorkspaceService{response: adminservice.GetWorkspace500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "failed"))},
+		Workspaces: responseWorkspaceService{response: adminhttp.GetWorkspace500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "failed"))},
 		Workflows:  fakeWorkflowService{},
 	}
 	if _, err := resolver.Resolve(context.Background(), "demo"); err == nil || !strings.Contains(err.Error(), "failed") {
 		t.Fatalf("workspace 500 error = %v", err)
 	}
 
-	resolver.Workspaces = responseWorkspaceService{response: adminservice.GetWorkspace200JSONResponse(apitypes.Workspace{Name: "demo", WorkflowName: "workflow"})}
-	resolver.Workflows = responseWorkflowService{response: adminservice.GetWorkflow500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "failed"))}
+	resolver.Workspaces = responseWorkspaceService{response: adminhttp.GetWorkspace200JSONResponse(apitypes.Workspace{Name: "demo", WorkflowName: "workflow"})}
+	resolver.Workflows = responseWorkflowService{response: adminhttp.GetWorkflow500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "failed"))}
 	if _, err := resolver.Resolve(context.Background(), "demo"); err == nil || !strings.Contains(err.Error(), "failed") {
 		t.Fatalf("workflow 500 error = %v", err)
 	}
@@ -418,12 +418,12 @@ type fakeWorkspaceService struct {
 	items map[string]apitypes.Workspace
 }
 
-func (s fakeWorkspaceService) GetWorkspace(_ context.Context, request adminservice.GetWorkspaceRequestObject) (adminservice.GetWorkspaceResponseObject, error) {
+func (s fakeWorkspaceService) GetWorkspace(_ context.Context, request adminhttp.GetWorkspaceRequestObject) (adminhttp.GetWorkspaceResponseObject, error) {
 	item, ok := s.items[string(request.Name)]
 	if !ok {
-		return adminservice.GetWorkspace404JSONResponse(apitypes.NewErrorResponse("WORKSPACE_NOT_FOUND", "not found")), nil
+		return adminhttp.GetWorkspace404JSONResponse(apitypes.NewErrorResponse("WORKSPACE_NOT_FOUND", "not found")), nil
 	}
-	return adminservice.GetWorkspace200JSONResponse(item), nil
+	return adminhttp.GetWorkspace200JSONResponse(item), nil
 }
 
 type fakeWorkflowService struct {
@@ -431,29 +431,29 @@ type fakeWorkflowService struct {
 	items map[string]apitypes.WorkflowDocument
 }
 
-func (s fakeWorkflowService) GetWorkflow(_ context.Context, request adminservice.GetWorkflowRequestObject) (adminservice.GetWorkflowResponseObject, error) {
+func (s fakeWorkflowService) GetWorkflow(_ context.Context, request adminhttp.GetWorkflowRequestObject) (adminhttp.GetWorkflowResponseObject, error) {
 	item, ok := s.items[string(request.Name)]
 	if !ok {
-		return adminservice.GetWorkflow404JSONResponse(apitypes.NewErrorResponse("WORKFLOW_NOT_FOUND", "not found")), nil
+		return adminhttp.GetWorkflow404JSONResponse(apitypes.NewErrorResponse("WORKFLOW_NOT_FOUND", "not found")), nil
 	}
-	return adminservice.GetWorkflow200JSONResponse(item), nil
+	return adminhttp.GetWorkflow200JSONResponse(item), nil
 }
 
 type responseWorkspaceService struct {
 	workspace.WorkspaceAdminService
-	response adminservice.GetWorkspaceResponseObject
+	response adminhttp.GetWorkspaceResponseObject
 }
 
-func (s responseWorkspaceService) GetWorkspace(context.Context, adminservice.GetWorkspaceRequestObject) (adminservice.GetWorkspaceResponseObject, error) {
+func (s responseWorkspaceService) GetWorkspace(context.Context, adminhttp.GetWorkspaceRequestObject) (adminhttp.GetWorkspaceResponseObject, error) {
 	return s.response, nil
 }
 
 type responseWorkflowService struct {
 	workflow.WorkflowAdminService
-	response adminservice.GetWorkflowResponseObject
+	response adminhttp.GetWorkflowResponseObject
 }
 
-func (s responseWorkflowService) GetWorkflow(context.Context, adminservice.GetWorkflowRequestObject) (adminservice.GetWorkflowResponseObject, error) {
+func (s responseWorkflowService) GetWorkflow(context.Context, adminhttp.GetWorkflowRequestObject) (adminhttp.GetWorkflowResponseObject, error) {
 	return s.response, nil
 }
 

@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminservice"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/sdk/go/gizcli"
 )
@@ -18,10 +18,10 @@ import (
 func TestAdminAPIWorkspaceHistoryListAndGetFromSocialConversation(t *testing.T) {
 	env := newAdminAPIHarness(t)
 	workspaceName, texts := createAdminSocialConversationHistory(t, env)
-	order := adminservice.Asc
+	order := adminhttp.Asc
 	limit := 2
 
-	history, err := env.api.ListWorkspaceHistoryWithResponse(env.ctx, workspaceName, &adminservice.ListWorkspaceHistoryParams{
+	history, err := env.api.ListWorkspaceHistoryWithResponse(env.ctx, workspaceName, &adminhttp.ListWorkspaceHistoryParams{
 		Limit: &limit,
 		Order: &order,
 	})
@@ -40,7 +40,7 @@ func TestAdminAPIWorkspaceHistoryListAndGetFromSocialConversation(t *testing.T) 
 		t.Fatalf("first workspace history text = %q", first.Text)
 	}
 
-	next, err := env.api.ListWorkspaceHistoryWithResponse(env.ctx, workspaceName, &adminservice.ListWorkspaceHistoryParams{
+	next, err := env.api.ListWorkspaceHistoryWithResponse(env.ctx, workspaceName, &adminhttp.ListWorkspaceHistoryParams{
 		Limit:  &limit,
 		Cursor: history.JSON200.NextCursor,
 		Order:  &order,
@@ -89,9 +89,9 @@ func TestAdminAPISocialWorkspaceHistoryStartsEmptyUntilConversation(t *testing.T
 
 func requireAdminSocialWorkspaceHistoryEmpty(t *testing.T, env *adminAPIHarness, label, workspaceName string) {
 	t.Helper()
-	order := adminservice.Asc
+	order := adminhttp.Asc
 	limit := 10
-	history, err := env.api.ListWorkspaceHistoryWithResponse(env.ctx, workspaceName, &adminservice.ListWorkspaceHistoryParams{
+	history, err := env.api.ListWorkspaceHistoryWithResponse(env.ctx, workspaceName, &adminhttp.ListWorkspaceHistoryParams{
 		Limit: &limit,
 		Order: &order,
 	})
@@ -175,7 +175,7 @@ func waitForAdminWorkspaceHistoryText(t *testing.T, env *adminAPIHarness, worksp
 	deadline := time.Now().Add(5 * time.Second)
 	limit := 20
 	for {
-		history, err := env.api.ListWorkspaceHistoryWithResponse(env.ctx, workspaceName, &adminservice.ListWorkspaceHistoryParams{Limit: &limit})
+		history, err := env.api.ListWorkspaceHistoryWithResponse(env.ctx, workspaceName, &adminhttp.ListWorkspaceHistoryParams{Limit: &limit})
 		if err == nil && history.JSON200 != nil {
 			for _, item := range history.JSON200.Items {
 				if item.Text == text {

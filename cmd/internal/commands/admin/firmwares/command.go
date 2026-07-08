@@ -14,7 +14,7 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/cmd/internal/adminapi"
 	"github.com/GizClaw/gizclaw-go/cmd/internal/connection"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminservice"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/sdk/go/gizcli"
 	"github.com/spf13/cobra"
 )
@@ -527,9 +527,9 @@ func writeTarFileBody(tw *tar.Writer, name string) error {
 	return closeErr
 }
 
-func readFirmwareUpsert(cmd *cobra.Command, file string) (adminservice.FirmwareUpsert, error) {
+func readFirmwareUpsert(cmd *cobra.Command, file string) (adminhttp.FirmwareUpsert, error) {
 	if strings.TrimSpace(file) == "" {
-		return adminservice.FirmwareUpsert{}, fmt.Errorf("required flag: --file")
+		return adminhttp.FirmwareUpsert{}, fmt.Errorf("required flag: --file")
 	}
 	var r io.Reader
 	if file == "-" {
@@ -537,14 +537,14 @@ func readFirmwareUpsert(cmd *cobra.Command, file string) (adminservice.FirmwareU
 	} else {
 		f, err := os.Open(file)
 		if err != nil {
-			return adminservice.FirmwareUpsert{}, err
+			return adminhttp.FirmwareUpsert{}, err
 		}
 		defer f.Close()
 		r = f
 	}
-	var req adminservice.FirmwareUpsert
+	var req adminhttp.FirmwareUpsert
 	if err := json.NewDecoder(r).Decode(&req); err != nil {
-		return adminservice.FirmwareUpsert{}, err
+		return adminhttp.FirmwareUpsert{}, err
 	}
 	return req, nil
 }

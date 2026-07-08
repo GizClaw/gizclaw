@@ -64,13 +64,13 @@ func TestAdminPublicKeySecurityPolicy(t *testing.T) {
 	if !policy.AllowPeer(other) {
 		t.Fatal("AllowPeer should allow peer transport before service selection")
 	}
-	if !policy.AllowService(allowed, gizclaw.ServiceAdmin) {
+	if !policy.AllowService(allowed, gizclaw.ServiceAdminHTTP) {
 		t.Fatal("AllowService should allow configured admin public key for admin service")
 	}
-	if policy.AllowService(other, gizclaw.ServiceAdmin) {
+	if policy.AllowService(other, gizclaw.ServiceAdminHTTP) {
 		t.Fatal("AllowService allowed a different public key")
 	}
-	if policy.AllowService(allowed, gizclaw.ServiceServerPublic) {
+	if policy.AllowService(allowed, gizclaw.ServicePeerHTTP) {
 		t.Fatal("AllowService allowed a non-admin service")
 	}
 }

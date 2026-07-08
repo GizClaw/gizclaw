@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminservice"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 	_ "modernc.org/sqlite"
@@ -378,9 +378,9 @@ func TestRuntimeErrorsPaginationAndTimeDrive(t *testing.T) {
 	seedGameplayCatalog(t, ctx, poorCatalog)
 	zero := int64(0)
 	cost := int64(99)
-	_, err = poorCatalog.PutGameRuleset(ctx, adminservice.PutGameRulesetRequestObject{
+	_, err = poorCatalog.PutGameRuleset(ctx, adminhttp.PutGameRulesetRequestObject{
 		Name: "default",
-		Body: &adminservice.GameRulesetUpsert{
+		Body: &adminhttp.GameRulesetUpsert{
 			Spec: apitypes.GameRulesetSpec{
 				Enabled: true,
 				Points:  &apitypes.GameRulesetPointsSpec{InitialBalance: &zero},
@@ -480,10 +480,10 @@ func TestRuntimeHelperBranches(t *testing.T) {
 		t.Fatal("boolInt() returned unexpected values")
 	}
 
-	for _, resp := range []adminservice.CreateWorkspaceResponseObject{
-		adminservice.CreateWorkspace400JSONResponse{Error: apitypes.NewErrorResponse("BAD", "bad request").Error},
-		adminservice.CreateWorkspace409JSONResponse{Error: apitypes.NewErrorResponse("CONFLICT", "conflict").Error},
-		adminservice.CreateWorkspace500JSONResponse{Error: apitypes.NewErrorResponse("ERROR", "server error").Error},
+	for _, resp := range []adminhttp.CreateWorkspaceResponseObject{
+		adminhttp.CreateWorkspace400JSONResponse{Error: apitypes.NewErrorResponse("BAD", "bad request").Error},
+		adminhttp.CreateWorkspace409JSONResponse{Error: apitypes.NewErrorResponse("CONFLICT", "conflict").Error},
+		adminhttp.CreateWorkspace500JSONResponse{Error: apitypes.NewErrorResponse("ERROR", "server error").Error},
 		nil,
 	} {
 		runtime := &Runtime{Workspaces: workspaceResponseService{resp: resp}}
@@ -510,8 +510,8 @@ func seedGameplayCatalog(t *testing.T, ctx context.Context, catalog *Catalog) {
 	t.Helper()
 	life := apitypes.StatMap{"hunger": 100, "clean": 100}
 	ability := apitypes.StatMap{"play": 1}
-	petResp, err := catalog.CreatePetDef(ctx, adminservice.CreatePetDefRequestObject{
-		Body: &adminservice.PetDefUpsert{
+	petResp, err := catalog.CreatePetDef(ctx, adminhttp.CreatePetDefRequestObject{
+		Body: &adminhttp.PetDefUpsert{
 			Id: "petdef-basic",
 			Spec: apitypes.PetDefSpec{
 				DisplayName:    "Spark",
@@ -524,25 +524,25 @@ func seedGameplayCatalog(t *testing.T, ctx context.Context, catalog *Catalog) {
 	if err != nil {
 		t.Fatalf("CreatePetDef() error = %v", err)
 	}
-	if _, ok := petResp.(adminservice.CreatePetDef200JSONResponse); !ok {
+	if _, ok := petResp.(adminhttp.CreatePetDef200JSONResponse); !ok {
 		t.Fatalf("CreatePetDef() response = %#v", petResp)
 	}
-	badgeResp, err := catalog.CreateBadgeDef(ctx, adminservice.CreateBadgeDefRequestObject{
-		Body: &adminservice.BadgeDefUpsert{Id: "badge-basic", Spec: apitypes.BadgeDefSpec{DisplayName: "First Win"}},
+	badgeResp, err := catalog.CreateBadgeDef(ctx, adminhttp.CreateBadgeDefRequestObject{
+		Body: &adminhttp.BadgeDefUpsert{Id: "badge-basic", Spec: apitypes.BadgeDefSpec{DisplayName: "First Win"}},
 	})
 	if err != nil {
 		t.Fatalf("CreateBadgeDef() error = %v", err)
 	}
-	if _, ok := badgeResp.(adminservice.CreateBadgeDef200JSONResponse); !ok {
+	if _, ok := badgeResp.(adminhttp.CreateBadgeDef200JSONResponse); !ok {
 		t.Fatalf("CreateBadgeDef() response = %#v", badgeResp)
 	}
-	gameResp, err := catalog.CreateGameDef(ctx, adminservice.CreateGameDefRequestObject{
-		Body: &adminservice.GameDefUpsert{Id: "game-basic", Spec: apitypes.GameDefSpec{DisplayName: "Puzzle"}},
+	gameResp, err := catalog.CreateGameDef(ctx, adminhttp.CreateGameDefRequestObject{
+		Body: &adminhttp.GameDefUpsert{Id: "game-basic", Spec: apitypes.GameDefSpec{DisplayName: "Puzzle"}},
 	})
 	if err != nil {
 		t.Fatalf("CreateGameDef() error = %v", err)
 	}
-	if _, ok := gameResp.(adminservice.CreateGameDef200JSONResponse); !ok {
+	if _, ok := gameResp.(adminhttp.CreateGameDef200JSONResponse); !ok {
 		t.Fatalf("CreateGameDef() response = %#v", gameResp)
 	}
 	initialBalance := int64(50)
@@ -555,8 +555,8 @@ func seedGameplayCatalog(t *testing.T, ctx context.Context, catalog *Catalog) {
 	decay := apitypes.StatMap{"hunger": 5}
 	badgeDelta := map[string]int64{"badge-basic": 100}
 	gameIDs := []string{"game-basic"}
-	rulesetResp, err := catalog.CreateGameRuleset(ctx, adminservice.CreateGameRulesetRequestObject{
-		Body: &adminservice.GameRulesetUpsert{
+	rulesetResp, err := catalog.CreateGameRuleset(ctx, adminhttp.CreateGameRulesetRequestObject{
+		Body: &adminhttp.GameRulesetUpsert{
 			Name: "default",
 			Spec: apitypes.GameRulesetSpec{
 				Enabled: true,
@@ -583,7 +583,7 @@ func seedGameplayCatalog(t *testing.T, ctx context.Context, catalog *Catalog) {
 	if err != nil {
 		t.Fatalf("CreateGameRuleset() error = %v", err)
 	}
-	if _, ok := rulesetResp.(adminservice.CreateGameRuleset200JSONResponse); !ok {
+	if _, ok := rulesetResp.(adminhttp.CreateGameRuleset200JSONResponse); !ok {
 		t.Fatalf("CreateGameRuleset() response = %#v", rulesetResp)
 	}
 }
@@ -611,57 +611,57 @@ func sequentialIDs(ids ...string) func() string {
 }
 
 type recordingWorkspaceService struct {
-	created []adminservice.WorkspaceUpsert
+	created []adminhttp.WorkspaceUpsert
 	deleted []string
 }
 
-func (s *recordingWorkspaceService) ListWorkspaces(context.Context, adminservice.ListWorkspacesRequestObject) (adminservice.ListWorkspacesResponseObject, error) {
-	return adminservice.ListWorkspaces200JSONResponse(adminservice.WorkspaceList{}), nil
+func (s *recordingWorkspaceService) ListWorkspaces(context.Context, adminhttp.ListWorkspacesRequestObject) (adminhttp.ListWorkspacesResponseObject, error) {
+	return adminhttp.ListWorkspaces200JSONResponse(adminhttp.WorkspaceList{}), nil
 }
 
-func (s *recordingWorkspaceService) CreateWorkspace(_ context.Context, req adminservice.CreateWorkspaceRequestObject) (adminservice.CreateWorkspaceResponseObject, error) {
+func (s *recordingWorkspaceService) CreateWorkspace(_ context.Context, req adminhttp.CreateWorkspaceRequestObject) (adminhttp.CreateWorkspaceResponseObject, error) {
 	if req.Body == nil {
-		return adminservice.CreateWorkspace400JSONResponse(apitypes.NewErrorResponse("INVALID_WORKSPACE", "request body required")), nil
+		return adminhttp.CreateWorkspace400JSONResponse(apitypes.NewErrorResponse("INVALID_WORKSPACE", "request body required")), nil
 	}
 	s.created = append(s.created, *req.Body)
-	return adminservice.CreateWorkspace200JSONResponse(apitypes.Workspace{Name: req.Body.Name, WorkflowName: req.Body.WorkflowName}), nil
+	return adminhttp.CreateWorkspace200JSONResponse(apitypes.Workspace{Name: req.Body.Name, WorkflowName: req.Body.WorkflowName}), nil
 }
 
-func (s *recordingWorkspaceService) DeleteWorkspace(_ context.Context, req adminservice.DeleteWorkspaceRequestObject) (adminservice.DeleteWorkspaceResponseObject, error) {
+func (s *recordingWorkspaceService) DeleteWorkspace(_ context.Context, req adminhttp.DeleteWorkspaceRequestObject) (adminhttp.DeleteWorkspaceResponseObject, error) {
 	s.deleted = append(s.deleted, req.Name)
-	return adminservice.DeleteWorkspace200JSONResponse(apitypes.Workspace{Name: req.Name}), nil
+	return adminhttp.DeleteWorkspace200JSONResponse(apitypes.Workspace{Name: req.Name}), nil
 }
 
-func (s *recordingWorkspaceService) GetWorkspace(context.Context, adminservice.GetWorkspaceRequestObject) (adminservice.GetWorkspaceResponseObject, error) {
-	return adminservice.GetWorkspace404JSONResponse(apitypes.NewErrorResponse("WORKSPACE_NOT_FOUND", "not found")), nil
+func (s *recordingWorkspaceService) GetWorkspace(context.Context, adminhttp.GetWorkspaceRequestObject) (adminhttp.GetWorkspaceResponseObject, error) {
+	return adminhttp.GetWorkspace404JSONResponse(apitypes.NewErrorResponse("WORKSPACE_NOT_FOUND", "not found")), nil
 }
 
-func (s *recordingWorkspaceService) PutWorkspace(context.Context, adminservice.PutWorkspaceRequestObject) (adminservice.PutWorkspaceResponseObject, error) {
-	return adminservice.PutWorkspace500JSONResponse(apitypes.NewErrorResponse("UNIMPLEMENTED", "not implemented")), nil
+func (s *recordingWorkspaceService) PutWorkspace(context.Context, adminhttp.PutWorkspaceRequestObject) (adminhttp.PutWorkspaceResponseObject, error) {
+	return adminhttp.PutWorkspace500JSONResponse(apitypes.NewErrorResponse("UNIMPLEMENTED", "not implemented")), nil
 }
 
 type workspaceResponseService struct {
-	resp adminservice.CreateWorkspaceResponseObject
+	resp adminhttp.CreateWorkspaceResponseObject
 }
 
-func (s workspaceResponseService) ListWorkspaces(context.Context, adminservice.ListWorkspacesRequestObject) (adminservice.ListWorkspacesResponseObject, error) {
-	return adminservice.ListWorkspaces200JSONResponse(adminservice.WorkspaceList{}), nil
+func (s workspaceResponseService) ListWorkspaces(context.Context, adminhttp.ListWorkspacesRequestObject) (adminhttp.ListWorkspacesResponseObject, error) {
+	return adminhttp.ListWorkspaces200JSONResponse(adminhttp.WorkspaceList{}), nil
 }
 
-func (s workspaceResponseService) CreateWorkspace(context.Context, adminservice.CreateWorkspaceRequestObject) (adminservice.CreateWorkspaceResponseObject, error) {
+func (s workspaceResponseService) CreateWorkspace(context.Context, adminhttp.CreateWorkspaceRequestObject) (adminhttp.CreateWorkspaceResponseObject, error) {
 	return s.resp, nil
 }
 
-func (s workspaceResponseService) DeleteWorkspace(context.Context, adminservice.DeleteWorkspaceRequestObject) (adminservice.DeleteWorkspaceResponseObject, error) {
-	return adminservice.DeleteWorkspace200JSONResponse(apitypes.Workspace{}), nil
+func (s workspaceResponseService) DeleteWorkspace(context.Context, adminhttp.DeleteWorkspaceRequestObject) (adminhttp.DeleteWorkspaceResponseObject, error) {
+	return adminhttp.DeleteWorkspace200JSONResponse(apitypes.Workspace{}), nil
 }
 
-func (s workspaceResponseService) GetWorkspace(context.Context, adminservice.GetWorkspaceRequestObject) (adminservice.GetWorkspaceResponseObject, error) {
-	return adminservice.GetWorkspace404JSONResponse(apitypes.NewErrorResponse("WORKSPACE_NOT_FOUND", "not found")), nil
+func (s workspaceResponseService) GetWorkspace(context.Context, adminhttp.GetWorkspaceRequestObject) (adminhttp.GetWorkspaceResponseObject, error) {
+	return adminhttp.GetWorkspace404JSONResponse(apitypes.NewErrorResponse("WORKSPACE_NOT_FOUND", "not found")), nil
 }
 
-func (s workspaceResponseService) PutWorkspace(context.Context, adminservice.PutWorkspaceRequestObject) (adminservice.PutWorkspaceResponseObject, error) {
-	return adminservice.PutWorkspace500JSONResponse(apitypes.NewErrorResponse("UNIMPLEMENTED", "not implemented")), nil
+func (s workspaceResponseService) PutWorkspace(context.Context, adminhttp.PutWorkspaceRequestObject) (adminhttp.PutWorkspaceResponseObject, error) {
+	return adminhttp.PutWorkspace500JSONResponse(apitypes.NewErrorResponse("UNIMPLEMENTED", "not implemented")), nil
 }
 
 type recordingACLService struct {

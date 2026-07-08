@@ -11,7 +11,7 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx/transformers"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminservice"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/acl"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
@@ -1179,7 +1179,7 @@ func TestListAccessibleGeneratorConfigsErrorsAndUseDenial(t *testing.T) {
 	if _, err := (&Service{Models: responseModels{}}).ListAccessibleGeneratorConfigs(ctx); !errors.Is(err, ErrNotConfigured) {
 		t.Fatalf("missing lister ListAccessibleGeneratorConfigs() error = %v, want %v", err, ErrNotConfigured)
 	}
-	svc := &Service{Models: responseModelLister{response: adminservice.ListModels500JSONResponse{}}}
+	svc := &Service{Models: responseModelLister{response: adminhttp.ListModels500JSONResponse{}}}
 	if _, err := svc.ListAccessibleGeneratorConfigs(ctx); !errors.Is(err, ErrInvalid) {
 		t.Fatalf("bad list response error = %v, want %v", err, ErrInvalid)
 	}
@@ -1307,42 +1307,42 @@ func TestGenXNilReceiversReturnNotConfigured(t *testing.T) {
 func TestResolverGettersHandleNotFoundAndUnexpectedResponses(t *testing.T) {
 	ctx := context.Background()
 	t.Run("model", func(t *testing.T) {
-		svc := &Service{Models: responseModels{response: adminservice.GetModel404JSONResponse{}}}
+		svc := &Service{Models: responseModels{response: adminhttp.GetModel404JSONResponse{}}}
 		if _, err := svc.getModel(ctx, "missing"); !errors.Is(err, ErrNotFound) {
 			t.Fatalf("getModel(404) error = %v, want %v", err, ErrNotFound)
 		}
-		svc.Models = responseModels{response: adminservice.GetModel500JSONResponse{}}
+		svc.Models = responseModels{response: adminhttp.GetModel500JSONResponse{}}
 		if _, err := svc.getModel(ctx, "bad"); !errors.Is(err, ErrInvalid) {
 			t.Fatalf("getModel(500) error = %v, want %v", err, ErrInvalid)
 		}
 	})
 	t.Run("voice", func(t *testing.T) {
-		svc := &Service{Voices: responseVoices{response: adminservice.GetVoice404JSONResponse{}}}
+		svc := &Service{Voices: responseVoices{response: adminhttp.GetVoice404JSONResponse{}}}
 		if _, err := svc.getVoice(ctx, "missing"); !errors.Is(err, ErrNotFound) {
 			t.Fatalf("getVoice(404) error = %v, want %v", err, ErrNotFound)
 		}
-		svc.Voices = responseVoices{response: adminservice.GetVoice500JSONResponse{}}
+		svc.Voices = responseVoices{response: adminhttp.GetVoice500JSONResponse{}}
 		if _, err := svc.getVoice(ctx, "bad"); !errors.Is(err, ErrInvalid) {
 			t.Fatalf("getVoice(500) error = %v, want %v", err, ErrInvalid)
 		}
 	})
 	t.Run("credential", func(t *testing.T) {
-		svc := &Service{Credentials: responseCredentials{response: adminservice.GetCredential404JSONResponse{}}}
+		svc := &Service{Credentials: responseCredentials{response: adminhttp.GetCredential404JSONResponse{}}}
 		if _, err := svc.getCredential(ctx, "missing"); !errors.Is(err, ErrNotFound) {
 			t.Fatalf("getCredential(404) error = %v, want %v", err, ErrNotFound)
 		}
-		svc.Credentials = responseCredentials{response: adminservice.GetCredential500JSONResponse{}}
+		svc.Credentials = responseCredentials{response: adminhttp.GetCredential500JSONResponse{}}
 		if _, err := svc.getCredential(ctx, "bad"); !errors.Is(err, ErrInvalid) {
 			t.Fatalf("getCredential(500) error = %v, want %v", err, ErrInvalid)
 		}
 	})
 	t.Run("tenants", func(t *testing.T) {
 		svc := &Service{ProviderTenants: responseTenants{
-			openai:    adminservice.GetOpenAITenant404JSONResponse{},
-			gemini:    adminservice.GetGeminiTenant404JSONResponse{},
-			dashscope: adminservice.GetDashScopeTenant404JSONResponse{},
-			minimax:   adminservice.GetMiniMaxTenant404JSONResponse{},
-			volc:      adminservice.GetVolcTenant404JSONResponse{},
+			openai:    adminhttp.GetOpenAITenant404JSONResponse{},
+			gemini:    adminhttp.GetGeminiTenant404JSONResponse{},
+			dashscope: adminhttp.GetDashScopeTenant404JSONResponse{},
+			minimax:   adminhttp.GetMiniMaxTenant404JSONResponse{},
+			volc:      adminhttp.GetVolcTenant404JSONResponse{},
 		}}
 		for name, call := range map[string]func() error{
 			"openai": func() error {
@@ -1372,11 +1372,11 @@ func TestResolverGettersHandleNotFoundAndUnexpectedResponses(t *testing.T) {
 		}
 
 		svc.ProviderTenants = responseTenants{
-			openai:    adminservice.GetOpenAITenant500JSONResponse{},
-			gemini:    adminservice.GetGeminiTenant500JSONResponse{},
-			dashscope: adminservice.GetDashScopeTenant500JSONResponse{},
-			minimax:   adminservice.GetMiniMaxTenant500JSONResponse{},
-			volc:      adminservice.GetVolcTenant500JSONResponse{},
+			openai:    adminhttp.GetOpenAITenant500JSONResponse{},
+			gemini:    adminhttp.GetGeminiTenant500JSONResponse{},
+			dashscope: adminhttp.GetDashScopeTenant500JSONResponse{},
+			minimax:   adminhttp.GetMiniMaxTenant500JSONResponse{},
+			volc:      adminhttp.GetVolcTenant500JSONResponse{},
 		}
 		for name, call := range map[string]func() error{
 			"openai": func() error {
@@ -1442,21 +1442,21 @@ type fakeModels struct {
 	listItems    []apitypes.Model
 }
 
-func (f fakeModels) GetModel(_ context.Context, request adminservice.GetModelRequestObject) (adminservice.GetModelResponseObject, error) {
+func (f fakeModels) GetModel(_ context.Context, request adminhttp.GetModelRequestObject) (adminhttp.GetModelResponseObject, error) {
 	*f.events = append(*f.events, "get:model:"+request.Id)
-	return adminservice.GetModel200JSONResponse(f.model(request.Id)), nil
+	return adminhttp.GetModel200JSONResponse(f.model(request.Id)), nil
 }
 
-func (f fakeModels) ListModels(_ context.Context, request adminservice.ListModelsRequestObject) (adminservice.ListModelsResponseObject, error) {
+func (f fakeModels) ListModels(_ context.Context, request adminhttp.ListModelsRequestObject) (adminhttp.ListModelsResponseObject, error) {
 	*f.events = append(*f.events, "list:models")
 	if request.Params.Cursor != nil && *request.Params.Cursor != "" {
-		return adminservice.ListModels200JSONResponse(adminservice.ModelList{}), nil
+		return adminhttp.ListModels200JSONResponse(adminhttp.ModelList{}), nil
 	}
 	items := f.listItems
 	if items == nil {
 		items = []apitypes.Model{f.model("chat")}
 	}
-	return adminservice.ListModels200JSONResponse(adminservice.ModelList{Items: items}), nil
+	return adminhttp.ListModels200JSONResponse(adminhttp.ModelList{Items: items}), nil
 }
 
 func (f fakeModels) model(id string) apitypes.Model {
@@ -1551,7 +1551,7 @@ type fakeVoices struct {
 	providerKind apitypes.VoiceProviderKind
 }
 
-func (f fakeVoices) GetVoice(_ context.Context, request adminservice.GetVoiceRequestObject) (adminservice.GetVoiceResponseObject, error) {
+func (f fakeVoices) GetVoice(_ context.Context, request adminhttp.GetVoiceRequestObject) (adminhttp.GetVoiceResponseObject, error) {
 	*f.events = append(*f.events, "get:voice:"+request.Id)
 	providerKind := f.providerKind
 	if providerKind == "" {
@@ -1569,7 +1569,7 @@ func (f fakeVoices) GetVoice(_ context.Context, request adminservice.GetVoiceReq
 	if err != nil {
 		panic(err)
 	}
-	return adminservice.GetVoice200JSONResponse(apitypes.Voice{
+	return adminhttp.GetVoice200JSONResponse(apitypes.Voice{
 		Id: request.Id,
 		Provider: apitypes.VoiceProvider{
 			Kind: providerKind,
@@ -1583,9 +1583,9 @@ type fakeCredentials struct {
 	events *[]string
 }
 
-func (f fakeCredentials) GetCredential(_ context.Context, request adminservice.GetCredentialRequestObject) (adminservice.GetCredentialResponseObject, error) {
+func (f fakeCredentials) GetCredential(_ context.Context, request adminhttp.GetCredentialRequestObject) (adminhttp.GetCredentialResponseObject, error) {
 	*f.events = append(*f.events, "get:credential:"+request.Name)
-	return adminservice.GetCredential200JSONResponse(apitypes.Credential{
+	return adminhttp.GetCredential200JSONResponse(apitypes.Credential{
 		Name: request.Name,
 		Body: testVolcCredentialBodyFromStrings(map[string]string{"app_id": "app", "api_key": "sk-test"}),
 	}), nil
@@ -1595,92 +1595,92 @@ type fakeTenants struct {
 	events *[]string
 }
 
-func (f fakeTenants) GetOpenAITenant(_ context.Context, request adminservice.GetOpenAITenantRequestObject) (adminservice.GetOpenAITenantResponseObject, error) {
+func (f fakeTenants) GetOpenAITenant(_ context.Context, request adminhttp.GetOpenAITenantRequestObject) (adminhttp.GetOpenAITenantResponseObject, error) {
 	*f.events = append(*f.events, "get:tenant:openai:"+request.Name)
-	return adminservice.GetOpenAITenant200JSONResponse(apitypes.OpenAITenant{Name: request.Name, CredentialName: "openai-key"}), nil
+	return adminhttp.GetOpenAITenant200JSONResponse(apitypes.OpenAITenant{Name: request.Name, CredentialName: "openai-key"}), nil
 }
 
-func (f fakeTenants) GetGeminiTenant(_ context.Context, request adminservice.GetGeminiTenantRequestObject) (adminservice.GetGeminiTenantResponseObject, error) {
+func (f fakeTenants) GetGeminiTenant(_ context.Context, request adminhttp.GetGeminiTenantRequestObject) (adminhttp.GetGeminiTenantResponseObject, error) {
 	*f.events = append(*f.events, "get:tenant:gemini:"+request.Name)
-	return adminservice.GetGeminiTenant200JSONResponse(apitypes.GeminiTenant{Name: request.Name, CredentialName: "gemini-key"}), nil
+	return adminhttp.GetGeminiTenant200JSONResponse(apitypes.GeminiTenant{Name: request.Name, CredentialName: "gemini-key"}), nil
 }
 
-func (f fakeTenants) GetDashScopeTenant(_ context.Context, request adminservice.GetDashScopeTenantRequestObject) (adminservice.GetDashScopeTenantResponseObject, error) {
+func (f fakeTenants) GetDashScopeTenant(_ context.Context, request adminhttp.GetDashScopeTenantRequestObject) (adminhttp.GetDashScopeTenantResponseObject, error) {
 	*f.events = append(*f.events, "get:tenant:dashscope:"+request.Name)
-	return adminservice.GetDashScopeTenant200JSONResponse(apitypes.DashScopeTenant{Name: request.Name, CredentialName: "dashscope-key"}), nil
+	return adminhttp.GetDashScopeTenant200JSONResponse(apitypes.DashScopeTenant{Name: request.Name, CredentialName: "dashscope-key"}), nil
 }
 
-func (f fakeTenants) GetMiniMaxTenant(_ context.Context, request adminservice.GetMiniMaxTenantRequestObject) (adminservice.GetMiniMaxTenantResponseObject, error) {
+func (f fakeTenants) GetMiniMaxTenant(_ context.Context, request adminhttp.GetMiniMaxTenantRequestObject) (adminhttp.GetMiniMaxTenantResponseObject, error) {
 	*f.events = append(*f.events, "get:tenant:minimax:"+request.Name)
-	return adminservice.GetMiniMaxTenant200JSONResponse(apitypes.MiniMaxTenant{Name: request.Name, CredentialName: "minimax-key"}), nil
+	return adminhttp.GetMiniMaxTenant200JSONResponse(apitypes.MiniMaxTenant{Name: request.Name, CredentialName: "minimax-key"}), nil
 }
 
-func (f fakeTenants) GetVolcTenant(_ context.Context, request adminservice.GetVolcTenantRequestObject) (adminservice.GetVolcTenantResponseObject, error) {
+func (f fakeTenants) GetVolcTenant(_ context.Context, request adminhttp.GetVolcTenantRequestObject) (adminhttp.GetVolcTenantResponseObject, error) {
 	*f.events = append(*f.events, "get:tenant:volc:"+request.Name)
-	return adminservice.GetVolcTenant200JSONResponse(apitypes.VolcTenant{Name: request.Name, CredentialName: "volc-token"}), nil
+	return adminhttp.GetVolcTenant200JSONResponse(apitypes.VolcTenant{Name: request.Name, CredentialName: "volc-token"}), nil
 }
 
 type responseModels struct {
-	response adminservice.GetModelResponseObject
+	response adminhttp.GetModelResponseObject
 }
 
-func (f responseModels) GetModel(context.Context, adminservice.GetModelRequestObject) (adminservice.GetModelResponseObject, error) {
+func (f responseModels) GetModel(context.Context, adminhttp.GetModelRequestObject) (adminhttp.GetModelResponseObject, error) {
 	return f.response, nil
 }
 
 type responseModelLister struct {
-	response adminservice.ListModelsResponseObject
+	response adminhttp.ListModelsResponseObject
 }
 
-func (f responseModelLister) GetModel(context.Context, adminservice.GetModelRequestObject) (adminservice.GetModelResponseObject, error) {
-	return adminservice.GetModel404JSONResponse{}, nil
+func (f responseModelLister) GetModel(context.Context, adminhttp.GetModelRequestObject) (adminhttp.GetModelResponseObject, error) {
+	return adminhttp.GetModel404JSONResponse{}, nil
 }
 
-func (f responseModelLister) ListModels(context.Context, adminservice.ListModelsRequestObject) (adminservice.ListModelsResponseObject, error) {
+func (f responseModelLister) ListModels(context.Context, adminhttp.ListModelsRequestObject) (adminhttp.ListModelsResponseObject, error) {
 	return f.response, nil
 }
 
 type responseVoices struct {
-	response adminservice.GetVoiceResponseObject
+	response adminhttp.GetVoiceResponseObject
 }
 
-func (f responseVoices) GetVoice(context.Context, adminservice.GetVoiceRequestObject) (adminservice.GetVoiceResponseObject, error) {
+func (f responseVoices) GetVoice(context.Context, adminhttp.GetVoiceRequestObject) (adminhttp.GetVoiceResponseObject, error) {
 	return f.response, nil
 }
 
 type responseCredentials struct {
-	response adminservice.GetCredentialResponseObject
+	response adminhttp.GetCredentialResponseObject
 }
 
-func (f responseCredentials) GetCredential(context.Context, adminservice.GetCredentialRequestObject) (adminservice.GetCredentialResponseObject, error) {
+func (f responseCredentials) GetCredential(context.Context, adminhttp.GetCredentialRequestObject) (adminhttp.GetCredentialResponseObject, error) {
 	return f.response, nil
 }
 
 type responseTenants struct {
-	openai    adminservice.GetOpenAITenantResponseObject
-	gemini    adminservice.GetGeminiTenantResponseObject
-	dashscope adminservice.GetDashScopeTenantResponseObject
-	minimax   adminservice.GetMiniMaxTenantResponseObject
-	volc      adminservice.GetVolcTenantResponseObject
+	openai    adminhttp.GetOpenAITenantResponseObject
+	gemini    adminhttp.GetGeminiTenantResponseObject
+	dashscope adminhttp.GetDashScopeTenantResponseObject
+	minimax   adminhttp.GetMiniMaxTenantResponseObject
+	volc      adminhttp.GetVolcTenantResponseObject
 }
 
-func (f responseTenants) GetOpenAITenant(context.Context, adminservice.GetOpenAITenantRequestObject) (adminservice.GetOpenAITenantResponseObject, error) {
+func (f responseTenants) GetOpenAITenant(context.Context, adminhttp.GetOpenAITenantRequestObject) (adminhttp.GetOpenAITenantResponseObject, error) {
 	return f.openai, nil
 }
 
-func (f responseTenants) GetGeminiTenant(context.Context, adminservice.GetGeminiTenantRequestObject) (adminservice.GetGeminiTenantResponseObject, error) {
+func (f responseTenants) GetGeminiTenant(context.Context, adminhttp.GetGeminiTenantRequestObject) (adminhttp.GetGeminiTenantResponseObject, error) {
 	return f.gemini, nil
 }
 
-func (f responseTenants) GetDashScopeTenant(context.Context, adminservice.GetDashScopeTenantRequestObject) (adminservice.GetDashScopeTenantResponseObject, error) {
+func (f responseTenants) GetDashScopeTenant(context.Context, adminhttp.GetDashScopeTenantRequestObject) (adminhttp.GetDashScopeTenantResponseObject, error) {
 	return f.dashscope, nil
 }
 
-func (f responseTenants) GetMiniMaxTenant(context.Context, adminservice.GetMiniMaxTenantRequestObject) (adminservice.GetMiniMaxTenantResponseObject, error) {
+func (f responseTenants) GetMiniMaxTenant(context.Context, adminhttp.GetMiniMaxTenantRequestObject) (adminhttp.GetMiniMaxTenantResponseObject, error) {
 	return f.minimax, nil
 }
 
-func (f responseTenants) GetVolcTenant(context.Context, adminservice.GetVolcTenantRequestObject) (adminservice.GetVolcTenantResponseObject, error) {
+func (f responseTenants) GetVolcTenant(context.Context, adminhttp.GetVolcTenantRequestObject) (adminhttp.GetVolcTenantResponseObject, error) {
 	return f.volc, nil
 }
 

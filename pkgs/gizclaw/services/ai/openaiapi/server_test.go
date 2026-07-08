@@ -15,9 +15,9 @@ import (
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminservice"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/openaiservice"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/openaihttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/peergenx"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/acl"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
@@ -27,8 +27,8 @@ func TestListModelsFiltersDeniedModels(t *testing.T) {
 	caller := mustKey(t)
 	srv := &Server{
 		Caller: caller.Public,
-		Models: modelListerFunc(func(context.Context, adminservice.ListModelsRequestObject) (adminservice.ListModelsResponseObject, error) {
-			return adminservice.ListModels200JSONResponse(adminservice.ModelList{
+		Models: modelListerFunc(func(context.Context, adminhttp.ListModelsRequestObject) (adminhttp.ListModelsResponseObject, error) {
+			return adminhttp.ListModels200JSONResponse(adminhttp.ModelList{
 				Items: []apitypes.Model{
 					testModel("allowed", "tenant-a"),
 					testModel("denied", "tenant-b"),
@@ -46,11 +46,11 @@ func TestListModelsFiltersDeniedModels(t *testing.T) {
 		}),
 	}
 
-	resp, err := srv.ListModels(context.Background(), openaiservice.ListModelsRequestObject{})
+	resp, err := srv.ListModels(context.Background(), openaihttp.ListModelsRequestObject{})
 	if err != nil {
 		t.Fatalf("ListModels() error = %v", err)
 	}
-	list, ok := resp.(openaiservice.ListModels200JSONResponse)
+	list, ok := resp.(openaihttp.ListModels200JSONResponse)
 	if !ok {
 		t.Fatalf("ListModels() response = %T", resp)
 	}
@@ -64,12 +64,12 @@ func TestListModelsPaginationAndErrors(t *testing.T) {
 	calls := 0
 	srv := &Server{
 		Caller: caller.Public,
-		Models: modelListerFunc(func(_ context.Context, req adminservice.ListModelsRequestObject) (adminservice.ListModelsResponseObject, error) {
+		Models: modelListerFunc(func(_ context.Context, req adminhttp.ListModelsRequestObject) (adminhttp.ListModelsResponseObject, error) {
 			calls++
 			switch calls {
 			case 1:
 				next := "next"
-				return adminservice.ListModels200JSONResponse(adminservice.ModelList{
+				return adminhttp.ListModels200JSONResponse(adminhttp.ModelList{
 					Items:      []apitypes.Model{testModel("first", "")},
 					HasNext:    true,
 					NextCursor: &next,
@@ -78,43 +78,43 @@ func TestListModelsPaginationAndErrors(t *testing.T) {
 				if req.Params.Cursor == nil || *req.Params.Cursor != "next" {
 					t.Fatalf("second cursor = %#v", req.Params.Cursor)
 				}
-				return adminservice.ListModels200JSONResponse(adminservice.ModelList{Items: []apitypes.Model{testModel("second", "")}}), nil
+				return adminhttp.ListModels200JSONResponse(adminhttp.ModelList{Items: []apitypes.Model{testModel("second", "")}}), nil
 			}
 		}),
 		Authorizer: authorizerFunc(func(context.Context, acl.AuthorizeRequest) error { return nil }),
 	}
-	resp, err := srv.ListModels(context.Background(), openaiservice.ListModelsRequestObject{})
+	resp, err := srv.ListModels(context.Background(), openaihttp.ListModelsRequestObject{})
 	if err != nil {
 		t.Fatalf("ListModels() error = %v", err)
 	}
-	list := resp.(openaiservice.ListModels200JSONResponse)
+	list := resp.(openaihttp.ListModels200JSONResponse)
 	if len(list.Data) != 2 || list.Data[0].Id != "first" || list.Data[1].Id != "second" {
 		t.Fatalf("ListModels() data = %#v", list.Data)
 	}
 
-	if _, err := (&Server{}).ListModels(context.Background(), openaiservice.ListModelsRequestObject{}); err == nil {
+	if _, err := (&Server{}).ListModels(context.Background(), openaihttp.ListModelsRequestObject{}); err == nil {
 		t.Fatal("ListModels() without model service succeeded")
 	}
 	_, err = (&Server{
 		Caller:     caller.Public,
 		Authorizer: authorizerFunc(func(context.Context, acl.AuthorizeRequest) error { return nil }),
-		Models: modelListerFunc(func(context.Context, adminservice.ListModelsRequestObject) (adminservice.ListModelsResponseObject, error) {
-			return adminservice.ListModels500JSONResponse(apitypes.NewErrorResponse("ERR", "failed")), nil
+		Models: modelListerFunc(func(context.Context, adminhttp.ListModelsRequestObject) (adminhttp.ListModelsResponseObject, error) {
+			return adminhttp.ListModels500JSONResponse(apitypes.NewErrorResponse("ERR", "failed")), nil
 		}),
-	}).ListModels(context.Background(), openaiservice.ListModelsRequestObject{})
+	}).ListModels(context.Background(), openaihttp.ListModelsRequestObject{})
 	if err == nil || !strings.Contains(err.Error(), "list models response") {
 		t.Fatalf("ListModels() error = %v", err)
 	}
 }
 
 func TestListVoicesReturnsPeerFilteredVoiceList(t *testing.T) {
-	want := adminservice.ListVoicesParams{ProviderName: stringPtr("volc-main")}
+	want := adminhttp.ListVoicesParams{ProviderName: stringPtr("volc-main")}
 	srv := &Server{
-		Voices: voiceListerFunc(func(_ context.Context, req adminservice.ListVoicesRequestObject) (adminservice.ListVoicesResponseObject, error) {
+		Voices: voiceListerFunc(func(_ context.Context, req adminhttp.ListVoicesRequestObject) (adminhttp.ListVoicesResponseObject, error) {
 			if req.Params.ProviderName == nil || *req.Params.ProviderName != *want.ProviderName {
 				t.Fatalf("provider name = %#v, want %q", req.Params.ProviderName, *want.ProviderName)
 			}
-			return adminservice.ListVoices200JSONResponse(adminservice.VoiceList{
+			return adminhttp.ListVoices200JSONResponse(adminhttp.VoiceList{
 				Items: []apitypes.Voice{{Id: "voice-a", Name: stringPtr("Voice A")}},
 			}), nil
 		}),
@@ -128,13 +128,13 @@ func TestListVoicesReturnsPeerFilteredVoiceList(t *testing.T) {
 		t.Fatalf("ListVoices() items = %#v", list.Items)
 	}
 
-	if _, err := (&Server{}).ListVoices(context.Background(), adminservice.ListVoicesParams{}); err == nil {
+	if _, err := (&Server{}).ListVoices(context.Background(), adminhttp.ListVoicesParams{}); err == nil {
 		t.Fatal("ListVoices() without service succeeded")
 	}
-	bad := &Server{Voices: voiceListerFunc(func(context.Context, adminservice.ListVoicesRequestObject) (adminservice.ListVoicesResponseObject, error) {
-		return adminservice.ListVoices500JSONResponse(apitypes.NewErrorResponse("ERR", "bad")), nil
+	bad := &Server{Voices: voiceListerFunc(func(context.Context, adminhttp.ListVoicesRequestObject) (adminhttp.ListVoicesResponseObject, error) {
+		return adminhttp.ListVoices500JSONResponse(apitypes.NewErrorResponse("ERR", "bad")), nil
 	})}
-	if _, err := bad.ListVoices(context.Background(), adminservice.ListVoicesParams{}); err == nil {
+	if _, err := bad.ListVoices(context.Background(), adminhttp.ListVoicesParams{}); err == nil {
 		t.Fatal("ListVoices() with non-list response succeeded")
 	}
 }
@@ -163,8 +163,8 @@ func TestCreateChatCompletionStreamsGenXText(t *testing.T) {
 		Now: func() time.Time { return now },
 	}
 	stream := true
-	resp, err := srv.CreateChatCompletion(context.Background(), openaiservice.CreateChatCompletionRequestObject{
-		Body: &openaiservice.CreateChatCompletionRequest{
+	resp, err := srv.CreateChatCompletion(context.Background(), openaihttp.CreateChatCompletionRequestObject{
+		Body: &openaihttp.CreateChatCompletionRequest{
 			Model:  "chat",
 			Stream: &stream,
 			Messages: []map[string]interface{}{
@@ -175,7 +175,7 @@ func TestCreateChatCompletionStreamsGenXText(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateChatCompletion() error = %v", err)
 	}
-	out, ok := resp.(openaiservice.CreateChatCompletion200TexteventStreamResponse)
+	out, ok := resp.(openaihttp.CreateChatCompletion200TexteventStreamResponse)
 	if !ok {
 		t.Fatalf("CreateChatCompletion() response = %T", resp)
 	}
@@ -229,11 +229,11 @@ func TestCreateChatCompletionNonStreamConvertsOpenAIRequest(t *testing.T) {
 	}
 	temperature := float32(0.3)
 	level := "medium"
-	resp, err := srv.CreateChatCompletion(context.Background(), openaiservice.CreateChatCompletionRequestObject{
-		Body: &openaiservice.CreateChatCompletionRequest{
+	resp, err := srv.CreateChatCompletion(context.Background(), openaihttp.CreateChatCompletionRequestObject{
+		Body: &openaihttp.CreateChatCompletionRequest{
 			Model:       "chat",
 			Temperature: &temperature,
-			Thinking:    &openaiservice.ThinkingOptions{Level: &level},
+			Thinking:    &openaihttp.ThinkingOptions{Level: &level},
 			Messages: []map[string]interface{}{
 				{"role": "system", "content": "be brief"},
 				{"role": "user", "content": []interface{}{
@@ -247,7 +247,7 @@ func TestCreateChatCompletionNonStreamConvertsOpenAIRequest(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateChatCompletion() error = %v", err)
 	}
-	out := resp.(openaiservice.CreateChatCompletion200JSONResponse)
+	out := resp.(openaihttp.CreateChatCompletion200JSONResponse)
 	if out.Model != "chat" || len(out.Choices) != 1 || out.Choices[0].Message.Content == nil || *out.Choices[0].Message.Content != "ok" {
 		t.Fatalf("CreateChatCompletion() response = %#v", out)
 	}
@@ -259,8 +259,8 @@ func TestCreateChatCompletionPropagatesDenied(t *testing.T) {
 			return nil, peergenx.ErrDenied
 		}),
 	}
-	_, err := srv.CreateChatCompletion(context.Background(), openaiservice.CreateChatCompletionRequestObject{
-		Body: &openaiservice.CreateChatCompletionRequest{
+	_, err := srv.CreateChatCompletion(context.Background(), openaihttp.CreateChatCompletionRequestObject{
+		Body: &openaihttp.CreateChatCompletionRequest{
 			Model:    "chat",
 			Messages: []map[string]interface{}{{"role": "user", "content": "hi"}},
 		},
@@ -274,18 +274,18 @@ func TestCreateChatCompletionValidationErrors(t *testing.T) {
 	tests := []struct {
 		name string
 		srv  *Server
-		body *openaiservice.CreateChatCompletionRequest
+		body *openaihttp.CreateChatCompletionRequest
 	}{
 		{name: "nil body", srv: &Server{}},
-		{name: "missing model", srv: &Server{}, body: &openaiservice.CreateChatCompletionRequest{}},
-		{name: "unsupported role", srv: &Server{}, body: &openaiservice.CreateChatCompletionRequest{Model: "m", Messages: []map[string]interface{}{{"role": "tool", "content": "x"}}}},
-		{name: "bad content", srv: &Server{}, body: &openaiservice.CreateChatCompletionRequest{Model: "m", Messages: []map[string]interface{}{{"role": "user", "content": 3}}}},
-		{name: "bad audio", srv: &Server{}, body: &openaiservice.CreateChatCompletionRequest{Model: "m", Messages: []map[string]interface{}{{"role": "user", "content": []interface{}{map[string]interface{}{"type": "input_audio", "input_audio": map[string]interface{}{"data": "!", "format": "wav"}}}}}}},
-		{name: "no generator", srv: &Server{}, body: &openaiservice.CreateChatCompletionRequest{Model: "m", Messages: []map[string]interface{}{{"role": "user", "content": "x"}}}},
+		{name: "missing model", srv: &Server{}, body: &openaihttp.CreateChatCompletionRequest{}},
+		{name: "unsupported role", srv: &Server{}, body: &openaihttp.CreateChatCompletionRequest{Model: "m", Messages: []map[string]interface{}{{"role": "tool", "content": "x"}}}},
+		{name: "bad content", srv: &Server{}, body: &openaihttp.CreateChatCompletionRequest{Model: "m", Messages: []map[string]interface{}{{"role": "user", "content": 3}}}},
+		{name: "bad audio", srv: &Server{}, body: &openaihttp.CreateChatCompletionRequest{Model: "m", Messages: []map[string]interface{}{{"role": "user", "content": []interface{}{map[string]interface{}{"type": "input_audio", "input_audio": map[string]interface{}{"data": "!", "format": "wav"}}}}}}},
+		{name: "no generator", srv: &Server{}, body: &openaihttp.CreateChatCompletionRequest{Model: "m", Messages: []map[string]interface{}{{"role": "user", "content": "x"}}}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := tt.srv.CreateChatCompletion(context.Background(), openaiservice.CreateChatCompletionRequestObject{Body: tt.body})
+			_, err := tt.srv.CreateChatCompletion(context.Background(), openaihttp.CreateChatCompletionRequestObject{Body: tt.body})
 			if err == nil {
 				t.Fatal("CreateChatCompletion() succeeded")
 			}
@@ -311,8 +311,8 @@ func TestCreateSpeechUsesVoiceTransformer(t *testing.T) {
 			}}, nil
 		}),
 	}
-	resp, err := srv.CreateSpeech(context.Background(), openaiservice.CreateSpeechRequestObject{
-		Body: &openaiservice.CreateSpeechRequest{Model: "tts", Voice: "cancan", Input: "hello"},
+	resp, err := srv.CreateSpeech(context.Background(), openaihttp.CreateSpeechRequestObject{
+		Body: &openaihttp.CreateSpeechRequest{Model: "tts", Voice: "cancan", Input: "hello"},
 	})
 	if err != nil {
 		t.Fatalf("CreateSpeech() error = %v", err)
@@ -343,8 +343,8 @@ func TestCreateSpeechNormalizesUsingBlobMIME(t *testing.T) {
 			}}, nil
 		}),
 	}
-	resp, err := srv.CreateSpeech(context.Background(), openaiservice.CreateSpeechRequestObject{
-		Body: &openaiservice.CreateSpeechRequest{Model: "tts", Voice: "cancan", Input: "hello"},
+	resp, err := srv.CreateSpeech(context.Background(), openaihttp.CreateSpeechRequestObject{
+		Body: &openaihttp.CreateSpeechRequest{Model: "tts", Voice: "cancan", Input: "hello"},
 	})
 	if err != nil {
 		t.Fatalf("CreateSpeech() error = %v", err)
@@ -374,7 +374,7 @@ func TestSpeechContentTypeMapsResponseFormats(t *testing.T) {
 		{stringPtr("bad"), "audio/mpeg"},
 	}
 	for _, tt := range tests {
-		body := &openaiservice.CreateSpeechRequest{ResponseFormat: tt.format}
+		body := &openaihttp.CreateSpeechRequest{ResponseFormat: tt.format}
 		if got := speechContentType(body); got != tt.want {
 			t.Fatalf("speechContentType(%v) = %q, want %q", tt.format, got, tt.want)
 		}
@@ -383,7 +383,7 @@ func TestSpeechContentTypeMapsResponseFormats(t *testing.T) {
 
 func TestCreateSpeechStreamsAndValidates(t *testing.T) {
 	stream := true
-	streamFormat := openaiservice.Sse
+	streamFormat := openaihttp.Sse
 	srv := &Server{
 		Transformer: transformerFunc(func(_ context.Context, pattern string, input genx.Stream) (genx.Stream, error) {
 			if pattern != "model/tts" {
@@ -398,13 +398,13 @@ func TestCreateSpeechStreamsAndValidates(t *testing.T) {
 			}}, nil
 		}),
 	}
-	resp, err := srv.CreateSpeech(context.Background(), openaiservice.CreateSpeechRequestObject{
-		Body: &openaiservice.CreateSpeechRequest{Model: "tts", Input: "hello", Stream: &stream},
+	resp, err := srv.CreateSpeech(context.Background(), openaihttp.CreateSpeechRequestObject{
+		Body: &openaihttp.CreateSpeechRequest{Model: "tts", Input: "hello", Stream: &stream},
 	})
 	if err != nil {
 		t.Fatalf("CreateSpeech(stream) error = %v", err)
 	}
-	out := resp.(openaiservice.CreateSpeech200TexteventStreamResponse)
+	out := resp.(openaihttp.CreateSpeech200TexteventStreamResponse)
 	body, err := io.ReadAll(out.Body)
 	if err != nil {
 		t.Fatalf("read speech stream: %v", err)
@@ -413,23 +413,23 @@ func TestCreateSpeechStreamsAndValidates(t *testing.T) {
 		t.Fatalf("speech stream = %s", text)
 	}
 
-	resp, err = srv.CreateSpeech(context.Background(), openaiservice.CreateSpeechRequestObject{
-		Body: &openaiservice.CreateSpeechRequest{Model: "tts", Input: "hello", StreamFormat: &streamFormat},
+	resp, err = srv.CreateSpeech(context.Background(), openaihttp.CreateSpeechRequestObject{
+		Body: &openaihttp.CreateSpeechRequest{Model: "tts", Input: "hello", StreamFormat: &streamFormat},
 	})
 	if err != nil {
 		t.Fatalf("CreateSpeech(stream_format=sse) error = %v", err)
 	}
-	if _, ok := resp.(openaiservice.CreateSpeech200TexteventStreamResponse); !ok {
+	if _, ok := resp.(openaihttp.CreateSpeech200TexteventStreamResponse); !ok {
 		t.Fatalf("CreateSpeech(stream_format=sse) response = %T", resp)
 	}
 
-	for _, req := range []*openaiservice.CreateSpeechRequest{
+	for _, req := range []*openaihttp.CreateSpeechRequest{
 		nil,
 		{Model: "tts", Voice: "v"},
 		{Input: "hello"},
 		{Model: "tts", Input: "hello"},
 	} {
-		_, err := (&Server{}).CreateSpeech(context.Background(), openaiservice.CreateSpeechRequestObject{Body: req})
+		_, err := (&Server{}).CreateSpeech(context.Background(), openaihttp.CreateSpeechRequestObject{Body: req})
 		if err == nil {
 			t.Fatalf("CreateSpeech(%#v) succeeded", req)
 		}
@@ -469,11 +469,11 @@ func TestCreateTranscriptionUsesModelTransformer(t *testing.T) {
 	}
 
 	reader := multipart.NewReader(bytes.NewReader(body.Bytes()), writer.Boundary())
-	resp, err := srv.CreateTranscription(context.Background(), openaiservice.CreateTranscriptionRequestObject{Body: reader})
+	resp, err := srv.CreateTranscription(context.Background(), openaihttp.CreateTranscriptionRequestObject{Body: reader})
 	if err != nil {
 		t.Fatalf("CreateTranscription() error = %v", err)
 	}
-	out, ok := resp.(openaiservice.CreateTranscription200JSONResponse)
+	out, ok := resp.(openaihttp.CreateTranscription200JSONResponse)
 	if !ok {
 		t.Fatalf("CreateTranscription() response = %T", resp)
 	}
@@ -518,13 +518,13 @@ func TestCreateTranscriptionSniffsAudioMIME(t *testing.T) {
 		t.Fatalf("Close multipart writer: %v", err)
 	}
 
-	resp, err := srv.CreateTranscription(context.Background(), openaiservice.CreateTranscriptionRequestObject{
+	resp, err := srv.CreateTranscription(context.Background(), openaihttp.CreateTranscriptionRequestObject{
 		Body: multipart.NewReader(bytes.NewReader(body.Bytes()), writer.Boundary()),
 	})
 	if err != nil {
 		t.Fatalf("CreateTranscription() error = %v", err)
 	}
-	out := resp.(openaiservice.CreateTranscription200JSONResponse)
+	out := resp.(openaihttp.CreateTranscription200JSONResponse)
 	if out.Text != "text" {
 		t.Fatalf("transcription text = %q", out.Text)
 	}
@@ -604,14 +604,14 @@ func TestCreateTranscriptionStreamsMultipartFile(t *testing.T) {
 
 	respDone := make(chan error, 1)
 	go func() {
-		resp, err := srv.CreateTranscription(context.Background(), openaiservice.CreateTranscriptionRequestObject{
+		resp, err := srv.CreateTranscription(context.Background(), openaihttp.CreateTranscriptionRequestObject{
 			Body: multipart.NewReader(pr, writer.Boundary()),
 		})
 		if err != nil {
 			respDone <- err
 			return
 		}
-		out, ok := resp.(openaiservice.CreateTranscription200JSONResponse)
+		out, ok := resp.(openaihttp.CreateTranscription200JSONResponse)
 		if !ok {
 			respDone <- errors.New("unexpected transcription response type")
 			return
@@ -676,11 +676,11 @@ func TestCreateTranscriptionStreamsAndValidates(t *testing.T) {
 		}),
 	}
 	reader := newTranscriptionMultipart(t, map[string]string{"model": "asr", "stream": "true"}, []byte("ogg"))
-	resp, err := srv.CreateTranscription(context.Background(), openaiservice.CreateTranscriptionRequestObject{Body: reader})
+	resp, err := srv.CreateTranscription(context.Background(), openaihttp.CreateTranscriptionRequestObject{Body: reader})
 	if err != nil {
 		t.Fatalf("CreateTranscription(stream) error = %v", err)
 	}
-	out := resp.(openaiservice.CreateTranscription200TexteventStreamResponse)
+	out := resp.(openaihttp.CreateTranscription200TexteventStreamResponse)
 	body, err := io.ReadAll(out.Body)
 	if err != nil {
 		t.Fatalf("read transcription stream: %v", err)
@@ -689,16 +689,16 @@ func TestCreateTranscriptionStreamsAndValidates(t *testing.T) {
 		t.Fatalf("transcription stream = %s", text)
 	}
 
-	if _, err := (&Server{}).CreateTranscription(context.Background(), openaiservice.CreateTranscriptionRequestObject{}); err == nil {
+	if _, err := (&Server{}).CreateTranscription(context.Background(), openaihttp.CreateTranscriptionRequestObject{}); err == nil {
 		t.Fatal("CreateTranscription(nil body) succeeded")
 	}
-	if _, err := (&Server{}).CreateTranscription(context.Background(), openaiservice.CreateTranscriptionRequestObject{Body: newTranscriptionMultipart(t, map[string]string{}, []byte("x"))}); err == nil {
+	if _, err := (&Server{}).CreateTranscription(context.Background(), openaihttp.CreateTranscriptionRequestObject{Body: newTranscriptionMultipart(t, map[string]string{}, []byte("x"))}); err == nil {
 		t.Fatal("CreateTranscription(missing model) succeeded")
 	}
-	if _, err := (&Server{}).CreateTranscription(context.Background(), openaiservice.CreateTranscriptionRequestObject{Body: newTranscriptionMultipart(t, map[string]string{"model": "asr"}, nil)}); err == nil {
+	if _, err := (&Server{}).CreateTranscription(context.Background(), openaihttp.CreateTranscriptionRequestObject{Body: newTranscriptionMultipart(t, map[string]string{"model": "asr"}, nil)}); err == nil {
 		t.Fatal("CreateTranscription(missing file) succeeded")
 	}
-	if _, err := (&Server{}).CreateTranscription(context.Background(), openaiservice.CreateTranscriptionRequestObject{Body: newTranscriptionMultipart(t, map[string]string{"model": "asr"}, []byte("x"))}); err == nil {
+	if _, err := (&Server{}).CreateTranscription(context.Background(), openaihttp.CreateTranscriptionRequestObject{Body: newTranscriptionMultipart(t, map[string]string{"model": "asr"}, []byte("x"))}); err == nil {
 		t.Fatal("CreateTranscription(no transformer) succeeded")
 	}
 }
@@ -717,14 +717,14 @@ func TestCreateTranscriptionAcceptHeaderSelectsEventStream(t *testing.T) {
 		{file: []byte("ogg")},
 		{field: "stream", value: "true"},
 	})
-	resp, err := srv.CreateTranscription(context.Background(), openaiservice.CreateTranscriptionRequestObject{
-		Params: openaiservice.CreateTranscriptionParams{Accept: &accept},
+	resp, err := srv.CreateTranscription(context.Background(), openaihttp.CreateTranscriptionRequestObject{
+		Params: openaihttp.CreateTranscriptionParams{Accept: &accept},
 		Body:   reader,
 	})
 	if err != nil {
 		t.Fatalf("CreateTranscription() error = %v", err)
 	}
-	out, ok := resp.(openaiservice.CreateTranscription200TexteventStreamResponse)
+	out, ok := resp.(openaihttp.CreateTranscription200TexteventStreamResponse)
 	if !ok {
 		t.Fatalf("CreateTranscription() response = %T, want event stream", resp)
 	}
@@ -844,15 +844,15 @@ func openAITestID3Tag(payload []byte) []byte {
 	return append(header, payload...)
 }
 
-type modelListerFunc func(context.Context, adminservice.ListModelsRequestObject) (adminservice.ListModelsResponseObject, error)
+type modelListerFunc func(context.Context, adminhttp.ListModelsRequestObject) (adminhttp.ListModelsResponseObject, error)
 
-func (f modelListerFunc) ListModels(ctx context.Context, req adminservice.ListModelsRequestObject) (adminservice.ListModelsResponseObject, error) {
+func (f modelListerFunc) ListModels(ctx context.Context, req adminhttp.ListModelsRequestObject) (adminhttp.ListModelsResponseObject, error) {
 	return f(ctx, req)
 }
 
-type voiceListerFunc func(context.Context, adminservice.ListVoicesRequestObject) (adminservice.ListVoicesResponseObject, error)
+type voiceListerFunc func(context.Context, adminhttp.ListVoicesRequestObject) (adminhttp.ListVoicesResponseObject, error)
 
-func (f voiceListerFunc) ListVoices(ctx context.Context, req adminservice.ListVoicesRequestObject) (adminservice.ListVoicesResponseObject, error) {
+func (f voiceListerFunc) ListVoices(ctx context.Context, req adminhttp.ListVoicesRequestObject) (adminhttp.ListVoicesResponseObject, error) {
 	return f(ctx, req)
 }
 

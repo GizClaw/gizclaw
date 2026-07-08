@@ -7,7 +7,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 )
 
-func TestIntegrationServerPublicAutoPeerAndReadBack(t *testing.T) {
+func TestIntegrationPeerHTTPAutoPeerAndReadBack(t *testing.T) {
 	ts := startTestServer(t)
 	device := newTestClient(t, ts)
 	if device.PeerConn() == nil {

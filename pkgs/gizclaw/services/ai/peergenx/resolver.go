@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminservice"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 )
 
@@ -49,13 +49,13 @@ func (s *Service) ListAccessibleGeneratorConfigs(ctx context.Context) ([]Generat
 	var cursor *string
 	var out []GeneratorConfig
 	for {
-		resp, err := lister.ListModels(ctx, adminservice.ListModelsRequestObject{
-			Params: adminservice.ListModelsParams{Cursor: cursor, Limit: &limit},
+		resp, err := lister.ListModels(ctx, adminhttp.ListModelsRequestObject{
+			Params: adminhttp.ListModelsParams{Cursor: cursor, Limit: &limit},
 		})
 		if err != nil {
 			return nil, err
 		}
-		list, ok := resp.(adminservice.ListModels200JSONResponse)
+		list, ok := resp.(adminhttp.ListModels200JSONResponse)
 		if !ok {
 			return nil, fmt.Errorf("%w: list models returned %T", ErrInvalid, resp)
 		}
@@ -306,14 +306,14 @@ func (s *Service) resolveVoiceTenant(ctx context.Context, voice apitypes.Voice) 
 }
 
 func (s *Service) getModel(ctx context.Context, id string) (apitypes.Model, error) {
-	response, err := s.Models.GetModel(ctx, adminservice.GetModelRequestObject{Id: id})
+	response, err := s.Models.GetModel(ctx, adminhttp.GetModelRequestObject{Id: id})
 	if err != nil {
 		return apitypes.Model{}, err
 	}
 	switch typed := response.(type) {
-	case adminservice.GetModel200JSONResponse:
+	case adminhttp.GetModel200JSONResponse:
 		return apitypes.Model(typed), nil
-	case adminservice.GetModel404JSONResponse:
+	case adminhttp.GetModel404JSONResponse:
 		return apitypes.Model{}, fmt.Errorf("%w: model %q", ErrNotFound, id)
 	default:
 		return apitypes.Model{}, fmt.Errorf("%w: get model %q returned %T", ErrInvalid, id, response)
@@ -321,14 +321,14 @@ func (s *Service) getModel(ctx context.Context, id string) (apitypes.Model, erro
 }
 
 func (s *Service) getVoice(ctx context.Context, id string) (apitypes.Voice, error) {
-	response, err := s.Voices.GetVoice(ctx, adminservice.GetVoiceRequestObject{Id: id})
+	response, err := s.Voices.GetVoice(ctx, adminhttp.GetVoiceRequestObject{Id: id})
 	if err != nil {
 		return apitypes.Voice{}, err
 	}
 	switch typed := response.(type) {
-	case adminservice.GetVoice200JSONResponse:
+	case adminhttp.GetVoice200JSONResponse:
 		return apitypes.Voice(typed), nil
-	case adminservice.GetVoice404JSONResponse:
+	case adminhttp.GetVoice404JSONResponse:
 		return apitypes.Voice{}, fmt.Errorf("%w: voice %q", ErrNotFound, id)
 	default:
 		return apitypes.Voice{}, fmt.Errorf("%w: get voice %q returned %T", ErrInvalid, id, response)
@@ -336,14 +336,14 @@ func (s *Service) getVoice(ctx context.Context, id string) (apitypes.Voice, erro
 }
 
 func (s *Service) getCredential(ctx context.Context, name string) (apitypes.Credential, error) {
-	response, err := s.Credentials.GetCredential(ctx, adminservice.GetCredentialRequestObject{Name: name})
+	response, err := s.Credentials.GetCredential(ctx, adminhttp.GetCredentialRequestObject{Name: name})
 	if err != nil {
 		return apitypes.Credential{}, err
 	}
 	switch typed := response.(type) {
-	case adminservice.GetCredential200JSONResponse:
+	case adminhttp.GetCredential200JSONResponse:
 		return apitypes.Credential(typed), nil
-	case adminservice.GetCredential404JSONResponse:
+	case adminhttp.GetCredential404JSONResponse:
 		return apitypes.Credential{}, fmt.Errorf("%w: credential %q", ErrNotFound, name)
 	default:
 		return apitypes.Credential{}, fmt.Errorf("%w: get credential %q returned %T", ErrInvalid, name, response)
@@ -351,14 +351,14 @@ func (s *Service) getCredential(ctx context.Context, name string) (apitypes.Cred
 }
 
 func (s *Service) getOpenAITenant(ctx context.Context, name string) (apitypes.OpenAITenant, error) {
-	response, err := s.ProviderTenants.GetOpenAITenant(ctx, adminservice.GetOpenAITenantRequestObject{Name: name})
+	response, err := s.ProviderTenants.GetOpenAITenant(ctx, adminhttp.GetOpenAITenantRequestObject{Name: name})
 	if err != nil {
 		return apitypes.OpenAITenant{}, err
 	}
 	switch typed := response.(type) {
-	case adminservice.GetOpenAITenant200JSONResponse:
+	case adminhttp.GetOpenAITenant200JSONResponse:
 		return apitypes.OpenAITenant(typed), nil
-	case adminservice.GetOpenAITenant404JSONResponse:
+	case adminhttp.GetOpenAITenant404JSONResponse:
 		return apitypes.OpenAITenant{}, fmt.Errorf("%w: openai tenant %q", ErrNotFound, name)
 	default:
 		return apitypes.OpenAITenant{}, fmt.Errorf("%w: get openai tenant %q returned %T", ErrInvalid, name, response)
@@ -366,14 +366,14 @@ func (s *Service) getOpenAITenant(ctx context.Context, name string) (apitypes.Op
 }
 
 func (s *Service) getGeminiTenant(ctx context.Context, name string) (apitypes.GeminiTenant, error) {
-	response, err := s.ProviderTenants.GetGeminiTenant(ctx, adminservice.GetGeminiTenantRequestObject{Name: name})
+	response, err := s.ProviderTenants.GetGeminiTenant(ctx, adminhttp.GetGeminiTenantRequestObject{Name: name})
 	if err != nil {
 		return apitypes.GeminiTenant{}, err
 	}
 	switch typed := response.(type) {
-	case adminservice.GetGeminiTenant200JSONResponse:
+	case adminhttp.GetGeminiTenant200JSONResponse:
 		return apitypes.GeminiTenant(typed), nil
-	case adminservice.GetGeminiTenant404JSONResponse:
+	case adminhttp.GetGeminiTenant404JSONResponse:
 		return apitypes.GeminiTenant{}, fmt.Errorf("%w: gemini tenant %q", ErrNotFound, name)
 	default:
 		return apitypes.GeminiTenant{}, fmt.Errorf("%w: get gemini tenant %q returned %T", ErrInvalid, name, response)
@@ -381,14 +381,14 @@ func (s *Service) getGeminiTenant(ctx context.Context, name string) (apitypes.Ge
 }
 
 func (s *Service) getDashScopeTenant(ctx context.Context, name string) (apitypes.DashScopeTenant, error) {
-	response, err := s.ProviderTenants.GetDashScopeTenant(ctx, adminservice.GetDashScopeTenantRequestObject{Name: name})
+	response, err := s.ProviderTenants.GetDashScopeTenant(ctx, adminhttp.GetDashScopeTenantRequestObject{Name: name})
 	if err != nil {
 		return apitypes.DashScopeTenant{}, err
 	}
 	switch typed := response.(type) {
-	case adminservice.GetDashScopeTenant200JSONResponse:
+	case adminhttp.GetDashScopeTenant200JSONResponse:
 		return apitypes.DashScopeTenant(typed), nil
-	case adminservice.GetDashScopeTenant404JSONResponse:
+	case adminhttp.GetDashScopeTenant404JSONResponse:
 		return apitypes.DashScopeTenant{}, fmt.Errorf("%w: dashscope tenant %q", ErrNotFound, name)
 	default:
 		return apitypes.DashScopeTenant{}, fmt.Errorf("%w: get dashscope tenant %q returned %T", ErrInvalid, name, response)
@@ -396,14 +396,14 @@ func (s *Service) getDashScopeTenant(ctx context.Context, name string) (apitypes
 }
 
 func (s *Service) getMiniMaxTenant(ctx context.Context, name string) (apitypes.MiniMaxTenant, error) {
-	response, err := s.ProviderTenants.GetMiniMaxTenant(ctx, adminservice.GetMiniMaxTenantRequestObject{Name: name})
+	response, err := s.ProviderTenants.GetMiniMaxTenant(ctx, adminhttp.GetMiniMaxTenantRequestObject{Name: name})
 	if err != nil {
 		return apitypes.MiniMaxTenant{}, err
 	}
 	switch typed := response.(type) {
-	case adminservice.GetMiniMaxTenant200JSONResponse:
+	case adminhttp.GetMiniMaxTenant200JSONResponse:
 		return apitypes.MiniMaxTenant(typed), nil
-	case adminservice.GetMiniMaxTenant404JSONResponse:
+	case adminhttp.GetMiniMaxTenant404JSONResponse:
 		return apitypes.MiniMaxTenant{}, fmt.Errorf("%w: minimax tenant %q", ErrNotFound, name)
 	default:
 		return apitypes.MiniMaxTenant{}, fmt.Errorf("%w: get minimax tenant %q returned %T", ErrInvalid, name, response)
@@ -411,14 +411,14 @@ func (s *Service) getMiniMaxTenant(ctx context.Context, name string) (apitypes.M
 }
 
 func (s *Service) getVolcTenant(ctx context.Context, name string) (apitypes.VolcTenant, error) {
-	response, err := s.ProviderTenants.GetVolcTenant(ctx, adminservice.GetVolcTenantRequestObject{Name: name})
+	response, err := s.ProviderTenants.GetVolcTenant(ctx, adminhttp.GetVolcTenantRequestObject{Name: name})
 	if err != nil {
 		return apitypes.VolcTenant{}, err
 	}
 	switch typed := response.(type) {
-	case adminservice.GetVolcTenant200JSONResponse:
+	case adminhttp.GetVolcTenant200JSONResponse:
 		return apitypes.VolcTenant(typed), nil
-	case adminservice.GetVolcTenant404JSONResponse:
+	case adminhttp.GetVolcTenant404JSONResponse:
 		return apitypes.VolcTenant{}, fmt.Errorf("%w: volc tenant %q", ErrNotFound, name)
 	default:
 		return apitypes.VolcTenant{}, fmt.Errorf("%w: get volc tenant %q returned %T", ErrInvalid, name, response)

@@ -1,4 +1,4 @@
-package publicapi
+package peerapi
 
 import (
 	"context"
@@ -6,22 +6,22 @@ import (
 	"strings"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/serverpublic"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/peerhttp"
 	"github.com/GizClaw/gizclaw-go/sdk/go/gizcli"
 )
 
-type serverPublicAPI interface {
-	GetServerInfoWithResponse(ctx context.Context, reqEditors ...serverpublic.RequestEditorFn) (*serverpublic.GetServerInfoResponse, error)
+type peerHTTPAPI interface {
+	GetServerInfoWithResponse(ctx context.Context, reqEditors ...peerhttp.RequestEditorFn) (*peerhttp.GetServerInfoResponse, error)
 }
 
-var defaultServerPublicClientFrom = func(c *gizcli.Client) (serverPublicAPI, error) {
-	return c.ServerPublicClient()
+var defaultPeerHTTPClientFrom = func(c *gizcli.Client) (peerHTTPAPI, error) {
+	return c.PeerHTTPClient()
 }
 
-var serverPublicClientFrom = defaultServerPublicClientFrom
+var peerHTTPClientFrom = defaultPeerHTTPClientFrom
 
 func GetServerInfo(ctx context.Context, c *gizcli.Client) (apitypes.ServerInfo, error) {
-	api, err := serverPublicClientFrom(c)
+	api, err := peerHTTPClientFrom(c)
 	if err != nil {
 		return apitypes.ServerInfo{}, err
 	}

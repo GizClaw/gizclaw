@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminservice"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
@@ -18,11 +18,11 @@ func TestServerDashScopeTenantCRUDAndPagination(t *testing.T) {
 	}
 
 	body := dashScopeTenantUpsert("default")
-	resp, err := srv.CreateDashScopeTenant(ctx, adminservice.CreateDashScopeTenantRequestObject{Body: &body})
+	resp, err := srv.CreateDashScopeTenant(ctx, adminhttp.CreateDashScopeTenantRequestObject{Body: &body})
 	if err != nil {
 		t.Fatalf("CreateDashScopeTenant() error = %v", err)
 	}
-	created, ok := resp.(adminservice.CreateDashScopeTenant200JSONResponse)
+	created, ok := resp.(adminhttp.CreateDashScopeTenant200JSONResponse)
 	if !ok {
 		t.Fatalf("CreateDashScopeTenant() response = %#v", resp)
 	}
@@ -33,23 +33,23 @@ func TestServerDashScopeTenantCRUDAndPagination(t *testing.T) {
 		t.Fatalf("CreateDashScopeTenant() base_url = %#v", created.BaseUrl)
 	}
 
-	if resp, err := srv.CreateDashScopeTenant(ctx, adminservice.CreateDashScopeTenantRequestObject{Body: &body}); err != nil {
+	if resp, err := srv.CreateDashScopeTenant(ctx, adminhttp.CreateDashScopeTenantRequestObject{Body: &body}); err != nil {
 		t.Fatalf("CreateDashScopeTenant(duplicate) error = %v", err)
-	} else if _, ok := resp.(adminservice.CreateDashScopeTenant409JSONResponse); !ok {
+	} else if _, ok := resp.(adminhttp.CreateDashScopeTenant409JSONResponse); !ok {
 		t.Fatalf("CreateDashScopeTenant(duplicate) response = %#v", resp)
 	}
 	for _, name := range []string{"alpha", "beta"} {
 		body := dashScopeTenantUpsert(name)
-		if resp, err := srv.CreateDashScopeTenant(ctx, adminservice.CreateDashScopeTenantRequestObject{Body: &body}); err != nil {
+		if resp, err := srv.CreateDashScopeTenant(ctx, adminhttp.CreateDashScopeTenantRequestObject{Body: &body}); err != nil {
 			t.Fatalf("CreateDashScopeTenant(%s) error = %v", name, err)
-		} else if _, ok := resp.(adminservice.CreateDashScopeTenant200JSONResponse); !ok {
+		} else if _, ok := resp.(adminhttp.CreateDashScopeTenant200JSONResponse); !ok {
 			t.Fatalf("CreateDashScopeTenant(%s) response = %#v", name, resp)
 		}
 	}
 
 	limit := int32(2)
-	listResp, err := srv.ListDashScopeTenants(ctx, adminservice.ListDashScopeTenantsRequestObject{
-		Params: adminservice.ListDashScopeTenantsParams{Limit: &limit},
+	listResp, err := srv.ListDashScopeTenants(ctx, adminhttp.ListDashScopeTenantsRequestObject{
+		Params: adminhttp.ListDashScopeTenantsParams{Limit: &limit},
 	})
 	if err != nil {
 		t.Fatalf("ListDashScopeTenants(first) error = %v", err)
@@ -59,8 +59,8 @@ func TestServerDashScopeTenantCRUDAndPagination(t *testing.T) {
 		t.Fatalf("ListDashScopeTenants(first) = %#v", firstPage)
 	}
 	cursor := string(*firstPage.NextCursor)
-	listResp, err = srv.ListDashScopeTenants(ctx, adminservice.ListDashScopeTenantsRequestObject{
-		Params: adminservice.ListDashScopeTenantsParams{Cursor: &cursor, Limit: &limit},
+	listResp, err = srv.ListDashScopeTenants(ctx, adminhttp.ListDashScopeTenantsRequestObject{
+		Params: adminhttp.ListDashScopeTenantsParams{Cursor: &cursor, Limit: &limit},
 	})
 	if err != nil {
 		t.Fatalf("ListDashScopeTenants(second) error = %v", err)
@@ -74,11 +74,11 @@ func TestServerDashScopeTenantCRUDAndPagination(t *testing.T) {
 	description := "updated tenant"
 	updated.Description = &description
 	now = now.Add(time.Minute)
-	putResp, err := srv.PutDashScopeTenant(ctx, adminservice.PutDashScopeTenantRequestObject{Name: "default", Body: &updated})
+	putResp, err := srv.PutDashScopeTenant(ctx, adminhttp.PutDashScopeTenantRequestObject{Name: "default", Body: &updated})
 	if err != nil {
 		t.Fatalf("PutDashScopeTenant() error = %v", err)
 	}
-	put, ok := putResp.(adminservice.PutDashScopeTenant200JSONResponse)
+	put, ok := putResp.(adminhttp.PutDashScopeTenant200JSONResponse)
 	if !ok {
 		t.Fatalf("PutDashScopeTenant() response = %#v", putResp)
 	}
@@ -89,23 +89,23 @@ func TestServerDashScopeTenantCRUDAndPagination(t *testing.T) {
 		t.Fatalf("PutDashScopeTenant() description = %#v", put.Description)
 	}
 
-	getResp, err := srv.GetDashScopeTenant(ctx, adminservice.GetDashScopeTenantRequestObject{Name: "default"})
+	getResp, err := srv.GetDashScopeTenant(ctx, adminhttp.GetDashScopeTenantRequestObject{Name: "default"})
 	if err != nil {
 		t.Fatalf("GetDashScopeTenant() error = %v", err)
 	}
-	if got, ok := getResp.(adminservice.GetDashScopeTenant200JSONResponse); !ok || got.Name != "default" {
+	if got, ok := getResp.(adminhttp.GetDashScopeTenant200JSONResponse); !ok || got.Name != "default" {
 		t.Fatalf("GetDashScopeTenant() response = %#v", getResp)
 	}
-	deleteResp, err := srv.DeleteDashScopeTenant(ctx, adminservice.DeleteDashScopeTenantRequestObject{Name: "default"})
+	deleteResp, err := srv.DeleteDashScopeTenant(ctx, adminhttp.DeleteDashScopeTenantRequestObject{Name: "default"})
 	if err != nil {
 		t.Fatalf("DeleteDashScopeTenant() error = %v", err)
 	}
-	if _, ok := deleteResp.(adminservice.DeleteDashScopeTenant200JSONResponse); !ok {
+	if _, ok := deleteResp.(adminhttp.DeleteDashScopeTenant200JSONResponse); !ok {
 		t.Fatalf("DeleteDashScopeTenant() response = %#v", deleteResp)
 	}
-	if resp, err := srv.GetDashScopeTenant(ctx, adminservice.GetDashScopeTenantRequestObject{Name: "default"}); err != nil {
+	if resp, err := srv.GetDashScopeTenant(ctx, adminhttp.GetDashScopeTenantRequestObject{Name: "default"}); err != nil {
 		t.Fatalf("GetDashScopeTenant(missing) error = %v", err)
-	} else if _, ok := resp.(adminservice.GetDashScopeTenant404JSONResponse); !ok {
+	} else if _, ok := resp.(adminhttp.GetDashScopeTenant404JSONResponse); !ok {
 		t.Fatalf("GetDashScopeTenant(missing) response = %#v", resp)
 	}
 }
@@ -115,71 +115,71 @@ func TestServerDashScopeTenantValidationAndStoreErrors(t *testing.T) {
 	srv := &Server{Store: kv.NewMemory(nil)}
 	for _, tc := range []struct {
 		name string
-		body adminservice.DashScopeTenantUpsert
+		body adminhttp.DashScopeTenantUpsert
 	}{
-		{name: "missing name", body: adminservice.DashScopeTenantUpsert{CredentialName: "credential"}},
-		{name: "missing credential", body: adminservice.DashScopeTenantUpsert{Name: "tenant"}},
+		{name: "missing name", body: adminhttp.DashScopeTenantUpsert{CredentialName: "credential"}},
+		{name: "missing credential", body: adminhttp.DashScopeTenantUpsert{Name: "tenant"}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			resp, err := srv.CreateDashScopeTenant(ctx, adminservice.CreateDashScopeTenantRequestObject{Body: &tc.body})
+			resp, err := srv.CreateDashScopeTenant(ctx, adminhttp.CreateDashScopeTenantRequestObject{Body: &tc.body})
 			if err != nil {
 				t.Fatalf("CreateDashScopeTenant() error = %v", err)
 			}
-			if _, ok := resp.(adminservice.CreateDashScopeTenant400JSONResponse); !ok {
+			if _, ok := resp.(adminhttp.CreateDashScopeTenant400JSONResponse); !ok {
 				t.Fatalf("CreateDashScopeTenant() response = %#v", resp)
 			}
 		})
 	}
 
 	body := dashScopeTenantUpsert("tenant")
-	if resp, err := srv.PutDashScopeTenant(ctx, adminservice.PutDashScopeTenantRequestObject{Name: "other", Body: &body}); err != nil {
+	if resp, err := srv.PutDashScopeTenant(ctx, adminhttp.PutDashScopeTenantRequestObject{Name: "other", Body: &body}); err != nil {
 		t.Fatalf("PutDashScopeTenant(mismatch) error = %v", err)
-	} else if _, ok := resp.(adminservice.PutDashScopeTenant400JSONResponse); !ok {
+	} else if _, ok := resp.(adminhttp.PutDashScopeTenant400JSONResponse); !ok {
 		t.Fatalf("PutDashScopeTenant(mismatch) response = %#v", resp)
 	}
 
 	badStore := &Server{}
-	if resp, err := badStore.ListDashScopeTenants(ctx, adminservice.ListDashScopeTenantsRequestObject{}); err != nil {
+	if resp, err := badStore.ListDashScopeTenants(ctx, adminhttp.ListDashScopeTenantsRequestObject{}); err != nil {
 		t.Fatalf("ListDashScopeTenants(nil store) error = %v", err)
-	} else if _, ok := resp.(adminservice.ListDashScopeTenants500JSONResponse); !ok {
+	} else if _, ok := resp.(adminhttp.ListDashScopeTenants500JSONResponse); !ok {
 		t.Fatalf("ListDashScopeTenants(nil store) response = %#v", resp)
 	}
-	if resp, err := badStore.CreateDashScopeTenant(ctx, adminservice.CreateDashScopeTenantRequestObject{Body: &body}); err != nil {
+	if resp, err := badStore.CreateDashScopeTenant(ctx, adminhttp.CreateDashScopeTenantRequestObject{Body: &body}); err != nil {
 		t.Fatalf("CreateDashScopeTenant(nil store) error = %v", err)
-	} else if _, ok := resp.(adminservice.CreateDashScopeTenant500JSONResponse); !ok {
+	} else if _, ok := resp.(adminhttp.CreateDashScopeTenant500JSONResponse); !ok {
 		t.Fatalf("CreateDashScopeTenant(nil store) response = %#v", resp)
 	}
-	if resp, err := badStore.GetDashScopeTenant(ctx, adminservice.GetDashScopeTenantRequestObject{Name: "tenant"}); err != nil {
+	if resp, err := badStore.GetDashScopeTenant(ctx, adminhttp.GetDashScopeTenantRequestObject{Name: "tenant"}); err != nil {
 		t.Fatalf("GetDashScopeTenant(nil store) error = %v", err)
-	} else if _, ok := resp.(adminservice.GetDashScopeTenant500JSONResponse); !ok {
+	} else if _, ok := resp.(adminhttp.GetDashScopeTenant500JSONResponse); !ok {
 		t.Fatalf("GetDashScopeTenant(nil store) response = %#v", resp)
 	}
-	if resp, err := badStore.PutDashScopeTenant(ctx, adminservice.PutDashScopeTenantRequestObject{Name: "tenant", Body: &body}); err != nil {
+	if resp, err := badStore.PutDashScopeTenant(ctx, adminhttp.PutDashScopeTenantRequestObject{Name: "tenant", Body: &body}); err != nil {
 		t.Fatalf("PutDashScopeTenant(nil store) error = %v", err)
-	} else if _, ok := resp.(adminservice.PutDashScopeTenant500JSONResponse); !ok {
+	} else if _, ok := resp.(adminhttp.PutDashScopeTenant500JSONResponse); !ok {
 		t.Fatalf("PutDashScopeTenant(nil store) response = %#v", resp)
 	}
-	if resp, err := badStore.DeleteDashScopeTenant(ctx, adminservice.DeleteDashScopeTenantRequestObject{Name: "tenant"}); err != nil {
+	if resp, err := badStore.DeleteDashScopeTenant(ctx, adminhttp.DeleteDashScopeTenantRequestObject{Name: "tenant"}); err != nil {
 		t.Fatalf("DeleteDashScopeTenant(nil store) error = %v", err)
-	} else if _, ok := resp.(adminservice.DeleteDashScopeTenant500JSONResponse); !ok {
+	} else if _, ok := resp.(adminhttp.DeleteDashScopeTenant500JSONResponse); !ok {
 		t.Fatalf("DeleteDashScopeTenant(nil store) response = %#v", resp)
 	}
 }
 
-func dashScopeTenantUpsert(name string) adminservice.DashScopeTenantUpsert {
+func dashScopeTenantUpsert(name string) adminhttp.DashScopeTenantUpsert {
 	baseURL := "https://dashscope.example.com/" + name
-	return adminservice.DashScopeTenantUpsert{
+	return adminhttp.DashScopeTenantUpsert{
 		BaseUrl:        &baseURL,
 		CredentialName: string("credential"),
 		Name:           string(name),
 	}
 }
 
-func requireDashScopeTenantList(t *testing.T, resp adminservice.ListDashScopeTenantsResponseObject) adminservice.DashScopeTenantList {
+func requireDashScopeTenantList(t *testing.T, resp adminhttp.ListDashScopeTenantsResponseObject) adminhttp.DashScopeTenantList {
 	t.Helper()
-	list, ok := resp.(adminservice.ListDashScopeTenants200JSONResponse)
+	list, ok := resp.(adminhttp.ListDashScopeTenants200JSONResponse)
 	if !ok {
 		t.Fatalf("ListDashScopeTenants() response = %#v", resp)
 	}
-	return adminservice.DashScopeTenantList(list)
+	return adminhttp.DashScopeTenantList(list)
 }

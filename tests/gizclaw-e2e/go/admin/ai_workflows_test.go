@@ -5,7 +5,7 @@ package admin_test
 import (
 	"testing"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminservice"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 )
 
@@ -13,7 +13,7 @@ func TestAdminAPIWorkflowsListGetPaginationAndMutation(t *testing.T) {
 	env := newAdminAPIHarness(t)
 
 	all := collectAdminPages(t, 25, func(cursor *string, limit int32) ([]apitypes.WorkflowDocument, bool, *string) {
-		resp, err := env.api.ListWorkflowsWithResponse(env.ctx, &adminservice.ListWorkflowsParams{Cursor: cursor, Limit: &limit})
+		resp, err := env.api.ListWorkflowsWithResponse(env.ctx, &adminhttp.ListWorkflowsParams{Cursor: cursor, Limit: &limit})
 		if err != nil {
 			t.Fatalf("list workflows: %v", err)
 		}

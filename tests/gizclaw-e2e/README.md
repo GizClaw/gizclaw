@@ -332,7 +332,7 @@ server endpoints there, leaving committed fixtures unchanged.
 ## Test Suite Notes
 
 `go/admin` contains typed Admin HTTP API contract coverage using the generated
-`adminservice` client.
+`adminhttp` client.
 
 `go/rpc` contains typed RPC coverage. Test files should be grouped by RPC module
 prefix, and individual methods should be split by `Test...` functions.

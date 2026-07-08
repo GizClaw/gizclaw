@@ -313,7 +313,7 @@ type recordingPeerPacketWriter struct {
 }
 
 func (w *recordingPeerPacketWriter) Write(protocol byte, payload []byte) (int, error) {
-	if protocol != ProtocolStampedOpus {
+	if protocol != PacketStampedOpus {
 		return 0, nil
 	}
 	w.ch <- append([]byte(nil), payload...)

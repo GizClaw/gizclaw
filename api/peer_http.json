@@ -1,8 +1,8 @@
 {
   "openapi": "3.0.3",
   "info": {
-    "title": "Server Public API",
-    "description": "Public server endpoints.",
+    "title": "Peer HTTP API",
+    "description": "Peer HTTP endpoints.",
     "version": "1.0.0"
   },
   "servers": [
@@ -12,12 +12,12 @@
   ],
   "tags": [
     {
-      "name": "Public",
-      "description": "Public peer operations"
+      "name": "PeerHTTP",
+      "description": "Peer HTTP operations"
     },
     {
       "name": "Auth",
-      "description": "Public HTTP authentication"
+      "description": "Peer HTTP authentication"
     }
   ],
   "paths": {

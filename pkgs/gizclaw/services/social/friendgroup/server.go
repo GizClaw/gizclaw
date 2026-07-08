@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminservice"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/customid"
@@ -27,8 +27,8 @@ type ACL interface {
 }
 
 type WorkspaceService interface {
-	CreateWorkspace(context.Context, adminservice.CreateWorkspaceRequestObject) (adminservice.CreateWorkspaceResponseObject, error)
-	DeleteWorkspace(context.Context, adminservice.DeleteWorkspaceRequestObject) (adminservice.DeleteWorkspaceResponseObject, error)
+	CreateWorkspace(context.Context, adminhttp.CreateWorkspaceRequestObject) (adminhttp.CreateWorkspaceResponseObject, error)
+	DeleteWorkspace(context.Context, adminhttp.DeleteWorkspaceRequestObject) (adminhttp.DeleteWorkspaceResponseObject, error)
 }
 
 type Server struct {
@@ -988,19 +988,19 @@ func (s *Server) requireRole(ctx context.Context, owner, friendGroupID string, r
 func (s *Server) ensureGroupWorkspace(ctx context.Context, workspaceName string, owner string) (bool, error) {
 	created := false
 	if s.Workspaces != nil {
-		body := adminservice.WorkspaceUpsert{
+		body := adminhttp.WorkspaceUpsert{
 			Name:         workspaceName,
 			WorkflowName: socialutil.ChatRoomWorkflowName,
 			Parameters:   socialutil.ChatRoomWorkspaceParameters(apitypes.ChatRoomModeGroup),
 		}
-		resp, err := s.Workspaces.CreateWorkspace(ctx, adminservice.CreateWorkspaceRequestObject{Body: &body})
+		resp, err := s.Workspaces.CreateWorkspace(ctx, adminhttp.CreateWorkspaceRequestObject{Body: &body})
 		if err != nil {
 			return false, err
 		}
 		switch resp.(type) {
-		case adminservice.CreateWorkspace200JSONResponse:
+		case adminhttp.CreateWorkspace200JSONResponse:
 			created = true
-		case adminservice.CreateWorkspace409JSONResponse:
+		case adminhttp.CreateWorkspace409JSONResponse:
 		default:
 			return false, errors.New("social: create group chat workspace failed")
 		}
@@ -1106,12 +1106,12 @@ func (s *Server) deleteWorkspace(ctx context.Context, workspaceName string) erro
 	if s == nil || s.Workspaces == nil {
 		return nil
 	}
-	resp, err := s.Workspaces.DeleteWorkspace(ctx, adminservice.DeleteWorkspaceRequestObject{Name: workspaceName})
+	resp, err := s.Workspaces.DeleteWorkspace(ctx, adminhttp.DeleteWorkspaceRequestObject{Name: workspaceName})
 	if err != nil {
 		return err
 	}
 	switch resp.(type) {
-	case adminservice.DeleteWorkspace200JSONResponse, adminservice.DeleteWorkspace404JSONResponse:
+	case adminhttp.DeleteWorkspace200JSONResponse, adminhttp.DeleteWorkspace404JSONResponse:
 		return nil
 	default:
 		return errors.New("social: delete group chat workspace failed")

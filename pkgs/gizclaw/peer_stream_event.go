@@ -160,7 +160,7 @@ func (o peerAgentOutput) writeStampedOpus(chunk *genx.MessageChunk, frame []byte
 		timestamp = uint64(chunk.Ctrl.Timestamp)
 	}
 	payload := stampedopus.Pack(timestamp, frame)
-	_, err := o.Conn.Write(ProtocolStampedOpus, payload)
+	_, err := o.Conn.Write(PacketStampedOpus, payload)
 	return err
 }
 

@@ -61,8 +61,8 @@ func TestRemoteOpusFrameRoutesThroughConnReadAsStampedOpus(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Read error = %v", err)
 	}
-	if protocol != ProtocolStampedOpus {
-		t.Fatalf("protocol = %d, want %d", protocol, ProtocolStampedOpus)
+	if protocol != PacketStampedOpus {
+		t.Fatalf("protocol = %d, want %d", protocol, PacketStampedOpus)
 	}
 	ts, gotFrame, ok := stampedopus.Unpack(buf[:n])
 	if !ok {

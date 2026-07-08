@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminservice"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 )
 
@@ -114,10 +114,10 @@ func TestGeminiTenantServiceResponseErrors(t *testing.T) {
 	_, _, err := manager.getGeminiTenant(context.Background(), "tenant")
 	assertResourceError(t, err, 500, "INTERNAL_ERROR")
 
-	err = manager.putGeminiTenant(context.Background(), "tenant", adminservice.GeminiTenantUpsert{})
+	err = manager.putGeminiTenant(context.Background(), "tenant", adminhttp.GeminiTenantUpsert{})
 	assertResourceError(t, err, 500, "INTERNAL_ERROR")
 	manager = New(Services{ProviderTenants: errorModelService{geminiPutStatus: 400}})
-	err = manager.putGeminiTenant(context.Background(), "tenant", adminservice.GeminiTenantUpsert{})
+	err = manager.putGeminiTenant(context.Background(), "tenant", adminhttp.GeminiTenantUpsert{})
 	assertResourceError(t, err, 400, "INVALID_GEMINI_TENANT")
 
 	manager = New(Services{ProviderTenants: errorModelService{}})

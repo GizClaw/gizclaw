@@ -10,7 +10,7 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminservice"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/credential"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/model"
@@ -124,11 +124,11 @@ func (m *Manager) releaseTelemetryStatusLock(publicKey giznet.PublicKey) {
 
 func (m *Manager) allowService(ctx context.Context, publicKey giznet.PublicKey, service uint64) bool {
 	switch service {
-	case ServiceRPC, ServiceServerPublic, ServiceOpenAI, ServiceAgentStream:
+	case ServicePeerRPC, ServicePeerHTTP, ServicePeerOpenAI, EventStreamAgent:
 		return true
 	}
 	switch service {
-	case ServiceAdmin:
+	case ServiceAdminHTTP:
 		peer, err := m.Peers.LoadPeer(ctx, publicKey)
 		if err != nil {
 			return false
@@ -215,13 +215,13 @@ func (m *Manager) EnsurePeer(ctx context.Context, publicKey giznet.PublicKey) (a
 	return m.Peers.EnsureConnectedPeer(ctx, publicKey)
 }
 
-func (m *Manager) RefreshPeer(ctx context.Context, publicKey giznet.PublicKey) (adminservice.RefreshResult, bool, error) {
+func (m *Manager) RefreshPeer(ctx context.Context, publicKey giznet.PublicKey) (adminhttp.RefreshResult, bool, error) {
 	if m.Peers == nil {
-		return adminservice.RefreshResult{}, false, errors.New("gizclaw: peers service not configured")
+		return adminhttp.RefreshResult{}, false, errors.New("gizclaw: peers service not configured")
 	}
 	peer, err := m.Peers.LoadPeer(ctx, publicKey)
 	if err != nil {
-		return adminservice.RefreshResult{}, false, err
+		return adminhttp.RefreshResult{}, false, err
 	}
 	next, updatedFields, errs, err := m.refreshPeer(ctx, publicKey, peer)
 	if err != nil {
@@ -230,13 +230,13 @@ func (m *Manager) RefreshPeer(ctx context.Context, publicKey giznet.PublicKey) (
 			m.ForcePeerDown(publicKey)
 			online = false
 		}
-		return adminservice.RefreshResult{
+		return adminhttp.RefreshResult{
 			Peer:   peer,
 			Errors: optionalStrings(errs),
 		}, online, err
 	}
 	if len(updatedFields) == 0 {
-		return adminservice.RefreshResult{
+		return adminhttp.RefreshResult{
 			Peer:          next,
 			Errors:        optionalStrings(errs),
 			UpdatedFields: nil,
@@ -244,13 +244,13 @@ func (m *Manager) RefreshPeer(ctx context.Context, publicKey giznet.PublicKey) (
 	}
 	saved, err := m.Peers.SavePeer(ctx, next)
 	if err != nil {
-		return adminservice.RefreshResult{
+		return adminhttp.RefreshResult{
 			Peer:          next,
 			Errors:        optionalStrings(errs),
 			UpdatedFields: optionalStrings(updatedFields),
 		}, true, err
 	}
-	return adminservice.RefreshResult{
+	return adminhttp.RefreshResult{
 		Peer:          saved,
 		Errors:        optionalStrings(errs),
 		UpdatedFields: optionalStrings(updatedFields),
@@ -269,7 +269,7 @@ func (m *Manager) peerRPCConn(publicKey giznet.PublicKey) (net.Conn, error) {
 	if !ok || peerConn == nil {
 		return nil, ErrDeviceOffline
 	}
-	stream, err := peerConn.Dial(ServiceRPC)
+	stream, err := peerConn.Dial(ServicePeerRPC)
 	if err != nil {
 		return nil, fmt.Errorf("dial peer rpc: %w", err)
 	}

@@ -5,14 +5,14 @@ package admin_test
 import (
 	"testing"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminservice"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 )
 
 func TestAdminAPIPeersListGetAndLookup(t *testing.T) {
 	env := newAdminAPIHarness(t)
 
 	limit := int32(10)
-	list, err := env.api.ListPeersWithResponse(env.ctx, &adminservice.ListPeersParams{Limit: &limit})
+	list, err := env.api.ListPeersWithResponse(env.ctx, &adminhttp.ListPeersParams{Limit: &limit})
 	if err != nil {
 		t.Fatalf("list peers: %v", err)
 	}

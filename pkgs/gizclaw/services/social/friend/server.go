@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminservice"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/socialutil"
@@ -16,8 +16,8 @@ import (
 )
 
 type WorkspaceService interface {
-	CreateWorkspace(context.Context, adminservice.CreateWorkspaceRequestObject) (adminservice.CreateWorkspaceResponseObject, error)
-	DeleteWorkspace(context.Context, adminservice.DeleteWorkspaceRequestObject) (adminservice.DeleteWorkspaceResponseObject, error)
+	CreateWorkspace(context.Context, adminhttp.CreateWorkspaceRequestObject) (adminhttp.CreateWorkspaceResponseObject, error)
+	DeleteWorkspace(context.Context, adminhttp.DeleteWorkspaceRequestObject) (adminhttp.DeleteWorkspaceResponseObject, error)
 }
 
 type ACL interface {
@@ -165,21 +165,21 @@ func (s *Server) AdminCreateFriend(ctx context.Context, owner string, peerPublic
 	return friend, nil
 }
 
-func (s *Server) AdminListFriends(ctx context.Context, cursor *string, limit *int) (adminservice.AdminFriendListResponse, error) {
+func (s *Server) AdminListFriends(ctx context.Context, cursor *string, limit *int) (adminhttp.AdminFriendListResponse, error) {
 	store, err := s.friendsStore()
 	if err != nil {
-		return adminservice.AdminFriendListResponse{}, err
+		return adminhttp.AdminFriendListResponse{}, err
 	}
 	_, pageLimit := socialutil.NormalizeListParams("", socialutil.IntValue(limit))
 	entries, err := kv.ListAfter(ctx, store, socialutil.FriendsRoot, adminFriendCursorAfter(socialutil.StringValue(cursor)), pageLimit+1)
 	if err != nil {
-		return adminservice.AdminFriendListResponse{}, err
+		return adminhttp.AdminFriendListResponse{}, err
 	}
 	hasNext := len(entries) > pageLimit
 	if hasNext {
 		entries = entries[:pageLimit]
 	}
-	items := make([]adminservice.AdminFriendObject, 0, len(entries))
+	items := make([]adminhttp.AdminFriendObject, 0, len(entries))
 	for _, entry := range entries {
 		owner, ok := adminFriendOwner(entry.Key)
 		if !ok {
@@ -187,7 +187,7 @@ func (s *Server) AdminListFriends(ctx context.Context, cursor *string, limit *in
 		}
 		var item rpcapi.FriendObject
 		if err := json.Unmarshal(entry.Value, &item); err != nil {
-			return adminservice.AdminFriendListResponse{}, err
+			return adminhttp.AdminFriendListResponse{}, err
 		}
 		item = friendObjectForOwner(owner, item)
 		items = append(items, adminFriendObject(owner, item))
@@ -199,29 +199,29 @@ func (s *Server) AdminListFriends(ctx context.Context, cursor *string, limit *in
 			next = &cursor
 		}
 	}
-	return adminservice.AdminFriendListResponse{Items: items, HasNext: hasNext, NextCursor: next}, nil
+	return adminhttp.AdminFriendListResponse{Items: items, HasNext: hasNext, NextCursor: next}, nil
 }
 
-func (s *Server) AdminCreateFriendResource(ctx context.Context, owner string, peerPublicKey string) (adminservice.AdminFriendObject, error) {
+func (s *Server) AdminCreateFriendResource(ctx context.Context, owner string, peerPublicKey string) (adminhttp.AdminFriendObject, error) {
 	item, err := s.AdminCreateFriend(ctx, owner, peerPublicKey)
 	if err != nil {
-		return adminservice.AdminFriendObject{}, err
+		return adminhttp.AdminFriendObject{}, err
 	}
 	return adminFriendObject(strings.TrimSpace(owner), item), nil
 }
 
-func (s *Server) AdminGetFriend(ctx context.Context, owner, id string) (adminservice.AdminFriendObject, error) {
+func (s *Server) AdminGetFriend(ctx context.Context, owner, id string) (adminhttp.AdminFriendObject, error) {
 	item, err := s.GetFriendRelation(ctx, owner, id)
 	if err != nil {
-		return adminservice.AdminFriendObject{}, err
+		return adminhttp.AdminFriendObject{}, err
 	}
 	return adminFriendObject(strings.TrimSpace(owner), item), nil
 }
 
-func (s *Server) AdminDeleteFriend(ctx context.Context, owner, id string) (adminservice.AdminFriendObject, error) {
+func (s *Server) AdminDeleteFriend(ctx context.Context, owner, id string) (adminhttp.AdminFriendObject, error) {
 	item, err := s.DeleteFriend(ctx, owner, rpcapi.FriendDeleteRequest{Id: strings.TrimSpace(id)})
 	if err != nil {
-		return adminservice.AdminFriendObject{}, err
+		return adminhttp.AdminFriendObject{}, err
 	}
 	return adminFriendObject(strings.TrimSpace(owner), item), nil
 }
@@ -315,8 +315,8 @@ func relationPeer(owner, relationID string) string {
 	}
 }
 
-func adminFriendObject(owner string, item rpcapi.FriendObject) adminservice.AdminFriendObject {
-	return adminservice.AdminFriendObject{
+func adminFriendObject(owner string, item rpcapi.FriendObject) adminhttp.AdminFriendObject {
+	return adminhttp.AdminFriendObject{
 		OwnerPublicKey: strings.TrimSpace(owner),
 		Id:             socialutil.StringValue(item.Id),
 		PeerPublicKey:  socialutil.StringValue(item.PeerPublicKey),
@@ -386,19 +386,19 @@ func (s *Server) ensureDirectChatWorkspace(ctx context.Context, from, to string)
 	workspaceName := socialutil.DirectWorkspaceName(socialutil.RelationID(from, to))
 	created := false
 	if s.Workspaces != nil {
-		body := adminservice.WorkspaceUpsert{
+		body := adminhttp.WorkspaceUpsert{
 			Name:         workspaceName,
 			WorkflowName: socialutil.ChatRoomWorkflowName,
 			Parameters:   socialutil.ChatRoomWorkspaceParameters(apitypes.ChatRoomModeDirect),
 		}
-		resp, err := s.Workspaces.CreateWorkspace(ctx, adminservice.CreateWorkspaceRequestObject{Body: &body})
+		resp, err := s.Workspaces.CreateWorkspace(ctx, adminhttp.CreateWorkspaceRequestObject{Body: &body})
 		if err != nil {
 			return "", nil, err
 		}
 		switch resp.(type) {
-		case adminservice.CreateWorkspace200JSONResponse:
+		case adminhttp.CreateWorkspace200JSONResponse:
 			created = true
-		case adminservice.CreateWorkspace409JSONResponse:
+		case adminhttp.CreateWorkspace409JSONResponse:
 		default:
 			return "", nil, errors.New("social: create direct chat workspace failed")
 		}
@@ -474,12 +474,12 @@ func (s *Server) deleteWorkspace(ctx context.Context, workspaceName string) erro
 	if s == nil || s.Workspaces == nil {
 		return nil
 	}
-	resp, err := s.Workspaces.DeleteWorkspace(ctx, adminservice.DeleteWorkspaceRequestObject{Name: workspaceName})
+	resp, err := s.Workspaces.DeleteWorkspace(ctx, adminhttp.DeleteWorkspaceRequestObject{Name: workspaceName})
 	if err != nil {
 		return err
 	}
 	switch resp.(type) {
-	case adminservice.DeleteWorkspace200JSONResponse, adminservice.DeleteWorkspace404JSONResponse:
+	case adminhttp.DeleteWorkspace200JSONResponse, adminhttp.DeleteWorkspace404JSONResponse:
 		return nil
 	default:
 		return errors.New("social: delete direct chat workspace failed")

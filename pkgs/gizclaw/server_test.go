@@ -172,7 +172,7 @@ func TestServerCanListenAgainAfterClose(t *testing.T) {
 	}
 }
 
-func TestServerPublicWebRTCSignalingUsesGeneratedRoute(t *testing.T) {
+func TestPeerHTTPWebRTCSignalingUsesGeneratedRoute(t *testing.T) {
 	keyPair, err := giznet.GenerateKeyPair()
 	if err != nil {
 		t.Fatalf("GenerateKeyPair error = %v", err)
@@ -231,7 +231,7 @@ func TestServerPublicWebRTCSignalingUsesGeneratedRoute(t *testing.T) {
 	}
 }
 
-func TestServerPublicWebRTCSignalingUnavailable(t *testing.T) {
+func TestPeerHTTPWebRTCSignalingUnavailable(t *testing.T) {
 	keyPair, err := giznet.GenerateKeyPair()
 	if err != nil {
 		t.Fatalf("GenerateKeyPair error = %v", err)
@@ -266,7 +266,7 @@ func TestServerPublicWebRTCSignalingUnavailable(t *testing.T) {
 	}
 }
 
-func TestServerPublicWebRTCSignalingPreservesContentType(t *testing.T) {
+func TestPeerHTTPWebRTCSignalingPreservesContentType(t *testing.T) {
 	keyPair, err := giznet.GenerateKeyPair()
 	if err != nil {
 		t.Fatalf("GenerateKeyPair error = %v", err)
@@ -475,7 +475,7 @@ func publicHTTPTestLogin(t *testing.T, baseURL string, serverPublicKey giznet.Pu
 
 func TestServerSecurityPolicyAllowServiceUsesPeerPolicy(t *testing.T) {
 	var nilServer *Server
-	if (*ServerSecurityPolicy)(nilServer).AllowService(giznet.PublicKey{}, ServiceRPC) {
+	if (*ServerSecurityPolicy)(nilServer).AllowService(giznet.PublicKey{}, ServicePeerRPC) {
 		t.Fatal("nil server should deny all services")
 	}
 
@@ -508,16 +508,16 @@ func TestServerSecurityPolicyAllowServiceUsesPeerPolicy(t *testing.T) {
 	}
 	server := &Server{manager: NewManager(peersServer)}
 	policy := (*ServerSecurityPolicy)(server)
-	if !policy.AllowService(peerKey.Public, ServiceRPC) {
+	if !policy.AllowService(peerKey.Public, ServicePeerRPC) {
 		t.Fatal("peer should allow rpc")
 	}
-	if !policy.AllowService(peerKey.Public, ServiceServerPublic) {
+	if !policy.AllowService(peerKey.Public, ServicePeerHTTP) {
 		t.Fatal("peer should allow server public")
 	}
-	if policy.AllowService(peerKey.Public, ServiceAdmin) {
+	if policy.AllowService(peerKey.Public, ServiceAdminHTTP) {
 		t.Fatal("non-admin peer should not allow admin")
 	}
-	if !policy.AllowService(adminKey.Public, ServiceAdmin) {
+	if !policy.AllowService(adminKey.Public, ServiceAdminHTTP) {
 		t.Fatal("active admin peer should allow admin")
 	}
 	configuredKey, err := giznet.GenerateKeyPair()
@@ -526,14 +526,14 @@ func TestServerSecurityPolicyAllowServiceUsesPeerPolicy(t *testing.T) {
 	}
 	server.SecurityPolicy = testGiznetSecurityPolicy{
 		allowService: func(publicKey giznet.PublicKey, service uint64) bool {
-			return service == ServiceAdmin && publicKey == configuredKey.Public
+			return service == ServiceAdminHTTP && publicKey == configuredKey.Public
 		},
 	}
-	if !policy.AllowService(configuredKey.Public, ServiceAdmin) {
+	if !policy.AllowService(configuredKey.Public, ServiceAdminHTTP) {
 		t.Fatal("configured security policy should allow admin")
 	}
 	server.SecurityPolicy = nil
-	if policy.AllowService(configuredKey.Public, ServiceAdmin) {
+	if policy.AllowService(configuredKey.Public, ServiceAdminHTTP) {
 		t.Fatal("missing configured security policy should not allow admin")
 	}
 }

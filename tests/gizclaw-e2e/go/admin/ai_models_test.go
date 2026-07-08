@@ -5,7 +5,7 @@ package admin_test
 import (
 	"testing"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminservice"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 )
 
@@ -13,7 +13,7 @@ func TestAdminAPIModelsListGetPaginationAndMutation(t *testing.T) {
 	env := newAdminAPIHarness(t)
 
 	all := collectAdminPages(t, 20, func(cursor *string, limit int32) ([]apitypes.Model, bool, *string) {
-		resp, err := env.api.ListModelsWithResponse(env.ctx, &adminservice.ListModelsParams{Cursor: cursor, Limit: &limit})
+		resp, err := env.api.ListModelsWithResponse(env.ctx, &adminhttp.ListModelsParams{Cursor: cursor, Limit: &limit})
 		if err != nil {
 			t.Fatalf("list models: %v", err)
 		}
@@ -37,7 +37,7 @@ func TestAdminAPIModelsListGetPaginationAndMutation(t *testing.T) {
 
 	id := mutationName("model")
 	_, _ = env.api.DeleteModelWithResponse(env.ctx, id)
-	created, err := env.api.CreateModelWithResponse(env.ctx, adminservice.ModelUpsert{
+	created, err := env.api.CreateModelWithResponse(env.ctx, adminhttp.ModelUpsert{
 		Id:   id,
 		Kind: apitypes.ModelKindLlm,
 		Name: ptr("Admin API mutation model"),

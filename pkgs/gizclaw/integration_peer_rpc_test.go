@@ -11,7 +11,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/sdk/go/gizcli"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminservice"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 )
 
 func TestIntegrationPeerRPCRefresh(t *testing.T) {
@@ -61,8 +61,8 @@ func TestIntegrationPeerRPCRefreshReportsOfflineWhenDeviceDisconnected(t *testin
 	}
 }
 
-func waitForRefreshPeerSuccess(admin *gizcli.Client, publicKey string) (adminservice.RefreshResult, error) {
-	var lastResult adminservice.RefreshResult
+func waitForRefreshPeerSuccess(admin *gizcli.Client, publicKey string) (adminhttp.RefreshResult, error) {
+	var lastResult adminhttp.RefreshResult
 	err := waitUntil(testReadyTimeout, func() error {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 		result, err := refreshPeer(ctx, admin, publicKey)

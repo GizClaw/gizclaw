@@ -7,14 +7,14 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminservice"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/serverpublic"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/peerhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 )
 
 type stubPeerManager struct {
 	runtime       apitypes.Runtime
-	refreshResult adminservice.RefreshResult
+	refreshResult adminhttp.RefreshResult
 	refreshOnline bool
 	refreshErr    error
 }
@@ -23,7 +23,7 @@ func (m stubPeerManager) PeerRuntime(context.Context, giznet.PublicKey) apitypes
 	return m.runtime
 }
 
-func (m stubPeerManager) RefreshPeer(context.Context, giznet.PublicKey) (adminservice.RefreshResult, bool, error) {
+func (m stubPeerManager) RefreshPeer(context.Context, giznet.PublicKey) (adminhttp.RefreshResult, bool, error) {
 	return m.refreshResult, m.refreshOnline, m.refreshErr
 }
 
@@ -62,13 +62,13 @@ func TestServerAdminPeerHandlers(t *testing.T) {
 		},
 	})
 
-	getResp, err := server.GetPeer(ctx, adminservice.GetPeerRequestObject{
+	getResp, err := server.GetPeer(ctx, adminhttp.GetPeerRequestObject{
 		PublicKey: string(peerPublicKey),
 	})
 	if err != nil {
 		t.Fatalf("GetPeer error: %v", err)
 	}
-	getRegistered, ok := getResp.(adminservice.GetPeer200JSONResponse)
+	getRegistered, ok := getResp.(adminhttp.GetPeer200JSONResponse)
 	if !ok {
 		t.Fatalf("GetPeer response type = %T", getResp)
 	}
@@ -76,11 +76,11 @@ func TestServerAdminPeerHandlers(t *testing.T) {
 		t.Fatalf("GetPeer = %+v", getRegistered)
 	}
 
-	listResp, err := server.ListPeers(ctx, adminservice.ListPeersRequestObject{})
+	listResp, err := server.ListPeers(ctx, adminhttp.ListPeersRequestObject{})
 	if err != nil {
 		t.Fatalf("ListPeers error: %v", err)
 	}
-	listed, ok := listResp.(adminservice.ListPeers200JSONResponse)
+	listed, ok := listResp.(adminhttp.ListPeers200JSONResponse)
 	if !ok {
 		t.Fatalf("ListPeers response type = %T", listResp)
 	}
@@ -89,26 +89,26 @@ func TestServerAdminPeerHandlers(t *testing.T) {
 	}
 
 	view := "under-12"
-	putConfigResp, err := server.PutPeerConfig(ctx, adminservice.PutPeerConfigRequestObject{
+	putConfigResp, err := server.PutPeerConfig(ctx, adminhttp.PutPeerConfigRequestObject{
 		PublicKey: string(peerPublicKey),
-		Body: &adminservice.PutPeerConfigJSONRequestBody{
+		Body: &adminhttp.PutPeerConfigJSONRequestBody{
 			View: &view,
 		},
 	})
 	if err != nil {
 		t.Fatalf("PutPeerConfig error: %v", err)
 	}
-	if _, ok := putConfigResp.(adminservice.PutPeerConfig200JSONResponse); !ok {
+	if _, ok := putConfigResp.(adminhttp.PutPeerConfig200JSONResponse); !ok {
 		t.Fatalf("PutPeerConfig response type = %T", putConfigResp)
 	}
 
-	getConfigResp, err := server.GetPeerConfig(ctx, adminservice.GetPeerConfigRequestObject{
+	getConfigResp, err := server.GetPeerConfig(ctx, adminhttp.GetPeerConfigRequestObject{
 		PublicKey: string(peerPublicKey),
 	})
 	if err != nil {
 		t.Fatalf("GetPeerConfig error: %v", err)
 	}
-	cfg, ok := getConfigResp.(adminservice.GetPeerConfig200JSONResponse)
+	cfg, ok := getConfigResp.(adminhttp.GetPeerConfig200JSONResponse)
 	if !ok {
 		t.Fatalf("GetPeerConfig response type = %T", getConfigResp)
 	}
@@ -116,13 +116,13 @@ func TestServerAdminPeerHandlers(t *testing.T) {
 		t.Fatalf("GetPeerConfig = %+v", cfg)
 	}
 
-	getInfoResp, err := server.GetPeerInfo(ctx, adminservice.GetPeerInfoRequestObject{
+	getInfoResp, err := server.GetPeerInfo(ctx, adminhttp.GetPeerInfoRequestObject{
 		PublicKey: string(peerPublicKey),
 	})
 	if err != nil {
 		t.Fatalf("GetPeerInfo error: %v", err)
 	}
-	info, ok := getInfoResp.(adminservice.GetPeerInfo200JSONResponse)
+	info, ok := getInfoResp.(adminhttp.GetPeerInfo200JSONResponse)
 	if !ok {
 		t.Fatalf("GetPeerInfo response type = %T", getInfoResp)
 	}
@@ -131,9 +131,9 @@ func TestServerAdminPeerHandlers(t *testing.T) {
 	}
 
 	updatedName := "renamed-peer"
-	putInfoResp, err := server.PutPeerInfo(ctx, adminservice.PutPeerInfoRequestObject{
+	putInfoResp, err := server.PutPeerInfo(ctx, adminhttp.PutPeerInfoRequestObject{
 		PublicKey: string(peerPublicKey),
-		Body: &adminservice.PutPeerInfoJSONRequestBody{
+		Body: &adminhttp.PutPeerInfoJSONRequestBody{
 			Name: &updatedName,
 			Sn:   &sn,
 			Hardware: &apitypes.HardwareInfo{
@@ -145,7 +145,7 @@ func TestServerAdminPeerHandlers(t *testing.T) {
 	if err != nil {
 		t.Fatalf("PutPeerInfo error: %v", err)
 	}
-	updatedInfo, ok := putInfoResp.(adminservice.PutPeerInfo200JSONResponse)
+	updatedInfo, ok := putInfoResp.(adminhttp.PutPeerInfo200JSONResponse)
 	if !ok {
 		t.Fatalf("PutPeerInfo response type = %T", putInfoResp)
 	}
@@ -153,11 +153,11 @@ func TestServerAdminPeerHandlers(t *testing.T) {
 		t.Fatalf("PutPeerInfo = %+v", updatedInfo)
 	}
 
-	resolveSNResp, err := server.FindPubKeyBySN(ctx, adminservice.FindPubKeyBySNRequestObject{Sn: sn})
+	resolveSNResp, err := server.FindPubKeyBySN(ctx, adminhttp.FindPubKeyBySNRequestObject{Sn: sn})
 	if err != nil {
 		t.Fatalf("FindPubKeyBySN error: %v", err)
 	}
-	resolvedSN, ok := resolveSNResp.(adminservice.FindPubKeyBySN200JSONResponse)
+	resolvedSN, ok := resolveSNResp.(adminhttp.FindPubKeyBySN200JSONResponse)
 	if !ok {
 		t.Fatalf("FindPubKeyBySN response type = %T", resolveSNResp)
 	}
@@ -165,14 +165,14 @@ func TestServerAdminPeerHandlers(t *testing.T) {
 		t.Fatalf("FindPubKeyBySN = %+v", resolvedSN)
 	}
 
-	resolveIMEIResp, err := server.FindPubKeyByIMEI(ctx, adminservice.FindPubKeyByIMEIRequestObject{
+	resolveIMEIResp, err := server.FindPubKeyByIMEI(ctx, adminhttp.FindPubKeyByIMEIRequestObject{
 		Tac:    tac,
 		Serial: serial,
 	})
 	if err != nil {
 		t.Fatalf("FindPubKeyByIMEI error: %v", err)
 	}
-	resolvedIMEI, ok := resolveIMEIResp.(adminservice.FindPubKeyByIMEI200JSONResponse)
+	resolvedIMEI, ok := resolveIMEIResp.(adminhttp.FindPubKeyByIMEI200JSONResponse)
 	if !ok {
 		t.Fatalf("FindPubKeyByIMEI response type = %T", resolveIMEIResp)
 	}
@@ -180,14 +180,14 @@ func TestServerAdminPeerHandlers(t *testing.T) {
 		t.Fatalf("FindPubKeyByIMEI = %+v", resolvedIMEI)
 	}
 
-	approveResp, err := server.ApprovePeer(ctx, adminservice.ApprovePeerRequestObject{
+	approveResp, err := server.ApprovePeer(ctx, adminhttp.ApprovePeerRequestObject{
 		PublicKey: string(peerPublicKey),
-		Body:      &adminservice.ApprovePeerJSONRequestBody{Role: apitypes.PeerRoleClient},
+		Body:      &adminhttp.ApprovePeerJSONRequestBody{Role: apitypes.PeerRoleClient},
 	})
 	if err != nil {
 		t.Fatalf("ApprovePeer error: %v", err)
 	}
-	approved, ok := approveResp.(adminservice.ApprovePeer200JSONResponse)
+	approved, ok := approveResp.(adminhttp.ApprovePeer200JSONResponse)
 	if !ok {
 		t.Fatalf("ApprovePeer response type = %T", approveResp)
 	}
@@ -195,13 +195,13 @@ func TestServerAdminPeerHandlers(t *testing.T) {
 		t.Fatalf("ApprovePeer = %+v", approved)
 	}
 
-	blockResp, err := server.BlockPeer(ctx, adminservice.BlockPeerRequestObject{
+	blockResp, err := server.BlockPeer(ctx, adminhttp.BlockPeerRequestObject{
 		PublicKey: string(peerPublicKey),
 	})
 	if err != nil {
 		t.Fatalf("BlockPeer error: %v", err)
 	}
-	blocked, ok := blockResp.(adminservice.BlockPeer200JSONResponse)
+	blocked, ok := blockResp.(adminhttp.BlockPeer200JSONResponse)
 	if !ok {
 		t.Fatalf("BlockPeer response type = %T", blockResp)
 	}
@@ -209,24 +209,24 @@ func TestServerAdminPeerHandlers(t *testing.T) {
 		t.Fatalf("BlockPeer = %+v", blocked)
 	}
 
-	deleteResp, err := server.DeletePeer(ctx, adminservice.DeletePeerRequestObject{
+	deleteResp, err := server.DeletePeer(ctx, adminhttp.DeletePeerRequestObject{
 		PublicKey: string(peerPublicKey),
 	})
 	if err != nil {
 		t.Fatalf("DeletePeer error: %v", err)
 	}
-	deleted, ok := deleteResp.(adminservice.DeletePeer200JSONResponse)
+	deleted, ok := deleteResp.(adminhttp.DeletePeer200JSONResponse)
 	if !ok {
 		t.Fatalf("DeletePeer response type = %T", deleteResp)
 	}
 	if deleted.Role != apitypes.PeerRoleClient || deleted.Status != apitypes.PeerRegistrationStatusBlocked || deleted.ApprovedAt == nil {
 		t.Fatalf("DeletePeer = %+v", deleted)
 	}
-	getDeletedResp, err := server.GetPeer(ctx, adminservice.GetPeerRequestObject{PublicKey: string(peerPublicKey)})
+	getDeletedResp, err := server.GetPeer(ctx, adminhttp.GetPeerRequestObject{PublicKey: string(peerPublicKey)})
 	if err != nil {
 		t.Fatalf("GetPeer after DeletePeer error: %v", err)
 	}
-	if _, ok := getDeletedResp.(adminservice.GetPeer404JSONResponse); !ok {
+	if _, ok := getDeletedResp.(adminhttp.GetPeer404JSONResponse); !ok {
 		t.Fatalf("GetPeer after DeletePeer response type = %T", getDeletedResp)
 	}
 }
@@ -254,15 +254,15 @@ func TestServerListPeersPagination(t *testing.T) {
 	registerPeer(peerC, "us")
 
 	limit := int32(1)
-	resp, err := server.ListPeers(context.Background(), adminservice.ListPeersRequestObject{
-		Params: adminservice.ListPeersParams{
+	resp, err := server.ListPeers(context.Background(), adminhttp.ListPeersRequestObject{
+		Params: adminhttp.ListPeersParams{
 			Limit: &limit,
 		},
 	})
 	if err != nil {
 		t.Fatalf("ListPeers pagination error: %v", err)
 	}
-	listed, ok := resp.(adminservice.ListPeers200JSONResponse)
+	listed, ok := resp.(adminhttp.ListPeers200JSONResponse)
 	if !ok {
 		t.Fatalf("ListPeers response type = %T", resp)
 	}
@@ -296,13 +296,13 @@ func TestServerListPeersPaginationPreservesCreationOrder(t *testing.T) {
 	registerPeer(peerC)
 
 	limit := int32(2)
-	resp, err := server.ListPeers(context.Background(), adminservice.ListPeersRequestObject{
-		Params: adminservice.ListPeersParams{Limit: &limit},
+	resp, err := server.ListPeers(context.Background(), adminhttp.ListPeersRequestObject{
+		Params: adminhttp.ListPeersParams{Limit: &limit},
 	})
 	if err != nil {
 		t.Fatalf("ListPeers first page error: %v", err)
 	}
-	firstPage, ok := resp.(adminservice.ListPeers200JSONResponse)
+	firstPage, ok := resp.(adminhttp.ListPeers200JSONResponse)
 	if !ok {
 		t.Fatalf("ListPeers first response type = %T", resp)
 	}
@@ -313,8 +313,8 @@ func TestServerListPeersPaginationPreservesCreationOrder(t *testing.T) {
 		t.Fatalf("ListPeers first page metadata = %+v", firstPage)
 	}
 
-	resp, err = server.ListPeers(context.Background(), adminservice.ListPeersRequestObject{
-		Params: adminservice.ListPeersParams{
+	resp, err = server.ListPeers(context.Background(), adminhttp.ListPeersRequestObject{
+		Params: adminhttp.ListPeersParams{
 			Cursor: firstPage.NextCursor,
 			Limit:  &limit,
 		},
@@ -322,7 +322,7 @@ func TestServerListPeersPaginationPreservesCreationOrder(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ListPeers second page error: %v", err)
 	}
-	secondPage, ok := resp.(adminservice.ListPeers200JSONResponse)
+	secondPage, ok := resp.(adminhttp.ListPeers200JSONResponse)
 	if !ok {
 		t.Fatalf("ListPeers second response type = %T", resp)
 	}
@@ -340,13 +340,13 @@ func TestServerListPeersLimitClampsToConfiguredBounds(t *testing.T) {
 	}
 
 	zero := int32(0)
-	resp, err := server.ListPeers(context.Background(), adminservice.ListPeersRequestObject{
-		Params: adminservice.ListPeersParams{Limit: &zero},
+	resp, err := server.ListPeers(context.Background(), adminhttp.ListPeersRequestObject{
+		Params: adminhttp.ListPeersParams{Limit: &zero},
 	})
 	if err != nil {
 		t.Fatalf("ListPeers zero limit error: %v", err)
 	}
-	defaultPage, ok := resp.(adminservice.ListPeers200JSONResponse)
+	defaultPage, ok := resp.(adminhttp.ListPeers200JSONResponse)
 	if !ok {
 		t.Fatalf("ListPeers zero limit response type = %T", resp)
 	}
@@ -355,13 +355,13 @@ func TestServerListPeersLimitClampsToConfiguredBounds(t *testing.T) {
 	}
 
 	tooLarge := int32(999)
-	resp, err = server.ListPeers(context.Background(), adminservice.ListPeersRequestObject{
-		Params: adminservice.ListPeersParams{Limit: &tooLarge},
+	resp, err = server.ListPeers(context.Background(), adminhttp.ListPeersRequestObject{
+		Params: adminhttp.ListPeersParams{Limit: &tooLarge},
 	})
 	if err != nil {
 		t.Fatalf("ListPeers large limit error: %v", err)
 	}
-	clampedPage, ok := resp.(adminservice.ListPeers200JSONResponse)
+	clampedPage, ok := resp.(adminhttp.ListPeers200JSONResponse)
 	if !ok {
 		t.Fatalf("ListPeers large limit response type = %T", resp)
 	}
@@ -383,7 +383,7 @@ func TestServerRuntimeHandlers(t *testing.T) {
 				LastSeenAt: now,
 				Online:     true,
 			},
-			refreshResult: adminservice.RefreshResult{
+			refreshResult: adminhttp.RefreshResult{
 				Peer: apitypes.Peer{
 					PublicKey: peerKey.String(),
 					Role:      apitypes.PeerRoleServer,
@@ -397,13 +397,13 @@ func TestServerRuntimeHandlers(t *testing.T) {
 
 	saveTestPeer(t, server, peerKey, apitypes.DeviceInfo{})
 
-	getPeerRuntimeResp, err := server.GetPeerRuntime(context.Background(), adminservice.GetPeerRuntimeRequestObject{
+	getPeerRuntimeResp, err := server.GetPeerRuntime(context.Background(), adminhttp.GetPeerRuntimeRequestObject{
 		PublicKey: string(peerPublicKey),
 	})
 	if err != nil {
 		t.Fatalf("GetPeerRuntime error: %v", err)
 	}
-	peerRuntime, ok := getPeerRuntimeResp.(adminservice.GetPeerRuntime200JSONResponse)
+	peerRuntime, ok := getPeerRuntimeResp.(adminhttp.GetPeerRuntime200JSONResponse)
 	if !ok {
 		t.Fatalf("GetPeerRuntime response type = %T", getPeerRuntimeResp)
 	}
@@ -416,13 +416,13 @@ func TestServerRuntimeHandlers(t *testing.T) {
 		t.Fatalf("GetSelfRuntime = %+v", publicRuntime)
 	}
 
-	refreshResp, err := server.RefreshPeer(context.Background(), adminservice.RefreshPeerRequestObject{
+	refreshResp, err := server.RefreshPeer(context.Background(), adminhttp.RefreshPeerRequestObject{
 		PublicKey: string(peerPublicKey),
 	})
 	if err != nil {
 		t.Fatalf("RefreshPeer error: %v", err)
 	}
-	refreshed, ok := refreshResp.(adminservice.RefreshPeer200JSONResponse)
+	refreshed, ok := refreshResp.(adminhttp.RefreshPeer200JSONResponse)
 	if !ok {
 		t.Fatalf("RefreshPeer response type = %T", refreshResp)
 	}
@@ -431,7 +431,7 @@ func TestServerRuntimeHandlers(t *testing.T) {
 	}
 }
 
-func TestServerPublicHandlers(t *testing.T) {
+func TestPeerHTTPHandlers(t *testing.T) {
 	before := time.Now()
 	peerKey := giznet.PublicKey{5}
 	server := &Server{
@@ -463,11 +463,11 @@ func TestServerPublicHandlers(t *testing.T) {
 		t.Fatalf("GetSelfInfo sn = %v", info.Sn)
 	}
 
-	serverInfoResp, err := server.GetServerInfo(context.Background(), serverpublic.GetServerInfoRequestObject{})
+	serverInfoResp, err := server.GetServerInfo(context.Background(), peerhttp.GetServerInfoRequestObject{})
 	if err != nil {
 		t.Fatalf("GetServerInfo error: %v", err)
 	}
-	serverInfo, ok := serverInfoResp.(serverpublic.GetServerInfo200JSONResponse)
+	serverInfo, ok := serverInfoResp.(peerhttp.GetServerInfo200JSONResponse)
 	if !ok {
 		t.Fatalf("GetServerInfo response type = %T", serverInfoResp)
 	}
@@ -494,11 +494,11 @@ func TestServerPublicHandlers(t *testing.T) {
 func TestGetServerInfoReportsICETCP(t *testing.T) {
 	server := &Server{ICETCP: true}
 
-	serverInfoResp, err := server.GetServerInfo(context.Background(), serverpublic.GetServerInfoRequestObject{})
+	serverInfoResp, err := server.GetServerInfo(context.Background(), peerhttp.GetServerInfoRequestObject{})
 	if err != nil {
 		t.Fatalf("GetServerInfo error: %v", err)
 	}
-	serverInfo, ok := serverInfoResp.(serverpublic.GetServerInfo200JSONResponse)
+	serverInfo, ok := serverInfoResp.(peerhttp.GetServerInfo200JSONResponse)
 	if !ok {
 		t.Fatalf("GetServerInfo response type = %T", serverInfoResp)
 	}
@@ -507,7 +507,7 @@ func TestGetServerInfoReportsICETCP(t *testing.T) {
 	}
 }
 
-func TestServerPublicHandlersPutInfoConfigAndRuntime(t *testing.T) {
+func TestPeerHTTPHandlersPutInfoConfigAndRuntime(t *testing.T) {
 	now := time.Unix(1_700_500_000, 0).UTC()
 	runtimeAddr := "10.0.0.1:8888"
 	peerKey := giznet.PublicKey{4}
@@ -527,9 +527,9 @@ func TestServerPublicHandlersPutInfoConfigAndRuntime(t *testing.T) {
 	saveTestPeer(t, server, peerKey, apitypes.DeviceInfo{Sn: &sn})
 
 	view := "under-12"
-	_, err := server.PutPeerConfig(context.Background(), adminservice.PutPeerConfigRequestObject{
+	_, err := server.PutPeerConfig(context.Background(), adminhttp.PutPeerConfigRequestObject{
 		PublicKey: string(peerPublicKey),
-		Body: &adminservice.PutPeerConfigJSONRequestBody{
+		Body: &adminhttp.PutPeerConfigJSONRequestBody{
 			View: &view,
 		},
 	})
@@ -537,13 +537,13 @@ func TestServerPublicHandlersPutInfoConfigAndRuntime(t *testing.T) {
 		t.Fatalf("PutPeerConfig error: %v", err)
 	}
 
-	getConfigResp, err := server.GetPeerConfig(context.Background(), adminservice.GetPeerConfigRequestObject{
+	getConfigResp, err := server.GetPeerConfig(context.Background(), adminhttp.GetPeerConfigRequestObject{
 		PublicKey: string(peerPublicKey),
 	})
 	if err != nil {
 		t.Fatalf("GetPeerConfig error: %v", err)
 	}
-	cfg, ok := getConfigResp.(adminservice.GetPeerConfig200JSONResponse)
+	cfg, ok := getConfigResp.(adminhttp.GetPeerConfig200JSONResponse)
 	if !ok {
 		t.Fatalf("GetPeerConfig response type = %T", getConfigResp)
 	}

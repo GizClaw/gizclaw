@@ -1,7 +1,7 @@
 # GizClaw ACL
 
-This document describes the current ACL model used by Server Service, Admin
-Service, and ResourceManager.
+This document describes the current ACL model used by peer RPC, admin HTTP,
+and ResourceManager.
 
 ## Terms
 

@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminservice"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/customid"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
@@ -33,55 +33,55 @@ type Server struct {
 }
 
 type WorkspaceAdminService interface {
-	ListWorkspaces(context.Context, adminservice.ListWorkspacesRequestObject) (adminservice.ListWorkspacesResponseObject, error)
-	CreateWorkspace(context.Context, adminservice.CreateWorkspaceRequestObject) (adminservice.CreateWorkspaceResponseObject, error)
-	DeleteWorkspace(context.Context, adminservice.DeleteWorkspaceRequestObject) (adminservice.DeleteWorkspaceResponseObject, error)
-	GetWorkspace(context.Context, adminservice.GetWorkspaceRequestObject) (adminservice.GetWorkspaceResponseObject, error)
-	PutWorkspace(context.Context, adminservice.PutWorkspaceRequestObject) (adminservice.PutWorkspaceResponseObject, error)
+	ListWorkspaces(context.Context, adminhttp.ListWorkspacesRequestObject) (adminhttp.ListWorkspacesResponseObject, error)
+	CreateWorkspace(context.Context, adminhttp.CreateWorkspaceRequestObject) (adminhttp.CreateWorkspaceResponseObject, error)
+	DeleteWorkspace(context.Context, adminhttp.DeleteWorkspaceRequestObject) (adminhttp.DeleteWorkspaceResponseObject, error)
+	GetWorkspace(context.Context, adminhttp.GetWorkspaceRequestObject) (adminhttp.GetWorkspaceResponseObject, error)
+	PutWorkspace(context.Context, adminhttp.PutWorkspaceRequestObject) (adminhttp.PutWorkspaceResponseObject, error)
 }
 
 var _ WorkspaceAdminService = (*Server)(nil)
 
-func (s *Server) ListWorkspaces(ctx context.Context, request adminservice.ListWorkspacesRequestObject) (adminservice.ListWorkspacesResponseObject, error) {
+func (s *Server) ListWorkspaces(ctx context.Context, request adminhttp.ListWorkspacesRequestObject) (adminhttp.ListWorkspacesResponseObject, error) {
 	store, err := s.store()
 	if err != nil {
-		return adminservice.ListWorkspaces500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.ListWorkspaces500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	cursor, limit := normalizeListParams(request.Params.Cursor, request.Params.Limit)
 	items, hasNext, nextCursor, err := listWorkspacePage(ctx, store, workspacesRoot, cursor, limit)
 	if err != nil {
-		return adminservice.ListWorkspaces500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.ListWorkspaces500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	return adminservice.ListWorkspaces200JSONResponse(adminservice.WorkspaceList{
+	return adminhttp.ListWorkspaces200JSONResponse(adminhttp.WorkspaceList{
 		HasNext:    hasNext,
 		Items:      items,
 		NextCursor: nextCursor,
 	}), nil
 }
 
-func (s *Server) CreateWorkspace(ctx context.Context, request adminservice.CreateWorkspaceRequestObject) (adminservice.CreateWorkspaceResponseObject, error) {
+func (s *Server) CreateWorkspace(ctx context.Context, request adminhttp.CreateWorkspaceRequestObject) (adminhttp.CreateWorkspaceResponseObject, error) {
 	store, err := s.store()
 	if err != nil {
-		return adminservice.CreateWorkspace500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.CreateWorkspace500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	if request.Body == nil {
-		return adminservice.CreateWorkspace400JSONResponse(apitypes.NewErrorResponse("INVALID_WORKSPACE", "request body required")), nil
+		return adminhttp.CreateWorkspace400JSONResponse(apitypes.NewErrorResponse("INVALID_WORKSPACE", "request body required")), nil
 	}
 	normalized, err := normalizeWorkspaceUpsert(*request.Body, "")
 	if err != nil {
-		return adminservice.CreateWorkspace400JSONResponse(apitypes.NewErrorResponse("INVALID_WORKSPACE", err.Error())), nil
+		return adminhttp.CreateWorkspace400JSONResponse(apitypes.NewErrorResponse("INVALID_WORKSPACE", err.Error())), nil
 	}
 	workflowStore, err := s.workflowStore()
 	if err != nil {
-		return adminservice.CreateWorkspace500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.CreateWorkspace500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	if err := validateReferences(ctx, workflowStore, normalized); err != nil {
-		return adminservice.CreateWorkspace400JSONResponse(apitypes.NewErrorResponse("INVALID_WORKSPACE", err.Error())), nil
+		return adminhttp.CreateWorkspace400JSONResponse(apitypes.NewErrorResponse("INVALID_WORKSPACE", err.Error())), nil
 	}
 	if _, err := store.Get(ctx, workspaceKey(string(normalized.Name))); err == nil {
-		return adminservice.CreateWorkspace409JSONResponse(apitypes.NewErrorResponse("WORKSPACE_ALREADY_EXISTS", fmt.Sprintf("workspace %q already exists", normalized.Name))), nil
+		return adminhttp.CreateWorkspace409JSONResponse(apitypes.NewErrorResponse("WORKSPACE_ALREADY_EXISTS", fmt.Sprintf("workspace %q already exists", normalized.Name))), nil
 	} else if !errors.Is(err, kv.ErrNotFound) {
-		return adminservice.CreateWorkspace500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.CreateWorkspace500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	now := time.Now().UTC()
 	workspace := apitypes.Workspace{
@@ -94,19 +94,19 @@ func (s *Server) CreateWorkspace(ctx context.Context, request adminservice.Creat
 	}
 	if s.RuntimeStore != nil {
 		if _, err := s.RuntimeStore.PrepareWorkspace(ctx, workspace.Name); err != nil {
-			return adminservice.CreateWorkspace500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+			return adminhttp.CreateWorkspace500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 		}
 	}
 	if err := writeWorkspace(ctx, store, workspace); err != nil {
-		return adminservice.CreateWorkspace500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.CreateWorkspace500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	return adminservice.CreateWorkspace200JSONResponse(workspace), nil
+	return adminhttp.CreateWorkspace200JSONResponse(workspace), nil
 }
 
-func (s *Server) DeleteWorkspace(ctx context.Context, request adminservice.DeleteWorkspaceRequestObject) (adminservice.DeleteWorkspaceResponseObject, error) {
+func (s *Server) DeleteWorkspace(ctx context.Context, request adminhttp.DeleteWorkspaceRequestObject) (adminhttp.DeleteWorkspaceResponseObject, error) {
 	store, err := s.store()
 	if err != nil {
-		return adminservice.DeleteWorkspace500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.DeleteWorkspace500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	name, err := url.PathUnescape(string(request.Name))
 	if err != nil {
@@ -117,30 +117,30 @@ func (s *Server) DeleteWorkspace(ctx context.Context, request adminservice.Delet
 		if errors.Is(err, kv.ErrNotFound) {
 			if s.RuntimeStore != nil {
 				if err := s.RuntimeStore.DeleteWorkspaceRuntime(ctx, name); err != nil {
-					return adminservice.DeleteWorkspace500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+					return adminhttp.DeleteWorkspace500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 				}
 			}
-			return adminservice.DeleteWorkspace404JSONResponse(apitypes.NewErrorResponse("WORKSPACE_NOT_FOUND", fmt.Sprintf("workspace %q not found", name))), nil
+			return adminhttp.DeleteWorkspace404JSONResponse(apitypes.NewErrorResponse("WORKSPACE_NOT_FOUND", fmt.Sprintf("workspace %q not found", name))), nil
 		}
-		return adminservice.DeleteWorkspace500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.DeleteWorkspace500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	if s.RuntimeStore != nil {
 		if err := s.RuntimeStore.DeleteWorkspaceRuntime(ctx, workspace.Name); err != nil {
-			return adminservice.DeleteWorkspace500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+			return adminhttp.DeleteWorkspace500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 		}
 	}
 	if err := store.BatchDelete(ctx, []kv.Key{
 		workspaceKey(string(workspace.Name)),
 	}); err != nil {
-		return adminservice.DeleteWorkspace500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.DeleteWorkspace500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	return adminservice.DeleteWorkspace200JSONResponse(workspace), nil
+	return adminhttp.DeleteWorkspace200JSONResponse(workspace), nil
 }
 
-func (s *Server) GetWorkspace(ctx context.Context, request adminservice.GetWorkspaceRequestObject) (adminservice.GetWorkspaceResponseObject, error) {
+func (s *Server) GetWorkspace(ctx context.Context, request adminhttp.GetWorkspaceRequestObject) (adminhttp.GetWorkspaceResponseObject, error) {
 	store, err := s.store()
 	if err != nil {
-		return adminservice.GetWorkspace500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.GetWorkspace500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	name, err := url.PathUnescape(string(request.Name))
 	if err != nil {
@@ -149,11 +149,11 @@ func (s *Server) GetWorkspace(ctx context.Context, request adminservice.GetWorks
 	workspace, err := getWorkspace(ctx, store, name)
 	if err != nil {
 		if errors.Is(err, kv.ErrNotFound) {
-			return adminservice.GetWorkspace404JSONResponse(apitypes.NewErrorResponse("WORKSPACE_NOT_FOUND", fmt.Sprintf("workspace %q not found", name))), nil
+			return adminhttp.GetWorkspace404JSONResponse(apitypes.NewErrorResponse("WORKSPACE_NOT_FOUND", fmt.Sprintf("workspace %q not found", name))), nil
 		}
-		return adminservice.GetWorkspace500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.GetWorkspace500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	return adminservice.GetWorkspace200JSONResponse(workspace), nil
+	return adminhttp.GetWorkspace200JSONResponse(workspace), nil
 }
 
 func (s *Server) GetWorkspaceRuntime(ctx context.Context, name string) (Runtime, error) {
@@ -163,13 +163,13 @@ func (s *Server) GetWorkspaceRuntime(ctx context.Context, name string) (Runtime,
 	return s.RuntimeStore.GetWorkspaceRuntime(ctx, name)
 }
 
-func (s *Server) PutWorkspace(ctx context.Context, request adminservice.PutWorkspaceRequestObject) (adminservice.PutWorkspaceResponseObject, error) {
+func (s *Server) PutWorkspace(ctx context.Context, request adminhttp.PutWorkspaceRequestObject) (adminhttp.PutWorkspaceResponseObject, error) {
 	store, err := s.store()
 	if err != nil {
-		return adminservice.PutWorkspace500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.PutWorkspace500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	if request.Body == nil {
-		return adminservice.PutWorkspace400JSONResponse(apitypes.NewErrorResponse("INVALID_WORKSPACE", "request body required")), nil
+		return adminhttp.PutWorkspace400JSONResponse(apitypes.NewErrorResponse("INVALID_WORKSPACE", "request body required")), nil
 	}
 	name, err := url.PathUnescape(string(request.Name))
 	if err != nil {
@@ -177,18 +177,18 @@ func (s *Server) PutWorkspace(ctx context.Context, request adminservice.PutWorks
 	}
 	normalized, err := normalizeWorkspaceUpsert(*request.Body, name)
 	if err != nil {
-		return adminservice.PutWorkspace400JSONResponse(apitypes.NewErrorResponse("INVALID_WORKSPACE", err.Error())), nil
+		return adminhttp.PutWorkspace400JSONResponse(apitypes.NewErrorResponse("INVALID_WORKSPACE", err.Error())), nil
 	}
 	workflowStore, err := s.workflowStore()
 	if err != nil {
-		return adminservice.PutWorkspace500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.PutWorkspace500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	if err := validateReferences(ctx, workflowStore, normalized); err != nil {
-		return adminservice.PutWorkspace400JSONResponse(apitypes.NewErrorResponse("INVALID_WORKSPACE", err.Error())), nil
+		return adminhttp.PutWorkspace400JSONResponse(apitypes.NewErrorResponse("INVALID_WORKSPACE", err.Error())), nil
 	}
 	previous, err := getWorkspace(ctx, store, name)
 	if err != nil && !errors.Is(err, kv.ErrNotFound) {
-		return adminservice.PutWorkspace500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.PutWorkspace500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	now := time.Now().UTC()
 	workspace := apitypes.Workspace{
@@ -205,13 +205,13 @@ func (s *Server) PutWorkspace(ctx context.Context, request adminservice.PutWorks
 	}
 	if s.RuntimeStore != nil {
 		if _, err := s.RuntimeStore.PrepareWorkspace(ctx, workspace.Name); err != nil {
-			return adminservice.PutWorkspace500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+			return adminhttp.PutWorkspace500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 		}
 	}
 	if err := writeWorkspace(ctx, store, workspace); err != nil {
-		return adminservice.PutWorkspace500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		return adminhttp.PutWorkspace500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	return adminservice.PutWorkspace200JSONResponse(workspace), nil
+	return adminhttp.PutWorkspace200JSONResponse(workspace), nil
 }
 
 func writeWorkspace(ctx context.Context, store kv.Store, workspace apitypes.Workspace) error {
@@ -264,31 +264,31 @@ func normalizeWorkspaceTimestamps(workspace apitypes.Workspace) apitypes.Workspa
 	return workspace
 }
 
-func normalizeWorkspaceUpsert(in adminservice.WorkspaceUpsert, expectedName string) (adminservice.WorkspaceUpsert, error) {
+func normalizeWorkspaceUpsert(in adminhttp.WorkspaceUpsert, expectedName string) (adminhttp.WorkspaceUpsert, error) {
 	name := string(in.Name)
 	if err := customid.ValidateField("name", name); err != nil {
-		return adminservice.WorkspaceUpsert{}, err
+		return adminhttp.WorkspaceUpsert{}, err
 	}
 	if expectedName != "" {
 		if err := customid.ValidateField("path name", expectedName); err != nil {
-			return adminservice.WorkspaceUpsert{}, err
+			return adminhttp.WorkspaceUpsert{}, err
 		}
 		if name != expectedName {
-			return adminservice.WorkspaceUpsert{}, fmt.Errorf("name %q must match path name %q", name, expectedName)
+			return adminhttp.WorkspaceUpsert{}, fmt.Errorf("name %q must match path name %q", name, expectedName)
 		}
 	}
 	workflowName := string(in.WorkflowName)
 	if err := customid.ValidateField("workflow_name", workflowName); err != nil {
-		return adminservice.WorkspaceUpsert{}, err
+		return adminhttp.WorkspaceUpsert{}, err
 	}
-	return adminservice.WorkspaceUpsert{
+	return adminhttp.WorkspaceUpsert{
 		Name:         string(name),
 		Parameters:   cloneParameters(in.Parameters),
 		WorkflowName: string(workflowName),
 	}, nil
 }
 
-func validateReferences(ctx context.Context, store kv.Store, workspace adminservice.WorkspaceUpsert) error {
+func validateReferences(ctx context.Context, store kv.Store, workspace adminhttp.WorkspaceUpsert) error {
 	if _, err := store.Get(ctx, workflowReferenceKey(string(workspace.WorkflowName))); err != nil {
 		if errors.Is(err, kv.ErrNotFound) {
 			return fmt.Errorf("workflow %q not found", workspace.WorkflowName)

@@ -4,7 +4,7 @@ Browser-side WebRTC helpers for GizClaw peer sessions.
 
 ## What This Package Provides
 
-- WebRTC signaling helpers for the server public `/webrtc/v1/offer`
+- WebRTC signaling helpers for the peer HTTP `/webrtc/v1/offer`
   endpoint.
 - GizClaw RPC calls over the `giznet/v1/service/0` data channel using the
   same framed `rpcapi` envelope as the Go client.
@@ -15,8 +15,8 @@ Browser-side WebRTC helpers for GizClaw peer sessions.
 ## Signaling Surfaces
 
 Use `connectGiznetWebRTC` for browser or desktop frontend sessions that connect
-to a GizClaw server endpoint. It targets the server public endpoint described
-by `api/server_public.json`:
+to a GizClaw server endpoint. It targets the peer HTTP endpoint described
+by `api/peer_http.json`:
 
 ```text
 POST /webrtc/v1/offer

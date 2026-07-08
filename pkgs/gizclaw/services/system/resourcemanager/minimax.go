@@ -3,7 +3,7 @@ package resourcemanager
 import (
 	"context"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminservice"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 )
 
@@ -110,33 +110,33 @@ func (m *Manager) applyVolcTenant(ctx context.Context, resource apitypes.Resourc
 }
 
 func (m *Manager) getMiniMaxTenant(ctx context.Context, name string) (apitypes.MiniMaxTenant, bool, error) {
-	response, err := m.services.ProviderTenants.GetMiniMaxTenant(ctx, adminservice.GetMiniMaxTenantRequestObject{Name: name})
+	response, err := m.services.ProviderTenants.GetMiniMaxTenant(ctx, adminhttp.GetMiniMaxTenantRequestObject{Name: name})
 	if err != nil {
 		return apitypes.MiniMaxTenant{}, false, err
 	}
 	switch response := response.(type) {
-	case adminservice.GetMiniMaxTenant200JSONResponse:
+	case adminhttp.GetMiniMaxTenant200JSONResponse:
 		return apitypes.MiniMaxTenant(response), true, nil
-	case adminservice.GetMiniMaxTenant404JSONResponse:
+	case adminhttp.GetMiniMaxTenant404JSONResponse:
 		return apitypes.MiniMaxTenant{}, false, nil
-	case adminservice.GetMiniMaxTenant500JSONResponse:
+	case adminhttp.GetMiniMaxTenant500JSONResponse:
 		return apitypes.MiniMaxTenant{}, false, responseError(500, "GET_MINIMAX_TENANT_FAILED", "failed to get minimax tenant", response)
 	default:
 		return apitypes.MiniMaxTenant{}, false, unexpectedResponse("GetMiniMaxTenant", response)
 	}
 }
 
-func (m *Manager) putMiniMaxTenant(ctx context.Context, name string, body adminservice.MiniMaxTenantUpsert) error {
-	response, err := m.services.ProviderTenants.PutMiniMaxTenant(ctx, adminservice.PutMiniMaxTenantRequestObject{Name: name, Body: &body})
+func (m *Manager) putMiniMaxTenant(ctx context.Context, name string, body adminhttp.MiniMaxTenantUpsert) error {
+	response, err := m.services.ProviderTenants.PutMiniMaxTenant(ctx, adminhttp.PutMiniMaxTenantRequestObject{Name: name, Body: &body})
 	if err != nil {
 		return err
 	}
 	switch response := response.(type) {
-	case adminservice.PutMiniMaxTenant200JSONResponse:
+	case adminhttp.PutMiniMaxTenant200JSONResponse:
 		return nil
-	case adminservice.PutMiniMaxTenant400JSONResponse:
+	case adminhttp.PutMiniMaxTenant400JSONResponse:
 		return responseError(400, "PUT_MINIMAX_TENANT_FAILED", "failed to put minimax tenant", response)
-	case adminservice.PutMiniMaxTenant500JSONResponse:
+	case adminhttp.PutMiniMaxTenant500JSONResponse:
 		return responseError(500, "PUT_MINIMAX_TENANT_FAILED", "failed to put minimax tenant", response)
 	default:
 		return unexpectedResponse("PutMiniMaxTenant", response)
@@ -144,16 +144,16 @@ func (m *Manager) putMiniMaxTenant(ctx context.Context, name string, body admins
 }
 
 func (m *Manager) deleteMiniMaxTenant(ctx context.Context, name string) (apitypes.MiniMaxTenant, bool, error) {
-	response, err := m.services.ProviderTenants.DeleteMiniMaxTenant(ctx, adminservice.DeleteMiniMaxTenantRequestObject{Name: name})
+	response, err := m.services.ProviderTenants.DeleteMiniMaxTenant(ctx, adminhttp.DeleteMiniMaxTenantRequestObject{Name: name})
 	if err != nil {
 		return apitypes.MiniMaxTenant{}, false, err
 	}
 	switch response := response.(type) {
-	case adminservice.DeleteMiniMaxTenant200JSONResponse:
+	case adminhttp.DeleteMiniMaxTenant200JSONResponse:
 		return apitypes.MiniMaxTenant(response), true, nil
-	case adminservice.DeleteMiniMaxTenant404JSONResponse:
+	case adminhttp.DeleteMiniMaxTenant404JSONResponse:
 		return apitypes.MiniMaxTenant{}, false, nil
-	case adminservice.DeleteMiniMaxTenant500JSONResponse:
+	case adminhttp.DeleteMiniMaxTenant500JSONResponse:
 		return apitypes.MiniMaxTenant{}, false, responseError(500, "DELETE_MINIMAX_TENANT_FAILED", "failed to delete minimax tenant", response)
 	default:
 		return apitypes.MiniMaxTenant{}, false, unexpectedResponse("DeleteMiniMaxTenant", response)
@@ -161,33 +161,33 @@ func (m *Manager) deleteMiniMaxTenant(ctx context.Context, name string) (apitype
 }
 
 func (m *Manager) getVolcTenant(ctx context.Context, name string) (apitypes.VolcTenant, bool, error) {
-	response, err := m.services.ProviderTenants.GetVolcTenant(ctx, adminservice.GetVolcTenantRequestObject{Name: name})
+	response, err := m.services.ProviderTenants.GetVolcTenant(ctx, adminhttp.GetVolcTenantRequestObject{Name: name})
 	if err != nil {
 		return apitypes.VolcTenant{}, false, err
 	}
 	switch response := response.(type) {
-	case adminservice.GetVolcTenant200JSONResponse:
+	case adminhttp.GetVolcTenant200JSONResponse:
 		return apitypes.VolcTenant(response), true, nil
-	case adminservice.GetVolcTenant404JSONResponse:
+	case adminhttp.GetVolcTenant404JSONResponse:
 		return apitypes.VolcTenant{}, false, nil
-	case adminservice.GetVolcTenant500JSONResponse:
+	case adminhttp.GetVolcTenant500JSONResponse:
 		return apitypes.VolcTenant{}, false, responseError(500, "GET_VOLC_TENANT_FAILED", "failed to get volc tenant", response)
 	default:
 		return apitypes.VolcTenant{}, false, unexpectedResponse("GetVolcTenant", response)
 	}
 }
 
-func (m *Manager) putVolcTenant(ctx context.Context, name string, body adminservice.VolcTenantUpsert) error {
-	response, err := m.services.ProviderTenants.PutVolcTenant(ctx, adminservice.PutVolcTenantRequestObject{Name: name, Body: &body})
+func (m *Manager) putVolcTenant(ctx context.Context, name string, body adminhttp.VolcTenantUpsert) error {
+	response, err := m.services.ProviderTenants.PutVolcTenant(ctx, adminhttp.PutVolcTenantRequestObject{Name: name, Body: &body})
 	if err != nil {
 		return err
 	}
 	switch response := response.(type) {
-	case adminservice.PutVolcTenant200JSONResponse:
+	case adminhttp.PutVolcTenant200JSONResponse:
 		return nil
-	case adminservice.PutVolcTenant400JSONResponse:
+	case adminhttp.PutVolcTenant400JSONResponse:
 		return responseError(400, "PUT_VOLC_TENANT_FAILED", "failed to put volc tenant", response)
-	case adminservice.PutVolcTenant500JSONResponse:
+	case adminhttp.PutVolcTenant500JSONResponse:
 		return responseError(500, "PUT_VOLC_TENANT_FAILED", "failed to put volc tenant", response)
 	default:
 		return unexpectedResponse("PutVolcTenant", response)
@@ -195,16 +195,16 @@ func (m *Manager) putVolcTenant(ctx context.Context, name string, body adminserv
 }
 
 func (m *Manager) deleteVolcTenant(ctx context.Context, name string) (apitypes.VolcTenant, bool, error) {
-	response, err := m.services.ProviderTenants.DeleteVolcTenant(ctx, adminservice.DeleteVolcTenantRequestObject{Name: name})
+	response, err := m.services.ProviderTenants.DeleteVolcTenant(ctx, adminhttp.DeleteVolcTenantRequestObject{Name: name})
 	if err != nil {
 		return apitypes.VolcTenant{}, false, err
 	}
 	switch response := response.(type) {
-	case adminservice.DeleteVolcTenant200JSONResponse:
+	case adminhttp.DeleteVolcTenant200JSONResponse:
 		return apitypes.VolcTenant(response), true, nil
-	case adminservice.DeleteVolcTenant404JSONResponse:
+	case adminhttp.DeleteVolcTenant404JSONResponse:
 		return apitypes.VolcTenant{}, false, nil
-	case adminservice.DeleteVolcTenant500JSONResponse:
+	case adminhttp.DeleteVolcTenant500JSONResponse:
 		return apitypes.VolcTenant{}, false, responseError(500, "DELETE_VOLC_TENANT_FAILED", "failed to delete volc tenant", response)
 	default:
 		return apitypes.VolcTenant{}, false, unexpectedResponse("DeleteVolcTenant", response)
@@ -212,35 +212,35 @@ func (m *Manager) deleteVolcTenant(ctx context.Context, name string) (apitypes.V
 }
 
 func (m *Manager) getVoice(ctx context.Context, id string) (apitypes.Voice, bool, error) {
-	response, err := m.services.Voices.GetVoice(ctx, adminservice.GetVoiceRequestObject{Id: id})
+	response, err := m.services.Voices.GetVoice(ctx, adminhttp.GetVoiceRequestObject{Id: id})
 	if err != nil {
 		return apitypes.Voice{}, false, err
 	}
 	switch response := response.(type) {
-	case adminservice.GetVoice200JSONResponse:
+	case adminhttp.GetVoice200JSONResponse:
 		return apitypes.Voice(response), true, nil
-	case adminservice.GetVoice404JSONResponse:
+	case adminhttp.GetVoice404JSONResponse:
 		return apitypes.Voice{}, false, nil
-	case adminservice.GetVoice500JSONResponse:
+	case adminhttp.GetVoice500JSONResponse:
 		return apitypes.Voice{}, false, responseError(500, "GET_VOICE_FAILED", "failed to get voice", response)
 	default:
 		return apitypes.Voice{}, false, unexpectedResponse("GetVoice", response)
 	}
 }
 
-func (m *Manager) putVoice(ctx context.Context, id string, body adminservice.VoiceUpsert) error {
-	response, err := m.services.Voices.PutVoice(ctx, adminservice.PutVoiceRequestObject{Id: id, Body: &body})
+func (m *Manager) putVoice(ctx context.Context, id string, body adminhttp.VoiceUpsert) error {
+	response, err := m.services.Voices.PutVoice(ctx, adminhttp.PutVoiceRequestObject{Id: id, Body: &body})
 	if err != nil {
 		return err
 	}
 	switch response := response.(type) {
-	case adminservice.PutVoice200JSONResponse:
+	case adminhttp.PutVoice200JSONResponse:
 		return nil
-	case adminservice.PutVoice400JSONResponse:
+	case adminhttp.PutVoice400JSONResponse:
 		return responseError(400, "PUT_VOICE_FAILED", "failed to put voice", response)
-	case adminservice.PutVoice409JSONResponse:
+	case adminhttp.PutVoice409JSONResponse:
 		return responseError(409, "PUT_VOICE_FAILED", "failed to put voice", response)
-	case adminservice.PutVoice500JSONResponse:
+	case adminhttp.PutVoice500JSONResponse:
 		return responseError(500, "PUT_VOICE_FAILED", "failed to put voice", response)
 	default:
 		return unexpectedResponse("PutVoice", response)
@@ -248,16 +248,16 @@ func (m *Manager) putVoice(ctx context.Context, id string, body adminservice.Voi
 }
 
 func (m *Manager) deleteVoice(ctx context.Context, id string) (apitypes.Voice, bool, error) {
-	response, err := m.services.Voices.DeleteVoice(ctx, adminservice.DeleteVoiceRequestObject{Id: id})
+	response, err := m.services.Voices.DeleteVoice(ctx, adminhttp.DeleteVoiceRequestObject{Id: id})
 	if err != nil {
 		return apitypes.Voice{}, false, err
 	}
 	switch response := response.(type) {
-	case adminservice.DeleteVoice200JSONResponse:
+	case adminhttp.DeleteVoice200JSONResponse:
 		return apitypes.Voice(response), true, nil
-	case adminservice.DeleteVoice404JSONResponse:
+	case adminhttp.DeleteVoice404JSONResponse:
 		return apitypes.Voice{}, false, nil
-	case adminservice.DeleteVoice500JSONResponse:
+	case adminhttp.DeleteVoice500JSONResponse:
 		return apitypes.Voice{}, false, responseError(500, "DELETE_VOICE_FAILED", "failed to delete voice", response)
 	default:
 		return apitypes.Voice{}, false, unexpectedResponse("DeleteVoice", response)
@@ -274,8 +274,8 @@ func miniMaxTenantSpec(tenant apitypes.MiniMaxTenant) apitypes.MiniMaxTenantSpec
 	}
 }
 
-func miniMaxTenantUpsert(resource apitypes.MiniMaxTenantResource) adminservice.MiniMaxTenantUpsert {
-	return adminservice.MiniMaxTenantUpsert{
+func miniMaxTenantUpsert(resource apitypes.MiniMaxTenantResource) adminhttp.MiniMaxTenantUpsert {
+	return adminhttp.MiniMaxTenantUpsert{
 		AppId:          resource.Spec.AppId,
 		BaseUrl:        resource.Spec.BaseUrl,
 		CredentialName: resource.Spec.CredentialName,
@@ -295,8 +295,8 @@ func volcTenantSpec(tenant apitypes.VolcTenant) apitypes.VolcTenantSpec {
 	}
 }
 
-func volcTenantUpsert(resource apitypes.VolcTenantResource) adminservice.VolcTenantUpsert {
-	return adminservice.VolcTenantUpsert{
+func volcTenantUpsert(resource apitypes.VolcTenantResource) adminhttp.VolcTenantUpsert {
+	return adminhttp.VolcTenantUpsert{
 		CredentialName: resource.Spec.CredentialName,
 		Description:    resource.Spec.Description,
 		Endpoint:       resource.Spec.Endpoint,
@@ -316,8 +316,8 @@ func voiceSpec(voice apitypes.Voice) apitypes.VoiceSpec {
 	}
 }
 
-func voiceUpsert(resource apitypes.VoiceResource) adminservice.VoiceUpsert {
-	return adminservice.VoiceUpsert{
+func voiceUpsert(resource apitypes.VoiceResource) adminhttp.VoiceUpsert {
+	return adminhttp.VoiceUpsert{
 		Description:  resource.Spec.Description,
 		Id:           string(resource.Metadata.Name),
 		Name:         resource.Spec.Name,
