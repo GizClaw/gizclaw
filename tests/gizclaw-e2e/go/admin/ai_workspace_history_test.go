@@ -12,7 +12,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminservice"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/gizcli"
+	"github.com/GizClaw/gizclaw-go/sdk/go/gizcli"
 )
 
 func TestAdminAPIWorkspaceHistoryListAndGetFromSocialConversation(t *testing.T) {

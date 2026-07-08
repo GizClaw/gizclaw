@@ -7,7 +7,7 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/serverpublic"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/gizcli"
+	"github.com/GizClaw/gizclaw-go/sdk/go/gizcli"
 )
 
 type serverPublicAPI interface {

@@ -1,6 +1,6 @@
 #include "sdk_client.h"
 
-#include "../../../../c/gizclaw/cgobackend/gzc_cgo_backend.h"
+#include "../../../../sdk/c/gizclaw/cgobackend/gzc_cgo_backend.h"
 #include "gzc.h"
 #include "gzc_rpc_generated.h"
 

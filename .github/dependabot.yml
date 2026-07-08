@@ -56,7 +56,7 @@ updates:
       interval: weekly
 
   - package-ecosystem: npm
-    directory: /js/packages/gizclaw
+    directory: /sdk/js/gizclaw
     schedule:
       interval: weekly
 

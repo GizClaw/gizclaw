@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/gizcli"
+	"github.com/GizClaw/gizclaw-go/sdk/go/gizcli"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminservice"
 )

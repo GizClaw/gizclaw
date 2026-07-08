@@ -3,7 +3,7 @@
 package rpcgen
 
 /*
-#cgo CFLAGS: -std=c99 -Wall -Wextra -I${SRCDIR}/../../../c/gizclaw/include -I${SRCDIR}/../../../c/gizclaw/src -I${SRCDIR}/testdata/golden/want
+#cgo CFLAGS: -std=c99 -Wall -Wextra -I${SRCDIR}/../../../sdk/c/gizclaw/include -I${SRCDIR}/../../../sdk/c/gizclaw/src -I${SRCDIR}/testdata/golden/want
 
 #include <string.h>
 

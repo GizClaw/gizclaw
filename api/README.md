@@ -26,11 +26,11 @@ Generated Go code lives outside this directory:
 - `pkgs/gizclaw/api/rpcapi/generated.go`
 - `pkgs/gizclaw/api/serverpublic/generated.go`
 
-Current generated TypeScript SDK code lives under `js/packages/gizclaw/`:
+Current generated TypeScript SDK code lives under `sdk/js/gizclaw/`:
 
-- `js/packages/gizclaw/generated/adminservice`
-- `js/packages/gizclaw/generated/rpc`
-- `js/packages/gizclaw/generated/serverpublic`
+- `sdk/js/gizclaw/generated/adminservice`
+- `sdk/js/gizclaw/generated/rpc`
+- `sdk/js/gizclaw/generated/serverpublic`
 
 The old browser `client_service` API and CLI-served UI TypeScript clients were
 removed as part of the desktop clean break. Desktop UI code should consume the
@@ -53,7 +53,7 @@ go generate ./pkgs/gizclaw/api/serverpublic
 Regenerate TypeScript SDK packages with:
 
 ```sh
-npm --prefix js run gen:sdk
+npm --prefix sdk/js run gen:sdk
 ```
 
 When in doubt, regenerate all API packages:

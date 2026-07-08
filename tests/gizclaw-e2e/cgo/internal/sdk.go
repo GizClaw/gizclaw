@@ -3,7 +3,7 @@
 package internal
 
 /*
-#cgo CFLAGS: -I. -I../../../../c/gizclaw/include -I../../../../c/gizclaw/generated
+#cgo CFLAGS: -I. -I../../../../sdk/c/gizclaw/include -I../../../../sdk/c/gizclaw/generated
 #include "gzc_common.h"
 #include "gzc_rpc_frame.h"
 #include "sdk_client.h"
@@ -24,9 +24,9 @@ import (
 	"time"
 	"unsafe"
 
-	_ "github.com/GizClaw/gizclaw-go/c/gizclaw/cgobackend"
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codec/ogg"
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/stampedopus"
+	_ "github.com/GizClaw/gizclaw-go/sdk/c/gizclaw/cgobackend"
 )
 
 type Client struct {

@@ -5,8 +5,8 @@ WORKDIR /src
 
 COPY package.json package-lock.json ./
 COPY apps/wails/frontend/package.json apps/wails/frontend/package.json
-COPY js/package.json js/package.json
-COPY js/packages/gizclaw/package.json js/packages/gizclaw/package.json
+COPY sdk/js/package.json sdk/js/package.json
+COPY sdk/js/gizclaw/package.json sdk/js/gizclaw/package.json
 COPY js/packages/pixa/package.json js/packages/pixa/package.json
 
 RUN npm ci

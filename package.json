@@ -3,7 +3,8 @@
   "private": true,
   "workspaces": [
     "apps/wails/frontend",
-    "js",
-    "js/packages/*"
+    "js/packages/*",
+    "sdk/js",
+    "sdk/js/gizclaw"
   ]
 }

@@ -15,7 +15,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/cmd/internal/adminapi"
 	"github.com/GizClaw/gizclaw-go/cmd/internal/connection"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminservice"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/gizcli"
+	"github.com/GizClaw/gizclaw-go/sdk/go/gizcli"
 	"github.com/spf13/cobra"
 )
 

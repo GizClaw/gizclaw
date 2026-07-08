@@ -68,9 +68,9 @@ Admin transport mapping:
 - Old same-origin Admin HTTP calls are replaced by
   `@gizclaw/gizclaw/admin`.
 - Generated Admin API code lives in
-  `js/packages/gizclaw/generated/adminservice`.
+  `sdk/js/gizclaw/generated/adminservice`.
 - WebRTC Admin API fetch transport is implemented in
-  `js/packages/gizclaw/index.ts`.
+  `sdk/js/gizclaw/index.ts`.
 
 ## Play UI
 
@@ -91,7 +91,7 @@ Play transport mapping:
 - Old client-service usage is not used.
 - Peer RPC calls use `@gizclaw/gizclaw/rpc`.
 - Generated peer RPC method/request/response typing lives in
-  `js/packages/gizclaw/generated/rpc`.
+  `sdk/js/gizclaw/generated/rpc`.
 - The generated RPC method map is produced from
   `api/rpc.json` `x-gizclaw-rpc-methods`.
 
@@ -111,7 +111,7 @@ current:
   returns to Welcome without deleting stored contexts or identities.
 - `@gizclaw/gizclaw` is the only GizClaw JavaScript SDK package used by the
   desktop frontend. Generated Admin, server-public, and peer RPC code lives
-  under `js/packages/gizclaw/generated`.
+  under `sdk/js/gizclaw/generated`.
 - Admin uses generated Admin API clients through the WebRTC fetch transport in
   `@gizclaw/gizclaw/admin`.
 - Play uses generated typed peer RPC through `@gizclaw/gizclaw/rpc`; it does not

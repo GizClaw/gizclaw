@@ -12,7 +12,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/cmd/internal/deviceapi"
 	"github.com/GizClaw/gizclaw-go/cmd/internal/publicapi"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/gizcli"
+	"github.com/GizClaw/gizclaw-go/sdk/go/gizcli"
 	"github.com/spf13/cobra"
 )
 

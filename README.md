@@ -111,7 +111,7 @@ Regenerate API code after changing files under `api/`:
 
 ```sh
 go generate ./pkgs/gizclaw/api/...
-npm --prefix js run gen:sdk
+npm --prefix sdk/js run gen:sdk
 ```
 
 Docker-backed GizClaw e2e requires provider credentials in
