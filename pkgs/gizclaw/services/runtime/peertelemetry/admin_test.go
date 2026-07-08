@@ -128,8 +128,47 @@ func TestAdminQueryRangeDerivesStepAndOrdersDesc(t *testing.T) {
 	if store.rangeQuery.Step != 2*time.Minute {
 		t.Fatalf("step = %s, want 2m", store.rangeQuery.Step)
 	}
+	wantExpr := `last_over_time(gizclaw_peer_gnss_latitude{peer_id="` + peer.String() + `"}[2m])`
+	if store.rangeQuery.Expression != wantExpr {
+		t.Fatalf("range expression = %q, want %q", store.rangeQuery.Expression, wantExpr)
+	}
+	if store.rangeQuery.Start != start.Add(2*time.Minute) {
+		t.Fatalf("range start = %s, want %s", store.rangeQuery.Start, start.Add(2*time.Minute))
+	}
 	if len(response.Points) != 3 || response.Points[0].Value != 3 || response.Points[2].Value != 1 {
 		t.Fatalf("points = %#v", response.Points)
+	}
+}
+
+func TestAdminQueryRangeUsesWindowedLastSample(t *testing.T) {
+	t.Parallel()
+
+	peer := adminTestPeer()
+	start := time.Unix(1783400000, 0).UTC()
+	end := start.Add(30 * time.Minute)
+	store := metrics.NewMemoryStore()
+	samples := []metrics.Sample{
+		{Name: MetricBatteryPercent, Labels: map[string]string{"peer_id": peer.String()}, Timestamp: start.Add(-time.Minute), Value: 99},
+		{Name: MetricBatteryPercent, Labels: map[string]string{"peer_id": peer.String()}, Timestamp: start.Add(6 * time.Minute), Value: 71},
+		{Name: MetricBatteryPercent, Labels: map[string]string{"peer_id": peer.String()}, Timestamp: start.Add(16 * time.Minute), Value: 72},
+		{Name: MetricBatteryPercent, Labels: map[string]string{"peer_id": peer.String()}, Timestamp: start.Add(26 * time.Minute), Value: 73},
+	}
+	if err := store.Append(context.Background(), samples); err != nil {
+		t.Fatalf("Append() error = %v", err)
+	}
+	service := &AdminService{Metrics: store}
+
+	response, err := service.QueryRange(context.Background(), peer, apitypes.PeerTelemetryFieldBatteryPercent, start, end, 10*time.Minute, 10, apitypes.PeerTelemetryOrderAsc)
+	if err != nil {
+		t.Fatalf("QueryRange() error = %v", err)
+	}
+	if len(response.Points) != 3 {
+		t.Fatalf("points = %#v, want 3 sparse samples", response.Points)
+	}
+	for i, want := range []float64{71, 72, 73} {
+		if response.Points[i].Value != want {
+			t.Fatalf("point[%d] = %#v, want value %v", i, response.Points[i], want)
+		}
 	}
 }
 

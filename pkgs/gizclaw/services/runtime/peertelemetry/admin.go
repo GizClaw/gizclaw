@@ -107,11 +107,19 @@ func (s *AdminService) QueryRange(ctx context.Context, peer giznet.PublicKey, fi
 	if !order.Valid() {
 		return apitypes.PeerTelemetryRangeResponse{}, fmt.Errorf("%w: invalid order %q", ErrInvalidQuery, order)
 	}
-	expr, err := selectorExpression(peer, field)
+	window := step
+	if window > end.Sub(start) {
+		window = end.Sub(start)
+	}
+	expr, err := rangeSampleExpression(peer, field, window)
 	if err != nil {
 		return apitypes.PeerTelemetryRangeResponse{}, err
 	}
-	series, err := s.Metrics.QueryRange(ctx, metrics.RangeQuery{Expression: expr, Start: start, End: end, Step: step})
+	evalStart := start.Add(window)
+	if evalStart.After(end) {
+		evalStart = end
+	}
+	series, err := s.Metrics.QueryRange(ctx, metrics.RangeQuery{Expression: expr, Start: evalStart, End: end, Step: step})
 	if err != nil {
 		return apitypes.PeerTelemetryRangeResponse{}, fmt.Errorf("peertelemetry: query range %s: %w", field, err)
 	}
@@ -263,6 +271,10 @@ func latestExpression(peer giznet.PublicKey, field apitypes.PeerTelemetryField, 
 		return "", err
 	}
 	return fmt.Sprintf("last_over_time(%s[%s])", selector, promDuration), nil
+}
+
+func rangeSampleExpression(peer giznet.PublicKey, field apitypes.PeerTelemetryField, window time.Duration) (string, error) {
+	return latestExpression(peer, field, window)
 }
 
 func aggregateExpression(peer giznet.PublicKey, field apitypes.PeerTelemetryField, aggregate apitypes.PeerTelemetryAggregate, bucket time.Duration) (string, error) {
