@@ -47,6 +47,28 @@
   test-file splitting rules when fuzz, integration, e2e, or generated-code
   coverage is the better fit.
 
+## Review Requirements
+
+- These guides are for remote Codex reviewers. Reviewers should not apply fixes;
+  they should produce one complete, actionable review.
+- Treat each review as a blocking-finding pass over the requested scope. Report
+  concrete defects, regression risks, missing validation, or missing coverage;
+  do not substitute optional style polish for requirement or behavior checks.
+- Start by grouping the diff by changed folder or ownership area, then review
+  each module with the matching guide before checking cross-module contracts.
+- Before submitting review feedback, audit the findings against the full diff:
+  confirm every changed folder, generated surface, validation claim, and
+  language boundary has been checked, merge duplicates, and ensure each issue
+  has severity, file/line evidence, and an actionable fix direction.
+- For Go changes, follow `docs/review-guide/go.md`.
+- For JavaScript and TypeScript changes, follow `docs/review-guide/js.md`.
+- For C SDK and C-facing binding changes, follow `docs/review-guide/c.md`.
+- For documentation, README, issue text, and workflow-only changes, follow
+  `docs/review-guide/doc.md`.
+- If a change crosses Go, JavaScript, C, schema, or generated-code boundaries,
+  verify the source schema, generated outputs, language-specific call sites, and
+  tests together rather than reviewing each surface in isolation.
+
 ## Security And Dependencies
 
 - Do not commit secrets, local credentials, build artifacts, logs, or temporary
