@@ -47,7 +47,7 @@ func (s *AdminService) Latest(ctx context.Context, peer giznet.PublicKey, fields
 	}
 	values := make([]apitypes.PeerTelemetryValue, 0, len(fields))
 	for _, field := range fields {
-		expr, err := selectorExpression(peer, field)
+		expr, err := rawRangeExpression(peer, field, defaultLatestLookback)
 		if err != nil {
 			return apitypes.PeerTelemetryLatestResponse{}, err
 		}
@@ -56,17 +56,6 @@ func (s *AdminService) Latest(ctx context.Context, peer giznet.PublicKey, fields
 			return apitypes.PeerTelemetryLatestResponse{}, fmt.Errorf("peertelemetry: query latest %s: %w", field, err)
 		}
 		point, ok := latestPointFromSeries(series)
-		if !ok {
-			fallbackExpr, err := latestExpression(peer, field, defaultLatestLookback)
-			if err != nil {
-				return apitypes.PeerTelemetryLatestResponse{}, err
-			}
-			series, err = s.Metrics.Query(ctx, metrics.Query{Expression: fallbackExpr, Time: now().UTC()})
-			if err != nil {
-				return apitypes.PeerTelemetryLatestResponse{}, fmt.Errorf("peertelemetry: query latest fallback %s: %w", field, err)
-			}
-			point, ok = latestPointFromSeries(series)
-		}
 		if !ok {
 			continue
 		}
@@ -273,6 +262,18 @@ func latestExpression(peer giznet.PublicKey, field apitypes.PeerTelemetryField, 
 	return fmt.Sprintf("last_over_time(%s[%s])", selector, promDuration), nil
 }
 
+func rawRangeExpression(peer giznet.PublicKey, field apitypes.PeerTelemetryField, lookback time.Duration) (string, error) {
+	selector, err := selectorExpression(peer, field)
+	if err != nil {
+		return "", err
+	}
+	promDuration, err := promQLDuration(lookback)
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%s[%s]", selector, promDuration), nil
+}
+
 func rangeSampleExpression(peer giznet.PublicKey, field apitypes.PeerTelemetryField, window time.Duration) (string, error) {
 	return latestExpression(peer, field, window)
 }
@@ -337,11 +338,11 @@ func normalizeStep(start, end time.Time, step time.Duration, limit int) (time.Du
 		return 0, fmt.Errorf("%w: step_ms must be > 0", ErrInvalidQuery)
 	}
 	if step == 0 {
-		points := limit
-		if points < 2 {
-			points = 2
+		if limit == 1 {
+			step = end.Sub(start)
+		} else {
+			step = time.Duration(math.Ceil(float64(end.Sub(start)) / float64(limit-1)))
 		}
-		step = time.Duration(math.Ceil(float64(end.Sub(start)) / float64(points-1)))
 		if step < minAdminStep {
 			step = minAdminStep
 		}
@@ -349,10 +350,18 @@ func normalizeStep(start, end time.Time, step time.Duration, limit int) (time.Du
 	if step <= 0 {
 		return 0, fmt.Errorf("%w: step_ms must be > 0", ErrInvalidQuery)
 	}
-	if countRangePoints(start, end, step) > limit {
+	if countSampleRangePoints(start, end, step) > limit {
 		return 0, fmt.Errorf("%w: requested range and step exceed limit", ErrInvalidQuery)
 	}
 	return step, nil
+}
+
+func countSampleRangePoints(start, end time.Time, step time.Duration) int {
+	window := step
+	if window > end.Sub(start) {
+		window = end.Sub(start)
+	}
+	return countRangePoints(start.Add(window), end, step)
 }
 
 func countRangePoints(start, end time.Time, step time.Duration) int {

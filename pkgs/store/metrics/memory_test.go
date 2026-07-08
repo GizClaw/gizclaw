@@ -219,6 +219,20 @@ func TestMemoryStoreOverTimeFunctions(t *testing.T) {
 		t.Fatalf("last_over_time timestamp = %s, want actual sample timestamp", got[0].Points[0].Timestamp)
 	}
 
+	got, err = store.Query(context.Background(), Query{
+		Expression: `metric_a{peer_id="p1"}[30m]`,
+		Time:       base.Add(20 * time.Minute),
+	})
+	if err != nil {
+		t.Fatalf("Query raw range selector: %v", err)
+	}
+	if len(got) != 1 || len(got[0].Points) != 2 {
+		t.Fatalf("raw range selector = %+v, want p1 raw samples", got)
+	}
+	if !got[0].Points[0].Timestamp.Equal(base) || got[0].Points[0].Value != 1 || !got[0].Points[1].Timestamp.Equal(base.Add(2*time.Minute)) || got[0].Points[1].Value != 3 {
+		t.Fatalf("raw range selector points = %+v", got[0].Points)
+	}
+
 	got, err = store.QueryRange(context.Background(), RangeQuery{
 		Expression: `sum_over_time(metric_a{peer_id="p1"}[2m])`,
 		Start:      base.Add(2 * time.Minute),
@@ -228,10 +242,10 @@ func TestMemoryStoreOverTimeFunctions(t *testing.T) {
 	if err != nil {
 		t.Fatalf("QueryRange sum_over_time: %v", err)
 	}
-	if len(got) != 1 || len(got[0].Points) != 2 {
-		t.Fatalf("sum_over_time range = %+v, want 2 points", got)
+	if len(got) != 1 || len(got[0].Points) != 1 {
+		t.Fatalf("sum_over_time range = %+v, want 1 point", got)
 	}
-	if got[0].Points[0].Value != 4 || got[0].Points[1].Value != 3 {
+	if got[0].Points[0].Value != 3 {
 		t.Fatalf("sum_over_time points = %+v", got[0].Points)
 	}
 	if !got[0].Points[0].Timestamp.Equal(base.Add(2 * time.Minute)) {

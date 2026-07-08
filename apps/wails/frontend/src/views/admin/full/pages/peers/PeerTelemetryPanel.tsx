@@ -454,14 +454,22 @@ function TelemetryRouteMap({ points }: { points: RoutePoint[] }): JSX.Element {
     map.on("error", () => setMapError("Map rendering unavailable"));
     map.on("load", () => {
       const coordinates = points.map((point) => [point.lng, point.lat]);
-      map.addSource("telemetry-route", {
-        type: "geojson",
-        data: {
-          type: "Feature",
-          geometry: { type: "LineString", coordinates },
-          properties: {},
-        },
-      });
+      if (coordinates.length > 1) {
+        map.addSource("telemetry-route", {
+          type: "geojson",
+          data: {
+            type: "Feature",
+            geometry: { type: "LineString", coordinates },
+            properties: {},
+          },
+        });
+        map.addLayer({
+          id: "telemetry-route-line",
+          type: "line",
+          source: "telemetry-route",
+          paint: { "line-color": "#0f766e", "line-width": 3, "line-opacity": 0.9 },
+        });
+      }
       map.addSource("telemetry-route-points", {
         type: "geojson",
         data: {
@@ -472,12 +480,6 @@ function TelemetryRouteMap({ points }: { points: RoutePoint[] }): JSX.Element {
             properties: { at: point.at },
           })),
         },
-      });
-      map.addLayer({
-        id: "telemetry-route-line",
-        type: "line",
-        source: "telemetry-route",
-        paint: { "line-color": "#0f766e", "line-width": 3, "line-opacity": 0.9 },
       });
       map.addLayer({
         id: "telemetry-route-points",

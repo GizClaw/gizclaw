@@ -63,7 +63,7 @@ func TestAdminLatestQueriesSelectedField(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Latest() error = %v", err)
 	}
-	wantExpr := `gizclaw_peer_battery_percent{peer_id="` + peer.String() + `"}`
+	wantExpr := `gizclaw_peer_battery_percent{peer_id="` + peer.String() + `"}[720h]`
 	if store.query.Expression != wantExpr {
 		t.Fatalf("query expression = %q, want %q", store.query.Expression, wantExpr)
 	}
@@ -169,6 +169,29 @@ func TestAdminQueryRangeUsesWindowedLastSample(t *testing.T) {
 		if response.Points[i].Value != want {
 			t.Fatalf("point[%d] = %#v, want value %v", i, response.Points[i], want)
 		}
+	}
+}
+
+func TestAdminQueryRangeAllowsOnePointAutoStep(t *testing.T) {
+	t.Parallel()
+
+	peer := adminTestPeer()
+	start := time.Unix(1783400000, 0).UTC()
+	end := start.Add(10 * time.Minute)
+	store := metrics.NewMemoryStore()
+	if err := store.Append(context.Background(), []metrics.Sample{
+		{Name: MetricBatteryPercent, Labels: map[string]string{"peer_id": peer.String()}, Timestamp: end, Value: 77},
+	}); err != nil {
+		t.Fatalf("Append() error = %v", err)
+	}
+	service := &AdminService{Metrics: store}
+
+	response, err := service.QueryRange(context.Background(), peer, apitypes.PeerTelemetryFieldBatteryPercent, start, end, 0, 1, apitypes.PeerTelemetryOrderAsc)
+	if err != nil {
+		t.Fatalf("QueryRange() error = %v", err)
+	}
+	if len(response.Points) != 1 || response.Points[0].Value != 77 {
+		t.Fatalf("points = %#v, want one point", response.Points)
 	}
 }
 

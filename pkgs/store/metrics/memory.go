@@ -29,6 +29,7 @@ type memorySelector struct {
 	aggregation   Aggregation
 	rangeFunction memoryRangeFunction
 	rangeDuration time.Duration
+	rawRange      bool
 	name          string
 	matchers      []memoryMatcher
 }
@@ -132,6 +133,21 @@ func (s *MemoryStore) Query(ctx context.Context, query Query) (SeriesSet, error)
 				continue
 			}
 			out = append(out, Series{Name: string(selector.rangeFunction), Labels: cloneLabels(series.labels), Points: []Point{point}})
+		}
+		sortSeries(out)
+		return out, nil
+	}
+	if selector.rawRange {
+		out := SeriesSet{}
+		for _, series := range s.series {
+			if !selector.matches(series) {
+				continue
+			}
+			points := pointsInWindow(series.points, evalTime.Add(-selector.rangeDuration), evalTime)
+			if len(points) == 0 {
+				continue
+			}
+			out = append(out, Series{Name: series.name, Labels: cloneLabels(series.labels), Points: points})
 		}
 		sortSeries(out)
 		return out, nil
@@ -321,7 +337,7 @@ func rangeFunctionPoint(points []Point, start, end time.Time, fn memoryRangeFunc
 func pointsInWindow(points []Point, start, end time.Time) []Point {
 	out := []Point{}
 	for _, point := range points {
-		if point.Timestamp.Before(start) {
+		if !point.Timestamp.After(start) {
 			continue
 		}
 		if point.Timestamp.After(end) {
@@ -360,10 +376,26 @@ func parseMemorySelector(expr string) (memorySelector, error) {
 		if err != nil {
 			return memorySelector{}, err
 		}
-		if selector.aggregation != "" || selector.rangeFunction != "" {
+		if selector.aggregation != "" || selector.rangeFunction != "" || selector.rawRange {
 			return memorySelector{}, fmt.Errorf("metrics: nested range expression %q is unsupported", expr)
 		}
 		selector.rangeFunction = rangeFunction
+		selector.rangeDuration = duration
+		return selector, nil
+	}
+	inner, duration, ok, err = parseMemoryRawRangeSelector(expr)
+	if err != nil {
+		return memorySelector{}, err
+	}
+	if ok {
+		selector, err := parseMemorySelector(inner)
+		if err != nil {
+			return memorySelector{}, err
+		}
+		if selector.aggregation != "" || selector.rangeFunction != "" || selector.rawRange {
+			return memorySelector{}, fmt.Errorf("metrics: nested range expression %q is unsupported", expr)
+		}
+		selector.rawRange = true
 		selector.rangeDuration = duration
 		return selector, nil
 	}
@@ -376,7 +408,7 @@ func parseMemorySelector(expr string) (memorySelector, error) {
 		if err != nil {
 			return memorySelector{}, err
 		}
-		if selector.aggregation != "" || selector.rangeFunction != "" {
+		if selector.aggregation != "" || selector.rangeFunction != "" || selector.rawRange {
 			return memorySelector{}, fmt.Errorf("metrics: nested aggregate expression %q is unsupported", expr)
 		}
 		selector.aggregation = aggregation
@@ -435,6 +467,23 @@ func parseMemoryRangeFunction(expr string) (memoryRangeFunction, string, time.Du
 		return "", "", 0, true, fmt.Errorf("metrics: invalid range duration %q", durationText)
 	}
 	return fn, selector, duration, true, nil
+}
+
+func parseMemoryRawRangeSelector(expr string) (string, time.Duration, bool, error) {
+	rangeOpen := strings.LastIndexByte(expr, '[')
+	if rangeOpen < 0 || !strings.HasSuffix(expr, "]") {
+		return "", 0, false, nil
+	}
+	selector := strings.TrimSpace(expr[:rangeOpen])
+	durationText := strings.TrimSpace(expr[rangeOpen+1 : len(expr)-1])
+	if selector == "" || durationText == "" {
+		return "", 0, true, fmt.Errorf("metrics: invalid range selector %q", expr)
+	}
+	duration, err := time.ParseDuration(durationText)
+	if err != nil || duration <= 0 {
+		return "", 0, true, fmt.Errorf("metrics: invalid range duration %q", durationText)
+	}
+	return selector, duration, true, nil
 }
 
 func parseMemoryAggregation(expr string) (Aggregation, string, bool, error) {
