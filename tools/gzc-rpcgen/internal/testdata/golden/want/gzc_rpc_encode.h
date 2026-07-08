@@ -9,9 +9,9 @@
 extern "C" {
 #endif
 
-int gzc_ping_request_encode_json(const gzc_platform_t *platform, const gzc_ping_request_t *value, gzc_buf_t *out_json);
-int gzc_speed_test_request_encode_json(const gzc_platform_t *platform, const gzc_speed_test_request_t *value, gzc_buf_t *out_json);
-int gzc_server_run_say_request_encode_json(const gzc_platform_t *platform, const gzc_server_run_say_request_t *value, gzc_buf_t *out_json);
+int gzc_ping_request_encode_proto(const gzc_platform_t *platform, const gzc_ping_request_t *value, gzc_buf_t *out_payload);
+int gzc_speed_test_request_encode_proto(const gzc_platform_t *platform, const gzc_speed_test_request_t *value, gzc_buf_t *out_payload);
+int gzc_server_run_say_request_encode_proto(const gzc_platform_t *platform, const gzc_server_run_say_request_t *value, gzc_buf_t *out_payload);
 
 #ifdef __cplusplus
 }

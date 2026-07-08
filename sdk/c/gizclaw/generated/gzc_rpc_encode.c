@@ -4,1769 +4,1484 @@
 
 #include "gzc_rpc_methods.h"
 
+#include <string.h>
+
+static int gzc_rpc_proto_append_raw_varint(const gzc_platform_t *platform, gzc_buf_t *out, uint64_t value) {
+  uint8_t buf[10];
+  size_t n = 0;
+  do {
+    uint8_t byte = (uint8_t)(value & 0x7fu);
+    value >>= 7u;
+    if (value != 0) {
+      byte |= 0x80u;
+    }
+    buf[n++] = byte;
+  } while (value != 0 && n < sizeof(buf));
+  return gzc_buf_append(out, platform, buf, n);
+}
+
+static int gzc_rpc_proto_append_key(const gzc_platform_t *platform, gzc_buf_t *out, uint32_t number, uint32_t wire_type) {
+  return gzc_rpc_proto_append_raw_varint(platform, out, ((uint64_t)number << 3u) | wire_type);
+}
+
+static int gzc_rpc_proto_append_varint(const gzc_platform_t *platform, gzc_buf_t *out, uint32_t number, uint64_t value) {
+  int rc = gzc_rpc_proto_append_key(platform, out, number, 0u);
+  if (rc != GZC_OK) {
+    return rc;
+  }
+  return gzc_rpc_proto_append_raw_varint(platform, out, value);
+}
+
+static int gzc_rpc_proto_append_bytes(const gzc_platform_t *platform, gzc_buf_t *out, uint32_t number, const uint8_t *data, size_t len) {
+  if (data == NULL && len != 0) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  int rc = gzc_rpc_proto_append_key(platform, out, number, 2u);
+  if (rc != GZC_OK) {
+    return rc;
+  }
+  rc = gzc_rpc_proto_append_raw_varint(platform, out, (uint64_t)len);
+  if (rc != GZC_OK) {
+    return rc;
+  }
+  return gzc_buf_append(out, platform, data, len);
+}
+
 const gzc_rpc_method_info_t gzc_rpc_methods[] = {
-  {GZC_RPC_METHOD_ALL_PING, 1u, "PingRequest", "PingResponse", GZC_RPC_METHOD_KIND_JSON},
+  {GZC_RPC_METHOD_ALL_PING, 1u, "PingRequest", "PingResponse", GZC_RPC_METHOD_KIND_UNARY},
   {GZC_RPC_METHOD_ALL_SPEED_TEST_RUN, 2u, "SpeedTestRequest", "SpeedTestResponse", GZC_RPC_METHOD_KIND_BINARY_STREAM},
-  {GZC_RPC_METHOD_CLIENT_INFO_GET, 3u, "ClientGetInfoRequest", "ClientGetInfoResponse", GZC_RPC_METHOD_KIND_JSON},
-  {GZC_RPC_METHOD_CLIENT_IDENTIFIERS_GET, 4u, "ClientGetIdentifiersRequest", "ClientGetIdentifiersResponse", GZC_RPC_METHOD_KIND_JSON},
-  {GZC_RPC_METHOD_SERVER_INFO_GET, 5u, "ServerGetInfoRequest", "ServerGetInfoResponse", GZC_RPC_METHOD_KIND_JSON},
-  {GZC_RPC_METHOD_SERVER_INFO_PUT, 6u, "ServerPutInfoRequest", "ServerPutInfoResponse", GZC_RPC_METHOD_KIND_JSON},
-  {GZC_RPC_METHOD_SERVER_RUNTIME_GET, 7u, "ServerGetRuntimeRequest", "ServerGetRuntimeResponse", GZC_RPC_METHOD_KIND_JSON},
-  {GZC_RPC_METHOD_SERVER_STATUS_GET, 8u, "ServerGetStatusRequest", "ServerGetStatusResponse", GZC_RPC_METHOD_KIND_JSON},
-  {GZC_RPC_METHOD_SERVER_RUN_AGENT_GET, 9u, "ServerGetRunAgentRequest", "ServerGetRunAgentResponse", GZC_RPC_METHOD_KIND_JSON},
-  {GZC_RPC_METHOD_SERVER_RUN_AGENT_SET, 10u, "ServerSetRunAgentRequest", "ServerSetRunAgentResponse", GZC_RPC_METHOD_KIND_JSON},
-  {GZC_RPC_METHOD_SERVER_RUN_WORKSPACE_GET, 11u, "ServerGetRunWorkspaceRequest", "ServerGetRunWorkspaceResponse", GZC_RPC_METHOD_KIND_JSON},
-  {GZC_RPC_METHOD_SERVER_RUN_WORKSPACE_SET, 12u, "ServerSetRunWorkspaceRequest", "ServerSetRunWorkspaceResponse", GZC_RPC_METHOD_KIND_JSON},
-  {GZC_RPC_METHOD_SERVER_RUN_WORKSPACE_RELOAD, 13u, "ServerReloadRunWorkspaceRequest", "ServerReloadRunWorkspaceResponse", GZC_RPC_METHOD_KIND_JSON},
-  {GZC_RPC_METHOD_SERVER_RUN_WORKSPACE_HISTORY, 14u, "ServerListRunWorkspaceHistoryRequest", "ServerListRunWorkspaceHistoryResponse", GZC_RPC_METHOD_KIND_JSON},
-  {GZC_RPC_METHOD_SERVER_RUN_WORKSPACE_HISTORY_PLAY, 15u, "ServerPlayRunWorkspaceHistoryRequest", "ServerPlayRunWorkspaceHistoryResponse", GZC_RPC_METHOD_KIND_JSON},
-  {GZC_RPC_METHOD_SERVER_RUN_WORKSPACE_MEMORY_STATS, 16u, "ServerGetRunWorkspaceMemoryStatsRequest", "ServerGetRunWorkspaceMemoryStatsResponse", GZC_RPC_METHOD_KIND_JSON},
-  {GZC_RPC_METHOD_SERVER_RUN_WORKSPACE_RECALL, 17u, "ServerRunWorkspaceRecallRequest", "ServerRunWorkspaceRecallResponse", GZC_RPC_METHOD_KIND_JSON},
-  {GZC_RPC_METHOD_SERVER_RUN_RELOAD, 18u, "ServerReloadRunRequest", "ServerReloadRunResponse", GZC_RPC_METHOD_KIND_JSON},
-  {GZC_RPC_METHOD_SERVER_RUN_STATUS, 19u, "ServerGetRunStatusRequest", "ServerGetRunStatusResponse", GZC_RPC_METHOD_KIND_JSON},
-  {GZC_RPC_METHOD_SERVER_RUN_STOP, 20u, "ServerStopRunRequest", "ServerStopRunResponse", GZC_RPC_METHOD_KIND_JSON},
-  {GZC_RPC_METHOD_SERVER_RUN_SAY, 21u, "ServerRunSayRequest", "ServerRunSayResponse", GZC_RPC_METHOD_KIND_JSON},
-  {GZC_RPC_METHOD_SERVER_FIRMWARE_LIST, 22u, "FirmwareListRequest", "FirmwareListResponse", GZC_RPC_METHOD_KIND_JSON},
-  {GZC_RPC_METHOD_SERVER_FIRMWARE_GET, 23u, "FirmwareGetRequest", "FirmwareGetResponse", GZC_RPC_METHOD_KIND_JSON},
+  {GZC_RPC_METHOD_CLIENT_INFO_GET, 3u, "ClientGetInfoRequest", "ClientGetInfoResponse", GZC_RPC_METHOD_KIND_UNARY},
+  {GZC_RPC_METHOD_CLIENT_IDENTIFIERS_GET, 4u, "ClientGetIdentifiersRequest", "ClientGetIdentifiersResponse", GZC_RPC_METHOD_KIND_UNARY},
+  {GZC_RPC_METHOD_SERVER_INFO_GET, 5u, "ServerGetInfoRequest", "ServerGetInfoResponse", GZC_RPC_METHOD_KIND_UNARY},
+  {GZC_RPC_METHOD_SERVER_INFO_PUT, 6u, "ServerPutInfoRequest", "ServerPutInfoResponse", GZC_RPC_METHOD_KIND_UNARY},
+  {GZC_RPC_METHOD_SERVER_RUNTIME_GET, 7u, "ServerGetRuntimeRequest", "ServerGetRuntimeResponse", GZC_RPC_METHOD_KIND_UNARY},
+  {GZC_RPC_METHOD_SERVER_STATUS_GET, 8u, "ServerGetStatusRequest", "ServerGetStatusResponse", GZC_RPC_METHOD_KIND_UNARY},
+  {GZC_RPC_METHOD_SERVER_RUN_AGENT_GET, 9u, "ServerGetRunAgentRequest", "ServerGetRunAgentResponse", GZC_RPC_METHOD_KIND_UNARY},
+  {GZC_RPC_METHOD_SERVER_RUN_AGENT_SET, 10u, "ServerSetRunAgentRequest", "ServerSetRunAgentResponse", GZC_RPC_METHOD_KIND_UNARY},
+  {GZC_RPC_METHOD_SERVER_RUN_WORKSPACE_GET, 11u, "ServerGetRunWorkspaceRequest", "ServerGetRunWorkspaceResponse", GZC_RPC_METHOD_KIND_UNARY},
+  {GZC_RPC_METHOD_SERVER_RUN_WORKSPACE_SET, 12u, "ServerSetRunWorkspaceRequest", "ServerSetRunWorkspaceResponse", GZC_RPC_METHOD_KIND_UNARY},
+  {GZC_RPC_METHOD_SERVER_RUN_WORKSPACE_RELOAD, 13u, "ServerReloadRunWorkspaceRequest", "ServerReloadRunWorkspaceResponse", GZC_RPC_METHOD_KIND_UNARY},
+  {GZC_RPC_METHOD_SERVER_RUN_WORKSPACE_HISTORY, 14u, "ServerListRunWorkspaceHistoryRequest", "ServerListRunWorkspaceHistoryResponse", GZC_RPC_METHOD_KIND_UNARY},
+  {GZC_RPC_METHOD_SERVER_RUN_WORKSPACE_HISTORY_PLAY, 15u, "ServerPlayRunWorkspaceHistoryRequest", "ServerPlayRunWorkspaceHistoryResponse", GZC_RPC_METHOD_KIND_UNARY},
+  {GZC_RPC_METHOD_SERVER_RUN_WORKSPACE_MEMORY_STATS, 16u, "ServerGetRunWorkspaceMemoryStatsRequest", "ServerGetRunWorkspaceMemoryStatsResponse", GZC_RPC_METHOD_KIND_UNARY},
+  {GZC_RPC_METHOD_SERVER_RUN_WORKSPACE_RECALL, 17u, "ServerRunWorkspaceRecallRequest", "ServerRunWorkspaceRecallResponse", GZC_RPC_METHOD_KIND_UNARY},
+  {GZC_RPC_METHOD_SERVER_RUN_RELOAD, 18u, "ServerReloadRunRequest", "ServerReloadRunResponse", GZC_RPC_METHOD_KIND_UNARY},
+  {GZC_RPC_METHOD_SERVER_RUN_STATUS, 19u, "ServerGetRunStatusRequest", "ServerGetRunStatusResponse", GZC_RPC_METHOD_KIND_UNARY},
+  {GZC_RPC_METHOD_SERVER_RUN_STOP, 20u, "ServerStopRunRequest", "ServerStopRunResponse", GZC_RPC_METHOD_KIND_UNARY},
+  {GZC_RPC_METHOD_SERVER_RUN_SAY, 21u, "ServerRunSayRequest", "ServerRunSayResponse", GZC_RPC_METHOD_KIND_UNARY},
+  {GZC_RPC_METHOD_SERVER_FIRMWARE_LIST, 22u, "FirmwareListRequest", "FirmwareListResponse", GZC_RPC_METHOD_KIND_UNARY},
+  {GZC_RPC_METHOD_SERVER_FIRMWARE_GET, 23u, "FirmwareGetRequest", "FirmwareGetResponse", GZC_RPC_METHOD_KIND_UNARY},
   {GZC_RPC_METHOD_SERVER_FIRMWARE_FILES_DOWNLOAD, 24u, "FirmwareFilesDownloadRequest", "FirmwareFilesDownloadResponse", GZC_RPC_METHOD_KIND_BINARY_DOWNLOAD},
-  {GZC_RPC_METHOD_SERVER_WORKSPACE_LIST, 25u, "WorkspaceListRequest", "WorkspaceListResponse", GZC_RPC_METHOD_KIND_JSON},
-  {GZC_RPC_METHOD_SERVER_WORKSPACE_GET, 26u, "WorkspaceGetRequest", "WorkspaceGetResponse", GZC_RPC_METHOD_KIND_JSON},
-  {GZC_RPC_METHOD_SERVER_WORKSPACE_CREATE, 27u, "WorkspaceCreateRequest", "WorkspaceCreateResponse", GZC_RPC_METHOD_KIND_JSON},
-  {GZC_RPC_METHOD_SERVER_WORKSPACE_PUT, 28u, "WorkspacePutRequest", "WorkspacePutResponse", GZC_RPC_METHOD_KIND_JSON},
-  {GZC_RPC_METHOD_SERVER_WORKSPACE_DELETE, 29u, "WorkspaceDeleteRequest", "WorkspaceDeleteResponse", GZC_RPC_METHOD_KIND_JSON},
-  {GZC_RPC_METHOD_SERVER_WORKSPACE_HISTORY_LIST, 30u, "WorkspaceHistoryListRequest", "WorkspaceHistoryListResponse", GZC_RPC_METHOD_KIND_JSON},
-  {GZC_RPC_METHOD_SERVER_WORKSPACE_HISTORY_GET, 31u, "WorkspaceHistoryGetRequest", "WorkspaceHistoryGetResponse", GZC_RPC_METHOD_KIND_JSON},
+  {GZC_RPC_METHOD_SERVER_WORKSPACE_LIST, 25u, "WorkspaceListRequest", "WorkspaceListResponse", GZC_RPC_METHOD_KIND_UNARY},
+  {GZC_RPC_METHOD_SERVER_WORKSPACE_GET, 26u, "WorkspaceGetRequest", "WorkspaceGetResponse", GZC_RPC_METHOD_KIND_UNARY},
+  {GZC_RPC_METHOD_SERVER_WORKSPACE_CREATE, 27u, "WorkspaceCreateRequest", "WorkspaceCreateResponse", GZC_RPC_METHOD_KIND_UNARY},
+  {GZC_RPC_METHOD_SERVER_WORKSPACE_PUT, 28u, "WorkspacePutRequest", "WorkspacePutResponse", GZC_RPC_METHOD_KIND_UNARY},
+  {GZC_RPC_METHOD_SERVER_WORKSPACE_DELETE, 29u, "WorkspaceDeleteRequest", "WorkspaceDeleteResponse", GZC_RPC_METHOD_KIND_UNARY},
+  {GZC_RPC_METHOD_SERVER_WORKSPACE_HISTORY_LIST, 30u, "WorkspaceHistoryListRequest", "WorkspaceHistoryListResponse", GZC_RPC_METHOD_KIND_UNARY},
+  {GZC_RPC_METHOD_SERVER_WORKSPACE_HISTORY_GET, 31u, "WorkspaceHistoryGetRequest", "WorkspaceHistoryGetResponse", GZC_RPC_METHOD_KIND_UNARY},
   {GZC_RPC_METHOD_SERVER_WORKSPACE_HISTORY_AUDIO_GET, 32u, "WorkspaceHistoryAudioGetRequest", "WorkspaceHistoryAudioGetResponse", GZC_RPC_METHOD_KIND_BINARY_DOWNLOAD},
-  {GZC_RPC_METHOD_SERVER_WORKFLOW_LIST, 33u, "WorkflowListRequest", "WorkflowListResponse", GZC_RPC_METHOD_KIND_JSON},
-  {GZC_RPC_METHOD_SERVER_WORKFLOW_GET, 34u, "WorkflowGetRequest", "WorkflowGetResponse", GZC_RPC_METHOD_KIND_JSON},
-  {GZC_RPC_METHOD_SERVER_WORKFLOW_CREATE, 35u, "WorkflowCreateRequest", "WorkflowCreateResponse", GZC_RPC_METHOD_KIND_JSON},
-  {GZC_RPC_METHOD_SERVER_WORKFLOW_PUT, 36u, "WorkflowPutRequest", "WorkflowPutResponse", GZC_RPC_METHOD_KIND_JSON},
-  {GZC_RPC_METHOD_SERVER_WORKFLOW_DELETE, 37u, "WorkflowDeleteRequest", "WorkflowDeleteResponse", GZC_RPC_METHOD_KIND_JSON},
-  {GZC_RPC_METHOD_SERVER_MODEL_LIST, 38u, "ModelListRequest", "ModelListResponse", GZC_RPC_METHOD_KIND_JSON},
-  {GZC_RPC_METHOD_SERVER_MODEL_GET, 39u, "ModelGetRequest", "ModelGetResponse", GZC_RPC_METHOD_KIND_JSON},
-  {GZC_RPC_METHOD_SERVER_MODEL_CREATE, 40u, "ModelCreateRequest", "ModelCreateResponse", GZC_RPC_METHOD_KIND_JSON},
-  {GZC_RPC_METHOD_SERVER_MODEL_PUT, 41u, "ModelPutRequest", "ModelPutResponse", GZC_RPC_METHOD_KIND_JSON},
-  {GZC_RPC_METHOD_SERVER_MODEL_DELETE, 42u, "ModelDeleteRequest", "ModelDeleteResponse", GZC_RPC_METHOD_KIND_JSON},
-  {GZC_RPC_METHOD_SERVER_VOICE_LIST, 43u, "VoiceListRequest", "VoiceListResponse", GZC_RPC_METHOD_KIND_JSON},
-  {GZC_RPC_METHOD_SERVER_VOICE_GET, 44u, "VoiceGetRequest", "VoiceGetResponse", GZC_RPC_METHOD_KIND_JSON},
-  {GZC_RPC_METHOD_SERVER_CREDENTIAL_LIST, 45u, "CredentialListRequest", "CredentialListResponse", GZC_RPC_METHOD_KIND_JSON},
-  {GZC_RPC_METHOD_SERVER_CREDENTIAL_GET, 46u, "CredentialGetRequest", "CredentialGetResponse", GZC_RPC_METHOD_KIND_JSON},
-  {GZC_RPC_METHOD_SERVER_CREDENTIAL_CREATE, 47u, "CredentialCreateRequest", "CredentialCreateResponse", GZC_RPC_METHOD_KIND_JSON},
-  {GZC_RPC_METHOD_SERVER_CREDENTIAL_PUT, 48u, "CredentialPutRequest", "CredentialPutResponse", GZC_RPC_METHOD_KIND_JSON},
-  {GZC_RPC_METHOD_SERVER_CREDENTIAL_DELETE, 49u, "CredentialDeleteRequest", "CredentialDeleteResponse", GZC_RPC_METHOD_KIND_JSON},
-  {GZC_RPC_METHOD_SERVER_CONTACT_LIST, 50u, "ContactListRequest", "ContactListResponse", GZC_RPC_METHOD_KIND_JSON},
-  {GZC_RPC_METHOD_SERVER_CONTACT_GET, 51u, "ContactGetRequest", "ContactGetResponse", GZC_RPC_METHOD_KIND_JSON},
-  {GZC_RPC_METHOD_SERVER_CONTACT_CREATE, 52u, "ContactCreateRequest", "ContactCreateResponse", GZC_RPC_METHOD_KIND_JSON},
-  {GZC_RPC_METHOD_SERVER_CONTACT_PUT, 53u, "ContactPutRequest", "ContactPutResponse", GZC_RPC_METHOD_KIND_JSON},
-  {GZC_RPC_METHOD_SERVER_CONTACT_DELETE, 54u, "ContactDeleteRequest", "ContactDeleteResponse", GZC_RPC_METHOD_KIND_JSON},
-  {GZC_RPC_METHOD_SERVER_FRIEND_INVITE_TOKEN_GET, 55u, "FriendInviteTokenGetRequest", "FriendInviteTokenGetResponse", GZC_RPC_METHOD_KIND_JSON},
-  {GZC_RPC_METHOD_SERVER_FRIEND_INVITE_TOKEN_CREATE, 56u, "FriendInviteTokenCreateRequest", "FriendInviteTokenCreateResponse", GZC_RPC_METHOD_KIND_JSON},
-  {GZC_RPC_METHOD_SERVER_FRIEND_INVITE_TOKEN_CLEAR, 57u, "FriendInviteTokenClearRequest", "FriendInviteTokenClearResponse", GZC_RPC_METHOD_KIND_JSON},
-  {GZC_RPC_METHOD_SERVER_FRIEND_ADD, 58u, "FriendAddRequest", "FriendAddResponse", GZC_RPC_METHOD_KIND_JSON},
-  {GZC_RPC_METHOD_SERVER_FRIEND_LIST, 59u, "FriendListRequest", "FriendListResponse", GZC_RPC_METHOD_KIND_JSON},
-  {GZC_RPC_METHOD_SERVER_FRIEND_DELETE, 60u, "FriendDeleteRequest", "FriendDeleteResponse", GZC_RPC_METHOD_KIND_JSON},
-  {GZC_RPC_METHOD_SERVER_FRIEND_GROUP_LIST, 61u, "FriendGroupListRequest", "FriendGroupListResponse", GZC_RPC_METHOD_KIND_JSON},
-  {GZC_RPC_METHOD_SERVER_FRIEND_GROUP_GET, 62u, "FriendGroupGetRequest", "FriendGroupGetResponse", GZC_RPC_METHOD_KIND_JSON},
-  {GZC_RPC_METHOD_SERVER_FRIEND_GROUP_CREATE, 63u, "FriendGroupCreateRequest", "FriendGroupCreateResponse", GZC_RPC_METHOD_KIND_JSON},
-  {GZC_RPC_METHOD_SERVER_FRIEND_GROUP_PUT, 64u, "FriendGroupPutRequest", "FriendGroupPutResponse", GZC_RPC_METHOD_KIND_JSON},
-  {GZC_RPC_METHOD_SERVER_FRIEND_GROUP_DELETE, 65u, "FriendGroupDeleteRequest", "FriendGroupDeleteResponse", GZC_RPC_METHOD_KIND_JSON},
-  {GZC_RPC_METHOD_SERVER_FRIEND_GROUP_INVITE_TOKEN_GET, 66u, "FriendGroupInviteTokenGetRequest", "FriendGroupInviteTokenGetResponse", GZC_RPC_METHOD_KIND_JSON},
-  {GZC_RPC_METHOD_SERVER_FRIEND_GROUP_INVITE_TOKEN_CREATE, 67u, "FriendGroupInviteTokenCreateRequest", "FriendGroupInviteTokenCreateResponse", GZC_RPC_METHOD_KIND_JSON},
-  {GZC_RPC_METHOD_SERVER_FRIEND_GROUP_INVITE_TOKEN_CLEAR, 68u, "FriendGroupInviteTokenClearRequest", "FriendGroupInviteTokenClearResponse", GZC_RPC_METHOD_KIND_JSON},
-  {GZC_RPC_METHOD_SERVER_FRIEND_GROUP_JOIN, 69u, "FriendGroupJoinRequest", "FriendGroupJoinResponse", GZC_RPC_METHOD_KIND_JSON},
-  {GZC_RPC_METHOD_SERVER_FRIEND_GROUP_MEMBERS_LIST, 70u, "FriendGroupMemberListRequest", "FriendGroupMemberListResponse", GZC_RPC_METHOD_KIND_JSON},
-  {GZC_RPC_METHOD_SERVER_FRIEND_GROUP_MEMBERS_ADD, 71u, "FriendGroupMemberAddRequest", "FriendGroupMemberAddResponse", GZC_RPC_METHOD_KIND_JSON},
-  {GZC_RPC_METHOD_SERVER_FRIEND_GROUP_MEMBERS_PUT, 72u, "FriendGroupMemberPutRequest", "FriendGroupMemberPutResponse", GZC_RPC_METHOD_KIND_JSON},
-  {GZC_RPC_METHOD_SERVER_FRIEND_GROUP_MEMBERS_DELETE, 73u, "FriendGroupMemberDeleteRequest", "FriendGroupMemberDeleteResponse", GZC_RPC_METHOD_KIND_JSON},
-  {GZC_RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_LIST, 74u, "FriendGroupMessageListRequest", "FriendGroupMessageListResponse", GZC_RPC_METHOD_KIND_JSON},
-  {GZC_RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_GET, 75u, "FriendGroupMessageGetRequest", "FriendGroupMessageGetResponse", GZC_RPC_METHOD_KIND_JSON},
-  {GZC_RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_SEND, 76u, "FriendGroupMessageSendRequest", "FriendGroupMessageSendResponse", GZC_RPC_METHOD_KIND_JSON},
-  {GZC_RPC_METHOD_SERVER_GAME_RULESET_GET, 77u, "ServerGameRulesetGetRequest", "ServerGameRulesetGetResponse", GZC_RPC_METHOD_KIND_JSON},
-  {GZC_RPC_METHOD_SERVER_PET_DEF_PIXA_DOWNLOAD, 78u, "PetDefPixaDownloadRequest", "PetDefPixaDownloadResponse", GZC_RPC_METHOD_KIND_JSON},
-  {GZC_RPC_METHOD_SERVER_BADGE_DEF_PIXA_DOWNLOAD, 79u, "BadgeDefPixaDownloadRequest", "BadgeDefPixaDownloadResponse", GZC_RPC_METHOD_KIND_JSON},
-  {GZC_RPC_METHOD_SERVER_PET_LIST, 80u, "ServerPetListRequest", "ServerPetListResponse", GZC_RPC_METHOD_KIND_JSON},
-  {GZC_RPC_METHOD_SERVER_PET_GET, 81u, "ServerPetGetRequest", "ServerPetGetResponse", GZC_RPC_METHOD_KIND_JSON},
-  {GZC_RPC_METHOD_SERVER_PET_ADOPT, 82u, "ServerPetAdoptRequest", "ServerPetAdoptResponse", GZC_RPC_METHOD_KIND_JSON},
-  {GZC_RPC_METHOD_SERVER_PET_PUT, 83u, "ServerPetPutRequest", "ServerPetPutResponse", GZC_RPC_METHOD_KIND_JSON},
-  {GZC_RPC_METHOD_SERVER_PET_DELETE, 84u, "ServerPetDeleteRequest", "ServerPetDeleteResponse", GZC_RPC_METHOD_KIND_JSON},
-  {GZC_RPC_METHOD_SERVER_PET_DRIVE, 85u, "ServerPetDriveRequest", "ServerPetDriveResponse", GZC_RPC_METHOD_KIND_JSON},
-  {GZC_RPC_METHOD_SERVER_POINTS_GET, 86u, "ServerPointsGetRequest", "ServerPointsGetResponse", GZC_RPC_METHOD_KIND_JSON},
-  {GZC_RPC_METHOD_SERVER_POINTS_TRANSACTIONS_LIST, 87u, "ServerPointsTransactionListRequest", "ServerPointsTransactionListResponse", GZC_RPC_METHOD_KIND_JSON},
-  {GZC_RPC_METHOD_SERVER_POINTS_TRANSACTIONS_GET, 88u, "ServerPointsTransactionGetRequest", "ServerPointsTransactionGetResponse", GZC_RPC_METHOD_KIND_JSON},
-  {GZC_RPC_METHOD_SERVER_BADGE_LIST, 89u, "ServerBadgeListRequest", "ServerBadgeListResponse", GZC_RPC_METHOD_KIND_JSON},
-  {GZC_RPC_METHOD_SERVER_BADGE_GET, 90u, "ServerBadgeGetRequest", "ServerBadgeGetResponse", GZC_RPC_METHOD_KIND_JSON},
-  {GZC_RPC_METHOD_SERVER_GAME_RESULT_LIST, 91u, "ServerGameResultListRequest", "ServerGameResultListResponse", GZC_RPC_METHOD_KIND_JSON},
-  {GZC_RPC_METHOD_SERVER_GAME_RESULT_GET, 92u, "ServerGameResultGetRequest", "ServerGameResultGetResponse", GZC_RPC_METHOD_KIND_JSON},
-  {GZC_RPC_METHOD_SERVER_REWARD_GRANT_LIST, 93u, "ServerRewardGrantListRequest", "ServerRewardGrantListResponse", GZC_RPC_METHOD_KIND_JSON},
-  {GZC_RPC_METHOD_SERVER_REWARD_GRANT_GET, 94u, "ServerRewardGrantGetRequest", "ServerRewardGrantGetResponse", GZC_RPC_METHOD_KIND_JSON},
+  {GZC_RPC_METHOD_SERVER_WORKFLOW_LIST, 33u, "WorkflowListRequest", "WorkflowListResponse", GZC_RPC_METHOD_KIND_UNARY},
+  {GZC_RPC_METHOD_SERVER_WORKFLOW_GET, 34u, "WorkflowGetRequest", "WorkflowGetResponse", GZC_RPC_METHOD_KIND_UNARY},
+  {GZC_RPC_METHOD_SERVER_WORKFLOW_CREATE, 35u, "WorkflowCreateRequest", "WorkflowCreateResponse", GZC_RPC_METHOD_KIND_UNARY},
+  {GZC_RPC_METHOD_SERVER_WORKFLOW_PUT, 36u, "WorkflowPutRequest", "WorkflowPutResponse", GZC_RPC_METHOD_KIND_UNARY},
+  {GZC_RPC_METHOD_SERVER_WORKFLOW_DELETE, 37u, "WorkflowDeleteRequest", "WorkflowDeleteResponse", GZC_RPC_METHOD_KIND_UNARY},
+  {GZC_RPC_METHOD_SERVER_MODEL_LIST, 38u, "ModelListRequest", "ModelListResponse", GZC_RPC_METHOD_KIND_UNARY},
+  {GZC_RPC_METHOD_SERVER_MODEL_GET, 39u, "ModelGetRequest", "ModelGetResponse", GZC_RPC_METHOD_KIND_UNARY},
+  {GZC_RPC_METHOD_SERVER_MODEL_CREATE, 40u, "ModelCreateRequest", "ModelCreateResponse", GZC_RPC_METHOD_KIND_UNARY},
+  {GZC_RPC_METHOD_SERVER_MODEL_PUT, 41u, "ModelPutRequest", "ModelPutResponse", GZC_RPC_METHOD_KIND_UNARY},
+  {GZC_RPC_METHOD_SERVER_MODEL_DELETE, 42u, "ModelDeleteRequest", "ModelDeleteResponse", GZC_RPC_METHOD_KIND_UNARY},
+  {GZC_RPC_METHOD_SERVER_VOICE_LIST, 43u, "VoiceListRequest", "VoiceListResponse", GZC_RPC_METHOD_KIND_UNARY},
+  {GZC_RPC_METHOD_SERVER_VOICE_GET, 44u, "VoiceGetRequest", "VoiceGetResponse", GZC_RPC_METHOD_KIND_UNARY},
+  {GZC_RPC_METHOD_SERVER_CREDENTIAL_LIST, 45u, "CredentialListRequest", "CredentialListResponse", GZC_RPC_METHOD_KIND_UNARY},
+  {GZC_RPC_METHOD_SERVER_CREDENTIAL_GET, 46u, "CredentialGetRequest", "CredentialGetResponse", GZC_RPC_METHOD_KIND_UNARY},
+  {GZC_RPC_METHOD_SERVER_CREDENTIAL_CREATE, 47u, "CredentialCreateRequest", "CredentialCreateResponse", GZC_RPC_METHOD_KIND_UNARY},
+  {GZC_RPC_METHOD_SERVER_CREDENTIAL_PUT, 48u, "CredentialPutRequest", "CredentialPutResponse", GZC_RPC_METHOD_KIND_UNARY},
+  {GZC_RPC_METHOD_SERVER_CREDENTIAL_DELETE, 49u, "CredentialDeleteRequest", "CredentialDeleteResponse", GZC_RPC_METHOD_KIND_UNARY},
+  {GZC_RPC_METHOD_SERVER_CONTACT_LIST, 50u, "ContactListRequest", "ContactListResponse", GZC_RPC_METHOD_KIND_UNARY},
+  {GZC_RPC_METHOD_SERVER_CONTACT_GET, 51u, "ContactGetRequest", "ContactGetResponse", GZC_RPC_METHOD_KIND_UNARY},
+  {GZC_RPC_METHOD_SERVER_CONTACT_CREATE, 52u, "ContactCreateRequest", "ContactCreateResponse", GZC_RPC_METHOD_KIND_UNARY},
+  {GZC_RPC_METHOD_SERVER_CONTACT_PUT, 53u, "ContactPutRequest", "ContactPutResponse", GZC_RPC_METHOD_KIND_UNARY},
+  {GZC_RPC_METHOD_SERVER_CONTACT_DELETE, 54u, "ContactDeleteRequest", "ContactDeleteResponse", GZC_RPC_METHOD_KIND_UNARY},
+  {GZC_RPC_METHOD_SERVER_FRIEND_INVITE_TOKEN_GET, 55u, "FriendInviteTokenGetRequest", "FriendInviteTokenGetResponse", GZC_RPC_METHOD_KIND_UNARY},
+  {GZC_RPC_METHOD_SERVER_FRIEND_INVITE_TOKEN_CREATE, 56u, "FriendInviteTokenCreateRequest", "FriendInviteTokenCreateResponse", GZC_RPC_METHOD_KIND_UNARY},
+  {GZC_RPC_METHOD_SERVER_FRIEND_INVITE_TOKEN_CLEAR, 57u, "FriendInviteTokenClearRequest", "FriendInviteTokenClearResponse", GZC_RPC_METHOD_KIND_UNARY},
+  {GZC_RPC_METHOD_SERVER_FRIEND_ADD, 58u, "FriendAddRequest", "FriendAddResponse", GZC_RPC_METHOD_KIND_UNARY},
+  {GZC_RPC_METHOD_SERVER_FRIEND_LIST, 59u, "FriendListRequest", "FriendListResponse", GZC_RPC_METHOD_KIND_UNARY},
+  {GZC_RPC_METHOD_SERVER_FRIEND_DELETE, 60u, "FriendDeleteRequest", "FriendDeleteResponse", GZC_RPC_METHOD_KIND_UNARY},
+  {GZC_RPC_METHOD_SERVER_FRIEND_GROUP_LIST, 61u, "FriendGroupListRequest", "FriendGroupListResponse", GZC_RPC_METHOD_KIND_UNARY},
+  {GZC_RPC_METHOD_SERVER_FRIEND_GROUP_GET, 62u, "FriendGroupGetRequest", "FriendGroupGetResponse", GZC_RPC_METHOD_KIND_UNARY},
+  {GZC_RPC_METHOD_SERVER_FRIEND_GROUP_CREATE, 63u, "FriendGroupCreateRequest", "FriendGroupCreateResponse", GZC_RPC_METHOD_KIND_UNARY},
+  {GZC_RPC_METHOD_SERVER_FRIEND_GROUP_PUT, 64u, "FriendGroupPutRequest", "FriendGroupPutResponse", GZC_RPC_METHOD_KIND_UNARY},
+  {GZC_RPC_METHOD_SERVER_FRIEND_GROUP_DELETE, 65u, "FriendGroupDeleteRequest", "FriendGroupDeleteResponse", GZC_RPC_METHOD_KIND_UNARY},
+  {GZC_RPC_METHOD_SERVER_FRIEND_GROUP_INVITE_TOKEN_GET, 66u, "FriendGroupInviteTokenGetRequest", "FriendGroupInviteTokenGetResponse", GZC_RPC_METHOD_KIND_UNARY},
+  {GZC_RPC_METHOD_SERVER_FRIEND_GROUP_INVITE_TOKEN_CREATE, 67u, "FriendGroupInviteTokenCreateRequest", "FriendGroupInviteTokenCreateResponse", GZC_RPC_METHOD_KIND_UNARY},
+  {GZC_RPC_METHOD_SERVER_FRIEND_GROUP_INVITE_TOKEN_CLEAR, 68u, "FriendGroupInviteTokenClearRequest", "FriendGroupInviteTokenClearResponse", GZC_RPC_METHOD_KIND_UNARY},
+  {GZC_RPC_METHOD_SERVER_FRIEND_GROUP_JOIN, 69u, "FriendGroupJoinRequest", "FriendGroupJoinResponse", GZC_RPC_METHOD_KIND_UNARY},
+  {GZC_RPC_METHOD_SERVER_FRIEND_GROUP_MEMBERS_LIST, 70u, "FriendGroupMemberListRequest", "FriendGroupMemberListResponse", GZC_RPC_METHOD_KIND_UNARY},
+  {GZC_RPC_METHOD_SERVER_FRIEND_GROUP_MEMBERS_ADD, 71u, "FriendGroupMemberAddRequest", "FriendGroupMemberAddResponse", GZC_RPC_METHOD_KIND_UNARY},
+  {GZC_RPC_METHOD_SERVER_FRIEND_GROUP_MEMBERS_PUT, 72u, "FriendGroupMemberPutRequest", "FriendGroupMemberPutResponse", GZC_RPC_METHOD_KIND_UNARY},
+  {GZC_RPC_METHOD_SERVER_FRIEND_GROUP_MEMBERS_DELETE, 73u, "FriendGroupMemberDeleteRequest", "FriendGroupMemberDeleteResponse", GZC_RPC_METHOD_KIND_UNARY},
+  {GZC_RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_LIST, 74u, "FriendGroupMessageListRequest", "FriendGroupMessageListResponse", GZC_RPC_METHOD_KIND_UNARY},
+  {GZC_RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_GET, 75u, "FriendGroupMessageGetRequest", "FriendGroupMessageGetResponse", GZC_RPC_METHOD_KIND_UNARY},
+  {GZC_RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_SEND, 76u, "FriendGroupMessageSendRequest", "FriendGroupMessageSendResponse", GZC_RPC_METHOD_KIND_UNARY},
+  {GZC_RPC_METHOD_SERVER_GAME_RULESET_GET, 77u, "ServerGameRulesetGetRequest", "ServerGameRulesetGetResponse", GZC_RPC_METHOD_KIND_UNARY},
+  {GZC_RPC_METHOD_SERVER_PET_DEF_PIXA_DOWNLOAD, 78u, "PetDefPixaDownloadRequest", "PetDefPixaDownloadResponse", GZC_RPC_METHOD_KIND_UNARY},
+  {GZC_RPC_METHOD_SERVER_BADGE_DEF_PIXA_DOWNLOAD, 79u, "BadgeDefPixaDownloadRequest", "BadgeDefPixaDownloadResponse", GZC_RPC_METHOD_KIND_UNARY},
+  {GZC_RPC_METHOD_SERVER_PET_LIST, 80u, "ServerPetListRequest", "ServerPetListResponse", GZC_RPC_METHOD_KIND_UNARY},
+  {GZC_RPC_METHOD_SERVER_PET_GET, 81u, "ServerPetGetRequest", "ServerPetGetResponse", GZC_RPC_METHOD_KIND_UNARY},
+  {GZC_RPC_METHOD_SERVER_PET_ADOPT, 82u, "ServerPetAdoptRequest", "ServerPetAdoptResponse", GZC_RPC_METHOD_KIND_UNARY},
+  {GZC_RPC_METHOD_SERVER_PET_PUT, 83u, "ServerPetPutRequest", "ServerPetPutResponse", GZC_RPC_METHOD_KIND_UNARY},
+  {GZC_RPC_METHOD_SERVER_PET_DELETE, 84u, "ServerPetDeleteRequest", "ServerPetDeleteResponse", GZC_RPC_METHOD_KIND_UNARY},
+  {GZC_RPC_METHOD_SERVER_PET_DRIVE, 85u, "ServerPetDriveRequest", "ServerPetDriveResponse", GZC_RPC_METHOD_KIND_UNARY},
+  {GZC_RPC_METHOD_SERVER_POINTS_GET, 86u, "ServerPointsGetRequest", "ServerPointsGetResponse", GZC_RPC_METHOD_KIND_UNARY},
+  {GZC_RPC_METHOD_SERVER_POINTS_TRANSACTIONS_LIST, 87u, "ServerPointsTransactionListRequest", "ServerPointsTransactionListResponse", GZC_RPC_METHOD_KIND_UNARY},
+  {GZC_RPC_METHOD_SERVER_POINTS_TRANSACTIONS_GET, 88u, "ServerPointsTransactionGetRequest", "ServerPointsTransactionGetResponse", GZC_RPC_METHOD_KIND_UNARY},
+  {GZC_RPC_METHOD_SERVER_BADGE_LIST, 89u, "ServerBadgeListRequest", "ServerBadgeListResponse", GZC_RPC_METHOD_KIND_UNARY},
+  {GZC_RPC_METHOD_SERVER_BADGE_GET, 90u, "ServerBadgeGetRequest", "ServerBadgeGetResponse", GZC_RPC_METHOD_KIND_UNARY},
+  {GZC_RPC_METHOD_SERVER_GAME_RESULT_LIST, 91u, "ServerGameResultListRequest", "ServerGameResultListResponse", GZC_RPC_METHOD_KIND_UNARY},
+  {GZC_RPC_METHOD_SERVER_GAME_RESULT_GET, 92u, "ServerGameResultGetRequest", "ServerGameResultGetResponse", GZC_RPC_METHOD_KIND_UNARY},
+  {GZC_RPC_METHOD_SERVER_REWARD_GRANT_LIST, 93u, "ServerRewardGrantListRequest", "ServerRewardGrantListResponse", GZC_RPC_METHOD_KIND_UNARY},
+  {GZC_RPC_METHOD_SERVER_REWARD_GRANT_GET, 94u, "ServerRewardGrantGetRequest", "ServerRewardGrantGetResponse", GZC_RPC_METHOD_KIND_UNARY},
 };
 
-int gzc_ping_request_encode_json(const gzc_platform_t *platform, const gzc_ping_request_t *value, gzc_buf_t *out_json) {
-  if (value == NULL || out_json == NULL) {
+int gzc_ping_request_encode_proto(const gzc_platform_t *platform, const gzc_ping_request_t *value, gzc_buf_t *out_payload) {
+  if (value == NULL || out_payload == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
-  gzc_json_writer_t writer;
-  gzc_json_writer_init(&writer, platform, out_json);
-  int rc = gzc_json_object_begin(&writer);
-  if (rc != GZC_OK) { return rc; }
+  gzc_buf_reset(out_payload);
+  int rc;
   if (true) {
-    rc = gzc_json_field_i64(&writer, "client_send_time", value->client_send_time);
+    rc = gzc_rpc_proto_append_varint(platform, out_payload, 1, (uint64_t)value->client_send_time);
     if (rc != GZC_OK) { return rc; }
   }
-  return gzc_json_object_end(&writer);
+  return GZC_OK;
 }
 
-int gzc_speed_test_request_encode_json(const gzc_platform_t *platform, const gzc_speed_test_request_t *value, gzc_buf_t *out_json) {
-  if (value == NULL || out_json == NULL) {
+int gzc_speed_test_request_encode_proto(const gzc_platform_t *platform, const gzc_speed_test_request_t *value, gzc_buf_t *out_payload) {
+  if (value == NULL || out_payload == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
-  gzc_json_writer_t writer;
-  gzc_json_writer_init(&writer, platform, out_json);
-  int rc = gzc_json_object_begin(&writer);
-  if (rc != GZC_OK) { return rc; }
+  gzc_buf_reset(out_payload);
+  int rc;
   if (true) {
-    rc = gzc_json_field_i64(&writer, "down_content_length", value->down_content_length);
+    rc = gzc_rpc_proto_append_varint(platform, out_payload, 1, (uint64_t)value->down_content_length);
     if (rc != GZC_OK) { return rc; }
   }
   if (true) {
-    rc = gzc_json_field_i64(&writer, "up_content_length", value->up_content_length);
+    rc = gzc_rpc_proto_append_varint(platform, out_payload, 2, (uint64_t)value->up_content_length);
     if (rc != GZC_OK) { return rc; }
   }
-  return gzc_json_object_end(&writer);
+  return GZC_OK;
 }
 
-int gzc_client_get_info_request_encode_json(const gzc_platform_t *platform, const gzc_client_get_info_request_t *value, gzc_buf_t *out_json) {
-  if (value == NULL || out_json == NULL) {
+int gzc_client_get_info_request_encode_proto(const gzc_platform_t *platform, const gzc_client_get_info_request_t *value, gzc_buf_t *out_payload) {
+  if (value == NULL || out_payload == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
-  gzc_json_writer_t writer;
-  gzc_json_writer_init(&writer, platform, out_json);
-  int rc = gzc_json_object_begin(&writer);
-  if (rc != GZC_OK) { return rc; }
-  return gzc_json_object_end(&writer);
+  gzc_buf_reset(out_payload);
+  (void)platform;
+  return GZC_OK;
 }
 
-int gzc_client_get_identifiers_request_encode_json(const gzc_platform_t *platform, const gzc_client_get_identifiers_request_t *value, gzc_buf_t *out_json) {
-  if (value == NULL || out_json == NULL) {
+int gzc_client_get_identifiers_request_encode_proto(const gzc_platform_t *platform, const gzc_client_get_identifiers_request_t *value, gzc_buf_t *out_payload) {
+  if (value == NULL || out_payload == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
-  gzc_json_writer_t writer;
-  gzc_json_writer_init(&writer, platform, out_json);
-  int rc = gzc_json_object_begin(&writer);
-  if (rc != GZC_OK) { return rc; }
-  return gzc_json_object_end(&writer);
+  gzc_buf_reset(out_payload);
+  (void)platform;
+  return GZC_OK;
 }
 
-int gzc_server_get_info_request_encode_json(const gzc_platform_t *platform, const gzc_server_get_info_request_t *value, gzc_buf_t *out_json) {
-  if (value == NULL || out_json == NULL) {
+int gzc_server_get_info_request_encode_proto(const gzc_platform_t *platform, const gzc_server_get_info_request_t *value, gzc_buf_t *out_payload) {
+  if (value == NULL || out_payload == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
-  gzc_json_writer_t writer;
-  gzc_json_writer_init(&writer, platform, out_json);
-  int rc = gzc_json_object_begin(&writer);
-  if (rc != GZC_OK) { return rc; }
-  return gzc_json_object_end(&writer);
+  gzc_buf_reset(out_payload);
+  (void)platform;
+  return GZC_OK;
 }
 
-int gzc_server_put_info_request_encode_json(const gzc_platform_t *platform, const gzc_server_put_info_request_t *value, gzc_buf_t *out_json) {
-  if (value == NULL || out_json == NULL) {
+int gzc_server_put_info_request_encode_proto(const gzc_platform_t *platform, const gzc_server_put_info_request_t *value, gzc_buf_t *out_payload) {
+  if (value == NULL || out_payload == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
-  gzc_json_writer_t writer;
-  gzc_json_writer_init(&writer, platform, out_json);
-  int rc = gzc_json_object_begin(&writer);
-  if (rc != GZC_OK) { return rc; }
-  if (value->has_hardware) {
-    rc = gzc_json_field_raw(&writer, "hardware", value->hardware.raw);
-    if (rc != GZC_OK) { return rc; }
-  }
-  if (value->has_name) {
-    rc = gzc_json_field_str(&writer, "name", value->name);
-    if (rc != GZC_OK) { return rc; }
-  }
-  if (value->has_sn) {
-    rc = gzc_json_field_str(&writer, "sn", value->sn);
-    if (rc != GZC_OK) { return rc; }
-  }
-  return gzc_json_object_end(&writer);
-}
-
-int gzc_server_get_runtime_request_encode_json(const gzc_platform_t *platform, const gzc_server_get_runtime_request_t *value, gzc_buf_t *out_json) {
-  if (value == NULL || out_json == NULL) {
-    return GZC_ERR_INVALID_ARGUMENT;
-  }
-  gzc_json_writer_t writer;
-  gzc_json_writer_init(&writer, platform, out_json);
-  int rc = gzc_json_object_begin(&writer);
-  if (rc != GZC_OK) { return rc; }
-  return gzc_json_object_end(&writer);
-}
-
-int gzc_server_get_status_request_encode_json(const gzc_platform_t *platform, const gzc_server_get_status_request_t *value, gzc_buf_t *out_json) {
-  if (value == NULL || out_json == NULL) {
-    return GZC_ERR_INVALID_ARGUMENT;
-  }
-  gzc_json_writer_t writer;
-  gzc_json_writer_init(&writer, platform, out_json);
-  int rc = gzc_json_object_begin(&writer);
-  if (rc != GZC_OK) { return rc; }
-  return gzc_json_object_end(&writer);
-}
-
-int gzc_server_get_run_agent_request_encode_json(const gzc_platform_t *platform, const gzc_server_get_run_agent_request_t *value, gzc_buf_t *out_json) {
-  if (value == NULL || out_json == NULL) {
-    return GZC_ERR_INVALID_ARGUMENT;
-  }
-  gzc_json_writer_t writer;
-  gzc_json_writer_init(&writer, platform, out_json);
-  int rc = gzc_json_object_begin(&writer);
-  if (rc != GZC_OK) { return rc; }
-  return gzc_json_object_end(&writer);
-}
-
-int gzc_server_set_run_agent_request_encode_json(const gzc_platform_t *platform, const gzc_server_set_run_agent_request_t *value, gzc_buf_t *out_json) {
-  if (value == NULL || out_json == NULL) {
-    return GZC_ERR_INVALID_ARGUMENT;
-  }
-  gzc_json_writer_t writer;
-  gzc_json_writer_init(&writer, platform, out_json);
-  int rc = gzc_json_object_begin(&writer);
-  if (rc != GZC_OK) { return rc; }
+  gzc_buf_reset(out_payload);
+  int rc;
   if (true) {
-    rc = gzc_json_field_str(&writer, "workspace_name", value->workspace_name);
+    rc = gzc_rpc_proto_append_bytes(platform, out_payload, 1, (const uint8_t *)value->value.raw.data, value->value.raw.len);
     if (rc != GZC_OK) { return rc; }
   }
-  return gzc_json_object_end(&writer);
+  return GZC_OK;
 }
 
-int gzc_server_get_run_workspace_request_encode_json(const gzc_platform_t *platform, const gzc_server_get_run_workspace_request_t *value, gzc_buf_t *out_json) {
-  if (value == NULL || out_json == NULL) {
+int gzc_server_get_runtime_request_encode_proto(const gzc_platform_t *platform, const gzc_server_get_runtime_request_t *value, gzc_buf_t *out_payload) {
+  if (value == NULL || out_payload == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
-  gzc_json_writer_t writer;
-  gzc_json_writer_init(&writer, platform, out_json);
-  int rc = gzc_json_object_begin(&writer);
-  if (rc != GZC_OK) { return rc; }
-  return gzc_json_object_end(&writer);
+  gzc_buf_reset(out_payload);
+  (void)platform;
+  return GZC_OK;
 }
 
-int gzc_server_set_run_workspace_request_encode_json(const gzc_platform_t *platform, const gzc_server_set_run_workspace_request_t *value, gzc_buf_t *out_json) {
-  if (value == NULL || out_json == NULL) {
+int gzc_server_get_status_request_encode_proto(const gzc_platform_t *platform, const gzc_server_get_status_request_t *value, gzc_buf_t *out_payload) {
+  if (value == NULL || out_payload == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
-  gzc_json_writer_t writer;
-  gzc_json_writer_init(&writer, platform, out_json);
-  int rc = gzc_json_object_begin(&writer);
-  if (rc != GZC_OK) { return rc; }
+  gzc_buf_reset(out_payload);
+  (void)platform;
+  return GZC_OK;
+}
+
+int gzc_server_get_run_agent_request_encode_proto(const gzc_platform_t *platform, const gzc_server_get_run_agent_request_t *value, gzc_buf_t *out_payload) {
+  if (value == NULL || out_payload == NULL) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  gzc_buf_reset(out_payload);
+  (void)platform;
+  return GZC_OK;
+}
+
+int gzc_server_set_run_agent_request_encode_proto(const gzc_platform_t *platform, const gzc_server_set_run_agent_request_t *value, gzc_buf_t *out_payload) {
+  if (value == NULL || out_payload == NULL) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  gzc_buf_reset(out_payload);
+  int rc;
   if (true) {
-    rc = gzc_json_field_str(&writer, "workspace_name", value->workspace_name);
+    rc = gzc_rpc_proto_append_bytes(platform, out_payload, 1, (const uint8_t *)value->value.raw.data, value->value.raw.len);
     if (rc != GZC_OK) { return rc; }
   }
-  return gzc_json_object_end(&writer);
+  return GZC_OK;
 }
 
-int gzc_server_reload_run_workspace_request_encode_json(const gzc_platform_t *platform, const gzc_server_reload_run_workspace_request_t *value, gzc_buf_t *out_json) {
-  if (value == NULL || out_json == NULL) {
+int gzc_server_get_run_workspace_request_encode_proto(const gzc_platform_t *platform, const gzc_server_get_run_workspace_request_t *value, gzc_buf_t *out_payload) {
+  if (value == NULL || out_payload == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
-  gzc_json_writer_t writer;
-  gzc_json_writer_init(&writer, platform, out_json);
-  int rc = gzc_json_object_begin(&writer);
-  if (rc != GZC_OK) { return rc; }
-  return gzc_json_object_end(&writer);
+  gzc_buf_reset(out_payload);
+  (void)platform;
+  return GZC_OK;
 }
 
-int gzc_server_list_run_workspace_history_request_encode_json(const gzc_platform_t *platform, const gzc_server_list_run_workspace_history_request_t *value, gzc_buf_t *out_json) {
-  if (value == NULL || out_json == NULL) {
+int gzc_server_set_run_workspace_request_encode_proto(const gzc_platform_t *platform, const gzc_server_set_run_workspace_request_t *value, gzc_buf_t *out_payload) {
+  if (value == NULL || out_payload == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
-  gzc_json_writer_t writer;
-  gzc_json_writer_init(&writer, platform, out_json);
-  int rc = gzc_json_object_begin(&writer);
-  if (rc != GZC_OK) { return rc; }
-  if (value->has_cursor) {
-    rc = gzc_json_field_str(&writer, "cursor", value->cursor);
-    if (rc != GZC_OK) { return rc; }
-  }
-  if (value->has_limit) {
-    rc = gzc_json_field_i32(&writer, "limit", value->limit);
-    if (rc != GZC_OK) { return rc; }
-  }
-  if (value->has_order) {
-    rc = gzc_json_field_str(&writer, "order", value->order);
-    if (rc != GZC_OK) { return rc; }
-  }
-  return gzc_json_object_end(&writer);
-}
-
-int gzc_server_play_run_workspace_history_request_encode_json(const gzc_platform_t *platform, const gzc_server_play_run_workspace_history_request_t *value, gzc_buf_t *out_json) {
-  if (value == NULL || out_json == NULL) {
-    return GZC_ERR_INVALID_ARGUMENT;
-  }
-  gzc_json_writer_t writer;
-  gzc_json_writer_init(&writer, platform, out_json);
-  int rc = gzc_json_object_begin(&writer);
-  if (rc != GZC_OK) { return rc; }
+  gzc_buf_reset(out_payload);
+  int rc;
   if (true) {
-    rc = gzc_json_field_str(&writer, "history_id", value->history_id);
+    rc = gzc_rpc_proto_append_bytes(platform, out_payload, 1, (const uint8_t *)value->value.raw.data, value->value.raw.len);
     if (rc != GZC_OK) { return rc; }
   }
-  return gzc_json_object_end(&writer);
+  return GZC_OK;
 }
 
-int gzc_server_get_run_workspace_memory_stats_request_encode_json(const gzc_platform_t *platform, const gzc_server_get_run_workspace_memory_stats_request_t *value, gzc_buf_t *out_json) {
-  if (value == NULL || out_json == NULL) {
+int gzc_server_reload_run_workspace_request_encode_proto(const gzc_platform_t *platform, const gzc_server_reload_run_workspace_request_t *value, gzc_buf_t *out_payload) {
+  if (value == NULL || out_payload == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
-  gzc_json_writer_t writer;
-  gzc_json_writer_init(&writer, platform, out_json);
-  int rc = gzc_json_object_begin(&writer);
-  if (rc != GZC_OK) { return rc; }
-  return gzc_json_object_end(&writer);
+  gzc_buf_reset(out_payload);
+  (void)platform;
+  return GZC_OK;
 }
 
-int gzc_server_run_workspace_recall_request_encode_json(const gzc_platform_t *platform, const gzc_server_run_workspace_recall_request_t *value, gzc_buf_t *out_json) {
-  if (value == NULL || out_json == NULL) {
+int gzc_server_list_run_workspace_history_request_encode_proto(const gzc_platform_t *platform, const gzc_server_list_run_workspace_history_request_t *value, gzc_buf_t *out_payload) {
+  if (value == NULL || out_payload == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
-  gzc_json_writer_t writer;
-  gzc_json_writer_init(&writer, platform, out_json);
-  int rc = gzc_json_object_begin(&writer);
-  if (rc != GZC_OK) { return rc; }
-  if (value->has_filters) {
-    rc = gzc_json_field_raw(&writer, "filters", value->filters.raw);
-    if (rc != GZC_OK) { return rc; }
-  }
-  if (value->has_limit) {
-    rc = gzc_json_field_i32(&writer, "limit", value->limit);
-    if (rc != GZC_OK) { return rc; }
-  }
+  gzc_buf_reset(out_payload);
+  int rc;
   if (true) {
-    rc = gzc_json_field_str(&writer, "query", value->query);
+    rc = gzc_rpc_proto_append_bytes(platform, out_payload, 1, (const uint8_t *)value->value.raw.data, value->value.raw.len);
     if (rc != GZC_OK) { return rc; }
   }
-  return gzc_json_object_end(&writer);
+  return GZC_OK;
 }
 
-int gzc_server_reload_run_request_encode_json(const gzc_platform_t *platform, const gzc_server_reload_run_request_t *value, gzc_buf_t *out_json) {
-  if (value == NULL || out_json == NULL) {
+int gzc_server_play_run_workspace_history_request_encode_proto(const gzc_platform_t *platform, const gzc_server_play_run_workspace_history_request_t *value, gzc_buf_t *out_payload) {
+  if (value == NULL || out_payload == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
-  gzc_json_writer_t writer;
-  gzc_json_writer_init(&writer, platform, out_json);
-  int rc = gzc_json_object_begin(&writer);
-  if (rc != GZC_OK) { return rc; }
-  return gzc_json_object_end(&writer);
+  gzc_buf_reset(out_payload);
+  int rc;
+  if (true) {
+    rc = gzc_rpc_proto_append_bytes(platform, out_payload, 1, (const uint8_t *)value->value.raw.data, value->value.raw.len);
+    if (rc != GZC_OK) { return rc; }
+  }
+  return GZC_OK;
 }
 
-int gzc_server_get_run_status_request_encode_json(const gzc_platform_t *platform, const gzc_server_get_run_status_request_t *value, gzc_buf_t *out_json) {
-  if (value == NULL || out_json == NULL) {
+int gzc_server_get_run_workspace_memory_stats_request_encode_proto(const gzc_platform_t *platform, const gzc_server_get_run_workspace_memory_stats_request_t *value, gzc_buf_t *out_payload) {
+  if (value == NULL || out_payload == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
-  gzc_json_writer_t writer;
-  gzc_json_writer_init(&writer, platform, out_json);
-  int rc = gzc_json_object_begin(&writer);
-  if (rc != GZC_OK) { return rc; }
-  return gzc_json_object_end(&writer);
+  gzc_buf_reset(out_payload);
+  int rc;
+  if (true) {
+    rc = gzc_rpc_proto_append_bytes(platform, out_payload, 1, (const uint8_t *)value->value.raw.data, value->value.raw.len);
+    if (rc != GZC_OK) { return rc; }
+  }
+  return GZC_OK;
 }
 
-int gzc_server_stop_run_request_encode_json(const gzc_platform_t *platform, const gzc_server_stop_run_request_t *value, gzc_buf_t *out_json) {
-  if (value == NULL || out_json == NULL) {
+int gzc_server_run_workspace_recall_request_encode_proto(const gzc_platform_t *platform, const gzc_server_run_workspace_recall_request_t *value, gzc_buf_t *out_payload) {
+  if (value == NULL || out_payload == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
-  gzc_json_writer_t writer;
-  gzc_json_writer_init(&writer, platform, out_json);
-  int rc = gzc_json_object_begin(&writer);
-  if (rc != GZC_OK) { return rc; }
-  return gzc_json_object_end(&writer);
+  gzc_buf_reset(out_payload);
+  int rc;
+  if (true) {
+    rc = gzc_rpc_proto_append_bytes(platform, out_payload, 1, (const uint8_t *)value->value.raw.data, value->value.raw.len);
+    if (rc != GZC_OK) { return rc; }
+  }
+  return GZC_OK;
 }
 
-int gzc_server_run_say_request_encode_json(const gzc_platform_t *platform, const gzc_server_run_say_request_t *value, gzc_buf_t *out_json) {
-  if (value == NULL || out_json == NULL) {
+int gzc_server_reload_run_request_encode_proto(const gzc_platform_t *platform, const gzc_server_reload_run_request_t *value, gzc_buf_t *out_payload) {
+  if (value == NULL || out_payload == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
-  gzc_json_writer_t writer;
-  gzc_json_writer_init(&writer, platform, out_json);
-  int rc = gzc_json_object_begin(&writer);
-  if (rc != GZC_OK) { return rc; }
+  gzc_buf_reset(out_payload);
+  (void)platform;
+  return GZC_OK;
+}
+
+int gzc_server_get_run_status_request_encode_proto(const gzc_platform_t *platform, const gzc_server_get_run_status_request_t *value, gzc_buf_t *out_payload) {
+  if (value == NULL || out_payload == NULL) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  gzc_buf_reset(out_payload);
+  (void)platform;
+  return GZC_OK;
+}
+
+int gzc_server_stop_run_request_encode_proto(const gzc_platform_t *platform, const gzc_server_stop_run_request_t *value, gzc_buf_t *out_payload) {
+  if (value == NULL || out_payload == NULL) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  gzc_buf_reset(out_payload);
+  (void)platform;
+  return GZC_OK;
+}
+
+int gzc_server_run_say_request_encode_proto(const gzc_platform_t *platform, const gzc_server_run_say_request_t *value, gzc_buf_t *out_payload) {
+  if (value == NULL || out_payload == NULL) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  gzc_buf_reset(out_payload);
+  int rc;
   if (value->has_credential_name) {
-    rc = gzc_json_field_str(&writer, "credential_name", value->credential_name);
+    rc = gzc_rpc_proto_append_bytes(platform, out_payload, 1, (const uint8_t *)value->credential_name.data, value->credential_name.len);
     if (rc != GZC_OK) { return rc; }
   }
   if (value->has_model_id) {
-    rc = gzc_json_field_str(&writer, "model_id", value->model_id);
+    rc = gzc_rpc_proto_append_bytes(platform, out_payload, 2, (const uint8_t *)value->model_id.data, value->model_id.len);
     if (rc != GZC_OK) { return rc; }
   }
   if (true) {
-    rc = gzc_json_field_str(&writer, "text", value->text);
+    rc = gzc_rpc_proto_append_bytes(platform, out_payload, 3, (const uint8_t *)value->text.data, value->text.len);
     if (rc != GZC_OK) { return rc; }
   }
   if (value->has_voice_id) {
-    rc = gzc_json_field_str(&writer, "voice_id", value->voice_id);
+    rc = gzc_rpc_proto_append_bytes(platform, out_payload, 4, (const uint8_t *)value->voice_id.data, value->voice_id.len);
     if (rc != GZC_OK) { return rc; }
   }
-  return gzc_json_object_end(&writer);
+  return GZC_OK;
 }
 
-int gzc_firmware_list_request_encode_json(const gzc_platform_t *platform, const gzc_firmware_list_request_t *value, gzc_buf_t *out_json) {
-  if (value == NULL || out_json == NULL) {
+int gzc_firmware_list_request_encode_proto(const gzc_platform_t *platform, const gzc_firmware_list_request_t *value, gzc_buf_t *out_payload) {
+  if (value == NULL || out_payload == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
-  gzc_json_writer_t writer;
-  gzc_json_writer_init(&writer, platform, out_json);
-  int rc = gzc_json_object_begin(&writer);
-  if (rc != GZC_OK) { return rc; }
+  gzc_buf_reset(out_payload);
+  int rc;
   if (value->has_cursor) {
-    rc = gzc_json_field_str(&writer, "cursor", value->cursor);
+    rc = gzc_rpc_proto_append_bytes(platform, out_payload, 1, (const uint8_t *)value->cursor.data, value->cursor.len);
     if (rc != GZC_OK) { return rc; }
   }
   if (value->has_limit) {
-    rc = gzc_json_field_i32(&writer, "limit", value->limit);
+    rc = gzc_rpc_proto_append_varint(platform, out_payload, 2, (uint64_t)(uint32_t)value->limit);
     if (rc != GZC_OK) { return rc; }
   }
-  return gzc_json_object_end(&writer);
+  return GZC_OK;
 }
 
-int gzc_firmware_get_request_encode_json(const gzc_platform_t *platform, const gzc_firmware_get_request_t *value, gzc_buf_t *out_json) {
-  if (value == NULL || out_json == NULL) {
+int gzc_firmware_get_request_encode_proto(const gzc_platform_t *platform, const gzc_firmware_get_request_t *value, gzc_buf_t *out_payload) {
+  if (value == NULL || out_payload == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
-  gzc_json_writer_t writer;
-  gzc_json_writer_init(&writer, platform, out_json);
-  int rc = gzc_json_object_begin(&writer);
-  if (rc != GZC_OK) { return rc; }
+  gzc_buf_reset(out_payload);
+  int rc;
   if (true) {
-    rc = gzc_json_field_str(&writer, "firmware_id", value->firmware_id);
+    rc = gzc_rpc_proto_append_bytes(platform, out_payload, 1, (const uint8_t *)value->firmware_id.data, value->firmware_id.len);
     if (rc != GZC_OK) { return rc; }
   }
-  return gzc_json_object_end(&writer);
+  return GZC_OK;
 }
 
-int gzc_firmware_files_download_request_encode_json(const gzc_platform_t *platform, const gzc_firmware_files_download_request_t *value, gzc_buf_t *out_json) {
-  if (value == NULL || out_json == NULL) {
+int gzc_firmware_files_download_request_encode_proto(const gzc_platform_t *platform, const gzc_firmware_files_download_request_t *value, gzc_buf_t *out_payload) {
+  if (value == NULL || out_payload == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
-  gzc_json_writer_t writer;
-  gzc_json_writer_init(&writer, platform, out_json);
-  int rc = gzc_json_object_begin(&writer);
-  if (rc != GZC_OK) { return rc; }
+  gzc_buf_reset(out_payload);
+  int rc;
   if (true) {
-    rc = gzc_json_field_raw(&writer, "channel", value->channel.raw);
+    rc = gzc_rpc_proto_append_bytes(platform, out_payload, 1, (const uint8_t *)value->channel.raw.data, value->channel.raw.len);
     if (rc != GZC_OK) { return rc; }
   }
   if (true) {
-    rc = gzc_json_field_str(&writer, "firmware_id", value->firmware_id);
+    rc = gzc_rpc_proto_append_bytes(platform, out_payload, 2, (const uint8_t *)value->firmware_id.data, value->firmware_id.len);
     if (rc != GZC_OK) { return rc; }
   }
   if (true) {
-    rc = gzc_json_field_str(&writer, "path", value->path);
+    rc = gzc_rpc_proto_append_bytes(platform, out_payload, 3, (const uint8_t *)value->path.data, value->path.len);
     if (rc != GZC_OK) { return rc; }
   }
-  return gzc_json_object_end(&writer);
+  return GZC_OK;
 }
 
-int gzc_workspace_list_request_encode_json(const gzc_platform_t *platform, const gzc_workspace_list_request_t *value, gzc_buf_t *out_json) {
-  if (value == NULL || out_json == NULL) {
+int gzc_workspace_list_request_encode_proto(const gzc_platform_t *platform, const gzc_workspace_list_request_t *value, gzc_buf_t *out_payload) {
+  if (value == NULL || out_payload == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
-  gzc_json_writer_t writer;
-  gzc_json_writer_init(&writer, platform, out_json);
-  int rc = gzc_json_object_begin(&writer);
-  if (rc != GZC_OK) { return rc; }
+  gzc_buf_reset(out_payload);
+  int rc;
   if (value->has_cursor) {
-    rc = gzc_json_field_str(&writer, "cursor", value->cursor);
+    rc = gzc_rpc_proto_append_bytes(platform, out_payload, 1, (const uint8_t *)value->cursor.data, value->cursor.len);
     if (rc != GZC_OK) { return rc; }
   }
   if (value->has_limit) {
-    rc = gzc_json_field_i32(&writer, "limit", value->limit);
+    rc = gzc_rpc_proto_append_varint(platform, out_payload, 2, (uint64_t)(uint32_t)value->limit);
     if (rc != GZC_OK) { return rc; }
   }
   if (value->has_prefix) {
-    rc = gzc_json_field_str(&writer, "prefix", value->prefix);
+    rc = gzc_rpc_proto_append_bytes(platform, out_payload, 3, (const uint8_t *)value->prefix.data, value->prefix.len);
     if (rc != GZC_OK) { return rc; }
   }
-  return gzc_json_object_end(&writer);
+  return GZC_OK;
 }
 
-int gzc_workspace_get_request_encode_json(const gzc_platform_t *platform, const gzc_workspace_get_request_t *value, gzc_buf_t *out_json) {
-  if (value == NULL || out_json == NULL) {
+int gzc_workspace_get_request_encode_proto(const gzc_platform_t *platform, const gzc_workspace_get_request_t *value, gzc_buf_t *out_payload) {
+  if (value == NULL || out_payload == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
-  gzc_json_writer_t writer;
-  gzc_json_writer_init(&writer, platform, out_json);
-  int rc = gzc_json_object_begin(&writer);
-  if (rc != GZC_OK) { return rc; }
+  gzc_buf_reset(out_payload);
+  int rc;
   if (true) {
-    rc = gzc_json_field_str(&writer, "name", value->name);
+    rc = gzc_rpc_proto_append_bytes(platform, out_payload, 1, (const uint8_t *)value->name.data, value->name.len);
     if (rc != GZC_OK) { return rc; }
   }
-  return gzc_json_object_end(&writer);
+  return GZC_OK;
 }
 
-int gzc_workspace_create_request_encode_json(const gzc_platform_t *platform, const gzc_workspace_create_request_t *value, gzc_buf_t *out_json) {
-  if (value == NULL || out_json == NULL) {
+int gzc_workspace_create_request_encode_proto(const gzc_platform_t *platform, const gzc_workspace_create_request_t *value, gzc_buf_t *out_payload) {
+  if (value == NULL || out_payload == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
-  gzc_json_writer_t writer;
-  gzc_json_writer_init(&writer, platform, out_json);
-  int rc = gzc_json_object_begin(&writer);
-  if (rc != GZC_OK) { return rc; }
+  gzc_buf_reset(out_payload);
+  int rc;
   if (true) {
-    rc = gzc_json_field_str(&writer, "created_at", value->created_at);
+    rc = gzc_rpc_proto_append_bytes(platform, out_payload, 1, (const uint8_t *)value->value.raw.data, value->value.raw.len);
     if (rc != GZC_OK) { return rc; }
   }
-  if (true) {
-    rc = gzc_json_field_str(&writer, "last_active_at", value->last_active_at);
-    if (rc != GZC_OK) { return rc; }
-  }
-  if (true) {
-    rc = gzc_json_field_str(&writer, "name", value->name);
-    if (rc != GZC_OK) { return rc; }
-  }
-  if (value->has_parameters) {
-    rc = gzc_json_field_raw(&writer, "parameters", value->parameters.raw);
-    if (rc != GZC_OK) { return rc; }
-  }
-  if (true) {
-    rc = gzc_json_field_str(&writer, "updated_at", value->updated_at);
-    if (rc != GZC_OK) { return rc; }
-  }
-  if (true) {
-    rc = gzc_json_field_str(&writer, "workflow_name", value->workflow_name);
-    if (rc != GZC_OK) { return rc; }
-  }
-  return gzc_json_object_end(&writer);
+  return GZC_OK;
 }
 
-int gzc_workspace_put_request_encode_json(const gzc_platform_t *platform, const gzc_workspace_put_request_t *value, gzc_buf_t *out_json) {
-  if (value == NULL || out_json == NULL) {
+int gzc_workspace_put_request_encode_proto(const gzc_platform_t *platform, const gzc_workspace_put_request_t *value, gzc_buf_t *out_payload) {
+  if (value == NULL || out_payload == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
-  gzc_json_writer_t writer;
-  gzc_json_writer_init(&writer, platform, out_json);
-  int rc = gzc_json_object_begin(&writer);
-  if (rc != GZC_OK) { return rc; }
+  gzc_buf_reset(out_payload);
+  int rc;
   if (true) {
-    rc = gzc_json_field_raw(&writer, "body", value->body.raw);
+    rc = gzc_rpc_proto_append_bytes(platform, out_payload, 1, (const uint8_t *)value->body.raw.data, value->body.raw.len);
     if (rc != GZC_OK) { return rc; }
   }
   if (true) {
-    rc = gzc_json_field_str(&writer, "name", value->name);
+    rc = gzc_rpc_proto_append_bytes(platform, out_payload, 2, (const uint8_t *)value->name.data, value->name.len);
     if (rc != GZC_OK) { return rc; }
   }
-  return gzc_json_object_end(&writer);
+  return GZC_OK;
 }
 
-int gzc_workspace_delete_request_encode_json(const gzc_platform_t *platform, const gzc_workspace_delete_request_t *value, gzc_buf_t *out_json) {
-  if (value == NULL || out_json == NULL) {
+int gzc_workspace_delete_request_encode_proto(const gzc_platform_t *platform, const gzc_workspace_delete_request_t *value, gzc_buf_t *out_payload) {
+  if (value == NULL || out_payload == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
-  gzc_json_writer_t writer;
-  gzc_json_writer_init(&writer, platform, out_json);
-  int rc = gzc_json_object_begin(&writer);
-  if (rc != GZC_OK) { return rc; }
+  gzc_buf_reset(out_payload);
+  int rc;
   if (true) {
-    rc = gzc_json_field_str(&writer, "name", value->name);
+    rc = gzc_rpc_proto_append_bytes(platform, out_payload, 1, (const uint8_t *)value->name.data, value->name.len);
     if (rc != GZC_OK) { return rc; }
   }
-  return gzc_json_object_end(&writer);
+  return GZC_OK;
 }
 
-int gzc_workspace_history_list_request_encode_json(const gzc_platform_t *platform, const gzc_workspace_history_list_request_t *value, gzc_buf_t *out_json) {
-  if (value == NULL || out_json == NULL) {
+int gzc_workspace_history_list_request_encode_proto(const gzc_platform_t *platform, const gzc_workspace_history_list_request_t *value, gzc_buf_t *out_payload) {
+  if (value == NULL || out_payload == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
-  gzc_json_writer_t writer;
-  gzc_json_writer_init(&writer, platform, out_json);
-  int rc = gzc_json_object_begin(&writer);
-  if (rc != GZC_OK) { return rc; }
+  gzc_buf_reset(out_payload);
+  int rc;
   if (value->has_cursor) {
-    rc = gzc_json_field_str(&writer, "cursor", value->cursor);
+    rc = gzc_rpc_proto_append_bytes(platform, out_payload, 1, (const uint8_t *)value->cursor.data, value->cursor.len);
     if (rc != GZC_OK) { return rc; }
   }
   if (value->has_limit) {
-    rc = gzc_json_field_i32(&writer, "limit", value->limit);
+    rc = gzc_rpc_proto_append_varint(platform, out_payload, 2, (uint64_t)(uint32_t)value->limit);
     if (rc != GZC_OK) { return rc; }
   }
   if (value->has_order) {
-    rc = gzc_json_field_str(&writer, "order", value->order);
+    rc = gzc_rpc_proto_append_bytes(platform, out_payload, 3, (const uint8_t *)value->order.data, value->order.len);
     if (rc != GZC_OK) { return rc; }
   }
   if (true) {
-    rc = gzc_json_field_str(&writer, "workspace_name", value->workspace_name);
+    rc = gzc_rpc_proto_append_bytes(platform, out_payload, 4, (const uint8_t *)value->workspace_name.data, value->workspace_name.len);
     if (rc != GZC_OK) { return rc; }
   }
-  return gzc_json_object_end(&writer);
+  return GZC_OK;
 }
 
-int gzc_workspace_history_get_request_encode_json(const gzc_platform_t *platform, const gzc_workspace_history_get_request_t *value, gzc_buf_t *out_json) {
-  if (value == NULL || out_json == NULL) {
+int gzc_workspace_history_get_request_encode_proto(const gzc_platform_t *platform, const gzc_workspace_history_get_request_t *value, gzc_buf_t *out_payload) {
+  if (value == NULL || out_payload == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
-  gzc_json_writer_t writer;
-  gzc_json_writer_init(&writer, platform, out_json);
-  int rc = gzc_json_object_begin(&writer);
-  if (rc != GZC_OK) { return rc; }
+  gzc_buf_reset(out_payload);
+  int rc;
   if (true) {
-    rc = gzc_json_field_str(&writer, "history_id", value->history_id);
+    rc = gzc_rpc_proto_append_bytes(platform, out_payload, 1, (const uint8_t *)value->history_id.data, value->history_id.len);
     if (rc != GZC_OK) { return rc; }
   }
   if (true) {
-    rc = gzc_json_field_str(&writer, "workspace_name", value->workspace_name);
+    rc = gzc_rpc_proto_append_bytes(platform, out_payload, 2, (const uint8_t *)value->workspace_name.data, value->workspace_name.len);
     if (rc != GZC_OK) { return rc; }
   }
-  return gzc_json_object_end(&writer);
+  return GZC_OK;
 }
 
-int gzc_workspace_history_audio_get_request_encode_json(const gzc_platform_t *platform, const gzc_workspace_history_audio_get_request_t *value, gzc_buf_t *out_json) {
-  if (value == NULL || out_json == NULL) {
+int gzc_workspace_history_audio_get_request_encode_proto(const gzc_platform_t *platform, const gzc_workspace_history_audio_get_request_t *value, gzc_buf_t *out_payload) {
+  if (value == NULL || out_payload == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
-  gzc_json_writer_t writer;
-  gzc_json_writer_init(&writer, platform, out_json);
-  int rc = gzc_json_object_begin(&writer);
-  if (rc != GZC_OK) { return rc; }
+  gzc_buf_reset(out_payload);
+  int rc;
   if (true) {
-    rc = gzc_json_field_str(&writer, "history_id", value->history_id);
+    rc = gzc_rpc_proto_append_bytes(platform, out_payload, 1, (const uint8_t *)value->history_id.data, value->history_id.len);
     if (rc != GZC_OK) { return rc; }
   }
   if (true) {
-    rc = gzc_json_field_str(&writer, "workspace_name", value->workspace_name);
+    rc = gzc_rpc_proto_append_bytes(platform, out_payload, 2, (const uint8_t *)value->workspace_name.data, value->workspace_name.len);
     if (rc != GZC_OK) { return rc; }
   }
-  return gzc_json_object_end(&writer);
+  return GZC_OK;
 }
 
-int gzc_workflow_list_request_encode_json(const gzc_platform_t *platform, const gzc_workflow_list_request_t *value, gzc_buf_t *out_json) {
-  if (value == NULL || out_json == NULL) {
+int gzc_workflow_list_request_encode_proto(const gzc_platform_t *platform, const gzc_workflow_list_request_t *value, gzc_buf_t *out_payload) {
+  if (value == NULL || out_payload == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
-  gzc_json_writer_t writer;
-  gzc_json_writer_init(&writer, platform, out_json);
-  int rc = gzc_json_object_begin(&writer);
-  if (rc != GZC_OK) { return rc; }
+  gzc_buf_reset(out_payload);
+  int rc;
   if (value->has_cursor) {
-    rc = gzc_json_field_str(&writer, "cursor", value->cursor);
+    rc = gzc_rpc_proto_append_bytes(platform, out_payload, 1, (const uint8_t *)value->cursor.data, value->cursor.len);
     if (rc != GZC_OK) { return rc; }
   }
   if (value->has_limit) {
-    rc = gzc_json_field_i32(&writer, "limit", value->limit);
+    rc = gzc_rpc_proto_append_varint(platform, out_payload, 2, (uint64_t)(uint32_t)value->limit);
     if (rc != GZC_OK) { return rc; }
   }
-  return gzc_json_object_end(&writer);
+  return GZC_OK;
 }
 
-int gzc_workflow_get_request_encode_json(const gzc_platform_t *platform, const gzc_workflow_get_request_t *value, gzc_buf_t *out_json) {
-  if (value == NULL || out_json == NULL) {
+int gzc_workflow_get_request_encode_proto(const gzc_platform_t *platform, const gzc_workflow_get_request_t *value, gzc_buf_t *out_payload) {
+  if (value == NULL || out_payload == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
-  gzc_json_writer_t writer;
-  gzc_json_writer_init(&writer, platform, out_json);
-  int rc = gzc_json_object_begin(&writer);
-  if (rc != GZC_OK) { return rc; }
+  gzc_buf_reset(out_payload);
+  int rc;
   if (true) {
-    rc = gzc_json_field_str(&writer, "name", value->name);
+    rc = gzc_rpc_proto_append_bytes(platform, out_payload, 1, (const uint8_t *)value->name.data, value->name.len);
     if (rc != GZC_OK) { return rc; }
   }
-  return gzc_json_object_end(&writer);
+  return GZC_OK;
 }
 
-int gzc_workflow_create_request_encode_json(const gzc_platform_t *platform, const gzc_workflow_create_request_t *value, gzc_buf_t *out_json) {
-  if (value == NULL || out_json == NULL) {
+int gzc_workflow_create_request_encode_proto(const gzc_platform_t *platform, const gzc_workflow_create_request_t *value, gzc_buf_t *out_payload) {
+  if (value == NULL || out_payload == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
-  gzc_json_writer_t writer;
-  gzc_json_writer_init(&writer, platform, out_json);
-  int rc = gzc_json_object_begin(&writer);
-  if (rc != GZC_OK) { return rc; }
+  gzc_buf_reset(out_payload);
+  int rc;
   if (true) {
-    rc = gzc_json_field_raw(&writer, "metadata", value->metadata.raw);
+    rc = gzc_rpc_proto_append_bytes(platform, out_payload, 1, (const uint8_t *)value->value.raw.data, value->value.raw.len);
     if (rc != GZC_OK) { return rc; }
   }
-  if (true) {
-    rc = gzc_json_field_raw(&writer, "spec", value->spec.raw);
-    if (rc != GZC_OK) { return rc; }
-  }
-  return gzc_json_object_end(&writer);
+  return GZC_OK;
 }
 
-int gzc_workflow_put_request_encode_json(const gzc_platform_t *platform, const gzc_workflow_put_request_t *value, gzc_buf_t *out_json) {
-  if (value == NULL || out_json == NULL) {
+int gzc_workflow_put_request_encode_proto(const gzc_platform_t *platform, const gzc_workflow_put_request_t *value, gzc_buf_t *out_payload) {
+  if (value == NULL || out_payload == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
-  gzc_json_writer_t writer;
-  gzc_json_writer_init(&writer, platform, out_json);
-  int rc = gzc_json_object_begin(&writer);
-  if (rc != GZC_OK) { return rc; }
+  gzc_buf_reset(out_payload);
+  int rc;
   if (true) {
-    rc = gzc_json_field_raw(&writer, "body", value->body.raw);
+    rc = gzc_rpc_proto_append_bytes(platform, out_payload, 1, (const uint8_t *)value->body.raw.data, value->body.raw.len);
     if (rc != GZC_OK) { return rc; }
   }
   if (true) {
-    rc = gzc_json_field_str(&writer, "name", value->name);
+    rc = gzc_rpc_proto_append_bytes(platform, out_payload, 2, (const uint8_t *)value->name.data, value->name.len);
     if (rc != GZC_OK) { return rc; }
   }
-  return gzc_json_object_end(&writer);
+  return GZC_OK;
 }
 
-int gzc_workflow_delete_request_encode_json(const gzc_platform_t *platform, const gzc_workflow_delete_request_t *value, gzc_buf_t *out_json) {
-  if (value == NULL || out_json == NULL) {
+int gzc_workflow_delete_request_encode_proto(const gzc_platform_t *platform, const gzc_workflow_delete_request_t *value, gzc_buf_t *out_payload) {
+  if (value == NULL || out_payload == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
-  gzc_json_writer_t writer;
-  gzc_json_writer_init(&writer, platform, out_json);
-  int rc = gzc_json_object_begin(&writer);
-  if (rc != GZC_OK) { return rc; }
+  gzc_buf_reset(out_payload);
+  int rc;
   if (true) {
-    rc = gzc_json_field_str(&writer, "name", value->name);
+    rc = gzc_rpc_proto_append_bytes(platform, out_payload, 1, (const uint8_t *)value->name.data, value->name.len);
     if (rc != GZC_OK) { return rc; }
   }
-  return gzc_json_object_end(&writer);
+  return GZC_OK;
 }
 
-int gzc_model_list_request_encode_json(const gzc_platform_t *platform, const gzc_model_list_request_t *value, gzc_buf_t *out_json) {
-  if (value == NULL || out_json == NULL) {
+int gzc_model_list_request_encode_proto(const gzc_platform_t *platform, const gzc_model_list_request_t *value, gzc_buf_t *out_payload) {
+  if (value == NULL || out_payload == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
-  gzc_json_writer_t writer;
-  gzc_json_writer_init(&writer, platform, out_json);
-  int rc = gzc_json_object_begin(&writer);
-  if (rc != GZC_OK) { return rc; }
+  gzc_buf_reset(out_payload);
+  int rc;
   if (value->has_cursor) {
-    rc = gzc_json_field_str(&writer, "cursor", value->cursor);
+    rc = gzc_rpc_proto_append_bytes(platform, out_payload, 1, (const uint8_t *)value->cursor.data, value->cursor.len);
     if (rc != GZC_OK) { return rc; }
   }
   if (value->has_limit) {
-    rc = gzc_json_field_i32(&writer, "limit", value->limit);
+    rc = gzc_rpc_proto_append_varint(platform, out_payload, 2, (uint64_t)(uint32_t)value->limit);
     if (rc != GZC_OK) { return rc; }
   }
-  return gzc_json_object_end(&writer);
+  return GZC_OK;
 }
 
-int gzc_model_get_request_encode_json(const gzc_platform_t *platform, const gzc_model_get_request_t *value, gzc_buf_t *out_json) {
-  if (value == NULL || out_json == NULL) {
+int gzc_model_get_request_encode_proto(const gzc_platform_t *platform, const gzc_model_get_request_t *value, gzc_buf_t *out_payload) {
+  if (value == NULL || out_payload == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
-  gzc_json_writer_t writer;
-  gzc_json_writer_init(&writer, platform, out_json);
-  int rc = gzc_json_object_begin(&writer);
-  if (rc != GZC_OK) { return rc; }
+  gzc_buf_reset(out_payload);
+  int rc;
   if (true) {
-    rc = gzc_json_field_str(&writer, "id", value->id);
+    rc = gzc_rpc_proto_append_bytes(platform, out_payload, 1, (const uint8_t *)value->id.data, value->id.len);
     if (rc != GZC_OK) { return rc; }
   }
-  return gzc_json_object_end(&writer);
+  return GZC_OK;
 }
 
-int gzc_model_create_request_encode_json(const gzc_platform_t *platform, const gzc_model_create_request_t *value, gzc_buf_t *out_json) {
-  if (value == NULL || out_json == NULL) {
+int gzc_model_create_request_encode_proto(const gzc_platform_t *platform, const gzc_model_create_request_t *value, gzc_buf_t *out_payload) {
+  if (value == NULL || out_payload == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
-  gzc_json_writer_t writer;
-  gzc_json_writer_init(&writer, platform, out_json);
-  int rc = gzc_json_object_begin(&writer);
-  if (rc != GZC_OK) { return rc; }
-  if (value->has_capabilities) {
-    rc = gzc_json_field_raw(&writer, "capabilities", value->capabilities.raw);
-    if (rc != GZC_OK) { return rc; }
-  }
+  gzc_buf_reset(out_payload);
+  int rc;
   if (true) {
-    rc = gzc_json_field_str(&writer, "created_at", value->created_at);
+    rc = gzc_rpc_proto_append_bytes(platform, out_payload, 1, (const uint8_t *)value->value.raw.data, value->value.raw.len);
     if (rc != GZC_OK) { return rc; }
   }
-  if (value->has_description) {
-    rc = gzc_json_field_str(&writer, "description", value->description);
-    if (rc != GZC_OK) { return rc; }
-  }
-  if (true) {
-    rc = gzc_json_field_str(&writer, "id", value->id);
-    if (rc != GZC_OK) { return rc; }
-  }
-  if (true) {
-    rc = gzc_json_field_raw(&writer, "kind", value->kind.raw);
-    if (rc != GZC_OK) { return rc; }
-  }
-  if (value->has_name) {
-    rc = gzc_json_field_str(&writer, "name", value->name);
-    if (rc != GZC_OK) { return rc; }
-  }
-  if (true) {
-    rc = gzc_json_field_raw(&writer, "provider", value->provider.raw);
-    if (rc != GZC_OK) { return rc; }
-  }
-  if (value->has_provider_data) {
-    rc = gzc_json_field_raw(&writer, "provider_data", value->provider_data.raw);
-    if (rc != GZC_OK) { return rc; }
-  }
-  if (true) {
-    rc = gzc_json_field_raw(&writer, "source", value->source.raw);
-    if (rc != GZC_OK) { return rc; }
-  }
-  if (value->has_synced_at) {
-    rc = gzc_json_field_str(&writer, "synced_at", value->synced_at);
-    if (rc != GZC_OK) { return rc; }
-  }
-  if (true) {
-    rc = gzc_json_field_str(&writer, "updated_at", value->updated_at);
-    if (rc != GZC_OK) { return rc; }
-  }
-  return gzc_json_object_end(&writer);
+  return GZC_OK;
 }
 
-int gzc_model_put_request_encode_json(const gzc_platform_t *platform, const gzc_model_put_request_t *value, gzc_buf_t *out_json) {
-  if (value == NULL || out_json == NULL) {
+int gzc_model_put_request_encode_proto(const gzc_platform_t *platform, const gzc_model_put_request_t *value, gzc_buf_t *out_payload) {
+  if (value == NULL || out_payload == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
-  gzc_json_writer_t writer;
-  gzc_json_writer_init(&writer, platform, out_json);
-  int rc = gzc_json_object_begin(&writer);
-  if (rc != GZC_OK) { return rc; }
+  gzc_buf_reset(out_payload);
+  int rc;
   if (true) {
-    rc = gzc_json_field_raw(&writer, "body", value->body.raw);
+    rc = gzc_rpc_proto_append_bytes(platform, out_payload, 1, (const uint8_t *)value->body.raw.data, value->body.raw.len);
     if (rc != GZC_OK) { return rc; }
   }
   if (true) {
-    rc = gzc_json_field_str(&writer, "id", value->id);
+    rc = gzc_rpc_proto_append_bytes(platform, out_payload, 2, (const uint8_t *)value->id.data, value->id.len);
     if (rc != GZC_OK) { return rc; }
   }
-  return gzc_json_object_end(&writer);
+  return GZC_OK;
 }
 
-int gzc_model_delete_request_encode_json(const gzc_platform_t *platform, const gzc_model_delete_request_t *value, gzc_buf_t *out_json) {
-  if (value == NULL || out_json == NULL) {
+int gzc_model_delete_request_encode_proto(const gzc_platform_t *platform, const gzc_model_delete_request_t *value, gzc_buf_t *out_payload) {
+  if (value == NULL || out_payload == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
-  gzc_json_writer_t writer;
-  gzc_json_writer_init(&writer, platform, out_json);
-  int rc = gzc_json_object_begin(&writer);
-  if (rc != GZC_OK) { return rc; }
+  gzc_buf_reset(out_payload);
+  int rc;
   if (true) {
-    rc = gzc_json_field_str(&writer, "id", value->id);
+    rc = gzc_rpc_proto_append_bytes(platform, out_payload, 1, (const uint8_t *)value->id.data, value->id.len);
     if (rc != GZC_OK) { return rc; }
   }
-  return gzc_json_object_end(&writer);
+  return GZC_OK;
 }
 
-int gzc_voice_list_request_encode_json(const gzc_platform_t *platform, const gzc_voice_list_request_t *value, gzc_buf_t *out_json) {
-  if (value == NULL || out_json == NULL) {
+int gzc_voice_list_request_encode_proto(const gzc_platform_t *platform, const gzc_voice_list_request_t *value, gzc_buf_t *out_payload) {
+  if (value == NULL || out_payload == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
-  gzc_json_writer_t writer;
-  gzc_json_writer_init(&writer, platform, out_json);
-  int rc = gzc_json_object_begin(&writer);
-  if (rc != GZC_OK) { return rc; }
+  gzc_buf_reset(out_payload);
+  int rc;
   if (value->has_cursor) {
-    rc = gzc_json_field_str(&writer, "cursor", value->cursor);
+    rc = gzc_rpc_proto_append_bytes(platform, out_payload, 1, (const uint8_t *)value->cursor.data, value->cursor.len);
     if (rc != GZC_OK) { return rc; }
   }
   if (value->has_limit) {
-    rc = gzc_json_field_i32(&writer, "limit", value->limit);
+    rc = gzc_rpc_proto_append_varint(platform, out_payload, 2, (uint64_t)(uint32_t)value->limit);
     if (rc != GZC_OK) { return rc; }
   }
-  return gzc_json_object_end(&writer);
+  return GZC_OK;
 }
 
-int gzc_voice_get_request_encode_json(const gzc_platform_t *platform, const gzc_voice_get_request_t *value, gzc_buf_t *out_json) {
-  if (value == NULL || out_json == NULL) {
+int gzc_voice_get_request_encode_proto(const gzc_platform_t *platform, const gzc_voice_get_request_t *value, gzc_buf_t *out_payload) {
+  if (value == NULL || out_payload == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
-  gzc_json_writer_t writer;
-  gzc_json_writer_init(&writer, platform, out_json);
-  int rc = gzc_json_object_begin(&writer);
-  if (rc != GZC_OK) { return rc; }
+  gzc_buf_reset(out_payload);
+  int rc;
   if (true) {
-    rc = gzc_json_field_str(&writer, "id", value->id);
+    rc = gzc_rpc_proto_append_bytes(platform, out_payload, 1, (const uint8_t *)value->id.data, value->id.len);
     if (rc != GZC_OK) { return rc; }
   }
-  return gzc_json_object_end(&writer);
+  return GZC_OK;
 }
 
-int gzc_credential_list_request_encode_json(const gzc_platform_t *platform, const gzc_credential_list_request_t *value, gzc_buf_t *out_json) {
-  if (value == NULL || out_json == NULL) {
+int gzc_credential_list_request_encode_proto(const gzc_platform_t *platform, const gzc_credential_list_request_t *value, gzc_buf_t *out_payload) {
+  if (value == NULL || out_payload == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
-  gzc_json_writer_t writer;
-  gzc_json_writer_init(&writer, platform, out_json);
-  int rc = gzc_json_object_begin(&writer);
-  if (rc != GZC_OK) { return rc; }
+  gzc_buf_reset(out_payload);
+  int rc;
   if (value->has_cursor) {
-    rc = gzc_json_field_str(&writer, "cursor", value->cursor);
+    rc = gzc_rpc_proto_append_bytes(platform, out_payload, 1, (const uint8_t *)value->cursor.data, value->cursor.len);
     if (rc != GZC_OK) { return rc; }
   }
   if (value->has_limit) {
-    rc = gzc_json_field_i32(&writer, "limit", value->limit);
+    rc = gzc_rpc_proto_append_varint(platform, out_payload, 2, (uint64_t)(uint32_t)value->limit);
     if (rc != GZC_OK) { return rc; }
   }
-  return gzc_json_object_end(&writer);
+  return GZC_OK;
 }
 
-int gzc_credential_get_request_encode_json(const gzc_platform_t *platform, const gzc_credential_get_request_t *value, gzc_buf_t *out_json) {
-  if (value == NULL || out_json == NULL) {
+int gzc_credential_get_request_encode_proto(const gzc_platform_t *platform, const gzc_credential_get_request_t *value, gzc_buf_t *out_payload) {
+  if (value == NULL || out_payload == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
-  gzc_json_writer_t writer;
-  gzc_json_writer_init(&writer, platform, out_json);
-  int rc = gzc_json_object_begin(&writer);
-  if (rc != GZC_OK) { return rc; }
+  gzc_buf_reset(out_payload);
+  int rc;
   if (true) {
-    rc = gzc_json_field_str(&writer, "name", value->name);
+    rc = gzc_rpc_proto_append_bytes(platform, out_payload, 1, (const uint8_t *)value->name.data, value->name.len);
     if (rc != GZC_OK) { return rc; }
   }
-  return gzc_json_object_end(&writer);
+  return GZC_OK;
 }
 
-int gzc_credential_create_request_encode_json(const gzc_platform_t *platform, const gzc_credential_create_request_t *value, gzc_buf_t *out_json) {
-  if (value == NULL || out_json == NULL) {
+int gzc_credential_create_request_encode_proto(const gzc_platform_t *platform, const gzc_credential_create_request_t *value, gzc_buf_t *out_payload) {
+  if (value == NULL || out_payload == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
-  gzc_json_writer_t writer;
-  gzc_json_writer_init(&writer, platform, out_json);
-  int rc = gzc_json_object_begin(&writer);
-  if (rc != GZC_OK) { return rc; }
+  gzc_buf_reset(out_payload);
+  int rc;
   if (true) {
-    rc = gzc_json_field_raw(&writer, "body", value->body.raw);
+    rc = gzc_rpc_proto_append_bytes(platform, out_payload, 1, (const uint8_t *)value->value.raw.data, value->value.raw.len);
     if (rc != GZC_OK) { return rc; }
   }
-  if (true) {
-    rc = gzc_json_field_str(&writer, "created_at", value->created_at);
-    if (rc != GZC_OK) { return rc; }
-  }
-  if (value->has_description) {
-    rc = gzc_json_field_str(&writer, "description", value->description);
-    if (rc != GZC_OK) { return rc; }
-  }
-  if (true) {
-    rc = gzc_json_field_str(&writer, "name", value->name);
-    if (rc != GZC_OK) { return rc; }
-  }
-  if (true) {
-    rc = gzc_json_field_str(&writer, "provider", value->provider);
-    if (rc != GZC_OK) { return rc; }
-  }
-  if (true) {
-    rc = gzc_json_field_str(&writer, "updated_at", value->updated_at);
-    if (rc != GZC_OK) { return rc; }
-  }
-  return gzc_json_object_end(&writer);
+  return GZC_OK;
 }
 
-int gzc_credential_put_request_encode_json(const gzc_platform_t *platform, const gzc_credential_put_request_t *value, gzc_buf_t *out_json) {
-  if (value == NULL || out_json == NULL) {
+int gzc_credential_put_request_encode_proto(const gzc_platform_t *platform, const gzc_credential_put_request_t *value, gzc_buf_t *out_payload) {
+  if (value == NULL || out_payload == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
-  gzc_json_writer_t writer;
-  gzc_json_writer_init(&writer, platform, out_json);
-  int rc = gzc_json_object_begin(&writer);
-  if (rc != GZC_OK) { return rc; }
+  gzc_buf_reset(out_payload);
+  int rc;
   if (true) {
-    rc = gzc_json_field_raw(&writer, "body", value->body.raw);
+    rc = gzc_rpc_proto_append_bytes(platform, out_payload, 1, (const uint8_t *)value->body.raw.data, value->body.raw.len);
     if (rc != GZC_OK) { return rc; }
   }
   if (true) {
-    rc = gzc_json_field_str(&writer, "name", value->name);
+    rc = gzc_rpc_proto_append_bytes(platform, out_payload, 2, (const uint8_t *)value->name.data, value->name.len);
     if (rc != GZC_OK) { return rc; }
   }
-  return gzc_json_object_end(&writer);
+  return GZC_OK;
 }
 
-int gzc_credential_delete_request_encode_json(const gzc_platform_t *platform, const gzc_credential_delete_request_t *value, gzc_buf_t *out_json) {
-  if (value == NULL || out_json == NULL) {
+int gzc_credential_delete_request_encode_proto(const gzc_platform_t *platform, const gzc_credential_delete_request_t *value, gzc_buf_t *out_payload) {
+  if (value == NULL || out_payload == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
-  gzc_json_writer_t writer;
-  gzc_json_writer_init(&writer, platform, out_json);
-  int rc = gzc_json_object_begin(&writer);
-  if (rc != GZC_OK) { return rc; }
+  gzc_buf_reset(out_payload);
+  int rc;
   if (true) {
-    rc = gzc_json_field_str(&writer, "name", value->name);
+    rc = gzc_rpc_proto_append_bytes(platform, out_payload, 1, (const uint8_t *)value->name.data, value->name.len);
     if (rc != GZC_OK) { return rc; }
   }
-  return gzc_json_object_end(&writer);
+  return GZC_OK;
 }
 
-int gzc_contact_list_request_encode_json(const gzc_platform_t *platform, const gzc_contact_list_request_t *value, gzc_buf_t *out_json) {
-  if (value == NULL || out_json == NULL) {
+int gzc_contact_list_request_encode_proto(const gzc_platform_t *platform, const gzc_contact_list_request_t *value, gzc_buf_t *out_payload) {
+  if (value == NULL || out_payload == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
-  gzc_json_writer_t writer;
-  gzc_json_writer_init(&writer, platform, out_json);
-  int rc = gzc_json_object_begin(&writer);
-  if (rc != GZC_OK) { return rc; }
+  gzc_buf_reset(out_payload);
+  int rc;
   if (value->has_cursor) {
-    rc = gzc_json_field_str(&writer, "cursor", value->cursor);
+    rc = gzc_rpc_proto_append_bytes(platform, out_payload, 1, (const uint8_t *)value->cursor.data, value->cursor.len);
     if (rc != GZC_OK) { return rc; }
   }
   if (value->has_limit) {
-    rc = gzc_json_field_i32(&writer, "limit", value->limit);
+    rc = gzc_rpc_proto_append_varint(platform, out_payload, 2, (uint64_t)(uint32_t)value->limit);
     if (rc != GZC_OK) { return rc; }
   }
-  return gzc_json_object_end(&writer);
+  return GZC_OK;
 }
 
-int gzc_contact_get_request_encode_json(const gzc_platform_t *platform, const gzc_contact_get_request_t *value, gzc_buf_t *out_json) {
-  if (value == NULL || out_json == NULL) {
+int gzc_contact_get_request_encode_proto(const gzc_platform_t *platform, const gzc_contact_get_request_t *value, gzc_buf_t *out_payload) {
+  if (value == NULL || out_payload == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
-  gzc_json_writer_t writer;
-  gzc_json_writer_init(&writer, platform, out_json);
-  int rc = gzc_json_object_begin(&writer);
-  if (rc != GZC_OK) { return rc; }
+  gzc_buf_reset(out_payload);
+  int rc;
   if (true) {
-    rc = gzc_json_field_str(&writer, "id", value->id);
+    rc = gzc_rpc_proto_append_bytes(platform, out_payload, 1, (const uint8_t *)value->id.data, value->id.len);
     if (rc != GZC_OK) { return rc; }
   }
-  return gzc_json_object_end(&writer);
+  return GZC_OK;
 }
 
-int gzc_contact_create_request_encode_json(const gzc_platform_t *platform, const gzc_contact_create_request_t *value, gzc_buf_t *out_json) {
-  if (value == NULL || out_json == NULL) {
+int gzc_contact_create_request_encode_proto(const gzc_platform_t *platform, const gzc_contact_create_request_t *value, gzc_buf_t *out_payload) {
+  if (value == NULL || out_payload == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
-  gzc_json_writer_t writer;
-  gzc_json_writer_init(&writer, platform, out_json);
-  int rc = gzc_json_object_begin(&writer);
-  if (rc != GZC_OK) { return rc; }
+  gzc_buf_reset(out_payload);
+  int rc;
   if (value->has_display_name) {
-    rc = gzc_json_field_str(&writer, "display_name", value->display_name);
+    rc = gzc_rpc_proto_append_bytes(platform, out_payload, 1, (const uint8_t *)value->display_name.data, value->display_name.len);
     if (rc != GZC_OK) { return rc; }
   }
   if (value->has_phone_number) {
-    rc = gzc_json_field_str(&writer, "phone_number", value->phone_number);
+    rc = gzc_rpc_proto_append_bytes(platform, out_payload, 2, (const uint8_t *)value->phone_number.data, value->phone_number.len);
     if (rc != GZC_OK) { return rc; }
   }
-  return gzc_json_object_end(&writer);
+  return GZC_OK;
 }
 
-int gzc_contact_put_request_encode_json(const gzc_platform_t *platform, const gzc_contact_put_request_t *value, gzc_buf_t *out_json) {
-  if (value == NULL || out_json == NULL) {
+int gzc_contact_put_request_encode_proto(const gzc_platform_t *platform, const gzc_contact_put_request_t *value, gzc_buf_t *out_payload) {
+  if (value == NULL || out_payload == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
-  gzc_json_writer_t writer;
-  gzc_json_writer_init(&writer, platform, out_json);
-  int rc = gzc_json_object_begin(&writer);
-  if (rc != GZC_OK) { return rc; }
+  gzc_buf_reset(out_payload);
+  int rc;
   if (value->has_display_name) {
-    rc = gzc_json_field_str(&writer, "display_name", value->display_name);
+    rc = gzc_rpc_proto_append_bytes(platform, out_payload, 1, (const uint8_t *)value->display_name.data, value->display_name.len);
     if (rc != GZC_OK) { return rc; }
   }
   if (true) {
-    rc = gzc_json_field_str(&writer, "id", value->id);
+    rc = gzc_rpc_proto_append_bytes(platform, out_payload, 2, (const uint8_t *)value->id.data, value->id.len);
     if (rc != GZC_OK) { return rc; }
   }
   if (value->has_phone_number) {
-    rc = gzc_json_field_str(&writer, "phone_number", value->phone_number);
+    rc = gzc_rpc_proto_append_bytes(platform, out_payload, 3, (const uint8_t *)value->phone_number.data, value->phone_number.len);
     if (rc != GZC_OK) { return rc; }
   }
-  return gzc_json_object_end(&writer);
+  return GZC_OK;
 }
 
-int gzc_contact_delete_request_encode_json(const gzc_platform_t *platform, const gzc_contact_delete_request_t *value, gzc_buf_t *out_json) {
-  if (value == NULL || out_json == NULL) {
+int gzc_contact_delete_request_encode_proto(const gzc_platform_t *platform, const gzc_contact_delete_request_t *value, gzc_buf_t *out_payload) {
+  if (value == NULL || out_payload == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
-  gzc_json_writer_t writer;
-  gzc_json_writer_init(&writer, platform, out_json);
-  int rc = gzc_json_object_begin(&writer);
-  if (rc != GZC_OK) { return rc; }
+  gzc_buf_reset(out_payload);
+  int rc;
   if (true) {
-    rc = gzc_json_field_str(&writer, "id", value->id);
+    rc = gzc_rpc_proto_append_bytes(platform, out_payload, 1, (const uint8_t *)value->id.data, value->id.len);
     if (rc != GZC_OK) { return rc; }
   }
-  return gzc_json_object_end(&writer);
+  return GZC_OK;
 }
 
-int gzc_friend_invite_token_get_request_encode_json(const gzc_platform_t *platform, const gzc_friend_invite_token_get_request_t *value, gzc_buf_t *out_json) {
-  if (value == NULL || out_json == NULL) {
+int gzc_friend_invite_token_get_request_encode_proto(const gzc_platform_t *platform, const gzc_friend_invite_token_get_request_t *value, gzc_buf_t *out_payload) {
+  if (value == NULL || out_payload == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
-  gzc_json_writer_t writer;
-  gzc_json_writer_init(&writer, platform, out_json);
-  int rc = gzc_json_object_begin(&writer);
-  if (rc != GZC_OK) { return rc; }
-  return gzc_json_object_end(&writer);
+  gzc_buf_reset(out_payload);
+  (void)platform;
+  return GZC_OK;
 }
 
-int gzc_friend_invite_token_create_request_encode_json(const gzc_platform_t *platform, const gzc_friend_invite_token_create_request_t *value, gzc_buf_t *out_json) {
-  if (value == NULL || out_json == NULL) {
+int gzc_friend_invite_token_create_request_encode_proto(const gzc_platform_t *platform, const gzc_friend_invite_token_create_request_t *value, gzc_buf_t *out_payload) {
+  if (value == NULL || out_payload == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
-  gzc_json_writer_t writer;
-  gzc_json_writer_init(&writer, platform, out_json);
-  int rc = gzc_json_object_begin(&writer);
-  if (rc != GZC_OK) { return rc; }
-  return gzc_json_object_end(&writer);
+  gzc_buf_reset(out_payload);
+  (void)platform;
+  return GZC_OK;
 }
 
-int gzc_friend_invite_token_clear_request_encode_json(const gzc_platform_t *platform, const gzc_friend_invite_token_clear_request_t *value, gzc_buf_t *out_json) {
-  if (value == NULL || out_json == NULL) {
+int gzc_friend_invite_token_clear_request_encode_proto(const gzc_platform_t *platform, const gzc_friend_invite_token_clear_request_t *value, gzc_buf_t *out_payload) {
+  if (value == NULL || out_payload == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
-  gzc_json_writer_t writer;
-  gzc_json_writer_init(&writer, platform, out_json);
-  int rc = gzc_json_object_begin(&writer);
-  if (rc != GZC_OK) { return rc; }
-  return gzc_json_object_end(&writer);
+  gzc_buf_reset(out_payload);
+  (void)platform;
+  return GZC_OK;
 }
 
-int gzc_friend_add_request_encode_json(const gzc_platform_t *platform, const gzc_friend_add_request_t *value, gzc_buf_t *out_json) {
-  if (value == NULL || out_json == NULL) {
+int gzc_friend_add_request_encode_proto(const gzc_platform_t *platform, const gzc_friend_add_request_t *value, gzc_buf_t *out_payload) {
+  if (value == NULL || out_payload == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
-  gzc_json_writer_t writer;
-  gzc_json_writer_init(&writer, platform, out_json);
-  int rc = gzc_json_object_begin(&writer);
-  if (rc != GZC_OK) { return rc; }
+  gzc_buf_reset(out_payload);
+  int rc;
   if (true) {
-    rc = gzc_json_field_str(&writer, "invite_token", value->invite_token);
+    rc = gzc_rpc_proto_append_bytes(platform, out_payload, 1, (const uint8_t *)value->invite_token.data, value->invite_token.len);
     if (rc != GZC_OK) { return rc; }
   }
-  return gzc_json_object_end(&writer);
+  return GZC_OK;
 }
 
-int gzc_friend_list_request_encode_json(const gzc_platform_t *platform, const gzc_friend_list_request_t *value, gzc_buf_t *out_json) {
-  if (value == NULL || out_json == NULL) {
+int gzc_friend_list_request_encode_proto(const gzc_platform_t *platform, const gzc_friend_list_request_t *value, gzc_buf_t *out_payload) {
+  if (value == NULL || out_payload == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
-  gzc_json_writer_t writer;
-  gzc_json_writer_init(&writer, platform, out_json);
-  int rc = gzc_json_object_begin(&writer);
-  if (rc != GZC_OK) { return rc; }
+  gzc_buf_reset(out_payload);
+  int rc;
   if (value->has_cursor) {
-    rc = gzc_json_field_str(&writer, "cursor", value->cursor);
+    rc = gzc_rpc_proto_append_bytes(platform, out_payload, 1, (const uint8_t *)value->cursor.data, value->cursor.len);
     if (rc != GZC_OK) { return rc; }
   }
   if (value->has_limit) {
-    rc = gzc_json_field_i32(&writer, "limit", value->limit);
+    rc = gzc_rpc_proto_append_varint(platform, out_payload, 2, (uint64_t)(uint32_t)value->limit);
     if (rc != GZC_OK) { return rc; }
   }
-  return gzc_json_object_end(&writer);
+  return GZC_OK;
 }
 
-int gzc_friend_delete_request_encode_json(const gzc_platform_t *platform, const gzc_friend_delete_request_t *value, gzc_buf_t *out_json) {
-  if (value == NULL || out_json == NULL) {
+int gzc_friend_delete_request_encode_proto(const gzc_platform_t *platform, const gzc_friend_delete_request_t *value, gzc_buf_t *out_payload) {
+  if (value == NULL || out_payload == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
-  gzc_json_writer_t writer;
-  gzc_json_writer_init(&writer, platform, out_json);
-  int rc = gzc_json_object_begin(&writer);
-  if (rc != GZC_OK) { return rc; }
+  gzc_buf_reset(out_payload);
+  int rc;
   if (true) {
-    rc = gzc_json_field_str(&writer, "id", value->id);
+    rc = gzc_rpc_proto_append_bytes(platform, out_payload, 1, (const uint8_t *)value->id.data, value->id.len);
     if (rc != GZC_OK) { return rc; }
   }
-  return gzc_json_object_end(&writer);
+  return GZC_OK;
 }
 
-int gzc_friend_group_list_request_encode_json(const gzc_platform_t *platform, const gzc_friend_group_list_request_t *value, gzc_buf_t *out_json) {
-  if (value == NULL || out_json == NULL) {
+int gzc_friend_group_list_request_encode_proto(const gzc_platform_t *platform, const gzc_friend_group_list_request_t *value, gzc_buf_t *out_payload) {
+  if (value == NULL || out_payload == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
-  gzc_json_writer_t writer;
-  gzc_json_writer_init(&writer, platform, out_json);
-  int rc = gzc_json_object_begin(&writer);
-  if (rc != GZC_OK) { return rc; }
+  gzc_buf_reset(out_payload);
+  int rc;
   if (value->has_cursor) {
-    rc = gzc_json_field_str(&writer, "cursor", value->cursor);
+    rc = gzc_rpc_proto_append_bytes(platform, out_payload, 1, (const uint8_t *)value->cursor.data, value->cursor.len);
     if (rc != GZC_OK) { return rc; }
   }
   if (value->has_limit) {
-    rc = gzc_json_field_i32(&writer, "limit", value->limit);
+    rc = gzc_rpc_proto_append_varint(platform, out_payload, 2, (uint64_t)(uint32_t)value->limit);
     if (rc != GZC_OK) { return rc; }
   }
-  return gzc_json_object_end(&writer);
+  return GZC_OK;
 }
 
-int gzc_friend_group_get_request_encode_json(const gzc_platform_t *platform, const gzc_friend_group_get_request_t *value, gzc_buf_t *out_json) {
-  if (value == NULL || out_json == NULL) {
+int gzc_friend_group_get_request_encode_proto(const gzc_platform_t *platform, const gzc_friend_group_get_request_t *value, gzc_buf_t *out_payload) {
+  if (value == NULL || out_payload == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
-  gzc_json_writer_t writer;
-  gzc_json_writer_init(&writer, platform, out_json);
-  int rc = gzc_json_object_begin(&writer);
-  if (rc != GZC_OK) { return rc; }
+  gzc_buf_reset(out_payload);
+  int rc;
   if (true) {
-    rc = gzc_json_field_str(&writer, "id", value->id);
+    rc = gzc_rpc_proto_append_bytes(platform, out_payload, 1, (const uint8_t *)value->id.data, value->id.len);
     if (rc != GZC_OK) { return rc; }
   }
-  return gzc_json_object_end(&writer);
+  return GZC_OK;
 }
 
-int gzc_friend_group_create_request_encode_json(const gzc_platform_t *platform, const gzc_friend_group_create_request_t *value, gzc_buf_t *out_json) {
-  if (value == NULL || out_json == NULL) {
+int gzc_friend_group_create_request_encode_proto(const gzc_platform_t *platform, const gzc_friend_group_create_request_t *value, gzc_buf_t *out_payload) {
+  if (value == NULL || out_payload == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
-  gzc_json_writer_t writer;
-  gzc_json_writer_init(&writer, platform, out_json);
-  int rc = gzc_json_object_begin(&writer);
-  if (rc != GZC_OK) { return rc; }
+  gzc_buf_reset(out_payload);
+  int rc;
   if (value->has_description) {
-    rc = gzc_json_field_str(&writer, "description", value->description);
+    rc = gzc_rpc_proto_append_bytes(platform, out_payload, 1, (const uint8_t *)value->description.data, value->description.len);
     if (rc != GZC_OK) { return rc; }
   }
   if (true) {
-    rc = gzc_json_field_str(&writer, "name", value->name);
+    rc = gzc_rpc_proto_append_bytes(platform, out_payload, 2, (const uint8_t *)value->name.data, value->name.len);
     if (rc != GZC_OK) { return rc; }
   }
-  return gzc_json_object_end(&writer);
+  return GZC_OK;
 }
 
-int gzc_friend_group_put_request_encode_json(const gzc_platform_t *platform, const gzc_friend_group_put_request_t *value, gzc_buf_t *out_json) {
-  if (value == NULL || out_json == NULL) {
+int gzc_friend_group_put_request_encode_proto(const gzc_platform_t *platform, const gzc_friend_group_put_request_t *value, gzc_buf_t *out_payload) {
+  if (value == NULL || out_payload == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
-  gzc_json_writer_t writer;
-  gzc_json_writer_init(&writer, platform, out_json);
-  int rc = gzc_json_object_begin(&writer);
-  if (rc != GZC_OK) { return rc; }
+  gzc_buf_reset(out_payload);
+  int rc;
   if (value->has_description) {
-    rc = gzc_json_field_str(&writer, "description", value->description);
+    rc = gzc_rpc_proto_append_bytes(platform, out_payload, 1, (const uint8_t *)value->description.data, value->description.len);
     if (rc != GZC_OK) { return rc; }
   }
   if (true) {
-    rc = gzc_json_field_str(&writer, "id", value->id);
+    rc = gzc_rpc_proto_append_bytes(platform, out_payload, 2, (const uint8_t *)value->id.data, value->id.len);
     if (rc != GZC_OK) { return rc; }
   }
   if (value->has_name) {
-    rc = gzc_json_field_str(&writer, "name", value->name);
+    rc = gzc_rpc_proto_append_bytes(platform, out_payload, 3, (const uint8_t *)value->name.data, value->name.len);
     if (rc != GZC_OK) { return rc; }
   }
-  return gzc_json_object_end(&writer);
+  return GZC_OK;
 }
 
-int gzc_friend_group_delete_request_encode_json(const gzc_platform_t *platform, const gzc_friend_group_delete_request_t *value, gzc_buf_t *out_json) {
-  if (value == NULL || out_json == NULL) {
+int gzc_friend_group_delete_request_encode_proto(const gzc_platform_t *platform, const gzc_friend_group_delete_request_t *value, gzc_buf_t *out_payload) {
+  if (value == NULL || out_payload == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
-  gzc_json_writer_t writer;
-  gzc_json_writer_init(&writer, platform, out_json);
-  int rc = gzc_json_object_begin(&writer);
-  if (rc != GZC_OK) { return rc; }
+  gzc_buf_reset(out_payload);
+  int rc;
   if (true) {
-    rc = gzc_json_field_str(&writer, "id", value->id);
+    rc = gzc_rpc_proto_append_bytes(platform, out_payload, 1, (const uint8_t *)value->id.data, value->id.len);
     if (rc != GZC_OK) { return rc; }
   }
-  return gzc_json_object_end(&writer);
+  return GZC_OK;
 }
 
-int gzc_friend_group_invite_token_get_request_encode_json(const gzc_platform_t *platform, const gzc_friend_group_invite_token_get_request_t *value, gzc_buf_t *out_json) {
-  if (value == NULL || out_json == NULL) {
+int gzc_friend_group_invite_token_get_request_encode_proto(const gzc_platform_t *platform, const gzc_friend_group_invite_token_get_request_t *value, gzc_buf_t *out_payload) {
+  if (value == NULL || out_payload == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
-  gzc_json_writer_t writer;
-  gzc_json_writer_init(&writer, platform, out_json);
-  int rc = gzc_json_object_begin(&writer);
-  if (rc != GZC_OK) { return rc; }
+  gzc_buf_reset(out_payload);
+  int rc;
   if (true) {
-    rc = gzc_json_field_str(&writer, "friend_group_id", value->friend_group_id);
+    rc = gzc_rpc_proto_append_bytes(platform, out_payload, 1, (const uint8_t *)value->friend_group_id.data, value->friend_group_id.len);
     if (rc != GZC_OK) { return rc; }
   }
-  return gzc_json_object_end(&writer);
+  return GZC_OK;
 }
 
-int gzc_friend_group_invite_token_create_request_encode_json(const gzc_platform_t *platform, const gzc_friend_group_invite_token_create_request_t *value, gzc_buf_t *out_json) {
-  if (value == NULL || out_json == NULL) {
+int gzc_friend_group_invite_token_create_request_encode_proto(const gzc_platform_t *platform, const gzc_friend_group_invite_token_create_request_t *value, gzc_buf_t *out_payload) {
+  if (value == NULL || out_payload == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
-  gzc_json_writer_t writer;
-  gzc_json_writer_init(&writer, platform, out_json);
-  int rc = gzc_json_object_begin(&writer);
-  if (rc != GZC_OK) { return rc; }
+  gzc_buf_reset(out_payload);
+  int rc;
   if (true) {
-    rc = gzc_json_field_str(&writer, "friend_group_id", value->friend_group_id);
+    rc = gzc_rpc_proto_append_bytes(platform, out_payload, 1, (const uint8_t *)value->friend_group_id.data, value->friend_group_id.len);
     if (rc != GZC_OK) { return rc; }
   }
-  return gzc_json_object_end(&writer);
+  return GZC_OK;
 }
 
-int gzc_friend_group_invite_token_clear_request_encode_json(const gzc_platform_t *platform, const gzc_friend_group_invite_token_clear_request_t *value, gzc_buf_t *out_json) {
-  if (value == NULL || out_json == NULL) {
+int gzc_friend_group_invite_token_clear_request_encode_proto(const gzc_platform_t *platform, const gzc_friend_group_invite_token_clear_request_t *value, gzc_buf_t *out_payload) {
+  if (value == NULL || out_payload == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
-  gzc_json_writer_t writer;
-  gzc_json_writer_init(&writer, platform, out_json);
-  int rc = gzc_json_object_begin(&writer);
-  if (rc != GZC_OK) { return rc; }
+  gzc_buf_reset(out_payload);
+  int rc;
   if (true) {
-    rc = gzc_json_field_str(&writer, "friend_group_id", value->friend_group_id);
+    rc = gzc_rpc_proto_append_bytes(platform, out_payload, 1, (const uint8_t *)value->friend_group_id.data, value->friend_group_id.len);
     if (rc != GZC_OK) { return rc; }
   }
-  return gzc_json_object_end(&writer);
+  return GZC_OK;
 }
 
-int gzc_friend_group_join_request_encode_json(const gzc_platform_t *platform, const gzc_friend_group_join_request_t *value, gzc_buf_t *out_json) {
-  if (value == NULL || out_json == NULL) {
+int gzc_friend_group_join_request_encode_proto(const gzc_platform_t *platform, const gzc_friend_group_join_request_t *value, gzc_buf_t *out_payload) {
+  if (value == NULL || out_payload == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
-  gzc_json_writer_t writer;
-  gzc_json_writer_init(&writer, platform, out_json);
-  int rc = gzc_json_object_begin(&writer);
-  if (rc != GZC_OK) { return rc; }
+  gzc_buf_reset(out_payload);
+  int rc;
   if (true) {
-    rc = gzc_json_field_str(&writer, "invite_token", value->invite_token);
+    rc = gzc_rpc_proto_append_bytes(platform, out_payload, 1, (const uint8_t *)value->invite_token.data, value->invite_token.len);
     if (rc != GZC_OK) { return rc; }
   }
-  return gzc_json_object_end(&writer);
+  return GZC_OK;
 }
 
-int gzc_friend_group_member_list_request_encode_json(const gzc_platform_t *platform, const gzc_friend_group_member_list_request_t *value, gzc_buf_t *out_json) {
-  if (value == NULL || out_json == NULL) {
+int gzc_friend_group_member_list_request_encode_proto(const gzc_platform_t *platform, const gzc_friend_group_member_list_request_t *value, gzc_buf_t *out_payload) {
+  if (value == NULL || out_payload == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
-  gzc_json_writer_t writer;
-  gzc_json_writer_init(&writer, platform, out_json);
-  int rc = gzc_json_object_begin(&writer);
-  if (rc != GZC_OK) { return rc; }
+  gzc_buf_reset(out_payload);
+  int rc;
   if (value->has_cursor) {
-    rc = gzc_json_field_str(&writer, "cursor", value->cursor);
+    rc = gzc_rpc_proto_append_bytes(platform, out_payload, 1, (const uint8_t *)value->cursor.data, value->cursor.len);
     if (rc != GZC_OK) { return rc; }
   }
   if (value->has_friend_group_id) {
-    rc = gzc_json_field_str(&writer, "friend_group_id", value->friend_group_id);
+    rc = gzc_rpc_proto_append_bytes(platform, out_payload, 2, (const uint8_t *)value->friend_group_id.data, value->friend_group_id.len);
     if (rc != GZC_OK) { return rc; }
   }
   if (value->has_limit) {
-    rc = gzc_json_field_i32(&writer, "limit", value->limit);
+    rc = gzc_rpc_proto_append_varint(platform, out_payload, 3, (uint64_t)(uint32_t)value->limit);
     if (rc != GZC_OK) { return rc; }
   }
-  return gzc_json_object_end(&writer);
+  return GZC_OK;
 }
 
-int gzc_friend_group_member_add_request_encode_json(const gzc_platform_t *platform, const gzc_friend_group_member_add_request_t *value, gzc_buf_t *out_json) {
-  if (value == NULL || out_json == NULL) {
+int gzc_friend_group_member_add_request_encode_proto(const gzc_platform_t *platform, const gzc_friend_group_member_add_request_t *value, gzc_buf_t *out_payload) {
+  if (value == NULL || out_payload == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
-  gzc_json_writer_t writer;
-  gzc_json_writer_init(&writer, platform, out_json);
-  int rc = gzc_json_object_begin(&writer);
-  if (rc != GZC_OK) { return rc; }
+  gzc_buf_reset(out_payload);
+  int rc;
   if (true) {
-    rc = gzc_json_field_str(&writer, "friend_group_id", value->friend_group_id);
+    rc = gzc_rpc_proto_append_bytes(platform, out_payload, 1, (const uint8_t *)value->friend_group_id.data, value->friend_group_id.len);
     if (rc != GZC_OK) { return rc; }
   }
   if (true) {
-    rc = gzc_json_field_str(&writer, "peer_public_key", value->peer_public_key);
+    rc = gzc_rpc_proto_append_bytes(platform, out_payload, 2, (const uint8_t *)value->peer_public_key.data, value->peer_public_key.len);
     if (rc != GZC_OK) { return rc; }
   }
   if (true) {
-    rc = gzc_json_field_raw(&writer, "role", value->role.raw);
+    rc = gzc_rpc_proto_append_bytes(platform, out_payload, 3, (const uint8_t *)value->role.raw.data, value->role.raw.len);
     if (rc != GZC_OK) { return rc; }
   }
-  return gzc_json_object_end(&writer);
+  return GZC_OK;
 }
 
-int gzc_friend_group_member_put_request_encode_json(const gzc_platform_t *platform, const gzc_friend_group_member_put_request_t *value, gzc_buf_t *out_json) {
-  if (value == NULL || out_json == NULL) {
+int gzc_friend_group_member_put_request_encode_proto(const gzc_platform_t *platform, const gzc_friend_group_member_put_request_t *value, gzc_buf_t *out_payload) {
+  if (value == NULL || out_payload == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
-  gzc_json_writer_t writer;
-  gzc_json_writer_init(&writer, platform, out_json);
-  int rc = gzc_json_object_begin(&writer);
-  if (rc != GZC_OK) { return rc; }
+  gzc_buf_reset(out_payload);
+  int rc;
   if (true) {
-    rc = gzc_json_field_str(&writer, "friend_group_id", value->friend_group_id);
+    rc = gzc_rpc_proto_append_bytes(platform, out_payload, 1, (const uint8_t *)value->friend_group_id.data, value->friend_group_id.len);
     if (rc != GZC_OK) { return rc; }
   }
   if (true) {
-    rc = gzc_json_field_str(&writer, "id", value->id);
+    rc = gzc_rpc_proto_append_bytes(platform, out_payload, 2, (const uint8_t *)value->id.data, value->id.len);
     if (rc != GZC_OK) { return rc; }
   }
   if (true) {
-    rc = gzc_json_field_raw(&writer, "role", value->role.raw);
+    rc = gzc_rpc_proto_append_bytes(platform, out_payload, 3, (const uint8_t *)value->role.raw.data, value->role.raw.len);
     if (rc != GZC_OK) { return rc; }
   }
-  return gzc_json_object_end(&writer);
+  return GZC_OK;
 }
 
-int gzc_friend_group_member_delete_request_encode_json(const gzc_platform_t *platform, const gzc_friend_group_member_delete_request_t *value, gzc_buf_t *out_json) {
-  if (value == NULL || out_json == NULL) {
+int gzc_friend_group_member_delete_request_encode_proto(const gzc_platform_t *platform, const gzc_friend_group_member_delete_request_t *value, gzc_buf_t *out_payload) {
+  if (value == NULL || out_payload == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
-  gzc_json_writer_t writer;
-  gzc_json_writer_init(&writer, platform, out_json);
-  int rc = gzc_json_object_begin(&writer);
-  if (rc != GZC_OK) { return rc; }
+  gzc_buf_reset(out_payload);
+  int rc;
   if (true) {
-    rc = gzc_json_field_str(&writer, "friend_group_id", value->friend_group_id);
+    rc = gzc_rpc_proto_append_bytes(platform, out_payload, 1, (const uint8_t *)value->friend_group_id.data, value->friend_group_id.len);
     if (rc != GZC_OK) { return rc; }
   }
   if (true) {
-    rc = gzc_json_field_str(&writer, "id", value->id);
+    rc = gzc_rpc_proto_append_bytes(platform, out_payload, 2, (const uint8_t *)value->id.data, value->id.len);
     if (rc != GZC_OK) { return rc; }
   }
-  return gzc_json_object_end(&writer);
+  return GZC_OK;
 }
 
-int gzc_friend_group_message_list_request_encode_json(const gzc_platform_t *platform, const gzc_friend_group_message_list_request_t *value, gzc_buf_t *out_json) {
-  if (value == NULL || out_json == NULL) {
+int gzc_friend_group_message_list_request_encode_proto(const gzc_platform_t *platform, const gzc_friend_group_message_list_request_t *value, gzc_buf_t *out_payload) {
+  if (value == NULL || out_payload == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
-  gzc_json_writer_t writer;
-  gzc_json_writer_init(&writer, platform, out_json);
-  int rc = gzc_json_object_begin(&writer);
-  if (rc != GZC_OK) { return rc; }
+  gzc_buf_reset(out_payload);
+  int rc;
   if (value->has_cursor) {
-    rc = gzc_json_field_str(&writer, "cursor", value->cursor);
+    rc = gzc_rpc_proto_append_bytes(platform, out_payload, 1, (const uint8_t *)value->cursor.data, value->cursor.len);
     if (rc != GZC_OK) { return rc; }
   }
   if (value->has_friend_group_id) {
-    rc = gzc_json_field_str(&writer, "friend_group_id", value->friend_group_id);
+    rc = gzc_rpc_proto_append_bytes(platform, out_payload, 2, (const uint8_t *)value->friend_group_id.data, value->friend_group_id.len);
     if (rc != GZC_OK) { return rc; }
   }
   if (value->has_limit) {
-    rc = gzc_json_field_i32(&writer, "limit", value->limit);
+    rc = gzc_rpc_proto_append_varint(platform, out_payload, 3, (uint64_t)(uint32_t)value->limit);
     if (rc != GZC_OK) { return rc; }
   }
-  return gzc_json_object_end(&writer);
+  return GZC_OK;
 }
 
-int gzc_friend_group_message_get_request_encode_json(const gzc_platform_t *platform, const gzc_friend_group_message_get_request_t *value, gzc_buf_t *out_json) {
-  if (value == NULL || out_json == NULL) {
+int gzc_friend_group_message_get_request_encode_proto(const gzc_platform_t *platform, const gzc_friend_group_message_get_request_t *value, gzc_buf_t *out_payload) {
+  if (value == NULL || out_payload == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
-  gzc_json_writer_t writer;
-  gzc_json_writer_init(&writer, platform, out_json);
-  int rc = gzc_json_object_begin(&writer);
-  if (rc != GZC_OK) { return rc; }
+  gzc_buf_reset(out_payload);
+  int rc;
   if (true) {
-    rc = gzc_json_field_str(&writer, "friend_group_id", value->friend_group_id);
+    rc = gzc_rpc_proto_append_bytes(platform, out_payload, 1, (const uint8_t *)value->friend_group_id.data, value->friend_group_id.len);
     if (rc != GZC_OK) { return rc; }
   }
   if (true) {
-    rc = gzc_json_field_str(&writer, "id", value->id);
+    rc = gzc_rpc_proto_append_bytes(platform, out_payload, 2, (const uint8_t *)value->id.data, value->id.len);
     if (rc != GZC_OK) { return rc; }
   }
-  return gzc_json_object_end(&writer);
+  return GZC_OK;
 }
 
-int gzc_friend_group_message_send_request_encode_json(const gzc_platform_t *platform, const gzc_friend_group_message_send_request_t *value, gzc_buf_t *out_json) {
-  if (value == NULL || out_json == NULL) {
+int gzc_friend_group_message_send_request_encode_proto(const gzc_platform_t *platform, const gzc_friend_group_message_send_request_t *value, gzc_buf_t *out_payload) {
+  if (value == NULL || out_payload == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
-  gzc_json_writer_t writer;
-  gzc_json_writer_init(&writer, platform, out_json);
-  int rc = gzc_json_object_begin(&writer);
-  if (rc != GZC_OK) { return rc; }
+  gzc_buf_reset(out_payload);
+  int rc;
   if (true) {
-    rc = gzc_json_field_str(&writer, "audio_base64", value->audio_base64);
+    rc = gzc_rpc_proto_append_bytes(platform, out_payload, 1, (const uint8_t *)value->audio_base64.data, value->audio_base64.len);
     if (rc != GZC_OK) { return rc; }
   }
   if (true) {
-    rc = gzc_json_field_str(&writer, "audio_content_type", value->audio_content_type);
+    rc = gzc_rpc_proto_append_bytes(platform, out_payload, 2, (const uint8_t *)value->audio_content_type.data, value->audio_content_type.len);
     if (rc != GZC_OK) { return rc; }
   }
   if (true) {
-    rc = gzc_json_field_str(&writer, "friend_group_id", value->friend_group_id);
+    rc = gzc_rpc_proto_append_bytes(platform, out_payload, 3, (const uint8_t *)value->friend_group_id.data, value->friend_group_id.len);
     if (rc != GZC_OK) { return rc; }
   }
   if (value->has_ttl_seconds) {
-    rc = gzc_json_field_i32(&writer, "ttl_seconds", value->ttl_seconds);
+    rc = gzc_rpc_proto_append_varint(platform, out_payload, 4, (uint64_t)(uint32_t)value->ttl_seconds);
     if (rc != GZC_OK) { return rc; }
   }
-  return gzc_json_object_end(&writer);
+  return GZC_OK;
 }
 
-int gzc_server_game_ruleset_get_request_encode_json(const gzc_platform_t *platform, const gzc_server_game_ruleset_get_request_t *value, gzc_buf_t *out_json) {
-  if (value == NULL || out_json == NULL) {
+int gzc_server_game_ruleset_get_request_encode_proto(const gzc_platform_t *platform, const gzc_server_game_ruleset_get_request_t *value, gzc_buf_t *out_payload) {
+  if (value == NULL || out_payload == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
-  gzc_json_writer_t writer;
-  gzc_json_writer_init(&writer, platform, out_json);
-  int rc = gzc_json_object_begin(&writer);
-  if (rc != GZC_OK) { return rc; }
+  gzc_buf_reset(out_payload);
+  int rc;
   if (value->has_name) {
-    rc = gzc_json_field_str(&writer, "name", value->name);
+    rc = gzc_rpc_proto_append_bytes(platform, out_payload, 1, (const uint8_t *)value->name.data, value->name.len);
     if (rc != GZC_OK) { return rc; }
   }
-  return gzc_json_object_end(&writer);
+  return GZC_OK;
 }
 
-int gzc_pet_def_pixa_download_request_encode_json(const gzc_platform_t *platform, const gzc_pet_def_pixa_download_request_t *value, gzc_buf_t *out_json) {
-  if (value == NULL || out_json == NULL) {
+int gzc_pet_def_pixa_download_request_encode_proto(const gzc_platform_t *platform, const gzc_pet_def_pixa_download_request_t *value, gzc_buf_t *out_payload) {
+  if (value == NULL || out_payload == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
-  gzc_json_writer_t writer;
-  gzc_json_writer_init(&writer, platform, out_json);
-  int rc = gzc_json_object_begin(&writer);
-  if (rc != GZC_OK) { return rc; }
+  gzc_buf_reset(out_payload);
+  int rc;
   if (true) {
-    rc = gzc_json_field_str(&writer, "id", value->id);
+    rc = gzc_rpc_proto_append_bytes(platform, out_payload, 1, (const uint8_t *)value->id.data, value->id.len);
     if (rc != GZC_OK) { return rc; }
   }
-  return gzc_json_object_end(&writer);
+  return GZC_OK;
 }
 
-int gzc_badge_def_pixa_download_request_encode_json(const gzc_platform_t *platform, const gzc_badge_def_pixa_download_request_t *value, gzc_buf_t *out_json) {
-  if (value == NULL || out_json == NULL) {
+int gzc_badge_def_pixa_download_request_encode_proto(const gzc_platform_t *platform, const gzc_badge_def_pixa_download_request_t *value, gzc_buf_t *out_payload) {
+  if (value == NULL || out_payload == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
-  gzc_json_writer_t writer;
-  gzc_json_writer_init(&writer, platform, out_json);
-  int rc = gzc_json_object_begin(&writer);
-  if (rc != GZC_OK) { return rc; }
+  gzc_buf_reset(out_payload);
+  int rc;
   if (true) {
-    rc = gzc_json_field_str(&writer, "id", value->id);
+    rc = gzc_rpc_proto_append_bytes(platform, out_payload, 1, (const uint8_t *)value->id.data, value->id.len);
     if (rc != GZC_OK) { return rc; }
   }
-  return gzc_json_object_end(&writer);
+  return GZC_OK;
 }
 
-int gzc_server_pet_list_request_encode_json(const gzc_platform_t *platform, const gzc_server_pet_list_request_t *value, gzc_buf_t *out_json) {
-  if (value == NULL || out_json == NULL) {
+int gzc_server_pet_list_request_encode_proto(const gzc_platform_t *platform, const gzc_server_pet_list_request_t *value, gzc_buf_t *out_payload) {
+  if (value == NULL || out_payload == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
-  gzc_json_writer_t writer;
-  gzc_json_writer_init(&writer, platform, out_json);
-  int rc = gzc_json_object_begin(&writer);
-  if (rc != GZC_OK) { return rc; }
-  if (value->has_cursor) {
-    rc = gzc_json_field_str(&writer, "cursor", value->cursor);
-    if (rc != GZC_OK) { return rc; }
-  }
-  if (value->has_limit) {
-    rc = gzc_json_field_i32(&writer, "limit", value->limit);
-    if (rc != GZC_OK) { return rc; }
-  }
-  return gzc_json_object_end(&writer);
-}
-
-int gzc_server_pet_get_request_encode_json(const gzc_platform_t *platform, const gzc_server_pet_get_request_t *value, gzc_buf_t *out_json) {
-  if (value == NULL || out_json == NULL) {
-    return GZC_ERR_INVALID_ARGUMENT;
-  }
-  gzc_json_writer_t writer;
-  gzc_json_writer_init(&writer, platform, out_json);
-  int rc = gzc_json_object_begin(&writer);
-  if (rc != GZC_OK) { return rc; }
+  gzc_buf_reset(out_payload);
+  int rc;
   if (true) {
-    rc = gzc_json_field_str(&writer, "id", value->id);
+    rc = gzc_rpc_proto_append_bytes(platform, out_payload, 1, (const uint8_t *)value->value.raw.data, value->value.raw.len);
     if (rc != GZC_OK) { return rc; }
   }
-  return gzc_json_object_end(&writer);
+  return GZC_OK;
 }
 
-int gzc_server_pet_adopt_request_encode_json(const gzc_platform_t *platform, const gzc_server_pet_adopt_request_t *value, gzc_buf_t *out_json) {
-  if (value == NULL || out_json == NULL) {
+int gzc_server_pet_get_request_encode_proto(const gzc_platform_t *platform, const gzc_server_pet_get_request_t *value, gzc_buf_t *out_payload) {
+  if (value == NULL || out_payload == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
-  gzc_json_writer_t writer;
-  gzc_json_writer_init(&writer, platform, out_json);
-  int rc = gzc_json_object_begin(&writer);
-  if (rc != GZC_OK) { return rc; }
-  if (value->has_display_name) {
-    rc = gzc_json_field_str(&writer, "display_name", value->display_name);
+  gzc_buf_reset(out_payload);
+  int rc;
+  if (true) {
+    rc = gzc_rpc_proto_append_bytes(platform, out_payload, 1, (const uint8_t *)value->value.raw.data, value->value.raw.len);
     if (rc != GZC_OK) { return rc; }
   }
+  return GZC_OK;
+}
+
+int gzc_server_pet_adopt_request_encode_proto(const gzc_platform_t *platform, const gzc_server_pet_adopt_request_t *value, gzc_buf_t *out_payload) {
+  if (value == NULL || out_payload == NULL) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  gzc_buf_reset(out_payload);
+  int rc;
+  if (true) {
+    rc = gzc_rpc_proto_append_bytes(platform, out_payload, 1, (const uint8_t *)value->value.raw.data, value->value.raw.len);
+    if (rc != GZC_OK) { return rc; }
+  }
+  return GZC_OK;
+}
+
+int gzc_server_pet_put_request_encode_proto(const gzc_platform_t *platform, const gzc_server_pet_put_request_t *value, gzc_buf_t *out_payload) {
+  if (value == NULL || out_payload == NULL) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  gzc_buf_reset(out_payload);
+  int rc;
+  if (true) {
+    rc = gzc_rpc_proto_append_bytes(platform, out_payload, 1, (const uint8_t *)value->value.raw.data, value->value.raw.len);
+    if (rc != GZC_OK) { return rc; }
+  }
+  return GZC_OK;
+}
+
+int gzc_server_pet_delete_request_encode_proto(const gzc_platform_t *platform, const gzc_server_pet_delete_request_t *value, gzc_buf_t *out_payload) {
+  if (value == NULL || out_payload == NULL) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  gzc_buf_reset(out_payload);
+  int rc;
+  if (true) {
+    rc = gzc_rpc_proto_append_bytes(platform, out_payload, 1, (const uint8_t *)value->value.raw.data, value->value.raw.len);
+    if (rc != GZC_OK) { return rc; }
+  }
+  return GZC_OK;
+}
+
+int gzc_server_pet_drive_request_encode_proto(const gzc_platform_t *platform, const gzc_server_pet_drive_request_t *value, gzc_buf_t *out_payload) {
+  if (value == NULL || out_payload == NULL) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  gzc_buf_reset(out_payload);
+  int rc;
+  if (true) {
+    rc = gzc_rpc_proto_append_bytes(platform, out_payload, 1, (const uint8_t *)value->value.raw.data, value->value.raw.len);
+    if (rc != GZC_OK) { return rc; }
+  }
+  return GZC_OK;
+}
+
+int gzc_server_points_get_request_encode_proto(const gzc_platform_t *platform, const gzc_server_points_get_request_t *value, gzc_buf_t *out_payload) {
+  if (value == NULL || out_payload == NULL) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  gzc_buf_reset(out_payload);
+  int rc;
   if (value->has_ruleset_name) {
-    rc = gzc_json_field_str(&writer, "ruleset_name", value->ruleset_name);
+    rc = gzc_rpc_proto_append_bytes(platform, out_payload, 1, (const uint8_t *)value->ruleset_name.data, value->ruleset_name.len);
     if (rc != GZC_OK) { return rc; }
   }
-  return gzc_json_object_end(&writer);
+  return GZC_OK;
 }
 
-int gzc_server_pet_put_request_encode_json(const gzc_platform_t *platform, const gzc_server_pet_put_request_t *value, gzc_buf_t *out_json) {
-  if (value == NULL || out_json == NULL) {
+int gzc_server_points_transaction_list_request_encode_proto(const gzc_platform_t *platform, const gzc_server_points_transaction_list_request_t *value, gzc_buf_t *out_payload) {
+  if (value == NULL || out_payload == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
-  gzc_json_writer_t writer;
-  gzc_json_writer_init(&writer, platform, out_json);
-  int rc = gzc_json_object_begin(&writer);
-  if (rc != GZC_OK) { return rc; }
+  gzc_buf_reset(out_payload);
+  int rc;
   if (true) {
-    rc = gzc_json_field_str(&writer, "display_name", value->display_name);
+    rc = gzc_rpc_proto_append_bytes(platform, out_payload, 1, (const uint8_t *)value->value.raw.data, value->value.raw.len);
     if (rc != GZC_OK) { return rc; }
   }
+  return GZC_OK;
+}
+
+int gzc_server_points_transaction_get_request_encode_proto(const gzc_platform_t *platform, const gzc_server_points_transaction_get_request_t *value, gzc_buf_t *out_payload) {
+  if (value == NULL || out_payload == NULL) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  gzc_buf_reset(out_payload);
+  int rc;
   if (true) {
-    rc = gzc_json_field_str(&writer, "id", value->id);
+    rc = gzc_rpc_proto_append_bytes(platform, out_payload, 1, (const uint8_t *)value->value.raw.data, value->value.raw.len);
     if (rc != GZC_OK) { return rc; }
   }
-  return gzc_json_object_end(&writer);
+  return GZC_OK;
 }
 
-int gzc_server_pet_delete_request_encode_json(const gzc_platform_t *platform, const gzc_server_pet_delete_request_t *value, gzc_buf_t *out_json) {
-  if (value == NULL || out_json == NULL) {
+int gzc_server_badge_list_request_encode_proto(const gzc_platform_t *platform, const gzc_server_badge_list_request_t *value, gzc_buf_t *out_payload) {
+  if (value == NULL || out_payload == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
-  gzc_json_writer_t writer;
-  gzc_json_writer_init(&writer, platform, out_json);
-  int rc = gzc_json_object_begin(&writer);
-  if (rc != GZC_OK) { return rc; }
+  gzc_buf_reset(out_payload);
+  int rc;
   if (true) {
-    rc = gzc_json_field_str(&writer, "id", value->id);
+    rc = gzc_rpc_proto_append_bytes(platform, out_payload, 1, (const uint8_t *)value->value.raw.data, value->value.raw.len);
     if (rc != GZC_OK) { return rc; }
   }
-  return gzc_json_object_end(&writer);
+  return GZC_OK;
 }
 
-int gzc_server_pet_drive_request_encode_json(const gzc_platform_t *platform, const gzc_server_pet_drive_request_t *value, gzc_buf_t *out_json) {
-  if (value == NULL || out_json == NULL) {
+int gzc_server_badge_get_request_encode_proto(const gzc_platform_t *platform, const gzc_server_badge_get_request_t *value, gzc_buf_t *out_payload) {
+  if (value == NULL || out_payload == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
-  gzc_json_writer_t writer;
-  gzc_json_writer_init(&writer, platform, out_json);
-  int rc = gzc_json_object_begin(&writer);
-  if (rc != GZC_OK) { return rc; }
-  if (value->has_action) {
-    rc = gzc_json_field_str(&writer, "action", value->action);
-    if (rc != GZC_OK) { return rc; }
-  }
-  if (value->has_game_result) {
-    rc = gzc_json_field_raw(&writer, "game_result", value->game_result.raw);
-    if (rc != GZC_OK) { return rc; }
-  }
+  gzc_buf_reset(out_payload);
+  int rc;
   if (true) {
-    rc = gzc_json_field_str(&writer, "pet_id", value->pet_id);
+    rc = gzc_rpc_proto_append_bytes(platform, out_payload, 1, (const uint8_t *)value->value.raw.data, value->value.raw.len);
     if (rc != GZC_OK) { return rc; }
   }
-  return gzc_json_object_end(&writer);
+  return GZC_OK;
 }
 
-int gzc_server_points_get_request_encode_json(const gzc_platform_t *platform, const gzc_server_points_get_request_t *value, gzc_buf_t *out_json) {
-  if (value == NULL || out_json == NULL) {
+int gzc_server_game_result_list_request_encode_proto(const gzc_platform_t *platform, const gzc_server_game_result_list_request_t *value, gzc_buf_t *out_payload) {
+  if (value == NULL || out_payload == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
-  gzc_json_writer_t writer;
-  gzc_json_writer_init(&writer, platform, out_json);
-  int rc = gzc_json_object_begin(&writer);
-  if (rc != GZC_OK) { return rc; }
-  if (value->has_ruleset_name) {
-    rc = gzc_json_field_str(&writer, "ruleset_name", value->ruleset_name);
-    if (rc != GZC_OK) { return rc; }
-  }
-  return gzc_json_object_end(&writer);
-}
-
-int gzc_server_points_transaction_list_request_encode_json(const gzc_platform_t *platform, const gzc_server_points_transaction_list_request_t *value, gzc_buf_t *out_json) {
-  if (value == NULL || out_json == NULL) {
-    return GZC_ERR_INVALID_ARGUMENT;
-  }
-  gzc_json_writer_t writer;
-  gzc_json_writer_init(&writer, platform, out_json);
-  int rc = gzc_json_object_begin(&writer);
-  if (rc != GZC_OK) { return rc; }
-  if (value->has_cursor) {
-    rc = gzc_json_field_str(&writer, "cursor", value->cursor);
-    if (rc != GZC_OK) { return rc; }
-  }
-  if (value->has_limit) {
-    rc = gzc_json_field_i32(&writer, "limit", value->limit);
-    if (rc != GZC_OK) { return rc; }
-  }
-  return gzc_json_object_end(&writer);
-}
-
-int gzc_server_points_transaction_get_request_encode_json(const gzc_platform_t *platform, const gzc_server_points_transaction_get_request_t *value, gzc_buf_t *out_json) {
-  if (value == NULL || out_json == NULL) {
-    return GZC_ERR_INVALID_ARGUMENT;
-  }
-  gzc_json_writer_t writer;
-  gzc_json_writer_init(&writer, platform, out_json);
-  int rc = gzc_json_object_begin(&writer);
-  if (rc != GZC_OK) { return rc; }
+  gzc_buf_reset(out_payload);
+  int rc;
   if (true) {
-    rc = gzc_json_field_str(&writer, "id", value->id);
+    rc = gzc_rpc_proto_append_bytes(platform, out_payload, 1, (const uint8_t *)value->value.raw.data, value->value.raw.len);
     if (rc != GZC_OK) { return rc; }
   }
-  return gzc_json_object_end(&writer);
+  return GZC_OK;
 }
 
-int gzc_server_badge_list_request_encode_json(const gzc_platform_t *platform, const gzc_server_badge_list_request_t *value, gzc_buf_t *out_json) {
-  if (value == NULL || out_json == NULL) {
+int gzc_server_game_result_get_request_encode_proto(const gzc_platform_t *platform, const gzc_server_game_result_get_request_t *value, gzc_buf_t *out_payload) {
+  if (value == NULL || out_payload == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
-  gzc_json_writer_t writer;
-  gzc_json_writer_init(&writer, platform, out_json);
-  int rc = gzc_json_object_begin(&writer);
-  if (rc != GZC_OK) { return rc; }
-  if (value->has_cursor) {
-    rc = gzc_json_field_str(&writer, "cursor", value->cursor);
-    if (rc != GZC_OK) { return rc; }
-  }
-  if (value->has_limit) {
-    rc = gzc_json_field_i32(&writer, "limit", value->limit);
-    if (rc != GZC_OK) { return rc; }
-  }
-  return gzc_json_object_end(&writer);
-}
-
-int gzc_server_badge_get_request_encode_json(const gzc_platform_t *platform, const gzc_server_badge_get_request_t *value, gzc_buf_t *out_json) {
-  if (value == NULL || out_json == NULL) {
-    return GZC_ERR_INVALID_ARGUMENT;
-  }
-  gzc_json_writer_t writer;
-  gzc_json_writer_init(&writer, platform, out_json);
-  int rc = gzc_json_object_begin(&writer);
-  if (rc != GZC_OK) { return rc; }
+  gzc_buf_reset(out_payload);
+  int rc;
   if (true) {
-    rc = gzc_json_field_str(&writer, "id", value->id);
+    rc = gzc_rpc_proto_append_bytes(platform, out_payload, 1, (const uint8_t *)value->value.raw.data, value->value.raw.len);
     if (rc != GZC_OK) { return rc; }
   }
-  return gzc_json_object_end(&writer);
+  return GZC_OK;
 }
 
-int gzc_server_game_result_list_request_encode_json(const gzc_platform_t *platform, const gzc_server_game_result_list_request_t *value, gzc_buf_t *out_json) {
-  if (value == NULL || out_json == NULL) {
+int gzc_server_reward_grant_list_request_encode_proto(const gzc_platform_t *platform, const gzc_server_reward_grant_list_request_t *value, gzc_buf_t *out_payload) {
+  if (value == NULL || out_payload == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
-  gzc_json_writer_t writer;
-  gzc_json_writer_init(&writer, platform, out_json);
-  int rc = gzc_json_object_begin(&writer);
-  if (rc != GZC_OK) { return rc; }
-  if (value->has_cursor) {
-    rc = gzc_json_field_str(&writer, "cursor", value->cursor);
-    if (rc != GZC_OK) { return rc; }
-  }
-  if (value->has_limit) {
-    rc = gzc_json_field_i32(&writer, "limit", value->limit);
-    if (rc != GZC_OK) { return rc; }
-  }
-  return gzc_json_object_end(&writer);
-}
-
-int gzc_server_game_result_get_request_encode_json(const gzc_platform_t *platform, const gzc_server_game_result_get_request_t *value, gzc_buf_t *out_json) {
-  if (value == NULL || out_json == NULL) {
-    return GZC_ERR_INVALID_ARGUMENT;
-  }
-  gzc_json_writer_t writer;
-  gzc_json_writer_init(&writer, platform, out_json);
-  int rc = gzc_json_object_begin(&writer);
-  if (rc != GZC_OK) { return rc; }
+  gzc_buf_reset(out_payload);
+  int rc;
   if (true) {
-    rc = gzc_json_field_str(&writer, "id", value->id);
+    rc = gzc_rpc_proto_append_bytes(platform, out_payload, 1, (const uint8_t *)value->value.raw.data, value->value.raw.len);
     if (rc != GZC_OK) { return rc; }
   }
-  return gzc_json_object_end(&writer);
+  return GZC_OK;
 }
 
-int gzc_server_reward_grant_list_request_encode_json(const gzc_platform_t *platform, const gzc_server_reward_grant_list_request_t *value, gzc_buf_t *out_json) {
-  if (value == NULL || out_json == NULL) {
+int gzc_server_reward_grant_get_request_encode_proto(const gzc_platform_t *platform, const gzc_server_reward_grant_get_request_t *value, gzc_buf_t *out_payload) {
+  if (value == NULL || out_payload == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
-  gzc_json_writer_t writer;
-  gzc_json_writer_init(&writer, platform, out_json);
-  int rc = gzc_json_object_begin(&writer);
-  if (rc != GZC_OK) { return rc; }
-  if (value->has_cursor) {
-    rc = gzc_json_field_str(&writer, "cursor", value->cursor);
-    if (rc != GZC_OK) { return rc; }
-  }
-  if (value->has_limit) {
-    rc = gzc_json_field_i32(&writer, "limit", value->limit);
-    if (rc != GZC_OK) { return rc; }
-  }
-  return gzc_json_object_end(&writer);
-}
-
-int gzc_server_reward_grant_get_request_encode_json(const gzc_platform_t *platform, const gzc_server_reward_grant_get_request_t *value, gzc_buf_t *out_json) {
-  if (value == NULL || out_json == NULL) {
-    return GZC_ERR_INVALID_ARGUMENT;
-  }
-  gzc_json_writer_t writer;
-  gzc_json_writer_init(&writer, platform, out_json);
-  int rc = gzc_json_object_begin(&writer);
-  if (rc != GZC_OK) { return rc; }
+  gzc_buf_reset(out_payload);
+  int rc;
   if (true) {
-    rc = gzc_json_field_str(&writer, "id", value->id);
+    rc = gzc_rpc_proto_append_bytes(platform, out_payload, 1, (const uint8_t *)value->value.raw.data, value->value.raw.len);
     if (rc != GZC_OK) { return rc; }
   }
-  return gzc_json_object_end(&writer);
+  return GZC_OK;
 }

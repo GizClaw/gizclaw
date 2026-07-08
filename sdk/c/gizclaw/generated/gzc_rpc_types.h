@@ -31,12 +31,7 @@ typedef struct {
 } gzc_server_get_info_request_t;
 
 typedef struct {
-  bool has_hardware;
-  gzc_json_t hardware;
-  bool has_name;
-  gzc_str_t name;
-  bool has_sn;
-  gzc_str_t sn;
+  gzc_json_t value;
 } gzc_server_put_info_request_t;
 
 typedef struct {
@@ -52,7 +47,7 @@ typedef struct {
 } gzc_server_get_run_agent_request_t;
 
 typedef struct {
-  gzc_str_t workspace_name;
+  gzc_json_t value;
 } gzc_server_set_run_agent_request_t;
 
 typedef struct {
@@ -60,7 +55,7 @@ typedef struct {
 } gzc_server_get_run_workspace_request_t;
 
 typedef struct {
-  gzc_str_t workspace_name;
+  gzc_json_t value;
 } gzc_server_set_run_workspace_request_t;
 
 typedef struct {
@@ -68,28 +63,19 @@ typedef struct {
 } gzc_server_reload_run_workspace_request_t;
 
 typedef struct {
-  bool has_cursor;
-  gzc_str_t cursor;
-  bool has_limit;
-  int32_t limit;
-  bool has_order;
-  gzc_str_t order;
+  gzc_json_t value;
 } gzc_server_list_run_workspace_history_request_t;
 
 typedef struct {
-  gzc_str_t history_id;
+  gzc_json_t value;
 } gzc_server_play_run_workspace_history_request_t;
 
 typedef struct {
-  int _empty;
+  gzc_json_t value;
 } gzc_server_get_run_workspace_memory_stats_request_t;
 
 typedef struct {
-  bool has_filters;
-  gzc_json_t filters;
-  bool has_limit;
-  int32_t limit;
-  gzc_str_t query;
+  gzc_json_t value;
 } gzc_server_run_workspace_recall_request_t;
 
 typedef struct {
@@ -145,13 +131,7 @@ typedef struct {
 } gzc_workspace_get_request_t;
 
 typedef struct {
-  gzc_str_t created_at;
-  gzc_str_t last_active_at;
-  gzc_str_t name;
-  bool has_parameters;
-  gzc_json_t parameters;
-  gzc_str_t updated_at;
-  gzc_str_t workflow_name;
+  gzc_json_t value;
 } gzc_workspace_create_request_t;
 
 typedef struct {
@@ -195,8 +175,7 @@ typedef struct {
 } gzc_workflow_get_request_t;
 
 typedef struct {
-  gzc_json_t metadata;
-  gzc_json_t spec;
+  gzc_json_t value;
 } gzc_workflow_create_request_t;
 
 typedef struct {
@@ -220,22 +199,7 @@ typedef struct {
 } gzc_model_get_request_t;
 
 typedef struct {
-  bool has_capabilities;
-  gzc_json_t capabilities;
-  gzc_str_t created_at;
-  bool has_description;
-  gzc_str_t description;
-  gzc_str_t id;
-  gzc_json_t kind;
-  bool has_name;
-  gzc_str_t name;
-  gzc_json_t provider;
-  bool has_provider_data;
-  gzc_json_t provider_data;
-  gzc_json_t source;
-  bool has_synced_at;
-  gzc_str_t synced_at;
-  gzc_str_t updated_at;
+  gzc_json_t value;
 } gzc_model_create_request_t;
 
 typedef struct {
@@ -270,13 +234,7 @@ typedef struct {
 } gzc_credential_get_request_t;
 
 typedef struct {
-  gzc_json_t body;
-  gzc_str_t created_at;
-  bool has_description;
-  gzc_str_t description;
-  gzc_str_t name;
-  gzc_str_t provider;
-  gzc_str_t updated_at;
+  gzc_json_t value;
 } gzc_credential_create_request_t;
 
 typedef struct {
@@ -452,38 +410,27 @@ typedef struct {
 } gzc_badge_def_pixa_download_request_t;
 
 typedef struct {
-  bool has_cursor;
-  gzc_str_t cursor;
-  bool has_limit;
-  int32_t limit;
+  gzc_json_t value;
 } gzc_server_pet_list_request_t;
 
 typedef struct {
-  gzc_str_t id;
+  gzc_json_t value;
 } gzc_server_pet_get_request_t;
 
 typedef struct {
-  bool has_display_name;
-  gzc_str_t display_name;
-  bool has_ruleset_name;
-  gzc_str_t ruleset_name;
+  gzc_json_t value;
 } gzc_server_pet_adopt_request_t;
 
 typedef struct {
-  gzc_str_t display_name;
-  gzc_str_t id;
+  gzc_json_t value;
 } gzc_server_pet_put_request_t;
 
 typedef struct {
-  gzc_str_t id;
+  gzc_json_t value;
 } gzc_server_pet_delete_request_t;
 
 typedef struct {
-  bool has_action;
-  gzc_str_t action;
-  bool has_game_result;
-  gzc_json_t game_result;
-  gzc_str_t pet_id;
+  gzc_json_t value;
 } gzc_server_pet_drive_request_t;
 
 typedef struct {
@@ -492,47 +439,35 @@ typedef struct {
 } gzc_server_points_get_request_t;
 
 typedef struct {
-  bool has_cursor;
-  gzc_str_t cursor;
-  bool has_limit;
-  int32_t limit;
+  gzc_json_t value;
 } gzc_server_points_transaction_list_request_t;
 
 typedef struct {
-  gzc_str_t id;
+  gzc_json_t value;
 } gzc_server_points_transaction_get_request_t;
 
 typedef struct {
-  bool has_cursor;
-  gzc_str_t cursor;
-  bool has_limit;
-  int32_t limit;
+  gzc_json_t value;
 } gzc_server_badge_list_request_t;
 
 typedef struct {
-  gzc_str_t id;
+  gzc_json_t value;
 } gzc_server_badge_get_request_t;
 
 typedef struct {
-  bool has_cursor;
-  gzc_str_t cursor;
-  bool has_limit;
-  int32_t limit;
+  gzc_json_t value;
 } gzc_server_game_result_list_request_t;
 
 typedef struct {
-  gzc_str_t id;
+  gzc_json_t value;
 } gzc_server_game_result_get_request_t;
 
 typedef struct {
-  bool has_cursor;
-  gzc_str_t cursor;
-  bool has_limit;
-  int32_t limit;
+  gzc_json_t value;
 } gzc_server_reward_grant_list_request_t;
 
 typedef struct {
-  gzc_str_t id;
+  gzc_json_t value;
 } gzc_server_reward_grant_get_request_t;
 
 typedef struct {
@@ -545,254 +480,75 @@ typedef struct {
 } gzc_speed_test_response_t;
 
 typedef struct {
-  bool has_hardware_revision;
-  gzc_str_t hardware_revision;
-  bool has_manufacturer;
-  gzc_str_t manufacturer;
-  bool has_model;
-  gzc_str_t model;
-  bool has_name;
-  gzc_str_t name;
+  gzc_json_t value;
 } gzc_client_get_info_response_t;
 
 typedef struct {
-  bool has_imeis;
-  gzc_json_t imeis;
-  bool has_labels;
-  gzc_json_t labels;
-  bool has_sn;
-  gzc_str_t sn;
+  gzc_json_t value;
 } gzc_client_get_identifiers_response_t;
 
 typedef struct {
-  bool has_hardware;
-  gzc_json_t hardware;
-  bool has_name;
-  gzc_str_t name;
-  bool has_sn;
-  gzc_str_t sn;
+  gzc_json_t value;
 } gzc_server_get_info_response_t;
 
 typedef struct {
-  bool has_hardware;
-  gzc_json_t hardware;
-  bool has_name;
-  gzc_str_t name;
-  bool has_sn;
-  gzc_str_t sn;
+  gzc_json_t value;
 } gzc_server_put_info_response_t;
 
 typedef struct {
-  bool has_last_addr;
-  gzc_str_t last_addr;
-  gzc_str_t last_seen_at;
-  bool online;
-  bool has_rx_bytes;
-  int32_t rx_bytes;
-  bool has_tx_bytes;
-  int32_t tx_bytes;
+  gzc_json_t value;
 } gzc_server_get_runtime_response_t;
 
 typedef struct {
-  bool has_battery_percent;
-  int32_t battery_percent;
-  bool has_charging;
-  bool charging;
-  bool has_details;
-  gzc_json_t details;
-  bool has_gnss_accuracy_m;
-  double gnss_accuracy_m;
-  bool has_gnss_altitude_m;
-  double gnss_altitude_m;
-  bool has_gnss_latitude;
-  double gnss_latitude;
-  bool has_gnss_longitude;
-  double gnss_longitude;
-  bool has_labels;
-  gzc_json_t labels;
-  bool has_muted;
-  bool muted;
-  bool has_reported_at;
-  gzc_str_t reported_at;
-  bool has_volume;
-  int32_t volume;
+  gzc_json_t value;
 } gzc_server_get_status_response_t;
 
 typedef struct {
-  bool has_active;
-  gzc_json_t active;
-  bool has_pending;
-  gzc_json_t pending;
+  gzc_json_t value;
 } gzc_server_get_run_agent_response_t;
 
 typedef struct {
-  bool has_active;
-  gzc_json_t active;
-  bool has_pending;
-  gzc_json_t pending;
+  gzc_json_t value;
 } gzc_server_set_run_agent_response_t;
 
 typedef struct {
-  bool has_active_workspace_name;
-  gzc_str_t active_workspace_name;
-  bool has_agent_type;
-  gzc_str_t agent_type;
-  bool has_history_available;
-  bool history_available;
-  bool has_memory_stats_available;
-  bool memory_stats_available;
-  bool has_message;
-  gzc_str_t message;
-  bool has_pending_workspace_name;
-  gzc_str_t pending_workspace_name;
-  bool has_recall_available;
-  bool recall_available;
-  gzc_json_t runtime_state;
-  bool has_selected_workspace_name;
-  gzc_str_t selected_workspace_name;
-  bool has_started_at;
-  gzc_str_t started_at;
-  bool has_updated_at;
-  gzc_str_t updated_at;
-  bool has_workflow_name;
-  gzc_str_t workflow_name;
-  gzc_str_t workspace_name;
+  gzc_json_t value;
 } gzc_server_get_run_workspace_response_t;
 
 typedef struct {
-  bool has_active_workspace_name;
-  gzc_str_t active_workspace_name;
-  bool has_agent_type;
-  gzc_str_t agent_type;
-  bool has_history_available;
-  bool history_available;
-  bool has_memory_stats_available;
-  bool memory_stats_available;
-  bool has_message;
-  gzc_str_t message;
-  bool has_pending_workspace_name;
-  gzc_str_t pending_workspace_name;
-  bool has_recall_available;
-  bool recall_available;
-  gzc_json_t runtime_state;
-  bool has_selected_workspace_name;
-  gzc_str_t selected_workspace_name;
-  bool has_started_at;
-  gzc_str_t started_at;
-  bool has_updated_at;
-  gzc_str_t updated_at;
-  bool has_workflow_name;
-  gzc_str_t workflow_name;
-  gzc_str_t workspace_name;
+  gzc_json_t value;
 } gzc_server_set_run_workspace_response_t;
 
 typedef struct {
-  bool has_active_workspace_name;
-  gzc_str_t active_workspace_name;
-  bool has_agent_type;
-  gzc_str_t agent_type;
-  bool has_history_available;
-  bool history_available;
-  bool has_memory_stats_available;
-  bool memory_stats_available;
-  bool has_message;
-  gzc_str_t message;
-  bool has_pending_workspace_name;
-  gzc_str_t pending_workspace_name;
-  bool has_recall_available;
-  bool recall_available;
-  gzc_json_t runtime_state;
-  bool has_selected_workspace_name;
-  gzc_str_t selected_workspace_name;
-  bool has_started_at;
-  gzc_str_t started_at;
-  bool has_updated_at;
-  gzc_str_t updated_at;
-  bool has_workflow_name;
-  gzc_str_t workflow_name;
-  gzc_str_t workspace_name;
+  gzc_json_t value;
 } gzc_server_reload_run_workspace_response_t;
 
 typedef struct {
-  bool available;
-  bool has_next;
-  gzc_json_t items;
-  bool has_message;
-  gzc_str_t message;
-  bool has_next_cursor;
-  gzc_str_t next_cursor;
+  gzc_json_t value;
 } gzc_server_list_run_workspace_history_response_t;
 
 typedef struct {
-  bool accepted;
-  gzc_str_t history_id;
-  bool has_message;
-  gzc_str_t message;
-  gzc_str_t state;
+  gzc_json_t value;
 } gzc_server_play_run_workspace_history_response_t;
 
 typedef struct {
-  bool available;
-  bool has_backend;
-  gzc_str_t backend;
-  bool has_embedding_enabled;
-  bool embedding_enabled;
-  bool has_embedding_status;
-  gzc_str_t embedding_status;
-  bool enabled;
-  bool has_index_status;
-  gzc_str_t index_status;
-  int64_t item_count;
-  bool has_last_updated_at;
-  gzc_str_t last_updated_at;
-  bool has_message;
-  gzc_str_t message;
-  bool has_metadata;
-  gzc_json_t metadata;
-  int64_t storage_bytes;
+  gzc_json_t value;
 } gzc_server_get_run_workspace_memory_stats_response_t;
 
 typedef struct {
-  bool available;
-  gzc_json_t hits;
-  bool has_message;
-  gzc_str_t message;
+  gzc_json_t value;
 } gzc_server_run_workspace_recall_response_t;
 
 typedef struct {
-  bool has_message;
-  gzc_str_t message;
-  bool has_started_at;
-  gzc_str_t started_at;
-  gzc_json_t state;
-  bool has_updated_at;
-  gzc_str_t updated_at;
-  bool has_workspace_name;
-  gzc_str_t workspace_name;
+  gzc_json_t value;
 } gzc_server_reload_run_response_t;
 
 typedef struct {
-  bool has_message;
-  gzc_str_t message;
-  bool has_started_at;
-  gzc_str_t started_at;
-  gzc_json_t state;
-  bool has_updated_at;
-  gzc_str_t updated_at;
-  bool has_workspace_name;
-  gzc_str_t workspace_name;
+  gzc_json_t value;
 } gzc_server_get_run_status_response_t;
 
 typedef struct {
-  bool has_message;
-  gzc_str_t message;
-  bool has_started_at;
-  gzc_str_t started_at;
-  gzc_json_t state;
-  bool has_updated_at;
-  gzc_str_t updated_at;
-  bool has_workspace_name;
-  gzc_str_t workspace_name;
+  gzc_json_t value;
 } gzc_server_stop_run_response_t;
 
 typedef struct {
@@ -807,12 +563,7 @@ typedef struct {
 } gzc_firmware_list_response_t;
 
 typedef struct {
-  gzc_str_t created_at;
-  bool has_description;
-  gzc_str_t description;
-  gzc_str_t name;
-  gzc_json_t slots;
-  gzc_str_t updated_at;
+  gzc_json_t value;
 } gzc_firmware_get_response_t;
 
 typedef struct {
@@ -831,64 +582,27 @@ typedef struct {
 } gzc_workspace_list_response_t;
 
 typedef struct {
-  gzc_str_t created_at;
-  gzc_str_t last_active_at;
-  gzc_str_t name;
-  bool has_parameters;
-  gzc_json_t parameters;
-  gzc_str_t updated_at;
-  gzc_str_t workflow_name;
+  gzc_json_t value;
 } gzc_workspace_get_response_t;
 
 typedef struct {
-  gzc_str_t created_at;
-  gzc_str_t last_active_at;
-  gzc_str_t name;
-  bool has_parameters;
-  gzc_json_t parameters;
-  gzc_str_t updated_at;
-  gzc_str_t workflow_name;
+  gzc_json_t value;
 } gzc_workspace_create_response_t;
 
 typedef struct {
-  gzc_str_t created_at;
-  gzc_str_t last_active_at;
-  gzc_str_t name;
-  bool has_parameters;
-  gzc_json_t parameters;
-  gzc_str_t updated_at;
-  gzc_str_t workflow_name;
+  gzc_json_t value;
 } gzc_workspace_put_response_t;
 
 typedef struct {
-  gzc_str_t created_at;
-  gzc_str_t last_active_at;
-  gzc_str_t name;
-  bool has_parameters;
-  gzc_json_t parameters;
-  gzc_str_t updated_at;
-  gzc_str_t workflow_name;
+  gzc_json_t value;
 } gzc_workspace_delete_response_t;
 
 typedef struct {
-  bool available;
-  bool has_next;
-  gzc_json_t items;
-  bool has_message;
-  gzc_str_t message;
-  bool has_next_cursor;
-  gzc_str_t next_cursor;
+  gzc_json_t value;
 } gzc_workspace_history_list_response_t;
 
 typedef struct {
-  gzc_str_t created_at;
-  bool has_gear_id;
-  gzc_str_t gear_id;
-  gzc_str_t id;
-  gzc_str_t name;
-  bool replay_available;
-  gzc_str_t text;
-  gzc_str_t type;
+  gzc_json_t value;
 } gzc_workspace_history_get_response_t;
 
 typedef struct {
@@ -906,23 +620,19 @@ typedef struct {
 } gzc_workflow_list_response_t;
 
 typedef struct {
-  gzc_json_t metadata;
-  gzc_json_t spec;
+  gzc_json_t value;
 } gzc_workflow_get_response_t;
 
 typedef struct {
-  gzc_json_t metadata;
-  gzc_json_t spec;
+  gzc_json_t value;
 } gzc_workflow_create_response_t;
 
 typedef struct {
-  gzc_json_t metadata;
-  gzc_json_t spec;
+  gzc_json_t value;
 } gzc_workflow_put_response_t;
 
 typedef struct {
-  gzc_json_t metadata;
-  gzc_json_t spec;
+  gzc_json_t value;
 } gzc_workflow_delete_response_t;
 
 typedef struct {
@@ -933,79 +643,19 @@ typedef struct {
 } gzc_model_list_response_t;
 
 typedef struct {
-  bool has_capabilities;
-  gzc_json_t capabilities;
-  gzc_str_t created_at;
-  bool has_description;
-  gzc_str_t description;
-  gzc_str_t id;
-  gzc_json_t kind;
-  bool has_name;
-  gzc_str_t name;
-  gzc_json_t provider;
-  bool has_provider_data;
-  gzc_json_t provider_data;
-  gzc_json_t source;
-  bool has_synced_at;
-  gzc_str_t synced_at;
-  gzc_str_t updated_at;
+  gzc_json_t value;
 } gzc_model_get_response_t;
 
 typedef struct {
-  bool has_capabilities;
-  gzc_json_t capabilities;
-  gzc_str_t created_at;
-  bool has_description;
-  gzc_str_t description;
-  gzc_str_t id;
-  gzc_json_t kind;
-  bool has_name;
-  gzc_str_t name;
-  gzc_json_t provider;
-  bool has_provider_data;
-  gzc_json_t provider_data;
-  gzc_json_t source;
-  bool has_synced_at;
-  gzc_str_t synced_at;
-  gzc_str_t updated_at;
+  gzc_json_t value;
 } gzc_model_create_response_t;
 
 typedef struct {
-  bool has_capabilities;
-  gzc_json_t capabilities;
-  gzc_str_t created_at;
-  bool has_description;
-  gzc_str_t description;
-  gzc_str_t id;
-  gzc_json_t kind;
-  bool has_name;
-  gzc_str_t name;
-  gzc_json_t provider;
-  bool has_provider_data;
-  gzc_json_t provider_data;
-  gzc_json_t source;
-  bool has_synced_at;
-  gzc_str_t synced_at;
-  gzc_str_t updated_at;
+  gzc_json_t value;
 } gzc_model_put_response_t;
 
 typedef struct {
-  bool has_capabilities;
-  gzc_json_t capabilities;
-  gzc_str_t created_at;
-  bool has_description;
-  gzc_str_t description;
-  gzc_str_t id;
-  gzc_json_t kind;
-  bool has_name;
-  gzc_str_t name;
-  gzc_json_t provider;
-  bool has_provider_data;
-  gzc_json_t provider_data;
-  gzc_json_t source;
-  bool has_synced_at;
-  gzc_str_t synced_at;
-  gzc_str_t updated_at;
+  gzc_json_t value;
 } gzc_model_delete_response_t;
 
 typedef struct {
@@ -1016,19 +666,7 @@ typedef struct {
 } gzc_voice_list_response_t;
 
 typedef struct {
-  gzc_str_t created_at;
-  bool has_description;
-  gzc_str_t description;
-  gzc_str_t id;
-  bool has_name;
-  gzc_str_t name;
-  gzc_json_t provider;
-  bool has_provider_data;
-  gzc_json_t provider_data;
-  gzc_json_t source;
-  bool has_synced_at;
-  gzc_str_t synced_at;
-  gzc_str_t updated_at;
+  gzc_json_t value;
 } gzc_voice_get_response_t;
 
 typedef struct {
@@ -1039,43 +677,19 @@ typedef struct {
 } gzc_credential_list_response_t;
 
 typedef struct {
-  gzc_json_t body;
-  gzc_str_t created_at;
-  bool has_description;
-  gzc_str_t description;
-  gzc_str_t name;
-  gzc_str_t provider;
-  gzc_str_t updated_at;
+  gzc_json_t value;
 } gzc_credential_get_response_t;
 
 typedef struct {
-  gzc_json_t body;
-  gzc_str_t created_at;
-  bool has_description;
-  gzc_str_t description;
-  gzc_str_t name;
-  gzc_str_t provider;
-  gzc_str_t updated_at;
+  gzc_json_t value;
 } gzc_credential_create_response_t;
 
 typedef struct {
-  gzc_json_t body;
-  gzc_str_t created_at;
-  bool has_description;
-  gzc_str_t description;
-  gzc_str_t name;
-  gzc_str_t provider;
-  gzc_str_t updated_at;
+  gzc_json_t value;
 } gzc_credential_put_response_t;
 
 typedef struct {
-  gzc_json_t body;
-  gzc_str_t created_at;
-  bool has_description;
-  gzc_str_t description;
-  gzc_str_t name;
-  gzc_str_t provider;
-  gzc_str_t updated_at;
+  gzc_json_t value;
 } gzc_credential_delete_response_t;
 
 typedef struct {
@@ -1086,55 +700,19 @@ typedef struct {
 } gzc_contact_list_response_t;
 
 typedef struct {
-  bool has_created_at;
-  gzc_str_t created_at;
-  bool has_display_name;
-  gzc_str_t display_name;
-  bool has_id;
-  gzc_str_t id;
-  bool has_phone_number;
-  gzc_str_t phone_number;
-  bool has_updated_at;
-  gzc_str_t updated_at;
+  gzc_json_t value;
 } gzc_contact_get_response_t;
 
 typedef struct {
-  bool has_created_at;
-  gzc_str_t created_at;
-  bool has_display_name;
-  gzc_str_t display_name;
-  bool has_id;
-  gzc_str_t id;
-  bool has_phone_number;
-  gzc_str_t phone_number;
-  bool has_updated_at;
-  gzc_str_t updated_at;
+  gzc_json_t value;
 } gzc_contact_create_response_t;
 
 typedef struct {
-  bool has_created_at;
-  gzc_str_t created_at;
-  bool has_display_name;
-  gzc_str_t display_name;
-  bool has_id;
-  gzc_str_t id;
-  bool has_phone_number;
-  gzc_str_t phone_number;
-  bool has_updated_at;
-  gzc_str_t updated_at;
+  gzc_json_t value;
 } gzc_contact_put_response_t;
 
 typedef struct {
-  bool has_created_at;
-  gzc_str_t created_at;
-  bool has_display_name;
-  gzc_str_t display_name;
-  bool has_id;
-  gzc_str_t id;
-  bool has_phone_number;
-  gzc_str_t phone_number;
-  bool has_updated_at;
-  gzc_str_t updated_at;
+  gzc_json_t value;
 } gzc_contact_delete_response_t;
 
 typedef struct {
@@ -1154,16 +732,7 @@ typedef struct {
 } gzc_friend_invite_token_clear_response_t;
 
 typedef struct {
-  bool has_created_at;
-  gzc_str_t created_at;
-  bool has_id;
-  gzc_str_t id;
-  bool has_peer_public_key;
-  gzc_str_t peer_public_key;
-  bool has_updated_at;
-  gzc_str_t updated_at;
-  bool has_workspace_name;
-  gzc_str_t workspace_name;
+  gzc_json_t value;
 } gzc_friend_add_response_t;
 
 typedef struct {
@@ -1174,16 +743,7 @@ typedef struct {
 } gzc_friend_list_response_t;
 
 typedef struct {
-  bool has_created_at;
-  gzc_str_t created_at;
-  bool has_id;
-  gzc_str_t id;
-  bool has_peer_public_key;
-  gzc_str_t peer_public_key;
-  bool has_updated_at;
-  gzc_str_t updated_at;
-  bool has_workspace_name;
-  gzc_str_t workspace_name;
+  gzc_json_t value;
 } gzc_friend_delete_response_t;
 
 typedef struct {
@@ -1194,79 +754,19 @@ typedef struct {
 } gzc_friend_group_list_response_t;
 
 typedef struct {
-  bool has_created_at;
-  gzc_str_t created_at;
-  bool has_created_by_peer_public_key;
-  gzc_str_t created_by_peer_public_key;
-  bool has_description;
-  gzc_str_t description;
-  bool has_id;
-  gzc_str_t id;
-  bool has_my_role;
-  gzc_json_t my_role;
-  bool has_name;
-  gzc_str_t name;
-  bool has_updated_at;
-  gzc_str_t updated_at;
-  bool has_workspace_name;
-  gzc_str_t workspace_name;
+  gzc_json_t value;
 } gzc_friend_group_get_response_t;
 
 typedef struct {
-  bool has_created_at;
-  gzc_str_t created_at;
-  bool has_created_by_peer_public_key;
-  gzc_str_t created_by_peer_public_key;
-  bool has_description;
-  gzc_str_t description;
-  bool has_id;
-  gzc_str_t id;
-  bool has_my_role;
-  gzc_json_t my_role;
-  bool has_name;
-  gzc_str_t name;
-  bool has_updated_at;
-  gzc_str_t updated_at;
-  bool has_workspace_name;
-  gzc_str_t workspace_name;
+  gzc_json_t value;
 } gzc_friend_group_create_response_t;
 
 typedef struct {
-  bool has_created_at;
-  gzc_str_t created_at;
-  bool has_created_by_peer_public_key;
-  gzc_str_t created_by_peer_public_key;
-  bool has_description;
-  gzc_str_t description;
-  bool has_id;
-  gzc_str_t id;
-  bool has_my_role;
-  gzc_json_t my_role;
-  bool has_name;
-  gzc_str_t name;
-  bool has_updated_at;
-  gzc_str_t updated_at;
-  bool has_workspace_name;
-  gzc_str_t workspace_name;
+  gzc_json_t value;
 } gzc_friend_group_put_response_t;
 
 typedef struct {
-  bool has_created_at;
-  gzc_str_t created_at;
-  bool has_created_by_peer_public_key;
-  gzc_str_t created_by_peer_public_key;
-  bool has_description;
-  gzc_str_t description;
-  bool has_id;
-  gzc_str_t id;
-  bool has_my_role;
-  gzc_json_t my_role;
-  bool has_name;
-  gzc_str_t name;
-  bool has_updated_at;
-  gzc_str_t updated_at;
-  bool has_workspace_name;
-  gzc_str_t workspace_name;
+  gzc_json_t value;
 } gzc_friend_group_delete_response_t;
 
 typedef struct {
@@ -1298,48 +798,15 @@ typedef struct {
 } gzc_friend_group_member_list_response_t;
 
 typedef struct {
-  bool has_created_at;
-  gzc_str_t created_at;
-  bool has_friend_group_id;
-  gzc_str_t friend_group_id;
-  bool has_id;
-  gzc_str_t id;
-  bool has_peer_public_key;
-  gzc_str_t peer_public_key;
-  bool has_role;
-  gzc_json_t role;
-  bool has_updated_at;
-  gzc_str_t updated_at;
+  gzc_json_t value;
 } gzc_friend_group_member_add_response_t;
 
 typedef struct {
-  bool has_created_at;
-  gzc_str_t created_at;
-  bool has_friend_group_id;
-  gzc_str_t friend_group_id;
-  bool has_id;
-  gzc_str_t id;
-  bool has_peer_public_key;
-  gzc_str_t peer_public_key;
-  bool has_role;
-  gzc_json_t role;
-  bool has_updated_at;
-  gzc_str_t updated_at;
+  gzc_json_t value;
 } gzc_friend_group_member_put_response_t;
 
 typedef struct {
-  bool has_created_at;
-  gzc_str_t created_at;
-  bool has_friend_group_id;
-  gzc_str_t friend_group_id;
-  bool has_id;
-  gzc_str_t id;
-  bool has_peer_public_key;
-  gzc_str_t peer_public_key;
-  bool has_role;
-  gzc_json_t role;
-  bool has_updated_at;
-  gzc_str_t updated_at;
+  gzc_json_t value;
 } gzc_friend_group_member_delete_response_t;
 
 typedef struct {
@@ -1350,52 +817,15 @@ typedef struct {
 } gzc_friend_group_message_list_response_t;
 
 typedef struct {
-  bool has_audio_content_type;
-  gzc_str_t audio_content_type;
-  bool has_audio_path;
-  gzc_str_t audio_path;
-  bool has_audio_size_bytes;
-  int64_t audio_size_bytes;
-  bool has_created_at;
-  gzc_str_t created_at;
-  bool has_expires_at;
-  gzc_str_t expires_at;
-  bool has_friend_group_id;
-  gzc_str_t friend_group_id;
-  bool has_id;
-  gzc_str_t id;
-  bool has_sender_peer_public_key;
-  gzc_str_t sender_peer_public_key;
-  bool has_ttl_seconds;
-  int32_t ttl_seconds;
+  gzc_json_t value;
 } gzc_friend_group_message_get_response_t;
 
 typedef struct {
-  bool has_audio_content_type;
-  gzc_str_t audio_content_type;
-  bool has_audio_path;
-  gzc_str_t audio_path;
-  bool has_audio_size_bytes;
-  int64_t audio_size_bytes;
-  bool has_created_at;
-  gzc_str_t created_at;
-  bool has_expires_at;
-  gzc_str_t expires_at;
-  bool has_friend_group_id;
-  gzc_str_t friend_group_id;
-  bool has_id;
-  gzc_str_t id;
-  bool has_sender_peer_public_key;
-  gzc_str_t sender_peer_public_key;
-  bool has_ttl_seconds;
-  int32_t ttl_seconds;
+  gzc_json_t value;
 } gzc_friend_group_message_send_response_t;
 
 typedef struct {
-  gzc_str_t created_at;
-  gzc_str_t name;
-  gzc_json_t spec;
-  gzc_str_t updated_at;
+  gzc_json_t value;
 } gzc_server_game_ruleset_get_response_t;
 
 typedef struct {
@@ -1413,192 +843,63 @@ typedef struct {
 } gzc_badge_def_pixa_download_response_t;
 
 typedef struct {
-  bool has_next;
-  gzc_json_t items;
-  bool has_next_cursor;
-  gzc_str_t next_cursor;
+  gzc_json_t value;
 } gzc_server_pet_list_response_t;
 
 typedef struct {
-  gzc_json_t ability;
-  gzc_str_t created_at;
-  gzc_str_t display_name;
-  int64_t exp;
-  gzc_str_t id;
-  gzc_str_t last_active_at;
-  int64_t level;
-  gzc_json_t life;
-  gzc_str_t owner_public_key;
-  gzc_str_t petdef_id;
-  gzc_str_t ruleset_name;
-  gzc_str_t updated_at;
-  bool has_workflow_name;
-  gzc_str_t workflow_name;
-  gzc_str_t workspace_name;
+  gzc_json_t value;
 } gzc_server_pet_get_response_t;
 
 typedef struct {
-  gzc_json_t pet;
-  gzc_json_t points;
-  gzc_json_t transaction;
+  gzc_json_t value;
 } gzc_server_pet_adopt_response_t;
 
 typedef struct {
-  gzc_json_t ability;
-  gzc_str_t created_at;
-  gzc_str_t display_name;
-  int64_t exp;
-  gzc_str_t id;
-  gzc_str_t last_active_at;
-  int64_t level;
-  gzc_json_t life;
-  gzc_str_t owner_public_key;
-  gzc_str_t petdef_id;
-  gzc_str_t ruleset_name;
-  gzc_str_t updated_at;
-  bool has_workflow_name;
-  gzc_str_t workflow_name;
-  gzc_str_t workspace_name;
+  gzc_json_t value;
 } gzc_server_pet_put_response_t;
 
 typedef struct {
-  gzc_json_t ability;
-  gzc_str_t created_at;
-  gzc_str_t display_name;
-  int64_t exp;
-  gzc_str_t id;
-  gzc_str_t last_active_at;
-  int64_t level;
-  gzc_json_t life;
-  gzc_str_t owner_public_key;
-  gzc_str_t petdef_id;
-  gzc_str_t ruleset_name;
-  gzc_str_t updated_at;
-  bool has_workflow_name;
-  gzc_str_t workflow_name;
-  gzc_str_t workspace_name;
+  gzc_json_t value;
 } gzc_server_pet_delete_response_t;
 
 typedef struct {
-  gzc_json_t badges;
-  bool has_game_result;
-  gzc_json_t game_result;
-  gzc_json_t pet;
-  gzc_json_t points;
-  gzc_json_t reward_grants;
-  gzc_json_t transactions;
+  gzc_json_t value;
 } gzc_server_pet_drive_response_t;
 
 typedef struct {
-  int64_t balance;
-  gzc_str_t created_at;
-  gzc_str_t owner_public_key;
-  gzc_str_t ruleset_name;
-  gzc_str_t updated_at;
+  gzc_json_t value;
 } gzc_server_points_get_response_t;
 
 typedef struct {
-  bool has_next;
-  gzc_json_t items;
-  bool has_next_cursor;
-  gzc_str_t next_cursor;
+  gzc_json_t value;
 } gzc_server_points_transaction_list_response_t;
 
 typedef struct {
-  int64_t balance_after;
-  gzc_str_t created_at;
-  int64_t delta;
-  bool has_game_result_id;
-  gzc_str_t game_result_id;
-  gzc_str_t id;
-  gzc_str_t owner_public_key;
-  bool has_pet_id;
-  gzc_str_t pet_id;
-  gzc_str_t reason;
-  bool has_reward_grant_id;
-  gzc_str_t reward_grant_id;
-  gzc_str_t ruleset_name;
-  gzc_str_t source_id;
-  gzc_str_t source_type;
+  gzc_json_t value;
 } gzc_server_points_transaction_get_response_t;
 
 typedef struct {
-  bool has_next;
-  gzc_json_t items;
-  bool has_next_cursor;
-  gzc_str_t next_cursor;
+  gzc_json_t value;
 } gzc_server_badge_list_response_t;
 
 typedef struct {
-  bool active;
-  gzc_str_t badge_def_id;
-  gzc_str_t created_at;
-  int64_t exp;
-  gzc_str_t id;
-  int64_t level;
-  gzc_str_t owner_public_key;
-  int64_t progress;
-  gzc_str_t updated_at;
+  gzc_json_t value;
 } gzc_server_badge_get_response_t;
 
 typedef struct {
-  bool has_next;
-  gzc_json_t items;
-  bool has_next_cursor;
-  gzc_str_t next_cursor;
+  gzc_json_t value;
 } gzc_server_game_result_list_response_t;
 
 typedef struct {
-  gzc_str_t created_at;
-  bool has_difficulty;
-  gzc_str_t difficulty;
-  bool has_duration_ms;
-  int64_t duration_ms;
-  gzc_str_t game_def_id;
-  gzc_str_t id;
-  bool has_idempotency_key;
-  gzc_str_t idempotency_key;
-  bool has_max_score;
-  int64_t max_score;
-  gzc_str_t occurred_at;
-  bool has_outcome;
-  gzc_str_t outcome;
-  gzc_str_t owner_public_key;
-  bool has_payload;
-  gzc_json_t payload;
-  gzc_str_t pet_id;
-  gzc_str_t ruleset_name;
-  bool has_score;
-  int64_t score;
+  gzc_json_t value;
 } gzc_server_game_result_get_response_t;
 
 typedef struct {
-  bool has_next;
-  gzc_json_t items;
-  bool has_next_cursor;
-  gzc_str_t next_cursor;
+  gzc_json_t value;
 } gzc_server_reward_grant_list_response_t;
 
 typedef struct {
-  bool has_ability_delta;
-  gzc_json_t ability_delta;
-  gzc_json_t badge_exp_delta;
-  gzc_str_t created_at;
-  bool has_game_result_id;
-  gzc_str_t game_result_id;
-  gzc_str_t id;
-  bool has_life_delta;
-  gzc_json_t life_delta;
-  gzc_str_t owner_public_key;
-  int64_t pet_exp_delta;
-  bool has_pet_id;
-  gzc_str_t pet_id;
-  int64_t points_delta;
-  bool has_reason;
-  gzc_str_t reason;
-  gzc_str_t ruleset_name;
-  gzc_str_t source_id;
-  gzc_str_t source_type;
+  gzc_json_t value;
 } gzc_server_reward_grant_get_response_t;
 
 #ifdef __cplusplus

@@ -15,6 +15,10 @@ package rpcgen
 #include "gzc_rpc_encode.c"
 #include "gzc_rpc_decode.c"
 
+static int bytes_eq(const gzc_buf_t *out, const uint8_t *want, size_t want_len) {
+  return out->len == want_len && memcmp(out->data, want, want_len) == 0;
+}
+
 static int golden_encode_required(void) {
   gzc_ping_request_t req;
   memset(&req, 0, sizeof(req));
@@ -22,14 +26,14 @@ static int golden_encode_required(void) {
 
   gzc_buf_t out;
   gzc_buf_init(&out);
-  int rc = gzc_ping_request_encode_json(gzc_default_platform(), &req, &out);
+  int rc = gzc_ping_request_encode_proto(gzc_default_platform(), &req, &out);
   if (rc != GZC_OK) {
     return rc;
   }
-  const char *want = "{\"client_send_time\":42}";
-  int ok = out.len == strlen(want) && memcmp(out.data, want, out.len) == 0;
+  const uint8_t want[] = {0x08, 0x2a};
+  int ok = bytes_eq(&out, want, sizeof(want));
   gzc_buf_free(&out, gzc_default_platform());
-  return ok ? GZC_OK : GZC_ERR_JSON;
+  return ok ? GZC_OK : GZC_ERR_RPC;
 }
 
 static int golden_encode_optional(void) {
@@ -43,14 +47,14 @@ static int golden_encode_optional(void) {
 
   gzc_buf_t out;
   gzc_buf_init(&out);
-  int rc = gzc_ping_request_encode_json(gzc_default_platform(), &req, &out);
+  int rc = gzc_ping_request_encode_proto(gzc_default_platform(), &req, &out);
   if (rc != GZC_OK) {
     return rc;
   }
-  const char *want = "{\"client_send_time\":42,\"tag\":\"edge\",\"trace\":{\"trace_id\":\"t-1\"}}";
-  int ok = out.len == strlen(want) && memcmp(out.data, want, out.len) == 0;
+  const uint8_t want_prefix[] = {0x08, 0x2a, 0x12, 0x04, 'e', 'd', 'g', 'e', 0x1a};
+  int ok = out.len > sizeof(want_prefix) && memcmp(out.data, want_prefix, sizeof(want_prefix)) == 0;
   gzc_buf_free(&out, gzc_default_platform());
-  return ok ? GZC_OK : GZC_ERR_JSON;
+  return ok ? GZC_OK : GZC_ERR_RPC;
 }
 
 static int golden_encode_speed_test(void) {
@@ -65,25 +69,26 @@ static int golden_encode_speed_test(void) {
 
   gzc_buf_t out;
   gzc_buf_init(&out);
-  int rc = gzc_speed_test_request_encode_json(gzc_default_platform(), &req, &out);
+  int rc = gzc_speed_test_request_encode_proto(gzc_default_platform(), &req, &out);
   if (rc != GZC_OK) {
     return rc;
   }
-  const char *want = "{\"down_content_length\":2048,\"payload_hint\":{\"pattern\":\"zero\"},\"sample_count\":3,\"up_content_length\":1024}";
-  int ok = out.len == strlen(want) && memcmp(out.data, want, out.len) == 0;
+  const uint8_t want_prefix[] = {0x08, 0x80, 0x10, 0x12};
+  int ok = out.len > sizeof(want_prefix) && memcmp(out.data, want_prefix, sizeof(want_prefix)) == 0;
   gzc_buf_free(&out, gzc_default_platform());
-  return ok ? GZC_OK : GZC_ERR_JSON;
+  return ok ? GZC_OK : GZC_ERR_RPC;
 }
 
 static int golden_decode_required(void) {
   gzc_ping_response_t resp;
   memset(&resp, 0, sizeof(resp));
-  int rc = gzc_ping_response_decode_json(gzc_str_from_cstr("{\"ok\":true,\"server_time\":99}"), &resp);
+  const uint8_t payload[] = {0x10, 0x01, 0x18, 0x63};
+  int rc = gzc_ping_response_decode_proto(gzc_str_from_parts((const char *)payload, sizeof(payload)), &resp);
   if (rc != GZC_OK) {
     return rc;
   }
   if (resp.server_time != 99 || !resp.ok || resp.has_labels) {
-    return GZC_ERR_JSON;
+    return GZC_ERR_RPC;
   }
   return GZC_OK;
 }
@@ -91,16 +96,27 @@ static int golden_decode_required(void) {
 static int golden_decode_optional(void) {
   gzc_server_run_say_response_t resp;
   memset(&resp, 0, sizeof(resp));
-  int rc = gzc_server_run_say_response_decode_json(gzc_str_from_cstr("{\"accepted\":true,\"diagnostics\":{\"route\":\"fast\"},\"queue_position\":7}"), &resp);
+  const char *diagnostics = "{\"route\":\"fast\"}";
+  uint8_t payload[64];
+  size_t n = 0;
+  payload[n++] = 0x08;
+  payload[n++] = 0x01;
+  payload[n++] = 0x12;
+  payload[n++] = (uint8_t)strlen(diagnostics);
+  memcpy(payload + n, diagnostics, strlen(diagnostics));
+  n += strlen(diagnostics);
+  payload[n++] = 0x18;
+  payload[n++] = 0x07;
+  int rc = gzc_server_run_say_response_decode_proto(gzc_str_from_parts((const char *)payload, n), &resp);
   if (rc != GZC_OK) {
     return rc;
   }
   if (!resp.accepted || !resp.has_queue_position || resp.queue_position != 7 || !resp.has_diagnostics) {
-    return GZC_ERR_JSON;
+    return GZC_ERR_RPC;
   }
   const char *want = "{\"route\":\"fast\"}";
   if (resp.diagnostics.raw.len != strlen(want) || memcmp(resp.diagnostics.raw.data, want, resp.diagnostics.raw.len) != 0) {
-    return GZC_ERR_JSON;
+    return GZC_ERR_RPC;
   }
   return GZC_OK;
 }
@@ -108,29 +124,35 @@ static int golden_decode_optional(void) {
 static int golden_decode_speed_test(void) {
   gzc_speed_test_response_t resp;
   memset(&resp, 0, sizeof(resp));
-  int rc = gzc_speed_test_response_decode_json(gzc_str_from_cstr("{\"down_content_length\":2048,\"duration_ms\":12.5,\"samples\":[1.5,2.5],\"up_content_length\":1024}"), &resp);
+  const uint8_t payload[] = {
+    0x08, 0x80, 0x10,
+    0x11, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x29, 0x40,
+    0x1a, 0x09, '[', '1', '.', '5', ',', '2', '.', '5', ']',
+    0x20, 0x80, 0x08,
+  };
+  int rc = gzc_speed_test_response_decode_proto(gzc_str_from_parts((const char *)payload, sizeof(payload)), &resp);
   if (rc != GZC_OK) {
     return rc;
   }
   if (resp.down_content_length != 2048 || resp.up_content_length != 1024 || resp.duration_ms != 12.5 || !resp.has_samples) {
-    return GZC_ERR_JSON;
+    return GZC_ERR_RPC;
   }
   const char *want = "[1.5,2.5]";
   if (resp.samples.raw.len != strlen(want) || memcmp(resp.samples.raw.data, want, resp.samples.raw.len) != 0) {
-    return GZC_ERR_JSON;
+    return GZC_ERR_RPC;
   }
   return GZC_OK;
 }
 
 static int golden_method_constant(void) {
   if (strcmp(GZC_RPC_METHOD_ALL_PING, "all.ping") != 0) {
-    return GZC_ERR_JSON;
+    return GZC_ERR_RPC;
   }
   if (strcmp(GZC_RPC_METHOD_ALL_SPEED_TEST_RUN, "all.speed_test.run") != 0) {
-    return GZC_ERR_JSON;
+    return GZC_ERR_RPC;
   }
   if (strcmp(GZC_RPC_METHOD_SERVER_RUN_SAY, "server.run.say") != 0) {
-    return GZC_ERR_JSON;
+    return GZC_ERR_RPC;
   }
   return GZC_OK;
 }

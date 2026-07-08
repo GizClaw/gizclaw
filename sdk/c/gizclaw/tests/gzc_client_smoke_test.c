@@ -185,6 +185,14 @@ static int append_test_proto_bytes(const gzc_platform_t *platform, gzc_buf_t *ou
   return gzc_buf_append(out, platform, data, len);
 }
 
+static int append_test_proto_varint(const gzc_platform_t *platform, gzc_buf_t *out, unsigned field, uint64_t value) {
+  int rc = append_test_key(platform, out, field, 0);
+  if (rc != GZC_OK) {
+    return rc;
+  }
+  return append_test_varint(platform, out, value);
+}
+
 static int read_test_varint(const uint8_t *data, size_t len, size_t *offset, uint64_t *out) {
   uint64_t value = 0;
   unsigned shift = 0;
@@ -263,16 +271,23 @@ static int test_channel_send(gzc_rtc_channel_t *channel, const uint8_t *data, si
   }
   if (fake->response_mode == FAKE_RESPONSE_BINARY_STREAM) {
     const char *response_id = "1";
-    const char *response = "{\"down_content_length\":3,\"up_content_length\":0}";
     const uint8_t first[] = {0x01, 0x02};
     const uint8_t second[] = {0x03};
+    gzc_buf_t response_result;
     gzc_buf_t response_payload;
     gzc_buf_t framed;
+    gzc_buf_init(&response_result);
     gzc_buf_init(&response_payload);
     gzc_buf_init(&framed);
-    rc = append_test_proto_bytes(fake->platform, &response_payload, 1, (const uint8_t *)response_id, strlen(response_id));
+    rc = append_test_proto_varint(fake->platform, &response_result, 1, 3);
     if (rc == GZC_OK) {
-      rc = append_test_proto_bytes(fake->platform, &response_payload, 2, (const uint8_t *)response, strlen(response));
+      rc = append_test_proto_varint(fake->platform, &response_result, 2, 0);
+    }
+    if (rc == GZC_OK) {
+      rc = append_test_proto_bytes(fake->platform, &response_payload, 1, (const uint8_t *)response_id, strlen(response_id));
+    }
+    if (rc == GZC_OK) {
+      rc = append_test_proto_bytes(fake->platform, &response_payload, 2, response_result.data, response_result.len);
     }
     if (rc == GZC_OK) {
       rc = append_test_frame(fake->platform, &framed, GZC_RPC_FRAME_BINARY, response_payload.data, response_payload.len);
@@ -296,19 +311,24 @@ static int test_channel_send(gzc_rtc_channel_t *channel, const uint8_t *data, si
           framed.len,
           false);
     }
+    gzc_buf_free(&response_result, fake->platform);
     gzc_buf_free(&response_payload, fake->platform);
     gzc_buf_free(&framed, fake->platform);
     return rc;
   }
   const char *response_id = "1";
-  const char *response = "{\"server_time\":99}";
+  gzc_buf_t response_result;
   gzc_buf_t response_payload;
   gzc_buf_t framed;
+  gzc_buf_init(&response_result);
   gzc_buf_init(&response_payload);
   gzc_buf_init(&framed);
-  rc = append_test_proto_bytes(fake->platform, &response_payload, 1, (const uint8_t *)response_id, strlen(response_id));
+  rc = append_test_proto_varint(fake->platform, &response_result, 1, 99);
   if (rc == GZC_OK) {
-    rc = append_test_proto_bytes(fake->platform, &response_payload, 2, (const uint8_t *)response, strlen(response));
+    rc = append_test_proto_bytes(fake->platform, &response_payload, 1, (const uint8_t *)response_id, strlen(response_id));
+  }
+  if (rc == GZC_OK) {
+    rc = append_test_proto_bytes(fake->platform, &response_payload, 2, response_result.data, response_result.len);
   }
   if (rc == GZC_OK && fake->response_mode == FAKE_RESPONSE_PROTO_CONTINUATION) {
     size_t split = response_payload.len / 2;
@@ -320,6 +340,7 @@ static int test_channel_send(gzc_rtc_channel_t *channel, const uint8_t *data, si
     rc = append_test_frame(fake->platform, &framed, GZC_RPC_FRAME_BINARY, response_payload.data, response_payload.len);
   }
   if (rc != GZC_OK) {
+    gzc_buf_free(&response_result, fake->platform);
     gzc_buf_free(&response_payload, fake->platform);
     return rc;
   }
@@ -328,6 +349,7 @@ static int test_channel_send(gzc_rtc_channel_t *channel, const uint8_t *data, si
   eos_frame.type = GZC_RPC_FRAME_EOS;
   rc = gzc_rpc_frame_encode(fake->platform, &eos_frame, &framed);
   if (rc != GZC_OK) {
+    gzc_buf_free(&response_result, fake->platform);
     gzc_buf_free(&response_payload, fake->platform);
     gzc_buf_free(&framed, fake->platform);
     return rc;
@@ -340,13 +362,14 @@ static int test_channel_send(gzc_rtc_channel_t *channel, const uint8_t *data, si
       framed.data,
       framed.len,
           false);
+  gzc_buf_free(&response_result, fake->platform);
   gzc_buf_free(&response_payload, fake->platform);
   gzc_buf_free(&framed, fake->platform);
   return GZC_OK;
 }
 
 typedef struct {
-  size_t json_count;
+  size_t envelope_count;
   size_t frame_count;
   size_t binary_bytes;
 } stream_count_t;
@@ -356,12 +379,12 @@ static int count_stream_frame(void *userdata, const gzc_rpc_frame_t *frame) {
   if (count == NULL || frame == NULL) {
     return GZC_ERR_RPC;
   }
-  if (frame->type == GZC_RPC_FRAME_JSON) {
-    count->json_count++;
-    return GZC_OK;
-  }
   if (frame->type != GZC_RPC_FRAME_BINARY) {
     return GZC_ERR_RPC;
+  }
+  if (count->envelope_count == 0) {
+    count->envelope_count++;
+    return GZC_OK;
   }
   count->frame_count++;
   count->binary_bytes += frame->len;
@@ -575,7 +598,7 @@ int main(void) {
   ping.client_send_time = 42;
   gzc_buf_t params;
   gzc_buf_init(&params);
-  rc = gzc_ping_request_encode_json(platform, &ping, &params);
+  rc = gzc_ping_request_encode_proto(platform, &ping, &params);
   if (expect(rc == GZC_OK, "encode ping request") != 0) {
     return 1;
   }
@@ -615,7 +638,7 @@ int main(void) {
   }
 
   gzc_ping_response_t decoded;
-  rc = gzc_ping_response_decode_json(gzc_str_from_cstr("{\"server_time\":99}"), &decoded);
+  rc = gzc_ping_response_decode_proto(response.result_payload, &decoded);
   if (expect(rc == GZC_OK && decoded.server_time == 99, "decode ping response") != 0) {
     return 1;
   }
@@ -632,7 +655,7 @@ int main(void) {
   if (expect(rc == GZC_OK, "rpc call stream") != 0) {
     return 1;
   }
-  if (expect(stream_count.json_count == 1 && stream_count.frame_count == 2 && stream_count.binary_bytes == 3, "stream frames counted") != 0) {
+  if (expect(stream_count.envelope_count == 1 && stream_count.frame_count == 2 && stream_count.binary_bytes == 3, "stream frames counted") != 0) {
     return 1;
   }
   fake_webrtc.response_mode = FAKE_RESPONSE_PROTO;

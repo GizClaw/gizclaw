@@ -105,7 +105,7 @@ extern "C" {
 #define GZC_RPC_METHOD_SERVER_REWARD_GRANT_GET "server.reward_grant.get"
 
 typedef enum {
-  GZC_RPC_METHOD_KIND_JSON = 0,
+  GZC_RPC_METHOD_KIND_UNARY = 0,
   GZC_RPC_METHOD_KIND_BINARY_STREAM = 1,
   GZC_RPC_METHOD_KIND_BINARY_DOWNLOAD = 2
 } gzc_rpc_method_kind_t;

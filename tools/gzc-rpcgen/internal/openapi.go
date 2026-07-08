@@ -70,6 +70,10 @@ func (l *loader) loadModel(cfg Config) (Model, error) {
 	if err != nil {
 		return Model{}, err
 	}
+	fieldNumbers, err := loadProtoFieldNumbers(cfg.PayloadProtoPath)
+	if err != nil {
+		return Model{}, err
+	}
 	model := Model{Package: cfg.Package}
 	for i, method := range methodValues {
 		reqName, reqSchema, err := l.resolveSchema(cfg.SchemaPath, reqRefs[i])
@@ -88,6 +92,14 @@ func (l *loader) loadModel(cfg Config) (Model, error) {
 				return Model{}, fmt.Errorf("method %q missing from %s", method, cfg.ProtoPath)
 			}
 		}
+		request, err := schemaFromMap(reqName, reqSchema, fieldNumbers)
+		if err != nil {
+			return Model{}, err
+		}
+		response, err := schemaFromMap(respName, respSchema, fieldNumbers)
+		if err != nil {
+			return Model{}, err
+		}
 		model.Methods = append(model.Methods, Method{
 			Index:        i,
 			ID:           id,
@@ -96,8 +108,8 @@ func (l *loader) loadModel(cfg Config) (Model, error) {
 			RequestName:  reqName,
 			ResponseName: respName,
 			Kind:         methodKind(method),
-			Request:      schemaFromMap(reqName, reqSchema),
-			Response:     schemaFromMap(respName, respSchema),
+			Request:      request,
+			Response:     response,
 		})
 	}
 	return model, nil
@@ -143,6 +155,48 @@ func loadProtoMethodIDs(path string) (map[string]int, error) {
 	return methodIDs, nil
 }
 
+func loadProtoFieldNumbers(path string) (map[string]map[string]int, error) {
+	if path == "" {
+		return nil, nil
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	messageRe := regexp.MustCompile(`^\s*message\s+([A-Za-z0-9_]+)\s+\{\s*$`)
+	fieldRe := regexp.MustCompile(`^\s*(?:optional\s+|repeated\s+)?(?:map<[^>]+>|[A-Za-z0-9_.]+)\s+([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(\d+)\s*;`)
+	out := map[string]map[string]int{}
+	var current string
+	depth := 0
+	for _, line := range strings.Split(string(data), "\n") {
+		if current == "" {
+			if match := messageRe.FindStringSubmatch(line); match != nil {
+				current = match[1]
+				depth = 1
+				out[current] = map[string]int{}
+			}
+			continue
+		}
+		depth += strings.Count(line, "{")
+		depth -= strings.Count(line, "}")
+		if match := fieldRe.FindStringSubmatch(line); match != nil {
+			n, err := strconv.Atoi(match[2])
+			if err != nil {
+				return nil, fmt.Errorf("%s: invalid field number %q in %s.%s: %w", path, match[2], current, match[1], err)
+			}
+			if prev := out[current][match[1]]; prev != 0 {
+				return nil, fmt.Errorf("%s: duplicate field %s.%s", path, current, match[1])
+			}
+			out[current][match[1]] = n
+		}
+		if depth <= 0 {
+			current = ""
+			depth = 0
+		}
+	}
+	return out, nil
+}
+
 func methodKind(method string) string {
 	switch method {
 	case "all.speed_test.run":
@@ -150,7 +204,7 @@ func methodKind(method string) string {
 	case "server.firmware.files.download", "server.workspace.history.audio.get":
 		return "GZC_RPC_METHOD_KIND_BINARY_DOWNLOAD"
 	default:
-		return "GZC_RPC_METHOD_KIND_JSON"
+		return "GZC_RPC_METHOD_KIND_UNARY"
 	}
 }
 
@@ -239,11 +293,17 @@ func (l *loader) resolveSchema(fromFile, ref string) (string, map[string]any, er
 		return "", nil, fmt.Errorf("schema %s not found in %s", parts[2], targetFile)
 	}
 	if nested, ok := schema["$ref"].(string); ok {
-		_, resolved, err := l.resolveSchema(targetFile, nested)
-		if err != nil {
-			return "", nil, err
-		}
-		return parts[2], resolved, nil
+		return parts[2], map[string]any{
+			"type": "object",
+			"required": []any{
+				"value",
+			},
+			"properties": map[string]any{
+				"value": map[string]any{
+					"$ref": nested,
+				},
+			},
+		}, nil
 	}
 	return parts[2], schema, nil
 }
@@ -263,7 +323,7 @@ func (l *loader) resolveRefFile(targetFile, filePart string) (string, error) {
 	return "", fmt.Errorf("ref file %s not found", filePart)
 }
 
-func schemaFromMap(name string, schema map[string]any) Schema {
+func schemaFromMap(name string, schema map[string]any, fieldNumbers map[string]map[string]int) (Schema, error) {
 	out := Schema{Name: name, Original: schema}
 	required := map[string]bool{}
 	if req, ok := schema["required"].([]any); ok {
@@ -276,15 +336,33 @@ func schemaFromMap(name string, schema map[string]any) Schema {
 	properties, _ := schema["properties"].(map[string]any)
 	for propName, propSchemaAny := range properties {
 		propSchema, _ := propSchemaAny.(map[string]any)
+		number := 0
+		if fieldNumbers != nil {
+			numbers, ok := fieldNumbers[name]
+			if !ok {
+				return Schema{}, fmt.Errorf("%s message not found in payload proto", name)
+			}
+			var okNumber bool
+			number, okNumber = numbers[propName]
+			if !okNumber {
+				return Schema{}, fmt.Errorf("%s.%s field not found in payload proto", name, propName)
+			}
+		}
 		out.Fields = append(out.Fields, Field{
 			JSONName: propName,
 			CName:    snakeIdent(propName),
+			Number:   number,
 			Type:     ctypeFor(propSchema),
 			Required: required[propName],
 		})
 	}
 	sortFields(out.Fields)
-	return out
+	if fieldNumbers == nil {
+		for i := range out.Fields {
+			out.Fields[i].Number = i + 1
+		}
+	}
+	return out, nil
 }
 
 func stringArray(value any) ([]string, error) {

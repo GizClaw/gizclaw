@@ -4,85 +4,122 @@
 
 #include "gzc_rpc_methods.h"
 
-const gzc_rpc_method_info_t gzc_rpc_methods[] = {
-  {GZC_RPC_METHOD_ALL_PING, 1u, "PingRequest", "PingResponse", GZC_RPC_METHOD_KIND_JSON},
-  {GZC_RPC_METHOD_ALL_SPEED_TEST_RUN, 2u, "SpeedTestRequest", "SpeedTestResponse", GZC_RPC_METHOD_KIND_BINARY_STREAM},
-  {GZC_RPC_METHOD_SERVER_RUN_SAY, 3u, "ServerRunSayRequest", "ServerRunSayResponse", GZC_RPC_METHOD_KIND_JSON},
-};
+#include <string.h>
 
-int gzc_ping_request_encode_json(const gzc_platform_t *platform, const gzc_ping_request_t *value, gzc_buf_t *out_json) {
-  if (value == NULL || out_json == NULL) {
+static int gzc_rpc_proto_append_raw_varint(const gzc_platform_t *platform, gzc_buf_t *out, uint64_t value) {
+  uint8_t buf[10];
+  size_t n = 0;
+  do {
+    uint8_t byte = (uint8_t)(value & 0x7fu);
+    value >>= 7u;
+    if (value != 0) {
+      byte |= 0x80u;
+    }
+    buf[n++] = byte;
+  } while (value != 0 && n < sizeof(buf));
+  return gzc_buf_append(out, platform, buf, n);
+}
+
+static int gzc_rpc_proto_append_key(const gzc_platform_t *platform, gzc_buf_t *out, uint32_t number, uint32_t wire_type) {
+  return gzc_rpc_proto_append_raw_varint(platform, out, ((uint64_t)number << 3u) | wire_type);
+}
+
+static int gzc_rpc_proto_append_varint(const gzc_platform_t *platform, gzc_buf_t *out, uint32_t number, uint64_t value) {
+  int rc = gzc_rpc_proto_append_key(platform, out, number, 0u);
+  if (rc != GZC_OK) {
+    return rc;
+  }
+  return gzc_rpc_proto_append_raw_varint(platform, out, value);
+}
+
+static int gzc_rpc_proto_append_bytes(const gzc_platform_t *platform, gzc_buf_t *out, uint32_t number, const uint8_t *data, size_t len) {
+  if (data == NULL && len != 0) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
-  gzc_json_writer_t writer;
-  gzc_json_writer_init(&writer, platform, out_json);
-  int rc = gzc_json_object_begin(&writer);
-  if (rc != GZC_OK) { return rc; }
+  int rc = gzc_rpc_proto_append_key(platform, out, number, 2u);
+  if (rc != GZC_OK) {
+    return rc;
+  }
+  rc = gzc_rpc_proto_append_raw_varint(platform, out, (uint64_t)len);
+  if (rc != GZC_OK) {
+    return rc;
+  }
+  return gzc_buf_append(out, platform, data, len);
+}
+
+const gzc_rpc_method_info_t gzc_rpc_methods[] = {
+  {GZC_RPC_METHOD_ALL_PING, 1u, "PingRequest", "PingResponse", GZC_RPC_METHOD_KIND_UNARY},
+  {GZC_RPC_METHOD_ALL_SPEED_TEST_RUN, 2u, "SpeedTestRequest", "SpeedTestResponse", GZC_RPC_METHOD_KIND_BINARY_STREAM},
+  {GZC_RPC_METHOD_SERVER_RUN_SAY, 3u, "ServerRunSayRequest", "ServerRunSayResponse", GZC_RPC_METHOD_KIND_UNARY},
+};
+
+int gzc_ping_request_encode_proto(const gzc_platform_t *platform, const gzc_ping_request_t *value, gzc_buf_t *out_payload) {
+  if (value == NULL || out_payload == NULL) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  gzc_buf_reset(out_payload);
+  int rc;
   if (true) {
-    rc = gzc_json_field_i64(&writer, "client_send_time", value->client_send_time);
+    rc = gzc_rpc_proto_append_varint(platform, out_payload, 1, (uint64_t)value->client_send_time);
     if (rc != GZC_OK) { return rc; }
   }
   if (value->has_tag) {
-    rc = gzc_json_field_str(&writer, "tag", value->tag);
+    rc = gzc_rpc_proto_append_bytes(platform, out_payload, 2, (const uint8_t *)value->tag.data, value->tag.len);
     if (rc != GZC_OK) { return rc; }
   }
   if (value->has_trace) {
-    rc = gzc_json_field_raw(&writer, "trace", value->trace.raw);
+    rc = gzc_rpc_proto_append_bytes(platform, out_payload, 3, (const uint8_t *)value->trace.raw.data, value->trace.raw.len);
     if (rc != GZC_OK) { return rc; }
   }
-  return gzc_json_object_end(&writer);
+  return GZC_OK;
 }
 
-int gzc_speed_test_request_encode_json(const gzc_platform_t *platform, const gzc_speed_test_request_t *value, gzc_buf_t *out_json) {
-  if (value == NULL || out_json == NULL) {
+int gzc_speed_test_request_encode_proto(const gzc_platform_t *platform, const gzc_speed_test_request_t *value, gzc_buf_t *out_payload) {
+  if (value == NULL || out_payload == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
-  gzc_json_writer_t writer;
-  gzc_json_writer_init(&writer, platform, out_json);
-  int rc = gzc_json_object_begin(&writer);
-  if (rc != GZC_OK) { return rc; }
+  gzc_buf_reset(out_payload);
+  int rc;
   if (true) {
-    rc = gzc_json_field_i64(&writer, "down_content_length", value->down_content_length);
+    rc = gzc_rpc_proto_append_varint(platform, out_payload, 1, (uint64_t)value->down_content_length);
     if (rc != GZC_OK) { return rc; }
   }
   if (value->has_payload_hint) {
-    rc = gzc_json_field_raw(&writer, "payload_hint", value->payload_hint.raw);
+    rc = gzc_rpc_proto_append_bytes(platform, out_payload, 2, (const uint8_t *)value->payload_hint.raw.data, value->payload_hint.raw.len);
     if (rc != GZC_OK) { return rc; }
   }
   if (value->has_sample_count) {
-    rc = gzc_json_field_i32(&writer, "sample_count", value->sample_count);
+    rc = gzc_rpc_proto_append_varint(platform, out_payload, 3, (uint64_t)(uint32_t)value->sample_count);
     if (rc != GZC_OK) { return rc; }
   }
   if (true) {
-    rc = gzc_json_field_i64(&writer, "up_content_length", value->up_content_length);
+    rc = gzc_rpc_proto_append_varint(platform, out_payload, 4, (uint64_t)value->up_content_length);
     if (rc != GZC_OK) { return rc; }
   }
-  return gzc_json_object_end(&writer);
+  return GZC_OK;
 }
 
-int gzc_server_run_say_request_encode_json(const gzc_platform_t *platform, const gzc_server_run_say_request_t *value, gzc_buf_t *out_json) {
-  if (value == NULL || out_json == NULL) {
+int gzc_server_run_say_request_encode_proto(const gzc_platform_t *platform, const gzc_server_run_say_request_t *value, gzc_buf_t *out_payload) {
+  if (value == NULL || out_payload == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
-  gzc_json_writer_t writer;
-  gzc_json_writer_init(&writer, platform, out_json);
-  int rc = gzc_json_object_begin(&writer);
-  if (rc != GZC_OK) { return rc; }
+  gzc_buf_reset(out_payload);
+  int rc;
   if (value->has_metadata) {
-    rc = gzc_json_field_raw(&writer, "metadata", value->metadata.raw);
+    rc = gzc_rpc_proto_append_bytes(platform, out_payload, 1, (const uint8_t *)value->metadata.raw.data, value->metadata.raw.len);
     if (rc != GZC_OK) { return rc; }
   }
   if (value->has_repeat) {
-    rc = gzc_json_field_i32(&writer, "repeat", value->repeat);
+    rc = gzc_rpc_proto_append_varint(platform, out_payload, 2, (uint64_t)(uint32_t)value->repeat);
     if (rc != GZC_OK) { return rc; }
   }
   if (true) {
-    rc = gzc_json_field_str(&writer, "text", value->text);
+    rc = gzc_rpc_proto_append_bytes(platform, out_payload, 3, (const uint8_t *)value->text.data, value->text.len);
     if (rc != GZC_OK) { return rc; }
   }
   if (value->has_voice_id) {
-    rc = gzc_json_field_str(&writer, "voice_id", value->voice_id);
+    rc = gzc_rpc_proto_append_bytes(platform, out_payload, 4, (const uint8_t *)value->voice_id.data, value->voice_id.len);
     if (rc != GZC_OK) { return rc; }
   }
-  return gzc_json_object_end(&writer);
+  return GZC_OK;
 }

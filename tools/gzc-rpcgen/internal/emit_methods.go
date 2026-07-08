@@ -16,7 +16,7 @@ func emitMethodsH(model Model) ([]byte, error) {
 	}
 	b.WriteString("\n")
 	b.WriteString("typedef enum {\n")
-	b.WriteString("  GZC_RPC_METHOD_KIND_JSON = 0,\n")
+	b.WriteString("  GZC_RPC_METHOD_KIND_UNARY = 0,\n")
 	b.WriteString("  GZC_RPC_METHOD_KIND_BINARY_STREAM = 1,\n")
 	b.WriteString("  GZC_RPC_METHOD_KIND_BINARY_DOWNLOAD = 2\n")
 	b.WriteString("} gzc_rpc_method_kind_t;\n\n")

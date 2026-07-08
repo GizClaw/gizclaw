@@ -1,13 +1,14 @@
 package rpcgen
 
 type Config struct {
-	SchemaPath  string
-	ProtoPath   string
-	IncludeDirs []string
-	OutDir      string
-	Package     string
-	Check       bool
-	Format      bool
+	SchemaPath       string
+	ProtoPath        string
+	PayloadProtoPath string
+	IncludeDirs      []string
+	OutDir           string
+	Package          string
+	Check            bool
+	Format           bool
 }
 
 type Model struct {
@@ -36,6 +37,7 @@ type Schema struct {
 type Field struct {
 	JSONName string
 	CName    string
+	Number   int
 	Type     CType
 	Required bool
 }

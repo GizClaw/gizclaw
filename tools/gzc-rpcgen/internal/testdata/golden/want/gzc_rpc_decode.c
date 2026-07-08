@@ -4,80 +4,239 @@
 
 #include <string.h>
 
-int gzc_ping_response_decode_json(gzc_str_t json, gzc_ping_response_t *out_value) {
-  if (out_value == NULL) {
+static int gzc_rpc_proto_read_varint(const uint8_t *data, size_t len, size_t *offset, uint64_t *out) {
+  if ((data == NULL && len != 0) || offset == NULL || out == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
-  memset(out_value, 0, sizeof(*out_value));
-  gzc_str_t raw;
-  int rc;
-  rc = gzc_json_find_field(json, "labels", &raw);
-  if (rc == GZC_OK) {
-    out_value->has_labels = true;
-    rc = (out_value->labels.raw = raw, GZC_OK);
-    if (rc != GZC_OK) { return rc; }
+  uint64_t value = 0;
+  unsigned shift = 0;
+  while (*offset < len && shift < 64u) {
+    uint8_t byte = data[*offset];
+    *offset += 1;
+    value |= ((uint64_t)(byte & 0x7fu)) << shift;
+    if ((byte & 0x80u) == 0) {
+      *out = value;
+      return GZC_OK;
+    }
+    shift += 7u;
   }
-  rc = gzc_json_find_field(json, "ok", &raw);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_parse_bool(raw, &out_value->ok);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_find_field(json, "server_time", &raw);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_parse_i64(raw, &out_value->server_time);
-  if (rc != GZC_OK) { return rc; }
+  return GZC_ERR_RPC;
+}
+
+static int gzc_rpc_proto_read_len(const uint8_t *data, size_t len, size_t *offset, gzc_str_t *out) {
+  uint64_t size = 0;
+  int rc = gzc_rpc_proto_read_varint(data, len, offset, &size);
+  if (rc != GZC_OK) {
+    return rc;
+  }
+  if (size > len - *offset) {
+    return GZC_ERR_RPC;
+  }
+  out->data = (const char *)(data + *offset);
+  out->len = (size_t)size;
+  *offset += (size_t)size;
   return GZC_OK;
 }
 
-int gzc_speed_test_response_decode_json(gzc_str_t json, gzc_speed_test_response_t *out_value) {
-  if (out_value == NULL) {
-    return GZC_ERR_INVALID_ARGUMENT;
+static int gzc_rpc_proto_read_str(gzc_str_t payload, uint32_t wire_type, size_t *offset, gzc_str_t *out) {
+  if (wire_type != 2u || out == NULL) {
+    return GZC_ERR_RPC;
   }
-  memset(out_value, 0, sizeof(*out_value));
-  gzc_str_t raw;
-  int rc;
-  rc = gzc_json_find_field(json, "down_content_length", &raw);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_parse_i64(raw, &out_value->down_content_length);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_find_field(json, "duration_ms", &raw);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_parse_f64(raw, &out_value->duration_ms);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_find_field(json, "samples", &raw);
-  if (rc == GZC_OK) {
-    out_value->has_samples = true;
-    rc = (out_value->samples.raw = raw, GZC_OK);
-    if (rc != GZC_OK) { return rc; }
+  return gzc_rpc_proto_read_len((const uint8_t *)payload.data, payload.len, offset, out);
+}
+
+static int gzc_rpc_proto_read_bool(gzc_str_t payload, uint32_t wire_type, size_t *offset, bool *out) {
+  uint64_t value = 0;
+  if (wire_type != 0u || out == NULL) {
+    return GZC_ERR_RPC;
   }
-  rc = gzc_json_find_field(json, "up_content_length", &raw);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_parse_i64(raw, &out_value->up_content_length);
-  if (rc != GZC_OK) { return rc; }
+  int rc = gzc_rpc_proto_read_varint((const uint8_t *)payload.data, payload.len, offset, &value);
+  if (rc != GZC_OK) {
+    return rc;
+  }
+  *out = value != 0;
   return GZC_OK;
 }
 
-int gzc_server_run_say_response_decode_json(gzc_str_t json, gzc_server_run_say_response_t *out_value) {
+static int gzc_rpc_proto_read_i32(gzc_str_t payload, uint32_t wire_type, size_t *offset, int32_t *out) {
+  uint64_t value = 0;
+  if (wire_type != 0u || out == NULL) {
+    return GZC_ERR_RPC;
+  }
+  int rc = gzc_rpc_proto_read_varint((const uint8_t *)payload.data, payload.len, offset, &value);
+  if (rc != GZC_OK) {
+    return rc;
+  }
+  *out = (int32_t)value;
+  return GZC_OK;
+}
+
+static int gzc_rpc_proto_read_i64(gzc_str_t payload, uint32_t wire_type, size_t *offset, int64_t *out) {
+  uint64_t value = 0;
+  if (wire_type != 0u || out == NULL) {
+    return GZC_ERR_RPC;
+  }
+  int rc = gzc_rpc_proto_read_varint((const uint8_t *)payload.data, payload.len, offset, &value);
+  if (rc != GZC_OK) {
+    return rc;
+  }
+  *out = (int64_t)value;
+  return GZC_OK;
+}
+
+static int gzc_rpc_proto_read_double(gzc_str_t payload, uint32_t wire_type, size_t *offset, double *out) {
+  if (wire_type != 1u || out == NULL || payload.len - *offset < 8u) {
+    return GZC_ERR_RPC;
+  }
+  uint64_t bits = 0;
+  const uint8_t *data = (const uint8_t *)payload.data + *offset;
+  for (size_t i = 0; i < 8u; i++) {
+    bits |= ((uint64_t)data[i]) << (i * 8u);
+  }
+  memcpy(out, &bits, sizeof(bits));
+  *offset += 8u;
+  return GZC_OK;
+}
+
+static int gzc_rpc_proto_skip(const uint8_t *data, size_t len, size_t *offset, uint32_t wire_type) {
+  uint64_t value = 0;
+  switch (wire_type) {
+  case 0u:
+    return gzc_rpc_proto_read_varint(data, len, offset, &value);
+  case 1u:
+    if (len - *offset < 8u) {
+      return GZC_ERR_RPC;
+    }
+    *offset += 8u;
+    return GZC_OK;
+  case 2u:
+    return gzc_rpc_proto_read_len(data, len, offset, &(gzc_str_t){0});
+  case 5u:
+    if (len - *offset < 4u) {
+      return GZC_ERR_RPC;
+    }
+    *offset += 4u;
+    return GZC_OK;
+  default:
+    return GZC_ERR_RPC;
+  }
+}
+
+int gzc_ping_response_decode_proto(gzc_str_t payload, gzc_ping_response_t *out_value) {
   if (out_value == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
   memset(out_value, 0, sizeof(*out_value));
-  gzc_str_t raw;
-  int rc;
-  rc = gzc_json_find_field(json, "accepted", &raw);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_parse_bool(raw, &out_value->accepted);
-  if (rc != GZC_OK) { return rc; }
-  rc = gzc_json_find_field(json, "diagnostics", &raw);
-  if (rc == GZC_OK) {
-    out_value->has_diagnostics = true;
-    rc = (out_value->diagnostics.raw = raw, GZC_OK);
-    if (rc != GZC_OK) { return rc; }
+  if (payload.data == NULL && payload.len != 0) {
+    return GZC_ERR_INVALID_ARGUMENT;
   }
-  rc = gzc_json_find_field(json, "queue_position", &raw);
-  if (rc == GZC_OK) {
-    out_value->has_queue_position = true;
-    rc = gzc_json_parse_i32(raw, &out_value->queue_position);
+  size_t offset = 0;
+  while (offset < payload.len) {
+    uint64_t key = 0;
+    int rc = gzc_rpc_proto_read_varint((const uint8_t *)payload.data, payload.len, &offset, &key);
     if (rc != GZC_OK) { return rc; }
+    uint32_t field_number = (uint32_t)(key >> 3u);
+    uint32_t wire_type = (uint32_t)(key & 0x07u);
+    switch (field_number) {
+    case 1:
+      out_value->has_labels = true;
+      rc = gzc_rpc_proto_read_str(payload, wire_type, &offset, &out_value->labels.raw);
+      if (rc != GZC_OK) { return rc; }
+      break;
+    case 2:
+      rc = gzc_rpc_proto_read_bool(payload, wire_type, &offset, &out_value->ok);
+      if (rc != GZC_OK) { return rc; }
+      break;
+    case 3:
+      rc = gzc_rpc_proto_read_i64(payload, wire_type, &offset, &out_value->server_time);
+      if (rc != GZC_OK) { return rc; }
+      break;
+    default:
+      rc = gzc_rpc_proto_skip((const uint8_t *)payload.data, payload.len, &offset, wire_type);
+      if (rc != GZC_OK) { return rc; }
+      break;
+    }
+  }
+  return GZC_OK;
+}
+
+int gzc_speed_test_response_decode_proto(gzc_str_t payload, gzc_speed_test_response_t *out_value) {
+  if (out_value == NULL) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  memset(out_value, 0, sizeof(*out_value));
+  if (payload.data == NULL && payload.len != 0) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  size_t offset = 0;
+  while (offset < payload.len) {
+    uint64_t key = 0;
+    int rc = gzc_rpc_proto_read_varint((const uint8_t *)payload.data, payload.len, &offset, &key);
+    if (rc != GZC_OK) { return rc; }
+    uint32_t field_number = (uint32_t)(key >> 3u);
+    uint32_t wire_type = (uint32_t)(key & 0x07u);
+    switch (field_number) {
+    case 1:
+      rc = gzc_rpc_proto_read_i64(payload, wire_type, &offset, &out_value->down_content_length);
+      if (rc != GZC_OK) { return rc; }
+      break;
+    case 2:
+      rc = gzc_rpc_proto_read_double(payload, wire_type, &offset, &out_value->duration_ms);
+      if (rc != GZC_OK) { return rc; }
+      break;
+    case 3:
+      out_value->has_samples = true;
+      rc = gzc_rpc_proto_read_str(payload, wire_type, &offset, &out_value->samples.raw);
+      if (rc != GZC_OK) { return rc; }
+      break;
+    case 4:
+      rc = gzc_rpc_proto_read_i64(payload, wire_type, &offset, &out_value->up_content_length);
+      if (rc != GZC_OK) { return rc; }
+      break;
+    default:
+      rc = gzc_rpc_proto_skip((const uint8_t *)payload.data, payload.len, &offset, wire_type);
+      if (rc != GZC_OK) { return rc; }
+      break;
+    }
+  }
+  return GZC_OK;
+}
+
+int gzc_server_run_say_response_decode_proto(gzc_str_t payload, gzc_server_run_say_response_t *out_value) {
+  if (out_value == NULL) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  memset(out_value, 0, sizeof(*out_value));
+  if (payload.data == NULL && payload.len != 0) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  size_t offset = 0;
+  while (offset < payload.len) {
+    uint64_t key = 0;
+    int rc = gzc_rpc_proto_read_varint((const uint8_t *)payload.data, payload.len, &offset, &key);
+    if (rc != GZC_OK) { return rc; }
+    uint32_t field_number = (uint32_t)(key >> 3u);
+    uint32_t wire_type = (uint32_t)(key & 0x07u);
+    switch (field_number) {
+    case 1:
+      rc = gzc_rpc_proto_read_bool(payload, wire_type, &offset, &out_value->accepted);
+      if (rc != GZC_OK) { return rc; }
+      break;
+    case 2:
+      out_value->has_diagnostics = true;
+      rc = gzc_rpc_proto_read_str(payload, wire_type, &offset, &out_value->diagnostics.raw);
+      if (rc != GZC_OK) { return rc; }
+      break;
+    case 3:
+      out_value->has_queue_position = true;
+      rc = gzc_rpc_proto_read_i32(payload, wire_type, &offset, &out_value->queue_position);
+      if (rc != GZC_OK) { return rc; }
+      break;
+    default:
+      rc = gzc_rpc_proto_skip((const uint8_t *)payload.data, payload.len, &offset, wire_type);
+      if (rc != GZC_OK) { return rc; }
+      break;
+    }
   }
   return GZC_OK;
 }

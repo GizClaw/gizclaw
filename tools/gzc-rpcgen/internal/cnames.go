@@ -46,9 +46,9 @@ func typeName(pkg, schemaName string) string {
 }
 
 func encodeFuncName(pkg, schemaName string) string {
-	return pkg + "_" + exportedToSnake(schemaName) + "_encode_json"
+	return pkg + "_" + exportedToSnake(schemaName) + "_encode_proto"
 }
 
 func decodeFuncName(pkg, schemaName string) string {
-	return pkg + "_" + exportedToSnake(schemaName) + "_decode_json"
+	return pkg + "_" + exportedToSnake(schemaName) + "_decode_proto"
 }
