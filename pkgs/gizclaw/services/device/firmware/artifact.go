@@ -370,7 +370,10 @@ func extractArtifactTar(_ context.Context, assets objectstore.ObjectStore, files
 				return nil, err
 			}
 			if err := assets.Put(objectPath, tr); err != nil {
-				return nil, fmt.Errorf("%w: write tar entry %q: %v", errInvalidArtifact, entryPath, err)
+				if errors.Is(err, io.ErrUnexpectedEOF) {
+					return nil, fmt.Errorf("%w: write tar entry %q: %v", errInvalidArtifact, entryPath, err)
+				}
+				return nil, err
 			}
 			entries[entryPath] = entry
 			hasFile = true

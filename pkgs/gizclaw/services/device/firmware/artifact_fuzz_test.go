@@ -61,7 +61,7 @@ func FuzzWriteArtifactPackage(f *testing.F) {
 			if normalized != entry.Path {
 				t.Fatalf("manifest path = %q, want normalized %q", entry.Path, normalized)
 			}
-			if strings.HasPrefix(entry.Path, "/") || strings.Contains(entry.Path, "..") || strings.Contains(entry.Path, "\x00") {
+			if strings.HasPrefix(entry.Path, "/") || strings.Contains(entry.Path, "\x00") || artifactPathHasParentComponent(entry.Path) {
 				t.Fatalf("unsafe manifest path accepted: %q", entry.Path)
 			}
 			if entry.Type == apitypes.FirmwareArtifactEntryTypeFile {
@@ -72,6 +72,15 @@ func FuzzWriteArtifactPackage(f *testing.F) {
 			}
 		}
 	})
+}
+
+func artifactPathHasParentComponent(value string) bool {
+	for _, part := range strings.Split(value, "/") {
+		if part == ".." {
+			return true
+		}
+	}
+	return false
 }
 
 type fuzzTarEntry struct {

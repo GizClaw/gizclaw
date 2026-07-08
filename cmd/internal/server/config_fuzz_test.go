@@ -23,7 +23,7 @@ func FuzzParseConfigData(f *testing.F) {
 		if err != nil {
 			return
 		}
-		cfg, err := mergeFileConfig(DefaultConfig(), fileCfg)
+		cfg, err := mergeFileConfig(Config{}, fileCfg)
 		if err != nil {
 			t.Fatalf("mergeFileConfig() error = %v", err)
 		}
