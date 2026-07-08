@@ -7,6 +7,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 )
 
 func TestDataChannelConnWriteWaitsForBufferedAmountLow(t *testing.T) {
@@ -130,8 +132,8 @@ func TestDataChannelConnCloseWakesBlockedWriter(t *testing.T) {
 	}
 	select {
 	case err := <-writeDone:
-		if !errors.Is(err, ErrConnClosed) {
-			t.Fatalf("Write error = %v, want %v", err, ErrConnClosed)
+		if !errors.Is(err, giznet.ErrConnClosed) {
+			t.Fatalf("Write error = %v, want %v", err, giznet.ErrConnClosed)
 		}
 	case <-time.After(time.Second):
 		t.Fatal("Write did not wake after close")
@@ -201,8 +203,8 @@ func TestCloseServiceClosesQueuedAndActiveStreams(t *testing.T) {
 	if err := conn.CloseService(42); err != nil {
 		t.Fatalf("CloseService error = %v", err)
 	}
-	if _, err := listener.Accept(); !errors.Is(err, ErrServiceClosed) {
-		t.Fatalf("Accept after CloseService error = %v, want %v", err, ErrServiceClosed)
+	if _, err := listener.Accept(); !errors.Is(err, giznet.ErrServiceMuxClosed) {
+		t.Fatalf("Accept after CloseService error = %v, want %v", err, giznet.ErrServiceMuxClosed)
 	}
 	if !queuedRaw.closed || !activeRaw.closed {
 		t.Fatalf("queued/active raw closed = %t/%t, want both true", queuedRaw.closed, activeRaw.closed)

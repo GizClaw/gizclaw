@@ -28,7 +28,7 @@ type Listener struct {
 
 func (l *Listener) Accept() (giznet.Conn, error) {
 	if l == nil {
-		return nil, ErrNilListener
+		return nil, giznet.ErrNilListener
 	}
 	select {
 	case c := <-l.acceptCh:
@@ -40,7 +40,7 @@ func (l *Listener) Accept() (giznet.Conn, error) {
 
 func (l *Listener) Close() error {
 	if l == nil {
-		return ErrNilListener
+		return giznet.ErrNilListener
 	}
 	var err error
 	l.once.Do(func() {

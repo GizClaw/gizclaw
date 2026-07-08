@@ -241,8 +241,8 @@ func TestPacketWriteRejectsLargePayload(t *testing.T) {
 		t.Fatalf("writePacket nil err = %v, want %v", err, ErrPacketChannel)
 	}
 	payload := make([]byte, maxPacketMessageSize)
-	if _, err := writePacket(noopPacketRaw{}, 1, payload); !errors.Is(err, ErrPacketTooLarge) {
-		t.Fatalf("writePacket large err = %v, want %v", err, ErrPacketTooLarge)
+	if _, err := writePacket(noopPacketRaw{}, 1, payload); !errors.Is(err, giznet.ErrPacketTooLarge) {
+		t.Fatalf("writePacket large err = %v, want %v", err, giznet.ErrPacketTooLarge)
 	}
 	payload = make([]byte, maxPacketMessageSize-1)
 	raw := &recordingPacketRaw{}

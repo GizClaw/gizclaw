@@ -43,8 +43,8 @@ func TestListenRejectsNilKeyAndTopLevelListenWorks(t *testing.T) {
 }
 
 func TestListenerAcceptCloseAndPeerEvent(t *testing.T) {
-	if _, err := (*Listener)(nil).Accept(); !errors.Is(err, ErrNilListener) {
-		t.Fatalf("nil Accept error = %v, want %v", err, ErrNilListener)
+	if _, err := (*Listener)(nil).Accept(); !errors.Is(err, giznet.ErrNilListener) {
+		t.Fatalf("nil Accept error = %v, want %v", err, giznet.ErrNilListener)
 	}
 	handler := &recordPeerEventHandler{}
 	l := &Listener{
@@ -98,12 +98,12 @@ func TestConnPacketReadWriteAndPeerInfoEdges(t *testing.T) {
 		t.Fatalf("Write without packet channel error = %v, want %v", err, ErrPacketChannel)
 	}
 	conn.readCh <- directPacket{protocol: 0x44, payload: []byte("toolarge")}
-	if _, _, err := conn.Read(make([]byte, 2)); !errors.Is(err, ErrPacketBuffer) {
-		t.Fatalf("Read small buffer error = %v, want %v", err, ErrPacketBuffer)
+	if _, _, err := conn.Read(make([]byte, 2)); !errors.Is(err, giznet.ErrPacketBuffer) {
+		t.Fatalf("Read small buffer error = %v, want %v", err, giznet.ErrPacketBuffer)
 	}
 	close(conn.closeCh)
-	if _, _, err := conn.Read(make([]byte, 16)); !errors.Is(err, ErrConnClosed) {
-		t.Fatalf("Read closed error = %v, want %v", err, ErrConnClosed)
+	if _, _, err := conn.Read(make([]byte, 16)); !errors.Is(err, giznet.ErrConnClosed) {
+		t.Fatalf("Read closed error = %v, want %v", err, giznet.ErrConnClosed)
 	}
 }
 
@@ -143,13 +143,13 @@ func TestConnNilAndClosedEdges(t *testing.T) {
 	if (*Conn)(nil).PeerInfo() != nil {
 		t.Fatal("nil PeerInfo returned non-nil info")
 	}
-	if err := (*Conn)(nil).validate(); !errors.Is(err, ErrNilConn) {
-		t.Fatalf("nil validate error = %v, want %v", err, ErrNilConn)
+	if err := (*Conn)(nil).validate(); !errors.Is(err, giznet.ErrNilConn) {
+		t.Fatalf("nil validate error = %v, want %v", err, giznet.ErrNilConn)
 	}
 	conn := &Conn{pc: &webrtc.PeerConnection{}}
 	conn.closed.Store(true)
-	if err := conn.validate(); !errors.Is(err, ErrConnClosed) {
-		t.Fatalf("closed validate error = %v, want %v", err, ErrConnClosed)
+	if err := conn.validate(); !errors.Is(err, giznet.ErrConnClosed) {
+		t.Fatalf("closed validate error = %v, want %v", err, giznet.ErrConnClosed)
 	}
 	info := conn.PeerInfo()
 	if info == nil || info.State != giznet.PeerStateOffline {
@@ -158,8 +158,8 @@ func TestConnNilAndClosedEdges(t *testing.T) {
 }
 
 func TestServiceListenerEdges(t *testing.T) {
-	if _, err := (*ServiceListener)(nil).Accept(); !errors.Is(err, ErrNilConn) {
-		t.Fatalf("nil Accept error = %v, want %v", err, ErrNilConn)
+	if _, err := (*ServiceListener)(nil).Accept(); !errors.Is(err, giznet.ErrNilConn) {
+		t.Fatalf("nil Accept error = %v, want %v", err, giznet.ErrNilConn)
 	}
 	conn := &Conn{localAddr: addr("local"), closeCh: make(chan struct{})}
 	l := newServiceListener(conn, 7)
@@ -171,8 +171,8 @@ func TestServiceListenerEdges(t *testing.T) {
 	}
 	raw := &fakeStreamRaw{}
 	stream := newDataChannelConn(raw, nil, addr("local"), addr("remote"))
-	if err := l.enqueue(stream); !errors.Is(err, ErrServiceClosed) {
-		t.Fatalf("enqueue after close error = %v, want %v", err, ErrServiceClosed)
+	if err := l.enqueue(stream); !errors.Is(err, giznet.ErrServiceMuxClosed) {
+		t.Fatalf("enqueue after close error = %v, want %v", err, giznet.ErrServiceMuxClosed)
 	}
 	if !raw.closed {
 		t.Fatal("enqueue after close did not close stream")
@@ -184,13 +184,13 @@ func TestServiceListenerEdges(t *testing.T) {
 	connClosed := &Conn{closeCh: make(chan struct{})}
 	close(connClosed.closeCh)
 	l = newServiceListener(connClosed, 8)
-	if _, err := l.Accept(); !errors.Is(err, ErrConnClosed) {
-		t.Fatalf("Accept after conn close error = %v, want %v", err, ErrConnClosed)
+	if _, err := l.Accept(); !errors.Is(err, giznet.ErrConnClosed) {
+		t.Fatalf("Accept after conn close error = %v, want %v", err, giznet.ErrConnClosed)
 	}
 	raw = &fakeStreamRaw{}
 	stream = newDataChannelConn(raw, nil, addr("local"), addr("remote"))
-	if err := l.enqueue(stream); !errors.Is(err, ErrConnClosed) {
-		t.Fatalf("enqueue after conn close error = %v, want %v", err, ErrConnClosed)
+	if err := l.enqueue(stream); !errors.Is(err, giznet.ErrConnClosed) {
+		t.Fatalf("enqueue after conn close error = %v, want %v", err, giznet.ErrConnClosed)
 	}
 	if !raw.closed {
 		t.Fatal("enqueue after conn close did not close stream")

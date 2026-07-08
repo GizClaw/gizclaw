@@ -3,6 +3,7 @@ package gizwebrtc
 import (
 	"fmt"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/pion/datachannel"
 )
 
@@ -16,7 +17,7 @@ func writePacket(raw datachannel.ReadWriteCloserDeadliner, protocol byte, payloa
 		return 0, ErrPacketChannel
 	}
 	if len(payload) > maxPacketMessageSize-1 {
-		return 0, ErrPacketTooLarge
+		return 0, giznet.ErrPacketTooLarge
 	}
 	msg := make([]byte, 1+len(payload))
 	msg[0] = protocol

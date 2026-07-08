@@ -96,7 +96,7 @@ func (c *Conn) Dial(service uint64) (net.Conn, error) {
 	c.serviceMu.Lock()
 	if c.closedSvc[service] {
 		c.serviceMu.Unlock()
-		return nil, ErrServiceClosed
+		return nil, giznet.ErrServiceMuxClosed
 	}
 	c.serviceMu.Unlock()
 	dc, err := c.pc.CreateDataChannel(serviceLabel(service), &webrtc.DataChannelInit{})
@@ -129,7 +129,7 @@ func (c *Conn) ListenService(service uint64) giznet.ServiceListener {
 
 func (c *Conn) CloseService(service uint64) error {
 	if c == nil {
-		return ErrNilConn
+		return giznet.ErrNilConn
 	}
 	c.serviceMu.Lock()
 	c.closedSvc[service] = true
@@ -155,12 +155,12 @@ func (c *Conn) Read(buf []byte) (byte, int, error) {
 	select {
 	case pkt := <-c.readCh:
 		if len(pkt.payload) > len(buf) {
-			return 0, 0, ErrPacketBuffer
+			return 0, 0, giznet.ErrPacketBuffer
 		}
 		copy(buf, pkt.payload)
 		return pkt.protocol, len(pkt.payload), nil
 	case <-c.closeCh:
-		return 0, 0, ErrConnClosed
+		return 0, 0, giznet.ErrConnClosed
 	}
 }
 
@@ -202,7 +202,7 @@ func (c *Conn) PeerInfo() *giznet.PeerInfo {
 
 func (c *Conn) Close() error {
 	if c == nil {
-		return ErrNilConn
+		return giznet.ErrNilConn
 	}
 	c.once.Do(func() {
 		c.closed.Store(true)
@@ -237,10 +237,10 @@ func (c *Conn) Close() error {
 
 func (c *Conn) validate() error {
 	if c == nil || c.pc == nil {
-		return ErrNilConn
+		return giznet.ErrNilConn
 	}
 	if c.closed.Load() {
-		return ErrConnClosed
+		return giznet.ErrConnClosed
 	}
 	return nil
 }
