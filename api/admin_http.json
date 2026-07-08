@@ -7072,6 +7072,277 @@
         }
       }
     },
+    "/peers/{publicKey}/telemetry/latest": {
+      "get": {
+        "operationId": "getPeerTelemetryLatest",
+        "summary": "Get latest sampled telemetry values for a peer",
+        "tags": [
+          "Query"
+        ],
+        "parameters": [
+          {
+            "name": "publicKey",
+            "in": "path",
+            "required": true,
+            "description": "Peer public key",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "fields",
+            "in": "query",
+            "required": false,
+            "description": "Comma-separated telemetry field names. Omitted means all supported fields.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Latest telemetry values",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/PeerTelemetryLatestResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid telemetry query",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Telemetry query failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/peers/{publicKey}/telemetry": {
+      "get": {
+        "operationId": "queryPeerTelemetry",
+        "summary": "Query sampled telemetry points for a peer",
+        "tags": [
+          "Query"
+        ],
+        "parameters": [
+          {
+            "name": "publicKey",
+            "in": "path",
+            "required": true,
+            "description": "Peer public key",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "field",
+            "in": "query",
+            "required": true,
+            "description": "Telemetry field name",
+            "schema": {
+              "$ref": "./types.json#/components/schemas/PeerTelemetryField"
+            }
+          },
+          {
+            "name": "start_time_ms",
+            "in": "query",
+            "required": true,
+            "description": "Inclusive Unix millisecond start time",
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "end_time_ms",
+            "in": "query",
+            "required": true,
+            "description": "Inclusive Unix millisecond end time",
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "step_ms",
+            "in": "query",
+            "required": false,
+            "description": "Range evaluation step in milliseconds. Omitted derives a bounded step from the requested range and limit.",
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Maximum returned points. Omitted uses the default point budget.",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "order",
+            "in": "query",
+            "required": false,
+            "description": "Returned point order",
+            "schema": {
+              "$ref": "./types.json#/components/schemas/PeerTelemetryOrder"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Sampled telemetry range",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/PeerTelemetryRangeResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid telemetry query",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Telemetry query failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/peers/{publicKey}/telemetry/aggregate": {
+      "get": {
+        "operationId": "aggregatePeerTelemetry",
+        "summary": "Query bucketed aggregate telemetry for a peer",
+        "tags": [
+          "Query"
+        ],
+        "parameters": [
+          {
+            "name": "publicKey",
+            "in": "path",
+            "required": true,
+            "description": "Peer public key",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "field",
+            "in": "query",
+            "required": true,
+            "description": "Telemetry field name",
+            "schema": {
+              "$ref": "./types.json#/components/schemas/PeerTelemetryField"
+            }
+          },
+          {
+            "name": "start_time_ms",
+            "in": "query",
+            "required": true,
+            "description": "Inclusive Unix millisecond start time",
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "end_time_ms",
+            "in": "query",
+            "required": true,
+            "description": "Inclusive Unix millisecond end time",
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "bucket_ms",
+            "in": "query",
+            "required": true,
+            "description": "Bucket size in milliseconds",
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "aggregate",
+            "in": "query",
+            "required": true,
+            "description": "Aggregate mode",
+            "schema": {
+              "$ref": "./types.json#/components/schemas/PeerTelemetryAggregate"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Bucketed telemetry aggregate",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/PeerTelemetryAggregateResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid telemetry query",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Telemetry query failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/peers/{publicKey}/friends": {
       "get": {
         "operationId": "listPeerFriends",

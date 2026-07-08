@@ -1497,6 +1497,59 @@ export type PeerRunHistoryListResponse = {
     message?: string;
 };
 
+/**
+ * Bucket aggregate mode for peer telemetry range data.
+ */
+export type PeerTelemetryAggregate = 'avg' | 'min' | 'max' | 'sum' | 'count' | 'last';
+
+export type PeerTelemetryAggregatePoint = {
+    bucket_start_time_ms: number;
+    value: number;
+};
+
+export type PeerTelemetryAggregateResponse = {
+    peer_public_key: string;
+    field: PeerTelemetryField;
+    aggregate: PeerTelemetryAggregate;
+    bucket_ms: number;
+    points: Array<PeerTelemetryAggregatePoint>;
+};
+
+/**
+ * Queryable peer telemetry field name.
+ */
+export type PeerTelemetryField = 'battery.percent' | 'battery.charging' | 'battery.voltage_mv' | 'gnss.latitude' | 'gnss.longitude' | 'gnss.altitude_m' | 'gnss.accuracy_m' | 'network.rssi_dbm' | 'network.signal_level' | 'network.connected' | 'system.uptime_seconds' | 'system.free_memory_bytes' | 'system.temperature_c';
+
+export type PeerTelemetryLatestResponse = {
+    peer_public_key: string;
+    values: Array<PeerTelemetryValue>;
+};
+
+/**
+ * Telemetry point ordering.
+ */
+export type PeerTelemetryOrder = 'asc' | 'desc';
+
+export type PeerTelemetryPoint = {
+    observed_at_unix_ms: number;
+    value: number;
+};
+
+export type PeerTelemetryRangeResponse = {
+    peer_public_key: string;
+    field: PeerTelemetryField;
+    start_time_ms: number;
+    end_time_ms: number;
+    step_ms: number;
+    points: Array<PeerTelemetryPoint>;
+};
+
+export type PeerTelemetryValue = {
+    field: PeerTelemetryField;
+    value: number;
+    observed_at_unix_ms: number;
+};
+
 export type Registration = {
     public_key: string;
     role: PeerRole;
@@ -6247,6 +6300,159 @@ export type GetPeerRuntimeResponses = {
 };
 
 export type GetPeerRuntimeResponse = GetPeerRuntimeResponses[keyof GetPeerRuntimeResponses];
+
+export type GetPeerTelemetryLatestData = {
+    body?: never;
+    path: {
+        /**
+         * Peer public key
+         */
+        publicKey: string;
+    };
+    query?: {
+        /**
+         * Comma-separated telemetry field names. Omitted means all supported fields.
+         */
+        fields?: string;
+    };
+    url: '/peers/{publicKey}/telemetry/latest';
+};
+
+export type GetPeerTelemetryLatestErrors = {
+    /**
+     * Invalid telemetry query
+     */
+    400: ErrorResponse;
+    /**
+     * Telemetry query failed
+     */
+    500: ErrorResponse;
+};
+
+export type GetPeerTelemetryLatestError = GetPeerTelemetryLatestErrors[keyof GetPeerTelemetryLatestErrors];
+
+export type GetPeerTelemetryLatestResponses = {
+    /**
+     * Latest telemetry values
+     */
+    200: PeerTelemetryLatestResponse;
+};
+
+export type GetPeerTelemetryLatestResponse = GetPeerTelemetryLatestResponses[keyof GetPeerTelemetryLatestResponses];
+
+export type QueryPeerTelemetryData = {
+    body?: never;
+    path: {
+        /**
+         * Peer public key
+         */
+        publicKey: string;
+    };
+    query: {
+        /**
+         * Telemetry field name
+         */
+        field: PeerTelemetryField;
+        /**
+         * Inclusive Unix millisecond start time
+         */
+        start_time_ms: number;
+        /**
+         * Inclusive Unix millisecond end time
+         */
+        end_time_ms: number;
+        /**
+         * Range evaluation step in milliseconds. Omitted derives a bounded step from the requested range and limit.
+         */
+        step_ms?: number;
+        /**
+         * Maximum returned points. Omitted uses the default point budget.
+         */
+        limit?: number;
+        /**
+         * Returned point order
+         */
+        order?: PeerTelemetryOrder;
+    };
+    url: '/peers/{publicKey}/telemetry';
+};
+
+export type QueryPeerTelemetryErrors = {
+    /**
+     * Invalid telemetry query
+     */
+    400: ErrorResponse;
+    /**
+     * Telemetry query failed
+     */
+    500: ErrorResponse;
+};
+
+export type QueryPeerTelemetryError = QueryPeerTelemetryErrors[keyof QueryPeerTelemetryErrors];
+
+export type QueryPeerTelemetryResponses = {
+    /**
+     * Sampled telemetry range
+     */
+    200: PeerTelemetryRangeResponse;
+};
+
+export type QueryPeerTelemetryResponse = QueryPeerTelemetryResponses[keyof QueryPeerTelemetryResponses];
+
+export type AggregatePeerTelemetryData = {
+    body?: never;
+    path: {
+        /**
+         * Peer public key
+         */
+        publicKey: string;
+    };
+    query: {
+        /**
+         * Telemetry field name
+         */
+        field: PeerTelemetryField;
+        /**
+         * Inclusive Unix millisecond start time
+         */
+        start_time_ms: number;
+        /**
+         * Inclusive Unix millisecond end time
+         */
+        end_time_ms: number;
+        /**
+         * Bucket size in milliseconds
+         */
+        bucket_ms: number;
+        /**
+         * Aggregate mode
+         */
+        aggregate: PeerTelemetryAggregate;
+    };
+    url: '/peers/{publicKey}/telemetry/aggregate';
+};
+
+export type AggregatePeerTelemetryErrors = {
+    /**
+     * Invalid telemetry query
+     */
+    400: ErrorResponse;
+    /**
+     * Telemetry query failed
+     */
+    500: ErrorResponse;
+};
+
+export type AggregatePeerTelemetryError = AggregatePeerTelemetryErrors[keyof AggregatePeerTelemetryErrors];
+
+export type AggregatePeerTelemetryResponses = {
+    /**
+     * Bucketed telemetry aggregate
+     */
+    200: PeerTelemetryAggregateResponse;
+};
+
+export type AggregatePeerTelemetryResponse = AggregatePeerTelemetryResponses[keyof AggregatePeerTelemetryResponses];
 
 export type ListPeerFriendsData = {
     body?: never;

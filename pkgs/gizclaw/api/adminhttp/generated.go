@@ -912,6 +912,51 @@ type ListPeerRewardGrantsParams struct {
 	Limit *int32 `form:"limit,omitempty" json:"limit,omitempty"`
 }
 
+// QueryPeerTelemetryParams defines parameters for QueryPeerTelemetry.
+type QueryPeerTelemetryParams struct {
+	// Field Telemetry field name
+	Field externalRef0.PeerTelemetryField `form:"field" json:"field"`
+
+	// StartTimeMs Inclusive Unix millisecond start time
+	StartTimeMs int64 `form:"start_time_ms" json:"start_time_ms"`
+
+	// EndTimeMs Inclusive Unix millisecond end time
+	EndTimeMs int64 `form:"end_time_ms" json:"end_time_ms"`
+
+	// StepMs Range evaluation step in milliseconds. Omitted derives a bounded step from the requested range and limit.
+	StepMs *int64 `form:"step_ms,omitempty" json:"step_ms,omitempty"`
+
+	// Limit Maximum returned points. Omitted uses the default point budget.
+	Limit *int32 `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Order Returned point order
+	Order *externalRef0.PeerTelemetryOrder `form:"order,omitempty" json:"order,omitempty"`
+}
+
+// AggregatePeerTelemetryParams defines parameters for AggregatePeerTelemetry.
+type AggregatePeerTelemetryParams struct {
+	// Field Telemetry field name
+	Field externalRef0.PeerTelemetryField `form:"field" json:"field"`
+
+	// StartTimeMs Inclusive Unix millisecond start time
+	StartTimeMs int64 `form:"start_time_ms" json:"start_time_ms"`
+
+	// EndTimeMs Inclusive Unix millisecond end time
+	EndTimeMs int64 `form:"end_time_ms" json:"end_time_ms"`
+
+	// BucketMs Bucket size in milliseconds
+	BucketMs int64 `form:"bucket_ms" json:"bucket_ms"`
+
+	// Aggregate Aggregate mode
+	Aggregate externalRef0.PeerTelemetryAggregate `form:"aggregate" json:"aggregate"`
+}
+
+// GetPeerTelemetryLatestParams defines parameters for GetPeerTelemetryLatest.
+type GetPeerTelemetryLatestParams struct {
+	// Fields Comma-separated telemetry field names. Omitted means all supported fields.
+	Fields *string `form:"fields,omitempty" json:"fields,omitempty"`
+}
+
 // ListPetDefsParams defines parameters for ListPetDefs.
 type ListPetDefsParams struct {
 	// Cursor Opaque cursor returned by the previous list response
@@ -1625,6 +1670,15 @@ type ClientInterface interface {
 
 	// GetPeerRuntime request
 	GetPeerRuntime(ctx context.Context, publicKey string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// QueryPeerTelemetry request
+	QueryPeerTelemetry(ctx context.Context, publicKey string, params *QueryPeerTelemetryParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AggregatePeerTelemetry request
+	AggregatePeerTelemetry(ctx context.Context, publicKey string, params *AggregatePeerTelemetryParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetPeerTelemetryLatest request
+	GetPeerTelemetryLatest(ctx context.Context, publicKey string, params *GetPeerTelemetryLatestParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListPetDefs request
 	ListPetDefs(ctx context.Context, params *ListPetDefsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -3476,6 +3530,42 @@ func (c *Client) GetPeerRewardGrant(ctx context.Context, publicKey string, id st
 
 func (c *Client) GetPeerRuntime(ctx context.Context, publicKey string, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetPeerRuntimeRequest(c.Server, publicKey)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) QueryPeerTelemetry(ctx context.Context, publicKey string, params *QueryPeerTelemetryParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewQueryPeerTelemetryRequest(c.Server, publicKey, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) AggregatePeerTelemetry(ctx context.Context, publicKey string, params *AggregatePeerTelemetryParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAggregatePeerTelemetryRequest(c.Server, publicKey, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetPeerTelemetryLatest(ctx context.Context, publicKey string, params *GetPeerTelemetryLatestParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetPeerTelemetryLatestRequest(c.Server, publicKey, params)
 	if err != nil {
 		return nil, err
 	}
@@ -9459,6 +9549,286 @@ func NewGetPeerRuntimeRequest(server string, publicKey string) (*http.Request, e
 	return req, nil
 }
 
+// NewQueryPeerTelemetryRequest generates requests for QueryPeerTelemetry
+func NewQueryPeerTelemetryRequest(server string, publicKey string, params *QueryPeerTelemetryParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "publicKey", publicKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/peers/%s/telemetry", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "field", params.Field, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "start_time_ms", params.StartTimeMs, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int64"}); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "end_time_ms", params.EndTimeMs, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int64"}); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+		if params.StepMs != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "step_ms", *params.StepMs, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int64"}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int32"}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Order != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "order", *params.Order, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewAggregatePeerTelemetryRequest generates requests for AggregatePeerTelemetry
+func NewAggregatePeerTelemetryRequest(server string, publicKey string, params *AggregatePeerTelemetryParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "publicKey", publicKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/peers/%s/telemetry/aggregate", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "field", params.Field, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "start_time_ms", params.StartTimeMs, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int64"}); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "end_time_ms", params.EndTimeMs, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int64"}); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "bucket_ms", params.BucketMs, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int64"}); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "aggregate", params.Aggregate, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetPeerTelemetryLatestRequest generates requests for GetPeerTelemetryLatest
+func NewGetPeerTelemetryLatestRequest(server string, publicKey string, params *GetPeerTelemetryLatestParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "publicKey", publicKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/peers/%s/telemetry/latest", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Fields != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "fields", *params.Fields, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewListPetDefsRequest generates requests for ListPetDefs
 func NewListPetDefsRequest(server string, params *ListPetDefsParams) (*http.Request, error) {
 	var err error
@@ -12436,6 +12806,15 @@ type ClientWithResponsesInterface interface {
 	// GetPeerRuntimeWithResponse request
 	GetPeerRuntimeWithResponse(ctx context.Context, publicKey string, reqEditors ...RequestEditorFn) (*GetPeerRuntimeResponse, error)
 
+	// QueryPeerTelemetryWithResponse request
+	QueryPeerTelemetryWithResponse(ctx context.Context, publicKey string, params *QueryPeerTelemetryParams, reqEditors ...RequestEditorFn) (*QueryPeerTelemetryResponse, error)
+
+	// AggregatePeerTelemetryWithResponse request
+	AggregatePeerTelemetryWithResponse(ctx context.Context, publicKey string, params *AggregatePeerTelemetryParams, reqEditors ...RequestEditorFn) (*AggregatePeerTelemetryResponse, error)
+
+	// GetPeerTelemetryLatestWithResponse request
+	GetPeerTelemetryLatestWithResponse(ctx context.Context, publicKey string, params *GetPeerTelemetryLatestParams, reqEditors ...RequestEditorFn) (*GetPeerTelemetryLatestResponse, error)
+
 	// ListPetDefsWithResponse request
 	ListPetDefsWithResponse(ctx context.Context, params *ListPetDefsParams, reqEditors ...RequestEditorFn) (*ListPetDefsResponse, error)
 
@@ -15215,6 +15594,78 @@ func (r GetPeerRuntimeResponse) StatusCode() int {
 	return 0
 }
 
+type QueryPeerTelemetryResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *externalRef0.PeerTelemetryRangeResponse
+	JSON400      *externalRef0.ErrorResponse
+	JSON500      *externalRef0.ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r QueryPeerTelemetryResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r QueryPeerTelemetryResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type AggregatePeerTelemetryResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *externalRef0.PeerTelemetryAggregateResponse
+	JSON400      *externalRef0.ErrorResponse
+	JSON500      *externalRef0.ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r AggregatePeerTelemetryResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r AggregatePeerTelemetryResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetPeerTelemetryLatestResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *externalRef0.PeerTelemetryLatestResponse
+	JSON400      *externalRef0.ErrorResponse
+	JSON500      *externalRef0.ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r GetPeerTelemetryLatestResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetPeerTelemetryLatestResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type ListPetDefsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -17775,6 +18226,33 @@ func (c *ClientWithResponses) GetPeerRuntimeWithResponse(ctx context.Context, pu
 		return nil, err
 	}
 	return ParseGetPeerRuntimeResponse(rsp)
+}
+
+// QueryPeerTelemetryWithResponse request returning *QueryPeerTelemetryResponse
+func (c *ClientWithResponses) QueryPeerTelemetryWithResponse(ctx context.Context, publicKey string, params *QueryPeerTelemetryParams, reqEditors ...RequestEditorFn) (*QueryPeerTelemetryResponse, error) {
+	rsp, err := c.QueryPeerTelemetry(ctx, publicKey, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseQueryPeerTelemetryResponse(rsp)
+}
+
+// AggregatePeerTelemetryWithResponse request returning *AggregatePeerTelemetryResponse
+func (c *ClientWithResponses) AggregatePeerTelemetryWithResponse(ctx context.Context, publicKey string, params *AggregatePeerTelemetryParams, reqEditors ...RequestEditorFn) (*AggregatePeerTelemetryResponse, error) {
+	rsp, err := c.AggregatePeerTelemetry(ctx, publicKey, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAggregatePeerTelemetryResponse(rsp)
+}
+
+// GetPeerTelemetryLatestWithResponse request returning *GetPeerTelemetryLatestResponse
+func (c *ClientWithResponses) GetPeerTelemetryLatestWithResponse(ctx context.Context, publicKey string, params *GetPeerTelemetryLatestParams, reqEditors ...RequestEditorFn) (*GetPeerTelemetryLatestResponse, error) {
+	rsp, err := c.GetPeerTelemetryLatest(ctx, publicKey, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetPeerTelemetryLatestResponse(rsp)
 }
 
 // ListPetDefsWithResponse request returning *ListPetDefsResponse
@@ -22753,6 +23231,126 @@ func ParseGetPeerRuntimeResponse(rsp *http.Response) (*GetPeerRuntimeResponse, e
 	return response, nil
 }
 
+// ParseQueryPeerTelemetryResponse parses an HTTP response from a QueryPeerTelemetryWithResponse call
+func ParseQueryPeerTelemetryResponse(rsp *http.Response) (*QueryPeerTelemetryResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &QueryPeerTelemetryResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest externalRef0.PeerTelemetryRangeResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseAggregatePeerTelemetryResponse parses an HTTP response from a AggregatePeerTelemetryWithResponse call
+func ParseAggregatePeerTelemetryResponse(rsp *http.Response) (*AggregatePeerTelemetryResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &AggregatePeerTelemetryResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest externalRef0.PeerTelemetryAggregateResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetPeerTelemetryLatestResponse parses an HTTP response from a GetPeerTelemetryLatestWithResponse call
+func ParseGetPeerTelemetryLatestResponse(rsp *http.Response) (*GetPeerTelemetryLatestResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetPeerTelemetryLatestResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest externalRef0.PeerTelemetryLatestResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseListPetDefsResponse parses an HTTP response from a ListPetDefsWithResponse call
 func ParseListPetDefsResponse(rsp *http.Response) (*ListPetDefsResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -25493,6 +26091,15 @@ type ServerInterface interface {
 	// Get peer runtime status
 	// (GET /peers/{publicKey}/runtime)
 	GetPeerRuntime(c *fiber.Ctx, publicKey string) error
+	// Query sampled telemetry points for a peer
+	// (GET /peers/{publicKey}/telemetry)
+	QueryPeerTelemetry(c *fiber.Ctx, publicKey string, params QueryPeerTelemetryParams) error
+	// Query bucketed aggregate telemetry for a peer
+	// (GET /peers/{publicKey}/telemetry/aggregate)
+	AggregatePeerTelemetry(c *fiber.Ctx, publicKey string, params AggregatePeerTelemetryParams) error
+	// Get latest sampled telemetry values for a peer
+	// (GET /peers/{publicKey}/telemetry/latest)
+	GetPeerTelemetryLatest(c *fiber.Ctx, publicKey string, params GetPeerTelemetryLatestParams) error
 	// List PetDefs
 	// (GET /pet-defs)
 	ListPetDefs(c *fiber.Ctx, params ListPetDefsParams) error
@@ -27906,6 +28513,229 @@ func (siw *ServerInterfaceWrapper) GetPeerRuntime(c *fiber.Ctx) error {
 	return siw.Handler.GetPeerRuntime(c, publicKey)
 }
 
+// QueryPeerTelemetry operation middleware
+func (siw *ServerInterfaceWrapper) QueryPeerTelemetry(c *fiber.Ctx) error {
+
+	var err error
+
+	// ------------- Path parameter "publicKey" -------------
+	var publicKey string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "publicKey", c.Params("publicKey"), &publicKey, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter publicKey: %w", err).Error())
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params QueryPeerTelemetryParams
+
+	var query url.Values
+	query, err = url.ParseQuery(string(c.Request().URI().QueryString()))
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for query string: %w", err).Error())
+	}
+
+	// ------------- Required query parameter "field" -------------
+
+	if paramValue := c.Query("field"); paramValue != "" {
+
+	} else {
+		err = fmt.Errorf("Query argument field is required, but not found")
+		c.Status(fiber.StatusBadRequest).JSON(err)
+		return err
+	}
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "field", query, &params.Field, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter field: %w", err).Error())
+	}
+
+	// ------------- Required query parameter "start_time_ms" -------------
+
+	if paramValue := c.Query("start_time_ms"); paramValue != "" {
+
+	} else {
+		err = fmt.Errorf("Query argument start_time_ms is required, but not found")
+		c.Status(fiber.StatusBadRequest).JSON(err)
+		return err
+	}
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "start_time_ms", query, &params.StartTimeMs, runtime.BindQueryParameterOptions{Type: "integer", Format: "int64"})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter start_time_ms: %w", err).Error())
+	}
+
+	// ------------- Required query parameter "end_time_ms" -------------
+
+	if paramValue := c.Query("end_time_ms"); paramValue != "" {
+
+	} else {
+		err = fmt.Errorf("Query argument end_time_ms is required, but not found")
+		c.Status(fiber.StatusBadRequest).JSON(err)
+		return err
+	}
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "end_time_ms", query, &params.EndTimeMs, runtime.BindQueryParameterOptions{Type: "integer", Format: "int64"})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter end_time_ms: %w", err).Error())
+	}
+
+	// ------------- Optional query parameter "step_ms" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "step_ms", query, &params.StepMs, runtime.BindQueryParameterOptions{Type: "integer", Format: "int64"})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter step_ms: %w", err).Error())
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", query, &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: "int32"})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter limit: %w", err).Error())
+	}
+
+	// ------------- Optional query parameter "order" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "order", query, &params.Order, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter order: %w", err).Error())
+	}
+
+	return siw.Handler.QueryPeerTelemetry(c, publicKey, params)
+}
+
+// AggregatePeerTelemetry operation middleware
+func (siw *ServerInterfaceWrapper) AggregatePeerTelemetry(c *fiber.Ctx) error {
+
+	var err error
+
+	// ------------- Path parameter "publicKey" -------------
+	var publicKey string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "publicKey", c.Params("publicKey"), &publicKey, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter publicKey: %w", err).Error())
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params AggregatePeerTelemetryParams
+
+	var query url.Values
+	query, err = url.ParseQuery(string(c.Request().URI().QueryString()))
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for query string: %w", err).Error())
+	}
+
+	// ------------- Required query parameter "field" -------------
+
+	if paramValue := c.Query("field"); paramValue != "" {
+
+	} else {
+		err = fmt.Errorf("Query argument field is required, but not found")
+		c.Status(fiber.StatusBadRequest).JSON(err)
+		return err
+	}
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "field", query, &params.Field, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter field: %w", err).Error())
+	}
+
+	// ------------- Required query parameter "start_time_ms" -------------
+
+	if paramValue := c.Query("start_time_ms"); paramValue != "" {
+
+	} else {
+		err = fmt.Errorf("Query argument start_time_ms is required, but not found")
+		c.Status(fiber.StatusBadRequest).JSON(err)
+		return err
+	}
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "start_time_ms", query, &params.StartTimeMs, runtime.BindQueryParameterOptions{Type: "integer", Format: "int64"})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter start_time_ms: %w", err).Error())
+	}
+
+	// ------------- Required query parameter "end_time_ms" -------------
+
+	if paramValue := c.Query("end_time_ms"); paramValue != "" {
+
+	} else {
+		err = fmt.Errorf("Query argument end_time_ms is required, but not found")
+		c.Status(fiber.StatusBadRequest).JSON(err)
+		return err
+	}
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "end_time_ms", query, &params.EndTimeMs, runtime.BindQueryParameterOptions{Type: "integer", Format: "int64"})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter end_time_ms: %w", err).Error())
+	}
+
+	// ------------- Required query parameter "bucket_ms" -------------
+
+	if paramValue := c.Query("bucket_ms"); paramValue != "" {
+
+	} else {
+		err = fmt.Errorf("Query argument bucket_ms is required, but not found")
+		c.Status(fiber.StatusBadRequest).JSON(err)
+		return err
+	}
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "bucket_ms", query, &params.BucketMs, runtime.BindQueryParameterOptions{Type: "integer", Format: "int64"})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter bucket_ms: %w", err).Error())
+	}
+
+	// ------------- Required query parameter "aggregate" -------------
+
+	if paramValue := c.Query("aggregate"); paramValue != "" {
+
+	} else {
+		err = fmt.Errorf("Query argument aggregate is required, but not found")
+		c.Status(fiber.StatusBadRequest).JSON(err)
+		return err
+	}
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "aggregate", query, &params.Aggregate, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter aggregate: %w", err).Error())
+	}
+
+	return siw.Handler.AggregatePeerTelemetry(c, publicKey, params)
+}
+
+// GetPeerTelemetryLatest operation middleware
+func (siw *ServerInterfaceWrapper) GetPeerTelemetryLatest(c *fiber.Ctx) error {
+
+	var err error
+
+	// ------------- Path parameter "publicKey" -------------
+	var publicKey string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "publicKey", c.Params("publicKey"), &publicKey, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter publicKey: %w", err).Error())
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetPeerTelemetryLatestParams
+
+	var query url.Values
+	query, err = url.ParseQuery(string(c.Request().URI().QueryString()))
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for query string: %w", err).Error())
+	}
+
+	// ------------- Optional query parameter "fields" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "fields", query, &params.Fields, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter fields: %w", err).Error())
+	}
+
+	return siw.Handler.GetPeerTelemetryLatest(c, publicKey, params)
+}
+
 // ListPetDefs operation middleware
 func (siw *ServerInterfaceWrapper) ListPetDefs(c *fiber.Ctx) error {
 
@@ -29237,6 +30067,12 @@ func RegisterHandlersWithOptions(router fiber.Router, si ServerInterface, option
 	router.Get(options.BaseURL+"/peers/:publicKey/reward-grants/:id", wrapper.GetPeerRewardGrant)
 
 	router.Get(options.BaseURL+"/peers/:publicKey/runtime", wrapper.GetPeerRuntime)
+
+	router.Get(options.BaseURL+"/peers/:publicKey/telemetry", wrapper.QueryPeerTelemetry)
+
+	router.Get(options.BaseURL+"/peers/:publicKey/telemetry/aggregate", wrapper.AggregatePeerTelemetry)
+
+	router.Get(options.BaseURL+"/peers/:publicKey/telemetry/latest", wrapper.GetPeerTelemetryLatest)
 
 	router.Get(options.BaseURL+"/pet-defs", wrapper.ListPetDefs)
 
@@ -33279,6 +34115,114 @@ func (response GetPeerRuntime200JSONResponse) VisitGetPeerRuntimeResponse(ctx *f
 	return ctx.JSON(&response)
 }
 
+type QueryPeerTelemetryRequestObject struct {
+	PublicKey string `json:"publicKey"`
+	Params    QueryPeerTelemetryParams
+}
+
+type QueryPeerTelemetryResponseObject interface {
+	VisitQueryPeerTelemetryResponse(ctx *fiber.Ctx) error
+}
+
+type QueryPeerTelemetry200JSONResponse externalRef0.PeerTelemetryRangeResponse
+
+func (response QueryPeerTelemetry200JSONResponse) VisitQueryPeerTelemetryResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type QueryPeerTelemetry400JSONResponse externalRef0.ErrorResponse
+
+func (response QueryPeerTelemetry400JSONResponse) VisitQueryPeerTelemetryResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(400)
+
+	return ctx.JSON(&response)
+}
+
+type QueryPeerTelemetry500JSONResponse externalRef0.ErrorResponse
+
+func (response QueryPeerTelemetry500JSONResponse) VisitQueryPeerTelemetryResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type AggregatePeerTelemetryRequestObject struct {
+	PublicKey string `json:"publicKey"`
+	Params    AggregatePeerTelemetryParams
+}
+
+type AggregatePeerTelemetryResponseObject interface {
+	VisitAggregatePeerTelemetryResponse(ctx *fiber.Ctx) error
+}
+
+type AggregatePeerTelemetry200JSONResponse externalRef0.PeerTelemetryAggregateResponse
+
+func (response AggregatePeerTelemetry200JSONResponse) VisitAggregatePeerTelemetryResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type AggregatePeerTelemetry400JSONResponse externalRef0.ErrorResponse
+
+func (response AggregatePeerTelemetry400JSONResponse) VisitAggregatePeerTelemetryResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(400)
+
+	return ctx.JSON(&response)
+}
+
+type AggregatePeerTelemetry500JSONResponse externalRef0.ErrorResponse
+
+func (response AggregatePeerTelemetry500JSONResponse) VisitAggregatePeerTelemetryResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type GetPeerTelemetryLatestRequestObject struct {
+	PublicKey string `json:"publicKey"`
+	Params    GetPeerTelemetryLatestParams
+}
+
+type GetPeerTelemetryLatestResponseObject interface {
+	VisitGetPeerTelemetryLatestResponse(ctx *fiber.Ctx) error
+}
+
+type GetPeerTelemetryLatest200JSONResponse externalRef0.PeerTelemetryLatestResponse
+
+func (response GetPeerTelemetryLatest200JSONResponse) VisitGetPeerTelemetryLatestResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type GetPeerTelemetryLatest400JSONResponse externalRef0.ErrorResponse
+
+func (response GetPeerTelemetryLatest400JSONResponse) VisitGetPeerTelemetryLatestResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(400)
+
+	return ctx.JSON(&response)
+}
+
+type GetPeerTelemetryLatest500JSONResponse externalRef0.ErrorResponse
+
+func (response GetPeerTelemetryLatest500JSONResponse) VisitGetPeerTelemetryLatestResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
 type ListPetDefsRequestObject struct {
 	Params ListPetDefsParams
 }
@@ -35871,6 +36815,15 @@ type StrictServerInterface interface {
 	// Get peer runtime status
 	// (GET /peers/{publicKey}/runtime)
 	GetPeerRuntime(ctx context.Context, request GetPeerRuntimeRequestObject) (GetPeerRuntimeResponseObject, error)
+	// Query sampled telemetry points for a peer
+	// (GET /peers/{publicKey}/telemetry)
+	QueryPeerTelemetry(ctx context.Context, request QueryPeerTelemetryRequestObject) (QueryPeerTelemetryResponseObject, error)
+	// Query bucketed aggregate telemetry for a peer
+	// (GET /peers/{publicKey}/telemetry/aggregate)
+	AggregatePeerTelemetry(ctx context.Context, request AggregatePeerTelemetryRequestObject) (AggregatePeerTelemetryResponseObject, error)
+	// Get latest sampled telemetry values for a peer
+	// (GET /peers/{publicKey}/telemetry/latest)
+	GetPeerTelemetryLatest(ctx context.Context, request GetPeerTelemetryLatestRequestObject) (GetPeerTelemetryLatestResponseObject, error)
 	// List PetDefs
 	// (GET /pet-defs)
 	ListPetDefs(ctx context.Context, request ListPetDefsRequestObject) (ListPetDefsResponseObject, error)
@@ -39138,6 +40091,90 @@ func (sh *strictHandler) GetPeerRuntime(ctx *fiber.Ctx, publicKey string) error 
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
 	} else if validResponse, ok := response.(GetPeerRuntimeResponseObject); ok {
 		if err := validResponse.VisitGetPeerRuntimeResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// QueryPeerTelemetry operation middleware
+func (sh *strictHandler) QueryPeerTelemetry(ctx *fiber.Ctx, publicKey string, params QueryPeerTelemetryParams) error {
+	var request QueryPeerTelemetryRequestObject
+
+	request.PublicKey = publicKey
+	request.Params = params
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.QueryPeerTelemetry(ctx.UserContext(), request.(QueryPeerTelemetryRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "QueryPeerTelemetry")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(QueryPeerTelemetryResponseObject); ok {
+		if err := validResponse.VisitQueryPeerTelemetryResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// AggregatePeerTelemetry operation middleware
+func (sh *strictHandler) AggregatePeerTelemetry(ctx *fiber.Ctx, publicKey string, params AggregatePeerTelemetryParams) error {
+	var request AggregatePeerTelemetryRequestObject
+
+	request.PublicKey = publicKey
+	request.Params = params
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.AggregatePeerTelemetry(ctx.UserContext(), request.(AggregatePeerTelemetryRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "AggregatePeerTelemetry")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(AggregatePeerTelemetryResponseObject); ok {
+		if err := validResponse.VisitAggregatePeerTelemetryResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// GetPeerTelemetryLatest operation middleware
+func (sh *strictHandler) GetPeerTelemetryLatest(ctx *fiber.Ctx, publicKey string, params GetPeerTelemetryLatestParams) error {
+	var request GetPeerTelemetryLatestRequestObject
+
+	request.PublicKey = publicKey
+	request.Params = params
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.GetPeerTelemetryLatest(ctx.UserContext(), request.(GetPeerTelemetryLatestRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetPeerTelemetryLatest")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(GetPeerTelemetryLatestResponseObject); ok {
+		if err := validResponse.VisitGetPeerTelemetryLatestResponse(ctx); err != nil {
 			return fiber.NewError(fiber.StatusBadRequest, err.Error())
 		}
 	} else if response != nil {

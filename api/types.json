@@ -95,6 +95,30 @@
       "PeerRole": {
         "$ref": "./type/peer_role.json#/components/schemas/PeerRole"
       },
+      "PeerTelemetryAggregate": {
+        "$ref": "./type/peer_telemetry.json#/components/schemas/PeerTelemetryAggregate"
+      },
+      "PeerTelemetryAggregatePoint": {
+        "$ref": "./type/peer_telemetry.json#/components/schemas/PeerTelemetryAggregatePoint"
+      },
+      "PeerTelemetryAggregateResponse": {
+        "$ref": "./type/peer_telemetry.json#/components/schemas/PeerTelemetryAggregateResponse"
+      },
+      "PeerTelemetryField": {
+        "$ref": "./type/peer_telemetry.json#/components/schemas/PeerTelemetryField"
+      },
+      "PeerTelemetryLatestResponse": {
+        "$ref": "./type/peer_telemetry.json#/components/schemas/PeerTelemetryLatestResponse"
+      },
+      "PeerTelemetryOrder": {
+        "$ref": "./type/peer_telemetry.json#/components/schemas/PeerTelemetryOrder"
+      },
+      "PeerTelemetryPoint": {
+        "$ref": "./type/peer_telemetry.json#/components/schemas/PeerTelemetryPoint"
+      },
+      "PeerTelemetryRangeResponse": {
+        "$ref": "./type/peer_telemetry.json#/components/schemas/PeerTelemetryRangeResponse"
+      },
       "PeerRegistrationStatus": {
         "$ref": "./type/peer_registration_status.json#/components/schemas/PeerRegistrationStatus"
       },

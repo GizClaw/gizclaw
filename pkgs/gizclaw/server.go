@@ -19,6 +19,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/agenthost"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerrun"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peertelemetry"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/contact"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/friend"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/friendgroup"
@@ -487,6 +488,7 @@ func (s *Server) init() error {
 			ACL:                         aclServer,
 			ResourceManager:             resourceManager,
 			ServerLogs:                  s.ServerLogQuery,
+			PeerTelemetry:               &peertelemetry.AdminService{Metrics: s.MetricsStore},
 		},
 		public: &peerHTTP{
 			PeerHTTPService: peersServer,
