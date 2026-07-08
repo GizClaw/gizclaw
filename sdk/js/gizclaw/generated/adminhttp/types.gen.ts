@@ -2010,6 +2010,64 @@ export type ModelSource2 = ModelSource;
  */
 export type ModelProviderKind2 = ModelProviderKind;
 
+export type StreamServerLogsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Backend log query expression. Defaults to *.
+         */
+        filter?: string;
+        /**
+         * Inclusive search start time in Unix milliseconds. Required for the first page.
+         */
+        start_time_ms?: number;
+        /**
+         * Exclusive search end time in Unix milliseconds. Required for the first page.
+         */
+        end_time_ms?: number;
+        /**
+         * Maximum log records emitted by this stream page. Defaults to 100 and is clamped by the server.
+         */
+        limit?: number;
+        /**
+         * Result order.
+         */
+        order?: string;
+        /**
+         * Opaque cursor returned by the previous end event.
+         */
+        cursor?: string;
+    };
+    url: '/logs/stream';
+};
+
+export type StreamServerLogsErrors = {
+    /**
+     * Invalid log query parameters or cursor
+     */
+    400: ErrorResponse;
+    /**
+     * Log query backend is not configured
+     */
+    501: ErrorResponse;
+    /**
+     * Backend search failed before the stream started
+     */
+    502: ErrorResponse;
+};
+
+export type StreamServerLogsError = StreamServerLogsErrors[keyof StreamServerLogsErrors];
+
+export type StreamServerLogsResponses = {
+    /**
+     * SSE stream. event: log uses ServerLogEntry JSON data; event: end uses ServerLogStreamEnd JSON data; event: error uses ErrorResponse JSON data.
+     */
+    200: string;
+};
+
+export type StreamServerLogsResponse = StreamServerLogsResponses[keyof StreamServerLogsResponses];
+
 export type ApplyResourceData = {
     body: Resource;
     path?: never;

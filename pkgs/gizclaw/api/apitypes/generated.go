@@ -3011,6 +3011,42 @@ type ServerInfo struct {
 	SignalingPath string `json:"signaling_path"`
 }
 
+// ServerLogEntry defines model for ServerLogEntry.
+type ServerLogEntry struct {
+	// Fields Additional structured log fields.
+	Fields map[string]string `json:"fields"`
+
+	// Level Normalized log level.
+	Level string `json:"level"`
+
+	// Message Log message.
+	Message string `json:"message"`
+
+	// Path Backend path or filename, initially slog.
+	Path string `json:"path"`
+
+	// Source Backend source, initially gizclaw for server logs written by the Volc sink.
+	Source string `json:"source"`
+
+	// TimeMs Unix millisecond timestamp for display and filtering.
+	TimeMs int64 `json:"time_ms"`
+
+	// TimeNs Optional Unix nanosecond timestamp when the backend provides it.
+	TimeNs *int64 `json:"time_ns,omitempty"`
+}
+
+// ServerLogStreamEnd defines model for ServerLogStreamEnd.
+type ServerLogStreamEnd struct {
+	// Count Number of log events emitted before the stream ended.
+	Count int32 `json:"count"`
+
+	// HasNext Whether another page is available.
+	HasNext bool `json:"has_next"`
+
+	// NextCursor Opaque cursor for the next page.
+	NextCursor *string `json:"next_cursor,omitempty"`
+}
+
 // StatMap defines model for StatMap.
 type StatMap map[string]int64
 

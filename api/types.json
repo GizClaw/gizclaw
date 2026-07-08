@@ -110,6 +110,12 @@
       "ServerInfo": {
         "$ref": "./type/server_info.json#/components/schemas/ServerInfo"
       },
+      "ServerLogEntry": {
+        "$ref": "./type/server_log.json#/components/schemas/ServerLogEntry"
+      },
+      "ServerLogStreamEnd": {
+        "$ref": "./type/server_log.json#/components/schemas/ServerLogStreamEnd"
+      },
       "RefreshInfo": {
         "$ref": "./type/refresh_info.json#/components/schemas/RefreshInfo"
       },

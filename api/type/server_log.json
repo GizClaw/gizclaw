@@ -1,0 +1,84 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Server Log Query Types",
+    "description": "Server log query streaming schemas.",
+    "version": "1.0.0"
+  },
+  "paths": {},
+  "components": {
+    "schemas": {
+      "ServerLogEntry": {
+        "type": "object",
+        "required": [
+          "time_ms",
+          "level",
+          "message",
+          "source",
+          "path",
+          "fields"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "time_ms": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Unix millisecond timestamp for display and filtering."
+          },
+          "time_ns": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Optional Unix nanosecond timestamp when the backend provides it."
+          },
+          "level": {
+            "type": "string",
+            "description": "Normalized log level."
+          },
+          "message": {
+            "type": "string",
+            "description": "Log message."
+          },
+          "source": {
+            "type": "string",
+            "description": "Backend source, initially gizclaw for server logs written by the Volc sink."
+          },
+          "path": {
+            "type": "string",
+            "description": "Backend path or filename, initially slog."
+          },
+          "fields": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Additional structured log fields."
+          }
+        }
+      },
+      "ServerLogStreamEnd": {
+        "type": "object",
+        "required": [
+          "count",
+          "has_next"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "count": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0,
+            "description": "Number of log events emitted before the stream ended."
+          },
+          "has_next": {
+            "type": "boolean",
+            "description": "Whether another page is available."
+          },
+          "next_cursor": {
+            "type": "string",
+            "description": "Opaque cursor for the next page."
+          }
+        }
+      }
+    }
+  }
+}

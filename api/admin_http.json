@@ -64,6 +64,10 @@
       "description": "List and resolve peers"
     },
     {
+      "name": "Logs",
+      "description": "Server log query operations"
+    },
+    {
       "name": "GameplayDebug",
       "description": "Admin read-only peer gameplay runtime inspection"
     },
@@ -105,6 +109,120 @@
     }
   ],
   "paths": {
+    "/logs/stream": {
+      "get": {
+        "operationId": "streamServerLogs",
+        "summary": "Stream server log query results",
+        "tags": [
+          "Logs"
+        ],
+        "parameters": [
+          {
+            "name": "filter",
+            "in": "query",
+            "required": false,
+            "description": "Backend log query expression. Defaults to *.",
+            "schema": {
+              "type": "string",
+              "default": "*"
+            }
+          },
+          {
+            "name": "start_time_ms",
+            "in": "query",
+            "required": false,
+            "description": "Inclusive search start time in Unix milliseconds. Required for the first page.",
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "end_time_ms",
+            "in": "query",
+            "required": false,
+            "description": "Exclusive search end time in Unix milliseconds. Required for the first page.",
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Maximum log records emitted by this stream page. Defaults to 100 and is clamped by the server.",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 100
+            }
+          },
+          {
+            "name": "order",
+            "in": "query",
+            "required": false,
+            "description": "Result order.",
+            "schema": {
+              "type": "string",
+              "default": "asc"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "description": "Opaque cursor returned by the previous end event.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Server-sent event stream of log, end, and post-start error events.",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "type": "string",
+                  "description": "SSE stream. event: log uses ServerLogEntry JSON data; event: end uses ServerLogStreamEnd JSON data; event: error uses ErrorResponse JSON data."
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid log query parameters or cursor",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Log query backend is not configured",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Backend search failed before the stream started",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/@apply": {
       "post": {
         "operationId": "applyResource",

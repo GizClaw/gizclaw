@@ -206,6 +206,42 @@ func TestNewWithPreparedConfig(t *testing.T) {
 	}
 }
 
+func TestNewWiresLogQueryBackendFromVolcLogConfig(t *testing.T) {
+	disabledCfg := Config{
+		Listen:   "127.0.0.1:1234",
+		Endpoint: "127.0.0.1:1234",
+		Stores:   map[string]stores.Config{"peers": {Kind: stores.KindKeyValue, Backend: "memory"}},
+	}
+	disabled, err := New(disabledCfg)
+	if err != nil {
+		t.Fatalf("New(disabled) error = %v", err)
+	}
+	t.Cleanup(func() { _ = disabled.Close() })
+	if disabled.ServerLogQuery != nil {
+		t.Fatal("disabled Volc logging should not install log query backend")
+	}
+
+	enabledCfg := disabledCfg
+	enabledCfg.Log = logging.Config{
+		Volc: logging.VolcConfig{
+			Enabled:         true,
+			Endpoint:        "https://tls-cn-beijing.volces.com",
+			Region:          "cn-beijing",
+			TopicID:         "topic",
+			AccessKeyID:     "ak",
+			AccessKeySecret: "sk",
+		},
+	}
+	enabled, err := New(enabledCfg)
+	if err != nil {
+		t.Fatalf("New(enabled) error = %v", err)
+	}
+	t.Cleanup(func() { _ = enabled.Close() })
+	if enabled.ServerLogQuery == nil {
+		t.Fatal("enabled Volc logging should install log query backend")
+	}
+}
+
 func TestNewWiresPeerListenerFactory(t *testing.T) {
 	srv, err := New(Config{
 		Listen:   "127.0.0.1:1234",
