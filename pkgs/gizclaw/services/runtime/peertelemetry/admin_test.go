@@ -75,6 +75,36 @@ func TestAdminLatestQueriesSelectedField(t *testing.T) {
 	}
 }
 
+func TestAdminLatestFallsBackPastStoreLookback(t *testing.T) {
+	t.Parallel()
+
+	peer := adminTestPeer()
+	observedAt := time.Unix(1783403541, 123000000).UTC()
+	store := metrics.NewMemoryStore()
+	if err := store.Append(context.Background(), []metrics.Sample{{
+		Name:      MetricBatteryPercent,
+		Labels:    map[string]string{"peer_id": peer.String()},
+		Timestamp: observedAt,
+		Value:     74,
+	}}); err != nil {
+		t.Fatalf("Append() error = %v", err)
+	}
+	service := &AdminService{Metrics: store, Now: func() time.Time {
+		return observedAt.Add(time.Hour)
+	}}
+
+	response, err := service.Latest(context.Background(), peer, []apitypes.PeerTelemetryField{apitypes.PeerTelemetryFieldBatteryPercent})
+	if err != nil {
+		t.Fatalf("Latest() error = %v", err)
+	}
+	if len(response.Values) != 1 {
+		t.Fatalf("Latest() values = %#v, want one fallback value", response.Values)
+	}
+	if got := response.Values[0]; got.Value != 74 || got.ObservedAtUnixMs != observedAt.UnixMilli() {
+		t.Fatalf("fallback value = %#v", got)
+	}
+}
+
 func TestAdminQueryRangeDerivesStepAndOrdersDesc(t *testing.T) {
 	t.Parallel()
 

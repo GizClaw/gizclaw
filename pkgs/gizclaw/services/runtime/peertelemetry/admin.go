@@ -22,6 +22,7 @@ const (
 	defaultAdminRangeLimit = 240
 	maxAdminRangeLimit     = 1000
 	minAdminStep           = time.Second
+	defaultLatestLookback  = 30 * 24 * time.Hour
 )
 
 type AdminService struct {
@@ -55,6 +56,17 @@ func (s *AdminService) Latest(ctx context.Context, peer giznet.PublicKey, fields
 			return apitypes.PeerTelemetryLatestResponse{}, fmt.Errorf("peertelemetry: query latest %s: %w", field, err)
 		}
 		point, ok := latestPointFromSeries(series)
+		if !ok {
+			fallbackExpr, err := latestExpression(peer, field, defaultLatestLookback)
+			if err != nil {
+				return apitypes.PeerTelemetryLatestResponse{}, err
+			}
+			series, err = s.Metrics.Query(ctx, metrics.Query{Expression: fallbackExpr, Time: now().UTC()})
+			if err != nil {
+				return apitypes.PeerTelemetryLatestResponse{}, fmt.Errorf("peertelemetry: query latest fallback %s: %w", field, err)
+			}
+			point, ok = latestPointFromSeries(series)
+		}
 		if !ok {
 			continue
 		}
@@ -239,6 +251,18 @@ func selectorExpression(peer giznet.PublicKey, field apitypes.PeerTelemetryField
 			Value: peer.String(),
 		}},
 	}.Expression()
+}
+
+func latestExpression(peer giznet.PublicKey, field apitypes.PeerTelemetryField, lookback time.Duration) (string, error) {
+	selector, err := selectorExpression(peer, field)
+	if err != nil {
+		return "", err
+	}
+	promDuration, err := promQLDuration(lookback)
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("last_over_time(%s[%s])", selector, promDuration), nil
 }
 
 func aggregateExpression(peer giznet.PublicKey, field apitypes.PeerTelemetryField, aggregate apitypes.PeerTelemetryAggregate, bucket time.Duration) (string, error) {

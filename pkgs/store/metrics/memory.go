@@ -26,10 +26,23 @@ type memorySeries struct {
 }
 
 type memorySelector struct {
-	aggregation Aggregation
-	name        string
-	matchers    []memoryMatcher
+	aggregation   Aggregation
+	rangeFunction memoryRangeFunction
+	rangeDuration time.Duration
+	name          string
+	matchers      []memoryMatcher
 }
+
+type memoryRangeFunction string
+
+const (
+	memoryRangeAvg   memoryRangeFunction = "avg_over_time"
+	memoryRangeMin   memoryRangeFunction = "min_over_time"
+	memoryRangeMax   memoryRangeFunction = "max_over_time"
+	memoryRangeSum   memoryRangeFunction = "sum_over_time"
+	memoryRangeCount memoryRangeFunction = "count_over_time"
+	memoryRangeLast  memoryRangeFunction = "last_over_time"
+)
 
 type memoryMatcher struct {
 	name  string
@@ -108,6 +121,21 @@ func (s *MemoryStore) Query(ctx context.Context, query Query) (SeriesSet, error)
 	if s.closed {
 		return nil, fmt.Errorf("metrics: memory store is closed")
 	}
+	if selector.rangeFunction != "" {
+		out := SeriesSet{}
+		for _, series := range s.series {
+			if !selector.matches(series) {
+				continue
+			}
+			point, ok := rangeFunctionPoint(series.points, evalTime.Add(-selector.rangeDuration), evalTime, selector.rangeFunction, evalTime, true)
+			if !ok {
+				continue
+			}
+			out = append(out, Series{Name: string(selector.rangeFunction), Labels: cloneLabels(series.labels), Points: []Point{point}})
+		}
+		sortSeries(out)
+		return out, nil
+	}
 	if selector.aggregation != "" {
 		values := []float64{}
 		for _, series := range s.series {
@@ -170,6 +198,27 @@ func (s *MemoryStore) QueryRange(ctx context.Context, query RangeQuery) (SeriesS
 	defer s.mu.RUnlock()
 	if s.closed {
 		return nil, fmt.Errorf("metrics: memory store is closed")
+	}
+	if selector.rangeFunction != "" {
+		out := SeriesSet{}
+		for _, series := range s.series {
+			if !selector.matches(series) {
+				continue
+			}
+			points := []Point{}
+			for ts := query.Start.UTC(); !ts.After(query.End); ts = ts.Add(query.Step) {
+				point, ok := rangeFunctionPoint(series.points, ts.Add(-selector.rangeDuration), ts, selector.rangeFunction, ts, false)
+				if ok {
+					points = append(points, point)
+				}
+			}
+			if len(points) == 0 {
+				continue
+			}
+			out = append(out, Series{Name: string(selector.rangeFunction), Labels: cloneLabels(series.labels), Points: points})
+		}
+		sortSeries(out)
+		return out, nil
 	}
 	if selector.aggregation != "" {
 		points := []Point{}
@@ -246,8 +295,78 @@ func pointsInRange(points []Point, start, end time.Time, step time.Duration, loo
 	return out
 }
 
+func rangeFunctionPoint(points []Point, start, end time.Time, fn memoryRangeFunction, timestamp time.Time, preserveLastTimestamp bool) (Point, bool) {
+	window := pointsInWindow(points, start, end)
+	if len(window) == 0 {
+		return Point{}, false
+	}
+	if fn == memoryRangeLast {
+		point := window[len(window)-1]
+		if !preserveLastTimestamp {
+			point.Timestamp = timestamp
+		}
+		return point, true
+	}
+	values := make([]float64, 0, len(window))
+	for _, point := range window {
+		values = append(values, point.Value)
+	}
+	aggregation, ok := rangeFunctionAggregation(fn)
+	if !ok {
+		return Point{}, false
+	}
+	return Point{Timestamp: timestamp, Value: aggregateMemoryValues(aggregation, values)}, true
+}
+
+func pointsInWindow(points []Point, start, end time.Time) []Point {
+	out := []Point{}
+	for _, point := range points {
+		if point.Timestamp.Before(start) {
+			continue
+		}
+		if point.Timestamp.After(end) {
+			break
+		}
+		out = append(out, point)
+	}
+	return out
+}
+
+func rangeFunctionAggregation(fn memoryRangeFunction) (Aggregation, bool) {
+	switch fn {
+	case memoryRangeAvg:
+		return AggregationAvg, true
+	case memoryRangeMin:
+		return AggregationMin, true
+	case memoryRangeMax:
+		return AggregationMax, true
+	case memoryRangeSum:
+		return AggregationSum, true
+	case memoryRangeCount:
+		return AggregationCount, true
+	default:
+		return "", false
+	}
+}
+
 func parseMemorySelector(expr string) (memorySelector, error) {
 	expr = strings.TrimSpace(expr)
+	rangeFunction, inner, duration, ok, err := parseMemoryRangeFunction(expr)
+	if err != nil {
+		return memorySelector{}, err
+	}
+	if ok {
+		selector, err := parseMemorySelector(inner)
+		if err != nil {
+			return memorySelector{}, err
+		}
+		if selector.aggregation != "" || selector.rangeFunction != "" {
+			return memorySelector{}, fmt.Errorf("metrics: nested range expression %q is unsupported", expr)
+		}
+		selector.rangeFunction = rangeFunction
+		selector.rangeDuration = duration
+		return selector, nil
+	}
 	aggregation, inner, ok, err := parseMemoryAggregation(expr)
 	if err != nil {
 		return memorySelector{}, err
@@ -257,7 +376,7 @@ func parseMemorySelector(expr string) (memorySelector, error) {
 		if err != nil {
 			return memorySelector{}, err
 		}
-		if selector.aggregation != "" {
+		if selector.aggregation != "" || selector.rangeFunction != "" {
 			return memorySelector{}, fmt.Errorf("metrics: nested aggregate expression %q is unsupported", expr)
 		}
 		selector.aggregation = aggregation
@@ -290,6 +409,32 @@ func parseMemorySelector(expr string) (memorySelector, error) {
 		selector.matchers = append(selector.matchers, matcher)
 	}
 	return selector, nil
+}
+
+func parseMemoryRangeFunction(expr string) (memoryRangeFunction, string, time.Duration, bool, error) {
+	open := strings.IndexByte(expr, '(')
+	if open < 0 || !strings.HasSuffix(expr, ")") {
+		return "", "", 0, false, nil
+	}
+	name := strings.TrimSpace(expr[:open])
+	fn := memoryRangeFunction(name)
+	switch fn {
+	case memoryRangeAvg, memoryRangeMin, memoryRangeMax, memoryRangeSum, memoryRangeCount, memoryRangeLast:
+	default:
+		return "", "", 0, false, nil
+	}
+	inner := strings.TrimSpace(expr[open+1 : len(expr)-1])
+	rangeOpen := strings.LastIndexByte(inner, '[')
+	if rangeOpen < 0 || !strings.HasSuffix(inner, "]") {
+		return "", "", 0, true, fmt.Errorf("metrics: range function %q requires selector[duration]", expr)
+	}
+	selector := strings.TrimSpace(inner[:rangeOpen])
+	durationText := strings.TrimSpace(inner[rangeOpen+1 : len(inner)-1])
+	duration, err := time.ParseDuration(durationText)
+	if err != nil || duration <= 0 {
+		return "", "", 0, true, fmt.Errorf("metrics: invalid range duration %q", durationText)
+	}
+	return fn, selector, duration, true, nil
 }
 
 func parseMemoryAggregation(expr string) (Aggregation, string, bool, error) {

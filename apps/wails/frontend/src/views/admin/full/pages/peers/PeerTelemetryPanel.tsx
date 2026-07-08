@@ -102,17 +102,20 @@ export function PeerTelemetryPanel({ publicKey }: { publicKey: string }): JSX.El
   const [state, setState] = useState<TelemetryState>({ aggregate: [], history: [], latest: [], route: [] });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const loadSequenceRef = useRef(0);
 
   const selectedWindow = useMemo(() => windowOptions.find((item) => item.ms === windowMs) ?? windowOptions[1], [windowMs]);
   const selectedField = useMemo(() => fieldOptions.find((item) => item.value === field) ?? fieldOptions[0], [field]);
 
   const load = useCallback(async () => {
+    const loadSequence = loadSequenceRef.current + 1;
+    loadSequenceRef.current = loadSequence;
     const end = Date.now();
     const start = end - selectedWindow.ms;
     setLoading(true);
     setError("");
     try {
-      const [latest, history, aggregateData, lat, lng] = await Promise.all([
+      const [latest, history, lat, lng] = await Promise.all([
         expectData(getPeerTelemetryLatest({ path: { publicKey }, query: { fields: latestFields.join(",") } })),
         expectData(
           queryPeerTelemetry({
@@ -124,18 +127,6 @@ export function PeerTelemetryPanel({ publicKey }: { publicKey: string }): JSX.El
               step_ms: selectedWindow.stepMs,
               limit: 1000,
               order: "asc",
-            },
-          }),
-        ),
-        expectData(
-          aggregatePeerTelemetry({
-            path: { publicKey },
-            query: {
-              field,
-              start_time_ms: start,
-              end_time_ms: end,
-              bucket_ms: selectedWindow.bucketMs,
-              aggregate,
             },
           }),
         ),
@@ -166,17 +157,43 @@ export function PeerTelemetryPanel({ publicKey }: { publicKey: string }): JSX.El
           }),
         ),
       ]);
+      let aggregatePoints: PeerTelemetryAggregatePoint[] = [];
+      try {
+        const aggregateData = await expectData(
+          aggregatePeerTelemetry({
+            path: { publicKey },
+            query: {
+              field,
+              start_time_ms: start,
+              end_time_ms: end,
+              bucket_ms: selectedWindow.bucketMs,
+              aggregate,
+            },
+          }),
+        );
+        aggregatePoints = aggregateData.points;
+      } catch {
+        aggregatePoints = [];
+      }
+      if (loadSequenceRef.current !== loadSequence) {
+        return;
+      }
       setState({
-        aggregate: aggregateData.points,
+        aggregate: aggregatePoints,
         history: history.points,
         latest: latest.values,
         route: pairRoute(lat.points, lng.points),
       });
     } catch (nextError) {
+      if (loadSequenceRef.current !== loadSequence) {
+        return;
+      }
       setError(toMessage(nextError));
       setState({ aggregate: [], history: [], latest: [], route: [] });
     } finally {
-      setLoading(false);
+      if (loadSequenceRef.current === loadSequence) {
+        setLoading(false);
+      }
     }
   }, [aggregate, field, publicKey, selectedWindow]);
 
@@ -319,7 +336,7 @@ export function PeerTelemetryPanel({ publicKey }: { publicKey: string }): JSX.El
                 <CardDescription>{state.history.length} sampled points</CardDescription>
               </CardHeader>
               <CardContent>
-                <TelemetrySparkline points={state.history} unit={selectedField.unit} />
+                <TelemetrySparkline field={selectedField.value} points={state.history} unit={selectedField.unit} />
               </CardContent>
             </Card>
 
@@ -334,7 +351,7 @@ export function PeerTelemetryPanel({ publicKey }: { publicKey: string }): JSX.El
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <AggregateTable points={state.aggregate} unit={selectedField.unit} />
+                <AggregateTable field={selectedField.value} points={state.aggregate} unit={selectedField.unit} />
               </CardContent>
             </Card>
           </div>
@@ -374,7 +391,7 @@ function LatestGroup({
   );
 }
 
-function TelemetrySparkline({ points, unit }: { points: PeerTelemetryPoint[]; unit: string }): JSX.Element {
+function TelemetrySparkline({ field, points, unit }: { field: PeerTelemetryField; points: PeerTelemetryPoint[]; unit: string }): JSX.Element {
   const path = useMemo(() => sparklinePath(points), [points]);
   const latest = points.at(-1);
   const min = minValue(points);
@@ -385,9 +402,9 @@ function TelemetrySparkline({ points, unit }: { points: PeerTelemetryPoint[]; un
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-3 gap-2">
-        <MetricPill label="Latest" value={formatNumber(latest?.value, unit)} />
-        <MetricPill label="Min" value={formatNumber(min, unit)} />
-        <MetricPill label="Max" value={formatNumber(max, unit)} />
+        <MetricPill label="Latest" value={formatNumber(latest?.value, unit, field)} />
+        <MetricPill label="Min" value={formatNumber(min, unit, field)} />
+        <MetricPill label="Max" value={formatNumber(max, unit, field)} />
       </div>
       <svg className="h-56 w-full rounded-lg border bg-background" preserveAspectRatio="none" viewBox="0 0 100 100">
         <path d={path.area} fill="rgba(16, 185, 129, 0.12)" />
@@ -495,7 +512,7 @@ function TelemetryRouteMap({ points }: { points: RoutePoint[] }): JSX.Element {
   );
 }
 
-function AggregateTable({ points, unit }: { points: PeerTelemetryAggregatePoint[]; unit: string }): JSX.Element {
+function AggregateTable({ field, points, unit }: { field: PeerTelemetryField; points: PeerTelemetryAggregatePoint[]; unit: string }): JSX.Element {
   if (points.length === 0) {
     return <div className="flex h-64 items-center justify-center rounded-lg border border-dashed text-sm text-muted-foreground">No buckets</div>;
   }
@@ -512,7 +529,7 @@ function AggregateTable({ points, unit }: { points: PeerTelemetryAggregatePoint[
           {points.slice(-12).reverse().map((point) => (
             <TableRow key={point.bucket_start_time_ms}>
               <TableCell>{formatDateTime(point.bucket_start_time_ms)}</TableCell>
-              <TableCell className="text-right font-mono">{formatNumber(point.value, unit)}</TableCell>
+              <TableCell className="text-right font-mono">{formatNumber(point.value, unit, field)}</TableCell>
             </TableRow>
           ))}
         </TableBody>
@@ -570,12 +587,15 @@ function formatTelemetryValue(value: PeerTelemetryValue | undefined, unit: strin
   if (value.field === "battery.charging" || value.field === "network.connected") {
     return value.value > 0 ? "Yes" : "No";
   }
-  return formatNumber(value.value, unit);
+  return formatNumber(value.value, unit, value.field);
 }
 
-function formatNumber(value: number | undefined, unit: string): string {
+function formatNumber(value: number | undefined, unit: string, field?: PeerTelemetryField): string {
   if (value === undefined || !Number.isFinite(value)) {
     return "-";
+  }
+  if (field !== undefined && isCoordinateField(field)) {
+    return value.toFixed(6);
   }
   if (unit === "B") {
     return formatBytes(value);
@@ -617,6 +637,10 @@ function formatLatLng(point: RoutePoint | undefined): string {
     return "-";
   }
   return `${point.lat.toFixed(6)}, ${point.lng.toFixed(6)}`;
+}
+
+function isCoordinateField(field: PeerTelemetryField): boolean {
+  return field === "gnss.latitude" || field === "gnss.longitude";
 }
 
 function webGLAvailable(): boolean {
