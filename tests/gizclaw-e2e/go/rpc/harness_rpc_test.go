@@ -278,15 +278,11 @@ func testRPCOpenAICredentialBody(apiKey string) rpcapi.CredentialBody {
 }
 
 func testRPCCredentialBodyString(body rpcapi.CredentialBody, key string) string {
-	data, err := body.MarshalJSON()
-	if err != nil {
+	openAI, err := body.AsOpenAICredentialBody()
+	if err != nil || key != "api_key" || openAI.ApiKey == nil {
 		return ""
 	}
-	var values map[string]string
-	if err := json.Unmarshal(data, &values); err != nil {
-		return ""
-	}
-	return values[key]
+	return *openAI.ApiKey
 }
 
 func rpcWorkflow(name, description string) rpcapi.WorkflowDocument {

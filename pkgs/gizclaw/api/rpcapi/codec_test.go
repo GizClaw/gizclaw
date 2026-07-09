@@ -3,7 +3,6 @@ package rpcapi
 import (
 	"bytes"
 	"encoding/binary"
-	"encoding/json"
 	"errors"
 	"io"
 	"net"
@@ -306,185 +305,119 @@ func TestDecodeRPCResponseRejectsGenericPayload(t *testing.T) {
 	}
 }
 
-func TestPayloadCodecPreservesJSONShapes(t *testing.T) {
-	structPayload, err := encodeRPCPayloadMessage("ServerRunWorkspaceRecallRequest", []byte(`{"filters":{"score":1,"nested":{"weight":2}}}`))
-	if err != nil {
-		t.Fatalf("encode struct payload error = %v", err)
+func TestPayloadCodecMapsGoDTOsDirectlyToProtobuf(t *testing.T) {
+	var recall RPCPayload
+	if err := recall.FromServerRunWorkspaceRecallRequest(ServerRunWorkspaceRecallRequest{
+		Filters: &map[string]interface{}{
+			"score":  float64(1),
+			"nested": map[string]interface{}{"weight": float64(2)},
+		},
+	}); err != nil {
+		t.Fatalf("FromServerRunWorkspaceRecallRequest() error = %v", err)
 	}
-	if len(structPayload) == 0 {
-		t.Fatal("struct payload is empty")
+	var recallProto rpcpb.ServerRunWorkspaceRecallRequest
+	if err := proto.Unmarshal(recall.payload, &recallProto); err != nil {
+		t.Fatalf("unmarshal recall payload error = %v", err)
 	}
-
-	enumPayload, err := encodeRPCPayloadMessage("ChatRoomWorkspaceParameters", []byte(`{"input":"push-to-talk"}`))
-	if err != nil {
-		t.Fatalf("encode enum payload error = %v", err)
-	}
-	enumJSON, err := decodeRPCPayloadMessage("ChatRoomWorkspaceParameters", enumPayload, decodeRPCPayloadOptions{})
-	if err != nil {
-		t.Fatalf("decode enum payload error = %v", err)
-	}
-	var enumOut map[string]any
-	if err := json.Unmarshal(enumJSON, &enumOut); err != nil {
-		t.Fatalf("unmarshal enum payload JSON error = %v", err)
-	}
-	if enumOut["input"] != "push-to-talk" {
-		t.Fatalf("decoded enum input = %v, want push-to-talk", enumOut["input"])
+	if recallProto.GetValue().GetFilters().GetFields()["score"].GetNumberValue() != 1 {
+		t.Fatalf("recall filters = %+v", recallProto.GetValue().GetFilters())
 	}
 
-	modelPayload, err := encodeRPCPayloadMessage("Model", []byte(`{"id":"m1","kind":"llm","provider":{"kind":"dashscope-tenant","name":"dash"},"source":"manual"}`))
-	if err != nil {
-		t.Fatalf("encode model payload error = %v", err)
+	var chatParams RPCPayload
+	if err := chatParams.encode("ChatRoomWorkspaceParameters", ChatRoomWorkspaceParameters{Input: ptr(WorkspaceInputModePushToTalk)}); err != nil {
+		t.Fatalf("encode ChatRoomWorkspaceParameters error = %v", err)
 	}
-	modelJSON, err := decodeRPCPayloadMessage("Model", modelPayload, decodeRPCPayloadOptions{emitDefaults: true})
-	if err != nil {
-		t.Fatalf("decode model payload error = %v", err)
+	var chatProto rpcpb.ChatRoomWorkspaceParameters
+	if err := proto.Unmarshal(chatParams.payload, &chatProto); err != nil {
+		t.Fatalf("unmarshal chatroom payload error = %v", err)
 	}
-	var modelOut map[string]any
-	if err := json.Unmarshal(modelJSON, &modelOut); err != nil {
-		t.Fatalf("unmarshal model payload JSON error = %v", err)
-	}
-	provider, ok := modelOut["provider"].(map[string]any)
-	if !ok {
-		t.Fatalf("decoded model provider = %+v", modelOut["provider"])
-	}
-	if provider["kind"] != "dashscope-tenant" {
-		t.Fatalf("decoded model provider.kind = %v, want dashscope-tenant", provider["kind"])
+	if chatProto.GetInput() != rpcpb.WorkspaceInputMode_WORKSPACE_INPUT_MODE_PUSH_TO_TALK {
+		t.Fatalf("chatroom input = %s", chatProto.GetInput())
 	}
 
-	zeroJSON, err := decodeRPCPayloadMessage("FirmwareListResponse", nil, decodeRPCPayloadOptions{emitDefaults: true})
-	if err != nil {
-		t.Fatalf("decode zero payload error = %v", err)
+	var modelPayload RPCPayload
+	if err := modelPayload.FromModelCreateRequest(ModelCreateRequest{
+		Id:     "m1",
+		Kind:   ModelKindLlm,
+		Source: ModelSourceManual,
+		Provider: ModelProvider{
+			Kind: ModelProviderKindDashscopeTenant,
+			Name: "dash",
+		},
+	}); err != nil {
+		t.Fatalf("FromModel() error = %v", err)
 	}
-	var zeroOut map[string]any
-	if err := json.Unmarshal(zeroJSON, &zeroOut); err != nil {
-		t.Fatalf("unmarshal zero payload JSON error = %v", err)
+	var modelProto rpcpb.ModelCreateRequest
+	if err := proto.Unmarshal(modelPayload.payload, &modelProto); err != nil {
+		t.Fatalf("unmarshal model payload error = %v", err)
 	}
-	if zeroOut["has_next"] != false {
-		t.Fatalf("decoded has_next = %v, want false", zeroOut["has_next"])
-	}
-	items, ok := zeroOut["items"].([]any)
-	if !ok || len(items) != 0 {
-		t.Fatalf("decoded items = %#v, want empty array", zeroOut["items"])
-	}
-
-	createPayload, err := encodeRPCPayloadMessage("WorkspaceCreateRequest", []byte(`{"name":"demo","workflow_name":"chat"}`))
-	if err != nil {
-		t.Fatalf("encode workspace create payload error = %v", err)
-	}
-	createJSON, err := decodeRPCPayloadMessage("WorkspaceCreateRequest", createPayload, decodeRPCPayloadOptions{})
-	if err != nil {
-		t.Fatalf("decode workspace create payload error = %v", err)
-	}
-	var createOut map[string]any
-	if err := json.Unmarshal(createJSON, &createOut); err != nil {
-		t.Fatalf("unmarshal workspace create payload JSON error = %v", err)
-	}
-	for _, key := range []string{"created_at", "last_active_at", "updated_at"} {
-		if _, ok := createOut[key]; ok {
-			t.Fatalf("decoded workspace create included absent %s zero default: %+v", key, createOut)
-		}
-	}
-	if createOut["name"] != "demo" || createOut["workflow_name"] != "chat" {
-		t.Fatalf("decoded workspace create = %+v", createOut)
+	if modelProto.GetValue().GetProvider().GetKind() != rpcpb.ModelProviderKind_MODEL_PROVIDER_KIND_DASHSCOPE_TENANT {
+		t.Fatalf("model provider kind = %s", modelProto.GetValue().GetProvider().GetKind())
 	}
 
-	statPayload, err := encodeRPCPayloadMessage("StatMap", []byte(`{"hunger":1,"clean":2}`))
-	if err != nil {
-		t.Fatalf("encode stat map error = %v", err)
+	var workspaceCreate RPCPayload
+	if err := workspaceCreate.FromWorkspaceCreateRequest(WorkspaceCreateRequest{
+		Name:         "demo",
+		WorkflowName: "chat",
+	}); err != nil {
+		t.Fatalf("FromWorkspaceCreateRequest() error = %v", err)
 	}
-	statJSON, err := decodeRPCPayloadMessage("StatMap", statPayload, decodeRPCPayloadOptions{})
-	if err != nil {
-		t.Fatalf("decode stat map error = %v", err)
+	var workspaceCreateProto rpcpb.WorkspaceCreateRequest
+	if err := proto.Unmarshal(workspaceCreate.payload, &workspaceCreateProto); err != nil {
+		t.Fatalf("unmarshal workspace create payload error = %v", err)
 	}
-	var statOut map[string]any
-	if err := json.Unmarshal(statJSON, &statOut); err != nil {
-		t.Fatalf("unmarshal stat map JSON error = %v", err)
-	}
-	if statOut["hunger"] != float64(1) || statOut["clean"] != float64(2) {
-		t.Fatalf("decoded stat map = %+v", statOut)
-	}
-
-	jsonSchemaPayload, err := encodeRPCPayloadMessage("DoubaoRealtimeJSONSchema", []byte(`{"additionalProperties":false,"anyOf":[{"type":"string"}],"enum":["red","green"],"minLength":2}`))
-	if err != nil {
-		t.Fatalf("encode JSON schema enum payload error = %v", err)
-	}
-	jsonSchemaJSON, err := decodeRPCPayloadMessage("DoubaoRealtimeJSONSchema", jsonSchemaPayload, decodeRPCPayloadOptions{})
-	if err != nil {
-		t.Fatalf("decode JSON schema enum payload error = %v", err)
-	}
-	var jsonSchemaOut map[string]any
-	if err := json.Unmarshal(jsonSchemaJSON, &jsonSchemaOut); err != nil {
-		t.Fatalf("unmarshal JSON schema enum payload error = %v", err)
-	}
-	if _, ok := jsonSchemaOut["enum_values"]; ok {
-		t.Fatalf("decoded JSON schema used proto field name: %+v", jsonSchemaOut)
-	}
-	if _, ok := jsonSchemaOut["additional_properties"]; ok {
-		t.Fatalf("decoded JSON schema used proto additional_properties field name: %+v", jsonSchemaOut)
-	}
-	if _, ok := jsonSchemaOut["any_of"]; ok {
-		t.Fatalf("decoded JSON schema used proto any_of field name: %+v", jsonSchemaOut)
-	}
-	if _, ok := jsonSchemaOut["min_length"]; ok {
-		t.Fatalf("decoded JSON schema used proto min_length field name: %+v", jsonSchemaOut)
-	}
-	if jsonSchemaOut["additionalProperties"] != false {
-		t.Fatalf("decoded JSON schema additionalProperties = %+v", jsonSchemaOut["additionalProperties"])
-	}
-	anyOf, ok := jsonSchemaOut["anyOf"].([]any)
-	if !ok || len(anyOf) != 1 {
-		t.Fatalf("decoded JSON schema anyOf = %+v", jsonSchemaOut["anyOf"])
-	}
-	enumValues, ok := jsonSchemaOut["enum"].([]any)
-	if !ok || len(enumValues) != 2 || enumValues[0] != "red" || enumValues[1] != "green" {
-		t.Fatalf("decoded JSON schema enum = %+v", jsonSchemaOut["enum"])
-	}
-	if jsonSchemaOut["minLength"] != float64(2) {
-		t.Fatalf("decoded JSON schema minLength = %+v", jsonSchemaOut["minLength"])
+	if workspaceCreateProto.GetValue().GetName() != "demo" || workspaceCreateProto.GetValue().GetWorkflowName() != "chat" {
+		t.Fatalf("workspace create = %+v", workspaceCreateProto.GetValue())
 	}
 
-	jsonSchemaDefaultPayload, err := encodeRPCPayloadMessage("DoubaoRealtimeJSONSchema", []byte(`{"type":"object"}`))
-	if err != nil {
-		t.Fatalf("encode JSON schema default payload error = %v", err)
+	var statPayload RPCPayload
+	if err := statPayload.encode("StatMap", StatMap{"hunger": 1, "clean": 2}); err != nil {
+		t.Fatalf("encode StatMap error = %v", err)
 	}
-	jsonSchemaDefaultJSON, err := decodeRPCPayloadMessage("DoubaoRealtimeJSONSchema", jsonSchemaDefaultPayload, decodeRPCPayloadOptions{emitDefaults: true})
-	if err != nil {
-		t.Fatalf("decode JSON schema default payload error = %v", err)
+	var statProto rpcpb.StatMap
+	if err := proto.Unmarshal(statPayload.payload, &statProto); err != nil {
+		t.Fatalf("unmarshal stat map payload error = %v", err)
 	}
-	var jsonSchemaDefaultOut map[string]any
-	if err := json.Unmarshal(jsonSchemaDefaultJSON, &jsonSchemaDefaultOut); err != nil {
-		t.Fatalf("unmarshal JSON schema default payload JSON error = %v", err)
-	}
-	for _, key := range []string{"anyOf", "enum", "required"} {
-		if _, ok := jsonSchemaDefaultOut[key]; ok {
-			t.Fatalf("decoded JSON schema included absent optional repeated %s: %+v", key, jsonSchemaDefaultOut)
-		}
+	if statProto.GetValue()["hunger"] != 1 || statProto.GetValue()["clean"] != 2 {
+		t.Fatalf("stat map = %+v", statProto.GetValue())
 	}
 }
 
-func TestPayloadCodecSelectsProviderOneofFromDiscriminator(t *testing.T) {
-	payload, err := encodeRPCPayloadMessage("Credential", []byte(`{"provider":"dashscope","name":"cred","created_at":"now","updated_at":"now","body":{"api_key":"key"}}`))
+func TestPayloadCodecMapsProtobufDirectlyToGoDTOs(t *testing.T) {
+	firmwareData, err := proto.Marshal(&rpcpb.FirmwareListResponse{})
 	if err != nil {
-		t.Fatalf("encode credential error = %v", err)
+		t.Fatalf("marshal firmware list payload error = %v", err)
 	}
-	var credential rpcpb.Credential
-	if err := proto.Unmarshal(payload, &credential); err != nil {
-		t.Fatalf("unmarshal credential error = %v", err)
+	firmwarePayload := newRPCPayload("FirmwareListResponse", firmwareData, true)
+	firmware, err := firmwarePayload.AsFirmwareListResponse()
+	if err != nil {
+		t.Fatalf("AsFirmwareListResponse() error = %v", err)
 	}
-	if _, ok := credential.GetBody().GetValue().(*rpcpb.CredentialBody_DashScopeCredentialBody); !ok {
-		t.Fatalf("credential body oneof = %T, want DashScopeCredentialBody", credential.GetBody().GetValue())
+	if firmware.HasNext || len(firmware.Items) != 0 {
+		t.Fatalf("firmware list = %+v", firmware)
 	}
 
-	workspacePayload, err := encodeRPCPayloadMessage("WorkspaceParameters", []byte(`{"agent_type":"chatroom","input":"push-to-talk"}`))
+	schemaData, err := proto.Marshal(&rpcpb.DoubaoRealtimeJSONSchema{
+		AdditionalProperties: ptr(false),
+		AnyOf: []*rpcpb.DoubaoRealtimeJSONSchema{
+			{Type: ptr("string")},
+		},
+		EnumValues: []string{"red", "green"},
+		MinLength:  ptr(int64(2)),
+	})
 	if err != nil {
-		t.Fatalf("encode workspace parameters error = %v", err)
+		t.Fatalf("marshal JSON schema payload error = %v", err)
 	}
-	var workspace rpcpb.WorkspaceParameters
-	if err := proto.Unmarshal(workspacePayload, &workspace); err != nil {
-		t.Fatalf("unmarshal workspace parameters error = %v", err)
+	schemaPayload := newRPCPayload("DoubaoRealtimeJSONSchema", schemaData, false)
+	var schema DoubaoRealtimeJSONSchema
+	if err := schemaPayload.decode("DoubaoRealtimeJSONSchema", &schema); err != nil {
+		t.Fatalf("decode DoubaoRealtimeJSONSchema error = %v", err)
 	}
-	if _, ok := workspace.GetValue().(*rpcpb.WorkspaceParameters_ChatRoomWorkspaceParameters); !ok {
-		t.Fatalf("workspace parameters oneof = %T, want ChatRoomWorkspaceParameters", workspace.GetValue())
+	if schema.AdditionalProperties == nil || *schema.AdditionalProperties ||
+		schema.AnyOf == nil || len(*schema.AnyOf) != 1 ||
+		schema.Enum == nil || len(*schema.Enum) != 2 ||
+		schema.MinLength == nil || *schema.MinLength != 2 {
+		t.Fatalf("schema = %+v", schema)
 	}
 }
 
@@ -584,9 +517,13 @@ func stringPtr(value string) *string {
 	return &value
 }
 
+func ptr[T any](value T) *T {
+	return &value
+}
+
 func TestWriteFramePropagatesHeaderWriteError(t *testing.T) {
 	writeErr := errors.New("write failed")
-	if err := WriteFrame(errorWriter{err: writeErr}, Frame{Type: FrameTypeJSON, Payload: []byte("payload")}); !errors.Is(err, writeErr) {
+	if err := WriteFrame(errorWriter{err: writeErr}, Frame{Type: FrameTypeBinary, Payload: []byte("payload")}); !errors.Is(err, writeErr) {
 		t.Fatalf("WriteFrame() err = %v, want %v", err, writeErr)
 	}
 }
@@ -694,10 +631,10 @@ func TestReadRequestAndResponseRejectInvalidProtobuf(t *testing.T) {
 
 func TestReadRequestAndResponseRejectNonProtobufFrames(t *testing.T) {
 	var reqBuf bytes.Buffer
-	if err := WriteFrame(&reqBuf, Frame{Type: FrameTypeJSON, Payload: []byte("{}")}); err != nil {
+	if err := WriteFrame(&reqBuf, Frame{Type: FrameTypeText, Payload: []byte("{}")}); err != nil {
 		t.Fatalf("WriteFrame(request) error = %v", err)
 	}
-	if _, err := ReadRequest(&reqBuf); err == nil || err.Error() != "rpc: unmarshal request: rpc: expected protobuf binary frame, got type 1" {
+	if _, err := ReadRequest(&reqBuf); err == nil || err.Error() != "rpc: unmarshal request: rpc: expected protobuf binary frame, got type 3" {
 		t.Fatalf("ReadRequest() err = %v", err)
 	}
 
@@ -763,7 +700,6 @@ func TestReadFrameRejectsTruncatedPayload(t *testing.T) {
 func TestReadWriteFrames(t *testing.T) {
 	var buf bytes.Buffer
 	err := WriteFrames(&buf, func(yield func(Frame, error) bool) {
-		yield(Frame{Type: FrameTypeJSON, Payload: []byte("{}")}, nil)
 		yield(Frame{Type: FrameTypeText, Payload: []byte("hello")}, nil)
 		yield(Frame{Type: FrameTypeBinary, Payload: []byte{1, 2, 3}}, nil)
 	})
@@ -781,17 +717,14 @@ func TestReadWriteFrames(t *testing.T) {
 		}
 		got = append(got, frame)
 	}
-	if len(got) != 3 {
+	if len(got) != 2 {
 		t.Fatalf("ReadFrames() got %d frames", len(got))
 	}
-	if got[0].Type != FrameTypeJSON || string(got[0].Payload) != "{}" {
+	if got[0].Type != FrameTypeText || string(got[0].Payload) != "hello" {
 		t.Fatalf("frame[0] = %+v", got[0])
 	}
-	if got[1].Type != FrameTypeText || string(got[1].Payload) != "hello" {
+	if got[1].Type != FrameTypeBinary || !bytes.Equal(got[1].Payload, []byte{1, 2, 3}) {
 		t.Fatalf("frame[1] = %+v", got[1])
-	}
-	if got[2].Type != FrameTypeBinary || !bytes.Equal(got[2].Payload, []byte{1, 2, 3}) {
-		t.Fatalf("frame[2] = %+v", got[2])
 	}
 }
 
@@ -953,7 +886,7 @@ func TestWriteFrameRejectsUnknownType(t *testing.T) {
 }
 
 func TestWriteFramePropagatesShortWrite(t *testing.T) {
-	err := WriteFrame(shortWriter{}, Frame{Type: FrameTypeJSON, Payload: []byte("payload")})
+	err := WriteFrame(shortWriter{}, Frame{Type: FrameTypeBinary, Payload: []byte("payload")})
 	if !errors.Is(err, io.ErrShortWrite) {
 		t.Fatalf("WriteFrame() err = %v, want %v", err, io.ErrShortWrite)
 	}

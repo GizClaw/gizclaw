@@ -295,7 +295,7 @@ func TestCopyBinaryFramesRejectsUnexpectedFrame(t *testing.T) {
 
 	errCh := make(chan error, 1)
 	go func() {
-		errCh <- rpcapi.WriteFrame(serverSide, rpcapi.Frame{Type: rpcapi.FrameTypeJSON, Payload: []byte(`{}`)})
+		errCh <- rpcapi.WriteFrame(serverSide, rpcapi.Frame{Type: rpcapi.FrameTypeText, Payload: []byte(`{}`)})
 	}()
 
 	stream, err := newRPCStream(context.Background(), clientSide)

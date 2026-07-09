@@ -2,6 +2,7 @@ package gizclaw
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -225,8 +226,11 @@ func readPeerStreamEvent(r io.Reader) (apitypes.PeerStreamEvent, error) {
 	if frame.Type == rpcapi.FrameTypeEOS {
 		return apitypes.PeerStreamEvent{}, io.EOF
 	}
+	if frame.Type != rpcapi.FrameTypeText {
+		return apitypes.PeerStreamEvent{}, fmt.Errorf("gizclaw: expected peer stream event text frame, got type %d", frame.Type)
+	}
 	var event apitypes.PeerStreamEvent
-	if err := rpcapi.DecodeJSONFrame(frame, &event); err != nil {
+	if err := json.Unmarshal(frame.Payload, &event); err != nil {
 		return apitypes.PeerStreamEvent{}, fmt.Errorf("gizclaw: decode peer stream event: %w", err)
 	}
 	return event, nil
@@ -236,11 +240,11 @@ func writePeerStreamEvent(w io.Writer, event apitypes.PeerStreamEvent) error {
 	if event.V == 0 {
 		event.V = peerStreamEventVersion
 	}
-	frame, err := rpcapi.NewJSONFrame(event)
+	data, err := json.Marshal(event)
 	if err != nil {
 		return err
 	}
-	return rpcapi.WriteFrame(w, frame)
+	return rpcapi.WriteFrame(w, rpcapi.Frame{Type: rpcapi.FrameTypeText, Payload: data})
 }
 
 func peerStreamEventToChunk(event apitypes.PeerStreamEvent) (*genx.MessageChunk, error) {

@@ -9,6 +9,7 @@ import (
 	"io/fs"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"strings"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
@@ -915,7 +916,11 @@ func (s *Server) handleCredentialList(ctx context.Context, req *rpcapi.RPCReques
 		}
 		items = append(items, item)
 	}
-	return resultResponse(req.Id, adminhttp.CredentialList{Items: items, HasNext: list.HasNext, NextCursor: list.NextCursor}, (*rpcapi.RPCPayload).FromCredentialListResponse)
+	rpcList, err := apiCredentialListToRPC(adminhttp.CredentialList{Items: items, HasNext: list.HasNext, NextCursor: list.NextCursor})
+	if err != nil {
+		return internalError(req.Id, err.Error())
+	}
+	return resultResponse(req.Id, rpcList, (*rpcapi.RPCPayload).FromCredentialListResponse)
 }
 
 func (s *Server) handleCredentialGet(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
@@ -930,7 +935,18 @@ func (s *Server) handleCredentialGet(ctx context.Context, req *rpcapi.RPCRequest
 	if err != nil {
 		return internalError(req.Id, err.Error())
 	}
-	return adminRPCResponse(req.Id, adminResp.VisitGetCredentialResponse, (*rpcapi.RPCPayload).FromCredentialGetResponse)
+	result, rpcResp, err := adminResult[apitypes.Credential](adminResp.VisitGetCredentialResponse)
+	if err != nil {
+		return internalError(req.Id, err.Error())
+	}
+	if rpcResp != nil {
+		return withRequestID(req.Id, rpcResp)
+	}
+	converted, err := apiCredentialToRPC(result)
+	if err != nil {
+		return internalError(req.Id, err.Error())
+	}
+	return resultResponse(req.Id, converted, (*rpcapi.RPCPayload).FromCredentialGetResponse)
 }
 
 func (s *Server) handleCredentialCreate(ctx context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, bool, error) {
@@ -944,7 +960,7 @@ func (s *Server) handleCredentialCreate(ctx context.Context, req *rpcapi.RPCRequ
 	if resp := s.authorizeResponse(ctx, req.Id, acl.CollectionResource(acl.ResourceKindCredential), apitypes.ACLPermissionCreate); resp != nil {
 		return resp, true, nil
 	}
-	body, err := convertType[adminhttp.CreateCredentialJSONRequestBody](params)
+	body, err := rpcCredentialUpsertToAdmin(params)
 	if err != nil {
 		return nil, true, err
 	}
@@ -952,7 +968,18 @@ func (s *Server) handleCredentialCreate(ctx context.Context, req *rpcapi.RPCRequ
 	if err != nil {
 		return internalError(req.Id, err.Error()), true, nil
 	}
-	return adminRPCResponse(req.Id, adminResp.VisitCreateCredentialResponse, (*rpcapi.RPCPayload).FromCredentialCreateResponse), true, nil
+	result, rpcResp, err := adminResult[apitypes.Credential](adminResp.VisitCreateCredentialResponse)
+	if err != nil {
+		return internalError(req.Id, err.Error()), true, nil
+	}
+	if rpcResp != nil {
+		return withRequestID(req.Id, rpcResp), true, nil
+	}
+	converted, err := apiCredentialToRPC(result)
+	if err != nil {
+		return internalError(req.Id, err.Error()), true, nil
+	}
+	return resultResponse(req.Id, converted, (*rpcapi.RPCPayload).FromCredentialCreateResponse), true, nil
 }
 
 func (s *Server) handleCredentialPut(ctx context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, bool, error) {
@@ -966,7 +993,7 @@ func (s *Server) handleCredentialPut(ctx context.Context, req *rpcapi.RPCRequest
 	if resp := s.authorizeResponse(ctx, req.Id, acl.CredentialResource(params.Name), apitypes.ACLPermissionAdmin); resp != nil {
 		return resp, true, nil
 	}
-	body, err := convertType[adminhttp.PutCredentialJSONRequestBody](params.Body)
+	body, err := rpcCredentialUpsertToAdmin(params.Body)
 	if err != nil {
 		return nil, true, err
 	}
@@ -974,7 +1001,18 @@ func (s *Server) handleCredentialPut(ctx context.Context, req *rpcapi.RPCRequest
 	if err != nil {
 		return internalError(req.Id, err.Error()), true, nil
 	}
-	return adminRPCResponse(req.Id, adminResp.VisitPutCredentialResponse, (*rpcapi.RPCPayload).FromCredentialPutResponse), true, nil
+	result, rpcResp, err := adminResult[apitypes.Credential](adminResp.VisitPutCredentialResponse)
+	if err != nil {
+		return internalError(req.Id, err.Error()), true, nil
+	}
+	if rpcResp != nil {
+		return withRequestID(req.Id, rpcResp), true, nil
+	}
+	converted, err := apiCredentialToRPC(result)
+	if err != nil {
+		return internalError(req.Id, err.Error()), true, nil
+	}
+	return resultResponse(req.Id, converted, (*rpcapi.RPCPayload).FromCredentialPutResponse), true, nil
 }
 
 func (s *Server) handleCredentialDelete(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
@@ -992,7 +1030,18 @@ func (s *Server) handleCredentialDelete(ctx context.Context, req *rpcapi.RPCRequ
 	if err != nil {
 		return internalError(req.Id, err.Error())
 	}
-	return adminRPCResponse(req.Id, adminResp.VisitDeleteCredentialResponse, (*rpcapi.RPCPayload).FromCredentialDeleteResponse)
+	result, rpcResp, err := adminResult[apitypes.Credential](adminResp.VisitDeleteCredentialResponse)
+	if err != nil {
+		return internalError(req.Id, err.Error())
+	}
+	if rpcResp != nil {
+		return withRequestID(req.Id, rpcResp)
+	}
+	converted, err := apiCredentialToRPC(result)
+	if err != nil {
+		return internalError(req.Id, err.Error())
+	}
+	return resultResponse(req.Id, converted, (*rpcapi.RPCPayload).FromCredentialDeleteResponse)
 }
 
 func (s *Server) authorizeResponse(ctx context.Context, requestID string, resource apitypes.ACLResource, permission apitypes.ACLPermission) *rpcapi.RPCResponse {
@@ -1096,14 +1145,113 @@ func decodeOptionalParams[T any](req *rpcapi.RPCRequest, decode func(rpcapi.RPCP
 
 func convertType[T any](value any) (T, error) {
 	var out T
-	data, err := json.Marshal(value)
-	if err != nil {
-		return out, err
-	}
-	if err := json.Unmarshal(data, &out); err != nil {
+	if err := convertValue(reflect.ValueOf(&out).Elem(), reflect.ValueOf(value)); err != nil {
 		return out, err
 	}
 	return out, nil
+}
+
+func convertValue(dst reflect.Value, src reflect.Value) error {
+	if !src.IsValid() {
+		return nil
+	}
+	for src.Kind() == reflect.Interface {
+		if src.IsNil() {
+			return nil
+		}
+		src = src.Elem()
+	}
+	if dst.Type() == reflect.TypeOf(apitypes.CredentialBody{}) && src.Type() == reflect.TypeOf(rpcapi.CredentialBody{}) {
+		body, err := rpcCredentialBodyToAPI(src.Interface().(rpcapi.CredentialBody))
+		if err != nil {
+			return err
+		}
+		dst.Set(reflect.ValueOf(body))
+		return nil
+	}
+	if src.Type().AssignableTo(dst.Type()) {
+		dst.Set(src)
+		return nil
+	}
+	if src.Type().ConvertibleTo(dst.Type()) {
+		dst.Set(src.Convert(dst.Type()))
+		return nil
+	}
+	switch dst.Kind() {
+	case reflect.Pointer:
+		if src.Kind() == reflect.Pointer {
+			if src.IsNil() {
+				return nil
+			}
+			src = src.Elem()
+		}
+		dst.Set(reflect.New(dst.Type().Elem()))
+		return convertValue(dst.Elem(), src)
+	case reflect.Struct:
+		src = indirectReflectValue(src)
+		if !src.IsValid() || src.Kind() != reflect.Struct {
+			return fmt.Errorf("cannot convert %s to %s", src.Type(), dst.Type())
+		}
+		for i := 0; i < dst.NumField(); i++ {
+			field := dst.Type().Field(i)
+			if field.PkgPath != "" {
+				continue
+			}
+			srcField := src.FieldByName(field.Name)
+			if !srcField.IsValid() {
+				continue
+			}
+			if err := convertValue(dst.Field(i), srcField); err != nil {
+				return fmt.Errorf("%s: %w", field.Name, err)
+			}
+		}
+		return nil
+	case reflect.Slice:
+		src = indirectReflectValue(src)
+		if !src.IsValid() || src.Kind() != reflect.Slice {
+			return fmt.Errorf("cannot convert %s to %s", src.Type(), dst.Type())
+		}
+		out := reflect.MakeSlice(dst.Type(), src.Len(), src.Len())
+		for i := 0; i < src.Len(); i++ {
+			if err := convertValue(out.Index(i), src.Index(i)); err != nil {
+				return fmt.Errorf("[%d]: %w", i, err)
+			}
+		}
+		dst.Set(out)
+		return nil
+	case reflect.Map:
+		src = indirectReflectValue(src)
+		if !src.IsValid() || src.Kind() != reflect.Map {
+			return fmt.Errorf("cannot convert %s to %s", src.Type(), dst.Type())
+		}
+		out := reflect.MakeMapWithSize(dst.Type(), src.Len())
+		iter := src.MapRange()
+		for iter.Next() {
+			key := reflect.New(dst.Type().Key()).Elem()
+			if err := convertValue(key, iter.Key()); err != nil {
+				return err
+			}
+			item := reflect.New(dst.Type().Elem()).Elem()
+			if err := convertValue(item, iter.Value()); err != nil {
+				return err
+			}
+			out.SetMapIndex(key, item)
+		}
+		dst.Set(out)
+		return nil
+	default:
+		return fmt.Errorf("cannot convert %s to %s", src.Type(), dst.Type())
+	}
+}
+
+func indirectReflectValue(value reflect.Value) reflect.Value {
+	for value.IsValid() && value.Kind() == reflect.Pointer {
+		if value.IsNil() {
+			return reflect.Value{}
+		}
+		value = value.Elem()
+	}
+	return value
 }
 
 func int32Ptr(value *int) *int32 {

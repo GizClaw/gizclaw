@@ -1,15 +1,13 @@
 package rpcapi
 
 import (
-	"bytes"
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
-	"math"
+	"reflect"
 	"strconv"
 	"strings"
+	"time"
 
-	"github.com/oapi-codegen/runtime"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/reflect/protoregistry"
@@ -80,13 +78,16 @@ func (t RPCPayload) bytesForMessage(messageName string) ([]byte, error) {
 }
 
 func (t *RPCPayload) encode(messageName string, value any) error {
-	data, err := json.Marshal(value)
+	msg, err := newRPCPayloadMessage(messageName)
 	if err != nil {
 		return err
 	}
-	payload, err := encodeRPCPayloadMessage(messageName, data)
+	if err := fillProtoMessageFromGo(msg, reflect.ValueOf(value), reflect.Value{}); err != nil {
+		return fmt.Errorf("rpc: encode %s payload: %w", messageName, err)
+	}
+	payload, err := proto.Marshal(msg.Interface())
 	if err != nil {
-		return err
+		return fmt.Errorf("rpc: marshal %s payload: %w", messageName, err)
 	}
 	t.payload = payload
 	t.messageName = messageName
@@ -101,84 +102,46 @@ func (t RPCPayload) decode(messageName string, out any) error {
 	if t.messageName != "" && t.messageName != messageName {
 		return fmt.Errorf("rpc: payload contains %s, want %s", t.messageName, messageName)
 	}
-	data, err := decodeRPCPayloadMessage(messageName, t.payload, decodeRPCPayloadOptions{emitDefaults: t.emitDefaults})
+	msg, err := newRPCPayloadMessage(messageName)
 	if err != nil {
 		return err
 	}
-	return json.Unmarshal(data, out)
+	if len(t.payload) > 0 {
+		if err := proto.Unmarshal(t.payload, msg.Interface()); err != nil {
+			return fmt.Errorf("rpc: unmarshal %s payload: %w", messageName, err)
+		}
+	}
+	if err := fillGoValueFromProto(reflect.ValueOf(out), msg, decodeRPCPayloadOptions{emitDefaults: t.emitDefaults}); err != nil {
+		return fmt.Errorf("rpc: decode %s payload: %w", messageName, err)
+	}
+	return nil
 }
 
 func (t *RPCPayload) merge(messageName string, value any) error {
-	data, err := json.Marshal(value)
+	msg, err := newRPCPayloadMessage(messageName)
 	if err != nil {
 		return err
 	}
-	base, err := decodeRPCPayloadMessage(messageName, t.payload, decodeRPCPayloadOptions{emitDefaults: t.emitDefaults})
+	if len(t.payload) > 0 {
+		if err := proto.Unmarshal(t.payload, msg.Interface()); err != nil {
+			return fmt.Errorf("rpc: unmarshal %s payload: %w", messageName, err)
+		}
+	}
+	patch, err := newRPCPayloadMessage(messageName)
 	if err != nil {
 		return err
 	}
-	merged, err := runtime.JSONMerge(base, data)
-	if err != nil {
-		return err
+	if err := fillProtoMessageFromGo(patch, reflect.ValueOf(value), reflect.Value{}); err != nil {
+		return fmt.Errorf("rpc: merge %s payload: %w", messageName, err)
 	}
-	payload, err := encodeRPCPayloadMessage(messageName, merged)
+	proto.Merge(msg.Interface(), patch.Interface())
+	payload, err := proto.Marshal(msg.Interface())
 	if err != nil {
-		return err
+		return fmt.Errorf("rpc: marshal %s payload: %w", messageName, err)
 	}
 	t.payload = payload
 	t.messageName = messageName
 	return nil
-}
-
-func (t RPCPayload) MarshalJSON() ([]byte, error) {
-	if t.messageName == "" {
-		return nil, fmt.Errorf("rpc: payload message name is required")
-	}
-	return decodeRPCPayloadMessage(t.messageName, t.payload, decodeRPCPayloadOptions{emitDefaults: t.emitDefaults})
-}
-
-func (t *RPCPayload) UnmarshalJSON([]byte) error {
-	return fmt.Errorf("rpc: protobuf payload cannot be decoded without method metadata")
-}
-
-func encodeRPCPayloadMessage(messageName string, jsonPayload []byte) ([]byte, error) {
-	msg, err := newRPCPayloadMessage(messageName)
-	if err != nil {
-		return nil, err
-	}
-	value, err := decodeJSONObject(jsonPayload)
-	if err != nil {
-		return nil, fmt.Errorf("rpc: decode %s payload JSON: %w", messageName, err)
-	}
-	if err := fillProtoMessage(msg, value); err != nil {
-		return nil, fmt.Errorf("rpc: encode %s payload: %w", messageName, err)
-	}
-	out, err := proto.Marshal(msg.Interface())
-	if err != nil {
-		return nil, fmt.Errorf("rpc: marshal %s payload: %w", messageName, err)
-	}
-	return out, nil
-}
-
-func decodeRPCPayloadMessage(messageName string, payload []byte, opts decodeRPCPayloadOptions) ([]byte, error) {
-	msg, err := newRPCPayloadMessage(messageName)
-	if err != nil {
-		return nil, err
-	}
-	if len(payload) > 0 {
-		if err := proto.Unmarshal(payload, msg.Interface()); err != nil {
-			return nil, fmt.Errorf("rpc: unmarshal %s payload: %w", messageName, err)
-		}
-	}
-	value, err := protoMessageJSONValue(msg, opts)
-	if err != nil {
-		return nil, fmt.Errorf("rpc: decode %s payload: %w", messageName, err)
-	}
-	out, err := json.Marshal(value)
-	if err != nil {
-		return nil, fmt.Errorf("rpc: marshal %s payload JSON: %w", messageName, err)
-	}
-	return out, nil
 }
 
 func newRPCPayloadMessage(messageName string) (*dynamicpb.Message, error) {
@@ -190,37 +153,81 @@ func newRPCPayloadMessage(messageName string) (*dynamicpb.Message, error) {
 	return dynamicpb.NewMessage(mt.Descriptor()), nil
 }
 
-func decodeJSONObject(data []byte) (any, error) {
-	if len(bytes.TrimSpace(data)) == 0 {
-		return map[string]any{}, nil
-	}
-	var value any
-	dec := json.NewDecoder(bytes.NewReader(data))
-	dec.UseNumber()
-	if err := dec.Decode(&value); err != nil {
-		return nil, err
-	}
-	return value, nil
+var timeType = reflect.TypeOf(time.Time{})
+
+var rpcPayloadUnionValueTypes = map[protoreflect.Name]reflect.Type{
+	"ASTTranslateInternalSpeakerParameters": reflect.TypeOf(ASTTranslateInternalSpeakerParameters{}),
+	"ASTTranslateExternalVoiceParameters":   reflect.TypeOf(ASTTranslateExternalVoiceParameters{}),
+	"OpenAICredentialBody":                  reflect.TypeOf(OpenAICredentialBody{}),
+	"GeminiCredentialBody":                  reflect.TypeOf(GeminiCredentialBody{}),
+	"DashScopeCredentialBody":               reflect.TypeOf(DashScopeCredentialBody{}),
+	"MiniMaxCredentialBody":                 reflect.TypeOf(MiniMaxCredentialBody{}),
+	"VolcCredentialBody":                    reflect.TypeOf(VolcCredentialBody{}),
+	"GeminiTenantModelProviderData":         reflect.TypeOf(GeminiTenantModelProviderData{}),
+	"DashScopeTenantModelProviderData":      reflect.TypeOf(DashScopeTenantModelProviderData{}),
+	"OpenAITenantModelProviderData":         reflect.TypeOf(OpenAITenantModelProviderData{}),
+	"VolcTenantModelProviderData":           reflect.TypeOf(VolcTenantModelProviderData{}),
+	"GeminiTenantVoiceProviderData":         reflect.TypeOf(GeminiTenantVoiceProviderData{}),
+	"DashScopeTenantVoiceProviderData":      reflect.TypeOf(DashScopeTenantVoiceProviderData{}),
+	"OpenAITenantVoiceProviderData":         reflect.TypeOf(OpenAITenantVoiceProviderData{}),
+	"MiniMaxTenantVoiceProviderData":        reflect.TypeOf(MiniMaxTenantVoiceProviderData{}),
+	"VolcTenantVoiceProviderData":           reflect.TypeOf(VolcTenantVoiceProviderData{}),
+	"FlowcraftWorkspaceParameters":          reflect.TypeOf(FlowcraftWorkspaceParameters{}),
+	"DoubaoRealtimeWorkspaceParameters":     reflect.TypeOf(DoubaoRealtimeWorkspaceParameters{}),
+	"ASTTranslateWorkspaceParameters":       reflect.TypeOf(ASTTranslateWorkspaceParameters{}),
+	"ChatRoomWorkspaceParameters":           reflect.TypeOf(ChatRoomWorkspaceParameters{}),
 }
 
-func fillProtoMessage(msg protoreflect.Message, value any) error {
+func fillProtoMessageFromGo(msg protoreflect.Message, value reflect.Value, parent reflect.Value) error {
+	value = indirectGoValue(value)
+	if !value.IsValid() {
+		return nil
+	}
 	desc := msg.Descriptor()
-	if fd := singleValueField(desc); fd != nil {
-		return setProtoField(msg, fd, value, nil)
-	}
 	if isOneofValueWrapper(desc) {
-		return setOneofWrapper(msg, value, nil)
-	}
-	obj, ok := value.(map[string]any)
-	if !ok {
-		if value == nil {
+		stored := goUnionStoredValue(value)
+		if !stored.IsValid() {
 			return nil
 		}
-		return fmt.Errorf("expected object for %s, got %T", desc.FullName(), value)
+		return setOneofWrapperFromGo(msg, stored, parent)
+	}
+	if fd := singleValueField(desc); fd != nil && !goStructHasJSONField(value, "value") {
+		return setProtoFieldFromGo(msg, fd, value, parent)
+	}
+	if value.Kind() == reflect.Map {
+		fields := desc.Fields()
+		iter := value.MapRange()
+		for iter.Next() {
+			key := iter.Key()
+			if key.Kind() != reflect.String {
+				return fmt.Errorf("expected string map key for %s, got %s", desc.FullName(), key.Kind())
+			}
+			name := key.String()
+			fd := fields.ByJSONName(name)
+			if fd == nil {
+				fd = fields.ByName(protoreflect.Name(name))
+			}
+			if fd == nil {
+				continue
+			}
+			if err := setProtoFieldFromGo(msg, fd, iter.Value(), value); err != nil {
+				return fmt.Errorf("%s: %w", name, err)
+			}
+		}
+		return nil
+	}
+	if value.Kind() != reflect.Struct {
+		return fmt.Errorf("expected struct for %s, got %s", desc.FullName(), value.Kind())
 	}
 	fields := desc.Fields()
-	for name, fieldValue := range obj {
-		if fieldValue == nil {
+	valueType := value.Type()
+	for i := 0; i < value.NumField(); i++ {
+		sf := valueType.Field(i)
+		if sf.PkgPath != "" {
+			continue
+		}
+		name, ok := goJSONFieldName(sf)
+		if !ok {
 			continue
 		}
 		fd := fields.ByJSONName(name)
@@ -230,11 +237,765 @@ func fillProtoMessage(msg protoreflect.Message, value any) error {
 		if fd == nil {
 			continue
 		}
-		if err := setProtoField(msg, fd, fieldValue, obj); err != nil {
+		fieldValue := value.Field(i)
+		if goValueAbsent(fieldValue) {
+			continue
+		}
+		if err := setProtoFieldFromGo(msg, fd, fieldValue, value); err != nil {
 			return fmt.Errorf("%s: %w", name, err)
 		}
 	}
 	return nil
+}
+
+func setProtoFieldFromGo(msg protoreflect.Message, fd protoreflect.FieldDescriptor, value reflect.Value, parent reflect.Value) error {
+	value = indirectGoValue(value)
+	if !value.IsValid() {
+		return nil
+	}
+	if fd.IsMap() {
+		if value.Kind() != reflect.Map {
+			return fmt.Errorf("expected map, got %s", value.Kind())
+		}
+		m := msg.Mutable(fd).Map()
+		iter := value.MapRange()
+		for iter.Next() {
+			mapKey, err := protoMapKeyFromGo(fd.MapKey(), iter.Key())
+			if err != nil {
+				return err
+			}
+			mapValue, err := protoFieldValueFromGo(fd.MapValue(), iter.Value(), reflect.Value{})
+			if err != nil {
+				return fmt.Errorf("%v: %w", iter.Key().Interface(), err)
+			}
+			m.Set(mapKey, mapValue)
+		}
+		return nil
+	}
+	if fd.IsList() {
+		if value.Kind() != reflect.Slice && value.Kind() != reflect.Array {
+			return fmt.Errorf("expected list, got %s", value.Kind())
+		}
+		list := msg.Mutable(fd).List()
+		for i := 0; i < value.Len(); i++ {
+			item, err := protoFieldValueFromGo(fd, value.Index(i), reflect.Value{})
+			if err != nil {
+				return fmt.Errorf("[%d]: %w", i, err)
+			}
+			list.Append(item)
+		}
+		return nil
+	}
+	fieldValue, err := protoFieldValueFromGo(fd, value, parent)
+	if err != nil {
+		return err
+	}
+	msg.Set(fd, fieldValue)
+	return nil
+}
+
+func setOneofWrapperFromGo(msg protoreflect.Message, value reflect.Value, parent reflect.Value) error {
+	if field := discriminatorOneofFieldFromGo(msg.Descriptor(), value, parent); field != nil {
+		return setProtoFieldFromGo(msg, field, value, reflect.Value{})
+	}
+	fields := msg.Descriptor().Fields()
+	for i := 0; i < fields.Len(); i++ {
+		fd := fields.Get(i)
+		if fd.Message() != nil && goValueLooksLikeProtoMessage(value, fd.Message()) {
+			return setProtoFieldFromGo(msg, fd, value, reflect.Value{})
+		}
+	}
+	return fmt.Errorf("no oneof payload candidate for %s", msg.Descriptor().FullName())
+}
+
+func discriminatorOneofFieldFromGo(desc protoreflect.MessageDescriptor, value reflect.Value, parent reflect.Value) protoreflect.FieldDescriptor {
+	var discriminator string
+	switch desc.Name() {
+	case "CredentialBody":
+		discriminator = goStringField(parent, "provider")
+	case "ModelProviderData", "VoiceProviderData":
+		provider := goFieldByJSONName(parent, "provider")
+		discriminator = goStringField(provider, "kind")
+	case "WorkspaceParameters":
+		discriminator = goStringField(value, "agent_type")
+		if discriminator == "" {
+			discriminator = goStringField(parent, "agent_type")
+		}
+	}
+	if discriminator == "" {
+		return nil
+	}
+	fieldName := oneofDiscriminatorFieldName(desc.Name(), discriminator)
+	if fieldName == "" {
+		return nil
+	}
+	return desc.Fields().ByName(protoreflect.Name(fieldName))
+}
+
+func protoFieldValueFromGo(fd protoreflect.FieldDescriptor, value reflect.Value, parent reflect.Value) (protoreflect.Value, error) {
+	value = indirectGoValue(value)
+	if !value.IsValid() {
+		return protoreflect.Value{}, nil
+	}
+	if value.Type() == timeType && fd.Kind() == protoreflect.StringKind {
+		return protoreflect.ValueOfString(value.Interface().(time.Time).Format(time.RFC3339Nano)), nil
+	}
+	switch fd.Kind() {
+	case protoreflect.BoolKind:
+		if value.Kind() != reflect.Bool {
+			return protoreflect.Value{}, fmt.Errorf("expected bool, got %s", value.Kind())
+		}
+		return protoreflect.ValueOfBool(value.Bool()), nil
+	case protoreflect.EnumKind:
+		number, err := protoEnumNumberFromGo(fd.Enum(), value)
+		return protoreflect.ValueOfEnum(number), err
+	case protoreflect.Int32Kind, protoreflect.Sint32Kind, protoreflect.Sfixed32Kind:
+		n, err := goInt(value, 32)
+		return protoreflect.ValueOfInt32(int32(n)), err
+	case protoreflect.Int64Kind, protoreflect.Sint64Kind, protoreflect.Sfixed64Kind:
+		n, err := goInt(value, 64)
+		return protoreflect.ValueOfInt64(n), err
+	case protoreflect.Uint32Kind, protoreflect.Fixed32Kind:
+		n, err := goUint(value, 32)
+		return protoreflect.ValueOfUint32(uint32(n)), err
+	case protoreflect.Uint64Kind, protoreflect.Fixed64Kind:
+		n, err := goUint(value, 64)
+		return protoreflect.ValueOfUint64(n), err
+	case protoreflect.FloatKind:
+		n, err := goFloat(value, 32)
+		return protoreflect.ValueOfFloat32(float32(n)), err
+	case protoreflect.DoubleKind:
+		n, err := goFloat(value, 64)
+		return protoreflect.ValueOfFloat64(n), err
+	case protoreflect.StringKind:
+		if value.Kind() != reflect.String {
+			return protoreflect.Value{}, fmt.Errorf("expected string, got %s", value.Kind())
+		}
+		return protoreflect.ValueOfString(value.String()), nil
+	case protoreflect.BytesKind:
+		if value.Kind() == reflect.Slice && value.Type().Elem().Kind() == reflect.Uint8 {
+			return protoreflect.ValueOfBytes(value.Bytes()), nil
+		}
+		if value.Kind() == reflect.String {
+			data, err := base64.StdEncoding.DecodeString(value.String())
+			if err != nil {
+				return protoreflect.Value{}, err
+			}
+			return protoreflect.ValueOfBytes(data), nil
+		}
+		return protoreflect.Value{}, fmt.Errorf("expected bytes, got %s", value.Kind())
+	case protoreflect.MessageKind, protoreflect.GroupKind:
+		if fd.Message().FullName() == "google.protobuf.Struct" {
+			st, err := structFromGoValue(value)
+			if err != nil {
+				return protoreflect.Value{}, err
+			}
+			return protoreflect.ValueOfMessage(st.ProtoReflect()), nil
+		}
+		child := dynamicpb.NewMessage(fd.Message())
+		if err := fillProtoMessageFromGo(child, value, parent); err != nil {
+			return protoreflect.Value{}, err
+		}
+		return protoreflect.ValueOfMessage(child), nil
+	default:
+		return protoreflect.Value{}, fmt.Errorf("unsupported protobuf kind %s", fd.Kind())
+	}
+}
+
+func fillGoValueFromProto(target reflect.Value, msg protoreflect.Message, opts decodeRPCPayloadOptions) error {
+	if target.Kind() != reflect.Pointer || target.IsNil() {
+		return fmt.Errorf("target must be a non-nil pointer")
+	}
+	target = indirectGoValue(target)
+	desc := msg.Descriptor()
+	if fd := singleValueField(desc); fd != nil && !goStructHasJSONField(target, "value") {
+		return setGoValueFromProto(target, fd, msg.Get(fd), opts)
+	}
+	if isOneofValueWrapper(desc) {
+		return setGoUnionFromProto(target, msg, opts)
+	}
+	if target.Kind() == reflect.Map {
+		target.Set(reflect.MakeMap(target.Type()))
+		fields := desc.Fields()
+		for i := 0; i < fields.Len(); i++ {
+			fd := fields.Get(i)
+			if !protoFieldPresent(msg, fd, opts) {
+				continue
+			}
+			item, err := protoFieldGoInterface(fd, msg.Get(fd), opts)
+			if err != nil {
+				return fmt.Errorf("%s: %w", protoJSONFieldName(fd), err)
+			}
+			target.SetMapIndex(reflect.ValueOf(protoJSONFieldName(fd)), reflect.ValueOf(item))
+		}
+		return nil
+	}
+	if target.Kind() != reflect.Struct {
+		return fmt.Errorf("expected struct target for %s, got %s", desc.FullName(), target.Kind())
+	}
+	fields := desc.Fields()
+	for i := 0; i < fields.Len(); i++ {
+		fd := fields.Get(i)
+		if !protoFieldPresent(msg, fd, opts) {
+			continue
+		}
+		targetField := goFieldByJSONName(target, protoJSONFieldName(fd))
+		if !targetField.IsValid() || !targetField.CanSet() {
+			continue
+		}
+		if err := setGoValueFromProto(targetField, fd, msg.Get(fd), opts); err != nil {
+			return fmt.Errorf("%s: %w", protoJSONFieldName(fd), err)
+		}
+	}
+	return nil
+}
+
+func setGoValueFromProto(target reflect.Value, fd protoreflect.FieldDescriptor, value protoreflect.Value, opts decodeRPCPayloadOptions) error {
+	if target.Kind() == reflect.Pointer {
+		if target.IsNil() {
+			target.Set(reflect.New(target.Type().Elem()))
+		}
+		return setGoValueFromProto(target.Elem(), fd, value, opts)
+	}
+	if fd.IsList() {
+		if target.Kind() != reflect.Slice {
+			return fmt.Errorf("expected slice target, got %s", target.Kind())
+		}
+		list := value.List()
+		out := reflect.MakeSlice(target.Type(), 0, list.Len())
+		for i := 0; i < list.Len(); i++ {
+			elem := reflect.New(target.Type().Elem()).Elem()
+			if err := setGoSingularValueFromProto(elem, fd, list.Get(i), opts); err != nil {
+				return fmt.Errorf("[%d]: %w", i, err)
+			}
+			out = reflect.Append(out, elem)
+		}
+		target.Set(out)
+		return nil
+	}
+	if fd.IsMap() {
+		if target.Kind() != reflect.Map {
+			return fmt.Errorf("expected map target, got %s", target.Kind())
+		}
+		out := reflect.MakeMapWithSize(target.Type(), value.Map().Len())
+		var err error
+		value.Map().Range(func(k protoreflect.MapKey, v protoreflect.Value) bool {
+			key := reflect.New(target.Type().Key()).Elem()
+			if err = setGoMapKeyFromProto(key, fd.MapKey(), k); err != nil {
+				return false
+			}
+			elem := reflect.New(target.Type().Elem()).Elem()
+			if err = setGoSingularValueFromProto(elem, fd.MapValue(), v, opts); err != nil {
+				return false
+			}
+			out.SetMapIndex(key, elem)
+			return true
+		})
+		if err != nil {
+			return err
+		}
+		target.Set(out)
+		return nil
+	}
+	return setGoSingularValueFromProto(target, fd, value, opts)
+}
+
+func setGoSingularValueFromProto(target reflect.Value, fd protoreflect.FieldDescriptor, value protoreflect.Value, opts decodeRPCPayloadOptions) error {
+	if target.Kind() == reflect.Interface {
+		item, err := protoFieldGoValueFromProto(fd, value, opts)
+		if err != nil {
+			return err
+		}
+		target.Set(reflect.ValueOf(item))
+		return nil
+	}
+	if target.Type() == timeType && fd.Kind() == protoreflect.StringKind {
+		if value.String() == "" {
+			target.Set(reflect.Zero(target.Type()))
+			return nil
+		}
+		parsed, err := time.Parse(time.RFC3339Nano, value.String())
+		if err != nil {
+			return err
+		}
+		target.Set(reflect.ValueOf(parsed))
+		return nil
+	}
+	switch fd.Kind() {
+	case protoreflect.BoolKind:
+		target.SetBool(value.Bool())
+	case protoreflect.EnumKind:
+		enumValue := ""
+		if ev := fd.Enum().Values().ByNumber(value.Enum()); ev != nil && ev.Number() != 0 {
+			enumValue = enumValueJSONString(fd.Enum(), ev)
+		}
+		target.SetString(enumValue)
+	case protoreflect.Int32Kind, protoreflect.Sint32Kind, protoreflect.Sfixed32Kind,
+		protoreflect.Int64Kind, protoreflect.Sint64Kind, protoreflect.Sfixed64Kind:
+		target.SetInt(value.Int())
+	case protoreflect.Uint32Kind, protoreflect.Fixed32Kind, protoreflect.Uint64Kind, protoreflect.Fixed64Kind:
+		target.SetUint(value.Uint())
+	case protoreflect.FloatKind, protoreflect.DoubleKind:
+		target.SetFloat(value.Float())
+	case protoreflect.StringKind:
+		target.SetString(value.String())
+	case protoreflect.BytesKind:
+		if target.Kind() == reflect.Slice && target.Type().Elem().Kind() == reflect.Uint8 {
+			target.SetBytes(append([]byte(nil), value.Bytes()...))
+		} else if target.Kind() == reflect.String {
+			target.SetString(base64.StdEncoding.EncodeToString(value.Bytes()))
+		} else {
+			return fmt.Errorf("expected bytes target, got %s", target.Kind())
+		}
+	case protoreflect.MessageKind, protoreflect.GroupKind:
+		if fd.Message().FullName() == "google.protobuf.Struct" {
+			return setGoStructValue(target, value.Message())
+		}
+		return fillGoValueFromProto(target.Addr(), value.Message(), opts)
+	default:
+		return fmt.Errorf("unsupported protobuf kind %s", fd.Kind())
+	}
+	return nil
+}
+
+func protoFieldGoInterface(fd protoreflect.FieldDescriptor, value protoreflect.Value, opts decodeRPCPayloadOptions) (any, error) {
+	return protoFieldGoValueFromProto(fd, value, opts)
+}
+
+func protoFieldGoValueFromProto(fd protoreflect.FieldDescriptor, value protoreflect.Value, opts decodeRPCPayloadOptions) (any, error) {
+	if fd.IsMap() {
+		out := make(map[string]any)
+		var err error
+		value.Map().Range(func(k protoreflect.MapKey, v protoreflect.Value) bool {
+			var item any
+			item, err = protoScalarGoValue(fd.MapValue(), v, opts)
+			if err != nil {
+				return false
+			}
+			out[fmt.Sprint(k.Interface())] = item
+			return true
+		})
+		return out, err
+	}
+	if fd.IsList() {
+		list := value.List()
+		out := make([]any, 0, list.Len())
+		for i := 0; i < list.Len(); i++ {
+			item, err := protoScalarGoValue(fd, list.Get(i), opts)
+			if err != nil {
+				return nil, err
+			}
+			out = append(out, item)
+		}
+		return out, nil
+	}
+	return protoScalarGoValue(fd, value, opts)
+}
+
+func setGoUnionFromProto(target reflect.Value, msg protoreflect.Message, opts decodeRPCPayloadOptions) error {
+	target = indirectGoValue(target)
+	fields := msg.Descriptor().Fields()
+	for i := 0; i < fields.Len(); i++ {
+		fd := fields.Get(i)
+		if !msg.Has(fd) {
+			continue
+		}
+		valueField := target.FieldByName("Value")
+		if valueField.IsValid() && valueField.CanSet() && valueField.Kind() == reflect.Interface {
+			item, err := goUnionValueFromProto(fd, msg.Get(fd), opts)
+			if err != nil {
+				return err
+			}
+			valueField.Set(reflect.ValueOf(item))
+			return nil
+		}
+		targetField := goFieldByProtoMessageName(target, fd.Message().Name())
+		if !targetField.IsValid() || !targetField.CanSet() {
+			return fmt.Errorf("no Go union target for %s", fd.Message().FullName())
+		}
+		return setGoValueFromProto(targetField, fd, msg.Get(fd), opts)
+	}
+	return nil
+}
+
+func goUnionValueFromProto(fd protoreflect.FieldDescriptor, value protoreflect.Value, opts decodeRPCPayloadOptions) (any, error) {
+	valueType, ok := rpcPayloadUnionValueTypes[fd.Message().Name()]
+	if !ok {
+		return nil, fmt.Errorf("no Go union value type for %s", fd.Message().FullName())
+	}
+	target := reflect.New(valueType).Elem()
+	if err := setGoValueFromProto(target, fd, value, opts); err != nil {
+		return nil, err
+	}
+	return target.Interface(), nil
+}
+
+func indirectGoValue(value reflect.Value) reflect.Value {
+	for value.IsValid() && (value.Kind() == reflect.Pointer || value.Kind() == reflect.Interface) {
+		if value.IsNil() {
+			return reflect.Value{}
+		}
+		value = value.Elem()
+	}
+	return value
+}
+
+func setGoMapKeyFromProto(target reflect.Value, fd protoreflect.FieldDescriptor, value protoreflect.MapKey) error {
+	switch fd.Kind() {
+	case protoreflect.StringKind:
+		target.SetString(value.String())
+	case protoreflect.Int32Kind, protoreflect.Sint32Kind, protoreflect.Sfixed32Kind,
+		protoreflect.Int64Kind, protoreflect.Sint64Kind, protoreflect.Sfixed64Kind:
+		target.SetInt(value.Int())
+	case protoreflect.Uint32Kind, protoreflect.Fixed32Kind, protoreflect.Uint64Kind, protoreflect.Fixed64Kind:
+		target.SetUint(value.Uint())
+	case protoreflect.BoolKind:
+		target.SetBool(value.Bool())
+	default:
+		return fmt.Errorf("unsupported map key kind %s", fd.Kind())
+	}
+	return nil
+}
+
+func goValueAbsent(value reflect.Value) bool {
+	if !value.IsValid() {
+		return true
+	}
+	if goUnionEmpty(value) {
+		return true
+	}
+	switch value.Kind() {
+	case reflect.Pointer, reflect.Interface, reflect.Map, reflect.Slice:
+		return value.IsNil()
+	default:
+		return false
+	}
+}
+
+func goUnionStoredValue(value reflect.Value) reflect.Value {
+	value = indirectGoValue(value)
+	if !value.IsValid() || value.Kind() != reflect.Struct {
+		return reflect.Value{}
+	}
+	field := value.FieldByName("Value")
+	if !field.IsValid() || field.Kind() != reflect.Interface || field.IsNil() {
+		return reflect.Value{}
+	}
+	return field.Elem()
+}
+
+func goUnionEmpty(value reflect.Value) bool {
+	value = indirectGoValue(value)
+	if !value.IsValid() || value.Kind() != reflect.Struct {
+		return false
+	}
+	field := value.FieldByName("Value")
+	return field.IsValid() && field.Kind() == reflect.Interface && field.IsNil()
+}
+
+func goJSONFieldName(field reflect.StructField) (string, bool) {
+	tag := field.Tag.Get("json")
+	if tag == "-" {
+		return "", false
+	}
+	if idx := strings.IndexByte(tag, ','); idx >= 0 {
+		tag = tag[:idx]
+	}
+	if tag == "" {
+		tag = field.Name
+	}
+	return tag, true
+}
+
+func goStructHasJSONField(value reflect.Value, name string) bool {
+	value = indirectGoValue(value)
+	if !value.IsValid() || value.Kind() != reflect.Struct {
+		return false
+	}
+	valueType := value.Type()
+	for i := 0; i < valueType.NumField(); i++ {
+		fieldName, ok := goJSONFieldName(valueType.Field(i))
+		if ok && fieldName == name {
+			return true
+		}
+	}
+	return false
+}
+
+func goFieldByJSONName(value reflect.Value, name string) reflect.Value {
+	value = indirectGoValue(value)
+	if !value.IsValid() || value.Kind() != reflect.Struct {
+		return reflect.Value{}
+	}
+	valueType := value.Type()
+	for i := 0; i < value.NumField(); i++ {
+		sf := valueType.Field(i)
+		if sf.PkgPath != "" {
+			continue
+		}
+		fieldName, ok := goJSONFieldName(sf)
+		if ok && fieldName == name {
+			return value.Field(i)
+		}
+	}
+	return reflect.Value{}
+}
+
+func goFieldByProtoMessageName(value reflect.Value, name protoreflect.Name) reflect.Value {
+	value = indirectGoValue(value)
+	if !value.IsValid() || value.Kind() != reflect.Struct {
+		return reflect.Value{}
+	}
+	want := strings.ToLower(strings.ReplaceAll(string(name), "_", ""))
+	valueType := value.Type()
+	for i := 0; i < value.NumField(); i++ {
+		sf := valueType.Field(i)
+		if sf.PkgPath != "" {
+			continue
+		}
+		if strings.ToLower(sf.Name) == want {
+			return value.Field(i)
+		}
+	}
+	return reflect.Value{}
+}
+
+func goStringField(value reflect.Value, name string) string {
+	field := goFieldByJSONName(value, name)
+	field = indirectGoValue(field)
+	if field.IsValid() && field.Kind() == reflect.String {
+		return field.String()
+	}
+	return ""
+}
+
+func goValueLooksLikeProtoMessage(value reflect.Value, desc protoreflect.MessageDescriptor) bool {
+	value = indirectGoValue(value)
+	if !value.IsValid() || value.Kind() != reflect.Struct {
+		return false
+	}
+	valueName := strings.ToLower(value.Type().Name())
+	descName := strings.ToLower(strings.ReplaceAll(string(desc.Name()), "_", ""))
+	return valueName == descName
+}
+
+func protoMapKeyFromGo(fd protoreflect.FieldDescriptor, value reflect.Value) (protoreflect.MapKey, error) {
+	value = indirectGoValue(value)
+	switch fd.Kind() {
+	case protoreflect.StringKind:
+		if value.Kind() != reflect.String {
+			return protoreflect.MapKey{}, fmt.Errorf("expected string map key, got %s", value.Kind())
+		}
+		return protoreflect.ValueOfString(value.String()).MapKey(), nil
+	case protoreflect.Int32Kind, protoreflect.Sint32Kind, protoreflect.Sfixed32Kind:
+		n, err := goInt(value, 32)
+		return protoreflect.ValueOfInt32(int32(n)).MapKey(), err
+	case protoreflect.Int64Kind, protoreflect.Sint64Kind, protoreflect.Sfixed64Kind:
+		n, err := goInt(value, 64)
+		return protoreflect.ValueOfInt64(n).MapKey(), err
+	case protoreflect.Uint32Kind, protoreflect.Fixed32Kind:
+		n, err := goUint(value, 32)
+		return protoreflect.ValueOfUint32(uint32(n)).MapKey(), err
+	case protoreflect.Uint64Kind, protoreflect.Fixed64Kind:
+		n, err := goUint(value, 64)
+		return protoreflect.ValueOfUint64(n).MapKey(), err
+	case protoreflect.BoolKind:
+		if value.Kind() != reflect.Bool {
+			return protoreflect.MapKey{}, fmt.Errorf("expected bool map key, got %s", value.Kind())
+		}
+		return protoreflect.ValueOfBool(value.Bool()).MapKey(), nil
+	default:
+		return protoreflect.MapKey{}, fmt.Errorf("unsupported map key kind %s", fd.Kind())
+	}
+}
+
+func protoEnumNumberFromGo(desc protoreflect.EnumDescriptor, value reflect.Value) (protoreflect.EnumNumber, error) {
+	value = indirectGoValue(value)
+	switch value.Kind() {
+	case reflect.String:
+		return protoEnumNumber(desc, value.String())
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		return protoreflect.EnumNumber(value.Int()), nil
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		return protoreflect.EnumNumber(value.Uint()), nil
+	default:
+		return 0, fmt.Errorf("expected enum string or number, got %s", value.Kind())
+	}
+}
+
+func goInt(value reflect.Value, bitSize int) (int64, error) {
+	value = indirectGoValue(value)
+	switch value.Kind() {
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		n := value.Int()
+		if strconv.IntSize >= bitSize || bitSize == 64 {
+			return n, nil
+		}
+		if n < -(1<<(bitSize-1)) || n >= 1<<(bitSize-1) {
+			return 0, fmt.Errorf("integer overflows %d bits", bitSize)
+		}
+		return n, nil
+	case reflect.String:
+		return strconv.ParseInt(value.String(), 10, bitSize)
+	default:
+		return 0, fmt.Errorf("expected integer, got %s", value.Kind())
+	}
+}
+
+func goUint(value reflect.Value, bitSize int) (uint64, error) {
+	value = indirectGoValue(value)
+	switch value.Kind() {
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		n := value.Uint()
+		if bitSize < 64 && n >= 1<<bitSize {
+			return 0, fmt.Errorf("unsigned integer overflows %d bits", bitSize)
+		}
+		return n, nil
+	case reflect.String:
+		return strconv.ParseUint(value.String(), 10, bitSize)
+	default:
+		return 0, fmt.Errorf("expected unsigned integer, got %s", value.Kind())
+	}
+}
+
+func goFloat(value reflect.Value, bitSize int) (float64, error) {
+	value = indirectGoValue(value)
+	switch value.Kind() {
+	case reflect.Float32, reflect.Float64:
+		return value.Float(), nil
+	case reflect.String:
+		return strconv.ParseFloat(value.String(), bitSize)
+	default:
+		return 0, fmt.Errorf("expected number, got %s", value.Kind())
+	}
+}
+
+func structFromGoValue(value reflect.Value) (*structpb.Struct, error) {
+	value = indirectGoValue(value)
+	if !value.IsValid() {
+		return structpb.NewStruct(map[string]any{})
+	}
+	if value.Type() == reflect.TypeOf(structpb.Struct{}) {
+		st := value.Interface().(structpb.Struct)
+		return &st, nil
+	}
+	if value.Kind() == reflect.Map {
+		out := make(map[string]any, value.Len())
+		iter := value.MapRange()
+		for iter.Next() {
+			key := iter.Key()
+			if key.Kind() != reflect.String {
+				return nil, fmt.Errorf("google.protobuf.Struct map key must be string, got %s", key.Kind())
+			}
+			item, err := goValueInterface(iter.Value())
+			if err != nil {
+				return nil, err
+			}
+			out[key.String()] = item
+		}
+		return structpb.NewStruct(out)
+	}
+	item, err := goValueInterface(value)
+	if err != nil {
+		return nil, err
+	}
+	obj, ok := item.(map[string]any)
+	if !ok {
+		return nil, fmt.Errorf("expected object for google.protobuf.Struct, got %T", item)
+	}
+	return structpb.NewStruct(obj)
+}
+
+func goValueInterface(value reflect.Value) (any, error) {
+	value = indirectGoValue(value)
+	if !value.IsValid() {
+		return nil, nil
+	}
+	switch value.Kind() {
+	case reflect.Bool:
+		return value.Bool(), nil
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		return value.Int(), nil
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		return value.Uint(), nil
+	case reflect.Float32, reflect.Float64:
+		return value.Float(), nil
+	case reflect.String:
+		return value.String(), nil
+	case reflect.Slice, reflect.Array:
+		out := make([]any, value.Len())
+		for i := 0; i < value.Len(); i++ {
+			item, err := goValueInterface(value.Index(i))
+			if err != nil {
+				return nil, err
+			}
+			out[i] = item
+		}
+		return out, nil
+	case reflect.Map:
+		out := make(map[string]any, value.Len())
+		iter := value.MapRange()
+		for iter.Next() {
+			if iter.Key().Kind() != reflect.String {
+				return nil, fmt.Errorf("map key must be string, got %s", iter.Key().Kind())
+			}
+			item, err := goValueInterface(iter.Value())
+			if err != nil {
+				return nil, err
+			}
+			out[iter.Key().String()] = item
+		}
+		return out, nil
+	case reflect.Struct:
+		out := make(map[string]any)
+		valueType := value.Type()
+		for i := 0; i < value.NumField(); i++ {
+			sf := valueType.Field(i)
+			if sf.PkgPath != "" {
+				continue
+			}
+			name, ok := goJSONFieldName(sf)
+			if !ok || goValueAbsent(value.Field(i)) {
+				continue
+			}
+			item, err := goValueInterface(value.Field(i))
+			if err != nil {
+				return nil, err
+			}
+			out[name] = item
+		}
+		return out, nil
+	default:
+		return nil, fmt.Errorf("unsupported struct value kind %s", value.Kind())
+	}
+}
+
+func setGoStructValue(target reflect.Value, msg protoreflect.Message) error {
+	if target.Kind() == reflect.Map {
+		values := msg.Interface().(*structpb.Struct).AsMap()
+		target.Set(reflect.MakeMapWithSize(target.Type(), len(values)))
+		for key, item := range values {
+			target.SetMapIndex(reflect.ValueOf(key), reflect.ValueOf(item))
+		}
+		return nil
+	}
+	st, ok := msg.Interface().(*structpb.Struct)
+	if !ok {
+		data, err := proto.Marshal(msg.Interface())
+		if err != nil {
+			return err
+		}
+		var decoded structpb.Struct
+		if err := proto.Unmarshal(data, &decoded); err != nil {
+			return err
+		}
+		st = &decoded
+	}
+	if target.Type() == reflect.TypeOf(structpb.Struct{}) {
+		target.Set(reflect.ValueOf(*st))
+		return nil
+	}
+	return fmt.Errorf("unsupported google.protobuf.Struct target %s", target.Type())
 }
 
 func singleValueField(desc protoreflect.MessageDescriptor) protoreflect.FieldDescriptor {
@@ -258,66 +1019,6 @@ func isOneofValueWrapper(desc protoreflect.MessageDescriptor) bool {
 		}
 	}
 	return desc.Fields().Len() > 0
-}
-
-func setOneofWrapper(msg protoreflect.Message, value any, parent map[string]any) error {
-	obj, _ := value.(map[string]any)
-	if field := discriminatorOneofField(msg.Descriptor(), obj, parent); field != nil {
-		return setProtoField(msg, field, value, nil)
-	}
-	var best protoreflect.FieldDescriptor
-	bestScore := -1
-	fields := msg.Descriptor().Fields()
-	for i := 0; i < fields.Len(); i++ {
-		fd := fields.Get(i)
-		score := 0
-		if obj != nil && fd.Message() != nil {
-			childFields := fd.Message().Fields()
-			for key := range obj {
-				if childFields.ByJSONName(key) != nil || childFields.ByName(protoreflect.Name(key)) != nil {
-					score++
-				}
-			}
-		}
-		if score > bestScore {
-			best = fd
-			bestScore = score
-		}
-	}
-	if best == nil {
-		return fmt.Errorf("no oneof payload candidate for %s", msg.Descriptor().FullName())
-	}
-	return setProtoField(msg, best, value, nil)
-}
-
-func discriminatorOneofField(desc protoreflect.MessageDescriptor, value, parent map[string]any) protoreflect.FieldDescriptor {
-	var discriminator string
-	switch desc.Name() {
-	case "CredentialBody":
-		if parent != nil {
-			discriminator, _ = parent["provider"].(string)
-		}
-	case "ModelProviderData", "VoiceProviderData":
-		if parent != nil {
-			provider, _ := parent["provider"].(map[string]any)
-			discriminator, _ = provider["kind"].(string)
-		}
-	case "WorkspaceParameters":
-		if value != nil {
-			discriminator, _ = value["agent_type"].(string)
-		}
-		if discriminator == "" && parent != nil {
-			discriminator, _ = parent["agent_type"].(string)
-		}
-	}
-	if discriminator == "" {
-		return nil
-	}
-	fieldName := oneofDiscriminatorFieldName(desc.Name(), discriminator)
-	if fieldName == "" {
-		return nil
-	}
-	return desc.Fields().ByName(protoreflect.Name(fieldName))
 }
 
 func oneofDiscriminatorFieldName(desc protoreflect.Name, discriminator string) string {
@@ -374,218 +1075,21 @@ func oneofDiscriminatorFieldName(desc protoreflect.Name, discriminator string) s
 	return ""
 }
 
-func setProtoField(msg protoreflect.Message, fd protoreflect.FieldDescriptor, value any, parent map[string]any) error {
-	if fd.IsMap() {
-		obj, ok := value.(map[string]any)
-		if !ok {
-			return fmt.Errorf("expected map, got %T", value)
-		}
-		m := msg.Mutable(fd).Map()
-		for key, item := range obj {
-			mapKey, err := protoMapKey(fd.MapKey(), key)
-			if err != nil {
-				return err
-			}
-			mapValue, err := protoFieldValue(fd.MapValue(), item, nil)
-			if err != nil {
-				return fmt.Errorf("%s: %w", key, err)
-			}
-			m.Set(mapKey, mapValue)
-		}
-		return nil
+func protoEnumNumber(desc protoreflect.EnumDescriptor, value string) (protoreflect.EnumNumber, error) {
+	if value == "" {
+		return 0, nil
 	}
-	if fd.IsList() {
-		items, ok := value.([]any)
-		if !ok {
-			return fmt.Errorf("expected list, got %T", value)
+	want := strings.ToUpper(strings.ReplaceAll(value, "-", "_"))
+	wantCompact := strings.ReplaceAll(want, "_", "")
+	values := desc.Values()
+	for i := 0; i < values.Len(); i++ {
+		ev := values.Get(i)
+		name := enumJSONName(desc, ev)
+		if name == want || strings.ReplaceAll(name, "_", "") == wantCompact || enumValueJSONString(desc, ev) == value {
+			return ev.Number(), nil
 		}
-		list := msg.Mutable(fd).List()
-		for i, item := range items {
-			fieldValue, err := protoFieldValue(fd, item, nil)
-			if err != nil {
-				return fmt.Errorf("[%d]: %w", i, err)
-			}
-			list.Append(fieldValue)
-		}
-		return nil
 	}
-	fieldValue, err := protoFieldValue(fd, value, parent)
-	if err != nil {
-		return err
-	}
-	msg.Set(fd, fieldValue)
-	return nil
-}
-
-func protoMapKey(fd protoreflect.FieldDescriptor, value string) (protoreflect.MapKey, error) {
-	switch fd.Kind() {
-	case protoreflect.StringKind:
-		return protoreflect.ValueOfString(value).MapKey(), nil
-	case protoreflect.Int32Kind, protoreflect.Sint32Kind, protoreflect.Sfixed32Kind:
-		n, err := strconv.ParseInt(value, 10, 32)
-		return protoreflect.ValueOfInt32(int32(n)).MapKey(), err
-	case protoreflect.Int64Kind, protoreflect.Sint64Kind, protoreflect.Sfixed64Kind:
-		n, err := strconv.ParseInt(value, 10, 64)
-		return protoreflect.ValueOfInt64(n).MapKey(), err
-	case protoreflect.Uint32Kind, protoreflect.Fixed32Kind:
-		n, err := strconv.ParseUint(value, 10, 32)
-		return protoreflect.ValueOfUint32(uint32(n)).MapKey(), err
-	case protoreflect.Uint64Kind, protoreflect.Fixed64Kind:
-		n, err := strconv.ParseUint(value, 10, 64)
-		return protoreflect.ValueOfUint64(n).MapKey(), err
-	case protoreflect.BoolKind:
-		b, err := strconv.ParseBool(value)
-		return protoreflect.ValueOfBool(b).MapKey(), err
-	default:
-		return protoreflect.MapKey{}, fmt.Errorf("unsupported map key kind %s", fd.Kind())
-	}
-}
-
-func protoFieldValue(fd protoreflect.FieldDescriptor, value any, parent map[string]any) (protoreflect.Value, error) {
-	switch fd.Kind() {
-	case protoreflect.BoolKind:
-		b, ok := value.(bool)
-		if !ok {
-			return protoreflect.Value{}, fmt.Errorf("expected bool, got %T", value)
-		}
-		return protoreflect.ValueOfBool(b), nil
-	case protoreflect.EnumKind:
-		number, err := protoEnumNumber(fd.Enum(), value)
-		if err != nil {
-			return protoreflect.Value{}, err
-		}
-		return protoreflect.ValueOfEnum(number), nil
-	case protoreflect.Int32Kind, protoreflect.Sint32Kind, protoreflect.Sfixed32Kind:
-		n, err := jsonInt(value, 32)
-		return protoreflect.ValueOfInt32(int32(n)), err
-	case protoreflect.Int64Kind, protoreflect.Sint64Kind, protoreflect.Sfixed64Kind:
-		n, err := jsonInt(value, 64)
-		return protoreflect.ValueOfInt64(n), err
-	case protoreflect.Uint32Kind, protoreflect.Fixed32Kind:
-		n, err := jsonUint(value, 32)
-		return protoreflect.ValueOfUint32(uint32(n)), err
-	case protoreflect.Uint64Kind, protoreflect.Fixed64Kind:
-		n, err := jsonUint(value, 64)
-		return protoreflect.ValueOfUint64(n), err
-	case protoreflect.FloatKind:
-		n, err := jsonFloat(value, 32)
-		return protoreflect.ValueOfFloat32(float32(n)), err
-	case protoreflect.DoubleKind:
-		n, err := jsonFloat(value, 64)
-		return protoreflect.ValueOfFloat64(n), err
-	case protoreflect.StringKind:
-		s, ok := value.(string)
-		if !ok {
-			return protoreflect.Value{}, fmt.Errorf("expected string, got %T", value)
-		}
-		return protoreflect.ValueOfString(s), nil
-	case protoreflect.BytesKind:
-		s, ok := value.(string)
-		if !ok {
-			return protoreflect.Value{}, fmt.Errorf("expected base64 string, got %T", value)
-		}
-		data, err := base64.StdEncoding.DecodeString(s)
-		if err != nil {
-			return protoreflect.Value{}, err
-		}
-		return protoreflect.ValueOfBytes(data), nil
-	case protoreflect.MessageKind, protoreflect.GroupKind:
-		if fd.Message().FullName() == "google.protobuf.Struct" {
-			obj, ok := value.(map[string]any)
-			if !ok {
-				return protoreflect.Value{}, fmt.Errorf("expected object for google.protobuf.Struct, got %T", value)
-			}
-			normalized, err := normalizeStructMap(obj)
-			if err != nil {
-				return protoreflect.Value{}, err
-			}
-			st, err := structpb.NewStruct(normalized)
-			if err != nil {
-				return protoreflect.Value{}, err
-			}
-			return protoreflect.ValueOfMessage(st.ProtoReflect()), nil
-		}
-		child := dynamicpb.NewMessage(fd.Message())
-		if isOneofValueWrapper(child.Descriptor()) {
-			if err := setOneofWrapper(child, value, parent); err != nil {
-				return protoreflect.Value{}, err
-			}
-			return protoreflect.ValueOfMessage(child), nil
-		}
-		if err := fillProtoMessage(child, value); err != nil {
-			return protoreflect.Value{}, err
-		}
-		return protoreflect.ValueOfMessage(child), nil
-	default:
-		return protoreflect.Value{}, fmt.Errorf("unsupported protobuf kind %s", fd.Kind())
-	}
-}
-
-func normalizeStructMap(obj map[string]any) (map[string]any, error) {
-	out := make(map[string]any, len(obj))
-	for key, value := range obj {
-		normalized, err := normalizeStructValue(value)
-		if err != nil {
-			return nil, fmt.Errorf("%s: %w", key, err)
-		}
-		out[key] = normalized
-	}
-	return out, nil
-}
-
-func normalizeStructValue(value any) (any, error) {
-	switch v := value.(type) {
-	case json.Number:
-		n, err := strconv.ParseFloat(v.String(), 64)
-		if err != nil {
-			return nil, err
-		}
-		return n, nil
-	case map[string]any:
-		return normalizeStructMap(v)
-	case []any:
-		out := make([]any, len(v))
-		for i, item := range v {
-			normalized, err := normalizeStructValue(item)
-			if err != nil {
-				return nil, fmt.Errorf("[%d]: %w", i, err)
-			}
-			out[i] = normalized
-		}
-		return out, nil
-	default:
-		return value, nil
-	}
-}
-
-func protoEnumNumber(desc protoreflect.EnumDescriptor, value any) (protoreflect.EnumNumber, error) {
-	switch v := value.(type) {
-	case string:
-		if v == "" {
-			return 0, nil
-		}
-		want := strings.ToUpper(strings.ReplaceAll(v, "-", "_"))
-		wantCompact := strings.ReplaceAll(want, "_", "")
-		values := desc.Values()
-		for i := 0; i < values.Len(); i++ {
-			ev := values.Get(i)
-			name := enumJSONName(desc, ev)
-			if name == want || strings.ReplaceAll(name, "_", "") == wantCompact {
-				return ev.Number(), nil
-			}
-		}
-		return 0, fmt.Errorf("unknown enum value %q for %s", v, desc.FullName())
-	case json.Number:
-		n, err := v.Int64()
-		return protoreflect.EnumNumber(n), err
-	case float64:
-		if math.Trunc(v) != v {
-			return 0, fmt.Errorf("expected integer enum number, got %v", v)
-		}
-		return protoreflect.EnumNumber(v), nil
-	default:
-		return 0, fmt.Errorf("expected enum string or number, got %T", value)
-	}
+	return 0, fmt.Errorf("unknown enum value %q for %s", value, desc.FullName())
 }
 
 func enumJSONName(desc protoreflect.EnumDescriptor, value protoreflect.EnumValueDescriptor) string {
@@ -615,62 +1119,17 @@ func enumValuePrefix(desc protoreflect.EnumDescriptor) string {
 	return ""
 }
 
-func jsonInt(value any, bitSize int) (int64, error) {
-	switch v := value.(type) {
-	case json.Number:
-		return v.Int64()
-	case float64:
-		if math.Trunc(v) != v {
-			return 0, fmt.Errorf("expected integer, got %v", v)
-		}
-		return int64(v), nil
-	case string:
-		return strconv.ParseInt(v, 10, bitSize)
-	default:
-		return 0, fmt.Errorf("expected integer, got %T", value)
-	}
-}
-
-func jsonUint(value any, bitSize int) (uint64, error) {
-	switch v := value.(type) {
-	case json.Number:
-		return strconv.ParseUint(v.String(), 10, bitSize)
-	case float64:
-		if math.Trunc(v) != v {
-			return 0, fmt.Errorf("expected unsigned integer, got %v", v)
-		}
-		return uint64(v), nil
-	case string:
-		return strconv.ParseUint(v, 10, bitSize)
-	default:
-		return 0, fmt.Errorf("expected unsigned integer, got %T", value)
-	}
-}
-
-func jsonFloat(value any, bitSize int) (float64, error) {
-	switch v := value.(type) {
-	case json.Number:
-		return strconv.ParseFloat(v.String(), bitSize)
-	case float64:
-		return v, nil
-	case string:
-		return strconv.ParseFloat(v, bitSize)
-	default:
-		return 0, fmt.Errorf("expected number, got %T", value)
-	}
-}
-
-func protoMessageJSONValue(msg protoreflect.Message, opts decodeRPCPayloadOptions) (any, error) {
+func protoMessageGoValue(msg protoreflect.Message, opts decodeRPCPayloadOptions) (any, error) {
 	desc := msg.Descriptor()
 	if fd := singleValueField(desc); fd != nil {
-		return protoFieldJSONValue(msg, fd, opts)
+		return protoFieldGoValue(msg, fd, opts)
 	}
 	if isOneofValueWrapper(desc) {
 		fields := desc.Fields()
 		for i := 0; i < fields.Len(); i++ {
 			fd := fields.Get(i)
 			if msg.Has(fd) {
-				return protoFieldJSONValue(msg, fd, opts)
+				return protoFieldGoValue(msg, fd, opts)
 			}
 		}
 		return map[string]any{}, nil
@@ -682,7 +1141,7 @@ func protoMessageJSONValue(msg protoreflect.Message, opts decodeRPCPayloadOption
 		if !protoFieldPresent(msg, fd, opts) {
 			continue
 		}
-		value, err := protoFieldJSONValue(msg, fd, opts)
+		value, err := protoFieldGoValue(msg, fd, opts)
 		if err != nil {
 			return nil, fmt.Errorf("%s: %w", fd.JSONName(), err)
 		}
@@ -721,14 +1180,14 @@ func protoOptionalRepeatedField(fd protoreflect.FieldDescriptor) bool {
 	}
 }
 
-func protoFieldJSONValue(msg protoreflect.Message, fd protoreflect.FieldDescriptor, opts decodeRPCPayloadOptions) (any, error) {
+func protoFieldGoValue(msg protoreflect.Message, fd protoreflect.FieldDescriptor, opts decodeRPCPayloadOptions) (any, error) {
 	value := msg.Get(fd)
 	if fd.IsMap() {
 		out := make(map[string]any)
 		var err error
 		value.Map().Range(func(k protoreflect.MapKey, v protoreflect.Value) bool {
 			var item any
-			item, err = protoScalarJSONValue(fd.MapValue(), v, opts)
+			item, err = protoScalarGoValue(fd.MapValue(), v, opts)
 			if err != nil {
 				return false
 			}
@@ -741,7 +1200,7 @@ func protoFieldJSONValue(msg protoreflect.Message, fd protoreflect.FieldDescript
 		list := value.List()
 		out := make([]any, 0, list.Len())
 		for i := 0; i < list.Len(); i++ {
-			item, err := protoScalarJSONValue(fd, list.Get(i), opts)
+			item, err := protoScalarGoValue(fd, list.Get(i), opts)
 			if err != nil {
 				return nil, err
 			}
@@ -749,10 +1208,10 @@ func protoFieldJSONValue(msg protoreflect.Message, fd protoreflect.FieldDescript
 		}
 		return out, nil
 	}
-	return protoScalarJSONValue(fd, value, opts)
+	return protoScalarGoValue(fd, value, opts)
 }
 
-func protoScalarJSONValue(fd protoreflect.FieldDescriptor, value protoreflect.Value, opts decodeRPCPayloadOptions) (any, error) {
+func protoScalarGoValue(fd protoreflect.FieldDescriptor, value protoreflect.Value, opts decodeRPCPayloadOptions) (any, error) {
 	switch fd.Kind() {
 	case protoreflect.BoolKind:
 		return value.Bool(), nil
@@ -788,7 +1247,7 @@ func protoScalarJSONValue(fd protoreflect.FieldDescriptor, value protoreflect.Va
 			}
 			return st.AsMap(), nil
 		}
-		return protoMessageJSONValue(value.Message(), opts)
+		return protoMessageGoValue(value.Message(), opts)
 	default:
 		return nil, fmt.Errorf("unsupported protobuf kind %s", fd.Kind())
 	}

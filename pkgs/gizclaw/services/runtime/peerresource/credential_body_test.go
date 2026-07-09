@@ -1,10 +1,6 @@
 package peerresource
 
-import (
-	"encoding/json"
-
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
-)
+import "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 
 func testStringPtr(value string) *string { return &value }
 
@@ -17,13 +13,9 @@ func testRPCOpenAICredentialBody(apiKey string) rpcapi.CredentialBody {
 }
 
 func testRPCCredentialBodyString(body rpcapi.CredentialBody, key string) string {
-	data, err := body.MarshalJSON()
-	if err != nil {
+	openAI, err := body.AsOpenAICredentialBody()
+	if err != nil || key != "api_key" || openAI.ApiKey == nil {
 		return ""
 	}
-	var values map[string]string
-	if err := json.Unmarshal(data, &values); err != nil {
-		return ""
-	}
-	return values[key]
+	return *openAI.ApiKey
 }

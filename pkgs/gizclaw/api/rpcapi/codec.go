@@ -2,7 +2,6 @@ package rpcapi
 
 import (
 	"encoding/binary"
-	"encoding/json"
 	"fmt"
 	"io"
 	"iter"
@@ -20,7 +19,6 @@ type FrameType uint16
 
 const (
 	FrameTypeEOS    FrameType = 0
-	FrameTypeJSON   FrameType = 1
 	FrameTypeBinary FrameType = 2
 	FrameTypeText   FrameType = 3
 )
@@ -28,7 +26,7 @@ const (
 // Valid reports whether the frame type is known by this protocol version.
 func (t FrameType) Valid() bool {
 	switch t {
-	case FrameTypeEOS, FrameTypeJSON, FrameTypeBinary, FrameTypeText:
+	case FrameTypeEOS, FrameTypeBinary, FrameTypeText:
 		return true
 	default:
 		return false
@@ -145,26 +143,6 @@ func WriteFrames(w io.Writer, frames iter.Seq2[Frame, error]) error {
 		if err := WriteFrame(w, frame); err != nil {
 			return err
 		}
-	}
-	return nil
-}
-
-// NewJSONFrame marshals a value into one compact JSON frame.
-func NewJSONFrame(v any) (Frame, error) {
-	data, err := json.Marshal(v)
-	if err != nil {
-		return Frame{}, err
-	}
-	return Frame{Type: FrameTypeJSON, Payload: data}, nil
-}
-
-// DecodeJSONFrame unmarshals one JSON frame into v.
-func DecodeJSONFrame(frame Frame, v any) error {
-	if frame.Type != FrameTypeJSON {
-		return fmt.Errorf("rpc: expected JSON frame, got type %d", frame.Type)
-	}
-	if err := json.Unmarshal(frame.Payload, v); err != nil {
-		return err
 	}
 	return nil
 }

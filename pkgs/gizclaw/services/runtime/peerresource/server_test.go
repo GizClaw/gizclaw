@@ -107,6 +107,7 @@ func TestServerAllowedCRUD(t *testing.T) {
 	}
 
 	credentialCreate := callRPC(t, srv, "credential-create", rpcapi.RPCMethodServerCredentialCreate, rpcParams(t, (*rpcapi.RPCPayload).FromCredentialCreateRequest, rpcCredential("credential-a", "sk-a")))
+	requireNoRPCError(t, credentialCreate)
 	if got := mustResult(t, credentialCreate.Result.AsCredentialCreateResponse).Name; got != "credential-a" {
 		t.Fatalf("credential.create name = %q", got)
 	}
