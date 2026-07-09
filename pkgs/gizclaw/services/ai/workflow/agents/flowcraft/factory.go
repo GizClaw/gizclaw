@@ -814,6 +814,14 @@ func (a *agent) run(ctx context.Context, input genx.Stream, output *genx.StreamB
 	var inputErr error
 	for {
 		if current == nil && inputDone {
+			select {
+			case turn, ok := <-turns:
+				if ok {
+					current = a.startFlowcraftTurn(ctx, output, turn)
+					continue
+				}
+			default:
+			}
 			if inputErr != nil && !isFlowcraftInputDone(inputErr) && !errors.Is(inputErr, context.Canceled) {
 				_ = output.Unexpected(genx.Usage{}, inputErr)
 			} else {
