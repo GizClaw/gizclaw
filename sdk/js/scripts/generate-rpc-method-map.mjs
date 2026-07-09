@@ -32,27 +32,17 @@ await writeFile(outputURL, text);
 function parseRPCMethods(proto) {
   const lines = proto.split(/\r?\n/);
   const methods = [];
-  let pending;
   for (const line of lines) {
-    const comment = /^\s*\/\/\s*rpc:\s+(\S+)\s+request=(\w+)\s+response=(\w+)\s*$/.exec(line);
-    if (comment != null) {
-      pending = { method: comment[1], request: comment[2], response: comment[3] };
-      continue;
-    }
-
-    const entry = /^\s*RPC_METHOD_[A-Z0-9_]+\s*=\s*(\d+)\s*;/.exec(line);
+    const entry =
+      /^\s*RPC_METHOD_[A-Z0-9_]+\s*=\s*(\d+)\s*\[\(rpc_method\)\s*=\s*\{\s*name:\s*"([^"]+)"\s+request:\s*"(\w+)"\s+response:\s*"(\w+)"\s*\}\s*\]\s*;/.exec(line);
     if (entry == null) {
-      continue;
-    }
-    if (pending == null) {
-      if (!line.includes("RPC_METHOD_UNSPECIFIED")) {
-        throw new Error(`RpcMethod entry missing rpc comment: ${line.trim()}`);
+      if (/^\s*RPC_METHOD_[A-Z0-9_]+\s*=/.test(line) && !line.includes("RPC_METHOD_UNSPECIFIED")) {
+        throw new Error(`RpcMethod entry missing rpc_method option: ${line.trim()}`);
       }
       continue;
     }
 
-    methods.push({ ...pending, id: Number(entry[1]) });
-    pending = undefined;
+    methods.push({ id: Number(entry[1]), method: entry[2], request: entry[3], response: entry[4] });
   }
   return methods;
 }

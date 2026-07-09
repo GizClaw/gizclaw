@@ -11,14 +11,12 @@ interfaces, and shared API types under `pkgs/gizclaw/api/`.
 - `rpc/common.proto` defines shared Peer RPC envelopes, errors, and stream frames.
 - `rpc/peer.proto` defines the Peer RPC request envelope and method registry.
 - `rpc/payload.proto` defines method-specific Peer RPC payload messages.
-- `rpc.json` and `rpc/*.json` define the JSON-shaped `rpcapi` facade consumed
-  by Go server and SDK code while the Peer RPC wire format is protobuf.
 - `openai-compat/v1/service.json` defines the OpenAI-compatible HTTP surface.
 - `types.json` collects shared schemas and exposes them through
   `#/components/schemas`.
 - `type/*.json` contains reusable shared schema definitions.
 - `type/server.json` contains peer-owned DTO schemas still referenced by Admin
-  HTTP generation and the `rpcapi` facade.
+  HTTP generation.
 - `resource/*.json` contains declarative admin resource schemas used by
   `admin apply`, `admin show`, and related resource APIs.
 
@@ -29,7 +27,6 @@ Generated Go code lives outside this directory:
 - `pkgs/gizclaw/api/adminhttp/generated.go`
 - `pkgs/gizclaw/api/apitypes/generated.go`
 - `pkgs/gizclaw/api/openaihttp/generated.go`
-- `pkgs/gizclaw/api/rpcapi/generated.go`
 - `pkgs/gizclaw/api/rpcproto/common.pb.go`
 - `pkgs/gizclaw/api/rpcproto/peer.pb.go`
 - `pkgs/gizclaw/api/rpcproto/payload.pb.go`
@@ -55,7 +52,6 @@ Common commands:
 go generate ./pkgs/gizclaw/api/adminhttp
 go generate ./pkgs/gizclaw/api/apitypes
 go generate ./pkgs/gizclaw/api/openaihttp
-go generate ./pkgs/gizclaw/api/rpcapi
 go generate ./pkgs/gizclaw/api/rpcproto
 go generate ./pkgs/gizclaw/api/peerhttp
 ```

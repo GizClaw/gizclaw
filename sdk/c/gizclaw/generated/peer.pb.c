@@ -6,8 +6,28 @@
 #error Regenerate this file with the current version of nanopb generator.
 #endif
 
+PB_BIND(gizclaw_rpc_v1_RpcMethodOptions, gizclaw_rpc_v1_RpcMethodOptions, AUTO)
+
+
 PB_BIND(gizclaw_rpc_v1_RpcRequest, gizclaw_rpc_v1_RpcRequest, AUTO)
 
+
+/* Definition for extension field gizclaw_rpc_v1_rpc_method */
+typedef struct _gizclaw_rpc_v1_rpc_method_extmsg {
+    gizclaw_rpc_v1_RpcMethodOptions rpc_method;
+} gizclaw_rpc_v1_rpc_method_extmsg;
+#define gizclaw_rpc_v1_rpc_method_extmsg_FIELDLIST(X, a) \
+X(a, STATIC,   REQUIRED, MESSAGE,  rpc_method,      51000)
+#define gizclaw_rpc_v1_rpc_method_extmsg_CALLBACK NULL
+#define gizclaw_rpc_v1_rpc_method_extmsg_DEFAULT NULL
+#define gizclaw_rpc_v1_rpc_method_extmsg_rpc_method_MSGTYPE gizclaw_rpc_v1_RpcMethodOptions
+pb_byte_t gizclaw_rpc_v1_rpc_method_extmsg_default[] = {0x00};
+PB_BIND(gizclaw_rpc_v1_rpc_method_extmsg, gizclaw_rpc_v1_rpc_method_extmsg, 4)
+const pb_extension_type_t gizclaw_rpc_v1_rpc_method = {
+    NULL,
+    NULL,
+    &gizclaw_rpc_v1_rpc_method_extmsg_msg
+};
 
 
 

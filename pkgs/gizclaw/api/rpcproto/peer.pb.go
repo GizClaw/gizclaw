@@ -9,6 +9,7 @@ package rpcpb
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	descriptorpb "google.golang.org/protobuf/types/descriptorpb"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
@@ -24,195 +25,101 @@ const (
 type RpcMethod int32
 
 const (
-	RpcMethod_RPC_METHOD_UNSPECIFIED RpcMethod = 0
-	// rpc: all.ping request=PingRequest response=PingResponse
-	RpcMethod_RPC_METHOD_ALL_PING RpcMethod = 1
-	// rpc: all.speed_test.run request=SpeedTestRequest response=SpeedTestResponse
-	RpcMethod_RPC_METHOD_ALL_SPEED_TEST_RUN RpcMethod = 2
-	// rpc: client.info.get request=ClientGetInfoRequest response=ClientGetInfoResponse
-	RpcMethod_RPC_METHOD_CLIENT_INFO_GET RpcMethod = 3
-	// rpc: client.identifiers.get request=ClientGetIdentifiersRequest response=ClientGetIdentifiersResponse
-	RpcMethod_RPC_METHOD_CLIENT_IDENTIFIERS_GET RpcMethod = 4
-	// rpc: server.info.get request=ServerGetInfoRequest response=ServerGetInfoResponse
-	RpcMethod_RPC_METHOD_SERVER_INFO_GET RpcMethod = 5
-	// rpc: server.info.put request=ServerPutInfoRequest response=ServerPutInfoResponse
-	RpcMethod_RPC_METHOD_SERVER_INFO_PUT RpcMethod = 6
-	// rpc: server.runtime.get request=ServerGetRuntimeRequest response=ServerGetRuntimeResponse
-	RpcMethod_RPC_METHOD_SERVER_RUNTIME_GET RpcMethod = 7
-	// rpc: server.status.get request=ServerGetStatusRequest response=ServerGetStatusResponse
-	RpcMethod_RPC_METHOD_SERVER_STATUS_GET RpcMethod = 8
-	// rpc: server.run.agent.get request=ServerGetRunAgentRequest response=ServerGetRunAgentResponse
-	RpcMethod_RPC_METHOD_SERVER_RUN_AGENT_GET RpcMethod = 9
-	// rpc: server.run.agent.set request=ServerSetRunAgentRequest response=ServerSetRunAgentResponse
-	RpcMethod_RPC_METHOD_SERVER_RUN_AGENT_SET RpcMethod = 10
-	// rpc: server.run.workspace.get request=ServerGetRunWorkspaceRequest response=ServerGetRunWorkspaceResponse
-	RpcMethod_RPC_METHOD_SERVER_RUN_WORKSPACE_GET RpcMethod = 11
-	// rpc: server.run.workspace.set request=ServerSetRunWorkspaceRequest response=ServerSetRunWorkspaceResponse
-	RpcMethod_RPC_METHOD_SERVER_RUN_WORKSPACE_SET RpcMethod = 12
-	// rpc: server.run.workspace.reload request=ServerReloadRunWorkspaceRequest response=ServerReloadRunWorkspaceResponse
-	RpcMethod_RPC_METHOD_SERVER_RUN_WORKSPACE_RELOAD RpcMethod = 13
-	// rpc: server.run.workspace.history request=ServerListRunWorkspaceHistoryRequest response=ServerListRunWorkspaceHistoryResponse
-	RpcMethod_RPC_METHOD_SERVER_RUN_WORKSPACE_HISTORY RpcMethod = 14
-	// rpc: server.run.workspace.history.play request=ServerPlayRunWorkspaceHistoryRequest response=ServerPlayRunWorkspaceHistoryResponse
-	RpcMethod_RPC_METHOD_SERVER_RUN_WORKSPACE_HISTORY_PLAY RpcMethod = 15
-	// rpc: server.run.workspace.memory.stats request=ServerGetRunWorkspaceMemoryStatsRequest response=ServerGetRunWorkspaceMemoryStatsResponse
-	RpcMethod_RPC_METHOD_SERVER_RUN_WORKSPACE_MEMORY_STATS RpcMethod = 16
-	// rpc: server.run.workspace.recall request=ServerRunWorkspaceRecallRequest response=ServerRunWorkspaceRecallResponse
-	RpcMethod_RPC_METHOD_SERVER_RUN_WORKSPACE_RECALL RpcMethod = 17
-	// rpc: server.run.reload request=ServerReloadRunRequest response=ServerReloadRunResponse
-	RpcMethod_RPC_METHOD_SERVER_RUN_RELOAD RpcMethod = 18
-	// rpc: server.run.status request=ServerGetRunStatusRequest response=ServerGetRunStatusResponse
-	RpcMethod_RPC_METHOD_SERVER_RUN_STATUS RpcMethod = 19
-	// rpc: server.run.stop request=ServerStopRunRequest response=ServerStopRunResponse
-	RpcMethod_RPC_METHOD_SERVER_RUN_STOP RpcMethod = 20
-	// rpc: server.run.say request=ServerRunSayRequest response=ServerRunSayResponse
-	RpcMethod_RPC_METHOD_SERVER_RUN_SAY RpcMethod = 21
-	// rpc: server.firmware.list request=FirmwareListRequest response=FirmwareListResponse
-	RpcMethod_RPC_METHOD_SERVER_FIRMWARE_LIST RpcMethod = 22
-	// rpc: server.firmware.get request=FirmwareGetRequest response=FirmwareGetResponse
-	RpcMethod_RPC_METHOD_SERVER_FIRMWARE_GET RpcMethod = 23
-	// rpc: server.firmware.files.download request=FirmwareFilesDownloadRequest response=FirmwareFilesDownloadResponse
-	RpcMethod_RPC_METHOD_SERVER_FIRMWARE_FILES_DOWNLOAD RpcMethod = 24
-	// rpc: server.workspace.list request=WorkspaceListRequest response=WorkspaceListResponse
-	RpcMethod_RPC_METHOD_SERVER_WORKSPACE_LIST RpcMethod = 25
-	// rpc: server.workspace.get request=WorkspaceGetRequest response=WorkspaceGetResponse
-	RpcMethod_RPC_METHOD_SERVER_WORKSPACE_GET RpcMethod = 26
-	// rpc: server.workspace.create request=WorkspaceCreateRequest response=WorkspaceCreateResponse
-	RpcMethod_RPC_METHOD_SERVER_WORKSPACE_CREATE RpcMethod = 27
-	// rpc: server.workspace.put request=WorkspacePutRequest response=WorkspacePutResponse
-	RpcMethod_RPC_METHOD_SERVER_WORKSPACE_PUT RpcMethod = 28
-	// rpc: server.workspace.delete request=WorkspaceDeleteRequest response=WorkspaceDeleteResponse
-	RpcMethod_RPC_METHOD_SERVER_WORKSPACE_DELETE RpcMethod = 29
-	// rpc: server.workspace.history.list request=WorkspaceHistoryListRequest response=WorkspaceHistoryListResponse
-	RpcMethod_RPC_METHOD_SERVER_WORKSPACE_HISTORY_LIST RpcMethod = 30
-	// rpc: server.workspace.history.get request=WorkspaceHistoryGetRequest response=WorkspaceHistoryGetResponse
-	RpcMethod_RPC_METHOD_SERVER_WORKSPACE_HISTORY_GET RpcMethod = 31
-	// rpc: server.workspace.history.audio.get request=WorkspaceHistoryAudioGetRequest response=WorkspaceHistoryAudioGetResponse
-	RpcMethod_RPC_METHOD_SERVER_WORKSPACE_HISTORY_AUDIO_GET RpcMethod = 32
-	// rpc: server.workflow.list request=WorkflowListRequest response=WorkflowListResponse
-	RpcMethod_RPC_METHOD_SERVER_WORKFLOW_LIST RpcMethod = 33
-	// rpc: server.workflow.get request=WorkflowGetRequest response=WorkflowGetResponse
-	RpcMethod_RPC_METHOD_SERVER_WORKFLOW_GET RpcMethod = 34
-	// rpc: server.workflow.create request=WorkflowCreateRequest response=WorkflowCreateResponse
-	RpcMethod_RPC_METHOD_SERVER_WORKFLOW_CREATE RpcMethod = 35
-	// rpc: server.workflow.put request=WorkflowPutRequest response=WorkflowPutResponse
-	RpcMethod_RPC_METHOD_SERVER_WORKFLOW_PUT RpcMethod = 36
-	// rpc: server.workflow.delete request=WorkflowDeleteRequest response=WorkflowDeleteResponse
-	RpcMethod_RPC_METHOD_SERVER_WORKFLOW_DELETE RpcMethod = 37
-	// rpc: server.model.list request=ModelListRequest response=ModelListResponse
-	RpcMethod_RPC_METHOD_SERVER_MODEL_LIST RpcMethod = 38
-	// rpc: server.model.get request=ModelGetRequest response=ModelGetResponse
-	RpcMethod_RPC_METHOD_SERVER_MODEL_GET RpcMethod = 39
-	// rpc: server.model.create request=ModelCreateRequest response=ModelCreateResponse
-	RpcMethod_RPC_METHOD_SERVER_MODEL_CREATE RpcMethod = 40
-	// rpc: server.model.put request=ModelPutRequest response=ModelPutResponse
-	RpcMethod_RPC_METHOD_SERVER_MODEL_PUT RpcMethod = 41
-	// rpc: server.model.delete request=ModelDeleteRequest response=ModelDeleteResponse
-	RpcMethod_RPC_METHOD_SERVER_MODEL_DELETE RpcMethod = 42
-	// rpc: server.voice.list request=VoiceListRequest response=VoiceListResponse
-	RpcMethod_RPC_METHOD_SERVER_VOICE_LIST RpcMethod = 43
-	// rpc: server.voice.get request=VoiceGetRequest response=VoiceGetResponse
-	RpcMethod_RPC_METHOD_SERVER_VOICE_GET RpcMethod = 44
-	// rpc: server.credential.list request=CredentialListRequest response=CredentialListResponse
-	RpcMethod_RPC_METHOD_SERVER_CREDENTIAL_LIST RpcMethod = 45
-	// rpc: server.credential.get request=CredentialGetRequest response=CredentialGetResponse
-	RpcMethod_RPC_METHOD_SERVER_CREDENTIAL_GET RpcMethod = 46
-	// rpc: server.credential.create request=CredentialCreateRequest response=CredentialCreateResponse
-	RpcMethod_RPC_METHOD_SERVER_CREDENTIAL_CREATE RpcMethod = 47
-	// rpc: server.credential.put request=CredentialPutRequest response=CredentialPutResponse
-	RpcMethod_RPC_METHOD_SERVER_CREDENTIAL_PUT RpcMethod = 48
-	// rpc: server.credential.delete request=CredentialDeleteRequest response=CredentialDeleteResponse
-	RpcMethod_RPC_METHOD_SERVER_CREDENTIAL_DELETE RpcMethod = 49
-	// rpc: server.contact.list request=ContactListRequest response=ContactListResponse
-	RpcMethod_RPC_METHOD_SERVER_CONTACT_LIST RpcMethod = 50
-	// rpc: server.contact.get request=ContactGetRequest response=ContactGetResponse
-	RpcMethod_RPC_METHOD_SERVER_CONTACT_GET RpcMethod = 51
-	// rpc: server.contact.create request=ContactCreateRequest response=ContactCreateResponse
-	RpcMethod_RPC_METHOD_SERVER_CONTACT_CREATE RpcMethod = 52
-	// rpc: server.contact.put request=ContactPutRequest response=ContactPutResponse
-	RpcMethod_RPC_METHOD_SERVER_CONTACT_PUT RpcMethod = 53
-	// rpc: server.contact.delete request=ContactDeleteRequest response=ContactDeleteResponse
-	RpcMethod_RPC_METHOD_SERVER_CONTACT_DELETE RpcMethod = 54
-	// rpc: server.friend.invite_token.get request=FriendInviteTokenGetRequest response=FriendInviteTokenGetResponse
-	RpcMethod_RPC_METHOD_SERVER_FRIEND_INVITE_TOKEN_GET RpcMethod = 55
-	// rpc: server.friend.invite_token.create request=FriendInviteTokenCreateRequest response=FriendInviteTokenCreateResponse
-	RpcMethod_RPC_METHOD_SERVER_FRIEND_INVITE_TOKEN_CREATE RpcMethod = 56
-	// rpc: server.friend.invite_token.clear request=FriendInviteTokenClearRequest response=FriendInviteTokenClearResponse
-	RpcMethod_RPC_METHOD_SERVER_FRIEND_INVITE_TOKEN_CLEAR RpcMethod = 57
-	// rpc: server.friend.add request=FriendAddRequest response=FriendAddResponse
-	RpcMethod_RPC_METHOD_SERVER_FRIEND_ADD RpcMethod = 58
-	// rpc: server.friend.list request=FriendListRequest response=FriendListResponse
-	RpcMethod_RPC_METHOD_SERVER_FRIEND_LIST RpcMethod = 59
-	// rpc: server.friend.delete request=FriendDeleteRequest response=FriendDeleteResponse
-	RpcMethod_RPC_METHOD_SERVER_FRIEND_DELETE RpcMethod = 60
-	// rpc: server.friend_group.list request=FriendGroupListRequest response=FriendGroupListResponse
-	RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_LIST RpcMethod = 61
-	// rpc: server.friend_group.get request=FriendGroupGetRequest response=FriendGroupGetResponse
-	RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_GET RpcMethod = 62
-	// rpc: server.friend_group.create request=FriendGroupCreateRequest response=FriendGroupCreateResponse
-	RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_CREATE RpcMethod = 63
-	// rpc: server.friend_group.put request=FriendGroupPutRequest response=FriendGroupPutResponse
-	RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_PUT RpcMethod = 64
-	// rpc: server.friend_group.delete request=FriendGroupDeleteRequest response=FriendGroupDeleteResponse
-	RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_DELETE RpcMethod = 65
-	// rpc: server.friend_group.invite_token.get request=FriendGroupInviteTokenGetRequest response=FriendGroupInviteTokenGetResponse
-	RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_INVITE_TOKEN_GET RpcMethod = 66
-	// rpc: server.friend_group.invite_token.create request=FriendGroupInviteTokenCreateRequest response=FriendGroupInviteTokenCreateResponse
+	RpcMethod_RPC_METHOD_UNSPECIFIED                             RpcMethod = 0
+	RpcMethod_RPC_METHOD_ALL_PING                                RpcMethod = 1
+	RpcMethod_RPC_METHOD_ALL_SPEED_TEST_RUN                      RpcMethod = 2
+	RpcMethod_RPC_METHOD_CLIENT_INFO_GET                         RpcMethod = 3
+	RpcMethod_RPC_METHOD_CLIENT_IDENTIFIERS_GET                  RpcMethod = 4
+	RpcMethod_RPC_METHOD_SERVER_INFO_GET                         RpcMethod = 5
+	RpcMethod_RPC_METHOD_SERVER_INFO_PUT                         RpcMethod = 6
+	RpcMethod_RPC_METHOD_SERVER_RUNTIME_GET                      RpcMethod = 7
+	RpcMethod_RPC_METHOD_SERVER_STATUS_GET                       RpcMethod = 8
+	RpcMethod_RPC_METHOD_SERVER_RUN_AGENT_GET                    RpcMethod = 9
+	RpcMethod_RPC_METHOD_SERVER_RUN_AGENT_SET                    RpcMethod = 10
+	RpcMethod_RPC_METHOD_SERVER_RUN_WORKSPACE_GET                RpcMethod = 11
+	RpcMethod_RPC_METHOD_SERVER_RUN_WORKSPACE_SET                RpcMethod = 12
+	RpcMethod_RPC_METHOD_SERVER_RUN_WORKSPACE_RELOAD             RpcMethod = 13
+	RpcMethod_RPC_METHOD_SERVER_RUN_WORKSPACE_HISTORY            RpcMethod = 14
+	RpcMethod_RPC_METHOD_SERVER_RUN_WORKSPACE_HISTORY_PLAY       RpcMethod = 15
+	RpcMethod_RPC_METHOD_SERVER_RUN_WORKSPACE_MEMORY_STATS       RpcMethod = 16
+	RpcMethod_RPC_METHOD_SERVER_RUN_WORKSPACE_RECALL             RpcMethod = 17
+	RpcMethod_RPC_METHOD_SERVER_RUN_RELOAD                       RpcMethod = 18
+	RpcMethod_RPC_METHOD_SERVER_RUN_STATUS                       RpcMethod = 19
+	RpcMethod_RPC_METHOD_SERVER_RUN_STOP                         RpcMethod = 20
+	RpcMethod_RPC_METHOD_SERVER_RUN_SAY                          RpcMethod = 21
+	RpcMethod_RPC_METHOD_SERVER_FIRMWARE_LIST                    RpcMethod = 22
+	RpcMethod_RPC_METHOD_SERVER_FIRMWARE_GET                     RpcMethod = 23
+	RpcMethod_RPC_METHOD_SERVER_FIRMWARE_FILES_DOWNLOAD          RpcMethod = 24
+	RpcMethod_RPC_METHOD_SERVER_WORKSPACE_LIST                   RpcMethod = 25
+	RpcMethod_RPC_METHOD_SERVER_WORKSPACE_GET                    RpcMethod = 26
+	RpcMethod_RPC_METHOD_SERVER_WORKSPACE_CREATE                 RpcMethod = 27
+	RpcMethod_RPC_METHOD_SERVER_WORKSPACE_PUT                    RpcMethod = 28
+	RpcMethod_RPC_METHOD_SERVER_WORKSPACE_DELETE                 RpcMethod = 29
+	RpcMethod_RPC_METHOD_SERVER_WORKSPACE_HISTORY_LIST           RpcMethod = 30
+	RpcMethod_RPC_METHOD_SERVER_WORKSPACE_HISTORY_GET            RpcMethod = 31
+	RpcMethod_RPC_METHOD_SERVER_WORKSPACE_HISTORY_AUDIO_GET      RpcMethod = 32
+	RpcMethod_RPC_METHOD_SERVER_WORKFLOW_LIST                    RpcMethod = 33
+	RpcMethod_RPC_METHOD_SERVER_WORKFLOW_GET                     RpcMethod = 34
+	RpcMethod_RPC_METHOD_SERVER_WORKFLOW_CREATE                  RpcMethod = 35
+	RpcMethod_RPC_METHOD_SERVER_WORKFLOW_PUT                     RpcMethod = 36
+	RpcMethod_RPC_METHOD_SERVER_WORKFLOW_DELETE                  RpcMethod = 37
+	RpcMethod_RPC_METHOD_SERVER_MODEL_LIST                       RpcMethod = 38
+	RpcMethod_RPC_METHOD_SERVER_MODEL_GET                        RpcMethod = 39
+	RpcMethod_RPC_METHOD_SERVER_MODEL_CREATE                     RpcMethod = 40
+	RpcMethod_RPC_METHOD_SERVER_MODEL_PUT                        RpcMethod = 41
+	RpcMethod_RPC_METHOD_SERVER_MODEL_DELETE                     RpcMethod = 42
+	RpcMethod_RPC_METHOD_SERVER_VOICE_LIST                       RpcMethod = 43
+	RpcMethod_RPC_METHOD_SERVER_VOICE_GET                        RpcMethod = 44
+	RpcMethod_RPC_METHOD_SERVER_CREDENTIAL_LIST                  RpcMethod = 45
+	RpcMethod_RPC_METHOD_SERVER_CREDENTIAL_GET                   RpcMethod = 46
+	RpcMethod_RPC_METHOD_SERVER_CREDENTIAL_CREATE                RpcMethod = 47
+	RpcMethod_RPC_METHOD_SERVER_CREDENTIAL_PUT                   RpcMethod = 48
+	RpcMethod_RPC_METHOD_SERVER_CREDENTIAL_DELETE                RpcMethod = 49
+	RpcMethod_RPC_METHOD_SERVER_CONTACT_LIST                     RpcMethod = 50
+	RpcMethod_RPC_METHOD_SERVER_CONTACT_GET                      RpcMethod = 51
+	RpcMethod_RPC_METHOD_SERVER_CONTACT_CREATE                   RpcMethod = 52
+	RpcMethod_RPC_METHOD_SERVER_CONTACT_PUT                      RpcMethod = 53
+	RpcMethod_RPC_METHOD_SERVER_CONTACT_DELETE                   RpcMethod = 54
+	RpcMethod_RPC_METHOD_SERVER_FRIEND_INVITE_TOKEN_GET          RpcMethod = 55
+	RpcMethod_RPC_METHOD_SERVER_FRIEND_INVITE_TOKEN_CREATE       RpcMethod = 56
+	RpcMethod_RPC_METHOD_SERVER_FRIEND_INVITE_TOKEN_CLEAR        RpcMethod = 57
+	RpcMethod_RPC_METHOD_SERVER_FRIEND_ADD                       RpcMethod = 58
+	RpcMethod_RPC_METHOD_SERVER_FRIEND_LIST                      RpcMethod = 59
+	RpcMethod_RPC_METHOD_SERVER_FRIEND_DELETE                    RpcMethod = 60
+	RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_LIST                RpcMethod = 61
+	RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_GET                 RpcMethod = 62
+	RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_CREATE              RpcMethod = 63
+	RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_PUT                 RpcMethod = 64
+	RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_DELETE              RpcMethod = 65
+	RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_INVITE_TOKEN_GET    RpcMethod = 66
 	RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_INVITE_TOKEN_CREATE RpcMethod = 67
-	// rpc: server.friend_group.invite_token.clear request=FriendGroupInviteTokenClearRequest response=FriendGroupInviteTokenClearResponse
-	RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_INVITE_TOKEN_CLEAR RpcMethod = 68
-	// rpc: server.friend_group.join request=FriendGroupJoinRequest response=FriendGroupJoinResponse
-	RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_JOIN RpcMethod = 69
-	// rpc: server.friend_group.members.list request=FriendGroupMemberListRequest response=FriendGroupMemberListResponse
-	RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_MEMBERS_LIST RpcMethod = 70
-	// rpc: server.friend_group.members.add request=FriendGroupMemberAddRequest response=FriendGroupMemberAddResponse
-	RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_MEMBERS_ADD RpcMethod = 71
-	// rpc: server.friend_group.members.put request=FriendGroupMemberPutRequest response=FriendGroupMemberPutResponse
-	RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_MEMBERS_PUT RpcMethod = 72
-	// rpc: server.friend_group.members.delete request=FriendGroupMemberDeleteRequest response=FriendGroupMemberDeleteResponse
-	RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_MEMBERS_DELETE RpcMethod = 73
-	// rpc: server.friend_group.messages.list request=FriendGroupMessageListRequest response=FriendGroupMessageListResponse
-	RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_LIST RpcMethod = 74
-	// rpc: server.friend_group.messages.get request=FriendGroupMessageGetRequest response=FriendGroupMessageGetResponse
-	RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_GET RpcMethod = 75
-	// rpc: server.friend_group.messages.send request=FriendGroupMessageSendRequest response=FriendGroupMessageSendResponse
-	RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_SEND RpcMethod = 76
-	// rpc: server.game_ruleset.get request=ServerGameRulesetGetRequest response=ServerGameRulesetGetResponse
-	RpcMethod_RPC_METHOD_SERVER_GAME_RULESET_GET RpcMethod = 77
-	// rpc: server.pet_def.pixa.download request=PetDefPixaDownloadRequest response=PetDefPixaDownloadResponse
-	RpcMethod_RPC_METHOD_SERVER_PET_DEF_PIXA_DOWNLOAD RpcMethod = 78
-	// rpc: server.badge_def.pixa.download request=BadgeDefPixaDownloadRequest response=BadgeDefPixaDownloadResponse
-	RpcMethod_RPC_METHOD_SERVER_BADGE_DEF_PIXA_DOWNLOAD RpcMethod = 79
-	// rpc: server.pet.list request=ServerPetListRequest response=ServerPetListResponse
-	RpcMethod_RPC_METHOD_SERVER_PET_LIST RpcMethod = 80
-	// rpc: server.pet.get request=ServerPetGetRequest response=ServerPetGetResponse
-	RpcMethod_RPC_METHOD_SERVER_PET_GET RpcMethod = 81
-	// rpc: server.pet.adopt request=ServerPetAdoptRequest response=ServerPetAdoptResponse
-	RpcMethod_RPC_METHOD_SERVER_PET_ADOPT RpcMethod = 82
-	// rpc: server.pet.put request=ServerPetPutRequest response=ServerPetPutResponse
-	RpcMethod_RPC_METHOD_SERVER_PET_PUT RpcMethod = 83
-	// rpc: server.pet.delete request=ServerPetDeleteRequest response=ServerPetDeleteResponse
-	RpcMethod_RPC_METHOD_SERVER_PET_DELETE RpcMethod = 84
-	// rpc: server.pet.drive request=ServerPetDriveRequest response=ServerPetDriveResponse
-	RpcMethod_RPC_METHOD_SERVER_PET_DRIVE RpcMethod = 85
-	// rpc: server.points.get request=ServerPointsGetRequest response=ServerPointsGetResponse
-	RpcMethod_RPC_METHOD_SERVER_POINTS_GET RpcMethod = 86
-	// rpc: server.points.transactions.list request=ServerPointsTransactionListRequest response=ServerPointsTransactionListResponse
-	RpcMethod_RPC_METHOD_SERVER_POINTS_TRANSACTIONS_LIST RpcMethod = 87
-	// rpc: server.points.transactions.get request=ServerPointsTransactionGetRequest response=ServerPointsTransactionGetResponse
-	RpcMethod_RPC_METHOD_SERVER_POINTS_TRANSACTIONS_GET RpcMethod = 88
-	// rpc: server.badge.list request=ServerBadgeListRequest response=ServerBadgeListResponse
-	RpcMethod_RPC_METHOD_SERVER_BADGE_LIST RpcMethod = 89
-	// rpc: server.badge.get request=ServerBadgeGetRequest response=ServerBadgeGetResponse
-	RpcMethod_RPC_METHOD_SERVER_BADGE_GET RpcMethod = 90
-	// rpc: server.game_result.list request=ServerGameResultListRequest response=ServerGameResultListResponse
-	RpcMethod_RPC_METHOD_SERVER_GAME_RESULT_LIST RpcMethod = 91
-	// rpc: server.game_result.get request=ServerGameResultGetRequest response=ServerGameResultGetResponse
-	RpcMethod_RPC_METHOD_SERVER_GAME_RESULT_GET RpcMethod = 92
-	// rpc: server.reward_grant.list request=ServerRewardGrantListRequest response=ServerRewardGrantListResponse
-	RpcMethod_RPC_METHOD_SERVER_REWARD_GRANT_LIST RpcMethod = 93
-	// rpc: server.reward_grant.get request=ServerRewardGrantGetRequest response=ServerRewardGrantGetResponse
-	RpcMethod_RPC_METHOD_SERVER_REWARD_GRANT_GET RpcMethod = 94
+	RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_INVITE_TOKEN_CLEAR  RpcMethod = 68
+	RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_JOIN                RpcMethod = 69
+	RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_MEMBERS_LIST        RpcMethod = 70
+	RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_MEMBERS_ADD         RpcMethod = 71
+	RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_MEMBERS_PUT         RpcMethod = 72
+	RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_MEMBERS_DELETE      RpcMethod = 73
+	RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_LIST       RpcMethod = 74
+	RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_GET        RpcMethod = 75
+	RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_SEND       RpcMethod = 76
+	RpcMethod_RPC_METHOD_SERVER_GAME_RULESET_GET                 RpcMethod = 77
+	RpcMethod_RPC_METHOD_SERVER_PET_DEF_PIXA_DOWNLOAD            RpcMethod = 78
+	RpcMethod_RPC_METHOD_SERVER_BADGE_DEF_PIXA_DOWNLOAD          RpcMethod = 79
+	RpcMethod_RPC_METHOD_SERVER_PET_LIST                         RpcMethod = 80
+	RpcMethod_RPC_METHOD_SERVER_PET_GET                          RpcMethod = 81
+	RpcMethod_RPC_METHOD_SERVER_PET_ADOPT                        RpcMethod = 82
+	RpcMethod_RPC_METHOD_SERVER_PET_PUT                          RpcMethod = 83
+	RpcMethod_RPC_METHOD_SERVER_PET_DELETE                       RpcMethod = 84
+	RpcMethod_RPC_METHOD_SERVER_PET_DRIVE                        RpcMethod = 85
+	RpcMethod_RPC_METHOD_SERVER_POINTS_GET                       RpcMethod = 86
+	RpcMethod_RPC_METHOD_SERVER_POINTS_TRANSACTIONS_LIST         RpcMethod = 87
+	RpcMethod_RPC_METHOD_SERVER_POINTS_TRANSACTIONS_GET          RpcMethod = 88
+	RpcMethod_RPC_METHOD_SERVER_BADGE_LIST                       RpcMethod = 89
+	RpcMethod_RPC_METHOD_SERVER_BADGE_GET                        RpcMethod = 90
+	RpcMethod_RPC_METHOD_SERVER_GAME_RESULT_LIST                 RpcMethod = 91
+	RpcMethod_RPC_METHOD_SERVER_GAME_RESULT_GET                  RpcMethod = 92
+	RpcMethod_RPC_METHOD_SERVER_REWARD_GRANT_LIST                RpcMethod = 93
+	RpcMethod_RPC_METHOD_SERVER_REWARD_GRANT_GET                 RpcMethod = 94
 )
 
 // Enum value maps for RpcMethod.
@@ -440,6 +347,66 @@ func (RpcMethod) EnumDescriptor() ([]byte, []int) {
 	return file_peer_proto_rawDescGZIP(), []int{0}
 }
 
+type RpcMethodOptions struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Request       string                 `protobuf:"bytes,2,opt,name=request,proto3" json:"request,omitempty"`
+	Response      string                 `protobuf:"bytes,3,opt,name=response,proto3" json:"response,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RpcMethodOptions) Reset() {
+	*x = RpcMethodOptions{}
+	mi := &file_peer_proto_msgTypes[0]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RpcMethodOptions) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RpcMethodOptions) ProtoMessage() {}
+
+func (x *RpcMethodOptions) ProtoReflect() protoreflect.Message {
+	mi := &file_peer_proto_msgTypes[0]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RpcMethodOptions.ProtoReflect.Descriptor instead.
+func (*RpcMethodOptions) Descriptor() ([]byte, []int) {
+	return file_peer_proto_rawDescGZIP(), []int{0}
+}
+
+func (x *RpcMethodOptions) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *RpcMethodOptions) GetRequest() string {
+	if x != nil {
+		return x.Request
+	}
+	return ""
+}
+
+func (x *RpcMethodOptions) GetResponse() string {
+	if x != nil {
+		return x.Response
+	}
+	return ""
+}
+
 type RpcRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
@@ -451,7 +418,7 @@ type RpcRequest struct {
 
 func (x *RpcRequest) Reset() {
 	*x = RpcRequest{}
-	mi := &file_peer_proto_msgTypes[0]
+	mi := &file_peer_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -463,7 +430,7 @@ func (x *RpcRequest) String() string {
 func (*RpcRequest) ProtoMessage() {}
 
 func (x *RpcRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_peer_proto_msgTypes[0]
+	mi := &file_peer_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -476,7 +443,7 @@ func (x *RpcRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RpcRequest.ProtoReflect.Descriptor instead.
 func (*RpcRequest) Descriptor() ([]byte, []int) {
-	return file_peer_proto_rawDescGZIP(), []int{0}
+	return file_peer_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *RpcRequest) GetId() string {
@@ -500,116 +467,233 @@ func (x *RpcRequest) GetPayload() []byte {
 	return nil
 }
 
+var file_peer_proto_extTypes = []protoimpl.ExtensionInfo{
+	{
+		ExtendedType:  (*descriptorpb.EnumValueOptions)(nil),
+		ExtensionType: (*RpcMethodOptions)(nil),
+		Field:         51000,
+		Name:          "gizclaw.rpc.v1.rpc_method",
+		Tag:           "bytes,51000,opt,name=rpc_method",
+		Filename:      "peer.proto",
+	},
+}
+
+// Extension fields to descriptorpb.EnumValueOptions.
+var (
+	// optional gizclaw.rpc.v1.RpcMethodOptions rpc_method = 51000;
+	E_RpcMethod = &file_peer_proto_extTypes[0]
+)
+
 var File_peer_proto protoreflect.FileDescriptor
 
 const file_peer_proto_rawDesc = "" +
 	"\n" +
 	"\n" +
-	"peer.proto\x12\x0egizclaw.rpc.v1\"z\n" +
+	"peer.proto\x12\x0egizclaw.rpc.v1\x1a google/protobuf/descriptor.proto\"\\\n" +
+	"\x10RpcMethodOptions\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12\x18\n" +
+	"\arequest\x18\x02 \x01(\tR\arequest\x12\x1a\n" +
+	"\bresponse\x18\x03 \x01(\tR\bresponse\"z\n" +
 	"\n" +
 	"RpcRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x121\n" +
 	"\x06method\x18\x02 \x01(\x0e2\x19.gizclaw.rpc.v1.RpcMethodR\x06method\x12\x1d\n" +
 	"\apayload\x18\x03 \x01(\fH\x00R\apayload\x88\x01\x01B\n" +
 	"\n" +
-	"\b_payload*\xbd\x1d\n" +
+	"\b_payload*\xa1Z\n" +
 	"\tRpcMethod\x12\x1a\n" +
-	"\x16RPC_METHOD_UNSPECIFIED\x10\x00\x12\x17\n" +
-	"\x13RPC_METHOD_ALL_PING\x10\x01\x12!\n" +
-	"\x1dRPC_METHOD_ALL_SPEED_TEST_RUN\x10\x02\x12\x1e\n" +
-	"\x1aRPC_METHOD_CLIENT_INFO_GET\x10\x03\x12%\n" +
-	"!RPC_METHOD_CLIENT_IDENTIFIERS_GET\x10\x04\x12\x1e\n" +
-	"\x1aRPC_METHOD_SERVER_INFO_GET\x10\x05\x12\x1e\n" +
-	"\x1aRPC_METHOD_SERVER_INFO_PUT\x10\x06\x12!\n" +
-	"\x1dRPC_METHOD_SERVER_RUNTIME_GET\x10\a\x12 \n" +
-	"\x1cRPC_METHOD_SERVER_STATUS_GET\x10\b\x12#\n" +
-	"\x1fRPC_METHOD_SERVER_RUN_AGENT_GET\x10\t\x12#\n" +
+	"\x16RPC_METHOD_UNSPECIFIED\x10\x00\x12B\n" +
+	"\x13RPC_METHOD_ALL_PING\x10\x01\x1a)\xc2\xf3\x18%\n" +
+	"\ball.ping\x12\vPingRequest\x1a\fPingResponse\x12`\n" +
+	"\x1dRPC_METHOD_ALL_SPEED_TEST_RUN\x10\x02\x1a=\xc2\xf3\x189\n" +
+	"\x12all.speed_test.run\x12\x10SpeedTestRequest\x1a\x11SpeedTestResponse\x12b\n" +
+	"\x1aRPC_METHOD_CLIENT_INFO_GET\x10\x03\x1aB\xc2\xf3\x18>\n" +
+	"\x0fclient.info.get\x12\x14ClientGetInfoRequest\x1a\x15ClientGetInfoResponse\x12~\n" +
+	"!RPC_METHOD_CLIENT_IDENTIFIERS_GET\x10\x04\x1aW\xc2\xf3\x18S\n" +
+	"\x16client.identifiers.get\x12\x1bClientGetIdentifiersRequest\x1a\x1cClientGetIdentifiersResponse\x12b\n" +
+	"\x1aRPC_METHOD_SERVER_INFO_GET\x10\x05\x1aB\xc2\xf3\x18>\n" +
+	"\x0fserver.info.get\x12\x14ServerGetInfoRequest\x1a\x15ServerGetInfoResponse\x12b\n" +
+	"\x1aRPC_METHOD_SERVER_INFO_PUT\x10\x06\x1aB\xc2\xf3\x18>\n" +
+	"\x0fserver.info.put\x12\x14ServerPutInfoRequest\x1a\x15ServerPutInfoResponse\x12n\n" +
+	"\x1dRPC_METHOD_SERVER_RUNTIME_GET\x10\a\x1aK\xc2\xf3\x18G\n" +
+	"\x12server.runtime.get\x12\x17ServerGetRuntimeRequest\x1a\x18ServerGetRuntimeResponse\x12j\n" +
+	"\x1cRPC_METHOD_SERVER_STATUS_GET\x10\b\x1aH\xc2\xf3\x18D\n" +
+	"\x11server.status.get\x12\x16ServerGetStatusRequest\x1a\x17ServerGetStatusResponse\x12t\n" +
+	"\x1fRPC_METHOD_SERVER_RUN_AGENT_GET\x10\t\x1aO\xc2\xf3\x18K\n" +
+	"\x14server.run.agent.get\x12\x18ServerGetRunAgentRequest\x1a\x19ServerGetRunAgentResponse\x12t\n" +
 	"\x1fRPC_METHOD_SERVER_RUN_AGENT_SET\x10\n" +
-	"\x12'\n" +
-	"#RPC_METHOD_SERVER_RUN_WORKSPACE_GET\x10\v\x12'\n" +
-	"#RPC_METHOD_SERVER_RUN_WORKSPACE_SET\x10\f\x12*\n" +
-	"&RPC_METHOD_SERVER_RUN_WORKSPACE_RELOAD\x10\r\x12+\n" +
-	"'RPC_METHOD_SERVER_RUN_WORKSPACE_HISTORY\x10\x0e\x120\n" +
-	",RPC_METHOD_SERVER_RUN_WORKSPACE_HISTORY_PLAY\x10\x0f\x120\n" +
-	",RPC_METHOD_SERVER_RUN_WORKSPACE_MEMORY_STATS\x10\x10\x12*\n" +
-	"&RPC_METHOD_SERVER_RUN_WORKSPACE_RECALL\x10\x11\x12 \n" +
-	"\x1cRPC_METHOD_SERVER_RUN_RELOAD\x10\x12\x12 \n" +
-	"\x1cRPC_METHOD_SERVER_RUN_STATUS\x10\x13\x12\x1e\n" +
-	"\x1aRPC_METHOD_SERVER_RUN_STOP\x10\x14\x12\x1d\n" +
-	"\x19RPC_METHOD_SERVER_RUN_SAY\x10\x15\x12#\n" +
-	"\x1fRPC_METHOD_SERVER_FIRMWARE_LIST\x10\x16\x12\"\n" +
-	"\x1eRPC_METHOD_SERVER_FIRMWARE_GET\x10\x17\x12-\n" +
-	")RPC_METHOD_SERVER_FIRMWARE_FILES_DOWNLOAD\x10\x18\x12$\n" +
-	" RPC_METHOD_SERVER_WORKSPACE_LIST\x10\x19\x12#\n" +
-	"\x1fRPC_METHOD_SERVER_WORKSPACE_GET\x10\x1a\x12&\n" +
-	"\"RPC_METHOD_SERVER_WORKSPACE_CREATE\x10\x1b\x12#\n" +
-	"\x1fRPC_METHOD_SERVER_WORKSPACE_PUT\x10\x1c\x12&\n" +
-	"\"RPC_METHOD_SERVER_WORKSPACE_DELETE\x10\x1d\x12,\n" +
-	"(RPC_METHOD_SERVER_WORKSPACE_HISTORY_LIST\x10\x1e\x12+\n" +
-	"'RPC_METHOD_SERVER_WORKSPACE_HISTORY_GET\x10\x1f\x121\n" +
-	"-RPC_METHOD_SERVER_WORKSPACE_HISTORY_AUDIO_GET\x10 \x12#\n" +
-	"\x1fRPC_METHOD_SERVER_WORKFLOW_LIST\x10!\x12\"\n" +
-	"\x1eRPC_METHOD_SERVER_WORKFLOW_GET\x10\"\x12%\n" +
-	"!RPC_METHOD_SERVER_WORKFLOW_CREATE\x10#\x12\"\n" +
-	"\x1eRPC_METHOD_SERVER_WORKFLOW_PUT\x10$\x12%\n" +
-	"!RPC_METHOD_SERVER_WORKFLOW_DELETE\x10%\x12 \n" +
-	"\x1cRPC_METHOD_SERVER_MODEL_LIST\x10&\x12\x1f\n" +
-	"\x1bRPC_METHOD_SERVER_MODEL_GET\x10'\x12\"\n" +
-	"\x1eRPC_METHOD_SERVER_MODEL_CREATE\x10(\x12\x1f\n" +
-	"\x1bRPC_METHOD_SERVER_MODEL_PUT\x10)\x12\"\n" +
-	"\x1eRPC_METHOD_SERVER_MODEL_DELETE\x10*\x12 \n" +
-	"\x1cRPC_METHOD_SERVER_VOICE_LIST\x10+\x12\x1f\n" +
-	"\x1bRPC_METHOD_SERVER_VOICE_GET\x10,\x12%\n" +
-	"!RPC_METHOD_SERVER_CREDENTIAL_LIST\x10-\x12$\n" +
-	" RPC_METHOD_SERVER_CREDENTIAL_GET\x10.\x12'\n" +
-	"#RPC_METHOD_SERVER_CREDENTIAL_CREATE\x10/\x12$\n" +
-	" RPC_METHOD_SERVER_CREDENTIAL_PUT\x100\x12'\n" +
-	"#RPC_METHOD_SERVER_CREDENTIAL_DELETE\x101\x12\"\n" +
-	"\x1eRPC_METHOD_SERVER_CONTACT_LIST\x102\x12!\n" +
-	"\x1dRPC_METHOD_SERVER_CONTACT_GET\x103\x12$\n" +
-	" RPC_METHOD_SERVER_CONTACT_CREATE\x104\x12!\n" +
-	"\x1dRPC_METHOD_SERVER_CONTACT_PUT\x105\x12$\n" +
-	" RPC_METHOD_SERVER_CONTACT_DELETE\x106\x12-\n" +
-	")RPC_METHOD_SERVER_FRIEND_INVITE_TOKEN_GET\x107\x120\n" +
-	",RPC_METHOD_SERVER_FRIEND_INVITE_TOKEN_CREATE\x108\x12/\n" +
-	"+RPC_METHOD_SERVER_FRIEND_INVITE_TOKEN_CLEAR\x109\x12 \n" +
-	"\x1cRPC_METHOD_SERVER_FRIEND_ADD\x10:\x12!\n" +
-	"\x1dRPC_METHOD_SERVER_FRIEND_LIST\x10;\x12#\n" +
-	"\x1fRPC_METHOD_SERVER_FRIEND_DELETE\x10<\x12'\n" +
-	"#RPC_METHOD_SERVER_FRIEND_GROUP_LIST\x10=\x12&\n" +
-	"\"RPC_METHOD_SERVER_FRIEND_GROUP_GET\x10>\x12)\n" +
-	"%RPC_METHOD_SERVER_FRIEND_GROUP_CREATE\x10?\x12&\n" +
-	"\"RPC_METHOD_SERVER_FRIEND_GROUP_PUT\x10@\x12)\n" +
-	"%RPC_METHOD_SERVER_FRIEND_GROUP_DELETE\x10A\x123\n" +
-	"/RPC_METHOD_SERVER_FRIEND_GROUP_INVITE_TOKEN_GET\x10B\x126\n" +
-	"2RPC_METHOD_SERVER_FRIEND_GROUP_INVITE_TOKEN_CREATE\x10C\x125\n" +
-	"1RPC_METHOD_SERVER_FRIEND_GROUP_INVITE_TOKEN_CLEAR\x10D\x12'\n" +
-	"#RPC_METHOD_SERVER_FRIEND_GROUP_JOIN\x10E\x12/\n" +
-	"+RPC_METHOD_SERVER_FRIEND_GROUP_MEMBERS_LIST\x10F\x12.\n" +
-	"*RPC_METHOD_SERVER_FRIEND_GROUP_MEMBERS_ADD\x10G\x12.\n" +
-	"*RPC_METHOD_SERVER_FRIEND_GROUP_MEMBERS_PUT\x10H\x121\n" +
-	"-RPC_METHOD_SERVER_FRIEND_GROUP_MEMBERS_DELETE\x10I\x120\n" +
-	",RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_LIST\x10J\x12/\n" +
-	"+RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_GET\x10K\x120\n" +
-	",RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_SEND\x10L\x12&\n" +
-	"\"RPC_METHOD_SERVER_GAME_RULESET_GET\x10M\x12+\n" +
-	"'RPC_METHOD_SERVER_PET_DEF_PIXA_DOWNLOAD\x10N\x12-\n" +
-	")RPC_METHOD_SERVER_BADGE_DEF_PIXA_DOWNLOAD\x10O\x12\x1e\n" +
-	"\x1aRPC_METHOD_SERVER_PET_LIST\x10P\x12\x1d\n" +
-	"\x19RPC_METHOD_SERVER_PET_GET\x10Q\x12\x1f\n" +
-	"\x1bRPC_METHOD_SERVER_PET_ADOPT\x10R\x12\x1d\n" +
-	"\x19RPC_METHOD_SERVER_PET_PUT\x10S\x12 \n" +
-	"\x1cRPC_METHOD_SERVER_PET_DELETE\x10T\x12\x1f\n" +
-	"\x1bRPC_METHOD_SERVER_PET_DRIVE\x10U\x12 \n" +
-	"\x1cRPC_METHOD_SERVER_POINTS_GET\x10V\x12.\n" +
-	"*RPC_METHOD_SERVER_POINTS_TRANSACTIONS_LIST\x10W\x12-\n" +
-	")RPC_METHOD_SERVER_POINTS_TRANSACTIONS_GET\x10X\x12 \n" +
-	"\x1cRPC_METHOD_SERVER_BADGE_LIST\x10Y\x12\x1f\n" +
-	"\x1bRPC_METHOD_SERVER_BADGE_GET\x10Z\x12&\n" +
-	"\"RPC_METHOD_SERVER_GAME_RESULT_LIST\x10[\x12%\n" +
-	"!RPC_METHOD_SERVER_GAME_RESULT_GET\x10\\\x12'\n" +
-	"#RPC_METHOD_SERVER_REWARD_GRANT_LIST\x10]\x12&\n" +
-	"\"RPC_METHOD_SERVER_REWARD_GRANT_GET\x10^B?Z=github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto;rpcpbb\x06proto3"
+	"\x1aO\xc2\xf3\x18K\n" +
+	"\x14server.run.agent.set\x12\x18ServerSetRunAgentRequest\x1a\x19ServerSetRunAgentResponse\x12\x84\x01\n" +
+	"#RPC_METHOD_SERVER_RUN_WORKSPACE_GET\x10\v\x1a[\xc2\xf3\x18W\n" +
+	"\x18server.run.workspace.get\x12\x1cServerGetRunWorkspaceRequest\x1a\x1dServerGetRunWorkspaceResponse\x12\x84\x01\n" +
+	"#RPC_METHOD_SERVER_RUN_WORKSPACE_SET\x10\f\x1a[\xc2\xf3\x18W\n" +
+	"\x18server.run.workspace.set\x12\x1cServerSetRunWorkspaceRequest\x1a\x1dServerSetRunWorkspaceResponse\x12\x90\x01\n" +
+	"&RPC_METHOD_SERVER_RUN_WORKSPACE_RELOAD\x10\r\x1ad\xc2\xf3\x18`\n" +
+	"\x1bserver.run.workspace.reload\x12\x1fServerReloadRunWorkspaceRequest\x1a ServerReloadRunWorkspaceResponse\x12\x9c\x01\n" +
+	"'RPC_METHOD_SERVER_RUN_WORKSPACE_HISTORY\x10\x0e\x1ao\xc2\xf3\x18k\n" +
+	"\x1cserver.run.workspace.history\x12$ServerListRunWorkspaceHistoryRequest\x1a%ServerListRunWorkspaceHistoryResponse\x12\xa6\x01\n" +
+	",RPC_METHOD_SERVER_RUN_WORKSPACE_HISTORY_PLAY\x10\x0f\x1at\xc2\xf3\x18p\n" +
+	"!server.run.workspace.history.play\x12$ServerPlayRunWorkspaceHistoryRequest\x1a%ServerPlayRunWorkspaceHistoryResponse\x12\xac\x01\n" +
+	",RPC_METHOD_SERVER_RUN_WORKSPACE_MEMORY_STATS\x10\x10\x1az\xc2\xf3\x18v\n" +
+	"!server.run.workspace.memory.stats\x12'ServerGetRunWorkspaceMemoryStatsRequest\x1a(ServerGetRunWorkspaceMemoryStatsResponse\x12\x90\x01\n" +
+	"&RPC_METHOD_SERVER_RUN_WORKSPACE_RECALL\x10\x11\x1ad\xc2\xf3\x18`\n" +
+	"\x1bserver.run.workspace.recall\x12\x1fServerRunWorkspaceRecallRequest\x1a ServerRunWorkspaceRecallResponse\x12j\n" +
+	"\x1cRPC_METHOD_SERVER_RUN_RELOAD\x10\x12\x1aH\xc2\xf3\x18D\n" +
+	"\x11server.run.reload\x12\x16ServerReloadRunRequest\x1a\x17ServerReloadRunResponse\x12p\n" +
+	"\x1cRPC_METHOD_SERVER_RUN_STATUS\x10\x13\x1aN\xc2\xf3\x18J\n" +
+	"\x11server.run.status\x12\x19ServerGetRunStatusRequest\x1a\x1aServerGetRunStatusResponse\x12b\n" +
+	"\x1aRPC_METHOD_SERVER_RUN_STOP\x10\x14\x1aB\xc2\xf3\x18>\n" +
+	"\x0fserver.run.stop\x12\x14ServerStopRunRequest\x1a\x15ServerStopRunResponse\x12^\n" +
+	"\x19RPC_METHOD_SERVER_RUN_SAY\x10\x15\x1a?\xc2\xf3\x18;\n" +
+	"\x0eserver.run.say\x12\x13ServerRunSayRequest\x1a\x14ServerRunSayResponse\x12j\n" +
+	"\x1fRPC_METHOD_SERVER_FIRMWARE_LIST\x10\x16\x1aE\xc2\xf3\x18A\n" +
+	"\x14server.firmware.list\x12\x13FirmwareListRequest\x1a\x14FirmwareListResponse\x12f\n" +
+	"\x1eRPC_METHOD_SERVER_FIRMWARE_GET\x10\x17\x1aB\xc2\xf3\x18>\n" +
+	"\x13server.firmware.get\x12\x12FirmwareGetRequest\x1a\x13FirmwareGetResponse\x12\x90\x01\n" +
+	")RPC_METHOD_SERVER_FIRMWARE_FILES_DOWNLOAD\x10\x18\x1aa\xc2\xf3\x18]\n" +
+	"\x1eserver.firmware.files.download\x12\x1cFirmwareFilesDownloadRequest\x1a\x1dFirmwareFilesDownloadResponse\x12n\n" +
+	" RPC_METHOD_SERVER_WORKSPACE_LIST\x10\x19\x1aH\xc2\xf3\x18D\n" +
+	"\x15server.workspace.list\x12\x14WorkspaceListRequest\x1a\x15WorkspaceListResponse\x12j\n" +
+	"\x1fRPC_METHOD_SERVER_WORKSPACE_GET\x10\x1a\x1aE\xc2\xf3\x18A\n" +
+	"\x14server.workspace.get\x12\x13WorkspaceGetRequest\x1a\x14WorkspaceGetResponse\x12v\n" +
+	"\"RPC_METHOD_SERVER_WORKSPACE_CREATE\x10\x1b\x1aN\xc2\xf3\x18J\n" +
+	"\x17server.workspace.create\x12\x16WorkspaceCreateRequest\x1a\x17WorkspaceCreateResponse\x12j\n" +
+	"\x1fRPC_METHOD_SERVER_WORKSPACE_PUT\x10\x1c\x1aE\xc2\xf3\x18A\n" +
+	"\x14server.workspace.put\x12\x13WorkspacePutRequest\x1a\x14WorkspacePutResponse\x12v\n" +
+	"\"RPC_METHOD_SERVER_WORKSPACE_DELETE\x10\x1d\x1aN\xc2\xf3\x18J\n" +
+	"\x17server.workspace.delete\x12\x16WorkspaceDeleteRequest\x1a\x17WorkspaceDeleteResponse\x12\x8c\x01\n" +
+	"(RPC_METHOD_SERVER_WORKSPACE_HISTORY_LIST\x10\x1e\x1a^\xc2\xf3\x18Z\n" +
+	"\x1dserver.workspace.history.list\x12\x1bWorkspaceHistoryListRequest\x1a\x1cWorkspaceHistoryListResponse\x12\x88\x01\n" +
+	"'RPC_METHOD_SERVER_WORKSPACE_HISTORY_GET\x10\x1f\x1a[\xc2\xf3\x18W\n" +
+	"\x1cserver.workspace.history.get\x12\x1aWorkspaceHistoryGetRequest\x1a\x1bWorkspaceHistoryGetResponse\x12\x9e\x01\n" +
+	"-RPC_METHOD_SERVER_WORKSPACE_HISTORY_AUDIO_GET\x10 \x1ak\xc2\xf3\x18g\n" +
+	"\"server.workspace.history.audio.get\x12\x1fWorkspaceHistoryAudioGetRequest\x1a WorkspaceHistoryAudioGetResponse\x12j\n" +
+	"\x1fRPC_METHOD_SERVER_WORKFLOW_LIST\x10!\x1aE\xc2\xf3\x18A\n" +
+	"\x14server.workflow.list\x12\x13WorkflowListRequest\x1a\x14WorkflowListResponse\x12f\n" +
+	"\x1eRPC_METHOD_SERVER_WORKFLOW_GET\x10\"\x1aB\xc2\xf3\x18>\n" +
+	"\x13server.workflow.get\x12\x12WorkflowGetRequest\x1a\x13WorkflowGetResponse\x12r\n" +
+	"!RPC_METHOD_SERVER_WORKFLOW_CREATE\x10#\x1aK\xc2\xf3\x18G\n" +
+	"\x16server.workflow.create\x12\x15WorkflowCreateRequest\x1a\x16WorkflowCreateResponse\x12f\n" +
+	"\x1eRPC_METHOD_SERVER_WORKFLOW_PUT\x10$\x1aB\xc2\xf3\x18>\n" +
+	"\x13server.workflow.put\x12\x12WorkflowPutRequest\x1a\x13WorkflowPutResponse\x12r\n" +
+	"!RPC_METHOD_SERVER_WORKFLOW_DELETE\x10%\x1aK\xc2\xf3\x18G\n" +
+	"\x16server.workflow.delete\x12\x15WorkflowDeleteRequest\x1a\x16WorkflowDeleteResponse\x12^\n" +
+	"\x1cRPC_METHOD_SERVER_MODEL_LIST\x10&\x1a<\xc2\xf3\x188\n" +
+	"\x11server.model.list\x12\x10ModelListRequest\x1a\x11ModelListResponse\x12Z\n" +
+	"\x1bRPC_METHOD_SERVER_MODEL_GET\x10'\x1a9\xc2\xf3\x185\n" +
+	"\x10server.model.get\x12\x0fModelGetRequest\x1a\x10ModelGetResponse\x12f\n" +
+	"\x1eRPC_METHOD_SERVER_MODEL_CREATE\x10(\x1aB\xc2\xf3\x18>\n" +
+	"\x13server.model.create\x12\x12ModelCreateRequest\x1a\x13ModelCreateResponse\x12Z\n" +
+	"\x1bRPC_METHOD_SERVER_MODEL_PUT\x10)\x1a9\xc2\xf3\x185\n" +
+	"\x10server.model.put\x12\x0fModelPutRequest\x1a\x10ModelPutResponse\x12f\n" +
+	"\x1eRPC_METHOD_SERVER_MODEL_DELETE\x10*\x1aB\xc2\xf3\x18>\n" +
+	"\x13server.model.delete\x12\x12ModelDeleteRequest\x1a\x13ModelDeleteResponse\x12^\n" +
+	"\x1cRPC_METHOD_SERVER_VOICE_LIST\x10+\x1a<\xc2\xf3\x188\n" +
+	"\x11server.voice.list\x12\x10VoiceListRequest\x1a\x11VoiceListResponse\x12Z\n" +
+	"\x1bRPC_METHOD_SERVER_VOICE_GET\x10,\x1a9\xc2\xf3\x185\n" +
+	"\x10server.voice.get\x12\x0fVoiceGetRequest\x1a\x10VoiceGetResponse\x12r\n" +
+	"!RPC_METHOD_SERVER_CREDENTIAL_LIST\x10-\x1aK\xc2\xf3\x18G\n" +
+	"\x16server.credential.list\x12\x15CredentialListRequest\x1a\x16CredentialListResponse\x12n\n" +
+	" RPC_METHOD_SERVER_CREDENTIAL_GET\x10.\x1aH\xc2\xf3\x18D\n" +
+	"\x15server.credential.get\x12\x14CredentialGetRequest\x1a\x15CredentialGetResponse\x12z\n" +
+	"#RPC_METHOD_SERVER_CREDENTIAL_CREATE\x10/\x1aQ\xc2\xf3\x18M\n" +
+	"\x18server.credential.create\x12\x17CredentialCreateRequest\x1a\x18CredentialCreateResponse\x12n\n" +
+	" RPC_METHOD_SERVER_CREDENTIAL_PUT\x100\x1aH\xc2\xf3\x18D\n" +
+	"\x15server.credential.put\x12\x14CredentialPutRequest\x1a\x15CredentialPutResponse\x12z\n" +
+	"#RPC_METHOD_SERVER_CREDENTIAL_DELETE\x101\x1aQ\xc2\xf3\x18M\n" +
+	"\x18server.credential.delete\x12\x17CredentialDeleteRequest\x1a\x18CredentialDeleteResponse\x12f\n" +
+	"\x1eRPC_METHOD_SERVER_CONTACT_LIST\x102\x1aB\xc2\xf3\x18>\n" +
+	"\x13server.contact.list\x12\x12ContactListRequest\x1a\x13ContactListResponse\x12b\n" +
+	"\x1dRPC_METHOD_SERVER_CONTACT_GET\x103\x1a?\xc2\xf3\x18;\n" +
+	"\x12server.contact.get\x12\x11ContactGetRequest\x1a\x12ContactGetResponse\x12n\n" +
+	" RPC_METHOD_SERVER_CONTACT_CREATE\x104\x1aH\xc2\xf3\x18D\n" +
+	"\x15server.contact.create\x12\x14ContactCreateRequest\x1a\x15ContactCreateResponse\x12b\n" +
+	"\x1dRPC_METHOD_SERVER_CONTACT_PUT\x105\x1a?\xc2\xf3\x18;\n" +
+	"\x12server.contact.put\x12\x11ContactPutRequest\x1a\x12ContactPutResponse\x12n\n" +
+	" RPC_METHOD_SERVER_CONTACT_DELETE\x106\x1aH\xc2\xf3\x18D\n" +
+	"\x15server.contact.delete\x12\x14ContactDeleteRequest\x1a\x15ContactDeleteResponse\x12\x8e\x01\n" +
+	")RPC_METHOD_SERVER_FRIEND_INVITE_TOKEN_GET\x107\x1a_\xc2\xf3\x18[\n" +
+	"\x1eserver.friend.invite_token.get\x12\x1bFriendInviteTokenGetRequest\x1a\x1cFriendInviteTokenGetResponse\x12\x9a\x01\n" +
+	",RPC_METHOD_SERVER_FRIEND_INVITE_TOKEN_CREATE\x108\x1ah\xc2\xf3\x18d\n" +
+	"!server.friend.invite_token.create\x12\x1eFriendInviteTokenCreateRequest\x1a\x1fFriendInviteTokenCreateResponse\x12\x96\x01\n" +
+	"+RPC_METHOD_SERVER_FRIEND_INVITE_TOKEN_CLEAR\x109\x1ae\xc2\xf3\x18a\n" +
+	" server.friend.invite_token.clear\x12\x1dFriendInviteTokenClearRequest\x1a\x1eFriendInviteTokenClearResponse\x12^\n" +
+	"\x1cRPC_METHOD_SERVER_FRIEND_ADD\x10:\x1a<\xc2\xf3\x188\n" +
+	"\x11server.friend.add\x12\x10FriendAddRequest\x1a\x11FriendAddResponse\x12b\n" +
+	"\x1dRPC_METHOD_SERVER_FRIEND_LIST\x10;\x1a?\xc2\xf3\x18;\n" +
+	"\x12server.friend.list\x12\x11FriendListRequest\x1a\x12FriendListResponse\x12j\n" +
+	"\x1fRPC_METHOD_SERVER_FRIEND_DELETE\x10<\x1aE\xc2\xf3\x18A\n" +
+	"\x14server.friend.delete\x12\x13FriendDeleteRequest\x1a\x14FriendDeleteResponse\x12x\n" +
+	"#RPC_METHOD_SERVER_FRIEND_GROUP_LIST\x10=\x1aO\xc2\xf3\x18K\n" +
+	"\x18server.friend_group.list\x12\x16FriendGroupListRequest\x1a\x17FriendGroupListResponse\x12t\n" +
+	"\"RPC_METHOD_SERVER_FRIEND_GROUP_GET\x10>\x1aL\xc2\xf3\x18H\n" +
+	"\x17server.friend_group.get\x12\x15FriendGroupGetRequest\x1a\x16FriendGroupGetResponse\x12\x80\x01\n" +
+	"%RPC_METHOD_SERVER_FRIEND_GROUP_CREATE\x10?\x1aU\xc2\xf3\x18Q\n" +
+	"\x1aserver.friend_group.create\x12\x18FriendGroupCreateRequest\x1a\x19FriendGroupCreateResponse\x12t\n" +
+	"\"RPC_METHOD_SERVER_FRIEND_GROUP_PUT\x10@\x1aL\xc2\xf3\x18H\n" +
+	"\x17server.friend_group.put\x12\x15FriendGroupPutRequest\x1a\x16FriendGroupPutResponse\x12\x80\x01\n" +
+	"%RPC_METHOD_SERVER_FRIEND_GROUP_DELETE\x10A\x1aU\xc2\xf3\x18Q\n" +
+	"\x1aserver.friend_group.delete\x12\x18FriendGroupDeleteRequest\x1a\x19FriendGroupDeleteResponse\x12\xa4\x01\n" +
+	"/RPC_METHOD_SERVER_FRIEND_GROUP_INVITE_TOKEN_GET\x10B\x1ao\xc2\xf3\x18k\n" +
+	"$server.friend_group.invite_token.get\x12 FriendGroupInviteTokenGetRequest\x1a!FriendGroupInviteTokenGetResponse\x12\xb0\x01\n" +
+	"2RPC_METHOD_SERVER_FRIEND_GROUP_INVITE_TOKEN_CREATE\x10C\x1ax\xc2\xf3\x18t\n" +
+	"'server.friend_group.invite_token.create\x12#FriendGroupInviteTokenCreateRequest\x1a$FriendGroupInviteTokenCreateResponse\x12\xac\x01\n" +
+	"1RPC_METHOD_SERVER_FRIEND_GROUP_INVITE_TOKEN_CLEAR\x10D\x1au\xc2\xf3\x18q\n" +
+	"&server.friend_group.invite_token.clear\x12\"FriendGroupInviteTokenClearRequest\x1a#FriendGroupInviteTokenClearResponse\x12x\n" +
+	"#RPC_METHOD_SERVER_FRIEND_GROUP_JOIN\x10E\x1aO\xc2\xf3\x18K\n" +
+	"\x18server.friend_group.join\x12\x16FriendGroupJoinRequest\x1a\x17FriendGroupJoinResponse\x12\x94\x01\n" +
+	"+RPC_METHOD_SERVER_FRIEND_GROUP_MEMBERS_LIST\x10F\x1ac\xc2\xf3\x18_\n" +
+	" server.friend_group.members.list\x12\x1cFriendGroupMemberListRequest\x1a\x1dFriendGroupMemberListResponse\x12\x90\x01\n" +
+	"*RPC_METHOD_SERVER_FRIEND_GROUP_MEMBERS_ADD\x10G\x1a`\xc2\xf3\x18\\\n" +
+	"\x1fserver.friend_group.members.add\x12\x1bFriendGroupMemberAddRequest\x1a\x1cFriendGroupMemberAddResponse\x12\x90\x01\n" +
+	"*RPC_METHOD_SERVER_FRIEND_GROUP_MEMBERS_PUT\x10H\x1a`\xc2\xf3\x18\\\n" +
+	"\x1fserver.friend_group.members.put\x12\x1bFriendGroupMemberPutRequest\x1a\x1cFriendGroupMemberPutResponse\x12\x9c\x01\n" +
+	"-RPC_METHOD_SERVER_FRIEND_GROUP_MEMBERS_DELETE\x10I\x1ai\xc2\xf3\x18e\n" +
+	"\"server.friend_group.members.delete\x12\x1eFriendGroupMemberDeleteRequest\x1a\x1fFriendGroupMemberDeleteResponse\x12\x98\x01\n" +
+	",RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_LIST\x10J\x1af\xc2\xf3\x18b\n" +
+	"!server.friend_group.messages.list\x12\x1dFriendGroupMessageListRequest\x1a\x1eFriendGroupMessageListResponse\x12\x94\x01\n" +
+	"+RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_GET\x10K\x1ac\xc2\xf3\x18_\n" +
+	" server.friend_group.messages.get\x12\x1cFriendGroupMessageGetRequest\x1a\x1dFriendGroupMessageGetResponse\x12\x98\x01\n" +
+	",RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_SEND\x10L\x1af\xc2\xf3\x18b\n" +
+	"!server.friend_group.messages.send\x12\x1dFriendGroupMessageSendRequest\x1a\x1eFriendGroupMessageSendResponse\x12\x80\x01\n" +
+	"\"RPC_METHOD_SERVER_GAME_RULESET_GET\x10M\x1aX\xc2\xf3\x18T\n" +
+	"\x17server.game_ruleset.get\x12\x1bServerGameRulesetGetRequest\x1a\x1cServerGameRulesetGetResponse\x12\x86\x01\n" +
+	"'RPC_METHOD_SERVER_PET_DEF_PIXA_DOWNLOAD\x10N\x1aY\xc2\xf3\x18U\n" +
+	"\x1cserver.pet_def.pixa.download\x12\x19PetDefPixaDownloadRequest\x1a\x1aPetDefPixaDownloadResponse\x12\x8e\x01\n" +
+	")RPC_METHOD_SERVER_BADGE_DEF_PIXA_DOWNLOAD\x10O\x1a_\xc2\xf3\x18[\n" +
+	"\x1eserver.badge_def.pixa.download\x12\x1bBadgeDefPixaDownloadRequest\x1a\x1cBadgeDefPixaDownloadResponse\x12b\n" +
+	"\x1aRPC_METHOD_SERVER_PET_LIST\x10P\x1aB\xc2\xf3\x18>\n" +
+	"\x0fserver.pet.list\x12\x14ServerPetListRequest\x1a\x15ServerPetListResponse\x12^\n" +
+	"\x19RPC_METHOD_SERVER_PET_GET\x10Q\x1a?\xc2\xf3\x18;\n" +
+	"\x0eserver.pet.get\x12\x13ServerPetGetRequest\x1a\x14ServerPetGetResponse\x12f\n" +
+	"\x1bRPC_METHOD_SERVER_PET_ADOPT\x10R\x1aE\xc2\xf3\x18A\n" +
+	"\x10server.pet.adopt\x12\x15ServerPetAdoptRequest\x1a\x16ServerPetAdoptResponse\x12^\n" +
+	"\x19RPC_METHOD_SERVER_PET_PUT\x10S\x1a?\xc2\xf3\x18;\n" +
+	"\x0eserver.pet.put\x12\x13ServerPetPutRequest\x1a\x14ServerPetPutResponse\x12j\n" +
+	"\x1cRPC_METHOD_SERVER_PET_DELETE\x10T\x1aH\xc2\xf3\x18D\n" +
+	"\x11server.pet.delete\x12\x16ServerPetDeleteRequest\x1a\x17ServerPetDeleteResponse\x12f\n" +
+	"\x1bRPC_METHOD_SERVER_PET_DRIVE\x10U\x1aE\xc2\xf3\x18A\n" +
+	"\x10server.pet.drive\x12\x15ServerPetDriveRequest\x1a\x16ServerPetDriveResponse\x12j\n" +
+	"\x1cRPC_METHOD_SERVER_POINTS_GET\x10V\x1aH\xc2\xf3\x18D\n" +
+	"\x11server.points.get\x12\x16ServerPointsGetRequest\x1a\x17ServerPointsGetResponse\x12\x9e\x01\n" +
+	"*RPC_METHOD_SERVER_POINTS_TRANSACTIONS_LIST\x10W\x1an\xc2\xf3\x18j\n" +
+	"\x1fserver.points.transactions.list\x12\"ServerPointsTransactionListRequest\x1a#ServerPointsTransactionListResponse\x12\x9a\x01\n" +
+	")RPC_METHOD_SERVER_POINTS_TRANSACTIONS_GET\x10X\x1ak\xc2\xf3\x18g\n" +
+	"\x1eserver.points.transactions.get\x12!ServerPointsTransactionGetRequest\x1a\"ServerPointsTransactionGetResponse\x12j\n" +
+	"\x1cRPC_METHOD_SERVER_BADGE_LIST\x10Y\x1aH\xc2\xf3\x18D\n" +
+	"\x11server.badge.list\x12\x16ServerBadgeListRequest\x1a\x17ServerBadgeListResponse\x12f\n" +
+	"\x1bRPC_METHOD_SERVER_BADGE_GET\x10Z\x1aE\xc2\xf3\x18A\n" +
+	"\x10server.badge.get\x12\x15ServerBadgeGetRequest\x1a\x16ServerBadgeGetResponse\x12\x80\x01\n" +
+	"\"RPC_METHOD_SERVER_GAME_RESULT_LIST\x10[\x1aX\xc2\xf3\x18T\n" +
+	"\x17server.game_result.list\x12\x1bServerGameResultListRequest\x1a\x1cServerGameResultListResponse\x12|\n" +
+	"!RPC_METHOD_SERVER_GAME_RESULT_GET\x10\\\x1aU\xc2\xf3\x18Q\n" +
+	"\x16server.game_result.get\x12\x1aServerGameResultGetRequest\x1a\x1bServerGameResultGetResponse\x12\x84\x01\n" +
+	"#RPC_METHOD_SERVER_REWARD_GRANT_LIST\x10]\x1a[\xc2\xf3\x18W\n" +
+	"\x18server.reward_grant.list\x12\x1cServerRewardGrantListRequest\x1a\x1dServerRewardGrantListResponse\x12\x80\x01\n" +
+	"\"RPC_METHOD_SERVER_REWARD_GRANT_GET\x10^\x1aX\xc2\xf3\x18T\n" +
+	"\x17server.reward_grant.get\x12\x1bServerRewardGrantGetRequest\x1a\x1cServerRewardGrantGetResponse:d\n" +
+	"\n" +
+	"rpc_method\x12!.google.protobuf.EnumValueOptions\x18\xb8\x8e\x03 \x01(\v2 .gizclaw.rpc.v1.RpcMethodOptionsR\trpcMethodB?Z=github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto;rpcpbb\x06proto3"
 
 var (
 	file_peer_proto_rawDescOnce sync.Once
@@ -624,17 +708,21 @@ func file_peer_proto_rawDescGZIP() []byte {
 }
 
 var file_peer_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_peer_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
+var file_peer_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
 var file_peer_proto_goTypes = []any{
-	(RpcMethod)(0),     // 0: gizclaw.rpc.v1.RpcMethod
-	(*RpcRequest)(nil), // 1: gizclaw.rpc.v1.RpcRequest
+	(RpcMethod)(0),                        // 0: gizclaw.rpc.v1.RpcMethod
+	(*RpcMethodOptions)(nil),              // 1: gizclaw.rpc.v1.RpcMethodOptions
+	(*RpcRequest)(nil),                    // 2: gizclaw.rpc.v1.RpcRequest
+	(*descriptorpb.EnumValueOptions)(nil), // 3: google.protobuf.EnumValueOptions
 }
 var file_peer_proto_depIdxs = []int32{
 	0, // 0: gizclaw.rpc.v1.RpcRequest.method:type_name -> gizclaw.rpc.v1.RpcMethod
-	1, // [1:1] is the sub-list for method output_type
-	1, // [1:1] is the sub-list for method input_type
-	1, // [1:1] is the sub-list for extension type_name
-	1, // [1:1] is the sub-list for extension extendee
+	3, // 1: gizclaw.rpc.v1.rpc_method:extendee -> google.protobuf.EnumValueOptions
+	1, // 2: gizclaw.rpc.v1.rpc_method:type_name -> gizclaw.rpc.v1.RpcMethodOptions
+	3, // [3:3] is the sub-list for method output_type
+	3, // [3:3] is the sub-list for method input_type
+	2, // [2:3] is the sub-list for extension type_name
+	1, // [1:2] is the sub-list for extension extendee
 	0, // [0:1] is the sub-list for field type_name
 }
 
@@ -643,21 +731,22 @@ func file_peer_proto_init() {
 	if File_peer_proto != nil {
 		return
 	}
-	file_peer_proto_msgTypes[0].OneofWrappers = []any{}
+	file_peer_proto_msgTypes[1].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_peer_proto_rawDesc), len(file_peer_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   1,
-			NumExtensions: 0,
+			NumMessages:   2,
+			NumExtensions: 1,
 			NumServices:   0,
 		},
 		GoTypes:           file_peer_proto_goTypes,
 		DependencyIndexes: file_peer_proto_depIdxs,
 		EnumInfos:         file_peer_proto_enumTypes,
 		MessageInfos:      file_peer_proto_msgTypes,
+		ExtensionInfos:    file_peer_proto_extTypes,
 	}.Build()
 	File_peer_proto = out.File
 	file_peer_proto_goTypes = nil

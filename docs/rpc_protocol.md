@@ -113,6 +113,12 @@ message RpcResponse {
 append-only and must not be reused. SDKs may expose dotted method names for
 developer ergonomics, but the wire envelope uses `RpcMethod`.
 
+Each dispatchable `RpcMethod` enum value carries an `(rpc_method)` option with
+the dotted debug name and the request/response payload message names. Go,
+JavaScript, and C helper surfaces must derive method-to-payload mappings from
+that protobuf metadata instead of a hand-written descriptor or a separate string
+registry.
+
 `payload` carries the method-specific protobuf request or response message for
 the selected method. RPC errors use protobuf `RpcError` with stable numeric
 error codes and a human-readable message.

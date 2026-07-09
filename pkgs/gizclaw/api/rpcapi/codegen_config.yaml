@@ -1,7 +1,0 @@
-package: rpcapi
-generate:
-  models: true
-output-options:
-  skip-prune: true
-compatibility:
-  always-prefix-enum-values: true

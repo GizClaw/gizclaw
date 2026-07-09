@@ -12,203 +12,118 @@
 /* Enum definitions */
 typedef enum _gizclaw_rpc_v1_RpcMethod {
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_UNSPECIFIED = 0,
-    /* rpc: all.ping request=PingRequest response=PingResponse */
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_ALL_PING = 1,
-    /* rpc: all.speed_test.run request=SpeedTestRequest response=SpeedTestResponse */
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_ALL_SPEED_TEST_RUN = 2,
-    /* rpc: client.info.get request=ClientGetInfoRequest response=ClientGetInfoResponse */
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_INFO_GET = 3,
-    /* rpc: client.identifiers.get request=ClientGetIdentifiersRequest response=ClientGetIdentifiersResponse */
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_IDENTIFIERS_GET = 4,
-    /* rpc: server.info.get request=ServerGetInfoRequest response=ServerGetInfoResponse */
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_INFO_GET = 5,
-    /* rpc: server.info.put request=ServerPutInfoRequest response=ServerPutInfoResponse */
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_INFO_PUT = 6,
-    /* rpc: server.runtime.get request=ServerGetRuntimeRequest response=ServerGetRuntimeResponse */
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_RUNTIME_GET = 7,
-    /* rpc: server.status.get request=ServerGetStatusRequest response=ServerGetStatusResponse */
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_STATUS_GET = 8,
-    /* rpc: server.run.agent.get request=ServerGetRunAgentRequest response=ServerGetRunAgentResponse */
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_RUN_AGENT_GET = 9,
-    /* rpc: server.run.agent.set request=ServerSetRunAgentRequest response=ServerSetRunAgentResponse */
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_RUN_AGENT_SET = 10,
-    /* rpc: server.run.workspace.get request=ServerGetRunWorkspaceRequest response=ServerGetRunWorkspaceResponse */
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_RUN_WORKSPACE_GET = 11,
-    /* rpc: server.run.workspace.set request=ServerSetRunWorkspaceRequest response=ServerSetRunWorkspaceResponse */
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_RUN_WORKSPACE_SET = 12,
-    /* rpc: server.run.workspace.reload request=ServerReloadRunWorkspaceRequest response=ServerReloadRunWorkspaceResponse */
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_RUN_WORKSPACE_RELOAD = 13,
-    /* rpc: server.run.workspace.history request=ServerListRunWorkspaceHistoryRequest response=ServerListRunWorkspaceHistoryResponse */
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_RUN_WORKSPACE_HISTORY = 14,
-    /* rpc: server.run.workspace.history.play request=ServerPlayRunWorkspaceHistoryRequest response=ServerPlayRunWorkspaceHistoryResponse */
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_RUN_WORKSPACE_HISTORY_PLAY = 15,
-    /* rpc: server.run.workspace.memory.stats request=ServerGetRunWorkspaceMemoryStatsRequest response=ServerGetRunWorkspaceMemoryStatsResponse */
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_RUN_WORKSPACE_MEMORY_STATS = 16,
-    /* rpc: server.run.workspace.recall request=ServerRunWorkspaceRecallRequest response=ServerRunWorkspaceRecallResponse */
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_RUN_WORKSPACE_RECALL = 17,
-    /* rpc: server.run.reload request=ServerReloadRunRequest response=ServerReloadRunResponse */
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_RUN_RELOAD = 18,
-    /* rpc: server.run.status request=ServerGetRunStatusRequest response=ServerGetRunStatusResponse */
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_RUN_STATUS = 19,
-    /* rpc: server.run.stop request=ServerStopRunRequest response=ServerStopRunResponse */
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_RUN_STOP = 20,
-    /* rpc: server.run.say request=ServerRunSayRequest response=ServerRunSayResponse */
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_RUN_SAY = 21,
-    /* rpc: server.firmware.list request=FirmwareListRequest response=FirmwareListResponse */
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_FIRMWARE_LIST = 22,
-    /* rpc: server.firmware.get request=FirmwareGetRequest response=FirmwareGetResponse */
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_FIRMWARE_GET = 23,
-    /* rpc: server.firmware.files.download request=FirmwareFilesDownloadRequest response=FirmwareFilesDownloadResponse */
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_FIRMWARE_FILES_DOWNLOAD = 24,
-    /* rpc: server.workspace.list request=WorkspaceListRequest response=WorkspaceListResponse */
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_WORKSPACE_LIST = 25,
-    /* rpc: server.workspace.get request=WorkspaceGetRequest response=WorkspaceGetResponse */
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_WORKSPACE_GET = 26,
-    /* rpc: server.workspace.create request=WorkspaceCreateRequest response=WorkspaceCreateResponse */
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_WORKSPACE_CREATE = 27,
-    /* rpc: server.workspace.put request=WorkspacePutRequest response=WorkspacePutResponse */
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_WORKSPACE_PUT = 28,
-    /* rpc: server.workspace.delete request=WorkspaceDeleteRequest response=WorkspaceDeleteResponse */
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_WORKSPACE_DELETE = 29,
-    /* rpc: server.workspace.history.list request=WorkspaceHistoryListRequest response=WorkspaceHistoryListResponse */
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_WORKSPACE_HISTORY_LIST = 30,
-    /* rpc: server.workspace.history.get request=WorkspaceHistoryGetRequest response=WorkspaceHistoryGetResponse */
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_WORKSPACE_HISTORY_GET = 31,
-    /* rpc: server.workspace.history.audio.get request=WorkspaceHistoryAudioGetRequest response=WorkspaceHistoryAudioGetResponse */
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_WORKSPACE_HISTORY_AUDIO_GET = 32,
-    /* rpc: server.workflow.list request=WorkflowListRequest response=WorkflowListResponse */
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_WORKFLOW_LIST = 33,
-    /* rpc: server.workflow.get request=WorkflowGetRequest response=WorkflowGetResponse */
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_WORKFLOW_GET = 34,
-    /* rpc: server.workflow.create request=WorkflowCreateRequest response=WorkflowCreateResponse */
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_WORKFLOW_CREATE = 35,
-    /* rpc: server.workflow.put request=WorkflowPutRequest response=WorkflowPutResponse */
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_WORKFLOW_PUT = 36,
-    /* rpc: server.workflow.delete request=WorkflowDeleteRequest response=WorkflowDeleteResponse */
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_WORKFLOW_DELETE = 37,
-    /* rpc: server.model.list request=ModelListRequest response=ModelListResponse */
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_MODEL_LIST = 38,
-    /* rpc: server.model.get request=ModelGetRequest response=ModelGetResponse */
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_MODEL_GET = 39,
-    /* rpc: server.model.create request=ModelCreateRequest response=ModelCreateResponse */
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_MODEL_CREATE = 40,
-    /* rpc: server.model.put request=ModelPutRequest response=ModelPutResponse */
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_MODEL_PUT = 41,
-    /* rpc: server.model.delete request=ModelDeleteRequest response=ModelDeleteResponse */
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_MODEL_DELETE = 42,
-    /* rpc: server.voice.list request=VoiceListRequest response=VoiceListResponse */
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_VOICE_LIST = 43,
-    /* rpc: server.voice.get request=VoiceGetRequest response=VoiceGetResponse */
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_VOICE_GET = 44,
-    /* rpc: server.credential.list request=CredentialListRequest response=CredentialListResponse */
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_CREDENTIAL_LIST = 45,
-    /* rpc: server.credential.get request=CredentialGetRequest response=CredentialGetResponse */
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_CREDENTIAL_GET = 46,
-    /* rpc: server.credential.create request=CredentialCreateRequest response=CredentialCreateResponse */
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_CREDENTIAL_CREATE = 47,
-    /* rpc: server.credential.put request=CredentialPutRequest response=CredentialPutResponse */
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_CREDENTIAL_PUT = 48,
-    /* rpc: server.credential.delete request=CredentialDeleteRequest response=CredentialDeleteResponse */
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_CREDENTIAL_DELETE = 49,
-    /* rpc: server.contact.list request=ContactListRequest response=ContactListResponse */
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_CONTACT_LIST = 50,
-    /* rpc: server.contact.get request=ContactGetRequest response=ContactGetResponse */
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_CONTACT_GET = 51,
-    /* rpc: server.contact.create request=ContactCreateRequest response=ContactCreateResponse */
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_CONTACT_CREATE = 52,
-    /* rpc: server.contact.put request=ContactPutRequest response=ContactPutResponse */
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_CONTACT_PUT = 53,
-    /* rpc: server.contact.delete request=ContactDeleteRequest response=ContactDeleteResponse */
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_CONTACT_DELETE = 54,
-    /* rpc: server.friend.invite_token.get request=FriendInviteTokenGetRequest response=FriendInviteTokenGetResponse */
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_FRIEND_INVITE_TOKEN_GET = 55,
-    /* rpc: server.friend.invite_token.create request=FriendInviteTokenCreateRequest response=FriendInviteTokenCreateResponse */
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_FRIEND_INVITE_TOKEN_CREATE = 56,
-    /* rpc: server.friend.invite_token.clear request=FriendInviteTokenClearRequest response=FriendInviteTokenClearResponse */
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_FRIEND_INVITE_TOKEN_CLEAR = 57,
-    /* rpc: server.friend.add request=FriendAddRequest response=FriendAddResponse */
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_FRIEND_ADD = 58,
-    /* rpc: server.friend.list request=FriendListRequest response=FriendListResponse */
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_FRIEND_LIST = 59,
-    /* rpc: server.friend.delete request=FriendDeleteRequest response=FriendDeleteResponse */
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_FRIEND_DELETE = 60,
-    /* rpc: server.friend_group.list request=FriendGroupListRequest response=FriendGroupListResponse */
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_LIST = 61,
-    /* rpc: server.friend_group.get request=FriendGroupGetRequest response=FriendGroupGetResponse */
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_GET = 62,
-    /* rpc: server.friend_group.create request=FriendGroupCreateRequest response=FriendGroupCreateResponse */
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_CREATE = 63,
-    /* rpc: server.friend_group.put request=FriendGroupPutRequest response=FriendGroupPutResponse */
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_PUT = 64,
-    /* rpc: server.friend_group.delete request=FriendGroupDeleteRequest response=FriendGroupDeleteResponse */
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_DELETE = 65,
-    /* rpc: server.friend_group.invite_token.get request=FriendGroupInviteTokenGetRequest response=FriendGroupInviteTokenGetResponse */
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_INVITE_TOKEN_GET = 66,
-    /* rpc: server.friend_group.invite_token.create request=FriendGroupInviteTokenCreateRequest response=FriendGroupInviteTokenCreateResponse */
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_INVITE_TOKEN_CREATE = 67,
-    /* rpc: server.friend_group.invite_token.clear request=FriendGroupInviteTokenClearRequest response=FriendGroupInviteTokenClearResponse */
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_INVITE_TOKEN_CLEAR = 68,
-    /* rpc: server.friend_group.join request=FriendGroupJoinRequest response=FriendGroupJoinResponse */
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_JOIN = 69,
-    /* rpc: server.friend_group.members.list request=FriendGroupMemberListRequest response=FriendGroupMemberListResponse */
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_MEMBERS_LIST = 70,
-    /* rpc: server.friend_group.members.add request=FriendGroupMemberAddRequest response=FriendGroupMemberAddResponse */
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_MEMBERS_ADD = 71,
-    /* rpc: server.friend_group.members.put request=FriendGroupMemberPutRequest response=FriendGroupMemberPutResponse */
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_MEMBERS_PUT = 72,
-    /* rpc: server.friend_group.members.delete request=FriendGroupMemberDeleteRequest response=FriendGroupMemberDeleteResponse */
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_MEMBERS_DELETE = 73,
-    /* rpc: server.friend_group.messages.list request=FriendGroupMessageListRequest response=FriendGroupMessageListResponse */
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_LIST = 74,
-    /* rpc: server.friend_group.messages.get request=FriendGroupMessageGetRequest response=FriendGroupMessageGetResponse */
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_GET = 75,
-    /* rpc: server.friend_group.messages.send request=FriendGroupMessageSendRequest response=FriendGroupMessageSendResponse */
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_SEND = 76,
-    /* rpc: server.game_ruleset.get request=ServerGameRulesetGetRequest response=ServerGameRulesetGetResponse */
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_GAME_RULESET_GET = 77,
-    /* rpc: server.pet_def.pixa.download request=PetDefPixaDownloadRequest response=PetDefPixaDownloadResponse */
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_PET_DEF_PIXA_DOWNLOAD = 78,
-    /* rpc: server.badge_def.pixa.download request=BadgeDefPixaDownloadRequest response=BadgeDefPixaDownloadResponse */
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_BADGE_DEF_PIXA_DOWNLOAD = 79,
-    /* rpc: server.pet.list request=ServerPetListRequest response=ServerPetListResponse */
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_PET_LIST = 80,
-    /* rpc: server.pet.get request=ServerPetGetRequest response=ServerPetGetResponse */
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_PET_GET = 81,
-    /* rpc: server.pet.adopt request=ServerPetAdoptRequest response=ServerPetAdoptResponse */
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_PET_ADOPT = 82,
-    /* rpc: server.pet.put request=ServerPetPutRequest response=ServerPetPutResponse */
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_PET_PUT = 83,
-    /* rpc: server.pet.delete request=ServerPetDeleteRequest response=ServerPetDeleteResponse */
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_PET_DELETE = 84,
-    /* rpc: server.pet.drive request=ServerPetDriveRequest response=ServerPetDriveResponse */
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_PET_DRIVE = 85,
-    /* rpc: server.points.get request=ServerPointsGetRequest response=ServerPointsGetResponse */
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_POINTS_GET = 86,
-    /* rpc: server.points.transactions.list request=ServerPointsTransactionListRequest response=ServerPointsTransactionListResponse */
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_POINTS_TRANSACTIONS_LIST = 87,
-    /* rpc: server.points.transactions.get request=ServerPointsTransactionGetRequest response=ServerPointsTransactionGetResponse */
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_POINTS_TRANSACTIONS_GET = 88,
-    /* rpc: server.badge.list request=ServerBadgeListRequest response=ServerBadgeListResponse */
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_BADGE_LIST = 89,
-    /* rpc: server.badge.get request=ServerBadgeGetRequest response=ServerBadgeGetResponse */
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_BADGE_GET = 90,
-    /* rpc: server.game_result.list request=ServerGameResultListRequest response=ServerGameResultListResponse */
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_GAME_RESULT_LIST = 91,
-    /* rpc: server.game_result.get request=ServerGameResultGetRequest response=ServerGameResultGetResponse */
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_GAME_RESULT_GET = 92,
-    /* rpc: server.reward_grant.list request=ServerRewardGrantListRequest response=ServerRewardGrantListResponse */
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_REWARD_GRANT_LIST = 93,
-    /* rpc: server.reward_grant.get request=ServerRewardGrantGetRequest response=ServerRewardGrantGetResponse */
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_REWARD_GRANT_GET = 94
 } gizclaw_rpc_v1_RpcMethod;
 
 /* Struct definitions */
+typedef struct _gizclaw_rpc_v1_RpcMethodOptions {
+    pb_callback_t name;
+    pb_callback_t request;
+    pb_callback_t response;
+} gizclaw_rpc_v1_RpcMethodOptions;
+
 typedef struct _gizclaw_rpc_v1_RpcRequest {
     pb_callback_t id;
     gizclaw_rpc_v1_RpcMethod method;
     pb_callback_t payload;
 } gizclaw_rpc_v1_RpcRequest;
 
+
+/* Extensions */
+extern const pb_extension_type_t gizclaw_rpc_v1_rpc_method; /* field type: gizclaw_rpc_v1_RpcMethodOptions rpc_method; */
 
 #ifdef __cplusplus
 extern "C" {
@@ -219,19 +134,33 @@ extern "C" {
 #define _gizclaw_rpc_v1_RpcMethod_MAX gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_REWARD_GRANT_GET
 #define _gizclaw_rpc_v1_RpcMethod_ARRAYSIZE ((gizclaw_rpc_v1_RpcMethod)(gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_REWARD_GRANT_GET+1))
 
+
 #define gizclaw_rpc_v1_RpcRequest_method_ENUMTYPE gizclaw_rpc_v1_RpcMethod
 
 
 /* Initializer values for message structs */
+#define gizclaw_rpc_v1_RpcMethodOptions_init_default {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_RpcRequest_init_default   {{{NULL}, NULL}, _gizclaw_rpc_v1_RpcMethod_MIN, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_RpcMethodOptions_init_zero {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_RpcRequest_init_zero      {{{NULL}, NULL}, _gizclaw_rpc_v1_RpcMethod_MIN, {{NULL}, NULL}}
 
 /* Field tags (for use in manual encoding/decoding) */
+#define gizclaw_rpc_v1_RpcMethodOptions_name_tag 1
+#define gizclaw_rpc_v1_RpcMethodOptions_request_tag 2
+#define gizclaw_rpc_v1_RpcMethodOptions_response_tag 3
 #define gizclaw_rpc_v1_RpcRequest_id_tag         1
 #define gizclaw_rpc_v1_RpcRequest_method_tag     2
 #define gizclaw_rpc_v1_RpcRequest_payload_tag    3
+#define gizclaw_rpc_v1_rpc_method_tag            51000
 
 /* Struct field encoding specification for nanopb */
+#define gizclaw_rpc_v1_RpcMethodOptions_FIELDLIST(X, a) \
+X(a, CALLBACK, SINGULAR, STRING,   name,              1) \
+X(a, CALLBACK, SINGULAR, STRING,   request,           2) \
+X(a, CALLBACK, SINGULAR, STRING,   response,          3)
+#define gizclaw_rpc_v1_RpcMethodOptions_CALLBACK pb_default_field_callback
+#define gizclaw_rpc_v1_RpcMethodOptions_DEFAULT NULL
+
 #define gizclaw_rpc_v1_RpcRequest_FIELDLIST(X, a) \
 X(a, CALLBACK, SINGULAR, STRING,   id,                1) \
 X(a, STATIC,   SINGULAR, UENUM,    method,            2) \
@@ -239,12 +168,15 @@ X(a, CALLBACK, OPTIONAL, BYTES,    payload,           3)
 #define gizclaw_rpc_v1_RpcRequest_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_RpcRequest_DEFAULT NULL
 
+extern const pb_msgdesc_t gizclaw_rpc_v1_RpcMethodOptions_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_RpcRequest_msg;
 
 /* Defines for backwards compatibility with code written before nanopb-0.4.0 */
+#define gizclaw_rpc_v1_RpcMethodOptions_fields &gizclaw_rpc_v1_RpcMethodOptions_msg
 #define gizclaw_rpc_v1_RpcRequest_fields &gizclaw_rpc_v1_RpcRequest_msg
 
 /* Maximum encoded size of messages (where known) */
+/* gizclaw_rpc_v1_RpcMethodOptions_size depends on runtime parameters */
 /* gizclaw_rpc_v1_RpcRequest_size depends on runtime parameters */
 
 #ifdef __cplusplus
