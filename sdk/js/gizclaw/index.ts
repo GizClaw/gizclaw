@@ -625,16 +625,16 @@ export async function sendGiznetWebRTCOffer(
   return response.blob();
 }
 
-export function parseRPCResponse<TResult = unknown>(data: unknown): RPCResponse<TResult> {
-  const text = typeof data === "string" ? data : data instanceof ArrayBuffer ? new TextDecoder().decode(data) : "";
-  if (text === "") {
-    throw new Error("empty WebRTC RPC response");
+export function parseRPCResponse<TResult = unknown>(data: ArrayBuffer | Uint8Array, method: string): RPCResponse<TResult> {
+  const bytes = data instanceof Uint8Array ? data : new Uint8Array(data);
+  const parsed = tryReadRPCResponse<TResult>(bytes, method);
+  if (parsed == null) {
+    throw new Error("incomplete WebRTC RPC response");
   }
-  const parsed = JSON.parse(text) as RPCResponse<TResult>;
-  if (parsed.error == null && !("result" in parsed)) {
-    throw new Error("invalid WebRTC RPC response: missing result or error");
+  if (parsed.rest.length !== 0) {
+    throw new Error("WebRTC RPC response contains trailing bytes");
   }
-  return parsed;
+  return parsed.response;
 }
 
 export function giznetServiceDataChannelLabel(service: number): string {
@@ -653,7 +653,7 @@ export function encodeRPCResponse(response: RPCResponse, method: string): ArrayB
 }
 
 export function encodeJSONFrame(value: unknown): ArrayBuffer {
-	return encodeFrame(RPC_FRAME_TYPE_JSON, new TextEncoder().encode(JSON.stringify(value)));
+  return encodeFrame(RPC_FRAME_TYPE_JSON, new TextEncoder().encode(JSON.stringify(value)));
 }
 
 function encodeRPCRequestEnvelope(request: RPCRequest): Uint8Array {
@@ -746,9 +746,9 @@ function decodeRPCError(payload: Uint8Array): RPCErrorBody {
 }
 
 export function encodeFrame(type: number, payload: Uint8Array = new Uint8Array()): ArrayBuffer {
-	if (!Number.isInteger(type) || type < 0 || type > 0xffff) {
-		throw new Error(`invalid RPC frame type: ${type}`);
-	}
+  if (!Number.isInteger(type) || type < 0 || type > 0xffff) {
+    throw new Error(`invalid RPC frame type: ${type}`);
+  }
   if (payload.length > RPC_MAX_FRAME_PAYLOAD_SIZE) {
     throw new Error(`RPC frame too large: ${payload.length}`);
   }

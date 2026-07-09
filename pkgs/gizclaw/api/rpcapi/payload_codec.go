@@ -763,6 +763,7 @@ func enumValueJSONString(desc protoreflect.EnumDescriptor, value protoreflect.En
 
 var enumJSONValueOverrides = map[string]string{
 	"AST_TRANSLATE":     "ast-translate",
+	"DASHSCOPE_TENANT":  "dashscope-tenant",
 	"DASH_SCOPE_TENANT": "dashscope-tenant",
 	"DOUBAO_REALTIME":   "doubao-realtime",
 	"GEMINI_TENANT":     "gemini-tenant",

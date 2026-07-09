@@ -25,6 +25,7 @@ import {
   fetchGiznetServerInfo,
   giznetServiceDataChannelLabel,
   getGiznetWebRTCPacketDataChannel,
+  parseRPCResponse,
   prepareGiznetWebRTCPeerConnection,
   sendGiznetWebRTCTelemetry,
   sendGiznetWebRTCOffer,
@@ -149,6 +150,15 @@ test("WebRTCRPCClient decodes Go-compatible protobuf payload bytes", async () =>
   ]));
 
   assert.deepEqual(await promise, { server_time: 995 });
+});
+
+test("parseRPCResponse decodes framed protobuf responses", () => {
+  const response = parseRPCResponse<{ server_time: number }>(
+    encodeRPCResponse({ id: "req-low", result: { server_time: 77 }, v: 1 }, "all.ping"),
+    "all.ping",
+  );
+
+  assert.deepEqual(response, { id: "req-low", result: { server_time: 77 }, v: 1 });
 });
 
 test("RPC payload codec selects workspace oneofs from discriminators", () => {

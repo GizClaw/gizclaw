@@ -331,6 +331,26 @@ func TestPayloadCodecPreservesJSONShapes(t *testing.T) {
 		t.Fatalf("decoded enum input = %v, want push-to-talk", enumOut["input"])
 	}
 
+	modelPayload, err := encodeRPCPayloadMessage("Model", []byte(`{"id":"m1","kind":"llm","provider":{"kind":"dashscope-tenant","name":"dash"},"source":"manual"}`))
+	if err != nil {
+		t.Fatalf("encode model payload error = %v", err)
+	}
+	modelJSON, err := decodeRPCPayloadMessage("Model", modelPayload)
+	if err != nil {
+		t.Fatalf("decode model payload error = %v", err)
+	}
+	var modelOut map[string]any
+	if err := json.Unmarshal(modelJSON, &modelOut); err != nil {
+		t.Fatalf("unmarshal model payload JSON error = %v", err)
+	}
+	provider, ok := modelOut["provider"].(map[string]any)
+	if !ok {
+		t.Fatalf("decoded model provider = %+v", modelOut["provider"])
+	}
+	if provider["kind"] != "dashscope-tenant" {
+		t.Fatalf("decoded model provider.kind = %v, want dashscope-tenant", provider["kind"])
+	}
+
 	zeroJSON, err := decodeRPCPayloadMessage("FirmwareListResponse", nil)
 	if err != nil {
 		t.Fatalf("decode zero payload error = %v", err)
