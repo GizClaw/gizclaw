@@ -750,6 +750,44 @@ func TestReadWriteResponses(t *testing.T) {
 	}
 }
 
+func TestReadWriteResponsesForMethod(t *testing.T) {
+	serverTimes := []int64{11, 22}
+	ids := []string{"one", "two"}
+	var buf bytes.Buffer
+	err := WriteResponsesForMethod(&buf, RPCMethodAllPing, func(yield func(*RPCResponse, error) bool) {
+		for index, serverTime := range serverTimes {
+			var result RPCResponse_Result
+			if err := result.FromPingResponse(PingResponse{ServerTime: serverTime}); err != nil {
+				t.Fatalf("FromPingResponse() error = %v", err)
+			}
+			if !yield(&RPCResponse{V: RPCVersionV1, Id: ids[index], Result: &result}, nil) {
+				return
+			}
+		}
+	})
+	if err != nil {
+		t.Fatalf("WriteResponsesForMethod() error = %v", err)
+	}
+
+	var got []int64
+	for resp, err := range ReadResponsesForMethod(&buf, RPCMethodAllPing) {
+		if err != nil {
+			t.Fatalf("ReadResponsesForMethod() error = %v", err)
+		}
+		if resp.Result == nil {
+			t.Fatalf("ReadResponsesForMethod() response missing result: %+v", resp)
+		}
+		result, err := resp.Result.AsPingResponse()
+		if err != nil {
+			t.Fatalf("AsPingResponse() error = %v", err)
+		}
+		got = append(got, result.ServerTime)
+	}
+	if len(got) != len(serverTimes) || got[0] != 11 || got[1] != 22 {
+		t.Fatalf("ReadResponsesForMethod() server times = %v", got)
+	}
+}
+
 func TestWriteResponsesPropagatesSequenceError(t *testing.T) {
 	seqErr := errors.New("response failed")
 	var buf bytes.Buffer

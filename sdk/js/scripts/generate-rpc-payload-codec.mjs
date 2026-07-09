@@ -376,17 +376,30 @@ function selectOneofField(type: string, desc: MessageDesc, value: unknown, paren
 function oneofDiscriminator(type: string, value: Record<string, unknown>, parent: Record<string, unknown> | undefined): string | undefined {
   switch (type) {
     case "CredentialBody":
-      return typeof parent?.provider === "string" ? parent.provider : undefined;
+      return discriminatorString(type, "provider", parent?.provider);
     case "ModelProviderData":
     case "VoiceProviderData": {
       const provider = parent?.provider;
-      return isRecord(provider) && typeof provider.kind === "string" ? provider.kind : undefined;
+      return isRecord(provider) ? discriminatorString(type, "provider.kind", provider.kind) : undefined;
     }
     case "WorkspaceParameters":
-      return typeof value.agent_type === "string" ? value.agent_type : typeof parent?.agent_type === "string" ? parent.agent_type : undefined;
+      return discriminatorString(type, "agent_type", value.agent_type) ?? discriminatorString(type, "agent_type", parent?.agent_type);
     default:
       return undefined;
   }
+}
+
+function discriminatorString(type: string, field: string, value: unknown): string | undefined {
+  if (value == null) {
+    return undefined;
+  }
+  if (typeof value === "string") {
+    return value;
+  }
+  if (typeof value === "number") {
+    throw new Error("protobuf " + type + " oneof discriminator " + field + " expects string enum value");
+  }
+  return undefined;
 }
 
 function oneofDiscriminatorFieldName(type: string, discriminator: string): string | undefined {

@@ -170,6 +170,22 @@ test("RPC payload codec selects workspace oneofs from discriminators", () => {
   assert.equal(decoded.parameters?.agent_type, "doubao-realtime");
 });
 
+test("RPC payload codec rejects numeric oneof discriminators", () => {
+  assert.throws(
+    () => encodeRPCRequestPayload("server.workspace.create", {
+      created_at: "now",
+      last_active_at: "now",
+      name: "main",
+      parameters: {
+        agent_type: 1,
+      },
+      updated_at: "now",
+      workflow_name: "chat",
+    }),
+    /protobuf WorkspaceParameters oneof discriminator agent_type expects string enum value/,
+  );
+});
+
 test("RPC method map preserves generated payload types", () => {
   const source = readFileSync(new URL("./generated/rpc/method-map.ts", import.meta.url), "utf8");
 

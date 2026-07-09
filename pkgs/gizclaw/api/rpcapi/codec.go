@@ -329,6 +329,26 @@ func ReadResponses(r io.Reader) iter.Seq2[*RPCResponse, error] {
 	}
 }
 
+// ReadResponsesForMethod reads protobuf RPC response frames and decodes method-specific payloads until EOS.
+func ReadResponsesForMethod(r io.Reader, method RPCMethod) iter.Seq2[*RPCResponse, error] {
+	return func(yield func(*RPCResponse, error) bool) {
+		for frame, err := range ReadFrames(r) {
+			if err != nil {
+				yield(nil, err)
+				return
+			}
+			resp, err := DecodeResponseFrameForMethod(method, frame)
+			if err != nil {
+				yield(nil, fmt.Errorf("rpc: unmarshal response: %w", err))
+				return
+			}
+			if !yield(resp, nil) {
+				return
+			}
+		}
+	}
+}
+
 // WriteResponses writes each RPC response as a protobuf binary frame.
 func WriteResponses(w io.Writer, responses iter.Seq2[*RPCResponse, error]) error {
 	for resp, err := range responses {
@@ -336,6 +356,19 @@ func WriteResponses(w io.Writer, responses iter.Seq2[*RPCResponse, error]) error
 			return err
 		}
 		if err := WriteResponse(w, resp); err != nil {
+			return err
+		}
+	}
+	return WriteEOS(w)
+}
+
+// WriteResponsesForMethod writes each RPC response with a method-specific protobuf payload.
+func WriteResponsesForMethod(w io.Writer, method RPCMethod, responses iter.Seq2[*RPCResponse, error]) error {
+	for resp, err := range responses {
+		if err != nil {
+			return err
+		}
+		if err := WriteResponseForMethod(w, method, resp); err != nil {
 			return err
 		}
 	}
