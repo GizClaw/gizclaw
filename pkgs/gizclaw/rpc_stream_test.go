@@ -160,6 +160,42 @@ func TestRPCStreamWriteRequestKeepsSingleFrameLimit(t *testing.T) {
 	}
 }
 
+func TestRPCStreamRejectsOversizedProtobufContinuationEnvelope(t *testing.T) {
+	serverSide, clientSide := net.Pipe()
+	defer serverSide.Close()
+	defer clientSide.Close()
+
+	serverStream, err := newRPCStream(context.Background(), serverSide)
+	if err != nil {
+		t.Fatalf("newRPCStream(server) error = %v", err)
+	}
+	defer serverStream.Close()
+	clientStream, err := newRPCStream(context.Background(), clientSide)
+	if err != nil {
+		t.Fatalf("newRPCStream(client) error = %v", err)
+	}
+	defer clientStream.Close()
+
+	chunk := bytes.Repeat([]byte("x"), rpcapi.MaxFrameSize)
+	errCh := make(chan error, 1)
+	go func() {
+		for written := 0; written < rpcMaxEnvelopeSize; written += len(chunk) {
+			if err := clientStream.WriteFrame(rpcapi.Frame{Type: rpcapi.FrameTypeText, Payload: chunk}); err != nil {
+				errCh <- err
+				return
+			}
+		}
+		errCh <- clientStream.WriteFrame(rpcapi.Frame{Type: rpcapi.FrameTypeText, Payload: []byte{1}})
+	}()
+
+	if _, _, err := serverStream.ReadRequestEnvelope(); err == nil {
+		t.Fatal("ReadRequestEnvelope() should reject oversized protobuf continuation envelopes")
+	}
+	if err := <-errCh; err != nil {
+		t.Fatalf("client write error = %v", err)
+	}
+}
+
 func TestRPCStreamReadHonorsContextCancel(t *testing.T) {
 	serverSide, clientSide := net.Pipe()
 	defer serverSide.Close()

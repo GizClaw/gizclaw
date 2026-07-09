@@ -23,6 +23,7 @@ export const RPC_FRAME_TYPE_JSON = 1;
 export const RPC_FRAME_TYPE_BINARY = 2;
 export const RPC_FRAME_TYPE_TEXT = 3;
 const RPC_MAX_FRAME_PAYLOAD_SIZE = 0xffff;
+const RPC_MAX_ENVELOPE_SIZE = RPC_MAX_FRAME_PAYLOAD_SIZE * 16;
 const DATA_CHANNEL_SEND_RETRY_DELAY_MS = 5;
 const DATA_CHANNEL_SEND_RETRY_LIMIT = 20;
 const PACKET_DATA_CHANNEL_OPEN_TIMEOUT_MS = 30000;
@@ -885,6 +886,7 @@ function tryReadRPCResponse<TResult>(
   let offset = 0;
   let response: RPCResponse<TResult> | undefined;
   const envelopeChunks: Uint8Array[] = [];
+  let envelopeLength = 0;
   for (;;) {
     if (buffer.length - offset < 4) {
       return null;
@@ -914,6 +916,10 @@ function tryReadRPCResponse<TResult>(
       if (response != null) {
         throw new Error("RPC response contains continuation after protobuf frame.");
       }
+      envelopeLength += payload.length;
+      if (envelopeLength > RPC_MAX_ENVELOPE_SIZE) {
+        throw new Error(`RPC protobuf envelope too large: ${envelopeLength}`);
+      }
       envelopeChunks.push(copyBytes(payload));
       continue;
     }
@@ -934,6 +940,7 @@ function tryReadRPCBinaryResponse<TResult>(
   let offset = 0;
   let response: RPCResponse<TResult> | undefined;
   const envelopeChunks: Uint8Array[] = [];
+  let envelopeLength = 0;
   const body: Uint8Array[] = [];
   for (;;) {
     if (buffer.length - offset < 4) {
@@ -966,6 +973,10 @@ function tryReadRPCBinaryResponse<TResult>(
     }
     if (response == null) {
       if (type === RPC_FRAME_TYPE_TEXT) {
+        envelopeLength += payload.length;
+        if (envelopeLength > RPC_MAX_ENVELOPE_SIZE) {
+          throw new Error(`RPC protobuf envelope too large: ${envelopeLength}`);
+        }
         envelopeChunks.push(copyBytes(payload));
         continue;
       }

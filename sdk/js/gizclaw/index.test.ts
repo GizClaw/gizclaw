@@ -315,6 +315,22 @@ test("WebRTCRPCClient reassembles oversized protobuf envelope continuation frame
   assert.deepEqual(await promise, { server_time: 101 });
 });
 
+test("WebRTCRPCClient rejects oversized protobuf response continuation frames", async () => {
+  const pc = new FakePeerConnection();
+  const client = new WebRTCRPCClient(pc, { createID: () => "req-continuation-too-large" });
+
+  const promise = client.call("all.ping", { client_send_time: 3 });
+  const channel = pc.lastChannel();
+  channel.open();
+
+  const chunk = new Uint8Array(0xffff);
+  for (let i = 0; i < 17; i += 1) {
+    channel.receive(encodeFrame(RPC_FRAME_TYPE_TEXT, chunk));
+  }
+
+  await assert.rejects(promise, /RPC protobuf envelope too large/);
+});
+
 test("WebRTCRPCClient resolves queued response before close", async () => {
   const pc = new FakePeerConnection();
   const client = new WebRTCRPCClient(pc, { createID: () => "req-close" });
@@ -378,6 +394,25 @@ test("WebRTCRPCClient reads continuation metadata plus binary response frames", 
   const result = await promise;
   assert.equal(result.result.workspace_name, workspaceName);
   assert.deepEqual(result.body, new Uint8Array([8, 9]));
+});
+
+test("WebRTCRPCClient rejects oversized binary metadata continuation frames", async () => {
+  const pc = new FakePeerConnection();
+  const client = new WebRTCRPCClient(pc, { createID: () => "req-binary-continuation-too-large" });
+
+  const promise = client.callBinary("server.workspace.history.audio.get", {
+    history_id: "h1",
+    workspace_name: "main",
+  });
+  const channel = pc.lastChannel();
+  channel.open();
+
+  const chunk = new Uint8Array(0xffff);
+  for (let i = 0; i < 17; i += 1) {
+    channel.receive(encodeFrame(RPC_FRAME_TYPE_TEXT, chunk));
+  }
+
+  await assert.rejects(promise, /RPC protobuf envelope too large/);
 });
 
 test("WebRTCRPCClient rejects continuation binary RPC errors without body frames", async () => {

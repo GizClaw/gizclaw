@@ -458,6 +458,10 @@ int gzc_rpc_call_stream(
         if (rc != GZC_OK) {
           break;
         }
+        if (response.has_error) {
+          rc = GZC_OK;
+          break;
+        }
         continue;
       }
       rc = saw_response ? GZC_OK : GZC_ERR_RPC;

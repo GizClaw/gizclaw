@@ -13,6 +13,8 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 )
 
+const rpcMaxEnvelopeSize = rpcapi.MaxFrameSize * 16
+
 type rpcStream struct {
 	ctx  context.Context
 	conn net.Conn
@@ -353,6 +355,9 @@ func (s *rpcStream) decodeResponseEnvelopeForMethod(method rpcapi.RPCMethod, fir
 }
 
 func (s *rpcStream) readProtobufEnvelopeContinuation(first rpcapi.Frame) ([]byte, error) {
+	if len(first.Payload) > rpcMaxEnvelopeSize {
+		return nil, fmt.Errorf("rpc: protobuf envelope too large: %d", len(first.Payload))
+	}
 	var buf bytes.Buffer
 	buf.Write(first.Payload)
 	for {
@@ -365,6 +370,9 @@ func (s *rpcStream) readProtobufEnvelopeContinuation(first rpcapi.Frame) ([]byte
 		}
 		if frame.Type != rpcapi.FrameTypeText {
 			return nil, fmt.Errorf("rpc: expected protobuf continuation frame, got type %d", frame.Type)
+		}
+		if buf.Len()+len(frame.Payload) > rpcMaxEnvelopeSize {
+			return nil, fmt.Errorf("rpc: protobuf envelope too large: %d", buf.Len()+len(frame.Payload))
 		}
 		buf.Write(frame.Payload)
 	}
