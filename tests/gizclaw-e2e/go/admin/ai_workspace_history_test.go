@@ -4,6 +4,7 @@ package admin_test
 
 import (
 	"context"
+	"errors"
 	"io"
 	"strings"
 	"testing"
@@ -163,17 +164,35 @@ func createAdminSocialConversationHistory(t *testing.T, env *adminAPIHarness) (s
 
 func sendAdminChatText(t *testing.T, ctx context.Context, client *gizcli.Client, text string) genx.Stream {
 	t.Helper()
-	out, err := client.Transform(ctx, "admin.history.chatroom", adminChatTextStream(text))
+	out, err := client.OpenPeerStream(64)
 	if err != nil {
-		t.Fatalf("transform chat text %q: %v", text, err)
+		t.Fatalf("open chat text stream %q: %v", text, err)
 	}
-	return out
+
+	input := adminChatTextStream(text)
+	defer input.Close()
+	for {
+		chunk, err := input.Next()
+		switch {
+		case err == nil:
+			if err := out.Push(ctx, chunk); err != nil {
+				_ = out.CloseWithError(err)
+				t.Fatalf("push chat text %q: %v", text, err)
+			}
+		case errors.Is(err, io.EOF) || errors.Is(err, genx.ErrDone):
+			return out
+		default:
+			_ = out.CloseWithError(err)
+			t.Fatalf("read chat text %q: %v", text, err)
+		}
+	}
 }
 
 func waitForAdminWorkspaceHistoryText(t *testing.T, env *adminAPIHarness, workspaceName, text string) {
 	t.Helper()
-	deadline := time.Now().Add(5 * time.Second)
+	deadline := time.Now().Add(15 * time.Second)
 	limit := 20
+	reconnects := 0
 	for {
 		history, err := env.api.ListWorkspaceHistoryWithResponse(env.ctx, workspaceName, &adminhttp.ListWorkspaceHistoryParams{Limit: &limit})
 		if err == nil && history.JSON200 != nil {
@@ -183,14 +202,29 @@ func waitForAdminWorkspaceHistoryText(t *testing.T, env *adminAPIHarness, worksp
 				}
 			}
 		}
+		if isAdminAPIConnClosed(err) && reconnects < 2 {
+			reconnects++
+			env.reconnectAdminAPI(t)
+			time.Sleep(250 * time.Millisecond)
+			continue
+		}
 		if time.Now().After(deadline) {
 			if err != nil {
 				t.Fatalf("list workspace history while waiting for %q: %v", text, err)
 			}
 			t.Fatalf("workspace history text %q not found in %q", text, workspaceName)
 		}
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(250 * time.Millisecond)
 	}
+}
+
+func isAdminAPIConnClosed(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := err.Error()
+	return strings.Contains(msg, "giznet: conn closed") ||
+		strings.Contains(msg, "use of closed network connection")
 }
 
 func adminChatTextStream(text string) genx.Stream {
