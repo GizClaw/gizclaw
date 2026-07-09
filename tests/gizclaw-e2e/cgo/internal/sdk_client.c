@@ -2,7 +2,6 @@
 
 #include "../../../../sdk/c/gizclaw/cgobackend/gzc_cgo_backend.h"
 #include "gzc.h"
-#include "gzc_rpc_generated.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -130,14 +129,14 @@ void gzc_cgo_session_close(gzc_cgo_session_t *session) {
 
 int gzc_cgo_session_call_rpc_payload(
     gzc_cgo_session_t *session,
-    const char *method,
+    unsigned method_id,
     const unsigned char *params_payload,
     unsigned long params_payload_len,
     unsigned char **out_result_payload,
     unsigned long *out_result_payload_len,
     char *errbuf,
     unsigned long errbuf_len) {
-  if (session == NULL || method == NULL || (params_payload == NULL && params_payload_len != 0) || out_result_payload == NULL || out_result_payload_len == NULL) {
+  if (session == NULL || method_id == 0 || (params_payload == NULL && params_payload_len != 0) || out_result_payload == NULL || out_result_payload_len == NULL) {
     return fail(errbuf, errbuf_len, "call rpc payload", GZC_ERR_INVALID_ARGUMENT);
   }
   *out_result_payload = NULL;
@@ -147,7 +146,7 @@ int gzc_cgo_session_call_rpc_payload(
   memset(&response, 0, sizeof(response));
   int rc = gzc_rpc_call(
       session->client,
-      gzc_str_from_cstr(method),
+      (gizclaw_rpc_v1_RpcMethod)method_id,
       gzc_str_from_parts((const char *)params_payload, (size_t)params_payload_len),
       &response);
   if (rc != GZC_OK) {
@@ -172,14 +171,14 @@ int gzc_cgo_session_call_rpc_payload(
 
 int gzc_cgo_session_call_stream_collect(
     gzc_cgo_session_t *session,
-    const char *method,
+    unsigned method_id,
     const unsigned char *params_payload,
     unsigned long params_payload_len,
     gzc_cgo_stream_frame_t **out_frames,
     unsigned long *out_frame_count,
     char *errbuf,
     unsigned long errbuf_len) {
-  if (session == NULL || method == NULL || (params_payload == NULL && params_payload_len != 0) || out_frames == NULL || out_frame_count == NULL) {
+  if (session == NULL || method_id == 0 || (params_payload == NULL && params_payload_len != 0) || out_frames == NULL || out_frame_count == NULL) {
     return fail(errbuf, errbuf_len, "call stream", GZC_ERR_INVALID_ARGUMENT);
   }
   *out_frames = NULL;
@@ -188,7 +187,7 @@ int gzc_cgo_session_call_stream_collect(
   memset(&state, 0, sizeof(state));
   int rc = gzc_rpc_call_stream(
       session->client,
-      gzc_str_from_cstr(method),
+      (gizclaw_rpc_v1_RpcMethod)method_id,
       gzc_str_from_parts((const char *)params_payload, (size_t)params_payload_len),
       append_stream_frame,
       &state);

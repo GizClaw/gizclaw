@@ -3,7 +3,7 @@
 package internal
 
 /*
-#cgo CFLAGS: -I. -I../../../../sdk/c/gizclaw/include -I../../../../sdk/c/gizclaw/generated
+#cgo CFLAGS: -I. -I../../../../sdk/c/gizclaw/include -I../../../../sdk/c/gizclaw/generated -I../../../../sdk/c/gizclaw/third_party/nanopb
 #include "gzc_common.h"
 #include "gzc_rpc_frame.h"
 #include "sdk_client.h"
@@ -87,12 +87,14 @@ func (c *Client) CallJSON(method string, params json.RawMessage) (json.RawMessag
 		params = json.RawMessage(`{}`)
 	}
 	methodID := rpcapi.RPCMethod(method)
+	protoMethod, err := rpcapi.ProtoMethod(methodID)
+	if err != nil {
+		return nil, fmt.Errorf("method %s id: %w", method, err)
+	}
 	paramsPayload, err := rpcapi.EncodeRPCRequestPayloadJSON(methodID, params)
 	if err != nil {
 		return nil, fmt.Errorf("encode %s request payload: %w", method, err)
 	}
-	cMethod := C.CString(method)
-	defer C.free(unsafe.Pointer(cMethod))
 	var cParams *C.uchar
 	if len(paramsPayload) > 0 {
 		cParams = (*C.uchar)(unsafe.Pointer(&paramsPayload[0]))
@@ -102,7 +104,7 @@ func (c *Client) CallJSON(method string, params json.RawMessage) (json.RawMessag
 	var resultLen C.ulong
 	rc := C.gzc_cgo_session_call_rpc_payload(
 		c.session,
-		cMethod,
+		C.uint(protoMethod),
 		cParams,
 		C.ulong(len(paramsPayload)),
 		&result,
@@ -129,12 +131,15 @@ func (c *Client) CallStream(method string, params json.RawMessage) ([]StreamFram
 	if len(params) == 0 {
 		params = json.RawMessage(`{}`)
 	}
-	paramsPayload, err := rpcapi.EncodeRPCRequestPayloadJSON(rpcapi.RPCMethod(method), params)
+	methodID := rpcapi.RPCMethod(method)
+	protoMethod, err := rpcapi.ProtoMethod(methodID)
+	if err != nil {
+		return nil, fmt.Errorf("method %s id: %w", method, err)
+	}
+	paramsPayload, err := rpcapi.EncodeRPCRequestPayloadJSON(methodID, params)
 	if err != nil {
 		return nil, fmt.Errorf("encode %s stream request payload: %w", method, err)
 	}
-	cMethod := C.CString(method)
-	defer C.free(unsafe.Pointer(cMethod))
 	var cParams *C.uchar
 	if len(paramsPayload) > 0 {
 		cParams = (*C.uchar)(unsafe.Pointer(&paramsPayload[0]))
@@ -144,7 +149,7 @@ func (c *Client) CallStream(method string, params json.RawMessage) ([]StreamFram
 	var frameCount C.ulong
 	rc := C.gzc_cgo_session_call_stream_collect(
 		c.session,
-		cMethod,
+		C.uint(protoMethod),
 		cParams,
 		C.ulong(len(paramsPayload)),
 		&frames,

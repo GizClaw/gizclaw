@@ -107,7 +107,7 @@ as the source of truth.
 
 Choose validation that proves the touched C surface:
 
-- generator tests or regeneration checks for `tools/gzc-rpcgen` changes
+- protoc/nanopb regeneration checks for generated C protobuf changes
 - focused Go tests for packages that compile or exercise C/cgo bridge code
 - a C smoke test or compile check for changed translation units when available
 - `git diff --check` for documentation-only or workflow-only changes

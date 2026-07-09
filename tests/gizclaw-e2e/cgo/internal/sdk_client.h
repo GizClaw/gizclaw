@@ -22,7 +22,7 @@ int gzc_cgo_session_open(
 void gzc_cgo_session_close(gzc_cgo_session_t *session);
 int gzc_cgo_session_call_rpc_payload(
     gzc_cgo_session_t *session,
-    const char *method,
+    unsigned method_id,
     const unsigned char *params_payload,
     unsigned long params_payload_len,
     unsigned char **out_result_payload,
@@ -31,7 +31,7 @@ int gzc_cgo_session_call_rpc_payload(
     unsigned long errbuf_len);
 int gzc_cgo_session_call_stream_collect(
     gzc_cgo_session_t *session,
-    const char *method,
+    unsigned method_id,
     const unsigned char *params_payload,
     unsigned long params_payload_len,
     gzc_cgo_stream_frame_t **out_frames,

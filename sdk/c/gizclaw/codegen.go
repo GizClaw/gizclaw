@@ -1,3 +1,3 @@
 package gizclaw
 
-//go:generate go run ../../../tools/gzc-rpcgen -proto ../../../api/rpc/peer.proto -payload-proto ../../../api/rpc/payload.proto -out ./generated -package gzc -format
+//go:generate protoc -I ../../../api/rpc --nanopb_out=generated --nanopb_opt=-I../../../api/rpc google/protobuf/struct.proto ../../../api/rpc/common.proto ../../../api/rpc/peer.proto ../../../api/rpc/payload.proto
