@@ -2,7 +2,6 @@ package gizedge
 
 import (
 	"fmt"
-	"net"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -34,7 +33,6 @@ type IdentityConfig struct {
 
 type UpstreamConfig struct {
 	Endpoint  string           `yaml:"endpoint"`
-	ICE       string           `yaml:"ice-endpoint"`
 	PublicKey giznet.PublicKey `yaml:"public-key"`
 }
 
@@ -97,9 +95,6 @@ func prepareConfig(cfg Config, fileCfg ConfigFile) (Config, error) {
 	if cfg.Upstream.Endpoint == "" {
 		cfg.Upstream.Endpoint = fileCfg.Upstream.Endpoint
 	}
-	if cfg.Upstream.ICE == "" {
-		cfg.Upstream.ICE = fileCfg.Upstream.ICE
-	}
 	if cfg.Upstream.PublicKey.IsZero() {
 		cfg.Upstream.PublicKey = fileCfg.Upstream.PublicKey
 	}
@@ -148,31 +143,12 @@ func (cfg Config) validate() error {
 	if _, err := cfg.UpstreamURL(); err != nil {
 		return err
 	}
-	if cfg.Upstream.ICE != "" {
-		if err := validateHostPort("upstream.ice-endpoint", cfg.Upstream.ICE); err != nil {
-			return err
-		}
-	}
 	switch cfg.TLS.CertSource {
 	case TLSCertSourceDisabled, TLSCertSourceEdgeRPC, TLSCertSourceFile:
 		return nil
 	default:
 		return fmt.Errorf("edge: invalid tls.cert-source %q", cfg.TLS.CertSource)
 	}
-}
-
-func validateHostPort(name, value string) error {
-	host, port, err := net.SplitHostPort(value)
-	if err != nil {
-		return fmt.Errorf("edge: invalid %s: %w", name, err)
-	}
-	if strings.TrimSpace(host) == "" {
-		return fmt.Errorf("edge: invalid %s: missing host", name)
-	}
-	if strings.TrimSpace(port) == "" {
-		return fmt.Errorf("edge: invalid %s: missing port", name)
-	}
-	return nil
 }
 
 func (cfg Config) UpstreamURL() (*url.URL, error) {
