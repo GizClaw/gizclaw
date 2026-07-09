@@ -56,9 +56,10 @@ type peerHTTPStatusService interface {
 
 // PeerService serves one peer connection.
 type PeerService struct {
-	admin   *adminService
-	public  *peerHTTP
-	manager *Manager
+	admin    *adminService
+	public   *peerHTTP
+	manager  *Manager
+	sessions *publiclogin.SessionManager
 }
 
 var _ peerhttp.StrictServerInterface = (*peerHTTP)(nil)
@@ -86,12 +87,13 @@ func (s *PeerService) ServeConn(conn giznet.Conn) error {
 		_ = oldConn.Close()
 	}
 
-	errCh := make(chan error, 2)
+	errCh := make(chan error, 3)
 	go func() { errCh <- s.serveAdmin(conn) }()
 	go func() { errCh <- s.servePublic(conn) }()
+	go func() { errCh <- s.serveEdgePublic(conn) }()
 
 	var errs []error
-	for i := 0; i < 2; i++ {
+	for i := 0; i < 3; i++ {
 		err := <-errCh
 		if i == 0 {
 			_ = conn.Close()

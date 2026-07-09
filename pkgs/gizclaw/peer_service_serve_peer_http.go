@@ -13,6 +13,18 @@ import (
 )
 
 func (s *PeerService) servePublic(conn giznet.Conn) error {
+	return s.servePublicService(conn, ServicePeerHTTP)
+}
+
+func (s *PeerService) serveEdgePublic(conn giznet.Conn) error {
+	server := gizhttp.NewServer(conn, ServiceEdgeHTTP, s.publicHTTPHandler(s.sessions))
+	defer func() {
+		_ = server.Shutdown(context.Background())
+	}()
+	return server.Serve()
+}
+
+func (s *PeerService) servePublicService(conn giznet.Conn, service uint64) error {
 	app := fiber.New(fiber.Config{DisableStartupMessage: true})
 	app.Use(func(ctx *fiber.Ctx) error {
 		base := ctx.UserContext()
@@ -25,7 +37,7 @@ func (s *PeerService) servePublic(conn giznet.Conn) error {
 	})
 	peerhttp.RegisterHandlers(app, peerhttp.NewStrictHandler(s.public, nil))
 
-	server := gizhttp.NewServer(conn, ServicePeerHTTP, fiberHTTPHandler(app))
+	server := gizhttp.NewServer(conn, service, fiberHTTPHandler(app))
 	defer func() {
 		_ = server.Shutdown(context.Background())
 	}()

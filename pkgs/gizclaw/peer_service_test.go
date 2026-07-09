@@ -116,7 +116,7 @@ func TestIntegrationPeerServiceServeConnClientCloseUnblocksAndMarksPeerOffline(t
 		testGiznetSecurityPolicy{
 			allowService: func(_ giznet.PublicKey, service uint64) bool {
 				switch service {
-				case ServiceAdminHTTP, ServicePeerHTTP, ServicePeerRPC:
+				case ServiceAdminHTTP, ServicePeerHTTP, ServicePeerRPC, ServiceEdgeHTTP:
 					return true
 				default:
 					return false
@@ -235,7 +235,7 @@ func TestIntegrationPeerServiceServeConnReplacesSameKeyConnection(t *testing.T) 
 		testGiznetSecurityPolicy{
 			allowService: func(_ giznet.PublicKey, service uint64) bool {
 				switch service {
-				case ServiceAdminHTTP, ServicePeerHTTP, ServicePeerRPC:
+				case ServiceAdminHTTP, ServicePeerHTTP, ServicePeerRPC, ServiceEdgeHTTP:
 					return true
 				default:
 					return false
@@ -263,7 +263,7 @@ func TestIntegrationPeerServiceServeConnReplacesSameKeyConnection(t *testing.T) 
 		testGiznetSecurityPolicy{
 			allowService: func(_ giznet.PublicKey, service uint64) bool {
 				switch service {
-				case ServiceAdminHTTP, ServicePeerHTTP, ServicePeerRPC:
+				case ServiceAdminHTTP, ServicePeerHTTP, ServicePeerRPC, ServiceEdgeHTTP:
 					return true
 				default:
 					return false

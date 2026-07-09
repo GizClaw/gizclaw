@@ -169,3 +169,60 @@ func TestPeerServicePublicRoundTrip(t *testing.T) {
 		t.Fatalf("status = %d body=%s", resp.StatusCode, string(body))
 	}
 }
+
+func TestPeerServiceEdgePublicRoundTrip(t *testing.T) {
+	serverKey, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("GenerateKeyPair(server) error = %v", err)
+	}
+	edgeKey, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("GenerateKeyPair(edge) error = %v", err)
+	}
+
+	conn, serverConn := newTestWebRTCConnPair(t, serverKey, edgeKey,
+		testGiznetSecurityPolicy{
+			allowService: func(_ giznet.PublicKey, service uint64) bool {
+				return service == ServiceEdgeHTTP
+			},
+		},
+		testGiznetSecurityPolicy{})
+	defer conn.Close()
+	defer serverConn.Close()
+
+	peersServer := &peer.Server{
+		BuildCommit:     "test-build",
+		ServerPublicKey: serverKey.Public,
+	}
+	service := &PeerService{
+		manager: NewManager(peersServer),
+		public: &peerHTTP{
+			PeerHTTPService: peersServer,
+		},
+	}
+	serveErrCh := make(chan error, 1)
+	go func() {
+		serveErrCh <- service.serveEdgePublic(serverConn)
+	}()
+
+	client := &http.Client{Transport: gizhttp.NewRoundTripper(conn, ServiceEdgeHTTP)}
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, "http://gizclaw/server-info", nil)
+	if err != nil {
+		t.Fatalf("http.NewRequest error = %v", err)
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		select {
+		case serveErr := <-serveErrCh:
+			t.Fatalf("client.Do error = %v; serveEdgePublic error = %v", err, serveErr)
+		default:
+		}
+		t.Fatalf("client.Do error = %v", err)
+	}
+	defer resp.Body.Close()
+
+	body, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d body=%s", resp.StatusCode, string(body))
+	}
+}

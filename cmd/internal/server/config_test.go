@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"strings"
@@ -11,6 +12,8 @@ import (
 	"github.com/GizClaw/gizclaw-go/cmd/internal/storage"
 	"github.com/GizClaw/gizclaw-go/cmd/internal/stores"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	runtimepeer "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 )
 
@@ -378,20 +381,24 @@ ice-servers:
 	}
 }
 
-func TestNewWiresEdgeNodes(t *testing.T) {
-	edge := testPublicKey(0x22)
-	srv, err := New(Config{
-		Listen:    "127.0.0.1:1234",
-		Endpoint:  "127.0.0.1:1234",
-		EdgeNodes: []giznet.PublicKey{edge},
-		Stores:    map[string]stores.Config{"peers": {Kind: stores.KindKeyValue, Backend: "memory"}},
-	})
+func TestNewBootstrapsConfiguredEdgeNodes(t *testing.T) {
+	dir := t.TempDir()
+	edgeKey := testKeyPair(t, 0x13)
+	cfg := validLayeredConfig(dir)
+	cfg.EdgeNodes = []giznet.PublicKey{edgeKey.Public}
+	srv, err := New(cfg)
 	if err != nil {
 		t.Fatalf("New error = %v", err)
 	}
 	t.Cleanup(func() { _ = srv.Close() })
-	if len(srv.EdgeNodes) != 1 || srv.EdgeNodes[0] != edge {
-		t.Fatalf("Server.EdgeNodes = %+v", srv.EdgeNodes)
+
+	peerStore := &runtimepeer.Server{Store: srv.Server.PeerStore}
+	peer, err := peerStore.LoadPeer(context.Background(), edgeKey.Public)
+	if err != nil {
+		t.Fatalf("LoadPeer error = %v", err)
+	}
+	if peer.Role != apitypes.PeerRoleEdgeNode || peer.Status != apitypes.PeerRegistrationStatusActive {
+		t.Fatalf("bootstrapped edge peer = %+v", peer)
 	}
 }
 
@@ -654,7 +661,7 @@ func TestValidateReportsSpecificMissingFields(t *testing.T) {
 		{
 			name: "zero edge node",
 			cfg:  Config{Listen: "127.0.0.1:9820", Endpoint: "127.0.0.1:9820", EdgeNodes: []giznet.PublicKey{{}}},
-			want: "server: invalid edge-nodes: zero public key",
+			want: "server: edge-nodes[0] is zero",
 		},
 	}
 

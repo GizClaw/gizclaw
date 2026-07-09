@@ -2,12 +2,14 @@ package gizedge
 
 import (
 	"context"
+	"io"
 	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -30,7 +32,7 @@ upstream:
   endpoint: server-a.example.com:9820
   public-key: `+upstreamKey.Public.String()+`
 tls:
-  cert-source: edge-rpc
+  cert-source: disabled
 `)
 
 	cfg, err := PrepareWorkspaceConfig(dir)
@@ -52,7 +54,7 @@ tls:
 	if !cfg.Upstream.PublicKey.Equal(upstreamKey.Public) {
 		t.Fatalf("Upstream.PublicKey = %v, want %v", cfg.Upstream.PublicKey, upstreamKey.Public)
 	}
-	if cfg.TLS.CertSource != TLSCertSourceEdgeRPC {
+	if cfg.TLS.CertSource != TLSCertSourceDisabled {
 		t.Fatalf("TLS.CertSource = %q", cfg.TLS.CertSource)
 	}
 }
@@ -145,6 +147,32 @@ tls:
 `,
 			want: "tls.cert-source",
 		},
+		{
+			name: "unimplemented tls edge rpc source",
+			body: `
+identity:
+  private-key: ` + edgeKey.Private.String() + `
+upstream:
+  endpoint: server-a.example.com:9820
+  public-key: ` + upstreamKey.Public.String() + `
+tls:
+  cert-source: edge-rpc
+`,
+			want: "not implemented",
+		},
+		{
+			name: "unimplemented tls file source",
+			body: `
+identity:
+  private-key: ` + edgeKey.Private.String() + `
+upstream:
+  endpoint: server-a.example.com:9820
+  public-key: ` + upstreamKey.Public.String() + `
+tls:
+  cert-source: file
+`,
+			want: "not implemented",
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			dir := t.TempDir()
@@ -162,7 +190,7 @@ func TestServeContextForwardsToUpstreamGizHTTP(t *testing.T) {
 	upstreamListener, err := (&gizwebrtc.ListenConfig{
 		SecurityPolicy: edgeTestSecurityPolicy{
 			allowService: func(_ giznet.PublicKey, service uint64) bool {
-				return service == gizclaw.ServicePeerHTTP
+				return service == gizclaw.ServiceEdgeHTTP
 			},
 		},
 	}).Listen(upstreamKey)
@@ -180,7 +208,7 @@ func TestServeContextForwardsToUpstreamGizHTTP(t *testing.T) {
 			accepted <- err
 			return
 		}
-		server := gizhttp.NewServer(conn, gizclaw.ServicePeerHTTP, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		server := gizhttp.NewServer(conn, gizclaw.ServiceEdgeHTTP, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if r.URL.Path != "/server-info" {
 				t.Errorf("path = %q", r.URL.Path)
 			}
@@ -234,6 +262,178 @@ upstream:
 		time.Sleep(10 * time.Millisecond)
 	}
 	t.Fatalf("edge did not serve request: %v", lastErr)
+}
+
+func TestUpstreamTransportReconnectsAfterClosedConn(t *testing.T) {
+	edgeKey := testKeyPair(t, 0x79)
+	upstreamKey := testKeyPair(t, 0x7a)
+	var mu sync.Mutex
+	var signalingHandler http.Handler
+	signaling := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		handler := signalingHandler
+		mu.Unlock()
+		if handler == nil {
+			http.Error(w, "no signaling handler", http.StatusServiceUnavailable)
+			return
+		}
+		handler.ServeHTTP(w, r)
+	}))
+	defer signaling.Close()
+
+	cfg := Config{
+		KeyPair: edgeKey,
+		Upstream: UpstreamConfig{
+			Endpoint:  signaling.URL,
+			PublicKey: upstreamKey.Public,
+		},
+	}
+	upstreamURL, err := cfg.UpstreamURL()
+	if err != nil {
+		t.Fatalf("UpstreamURL error = %v", err)
+	}
+	type testUpstream struct {
+		listener giznet.Listener
+		connCh   chan giznet.Conn
+		errCh    chan error
+	}
+	startUpstream := func(body string) testUpstream {
+		t.Helper()
+		upstreamListener, err := (&gizwebrtc.ListenConfig{
+			SecurityPolicy: edgeTestSecurityPolicy{
+				allowService: func(_ giznet.PublicKey, service uint64) bool {
+					return service == gizclaw.ServiceEdgeHTTP
+				},
+			},
+		}).Listen(upstreamKey)
+		if err != nil {
+			t.Fatalf("Listen upstream: %v", err)
+		}
+		mu.Lock()
+		signalingHandler = upstreamListener.SignalingHandler()
+		mu.Unlock()
+
+		connCh := make(chan giznet.Conn, 1)
+		errCh := make(chan error, 1)
+		go func() {
+			conn, err := upstreamListener.Accept()
+			if err != nil {
+				errCh <- err
+				return
+			}
+			connCh <- conn
+			server := gizhttp.NewServer(conn, gizclaw.ServiceEdgeHTTP, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				_, _ = w.Write([]byte(body))
+			}))
+			errCh <- server.Serve()
+		}()
+		return testUpstream{listener: upstreamListener, connCh: connCh, errCh: errCh}
+	}
+
+	first := startUpstream("first")
+	defer first.listener.Close()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	transport, err := newUpstreamTransport(ctx, cfg, upstreamURL)
+	if err != nil {
+		t.Fatalf("newUpstreamTransport error = %v", err)
+	}
+	defer transport.Close()
+
+	var firstConn giznet.Conn
+	select {
+	case firstConn = <-first.connCh:
+	case err := <-first.errCh:
+		t.Fatalf("first upstream accept error = %v", err)
+	case <-time.After(5 * time.Second):
+		t.Fatal("first upstream accept timed out")
+	}
+	client := &http.Client{Transport: transport, Timeout: 5 * time.Second}
+	if got := edgeHTTPGetBody(t, client); got != "first" {
+		t.Fatalf("first body = %q", got)
+	}
+	_ = firstConn.Close()
+	_ = first.listener.Close()
+
+	second := startUpstream("second")
+	defer second.listener.Close()
+	if got := edgeHTTPGetBody(t, client); got != "second" {
+		t.Fatalf("second body = %q", got)
+	}
+	select {
+	case secondConn := <-second.connCh:
+		_ = secondConn.Close()
+	case err := <-second.errCh:
+		t.Fatalf("second upstream accept error = %v", err)
+	case <-time.After(5 * time.Second):
+		t.Fatal("second upstream accept timed out")
+	}
+}
+
+func edgeHTTPGetBody(t *testing.T, client *http.Client) string {
+	t.Helper()
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, "http://gizclaw/server-info", nil)
+	if err != nil {
+		t.Fatalf("http.NewRequest error = %v", err)
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		t.Fatalf("client.Do error = %v", err)
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("ReadAll error = %v", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d body=%s", resp.StatusCode, string(body))
+	}
+	return string(body)
+}
+
+func TestEdgeCORSHandlerHandlesBrowserPreflight(t *testing.T) {
+	called := false
+	handler := edgeCORSHandler(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+		called = true
+	}))
+
+	req := httptest.NewRequest(http.MethodOptions, "/webrtc/v1/offer", nil)
+	req.Header.Set("Origin", "wails://wails.localhost")
+	req.Header.Set("Access-Control-Request-Method", http.MethodPost)
+	req.Header.Set("Access-Control-Request-Headers", "content-type,x-giznet-nonce,x-giznet-public-key,x-giznet-timestamp")
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if called {
+		t.Fatal("preflight should not reach upstream proxy")
+	}
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("OPTIONS status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	if got := rec.Header().Get("Access-Control-Allow-Origin"); got != "*" {
+		t.Fatalf("Access-Control-Allow-Origin = %q, want *", got)
+	}
+	if got := rec.Header().Get("Access-Control-Allow-Headers"); got == "" {
+		t.Fatal("Access-Control-Allow-Headers is empty")
+	}
+}
+
+func TestEdgeCORSHandlerAddsHeadersToForwardedRequests(t *testing.T) {
+	handler := edgeCORSHandler(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	req := httptest.NewRequest(http.MethodGet, "/server-info", nil)
+	req.Header.Set("Origin", "wails://wails.localhost")
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	if got := rec.Header().Get("Access-Control-Allow-Origin"); got != "*" {
+		t.Fatalf("Access-Control-Allow-Origin = %q, want *", got)
+	}
 }
 
 func TestUpstreamSignalingURLDefaultsWebRTCPath(t *testing.T) {

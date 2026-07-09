@@ -505,7 +505,8 @@ func (s *Server) init() error {
 
 	s.manager = manager
 	s.peerService = &PeerService{
-		manager: manager,
+		manager:  manager,
+		sessions: sessions,
 		admin: &adminService{
 			CredentialAdminService:      credentialServer,
 			FirmwareAdminService:        firmwareServer,

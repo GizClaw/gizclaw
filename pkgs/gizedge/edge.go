@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 
@@ -42,12 +43,11 @@ func ServeContext(ctx context.Context, root string) error {
 	}
 	defer turnRuntime.Close()
 
-	upstreamConn, upstreamListener, err := dialUpstream(ctx, cfg, upstreamURL)
+	upstreamTransport, err := newUpstreamTransport(ctx, cfg, upstreamURL)
 	if err != nil {
 		return err
 	}
-	defer upstreamConn.Close()
-	defer upstreamListener.Close()
+	defer upstreamTransport.Close()
 
 	listener, err := net.Listen("tcp", cfg.Listen)
 	if err != nil {
@@ -55,7 +55,7 @@ func ServeContext(ctx context.Context, root string) error {
 	}
 	defer listener.Close()
 
-	proxy := newPeerHTTPProxy(upstreamConn)
+	proxy := newPeerHTTPProxy(upstreamTransport)
 	server := &http.Server{Handler: proxy}
 	errCh := make(chan error, 1)
 	go func() {
@@ -100,14 +100,130 @@ func upstreamSignalingURL(upstreamURL *url.URL) string {
 	return next.String()
 }
 
-func newPeerHTTPProxy(conn giznet.Conn) *httputil.ReverseProxy {
-	return &httputil.ReverseProxy{
+type upstreamTransport struct {
+	ctx         context.Context
+	cfg         Config
+	upstreamURL *url.URL
+
+	mu       sync.Mutex
+	conn     giznet.Conn
+	listener giznet.Listener
+}
+
+func newUpstreamTransport(ctx context.Context, cfg Config, upstreamURL *url.URL) (*upstreamTransport, error) {
+	transport := &upstreamTransport{ctx: ctx, cfg: cfg, upstreamURL: upstreamURL}
+	if _, err := transport.currentConn(); err != nil {
+		return nil, err
+	}
+	return transport, nil
+}
+
+func (t *upstreamTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	resp, err := t.roundTrip(req)
+	if err == nil {
+		return resp, nil
+	}
+	t.resetConn()
+	if req.Context().Err() != nil || !canRetryUpstreamRequest(req.Method) {
+		return nil, err
+	}
+	return t.roundTrip(req)
+}
+
+func (t *upstreamTransport) roundTrip(req *http.Request) (*http.Response, error) {
+	conn, err := t.currentConn()
+	if err != nil {
+		return nil, err
+	}
+	return gizhttp.NewRoundTripper(conn, gizclaw.ServiceEdgeHTTP).RoundTrip(req)
+}
+
+func (t *upstreamTransport) currentConn() (giznet.Conn, error) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if t.conn != nil {
+		return t.conn, nil
+	}
+	conn, listener, err := dialUpstream(t.ctx, t.cfg, t.upstreamURL)
+	if err != nil {
+		return nil, err
+	}
+	t.conn = conn
+	t.listener = listener
+	return conn, nil
+}
+
+func (t *upstreamTransport) resetConn() {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.closeLocked()
+}
+
+func (t *upstreamTransport) Close() error {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return t.closeLocked()
+}
+
+func (t *upstreamTransport) closeLocked() error {
+	var errs []error
+	if t.conn != nil {
+		errs = append(errs, t.conn.Close())
+		t.conn = nil
+	}
+	if t.listener != nil {
+		errs = append(errs, t.listener.Close())
+		t.listener = nil
+	}
+	return errors.Join(errs...)
+}
+
+func canRetryUpstreamRequest(method string) bool {
+	switch method {
+	case http.MethodGet, http.MethodHead, http.MethodOptions:
+		return true
+	default:
+		return false
+	}
+}
+
+func newPeerHTTPProxy(transport http.RoundTripper) http.Handler {
+	proxy := &httputil.ReverseProxy{
 		Director: func(req *http.Request) {
 			req.URL.Scheme = "http"
 			req.URL.Host = "gizclaw"
 			req.Host = "gizclaw"
 		},
-		Transport: gizhttp.NewRoundTripper(conn, gizclaw.ServicePeerHTTP),
+		Transport: transport,
+	}
+	return edgeCORSHandler(proxy)
+}
+
+func edgeCORSHandler(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		setEdgeCORSHeaders(w)
+		if req.Method == http.MethodOptions && isEdgePeerHTTPPath(req.URL.Path) {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		next.ServeHTTP(w, req)
+	})
+}
+
+func setEdgeCORSHeaders(w http.ResponseWriter) {
+	header := w.Header()
+	header.Set("Access-Control-Allow-Origin", "*")
+	header.Set("Access-Control-Allow-Methods", "GET,POST,OPTIONS")
+	header.Set("Access-Control-Allow-Headers", "Authorization,Content-Type,X-Giznet-Nonce,X-Giznet-Public-Key,X-Giznet-Timestamp")
+	header.Set("Access-Control-Expose-Headers", "Content-Length,Content-Type")
+}
+
+func isEdgePeerHTTPPath(path string) bool {
+	switch path {
+	case "/login", "/server-info", "/webrtc/v1/offer":
+		return true
+	default:
+		return false
 	}
 }
 

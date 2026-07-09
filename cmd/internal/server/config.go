@@ -195,6 +195,9 @@ func mergeFileConfig(cfg Config, fileCfg ConfigFile) (Config, error) {
 	if len(cfg.ICEServers) == 0 {
 		cfg.ICEServers = fileCfg.ICEServers
 	}
+	if len(cfg.EdgeNodes) == 0 {
+		cfg.EdgeNodes = fileCfg.EdgeNodes
+	}
 	if len(cfg.Stores) == 0 {
 		cfg.Stores = fileCfg.Stores
 	}
@@ -266,6 +269,11 @@ func (cfg Config) validate() error {
 	if _, err := logging.PrepareConfig(cfg.Log); err != nil {
 		return fmt.Errorf("server: %w", err)
 	}
+	for i, publicKey := range cfg.EdgeNodes {
+		if publicKey.IsZero() {
+			return fmt.Errorf("server: edge-nodes[%d] is zero", i)
+		}
+	}
 	if cfg.FriendGroups.MessageDefaultTTL != "" {
 		if _, err := parseConfigDuration(cfg.FriendGroups.MessageDefaultTTL); err != nil {
 			return fmt.Errorf("server: friend_groups.message_default_ttl: %w", err)
@@ -283,11 +291,6 @@ func (cfg Config) validate() error {
 	}
 	if cfg.FriendGroups.MessageMaxAudioBytes < 0 {
 		return fmt.Errorf("server: friend_groups.message_max_audio_bytes must be >= 0")
-	}
-	for _, publicKey := range cfg.EdgeNodes {
-		if publicKey.IsZero() {
-			return fmt.Errorf("server: invalid edge-nodes: zero public key")
-		}
 	}
 	return nil
 }

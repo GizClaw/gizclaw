@@ -164,8 +164,10 @@ func (cfg Config) validate() error {
 		return err
 	}
 	switch cfg.TLS.CertSource {
-	case TLSCertSourceDisabled, TLSCertSourceEdgeRPC, TLSCertSourceFile:
+	case TLSCertSourceDisabled:
 		return nil
+	case TLSCertSourceEdgeRPC, TLSCertSourceFile:
+		return fmt.Errorf("edge: tls.cert-source %q is not implemented", cfg.TLS.CertSource)
 	default:
 		return fmt.Errorf("edge: invalid tls.cert-source %q", cfg.TLS.CertSource)
 	}
