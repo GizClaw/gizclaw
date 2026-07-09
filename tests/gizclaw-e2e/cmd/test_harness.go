@@ -426,11 +426,11 @@ func (h *Harness) RegisterContext(name string, extraArgs ...string) Result {
 	if err != nil {
 		return Result{Args: append([]string{"register-context", name}, extraArgs...), Err: err, Stderr: err.Error()}
 	}
-	c, err := h.connectClientFromContext(name)
+	c, closeWait, err := h.connectClientFromContextWithCloseWait(name)
 	if err != nil {
 		return Result{Args: []string{"register-context", name}, Err: err, Stderr: err.Error()}
 	}
-	defer c.Close()
+	defer closeWait()
 	rpcReq, err := convertHarnessAPIType[rpcapi.ServerPutInfoRequest](info)
 	if err != nil {
 		return Result{Args: []string{"register-context", name}, Err: err, Stderr: err.Error()}
@@ -650,19 +650,28 @@ func (h *Harness) RunCLI(args ...string) Result {
 }
 
 func (h *Harness) connectClientFromContext(name string) (*gizcli.Client, error) {
-	cfg, err := h.readContextConfig(name)
+	client, closeWait, err := h.connectClientFromContextWithCloseWait(name)
 	if err != nil {
 		return nil, err
+	}
+	h.t.Cleanup(closeWait)
+	return client, nil
+}
+
+func (h *Harness) connectClientFromContextWithCloseWait(name string) (*gizcli.Client, func(), error) {
+	cfg, err := h.readContextConfig(name)
+	if err != nil {
+		return nil, nil, err
 	}
 
 	keyPair, err := keyPairFromConfigPrivateKey(cfg.Identity.PrivateKey)
 	if err != nil {
-		return nil, fmt.Errorf("load context identity from config: %w", err)
+		return nil, nil, fmt.Errorf("load context identity from config: %w", err)
 	}
 
 	serverPublicKey, signalingURL, err := fetchE2EServerInfo(cliContextDialAddr(cfg))
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	cfg.signalingURL = signalingURL
 	h.t.Logf("connect context %s endpoint=%s", name, cliContextDialAddr(cfg))
@@ -673,7 +682,7 @@ func (h *Harness) connectClientFromContext(name string) (*gizcli.Client, error) 
 	}
 	if err := client.Dial(serverPublicKey, cliContextDialAddr(cfg)); err != nil {
 		_ = client.Close()
-		return nil, err
+		return nil, nil, err
 	}
 	errCh := make(chan error, 1)
 	go func() {
@@ -686,10 +695,10 @@ func (h *Harness) connectClientFromContext(name string) (*gizcli.Client, error) 
 		case err := <-errCh:
 			if err != nil {
 				_ = client.Close()
-				return nil, err
+				return nil, nil, err
 			}
 			_ = client.Close()
-			return nil, fmt.Errorf("client stopped before ready")
+			return nil, nil, fmt.Errorf("client stopped before ready")
 		default:
 		}
 
@@ -697,14 +706,31 @@ func (h *Harness) connectClientFromContext(name string) (*gizcli.Client, error) 
 		err := probePeerHTTPReady(ctx, client)
 		cancel()
 		if err == nil {
-			return client, nil
+			return client, closeWaitForClient(name, client, errCh, h.t), nil
 		}
 
 		time.Sleep(10 * time.Millisecond)
 	}
 
 	_ = client.Close()
-	return nil, fmt.Errorf("timeout waiting for client readiness")
+	return nil, nil, fmt.Errorf("timeout waiting for client readiness")
+}
+
+func closeWaitForClient(name string, client *gizcli.Client, errCh <-chan error, t testing.TB) func() {
+	var once sync.Once
+	return func() {
+		once.Do(func() {
+			_ = client.Close()
+			select {
+			case err := <-errCh:
+				if err != nil {
+					t.Logf("client serve stopped context=%s err=%v", name, err)
+				}
+			case <-time.After(2 * time.Second):
+				t.Logf("timeout waiting for client serve to stop context=%s", name)
+			}
+		})
+	}
 }
 
 func (h *Harness) readContextConfig(name string) (cliContextConfig, error) {
