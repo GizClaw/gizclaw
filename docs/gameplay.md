@@ -1,8 +1,12 @@
 # Gameplay System
 
-Gameplay is the pet-raising domain in GizClaw. It is separate from token
-accounting. Gameplay points are game state, while future token/accounting
-systems should own real balances and paid consumption.
+Gameplay is the points, rewards, and pet system in GizClaw. Its core state is
+gameplay points, reward grants, and gameplay projections such as pets, badges,
+and game results.
+
+Gameplay is separate from token accounting. Gameplay points are game state,
+while future token/accounting systems should own real balances and paid
+consumption.
 
 ## Resource Model
 
@@ -16,16 +20,23 @@ Admin catalog
 └── GameDef
 
 Peer runtime state
-├── Pet
-├── Badge
 ├── PointsAccount
 ├── PointsTransaction
-├── GameResult
-└── RewardGrant
+├── RewardGrant
+├── Pet
+├── Badge
+└── GameResult
 ```
 
 Admin catalog resources are shared definitions. Peer runtime resources are
 owned by one peer public key and are isolated by owner.
+
+The gameplay runtime has three main responsibilities:
+
+- maintain gameplay point accounts and point transaction history
+- issue reward grants from configured gameplay policies
+- record gameplay projections and events such as pets, badges, and game result
+  history
 
 ## Admin Catalog
 
@@ -37,12 +48,12 @@ views can read or use a ruleset.
 It defines:
 
 - initial gameplay point balance
+- reward policies for actions and game results
 - pet adoption pool and rarity weights
 - adoption cost per pet pool entry
 - allowed badge definitions
 - allowed game definitions
 - drive action costs
-- drive rewards
 - life stat decay
 - default pet workspace workflow
 
@@ -101,6 +112,41 @@ spec:
       thirst: 2
       clean: 1
 ```
+
+## Points
+
+Gameplay points are the in-game balance used by gameplay features. They are not
+token balances and should not be used for paid consumption.
+
+`PointsAccount` stores the current peer-owned gameplay balance for one
+`GameRuleset`. `PointsTransaction` records every balance-changing event,
+including pet adoption costs, drive action costs, and reward point deltas.
+
+Point transactions should carry a concrete source, such as a pet action, game
+result, or reward grant, so later gameplay views and admin debug tools can
+explain why the balance changed.
+
+## Rewards
+
+`RewardGrant` is the gameplay reward ledger. It records the reward policy output
+that should be applied to peer-owned gameplay state.
+
+A reward grant can include:
+
+- gameplay point delta
+- pet experience delta
+- badge experience deltas
+- pet life stat deltas
+- pet ability stat deltas
+
+Current reward grants are produced by `pet.drive`, either from action rewards,
+game-result rewards, or both. Future gameplay entry points can also produce
+reward grants as long as they use the same policy, idempotency, source, and
+ledger rules.
+
+Reward grants are separate from point transactions. A reward grant explains the
+gameplay reward decision; a point transaction records the balance mutation when
+that reward includes a point delta.
 
 ### PetDef
 
@@ -173,7 +219,12 @@ application/vnd.gizclaw.pixa
 needs game lobby artwork later, add an explicit `cover` or `icon` resource
 instead of overloading pet pixa or badge icons.
 
-## Adoption
+## Pet System
+
+Pets are one gameplay projection built on top of points and rewards. They are
+not the whole gameplay domain.
+
+### Adoption
 
 Adoption is a blind-box draw from the accessible `GameRuleset.pet_pool`.
 
@@ -202,7 +253,7 @@ Pet workspaces should use a carefully designed Flowcraft workflow when the pet
 is conversational. The workspace is where the pet agent talks to the user and
 recalls pet-related context.
 
-## Drive
+### Drive
 
 `pet.drive` updates a pet. It can be:
 
@@ -261,6 +312,15 @@ Drive applies state in one gameplay transaction:
 - update pet `last_active_at`
 
 `GameResult.idempotency_key` prevents duplicate game result reward application.
+
+## Game Results
+
+`GameDef` defines a game result category. `GameResult` records a peer-owned
+play session or score event and can trigger configured gameplay rewards.
+
+Game results are not limited to a particular frontend game implementation. They
+are the gameplay record used to connect a game outcome to reward policy,
+idempotency, point transactions, pet progression, and badge progression.
 
 ## Agent Memory
 

@@ -43,6 +43,9 @@ their own agents through workspace runtimes.
   authorized firmware file download.
 - [x] Social workspace resources for contact, friend, and chatroom-style
   interactions.
+- [x] Gameplay rulesets, point accounts, reward grants, pet adoption, drive
+  actions, pet workspaces, game results, badge progression, and pixa asset
+  delivery.
 - [x] Generated API packages and SDK surfaces for Go packages, JavaScript
   browser clients, C-facing clients, CLI, and e2e harnesses.
 
@@ -55,15 +58,17 @@ their own agents through workspace runtimes.
   - [ ] OpenAI Realtime
   - [ ] Coze
   - [ ] Eino
-- [ ] Complete gameplay system, including rulesets, pet adoption, drive actions,
-  rewards, pet workspaces, game results, and asset delivery.
+- [ ] Generalized gameplay reward entry points beyond `pet.drive`, including
+  built-in tool exposure for agent-driven reward grants.
+- [ ] Pet-readable gameplay event writes into pet workspace memory/history after
+  care actions and game results.
 - [ ] Self-organizing server mesh where devices attach to one node and requests can
   route through other nodes to the node that owns the target device data.
 - [ ] Broader SDK coverage, including Flutter/mobile clients.
 - [ ] Third-party digital content federation with joint authorization and access
   from agent runtimes.
-- [ ] Expanded digital content delivery for gameplay assets such as pet and badge
-  resources.
+- [ ] Expanded digital content delivery for gameplay content beyond current pet
+  and badge pixa resources.
 - [ ] Refresh repository-local agent skills for current CLI, admin, server,
   firmware, gear, workspace, and Play workflows.
 
