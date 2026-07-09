@@ -100,6 +100,25 @@ func TestEncodeRPCResponseRejectsResultWithoutMethod(t *testing.T) {
 	}
 }
 
+func TestReadResponseRejectsGenericSuccessPayload(t *testing.T) {
+	var result RPCResponse_Result
+	if err := result.FromPingResponse(PingResponse{ServerTime: 456}); err != nil {
+		t.Fatalf("FromPingResponse() error = %v", err)
+	}
+	var buf bytes.Buffer
+	if err := WriteResponseForMethod(&buf, RPCMethodAllPing, &RPCResponse{
+		V:      RPCVersionV1,
+		Id:     "req-1",
+		Result: &result,
+	}); err != nil {
+		t.Fatalf("WriteResponseForMethod() error = %v", err)
+	}
+	_, err := ReadResponse(&buf)
+	if err == nil || err.Error() != "rpc: unmarshal response: rpc: response payload requires method-specific decoding" {
+		t.Fatalf("ReadResponse() err = %v", err)
+	}
+}
+
 func TestRPCUnionTypes(t *testing.T) {
 	var pingParams RPCRequest_Params
 	if err := pingParams.MergePingRequest(PingRequest{ClientSendTime: 100}); err != nil {
@@ -253,7 +272,7 @@ func TestEncodeRPCRequestPreservesEmptyPayloadPresence(t *testing.T) {
 	}
 }
 
-func TestDecodeRPCResponsePreservesEmptyPayloadOneof(t *testing.T) {
+func TestDecodeRPCResponseRejectsGenericPayload(t *testing.T) {
 	msg := &rpcpb.RpcResponse{
 		Id:   "resp-empty",
 		Body: &rpcpb.RpcResponse_Payload{Payload: []byte{}},
@@ -266,15 +285,24 @@ func TestDecodeRPCResponsePreservesEmptyPayloadOneof(t *testing.T) {
 	if err := proto.Unmarshal(data, &roundTrip); err != nil {
 		t.Fatalf("proto.Unmarshal() error = %v", err)
 	}
-	resp, err := DecodeRPCResponse(&roundTrip)
+	_, err = DecodeRPCResponse(&roundTrip)
+	if err == nil || err.Error() != "rpc: response payload requires method-specific decoding" {
+		t.Fatalf("DecodeRPCResponse() err = %v", err)
+	}
+
+	resp, err := DecodeRPCResponseForMethod(RPCMethodAllPing, &roundTrip)
 	if err != nil {
-		t.Fatalf("DecodeRPCResponse() error = %v", err)
+		t.Fatalf("DecodeRPCResponseForMethod() error = %v", err)
 	}
 	if resp.Result == nil {
-		t.Fatal("DecodeRPCResponse(empty payload oneof).Result = nil, want present")
+		t.Fatal("DecodeRPCResponseForMethod(empty payload oneof).Result = nil, want present")
 	}
-	if len(resp.Result.union) != 0 {
-		t.Fatalf("DecodeRPCResponse(empty payload oneof).Result len = %d, want 0", len(resp.Result.union))
+	got, err := resp.Result.AsPingResponse()
+	if err != nil {
+		t.Fatalf("AsPingResponse() error = %v", err)
+	}
+	if got.ServerTime != 0 {
+		t.Fatalf("AsPingResponse().ServerTime = %d, want 0", got.ServerTime)
 	}
 }
 

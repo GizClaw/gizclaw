@@ -975,6 +975,11 @@ int main(void) {
     return 1;
   }
   gzc_buf_free(&invalid_envelope, platform);
+  gzc_rpc_response_t invalid_response;
+  rc = gzc_rpc_decode_response_envelope(gzc_str_from_parts(NULL, 1), &invalid_response);
+  if (expect(rc == GZC_ERR_INVALID_ARGUMENT, "reject invalid response payload string") != 0) {
+    return 1;
+  }
 
   gzc_str_t raw_nested;
   rc = gzc_json_find_field(

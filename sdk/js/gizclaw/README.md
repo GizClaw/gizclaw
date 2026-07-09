@@ -54,7 +54,9 @@ payload bytes
 Unary Peer RPC requests and responses are protobuf binary envelope frames
 followed by an EOS frame. Binary and download responses send the response
 envelope first, then body frames, and a single EOS frame terminates the whole
-response stream.
+response stream. If a response envelope is split across `Text` continuation
+frames, an EOS terminates that metadata envelope before body frames begin, and a
+second EOS terminates the body stream.
 
 ## HTTP Over Data Channel
 

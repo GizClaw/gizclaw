@@ -451,7 +451,7 @@ func DecodeRPCResponse(msg *rpcpb.RpcResponse) (*RPCResponse, error) {
 		return resp, nil
 	}
 	if _, ok := msg.GetBody().(*rpcpb.RpcResponse_Payload); ok {
-		resp.Result = &RPCResponse_Result{union: append([]byte(nil), msg.GetPayload()...)}
+		return nil, fmt.Errorf("rpc: response payload requires method-specific decoding")
 	}
 	return resp, nil
 }

@@ -308,6 +308,9 @@ int gzc_rpc_decode_response_envelope(gzc_str_t response_payload, gzc_rpc_respons
     return GZC_ERR_INVALID_ARGUMENT;
   }
   memset(out_response, 0, sizeof(*out_response));
+  if (response_payload.data == NULL && response_payload.len != 0) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
   return decode_rpc_response_payload(response_payload, out_response);
 }
 
