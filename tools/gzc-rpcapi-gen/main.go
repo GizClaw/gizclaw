@@ -449,13 +449,17 @@ func goScalarType(doc protoDoc, protoType, fieldName string) string {
 		return "[]byte"
 	case "bool":
 		return "bool"
-	case "int32", "uint32":
+	case "int32":
 		return "int32"
-	case "int64", "uint64":
+	case "uint32":
+		return "uint32"
+	case "int64":
 		if intField(fieldName) {
 			return "int"
 		}
 		return "int64"
+	case "uint64":
+		return "uint64"
 	case "double", "float":
 		return "float64"
 	case "google.protobuf.Struct":

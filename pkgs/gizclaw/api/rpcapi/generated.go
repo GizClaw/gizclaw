@@ -2360,8 +2360,8 @@ type Runtime struct {
 	LastAddr *string `json:"last_addr,omitempty"`
 	LastSeenAt time.Time `json:"last_seen_at"`
 	Online bool `json:"online"`
-	RxBytes *int64 `json:"rx_bytes,omitempty"`
-	TxBytes *int64 `json:"tx_bytes,omitempty"`
+	RxBytes *uint64 `json:"rx_bytes,omitempty"`
+	TxBytes *uint64 `json:"tx_bytes,omitempty"`
 }
 
 // ServerBadgeGetRequest defines model for ServerBadgeGetRequest.
