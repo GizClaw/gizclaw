@@ -637,6 +637,9 @@ func protoMessageJSONValue(msg protoreflect.Message, opts decodeRPCPayloadOption
 
 func protoFieldPresent(msg protoreflect.Message, fd protoreflect.FieldDescriptor, opts decodeRPCPayloadOptions) bool {
 	if fd.IsList() {
+		if protoOptionalRepeatedField(fd) && msg.Get(fd).List().Len() == 0 {
+			return false
+		}
 		return opts.emitDefaults || msg.Get(fd).List().Len() > 0
 	}
 	if fd.IsMap() {
@@ -649,6 +652,17 @@ func protoFieldPresent(msg protoreflect.Message, fd protoreflect.FieldDescriptor
 		return true
 	}
 	return !protoValueIsZero(fd, msg.Get(fd))
+}
+
+func protoOptionalRepeatedField(fd protoreflect.FieldDescriptor) bool {
+	switch fd.FullName() {
+	case "gizclaw.rpc.v1.DoubaoRealtimeJSONSchema.any_of",
+		"gizclaw.rpc.v1.DoubaoRealtimeJSONSchema.enum_values",
+		"gizclaw.rpc.v1.DoubaoRealtimeJSONSchema.required":
+		return true
+	default:
+		return false
+	}
 }
 
 func protoFieldJSONValue(msg protoreflect.Message, fd protoreflect.FieldDescriptor, opts decodeRPCPayloadOptions) (any, error) {

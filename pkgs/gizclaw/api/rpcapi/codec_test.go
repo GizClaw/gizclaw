@@ -442,6 +442,24 @@ func TestPayloadCodecPreservesJSONShapes(t *testing.T) {
 	if jsonSchemaOut["minLength"] != float64(2) {
 		t.Fatalf("decoded JSON schema minLength = %+v", jsonSchemaOut["minLength"])
 	}
+
+	jsonSchemaDefaultPayload, err := encodeRPCPayloadMessage("DoubaoRealtimeJSONSchema", []byte(`{"type":"object"}`))
+	if err != nil {
+		t.Fatalf("encode JSON schema default payload error = %v", err)
+	}
+	jsonSchemaDefaultJSON, err := decodeRPCPayloadMessage("DoubaoRealtimeJSONSchema", jsonSchemaDefaultPayload, decodeRPCPayloadOptions{emitDefaults: true})
+	if err != nil {
+		t.Fatalf("decode JSON schema default payload error = %v", err)
+	}
+	var jsonSchemaDefaultOut map[string]any
+	if err := json.Unmarshal(jsonSchemaDefaultJSON, &jsonSchemaDefaultOut); err != nil {
+		t.Fatalf("unmarshal JSON schema default payload JSON error = %v", err)
+	}
+	for _, key := range []string{"anyOf", "enum", "required"} {
+		if _, ok := jsonSchemaDefaultOut[key]; ok {
+			t.Fatalf("decoded JSON schema included absent optional repeated %s: %+v", key, jsonSchemaDefaultOut)
+		}
+	}
 }
 
 func TestPayloadCodecSelectsProviderOneofFromDiscriminator(t *testing.T) {
