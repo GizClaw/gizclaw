@@ -13,7 +13,6 @@ import "C"
 
 import (
 	"bytes"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -26,15 +25,9 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codec/ogg"
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/stampedopus"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	rpcpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto"
 	_ "github.com/GizClaw/gizclaw-go/sdk/c/gizclaw/cgobackend"
-	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/reflect/protoreflect"
-	"google.golang.org/protobuf/reflect/protoregistry"
-	"google.golang.org/protobuf/types/descriptorpb"
-	"google.golang.org/protobuf/types/dynamicpb"
 )
 
 type Client struct {
@@ -51,31 +44,6 @@ type ServiceChannel struct {
 }
 
 var errCSDKTimeout = errors.New("C SDK timeout")
-
-func newCgoRPCPayloadMessage(method rpcpb.RpcMethod, response bool) (*dynamicpb.Message, error) {
-	value := method.Descriptor()
-	opts, ok := value.Options().(*descriptorpb.EnumValueOptions)
-	if !ok || opts == nil || !proto.HasExtension(opts, rpcpb.E_RpcMethod) {
-		return nil, fmt.Errorf("method %d has no rpc_method metadata", method)
-	}
-	ext := proto.GetExtension(opts, rpcpb.E_RpcMethod)
-	meta, ok := ext.(*rpcpb.RpcMethodOptions)
-	if !ok || meta == nil {
-		return nil, fmt.Errorf("method %d has invalid rpc_method metadata", method)
-	}
-	messageName := meta.GetRequest()
-	if response {
-		messageName = meta.GetResponse()
-	}
-	if messageName == "" {
-		return nil, fmt.Errorf("method %d payload message is empty", method)
-	}
-	mt, err := protoregistry.GlobalTypes.FindMessageByName(protoreflect.FullName("gizclaw.rpc.v1." + messageName))
-	if err != nil {
-		return nil, err
-	}
-	return dynamicpb.NewMessage(mt.Descriptor()), nil
-}
 
 func NewClient(identityDir string) (*Client, error) {
 	cfg, err := readClientConfig(identityDir)
@@ -109,28 +77,13 @@ func (c *Client) Close() {
 	c.session = nil
 }
 
-func (c *Client) CallRPC(method string, params json.RawMessage) (json.RawMessage, error) {
+func (c *Client) CallRPC(method rpcpb.RpcMethod, request proto.Message, response proto.Message) error {
 	if c == nil || c.session == nil {
-		return nil, fmt.Errorf("closed C SDK client")
+		return fmt.Errorf("closed C SDK client")
 	}
-	if len(params) == 0 {
-		params = json.RawMessage(`{}`)
-	}
-	methodID := rpcapi.RPCMethod(method)
-	protoMethod, err := rpcapi.ProtoMethod(methodID)
+	paramsPayload, err := proto.Marshal(request)
 	if err != nil {
-		return nil, fmt.Errorf("method %s id: %w", method, err)
-	}
-	requestMessage, err := newCgoRPCPayloadMessage(rpcpb.RpcMethod(protoMethod), false)
-	if err != nil {
-		return nil, fmt.Errorf("create %s request payload: %w", method, err)
-	}
-	if err := protojson.Unmarshal(params, requestMessage.Interface()); err != nil {
-		return nil, fmt.Errorf("decode %s request payload: %w", method, err)
-	}
-	paramsPayload, err := proto.Marshal(requestMessage.Interface())
-	if err != nil {
-		return nil, fmt.Errorf("marshal %s request payload: %w", method, err)
+		return fmt.Errorf("marshal %s request payload: %w", method, err)
 	}
 	var cParams *C.uchar
 	if len(paramsPayload) > 0 {
@@ -141,7 +94,7 @@ func (c *Client) CallRPC(method string, params json.RawMessage) (json.RawMessage
 	var resultLen C.ulong
 	rc := C.gzc_cgo_session_call_rpc_payload(
 		c.session,
-		C.uint(protoMethod),
+		C.uint(method),
 		cParams,
 		C.ulong(len(paramsPayload)),
 		&result,
@@ -150,44 +103,23 @@ func (c *Client) CallRPC(method string, params json.RawMessage) (json.RawMessage
 		C.ulong(len(errbuf)),
 	)
 	if rc != C.GZC_OK {
-		return nil, fmt.Errorf("call %s rc=%d: %s", method, int(rc), cString(errbuf))
+		return fmt.Errorf("call %s rc=%d: %s", method, int(rc), cString(errbuf))
 	}
 	defer C.gzc_cgo_free(unsafe.Pointer(result))
 	resultPayload := C.GoBytes(unsafe.Pointer(result), C.int(resultLen))
-	responseMessage, err := newCgoRPCPayloadMessage(rpcpb.RpcMethod(protoMethod), true)
-	if err != nil {
-		return nil, fmt.Errorf("create %s response payload: %w", method, err)
+	if response != nil {
+		if err := proto.Unmarshal(resultPayload, response); err != nil {
+			return fmt.Errorf("decode %s response payload: %w", method, err)
+		}
 	}
-	if err := proto.Unmarshal(resultPayload, responseMessage.Interface()); err != nil {
-		return nil, fmt.Errorf("decode %s response payload: %w", method, err)
-	}
-	resultJSON, err := protojson.MarshalOptions{EmitUnpopulated: true}.Marshal(responseMessage.Interface())
-	if err != nil {
-		return nil, fmt.Errorf("marshal %s response payload: %w", method, err)
-	}
-	return resultJSON, nil
+	return nil
 }
 
-func (c *Client) CallStream(method string, params json.RawMessage) ([]StreamFrame, error) {
+func (c *Client) CallStream(method rpcpb.RpcMethod, request proto.Message) ([]StreamFrame, error) {
 	if c == nil || c.session == nil {
 		return nil, fmt.Errorf("closed C SDK client")
 	}
-	if len(params) == 0 {
-		params = json.RawMessage(`{}`)
-	}
-	methodID := rpcapi.RPCMethod(method)
-	protoMethod, err := rpcapi.ProtoMethod(methodID)
-	if err != nil {
-		return nil, fmt.Errorf("method %s id: %w", method, err)
-	}
-	requestMessage, err := newCgoRPCPayloadMessage(rpcpb.RpcMethod(protoMethod), false)
-	if err != nil {
-		return nil, fmt.Errorf("create %s stream request payload: %w", method, err)
-	}
-	if err := protojson.Unmarshal(params, requestMessage.Interface()); err != nil {
-		return nil, fmt.Errorf("decode %s stream request payload: %w", method, err)
-	}
-	paramsPayload, err := proto.Marshal(requestMessage.Interface())
+	paramsPayload, err := proto.Marshal(request)
 	if err != nil {
 		return nil, fmt.Errorf("marshal %s stream request payload: %w", method, err)
 	}
@@ -200,7 +132,7 @@ func (c *Client) CallStream(method string, params json.RawMessage) ([]StreamFram
 	var frameCount C.ulong
 	rc := C.gzc_cgo_session_call_stream_collect(
 		c.session,
-		C.uint(protoMethod),
+		C.uint(method),
 		cParams,
 		C.ulong(len(paramsPayload)),
 		&frames,
@@ -418,18 +350,12 @@ func CSDKPing(t *testing.T, identityDir string) {
 		t.Fatal(err)
 	}
 	defer client.Close()
-	result, err := client.CallRPC("all.ping", json.RawMessage(`{"client_send_time":12345}`))
-	if err != nil {
+	var response rpcpb.PingResponse
+	if err := client.CallRPC(rpcpb.RpcMethod_RPC_METHOD_ALL_PING, &rpcpb.PingRequest{ClientSendTime: 12345}, &response); err != nil {
 		t.Fatal(err)
 	}
-	var response struct {
-		ServerTime int64 `json:"server_time"`
-	}
-	if err := json.Unmarshal(result, &response); err != nil {
-		t.Fatalf("decode ping result: %v: %s", err, string(result))
-	}
-	if response.ServerTime <= 0 {
-		t.Fatalf("invalid server_time: %d", response.ServerTime)
+	if response.GetServerTime() <= 0 {
+		t.Fatalf("invalid server_time: %d", response.GetServerTime())
 	}
 }
 
@@ -437,14 +363,11 @@ func CSDKServerRuntime(t *testing.T, identityDir string) {
 	t.Helper()
 	client := newTestClient(t, identityDir)
 	defer client.Close()
-	result := mustCallRPC(t, client, "server.runtime.get", `{}`)
-	var response struct {
-		Online     bool   `json:"online"`
-		LastSeenAt string `json:"last_seen_at"`
-	}
-	decodeJSON(t, "server.runtime.get", result, &response)
-	if !response.Online || response.LastSeenAt == "" {
-		t.Fatalf("invalid server.runtime.get: %s", string(result))
+	var response rpcpb.ServerGetRuntimeResponse
+	mustCallRPC(t, client, rpcpb.RpcMethod_RPC_METHOD_SERVER_RUNTIME_GET, &rpcpb.ServerGetRuntimeRequest{}, &response)
+	runtime := response.GetValue()
+	if runtime == nil || !runtime.GetOnline() || runtime.GetLastSeenAt() == "" {
+		t.Fatalf("invalid server.runtime.get: %s", response.String())
 	}
 }
 
@@ -456,17 +379,13 @@ func CSDKServerStatus(t *testing.T, identityDir string) {
 	if err := client.SendFullTelemetry(); err != nil {
 		t.Fatal(err)
 	}
-	var result json.RawMessage
-	var getResponse struct {
-		BatteryPercent *int  `json:"battery_percent"`
-		Charging       *bool `json:"charging"`
-	}
+	var getResponse rpcpb.ServerGetStatusResponse
 	deadline := time.Now().Add(5 * time.Second)
 	for {
-		result = mustCallRPC(t, client, "server.status.get", `{}`)
-		decodeJSON(t, "server.status.get", result, &getResponse)
-		if getResponse.BatteryPercent != nil && *getResponse.BatteryPercent == 91 &&
-			getResponse.Charging != nil && *getResponse.Charging {
+		mustCallRPC(t, client, rpcpb.RpcMethod_RPC_METHOD_SERVER_STATUS_GET, &rpcpb.ServerGetStatusRequest{}, &getResponse)
+		status := getResponse.GetValue()
+		if status != nil && status.BatteryPercent != nil && status.GetBatteryPercent() == 91 &&
+			status.Charging != nil && status.GetCharging() {
 			return
 		}
 		if time.Now().After(deadline) {
@@ -474,14 +393,17 @@ func CSDKServerStatus(t *testing.T, identityDir string) {
 		}
 		time.Sleep(100 * time.Millisecond)
 	}
-	t.Fatalf("server.status.get did not reflect telemetry: %s", string(result))
+	t.Fatalf("server.status.get did not reflect telemetry: %s", getResponse.String())
 }
 
 func CSDKSpeedTest(t *testing.T, identityDir string) {
 	t.Helper()
 	client := newTestClient(t, identityDir)
 	defer client.Close()
-	frames, err := client.CallStream("all.speed_test.run", json.RawMessage(`{"down_content_length":4096,"up_content_length":0}`))
+	frames, err := client.CallStream(rpcpb.RpcMethod_RPC_METHOD_ALL_SPEED_TEST_RUN, &rpcpb.SpeedTestRequest{
+		DownContentLength: 4096,
+		UpContentLength:   0,
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -491,14 +413,10 @@ func CSDKSpeedTest(t *testing.T, identityDir string) {
 		switch frame.Type {
 		case int(C.GZC_RPC_FRAME_BINARY):
 			if !sawAck {
-				result := streamResultProtobuf(t, "all.speed_test.run", frame.Data)
-				var response struct {
-					DownContentLength int `json:"down_content_length"`
-					UpContentLength   int `json:"up_content_length"`
-				}
-				decodeJSON(t, "all.speed_test.run", result, &response)
-				if response.DownContentLength != 4096 || response.UpContentLength != 0 {
-					t.Fatalf("invalid speed test ack: %s", string(result))
+				var response rpcpb.SpeedTestResponse
+				decodeStreamResponse(t, rpcpb.RpcMethod_RPC_METHOD_ALL_SPEED_TEST_RUN, frame.Data, &response)
+				if response.GetDownContentLength() != 4096 || response.GetUpContentLength() != 0 {
+					t.Fatalf("invalid speed test ack: %s", response.String())
 				}
 				sawAck = true
 				continue
@@ -517,22 +435,16 @@ func CSDKFirmwareRPC(t *testing.T, identityDir string) {
 	t.Helper()
 	client := newTestClient(t, identityDir)
 	defer client.Close()
-	result := mustCallRPC(t, client, "server.firmware.list", `{"limit":5}`)
-	var listResponse struct {
-		Items []json.RawMessage `json:"items"`
+	var listResponse rpcpb.FirmwareListResponse
+	mustCallRPC(t, client, rpcpb.RpcMethod_RPC_METHOD_SERVER_FIRMWARE_LIST, &rpcpb.FirmwareListRequest{Limit: ptr(int64(5))}, &listResponse)
+	if len(listResponse.GetItems()) == 0 {
+		t.Fatalf("empty server.firmware.list: %s", listResponse.String())
 	}
-	decodeJSON(t, "server.firmware.list", result, &listResponse)
-	if len(listResponse.Items) == 0 {
-		t.Fatalf("empty server.firmware.list: %s", string(result))
-	}
-	result = mustCallRPC(t, client, "server.firmware.get", `{"firmware_id":"devkit-firmware-main"}`)
-	var getResponse struct {
-		Name  string          `json:"name"`
-		Slots json.RawMessage `json:"slots"`
-	}
-	decodeJSON(t, "server.firmware.get", result, &getResponse)
-	if getResponse.Name != "devkit-firmware-main" || len(getResponse.Slots) == 0 {
-		t.Fatalf("invalid server.firmware.get: %s", string(result))
+	var getResponse rpcpb.FirmwareGetResponse
+	mustCallRPC(t, client, rpcpb.RpcMethod_RPC_METHOD_SERVER_FIRMWARE_GET, &rpcpb.FirmwareGetRequest{FirmwareId: "devkit-firmware-main"}, &getResponse)
+	firmware := getResponse.GetValue()
+	if firmware == nil || firmware.GetName() != "devkit-firmware-main" || firmware.GetSlots() == nil {
+		t.Fatalf("invalid server.firmware.get: %s", getResponse.String())
 	}
 }
 
@@ -540,7 +452,11 @@ func CSDKFirmwareDownload(t *testing.T, identityDir string) {
 	t.Helper()
 	client := newTestClient(t, identityDir)
 	defer client.Close()
-	frames, err := client.CallStream("server.firmware.files.download", json.RawMessage(`{"firmware_id":"devkit-firmware-main","channel":"stable","path":"firmware/main.bin"}`))
+	frames, err := client.CallStream(rpcpb.RpcMethod_RPC_METHOD_SERVER_FIRMWARE_FILES_DOWNLOAD, &rpcpb.FirmwareFilesDownloadRequest{
+		FirmwareId: "devkit-firmware-main",
+		Channel:    rpcpb.FirmwareChannelName_FIRMWARE_CHANNEL_NAME_STABLE,
+		Path:       "firmware/main.bin",
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -551,14 +467,10 @@ func CSDKFirmwareDownload(t *testing.T, identityDir string) {
 		switch frame.Type {
 		case int(C.GZC_RPC_FRAME_BINARY):
 			if !sawMetadata {
-				result := streamResultProtobuf(t, "server.firmware.files.download", frame.Data)
-				var response struct {
-					FirmwareID string `json:"firmware_id"`
-					Path       string `json:"path"`
-				}
-				decodeJSON(t, "server.firmware.files.download", result, &response)
-				if response.FirmwareID != "devkit-firmware-main" || response.Path != "firmware/main.bin" {
-					t.Fatalf("invalid firmware download metadata: %s", string(result))
+				var response rpcpb.FirmwareFilesDownloadResponse
+				decodeStreamResponse(t, rpcpb.RpcMethod_RPC_METHOD_SERVER_FIRMWARE_FILES_DOWNLOAD, frame.Data, &response)
+				if response.GetFirmwareId() != "devkit-firmware-main" || response.GetPath() != "firmware/main.bin" {
+					t.Fatalf("invalid firmware download metadata: %s", response.String())
 				}
 				sawMetadata = true
 				continue
@@ -580,47 +492,36 @@ func CSDKChatWorkspace(t *testing.T, identityDir string) {
 	t.Helper()
 	client := newTestClient(t, identityDir)
 	defer client.Close()
-	result := mustCallRPC(t, client, "server.workspace.get", `{"name":"direct-chatroom-workspace"}`)
-	var workspace struct {
-		Name         string `json:"name"`
-		WorkflowName string `json:"workflow_name"`
+	var workspaceResponse rpcpb.WorkspaceGetResponse
+	mustCallRPC(t, client, rpcpb.RpcMethod_RPC_METHOD_SERVER_WORKSPACE_GET, &rpcpb.WorkspaceGetRequest{Name: "direct-chatroom-workspace"}, &workspaceResponse)
+	workspace := workspaceResponse.GetValue()
+	if workspace == nil || workspace.GetName() != "direct-chatroom-workspace" || workspace.GetWorkflowName() != "chatroom-direct" {
+		t.Fatalf("invalid server.workspace.get: %s", workspaceResponse.String())
 	}
-	decodeJSON(t, "server.workspace.get", result, &workspace)
-	if workspace.Name != "direct-chatroom-workspace" || workspace.WorkflowName != "chatroom-direct" {
-		t.Fatalf("invalid server.workspace.get: %s", string(result))
+	var setResponse rpcpb.ServerSetRunWorkspaceResponse
+	mustCallRPC(t, client, rpcpb.RpcMethod_RPC_METHOD_SERVER_RUN_WORKSPACE_SET, &rpcpb.ServerSetRunWorkspaceRequest{
+		Value: &rpcpb.AgentSelection{WorkspaceName: "direct-chatroom-workspace"},
+	}, &setResponse)
+	if setResponse.GetValue().GetWorkspaceName() != "direct-chatroom-workspace" {
+		t.Fatalf("invalid server.run.workspace.set: %s", setResponse.String())
 	}
-	result = mustCallRPC(t, client, "server.run.workspace.set", `{"workspace_name":"direct-chatroom-workspace"}`)
-	var setResponse struct {
-		WorkspaceName string `json:"workspace_name"`
+	var getResponse rpcpb.ServerGetRunWorkspaceResponse
+	mustCallRPC(t, client, rpcpb.RpcMethod_RPC_METHOD_SERVER_RUN_WORKSPACE_GET, &rpcpb.ServerGetRunWorkspaceRequest{}, &getResponse)
+	if getResponse.GetValue().GetWorkspaceName() != "direct-chatroom-workspace" ||
+		getResponse.GetValue().GetRuntimeState() == rpcpb.PeerRunStatusState_PEER_RUN_STATUS_STATE_UNSPECIFIED {
+		t.Fatalf("invalid server.run.workspace.get: %s", getResponse.String())
 	}
-	decodeJSON(t, "server.run.workspace.set", result, &setResponse)
-	if setResponse.WorkspaceName != "direct-chatroom-workspace" {
-		t.Fatalf("invalid server.run.workspace.set: %s", string(result))
+	var statusResponse rpcpb.ServerGetRunStatusResponse
+	mustCallRPC(t, client, rpcpb.RpcMethod_RPC_METHOD_SERVER_RUN_STATUS, &rpcpb.ServerGetRunStatusRequest{}, &statusResponse)
+	if statusResponse.GetValue().GetState() == rpcpb.PeerRunStatusState_PEER_RUN_STATUS_STATE_UNSPECIFIED {
+		t.Fatalf("invalid server.run.status: %s", statusResponse.String())
 	}
-	result = mustCallRPC(t, client, "server.run.workspace.get", `{}`)
-	var getResponse struct {
-		WorkspaceName string          `json:"workspace_name"`
-		RuntimeState  json.RawMessage `json:"runtime_state"`
-	}
-	decodeJSON(t, "server.run.workspace.get", result, &getResponse)
-	if getResponse.WorkspaceName != "direct-chatroom-workspace" || len(getResponse.RuntimeState) == 0 {
-		t.Fatalf("invalid server.run.workspace.get: %s", string(result))
-	}
-	result = mustCallRPC(t, client, "server.run.status", `{}`)
-	var statusResponse struct {
-		State json.RawMessage `json:"state"`
-	}
-	decodeJSON(t, "server.run.status", result, &statusResponse)
-	if len(statusResponse.State) == 0 {
-		t.Fatalf("invalid server.run.status: %s", string(result))
-	}
-	result = mustCallRPC(t, client, "server.run.workspace.history", `{"limit":5}`)
-	var historyResponse struct {
-		Items []json.RawMessage `json:"items"`
-	}
-	decodeJSON(t, "server.run.workspace.history", result, &historyResponse)
-	if historyResponse.Items == nil {
-		t.Fatalf("invalid server.run.workspace.history: %s", string(result))
+	var historyResponse rpcpb.ServerListRunWorkspaceHistoryResponse
+	mustCallRPC(t, client, rpcpb.RpcMethod_RPC_METHOD_SERVER_RUN_WORKSPACE_HISTORY, &rpcpb.ServerListRunWorkspaceHistoryRequest{
+		Value: &rpcpb.PeerRunHistoryListRequest{Limit: ptr(int64(5))},
+	}, &historyResponse)
+	if historyResponse.GetValue() == nil || historyResponse.GetValue().GetItems() == nil {
+		t.Fatalf("invalid server.run.workspace.history: %s", historyResponse.String())
 	}
 }
 
@@ -696,70 +597,72 @@ func CSDKSocialBasic(t *testing.T, identityDir string) {
 	contactPhone := fmt.Sprintf("+1555%010d", unique%10000000000)
 	groupName := fmt.Sprintf("c-sdk-social-group-%d", unique)
 
-	result := mustCallRPC(t, client, "server.contact.create", fmt.Sprintf(`{"display_name":%q,"phone_number":%q}`, contactName, contactPhone))
-	var contactCreate struct {
-		ID          string `json:"id"`
-		DisplayName string `json:"display_name"`
+	var contactCreate rpcpb.ContactCreateResponse
+	mustCallRPC(t, client, rpcpb.RpcMethod_RPC_METHOD_SERVER_CONTACT_CREATE, &rpcpb.ContactCreateRequest{
+		DisplayName: ptr(contactName),
+		PhoneNumber: ptr(contactPhone),
+	}, &contactCreate)
+	if contactCreate.GetValue().GetId() == "" || contactCreate.GetValue().GetDisplayName() != contactName {
+		t.Fatalf("invalid server.contact.create: %s", contactCreate.String())
 	}
-	decodeJSON(t, "server.contact.create", result, &contactCreate)
-	if contactCreate.ID == "" || contactCreate.DisplayName != contactName {
-		t.Fatalf("invalid server.contact.create: %s", string(result))
+	contactID := contactCreate.GetValue().GetId()
+	var contactGet rpcpb.ContactGetResponse
+	mustCallRPC(t, client, rpcpb.RpcMethod_RPC_METHOD_SERVER_CONTACT_GET, &rpcpb.ContactGetRequest{Id: contactID}, &contactGet)
+	if contactGet.GetValue().GetId() != contactID {
+		t.Fatalf("invalid server.contact.get: %s", contactGet.String())
 	}
-	contactID := contactCreate.ID
-	result = mustCallRPC(t, client, "server.contact.get", fmt.Sprintf(`{"id":%q}`, contactID))
-	if !bytes.Contains(result, []byte(contactID)) {
-		t.Fatalf("invalid server.contact.get: %s", string(result))
-	}
-	result = mustCallRPC(t, client, "server.contact.list", `{"limit":1000}`)
-	if !bytes.Contains(result, []byte(contactID)) {
-		t.Fatalf("invalid server.contact.list: %s", string(result))
+	var contactList rpcpb.ContactListResponse
+	mustCallRPC(t, client, rpcpb.RpcMethod_RPC_METHOD_SERVER_CONTACT_LIST, &rpcpb.ContactListRequest{Limit: ptr(int64(1000))}, &contactList)
+	if !contactListContains(contactList.GetItems(), contactID) {
+		t.Fatalf("invalid server.contact.list: %s", contactList.String())
 	}
 
-	result = mustCallRPC(t, client, "server.friend_group.create", fmt.Sprintf(`{"name":%q,"description":"created by cgo C SDK test"}`, groupName))
-	var groupCreate struct {
-		ID            string `json:"id"`
-		Name          string `json:"name"`
-		WorkspaceName string `json:"workspace_name"`
+	var groupCreate rpcpb.FriendGroupCreateResponse
+	mustCallRPC(t, client, rpcpb.RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_CREATE, &rpcpb.FriendGroupCreateRequest{
+		Name:        groupName,
+		Description: ptr("created by cgo C SDK test"),
+	}, &groupCreate)
+	if groupCreate.GetValue().GetId() == "" || groupCreate.GetValue().GetName() != groupName || groupCreate.GetValue().GetWorkspaceName() == "" {
+		t.Fatalf("invalid server.friend_group.create: %s", groupCreate.String())
 	}
-	decodeJSON(t, "server.friend_group.create", result, &groupCreate)
-	if groupCreate.ID == "" || groupCreate.Name != groupName || groupCreate.WorkspaceName == "" {
-		t.Fatalf("invalid server.friend_group.create: %s", string(result))
+	groupID := groupCreate.GetValue().GetId()
+	var groupGet rpcpb.FriendGroupGetResponse
+	mustCallRPC(t, client, rpcpb.RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_GET, &rpcpb.FriendGroupGetRequest{Id: groupID}, &groupGet)
+	if groupGet.GetValue().GetId() != groupID {
+		t.Fatalf("invalid server.friend_group.get: %s", groupGet.String())
 	}
-	groupID := groupCreate.ID
-	result = mustCallRPC(t, client, "server.friend_group.get", fmt.Sprintf(`{"id":%q}`, groupID))
-	if !bytes.Contains(result, []byte(groupID)) {
-		t.Fatalf("invalid server.friend_group.get: %s", string(result))
+	var groupList rpcpb.FriendGroupListResponse
+	mustCallRPC(t, client, rpcpb.RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_LIST, &rpcpb.FriendGroupListRequest{Limit: ptr(int64(1000))}, &groupList)
+	if !friendGroupListContains(groupList.GetItems(), groupID) {
+		t.Fatalf("invalid server.friend_group.list: %s", groupList.String())
 	}
-	result = mustCallRPC(t, client, "server.friend_group.list", `{"limit":1000}`)
-	if !bytes.Contains(result, []byte(groupID)) {
-		t.Fatalf("invalid server.friend_group.list: %s", string(result))
+	var tokenResponse rpcpb.FriendGroupInviteTokenCreateResponse
+	mustCallRPC(t, client, rpcpb.RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_INVITE_TOKEN_CREATE, &rpcpb.FriendGroupInviteTokenCreateRequest{FriendGroupId: groupID}, &tokenResponse)
+	if tokenResponse.GetInviteToken() == "" || tokenResponse.GetExpiresAt() == "" {
+		t.Fatalf("invalid server.friend_group.invite_token.create: %s", tokenResponse.String())
 	}
-	result = mustCallRPC(t, client, "server.friend_group.invite_token.create", fmt.Sprintf(`{"friend_group_id":%q}`, groupID))
-	var tokenResponse struct {
-		InviteToken string `json:"invite_token"`
-		ExpiresAt   string `json:"expires_at"`
+	var messageSend rpcpb.FriendGroupMessageSendResponse
+	mustCallRPC(t, client, rpcpb.RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_SEND, &rpcpb.FriendGroupMessageSendRequest{
+		FriendGroupId:    groupID,
+		AudioContentType: "audio/opus",
+		AudioBase64:      []byte("not-real-opus-but-rpc-payload"),
+	}, &messageSend)
+	if messageSend.GetValue().GetId() == "" || messageSend.GetValue().GetFriendGroupId() != groupID {
+		t.Fatalf("invalid server.friend_group.messages.send: %s", messageSend.String())
 	}
-	decodeJSON(t, "server.friend_group.invite_token.create", result, &tokenResponse)
-	if tokenResponse.InviteToken == "" || tokenResponse.ExpiresAt == "" {
-		t.Fatalf("invalid server.friend_group.invite_token.create: %s", string(result))
+	messageID := messageSend.GetValue().GetId()
+	var messageGet rpcpb.FriendGroupMessageGetResponse
+	mustCallRPC(t, client, rpcpb.RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_GET, &rpcpb.FriendGroupMessageGetRequest{FriendGroupId: groupID, Id: messageID}, &messageGet)
+	if messageGet.GetValue().GetId() != messageID {
+		t.Fatalf("invalid server.friend_group.messages.get: %s", messageGet.String())
 	}
-	result = mustCallRPC(t, client, "server.friend_group.messages.send", fmt.Sprintf(`{"friend_group_id":%q,"audio_content_type":"audio/opus","audio_base64":"bm90LXJlYWwtb3B1cy1idXQtcnBjLXBheWxvYWQ="}`, groupID))
-	var messageSend struct {
-		ID            string `json:"id"`
-		FriendGroupID string `json:"friend_group_id"`
-	}
-	decodeJSON(t, "server.friend_group.messages.send", result, &messageSend)
-	if messageSend.ID == "" || messageSend.FriendGroupID != groupID {
-		t.Fatalf("invalid server.friend_group.messages.send: %s", string(result))
-	}
-	messageID := messageSend.ID
-	result = mustCallRPC(t, client, "server.friend_group.messages.get", fmt.Sprintf(`{"friend_group_id":%q,"id":%q}`, groupID, messageID))
-	if !bytes.Contains(result, []byte(messageID)) {
-		t.Fatalf("invalid server.friend_group.messages.get: %s", string(result))
-	}
-	result = mustCallRPC(t, client, "server.friend_group.messages.list", fmt.Sprintf(`{"friend_group_id":%q,"limit":1000}`, groupID))
-	if !bytes.Contains(result, []byte(messageID)) {
-		t.Fatalf("invalid server.friend_group.messages.list: %s", string(result))
+	var messageList rpcpb.FriendGroupMessageListResponse
+	mustCallRPC(t, client, rpcpb.RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_LIST, &rpcpb.FriendGroupMessageListRequest{
+		FriendGroupId: ptr(groupID),
+		Limit:         ptr(int64(1000)),
+	}, &messageList)
+	if !friendGroupMessageListContains(messageList.GetItems(), messageID) {
+		t.Fatalf("invalid server.friend_group.messages.list: %s", messageList.String())
 	}
 }
 
@@ -770,70 +673,69 @@ func CSDKSocialRelationships(t *testing.T, identityADir, identityBDir string) {
 	clientB := newTestClient(t, identityBDir)
 	defer clientB.Close()
 
-	result := mustCallRPC(t, clientB, "server.friend.invite_token.create", `{}`)
-	var friendToken struct {
-		InviteToken string `json:"invite_token"`
-		ExpiresAt   string `json:"expires_at"`
+	var friendToken rpcpb.FriendInviteTokenCreateResponse
+	mustCallRPC(t, clientB, rpcpb.RpcMethod_RPC_METHOD_SERVER_FRIEND_INVITE_TOKEN_CREATE, &rpcpb.FriendInviteTokenCreateRequest{}, &friendToken)
+	if friendToken.GetInviteToken() == "" || friendToken.GetExpiresAt() == "" {
+		t.Fatalf("invalid server.friend.invite_token.create: %s", friendToken.String())
 	}
-	decodeJSON(t, "server.friend.invite_token.create", result, &friendToken)
-	if friendToken.InviteToken == "" || friendToken.ExpiresAt == "" {
-		t.Fatalf("invalid server.friend.invite_token.create: %s", string(result))
-	}
-	result = mustCallRPC(t, clientA, "server.friend.add", fmt.Sprintf(`{"invite_token":%q}`, friendToken.InviteToken))
-	var friendAdd struct {
-		ID            string `json:"id"`
-		WorkspaceName string `json:"workspace_name"`
-		PeerPublicKey string `json:"peer_public_key"`
-	}
-	decodeJSON(t, "server.friend.add", result, &friendAdd)
-	if friendAdd.ID == "" || friendAdd.WorkspaceName == "" || friendAdd.PeerPublicKey == "" {
-		t.Fatalf("invalid server.friend.add: %s", string(result))
+	var friendAdd rpcpb.FriendAddResponse
+	mustCallRPC(t, clientA, rpcpb.RpcMethod_RPC_METHOD_SERVER_FRIEND_ADD, &rpcpb.FriendAddRequest{InviteToken: friendToken.GetInviteToken()}, &friendAdd)
+	if friendAdd.GetValue().GetId() == "" || friendAdd.GetValue().GetWorkspaceName() == "" || friendAdd.GetValue().GetPeerPublicKey() == "" {
+		t.Fatalf("invalid server.friend.add: %s", friendAdd.String())
 	}
 
-	result = mustCallRPC(t, clientA, "server.friend_group.create", `{"name":"c-sdk-cross-user-group","description":"created by cgo C SDK relationship test"}`)
-	var groupCreate struct {
-		ID            string `json:"id"`
-		WorkspaceName string `json:"workspace_name"`
+	var groupCreate rpcpb.FriendGroupCreateResponse
+	mustCallRPC(t, clientA, rpcpb.RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_CREATE, &rpcpb.FriendGroupCreateRequest{
+		Name:        "c-sdk-cross-user-group",
+		Description: ptr("created by cgo C SDK relationship test"),
+	}, &groupCreate)
+	if groupCreate.GetValue().GetId() == "" || groupCreate.GetValue().GetWorkspaceName() == "" {
+		t.Fatalf("invalid server.friend_group.create: %s", groupCreate.String())
 	}
-	decodeJSON(t, "server.friend_group.create", result, &groupCreate)
-	if groupCreate.ID == "" || groupCreate.WorkspaceName == "" {
-		t.Fatalf("invalid server.friend_group.create: %s", string(result))
+	groupID := groupCreate.GetValue().GetId()
+	var groupToken rpcpb.FriendGroupInviteTokenCreateResponse
+	mustCallRPC(t, clientA, rpcpb.RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_INVITE_TOKEN_CREATE, &rpcpb.FriendGroupInviteTokenCreateRequest{FriendGroupId: groupID}, &groupToken)
+	if groupToken.GetInviteToken() == "" || groupToken.GetExpiresAt() == "" {
+		t.Fatalf("invalid server.friend_group.invite_token.create: %s", groupToken.String())
 	}
-	groupID := groupCreate.ID
-	result = mustCallRPC(t, clientA, "server.friend_group.invite_token.create", fmt.Sprintf(`{"friend_group_id":%q}`, groupID))
-	var groupToken struct {
-		InviteToken string `json:"invite_token"`
-		ExpiresAt   string `json:"expires_at"`
+	var groupJoin rpcpb.FriendGroupJoinResponse
+	mustCallRPC(t, clientB, rpcpb.RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_JOIN, &rpcpb.FriendGroupJoinRequest{InviteToken: groupToken.GetInviteToken()}, &groupJoin)
+	if groupJoin.GetGroup().GetId() != groupID {
+		t.Fatalf("invalid server.friend_group.join: %s", groupJoin.String())
 	}
-	decodeJSON(t, "server.friend_group.invite_token.create", result, &groupToken)
-	if groupToken.InviteToken == "" || groupToken.ExpiresAt == "" {
-		t.Fatalf("invalid server.friend_group.invite_token.create: %s", string(result))
+	var memberList rpcpb.FriendGroupMemberListResponse
+	mustCallRPC(t, clientB, rpcpb.RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_MEMBERS_LIST, &rpcpb.FriendGroupMemberListRequest{
+		FriendGroupId: ptr(groupID),
+		Limit:         ptr(int64(1000)),
+	}, &memberList)
+	if !friendGroupMemberListContains(memberList.GetItems(), groupID) {
+		t.Fatalf("invalid server.friend_group.members.list: %s", memberList.String())
 	}
-	result = mustCallRPC(t, clientB, "server.friend_group.join", fmt.Sprintf(`{"invite_token":%q}`, groupToken.InviteToken))
-	if !bytes.Contains(result, []byte(groupID)) {
-		t.Fatalf("invalid server.friend_group.join: %s", string(result))
+	var messageSend rpcpb.FriendGroupMessageSendResponse
+	mustCallRPC(t, clientB, rpcpb.RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_SEND, &rpcpb.FriendGroupMessageSendRequest{
+		FriendGroupId:    groupID,
+		AudioContentType: "audio/opus",
+		AudioBase64:      []byte("c-sdk-cross-user-social-message"),
+	}, &messageSend)
+	if messageSend.GetValue().GetId() == "" || messageSend.GetValue().GetFriendGroupId() != groupID {
+		t.Fatalf("invalid server.friend_group.messages.send: %s", messageSend.String())
 	}
-	result = mustCallRPC(t, clientB, "server.friend_group.members.list", fmt.Sprintf(`{"friend_group_id":%q,"limit":1000}`, groupID))
-	if !bytes.Contains(result, []byte(groupID)) {
-		t.Fatalf("invalid server.friend_group.members.list: %s", string(result))
+	messageID := messageSend.GetValue().GetId()
+	var messageGet rpcpb.FriendGroupMessageGetResponse
+	mustCallRPC(t, clientA, rpcpb.RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_GET, &rpcpb.FriendGroupMessageGetRequest{
+		FriendGroupId: groupID,
+		Id:            messageID,
+	}, &messageGet)
+	if messageGet.GetValue().GetId() != messageID {
+		t.Fatalf("invalid server.friend_group.messages.get: %s", messageGet.String())
 	}
-	result = mustCallRPC(t, clientB, "server.friend_group.messages.send", fmt.Sprintf(`{"friend_group_id":%q,"audio_content_type":"audio/opus","audio_base64":"Yy1zZGstY3Jvc3MtdXNlci1zb2NpYWwtbWVzc2FnZQ=="}`, groupID))
-	var messageSend struct {
-		ID            string `json:"id"`
-		FriendGroupID string `json:"friend_group_id"`
-	}
-	decodeJSON(t, "server.friend_group.messages.send", result, &messageSend)
-	if messageSend.ID == "" || messageSend.FriendGroupID != groupID {
-		t.Fatalf("invalid server.friend_group.messages.send: %s", string(result))
-	}
-	messageID := messageSend.ID
-	result = mustCallRPC(t, clientA, "server.friend_group.messages.get", fmt.Sprintf(`{"friend_group_id":%q,"id":%q}`, groupID, messageID))
-	if !bytes.Contains(result, []byte(messageID)) {
-		t.Fatalf("invalid server.friend_group.messages.get: %s", string(result))
-	}
-	result = mustCallRPC(t, clientA, "server.friend_group.messages.list", fmt.Sprintf(`{"friend_group_id":%q,"limit":1000}`, groupID))
-	if !bytes.Contains(result, []byte(messageID)) {
-		t.Fatalf("invalid server.friend_group.messages.list: %s", string(result))
+	var messageList rpcpb.FriendGroupMessageListResponse
+	mustCallRPC(t, clientA, rpcpb.RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_LIST, &rpcpb.FriendGroupMessageListRequest{
+		FriendGroupId: ptr(groupID),
+		Limit:         ptr(int64(1000)),
+	}, &messageList)
+	if !friendGroupMessageListContains(messageList.GetItems(), messageID) {
+		t.Fatalf("invalid server.friend_group.messages.list: %s", messageList.String())
 	}
 }
 
@@ -846,23 +748,14 @@ func newTestClient(t *testing.T, identityDir string) *Client {
 	return client
 }
 
-func mustCallRPC(t *testing.T, client *Client, method, params string) json.RawMessage {
+func mustCallRPC(t *testing.T, client *Client, method rpcpb.RpcMethod, request proto.Message, response proto.Message) {
 	t.Helper()
-	result, err := client.CallRPC(method, json.RawMessage(params))
-	if err != nil {
+	if err := client.CallRPC(method, request, response); err != nil {
 		t.Fatal(err)
 	}
-	return result
 }
 
-func decodeJSON(t *testing.T, label string, data []byte, out any) {
-	t.Helper()
-	if err := json.Unmarshal(data, out); err != nil {
-		t.Fatalf("decode %s: %v: %s", label, err, string(data))
-	}
-}
-
-func streamResultProtobuf(t *testing.T, method string, frame []byte) json.RawMessage {
+func decodeStreamResponse(t *testing.T, method rpcpb.RpcMethod, frame []byte, response proto.Message) {
 	t.Helper()
 	var envelope rpcpb.RpcResponse
 	if err := proto.Unmarshal(frame, &envelope); err != nil {
@@ -875,43 +768,65 @@ func streamResultProtobuf(t *testing.T, method string, frame []byte) json.RawMes
 	if resultPayload == nil {
 		t.Fatalf("%s stream envelope has empty result", method)
 	}
-	methodID := rpcapi.RPCMethod(method)
-	protoMethod, err := rpcapi.ProtoMethod(methodID)
-	if err != nil {
-		t.Fatalf("method %s id: %v", method, err)
-	}
-	responseMessage, err := newCgoRPCPayloadMessage(rpcpb.RpcMethod(protoMethod), true)
-	if err != nil {
-		t.Fatalf("create %s stream response payload: %v", method, err)
-	}
-	if err := proto.Unmarshal(resultPayload, responseMessage.Interface()); err != nil {
+	if err := proto.Unmarshal(resultPayload, response); err != nil {
 		t.Fatalf("decode %s stream response payload: %v", method, err)
 	}
-	result, err := protojson.MarshalOptions{EmitUnpopulated: true}.Marshal(responseMessage.Interface())
-	if err != nil {
-		t.Fatalf("marshal %s stream result JSON: %v", method, err)
-	}
-	return result
 }
 
 func setChatWorkspace(t *testing.T, client *Client, workspaceName string) {
 	t.Helper()
-	result := mustCallRPC(t, client, "server.run.workspace.set", fmt.Sprintf(`{"workspace_name":%q}`, workspaceName))
-	var setResponse struct {
-		WorkspaceName string `json:"workspace_name"`
+	var setResponse rpcpb.ServerSetRunWorkspaceResponse
+	mustCallRPC(t, client, rpcpb.RpcMethod_RPC_METHOD_SERVER_RUN_WORKSPACE_SET, &rpcpb.ServerSetRunWorkspaceRequest{
+		Value: &rpcpb.AgentSelection{WorkspaceName: workspaceName},
+	}, &setResponse)
+	if setResponse.GetValue().GetWorkspaceName() != workspaceName {
+		t.Fatalf("invalid server.run.workspace.set: %s", setResponse.String())
 	}
-	decodeJSON(t, "server.run.workspace.set", result, &setResponse)
-	if setResponse.WorkspaceName != workspaceName {
-		t.Fatalf("invalid server.run.workspace.set: %s", string(result))
+	var reloadResponse rpcpb.ServerReloadRunWorkspaceResponse
+	mustCallRPC(t, client, rpcpb.RpcMethod_RPC_METHOD_SERVER_RUN_WORKSPACE_RELOAD, &rpcpb.ServerReloadRunWorkspaceRequest{}, &reloadResponse)
+	if reloadResponse.GetValue().GetWorkspaceName() != workspaceName {
+		t.Fatalf("invalid server.run.workspace.reload: %s", reloadResponse.String())
 	}
-	result = mustCallRPC(t, client, "server.run.workspace.reload", `{}`)
-	var reloadResponse struct {
-		WorkspaceName string `json:"workspace_name"`
+}
+
+func ptr[T any](value T) *T {
+	return &value
+}
+
+func contactListContains(items []*rpcpb.ContactObject, id string) bool {
+	for _, item := range items {
+		if item.GetId() == id {
+			return true
+		}
 	}
-	decodeJSON(t, "server.run.workspace.reload", result, &reloadResponse)
-	if reloadResponse.WorkspaceName != workspaceName {
-		t.Fatalf("invalid server.run.workspace.reload: %s", string(result))
+	return false
+}
+
+func friendGroupListContains(items []*rpcpb.FriendGroupObject, id string) bool {
+	for _, item := range items {
+		if item.GetId() == id {
+			return true
+		}
 	}
+	return false
+}
+
+func friendGroupMemberListContains(items []*rpcpb.FriendGroupMemberObject, groupID string) bool {
+	for _, item := range items {
+		if item.GetFriendGroupId() == groupID {
+			return true
+		}
+	}
+	return false
+}
+
+func friendGroupMessageListContains(items []*rpcpb.FriendGroupMessageObject, id string) bool {
+	for _, item := range items {
+		if item.GetId() == id {
+			return true
+		}
+	}
+	return false
 }
 
 func opusPacketsFromOgg(t *testing.T, path string) [][]byte {
