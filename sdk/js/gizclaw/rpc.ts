@@ -1,9 +1,57 @@
 import { GIZCLAW_SERVICE_PEER_RPC, WebRTCRPCClient } from "./index.ts";
 import type { RPCBinaryCallResult, RPCCallOptions, WebRTCRPCClientOptions, WebRTCRPCDataChannelFactory } from "./index.ts";
-import type { RPCMethodMap, RPCMethodName } from "./generated/rpc/method-map.ts";
+import type { RPCMethodMap as GeneratedRPCMethodMap, RPCMethodName as GeneratedRPCMethodName } from "./generated/rpc/method-map.ts";
+import type * as RPCPayload from "./generated/rpc/payload-codec.ts";
 
-export type { RPCMethodMap, RPCMethodName } from "./generated/rpc/method-map.ts";
+export type * from "./generated/rpc/payload-codec.ts";
 export { RPC_METHODS } from "./generated/rpc/method-map.ts";
+
+type WithRequired<T, K extends keyof T> = Omit<T, K> & Required<Pick<T, K>>;
+type Override<T, U> = Omit<T, keyof U> & U;
+
+export type FriendGroupMemberMutableRole = "member" | "admin";
+export type FriendGroupObject = Omit<RPCPayload.FriendGroupObject, "my_role"> & {
+  "my_role"?: string;
+};
+export type FirmwareSlot = RPCPayload.FirmwareSlot;
+export type FirmwareSlots = Required<RPCPayload.FirmwareSlots>;
+export type Firmware = Omit<RPCPayload.Firmware, "slots"> & {
+  "slots": FirmwareSlots;
+};
+export type FirmwareGetResponse = Firmware;
+export type FirmwareListResponse = Omit<RPCPayload.FirmwareListResponse, "items"> & {
+  "items": Firmware[];
+};
+export type GameRuleset = WithRequired<RPCPayload.GameRuleset, "spec">;
+export type ServerGameRulesetGetResponse = GameRuleset;
+export type PeerRunRecallHit = Omit<RPCPayload.PeerRunRecallHit, "metadata"> & {
+  "metadata"?: Record<string, unknown>;
+};
+export type PeerRunRecallRequest = Omit<RPCPayload.PeerRunRecallRequest, "filters"> & {
+  "filters"?: Record<string, unknown>;
+};
+export type PeerRunRecallResponse = Omit<RPCPayload.PeerRunRecallResponse, "hits"> & {
+  "hits": PeerRunRecallHit[];
+};
+export type ServerRunWorkspaceRecallRequest = PeerRunRecallRequest;
+export type ServerRunWorkspaceRecallResponse = PeerRunRecallResponse;
+
+export type RPCMethodName = GeneratedRPCMethodName;
+export type RPCMethodMap = Override<GeneratedRPCMethodMap, {
+  "server.firmware.get": Override<GeneratedRPCMethodMap["server.firmware.get"], {
+    response: FirmwareGetResponse;
+  }>;
+  "server.firmware.list": Override<GeneratedRPCMethodMap["server.firmware.list"], {
+    response: FirmwareListResponse;
+  }>;
+  "server.game_ruleset.get": Override<GeneratedRPCMethodMap["server.game_ruleset.get"], {
+    response: ServerGameRulesetGetResponse;
+  }>;
+  "server.run.workspace.recall": Override<GeneratedRPCMethodMap["server.run.workspace.recall"], {
+    request: ServerRunWorkspaceRecallRequest;
+    response: ServerRunWorkspaceRecallResponse;
+  }>;
+}>;
 
 export type PeerRPCClientOptions = Omit<WebRTCRPCClientOptions, "service">;
 export type PeerRPCCaller = Pick<WebRTCRPCClient, "call" | "callBinary">;

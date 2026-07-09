@@ -200,6 +200,69 @@ func TestDecodeRPCRequestPreservesMissingPayload(t *testing.T) {
 	}
 }
 
+func TestEncodeRPCRequestPreservesEmptyPayloadPresence(t *testing.T) {
+	var params RPCRequest_Params
+	if err := params.FromPingRequest(PingRequest{}); err != nil {
+		t.Fatalf("FromPingRequest() error = %v", err)
+	}
+	msg, err := EncodeRPCRequest(&RPCRequest{
+		V:      RPCVersionV1,
+		Id:     "req-empty",
+		Method: RPCMethodAllPing,
+		Params: &params,
+	})
+	if err != nil {
+		t.Fatalf("EncodeRPCRequest() error = %v", err)
+	}
+	data, err := proto.Marshal(msg)
+	if err != nil {
+		t.Fatalf("proto.Marshal() error = %v", err)
+	}
+	var roundTrip rpcpb.RpcRequest
+	if err := proto.Unmarshal(data, &roundTrip); err != nil {
+		t.Fatalf("proto.Unmarshal() error = %v", err)
+	}
+	req, err := DecodeRPCRequest(&roundTrip)
+	if err != nil {
+		t.Fatalf("DecodeRPCRequest() error = %v", err)
+	}
+	if req.Params == nil {
+		t.Fatal("DecodeRPCRequest(round trip empty payload).Params = nil, want present")
+	}
+	got, err := req.Params.AsPingRequest()
+	if err != nil {
+		t.Fatalf("AsPingRequest() error = %v", err)
+	}
+	if got.ClientSendTime != 0 {
+		t.Fatalf("AsPingRequest().ClientSendTime = %d, want 0", got.ClientSendTime)
+	}
+}
+
+func TestDecodeRPCResponsePreservesEmptyPayloadOneof(t *testing.T) {
+	msg := &rpcpb.RpcResponse{
+		Id:   "resp-empty",
+		Body: &rpcpb.RpcResponse_Payload{Payload: []byte{}},
+	}
+	data, err := proto.Marshal(msg)
+	if err != nil {
+		t.Fatalf("proto.Marshal() error = %v", err)
+	}
+	var roundTrip rpcpb.RpcResponse
+	if err := proto.Unmarshal(data, &roundTrip); err != nil {
+		t.Fatalf("proto.Unmarshal() error = %v", err)
+	}
+	resp, err := DecodeRPCResponse(&roundTrip)
+	if err != nil {
+		t.Fatalf("DecodeRPCResponse() error = %v", err)
+	}
+	if resp.Result == nil {
+		t.Fatal("DecodeRPCResponse(empty payload oneof).Result = nil, want present")
+	}
+	if len(resp.Result.union) != 0 {
+		t.Fatalf("DecodeRPCResponse(empty payload oneof).Result len = %d, want 0", len(resp.Result.union))
+	}
+}
+
 func TestPayloadCodecPreservesJSONShapes(t *testing.T) {
 	structPayload, err := encodeRPCPayloadMessage("ServerRunWorkspaceRecallRequest", []byte(`{"filters":{"score":1,"nested":{"weight":2}}}`))
 	if err != nil {

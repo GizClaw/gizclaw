@@ -287,6 +287,31 @@ test("WebRTCRPCClient reads continuation metadata plus binary response frames", 
   assert.deepEqual(result.body, new Uint8Array([8, 9]));
 });
 
+test("WebRTCRPCClient rejects continuation binary RPC errors without body frames", async () => {
+  const pc = new FakePeerConnection();
+  const client = new WebRTCRPCClient(pc, { createID: () => "req-binary-error" });
+
+  const promise = client.callBinary("server.workspace.history.audio.get", {
+    history_id: "h1",
+    workspace_name: "main",
+  });
+  const channel = pc.lastChannel();
+  channel.open();
+
+  channel.receive(encodeRPCResponse({
+    error: { code: -32000, message: "x".repeat(70000) },
+    id: "req-binary-error",
+    v: 1,
+  }, "server.workspace.history.audio.get"));
+
+  await assert.rejects(promise, (err) => {
+    assert.equal(err instanceof WebRTCRPCError, true);
+    assert.equal((err as WebRTCRPCError).code, -32000);
+    assert.equal((err as WebRTCRPCError).message, "x".repeat(70000));
+    return true;
+  });
+});
+
 test("WebRTCRPCClient rejects RPC error responses", async () => {
   const pc = new FakePeerConnection();
   const client = new WebRTCRPCClient(pc, { createID: () => "req-2" });

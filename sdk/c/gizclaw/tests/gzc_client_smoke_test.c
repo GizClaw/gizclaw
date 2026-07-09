@@ -666,6 +666,12 @@ int main(void) {
   if (expect(method_id == gzc_rpc_methods[0].method_id, "request method id value") != 0) {
     return 1;
   }
+  if (expect(gzc_rpc_methods[77].kind == GZC_RPC_METHOD_KIND_BINARY_DOWNLOAD, "pet pixa download method kind") != 0) {
+    return 1;
+  }
+  if (expect(gzc_rpc_methods[78].kind == GZC_RPC_METHOD_KIND_BINARY_DOWNLOAD, "badge pixa download method kind") != 0) {
+    return 1;
+  }
 
   fake_webrtc.response_mode = FAKE_RESPONSE_PROTO_CONTINUATION;
   memset(&response, 0, sizeof(response));

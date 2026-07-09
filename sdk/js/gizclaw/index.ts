@@ -954,6 +954,9 @@ function tryReadRPCBinaryResponse<TResult>(
       }
       if (response == null && envelopeChunks.length > 0) {
         response = decodeRPCResponseEnvelope<TResult>(concatByteArrays(envelopeChunks), method);
+        if (response.error != null) {
+          return { body: concatByteArrays(body), response, rest: buffer.slice(offset) };
+        }
         continue;
       }
       if (response == null) {

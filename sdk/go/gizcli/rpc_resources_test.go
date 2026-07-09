@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"net"
+	"strings"
 	"testing"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
@@ -405,15 +406,31 @@ func runWorkspaceHistoryAudioGetWrapperTest(t *testing.T, client *rpcClient) {
 			serverErrCh <- &unexpectedRPCMethodError{got: req.Method, want: rpcapi.RPCMethodServerWorkspaceHistoryAudioGet}
 			return
 		}
+		workspaceName := "main"
+		if len(payload) > 0 {
+			workspaceName = strings.Repeat("w", 70000)
+		}
 		resp := resourceResponse(req.Id, rpcapi.WorkspaceHistoryAudioGetResponse{
-			WorkspaceName: "main",
+			WorkspaceName: workspaceName,
 			HistoryId:     "h1",
 			MimeType:      "audio/opus",
 			SizeBytes:     int64(len(payload)),
 		}, (*rpcapi.RPCResponse_Result).FromWorkspaceHistoryAudioGetResponse)
-		if err := rpcapi.WriteResponseForMethod(serverSide, req.Method, resp); err != nil {
+		serverStream, err := newRPCStream(context.Background(), serverSide)
+		if err != nil {
 			serverErrCh <- err
 			return
+		}
+		metadataEOS, err := serverStream.WriteResponseEnvelopeForMethod(req.Method, resp)
+		if err != nil {
+			serverErrCh <- err
+			return
+		}
+		if metadataEOS {
+			if err := serverStream.WriteEOS(); err != nil {
+				serverErrCh <- err
+				return
+			}
 		}
 		if err := rpcapi.WriteFrame(serverSide, rpcapi.Frame{Type: rpcapi.FrameTypeBinary, Payload: payload}); err != nil {
 			serverErrCh <- err

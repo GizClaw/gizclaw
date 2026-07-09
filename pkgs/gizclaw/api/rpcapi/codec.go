@@ -357,6 +357,9 @@ func EncodeRPCRequest(req *RPCRequest) (*rpcpb.RpcRequest, error) {
 		if err != nil {
 			return nil, err
 		}
+		if payload == nil {
+			payload = []byte{}
+		}
 	}
 	return &rpcpb.RpcRequest{
 		Id:      req.Id,
@@ -375,7 +378,7 @@ func DecodeRPCRequest(msg *rpcpb.RpcRequest) (*RPCRequest, error) {
 		return nil, err
 	}
 	var params *RPCRequest_Params
-	if msg.Payload != nil {
+	if rpcRequestPayloadPresent(msg) {
 		var err error
 		params, err = decodeRPCRequestPayload(method, msg.GetPayload())
 		if err != nil {
@@ -447,10 +450,18 @@ func DecodeRPCResponse(msg *rpcpb.RpcResponse) (*RPCResponse, error) {
 		}
 		return resp, nil
 	}
-	if payload := msg.GetPayload(); payload != nil {
-		resp.Result = &RPCResponse_Result{union: append([]byte(nil), payload...)}
+	if _, ok := msg.GetBody().(*rpcpb.RpcResponse_Payload); ok {
+		resp.Result = &RPCResponse_Result{union: append([]byte(nil), msg.GetPayload()...)}
 	}
 	return resp, nil
+}
+
+func rpcRequestPayloadPresent(msg *rpcpb.RpcRequest) bool {
+	if msg == nil {
+		return false
+	}
+	field := msg.ProtoReflect().Descriptor().Fields().ByName("payload")
+	return field != nil && msg.ProtoReflect().Has(field)
 }
 
 // DecodeRPCResponseForMethod converts a protobuf wire envelope into a typed RPC response

@@ -7,18 +7,34 @@ This document describes the stream-level Peer RPC framing protocol.
 One `ServicePeerRPC` giznet service stream carries one RPC exchange.
 
 ```text
-stream
+unary stream
 ├── request protobuf frame
 ├── EOS frame
 ├── response protobuf frame
-├── optional binary body frame
+└── EOS frame
+
+download stream
+├── request protobuf frame
+├── EOS frame
+├── response protobuf frame
+├── zero or more response binary body frames
+└── EOS frame
+
+binary stream
+├── request protobuf frame
+├── zero or more request binary body frames
+├── EOS frame
+├── response protobuf frame
+├── zero or more response binary body frames
 └── EOS frame
 ```
 
 Unary RPC calls use one request frame, one request EOS frame, one response
-frame, and one response EOS frame. Streaming and download RPC calls use the
-same protobuf response envelope first, followed by method-specific binary body
-frames when the method contract defines them.
+frame, and one response EOS frame. Download RPC calls use the same request
+sequence, then return the protobuf response envelope before method-specific
+binary body frames. Binary streaming RPC calls may send method-specific binary
+body frames after the request envelope and before the request EOS; the peer may
+read that upload while producing the response envelope and response body frames.
 
 EOS is the protocol-level end of one frame sequence. Transport stream EOF means
 the stream was closed. EOF before the expected EOS frame is a truncated RPC
