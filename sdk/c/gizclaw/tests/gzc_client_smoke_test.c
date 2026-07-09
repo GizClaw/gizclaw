@@ -952,6 +952,30 @@ int main(void) {
   }
   gzc_buf_free(&large_params, platform);
 
+  gzc_buf_t invalid_envelope;
+  gzc_buf_init(&invalid_envelope);
+  rc = gzc_rpc_encode_request_envelope(
+      platform,
+      gzc_str_from_parts(NULL, 1),
+      gizclaw_rpc_v1_RpcMethod_RPC_METHOD_ALL_PING,
+      gzc_str_from_cstr("{}"),
+      &invalid_envelope);
+  if (expect(rc == GZC_ERR_INVALID_ARGUMENT, "reject invalid request id string") != 0) {
+    gzc_buf_free(&invalid_envelope, platform);
+    return 1;
+  }
+  rc = gzc_rpc_encode_request_envelope(
+      platform,
+      gzc_str_from_cstr("1"),
+      gizclaw_rpc_v1_RpcMethod_RPC_METHOD_ALL_PING,
+      gzc_str_from_parts(NULL, 1),
+      &invalid_envelope);
+  if (expect(rc == GZC_ERR_INVALID_ARGUMENT, "reject invalid params payload string") != 0) {
+    gzc_buf_free(&invalid_envelope, platform);
+    return 1;
+  }
+  gzc_buf_free(&invalid_envelope, platform);
+
   gzc_str_t raw_nested;
   rc = gzc_json_find_field(
       gzc_str_from_cstr("{\"result\":{\"items\":[{\"id\":\"a\"}],\"ok\":true},\"id\":\"1\"}"),

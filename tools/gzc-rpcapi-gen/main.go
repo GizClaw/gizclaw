@@ -29,6 +29,7 @@ type messageDef struct {
 
 type fieldDef struct {
 	Name     string
+	JSONName string
 	Type     string
 	Optional bool
 	Repeated bool
@@ -103,7 +104,7 @@ func parseProto(path string) (protoDoc, error) {
 	enumRe := regexp.MustCompile(`^\s*enum\s+([A-Za-z_]\w*)\s*\{\s*$`)
 	enumValueRe := regexp.MustCompile(`^\s*([A-Z][A-Z0-9_]*)\s*=\s*(-?\d+)\s*;`)
 	messageRe := regexp.MustCompile(`^\s*message\s+([A-Za-z_]\w*)\s*\{\s*$`)
-	fieldRe := regexp.MustCompile(`^\s*(optional\s+|repeated\s+)?(map<([^,>]+),\s*([^>]+)>|[A-Za-z0-9_.]+)\s+([A-Za-z_]\w*)\s*=\s*\d+\s*;`)
+	fieldRe := regexp.MustCompile(`^\s*(optional\s+|repeated\s+)?(map<([^,>]+),\s*([^>]+)>|[A-Za-z0-9_.]+)\s+([A-Za-z_]\w*)\s*=\s*\d+\s*(?:\[([^\]]*)\])?\s*;`)
 	out := protoDoc{Enums: map[string]enumDef{}, Messages: map[string]messageDef{}}
 	var current string
 	var kind string
@@ -151,6 +152,7 @@ func parseProto(path string) (protoDoc, error) {
 			prefix := strings.TrimSpace(match[1])
 			field := fieldDef{
 				Name:     match[5],
+				JSONName: protoOptionJSONName(match[6]),
 				Type:     match[2],
 				Optional: prefix == "optional",
 				Repeated: prefix == "repeated",
@@ -268,7 +270,7 @@ func emitRPCErrorCode(buf *bytes.Buffer, enum enumDef) {
 	buf.WriteString("// Defines values for RPCErrorCode.\n")
 	buf.WriteString("const (\n")
 	for _, value := range enum.Values {
-		if strings.HasSuffix(value.Name, "_UNSPECIFIED") || strings.HasSuffix(value.Name, "_PARSE_ERROR") {
+		if strings.HasSuffix(value.Name, "_UNSPECIFIED") {
 			continue
 		}
 		name := strings.TrimPrefix(value.Name, "RPC_ERROR_CODE_")
@@ -277,7 +279,7 @@ func emitRPCErrorCode(buf *bytes.Buffer, enum enumDef) {
 	buf.WriteString(")\n\n")
 	values := make([]string, 0, len(enum.Values))
 	for _, value := range enum.Values {
-		if strings.HasSuffix(value.Name, "_UNSPECIFIED") || strings.HasSuffix(value.Name, "_PARSE_ERROR") {
+		if strings.HasSuffix(value.Name, "_UNSPECIFIED") {
 			continue
 		}
 		values = append(values, strings.ToLower(strings.TrimPrefix(value.Name, "RPC_ERROR_CODE_")))
@@ -330,9 +332,10 @@ func emitMessageType(buf *bytes.Buffer, doc protoDoc, msg messageDef) {
 	fmt.Fprintf(buf, "// %s defines model for %s.\n", msg.Name, msg.Name)
 	fmt.Fprintf(buf, "type %s struct {\n", msg.Name)
 	for _, field := range msg.Fields {
-		fieldName := upperCamel(field.Name)
+		jsonName := fieldJSONName(field)
+		fieldName := upperCamel(jsonName)
 		fieldType := goFieldType(doc, field, true)
-		tag := field.Name
+		tag := jsonName
 		if field.Optional || strings.HasPrefix(fieldType, "*") {
 			tag += ",omitempty"
 		}
@@ -585,6 +588,21 @@ func lowerSnake(value string) string {
 		}
 	}
 	return strings.Trim(out.String(), "_")
+}
+
+func fieldJSONName(field fieldDef) string {
+	if field.JSONName != "" {
+		return field.JSONName
+	}
+	return field.Name
+}
+
+func protoOptionJSONName(options string) string {
+	match := regexp.MustCompile(`(?:^|,)\s*json_name\s*=\s*"([^"]+)"`).FindStringSubmatch(options)
+	if match == nil {
+		return ""
+	}
+	return match[1]
 }
 
 func braceDelta(line string) int {

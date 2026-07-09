@@ -900,16 +900,16 @@ function parsePayloadProto(proto) {
 }
 
 function parseField(line, oneof) {
-  const map = /^\s*map<\s*string\s*,\s*([\w.]+)\s*>\s+(\w+)\s*=\s*(\d+)\s*;/.exec(line);
+  const map = /^\s*map<\s*string\s*,\s*([\w.]+)\s*>\s+(\w+)\s*=\s*(\d+)\s*(?:\[([^\]]*)\])?\s*;/.exec(line);
   if (map != null) {
-    return { name: map[2], number: Number(map[3]), type: "map", mapValue: map[1], ...(oneof ? { oneof: true } : {}) };
+    return { name: fieldJSONName(map[2], map[4]), number: Number(map[3]), type: "map", mapValue: map[1], ...(oneof ? { oneof: true } : {}) };
   }
-  const match = /^\s*(optional\s+|repeated\s+)?([\w.]+)\s+(\w+)\s*=\s*(\d+)\s*;/.exec(line);
+  const match = /^\s*(optional\s+|repeated\s+)?([\w.]+)\s+(\w+)\s*=\s*(\d+)\s*(?:\[([^\]]*)\])?\s*;/.exec(line);
   if (match == null) {
     return null;
   }
   return {
-    name: match[3],
+    name: fieldJSONName(match[3], match[5]),
     number: Number(match[4]),
     type: match[2],
     ...(match[1]?.trim() === "repeated" ? { repeated: true } : {}),
@@ -958,7 +958,12 @@ function singleValueTypeField(desc) {
 }
 
 function tsFieldOptional(field, parsed) {
-  return field.optional === true || field.oneof === true || (parsed.messages[field.type] != null && field.repeated !== true && field.mapValue == null);
+  return field.optional === true || field.oneof === true;
+}
+
+function fieldJSONName(name, options) {
+  const match = /(?:^|,)\s*json_name\s*=\s*"([^"]+)"/.exec(options ?? "");
+  return match?.[1] ?? name;
 }
 
 function tsFieldType(field, parsed) {

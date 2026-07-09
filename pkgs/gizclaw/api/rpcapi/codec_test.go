@@ -330,6 +330,26 @@ func TestPayloadCodecPreservesJSONShapes(t *testing.T) {
 	if statOut["hunger"] != float64(1) || statOut["clean"] != float64(2) {
 		t.Fatalf("decoded stat map = %+v", statOut)
 	}
+
+	jsonSchemaPayload, err := encodeRPCPayloadMessage("DoubaoRealtimeJSONSchema", []byte(`{"enum":["red","green"]}`))
+	if err != nil {
+		t.Fatalf("encode JSON schema enum payload error = %v", err)
+	}
+	jsonSchemaJSON, err := decodeRPCPayloadMessage("DoubaoRealtimeJSONSchema", jsonSchemaPayload)
+	if err != nil {
+		t.Fatalf("decode JSON schema enum payload error = %v", err)
+	}
+	var jsonSchemaOut map[string]any
+	if err := json.Unmarshal(jsonSchemaJSON, &jsonSchemaOut); err != nil {
+		t.Fatalf("unmarshal JSON schema enum payload error = %v", err)
+	}
+	if _, ok := jsonSchemaOut["enum_values"]; ok {
+		t.Fatalf("decoded JSON schema used proto field name: %+v", jsonSchemaOut)
+	}
+	enumValues, ok := jsonSchemaOut["enum"].([]any)
+	if !ok || len(enumValues) != 2 || enumValues[0] != "red" || enumValues[1] != "green" {
+		t.Fatalf("decoded JSON schema enum = %+v", jsonSchemaOut["enum"])
+	}
 }
 
 func TestPayloadCodecSelectsProviderOneofFromDiscriminator(t *testing.T) {
@@ -381,7 +401,7 @@ func TestRPCMethodValid(t *testing.T) {
 	if RPCVersion(2).Valid() {
 		t.Fatal("unknown RPC version should be invalid")
 	}
-	for _, code := range []RPCErrorCode{RPCErrorCodeInvalidRequest, RPCErrorCodeMethodNotFound, RPCErrorCodeInvalidParams, RPCErrorCodeInternalError, RPCErrorCodeBadRequest, RPCErrorCodeForbidden, RPCErrorCodeNotFound, RPCErrorCodeConflict} {
+	for _, code := range []RPCErrorCode{RPCErrorCodeParseError, RPCErrorCodeInvalidRequest, RPCErrorCodeMethodNotFound, RPCErrorCodeInvalidParams, RPCErrorCodeInternalError, RPCErrorCodeBadRequest, RPCErrorCodeForbidden, RPCErrorCodeNotFound, RPCErrorCodeConflict} {
 		if !code.Valid() {
 			t.Fatalf("%d should be valid", code)
 		}

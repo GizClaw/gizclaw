@@ -647,6 +647,7 @@ func (e WorkspaceInputMode) Valid() bool {
 
 // Defines values for RPCErrorCode.
 const (
+	RPCErrorCodeParseError RPCErrorCode = -32700
 	RPCErrorCodeInvalidRequest RPCErrorCode = -32600
 	RPCErrorCodeMethodNotFound RPCErrorCode = -32601
 	RPCErrorCodeInvalidParams RPCErrorCode = -32602
@@ -660,6 +661,8 @@ const (
 // Valid indicates whether the value is a known member of the RPCErrorCode enum.
 func (e RPCErrorCode) Valid() bool {
 	switch e {
+	case RPCErrorCodeParseError:
+		return true
 	case RPCErrorCodeInvalidRequest:
 		return true
 	case RPCErrorCodeMethodNotFound:

@@ -626,7 +626,7 @@ func protoMessageJSONValue(msg protoreflect.Message) (any, error) {
 		if err != nil {
 			return nil, fmt.Errorf("%s: %w", fd.JSONName(), err)
 		}
-		out[string(fd.Name())] = value
+		out[protoJSONFieldName(fd)] = value
 	}
 	return out, nil
 }
@@ -718,6 +718,32 @@ func protoScalarJSONValue(fd protoreflect.FieldDescriptor, value protoreflect.Va
 	default:
 		return nil, fmt.Errorf("unsupported protobuf kind %s", fd.Kind())
 	}
+}
+
+func protoJSONFieldName(fd protoreflect.FieldDescriptor) string {
+	name := string(fd.Name())
+	if fd.JSONName() != defaultProtoJSONName(name) {
+		return fd.JSONName()
+	}
+	return name
+}
+
+func defaultProtoJSONName(name string) string {
+	var out strings.Builder
+	upperNext := false
+	for _, r := range name {
+		if r == '_' {
+			upperNext = true
+			continue
+		}
+		if upperNext && r >= 'a' && r <= 'z' {
+			out.WriteRune(r - ('a' - 'A'))
+		} else {
+			out.WriteRune(r)
+		}
+		upperNext = false
+	}
+	return out.String()
 }
 
 func enumValueJSONString(desc protoreflect.EnumDescriptor, value protoreflect.EnumValueDescriptor) string {

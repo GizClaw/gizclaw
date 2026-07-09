@@ -89,7 +89,7 @@ export type ChatRoomWorkflowHistorySpec = {
   "ttl"?: string;
 };
 export type ChatRoomWorkflowSpec = {
-  "history"?: ChatRoomWorkflowHistorySpec;
+  "history": ChatRoomWorkflowHistorySpec;
   "transcript"?: ChatRoomWorkflowTranscriptSpec;
 };
 export type ChatRoomWorkflowTranscriptSpec = {
@@ -150,7 +150,7 @@ export type ContactPutRequest = {
 };
 export type ContactPutResponse = ContactObject;
 export type Credential = {
-  "body"?: CredentialBody;
+  "body": CredentialBody;
   "created_at": string;
   "description"?: string;
   "name": string;
@@ -178,7 +178,7 @@ export type CredentialListResponse = {
   "next_cursor"?: string;
 };
 export type CredentialPutRequest = {
-  "body"?: Credential;
+  "body": Credential;
   "name": string;
 };
 export type CredentialPutResponse = Credential;
@@ -228,18 +228,18 @@ export type DoubaoRealtimeASRHotword = {
   "word": string;
 };
 export type DoubaoRealtimeAudio = {
-  "input"?: DoubaoRealtimeAudioInput;
-  "output"?: DoubaoRealtimeAudioOutput;
+  "input": DoubaoRealtimeAudioInput;
+  "output": DoubaoRealtimeAudioOutput;
 };
 export type DoubaoRealtimeAudioFormat = {
   "rate": number;
   "type": string | number;
 };
 export type DoubaoRealtimeAudioInput = {
-  "format"?: DoubaoRealtimeAudioFormat;
+  "format": DoubaoRealtimeAudioFormat;
 };
 export type DoubaoRealtimeAudioOutput = {
-  "format"?: DoubaoRealtimeAudioFormat;
+  "format": DoubaoRealtimeAudioFormat;
   "loudness"?: number;
   "speed"?: number;
   "voice"?: string;
@@ -315,7 +315,7 @@ export type Firmware = {
   "created_at": string;
   "description"?: string;
   "name": string;
-  "slots"?: FirmwareSlots;
+  "slots": FirmwareSlots;
   "updated_at": string;
 };
 export type FirmwareArtifact = {
@@ -341,9 +341,9 @@ export type FirmwareFilesDownloadRequest = {
   "path": string;
 };
 export type FirmwareFilesDownloadResponse = {
-  "artifact"?: FirmwareArtifact;
+  "artifact": FirmwareArtifact;
   "channel": string | number;
-  "file"?: FirmwareArtifactEntry;
+  "file": FirmwareArtifactEntry;
   "firmware_id": string;
   "path": string;
 };
@@ -365,10 +365,10 @@ export type FirmwareSlot = {
   "description"?: string;
 };
 export type FirmwareSlots = {
-  "beta"?: FirmwareSlot;
-  "develop"?: FirmwareSlot;
-  "pending"?: FirmwareSlot;
-  "stable"?: FirmwareSlot;
+  "beta": FirmwareSlot;
+  "develop": FirmwareSlot;
+  "pending": FirmwareSlot;
+  "stable": FirmwareSlot;
 };
 export type FlowcraftConversationParameters = {
   "agent_initiative_policy"?: string | number;
@@ -429,8 +429,8 @@ export type FriendGroupJoinRequest = {
   "invite_token": string;
 };
 export type FriendGroupJoinResponse = {
-  "group"?: FriendGroupObject;
-  "member"?: FriendGroupMemberObject;
+  "group": FriendGroupObject;
+  "member": FriendGroupMemberObject;
 };
 export type FriendGroupListRequest = {
   "cursor"?: string;
@@ -584,7 +584,7 @@ export type GameRewardSpec = {
 export type GameRuleset = {
   "created_at": string;
   "name": string;
-  "spec"?: GameRulesetSpec;
+  "spec": GameRulesetSpec;
   "updated_at": string;
 };
 export type GameRulesetDriveSpec = {
@@ -666,7 +666,7 @@ export type Model = {
   "id": string;
   "kind": string | number;
   "name"?: string;
-  "provider"?: ModelProvider;
+  "provider": ModelProvider;
   "provider_data"?: ModelProviderData;
   "source": string | number;
   "synced_at"?: string;
@@ -705,7 +705,7 @@ export type ModelProvider = {
 };
 export type ModelProviderData = GeminiTenantModelProviderData | DashScopeTenantModelProviderData | OpenAITenantModelProviderData | VolcTenantModelProviderData;
 export type ModelPutRequest = {
-  "body"?: Model;
+  "body": Model;
   "id": string;
 };
 export type ModelPutResponse = Model;
@@ -851,14 +851,14 @@ export type PeerStatus = {
   "volume"?: number;
 };
 export type Pet = {
-  "ability"?: StatMap;
+  "ability": StatMap;
   "created_at": string;
   "display_name": string;
   "exp": number;
   "id": string;
   "last_active_at": string;
   "level": number;
-  "life"?: StatMap;
+  "life": StatMap;
   "owner_public_key": string;
   "petdef_id": string;
   "ruleset_name": string;
@@ -871,9 +871,9 @@ export type PetAdoptRequest = {
   "ruleset_name"?: string;
 };
 export type PetAdoptResponse = {
-  "pet"?: Pet;
-  "points"?: PointsAccount;
-  "transaction"?: PointsTransaction;
+  "pet": Pet;
+  "points": PointsAccount;
+  "transaction": PointsTransaction;
 };
 export type PetDefPixaDownloadRequest = {
   "id": string;
@@ -905,8 +905,8 @@ export type PetDriveRequest = {
 export type PetDriveResponse = {
   "badges": Badge[];
   "game_result"?: GameResult;
-  "pet"?: Pet;
-  "points"?: PointsAccount;
+  "pet": Pet;
+  "points": PointsAccount;
   "reward_grants": RewardGrant[];
   "transactions": PointsTransaction[];
 };
@@ -1084,7 +1084,7 @@ export type Voice = {
   "description"?: string;
   "id": string;
   "name"?: string;
-  "provider"?: VoiceProvider;
+  "provider": VoiceProvider;
   "provider_data"?: VoiceProviderData;
   "source": string | number;
   "synced_at"?: string;
@@ -1143,8 +1143,8 @@ export type WorkflowDeleteRequest = {
 };
 export type WorkflowDeleteResponse = WorkflowDocument;
 export type WorkflowDocument = {
-  "metadata"?: WorkflowMetadata;
-  "spec"?: WorkflowSpec;
+  "metadata": WorkflowMetadata;
+  "spec": WorkflowSpec;
 };
 export type WorkflowGetRequest = {
   "name": string;
@@ -1164,7 +1164,7 @@ export type WorkflowMetadata = {
   "name": string;
 };
 export type WorkflowPutRequest = {
-  "body"?: WorkflowDocument;
+  "body": WorkflowDocument;
   "name": string;
 };
 export type WorkflowPutResponse = WorkflowDocument;
@@ -1227,7 +1227,7 @@ export type WorkspaceListResponse = {
 };
 export type WorkspaceParameters = FlowcraftWorkspaceParameters | DoubaoRealtimeWorkspaceParameters | ASTTranslateWorkspaceParameters | ChatRoomWorkspaceParameters;
 export type WorkspacePutRequest = {
-  "body"?: Workspace;
+  "body": Workspace;
   "name": string;
 };
 export type WorkspacePutResponse = Workspace;

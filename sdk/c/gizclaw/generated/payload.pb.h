@@ -537,6 +537,7 @@ typedef struct _gizclaw_rpc_v1_DoubaoRealtimeJSONSchema {
     pb_callback_t additional_properties;
     pb_callback_t any_of;
     pb_callback_t description;
+    pb_callback_t enum_values;
     pb_callback_t items;
     pb_callback_t max_length;
     pb_callback_t maximum;
@@ -2847,7 +2848,7 @@ extern "C" {
 #define gizclaw_rpc_v1_DoubaoRealtimeDialogExtra_init_default {{{NULL}, NULL}, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, false, 0, false, _gizclaw_rpc_v1_DoubaoRealtimeDialogExtraVolcWebsearchType_MIN}
 #define gizclaw_rpc_v1_DoubaoRealtimeExtension_init_default {false, gizclaw_rpc_v1_DoubaoRealtimeASRExtension_init_default, false, gizclaw_rpc_v1_DoubaoRealtimeDialogExtension_init_default, false, gizclaw_rpc_v1_DoubaoRealtimeTTSExtension_init_default}
 #define gizclaw_rpc_v1_DoubaoRealtimeFunctionTool_init_default {{{NULL}, NULL}, {{NULL}, NULL}, false, gizclaw_rpc_v1_DoubaoRealtimeJSONSchema_init_default, false, 0, _gizclaw_rpc_v1_DoubaoRealtimeFunctionToolType_MIN}
-#define gizclaw_rpc_v1_DoubaoRealtimeJSONSchema_init_default {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_DoubaoRealtimeJSONSchema_init_default {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_DoubaoRealtimeJSONSchema_PropertiesEntry_init_default {{{NULL}, NULL}, false, gizclaw_rpc_v1_DoubaoRealtimeJSONSchema_init_default}
 #define gizclaw_rpc_v1_DoubaoRealtimeTTSExtension_init_default {false, gizclaw_rpc_v1_DoubaoRealtimeTTSExtra_init_default}
 #define gizclaw_rpc_v1_DoubaoRealtimeTTSExtra_init_default {false, gizclaw_rpc_v1_DoubaoRealtimeAIGCMetadata_init_default, {{NULL}, NULL}, {{NULL}, NULL}}
@@ -3166,7 +3167,7 @@ extern "C" {
 #define gizclaw_rpc_v1_DoubaoRealtimeDialogExtra_init_zero {{{NULL}, NULL}, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, false, 0, false, _gizclaw_rpc_v1_DoubaoRealtimeDialogExtraVolcWebsearchType_MIN}
 #define gizclaw_rpc_v1_DoubaoRealtimeExtension_init_zero {false, gizclaw_rpc_v1_DoubaoRealtimeASRExtension_init_zero, false, gizclaw_rpc_v1_DoubaoRealtimeDialogExtension_init_zero, false, gizclaw_rpc_v1_DoubaoRealtimeTTSExtension_init_zero}
 #define gizclaw_rpc_v1_DoubaoRealtimeFunctionTool_init_zero {{{NULL}, NULL}, {{NULL}, NULL}, false, gizclaw_rpc_v1_DoubaoRealtimeJSONSchema_init_zero, false, 0, _gizclaw_rpc_v1_DoubaoRealtimeFunctionToolType_MIN}
-#define gizclaw_rpc_v1_DoubaoRealtimeJSONSchema_init_zero {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_DoubaoRealtimeJSONSchema_init_zero {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_DoubaoRealtimeJSONSchema_PropertiesEntry_init_zero {{{NULL}, NULL}, false, gizclaw_rpc_v1_DoubaoRealtimeJSONSchema_init_zero}
 #define gizclaw_rpc_v1_DoubaoRealtimeTTSExtension_init_zero {false, gizclaw_rpc_v1_DoubaoRealtimeTTSExtra_init_zero}
 #define gizclaw_rpc_v1_DoubaoRealtimeTTSExtra_init_zero {false, gizclaw_rpc_v1_DoubaoRealtimeAIGCMetadata_init_zero, {{NULL}, NULL}, {{NULL}, NULL}}
@@ -3564,6 +3565,7 @@ extern "C" {
 #define gizclaw_rpc_v1_DoubaoRealtimeJSONSchema_additional_properties_tag 1
 #define gizclaw_rpc_v1_DoubaoRealtimeJSONSchema_any_of_tag 2
 #define gizclaw_rpc_v1_DoubaoRealtimeJSONSchema_description_tag 3
+#define gizclaw_rpc_v1_DoubaoRealtimeJSONSchema_enum_values_tag 4
 #define gizclaw_rpc_v1_DoubaoRealtimeJSONSchema_items_tag 5
 #define gizclaw_rpc_v1_DoubaoRealtimeJSONSchema_max_length_tag 6
 #define gizclaw_rpc_v1_DoubaoRealtimeJSONSchema_maximum_tag 7
@@ -4727,6 +4729,7 @@ X(a, STATIC,   SINGULAR, UENUM,    type,              5)
 X(a, CALLBACK, OPTIONAL, BOOL,     additional_properties,   1) \
 X(a, CALLBACK, REPEATED, MESSAGE,  any_of,            2) \
 X(a, CALLBACK, OPTIONAL, STRING,   description,       3) \
+X(a, CALLBACK, REPEATED, STRING,   enum_values,       4) \
 X(a, CALLBACK, OPTIONAL, MESSAGE,  items,             5) \
 X(a, CALLBACK, OPTIONAL, INT64,    max_length,        6) \
 X(a, CALLBACK, OPTIONAL, DOUBLE,   maximum,           7) \

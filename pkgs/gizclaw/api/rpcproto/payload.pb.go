@@ -5007,7 +5007,7 @@ type DoubaoRealtimeJSONSchema struct {
 	AdditionalProperties *bool                                `protobuf:"varint,1,opt,name=additional_properties,json=additionalProperties,proto3,oneof" json:"additional_properties,omitempty"`
 	AnyOf                []*DoubaoRealtimeJSONSchema          `protobuf:"bytes,2,rep,name=any_of,json=anyOf,proto3" json:"any_of,omitempty"`
 	Description          *string                              `protobuf:"bytes,3,opt,name=description,proto3,oneof" json:"description,omitempty"`
-	Enum                 []string                             `protobuf:"bytes,4,rep,name=enum,proto3" json:"enum,omitempty"`
+	EnumValues           []string                             `protobuf:"bytes,4,rep,name=enum_values,json=enum,proto3" json:"enum_values,omitempty"`
 	Items                *DoubaoRealtimeJSONSchema            `protobuf:"bytes,5,opt,name=items,proto3,oneof" json:"items,omitempty"`
 	MaxLength            *int64                               `protobuf:"varint,6,opt,name=max_length,json=maxLength,proto3,oneof" json:"max_length,omitempty"`
 	Maximum              *float64                             `protobuf:"fixed64,7,opt,name=maximum,proto3,oneof" json:"maximum,omitempty"`
@@ -5071,9 +5071,9 @@ func (x *DoubaoRealtimeJSONSchema) GetDescription() string {
 	return ""
 }
 
-func (x *DoubaoRealtimeJSONSchema) GetEnum() []string {
+func (x *DoubaoRealtimeJSONSchema) GetEnumValues() []string {
 	if x != nil {
-		return x.Enum
+		return x.EnumValues
 	}
 	return nil
 }
@@ -19787,12 +19787,12 @@ const file_payload_proto_rawDesc = "" +
 	"\x04type\x18\x05 \x01(\x0e2..gizclaw.rpc.v1.DoubaoRealtimeFunctionToolTypeR\x04typeB\x0e\n" +
 	"\f_descriptionB\r\n" +
 	"\v_parametersB\t\n" +
-	"\a_strict\"\x86\x06\n" +
+	"\a_strict\"\x8d\x06\n" +
 	"\x18DoubaoRealtimeJSONSchema\x128\n" +
 	"\x15additional_properties\x18\x01 \x01(\bH\x00R\x14additionalProperties\x88\x01\x01\x12?\n" +
 	"\x06any_of\x18\x02 \x03(\v2(.gizclaw.rpc.v1.DoubaoRealtimeJSONSchemaR\x05anyOf\x12%\n" +
-	"\vdescription\x18\x03 \x01(\tH\x01R\vdescription\x88\x01\x01\x12\x12\n" +
-	"\x04enum\x18\x04 \x03(\tR\x04enum\x12C\n" +
+	"\vdescription\x18\x03 \x01(\tH\x01R\vdescription\x88\x01\x01\x12\x19\n" +
+	"\venum_values\x18\x04 \x03(\tR\x04enum\x12C\n" +
 	"\x05items\x18\x05 \x01(\v2(.gizclaw.rpc.v1.DoubaoRealtimeJSONSchemaH\x02R\x05items\x88\x01\x01\x12\"\n" +
 	"\n" +
 	"max_length\x18\x06 \x01(\x03H\x03R\tmaxLength\x88\x01\x01\x12\x1d\n" +

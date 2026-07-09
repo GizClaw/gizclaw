@@ -47,8 +47,14 @@ static int append_binary_envelope_frame(const gzc_platform_t *platform, gzc_buf_
 
 static bool encode_pb_bytes(pb_ostream_t *stream, const pb_field_t *field, void *const *arg) {
   const gzc_pb_bytes_arg_t *bytes = (const gzc_pb_bytes_arg_t *)(*arg);
-  const uint8_t *data = bytes != NULL && bytes->data != NULL ? bytes->data : (const uint8_t *)"";
   size_t len = bytes != NULL ? bytes->len : 0;
+  if (bytes == NULL || len == 0) {
+    return pb_encode_tag_for_field(stream, field) && pb_encode_string(stream, (const uint8_t *)"", 0);
+  }
+  if (bytes->data == NULL) {
+    return false;
+  }
+  const uint8_t *data = bytes->data;
   return pb_encode_tag_for_field(stream, field) && pb_encode_string(stream, data, len);
 }
 
@@ -281,6 +287,9 @@ int gzc_rpc_encode_request_envelope(
     platform = gzc_default_platform();
   }
   if (platform->malloc == NULL || platform->free == NULL || method == gizclaw_rpc_v1_RpcMethod_RPC_METHOD_UNSPECIFIED) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  if ((id.data == NULL && id.len != 0) || (params_payload.data == NULL && params_payload.len != 0)) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
   gzc_pb_bytes_arg_t id_arg = {(const uint8_t *)id.data, id.len};
