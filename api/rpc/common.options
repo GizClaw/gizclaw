@@ -1,0 +1,2 @@
+gizclaw.rpc.v1.RpcResponse.body no_unions:true
+gizclaw.rpc.v1.RpcStreamFrame.body no_unions:true

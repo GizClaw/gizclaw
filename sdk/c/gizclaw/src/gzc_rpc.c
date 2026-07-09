@@ -17,6 +17,10 @@ typedef struct {
   size_t len;
 } gzc_pb_bytes_arg_t;
 
+typedef struct {
+  gzc_str_t *out;
+} gzc_pb_view_arg_t;
+
 static int append_frame(const gzc_platform_t *platform, gzc_buf_t *out, gzc_rpc_frame_type_t type, const uint8_t *data, size_t len) {
   gzc_rpc_frame_t frame;
   memset(&frame, 0, sizeof(frame));
@@ -83,144 +87,17 @@ static int encode_pb_message(
   return rc;
 }
 
-static int read_pb_varint(const uint8_t *data, size_t len, size_t *offset, uint64_t *out) {
-  uint64_t value = 0;
-  unsigned shift = 0;
-  while (*offset < len && shift <= 63) {
-    uint8_t b = data[(*offset)++];
-    value |= ((uint64_t)(b & 0x7fu)) << shift;
-    if ((b & 0x80u) == 0) {
-      *out = value;
-      return GZC_OK;
-    }
-    shift += 7;
+static bool decode_pb_view(pb_istream_t *stream, const pb_field_t *field, void **arg) {
+  (void)field;
+  gzc_pb_view_arg_t *view = (gzc_pb_view_arg_t *)(*arg);
+  if (view == NULL || view->out == NULL || (stream->state == NULL && stream->bytes_left != 0)) {
+    return false;
   }
-  return GZC_ERR_RPC;
-}
-
-static int read_pb_bytes(const uint8_t *data, size_t len, size_t *offset, gzc_str_t *out) {
-  uint64_t size = 0;
-  int rc = read_pb_varint(data, len, offset, &size);
-  if (rc != GZC_OK || size > len - *offset) {
-    return GZC_ERR_RPC;
+  *view->out = gzc_str_from_parts((const char *)stream->state, stream->bytes_left);
+  if (!pb_read(stream, NULL, stream->bytes_left)) {
+    return false;
   }
-  *out = gzc_str_from_parts((const char *)(data + *offset), (size_t)size);
-  *offset += (size_t)size;
-  return GZC_OK;
-}
-
-static int skip_pb_value(const uint8_t *data, size_t len, size_t *offset, unsigned wire_type) {
-  uint64_t ignored = 0;
-  switch (wire_type) {
-    case 0:
-      return read_pb_varint(data, len, offset, &ignored);
-    case 1:
-      if (len - *offset < 8) {
-        return GZC_ERR_RPC;
-      }
-      *offset += 8;
-      return GZC_OK;
-    case 2:
-      return read_pb_bytes(data, len, offset, &(gzc_str_t){0});
-    case 5:
-      if (len - *offset < 4) {
-        return GZC_ERR_RPC;
-      }
-      *offset += 4;
-      return GZC_OK;
-    default:
-      return GZC_ERR_RPC;
-  }
-}
-
-static int decode_rpc_error_payload(gzc_str_t payload, gzc_rpc_error_t *out_error) {
-  const uint8_t *data = (const uint8_t *)payload.data;
-  size_t offset = 0;
-  while (offset < payload.len) {
-    uint64_t key = 0;
-    int rc = read_pb_varint(data, payload.len, &offset, &key);
-    if (rc != GZC_OK) {
-      return rc;
-    }
-    unsigned field = (unsigned)(key >> 3);
-    unsigned wire_type = (unsigned)(key & 0x7u);
-    if (field == 1) {
-      if (wire_type != 0) {
-        return GZC_ERR_RPC;
-      }
-      uint64_t code = 0;
-      rc = read_pb_varint(data, payload.len, &offset, &code);
-      if (rc != GZC_OK) {
-        return rc;
-      }
-      out_error->code = (int)(int32_t)code;
-    } else if (field == 2) {
-      if (wire_type != 2) {
-        return GZC_ERR_RPC;
-      }
-      rc = read_pb_bytes(data, payload.len, &offset, &out_error->message);
-      if (rc != GZC_OK) {
-        return rc;
-      }
-    } else {
-      rc = skip_pb_value(data, payload.len, &offset, wire_type);
-      if (rc != GZC_OK) {
-        return rc;
-      }
-    }
-  }
-  return GZC_OK;
-}
-
-static int decode_rpc_response_payload(gzc_str_t payload, gzc_rpc_response_t *out_response) {
-  const uint8_t *data = (const uint8_t *)payload.data;
-  size_t offset = 0;
-  while (offset < payload.len) {
-    uint64_t key = 0;
-    int rc = read_pb_varint(data, payload.len, &offset, &key);
-    if (rc != GZC_OK) {
-      return rc;
-    }
-    unsigned field = (unsigned)(key >> 3);
-    unsigned wire_type = (unsigned)(key & 0x7u);
-    if (field == 1) {
-      if (wire_type != 2) {
-        return GZC_ERR_RPC;
-      }
-      rc = read_pb_bytes(data, payload.len, &offset, &out_response->id);
-      if (rc != GZC_OK) {
-        return rc;
-      }
-    } else if (field == 2) {
-      if (wire_type != 2) {
-        return GZC_ERR_RPC;
-      }
-      rc = read_pb_bytes(data, payload.len, &offset, &out_response->result_payload);
-      if (rc != GZC_OK) {
-        return rc;
-      }
-    } else if (field == 3) {
-      if (wire_type != 2) {
-        return GZC_ERR_RPC;
-      }
-      gzc_str_t error_payload;
-      rc = read_pb_bytes(data, payload.len, &offset, &error_payload);
-      if (rc != GZC_OK) {
-        return rc;
-      }
-      out_response->has_error = true;
-      rc = decode_rpc_error_payload(error_payload, &out_response->error);
-      if (rc != GZC_OK) {
-        return rc;
-      }
-    } else {
-      rc = skip_pb_value(data, payload.len, &offset, wire_type);
-      if (rc != GZC_OK) {
-        return rc;
-      }
-    }
-  }
-  return GZC_OK;
+  return true;
 }
 
 static int decode_frame_bytes(gzc_buf_t *frame_bytes, gzc_rpc_frame_t *out_frame) {
@@ -311,7 +188,26 @@ int gzc_rpc_decode_response_envelope(gzc_str_t response_payload, gzc_rpc_respons
   if (response_payload.data == NULL && response_payload.len != 0) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
-  return decode_rpc_response_payload(response_payload, out_response);
+  gzc_pb_view_arg_t id_arg = {&out_response->id};
+  gzc_pb_view_arg_t payload_arg = {&out_response->result_payload};
+  gzc_pb_view_arg_t error_message_arg = {&out_response->error.message};
+  gizclaw_rpc_v1_RpcResponse response = gizclaw_rpc_v1_RpcResponse_init_zero;
+  response.id.funcs.decode = decode_pb_view;
+  response.id.arg = &id_arg;
+  response.payload.funcs.decode = decode_pb_view;
+  response.payload.arg = &payload_arg;
+  response.error.message.funcs.decode = decode_pb_view;
+  response.error.message.arg = &error_message_arg;
+
+  pb_istream_t stream = pb_istream_from_buffer((const pb_byte_t *)response_payload.data, response_payload.len);
+  if (!pb_decode(&stream, gizclaw_rpc_v1_RpcResponse_fields, &response)) {
+    return GZC_ERR_RPC;
+  }
+  if (response.has_error) {
+    out_response->has_error = true;
+    out_response->error.code = (int)response.error.code;
+  }
+  return GZC_OK;
 }
 
 int gzc_rpc_call(gzc_client_t *client, gizclaw_rpc_v1_RpcMethod method, gzc_str_t params_payload, gzc_rpc_response_t *out_response) {

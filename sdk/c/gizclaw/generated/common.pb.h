@@ -31,11 +31,9 @@ typedef struct _gizclaw_rpc_v1_RpcError {
 
 typedef struct _gizclaw_rpc_v1_RpcResponse {
     pb_callback_t id;
-    pb_size_t which_body;
-    union {
-        pb_callback_t payload;
-        gizclaw_rpc_v1_RpcError error;
-    } body;
+    pb_callback_t payload;
+    bool has_error;
+    gizclaw_rpc_v1_RpcError error;
 } gizclaw_rpc_v1_RpcResponse;
 
 typedef struct _gizclaw_rpc_v1_RpcStreamEnd {
@@ -44,12 +42,11 @@ typedef struct _gizclaw_rpc_v1_RpcStreamEnd {
 
 typedef struct _gizclaw_rpc_v1_RpcStreamFrame {
     pb_callback_t id;
-    pb_size_t which_body;
-    union {
-        pb_callback_t payload;
-        gizclaw_rpc_v1_RpcError error;
-        gizclaw_rpc_v1_RpcStreamEnd end;
-    } body;
+    pb_callback_t payload;
+    bool has_error;
+    gizclaw_rpc_v1_RpcError error;
+    bool has_end;
+    gizclaw_rpc_v1_RpcStreamEnd end;
 } gizclaw_rpc_v1_RpcStreamFrame;
 
 
@@ -69,12 +66,12 @@ extern "C" {
 
 
 /* Initializer values for message structs */
-#define gizclaw_rpc_v1_RpcResponse_init_default  {{{NULL}, NULL}, 0, {{{NULL}, NULL}}}
-#define gizclaw_rpc_v1_RpcStreamFrame_init_default {{{NULL}, NULL}, 0, {{{NULL}, NULL}}}
+#define gizclaw_rpc_v1_RpcResponse_init_default  {{{NULL}, NULL}, {{NULL}, NULL}, false, gizclaw_rpc_v1_RpcError_init_default}
+#define gizclaw_rpc_v1_RpcStreamFrame_init_default {{{NULL}, NULL}, {{NULL}, NULL}, false, gizclaw_rpc_v1_RpcError_init_default, false, gizclaw_rpc_v1_RpcStreamEnd_init_default}
 #define gizclaw_rpc_v1_RpcError_init_default     {_gizclaw_rpc_v1_RpcErrorCode_MIN, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_RpcStreamEnd_init_default {0}
-#define gizclaw_rpc_v1_RpcResponse_init_zero     {{{NULL}, NULL}, 0, {{{NULL}, NULL}}}
-#define gizclaw_rpc_v1_RpcStreamFrame_init_zero  {{{NULL}, NULL}, 0, {{{NULL}, NULL}}}
+#define gizclaw_rpc_v1_RpcResponse_init_zero     {{{NULL}, NULL}, {{NULL}, NULL}, false, gizclaw_rpc_v1_RpcError_init_zero}
+#define gizclaw_rpc_v1_RpcStreamFrame_init_zero  {{{NULL}, NULL}, {{NULL}, NULL}, false, gizclaw_rpc_v1_RpcError_init_zero, false, gizclaw_rpc_v1_RpcStreamEnd_init_zero}
 #define gizclaw_rpc_v1_RpcError_init_zero        {_gizclaw_rpc_v1_RpcErrorCode_MIN, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_RpcStreamEnd_init_zero    {0}
 
@@ -92,21 +89,21 @@ extern "C" {
 /* Struct field encoding specification for nanopb */
 #define gizclaw_rpc_v1_RpcResponse_FIELDLIST(X, a) \
 X(a, CALLBACK, SINGULAR, STRING,   id,                1) \
-X(a, CALLBACK, ONEOF,    BYTES,    (body,payload,body.payload),   2) \
-X(a, STATIC,   ONEOF,    MESSAGE,  (body,error,body.error),   3)
+X(a, CALLBACK, SINGULAR, BYTES,    payload,           2) \
+X(a, STATIC,   OPTIONAL, MESSAGE,  error,             3)
 #define gizclaw_rpc_v1_RpcResponse_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_RpcResponse_DEFAULT NULL
-#define gizclaw_rpc_v1_RpcResponse_body_error_MSGTYPE gizclaw_rpc_v1_RpcError
+#define gizclaw_rpc_v1_RpcResponse_error_MSGTYPE gizclaw_rpc_v1_RpcError
 
 #define gizclaw_rpc_v1_RpcStreamFrame_FIELDLIST(X, a) \
 X(a, CALLBACK, SINGULAR, STRING,   id,                1) \
-X(a, CALLBACK, ONEOF,    BYTES,    (body,payload,body.payload),   2) \
-X(a, STATIC,   ONEOF,    MESSAGE,  (body,error,body.error),   3) \
-X(a, STATIC,   ONEOF,    MESSAGE,  (body,end,body.end),   4)
+X(a, CALLBACK, SINGULAR, BYTES,    payload,           2) \
+X(a, STATIC,   OPTIONAL, MESSAGE,  error,             3) \
+X(a, STATIC,   OPTIONAL, MESSAGE,  end,               4)
 #define gizclaw_rpc_v1_RpcStreamFrame_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_RpcStreamFrame_DEFAULT NULL
-#define gizclaw_rpc_v1_RpcStreamFrame_body_error_MSGTYPE gizclaw_rpc_v1_RpcError
-#define gizclaw_rpc_v1_RpcStreamFrame_body_end_MSGTYPE gizclaw_rpc_v1_RpcStreamEnd
+#define gizclaw_rpc_v1_RpcStreamFrame_error_MSGTYPE gizclaw_rpc_v1_RpcError
+#define gizclaw_rpc_v1_RpcStreamFrame_end_MSGTYPE gizclaw_rpc_v1_RpcStreamEnd
 
 #define gizclaw_rpc_v1_RpcError_FIELDLIST(X, a) \
 X(a, STATIC,   SINGULAR, ENUM,     code,              1) \
