@@ -641,9 +641,6 @@ func protoFieldPresent(msg protoreflect.Message, fd protoreflect.FieldDescriptor
 	if fd.HasPresence() {
 		return msg.Has(fd)
 	}
-	if !fd.HasPresence() {
-		return true
-	}
 	return !protoValueIsZero(fd, msg.Get(fd))
 }
 

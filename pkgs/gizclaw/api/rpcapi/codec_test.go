@@ -339,8 +339,29 @@ func TestPayloadCodecPreservesJSONShapes(t *testing.T) {
 	if err := json.Unmarshal(zeroJSON, &zeroOut); err != nil {
 		t.Fatalf("unmarshal zero payload JSON error = %v", err)
 	}
-	if value, ok := zeroOut["has_next"]; !ok || value != false {
-		t.Fatalf("decoded has_next = %v, present=%v, want false and present", value, ok)
+	if _, ok := zeroOut["has_next"]; ok {
+		t.Fatalf("decoded empty list response included has_next zero default: %+v", zeroOut)
+	}
+
+	createPayload, err := encodeRPCPayloadMessage("WorkspaceCreateRequest", []byte(`{"name":"demo","workflow_name":"chat"}`))
+	if err != nil {
+		t.Fatalf("encode workspace create payload error = %v", err)
+	}
+	createJSON, err := decodeRPCPayloadMessage("WorkspaceCreateRequest", createPayload)
+	if err != nil {
+		t.Fatalf("decode workspace create payload error = %v", err)
+	}
+	var createOut map[string]any
+	if err := json.Unmarshal(createJSON, &createOut); err != nil {
+		t.Fatalf("unmarshal workspace create payload JSON error = %v", err)
+	}
+	for _, key := range []string{"created_at", "last_active_at", "updated_at"} {
+		if _, ok := createOut[key]; ok {
+			t.Fatalf("decoded workspace create included absent %s zero default: %+v", key, createOut)
+		}
+	}
+	if createOut["name"] != "demo" || createOut["workflow_name"] != "chat" {
+		t.Fatalf("decoded workspace create = %+v", createOut)
 	}
 
 	statPayload, err := encodeRPCPayloadMessage("StatMap", []byte(`{"hunger":1,"clean":2}`))
