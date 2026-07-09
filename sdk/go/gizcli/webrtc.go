@@ -31,6 +31,8 @@ const (
 	webRTCOpusClockRate   = 48000
 	webRTCOpusPayloadType = 111
 	webRTCRPCTimeout      = 30 * time.Second
+
+	webRTCRPCMaxEnvelopeSize = rpcapi.MaxFrameSize * 16
 )
 
 // ClientWebRTCRegistration is the live bridge between one Pion PeerConnection
@@ -294,6 +296,9 @@ func readWebRTCRPCDataChannelRequest(data []byte) (*rpcapi.RPCRequest, error) {
 	case rpcapi.FrameTypeText:
 		var payload bytes.Buffer
 		payload.Write(frame.Payload)
+		if payload.Len() > webRTCRPCMaxEnvelopeSize {
+			return nil, fmt.Errorf("rpc: protobuf request envelope too large")
+		}
 		for {
 			next, err := rpcapi.ReadFrame(reader)
 			if err != nil {
@@ -304,6 +309,9 @@ func readWebRTCRPCDataChannelRequest(data []byte) (*rpcapi.RPCRequest, error) {
 			}
 			if next.Type != rpcapi.FrameTypeText {
 				return nil, fmt.Errorf("rpc: expected protobuf continuation frame, got type %d", next.Type)
+			}
+			if payload.Len()+len(next.Payload) > webRTCRPCMaxEnvelopeSize {
+				return nil, fmt.Errorf("rpc: protobuf request envelope too large")
 			}
 			payload.Write(next.Payload)
 		}

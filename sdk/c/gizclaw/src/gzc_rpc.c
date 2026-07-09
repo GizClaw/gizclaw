@@ -458,10 +458,6 @@ int gzc_rpc_call_stream(
         if (rc != GZC_OK) {
           break;
         }
-        if (response.has_error) {
-          rc = GZC_ERR_RPC;
-          break;
-        }
         continue;
       }
       rc = saw_response ? GZC_OK : GZC_ERR_RPC;
@@ -488,10 +484,6 @@ int gzc_rpc_call_stream(
       saw_response = true;
       rc = on_frame(userdata, &frame);
       if (rc != GZC_OK) {
-        break;
-      }
-      if (response.has_error) {
-        rc = GZC_ERR_RPC;
         break;
       }
       continue;

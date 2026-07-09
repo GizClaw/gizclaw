@@ -796,7 +796,7 @@ int main(void) {
       gzc_str_from_parts((const char *)params.data, params.len),
       capture_stream_error_frame,
       &stream_error);
-  if (expect(rc == GZC_ERR_RPC, "rpc call stream returns rpc error for error envelope") != 0) {
+  if (expect(rc == GZC_OK, "rpc call stream returns ok with delivered error envelope") != 0) {
     return 1;
   }
   if (expect(

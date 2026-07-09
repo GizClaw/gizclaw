@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"net"
+	"strings"
 	"testing"
 	"time"
 
@@ -220,6 +221,24 @@ func TestWebRTCRPCDataChannelProtobufFrames(t *testing.T) {
 	}
 	if gotResp.Id != req.Id || gotResult.ServerTime != 456 {
 		t.Fatalf("decoded response = %+v result=%+v", gotResp, gotResult)
+	}
+}
+
+func TestWebRTCRPCDataChannelRejectsOversizedContinuationEnvelope(t *testing.T) {
+	var reqBuf bytes.Buffer
+	chunk := bytes.Repeat([]byte("x"), rpcapi.MaxFrameSize)
+	for written := 0; written <= webRTCRPCMaxEnvelopeSize; written += len(chunk) {
+		if err := rpcapi.WriteFrame(&reqBuf, rpcapi.Frame{Type: rpcapi.FrameTypeText, Payload: chunk}); err != nil {
+			t.Fatalf("WriteFrame() error = %v", err)
+		}
+	}
+	if err := rpcapi.WriteEOS(&reqBuf); err != nil {
+		t.Fatalf("WriteEOS() error = %v", err)
+	}
+
+	_, err := readWebRTCRPCDataChannelRequest(reqBuf.Bytes())
+	if err == nil || !strings.Contains(err.Error(), "request envelope too large") {
+		t.Fatalf("readWebRTCRPCDataChannelRequest() error = %v, want request envelope too large", err)
 	}
 }
 

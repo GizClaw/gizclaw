@@ -319,7 +319,7 @@ func TestPayloadCodecPreservesJSONShapes(t *testing.T) {
 	if err != nil {
 		t.Fatalf("encode enum payload error = %v", err)
 	}
-	enumJSON, err := decodeRPCPayloadMessage("ChatRoomWorkspaceParameters", enumPayload)
+	enumJSON, err := decodeRPCPayloadMessage("ChatRoomWorkspaceParameters", enumPayload, decodeRPCPayloadOptions{})
 	if err != nil {
 		t.Fatalf("decode enum payload error = %v", err)
 	}
@@ -335,7 +335,7 @@ func TestPayloadCodecPreservesJSONShapes(t *testing.T) {
 	if err != nil {
 		t.Fatalf("encode model payload error = %v", err)
 	}
-	modelJSON, err := decodeRPCPayloadMessage("Model", modelPayload)
+	modelJSON, err := decodeRPCPayloadMessage("Model", modelPayload, decodeRPCPayloadOptions{emitDefaults: true})
 	if err != nil {
 		t.Fatalf("decode model payload error = %v", err)
 	}
@@ -351,7 +351,7 @@ func TestPayloadCodecPreservesJSONShapes(t *testing.T) {
 		t.Fatalf("decoded model provider.kind = %v, want dashscope-tenant", provider["kind"])
 	}
 
-	zeroJSON, err := decodeRPCPayloadMessage("FirmwareListResponse", nil)
+	zeroJSON, err := decodeRPCPayloadMessage("FirmwareListResponse", nil, decodeRPCPayloadOptions{emitDefaults: true})
 	if err != nil {
 		t.Fatalf("decode zero payload error = %v", err)
 	}
@@ -359,15 +359,19 @@ func TestPayloadCodecPreservesJSONShapes(t *testing.T) {
 	if err := json.Unmarshal(zeroJSON, &zeroOut); err != nil {
 		t.Fatalf("unmarshal zero payload JSON error = %v", err)
 	}
-	if _, ok := zeroOut["has_next"]; ok {
-		t.Fatalf("decoded empty list response included has_next zero default: %+v", zeroOut)
+	if zeroOut["has_next"] != false {
+		t.Fatalf("decoded has_next = %v, want false", zeroOut["has_next"])
+	}
+	items, ok := zeroOut["items"].([]any)
+	if !ok || len(items) != 0 {
+		t.Fatalf("decoded items = %#v, want empty array", zeroOut["items"])
 	}
 
 	createPayload, err := encodeRPCPayloadMessage("WorkspaceCreateRequest", []byte(`{"name":"demo","workflow_name":"chat"}`))
 	if err != nil {
 		t.Fatalf("encode workspace create payload error = %v", err)
 	}
-	createJSON, err := decodeRPCPayloadMessage("WorkspaceCreateRequest", createPayload)
+	createJSON, err := decodeRPCPayloadMessage("WorkspaceCreateRequest", createPayload, decodeRPCPayloadOptions{})
 	if err != nil {
 		t.Fatalf("decode workspace create payload error = %v", err)
 	}
@@ -388,7 +392,7 @@ func TestPayloadCodecPreservesJSONShapes(t *testing.T) {
 	if err != nil {
 		t.Fatalf("encode stat map error = %v", err)
 	}
-	statJSON, err := decodeRPCPayloadMessage("StatMap", statPayload)
+	statJSON, err := decodeRPCPayloadMessage("StatMap", statPayload, decodeRPCPayloadOptions{})
 	if err != nil {
 		t.Fatalf("decode stat map error = %v", err)
 	}
@@ -404,7 +408,7 @@ func TestPayloadCodecPreservesJSONShapes(t *testing.T) {
 	if err != nil {
 		t.Fatalf("encode JSON schema enum payload error = %v", err)
 	}
-	jsonSchemaJSON, err := decodeRPCPayloadMessage("DoubaoRealtimeJSONSchema", jsonSchemaPayload)
+	jsonSchemaJSON, err := decodeRPCPayloadMessage("DoubaoRealtimeJSONSchema", jsonSchemaPayload, decodeRPCPayloadOptions{})
 	if err != nil {
 		t.Fatalf("decode JSON schema enum payload error = %v", err)
 	}

@@ -18,6 +18,10 @@ import (
 
 const rpcPayloadProtoPackage = "gizclaw.rpc.v1."
 
+type decodeRPCPayloadOptions struct {
+	emitDefaults bool
+}
+
 func encodeRPCRequestPayload(method RPCMethod, params *RPCRequest_Params) ([]byte, error) {
 	if params == nil {
 		return nil, nil
@@ -34,7 +38,7 @@ func decodeRPCRequestPayload(method RPCMethod, payload []byte) (*RPCRequest_Para
 	if !ok {
 		return nil, fmt.Errorf("rpc: request payload schema not found for method %s", method)
 	}
-	data, err := decodeRPCPayloadMessage(messageName, payload)
+	data, err := decodeRPCPayloadMessage(messageName, payload, decodeRPCPayloadOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -57,7 +61,7 @@ func decodeRPCResponsePayload(method RPCMethod, payload []byte) (*RPCResponse_Re
 	if !ok {
 		return nil, fmt.Errorf("rpc: response payload schema not found for method %s", method)
 	}
-	data, err := decodeRPCPayloadMessage(messageName, payload)
+	data, err := decodeRPCPayloadMessage(messageName, payload, decodeRPCPayloadOptions{emitDefaults: true})
 	if err != nil {
 		return nil, err
 	}
@@ -100,7 +104,7 @@ func encodeRPCPayloadMessage(messageName string, jsonPayload []byte) ([]byte, er
 	return out, nil
 }
 
-func decodeRPCPayloadMessage(messageName string, payload []byte) ([]byte, error) {
+func decodeRPCPayloadMessage(messageName string, payload []byte, opts decodeRPCPayloadOptions) ([]byte, error) {
 	msg, err := newRPCPayloadMessage(messageName)
 	if err != nil {
 		return nil, err
@@ -110,7 +114,7 @@ func decodeRPCPayloadMessage(messageName string, payload []byte) ([]byte, error)
 			return nil, fmt.Errorf("rpc: unmarshal %s payload: %w", messageName, err)
 		}
 	}
-	value, err := protoMessageJSONValue(msg)
+	value, err := protoMessageJSONValue(msg, opts)
 	if err != nil {
 		return nil, fmt.Errorf("rpc: decode %s payload: %w", messageName, err)
 	}
@@ -600,17 +604,17 @@ func jsonFloat(value any, bitSize int) (float64, error) {
 	}
 }
 
-func protoMessageJSONValue(msg protoreflect.Message) (any, error) {
+func protoMessageJSONValue(msg protoreflect.Message, opts decodeRPCPayloadOptions) (any, error) {
 	desc := msg.Descriptor()
 	if fd := singleValueField(desc); fd != nil {
-		return protoFieldJSONValue(msg, fd)
+		return protoFieldJSONValue(msg, fd, opts)
 	}
 	if isOneofValueWrapper(desc) {
 		fields := desc.Fields()
 		for i := 0; i < fields.Len(); i++ {
 			fd := fields.Get(i)
 			if msg.Has(fd) {
-				return protoFieldJSONValue(msg, fd)
+				return protoFieldJSONValue(msg, fd, opts)
 			}
 		}
 		return map[string]any{}, nil
@@ -619,10 +623,10 @@ func protoMessageJSONValue(msg protoreflect.Message) (any, error) {
 	fields := desc.Fields()
 	for i := 0; i < fields.Len(); i++ {
 		fd := fields.Get(i)
-		if !protoFieldPresent(msg, fd) {
+		if !protoFieldPresent(msg, fd, opts) {
 			continue
 		}
-		value, err := protoFieldJSONValue(msg, fd)
+		value, err := protoFieldJSONValue(msg, fd, opts)
 		if err != nil {
 			return nil, fmt.Errorf("%s: %w", fd.JSONName(), err)
 		}
@@ -631,27 +635,30 @@ func protoMessageJSONValue(msg protoreflect.Message) (any, error) {
 	return out, nil
 }
 
-func protoFieldPresent(msg protoreflect.Message, fd protoreflect.FieldDescriptor) bool {
+func protoFieldPresent(msg protoreflect.Message, fd protoreflect.FieldDescriptor, opts decodeRPCPayloadOptions) bool {
 	if fd.IsList() {
-		return msg.Get(fd).List().Len() > 0
+		return opts.emitDefaults || msg.Get(fd).List().Len() > 0
 	}
 	if fd.IsMap() {
-		return msg.Get(fd).Map().Len() > 0
+		return opts.emitDefaults || msg.Get(fd).Map().Len() > 0
 	}
 	if fd.HasPresence() {
 		return msg.Has(fd)
 	}
+	if opts.emitDefaults {
+		return true
+	}
 	return !protoValueIsZero(fd, msg.Get(fd))
 }
 
-func protoFieldJSONValue(msg protoreflect.Message, fd protoreflect.FieldDescriptor) (any, error) {
+func protoFieldJSONValue(msg protoreflect.Message, fd protoreflect.FieldDescriptor, opts decodeRPCPayloadOptions) (any, error) {
 	value := msg.Get(fd)
 	if fd.IsMap() {
 		out := make(map[string]any)
 		var err error
 		value.Map().Range(func(k protoreflect.MapKey, v protoreflect.Value) bool {
 			var item any
-			item, err = protoScalarJSONValue(fd.MapValue(), v)
+			item, err = protoScalarJSONValue(fd.MapValue(), v, opts)
 			if err != nil {
 				return false
 			}
@@ -664,7 +671,7 @@ func protoFieldJSONValue(msg protoreflect.Message, fd protoreflect.FieldDescript
 		list := value.List()
 		out := make([]any, 0, list.Len())
 		for i := 0; i < list.Len(); i++ {
-			item, err := protoScalarJSONValue(fd, list.Get(i))
+			item, err := protoScalarJSONValue(fd, list.Get(i), opts)
 			if err != nil {
 				return nil, err
 			}
@@ -672,10 +679,10 @@ func protoFieldJSONValue(msg protoreflect.Message, fd protoreflect.FieldDescript
 		}
 		return out, nil
 	}
-	return protoScalarJSONValue(fd, value)
+	return protoScalarJSONValue(fd, value, opts)
 }
 
-func protoScalarJSONValue(fd protoreflect.FieldDescriptor, value protoreflect.Value) (any, error) {
+func protoScalarJSONValue(fd protoreflect.FieldDescriptor, value protoreflect.Value, opts decodeRPCPayloadOptions) (any, error) {
 	switch fd.Kind() {
 	case protoreflect.BoolKind:
 		return value.Bool(), nil
@@ -711,7 +718,7 @@ func protoScalarJSONValue(fd protoreflect.FieldDescriptor, value protoreflect.Va
 			}
 			return st.AsMap(), nil
 		}
-		return protoMessageJSONValue(value.Message())
+		return protoMessageJSONValue(value.Message(), opts)
 	default:
 		return nil, fmt.Errorf("unsupported protobuf kind %s", fd.Kind())
 	}
