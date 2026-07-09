@@ -2,6 +2,7 @@ package gizedge
 
 import (
 	"fmt"
+	"net"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -25,6 +26,7 @@ type Config struct {
 	Endpoint string
 	Upstream UpstreamConfig
 	TLS      TLSConfig
+	TURN     TURNConfig
 }
 
 type IdentityConfig struct {
@@ -40,12 +42,24 @@ type TLSConfig struct {
 	CertSource string `yaml:"cert-source"`
 }
 
+type TURNConfig struct {
+	Listen         string `yaml:"listen"`
+	PublicEndpoint string `yaml:"public-endpoint"`
+	RelayAddress   string `yaml:"relay-address"`
+	Realm          string `yaml:"realm"`
+	Username       string `yaml:"username"`
+	Credential     string `yaml:"credential"`
+	RelayMinPort   uint16 `yaml:"relay-min-port"`
+	RelayMaxPort   uint16 `yaml:"relay-max-port"`
+}
+
 type ConfigFile struct {
 	Identity IdentityConfig `yaml:"identity"`
 	Listen   string         `yaml:"listen"`
 	Endpoint string         `yaml:"endpoint"`
 	Upstream UpstreamConfig `yaml:"upstream"`
 	TLS      TLSConfig      `yaml:"tls"`
+	TURN     TURNConfig     `yaml:"turn"`
 }
 
 func LoadConfig(path string) (ConfigFile, error) {
@@ -101,6 +115,9 @@ func prepareConfig(cfg Config, fileCfg ConfigFile) (Config, error) {
 	if cfg.TLS.CertSource == "" || cfg.TLS.CertSource == TLSCertSourceDisabled {
 		cfg.TLS = fileCfg.TLS
 	}
+	if cfg.TURN.Listen == "" {
+		cfg.TURN = fileCfg.TURN
+	}
 	if cfg.TLS.CertSource == "" {
 		cfg.TLS.CertSource = TLSCertSourceDisabled
 	}
@@ -143,12 +160,76 @@ func (cfg Config) validate() error {
 	if _, err := cfg.UpstreamURL(); err != nil {
 		return err
 	}
+	if err := cfg.TURN.validate(); err != nil {
+		return err
+	}
 	switch cfg.TLS.CertSource {
 	case TLSCertSourceDisabled, TLSCertSourceEdgeRPC, TLSCertSourceFile:
 		return nil
 	default:
 		return fmt.Errorf("edge: invalid tls.cert-source %q", cfg.TLS.CertSource)
 	}
+}
+
+func (cfg TURNConfig) enabled() bool {
+	return strings.TrimSpace(cfg.Listen) != ""
+}
+
+func (cfg TURNConfig) validate() error {
+	if !cfg.enabled() {
+		return nil
+	}
+	for field, value := range map[string]string{
+		"public-endpoint": cfg.PublicEndpoint,
+		"realm":           cfg.Realm,
+		"username":        cfg.Username,
+		"credential":      cfg.Credential,
+	} {
+		if strings.TrimSpace(value) == "" {
+			return fmt.Errorf("edge: turn.%s is required", field)
+		}
+	}
+	if _, _, err := netSplitHostPort("turn.listen", cfg.Listen); err != nil {
+		return err
+	}
+	host, _, err := netSplitHostPort("turn.public-endpoint", cfg.PublicEndpoint)
+	if err != nil {
+		return err
+	}
+	relayAddress := strings.TrimSpace(cfg.RelayAddress)
+	if relayAddress == "" {
+		relayAddress = host
+	}
+	if net.ParseIP(relayAddress) == nil {
+		return fmt.Errorf("edge: turn.relay-address must be an IP address")
+	}
+	if cfg.RelayMinPort == 0 {
+		return fmt.Errorf("edge: turn.relay-min-port is required")
+	}
+	if cfg.RelayMaxPort == 0 {
+		return fmt.Errorf("edge: turn.relay-max-port is required")
+	}
+	if cfg.RelayMaxPort < cfg.RelayMinPort {
+		return fmt.Errorf("edge: turn.relay-max-port must be >= turn.relay-min-port")
+	}
+	return nil
+}
+
+func netSplitHostPort(field, value string) (string, string, error) {
+	if strings.Contains(value, "://") {
+		return "", "", fmt.Errorf("edge: %s must be host:port, got %q", field, value)
+	}
+	host, port, err := net.SplitHostPort(value)
+	if err != nil {
+		return "", "", fmt.Errorf("edge: invalid %s: %w", field, err)
+	}
+	if strings.TrimSpace(host) == "" {
+		return "", "", fmt.Errorf("edge: %s host is empty", field)
+	}
+	if strings.TrimSpace(port) == "" {
+		return "", "", fmt.Errorf("edge: %s port is empty", field)
+	}
+	return host, port, nil
 }
 
 func (cfg Config) UpstreamURL() (*url.URL, error) {

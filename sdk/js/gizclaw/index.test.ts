@@ -1128,6 +1128,7 @@ test("fetchGiznetServerInfo validates server metadata", async () => {
     fetch: async (input, init) => {
       captured = new Request(input, init);
       return Response.json({
+        ice_servers: [{ credential: "pass", urls: [" turn:edge.example.com:3478?transport=udp "], username: "user" }],
         protocol: "gizclaw-webrtc",
         public_key: serverPublicKey,
         signaling_path: "/custom/offer",
@@ -1138,6 +1139,7 @@ test("fetchGiznetServerInfo validates server metadata", async () => {
   assert.equal(captured?.url, "http://localhost:9820/server-info");
   assert.equal(info.public_key, serverPublicKey);
   assert.equal(info.signaling_path, "/custom/offer");
+  assert.deepEqual(info.ice_servers, [{ credential: "pass", urls: ["turn:edge.example.com:3478?transport=udp"], username: "user" }]);
 });
 
 test("fetchGiznetServerInfo defaults signaling path and reports HTTP failures", async () => {

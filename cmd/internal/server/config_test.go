@@ -347,6 +347,37 @@ func TestLoadConfigReadsEdgeNodes(t *testing.T) {
 	}
 }
 
+func TestLoadConfigReadsICEServers(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.yaml")
+	if err := os.WriteFile(path, []byte(`
+ice-servers:
+  - urls:
+      - turn:edge.example.com:3478?transport=udp
+      - stun:edge.example.com:3478
+    username: user
+    credential: pass
+`), 0o600); err != nil {
+		t.Fatalf("WriteFile error = %v", err)
+	}
+
+	cfg, err := LoadConfig(path)
+	if err != nil {
+		t.Fatalf("LoadConfig error = %v", err)
+	}
+	if len(cfg.ICEServers) != 1 {
+		t.Fatalf("ICEServers len = %d, want 1", len(cfg.ICEServers))
+	}
+	if got := cfg.ICEServers[0].URLs; len(got) != 2 || got[0] != "turn:edge.example.com:3478?transport=udp" || got[1] != "stun:edge.example.com:3478" {
+		t.Fatalf("ICEServers[0].URLs = %#v", got)
+	}
+	if cfg.ICEServers[0].Username != "user" {
+		t.Fatalf("ICEServers[0].Username = %q", cfg.ICEServers[0].Username)
+	}
+	if cfg.ICEServers[0].Credential != "pass" {
+		t.Fatalf("ICEServers[0].Credential = %q", cfg.ICEServers[0].Credential)
+	}
+}
+
 func TestNewWiresEdgeNodes(t *testing.T) {
 	edge := testPublicKey(0x22)
 	srv, err := New(Config{

@@ -119,6 +119,7 @@ export type SendGiznetWebRTCTelemetryOptions = {
 
 export type GiznetServerInfo = {
   endpoint?: string;
+  ice_servers?: RTCIceServer[];
   protocol?: string;
   public_key: string;
   signaling_path?: string;
@@ -501,6 +502,10 @@ export async function connectGiznetWebRTC(options: ConnectGiznetWebRTCOptions): 
 export async function connectGiznetWebRTCFromEndpoint(options: ConnectGiznetWebRTCFromEndpointOptions): Promise<RTCPeerConnection> {
   const serverInfo = await fetchGiznetServerInfo(options);
   const signalingPath = normalizeServerInfoSignalingPath(serverInfo.signaling_path);
+  if (serverInfo.ice_servers != null && serverInfo.ice_servers.length > 0 && typeof options.pc.setConfiguration === "function") {
+    const current = options.pc.getConfiguration?.() ?? {};
+    options.pc.setConfiguration({ ...current, iceServers: serverInfo.ice_servers });
+  }
   return connectGiznetWebRTC({
     ...options,
     prepareOffer: (offerSDP) =>
@@ -543,9 +548,23 @@ export async function fetchGiznetServerInfo(options: ServerInfoBootstrapOptions 
   }
   return {
     ...serverInfo,
+    ice_servers: normalizeServerInfoICEServers(serverInfo.ice_servers),
     public_key: serverInfo.public_key.trim(),
     signaling_path: normalizeServerInfoSignalingPath(serverInfo.signaling_path),
   };
+}
+
+function normalizeServerInfoICEServers(servers: RTCIceServer[] | undefined): RTCIceServer[] | undefined {
+  if (servers == null) {
+    return undefined;
+  }
+  return servers.map((server) => {
+    const urls = Array.isArray(server.urls) ? server.urls : [server.urls];
+    return {
+      ...server,
+      urls: urls.map((url) => String(url).trim()).filter((url) => url !== ""),
+    };
+  }).filter((server) => Array.isArray(server.urls) && server.urls.length > 0);
 }
 
 function serverInfoBaseURL(options: Pick<ServerInfoBootstrapOptions, "baseUrl" | "endpoint">): string {

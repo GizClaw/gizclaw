@@ -18,6 +18,7 @@ type DialConfig struct {
 	API            *webrtc.API
 	HTTPClient     *http.Client
 	SignalingURL   string
+	ICEServers     []ICEServer
 	CipherMode     CipherMode
 	SecurityPolicy giznet.SecurityPolicy
 }
@@ -47,7 +48,11 @@ func Dial(ctx context.Context, key *giznet.KeyPair, serverPK giznet.PublicKey, c
 	if l.cfg.CipherMode == "" {
 		l.cfg.CipherMode = CipherModeChaChaPoly
 	}
-	pc, err := api.NewPeerConnection(webrtc.Configuration{})
+	if err := validateICEServers(cfg.ICEServers); err != nil {
+		_ = l.Close()
+		return nil, nil, err
+	}
+	pc, err := api.NewPeerConnection(webrtc.Configuration{ICEServers: webrtcICEServers(cfg.ICEServers)})
 	if err != nil {
 		_ = l.Close()
 		return nil, nil, err

@@ -129,6 +129,7 @@ func newWithOptions(cfg Config, newOpts newServerOptions) (srv *CmdServer, err e
 		PublicEndpoint: cfg.Endpoint,
 		PublicICETCP:   newOpts.ICETCPListener != nil,
 		EdgeNodes:      cfg.EdgeNodes,
+		ICEServers:     cfg.ICEServers,
 		PeerListenerFactories: []gizclaw.PeerListenerFactory{
 			func(opts gizclaw.PeerListenerOptions) (giznet.Listener, error) {
 				listenConfig := webRTCListenConfig(cfg, opts, newOpts.ICETCPListener)
@@ -311,12 +312,16 @@ func webRTCListenConfig(cfg Config, opts gizclaw.PeerListenerOptions, iceTCPList
 		ICETCPListener:   iceTCPListener,
 		PublicICEUDPAddr: publicAddr,
 		PublicICETCPAddr: publicAddr,
+		ICEServers:       cfg.ICEServers,
 		SecurityPolicy:   opts.SecurityPolicy,
 		PeerEventHandler: opts.PeerEventHandler,
 	}
 }
 
 func publicICEAddr(cfg Config) string {
+	if len(cfg.ICEServers) > 0 {
+		return ""
+	}
 	host, _, err := net.SplitHostPort(cfg.Endpoint)
 	if err != nil {
 		return ""

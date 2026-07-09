@@ -13,6 +13,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/peerhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
+	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
@@ -38,6 +39,7 @@ type Server struct {
 	ServerPublicKey giznet.PublicKey
 	SignalingPath   string
 	ICETCP          bool
+	ICEServers      []gizwebrtc.ICEServer
 	PeerManager     PeerManager
 
 	mu sync.Mutex
@@ -330,7 +332,40 @@ func (s *Server) GetServerInfo(_ context.Context, _ peerhttp.GetServerInfoReques
 		PublicKey:     s.ServerPublicKey.String(),
 		ServerTime:    time.Now().UnixMilli(),
 		SignalingPath: signalingPath,
+		IceServers:    serverInfoICEServers(s.ICEServers),
 	}), nil
+}
+
+func serverInfoICEServers(servers []gizwebrtc.ICEServer) *[]struct {
+	Credential *string  `json:"credential,omitempty"`
+	Urls       []string `json:"urls"`
+	Username   *string  `json:"username,omitempty"`
+} {
+	if len(servers) == 0 {
+		return nil
+	}
+	out := make([]struct {
+		Credential *string  `json:"credential,omitempty"`
+		Urls       []string `json:"urls"`
+		Username   *string  `json:"username,omitempty"`
+	}, 0, len(servers))
+	for _, server := range servers {
+		item := struct {
+			Credential *string  `json:"credential,omitempty"`
+			Urls       []string `json:"urls"`
+			Username   *string  `json:"username,omitempty"`
+		}{
+			Urls: server.URLs,
+		}
+		if server.Username != "" {
+			item.Username = &server.Username
+		}
+		if server.Credential != "" {
+			item.Credential = &server.Credential
+		}
+		out = append(out, item)
+	}
+	return &out
 }
 
 func pathUnescape(value string) (string, error) {

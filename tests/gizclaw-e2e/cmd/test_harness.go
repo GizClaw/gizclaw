@@ -920,6 +920,7 @@ func (h *Harness) renderServerFixture(fixtureName string, replacements map[strin
 	}
 	if listenAddr := replacements[fixtureListenAddrToken]; listenAddr != "" {
 		h.ServerAddr = listenAddr
+		rendered = stripYAMLTopLevelBlock(rendered, "ice-servers:")
 		rendered = strings.ReplaceAll(rendered, "listen: 127.0.0.1:9820", "listen: "+listenAddr)
 		rendered = strings.ReplaceAll(rendered, `listen: "127.0.0.1:9820"`, fmt.Sprintf(`listen: "%s"`, listenAddr))
 		rendered = strings.ReplaceAll(rendered, "listen: 0.0.0.0:9820", "listen: "+listenAddr)
@@ -930,14 +931,39 @@ func (h *Harness) renderServerFixture(fixtureName string, replacements map[strin
 		rendered = strings.ReplaceAll(rendered, `endpoint: "${GIZCLAW_E2E_SERVER_ENDPOINT}"`, fmt.Sprintf(`endpoint: "%s"`, listenAddr))
 		rendered = strings.ReplaceAll(rendered, "endpoint: ${GIZCLAW_E2E_SERVER_ICE_ENDPOINT}", "endpoint: "+listenAddr)
 		rendered = strings.ReplaceAll(rendered, `endpoint: "${GIZCLAW_E2E_SERVER_ICE_ENDPOINT}"`, fmt.Sprintf(`endpoint: "%s"`, listenAddr))
-		rendered = strings.ReplaceAll(rendered, "public-http: false", "public-http: true")
-		rendered = strings.ReplaceAll(rendered, "private-http-listen: 0.0.0.0:9822", "private-http-listen: 127.0.0.1:0")
+		rendered = strings.ReplaceAll(rendered, "serve-to-clients: false", "serve-to-clients: true")
+		rendered = strings.ReplaceAll(rendered, "serving-public: false", "serve-to-clients: true")
 	}
 
 	targetPath := filepath.Join(h.ServerWorkspace, "config.yaml")
 	if err := os.WriteFile(targetPath, []byte(rendered), 0o644); err != nil {
 		h.t.Fatalf("write rendered config %q: %v", targetPath, err)
 	}
+}
+
+func stripYAMLTopLevelBlock(body, header string) string {
+	lines := strings.SplitAfter(body, "\n")
+	out := make([]string, 0, len(lines))
+	skipping := false
+	for _, line := range lines {
+		if strings.TrimSpace(line) == header {
+			skipping = true
+			continue
+		}
+		if skipping {
+			trimmed := strings.TrimSpace(line)
+			if trimmed == "" {
+				continue
+			}
+			if !strings.HasPrefix(line, " ") && !strings.HasPrefix(line, "\t") {
+				skipping = false
+			}
+		}
+		if !skipping {
+			out = append(out, line)
+		}
+	}
+	return strings.Join(out, "")
 }
 
 func (h *Harness) baseEnv() []string {

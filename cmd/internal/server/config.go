@@ -11,6 +11,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/cmd/internal/storage"
 	"github.com/GizClaw/gizclaw-go/cmd/internal/stores"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
+	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
 	"github.com/goccy/go-yaml"
 )
 
@@ -20,6 +21,7 @@ type Config struct {
 	Endpoint       string
 	ServeToClients bool
 	EdgeNodes      []giznet.PublicKey
+	ICEServers     []gizwebrtc.ICEServer
 	AdminPublicKey giznet.PublicKey
 	Storage        map[string]storage.Config
 	Stores         map[string]stores.Config
@@ -47,6 +49,7 @@ type ConfigFile struct {
 	Endpoint       string                    `yaml:"endpoint"`
 	ServeToClients bool                      `yaml:"serve-to-clients"`
 	EdgeNodes      []giznet.PublicKey        `yaml:"edge-nodes"`
+	ICEServers     []gizwebrtc.ICEServer     `yaml:"ice-servers"`
 	AdminPublicKey giznet.PublicKey          `yaml:"admin-public-key"`
 	Storage        map[string]storage.Config `yaml:"storage"`
 	Stores         map[string]stores.Config  `yaml:"stores"`
@@ -100,6 +103,7 @@ func parseConfigData(data []byte) (ConfigFile, error) {
 		ServeToClients *bool                     `yaml:"serve-to-clients"`
 		ServingPublic  *bool                     `yaml:"serving-public"`
 		EdgeNodes      []giznet.PublicKey        `yaml:"edge-nodes"`
+		ICEServers     []gizwebrtc.ICEServer     `yaml:"ice-servers"`
 		AdminPublicKey *giznet.PublicKey         `yaml:"admin-public-key"`
 		Storage        map[string]storage.Config `yaml:"storage"`
 		Stores         map[string]stores.Config  `yaml:"stores"`
@@ -143,6 +147,7 @@ func parseConfigData(data []byte) (ConfigFile, error) {
 		Endpoint:       raw.Endpoint,
 		ServeToClients: serveToClients,
 		EdgeNodes:      raw.EdgeNodes,
+		ICEServers:     raw.ICEServers,
 		AdminPublicKey: adminPublicKey,
 		Storage:        raw.Storage,
 		Stores:         raw.Stores,
@@ -186,6 +191,9 @@ func mergeFileConfig(cfg Config, fileCfg ConfigFile) (Config, error) {
 	}
 	if cfg.AdminPublicKey.IsZero() {
 		cfg.AdminPublicKey = fileCfg.AdminPublicKey
+	}
+	if len(cfg.ICEServers) == 0 {
+		cfg.ICEServers = fileCfg.ICEServers
 	}
 	if len(cfg.Stores) == 0 {
 		cfg.Stores = fileCfg.Stores

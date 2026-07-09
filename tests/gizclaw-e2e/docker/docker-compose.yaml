@@ -9,11 +9,11 @@ services:
     environment:
       GIZCLAW_E2E_CONFIG_HOME: /src/tests/gizclaw-e2e/testdata/cmd-config-home
       GIZCLAW_E2E_SERVER_ENDPOINT: ${GIZCLAW_E2E_SERVER_ENDPOINT:?set by docker-compose-up.sh}
-      GIZCLAW_E2E_SERVER_ICE_ENDPOINT: ${GIZCLAW_E2E_SERVER_ICE_ENDPOINT:?set by docker-compose-up.sh}
+      GIZCLAW_E2E_TURN_ENDPOINT: ${GIZCLAW_E2E_TURN_ENDPOINT:?set by docker-compose-up.sh}
+      GIZCLAW_E2E_TURN_REALM: ${GIZCLAW_E2E_TURN_REALM:?set by docker-compose-up.sh}
+      GIZCLAW_E2E_TURN_USERNAME: ${GIZCLAW_E2E_TURN_USERNAME:?set by docker-compose-up.sh}
+      GIZCLAW_E2E_TURN_CREDENTIAL: ${GIZCLAW_E2E_TURN_CREDENTIAL:?set by docker-compose-up.sh}
       GIZCLAW_E2E_SKIP_PROVIDER_SYNC: "1"
-    ports:
-      - "${GIZCLAW_E2E_DOCKER_SERVER_BIND:-0.0.0.0}:${GIZCLAW_E2E_DOCKER_SERVER_ICE_PORT:?set by docker-compose-up.sh}:9820/tcp"
-      - "${GIZCLAW_E2E_DOCKER_SERVER_BIND:-0.0.0.0}:${GIZCLAW_E2E_DOCKER_SERVER_ICE_PORT:?set by docker-compose-up.sh}:9820/udp"
     volumes:
       - type: bind
         source: ../.env
@@ -22,7 +22,7 @@ services:
         bind:
           create_host_path: false
     healthcheck:
-      test: ["CMD-SHELL", "test -f /tmp/gizclaw-e2e-server-ready && curl -fsS http://127.0.0.1:9822/server-info >/dev/null"]
+      test: ["CMD-SHELL", "test -f /tmp/gizclaw-e2e-server-http-ready && curl -fsS http://127.0.0.1:9822/server-info >/dev/null"]
       interval: 2s
       timeout: 1s
       retries: 60
@@ -41,9 +41,18 @@ services:
         condition: service_healthy
     environment:
       GIZCLAW_E2E_SERVER_ENDPOINT: ${GIZCLAW_E2E_SERVER_ENDPOINT:?set by docker-compose-up.sh}
+      GIZCLAW_E2E_TURN_ENDPOINT: ${GIZCLAW_E2E_TURN_ENDPOINT:?set by docker-compose-up.sh}
+      GIZCLAW_E2E_TURN_RELAY_ADDRESS: ${GIZCLAW_E2E_TURN_RELAY_ADDRESS:?set by docker-compose-up.sh}
+      GIZCLAW_E2E_TURN_REALM: ${GIZCLAW_E2E_TURN_REALM:?set by docker-compose-up.sh}
+      GIZCLAW_E2E_TURN_USERNAME: ${GIZCLAW_E2E_TURN_USERNAME:?set by docker-compose-up.sh}
+      GIZCLAW_E2E_TURN_CREDENTIAL: ${GIZCLAW_E2E_TURN_CREDENTIAL:?set by docker-compose-up.sh}
+      GIZCLAW_E2E_TURN_RELAY_MIN_PORT: ${GIZCLAW_E2E_TURN_RELAY_MIN_PORT:?set by docker-compose-up.sh}
+      GIZCLAW_E2E_TURN_RELAY_MAX_PORT: ${GIZCLAW_E2E_TURN_RELAY_MAX_PORT:?set by docker-compose-up.sh}
       GIZCLAW_E2E_EDGE_UPSTREAM_ENDPOINT: http://server:9822
     ports:
       - "${GIZCLAW_E2E_DOCKER_SERVER_BIND:-0.0.0.0}:${GIZCLAW_E2E_DOCKER_SERVER_PORT:?set by docker-compose-up.sh}:9821/tcp"
+      - "${GIZCLAW_E2E_DOCKER_SERVER_BIND:-0.0.0.0}:${GIZCLAW_E2E_DOCKER_TURN_PORT:?set by docker-compose-up.sh}:9823/udp"
+      - "${GIZCLAW_E2E_DOCKER_SERVER_BIND:-0.0.0.0}:${GIZCLAW_E2E_TURN_RELAY_MIN_PORT:?set by docker-compose-up.sh}-${GIZCLAW_E2E_TURN_RELAY_MAX_PORT:?set by docker-compose-up.sh}:${GIZCLAW_E2E_TURN_RELAY_MIN_PORT:?set by docker-compose-up.sh}-${GIZCLAW_E2E_TURN_RELAY_MAX_PORT:?set by docker-compose-up.sh}/udp"
     volumes:
       - type: bind
         source: ../.env

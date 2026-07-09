@@ -261,9 +261,18 @@ func TestE2EEdgeWorkspaceTemplateParses(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ReadFile edge template: %v", err)
 	}
-	body := strings.ReplaceAll(string(data), "${GIZCLAW_E2E_SERVER_ENDPOINT}", "127.0.0.1:9821")
-	body = strings.ReplaceAll(body, "${GIZCLAW_E2E_EDGE_UPSTREAM_ENDPOINT}", "http://server:9822")
-	body = strings.ReplaceAll(body, "${GIZCLAW_E2E_EDGE_UPSTREAM_PUBLIC_KEY}", testKeyPair(t, 0x88).Public.String())
+	body := strings.NewReplacer(
+		"${GIZCLAW_E2E_SERVER_ENDPOINT}", "127.0.0.1:9821",
+		"${GIZCLAW_E2E_EDGE_UPSTREAM_ENDPOINT}", "http://server:9822",
+		"${GIZCLAW_E2E_EDGE_UPSTREAM_PUBLIC_KEY}", testKeyPair(t, 0x88).Public.String(),
+		"${GIZCLAW_E2E_TURN_ENDPOINT}", "127.0.0.1:3478",
+		"${GIZCLAW_E2E_TURN_RELAY_ADDRESS}", "127.0.0.1",
+		"${GIZCLAW_E2E_TURN_REALM}", "gizclaw-e2e",
+		"${GIZCLAW_E2E_TURN_USERNAME}", "user",
+		"${GIZCLAW_E2E_TURN_CREDENTIAL}", "pass",
+		"${GIZCLAW_E2E_TURN_RELAY_MIN_PORT}", "36000",
+		"${GIZCLAW_E2E_TURN_RELAY_MAX_PORT}", "36019",
+	).Replace(string(data))
 	fileCfg, err := parseConfigData([]byte(body))
 	if err != nil {
 		t.Fatalf("parseConfigData edge template: %v", err)

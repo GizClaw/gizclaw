@@ -36,6 +36,12 @@ func ServeContext(ctx context.Context, root string) error {
 	if err != nil {
 		return err
 	}
+	turnRuntime, err := startTURN(cfg.TURN)
+	if err != nil {
+		return err
+	}
+	defer turnRuntime.Close()
+
 	upstreamConn, upstreamListener, err := dialUpstream(ctx, cfg, upstreamURL)
 	if err != nil {
 		return err

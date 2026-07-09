@@ -20,6 +20,7 @@ const serverInfoTimeout = 5 * time.Second
 type serverInfoMetadata struct {
 	PublicKey    giznet.PublicKey
 	SignalingURL string
+	ICEServers   []gizwebrtc.ICEServer
 }
 
 func DialFromContext(name string) (*gizcli.Client, giznet.PublicKey, string, error) {
@@ -54,6 +55,7 @@ func DialFromContext(name string) (*gizcli.Client, giznet.PublicKey, string, err
 			defer cancel()
 			l, conn, err := gizwebrtc.Dial(ctx, key, serverPK, gizwebrtc.DialConfig{
 				SignalingURL:   info.SignalingURL,
+				ICEServers:     info.ICEServers,
 				SecurityPolicy: securityPolicy,
 			})
 			if err != nil {
@@ -93,6 +95,11 @@ func fetchPeerHTTPInfo(ctx context.Context, endpoint string) (serverInfoMetadata
 		PublicKey     string `json:"public_key"`
 		Protocol      string `json:"protocol"`
 		SignalingPath string `json:"signaling_path"`
+		ICEServers    []struct {
+			URLs       []string `json:"urls"`
+			Username   string   `json:"username"`
+			Credential string   `json:"credential"`
+		} `json:"ice_servers"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
 		return serverInfoMetadata{}, fmt.Errorf("server-info decode: %w", err)
@@ -118,7 +125,30 @@ func fetchPeerHTTPInfo(ctx context.Context, endpoint string) (serverInfoMetadata
 		return serverInfoMetadata{}, fmt.Errorf("server-info invalid signaling_path %q", signalingPath)
 	}
 	signalingURL := url.URL{Scheme: "http", Host: endpoint, Path: signalingPath}
-	return serverInfoMetadata{PublicKey: serverPK, SignalingURL: signalingURL.String()}, nil
+	return serverInfoMetadata{
+		PublicKey:    serverPK,
+		SignalingURL: signalingURL.String(),
+		ICEServers:   toWebRTCICEServers(body.ICEServers),
+	}, nil
+}
+
+func toWebRTCICEServers(in []struct {
+	URLs       []string `json:"urls"`
+	Username   string   `json:"username"`
+	Credential string   `json:"credential"`
+}) []gizwebrtc.ICEServer {
+	if len(in) == 0 {
+		return nil
+	}
+	out := make([]gizwebrtc.ICEServer, 0, len(in))
+	for _, server := range in {
+		out = append(out, gizwebrtc.ICEServer{
+			URLs:       server.URLs,
+			Username:   server.Username,
+			Credential: server.Credential,
+		})
+	}
+	return out
 }
 
 func ConnectFromContext(name string) (*gizcli.Client, error) {
