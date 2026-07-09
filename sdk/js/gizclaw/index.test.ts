@@ -206,6 +206,43 @@ test("RPC payload codec decodes omitted proto3 defaults", () => {
   });
 });
 
+test("RPC payload codec preserves optional JSON schema field absence", () => {
+  const payload = encodeRPCRequestPayload("server.workflow.create", {
+    metadata: {
+      name: "doubao",
+    },
+    spec: {
+      driver: "doubao-realtime",
+      doubao_realtime: {
+        model: "realtime",
+        tools: [
+          {
+            type: "function",
+            name: "lookup",
+            parameters: {
+              type: "string",
+              additionalProperties: false,
+              minLength: 1,
+            },
+          },
+        ],
+      },
+    },
+  });
+
+  const decoded = decodeRPCRequestPayload("server.workflow.create", payload) as {
+    spec?: { doubao_realtime?: { tools?: Array<{ parameters?: Record<string, unknown> }> } };
+  };
+  const parameters = decoded.spec?.doubao_realtime?.tools?.[0]?.parameters;
+
+  assert.equal(parameters?.additionalProperties, false);
+  assert.equal(parameters?.minLength, 1);
+  assert.equal(parameters?.type, "string");
+  assert.equal(Object.prototype.hasOwnProperty.call(parameters ?? {}, "enum"), false);
+  assert.equal(Object.prototype.hasOwnProperty.call(parameters ?? {}, "required"), false);
+  assert.equal(Object.prototype.hasOwnProperty.call(parameters ?? {}, "anyOf"), false);
+});
+
 test("RPC payload codec rejects string values for bool fields", () => {
   assert.throws(
     () => encodeRPCRequestPayload("server.workspace.create", {

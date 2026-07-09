@@ -7,6 +7,7 @@ type FieldDesc = {
   number: number;
   type: string;
   repeated?: boolean;
+  optionalRepeated?: boolean;
   mapValue?: string;
   oneof?: boolean;
   optional?: boolean;
@@ -273,17 +274,17 @@ export type DoubaoRealtimeFunctionTool = {
   "type": string | number;
 };
 export type DoubaoRealtimeJSONSchema = {
-  "additional_properties"?: boolean;
-  "any_of": DoubaoRealtimeJSONSchema[];
+  "additionalProperties"?: boolean;
+  "anyOf"?: DoubaoRealtimeJSONSchema[];
   "description"?: string;
-  "enum": string[];
+  "enum"?: string[];
   "items"?: DoubaoRealtimeJSONSchema;
-  "max_length"?: number;
+  "maxLength"?: number;
   "maximum"?: number;
-  "min_length"?: number;
+  "minLength"?: number;
   "minimum"?: number;
   "properties": Record<string, DoubaoRealtimeJSONSchema>;
-  "required": string[];
+  "required"?: string[];
   "type"?: string;
 };
 export type DoubaoRealtimeTTSExtension = {
@@ -2595,14 +2596,15 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
   "DoubaoRealtimeJSONSchema": {
     "fields": [
       {
-        "name": "additional_properties",
+        "name": "additionalProperties",
         "number": 1,
         "optional": true,
         "type": "bool"
       },
       {
-        "name": "any_of",
+        "name": "anyOf",
         "number": 2,
+        "optionalRepeated": true,
         "repeated": true,
         "type": "DoubaoRealtimeJSONSchema"
       },
@@ -2615,6 +2617,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "enum",
         "number": 4,
+        "optionalRepeated": true,
         "repeated": true,
         "type": "string"
       },
@@ -2625,7 +2628,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "type": "DoubaoRealtimeJSONSchema"
       },
       {
-        "name": "max_length",
+        "name": "maxLength",
         "number": 6,
         "optional": true,
         "type": "int64"
@@ -2637,7 +2640,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "type": "double"
       },
       {
-        "name": "min_length",
+        "name": "minLength",
         "number": 8,
         "optional": true,
         "type": "int64"
@@ -2657,6 +2660,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "required",
         "number": 11,
+        "optionalRepeated": true,
         "repeated": true,
         "type": "string"
       },
@@ -7841,7 +7845,9 @@ function withMessageDefaults(desc: MessageDesc, values: Record<string, unknown>)
       continue;
     }
     if (field.repeated) {
-      out[field.name] = [];
+      if (field.optionalRepeated !== true) {
+        out[field.name] = [];
+      }
       continue;
     }
     if (field.mapValue != null) {

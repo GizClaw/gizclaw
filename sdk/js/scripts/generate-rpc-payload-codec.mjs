@@ -5,6 +5,12 @@ const peerProtoURL = new URL("../../../api/rpc/peer.proto", import.meta.url);
 const payloadProtoURL = new URL("../../../api/rpc/payload.proto", import.meta.url);
 const outputURL = new URL("../gizclaw/generated/rpc/payload-codec.ts", import.meta.url);
 
+const OPTIONAL_REPEATED_FIELDS = new Set([
+  "DoubaoRealtimeJSONSchema.anyOf",
+  "DoubaoRealtimeJSONSchema.enum",
+  "DoubaoRealtimeJSONSchema.required",
+]);
+
 const methods = parseRPCMethods(readFileSync(peerProtoURL, "utf8"));
 const parsed = parsePayloadProto(readFileSync(payloadProtoURL, "utf8"));
 
@@ -24,6 +30,7 @@ type FieldDesc = {
   number: number;
   type: string;
   repeated?: boolean;
+  optionalRepeated?: boolean;
   mapValue?: string;
   oneof?: boolean;
   optional?: boolean;
@@ -305,7 +312,9 @@ function withMessageDefaults(desc: MessageDesc, values: Record<string, unknown>)
       continue;
     }
     if (field.repeated) {
-      out[field.name] = [];
+      if (field.optionalRepeated !== true) {
+        out[field.name] = [];
+      }
       continue;
     }
     if (field.mapValue != null) {
@@ -909,7 +918,7 @@ function parsePayloadProto(proto) {
       currentMessage = null;
       continue;
     }
-    const field = parseField(line, inOneof);
+    const field = parseField(line, inOneof, currentMessage.name);
     if (field != null) {
       currentMessage.fields.push(field);
     }
@@ -917,7 +926,7 @@ function parsePayloadProto(proto) {
   return { messages, enums };
 }
 
-function parseField(line, oneof) {
+function parseField(line, oneof, messageName) {
   const map = /^\s*map<\s*string\s*,\s*([\w.]+)\s*>\s+(\w+)\s*=\s*(\d+)\s*(?:\[([^\]]*)\])?\s*;/.exec(line);
   if (map != null) {
     return { name: fieldJSONName(map[2], map[4]), number: Number(map[3]), type: "map", mapValue: map[1], ...(oneof ? { oneof: true } : {}) };
@@ -926,11 +935,14 @@ function parseField(line, oneof) {
   if (match == null) {
     return null;
   }
+  const name = fieldJSONName(match[3], match[5]);
+  const repeated = match[1]?.trim() === "repeated";
   return {
-    name: fieldJSONName(match[3], match[5]),
+    name,
     number: Number(match[4]),
     type: match[2],
-    ...(match[1]?.trim() === "repeated" ? { repeated: true } : {}),
+    ...(repeated ? { repeated: true } : {}),
+    ...(repeated && OPTIONAL_REPEATED_FIELDS.has(`${messageName}.${name}`) ? { optionalRepeated: true } : {}),
     ...(match[1]?.trim() === "optional" ? { optional: true } : {}),
     ...(oneof ? { oneof: true } : {}),
   };
@@ -976,7 +988,7 @@ function singleValueTypeField(desc) {
 }
 
 function tsFieldOptional(field, parsed) {
-  return field.optional === true || field.oneof === true;
+  return field.optional === true || field.oneof === true || field.optionalRepeated === true;
 }
 
 function fieldJSONName(name, options) {

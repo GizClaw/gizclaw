@@ -721,11 +721,21 @@ func protoScalarJSONValue(fd protoreflect.FieldDescriptor, value protoreflect.Va
 }
 
 func protoJSONFieldName(fd protoreflect.FieldDescriptor) string {
+	if name, ok := protoJSONFieldNameOverrides[fd.FullName()]; ok {
+		return name
+	}
 	name := string(fd.Name())
 	if fd.JSONName() != defaultProtoJSONName(name) {
 		return fd.JSONName()
 	}
 	return name
+}
+
+var protoJSONFieldNameOverrides = map[protoreflect.FullName]string{
+	"gizclaw.rpc.v1.DoubaoRealtimeJSONSchema.additional_properties": "additionalProperties",
+	"gizclaw.rpc.v1.DoubaoRealtimeJSONSchema.any_of":                "anyOf",
+	"gizclaw.rpc.v1.DoubaoRealtimeJSONSchema.max_length":            "maxLength",
+	"gizclaw.rpc.v1.DoubaoRealtimeJSONSchema.min_length":            "minLength",
 }
 
 func defaultProtoJSONName(name string) string {

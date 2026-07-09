@@ -359,7 +359,7 @@ func TestPayloadCodecPreservesJSONShapes(t *testing.T) {
 		t.Fatalf("decoded stat map = %+v", statOut)
 	}
 
-	jsonSchemaPayload, err := encodeRPCPayloadMessage("DoubaoRealtimeJSONSchema", []byte(`{"enum":["red","green"]}`))
+	jsonSchemaPayload, err := encodeRPCPayloadMessage("DoubaoRealtimeJSONSchema", []byte(`{"additionalProperties":false,"anyOf":[{"type":"string"}],"enum":["red","green"],"minLength":2}`))
 	if err != nil {
 		t.Fatalf("encode JSON schema enum payload error = %v", err)
 	}
@@ -374,9 +374,28 @@ func TestPayloadCodecPreservesJSONShapes(t *testing.T) {
 	if _, ok := jsonSchemaOut["enum_values"]; ok {
 		t.Fatalf("decoded JSON schema used proto field name: %+v", jsonSchemaOut)
 	}
+	if _, ok := jsonSchemaOut["additional_properties"]; ok {
+		t.Fatalf("decoded JSON schema used proto additional_properties field name: %+v", jsonSchemaOut)
+	}
+	if _, ok := jsonSchemaOut["any_of"]; ok {
+		t.Fatalf("decoded JSON schema used proto any_of field name: %+v", jsonSchemaOut)
+	}
+	if _, ok := jsonSchemaOut["min_length"]; ok {
+		t.Fatalf("decoded JSON schema used proto min_length field name: %+v", jsonSchemaOut)
+	}
+	if jsonSchemaOut["additionalProperties"] != false {
+		t.Fatalf("decoded JSON schema additionalProperties = %+v", jsonSchemaOut["additionalProperties"])
+	}
+	anyOf, ok := jsonSchemaOut["anyOf"].([]any)
+	if !ok || len(anyOf) != 1 {
+		t.Fatalf("decoded JSON schema anyOf = %+v", jsonSchemaOut["anyOf"])
+	}
 	enumValues, ok := jsonSchemaOut["enum"].([]any)
 	if !ok || len(enumValues) != 2 || enumValues[0] != "red" || enumValues[1] != "green" {
 		t.Fatalf("decoded JSON schema enum = %+v", jsonSchemaOut["enum"])
+	}
+	if jsonSchemaOut["minLength"] != float64(2) {
+		t.Fatalf("decoded JSON schema minLength = %+v", jsonSchemaOut["minLength"])
 	}
 }
 

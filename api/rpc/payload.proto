@@ -541,14 +541,14 @@ message DoubaoRealtimeFunctionTool {
 }
 
 message DoubaoRealtimeJSONSchema {
-  optional bool additional_properties = 1;
-  repeated DoubaoRealtimeJSONSchema any_of = 2;
+  optional bool additional_properties = 1 [json_name = "additionalProperties"];
+  repeated DoubaoRealtimeJSONSchema any_of = 2 [json_name = "anyOf"];
   optional string description = 3;
   repeated string enum_values = 4 [json_name = "enum"];
   optional DoubaoRealtimeJSONSchema items = 5;
-  optional int64 max_length = 6;
+  optional int64 max_length = 6 [json_name = "maxLength"];
   optional double maximum = 7;
-  optional int64 min_length = 8;
+  optional int64 min_length = 8 [json_name = "minLength"];
   optional double minimum = 9;
   map<string, DoubaoRealtimeJSONSchema> properties = 10;
   repeated string required = 11;
