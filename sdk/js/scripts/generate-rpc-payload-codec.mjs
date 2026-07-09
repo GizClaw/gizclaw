@@ -434,8 +434,13 @@ function enumNumber(type: string, value: unknown): number {
   if (typeof value === "number") {
     return value;
   }
-  const key = String(value ?? "").toLowerCase();
-  return desc.byName[key] ?? desc.byName[key.replaceAll("-", "_")] ?? 0;
+  const text = String(value ?? "");
+  const key = text.toLowerCase();
+  const number = desc.byName[key] ?? desc.byName[key.replaceAll("-", "_")];
+  if (number == null) {
+    throw new Error(\`unknown protobuf enum value for \${type}: \${text}\`);
+  }
+  return number;
 }
 
 function enumName(type: string, value: number): string {

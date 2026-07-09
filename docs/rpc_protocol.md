@@ -93,7 +93,7 @@ Requests use `gizclaw.rpc.v1.RpcRequest`:
 message RpcRequest {
   string id = 1;
   RpcMethod method = 2;
-  bytes payload = 3;
+  optional bytes payload = 3;
 }
 ```
 

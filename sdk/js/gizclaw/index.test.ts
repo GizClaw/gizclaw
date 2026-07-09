@@ -93,6 +93,25 @@ test("WebRTCRPCClient sends protobuf RPC over an rpc data channel", async () => 
   assert.equal(channel.closed, true);
 });
 
+test("WebRTCRPCClient omits protobuf payload when params are absent", async () => {
+  const pc = new FakePeerConnection();
+  const client = new WebRTCRPCClient(pc, { createID: () => "req-no-params" });
+
+  const promise = client.call<{ server_time: number }>("all.ping");
+  const channel = pc.lastChannel();
+  channel.open();
+
+  const frames = decodeFrames(channel.sent[0] ?? new ArrayBuffer(0));
+  assert.equal(frames.length, 2);
+  assert.equal(frames[0]?.type, RPC_FRAME_TYPE_BINARY);
+  assert.equal(includesBytes(frames[0]?.payload ?? new Uint8Array(), [0x1a]), false);
+  assert.equal(frames[1]?.type, RPC_FRAME_TYPE_EOS);
+
+  channel.receive(encodeRPCResponse({ id: "req-no-params", result: { server_time: 98 }, v: 1 }, "all.ping"));
+
+  assert.deepEqual(await promise, { server_time: 98 });
+});
+
 test("WebRTCRPCClient splits oversized request envelopes into continuation frames", async () => {
   const pc = new FakePeerConnection();
   const client = new WebRTCRPCClient(pc, { createID: () => "req-large" });
@@ -185,6 +204,17 @@ test("RPC payload codec rejects string values for bool fields", () => {
       workflow_name: "chat",
     }),
     /protobuf bool field expects boolean/,
+  );
+});
+
+test("RPC payload codec rejects unknown enum strings", () => {
+  assert.throws(
+    () => encodeRPCRequestPayload("server.firmware.files.download", {
+      channel: "stabel",
+      firmware_id: "devkit",
+      path: "firmware.bin",
+    }),
+    /unknown protobuf enum value for FirmwareChannelName: stabel/,
   );
 });
 
