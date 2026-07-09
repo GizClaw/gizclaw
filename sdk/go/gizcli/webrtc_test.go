@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/pion/webrtc/v4"
 )
@@ -160,6 +161,65 @@ func TestWebRTCPeerStreamEventFrameRoundTrip(t *testing.T) {
 	}
 	if got.V != 1 || got.Type != event.Type || got.StreamId == nil || *got.StreamId != streamID || got.Text == nil || *got.Text != text {
 		t.Fatalf("round trip event = %+v", got)
+	}
+}
+
+func TestWebRTCRPCDataChannelProtobufFrames(t *testing.T) {
+	var params rpcapi.RPCRequest_Params
+	if err := params.FromPingRequest(rpcapi.PingRequest{ClientSendTime: 123}); err != nil {
+		t.Fatalf("FromPingRequest() error = %v", err)
+	}
+	req := &rpcapi.RPCRequest{
+		V:      rpcapi.RPCVersionV1,
+		Id:     "req-1",
+		Method: rpcapi.RPCMethodAllPing,
+		Params: &params,
+	}
+	reqFrame, err := rpcapi.NewRequestFrame(req)
+	if err != nil {
+		t.Fatalf("NewRequestFrame() error = %v", err)
+	}
+	var reqBuf bytes.Buffer
+	if err := rpcapi.WriteFrame(&reqBuf, reqFrame); err != nil {
+		t.Fatalf("WriteFrame(request) error = %v", err)
+	}
+	if err := rpcapi.WriteEOS(&reqBuf); err != nil {
+		t.Fatalf("WriteEOS(request) error = %v", err)
+	}
+	gotReq, err := readWebRTCRPCDataChannelRequest(reqBuf.Bytes())
+	if err != nil {
+		t.Fatalf("readWebRTCRPCDataChannelRequest() error = %v", err)
+	}
+	if gotReq.Id != req.Id || gotReq.Method != req.Method || gotReq.Params == nil {
+		t.Fatalf("decoded request = %+v", gotReq)
+	}
+
+	var result rpcapi.RPCResponse_Result
+	if err := result.FromPingResponse(rpcapi.PingResponse{ServerTime: 456}); err != nil {
+		t.Fatalf("FromPingResponse() error = %v", err)
+	}
+	resp := &rpcapi.RPCResponse{
+		V:      rpcapi.RPCVersionV1,
+		Id:     req.Id,
+		Result: &result,
+	}
+	var respBuf bytes.Buffer
+	if err := writeWebRTCRPCDataChannelResponse(&respBuf, req.Method, resp); err != nil {
+		t.Fatalf("writeWebRTCRPCDataChannelResponse() error = %v", err)
+	}
+	gotResp, err := rpcapi.ReadResponseForMethod(&respBuf, req.Method)
+	if err != nil {
+		t.Fatalf("ReadResponseForMethod() error = %v", err)
+	}
+	if err := rpcapi.ReadEOS(&respBuf); err != nil {
+		t.Fatalf("ReadEOS(response) error = %v", err)
+	}
+	gotResult, err := gotResp.Result.AsPingResponse()
+	if err != nil {
+		t.Fatalf("AsPingResponse() error = %v", err)
+	}
+	if gotResp.Id != req.Id || gotResult.ServerTime != 456 {
+		t.Fatalf("decoded response = %+v result=%+v", gotResp, gotResult)
 	}
 }
 

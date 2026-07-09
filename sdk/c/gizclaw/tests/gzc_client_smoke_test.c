@@ -436,6 +436,7 @@ typedef struct {
   int code;
   size_t frame_count;
   bool has_error;
+  bool message_ok;
 } stream_error_t;
 
 static int count_stream_frame(void *userdata, const gzc_rpc_frame_t *frame) {
@@ -468,6 +469,7 @@ static int capture_stream_error_frame(void *userdata, const gzc_rpc_frame_t *fra
   captured->frame_count++;
   captured->has_error = response.has_error;
   captured->code = response.error.code;
+  captured->message_ok = str_eq_cstr(response.error.message, "denied");
   return GZC_OK;
 }
 
@@ -797,7 +799,9 @@ int main(void) {
   if (expect(rc == GZC_ERR_RPC, "rpc call stream returns rpc error for error envelope") != 0) {
     return 1;
   }
-  if (expect(stream_error.frame_count == 1 && stream_error.has_error && stream_error.code == 7, "stream error envelope delivered to callback") != 0) {
+  if (expect(
+          stream_error.frame_count == 1 && stream_error.has_error && stream_error.code == 7 && stream_error.message_ok,
+          "stream error envelope delivered to callback") != 0) {
     return 1;
   }
   fake_webrtc.response_mode = FAKE_RESPONSE_PROTO;

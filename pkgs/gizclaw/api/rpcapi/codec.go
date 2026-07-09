@@ -406,7 +406,7 @@ func EncodeRPCResponse(resp *RPCResponse) (*rpcpb.RpcResponse, error) {
 			Message: resp.Error.Message,
 		}}
 	case resp.Result != nil:
-		msg.Body = &rpcpb.RpcResponse_Payload{Payload: append([]byte(nil), resp.Result.union...)}
+		return nil, fmt.Errorf("rpc: response result requires method-specific encoding")
 	}
 	return msg, nil
 }

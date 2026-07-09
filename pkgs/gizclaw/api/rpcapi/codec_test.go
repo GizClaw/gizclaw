@@ -66,12 +66,12 @@ func TestFrameRequestResponseRoundTrip(t *testing.T) {
 		Id:     "req-1",
 		Result: &respResult,
 	}
-	if err := WriteResponse(&respBuf, resp); err != nil {
-		t.Fatalf("WriteResponse() error = %v", err)
+	if err := WriteResponseForMethod(&respBuf, RPCMethodAllPing, resp); err != nil {
+		t.Fatalf("WriteResponseForMethod() error = %v", err)
 	}
-	gotResp, err := ReadResponse(&respBuf)
+	gotResp, err := ReadResponseForMethod(&respBuf, RPCMethodAllPing)
 	if err != nil {
-		t.Fatalf("ReadResponse() error = %v", err)
+		t.Fatalf("ReadResponseForMethod() error = %v", err)
 	}
 	if gotResp.Id != resp.Id || gotResp.Result == nil {
 		t.Fatalf("ReadResponse() = %+v", gotResp)
@@ -82,6 +82,21 @@ func TestFrameRequestResponseRoundTrip(t *testing.T) {
 	}
 	if gotRespResult.ServerTime != 456 {
 		t.Fatalf("AsPingResponse().ServerTime = %d", gotRespResult.ServerTime)
+	}
+}
+
+func TestEncodeRPCResponseRejectsResultWithoutMethod(t *testing.T) {
+	var result RPCResponse_Result
+	if err := result.FromPingResponse(PingResponse{ServerTime: 456}); err != nil {
+		t.Fatalf("FromPingResponse() error = %v", err)
+	}
+	_, err := EncodeRPCResponse(&RPCResponse{
+		V:      RPCVersionV1,
+		Id:     "req-1",
+		Result: &result,
+	})
+	if err == nil || err.Error() != "rpc: response result requires method-specific encoding" {
+		t.Fatalf("EncodeRPCResponse() err = %v", err)
 	}
 }
 

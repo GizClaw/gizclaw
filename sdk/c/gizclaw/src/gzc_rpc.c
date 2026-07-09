@@ -3,6 +3,7 @@
 #include "pb_decode.h"
 #include "pb_encode.h"
 
+#include <stdint.h>
 #include <string.h>
 
 int gzc_client_reset_rpc_rx_internal(gzc_client_t *client);
@@ -51,16 +52,6 @@ static bool encode_pb_bytes(pb_ostream_t *stream, const pb_field_t *field, void 
   return pb_encode_tag_for_field(stream, field) && pb_encode_string(stream, data, len);
 }
 
-static bool decode_pb_str(pb_istream_t *stream, const pb_field_t *field, void **arg) {
-  (void)field;
-  gzc_str_t *out = (gzc_str_t *)(*arg);
-  if (out == NULL) {
-    return false;
-  }
-  *out = gzc_str_from_parts((const char *)stream->state, stream->bytes_left);
-  return pb_read(stream, NULL, stream->bytes_left);
-}
-
 static int encode_pb_message(
     const gzc_platform_t *platform,
     const pb_msgdesc_t *fields,
@@ -86,9 +77,144 @@ static int encode_pb_message(
   return rc;
 }
 
-static int decode_pb_message(gzc_str_t payload, const pb_msgdesc_t *fields, void *message) {
-  pb_istream_t stream = pb_istream_from_buffer((const pb_byte_t *)payload.data, payload.len);
-  return pb_decode(&stream, fields, message) ? GZC_OK : GZC_ERR_RPC;
+static int read_pb_varint(const uint8_t *data, size_t len, size_t *offset, uint64_t *out) {
+  uint64_t value = 0;
+  unsigned shift = 0;
+  while (*offset < len && shift <= 63) {
+    uint8_t b = data[(*offset)++];
+    value |= ((uint64_t)(b & 0x7fu)) << shift;
+    if ((b & 0x80u) == 0) {
+      *out = value;
+      return GZC_OK;
+    }
+    shift += 7;
+  }
+  return GZC_ERR_RPC;
+}
+
+static int read_pb_bytes(const uint8_t *data, size_t len, size_t *offset, gzc_str_t *out) {
+  uint64_t size = 0;
+  int rc = read_pb_varint(data, len, offset, &size);
+  if (rc != GZC_OK || size > len - *offset) {
+    return GZC_ERR_RPC;
+  }
+  *out = gzc_str_from_parts((const char *)(data + *offset), (size_t)size);
+  *offset += (size_t)size;
+  return GZC_OK;
+}
+
+static int skip_pb_value(const uint8_t *data, size_t len, size_t *offset, unsigned wire_type) {
+  uint64_t ignored = 0;
+  switch (wire_type) {
+    case 0:
+      return read_pb_varint(data, len, offset, &ignored);
+    case 1:
+      if (len - *offset < 8) {
+        return GZC_ERR_RPC;
+      }
+      *offset += 8;
+      return GZC_OK;
+    case 2:
+      return read_pb_bytes(data, len, offset, &(gzc_str_t){0});
+    case 5:
+      if (len - *offset < 4) {
+        return GZC_ERR_RPC;
+      }
+      *offset += 4;
+      return GZC_OK;
+    default:
+      return GZC_ERR_RPC;
+  }
+}
+
+static int decode_rpc_error_payload(gzc_str_t payload, gzc_rpc_error_t *out_error) {
+  const uint8_t *data = (const uint8_t *)payload.data;
+  size_t offset = 0;
+  while (offset < payload.len) {
+    uint64_t key = 0;
+    int rc = read_pb_varint(data, payload.len, &offset, &key);
+    if (rc != GZC_OK) {
+      return rc;
+    }
+    unsigned field = (unsigned)(key >> 3);
+    unsigned wire_type = (unsigned)(key & 0x7u);
+    if (field == 1) {
+      if (wire_type != 0) {
+        return GZC_ERR_RPC;
+      }
+      uint64_t code = 0;
+      rc = read_pb_varint(data, payload.len, &offset, &code);
+      if (rc != GZC_OK) {
+        return rc;
+      }
+      out_error->code = (int)(int32_t)code;
+    } else if (field == 2) {
+      if (wire_type != 2) {
+        return GZC_ERR_RPC;
+      }
+      rc = read_pb_bytes(data, payload.len, &offset, &out_error->message);
+      if (rc != GZC_OK) {
+        return rc;
+      }
+    } else {
+      rc = skip_pb_value(data, payload.len, &offset, wire_type);
+      if (rc != GZC_OK) {
+        return rc;
+      }
+    }
+  }
+  return GZC_OK;
+}
+
+static int decode_rpc_response_payload(gzc_str_t payload, gzc_rpc_response_t *out_response) {
+  const uint8_t *data = (const uint8_t *)payload.data;
+  size_t offset = 0;
+  while (offset < payload.len) {
+    uint64_t key = 0;
+    int rc = read_pb_varint(data, payload.len, &offset, &key);
+    if (rc != GZC_OK) {
+      return rc;
+    }
+    unsigned field = (unsigned)(key >> 3);
+    unsigned wire_type = (unsigned)(key & 0x7u);
+    if (field == 1) {
+      if (wire_type != 2) {
+        return GZC_ERR_RPC;
+      }
+      rc = read_pb_bytes(data, payload.len, &offset, &out_response->id);
+      if (rc != GZC_OK) {
+        return rc;
+      }
+    } else if (field == 2) {
+      if (wire_type != 2) {
+        return GZC_ERR_RPC;
+      }
+      rc = read_pb_bytes(data, payload.len, &offset, &out_response->result_payload);
+      if (rc != GZC_OK) {
+        return rc;
+      }
+    } else if (field == 3) {
+      if (wire_type != 2) {
+        return GZC_ERR_RPC;
+      }
+      gzc_str_t error_payload;
+      rc = read_pb_bytes(data, payload.len, &offset, &error_payload);
+      if (rc != GZC_OK) {
+        return rc;
+      }
+      out_response->has_error = true;
+      rc = decode_rpc_error_payload(error_payload, &out_response->error);
+      if (rc != GZC_OK) {
+        return rc;
+      }
+    } else {
+      rc = skip_pb_value(data, payload.len, &offset, wire_type);
+      if (rc != GZC_OK) {
+        return rc;
+      }
+    }
+  }
+  return GZC_OK;
 }
 
 static int decode_frame_bytes(gzc_buf_t *frame_bytes, gzc_rpc_frame_t *out_frame) {
@@ -173,29 +299,7 @@ int gzc_rpc_decode_response_envelope(gzc_str_t response_payload, gzc_rpc_respons
     return GZC_ERR_INVALID_ARGUMENT;
   }
   memset(out_response, 0, sizeof(*out_response));
-  gizclaw_rpc_v1_RpcResponse response = gizclaw_rpc_v1_RpcResponse_init_zero;
-  response.id.funcs.decode = decode_pb_str;
-  response.id.arg = &out_response->id;
-  response.body.payload.funcs.decode = decode_pb_str;
-  response.body.payload.arg = &out_response->result_payload;
-  int rc = decode_pb_message(response_payload, gizclaw_rpc_v1_RpcResponse_fields, &response);
-  if (rc != GZC_OK) {
-    return rc;
-  }
-  if (response.which_body == gizclaw_rpc_v1_RpcResponse_error_tag) {
-    gizclaw_rpc_v1_RpcResponse error_response = gizclaw_rpc_v1_RpcResponse_init_zero;
-    error_response.id.funcs.decode = decode_pb_str;
-    error_response.id.arg = &out_response->id;
-    error_response.body.error.message.funcs.decode = decode_pb_str;
-    error_response.body.error.message.arg = &out_response->error.message;
-    rc = decode_pb_message(response_payload, gizclaw_rpc_v1_RpcResponse_fields, &error_response);
-    if (rc != GZC_OK) {
-      return rc;
-    }
-    out_response->has_error = true;
-    out_response->error.code = (int)error_response.body.error.code;
-  }
-  return GZC_OK;
+  return decode_rpc_response_payload(response_payload, out_response);
 }
 
 int gzc_rpc_call(gzc_client_t *client, gizclaw_rpc_v1_RpcMethod method, gzc_str_t params_payload, gzc_rpc_response_t *out_response) {

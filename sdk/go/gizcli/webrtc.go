@@ -1,6 +1,7 @@
 package gizcli
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -258,28 +259,98 @@ func readWebRTCPeerStreamEvent(r io.Reader) (apitypes.PeerStreamEvent, error) {
 }
 
 func (r *ClientWebRTCRegistration) handleRPCDataChannelMessage(dc *webrtc.DataChannel, msg webrtc.DataChannelMessage) {
-	if len(msg.Data) > rpcapi.MaxFrameSize {
-		r.sendRPCDataChannelResponse(dc, msg.IsString, rpcapi.Error{Code: rpcapi.RPCErrorCodeInvalidRequest, Message: "rpc message too large"}.RPCResponse())
-		return
-	}
-
-	var req rpcapi.RPCRequest
-	if err := json.Unmarshal(msg.Data, &req); err != nil {
-		r.sendRPCDataChannelResponse(dc, msg.IsString, rpcapi.Error{Code: rpcapi.RPCErrorCode(-32700), Message: fmt.Sprintf("invalid rpc json: %v", err)}.RPCResponse())
+	req, err := readWebRTCRPCDataChannelRequest(msg.Data)
+	if err != nil {
+		r.sendRPCDataChannelResponse(dc, "", rpcapi.Error{Code: rpcapi.RPCErrorCode(-32700), Message: fmt.Sprintf("invalid rpc protobuf: %v", err)}.RPCResponse())
 		return
 	}
 
 	ctx, cancel := context.WithTimeout(r.ctx, webRTCRPCTimeout)
 	defer cancel()
 
-	resp, err := r.client.callRPCRequest(ctx, &req)
+	resp, err := r.client.callRPCRequest(ctx, req)
 	if err != nil {
 		resp = rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCode(-32000), Message: err.Error()}.RPCResponse()
 	}
-	r.sendRPCDataChannelResponse(dc, msg.IsString, resp)
+	r.sendRPCDataChannelResponse(dc, req.Method, resp)
 }
 
-func (r *ClientWebRTCRegistration) sendRPCDataChannelResponse(dc *webrtc.DataChannel, asString bool, resp *rpcapi.RPCResponse) {
+func readWebRTCRPCDataChannelRequest(data []byte) (*rpcapi.RPCRequest, error) {
+	reader := bytes.NewReader(data)
+	frame, err := rpcapi.ReadFrame(reader)
+	if err != nil {
+		return nil, err
+	}
+	var req *rpcapi.RPCRequest
+	switch frame.Type {
+	case rpcapi.FrameTypeBinary:
+		req, err = rpcapi.DecodeRequestFrame(frame)
+		if err != nil {
+			return nil, err
+		}
+		if err := rpcapi.ReadEOS(reader); err != nil {
+			return nil, err
+		}
+	case rpcapi.FrameTypeText:
+		var payload bytes.Buffer
+		payload.Write(frame.Payload)
+		for {
+			next, err := rpcapi.ReadFrame(reader)
+			if err != nil {
+				return nil, err
+			}
+			if next.Type == rpcapi.FrameTypeEOS {
+				break
+			}
+			if next.Type != rpcapi.FrameTypeText {
+				return nil, fmt.Errorf("rpc: expected protobuf continuation frame, got type %d", next.Type)
+			}
+			payload.Write(next.Payload)
+		}
+		req, err = rpcapi.DecodeRequestFrame(rpcapi.Frame{Type: rpcapi.FrameTypeBinary, Payload: payload.Bytes()})
+		if err != nil {
+			return nil, err
+		}
+	default:
+		return nil, fmt.Errorf("rpc: expected protobuf binary frame, got type %d", frame.Type)
+	}
+	if reader.Len() != 0 {
+		return nil, fmt.Errorf("rpc: trailing data after EOS")
+	}
+	return req, nil
+}
+
+func writeWebRTCRPCDataChannelResponse(out *bytes.Buffer, method rpcapi.RPCMethod, resp *rpcapi.RPCResponse) error {
+	var frame rpcapi.Frame
+	var err error
+	if method != "" {
+		frame, err = rpcapi.NewResponseFrameForMethod(method, resp)
+	} else {
+		frame, err = rpcapi.NewResponseFrame(resp)
+	}
+	if err != nil {
+		return err
+	}
+	if frame.Type != rpcapi.FrameTypeBinary {
+		return fmt.Errorf("rpc: expected protobuf binary frame, got type %d", frame.Type)
+	}
+	if len(frame.Payload) <= rpcapi.MaxFrameSize {
+		if err := rpcapi.WriteFrame(out, frame); err != nil {
+			return err
+		}
+		return rpcapi.WriteEOS(out)
+	}
+	for payload := frame.Payload; len(payload) > 0; {
+		n := min(len(payload), rpcapi.MaxFrameSize)
+		if err := rpcapi.WriteFrame(out, rpcapi.Frame{Type: rpcapi.FrameTypeText, Payload: payload[:n]}); err != nil {
+			return err
+		}
+		payload = payload[n:]
+	}
+	return rpcapi.WriteEOS(out)
+}
+
+func (r *ClientWebRTCRegistration) sendRPCDataChannelResponse(dc *webrtc.DataChannel, method rpcapi.RPCMethod, resp *rpcapi.RPCResponse) {
 	if dc == nil || resp == nil {
 		return
 	}
@@ -292,18 +363,13 @@ func (r *ClientWebRTCRegistration) sendRPCDataChannelResponse(dc *webrtc.DataCha
 		resp.V = rpcapi.RPCVersionV1
 	}
 
-	data, err := json.Marshal(resp)
+	var data bytes.Buffer
+	err := writeWebRTCRPCDataChannelResponse(&data, method, resp)
 	if err != nil {
-		slog.Debug("gizclaw: marshal webrtc rpc response failed", "error", err)
+		slog.Debug("gizclaw: marshal webrtc rpc protobuf response failed", "error", err)
 		return
 	}
-	if asString {
-		if err := dc.SendText(string(data)); err != nil {
-			slog.Debug("gizclaw: send webrtc rpc text response failed", "error", err)
-		}
-		return
-	}
-	if err := dc.Send(data); err != nil {
+	if err := dc.Send(data.Bytes()); err != nil {
 		slog.Debug("gizclaw: send webrtc rpc binary response failed", "error", err)
 	}
 }
