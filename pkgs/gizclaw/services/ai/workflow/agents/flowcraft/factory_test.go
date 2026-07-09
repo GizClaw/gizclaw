@@ -26,8 +26,11 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/peergenx"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/agenthost"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/toolkit"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/acl"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
+	"gopkg.in/yaml.v3"
 )
 
 func TestAgentStatusReportsRunning(t *testing.T) {
@@ -1004,6 +1007,74 @@ func TestFactoryNewAgentWritesClawConfig(t *testing.T) {
 	}
 }
 
+func TestFactoryNewAgentWritesToolKitTools(t *testing.T) {
+	ctx := context.Background()
+	events := []string{}
+	service := peergenx.New(peergenx.Service{
+		Peer:            testPeer{},
+		Authorizer:      recordingAuthorizer{events: &events},
+		Models:          fakeModels{events: &events},
+		Voices:          fakeVoices{events: &events},
+		Credentials:     fakeCredentials{events: &events},
+		ProviderTenants: fakeTenants{events: &events},
+	})
+	store := &toolkit.Server{Store: kv.NewMemory(nil)}
+	if _, err := store.PutTool(ctx, testFlowcraftTool("system.music.play", "play_music")); err != nil {
+		t.Fatalf("PutTool() error = %v", err)
+	}
+	generateModel := "chat"
+	var workspaceParams apitypes.WorkspaceParameters
+	if err := workspaceParams.FromFlowcraftWorkspaceParameters(apitypes.FlowcraftWorkspaceParameters{GenerateModel: &generateModel}); err != nil {
+		t.Fatalf("FromFlowcraftWorkspaceParameters() error = %v", err)
+	}
+	workflow := testFlowcraftWorkflow(apitypes.FlowcraftWorkflowSpec{
+		"history": map[string]any{"enabled": false},
+		"memory":  map[string]any{"enabled": false},
+		"voice_adapter": map[string]any{
+			"asr_model":     "asr",
+			"default_voice": "voice",
+		},
+	})
+	localDir := t.TempDir()
+	transformer, err := (Factory{
+		GenX:    service,
+		ToolKit: &toolkit.Builder{Tools: store},
+		ToolIDs: []string{"system.music.play"},
+	}).NewAgent(ctx, agenthost.Spec{
+		Workspace: apitypes.Workspace{Name: "ws", Parameters: &workspaceParams},
+		Workflow:  workflow,
+		Runtime:   workspace.Runtime{LocalDir: localDir},
+	})
+	if err != nil {
+		t.Fatalf("NewAgent() error = %v", err)
+	}
+	t.Cleanup(func() {
+		if a, ok := transformer.(*agent); ok && a.claw != nil {
+			_ = a.claw.CloseContext(context.Background())
+		}
+	})
+	data, err := os.ReadFile(filepath.Join(localDir, "config.yaml"))
+	if err != nil {
+		t.Fatalf("read config.yaml: %v", err)
+	}
+	var cfg map[string]any
+	if err := yaml.Unmarshal(data, &cfg); err != nil {
+		t.Fatalf("decode config.yaml: %v", err)
+	}
+	agentCfg, ok := cfg["agent"].(map[string]any)
+	if !ok {
+		t.Fatalf("agent config = %#v", cfg["agent"])
+	}
+	tools, ok := agentCfg["tools"].([]any)
+	if !ok || len(tools) != 1 {
+		t.Fatalf("agent.tools = %#v, want one toolkit tool", agentCfg["tools"])
+	}
+	tool, ok := tools[0].(map[string]any)
+	if !ok || tool["name"] != "play_music" {
+		t.Fatalf("tool config = %#v", tools[0])
+	}
+}
+
 func TestFactoryNewAgentReadsWorkspaceInputMode(t *testing.T) {
 	ctx := context.Background()
 	events := []string{}
@@ -1046,6 +1117,64 @@ func TestFactoryNewAgentReadsWorkspaceInputMode(t *testing.T) {
 	}
 	if gotAgent.inputMode != inputModeRealtime {
 		t.Fatalf("agent inputMode = %q, want %q", gotAgent.inputMode, inputModeRealtime)
+	}
+}
+
+func TestConfigureFlowcraftToolsFromToolKit(t *testing.T) {
+	cfg := map[string]any{}
+	if err := configureFlowcraftTools(cfg, []toolkit.Tool{testFlowcraftTool("system.music.play", "play_music")}); err != nil {
+		t.Fatalf("configureFlowcraftTools() error = %v", err)
+	}
+	agent, ok := cfg["agent"].(map[string]any)
+	if !ok {
+		t.Fatalf("agent config = %#v", cfg["agent"])
+	}
+	tools, ok := agent["tools"].([]any)
+	if !ok || len(tools) != 1 {
+		t.Fatalf("agent.tools = %#v, want one tool", agent["tools"])
+	}
+	tool, ok := tools[0].(map[string]any)
+	if !ok {
+		t.Fatalf("tool config = %#v", tools[0])
+	}
+	if tool["name"] != "play_music" || tool["description"] != "test tool" {
+		t.Fatalf("tool config = %#v", tool)
+	}
+	schema, ok := tool["input_schema"].(map[string]any)
+	if !ok || schema["type"] != "object" {
+		t.Fatalf("input_schema = %#v", tool["input_schema"])
+	}
+}
+
+func TestFlowcraftToolHandlerInvokesToolKitExecutor(t *testing.T) {
+	ctx := context.Background()
+	store := &toolkit.Server{Store: kv.NewMemory(nil)}
+	if _, err := store.PutTool(ctx, testFlowcraftTool("system.music.play", "play_music")); err != nil {
+		t.Fatalf("PutTool() error = %v", err)
+	}
+	builder := &toolkit.Builder{Tools: store}
+	executors := toolkit.NewExecutorRegistry()
+	if err := executors.Register("music.play", toolkit.ExecutorFunc(func(_ context.Context, call toolkit.Call) (toolkit.Result, error) {
+		if call.Tool.ID != "system.music.play" {
+			t.Fatalf("call.Tool.ID = %q, want system.music.play", call.Tool.ID)
+		}
+		if string(call.Args) != `{"query":"song"}` {
+			t.Fatalf("call.Args = %s", call.Args)
+		}
+		return toolkit.Result{Data: json.RawMessage(`{"hit":true}`)}, nil
+	})); err != nil {
+		t.Fatalf("Register() error = %v", err)
+	}
+
+	handler := flowcraftToolHandler(builder, executors, toolkit.BuildRequest{
+		AllowedToolIDs: []string{"system.music.play"},
+	})
+	got, err := handler(ctx, "play_music", json.RawMessage(`{"query":"song"}`))
+	if err != nil {
+		t.Fatalf("handler() error = %v", err)
+	}
+	if got != `{"hit":true}` {
+		t.Fatalf("handler() = %s, want hit result", got)
 	}
 }
 
@@ -2538,6 +2667,21 @@ func TestConfigHelperBranches(t *testing.T) {
 
 func ptrString(value string) *string {
 	return &value
+}
+
+func testFlowcraftTool(id, name string) toolkit.Tool {
+	return toolkit.Tool{
+		ID:          id,
+		Name:        ptrString(name),
+		Description: ptrString("test tool"),
+		Source:      toolkit.ToolSourceBuiltin,
+		Enabled:     true,
+		InputSchema: json.RawMessage(`{"type":"object","properties":{"query":{"type":"string"}}}`),
+		Executor: toolkit.ToolExecutor{
+			Kind: toolkit.ToolExecutorKindBuiltin,
+			Name: ptrString("music.play"),
+		},
+	}
 }
 
 func writeTestJSON(t *testing.T, w http.ResponseWriter, value any) {

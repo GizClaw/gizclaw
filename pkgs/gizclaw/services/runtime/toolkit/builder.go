@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strings"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/acl"
@@ -104,6 +105,20 @@ func toolIDSet(ids []string) map[string]bool {
 func (tk ToolKit) Find(id string) (Tool, bool) {
 	idx := slices.IndexFunc(tk.Tools, func(tool Tool) bool {
 		return tool.ID == id
+	})
+	if idx < 0 {
+		return Tool{}, false
+	}
+	return cloneTool(tk.Tools[idx]), true
+}
+
+func (tk ToolKit) FindByName(name string) (Tool, bool) {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return Tool{}, false
+	}
+	idx := slices.IndexFunc(tk.Tools, func(tool Tool) bool {
+		return trimPtr(tool.Name) == name
 	})
 	if idx < 0 {
 		return Tool{}, false
