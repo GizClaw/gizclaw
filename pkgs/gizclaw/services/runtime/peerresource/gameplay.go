@@ -26,7 +26,7 @@ func (s *Server) handleGameRulesetGet(ctx context.Context, req *rpcapi.RPCReques
 	if failure != nil {
 		return failure
 	}
-	params, ok := decodeOptionalParams(req, rpcapi.RPCRequest_Params.AsServerGameRulesetGetRequest)
+	params, ok := decodeOptionalParams(req, rpcapi.RPCPayload.AsServerGameRulesetGetRequest)
 	if !ok {
 		return invalidParams(req.Id)
 	}
@@ -37,11 +37,11 @@ func (s *Server) handleGameRulesetGet(ctx context.Context, req *rpcapi.RPCReques
 	if auth := s.authorizeResponse(ctx, req.Id, acl.GameRulesetResource(resp.Name), apitypes.ACLPermissionRead); auth != nil {
 		return auth
 	}
-	return resultResponse(req.Id, resp, (*rpcapi.RPCResponse_Result).FromServerGameRulesetGetResponse)
+	return resultResponse(req.Id, resp, (*rpcapi.RPCPayload).FromServerGameRulesetGetResponse)
 }
 
 func (s *Server) handlePetDefPixaDownload(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
-	params, ok := decodeRequiredParams(req, rpcapi.RPCRequest_Params.AsPetDefPixaDownloadRequest)
+	params, ok := decodeRequiredParams(req, rpcapi.RPCPayload.AsPetDefPixaDownloadRequest)
 	if !ok {
 		return invalidParams(req.Id)
 	}
@@ -55,7 +55,7 @@ func (s *Server) handlePetDefPixaDownload(ctx context.Context, req *rpcapi.RPCRe
 	if rpcErr != nil {
 		return rpcapi.Error{RequestID: req.Id, Code: rpcErr.Code, Message: strings.TrimSpace(rpcErr.Message)}.RPCResponse()
 	}
-	return resultResponse(req.Id, result, (*rpcapi.RPCResponse_Result).FromPetDefPixaDownloadResponse)
+	return resultResponse(req.Id, result, (*rpcapi.RPCPayload).FromPetDefPixaDownloadResponse)
 }
 
 func (s *Server) PreparePetDefPixaDownload(ctx context.Context, params rpcapi.PetDefPixaDownloadRequest) (rpcapi.PetDefPixaDownloadResponse, io.ReadCloser, *rpcapi.RPCError, error) {
@@ -87,7 +87,7 @@ func (s *Server) PreparePetDefPixaDownload(ctx context.Context, params rpcapi.Pe
 }
 
 func (s *Server) handleBadgeDefPixaDownload(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
-	params, ok := decodeRequiredParams(req, rpcapi.RPCRequest_Params.AsBadgeDefPixaDownloadRequest)
+	params, ok := decodeRequiredParams(req, rpcapi.RPCPayload.AsBadgeDefPixaDownloadRequest)
 	if !ok {
 		return invalidParams(req.Id)
 	}
@@ -101,7 +101,7 @@ func (s *Server) handleBadgeDefPixaDownload(ctx context.Context, req *rpcapi.RPC
 	if rpcErr != nil {
 		return rpcapi.Error{RequestID: req.Id, Code: rpcErr.Code, Message: strings.TrimSpace(rpcErr.Message)}.RPCResponse()
 	}
-	return resultResponse(req.Id, result, (*rpcapi.RPCResponse_Result).FromBadgeDefPixaDownloadResponse)
+	return resultResponse(req.Id, result, (*rpcapi.RPCPayload).FromBadgeDefPixaDownloadResponse)
 }
 
 func (s *Server) PrepareBadgeDefPixaDownload(ctx context.Context, params rpcapi.BadgeDefPixaDownloadRequest) (rpcapi.BadgeDefPixaDownloadResponse, io.ReadCloser, *rpcapi.RPCError, error) {
@@ -207,7 +207,7 @@ func (s *Server) handlePetList(ctx context.Context, req *rpcapi.RPCRequest) *rpc
 	if failure != nil {
 		return failure
 	}
-	params, ok := decodeOptionalParams(req, rpcapi.RPCRequest_Params.AsServerPetListRequest)
+	params, ok := decodeOptionalParams(req, rpcapi.RPCPayload.AsServerPetListRequest)
 	if !ok {
 		return invalidParams(req.Id)
 	}
@@ -219,7 +219,7 @@ func (s *Server) handlePetList(ctx context.Context, req *rpcapi.RPCRequest) *rpc
 	if err != nil {
 		return businessError(req.Id, err)
 	}
-	return resultResponse(req.Id, resp, (*rpcapi.RPCResponse_Result).FromServerPetListResponse)
+	return resultResponse(req.Id, resp, (*rpcapi.RPCPayload).FromServerPetListResponse)
 }
 
 func gameplayRPCError(err error) *rpcapi.RPCError {
@@ -235,7 +235,7 @@ func (s *Server) handlePetGet(ctx context.Context, req *rpcapi.RPCRequest) *rpca
 	if failure != nil {
 		return failure
 	}
-	params, ok := decodeRequiredParams(req, rpcapi.RPCRequest_Params.AsServerPetGetRequest)
+	params, ok := decodeRequiredParams(req, rpcapi.RPCPayload.AsServerPetGetRequest)
 	if !ok {
 		return invalidParams(req.Id)
 	}
@@ -243,7 +243,7 @@ func (s *Server) handlePetGet(ctx context.Context, req *rpcapi.RPCRequest) *rpca
 	if err != nil {
 		return businessError(req.Id, err)
 	}
-	return resultResponse(req.Id, resp, (*rpcapi.RPCResponse_Result).FromServerPetGetResponse)
+	return resultResponse(req.Id, resp, (*rpcapi.RPCPayload).FromServerPetGetResponse)
 }
 
 func (s *Server) handlePetAdopt(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
@@ -251,7 +251,7 @@ func (s *Server) handlePetAdopt(ctx context.Context, req *rpcapi.RPCRequest) *rp
 	if failure != nil {
 		return failure
 	}
-	params, ok := decodeOptionalParams(req, rpcapi.RPCRequest_Params.AsServerPetAdoptRequest)
+	params, ok := decodeOptionalParams(req, rpcapi.RPCPayload.AsServerPetAdoptRequest)
 	if !ok {
 		return invalidParams(req.Id)
 	}
@@ -271,7 +271,7 @@ func (s *Server) handlePetAdopt(ctx context.Context, req *rpcapi.RPCRequest) *rp
 	if err != nil {
 		return businessError(req.Id, err)
 	}
-	return resultResponse(req.Id, resp, (*rpcapi.RPCResponse_Result).FromServerPetAdoptResponse)
+	return resultResponse(req.Id, resp, (*rpcapi.RPCPayload).FromServerPetAdoptResponse)
 }
 
 func (s *Server) handlePetPut(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
@@ -279,7 +279,7 @@ func (s *Server) handlePetPut(ctx context.Context, req *rpcapi.RPCRequest) *rpca
 	if failure != nil {
 		return failure
 	}
-	params, ok := decodeRequiredParams(req, rpcapi.RPCRequest_Params.AsServerPetPutRequest)
+	params, ok := decodeRequiredParams(req, rpcapi.RPCPayload.AsServerPetPutRequest)
 	if !ok {
 		return invalidParams(req.Id)
 	}
@@ -291,7 +291,7 @@ func (s *Server) handlePetPut(ctx context.Context, req *rpcapi.RPCRequest) *rpca
 	if err != nil {
 		return businessError(req.Id, err)
 	}
-	return resultResponse(req.Id, resp, (*rpcapi.RPCResponse_Result).FromServerPetPutResponse)
+	return resultResponse(req.Id, resp, (*rpcapi.RPCPayload).FromServerPetPutResponse)
 }
 
 func (s *Server) handlePetDelete(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
@@ -299,7 +299,7 @@ func (s *Server) handlePetDelete(ctx context.Context, req *rpcapi.RPCRequest) *r
 	if failure != nil {
 		return failure
 	}
-	params, ok := decodeRequiredParams(req, rpcapi.RPCRequest_Params.AsServerPetDeleteRequest)
+	params, ok := decodeRequiredParams(req, rpcapi.RPCPayload.AsServerPetDeleteRequest)
 	if !ok {
 		return invalidParams(req.Id)
 	}
@@ -307,7 +307,7 @@ func (s *Server) handlePetDelete(ctx context.Context, req *rpcapi.RPCRequest) *r
 	if err != nil {
 		return businessError(req.Id, err)
 	}
-	return resultResponse(req.Id, resp, (*rpcapi.RPCResponse_Result).FromServerPetDeleteResponse)
+	return resultResponse(req.Id, resp, (*rpcapi.RPCPayload).FromServerPetDeleteResponse)
 }
 
 func (s *Server) handlePetDrive(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
@@ -315,7 +315,7 @@ func (s *Server) handlePetDrive(ctx context.Context, req *rpcapi.RPCRequest) *rp
 	if failure != nil {
 		return failure
 	}
-	params, ok := decodeRequiredParams(req, rpcapi.RPCRequest_Params.AsServerPetDriveRequest)
+	params, ok := decodeRequiredParams(req, rpcapi.RPCPayload.AsServerPetDriveRequest)
 	if !ok {
 		return invalidParams(req.Id)
 	}
@@ -327,7 +327,7 @@ func (s *Server) handlePetDrive(ctx context.Context, req *rpcapi.RPCRequest) *rp
 	if err != nil {
 		return businessError(req.Id, err)
 	}
-	return resultResponse(req.Id, resp, (*rpcapi.RPCResponse_Result).FromServerPetDriveResponse)
+	return resultResponse(req.Id, resp, (*rpcapi.RPCPayload).FromServerPetDriveResponse)
 }
 
 func (s *Server) handlePointsGet(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
@@ -335,7 +335,7 @@ func (s *Server) handlePointsGet(ctx context.Context, req *rpcapi.RPCRequest) *r
 	if failure != nil {
 		return failure
 	}
-	params, ok := decodeOptionalParams(req, rpcapi.RPCRequest_Params.AsServerPointsGetRequest)
+	params, ok := decodeOptionalParams(req, rpcapi.RPCPayload.AsServerPointsGetRequest)
 	if !ok {
 		return invalidParams(req.Id)
 	}
@@ -343,7 +343,7 @@ func (s *Server) handlePointsGet(ctx context.Context, req *rpcapi.RPCRequest) *r
 	if err != nil {
 		return businessError(req.Id, err)
 	}
-	return resultResponse(req.Id, resp, (*rpcapi.RPCResponse_Result).FromServerPointsGetResponse)
+	return resultResponse(req.Id, resp, (*rpcapi.RPCPayload).FromServerPointsGetResponse)
 }
 
 func (s *Server) handlePointsTransactionsList(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
@@ -351,7 +351,7 @@ func (s *Server) handlePointsTransactionsList(ctx context.Context, req *rpcapi.R
 	if failure != nil {
 		return failure
 	}
-	params, ok := decodeOptionalParams(req, rpcapi.RPCRequest_Params.AsServerPointsTransactionListRequest)
+	params, ok := decodeOptionalParams(req, rpcapi.RPCPayload.AsServerPointsTransactionListRequest)
 	if !ok {
 		return invalidParams(req.Id)
 	}
@@ -363,7 +363,7 @@ func (s *Server) handlePointsTransactionsList(ctx context.Context, req *rpcapi.R
 	if err != nil {
 		return businessError(req.Id, err)
 	}
-	return resultResponse(req.Id, resp, (*rpcapi.RPCResponse_Result).FromServerPointsTransactionListResponse)
+	return resultResponse(req.Id, resp, (*rpcapi.RPCPayload).FromServerPointsTransactionListResponse)
 }
 
 func (s *Server) handlePointsTransactionsGet(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
@@ -371,7 +371,7 @@ func (s *Server) handlePointsTransactionsGet(ctx context.Context, req *rpcapi.RP
 	if failure != nil {
 		return failure
 	}
-	params, ok := decodeRequiredParams(req, rpcapi.RPCRequest_Params.AsServerPointsTransactionGetRequest)
+	params, ok := decodeRequiredParams(req, rpcapi.RPCPayload.AsServerPointsTransactionGetRequest)
 	if !ok {
 		return invalidParams(req.Id)
 	}
@@ -379,7 +379,7 @@ func (s *Server) handlePointsTransactionsGet(ctx context.Context, req *rpcapi.RP
 	if err != nil {
 		return businessError(req.Id, err)
 	}
-	return resultResponse(req.Id, resp, (*rpcapi.RPCResponse_Result).FromServerPointsTransactionGetResponse)
+	return resultResponse(req.Id, resp, (*rpcapi.RPCPayload).FromServerPointsTransactionGetResponse)
 }
 
 func (s *Server) handleBadgeList(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
@@ -387,7 +387,7 @@ func (s *Server) handleBadgeList(ctx context.Context, req *rpcapi.RPCRequest) *r
 	if failure != nil {
 		return failure
 	}
-	params, ok := decodeOptionalParams(req, rpcapi.RPCRequest_Params.AsServerBadgeListRequest)
+	params, ok := decodeOptionalParams(req, rpcapi.RPCPayload.AsServerBadgeListRequest)
 	if !ok {
 		return invalidParams(req.Id)
 	}
@@ -399,7 +399,7 @@ func (s *Server) handleBadgeList(ctx context.Context, req *rpcapi.RPCRequest) *r
 	if err != nil {
 		return businessError(req.Id, err)
 	}
-	return resultResponse(req.Id, resp, (*rpcapi.RPCResponse_Result).FromServerBadgeListResponse)
+	return resultResponse(req.Id, resp, (*rpcapi.RPCPayload).FromServerBadgeListResponse)
 }
 
 func (s *Server) handleBadgeGet(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
@@ -407,7 +407,7 @@ func (s *Server) handleBadgeGet(ctx context.Context, req *rpcapi.RPCRequest) *rp
 	if failure != nil {
 		return failure
 	}
-	params, ok := decodeRequiredParams(req, rpcapi.RPCRequest_Params.AsServerBadgeGetRequest)
+	params, ok := decodeRequiredParams(req, rpcapi.RPCPayload.AsServerBadgeGetRequest)
 	if !ok {
 		return invalidParams(req.Id)
 	}
@@ -415,7 +415,7 @@ func (s *Server) handleBadgeGet(ctx context.Context, req *rpcapi.RPCRequest) *rp
 	if err != nil {
 		return businessError(req.Id, err)
 	}
-	return resultResponse(req.Id, resp, (*rpcapi.RPCResponse_Result).FromServerBadgeGetResponse)
+	return resultResponse(req.Id, resp, (*rpcapi.RPCPayload).FromServerBadgeGetResponse)
 }
 
 func (s *Server) handleGameResultList(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
@@ -423,7 +423,7 @@ func (s *Server) handleGameResultList(ctx context.Context, req *rpcapi.RPCReques
 	if failure != nil {
 		return failure
 	}
-	params, ok := decodeOptionalParams(req, rpcapi.RPCRequest_Params.AsServerGameResultListRequest)
+	params, ok := decodeOptionalParams(req, rpcapi.RPCPayload.AsServerGameResultListRequest)
 	if !ok {
 		return invalidParams(req.Id)
 	}
@@ -435,7 +435,7 @@ func (s *Server) handleGameResultList(ctx context.Context, req *rpcapi.RPCReques
 	if err != nil {
 		return businessError(req.Id, err)
 	}
-	return resultResponse(req.Id, resp, (*rpcapi.RPCResponse_Result).FromServerGameResultListResponse)
+	return resultResponse(req.Id, resp, (*rpcapi.RPCPayload).FromServerGameResultListResponse)
 }
 
 func (s *Server) handleGameResultGet(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
@@ -443,7 +443,7 @@ func (s *Server) handleGameResultGet(ctx context.Context, req *rpcapi.RPCRequest
 	if failure != nil {
 		return failure
 	}
-	params, ok := decodeRequiredParams(req, rpcapi.RPCRequest_Params.AsServerGameResultGetRequest)
+	params, ok := decodeRequiredParams(req, rpcapi.RPCPayload.AsServerGameResultGetRequest)
 	if !ok {
 		return invalidParams(req.Id)
 	}
@@ -451,7 +451,7 @@ func (s *Server) handleGameResultGet(ctx context.Context, req *rpcapi.RPCRequest
 	if err != nil {
 		return businessError(req.Id, err)
 	}
-	return resultResponse(req.Id, resp, (*rpcapi.RPCResponse_Result).FromServerGameResultGetResponse)
+	return resultResponse(req.Id, resp, (*rpcapi.RPCPayload).FromServerGameResultGetResponse)
 }
 
 func (s *Server) handleRewardGrantList(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
@@ -459,7 +459,7 @@ func (s *Server) handleRewardGrantList(ctx context.Context, req *rpcapi.RPCReque
 	if failure != nil {
 		return failure
 	}
-	params, ok := decodeOptionalParams(req, rpcapi.RPCRequest_Params.AsServerRewardGrantListRequest)
+	params, ok := decodeOptionalParams(req, rpcapi.RPCPayload.AsServerRewardGrantListRequest)
 	if !ok {
 		return invalidParams(req.Id)
 	}
@@ -471,7 +471,7 @@ func (s *Server) handleRewardGrantList(ctx context.Context, req *rpcapi.RPCReque
 	if err != nil {
 		return businessError(req.Id, err)
 	}
-	return resultResponse(req.Id, resp, (*rpcapi.RPCResponse_Result).FromServerRewardGrantListResponse)
+	return resultResponse(req.Id, resp, (*rpcapi.RPCPayload).FromServerRewardGrantListResponse)
 }
 
 func (s *Server) handleRewardGrantGet(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
@@ -479,7 +479,7 @@ func (s *Server) handleRewardGrantGet(ctx context.Context, req *rpcapi.RPCReques
 	if failure != nil {
 		return failure
 	}
-	params, ok := decodeRequiredParams(req, rpcapi.RPCRequest_Params.AsServerRewardGrantGetRequest)
+	params, ok := decodeRequiredParams(req, rpcapi.RPCPayload.AsServerRewardGrantGetRequest)
 	if !ok {
 		return invalidParams(req.Id)
 	}
@@ -487,5 +487,5 @@ func (s *Server) handleRewardGrantGet(ctx context.Context, req *rpcapi.RPCReques
 	if err != nil {
 		return businessError(req.Id, err)
 	}
-	return resultResponse(req.Id, resp, (*rpcapi.RPCResponse_Result).FromServerRewardGrantGetResponse)
+	return resultResponse(req.Id, resp, (*rpcapi.RPCPayload).FromServerRewardGrantGetResponse)
 }

@@ -15,18 +15,18 @@ type FirmwareDownloadResult struct {
 }
 
 func (c *rpcClient) ListFirmwares(ctx context.Context, conn net.Conn, id string, request rpcapi.FirmwareListRequest) (*rpcapi.FirmwareListResponse, error) {
-	return callResourceRPC(ctx, conn, id, rpcapi.RPCMethodServerFirmwareList, request, (*rpcapi.RPCRequest_Params).FromFirmwareListRequest, rpcapi.RPCResponse_Result.AsFirmwareListResponse, "firmware list")
+	return callResourceRPC(ctx, conn, id, rpcapi.RPCMethodServerFirmwareList, request, (*rpcapi.RPCPayload).FromFirmwareListRequest, rpcapi.RPCPayload.AsFirmwareListResponse, "firmware list")
 }
 
 func (c *rpcClient) GetFirmware(ctx context.Context, conn net.Conn, id string, request rpcapi.FirmwareGetRequest) (*rpcapi.FirmwareGetResponse, error) {
-	return callResourceRPC(ctx, conn, id, rpcapi.RPCMethodServerFirmwareGet, request, (*rpcapi.RPCRequest_Params).FromFirmwareGetRequest, rpcapi.RPCResponse_Result.AsFirmwareGetResponse, "firmware get")
+	return callResourceRPC(ctx, conn, id, rpcapi.RPCMethodServerFirmwareGet, request, (*rpcapi.RPCPayload).FromFirmwareGetRequest, rpcapi.RPCPayload.AsFirmwareGetResponse, "firmware get")
 }
 
 func (c *rpcClient) DownloadFirmware(ctx context.Context, conn net.Conn, id string, request rpcapi.FirmwareFilesDownloadRequest, out io.Writer) (FirmwareDownloadResult, error) {
 	if out == nil {
 		return FirmwareDownloadResult{}, fmt.Errorf("firmware download output is required")
 	}
-	params, err := newRPCRequestParams(request, (*rpcapi.RPCRequest_Params).FromFirmwareFilesDownloadRequest)
+	params, err := newRPCRequestParams(request, (*rpcapi.RPCPayload).FromFirmwareFilesDownloadRequest)
 	if err != nil {
 		return FirmwareDownloadResult{}, err
 	}

@@ -37,7 +37,7 @@ func (s *rpcServer) handlePetDefPixaDownload(ctx context.Context, stream *rpcStr
 	}
 	defer reader.Close()
 
-	resp, err := newRPCResultResponse(req.Id, metadata, (*rpcapi.RPCResponse_Result).FromPetDefPixaDownloadResponse)
+	resp, err := newRPCResultResponse(req.Id, metadata, (*rpcapi.RPCPayload).FromPetDefPixaDownloadResponse)
 	if err != nil {
 		return err
 	}
@@ -83,7 +83,7 @@ func (s *rpcServer) handleBadgeDefPixaDownload(ctx context.Context, stream *rpcS
 	}
 	defer reader.Close()
 
-	resp, err := newRPCResultResponse(req.Id, metadata, (*rpcapi.RPCResponse_Result).FromBadgeDefPixaDownloadResponse)
+	resp, err := newRPCResultResponse(req.Id, metadata, (*rpcapi.RPCPayload).FromBadgeDefPixaDownloadResponse)
 	if err != nil {
 		return err
 	}

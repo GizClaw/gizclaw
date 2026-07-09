@@ -37,7 +37,7 @@ func TestRPCServerPetDefPixaDownloadStreamsBinary(t *testing.T) {
 	}
 	defer stream.Close()
 
-	params, err := newRPCRequestParams(rpcapi.PetDefPixaDownloadRequest{Id: "petdef-a"}, (*rpcapi.RPCRequest_Params).FromPetDefPixaDownloadRequest)
+	params, err := newRPCRequestParams(rpcapi.PetDefPixaDownloadRequest{Id: "petdef-a"}, (*rpcapi.RPCPayload).FromPetDefPixaDownloadRequest)
 	if err != nil {
 		t.Fatalf("newRPCRequestParams() error = %v", err)
 	}

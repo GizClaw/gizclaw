@@ -8,11 +8,11 @@ import (
 )
 
 func (c *rpcClient) GetClientInfo(ctx context.Context, conn net.Conn, id string) (*rpcapi.ClientGetInfoResponse, error) {
-	params, err := newRPCRequestParams(rpcapi.ClientGetInfoRequest{}, (*rpcapi.RPCRequest_Params).FromClientGetInfoRequest)
+	params, err := newRPCRequestParams(rpcapi.ClientGetInfoRequest{}, (*rpcapi.RPCPayload).FromClientGetInfoRequest)
 	if err != nil {
 		return nil, err
 	}
-	result, err := callRPCResult(ctx, conn, newRPCRequest(id, rpcapi.RPCMethodClientInfoGet, params), rpcapi.RPCResponse_Result.AsClientGetInfoResponse)
+	result, err := callRPCResult(ctx, conn, newRPCRequest(id, rpcapi.RPCMethodClientInfoGet, params), rpcapi.RPCPayload.AsClientGetInfoResponse)
 	if err != nil {
 		return nil, wrapRPCResultError("device info", err)
 	}
@@ -20,11 +20,11 @@ func (c *rpcClient) GetClientInfo(ctx context.Context, conn net.Conn, id string)
 }
 
 func (c *rpcClient) GetClientIdentifiers(ctx context.Context, conn net.Conn, id string) (*rpcapi.ClientGetIdentifiersResponse, error) {
-	params, err := newRPCRequestParams(rpcapi.ClientGetIdentifiersRequest{}, (*rpcapi.RPCRequest_Params).FromClientGetIdentifiersRequest)
+	params, err := newRPCRequestParams(rpcapi.ClientGetIdentifiersRequest{}, (*rpcapi.RPCPayload).FromClientGetIdentifiersRequest)
 	if err != nil {
 		return nil, err
 	}
-	result, err := callRPCResult(ctx, conn, newRPCRequest(id, rpcapi.RPCMethodClientIdentifiersGet, params), rpcapi.RPCResponse_Result.AsClientGetIdentifiersResponse)
+	result, err := callRPCResult(ctx, conn, newRPCRequest(id, rpcapi.RPCMethodClientIdentifiersGet, params), rpcapi.RPCPayload.AsClientGetIdentifiersResponse)
 	if err != nil {
 		return nil, wrapRPCResultError("device identifiers", err)
 	}
@@ -32,7 +32,7 @@ func (c *rpcClient) GetClientIdentifiers(ctx context.Context, conn net.Conn, id 
 }
 
 func (c *rpcClient) handleGetClientInfo(ctx context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
-	if err := validateRPCParams(req.Params, rpcapi.RPCRequest_Params.AsClientGetInfoRequest); err != nil {
+	if err := validateRPCParams(req.Params, rpcapi.RPCPayload.AsClientGetInfoRequest); err != nil {
 		return rpcInvalidParams(req.Id), nil
 	}
 	if err := ctx.Err(); err != nil {
@@ -45,11 +45,11 @@ func (c *rpcClient) handleGetClientInfo(ctx context.Context, req *rpcapi.RPCRequ
 	if err != nil {
 		return nil, err
 	}
-	return newRPCResultResponse(req.Id, result, (*rpcapi.RPCResponse_Result).FromClientGetInfoResponse)
+	return newRPCResultResponse(req.Id, result, (*rpcapi.RPCPayload).FromClientGetInfoResponse)
 }
 
 func (c *rpcClient) handleGetClientIdentifiers(ctx context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
-	if err := validateRPCParams(req.Params, rpcapi.RPCRequest_Params.AsClientGetIdentifiersRequest); err != nil {
+	if err := validateRPCParams(req.Params, rpcapi.RPCPayload.AsClientGetIdentifiersRequest); err != nil {
 		return rpcInvalidParams(req.Id), nil
 	}
 	if err := ctx.Err(); err != nil {
@@ -62,5 +62,5 @@ func (c *rpcClient) handleGetClientIdentifiers(ctx context.Context, req *rpcapi.
 	if err != nil {
 		return nil, err
 	}
-	return newRPCResultResponse(req.Id, result, (*rpcapi.RPCResponse_Result).FromClientGetIdentifiersResponse)
+	return newRPCResultResponse(req.Id, result, (*rpcapi.RPCPayload).FromClientGetIdentifiersResponse)
 }

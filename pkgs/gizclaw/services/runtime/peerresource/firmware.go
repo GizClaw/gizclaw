@@ -18,7 +18,7 @@ func (s *Server) handleFirmwareList(ctx context.Context, req *rpcapi.RPCRequest)
 	if s.Firmwares == nil {
 		return internalError(req.Id, "firmware service not configured")
 	}
-	params, ok := decodeOptionalParams(req, rpcapi.RPCRequest_Params.AsFirmwareListRequest)
+	params, ok := decodeOptionalParams(req, rpcapi.RPCPayload.AsFirmwareListRequest)
 	if !ok {
 		return invalidParams(req.Id)
 	}
@@ -46,11 +46,11 @@ func (s *Server) handleFirmwareList(ctx context.Context, req *rpcapi.RPCRequest)
 		}
 		items = append(items, item)
 	}
-	return resultResponse(req.Id, adminhttp.FirmwareList{Items: items, HasNext: list.HasNext, NextCursor: list.NextCursor}, (*rpcapi.RPCResponse_Result).FromFirmwareListResponse)
+	return resultResponse(req.Id, adminhttp.FirmwareList{Items: items, HasNext: list.HasNext, NextCursor: list.NextCursor}, (*rpcapi.RPCPayload).FromFirmwareListResponse)
 }
 
 func (s *Server) handleFirmwareGet(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
-	params, ok := decodeRequiredParams(req, rpcapi.RPCRequest_Params.AsFirmwareGetRequest)
+	params, ok := decodeRequiredParams(req, rpcapi.RPCPayload.AsFirmwareGetRequest)
 	if !ok {
 		return invalidParams(req.Id)
 	}
@@ -58,11 +58,11 @@ func (s *Server) handleFirmwareGet(ctx context.Context, req *rpcapi.RPCRequest) 
 	if err != nil {
 		return firmwareRPCError(req.Id, err)
 	}
-	return resultResponse(req.Id, item, (*rpcapi.RPCResponse_Result).FromFirmwareGetResponse)
+	return resultResponse(req.Id, item, (*rpcapi.RPCPayload).FromFirmwareGetResponse)
 }
 
 func (s *Server) handleFirmwareDownload(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
-	params, ok := decodeRequiredParams(req, rpcapi.RPCRequest_Params.AsFirmwareFilesDownloadRequest)
+	params, ok := decodeRequiredParams(req, rpcapi.RPCPayload.AsFirmwareFilesDownloadRequest)
 	if !ok {
 		return invalidParams(req.Id)
 	}
@@ -77,7 +77,7 @@ func (s *Server) handleFirmwareDownload(ctx context.Context, req *rpcapi.RPCRequ
 		rpcErr.Message = strings.TrimSpace(rpcErr.Message)
 		return rpcapi.Error{RequestID: req.Id, Code: rpcErr.Code, Message: rpcErr.Message}.RPCResponse()
 	}
-	return resultResponse(req.Id, result, (*rpcapi.RPCResponse_Result).FromFirmwareFilesDownloadResponse)
+	return resultResponse(req.Id, result, (*rpcapi.RPCPayload).FromFirmwareFilesDownloadResponse)
 }
 
 func (s *Server) PrepareFirmwareDownload(ctx context.Context, params rpcapi.FirmwareFilesDownloadRequest) (rpcapi.FirmwareFilesDownloadResponse, io.ReadCloser, *rpcapi.RPCError, error) {

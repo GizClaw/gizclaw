@@ -300,7 +300,7 @@ func (s *Server) handleWorkspaceList(ctx context.Context, req *rpcapi.RPCRequest
 	if s.Workspaces == nil {
 		return internalError(req.Id, "workspace service not configured")
 	}
-	params, ok := decodeOptionalParams(req, rpcapi.RPCRequest_Params.AsWorkspaceListRequest)
+	params, ok := decodeOptionalParams(req, rpcapi.RPCPayload.AsWorkspaceListRequest)
 	if !ok {
 		return invalidParams(req.Id)
 	}
@@ -331,7 +331,7 @@ func (s *Server) handleWorkspaceList(ctx context.Context, req *rpcapi.RPCRequest
 		}
 		items = append(items, item)
 	}
-	return resultResponse(req.Id, adminhttp.WorkspaceList{Items: items, HasNext: list.HasNext, NextCursor: list.NextCursor}, (*rpcapi.RPCResponse_Result).FromWorkspaceListResponse)
+	return resultResponse(req.Id, adminhttp.WorkspaceList{Items: items, HasNext: list.HasNext, NextCursor: list.NextCursor}, (*rpcapi.RPCPayload).FromWorkspaceListResponse)
 }
 
 func (s *Server) handleWorkspaceListByPrefix(ctx context.Context, requestID string, params rpcapi.WorkspaceListRequest) *rpcapi.RPCResponse {
@@ -397,7 +397,7 @@ func (s *Server) handleWorkspaceListByPrefix(ctx context.Context, requestID stri
 		}
 		cursor = *nextCursor
 	}
-	return resultResponse(requestID, adminhttp.WorkspaceList{Items: items, HasNext: hasNext, NextCursor: nextCursor}, (*rpcapi.RPCResponse_Result).FromWorkspaceListResponse)
+	return resultResponse(requestID, adminhttp.WorkspaceList{Items: items, HasNext: hasNext, NextCursor: nextCursor}, (*rpcapi.RPCPayload).FromWorkspaceListResponse)
 }
 
 func (s *Server) getWorkspaceForList(ctx context.Context, requestID, name string) (apitypes.Workspace, *rpcapi.RPCResponse, error) {
@@ -416,7 +416,7 @@ func (s *Server) handleWorkspaceGet(ctx context.Context, req *rpcapi.RPCRequest)
 	if s.Workspaces == nil {
 		return internalError(req.Id, "workspace service not configured")
 	}
-	params, ok := decodeRequiredParams(req, rpcapi.RPCRequest_Params.AsWorkspaceGetRequest)
+	params, ok := decodeRequiredParams(req, rpcapi.RPCPayload.AsWorkspaceGetRequest)
 	if !ok {
 		return invalidParams(req.Id)
 	}
@@ -427,14 +427,14 @@ func (s *Server) handleWorkspaceGet(ctx context.Context, req *rpcapi.RPCRequest)
 	if err != nil {
 		return internalError(req.Id, err.Error())
 	}
-	return adminRPCResponse(req.Id, adminResp.VisitGetWorkspaceResponse, (*rpcapi.RPCResponse_Result).FromWorkspaceGetResponse)
+	return adminRPCResponse(req.Id, adminResp.VisitGetWorkspaceResponse, (*rpcapi.RPCPayload).FromWorkspaceGetResponse)
 }
 
 func (s *Server) handleWorkspaceCreate(ctx context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, bool, error) {
 	if s.Workspaces == nil {
 		return internalError(req.Id, "workspace service not configured"), true, nil
 	}
-	params, ok := decodeRequiredParams(req, rpcapi.RPCRequest_Params.AsWorkspaceCreateRequest)
+	params, ok := decodeRequiredParams(req, rpcapi.RPCPayload.AsWorkspaceCreateRequest)
 	if !ok {
 		return invalidParams(req.Id), true, nil
 	}
@@ -452,14 +452,14 @@ func (s *Server) handleWorkspaceCreate(ctx context.Context, req *rpcapi.RPCReque
 	if err != nil {
 		return internalError(req.Id, err.Error()), true, nil
 	}
-	return adminRPCResponse(req.Id, adminResp.VisitCreateWorkspaceResponse, (*rpcapi.RPCResponse_Result).FromWorkspaceCreateResponse), true, nil
+	return adminRPCResponse(req.Id, adminResp.VisitCreateWorkspaceResponse, (*rpcapi.RPCPayload).FromWorkspaceCreateResponse), true, nil
 }
 
 func (s *Server) handleWorkspacePut(ctx context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, bool, error) {
 	if s.Workspaces == nil {
 		return internalError(req.Id, "workspace service not configured"), true, nil
 	}
-	params, ok := decodeRequiredParams(req, rpcapi.RPCRequest_Params.AsWorkspacePutRequest)
+	params, ok := decodeRequiredParams(req, rpcapi.RPCPayload.AsWorkspacePutRequest)
 	if !ok {
 		return invalidParams(req.Id), true, nil
 	}
@@ -477,14 +477,14 @@ func (s *Server) handleWorkspacePut(ctx context.Context, req *rpcapi.RPCRequest)
 	if err != nil {
 		return internalError(req.Id, err.Error()), true, nil
 	}
-	return adminRPCResponse(req.Id, adminResp.VisitPutWorkspaceResponse, (*rpcapi.RPCResponse_Result).FromWorkspacePutResponse), true, nil
+	return adminRPCResponse(req.Id, adminResp.VisitPutWorkspaceResponse, (*rpcapi.RPCPayload).FromWorkspacePutResponse), true, nil
 }
 
 func (s *Server) handleWorkspaceDelete(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
 	if s.Workspaces == nil {
 		return internalError(req.Id, "workspace service not configured")
 	}
-	params, ok := decodeRequiredParams(req, rpcapi.RPCRequest_Params.AsWorkspaceDeleteRequest)
+	params, ok := decodeRequiredParams(req, rpcapi.RPCPayload.AsWorkspaceDeleteRequest)
 	if !ok {
 		return invalidParams(req.Id)
 	}
@@ -495,7 +495,7 @@ func (s *Server) handleWorkspaceDelete(ctx context.Context, req *rpcapi.RPCReque
 	if err != nil {
 		return internalError(req.Id, err.Error())
 	}
-	return adminRPCResponse(req.Id, adminResp.VisitDeleteWorkspaceResponse, (*rpcapi.RPCResponse_Result).FromWorkspaceDeleteResponse)
+	return adminRPCResponse(req.Id, adminResp.VisitDeleteWorkspaceResponse, (*rpcapi.RPCPayload).FromWorkspaceDeleteResponse)
 }
 
 func (s *Server) handleWorkspaceHistoryList(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
@@ -503,7 +503,7 @@ func (s *Server) handleWorkspaceHistoryList(ctx context.Context, req *rpcapi.RPC
 	if resp != nil {
 		return resp
 	}
-	params, ok := decodeRequiredParams(req, rpcapi.RPCRequest_Params.AsWorkspaceHistoryListRequest)
+	params, ok := decodeRequiredParams(req, rpcapi.RPCPayload.AsWorkspaceHistoryListRequest)
 	if !ok {
 		return invalidParams(req.Id)
 	}
@@ -520,7 +520,7 @@ func (s *Server) handleWorkspaceHistoryList(ctx context.Context, req *rpcapi.RPC
 	if err != nil {
 		return authOrBadRequest(req.Id, err)
 	}
-	return resultResponse(req.Id, list, (*rpcapi.RPCResponse_Result).FromWorkspaceHistoryListResponse)
+	return resultResponse(req.Id, list, (*rpcapi.RPCPayload).FromWorkspaceHistoryListResponse)
 }
 
 func (s *Server) handleWorkspaceHistoryGet(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
@@ -528,7 +528,7 @@ func (s *Server) handleWorkspaceHistoryGet(ctx context.Context, req *rpcapi.RPCR
 	if resp != nil {
 		return resp
 	}
-	params, ok := decodeRequiredParams(req, rpcapi.RPCRequest_Params.AsWorkspaceHistoryGetRequest)
+	params, ok := decodeRequiredParams(req, rpcapi.RPCPayload.AsWorkspaceHistoryGetRequest)
 	if !ok {
 		return invalidParams(req.Id)
 	}
@@ -536,11 +536,11 @@ func (s *Server) handleWorkspaceHistoryGet(ctx context.Context, req *rpcapi.RPCR
 	if err != nil {
 		return authOrBadRequest(req.Id, err)
 	}
-	return resultResponse(req.Id, entry.Public(), (*rpcapi.RPCResponse_Result).FromWorkspaceHistoryGetResponse)
+	return resultResponse(req.Id, entry.Public(), (*rpcapi.RPCPayload).FromWorkspaceHistoryGetResponse)
 }
 
 func (s *Server) handleWorkspaceHistoryAudioGet(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
-	params, ok := decodeRequiredParams(req, rpcapi.RPCRequest_Params.AsWorkspaceHistoryAudioGetRequest)
+	params, ok := decodeRequiredParams(req, rpcapi.RPCPayload.AsWorkspaceHistoryAudioGetRequest)
 	if !ok {
 		return invalidParams(req.Id)
 	}
@@ -554,7 +554,7 @@ func (s *Server) handleWorkspaceHistoryAudioGet(ctx context.Context, req *rpcapi
 	if reader != nil {
 		_ = reader.Close()
 	}
-	return resultResponse(req.Id, respValue, (*rpcapi.RPCResponse_Result).FromWorkspaceHistoryAudioGetResponse)
+	return resultResponse(req.Id, respValue, (*rpcapi.RPCPayload).FromWorkspaceHistoryAudioGetResponse)
 }
 
 func (s *Server) PrepareWorkspaceHistoryAudioGet(ctx context.Context, params rpcapi.WorkspaceHistoryAudioGetRequest) (rpcapi.WorkspaceHistoryAudioGetResponse, io.ReadCloser, *rpcapi.RPCError, error) {
@@ -635,7 +635,7 @@ func (s *Server) handleWorkflowList(ctx context.Context, req *rpcapi.RPCRequest)
 	if s.Workflows == nil {
 		return internalError(req.Id, "workflow service not configured")
 	}
-	params, ok := decodeOptionalParams(req, rpcapi.RPCRequest_Params.AsWorkflowListRequest)
+	params, ok := decodeOptionalParams(req, rpcapi.RPCPayload.AsWorkflowListRequest)
 	if !ok {
 		return invalidParams(req.Id)
 	}
@@ -663,14 +663,14 @@ func (s *Server) handleWorkflowList(ctx context.Context, req *rpcapi.RPCRequest)
 		}
 		items = append(items, item)
 	}
-	return resultResponse(req.Id, adminhttp.WorkflowList{Items: items, HasNext: list.HasNext, NextCursor: list.NextCursor}, (*rpcapi.RPCResponse_Result).FromWorkflowListResponse)
+	return resultResponse(req.Id, adminhttp.WorkflowList{Items: items, HasNext: list.HasNext, NextCursor: list.NextCursor}, (*rpcapi.RPCPayload).FromWorkflowListResponse)
 }
 
 func (s *Server) handleWorkflowGet(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
 	if s.Workflows == nil {
 		return internalError(req.Id, "workflow service not configured")
 	}
-	params, ok := decodeRequiredParams(req, rpcapi.RPCRequest_Params.AsWorkflowGetRequest)
+	params, ok := decodeRequiredParams(req, rpcapi.RPCPayload.AsWorkflowGetRequest)
 	if !ok {
 		return invalidParams(req.Id)
 	}
@@ -681,14 +681,14 @@ func (s *Server) handleWorkflowGet(ctx context.Context, req *rpcapi.RPCRequest) 
 	if err != nil {
 		return internalError(req.Id, err.Error())
 	}
-	return adminRPCResponse(req.Id, adminResp.VisitGetWorkflowResponse, (*rpcapi.RPCResponse_Result).FromWorkflowGetResponse)
+	return adminRPCResponse(req.Id, adminResp.VisitGetWorkflowResponse, (*rpcapi.RPCPayload).FromWorkflowGetResponse)
 }
 
 func (s *Server) handleWorkflowCreate(ctx context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, bool, error) {
 	if s.Workflows == nil {
 		return internalError(req.Id, "workflow service not configured"), true, nil
 	}
-	params, ok := decodeRequiredParams(req, rpcapi.RPCRequest_Params.AsWorkflowCreateRequest)
+	params, ok := decodeRequiredParams(req, rpcapi.RPCPayload.AsWorkflowCreateRequest)
 	if !ok {
 		return invalidParams(req.Id), true, nil
 	}
@@ -703,14 +703,14 @@ func (s *Server) handleWorkflowCreate(ctx context.Context, req *rpcapi.RPCReques
 	if err != nil {
 		return internalError(req.Id, err.Error()), true, nil
 	}
-	return adminRPCResponse(req.Id, adminResp.VisitCreateWorkflowResponse, (*rpcapi.RPCResponse_Result).FromWorkflowCreateResponse), true, nil
+	return adminRPCResponse(req.Id, adminResp.VisitCreateWorkflowResponse, (*rpcapi.RPCPayload).FromWorkflowCreateResponse), true, nil
 }
 
 func (s *Server) handleWorkflowPut(ctx context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, bool, error) {
 	if s.Workflows == nil {
 		return internalError(req.Id, "workflow service not configured"), true, nil
 	}
-	params, ok := decodeRequiredParams(req, rpcapi.RPCRequest_Params.AsWorkflowPutRequest)
+	params, ok := decodeRequiredParams(req, rpcapi.RPCPayload.AsWorkflowPutRequest)
 	if !ok {
 		return invalidParams(req.Id), true, nil
 	}
@@ -725,14 +725,14 @@ func (s *Server) handleWorkflowPut(ctx context.Context, req *rpcapi.RPCRequest) 
 	if err != nil {
 		return internalError(req.Id, err.Error()), true, nil
 	}
-	return adminRPCResponse(req.Id, adminResp.VisitPutWorkflowResponse, (*rpcapi.RPCResponse_Result).FromWorkflowPutResponse), true, nil
+	return adminRPCResponse(req.Id, adminResp.VisitPutWorkflowResponse, (*rpcapi.RPCPayload).FromWorkflowPutResponse), true, nil
 }
 
 func (s *Server) handleWorkflowDelete(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
 	if s.Workflows == nil {
 		return internalError(req.Id, "workflow service not configured")
 	}
-	params, ok := decodeRequiredParams(req, rpcapi.RPCRequest_Params.AsWorkflowDeleteRequest)
+	params, ok := decodeRequiredParams(req, rpcapi.RPCPayload.AsWorkflowDeleteRequest)
 	if !ok {
 		return invalidParams(req.Id)
 	}
@@ -743,11 +743,11 @@ func (s *Server) handleWorkflowDelete(ctx context.Context, req *rpcapi.RPCReques
 	if err != nil {
 		return internalError(req.Id, err.Error())
 	}
-	return adminRPCResponse(req.Id, adminResp.VisitDeleteWorkflowResponse, (*rpcapi.RPCResponse_Result).FromWorkflowDeleteResponse)
+	return adminRPCResponse(req.Id, adminResp.VisitDeleteWorkflowResponse, (*rpcapi.RPCPayload).FromWorkflowDeleteResponse)
 }
 
 func (s *Server) handleModelList(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
-	params, ok := decodeOptionalParams(req, rpcapi.RPCRequest_Params.AsModelListRequest)
+	params, ok := decodeOptionalParams(req, rpcapi.RPCPayload.AsModelListRequest)
 	if !ok {
 		return invalidParams(req.Id)
 	}
@@ -764,14 +764,14 @@ func (s *Server) handleModelList(ctx context.Context, req *rpcapi.RPCRequest) *r
 	if rpcResp != nil {
 		return withRequestID(req.Id, rpcResp)
 	}
-	return resultResponse(req.Id, list, (*rpcapi.RPCResponse_Result).FromModelListResponse)
+	return resultResponse(req.Id, list, (*rpcapi.RPCPayload).FromModelListResponse)
 }
 
 func (s *Server) handleModelGet(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
 	if s.Models == nil {
 		return internalError(req.Id, "model service not configured")
 	}
-	params, ok := decodeRequiredParams(req, rpcapi.RPCRequest_Params.AsModelGetRequest)
+	params, ok := decodeRequiredParams(req, rpcapi.RPCPayload.AsModelGetRequest)
 	if !ok {
 		return invalidParams(req.Id)
 	}
@@ -779,14 +779,14 @@ func (s *Server) handleModelGet(ctx context.Context, req *rpcapi.RPCRequest) *rp
 	if err != nil {
 		return internalError(req.Id, err.Error())
 	}
-	return adminRPCResponse(req.Id, adminResp.VisitGetModelResponse, (*rpcapi.RPCResponse_Result).FromModelGetResponse)
+	return adminRPCResponse(req.Id, adminResp.VisitGetModelResponse, (*rpcapi.RPCPayload).FromModelGetResponse)
 }
 
 func (s *Server) handleModelCreate(ctx context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, bool, error) {
 	if s.Models == nil {
 		return internalError(req.Id, "model service not configured"), true, nil
 	}
-	params, ok := decodeRequiredParams(req, rpcapi.RPCRequest_Params.AsModelCreateRequest)
+	params, ok := decodeRequiredParams(req, rpcapi.RPCPayload.AsModelCreateRequest)
 	if !ok {
 		return invalidParams(req.Id), true, nil
 	}
@@ -801,14 +801,14 @@ func (s *Server) handleModelCreate(ctx context.Context, req *rpcapi.RPCRequest) 
 	if err != nil {
 		return internalError(req.Id, err.Error()), true, nil
 	}
-	return adminRPCResponse(req.Id, adminResp.VisitCreateModelResponse, (*rpcapi.RPCResponse_Result).FromModelCreateResponse), true, nil
+	return adminRPCResponse(req.Id, adminResp.VisitCreateModelResponse, (*rpcapi.RPCPayload).FromModelCreateResponse), true, nil
 }
 
 func (s *Server) handleModelPut(ctx context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, bool, error) {
 	if s.Models == nil {
 		return internalError(req.Id, "model service not configured"), true, nil
 	}
-	params, ok := decodeRequiredParams(req, rpcapi.RPCRequest_Params.AsModelPutRequest)
+	params, ok := decodeRequiredParams(req, rpcapi.RPCPayload.AsModelPutRequest)
 	if !ok {
 		return invalidParams(req.Id), true, nil
 	}
@@ -823,14 +823,14 @@ func (s *Server) handleModelPut(ctx context.Context, req *rpcapi.RPCRequest) (*r
 	if err != nil {
 		return internalError(req.Id, err.Error()), true, nil
 	}
-	return adminRPCResponse(req.Id, adminResp.VisitPutModelResponse, (*rpcapi.RPCResponse_Result).FromModelPutResponse), true, nil
+	return adminRPCResponse(req.Id, adminResp.VisitPutModelResponse, (*rpcapi.RPCPayload).FromModelPutResponse), true, nil
 }
 
 func (s *Server) handleModelDelete(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
 	if s.Models == nil {
 		return internalError(req.Id, "model service not configured")
 	}
-	params, ok := decodeRequiredParams(req, rpcapi.RPCRequest_Params.AsModelDeleteRequest)
+	params, ok := decodeRequiredParams(req, rpcapi.RPCPayload.AsModelDeleteRequest)
 	if !ok {
 		return invalidParams(req.Id)
 	}
@@ -841,14 +841,14 @@ func (s *Server) handleModelDelete(ctx context.Context, req *rpcapi.RPCRequest) 
 	if err != nil {
 		return internalError(req.Id, err.Error())
 	}
-	return adminRPCResponse(req.Id, adminResp.VisitDeleteModelResponse, (*rpcapi.RPCResponse_Result).FromModelDeleteResponse)
+	return adminRPCResponse(req.Id, adminResp.VisitDeleteModelResponse, (*rpcapi.RPCPayload).FromModelDeleteResponse)
 }
 
 func (s *Server) handleVoiceList(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
 	if s.Voices == nil {
 		return internalError(req.Id, "voice service not configured")
 	}
-	params, ok := decodeOptionalParams(req, rpcapi.RPCRequest_Params.AsVoiceListRequest)
+	params, ok := decodeOptionalParams(req, rpcapi.RPCPayload.AsVoiceListRequest)
 	if !ok {
 		return invalidParams(req.Id)
 	}
@@ -865,14 +865,14 @@ func (s *Server) handleVoiceList(ctx context.Context, req *rpcapi.RPCRequest) *r
 	if rpcResp != nil {
 		return withRequestID(req.Id, rpcResp)
 	}
-	return resultResponse(req.Id, list, (*rpcapi.RPCResponse_Result).FromVoiceListResponse)
+	return resultResponse(req.Id, list, (*rpcapi.RPCPayload).FromVoiceListResponse)
 }
 
 func (s *Server) handleVoiceGet(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
 	if s.Voices == nil {
 		return internalError(req.Id, "voice service not configured")
 	}
-	params, ok := decodeRequiredParams(req, rpcapi.RPCRequest_Params.AsVoiceGetRequest)
+	params, ok := decodeRequiredParams(req, rpcapi.RPCPayload.AsVoiceGetRequest)
 	if !ok {
 		return invalidParams(req.Id)
 	}
@@ -880,14 +880,14 @@ func (s *Server) handleVoiceGet(ctx context.Context, req *rpcapi.RPCRequest) *rp
 	if err != nil {
 		return internalError(req.Id, err.Error())
 	}
-	return adminRPCResponse(req.Id, adminResp.VisitGetVoiceResponse, (*rpcapi.RPCResponse_Result).FromVoiceGetResponse)
+	return adminRPCResponse(req.Id, adminResp.VisitGetVoiceResponse, (*rpcapi.RPCPayload).FromVoiceGetResponse)
 }
 
 func (s *Server) handleCredentialList(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
 	if s.Credentials == nil {
 		return internalError(req.Id, "credential service not configured")
 	}
-	params, ok := decodeOptionalParams(req, rpcapi.RPCRequest_Params.AsCredentialListRequest)
+	params, ok := decodeOptionalParams(req, rpcapi.RPCPayload.AsCredentialListRequest)
 	if !ok {
 		return invalidParams(req.Id)
 	}
@@ -915,14 +915,14 @@ func (s *Server) handleCredentialList(ctx context.Context, req *rpcapi.RPCReques
 		}
 		items = append(items, item)
 	}
-	return resultResponse(req.Id, adminhttp.CredentialList{Items: items, HasNext: list.HasNext, NextCursor: list.NextCursor}, (*rpcapi.RPCResponse_Result).FromCredentialListResponse)
+	return resultResponse(req.Id, adminhttp.CredentialList{Items: items, HasNext: list.HasNext, NextCursor: list.NextCursor}, (*rpcapi.RPCPayload).FromCredentialListResponse)
 }
 
 func (s *Server) handleCredentialGet(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
 	if s.Credentials == nil {
 		return internalError(req.Id, "credential service not configured")
 	}
-	params, ok := decodeRequiredParams(req, rpcapi.RPCRequest_Params.AsCredentialGetRequest)
+	params, ok := decodeRequiredParams(req, rpcapi.RPCPayload.AsCredentialGetRequest)
 	if !ok {
 		return invalidParams(req.Id)
 	}
@@ -930,14 +930,14 @@ func (s *Server) handleCredentialGet(ctx context.Context, req *rpcapi.RPCRequest
 	if err != nil {
 		return internalError(req.Id, err.Error())
 	}
-	return adminRPCResponse(req.Id, adminResp.VisitGetCredentialResponse, (*rpcapi.RPCResponse_Result).FromCredentialGetResponse)
+	return adminRPCResponse(req.Id, adminResp.VisitGetCredentialResponse, (*rpcapi.RPCPayload).FromCredentialGetResponse)
 }
 
 func (s *Server) handleCredentialCreate(ctx context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, bool, error) {
 	if s.Credentials == nil {
 		return internalError(req.Id, "credential service not configured"), true, nil
 	}
-	params, ok := decodeRequiredParams(req, rpcapi.RPCRequest_Params.AsCredentialCreateRequest)
+	params, ok := decodeRequiredParams(req, rpcapi.RPCPayload.AsCredentialCreateRequest)
 	if !ok {
 		return invalidParams(req.Id), true, nil
 	}
@@ -952,14 +952,14 @@ func (s *Server) handleCredentialCreate(ctx context.Context, req *rpcapi.RPCRequ
 	if err != nil {
 		return internalError(req.Id, err.Error()), true, nil
 	}
-	return adminRPCResponse(req.Id, adminResp.VisitCreateCredentialResponse, (*rpcapi.RPCResponse_Result).FromCredentialCreateResponse), true, nil
+	return adminRPCResponse(req.Id, adminResp.VisitCreateCredentialResponse, (*rpcapi.RPCPayload).FromCredentialCreateResponse), true, nil
 }
 
 func (s *Server) handleCredentialPut(ctx context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, bool, error) {
 	if s.Credentials == nil {
 		return internalError(req.Id, "credential service not configured"), true, nil
 	}
-	params, ok := decodeRequiredParams(req, rpcapi.RPCRequest_Params.AsCredentialPutRequest)
+	params, ok := decodeRequiredParams(req, rpcapi.RPCPayload.AsCredentialPutRequest)
 	if !ok {
 		return invalidParams(req.Id), true, nil
 	}
@@ -974,14 +974,14 @@ func (s *Server) handleCredentialPut(ctx context.Context, req *rpcapi.RPCRequest
 	if err != nil {
 		return internalError(req.Id, err.Error()), true, nil
 	}
-	return adminRPCResponse(req.Id, adminResp.VisitPutCredentialResponse, (*rpcapi.RPCResponse_Result).FromCredentialPutResponse), true, nil
+	return adminRPCResponse(req.Id, adminResp.VisitPutCredentialResponse, (*rpcapi.RPCPayload).FromCredentialPutResponse), true, nil
 }
 
 func (s *Server) handleCredentialDelete(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
 	if s.Credentials == nil {
 		return internalError(req.Id, "credential service not configured")
 	}
-	params, ok := decodeRequiredParams(req, rpcapi.RPCRequest_Params.AsCredentialDeleteRequest)
+	params, ok := decodeRequiredParams(req, rpcapi.RPCPayload.AsCredentialDeleteRequest)
 	if !ok {
 		return invalidParams(req.Id)
 	}
@@ -992,7 +992,7 @@ func (s *Server) handleCredentialDelete(ctx context.Context, req *rpcapi.RPCRequ
 	if err != nil {
 		return internalError(req.Id, err.Error())
 	}
-	return adminRPCResponse(req.Id, adminResp.VisitDeleteCredentialResponse, (*rpcapi.RPCResponse_Result).FromCredentialDeleteResponse)
+	return adminRPCResponse(req.Id, adminResp.VisitDeleteCredentialResponse, (*rpcapi.RPCPayload).FromCredentialDeleteResponse)
 }
 
 func (s *Server) authorizeResponse(ctx context.Context, requestID string, resource apitypes.ACLResource, permission apitypes.ACLPermission) *rpcapi.RPCResponse {
@@ -1015,7 +1015,7 @@ func (s *Server) authorizeErr(ctx context.Context, resource apitypes.ACLResource
 	return err
 }
 
-func adminRPCResponse[T any](id string, visit func(*fiber.Ctx) error, encode func(*rpcapi.RPCResponse_Result, T) error) *rpcapi.RPCResponse {
+func adminRPCResponse[T any](id string, visit func(*fiber.Ctx) error, encode func(*rpcapi.RPCPayload, T) error) *rpcapi.RPCResponse {
 	result, rpcResp, err := adminResult[T](visit)
 	if err != nil {
 		return internalError(id, err.Error())
@@ -1060,12 +1060,12 @@ func renderAdminResponse(visit func(*fiber.Ctx) error) (int, []byte, error) {
 	return resp.StatusCode, body, nil
 }
 
-func resultResponse[T any](id string, value any, encode func(*rpcapi.RPCResponse_Result, T) error) *rpcapi.RPCResponse {
+func resultResponse[T any](id string, value any, encode func(*rpcapi.RPCPayload, T) error) *rpcapi.RPCResponse {
 	result, err := convertType[T](value)
 	if err != nil {
 		return internalError(id, err.Error())
 	}
-	var body rpcapi.RPCResponse_Result
+	var body rpcapi.RPCPayload
 	if err := encode(&body, result); err != nil {
 		return internalError(id, err.Error())
 	}
@@ -1076,7 +1076,7 @@ func resultResponse[T any](id string, value any, encode func(*rpcapi.RPCResponse
 	}
 }
 
-func decodeRequiredParams[T any](req *rpcapi.RPCRequest, decode func(rpcapi.RPCRequest_Params) (T, error)) (T, bool) {
+func decodeRequiredParams[T any](req *rpcapi.RPCRequest, decode func(rpcapi.RPCPayload) (T, error)) (T, bool) {
 	var zero T
 	if req == nil || req.Params == nil {
 		return zero, false
@@ -1085,7 +1085,7 @@ func decodeRequiredParams[T any](req *rpcapi.RPCRequest, decode func(rpcapi.RPCR
 	return value, err == nil
 }
 
-func decodeOptionalParams[T any](req *rpcapi.RPCRequest, decode func(rpcapi.RPCRequest_Params) (T, error)) (T, bool) {
+func decodeOptionalParams[T any](req *rpcapi.RPCRequest, decode func(rpcapi.RPCPayload) (T, error)) (T, bool) {
 	var zero T
 	if req == nil || req.Params == nil {
 		return zero, true

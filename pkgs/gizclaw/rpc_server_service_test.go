@@ -2,7 +2,6 @@ package gizclaw
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"io"
 	"net"
@@ -239,7 +238,7 @@ func TestRPCServerContextCancelsWhenConnCloses(t *testing.T) {
 		errCh <- server.Handle(serverSide)
 	}()
 
-	params := mustRPCParams(rpcapi.ServerPutInfoRequest{}, (*rpcapi.RPCRequest_Params).FromServerPutInfoRequest)
+	params := mustRPCParams(rpcapi.ServerPutInfoRequest{}, (*rpcapi.RPCPayload).FromServerPutInfoRequest)
 	if err := rpcapi.WriteRequest(clientSide, newRPCRequest("put-info-cancel", rpcapi.RPCMethodServerInfoPut, params)); err != nil {
 		t.Fatalf("WriteRequest() error = %v", err)
 	}
@@ -277,31 +276,31 @@ func TestRPCServerDispatchErrorPaths(t *testing.T) {
 		{
 			name:    "put info internal error",
 			server:  &rpcServer{peer: &fakeRPCPeerService{putInfoError: errors.New("boom")}},
-			request: newRPCRequest("put-400", rpcapi.RPCMethodServerInfoPut, mustRPCParams(rpcapi.ServerPutInfoRequest{}, (*rpcapi.RPCRequest_Params).FromServerPutInfoRequest)),
+			request: newRPCRequest("put-400", rpcapi.RPCMethodServerInfoPut, mustRPCParams(rpcapi.ServerPutInfoRequest{}, (*rpcapi.RPCPayload).FromServerPutInfoRequest)),
 			code:    rpcapi.RPCErrorCodeInternalError,
 		},
 		{
 			name:    "put info not found",
 			server:  &rpcServer{peer: &fakeRPCPeerService{putInfoError: peer.ErrPeerNotFound}},
-			request: newRPCRequest("put-404", rpcapi.RPCMethodServerInfoPut, mustRPCParams(rpcapi.ServerPutInfoRequest{}, (*rpcapi.RPCRequest_Params).FromServerPutInfoRequest)),
+			request: newRPCRequest("put-404", rpcapi.RPCMethodServerInfoPut, mustRPCParams(rpcapi.ServerPutInfoRequest{}, (*rpcapi.RPCPayload).FromServerPutInfoRequest)),
 			code:    404,
 		},
 		{
 			name:    "runtime missing service",
 			server:  &rpcServer{},
-			request: newRPCRequest("runtime", rpcapi.RPCMethodServerRuntimeGet, mustRPCParams(rpcapi.ServerGetRuntimeRequest{}, (*rpcapi.RPCRequest_Params).FromServerGetRuntimeRequest)),
+			request: newRPCRequest("runtime", rpcapi.RPCMethodServerRuntimeGet, mustRPCParams(rpcapi.ServerGetRuntimeRequest{}, (*rpcapi.RPCPayload).FromServerGetRuntimeRequest)),
 			code:    rpcapi.RPCErrorCodeInternalError,
 		},
 		{
 			name:    "run status missing runtime",
 			server:  &rpcServer{},
-			request: newRPCRequest("run-status", rpcapi.RPCMethodServerRunStatus, mustRPCParams(rpcapi.ServerGetRunStatusRequest{}, (*rpcapi.RPCRequest_Params).FromServerGetRunStatusRequest)),
+			request: newRPCRequest("run-status", rpcapi.RPCMethodServerRunStatus, mustRPCParams(rpcapi.ServerGetRunStatusRequest{}, (*rpcapi.RPCPayload).FromServerGetRunStatusRequest)),
 			code:    rpcapi.RPCErrorCodeInternalError,
 		},
 		{
 			name:    "run reload runtime error",
 			server:  &rpcServer{peerRunRuntime: &fakeRPCPeerRunRuntime{err: errors.New("boom")}},
-			request: newRPCRequest("run-reload", rpcapi.RPCMethodServerRunReload, mustRPCParams(rpcapi.ServerReloadRunRequest{}, (*rpcapi.RPCRequest_Params).FromServerReloadRunRequest)),
+			request: newRPCRequest("run-reload", rpcapi.RPCMethodServerRunReload, mustRPCParams(rpcapi.ServerReloadRunRequest{}, (*rpcapi.RPCPayload).FromServerReloadRunRequest)),
 			code:    rpcapi.RPCErrorCodeBadRequest,
 		},
 	} {
@@ -319,17 +318,14 @@ func TestRPCServerDispatchErrorPaths(t *testing.T) {
 	if resp, err := (&rpcServer{peer: &fakeRPCPeerService{}}).dispatch(context.Background(), newRPCRequest("put-missing", rpcapi.RPCMethodServerInfoPut, nil)); err != nil || resp.Error == nil || resp.Error.Message != "missing params" {
 		t.Fatalf("dispatch(put missing params) = %+v, %v", resp, err)
 	}
-	var invalidParamsReq rpcapi.RPCRequest
-	if err := json.Unmarshal([]byte(`{"v":1,"id":"invalid","method":"server.info.get","params":[]}`), &invalidParamsReq); err != nil {
-		t.Fatalf("unmarshal invalid params request: %v", err)
-	}
-	if resp, err := (&rpcServer{peer: &fakeRPCPeerService{}}).dispatch(context.Background(), &invalidParamsReq); err != nil || resp.Error == nil || resp.Error.Code != rpcapi.RPCErrorCodeInvalidParams {
+	invalidParamsReq := newRPCRequest("invalid", rpcapi.RPCMethodServerInfoGet, &rpcapi.RPCPayload{})
+	if resp, err := (&rpcServer{peer: &fakeRPCPeerService{}}).dispatch(context.Background(), invalidParamsReq); err != nil || resp.Error == nil || resp.Error.Code != rpcapi.RPCErrorCodeInvalidParams {
 		t.Fatalf("dispatch(invalid params) = %+v, %v", resp, err)
 	}
 	if resp, err := (&rpcServer{}).dispatch(context.Background(), newRPCRequest("audio", rpcapi.RPCMethodServerRunSay, nil)); err != nil || resp.Error == nil || resp.Error.Code != rpcapi.RPCErrorCodeInvalidParams {
 		t.Fatalf("dispatch(audio missing params) = %+v, %v", resp, err)
 	}
-	if resp, err := (&rpcServer{}).dispatch(context.Background(), newRPCRequest("audio", rpcapi.RPCMethodServerRunSay, mustRPCParams(rpcapi.ServerRunSayRequest{Text: "hello", VoiceId: stringPtr("voice")}, (*rpcapi.RPCRequest_Params).FromServerRunSayRequest))); err != nil || resp.Error == nil || resp.Error.Code != rpcapi.RPCErrorCodeInternalError {
+	if resp, err := (&rpcServer{}).dispatch(context.Background(), newRPCRequest("audio", rpcapi.RPCMethodServerRunSay, mustRPCParams(rpcapi.ServerRunSayRequest{Text: "hello", VoiceId: stringPtr("voice")}, (*rpcapi.RPCPayload).FromServerRunSayRequest))); err != nil || resp.Error == nil || resp.Error.Code != rpcapi.RPCErrorCodeInternalError {
 		t.Fatalf("dispatch(audio missing service) = %+v, %v", resp, err)
 	}
 }
@@ -546,7 +542,7 @@ func boolPtr(value bool) *bool {
 	return &value
 }
 
-func mustRPCParams[T any](value T, encode func(*rpcapi.RPCRequest_Params, T) error) *rpcapi.RPCRequest_Params {
+func mustRPCParams[T any](value T, encode func(*rpcapi.RPCPayload, T) error) *rpcapi.RPCPayload {
 	params, err := newRPCRequestParams(value, encode)
 	if err != nil {
 		panic(err)

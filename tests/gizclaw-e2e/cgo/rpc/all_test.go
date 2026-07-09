@@ -25,8 +25,8 @@ func TestCSDKSpeedTest(t *testing.T) {
 	runCSDKRPC(t, "speed-test", cgointernal.CSDKSpeedTest)
 }
 
-func TestCSDKFirmwareJSON(t *testing.T) {
-	runCSDKRPC(t, "firmware-json", cgointernal.CSDKFirmwareJSON)
+func TestCSDKFirmwareRPC(t *testing.T) {
+	runCSDKRPC(t, "firmware-rpc", cgointernal.CSDKFirmwareRPC)
 }
 
 func TestCSDKFirmwareDownload(t *testing.T) {

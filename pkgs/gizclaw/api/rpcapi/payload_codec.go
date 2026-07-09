@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/oapi-codegen/runtime"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/reflect/protoregistry"
@@ -22,7 +23,7 @@ type decodeRPCPayloadOptions struct {
 	emitDefaults bool
 }
 
-func encodeRPCRequestPayload(method RPCMethod, params *RPCRequest_Params) ([]byte, error) {
+func encodeRPCRequestPayload(method RPCMethod, params *RPCPayload) ([]byte, error) {
 	if params == nil {
 		return nil, nil
 	}
@@ -30,22 +31,18 @@ func encodeRPCRequestPayload(method RPCMethod, params *RPCRequest_Params) ([]byt
 	if !ok {
 		return nil, fmt.Errorf("rpc: request payload schema not found for method %s", method)
 	}
-	return encodeRPCPayloadMessage(messageName, params.union)
+	return params.bytesForMessage(messageName)
 }
 
-func decodeRPCRequestPayload(method RPCMethod, payload []byte) (*RPCRequest_Params, error) {
+func decodeRPCRequestPayload(method RPCMethod, payload []byte) (*RPCPayload, error) {
 	messageName, ok := rpcRequestPayloadMessages[method]
 	if !ok {
 		return nil, fmt.Errorf("rpc: request payload schema not found for method %s", method)
 	}
-	data, err := decodeRPCPayloadMessage(messageName, payload, decodeRPCPayloadOptions{})
-	if err != nil {
-		return nil, err
-	}
-	return &RPCRequest_Params{union: data}, nil
+	return newRPCPayload(messageName, payload, false), nil
 }
 
-func encodeRPCResponsePayload(method RPCMethod, result *RPCResponse_Result) ([]byte, error) {
+func encodeRPCResponsePayload(method RPCMethod, result *RPCPayload) ([]byte, error) {
 	if result == nil {
 		return nil, nil
 	}
@@ -53,36 +50,95 @@ func encodeRPCResponsePayload(method RPCMethod, result *RPCResponse_Result) ([]b
 	if !ok {
 		return nil, fmt.Errorf("rpc: response payload schema not found for method %s", method)
 	}
-	return encodeRPCPayloadMessage(messageName, result.union)
+	return result.bytesForMessage(messageName)
 }
 
-func decodeRPCResponsePayload(method RPCMethod, payload []byte) (*RPCResponse_Result, error) {
+func decodeRPCResponsePayload(method RPCMethod, payload []byte) (*RPCPayload, error) {
 	messageName, ok := rpcResponsePayloadMessages[method]
 	if !ok {
 		return nil, fmt.Errorf("rpc: response payload schema not found for method %s", method)
 	}
-	data, err := decodeRPCPayloadMessage(messageName, payload, decodeRPCPayloadOptions{emitDefaults: true})
-	if err != nil {
-		return nil, err
-	}
-	return &RPCResponse_Result{union: data}, nil
+	return newRPCPayload(messageName, payload, true), nil
 }
 
-// EncodeRPCRequestPayloadJSON converts JSON-shaped request params into the
-// method-specific protobuf payload used on the Peer RPC wire.
-func EncodeRPCRequestPayloadJSON(method RPCMethod, jsonPayload []byte) ([]byte, error) {
-	params := &RPCRequest_Params{union: append([]byte(nil), jsonPayload...)}
-	return encodeRPCRequestPayload(method, params)
+func newRPCPayload(messageName string, payload []byte, emitDefaults bool) *RPCPayload {
+	return &RPCPayload{
+		payload:      append([]byte(nil), payload...),
+		messageName:  messageName,
+		emitDefaults: emitDefaults,
+	}
 }
 
-// DecodeRPCResponsePayloadJSON converts a method-specific protobuf response
-// payload into the JSON-shaped result used by test and CLI harnesses.
-func DecodeRPCResponsePayloadJSON(method RPCMethod, payload []byte) ([]byte, error) {
-	result, err := decodeRPCResponsePayload(method, payload)
-	if err != nil {
-		return nil, err
+func (t RPCPayload) bytesForMessage(messageName string) ([]byte, error) {
+	if t.messageName == "" {
+		return nil, fmt.Errorf("rpc: payload message name is required")
 	}
-	return result.MarshalJSON()
+	if t.messageName != "" && t.messageName != messageName {
+		return nil, fmt.Errorf("rpc: payload contains %s, want %s", t.messageName, messageName)
+	}
+	return append([]byte(nil), t.payload...), nil
+}
+
+func (t *RPCPayload) encode(messageName string, value any) error {
+	data, err := json.Marshal(value)
+	if err != nil {
+		return err
+	}
+	payload, err := encodeRPCPayloadMessage(messageName, data)
+	if err != nil {
+		return err
+	}
+	t.payload = payload
+	t.messageName = messageName
+	t.emitDefaults = false
+	return nil
+}
+
+func (t RPCPayload) decode(messageName string, out any) error {
+	if t.messageName == "" {
+		return fmt.Errorf("rpc: payload message name is required")
+	}
+	if t.messageName != "" && t.messageName != messageName {
+		return fmt.Errorf("rpc: payload contains %s, want %s", t.messageName, messageName)
+	}
+	data, err := decodeRPCPayloadMessage(messageName, t.payload, decodeRPCPayloadOptions{emitDefaults: t.emitDefaults})
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(data, out)
+}
+
+func (t *RPCPayload) merge(messageName string, value any) error {
+	data, err := json.Marshal(value)
+	if err != nil {
+		return err
+	}
+	base, err := decodeRPCPayloadMessage(messageName, t.payload, decodeRPCPayloadOptions{emitDefaults: t.emitDefaults})
+	if err != nil {
+		return err
+	}
+	merged, err := runtime.JSONMerge(base, data)
+	if err != nil {
+		return err
+	}
+	payload, err := encodeRPCPayloadMessage(messageName, merged)
+	if err != nil {
+		return err
+	}
+	t.payload = payload
+	t.messageName = messageName
+	return nil
+}
+
+func (t RPCPayload) MarshalJSON() ([]byte, error) {
+	if t.messageName == "" {
+		return nil, fmt.Errorf("rpc: payload message name is required")
+	}
+	return decodeRPCPayloadMessage(t.messageName, t.payload, decodeRPCPayloadOptions{emitDefaults: t.emitDefaults})
+}
+
+func (t *RPCPayload) UnmarshalJSON([]byte) error {
+	return fmt.Errorf("rpc: protobuf payload cannot be decoded without method metadata")
 }
 
 func encodeRPCPayloadMessage(messageName string, jsonPayload []byte) ([]byte, error) {

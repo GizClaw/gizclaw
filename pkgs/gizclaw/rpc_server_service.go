@@ -14,7 +14,7 @@ import (
 )
 
 func (s *rpcServer) handleGetInfo(ctx context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
-	if err := validateRPCParams(req.Params, rpcapi.RPCRequest_Params.AsServerGetInfoRequest); err != nil {
+	if err := validateRPCParams(req.Params, rpcapi.RPCPayload.AsServerGetInfoRequest); err != nil {
 		return rpcInvalidParams(req.Id), nil
 	}
 	if s.peer == nil {
@@ -31,7 +31,7 @@ func (s *rpcServer) handleGetInfo(ctx context.Context, req *rpcapi.RPCRequest) (
 	if err != nil {
 		return nil, err
 	}
-	return newRPCResultResponse(req.Id, result, (*rpcapi.RPCResponse_Result).FromServerGetInfoResponse)
+	return newRPCResultResponse(req.Id, result, (*rpcapi.RPCPayload).FromServerGetInfoResponse)
 }
 
 func (s *rpcServer) handlePutInfo(ctx context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
@@ -60,11 +60,11 @@ func (s *rpcServer) handlePutInfo(ctx context.Context, req *rpcapi.RPCRequest) (
 	if err != nil {
 		return nil, err
 	}
-	return newRPCResultResponse(req.Id, result, (*rpcapi.RPCResponse_Result).FromServerPutInfoResponse)
+	return newRPCResultResponse(req.Id, result, (*rpcapi.RPCPayload).FromServerPutInfoResponse)
 }
 
 func (s *rpcServer) handleGetRuntime(ctx context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
-	if err := validateRPCParams(req.Params, rpcapi.RPCRequest_Params.AsServerGetRuntimeRequest); err != nil {
+	if err := validateRPCParams(req.Params, rpcapi.RPCPayload.AsServerGetRuntimeRequest); err != nil {
 		return rpcInvalidParams(req.Id), nil
 	}
 	if s.peer == nil {
@@ -74,11 +74,11 @@ func (s *rpcServer) handleGetRuntime(ctx context.Context, req *rpcapi.RPCRequest
 	if err != nil {
 		return nil, err
 	}
-	return newRPCResultResponse(req.Id, result, (*rpcapi.RPCResponse_Result).FromServerGetRuntimeResponse)
+	return newRPCResultResponse(req.Id, result, (*rpcapi.RPCPayload).FromServerGetRuntimeResponse)
 }
 
 func (s *rpcServer) handleGetStatus(ctx context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
-	if err := validateRPCParams(req.Params, rpcapi.RPCRequest_Params.AsServerGetStatusRequest); err != nil {
+	if err := validateRPCParams(req.Params, rpcapi.RPCPayload.AsServerGetStatusRequest); err != nil {
 		return rpcInvalidParams(req.Id), nil
 	}
 	if s.peerRun == nil {
@@ -92,11 +92,11 @@ func (s *rpcServer) handleGetStatus(ctx context.Context, req *rpcapi.RPCRequest)
 	if err != nil {
 		return nil, err
 	}
-	return newRPCResultResponse(req.Id, result, (*rpcapi.RPCResponse_Result).FromServerGetStatusResponse)
+	return newRPCResultResponse(req.Id, result, (*rpcapi.RPCPayload).FromServerGetStatusResponse)
 }
 
 func (s *rpcServer) handleGetRunAgent(ctx context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
-	if err := validateRPCParams(req.Params, rpcapi.RPCRequest_Params.AsServerGetRunAgentRequest); err != nil {
+	if err := validateRPCParams(req.Params, rpcapi.RPCPayload.AsServerGetRunAgentRequest); err != nil {
 		return rpcInvalidParams(req.Id), nil
 	}
 	if s.peerRun == nil {
@@ -110,7 +110,7 @@ func (s *rpcServer) handleGetRunAgent(ctx context.Context, req *rpcapi.RPCReques
 	if err != nil {
 		return nil, err
 	}
-	return newRPCResultResponse(req.Id, result, (*rpcapi.RPCResponse_Result).FromServerGetRunAgentResponse)
+	return newRPCResultResponse(req.Id, result, (*rpcapi.RPCPayload).FromServerGetRunAgentResponse)
 }
 
 func (s *rpcServer) handleSetRunAgent(ctx context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
@@ -136,11 +136,11 @@ func (s *rpcServer) handleSetRunAgent(ctx context.Context, req *rpcapi.RPCReques
 	if err != nil {
 		return nil, err
 	}
-	return newRPCResultResponse(req.Id, result, (*rpcapi.RPCResponse_Result).FromServerSetRunAgentResponse)
+	return newRPCResultResponse(req.Id, result, (*rpcapi.RPCPayload).FromServerSetRunAgentResponse)
 }
 
 func (s *rpcServer) handleGetRunWorkspace(ctx context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
-	if err := validateRPCParams(req.Params, rpcapi.RPCRequest_Params.AsServerGetRunWorkspaceRequest); err != nil {
+	if err := validateRPCParams(req.Params, rpcapi.RPCPayload.AsServerGetRunWorkspaceRequest); err != nil {
 		return rpcInvalidParams(req.Id), nil
 	}
 	state, resp := s.runWorkspaceState(ctx, req.Id, nil, nil)
@@ -151,7 +151,7 @@ func (s *rpcServer) handleGetRunWorkspace(ctx context.Context, req *rpcapi.RPCRe
 	if err != nil {
 		return nil, err
 	}
-	return newRPCResultResponse(req.Id, result, (*rpcapi.RPCResponse_Result).FromServerGetRunWorkspaceResponse)
+	return newRPCResultResponse(req.Id, result, (*rpcapi.RPCPayload).FromServerGetRunWorkspaceResponse)
 }
 
 func (s *rpcServer) handleSetRunWorkspace(ctx context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
@@ -181,11 +181,11 @@ func (s *rpcServer) handleSetRunWorkspace(ctx context.Context, req *rpcapi.RPCRe
 	if err != nil {
 		return nil, err
 	}
-	return newRPCResultResponse(req.Id, result, (*rpcapi.RPCResponse_Result).FromServerSetRunWorkspaceResponse)
+	return newRPCResultResponse(req.Id, result, (*rpcapi.RPCPayload).FromServerSetRunWorkspaceResponse)
 }
 
 func (s *rpcServer) handleReloadRunWorkspace(ctx context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
-	if err := validateRPCParams(req.Params, rpcapi.RPCRequest_Params.AsServerReloadRunWorkspaceRequest); err != nil {
+	if err := validateRPCParams(req.Params, rpcapi.RPCPayload.AsServerReloadRunWorkspaceRequest); err != nil {
 		return rpcInvalidParams(req.Id), nil
 	}
 	if s.peerRunRuntime == nil {
@@ -203,7 +203,7 @@ func (s *rpcServer) handleReloadRunWorkspace(ctx context.Context, req *rpcapi.RP
 	if err != nil {
 		return nil, err
 	}
-	return newRPCResultResponse(req.Id, result, (*rpcapi.RPCResponse_Result).FromServerReloadRunWorkspaceResponse)
+	return newRPCResultResponse(req.Id, result, (*rpcapi.RPCPayload).FromServerReloadRunWorkspaceResponse)
 }
 
 func (s *rpcServer) handleListRunWorkspaceHistory(ctx context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
@@ -229,7 +229,7 @@ func (s *rpcServer) handleListRunWorkspaceHistory(ctx context.Context, req *rpca
 	if err != nil {
 		return nil, err
 	}
-	return newRPCResultResponse(req.Id, result, (*rpcapi.RPCResponse_Result).FromServerListRunWorkspaceHistoryResponse)
+	return newRPCResultResponse(req.Id, result, (*rpcapi.RPCPayload).FromServerListRunWorkspaceHistoryResponse)
 }
 
 func (s *rpcServer) handlePlayRunWorkspaceHistory(ctx context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
@@ -255,7 +255,7 @@ func (s *rpcServer) handlePlayRunWorkspaceHistory(ctx context.Context, req *rpca
 	if err != nil {
 		return nil, err
 	}
-	return newRPCResultResponse(req.Id, result, (*rpcapi.RPCResponse_Result).FromServerPlayRunWorkspaceHistoryResponse)
+	return newRPCResultResponse(req.Id, result, (*rpcapi.RPCPayload).FromServerPlayRunWorkspaceHistoryResponse)
 }
 
 func (s *rpcServer) handleGetRunWorkspaceMemoryStats(ctx context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
@@ -281,7 +281,7 @@ func (s *rpcServer) handleGetRunWorkspaceMemoryStats(ctx context.Context, req *r
 	if err != nil {
 		return nil, err
 	}
-	return newRPCResultResponse(req.Id, result, (*rpcapi.RPCResponse_Result).FromServerGetRunWorkspaceMemoryStatsResponse)
+	return newRPCResultResponse(req.Id, result, (*rpcapi.RPCPayload).FromServerGetRunWorkspaceMemoryStatsResponse)
 }
 
 func (s *rpcServer) handleRunWorkspaceRecall(ctx context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
@@ -307,7 +307,7 @@ func (s *rpcServer) handleRunWorkspaceRecall(ctx context.Context, req *rpcapi.RP
 	if err != nil {
 		return nil, err
 	}
-	return newRPCResultResponse(req.Id, result, (*rpcapi.RPCResponse_Result).FromServerRunWorkspaceRecallResponse)
+	return newRPCResultResponse(req.Id, result, (*rpcapi.RPCPayload).FromServerRunWorkspaceRecallResponse)
 }
 
 func (s *rpcServer) runWorkspaceState(ctx context.Context, requestID string, agent *apitypes.PeerRunAgent, status *apitypes.PeerRunStatus) (apitypes.PeerRunWorkspaceState, *rpcapi.RPCResponse) {
@@ -396,7 +396,7 @@ func mergeRunWorkspaceStatus(state *apitypes.PeerRunWorkspaceState, status apity
 }
 
 func (s *rpcServer) handleReloadRun(ctx context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
-	if err := validateRPCParams(req.Params, rpcapi.RPCRequest_Params.AsServerReloadRunRequest); err != nil {
+	if err := validateRPCParams(req.Params, rpcapi.RPCPayload.AsServerReloadRunRequest); err != nil {
 		return rpcInvalidParams(req.Id), nil
 	}
 	if s.peerRunRuntime == nil {
@@ -410,7 +410,7 @@ func (s *rpcServer) handleReloadRun(ctx context.Context, req *rpcapi.RPCRequest)
 	if err != nil {
 		return nil, err
 	}
-	return newRPCResultResponse(req.Id, result, (*rpcapi.RPCResponse_Result).FromServerReloadRunResponse)
+	return newRPCResultResponse(req.Id, result, (*rpcapi.RPCPayload).FromServerReloadRunResponse)
 }
 
 func (s *rpcServer) handleGetRunStatus(ctx context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
@@ -431,11 +431,11 @@ func (s *rpcServer) handleGetRunStatus(ctx context.Context, req *rpcapi.RPCReque
 	if err != nil {
 		return nil, err
 	}
-	return newRPCResultResponse(req.Id, result, (*rpcapi.RPCResponse_Result).FromServerGetRunStatusResponse)
+	return newRPCResultResponse(req.Id, result, (*rpcapi.RPCPayload).FromServerGetRunStatusResponse)
 }
 
 func (s *rpcServer) handleStopRun(ctx context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
-	if err := validateRPCParams(req.Params, rpcapi.RPCRequest_Params.AsServerStopRunRequest); err != nil {
+	if err := validateRPCParams(req.Params, rpcapi.RPCPayload.AsServerStopRunRequest); err != nil {
 		return rpcInvalidParams(req.Id), nil
 	}
 	if s.peerRunRuntime == nil {
@@ -449,7 +449,7 @@ func (s *rpcServer) handleStopRun(ctx context.Context, req *rpcapi.RPCRequest) (
 	if err != nil {
 		return nil, err
 	}
-	return newRPCResultResponse(req.Id, result, (*rpcapi.RPCResponse_Result).FromServerStopRunResponse)
+	return newRPCResultResponse(req.Id, result, (*rpcapi.RPCPayload).FromServerStopRunResponse)
 }
 
 func (s *rpcServer) handleServerRunSay(ctx context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
@@ -482,7 +482,7 @@ func (s *rpcServer) handleServerRunSay(ctx context.Context, req *rpcapi.RPCReque
 		}
 	}
 	result := rpcapi.ServerRunSayResponse{Accepted: resp.Accepted}
-	return newRPCResultResponse(req.Id, result, (*rpcapi.RPCResponse_Result).FromServerRunSayResponse)
+	return newRPCResultResponse(req.Id, result, (*rpcapi.RPCPayload).FromServerRunSayResponse)
 }
 
 func stringPtrValue(value *string) string {

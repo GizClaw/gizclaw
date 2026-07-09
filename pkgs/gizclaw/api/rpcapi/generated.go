@@ -2462,28 +2462,25 @@ type RPCMethod string
 
 // RPCRequest defines model for RPCRequest.
 type RPCRequest struct {
-	Id     string             `json:"id"`
-	Method RPCMethod          `json:"method"`
-	Params *RPCRequest_Params `json:"params,omitempty"`
-	V      RPCVersion         `json:"v"`
+	Id     string      `json:"id"`
+	Method RPCMethod   `json:"method"`
+	Params *RPCPayload `json:"params,omitempty"`
+	V      RPCVersion  `json:"v"`
 }
 
-// RPCRequest_Params defines model for RPCRequest.Params.
-type RPCRequest_Params struct {
-	union json.RawMessage
+// RPCPayload defines a method-specific protobuf RPC payload.
+type RPCPayload struct {
+	payload      []byte
+	messageName  string
+	emitDefaults bool
 }
 
 // RPCResponse defines model for RPCResponse.
 type RPCResponse struct {
-	Error  *RPCError           `json:"error,omitempty"`
-	Id     string              `json:"id"`
-	Result *RPCResponse_Result `json:"result,omitempty"`
-	V      RPCVersion          `json:"v"`
-}
-
-// RPCResponse_Result defines model for RPCResponse.Result.
-type RPCResponse_Result struct {
-	union json.RawMessage
+	Error  *RPCError   `json:"error,omitempty"`
+	Id     string      `json:"id"`
+	Result *RPCPayload `json:"result,omitempty"`
+	V      RPCVersion  `json:"v"`
 }
 
 // RPCVersion defines model for RPCVersion.
@@ -3345,4912 +3342,3200 @@ func (t *ModelProviderData) UnmarshalJSON(b []byte) error {
 	return err
 }
 
-// AsPingRequest returns the union data inside the RPCRequest_Params as a PingRequest
-func (t RPCRequest_Params) AsPingRequest() (PingRequest, error) {
+// AsPingRequest decodes the RPCPayload as a PingRequest
+func (t RPCPayload) AsPingRequest() (PingRequest, error) {
 	var body PingRequest
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("PingRequest", &body)
 	return body, err
 }
 
-// FromPingRequest overwrites any union data inside the RPCRequest_Params as the provided PingRequest
-func (t *RPCRequest_Params) FromPingRequest(v PingRequest) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromPingRequest overwrites any protobuf payload as the provided PingRequest
+func (t *RPCPayload) FromPingRequest(v PingRequest) error {
+	return t.encode("PingRequest", v)
 }
 
-// MergePingRequest performs a merge with any union data inside the RPCRequest_Params, using the provided PingRequest
-func (t *RPCRequest_Params) MergePingRequest(v PingRequest) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergePingRequest performs a merge with any protobuf payload, using the provided PingRequest
+func (t *RPCPayload) MergePingRequest(v PingRequest) error {
+	return t.merge("PingRequest", v)
 }
 
-// AsSpeedTestRequest returns the union data inside the RPCRequest_Params as a SpeedTestRequest
-func (t RPCRequest_Params) AsSpeedTestRequest() (SpeedTestRequest, error) {
+// AsSpeedTestRequest decodes the RPCPayload as a SpeedTestRequest
+func (t RPCPayload) AsSpeedTestRequest() (SpeedTestRequest, error) {
 	var body SpeedTestRequest
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("SpeedTestRequest", &body)
 	return body, err
 }
 
-// FromSpeedTestRequest overwrites any union data inside the RPCRequest_Params as the provided SpeedTestRequest
-func (t *RPCRequest_Params) FromSpeedTestRequest(v SpeedTestRequest) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromSpeedTestRequest overwrites any protobuf payload as the provided SpeedTestRequest
+func (t *RPCPayload) FromSpeedTestRequest(v SpeedTestRequest) error {
+	return t.encode("SpeedTestRequest", v)
 }
 
-// MergeSpeedTestRequest performs a merge with any union data inside the RPCRequest_Params, using the provided SpeedTestRequest
-func (t *RPCRequest_Params) MergeSpeedTestRequest(v SpeedTestRequest) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeSpeedTestRequest performs a merge with any protobuf payload, using the provided SpeedTestRequest
+func (t *RPCPayload) MergeSpeedTestRequest(v SpeedTestRequest) error {
+	return t.merge("SpeedTestRequest", v)
 }
 
-// AsClientGetInfoRequest returns the union data inside the RPCRequest_Params as a ClientGetInfoRequest
-func (t RPCRequest_Params) AsClientGetInfoRequest() (ClientGetInfoRequest, error) {
+// AsClientGetInfoRequest decodes the RPCPayload as a ClientGetInfoRequest
+func (t RPCPayload) AsClientGetInfoRequest() (ClientGetInfoRequest, error) {
 	var body ClientGetInfoRequest
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("ClientGetInfoRequest", &body)
 	return body, err
 }
 
-// FromClientGetInfoRequest overwrites any union data inside the RPCRequest_Params as the provided ClientGetInfoRequest
-func (t *RPCRequest_Params) FromClientGetInfoRequest(v ClientGetInfoRequest) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromClientGetInfoRequest overwrites any protobuf payload as the provided ClientGetInfoRequest
+func (t *RPCPayload) FromClientGetInfoRequest(v ClientGetInfoRequest) error {
+	return t.encode("ClientGetInfoRequest", v)
 }
 
-// MergeClientGetInfoRequest performs a merge with any union data inside the RPCRequest_Params, using the provided ClientGetInfoRequest
-func (t *RPCRequest_Params) MergeClientGetInfoRequest(v ClientGetInfoRequest) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeClientGetInfoRequest performs a merge with any protobuf payload, using the provided ClientGetInfoRequest
+func (t *RPCPayload) MergeClientGetInfoRequest(v ClientGetInfoRequest) error {
+	return t.merge("ClientGetInfoRequest", v)
 }
 
-// AsClientGetIdentifiersRequest returns the union data inside the RPCRequest_Params as a ClientGetIdentifiersRequest
-func (t RPCRequest_Params) AsClientGetIdentifiersRequest() (ClientGetIdentifiersRequest, error) {
+// AsClientGetIdentifiersRequest decodes the RPCPayload as a ClientGetIdentifiersRequest
+func (t RPCPayload) AsClientGetIdentifiersRequest() (ClientGetIdentifiersRequest, error) {
 	var body ClientGetIdentifiersRequest
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("ClientGetIdentifiersRequest", &body)
 	return body, err
 }
 
-// FromClientGetIdentifiersRequest overwrites any union data inside the RPCRequest_Params as the provided ClientGetIdentifiersRequest
-func (t *RPCRequest_Params) FromClientGetIdentifiersRequest(v ClientGetIdentifiersRequest) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromClientGetIdentifiersRequest overwrites any protobuf payload as the provided ClientGetIdentifiersRequest
+func (t *RPCPayload) FromClientGetIdentifiersRequest(v ClientGetIdentifiersRequest) error {
+	return t.encode("ClientGetIdentifiersRequest", v)
 }
 
-// MergeClientGetIdentifiersRequest performs a merge with any union data inside the RPCRequest_Params, using the provided ClientGetIdentifiersRequest
-func (t *RPCRequest_Params) MergeClientGetIdentifiersRequest(v ClientGetIdentifiersRequest) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeClientGetIdentifiersRequest performs a merge with any protobuf payload, using the provided ClientGetIdentifiersRequest
+func (t *RPCPayload) MergeClientGetIdentifiersRequest(v ClientGetIdentifiersRequest) error {
+	return t.merge("ClientGetIdentifiersRequest", v)
 }
 
-// AsServerGetInfoRequest returns the union data inside the RPCRequest_Params as a ServerGetInfoRequest
-func (t RPCRequest_Params) AsServerGetInfoRequest() (ServerGetInfoRequest, error) {
+// AsServerGetInfoRequest decodes the RPCPayload as a ServerGetInfoRequest
+func (t RPCPayload) AsServerGetInfoRequest() (ServerGetInfoRequest, error) {
 	var body ServerGetInfoRequest
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("ServerGetInfoRequest", &body)
 	return body, err
 }
 
-// FromServerGetInfoRequest overwrites any union data inside the RPCRequest_Params as the provided ServerGetInfoRequest
-func (t *RPCRequest_Params) FromServerGetInfoRequest(v ServerGetInfoRequest) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromServerGetInfoRequest overwrites any protobuf payload as the provided ServerGetInfoRequest
+func (t *RPCPayload) FromServerGetInfoRequest(v ServerGetInfoRequest) error {
+	return t.encode("ServerGetInfoRequest", v)
 }
 
-// MergeServerGetInfoRequest performs a merge with any union data inside the RPCRequest_Params, using the provided ServerGetInfoRequest
-func (t *RPCRequest_Params) MergeServerGetInfoRequest(v ServerGetInfoRequest) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeServerGetInfoRequest performs a merge with any protobuf payload, using the provided ServerGetInfoRequest
+func (t *RPCPayload) MergeServerGetInfoRequest(v ServerGetInfoRequest) error {
+	return t.merge("ServerGetInfoRequest", v)
 }
 
-// AsServerPutInfoRequest returns the union data inside the RPCRequest_Params as a ServerPutInfoRequest
-func (t RPCRequest_Params) AsServerPutInfoRequest() (ServerPutInfoRequest, error) {
+// AsServerPutInfoRequest decodes the RPCPayload as a ServerPutInfoRequest
+func (t RPCPayload) AsServerPutInfoRequest() (ServerPutInfoRequest, error) {
 	var body ServerPutInfoRequest
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("ServerPutInfoRequest", &body)
 	return body, err
 }
 
-// FromServerPutInfoRequest overwrites any union data inside the RPCRequest_Params as the provided ServerPutInfoRequest
-func (t *RPCRequest_Params) FromServerPutInfoRequest(v ServerPutInfoRequest) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromServerPutInfoRequest overwrites any protobuf payload as the provided ServerPutInfoRequest
+func (t *RPCPayload) FromServerPutInfoRequest(v ServerPutInfoRequest) error {
+	return t.encode("ServerPutInfoRequest", v)
 }
 
-// MergeServerPutInfoRequest performs a merge with any union data inside the RPCRequest_Params, using the provided ServerPutInfoRequest
-func (t *RPCRequest_Params) MergeServerPutInfoRequest(v ServerPutInfoRequest) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeServerPutInfoRequest performs a merge with any protobuf payload, using the provided ServerPutInfoRequest
+func (t *RPCPayload) MergeServerPutInfoRequest(v ServerPutInfoRequest) error {
+	return t.merge("ServerPutInfoRequest", v)
 }
 
-// AsServerGetRuntimeRequest returns the union data inside the RPCRequest_Params as a ServerGetRuntimeRequest
-func (t RPCRequest_Params) AsServerGetRuntimeRequest() (ServerGetRuntimeRequest, error) {
+// AsServerGetRuntimeRequest decodes the RPCPayload as a ServerGetRuntimeRequest
+func (t RPCPayload) AsServerGetRuntimeRequest() (ServerGetRuntimeRequest, error) {
 	var body ServerGetRuntimeRequest
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("ServerGetRuntimeRequest", &body)
 	return body, err
 }
 
-// FromServerGetRuntimeRequest overwrites any union data inside the RPCRequest_Params as the provided ServerGetRuntimeRequest
-func (t *RPCRequest_Params) FromServerGetRuntimeRequest(v ServerGetRuntimeRequest) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromServerGetRuntimeRequest overwrites any protobuf payload as the provided ServerGetRuntimeRequest
+func (t *RPCPayload) FromServerGetRuntimeRequest(v ServerGetRuntimeRequest) error {
+	return t.encode("ServerGetRuntimeRequest", v)
 }
 
-// MergeServerGetRuntimeRequest performs a merge with any union data inside the RPCRequest_Params, using the provided ServerGetRuntimeRequest
-func (t *RPCRequest_Params) MergeServerGetRuntimeRequest(v ServerGetRuntimeRequest) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeServerGetRuntimeRequest performs a merge with any protobuf payload, using the provided ServerGetRuntimeRequest
+func (t *RPCPayload) MergeServerGetRuntimeRequest(v ServerGetRuntimeRequest) error {
+	return t.merge("ServerGetRuntimeRequest", v)
 }
 
-// AsServerGetStatusRequest returns the union data inside the RPCRequest_Params as a ServerGetStatusRequest
-func (t RPCRequest_Params) AsServerGetStatusRequest() (ServerGetStatusRequest, error) {
+// AsServerGetStatusRequest decodes the RPCPayload as a ServerGetStatusRequest
+func (t RPCPayload) AsServerGetStatusRequest() (ServerGetStatusRequest, error) {
 	var body ServerGetStatusRequest
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("ServerGetStatusRequest", &body)
 	return body, err
 }
 
-// FromServerGetStatusRequest overwrites any union data inside the RPCRequest_Params as the provided ServerGetStatusRequest
-func (t *RPCRequest_Params) FromServerGetStatusRequest(v ServerGetStatusRequest) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromServerGetStatusRequest overwrites any protobuf payload as the provided ServerGetStatusRequest
+func (t *RPCPayload) FromServerGetStatusRequest(v ServerGetStatusRequest) error {
+	return t.encode("ServerGetStatusRequest", v)
 }
 
-// MergeServerGetStatusRequest performs a merge with any union data inside the RPCRequest_Params, using the provided ServerGetStatusRequest
-func (t *RPCRequest_Params) MergeServerGetStatusRequest(v ServerGetStatusRequest) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeServerGetStatusRequest performs a merge with any protobuf payload, using the provided ServerGetStatusRequest
+func (t *RPCPayload) MergeServerGetStatusRequest(v ServerGetStatusRequest) error {
+	return t.merge("ServerGetStatusRequest", v)
 }
 
-// AsServerGetRunAgentRequest returns the union data inside the RPCRequest_Params as a ServerGetRunAgentRequest
-func (t RPCRequest_Params) AsServerGetRunAgentRequest() (ServerGetRunAgentRequest, error) {
+// AsServerGetRunAgentRequest decodes the RPCPayload as a ServerGetRunAgentRequest
+func (t RPCPayload) AsServerGetRunAgentRequest() (ServerGetRunAgentRequest, error) {
 	var body ServerGetRunAgentRequest
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("ServerGetRunAgentRequest", &body)
 	return body, err
 }
 
-// FromServerGetRunAgentRequest overwrites any union data inside the RPCRequest_Params as the provided ServerGetRunAgentRequest
-func (t *RPCRequest_Params) FromServerGetRunAgentRequest(v ServerGetRunAgentRequest) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromServerGetRunAgentRequest overwrites any protobuf payload as the provided ServerGetRunAgentRequest
+func (t *RPCPayload) FromServerGetRunAgentRequest(v ServerGetRunAgentRequest) error {
+	return t.encode("ServerGetRunAgentRequest", v)
 }
 
-// MergeServerGetRunAgentRequest performs a merge with any union data inside the RPCRequest_Params, using the provided ServerGetRunAgentRequest
-func (t *RPCRequest_Params) MergeServerGetRunAgentRequest(v ServerGetRunAgentRequest) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeServerGetRunAgentRequest performs a merge with any protobuf payload, using the provided ServerGetRunAgentRequest
+func (t *RPCPayload) MergeServerGetRunAgentRequest(v ServerGetRunAgentRequest) error {
+	return t.merge("ServerGetRunAgentRequest", v)
 }
 
-// AsServerSetRunAgentRequest returns the union data inside the RPCRequest_Params as a ServerSetRunAgentRequest
-func (t RPCRequest_Params) AsServerSetRunAgentRequest() (ServerSetRunAgentRequest, error) {
+// AsServerSetRunAgentRequest decodes the RPCPayload as a ServerSetRunAgentRequest
+func (t RPCPayload) AsServerSetRunAgentRequest() (ServerSetRunAgentRequest, error) {
 	var body ServerSetRunAgentRequest
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("ServerSetRunAgentRequest", &body)
 	return body, err
 }
 
-// FromServerSetRunAgentRequest overwrites any union data inside the RPCRequest_Params as the provided ServerSetRunAgentRequest
-func (t *RPCRequest_Params) FromServerSetRunAgentRequest(v ServerSetRunAgentRequest) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromServerSetRunAgentRequest overwrites any protobuf payload as the provided ServerSetRunAgentRequest
+func (t *RPCPayload) FromServerSetRunAgentRequest(v ServerSetRunAgentRequest) error {
+	return t.encode("ServerSetRunAgentRequest", v)
 }
 
-// MergeServerSetRunAgentRequest performs a merge with any union data inside the RPCRequest_Params, using the provided ServerSetRunAgentRequest
-func (t *RPCRequest_Params) MergeServerSetRunAgentRequest(v ServerSetRunAgentRequest) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeServerSetRunAgentRequest performs a merge with any protobuf payload, using the provided ServerSetRunAgentRequest
+func (t *RPCPayload) MergeServerSetRunAgentRequest(v ServerSetRunAgentRequest) error {
+	return t.merge("ServerSetRunAgentRequest", v)
 }
 
-// AsServerGetRunWorkspaceRequest returns the union data inside the RPCRequest_Params as a ServerGetRunWorkspaceRequest
-func (t RPCRequest_Params) AsServerGetRunWorkspaceRequest() (ServerGetRunWorkspaceRequest, error) {
+// AsServerGetRunWorkspaceRequest decodes the RPCPayload as a ServerGetRunWorkspaceRequest
+func (t RPCPayload) AsServerGetRunWorkspaceRequest() (ServerGetRunWorkspaceRequest, error) {
 	var body ServerGetRunWorkspaceRequest
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("ServerGetRunWorkspaceRequest", &body)
 	return body, err
 }
 
-// FromServerGetRunWorkspaceRequest overwrites any union data inside the RPCRequest_Params as the provided ServerGetRunWorkspaceRequest
-func (t *RPCRequest_Params) FromServerGetRunWorkspaceRequest(v ServerGetRunWorkspaceRequest) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromServerGetRunWorkspaceRequest overwrites any protobuf payload as the provided ServerGetRunWorkspaceRequest
+func (t *RPCPayload) FromServerGetRunWorkspaceRequest(v ServerGetRunWorkspaceRequest) error {
+	return t.encode("ServerGetRunWorkspaceRequest", v)
 }
 
-// MergeServerGetRunWorkspaceRequest performs a merge with any union data inside the RPCRequest_Params, using the provided ServerGetRunWorkspaceRequest
-func (t *RPCRequest_Params) MergeServerGetRunWorkspaceRequest(v ServerGetRunWorkspaceRequest) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeServerGetRunWorkspaceRequest performs a merge with any protobuf payload, using the provided ServerGetRunWorkspaceRequest
+func (t *RPCPayload) MergeServerGetRunWorkspaceRequest(v ServerGetRunWorkspaceRequest) error {
+	return t.merge("ServerGetRunWorkspaceRequest", v)
 }
 
-// AsServerSetRunWorkspaceRequest returns the union data inside the RPCRequest_Params as a ServerSetRunWorkspaceRequest
-func (t RPCRequest_Params) AsServerSetRunWorkspaceRequest() (ServerSetRunWorkspaceRequest, error) {
+// AsServerSetRunWorkspaceRequest decodes the RPCPayload as a ServerSetRunWorkspaceRequest
+func (t RPCPayload) AsServerSetRunWorkspaceRequest() (ServerSetRunWorkspaceRequest, error) {
 	var body ServerSetRunWorkspaceRequest
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("ServerSetRunWorkspaceRequest", &body)
 	return body, err
 }
 
-// FromServerSetRunWorkspaceRequest overwrites any union data inside the RPCRequest_Params as the provided ServerSetRunWorkspaceRequest
-func (t *RPCRequest_Params) FromServerSetRunWorkspaceRequest(v ServerSetRunWorkspaceRequest) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromServerSetRunWorkspaceRequest overwrites any protobuf payload as the provided ServerSetRunWorkspaceRequest
+func (t *RPCPayload) FromServerSetRunWorkspaceRequest(v ServerSetRunWorkspaceRequest) error {
+	return t.encode("ServerSetRunWorkspaceRequest", v)
 }
 
-// MergeServerSetRunWorkspaceRequest performs a merge with any union data inside the RPCRequest_Params, using the provided ServerSetRunWorkspaceRequest
-func (t *RPCRequest_Params) MergeServerSetRunWorkspaceRequest(v ServerSetRunWorkspaceRequest) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeServerSetRunWorkspaceRequest performs a merge with any protobuf payload, using the provided ServerSetRunWorkspaceRequest
+func (t *RPCPayload) MergeServerSetRunWorkspaceRequest(v ServerSetRunWorkspaceRequest) error {
+	return t.merge("ServerSetRunWorkspaceRequest", v)
 }
 
-// AsServerReloadRunWorkspaceRequest returns the union data inside the RPCRequest_Params as a ServerReloadRunWorkspaceRequest
-func (t RPCRequest_Params) AsServerReloadRunWorkspaceRequest() (ServerReloadRunWorkspaceRequest, error) {
+// AsServerReloadRunWorkspaceRequest decodes the RPCPayload as a ServerReloadRunWorkspaceRequest
+func (t RPCPayload) AsServerReloadRunWorkspaceRequest() (ServerReloadRunWorkspaceRequest, error) {
 	var body ServerReloadRunWorkspaceRequest
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("ServerReloadRunWorkspaceRequest", &body)
 	return body, err
 }
 
-// FromServerReloadRunWorkspaceRequest overwrites any union data inside the RPCRequest_Params as the provided ServerReloadRunWorkspaceRequest
-func (t *RPCRequest_Params) FromServerReloadRunWorkspaceRequest(v ServerReloadRunWorkspaceRequest) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromServerReloadRunWorkspaceRequest overwrites any protobuf payload as the provided ServerReloadRunWorkspaceRequest
+func (t *RPCPayload) FromServerReloadRunWorkspaceRequest(v ServerReloadRunWorkspaceRequest) error {
+	return t.encode("ServerReloadRunWorkspaceRequest", v)
 }
 
-// MergeServerReloadRunWorkspaceRequest performs a merge with any union data inside the RPCRequest_Params, using the provided ServerReloadRunWorkspaceRequest
-func (t *RPCRequest_Params) MergeServerReloadRunWorkspaceRequest(v ServerReloadRunWorkspaceRequest) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeServerReloadRunWorkspaceRequest performs a merge with any protobuf payload, using the provided ServerReloadRunWorkspaceRequest
+func (t *RPCPayload) MergeServerReloadRunWorkspaceRequest(v ServerReloadRunWorkspaceRequest) error {
+	return t.merge("ServerReloadRunWorkspaceRequest", v)
 }
 
-// AsServerListRunWorkspaceHistoryRequest returns the union data inside the RPCRequest_Params as a ServerListRunWorkspaceHistoryRequest
-func (t RPCRequest_Params) AsServerListRunWorkspaceHistoryRequest() (ServerListRunWorkspaceHistoryRequest, error) {
+// AsServerListRunWorkspaceHistoryRequest decodes the RPCPayload as a ServerListRunWorkspaceHistoryRequest
+func (t RPCPayload) AsServerListRunWorkspaceHistoryRequest() (ServerListRunWorkspaceHistoryRequest, error) {
 	var body ServerListRunWorkspaceHistoryRequest
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("ServerListRunWorkspaceHistoryRequest", &body)
 	return body, err
 }
 
-// FromServerListRunWorkspaceHistoryRequest overwrites any union data inside the RPCRequest_Params as the provided ServerListRunWorkspaceHistoryRequest
-func (t *RPCRequest_Params) FromServerListRunWorkspaceHistoryRequest(v ServerListRunWorkspaceHistoryRequest) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromServerListRunWorkspaceHistoryRequest overwrites any protobuf payload as the provided ServerListRunWorkspaceHistoryRequest
+func (t *RPCPayload) FromServerListRunWorkspaceHistoryRequest(v ServerListRunWorkspaceHistoryRequest) error {
+	return t.encode("ServerListRunWorkspaceHistoryRequest", v)
 }
 
-// MergeServerListRunWorkspaceHistoryRequest performs a merge with any union data inside the RPCRequest_Params, using the provided ServerListRunWorkspaceHistoryRequest
-func (t *RPCRequest_Params) MergeServerListRunWorkspaceHistoryRequest(v ServerListRunWorkspaceHistoryRequest) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeServerListRunWorkspaceHistoryRequest performs a merge with any protobuf payload, using the provided ServerListRunWorkspaceHistoryRequest
+func (t *RPCPayload) MergeServerListRunWorkspaceHistoryRequest(v ServerListRunWorkspaceHistoryRequest) error {
+	return t.merge("ServerListRunWorkspaceHistoryRequest", v)
 }
 
-// AsServerPlayRunWorkspaceHistoryRequest returns the union data inside the RPCRequest_Params as a ServerPlayRunWorkspaceHistoryRequest
-func (t RPCRequest_Params) AsServerPlayRunWorkspaceHistoryRequest() (ServerPlayRunWorkspaceHistoryRequest, error) {
+// AsServerPlayRunWorkspaceHistoryRequest decodes the RPCPayload as a ServerPlayRunWorkspaceHistoryRequest
+func (t RPCPayload) AsServerPlayRunWorkspaceHistoryRequest() (ServerPlayRunWorkspaceHistoryRequest, error) {
 	var body ServerPlayRunWorkspaceHistoryRequest
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("ServerPlayRunWorkspaceHistoryRequest", &body)
 	return body, err
 }
 
-// FromServerPlayRunWorkspaceHistoryRequest overwrites any union data inside the RPCRequest_Params as the provided ServerPlayRunWorkspaceHistoryRequest
-func (t *RPCRequest_Params) FromServerPlayRunWorkspaceHistoryRequest(v ServerPlayRunWorkspaceHistoryRequest) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromServerPlayRunWorkspaceHistoryRequest overwrites any protobuf payload as the provided ServerPlayRunWorkspaceHistoryRequest
+func (t *RPCPayload) FromServerPlayRunWorkspaceHistoryRequest(v ServerPlayRunWorkspaceHistoryRequest) error {
+	return t.encode("ServerPlayRunWorkspaceHistoryRequest", v)
 }
 
-// MergeServerPlayRunWorkspaceHistoryRequest performs a merge with any union data inside the RPCRequest_Params, using the provided ServerPlayRunWorkspaceHistoryRequest
-func (t *RPCRequest_Params) MergeServerPlayRunWorkspaceHistoryRequest(v ServerPlayRunWorkspaceHistoryRequest) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeServerPlayRunWorkspaceHistoryRequest performs a merge with any protobuf payload, using the provided ServerPlayRunWorkspaceHistoryRequest
+func (t *RPCPayload) MergeServerPlayRunWorkspaceHistoryRequest(v ServerPlayRunWorkspaceHistoryRequest) error {
+	return t.merge("ServerPlayRunWorkspaceHistoryRequest", v)
 }
 
-// AsServerGetRunWorkspaceMemoryStatsRequest returns the union data inside the RPCRequest_Params as a ServerGetRunWorkspaceMemoryStatsRequest
-func (t RPCRequest_Params) AsServerGetRunWorkspaceMemoryStatsRequest() (ServerGetRunWorkspaceMemoryStatsRequest, error) {
+// AsServerGetRunWorkspaceMemoryStatsRequest decodes the RPCPayload as a ServerGetRunWorkspaceMemoryStatsRequest
+func (t RPCPayload) AsServerGetRunWorkspaceMemoryStatsRequest() (ServerGetRunWorkspaceMemoryStatsRequest, error) {
 	var body ServerGetRunWorkspaceMemoryStatsRequest
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("ServerGetRunWorkspaceMemoryStatsRequest", &body)
 	return body, err
 }
 
-// FromServerGetRunWorkspaceMemoryStatsRequest overwrites any union data inside the RPCRequest_Params as the provided ServerGetRunWorkspaceMemoryStatsRequest
-func (t *RPCRequest_Params) FromServerGetRunWorkspaceMemoryStatsRequest(v ServerGetRunWorkspaceMemoryStatsRequest) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromServerGetRunWorkspaceMemoryStatsRequest overwrites any protobuf payload as the provided ServerGetRunWorkspaceMemoryStatsRequest
+func (t *RPCPayload) FromServerGetRunWorkspaceMemoryStatsRequest(v ServerGetRunWorkspaceMemoryStatsRequest) error {
+	return t.encode("ServerGetRunWorkspaceMemoryStatsRequest", v)
 }
 
-// MergeServerGetRunWorkspaceMemoryStatsRequest performs a merge with any union data inside the RPCRequest_Params, using the provided ServerGetRunWorkspaceMemoryStatsRequest
-func (t *RPCRequest_Params) MergeServerGetRunWorkspaceMemoryStatsRequest(v ServerGetRunWorkspaceMemoryStatsRequest) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeServerGetRunWorkspaceMemoryStatsRequest performs a merge with any protobuf payload, using the provided ServerGetRunWorkspaceMemoryStatsRequest
+func (t *RPCPayload) MergeServerGetRunWorkspaceMemoryStatsRequest(v ServerGetRunWorkspaceMemoryStatsRequest) error {
+	return t.merge("ServerGetRunWorkspaceMemoryStatsRequest", v)
 }
 
-// AsServerRunWorkspaceRecallRequest returns the union data inside the RPCRequest_Params as a ServerRunWorkspaceRecallRequest
-func (t RPCRequest_Params) AsServerRunWorkspaceRecallRequest() (ServerRunWorkspaceRecallRequest, error) {
+// AsServerRunWorkspaceRecallRequest decodes the RPCPayload as a ServerRunWorkspaceRecallRequest
+func (t RPCPayload) AsServerRunWorkspaceRecallRequest() (ServerRunWorkspaceRecallRequest, error) {
 	var body ServerRunWorkspaceRecallRequest
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("ServerRunWorkspaceRecallRequest", &body)
 	return body, err
 }
 
-// FromServerRunWorkspaceRecallRequest overwrites any union data inside the RPCRequest_Params as the provided ServerRunWorkspaceRecallRequest
-func (t *RPCRequest_Params) FromServerRunWorkspaceRecallRequest(v ServerRunWorkspaceRecallRequest) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromServerRunWorkspaceRecallRequest overwrites any protobuf payload as the provided ServerRunWorkspaceRecallRequest
+func (t *RPCPayload) FromServerRunWorkspaceRecallRequest(v ServerRunWorkspaceRecallRequest) error {
+	return t.encode("ServerRunWorkspaceRecallRequest", v)
 }
 
-// MergeServerRunWorkspaceRecallRequest performs a merge with any union data inside the RPCRequest_Params, using the provided ServerRunWorkspaceRecallRequest
-func (t *RPCRequest_Params) MergeServerRunWorkspaceRecallRequest(v ServerRunWorkspaceRecallRequest) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeServerRunWorkspaceRecallRequest performs a merge with any protobuf payload, using the provided ServerRunWorkspaceRecallRequest
+func (t *RPCPayload) MergeServerRunWorkspaceRecallRequest(v ServerRunWorkspaceRecallRequest) error {
+	return t.merge("ServerRunWorkspaceRecallRequest", v)
 }
 
-// AsServerReloadRunRequest returns the union data inside the RPCRequest_Params as a ServerReloadRunRequest
-func (t RPCRequest_Params) AsServerReloadRunRequest() (ServerReloadRunRequest, error) {
+// AsServerReloadRunRequest decodes the RPCPayload as a ServerReloadRunRequest
+func (t RPCPayload) AsServerReloadRunRequest() (ServerReloadRunRequest, error) {
 	var body ServerReloadRunRequest
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("ServerReloadRunRequest", &body)
 	return body, err
 }
 
-// FromServerReloadRunRequest overwrites any union data inside the RPCRequest_Params as the provided ServerReloadRunRequest
-func (t *RPCRequest_Params) FromServerReloadRunRequest(v ServerReloadRunRequest) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromServerReloadRunRequest overwrites any protobuf payload as the provided ServerReloadRunRequest
+func (t *RPCPayload) FromServerReloadRunRequest(v ServerReloadRunRequest) error {
+	return t.encode("ServerReloadRunRequest", v)
 }
 
-// MergeServerReloadRunRequest performs a merge with any union data inside the RPCRequest_Params, using the provided ServerReloadRunRequest
-func (t *RPCRequest_Params) MergeServerReloadRunRequest(v ServerReloadRunRequest) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeServerReloadRunRequest performs a merge with any protobuf payload, using the provided ServerReloadRunRequest
+func (t *RPCPayload) MergeServerReloadRunRequest(v ServerReloadRunRequest) error {
+	return t.merge("ServerReloadRunRequest", v)
 }
 
-// AsServerGetRunStatusRequest returns the union data inside the RPCRequest_Params as a ServerGetRunStatusRequest
-func (t RPCRequest_Params) AsServerGetRunStatusRequest() (ServerGetRunStatusRequest, error) {
+// AsServerGetRunStatusRequest decodes the RPCPayload as a ServerGetRunStatusRequest
+func (t RPCPayload) AsServerGetRunStatusRequest() (ServerGetRunStatusRequest, error) {
 	var body ServerGetRunStatusRequest
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("ServerGetRunStatusRequest", &body)
 	return body, err
 }
 
-// FromServerGetRunStatusRequest overwrites any union data inside the RPCRequest_Params as the provided ServerGetRunStatusRequest
-func (t *RPCRequest_Params) FromServerGetRunStatusRequest(v ServerGetRunStatusRequest) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromServerGetRunStatusRequest overwrites any protobuf payload as the provided ServerGetRunStatusRequest
+func (t *RPCPayload) FromServerGetRunStatusRequest(v ServerGetRunStatusRequest) error {
+	return t.encode("ServerGetRunStatusRequest", v)
 }
 
-// MergeServerGetRunStatusRequest performs a merge with any union data inside the RPCRequest_Params, using the provided ServerGetRunStatusRequest
-func (t *RPCRequest_Params) MergeServerGetRunStatusRequest(v ServerGetRunStatusRequest) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeServerGetRunStatusRequest performs a merge with any protobuf payload, using the provided ServerGetRunStatusRequest
+func (t *RPCPayload) MergeServerGetRunStatusRequest(v ServerGetRunStatusRequest) error {
+	return t.merge("ServerGetRunStatusRequest", v)
 }
 
-// AsServerStopRunRequest returns the union data inside the RPCRequest_Params as a ServerStopRunRequest
-func (t RPCRequest_Params) AsServerStopRunRequest() (ServerStopRunRequest, error) {
+// AsServerStopRunRequest decodes the RPCPayload as a ServerStopRunRequest
+func (t RPCPayload) AsServerStopRunRequest() (ServerStopRunRequest, error) {
 	var body ServerStopRunRequest
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("ServerStopRunRequest", &body)
 	return body, err
 }
 
-// FromServerStopRunRequest overwrites any union data inside the RPCRequest_Params as the provided ServerStopRunRequest
-func (t *RPCRequest_Params) FromServerStopRunRequest(v ServerStopRunRequest) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromServerStopRunRequest overwrites any protobuf payload as the provided ServerStopRunRequest
+func (t *RPCPayload) FromServerStopRunRequest(v ServerStopRunRequest) error {
+	return t.encode("ServerStopRunRequest", v)
 }
 
-// MergeServerStopRunRequest performs a merge with any union data inside the RPCRequest_Params, using the provided ServerStopRunRequest
-func (t *RPCRequest_Params) MergeServerStopRunRequest(v ServerStopRunRequest) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeServerStopRunRequest performs a merge with any protobuf payload, using the provided ServerStopRunRequest
+func (t *RPCPayload) MergeServerStopRunRequest(v ServerStopRunRequest) error {
+	return t.merge("ServerStopRunRequest", v)
 }
 
-// AsServerRunSayRequest returns the union data inside the RPCRequest_Params as a ServerRunSayRequest
-func (t RPCRequest_Params) AsServerRunSayRequest() (ServerRunSayRequest, error) {
+// AsServerRunSayRequest decodes the RPCPayload as a ServerRunSayRequest
+func (t RPCPayload) AsServerRunSayRequest() (ServerRunSayRequest, error) {
 	var body ServerRunSayRequest
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("ServerRunSayRequest", &body)
 	return body, err
 }
 
-// FromServerRunSayRequest overwrites any union data inside the RPCRequest_Params as the provided ServerRunSayRequest
-func (t *RPCRequest_Params) FromServerRunSayRequest(v ServerRunSayRequest) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromServerRunSayRequest overwrites any protobuf payload as the provided ServerRunSayRequest
+func (t *RPCPayload) FromServerRunSayRequest(v ServerRunSayRequest) error {
+	return t.encode("ServerRunSayRequest", v)
 }
 
-// MergeServerRunSayRequest performs a merge with any union data inside the RPCRequest_Params, using the provided ServerRunSayRequest
-func (t *RPCRequest_Params) MergeServerRunSayRequest(v ServerRunSayRequest) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeServerRunSayRequest performs a merge with any protobuf payload, using the provided ServerRunSayRequest
+func (t *RPCPayload) MergeServerRunSayRequest(v ServerRunSayRequest) error {
+	return t.merge("ServerRunSayRequest", v)
 }
 
-// AsFirmwareListRequest returns the union data inside the RPCRequest_Params as a FirmwareListRequest
-func (t RPCRequest_Params) AsFirmwareListRequest() (FirmwareListRequest, error) {
+// AsFirmwareListRequest decodes the RPCPayload as a FirmwareListRequest
+func (t RPCPayload) AsFirmwareListRequest() (FirmwareListRequest, error) {
 	var body FirmwareListRequest
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("FirmwareListRequest", &body)
 	return body, err
 }
 
-// FromFirmwareListRequest overwrites any union data inside the RPCRequest_Params as the provided FirmwareListRequest
-func (t *RPCRequest_Params) FromFirmwareListRequest(v FirmwareListRequest) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromFirmwareListRequest overwrites any protobuf payload as the provided FirmwareListRequest
+func (t *RPCPayload) FromFirmwareListRequest(v FirmwareListRequest) error {
+	return t.encode("FirmwareListRequest", v)
 }
 
-// MergeFirmwareListRequest performs a merge with any union data inside the RPCRequest_Params, using the provided FirmwareListRequest
-func (t *RPCRequest_Params) MergeFirmwareListRequest(v FirmwareListRequest) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeFirmwareListRequest performs a merge with any protobuf payload, using the provided FirmwareListRequest
+func (t *RPCPayload) MergeFirmwareListRequest(v FirmwareListRequest) error {
+	return t.merge("FirmwareListRequest", v)
 }
 
-// AsFirmwareGetRequest returns the union data inside the RPCRequest_Params as a FirmwareGetRequest
-func (t RPCRequest_Params) AsFirmwareGetRequest() (FirmwareGetRequest, error) {
+// AsFirmwareGetRequest decodes the RPCPayload as a FirmwareGetRequest
+func (t RPCPayload) AsFirmwareGetRequest() (FirmwareGetRequest, error) {
 	var body FirmwareGetRequest
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("FirmwareGetRequest", &body)
 	return body, err
 }
 
-// FromFirmwareGetRequest overwrites any union data inside the RPCRequest_Params as the provided FirmwareGetRequest
-func (t *RPCRequest_Params) FromFirmwareGetRequest(v FirmwareGetRequest) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromFirmwareGetRequest overwrites any protobuf payload as the provided FirmwareGetRequest
+func (t *RPCPayload) FromFirmwareGetRequest(v FirmwareGetRequest) error {
+	return t.encode("FirmwareGetRequest", v)
 }
 
-// MergeFirmwareGetRequest performs a merge with any union data inside the RPCRequest_Params, using the provided FirmwareGetRequest
-func (t *RPCRequest_Params) MergeFirmwareGetRequest(v FirmwareGetRequest) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeFirmwareGetRequest performs a merge with any protobuf payload, using the provided FirmwareGetRequest
+func (t *RPCPayload) MergeFirmwareGetRequest(v FirmwareGetRequest) error {
+	return t.merge("FirmwareGetRequest", v)
 }
 
-// AsFirmwareFilesDownloadRequest returns the union data inside the RPCRequest_Params as a FirmwareFilesDownloadRequest
-func (t RPCRequest_Params) AsFirmwareFilesDownloadRequest() (FirmwareFilesDownloadRequest, error) {
+// AsFirmwareFilesDownloadRequest decodes the RPCPayload as a FirmwareFilesDownloadRequest
+func (t RPCPayload) AsFirmwareFilesDownloadRequest() (FirmwareFilesDownloadRequest, error) {
 	var body FirmwareFilesDownloadRequest
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("FirmwareFilesDownloadRequest", &body)
 	return body, err
 }
 
-// FromFirmwareFilesDownloadRequest overwrites any union data inside the RPCRequest_Params as the provided FirmwareFilesDownloadRequest
-func (t *RPCRequest_Params) FromFirmwareFilesDownloadRequest(v FirmwareFilesDownloadRequest) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromFirmwareFilesDownloadRequest overwrites any protobuf payload as the provided FirmwareFilesDownloadRequest
+func (t *RPCPayload) FromFirmwareFilesDownloadRequest(v FirmwareFilesDownloadRequest) error {
+	return t.encode("FirmwareFilesDownloadRequest", v)
 }
 
-// MergeFirmwareFilesDownloadRequest performs a merge with any union data inside the RPCRequest_Params, using the provided FirmwareFilesDownloadRequest
-func (t *RPCRequest_Params) MergeFirmwareFilesDownloadRequest(v FirmwareFilesDownloadRequest) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeFirmwareFilesDownloadRequest performs a merge with any protobuf payload, using the provided FirmwareFilesDownloadRequest
+func (t *RPCPayload) MergeFirmwareFilesDownloadRequest(v FirmwareFilesDownloadRequest) error {
+	return t.merge("FirmwareFilesDownloadRequest", v)
 }
 
-// AsWorkspaceListRequest returns the union data inside the RPCRequest_Params as a WorkspaceListRequest
-func (t RPCRequest_Params) AsWorkspaceListRequest() (WorkspaceListRequest, error) {
+// AsWorkspaceListRequest decodes the RPCPayload as a WorkspaceListRequest
+func (t RPCPayload) AsWorkspaceListRequest() (WorkspaceListRequest, error) {
 	var body WorkspaceListRequest
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("WorkspaceListRequest", &body)
 	return body, err
 }
 
-// FromWorkspaceListRequest overwrites any union data inside the RPCRequest_Params as the provided WorkspaceListRequest
-func (t *RPCRequest_Params) FromWorkspaceListRequest(v WorkspaceListRequest) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromWorkspaceListRequest overwrites any protobuf payload as the provided WorkspaceListRequest
+func (t *RPCPayload) FromWorkspaceListRequest(v WorkspaceListRequest) error {
+	return t.encode("WorkspaceListRequest", v)
 }
 
-// MergeWorkspaceListRequest performs a merge with any union data inside the RPCRequest_Params, using the provided WorkspaceListRequest
-func (t *RPCRequest_Params) MergeWorkspaceListRequest(v WorkspaceListRequest) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeWorkspaceListRequest performs a merge with any protobuf payload, using the provided WorkspaceListRequest
+func (t *RPCPayload) MergeWorkspaceListRequest(v WorkspaceListRequest) error {
+	return t.merge("WorkspaceListRequest", v)
 }
 
-// AsWorkspaceGetRequest returns the union data inside the RPCRequest_Params as a WorkspaceGetRequest
-func (t RPCRequest_Params) AsWorkspaceGetRequest() (WorkspaceGetRequest, error) {
+// AsWorkspaceGetRequest decodes the RPCPayload as a WorkspaceGetRequest
+func (t RPCPayload) AsWorkspaceGetRequest() (WorkspaceGetRequest, error) {
 	var body WorkspaceGetRequest
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("WorkspaceGetRequest", &body)
 	return body, err
 }
 
-// FromWorkspaceGetRequest overwrites any union data inside the RPCRequest_Params as the provided WorkspaceGetRequest
-func (t *RPCRequest_Params) FromWorkspaceGetRequest(v WorkspaceGetRequest) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromWorkspaceGetRequest overwrites any protobuf payload as the provided WorkspaceGetRequest
+func (t *RPCPayload) FromWorkspaceGetRequest(v WorkspaceGetRequest) error {
+	return t.encode("WorkspaceGetRequest", v)
 }
 
-// MergeWorkspaceGetRequest performs a merge with any union data inside the RPCRequest_Params, using the provided WorkspaceGetRequest
-func (t *RPCRequest_Params) MergeWorkspaceGetRequest(v WorkspaceGetRequest) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeWorkspaceGetRequest performs a merge with any protobuf payload, using the provided WorkspaceGetRequest
+func (t *RPCPayload) MergeWorkspaceGetRequest(v WorkspaceGetRequest) error {
+	return t.merge("WorkspaceGetRequest", v)
 }
 
-// AsWorkspaceCreateRequest returns the union data inside the RPCRequest_Params as a WorkspaceCreateRequest
-func (t RPCRequest_Params) AsWorkspaceCreateRequest() (WorkspaceCreateRequest, error) {
+// AsWorkspaceCreateRequest decodes the RPCPayload as a WorkspaceCreateRequest
+func (t RPCPayload) AsWorkspaceCreateRequest() (WorkspaceCreateRequest, error) {
 	var body WorkspaceCreateRequest
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("WorkspaceCreateRequest", &body)
 	return body, err
 }
 
-// FromWorkspaceCreateRequest overwrites any union data inside the RPCRequest_Params as the provided WorkspaceCreateRequest
-func (t *RPCRequest_Params) FromWorkspaceCreateRequest(v WorkspaceCreateRequest) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromWorkspaceCreateRequest overwrites any protobuf payload as the provided WorkspaceCreateRequest
+func (t *RPCPayload) FromWorkspaceCreateRequest(v WorkspaceCreateRequest) error {
+	return t.encode("WorkspaceCreateRequest", v)
 }
 
-// MergeWorkspaceCreateRequest performs a merge with any union data inside the RPCRequest_Params, using the provided WorkspaceCreateRequest
-func (t *RPCRequest_Params) MergeWorkspaceCreateRequest(v WorkspaceCreateRequest) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeWorkspaceCreateRequest performs a merge with any protobuf payload, using the provided WorkspaceCreateRequest
+func (t *RPCPayload) MergeWorkspaceCreateRequest(v WorkspaceCreateRequest) error {
+	return t.merge("WorkspaceCreateRequest", v)
 }
 
-// AsWorkspacePutRequest returns the union data inside the RPCRequest_Params as a WorkspacePutRequest
-func (t RPCRequest_Params) AsWorkspacePutRequest() (WorkspacePutRequest, error) {
+// AsWorkspacePutRequest decodes the RPCPayload as a WorkspacePutRequest
+func (t RPCPayload) AsWorkspacePutRequest() (WorkspacePutRequest, error) {
 	var body WorkspacePutRequest
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("WorkspacePutRequest", &body)
 	return body, err
 }
 
-// FromWorkspacePutRequest overwrites any union data inside the RPCRequest_Params as the provided WorkspacePutRequest
-func (t *RPCRequest_Params) FromWorkspacePutRequest(v WorkspacePutRequest) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromWorkspacePutRequest overwrites any protobuf payload as the provided WorkspacePutRequest
+func (t *RPCPayload) FromWorkspacePutRequest(v WorkspacePutRequest) error {
+	return t.encode("WorkspacePutRequest", v)
 }
 
-// MergeWorkspacePutRequest performs a merge with any union data inside the RPCRequest_Params, using the provided WorkspacePutRequest
-func (t *RPCRequest_Params) MergeWorkspacePutRequest(v WorkspacePutRequest) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeWorkspacePutRequest performs a merge with any protobuf payload, using the provided WorkspacePutRequest
+func (t *RPCPayload) MergeWorkspacePutRequest(v WorkspacePutRequest) error {
+	return t.merge("WorkspacePutRequest", v)
 }
 
-// AsWorkspaceDeleteRequest returns the union data inside the RPCRequest_Params as a WorkspaceDeleteRequest
-func (t RPCRequest_Params) AsWorkspaceDeleteRequest() (WorkspaceDeleteRequest, error) {
+// AsWorkspaceDeleteRequest decodes the RPCPayload as a WorkspaceDeleteRequest
+func (t RPCPayload) AsWorkspaceDeleteRequest() (WorkspaceDeleteRequest, error) {
 	var body WorkspaceDeleteRequest
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("WorkspaceDeleteRequest", &body)
 	return body, err
 }
 
-// FromWorkspaceDeleteRequest overwrites any union data inside the RPCRequest_Params as the provided WorkspaceDeleteRequest
-func (t *RPCRequest_Params) FromWorkspaceDeleteRequest(v WorkspaceDeleteRequest) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromWorkspaceDeleteRequest overwrites any protobuf payload as the provided WorkspaceDeleteRequest
+func (t *RPCPayload) FromWorkspaceDeleteRequest(v WorkspaceDeleteRequest) error {
+	return t.encode("WorkspaceDeleteRequest", v)
 }
 
-// MergeWorkspaceDeleteRequest performs a merge with any union data inside the RPCRequest_Params, using the provided WorkspaceDeleteRequest
-func (t *RPCRequest_Params) MergeWorkspaceDeleteRequest(v WorkspaceDeleteRequest) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeWorkspaceDeleteRequest performs a merge with any protobuf payload, using the provided WorkspaceDeleteRequest
+func (t *RPCPayload) MergeWorkspaceDeleteRequest(v WorkspaceDeleteRequest) error {
+	return t.merge("WorkspaceDeleteRequest", v)
 }
 
-// AsWorkspaceHistoryListRequest returns the union data inside the RPCRequest_Params as a WorkspaceHistoryListRequest
-func (t RPCRequest_Params) AsWorkspaceHistoryListRequest() (WorkspaceHistoryListRequest, error) {
+// AsWorkspaceHistoryListRequest decodes the RPCPayload as a WorkspaceHistoryListRequest
+func (t RPCPayload) AsWorkspaceHistoryListRequest() (WorkspaceHistoryListRequest, error) {
 	var body WorkspaceHistoryListRequest
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("WorkspaceHistoryListRequest", &body)
 	return body, err
 }
 
-// FromWorkspaceHistoryListRequest overwrites any union data inside the RPCRequest_Params as the provided WorkspaceHistoryListRequest
-func (t *RPCRequest_Params) FromWorkspaceHistoryListRequest(v WorkspaceHistoryListRequest) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromWorkspaceHistoryListRequest overwrites any protobuf payload as the provided WorkspaceHistoryListRequest
+func (t *RPCPayload) FromWorkspaceHistoryListRequest(v WorkspaceHistoryListRequest) error {
+	return t.encode("WorkspaceHistoryListRequest", v)
 }
 
-// MergeWorkspaceHistoryListRequest performs a merge with any union data inside the RPCRequest_Params, using the provided WorkspaceHistoryListRequest
-func (t *RPCRequest_Params) MergeWorkspaceHistoryListRequest(v WorkspaceHistoryListRequest) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeWorkspaceHistoryListRequest performs a merge with any protobuf payload, using the provided WorkspaceHistoryListRequest
+func (t *RPCPayload) MergeWorkspaceHistoryListRequest(v WorkspaceHistoryListRequest) error {
+	return t.merge("WorkspaceHistoryListRequest", v)
 }
 
-// AsWorkspaceHistoryGetRequest returns the union data inside the RPCRequest_Params as a WorkspaceHistoryGetRequest
-func (t RPCRequest_Params) AsWorkspaceHistoryGetRequest() (WorkspaceHistoryGetRequest, error) {
+// AsWorkspaceHistoryGetRequest decodes the RPCPayload as a WorkspaceHistoryGetRequest
+func (t RPCPayload) AsWorkspaceHistoryGetRequest() (WorkspaceHistoryGetRequest, error) {
 	var body WorkspaceHistoryGetRequest
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("WorkspaceHistoryGetRequest", &body)
 	return body, err
 }
 
-// FromWorkspaceHistoryGetRequest overwrites any union data inside the RPCRequest_Params as the provided WorkspaceHistoryGetRequest
-func (t *RPCRequest_Params) FromWorkspaceHistoryGetRequest(v WorkspaceHistoryGetRequest) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromWorkspaceHistoryGetRequest overwrites any protobuf payload as the provided WorkspaceHistoryGetRequest
+func (t *RPCPayload) FromWorkspaceHistoryGetRequest(v WorkspaceHistoryGetRequest) error {
+	return t.encode("WorkspaceHistoryGetRequest", v)
 }
 
-// MergeWorkspaceHistoryGetRequest performs a merge with any union data inside the RPCRequest_Params, using the provided WorkspaceHistoryGetRequest
-func (t *RPCRequest_Params) MergeWorkspaceHistoryGetRequest(v WorkspaceHistoryGetRequest) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeWorkspaceHistoryGetRequest performs a merge with any protobuf payload, using the provided WorkspaceHistoryGetRequest
+func (t *RPCPayload) MergeWorkspaceHistoryGetRequest(v WorkspaceHistoryGetRequest) error {
+	return t.merge("WorkspaceHistoryGetRequest", v)
 }
 
-// AsWorkspaceHistoryAudioGetRequest returns the union data inside the RPCRequest_Params as a WorkspaceHistoryAudioGetRequest
-func (t RPCRequest_Params) AsWorkspaceHistoryAudioGetRequest() (WorkspaceHistoryAudioGetRequest, error) {
+// AsWorkspaceHistoryAudioGetRequest decodes the RPCPayload as a WorkspaceHistoryAudioGetRequest
+func (t RPCPayload) AsWorkspaceHistoryAudioGetRequest() (WorkspaceHistoryAudioGetRequest, error) {
 	var body WorkspaceHistoryAudioGetRequest
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("WorkspaceHistoryAudioGetRequest", &body)
 	return body, err
 }
 
-// FromWorkspaceHistoryAudioGetRequest overwrites any union data inside the RPCRequest_Params as the provided WorkspaceHistoryAudioGetRequest
-func (t *RPCRequest_Params) FromWorkspaceHistoryAudioGetRequest(v WorkspaceHistoryAudioGetRequest) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromWorkspaceHistoryAudioGetRequest overwrites any protobuf payload as the provided WorkspaceHistoryAudioGetRequest
+func (t *RPCPayload) FromWorkspaceHistoryAudioGetRequest(v WorkspaceHistoryAudioGetRequest) error {
+	return t.encode("WorkspaceHistoryAudioGetRequest", v)
 }
 
-// MergeWorkspaceHistoryAudioGetRequest performs a merge with any union data inside the RPCRequest_Params, using the provided WorkspaceHistoryAudioGetRequest
-func (t *RPCRequest_Params) MergeWorkspaceHistoryAudioGetRequest(v WorkspaceHistoryAudioGetRequest) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeWorkspaceHistoryAudioGetRequest performs a merge with any protobuf payload, using the provided WorkspaceHistoryAudioGetRequest
+func (t *RPCPayload) MergeWorkspaceHistoryAudioGetRequest(v WorkspaceHistoryAudioGetRequest) error {
+	return t.merge("WorkspaceHistoryAudioGetRequest", v)
 }
 
-// AsWorkflowListRequest returns the union data inside the RPCRequest_Params as a WorkflowListRequest
-func (t RPCRequest_Params) AsWorkflowListRequest() (WorkflowListRequest, error) {
+// AsWorkflowListRequest decodes the RPCPayload as a WorkflowListRequest
+func (t RPCPayload) AsWorkflowListRequest() (WorkflowListRequest, error) {
 	var body WorkflowListRequest
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("WorkflowListRequest", &body)
 	return body, err
 }
 
-// FromWorkflowListRequest overwrites any union data inside the RPCRequest_Params as the provided WorkflowListRequest
-func (t *RPCRequest_Params) FromWorkflowListRequest(v WorkflowListRequest) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromWorkflowListRequest overwrites any protobuf payload as the provided WorkflowListRequest
+func (t *RPCPayload) FromWorkflowListRequest(v WorkflowListRequest) error {
+	return t.encode("WorkflowListRequest", v)
 }
 
-// MergeWorkflowListRequest performs a merge with any union data inside the RPCRequest_Params, using the provided WorkflowListRequest
-func (t *RPCRequest_Params) MergeWorkflowListRequest(v WorkflowListRequest) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeWorkflowListRequest performs a merge with any protobuf payload, using the provided WorkflowListRequest
+func (t *RPCPayload) MergeWorkflowListRequest(v WorkflowListRequest) error {
+	return t.merge("WorkflowListRequest", v)
 }
 
-// AsWorkflowGetRequest returns the union data inside the RPCRequest_Params as a WorkflowGetRequest
-func (t RPCRequest_Params) AsWorkflowGetRequest() (WorkflowGetRequest, error) {
+// AsWorkflowGetRequest decodes the RPCPayload as a WorkflowGetRequest
+func (t RPCPayload) AsWorkflowGetRequest() (WorkflowGetRequest, error) {
 	var body WorkflowGetRequest
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("WorkflowGetRequest", &body)
 	return body, err
 }
 
-// FromWorkflowGetRequest overwrites any union data inside the RPCRequest_Params as the provided WorkflowGetRequest
-func (t *RPCRequest_Params) FromWorkflowGetRequest(v WorkflowGetRequest) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromWorkflowGetRequest overwrites any protobuf payload as the provided WorkflowGetRequest
+func (t *RPCPayload) FromWorkflowGetRequest(v WorkflowGetRequest) error {
+	return t.encode("WorkflowGetRequest", v)
 }
 
-// MergeWorkflowGetRequest performs a merge with any union data inside the RPCRequest_Params, using the provided WorkflowGetRequest
-func (t *RPCRequest_Params) MergeWorkflowGetRequest(v WorkflowGetRequest) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeWorkflowGetRequest performs a merge with any protobuf payload, using the provided WorkflowGetRequest
+func (t *RPCPayload) MergeWorkflowGetRequest(v WorkflowGetRequest) error {
+	return t.merge("WorkflowGetRequest", v)
 }
 
-// AsWorkflowCreateRequest returns the union data inside the RPCRequest_Params as a WorkflowCreateRequest
-func (t RPCRequest_Params) AsWorkflowCreateRequest() (WorkflowCreateRequest, error) {
+// AsWorkflowCreateRequest decodes the RPCPayload as a WorkflowCreateRequest
+func (t RPCPayload) AsWorkflowCreateRequest() (WorkflowCreateRequest, error) {
 	var body WorkflowCreateRequest
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("WorkflowCreateRequest", &body)
 	return body, err
 }
 
-// FromWorkflowCreateRequest overwrites any union data inside the RPCRequest_Params as the provided WorkflowCreateRequest
-func (t *RPCRequest_Params) FromWorkflowCreateRequest(v WorkflowCreateRequest) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromWorkflowCreateRequest overwrites any protobuf payload as the provided WorkflowCreateRequest
+func (t *RPCPayload) FromWorkflowCreateRequest(v WorkflowCreateRequest) error {
+	return t.encode("WorkflowCreateRequest", v)
 }
 
-// MergeWorkflowCreateRequest performs a merge with any union data inside the RPCRequest_Params, using the provided WorkflowCreateRequest
-func (t *RPCRequest_Params) MergeWorkflowCreateRequest(v WorkflowCreateRequest) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeWorkflowCreateRequest performs a merge with any protobuf payload, using the provided WorkflowCreateRequest
+func (t *RPCPayload) MergeWorkflowCreateRequest(v WorkflowCreateRequest) error {
+	return t.merge("WorkflowCreateRequest", v)
 }
 
-// AsWorkflowPutRequest returns the union data inside the RPCRequest_Params as a WorkflowPutRequest
-func (t RPCRequest_Params) AsWorkflowPutRequest() (WorkflowPutRequest, error) {
+// AsWorkflowPutRequest decodes the RPCPayload as a WorkflowPutRequest
+func (t RPCPayload) AsWorkflowPutRequest() (WorkflowPutRequest, error) {
 	var body WorkflowPutRequest
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("WorkflowPutRequest", &body)
 	return body, err
 }
 
-// FromWorkflowPutRequest overwrites any union data inside the RPCRequest_Params as the provided WorkflowPutRequest
-func (t *RPCRequest_Params) FromWorkflowPutRequest(v WorkflowPutRequest) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromWorkflowPutRequest overwrites any protobuf payload as the provided WorkflowPutRequest
+func (t *RPCPayload) FromWorkflowPutRequest(v WorkflowPutRequest) error {
+	return t.encode("WorkflowPutRequest", v)
 }
 
-// MergeWorkflowPutRequest performs a merge with any union data inside the RPCRequest_Params, using the provided WorkflowPutRequest
-func (t *RPCRequest_Params) MergeWorkflowPutRequest(v WorkflowPutRequest) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeWorkflowPutRequest performs a merge with any protobuf payload, using the provided WorkflowPutRequest
+func (t *RPCPayload) MergeWorkflowPutRequest(v WorkflowPutRequest) error {
+	return t.merge("WorkflowPutRequest", v)
 }
 
-// AsWorkflowDeleteRequest returns the union data inside the RPCRequest_Params as a WorkflowDeleteRequest
-func (t RPCRequest_Params) AsWorkflowDeleteRequest() (WorkflowDeleteRequest, error) {
+// AsWorkflowDeleteRequest decodes the RPCPayload as a WorkflowDeleteRequest
+func (t RPCPayload) AsWorkflowDeleteRequest() (WorkflowDeleteRequest, error) {
 	var body WorkflowDeleteRequest
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("WorkflowDeleteRequest", &body)
 	return body, err
 }
 
-// FromWorkflowDeleteRequest overwrites any union data inside the RPCRequest_Params as the provided WorkflowDeleteRequest
-func (t *RPCRequest_Params) FromWorkflowDeleteRequest(v WorkflowDeleteRequest) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromWorkflowDeleteRequest overwrites any protobuf payload as the provided WorkflowDeleteRequest
+func (t *RPCPayload) FromWorkflowDeleteRequest(v WorkflowDeleteRequest) error {
+	return t.encode("WorkflowDeleteRequest", v)
 }
 
-// MergeWorkflowDeleteRequest performs a merge with any union data inside the RPCRequest_Params, using the provided WorkflowDeleteRequest
-func (t *RPCRequest_Params) MergeWorkflowDeleteRequest(v WorkflowDeleteRequest) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeWorkflowDeleteRequest performs a merge with any protobuf payload, using the provided WorkflowDeleteRequest
+func (t *RPCPayload) MergeWorkflowDeleteRequest(v WorkflowDeleteRequest) error {
+	return t.merge("WorkflowDeleteRequest", v)
 }
 
-// AsModelListRequest returns the union data inside the RPCRequest_Params as a ModelListRequest
-func (t RPCRequest_Params) AsModelListRequest() (ModelListRequest, error) {
+// AsModelListRequest decodes the RPCPayload as a ModelListRequest
+func (t RPCPayload) AsModelListRequest() (ModelListRequest, error) {
 	var body ModelListRequest
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("ModelListRequest", &body)
 	return body, err
 }
 
-// FromModelListRequest overwrites any union data inside the RPCRequest_Params as the provided ModelListRequest
-func (t *RPCRequest_Params) FromModelListRequest(v ModelListRequest) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromModelListRequest overwrites any protobuf payload as the provided ModelListRequest
+func (t *RPCPayload) FromModelListRequest(v ModelListRequest) error {
+	return t.encode("ModelListRequest", v)
 }
 
-// MergeModelListRequest performs a merge with any union data inside the RPCRequest_Params, using the provided ModelListRequest
-func (t *RPCRequest_Params) MergeModelListRequest(v ModelListRequest) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeModelListRequest performs a merge with any protobuf payload, using the provided ModelListRequest
+func (t *RPCPayload) MergeModelListRequest(v ModelListRequest) error {
+	return t.merge("ModelListRequest", v)
 }
 
-// AsModelGetRequest returns the union data inside the RPCRequest_Params as a ModelGetRequest
-func (t RPCRequest_Params) AsModelGetRequest() (ModelGetRequest, error) {
+// AsModelGetRequest decodes the RPCPayload as a ModelGetRequest
+func (t RPCPayload) AsModelGetRequest() (ModelGetRequest, error) {
 	var body ModelGetRequest
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("ModelGetRequest", &body)
 	return body, err
 }
 
-// FromModelGetRequest overwrites any union data inside the RPCRequest_Params as the provided ModelGetRequest
-func (t *RPCRequest_Params) FromModelGetRequest(v ModelGetRequest) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromModelGetRequest overwrites any protobuf payload as the provided ModelGetRequest
+func (t *RPCPayload) FromModelGetRequest(v ModelGetRequest) error {
+	return t.encode("ModelGetRequest", v)
 }
 
-// MergeModelGetRequest performs a merge with any union data inside the RPCRequest_Params, using the provided ModelGetRequest
-func (t *RPCRequest_Params) MergeModelGetRequest(v ModelGetRequest) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeModelGetRequest performs a merge with any protobuf payload, using the provided ModelGetRequest
+func (t *RPCPayload) MergeModelGetRequest(v ModelGetRequest) error {
+	return t.merge("ModelGetRequest", v)
 }
 
-// AsModelCreateRequest returns the union data inside the RPCRequest_Params as a ModelCreateRequest
-func (t RPCRequest_Params) AsModelCreateRequest() (ModelCreateRequest, error) {
+// AsModelCreateRequest decodes the RPCPayload as a ModelCreateRequest
+func (t RPCPayload) AsModelCreateRequest() (ModelCreateRequest, error) {
 	var body ModelCreateRequest
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("ModelCreateRequest", &body)
 	return body, err
 }
 
-// FromModelCreateRequest overwrites any union data inside the RPCRequest_Params as the provided ModelCreateRequest
-func (t *RPCRequest_Params) FromModelCreateRequest(v ModelCreateRequest) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromModelCreateRequest overwrites any protobuf payload as the provided ModelCreateRequest
+func (t *RPCPayload) FromModelCreateRequest(v ModelCreateRequest) error {
+	return t.encode("ModelCreateRequest", v)
 }
 
-// MergeModelCreateRequest performs a merge with any union data inside the RPCRequest_Params, using the provided ModelCreateRequest
-func (t *RPCRequest_Params) MergeModelCreateRequest(v ModelCreateRequest) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeModelCreateRequest performs a merge with any protobuf payload, using the provided ModelCreateRequest
+func (t *RPCPayload) MergeModelCreateRequest(v ModelCreateRequest) error {
+	return t.merge("ModelCreateRequest", v)
 }
 
-// AsModelPutRequest returns the union data inside the RPCRequest_Params as a ModelPutRequest
-func (t RPCRequest_Params) AsModelPutRequest() (ModelPutRequest, error) {
+// AsModelPutRequest decodes the RPCPayload as a ModelPutRequest
+func (t RPCPayload) AsModelPutRequest() (ModelPutRequest, error) {
 	var body ModelPutRequest
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("ModelPutRequest", &body)
 	return body, err
 }
 
-// FromModelPutRequest overwrites any union data inside the RPCRequest_Params as the provided ModelPutRequest
-func (t *RPCRequest_Params) FromModelPutRequest(v ModelPutRequest) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromModelPutRequest overwrites any protobuf payload as the provided ModelPutRequest
+func (t *RPCPayload) FromModelPutRequest(v ModelPutRequest) error {
+	return t.encode("ModelPutRequest", v)
 }
 
-// MergeModelPutRequest performs a merge with any union data inside the RPCRequest_Params, using the provided ModelPutRequest
-func (t *RPCRequest_Params) MergeModelPutRequest(v ModelPutRequest) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeModelPutRequest performs a merge with any protobuf payload, using the provided ModelPutRequest
+func (t *RPCPayload) MergeModelPutRequest(v ModelPutRequest) error {
+	return t.merge("ModelPutRequest", v)
 }
 
-// AsModelDeleteRequest returns the union data inside the RPCRequest_Params as a ModelDeleteRequest
-func (t RPCRequest_Params) AsModelDeleteRequest() (ModelDeleteRequest, error) {
+// AsModelDeleteRequest decodes the RPCPayload as a ModelDeleteRequest
+func (t RPCPayload) AsModelDeleteRequest() (ModelDeleteRequest, error) {
 	var body ModelDeleteRequest
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("ModelDeleteRequest", &body)
 	return body, err
 }
 
-// FromModelDeleteRequest overwrites any union data inside the RPCRequest_Params as the provided ModelDeleteRequest
-func (t *RPCRequest_Params) FromModelDeleteRequest(v ModelDeleteRequest) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromModelDeleteRequest overwrites any protobuf payload as the provided ModelDeleteRequest
+func (t *RPCPayload) FromModelDeleteRequest(v ModelDeleteRequest) error {
+	return t.encode("ModelDeleteRequest", v)
 }
 
-// MergeModelDeleteRequest performs a merge with any union data inside the RPCRequest_Params, using the provided ModelDeleteRequest
-func (t *RPCRequest_Params) MergeModelDeleteRequest(v ModelDeleteRequest) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeModelDeleteRequest performs a merge with any protobuf payload, using the provided ModelDeleteRequest
+func (t *RPCPayload) MergeModelDeleteRequest(v ModelDeleteRequest) error {
+	return t.merge("ModelDeleteRequest", v)
 }
 
-// AsVoiceListRequest returns the union data inside the RPCRequest_Params as a VoiceListRequest
-func (t RPCRequest_Params) AsVoiceListRequest() (VoiceListRequest, error) {
+// AsVoiceListRequest decodes the RPCPayload as a VoiceListRequest
+func (t RPCPayload) AsVoiceListRequest() (VoiceListRequest, error) {
 	var body VoiceListRequest
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("VoiceListRequest", &body)
 	return body, err
 }
 
-// FromVoiceListRequest overwrites any union data inside the RPCRequest_Params as the provided VoiceListRequest
-func (t *RPCRequest_Params) FromVoiceListRequest(v VoiceListRequest) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromVoiceListRequest overwrites any protobuf payload as the provided VoiceListRequest
+func (t *RPCPayload) FromVoiceListRequest(v VoiceListRequest) error {
+	return t.encode("VoiceListRequest", v)
 }
 
-// MergeVoiceListRequest performs a merge with any union data inside the RPCRequest_Params, using the provided VoiceListRequest
-func (t *RPCRequest_Params) MergeVoiceListRequest(v VoiceListRequest) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeVoiceListRequest performs a merge with any protobuf payload, using the provided VoiceListRequest
+func (t *RPCPayload) MergeVoiceListRequest(v VoiceListRequest) error {
+	return t.merge("VoiceListRequest", v)
 }
 
-// AsVoiceGetRequest returns the union data inside the RPCRequest_Params as a VoiceGetRequest
-func (t RPCRequest_Params) AsVoiceGetRequest() (VoiceGetRequest, error) {
+// AsVoiceGetRequest decodes the RPCPayload as a VoiceGetRequest
+func (t RPCPayload) AsVoiceGetRequest() (VoiceGetRequest, error) {
 	var body VoiceGetRequest
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("VoiceGetRequest", &body)
 	return body, err
 }
 
-// FromVoiceGetRequest overwrites any union data inside the RPCRequest_Params as the provided VoiceGetRequest
-func (t *RPCRequest_Params) FromVoiceGetRequest(v VoiceGetRequest) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromVoiceGetRequest overwrites any protobuf payload as the provided VoiceGetRequest
+func (t *RPCPayload) FromVoiceGetRequest(v VoiceGetRequest) error {
+	return t.encode("VoiceGetRequest", v)
 }
 
-// MergeVoiceGetRequest performs a merge with any union data inside the RPCRequest_Params, using the provided VoiceGetRequest
-func (t *RPCRequest_Params) MergeVoiceGetRequest(v VoiceGetRequest) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeVoiceGetRequest performs a merge with any protobuf payload, using the provided VoiceGetRequest
+func (t *RPCPayload) MergeVoiceGetRequest(v VoiceGetRequest) error {
+	return t.merge("VoiceGetRequest", v)
 }
 
-// AsCredentialListRequest returns the union data inside the RPCRequest_Params as a CredentialListRequest
-func (t RPCRequest_Params) AsCredentialListRequest() (CredentialListRequest, error) {
+// AsCredentialListRequest decodes the RPCPayload as a CredentialListRequest
+func (t RPCPayload) AsCredentialListRequest() (CredentialListRequest, error) {
 	var body CredentialListRequest
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("CredentialListRequest", &body)
 	return body, err
 }
 
-// FromCredentialListRequest overwrites any union data inside the RPCRequest_Params as the provided CredentialListRequest
-func (t *RPCRequest_Params) FromCredentialListRequest(v CredentialListRequest) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromCredentialListRequest overwrites any protobuf payload as the provided CredentialListRequest
+func (t *RPCPayload) FromCredentialListRequest(v CredentialListRequest) error {
+	return t.encode("CredentialListRequest", v)
 }
 
-// MergeCredentialListRequest performs a merge with any union data inside the RPCRequest_Params, using the provided CredentialListRequest
-func (t *RPCRequest_Params) MergeCredentialListRequest(v CredentialListRequest) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeCredentialListRequest performs a merge with any protobuf payload, using the provided CredentialListRequest
+func (t *RPCPayload) MergeCredentialListRequest(v CredentialListRequest) error {
+	return t.merge("CredentialListRequest", v)
 }
 
-// AsCredentialGetRequest returns the union data inside the RPCRequest_Params as a CredentialGetRequest
-func (t RPCRequest_Params) AsCredentialGetRequest() (CredentialGetRequest, error) {
+// AsCredentialGetRequest decodes the RPCPayload as a CredentialGetRequest
+func (t RPCPayload) AsCredentialGetRequest() (CredentialGetRequest, error) {
 	var body CredentialGetRequest
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("CredentialGetRequest", &body)
 	return body, err
 }
 
-// FromCredentialGetRequest overwrites any union data inside the RPCRequest_Params as the provided CredentialGetRequest
-func (t *RPCRequest_Params) FromCredentialGetRequest(v CredentialGetRequest) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromCredentialGetRequest overwrites any protobuf payload as the provided CredentialGetRequest
+func (t *RPCPayload) FromCredentialGetRequest(v CredentialGetRequest) error {
+	return t.encode("CredentialGetRequest", v)
 }
 
-// MergeCredentialGetRequest performs a merge with any union data inside the RPCRequest_Params, using the provided CredentialGetRequest
-func (t *RPCRequest_Params) MergeCredentialGetRequest(v CredentialGetRequest) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeCredentialGetRequest performs a merge with any protobuf payload, using the provided CredentialGetRequest
+func (t *RPCPayload) MergeCredentialGetRequest(v CredentialGetRequest) error {
+	return t.merge("CredentialGetRequest", v)
 }
 
-// AsCredentialCreateRequest returns the union data inside the RPCRequest_Params as a CredentialCreateRequest
-func (t RPCRequest_Params) AsCredentialCreateRequest() (CredentialCreateRequest, error) {
+// AsCredentialCreateRequest decodes the RPCPayload as a CredentialCreateRequest
+func (t RPCPayload) AsCredentialCreateRequest() (CredentialCreateRequest, error) {
 	var body CredentialCreateRequest
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("CredentialCreateRequest", &body)
 	return body, err
 }
 
-// FromCredentialCreateRequest overwrites any union data inside the RPCRequest_Params as the provided CredentialCreateRequest
-func (t *RPCRequest_Params) FromCredentialCreateRequest(v CredentialCreateRequest) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromCredentialCreateRequest overwrites any protobuf payload as the provided CredentialCreateRequest
+func (t *RPCPayload) FromCredentialCreateRequest(v CredentialCreateRequest) error {
+	return t.encode("CredentialCreateRequest", v)
 }
 
-// MergeCredentialCreateRequest performs a merge with any union data inside the RPCRequest_Params, using the provided CredentialCreateRequest
-func (t *RPCRequest_Params) MergeCredentialCreateRequest(v CredentialCreateRequest) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeCredentialCreateRequest performs a merge with any protobuf payload, using the provided CredentialCreateRequest
+func (t *RPCPayload) MergeCredentialCreateRequest(v CredentialCreateRequest) error {
+	return t.merge("CredentialCreateRequest", v)
 }
 
-// AsCredentialPutRequest returns the union data inside the RPCRequest_Params as a CredentialPutRequest
-func (t RPCRequest_Params) AsCredentialPutRequest() (CredentialPutRequest, error) {
+// AsCredentialPutRequest decodes the RPCPayload as a CredentialPutRequest
+func (t RPCPayload) AsCredentialPutRequest() (CredentialPutRequest, error) {
 	var body CredentialPutRequest
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("CredentialPutRequest", &body)
 	return body, err
 }
 
-// FromCredentialPutRequest overwrites any union data inside the RPCRequest_Params as the provided CredentialPutRequest
-func (t *RPCRequest_Params) FromCredentialPutRequest(v CredentialPutRequest) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromCredentialPutRequest overwrites any protobuf payload as the provided CredentialPutRequest
+func (t *RPCPayload) FromCredentialPutRequest(v CredentialPutRequest) error {
+	return t.encode("CredentialPutRequest", v)
 }
 
-// MergeCredentialPutRequest performs a merge with any union data inside the RPCRequest_Params, using the provided CredentialPutRequest
-func (t *RPCRequest_Params) MergeCredentialPutRequest(v CredentialPutRequest) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeCredentialPutRequest performs a merge with any protobuf payload, using the provided CredentialPutRequest
+func (t *RPCPayload) MergeCredentialPutRequest(v CredentialPutRequest) error {
+	return t.merge("CredentialPutRequest", v)
 }
 
-// AsCredentialDeleteRequest returns the union data inside the RPCRequest_Params as a CredentialDeleteRequest
-func (t RPCRequest_Params) AsCredentialDeleteRequest() (CredentialDeleteRequest, error) {
+// AsCredentialDeleteRequest decodes the RPCPayload as a CredentialDeleteRequest
+func (t RPCPayload) AsCredentialDeleteRequest() (CredentialDeleteRequest, error) {
 	var body CredentialDeleteRequest
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("CredentialDeleteRequest", &body)
 	return body, err
 }
 
-// FromCredentialDeleteRequest overwrites any union data inside the RPCRequest_Params as the provided CredentialDeleteRequest
-func (t *RPCRequest_Params) FromCredentialDeleteRequest(v CredentialDeleteRequest) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromCredentialDeleteRequest overwrites any protobuf payload as the provided CredentialDeleteRequest
+func (t *RPCPayload) FromCredentialDeleteRequest(v CredentialDeleteRequest) error {
+	return t.encode("CredentialDeleteRequest", v)
 }
 
-// MergeCredentialDeleteRequest performs a merge with any union data inside the RPCRequest_Params, using the provided CredentialDeleteRequest
-func (t *RPCRequest_Params) MergeCredentialDeleteRequest(v CredentialDeleteRequest) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeCredentialDeleteRequest performs a merge with any protobuf payload, using the provided CredentialDeleteRequest
+func (t *RPCPayload) MergeCredentialDeleteRequest(v CredentialDeleteRequest) error {
+	return t.merge("CredentialDeleteRequest", v)
 }
 
-// AsContactListRequest returns the union data inside the RPCRequest_Params as a ContactListRequest
-func (t RPCRequest_Params) AsContactListRequest() (ContactListRequest, error) {
+// AsContactListRequest decodes the RPCPayload as a ContactListRequest
+func (t RPCPayload) AsContactListRequest() (ContactListRequest, error) {
 	var body ContactListRequest
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("ContactListRequest", &body)
 	return body, err
 }
 
-// FromContactListRequest overwrites any union data inside the RPCRequest_Params as the provided ContactListRequest
-func (t *RPCRequest_Params) FromContactListRequest(v ContactListRequest) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromContactListRequest overwrites any protobuf payload as the provided ContactListRequest
+func (t *RPCPayload) FromContactListRequest(v ContactListRequest) error {
+	return t.encode("ContactListRequest", v)
 }
 
-// MergeContactListRequest performs a merge with any union data inside the RPCRequest_Params, using the provided ContactListRequest
-func (t *RPCRequest_Params) MergeContactListRequest(v ContactListRequest) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeContactListRequest performs a merge with any protobuf payload, using the provided ContactListRequest
+func (t *RPCPayload) MergeContactListRequest(v ContactListRequest) error {
+	return t.merge("ContactListRequest", v)
 }
 
-// AsContactGetRequest returns the union data inside the RPCRequest_Params as a ContactGetRequest
-func (t RPCRequest_Params) AsContactGetRequest() (ContactGetRequest, error) {
+// AsContactGetRequest decodes the RPCPayload as a ContactGetRequest
+func (t RPCPayload) AsContactGetRequest() (ContactGetRequest, error) {
 	var body ContactGetRequest
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("ContactGetRequest", &body)
 	return body, err
 }
 
-// FromContactGetRequest overwrites any union data inside the RPCRequest_Params as the provided ContactGetRequest
-func (t *RPCRequest_Params) FromContactGetRequest(v ContactGetRequest) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromContactGetRequest overwrites any protobuf payload as the provided ContactGetRequest
+func (t *RPCPayload) FromContactGetRequest(v ContactGetRequest) error {
+	return t.encode("ContactGetRequest", v)
 }
 
-// MergeContactGetRequest performs a merge with any union data inside the RPCRequest_Params, using the provided ContactGetRequest
-func (t *RPCRequest_Params) MergeContactGetRequest(v ContactGetRequest) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeContactGetRequest performs a merge with any protobuf payload, using the provided ContactGetRequest
+func (t *RPCPayload) MergeContactGetRequest(v ContactGetRequest) error {
+	return t.merge("ContactGetRequest", v)
 }
 
-// AsContactCreateRequest returns the union data inside the RPCRequest_Params as a ContactCreateRequest
-func (t RPCRequest_Params) AsContactCreateRequest() (ContactCreateRequest, error) {
+// AsContactCreateRequest decodes the RPCPayload as a ContactCreateRequest
+func (t RPCPayload) AsContactCreateRequest() (ContactCreateRequest, error) {
 	var body ContactCreateRequest
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("ContactCreateRequest", &body)
 	return body, err
 }
 
-// FromContactCreateRequest overwrites any union data inside the RPCRequest_Params as the provided ContactCreateRequest
-func (t *RPCRequest_Params) FromContactCreateRequest(v ContactCreateRequest) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromContactCreateRequest overwrites any protobuf payload as the provided ContactCreateRequest
+func (t *RPCPayload) FromContactCreateRequest(v ContactCreateRequest) error {
+	return t.encode("ContactCreateRequest", v)
 }
 
-// MergeContactCreateRequest performs a merge with any union data inside the RPCRequest_Params, using the provided ContactCreateRequest
-func (t *RPCRequest_Params) MergeContactCreateRequest(v ContactCreateRequest) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeContactCreateRequest performs a merge with any protobuf payload, using the provided ContactCreateRequest
+func (t *RPCPayload) MergeContactCreateRequest(v ContactCreateRequest) error {
+	return t.merge("ContactCreateRequest", v)
 }
 
-// AsContactPutRequest returns the union data inside the RPCRequest_Params as a ContactPutRequest
-func (t RPCRequest_Params) AsContactPutRequest() (ContactPutRequest, error) {
+// AsContactPutRequest decodes the RPCPayload as a ContactPutRequest
+func (t RPCPayload) AsContactPutRequest() (ContactPutRequest, error) {
 	var body ContactPutRequest
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("ContactPutRequest", &body)
 	return body, err
 }
 
-// FromContactPutRequest overwrites any union data inside the RPCRequest_Params as the provided ContactPutRequest
-func (t *RPCRequest_Params) FromContactPutRequest(v ContactPutRequest) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromContactPutRequest overwrites any protobuf payload as the provided ContactPutRequest
+func (t *RPCPayload) FromContactPutRequest(v ContactPutRequest) error {
+	return t.encode("ContactPutRequest", v)
 }
 
-// MergeContactPutRequest performs a merge with any union data inside the RPCRequest_Params, using the provided ContactPutRequest
-func (t *RPCRequest_Params) MergeContactPutRequest(v ContactPutRequest) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeContactPutRequest performs a merge with any protobuf payload, using the provided ContactPutRequest
+func (t *RPCPayload) MergeContactPutRequest(v ContactPutRequest) error {
+	return t.merge("ContactPutRequest", v)
 }
 
-// AsContactDeleteRequest returns the union data inside the RPCRequest_Params as a ContactDeleteRequest
-func (t RPCRequest_Params) AsContactDeleteRequest() (ContactDeleteRequest, error) {
+// AsContactDeleteRequest decodes the RPCPayload as a ContactDeleteRequest
+func (t RPCPayload) AsContactDeleteRequest() (ContactDeleteRequest, error) {
 	var body ContactDeleteRequest
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("ContactDeleteRequest", &body)
 	return body, err
 }
 
-// FromContactDeleteRequest overwrites any union data inside the RPCRequest_Params as the provided ContactDeleteRequest
-func (t *RPCRequest_Params) FromContactDeleteRequest(v ContactDeleteRequest) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromContactDeleteRequest overwrites any protobuf payload as the provided ContactDeleteRequest
+func (t *RPCPayload) FromContactDeleteRequest(v ContactDeleteRequest) error {
+	return t.encode("ContactDeleteRequest", v)
 }
 
-// MergeContactDeleteRequest performs a merge with any union data inside the RPCRequest_Params, using the provided ContactDeleteRequest
-func (t *RPCRequest_Params) MergeContactDeleteRequest(v ContactDeleteRequest) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeContactDeleteRequest performs a merge with any protobuf payload, using the provided ContactDeleteRequest
+func (t *RPCPayload) MergeContactDeleteRequest(v ContactDeleteRequest) error {
+	return t.merge("ContactDeleteRequest", v)
 }
 
-// AsFriendInviteTokenGetRequest returns the union data inside the RPCRequest_Params as a FriendInviteTokenGetRequest
-func (t RPCRequest_Params) AsFriendInviteTokenGetRequest() (FriendInviteTokenGetRequest, error) {
+// AsFriendInviteTokenGetRequest decodes the RPCPayload as a FriendInviteTokenGetRequest
+func (t RPCPayload) AsFriendInviteTokenGetRequest() (FriendInviteTokenGetRequest, error) {
 	var body FriendInviteTokenGetRequest
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("FriendInviteTokenGetRequest", &body)
 	return body, err
 }
 
-// FromFriendInviteTokenGetRequest overwrites any union data inside the RPCRequest_Params as the provided FriendInviteTokenGetRequest
-func (t *RPCRequest_Params) FromFriendInviteTokenGetRequest(v FriendInviteTokenGetRequest) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromFriendInviteTokenGetRequest overwrites any protobuf payload as the provided FriendInviteTokenGetRequest
+func (t *RPCPayload) FromFriendInviteTokenGetRequest(v FriendInviteTokenGetRequest) error {
+	return t.encode("FriendInviteTokenGetRequest", v)
 }
 
-// MergeFriendInviteTokenGetRequest performs a merge with any union data inside the RPCRequest_Params, using the provided FriendInviteTokenGetRequest
-func (t *RPCRequest_Params) MergeFriendInviteTokenGetRequest(v FriendInviteTokenGetRequest) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeFriendInviteTokenGetRequest performs a merge with any protobuf payload, using the provided FriendInviteTokenGetRequest
+func (t *RPCPayload) MergeFriendInviteTokenGetRequest(v FriendInviteTokenGetRequest) error {
+	return t.merge("FriendInviteTokenGetRequest", v)
 }
 
-// AsFriendInviteTokenCreateRequest returns the union data inside the RPCRequest_Params as a FriendInviteTokenCreateRequest
-func (t RPCRequest_Params) AsFriendInviteTokenCreateRequest() (FriendInviteTokenCreateRequest, error) {
+// AsFriendInviteTokenCreateRequest decodes the RPCPayload as a FriendInviteTokenCreateRequest
+func (t RPCPayload) AsFriendInviteTokenCreateRequest() (FriendInviteTokenCreateRequest, error) {
 	var body FriendInviteTokenCreateRequest
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("FriendInviteTokenCreateRequest", &body)
 	return body, err
 }
 
-// FromFriendInviteTokenCreateRequest overwrites any union data inside the RPCRequest_Params as the provided FriendInviteTokenCreateRequest
-func (t *RPCRequest_Params) FromFriendInviteTokenCreateRequest(v FriendInviteTokenCreateRequest) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromFriendInviteTokenCreateRequest overwrites any protobuf payload as the provided FriendInviteTokenCreateRequest
+func (t *RPCPayload) FromFriendInviteTokenCreateRequest(v FriendInviteTokenCreateRequest) error {
+	return t.encode("FriendInviteTokenCreateRequest", v)
 }
 
-// MergeFriendInviteTokenCreateRequest performs a merge with any union data inside the RPCRequest_Params, using the provided FriendInviteTokenCreateRequest
-func (t *RPCRequest_Params) MergeFriendInviteTokenCreateRequest(v FriendInviteTokenCreateRequest) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeFriendInviteTokenCreateRequest performs a merge with any protobuf payload, using the provided FriendInviteTokenCreateRequest
+func (t *RPCPayload) MergeFriendInviteTokenCreateRequest(v FriendInviteTokenCreateRequest) error {
+	return t.merge("FriendInviteTokenCreateRequest", v)
 }
 
-// AsFriendInviteTokenClearRequest returns the union data inside the RPCRequest_Params as a FriendInviteTokenClearRequest
-func (t RPCRequest_Params) AsFriendInviteTokenClearRequest() (FriendInviteTokenClearRequest, error) {
+// AsFriendInviteTokenClearRequest decodes the RPCPayload as a FriendInviteTokenClearRequest
+func (t RPCPayload) AsFriendInviteTokenClearRequest() (FriendInviteTokenClearRequest, error) {
 	var body FriendInviteTokenClearRequest
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("FriendInviteTokenClearRequest", &body)
 	return body, err
 }
 
-// FromFriendInviteTokenClearRequest overwrites any union data inside the RPCRequest_Params as the provided FriendInviteTokenClearRequest
-func (t *RPCRequest_Params) FromFriendInviteTokenClearRequest(v FriendInviteTokenClearRequest) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromFriendInviteTokenClearRequest overwrites any protobuf payload as the provided FriendInviteTokenClearRequest
+func (t *RPCPayload) FromFriendInviteTokenClearRequest(v FriendInviteTokenClearRequest) error {
+	return t.encode("FriendInviteTokenClearRequest", v)
 }
 
-// MergeFriendInviteTokenClearRequest performs a merge with any union data inside the RPCRequest_Params, using the provided FriendInviteTokenClearRequest
-func (t *RPCRequest_Params) MergeFriendInviteTokenClearRequest(v FriendInviteTokenClearRequest) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeFriendInviteTokenClearRequest performs a merge with any protobuf payload, using the provided FriendInviteTokenClearRequest
+func (t *RPCPayload) MergeFriendInviteTokenClearRequest(v FriendInviteTokenClearRequest) error {
+	return t.merge("FriendInviteTokenClearRequest", v)
 }
 
-// AsFriendAddRequest returns the union data inside the RPCRequest_Params as a FriendAddRequest
-func (t RPCRequest_Params) AsFriendAddRequest() (FriendAddRequest, error) {
+// AsFriendAddRequest decodes the RPCPayload as a FriendAddRequest
+func (t RPCPayload) AsFriendAddRequest() (FriendAddRequest, error) {
 	var body FriendAddRequest
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("FriendAddRequest", &body)
 	return body, err
 }
 
-// FromFriendAddRequest overwrites any union data inside the RPCRequest_Params as the provided FriendAddRequest
-func (t *RPCRequest_Params) FromFriendAddRequest(v FriendAddRequest) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromFriendAddRequest overwrites any protobuf payload as the provided FriendAddRequest
+func (t *RPCPayload) FromFriendAddRequest(v FriendAddRequest) error {
+	return t.encode("FriendAddRequest", v)
 }
 
-// MergeFriendAddRequest performs a merge with any union data inside the RPCRequest_Params, using the provided FriendAddRequest
-func (t *RPCRequest_Params) MergeFriendAddRequest(v FriendAddRequest) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeFriendAddRequest performs a merge with any protobuf payload, using the provided FriendAddRequest
+func (t *RPCPayload) MergeFriendAddRequest(v FriendAddRequest) error {
+	return t.merge("FriendAddRequest", v)
 }
 
-// AsFriendListRequest returns the union data inside the RPCRequest_Params as a FriendListRequest
-func (t RPCRequest_Params) AsFriendListRequest() (FriendListRequest, error) {
+// AsFriendListRequest decodes the RPCPayload as a FriendListRequest
+func (t RPCPayload) AsFriendListRequest() (FriendListRequest, error) {
 	var body FriendListRequest
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("FriendListRequest", &body)
 	return body, err
 }
 
-// FromFriendListRequest overwrites any union data inside the RPCRequest_Params as the provided FriendListRequest
-func (t *RPCRequest_Params) FromFriendListRequest(v FriendListRequest) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromFriendListRequest overwrites any protobuf payload as the provided FriendListRequest
+func (t *RPCPayload) FromFriendListRequest(v FriendListRequest) error {
+	return t.encode("FriendListRequest", v)
 }
 
-// MergeFriendListRequest performs a merge with any union data inside the RPCRequest_Params, using the provided FriendListRequest
-func (t *RPCRequest_Params) MergeFriendListRequest(v FriendListRequest) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeFriendListRequest performs a merge with any protobuf payload, using the provided FriendListRequest
+func (t *RPCPayload) MergeFriendListRequest(v FriendListRequest) error {
+	return t.merge("FriendListRequest", v)
 }
 
-// AsFriendDeleteRequest returns the union data inside the RPCRequest_Params as a FriendDeleteRequest
-func (t RPCRequest_Params) AsFriendDeleteRequest() (FriendDeleteRequest, error) {
+// AsFriendDeleteRequest decodes the RPCPayload as a FriendDeleteRequest
+func (t RPCPayload) AsFriendDeleteRequest() (FriendDeleteRequest, error) {
 	var body FriendDeleteRequest
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("FriendDeleteRequest", &body)
 	return body, err
 }
 
-// FromFriendDeleteRequest overwrites any union data inside the RPCRequest_Params as the provided FriendDeleteRequest
-func (t *RPCRequest_Params) FromFriendDeleteRequest(v FriendDeleteRequest) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromFriendDeleteRequest overwrites any protobuf payload as the provided FriendDeleteRequest
+func (t *RPCPayload) FromFriendDeleteRequest(v FriendDeleteRequest) error {
+	return t.encode("FriendDeleteRequest", v)
 }
 
-// MergeFriendDeleteRequest performs a merge with any union data inside the RPCRequest_Params, using the provided FriendDeleteRequest
-func (t *RPCRequest_Params) MergeFriendDeleteRequest(v FriendDeleteRequest) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeFriendDeleteRequest performs a merge with any protobuf payload, using the provided FriendDeleteRequest
+func (t *RPCPayload) MergeFriendDeleteRequest(v FriendDeleteRequest) error {
+	return t.merge("FriendDeleteRequest", v)
 }
 
-// AsFriendGroupListRequest returns the union data inside the RPCRequest_Params as a FriendGroupListRequest
-func (t RPCRequest_Params) AsFriendGroupListRequest() (FriendGroupListRequest, error) {
+// AsFriendGroupListRequest decodes the RPCPayload as a FriendGroupListRequest
+func (t RPCPayload) AsFriendGroupListRequest() (FriendGroupListRequest, error) {
 	var body FriendGroupListRequest
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("FriendGroupListRequest", &body)
 	return body, err
 }
 
-// FromFriendGroupListRequest overwrites any union data inside the RPCRequest_Params as the provided FriendGroupListRequest
-func (t *RPCRequest_Params) FromFriendGroupListRequest(v FriendGroupListRequest) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromFriendGroupListRequest overwrites any protobuf payload as the provided FriendGroupListRequest
+func (t *RPCPayload) FromFriendGroupListRequest(v FriendGroupListRequest) error {
+	return t.encode("FriendGroupListRequest", v)
 }
 
-// MergeFriendGroupListRequest performs a merge with any union data inside the RPCRequest_Params, using the provided FriendGroupListRequest
-func (t *RPCRequest_Params) MergeFriendGroupListRequest(v FriendGroupListRequest) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeFriendGroupListRequest performs a merge with any protobuf payload, using the provided FriendGroupListRequest
+func (t *RPCPayload) MergeFriendGroupListRequest(v FriendGroupListRequest) error {
+	return t.merge("FriendGroupListRequest", v)
 }
 
-// AsFriendGroupGetRequest returns the union data inside the RPCRequest_Params as a FriendGroupGetRequest
-func (t RPCRequest_Params) AsFriendGroupGetRequest() (FriendGroupGetRequest, error) {
+// AsFriendGroupGetRequest decodes the RPCPayload as a FriendGroupGetRequest
+func (t RPCPayload) AsFriendGroupGetRequest() (FriendGroupGetRequest, error) {
 	var body FriendGroupGetRequest
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("FriendGroupGetRequest", &body)
 	return body, err
 }
 
-// FromFriendGroupGetRequest overwrites any union data inside the RPCRequest_Params as the provided FriendGroupGetRequest
-func (t *RPCRequest_Params) FromFriendGroupGetRequest(v FriendGroupGetRequest) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromFriendGroupGetRequest overwrites any protobuf payload as the provided FriendGroupGetRequest
+func (t *RPCPayload) FromFriendGroupGetRequest(v FriendGroupGetRequest) error {
+	return t.encode("FriendGroupGetRequest", v)
 }
 
-// MergeFriendGroupGetRequest performs a merge with any union data inside the RPCRequest_Params, using the provided FriendGroupGetRequest
-func (t *RPCRequest_Params) MergeFriendGroupGetRequest(v FriendGroupGetRequest) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeFriendGroupGetRequest performs a merge with any protobuf payload, using the provided FriendGroupGetRequest
+func (t *RPCPayload) MergeFriendGroupGetRequest(v FriendGroupGetRequest) error {
+	return t.merge("FriendGroupGetRequest", v)
 }
 
-// AsFriendGroupCreateRequest returns the union data inside the RPCRequest_Params as a FriendGroupCreateRequest
-func (t RPCRequest_Params) AsFriendGroupCreateRequest() (FriendGroupCreateRequest, error) {
+// AsFriendGroupCreateRequest decodes the RPCPayload as a FriendGroupCreateRequest
+func (t RPCPayload) AsFriendGroupCreateRequest() (FriendGroupCreateRequest, error) {
 	var body FriendGroupCreateRequest
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("FriendGroupCreateRequest", &body)
 	return body, err
 }
 
-// FromFriendGroupCreateRequest overwrites any union data inside the RPCRequest_Params as the provided FriendGroupCreateRequest
-func (t *RPCRequest_Params) FromFriendGroupCreateRequest(v FriendGroupCreateRequest) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromFriendGroupCreateRequest overwrites any protobuf payload as the provided FriendGroupCreateRequest
+func (t *RPCPayload) FromFriendGroupCreateRequest(v FriendGroupCreateRequest) error {
+	return t.encode("FriendGroupCreateRequest", v)
 }
 
-// MergeFriendGroupCreateRequest performs a merge with any union data inside the RPCRequest_Params, using the provided FriendGroupCreateRequest
-func (t *RPCRequest_Params) MergeFriendGroupCreateRequest(v FriendGroupCreateRequest) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeFriendGroupCreateRequest performs a merge with any protobuf payload, using the provided FriendGroupCreateRequest
+func (t *RPCPayload) MergeFriendGroupCreateRequest(v FriendGroupCreateRequest) error {
+	return t.merge("FriendGroupCreateRequest", v)
 }
 
-// AsFriendGroupPutRequest returns the union data inside the RPCRequest_Params as a FriendGroupPutRequest
-func (t RPCRequest_Params) AsFriendGroupPutRequest() (FriendGroupPutRequest, error) {
+// AsFriendGroupPutRequest decodes the RPCPayload as a FriendGroupPutRequest
+func (t RPCPayload) AsFriendGroupPutRequest() (FriendGroupPutRequest, error) {
 	var body FriendGroupPutRequest
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("FriendGroupPutRequest", &body)
 	return body, err
 }
 
-// FromFriendGroupPutRequest overwrites any union data inside the RPCRequest_Params as the provided FriendGroupPutRequest
-func (t *RPCRequest_Params) FromFriendGroupPutRequest(v FriendGroupPutRequest) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromFriendGroupPutRequest overwrites any protobuf payload as the provided FriendGroupPutRequest
+func (t *RPCPayload) FromFriendGroupPutRequest(v FriendGroupPutRequest) error {
+	return t.encode("FriendGroupPutRequest", v)
 }
 
-// MergeFriendGroupPutRequest performs a merge with any union data inside the RPCRequest_Params, using the provided FriendGroupPutRequest
-func (t *RPCRequest_Params) MergeFriendGroupPutRequest(v FriendGroupPutRequest) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeFriendGroupPutRequest performs a merge with any protobuf payload, using the provided FriendGroupPutRequest
+func (t *RPCPayload) MergeFriendGroupPutRequest(v FriendGroupPutRequest) error {
+	return t.merge("FriendGroupPutRequest", v)
 }
 
-// AsFriendGroupDeleteRequest returns the union data inside the RPCRequest_Params as a FriendGroupDeleteRequest
-func (t RPCRequest_Params) AsFriendGroupDeleteRequest() (FriendGroupDeleteRequest, error) {
+// AsFriendGroupDeleteRequest decodes the RPCPayload as a FriendGroupDeleteRequest
+func (t RPCPayload) AsFriendGroupDeleteRequest() (FriendGroupDeleteRequest, error) {
 	var body FriendGroupDeleteRequest
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("FriendGroupDeleteRequest", &body)
 	return body, err
 }
 
-// FromFriendGroupDeleteRequest overwrites any union data inside the RPCRequest_Params as the provided FriendGroupDeleteRequest
-func (t *RPCRequest_Params) FromFriendGroupDeleteRequest(v FriendGroupDeleteRequest) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromFriendGroupDeleteRequest overwrites any protobuf payload as the provided FriendGroupDeleteRequest
+func (t *RPCPayload) FromFriendGroupDeleteRequest(v FriendGroupDeleteRequest) error {
+	return t.encode("FriendGroupDeleteRequest", v)
 }
 
-// MergeFriendGroupDeleteRequest performs a merge with any union data inside the RPCRequest_Params, using the provided FriendGroupDeleteRequest
-func (t *RPCRequest_Params) MergeFriendGroupDeleteRequest(v FriendGroupDeleteRequest) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeFriendGroupDeleteRequest performs a merge with any protobuf payload, using the provided FriendGroupDeleteRequest
+func (t *RPCPayload) MergeFriendGroupDeleteRequest(v FriendGroupDeleteRequest) error {
+	return t.merge("FriendGroupDeleteRequest", v)
 }
 
-// AsFriendGroupInviteTokenGetRequest returns the union data inside the RPCRequest_Params as a FriendGroupInviteTokenGetRequest
-func (t RPCRequest_Params) AsFriendGroupInviteTokenGetRequest() (FriendGroupInviteTokenGetRequest, error) {
+// AsFriendGroupInviteTokenGetRequest decodes the RPCPayload as a FriendGroupInviteTokenGetRequest
+func (t RPCPayload) AsFriendGroupInviteTokenGetRequest() (FriendGroupInviteTokenGetRequest, error) {
 	var body FriendGroupInviteTokenGetRequest
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("FriendGroupInviteTokenGetRequest", &body)
 	return body, err
 }
 
-// FromFriendGroupInviteTokenGetRequest overwrites any union data inside the RPCRequest_Params as the provided FriendGroupInviteTokenGetRequest
-func (t *RPCRequest_Params) FromFriendGroupInviteTokenGetRequest(v FriendGroupInviteTokenGetRequest) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromFriendGroupInviteTokenGetRequest overwrites any protobuf payload as the provided FriendGroupInviteTokenGetRequest
+func (t *RPCPayload) FromFriendGroupInviteTokenGetRequest(v FriendGroupInviteTokenGetRequest) error {
+	return t.encode("FriendGroupInviteTokenGetRequest", v)
 }
 
-// MergeFriendGroupInviteTokenGetRequest performs a merge with any union data inside the RPCRequest_Params, using the provided FriendGroupInviteTokenGetRequest
-func (t *RPCRequest_Params) MergeFriendGroupInviteTokenGetRequest(v FriendGroupInviteTokenGetRequest) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeFriendGroupInviteTokenGetRequest performs a merge with any protobuf payload, using the provided FriendGroupInviteTokenGetRequest
+func (t *RPCPayload) MergeFriendGroupInviteTokenGetRequest(v FriendGroupInviteTokenGetRequest) error {
+	return t.merge("FriendGroupInviteTokenGetRequest", v)
 }
 
-// AsFriendGroupInviteTokenCreateRequest returns the union data inside the RPCRequest_Params as a FriendGroupInviteTokenCreateRequest
-func (t RPCRequest_Params) AsFriendGroupInviteTokenCreateRequest() (FriendGroupInviteTokenCreateRequest, error) {
+// AsFriendGroupInviteTokenCreateRequest decodes the RPCPayload as a FriendGroupInviteTokenCreateRequest
+func (t RPCPayload) AsFriendGroupInviteTokenCreateRequest() (FriendGroupInviteTokenCreateRequest, error) {
 	var body FriendGroupInviteTokenCreateRequest
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("FriendGroupInviteTokenCreateRequest", &body)
 	return body, err
 }
 
-// FromFriendGroupInviteTokenCreateRequest overwrites any union data inside the RPCRequest_Params as the provided FriendGroupInviteTokenCreateRequest
-func (t *RPCRequest_Params) FromFriendGroupInviteTokenCreateRequest(v FriendGroupInviteTokenCreateRequest) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromFriendGroupInviteTokenCreateRequest overwrites any protobuf payload as the provided FriendGroupInviteTokenCreateRequest
+func (t *RPCPayload) FromFriendGroupInviteTokenCreateRequest(v FriendGroupInviteTokenCreateRequest) error {
+	return t.encode("FriendGroupInviteTokenCreateRequest", v)
 }
 
-// MergeFriendGroupInviteTokenCreateRequest performs a merge with any union data inside the RPCRequest_Params, using the provided FriendGroupInviteTokenCreateRequest
-func (t *RPCRequest_Params) MergeFriendGroupInviteTokenCreateRequest(v FriendGroupInviteTokenCreateRequest) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeFriendGroupInviteTokenCreateRequest performs a merge with any protobuf payload, using the provided FriendGroupInviteTokenCreateRequest
+func (t *RPCPayload) MergeFriendGroupInviteTokenCreateRequest(v FriendGroupInviteTokenCreateRequest) error {
+	return t.merge("FriendGroupInviteTokenCreateRequest", v)
 }
 
-// AsFriendGroupInviteTokenClearRequest returns the union data inside the RPCRequest_Params as a FriendGroupInviteTokenClearRequest
-func (t RPCRequest_Params) AsFriendGroupInviteTokenClearRequest() (FriendGroupInviteTokenClearRequest, error) {
+// AsFriendGroupInviteTokenClearRequest decodes the RPCPayload as a FriendGroupInviteTokenClearRequest
+func (t RPCPayload) AsFriendGroupInviteTokenClearRequest() (FriendGroupInviteTokenClearRequest, error) {
 	var body FriendGroupInviteTokenClearRequest
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("FriendGroupInviteTokenClearRequest", &body)
 	return body, err
 }
 
-// FromFriendGroupInviteTokenClearRequest overwrites any union data inside the RPCRequest_Params as the provided FriendGroupInviteTokenClearRequest
-func (t *RPCRequest_Params) FromFriendGroupInviteTokenClearRequest(v FriendGroupInviteTokenClearRequest) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromFriendGroupInviteTokenClearRequest overwrites any protobuf payload as the provided FriendGroupInviteTokenClearRequest
+func (t *RPCPayload) FromFriendGroupInviteTokenClearRequest(v FriendGroupInviteTokenClearRequest) error {
+	return t.encode("FriendGroupInviteTokenClearRequest", v)
 }
 
-// MergeFriendGroupInviteTokenClearRequest performs a merge with any union data inside the RPCRequest_Params, using the provided FriendGroupInviteTokenClearRequest
-func (t *RPCRequest_Params) MergeFriendGroupInviteTokenClearRequest(v FriendGroupInviteTokenClearRequest) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeFriendGroupInviteTokenClearRequest performs a merge with any protobuf payload, using the provided FriendGroupInviteTokenClearRequest
+func (t *RPCPayload) MergeFriendGroupInviteTokenClearRequest(v FriendGroupInviteTokenClearRequest) error {
+	return t.merge("FriendGroupInviteTokenClearRequest", v)
 }
 
-// AsFriendGroupJoinRequest returns the union data inside the RPCRequest_Params as a FriendGroupJoinRequest
-func (t RPCRequest_Params) AsFriendGroupJoinRequest() (FriendGroupJoinRequest, error) {
+// AsFriendGroupJoinRequest decodes the RPCPayload as a FriendGroupJoinRequest
+func (t RPCPayload) AsFriendGroupJoinRequest() (FriendGroupJoinRequest, error) {
 	var body FriendGroupJoinRequest
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("FriendGroupJoinRequest", &body)
 	return body, err
 }
 
-// FromFriendGroupJoinRequest overwrites any union data inside the RPCRequest_Params as the provided FriendGroupJoinRequest
-func (t *RPCRequest_Params) FromFriendGroupJoinRequest(v FriendGroupJoinRequest) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromFriendGroupJoinRequest overwrites any protobuf payload as the provided FriendGroupJoinRequest
+func (t *RPCPayload) FromFriendGroupJoinRequest(v FriendGroupJoinRequest) error {
+	return t.encode("FriendGroupJoinRequest", v)
 }
 
-// MergeFriendGroupJoinRequest performs a merge with any union data inside the RPCRequest_Params, using the provided FriendGroupJoinRequest
-func (t *RPCRequest_Params) MergeFriendGroupJoinRequest(v FriendGroupJoinRequest) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeFriendGroupJoinRequest performs a merge with any protobuf payload, using the provided FriendGroupJoinRequest
+func (t *RPCPayload) MergeFriendGroupJoinRequest(v FriendGroupJoinRequest) error {
+	return t.merge("FriendGroupJoinRequest", v)
 }
 
-// AsFriendGroupMemberListRequest returns the union data inside the RPCRequest_Params as a FriendGroupMemberListRequest
-func (t RPCRequest_Params) AsFriendGroupMemberListRequest() (FriendGroupMemberListRequest, error) {
+// AsFriendGroupMemberListRequest decodes the RPCPayload as a FriendGroupMemberListRequest
+func (t RPCPayload) AsFriendGroupMemberListRequest() (FriendGroupMemberListRequest, error) {
 	var body FriendGroupMemberListRequest
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("FriendGroupMemberListRequest", &body)
 	return body, err
 }
 
-// FromFriendGroupMemberListRequest overwrites any union data inside the RPCRequest_Params as the provided FriendGroupMemberListRequest
-func (t *RPCRequest_Params) FromFriendGroupMemberListRequest(v FriendGroupMemberListRequest) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromFriendGroupMemberListRequest overwrites any protobuf payload as the provided FriendGroupMemberListRequest
+func (t *RPCPayload) FromFriendGroupMemberListRequest(v FriendGroupMemberListRequest) error {
+	return t.encode("FriendGroupMemberListRequest", v)
 }
 
-// MergeFriendGroupMemberListRequest performs a merge with any union data inside the RPCRequest_Params, using the provided FriendGroupMemberListRequest
-func (t *RPCRequest_Params) MergeFriendGroupMemberListRequest(v FriendGroupMemberListRequest) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeFriendGroupMemberListRequest performs a merge with any protobuf payload, using the provided FriendGroupMemberListRequest
+func (t *RPCPayload) MergeFriendGroupMemberListRequest(v FriendGroupMemberListRequest) error {
+	return t.merge("FriendGroupMemberListRequest", v)
 }
 
-// AsFriendGroupMemberAddRequest returns the union data inside the RPCRequest_Params as a FriendGroupMemberAddRequest
-func (t RPCRequest_Params) AsFriendGroupMemberAddRequest() (FriendGroupMemberAddRequest, error) {
+// AsFriendGroupMemberAddRequest decodes the RPCPayload as a FriendGroupMemberAddRequest
+func (t RPCPayload) AsFriendGroupMemberAddRequest() (FriendGroupMemberAddRequest, error) {
 	var body FriendGroupMemberAddRequest
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("FriendGroupMemberAddRequest", &body)
 	return body, err
 }
 
-// FromFriendGroupMemberAddRequest overwrites any union data inside the RPCRequest_Params as the provided FriendGroupMemberAddRequest
-func (t *RPCRequest_Params) FromFriendGroupMemberAddRequest(v FriendGroupMemberAddRequest) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromFriendGroupMemberAddRequest overwrites any protobuf payload as the provided FriendGroupMemberAddRequest
+func (t *RPCPayload) FromFriendGroupMemberAddRequest(v FriendGroupMemberAddRequest) error {
+	return t.encode("FriendGroupMemberAddRequest", v)
 }
 
-// MergeFriendGroupMemberAddRequest performs a merge with any union data inside the RPCRequest_Params, using the provided FriendGroupMemberAddRequest
-func (t *RPCRequest_Params) MergeFriendGroupMemberAddRequest(v FriendGroupMemberAddRequest) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeFriendGroupMemberAddRequest performs a merge with any protobuf payload, using the provided FriendGroupMemberAddRequest
+func (t *RPCPayload) MergeFriendGroupMemberAddRequest(v FriendGroupMemberAddRequest) error {
+	return t.merge("FriendGroupMemberAddRequest", v)
 }
 
-// AsFriendGroupMemberPutRequest returns the union data inside the RPCRequest_Params as a FriendGroupMemberPutRequest
-func (t RPCRequest_Params) AsFriendGroupMemberPutRequest() (FriendGroupMemberPutRequest, error) {
+// AsFriendGroupMemberPutRequest decodes the RPCPayload as a FriendGroupMemberPutRequest
+func (t RPCPayload) AsFriendGroupMemberPutRequest() (FriendGroupMemberPutRequest, error) {
 	var body FriendGroupMemberPutRequest
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("FriendGroupMemberPutRequest", &body)
 	return body, err
 }
 
-// FromFriendGroupMemberPutRequest overwrites any union data inside the RPCRequest_Params as the provided FriendGroupMemberPutRequest
-func (t *RPCRequest_Params) FromFriendGroupMemberPutRequest(v FriendGroupMemberPutRequest) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromFriendGroupMemberPutRequest overwrites any protobuf payload as the provided FriendGroupMemberPutRequest
+func (t *RPCPayload) FromFriendGroupMemberPutRequest(v FriendGroupMemberPutRequest) error {
+	return t.encode("FriendGroupMemberPutRequest", v)
 }
 
-// MergeFriendGroupMemberPutRequest performs a merge with any union data inside the RPCRequest_Params, using the provided FriendGroupMemberPutRequest
-func (t *RPCRequest_Params) MergeFriendGroupMemberPutRequest(v FriendGroupMemberPutRequest) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeFriendGroupMemberPutRequest performs a merge with any protobuf payload, using the provided FriendGroupMemberPutRequest
+func (t *RPCPayload) MergeFriendGroupMemberPutRequest(v FriendGroupMemberPutRequest) error {
+	return t.merge("FriendGroupMemberPutRequest", v)
 }
 
-// AsFriendGroupMemberDeleteRequest returns the union data inside the RPCRequest_Params as a FriendGroupMemberDeleteRequest
-func (t RPCRequest_Params) AsFriendGroupMemberDeleteRequest() (FriendGroupMemberDeleteRequest, error) {
+// AsFriendGroupMemberDeleteRequest decodes the RPCPayload as a FriendGroupMemberDeleteRequest
+func (t RPCPayload) AsFriendGroupMemberDeleteRequest() (FriendGroupMemberDeleteRequest, error) {
 	var body FriendGroupMemberDeleteRequest
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("FriendGroupMemberDeleteRequest", &body)
 	return body, err
 }
 
-// FromFriendGroupMemberDeleteRequest overwrites any union data inside the RPCRequest_Params as the provided FriendGroupMemberDeleteRequest
-func (t *RPCRequest_Params) FromFriendGroupMemberDeleteRequest(v FriendGroupMemberDeleteRequest) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromFriendGroupMemberDeleteRequest overwrites any protobuf payload as the provided FriendGroupMemberDeleteRequest
+func (t *RPCPayload) FromFriendGroupMemberDeleteRequest(v FriendGroupMemberDeleteRequest) error {
+	return t.encode("FriendGroupMemberDeleteRequest", v)
 }
 
-// MergeFriendGroupMemberDeleteRequest performs a merge with any union data inside the RPCRequest_Params, using the provided FriendGroupMemberDeleteRequest
-func (t *RPCRequest_Params) MergeFriendGroupMemberDeleteRequest(v FriendGroupMemberDeleteRequest) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeFriendGroupMemberDeleteRequest performs a merge with any protobuf payload, using the provided FriendGroupMemberDeleteRequest
+func (t *RPCPayload) MergeFriendGroupMemberDeleteRequest(v FriendGroupMemberDeleteRequest) error {
+	return t.merge("FriendGroupMemberDeleteRequest", v)
 }
 
-// AsFriendGroupMessageListRequest returns the union data inside the RPCRequest_Params as a FriendGroupMessageListRequest
-func (t RPCRequest_Params) AsFriendGroupMessageListRequest() (FriendGroupMessageListRequest, error) {
+// AsFriendGroupMessageListRequest decodes the RPCPayload as a FriendGroupMessageListRequest
+func (t RPCPayload) AsFriendGroupMessageListRequest() (FriendGroupMessageListRequest, error) {
 	var body FriendGroupMessageListRequest
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("FriendGroupMessageListRequest", &body)
 	return body, err
 }
 
-// FromFriendGroupMessageListRequest overwrites any union data inside the RPCRequest_Params as the provided FriendGroupMessageListRequest
-func (t *RPCRequest_Params) FromFriendGroupMessageListRequest(v FriendGroupMessageListRequest) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromFriendGroupMessageListRequest overwrites any protobuf payload as the provided FriendGroupMessageListRequest
+func (t *RPCPayload) FromFriendGroupMessageListRequest(v FriendGroupMessageListRequest) error {
+	return t.encode("FriendGroupMessageListRequest", v)
 }
 
-// MergeFriendGroupMessageListRequest performs a merge with any union data inside the RPCRequest_Params, using the provided FriendGroupMessageListRequest
-func (t *RPCRequest_Params) MergeFriendGroupMessageListRequest(v FriendGroupMessageListRequest) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeFriendGroupMessageListRequest performs a merge with any protobuf payload, using the provided FriendGroupMessageListRequest
+func (t *RPCPayload) MergeFriendGroupMessageListRequest(v FriendGroupMessageListRequest) error {
+	return t.merge("FriendGroupMessageListRequest", v)
 }
 
-// AsFriendGroupMessageGetRequest returns the union data inside the RPCRequest_Params as a FriendGroupMessageGetRequest
-func (t RPCRequest_Params) AsFriendGroupMessageGetRequest() (FriendGroupMessageGetRequest, error) {
+// AsFriendGroupMessageGetRequest decodes the RPCPayload as a FriendGroupMessageGetRequest
+func (t RPCPayload) AsFriendGroupMessageGetRequest() (FriendGroupMessageGetRequest, error) {
 	var body FriendGroupMessageGetRequest
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("FriendGroupMessageGetRequest", &body)
 	return body, err
 }
 
-// FromFriendGroupMessageGetRequest overwrites any union data inside the RPCRequest_Params as the provided FriendGroupMessageGetRequest
-func (t *RPCRequest_Params) FromFriendGroupMessageGetRequest(v FriendGroupMessageGetRequest) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromFriendGroupMessageGetRequest overwrites any protobuf payload as the provided FriendGroupMessageGetRequest
+func (t *RPCPayload) FromFriendGroupMessageGetRequest(v FriendGroupMessageGetRequest) error {
+	return t.encode("FriendGroupMessageGetRequest", v)
 }
 
-// MergeFriendGroupMessageGetRequest performs a merge with any union data inside the RPCRequest_Params, using the provided FriendGroupMessageGetRequest
-func (t *RPCRequest_Params) MergeFriendGroupMessageGetRequest(v FriendGroupMessageGetRequest) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeFriendGroupMessageGetRequest performs a merge with any protobuf payload, using the provided FriendGroupMessageGetRequest
+func (t *RPCPayload) MergeFriendGroupMessageGetRequest(v FriendGroupMessageGetRequest) error {
+	return t.merge("FriendGroupMessageGetRequest", v)
 }
 
-// AsFriendGroupMessageSendRequest returns the union data inside the RPCRequest_Params as a FriendGroupMessageSendRequest
-func (t RPCRequest_Params) AsFriendGroupMessageSendRequest() (FriendGroupMessageSendRequest, error) {
+// AsFriendGroupMessageSendRequest decodes the RPCPayload as a FriendGroupMessageSendRequest
+func (t RPCPayload) AsFriendGroupMessageSendRequest() (FriendGroupMessageSendRequest, error) {
 	var body FriendGroupMessageSendRequest
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("FriendGroupMessageSendRequest", &body)
 	return body, err
 }
 
-// FromFriendGroupMessageSendRequest overwrites any union data inside the RPCRequest_Params as the provided FriendGroupMessageSendRequest
-func (t *RPCRequest_Params) FromFriendGroupMessageSendRequest(v FriendGroupMessageSendRequest) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromFriendGroupMessageSendRequest overwrites any protobuf payload as the provided FriendGroupMessageSendRequest
+func (t *RPCPayload) FromFriendGroupMessageSendRequest(v FriendGroupMessageSendRequest) error {
+	return t.encode("FriendGroupMessageSendRequest", v)
 }
 
-// MergeFriendGroupMessageSendRequest performs a merge with any union data inside the RPCRequest_Params, using the provided FriendGroupMessageSendRequest
-func (t *RPCRequest_Params) MergeFriendGroupMessageSendRequest(v FriendGroupMessageSendRequest) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeFriendGroupMessageSendRequest performs a merge with any protobuf payload, using the provided FriendGroupMessageSendRequest
+func (t *RPCPayload) MergeFriendGroupMessageSendRequest(v FriendGroupMessageSendRequest) error {
+	return t.merge("FriendGroupMessageSendRequest", v)
 }
 
-// AsServerGameRulesetGetRequest returns the union data inside the RPCRequest_Params as a ServerGameRulesetGetRequest
-func (t RPCRequest_Params) AsServerGameRulesetGetRequest() (ServerGameRulesetGetRequest, error) {
+// AsServerGameRulesetGetRequest decodes the RPCPayload as a ServerGameRulesetGetRequest
+func (t RPCPayload) AsServerGameRulesetGetRequest() (ServerGameRulesetGetRequest, error) {
 	var body ServerGameRulesetGetRequest
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("ServerGameRulesetGetRequest", &body)
 	return body, err
 }
 
-// FromServerGameRulesetGetRequest overwrites any union data inside the RPCRequest_Params as the provided ServerGameRulesetGetRequest
-func (t *RPCRequest_Params) FromServerGameRulesetGetRequest(v ServerGameRulesetGetRequest) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromServerGameRulesetGetRequest overwrites any protobuf payload as the provided ServerGameRulesetGetRequest
+func (t *RPCPayload) FromServerGameRulesetGetRequest(v ServerGameRulesetGetRequest) error {
+	return t.encode("ServerGameRulesetGetRequest", v)
 }
 
-// MergeServerGameRulesetGetRequest performs a merge with any union data inside the RPCRequest_Params, using the provided ServerGameRulesetGetRequest
-func (t *RPCRequest_Params) MergeServerGameRulesetGetRequest(v ServerGameRulesetGetRequest) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeServerGameRulesetGetRequest performs a merge with any protobuf payload, using the provided ServerGameRulesetGetRequest
+func (t *RPCPayload) MergeServerGameRulesetGetRequest(v ServerGameRulesetGetRequest) error {
+	return t.merge("ServerGameRulesetGetRequest", v)
 }
 
-// AsPetDefPixaDownloadRequest returns the union data inside the RPCRequest_Params as a PetDefPixaDownloadRequest
-func (t RPCRequest_Params) AsPetDefPixaDownloadRequest() (PetDefPixaDownloadRequest, error) {
+// AsPetDefPixaDownloadRequest decodes the RPCPayload as a PetDefPixaDownloadRequest
+func (t RPCPayload) AsPetDefPixaDownloadRequest() (PetDefPixaDownloadRequest, error) {
 	var body PetDefPixaDownloadRequest
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("PetDefPixaDownloadRequest", &body)
 	return body, err
 }
 
-// FromPetDefPixaDownloadRequest overwrites any union data inside the RPCRequest_Params as the provided PetDefPixaDownloadRequest
-func (t *RPCRequest_Params) FromPetDefPixaDownloadRequest(v PetDefPixaDownloadRequest) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromPetDefPixaDownloadRequest overwrites any protobuf payload as the provided PetDefPixaDownloadRequest
+func (t *RPCPayload) FromPetDefPixaDownloadRequest(v PetDefPixaDownloadRequest) error {
+	return t.encode("PetDefPixaDownloadRequest", v)
 }
 
-// MergePetDefPixaDownloadRequest performs a merge with any union data inside the RPCRequest_Params, using the provided PetDefPixaDownloadRequest
-func (t *RPCRequest_Params) MergePetDefPixaDownloadRequest(v PetDefPixaDownloadRequest) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergePetDefPixaDownloadRequest performs a merge with any protobuf payload, using the provided PetDefPixaDownloadRequest
+func (t *RPCPayload) MergePetDefPixaDownloadRequest(v PetDefPixaDownloadRequest) error {
+	return t.merge("PetDefPixaDownloadRequest", v)
 }
 
-// AsBadgeDefPixaDownloadRequest returns the union data inside the RPCRequest_Params as a BadgeDefPixaDownloadRequest
-func (t RPCRequest_Params) AsBadgeDefPixaDownloadRequest() (BadgeDefPixaDownloadRequest, error) {
+// AsBadgeDefPixaDownloadRequest decodes the RPCPayload as a BadgeDefPixaDownloadRequest
+func (t RPCPayload) AsBadgeDefPixaDownloadRequest() (BadgeDefPixaDownloadRequest, error) {
 	var body BadgeDefPixaDownloadRequest
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("BadgeDefPixaDownloadRequest", &body)
 	return body, err
 }
 
-// FromBadgeDefPixaDownloadRequest overwrites any union data inside the RPCRequest_Params as the provided BadgeDefPixaDownloadRequest
-func (t *RPCRequest_Params) FromBadgeDefPixaDownloadRequest(v BadgeDefPixaDownloadRequest) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromBadgeDefPixaDownloadRequest overwrites any protobuf payload as the provided BadgeDefPixaDownloadRequest
+func (t *RPCPayload) FromBadgeDefPixaDownloadRequest(v BadgeDefPixaDownloadRequest) error {
+	return t.encode("BadgeDefPixaDownloadRequest", v)
 }
 
-// MergeBadgeDefPixaDownloadRequest performs a merge with any union data inside the RPCRequest_Params, using the provided BadgeDefPixaDownloadRequest
-func (t *RPCRequest_Params) MergeBadgeDefPixaDownloadRequest(v BadgeDefPixaDownloadRequest) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeBadgeDefPixaDownloadRequest performs a merge with any protobuf payload, using the provided BadgeDefPixaDownloadRequest
+func (t *RPCPayload) MergeBadgeDefPixaDownloadRequest(v BadgeDefPixaDownloadRequest) error {
+	return t.merge("BadgeDefPixaDownloadRequest", v)
 }
 
-// AsServerPetListRequest returns the union data inside the RPCRequest_Params as a ServerPetListRequest
-func (t RPCRequest_Params) AsServerPetListRequest() (ServerPetListRequest, error) {
+// AsServerPetListRequest decodes the RPCPayload as a ServerPetListRequest
+func (t RPCPayload) AsServerPetListRequest() (ServerPetListRequest, error) {
 	var body ServerPetListRequest
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("ServerPetListRequest", &body)
 	return body, err
 }
 
-// FromServerPetListRequest overwrites any union data inside the RPCRequest_Params as the provided ServerPetListRequest
-func (t *RPCRequest_Params) FromServerPetListRequest(v ServerPetListRequest) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromServerPetListRequest overwrites any protobuf payload as the provided ServerPetListRequest
+func (t *RPCPayload) FromServerPetListRequest(v ServerPetListRequest) error {
+	return t.encode("ServerPetListRequest", v)
 }
 
-// MergeServerPetListRequest performs a merge with any union data inside the RPCRequest_Params, using the provided ServerPetListRequest
-func (t *RPCRequest_Params) MergeServerPetListRequest(v ServerPetListRequest) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeServerPetListRequest performs a merge with any protobuf payload, using the provided ServerPetListRequest
+func (t *RPCPayload) MergeServerPetListRequest(v ServerPetListRequest) error {
+	return t.merge("ServerPetListRequest", v)
 }
 
-// AsServerPetGetRequest returns the union data inside the RPCRequest_Params as a ServerPetGetRequest
-func (t RPCRequest_Params) AsServerPetGetRequest() (ServerPetGetRequest, error) {
+// AsServerPetGetRequest decodes the RPCPayload as a ServerPetGetRequest
+func (t RPCPayload) AsServerPetGetRequest() (ServerPetGetRequest, error) {
 	var body ServerPetGetRequest
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("ServerPetGetRequest", &body)
 	return body, err
 }
 
-// FromServerPetGetRequest overwrites any union data inside the RPCRequest_Params as the provided ServerPetGetRequest
-func (t *RPCRequest_Params) FromServerPetGetRequest(v ServerPetGetRequest) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromServerPetGetRequest overwrites any protobuf payload as the provided ServerPetGetRequest
+func (t *RPCPayload) FromServerPetGetRequest(v ServerPetGetRequest) error {
+	return t.encode("ServerPetGetRequest", v)
 }
 
-// MergeServerPetGetRequest performs a merge with any union data inside the RPCRequest_Params, using the provided ServerPetGetRequest
-func (t *RPCRequest_Params) MergeServerPetGetRequest(v ServerPetGetRequest) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeServerPetGetRequest performs a merge with any protobuf payload, using the provided ServerPetGetRequest
+func (t *RPCPayload) MergeServerPetGetRequest(v ServerPetGetRequest) error {
+	return t.merge("ServerPetGetRequest", v)
 }
 
-// AsServerPetAdoptRequest returns the union data inside the RPCRequest_Params as a ServerPetAdoptRequest
-func (t RPCRequest_Params) AsServerPetAdoptRequest() (ServerPetAdoptRequest, error) {
+// AsServerPetAdoptRequest decodes the RPCPayload as a ServerPetAdoptRequest
+func (t RPCPayload) AsServerPetAdoptRequest() (ServerPetAdoptRequest, error) {
 	var body ServerPetAdoptRequest
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("ServerPetAdoptRequest", &body)
 	return body, err
 }
 
-// FromServerPetAdoptRequest overwrites any union data inside the RPCRequest_Params as the provided ServerPetAdoptRequest
-func (t *RPCRequest_Params) FromServerPetAdoptRequest(v ServerPetAdoptRequest) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromServerPetAdoptRequest overwrites any protobuf payload as the provided ServerPetAdoptRequest
+func (t *RPCPayload) FromServerPetAdoptRequest(v ServerPetAdoptRequest) error {
+	return t.encode("ServerPetAdoptRequest", v)
 }
 
-// MergeServerPetAdoptRequest performs a merge with any union data inside the RPCRequest_Params, using the provided ServerPetAdoptRequest
-func (t *RPCRequest_Params) MergeServerPetAdoptRequest(v ServerPetAdoptRequest) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeServerPetAdoptRequest performs a merge with any protobuf payload, using the provided ServerPetAdoptRequest
+func (t *RPCPayload) MergeServerPetAdoptRequest(v ServerPetAdoptRequest) error {
+	return t.merge("ServerPetAdoptRequest", v)
 }
 
-// AsServerPetPutRequest returns the union data inside the RPCRequest_Params as a ServerPetPutRequest
-func (t RPCRequest_Params) AsServerPetPutRequest() (ServerPetPutRequest, error) {
+// AsServerPetPutRequest decodes the RPCPayload as a ServerPetPutRequest
+func (t RPCPayload) AsServerPetPutRequest() (ServerPetPutRequest, error) {
 	var body ServerPetPutRequest
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("ServerPetPutRequest", &body)
 	return body, err
 }
 
-// FromServerPetPutRequest overwrites any union data inside the RPCRequest_Params as the provided ServerPetPutRequest
-func (t *RPCRequest_Params) FromServerPetPutRequest(v ServerPetPutRequest) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromServerPetPutRequest overwrites any protobuf payload as the provided ServerPetPutRequest
+func (t *RPCPayload) FromServerPetPutRequest(v ServerPetPutRequest) error {
+	return t.encode("ServerPetPutRequest", v)
 }
 
-// MergeServerPetPutRequest performs a merge with any union data inside the RPCRequest_Params, using the provided ServerPetPutRequest
-func (t *RPCRequest_Params) MergeServerPetPutRequest(v ServerPetPutRequest) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeServerPetPutRequest performs a merge with any protobuf payload, using the provided ServerPetPutRequest
+func (t *RPCPayload) MergeServerPetPutRequest(v ServerPetPutRequest) error {
+	return t.merge("ServerPetPutRequest", v)
 }
 
-// AsServerPetDeleteRequest returns the union data inside the RPCRequest_Params as a ServerPetDeleteRequest
-func (t RPCRequest_Params) AsServerPetDeleteRequest() (ServerPetDeleteRequest, error) {
+// AsServerPetDeleteRequest decodes the RPCPayload as a ServerPetDeleteRequest
+func (t RPCPayload) AsServerPetDeleteRequest() (ServerPetDeleteRequest, error) {
 	var body ServerPetDeleteRequest
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("ServerPetDeleteRequest", &body)
 	return body, err
 }
 
-// FromServerPetDeleteRequest overwrites any union data inside the RPCRequest_Params as the provided ServerPetDeleteRequest
-func (t *RPCRequest_Params) FromServerPetDeleteRequest(v ServerPetDeleteRequest) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromServerPetDeleteRequest overwrites any protobuf payload as the provided ServerPetDeleteRequest
+func (t *RPCPayload) FromServerPetDeleteRequest(v ServerPetDeleteRequest) error {
+	return t.encode("ServerPetDeleteRequest", v)
 }
 
-// MergeServerPetDeleteRequest performs a merge with any union data inside the RPCRequest_Params, using the provided ServerPetDeleteRequest
-func (t *RPCRequest_Params) MergeServerPetDeleteRequest(v ServerPetDeleteRequest) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeServerPetDeleteRequest performs a merge with any protobuf payload, using the provided ServerPetDeleteRequest
+func (t *RPCPayload) MergeServerPetDeleteRequest(v ServerPetDeleteRequest) error {
+	return t.merge("ServerPetDeleteRequest", v)
 }
 
-// AsServerPetDriveRequest returns the union data inside the RPCRequest_Params as a ServerPetDriveRequest
-func (t RPCRequest_Params) AsServerPetDriveRequest() (ServerPetDriveRequest, error) {
+// AsServerPetDriveRequest decodes the RPCPayload as a ServerPetDriveRequest
+func (t RPCPayload) AsServerPetDriveRequest() (ServerPetDriveRequest, error) {
 	var body ServerPetDriveRequest
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("ServerPetDriveRequest", &body)
 	return body, err
 }
 
-// FromServerPetDriveRequest overwrites any union data inside the RPCRequest_Params as the provided ServerPetDriveRequest
-func (t *RPCRequest_Params) FromServerPetDriveRequest(v ServerPetDriveRequest) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromServerPetDriveRequest overwrites any protobuf payload as the provided ServerPetDriveRequest
+func (t *RPCPayload) FromServerPetDriveRequest(v ServerPetDriveRequest) error {
+	return t.encode("ServerPetDriveRequest", v)
 }
 
-// MergeServerPetDriveRequest performs a merge with any union data inside the RPCRequest_Params, using the provided ServerPetDriveRequest
-func (t *RPCRequest_Params) MergeServerPetDriveRequest(v ServerPetDriveRequest) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeServerPetDriveRequest performs a merge with any protobuf payload, using the provided ServerPetDriveRequest
+func (t *RPCPayload) MergeServerPetDriveRequest(v ServerPetDriveRequest) error {
+	return t.merge("ServerPetDriveRequest", v)
 }
 
-// AsServerPointsGetRequest returns the union data inside the RPCRequest_Params as a ServerPointsGetRequest
-func (t RPCRequest_Params) AsServerPointsGetRequest() (ServerPointsGetRequest, error) {
+// AsServerPointsGetRequest decodes the RPCPayload as a ServerPointsGetRequest
+func (t RPCPayload) AsServerPointsGetRequest() (ServerPointsGetRequest, error) {
 	var body ServerPointsGetRequest
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("ServerPointsGetRequest", &body)
 	return body, err
 }
 
-// FromServerPointsGetRequest overwrites any union data inside the RPCRequest_Params as the provided ServerPointsGetRequest
-func (t *RPCRequest_Params) FromServerPointsGetRequest(v ServerPointsGetRequest) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromServerPointsGetRequest overwrites any protobuf payload as the provided ServerPointsGetRequest
+func (t *RPCPayload) FromServerPointsGetRequest(v ServerPointsGetRequest) error {
+	return t.encode("ServerPointsGetRequest", v)
 }
 
-// MergeServerPointsGetRequest performs a merge with any union data inside the RPCRequest_Params, using the provided ServerPointsGetRequest
-func (t *RPCRequest_Params) MergeServerPointsGetRequest(v ServerPointsGetRequest) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeServerPointsGetRequest performs a merge with any protobuf payload, using the provided ServerPointsGetRequest
+func (t *RPCPayload) MergeServerPointsGetRequest(v ServerPointsGetRequest) error {
+	return t.merge("ServerPointsGetRequest", v)
 }
 
-// AsServerPointsTransactionListRequest returns the union data inside the RPCRequest_Params as a ServerPointsTransactionListRequest
-func (t RPCRequest_Params) AsServerPointsTransactionListRequest() (ServerPointsTransactionListRequest, error) {
+// AsServerPointsTransactionListRequest decodes the RPCPayload as a ServerPointsTransactionListRequest
+func (t RPCPayload) AsServerPointsTransactionListRequest() (ServerPointsTransactionListRequest, error) {
 	var body ServerPointsTransactionListRequest
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("ServerPointsTransactionListRequest", &body)
 	return body, err
 }
 
-// FromServerPointsTransactionListRequest overwrites any union data inside the RPCRequest_Params as the provided ServerPointsTransactionListRequest
-func (t *RPCRequest_Params) FromServerPointsTransactionListRequest(v ServerPointsTransactionListRequest) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromServerPointsTransactionListRequest overwrites any protobuf payload as the provided ServerPointsTransactionListRequest
+func (t *RPCPayload) FromServerPointsTransactionListRequest(v ServerPointsTransactionListRequest) error {
+	return t.encode("ServerPointsTransactionListRequest", v)
 }
 
-// MergeServerPointsTransactionListRequest performs a merge with any union data inside the RPCRequest_Params, using the provided ServerPointsTransactionListRequest
-func (t *RPCRequest_Params) MergeServerPointsTransactionListRequest(v ServerPointsTransactionListRequest) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeServerPointsTransactionListRequest performs a merge with any protobuf payload, using the provided ServerPointsTransactionListRequest
+func (t *RPCPayload) MergeServerPointsTransactionListRequest(v ServerPointsTransactionListRequest) error {
+	return t.merge("ServerPointsTransactionListRequest", v)
 }
 
-// AsServerPointsTransactionGetRequest returns the union data inside the RPCRequest_Params as a ServerPointsTransactionGetRequest
-func (t RPCRequest_Params) AsServerPointsTransactionGetRequest() (ServerPointsTransactionGetRequest, error) {
+// AsServerPointsTransactionGetRequest decodes the RPCPayload as a ServerPointsTransactionGetRequest
+func (t RPCPayload) AsServerPointsTransactionGetRequest() (ServerPointsTransactionGetRequest, error) {
 	var body ServerPointsTransactionGetRequest
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("ServerPointsTransactionGetRequest", &body)
 	return body, err
 }
 
-// FromServerPointsTransactionGetRequest overwrites any union data inside the RPCRequest_Params as the provided ServerPointsTransactionGetRequest
-func (t *RPCRequest_Params) FromServerPointsTransactionGetRequest(v ServerPointsTransactionGetRequest) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromServerPointsTransactionGetRequest overwrites any protobuf payload as the provided ServerPointsTransactionGetRequest
+func (t *RPCPayload) FromServerPointsTransactionGetRequest(v ServerPointsTransactionGetRequest) error {
+	return t.encode("ServerPointsTransactionGetRequest", v)
 }
 
-// MergeServerPointsTransactionGetRequest performs a merge with any union data inside the RPCRequest_Params, using the provided ServerPointsTransactionGetRequest
-func (t *RPCRequest_Params) MergeServerPointsTransactionGetRequest(v ServerPointsTransactionGetRequest) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeServerPointsTransactionGetRequest performs a merge with any protobuf payload, using the provided ServerPointsTransactionGetRequest
+func (t *RPCPayload) MergeServerPointsTransactionGetRequest(v ServerPointsTransactionGetRequest) error {
+	return t.merge("ServerPointsTransactionGetRequest", v)
 }
 
-// AsServerBadgeListRequest returns the union data inside the RPCRequest_Params as a ServerBadgeListRequest
-func (t RPCRequest_Params) AsServerBadgeListRequest() (ServerBadgeListRequest, error) {
+// AsServerBadgeListRequest decodes the RPCPayload as a ServerBadgeListRequest
+func (t RPCPayload) AsServerBadgeListRequest() (ServerBadgeListRequest, error) {
 	var body ServerBadgeListRequest
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("ServerBadgeListRequest", &body)
 	return body, err
 }
 
-// FromServerBadgeListRequest overwrites any union data inside the RPCRequest_Params as the provided ServerBadgeListRequest
-func (t *RPCRequest_Params) FromServerBadgeListRequest(v ServerBadgeListRequest) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromServerBadgeListRequest overwrites any protobuf payload as the provided ServerBadgeListRequest
+func (t *RPCPayload) FromServerBadgeListRequest(v ServerBadgeListRequest) error {
+	return t.encode("ServerBadgeListRequest", v)
 }
 
-// MergeServerBadgeListRequest performs a merge with any union data inside the RPCRequest_Params, using the provided ServerBadgeListRequest
-func (t *RPCRequest_Params) MergeServerBadgeListRequest(v ServerBadgeListRequest) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeServerBadgeListRequest performs a merge with any protobuf payload, using the provided ServerBadgeListRequest
+func (t *RPCPayload) MergeServerBadgeListRequest(v ServerBadgeListRequest) error {
+	return t.merge("ServerBadgeListRequest", v)
 }
 
-// AsServerBadgeGetRequest returns the union data inside the RPCRequest_Params as a ServerBadgeGetRequest
-func (t RPCRequest_Params) AsServerBadgeGetRequest() (ServerBadgeGetRequest, error) {
+// AsServerBadgeGetRequest decodes the RPCPayload as a ServerBadgeGetRequest
+func (t RPCPayload) AsServerBadgeGetRequest() (ServerBadgeGetRequest, error) {
 	var body ServerBadgeGetRequest
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("ServerBadgeGetRequest", &body)
 	return body, err
 }
 
-// FromServerBadgeGetRequest overwrites any union data inside the RPCRequest_Params as the provided ServerBadgeGetRequest
-func (t *RPCRequest_Params) FromServerBadgeGetRequest(v ServerBadgeGetRequest) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromServerBadgeGetRequest overwrites any protobuf payload as the provided ServerBadgeGetRequest
+func (t *RPCPayload) FromServerBadgeGetRequest(v ServerBadgeGetRequest) error {
+	return t.encode("ServerBadgeGetRequest", v)
 }
 
-// MergeServerBadgeGetRequest performs a merge with any union data inside the RPCRequest_Params, using the provided ServerBadgeGetRequest
-func (t *RPCRequest_Params) MergeServerBadgeGetRequest(v ServerBadgeGetRequest) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeServerBadgeGetRequest performs a merge with any protobuf payload, using the provided ServerBadgeGetRequest
+func (t *RPCPayload) MergeServerBadgeGetRequest(v ServerBadgeGetRequest) error {
+	return t.merge("ServerBadgeGetRequest", v)
 }
 
-// AsServerGameResultListRequest returns the union data inside the RPCRequest_Params as a ServerGameResultListRequest
-func (t RPCRequest_Params) AsServerGameResultListRequest() (ServerGameResultListRequest, error) {
+// AsServerGameResultListRequest decodes the RPCPayload as a ServerGameResultListRequest
+func (t RPCPayload) AsServerGameResultListRequest() (ServerGameResultListRequest, error) {
 	var body ServerGameResultListRequest
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("ServerGameResultListRequest", &body)
 	return body, err
 }
 
-// FromServerGameResultListRequest overwrites any union data inside the RPCRequest_Params as the provided ServerGameResultListRequest
-func (t *RPCRequest_Params) FromServerGameResultListRequest(v ServerGameResultListRequest) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromServerGameResultListRequest overwrites any protobuf payload as the provided ServerGameResultListRequest
+func (t *RPCPayload) FromServerGameResultListRequest(v ServerGameResultListRequest) error {
+	return t.encode("ServerGameResultListRequest", v)
 }
 
-// MergeServerGameResultListRequest performs a merge with any union data inside the RPCRequest_Params, using the provided ServerGameResultListRequest
-func (t *RPCRequest_Params) MergeServerGameResultListRequest(v ServerGameResultListRequest) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeServerGameResultListRequest performs a merge with any protobuf payload, using the provided ServerGameResultListRequest
+func (t *RPCPayload) MergeServerGameResultListRequest(v ServerGameResultListRequest) error {
+	return t.merge("ServerGameResultListRequest", v)
 }
 
-// AsServerGameResultGetRequest returns the union data inside the RPCRequest_Params as a ServerGameResultGetRequest
-func (t RPCRequest_Params) AsServerGameResultGetRequest() (ServerGameResultGetRequest, error) {
+// AsServerGameResultGetRequest decodes the RPCPayload as a ServerGameResultGetRequest
+func (t RPCPayload) AsServerGameResultGetRequest() (ServerGameResultGetRequest, error) {
 	var body ServerGameResultGetRequest
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("ServerGameResultGetRequest", &body)
 	return body, err
 }
 
-// FromServerGameResultGetRequest overwrites any union data inside the RPCRequest_Params as the provided ServerGameResultGetRequest
-func (t *RPCRequest_Params) FromServerGameResultGetRequest(v ServerGameResultGetRequest) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromServerGameResultGetRequest overwrites any protobuf payload as the provided ServerGameResultGetRequest
+func (t *RPCPayload) FromServerGameResultGetRequest(v ServerGameResultGetRequest) error {
+	return t.encode("ServerGameResultGetRequest", v)
 }
 
-// MergeServerGameResultGetRequest performs a merge with any union data inside the RPCRequest_Params, using the provided ServerGameResultGetRequest
-func (t *RPCRequest_Params) MergeServerGameResultGetRequest(v ServerGameResultGetRequest) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeServerGameResultGetRequest performs a merge with any protobuf payload, using the provided ServerGameResultGetRequest
+func (t *RPCPayload) MergeServerGameResultGetRequest(v ServerGameResultGetRequest) error {
+	return t.merge("ServerGameResultGetRequest", v)
 }
 
-// AsServerRewardGrantListRequest returns the union data inside the RPCRequest_Params as a ServerRewardGrantListRequest
-func (t RPCRequest_Params) AsServerRewardGrantListRequest() (ServerRewardGrantListRequest, error) {
+// AsServerRewardGrantListRequest decodes the RPCPayload as a ServerRewardGrantListRequest
+func (t RPCPayload) AsServerRewardGrantListRequest() (ServerRewardGrantListRequest, error) {
 	var body ServerRewardGrantListRequest
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("ServerRewardGrantListRequest", &body)
 	return body, err
 }
 
-// FromServerRewardGrantListRequest overwrites any union data inside the RPCRequest_Params as the provided ServerRewardGrantListRequest
-func (t *RPCRequest_Params) FromServerRewardGrantListRequest(v ServerRewardGrantListRequest) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromServerRewardGrantListRequest overwrites any protobuf payload as the provided ServerRewardGrantListRequest
+func (t *RPCPayload) FromServerRewardGrantListRequest(v ServerRewardGrantListRequest) error {
+	return t.encode("ServerRewardGrantListRequest", v)
 }
 
-// MergeServerRewardGrantListRequest performs a merge with any union data inside the RPCRequest_Params, using the provided ServerRewardGrantListRequest
-func (t *RPCRequest_Params) MergeServerRewardGrantListRequest(v ServerRewardGrantListRequest) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeServerRewardGrantListRequest performs a merge with any protobuf payload, using the provided ServerRewardGrantListRequest
+func (t *RPCPayload) MergeServerRewardGrantListRequest(v ServerRewardGrantListRequest) error {
+	return t.merge("ServerRewardGrantListRequest", v)
 }
 
-// AsServerRewardGrantGetRequest returns the union data inside the RPCRequest_Params as a ServerRewardGrantGetRequest
-func (t RPCRequest_Params) AsServerRewardGrantGetRequest() (ServerRewardGrantGetRequest, error) {
+// AsServerRewardGrantGetRequest decodes the RPCPayload as a ServerRewardGrantGetRequest
+func (t RPCPayload) AsServerRewardGrantGetRequest() (ServerRewardGrantGetRequest, error) {
 	var body ServerRewardGrantGetRequest
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("ServerRewardGrantGetRequest", &body)
 	return body, err
 }
 
-// FromServerRewardGrantGetRequest overwrites any union data inside the RPCRequest_Params as the provided ServerRewardGrantGetRequest
-func (t *RPCRequest_Params) FromServerRewardGrantGetRequest(v ServerRewardGrantGetRequest) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromServerRewardGrantGetRequest overwrites any protobuf payload as the provided ServerRewardGrantGetRequest
+func (t *RPCPayload) FromServerRewardGrantGetRequest(v ServerRewardGrantGetRequest) error {
+	return t.encode("ServerRewardGrantGetRequest", v)
 }
 
-// MergeServerRewardGrantGetRequest performs a merge with any union data inside the RPCRequest_Params, using the provided ServerRewardGrantGetRequest
-func (t *RPCRequest_Params) MergeServerRewardGrantGetRequest(v ServerRewardGrantGetRequest) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeServerRewardGrantGetRequest performs a merge with any protobuf payload, using the provided ServerRewardGrantGetRequest
+func (t *RPCPayload) MergeServerRewardGrantGetRequest(v ServerRewardGrantGetRequest) error {
+	return t.merge("ServerRewardGrantGetRequest", v)
 }
 
-func (t RPCRequest_Params) MarshalJSON() ([]byte, error) {
-	b, err := t.union.MarshalJSON()
-	return b, err
-}
-
-func (t *RPCRequest_Params) UnmarshalJSON(b []byte) error {
-	err := t.union.UnmarshalJSON(b)
-	return err
-}
-
-// AsPingResponse returns the union data inside the RPCResponse_Result as a PingResponse
-func (t RPCResponse_Result) AsPingResponse() (PingResponse, error) {
+// AsPingResponse decodes the RPCPayload as a PingResponse
+func (t RPCPayload) AsPingResponse() (PingResponse, error) {
 	var body PingResponse
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("PingResponse", &body)
 	return body, err
 }
 
-// FromPingResponse overwrites any union data inside the RPCResponse_Result as the provided PingResponse
-func (t *RPCResponse_Result) FromPingResponse(v PingResponse) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromPingResponse overwrites any protobuf payload as the provided PingResponse
+func (t *RPCPayload) FromPingResponse(v PingResponse) error {
+	return t.encode("PingResponse", v)
 }
 
-// MergePingResponse performs a merge with any union data inside the RPCResponse_Result, using the provided PingResponse
-func (t *RPCResponse_Result) MergePingResponse(v PingResponse) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergePingResponse performs a merge with any protobuf payload, using the provided PingResponse
+func (t *RPCPayload) MergePingResponse(v PingResponse) error {
+	return t.merge("PingResponse", v)
 }
 
-// AsSpeedTestResponse returns the union data inside the RPCResponse_Result as a SpeedTestResponse
-func (t RPCResponse_Result) AsSpeedTestResponse() (SpeedTestResponse, error) {
+// AsSpeedTestResponse decodes the RPCPayload as a SpeedTestResponse
+func (t RPCPayload) AsSpeedTestResponse() (SpeedTestResponse, error) {
 	var body SpeedTestResponse
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("SpeedTestResponse", &body)
 	return body, err
 }
 
-// FromSpeedTestResponse overwrites any union data inside the RPCResponse_Result as the provided SpeedTestResponse
-func (t *RPCResponse_Result) FromSpeedTestResponse(v SpeedTestResponse) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromSpeedTestResponse overwrites any protobuf payload as the provided SpeedTestResponse
+func (t *RPCPayload) FromSpeedTestResponse(v SpeedTestResponse) error {
+	return t.encode("SpeedTestResponse", v)
 }
 
-// MergeSpeedTestResponse performs a merge with any union data inside the RPCResponse_Result, using the provided SpeedTestResponse
-func (t *RPCResponse_Result) MergeSpeedTestResponse(v SpeedTestResponse) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeSpeedTestResponse performs a merge with any protobuf payload, using the provided SpeedTestResponse
+func (t *RPCPayload) MergeSpeedTestResponse(v SpeedTestResponse) error {
+	return t.merge("SpeedTestResponse", v)
 }
 
-// AsClientGetInfoResponse returns the union data inside the RPCResponse_Result as a ClientGetInfoResponse
-func (t RPCResponse_Result) AsClientGetInfoResponse() (ClientGetInfoResponse, error) {
+// AsClientGetInfoResponse decodes the RPCPayload as a ClientGetInfoResponse
+func (t RPCPayload) AsClientGetInfoResponse() (ClientGetInfoResponse, error) {
 	var body ClientGetInfoResponse
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("ClientGetInfoResponse", &body)
 	return body, err
 }
 
-// FromClientGetInfoResponse overwrites any union data inside the RPCResponse_Result as the provided ClientGetInfoResponse
-func (t *RPCResponse_Result) FromClientGetInfoResponse(v ClientGetInfoResponse) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromClientGetInfoResponse overwrites any protobuf payload as the provided ClientGetInfoResponse
+func (t *RPCPayload) FromClientGetInfoResponse(v ClientGetInfoResponse) error {
+	return t.encode("ClientGetInfoResponse", v)
 }
 
-// MergeClientGetInfoResponse performs a merge with any union data inside the RPCResponse_Result, using the provided ClientGetInfoResponse
-func (t *RPCResponse_Result) MergeClientGetInfoResponse(v ClientGetInfoResponse) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeClientGetInfoResponse performs a merge with any protobuf payload, using the provided ClientGetInfoResponse
+func (t *RPCPayload) MergeClientGetInfoResponse(v ClientGetInfoResponse) error {
+	return t.merge("ClientGetInfoResponse", v)
 }
 
-// AsClientGetIdentifiersResponse returns the union data inside the RPCResponse_Result as a ClientGetIdentifiersResponse
-func (t RPCResponse_Result) AsClientGetIdentifiersResponse() (ClientGetIdentifiersResponse, error) {
+// AsClientGetIdentifiersResponse decodes the RPCPayload as a ClientGetIdentifiersResponse
+func (t RPCPayload) AsClientGetIdentifiersResponse() (ClientGetIdentifiersResponse, error) {
 	var body ClientGetIdentifiersResponse
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("ClientGetIdentifiersResponse", &body)
 	return body, err
 }
 
-// FromClientGetIdentifiersResponse overwrites any union data inside the RPCResponse_Result as the provided ClientGetIdentifiersResponse
-func (t *RPCResponse_Result) FromClientGetIdentifiersResponse(v ClientGetIdentifiersResponse) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromClientGetIdentifiersResponse overwrites any protobuf payload as the provided ClientGetIdentifiersResponse
+func (t *RPCPayload) FromClientGetIdentifiersResponse(v ClientGetIdentifiersResponse) error {
+	return t.encode("ClientGetIdentifiersResponse", v)
 }
 
-// MergeClientGetIdentifiersResponse performs a merge with any union data inside the RPCResponse_Result, using the provided ClientGetIdentifiersResponse
-func (t *RPCResponse_Result) MergeClientGetIdentifiersResponse(v ClientGetIdentifiersResponse) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeClientGetIdentifiersResponse performs a merge with any protobuf payload, using the provided ClientGetIdentifiersResponse
+func (t *RPCPayload) MergeClientGetIdentifiersResponse(v ClientGetIdentifiersResponse) error {
+	return t.merge("ClientGetIdentifiersResponse", v)
 }
 
-// AsServerGetInfoResponse returns the union data inside the RPCResponse_Result as a ServerGetInfoResponse
-func (t RPCResponse_Result) AsServerGetInfoResponse() (ServerGetInfoResponse, error) {
+// AsServerGetInfoResponse decodes the RPCPayload as a ServerGetInfoResponse
+func (t RPCPayload) AsServerGetInfoResponse() (ServerGetInfoResponse, error) {
 	var body ServerGetInfoResponse
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("ServerGetInfoResponse", &body)
 	return body, err
 }
 
-// FromServerGetInfoResponse overwrites any union data inside the RPCResponse_Result as the provided ServerGetInfoResponse
-func (t *RPCResponse_Result) FromServerGetInfoResponse(v ServerGetInfoResponse) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromServerGetInfoResponse overwrites any protobuf payload as the provided ServerGetInfoResponse
+func (t *RPCPayload) FromServerGetInfoResponse(v ServerGetInfoResponse) error {
+	return t.encode("ServerGetInfoResponse", v)
 }
 
-// MergeServerGetInfoResponse performs a merge with any union data inside the RPCResponse_Result, using the provided ServerGetInfoResponse
-func (t *RPCResponse_Result) MergeServerGetInfoResponse(v ServerGetInfoResponse) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeServerGetInfoResponse performs a merge with any protobuf payload, using the provided ServerGetInfoResponse
+func (t *RPCPayload) MergeServerGetInfoResponse(v ServerGetInfoResponse) error {
+	return t.merge("ServerGetInfoResponse", v)
 }
 
-// AsServerPutInfoResponse returns the union data inside the RPCResponse_Result as a ServerPutInfoResponse
-func (t RPCResponse_Result) AsServerPutInfoResponse() (ServerPutInfoResponse, error) {
+// AsServerPutInfoResponse decodes the RPCPayload as a ServerPutInfoResponse
+func (t RPCPayload) AsServerPutInfoResponse() (ServerPutInfoResponse, error) {
 	var body ServerPutInfoResponse
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("ServerPutInfoResponse", &body)
 	return body, err
 }
 
-// FromServerPutInfoResponse overwrites any union data inside the RPCResponse_Result as the provided ServerPutInfoResponse
-func (t *RPCResponse_Result) FromServerPutInfoResponse(v ServerPutInfoResponse) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromServerPutInfoResponse overwrites any protobuf payload as the provided ServerPutInfoResponse
+func (t *RPCPayload) FromServerPutInfoResponse(v ServerPutInfoResponse) error {
+	return t.encode("ServerPutInfoResponse", v)
 }
 
-// MergeServerPutInfoResponse performs a merge with any union data inside the RPCResponse_Result, using the provided ServerPutInfoResponse
-func (t *RPCResponse_Result) MergeServerPutInfoResponse(v ServerPutInfoResponse) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeServerPutInfoResponse performs a merge with any protobuf payload, using the provided ServerPutInfoResponse
+func (t *RPCPayload) MergeServerPutInfoResponse(v ServerPutInfoResponse) error {
+	return t.merge("ServerPutInfoResponse", v)
 }
 
-// AsServerGetRuntimeResponse returns the union data inside the RPCResponse_Result as a ServerGetRuntimeResponse
-func (t RPCResponse_Result) AsServerGetRuntimeResponse() (ServerGetRuntimeResponse, error) {
+// AsServerGetRuntimeResponse decodes the RPCPayload as a ServerGetRuntimeResponse
+func (t RPCPayload) AsServerGetRuntimeResponse() (ServerGetRuntimeResponse, error) {
 	var body ServerGetRuntimeResponse
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("ServerGetRuntimeResponse", &body)
 	return body, err
 }
 
-// FromServerGetRuntimeResponse overwrites any union data inside the RPCResponse_Result as the provided ServerGetRuntimeResponse
-func (t *RPCResponse_Result) FromServerGetRuntimeResponse(v ServerGetRuntimeResponse) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromServerGetRuntimeResponse overwrites any protobuf payload as the provided ServerGetRuntimeResponse
+func (t *RPCPayload) FromServerGetRuntimeResponse(v ServerGetRuntimeResponse) error {
+	return t.encode("ServerGetRuntimeResponse", v)
 }
 
-// MergeServerGetRuntimeResponse performs a merge with any union data inside the RPCResponse_Result, using the provided ServerGetRuntimeResponse
-func (t *RPCResponse_Result) MergeServerGetRuntimeResponse(v ServerGetRuntimeResponse) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeServerGetRuntimeResponse performs a merge with any protobuf payload, using the provided ServerGetRuntimeResponse
+func (t *RPCPayload) MergeServerGetRuntimeResponse(v ServerGetRuntimeResponse) error {
+	return t.merge("ServerGetRuntimeResponse", v)
 }
 
-// AsServerGetStatusResponse returns the union data inside the RPCResponse_Result as a ServerGetStatusResponse
-func (t RPCResponse_Result) AsServerGetStatusResponse() (ServerGetStatusResponse, error) {
+// AsServerGetStatusResponse decodes the RPCPayload as a ServerGetStatusResponse
+func (t RPCPayload) AsServerGetStatusResponse() (ServerGetStatusResponse, error) {
 	var body ServerGetStatusResponse
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("ServerGetStatusResponse", &body)
 	return body, err
 }
 
-// FromServerGetStatusResponse overwrites any union data inside the RPCResponse_Result as the provided ServerGetStatusResponse
-func (t *RPCResponse_Result) FromServerGetStatusResponse(v ServerGetStatusResponse) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromServerGetStatusResponse overwrites any protobuf payload as the provided ServerGetStatusResponse
+func (t *RPCPayload) FromServerGetStatusResponse(v ServerGetStatusResponse) error {
+	return t.encode("ServerGetStatusResponse", v)
 }
 
-// MergeServerGetStatusResponse performs a merge with any union data inside the RPCResponse_Result, using the provided ServerGetStatusResponse
-func (t *RPCResponse_Result) MergeServerGetStatusResponse(v ServerGetStatusResponse) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeServerGetStatusResponse performs a merge with any protobuf payload, using the provided ServerGetStatusResponse
+func (t *RPCPayload) MergeServerGetStatusResponse(v ServerGetStatusResponse) error {
+	return t.merge("ServerGetStatusResponse", v)
 }
 
-// AsServerGetRunAgentResponse returns the union data inside the RPCResponse_Result as a ServerGetRunAgentResponse
-func (t RPCResponse_Result) AsServerGetRunAgentResponse() (ServerGetRunAgentResponse, error) {
+// AsServerGetRunAgentResponse decodes the RPCPayload as a ServerGetRunAgentResponse
+func (t RPCPayload) AsServerGetRunAgentResponse() (ServerGetRunAgentResponse, error) {
 	var body ServerGetRunAgentResponse
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("ServerGetRunAgentResponse", &body)
 	return body, err
 }
 
-// FromServerGetRunAgentResponse overwrites any union data inside the RPCResponse_Result as the provided ServerGetRunAgentResponse
-func (t *RPCResponse_Result) FromServerGetRunAgentResponse(v ServerGetRunAgentResponse) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromServerGetRunAgentResponse overwrites any protobuf payload as the provided ServerGetRunAgentResponse
+func (t *RPCPayload) FromServerGetRunAgentResponse(v ServerGetRunAgentResponse) error {
+	return t.encode("ServerGetRunAgentResponse", v)
 }
 
-// MergeServerGetRunAgentResponse performs a merge with any union data inside the RPCResponse_Result, using the provided ServerGetRunAgentResponse
-func (t *RPCResponse_Result) MergeServerGetRunAgentResponse(v ServerGetRunAgentResponse) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeServerGetRunAgentResponse performs a merge with any protobuf payload, using the provided ServerGetRunAgentResponse
+func (t *RPCPayload) MergeServerGetRunAgentResponse(v ServerGetRunAgentResponse) error {
+	return t.merge("ServerGetRunAgentResponse", v)
 }
 
-// AsServerSetRunAgentResponse returns the union data inside the RPCResponse_Result as a ServerSetRunAgentResponse
-func (t RPCResponse_Result) AsServerSetRunAgentResponse() (ServerSetRunAgentResponse, error) {
+// AsServerSetRunAgentResponse decodes the RPCPayload as a ServerSetRunAgentResponse
+func (t RPCPayload) AsServerSetRunAgentResponse() (ServerSetRunAgentResponse, error) {
 	var body ServerSetRunAgentResponse
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("ServerSetRunAgentResponse", &body)
 	return body, err
 }
 
-// FromServerSetRunAgentResponse overwrites any union data inside the RPCResponse_Result as the provided ServerSetRunAgentResponse
-func (t *RPCResponse_Result) FromServerSetRunAgentResponse(v ServerSetRunAgentResponse) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromServerSetRunAgentResponse overwrites any protobuf payload as the provided ServerSetRunAgentResponse
+func (t *RPCPayload) FromServerSetRunAgentResponse(v ServerSetRunAgentResponse) error {
+	return t.encode("ServerSetRunAgentResponse", v)
 }
 
-// MergeServerSetRunAgentResponse performs a merge with any union data inside the RPCResponse_Result, using the provided ServerSetRunAgentResponse
-func (t *RPCResponse_Result) MergeServerSetRunAgentResponse(v ServerSetRunAgentResponse) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeServerSetRunAgentResponse performs a merge with any protobuf payload, using the provided ServerSetRunAgentResponse
+func (t *RPCPayload) MergeServerSetRunAgentResponse(v ServerSetRunAgentResponse) error {
+	return t.merge("ServerSetRunAgentResponse", v)
 }
 
-// AsServerGetRunWorkspaceResponse returns the union data inside the RPCResponse_Result as a ServerGetRunWorkspaceResponse
-func (t RPCResponse_Result) AsServerGetRunWorkspaceResponse() (ServerGetRunWorkspaceResponse, error) {
+// AsServerGetRunWorkspaceResponse decodes the RPCPayload as a ServerGetRunWorkspaceResponse
+func (t RPCPayload) AsServerGetRunWorkspaceResponse() (ServerGetRunWorkspaceResponse, error) {
 	var body ServerGetRunWorkspaceResponse
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("ServerGetRunWorkspaceResponse", &body)
 	return body, err
 }
 
-// FromServerGetRunWorkspaceResponse overwrites any union data inside the RPCResponse_Result as the provided ServerGetRunWorkspaceResponse
-func (t *RPCResponse_Result) FromServerGetRunWorkspaceResponse(v ServerGetRunWorkspaceResponse) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromServerGetRunWorkspaceResponse overwrites any protobuf payload as the provided ServerGetRunWorkspaceResponse
+func (t *RPCPayload) FromServerGetRunWorkspaceResponse(v ServerGetRunWorkspaceResponse) error {
+	return t.encode("ServerGetRunWorkspaceResponse", v)
 }
 
-// MergeServerGetRunWorkspaceResponse performs a merge with any union data inside the RPCResponse_Result, using the provided ServerGetRunWorkspaceResponse
-func (t *RPCResponse_Result) MergeServerGetRunWorkspaceResponse(v ServerGetRunWorkspaceResponse) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeServerGetRunWorkspaceResponse performs a merge with any protobuf payload, using the provided ServerGetRunWorkspaceResponse
+func (t *RPCPayload) MergeServerGetRunWorkspaceResponse(v ServerGetRunWorkspaceResponse) error {
+	return t.merge("ServerGetRunWorkspaceResponse", v)
 }
 
-// AsServerSetRunWorkspaceResponse returns the union data inside the RPCResponse_Result as a ServerSetRunWorkspaceResponse
-func (t RPCResponse_Result) AsServerSetRunWorkspaceResponse() (ServerSetRunWorkspaceResponse, error) {
+// AsServerSetRunWorkspaceResponse decodes the RPCPayload as a ServerSetRunWorkspaceResponse
+func (t RPCPayload) AsServerSetRunWorkspaceResponse() (ServerSetRunWorkspaceResponse, error) {
 	var body ServerSetRunWorkspaceResponse
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("ServerSetRunWorkspaceResponse", &body)
 	return body, err
 }
 
-// FromServerSetRunWorkspaceResponse overwrites any union data inside the RPCResponse_Result as the provided ServerSetRunWorkspaceResponse
-func (t *RPCResponse_Result) FromServerSetRunWorkspaceResponse(v ServerSetRunWorkspaceResponse) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromServerSetRunWorkspaceResponse overwrites any protobuf payload as the provided ServerSetRunWorkspaceResponse
+func (t *RPCPayload) FromServerSetRunWorkspaceResponse(v ServerSetRunWorkspaceResponse) error {
+	return t.encode("ServerSetRunWorkspaceResponse", v)
 }
 
-// MergeServerSetRunWorkspaceResponse performs a merge with any union data inside the RPCResponse_Result, using the provided ServerSetRunWorkspaceResponse
-func (t *RPCResponse_Result) MergeServerSetRunWorkspaceResponse(v ServerSetRunWorkspaceResponse) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeServerSetRunWorkspaceResponse performs a merge with any protobuf payload, using the provided ServerSetRunWorkspaceResponse
+func (t *RPCPayload) MergeServerSetRunWorkspaceResponse(v ServerSetRunWorkspaceResponse) error {
+	return t.merge("ServerSetRunWorkspaceResponse", v)
 }
 
-// AsServerReloadRunWorkspaceResponse returns the union data inside the RPCResponse_Result as a ServerReloadRunWorkspaceResponse
-func (t RPCResponse_Result) AsServerReloadRunWorkspaceResponse() (ServerReloadRunWorkspaceResponse, error) {
+// AsServerReloadRunWorkspaceResponse decodes the RPCPayload as a ServerReloadRunWorkspaceResponse
+func (t RPCPayload) AsServerReloadRunWorkspaceResponse() (ServerReloadRunWorkspaceResponse, error) {
 	var body ServerReloadRunWorkspaceResponse
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("ServerReloadRunWorkspaceResponse", &body)
 	return body, err
 }
 
-// FromServerReloadRunWorkspaceResponse overwrites any union data inside the RPCResponse_Result as the provided ServerReloadRunWorkspaceResponse
-func (t *RPCResponse_Result) FromServerReloadRunWorkspaceResponse(v ServerReloadRunWorkspaceResponse) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromServerReloadRunWorkspaceResponse overwrites any protobuf payload as the provided ServerReloadRunWorkspaceResponse
+func (t *RPCPayload) FromServerReloadRunWorkspaceResponse(v ServerReloadRunWorkspaceResponse) error {
+	return t.encode("ServerReloadRunWorkspaceResponse", v)
 }
 
-// MergeServerReloadRunWorkspaceResponse performs a merge with any union data inside the RPCResponse_Result, using the provided ServerReloadRunWorkspaceResponse
-func (t *RPCResponse_Result) MergeServerReloadRunWorkspaceResponse(v ServerReloadRunWorkspaceResponse) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeServerReloadRunWorkspaceResponse performs a merge with any protobuf payload, using the provided ServerReloadRunWorkspaceResponse
+func (t *RPCPayload) MergeServerReloadRunWorkspaceResponse(v ServerReloadRunWorkspaceResponse) error {
+	return t.merge("ServerReloadRunWorkspaceResponse", v)
 }
 
-// AsServerListRunWorkspaceHistoryResponse returns the union data inside the RPCResponse_Result as a ServerListRunWorkspaceHistoryResponse
-func (t RPCResponse_Result) AsServerListRunWorkspaceHistoryResponse() (ServerListRunWorkspaceHistoryResponse, error) {
+// AsServerListRunWorkspaceHistoryResponse decodes the RPCPayload as a ServerListRunWorkspaceHistoryResponse
+func (t RPCPayload) AsServerListRunWorkspaceHistoryResponse() (ServerListRunWorkspaceHistoryResponse, error) {
 	var body ServerListRunWorkspaceHistoryResponse
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("ServerListRunWorkspaceHistoryResponse", &body)
 	return body, err
 }
 
-// FromServerListRunWorkspaceHistoryResponse overwrites any union data inside the RPCResponse_Result as the provided ServerListRunWorkspaceHistoryResponse
-func (t *RPCResponse_Result) FromServerListRunWorkspaceHistoryResponse(v ServerListRunWorkspaceHistoryResponse) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromServerListRunWorkspaceHistoryResponse overwrites any protobuf payload as the provided ServerListRunWorkspaceHistoryResponse
+func (t *RPCPayload) FromServerListRunWorkspaceHistoryResponse(v ServerListRunWorkspaceHistoryResponse) error {
+	return t.encode("ServerListRunWorkspaceHistoryResponse", v)
 }
 
-// MergeServerListRunWorkspaceHistoryResponse performs a merge with any union data inside the RPCResponse_Result, using the provided ServerListRunWorkspaceHistoryResponse
-func (t *RPCResponse_Result) MergeServerListRunWorkspaceHistoryResponse(v ServerListRunWorkspaceHistoryResponse) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeServerListRunWorkspaceHistoryResponse performs a merge with any protobuf payload, using the provided ServerListRunWorkspaceHistoryResponse
+func (t *RPCPayload) MergeServerListRunWorkspaceHistoryResponse(v ServerListRunWorkspaceHistoryResponse) error {
+	return t.merge("ServerListRunWorkspaceHistoryResponse", v)
 }
 
-// AsServerPlayRunWorkspaceHistoryResponse returns the union data inside the RPCResponse_Result as a ServerPlayRunWorkspaceHistoryResponse
-func (t RPCResponse_Result) AsServerPlayRunWorkspaceHistoryResponse() (ServerPlayRunWorkspaceHistoryResponse, error) {
+// AsServerPlayRunWorkspaceHistoryResponse decodes the RPCPayload as a ServerPlayRunWorkspaceHistoryResponse
+func (t RPCPayload) AsServerPlayRunWorkspaceHistoryResponse() (ServerPlayRunWorkspaceHistoryResponse, error) {
 	var body ServerPlayRunWorkspaceHistoryResponse
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("ServerPlayRunWorkspaceHistoryResponse", &body)
 	return body, err
 }
 
-// FromServerPlayRunWorkspaceHistoryResponse overwrites any union data inside the RPCResponse_Result as the provided ServerPlayRunWorkspaceHistoryResponse
-func (t *RPCResponse_Result) FromServerPlayRunWorkspaceHistoryResponse(v ServerPlayRunWorkspaceHistoryResponse) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromServerPlayRunWorkspaceHistoryResponse overwrites any protobuf payload as the provided ServerPlayRunWorkspaceHistoryResponse
+func (t *RPCPayload) FromServerPlayRunWorkspaceHistoryResponse(v ServerPlayRunWorkspaceHistoryResponse) error {
+	return t.encode("ServerPlayRunWorkspaceHistoryResponse", v)
 }
 
-// MergeServerPlayRunWorkspaceHistoryResponse performs a merge with any union data inside the RPCResponse_Result, using the provided ServerPlayRunWorkspaceHistoryResponse
-func (t *RPCResponse_Result) MergeServerPlayRunWorkspaceHistoryResponse(v ServerPlayRunWorkspaceHistoryResponse) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeServerPlayRunWorkspaceHistoryResponse performs a merge with any protobuf payload, using the provided ServerPlayRunWorkspaceHistoryResponse
+func (t *RPCPayload) MergeServerPlayRunWorkspaceHistoryResponse(v ServerPlayRunWorkspaceHistoryResponse) error {
+	return t.merge("ServerPlayRunWorkspaceHistoryResponse", v)
 }
 
-// AsServerGetRunWorkspaceMemoryStatsResponse returns the union data inside the RPCResponse_Result as a ServerGetRunWorkspaceMemoryStatsResponse
-func (t RPCResponse_Result) AsServerGetRunWorkspaceMemoryStatsResponse() (ServerGetRunWorkspaceMemoryStatsResponse, error) {
+// AsServerGetRunWorkspaceMemoryStatsResponse decodes the RPCPayload as a ServerGetRunWorkspaceMemoryStatsResponse
+func (t RPCPayload) AsServerGetRunWorkspaceMemoryStatsResponse() (ServerGetRunWorkspaceMemoryStatsResponse, error) {
 	var body ServerGetRunWorkspaceMemoryStatsResponse
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("ServerGetRunWorkspaceMemoryStatsResponse", &body)
 	return body, err
 }
 
-// FromServerGetRunWorkspaceMemoryStatsResponse overwrites any union data inside the RPCResponse_Result as the provided ServerGetRunWorkspaceMemoryStatsResponse
-func (t *RPCResponse_Result) FromServerGetRunWorkspaceMemoryStatsResponse(v ServerGetRunWorkspaceMemoryStatsResponse) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromServerGetRunWorkspaceMemoryStatsResponse overwrites any protobuf payload as the provided ServerGetRunWorkspaceMemoryStatsResponse
+func (t *RPCPayload) FromServerGetRunWorkspaceMemoryStatsResponse(v ServerGetRunWorkspaceMemoryStatsResponse) error {
+	return t.encode("ServerGetRunWorkspaceMemoryStatsResponse", v)
 }
 
-// MergeServerGetRunWorkspaceMemoryStatsResponse performs a merge with any union data inside the RPCResponse_Result, using the provided ServerGetRunWorkspaceMemoryStatsResponse
-func (t *RPCResponse_Result) MergeServerGetRunWorkspaceMemoryStatsResponse(v ServerGetRunWorkspaceMemoryStatsResponse) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeServerGetRunWorkspaceMemoryStatsResponse performs a merge with any protobuf payload, using the provided ServerGetRunWorkspaceMemoryStatsResponse
+func (t *RPCPayload) MergeServerGetRunWorkspaceMemoryStatsResponse(v ServerGetRunWorkspaceMemoryStatsResponse) error {
+	return t.merge("ServerGetRunWorkspaceMemoryStatsResponse", v)
 }
 
-// AsServerRunWorkspaceRecallResponse returns the union data inside the RPCResponse_Result as a ServerRunWorkspaceRecallResponse
-func (t RPCResponse_Result) AsServerRunWorkspaceRecallResponse() (ServerRunWorkspaceRecallResponse, error) {
+// AsServerRunWorkspaceRecallResponse decodes the RPCPayload as a ServerRunWorkspaceRecallResponse
+func (t RPCPayload) AsServerRunWorkspaceRecallResponse() (ServerRunWorkspaceRecallResponse, error) {
 	var body ServerRunWorkspaceRecallResponse
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("ServerRunWorkspaceRecallResponse", &body)
 	return body, err
 }
 
-// FromServerRunWorkspaceRecallResponse overwrites any union data inside the RPCResponse_Result as the provided ServerRunWorkspaceRecallResponse
-func (t *RPCResponse_Result) FromServerRunWorkspaceRecallResponse(v ServerRunWorkspaceRecallResponse) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromServerRunWorkspaceRecallResponse overwrites any protobuf payload as the provided ServerRunWorkspaceRecallResponse
+func (t *RPCPayload) FromServerRunWorkspaceRecallResponse(v ServerRunWorkspaceRecallResponse) error {
+	return t.encode("ServerRunWorkspaceRecallResponse", v)
 }
 
-// MergeServerRunWorkspaceRecallResponse performs a merge with any union data inside the RPCResponse_Result, using the provided ServerRunWorkspaceRecallResponse
-func (t *RPCResponse_Result) MergeServerRunWorkspaceRecallResponse(v ServerRunWorkspaceRecallResponse) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeServerRunWorkspaceRecallResponse performs a merge with any protobuf payload, using the provided ServerRunWorkspaceRecallResponse
+func (t *RPCPayload) MergeServerRunWorkspaceRecallResponse(v ServerRunWorkspaceRecallResponse) error {
+	return t.merge("ServerRunWorkspaceRecallResponse", v)
 }
 
-// AsServerReloadRunResponse returns the union data inside the RPCResponse_Result as a ServerReloadRunResponse
-func (t RPCResponse_Result) AsServerReloadRunResponse() (ServerReloadRunResponse, error) {
+// AsServerReloadRunResponse decodes the RPCPayload as a ServerReloadRunResponse
+func (t RPCPayload) AsServerReloadRunResponse() (ServerReloadRunResponse, error) {
 	var body ServerReloadRunResponse
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("ServerReloadRunResponse", &body)
 	return body, err
 }
 
-// FromServerReloadRunResponse overwrites any union data inside the RPCResponse_Result as the provided ServerReloadRunResponse
-func (t *RPCResponse_Result) FromServerReloadRunResponse(v ServerReloadRunResponse) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromServerReloadRunResponse overwrites any protobuf payload as the provided ServerReloadRunResponse
+func (t *RPCPayload) FromServerReloadRunResponse(v ServerReloadRunResponse) error {
+	return t.encode("ServerReloadRunResponse", v)
 }
 
-// MergeServerReloadRunResponse performs a merge with any union data inside the RPCResponse_Result, using the provided ServerReloadRunResponse
-func (t *RPCResponse_Result) MergeServerReloadRunResponse(v ServerReloadRunResponse) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeServerReloadRunResponse performs a merge with any protobuf payload, using the provided ServerReloadRunResponse
+func (t *RPCPayload) MergeServerReloadRunResponse(v ServerReloadRunResponse) error {
+	return t.merge("ServerReloadRunResponse", v)
 }
 
-// AsServerGetRunStatusResponse returns the union data inside the RPCResponse_Result as a ServerGetRunStatusResponse
-func (t RPCResponse_Result) AsServerGetRunStatusResponse() (ServerGetRunStatusResponse, error) {
+// AsServerGetRunStatusResponse decodes the RPCPayload as a ServerGetRunStatusResponse
+func (t RPCPayload) AsServerGetRunStatusResponse() (ServerGetRunStatusResponse, error) {
 	var body ServerGetRunStatusResponse
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("ServerGetRunStatusResponse", &body)
 	return body, err
 }
 
-// FromServerGetRunStatusResponse overwrites any union data inside the RPCResponse_Result as the provided ServerGetRunStatusResponse
-func (t *RPCResponse_Result) FromServerGetRunStatusResponse(v ServerGetRunStatusResponse) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromServerGetRunStatusResponse overwrites any protobuf payload as the provided ServerGetRunStatusResponse
+func (t *RPCPayload) FromServerGetRunStatusResponse(v ServerGetRunStatusResponse) error {
+	return t.encode("ServerGetRunStatusResponse", v)
 }
 
-// MergeServerGetRunStatusResponse performs a merge with any union data inside the RPCResponse_Result, using the provided ServerGetRunStatusResponse
-func (t *RPCResponse_Result) MergeServerGetRunStatusResponse(v ServerGetRunStatusResponse) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeServerGetRunStatusResponse performs a merge with any protobuf payload, using the provided ServerGetRunStatusResponse
+func (t *RPCPayload) MergeServerGetRunStatusResponse(v ServerGetRunStatusResponse) error {
+	return t.merge("ServerGetRunStatusResponse", v)
 }
 
-// AsServerStopRunResponse returns the union data inside the RPCResponse_Result as a ServerStopRunResponse
-func (t RPCResponse_Result) AsServerStopRunResponse() (ServerStopRunResponse, error) {
+// AsServerStopRunResponse decodes the RPCPayload as a ServerStopRunResponse
+func (t RPCPayload) AsServerStopRunResponse() (ServerStopRunResponse, error) {
 	var body ServerStopRunResponse
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("ServerStopRunResponse", &body)
 	return body, err
 }
 
-// FromServerStopRunResponse overwrites any union data inside the RPCResponse_Result as the provided ServerStopRunResponse
-func (t *RPCResponse_Result) FromServerStopRunResponse(v ServerStopRunResponse) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromServerStopRunResponse overwrites any protobuf payload as the provided ServerStopRunResponse
+func (t *RPCPayload) FromServerStopRunResponse(v ServerStopRunResponse) error {
+	return t.encode("ServerStopRunResponse", v)
 }
 
-// MergeServerStopRunResponse performs a merge with any union data inside the RPCResponse_Result, using the provided ServerStopRunResponse
-func (t *RPCResponse_Result) MergeServerStopRunResponse(v ServerStopRunResponse) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeServerStopRunResponse performs a merge with any protobuf payload, using the provided ServerStopRunResponse
+func (t *RPCPayload) MergeServerStopRunResponse(v ServerStopRunResponse) error {
+	return t.merge("ServerStopRunResponse", v)
 }
 
-// AsServerRunSayResponse returns the union data inside the RPCResponse_Result as a ServerRunSayResponse
-func (t RPCResponse_Result) AsServerRunSayResponse() (ServerRunSayResponse, error) {
+// AsServerRunSayResponse decodes the RPCPayload as a ServerRunSayResponse
+func (t RPCPayload) AsServerRunSayResponse() (ServerRunSayResponse, error) {
 	var body ServerRunSayResponse
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("ServerRunSayResponse", &body)
 	return body, err
 }
 
-// FromServerRunSayResponse overwrites any union data inside the RPCResponse_Result as the provided ServerRunSayResponse
-func (t *RPCResponse_Result) FromServerRunSayResponse(v ServerRunSayResponse) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromServerRunSayResponse overwrites any protobuf payload as the provided ServerRunSayResponse
+func (t *RPCPayload) FromServerRunSayResponse(v ServerRunSayResponse) error {
+	return t.encode("ServerRunSayResponse", v)
 }
 
-// MergeServerRunSayResponse performs a merge with any union data inside the RPCResponse_Result, using the provided ServerRunSayResponse
-func (t *RPCResponse_Result) MergeServerRunSayResponse(v ServerRunSayResponse) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeServerRunSayResponse performs a merge with any protobuf payload, using the provided ServerRunSayResponse
+func (t *RPCPayload) MergeServerRunSayResponse(v ServerRunSayResponse) error {
+	return t.merge("ServerRunSayResponse", v)
 }
 
-// AsFirmwareListResponse returns the union data inside the RPCResponse_Result as a FirmwareListResponse
-func (t RPCResponse_Result) AsFirmwareListResponse() (FirmwareListResponse, error) {
+// AsFirmwareListResponse decodes the RPCPayload as a FirmwareListResponse
+func (t RPCPayload) AsFirmwareListResponse() (FirmwareListResponse, error) {
 	var body FirmwareListResponse
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("FirmwareListResponse", &body)
 	return body, err
 }
 
-// FromFirmwareListResponse overwrites any union data inside the RPCResponse_Result as the provided FirmwareListResponse
-func (t *RPCResponse_Result) FromFirmwareListResponse(v FirmwareListResponse) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromFirmwareListResponse overwrites any protobuf payload as the provided FirmwareListResponse
+func (t *RPCPayload) FromFirmwareListResponse(v FirmwareListResponse) error {
+	return t.encode("FirmwareListResponse", v)
 }
 
-// MergeFirmwareListResponse performs a merge with any union data inside the RPCResponse_Result, using the provided FirmwareListResponse
-func (t *RPCResponse_Result) MergeFirmwareListResponse(v FirmwareListResponse) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeFirmwareListResponse performs a merge with any protobuf payload, using the provided FirmwareListResponse
+func (t *RPCPayload) MergeFirmwareListResponse(v FirmwareListResponse) error {
+	return t.merge("FirmwareListResponse", v)
 }
 
-// AsFirmwareGetResponse returns the union data inside the RPCResponse_Result as a FirmwareGetResponse
-func (t RPCResponse_Result) AsFirmwareGetResponse() (FirmwareGetResponse, error) {
+// AsFirmwareGetResponse decodes the RPCPayload as a FirmwareGetResponse
+func (t RPCPayload) AsFirmwareGetResponse() (FirmwareGetResponse, error) {
 	var body FirmwareGetResponse
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("FirmwareGetResponse", &body)
 	return body, err
 }
 
-// FromFirmwareGetResponse overwrites any union data inside the RPCResponse_Result as the provided FirmwareGetResponse
-func (t *RPCResponse_Result) FromFirmwareGetResponse(v FirmwareGetResponse) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromFirmwareGetResponse overwrites any protobuf payload as the provided FirmwareGetResponse
+func (t *RPCPayload) FromFirmwareGetResponse(v FirmwareGetResponse) error {
+	return t.encode("FirmwareGetResponse", v)
 }
 
-// MergeFirmwareGetResponse performs a merge with any union data inside the RPCResponse_Result, using the provided FirmwareGetResponse
-func (t *RPCResponse_Result) MergeFirmwareGetResponse(v FirmwareGetResponse) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeFirmwareGetResponse performs a merge with any protobuf payload, using the provided FirmwareGetResponse
+func (t *RPCPayload) MergeFirmwareGetResponse(v FirmwareGetResponse) error {
+	return t.merge("FirmwareGetResponse", v)
 }
 
-// AsFirmwareFilesDownloadResponse returns the union data inside the RPCResponse_Result as a FirmwareFilesDownloadResponse
-func (t RPCResponse_Result) AsFirmwareFilesDownloadResponse() (FirmwareFilesDownloadResponse, error) {
+// AsFirmwareFilesDownloadResponse decodes the RPCPayload as a FirmwareFilesDownloadResponse
+func (t RPCPayload) AsFirmwareFilesDownloadResponse() (FirmwareFilesDownloadResponse, error) {
 	var body FirmwareFilesDownloadResponse
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("FirmwareFilesDownloadResponse", &body)
 	return body, err
 }
 
-// FromFirmwareFilesDownloadResponse overwrites any union data inside the RPCResponse_Result as the provided FirmwareFilesDownloadResponse
-func (t *RPCResponse_Result) FromFirmwareFilesDownloadResponse(v FirmwareFilesDownloadResponse) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromFirmwareFilesDownloadResponse overwrites any protobuf payload as the provided FirmwareFilesDownloadResponse
+func (t *RPCPayload) FromFirmwareFilesDownloadResponse(v FirmwareFilesDownloadResponse) error {
+	return t.encode("FirmwareFilesDownloadResponse", v)
 }
 
-// MergeFirmwareFilesDownloadResponse performs a merge with any union data inside the RPCResponse_Result, using the provided FirmwareFilesDownloadResponse
-func (t *RPCResponse_Result) MergeFirmwareFilesDownloadResponse(v FirmwareFilesDownloadResponse) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeFirmwareFilesDownloadResponse performs a merge with any protobuf payload, using the provided FirmwareFilesDownloadResponse
+func (t *RPCPayload) MergeFirmwareFilesDownloadResponse(v FirmwareFilesDownloadResponse) error {
+	return t.merge("FirmwareFilesDownloadResponse", v)
 }
 
-// AsWorkspaceListResponse returns the union data inside the RPCResponse_Result as a WorkspaceListResponse
-func (t RPCResponse_Result) AsWorkspaceListResponse() (WorkspaceListResponse, error) {
+// AsWorkspaceListResponse decodes the RPCPayload as a WorkspaceListResponse
+func (t RPCPayload) AsWorkspaceListResponse() (WorkspaceListResponse, error) {
 	var body WorkspaceListResponse
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("WorkspaceListResponse", &body)
 	return body, err
 }
 
-// FromWorkspaceListResponse overwrites any union data inside the RPCResponse_Result as the provided WorkspaceListResponse
-func (t *RPCResponse_Result) FromWorkspaceListResponse(v WorkspaceListResponse) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromWorkspaceListResponse overwrites any protobuf payload as the provided WorkspaceListResponse
+func (t *RPCPayload) FromWorkspaceListResponse(v WorkspaceListResponse) error {
+	return t.encode("WorkspaceListResponse", v)
 }
 
-// MergeWorkspaceListResponse performs a merge with any union data inside the RPCResponse_Result, using the provided WorkspaceListResponse
-func (t *RPCResponse_Result) MergeWorkspaceListResponse(v WorkspaceListResponse) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeWorkspaceListResponse performs a merge with any protobuf payload, using the provided WorkspaceListResponse
+func (t *RPCPayload) MergeWorkspaceListResponse(v WorkspaceListResponse) error {
+	return t.merge("WorkspaceListResponse", v)
 }
 
-// AsWorkspaceGetResponse returns the union data inside the RPCResponse_Result as a WorkspaceGetResponse
-func (t RPCResponse_Result) AsWorkspaceGetResponse() (WorkspaceGetResponse, error) {
+// AsWorkspaceGetResponse decodes the RPCPayload as a WorkspaceGetResponse
+func (t RPCPayload) AsWorkspaceGetResponse() (WorkspaceGetResponse, error) {
 	var body WorkspaceGetResponse
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("WorkspaceGetResponse", &body)
 	return body, err
 }
 
-// FromWorkspaceGetResponse overwrites any union data inside the RPCResponse_Result as the provided WorkspaceGetResponse
-func (t *RPCResponse_Result) FromWorkspaceGetResponse(v WorkspaceGetResponse) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromWorkspaceGetResponse overwrites any protobuf payload as the provided WorkspaceGetResponse
+func (t *RPCPayload) FromWorkspaceGetResponse(v WorkspaceGetResponse) error {
+	return t.encode("WorkspaceGetResponse", v)
 }
 
-// MergeWorkspaceGetResponse performs a merge with any union data inside the RPCResponse_Result, using the provided WorkspaceGetResponse
-func (t *RPCResponse_Result) MergeWorkspaceGetResponse(v WorkspaceGetResponse) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeWorkspaceGetResponse performs a merge with any protobuf payload, using the provided WorkspaceGetResponse
+func (t *RPCPayload) MergeWorkspaceGetResponse(v WorkspaceGetResponse) error {
+	return t.merge("WorkspaceGetResponse", v)
 }
 
-// AsWorkspaceCreateResponse returns the union data inside the RPCResponse_Result as a WorkspaceCreateResponse
-func (t RPCResponse_Result) AsWorkspaceCreateResponse() (WorkspaceCreateResponse, error) {
+// AsWorkspaceCreateResponse decodes the RPCPayload as a WorkspaceCreateResponse
+func (t RPCPayload) AsWorkspaceCreateResponse() (WorkspaceCreateResponse, error) {
 	var body WorkspaceCreateResponse
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("WorkspaceCreateResponse", &body)
 	return body, err
 }
 
-// FromWorkspaceCreateResponse overwrites any union data inside the RPCResponse_Result as the provided WorkspaceCreateResponse
-func (t *RPCResponse_Result) FromWorkspaceCreateResponse(v WorkspaceCreateResponse) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromWorkspaceCreateResponse overwrites any protobuf payload as the provided WorkspaceCreateResponse
+func (t *RPCPayload) FromWorkspaceCreateResponse(v WorkspaceCreateResponse) error {
+	return t.encode("WorkspaceCreateResponse", v)
 }
 
-// MergeWorkspaceCreateResponse performs a merge with any union data inside the RPCResponse_Result, using the provided WorkspaceCreateResponse
-func (t *RPCResponse_Result) MergeWorkspaceCreateResponse(v WorkspaceCreateResponse) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeWorkspaceCreateResponse performs a merge with any protobuf payload, using the provided WorkspaceCreateResponse
+func (t *RPCPayload) MergeWorkspaceCreateResponse(v WorkspaceCreateResponse) error {
+	return t.merge("WorkspaceCreateResponse", v)
 }
 
-// AsWorkspacePutResponse returns the union data inside the RPCResponse_Result as a WorkspacePutResponse
-func (t RPCResponse_Result) AsWorkspacePutResponse() (WorkspacePutResponse, error) {
+// AsWorkspacePutResponse decodes the RPCPayload as a WorkspacePutResponse
+func (t RPCPayload) AsWorkspacePutResponse() (WorkspacePutResponse, error) {
 	var body WorkspacePutResponse
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("WorkspacePutResponse", &body)
 	return body, err
 }
 
-// FromWorkspacePutResponse overwrites any union data inside the RPCResponse_Result as the provided WorkspacePutResponse
-func (t *RPCResponse_Result) FromWorkspacePutResponse(v WorkspacePutResponse) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromWorkspacePutResponse overwrites any protobuf payload as the provided WorkspacePutResponse
+func (t *RPCPayload) FromWorkspacePutResponse(v WorkspacePutResponse) error {
+	return t.encode("WorkspacePutResponse", v)
 }
 
-// MergeWorkspacePutResponse performs a merge with any union data inside the RPCResponse_Result, using the provided WorkspacePutResponse
-func (t *RPCResponse_Result) MergeWorkspacePutResponse(v WorkspacePutResponse) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeWorkspacePutResponse performs a merge with any protobuf payload, using the provided WorkspacePutResponse
+func (t *RPCPayload) MergeWorkspacePutResponse(v WorkspacePutResponse) error {
+	return t.merge("WorkspacePutResponse", v)
 }
 
-// AsWorkspaceDeleteResponse returns the union data inside the RPCResponse_Result as a WorkspaceDeleteResponse
-func (t RPCResponse_Result) AsWorkspaceDeleteResponse() (WorkspaceDeleteResponse, error) {
+// AsWorkspaceDeleteResponse decodes the RPCPayload as a WorkspaceDeleteResponse
+func (t RPCPayload) AsWorkspaceDeleteResponse() (WorkspaceDeleteResponse, error) {
 	var body WorkspaceDeleteResponse
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("WorkspaceDeleteResponse", &body)
 	return body, err
 }
 
-// FromWorkspaceDeleteResponse overwrites any union data inside the RPCResponse_Result as the provided WorkspaceDeleteResponse
-func (t *RPCResponse_Result) FromWorkspaceDeleteResponse(v WorkspaceDeleteResponse) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromWorkspaceDeleteResponse overwrites any protobuf payload as the provided WorkspaceDeleteResponse
+func (t *RPCPayload) FromWorkspaceDeleteResponse(v WorkspaceDeleteResponse) error {
+	return t.encode("WorkspaceDeleteResponse", v)
 }
 
-// MergeWorkspaceDeleteResponse performs a merge with any union data inside the RPCResponse_Result, using the provided WorkspaceDeleteResponse
-func (t *RPCResponse_Result) MergeWorkspaceDeleteResponse(v WorkspaceDeleteResponse) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeWorkspaceDeleteResponse performs a merge with any protobuf payload, using the provided WorkspaceDeleteResponse
+func (t *RPCPayload) MergeWorkspaceDeleteResponse(v WorkspaceDeleteResponse) error {
+	return t.merge("WorkspaceDeleteResponse", v)
 }
 
-// AsWorkspaceHistoryListResponse returns the union data inside the RPCResponse_Result as a WorkspaceHistoryListResponse
-func (t RPCResponse_Result) AsWorkspaceHistoryListResponse() (WorkspaceHistoryListResponse, error) {
+// AsWorkspaceHistoryListResponse decodes the RPCPayload as a WorkspaceHistoryListResponse
+func (t RPCPayload) AsWorkspaceHistoryListResponse() (WorkspaceHistoryListResponse, error) {
 	var body WorkspaceHistoryListResponse
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("WorkspaceHistoryListResponse", &body)
 	return body, err
 }
 
-// FromWorkspaceHistoryListResponse overwrites any union data inside the RPCResponse_Result as the provided WorkspaceHistoryListResponse
-func (t *RPCResponse_Result) FromWorkspaceHistoryListResponse(v WorkspaceHistoryListResponse) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromWorkspaceHistoryListResponse overwrites any protobuf payload as the provided WorkspaceHistoryListResponse
+func (t *RPCPayload) FromWorkspaceHistoryListResponse(v WorkspaceHistoryListResponse) error {
+	return t.encode("WorkspaceHistoryListResponse", v)
 }
 
-// MergeWorkspaceHistoryListResponse performs a merge with any union data inside the RPCResponse_Result, using the provided WorkspaceHistoryListResponse
-func (t *RPCResponse_Result) MergeWorkspaceHistoryListResponse(v WorkspaceHistoryListResponse) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeWorkspaceHistoryListResponse performs a merge with any protobuf payload, using the provided WorkspaceHistoryListResponse
+func (t *RPCPayload) MergeWorkspaceHistoryListResponse(v WorkspaceHistoryListResponse) error {
+	return t.merge("WorkspaceHistoryListResponse", v)
 }
 
-// AsWorkspaceHistoryGetResponse returns the union data inside the RPCResponse_Result as a WorkspaceHistoryGetResponse
-func (t RPCResponse_Result) AsWorkspaceHistoryGetResponse() (WorkspaceHistoryGetResponse, error) {
+// AsWorkspaceHistoryGetResponse decodes the RPCPayload as a WorkspaceHistoryGetResponse
+func (t RPCPayload) AsWorkspaceHistoryGetResponse() (WorkspaceHistoryGetResponse, error) {
 	var body WorkspaceHistoryGetResponse
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("WorkspaceHistoryGetResponse", &body)
 	return body, err
 }
 
-// FromWorkspaceHistoryGetResponse overwrites any union data inside the RPCResponse_Result as the provided WorkspaceHistoryGetResponse
-func (t *RPCResponse_Result) FromWorkspaceHistoryGetResponse(v WorkspaceHistoryGetResponse) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromWorkspaceHistoryGetResponse overwrites any protobuf payload as the provided WorkspaceHistoryGetResponse
+func (t *RPCPayload) FromWorkspaceHistoryGetResponse(v WorkspaceHistoryGetResponse) error {
+	return t.encode("WorkspaceHistoryGetResponse", v)
 }
 
-// MergeWorkspaceHistoryGetResponse performs a merge with any union data inside the RPCResponse_Result, using the provided WorkspaceHistoryGetResponse
-func (t *RPCResponse_Result) MergeWorkspaceHistoryGetResponse(v WorkspaceHistoryGetResponse) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeWorkspaceHistoryGetResponse performs a merge with any protobuf payload, using the provided WorkspaceHistoryGetResponse
+func (t *RPCPayload) MergeWorkspaceHistoryGetResponse(v WorkspaceHistoryGetResponse) error {
+	return t.merge("WorkspaceHistoryGetResponse", v)
 }
 
-// AsWorkspaceHistoryAudioGetResponse returns the union data inside the RPCResponse_Result as a WorkspaceHistoryAudioGetResponse
-func (t RPCResponse_Result) AsWorkspaceHistoryAudioGetResponse() (WorkspaceHistoryAudioGetResponse, error) {
+// AsWorkspaceHistoryAudioGetResponse decodes the RPCPayload as a WorkspaceHistoryAudioGetResponse
+func (t RPCPayload) AsWorkspaceHistoryAudioGetResponse() (WorkspaceHistoryAudioGetResponse, error) {
 	var body WorkspaceHistoryAudioGetResponse
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("WorkspaceHistoryAudioGetResponse", &body)
 	return body, err
 }
 
-// FromWorkspaceHistoryAudioGetResponse overwrites any union data inside the RPCResponse_Result as the provided WorkspaceHistoryAudioGetResponse
-func (t *RPCResponse_Result) FromWorkspaceHistoryAudioGetResponse(v WorkspaceHistoryAudioGetResponse) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromWorkspaceHistoryAudioGetResponse overwrites any protobuf payload as the provided WorkspaceHistoryAudioGetResponse
+func (t *RPCPayload) FromWorkspaceHistoryAudioGetResponse(v WorkspaceHistoryAudioGetResponse) error {
+	return t.encode("WorkspaceHistoryAudioGetResponse", v)
 }
 
-// MergeWorkspaceHistoryAudioGetResponse performs a merge with any union data inside the RPCResponse_Result, using the provided WorkspaceHistoryAudioGetResponse
-func (t *RPCResponse_Result) MergeWorkspaceHistoryAudioGetResponse(v WorkspaceHistoryAudioGetResponse) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeWorkspaceHistoryAudioGetResponse performs a merge with any protobuf payload, using the provided WorkspaceHistoryAudioGetResponse
+func (t *RPCPayload) MergeWorkspaceHistoryAudioGetResponse(v WorkspaceHistoryAudioGetResponse) error {
+	return t.merge("WorkspaceHistoryAudioGetResponse", v)
 }
 
-// AsWorkflowListResponse returns the union data inside the RPCResponse_Result as a WorkflowListResponse
-func (t RPCResponse_Result) AsWorkflowListResponse() (WorkflowListResponse, error) {
+// AsWorkflowListResponse decodes the RPCPayload as a WorkflowListResponse
+func (t RPCPayload) AsWorkflowListResponse() (WorkflowListResponse, error) {
 	var body WorkflowListResponse
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("WorkflowListResponse", &body)
 	return body, err
 }
 
-// FromWorkflowListResponse overwrites any union data inside the RPCResponse_Result as the provided WorkflowListResponse
-func (t *RPCResponse_Result) FromWorkflowListResponse(v WorkflowListResponse) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromWorkflowListResponse overwrites any protobuf payload as the provided WorkflowListResponse
+func (t *RPCPayload) FromWorkflowListResponse(v WorkflowListResponse) error {
+	return t.encode("WorkflowListResponse", v)
 }
 
-// MergeWorkflowListResponse performs a merge with any union data inside the RPCResponse_Result, using the provided WorkflowListResponse
-func (t *RPCResponse_Result) MergeWorkflowListResponse(v WorkflowListResponse) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeWorkflowListResponse performs a merge with any protobuf payload, using the provided WorkflowListResponse
+func (t *RPCPayload) MergeWorkflowListResponse(v WorkflowListResponse) error {
+	return t.merge("WorkflowListResponse", v)
 }
 
-// AsWorkflowGetResponse returns the union data inside the RPCResponse_Result as a WorkflowGetResponse
-func (t RPCResponse_Result) AsWorkflowGetResponse() (WorkflowGetResponse, error) {
+// AsWorkflowGetResponse decodes the RPCPayload as a WorkflowGetResponse
+func (t RPCPayload) AsWorkflowGetResponse() (WorkflowGetResponse, error) {
 	var body WorkflowGetResponse
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("WorkflowGetResponse", &body)
 	return body, err
 }
 
-// FromWorkflowGetResponse overwrites any union data inside the RPCResponse_Result as the provided WorkflowGetResponse
-func (t *RPCResponse_Result) FromWorkflowGetResponse(v WorkflowGetResponse) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromWorkflowGetResponse overwrites any protobuf payload as the provided WorkflowGetResponse
+func (t *RPCPayload) FromWorkflowGetResponse(v WorkflowGetResponse) error {
+	return t.encode("WorkflowGetResponse", v)
 }
 
-// MergeWorkflowGetResponse performs a merge with any union data inside the RPCResponse_Result, using the provided WorkflowGetResponse
-func (t *RPCResponse_Result) MergeWorkflowGetResponse(v WorkflowGetResponse) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeWorkflowGetResponse performs a merge with any protobuf payload, using the provided WorkflowGetResponse
+func (t *RPCPayload) MergeWorkflowGetResponse(v WorkflowGetResponse) error {
+	return t.merge("WorkflowGetResponse", v)
 }
 
-// AsWorkflowCreateResponse returns the union data inside the RPCResponse_Result as a WorkflowCreateResponse
-func (t RPCResponse_Result) AsWorkflowCreateResponse() (WorkflowCreateResponse, error) {
+// AsWorkflowCreateResponse decodes the RPCPayload as a WorkflowCreateResponse
+func (t RPCPayload) AsWorkflowCreateResponse() (WorkflowCreateResponse, error) {
 	var body WorkflowCreateResponse
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("WorkflowCreateResponse", &body)
 	return body, err
 }
 
-// FromWorkflowCreateResponse overwrites any union data inside the RPCResponse_Result as the provided WorkflowCreateResponse
-func (t *RPCResponse_Result) FromWorkflowCreateResponse(v WorkflowCreateResponse) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromWorkflowCreateResponse overwrites any protobuf payload as the provided WorkflowCreateResponse
+func (t *RPCPayload) FromWorkflowCreateResponse(v WorkflowCreateResponse) error {
+	return t.encode("WorkflowCreateResponse", v)
 }
 
-// MergeWorkflowCreateResponse performs a merge with any union data inside the RPCResponse_Result, using the provided WorkflowCreateResponse
-func (t *RPCResponse_Result) MergeWorkflowCreateResponse(v WorkflowCreateResponse) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeWorkflowCreateResponse performs a merge with any protobuf payload, using the provided WorkflowCreateResponse
+func (t *RPCPayload) MergeWorkflowCreateResponse(v WorkflowCreateResponse) error {
+	return t.merge("WorkflowCreateResponse", v)
 }
 
-// AsWorkflowPutResponse returns the union data inside the RPCResponse_Result as a WorkflowPutResponse
-func (t RPCResponse_Result) AsWorkflowPutResponse() (WorkflowPutResponse, error) {
+// AsWorkflowPutResponse decodes the RPCPayload as a WorkflowPutResponse
+func (t RPCPayload) AsWorkflowPutResponse() (WorkflowPutResponse, error) {
 	var body WorkflowPutResponse
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("WorkflowPutResponse", &body)
 	return body, err
 }
 
-// FromWorkflowPutResponse overwrites any union data inside the RPCResponse_Result as the provided WorkflowPutResponse
-func (t *RPCResponse_Result) FromWorkflowPutResponse(v WorkflowPutResponse) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromWorkflowPutResponse overwrites any protobuf payload as the provided WorkflowPutResponse
+func (t *RPCPayload) FromWorkflowPutResponse(v WorkflowPutResponse) error {
+	return t.encode("WorkflowPutResponse", v)
 }
 
-// MergeWorkflowPutResponse performs a merge with any union data inside the RPCResponse_Result, using the provided WorkflowPutResponse
-func (t *RPCResponse_Result) MergeWorkflowPutResponse(v WorkflowPutResponse) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeWorkflowPutResponse performs a merge with any protobuf payload, using the provided WorkflowPutResponse
+func (t *RPCPayload) MergeWorkflowPutResponse(v WorkflowPutResponse) error {
+	return t.merge("WorkflowPutResponse", v)
 }
 
-// AsWorkflowDeleteResponse returns the union data inside the RPCResponse_Result as a WorkflowDeleteResponse
-func (t RPCResponse_Result) AsWorkflowDeleteResponse() (WorkflowDeleteResponse, error) {
+// AsWorkflowDeleteResponse decodes the RPCPayload as a WorkflowDeleteResponse
+func (t RPCPayload) AsWorkflowDeleteResponse() (WorkflowDeleteResponse, error) {
 	var body WorkflowDeleteResponse
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("WorkflowDeleteResponse", &body)
 	return body, err
 }
 
-// FromWorkflowDeleteResponse overwrites any union data inside the RPCResponse_Result as the provided WorkflowDeleteResponse
-func (t *RPCResponse_Result) FromWorkflowDeleteResponse(v WorkflowDeleteResponse) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromWorkflowDeleteResponse overwrites any protobuf payload as the provided WorkflowDeleteResponse
+func (t *RPCPayload) FromWorkflowDeleteResponse(v WorkflowDeleteResponse) error {
+	return t.encode("WorkflowDeleteResponse", v)
 }
 
-// MergeWorkflowDeleteResponse performs a merge with any union data inside the RPCResponse_Result, using the provided WorkflowDeleteResponse
-func (t *RPCResponse_Result) MergeWorkflowDeleteResponse(v WorkflowDeleteResponse) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeWorkflowDeleteResponse performs a merge with any protobuf payload, using the provided WorkflowDeleteResponse
+func (t *RPCPayload) MergeWorkflowDeleteResponse(v WorkflowDeleteResponse) error {
+	return t.merge("WorkflowDeleteResponse", v)
 }
 
-// AsModelListResponse returns the union data inside the RPCResponse_Result as a ModelListResponse
-func (t RPCResponse_Result) AsModelListResponse() (ModelListResponse, error) {
+// AsModelListResponse decodes the RPCPayload as a ModelListResponse
+func (t RPCPayload) AsModelListResponse() (ModelListResponse, error) {
 	var body ModelListResponse
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("ModelListResponse", &body)
 	return body, err
 }
 
-// FromModelListResponse overwrites any union data inside the RPCResponse_Result as the provided ModelListResponse
-func (t *RPCResponse_Result) FromModelListResponse(v ModelListResponse) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromModelListResponse overwrites any protobuf payload as the provided ModelListResponse
+func (t *RPCPayload) FromModelListResponse(v ModelListResponse) error {
+	return t.encode("ModelListResponse", v)
 }
 
-// MergeModelListResponse performs a merge with any union data inside the RPCResponse_Result, using the provided ModelListResponse
-func (t *RPCResponse_Result) MergeModelListResponse(v ModelListResponse) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeModelListResponse performs a merge with any protobuf payload, using the provided ModelListResponse
+func (t *RPCPayload) MergeModelListResponse(v ModelListResponse) error {
+	return t.merge("ModelListResponse", v)
 }
 
-// AsModelGetResponse returns the union data inside the RPCResponse_Result as a ModelGetResponse
-func (t RPCResponse_Result) AsModelGetResponse() (ModelGetResponse, error) {
+// AsModelGetResponse decodes the RPCPayload as a ModelGetResponse
+func (t RPCPayload) AsModelGetResponse() (ModelGetResponse, error) {
 	var body ModelGetResponse
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("ModelGetResponse", &body)
 	return body, err
 }
 
-// FromModelGetResponse overwrites any union data inside the RPCResponse_Result as the provided ModelGetResponse
-func (t *RPCResponse_Result) FromModelGetResponse(v ModelGetResponse) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromModelGetResponse overwrites any protobuf payload as the provided ModelGetResponse
+func (t *RPCPayload) FromModelGetResponse(v ModelGetResponse) error {
+	return t.encode("ModelGetResponse", v)
 }
 
-// MergeModelGetResponse performs a merge with any union data inside the RPCResponse_Result, using the provided ModelGetResponse
-func (t *RPCResponse_Result) MergeModelGetResponse(v ModelGetResponse) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeModelGetResponse performs a merge with any protobuf payload, using the provided ModelGetResponse
+func (t *RPCPayload) MergeModelGetResponse(v ModelGetResponse) error {
+	return t.merge("ModelGetResponse", v)
 }
 
-// AsModelCreateResponse returns the union data inside the RPCResponse_Result as a ModelCreateResponse
-func (t RPCResponse_Result) AsModelCreateResponse() (ModelCreateResponse, error) {
+// AsModelCreateResponse decodes the RPCPayload as a ModelCreateResponse
+func (t RPCPayload) AsModelCreateResponse() (ModelCreateResponse, error) {
 	var body ModelCreateResponse
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("ModelCreateResponse", &body)
 	return body, err
 }
 
-// FromModelCreateResponse overwrites any union data inside the RPCResponse_Result as the provided ModelCreateResponse
-func (t *RPCResponse_Result) FromModelCreateResponse(v ModelCreateResponse) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromModelCreateResponse overwrites any protobuf payload as the provided ModelCreateResponse
+func (t *RPCPayload) FromModelCreateResponse(v ModelCreateResponse) error {
+	return t.encode("ModelCreateResponse", v)
 }
 
-// MergeModelCreateResponse performs a merge with any union data inside the RPCResponse_Result, using the provided ModelCreateResponse
-func (t *RPCResponse_Result) MergeModelCreateResponse(v ModelCreateResponse) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeModelCreateResponse performs a merge with any protobuf payload, using the provided ModelCreateResponse
+func (t *RPCPayload) MergeModelCreateResponse(v ModelCreateResponse) error {
+	return t.merge("ModelCreateResponse", v)
 }
 
-// AsModelPutResponse returns the union data inside the RPCResponse_Result as a ModelPutResponse
-func (t RPCResponse_Result) AsModelPutResponse() (ModelPutResponse, error) {
+// AsModelPutResponse decodes the RPCPayload as a ModelPutResponse
+func (t RPCPayload) AsModelPutResponse() (ModelPutResponse, error) {
 	var body ModelPutResponse
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("ModelPutResponse", &body)
 	return body, err
 }
 
-// FromModelPutResponse overwrites any union data inside the RPCResponse_Result as the provided ModelPutResponse
-func (t *RPCResponse_Result) FromModelPutResponse(v ModelPutResponse) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromModelPutResponse overwrites any protobuf payload as the provided ModelPutResponse
+func (t *RPCPayload) FromModelPutResponse(v ModelPutResponse) error {
+	return t.encode("ModelPutResponse", v)
 }
 
-// MergeModelPutResponse performs a merge with any union data inside the RPCResponse_Result, using the provided ModelPutResponse
-func (t *RPCResponse_Result) MergeModelPutResponse(v ModelPutResponse) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeModelPutResponse performs a merge with any protobuf payload, using the provided ModelPutResponse
+func (t *RPCPayload) MergeModelPutResponse(v ModelPutResponse) error {
+	return t.merge("ModelPutResponse", v)
 }
 
-// AsModelDeleteResponse returns the union data inside the RPCResponse_Result as a ModelDeleteResponse
-func (t RPCResponse_Result) AsModelDeleteResponse() (ModelDeleteResponse, error) {
+// AsModelDeleteResponse decodes the RPCPayload as a ModelDeleteResponse
+func (t RPCPayload) AsModelDeleteResponse() (ModelDeleteResponse, error) {
 	var body ModelDeleteResponse
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("ModelDeleteResponse", &body)
 	return body, err
 }
 
-// FromModelDeleteResponse overwrites any union data inside the RPCResponse_Result as the provided ModelDeleteResponse
-func (t *RPCResponse_Result) FromModelDeleteResponse(v ModelDeleteResponse) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromModelDeleteResponse overwrites any protobuf payload as the provided ModelDeleteResponse
+func (t *RPCPayload) FromModelDeleteResponse(v ModelDeleteResponse) error {
+	return t.encode("ModelDeleteResponse", v)
 }
 
-// MergeModelDeleteResponse performs a merge with any union data inside the RPCResponse_Result, using the provided ModelDeleteResponse
-func (t *RPCResponse_Result) MergeModelDeleteResponse(v ModelDeleteResponse) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeModelDeleteResponse performs a merge with any protobuf payload, using the provided ModelDeleteResponse
+func (t *RPCPayload) MergeModelDeleteResponse(v ModelDeleteResponse) error {
+	return t.merge("ModelDeleteResponse", v)
 }
 
-// AsVoiceListResponse returns the union data inside the RPCResponse_Result as a VoiceListResponse
-func (t RPCResponse_Result) AsVoiceListResponse() (VoiceListResponse, error) {
+// AsVoiceListResponse decodes the RPCPayload as a VoiceListResponse
+func (t RPCPayload) AsVoiceListResponse() (VoiceListResponse, error) {
 	var body VoiceListResponse
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("VoiceListResponse", &body)
 	return body, err
 }
 
-// FromVoiceListResponse overwrites any union data inside the RPCResponse_Result as the provided VoiceListResponse
-func (t *RPCResponse_Result) FromVoiceListResponse(v VoiceListResponse) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromVoiceListResponse overwrites any protobuf payload as the provided VoiceListResponse
+func (t *RPCPayload) FromVoiceListResponse(v VoiceListResponse) error {
+	return t.encode("VoiceListResponse", v)
 }
 
-// MergeVoiceListResponse performs a merge with any union data inside the RPCResponse_Result, using the provided VoiceListResponse
-func (t *RPCResponse_Result) MergeVoiceListResponse(v VoiceListResponse) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeVoiceListResponse performs a merge with any protobuf payload, using the provided VoiceListResponse
+func (t *RPCPayload) MergeVoiceListResponse(v VoiceListResponse) error {
+	return t.merge("VoiceListResponse", v)
 }
 
-// AsVoiceGetResponse returns the union data inside the RPCResponse_Result as a VoiceGetResponse
-func (t RPCResponse_Result) AsVoiceGetResponse() (VoiceGetResponse, error) {
+// AsVoiceGetResponse decodes the RPCPayload as a VoiceGetResponse
+func (t RPCPayload) AsVoiceGetResponse() (VoiceGetResponse, error) {
 	var body VoiceGetResponse
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("VoiceGetResponse", &body)
 	return body, err
 }
 
-// FromVoiceGetResponse overwrites any union data inside the RPCResponse_Result as the provided VoiceGetResponse
-func (t *RPCResponse_Result) FromVoiceGetResponse(v VoiceGetResponse) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromVoiceGetResponse overwrites any protobuf payload as the provided VoiceGetResponse
+func (t *RPCPayload) FromVoiceGetResponse(v VoiceGetResponse) error {
+	return t.encode("VoiceGetResponse", v)
 }
 
-// MergeVoiceGetResponse performs a merge with any union data inside the RPCResponse_Result, using the provided VoiceGetResponse
-func (t *RPCResponse_Result) MergeVoiceGetResponse(v VoiceGetResponse) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeVoiceGetResponse performs a merge with any protobuf payload, using the provided VoiceGetResponse
+func (t *RPCPayload) MergeVoiceGetResponse(v VoiceGetResponse) error {
+	return t.merge("VoiceGetResponse", v)
 }
 
-// AsCredentialListResponse returns the union data inside the RPCResponse_Result as a CredentialListResponse
-func (t RPCResponse_Result) AsCredentialListResponse() (CredentialListResponse, error) {
+// AsCredentialListResponse decodes the RPCPayload as a CredentialListResponse
+func (t RPCPayload) AsCredentialListResponse() (CredentialListResponse, error) {
 	var body CredentialListResponse
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("CredentialListResponse", &body)
 	return body, err
 }
 
-// FromCredentialListResponse overwrites any union data inside the RPCResponse_Result as the provided CredentialListResponse
-func (t *RPCResponse_Result) FromCredentialListResponse(v CredentialListResponse) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromCredentialListResponse overwrites any protobuf payload as the provided CredentialListResponse
+func (t *RPCPayload) FromCredentialListResponse(v CredentialListResponse) error {
+	return t.encode("CredentialListResponse", v)
 }
 
-// MergeCredentialListResponse performs a merge with any union data inside the RPCResponse_Result, using the provided CredentialListResponse
-func (t *RPCResponse_Result) MergeCredentialListResponse(v CredentialListResponse) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeCredentialListResponse performs a merge with any protobuf payload, using the provided CredentialListResponse
+func (t *RPCPayload) MergeCredentialListResponse(v CredentialListResponse) error {
+	return t.merge("CredentialListResponse", v)
 }
 
-// AsCredentialGetResponse returns the union data inside the RPCResponse_Result as a CredentialGetResponse
-func (t RPCResponse_Result) AsCredentialGetResponse() (CredentialGetResponse, error) {
+// AsCredentialGetResponse decodes the RPCPayload as a CredentialGetResponse
+func (t RPCPayload) AsCredentialGetResponse() (CredentialGetResponse, error) {
 	var body CredentialGetResponse
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("CredentialGetResponse", &body)
 	return body, err
 }
 
-// FromCredentialGetResponse overwrites any union data inside the RPCResponse_Result as the provided CredentialGetResponse
-func (t *RPCResponse_Result) FromCredentialGetResponse(v CredentialGetResponse) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromCredentialGetResponse overwrites any protobuf payload as the provided CredentialGetResponse
+func (t *RPCPayload) FromCredentialGetResponse(v CredentialGetResponse) error {
+	return t.encode("CredentialGetResponse", v)
 }
 
-// MergeCredentialGetResponse performs a merge with any union data inside the RPCResponse_Result, using the provided CredentialGetResponse
-func (t *RPCResponse_Result) MergeCredentialGetResponse(v CredentialGetResponse) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeCredentialGetResponse performs a merge with any protobuf payload, using the provided CredentialGetResponse
+func (t *RPCPayload) MergeCredentialGetResponse(v CredentialGetResponse) error {
+	return t.merge("CredentialGetResponse", v)
 }
 
-// AsCredentialCreateResponse returns the union data inside the RPCResponse_Result as a CredentialCreateResponse
-func (t RPCResponse_Result) AsCredentialCreateResponse() (CredentialCreateResponse, error) {
+// AsCredentialCreateResponse decodes the RPCPayload as a CredentialCreateResponse
+func (t RPCPayload) AsCredentialCreateResponse() (CredentialCreateResponse, error) {
 	var body CredentialCreateResponse
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("CredentialCreateResponse", &body)
 	return body, err
 }
 
-// FromCredentialCreateResponse overwrites any union data inside the RPCResponse_Result as the provided CredentialCreateResponse
-func (t *RPCResponse_Result) FromCredentialCreateResponse(v CredentialCreateResponse) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromCredentialCreateResponse overwrites any protobuf payload as the provided CredentialCreateResponse
+func (t *RPCPayload) FromCredentialCreateResponse(v CredentialCreateResponse) error {
+	return t.encode("CredentialCreateResponse", v)
 }
 
-// MergeCredentialCreateResponse performs a merge with any union data inside the RPCResponse_Result, using the provided CredentialCreateResponse
-func (t *RPCResponse_Result) MergeCredentialCreateResponse(v CredentialCreateResponse) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeCredentialCreateResponse performs a merge with any protobuf payload, using the provided CredentialCreateResponse
+func (t *RPCPayload) MergeCredentialCreateResponse(v CredentialCreateResponse) error {
+	return t.merge("CredentialCreateResponse", v)
 }
 
-// AsCredentialPutResponse returns the union data inside the RPCResponse_Result as a CredentialPutResponse
-func (t RPCResponse_Result) AsCredentialPutResponse() (CredentialPutResponse, error) {
+// AsCredentialPutResponse decodes the RPCPayload as a CredentialPutResponse
+func (t RPCPayload) AsCredentialPutResponse() (CredentialPutResponse, error) {
 	var body CredentialPutResponse
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("CredentialPutResponse", &body)
 	return body, err
 }
 
-// FromCredentialPutResponse overwrites any union data inside the RPCResponse_Result as the provided CredentialPutResponse
-func (t *RPCResponse_Result) FromCredentialPutResponse(v CredentialPutResponse) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromCredentialPutResponse overwrites any protobuf payload as the provided CredentialPutResponse
+func (t *RPCPayload) FromCredentialPutResponse(v CredentialPutResponse) error {
+	return t.encode("CredentialPutResponse", v)
 }
 
-// MergeCredentialPutResponse performs a merge with any union data inside the RPCResponse_Result, using the provided CredentialPutResponse
-func (t *RPCResponse_Result) MergeCredentialPutResponse(v CredentialPutResponse) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeCredentialPutResponse performs a merge with any protobuf payload, using the provided CredentialPutResponse
+func (t *RPCPayload) MergeCredentialPutResponse(v CredentialPutResponse) error {
+	return t.merge("CredentialPutResponse", v)
 }
 
-// AsCredentialDeleteResponse returns the union data inside the RPCResponse_Result as a CredentialDeleteResponse
-func (t RPCResponse_Result) AsCredentialDeleteResponse() (CredentialDeleteResponse, error) {
+// AsCredentialDeleteResponse decodes the RPCPayload as a CredentialDeleteResponse
+func (t RPCPayload) AsCredentialDeleteResponse() (CredentialDeleteResponse, error) {
 	var body CredentialDeleteResponse
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("CredentialDeleteResponse", &body)
 	return body, err
 }
 
-// FromCredentialDeleteResponse overwrites any union data inside the RPCResponse_Result as the provided CredentialDeleteResponse
-func (t *RPCResponse_Result) FromCredentialDeleteResponse(v CredentialDeleteResponse) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromCredentialDeleteResponse overwrites any protobuf payload as the provided CredentialDeleteResponse
+func (t *RPCPayload) FromCredentialDeleteResponse(v CredentialDeleteResponse) error {
+	return t.encode("CredentialDeleteResponse", v)
 }
 
-// MergeCredentialDeleteResponse performs a merge with any union data inside the RPCResponse_Result, using the provided CredentialDeleteResponse
-func (t *RPCResponse_Result) MergeCredentialDeleteResponse(v CredentialDeleteResponse) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeCredentialDeleteResponse performs a merge with any protobuf payload, using the provided CredentialDeleteResponse
+func (t *RPCPayload) MergeCredentialDeleteResponse(v CredentialDeleteResponse) error {
+	return t.merge("CredentialDeleteResponse", v)
 }
 
-// AsContactListResponse returns the union data inside the RPCResponse_Result as a ContactListResponse
-func (t RPCResponse_Result) AsContactListResponse() (ContactListResponse, error) {
+// AsContactListResponse decodes the RPCPayload as a ContactListResponse
+func (t RPCPayload) AsContactListResponse() (ContactListResponse, error) {
 	var body ContactListResponse
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("ContactListResponse", &body)
 	return body, err
 }
 
-// FromContactListResponse overwrites any union data inside the RPCResponse_Result as the provided ContactListResponse
-func (t *RPCResponse_Result) FromContactListResponse(v ContactListResponse) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromContactListResponse overwrites any protobuf payload as the provided ContactListResponse
+func (t *RPCPayload) FromContactListResponse(v ContactListResponse) error {
+	return t.encode("ContactListResponse", v)
 }
 
-// MergeContactListResponse performs a merge with any union data inside the RPCResponse_Result, using the provided ContactListResponse
-func (t *RPCResponse_Result) MergeContactListResponse(v ContactListResponse) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeContactListResponse performs a merge with any protobuf payload, using the provided ContactListResponse
+func (t *RPCPayload) MergeContactListResponse(v ContactListResponse) error {
+	return t.merge("ContactListResponse", v)
 }
 
-// AsContactGetResponse returns the union data inside the RPCResponse_Result as a ContactGetResponse
-func (t RPCResponse_Result) AsContactGetResponse() (ContactGetResponse, error) {
+// AsContactGetResponse decodes the RPCPayload as a ContactGetResponse
+func (t RPCPayload) AsContactGetResponse() (ContactGetResponse, error) {
 	var body ContactGetResponse
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("ContactGetResponse", &body)
 	return body, err
 }
 
-// FromContactGetResponse overwrites any union data inside the RPCResponse_Result as the provided ContactGetResponse
-func (t *RPCResponse_Result) FromContactGetResponse(v ContactGetResponse) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromContactGetResponse overwrites any protobuf payload as the provided ContactGetResponse
+func (t *RPCPayload) FromContactGetResponse(v ContactGetResponse) error {
+	return t.encode("ContactGetResponse", v)
 }
 
-// MergeContactGetResponse performs a merge with any union data inside the RPCResponse_Result, using the provided ContactGetResponse
-func (t *RPCResponse_Result) MergeContactGetResponse(v ContactGetResponse) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeContactGetResponse performs a merge with any protobuf payload, using the provided ContactGetResponse
+func (t *RPCPayload) MergeContactGetResponse(v ContactGetResponse) error {
+	return t.merge("ContactGetResponse", v)
 }
 
-// AsContactCreateResponse returns the union data inside the RPCResponse_Result as a ContactCreateResponse
-func (t RPCResponse_Result) AsContactCreateResponse() (ContactCreateResponse, error) {
+// AsContactCreateResponse decodes the RPCPayload as a ContactCreateResponse
+func (t RPCPayload) AsContactCreateResponse() (ContactCreateResponse, error) {
 	var body ContactCreateResponse
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("ContactCreateResponse", &body)
 	return body, err
 }
 
-// FromContactCreateResponse overwrites any union data inside the RPCResponse_Result as the provided ContactCreateResponse
-func (t *RPCResponse_Result) FromContactCreateResponse(v ContactCreateResponse) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromContactCreateResponse overwrites any protobuf payload as the provided ContactCreateResponse
+func (t *RPCPayload) FromContactCreateResponse(v ContactCreateResponse) error {
+	return t.encode("ContactCreateResponse", v)
 }
 
-// MergeContactCreateResponse performs a merge with any union data inside the RPCResponse_Result, using the provided ContactCreateResponse
-func (t *RPCResponse_Result) MergeContactCreateResponse(v ContactCreateResponse) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeContactCreateResponse performs a merge with any protobuf payload, using the provided ContactCreateResponse
+func (t *RPCPayload) MergeContactCreateResponse(v ContactCreateResponse) error {
+	return t.merge("ContactCreateResponse", v)
 }
 
-// AsContactPutResponse returns the union data inside the RPCResponse_Result as a ContactPutResponse
-func (t RPCResponse_Result) AsContactPutResponse() (ContactPutResponse, error) {
+// AsContactPutResponse decodes the RPCPayload as a ContactPutResponse
+func (t RPCPayload) AsContactPutResponse() (ContactPutResponse, error) {
 	var body ContactPutResponse
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("ContactPutResponse", &body)
 	return body, err
 }
 
-// FromContactPutResponse overwrites any union data inside the RPCResponse_Result as the provided ContactPutResponse
-func (t *RPCResponse_Result) FromContactPutResponse(v ContactPutResponse) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromContactPutResponse overwrites any protobuf payload as the provided ContactPutResponse
+func (t *RPCPayload) FromContactPutResponse(v ContactPutResponse) error {
+	return t.encode("ContactPutResponse", v)
 }
 
-// MergeContactPutResponse performs a merge with any union data inside the RPCResponse_Result, using the provided ContactPutResponse
-func (t *RPCResponse_Result) MergeContactPutResponse(v ContactPutResponse) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeContactPutResponse performs a merge with any protobuf payload, using the provided ContactPutResponse
+func (t *RPCPayload) MergeContactPutResponse(v ContactPutResponse) error {
+	return t.merge("ContactPutResponse", v)
 }
 
-// AsContactDeleteResponse returns the union data inside the RPCResponse_Result as a ContactDeleteResponse
-func (t RPCResponse_Result) AsContactDeleteResponse() (ContactDeleteResponse, error) {
+// AsContactDeleteResponse decodes the RPCPayload as a ContactDeleteResponse
+func (t RPCPayload) AsContactDeleteResponse() (ContactDeleteResponse, error) {
 	var body ContactDeleteResponse
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("ContactDeleteResponse", &body)
 	return body, err
 }
 
-// FromContactDeleteResponse overwrites any union data inside the RPCResponse_Result as the provided ContactDeleteResponse
-func (t *RPCResponse_Result) FromContactDeleteResponse(v ContactDeleteResponse) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromContactDeleteResponse overwrites any protobuf payload as the provided ContactDeleteResponse
+func (t *RPCPayload) FromContactDeleteResponse(v ContactDeleteResponse) error {
+	return t.encode("ContactDeleteResponse", v)
 }
 
-// MergeContactDeleteResponse performs a merge with any union data inside the RPCResponse_Result, using the provided ContactDeleteResponse
-func (t *RPCResponse_Result) MergeContactDeleteResponse(v ContactDeleteResponse) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeContactDeleteResponse performs a merge with any protobuf payload, using the provided ContactDeleteResponse
+func (t *RPCPayload) MergeContactDeleteResponse(v ContactDeleteResponse) error {
+	return t.merge("ContactDeleteResponse", v)
 }
 
-// AsFriendInviteTokenGetResponse returns the union data inside the RPCResponse_Result as a FriendInviteTokenGetResponse
-func (t RPCResponse_Result) AsFriendInviteTokenGetResponse() (FriendInviteTokenGetResponse, error) {
+// AsFriendInviteTokenGetResponse decodes the RPCPayload as a FriendInviteTokenGetResponse
+func (t RPCPayload) AsFriendInviteTokenGetResponse() (FriendInviteTokenGetResponse, error) {
 	var body FriendInviteTokenGetResponse
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("FriendInviteTokenGetResponse", &body)
 	return body, err
 }
 
-// FromFriendInviteTokenGetResponse overwrites any union data inside the RPCResponse_Result as the provided FriendInviteTokenGetResponse
-func (t *RPCResponse_Result) FromFriendInviteTokenGetResponse(v FriendInviteTokenGetResponse) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromFriendInviteTokenGetResponse overwrites any protobuf payload as the provided FriendInviteTokenGetResponse
+func (t *RPCPayload) FromFriendInviteTokenGetResponse(v FriendInviteTokenGetResponse) error {
+	return t.encode("FriendInviteTokenGetResponse", v)
 }
 
-// MergeFriendInviteTokenGetResponse performs a merge with any union data inside the RPCResponse_Result, using the provided FriendInviteTokenGetResponse
-func (t *RPCResponse_Result) MergeFriendInviteTokenGetResponse(v FriendInviteTokenGetResponse) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeFriendInviteTokenGetResponse performs a merge with any protobuf payload, using the provided FriendInviteTokenGetResponse
+func (t *RPCPayload) MergeFriendInviteTokenGetResponse(v FriendInviteTokenGetResponse) error {
+	return t.merge("FriendInviteTokenGetResponse", v)
 }
 
-// AsFriendInviteTokenCreateResponse returns the union data inside the RPCResponse_Result as a FriendInviteTokenCreateResponse
-func (t RPCResponse_Result) AsFriendInviteTokenCreateResponse() (FriendInviteTokenCreateResponse, error) {
+// AsFriendInviteTokenCreateResponse decodes the RPCPayload as a FriendInviteTokenCreateResponse
+func (t RPCPayload) AsFriendInviteTokenCreateResponse() (FriendInviteTokenCreateResponse, error) {
 	var body FriendInviteTokenCreateResponse
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("FriendInviteTokenCreateResponse", &body)
 	return body, err
 }
 
-// FromFriendInviteTokenCreateResponse overwrites any union data inside the RPCResponse_Result as the provided FriendInviteTokenCreateResponse
-func (t *RPCResponse_Result) FromFriendInviteTokenCreateResponse(v FriendInviteTokenCreateResponse) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromFriendInviteTokenCreateResponse overwrites any protobuf payload as the provided FriendInviteTokenCreateResponse
+func (t *RPCPayload) FromFriendInviteTokenCreateResponse(v FriendInviteTokenCreateResponse) error {
+	return t.encode("FriendInviteTokenCreateResponse", v)
 }
 
-// MergeFriendInviteTokenCreateResponse performs a merge with any union data inside the RPCResponse_Result, using the provided FriendInviteTokenCreateResponse
-func (t *RPCResponse_Result) MergeFriendInviteTokenCreateResponse(v FriendInviteTokenCreateResponse) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeFriendInviteTokenCreateResponse performs a merge with any protobuf payload, using the provided FriendInviteTokenCreateResponse
+func (t *RPCPayload) MergeFriendInviteTokenCreateResponse(v FriendInviteTokenCreateResponse) error {
+	return t.merge("FriendInviteTokenCreateResponse", v)
 }
 
-// AsFriendInviteTokenClearResponse returns the union data inside the RPCResponse_Result as a FriendInviteTokenClearResponse
-func (t RPCResponse_Result) AsFriendInviteTokenClearResponse() (FriendInviteTokenClearResponse, error) {
+// AsFriendInviteTokenClearResponse decodes the RPCPayload as a FriendInviteTokenClearResponse
+func (t RPCPayload) AsFriendInviteTokenClearResponse() (FriendInviteTokenClearResponse, error) {
 	var body FriendInviteTokenClearResponse
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("FriendInviteTokenClearResponse", &body)
 	return body, err
 }
 
-// FromFriendInviteTokenClearResponse overwrites any union data inside the RPCResponse_Result as the provided FriendInviteTokenClearResponse
-func (t *RPCResponse_Result) FromFriendInviteTokenClearResponse(v FriendInviteTokenClearResponse) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromFriendInviteTokenClearResponse overwrites any protobuf payload as the provided FriendInviteTokenClearResponse
+func (t *RPCPayload) FromFriendInviteTokenClearResponse(v FriendInviteTokenClearResponse) error {
+	return t.encode("FriendInviteTokenClearResponse", v)
 }
 
-// MergeFriendInviteTokenClearResponse performs a merge with any union data inside the RPCResponse_Result, using the provided FriendInviteTokenClearResponse
-func (t *RPCResponse_Result) MergeFriendInviteTokenClearResponse(v FriendInviteTokenClearResponse) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeFriendInviteTokenClearResponse performs a merge with any protobuf payload, using the provided FriendInviteTokenClearResponse
+func (t *RPCPayload) MergeFriendInviteTokenClearResponse(v FriendInviteTokenClearResponse) error {
+	return t.merge("FriendInviteTokenClearResponse", v)
 }
 
-// AsFriendAddResponse returns the union data inside the RPCResponse_Result as a FriendAddResponse
-func (t RPCResponse_Result) AsFriendAddResponse() (FriendAddResponse, error) {
+// AsFriendAddResponse decodes the RPCPayload as a FriendAddResponse
+func (t RPCPayload) AsFriendAddResponse() (FriendAddResponse, error) {
 	var body FriendAddResponse
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("FriendAddResponse", &body)
 	return body, err
 }
 
-// FromFriendAddResponse overwrites any union data inside the RPCResponse_Result as the provided FriendAddResponse
-func (t *RPCResponse_Result) FromFriendAddResponse(v FriendAddResponse) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromFriendAddResponse overwrites any protobuf payload as the provided FriendAddResponse
+func (t *RPCPayload) FromFriendAddResponse(v FriendAddResponse) error {
+	return t.encode("FriendAddResponse", v)
 }
 
-// MergeFriendAddResponse performs a merge with any union data inside the RPCResponse_Result, using the provided FriendAddResponse
-func (t *RPCResponse_Result) MergeFriendAddResponse(v FriendAddResponse) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeFriendAddResponse performs a merge with any protobuf payload, using the provided FriendAddResponse
+func (t *RPCPayload) MergeFriendAddResponse(v FriendAddResponse) error {
+	return t.merge("FriendAddResponse", v)
 }
 
-// AsFriendListResponse returns the union data inside the RPCResponse_Result as a FriendListResponse
-func (t RPCResponse_Result) AsFriendListResponse() (FriendListResponse, error) {
+// AsFriendListResponse decodes the RPCPayload as a FriendListResponse
+func (t RPCPayload) AsFriendListResponse() (FriendListResponse, error) {
 	var body FriendListResponse
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("FriendListResponse", &body)
 	return body, err
 }
 
-// FromFriendListResponse overwrites any union data inside the RPCResponse_Result as the provided FriendListResponse
-func (t *RPCResponse_Result) FromFriendListResponse(v FriendListResponse) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromFriendListResponse overwrites any protobuf payload as the provided FriendListResponse
+func (t *RPCPayload) FromFriendListResponse(v FriendListResponse) error {
+	return t.encode("FriendListResponse", v)
 }
 
-// MergeFriendListResponse performs a merge with any union data inside the RPCResponse_Result, using the provided FriendListResponse
-func (t *RPCResponse_Result) MergeFriendListResponse(v FriendListResponse) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeFriendListResponse performs a merge with any protobuf payload, using the provided FriendListResponse
+func (t *RPCPayload) MergeFriendListResponse(v FriendListResponse) error {
+	return t.merge("FriendListResponse", v)
 }
 
-// AsFriendDeleteResponse returns the union data inside the RPCResponse_Result as a FriendDeleteResponse
-func (t RPCResponse_Result) AsFriendDeleteResponse() (FriendDeleteResponse, error) {
+// AsFriendDeleteResponse decodes the RPCPayload as a FriendDeleteResponse
+func (t RPCPayload) AsFriendDeleteResponse() (FriendDeleteResponse, error) {
 	var body FriendDeleteResponse
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("FriendDeleteResponse", &body)
 	return body, err
 }
 
-// FromFriendDeleteResponse overwrites any union data inside the RPCResponse_Result as the provided FriendDeleteResponse
-func (t *RPCResponse_Result) FromFriendDeleteResponse(v FriendDeleteResponse) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromFriendDeleteResponse overwrites any protobuf payload as the provided FriendDeleteResponse
+func (t *RPCPayload) FromFriendDeleteResponse(v FriendDeleteResponse) error {
+	return t.encode("FriendDeleteResponse", v)
 }
 
-// MergeFriendDeleteResponse performs a merge with any union data inside the RPCResponse_Result, using the provided FriendDeleteResponse
-func (t *RPCResponse_Result) MergeFriendDeleteResponse(v FriendDeleteResponse) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeFriendDeleteResponse performs a merge with any protobuf payload, using the provided FriendDeleteResponse
+func (t *RPCPayload) MergeFriendDeleteResponse(v FriendDeleteResponse) error {
+	return t.merge("FriendDeleteResponse", v)
 }
 
-// AsFriendGroupListResponse returns the union data inside the RPCResponse_Result as a FriendGroupListResponse
-func (t RPCResponse_Result) AsFriendGroupListResponse() (FriendGroupListResponse, error) {
+// AsFriendGroupListResponse decodes the RPCPayload as a FriendGroupListResponse
+func (t RPCPayload) AsFriendGroupListResponse() (FriendGroupListResponse, error) {
 	var body FriendGroupListResponse
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("FriendGroupListResponse", &body)
 	return body, err
 }
 
-// FromFriendGroupListResponse overwrites any union data inside the RPCResponse_Result as the provided FriendGroupListResponse
-func (t *RPCResponse_Result) FromFriendGroupListResponse(v FriendGroupListResponse) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromFriendGroupListResponse overwrites any protobuf payload as the provided FriendGroupListResponse
+func (t *RPCPayload) FromFriendGroupListResponse(v FriendGroupListResponse) error {
+	return t.encode("FriendGroupListResponse", v)
 }
 
-// MergeFriendGroupListResponse performs a merge with any union data inside the RPCResponse_Result, using the provided FriendGroupListResponse
-func (t *RPCResponse_Result) MergeFriendGroupListResponse(v FriendGroupListResponse) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeFriendGroupListResponse performs a merge with any protobuf payload, using the provided FriendGroupListResponse
+func (t *RPCPayload) MergeFriendGroupListResponse(v FriendGroupListResponse) error {
+	return t.merge("FriendGroupListResponse", v)
 }
 
-// AsFriendGroupGetResponse returns the union data inside the RPCResponse_Result as a FriendGroupGetResponse
-func (t RPCResponse_Result) AsFriendGroupGetResponse() (FriendGroupGetResponse, error) {
+// AsFriendGroupGetResponse decodes the RPCPayload as a FriendGroupGetResponse
+func (t RPCPayload) AsFriendGroupGetResponse() (FriendGroupGetResponse, error) {
 	var body FriendGroupGetResponse
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("FriendGroupGetResponse", &body)
 	return body, err
 }
 
-// FromFriendGroupGetResponse overwrites any union data inside the RPCResponse_Result as the provided FriendGroupGetResponse
-func (t *RPCResponse_Result) FromFriendGroupGetResponse(v FriendGroupGetResponse) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromFriendGroupGetResponse overwrites any protobuf payload as the provided FriendGroupGetResponse
+func (t *RPCPayload) FromFriendGroupGetResponse(v FriendGroupGetResponse) error {
+	return t.encode("FriendGroupGetResponse", v)
 }
 
-// MergeFriendGroupGetResponse performs a merge with any union data inside the RPCResponse_Result, using the provided FriendGroupGetResponse
-func (t *RPCResponse_Result) MergeFriendGroupGetResponse(v FriendGroupGetResponse) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeFriendGroupGetResponse performs a merge with any protobuf payload, using the provided FriendGroupGetResponse
+func (t *RPCPayload) MergeFriendGroupGetResponse(v FriendGroupGetResponse) error {
+	return t.merge("FriendGroupGetResponse", v)
 }
 
-// AsFriendGroupCreateResponse returns the union data inside the RPCResponse_Result as a FriendGroupCreateResponse
-func (t RPCResponse_Result) AsFriendGroupCreateResponse() (FriendGroupCreateResponse, error) {
+// AsFriendGroupCreateResponse decodes the RPCPayload as a FriendGroupCreateResponse
+func (t RPCPayload) AsFriendGroupCreateResponse() (FriendGroupCreateResponse, error) {
 	var body FriendGroupCreateResponse
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("FriendGroupCreateResponse", &body)
 	return body, err
 }
 
-// FromFriendGroupCreateResponse overwrites any union data inside the RPCResponse_Result as the provided FriendGroupCreateResponse
-func (t *RPCResponse_Result) FromFriendGroupCreateResponse(v FriendGroupCreateResponse) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromFriendGroupCreateResponse overwrites any protobuf payload as the provided FriendGroupCreateResponse
+func (t *RPCPayload) FromFriendGroupCreateResponse(v FriendGroupCreateResponse) error {
+	return t.encode("FriendGroupCreateResponse", v)
 }
 
-// MergeFriendGroupCreateResponse performs a merge with any union data inside the RPCResponse_Result, using the provided FriendGroupCreateResponse
-func (t *RPCResponse_Result) MergeFriendGroupCreateResponse(v FriendGroupCreateResponse) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeFriendGroupCreateResponse performs a merge with any protobuf payload, using the provided FriendGroupCreateResponse
+func (t *RPCPayload) MergeFriendGroupCreateResponse(v FriendGroupCreateResponse) error {
+	return t.merge("FriendGroupCreateResponse", v)
 }
 
-// AsFriendGroupPutResponse returns the union data inside the RPCResponse_Result as a FriendGroupPutResponse
-func (t RPCResponse_Result) AsFriendGroupPutResponse() (FriendGroupPutResponse, error) {
+// AsFriendGroupPutResponse decodes the RPCPayload as a FriendGroupPutResponse
+func (t RPCPayload) AsFriendGroupPutResponse() (FriendGroupPutResponse, error) {
 	var body FriendGroupPutResponse
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("FriendGroupPutResponse", &body)
 	return body, err
 }
 
-// FromFriendGroupPutResponse overwrites any union data inside the RPCResponse_Result as the provided FriendGroupPutResponse
-func (t *RPCResponse_Result) FromFriendGroupPutResponse(v FriendGroupPutResponse) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromFriendGroupPutResponse overwrites any protobuf payload as the provided FriendGroupPutResponse
+func (t *RPCPayload) FromFriendGroupPutResponse(v FriendGroupPutResponse) error {
+	return t.encode("FriendGroupPutResponse", v)
 }
 
-// MergeFriendGroupPutResponse performs a merge with any union data inside the RPCResponse_Result, using the provided FriendGroupPutResponse
-func (t *RPCResponse_Result) MergeFriendGroupPutResponse(v FriendGroupPutResponse) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeFriendGroupPutResponse performs a merge with any protobuf payload, using the provided FriendGroupPutResponse
+func (t *RPCPayload) MergeFriendGroupPutResponse(v FriendGroupPutResponse) error {
+	return t.merge("FriendGroupPutResponse", v)
 }
 
-// AsFriendGroupDeleteResponse returns the union data inside the RPCResponse_Result as a FriendGroupDeleteResponse
-func (t RPCResponse_Result) AsFriendGroupDeleteResponse() (FriendGroupDeleteResponse, error) {
+// AsFriendGroupDeleteResponse decodes the RPCPayload as a FriendGroupDeleteResponse
+func (t RPCPayload) AsFriendGroupDeleteResponse() (FriendGroupDeleteResponse, error) {
 	var body FriendGroupDeleteResponse
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("FriendGroupDeleteResponse", &body)
 	return body, err
 }
 
-// FromFriendGroupDeleteResponse overwrites any union data inside the RPCResponse_Result as the provided FriendGroupDeleteResponse
-func (t *RPCResponse_Result) FromFriendGroupDeleteResponse(v FriendGroupDeleteResponse) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromFriendGroupDeleteResponse overwrites any protobuf payload as the provided FriendGroupDeleteResponse
+func (t *RPCPayload) FromFriendGroupDeleteResponse(v FriendGroupDeleteResponse) error {
+	return t.encode("FriendGroupDeleteResponse", v)
 }
 
-// MergeFriendGroupDeleteResponse performs a merge with any union data inside the RPCResponse_Result, using the provided FriendGroupDeleteResponse
-func (t *RPCResponse_Result) MergeFriendGroupDeleteResponse(v FriendGroupDeleteResponse) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeFriendGroupDeleteResponse performs a merge with any protobuf payload, using the provided FriendGroupDeleteResponse
+func (t *RPCPayload) MergeFriendGroupDeleteResponse(v FriendGroupDeleteResponse) error {
+	return t.merge("FriendGroupDeleteResponse", v)
 }
 
-// AsFriendGroupInviteTokenGetResponse returns the union data inside the RPCResponse_Result as a FriendGroupInviteTokenGetResponse
-func (t RPCResponse_Result) AsFriendGroupInviteTokenGetResponse() (FriendGroupInviteTokenGetResponse, error) {
+// AsFriendGroupInviteTokenGetResponse decodes the RPCPayload as a FriendGroupInviteTokenGetResponse
+func (t RPCPayload) AsFriendGroupInviteTokenGetResponse() (FriendGroupInviteTokenGetResponse, error) {
 	var body FriendGroupInviteTokenGetResponse
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("FriendGroupInviteTokenGetResponse", &body)
 	return body, err
 }
 
-// FromFriendGroupInviteTokenGetResponse overwrites any union data inside the RPCResponse_Result as the provided FriendGroupInviteTokenGetResponse
-func (t *RPCResponse_Result) FromFriendGroupInviteTokenGetResponse(v FriendGroupInviteTokenGetResponse) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromFriendGroupInviteTokenGetResponse overwrites any protobuf payload as the provided FriendGroupInviteTokenGetResponse
+func (t *RPCPayload) FromFriendGroupInviteTokenGetResponse(v FriendGroupInviteTokenGetResponse) error {
+	return t.encode("FriendGroupInviteTokenGetResponse", v)
 }
 
-// MergeFriendGroupInviteTokenGetResponse performs a merge with any union data inside the RPCResponse_Result, using the provided FriendGroupInviteTokenGetResponse
-func (t *RPCResponse_Result) MergeFriendGroupInviteTokenGetResponse(v FriendGroupInviteTokenGetResponse) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeFriendGroupInviteTokenGetResponse performs a merge with any protobuf payload, using the provided FriendGroupInviteTokenGetResponse
+func (t *RPCPayload) MergeFriendGroupInviteTokenGetResponse(v FriendGroupInviteTokenGetResponse) error {
+	return t.merge("FriendGroupInviteTokenGetResponse", v)
 }
 
-// AsFriendGroupInviteTokenCreateResponse returns the union data inside the RPCResponse_Result as a FriendGroupInviteTokenCreateResponse
-func (t RPCResponse_Result) AsFriendGroupInviteTokenCreateResponse() (FriendGroupInviteTokenCreateResponse, error) {
+// AsFriendGroupInviteTokenCreateResponse decodes the RPCPayload as a FriendGroupInviteTokenCreateResponse
+func (t RPCPayload) AsFriendGroupInviteTokenCreateResponse() (FriendGroupInviteTokenCreateResponse, error) {
 	var body FriendGroupInviteTokenCreateResponse
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("FriendGroupInviteTokenCreateResponse", &body)
 	return body, err
 }
 
-// FromFriendGroupInviteTokenCreateResponse overwrites any union data inside the RPCResponse_Result as the provided FriendGroupInviteTokenCreateResponse
-func (t *RPCResponse_Result) FromFriendGroupInviteTokenCreateResponse(v FriendGroupInviteTokenCreateResponse) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromFriendGroupInviteTokenCreateResponse overwrites any protobuf payload as the provided FriendGroupInviteTokenCreateResponse
+func (t *RPCPayload) FromFriendGroupInviteTokenCreateResponse(v FriendGroupInviteTokenCreateResponse) error {
+	return t.encode("FriendGroupInviteTokenCreateResponse", v)
 }
 
-// MergeFriendGroupInviteTokenCreateResponse performs a merge with any union data inside the RPCResponse_Result, using the provided FriendGroupInviteTokenCreateResponse
-func (t *RPCResponse_Result) MergeFriendGroupInviteTokenCreateResponse(v FriendGroupInviteTokenCreateResponse) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeFriendGroupInviteTokenCreateResponse performs a merge with any protobuf payload, using the provided FriendGroupInviteTokenCreateResponse
+func (t *RPCPayload) MergeFriendGroupInviteTokenCreateResponse(v FriendGroupInviteTokenCreateResponse) error {
+	return t.merge("FriendGroupInviteTokenCreateResponse", v)
 }
 
-// AsFriendGroupInviteTokenClearResponse returns the union data inside the RPCResponse_Result as a FriendGroupInviteTokenClearResponse
-func (t RPCResponse_Result) AsFriendGroupInviteTokenClearResponse() (FriendGroupInviteTokenClearResponse, error) {
+// AsFriendGroupInviteTokenClearResponse decodes the RPCPayload as a FriendGroupInviteTokenClearResponse
+func (t RPCPayload) AsFriendGroupInviteTokenClearResponse() (FriendGroupInviteTokenClearResponse, error) {
 	var body FriendGroupInviteTokenClearResponse
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("FriendGroupInviteTokenClearResponse", &body)
 	return body, err
 }
 
-// FromFriendGroupInviteTokenClearResponse overwrites any union data inside the RPCResponse_Result as the provided FriendGroupInviteTokenClearResponse
-func (t *RPCResponse_Result) FromFriendGroupInviteTokenClearResponse(v FriendGroupInviteTokenClearResponse) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromFriendGroupInviteTokenClearResponse overwrites any protobuf payload as the provided FriendGroupInviteTokenClearResponse
+func (t *RPCPayload) FromFriendGroupInviteTokenClearResponse(v FriendGroupInviteTokenClearResponse) error {
+	return t.encode("FriendGroupInviteTokenClearResponse", v)
 }
 
-// MergeFriendGroupInviteTokenClearResponse performs a merge with any union data inside the RPCResponse_Result, using the provided FriendGroupInviteTokenClearResponse
-func (t *RPCResponse_Result) MergeFriendGroupInviteTokenClearResponse(v FriendGroupInviteTokenClearResponse) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeFriendGroupInviteTokenClearResponse performs a merge with any protobuf payload, using the provided FriendGroupInviteTokenClearResponse
+func (t *RPCPayload) MergeFriendGroupInviteTokenClearResponse(v FriendGroupInviteTokenClearResponse) error {
+	return t.merge("FriendGroupInviteTokenClearResponse", v)
 }
 
-// AsFriendGroupJoinResponse returns the union data inside the RPCResponse_Result as a FriendGroupJoinResponse
-func (t RPCResponse_Result) AsFriendGroupJoinResponse() (FriendGroupJoinResponse, error) {
+// AsFriendGroupJoinResponse decodes the RPCPayload as a FriendGroupJoinResponse
+func (t RPCPayload) AsFriendGroupJoinResponse() (FriendGroupJoinResponse, error) {
 	var body FriendGroupJoinResponse
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("FriendGroupJoinResponse", &body)
 	return body, err
 }
 
-// FromFriendGroupJoinResponse overwrites any union data inside the RPCResponse_Result as the provided FriendGroupJoinResponse
-func (t *RPCResponse_Result) FromFriendGroupJoinResponse(v FriendGroupJoinResponse) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromFriendGroupJoinResponse overwrites any protobuf payload as the provided FriendGroupJoinResponse
+func (t *RPCPayload) FromFriendGroupJoinResponse(v FriendGroupJoinResponse) error {
+	return t.encode("FriendGroupJoinResponse", v)
 }
 
-// MergeFriendGroupJoinResponse performs a merge with any union data inside the RPCResponse_Result, using the provided FriendGroupJoinResponse
-func (t *RPCResponse_Result) MergeFriendGroupJoinResponse(v FriendGroupJoinResponse) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeFriendGroupJoinResponse performs a merge with any protobuf payload, using the provided FriendGroupJoinResponse
+func (t *RPCPayload) MergeFriendGroupJoinResponse(v FriendGroupJoinResponse) error {
+	return t.merge("FriendGroupJoinResponse", v)
 }
 
-// AsFriendGroupMemberListResponse returns the union data inside the RPCResponse_Result as a FriendGroupMemberListResponse
-func (t RPCResponse_Result) AsFriendGroupMemberListResponse() (FriendGroupMemberListResponse, error) {
+// AsFriendGroupMemberListResponse decodes the RPCPayload as a FriendGroupMemberListResponse
+func (t RPCPayload) AsFriendGroupMemberListResponse() (FriendGroupMemberListResponse, error) {
 	var body FriendGroupMemberListResponse
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("FriendGroupMemberListResponse", &body)
 	return body, err
 }
 
-// FromFriendGroupMemberListResponse overwrites any union data inside the RPCResponse_Result as the provided FriendGroupMemberListResponse
-func (t *RPCResponse_Result) FromFriendGroupMemberListResponse(v FriendGroupMemberListResponse) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromFriendGroupMemberListResponse overwrites any protobuf payload as the provided FriendGroupMemberListResponse
+func (t *RPCPayload) FromFriendGroupMemberListResponse(v FriendGroupMemberListResponse) error {
+	return t.encode("FriendGroupMemberListResponse", v)
 }
 
-// MergeFriendGroupMemberListResponse performs a merge with any union data inside the RPCResponse_Result, using the provided FriendGroupMemberListResponse
-func (t *RPCResponse_Result) MergeFriendGroupMemberListResponse(v FriendGroupMemberListResponse) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeFriendGroupMemberListResponse performs a merge with any protobuf payload, using the provided FriendGroupMemberListResponse
+func (t *RPCPayload) MergeFriendGroupMemberListResponse(v FriendGroupMemberListResponse) error {
+	return t.merge("FriendGroupMemberListResponse", v)
 }
 
-// AsFriendGroupMemberAddResponse returns the union data inside the RPCResponse_Result as a FriendGroupMemberAddResponse
-func (t RPCResponse_Result) AsFriendGroupMemberAddResponse() (FriendGroupMemberAddResponse, error) {
+// AsFriendGroupMemberAddResponse decodes the RPCPayload as a FriendGroupMemberAddResponse
+func (t RPCPayload) AsFriendGroupMemberAddResponse() (FriendGroupMemberAddResponse, error) {
 	var body FriendGroupMemberAddResponse
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("FriendGroupMemberAddResponse", &body)
 	return body, err
 }
 
-// FromFriendGroupMemberAddResponse overwrites any union data inside the RPCResponse_Result as the provided FriendGroupMemberAddResponse
-func (t *RPCResponse_Result) FromFriendGroupMemberAddResponse(v FriendGroupMemberAddResponse) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromFriendGroupMemberAddResponse overwrites any protobuf payload as the provided FriendGroupMemberAddResponse
+func (t *RPCPayload) FromFriendGroupMemberAddResponse(v FriendGroupMemberAddResponse) error {
+	return t.encode("FriendGroupMemberAddResponse", v)
 }
 
-// MergeFriendGroupMemberAddResponse performs a merge with any union data inside the RPCResponse_Result, using the provided FriendGroupMemberAddResponse
-func (t *RPCResponse_Result) MergeFriendGroupMemberAddResponse(v FriendGroupMemberAddResponse) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeFriendGroupMemberAddResponse performs a merge with any protobuf payload, using the provided FriendGroupMemberAddResponse
+func (t *RPCPayload) MergeFriendGroupMemberAddResponse(v FriendGroupMemberAddResponse) error {
+	return t.merge("FriendGroupMemberAddResponse", v)
 }
 
-// AsFriendGroupMemberPutResponse returns the union data inside the RPCResponse_Result as a FriendGroupMemberPutResponse
-func (t RPCResponse_Result) AsFriendGroupMemberPutResponse() (FriendGroupMemberPutResponse, error) {
+// AsFriendGroupMemberPutResponse decodes the RPCPayload as a FriendGroupMemberPutResponse
+func (t RPCPayload) AsFriendGroupMemberPutResponse() (FriendGroupMemberPutResponse, error) {
 	var body FriendGroupMemberPutResponse
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("FriendGroupMemberPutResponse", &body)
 	return body, err
 }
 
-// FromFriendGroupMemberPutResponse overwrites any union data inside the RPCResponse_Result as the provided FriendGroupMemberPutResponse
-func (t *RPCResponse_Result) FromFriendGroupMemberPutResponse(v FriendGroupMemberPutResponse) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromFriendGroupMemberPutResponse overwrites any protobuf payload as the provided FriendGroupMemberPutResponse
+func (t *RPCPayload) FromFriendGroupMemberPutResponse(v FriendGroupMemberPutResponse) error {
+	return t.encode("FriendGroupMemberPutResponse", v)
 }
 
-// MergeFriendGroupMemberPutResponse performs a merge with any union data inside the RPCResponse_Result, using the provided FriendGroupMemberPutResponse
-func (t *RPCResponse_Result) MergeFriendGroupMemberPutResponse(v FriendGroupMemberPutResponse) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeFriendGroupMemberPutResponse performs a merge with any protobuf payload, using the provided FriendGroupMemberPutResponse
+func (t *RPCPayload) MergeFriendGroupMemberPutResponse(v FriendGroupMemberPutResponse) error {
+	return t.merge("FriendGroupMemberPutResponse", v)
 }
 
-// AsFriendGroupMemberDeleteResponse returns the union data inside the RPCResponse_Result as a FriendGroupMemberDeleteResponse
-func (t RPCResponse_Result) AsFriendGroupMemberDeleteResponse() (FriendGroupMemberDeleteResponse, error) {
+// AsFriendGroupMemberDeleteResponse decodes the RPCPayload as a FriendGroupMemberDeleteResponse
+func (t RPCPayload) AsFriendGroupMemberDeleteResponse() (FriendGroupMemberDeleteResponse, error) {
 	var body FriendGroupMemberDeleteResponse
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("FriendGroupMemberDeleteResponse", &body)
 	return body, err
 }
 
-// FromFriendGroupMemberDeleteResponse overwrites any union data inside the RPCResponse_Result as the provided FriendGroupMemberDeleteResponse
-func (t *RPCResponse_Result) FromFriendGroupMemberDeleteResponse(v FriendGroupMemberDeleteResponse) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromFriendGroupMemberDeleteResponse overwrites any protobuf payload as the provided FriendGroupMemberDeleteResponse
+func (t *RPCPayload) FromFriendGroupMemberDeleteResponse(v FriendGroupMemberDeleteResponse) error {
+	return t.encode("FriendGroupMemberDeleteResponse", v)
 }
 
-// MergeFriendGroupMemberDeleteResponse performs a merge with any union data inside the RPCResponse_Result, using the provided FriendGroupMemberDeleteResponse
-func (t *RPCResponse_Result) MergeFriendGroupMemberDeleteResponse(v FriendGroupMemberDeleteResponse) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeFriendGroupMemberDeleteResponse performs a merge with any protobuf payload, using the provided FriendGroupMemberDeleteResponse
+func (t *RPCPayload) MergeFriendGroupMemberDeleteResponse(v FriendGroupMemberDeleteResponse) error {
+	return t.merge("FriendGroupMemberDeleteResponse", v)
 }
 
-// AsFriendGroupMessageListResponse returns the union data inside the RPCResponse_Result as a FriendGroupMessageListResponse
-func (t RPCResponse_Result) AsFriendGroupMessageListResponse() (FriendGroupMessageListResponse, error) {
+// AsFriendGroupMessageListResponse decodes the RPCPayload as a FriendGroupMessageListResponse
+func (t RPCPayload) AsFriendGroupMessageListResponse() (FriendGroupMessageListResponse, error) {
 	var body FriendGroupMessageListResponse
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("FriendGroupMessageListResponse", &body)
 	return body, err
 }
 
-// FromFriendGroupMessageListResponse overwrites any union data inside the RPCResponse_Result as the provided FriendGroupMessageListResponse
-func (t *RPCResponse_Result) FromFriendGroupMessageListResponse(v FriendGroupMessageListResponse) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromFriendGroupMessageListResponse overwrites any protobuf payload as the provided FriendGroupMessageListResponse
+func (t *RPCPayload) FromFriendGroupMessageListResponse(v FriendGroupMessageListResponse) error {
+	return t.encode("FriendGroupMessageListResponse", v)
 }
 
-// MergeFriendGroupMessageListResponse performs a merge with any union data inside the RPCResponse_Result, using the provided FriendGroupMessageListResponse
-func (t *RPCResponse_Result) MergeFriendGroupMessageListResponse(v FriendGroupMessageListResponse) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeFriendGroupMessageListResponse performs a merge with any protobuf payload, using the provided FriendGroupMessageListResponse
+func (t *RPCPayload) MergeFriendGroupMessageListResponse(v FriendGroupMessageListResponse) error {
+	return t.merge("FriendGroupMessageListResponse", v)
 }
 
-// AsFriendGroupMessageGetResponse returns the union data inside the RPCResponse_Result as a FriendGroupMessageGetResponse
-func (t RPCResponse_Result) AsFriendGroupMessageGetResponse() (FriendGroupMessageGetResponse, error) {
+// AsFriendGroupMessageGetResponse decodes the RPCPayload as a FriendGroupMessageGetResponse
+func (t RPCPayload) AsFriendGroupMessageGetResponse() (FriendGroupMessageGetResponse, error) {
 	var body FriendGroupMessageGetResponse
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("FriendGroupMessageGetResponse", &body)
 	return body, err
 }
 
-// FromFriendGroupMessageGetResponse overwrites any union data inside the RPCResponse_Result as the provided FriendGroupMessageGetResponse
-func (t *RPCResponse_Result) FromFriendGroupMessageGetResponse(v FriendGroupMessageGetResponse) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromFriendGroupMessageGetResponse overwrites any protobuf payload as the provided FriendGroupMessageGetResponse
+func (t *RPCPayload) FromFriendGroupMessageGetResponse(v FriendGroupMessageGetResponse) error {
+	return t.encode("FriendGroupMessageGetResponse", v)
 }
 
-// MergeFriendGroupMessageGetResponse performs a merge with any union data inside the RPCResponse_Result, using the provided FriendGroupMessageGetResponse
-func (t *RPCResponse_Result) MergeFriendGroupMessageGetResponse(v FriendGroupMessageGetResponse) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeFriendGroupMessageGetResponse performs a merge with any protobuf payload, using the provided FriendGroupMessageGetResponse
+func (t *RPCPayload) MergeFriendGroupMessageGetResponse(v FriendGroupMessageGetResponse) error {
+	return t.merge("FriendGroupMessageGetResponse", v)
 }
 
-// AsFriendGroupMessageSendResponse returns the union data inside the RPCResponse_Result as a FriendGroupMessageSendResponse
-func (t RPCResponse_Result) AsFriendGroupMessageSendResponse() (FriendGroupMessageSendResponse, error) {
+// AsFriendGroupMessageSendResponse decodes the RPCPayload as a FriendGroupMessageSendResponse
+func (t RPCPayload) AsFriendGroupMessageSendResponse() (FriendGroupMessageSendResponse, error) {
 	var body FriendGroupMessageSendResponse
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("FriendGroupMessageSendResponse", &body)
 	return body, err
 }
 
-// FromFriendGroupMessageSendResponse overwrites any union data inside the RPCResponse_Result as the provided FriendGroupMessageSendResponse
-func (t *RPCResponse_Result) FromFriendGroupMessageSendResponse(v FriendGroupMessageSendResponse) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromFriendGroupMessageSendResponse overwrites any protobuf payload as the provided FriendGroupMessageSendResponse
+func (t *RPCPayload) FromFriendGroupMessageSendResponse(v FriendGroupMessageSendResponse) error {
+	return t.encode("FriendGroupMessageSendResponse", v)
 }
 
-// MergeFriendGroupMessageSendResponse performs a merge with any union data inside the RPCResponse_Result, using the provided FriendGroupMessageSendResponse
-func (t *RPCResponse_Result) MergeFriendGroupMessageSendResponse(v FriendGroupMessageSendResponse) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeFriendGroupMessageSendResponse performs a merge with any protobuf payload, using the provided FriendGroupMessageSendResponse
+func (t *RPCPayload) MergeFriendGroupMessageSendResponse(v FriendGroupMessageSendResponse) error {
+	return t.merge("FriendGroupMessageSendResponse", v)
 }
 
-// AsServerGameRulesetGetResponse returns the union data inside the RPCResponse_Result as a ServerGameRulesetGetResponse
-func (t RPCResponse_Result) AsServerGameRulesetGetResponse() (ServerGameRulesetGetResponse, error) {
+// AsServerGameRulesetGetResponse decodes the RPCPayload as a ServerGameRulesetGetResponse
+func (t RPCPayload) AsServerGameRulesetGetResponse() (ServerGameRulesetGetResponse, error) {
 	var body ServerGameRulesetGetResponse
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("ServerGameRulesetGetResponse", &body)
 	return body, err
 }
 
-// FromServerGameRulesetGetResponse overwrites any union data inside the RPCResponse_Result as the provided ServerGameRulesetGetResponse
-func (t *RPCResponse_Result) FromServerGameRulesetGetResponse(v ServerGameRulesetGetResponse) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromServerGameRulesetGetResponse overwrites any protobuf payload as the provided ServerGameRulesetGetResponse
+func (t *RPCPayload) FromServerGameRulesetGetResponse(v ServerGameRulesetGetResponse) error {
+	return t.encode("ServerGameRulesetGetResponse", v)
 }
 
-// MergeServerGameRulesetGetResponse performs a merge with any union data inside the RPCResponse_Result, using the provided ServerGameRulesetGetResponse
-func (t *RPCResponse_Result) MergeServerGameRulesetGetResponse(v ServerGameRulesetGetResponse) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeServerGameRulesetGetResponse performs a merge with any protobuf payload, using the provided ServerGameRulesetGetResponse
+func (t *RPCPayload) MergeServerGameRulesetGetResponse(v ServerGameRulesetGetResponse) error {
+	return t.merge("ServerGameRulesetGetResponse", v)
 }
 
-// AsPetDefPixaDownloadResponse returns the union data inside the RPCResponse_Result as a PetDefPixaDownloadResponse
-func (t RPCResponse_Result) AsPetDefPixaDownloadResponse() (PetDefPixaDownloadResponse, error) {
+// AsPetDefPixaDownloadResponse decodes the RPCPayload as a PetDefPixaDownloadResponse
+func (t RPCPayload) AsPetDefPixaDownloadResponse() (PetDefPixaDownloadResponse, error) {
 	var body PetDefPixaDownloadResponse
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("PetDefPixaDownloadResponse", &body)
 	return body, err
 }
 
-// FromPetDefPixaDownloadResponse overwrites any union data inside the RPCResponse_Result as the provided PetDefPixaDownloadResponse
-func (t *RPCResponse_Result) FromPetDefPixaDownloadResponse(v PetDefPixaDownloadResponse) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromPetDefPixaDownloadResponse overwrites any protobuf payload as the provided PetDefPixaDownloadResponse
+func (t *RPCPayload) FromPetDefPixaDownloadResponse(v PetDefPixaDownloadResponse) error {
+	return t.encode("PetDefPixaDownloadResponse", v)
 }
 
-// MergePetDefPixaDownloadResponse performs a merge with any union data inside the RPCResponse_Result, using the provided PetDefPixaDownloadResponse
-func (t *RPCResponse_Result) MergePetDefPixaDownloadResponse(v PetDefPixaDownloadResponse) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergePetDefPixaDownloadResponse performs a merge with any protobuf payload, using the provided PetDefPixaDownloadResponse
+func (t *RPCPayload) MergePetDefPixaDownloadResponse(v PetDefPixaDownloadResponse) error {
+	return t.merge("PetDefPixaDownloadResponse", v)
 }
 
-// AsBadgeDefPixaDownloadResponse returns the union data inside the RPCResponse_Result as a BadgeDefPixaDownloadResponse
-func (t RPCResponse_Result) AsBadgeDefPixaDownloadResponse() (BadgeDefPixaDownloadResponse, error) {
+// AsBadgeDefPixaDownloadResponse decodes the RPCPayload as a BadgeDefPixaDownloadResponse
+func (t RPCPayload) AsBadgeDefPixaDownloadResponse() (BadgeDefPixaDownloadResponse, error) {
 	var body BadgeDefPixaDownloadResponse
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("BadgeDefPixaDownloadResponse", &body)
 	return body, err
 }
 
-// FromBadgeDefPixaDownloadResponse overwrites any union data inside the RPCResponse_Result as the provided BadgeDefPixaDownloadResponse
-func (t *RPCResponse_Result) FromBadgeDefPixaDownloadResponse(v BadgeDefPixaDownloadResponse) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromBadgeDefPixaDownloadResponse overwrites any protobuf payload as the provided BadgeDefPixaDownloadResponse
+func (t *RPCPayload) FromBadgeDefPixaDownloadResponse(v BadgeDefPixaDownloadResponse) error {
+	return t.encode("BadgeDefPixaDownloadResponse", v)
 }
 
-// MergeBadgeDefPixaDownloadResponse performs a merge with any union data inside the RPCResponse_Result, using the provided BadgeDefPixaDownloadResponse
-func (t *RPCResponse_Result) MergeBadgeDefPixaDownloadResponse(v BadgeDefPixaDownloadResponse) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeBadgeDefPixaDownloadResponse performs a merge with any protobuf payload, using the provided BadgeDefPixaDownloadResponse
+func (t *RPCPayload) MergeBadgeDefPixaDownloadResponse(v BadgeDefPixaDownloadResponse) error {
+	return t.merge("BadgeDefPixaDownloadResponse", v)
 }
 
-// AsServerPetListResponse returns the union data inside the RPCResponse_Result as a ServerPetListResponse
-func (t RPCResponse_Result) AsServerPetListResponse() (ServerPetListResponse, error) {
+// AsServerPetListResponse decodes the RPCPayload as a ServerPetListResponse
+func (t RPCPayload) AsServerPetListResponse() (ServerPetListResponse, error) {
 	var body ServerPetListResponse
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("ServerPetListResponse", &body)
 	return body, err
 }
 
-// FromServerPetListResponse overwrites any union data inside the RPCResponse_Result as the provided ServerPetListResponse
-func (t *RPCResponse_Result) FromServerPetListResponse(v ServerPetListResponse) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromServerPetListResponse overwrites any protobuf payload as the provided ServerPetListResponse
+func (t *RPCPayload) FromServerPetListResponse(v ServerPetListResponse) error {
+	return t.encode("ServerPetListResponse", v)
 }
 
-// MergeServerPetListResponse performs a merge with any union data inside the RPCResponse_Result, using the provided ServerPetListResponse
-func (t *RPCResponse_Result) MergeServerPetListResponse(v ServerPetListResponse) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeServerPetListResponse performs a merge with any protobuf payload, using the provided ServerPetListResponse
+func (t *RPCPayload) MergeServerPetListResponse(v ServerPetListResponse) error {
+	return t.merge("ServerPetListResponse", v)
 }
 
-// AsServerPetGetResponse returns the union data inside the RPCResponse_Result as a ServerPetGetResponse
-func (t RPCResponse_Result) AsServerPetGetResponse() (ServerPetGetResponse, error) {
+// AsServerPetGetResponse decodes the RPCPayload as a ServerPetGetResponse
+func (t RPCPayload) AsServerPetGetResponse() (ServerPetGetResponse, error) {
 	var body ServerPetGetResponse
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("ServerPetGetResponse", &body)
 	return body, err
 }
 
-// FromServerPetGetResponse overwrites any union data inside the RPCResponse_Result as the provided ServerPetGetResponse
-func (t *RPCResponse_Result) FromServerPetGetResponse(v ServerPetGetResponse) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromServerPetGetResponse overwrites any protobuf payload as the provided ServerPetGetResponse
+func (t *RPCPayload) FromServerPetGetResponse(v ServerPetGetResponse) error {
+	return t.encode("ServerPetGetResponse", v)
 }
 
-// MergeServerPetGetResponse performs a merge with any union data inside the RPCResponse_Result, using the provided ServerPetGetResponse
-func (t *RPCResponse_Result) MergeServerPetGetResponse(v ServerPetGetResponse) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeServerPetGetResponse performs a merge with any protobuf payload, using the provided ServerPetGetResponse
+func (t *RPCPayload) MergeServerPetGetResponse(v ServerPetGetResponse) error {
+	return t.merge("ServerPetGetResponse", v)
 }
 
-// AsServerPetAdoptResponse returns the union data inside the RPCResponse_Result as a ServerPetAdoptResponse
-func (t RPCResponse_Result) AsServerPetAdoptResponse() (ServerPetAdoptResponse, error) {
+// AsServerPetAdoptResponse decodes the RPCPayload as a ServerPetAdoptResponse
+func (t RPCPayload) AsServerPetAdoptResponse() (ServerPetAdoptResponse, error) {
 	var body ServerPetAdoptResponse
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("ServerPetAdoptResponse", &body)
 	return body, err
 }
 
-// FromServerPetAdoptResponse overwrites any union data inside the RPCResponse_Result as the provided ServerPetAdoptResponse
-func (t *RPCResponse_Result) FromServerPetAdoptResponse(v ServerPetAdoptResponse) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromServerPetAdoptResponse overwrites any protobuf payload as the provided ServerPetAdoptResponse
+func (t *RPCPayload) FromServerPetAdoptResponse(v ServerPetAdoptResponse) error {
+	return t.encode("ServerPetAdoptResponse", v)
 }
 
-// MergeServerPetAdoptResponse performs a merge with any union data inside the RPCResponse_Result, using the provided ServerPetAdoptResponse
-func (t *RPCResponse_Result) MergeServerPetAdoptResponse(v ServerPetAdoptResponse) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeServerPetAdoptResponse performs a merge with any protobuf payload, using the provided ServerPetAdoptResponse
+func (t *RPCPayload) MergeServerPetAdoptResponse(v ServerPetAdoptResponse) error {
+	return t.merge("ServerPetAdoptResponse", v)
 }
 
-// AsServerPetPutResponse returns the union data inside the RPCResponse_Result as a ServerPetPutResponse
-func (t RPCResponse_Result) AsServerPetPutResponse() (ServerPetPutResponse, error) {
+// AsServerPetPutResponse decodes the RPCPayload as a ServerPetPutResponse
+func (t RPCPayload) AsServerPetPutResponse() (ServerPetPutResponse, error) {
 	var body ServerPetPutResponse
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("ServerPetPutResponse", &body)
 	return body, err
 }
 
-// FromServerPetPutResponse overwrites any union data inside the RPCResponse_Result as the provided ServerPetPutResponse
-func (t *RPCResponse_Result) FromServerPetPutResponse(v ServerPetPutResponse) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromServerPetPutResponse overwrites any protobuf payload as the provided ServerPetPutResponse
+func (t *RPCPayload) FromServerPetPutResponse(v ServerPetPutResponse) error {
+	return t.encode("ServerPetPutResponse", v)
 }
 
-// MergeServerPetPutResponse performs a merge with any union data inside the RPCResponse_Result, using the provided ServerPetPutResponse
-func (t *RPCResponse_Result) MergeServerPetPutResponse(v ServerPetPutResponse) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeServerPetPutResponse performs a merge with any protobuf payload, using the provided ServerPetPutResponse
+func (t *RPCPayload) MergeServerPetPutResponse(v ServerPetPutResponse) error {
+	return t.merge("ServerPetPutResponse", v)
 }
 
-// AsServerPetDeleteResponse returns the union data inside the RPCResponse_Result as a ServerPetDeleteResponse
-func (t RPCResponse_Result) AsServerPetDeleteResponse() (ServerPetDeleteResponse, error) {
+// AsServerPetDeleteResponse decodes the RPCPayload as a ServerPetDeleteResponse
+func (t RPCPayload) AsServerPetDeleteResponse() (ServerPetDeleteResponse, error) {
 	var body ServerPetDeleteResponse
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("ServerPetDeleteResponse", &body)
 	return body, err
 }
 
-// FromServerPetDeleteResponse overwrites any union data inside the RPCResponse_Result as the provided ServerPetDeleteResponse
-func (t *RPCResponse_Result) FromServerPetDeleteResponse(v ServerPetDeleteResponse) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromServerPetDeleteResponse overwrites any protobuf payload as the provided ServerPetDeleteResponse
+func (t *RPCPayload) FromServerPetDeleteResponse(v ServerPetDeleteResponse) error {
+	return t.encode("ServerPetDeleteResponse", v)
 }
 
-// MergeServerPetDeleteResponse performs a merge with any union data inside the RPCResponse_Result, using the provided ServerPetDeleteResponse
-func (t *RPCResponse_Result) MergeServerPetDeleteResponse(v ServerPetDeleteResponse) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeServerPetDeleteResponse performs a merge with any protobuf payload, using the provided ServerPetDeleteResponse
+func (t *RPCPayload) MergeServerPetDeleteResponse(v ServerPetDeleteResponse) error {
+	return t.merge("ServerPetDeleteResponse", v)
 }
 
-// AsServerPetDriveResponse returns the union data inside the RPCResponse_Result as a ServerPetDriveResponse
-func (t RPCResponse_Result) AsServerPetDriveResponse() (ServerPetDriveResponse, error) {
+// AsServerPetDriveResponse decodes the RPCPayload as a ServerPetDriveResponse
+func (t RPCPayload) AsServerPetDriveResponse() (ServerPetDriveResponse, error) {
 	var body ServerPetDriveResponse
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("ServerPetDriveResponse", &body)
 	return body, err
 }
 
-// FromServerPetDriveResponse overwrites any union data inside the RPCResponse_Result as the provided ServerPetDriveResponse
-func (t *RPCResponse_Result) FromServerPetDriveResponse(v ServerPetDriveResponse) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromServerPetDriveResponse overwrites any protobuf payload as the provided ServerPetDriveResponse
+func (t *RPCPayload) FromServerPetDriveResponse(v ServerPetDriveResponse) error {
+	return t.encode("ServerPetDriveResponse", v)
 }
 
-// MergeServerPetDriveResponse performs a merge with any union data inside the RPCResponse_Result, using the provided ServerPetDriveResponse
-func (t *RPCResponse_Result) MergeServerPetDriveResponse(v ServerPetDriveResponse) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeServerPetDriveResponse performs a merge with any protobuf payload, using the provided ServerPetDriveResponse
+func (t *RPCPayload) MergeServerPetDriveResponse(v ServerPetDriveResponse) error {
+	return t.merge("ServerPetDriveResponse", v)
 }
 
-// AsServerPointsGetResponse returns the union data inside the RPCResponse_Result as a ServerPointsGetResponse
-func (t RPCResponse_Result) AsServerPointsGetResponse() (ServerPointsGetResponse, error) {
+// AsServerPointsGetResponse decodes the RPCPayload as a ServerPointsGetResponse
+func (t RPCPayload) AsServerPointsGetResponse() (ServerPointsGetResponse, error) {
 	var body ServerPointsGetResponse
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("ServerPointsGetResponse", &body)
 	return body, err
 }
 
-// FromServerPointsGetResponse overwrites any union data inside the RPCResponse_Result as the provided ServerPointsGetResponse
-func (t *RPCResponse_Result) FromServerPointsGetResponse(v ServerPointsGetResponse) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromServerPointsGetResponse overwrites any protobuf payload as the provided ServerPointsGetResponse
+func (t *RPCPayload) FromServerPointsGetResponse(v ServerPointsGetResponse) error {
+	return t.encode("ServerPointsGetResponse", v)
 }
 
-// MergeServerPointsGetResponse performs a merge with any union data inside the RPCResponse_Result, using the provided ServerPointsGetResponse
-func (t *RPCResponse_Result) MergeServerPointsGetResponse(v ServerPointsGetResponse) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeServerPointsGetResponse performs a merge with any protobuf payload, using the provided ServerPointsGetResponse
+func (t *RPCPayload) MergeServerPointsGetResponse(v ServerPointsGetResponse) error {
+	return t.merge("ServerPointsGetResponse", v)
 }
 
-// AsServerPointsTransactionListResponse returns the union data inside the RPCResponse_Result as a ServerPointsTransactionListResponse
-func (t RPCResponse_Result) AsServerPointsTransactionListResponse() (ServerPointsTransactionListResponse, error) {
+// AsServerPointsTransactionListResponse decodes the RPCPayload as a ServerPointsTransactionListResponse
+func (t RPCPayload) AsServerPointsTransactionListResponse() (ServerPointsTransactionListResponse, error) {
 	var body ServerPointsTransactionListResponse
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("ServerPointsTransactionListResponse", &body)
 	return body, err
 }
 
-// FromServerPointsTransactionListResponse overwrites any union data inside the RPCResponse_Result as the provided ServerPointsTransactionListResponse
-func (t *RPCResponse_Result) FromServerPointsTransactionListResponse(v ServerPointsTransactionListResponse) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromServerPointsTransactionListResponse overwrites any protobuf payload as the provided ServerPointsTransactionListResponse
+func (t *RPCPayload) FromServerPointsTransactionListResponse(v ServerPointsTransactionListResponse) error {
+	return t.encode("ServerPointsTransactionListResponse", v)
 }
 
-// MergeServerPointsTransactionListResponse performs a merge with any union data inside the RPCResponse_Result, using the provided ServerPointsTransactionListResponse
-func (t *RPCResponse_Result) MergeServerPointsTransactionListResponse(v ServerPointsTransactionListResponse) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeServerPointsTransactionListResponse performs a merge with any protobuf payload, using the provided ServerPointsTransactionListResponse
+func (t *RPCPayload) MergeServerPointsTransactionListResponse(v ServerPointsTransactionListResponse) error {
+	return t.merge("ServerPointsTransactionListResponse", v)
 }
 
-// AsServerPointsTransactionGetResponse returns the union data inside the RPCResponse_Result as a ServerPointsTransactionGetResponse
-func (t RPCResponse_Result) AsServerPointsTransactionGetResponse() (ServerPointsTransactionGetResponse, error) {
+// AsServerPointsTransactionGetResponse decodes the RPCPayload as a ServerPointsTransactionGetResponse
+func (t RPCPayload) AsServerPointsTransactionGetResponse() (ServerPointsTransactionGetResponse, error) {
 	var body ServerPointsTransactionGetResponse
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("ServerPointsTransactionGetResponse", &body)
 	return body, err
 }
 
-// FromServerPointsTransactionGetResponse overwrites any union data inside the RPCResponse_Result as the provided ServerPointsTransactionGetResponse
-func (t *RPCResponse_Result) FromServerPointsTransactionGetResponse(v ServerPointsTransactionGetResponse) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromServerPointsTransactionGetResponse overwrites any protobuf payload as the provided ServerPointsTransactionGetResponse
+func (t *RPCPayload) FromServerPointsTransactionGetResponse(v ServerPointsTransactionGetResponse) error {
+	return t.encode("ServerPointsTransactionGetResponse", v)
 }
 
-// MergeServerPointsTransactionGetResponse performs a merge with any union data inside the RPCResponse_Result, using the provided ServerPointsTransactionGetResponse
-func (t *RPCResponse_Result) MergeServerPointsTransactionGetResponse(v ServerPointsTransactionGetResponse) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeServerPointsTransactionGetResponse performs a merge with any protobuf payload, using the provided ServerPointsTransactionGetResponse
+func (t *RPCPayload) MergeServerPointsTransactionGetResponse(v ServerPointsTransactionGetResponse) error {
+	return t.merge("ServerPointsTransactionGetResponse", v)
 }
 
-// AsServerBadgeListResponse returns the union data inside the RPCResponse_Result as a ServerBadgeListResponse
-func (t RPCResponse_Result) AsServerBadgeListResponse() (ServerBadgeListResponse, error) {
+// AsServerBadgeListResponse decodes the RPCPayload as a ServerBadgeListResponse
+func (t RPCPayload) AsServerBadgeListResponse() (ServerBadgeListResponse, error) {
 	var body ServerBadgeListResponse
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("ServerBadgeListResponse", &body)
 	return body, err
 }
 
-// FromServerBadgeListResponse overwrites any union data inside the RPCResponse_Result as the provided ServerBadgeListResponse
-func (t *RPCResponse_Result) FromServerBadgeListResponse(v ServerBadgeListResponse) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromServerBadgeListResponse overwrites any protobuf payload as the provided ServerBadgeListResponse
+func (t *RPCPayload) FromServerBadgeListResponse(v ServerBadgeListResponse) error {
+	return t.encode("ServerBadgeListResponse", v)
 }
 
-// MergeServerBadgeListResponse performs a merge with any union data inside the RPCResponse_Result, using the provided ServerBadgeListResponse
-func (t *RPCResponse_Result) MergeServerBadgeListResponse(v ServerBadgeListResponse) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeServerBadgeListResponse performs a merge with any protobuf payload, using the provided ServerBadgeListResponse
+func (t *RPCPayload) MergeServerBadgeListResponse(v ServerBadgeListResponse) error {
+	return t.merge("ServerBadgeListResponse", v)
 }
 
-// AsServerBadgeGetResponse returns the union data inside the RPCResponse_Result as a ServerBadgeGetResponse
-func (t RPCResponse_Result) AsServerBadgeGetResponse() (ServerBadgeGetResponse, error) {
+// AsServerBadgeGetResponse decodes the RPCPayload as a ServerBadgeGetResponse
+func (t RPCPayload) AsServerBadgeGetResponse() (ServerBadgeGetResponse, error) {
 	var body ServerBadgeGetResponse
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("ServerBadgeGetResponse", &body)
 	return body, err
 }
 
-// FromServerBadgeGetResponse overwrites any union data inside the RPCResponse_Result as the provided ServerBadgeGetResponse
-func (t *RPCResponse_Result) FromServerBadgeGetResponse(v ServerBadgeGetResponse) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromServerBadgeGetResponse overwrites any protobuf payload as the provided ServerBadgeGetResponse
+func (t *RPCPayload) FromServerBadgeGetResponse(v ServerBadgeGetResponse) error {
+	return t.encode("ServerBadgeGetResponse", v)
 }
 
-// MergeServerBadgeGetResponse performs a merge with any union data inside the RPCResponse_Result, using the provided ServerBadgeGetResponse
-func (t *RPCResponse_Result) MergeServerBadgeGetResponse(v ServerBadgeGetResponse) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeServerBadgeGetResponse performs a merge with any protobuf payload, using the provided ServerBadgeGetResponse
+func (t *RPCPayload) MergeServerBadgeGetResponse(v ServerBadgeGetResponse) error {
+	return t.merge("ServerBadgeGetResponse", v)
 }
 
-// AsServerGameResultListResponse returns the union data inside the RPCResponse_Result as a ServerGameResultListResponse
-func (t RPCResponse_Result) AsServerGameResultListResponse() (ServerGameResultListResponse, error) {
+// AsServerGameResultListResponse decodes the RPCPayload as a ServerGameResultListResponse
+func (t RPCPayload) AsServerGameResultListResponse() (ServerGameResultListResponse, error) {
 	var body ServerGameResultListResponse
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("ServerGameResultListResponse", &body)
 	return body, err
 }
 
-// FromServerGameResultListResponse overwrites any union data inside the RPCResponse_Result as the provided ServerGameResultListResponse
-func (t *RPCResponse_Result) FromServerGameResultListResponse(v ServerGameResultListResponse) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromServerGameResultListResponse overwrites any protobuf payload as the provided ServerGameResultListResponse
+func (t *RPCPayload) FromServerGameResultListResponse(v ServerGameResultListResponse) error {
+	return t.encode("ServerGameResultListResponse", v)
 }
 
-// MergeServerGameResultListResponse performs a merge with any union data inside the RPCResponse_Result, using the provided ServerGameResultListResponse
-func (t *RPCResponse_Result) MergeServerGameResultListResponse(v ServerGameResultListResponse) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeServerGameResultListResponse performs a merge with any protobuf payload, using the provided ServerGameResultListResponse
+func (t *RPCPayload) MergeServerGameResultListResponse(v ServerGameResultListResponse) error {
+	return t.merge("ServerGameResultListResponse", v)
 }
 
-// AsServerGameResultGetResponse returns the union data inside the RPCResponse_Result as a ServerGameResultGetResponse
-func (t RPCResponse_Result) AsServerGameResultGetResponse() (ServerGameResultGetResponse, error) {
+// AsServerGameResultGetResponse decodes the RPCPayload as a ServerGameResultGetResponse
+func (t RPCPayload) AsServerGameResultGetResponse() (ServerGameResultGetResponse, error) {
 	var body ServerGameResultGetResponse
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("ServerGameResultGetResponse", &body)
 	return body, err
 }
 
-// FromServerGameResultGetResponse overwrites any union data inside the RPCResponse_Result as the provided ServerGameResultGetResponse
-func (t *RPCResponse_Result) FromServerGameResultGetResponse(v ServerGameResultGetResponse) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromServerGameResultGetResponse overwrites any protobuf payload as the provided ServerGameResultGetResponse
+func (t *RPCPayload) FromServerGameResultGetResponse(v ServerGameResultGetResponse) error {
+	return t.encode("ServerGameResultGetResponse", v)
 }
 
-// MergeServerGameResultGetResponse performs a merge with any union data inside the RPCResponse_Result, using the provided ServerGameResultGetResponse
-func (t *RPCResponse_Result) MergeServerGameResultGetResponse(v ServerGameResultGetResponse) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeServerGameResultGetResponse performs a merge with any protobuf payload, using the provided ServerGameResultGetResponse
+func (t *RPCPayload) MergeServerGameResultGetResponse(v ServerGameResultGetResponse) error {
+	return t.merge("ServerGameResultGetResponse", v)
 }
 
-// AsServerRewardGrantListResponse returns the union data inside the RPCResponse_Result as a ServerRewardGrantListResponse
-func (t RPCResponse_Result) AsServerRewardGrantListResponse() (ServerRewardGrantListResponse, error) {
+// AsServerRewardGrantListResponse decodes the RPCPayload as a ServerRewardGrantListResponse
+func (t RPCPayload) AsServerRewardGrantListResponse() (ServerRewardGrantListResponse, error) {
 	var body ServerRewardGrantListResponse
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("ServerRewardGrantListResponse", &body)
 	return body, err
 }
 
-// FromServerRewardGrantListResponse overwrites any union data inside the RPCResponse_Result as the provided ServerRewardGrantListResponse
-func (t *RPCResponse_Result) FromServerRewardGrantListResponse(v ServerRewardGrantListResponse) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromServerRewardGrantListResponse overwrites any protobuf payload as the provided ServerRewardGrantListResponse
+func (t *RPCPayload) FromServerRewardGrantListResponse(v ServerRewardGrantListResponse) error {
+	return t.encode("ServerRewardGrantListResponse", v)
 }
 
-// MergeServerRewardGrantListResponse performs a merge with any union data inside the RPCResponse_Result, using the provided ServerRewardGrantListResponse
-func (t *RPCResponse_Result) MergeServerRewardGrantListResponse(v ServerRewardGrantListResponse) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
+// MergeServerRewardGrantListResponse performs a merge with any protobuf payload, using the provided ServerRewardGrantListResponse
+func (t *RPCPayload) MergeServerRewardGrantListResponse(v ServerRewardGrantListResponse) error {
+	return t.merge("ServerRewardGrantListResponse", v)
 }
 
-// AsServerRewardGrantGetResponse returns the union data inside the RPCResponse_Result as a ServerRewardGrantGetResponse
-func (t RPCResponse_Result) AsServerRewardGrantGetResponse() (ServerRewardGrantGetResponse, error) {
+// AsServerRewardGrantGetResponse decodes the RPCPayload as a ServerRewardGrantGetResponse
+func (t RPCPayload) AsServerRewardGrantGetResponse() (ServerRewardGrantGetResponse, error) {
 	var body ServerRewardGrantGetResponse
-	err := json.Unmarshal(t.union, &body)
+	err := t.decode("ServerRewardGrantGetResponse", &body)
 	return body, err
 }
 
-// FromServerRewardGrantGetResponse overwrites any union data inside the RPCResponse_Result as the provided ServerRewardGrantGetResponse
-func (t *RPCResponse_Result) FromServerRewardGrantGetResponse(v ServerRewardGrantGetResponse) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
+// FromServerRewardGrantGetResponse overwrites any protobuf payload as the provided ServerRewardGrantGetResponse
+func (t *RPCPayload) FromServerRewardGrantGetResponse(v ServerRewardGrantGetResponse) error {
+	return t.encode("ServerRewardGrantGetResponse", v)
 }
 
-// MergeServerRewardGrantGetResponse performs a merge with any union data inside the RPCResponse_Result, using the provided ServerRewardGrantGetResponse
-func (t *RPCResponse_Result) MergeServerRewardGrantGetResponse(v ServerRewardGrantGetResponse) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-func (t RPCResponse_Result) MarshalJSON() ([]byte, error) {
-	b, err := t.union.MarshalJSON()
-	return b, err
-}
-
-func (t *RPCResponse_Result) UnmarshalJSON(b []byte) error {
-	err := t.union.UnmarshalJSON(b)
-	return err
+// MergeServerRewardGrantGetResponse performs a merge with any protobuf payload, using the provided ServerRewardGrantGetResponse
+func (t *RPCPayload) MergeServerRewardGrantGetResponse(v ServerRewardGrantGetResponse) error {
+	return t.merge("ServerRewardGrantGetResponse", v)
 }
 
 // AsGeminiTenantVoiceProviderData returns the union data inside the VoiceProviderData as a GeminiTenantVoiceProviderData

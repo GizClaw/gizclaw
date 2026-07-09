@@ -166,7 +166,7 @@ func TestWebRTCPeerStreamEventFrameRoundTrip(t *testing.T) {
 }
 
 func TestWebRTCRPCDataChannelProtobufFrames(t *testing.T) {
-	var params rpcapi.RPCRequest_Params
+	var params rpcapi.RPCPayload
 	if err := params.FromPingRequest(rpcapi.PingRequest{ClientSendTime: 123}); err != nil {
 		t.Fatalf("FromPingRequest() error = %v", err)
 	}
@@ -195,7 +195,7 @@ func TestWebRTCRPCDataChannelProtobufFrames(t *testing.T) {
 		t.Fatalf("decoded request = %+v", gotReq)
 	}
 
-	var result rpcapi.RPCResponse_Result
+	var result rpcapi.RPCPayload
 	if err := result.FromPingResponse(rpcapi.PingResponse{ServerTime: 456}); err != nil {
 		t.Fatalf("FromPingResponse() error = %v", err)
 	}

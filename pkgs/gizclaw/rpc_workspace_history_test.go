@@ -40,7 +40,7 @@ func TestRPCServerWorkspaceHistoryAudioGetStreamsBinary(t *testing.T) {
 	params, err := newRPCRequestParams(rpcapi.WorkspaceHistoryAudioGetRequest{
 		WorkspaceName: "main",
 		HistoryId:     "h1",
-	}, (*rpcapi.RPCRequest_Params).FromWorkspaceHistoryAudioGetRequest)
+	}, (*rpcapi.RPCPayload).FromWorkspaceHistoryAudioGetRequest)
 	if err != nil {
 		t.Fatalf("newRPCRequestParams() error = %v", err)
 	}

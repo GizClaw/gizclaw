@@ -34,7 +34,7 @@ func TestServerAllowedCRUD(t *testing.T) {
 	srv := newTestResourceServer()
 	srv.ACL = allowAllAuthorizer{}
 
-	flowCreate := callRPC(t, srv, "workflow-create", rpcapi.RPCMethodServerWorkflowCreate, rpcParams(t, (*rpcapi.RPCRequest_Params).FromWorkflowCreateRequest, workflowDoc("workflow-a1")))
+	flowCreate := callRPC(t, srv, "workflow-create", rpcapi.RPCMethodServerWorkflowCreate, rpcParams(t, (*rpcapi.RPCPayload).FromWorkflowCreateRequest, workflowDoc("workflow-a1")))
 	requireNoRPCError(t, flowCreate)
 	if got := mustResult(t, flowCreate.Result.AsWorkflowCreateResponse).Metadata.Name; got != "workflow-a1" {
 		t.Fatalf("workflow.create name = %q", got)
@@ -45,18 +45,18 @@ func TestServerAllowedCRUD(t *testing.T) {
 		t.Fatalf("workflow.list = %#v", got)
 	}
 
-	flowGet := callRPC(t, srv, "workflow-get", rpcapi.RPCMethodServerWorkflowGet, rpcParams(t, (*rpcapi.RPCRequest_Params).FromWorkflowGetRequest, rpcapi.WorkflowGetRequest{Name: "workflow-a1"}))
+	flowGet := callRPC(t, srv, "workflow-get", rpcapi.RPCMethodServerWorkflowGet, rpcParams(t, (*rpcapi.RPCPayload).FromWorkflowGetRequest, rpcapi.WorkflowGetRequest{Name: "workflow-a1"}))
 	if got := mustResult(t, flowGet.Result.AsWorkflowGetResponse).Metadata.Name; got != "workflow-a1" {
 		t.Fatalf("workflow.get name = %q", got)
 	}
 
-	flowPut := callRPC(t, srv, "workflow-put", rpcapi.RPCMethodServerWorkflowPut, rpcParams(t, (*rpcapi.RPCRequest_Params).FromWorkflowPutRequest, rpcapi.WorkflowPutRequest{
+	flowPut := callRPC(t, srv, "workflow-put", rpcapi.RPCMethodServerWorkflowPut, rpcParams(t, (*rpcapi.RPCPayload).FromWorkflowPutRequest, rpcapi.WorkflowPutRequest{
 		Name: "workflow-a1",
 		Body: workflowDoc("workflow-a1"),
 	}))
 	requireNoRPCError(t, flowPut)
 
-	workspaceCreate := callRPC(t, srv, "workspace-create", rpcapi.RPCMethodServerWorkspaceCreate, rpcParams(t, (*rpcapi.RPCRequest_Params).FromWorkspaceCreateRequest, rpcapi.WorkspaceCreateRequest{
+	workspaceCreate := callRPC(t, srv, "workspace-create", rpcapi.RPCMethodServerWorkspaceCreate, rpcParams(t, (*rpcapi.RPCPayload).FromWorkspaceCreateRequest, rpcapi.WorkspaceCreateRequest{
 		Name:         "workspace-a",
 		WorkflowName: "workflow-a1",
 	}))
@@ -69,18 +69,18 @@ func TestServerAllowedCRUD(t *testing.T) {
 		t.Fatalf("workspace.list = %#v", got)
 	}
 
-	workspaceGet := callRPC(t, srv, "workspace-get", rpcapi.RPCMethodServerWorkspaceGet, rpcParams(t, (*rpcapi.RPCRequest_Params).FromWorkspaceGetRequest, rpcapi.WorkspaceGetRequest{Name: "workspace-a"}))
+	workspaceGet := callRPC(t, srv, "workspace-get", rpcapi.RPCMethodServerWorkspaceGet, rpcParams(t, (*rpcapi.RPCPayload).FromWorkspaceGetRequest, rpcapi.WorkspaceGetRequest{Name: "workspace-a"}))
 	if got := mustResult(t, workspaceGet.Result.AsWorkspaceGetResponse).Name; got != "workspace-a" {
 		t.Fatalf("workspace.get name = %q", got)
 	}
 
-	workspacePut := callRPC(t, srv, "workspace-put", rpcapi.RPCMethodServerWorkspacePut, rpcParams(t, (*rpcapi.RPCRequest_Params).FromWorkspacePutRequest, rpcapi.WorkspacePutRequest{
+	workspacePut := callRPC(t, srv, "workspace-put", rpcapi.RPCMethodServerWorkspacePut, rpcParams(t, (*rpcapi.RPCPayload).FromWorkspacePutRequest, rpcapi.WorkspacePutRequest{
 		Name: "workspace-a",
 		Body: rpcapi.Workspace{Name: "workspace-a", WorkflowName: "workflow-a1"},
 	}))
 	requireNoRPCError(t, workspacePut)
 
-	modelCreate := callRPC(t, srv, "model-create", rpcapi.RPCMethodServerModelCreate, rpcParams(t, (*rpcapi.RPCRequest_Params).FromModelCreateRequest, rpcModel("model-a")))
+	modelCreate := callRPC(t, srv, "model-create", rpcapi.RPCMethodServerModelCreate, rpcParams(t, (*rpcapi.RPCPayload).FromModelCreateRequest, rpcModel("model-a")))
 	if got := mustResult(t, modelCreate.Result.AsModelCreateResponse).Id; got != "model-a" {
 		t.Fatalf("model.create id = %q", got)
 	}
@@ -90,7 +90,7 @@ func TestServerAllowedCRUD(t *testing.T) {
 		t.Fatalf("model.list = %#v", got)
 	}
 
-	modelGet := callRPC(t, srv, "model-get", rpcapi.RPCMethodServerModelGet, rpcParams(t, (*rpcapi.RPCRequest_Params).FromModelGetRequest, rpcapi.ModelGetRequest{Id: "model-a"}))
+	modelGet := callRPC(t, srv, "model-get", rpcapi.RPCMethodServerModelGet, rpcParams(t, (*rpcapi.RPCPayload).FromModelGetRequest, rpcapi.ModelGetRequest{Id: "model-a"}))
 	if got := mustResult(t, modelGet.Result.AsModelGetResponse).Id; got != "model-a" {
 		t.Fatalf("model.get id = %q", got)
 	}
@@ -98,7 +98,7 @@ func TestServerAllowedCRUD(t *testing.T) {
 	updatedModel := rpcModel("model-a")
 	modelName := "updated model"
 	updatedModel.Name = &modelName
-	modelPut := callRPC(t, srv, "model-put", rpcapi.RPCMethodServerModelPut, rpcParams(t, (*rpcapi.RPCRequest_Params).FromModelPutRequest, rpcapi.ModelPutRequest{
+	modelPut := callRPC(t, srv, "model-put", rpcapi.RPCMethodServerModelPut, rpcParams(t, (*rpcapi.RPCPayload).FromModelPutRequest, rpcapi.ModelPutRequest{
 		Id:   "model-a",
 		Body: updatedModel,
 	}))
@@ -106,7 +106,7 @@ func TestServerAllowedCRUD(t *testing.T) {
 		t.Fatalf("model.put = %#v", got)
 	}
 
-	credentialCreate := callRPC(t, srv, "credential-create", rpcapi.RPCMethodServerCredentialCreate, rpcParams(t, (*rpcapi.RPCRequest_Params).FromCredentialCreateRequest, rpcCredential("credential-a", "sk-a")))
+	credentialCreate := callRPC(t, srv, "credential-create", rpcapi.RPCMethodServerCredentialCreate, rpcParams(t, (*rpcapi.RPCPayload).FromCredentialCreateRequest, rpcCredential("credential-a", "sk-a")))
 	if got := mustResult(t, credentialCreate.Result.AsCredentialCreateResponse).Name; got != "credential-a" {
 		t.Fatalf("credential.create name = %q", got)
 	}
@@ -116,12 +116,12 @@ func TestServerAllowedCRUD(t *testing.T) {
 		t.Fatalf("credential.list = %#v", got)
 	}
 
-	credentialGet := callRPC(t, srv, "credential-get", rpcapi.RPCMethodServerCredentialGet, rpcParams(t, (*rpcapi.RPCRequest_Params).FromCredentialGetRequest, rpcapi.CredentialGetRequest{Name: "credential-a"}))
+	credentialGet := callRPC(t, srv, "credential-get", rpcapi.RPCMethodServerCredentialGet, rpcParams(t, (*rpcapi.RPCPayload).FromCredentialGetRequest, rpcapi.CredentialGetRequest{Name: "credential-a"}))
 	if got := mustResult(t, credentialGet.Result.AsCredentialGetResponse).Name; got != "credential-a" {
 		t.Fatalf("credential.get name = %q", got)
 	}
 
-	credentialPut := callRPC(t, srv, "credential-put", rpcapi.RPCMethodServerCredentialPut, rpcParams(t, (*rpcapi.RPCRequest_Params).FromCredentialPutRequest, rpcapi.CredentialPutRequest{
+	credentialPut := callRPC(t, srv, "credential-put", rpcapi.RPCMethodServerCredentialPut, rpcParams(t, (*rpcapi.RPCPayload).FromCredentialPutRequest, rpcapi.CredentialPutRequest{
 		Name: "credential-a",
 		Body: rpcCredential("credential-a", "sk-b"),
 	}))
@@ -129,20 +129,20 @@ func TestServerAllowedCRUD(t *testing.T) {
 		t.Fatalf("credential.put body api_key = %#v", got)
 	}
 
-	requireNoRPCError(t, callRPC(t, srv, "credential-delete", rpcapi.RPCMethodServerCredentialDelete, rpcParams(t, (*rpcapi.RPCRequest_Params).FromCredentialDeleteRequest, rpcapi.CredentialDeleteRequest{Name: "credential-a"})))
-	requireNoRPCError(t, callRPC(t, srv, "model-delete", rpcapi.RPCMethodServerModelDelete, rpcParams(t, (*rpcapi.RPCRequest_Params).FromModelDeleteRequest, rpcapi.ModelDeleteRequest{Id: "model-a"})))
-	requireNoRPCError(t, callRPC(t, srv, "workspace-delete", rpcapi.RPCMethodServerWorkspaceDelete, rpcParams(t, (*rpcapi.RPCRequest_Params).FromWorkspaceDeleteRequest, rpcapi.WorkspaceDeleteRequest{Name: "workspace-a"})))
-	requireNoRPCError(t, callRPC(t, srv, "workflow-delete", rpcapi.RPCMethodServerWorkflowDelete, rpcParams(t, (*rpcapi.RPCRequest_Params).FromWorkflowDeleteRequest, rpcapi.WorkflowDeleteRequest{Name: "workflow-a1"})))
+	requireNoRPCError(t, callRPC(t, srv, "credential-delete", rpcapi.RPCMethodServerCredentialDelete, rpcParams(t, (*rpcapi.RPCPayload).FromCredentialDeleteRequest, rpcapi.CredentialDeleteRequest{Name: "credential-a"})))
+	requireNoRPCError(t, callRPC(t, srv, "model-delete", rpcapi.RPCMethodServerModelDelete, rpcParams(t, (*rpcapi.RPCPayload).FromModelDeleteRequest, rpcapi.ModelDeleteRequest{Id: "model-a"})))
+	requireNoRPCError(t, callRPC(t, srv, "workspace-delete", rpcapi.RPCMethodServerWorkspaceDelete, rpcParams(t, (*rpcapi.RPCPayload).FromWorkspaceDeleteRequest, rpcapi.WorkspaceDeleteRequest{Name: "workspace-a"})))
+	requireNoRPCError(t, callRPC(t, srv, "workflow-delete", rpcapi.RPCMethodServerWorkflowDelete, rpcParams(t, (*rpcapi.RPCPayload).FromWorkflowDeleteRequest, rpcapi.WorkflowDeleteRequest{Name: "workflow-a1"})))
 }
 
 func TestServerRejectsInvalidCustomIDs(t *testing.T) {
 	srv := newTestResourceServer()
 	srv.ACL = allowAllAuthorizer{}
 
-	workflowCreate := callRPC(t, srv, "workflow-create-invalid", rpcapi.RPCMethodServerWorkflowCreate, rpcParams(t, (*rpcapi.RPCRequest_Params).FromWorkflowCreateRequest, workflowDoc("flow-a")))
+	workflowCreate := callRPC(t, srv, "workflow-create-invalid", rpcapi.RPCMethodServerWorkflowCreate, rpcParams(t, (*rpcapi.RPCPayload).FromWorkflowCreateRequest, workflowDoc("flow-a")))
 	requireRPCError(t, workflowCreate, rpcapi.RPCErrorCodeBadRequest)
 
-	workspaceCreate := callRPC(t, srv, "workspace-create-invalid", rpcapi.RPCMethodServerWorkspaceCreate, rpcParams(t, (*rpcapi.RPCRequest_Params).FromWorkspaceCreateRequest, rpcapi.WorkspaceCreateRequest{
+	workspaceCreate := callRPC(t, srv, "workspace-create-invalid", rpcapi.RPCMethodServerWorkspaceCreate, rpcParams(t, (*rpcapi.RPCPayload).FromWorkspaceCreateRequest, rpcapi.WorkspaceCreateRequest{
 		Name:         "bad",
 		WorkflowName: "workflow-a1",
 	}))
@@ -156,11 +156,11 @@ func TestServerACLBoundaries(t *testing.T) {
 	srv.ACL = auth
 
 	auth.allow(acl.ResourceKindWorkflow, acl.CollectionResourceID, apitypes.ACLPermissionCreate)
-	requireNoRPCError(t, callRPC(t, srv, "workflow-create-a", rpcapi.RPCMethodServerWorkflowCreate, rpcParams(t, (*rpcapi.RPCRequest_Params).FromWorkflowCreateRequest, workflowDoc("workflow-a1"))))
-	requireNoRPCError(t, callRPC(t, srv, "workflow-create-b", rpcapi.RPCMethodServerWorkflowCreate, rpcParams(t, (*rpcapi.RPCRequest_Params).FromWorkflowCreateRequest, workflowDoc("workflow-b1"))))
+	requireNoRPCError(t, callRPC(t, srv, "workflow-create-a", rpcapi.RPCMethodServerWorkflowCreate, rpcParams(t, (*rpcapi.RPCPayload).FromWorkflowCreateRequest, workflowDoc("workflow-a1"))))
+	requireNoRPCError(t, callRPC(t, srv, "workflow-create-b", rpcapi.RPCMethodServerWorkflowCreate, rpcParams(t, (*rpcapi.RPCPayload).FromWorkflowCreateRequest, workflowDoc("workflow-b1"))))
 
 	auth.allow(acl.ResourceKindWorkspace, "workspace-a", apitypes.ACLPermissionAdmin)
-	denied := callRPC(t, srv, "workspace-create-denied", rpcapi.RPCMethodServerWorkspaceCreate, rpcParams(t, (*rpcapi.RPCRequest_Params).FromWorkspaceCreateRequest, rpcapi.WorkspaceCreateRequest{
+	denied := callRPC(t, srv, "workspace-create-denied", rpcapi.RPCMethodServerWorkspaceCreate, rpcParams(t, (*rpcapi.RPCPayload).FromWorkspaceCreateRequest, rpcapi.WorkspaceCreateRequest{
 		Name:         "workspace-a",
 		WorkflowName: "workflow-a1",
 	}))
@@ -170,14 +170,14 @@ func TestServerACLBoundaries(t *testing.T) {
 
 	auth.allow(acl.ResourceKindWorkspace, acl.CollectionResourceID, apitypes.ACLPermissionCreate)
 	auth.allow(acl.ResourceKindWorkflow, "workflow-a1", apitypes.ACLPermissionUse)
-	requireNoRPCError(t, callRPC(t, srv, "workspace-create-allowed", rpcapi.RPCMethodServerWorkspaceCreate, rpcParams(t, (*rpcapi.RPCRequest_Params).FromWorkspaceCreateRequest, rpcapi.WorkspaceCreateRequest{
+	requireNoRPCError(t, callRPC(t, srv, "workspace-create-allowed", rpcapi.RPCMethodServerWorkspaceCreate, rpcParams(t, (*rpcapi.RPCPayload).FromWorkspaceCreateRequest, rpcapi.WorkspaceCreateRequest{
 		Name:         "workspace-a",
 		WorkflowName: "workflow-a1",
 	})))
 
 	auth.allow(acl.ResourceKindWorkspace, "workspace-b", apitypes.ACLPermissionAdmin)
 	auth.allow(acl.ResourceKindWorkflow, "workflow-b1", apitypes.ACLPermissionUse)
-	requireNoRPCError(t, callRPC(t, srv, "workspace-create-b", rpcapi.RPCMethodServerWorkspaceCreate, rpcParams(t, (*rpcapi.RPCRequest_Params).FromWorkspaceCreateRequest, rpcapi.WorkspaceCreateRequest{
+	requireNoRPCError(t, callRPC(t, srv, "workspace-create-b", rpcapi.RPCMethodServerWorkspaceCreate, rpcParams(t, (*rpcapi.RPCPayload).FromWorkspaceCreateRequest, rpcapi.WorkspaceCreateRequest{
 		Name:         "workspace-b",
 		WorkflowName: "workflow-b1",
 	})))
@@ -211,9 +211,9 @@ func TestServerWorkspaceListPrefixUsesACLDiscovery(t *testing.T) {
 	auth.allow(acl.ResourceKindWorkflow, acl.CollectionResourceID, apitypes.ACLPermissionCreate)
 	auth.allow(acl.ResourceKindWorkflow, "workflow-a1", apitypes.ACLPermissionUse)
 	auth.allow(acl.ResourceKindWorkspace, acl.CollectionResourceID, apitypes.ACLPermissionCreate)
-	requireNoRPCError(t, callRPC(t, srv, "workflow-create", rpcapi.RPCMethodServerWorkflowCreate, rpcParams(t, (*rpcapi.RPCRequest_Params).FromWorkflowCreateRequest, workflowDoc("workflow-a1"))))
+	requireNoRPCError(t, callRPC(t, srv, "workflow-create", rpcapi.RPCMethodServerWorkflowCreate, rpcParams(t, (*rpcapi.RPCPayload).FromWorkflowCreateRequest, workflowDoc("workflow-a1"))))
 	for _, name := range []string{"social-direct-visible", "social-direct-hidden", "social-group-visible"} {
-		requireNoRPCError(t, callRPC(t, srv, "workspace-create-"+name, rpcapi.RPCMethodServerWorkspaceCreate, rpcParams(t, (*rpcapi.RPCRequest_Params).FromWorkspaceCreateRequest, rpcapi.WorkspaceCreateRequest{
+		requireNoRPCError(t, callRPC(t, srv, "workspace-create-"+name, rpcapi.RPCMethodServerWorkspaceCreate, rpcParams(t, (*rpcapi.RPCPayload).FromWorkspaceCreateRequest, rpcapi.WorkspaceCreateRequest{
 			Name:         name,
 			WorkflowName: "workflow-a1",
 		})))
@@ -229,7 +229,7 @@ func TestServerWorkspaceListPrefixUsesACLDiscovery(t *testing.T) {
 	auth.allow(acl.ResourceKindWorkspace, "social-direct-visible", apitypes.ACLPermissionRead)
 
 	limit := 1
-	resp := callRPC(t, srv, "workspace-list-prefix", rpcapi.RPCMethodServerWorkspaceList, rpcParams(t, (*rpcapi.RPCRequest_Params).FromWorkspaceListRequest, rpcapi.WorkspaceListRequest{
+	resp := callRPC(t, srv, "workspace-list-prefix", rpcapi.RPCMethodServerWorkspaceList, rpcParams(t, (*rpcapi.RPCPayload).FromWorkspaceListRequest, rpcapi.WorkspaceListRequest{
 		Prefix: stringPtr("social-direct-"),
 		Limit:  &limit,
 	}))
@@ -271,13 +271,13 @@ func TestServerWorkspaceWorkflowCreateUsesCollectionACL(t *testing.T) {
 	auth.allow(acl.ResourceKindModel, acl.CollectionResourceID, apitypes.ACLPermissionCreate)
 	auth.allow(acl.ResourceKindCredential, acl.CollectionResourceID, apitypes.ACLPermissionCreate)
 
-	requireNoRPCError(t, callRPC(t, srv, "workflow-create", rpcapi.RPCMethodServerWorkflowCreate, rpcParams(t, (*rpcapi.RPCRequest_Params).FromWorkflowCreateRequest, workflowDoc("flow-dynamic"))))
-	requireNoRPCError(t, callRPC(t, srv, "workspace-create", rpcapi.RPCMethodServerWorkspaceCreate, rpcParams(t, (*rpcapi.RPCRequest_Params).FromWorkspaceCreateRequest, rpcapi.WorkspaceCreateRequest{
+	requireNoRPCError(t, callRPC(t, srv, "workflow-create", rpcapi.RPCMethodServerWorkflowCreate, rpcParams(t, (*rpcapi.RPCPayload).FromWorkflowCreateRequest, workflowDoc("flow-dynamic"))))
+	requireNoRPCError(t, callRPC(t, srv, "workspace-create", rpcapi.RPCMethodServerWorkspaceCreate, rpcParams(t, (*rpcapi.RPCPayload).FromWorkspaceCreateRequest, rpcapi.WorkspaceCreateRequest{
 		Name:         "workspace-dynamic",
 		WorkflowName: "flow-dynamic",
 	})))
-	requireNoRPCError(t, callRPC(t, srv, "model-create", rpcapi.RPCMethodServerModelCreate, rpcParams(t, (*rpcapi.RPCRequest_Params).FromModelCreateRequest, rpcModel("model-dynamic"))))
-	requireNoRPCError(t, callRPC(t, srv, "credential-create", rpcapi.RPCMethodServerCredentialCreate, rpcParams(t, (*rpcapi.RPCRequest_Params).FromCredentialCreateRequest, rpcCredential("credential-dynamic", "sk-dynamic"))))
+	requireNoRPCError(t, callRPC(t, srv, "model-create", rpcapi.RPCMethodServerModelCreate, rpcParams(t, (*rpcapi.RPCPayload).FromModelCreateRequest, rpcModel("model-dynamic"))))
+	requireNoRPCError(t, callRPC(t, srv, "credential-create", rpcapi.RPCMethodServerCredentialCreate, rpcParams(t, (*rpcapi.RPCPayload).FromCredentialCreateRequest, rpcCredential("credential-dynamic", "sk-dynamic"))))
 
 	if got := auth.count(ctx, acl.ResourceKindWorkflow, "flow-dynamic", apitypes.ACLPermissionAdmin); got != 0 {
 		t.Fatal("workflow.create checked concrete workflow admin")
@@ -322,8 +322,8 @@ func TestServerWorkspaceHistoryRPC(t *testing.T) {
 		Workflows:  &workflow.Server{Store: workflowStore},
 		Workspaces: workspaceServer,
 	}
-	requireNoRPCError(t, callRPC(t, srv, "workflow-create", rpcapi.RPCMethodServerWorkflowCreate, rpcParams(t, (*rpcapi.RPCRequest_Params).FromWorkflowCreateRequest, workflowDoc("flow-history"))))
-	requireNoRPCError(t, callRPC(t, srv, "workspace-create", rpcapi.RPCMethodServerWorkspaceCreate, rpcParams(t, (*rpcapi.RPCRequest_Params).FromWorkspaceCreateRequest, rpcapi.WorkspaceCreateRequest{
+	requireNoRPCError(t, callRPC(t, srv, "workflow-create", rpcapi.RPCMethodServerWorkflowCreate, rpcParams(t, (*rpcapi.RPCPayload).FromWorkflowCreateRequest, workflowDoc("flow-history"))))
+	requireNoRPCError(t, callRPC(t, srv, "workspace-create", rpcapi.RPCMethodServerWorkspaceCreate, rpcParams(t, (*rpcapi.RPCPayload).FromWorkspaceCreateRequest, rpcapi.WorkspaceCreateRequest{
 		Name:         "workspace-history",
 		WorkflowName: "flow-history",
 	})))
@@ -349,7 +349,7 @@ func TestServerWorkspaceHistoryRPC(t *testing.T) {
 	}
 
 	limit := 1
-	list := callRPC(t, srv, "workspace-history-list", rpcapi.RPCMethodServerWorkspaceHistoryList, rpcParams(t, (*rpcapi.RPCRequest_Params).FromWorkspaceHistoryListRequest, rpcapi.WorkspaceHistoryListRequest{
+	list := callRPC(t, srv, "workspace-history-list", rpcapi.RPCMethodServerWorkspaceHistoryList, rpcParams(t, (*rpcapi.RPCPayload).FromWorkspaceHistoryListRequest, rpcapi.WorkspaceHistoryListRequest{
 		WorkspaceName: "workspace-history",
 		Limit:         &limit,
 	}))
@@ -358,7 +358,7 @@ func TestServerWorkspaceHistoryRPC(t *testing.T) {
 		t.Fatalf("workspace.history.list = %+v", listResult)
 	}
 	desc := rpcapi.WorkspaceHistoryListRequestOrderDesc
-	list = callRPC(t, srv, "workspace-history-list-desc", rpcapi.RPCMethodServerWorkspaceHistoryList, rpcParams(t, (*rpcapi.RPCRequest_Params).FromWorkspaceHistoryListRequest, rpcapi.WorkspaceHistoryListRequest{
+	list = callRPC(t, srv, "workspace-history-list-desc", rpcapi.RPCMethodServerWorkspaceHistoryList, rpcParams(t, (*rpcapi.RPCPayload).FromWorkspaceHistoryListRequest, rpcapi.WorkspaceHistoryListRequest{
 		WorkspaceName: "workspace-history",
 		Limit:         &limit,
 		Order:         &desc,
@@ -368,7 +368,7 @@ func TestServerWorkspaceHistoryRPC(t *testing.T) {
 		t.Fatalf("workspace.history.list desc = %+v", listResult)
 	}
 
-	get := callRPC(t, srv, "workspace-history-get", rpcapi.RPCMethodServerWorkspaceHistoryGet, rpcParams(t, (*rpcapi.RPCRequest_Params).FromWorkspaceHistoryGetRequest, rpcapi.WorkspaceHistoryGetRequest{
+	get := callRPC(t, srv, "workspace-history-get", rpcapi.RPCMethodServerWorkspaceHistoryGet, rpcParams(t, (*rpcapi.RPCPayload).FromWorkspaceHistoryGetRequest, rpcapi.WorkspaceHistoryGetRequest{
 		WorkspaceName: "workspace-history",
 		HistoryId:     entry.ID,
 	}))
@@ -376,7 +376,7 @@ func TestServerWorkspaceHistoryRPC(t *testing.T) {
 		t.Fatalf("workspace.history.get = %+v", got)
 	}
 
-	asset := callRPC(t, srv, "workspace-history-audio-get", rpcapi.RPCMethodServerWorkspaceHistoryAudioGet, rpcParams(t, (*rpcapi.RPCRequest_Params).FromWorkspaceHistoryAudioGetRequest, rpcapi.WorkspaceHistoryAudioGetRequest{
+	asset := callRPC(t, srv, "workspace-history-audio-get", rpcapi.RPCMethodServerWorkspaceHistoryAudioGet, rpcParams(t, (*rpcapi.RPCPayload).FromWorkspaceHistoryAudioGetRequest, rpcapi.WorkspaceHistoryAudioGetRequest{
 		WorkspaceName: "workspace-history",
 		HistoryId:     entry.ID,
 	}))
@@ -472,14 +472,14 @@ func TestServerListVoicesFiltersByACL(t *testing.T) {
 		t.Fatal("ListVoices() did not check denied voice")
 	}
 
-	rpcList := callRPC(t, srv, "voice-list", rpcapi.RPCMethodServerVoiceList, rpcParams(t, (*rpcapi.RPCRequest_Params).FromVoiceListRequest, rpcapi.VoiceListRequest{}))
+	rpcList := callRPC(t, srv, "voice-list", rpcapi.RPCMethodServerVoiceList, rpcParams(t, (*rpcapi.RPCPayload).FromVoiceListRequest, rpcapi.VoiceListRequest{}))
 	requireNoRPCError(t, rpcList)
 	rpcVoiceList := mustResult(t, rpcList.Result.AsVoiceListResponse)
 	if len(rpcVoiceList.Items) != 2 || rpcVoiceList.Items[0].Id != "provider:tenant:voice-c" || rpcVoiceList.Items[1].Id != "voice-a" {
 		t.Fatalf("server.voice.list items = %#v", rpcVoiceList.Items)
 	}
 
-	rpcGet := callRPC(t, srv, "voice-get", rpcapi.RPCMethodServerVoiceGet, rpcParams(t, (*rpcapi.RPCRequest_Params).FromVoiceGetRequest, rpcapi.VoiceGetRequest{Id: "voice-a"}))
+	rpcGet := callRPC(t, srv, "voice-get", rpcapi.RPCMethodServerVoiceGet, rpcParams(t, (*rpcapi.RPCPayload).FromVoiceGetRequest, rpcapi.VoiceGetRequest{Id: "voice-a"}))
 	requireNoRPCError(t, rpcGet)
 	if got := mustResult(t, rpcGet.Result.AsVoiceGetResponse); got.Id != "voice-a" {
 		t.Fatalf("server.voice.get = %#v", got)
@@ -492,10 +492,10 @@ func TestServerVoiceRPCErrorPaths(t *testing.T) {
 
 	missingService := newTestResourceServer()
 	missingService.Voices = nil
-	resp := callRPC(t, missingService, "voice-list-no-service", rpcapi.RPCMethodServerVoiceList, rpcParams(t, (*rpcapi.RPCRequest_Params).FromVoiceListRequest, rpcapi.VoiceListRequest{}))
+	resp := callRPC(t, missingService, "voice-list-no-service", rpcapi.RPCMethodServerVoiceList, rpcParams(t, (*rpcapi.RPCPayload).FromVoiceListRequest, rpcapi.VoiceListRequest{}))
 	requireRPCError(t, resp, rpcapi.RPCErrorCodeInternalError)
 
-	resp = callRPC(t, missingService, "voice-get-no-service", rpcapi.RPCMethodServerVoiceGet, rpcParams(t, (*rpcapi.RPCRequest_Params).FromVoiceGetRequest, rpcapi.VoiceGetRequest{Id: "voice-a"}))
+	resp = callRPC(t, missingService, "voice-get-no-service", rpcapi.RPCMethodServerVoiceGet, rpcParams(t, (*rpcapi.RPCPayload).FromVoiceGetRequest, rpcapi.VoiceGetRequest{Id: "voice-a"}))
 	requireRPCError(t, resp, rpcapi.RPCErrorCodeInternalError)
 
 	resp = callRPC(t, srv, "voice-get-missing-params", rpcapi.RPCMethodServerVoiceGet, nil)
@@ -507,11 +507,11 @@ func TestServerVoiceRPCErrorPaths(t *testing.T) {
 	}
 	denied := newRuleAuthorizer()
 	srv.ACL = denied
-	resp = callRPC(t, srv, "voice-get-denied", rpcapi.RPCMethodServerVoiceGet, rpcParams(t, (*rpcapi.RPCRequest_Params).FromVoiceGetRequest, rpcapi.VoiceGetRequest{Id: "voice-a"}))
+	resp = callRPC(t, srv, "voice-get-denied", rpcapi.RPCMethodServerVoiceGet, rpcParams(t, (*rpcapi.RPCPayload).FromVoiceGetRequest, rpcapi.VoiceGetRequest{Id: "voice-a"}))
 	requireRPCError(t, resp, rpcapi.RPCErrorCodeInternalError)
 
 	srv.ACL = errorAuthorizer{err: errors.New("acl backend down")}
-	resp = callRPC(t, srv, "voice-list-acl-error", rpcapi.RPCMethodServerVoiceList, rpcParams(t, (*rpcapi.RPCRequest_Params).FromVoiceListRequest, rpcapi.VoiceListRequest{}))
+	resp = callRPC(t, srv, "voice-list-acl-error", rpcapi.RPCMethodServerVoiceList, rpcParams(t, (*rpcapi.RPCPayload).FromVoiceListRequest, rpcapi.VoiceListRequest{}))
 	requireRPCError(t, resp, rpcapi.RPCErrorCodeInternalError)
 
 	upstreamError := newTestResourceServer()
@@ -519,7 +519,7 @@ func TestServerVoiceRPCErrorPaths(t *testing.T) {
 	upstreamError.Voices = fakeVoiceAdminService{
 		list: adminhttp.ListVoices500JSONResponse(apitypes.NewErrorResponse("VOICE_ERROR", "failed")),
 	}
-	resp = callRPC(t, upstreamError, "voice-list-upstream-error", rpcapi.RPCMethodServerVoiceList, rpcParams(t, (*rpcapi.RPCRequest_Params).FromVoiceListRequest, rpcapi.VoiceListRequest{}))
+	resp = callRPC(t, upstreamError, "voice-list-upstream-error", rpcapi.RPCMethodServerVoiceList, rpcParams(t, (*rpcapi.RPCPayload).FromVoiceListRequest, rpcapi.VoiceListRequest{}))
 	requireRPCError(t, resp, rpcapi.RPCErrorCodeInternalError)
 }
 
@@ -568,7 +568,7 @@ func TestServerFirmwareRPCUsesFirmwareReadACL(t *testing.T) {
 		Firmwares: firmwareServer,
 	}
 
-	denied := callRPC(t, srv, "firmware-get-denied", rpcapi.RPCMethodServerFirmwareGet, rpcParams(t, (*rpcapi.RPCRequest_Params).FromFirmwareGetRequest, rpcapi.FirmwareGetRequest{
+	denied := callRPC(t, srv, "firmware-get-denied", rpcapi.RPCMethodServerFirmwareGet, rpcParams(t, (*rpcapi.RPCPayload).FromFirmwareGetRequest, rpcapi.FirmwareGetRequest{
 		FirmwareId: "devkit",
 	}))
 	requireRPCError(t, denied, rpcapi.RPCErrorCodeForbidden)
@@ -586,7 +586,7 @@ func TestServerFirmwareRPCUsesFirmwareReadACL(t *testing.T) {
 		t.Fatal("firmware.list did not check denied firmware")
 	}
 
-	getResp := callRPC(t, srv, "firmware-get", rpcapi.RPCMethodServerFirmwareGet, rpcParams(t, (*rpcapi.RPCRequest_Params).FromFirmwareGetRequest, rpcapi.FirmwareGetRequest{
+	getResp := callRPC(t, srv, "firmware-get", rpcapi.RPCMethodServerFirmwareGet, rpcParams(t, (*rpcapi.RPCPayload).FromFirmwareGetRequest, rpcapi.FirmwareGetRequest{
 		FirmwareId: "devkit",
 	}))
 	gotFirmware := mustResult(t, getResp.Result.AsFirmwareGetResponse)
@@ -597,7 +597,7 @@ func TestServerFirmwareRPCUsesFirmwareReadACL(t *testing.T) {
 		t.Fatalf("firmware.get artifact = %#v", gotFirmware.Slots.Stable.Artifact)
 	}
 
-	bin := callRPC(t, srv, "firmware-download", rpcapi.RPCMethodServerFirmwareFilesDownload, rpcParams(t, (*rpcapi.RPCRequest_Params).FromFirmwareFilesDownloadRequest, rpcapi.FirmwareFilesDownloadRequest{
+	bin := callRPC(t, srv, "firmware-download", rpcapi.RPCMethodServerFirmwareFilesDownload, rpcParams(t, (*rpcapi.RPCPayload).FromFirmwareFilesDownloadRequest, rpcapi.FirmwareFilesDownloadRequest{
 		FirmwareId: "devkit",
 		Channel:    rpcapi.FirmwareChannelNameStable,
 		Path:       "firmware.bin",
@@ -607,7 +607,7 @@ func TestServerFirmwareRPCUsesFirmwareReadACL(t *testing.T) {
 		t.Fatalf("firmware.download = %#v", gotBin)
 	}
 
-	missingBin := callRPC(t, srv, "firmware-artifact-missing", rpcapi.RPCMethodServerFirmwareFilesDownload, rpcParams(t, (*rpcapi.RPCRequest_Params).FromFirmwareFilesDownloadRequest, rpcapi.FirmwareFilesDownloadRequest{
+	missingBin := callRPC(t, srv, "firmware-artifact-missing", rpcapi.RPCMethodServerFirmwareFilesDownload, rpcParams(t, (*rpcapi.RPCPayload).FromFirmwareFilesDownloadRequest, rpcapi.FirmwareFilesDownloadRequest{
 		FirmwareId: "devkit",
 		Channel:    rpcapi.FirmwareChannelNameStable,
 		Path:       "missing.bin",
@@ -708,7 +708,7 @@ func TestServerGameplayPixaDownloads(t *testing.T) {
 	auth := newRuleAuthorizer()
 	auth.allow(acl.ResourceKindGameRuleset, "default", apitypes.ACLPermissionRead)
 	srv := &Server{Caller: caller, ACL: auth, Gameplay: runtime}
-	petResp := callRPC(t, srv, "petdef-pixa-download", rpcapi.RPCMethodServerPetDefPixaDownload, rpcParams(t, (*rpcapi.RPCRequest_Params).FromPetDefPixaDownloadRequest, rpcapi.PetDefPixaDownloadRequest{Id: "petdef-a"}))
+	petResp := callRPC(t, srv, "petdef-pixa-download", rpcapi.RPCMethodServerPetDefPixaDownload, rpcParams(t, (*rpcapi.RPCPayload).FromPetDefPixaDownloadRequest, rpcapi.PetDefPixaDownloadRequest{Id: "petdef-a"}))
 	gotPet := mustResult(t, petResp.Result.AsPetDefPixaDownloadResponse)
 	if gotPet.Id != "petdef-a" || gotPet.SizeBytes != int64(len(petPixa)) || valueOrZero(gotPet.PixaPath) != "pet-defs/petdef-a/pixa" {
 		t.Fatalf("petdef pixa metadata = %#v", gotPet)
@@ -724,14 +724,14 @@ func TestServerGameplayPixaDownloads(t *testing.T) {
 	if data, err := io.ReadAll(petReader); err != nil || !bytes.Equal(data, petPixa) || gotPetMetadata.SizeBytes != int64(len(petPixa)) {
 		t.Fatalf("petdef pixa data len=%d metadata=%#v err=%v", len(data), gotPetMetadata, err)
 	}
-	badgeResp := callRPC(t, srv, "badgedef-pixa-download", rpcapi.RPCMethodServerBadgeDefPixaDownload, rpcParams(t, (*rpcapi.RPCRequest_Params).FromBadgeDefPixaDownloadRequest, rpcapi.BadgeDefPixaDownloadRequest{Id: "badge-a"}))
+	badgeResp := callRPC(t, srv, "badgedef-pixa-download", rpcapi.RPCMethodServerBadgeDefPixaDownload, rpcParams(t, (*rpcapi.RPCPayload).FromBadgeDefPixaDownloadRequest, rpcapi.BadgeDefPixaDownloadRequest{Id: "badge-a"}))
 	gotBadge := mustResult(t, badgeResp.Result.AsBadgeDefPixaDownloadResponse)
 	if gotBadge.Id != "badge-a" || gotBadge.SizeBytes != int64(len(badgePixa)) || valueOrZero(gotBadge.PixaPath) != "badge-defs/badge-a/pixa" {
 		t.Fatalf("badgedef pixa metadata = %#v", gotBadge)
 	}
 
 	other := &Server{Caller: giznet.PublicKey{8}, ACL: newRuleAuthorizer(), Gameplay: runtime}
-	denied := callRPC(t, other, "petdef-pixa-denied", rpcapi.RPCMethodServerPetDefPixaDownload, rpcParams(t, (*rpcapi.RPCRequest_Params).FromPetDefPixaDownloadRequest, rpcapi.PetDefPixaDownloadRequest{Id: "petdef-a"}))
+	denied := callRPC(t, other, "petdef-pixa-denied", rpcapi.RPCMethodServerPetDefPixaDownload, rpcParams(t, (*rpcapi.RPCPayload).FromPetDefPixaDownloadRequest, rpcapi.PetDefPixaDownloadRequest{Id: "petdef-a"}))
 	requireRPCError(t, denied, rpcapi.RPCErrorCodeForbidden)
 }
 
@@ -796,19 +796,19 @@ func TestServerErrorPaths(t *testing.T) {
 		rpcapi.RPCMethodServerModelList,
 		rpcapi.RPCMethodServerCredentialList,
 	} {
-		resp := callRPC(t, srv, "invalid-"+string(method), method, &rpcapi.RPCRequest_Params{})
+		resp := callRPC(t, srv, "invalid-"+string(method), method, &rpcapi.RPCPayload{})
 		requireRPCError(t, resp, rpcapi.RPCErrorCodeInvalidParams)
 	}
 
 	for _, tc := range []struct {
 		name   string
 		method rpcapi.RPCMethod
-		params *rpcapi.RPCRequest_Params
+		params *rpcapi.RPCPayload
 	}{
-		{"workspace", rpcapi.RPCMethodServerWorkspaceGet, rpcParams(t, (*rpcapi.RPCRequest_Params).FromWorkspaceGetRequest, rpcapi.WorkspaceGetRequest{Name: "missing"})},
-		{"workflow", rpcapi.RPCMethodServerWorkflowGet, rpcParams(t, (*rpcapi.RPCRequest_Params).FromWorkflowGetRequest, rpcapi.WorkflowGetRequest{Name: "missing"})},
-		{"model", rpcapi.RPCMethodServerModelGet, rpcParams(t, (*rpcapi.RPCRequest_Params).FromModelGetRequest, rpcapi.ModelGetRequest{Id: "missing"})},
-		{"credential", rpcapi.RPCMethodServerCredentialGet, rpcParams(t, (*rpcapi.RPCRequest_Params).FromCredentialGetRequest, rpcapi.CredentialGetRequest{Name: "missing"})},
+		{"workspace", rpcapi.RPCMethodServerWorkspaceGet, rpcParams(t, (*rpcapi.RPCPayload).FromWorkspaceGetRequest, rpcapi.WorkspaceGetRequest{Name: "missing"})},
+		{"workflow", rpcapi.RPCMethodServerWorkflowGet, rpcParams(t, (*rpcapi.RPCPayload).FromWorkflowGetRequest, rpcapi.WorkflowGetRequest{Name: "missing"})},
+		{"model", rpcapi.RPCMethodServerModelGet, rpcParams(t, (*rpcapi.RPCPayload).FromModelGetRequest, rpcapi.ModelGetRequest{Id: "missing"})},
+		{"credential", rpcapi.RPCMethodServerCredentialGet, rpcParams(t, (*rpcapi.RPCPayload).FromCredentialGetRequest, rpcapi.CredentialGetRequest{Name: "missing"})},
 	} {
 		t.Run(tc.name+"-not-found", func(t *testing.T) {
 			resp := callRPC(t, srv, tc.name+"-not-found", tc.method, tc.params)
@@ -817,7 +817,7 @@ func TestServerErrorPaths(t *testing.T) {
 	}
 
 	authless := newTestResourceServer()
-	resp := callRPC(t, authless, "acl-missing", rpcapi.RPCMethodServerModelGet, rpcParams(t, (*rpcapi.RPCRequest_Params).FromModelGetRequest, rpcapi.ModelGetRequest{Id: "model-a"}))
+	resp := callRPC(t, authless, "acl-missing", rpcapi.RPCMethodServerModelGet, rpcParams(t, (*rpcapi.RPCPayload).FromModelGetRequest, rpcapi.ModelGetRequest{Id: "model-a"}))
 	requireRPCError(t, resp, rpcapi.RPCErrorCodeInternalError)
 }
 
@@ -956,7 +956,7 @@ func stringPtr(value string) *string {
 	return &value
 }
 
-func callRPC(t *testing.T, srv *Server, id string, method rpcapi.RPCMethod, params *rpcapi.RPCRequest_Params) *rpcapi.RPCResponse {
+func callRPC(t *testing.T, srv *Server, id string, method rpcapi.RPCMethod, params *rpcapi.RPCPayload) *rpcapi.RPCResponse {
 	t.Helper()
 
 	resp, handled, err := srv.Dispatch(context.Background(), &rpcapi.RPCRequest{V: rpcapi.RPCVersionV1, Id: id, Method: method, Params: params})
@@ -972,10 +972,10 @@ func callRPC(t *testing.T, srv *Server, id string, method rpcapi.RPCMethod, para
 	return resp
 }
 
-func rpcParams[T any](t *testing.T, encode func(*rpcapi.RPCRequest_Params, T) error, value T) *rpcapi.RPCRequest_Params {
+func rpcParams[T any](t *testing.T, encode func(*rpcapi.RPCPayload, T) error, value T) *rpcapi.RPCPayload {
 	t.Helper()
 
-	var params rpcapi.RPCRequest_Params
+	var params rpcapi.RPCPayload
 	if err := encode(&params, value); err != nil {
 		t.Fatalf("encode params error = %v", err)
 	}

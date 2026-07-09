@@ -29,7 +29,12 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	rpcpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto"
 	_ "github.com/GizClaw/gizclaw-go/sdk/c/gizclaw/cgobackend"
+	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/reflect/protoreflect"
+	"google.golang.org/protobuf/reflect/protoregistry"
+	"google.golang.org/protobuf/types/descriptorpb"
+	"google.golang.org/protobuf/types/dynamicpb"
 )
 
 type Client struct {
@@ -46,6 +51,31 @@ type ServiceChannel struct {
 }
 
 var errCSDKTimeout = errors.New("C SDK timeout")
+
+func newCgoRPCPayloadMessage(method rpcpb.RpcMethod, response bool) (*dynamicpb.Message, error) {
+	value := method.Descriptor()
+	opts, ok := value.Options().(*descriptorpb.EnumValueOptions)
+	if !ok || opts == nil || !proto.HasExtension(opts, rpcpb.E_RpcMethod) {
+		return nil, fmt.Errorf("method %d has no rpc_method metadata", method)
+	}
+	ext := proto.GetExtension(opts, rpcpb.E_RpcMethod)
+	meta, ok := ext.(*rpcpb.RpcMethodOptions)
+	if !ok || meta == nil {
+		return nil, fmt.Errorf("method %d has invalid rpc_method metadata", method)
+	}
+	messageName := meta.GetRequest()
+	if response {
+		messageName = meta.GetResponse()
+	}
+	if messageName == "" {
+		return nil, fmt.Errorf("method %d payload message is empty", method)
+	}
+	mt, err := protoregistry.GlobalTypes.FindMessageByName(protoreflect.FullName("gizclaw.rpc.v1." + messageName))
+	if err != nil {
+		return nil, err
+	}
+	return dynamicpb.NewMessage(mt.Descriptor()), nil
+}
 
 func NewClient(identityDir string) (*Client, error) {
 	cfg, err := readClientConfig(identityDir)
@@ -79,7 +109,7 @@ func (c *Client) Close() {
 	c.session = nil
 }
 
-func (c *Client) CallJSON(method string, params json.RawMessage) (json.RawMessage, error) {
+func (c *Client) CallRPC(method string, params json.RawMessage) (json.RawMessage, error) {
 	if c == nil || c.session == nil {
 		return nil, fmt.Errorf("closed C SDK client")
 	}
@@ -91,9 +121,16 @@ func (c *Client) CallJSON(method string, params json.RawMessage) (json.RawMessag
 	if err != nil {
 		return nil, fmt.Errorf("method %s id: %w", method, err)
 	}
-	paramsPayload, err := rpcapi.EncodeRPCRequestPayloadJSON(methodID, params)
+	requestMessage, err := newCgoRPCPayloadMessage(rpcpb.RpcMethod(protoMethod), false)
 	if err != nil {
-		return nil, fmt.Errorf("encode %s request payload: %w", method, err)
+		return nil, fmt.Errorf("create %s request payload: %w", method, err)
+	}
+	if err := protojson.Unmarshal(params, requestMessage.Interface()); err != nil {
+		return nil, fmt.Errorf("decode %s request payload: %w", method, err)
+	}
+	paramsPayload, err := proto.Marshal(requestMessage.Interface())
+	if err != nil {
+		return nil, fmt.Errorf("marshal %s request payload: %w", method, err)
 	}
 	var cParams *C.uchar
 	if len(paramsPayload) > 0 {
@@ -117,9 +154,16 @@ func (c *Client) CallJSON(method string, params json.RawMessage) (json.RawMessag
 	}
 	defer C.gzc_cgo_free(unsafe.Pointer(result))
 	resultPayload := C.GoBytes(unsafe.Pointer(result), C.int(resultLen))
-	resultJSON, err := rpcapi.DecodeRPCResponsePayloadJSON(methodID, resultPayload)
+	responseMessage, err := newCgoRPCPayloadMessage(rpcpb.RpcMethod(protoMethod), true)
 	if err != nil {
+		return nil, fmt.Errorf("create %s response payload: %w", method, err)
+	}
+	if err := proto.Unmarshal(resultPayload, responseMessage.Interface()); err != nil {
 		return nil, fmt.Errorf("decode %s response payload: %w", method, err)
+	}
+	resultJSON, err := protojson.MarshalOptions{EmitUnpopulated: true}.Marshal(responseMessage.Interface())
+	if err != nil {
+		return nil, fmt.Errorf("marshal %s response payload: %w", method, err)
 	}
 	return resultJSON, nil
 }
@@ -136,9 +180,16 @@ func (c *Client) CallStream(method string, params json.RawMessage) ([]StreamFram
 	if err != nil {
 		return nil, fmt.Errorf("method %s id: %w", method, err)
 	}
-	paramsPayload, err := rpcapi.EncodeRPCRequestPayloadJSON(methodID, params)
+	requestMessage, err := newCgoRPCPayloadMessage(rpcpb.RpcMethod(protoMethod), false)
 	if err != nil {
-		return nil, fmt.Errorf("encode %s stream request payload: %w", method, err)
+		return nil, fmt.Errorf("create %s stream request payload: %w", method, err)
+	}
+	if err := protojson.Unmarshal(params, requestMessage.Interface()); err != nil {
+		return nil, fmt.Errorf("decode %s stream request payload: %w", method, err)
+	}
+	paramsPayload, err := proto.Marshal(requestMessage.Interface())
+	if err != nil {
+		return nil, fmt.Errorf("marshal %s stream request payload: %w", method, err)
 	}
 	var cParams *C.uchar
 	if len(paramsPayload) > 0 {
@@ -367,7 +418,7 @@ func CSDKPing(t *testing.T, identityDir string) {
 		t.Fatal(err)
 	}
 	defer client.Close()
-	result, err := client.CallJSON("all.ping", json.RawMessage(`{"client_send_time":12345}`))
+	result, err := client.CallRPC("all.ping", json.RawMessage(`{"client_send_time":12345}`))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -386,7 +437,7 @@ func CSDKServerRuntime(t *testing.T, identityDir string) {
 	t.Helper()
 	client := newTestClient(t, identityDir)
 	defer client.Close()
-	result := mustCallJSON(t, client, "server.runtime.get", `{}`)
+	result := mustCallRPC(t, client, "server.runtime.get", `{}`)
 	var response struct {
 		Online     bool   `json:"online"`
 		LastSeenAt string `json:"last_seen_at"`
@@ -412,7 +463,7 @@ func CSDKServerStatus(t *testing.T, identityDir string) {
 	}
 	deadline := time.Now().Add(5 * time.Second)
 	for {
-		result = mustCallJSON(t, client, "server.status.get", `{}`)
+		result = mustCallRPC(t, client, "server.status.get", `{}`)
 		decodeJSON(t, "server.status.get", result, &getResponse)
 		if getResponse.BatteryPercent != nil && *getResponse.BatteryPercent == 91 &&
 			getResponse.Charging != nil && *getResponse.Charging {
@@ -462,11 +513,11 @@ func CSDKSpeedTest(t *testing.T, identityDir string) {
 	}
 }
 
-func CSDKFirmwareJSON(t *testing.T, identityDir string) {
+func CSDKFirmwareRPC(t *testing.T, identityDir string) {
 	t.Helper()
 	client := newTestClient(t, identityDir)
 	defer client.Close()
-	result := mustCallJSON(t, client, "server.firmware.list", `{"limit":5}`)
+	result := mustCallRPC(t, client, "server.firmware.list", `{"limit":5}`)
 	var listResponse struct {
 		Items []json.RawMessage `json:"items"`
 	}
@@ -474,7 +525,7 @@ func CSDKFirmwareJSON(t *testing.T, identityDir string) {
 	if len(listResponse.Items) == 0 {
 		t.Fatalf("empty server.firmware.list: %s", string(result))
 	}
-	result = mustCallJSON(t, client, "server.firmware.get", `{"firmware_id":"devkit-firmware-main"}`)
+	result = mustCallRPC(t, client, "server.firmware.get", `{"firmware_id":"devkit-firmware-main"}`)
 	var getResponse struct {
 		Name  string          `json:"name"`
 		Slots json.RawMessage `json:"slots"`
@@ -529,7 +580,7 @@ func CSDKChatWorkspace(t *testing.T, identityDir string) {
 	t.Helper()
 	client := newTestClient(t, identityDir)
 	defer client.Close()
-	result := mustCallJSON(t, client, "server.workspace.get", `{"name":"direct-chatroom-workspace"}`)
+	result := mustCallRPC(t, client, "server.workspace.get", `{"name":"direct-chatroom-workspace"}`)
 	var workspace struct {
 		Name         string `json:"name"`
 		WorkflowName string `json:"workflow_name"`
@@ -538,7 +589,7 @@ func CSDKChatWorkspace(t *testing.T, identityDir string) {
 	if workspace.Name != "direct-chatroom-workspace" || workspace.WorkflowName != "chatroom-direct" {
 		t.Fatalf("invalid server.workspace.get: %s", string(result))
 	}
-	result = mustCallJSON(t, client, "server.run.workspace.set", `{"workspace_name":"direct-chatroom-workspace"}`)
+	result = mustCallRPC(t, client, "server.run.workspace.set", `{"workspace_name":"direct-chatroom-workspace"}`)
 	var setResponse struct {
 		WorkspaceName string `json:"workspace_name"`
 	}
@@ -546,7 +597,7 @@ func CSDKChatWorkspace(t *testing.T, identityDir string) {
 	if setResponse.WorkspaceName != "direct-chatroom-workspace" {
 		t.Fatalf("invalid server.run.workspace.set: %s", string(result))
 	}
-	result = mustCallJSON(t, client, "server.run.workspace.get", `{}`)
+	result = mustCallRPC(t, client, "server.run.workspace.get", `{}`)
 	var getResponse struct {
 		WorkspaceName string          `json:"workspace_name"`
 		RuntimeState  json.RawMessage `json:"runtime_state"`
@@ -555,7 +606,7 @@ func CSDKChatWorkspace(t *testing.T, identityDir string) {
 	if getResponse.WorkspaceName != "direct-chatroom-workspace" || len(getResponse.RuntimeState) == 0 {
 		t.Fatalf("invalid server.run.workspace.get: %s", string(result))
 	}
-	result = mustCallJSON(t, client, "server.run.status", `{}`)
+	result = mustCallRPC(t, client, "server.run.status", `{}`)
 	var statusResponse struct {
 		State json.RawMessage `json:"state"`
 	}
@@ -563,7 +614,7 @@ func CSDKChatWorkspace(t *testing.T, identityDir string) {
 	if len(statusResponse.State) == 0 {
 		t.Fatalf("invalid server.run.status: %s", string(result))
 	}
-	result = mustCallJSON(t, client, "server.run.workspace.history", `{"limit":5}`)
+	result = mustCallRPC(t, client, "server.run.workspace.history", `{"limit":5}`)
 	var historyResponse struct {
 		Items []json.RawMessage `json:"items"`
 	}
@@ -645,7 +696,7 @@ func CSDKSocialBasic(t *testing.T, identityDir string) {
 	contactPhone := fmt.Sprintf("+1555%010d", unique%10000000000)
 	groupName := fmt.Sprintf("c-sdk-social-group-%d", unique)
 
-	result := mustCallJSON(t, client, "server.contact.create", fmt.Sprintf(`{"display_name":%q,"phone_number":%q}`, contactName, contactPhone))
+	result := mustCallRPC(t, client, "server.contact.create", fmt.Sprintf(`{"display_name":%q,"phone_number":%q}`, contactName, contactPhone))
 	var contactCreate struct {
 		ID          string `json:"id"`
 		DisplayName string `json:"display_name"`
@@ -655,16 +706,16 @@ func CSDKSocialBasic(t *testing.T, identityDir string) {
 		t.Fatalf("invalid server.contact.create: %s", string(result))
 	}
 	contactID := contactCreate.ID
-	result = mustCallJSON(t, client, "server.contact.get", fmt.Sprintf(`{"id":%q}`, contactID))
+	result = mustCallRPC(t, client, "server.contact.get", fmt.Sprintf(`{"id":%q}`, contactID))
 	if !bytes.Contains(result, []byte(contactID)) {
 		t.Fatalf("invalid server.contact.get: %s", string(result))
 	}
-	result = mustCallJSON(t, client, "server.contact.list", `{"limit":1000}`)
+	result = mustCallRPC(t, client, "server.contact.list", `{"limit":1000}`)
 	if !bytes.Contains(result, []byte(contactID)) {
 		t.Fatalf("invalid server.contact.list: %s", string(result))
 	}
 
-	result = mustCallJSON(t, client, "server.friend_group.create", fmt.Sprintf(`{"name":%q,"description":"created by cgo C SDK test"}`, groupName))
+	result = mustCallRPC(t, client, "server.friend_group.create", fmt.Sprintf(`{"name":%q,"description":"created by cgo C SDK test"}`, groupName))
 	var groupCreate struct {
 		ID            string `json:"id"`
 		Name          string `json:"name"`
@@ -675,15 +726,15 @@ func CSDKSocialBasic(t *testing.T, identityDir string) {
 		t.Fatalf("invalid server.friend_group.create: %s", string(result))
 	}
 	groupID := groupCreate.ID
-	result = mustCallJSON(t, client, "server.friend_group.get", fmt.Sprintf(`{"id":%q}`, groupID))
+	result = mustCallRPC(t, client, "server.friend_group.get", fmt.Sprintf(`{"id":%q}`, groupID))
 	if !bytes.Contains(result, []byte(groupID)) {
 		t.Fatalf("invalid server.friend_group.get: %s", string(result))
 	}
-	result = mustCallJSON(t, client, "server.friend_group.list", `{"limit":1000}`)
+	result = mustCallRPC(t, client, "server.friend_group.list", `{"limit":1000}`)
 	if !bytes.Contains(result, []byte(groupID)) {
 		t.Fatalf("invalid server.friend_group.list: %s", string(result))
 	}
-	result = mustCallJSON(t, client, "server.friend_group.invite_token.create", fmt.Sprintf(`{"friend_group_id":%q}`, groupID))
+	result = mustCallRPC(t, client, "server.friend_group.invite_token.create", fmt.Sprintf(`{"friend_group_id":%q}`, groupID))
 	var tokenResponse struct {
 		InviteToken string `json:"invite_token"`
 		ExpiresAt   string `json:"expires_at"`
@@ -692,7 +743,7 @@ func CSDKSocialBasic(t *testing.T, identityDir string) {
 	if tokenResponse.InviteToken == "" || tokenResponse.ExpiresAt == "" {
 		t.Fatalf("invalid server.friend_group.invite_token.create: %s", string(result))
 	}
-	result = mustCallJSON(t, client, "server.friend_group.messages.send", fmt.Sprintf(`{"friend_group_id":%q,"audio_content_type":"audio/opus","audio_base64":"bm90LXJlYWwtb3B1cy1idXQtcnBjLXBheWxvYWQ="}`, groupID))
+	result = mustCallRPC(t, client, "server.friend_group.messages.send", fmt.Sprintf(`{"friend_group_id":%q,"audio_content_type":"audio/opus","audio_base64":"bm90LXJlYWwtb3B1cy1idXQtcnBjLXBheWxvYWQ="}`, groupID))
 	var messageSend struct {
 		ID            string `json:"id"`
 		FriendGroupID string `json:"friend_group_id"`
@@ -702,11 +753,11 @@ func CSDKSocialBasic(t *testing.T, identityDir string) {
 		t.Fatalf("invalid server.friend_group.messages.send: %s", string(result))
 	}
 	messageID := messageSend.ID
-	result = mustCallJSON(t, client, "server.friend_group.messages.get", fmt.Sprintf(`{"friend_group_id":%q,"id":%q}`, groupID, messageID))
+	result = mustCallRPC(t, client, "server.friend_group.messages.get", fmt.Sprintf(`{"friend_group_id":%q,"id":%q}`, groupID, messageID))
 	if !bytes.Contains(result, []byte(messageID)) {
 		t.Fatalf("invalid server.friend_group.messages.get: %s", string(result))
 	}
-	result = mustCallJSON(t, client, "server.friend_group.messages.list", fmt.Sprintf(`{"friend_group_id":%q,"limit":1000}`, groupID))
+	result = mustCallRPC(t, client, "server.friend_group.messages.list", fmt.Sprintf(`{"friend_group_id":%q,"limit":1000}`, groupID))
 	if !bytes.Contains(result, []byte(messageID)) {
 		t.Fatalf("invalid server.friend_group.messages.list: %s", string(result))
 	}
@@ -719,7 +770,7 @@ func CSDKSocialRelationships(t *testing.T, identityADir, identityBDir string) {
 	clientB := newTestClient(t, identityBDir)
 	defer clientB.Close()
 
-	result := mustCallJSON(t, clientB, "server.friend.invite_token.create", `{}`)
+	result := mustCallRPC(t, clientB, "server.friend.invite_token.create", `{}`)
 	var friendToken struct {
 		InviteToken string `json:"invite_token"`
 		ExpiresAt   string `json:"expires_at"`
@@ -728,7 +779,7 @@ func CSDKSocialRelationships(t *testing.T, identityADir, identityBDir string) {
 	if friendToken.InviteToken == "" || friendToken.ExpiresAt == "" {
 		t.Fatalf("invalid server.friend.invite_token.create: %s", string(result))
 	}
-	result = mustCallJSON(t, clientA, "server.friend.add", fmt.Sprintf(`{"invite_token":%q}`, friendToken.InviteToken))
+	result = mustCallRPC(t, clientA, "server.friend.add", fmt.Sprintf(`{"invite_token":%q}`, friendToken.InviteToken))
 	var friendAdd struct {
 		ID            string `json:"id"`
 		WorkspaceName string `json:"workspace_name"`
@@ -739,7 +790,7 @@ func CSDKSocialRelationships(t *testing.T, identityADir, identityBDir string) {
 		t.Fatalf("invalid server.friend.add: %s", string(result))
 	}
 
-	result = mustCallJSON(t, clientA, "server.friend_group.create", `{"name":"c-sdk-cross-user-group","description":"created by cgo C SDK relationship test"}`)
+	result = mustCallRPC(t, clientA, "server.friend_group.create", `{"name":"c-sdk-cross-user-group","description":"created by cgo C SDK relationship test"}`)
 	var groupCreate struct {
 		ID            string `json:"id"`
 		WorkspaceName string `json:"workspace_name"`
@@ -749,7 +800,7 @@ func CSDKSocialRelationships(t *testing.T, identityADir, identityBDir string) {
 		t.Fatalf("invalid server.friend_group.create: %s", string(result))
 	}
 	groupID := groupCreate.ID
-	result = mustCallJSON(t, clientA, "server.friend_group.invite_token.create", fmt.Sprintf(`{"friend_group_id":%q}`, groupID))
+	result = mustCallRPC(t, clientA, "server.friend_group.invite_token.create", fmt.Sprintf(`{"friend_group_id":%q}`, groupID))
 	var groupToken struct {
 		InviteToken string `json:"invite_token"`
 		ExpiresAt   string `json:"expires_at"`
@@ -758,15 +809,15 @@ func CSDKSocialRelationships(t *testing.T, identityADir, identityBDir string) {
 	if groupToken.InviteToken == "" || groupToken.ExpiresAt == "" {
 		t.Fatalf("invalid server.friend_group.invite_token.create: %s", string(result))
 	}
-	result = mustCallJSON(t, clientB, "server.friend_group.join", fmt.Sprintf(`{"invite_token":%q}`, groupToken.InviteToken))
+	result = mustCallRPC(t, clientB, "server.friend_group.join", fmt.Sprintf(`{"invite_token":%q}`, groupToken.InviteToken))
 	if !bytes.Contains(result, []byte(groupID)) {
 		t.Fatalf("invalid server.friend_group.join: %s", string(result))
 	}
-	result = mustCallJSON(t, clientB, "server.friend_group.members.list", fmt.Sprintf(`{"friend_group_id":%q,"limit":1000}`, groupID))
+	result = mustCallRPC(t, clientB, "server.friend_group.members.list", fmt.Sprintf(`{"friend_group_id":%q,"limit":1000}`, groupID))
 	if !bytes.Contains(result, []byte(groupID)) {
 		t.Fatalf("invalid server.friend_group.members.list: %s", string(result))
 	}
-	result = mustCallJSON(t, clientB, "server.friend_group.messages.send", fmt.Sprintf(`{"friend_group_id":%q,"audio_content_type":"audio/opus","audio_base64":"Yy1zZGstY3Jvc3MtdXNlci1zb2NpYWwtbWVzc2FnZQ=="}`, groupID))
+	result = mustCallRPC(t, clientB, "server.friend_group.messages.send", fmt.Sprintf(`{"friend_group_id":%q,"audio_content_type":"audio/opus","audio_base64":"Yy1zZGstY3Jvc3MtdXNlci1zb2NpYWwtbWVzc2FnZQ=="}`, groupID))
 	var messageSend struct {
 		ID            string `json:"id"`
 		FriendGroupID string `json:"friend_group_id"`
@@ -776,11 +827,11 @@ func CSDKSocialRelationships(t *testing.T, identityADir, identityBDir string) {
 		t.Fatalf("invalid server.friend_group.messages.send: %s", string(result))
 	}
 	messageID := messageSend.ID
-	result = mustCallJSON(t, clientA, "server.friend_group.messages.get", fmt.Sprintf(`{"friend_group_id":%q,"id":%q}`, groupID, messageID))
+	result = mustCallRPC(t, clientA, "server.friend_group.messages.get", fmt.Sprintf(`{"friend_group_id":%q,"id":%q}`, groupID, messageID))
 	if !bytes.Contains(result, []byte(messageID)) {
 		t.Fatalf("invalid server.friend_group.messages.get: %s", string(result))
 	}
-	result = mustCallJSON(t, clientA, "server.friend_group.messages.list", fmt.Sprintf(`{"friend_group_id":%q,"limit":1000}`, groupID))
+	result = mustCallRPC(t, clientA, "server.friend_group.messages.list", fmt.Sprintf(`{"friend_group_id":%q,"limit":1000}`, groupID))
 	if !bytes.Contains(result, []byte(messageID)) {
 		t.Fatalf("invalid server.friend_group.messages.list: %s", string(result))
 	}
@@ -795,9 +846,9 @@ func newTestClient(t *testing.T, identityDir string) *Client {
 	return client
 }
 
-func mustCallJSON(t *testing.T, client *Client, method, params string) json.RawMessage {
+func mustCallRPC(t *testing.T, client *Client, method, params string) json.RawMessage {
 	t.Helper()
-	result, err := client.CallJSON(method, json.RawMessage(params))
+	result, err := client.CallRPC(method, json.RawMessage(params))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -817,17 +868,26 @@ func streamResultProtobuf(t *testing.T, method string, frame []byte) json.RawMes
 	if err := proto.Unmarshal(frame, &envelope); err != nil {
 		t.Fatalf("decode %s protobuf stream envelope: %v", method, err)
 	}
-	response, err := rpcapi.DecodeRPCResponseForMethod(rpcapi.RPCMethod(method), &envelope)
-	if err != nil {
-		t.Fatalf("decode %s protobuf stream result: %v", method, err)
+	if rpcErr := envelope.GetError(); rpcErr != nil {
+		t.Fatalf("%s stream error: %d %s", method, rpcErr.GetCode(), rpcErr.GetMessage())
 	}
-	if response.Error != nil {
-		t.Fatalf("%s stream error: %d %s", method, response.Error.Code, response.Error.Message)
-	}
-	if response.Result == nil {
+	resultPayload := envelope.GetPayload()
+	if resultPayload == nil {
 		t.Fatalf("%s stream envelope has empty result", method)
 	}
-	result, err := response.Result.MarshalJSON()
+	methodID := rpcapi.RPCMethod(method)
+	protoMethod, err := rpcapi.ProtoMethod(methodID)
+	if err != nil {
+		t.Fatalf("method %s id: %v", method, err)
+	}
+	responseMessage, err := newCgoRPCPayloadMessage(rpcpb.RpcMethod(protoMethod), true)
+	if err != nil {
+		t.Fatalf("create %s stream response payload: %v", method, err)
+	}
+	if err := proto.Unmarshal(resultPayload, responseMessage.Interface()); err != nil {
+		t.Fatalf("decode %s stream response payload: %v", method, err)
+	}
+	result, err := protojson.MarshalOptions{EmitUnpopulated: true}.Marshal(responseMessage.Interface())
 	if err != nil {
 		t.Fatalf("marshal %s stream result JSON: %v", method, err)
 	}
@@ -836,7 +896,7 @@ func streamResultProtobuf(t *testing.T, method string, frame []byte) json.RawMes
 
 func setChatWorkspace(t *testing.T, client *Client, workspaceName string) {
 	t.Helper()
-	result := mustCallJSON(t, client, "server.run.workspace.set", fmt.Sprintf(`{"workspace_name":%q}`, workspaceName))
+	result := mustCallRPC(t, client, "server.run.workspace.set", fmt.Sprintf(`{"workspace_name":%q}`, workspaceName))
 	var setResponse struct {
 		WorkspaceName string `json:"workspace_name"`
 	}
@@ -844,7 +904,7 @@ func setChatWorkspace(t *testing.T, client *Client, workspaceName string) {
 	if setResponse.WorkspaceName != workspaceName {
 		t.Fatalf("invalid server.run.workspace.set: %s", string(result))
 	}
-	result = mustCallJSON(t, client, "server.run.workspace.reload", `{}`)
+	result = mustCallRPC(t, client, "server.run.workspace.reload", `{}`)
 	var reloadResponse struct {
 		WorkspaceName string `json:"workspace_name"`
 	}

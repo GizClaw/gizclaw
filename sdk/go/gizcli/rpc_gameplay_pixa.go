@@ -23,7 +23,7 @@ func (c *rpcClient) DownloadPetDefPixa(ctx context.Context, conn net.Conn, id st
 	if out == nil {
 		return PetDefPixaDownloadResult{}, fmt.Errorf("petdef pixa download output is required")
 	}
-	params, err := newRPCRequestParams(request, (*rpcapi.RPCRequest_Params).FromPetDefPixaDownloadRequest)
+	params, err := newRPCRequestParams(request, (*rpcapi.RPCPayload).FromPetDefPixaDownloadRequest)
 	if err != nil {
 		return PetDefPixaDownloadResult{}, err
 	}
@@ -66,7 +66,7 @@ func (c *rpcClient) DownloadBadgeDefPixa(ctx context.Context, conn net.Conn, id 
 	if out == nil {
 		return BadgeDefPixaDownloadResult{}, fmt.Errorf("badgedef pixa download output is required")
 	}
-	params, err := newRPCRequestParams(request, (*rpcapi.RPCRequest_Params).FromBadgeDefPixaDownloadRequest)
+	params, err := newRPCRequestParams(request, (*rpcapi.RPCPayload).FromBadgeDefPixaDownloadRequest)
 	if err != nil {
 		return BadgeDefPixaDownloadResult{}, err
 	}

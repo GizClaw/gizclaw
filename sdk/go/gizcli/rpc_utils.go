@@ -174,14 +174,14 @@ func callRPCPing(ctx context.Context, conn net.Conn, id string) (*rpcapi.PingRes
 	if err != nil {
 		return nil, err
 	}
-	result, err := callRPCResult(ctx, conn, newRPCRequest(id, rpcapi.RPCMethodAllPing, params), rpcapi.RPCResponse_Result.AsPingResponse)
+	result, err := callRPCResult(ctx, conn, newRPCRequest(id, rpcapi.RPCMethodAllPing, params), rpcapi.RPCPayload.AsPingResponse)
 	if err != nil {
 		return nil, wrapRPCResultError("ping", err)
 	}
 	return result, nil
 }
 
-func newRPCRequest(id string, method rpcapi.RPCMethod, params *rpcapi.RPCRequest_Params) *rpcapi.RPCRequest {
+func newRPCRequest(id string, method rpcapi.RPCMethod, params *rpcapi.RPCPayload) *rpcapi.RPCRequest {
 	return &rpcapi.RPCRequest{
 		V:      rpcapi.RPCVersionV1,
 		Id:     id,
@@ -194,7 +194,7 @@ func callRPCResult[T any](
 	ctx context.Context,
 	conn net.Conn,
 	req *rpcapi.RPCRequest,
-	decode func(rpcapi.RPCResponse_Result) (T, error),
+	decode func(rpcapi.RPCPayload) (T, error),
 ) (*T, error) {
 	resp, err := callRPC(ctx, conn, req)
 	if err != nil {
@@ -228,8 +228,8 @@ func wrapRPCResultError(name string, err error) error {
 	return fmt.Errorf("rpc: decode %s result: %w", name, err)
 }
 
-func newRPCPingRequestParams(request rpcapi.PingRequest) (*rpcapi.RPCRequest_Params, error) {
-	var params rpcapi.RPCRequest_Params
+func newRPCPingRequestParams(request rpcapi.PingRequest) (*rpcapi.RPCPayload, error) {
+	var params rpcapi.RPCPayload
 	if err := params.FromPingRequest(request); err != nil {
 		return nil, err
 	}
@@ -237,11 +237,11 @@ func newRPCPingRequestParams(request rpcapi.PingRequest) (*rpcapi.RPCRequest_Par
 }
 
 func newRPCPingResponse(id string, response rpcapi.PingResponse) (*rpcapi.RPCResponse, error) {
-	return newRPCResultResponse(id, response, (*rpcapi.RPCResponse_Result).FromPingResponse)
+	return newRPCResultResponse(id, response, (*rpcapi.RPCPayload).FromPingResponse)
 }
 
-func newRPCResultResponse[T any](id string, result T, encode func(*rpcapi.RPCResponse_Result, T) error) (*rpcapi.RPCResponse, error) {
-	var body rpcapi.RPCResponse_Result
+func newRPCResultResponse[T any](id string, result T, encode func(*rpcapi.RPCPayload, T) error) (*rpcapi.RPCResponse, error) {
+	var body rpcapi.RPCPayload
 	if err := encode(&body, result); err != nil {
 		return nil, err
 	}
@@ -252,15 +252,15 @@ func newRPCResultResponse[T any](id string, result T, encode func(*rpcapi.RPCRes
 	}, nil
 }
 
-func newRPCRequestParams[T any](request T, encode func(*rpcapi.RPCRequest_Params, T) error) (*rpcapi.RPCRequest_Params, error) {
-	var params rpcapi.RPCRequest_Params
+func newRPCRequestParams[T any](request T, encode func(*rpcapi.RPCPayload, T) error) (*rpcapi.RPCPayload, error) {
+	var params rpcapi.RPCPayload
 	if err := encode(&params, request); err != nil {
 		return nil, err
 	}
 	return &params, nil
 }
 
-func validateRPCParams[T any](params *rpcapi.RPCRequest_Params, decode func(rpcapi.RPCRequest_Params) (T, error)) error {
+func validateRPCParams[T any](params *rpcapi.RPCPayload, decode func(rpcapi.RPCPayload) (T, error)) error {
 	if params == nil {
 		return nil
 	}

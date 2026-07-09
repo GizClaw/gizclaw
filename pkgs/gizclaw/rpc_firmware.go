@@ -39,7 +39,7 @@ func (s *rpcServer) handleFirmwareBinDownload(ctx context.Context, stream *rpcSt
 	}
 	defer reader.Close()
 
-	resp, err := newRPCResultResponse(req.Id, metadata, (*rpcapi.RPCResponse_Result).FromFirmwareFilesDownloadResponse)
+	resp, err := newRPCResultResponse(req.Id, metadata, (*rpcapi.RPCPayload).FromFirmwareFilesDownloadResponse)
 	if err != nil {
 		return err
 	}

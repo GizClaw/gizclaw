@@ -18,7 +18,7 @@ func (c *rpcClient) GetWorkspaceHistoryAudio(ctx context.Context, conn net.Conn,
 	if out == nil {
 		return WorkspaceHistoryAudioGetResult{}, fmt.Errorf("workspace history audio output is required")
 	}
-	params, err := newRPCRequestParams(request, (*rpcapi.RPCRequest_Params).FromWorkspaceHistoryAudioGetRequest)
+	params, err := newRPCRequestParams(request, (*rpcapi.RPCPayload).FromWorkspaceHistoryAudioGetRequest)
 	if err != nil {
 		return WorkspaceHistoryAudioGetResult{}, err
 	}

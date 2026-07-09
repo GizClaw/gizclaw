@@ -45,7 +45,7 @@ func callRPCSpeedTest(ctx context.Context, conn net.Conn, id string, request rpc
 	if err := validateSpeedTestRequest(request); err != nil {
 		return SpeedTestResult{}, err
 	}
-	params, err := newRPCRequestParams(request, (*rpcapi.RPCRequest_Params).FromSpeedTestRequest)
+	params, err := newRPCRequestParams(request, (*rpcapi.RPCPayload).FromSpeedTestRequest)
 	if err != nil {
 		return SpeedTestResult{}, err
 	}
@@ -130,7 +130,7 @@ func (s *rpcServer) handleSpeedTest(ctx context.Context, stream *rpcStream, req 
 	result, err := newRPCResultResponse(req.Id, rpcapi.SpeedTestResponse{
 		UpContentLength:   params.UpContentLength,
 		DownContentLength: params.DownContentLength,
-	}, (*rpcapi.RPCResponse_Result).FromSpeedTestResponse)
+	}, (*rpcapi.RPCPayload).FromSpeedTestResponse)
 	if err != nil {
 		return err
 	}

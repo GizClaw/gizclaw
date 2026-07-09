@@ -14,173 +14,173 @@ func TestRPCResourceClientWrappers(t *testing.T) {
 	client := &rpcClient{}
 
 	t.Run("workspace", func(t *testing.T) {
-		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerWorkspaceList, rpcapi.WorkspaceListResponse{}, (*rpcapi.RPCResponse_Result).FromWorkspaceListResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.WorkspaceListResponse, error) {
+		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerWorkspaceList, rpcapi.WorkspaceListResponse{}, (*rpcapi.RPCPayload).FromWorkspaceListResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.WorkspaceListResponse, error) {
 			return client.ListWorkspaces(ctx, conn, "workspace-list", rpcapi.WorkspaceListRequest{})
 		})
-		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerWorkspaceGet, rpcapi.WorkspaceGetResponse{}, (*rpcapi.RPCResponse_Result).FromWorkspaceGetResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.WorkspaceGetResponse, error) {
+		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerWorkspaceGet, rpcapi.WorkspaceGetResponse{}, (*rpcapi.RPCPayload).FromWorkspaceGetResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.WorkspaceGetResponse, error) {
 			return client.GetWorkspace(ctx, conn, "workspace-get", rpcapi.WorkspaceGetRequest{Name: "main"})
 		})
-		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerWorkspaceCreate, rpcapi.WorkspaceCreateResponse{}, (*rpcapi.RPCResponse_Result).FromWorkspaceCreateResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.WorkspaceCreateResponse, error) {
+		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerWorkspaceCreate, rpcapi.WorkspaceCreateResponse{}, (*rpcapi.RPCPayload).FromWorkspaceCreateResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.WorkspaceCreateResponse, error) {
 			return client.CreateWorkspace(ctx, conn, "workspace-create", rpcapi.WorkspaceCreateRequest{})
 		})
-		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerWorkspacePut, rpcapi.WorkspacePutResponse{}, (*rpcapi.RPCResponse_Result).FromWorkspacePutResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.WorkspacePutResponse, error) {
+		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerWorkspacePut, rpcapi.WorkspacePutResponse{}, (*rpcapi.RPCPayload).FromWorkspacePutResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.WorkspacePutResponse, error) {
 			return client.PutWorkspace(ctx, conn, "workspace-put", rpcapi.WorkspacePutRequest{Name: "main"})
 		})
-		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerWorkspaceDelete, rpcapi.WorkspaceDeleteResponse{}, (*rpcapi.RPCResponse_Result).FromWorkspaceDeleteResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.WorkspaceDeleteResponse, error) {
+		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerWorkspaceDelete, rpcapi.WorkspaceDeleteResponse{}, (*rpcapi.RPCPayload).FromWorkspaceDeleteResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.WorkspaceDeleteResponse, error) {
 			return client.DeleteWorkspace(ctx, conn, "workspace-delete", rpcapi.WorkspaceDeleteRequest{Name: "main"})
 		})
-		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerWorkspaceHistoryList, rpcapi.WorkspaceHistoryListResponse{}, (*rpcapi.RPCResponse_Result).FromWorkspaceHistoryListResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.WorkspaceHistoryListResponse, error) {
+		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerWorkspaceHistoryList, rpcapi.WorkspaceHistoryListResponse{}, (*rpcapi.RPCPayload).FromWorkspaceHistoryListResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.WorkspaceHistoryListResponse, error) {
 			return client.ListWorkspaceHistory(ctx, conn, "workspace-history-list", rpcapi.WorkspaceHistoryListRequest{WorkspaceName: "main"})
 		})
-		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerWorkspaceHistoryGet, rpcapi.WorkspaceHistoryGetResponse{}, (*rpcapi.RPCResponse_Result).FromWorkspaceHistoryGetResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.WorkspaceHistoryGetResponse, error) {
+		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerWorkspaceHistoryGet, rpcapi.WorkspaceHistoryGetResponse{}, (*rpcapi.RPCPayload).FromWorkspaceHistoryGetResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.WorkspaceHistoryGetResponse, error) {
 			return client.GetWorkspaceHistory(ctx, conn, "workspace-history-get", rpcapi.WorkspaceHistoryGetRequest{WorkspaceName: "main", HistoryId: "h1"})
 		})
 		runWorkspaceHistoryAudioGetWrapperTest(t, client)
 	})
 
 	t.Run("workflow", func(t *testing.T) {
-		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerWorkflowList, rpcapi.WorkflowListResponse{}, (*rpcapi.RPCResponse_Result).FromWorkflowListResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.WorkflowListResponse, error) {
+		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerWorkflowList, rpcapi.WorkflowListResponse{}, (*rpcapi.RPCPayload).FromWorkflowListResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.WorkflowListResponse, error) {
 			return client.ListWorkflows(ctx, conn, "workflow-list", rpcapi.WorkflowListRequest{})
 		})
-		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerWorkflowGet, rpcapi.WorkflowGetResponse{}, (*rpcapi.RPCResponse_Result).FromWorkflowGetResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.WorkflowGetResponse, error) {
+		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerWorkflowGet, rpcapi.WorkflowGetResponse{}, (*rpcapi.RPCPayload).FromWorkflowGetResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.WorkflowGetResponse, error) {
 			return client.GetWorkflow(ctx, conn, "workflow-get", rpcapi.WorkflowGetRequest{Name: "flow"})
 		})
-		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerWorkflowCreate, rpcapi.WorkflowCreateResponse{}, (*rpcapi.RPCResponse_Result).FromWorkflowCreateResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.WorkflowCreateResponse, error) {
+		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerWorkflowCreate, rpcapi.WorkflowCreateResponse{}, (*rpcapi.RPCPayload).FromWorkflowCreateResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.WorkflowCreateResponse, error) {
 			return client.CreateWorkflow(ctx, conn, "workflow-create", rpcapi.WorkflowCreateRequest{})
 		})
-		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerWorkflowPut, rpcapi.WorkflowPutResponse{}, (*rpcapi.RPCResponse_Result).FromWorkflowPutResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.WorkflowPutResponse, error) {
+		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerWorkflowPut, rpcapi.WorkflowPutResponse{}, (*rpcapi.RPCPayload).FromWorkflowPutResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.WorkflowPutResponse, error) {
 			return client.PutWorkflow(ctx, conn, "workflow-put", rpcapi.WorkflowPutRequest{Name: "flow"})
 		})
-		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerWorkflowDelete, rpcapi.WorkflowDeleteResponse{}, (*rpcapi.RPCResponse_Result).FromWorkflowDeleteResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.WorkflowDeleteResponse, error) {
+		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerWorkflowDelete, rpcapi.WorkflowDeleteResponse{}, (*rpcapi.RPCPayload).FromWorkflowDeleteResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.WorkflowDeleteResponse, error) {
 			return client.DeleteWorkflow(ctx, conn, "workflow-delete", rpcapi.WorkflowDeleteRequest{Name: "flow"})
 		})
 	})
 
 	t.Run("model", func(t *testing.T) {
-		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerModelList, rpcapi.ModelListResponse{}, (*rpcapi.RPCResponse_Result).FromModelListResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.ModelListResponse, error) {
+		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerModelList, rpcapi.ModelListResponse{}, (*rpcapi.RPCPayload).FromModelListResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.ModelListResponse, error) {
 			return client.ListModels(ctx, conn, "model-list", rpcapi.ModelListRequest{})
 		})
-		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerModelGet, rpcapi.ModelGetResponse{}, (*rpcapi.RPCResponse_Result).FromModelGetResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.ModelGetResponse, error) {
+		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerModelGet, rpcapi.ModelGetResponse{}, (*rpcapi.RPCPayload).FromModelGetResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.ModelGetResponse, error) {
 			return client.GetModel(ctx, conn, "model-get", rpcapi.ModelGetRequest{Id: "llm"})
 		})
-		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerModelCreate, rpcapi.ModelCreateResponse{}, (*rpcapi.RPCResponse_Result).FromModelCreateResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.ModelCreateResponse, error) {
+		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerModelCreate, rpcapi.ModelCreateResponse{}, (*rpcapi.RPCPayload).FromModelCreateResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.ModelCreateResponse, error) {
 			return client.CreateModel(ctx, conn, "model-create", rpcapi.ModelCreateRequest{})
 		})
-		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerModelPut, rpcapi.ModelPutResponse{}, (*rpcapi.RPCResponse_Result).FromModelPutResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.ModelPutResponse, error) {
+		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerModelPut, rpcapi.ModelPutResponse{}, (*rpcapi.RPCPayload).FromModelPutResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.ModelPutResponse, error) {
 			return client.PutModel(ctx, conn, "model-put", rpcapi.ModelPutRequest{Id: "llm"})
 		})
-		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerModelDelete, rpcapi.ModelDeleteResponse{}, (*rpcapi.RPCResponse_Result).FromModelDeleteResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.ModelDeleteResponse, error) {
+		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerModelDelete, rpcapi.ModelDeleteResponse{}, (*rpcapi.RPCPayload).FromModelDeleteResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.ModelDeleteResponse, error) {
 			return client.DeleteModel(ctx, conn, "model-delete", rpcapi.ModelDeleteRequest{Id: "llm"})
 		})
 	})
 
 	t.Run("credential", func(t *testing.T) {
-		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerCredentialList, rpcapi.CredentialListResponse{}, (*rpcapi.RPCResponse_Result).FromCredentialListResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.CredentialListResponse, error) {
+		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerCredentialList, rpcapi.CredentialListResponse{}, (*rpcapi.RPCPayload).FromCredentialListResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.CredentialListResponse, error) {
 			return client.ListCredentials(ctx, conn, "credential-list", rpcapi.CredentialListRequest{})
 		})
-		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerCredentialGet, rpcapi.CredentialGetResponse{}, (*rpcapi.RPCResponse_Result).FromCredentialGetResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.CredentialGetResponse, error) {
+		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerCredentialGet, rpcapi.CredentialGetResponse{}, (*rpcapi.RPCPayload).FromCredentialGetResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.CredentialGetResponse, error) {
 			return client.GetCredential(ctx, conn, "credential-get", rpcapi.CredentialGetRequest{Name: "openai"})
 		})
-		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerCredentialCreate, rpcapi.CredentialCreateResponse{}, (*rpcapi.RPCResponse_Result).FromCredentialCreateResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.CredentialCreateResponse, error) {
+		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerCredentialCreate, rpcapi.CredentialCreateResponse{}, (*rpcapi.RPCPayload).FromCredentialCreateResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.CredentialCreateResponse, error) {
 			return client.CreateCredential(ctx, conn, "credential-create", rpcapi.CredentialCreateRequest{})
 		})
-		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerCredentialPut, rpcapi.CredentialPutResponse{}, (*rpcapi.RPCResponse_Result).FromCredentialPutResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.CredentialPutResponse, error) {
+		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerCredentialPut, rpcapi.CredentialPutResponse{}, (*rpcapi.RPCPayload).FromCredentialPutResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.CredentialPutResponse, error) {
 			return client.PutCredential(ctx, conn, "credential-put", rpcapi.CredentialPutRequest{Name: "openai"})
 		})
-		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerCredentialDelete, rpcapi.CredentialDeleteResponse{}, (*rpcapi.RPCResponse_Result).FromCredentialDeleteResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.CredentialDeleteResponse, error) {
+		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerCredentialDelete, rpcapi.CredentialDeleteResponse{}, (*rpcapi.RPCPayload).FromCredentialDeleteResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.CredentialDeleteResponse, error) {
 			return client.DeleteCredential(ctx, conn, "credential-delete", rpcapi.CredentialDeleteRequest{Name: "openai"})
 		})
 	})
 
 	t.Run("social", func(t *testing.T) {
-		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerContactList, rpcapi.ContactListResponse{}, (*rpcapi.RPCResponse_Result).FromContactListResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.ContactListResponse, error) {
+		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerContactList, rpcapi.ContactListResponse{}, (*rpcapi.RPCPayload).FromContactListResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.ContactListResponse, error) {
 			return client.ListContacts(ctx, conn, "contact-list", rpcapi.ContactListRequest{})
 		})
-		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerContactGet, rpcapi.ContactGetResponse{}, (*rpcapi.RPCResponse_Result).FromContactGetResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.ContactGetResponse, error) {
+		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerContactGet, rpcapi.ContactGetResponse{}, (*rpcapi.RPCPayload).FromContactGetResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.ContactGetResponse, error) {
 			return client.GetContact(ctx, conn, "contact-get", rpcapi.ContactGetRequest{Id: "contact-a"})
 		})
-		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerContactCreate, rpcapi.ContactCreateResponse{}, (*rpcapi.RPCResponse_Result).FromContactCreateResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.ContactCreateResponse, error) {
+		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerContactCreate, rpcapi.ContactCreateResponse{}, (*rpcapi.RPCPayload).FromContactCreateResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.ContactCreateResponse, error) {
 			return client.CreateContact(ctx, conn, "contact-create", rpcapi.ContactCreateRequest{})
 		})
-		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerContactPut, rpcapi.ContactPutResponse{}, (*rpcapi.RPCResponse_Result).FromContactPutResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.ContactPutResponse, error) {
+		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerContactPut, rpcapi.ContactPutResponse{}, (*rpcapi.RPCPayload).FromContactPutResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.ContactPutResponse, error) {
 			return client.PutContact(ctx, conn, "contact-put", rpcapi.ContactPutRequest{Id: "contact-a"})
 		})
-		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerContactDelete, rpcapi.ContactDeleteResponse{}, (*rpcapi.RPCResponse_Result).FromContactDeleteResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.ContactDeleteResponse, error) {
+		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerContactDelete, rpcapi.ContactDeleteResponse{}, (*rpcapi.RPCPayload).FromContactDeleteResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.ContactDeleteResponse, error) {
 			return client.DeleteContact(ctx, conn, "contact-delete", rpcapi.ContactDeleteRequest{Id: "contact-a"})
 		})
-		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerFriendInviteTokenGet, rpcapi.FriendInviteTokenGetResponse{}, (*rpcapi.RPCResponse_Result).FromFriendInviteTokenGetResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.FriendInviteTokenGetResponse, error) {
+		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerFriendInviteTokenGet, rpcapi.FriendInviteTokenGetResponse{}, (*rpcapi.RPCPayload).FromFriendInviteTokenGetResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.FriendInviteTokenGetResponse, error) {
 			return client.GetFriendInviteToken(ctx, conn, "friend-invite-token-get", rpcapi.FriendInviteTokenGetRequest{})
 		})
-		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerFriendInviteTokenCreate, rpcapi.FriendInviteTokenCreateResponse{}, (*rpcapi.RPCResponse_Result).FromFriendInviteTokenCreateResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.FriendInviteTokenCreateResponse, error) {
+		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerFriendInviteTokenCreate, rpcapi.FriendInviteTokenCreateResponse{}, (*rpcapi.RPCPayload).FromFriendInviteTokenCreateResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.FriendInviteTokenCreateResponse, error) {
 			return client.CreateFriendInviteToken(ctx, conn, "friend-invite-token-create", rpcapi.FriendInviteTokenCreateRequest{})
 		})
-		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerFriendInviteTokenClear, rpcapi.FriendInviteTokenClearResponse{}, (*rpcapi.RPCResponse_Result).FromFriendInviteTokenClearResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.FriendInviteTokenClearResponse, error) {
+		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerFriendInviteTokenClear, rpcapi.FriendInviteTokenClearResponse{}, (*rpcapi.RPCPayload).FromFriendInviteTokenClearResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.FriendInviteTokenClearResponse, error) {
 			return client.ClearFriendInviteToken(ctx, conn, "friend-invite-token-clear", rpcapi.FriendInviteTokenClearRequest{})
 		})
-		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerFriendAdd, rpcapi.FriendAddResponse{}, (*rpcapi.RPCResponse_Result).FromFriendAddResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.FriendAddResponse, error) {
+		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerFriendAdd, rpcapi.FriendAddResponse{}, (*rpcapi.RPCPayload).FromFriendAddResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.FriendAddResponse, error) {
 			return client.AddFriend(ctx, conn, "friend-add", rpcapi.FriendAddRequest{InviteToken: "token-a"})
 		})
-		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerFriendList, rpcapi.FriendListResponse{}, (*rpcapi.RPCResponse_Result).FromFriendListResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.FriendListResponse, error) {
+		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerFriendList, rpcapi.FriendListResponse{}, (*rpcapi.RPCPayload).FromFriendListResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.FriendListResponse, error) {
 			return client.ListFriends(ctx, conn, "friend-list", rpcapi.FriendListRequest{})
 		})
-		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerFriendDelete, rpcapi.FriendDeleteResponse{}, (*rpcapi.RPCResponse_Result).FromFriendDeleteResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.FriendDeleteResponse, error) {
+		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerFriendDelete, rpcapi.FriendDeleteResponse{}, (*rpcapi.RPCPayload).FromFriendDeleteResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.FriendDeleteResponse, error) {
 			return client.DeleteFriend(ctx, conn, "friend-delete", rpcapi.FriendDeleteRequest{Id: "friend-a"})
 		})
-		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerFriendGroupList, rpcapi.FriendGroupListResponse{}, (*rpcapi.RPCResponse_Result).FromFriendGroupListResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.FriendGroupListResponse, error) {
+		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerFriendGroupList, rpcapi.FriendGroupListResponse{}, (*rpcapi.RPCPayload).FromFriendGroupListResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.FriendGroupListResponse, error) {
 			return client.ListFriendGroups(ctx, conn, "friend-group-list", rpcapi.FriendGroupListRequest{})
 		})
-		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerFriendGroupGet, rpcapi.FriendGroupGetResponse{}, (*rpcapi.RPCResponse_Result).FromFriendGroupGetResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.FriendGroupGetResponse, error) {
+		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerFriendGroupGet, rpcapi.FriendGroupGetResponse{}, (*rpcapi.RPCPayload).FromFriendGroupGetResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.FriendGroupGetResponse, error) {
 			return client.GetFriendGroup(ctx, conn, "friend-group-get", rpcapi.FriendGroupGetRequest{Id: "group-a"})
 		})
-		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerFriendGroupCreate, rpcapi.FriendGroupCreateResponse{}, (*rpcapi.RPCResponse_Result).FromFriendGroupCreateResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.FriendGroupCreateResponse, error) {
+		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerFriendGroupCreate, rpcapi.FriendGroupCreateResponse{}, (*rpcapi.RPCPayload).FromFriendGroupCreateResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.FriendGroupCreateResponse, error) {
 			return client.CreateFriendGroup(ctx, conn, "friend-group-create", rpcapi.FriendGroupCreateRequest{Name: "family"})
 		})
-		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerFriendGroupPut, rpcapi.FriendGroupPutResponse{}, (*rpcapi.RPCResponse_Result).FromFriendGroupPutResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.FriendGroupPutResponse, error) {
+		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerFriendGroupPut, rpcapi.FriendGroupPutResponse{}, (*rpcapi.RPCPayload).FromFriendGroupPutResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.FriendGroupPutResponse, error) {
 			return client.PutFriendGroup(ctx, conn, "friend-group-put", rpcapi.FriendGroupPutRequest{Id: "group-a"})
 		})
-		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerFriendGroupDelete, rpcapi.FriendGroupDeleteResponse{}, (*rpcapi.RPCResponse_Result).FromFriendGroupDeleteResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.FriendGroupDeleteResponse, error) {
+		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerFriendGroupDelete, rpcapi.FriendGroupDeleteResponse{}, (*rpcapi.RPCPayload).FromFriendGroupDeleteResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.FriendGroupDeleteResponse, error) {
 			return client.DeleteFriendGroup(ctx, conn, "friend-group-delete", rpcapi.FriendGroupDeleteRequest{Id: "group-a"})
 		})
-		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerFriendGroupInviteTokenGet, rpcapi.FriendGroupInviteTokenGetResponse{}, (*rpcapi.RPCResponse_Result).FromFriendGroupInviteTokenGetResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.FriendGroupInviteTokenGetResponse, error) {
+		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerFriendGroupInviteTokenGet, rpcapi.FriendGroupInviteTokenGetResponse{}, (*rpcapi.RPCPayload).FromFriendGroupInviteTokenGetResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.FriendGroupInviteTokenGetResponse, error) {
 			return client.GetFriendGroupInviteToken(ctx, conn, "friend-group-invite-token-get", rpcapi.FriendGroupInviteTokenGetRequest{FriendGroupId: "group-a"})
 		})
-		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerFriendGroupInviteTokenCreate, rpcapi.FriendGroupInviteTokenCreateResponse{}, (*rpcapi.RPCResponse_Result).FromFriendGroupInviteTokenCreateResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.FriendGroupInviteTokenCreateResponse, error) {
+		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerFriendGroupInviteTokenCreate, rpcapi.FriendGroupInviteTokenCreateResponse{}, (*rpcapi.RPCPayload).FromFriendGroupInviteTokenCreateResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.FriendGroupInviteTokenCreateResponse, error) {
 			return client.CreateFriendGroupInviteToken(ctx, conn, "friend-group-invite-token-create", rpcapi.FriendGroupInviteTokenCreateRequest{FriendGroupId: "group-a"})
 		})
-		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerFriendGroupInviteTokenClear, rpcapi.FriendGroupInviteTokenClearResponse{}, (*rpcapi.RPCResponse_Result).FromFriendGroupInviteTokenClearResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.FriendGroupInviteTokenClearResponse, error) {
+		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerFriendGroupInviteTokenClear, rpcapi.FriendGroupInviteTokenClearResponse{}, (*rpcapi.RPCPayload).FromFriendGroupInviteTokenClearResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.FriendGroupInviteTokenClearResponse, error) {
 			return client.ClearFriendGroupInviteToken(ctx, conn, "friend-group-invite-token-clear", rpcapi.FriendGroupInviteTokenClearRequest{FriendGroupId: "group-a"})
 		})
-		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerFriendGroupJoin, rpcapi.FriendGroupJoinResponse{}, (*rpcapi.RPCResponse_Result).FromFriendGroupJoinResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.FriendGroupJoinResponse, error) {
+		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerFriendGroupJoin, rpcapi.FriendGroupJoinResponse{}, (*rpcapi.RPCPayload).FromFriendGroupJoinResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.FriendGroupJoinResponse, error) {
 			return client.JoinFriendGroup(ctx, conn, "friend-group-join", rpcapi.FriendGroupJoinRequest{InviteToken: "token-a"})
 		})
-		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerFriendGroupMembersList, rpcapi.FriendGroupMemberListResponse{}, (*rpcapi.RPCResponse_Result).FromFriendGroupMemberListResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.FriendGroupMemberListResponse, error) {
+		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerFriendGroupMembersList, rpcapi.FriendGroupMemberListResponse{}, (*rpcapi.RPCPayload).FromFriendGroupMemberListResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.FriendGroupMemberListResponse, error) {
 			return client.ListFriendGroupMembers(ctx, conn, "friend-group-members-list", rpcapi.FriendGroupMemberListRequest{})
 		})
-		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerFriendGroupMembersAdd, rpcapi.FriendGroupMemberAddResponse{}, (*rpcapi.RPCResponse_Result).FromFriendGroupMemberAddResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.FriendGroupMemberAddResponse, error) {
+		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerFriendGroupMembersAdd, rpcapi.FriendGroupMemberAddResponse{}, (*rpcapi.RPCPayload).FromFriendGroupMemberAddResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.FriendGroupMemberAddResponse, error) {
 			return client.AddFriendGroupMember(ctx, conn, "friend-group-members-add", rpcapi.FriendGroupMemberAddRequest{FriendGroupId: "group-a", PeerPublicKey: "peer-b"})
 		})
-		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerFriendGroupMembersPut, rpcapi.FriendGroupMemberPutResponse{}, (*rpcapi.RPCResponse_Result).FromFriendGroupMemberPutResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.FriendGroupMemberPutResponse, error) {
+		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerFriendGroupMembersPut, rpcapi.FriendGroupMemberPutResponse{}, (*rpcapi.RPCPayload).FromFriendGroupMemberPutResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.FriendGroupMemberPutResponse, error) {
 			return client.PutFriendGroupMember(ctx, conn, "friend-group-members-put", rpcapi.FriendGroupMemberPutRequest{FriendGroupId: "group-a", Id: "peer-b"})
 		})
-		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerFriendGroupMembersDelete, rpcapi.FriendGroupMemberDeleteResponse{}, (*rpcapi.RPCResponse_Result).FromFriendGroupMemberDeleteResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.FriendGroupMemberDeleteResponse, error) {
+		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerFriendGroupMembersDelete, rpcapi.FriendGroupMemberDeleteResponse{}, (*rpcapi.RPCPayload).FromFriendGroupMemberDeleteResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.FriendGroupMemberDeleteResponse, error) {
 			return client.DeleteFriendGroupMember(ctx, conn, "friend-group-members-delete", rpcapi.FriendGroupMemberDeleteRequest{FriendGroupId: "group-a", Id: "peer-b"})
 		})
-		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerFriendGroupMessagesList, rpcapi.FriendGroupMessageListResponse{}, (*rpcapi.RPCResponse_Result).FromFriendGroupMessageListResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.FriendGroupMessageListResponse, error) {
+		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerFriendGroupMessagesList, rpcapi.FriendGroupMessageListResponse{}, (*rpcapi.RPCPayload).FromFriendGroupMessageListResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.FriendGroupMessageListResponse, error) {
 			return client.ListFriendGroupMessages(ctx, conn, "friend-group-messages-list", rpcapi.FriendGroupMessageListRequest{})
 		})
-		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerFriendGroupMessagesGet, rpcapi.FriendGroupMessageGetResponse{}, (*rpcapi.RPCResponse_Result).FromFriendGroupMessageGetResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.FriendGroupMessageGetResponse, error) {
+		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerFriendGroupMessagesGet, rpcapi.FriendGroupMessageGetResponse{}, (*rpcapi.RPCPayload).FromFriendGroupMessageGetResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.FriendGroupMessageGetResponse, error) {
 			return client.GetFriendGroupMessage(ctx, conn, "friend-group-messages-get", rpcapi.FriendGroupMessageGetRequest{FriendGroupId: "group-a", Id: "message-a"})
 		})
-		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerFriendGroupMessagesSend, rpcapi.FriendGroupMessageSendResponse{}, (*rpcapi.RPCResponse_Result).FromFriendGroupMessageSendResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.FriendGroupMessageSendResponse, error) {
+		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerFriendGroupMessagesSend, rpcapi.FriendGroupMessageSendResponse{}, (*rpcapi.RPCPayload).FromFriendGroupMessageSendResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.FriendGroupMessageSendResponse, error) {
 			return client.SendFriendGroupMessage(ctx, conn, "friend-group-messages-send", rpcapi.FriendGroupMessageSendRequest{FriendGroupId: "group-a", AudioContentType: "audio/opus"})
 		})
 	})
 
 	t.Run("firmware", func(t *testing.T) {
-		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerFirmwareList, rpcapi.FirmwareListResponse{}, (*rpcapi.RPCResponse_Result).FromFirmwareListResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.FirmwareListResponse, error) {
+		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerFirmwareList, rpcapi.FirmwareListResponse{}, (*rpcapi.RPCPayload).FromFirmwareListResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.FirmwareListResponse, error) {
 			return client.ListFirmwares(ctx, conn, "firmware-list", rpcapi.FirmwareListRequest{})
 		})
-		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerFirmwareGet, rpcapi.FirmwareGetResponse{}, (*rpcapi.RPCResponse_Result).FromFirmwareGetResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.FirmwareGetResponse, error) {
+		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerFirmwareGet, rpcapi.FirmwareGetResponse{}, (*rpcapi.RPCPayload).FromFirmwareGetResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.FirmwareGetResponse, error) {
 			return client.GetFirmware(ctx, conn, "firmware-get", rpcapi.FirmwareGetRequest{FirmwareId: "devkit"})
 		})
 		runFirmwareDownloadWrapperTest(t, client)
@@ -196,7 +196,7 @@ func runRPCResultWrapperTest[Resp any](
 	t *testing.T,
 	wantMethod rpcapi.RPCMethod,
 	response Resp,
-	encode func(*rpcapi.RPCResponse_Result, Resp) error,
+	encode func(*rpcapi.RPCPayload, Resp) error,
 	call func(context.Context, net.Conn) (*Resp, error),
 ) {
 	t.Helper()
@@ -239,7 +239,7 @@ func (e *unexpectedRPCMethodError) Error() string {
 	return "unexpected RPC method: got " + string(e.got) + ", want " + string(e.want)
 }
 
-func resourceResponse[T any](id string, value T, encode func(*rpcapi.RPCResponse_Result, T) error) *rpcapi.RPCResponse {
+func resourceResponse[T any](id string, value T, encode func(*rpcapi.RPCPayload, T) error) *rpcapi.RPCResponse {
 	resp, err := newRPCResultResponse(id, value, encode)
 	if err != nil {
 		panic(err)
@@ -271,7 +271,7 @@ func runFirmwareDownloadWrapperTest(t *testing.T, client *rpcClient) {
 			Path:       "firmware.bin",
 			Artifact:   rpcapi.FirmwareArtifact{TarPath: "devkit/stable/artifact/artifact.tar", Size: 1024, ContentType: "application/x-tar"},
 			File:       rpcapi.FirmwareArtifactEntry{Path: "firmware.bin", Type: rpcapi.FirmwareArtifactEntryTypeFile, Size: int64(len(payload))},
-		}, (*rpcapi.RPCResponse_Result).FromFirmwareFilesDownloadResponse)
+		}, (*rpcapi.RPCPayload).FromFirmwareFilesDownloadResponse)
 		if err := rpcapi.WriteResponseForMethod(serverSide, req.Method, resp); err != nil {
 			serverErrCh <- err
 			return
@@ -319,7 +319,7 @@ func runPetDefPixaDownloadWrapperTest(t *testing.T, client *rpcClient) {
 			serverErrCh <- &unexpectedRPCMethodError{got: req.Method, want: rpcapi.RPCMethodServerPetDefPixaDownload}
 			return
 		}
-		resp := resourceResponse(req.Id, rpcapi.PetDefPixaDownloadResponse{Id: "petdef-a", PixaPath: &pixaPath, SizeBytes: int64(len(payload))}, (*rpcapi.RPCResponse_Result).FromPetDefPixaDownloadResponse)
+		resp := resourceResponse(req.Id, rpcapi.PetDefPixaDownloadResponse{Id: "petdef-a", PixaPath: &pixaPath, SizeBytes: int64(len(payload))}, (*rpcapi.RPCPayload).FromPetDefPixaDownloadResponse)
 		if err := rpcapi.WriteResponseForMethod(serverSide, req.Method, resp); err != nil {
 			serverErrCh <- err
 			return
@@ -363,7 +363,7 @@ func runBadgeDefPixaDownloadWrapperTest(t *testing.T, client *rpcClient) {
 			serverErrCh <- &unexpectedRPCMethodError{got: req.Method, want: rpcapi.RPCMethodServerBadgeDefPixaDownload}
 			return
 		}
-		resp := resourceResponse(req.Id, rpcapi.BadgeDefPixaDownloadResponse{Id: "badge-a", PixaPath: &pixaPath, SizeBytes: int64(len(payload))}, (*rpcapi.RPCResponse_Result).FromBadgeDefPixaDownloadResponse)
+		resp := resourceResponse(req.Id, rpcapi.BadgeDefPixaDownloadResponse{Id: "badge-a", PixaPath: &pixaPath, SizeBytes: int64(len(payload))}, (*rpcapi.RPCPayload).FromBadgeDefPixaDownloadResponse)
 		if err := rpcapi.WriteResponseForMethod(serverSide, req.Method, resp); err != nil {
 			serverErrCh <- err
 			return
@@ -415,7 +415,7 @@ func runWorkspaceHistoryAudioGetWrapperTest(t *testing.T, client *rpcClient) {
 			HistoryId:     "h1",
 			MimeType:      "audio/opus",
 			SizeBytes:     int64(len(payload)),
-		}, (*rpcapi.RPCResponse_Result).FromWorkspaceHistoryAudioGetResponse)
+		}, (*rpcapi.RPCPayload).FromWorkspaceHistoryAudioGetResponse)
 		serverStream, err := newRPCStream(context.Background(), serverSide)
 		if err != nil {
 			serverErrCh <- err

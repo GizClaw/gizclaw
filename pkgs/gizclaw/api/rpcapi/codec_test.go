@@ -27,7 +27,7 @@ func TestFrameRequestResponseRoundTrip(t *testing.T) {
 		t.Fatalf("ReadFrame() = %+v", frame)
 	}
 
-	var reqParams RPCRequest_Params
+	var reqParams RPCPayload
 	if err := reqParams.FromPingRequest(PingRequest{ClientSendTime: 123}); err != nil {
 		t.Fatalf("FromPingRequest() error = %v", err)
 	}
@@ -56,7 +56,7 @@ func TestFrameRequestResponseRoundTrip(t *testing.T) {
 		t.Fatalf("AsPingRequest().ClientSendTime = %d", gotReqParams.ClientSendTime)
 	}
 
-	var respResult RPCResponse_Result
+	var respResult RPCPayload
 	if err := respResult.FromPingResponse(PingResponse{ServerTime: 456}); err != nil {
 		t.Fatalf("FromPingResponse() error = %v", err)
 	}
@@ -86,7 +86,7 @@ func TestFrameRequestResponseRoundTrip(t *testing.T) {
 }
 
 func TestEncodeRPCResponseRejectsResultWithoutMethod(t *testing.T) {
-	var result RPCResponse_Result
+	var result RPCPayload
 	if err := result.FromPingResponse(PingResponse{ServerTime: 456}); err != nil {
 		t.Fatalf("FromPingResponse() error = %v", err)
 	}
@@ -101,7 +101,7 @@ func TestEncodeRPCResponseRejectsResultWithoutMethod(t *testing.T) {
 }
 
 func TestReadResponseRejectsGenericSuccessPayload(t *testing.T) {
-	var result RPCResponse_Result
+	var result RPCPayload
 	if err := result.FromPingResponse(PingResponse{ServerTime: 456}); err != nil {
 		t.Fatalf("FromPingResponse() error = %v", err)
 	}
@@ -120,7 +120,7 @@ func TestReadResponseRejectsGenericSuccessPayload(t *testing.T) {
 }
 
 func TestRPCUnionTypes(t *testing.T) {
-	var pingParams RPCRequest_Params
+	var pingParams RPCPayload
 	if err := pingParams.MergePingRequest(PingRequest{ClientSendTime: 100}); err != nil {
 		t.Fatalf("MergePingRequest() error = %v", err)
 	}
@@ -128,13 +128,13 @@ func TestRPCUnionTypes(t *testing.T) {
 		t.Fatalf("AsPingRequest() = %+v, %v", got, err)
 	}
 
-	assertRequestUnion(t, "ServerPutInfo", ServerPutInfoRequest{Name: stringPtr("peer-1")}, (*RPCRequest_Params).FromServerPutInfoRequest, RPCRequest_Params.AsServerPutInfoRequest, (*RPCRequest_Params).MergeServerPutInfoRequest)
-	assertRequestUnion(t, "ServerGetRuntime", ServerGetRuntimeRequest{}, (*RPCRequest_Params).FromServerGetRuntimeRequest, RPCRequest_Params.AsServerGetRuntimeRequest, (*RPCRequest_Params).MergeServerGetRuntimeRequest)
-	assertRequestUnion(t, "ClientGetInfo", ClientGetInfoRequest{}, (*RPCRequest_Params).FromClientGetInfoRequest, RPCRequest_Params.AsClientGetInfoRequest, (*RPCRequest_Params).MergeClientGetInfoRequest)
-	assertRequestUnion(t, "ClientGetIdentifiers", ClientGetIdentifiersRequest{}, (*RPCRequest_Params).FromClientGetIdentifiersRequest, RPCRequest_Params.AsClientGetIdentifiersRequest, (*RPCRequest_Params).MergeClientGetIdentifiersRequest)
-	assertRequestUnion(t, "ServerGetInfo", ServerGetInfoRequest{}, (*RPCRequest_Params).FromServerGetInfoRequest, RPCRequest_Params.AsServerGetInfoRequest, (*RPCRequest_Params).MergeServerGetInfoRequest)
+	assertRequestUnion(t, "ServerPutInfo", ServerPutInfoRequest{Name: stringPtr("peer-1")}, (*RPCPayload).FromServerPutInfoRequest, RPCPayload.AsServerPutInfoRequest, (*RPCPayload).MergeServerPutInfoRequest)
+	assertRequestUnion(t, "ServerGetRuntime", ServerGetRuntimeRequest{}, (*RPCPayload).FromServerGetRuntimeRequest, RPCPayload.AsServerGetRuntimeRequest, (*RPCPayload).MergeServerGetRuntimeRequest)
+	assertRequestUnion(t, "ClientGetInfo", ClientGetInfoRequest{}, (*RPCPayload).FromClientGetInfoRequest, RPCPayload.AsClientGetInfoRequest, (*RPCPayload).MergeClientGetInfoRequest)
+	assertRequestUnion(t, "ClientGetIdentifiers", ClientGetIdentifiersRequest{}, (*RPCPayload).FromClientGetIdentifiersRequest, RPCPayload.AsClientGetIdentifiersRequest, (*RPCPayload).MergeClientGetIdentifiersRequest)
+	assertRequestUnion(t, "ServerGetInfo", ServerGetInfoRequest{}, (*RPCPayload).FromServerGetInfoRequest, RPCPayload.AsServerGetInfoRequest, (*RPCPayload).MergeServerGetInfoRequest)
 
-	var pingResult RPCResponse_Result
+	var pingResult RPCPayload
 	if err := pingResult.MergePingResponse(PingResponse{ServerTime: 200}); err != nil {
 		t.Fatalf("MergePingResponse() error = %v", err)
 	}
@@ -143,15 +143,15 @@ func TestRPCUnionTypes(t *testing.T) {
 	}
 
 	now := time.Unix(100, 0).UTC()
-	assertResponseUnion(t, "ServerGetInfo", ServerGetInfoResponse{Name: stringPtr("peer-1")}, (*RPCResponse_Result).FromServerGetInfoResponse, RPCResponse_Result.AsServerGetInfoResponse, (*RPCResponse_Result).MergeServerGetInfoResponse)
-	assertResponseUnion(t, "ServerPutInfo", ServerPutInfoResponse{Name: stringPtr("peer-2")}, (*RPCResponse_Result).FromServerPutInfoResponse, RPCResponse_Result.AsServerPutInfoResponse, (*RPCResponse_Result).MergeServerPutInfoResponse)
-	assertResponseUnion(t, "ServerGetRuntime", ServerGetRuntimeResponse{Online: true, LastSeenAt: now}, (*RPCResponse_Result).FromServerGetRuntimeResponse, RPCResponse_Result.AsServerGetRuntimeResponse, (*RPCResponse_Result).MergeServerGetRuntimeResponse)
-	assertResponseUnion(t, "ClientGetInfo", ClientGetInfoResponse{Name: stringPtr("peer-1")}, (*RPCResponse_Result).FromClientGetInfoResponse, RPCResponse_Result.AsClientGetInfoResponse, (*RPCResponse_Result).MergeClientGetInfoResponse)
-	assertResponseUnion(t, "ClientGetIdentifiers", ClientGetIdentifiersResponse{Sn: stringPtr("sn-1")}, (*RPCResponse_Result).FromClientGetIdentifiersResponse, RPCResponse_Result.AsClientGetIdentifiersResponse, (*RPCResponse_Result).MergeClientGetIdentifiersResponse)
+	assertResponseUnion(t, "ServerGetInfo", ServerGetInfoResponse{Name: stringPtr("peer-1")}, (*RPCPayload).FromServerGetInfoResponse, RPCPayload.AsServerGetInfoResponse, (*RPCPayload).MergeServerGetInfoResponse)
+	assertResponseUnion(t, "ServerPutInfo", ServerPutInfoResponse{Name: stringPtr("peer-2")}, (*RPCPayload).FromServerPutInfoResponse, RPCPayload.AsServerPutInfoResponse, (*RPCPayload).MergeServerPutInfoResponse)
+	assertResponseUnion(t, "ServerGetRuntime", ServerGetRuntimeResponse{Online: true, LastSeenAt: now}, (*RPCPayload).FromServerGetRuntimeResponse, RPCPayload.AsServerGetRuntimeResponse, (*RPCPayload).MergeServerGetRuntimeResponse)
+	assertResponseUnion(t, "ClientGetInfo", ClientGetInfoResponse{Name: stringPtr("peer-1")}, (*RPCPayload).FromClientGetInfoResponse, RPCPayload.AsClientGetInfoResponse, (*RPCPayload).MergeClientGetInfoResponse)
+	assertResponseUnion(t, "ClientGetIdentifiers", ClientGetIdentifiersResponse{Sn: stringPtr("sn-1")}, (*RPCPayload).FromClientGetIdentifiersResponse, RPCPayload.AsClientGetIdentifiersResponse, (*RPCPayload).MergeClientGetIdentifiersResponse)
 }
 
 func TestMethodPayloadsUseProtobufBytes(t *testing.T) {
-	var params RPCRequest_Params
+	var params RPCPayload
 	if err := params.FromPingRequest(PingRequest{ClientSendTime: 123}); err != nil {
 		t.Fatalf("FromPingRequest() error = %v", err)
 	}
@@ -175,7 +175,7 @@ func TestMethodPayloadsUseProtobufBytes(t *testing.T) {
 		t.Fatalf("protobuf request payload = %+v", protoReq)
 	}
 
-	var result RPCResponse_Result
+	var result RPCPayload
 	if err := result.FromPingResponse(PingResponse{ServerTime: 456}); err != nil {
 		t.Fatalf("FromPingResponse() error = %v", err)
 	}
@@ -235,7 +235,7 @@ func TestDecodeRPCRequestPreservesMissingPayload(t *testing.T) {
 }
 
 func TestEncodeRPCRequestPreservesEmptyPayloadPresence(t *testing.T) {
-	var params RPCRequest_Params
+	var params RPCPayload
 	if err := params.FromPingRequest(PingRequest{}); err != nil {
 		t.Fatalf("FromPingRequest() error = %v", err)
 	}
@@ -542,12 +542,12 @@ func assertRequestUnion[T any](
 	t *testing.T,
 	name string,
 	value T,
-	from func(*RPCRequest_Params, T) error,
-	as func(RPCRequest_Params) (T, error),
-	merge func(*RPCRequest_Params, T) error,
+	from func(*RPCPayload, T) error,
+	as func(RPCPayload) (T, error),
+	merge func(*RPCPayload, T) error,
 ) {
 	t.Helper()
-	var params RPCRequest_Params
+	var params RPCPayload
 	if err := from(&params, value); err != nil {
 		t.Fatalf("From%sRequest() error = %v", name, err)
 	}
@@ -563,12 +563,12 @@ func assertResponseUnion[T any](
 	t *testing.T,
 	name string,
 	value T,
-	from func(*RPCResponse_Result, T) error,
-	as func(RPCResponse_Result) (T, error),
-	merge func(*RPCResponse_Result, T) error,
+	from func(*RPCPayload, T) error,
+	as func(RPCPayload) (T, error),
+	merge func(*RPCPayload, T) error,
 ) {
 	t.Helper()
-	var result RPCResponse_Result
+	var result RPCPayload
 	if err := from(&result, value); err != nil {
 		t.Fatalf("From%sResponse() error = %v", name, err)
 	}
@@ -838,7 +838,7 @@ func TestReadWriteResponsesForMethod(t *testing.T) {
 	var buf bytes.Buffer
 	err := WriteResponsesForMethod(&buf, RPCMethodAllPing, func(yield func(*RPCResponse, error) bool) {
 		for index, serverTime := range serverTimes {
-			var result RPCResponse_Result
+			var result RPCPayload
 			if err := result.FromPingResponse(PingResponse{ServerTime: serverTime}); err != nil {
 				t.Fatalf("FromPingResponse() error = %v", err)
 			}
