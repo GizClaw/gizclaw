@@ -13,3 +13,6 @@
 [submodule "third_party/ncnn/upstream"]
 	path = third_party/ncnn/upstream
 	url = https://github.com/Tencent/ncnn.git
+[submodule "third_party/nanopb/upstream"]
+	path = third_party/nanopb/upstream
+	url = https://github.com/nanopb/nanopb.git

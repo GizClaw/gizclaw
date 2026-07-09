@@ -1,7 +1,7 @@
 package cgobackend
 
 /*
-#cgo CFLAGS: -I. -I../include -I../generated -I../third_party/nanopb
+#cgo CFLAGS: -I. -I../include -I../generated -I../../../../third_party/nanopb/upstream
 #include "gzc_cgo_backend.h"
 #include <stdlib.h>
 */

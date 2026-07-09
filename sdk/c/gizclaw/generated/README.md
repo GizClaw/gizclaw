@@ -9,4 +9,4 @@ go generate ./sdk/c/gizclaw
 ```
 
 Generated files depend on the C SDK runtime headers under `sdk/c/gizclaw/include`
-and the vendored nanopb runtime under `sdk/c/gizclaw/third_party/nanopb`.
+and the nanopb runtime submodule under `third_party/nanopb/upstream`.

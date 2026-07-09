@@ -551,11 +551,8 @@ func optionalASTTranslateMode(value string) *rpcapi.ASTTranslateMode {
 	return &mode
 }
 
-func optionalFunctionTools(value *[]rpcapi.DoubaoRealtimeFunctionTool) []rpcapi.DoubaoRealtimeFunctionTool {
-	if value == nil {
-		return nil
-	}
-	return *value
+func optionalFunctionTools(value *[]rpcapi.DoubaoRealtimeFunctionTool) *[]rpcapi.DoubaoRealtimeFunctionTool {
+	return value
 }
 
 func astTranslateWorkspaceVoiceParams(value workspaceVoiceConfig) *rpcapi.ASTTranslateVoiceParameters {

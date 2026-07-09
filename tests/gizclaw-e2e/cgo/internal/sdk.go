@@ -3,7 +3,7 @@
 package internal
 
 /*
-#cgo CFLAGS: -I. -I../../../../sdk/c/gizclaw/include -I../../../../sdk/c/gizclaw/generated -I../../../../sdk/c/gizclaw/third_party/nanopb
+#cgo CFLAGS: -I. -I../../../../sdk/c/gizclaw/include -I../../../../sdk/c/gizclaw/generated -I../../../../third_party/nanopb/upstream
 #include "gzc_common.h"
 #include "gzc_rpc_frame.h"
 #include "sdk_client.h"
