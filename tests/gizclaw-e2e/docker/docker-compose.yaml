@@ -9,10 +9,11 @@ services:
     environment:
       GIZCLAW_E2E_CONFIG_HOME: /src/tests/gizclaw-e2e/testdata/cmd-config-home
       GIZCLAW_E2E_SERVER_ENDPOINT: ${GIZCLAW_E2E_SERVER_ENDPOINT:?set by docker-compose-up.sh}
+      GIZCLAW_E2E_SERVER_ICE_ENDPOINT: ${GIZCLAW_E2E_SERVER_ICE_ENDPOINT:?set by docker-compose-up.sh}
       GIZCLAW_E2E_SKIP_PROVIDER_SYNC: "1"
     ports:
-      - "${GIZCLAW_E2E_DOCKER_SERVER_BIND:-0.0.0.0}:${GIZCLAW_E2E_DOCKER_SERVER_PORT:?set by docker-compose-up.sh}:9820/tcp"
-      - "${GIZCLAW_E2E_DOCKER_SERVER_BIND:-0.0.0.0}:${GIZCLAW_E2E_DOCKER_SERVER_PORT:?set by docker-compose-up.sh}:9820/udp"
+      - "${GIZCLAW_E2E_DOCKER_SERVER_BIND:-0.0.0.0}:${GIZCLAW_E2E_DOCKER_SERVER_ICE_PORT:?set by docker-compose-up.sh}:9820/tcp"
+      - "${GIZCLAW_E2E_DOCKER_SERVER_BIND:-0.0.0.0}:${GIZCLAW_E2E_DOCKER_SERVER_ICE_PORT:?set by docker-compose-up.sh}:9820/udp"
     volumes:
       - type: bind
         source: ../.env
@@ -21,7 +22,37 @@ services:
         bind:
           create_host_path: false
     healthcheck:
-      test: ["CMD-SHELL", "test -f /tmp/gizclaw-e2e-server-ready && curl -fsS http://127.0.0.1:9820/server-info >/dev/null"]
+      test: ["CMD-SHELL", "test -f /tmp/gizclaw-e2e-server-ready && curl -fsS http://127.0.0.1:9822/server-info >/dev/null"]
+      interval: 2s
+      timeout: 1s
+      retries: 60
+      start_period: 300s
+
+  edge:
+    platform: linux/amd64
+    build:
+      context: ../../..
+      dockerfile: tests/gizclaw-e2e/docker/Dockerfile.server
+      args:
+        BASE_IMAGE: ${GIZCLAW_E2E_DOCKER_BASE_IMAGE:-gizclaw-go:linux-amd64-cn-base}
+    entrypoint: ["/src/tests/gizclaw-e2e/docker/entrypoint-edge.sh"]
+    depends_on:
+      server:
+        condition: service_healthy
+    environment:
+      GIZCLAW_E2E_SERVER_ENDPOINT: ${GIZCLAW_E2E_SERVER_ENDPOINT:?set by docker-compose-up.sh}
+      GIZCLAW_E2E_EDGE_UPSTREAM_ENDPOINT: http://server:9822
+    ports:
+      - "${GIZCLAW_E2E_DOCKER_SERVER_BIND:-0.0.0.0}:${GIZCLAW_E2E_DOCKER_SERVER_PORT:?set by docker-compose-up.sh}:9821/tcp"
+    volumes:
+      - type: bind
+        source: ../.env
+        target: /src/tests/gizclaw-e2e/.env
+        read_only: true
+        bind:
+          create_host_path: false
+    healthcheck:
+      test: ["CMD-SHELL", "test -f /tmp/gizclaw-e2e-edge-ready && curl -fsS http://127.0.0.1:9821/server-info >/dev/null"]
       interval: 2s
       timeout: 1s
       retries: 60
@@ -35,7 +66,7 @@ services:
       args:
         BASE_IMAGE: ${GIZCLAW_E2E_DOCKER_BASE_IMAGE:-gizclaw-go:linux-amd64-cn-base}
     depends_on:
-      server:
+      edge:
         condition: service_healthy
     ports:
       - "${GIZCLAW_E2E_DOCKER_DESKTOP_BIND:-0.0.0.0}::4191/tcp"

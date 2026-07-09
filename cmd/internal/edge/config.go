@@ -1,10 +1,11 @@
 package edge
 
 import (
-	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/goccy/go-yaml"
@@ -17,10 +18,6 @@ const (
 	TLSCertSourceEdgeRPC  = "edge-rpc"
 	TLSCertSourceFile     = "file"
 )
-
-// ErrRuntimeNotImplemented is returned after edge configuration is loaded and
-// validated while the data-plane runtime is still under construction.
-var ErrRuntimeNotImplemented = errors.New("edge: runtime not implemented")
 
 type Config struct {
 	KeyPair  *giznet.KeyPair
@@ -140,8 +137,8 @@ func (cfg Config) validate() error {
 	if cfg.Upstream.Endpoint == "" {
 		return fmt.Errorf("edge: missing upstream.endpoint")
 	}
-	if cfg.Upstream.PublicKey.IsZero() {
-		return fmt.Errorf("edge: invalid upstream.public-key: zero key")
+	if _, err := cfg.UpstreamURL(); err != nil {
+		return err
 	}
 	switch cfg.TLS.CertSource {
 	case TLSCertSourceDisabled, TLSCertSourceEdgeRPC, TLSCertSourceFile:
@@ -149,4 +146,25 @@ func (cfg Config) validate() error {
 	default:
 		return fmt.Errorf("edge: invalid tls.cert-source %q", cfg.TLS.CertSource)
 	}
+}
+
+func (cfg Config) UpstreamURL() (*url.URL, error) {
+	endpoint := strings.TrimSpace(cfg.Upstream.Endpoint)
+	if endpoint == "" {
+		return nil, fmt.Errorf("edge: missing upstream.endpoint")
+	}
+	if !strings.Contains(endpoint, "://") {
+		endpoint = "http://" + endpoint
+	}
+	upstreamURL, err := url.Parse(endpoint)
+	if err != nil {
+		return nil, fmt.Errorf("edge: invalid upstream.endpoint: %w", err)
+	}
+	if upstreamURL.Scheme != "http" && upstreamURL.Scheme != "https" {
+		return nil, fmt.Errorf("edge: invalid upstream.endpoint scheme %q", upstreamURL.Scheme)
+	}
+	if upstreamURL.Host == "" {
+		return nil, fmt.Errorf("edge: invalid upstream.endpoint: missing host")
+	}
+	return upstreamURL, nil
 }

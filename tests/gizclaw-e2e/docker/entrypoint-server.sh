@@ -14,8 +14,10 @@ rm -f "$ready_file"
 
 export GIZCLAW_E2E_CONFIG_HOME="${GIZCLAW_E2E_CONFIG_HOME:-$repo_root/tests/gizclaw-e2e/testdata/cmd-config-home}"
 : "${GIZCLAW_E2E_SERVER_ENDPOINT:?missing GIZCLAW_E2E_SERVER_ENDPOINT}"
+: "${GIZCLAW_E2E_SERVER_ICE_ENDPOINT:?missing GIZCLAW_E2E_SERVER_ICE_ENDPOINT}"
 container_config_home="$GIZCLAW_E2E_CONFIG_HOME"
 container_server_endpoint="$GIZCLAW_E2E_SERVER_ENDPOINT"
+container_server_ice_endpoint="$GIZCLAW_E2E_SERVER_ICE_ENDPOINT"
 if [[ -f "$repo_root/tests/gizclaw-e2e/.env" ]]; then
   set -a
   # shellcheck disable=SC1091
@@ -24,6 +26,7 @@ if [[ -f "$repo_root/tests/gizclaw-e2e/.env" ]]; then
 fi
 export GIZCLAW_E2E_CONFIG_HOME="$container_config_home"
 export GIZCLAW_E2E_SERVER_ENDPOINT="$container_server_endpoint"
+export GIZCLAW_E2E_SERVER_ICE_ENDPOINT="$container_server_ice_endpoint"
 : "${GIZCLAW_E2E_VOLC_LOG_ENABLED:=false}"
 : "${GIZCLAW_E2E_VOLC_LOG_ENDPOINT:=https://tls-cn-beijing.volces.com}"
 : "${GIZCLAW_E2E_VOLC_LOG_REGION:=cn-beijing}"
@@ -31,7 +34,7 @@ export GIZCLAW_E2E_SERVER_ENDPOINT="$container_server_endpoint"
 : "${GIZCLAW_E2E_VOLC_LOG_ACCESS_KEY_ID:=volc-access-key-id}"
 : "${GIZCLAW_E2E_VOLC_LOG_ACCESS_KEY_SECRET:=volc-access-key-secret}"
 
-envsubst '${GIZCLAW_E2E_SERVER_ENDPOINT}' \
+envsubst '${GIZCLAW_E2E_SERVER_ICE_ENDPOINT}' \
   < "$repo_root/tests/gizclaw-e2e/testdata/server-workspace/config.yaml.template" \
   > "$workspace_dir/config.yaml"
 awk \
@@ -59,6 +62,8 @@ in_volc && /^  [^ ]/ { in_volc = 0 }
 mv "$workspace_dir/config.yaml.tmp" "$workspace_dir/config.yaml"
 
 "$setup_dir/build.sh" >/dev/null
+find "$GIZCLAW_E2E_CONFIG_HOME" -type f -name config.yaml -print0 |
+  xargs -0 perl -0pi -e 's/^(\s*endpoint:\s*)[^\s]+/${1}127.0.0.1:9822/mg'
 "$setup_dir/reset_data.sh" clear
 
 nohup "$bin_path" serve --force "$workspace_dir" >"$log_file" 2>&1 </dev/null &
@@ -71,12 +76,12 @@ for _ in {1..300}; do
     tail -80 "$log_file" >&2 || true
     exit 1
   fi
-  if curl -fsS --max-time 1 "http://127.0.0.1:9820/server-info" >/dev/null 2>&1; then
+  if curl -fsS --max-time 1 "http://127.0.0.1:9822/server-info" >/dev/null 2>&1; then
     break
   fi
   sleep 0.1
 done
-if ! curl -fsS --max-time 1 "http://127.0.0.1:9820/server-info" >/dev/null 2>&1; then
+if ! curl -fsS --max-time 1 "http://127.0.0.1:9822/server-info" >/dev/null 2>&1; then
   echo "gizclaw server did not become ready; log=$log_file" >&2
   tail -80 "$log_file" >&2 || true
   exit 1

@@ -1,10 +1,15 @@
 package edge
 
 import (
+	"context"
+	"net"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 )
@@ -46,6 +51,17 @@ tls:
 	}
 	if cfg.TLS.CertSource != TLSCertSourceEdgeRPC {
 		t.Fatalf("TLS.CertSource = %q", cfg.TLS.CertSource)
+	}
+}
+
+func TestConfigUpstreamURLDefaultsHTTP(t *testing.T) {
+	cfg := Config{Upstream: UpstreamConfig{Endpoint: "server-a.example.com:9822"}}
+	upstreamURL, err := cfg.UpstreamURL()
+	if err != nil {
+		t.Fatalf("UpstreamURL error = %v", err)
+	}
+	if got := upstreamURL.String(); got != "http://server-a.example.com:9822" {
+		t.Fatalf("UpstreamURL = %q", got)
 	}
 }
 
@@ -104,16 +120,6 @@ upstream:
 			want: "upstream.endpoint",
 		},
 		{
-			name: "missing upstream public key",
-			body: `
-identity:
-  private-key: ` + edgeKey.Private.String() + `
-upstream:
-  endpoint: server-a.example.com:9820
-`,
-			want: "upstream.public-key",
-		},
-		{
 			name: "invalid tls source",
 			body: `
 identity:
@@ -137,19 +143,72 @@ tls:
 	}
 }
 
-func TestServeValidatesConfigThenReturnsExplicitUnimplemented(t *testing.T) {
+func TestServeContextForwardsToUpstreamHTTP(t *testing.T) {
 	edgeKey := testKeyPair(t, 0x77)
-	upstreamKey := testKeyPair(t, 0x88)
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/server-info" {
+			t.Fatalf("path = %q", r.URL.Path)
+		}
+		_, _ = w.Write([]byte(`{"ok":true}`))
+	}))
+	defer upstream.Close()
+
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("newLocalListener: %v", err)
+	}
+	listenAddr := listener.Addr().String()
+	if err := listener.Close(); err != nil {
+		t.Fatalf("close probe listener: %v", err)
+	}
+
 	dir := t.TempDir()
 	writeConfig(t, dir, `
 identity:
   private-key: `+edgeKey.Private.String()+`
+listen: `+listenAddr+`
 upstream:
-  endpoint: server-a.example.com:9820
-  public-key: `+upstreamKey.Public.String()+`
+  endpoint: `+upstream.URL+`
 `)
-	if err := Serve(dir); err != ErrRuntimeNotImplemented {
-		t.Fatalf("Serve error = %v, want %v", err, ErrRuntimeNotImplemented)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- ServeContext(ctx, dir)
+	}()
+	var lastErr error
+	for i := 0; i < 100; i++ {
+		resp, err := http.Get("http://" + listenAddr + "/server-info")
+		if err == nil {
+			defer resp.Body.Close()
+			if resp.StatusCode != http.StatusOK {
+				t.Fatalf("status = %d", resp.StatusCode)
+			}
+			cancel()
+			if serveErr := <-errCh; serveErr != nil {
+				t.Fatalf("ServeContext shutdown error = %v", serveErr)
+			}
+			return
+		}
+		lastErr = err
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatalf("edge did not serve request: %v", lastErr)
+}
+
+func TestE2EEdgeWorkspaceTemplateParses(t *testing.T) {
+	data, err := os.ReadFile(filepath.Join("..", "..", "..", "tests", "gizclaw-e2e", "testdata", "edge-workspace", "config.yaml.template"))
+	if err != nil {
+		t.Fatalf("ReadFile edge template: %v", err)
+	}
+	body := strings.ReplaceAll(string(data), "${GIZCLAW_E2E_SERVER_ENDPOINT}", "127.0.0.1:9821")
+	body = strings.ReplaceAll(body, "${GIZCLAW_E2E_EDGE_UPSTREAM_ENDPOINT}", "http://server:9822")
+	fileCfg, err := parseConfigData([]byte(body))
+	if err != nil {
+		t.Fatalf("parseConfigData edge template: %v", err)
+	}
+	if _, err := prepareConfig(Config{}, fileCfg); err != nil {
+		t.Fatalf("prepareConfig edge template: %v", err)
 	}
 }
 

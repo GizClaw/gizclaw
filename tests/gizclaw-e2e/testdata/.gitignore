@@ -10,6 +10,8 @@
 !workspaces/*.json
 !server-workspace/
 !server-workspace/config.yaml.template
+!edge-workspace/
+!edge-workspace/config.yaml.template
 !identities/
 !identities/*/
 !identities/*/config.yaml

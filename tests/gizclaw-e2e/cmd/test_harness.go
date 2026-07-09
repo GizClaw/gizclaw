@@ -902,6 +902,10 @@ func (h *Harness) renderServerFixture(fixtureName string, replacements map[strin
 		rendered = strings.ReplaceAll(rendered, `endpoint: "127.0.0.1:9820"`, fmt.Sprintf(`endpoint: "%s"`, listenAddr))
 		rendered = strings.ReplaceAll(rendered, "endpoint: ${GIZCLAW_E2E_SERVER_ENDPOINT}", "endpoint: "+listenAddr)
 		rendered = strings.ReplaceAll(rendered, `endpoint: "${GIZCLAW_E2E_SERVER_ENDPOINT}"`, fmt.Sprintf(`endpoint: "%s"`, listenAddr))
+		rendered = strings.ReplaceAll(rendered, "endpoint: ${GIZCLAW_E2E_SERVER_ICE_ENDPOINT}", "endpoint: "+listenAddr)
+		rendered = strings.ReplaceAll(rendered, `endpoint: "${GIZCLAW_E2E_SERVER_ICE_ENDPOINT}"`, fmt.Sprintf(`endpoint: "%s"`, listenAddr))
+		rendered = strings.ReplaceAll(rendered, "public-http: false", "public-http: true")
+		rendered = strings.ReplaceAll(rendered, "private-http-listen: 0.0.0.0:9822", "private-http-listen: 127.0.0.1:0")
 	}
 
 	targetPath := filepath.Join(h.ServerWorkspace, "config.yaml")
