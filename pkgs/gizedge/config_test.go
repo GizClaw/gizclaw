@@ -1,4 +1,4 @@
-package edge
+package gizedge
 
 import (
 	"context"
@@ -257,7 +257,7 @@ func TestUpstreamSignalingURLPreservesConfiguredPath(t *testing.T) {
 }
 
 func TestE2EEdgeWorkspaceTemplateParses(t *testing.T) {
-	data, err := os.ReadFile(filepath.Join("..", "..", "..", "tests", "gizclaw-e2e", "testdata", "edge-workspace", "config.yaml.template"))
+	data, err := os.ReadFile(filepath.Join("..", "..", "tests", "gizclaw-e2e", "testdata", "edge-workspace", "config.yaml.template"))
 	if err != nil {
 		t.Fatalf("ReadFile edge template: %v", err)
 	}

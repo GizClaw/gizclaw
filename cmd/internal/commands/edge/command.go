@@ -1,7 +1,7 @@
 package edgecmd
 
 import (
-	"github.com/GizClaw/gizclaw-go/cmd/internal/edge"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizedge"
 	"github.com/spf13/cobra"
 )
 
@@ -20,7 +20,7 @@ func newServeCmd() *cobra.Command {
 		Short: "Serve an edge-node workspace",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return edge.Serve(args[0])
+			return gizedge.Serve(args[0])
 		},
 	}
 }
