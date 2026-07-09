@@ -47,25 +47,64 @@ func ServeContext(ctx context.Context, root string) error {
 	if err != nil {
 		return fmt.Errorf("edge: listen public http: %w", err)
 	}
-	defer listener.Close()
+	httpListener := listener
+	var publicMux *publicTCPMux
+	relayCtx, stopRelays := context.WithCancel(ctx)
+	defer stopRelays()
+	if cfg.Upstream.ICE != "" {
+		publicMux = newPublicTCPMux(listener)
+		defer publicMux.Close()
+		httpListener = publicMux.HTTPListener()
+	} else {
+		defer listener.Close()
+	}
+	var tcpRelay *tcpICERelay
+	var udpRelay *udpICERelay
+	if publicMux != nil {
+		tcpRelay = newTCPICERelay(publicMux.ICETCPListener(), cfg.Upstream.ICE)
+		udpRelay, err = newUDPICERelay(cfg.Listen, cfg.Upstream.ICE)
+		if err != nil {
+			return err
+		}
+	}
 
 	proxy := newPeerHTTPProxy(upstreamConn)
 	server := &http.Server{Handler: proxy}
-	errCh := make(chan error, 1)
+	errCh := make(chan error, 3)
 	go func() {
-		err := server.Serve(listener)
+		err := server.Serve(httpListener)
 		if errors.Is(err, http.ErrServerClosed) || errors.Is(err, net.ErrClosed) {
 			err = nil
 		}
 		errCh <- err
 	}()
+	if tcpRelay != nil {
+		go func() {
+			errCh <- tcpRelay.Serve(relayCtx)
+		}()
+	}
+	if udpRelay != nil {
+		go func() {
+			errCh <- udpRelay.Serve(relayCtx)
+		}()
+	}
 
 	select {
 	case err := <-errCh:
+		stopRelays()
+		_ = server.Shutdown(context.Background())
 		return err
 	case <-ctx.Done():
+		stopRelays()
 		shutdownErr := server.Shutdown(context.Background())
-		serveErr := <-errCh
+		var serveErr error
+		for i := 0; i < cap(errCh); i++ {
+			select {
+			case err := <-errCh:
+				serveErr = errors.Join(serveErr, err)
+			default:
+			}
+		}
 		return errors.Join(shutdownErr, serveErr)
 	}
 }

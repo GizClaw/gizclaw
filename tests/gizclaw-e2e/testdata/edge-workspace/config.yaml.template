@@ -4,6 +4,7 @@ listen: 0.0.0.0:9821
 endpoint: ${GIZCLAW_E2E_SERVER_ENDPOINT}
 upstream:
   endpoint: ${GIZCLAW_E2E_EDGE_UPSTREAM_ENDPOINT}
+  ice-endpoint: ${GIZCLAW_E2E_EDGE_UPSTREAM_ICE_ENDPOINT}
   public-key: ${GIZCLAW_E2E_EDGE_UPSTREAM_PUBLIC_KEY}
 tls:
   cert-source: disabled

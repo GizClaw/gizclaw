@@ -11,9 +11,6 @@ services:
       GIZCLAW_E2E_SERVER_ENDPOINT: ${GIZCLAW_E2E_SERVER_ENDPOINT:?set by docker-compose-up.sh}
       GIZCLAW_E2E_SERVER_ICE_ENDPOINT: ${GIZCLAW_E2E_SERVER_ICE_ENDPOINT:?set by docker-compose-up.sh}
       GIZCLAW_E2E_SKIP_PROVIDER_SYNC: "1"
-    ports:
-      - "${GIZCLAW_E2E_DOCKER_SERVER_BIND:-0.0.0.0}:${GIZCLAW_E2E_DOCKER_SERVER_ICE_PORT:?set by docker-compose-up.sh}:9820/tcp"
-      - "${GIZCLAW_E2E_DOCKER_SERVER_BIND:-0.0.0.0}:${GIZCLAW_E2E_DOCKER_SERVER_ICE_PORT:?set by docker-compose-up.sh}:9820/udp"
     volumes:
       - type: bind
         source: ../.env
@@ -42,8 +39,10 @@ services:
     environment:
       GIZCLAW_E2E_SERVER_ENDPOINT: ${GIZCLAW_E2E_SERVER_ENDPOINT:?set by docker-compose-up.sh}
       GIZCLAW_E2E_EDGE_UPSTREAM_ENDPOINT: http://server:9822
+      GIZCLAW_E2E_EDGE_UPSTREAM_ICE_ENDPOINT: server:9820
     ports:
       - "${GIZCLAW_E2E_DOCKER_SERVER_BIND:-0.0.0.0}:${GIZCLAW_E2E_DOCKER_SERVER_PORT:?set by docker-compose-up.sh}:9821/tcp"
+      - "${GIZCLAW_E2E_DOCKER_SERVER_BIND:-0.0.0.0}:${GIZCLAW_E2E_DOCKER_SERVER_PORT:?set by docker-compose-up.sh}:9821/udp"
     volumes:
       - type: bind
         source: ../.env

@@ -28,6 +28,7 @@ listen: 127.0.0.1:9821
 endpoint: edge.example.com:9821
 upstream:
   endpoint: server-a.example.com:9820
+  ice-endpoint: server-a.example.com:19820
   public-key: `+upstreamKey.Public.String()+`
 tls:
   cert-source: edge-rpc
@@ -48,6 +49,9 @@ tls:
 	}
 	if cfg.Upstream.Endpoint != "server-a.example.com:9820" {
 		t.Fatalf("Upstream.Endpoint = %q", cfg.Upstream.Endpoint)
+	}
+	if cfg.Upstream.ICE != "server-a.example.com:19820" {
+		t.Fatalf("Upstream.ICE = %q", cfg.Upstream.ICE)
 	}
 	if !cfg.Upstream.PublicKey.Equal(upstreamKey.Public) {
 		t.Fatalf("Upstream.PublicKey = %v, want %v", cfg.Upstream.PublicKey, upstreamKey.Public)
@@ -144,6 +148,18 @@ tls:
   cert-source: acme
 `,
 			want: "tls.cert-source",
+		},
+		{
+			name: "invalid upstream ice endpoint",
+			body: `
+identity:
+  private-key: ` + edgeKey.Private.String() + `
+upstream:
+  endpoint: server-a.example.com:9820
+  ice-endpoint: server-a.example.com
+  public-key: ` + upstreamKey.Public.String() + `
+`,
+			want: "upstream.ice-endpoint",
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -263,6 +279,7 @@ func TestE2EEdgeWorkspaceTemplateParses(t *testing.T) {
 	}
 	body := strings.ReplaceAll(string(data), "${GIZCLAW_E2E_SERVER_ENDPOINT}", "127.0.0.1:9821")
 	body = strings.ReplaceAll(body, "${GIZCLAW_E2E_EDGE_UPSTREAM_ENDPOINT}", "http://server:9822")
+	body = strings.ReplaceAll(body, "${GIZCLAW_E2E_EDGE_UPSTREAM_ICE_ENDPOINT}", "server:9820")
 	body = strings.ReplaceAll(body, "${GIZCLAW_E2E_EDGE_UPSTREAM_PUBLIC_KEY}", testKeyPair(t, 0x88).Public.String())
 	fileCfg, err := parseConfigData([]byte(body))
 	if err != nil {
