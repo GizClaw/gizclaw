@@ -11,7 +11,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
+	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizhttp"
+	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
 )
 
 func TestPrepareWorkspaceConfigLoadsStaticUpstream(t *testing.T) {
@@ -120,6 +123,16 @@ upstream:
 			want: "upstream.endpoint",
 		},
 		{
+			name: "missing upstream public key",
+			body: `
+identity:
+  private-key: ` + edgeKey.Private.String() + `
+upstream:
+  endpoint: server-a.example.com:9820
+`,
+			want: "upstream.public-key",
+		},
+		{
 			name: "invalid tls source",
 			body: `
 identity:
@@ -143,15 +156,38 @@ tls:
 	}
 }
 
-func TestServeContextForwardsToUpstreamHTTP(t *testing.T) {
+func TestServeContextForwardsToUpstreamGizHTTP(t *testing.T) {
 	edgeKey := testKeyPair(t, 0x77)
-	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/server-info" {
-			t.Fatalf("path = %q", r.URL.Path)
+	upstreamKey := testKeyPair(t, 0x78)
+	upstreamListener, err := (&gizwebrtc.ListenConfig{
+		SecurityPolicy: edgeTestSecurityPolicy{
+			allowService: func(_ giznet.PublicKey, service uint64) bool {
+				return service == gizclaw.ServicePeerHTTP
+			},
+		},
+	}).Listen(upstreamKey)
+	if err != nil {
+		t.Fatalf("Listen upstream: %v", err)
+	}
+	defer upstreamListener.Close()
+	signaling := httptest.NewServer(upstreamListener.SignalingHandler())
+	defer signaling.Close()
+
+	accepted := make(chan error, 1)
+	go func() {
+		conn, err := upstreamListener.Accept()
+		if err != nil {
+			accepted <- err
+			return
 		}
-		_, _ = w.Write([]byte(`{"ok":true}`))
-	}))
-	defer upstream.Close()
+		server := gizhttp.NewServer(conn, gizclaw.ServicePeerHTTP, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Path != "/server-info" {
+				t.Errorf("path = %q", r.URL.Path)
+			}
+			_, _ = w.Write([]byte(`{"ok":true}`))
+		}))
+		accepted <- server.Serve()
+	}()
 
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -168,7 +204,8 @@ identity:
   private-key: `+edgeKey.Private.String()+`
 listen: `+listenAddr+`
 upstream:
-  endpoint: `+upstream.URL+`
+  endpoint: `+signaling.URL+`
+  public-key: `+upstreamKey.Public.String()+`
 `)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -188,12 +225,35 @@ upstream:
 			if serveErr := <-errCh; serveErr != nil {
 				t.Fatalf("ServeContext shutdown error = %v", serveErr)
 			}
+			if upstreamErr := <-accepted; upstreamErr != nil {
+				t.Fatalf("upstream gizhttp server error = %v", upstreamErr)
+			}
 			return
 		}
 		lastErr = err
 		time.Sleep(10 * time.Millisecond)
 	}
 	t.Fatalf("edge did not serve request: %v", lastErr)
+}
+
+func TestUpstreamSignalingURLDefaultsWebRTCPath(t *testing.T) {
+	upstreamURL, err := (&Config{Upstream: UpstreamConfig{Endpoint: "http://server:9822"}}).UpstreamURL()
+	if err != nil {
+		t.Fatalf("UpstreamURL error = %v", err)
+	}
+	if got := upstreamSignalingURL(upstreamURL); got != "http://server:9822/webrtc/v1/offer" {
+		t.Fatalf("upstreamSignalingURL = %q", got)
+	}
+}
+
+func TestUpstreamSignalingURLPreservesConfiguredPath(t *testing.T) {
+	upstreamURL, err := (&Config{Upstream: UpstreamConfig{Endpoint: "http://server:9822/custom-offer"}}).UpstreamURL()
+	if err != nil {
+		t.Fatalf("UpstreamURL error = %v", err)
+	}
+	if got := upstreamSignalingURL(upstreamURL); got != "http://server:9822/custom-offer" {
+		t.Fatalf("upstreamSignalingURL = %q", got)
+	}
 }
 
 func TestE2EEdgeWorkspaceTemplateParses(t *testing.T) {
@@ -203,6 +263,7 @@ func TestE2EEdgeWorkspaceTemplateParses(t *testing.T) {
 	}
 	body := strings.ReplaceAll(string(data), "${GIZCLAW_E2E_SERVER_ENDPOINT}", "127.0.0.1:9821")
 	body = strings.ReplaceAll(body, "${GIZCLAW_E2E_EDGE_UPSTREAM_ENDPOINT}", "http://server:9822")
+	body = strings.ReplaceAll(body, "${GIZCLAW_E2E_EDGE_UPSTREAM_PUBLIC_KEY}", testKeyPair(t, 0x88).Public.String())
 	fileCfg, err := parseConfigData([]byte(body))
 	if err != nil {
 		t.Fatalf("parseConfigData edge template: %v", err)
@@ -230,4 +291,16 @@ func testKeyPair(t *testing.T, seed byte) *giznet.KeyPair {
 		t.Fatalf("NewKeyPair error = %v", err)
 	}
 	return keyPair
+}
+
+type edgeTestSecurityPolicy struct {
+	allowService func(giznet.PublicKey, uint64) bool
+}
+
+func (p edgeTestSecurityPolicy) AllowPeer(giznet.PublicKey) bool {
+	return true
+}
+
+func (p edgeTestSecurityPolicy) AllowService(publicKey giznet.PublicKey, service uint64) bool {
+	return p.allowService == nil || p.allowService(publicKey, service)
 }

@@ -137,6 +137,9 @@ func (cfg Config) validate() error {
 	if cfg.Upstream.Endpoint == "" {
 		return fmt.Errorf("edge: missing upstream.endpoint")
 	}
+	if cfg.Upstream.PublicKey.IsZero() {
+		return fmt.Errorf("edge: missing upstream.public-key")
+	}
 	if _, err := cfg.UpstreamURL(); err != nil {
 		return err
 	}
