@@ -102,7 +102,7 @@ func (l *Listener) handleOffer(w http.ResponseWriter, r *http.Request) {
 }
 
 func (l *Listener) acceptOffer(clientPK giznet.PublicKey, offerSDP string) (string, *Conn, error) {
-	pc, err := l.api.NewPeerConnection(webrtc.Configuration{ICEServers: webrtcICEServers(l.cfg.ICEServers)})
+	pc, err := l.api.NewPeerConnection(peerConnectionConfiguration(l.cfg.ICEServers, l.cfg.ICETransportPolicy))
 	if err != nil {
 		return "", nil, err
 	}

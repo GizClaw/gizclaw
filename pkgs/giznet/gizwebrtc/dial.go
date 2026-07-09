@@ -15,12 +15,13 @@ import (
 )
 
 type DialConfig struct {
-	API            *webrtc.API
-	HTTPClient     *http.Client
-	SignalingURL   string
-	ICEServers     []ICEServer
-	CipherMode     CipherMode
-	SecurityPolicy giznet.SecurityPolicy
+	API                *webrtc.API
+	HTTPClient         *http.Client
+	SignalingURL       string
+	ICEServers         []ICEServer
+	ICETransportPolicy webrtc.ICETransportPolicy
+	CipherMode         CipherMode
+	SecurityPolicy     giznet.SecurityPolicy
 }
 
 func Dial(ctx context.Context, key *giznet.KeyPair, serverPK giznet.PublicKey, cfg DialConfig) (*Listener, *Conn, error) {
@@ -37,8 +38,13 @@ func Dial(ctx context.Context, key *giznet.KeyPair, serverPK giznet.PublicKey, c
 		}
 	}
 	l := &Listener{
-		key:        key,
-		cfg:        ListenConfig{CipherMode: cfg.CipherMode, SecurityPolicy: cfg.SecurityPolicy},
+		key: key,
+		cfg: ListenConfig{
+			CipherMode:         cfg.CipherMode,
+			ICEServers:         cfg.ICEServers,
+			ICETransportPolicy: cfg.ICETransportPolicy,
+			SecurityPolicy:     cfg.SecurityPolicy,
+		},
 		api:        api,
 		closers:    closers,
 		acceptCh:   make(chan giznet.Conn, 1),
@@ -52,7 +58,7 @@ func Dial(ctx context.Context, key *giznet.KeyPair, serverPK giznet.PublicKey, c
 		_ = l.Close()
 		return nil, nil, err
 	}
-	pc, err := api.NewPeerConnection(webrtc.Configuration{ICEServers: webrtcICEServers(cfg.ICEServers)})
+	pc, err := api.NewPeerConnection(peerConnectionConfiguration(cfg.ICEServers, cfg.ICETransportPolicy))
 	if err != nil {
 		_ = l.Close()
 		return nil, nil, err

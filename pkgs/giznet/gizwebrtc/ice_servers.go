@@ -55,3 +55,10 @@ func webrtcICEServers(servers []ICEServer) []webrtc.ICEServer {
 	}
 	return out
 }
+
+func peerConnectionConfiguration(servers []ICEServer, policy webrtc.ICETransportPolicy) webrtc.Configuration {
+	return webrtc.Configuration{
+		ICEServers:         webrtcICEServers(servers),
+		ICETransportPolicy: policy,
+	}
+}
