@@ -1,0 +1,5889 @@
+{
+  "components": {
+    "schemas": {
+      "ASTTranslateExternalVoiceParameters": {
+        "additionalProperties": false,
+        "properties": {
+          "tts_voice": {
+            "description": "GizClaw voice resource name used by an external TTS path.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "tts_voice"
+        ],
+        "type": "object"
+      },
+      "ASTTranslateInternalSpeakerParameters": {
+        "additionalProperties": false,
+        "properties": {
+          "is_custom_speaker": {
+            "type": "boolean"
+          },
+          "speaker_id": {
+            "description": "AST s2s built-in or custom speaker id.",
+            "type": "string"
+          },
+          "speech_rate": {
+            "type": "integer"
+          },
+          "tts_resource_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "speaker_id"
+        ],
+        "type": "object"
+      },
+      "ASTTranslateMode": {
+        "enum": [
+          "s2t",
+          "s2s"
+        ],
+        "type": "string"
+      },
+      "ASTTranslateVoiceParameters": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/ASTTranslateInternalSpeakerParameters"
+          },
+          {
+            "$ref": "#/components/schemas/ASTTranslateExternalVoiceParameters"
+          }
+        ]
+      },
+      "ASTTranslateWorkflowSpec": {
+        "additionalProperties": false,
+        "properties": {
+          "denoise": {
+            "type": "boolean"
+          },
+          "enable_source_language_detect": {
+            "type": "boolean"
+          },
+          "is_custom_speaker": {
+            "type": "boolean"
+          },
+          "mode": {
+            "$ref": "#/components/schemas/ASTTranslateMode"
+          },
+          "resource_id": {
+            "type": "string"
+          },
+          "speaker_id": {
+            "description": "Deprecated compatibility field. Prefer voice.speaker_id.",
+            "type": "string"
+          },
+          "speech_rate": {
+            "type": "integer"
+          },
+          "translation_model": {
+            "description": "GizClaw model resource used to resolve the Volc tenant credential for AST translate.",
+            "type": "string"
+          },
+          "tts_resource_id": {
+            "type": "string"
+          },
+          "voice": {
+            "$ref": "#/components/schemas/ASTTranslateVoiceParameters"
+          }
+        },
+        "required": [
+          "translation_model"
+        ],
+        "type": "object"
+      },
+      "ASTTranslateWorkspaceParameters": {
+        "additionalProperties": false,
+        "example": {
+          "agent_type": "ast-translate",
+          "input": "push-to-talk",
+          "lang_pair": "auto",
+          "mode": "s2t",
+          "translation_model": "e2e-ast-translate"
+        },
+        "properties": {
+          "agent_type": {
+            "enum": [
+              "ast-translate"
+            ],
+            "type": "string"
+          },
+          "denoise": {
+            "type": "boolean"
+          },
+          "e2e": {
+            "description": "Marks seed resources used by the local e2e harness.",
+            "type": "boolean"
+          },
+          "enable_source_language_detect": {
+            "type": "boolean"
+          },
+          "input": {
+            "$ref": "#/components/schemas/WorkspaceInputMode"
+          },
+          "is_custom_speaker": {
+            "type": "boolean"
+          },
+          "lang_pair": {
+            "description": "AST language pair, for example zh/en or en/zh. Use auto for automatic Chinese/English mode.",
+            "type": "string"
+          },
+          "mode": {
+            "$ref": "#/components/schemas/ASTTranslateMode"
+          },
+          "speaker_id": {
+            "description": "Deprecated compatibility field. Prefer voice.speaker_id.",
+            "type": "string"
+          },
+          "speech_rate": {
+            "type": "integer"
+          },
+          "translation_model": {
+            "type": "string"
+          },
+          "tts_resource_id": {
+            "type": "string"
+          },
+          "voice": {
+            "$ref": "#/components/schemas/ASTTranslateVoiceParameters"
+          }
+        },
+        "required": [
+          "agent_type"
+        ],
+        "type": "object"
+      },
+      "AgentSelection": {
+        "additionalProperties": false,
+        "properties": {
+          "workspace_name": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "workspace_name"
+        ],
+        "type": "object"
+      },
+      "Badge": {
+        "additionalProperties": false,
+        "properties": {
+          "active": {
+            "type": "boolean"
+          },
+          "badge_def_id": {
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "exp": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "id": {
+            "type": "string"
+          },
+          "level": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "owner_public_key": {
+            "type": "string"
+          },
+          "progress": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "owner_public_key",
+          "badge_def_id",
+          "exp",
+          "level",
+          "active",
+          "progress",
+          "created_at",
+          "updated_at"
+        ],
+        "type": "object"
+      },
+      "BadgeDef": {
+        "additionalProperties": false,
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "pixa_path": {
+            "type": "string"
+          },
+          "spec": {
+            "$ref": "#/components/schemas/BadgeDefSpec"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "spec",
+          "created_at",
+          "updated_at"
+        ],
+        "type": "object"
+      },
+      "BadgeDefPixaDownloadRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "BadgeDefPixaDownloadResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "pixa_path": {
+            "type": "string"
+          },
+          "size_bytes": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "size_bytes"
+        ],
+        "type": "object"
+      },
+      "BadgeDefSpec": {
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "type": "string"
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "metadata": {
+            "$ref": "#/components/schemas/GameplayMetadata"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "display_name"
+        ],
+        "type": "object"
+      },
+      "BadgeListResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "has_next": {
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/Badge"
+            },
+            "type": "array"
+          },
+          "next_cursor": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "items",
+          "has_next"
+        ],
+        "type": "object"
+      },
+      "ChatRoomMode": {
+        "enum": [
+          "direct",
+          "group"
+        ],
+        "type": "string"
+      },
+      "ChatRoomWorkflowHistorySpec": {
+        "additionalProperties": false,
+        "properties": {
+          "ttl": {
+            "description": "Unified retention duration for chat history entries and their assets.",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "ChatRoomWorkflowSpec": {
+        "additionalProperties": false,
+        "properties": {
+          "history": {
+            "$ref": "#/components/schemas/ChatRoomWorkflowHistorySpec"
+          },
+          "transcript": {
+            "$ref": "#/components/schemas/ChatRoomWorkflowTranscriptSpec"
+          }
+        },
+        "required": [
+          "history"
+        ],
+        "type": "object"
+      },
+      "ChatRoomWorkflowTranscriptSpec": {
+        "additionalProperties": false,
+        "properties": {
+          "asr_model": {
+            "description": "GizClaw ASR model resource used to transcribe gear audio.",
+            "type": "string"
+          },
+          "enabled": {
+            "description": "Whether gear audio should be transcribed and written as text in workspace history.",
+            "type": "boolean"
+          }
+        },
+        "type": "object"
+      },
+      "ChatRoomWorkspaceHistoryParameters": {
+        "additionalProperties": false,
+        "properties": {
+          "ttl": {
+            "description": "Workspace-level retention override for chat history entries and their assets.",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "ChatRoomWorkspaceParameters": {
+        "additionalProperties": false,
+        "example": {
+          "agent_type": "chatroom",
+          "input": "push-to-talk",
+          "mode": "group"
+        },
+        "properties": {
+          "agent_type": {
+            "enum": [
+              "chatroom"
+            ],
+            "type": "string"
+          },
+          "history": {
+            "$ref": "#/components/schemas/ChatRoomWorkspaceHistoryParameters"
+          },
+          "input": {
+            "$ref": "#/components/schemas/WorkspaceInputMode"
+          },
+          "mode": {
+            "$ref": "#/components/schemas/ChatRoomMode"
+          },
+          "transcript": {
+            "$ref": "#/components/schemas/ChatRoomWorkspaceTranscriptParameters"
+          }
+        },
+        "required": [
+          "agent_type"
+        ],
+        "type": "object"
+      },
+      "ChatRoomWorkspaceTranscriptParameters": {
+        "additionalProperties": false,
+        "properties": {
+          "asr_model": {
+            "description": "Workspace-level ASR model override for gear audio transcription.",
+            "type": "string"
+          },
+          "enabled": {
+            "description": "Whether gear audio should be transcribed and written as text in workspace history.",
+            "type": "boolean"
+          }
+        },
+        "type": "object"
+      },
+      "ClientGetIdentifiersRequest": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object"
+      },
+      "ClientGetIdentifiersResponse": {
+        "$ref": "#/components/schemas/RefreshIdentifiers"
+      },
+      "ClientGetInfoRequest": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object"
+      },
+      "ClientGetInfoResponse": {
+        "$ref": "#/components/schemas/RefreshInfo"
+      },
+      "ContactCreateRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "display_name": {
+            "type": "string"
+          },
+          "phone_number": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "ContactCreateResponse": {
+        "$ref": "#/components/schemas/ContactObject"
+      },
+      "ContactDeleteRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "ContactDeleteResponse": {
+        "$ref": "#/components/schemas/ContactObject"
+      },
+      "ContactGetRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "ContactGetResponse": {
+        "$ref": "#/components/schemas/ContactObject"
+      },
+      "ContactListRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "cursor": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "ContactListResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "has_next": {
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ContactObject"
+            },
+            "type": "array"
+          },
+          "next_cursor": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "items",
+          "has_next"
+        ],
+        "type": "object"
+      },
+      "ContactObject": {
+        "additionalProperties": false,
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "phone_number": {
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "ContactPutRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "display_name": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "phone_number": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "ContactPutResponse": {
+        "$ref": "#/components/schemas/ContactObject"
+      },
+      "Credential": {
+        "properties": {
+          "body": {
+            "$ref": "#/components/schemas/CredentialBody"
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "description": {
+            "example": "primary openai credential",
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "provider": {
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "provider",
+          "body",
+          "created_at",
+          "updated_at"
+        ],
+        "type": "object"
+      },
+      "CredentialBody": {
+        "description": "Provider-specific credential payload. The shape is selected by Credential.provider.",
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/OpenAICredentialBody"
+          },
+          {
+            "$ref": "#/components/schemas/GeminiCredentialBody"
+          },
+          {
+            "$ref": "#/components/schemas/DashScopeCredentialBody"
+          },
+          {
+            "$ref": "#/components/schemas/MiniMaxCredentialBody"
+          },
+          {
+            "$ref": "#/components/schemas/VolcCredentialBody"
+          }
+        ]
+      },
+      "CredentialCreateRequest": {
+        "$ref": "#/components/schemas/Credential"
+      },
+      "CredentialCreateResponse": {
+        "$ref": "#/components/schemas/Credential"
+      },
+      "CredentialDeleteRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "type": "object"
+      },
+      "CredentialDeleteResponse": {
+        "$ref": "#/components/schemas/Credential"
+      },
+      "CredentialGetRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "type": "object"
+      },
+      "CredentialGetResponse": {
+        "$ref": "#/components/schemas/Credential"
+      },
+      "CredentialListRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "cursor": {
+            "type": "string"
+          },
+          "limit": {
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "CredentialListResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "has_next": {
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/Credential"
+            },
+            "type": "array"
+          },
+          "next_cursor": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "items",
+          "has_next"
+        ],
+        "type": "object"
+      },
+      "CredentialPutRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "body": {
+            "$ref": "#/components/schemas/Credential"
+          },
+          "name": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "body"
+        ],
+        "type": "object"
+      },
+      "CredentialPutResponse": {
+        "$ref": "#/components/schemas/Credential"
+      },
+      "DashScopeCredentialBody": {
+        "additionalProperties": false,
+        "example": {
+          "api_key": "sk-..."
+        },
+        "minProperties": 1,
+        "properties": {
+          "api_key": {
+            "type": "string"
+          },
+          "base_url": {
+            "type": "string"
+          },
+          "token": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "DashScopeTenantModelProviderData": {
+        "properties": {
+          "api_mode": {
+            "enum": [
+              "chat_completions",
+              "realtime"
+            ],
+            "type": "string"
+          },
+          "upstream_model": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "DashScopeTenantVoiceProviderData": {
+        "properties": {
+          "raw": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "voice_id": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "DeviceInfo": {
+        "properties": {
+          "hardware": {
+            "$ref": "#/components/schemas/HardwareInfo"
+          },
+          "name": {
+            "type": "string"
+          },
+          "sn": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "DoubaoRealtimeAIGCMetadata": {
+        "additionalProperties": false,
+        "properties": {
+          "content_producer": {
+            "type": "string"
+          },
+          "content_propagator": {
+            "type": "string"
+          },
+          "enable": {
+            "type": "boolean"
+          },
+          "produce_id": {
+            "type": "string"
+          },
+          "propagate_id": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "DoubaoRealtimeASRContext": {
+        "additionalProperties": false,
+        "properties": {
+          "correct_words": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "hotwords": {
+            "items": {
+              "$ref": "#/components/schemas/DoubaoRealtimeASRHotword"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "DoubaoRealtimeASRExtension": {
+        "additionalProperties": false,
+        "properties": {
+          "extra": {
+            "$ref": "#/components/schemas/DoubaoRealtimeASRExtra"
+          }
+        },
+        "type": "object"
+      },
+      "DoubaoRealtimeASRExtra": {
+        "additionalProperties": false,
+        "properties": {
+          "boosting_table_id": {
+            "type": "string"
+          },
+          "boosting_table_name": {
+            "type": "string"
+          },
+          "context": {
+            "$ref": "#/components/schemas/DoubaoRealtimeASRContext"
+          },
+          "enable_asr_twopass": {
+            "type": "boolean"
+          },
+          "enable_custom_vad": {
+            "type": "boolean"
+          },
+          "end_smooth_window_ms": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "regex_correct_table_id": {
+            "type": "string"
+          },
+          "regex_correct_table_name": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "DoubaoRealtimeASRHotword": {
+        "additionalProperties": false,
+        "properties": {
+          "word": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "word"
+        ],
+        "type": "object"
+      },
+      "DoubaoRealtimeAudio": {
+        "additionalProperties": false,
+        "properties": {
+          "input": {
+            "$ref": "#/components/schemas/DoubaoRealtimeAudioInput"
+          },
+          "output": {
+            "$ref": "#/components/schemas/DoubaoRealtimeAudioOutput"
+          }
+        },
+        "required": [
+          "input",
+          "output"
+        ],
+        "type": "object"
+      },
+      "DoubaoRealtimeAudioFormat": {
+        "additionalProperties": false,
+        "properties": {
+          "rate": {
+            "minimum": 1,
+            "type": "integer"
+          },
+          "type": {
+            "enum": [
+              "pcm",
+              "pcm_s16le",
+              "speech_opus",
+              "ogg_opus"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "rate"
+        ],
+        "type": "object"
+      },
+      "DoubaoRealtimeAudioInput": {
+        "additionalProperties": false,
+        "properties": {
+          "format": {
+            "$ref": "#/components/schemas/DoubaoRealtimeAudioFormat"
+          }
+        },
+        "required": [
+          "format"
+        ],
+        "type": "object"
+      },
+      "DoubaoRealtimeAudioOutput": {
+        "additionalProperties": false,
+        "properties": {
+          "format": {
+            "$ref": "#/components/schemas/DoubaoRealtimeAudioFormat"
+          },
+          "loudness": {
+            "type": "integer"
+          },
+          "speed": {
+            "type": "integer"
+          },
+          "voice": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "format"
+        ],
+        "type": "object"
+      },
+      "DoubaoRealtimeDialogExtension": {
+        "additionalProperties": false,
+        "properties": {
+          "extra": {
+            "$ref": "#/components/schemas/DoubaoRealtimeDialogExtra"
+          }
+        },
+        "type": "object"
+      },
+      "DoubaoRealtimeDialogExtra": {
+        "additionalProperties": false,
+        "properties": {
+          "audit_response": {
+            "type": "string"
+          },
+          "enable_conversation_truncate": {
+            "type": "boolean"
+          },
+          "enable_loudness_norm": {
+            "type": "boolean"
+          },
+          "enable_music": {
+            "type": "boolean"
+          },
+          "enable_user_query_exit": {
+            "type": "boolean"
+          },
+          "enable_volc_websearch": {
+            "type": "boolean"
+          },
+          "strict_audit": {
+            "type": "boolean"
+          },
+          "volc_websearch_bot_id": {
+            "type": "string"
+          },
+          "volc_websearch_no_result_message": {
+            "type": "string"
+          },
+          "volc_websearch_result_count": {
+            "maximum": 10,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "volc_websearch_type": {
+            "enum": [
+              "web",
+              "web_summary",
+              "web_agent"
+            ],
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "DoubaoRealtimeExtension": {
+        "additionalProperties": false,
+        "properties": {
+          "asr": {
+            "$ref": "#/components/schemas/DoubaoRealtimeASRExtension"
+          },
+          "dialog": {
+            "$ref": "#/components/schemas/DoubaoRealtimeDialogExtension"
+          },
+          "tts": {
+            "$ref": "#/components/schemas/DoubaoRealtimeTTSExtension"
+          }
+        },
+        "type": "object"
+      },
+      "DoubaoRealtimeFunctionTool": {
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "parameters": {
+            "$ref": "#/components/schemas/DoubaoRealtimeJSONSchema"
+          },
+          "strict": {
+            "type": "boolean"
+          },
+          "type": {
+            "enum": [
+              "function"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "name"
+        ],
+        "type": "object"
+      },
+      "DoubaoRealtimeJSONSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "additionalProperties": {
+            "type": "boolean"
+          },
+          "anyOf": {
+            "items": {
+              "$ref": "#/components/schemas/DoubaoRealtimeJSONSchema"
+            },
+            "type": "array"
+          },
+          "description": {
+            "type": "string"
+          },
+          "enum": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "items": {
+            "$ref": "#/components/schemas/DoubaoRealtimeJSONSchema"
+          },
+          "maxLength": {
+            "type": "integer"
+          },
+          "maximum": {
+            "type": "number"
+          },
+          "minLength": {
+            "type": "integer"
+          },
+          "minimum": {
+            "type": "number"
+          },
+          "properties": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/DoubaoRealtimeJSONSchema"
+            },
+            "type": "object"
+          },
+          "required": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "type": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "DoubaoRealtimeTTSExtension": {
+        "additionalProperties": false,
+        "properties": {
+          "extra": {
+            "$ref": "#/components/schemas/DoubaoRealtimeTTSExtra"
+          }
+        },
+        "type": "object"
+      },
+      "DoubaoRealtimeTTSExtra": {
+        "additionalProperties": false,
+        "properties": {
+          "aigc_metadata": {
+            "$ref": "#/components/schemas/DoubaoRealtimeAIGCMetadata"
+          },
+          "explicit_dialect": {
+            "type": "string"
+          },
+          "tts_2.0_model": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "DoubaoRealtimeWorkflowSpec": {
+        "additionalProperties": false,
+        "properties": {
+          "audio": {
+            "$ref": "#/components/schemas/DoubaoRealtimeAudio"
+          },
+          "extension": {
+            "$ref": "#/components/schemas/DoubaoRealtimeExtension"
+          },
+          "instructions": {
+            "type": "string"
+          },
+          "model": {
+            "description": "GizClaw Model resource name. The upstream Doubao model version is configured on Model provider_data.upstream_model.",
+            "type": "string"
+          },
+          "tools": {
+            "items": {
+              "$ref": "#/components/schemas/DoubaoRealtimeFunctionTool"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "model"
+        ],
+        "type": "object"
+      },
+      "DoubaoRealtimeWorkspaceParameters": {
+        "additionalProperties": false,
+        "example": {
+          "agent_type": "doubao-realtime",
+          "audio": {
+            "input": {
+              "format": {
+                "rate": 16000,
+                "type": "speech_opus"
+              }
+            },
+            "output": {
+              "format": {
+                "rate": 24000,
+                "type": "ogg_opus"
+              },
+              "voice": "zh_female_vv_jupiter_bigtts"
+            }
+          },
+          "input": "push-to-talk",
+          "model": "e2e-realtime"
+        },
+        "properties": {
+          "agent_type": {
+            "enum": [
+              "doubao-realtime"
+            ],
+            "type": "string"
+          },
+          "audio": {
+            "$ref": "#/components/schemas/DoubaoRealtimeAudio"
+          },
+          "e2e": {
+            "description": "Marks seed resources used by the local e2e harness.",
+            "type": "boolean"
+          },
+          "extension": {
+            "$ref": "#/components/schemas/DoubaoRealtimeExtension"
+          },
+          "input": {
+            "$ref": "#/components/schemas/WorkspaceInputMode"
+          },
+          "instructions": {
+            "type": "string"
+          },
+          "model": {
+            "description": "GizClaw Model resource name. Defaults to Workflow.spec.doubao_realtime.model.",
+            "type": "string"
+          },
+          "tools": {
+            "items": {
+              "$ref": "#/components/schemas/DoubaoRealtimeFunctionTool"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "agent_type"
+        ],
+        "type": "object"
+      },
+      "Firmware": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "description": {
+            "example": "Devkit firmware line",
+            "type": "string"
+          },
+          "name": {
+            "example": "devkit",
+            "type": "string"
+          },
+          "slots": {
+            "$ref": "#/components/schemas/FirmwareSlots"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "slots",
+          "created_at",
+          "updated_at"
+        ],
+        "type": "object"
+      },
+      "FirmwareArtifact": {
+        "additionalProperties": false,
+        "properties": {
+          "content_type": {
+            "description": "Content type for the uploaded artifact.tar.",
+            "example": "application/x-tar",
+            "type": "string"
+          },
+          "files_path": {
+            "description": "Server-owned objectstore prefix for extracted artifact files.",
+            "example": "firmware/devkit/stable/files/",
+            "type": "string"
+          },
+          "manifest_path": {
+            "description": "Server-owned objectstore path for the artifact manifest.",
+            "example": "firmware/devkit/stable/manifest.json",
+            "type": "string"
+          },
+          "sha256": {
+            "description": "SHA-256 digest of the uploaded artifact.tar.",
+            "type": "string"
+          },
+          "size": {
+            "description": "Uploaded artifact.tar size in bytes.",
+            "format": "int64",
+            "type": "integer"
+          },
+          "tar_path": {
+            "description": "Server-owned objectstore path for the uploaded artifact.tar.",
+            "example": "firmware/devkit/stable/artifact.tar",
+            "type": "string"
+          },
+          "uploaded_at": {
+            "description": "Server-owned upload timestamp.",
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "tar_path",
+          "manifest_path",
+          "files_path",
+          "sha256",
+          "size",
+          "content_type",
+          "uploaded_at"
+        ],
+        "type": "object"
+      },
+      "FirmwareArtifactEntry": {
+        "additionalProperties": false,
+        "properties": {
+          "content_type": {
+            "description": "Best-effort content type for file entries.",
+            "type": "string"
+          },
+          "mod_time": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "mode": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "path": {
+            "description": "Normalized artifact entry path relative to the tar root.",
+            "example": "assets/icons/app.png",
+            "type": "string"
+          },
+          "size": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "type": {
+            "$ref": "#/components/schemas/FirmwareArtifactEntryType"
+          }
+        },
+        "required": [
+          "path",
+          "type",
+          "size",
+          "mode",
+          "mod_time"
+        ],
+        "type": "object"
+      },
+      "FirmwareArtifactEntryType": {
+        "enum": [
+          "file",
+          "dir"
+        ],
+        "type": "string"
+      },
+      "FirmwareArtifactList": {
+        "additionalProperties": false,
+        "properties": {
+          "channel": {
+            "type": "string"
+          },
+          "firmware_id": {
+            "type": "string"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/FirmwareArtifactEntry"
+            },
+            "type": "array"
+          },
+          "path": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "firmware_id",
+          "channel",
+          "path",
+          "items"
+        ],
+        "type": "object"
+      },
+      "FirmwareArtifactStats": {
+        "additionalProperties": false,
+        "properties": {
+          "artifact": {
+            "$ref": "#/components/schemas/FirmwareArtifact"
+          },
+          "channel": {
+            "type": "string"
+          },
+          "entry": {
+            "$ref": "#/components/schemas/FirmwareArtifactEntry"
+          },
+          "files_count": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "firmware_id": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "total_size": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "firmware_id",
+          "channel",
+          "artifact",
+          "files_count",
+          "total_size"
+        ],
+        "type": "object"
+      },
+      "FirmwareArtifactTree": {
+        "additionalProperties": false,
+        "properties": {
+          "channel": {
+            "type": "string"
+          },
+          "firmware_id": {
+            "type": "string"
+          },
+          "items": {
+            "description": "Recursive flat entry list rooted at path.",
+            "items": {
+              "$ref": "#/components/schemas/FirmwareArtifactEntry"
+            },
+            "type": "array"
+          },
+          "path": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "firmware_id",
+          "channel",
+          "path",
+          "items"
+        ],
+        "type": "object"
+      },
+      "FirmwareChannelName": {
+        "enum": [
+          "stable",
+          "beta",
+          "develop",
+          "pending"
+        ],
+        "type": "string"
+      },
+      "FirmwareFilesDownloadRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "channel": {
+            "$ref": "#/components/schemas/FirmwareChannelName"
+          },
+          "firmware_id": {
+            "type": "string"
+          },
+          "path": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "firmware_id",
+          "channel",
+          "path"
+        ],
+        "type": "object"
+      },
+      "FirmwareFilesDownloadResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "artifact": {
+            "$ref": "#/components/schemas/FirmwareArtifact"
+          },
+          "channel": {
+            "$ref": "#/components/schemas/FirmwareChannelName"
+          },
+          "file": {
+            "$ref": "#/components/schemas/FirmwareArtifactEntry"
+          },
+          "firmware_id": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "firmware_id",
+          "channel",
+          "path",
+          "file",
+          "artifact"
+        ],
+        "type": "object"
+      },
+      "FirmwareGetRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "firmware_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "firmware_id"
+        ],
+        "type": "object"
+      },
+      "FirmwareGetResponse": {
+        "$ref": "#/components/schemas/Firmware"
+      },
+      "FirmwareListRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "cursor": {
+            "type": "string"
+          },
+          "limit": {
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "FirmwareListResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "has_next": {
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/Firmware"
+            },
+            "type": "array"
+          },
+          "next_cursor": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "items",
+          "has_next"
+        ],
+        "type": "object"
+      },
+      "FirmwareSlot": {
+        "properties": {
+          "artifact": {
+            "$ref": "#/components/schemas/FirmwareArtifact",
+            "description": "Server-owned channel artifact metadata. This is singular and is populated by artifact.tar upload."
+          },
+          "description": {
+            "example": "Devkit firmware 1.0.3",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "FirmwareSlots": {
+        "properties": {
+          "beta": {
+            "$ref": "#/components/schemas/FirmwareSlot"
+          },
+          "develop": {
+            "$ref": "#/components/schemas/FirmwareSlot"
+          },
+          "pending": {
+            "$ref": "#/components/schemas/FirmwareSlot"
+          },
+          "stable": {
+            "$ref": "#/components/schemas/FirmwareSlot"
+          }
+        },
+        "required": [
+          "stable",
+          "beta",
+          "develop",
+          "pending"
+        ],
+        "type": "object"
+      },
+      "FlowcraftConversationParameters": {
+        "additionalProperties": false,
+        "properties": {
+          "agent_initiative_policy": {
+            "description": "When agent initiative is allowed.",
+            "enum": [
+              "once_when_empty",
+              "on_reload"
+            ],
+            "type": "string"
+          },
+          "initiative": {
+            "description": "Who starts the conversation when the workspace runtime opens.",
+            "enum": [
+              "peer",
+              "agent"
+            ],
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "FlowcraftWorkflowSpec": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "FlowcraftWorkspaceParameters": {
+        "additionalProperties": false,
+        "example": {
+          "agent_type": "flowcraft",
+          "conversation": {
+            "agent_initiative_policy": "once_when_empty",
+            "initiative": "agent"
+          },
+          "extract_model": "e2e-doubao-2-lite-chat",
+          "generate_model": "e2e-doubao-2-lite-chat",
+          "input": "push-to-talk"
+        },
+        "properties": {
+          "agent_type": {
+            "enum": [
+              "flowcraft"
+            ],
+            "type": "string"
+          },
+          "conversation": {
+            "$ref": "#/components/schemas/FlowcraftConversationParameters"
+          },
+          "e2e": {
+            "description": "Marks seed resources used by the local e2e harness.",
+            "type": "boolean"
+          },
+          "embedding_model": {
+            "type": "string"
+          },
+          "extract_model": {
+            "type": "string"
+          },
+          "generate_model": {
+            "type": "string"
+          },
+          "input": {
+            "$ref": "#/components/schemas/WorkspaceInputMode"
+          }
+        },
+        "required": [
+          "agent_type"
+        ],
+        "type": "object"
+      },
+      "FriendAddRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "invite_token": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "invite_token"
+        ],
+        "type": "object"
+      },
+      "FriendAddResponse": {
+        "$ref": "#/components/schemas/FriendObject"
+      },
+      "FriendDeleteRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "FriendDeleteResponse": {
+        "$ref": "#/components/schemas/FriendObject"
+      },
+      "FriendGroupCreateRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "type": "object"
+      },
+      "FriendGroupCreateResponse": {
+        "$ref": "#/components/schemas/FriendGroupObject"
+      },
+      "FriendGroupDeleteRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "FriendGroupDeleteResponse": {
+        "$ref": "#/components/schemas/FriendGroupObject"
+      },
+      "FriendGroupGetRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "FriendGroupGetResponse": {
+        "$ref": "#/components/schemas/FriendGroupObject"
+      },
+      "FriendGroupInviteTokenClearRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "friend_group_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "friend_group_id"
+        ],
+        "type": "object"
+      },
+      "FriendGroupInviteTokenClearResponse": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object"
+      },
+      "FriendGroupInviteTokenCreateRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "friend_group_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "friend_group_id"
+        ],
+        "type": "object"
+      },
+      "FriendGroupInviteTokenCreateResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "expires_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "invite_token": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "invite_token",
+          "expires_at"
+        ],
+        "type": "object"
+      },
+      "FriendGroupInviteTokenGetRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "friend_group_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "friend_group_id"
+        ],
+        "type": "object"
+      },
+      "FriendGroupInviteTokenGetResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "expires_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "invite_token": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "FriendGroupJoinRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "invite_token": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "invite_token"
+        ],
+        "type": "object"
+      },
+      "FriendGroupJoinResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "group": {
+            "$ref": "#/components/schemas/FriendGroupObject"
+          },
+          "member": {
+            "$ref": "#/components/schemas/FriendGroupMemberObject"
+          }
+        },
+        "required": [
+          "group",
+          "member"
+        ],
+        "type": "object"
+      },
+      "FriendGroupListRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "cursor": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "FriendGroupListResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "has_next": {
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/FriendGroupObject"
+            },
+            "type": "array"
+          },
+          "next_cursor": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "items",
+          "has_next"
+        ],
+        "type": "object"
+      },
+      "FriendGroupMemberAddRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "friend_group_id": {
+            "type": "string"
+          },
+          "peer_public_key": {
+            "type": "string"
+          },
+          "role": {
+            "$ref": "#/components/schemas/FriendGroupMemberMutableRole"
+          }
+        },
+        "required": [
+          "friend_group_id",
+          "peer_public_key",
+          "role"
+        ],
+        "type": "object"
+      },
+      "FriendGroupMemberAddResponse": {
+        "$ref": "#/components/schemas/FriendGroupMemberObject"
+      },
+      "FriendGroupMemberDeleteRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "friend_group_id": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "friend_group_id",
+          "id"
+        ],
+        "type": "object"
+      },
+      "FriendGroupMemberDeleteResponse": {
+        "$ref": "#/components/schemas/FriendGroupMemberObject"
+      },
+      "FriendGroupMemberListRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "cursor": {
+            "type": "string"
+          },
+          "friend_group_id": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "FriendGroupMemberListResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "has_next": {
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/FriendGroupMemberObject"
+            },
+            "type": "array"
+          },
+          "next_cursor": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "items",
+          "has_next"
+        ],
+        "type": "object"
+      },
+      "FriendGroupMemberMutableRole": {
+        "enum": [
+          "admin",
+          "member"
+        ],
+        "type": "string"
+      },
+      "FriendGroupMemberObject": {
+        "additionalProperties": false,
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "friend_group_id": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "peer_public_key": {
+            "type": "string"
+          },
+          "role": {
+            "$ref": "#/components/schemas/FriendGroupMemberRole"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "FriendGroupMemberPutRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "friend_group_id": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "role": {
+            "$ref": "#/components/schemas/FriendGroupMemberMutableRole"
+          }
+        },
+        "required": [
+          "friend_group_id",
+          "id",
+          "role"
+        ],
+        "type": "object"
+      },
+      "FriendGroupMemberPutResponse": {
+        "$ref": "#/components/schemas/FriendGroupMemberObject"
+      },
+      "FriendGroupMemberRole": {
+        "enum": [
+          "owner",
+          "admin",
+          "member"
+        ],
+        "type": "string"
+      },
+      "FriendGroupMessageGetRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "friend_group_id": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "friend_group_id",
+          "id"
+        ],
+        "type": "object"
+      },
+      "FriendGroupMessageGetResponse": {
+        "$ref": "#/components/schemas/FriendGroupMessageObject"
+      },
+      "FriendGroupMessageListRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "cursor": {
+            "type": "string"
+          },
+          "friend_group_id": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "FriendGroupMessageListResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "has_next": {
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/FriendGroupMessageObject"
+            },
+            "type": "array"
+          },
+          "next_cursor": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "items",
+          "has_next"
+        ],
+        "type": "object"
+      },
+      "FriendGroupMessageObject": {
+        "additionalProperties": false,
+        "properties": {
+          "audio_content_type": {
+            "type": "string"
+          },
+          "audio_path": {
+            "type": "string"
+          },
+          "audio_size_bytes": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "expires_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "friend_group_id": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "sender_peer_public_key": {
+            "type": "string"
+          },
+          "ttl_seconds": {
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "FriendGroupMessageSendRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "audio_base64": {
+            "format": "byte",
+            "type": "string"
+          },
+          "audio_content_type": {
+            "type": "string"
+          },
+          "friend_group_id": {
+            "type": "string"
+          },
+          "ttl_seconds": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "friend_group_id",
+          "audio_base64",
+          "audio_content_type"
+        ],
+        "type": "object"
+      },
+      "FriendGroupMessageSendResponse": {
+        "$ref": "#/components/schemas/FriendGroupMessageObject"
+      },
+      "FriendGroupObject": {
+        "additionalProperties": false,
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "created_by_peer_public_key": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "my_role": {
+            "$ref": "#/components/schemas/FriendGroupMemberRole"
+          },
+          "name": {
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "workspace_name": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "FriendGroupPutRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "FriendGroupPutResponse": {
+        "$ref": "#/components/schemas/FriendGroupObject"
+      },
+      "FriendInviteTokenClearRequest": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object"
+      },
+      "FriendInviteTokenClearResponse": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object"
+      },
+      "FriendInviteTokenCreateRequest": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object"
+      },
+      "FriendInviteTokenCreateResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "expires_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "invite_token": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "invite_token",
+          "expires_at"
+        ],
+        "type": "object"
+      },
+      "FriendInviteTokenGetRequest": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object"
+      },
+      "FriendInviteTokenGetResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "expires_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "invite_token": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "FriendListRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "cursor": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "FriendListResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "has_next": {
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/FriendObject"
+            },
+            "type": "array"
+          },
+          "next_cursor": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "items",
+          "has_next"
+        ],
+        "type": "object"
+      },
+      "FriendObject": {
+        "additionalProperties": false,
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "peer_public_key": {
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "workspace_name": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "GameDef": {
+        "additionalProperties": false,
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "spec": {
+            "$ref": "#/components/schemas/GameDefSpec"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "spec",
+          "created_at",
+          "updated_at"
+        ],
+        "type": "object"
+      },
+      "GameDefSpec": {
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "type": "string"
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "metadata": {
+            "$ref": "#/components/schemas/GameplayMetadata"
+          },
+          "outcomes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "score_schema": {
+            "$ref": "#/components/schemas/GameplayMetadata"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "display_name"
+        ],
+        "type": "object"
+      },
+      "GameResult": {
+        "additionalProperties": false,
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "difficulty": {
+            "type": "string"
+          },
+          "duration_ms": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "game_def_id": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string"
+          },
+          "max_score": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "occurred_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "outcome": {
+            "type": "string"
+          },
+          "owner_public_key": {
+            "type": "string"
+          },
+          "payload": {
+            "$ref": "#/components/schemas/GameplayMetadata"
+          },
+          "pet_id": {
+            "type": "string"
+          },
+          "ruleset_name": {
+            "type": "string"
+          },
+          "score": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "owner_public_key",
+          "ruleset_name",
+          "pet_id",
+          "game_def_id",
+          "occurred_at",
+          "created_at"
+        ],
+        "type": "object"
+      },
+      "GameResultListResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "has_next": {
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/GameResult"
+            },
+            "type": "array"
+          },
+          "next_cursor": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "items",
+          "has_next"
+        ],
+        "type": "object"
+      },
+      "GameRewardSpec": {
+        "additionalProperties": false,
+        "properties": {
+          "ability_delta": {
+            "$ref": "#/components/schemas/StatMap"
+          },
+          "badge_exp_delta": {
+            "additionalProperties": {
+              "format": "int64",
+              "type": "integer"
+            },
+            "type": "object"
+          },
+          "life_delta": {
+            "$ref": "#/components/schemas/StatMap"
+          },
+          "pet_exp_delta": {
+            "default": 0,
+            "format": "int64",
+            "type": "integer"
+          },
+          "points_delta": {
+            "default": 0,
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "GameRuleset": {
+        "additionalProperties": false,
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "spec": {
+            "$ref": "#/components/schemas/GameRulesetSpec"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "spec",
+          "created_at",
+          "updated_at"
+        ],
+        "type": "object"
+      },
+      "GameRulesetDriveSpec": {
+        "additionalProperties": false,
+        "properties": {
+          "action_costs": {
+            "additionalProperties": {
+              "format": "int64",
+              "type": "integer"
+            },
+            "type": "object"
+          },
+          "action_rewards": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/GameRewardSpec"
+            },
+            "type": "object"
+          },
+          "default_reward": {
+            "$ref": "#/components/schemas/GameRewardSpec"
+          },
+          "game_rewards": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/GameRewardSpec"
+            },
+            "type": "object"
+          },
+          "life_decay_per_hour": {
+            "$ref": "#/components/schemas/StatMap"
+          }
+        },
+        "type": "object"
+      },
+      "GameRulesetPetPoolEntry": {
+        "additionalProperties": false,
+        "properties": {
+          "adoption_cost": {
+            "default": 0,
+            "format": "int64",
+            "type": "integer"
+          },
+          "petdef_id": {
+            "type": "string"
+          },
+          "rarity": {
+            "type": "string"
+          },
+          "weight": {
+            "format": "int64",
+            "minimum": 1,
+            "type": "integer"
+          },
+          "workflow_name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "petdef_id",
+          "weight"
+        ],
+        "type": "object"
+      },
+      "GameRulesetPointsSpec": {
+        "additionalProperties": false,
+        "properties": {
+          "initial_balance": {
+            "default": 0,
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "GameRulesetSpec": {
+        "additionalProperties": false,
+        "properties": {
+          "badge_def_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "default_workflow_name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "drive": {
+            "$ref": "#/components/schemas/GameRulesetDriveSpec"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "game_def_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "metadata": {
+            "$ref": "#/components/schemas/GameplayMetadata"
+          },
+          "pet_pool": {
+            "items": {
+              "$ref": "#/components/schemas/GameRulesetPetPoolEntry"
+            },
+            "type": "array"
+          },
+          "points": {
+            "$ref": "#/components/schemas/GameRulesetPointsSpec"
+          }
+        },
+        "required": [
+          "enabled",
+          "pet_pool"
+        ],
+        "type": "object"
+      },
+      "GameplayGetRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "GameplayListRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "cursor": {
+            "type": "string"
+          },
+          "limit": {
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "GameplayMetadata": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "GeminiCredentialBody": {
+        "additionalProperties": false,
+        "example": {
+          "api_key": "..."
+        },
+        "minProperties": 1,
+        "properties": {
+          "api_key": {
+            "type": "string"
+          },
+          "base_url": {
+            "type": "string"
+          },
+          "token": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "GeminiTenantModelProviderData": {
+        "properties": {
+          "upstream_model": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "GeminiTenantVoiceProviderData": {
+        "properties": {
+          "raw": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "voice_id": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "HardwareInfo": {
+        "properties": {
+          "hardware_revision": {
+            "type": "string"
+          },
+          "imeis": {
+            "items": {
+              "$ref": "#/components/schemas/PeerIMEI"
+            },
+            "type": "array"
+          },
+          "labels": {
+            "items": {
+              "$ref": "#/components/schemas/PeerLabel"
+            },
+            "type": "array"
+          },
+          "manufacturer": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "MiniMaxCredentialBody": {
+        "additionalProperties": false,
+        "example": {
+          "api_key": "sk-..."
+        },
+        "minProperties": 1,
+        "properties": {
+          "api_key": {
+            "type": "string"
+          },
+          "base_url": {
+            "type": "string"
+          },
+          "minimax_voice_base_url": {
+            "type": "string"
+          },
+          "token": {
+            "type": "string"
+          },
+          "voice_base_url": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "MiniMaxTenantVoiceProviderData": {
+        "properties": {
+          "format": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string"
+          },
+          "raw": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "sample_rate": {
+            "type": "integer"
+          },
+          "voice_id": {
+            "type": "string"
+          },
+          "voice_type": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "Model": {
+        "properties": {
+          "capabilities": {
+            "$ref": "#/components/schemas/ModelCapabilities"
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "description": {
+            "example": "OpenAI-compatible chat model",
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/ModelKind"
+          },
+          "name": {
+            "example": "MiniMax M2.5",
+            "type": "string"
+          },
+          "provider": {
+            "$ref": "#/components/schemas/ModelProvider"
+          },
+          "provider_data": {
+            "$ref": "#/components/schemas/ModelProviderData",
+            "description": "Provider-specific model runtime configuration.",
+            "example": {
+              "upstream_model": "MiniMax-M2.5"
+            }
+          },
+          "source": {
+            "$ref": "#/components/schemas/ModelSource"
+          },
+          "synced_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "source",
+          "provider",
+          "created_at",
+          "updated_at"
+        ],
+        "type": "object"
+      },
+      "ModelCapabilities": {
+        "properties": {
+          "json_output": {
+            "type": "boolean"
+          },
+          "system_role": {
+            "type": "boolean"
+          },
+          "temperature": {
+            "type": "boolean"
+          },
+          "text_only": {
+            "type": "boolean"
+          },
+          "thinking": {
+            "$ref": "#/components/schemas/ModelThinkingCapability"
+          },
+          "tool_calls": {
+            "type": "boolean"
+          }
+        },
+        "type": "object"
+      },
+      "ModelCreateRequest": {
+        "$ref": "#/components/schemas/Model"
+      },
+      "ModelCreateResponse": {
+        "$ref": "#/components/schemas/Model"
+      },
+      "ModelDeleteRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "ModelDeleteResponse": {
+        "$ref": "#/components/schemas/Model"
+      },
+      "ModelGetRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "ModelGetResponse": {
+        "$ref": "#/components/schemas/Model"
+      },
+      "ModelKind": {
+        "description": "Runtime role of a model.",
+        "enum": [
+          "llm",
+          "tts",
+          "asr",
+          "realtime",
+          "translation",
+          "embedding"
+        ],
+        "example": "llm",
+        "type": "string"
+      },
+      "ModelListRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "cursor": {
+            "type": "string"
+          },
+          "limit": {
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "ModelListResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "has_next": {
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/Model"
+            },
+            "type": "array"
+          },
+          "next_cursor": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "items",
+          "has_next"
+        ],
+        "type": "object"
+      },
+      "ModelProvider": {
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/ModelProviderKind"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "name"
+        ],
+        "type": "object"
+      },
+      "ModelProviderData": {
+        "description": "Provider-specific model runtime configuration. The shape is selected by Model.provider.kind.",
+        "example": {
+          "upstream_model": "MiniMax-M2.5"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/GeminiTenantModelProviderData"
+          },
+          {
+            "$ref": "#/components/schemas/DashScopeTenantModelProviderData"
+          },
+          {
+            "$ref": "#/components/schemas/OpenAITenantModelProviderData"
+          },
+          {
+            "$ref": "#/components/schemas/VolcTenantModelProviderData"
+          }
+        ]
+      },
+      "ModelProviderKind": {
+        "description": "Provider resource kind usable by model runtime.",
+        "enum": [
+          "gemini-tenant",
+          "dashscope-tenant",
+          "openai-tenant",
+          "volc-tenant"
+        ],
+        "example": "openai-tenant",
+        "type": "string"
+      },
+      "ModelPutRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "body": {
+            "$ref": "#/components/schemas/Model"
+          },
+          "id": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "body"
+        ],
+        "type": "object"
+      },
+      "ModelPutResponse": {
+        "$ref": "#/components/schemas/Model"
+      },
+      "ModelSource": {
+        "description": "How the model entered the global catalog",
+        "enum": [
+          "sync",
+          "manual"
+        ],
+        "example": "manual",
+        "type": "string"
+      },
+      "ModelThinkingCapability": {
+        "properties": {
+          "default_level": {
+            "type": "string"
+          },
+          "level_param": {
+            "description": "Optional provider request parameter used for the selected thinking level or budget.",
+            "type": "string"
+          },
+          "levels": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "param": {
+            "description": "Provider request parameter mapping, such as reasoning_effort, thinking.type, or enable_thinking.",
+            "type": "string"
+          },
+          "supported": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "supported"
+        ],
+        "type": "object"
+      },
+      "OpenAICredentialBody": {
+        "additionalProperties": false,
+        "example": {
+          "api_key": "sk-..."
+        },
+        "minProperties": 1,
+        "properties": {
+          "api_key": {
+            "type": "string"
+          },
+          "base_url": {
+            "type": "string"
+          },
+          "organization": {
+            "type": "string"
+          },
+          "project": {
+            "type": "string"
+          },
+          "token": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "OpenAITenantModelProviderData": {
+        "properties": {
+          "default_thinking_level": {
+            "type": "string"
+          },
+          "support_json_output": {
+            "type": "boolean"
+          },
+          "support_text_only": {
+            "type": "boolean"
+          },
+          "support_thinking": {
+            "type": "boolean"
+          },
+          "support_tool_calls": {
+            "type": "boolean"
+          },
+          "thinking_level_param": {
+            "type": "string"
+          },
+          "thinking_levels": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "thinking_param": {
+            "type": "string"
+          },
+          "upstream_model": {
+            "type": "string"
+          },
+          "use_system_role": {
+            "type": "boolean"
+          }
+        },
+        "type": "object"
+      },
+      "OpenAITenantVoiceProviderData": {
+        "properties": {
+          "raw": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "voice_id": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "PeerIMEI": {
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "serial": {
+            "type": "string"
+          },
+          "tac": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "tac",
+          "serial"
+        ],
+        "type": "object"
+      },
+      "PeerLabel": {
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "value": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "value"
+        ],
+        "type": "object"
+      },
+      "PeerRunAgent": {
+        "additionalProperties": false,
+        "properties": {
+          "active": {
+            "$ref": "#/components/schemas/AgentSelection"
+          },
+          "pending": {
+            "$ref": "#/components/schemas/AgentSelection"
+          }
+        },
+        "type": "object"
+      },
+      "PeerRunHistoryEntry": {
+        "additionalProperties": false,
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "gear_id": {
+            "description": "Originating gear id. Required for gear entries and omitted for agent entries.",
+            "minLength": 1,
+            "type": "string"
+          },
+          "id": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "name": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "replay_available": {
+            "type": "boolean"
+          },
+          "text": {
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "gear",
+              "agent"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "name",
+          "text",
+          "created_at",
+          "replay_available"
+        ],
+        "type": "object"
+      },
+      "PeerRunHistoryListRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "cursor": {
+            "type": "string"
+          },
+          "limit": {
+            "minimum": 1,
+            "type": "integer"
+          },
+          "order": {
+            "enum": [
+              "asc",
+              "desc"
+            ],
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "PeerRunHistoryListResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "available": {
+            "type": "boolean"
+          },
+          "has_next": {
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PeerRunHistoryEntry"
+            },
+            "type": "array"
+          },
+          "message": {
+            "type": "string"
+          },
+          "next_cursor": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "available",
+          "items",
+          "has_next"
+        ],
+        "type": "object"
+      },
+      "PeerRunHistoryPlayRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "history_id": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "history_id"
+        ],
+        "type": "object"
+      },
+      "PeerRunHistoryPlayResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "accepted": {
+            "type": "boolean"
+          },
+          "history_id": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "accepted",
+          "history_id",
+          "state"
+        ],
+        "type": "object"
+      },
+      "PeerRunMemoryStatsRequest": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object"
+      },
+      "PeerRunMemoryStatsResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "available": {
+            "type": "boolean"
+          },
+          "backend": {
+            "type": "string"
+          },
+          "embedding_enabled": {
+            "type": "boolean"
+          },
+          "embedding_status": {
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "index_status": {
+            "type": "string"
+          },
+          "item_count": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "last_updated_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "storage_bytes": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "available",
+          "enabled",
+          "item_count",
+          "storage_bytes"
+        ],
+        "type": "object"
+      },
+      "PeerRunRecallHit": {
+        "additionalProperties": false,
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "score": {
+            "format": "double",
+            "type": "number"
+          },
+          "snippet": {
+            "type": "string"
+          },
+          "source_id": {
+            "type": "string"
+          },
+          "source_type": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "score",
+          "snippet"
+        ],
+        "type": "object"
+      },
+      "PeerRunRecallRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "filters": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "limit": {
+            "minimum": 1,
+            "type": "integer"
+          },
+          "query": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "type": "object"
+      },
+      "PeerRunRecallResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "available": {
+            "type": "boolean"
+          },
+          "hits": {
+            "items": {
+              "$ref": "#/components/schemas/PeerRunRecallHit"
+            },
+            "type": "array"
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "available",
+          "hits"
+        ],
+        "type": "object"
+      },
+      "PeerRunStatus": {
+        "additionalProperties": false,
+        "properties": {
+          "message": {
+            "type": "string"
+          },
+          "started_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "state": {
+            "$ref": "#/components/schemas/PeerRunStatusState"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "workspace_name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "state"
+        ],
+        "type": "object"
+      },
+      "PeerRunStatusState": {
+        "enum": [
+          "stopped",
+          "starting",
+          "running",
+          "stopping",
+          "error"
+        ],
+        "type": "string"
+      },
+      "PeerRunWorkspaceState": {
+        "additionalProperties": false,
+        "properties": {
+          "active_workspace_name": {
+            "type": "string"
+          },
+          "agent_type": {
+            "type": "string"
+          },
+          "history_available": {
+            "type": "boolean"
+          },
+          "memory_stats_available": {
+            "type": "boolean"
+          },
+          "message": {
+            "type": "string"
+          },
+          "pending_workspace_name": {
+            "type": "string"
+          },
+          "recall_available": {
+            "type": "boolean"
+          },
+          "runtime_state": {
+            "$ref": "#/components/schemas/PeerRunStatusState"
+          },
+          "selected_workspace_name": {
+            "type": "string"
+          },
+          "started_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "workflow_name": {
+            "type": "string"
+          },
+          "workspace_name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "runtime_state",
+          "workspace_name"
+        ],
+        "type": "object"
+      },
+      "PeerStatus": {
+        "additionalProperties": false,
+        "properties": {
+          "battery_percent": {
+            "maximum": 100,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "charging": {
+            "type": "boolean"
+          },
+          "details": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "gnss_accuracy_m": {
+            "minimum": 0,
+            "type": "number"
+          },
+          "gnss_altitude_m": {
+            "type": "number"
+          },
+          "gnss_latitude": {
+            "maximum": 90,
+            "minimum": -90,
+            "type": "number"
+          },
+          "gnss_longitude": {
+            "maximum": 180,
+            "minimum": -180,
+            "type": "number"
+          },
+          "labels": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "muted": {
+            "type": "boolean"
+          },
+          "reported_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "volume": {
+            "maximum": 100,
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "Pet": {
+        "additionalProperties": false,
+        "properties": {
+          "ability": {
+            "$ref": "#/components/schemas/StatMap"
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "exp": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "id": {
+            "type": "string"
+          },
+          "last_active_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "level": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "life": {
+            "$ref": "#/components/schemas/StatMap"
+          },
+          "owner_public_key": {
+            "type": "string"
+          },
+          "petdef_id": {
+            "type": "string"
+          },
+          "ruleset_name": {
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "workflow_name": {
+            "type": "string"
+          },
+          "workspace_name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "owner_public_key",
+          "ruleset_name",
+          "petdef_id",
+          "display_name",
+          "workspace_name",
+          "life",
+          "ability",
+          "exp",
+          "level",
+          "last_active_at",
+          "created_at",
+          "updated_at"
+        ],
+        "type": "object"
+      },
+      "PetAdoptRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "display_name": {
+            "type": "string"
+          },
+          "ruleset_name": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "PetAdoptResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "pet": {
+            "$ref": "#/components/schemas/Pet"
+          },
+          "points": {
+            "$ref": "#/components/schemas/PointsAccount"
+          },
+          "transaction": {
+            "$ref": "#/components/schemas/PointsTransaction"
+          }
+        },
+        "required": [
+          "pet",
+          "points",
+          "transaction"
+        ],
+        "type": "object"
+      },
+      "PetDef": {
+        "additionalProperties": false,
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "pixa_path": {
+            "type": "string"
+          },
+          "spec": {
+            "$ref": "#/components/schemas/PetDefSpec"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "spec",
+          "created_at",
+          "updated_at"
+        ],
+        "type": "object"
+      },
+      "PetDefPixaDownloadRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "PetDefPixaDownloadResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "pixa_path": {
+            "type": "string"
+          },
+          "size_bytes": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "size_bytes"
+        ],
+        "type": "object"
+      },
+      "PetDefSpec": {
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "type": "string"
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "initial_ability": {
+            "$ref": "#/components/schemas/StatMap"
+          },
+          "initial_life": {
+            "$ref": "#/components/schemas/StatMap"
+          },
+          "metadata": {
+            "$ref": "#/components/schemas/GameplayMetadata"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "workflow_name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "display_name"
+        ],
+        "type": "object"
+      },
+      "PetDeleteRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "PetDriveGameResultInput": {
+        "additionalProperties": false,
+        "properties": {
+          "difficulty": {
+            "type": "string"
+          },
+          "duration_ms": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "game_def_id": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string"
+          },
+          "max_score": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "occurred_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "outcome": {
+            "type": "string"
+          },
+          "payload": {
+            "$ref": "#/components/schemas/GameplayMetadata"
+          },
+          "score": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "game_def_id"
+        ],
+        "type": "object"
+      },
+      "PetDriveRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "type": "string"
+          },
+          "game_result": {
+            "$ref": "#/components/schemas/PetDriveGameResultInput"
+          },
+          "pet_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "pet_id"
+        ],
+        "type": "object"
+      },
+      "PetDriveResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "badges": {
+            "items": {
+              "$ref": "#/components/schemas/Badge"
+            },
+            "type": "array"
+          },
+          "game_result": {
+            "$ref": "#/components/schemas/GameResult"
+          },
+          "pet": {
+            "$ref": "#/components/schemas/Pet"
+          },
+          "points": {
+            "$ref": "#/components/schemas/PointsAccount"
+          },
+          "reward_grants": {
+            "items": {
+              "$ref": "#/components/schemas/RewardGrant"
+            },
+            "type": "array"
+          },
+          "transactions": {
+            "items": {
+              "$ref": "#/components/schemas/PointsTransaction"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "pet",
+          "points",
+          "badges",
+          "reward_grants",
+          "transactions"
+        ],
+        "type": "object"
+      },
+      "PetGetRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "PetListResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "has_next": {
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/Pet"
+            },
+            "type": "array"
+          },
+          "next_cursor": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "items",
+          "has_next"
+        ],
+        "type": "object"
+      },
+      "PetPutRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "display_name": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "display_name"
+        ],
+        "type": "object"
+      },
+      "PingRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "client_send_time": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "client_send_time"
+        ],
+        "type": "object"
+      },
+      "PingResponse": {
+        "properties": {
+          "server_time": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "server_time"
+        ],
+        "type": "object"
+      },
+      "PointsAccount": {
+        "additionalProperties": false,
+        "properties": {
+          "balance": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "owner_public_key": {
+            "type": "string"
+          },
+          "ruleset_name": {
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "owner_public_key",
+          "ruleset_name",
+          "balance",
+          "created_at",
+          "updated_at"
+        ],
+        "type": "object"
+      },
+      "PointsTransaction": {
+        "additionalProperties": false,
+        "properties": {
+          "balance_after": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "delta": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "game_result_id": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "owner_public_key": {
+            "type": "string"
+          },
+          "pet_id": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "reward_grant_id": {
+            "type": "string"
+          },
+          "ruleset_name": {
+            "type": "string"
+          },
+          "source_id": {
+            "type": "string"
+          },
+          "source_type": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "owner_public_key",
+          "ruleset_name",
+          "delta",
+          "balance_after",
+          "reason",
+          "source_type",
+          "source_id",
+          "created_at"
+        ],
+        "type": "object"
+      },
+      "PointsTransactionListResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "has_next": {
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PointsTransaction"
+            },
+            "type": "array"
+          },
+          "next_cursor": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "items",
+          "has_next"
+        ],
+        "type": "object"
+      },
+      "RPCError": {
+        "properties": {
+          "code": {
+            "$ref": "#/components/schemas/RPCErrorCode"
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "message"
+        ],
+        "type": "object"
+      },
+      "RPCErrorCode": {
+        "enum": [
+          -32700,
+          -32600,
+          -32601,
+          -32602,
+          -32603,
+          400,
+          403,
+          404,
+          409
+        ],
+        "type": "integer",
+        "x-enum-varnames": [
+          "ParseError",
+          "InvalidRequest",
+          "MethodNotFound",
+          "InvalidParams",
+          "InternalError",
+          "BadRequest",
+          "Forbidden",
+          "NotFound",
+          "Conflict"
+        ]
+      },
+      "RPCMethod": {
+        "enum": [
+          "all.ping",
+          "all.speed_test.run",
+          "client.info.get",
+          "client.identifiers.get",
+          "server.info.get",
+          "server.info.put",
+          "server.runtime.get",
+          "server.status.get",
+          "server.run.agent.get",
+          "server.run.agent.set",
+          "server.run.workspace.get",
+          "server.run.workspace.set",
+          "server.run.workspace.reload",
+          "server.run.workspace.history",
+          "server.run.workspace.history.play",
+          "server.run.workspace.memory.stats",
+          "server.run.workspace.recall",
+          "server.run.reload",
+          "server.run.status",
+          "server.run.stop",
+          "server.run.say",
+          "server.firmware.list",
+          "server.firmware.get",
+          "server.firmware.files.download",
+          "server.workspace.list",
+          "server.workspace.get",
+          "server.workspace.create",
+          "server.workspace.put",
+          "server.workspace.delete",
+          "server.workspace.history.list",
+          "server.workspace.history.get",
+          "server.workspace.history.audio.get",
+          "server.workflow.list",
+          "server.workflow.get",
+          "server.workflow.create",
+          "server.workflow.put",
+          "server.workflow.delete",
+          "server.model.list",
+          "server.model.get",
+          "server.model.create",
+          "server.model.put",
+          "server.model.delete",
+          "server.voice.list",
+          "server.voice.get",
+          "server.credential.list",
+          "server.credential.get",
+          "server.credential.create",
+          "server.credential.put",
+          "server.credential.delete",
+          "server.contact.list",
+          "server.contact.get",
+          "server.contact.create",
+          "server.contact.put",
+          "server.contact.delete",
+          "server.friend.invite_token.get",
+          "server.friend.invite_token.create",
+          "server.friend.invite_token.clear",
+          "server.friend.add",
+          "server.friend.list",
+          "server.friend.delete",
+          "server.friend_group.list",
+          "server.friend_group.get",
+          "server.friend_group.create",
+          "server.friend_group.put",
+          "server.friend_group.delete",
+          "server.friend_group.invite_token.get",
+          "server.friend_group.invite_token.create",
+          "server.friend_group.invite_token.clear",
+          "server.friend_group.join",
+          "server.friend_group.members.list",
+          "server.friend_group.members.add",
+          "server.friend_group.members.put",
+          "server.friend_group.members.delete",
+          "server.friend_group.messages.list",
+          "server.friend_group.messages.get",
+          "server.friend_group.messages.send",
+          "server.game_ruleset.get",
+          "server.pet_def.pixa.download",
+          "server.badge_def.pixa.download",
+          "server.pet.list",
+          "server.pet.get",
+          "server.pet.adopt",
+          "server.pet.put",
+          "server.pet.delete",
+          "server.pet.drive",
+          "server.points.get",
+          "server.points.transactions.list",
+          "server.points.transactions.get",
+          "server.badge.list",
+          "server.badge.get",
+          "server.game_result.list",
+          "server.game_result.get",
+          "server.reward_grant.list",
+          "server.reward_grant.get"
+        ],
+        "type": "string"
+      },
+      "RPCRequest": {
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "method": {
+            "$ref": "#/components/schemas/RPCMethod"
+          },
+          "params": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PingRequest"
+              },
+              {
+                "$ref": "#/components/schemas/SpeedTestRequest"
+              },
+              {
+                "$ref": "#/components/schemas/ClientGetInfoRequest"
+              },
+              {
+                "$ref": "#/components/schemas/ClientGetIdentifiersRequest"
+              },
+              {
+                "$ref": "#/components/schemas/ServerGetInfoRequest"
+              },
+              {
+                "$ref": "#/components/schemas/ServerPutInfoRequest"
+              },
+              {
+                "$ref": "#/components/schemas/ServerGetRuntimeRequest"
+              },
+              {
+                "$ref": "#/components/schemas/ServerGetStatusRequest"
+              },
+              {
+                "$ref": "#/components/schemas/ServerGetRunAgentRequest"
+              },
+              {
+                "$ref": "#/components/schemas/ServerSetRunAgentRequest"
+              },
+              {
+                "$ref": "#/components/schemas/ServerGetRunWorkspaceRequest"
+              },
+              {
+                "$ref": "#/components/schemas/ServerSetRunWorkspaceRequest"
+              },
+              {
+                "$ref": "#/components/schemas/ServerReloadRunWorkspaceRequest"
+              },
+              {
+                "$ref": "#/components/schemas/ServerListRunWorkspaceHistoryRequest"
+              },
+              {
+                "$ref": "#/components/schemas/ServerPlayRunWorkspaceHistoryRequest"
+              },
+              {
+                "$ref": "#/components/schemas/ServerGetRunWorkspaceMemoryStatsRequest"
+              },
+              {
+                "$ref": "#/components/schemas/ServerRunWorkspaceRecallRequest"
+              },
+              {
+                "$ref": "#/components/schemas/ServerReloadRunRequest"
+              },
+              {
+                "$ref": "#/components/schemas/ServerGetRunStatusRequest"
+              },
+              {
+                "$ref": "#/components/schemas/ServerStopRunRequest"
+              },
+              {
+                "$ref": "#/components/schemas/ServerRunSayRequest"
+              },
+              {
+                "$ref": "#/components/schemas/FirmwareListRequest"
+              },
+              {
+                "$ref": "#/components/schemas/FirmwareGetRequest"
+              },
+              {
+                "$ref": "#/components/schemas/FirmwareFilesDownloadRequest"
+              },
+              {
+                "$ref": "#/components/schemas/WorkspaceListRequest"
+              },
+              {
+                "$ref": "#/components/schemas/WorkspaceGetRequest"
+              },
+              {
+                "$ref": "#/components/schemas/WorkspaceCreateRequest"
+              },
+              {
+                "$ref": "#/components/schemas/WorkspacePutRequest"
+              },
+              {
+                "$ref": "#/components/schemas/WorkspaceDeleteRequest"
+              },
+              {
+                "$ref": "#/components/schemas/WorkspaceHistoryListRequest"
+              },
+              {
+                "$ref": "#/components/schemas/WorkspaceHistoryGetRequest"
+              },
+              {
+                "$ref": "#/components/schemas/WorkspaceHistoryAudioGetRequest"
+              },
+              {
+                "$ref": "#/components/schemas/WorkflowListRequest"
+              },
+              {
+                "$ref": "#/components/schemas/WorkflowGetRequest"
+              },
+              {
+                "$ref": "#/components/schemas/WorkflowCreateRequest"
+              },
+              {
+                "$ref": "#/components/schemas/WorkflowPutRequest"
+              },
+              {
+                "$ref": "#/components/schemas/WorkflowDeleteRequest"
+              },
+              {
+                "$ref": "#/components/schemas/ModelListRequest"
+              },
+              {
+                "$ref": "#/components/schemas/ModelGetRequest"
+              },
+              {
+                "$ref": "#/components/schemas/ModelCreateRequest"
+              },
+              {
+                "$ref": "#/components/schemas/ModelPutRequest"
+              },
+              {
+                "$ref": "#/components/schemas/ModelDeleteRequest"
+              },
+              {
+                "$ref": "#/components/schemas/VoiceListRequest"
+              },
+              {
+                "$ref": "#/components/schemas/VoiceGetRequest"
+              },
+              {
+                "$ref": "#/components/schemas/CredentialListRequest"
+              },
+              {
+                "$ref": "#/components/schemas/CredentialGetRequest"
+              },
+              {
+                "$ref": "#/components/schemas/CredentialCreateRequest"
+              },
+              {
+                "$ref": "#/components/schemas/CredentialPutRequest"
+              },
+              {
+                "$ref": "#/components/schemas/CredentialDeleteRequest"
+              },
+              {
+                "$ref": "#/components/schemas/ContactListRequest"
+              },
+              {
+                "$ref": "#/components/schemas/ContactGetRequest"
+              },
+              {
+                "$ref": "#/components/schemas/ContactCreateRequest"
+              },
+              {
+                "$ref": "#/components/schemas/ContactPutRequest"
+              },
+              {
+                "$ref": "#/components/schemas/ContactDeleteRequest"
+              },
+              {
+                "$ref": "#/components/schemas/FriendInviteTokenGetRequest"
+              },
+              {
+                "$ref": "#/components/schemas/FriendInviteTokenCreateRequest"
+              },
+              {
+                "$ref": "#/components/schemas/FriendInviteTokenClearRequest"
+              },
+              {
+                "$ref": "#/components/schemas/FriendAddRequest"
+              },
+              {
+                "$ref": "#/components/schemas/FriendListRequest"
+              },
+              {
+                "$ref": "#/components/schemas/FriendDeleteRequest"
+              },
+              {
+                "$ref": "#/components/schemas/FriendGroupListRequest"
+              },
+              {
+                "$ref": "#/components/schemas/FriendGroupGetRequest"
+              },
+              {
+                "$ref": "#/components/schemas/FriendGroupCreateRequest"
+              },
+              {
+                "$ref": "#/components/schemas/FriendGroupPutRequest"
+              },
+              {
+                "$ref": "#/components/schemas/FriendGroupDeleteRequest"
+              },
+              {
+                "$ref": "#/components/schemas/FriendGroupInviteTokenGetRequest"
+              },
+              {
+                "$ref": "#/components/schemas/FriendGroupInviteTokenCreateRequest"
+              },
+              {
+                "$ref": "#/components/schemas/FriendGroupInviteTokenClearRequest"
+              },
+              {
+                "$ref": "#/components/schemas/FriendGroupJoinRequest"
+              },
+              {
+                "$ref": "#/components/schemas/FriendGroupMemberListRequest"
+              },
+              {
+                "$ref": "#/components/schemas/FriendGroupMemberAddRequest"
+              },
+              {
+                "$ref": "#/components/schemas/FriendGroupMemberPutRequest"
+              },
+              {
+                "$ref": "#/components/schemas/FriendGroupMemberDeleteRequest"
+              },
+              {
+                "$ref": "#/components/schemas/FriendGroupMessageListRequest"
+              },
+              {
+                "$ref": "#/components/schemas/FriendGroupMessageGetRequest"
+              },
+              {
+                "$ref": "#/components/schemas/FriendGroupMessageSendRequest"
+              },
+              {
+                "$ref": "#/components/schemas/ServerGameRulesetGetRequest"
+              },
+              {
+                "$ref": "#/components/schemas/PetDefPixaDownloadRequest"
+              },
+              {
+                "$ref": "#/components/schemas/BadgeDefPixaDownloadRequest"
+              },
+              {
+                "$ref": "#/components/schemas/ServerPetListRequest"
+              },
+              {
+                "$ref": "#/components/schemas/ServerPetGetRequest"
+              },
+              {
+                "$ref": "#/components/schemas/ServerPetAdoptRequest"
+              },
+              {
+                "$ref": "#/components/schemas/ServerPetPutRequest"
+              },
+              {
+                "$ref": "#/components/schemas/ServerPetDeleteRequest"
+              },
+              {
+                "$ref": "#/components/schemas/ServerPetDriveRequest"
+              },
+              {
+                "$ref": "#/components/schemas/ServerPointsGetRequest"
+              },
+              {
+                "$ref": "#/components/schemas/ServerPointsTransactionListRequest"
+              },
+              {
+                "$ref": "#/components/schemas/ServerPointsTransactionGetRequest"
+              },
+              {
+                "$ref": "#/components/schemas/ServerBadgeListRequest"
+              },
+              {
+                "$ref": "#/components/schemas/ServerBadgeGetRequest"
+              },
+              {
+                "$ref": "#/components/schemas/ServerGameResultListRequest"
+              },
+              {
+                "$ref": "#/components/schemas/ServerGameResultGetRequest"
+              },
+              {
+                "$ref": "#/components/schemas/ServerRewardGrantListRequest"
+              },
+              {
+                "$ref": "#/components/schemas/ServerRewardGrantGetRequest"
+              }
+            ]
+          },
+          "v": {
+            "$ref": "#/components/schemas/RPCVersion"
+          }
+        },
+        "required": [
+          "v",
+          "id",
+          "method"
+        ],
+        "type": "object"
+      },
+      "RPCResponse": {
+        "properties": {
+          "error": {
+            "$ref": "#/components/schemas/RPCError"
+          },
+          "id": {
+            "type": "string"
+          },
+          "result": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PingResponse"
+              },
+              {
+                "$ref": "#/components/schemas/SpeedTestResponse"
+              },
+              {
+                "$ref": "#/components/schemas/ClientGetInfoResponse"
+              },
+              {
+                "$ref": "#/components/schemas/ClientGetIdentifiersResponse"
+              },
+              {
+                "$ref": "#/components/schemas/ServerGetInfoResponse"
+              },
+              {
+                "$ref": "#/components/schemas/ServerPutInfoResponse"
+              },
+              {
+                "$ref": "#/components/schemas/ServerGetRuntimeResponse"
+              },
+              {
+                "$ref": "#/components/schemas/ServerGetStatusResponse"
+              },
+              {
+                "$ref": "#/components/schemas/ServerGetRunAgentResponse"
+              },
+              {
+                "$ref": "#/components/schemas/ServerSetRunAgentResponse"
+              },
+              {
+                "$ref": "#/components/schemas/ServerGetRunWorkspaceResponse"
+              },
+              {
+                "$ref": "#/components/schemas/ServerSetRunWorkspaceResponse"
+              },
+              {
+                "$ref": "#/components/schemas/ServerReloadRunWorkspaceResponse"
+              },
+              {
+                "$ref": "#/components/schemas/ServerListRunWorkspaceHistoryResponse"
+              },
+              {
+                "$ref": "#/components/schemas/ServerPlayRunWorkspaceHistoryResponse"
+              },
+              {
+                "$ref": "#/components/schemas/ServerGetRunWorkspaceMemoryStatsResponse"
+              },
+              {
+                "$ref": "#/components/schemas/ServerRunWorkspaceRecallResponse"
+              },
+              {
+                "$ref": "#/components/schemas/ServerReloadRunResponse"
+              },
+              {
+                "$ref": "#/components/schemas/ServerGetRunStatusResponse"
+              },
+              {
+                "$ref": "#/components/schemas/ServerStopRunResponse"
+              },
+              {
+                "$ref": "#/components/schemas/ServerRunSayResponse"
+              },
+              {
+                "$ref": "#/components/schemas/FirmwareListResponse"
+              },
+              {
+                "$ref": "#/components/schemas/FirmwareGetResponse"
+              },
+              {
+                "$ref": "#/components/schemas/FirmwareFilesDownloadResponse"
+              },
+              {
+                "$ref": "#/components/schemas/WorkspaceListResponse"
+              },
+              {
+                "$ref": "#/components/schemas/WorkspaceGetResponse"
+              },
+              {
+                "$ref": "#/components/schemas/WorkspaceCreateResponse"
+              },
+              {
+                "$ref": "#/components/schemas/WorkspacePutResponse"
+              },
+              {
+                "$ref": "#/components/schemas/WorkspaceDeleteResponse"
+              },
+              {
+                "$ref": "#/components/schemas/WorkspaceHistoryListResponse"
+              },
+              {
+                "$ref": "#/components/schemas/WorkspaceHistoryGetResponse"
+              },
+              {
+                "$ref": "#/components/schemas/WorkspaceHistoryAudioGetResponse"
+              },
+              {
+                "$ref": "#/components/schemas/WorkflowListResponse"
+              },
+              {
+                "$ref": "#/components/schemas/WorkflowGetResponse"
+              },
+              {
+                "$ref": "#/components/schemas/WorkflowCreateResponse"
+              },
+              {
+                "$ref": "#/components/schemas/WorkflowPutResponse"
+              },
+              {
+                "$ref": "#/components/schemas/WorkflowDeleteResponse"
+              },
+              {
+                "$ref": "#/components/schemas/ModelListResponse"
+              },
+              {
+                "$ref": "#/components/schemas/ModelGetResponse"
+              },
+              {
+                "$ref": "#/components/schemas/ModelCreateResponse"
+              },
+              {
+                "$ref": "#/components/schemas/ModelPutResponse"
+              },
+              {
+                "$ref": "#/components/schemas/ModelDeleteResponse"
+              },
+              {
+                "$ref": "#/components/schemas/VoiceListResponse"
+              },
+              {
+                "$ref": "#/components/schemas/VoiceGetResponse"
+              },
+              {
+                "$ref": "#/components/schemas/CredentialListResponse"
+              },
+              {
+                "$ref": "#/components/schemas/CredentialGetResponse"
+              },
+              {
+                "$ref": "#/components/schemas/CredentialCreateResponse"
+              },
+              {
+                "$ref": "#/components/schemas/CredentialPutResponse"
+              },
+              {
+                "$ref": "#/components/schemas/CredentialDeleteResponse"
+              },
+              {
+                "$ref": "#/components/schemas/ContactListResponse"
+              },
+              {
+                "$ref": "#/components/schemas/ContactGetResponse"
+              },
+              {
+                "$ref": "#/components/schemas/ContactCreateResponse"
+              },
+              {
+                "$ref": "#/components/schemas/ContactPutResponse"
+              },
+              {
+                "$ref": "#/components/schemas/ContactDeleteResponse"
+              },
+              {
+                "$ref": "#/components/schemas/FriendInviteTokenGetResponse"
+              },
+              {
+                "$ref": "#/components/schemas/FriendInviteTokenCreateResponse"
+              },
+              {
+                "$ref": "#/components/schemas/FriendInviteTokenClearResponse"
+              },
+              {
+                "$ref": "#/components/schemas/FriendAddResponse"
+              },
+              {
+                "$ref": "#/components/schemas/FriendListResponse"
+              },
+              {
+                "$ref": "#/components/schemas/FriendDeleteResponse"
+              },
+              {
+                "$ref": "#/components/schemas/FriendGroupListResponse"
+              },
+              {
+                "$ref": "#/components/schemas/FriendGroupGetResponse"
+              },
+              {
+                "$ref": "#/components/schemas/FriendGroupCreateResponse"
+              },
+              {
+                "$ref": "#/components/schemas/FriendGroupPutResponse"
+              },
+              {
+                "$ref": "#/components/schemas/FriendGroupDeleteResponse"
+              },
+              {
+                "$ref": "#/components/schemas/FriendGroupInviteTokenGetResponse"
+              },
+              {
+                "$ref": "#/components/schemas/FriendGroupInviteTokenCreateResponse"
+              },
+              {
+                "$ref": "#/components/schemas/FriendGroupInviteTokenClearResponse"
+              },
+              {
+                "$ref": "#/components/schemas/FriendGroupJoinResponse"
+              },
+              {
+                "$ref": "#/components/schemas/FriendGroupMemberListResponse"
+              },
+              {
+                "$ref": "#/components/schemas/FriendGroupMemberAddResponse"
+              },
+              {
+                "$ref": "#/components/schemas/FriendGroupMemberPutResponse"
+              },
+              {
+                "$ref": "#/components/schemas/FriendGroupMemberDeleteResponse"
+              },
+              {
+                "$ref": "#/components/schemas/FriendGroupMessageListResponse"
+              },
+              {
+                "$ref": "#/components/schemas/FriendGroupMessageGetResponse"
+              },
+              {
+                "$ref": "#/components/schemas/FriendGroupMessageSendResponse"
+              },
+              {
+                "$ref": "#/components/schemas/ServerGameRulesetGetResponse"
+              },
+              {
+                "$ref": "#/components/schemas/PetDefPixaDownloadResponse"
+              },
+              {
+                "$ref": "#/components/schemas/BadgeDefPixaDownloadResponse"
+              },
+              {
+                "$ref": "#/components/schemas/ServerPetListResponse"
+              },
+              {
+                "$ref": "#/components/schemas/ServerPetGetResponse"
+              },
+              {
+                "$ref": "#/components/schemas/ServerPetAdoptResponse"
+              },
+              {
+                "$ref": "#/components/schemas/ServerPetPutResponse"
+              },
+              {
+                "$ref": "#/components/schemas/ServerPetDeleteResponse"
+              },
+              {
+                "$ref": "#/components/schemas/ServerPetDriveResponse"
+              },
+              {
+                "$ref": "#/components/schemas/ServerPointsGetResponse"
+              },
+              {
+                "$ref": "#/components/schemas/ServerPointsTransactionListResponse"
+              },
+              {
+                "$ref": "#/components/schemas/ServerPointsTransactionGetResponse"
+              },
+              {
+                "$ref": "#/components/schemas/ServerBadgeListResponse"
+              },
+              {
+                "$ref": "#/components/schemas/ServerBadgeGetResponse"
+              },
+              {
+                "$ref": "#/components/schemas/ServerGameResultListResponse"
+              },
+              {
+                "$ref": "#/components/schemas/ServerGameResultGetResponse"
+              },
+              {
+                "$ref": "#/components/schemas/ServerRewardGrantListResponse"
+              },
+              {
+                "$ref": "#/components/schemas/ServerRewardGrantGetResponse"
+              }
+            ]
+          },
+          "v": {
+            "$ref": "#/components/schemas/RPCVersion"
+          }
+        },
+        "required": [
+          "v",
+          "id"
+        ],
+        "type": "object"
+      },
+      "RPCVersion": {
+        "enum": [
+          1
+        ],
+        "type": "integer",
+        "x-enum-varnames": [
+          "V1"
+        ]
+      },
+      "RefreshIdentifiers": {
+        "properties": {
+          "imeis": {
+            "items": {
+              "$ref": "#/components/schemas/PeerIMEI"
+            },
+            "type": "array"
+          },
+          "labels": {
+            "items": {
+              "$ref": "#/components/schemas/PeerLabel"
+            },
+            "type": "array"
+          },
+          "sn": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "RefreshInfo": {
+        "properties": {
+          "hardware_revision": {
+            "type": "string"
+          },
+          "manufacturer": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "RewardGrant": {
+        "additionalProperties": false,
+        "properties": {
+          "ability_delta": {
+            "$ref": "#/components/schemas/StatMap"
+          },
+          "badge_exp_delta": {
+            "additionalProperties": {
+              "format": "int64",
+              "type": "integer"
+            },
+            "type": "object"
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "game_result_id": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "life_delta": {
+            "$ref": "#/components/schemas/StatMap"
+          },
+          "owner_public_key": {
+            "type": "string"
+          },
+          "pet_exp_delta": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "pet_id": {
+            "type": "string"
+          },
+          "points_delta": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "ruleset_name": {
+            "type": "string"
+          },
+          "source_id": {
+            "type": "string"
+          },
+          "source_type": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "owner_public_key",
+          "ruleset_name",
+          "points_delta",
+          "pet_exp_delta",
+          "badge_exp_delta",
+          "source_type",
+          "source_id",
+          "created_at"
+        ],
+        "type": "object"
+      },
+      "RewardGrantListResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "has_next": {
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/RewardGrant"
+            },
+            "type": "array"
+          },
+          "next_cursor": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "items",
+          "has_next"
+        ],
+        "type": "object"
+      },
+      "Runtime": {
+        "properties": {
+          "last_addr": {
+            "type": "string"
+          },
+          "last_seen_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "online": {
+            "type": "boolean"
+          },
+          "rx_bytes": {
+            "format": "uint64",
+            "type": "integer"
+          },
+          "tx_bytes": {
+            "format": "uint64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "online",
+          "last_seen_at"
+        ],
+        "type": "object"
+      },
+      "ServerBadgeGetRequest": {
+        "$ref": "#/components/schemas/GameplayGetRequest"
+      },
+      "ServerBadgeGetResponse": {
+        "$ref": "#/components/schemas/Badge"
+      },
+      "ServerBadgeListRequest": {
+        "$ref": "#/components/schemas/GameplayListRequest"
+      },
+      "ServerBadgeListResponse": {
+        "$ref": "#/components/schemas/BadgeListResponse"
+      },
+      "ServerGameResultGetRequest": {
+        "$ref": "#/components/schemas/GameplayGetRequest"
+      },
+      "ServerGameResultGetResponse": {
+        "$ref": "#/components/schemas/GameResult"
+      },
+      "ServerGameResultListRequest": {
+        "$ref": "#/components/schemas/GameplayListRequest"
+      },
+      "ServerGameResultListResponse": {
+        "$ref": "#/components/schemas/GameResultListResponse"
+      },
+      "ServerGameRulesetGetRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "ServerGameRulesetGetResponse": {
+        "$ref": "#/components/schemas/GameRuleset"
+      },
+      "ServerGetInfoRequest": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object"
+      },
+      "ServerGetInfoResponse": {
+        "$ref": "#/components/schemas/DeviceInfo"
+      },
+      "ServerGetRunAgentRequest": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object"
+      },
+      "ServerGetRunAgentResponse": {
+        "$ref": "#/components/schemas/PeerRunAgent"
+      },
+      "ServerGetRunStatusRequest": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object"
+      },
+      "ServerGetRunStatusResponse": {
+        "$ref": "#/components/schemas/PeerRunStatus"
+      },
+      "ServerGetRunWorkspaceMemoryStatsRequest": {
+        "$ref": "#/components/schemas/PeerRunMemoryStatsRequest"
+      },
+      "ServerGetRunWorkspaceMemoryStatsResponse": {
+        "$ref": "#/components/schemas/PeerRunMemoryStatsResponse"
+      },
+      "ServerGetRunWorkspaceRequest": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object"
+      },
+      "ServerGetRunWorkspaceResponse": {
+        "$ref": "#/components/schemas/PeerRunWorkspaceState"
+      },
+      "ServerGetRuntimeRequest": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object"
+      },
+      "ServerGetRuntimeResponse": {
+        "$ref": "#/components/schemas/Runtime"
+      },
+      "ServerGetStatusRequest": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object"
+      },
+      "ServerGetStatusResponse": {
+        "$ref": "#/components/schemas/PeerStatus"
+      },
+      "ServerListRunWorkspaceHistoryRequest": {
+        "$ref": "#/components/schemas/PeerRunHistoryListRequest"
+      },
+      "ServerListRunWorkspaceHistoryResponse": {
+        "$ref": "#/components/schemas/PeerRunHistoryListResponse"
+      },
+      "ServerPetAdoptRequest": {
+        "$ref": "#/components/schemas/PetAdoptRequest"
+      },
+      "ServerPetAdoptResponse": {
+        "$ref": "#/components/schemas/PetAdoptResponse"
+      },
+      "ServerPetDeleteRequest": {
+        "$ref": "#/components/schemas/PetDeleteRequest"
+      },
+      "ServerPetDeleteResponse": {
+        "$ref": "#/components/schemas/Pet"
+      },
+      "ServerPetDriveRequest": {
+        "$ref": "#/components/schemas/PetDriveRequest"
+      },
+      "ServerPetDriveResponse": {
+        "$ref": "#/components/schemas/PetDriveResponse"
+      },
+      "ServerPetGetRequest": {
+        "$ref": "#/components/schemas/PetGetRequest"
+      },
+      "ServerPetGetResponse": {
+        "$ref": "#/components/schemas/Pet"
+      },
+      "ServerPetListRequest": {
+        "$ref": "#/components/schemas/GameplayListRequest"
+      },
+      "ServerPetListResponse": {
+        "$ref": "#/components/schemas/PetListResponse"
+      },
+      "ServerPetPutRequest": {
+        "$ref": "#/components/schemas/PetPutRequest"
+      },
+      "ServerPetPutResponse": {
+        "$ref": "#/components/schemas/Pet"
+      },
+      "ServerPlayRunWorkspaceHistoryRequest": {
+        "$ref": "#/components/schemas/PeerRunHistoryPlayRequest"
+      },
+      "ServerPlayRunWorkspaceHistoryResponse": {
+        "$ref": "#/components/schemas/PeerRunHistoryPlayResponse"
+      },
+      "ServerPointsGetRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "ruleset_name": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "ServerPointsGetResponse": {
+        "$ref": "#/components/schemas/PointsAccount"
+      },
+      "ServerPointsTransactionGetRequest": {
+        "$ref": "#/components/schemas/GameplayGetRequest"
+      },
+      "ServerPointsTransactionGetResponse": {
+        "$ref": "#/components/schemas/PointsTransaction"
+      },
+      "ServerPointsTransactionListRequest": {
+        "$ref": "#/components/schemas/GameplayListRequest"
+      },
+      "ServerPointsTransactionListResponse": {
+        "$ref": "#/components/schemas/PointsTransactionListResponse"
+      },
+      "ServerPutInfoRequest": {
+        "$ref": "#/components/schemas/DeviceInfo"
+      },
+      "ServerPutInfoResponse": {
+        "$ref": "#/components/schemas/DeviceInfo"
+      },
+      "ServerReloadRunRequest": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object"
+      },
+      "ServerReloadRunResponse": {
+        "$ref": "#/components/schemas/PeerRunStatus"
+      },
+      "ServerReloadRunWorkspaceRequest": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object"
+      },
+      "ServerReloadRunWorkspaceResponse": {
+        "$ref": "#/components/schemas/PeerRunWorkspaceState"
+      },
+      "ServerRewardGrantGetRequest": {
+        "$ref": "#/components/schemas/GameplayGetRequest"
+      },
+      "ServerRewardGrantGetResponse": {
+        "$ref": "#/components/schemas/RewardGrant"
+      },
+      "ServerRewardGrantListRequest": {
+        "$ref": "#/components/schemas/GameplayListRequest"
+      },
+      "ServerRewardGrantListResponse": {
+        "$ref": "#/components/schemas/RewardGrantListResponse"
+      },
+      "ServerRunSayRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "credential_name": {
+            "type": "string"
+          },
+          "model_id": {
+            "type": "string"
+          },
+          "text": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "voice_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "type": "object"
+      },
+      "ServerRunSayResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "accepted": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "accepted"
+        ],
+        "type": "object"
+      },
+      "ServerRunWorkspaceRecallRequest": {
+        "$ref": "#/components/schemas/PeerRunRecallRequest"
+      },
+      "ServerRunWorkspaceRecallResponse": {
+        "$ref": "#/components/schemas/PeerRunRecallResponse"
+      },
+      "ServerSetRunAgentRequest": {
+        "$ref": "#/components/schemas/AgentSelection"
+      },
+      "ServerSetRunAgentResponse": {
+        "$ref": "#/components/schemas/PeerRunAgent"
+      },
+      "ServerSetRunWorkspaceRequest": {
+        "$ref": "#/components/schemas/AgentSelection"
+      },
+      "ServerSetRunWorkspaceResponse": {
+        "$ref": "#/components/schemas/PeerRunWorkspaceState"
+      },
+      "ServerStopRunRequest": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object"
+      },
+      "ServerStopRunResponse": {
+        "$ref": "#/components/schemas/PeerRunStatus"
+      },
+      "SpeedTestRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "down_content_length": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "up_content_length": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "up_content_length",
+          "down_content_length"
+        ],
+        "type": "object"
+      },
+      "SpeedTestResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "down_content_length": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "up_content_length": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "up_content_length",
+          "down_content_length"
+        ],
+        "type": "object"
+      },
+      "StatMap": {
+        "additionalProperties": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "type": "object"
+      },
+      "Voice": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "description": {
+            "example": "calm female narrator",
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "example": "calm narrator",
+            "type": "string"
+          },
+          "provider": {
+            "$ref": "#/components/schemas/VoiceProvider"
+          },
+          "provider_data": {
+            "$ref": "#/components/schemas/VoiceProviderData"
+          },
+          "source": {
+            "$ref": "#/components/schemas/VoiceSource"
+          },
+          "synced_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "source",
+          "provider",
+          "created_at",
+          "updated_at"
+        ],
+        "type": "object"
+      },
+      "VoiceGetRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "VoiceGetResponse": {
+        "$ref": "#/components/schemas/Voice"
+      },
+      "VoiceListRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "cursor": {
+            "type": "string"
+          },
+          "limit": {
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "VoiceListResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "has_next": {
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/Voice"
+            },
+            "type": "array"
+          },
+          "next_cursor": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "items",
+          "has_next"
+        ],
+        "type": "object"
+      },
+      "VoiceProvider": {
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/VoiceProviderKind"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "name"
+        ],
+        "type": "object"
+      },
+      "VoiceProviderData": {
+        "description": "Provider-specific voice runtime configuration. The shape is selected by Voice.provider.kind.",
+        "example": {
+          "voice_id": "Arabic_CalmWoman",
+          "voice_type": "system"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/GeminiTenantVoiceProviderData"
+          },
+          {
+            "$ref": "#/components/schemas/DashScopeTenantVoiceProviderData"
+          },
+          {
+            "$ref": "#/components/schemas/OpenAITenantVoiceProviderData"
+          },
+          {
+            "$ref": "#/components/schemas/MiniMaxTenantVoiceProviderData"
+          },
+          {
+            "$ref": "#/components/schemas/VolcTenantVoiceProviderData"
+          }
+        ]
+      },
+      "VoiceProviderKind": {
+        "description": "Provider resource kind usable by voice runtime.",
+        "enum": [
+          "gemini-tenant",
+          "dashscope-tenant",
+          "openai-tenant",
+          "minimax-tenant",
+          "volc-tenant"
+        ],
+        "example": "minimax-tenant",
+        "type": "string"
+      },
+      "VoiceSource": {
+        "description": "How the voice entered the global catalog",
+        "enum": [
+          "sync",
+          "manual"
+        ],
+        "example": "sync",
+        "type": "string"
+      },
+      "VolcCredentialBody": {
+        "additionalProperties": false,
+        "example": {
+          "api_key": "...",
+          "app_id": "..."
+        },
+        "minProperties": 1,
+        "properties": {
+          "api_key": {
+            "type": "string"
+          },
+          "app_id": {
+            "type": "string"
+          },
+          "openapi_access_key": {
+            "type": "string"
+          },
+          "openapi_access_key_id": {
+            "type": "string"
+          },
+          "search_api_key": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "VolcTenantModelProviderData": {
+        "properties": {
+          "api_mode": {
+            "enum": [
+              "asr",
+              "tts",
+              "realtime"
+            ],
+            "type": "string"
+          },
+          "default_thinking_level": {
+            "type": "string"
+          },
+          "resource_id": {
+            "type": "string"
+          },
+          "support_json_output": {
+            "type": "boolean"
+          },
+          "support_text_only": {
+            "type": "boolean"
+          },
+          "support_thinking": {
+            "type": "boolean"
+          },
+          "support_tool_calls": {
+            "type": "boolean"
+          },
+          "thinking_level_param": {
+            "type": "string"
+          },
+          "thinking_levels": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "thinking_param": {
+            "type": "string"
+          },
+          "upstream_model": {
+            "type": "string"
+          },
+          "use_system_role": {
+            "type": "boolean"
+          }
+        },
+        "type": "object"
+      },
+      "VolcTenantVoiceProviderData": {
+        "properties": {
+          "raw": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "resource_id": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "voice_id": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "WorkflowCreateRequest": {
+        "$ref": "#/components/schemas/WorkflowDocument"
+      },
+      "WorkflowCreateResponse": {
+        "$ref": "#/components/schemas/WorkflowDocument"
+      },
+      "WorkflowDeleteRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "type": "object"
+      },
+      "WorkflowDeleteResponse": {
+        "$ref": "#/components/schemas/WorkflowDocument"
+      },
+      "WorkflowDocument": {
+        "properties": {
+          "metadata": {
+            "$ref": "#/components/schemas/WorkflowMetadata"
+          },
+          "spec": {
+            "$ref": "#/components/schemas/WorkflowSpec"
+          }
+        },
+        "required": [
+          "metadata",
+          "spec"
+        ],
+        "type": "object"
+      },
+      "WorkflowDriver": {
+        "enum": [
+          "flowcraft",
+          "doubao-realtime",
+          "ast-translate",
+          "chatroom"
+        ],
+        "type": "string"
+      },
+      "WorkflowGetRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "type": "object"
+      },
+      "WorkflowGetResponse": {
+        "$ref": "#/components/schemas/WorkflowDocument"
+      },
+      "WorkflowListRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "cursor": {
+            "type": "string"
+          },
+          "limit": {
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "WorkflowListResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "has_next": {
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/WorkflowDocument"
+            },
+            "type": "array"
+          },
+          "next_cursor": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "items",
+          "has_next"
+        ],
+        "type": "object"
+      },
+      "WorkflowMetadata": {
+        "properties": {
+          "description": {
+            "example": "flowcraft workflow",
+            "type": "string"
+          },
+          "name": {
+            "description": "Stable workflow ID. The creator must provide this value.",
+            "example": "demo-assistant",
+            "type": "string",
+            "x-go-type-skip-optional-pointer": true
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "type": "object"
+      },
+      "WorkflowPutRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "body": {
+            "$ref": "#/components/schemas/WorkflowDocument"
+          },
+          "name": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "body"
+        ],
+        "type": "object"
+      },
+      "WorkflowPutResponse": {
+        "$ref": "#/components/schemas/WorkflowDocument"
+      },
+      "WorkflowSpec": {
+        "additionalProperties": false,
+        "properties": {
+          "ast_translate": {
+            "$ref": "#/components/schemas/ASTTranslateWorkflowSpec"
+          },
+          "chatroom": {
+            "$ref": "#/components/schemas/ChatRoomWorkflowSpec"
+          },
+          "doubao_realtime": {
+            "$ref": "#/components/schemas/DoubaoRealtimeWorkflowSpec"
+          },
+          "driver": {
+            "$ref": "#/components/schemas/WorkflowDriver"
+          },
+          "flowcraft": {
+            "$ref": "#/components/schemas/FlowcraftWorkflowSpec"
+          }
+        },
+        "required": [
+          "driver"
+        ],
+        "type": "object"
+      },
+      "Workspace": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "last_active_at": {
+            "description": "Last user-visible workspace conversation or history activity time. Configuration-only updates must not modify this field.",
+            "format": "date-time",
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "parameters": {
+            "$ref": "#/components/schemas/WorkspaceParameters"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "workflow_name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "workflow_name",
+          "created_at",
+          "last_active_at",
+          "updated_at"
+        ],
+        "type": "object"
+      },
+      "WorkspaceCreateRequest": {
+        "$ref": "#/components/schemas/Workspace"
+      },
+      "WorkspaceCreateResponse": {
+        "$ref": "#/components/schemas/Workspace"
+      },
+      "WorkspaceDeleteRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "type": "object"
+      },
+      "WorkspaceDeleteResponse": {
+        "$ref": "#/components/schemas/Workspace"
+      },
+      "WorkspaceGetRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "type": "object"
+      },
+      "WorkspaceGetResponse": {
+        "$ref": "#/components/schemas/Workspace"
+      },
+      "WorkspaceHistoryAudioGetRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "history_id": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "workspace_name": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "workspace_name",
+          "history_id"
+        ],
+        "type": "object"
+      },
+      "WorkspaceHistoryAudioGetResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "history_id": {
+            "type": "string"
+          },
+          "mime_type": {
+            "type": "string"
+          },
+          "size_bytes": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "workspace_name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "workspace_name",
+          "history_id",
+          "mime_type",
+          "size_bytes"
+        ],
+        "type": "object"
+      },
+      "WorkspaceHistoryGetRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "history_id": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "workspace_name": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "workspace_name",
+          "history_id"
+        ],
+        "type": "object"
+      },
+      "WorkspaceHistoryGetResponse": {
+        "$ref": "#/components/schemas/PeerRunHistoryEntry"
+      },
+      "WorkspaceHistoryListRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "cursor": {
+            "type": "string"
+          },
+          "limit": {
+            "minimum": 1,
+            "type": "integer"
+          },
+          "order": {
+            "enum": [
+              "asc",
+              "desc"
+            ],
+            "type": "string"
+          },
+          "workspace_name": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "workspace_name"
+        ],
+        "type": "object"
+      },
+      "WorkspaceHistoryListResponse": {
+        "$ref": "#/components/schemas/PeerRunHistoryListResponse"
+      },
+      "WorkspaceInputMode": {
+        "enum": [
+          "push-to-talk",
+          "realtime"
+        ],
+        "type": "string"
+      },
+      "WorkspaceListRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "cursor": {
+            "type": "string"
+          },
+          "limit": {
+            "minimum": 1,
+            "type": "integer"
+          },
+          "prefix": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "WorkspaceListResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "has_next": {
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/Workspace"
+            },
+            "type": "array"
+          },
+          "next_cursor": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "items",
+          "has_next"
+        ],
+        "type": "object"
+      },
+      "WorkspaceParameters": {
+        "description": "Agent-specific workspace parameters. The shape is selected by agent_type.",
+        "discriminator": {
+          "mapping": {
+            "ast-translate": "#/components/schemas/ASTTranslateWorkspaceParameters",
+            "chatroom": "#/components/schemas/ChatRoomWorkspaceParameters",
+            "doubao-realtime": "#/components/schemas/DoubaoRealtimeWorkspaceParameters",
+            "flowcraft": "#/components/schemas/FlowcraftWorkspaceParameters"
+          },
+          "propertyName": "agent_type"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/FlowcraftWorkspaceParameters"
+          },
+          {
+            "$ref": "#/components/schemas/DoubaoRealtimeWorkspaceParameters"
+          },
+          {
+            "$ref": "#/components/schemas/ASTTranslateWorkspaceParameters"
+          },
+          {
+            "$ref": "#/components/schemas/ChatRoomWorkspaceParameters"
+          }
+        ]
+      },
+      "WorkspacePutRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "body": {
+            "$ref": "#/components/schemas/Workspace"
+          },
+          "name": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "body"
+        ],
+        "type": "object"
+      },
+      "WorkspacePutResponse": {
+        "$ref": "#/components/schemas/Workspace"
+      }
+    }
+  },
+  "info": {
+    "description": "Resolved OpenAPI input for rpcapi oapi-codegen.",
+    "title": "RPC API Codegen Bundle",
+    "version": "1.0.0"
+  },
+  "openapi": "3.0.3",
+  "paths": {}
+}

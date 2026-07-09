@@ -11,12 +11,14 @@ interfaces, and shared API types under `pkgs/gizclaw/api/`.
 - `rpc/common.proto` defines shared Peer RPC envelopes, errors, and stream frames.
 - `rpc/peer.proto` defines the Peer RPC request envelope and method registry.
 - `rpc/payload.proto` defines method-specific Peer RPC payload messages.
+- `rpc.json` and `rpc/*.json` define the JSON-shaped `rpcapi` facade consumed
+  by Go server and SDK code while the Peer RPC wire format is protobuf.
 - `openai-compat/v1/service.json` defines the OpenAI-compatible HTTP surface.
 - `types.json` collects shared schemas and exposes them through
   `#/components/schemas`.
 - `type/*.json` contains reusable shared schema definitions.
 - `type/server.json` contains peer-owned DTO schemas still referenced by Admin
-  HTTP generation and the transitional RPC DTO generator.
+  HTTP generation and the `rpcapi` facade.
 - `resource/*.json` contains declarative admin resource schemas used by
   `admin apply`, `admin show`, and related resource APIs.
 
