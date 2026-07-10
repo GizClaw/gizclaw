@@ -26,7 +26,7 @@ func TestIntegrationDeviceToolInvokeOnlineAndOffline(t *testing.T) {
 		DialTransport: testWebRTCDialTransport(ts.cipherMode),
 		ToolInvoker: func(_ context.Context, request rpcapi.ToolInvokeRequest) (rpcapi.ToolInvokeResponse, error) {
 			requests <- request
-			return rpcapi.ToolInvokeResponse{DataJson: json.RawMessage(`{"echo":"hello"}`)}, nil
+			return rpcapi.ToolInvokeResponse{DataJson: `{"echo":"hello"}`}, nil
 		},
 	}
 	startTestClient(t, client, ts.server.PublicKey(), ts.addr)

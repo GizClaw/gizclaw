@@ -63,12 +63,12 @@ func (e *DeviceRPCExecutor) Invoke(ctx context.Context, call Call) (Result, erro
 		return Result{}, fmt.Errorf("toolkit: device executor %s: %w", call.Tool.ID, err)
 	}
 	if len(response.DataJson) == 0 {
-		response.DataJson = json.RawMessage("null")
+		response.DataJson = "null"
 	}
-	if !json.Valid(response.DataJson) {
+	if !json.Valid([]byte(response.DataJson)) {
 		return Result{}, fmt.Errorf("toolkit: device executor %s returned invalid JSON", call.Tool.ID)
 	}
-	return Result{Data: cloneRaw(response.DataJson)}, nil
+	return Result{Data: cloneRaw(json.RawMessage(response.DataJson))}, nil
 }
 
 func deviceToolPeerID(tool Tool) (string, error) {

@@ -160,7 +160,7 @@ func (m *Manager) Get(ctx context.Context, kind apitypes.ResourceKind, name stri
 		if m.services.Tools == nil {
 			return apitypes.Resource{}, missingService("tools")
 		}
-		item, exists, err := m.getTool(ctx, string(pathParam(name)))
+		item, exists, err := m.getTool(ctx, name)
 		if err != nil {
 			return apitypes.Resource{}, err
 		}
@@ -846,7 +846,7 @@ func (m *Manager) Delete(ctx context.Context, kind apitypes.ResourceKind, name s
 		if m.services.Tools == nil {
 			return apitypes.Resource{}, missingService("tools")
 		}
-		item, exists, err := m.deleteTool(ctx, string(pathParam(name)))
+		item, exists, err := m.deleteTool(ctx, name)
 		if err != nil {
 			return apitypes.Resource{}, err
 		}

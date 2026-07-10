@@ -2,6 +2,7 @@ package peerresource
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
@@ -124,13 +125,68 @@ func TestToolPeerCreateDoesNotRewriteExistingOwnerRole(t *testing.T) {
 	id := "peer." + callerID + ".music.play"
 	auth := newRuleAuthorizer()
 	auth.allow(acl.ResourceKindTool, acl.CollectionResourceID, apitypes.ACLPermissionCreate)
-	bindings := &recordingToolACL{roleErr: acl.ErrRoleAlreadyExists}
+	bindings := &recordingToolACL{
+		roleErr: acl.ErrRoleAlreadyExists,
+		existingRole: apitypes.ACLRole{
+			Name:        toolOwnerRole,
+			Permissions: apitypes.ACLPermissionList{apitypes.ACLPermissionAdmin, apitypes.ACLPermissionRead, apitypes.ACLPermissionUse},
+		},
+	}
 	srv := &Server{Caller: caller, ACL: auth, Tools: &toolkit.Server{Store: kv.NewMemory(nil)}, ToolACL: bindings}
 
 	resp := callRPC(t, srv, "create", rpcapi.RPCMethodServerToolCreate, rpcParams(t, (*rpcapi.RPCPayload).FromToolCreateRequest, rpcTool(id, callerID)))
 	requireNoRPCError(t, resp)
-	if bindings.roleCreates != 1 || bindings.policy.Role != toolOwnerRole {
-		t.Fatalf("owner role handling = creates %d policy %#v", bindings.roleCreates, bindings.policy)
+	if bindings.roleCreates != 1 || bindings.roleGets != 1 || bindings.policy.Role != toolOwnerRole {
+		t.Fatalf("owner role handling = creates %d gets %d policy %#v", bindings.roleCreates, bindings.roleGets, bindings.policy)
+	}
+}
+
+func TestToolPeerCreateRejectsIncompatibleOwnerRole(t *testing.T) {
+	caller := giznet.PublicKey{6}
+	callerID := caller.String()
+	id := "peer." + callerID + ".music.play"
+	auth := newRuleAuthorizer()
+	auth.allow(acl.ResourceKindTool, acl.CollectionResourceID, apitypes.ACLPermissionCreate)
+	bindings := &recordingToolACL{
+		roleErr: acl.ErrRoleAlreadyExists,
+		existingRole: apitypes.ACLRole{
+			Name:        toolOwnerRole,
+			Permissions: apitypes.ACLPermissionList{apitypes.ACLPermissionRead},
+		},
+	}
+	srv := &Server{Caller: caller, ACL: auth, Tools: &toolkit.Server{Store: kv.NewMemory(nil)}, ToolACL: bindings}
+
+	resp := callRPC(t, srv, "create", rpcapi.RPCMethodServerToolCreate, rpcParams(t, (*rpcapi.RPCPayload).FromToolCreateRequest, rpcTool(id, callerID)))
+	if resp.Error == nil || resp.Error.Code != rpcapi.RPCErrorCodeInternalError {
+		t.Fatalf("create with incompatible owner role response = %#v", resp)
+	}
+	if _, err := srv.Tools.GetTool(context.Background(), id); !errors.Is(err, toolkit.ErrToolNotFound) {
+		t.Fatalf("GetTool(rolled back) error = %v, want %v", err, toolkit.ErrToolNotFound)
+	}
+	if bindings.policy.Role != "" {
+		t.Fatalf("owner binding created with incompatible role = %#v", bindings.policy)
+	}
+}
+
+func TestToolPeerDeleteRollsBackWhenOwnerBindingCleanupFails(t *testing.T) {
+	caller := giznet.PublicKey{7}
+	callerID := caller.String()
+	id := "peer." + callerID + ".music.play"
+	auth := newRuleAuthorizer()
+	auth.allow(acl.ResourceKindTool, acl.CollectionResourceID, apitypes.ACLPermissionCreate)
+	auth.allow(acl.ResourceKindTool, id, apitypes.ACLPermissionAdmin)
+	bindings := &recordingToolACL{}
+	srv := &Server{Caller: caller, ACL: auth, Tools: &toolkit.Server{Store: kv.NewMemory(nil)}, ToolACL: bindings}
+
+	createResp := callRPC(t, srv, "create", rpcapi.RPCMethodServerToolCreate, rpcParams(t, (*rpcapi.RPCPayload).FromToolCreateRequest, rpcTool(id, callerID)))
+	requireNoRPCError(t, createResp)
+	bindings.deleteErr = errors.New("ACL cleanup failed")
+	deleteResp := callRPC(t, srv, "delete", rpcapi.RPCMethodServerToolDelete, rpcParams(t, (*rpcapi.RPCPayload).FromToolDeleteRequest, rpcapi.ToolDeleteRequest{Id: id}))
+	if deleteResp.Error == nil || deleteResp.Error.Code != rpcapi.RPCErrorCodeInternalError {
+		t.Fatalf("delete with cleanup failure response = %#v", deleteResp)
+	}
+	if stored, err := srv.Tools.GetTool(context.Background(), id); err != nil || stored.ID != id {
+		t.Fatalf("GetTool(rolled back) = %#v, %v", stored, err)
 	}
 }
 
@@ -176,12 +232,16 @@ func rpcTool(id, peer string) rpcapi.Tool {
 }
 
 type recordingToolACL struct {
-	role        string
-	permissions apitypes.ACLPermissionList
-	policy      apitypes.ACLPolicy
-	deleted     string
-	roleErr     error
-	roleCreates int
+	role         string
+	permissions  apitypes.ACLPermissionList
+	policy       apitypes.ACLPolicy
+	deleted      string
+	roleErr      error
+	roleCreates  int
+	roleGets     int
+	existingRole apitypes.ACLRole
+	getRoleErr   error
+	deleteErr    error
 }
 
 func (a *recordingToolACL) CreateRole(_ context.Context, name string, permissions apitypes.ACLPermissionList) (apitypes.ACLRole, error) {
@@ -191,6 +251,11 @@ func (a *recordingToolACL) CreateRole(_ context.Context, name string, permission
 	return apitypes.ACLRole{Name: name, Permissions: permissions}, a.roleErr
 }
 
+func (a *recordingToolACL) GetRole(_ context.Context, _ string) (apitypes.ACLRole, error) {
+	a.roleGets++
+	return a.existingRole, a.getRoleErr
+}
+
 func (a *recordingToolACL) PutPolicyBinding(_ context.Context, id string, _ float64, policy apitypes.ACLPolicy) (apitypes.ACLPolicyBinding, error) {
 	a.policy = policy
 	return apitypes.ACLPolicyBinding{Id: id, Policy: policy}, nil
@@ -198,7 +263,7 @@ func (a *recordingToolACL) PutPolicyBinding(_ context.Context, id string, _ floa
 
 func (a *recordingToolACL) DeletePolicyBinding(_ context.Context, id string) (apitypes.ACLPolicyBinding, error) {
 	a.deleted = id
-	return apitypes.ACLPolicyBinding{Id: id}, nil
+	return apitypes.ACLPolicyBinding{Id: id}, a.deleteErr
 }
 
 func stringPointer(value string) *string { return &value }

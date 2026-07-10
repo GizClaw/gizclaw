@@ -11,7 +11,7 @@ import (
 )
 
 func TestDeviceRPCExecutorAvailabilityInvokeAndNoRetry(t *testing.T) {
-	client := &fakeDeviceRPCClient{online: true, response: rpcapi.ToolInvokeResponse{DataJson: json.RawMessage(`{"playing":true}`)}}
+	client := &fakeDeviceRPCClient{online: true, response: rpcapi.ToolInvokeResponse{DataJson: `{"playing":true}`}}
 	executor := &DeviceRPCExecutor{Client: client}
 	tool := testDeviceTool("peer.peer-a.music.play", "peer-a")
 
@@ -41,7 +41,7 @@ func TestDeviceRPCExecutorAvailabilityInvokeAndNoRetry(t *testing.T) {
 
 func TestExecutorRegistryDispatchesDeviceAndBuilderTracksReconnect(t *testing.T) {
 	ctx := context.Background()
-	client := &fakeDeviceRPCClient{response: rpcapi.ToolInvokeResponse{DataJson: json.RawMessage(`null`)}}
+	client := &fakeDeviceRPCClient{response: rpcapi.ToolInvokeResponse{DataJson: `null`}}
 	device := &DeviceRPCExecutor{Client: client}
 	registry := NewExecutorRegistry()
 	if err := registry.RegisterDevice(device, device); err != nil {

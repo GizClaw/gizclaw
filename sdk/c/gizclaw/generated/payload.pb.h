@@ -6996,7 +6996,7 @@ X(a, STATIC,   OPTIONAL, MESSAGE,  args,              4)
 #define gizclaw_rpc_v1_ToolInvokeRequest_args_MSGTYPE google_protobuf_Struct
 
 #define gizclaw_rpc_v1_ToolInvokeResponse_FIELDLIST(X, a) \
-X(a, CALLBACK, SINGULAR, BYTES,    data_json,         1)
+X(a, CALLBACK, SINGULAR, STRING,   data_json,         1)
 #define gizclaw_rpc_v1_ToolInvokeResponse_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_ToolInvokeResponse_DEFAULT NULL
 

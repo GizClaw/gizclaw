@@ -20415,7 +20415,7 @@ func (x *ToolInvokeRequest) GetArgs() *structpb.Struct {
 
 type ToolInvokeResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	DataJson      []byte                 `protobuf:"bytes,1,opt,name=data_json,json=dataJson,proto3" json:"data_json,omitempty"`
+	DataJson      string                 `protobuf:"bytes,1,opt,name=data_json,json=dataJson,proto3" json:"data_json,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -20450,11 +20450,11 @@ func (*ToolInvokeResponse) Descriptor() ([]byte, []int) {
 	return file_payload_proto_rawDescGZIP(), []int{325}
 }
 
-func (x *ToolInvokeResponse) GetDataJson() []byte {
+func (x *ToolInvokeResponse) GetDataJson() string {
 	if x != nil {
 		return x.DataJson
 	}
-	return nil
+	return ""
 }
 
 var File_payload_proto protoreflect.FileDescriptor
@@ -22297,7 +22297,7 @@ const file_payload_proto_rawDesc = "" +
 	"\x06method\x18\x03 \x01(\tR\x06method\x12+\n" +
 	"\x04args\x18\x04 \x01(\v2\x17.google.protobuf.StructR\x04args\"1\n" +
 	"\x12ToolInvokeResponse\x12\x1b\n" +
-	"\tdata_json\x18\x01 \x01(\fR\bdataJson*k\n" +
+	"\tdata_json\x18\x01 \x01(\tR\bdataJson*k\n" +
 	"\x10ASTTranslateMode\x12!\n" +
 	"\x1dASTTRANSLATE_MODE_UNSPECIFIED\x10\x00\x12\x19\n" +
 	"\x15ASTTRANSLATE_MODE_S2T\x10\x01\x12\x19\n" +

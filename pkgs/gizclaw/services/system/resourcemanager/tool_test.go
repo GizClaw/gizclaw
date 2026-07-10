@@ -18,7 +18,8 @@ func TestToolResourceApplyGetPutDelete(t *testing.T) {
 	now := time.Date(2026, 7, 10, 12, 0, 0, 0, time.UTC)
 	tools := &toolkit.Server{Store: kv.NewMemory(nil), Now: func() time.Time { return now }}
 	manager := New(Services{Tools: tools})
-	resource := toolResource(t, "system.music.play")
+	const id = "system/music.play"
+	resource := toolResource(t, id)
 
 	result, err := manager.Apply(ctx, resource)
 	if err != nil || result.Action != apitypes.ApplyActionCreated {
@@ -29,7 +30,7 @@ func TestToolResourceApplyGetPutDelete(t *testing.T) {
 		t.Fatalf("Apply(unchanged) = %#v, %v", result, err)
 	}
 
-	gotResource, err := manager.Get(ctx, apitypes.ResourceKindTool, "system.music.play")
+	gotResource, err := manager.Get(ctx, apitypes.ResourceKindTool, id)
 	if err != nil {
 		t.Fatalf("Get() error = %v", err)
 	}
@@ -58,19 +59,19 @@ func TestToolResourceApplyGetPutDelete(t *testing.T) {
 	if err != nil || stored.Spec.Enabled == nil || *stored.Spec.Enabled || stored.Spec.Description == nil || *stored.Spec.Description != description {
 		t.Fatalf("Put() stored = %#v, %v", stored, err)
 	}
-	tool, err := tools.GetTool(ctx, "system.music.play")
+	tool, err := tools.GetTool(ctx, id)
 	if err != nil || tool.CreatedAt.Equal(tool.UpdatedAt) {
 		t.Fatalf("stored timestamps = %s/%s, %v", tool.CreatedAt, tool.UpdatedAt, err)
 	}
 
-	deleted, err := manager.Delete(ctx, apitypes.ResourceKindTool, "system.music.play")
+	deleted, err := manager.Delete(ctx, apitypes.ResourceKindTool, id)
 	if err != nil {
 		t.Fatalf("Delete() error = %v", err)
 	}
-	if item, err := deleted.AsToolResource(); err != nil || item.Metadata.Name != "system.music.play" {
+	if item, err := deleted.AsToolResource(); err != nil || item.Metadata.Name != id {
 		t.Fatalf("Delete() resource = %#v, %v", item, err)
 	}
-	if _, err := manager.Get(ctx, apitypes.ResourceKindTool, "system.music.play"); err == nil {
+	if _, err := manager.Get(ctx, apitypes.ResourceKindTool, id); err == nil {
 		t.Fatal("Get(deleted) error = nil")
 	}
 }

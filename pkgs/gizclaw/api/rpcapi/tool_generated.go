@@ -3,7 +3,6 @@
 package rpcapi
 
 import (
-	"encoding/json"
 	"time"
 
 	"github.com/google/jsonschema-go/jsonschema"
@@ -130,7 +129,7 @@ type ToolInvokeRequest struct {
 }
 
 type ToolInvokeResponse struct {
-	DataJson json.RawMessage `json:"data_json"`
+	DataJson string `json:"data_json"`
 }
 
 func decodeToolPayload[T any](p RPCPayload, name string) (T, error) {

@@ -2058,5 +2058,5 @@ message ToolInvokeRequest {
 }
 
 message ToolInvokeResponse {
-  bytes data_json = 1;
+  string data_json = 1;
 }

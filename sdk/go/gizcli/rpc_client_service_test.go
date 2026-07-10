@@ -2,7 +2,6 @@ package gizcli
 
 import (
 	"context"
-	"encoding/json"
 	"net"
 	"testing"
 
@@ -72,7 +71,7 @@ func TestRPCClientHandleToolInvoke(t *testing.T) {
 		if request.ToolId != "peer.device.music.play" || request.Method != "music.play" || request.Args["query"] != "song" {
 			t.Fatalf("ToolInvoker request = %#v", request)
 		}
-		return rpcapi.ToolInvokeResponse{DataJson: json.RawMessage(`{"playing":true}`)}, nil
+		return rpcapi.ToolInvokeResponse{DataJson: `{"playing":true}`}, nil
 	}}
 	var params rpcapi.RPCPayload
 	if err := params.FromToolInvokeRequest(rpcapi.ToolInvokeRequest{CallId: "call", ToolId: "peer.device.music.play", Method: "music.play", Args: map[string]interface{}{"query": "song"}}); err != nil {

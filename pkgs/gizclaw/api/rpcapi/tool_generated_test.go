@@ -1,7 +1,6 @@
 package rpcapi
 
 import (
-	"encoding/json"
 	"testing"
 
 	"github.com/google/jsonschema-go/jsonschema"
@@ -43,7 +42,7 @@ func TestToolPayloadRoundTripAndMethodRegistry(t *testing.T) {
 		t.Fatalf("Tool round trip = %#v", got)
 	}
 
-	invoke := ToolInvokeResponse{DataJson: json.RawMessage(`{"ok":true}`)}
+	invoke := ToolInvokeResponse{DataJson: `{"ok":true}`}
 	if err := payload.FromToolInvokeResponse(invoke); err != nil {
 		t.Fatalf("FromToolInvokeResponse() error = %v", err)
 	}

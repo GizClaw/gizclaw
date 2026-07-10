@@ -6741,7 +6741,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "data_json",
         "number": 1,
-        "type": "bytes"
+        "type": "string"
       }
     ]
   },
