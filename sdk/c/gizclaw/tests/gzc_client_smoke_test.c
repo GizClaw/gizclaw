@@ -34,6 +34,8 @@ typedef struct {
   int create_channel_count;
   int close_count;
   gzc_rtc_channel_t *last_closed;
+  int ice_server_count;
+  bool offer_started;
   fake_response_mode_t response_mode;
 } fake_webrtc_t;
 
@@ -81,8 +83,20 @@ static int test_peer_create(void *userdata, const gzc_webrtc_callbacks_t *callba
 
 static int test_peer_start_offer(gzc_rtc_peer_t *peer) {
   fake_webrtc_t *fake = global_fake_webrtc;
+  fake->offer_started = true;
   gzc_str_t offer = gzc_str_from_cstr("v=0\r\nfake-offer\r\n");
   fake->callbacks.on_local_sdp(fake->callbacks.userdata, peer, GZC_RTC_SDP_OFFER, offer);
+  return GZC_OK;
+}
+
+static int test_peer_add_ice_server(gzc_rtc_peer_t *peer, gzc_str_t url, gzc_str_t username, gzc_str_t credential) {
+  fake_webrtc_t *fake = global_fake_webrtc;
+  (void)peer;
+  if (fake == NULL || fake->offer_started || !str_eq_cstr(url, "turn:edge.example.com:3478?transport=udp") ||
+      !str_eq_cstr(username, "edge") || !str_eq_cstr(credential, "secret")) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  fake->ice_server_count++;
   return GZC_OK;
 }
 
@@ -574,7 +588,7 @@ static int test_http_request(void *userdata, const gzc_http_request_t *request, 
       return GZC_ERR_INVALID_ARGUMENT;
     }
     const char *body = fake->server_info_body == NULL
-                           ? "{\"protocol\":\"gizclaw-webrtc\",\"public_key\":\"8mfzTdZB1JA43QmNAMWfTfkj5GC9TJxJFveThi9tvK6J\",\"signaling_path\":\"/custom/offer\"}"
+                           ? "{\"protocol\":\"gizclaw-webrtc\",\"public_key\":\"8mfzTdZB1JA43QmNAMWfTfkj5GC9TJxJFveThi9tvK6J\",\"signaling_path\":\"/custom/offer\",\"ice_servers\":[{\"urls\":[\"turn:edge.example.com:3478?transport=udp\"],\"username\":\"edge\",\"credential\":\"secret\"}]}"
                            : fake->server_info_body;
     return gzc_buf_append_cstr(&out_response->body, fake->platform, body);
   }
@@ -717,6 +731,7 @@ int main(void) {
   webrtc.channel_send = test_channel_send;
   webrtc.channel_close = fake_channel_close;
   webrtc.peer_close = fake_peer_close;
+  webrtc.peer_add_ice_server = test_peer_add_ice_server;
 
   gzc_http_vtable_t http;
   memset(&http, 0, sizeof(http));
@@ -751,6 +766,9 @@ int main(void) {
     return 1;
   }
   if (expect(fake_webrtc.create_channel_count == 2, "packet and rpc channels created during connect") != 0) {
+    return 1;
+  }
+  if (expect(fake_webrtc.ice_server_count == 1, "server-info ICE server applied before offer") != 0) {
     return 1;
   }
 

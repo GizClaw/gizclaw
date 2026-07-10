@@ -548,23 +548,50 @@ export async function fetchGiznetServerInfo(options: ServerInfoBootstrapOptions 
   }
   return {
     ...serverInfo,
-    ice_servers: normalizeServerInfoICEServers(serverInfo.ice_servers),
+    ice_servers: normalizeServerInfoICEServers((serverInfo as { ice_servers?: unknown }).ice_servers),
     public_key: serverInfo.public_key.trim(),
     signaling_path: normalizeServerInfoSignalingPath(serverInfo.signaling_path),
   };
 }
 
-function normalizeServerInfoICEServers(servers: RTCIceServer[] | undefined): RTCIceServer[] | undefined {
+function normalizeServerInfoICEServers(servers: unknown): RTCIceServer[] | undefined {
   if (servers == null) {
     return undefined;
   }
-  return servers.map((server) => {
-    const urls = Array.isArray(server.urls) ? server.urls : [server.urls];
+  if (!Array.isArray(servers)) {
+    throw new Error("server-info invalid ice_servers: expected an array");
+  }
+  return servers.map((server, serverIndex) => {
+    if (typeof server !== "object" || server == null || Array.isArray(server)) {
+      throw new Error(`server-info invalid ice_servers[${serverIndex}]: expected an object`);
+    }
+    const value = server as Record<string, unknown>;
+    const rawURLs = Array.isArray(value.urls) ? value.urls : typeof value.urls === "string" ? [value.urls] : null;
+    if (rawURLs == null || rawURLs.length === 0) {
+      throw new Error(`server-info invalid ice_servers[${serverIndex}].urls`);
+    }
+    const urls = rawURLs.map((rawURL, urlIndex) => {
+      if (typeof rawURL !== "string") {
+        throw new Error(`server-info invalid ice_servers[${serverIndex}].urls[${urlIndex}]`);
+      }
+      const url = rawURL.trim();
+      if (!/^(?:stun|stuns|turn|turns):\S+$/i.test(url)) {
+        throw new Error(`server-info invalid ice_servers[${serverIndex}].urls[${urlIndex}]`);
+      }
+      return url;
+    });
+    if (value.username != null && typeof value.username !== "string") {
+      throw new Error(`server-info invalid ice_servers[${serverIndex}].username`);
+    }
+    if (value.credential != null && typeof value.credential !== "string") {
+      throw new Error(`server-info invalid ice_servers[${serverIndex}].credential`);
+    }
     return {
-      ...server,
-      urls: urls.map((url) => String(url).trim()).filter((url) => url !== ""),
+      credential: value.credential as string | undefined,
+      urls,
+      username: value.username as string | undefined,
     };
-  }).filter((server) => Array.isArray(server.urls) && server.urls.length > 0);
+  });
 }
 
 function serverInfoBaseURL(options: Pick<ServerInfoBootstrapOptions, "baseUrl" | "endpoint">): string {

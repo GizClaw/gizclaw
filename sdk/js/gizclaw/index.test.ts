@@ -1142,6 +1142,25 @@ test("fetchGiznetServerInfo validates server metadata", async () => {
   assert.deepEqual(info.ice_servers, [{ credential: "pass", urls: ["turn:edge.example.com:3478?transport=udp"], username: "user" }]);
 });
 
+test("fetchGiznetServerInfo rejects invalid ICE server metadata", async () => {
+  const serverPublicKey = base58Encode(x25519.getPublicKey(new Uint8Array(32).fill(2)));
+  for (const iceServers of [
+    {},
+    [{}],
+    [{ urls: [""] }],
+    [{ urls: ["https://edge.example.com"] }],
+    [{ urls: ["turn:edge.example.com", 42] }],
+  ]) {
+    await assert.rejects(
+      fetchGiznetServerInfo({
+        baseUrl: "http://localhost:9820",
+        fetch: async () => Response.json({ ice_servers: iceServers, public_key: serverPublicKey }),
+      }),
+      /invalid ice_servers/,
+    );
+  }
+});
+
 test("fetchGiznetServerInfo defaults signaling path and reports HTTP failures", async () => {
   const serverPublicKey = base58Encode(x25519.getPublicKey(new Uint8Array(32).fill(2)));
   const info = await fetchGiznetServerInfo({

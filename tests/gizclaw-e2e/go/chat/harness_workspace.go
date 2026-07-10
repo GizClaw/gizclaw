@@ -252,7 +252,7 @@ func dialClient(cfg config) (*gizcli.Client, <-chan error, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	serverPK, signalingURL, err := fetchChatServerInfo(cfg.Server.Addr)
+	serverInfo, err := fetchChatServerInfo(cfg.Server.Addr)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -262,13 +262,14 @@ func dialClient(cfg config) (*gizcli.Client, <-chan error, error) {
 			ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 			defer cancel()
 			return gizwebrtc.Dial(ctx, key, serverPK, gizwebrtc.DialConfig{
-				SignalingURL:   signalingURL,
+				SignalingURL:   serverInfo.SignalingURL,
+				ICEServers:     serverInfo.ICEServers,
 				CipherMode:     gizwebrtc.CipherMode(cfg.Server.CipherMode),
 				SecurityPolicy: securityPolicy,
 			})
 		},
 	}
-	if err := client.Dial(serverPK, cfg.Server.Addr); err != nil {
+	if err := client.Dial(serverInfo.PublicKey, cfg.Server.Addr); err != nil {
 		return nil, nil, err
 	}
 	done := make(chan error, 1)
@@ -278,53 +279,59 @@ func dialClient(cfg config) (*gizcli.Client, <-chan error, error) {
 	return client, done, nil
 }
 
-func fetchChatServerInfo(endpoint string) (giznet.PublicKey, string, error) {
-	var zero giznet.PublicKey
+type chatServerInfo struct {
+	PublicKey    giznet.PublicKey
+	SignalingURL string
+	ICEServers   []gizwebrtc.ICEServer
+}
+
+func fetchChatServerInfo(endpoint string) (chatServerInfo, error) {
 	endpoint = strings.TrimSpace(endpoint)
 	if endpoint == "" {
-		return zero, "", fmt.Errorf("server endpoint is empty")
+		return chatServerInfo{}, fmt.Errorf("server endpoint is empty")
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://"+endpoint+"/server-info", nil)
 	if err != nil {
-		return zero, "", err
+		return chatServerInfo{}, err
 	}
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return zero, "", err
+		return chatServerInfo{}, err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return zero, "", fmt.Errorf("server-info status=%d", resp.StatusCode)
+		return chatServerInfo{}, fmt.Errorf("server-info status=%d", resp.StatusCode)
 	}
 	var body struct {
-		PublicKey     string `json:"public_key"`
-		Protocol      string `json:"protocol"`
-		SignalingPath string `json:"signaling_path"`
+		PublicKey     string                `json:"public_key"`
+		Protocol      string                `json:"protocol"`
+		SignalingPath string                `json:"signaling_path"`
+		ICEServers    []gizwebrtc.ICEServer `json:"ice_servers"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
-		return zero, "", err
+		return chatServerInfo{}, err
 	}
 	if body.Protocol != "" && body.Protocol != "gizclaw-webrtc" {
-		return zero, "", fmt.Errorf("server-info protocol=%q", body.Protocol)
+		return chatServerInfo{}, fmt.Errorf("server-info protocol=%q", body.Protocol)
 	}
 	serverPK, err := parsePublicKey(strings.TrimSpace(body.PublicKey))
 	if err != nil {
-		return zero, "", fmt.Errorf("server-info public_key: %w", err)
+		return chatServerInfo{}, fmt.Errorf("server-info public_key: %w", err)
 	}
 	if serverPK.IsZero() {
-		return zero, "", fmt.Errorf("server-info public_key is zero")
+		return chatServerInfo{}, fmt.Errorf("server-info public_key is zero")
 	}
 	signalingPath := strings.TrimSpace(body.SignalingPath)
 	if signalingPath == "" {
 		signalingPath = gizwebrtc.SignalingPath
 	}
 	if !strings.HasPrefix(signalingPath, "/") || strings.HasPrefix(signalingPath, "//") {
-		return zero, "", fmt.Errorf("server-info signaling_path=%q", signalingPath)
+		return chatServerInfo{}, fmt.Errorf("server-info signaling_path=%q", signalingPath)
 	}
 	signalingURL := url.URL{Scheme: "http", Host: endpoint, Path: signalingPath}
-	return serverPK, signalingURL.String(), nil
+	return chatServerInfo{PublicKey: serverPK, SignalingURL: signalingURL.String(), ICEServers: body.ICEServers}, nil
 }
 
 type runControlClient interface {

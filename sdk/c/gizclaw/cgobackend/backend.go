@@ -297,6 +297,21 @@ func (b *Backend) acceptRemoteDataChannel(dc *webrtc.DataChannel) {
 	}
 }
 
+func (b *Backend) AddICEServer(url, username, credential string) error {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	if b.pc == nil {
+		return fmt.Errorf("nil peer connection")
+	}
+	cfg := b.pc.GetConfiguration()
+	cfg.ICEServers = append(cfg.ICEServers, webrtc.ICEServer{
+		URLs:       []string{url},
+		Username:   username,
+		Credential: credential,
+	})
+	return b.pc.SetConfiguration(cfg)
+}
+
 func (b *Backend) CreateDataChannel(label string, channelID int, ordered, reliable bool) error {
 	b.mu.Lock()
 	pc := b.pc

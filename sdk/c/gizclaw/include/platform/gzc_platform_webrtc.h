@@ -100,6 +100,7 @@ typedef struct {
   int (*channel_send)(gzc_rtc_channel_t *channel, const uint8_t *data, size_t len, bool is_text);
   void (*channel_close)(gzc_rtc_channel_t *channel);
   void (*peer_close)(gzc_rtc_peer_t *peer);
+  int (*peer_add_ice_server)(gzc_rtc_peer_t *peer, gzc_str_t url, gzc_str_t username, gzc_str_t credential);
 } gzc_webrtc_vtable_t;
 
 #ifdef __cplusplus

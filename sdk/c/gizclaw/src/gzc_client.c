@@ -71,6 +71,16 @@ static bool str_eq_cstr(gzc_str_t value, const char *want) {
   return value.data != NULL && value.len == want_len && strncmp(value.data, want, want_len) == 0;
 }
 
+static bool str_has_cstr_prefix(gzc_str_t value, const char *prefix) {
+  size_t prefix_len = strlen(prefix);
+  return value.len > prefix_len && strncmp(value.data, prefix, prefix_len) == 0;
+}
+
+static bool valid_ice_url(gzc_str_t value) {
+  return str_has_cstr_prefix(value, "stun:") || str_has_cstr_prefix(value, "stuns:") ||
+         str_has_cstr_prefix(value, "turn:") || str_has_cstr_prefix(value, "turns:");
+}
+
 static bool valid_packet_protocol(uint8_t protocol) {
   return protocol == gzc_protocol_stamped_opus_packet || protocol >= gzc_protocol_custom_start;
 }
@@ -97,6 +107,82 @@ static void free_http_response(gzc_client_t *client, gzc_http_response_t *respon
     client->config.http->response_free(client->config.http->userdata, response);
   } else {
     gzc_buf_free(&response->body, client->config.platform);
+  }
+}
+
+static int apply_ice_servers(gzc_client_t *client, gzc_str_t body) {
+  gzc_str_t servers_raw;
+  int rc = gzc_json_find_field(body, "ice_servers", &servers_raw);
+  if (rc != GZC_OK) {
+    return GZC_OK;
+  }
+  gzc_json_array_iter_t servers;
+  rc = gzc_json_array_iter_init(servers_raw, &servers);
+  if (rc != GZC_OK) {
+    return rc;
+  }
+  while (true) {
+    gzc_str_t server_raw;
+    bool has_server = false;
+    rc = gzc_json_array_iter_next(&servers, &server_raw, &has_server);
+    if (rc != GZC_OK || !has_server) {
+      return rc;
+    }
+    if (gzc_json_validate_object(server_raw) != GZC_OK) {
+      return GZC_ERR_JSON;
+    }
+    gzc_str_t username = {0};
+    gzc_str_t credential = {0};
+    gzc_str_t field_raw;
+    if (gzc_json_find_field(server_raw, "username", &field_raw) == GZC_OK) {
+      rc = gzc_json_parse_string(field_raw, &username);
+      if (rc != GZC_OK) {
+        return rc;
+      }
+    }
+    if (gzc_json_find_field(server_raw, "credential", &field_raw) == GZC_OK) {
+      rc = gzc_json_parse_string(field_raw, &credential);
+      if (rc != GZC_OK) {
+        return rc;
+      }
+    }
+    gzc_str_t urls_raw;
+    if (gzc_json_find_field(server_raw, "urls", &urls_raw) != GZC_OK) {
+      return GZC_ERR_JSON;
+    }
+    gzc_json_array_iter_t urls;
+    rc = gzc_json_array_iter_init(urls_raw, &urls);
+    if (rc != GZC_OK) {
+      return rc;
+    }
+    bool applied_url = false;
+    while (true) {
+      gzc_str_t url_raw;
+      bool has_url = false;
+      rc = gzc_json_array_iter_next(&urls, &url_raw, &has_url);
+      if (rc != GZC_OK) {
+        return rc;
+      }
+      if (!has_url) {
+        break;
+      }
+      gzc_str_t url;
+      rc = gzc_json_parse_string(url_raw, &url);
+      if (rc != GZC_OK || !valid_ice_url(url)) {
+        return rc == GZC_OK ? GZC_ERR_INVALID_ARGUMENT : rc;
+      }
+      if (client->config.webrtc->peer_add_ice_server == NULL) {
+        return GZC_ERR_UNSUPPORTED;
+      }
+      rc = client->config.webrtc->peer_add_ice_server(client->peer, url, username, credential);
+      if (rc != GZC_OK) {
+        return rc;
+      }
+      applied_url = true;
+    }
+    if (!applied_url) {
+      return GZC_ERR_INVALID_ARGUMENT;
+    }
   }
 }
 
@@ -167,6 +253,12 @@ static int load_server_info(gzc_client_t *client, int timeout_ms, gzc_signaling_
       free_http_response(client, &response);
       return rc == GZC_OK ? GZC_ERR_UNSUPPORTED : rc;
     }
+  }
+
+  rc = apply_ice_servers(client, body);
+  if (rc != GZC_OK) {
+    free_http_response(client, &response);
+    return rc;
   }
 
   gzc_str_t signaling_path = gzc_str_from_cstr(GZC_SIGNALING_PATH);
@@ -496,16 +588,7 @@ int gzc_client_connect(gzc_client_t *client) {
     goto fail;
   }
 
-  rc = client->config.webrtc->peer_start_offer(client->peer);
-  if (rc != GZC_OK) {
-    goto fail;
-  }
   int timeout = client->config.connect_timeout_ms == 0 ? 5000 : client->config.connect_timeout_ms;
-  rc = wait_until(client, &client->has_local_sdp, timeout);
-  if (rc != GZC_OK) {
-    goto fail;
-  }
-
   gzc_signaling_config_t signaling;
   memset(&signaling, 0, sizeof(signaling));
   signaling.platform = client->config.platform;
@@ -518,6 +601,17 @@ int gzc_client_connect(gzc_client_t *client) {
   gzc_buf_t signaling_url;
   gzc_buf_init(&signaling_url);
   rc = load_server_info(client, timeout, &signaling, &signaling_url);
+  if (rc != GZC_OK) {
+    gzc_buf_free(&signaling_url, client->config.platform);
+    goto fail;
+  }
+
+  rc = client->config.webrtc->peer_start_offer(client->peer);
+  if (rc != GZC_OK) {
+    gzc_buf_free(&signaling_url, client->config.platform);
+    goto fail;
+  }
+  rc = wait_until(client, &client->has_local_sdp, timeout);
   if (rc != GZC_OK) {
     gzc_buf_free(&signaling_url, client->config.platform);
     goto fail;
