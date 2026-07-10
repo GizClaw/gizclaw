@@ -2,10 +2,12 @@ package gizcli
 
 import (
 	"context"
+	"encoding/json"
 	"net"
 	"testing"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 )
 
 func TestRPCClientHandleDeviceInfoMethods(t *testing.T) {
@@ -62,5 +64,31 @@ func TestRPCClientHandleDeviceInfoMethods(t *testing.T) {
 	}
 	if err := <-errCh; err != nil {
 		t.Fatalf("Handle(identifiers) error = %v", err)
+	}
+}
+
+func TestRPCClientHandleToolInvoke(t *testing.T) {
+	device := &Client{ToolInvoker: func(_ context.Context, request rpcapi.ToolInvokeRequest) (rpcapi.ToolInvokeResponse, error) {
+		if request.ToolId != "peer.device.music.play" || request.Method != "music.play" || request.Args["query"] != "song" {
+			t.Fatalf("ToolInvoker request = %#v", request)
+		}
+		return rpcapi.ToolInvokeResponse{DataJson: json.RawMessage(`{"playing":true}`)}, nil
+	}}
+	var params rpcapi.RPCPayload
+	if err := params.FromToolInvokeRequest(rpcapi.ToolInvokeRequest{CallId: "call", ToolId: "peer.device.music.play", Method: "music.play", Args: map[string]interface{}{"query": "song"}}); err != nil {
+		t.Fatalf("FromToolInvokeRequest() error = %v", err)
+	}
+	resp, err := (&rpcClient{peer: device}).dispatch(context.Background(), &rpcapi.RPCRequest{Id: "invoke", Method: rpcapi.RPCMethodClientToolInvoke, Params: &params})
+	if err != nil || resp.Error != nil || resp.Result == nil {
+		t.Fatalf("dispatch() = %#v, %v", resp, err)
+	}
+	result, err := resp.Result.AsToolInvokeResponse()
+	if err != nil || string(result.DataJson) != `{"playing":true}` {
+		t.Fatalf("tool result = %s, %v", result.DataJson, err)
+	}
+
+	resp, err = (&rpcClient{peer: &Client{}}).dispatch(context.Background(), &rpcapi.RPCRequest{Id: "invoke", Method: rpcapi.RPCMethodClientToolInvoke, Params: &params})
+	if err != nil || resp.Error == nil || resp.Error.Code != rpcapi.RPCErrorCodeMethodNotFound {
+		t.Fatalf("dispatch(no handler) = %#v, %v", resp, err)
 	}
 }

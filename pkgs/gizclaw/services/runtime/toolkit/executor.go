@@ -30,8 +30,24 @@ func (f ExecutorFunc) Invoke(ctx context.Context, call Call) (Result, error) {
 }
 
 type ExecutorRegistry struct {
-	mu        sync.RWMutex
-	executors map[string]Executor
+	mu                 sync.RWMutex
+	executors          map[string]Executor
+	device             Executor
+	deviceAvailability AvailabilityChecker
+}
+
+func (r *ExecutorRegistry) RegisterDevice(executor Executor, availability AvailabilityChecker) error {
+	if r == nil {
+		return ErrNotConfigured
+	}
+	if executor == nil || availability == nil {
+		return fmt.Errorf("%w: device executor and availability are required", ErrInvalidTool)
+	}
+	r.mu.Lock()
+	r.device = executor
+	r.deviceAvailability = availability
+	r.mu.Unlock()
+	return nil
 }
 
 func NewExecutorRegistry() *ExecutorRegistry {
@@ -75,14 +91,19 @@ func (r *ExecutorRegistry) Invoke(ctx context.Context, call Call) (Result, error
 	if r == nil {
 		return Result{}, ErrNotConfigured
 	}
-	name := trimPtr(call.Tool.Executor.Name)
-	if call.Tool.Executor.Kind != ToolExecutorKindBuiltin || name == "" {
-		return Result{}, fmt.Errorf("%w: %s", ErrExecutorNotFound, call.Tool.ID)
-	}
 	r.mu.RLock()
-	executor := r.executors[name]
+	var executor Executor
+	var name string
+	switch call.Tool.Executor.Kind {
+	case ToolExecutorKindBuiltin:
+		name = trimPtr(call.Tool.Executor.Name)
+		executor = r.executors[name]
+	case ToolExecutorKindDeviceRPC:
+		name = call.Tool.ID
+		executor = r.device
+	}
 	r.mu.RUnlock()
-	if executor == nil {
+	if name == "" || executor == nil {
 		return Result{}, fmt.Errorf("%w: %s", ErrExecutorNotFound, name)
 	}
 	result, err := executor.Invoke(ctx, call)
@@ -91,4 +112,25 @@ func (r *ExecutorRegistry) Invoke(ctx context.Context, call Call) (Result, error
 	}
 	result.Data = cloneRaw(result.Data)
 	return result, nil
+}
+
+func (r *ExecutorRegistry) ToolAvailable(ctx context.Context, tool Tool) (bool, error) {
+	if r == nil {
+		return false, nil
+	}
+	switch tool.Executor.Kind {
+	case ToolExecutorKindBuiltin:
+		return r.Has(trimPtr(tool.Executor.Name)), nil
+	case ToolExecutorKindDeviceRPC:
+		r.mu.RLock()
+		availability := r.deviceAvailability
+		executor := r.device
+		r.mu.RUnlock()
+		if availability == nil || executor == nil {
+			return false, nil
+		}
+		return availability.ToolAvailable(ctx, tool)
+	default:
+		return false, nil
+	}
 }

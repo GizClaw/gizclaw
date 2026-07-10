@@ -1,18 +1,10 @@
 package toolkit
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
-	"math"
 	"strings"
 )
-
-type objectInputSchema struct {
-	Type       any                        `json:"type"`
-	Required   []string                   `json:"required"`
-	Properties map[string]json.RawMessage `json:"properties"`
-}
 
 func NormalizeTool(tool Tool) (Tool, error) {
 	tool.ID = strings.TrimSpace(tool.ID)
@@ -22,19 +14,20 @@ func NormalizeTool(tool Tool) (Tool, error) {
 	if strings.Contains(tool.ID, ":") {
 		return Tool{}, fmt.Errorf("%w: id must not contain ':'", ErrInvalidTool)
 	}
+	tool.Name = normalizedStringPtr(tool.Name)
+	tool.Description = normalizedStringPtr(tool.Description)
+	tool.OwnerPeer = normalizedStringPtr(tool.OwnerPeer)
+	tool.Version = normalizedStringPtr(tool.Version)
+	tool.Executor.Name = normalizedStringPtr(tool.Executor.Name)
+	tool.Executor.Method = normalizedStringPtr(tool.Executor.Method)
+	tool.Executor.PeerID = normalizedStringPtr(tool.Executor.PeerID)
 	switch tool.Source {
 	case ToolSourceBuiltin, ToolSourceDevice, ToolSourceAdmin:
 	default:
 		return Tool{}, fmt.Errorf("%w: unsupported source %q", ErrInvalidTool, tool.Source)
 	}
-	if len(tool.InputSchema) == 0 {
-		return Tool{}, fmt.Errorf("%w: input_schema is required", ErrInvalidTool)
-	}
-	if err := validateInputSchema(tool.InputSchema); err != nil {
+	if err := validateInputSchema(tool.InputSchema.Type, tool.InputSchema.Types); err != nil {
 		return Tool{}, err
-	}
-	if len(tool.OutputSchema) > 0 && !json.Valid(tool.OutputSchema) {
-		return Tool{}, fmt.Errorf("%w: output_schema must be valid JSON", ErrInvalidTool)
 	}
 	if len(tool.Metadata) > 0 && !json.Valid(tool.Metadata) {
 		return Tool{}, fmt.Errorf("%w: metadata must be valid JSON", ErrInvalidTool)
@@ -48,49 +41,29 @@ func NormalizeTool(tool Tool) (Tool, error) {
 	return cloneTool(tool), nil
 }
 
-func validateInputSchema(raw json.RawMessage) error {
-	var schema objectInputSchema
-	if err := json.Unmarshal(raw, &schema); err != nil {
-		return fmt.Errorf("%w: input_schema must be valid JSON object", ErrInvalidTool)
+func validateInputSchema(single string, many []string) error {
+	if single == "object" {
+		return nil
 	}
-	if schema.Properties == nil {
-		var obj map[string]json.RawMessage
-		if err := json.Unmarshal(raw, &obj); err != nil || obj == nil {
-			return fmt.Errorf("%w: input_schema must be a JSON object", ErrInvalidTool)
+	for _, typ := range many {
+		if typ == "object" {
+			return nil
 		}
 	}
-	if !schemaTypeIncludesObject(schema.Type) {
+	if single == "" && len(many) == 0 {
+		return fmt.Errorf("%w: input_schema type is required and must be object", ErrInvalidTool)
+	}
+	if single != "object" {
 		return fmt.Errorf("%w: input_schema type must be object", ErrInvalidTool)
 	}
 	return nil
 }
 
-func validateToolArgs(tool Tool, args json.RawMessage) error {
-	var schema objectInputSchema
-	if err := json.Unmarshal(tool.InputSchema, &schema); err != nil {
-		return fmt.Errorf("%w: input_schema must be valid JSON object", ErrInvalidTool)
-	}
+func validateToolArgs(_ Tool, args json.RawMessage) error {
 	args = normalizeToolArgs(args)
 	var values map[string]json.RawMessage
 	if err := json.Unmarshal(args, &values); err != nil || values == nil {
 		return fmt.Errorf("%w: tool arguments must be a JSON object", ErrInvalidTool)
-	}
-	for _, name := range schema.Required {
-		if strings.TrimSpace(name) == "" {
-			continue
-		}
-		if _, ok := values[name]; !ok {
-			return fmt.Errorf("%w: tool argument %q is required", ErrInvalidTool, name)
-		}
-	}
-	for name, propertySchema := range schema.Properties {
-		value, ok := values[name]
-		if !ok {
-			continue
-		}
-		if err := validateJSONValueType(name, value, propertySchema); err != nil {
-			return err
-		}
 	}
 	return nil
 }
@@ -100,120 +73,6 @@ func normalizeToolArgs(args json.RawMessage) json.RawMessage {
 		return json.RawMessage(`{}`)
 	}
 	return args
-}
-
-func schemaTypeIncludesObject(value any) bool {
-	return schemaTypeMatches(value, "object")
-}
-
-func schemaTypeMatches(value any, want string) bool {
-	switch typed := value.(type) {
-	case nil:
-		return true
-	case string:
-		return typed == want
-	case []any:
-		for _, item := range typed {
-			if item, ok := item.(string); ok && item == want {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-func validateJSONValueType(name string, value json.RawMessage, propertySchema json.RawMessage) error {
-	var schema struct {
-		Type any `json:"type"`
-	}
-	if err := json.Unmarshal(propertySchema, &schema); err != nil {
-		return fmt.Errorf("%w: property schema %q must be valid JSON", ErrInvalidTool, name)
-	}
-	if schema.Type == nil {
-		return nil
-	}
-	var decoded any
-	dec := json.NewDecoder(bytes.NewReader(value))
-	dec.UseNumber()
-	if err := dec.Decode(&decoded); err != nil {
-		return fmt.Errorf("%w: tool argument %q must be valid JSON", ErrInvalidTool, name)
-	}
-	types := schemaTypes(schema.Type)
-	if len(types) == 0 {
-		return nil
-	}
-	known := false
-	for _, typ := range types {
-		if !knownJSONSchemaType(typ) {
-			continue
-		}
-		known = true
-		if jsonValueMatchesType(decoded, typ) {
-			return nil
-		}
-	}
-	if !known {
-		return nil
-	}
-	return fmt.Errorf("%w: tool argument %q does not match input_schema type", ErrInvalidTool, name)
-}
-
-func schemaTypes(value any) []string {
-	switch typed := value.(type) {
-	case nil:
-		return nil
-	case string:
-		return []string{typed}
-	case []any:
-		out := make([]string, 0, len(typed))
-		for _, item := range typed {
-			if item, ok := item.(string); ok {
-				out = append(out, item)
-			}
-		}
-		return out
-	}
-	return nil
-}
-
-func knownJSONSchemaType(typ string) bool {
-	switch typ {
-	case "string", "boolean", "number", "integer", "object", "array", "null":
-		return true
-	default:
-		return false
-	}
-}
-
-func jsonValueMatchesType(decoded any, typ string) bool {
-	switch typ {
-	case "string":
-		_, ok := decoded.(string)
-		return ok
-	case "boolean":
-		_, ok := decoded.(bool)
-		return ok
-	case "number":
-		_, ok := decoded.(json.Number)
-		return ok
-	case "integer":
-		number, ok := decoded.(json.Number)
-		if !ok {
-			return false
-		}
-		f, err := number.Float64()
-		return err == nil && math.Trunc(f) == f
-	case "object":
-		value, ok := decoded.(map[string]any)
-		return ok && value != nil
-	case "array":
-		_, ok := decoded.([]any)
-		return ok
-	case "null":
-		return decoded == nil
-	default:
-		return true
-	}
 }
 
 func validateExecutor(tool Tool) error {
@@ -228,6 +87,9 @@ func validateExecutor(tool Tool) error {
 		}
 		if trimPtr(tool.OwnerPeer) == "" && trimPtr(tool.Executor.PeerID) == "" {
 			return fmt.Errorf("%w: device_rpc executor owner_peer or peer_id is required", ErrInvalidTool)
+		}
+		if owner, peerID := trimPtr(tool.OwnerPeer), trimPtr(tool.Executor.PeerID); owner != "" && peerID != "" && owner != peerID {
+			return fmt.Errorf("%w: owner_peer and executor.peer_id conflict", ErrInvalidTool)
 		}
 	default:
 		return fmt.Errorf("%w: unsupported executor kind %q", ErrInvalidTool, tool.Executor.Kind)
@@ -260,4 +122,15 @@ func trimPtr(value *string) string {
 		return ""
 	}
 	return strings.TrimSpace(*value)
+}
+
+func normalizedStringPtr(value *string) *string {
+	if value == nil {
+		return nil
+	}
+	normalized := strings.TrimSpace(*value)
+	if normalized == "" {
+		return nil
+	}
+	return &normalized
 }

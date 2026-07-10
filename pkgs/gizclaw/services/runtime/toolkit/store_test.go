@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
+	"github.com/google/jsonschema-go/jsonschema"
 )
 
 func TestServerPutGetListDelete(t *testing.T) {
@@ -27,21 +28,19 @@ func TestServerPutGetListDelete(t *testing.T) {
 	if created.CreatedAt != now || created.UpdatedAt != now {
 		t.Fatalf("timestamps = %s/%s, want %s", created.CreatedAt, created.UpdatedAt, now)
 	}
-	created.InputSchema[0] = '['
+	created.InputSchema.Type = "string"
 
 	got, err := store.GetTool(ctx, tool.ID)
 	if err != nil {
 		t.Fatalf("GetTool() error = %v", err)
 	}
-	if !json.Valid(got.InputSchema) {
-		t.Fatalf("stored input schema was mutated: %s", got.InputSchema)
+	if got.InputSchema.Type != "object" {
+		t.Fatalf("stored input schema was mutated: %#v", got.InputSchema)
 	}
 
 	now = now.Add(time.Minute)
 	updated := got
 	updated.Version = stringPtr("2")
-	syncedAt := now.Add(-time.Second)
-	updated.SyncedAt = &syncedAt
 	if updated, err = store.PutTool(ctx, updated); err != nil {
 		t.Fatalf("PutTool(update) error = %v", err)
 	}
@@ -51,19 +50,6 @@ func TestServerPutGetListDelete(t *testing.T) {
 	if updated.UpdatedAt != now {
 		t.Fatalf("UpdatedAt = %s, want %s", updated.UpdatedAt, now)
 	}
-	if updated.SyncedAt == nil || !updated.SyncedAt.Equal(syncedAt) {
-		t.Fatalf("SyncedAt = %v, want %s", updated.SyncedAt, syncedAt)
-	}
-
-	now = now.Add(time.Minute)
-	updated.SyncedAt = nil
-	if updated, err = store.PutTool(ctx, updated); err != nil {
-		t.Fatalf("PutTool(clear sync) error = %v", err)
-	}
-	if updated.SyncedAt != nil {
-		t.Fatalf("SyncedAt after clear = %v, want nil", updated.SyncedAt)
-	}
-
 	if _, err := store.PutTool(ctx, testBuiltinTool("system.mode.switch")); err != nil {
 		t.Fatalf("PutTool(second) error = %v", err)
 	}
@@ -83,23 +69,17 @@ func TestServerPutGetListDelete(t *testing.T) {
 	}
 }
 
-func TestNormalizeToolValidatesExecutorAndJSON(t *testing.T) {
+func TestNormalizeToolValidatesExecutorAndSchema(t *testing.T) {
 	tool := testBuiltinTool("system.bad")
-	tool.InputSchema = json.RawMessage(`{`)
-	if _, err := NormalizeTool(tool); err == nil {
-		t.Fatal("NormalizeTool(invalid JSON) error = nil")
-	}
-
-	for _, schema := range []json.RawMessage{
-		json.RawMessage(`null`),
-		json.RawMessage(`[]`),
-		json.RawMessage(`"object"`),
-		json.RawMessage(`{"type":"string"}`),
+	for _, schema := range []jsonschema.Schema{
+		{},
+		{Type: "string"},
+		{Types: []string{"string", "null"}},
 	} {
 		tool = testBuiltinTool("system.bad")
 		tool.InputSchema = schema
 		if _, err := NormalizeTool(tool); err == nil {
-			t.Fatalf("NormalizeTool(input_schema=%s) error = nil", schema)
+			t.Fatalf("NormalizeTool(input_schema=%#v) error = nil", schema)
 		}
 	}
 
@@ -129,7 +109,7 @@ func TestNormalizeToolValidatesTriggersAndOptionalJSON(t *testing.T) {
 		}},
 		Metadata: json.RawMessage(`{"intent":"music"}`),
 	}}
-	tool.OutputSchema = json.RawMessage(`{"type":"object"}`)
+	tool.OutputSchema = &jsonschema.Schema{Type: "object"}
 	tool.Metadata = json.RawMessage(`{"category":"media"}`)
 	normalized, err := NormalizeTool(tool)
 	if err != nil {

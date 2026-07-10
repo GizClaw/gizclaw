@@ -23,6 +23,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/agenthost"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerrun"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/toolkit"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/contact"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/friend"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/friendgroup"
@@ -51,16 +52,19 @@ type Manager struct {
 	AgentHost *agenthost.Host
 	ACL       *acl.Server
 
-	Workspaces   workspace.WorkspaceAdminService
-	Workflows    workflow.WorkflowAdminService
-	Firmwares    *firmware.Server
-	Models       model.ModelAdminService
-	Credentials  credential.CredentialAdminService
-	Voices       voice.VoiceAdminService
-	Contacts     *contact.Server
-	Friends      *friend.Server
-	FriendGroups *friendgroup.Server
-	Gameplay     *gameplay.Runtime
+	Workspaces    workspace.WorkspaceAdminService
+	Workflows     workflow.WorkflowAdminService
+	Firmwares     *firmware.Server
+	Models        model.ModelAdminService
+	Credentials   credential.CredentialAdminService
+	Voices        voice.VoiceAdminService
+	Contacts      *contact.Server
+	Friends       *friend.Server
+	FriendGroups  *friendgroup.Server
+	Gameplay      *gameplay.Runtime
+	Tools         *toolkit.Server
+	ToolBuilder   *toolkit.Builder
+	ToolExecutors *toolkit.ExecutorRegistry
 
 	ProviderTenants providertenants.ProviderTenantsAdminService
 	Metrics         metrics.Store

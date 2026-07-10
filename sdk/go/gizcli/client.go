@@ -34,7 +34,8 @@ type Client struct {
 	KeyPair       *giznet.KeyPair
 	DialTransport DialTransportFunc
 
-	Device apitypes.DeviceInfo
+	Device      apitypes.DeviceInfo
+	ToolInvoker func(context.Context, rpcapi.ToolInvokeRequest) (rpcapi.ToolInvokeResponse, error)
 
 	mu       sync.RWMutex
 	listener giznet.Listener

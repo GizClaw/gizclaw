@@ -1,6 +1,6 @@
 package toolkit
 
-import "encoding/json"
+import "github.com/google/jsonschema-go/jsonschema"
 
 func testBuiltinTool(id string) Tool {
 	return Tool{
@@ -9,7 +9,7 @@ func testBuiltinTool(id string) Tool {
 		Description: stringPtr("test tool"),
 		Source:      ToolSourceBuiltin,
 		Enabled:     true,
-		InputSchema: json.RawMessage(`{"type":"object"}`),
+		InputSchema: jsonschema.Schema{Type: "object"},
 		Executor: ToolExecutor{
 			Kind: ToolExecutorKindBuiltin,
 			Name: stringPtr("music.play"),
@@ -25,7 +25,7 @@ func testDeviceTool(id, peer string) Tool {
 		Source:      ToolSourceDevice,
 		Enabled:     true,
 		OwnerPeer:   stringPtr(peer),
-		InputSchema: json.RawMessage(`{"type":"object"}`),
+		InputSchema: jsonschema.Schema{Type: "object"},
 		Executor: ToolExecutor{
 			Kind:   ToolExecutorKindDeviceRPC,
 			Method: stringPtr("music.play"),

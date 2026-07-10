@@ -33,6 +33,7 @@ These ResourceManager resources are directly backed by ACL resource kinds:
 | `ACLView` | `view` | Views are used as grouped ACL subjects and can also be addressed as ACL resources. |
 | `Firmware` | `firmware` | Peer firmware list/get/download checks use firmware ACL. |
 | `GameRuleset` | `gameruleset` | Peer gameplay entry points check ruleset ACL before using a ruleset. |
+| `Tool` | `tool` | Peer Tool CRUD, ToolKit construction, and invocation use Tool ACL. |
 
 These ResourceManager resources are not direct ACL resource kinds:
 
@@ -58,6 +59,7 @@ These ResourceManager resources are not direct ACL resource kinds:
 | `view` | View name | ACL grouping and view administration |
 | `firmware` | Firmware id | `read` |
 | `gameruleset` | Ruleset name | `read`, `use`, `admin` |
+| `tool` | Tool id or `__collection__` | `read`, `use`, `create`, `admin` |
 
 The permission enum is shared across all ACL resource kinds. For example, a
 policy binding grants resource `{kind:"workspace", id:"demo"}` permission
@@ -98,6 +100,7 @@ workspace:__collection__ + create
 workflow:__collection__ + create
 model:__collection__ + create
 credential:__collection__ + create
+tool:__collection__ + create
 ```
 
 Create checks do not fall back from a concrete resource to a collection
@@ -120,6 +123,10 @@ for the resource kind being created.
 | `server.credential.list/get` | Concrete `credential` + `read` |
 | `server.credential.create` | `credential:__collection__` + `create` |
 | `server.credential.put/delete` | Concrete `credential` + `admin` |
+| `server.tool.list/get` | Concrete `tool` + `read`; list omits denied Tools |
+| `server.tool.create` | `tool:__collection__` + `create`; the ID must use the authenticated peer's `peer.<public-key>.` namespace and the Tool must be `source: device` |
+| `server.tool.put/delete` | Concrete `tool` + `admin`; peers may modify only their own device Tool namespace |
+| ToolKit construction and Tool invocation | Concrete `tool` + `use`; runtime availability and executor registration are checked separately |
 | `server.voice.list/get` | Concrete `voice` + `read` |
 | `server.firmware.list/get/download` | Concrete `firmware` + `read` |
 | `server.run.agent.set` | Target concrete `workspace` + `use` |
@@ -160,6 +167,7 @@ creates a shared workspace, access to that workspace is represented by normal
 | Peer creates workflow | `pk:{peerPublicKey}` | `workflow:{name}` | `read`, `use`, `admin` |
 | Peer creates model | `pk:{peerPublicKey}` | `model:{id}` | `read`, `use`, `admin` |
 | Peer creates credential | `pk:{peerPublicKey}` | `credential:{name}` | `read`, `use`, `admin` |
+| Peer creates device Tool | `pk:{peerPublicKey}` | `tool:{id}` | `read`, `use`, `admin` |
 
 The caller also needs the relevant collection `create` permission before the
 resource is created.

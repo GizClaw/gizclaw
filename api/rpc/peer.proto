@@ -118,4 +118,10 @@ enum RpcMethod {
   RPC_METHOD_SERVER_GAME_RESULT_GET = 92 [(rpc_method) = { name: "server.game_result.get" request: "ServerGameResultGetRequest" response: "ServerGameResultGetResponse" }];
   RPC_METHOD_SERVER_REWARD_GRANT_LIST = 93 [(rpc_method) = { name: "server.reward_grant.list" request: "ServerRewardGrantListRequest" response: "ServerRewardGrantListResponse" }];
   RPC_METHOD_SERVER_REWARD_GRANT_GET = 94 [(rpc_method) = { name: "server.reward_grant.get" request: "ServerRewardGrantGetRequest" response: "ServerRewardGrantGetResponse" }];
+  RPC_METHOD_SERVER_TOOL_LIST = 95 [(rpc_method) = { name: "server.tool.list" request: "ToolListRequest" response: "ToolListResponse" }];
+  RPC_METHOD_SERVER_TOOL_GET = 96 [(rpc_method) = { name: "server.tool.get" request: "ToolGetRequest" response: "ToolGetResponse" }];
+  RPC_METHOD_SERVER_TOOL_CREATE = 97 [(rpc_method) = { name: "server.tool.create" request: "ToolCreateRequest" response: "ToolCreateResponse" }];
+  RPC_METHOD_SERVER_TOOL_PUT = 98 [(rpc_method) = { name: "server.tool.put" request: "ToolPutRequest" response: "ToolPutResponse" }];
+  RPC_METHOD_SERVER_TOOL_DELETE = 99 [(rpc_method) = { name: "server.tool.delete" request: "ToolDeleteRequest" response: "ToolDeleteResponse" }];
+  RPC_METHOD_CLIENT_TOOL_INVOKE = 100 [(rpc_method) = { name: "client.tool.invoke" request: "ToolInvokeRequest" response: "ToolInvokeResponse" }];
 }

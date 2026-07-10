@@ -195,6 +195,19 @@ typedef enum _gizclaw_rpc_v1_WorkspaceInputMode {
     gizclaw_rpc_v1_WorkspaceInputMode_WORKSPACE_INPUT_MODE_REALTIME = 2
 } gizclaw_rpc_v1_WorkspaceInputMode;
 
+typedef enum _gizclaw_rpc_v1_ToolSource {
+    gizclaw_rpc_v1_ToolSource_TOOL_SOURCE_UNSPECIFIED = 0,
+    gizclaw_rpc_v1_ToolSource_TOOL_SOURCE_BUILTIN = 1,
+    gizclaw_rpc_v1_ToolSource_TOOL_SOURCE_DEVICE = 2,
+    gizclaw_rpc_v1_ToolSource_TOOL_SOURCE_ADMIN = 3
+} gizclaw_rpc_v1_ToolSource;
+
+typedef enum _gizclaw_rpc_v1_ToolExecutorKind {
+    gizclaw_rpc_v1_ToolExecutorKind_TOOL_EXECUTOR_KIND_UNSPECIFIED = 0,
+    gizclaw_rpc_v1_ToolExecutorKind_TOOL_EXECUTOR_KIND_BUILTIN = 1,
+    gizclaw_rpc_v1_ToolExecutorKind_TOOL_EXECUTOR_KIND_DEVICE_RPC = 2
+} gizclaw_rpc_v1_ToolExecutorKind;
+
 /* Struct definitions */
 typedef struct _gizclaw_rpc_v1_ASTTranslateExternalVoiceParameters {
     pb_callback_t tts_voice;
@@ -2312,6 +2325,116 @@ typedef struct _gizclaw_rpc_v1_WorkspacePutResponse {
     gizclaw_rpc_v1_Workspace value;
 } gizclaw_rpc_v1_WorkspacePutResponse;
 
+typedef struct _gizclaw_rpc_v1_ToolExecutor {
+    gizclaw_rpc_v1_ToolExecutorKind kind;
+    pb_callback_t name;
+    pb_callback_t method;
+    pb_callback_t peer_id;
+    bool has_config;
+    google_protobuf_Struct config;
+} gizclaw_rpc_v1_ToolExecutor;
+
+typedef struct _gizclaw_rpc_v1_ToolTriggerExample {
+    pb_callback_t input;
+    bool has_args;
+    google_protobuf_Struct args;
+    pb_callback_t output;
+} gizclaw_rpc_v1_ToolTriggerExample;
+
+typedef struct _gizclaw_rpc_v1_ToolTrigger {
+    pb_callback_t name;
+    pb_callback_t description;
+    pb_callback_t patterns;
+    pb_callback_t examples;
+    bool has_metadata;
+    google_protobuf_Struct metadata;
+} gizclaw_rpc_v1_ToolTrigger;
+
+typedef struct _gizclaw_rpc_v1_Tool {
+    pb_callback_t id;
+    pb_callback_t name;
+    pb_callback_t description;
+    gizclaw_rpc_v1_ToolSource source;
+    bool has_enabled;
+    bool enabled;
+    pb_callback_t owner_peer;
+    pb_callback_t version;
+    bool has_input_schema;
+    google_protobuf_Struct input_schema;
+    bool has_output_schema;
+    google_protobuf_Struct output_schema;
+    pb_callback_t triggers;
+    bool has_executor;
+    gizclaw_rpc_v1_ToolExecutor executor;
+    bool has_metadata;
+    google_protobuf_Struct metadata;
+    pb_callback_t created_at;
+    pb_callback_t updated_at;
+} gizclaw_rpc_v1_Tool;
+
+typedef struct _gizclaw_rpc_v1_ToolListRequest {
+    pb_callback_t cursor;
+    bool has_limit;
+    int64_t limit;
+} gizclaw_rpc_v1_ToolListRequest;
+
+typedef struct _gizclaw_rpc_v1_ToolListResponse {
+    pb_callback_t items;
+    bool has_next;
+    pb_callback_t next_cursor;
+} gizclaw_rpc_v1_ToolListResponse;
+
+typedef struct _gizclaw_rpc_v1_ToolGetRequest {
+    pb_callback_t id;
+} gizclaw_rpc_v1_ToolGetRequest;
+
+typedef struct _gizclaw_rpc_v1_ToolGetResponse {
+    bool has_value;
+    gizclaw_rpc_v1_Tool value;
+} gizclaw_rpc_v1_ToolGetResponse;
+
+typedef struct _gizclaw_rpc_v1_ToolCreateRequest {
+    bool has_value;
+    gizclaw_rpc_v1_Tool value;
+} gizclaw_rpc_v1_ToolCreateRequest;
+
+typedef struct _gizclaw_rpc_v1_ToolCreateResponse {
+    bool has_value;
+    gizclaw_rpc_v1_Tool value;
+} gizclaw_rpc_v1_ToolCreateResponse;
+
+typedef struct _gizclaw_rpc_v1_ToolPutRequest {
+    pb_callback_t id;
+    bool has_body;
+    gizclaw_rpc_v1_Tool body;
+} gizclaw_rpc_v1_ToolPutRequest;
+
+typedef struct _gizclaw_rpc_v1_ToolPutResponse {
+    bool has_value;
+    gizclaw_rpc_v1_Tool value;
+} gizclaw_rpc_v1_ToolPutResponse;
+
+typedef struct _gizclaw_rpc_v1_ToolDeleteRequest {
+    pb_callback_t id;
+} gizclaw_rpc_v1_ToolDeleteRequest;
+
+typedef struct _gizclaw_rpc_v1_ToolDeleteResponse {
+    bool has_value;
+    gizclaw_rpc_v1_Tool value;
+} gizclaw_rpc_v1_ToolDeleteResponse;
+
+typedef struct _gizclaw_rpc_v1_ToolInvokeRequest {
+    pb_callback_t call_id;
+    pb_callback_t tool_id;
+    pb_callback_t method;
+    bool has_args;
+    google_protobuf_Struct args;
+} gizclaw_rpc_v1_ToolInvokeRequest;
+
+typedef struct _gizclaw_rpc_v1_ToolInvokeResponse {
+    pb_callback_t data_json;
+} gizclaw_rpc_v1_ToolInvokeResponse;
+
 
 #ifdef __cplusplus
 extern "C" {
@@ -2429,6 +2552,14 @@ extern "C" {
 #define _gizclaw_rpc_v1_WorkspaceInputMode_MIN gizclaw_rpc_v1_WorkspaceInputMode_WORKSPACE_INPUT_MODE_UNSPECIFIED
 #define _gizclaw_rpc_v1_WorkspaceInputMode_MAX gizclaw_rpc_v1_WorkspaceInputMode_WORKSPACE_INPUT_MODE_REALTIME
 #define _gizclaw_rpc_v1_WorkspaceInputMode_ARRAYSIZE ((gizclaw_rpc_v1_WorkspaceInputMode)(gizclaw_rpc_v1_WorkspaceInputMode_WORKSPACE_INPUT_MODE_REALTIME+1))
+
+#define _gizclaw_rpc_v1_ToolSource_MIN gizclaw_rpc_v1_ToolSource_TOOL_SOURCE_UNSPECIFIED
+#define _gizclaw_rpc_v1_ToolSource_MAX gizclaw_rpc_v1_ToolSource_TOOL_SOURCE_ADMIN
+#define _gizclaw_rpc_v1_ToolSource_ARRAYSIZE ((gizclaw_rpc_v1_ToolSource)(gizclaw_rpc_v1_ToolSource_TOOL_SOURCE_ADMIN+1))
+
+#define _gizclaw_rpc_v1_ToolExecutorKind_MIN gizclaw_rpc_v1_ToolExecutorKind_TOOL_EXECUTOR_KIND_UNSPECIFIED
+#define _gizclaw_rpc_v1_ToolExecutorKind_MAX gizclaw_rpc_v1_ToolExecutorKind_TOOL_EXECUTOR_KIND_DEVICE_RPC
+#define _gizclaw_rpc_v1_ToolExecutorKind_ARRAYSIZE ((gizclaw_rpc_v1_ToolExecutorKind)(gizclaw_rpc_v1_ToolExecutorKind_TOOL_EXECUTOR_KIND_DEVICE_RPC+1))
 
 
 
@@ -2785,6 +2916,24 @@ extern "C" {
 
 
 
+#define gizclaw_rpc_v1_ToolExecutor_kind_ENUMTYPE gizclaw_rpc_v1_ToolExecutorKind
+
+
+
+#define gizclaw_rpc_v1_Tool_source_ENUMTYPE gizclaw_rpc_v1_ToolSource
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 /* Initializer values for message structs */
 #define gizclaw_rpc_v1_ASTTranslateExternalVoiceParameters_init_default {{{NULL}, NULL}}
@@ -3106,6 +3255,22 @@ extern "C" {
 #define gizclaw_rpc_v1_WorkspaceParameters_init_default {0, {gizclaw_rpc_v1_FlowcraftWorkspaceParameters_init_default}}
 #define gizclaw_rpc_v1_WorkspacePutRequest_init_default {false, gizclaw_rpc_v1_Workspace_init_default, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_WorkspacePutResponse_init_default {false, gizclaw_rpc_v1_Workspace_init_default}
+#define gizclaw_rpc_v1_ToolExecutor_init_default {_gizclaw_rpc_v1_ToolExecutorKind_MIN, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, google_protobuf_Struct_init_default}
+#define gizclaw_rpc_v1_ToolTriggerExample_init_default {{{NULL}, NULL}, false, google_protobuf_Struct_init_default, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_ToolTrigger_init_default  {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, google_protobuf_Struct_init_default}
+#define gizclaw_rpc_v1_Tool_init_default         {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, _gizclaw_rpc_v1_ToolSource_MIN, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, false, google_protobuf_Struct_init_default, false, google_protobuf_Struct_init_default, {{NULL}, NULL}, false, gizclaw_rpc_v1_ToolExecutor_init_default, false, google_protobuf_Struct_init_default, {{NULL}, NULL}, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_ToolListRequest_init_default {{{NULL}, NULL}, false, 0}
+#define gizclaw_rpc_v1_ToolListResponse_init_default {{{NULL}, NULL}, 0, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_ToolGetRequest_init_default {{{NULL}, NULL}}
+#define gizclaw_rpc_v1_ToolGetResponse_init_default {false, gizclaw_rpc_v1_Tool_init_default}
+#define gizclaw_rpc_v1_ToolCreateRequest_init_default {false, gizclaw_rpc_v1_Tool_init_default}
+#define gizclaw_rpc_v1_ToolCreateResponse_init_default {false, gizclaw_rpc_v1_Tool_init_default}
+#define gizclaw_rpc_v1_ToolPutRequest_init_default {{{NULL}, NULL}, false, gizclaw_rpc_v1_Tool_init_default}
+#define gizclaw_rpc_v1_ToolPutResponse_init_default {false, gizclaw_rpc_v1_Tool_init_default}
+#define gizclaw_rpc_v1_ToolDeleteRequest_init_default {{{NULL}, NULL}}
+#define gizclaw_rpc_v1_ToolDeleteResponse_init_default {false, gizclaw_rpc_v1_Tool_init_default}
+#define gizclaw_rpc_v1_ToolInvokeRequest_init_default {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, google_protobuf_Struct_init_default}
+#define gizclaw_rpc_v1_ToolInvokeResponse_init_default {{{NULL}, NULL}}
 #define gizclaw_rpc_v1_ASTTranslateExternalVoiceParameters_init_zero {{{NULL}, NULL}}
 #define gizclaw_rpc_v1_ASTTranslateInternalSpeakerParameters_init_zero {false, 0, {{NULL}, NULL}, false, 0, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_ASTTranslateVoiceParameters_init_zero {0, {gizclaw_rpc_v1_ASTTranslateInternalSpeakerParameters_init_zero}}
@@ -3425,6 +3590,22 @@ extern "C" {
 #define gizclaw_rpc_v1_WorkspaceParameters_init_zero {0, {gizclaw_rpc_v1_FlowcraftWorkspaceParameters_init_zero}}
 #define gizclaw_rpc_v1_WorkspacePutRequest_init_zero {false, gizclaw_rpc_v1_Workspace_init_zero, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_WorkspacePutResponse_init_zero {false, gizclaw_rpc_v1_Workspace_init_zero}
+#define gizclaw_rpc_v1_ToolExecutor_init_zero    {_gizclaw_rpc_v1_ToolExecutorKind_MIN, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, google_protobuf_Struct_init_zero}
+#define gizclaw_rpc_v1_ToolTriggerExample_init_zero {{{NULL}, NULL}, false, google_protobuf_Struct_init_zero, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_ToolTrigger_init_zero     {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, google_protobuf_Struct_init_zero}
+#define gizclaw_rpc_v1_Tool_init_zero            {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, _gizclaw_rpc_v1_ToolSource_MIN, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, false, google_protobuf_Struct_init_zero, false, google_protobuf_Struct_init_zero, {{NULL}, NULL}, false, gizclaw_rpc_v1_ToolExecutor_init_zero, false, google_protobuf_Struct_init_zero, {{NULL}, NULL}, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_ToolListRequest_init_zero {{{NULL}, NULL}, false, 0}
+#define gizclaw_rpc_v1_ToolListResponse_init_zero {{{NULL}, NULL}, 0, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_ToolGetRequest_init_zero  {{{NULL}, NULL}}
+#define gizclaw_rpc_v1_ToolGetResponse_init_zero {false, gizclaw_rpc_v1_Tool_init_zero}
+#define gizclaw_rpc_v1_ToolCreateRequest_init_zero {false, gizclaw_rpc_v1_Tool_init_zero}
+#define gizclaw_rpc_v1_ToolCreateResponse_init_zero {false, gizclaw_rpc_v1_Tool_init_zero}
+#define gizclaw_rpc_v1_ToolPutRequest_init_zero  {{{NULL}, NULL}, false, gizclaw_rpc_v1_Tool_init_zero}
+#define gizclaw_rpc_v1_ToolPutResponse_init_zero {false, gizclaw_rpc_v1_Tool_init_zero}
+#define gizclaw_rpc_v1_ToolDeleteRequest_init_zero {{{NULL}, NULL}}
+#define gizclaw_rpc_v1_ToolDeleteResponse_init_zero {false, gizclaw_rpc_v1_Tool_init_zero}
+#define gizclaw_rpc_v1_ToolInvokeRequest_init_zero {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, google_protobuf_Struct_init_zero}
+#define gizclaw_rpc_v1_ToolInvokeResponse_init_zero {{{NULL}, NULL}}
 
 /* Field tags (for use in manual encoding/decoding) */
 #define gizclaw_rpc_v1_ASTTranslateExternalVoiceParameters_tts_voice_tag 1
@@ -4267,6 +4448,52 @@ extern "C" {
 #define gizclaw_rpc_v1_WorkspacePutRequest_body_tag 1
 #define gizclaw_rpc_v1_WorkspacePutRequest_name_tag 2
 #define gizclaw_rpc_v1_WorkspacePutResponse_value_tag 1
+#define gizclaw_rpc_v1_ToolExecutor_kind_tag     1
+#define gizclaw_rpc_v1_ToolExecutor_name_tag     2
+#define gizclaw_rpc_v1_ToolExecutor_method_tag   3
+#define gizclaw_rpc_v1_ToolExecutor_peer_id_tag  4
+#define gizclaw_rpc_v1_ToolExecutor_config_tag   5
+#define gizclaw_rpc_v1_ToolTriggerExample_input_tag 1
+#define gizclaw_rpc_v1_ToolTriggerExample_args_tag 2
+#define gizclaw_rpc_v1_ToolTriggerExample_output_tag 3
+#define gizclaw_rpc_v1_ToolTrigger_name_tag      1
+#define gizclaw_rpc_v1_ToolTrigger_description_tag 2
+#define gizclaw_rpc_v1_ToolTrigger_patterns_tag  3
+#define gizclaw_rpc_v1_ToolTrigger_examples_tag  4
+#define gizclaw_rpc_v1_ToolTrigger_metadata_tag  5
+#define gizclaw_rpc_v1_Tool_id_tag               1
+#define gizclaw_rpc_v1_Tool_name_tag             2
+#define gizclaw_rpc_v1_Tool_description_tag      3
+#define gizclaw_rpc_v1_Tool_source_tag           4
+#define gizclaw_rpc_v1_Tool_enabled_tag          5
+#define gizclaw_rpc_v1_Tool_owner_peer_tag       6
+#define gizclaw_rpc_v1_Tool_version_tag          7
+#define gizclaw_rpc_v1_Tool_input_schema_tag     8
+#define gizclaw_rpc_v1_Tool_output_schema_tag    9
+#define gizclaw_rpc_v1_Tool_triggers_tag         10
+#define gizclaw_rpc_v1_Tool_executor_tag         11
+#define gizclaw_rpc_v1_Tool_metadata_tag         12
+#define gizclaw_rpc_v1_Tool_created_at_tag       13
+#define gizclaw_rpc_v1_Tool_updated_at_tag       14
+#define gizclaw_rpc_v1_ToolListRequest_cursor_tag 1
+#define gizclaw_rpc_v1_ToolListRequest_limit_tag 2
+#define gizclaw_rpc_v1_ToolListResponse_items_tag 1
+#define gizclaw_rpc_v1_ToolListResponse_has_next_tag 2
+#define gizclaw_rpc_v1_ToolListResponse_next_cursor_tag 3
+#define gizclaw_rpc_v1_ToolGetRequest_id_tag     1
+#define gizclaw_rpc_v1_ToolGetResponse_value_tag 1
+#define gizclaw_rpc_v1_ToolCreateRequest_value_tag 1
+#define gizclaw_rpc_v1_ToolCreateResponse_value_tag 1
+#define gizclaw_rpc_v1_ToolPutRequest_id_tag     1
+#define gizclaw_rpc_v1_ToolPutRequest_body_tag   2
+#define gizclaw_rpc_v1_ToolPutResponse_value_tag 1
+#define gizclaw_rpc_v1_ToolDeleteRequest_id_tag  1
+#define gizclaw_rpc_v1_ToolDeleteResponse_value_tag 1
+#define gizclaw_rpc_v1_ToolInvokeRequest_call_id_tag 1
+#define gizclaw_rpc_v1_ToolInvokeRequest_tool_id_tag 2
+#define gizclaw_rpc_v1_ToolInvokeRequest_method_tag 3
+#define gizclaw_rpc_v1_ToolInvokeRequest_args_tag 4
+#define gizclaw_rpc_v1_ToolInvokeResponse_data_json_tag 1
 
 /* Struct field encoding specification for nanopb */
 #define gizclaw_rpc_v1_ASTTranslateExternalVoiceParameters_FIELDLIST(X, a) \
@@ -6646,6 +6873,133 @@ X(a, STATIC,   OPTIONAL, MESSAGE,  value,             1)
 #define gizclaw_rpc_v1_WorkspacePutResponse_DEFAULT NULL
 #define gizclaw_rpc_v1_WorkspacePutResponse_value_MSGTYPE gizclaw_rpc_v1_Workspace
 
+#define gizclaw_rpc_v1_ToolExecutor_FIELDLIST(X, a) \
+X(a, STATIC,   SINGULAR, UENUM,    kind,              1) \
+X(a, CALLBACK, OPTIONAL, STRING,   name,              2) \
+X(a, CALLBACK, OPTIONAL, STRING,   method,            3) \
+X(a, CALLBACK, OPTIONAL, STRING,   peer_id,           4) \
+X(a, STATIC,   OPTIONAL, MESSAGE,  config,            5)
+#define gizclaw_rpc_v1_ToolExecutor_CALLBACK pb_default_field_callback
+#define gizclaw_rpc_v1_ToolExecutor_DEFAULT NULL
+#define gizclaw_rpc_v1_ToolExecutor_config_MSGTYPE google_protobuf_Struct
+
+#define gizclaw_rpc_v1_ToolTriggerExample_FIELDLIST(X, a) \
+X(a, CALLBACK, SINGULAR, STRING,   input,             1) \
+X(a, STATIC,   OPTIONAL, MESSAGE,  args,              2) \
+X(a, CALLBACK, OPTIONAL, STRING,   output,            3)
+#define gizclaw_rpc_v1_ToolTriggerExample_CALLBACK pb_default_field_callback
+#define gizclaw_rpc_v1_ToolTriggerExample_DEFAULT NULL
+#define gizclaw_rpc_v1_ToolTriggerExample_args_MSGTYPE google_protobuf_Struct
+
+#define gizclaw_rpc_v1_ToolTrigger_FIELDLIST(X, a) \
+X(a, CALLBACK, SINGULAR, STRING,   name,              1) \
+X(a, CALLBACK, OPTIONAL, STRING,   description,       2) \
+X(a, CALLBACK, REPEATED, STRING,   patterns,          3) \
+X(a, CALLBACK, REPEATED, MESSAGE,  examples,          4) \
+X(a, STATIC,   OPTIONAL, MESSAGE,  metadata,          5)
+#define gizclaw_rpc_v1_ToolTrigger_CALLBACK pb_default_field_callback
+#define gizclaw_rpc_v1_ToolTrigger_DEFAULT NULL
+#define gizclaw_rpc_v1_ToolTrigger_examples_MSGTYPE gizclaw_rpc_v1_ToolTriggerExample
+#define gizclaw_rpc_v1_ToolTrigger_metadata_MSGTYPE google_protobuf_Struct
+
+#define gizclaw_rpc_v1_Tool_FIELDLIST(X, a) \
+X(a, CALLBACK, SINGULAR, STRING,   id,                1) \
+X(a, CALLBACK, OPTIONAL, STRING,   name,              2) \
+X(a, CALLBACK, OPTIONAL, STRING,   description,       3) \
+X(a, STATIC,   SINGULAR, UENUM,    source,            4) \
+X(a, STATIC,   OPTIONAL, BOOL,     enabled,           5) \
+X(a, CALLBACK, OPTIONAL, STRING,   owner_peer,        6) \
+X(a, CALLBACK, OPTIONAL, STRING,   version,           7) \
+X(a, STATIC,   OPTIONAL, MESSAGE,  input_schema,      8) \
+X(a, STATIC,   OPTIONAL, MESSAGE,  output_schema,     9) \
+X(a, CALLBACK, REPEATED, MESSAGE,  triggers,         10) \
+X(a, STATIC,   OPTIONAL, MESSAGE,  executor,         11) \
+X(a, STATIC,   OPTIONAL, MESSAGE,  metadata,         12) \
+X(a, CALLBACK, SINGULAR, STRING,   created_at,       13) \
+X(a, CALLBACK, SINGULAR, STRING,   updated_at,       14)
+#define gizclaw_rpc_v1_Tool_CALLBACK pb_default_field_callback
+#define gizclaw_rpc_v1_Tool_DEFAULT NULL
+#define gizclaw_rpc_v1_Tool_input_schema_MSGTYPE google_protobuf_Struct
+#define gizclaw_rpc_v1_Tool_output_schema_MSGTYPE google_protobuf_Struct
+#define gizclaw_rpc_v1_Tool_triggers_MSGTYPE gizclaw_rpc_v1_ToolTrigger
+#define gizclaw_rpc_v1_Tool_executor_MSGTYPE gizclaw_rpc_v1_ToolExecutor
+#define gizclaw_rpc_v1_Tool_metadata_MSGTYPE google_protobuf_Struct
+
+#define gizclaw_rpc_v1_ToolListRequest_FIELDLIST(X, a) \
+X(a, CALLBACK, OPTIONAL, STRING,   cursor,            1) \
+X(a, STATIC,   OPTIONAL, INT64,    limit,             2)
+#define gizclaw_rpc_v1_ToolListRequest_CALLBACK pb_default_field_callback
+#define gizclaw_rpc_v1_ToolListRequest_DEFAULT NULL
+
+#define gizclaw_rpc_v1_ToolListResponse_FIELDLIST(X, a) \
+X(a, CALLBACK, REPEATED, MESSAGE,  items,             1) \
+X(a, STATIC,   SINGULAR, BOOL,     has_next,          2) \
+X(a, CALLBACK, OPTIONAL, STRING,   next_cursor,       3)
+#define gizclaw_rpc_v1_ToolListResponse_CALLBACK pb_default_field_callback
+#define gizclaw_rpc_v1_ToolListResponse_DEFAULT NULL
+#define gizclaw_rpc_v1_ToolListResponse_items_MSGTYPE gizclaw_rpc_v1_Tool
+
+#define gizclaw_rpc_v1_ToolGetRequest_FIELDLIST(X, a) \
+X(a, CALLBACK, SINGULAR, STRING,   id,                1)
+#define gizclaw_rpc_v1_ToolGetRequest_CALLBACK pb_default_field_callback
+#define gizclaw_rpc_v1_ToolGetRequest_DEFAULT NULL
+
+#define gizclaw_rpc_v1_ToolGetResponse_FIELDLIST(X, a) \
+X(a, STATIC,   OPTIONAL, MESSAGE,  value,             1)
+#define gizclaw_rpc_v1_ToolGetResponse_CALLBACK NULL
+#define gizclaw_rpc_v1_ToolGetResponse_DEFAULT NULL
+#define gizclaw_rpc_v1_ToolGetResponse_value_MSGTYPE gizclaw_rpc_v1_Tool
+
+#define gizclaw_rpc_v1_ToolCreateRequest_FIELDLIST(X, a) \
+X(a, STATIC,   OPTIONAL, MESSAGE,  value,             1)
+#define gizclaw_rpc_v1_ToolCreateRequest_CALLBACK NULL
+#define gizclaw_rpc_v1_ToolCreateRequest_DEFAULT NULL
+#define gizclaw_rpc_v1_ToolCreateRequest_value_MSGTYPE gizclaw_rpc_v1_Tool
+
+#define gizclaw_rpc_v1_ToolCreateResponse_FIELDLIST(X, a) \
+X(a, STATIC,   OPTIONAL, MESSAGE,  value,             1)
+#define gizclaw_rpc_v1_ToolCreateResponse_CALLBACK NULL
+#define gizclaw_rpc_v1_ToolCreateResponse_DEFAULT NULL
+#define gizclaw_rpc_v1_ToolCreateResponse_value_MSGTYPE gizclaw_rpc_v1_Tool
+
+#define gizclaw_rpc_v1_ToolPutRequest_FIELDLIST(X, a) \
+X(a, CALLBACK, SINGULAR, STRING,   id,                1) \
+X(a, STATIC,   OPTIONAL, MESSAGE,  body,              2)
+#define gizclaw_rpc_v1_ToolPutRequest_CALLBACK pb_default_field_callback
+#define gizclaw_rpc_v1_ToolPutRequest_DEFAULT NULL
+#define gizclaw_rpc_v1_ToolPutRequest_body_MSGTYPE gizclaw_rpc_v1_Tool
+
+#define gizclaw_rpc_v1_ToolPutResponse_FIELDLIST(X, a) \
+X(a, STATIC,   OPTIONAL, MESSAGE,  value,             1)
+#define gizclaw_rpc_v1_ToolPutResponse_CALLBACK NULL
+#define gizclaw_rpc_v1_ToolPutResponse_DEFAULT NULL
+#define gizclaw_rpc_v1_ToolPutResponse_value_MSGTYPE gizclaw_rpc_v1_Tool
+
+#define gizclaw_rpc_v1_ToolDeleteRequest_FIELDLIST(X, a) \
+X(a, CALLBACK, SINGULAR, STRING,   id,                1)
+#define gizclaw_rpc_v1_ToolDeleteRequest_CALLBACK pb_default_field_callback
+#define gizclaw_rpc_v1_ToolDeleteRequest_DEFAULT NULL
+
+#define gizclaw_rpc_v1_ToolDeleteResponse_FIELDLIST(X, a) \
+X(a, STATIC,   OPTIONAL, MESSAGE,  value,             1)
+#define gizclaw_rpc_v1_ToolDeleteResponse_CALLBACK NULL
+#define gizclaw_rpc_v1_ToolDeleteResponse_DEFAULT NULL
+#define gizclaw_rpc_v1_ToolDeleteResponse_value_MSGTYPE gizclaw_rpc_v1_Tool
+
+#define gizclaw_rpc_v1_ToolInvokeRequest_FIELDLIST(X, a) \
+X(a, CALLBACK, SINGULAR, STRING,   call_id,           1) \
+X(a, CALLBACK, SINGULAR, STRING,   tool_id,           2) \
+X(a, CALLBACK, SINGULAR, STRING,   method,            3) \
+X(a, STATIC,   OPTIONAL, MESSAGE,  args,              4)
+#define gizclaw_rpc_v1_ToolInvokeRequest_CALLBACK pb_default_field_callback
+#define gizclaw_rpc_v1_ToolInvokeRequest_DEFAULT NULL
+#define gizclaw_rpc_v1_ToolInvokeRequest_args_MSGTYPE google_protobuf_Struct
+
+#define gizclaw_rpc_v1_ToolInvokeResponse_FIELDLIST(X, a) \
+X(a, CALLBACK, SINGULAR, BYTES,    data_json,         1)
+#define gizclaw_rpc_v1_ToolInvokeResponse_CALLBACK pb_default_field_callback
+#define gizclaw_rpc_v1_ToolInvokeResponse_DEFAULT NULL
+
 extern const pb_msgdesc_t gizclaw_rpc_v1_ASTTranslateExternalVoiceParameters_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ASTTranslateInternalSpeakerParameters_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ASTTranslateVoiceParameters_msg;
@@ -6965,6 +7319,22 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_WorkspaceListResponse_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_WorkspaceParameters_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_WorkspacePutRequest_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_WorkspacePutResponse_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_ToolExecutor_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_ToolTriggerExample_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_ToolTrigger_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_Tool_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_ToolListRequest_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_ToolListResponse_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_ToolGetRequest_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_ToolGetResponse_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_ToolCreateRequest_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_ToolCreateResponse_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_ToolPutRequest_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_ToolPutResponse_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_ToolDeleteRequest_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_ToolDeleteResponse_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_ToolInvokeRequest_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_ToolInvokeResponse_msg;
 
 /* Defines for backwards compatibility with code written before nanopb-0.4.0 */
 #define gizclaw_rpc_v1_ASTTranslateExternalVoiceParameters_fields &gizclaw_rpc_v1_ASTTranslateExternalVoiceParameters_msg
@@ -7286,6 +7656,22 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_WorkspacePutResponse_msg;
 #define gizclaw_rpc_v1_WorkspaceParameters_fields &gizclaw_rpc_v1_WorkspaceParameters_msg
 #define gizclaw_rpc_v1_WorkspacePutRequest_fields &gizclaw_rpc_v1_WorkspacePutRequest_msg
 #define gizclaw_rpc_v1_WorkspacePutResponse_fields &gizclaw_rpc_v1_WorkspacePutResponse_msg
+#define gizclaw_rpc_v1_ToolExecutor_fields &gizclaw_rpc_v1_ToolExecutor_msg
+#define gizclaw_rpc_v1_ToolTriggerExample_fields &gizclaw_rpc_v1_ToolTriggerExample_msg
+#define gizclaw_rpc_v1_ToolTrigger_fields &gizclaw_rpc_v1_ToolTrigger_msg
+#define gizclaw_rpc_v1_Tool_fields &gizclaw_rpc_v1_Tool_msg
+#define gizclaw_rpc_v1_ToolListRequest_fields &gizclaw_rpc_v1_ToolListRequest_msg
+#define gizclaw_rpc_v1_ToolListResponse_fields &gizclaw_rpc_v1_ToolListResponse_msg
+#define gizclaw_rpc_v1_ToolGetRequest_fields &gizclaw_rpc_v1_ToolGetRequest_msg
+#define gizclaw_rpc_v1_ToolGetResponse_fields &gizclaw_rpc_v1_ToolGetResponse_msg
+#define gizclaw_rpc_v1_ToolCreateRequest_fields &gizclaw_rpc_v1_ToolCreateRequest_msg
+#define gizclaw_rpc_v1_ToolCreateResponse_fields &gizclaw_rpc_v1_ToolCreateResponse_msg
+#define gizclaw_rpc_v1_ToolPutRequest_fields &gizclaw_rpc_v1_ToolPutRequest_msg
+#define gizclaw_rpc_v1_ToolPutResponse_fields &gizclaw_rpc_v1_ToolPutResponse_msg
+#define gizclaw_rpc_v1_ToolDeleteRequest_fields &gizclaw_rpc_v1_ToolDeleteRequest_msg
+#define gizclaw_rpc_v1_ToolDeleteResponse_fields &gizclaw_rpc_v1_ToolDeleteResponse_msg
+#define gizclaw_rpc_v1_ToolInvokeRequest_fields &gizclaw_rpc_v1_ToolInvokeRequest_msg
+#define gizclaw_rpc_v1_ToolInvokeResponse_fields &gizclaw_rpc_v1_ToolInvokeResponse_msg
 
 /* Maximum encoded size of messages (where known) */
 /* gizclaw_rpc_v1_ASTTranslateExternalVoiceParameters_size depends on runtime parameters */
@@ -7578,6 +7964,22 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_WorkspacePutResponse_msg;
 /* gizclaw_rpc_v1_WorkspaceParameters_size depends on runtime parameters */
 /* gizclaw_rpc_v1_WorkspacePutRequest_size depends on runtime parameters */
 /* gizclaw_rpc_v1_WorkspacePutResponse_size depends on runtime parameters */
+/* gizclaw_rpc_v1_ToolExecutor_size depends on runtime parameters */
+/* gizclaw_rpc_v1_ToolTriggerExample_size depends on runtime parameters */
+/* gizclaw_rpc_v1_ToolTrigger_size depends on runtime parameters */
+/* gizclaw_rpc_v1_Tool_size depends on runtime parameters */
+/* gizclaw_rpc_v1_ToolListRequest_size depends on runtime parameters */
+/* gizclaw_rpc_v1_ToolListResponse_size depends on runtime parameters */
+/* gizclaw_rpc_v1_ToolGetRequest_size depends on runtime parameters */
+/* gizclaw_rpc_v1_ToolGetResponse_size depends on runtime parameters */
+/* gizclaw_rpc_v1_ToolCreateRequest_size depends on runtime parameters */
+/* gizclaw_rpc_v1_ToolCreateResponse_size depends on runtime parameters */
+/* gizclaw_rpc_v1_ToolPutRequest_size depends on runtime parameters */
+/* gizclaw_rpc_v1_ToolPutResponse_size depends on runtime parameters */
+/* gizclaw_rpc_v1_ToolDeleteRequest_size depends on runtime parameters */
+/* gizclaw_rpc_v1_ToolDeleteResponse_size depends on runtime parameters */
+/* gizclaw_rpc_v1_ToolInvokeRequest_size depends on runtime parameters */
+/* gizclaw_rpc_v1_ToolInvokeResponse_size depends on runtime parameters */
 #define GIZCLAW_RPC_V1_PAYLOAD_PB_H_MAX_SIZE     gizclaw_rpc_v1_SpeedTestRequest_size
 #define gizclaw_rpc_v1_ClientGetIdentifiersRequest_size 0
 #define gizclaw_rpc_v1_ClientGetInfoRequest_size 0

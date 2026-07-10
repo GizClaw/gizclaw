@@ -8,4 +8,5 @@ var (
 	ErrToolNotFound        = errors.New("toolkit: tool not found")
 	ErrExecutorNotFound    = errors.New("toolkit: executor not found")
 	ErrExecutorUnavailable = errors.New("toolkit: executor unavailable")
+	ErrDuplicateToolName   = errors.New("toolkit: duplicate effective tool name")
 )

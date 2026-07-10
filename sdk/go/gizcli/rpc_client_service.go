@@ -64,3 +64,24 @@ func (c *rpcClient) handleGetClientIdentifiers(ctx context.Context, req *rpcapi.
 	}
 	return newRPCResultResponse(req.Id, result, (*rpcapi.RPCPayload).FromClientGetIdentifiersResponse)
 }
+
+func (c *rpcClient) handleInvokeTool(ctx context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
+	if req.Params == nil {
+		return rpcInvalidParams(req.Id), nil
+	}
+	params, err := req.Params.AsToolInvokeRequest()
+	if err != nil {
+		return rpcInvalidParams(req.Id), nil
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	if c.peer == nil || c.peer.ToolInvoker == nil {
+		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeMethodNotFound, Message: "client.tool.invoke handler not configured"}.RPCResponse(), nil
+	}
+	result, err := c.peer.ToolInvoker(ctx, params)
+	if err != nil {
+		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeInternalError, Message: err.Error()}.RPCResponse(), nil
+	}
+	return newRPCResultResponse(req.Id, result, (*rpcapi.RPCPayload).FromToolInvokeResponse)
+}

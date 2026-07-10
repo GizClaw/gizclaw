@@ -396,3 +396,33 @@ func (c *Client) GetRewardGrant(ctx context.Context, id string, request rpcapi.S
 		return client.GetRewardGrant(ctx, conn, id, request)
 	})
 }
+
+func (c *Client) ListTools(ctx context.Context, id string, request rpcapi.ToolListRequest) (*rpcapi.ToolListResponse, error) {
+	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.ToolListResponse, error) {
+		return client.ListTools(ctx, conn, id, request)
+	})
+}
+
+func (c *Client) GetTool(ctx context.Context, id string, request rpcapi.ToolGetRequest) (*rpcapi.ToolGetResponse, error) {
+	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.ToolGetResponse, error) {
+		return client.GetTool(ctx, conn, id, request)
+	})
+}
+
+func (c *Client) CreateTool(ctx context.Context, id string, request rpcapi.ToolCreateRequest) (*rpcapi.ToolCreateResponse, error) {
+	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.ToolCreateResponse, error) {
+		return client.CreateTool(ctx, conn, id, request)
+	})
+}
+
+func (c *Client) PutTool(ctx context.Context, id string, request rpcapi.ToolPutRequest) (*rpcapi.ToolPutResponse, error) {
+	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.ToolPutResponse, error) {
+		return client.PutTool(ctx, conn, id, request)
+	})
+}
+
+func (c *Client) DeleteTool(ctx context.Context, id string, request rpcapi.ToolDeleteRequest) (*rpcapi.ToolDeleteResponse, error) {
+	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.ToolDeleteResponse, error) {
+		return client.DeleteTool(ctx, conn, id, request)
+	})
+}

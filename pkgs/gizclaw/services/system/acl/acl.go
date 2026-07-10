@@ -21,6 +21,7 @@ const (
 	ResourceKindView        = apitypes.ACLResourceKindView
 	ResourceKindFirmware    = apitypes.ACLResourceKindFirmware
 	ResourceKindGameRuleset = apitypes.ACLResourceKindGameruleset
+	ResourceKindTool        = apitypes.ACLResourceKindTool
 
 	CollectionResourceID = "__collection__"
 )
@@ -141,6 +142,13 @@ func FirmwareResource(id string) apitypes.ACLResource {
 func GameRulesetResource(id string) apitypes.ACLResource {
 	return apitypes.ACLResource{
 		Kind: ResourceKindGameRuleset,
+		Id:   id,
+	}
+}
+
+func ToolResource(id string) apitypes.ACLResource {
+	return apitypes.ACLResource{
+		Kind: ResourceKindTool,
 		Id:   id,
 	}
 }

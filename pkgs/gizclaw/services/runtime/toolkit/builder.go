@@ -40,6 +40,7 @@ func (b *Builder) Build(ctx context.Context, req BuildRequest) (ToolKit, error) 
 	}
 	allowedPolicy := toolIDSet(req.AllowedToolIDs)
 	out := make([]Tool, 0, len(tools))
+	advertised := make(map[string]string)
 	for _, tool := range tools {
 		if !tool.Enabled {
 			continue
@@ -60,6 +61,11 @@ func (b *Builder) Build(ctx context.Context, req BuildRequest) (ToolKit, error) 
 		if !available {
 			continue
 		}
+		name := effectiveToolName(tool)
+		if previous, exists := advertised[name]; exists {
+			return ToolKit{}, fmt.Errorf("%w: name %q conflicts between %q and %q", ErrDuplicateToolName, name, previous, tool.ID)
+		}
+		advertised[name] = tool.ID
 		out = append(out, tool)
 	}
 	return ToolKit{Tools: cloneTools(out)}, nil
@@ -118,10 +124,17 @@ func (tk ToolKit) FindByName(name string) (Tool, bool) {
 		return Tool{}, false
 	}
 	idx := slices.IndexFunc(tk.Tools, func(tool Tool) bool {
-		return trimPtr(tool.Name) == name
+		return effectiveToolName(tool) == name
 	})
 	if idx < 0 {
 		return Tool{}, false
 	}
 	return cloneTool(tk.Tools[idx]), true
+}
+
+func effectiveToolName(tool Tool) string {
+	if name := trimPtr(tool.Name); name != "" {
+		return name
+	}
+	return tool.ID
 }

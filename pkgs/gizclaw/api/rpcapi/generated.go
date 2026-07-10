@@ -580,6 +580,8 @@ func (e RPCMethod) Valid() bool {
 		return true
 	case RPCMethodClientInfoGet:
 		return true
+	case RPCMethodClientToolInvoke:
+		return true
 	case RPCMethodServerBadgeDefPixaDownload:
 		return true
 	case RPCMethodServerBadgeGet:
@@ -729,6 +731,16 @@ func (e RPCMethod) Valid() bool {
 	case RPCMethodServerRuntimeGet:
 		return true
 	case RPCMethodServerStatusGet:
+		return true
+	case RPCMethodServerToolCreate:
+		return true
+	case RPCMethodServerToolDelete:
+		return true
+	case RPCMethodServerToolGet:
+		return true
+	case RPCMethodServerToolList:
+		return true
+	case RPCMethodServerToolPut:
 		return true
 	case RPCMethodServerVoiceGet:
 		return true

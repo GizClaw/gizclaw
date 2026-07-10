@@ -4,11 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/acl"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
+	"github.com/google/jsonschema-go/jsonschema"
 )
 
 func TestBuilderInvokeUsesAllowedToolsACLAndExecutor(t *testing.T) {
@@ -68,7 +70,7 @@ func TestBuilderInvokeUsesAllowedToolsACLAndExecutor(t *testing.T) {
 	}
 }
 
-func TestBuilderInvokeResolvesAdvertisedNameBeforeID(t *testing.T) {
+func TestBuilderInvokeRejectsAdvertisedNameAndIDCollision(t *testing.T) {
 	ctx := context.Background()
 	store := &Server{Store: kv.NewMemory(nil)}
 	advertised := testBuiltinTool("system.music.play")
@@ -99,12 +101,9 @@ func TestBuilderInvokeResolvesAdvertisedNameBeforeID(t *testing.T) {
 		t.Fatalf("Register(mode.switch) error = %v", err)
 	}
 
-	result, err := (&Builder{Tools: store}).Invoke(ctx, executors, InvokeRequest{Name: "bar", Args: json.RawMessage(`{}`)})
-	if err != nil {
-		t.Fatalf("Invoke() error = %v", err)
-	}
-	if string(result.Data) != `{"hit":"advertised"}` {
-		t.Fatalf("Invoke() result = %s, want advertised result", result.Data)
+	_, err := (&Builder{Tools: store}).Invoke(ctx, executors, InvokeRequest{Name: "bar", Args: json.RawMessage(`{}`)})
+	if !errors.Is(err, ErrDuplicateToolName) || !strings.Contains(err.Error(), `"bar"`) || !strings.Contains(err.Error(), `"system.music.play"`) {
+		t.Fatalf("Invoke() error = %v, want duplicate name with both IDs", err)
 	}
 }
 
@@ -162,19 +161,20 @@ func TestBuilderInvokeReturnsExecutorErrors(t *testing.T) {
 	}
 }
 
-func TestBuilderInvokeValidatesArgsAgainstInputSchema(t *testing.T) {
+func TestBuilderInvokeRequiresJSONObjectButLeavesSchemaCompatibilityToAdapters(t *testing.T) {
 	ctx := context.Background()
 	store := &Server{Store: kv.NewMemory(nil)}
 	tool := testBuiltinTool("system.music.play")
-	tool.InputSchema = json.RawMessage(`{"type":"object","required":["query"],"properties":{"query":{"type":"string"},"limit":{"type":"integer"}}}`)
+	tool.InputSchema = jsonschema.Schema{Type: "object", Required: []string{"query"}, Properties: map[string]*jsonschema.Schema{"query": {Type: "string"}}}
 	if _, err := store.PutTool(ctx, tool); err != nil {
 		t.Fatalf("PutTool() error = %v", err)
 	}
 	builder := &Builder{Tools: store}
 	executors := NewExecutorRegistry()
+	called := 0
 	if err := executors.Register("music.play", ExecutorFunc(func(context.Context, Call) (Result, error) {
-		t.Fatal("executor should not be called for invalid args")
-		return Result{}, nil
+		called++
+		return Result{Data: json.RawMessage(`{"ok":true}`)}, nil
 	})); err != nil {
 		t.Fatalf("Register() error = %v", err)
 	}
@@ -185,9 +185,14 @@ func TestBuilderInvokeValidatesArgsAgainstInputSchema(t *testing.T) {
 	}{
 		{name: "malformed", args: json.RawMessage(`{`)},
 		{name: "non-object", args: json.RawMessage(`[]`)},
-		{name: "missing required", args: json.RawMessage(`{"limit":1}`)},
-		{name: "wrong type", args: json.RawMessage(`{"query":1}`)},
-		{name: "wrong integer", args: json.RawMessage(`{"query":"song","limit":1.5}`)},
+	}
+	for _, args := range []json.RawMessage{json.RawMessage(`{"limit":1}`), json.RawMessage(`{"query":1}`)} {
+		if _, err := builder.Invoke(ctx, executors, InvokeRequest{Name: "system.music.play", Args: args}); err != nil {
+			t.Fatalf("Invoke(provider-specific schema args) error = %v", err)
+		}
+	}
+	if called != 2 {
+		t.Fatalf("executor calls = %d, want 2", called)
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -206,7 +211,7 @@ func TestBuilderInvokeAcceptsNullableUnionArgs(t *testing.T) {
 	ctx := context.Background()
 	store := &Server{Store: kv.NewMemory(nil)}
 	tool := testBuiltinTool("system.music.play")
-	tool.InputSchema = json.RawMessage(`{"type":"object","properties":{"query":{"type":["string","null"]}}}`)
+	tool.InputSchema = jsonschema.Schema{Type: "object", Properties: map[string]*jsonschema.Schema{"query": {Types: []string{"string", "null"}}}}
 	if _, err := store.PutTool(ctx, tool); err != nil {
 		t.Fatalf("PutTool() error = %v", err)
 	}

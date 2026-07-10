@@ -167,6 +167,27 @@
       "Model": {
         "$ref": "./type/model.json#/components/schemas/Model"
       },
+      "Tool": {
+        "$ref": "./type/tool.json#/components/schemas/Tool"
+      },
+      "ToolSource": {
+        "$ref": "./type/tool_source.json#/components/schemas/ToolSource"
+      },
+      "ToolExecutorKind": {
+        "$ref": "./type/tool_executor.json#/components/schemas/ToolExecutorKind"
+      },
+      "ToolExecutor": {
+        "$ref": "./type/tool_executor.json#/components/schemas/ToolExecutor"
+      },
+      "ToolTrigger": {
+        "$ref": "./type/tool_trigger.json#/components/schemas/ToolTrigger"
+      },
+      "ToolTriggerExample": {
+        "$ref": "./type/tool_trigger.json#/components/schemas/ToolTriggerExample"
+      },
+      "ToolJSONSchema": {
+        "$ref": "./type/tool_json_schema.json#/components/schemas/ToolJSONSchema"
+      },
       "ModelSource": {
         "$ref": "./type/model_source.json#/components/schemas/ModelSource"
       },
@@ -278,6 +299,9 @@
       "ModelResource": {
         "$ref": "./resource/model.json#/components/schemas/ModelResource"
       },
+      "ToolResource": {
+        "$ref": "./resource/tool.json#/components/schemas/ToolResource"
+      },
       "MiniMaxTenantResource": {
         "$ref": "./resource/minimax_tenant.json#/components/schemas/MiniMaxTenantResource"
       },
@@ -313,6 +337,9 @@
       },
       "ModelSpec": {
         "$ref": "./type/model_spec.json#/components/schemas/ModelSpec"
+      },
+      "ToolSpec": {
+        "$ref": "./type/tool_spec.json#/components/schemas/ToolSpec"
       },
       "MiniMaxTenantSpec": {
         "$ref": "./type/minimax_tenant_spec.json#/components/schemas/MiniMaxTenantSpec"

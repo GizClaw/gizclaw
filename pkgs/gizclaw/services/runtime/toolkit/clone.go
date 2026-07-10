@@ -8,10 +8,11 @@ func cloneTool(in Tool) Tool {
 	out.Description = cloneStringPtr(in.Description)
 	out.OwnerPeer = cloneStringPtr(in.OwnerPeer)
 	out.Version = cloneStringPtr(in.Version)
-	out.InputSchema = cloneRaw(in.InputSchema)
-	out.OutputSchema = cloneRaw(in.OutputSchema)
+	out.InputSchema = *in.InputSchema.CloneSchemas()
+	if in.OutputSchema != nil {
+		out.OutputSchema = in.OutputSchema.CloneSchemas()
+	}
 	out.Metadata = cloneRaw(in.Metadata)
-	out.SyncedAt = cloneTimePtr(in.SyncedAt)
 	out.Executor.Name = cloneStringPtr(in.Executor.Name)
 	out.Executor.Method = cloneStringPtr(in.Executor.Method)
 	out.Executor.PeerID = cloneStringPtr(in.Executor.PeerID)

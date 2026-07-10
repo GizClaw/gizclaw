@@ -1,0 +1,20 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Tool Source Type",
+    "version": "1.0.0"
+  },
+  "paths": {},
+  "components": {
+    "schemas": {
+      "ToolSource": {
+        "type": "string",
+        "enum": [
+          "builtin",
+          "device",
+          "admin"
+        ]
+      }
+    }
+  }
+}

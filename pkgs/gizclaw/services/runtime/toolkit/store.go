@@ -12,7 +12,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
-var toolsRoot = kv.Key{"tools", "by-id"}
+var toolsRoot = kv.Key{"by-id"}
 
 type Server struct {
 	Store kv.Store
