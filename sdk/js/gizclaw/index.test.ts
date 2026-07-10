@@ -180,7 +180,7 @@ test("RPC payload codec selects workspace oneofs from discriminators", () => {
   assert.equal(decoded.parameters?.agent_type, "doubao-realtime");
 });
 
-test("RPC payload codec rejects numeric oneof discriminators", () => {
+test("RPC payload codec rejects ambiguous numeric workspace discriminators", () => {
   assert.throws(
     () => encodeRPCRequestPayload("server.workspace.create", {
       created_at: "now",
@@ -192,7 +192,48 @@ test("RPC payload codec rejects numeric oneof discriminators", () => {
       updated_at: "now",
       workflow_name: "chat",
     }),
-    /protobuf WorkspaceParameters oneof discriminator agent_type expects string enum value/,
+    /no protobuf oneof candidate for WorkspaceParameters/,
+  );
+});
+
+test("RPC payload codec maps numeric provider discriminators", () => {
+  const payload = encodeRPCRequestPayload("server.model.create", {
+    created_at: "now",
+    id: "model-1",
+    kind: "llm",
+    name: "model",
+    provider: {
+      kind: 1,
+      name: "gemini",
+    },
+    provider_data: {
+      upstream_model: "gemini-2",
+    },
+    source: "manual",
+    updated_at: "now",
+  });
+
+  const decoded = decodeRPCRequestPayload("server.model.create", payload) as {
+    provider?: { kind?: string };
+    provider_data?: { upstream_model?: string };
+  };
+
+  assert.equal(decoded.provider?.kind, "gemini-tenant");
+  assert.equal(decoded.provider_data?.upstream_model, "gemini-2");
+});
+
+test("RPC payload codec rejects ambiguous oneof payloads", () => {
+  assert.throws(
+    () => encodeRPCRequestPayload("server.credential.create", {
+      body: {
+        unknown: true,
+      },
+      created_at: "now",
+      name: "cred",
+      provider: "unknown",
+      updated_at: "now",
+    }),
+    /no protobuf oneof candidate for CredentialBody/,
   );
 });
 

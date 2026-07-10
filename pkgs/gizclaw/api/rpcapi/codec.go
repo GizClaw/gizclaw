@@ -19,6 +19,7 @@ type FrameType uint16
 
 const (
 	FrameTypeEOS    FrameType = 0
+	FrameTypeJSON   FrameType = 1
 	FrameTypeBinary FrameType = 2
 	FrameTypeText   FrameType = 3
 )
@@ -26,7 +27,7 @@ const (
 // Valid reports whether the frame type is known by this protocol version.
 func (t FrameType) Valid() bool {
 	switch t {
-	case FrameTypeEOS, FrameTypeBinary, FrameTypeText:
+	case FrameTypeEOS, FrameTypeJSON, FrameTypeBinary, FrameTypeText:
 		return true
 	default:
 		return false

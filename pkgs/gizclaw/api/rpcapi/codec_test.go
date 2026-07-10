@@ -11,6 +11,7 @@ import (
 
 	rpcpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
 func TestFrameRequestResponseRoundTrip(t *testing.T) {
@@ -418,6 +419,31 @@ func TestPayloadCodecMapsProtobufDirectlyToGoDTOs(t *testing.T) {
 		schema.Enum == nil || len(*schema.Enum) != 2 ||
 		schema.MinLength == nil || *schema.MinLength != 2 {
 		t.Fatalf("schema = %+v", schema)
+	}
+
+	recallData, err := proto.Marshal(&rpcpb.ServerRunWorkspaceRecallRequest{
+		Value: &rpcpb.PeerRunRecallRequest{
+			Filters: &structpb.Struct{
+				Fields: map[string]*structpb.Value{
+					"deleted_at": structpb.NewNullValue(),
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("marshal recall payload error = %v", err)
+	}
+	recallPayload := newRPCPayload("ServerRunWorkspaceRecallRequest", recallData, false)
+	recall, err := recallPayload.AsServerRunWorkspaceRecallRequest()
+	if err != nil {
+		t.Fatalf("AsServerRunWorkspaceRecallRequest() error = %v", err)
+	}
+	if recall.Filters == nil {
+		t.Fatal("recall filters = nil")
+	}
+	item, ok := (*recall.Filters)["deleted_at"]
+	if !ok || item != nil {
+		t.Fatalf("recall deleted_at = %#v, present=%v; want explicit nil", item, ok)
 	}
 }
 

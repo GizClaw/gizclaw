@@ -1169,6 +1169,54 @@ func convertValue(dst reflect.Value, src reflect.Value) error {
 		dst.Set(reflect.ValueOf(body))
 		return nil
 	}
+	if dst.Type() == reflect.TypeOf(apitypes.ModelProviderData{}) && src.Type() == reflect.TypeOf(rpcapi.ModelProviderData{}) {
+		body, err := rpcModelProviderDataToAPI(src.Interface().(rpcapi.ModelProviderData))
+		if err != nil {
+			return err
+		}
+		dst.Set(reflect.ValueOf(body))
+		return nil
+	}
+	if dst.Type() == reflect.TypeOf(rpcapi.ModelProviderData{}) && src.Type() == reflect.TypeOf(apitypes.ModelProviderData{}) {
+		body, err := apiModelProviderDataToRPC(src.Interface().(apitypes.ModelProviderData))
+		if err != nil {
+			return err
+		}
+		dst.Set(reflect.ValueOf(body))
+		return nil
+	}
+	if dst.Type() == reflect.TypeOf(apitypes.VoiceProviderData{}) && src.Type() == reflect.TypeOf(rpcapi.VoiceProviderData{}) {
+		body, err := rpcVoiceProviderDataToAPI(src.Interface().(rpcapi.VoiceProviderData))
+		if err != nil {
+			return err
+		}
+		dst.Set(reflect.ValueOf(body))
+		return nil
+	}
+	if dst.Type() == reflect.TypeOf(rpcapi.VoiceProviderData{}) && src.Type() == reflect.TypeOf(apitypes.VoiceProviderData{}) {
+		body, err := apiVoiceProviderDataToRPC(src.Interface().(apitypes.VoiceProviderData))
+		if err != nil {
+			return err
+		}
+		dst.Set(reflect.ValueOf(body))
+		return nil
+	}
+	if dst.Type() == reflect.TypeOf(apitypes.WorkspaceParameters{}) && src.Type() == reflect.TypeOf(rpcapi.WorkspaceParameters{}) {
+		body, err := rpcWorkspaceParametersToAPI(src.Interface().(rpcapi.WorkspaceParameters))
+		if err != nil {
+			return err
+		}
+		dst.Set(reflect.ValueOf(body))
+		return nil
+	}
+	if dst.Type() == reflect.TypeOf(rpcapi.WorkspaceParameters{}) && src.Type() == reflect.TypeOf(apitypes.WorkspaceParameters{}) {
+		body, err := apiWorkspaceParametersToRPC(src.Interface().(apitypes.WorkspaceParameters))
+		if err != nil {
+			return err
+		}
+		dst.Set(reflect.ValueOf(body))
+		return nil
+	}
 	if src.Type().AssignableTo(dst.Type()) {
 		dst.Set(src)
 		return nil
@@ -1199,6 +1247,12 @@ func convertValue(dst reflect.Value, src reflect.Value) error {
 			}
 			srcField := src.FieldByName(field.Name)
 			if !srcField.IsValid() {
+				continue
+			}
+			if handled, err := convertUnionFieldWithParent(dst.Field(i), srcField, src); handled {
+				if err != nil {
+					return fmt.Errorf("%s: %w", field.Name, err)
+				}
 				continue
 			}
 			if err := convertValue(dst.Field(i), srcField); err != nil {

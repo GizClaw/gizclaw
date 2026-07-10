@@ -971,14 +971,6 @@ func goValueInterface(value reflect.Value) (any, error) {
 }
 
 func setGoStructValue(target reflect.Value, msg protoreflect.Message) error {
-	if target.Kind() == reflect.Map {
-		values := msg.Interface().(*structpb.Struct).AsMap()
-		target.Set(reflect.MakeMapWithSize(target.Type(), len(values)))
-		for key, item := range values {
-			target.SetMapIndex(reflect.ValueOf(key), reflect.ValueOf(item))
-		}
-		return nil
-	}
 	st, ok := msg.Interface().(*structpb.Struct)
 	if !ok {
 		data, err := proto.Marshal(msg.Interface())
@@ -990,6 +982,18 @@ func setGoStructValue(target reflect.Value, msg protoreflect.Message) error {
 			return err
 		}
 		st = &decoded
+	}
+	if target.Kind() == reflect.Map {
+		values := st.AsMap()
+		target.Set(reflect.MakeMapWithSize(target.Type(), len(values)))
+		for key, item := range values {
+			itemValue := reflect.Zero(target.Type().Elem())
+			if item != nil {
+				itemValue = reflect.ValueOf(item)
+			}
+			target.SetMapIndex(reflect.ValueOf(key), itemValue)
+		}
+		return nil
 	}
 	if target.Type() == reflect.TypeOf(structpb.Struct{}) {
 		target.Set(reflect.ValueOf(*st))

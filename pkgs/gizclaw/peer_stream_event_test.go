@@ -12,6 +12,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/stampedopus"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 )
 
@@ -34,6 +35,21 @@ func TestPeerStreamEventFrameRoundTrip(t *testing.T) {
 	}
 	if got.Type != event.Type || got.StreamId == nil || *got.StreamId != streamID || got.Text == nil || *got.Text != text {
 		t.Fatalf("round trip event = %+v, want %+v", got, event)
+	}
+}
+
+func TestPeerStreamEventReadsJSONFrame(t *testing.T) {
+	payload := []byte(`{"v":1,"type":"text.delta","stream_id":"s1","text":"hello"}`)
+	var buf bytes.Buffer
+	if err := rpcapi.WriteFrame(&buf, rpcapi.Frame{Type: rpcapi.FrameTypeJSON, Payload: payload}); err != nil {
+		t.Fatalf("WriteFrame() error = %v", err)
+	}
+	got, err := readPeerStreamEvent(&buf)
+	if err != nil {
+		t.Fatalf("readPeerStreamEvent() error = %v", err)
+	}
+	if got.Type != apitypes.PeerStreamEventTypeTextDelta || got.Text == nil || *got.Text != "hello" {
+		t.Fatalf("readPeerStreamEvent() = %+v", got)
 	}
 }
 

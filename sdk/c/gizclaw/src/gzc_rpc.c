@@ -6,6 +6,8 @@
 #include <stdint.h>
 #include <string.h>
 
+#define GZC_RPC_MAX_ENVELOPE_SIZE (GZC_RPC_MAX_FRAME_SIZE * 16u)
+
 int gzc_client_reset_rpc_rx_internal(gzc_client_t *client);
 int gzc_client_open_rpc_channel_internal(gzc_client_t *client, int timeout_ms);
 void gzc_client_close_rpc_channel_internal(gzc_client_t *client);
@@ -47,6 +49,16 @@ static int append_binary_envelope_frame(const gzc_platform_t *platform, gzc_buf_
     offset += chunk;
   }
   return GZC_OK;
+}
+
+static int append_envelope_continuation(gzc_buf_t *envelope, const gzc_platform_t *platform, const gzc_rpc_frame_t *frame) {
+  if (envelope == NULL || frame == NULL) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  if (frame->len > GZC_RPC_MAX_ENVELOPE_SIZE || envelope->len > GZC_RPC_MAX_ENVELOPE_SIZE - frame->len) {
+    return GZC_ERR_RPC;
+  }
+  return gzc_buf_append(envelope, platform, frame->data, frame->len);
 }
 
 static bool encode_pb_bytes(pb_ostream_t *stream, const pb_field_t *field, void *const *arg) {
@@ -268,7 +280,7 @@ int gzc_rpc_call(gzc_client_t *client, gizclaw_rpc_v1_RpcMethod method, gzc_str_
         break;
       }
       saw_continuation = true;
-      rc = gzc_buf_append(&envelope, platform, frame.data, frame.len);
+      rc = append_envelope_continuation(&envelope, platform, &frame);
       if (rc != GZC_OK) {
         break;
       }
@@ -366,7 +378,7 @@ int gzc_rpc_call_stream(
     if (!saw_response) {
       if (frame.type == GZC_RPC_FRAME_TEXT) {
         saw_continuation = true;
-        rc = gzc_buf_append(&envelope, platform, frame.data, frame.len);
+        rc = append_envelope_continuation(&envelope, platform, &frame);
         if (rc != GZC_OK) {
           break;
         }

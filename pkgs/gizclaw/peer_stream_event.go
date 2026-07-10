@@ -226,7 +226,7 @@ func readPeerStreamEvent(r io.Reader) (apitypes.PeerStreamEvent, error) {
 	if frame.Type == rpcapi.FrameTypeEOS {
 		return apitypes.PeerStreamEvent{}, io.EOF
 	}
-	if frame.Type != rpcapi.FrameTypeText {
+	if frame.Type != rpcapi.FrameTypeText && frame.Type != rpcapi.FrameTypeJSON {
 		return apitypes.PeerStreamEvent{}, fmt.Errorf("gizclaw: expected peer stream event text frame, got type %d", frame.Type)
 	}
 	var event apitypes.PeerStreamEvent

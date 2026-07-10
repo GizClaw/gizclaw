@@ -45,7 +45,7 @@ export type ASTTranslateWorkflowSpec = {
   "voice"?: ASTTranslateVoiceParameters;
 };
 export type ASTTranslateWorkspaceParameters = {
-  "agent_type": string | number;
+  "agent_type": string;
   "denoise"?: boolean;
   "e2e"?: boolean;
   "enable_source_language_detect"?: boolean;
@@ -101,7 +101,7 @@ export type ChatRoomWorkspaceHistoryParameters = {
   "ttl"?: string;
 };
 export type ChatRoomWorkspaceParameters = {
-  "agent_type": string | number;
+  "agent_type": string;
   "history"?: ChatRoomWorkspaceHistoryParameters;
   "input"?: string | number;
   "mode"?: string | number;
@@ -303,7 +303,7 @@ export type DoubaoRealtimeWorkflowSpec = {
   "tools": DoubaoRealtimeFunctionTool[];
 };
 export type DoubaoRealtimeWorkspaceParameters = {
-  "agent_type": string | number;
+  "agent_type": string;
   "audio"?: DoubaoRealtimeAudio;
   "e2e"?: boolean;
   "extension"?: DoubaoRealtimeExtension;
@@ -379,7 +379,7 @@ export type FlowcraftWorkflowSpec = {
   "fields": Record<string, unknown>;
 };
 export type FlowcraftWorkspaceParameters = {
-  "agent_type": string | number;
+  "agent_type": string;
   "conversation"?: FlowcraftConversationParameters;
   "e2e"?: boolean;
   "embedding_model"?: string;
@@ -7630,6 +7630,8 @@ function encodeMessage(type: string, value: unknown, parent: Record<string, unkn
     const selected = selectOneofField(type, desc, value, parent);
     if (selected != null) {
       encodeField(writer, selected, value, undefined);
+    } else if (Object.keys(asRecord(value, type)).length > 0) {
+      throw new Error("no protobuf oneof candidate for " + type);
     }
     return writer.finish();
   }
@@ -7897,11 +7899,16 @@ function selectOneofField(type: string, desc: MessageDesc, value: unknown, paren
   }
   let best: FieldDesc | undefined;
   let bestScore = -1;
+  let ambiguous = false;
+  const discriminatorKey = oneofDiscriminatorKey(type);
   for (const field of desc.fields) {
     let score = 0;
     const child = MESSAGE_DESCS[field.type];
     if (child != null) {
       for (const key of Object.keys(object)) {
+        if (key === discriminatorKey) {
+          continue;
+        }
         if (child.fields.some((candidate) => candidate.name === key)) {
           score++;
         }
@@ -7910,7 +7917,13 @@ function selectOneofField(type: string, desc: MessageDesc, value: unknown, paren
     if (score > bestScore) {
       best = field;
       bestScore = score;
+      ambiguous = false;
+    } else if (score === bestScore && score > 0) {
+      ambiguous = true;
     }
+  }
+  if (bestScore <= 0 || ambiguous) {
+    return undefined;
   }
   return best;
 }
@@ -7939,7 +7952,24 @@ function discriminatorString(type: string, field: string, value: unknown): strin
     return value;
   }
   if (typeof value === "number") {
-    throw new Error("protobuf " + type + " oneof discriminator " + field + " expects string enum value");
+    const enumType = oneofDiscriminatorEnumType(type, field);
+    return enumType == null ? undefined : enumName(enumType, value) || undefined;
+  }
+  return undefined;
+}
+
+function oneofDiscriminatorKey(type: string): string | undefined {
+  switch (type) {
+    case "WorkspaceParameters":
+      return "agent_type";
+    default:
+      return undefined;
+  }
+}
+
+function oneofDiscriminatorEnumType(type: string, field: string): string | undefined {
+  if ((type === "ModelProviderData" || type === "VoiceProviderData") && field === "provider.kind") {
+    return type === "ModelProviderData" ? "ModelProviderKind" : "VoiceProviderKind";
   }
   return undefined;
 }

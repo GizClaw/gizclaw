@@ -16,8 +16,9 @@ struct gzc_rtc_channel {
 typedef enum {
   FAKE_RESPONSE_PROTO = 0,
   FAKE_RESPONSE_PROTO_CONTINUATION = 1,
-  FAKE_RESPONSE_BINARY_STREAM = 2,
-  FAKE_RESPONSE_PROTO_ERROR = 3
+  FAKE_RESPONSE_PROTO_OVERSIZED_CONTINUATION = 2,
+  FAKE_RESPONSE_BINARY_STREAM = 3,
+  FAKE_RESPONSE_PROTO_ERROR = 4
 } fake_response_mode_t;
 
 typedef struct {
@@ -354,6 +355,34 @@ static int test_channel_send(gzc_rtc_channel_t *channel, const uint8_t *data, si
     }
     gzc_buf_free(&response_result, fake->platform);
     gzc_buf_free(&response_payload, fake->platform);
+    gzc_buf_free(&framed, fake->platform);
+    return rc;
+  }
+  if (fake->response_mode == FAKE_RESPONSE_PROTO_OVERSIZED_CONTINUATION) {
+    gzc_buf_t framed;
+    gzc_buf_init(&framed);
+    uint8_t *chunk = (uint8_t *)fake->platform->malloc(fake->platform->userdata, GZC_RPC_MAX_FRAME_SIZE);
+    if (chunk == NULL) {
+      return GZC_ERR_NO_MEMORY;
+    }
+    memset(chunk, 0, GZC_RPC_MAX_FRAME_SIZE);
+    for (size_t i = 0; i < 17 && rc == GZC_OK; i++) {
+      rc = append_test_frame(fake->platform, &framed, GZC_RPC_FRAME_TEXT, chunk, GZC_RPC_MAX_FRAME_SIZE);
+    }
+    if (rc == GZC_OK) {
+      rc = append_test_frame(fake->platform, &framed, GZC_RPC_FRAME_EOS, NULL, 0);
+    }
+    if (rc == GZC_OK) {
+      fake->callbacks.on_channel_message(
+          fake->callbacks.userdata,
+          &fake->peer,
+          &fake->rpc_channel,
+          NULL,
+          framed.data,
+          framed.len,
+          false);
+    }
+    fake->platform->free(fake->platform->userdata, chunk);
     gzc_buf_free(&framed, fake->platform);
     return rc;
   }
@@ -740,6 +769,18 @@ int main(void) {
     return 1;
   }
 
+  fake_webrtc.response_mode = FAKE_RESPONSE_PROTO_OVERSIZED_CONTINUATION;
+  memset(&response, 0, sizeof(response));
+  rc = gzc_rpc_call(
+      client,
+      gizclaw_rpc_v1_RpcMethod_RPC_METHOD_ALL_PING,
+      gzc_str_from_parts((const char *)params.data, params.len),
+      &response);
+  if (expect(rc == GZC_ERR_RPC, "rpc call rejects oversized continuation response") != 0) {
+    return 1;
+  }
+  fake_webrtc.response_mode = FAKE_RESPONSE_PROTO;
+
   gzc_buf_t list_payload;
   gzc_buf_init(&list_payload);
   rc = append_test_proto_varint(platform, &list_payload, 1, 0);
@@ -784,6 +825,18 @@ int main(void) {
     return 1;
   }
   if (expect(stream_count.envelope_count == 1 && stream_count.frame_count == 2 && stream_count.binary_bytes == 3, "stream frames counted") != 0) {
+    return 1;
+  }
+
+  fake_webrtc.response_mode = FAKE_RESPONSE_PROTO_OVERSIZED_CONTINUATION;
+  memset(&stream_count, 0, sizeof(stream_count));
+  rc = gzc_rpc_call_stream(
+      client,
+      gizclaw_rpc_v1_RpcMethod_RPC_METHOD_ALL_SPEED_TEST_RUN,
+      gzc_str_from_parts((const char *)params.data, params.len),
+      count_stream_frame,
+      &stream_count);
+  if (expect(rc == GZC_ERR_RPC, "rpc stream rejects oversized continuation response") != 0) {
     return 1;
   }
 
