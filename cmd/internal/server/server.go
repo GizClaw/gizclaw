@@ -363,12 +363,18 @@ func bootstrapEdgeNodes(ctx context.Context, peers *runtimepeer.Server, publicKe
 		if publicKey.IsZero() {
 			return fmt.Errorf("server: bootstrap edge-node: zero public key")
 		}
-		if _, err := peers.SavePeer(ctx, apitypes.Peer{
-			PublicKey:  publicKey.String(),
-			Role:       apitypes.PeerRoleEdgeNode,
-			Status:     apitypes.PeerRegistrationStatusActive,
-			ApprovedAt: &approvedAt,
-		}); err != nil {
+		peer, err := peers.LoadPeer(ctx, publicKey)
+		if errors.Is(err, runtimepeer.ErrPeerNotFound) {
+			peer = apitypes.Peer{PublicKey: publicKey.String()}
+		} else if err != nil {
+			return fmt.Errorf("server: load bootstrap edge-node %s: %w", publicKey, err)
+		}
+		peer.Role = apitypes.PeerRoleEdgeNode
+		peer.Status = apitypes.PeerRegistrationStatusActive
+		if peer.ApprovedAt == nil {
+			peer.ApprovedAt = &approvedAt
+		}
+		if _, err := peers.SavePeer(ctx, peer); err != nil {
 			return fmt.Errorf("server: bootstrap edge-node %s: %w", publicKey, err)
 		}
 	}

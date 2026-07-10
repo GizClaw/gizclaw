@@ -110,7 +110,7 @@ authoritative server over giznet/WebRTC DataChannel. It is not an admin
 surface, and the caller peer identity remains the incoming token subject rather
 than the edge-node transport public key.
 
-## Edge RPC Surface
+## Future Edge RPC Surface
 
 The edge RPC surface uses `ServiceEdgeRPC`. It is accepted only from active
 peers with role `edge-node`; admin peers continue to use the admin surface and

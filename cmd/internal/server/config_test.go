@@ -426,6 +426,53 @@ func TestNewBootstrapsConfiguredEdgeNodesWithLegacySharedStore(t *testing.T) {
 	}
 }
 
+func TestBootstrapEdgeNodesPreservesExistingPeerMetadata(t *testing.T) {
+	edgeKey := testKeyPair(t, 0x15)
+	peerStore := &runtimepeer.Server{Store: kv.NewMemory(nil)}
+	name := "edge-a"
+	view := "dashboard"
+	autoRegistered := true
+	approvedAt := time.Unix(123, 0).UTC()
+	existing, err := peerStore.SavePeer(context.Background(), apitypes.Peer{
+		PublicKey:      edgeKey.Public.String(),
+		Role:           apitypes.PeerRoleClient,
+		Status:         apitypes.PeerRegistrationStatusBlocked,
+		ApprovedAt:     &approvedAt,
+		AutoRegistered: &autoRegistered,
+		Device:         apitypes.DeviceInfo{Name: &name},
+		Configuration:  apitypes.Configuration{View: &view},
+	})
+	if err != nil {
+		t.Fatalf("SavePeer error = %v", err)
+	}
+
+	if err := bootstrapEdgeNodes(context.Background(), peerStore, []giznet.PublicKey{edgeKey.Public}); err != nil {
+		t.Fatalf("bootstrapEdgeNodes error = %v", err)
+	}
+	peer, err := peerStore.LoadPeer(context.Background(), edgeKey.Public)
+	if err != nil {
+		t.Fatalf("LoadPeer error = %v", err)
+	}
+	if peer.Role != apitypes.PeerRoleEdgeNode || peer.Status != apitypes.PeerRegistrationStatusActive {
+		t.Fatalf("bootstrapped edge peer = %+v", peer)
+	}
+	if peer.Device.Name == nil || *peer.Device.Name != name {
+		t.Fatalf("Device.Name = %v, want %q", peer.Device.Name, name)
+	}
+	if peer.Configuration.View == nil || *peer.Configuration.View != view {
+		t.Fatalf("Configuration.View = %v, want %q", peer.Configuration.View, view)
+	}
+	if peer.AutoRegistered == nil || !*peer.AutoRegistered {
+		t.Fatalf("AutoRegistered = %v, want true", peer.AutoRegistered)
+	}
+	if peer.ApprovedAt == nil || !peer.ApprovedAt.Equal(approvedAt) {
+		t.Fatalf("ApprovedAt = %v, want %v", peer.ApprovedAt, approvedAt)
+	}
+	if !peer.CreatedAt.Equal(existing.CreatedAt) {
+		t.Fatalf("CreatedAt = %v, want %v", peer.CreatedAt, existing.CreatedAt)
+	}
+}
+
 func TestLoadConfigReadsAndExpandsLogConfig(t *testing.T) {
 	t.Setenv("GIZCLAW_TEST_VOLC_AK", "ak")
 	t.Setenv("GIZCLAW_TEST_VOLC_SK", "sk")

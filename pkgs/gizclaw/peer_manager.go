@@ -136,7 +136,7 @@ func (m *Manager) allowService(ctx context.Context, publicKey giznet.PublicKey, 
 	switch service {
 	case ServiceAdminHTTP:
 		return m.allowActivePeerRole(ctx, publicKey, apitypes.PeerRoleAdmin)
-	case ServiceEdgeHTTP:
+	case ServiceEdgeHTTP, ServiceEdgeRPC:
 		return m.allowActivePeerRole(ctx, publicKey, apitypes.PeerRoleEdgeNode)
 	default:
 		return false

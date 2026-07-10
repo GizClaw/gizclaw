@@ -449,7 +449,7 @@ func TestEdgeCORSHandlerHandlesBrowserPreflight(t *testing.T) {
 	req := httptest.NewRequest(http.MethodOptions, "/webrtc/v1/offer", nil)
 	req.Header.Set("Origin", "wails://wails.localhost")
 	req.Header.Set("Access-Control-Request-Method", http.MethodPost)
-	req.Header.Set("Access-Control-Request-Headers", "content-type,x-giznet-nonce,x-giznet-public-key,x-giznet-timestamp")
+	req.Header.Set("Access-Control-Request-Headers", "authorization,content-type,x-public-key,x-giznet-nonce,x-giznet-public-key,x-giznet-timestamp")
 	rec := httptest.NewRecorder()
 	handler.ServeHTTP(rec, req)
 
@@ -462,8 +462,8 @@ func TestEdgeCORSHandlerHandlesBrowserPreflight(t *testing.T) {
 	if got := rec.Header().Get("Access-Control-Allow-Origin"); got != "*" {
 		t.Fatalf("Access-Control-Allow-Origin = %q, want *", got)
 	}
-	if got := rec.Header().Get("Access-Control-Allow-Headers"); got == "" {
-		t.Fatal("Access-Control-Allow-Headers is empty")
+	if got := rec.Header().Get("Access-Control-Allow-Headers"); !strings.Contains(got, "X-Public-Key") {
+		t.Fatalf("Access-Control-Allow-Headers = %q, want X-Public-Key", got)
 	}
 }
 

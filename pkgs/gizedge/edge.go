@@ -217,7 +217,7 @@ func setEdgeCORSHeaders(w http.ResponseWriter) {
 	header := w.Header()
 	header.Set("Access-Control-Allow-Origin", "*")
 	header.Set("Access-Control-Allow-Methods", "GET,POST,OPTIONS")
-	header.Set("Access-Control-Allow-Headers", "Authorization,Content-Type,X-Giznet-Nonce,X-Giznet-Public-Key,X-Giznet-Timestamp")
+	header.Set("Access-Control-Allow-Headers", "Authorization,Content-Type,X-Public-Key,X-Giznet-Nonce,X-Giznet-Public-Key,X-Giznet-Timestamp")
 	header.Set("Access-Control-Expose-Headers", "Content-Length,Content-Type")
 }
 

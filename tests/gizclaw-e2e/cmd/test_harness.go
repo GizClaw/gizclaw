@@ -84,6 +84,13 @@ type cliContextConfig struct {
 		Endpoint string `yaml:"endpoint"`
 	} `yaml:"server"`
 	signalingURL string
+	iceServers   []gizwebrtc.ICEServer
+}
+
+type e2eServerInfo struct {
+	PublicKey    giznet.PublicKey
+	SignalingURL string
+	ICEServers   []gizwebrtc.ICEServer
 }
 
 type contextAlias struct {
@@ -669,18 +676,19 @@ func (h *Harness) connectClientFromContextWithCloseWait(name string) (*gizcli.Cl
 		return nil, nil, fmt.Errorf("load context identity from config: %w", err)
 	}
 
-	serverPublicKey, signalingURL, err := fetchE2EServerInfo(cliContextDialAddr(cfg))
+	serverInfo, err := fetchE2EServerInfo(cliContextDialAddr(cfg))
 	if err != nil {
 		return nil, nil, err
 	}
-	cfg.signalingURL = signalingURL
+	cfg.signalingURL = serverInfo.SignalingURL
+	cfg.iceServers = serverInfo.ICEServers
 	h.t.Logf("connect context %s endpoint=%s", name, cliContextDialAddr(cfg))
 
 	client := &gizcli.Client{
 		KeyPair:       keyPair,
 		DialTransport: e2eDialTransport(cfg),
 	}
-	if err := client.Dial(serverPublicKey, cliContextDialAddr(cfg)); err != nil {
+	if err := client.Dial(serverInfo.PublicKey, cliContextDialAddr(cfg)); err != nil {
 		_ = client.Close()
 		return nil, nil, err
 	}
@@ -794,7 +802,7 @@ func (h *Harness) waitForServerReady() {
 		if err := h.serverProcessError(); err != nil {
 			return err
 		}
-		serverPublicKey, signalingURL, err := fetchE2EServerInfo(h.ServerAddr)
+		serverInfo, err := fetchE2EServerInfo(h.ServerAddr)
 		if err != nil {
 			return err
 		}
@@ -805,9 +813,10 @@ func (h *Harness) waitForServerReady() {
 		}
 		cfg := cliContextConfig{}
 		cfg.Server.Endpoint = h.ServerAddr
-		cfg.signalingURL = signalingURL
+		cfg.signalingURL = serverInfo.SignalingURL
+		cfg.iceServers = serverInfo.ICEServers
 		client := &gizcli.Client{KeyPair: keyPair, DialTransport: e2eDialTransport(cfg)}
-		if err := client.Dial(serverPublicKey, h.ServerAddr); err != nil {
+		if err := client.Dial(serverInfo.PublicKey, h.ServerAddr); err != nil {
 			_ = client.Close()
 			return err
 		}
@@ -998,6 +1007,7 @@ func e2eDialTransport(cfg cliContextConfig) gizcli.DialTransportFunc {
 		defer cancel()
 		return gizwebrtc.Dial(ctx, key, serverPK, gizwebrtc.DialConfig{
 			SignalingURL:   cliContextSignalingURL(cfg),
+			ICEServers:     cfg.iceServers,
 			SecurityPolicy: securityPolicy,
 		})
 	}
@@ -1014,48 +1024,52 @@ func cliContextSignalingURL(cfg cliContextConfig) string {
 	return "http://" + cliContextDialAddr(cfg) + gizwebrtc.SignalingPath
 }
 
-func fetchE2EServerInfo(endpoint string) (giznet.PublicKey, string, error) {
-	var zero giznet.PublicKey
+func fetchE2EServerInfo(endpoint string) (e2eServerInfo, error) {
 	endpoint = strings.TrimSpace(endpoint)
 	if endpoint == "" {
-		return zero, "", fmt.Errorf("server endpoint is empty")
+		return e2eServerInfo{}, fmt.Errorf("server endpoint is empty")
 	}
 	client := http.Client{Timeout: probeTimeout}
 	resp, err := client.Get("http://" + endpoint + "/server-info")
 	if err != nil {
-		return zero, "", err
+		return e2eServerInfo{}, err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return zero, "", fmt.Errorf("server-info status=%d", resp.StatusCode)
+		return e2eServerInfo{}, fmt.Errorf("server-info status=%d", resp.StatusCode)
 	}
 	var body struct {
-		PublicKey     string `json:"public_key"`
-		Protocol      string `json:"protocol"`
-		SignalingPath string `json:"signaling_path"`
+		PublicKey     string                `json:"public_key"`
+		Protocol      string                `json:"protocol"`
+		SignalingPath string                `json:"signaling_path"`
+		ICEServers    []gizwebrtc.ICEServer `json:"ice_servers"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
-		return zero, "", err
+		return e2eServerInfo{}, err
 	}
 	if body.Protocol != "" && body.Protocol != "gizclaw-webrtc" {
-		return zero, "", fmt.Errorf("server-info protocol=%q", body.Protocol)
+		return e2eServerInfo{}, fmt.Errorf("server-info protocol=%q", body.Protocol)
 	}
 	var serverPublicKey giznet.PublicKey
 	if err := serverPublicKey.UnmarshalText([]byte(strings.TrimSpace(body.PublicKey))); err != nil {
-		return zero, "", fmt.Errorf("server-info public_key: %w", err)
+		return e2eServerInfo{}, fmt.Errorf("server-info public_key: %w", err)
 	}
 	if serverPublicKey.IsZero() {
-		return zero, "", fmt.Errorf("server-info public_key is zero")
+		return e2eServerInfo{}, fmt.Errorf("server-info public_key is zero")
 	}
 	signalingPath := strings.TrimSpace(body.SignalingPath)
 	if signalingPath == "" {
 		signalingPath = gizwebrtc.SignalingPath
 	}
 	if !strings.HasPrefix(signalingPath, "/") || strings.HasPrefix(signalingPath, "//") {
-		return zero, "", fmt.Errorf("server-info signaling_path=%q", signalingPath)
+		return e2eServerInfo{}, fmt.Errorf("server-info signaling_path=%q", signalingPath)
 	}
 	signalingURL := url.URL{Scheme: "http", Host: endpoint, Path: signalingPath}
-	return serverPublicKey, signalingURL.String(), nil
+	return e2eServerInfo{
+		PublicKey:    serverPublicKey,
+		SignalingURL: signalingURL.String(),
+		ICEServers:   body.ICEServers,
+	}, nil
 }
 
 func serverWorkspaceEndpoint(cfg serverWorkspaceConfig) string {
