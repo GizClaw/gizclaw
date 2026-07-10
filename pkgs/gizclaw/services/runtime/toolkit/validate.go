@@ -70,9 +70,7 @@ func validateToolArgs(tool Tool, args json.RawMessage) error {
 	if err := json.Unmarshal(tool.InputSchema, &schema); err != nil {
 		return fmt.Errorf("%w: input_schema must be valid JSON object", ErrInvalidTool)
 	}
-	if len(args) == 0 {
-		args = json.RawMessage(`{}`)
-	}
+	args = normalizeToolArgs(args)
 	var values map[string]json.RawMessage
 	if err := json.Unmarshal(args, &values); err != nil || values == nil {
 		return fmt.Errorf("%w: tool arguments must be a JSON object", ErrInvalidTool)
@@ -95,6 +93,13 @@ func validateToolArgs(tool Tool, args json.RawMessage) error {
 		}
 	}
 	return nil
+}
+
+func normalizeToolArgs(args json.RawMessage) json.RawMessage {
+	if len(args) == 0 {
+		return json.RawMessage(`{}`)
+	}
+	return args
 }
 
 func schemaTypeIncludesObject(value any) bool {
@@ -133,41 +138,82 @@ func validateJSONValueType(name string, value json.RawMessage, propertySchema js
 	if err := dec.Decode(&decoded); err != nil {
 		return fmt.Errorf("%w: tool argument %q must be valid JSON", ErrInvalidTool, name)
 	}
-	switch {
-	case schemaTypeMatches(schema.Type, "string"):
-		if _, ok := decoded.(string); ok {
+	types := schemaTypes(schema.Type)
+	if len(types) == 0 {
+		return nil
+	}
+	known := false
+	for _, typ := range types {
+		if !knownJSONSchemaType(typ) {
+			continue
+		}
+		known = true
+		if jsonValueMatchesType(decoded, typ) {
 			return nil
 		}
-	case schemaTypeMatches(schema.Type, "boolean"):
-		if _, ok := decoded.(bool); ok {
-			return nil
-		}
-	case schemaTypeMatches(schema.Type, "number"):
-		if _, ok := decoded.(json.Number); ok {
-			return nil
-		}
-	case schemaTypeMatches(schema.Type, "integer"):
-		if number, ok := decoded.(json.Number); ok {
-			if f, err := number.Float64(); err == nil && math.Trunc(f) == f {
-				return nil
-			}
-		}
-	case schemaTypeMatches(schema.Type, "object"):
-		if value, ok := decoded.(map[string]any); ok && value != nil {
-			return nil
-		}
-	case schemaTypeMatches(schema.Type, "array"):
-		if _, ok := decoded.([]any); ok {
-			return nil
-		}
-	case schemaTypeMatches(schema.Type, "null"):
-		if decoded == nil {
-			return nil
-		}
-	default:
+	}
+	if !known {
 		return nil
 	}
 	return fmt.Errorf("%w: tool argument %q does not match input_schema type", ErrInvalidTool, name)
+}
+
+func schemaTypes(value any) []string {
+	switch typed := value.(type) {
+	case nil:
+		return nil
+	case string:
+		return []string{typed}
+	case []any:
+		out := make([]string, 0, len(typed))
+		for _, item := range typed {
+			if item, ok := item.(string); ok {
+				out = append(out, item)
+			}
+		}
+		return out
+	}
+	return nil
+}
+
+func knownJSONSchemaType(typ string) bool {
+	switch typ {
+	case "string", "boolean", "number", "integer", "object", "array", "null":
+		return true
+	default:
+		return false
+	}
+}
+
+func jsonValueMatchesType(decoded any, typ string) bool {
+	switch typ {
+	case "string":
+		_, ok := decoded.(string)
+		return ok
+	case "boolean":
+		_, ok := decoded.(bool)
+		return ok
+	case "number":
+		_, ok := decoded.(json.Number)
+		return ok
+	case "integer":
+		number, ok := decoded.(json.Number)
+		if !ok {
+			return false
+		}
+		f, err := number.Float64()
+		return err == nil && math.Trunc(f) == f
+	case "object":
+		value, ok := decoded.(map[string]any)
+		return ok && value != nil
+	case "array":
+		_, ok := decoded.([]any)
+		return ok
+	case "null":
+		return decoded == nil
+	default:
+		return true
+	}
 }
 
 func validateExecutor(tool Tool) error {

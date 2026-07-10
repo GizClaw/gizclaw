@@ -99,7 +99,9 @@ func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.A
 	if len(flowcraftTools) > 0 && f.ToolExecutors == nil {
 		return nil, fmt.Errorf("flowcraft: toolkit executors are required when toolkit exposes tools")
 	}
-	if err := configureFlowcraftTools(clawConfig, flowcraftTools); err != nil {
+	flowcraftTools = registeredFlowcraftTools(flowcraftTools, f.ToolExecutors)
+	toolNames, err := configureFlowcraftTools(clawConfig, flowcraftTools)
+	if err != nil {
 		return nil, err
 	}
 	if err := validateVoiceAdapterResources(ctx, f.GenX, cfg); err != nil {
@@ -116,8 +118,8 @@ func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.A
 	if err != nil {
 		return nil, err
 	}
-	if len(flowcraftTools) > 0 {
-		f.handleToolCalls(claw, toolBuild)
+	if len(toolNames) > 0 {
+		f.handleToolCalls(claw, toolBuild, toolNames)
 	}
 	starts, initiativePolicy := flowcraftConversationSettings(workspaceParams, cfg.Spec.Flowcraft)
 	inputMode := inputModePushToTalk
@@ -150,11 +152,16 @@ func (f Factory) buildToolKit(ctx context.Context, req toolkit.BuildRequest) (to
 	return tools, nil
 }
 
-func (f Factory) handleToolCalls(claw *flowclaw.Claw, req toolkit.BuildRequest) {
+func (f Factory) handleToolCalls(claw *flowclaw.Claw, req toolkit.BuildRequest, names []string) {
 	if claw == nil || f.ToolKit == nil || f.ToolExecutors == nil {
 		return
 	}
-	claw.HandleDefault(flowcraftToolHandler(f.ToolKit, f.ToolExecutors, req))
+	handler := flowcraftToolHandler(f.ToolKit, f.ToolExecutors, req)
+	for _, name := range names {
+		if strings.TrimSpace(name) != "" {
+			claw.Handle(name, handler)
+		}
+	}
 }
 
 func flowcraftToolHandler(builder *toolkit.Builder, executors *toolkit.ExecutorRegistry, req toolkit.BuildRequest) flowclaw.ToolHandler {
@@ -2528,13 +2535,14 @@ func buildClawConfig(ctx context.Context, genxService *peergenx.Service, spec ag
 	return out, nil
 }
 
-func configureFlowcraftTools(cfg map[string]any, tools []toolkit.Tool) error {
+func configureFlowcraftTools(cfg map[string]any, tools []toolkit.Tool) ([]string, error) {
 	if len(tools) == 0 {
-		return nil
+		return nil, nil
 	}
 	agent := ensureMap(cfg, "agent")
 	configured, _ := agent["tools"].([]any)
 	seen := map[string]bool{}
+	names := make([]string, 0, len(tools))
 	for _, item := range configured {
 		if value, ok := item.(map[string]any); ok {
 			if name, ok := value["name"].(string); ok && strings.TrimSpace(name) != "" {
@@ -2553,7 +2561,7 @@ func configureFlowcraftTools(cfg map[string]any, tools []toolkit.Tool) error {
 		}
 		var schema map[string]any
 		if err := json.Unmarshal(tool.InputSchema, &schema); err != nil {
-			return fmt.Errorf("flowcraft: decode tool %q input schema: %w", tool.ID, err)
+			return nil, fmt.Errorf("flowcraft: decode tool %q input schema: %w", tool.ID, err)
 		}
 		configured = append(configured, map[string]any{
 			"name":         name,
@@ -2561,11 +2569,12 @@ func configureFlowcraftTools(cfg map[string]any, tools []toolkit.Tool) error {
 			"input_schema": schema,
 		})
 		seen[name] = true
+		names = append(names, name)
 	}
 	if len(configured) > 0 {
 		agent["tools"] = configured
 	}
-	return nil
+	return names, nil
 }
 
 func executableFlowcraftTools(tools []toolkit.Tool) []toolkit.Tool {
@@ -2575,6 +2584,19 @@ func executableFlowcraftTools(tools []toolkit.Tool) []toolkit.Tool {
 	out := make([]toolkit.Tool, 0, len(tools))
 	for _, tool := range tools {
 		if tool.Executor.Kind == toolkit.ToolExecutorKindBuiltin {
+			out = append(out, tool)
+		}
+	}
+	return out
+}
+
+func registeredFlowcraftTools(tools []toolkit.Tool, executors *toolkit.ExecutorRegistry) []toolkit.Tool {
+	if len(tools) == 0 || executors == nil {
+		return nil
+	}
+	out := make([]toolkit.Tool, 0, len(tools))
+	for _, tool := range tools {
+		if executors.Has(firstString(tool.Executor.Name)) {
 			out = append(out, tool)
 		}
 	}

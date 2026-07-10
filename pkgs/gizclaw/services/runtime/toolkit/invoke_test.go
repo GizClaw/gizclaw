@@ -68,6 +68,67 @@ func TestBuilderInvokeUsesAllowedToolsACLAndExecutor(t *testing.T) {
 	}
 }
 
+func TestBuilderInvokeResolvesAdvertisedNameBeforeID(t *testing.T) {
+	ctx := context.Background()
+	store := &Server{Store: kv.NewMemory(nil)}
+	advertised := testBuiltinTool("system.music.play")
+	advertised.Name = stringPtr("bar")
+	if _, err := store.PutTool(ctx, advertised); err != nil {
+		t.Fatalf("PutTool(advertised) error = %v", err)
+	}
+	idCollision := testBuiltinTool("bar")
+	idCollision.Name = nil
+	idCollision.Executor.Name = stringPtr("mode.switch")
+	if _, err := store.PutTool(ctx, idCollision); err != nil {
+		t.Fatalf("PutTool(collision) error = %v", err)
+	}
+
+	executors := NewExecutorRegistry()
+	if err := executors.Register("music.play", ExecutorFunc(func(_ context.Context, call Call) (Result, error) {
+		if call.Tool.ID != "system.music.play" {
+			t.Fatalf("call.Tool.ID = %q, want advertised tool", call.Tool.ID)
+		}
+		return Result{Data: json.RawMessage(`{"hit":"advertised"}`)}, nil
+	})); err != nil {
+		t.Fatalf("Register(music.play) error = %v", err)
+	}
+	if err := executors.Register("mode.switch", ExecutorFunc(func(context.Context, Call) (Result, error) {
+		t.Fatal("ID collision executor should not be called")
+		return Result{}, nil
+	})); err != nil {
+		t.Fatalf("Register(mode.switch) error = %v", err)
+	}
+
+	result, err := (&Builder{Tools: store}).Invoke(ctx, executors, InvokeRequest{Name: "bar", Args: json.RawMessage(`{}`)})
+	if err != nil {
+		t.Fatalf("Invoke() error = %v", err)
+	}
+	if string(result.Data) != `{"hit":"advertised"}` {
+		t.Fatalf("Invoke() result = %s, want advertised result", result.Data)
+	}
+}
+
+func TestBuilderInvokeNormalizesEmptyArgs(t *testing.T) {
+	ctx := context.Background()
+	store := &Server{Store: kv.NewMemory(nil)}
+	if _, err := store.PutTool(ctx, testBuiltinTool("system.music.play")); err != nil {
+		t.Fatalf("PutTool() error = %v", err)
+	}
+	executors := NewExecutorRegistry()
+	if err := executors.Register("music.play", ExecutorFunc(func(_ context.Context, call Call) (Result, error) {
+		if string(call.Args) != `{}` {
+			t.Fatalf("call.Args = %q, want {}", call.Args)
+		}
+		return Result{Data: json.RawMessage(`{"ok":true}`)}, nil
+	})); err != nil {
+		t.Fatalf("Register() error = %v", err)
+	}
+
+	if _, err := (&Builder{Tools: store}).Invoke(ctx, executors, InvokeRequest{Name: "system.music.play"}); err != nil {
+		t.Fatalf("Invoke() error = %v", err)
+	}
+}
+
 func TestBuilderInvokeRejectsToolOutsideWorkspaceAllowlist(t *testing.T) {
 	ctx := context.Background()
 	store := &Server{Store: kv.NewMemory(nil)}
@@ -138,5 +199,31 @@ func TestBuilderInvokeValidatesArgsAgainstInputSchema(t *testing.T) {
 				t.Fatalf("Invoke() error = %v, want %v", err, ErrInvalidTool)
 			}
 		})
+	}
+}
+
+func TestBuilderInvokeAcceptsNullableUnionArgs(t *testing.T) {
+	ctx := context.Background()
+	store := &Server{Store: kv.NewMemory(nil)}
+	tool := testBuiltinTool("system.music.play")
+	tool.InputSchema = json.RawMessage(`{"type":"object","properties":{"query":{"type":["string","null"]}}}`)
+	if _, err := store.PutTool(ctx, tool); err != nil {
+		t.Fatalf("PutTool() error = %v", err)
+	}
+	executors := NewExecutorRegistry()
+	if err := executors.Register("music.play", ExecutorFunc(func(_ context.Context, call Call) (Result, error) {
+		if string(call.Args) != `{"query":null}` {
+			t.Fatalf("call.Args = %s, want nullable arg", call.Args)
+		}
+		return Result{Data: json.RawMessage(`{"ok":true}`)}, nil
+	})); err != nil {
+		t.Fatalf("Register() error = %v", err)
+	}
+
+	if _, err := (&Builder{Tools: store}).Invoke(ctx, executors, InvokeRequest{
+		Name: "system.music.play",
+		Args: json.RawMessage(`{"query":null}`),
+	}); err != nil {
+		t.Fatalf("Invoke(nullable) error = %v", err)
 	}
 }

@@ -1022,6 +1022,12 @@ func TestFactoryNewAgentWritesToolKitTools(t *testing.T) {
 	if _, err := store.PutTool(ctx, testFlowcraftTool("system.music.play", "play_music")); err != nil {
 		t.Fatalf("PutTool() error = %v", err)
 	}
+	executors := toolkit.NewExecutorRegistry()
+	if err := executors.Register("music.play", toolkit.ExecutorFunc(func(context.Context, toolkit.Call) (toolkit.Result, error) {
+		return toolkit.Result{Data: json.RawMessage(`{}`)}, nil
+	})); err != nil {
+		t.Fatalf("Register() error = %v", err)
+	}
 	generateModel := "chat"
 	var workspaceParams apitypes.WorkspaceParameters
 	if err := workspaceParams.FromFlowcraftWorkspaceParameters(apitypes.FlowcraftWorkspaceParameters{GenerateModel: &generateModel}); err != nil {
@@ -1039,7 +1045,7 @@ func TestFactoryNewAgentWritesToolKitTools(t *testing.T) {
 	transformer, err := (Factory{
 		GenX:          service,
 		ToolKit:       &toolkit.Builder{Tools: store},
-		ToolExecutors: toolkit.NewExecutorRegistry(),
+		ToolExecutors: executors,
 		ToolIDs:       []string{"system.music.play"},
 	}).NewAgent(ctx, agenthost.Spec{
 		Workspace: apitypes.Workspace{Name: "ws", Parameters: &workspaceParams},
@@ -1119,6 +1125,70 @@ func TestFactoryNewAgentRejectsToolKitToolsWithoutExecutors(t *testing.T) {
 	}
 }
 
+func TestFactoryNewAgentSkipsToolKitToolsWithoutRegisteredExecutors(t *testing.T) {
+	ctx := context.Background()
+	events := []string{}
+	service := peergenx.New(peergenx.Service{
+		Peer:            testPeer{},
+		Authorizer:      recordingAuthorizer{events: &events},
+		Models:          fakeModels{events: &events},
+		Voices:          fakeVoices{events: &events},
+		Credentials:     fakeCredentials{events: &events},
+		ProviderTenants: fakeTenants{events: &events},
+	})
+	store := &toolkit.Server{Store: kv.NewMemory(nil)}
+	if _, err := store.PutTool(ctx, testFlowcraftTool("system.music.play", "play_music")); err != nil {
+		t.Fatalf("PutTool() error = %v", err)
+	}
+	generateModel := "chat"
+	var workspaceParams apitypes.WorkspaceParameters
+	if err := workspaceParams.FromFlowcraftWorkspaceParameters(apitypes.FlowcraftWorkspaceParameters{GenerateModel: &generateModel}); err != nil {
+		t.Fatalf("FromFlowcraftWorkspaceParameters() error = %v", err)
+	}
+	workflow := testFlowcraftWorkflow(apitypes.FlowcraftWorkflowSpec{
+		"history": map[string]any{"enabled": false},
+		"memory":  map[string]any{"enabled": false},
+		"voice_adapter": map[string]any{
+			"asr_model":     "asr",
+			"default_voice": "voice",
+		},
+	})
+	localDir := t.TempDir()
+	transformer, err := (Factory{
+		GenX:          service,
+		ToolKit:       &toolkit.Builder{Tools: store},
+		ToolExecutors: toolkit.NewExecutorRegistry(),
+		ToolIDs:       []string{"system.music.play"},
+	}).NewAgent(ctx, agenthost.Spec{
+		Workspace: apitypes.Workspace{Name: "ws", Parameters: &workspaceParams},
+		Workflow:  workflow,
+		Runtime:   workspace.Runtime{LocalDir: localDir},
+	})
+	if err != nil {
+		t.Fatalf("NewAgent() error = %v", err)
+	}
+	t.Cleanup(func() {
+		if a, ok := transformer.(*agent); ok && a.claw != nil {
+			_ = a.claw.CloseContext(context.Background())
+		}
+	})
+	data, err := os.ReadFile(filepath.Join(localDir, "config.yaml"))
+	if err != nil {
+		t.Fatalf("read config.yaml: %v", err)
+	}
+	var cfg map[string]any
+	if err := yaml.Unmarshal(data, &cfg); err != nil {
+		t.Fatalf("decode config.yaml: %v", err)
+	}
+	agentCfg, ok := cfg["agent"].(map[string]any)
+	if !ok {
+		t.Fatalf("agent config = %#v", cfg["agent"])
+	}
+	if tools := agentCfg["tools"]; tools != nil {
+		t.Fatalf("agent.tools = %#v, want no unregistered toolkit tools", tools)
+	}
+}
+
 func TestFactoryNewAgentReadsWorkspaceInputMode(t *testing.T) {
 	ctx := context.Background()
 	events := []string{}
@@ -1166,8 +1236,12 @@ func TestFactoryNewAgentReadsWorkspaceInputMode(t *testing.T) {
 
 func TestConfigureFlowcraftToolsFromToolKit(t *testing.T) {
 	cfg := map[string]any{}
-	if err := configureFlowcraftTools(cfg, []toolkit.Tool{testFlowcraftTool("system.music.play", "play_music")}); err != nil {
+	names, err := configureFlowcraftTools(cfg, []toolkit.Tool{testFlowcraftTool("system.music.play", "play_music")})
+	if err != nil {
 		t.Fatalf("configureFlowcraftTools() error = %v", err)
+	}
+	if strings.Join(names, ",") != "play_music" {
+		t.Fatalf("configured names = %v, want play_music", names)
 	}
 	agent, ok := cfg["agent"].(map[string]any)
 	if !ok {
@@ -1192,11 +1266,15 @@ func TestConfigureFlowcraftToolsFromToolKit(t *testing.T) {
 
 func TestConfigureFlowcraftToolsSkipsUnsupportedExecutors(t *testing.T) {
 	cfg := map[string]any{}
-	if err := configureFlowcraftTools(cfg, []toolkit.Tool{
+	names, err := configureFlowcraftTools(cfg, []toolkit.Tool{
 		testFlowcraftTool("system.music.play", "play_music"),
 		testFlowcraftDeviceTool("peer.peer-a.music.play", "peer_music"),
-	}); err != nil {
+	})
+	if err != nil {
 		t.Fatalf("configureFlowcraftTools() error = %v", err)
+	}
+	if strings.Join(names, ",") != "play_music" {
+		t.Fatalf("configured names = %v, want play_music", names)
 	}
 	agent, ok := cfg["agent"].(map[string]any)
 	if !ok {
@@ -1209,6 +1287,23 @@ func TestConfigureFlowcraftToolsSkipsUnsupportedExecutors(t *testing.T) {
 	tool, ok := tools[0].(map[string]any)
 	if !ok || tool["name"] != "play_music" {
 		t.Fatalf("tool config = %#v", tools[0])
+	}
+}
+
+func TestConfigureFlowcraftToolsSkipsExistingNames(t *testing.T) {
+	cfg := map[string]any{
+		"agent": map[string]any{
+			"tools": []any{
+				map[string]any{"name": "play_music"},
+			},
+		},
+	}
+	names, err := configureFlowcraftTools(cfg, []toolkit.Tool{testFlowcraftTool("system.music.play", "play_music")})
+	if err != nil {
+		t.Fatalf("configureFlowcraftTools() error = %v", err)
+	}
+	if len(names) != 0 {
+		t.Fatalf("configured names = %v, want none for existing workflow tool", names)
 	}
 }
 

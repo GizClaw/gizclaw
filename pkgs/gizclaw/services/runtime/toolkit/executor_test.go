@@ -20,6 +20,12 @@ func TestExecutorRegistryInvoke(t *testing.T) {
 	})); err != nil {
 		t.Fatalf("Register() error = %v", err)
 	}
+	if !registry.Has("music.play") {
+		t.Fatal("Has(music.play) = false, want true")
+	}
+	if registry.Has("missing") {
+		t.Fatal("Has(missing) = true, want false")
+	}
 
 	tool := testBuiltinTool("system.music.play")
 	result, err := registry.Invoke(context.Background(), Call{

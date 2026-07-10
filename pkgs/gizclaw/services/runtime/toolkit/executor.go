@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"sync"
 )
 
@@ -54,6 +55,20 @@ func (r *ExecutorRegistry) Register(name string, executor Executor) error {
 	}
 	r.executors[name] = executor
 	return nil
+}
+
+func (r *ExecutorRegistry) Has(name string) bool {
+	if r == nil {
+		return false
+	}
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return false
+	}
+	r.mu.RLock()
+	executor := r.executors[name]
+	r.mu.RUnlock()
+	return executor != nil
 }
 
 func (r *ExecutorRegistry) Invoke(ctx context.Context, call Call) (Result, error) {

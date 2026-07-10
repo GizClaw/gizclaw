@@ -23,20 +23,21 @@ func (b *Builder) Invoke(ctx context.Context, executors *ExecutorRegistry, req I
 	if err != nil {
 		return Result{}, err
 	}
-	tool, ok := kit.Find(name)
+	tool, ok := kit.FindByName(name)
 	if !ok {
-		tool, ok = kit.FindByName(name)
+		tool, ok = kit.Find(name)
 	}
 	if !ok {
 		return Result{}, fmt.Errorf("%w: %s", ErrToolNotFound, name)
 	}
-	if err := validateToolArgs(tool, req.Args); err != nil {
+	args := normalizeToolArgs(req.Args)
+	if err := validateToolArgs(tool, args); err != nil {
 		return Result{}, err
 	}
 	return executors.Invoke(ctx, Call{
 		ID:        req.CallID,
 		Tool:      tool,
-		Args:      cloneRaw(req.Args),
+		Args:      cloneRaw(args),
 		SubjectID: strings.TrimSpace(req.Build.Subject.Id),
 	})
 }
