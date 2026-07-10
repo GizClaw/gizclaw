@@ -624,6 +624,7 @@ type GetMeResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *PeerSelf
+	JSON401      *externalRef0.ErrorResponse
 	JSON404      *externalRef0.ErrorResponse
 	JSON500      *externalRef0.ErrorResponse
 }
@@ -648,6 +649,8 @@ type GetMeRuntimeResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *externalRef0.Runtime
+	JSON401      *externalRef0.ErrorResponse
+	JSON404      *externalRef0.ErrorResponse
 	JSON500      *externalRef0.ErrorResponse
 }
 
@@ -671,6 +674,8 @@ type GetMeStatusResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *externalRef0.PeerStatus
+	JSON401      *externalRef0.ErrorResponse
+	JSON404      *externalRef0.ErrorResponse
 	JSON500      *externalRef0.ErrorResponse
 }
 
@@ -695,6 +700,8 @@ type PutMeStatusResponse struct {
 	HTTPResponse *http.Response
 	JSON200      *externalRef0.PeerStatus
 	JSON400      *externalRef0.ErrorResponse
+	JSON401      *externalRef0.ErrorResponse
+	JSON404      *externalRef0.ErrorResponse
 	JSON500      *externalRef0.ErrorResponse
 }
 
@@ -891,6 +898,13 @@ func ParseGetMeResponse(rsp *http.Response) (*GetMeResponse, error) {
 		}
 		response.JSON200 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
 		var dest externalRef0.ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -931,6 +945,20 @@ func ParseGetMeRuntimeResponse(rsp *http.Response) (*GetMeRuntimeResponse, error
 		}
 		response.JSON200 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest externalRef0.ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -963,6 +991,20 @@ func ParseGetMeStatusResponse(rsp *http.Response) (*GetMeStatusResponse, error) 
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest externalRef0.ErrorResponse
@@ -1003,6 +1045,20 @@ func ParsePutMeStatusResponse(rsp *http.Response) (*PutMeStatusResponse, error) 
 			return nil, err
 		}
 		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest externalRef0.ErrorResponse
@@ -1399,6 +1455,15 @@ func (response GetMe200JSONResponse) VisitGetMeResponse(ctx *fiber.Ctx) error {
 	return ctx.JSON(&response)
 }
 
+type GetMe401JSONResponse externalRef0.ErrorResponse
+
+func (response GetMe401JSONResponse) VisitGetMeResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(401)
+
+	return ctx.JSON(&response)
+}
+
 type GetMe404JSONResponse externalRef0.ErrorResponse
 
 func (response GetMe404JSONResponse) VisitGetMeResponse(ctx *fiber.Ctx) error {
@@ -1433,6 +1498,24 @@ func (response GetMeRuntime200JSONResponse) VisitGetMeRuntimeResponse(ctx *fiber
 	return ctx.JSON(&response)
 }
 
+type GetMeRuntime401JSONResponse externalRef0.ErrorResponse
+
+func (response GetMeRuntime401JSONResponse) VisitGetMeRuntimeResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(401)
+
+	return ctx.JSON(&response)
+}
+
+type GetMeRuntime404JSONResponse externalRef0.ErrorResponse
+
+func (response GetMeRuntime404JSONResponse) VisitGetMeRuntimeResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
 type GetMeRuntime500JSONResponse externalRef0.ErrorResponse
 
 func (response GetMeRuntime500JSONResponse) VisitGetMeRuntimeResponse(ctx *fiber.Ctx) error {
@@ -1454,6 +1537,24 @@ type GetMeStatus200JSONResponse externalRef0.PeerStatus
 func (response GetMeStatus200JSONResponse) VisitGetMeStatusResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type GetMeStatus401JSONResponse externalRef0.ErrorResponse
+
+func (response GetMeStatus401JSONResponse) VisitGetMeStatusResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(401)
+
+	return ctx.JSON(&response)
+}
+
+type GetMeStatus404JSONResponse externalRef0.ErrorResponse
+
+func (response GetMeStatus404JSONResponse) VisitGetMeStatusResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
 
 	return ctx.JSON(&response)
 }
@@ -1489,6 +1590,24 @@ type PutMeStatus400JSONResponse externalRef0.ErrorResponse
 func (response PutMeStatus400JSONResponse) VisitPutMeStatusResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(400)
+
+	return ctx.JSON(&response)
+}
+
+type PutMeStatus401JSONResponse externalRef0.ErrorResponse
+
+func (response PutMeStatus401JSONResponse) VisitPutMeStatusResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(401)
+
+	return ctx.JSON(&response)
+}
+
+type PutMeStatus404JSONResponse externalRef0.ErrorResponse
+
+func (response PutMeStatus404JSONResponse) VisitPutMeStatusResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
 
 	return ctx.JSON(&response)
 }

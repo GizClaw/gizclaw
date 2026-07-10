@@ -228,6 +228,10 @@ export type GetMeData = {
 
 export type GetMeErrors = {
     /**
+     * Invalid or missing bearer session
+     */
+    401: ErrorResponse;
+    /**
      * Peer not found
      */
     404: ErrorResponse;
@@ -256,6 +260,14 @@ export type GetMeStatusData = {
 };
 
 export type GetMeStatusErrors = {
+    /**
+     * Invalid or missing bearer session
+     */
+    401: ErrorResponse;
+    /**
+     * Peer not found
+     */
+    404: ErrorResponse;
     /**
      * Internal error
      */
@@ -286,6 +298,14 @@ export type PutMeStatusErrors = {
      */
     400: ErrorResponse;
     /**
+     * Invalid or missing bearer session
+     */
+    401: ErrorResponse;
+    /**
+     * Peer not found
+     */
+    404: ErrorResponse;
+    /**
      * Internal error
      */
     500: ErrorResponse;
@@ -310,6 +330,14 @@ export type GetMeRuntimeData = {
 };
 
 export type GetMeRuntimeErrors = {
+    /**
+     * Invalid or missing bearer session
+     */
+    401: ErrorResponse;
+    /**
+     * Peer not found
+     */
+    404: ErrorResponse;
     /**
      * Internal error
      */

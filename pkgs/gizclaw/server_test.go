@@ -477,6 +477,40 @@ func TestServerServeHTTPLoginRegisterAndPeerAPI(t *testing.T) {
 	}
 	_ = unauthMe.Body.Close()
 
+	missingKey, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("GenerateKeyPair(missing) error = %v", err)
+	}
+	missingSession := publicHTTPTestLogin(t, ts.URL, serverKey.Public, missingKey)
+	for _, tc := range []struct {
+		method string
+		path   string
+		body   string
+	}{
+		{method: http.MethodGet, path: "/me/status"},
+		{method: http.MethodPut, path: "/me/status", body: `{"battery_percent":66}`},
+		{method: http.MethodGet, path: "/me/runtime"},
+	} {
+		req, err := http.NewRequestWithContext(context.Background(), tc.method, ts.URL+tc.path, strings.NewReader(tc.body))
+		if err != nil {
+			t.Fatalf("NewRequest missing peer %s %s error = %v", tc.method, tc.path, err)
+		}
+		req.Header.Set("Authorization", "Bearer "+missingSession.AccessToken)
+		if tc.body != "" {
+			req.Header.Set("Content-Type", "application/json")
+		}
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatalf("missing peer %s %s error = %v", tc.method, tc.path, err)
+		}
+		if resp.StatusCode != http.StatusNotFound {
+			body, _ := io.ReadAll(resp.Body)
+			_ = resp.Body.Close()
+			t.Fatalf("missing peer %s %s status = %d body=%s", tc.method, tc.path, resp.StatusCode, string(body))
+		}
+		_ = resp.Body.Close()
+	}
+
 	getMeReq, err := http.NewRequestWithContext(context.Background(), http.MethodGet, ts.URL+"/me", nil)
 	if err != nil {
 		t.Fatalf("NewRequest /me error = %v", err)
