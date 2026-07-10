@@ -27,10 +27,18 @@ Generated Go code lives outside this directory:
 - `pkgs/gizclaw/api/adminhttp/generated.go`
 - `pkgs/gizclaw/api/apitypes/generated.go`
 - `pkgs/gizclaw/api/openaihttp/generated.go`
+- `pkgs/gizclaw/api/rpcapi/generated.go`
+- `pkgs/gizclaw/api/rpcapi/payload_codec.go`
 - `pkgs/gizclaw/api/rpcproto/common.pb.go`
 - `pkgs/gizclaw/api/rpcproto/peer.pb.go`
 - `pkgs/gizclaw/api/rpcproto/payload.pb.go`
 - `pkgs/gizclaw/api/peerhttp/generated.go`
+
+`rpcproto` is generated directly from `api/rpc/*.proto`. The `rpcapi` package is
+the committed Go wrapper surface on top of those protobuf payload descriptors;
+when changing Peer RPC methods or payload messages, update `rpcapi/generated.go`
+and `rpcapi/payload_codec.go` in the same change and verify them with
+`go test ./pkgs/gizclaw/api/rpcapi`.
 
 Current generated TypeScript SDK code lives under `sdk/js/gizclaw/`:
 
@@ -54,6 +62,7 @@ go generate ./pkgs/gizclaw/api/apitypes
 go generate ./pkgs/gizclaw/api/openaihttp
 go generate ./pkgs/gizclaw/api/rpcproto
 go generate ./pkgs/gizclaw/api/peerhttp
+go test ./pkgs/gizclaw/api/rpcapi
 ```
 
 Regenerate TypeScript SDK packages with:

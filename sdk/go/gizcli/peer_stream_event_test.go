@@ -11,6 +11,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/stampedopus"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 )
 
@@ -40,6 +41,17 @@ func TestPeerStreamEventHelpers(t *testing.T) {
 	}
 	if got.V != 1 || got.Type != event.Type || got.Text == nil || *got.Text != text {
 		t.Fatalf("event = %+v", got)
+	}
+	buf.Reset()
+	if err := rpcapi.WriteFrame(&buf, rpcapi.Frame{Type: rpcapi.FrameTypeJSON, Payload: []byte(`{"v":1,"type":"text.delta","text":"hello"}`)}); err != nil {
+		t.Fatalf("WriteFrame(JSON) error = %v", err)
+	}
+	got, err = ReadPeerStreamEvent(&buf)
+	if err != nil {
+		t.Fatalf("ReadPeerStreamEvent(JSON) error = %v", err)
+	}
+	if got.V != 1 || got.Type != event.Type || got.Text == nil || *got.Text != text {
+		t.Fatalf("json event = %+v", got)
 	}
 	if _, err := ReadPeerStreamEvent(bytes.NewBufferString("bad")); err == nil {
 		t.Fatal("ReadPeerStreamEvent() succeeded for bad frame")

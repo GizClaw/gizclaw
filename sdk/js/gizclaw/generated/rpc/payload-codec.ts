@@ -209,8 +209,8 @@ export type DoubaoRealtimeAIGCMetadata = {
   "propagate_id"?: string;
 };
 export type DoubaoRealtimeASRContext = {
-  "correct_words": Record<string, string>;
-  "hotwords": DoubaoRealtimeASRHotword[];
+  "correct_words"?: Record<string, string>;
+  "hotwords"?: DoubaoRealtimeASRHotword[];
 };
 export type DoubaoRealtimeASRExtension = {
   "extra"?: DoubaoRealtimeASRExtra;
@@ -2314,11 +2314,13 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "mapValue": "string",
         "name": "correct_words",
         "number": 1,
+        "optional": true,
         "type": "map"
       },
       {
         "name": "hotwords",
         "number": 2,
+        "optionalRepeated": true,
         "repeated": true,
         "type": "DoubaoRealtimeASRHotword"
       }
@@ -7856,7 +7858,9 @@ function withMessageDefaults(desc: MessageDesc, values: Record<string, unknown>)
       continue;
     }
     if (field.mapValue != null) {
-      out[field.name] = {};
+      if (field.optional !== true) {
+        out[field.name] = {};
+      }
       continue;
     }
     if (!fieldHasPresence(field)) {

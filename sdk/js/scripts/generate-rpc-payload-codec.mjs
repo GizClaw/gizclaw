@@ -6,11 +6,16 @@ const payloadProtoURL = new URL("../../../api/rpc/payload.proto", import.meta.ur
 const outputURL = new URL("../gizclaw/generated/rpc/payload-codec.ts", import.meta.url);
 
 const OPTIONAL_REPEATED_FIELDS = new Set([
+  "DoubaoRealtimeASRContext.hotwords",
   "DoubaoRealtimeJSONSchema.anyOf",
   "DoubaoRealtimeJSONSchema.enum",
   "DoubaoRealtimeJSONSchema.required",
   "RefreshIdentifiers.imeis",
   "RefreshIdentifiers.labels",
+]);
+
+const OPTIONAL_MAP_FIELDS = new Set([
+  "DoubaoRealtimeASRContext.correct_words",
 ]);
 
 const methods = parseRPCMethods(readFileSync(peerProtoURL, "utf8"));
@@ -322,7 +327,9 @@ function withMessageDefaults(desc: MessageDesc, values: Record<string, unknown>)
       continue;
     }
     if (field.mapValue != null) {
-      out[field.name] = {};
+      if (field.optional !== true) {
+        out[field.name] = {};
+      }
       continue;
     }
     if (!fieldHasPresence(field)) {
@@ -952,7 +959,15 @@ function parsePayloadProto(proto) {
 function parseField(line, oneof, messageName) {
   const map = /^\s*map<\s*string\s*,\s*([\w.]+)\s*>\s+(\w+)\s*=\s*(\d+)\s*(?:\[([^\]]*)\])?\s*;/.exec(line);
   if (map != null) {
-    return { name: fieldJSONName(map[2], map[4]), number: Number(map[3]), type: "map", mapValue: map[1], ...(oneof ? { oneof: true } : {}) };
+    const name = fieldJSONName(map[2], map[4]);
+    return {
+      name,
+      number: Number(map[3]),
+      type: "map",
+      mapValue: map[1],
+      ...(OPTIONAL_MAP_FIELDS.has(`${messageName}.${name}`) ? { optional: true } : {}),
+      ...(oneof ? { oneof: true } : {}),
+    };
   }
   const match = /^\s*(optional\s+|repeated\s+)?([\w.]+)\s+(\w+)\s*=\s*(\d+)\s*(?:\[([^\]]*)\])?\s*;/.exec(line);
   if (match == null) {
