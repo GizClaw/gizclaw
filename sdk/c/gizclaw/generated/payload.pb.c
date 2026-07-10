@@ -963,6 +963,58 @@ PB_BIND(gizclaw_rpc_v1_WorkspacePutRequest, gizclaw_rpc_v1_WorkspacePutRequest, 
 PB_BIND(gizclaw_rpc_v1_WorkspacePutResponse, gizclaw_rpc_v1_WorkspacePutResponse, 2)
 
 
+PB_BIND(gizclaw_rpc_v1_ToolExecutor, gizclaw_rpc_v1_ToolExecutor, AUTO)
+
+
+PB_BIND(gizclaw_rpc_v1_ToolTriggerExample, gizclaw_rpc_v1_ToolTriggerExample, AUTO)
+
+
+PB_BIND(gizclaw_rpc_v1_ToolTrigger, gizclaw_rpc_v1_ToolTrigger, AUTO)
+
+
+PB_BIND(gizclaw_rpc_v1_Tool, gizclaw_rpc_v1_Tool, 2)
+
+
+PB_BIND(gizclaw_rpc_v1_ToolListRequest, gizclaw_rpc_v1_ToolListRequest, AUTO)
+
+
+PB_BIND(gizclaw_rpc_v1_ToolListResponse, gizclaw_rpc_v1_ToolListResponse, AUTO)
+
+
+PB_BIND(gizclaw_rpc_v1_ToolGetRequest, gizclaw_rpc_v1_ToolGetRequest, AUTO)
+
+
+PB_BIND(gizclaw_rpc_v1_ToolGetResponse, gizclaw_rpc_v1_ToolGetResponse, 2)
+
+
+PB_BIND(gizclaw_rpc_v1_ToolCreateRequest, gizclaw_rpc_v1_ToolCreateRequest, 2)
+
+
+PB_BIND(gizclaw_rpc_v1_ToolCreateResponse, gizclaw_rpc_v1_ToolCreateResponse, 2)
+
+
+PB_BIND(gizclaw_rpc_v1_ToolPutRequest, gizclaw_rpc_v1_ToolPutRequest, 2)
+
+
+PB_BIND(gizclaw_rpc_v1_ToolPutResponse, gizclaw_rpc_v1_ToolPutResponse, 2)
+
+
+PB_BIND(gizclaw_rpc_v1_ToolDeleteRequest, gizclaw_rpc_v1_ToolDeleteRequest, AUTO)
+
+
+PB_BIND(gizclaw_rpc_v1_ToolDeleteResponse, gizclaw_rpc_v1_ToolDeleteResponse, 2)
+
+
+PB_BIND(gizclaw_rpc_v1_ToolInvokeRequest, gizclaw_rpc_v1_ToolInvokeRequest, AUTO)
+
+
+PB_BIND(gizclaw_rpc_v1_ToolInvokeResponse, gizclaw_rpc_v1_ToolInvokeResponse, AUTO)
+
+
+
+
+
+
 
 
 

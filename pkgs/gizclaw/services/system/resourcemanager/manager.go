@@ -16,6 +16,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/device/firmware"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/gameplay"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/toolkit"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/contact"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/friend"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/friendgroup"
@@ -38,6 +39,7 @@ type Services struct {
 	Friends         *friend.Server
 	FriendGroups    *friendgroup.Server
 	GameplayCatalog gameplay.CatalogAdminService
+	Tools           *toolkit.Server
 }
 
 // Manager applies declarative admin resources by delegating to owner services.
@@ -154,6 +156,18 @@ func (m *Manager) Get(ctx context.Context, kind apitypes.ResourceKind, name stri
 			return apitypes.Resource{}, notFound(kind, name)
 		}
 		return resourceFromModel(item)
+	case apitypes.ResourceKindTool:
+		if m.services.Tools == nil {
+			return apitypes.Resource{}, missingService("tools")
+		}
+		item, exists, err := m.getTool(ctx, name)
+		if err != nil {
+			return apitypes.Resource{}, err
+		}
+		if !exists {
+			return apitypes.Resource{}, notFound(kind, name)
+		}
+		return resourceFromTool(item)
 	case apitypes.ResourceKindGameRuleset:
 		item, exists, err := m.getGameRuleset(ctx, string(pathParam(name)))
 		if err != nil {
@@ -528,6 +542,18 @@ func (m *Manager) Put(ctx context.Context, resource apitypes.Resource) (apitypes
 			return apitypes.Resource{}, err
 		}
 		return m.Get(ctx, apitypes.ResourceKindModel, item.Metadata.Name)
+	case string(apitypes.ResourceKindTool), "ToolResource":
+		if m.services.Tools == nil {
+			return apitypes.Resource{}, missingService("tools")
+		}
+		item, err := resource.AsToolResource()
+		if err != nil {
+			return apitypes.Resource{}, applyError(400, "INVALID_TOOL_RESOURCE", err.Error())
+		}
+		if err := validateResourceHeader(item.ApiVersion, item.Metadata.Name); err != nil {
+			return apitypes.Resource{}, err
+		}
+		return m.putToolResource(ctx, item)
 	case string(apitypes.ResourceKindGameRuleset), "GameRulesetResource":
 		item, err := resource.AsGameRulesetResource()
 		if err != nil {
@@ -816,6 +842,18 @@ func (m *Manager) Delete(ctx context.Context, kind apitypes.ResourceKind, name s
 			return apitypes.Resource{}, notFound(kind, name)
 		}
 		return resourceFromModel(item)
+	case apitypes.ResourceKindTool:
+		if m.services.Tools == nil {
+			return apitypes.Resource{}, missingService("tools")
+		}
+		item, exists, err := m.deleteTool(ctx, name)
+		if err != nil {
+			return apitypes.Resource{}, err
+		}
+		if !exists {
+			return apitypes.Resource{}, notFound(kind, name)
+		}
+		return resourceFromTool(item)
 	case apitypes.ResourceKindGameRuleset:
 		item, exists, err := m.deleteGameRuleset(ctx, string(pathParam(name)))
 		if err != nil {
@@ -1062,6 +1100,8 @@ func (m *Manager) Apply(ctx context.Context, resource apitypes.Resource) (apityp
 		return m.applyOpenAITenant(ctx, resource)
 	case string(apitypes.ResourceKindModel), "ModelResource":
 		return m.applyModel(ctx, resource)
+	case string(apitypes.ResourceKindTool), "ToolResource":
+		return m.applyTool(ctx, resource)
 	case string(apitypes.ResourceKindGameRuleset), "GameRulesetResource":
 		return m.applyGameRuleset(ctx, resource)
 	case string(apitypes.ResourceKindPetDef), "PetDefResource":

@@ -36,6 +36,7 @@
           "OpenAITenant",
           "VolcTenant",
           "Voice",
+          "Tool",
           "Workflow",
           "Workspace",
           "PeerConfig",
@@ -124,6 +125,9 @@
             "$ref": "./voice.json#/components/schemas/VoiceResource"
           },
           {
+            "$ref": "./tool.json#/components/schemas/ToolResource"
+          },
+          {
             "$ref": "./workflow.json#/components/schemas/WorkflowResource"
           },
           {
@@ -168,6 +172,7 @@
             "OpenAITenant": "./openai_tenant.json#/components/schemas/OpenAITenantResource",
             "VolcTenant": "./volc_tenant.json#/components/schemas/VolcTenantResource",
             "Voice": "./voice.json#/components/schemas/VoiceResource",
+            "Tool": "./tool.json#/components/schemas/ToolResource",
             "Workflow": "./workflow.json#/components/schemas/WorkflowResource",
             "Workspace": "./workspace.json#/components/schemas/WorkspaceResource",
             "PeerConfig": "./peer_config.json#/components/schemas/PeerConfigResource",

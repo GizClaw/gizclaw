@@ -2,6 +2,7 @@ package rpcapi
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"strconv"
@@ -879,6 +880,19 @@ func structFromGoValue(value reflect.Value) (*structpb.Struct, error) {
 		st := value.Interface().(structpb.Struct)
 		return &st, nil
 	}
+	if value.CanInterface() {
+		if _, ok := value.Interface().(json.Marshaler); ok {
+			data, err := json.Marshal(value.Interface())
+			if err != nil {
+				return nil, err
+			}
+			var out map[string]any
+			if err := json.Unmarshal(data, &out); err != nil {
+				return nil, err
+			}
+			return structpb.NewStruct(out)
+		}
+	}
 	if value.Kind() == reflect.Map {
 		out := make(map[string]any, value.Len())
 		iter := value.MapRange()
@@ -997,6 +1011,19 @@ func setGoStructValue(target reflect.Value, msg protoreflect.Message) error {
 	}
 	if target.Type() == reflect.TypeOf(structpb.Struct{}) {
 		target.Set(reflect.ValueOf(*st))
+		return nil
+	}
+	if target.CanAddr() && target.Addr().CanInterface() {
+		if _, ok := target.Addr().Interface().(json.Unmarshaler); !ok {
+			return fmt.Errorf("unsupported google.protobuf.Struct target %s", target.Type())
+		}
+		data, err := json.Marshal(st.AsMap())
+		if err != nil {
+			return err
+		}
+		if err := json.Unmarshal(data, target.Addr().Interface()); err != nil {
+			return err
+		}
 		return nil
 	}
 	return fmt.Errorf("unsupported google.protobuf.Struct target %s", target.Type())

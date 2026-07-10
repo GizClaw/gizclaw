@@ -287,3 +287,23 @@ func (c *rpcClient) GetFriendGroupMessage(ctx context.Context, conn net.Conn, id
 func (c *rpcClient) SendFriendGroupMessage(ctx context.Context, conn net.Conn, id string, request rpcapi.FriendGroupMessageSendRequest) (*rpcapi.FriendGroupMessageSendResponse, error) {
 	return callResourceRPC(ctx, conn, id, rpcapi.RPCMethodServerFriendGroupMessagesSend, request, (*rpcapi.RPCPayload).FromFriendGroupMessageSendRequest, rpcapi.RPCPayload.AsFriendGroupMessageSendResponse, "friend group message send")
 }
+
+func (c *rpcClient) ListTools(ctx context.Context, conn net.Conn, id string, request rpcapi.ToolListRequest) (*rpcapi.ToolListResponse, error) {
+	return callResourceRPC(ctx, conn, id, rpcapi.RPCMethodServerToolList, request, (*rpcapi.RPCPayload).FromToolListRequest, rpcapi.RPCPayload.AsToolListResponse, "tool list")
+}
+
+func (c *rpcClient) GetTool(ctx context.Context, conn net.Conn, id string, request rpcapi.ToolGetRequest) (*rpcapi.ToolGetResponse, error) {
+	return callResourceRPC(ctx, conn, id, rpcapi.RPCMethodServerToolGet, request, (*rpcapi.RPCPayload).FromToolGetRequest, rpcapi.RPCPayload.AsToolGetResponse, "tool get")
+}
+
+func (c *rpcClient) CreateTool(ctx context.Context, conn net.Conn, id string, request rpcapi.ToolCreateRequest) (*rpcapi.ToolCreateResponse, error) {
+	return callResourceRPC(ctx, conn, id, rpcapi.RPCMethodServerToolCreate, request, (*rpcapi.RPCPayload).FromToolCreateRequest, rpcapi.RPCPayload.AsToolCreateResponse, "tool create")
+}
+
+func (c *rpcClient) PutTool(ctx context.Context, conn net.Conn, id string, request rpcapi.ToolPutRequest) (*rpcapi.ToolPutResponse, error) {
+	return callResourceRPC(ctx, conn, id, rpcapi.RPCMethodServerToolPut, request, (*rpcapi.RPCPayload).FromToolPutRequest, rpcapi.RPCPayload.AsToolPutResponse, "tool put")
+}
+
+func (c *rpcClient) DeleteTool(ctx context.Context, conn net.Conn, id string, request rpcapi.ToolDeleteRequest) (*rpcapi.ToolDeleteResponse, error) {
+	return callResourceRPC(ctx, conn, id, rpcapi.RPCMethodServerToolDelete, request, (*rpcapi.RPCPayload).FromToolDeleteRequest, rpcapi.RPCPayload.AsToolDeleteResponse, "tool delete")
+}

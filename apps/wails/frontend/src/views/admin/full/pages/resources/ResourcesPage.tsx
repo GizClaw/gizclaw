@@ -47,6 +47,7 @@ const resourceKinds: ResourceKind[] = [
   "OpenAITenant",
   "VolcTenant",
   "Voice",
+  "Tool",
   "Workflow",
   "Workspace",
   "PeerConfig",
@@ -498,6 +499,13 @@ function resourceSpecTemplate(kind: ResourceKind): unknown {
       return { items: [] };
     case "PeerConfig":
       return {};
+    case "Tool":
+      return {
+        source: "admin",
+        enabled: true,
+        input_schema: { type: "object", properties: {} },
+        executor: { kind: "builtin", name: "tool.example" },
+      };
     case "GameRuleset":
       return {
         enabled: true,
@@ -533,6 +541,8 @@ function resourceSummary(kind: ResourceKind): string {
       return "Apply multiple resources in one request. The server rejects get/delete for ResourceList.";
     case "PeerConfig":
       return "Desired peer configuration keyed by peer public key.";
+    case "Tool":
+      return "Admin-managed executable capability with typed input schema and builtin or device RPC execution.";
     case "GameRuleset":
       return "Admin-managed gameplay ruleset for pet pools, point costs, drive rewards, and game rewards.";
     case "PetDef":

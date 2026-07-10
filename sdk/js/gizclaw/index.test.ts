@@ -33,7 +33,7 @@ import {
   waitForICEGatheringComplete,
 } from "./index.ts";
 import { createSseClient } from "./generated/adminhttp/core/serverSentEvents.gen.ts";
-import { decodeRPCRequestPayload, decodeRPCResponsePayload, encodeRPCRequestPayload } from "./generated/rpc/payload-codec.ts";
+import { decodeRPCRequestPayload, decodeRPCResponsePayload, encodeRPCRequestPayload, encodeRPCResponsePayload } from "./generated/rpc/payload-codec.ts";
 import { createPeerRPCClient } from "./rpc.ts";
 import { base58Decode, base58Encode, base64Decode, prepareEncryptedGiznetWebRTCOffer } from "./signaling.ts";
 
@@ -255,6 +255,13 @@ test("RPC payload codec decodes omitted proto3 defaults", () => {
     has_next: false,
     items: [],
   });
+});
+
+test("RPC payload codec preserves Tool invocation JSON strings", () => {
+  const value = { data_json: `{"ok":true}` };
+  const payload = encodeRPCResponsePayload("client.tool.invoke", value);
+
+  assert.deepEqual(decodeRPCResponsePayload("client.tool.invoke", payload), value);
 });
 
 test("RPC payload codec preserves optional JSON schema field absence", () => {

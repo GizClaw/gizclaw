@@ -1,0 +1,61 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Tool Spec Type",
+    "version": "1.0.0"
+  },
+  "paths": {},
+  "components": {
+    "schemas": {
+      "ToolSpec": {
+        "type": "object",
+        "required": [
+          "source",
+          "input_schema",
+          "executor"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "source": {
+            "$ref": "./tool_source.json#/components/schemas/ToolSource"
+          },
+          "enabled": {
+            "type": "boolean",
+            "default": true
+          },
+          "owner_peer": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          },
+          "input_schema": {
+            "$ref": "./tool_json_schema.json#/components/schemas/ToolJSONSchema"
+          },
+          "output_schema": {
+            "$ref": "./tool_json_schema.json#/components/schemas/ToolJSONSchema"
+          },
+          "triggers": {
+            "type": "array",
+            "items": {
+              "$ref": "./tool_trigger.json#/components/schemas/ToolTrigger"
+            }
+          },
+          "executor": {
+            "$ref": "./tool_executor.json#/components/schemas/ToolExecutor"
+          },
+          "metadata": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      }
+    }
+  }
+}

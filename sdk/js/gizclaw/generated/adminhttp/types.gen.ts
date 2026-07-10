@@ -597,6 +597,8 @@ export type Resource = ({
 } & VolcTenantResource) | ({
     kind: 'VoiceResource';
 } & VoiceResource) | ({
+    kind: 'ToolResource';
+} & ToolResource) | ({
     kind: 'WorkflowResource';
 } & WorkflowResource) | ({
     kind: 'WorkspaceResource';
@@ -622,7 +624,7 @@ export type ResourceApiVersion = 'gizclaw.admin/v1alpha1';
 /**
  * Declarative GizClaw resource kind.
  */
-export type ResourceKind = 'Credential' | 'ACLPolicyBinding' | 'ACLRole' | 'ACLView' | 'Firmware' | 'Contact' | 'Friend' | 'FriendGroup' | 'FriendGroupInviteToken' | 'FriendGroupMember' | 'Model' | 'DashScopeTenant' | 'GeminiTenant' | 'MiniMaxTenant' | 'OpenAITenant' | 'VolcTenant' | 'Voice' | 'Workflow' | 'Workspace' | 'PeerConfig' | 'GameRuleset' | 'PetDef' | 'BadgeDef' | 'GameDef' | 'ResourceList';
+export type ResourceKind = 'Credential' | 'ACLPolicyBinding' | 'ACLRole' | 'ACLView' | 'Firmware' | 'Contact' | 'Friend' | 'FriendGroup' | 'FriendGroupInviteToken' | 'FriendGroupMember' | 'Model' | 'DashScopeTenant' | 'GeminiTenant' | 'MiniMaxTenant' | 'OpenAITenant' | 'VolcTenant' | 'Voice' | 'Tool' | 'Workflow' | 'Workspace' | 'PeerConfig' | 'GameRuleset' | 'PetDef' | 'BadgeDef' | 'GameDef' | 'ResourceList';
 
 export type ResourceMetadata = {
     /**
@@ -642,6 +644,16 @@ export type ResourceListResource = {
     kind: 'ResourceList';
     metadata: ResourceMetadata;
     spec: ResourceListSpec;
+};
+
+export type ToolResource = {
+    apiVersion: ResourceApiVersion;
+    kind: 'Tool';
+    /**
+     * metadata.name is the stable Tool ID and must not contain a colon.
+     */
+    metadata: ResourceMetadata;
+    spec: ToolSpec;
 };
 
 export type VoiceResource = {
@@ -718,7 +730,7 @@ export type AclResource = {
 /**
  * ACL resource identity kind.
  */
-export type AclResourceKind = 'workspace' | 'workflow' | 'voice' | 'credential' | 'model' | 'view' | 'firmware' | 'gameruleset';
+export type AclResourceKind = 'workspace' | 'workflow' | 'voice' | 'credential' | 'model' | 'view' | 'firmware' | 'gameruleset' | 'tool';
 
 export type AclRole = {
     name: string;
@@ -1619,6 +1631,90 @@ export type ServerLogStreamEnd = {
      * Opaque cursor for the next page.
      */
     next_cursor?: string;
+};
+
+export type ToolExecutor = {
+    kind: ToolExecutorKind;
+    name?: string;
+    method?: string;
+    peer_id?: string;
+    config?: {
+        [key: string]: unknown;
+    };
+};
+
+export type ToolExecutorKind = 'builtin' | 'device_rpc';
+
+/**
+ * JSON Schema draft-07 or 2020-12 object. Provider adapters decide which keywords they can preserve.
+ */
+export type ToolJsonSchema = {
+    $id?: string;
+    $schema?: string;
+    $comment?: string;
+    title?: string;
+    description?: string;
+    type?: 'null' | 'boolean' | 'object' | 'array' | 'number' | 'string' | 'integer' | Array<'null' | 'boolean' | 'object' | 'array' | 'number' | 'string' | 'integer'>;
+    properties?: {
+        [key: string]: ToolJsonSchema;
+    };
+    required?: Array<string>;
+    items?: ToolJsonSchema;
+    enum?: Array<unknown>;
+    const?: unknown;
+    default?: unknown;
+    examples?: Array<unknown>;
+    format?: string;
+    pattern?: string;
+    minimum?: number;
+    maximum?: number;
+    minLength?: number;
+    maxLength?: number;
+    minItems?: number;
+    maxItems?: number;
+    minProperties?: number;
+    maxProperties?: number;
+    allOf?: Array<ToolJsonSchema>;
+    anyOf?: Array<ToolJsonSchema>;
+    oneOf?: Array<ToolJsonSchema>;
+    not?: ToolJsonSchema;
+    [key: string]: unknown;
+};
+
+export type ToolSource = 'builtin' | 'device' | 'admin';
+
+export type ToolSpec = {
+    name?: string;
+    description?: string;
+    source: ToolSource;
+    enabled?: boolean;
+    owner_peer?: string;
+    version?: string;
+    input_schema: ToolJsonSchema;
+    output_schema?: ToolJsonSchema;
+    triggers?: Array<ToolTrigger>;
+    executor: ToolExecutor;
+    metadata?: {
+        [key: string]: unknown;
+    };
+};
+
+export type ToolTrigger = {
+    name: string;
+    description?: string;
+    patterns?: Array<string>;
+    examples?: Array<ToolTriggerExample>;
+    metadata?: {
+        [key: string]: unknown;
+    };
+};
+
+export type ToolTriggerExample = {
+    input: string;
+    args?: {
+        [key: string]: unknown;
+    };
+    output?: string;
 };
 
 export type Voice = {

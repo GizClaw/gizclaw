@@ -62,6 +62,7 @@ func TestNormalizeListParams(t *testing.T) {
 func TestPlannedResourceKindsAndPermissionsAreValid(t *testing.T) {
 	for _, kind := range []apitypes.ACLResourceKind{
 		ResourceKindGameRuleset,
+		ResourceKindTool,
 	} {
 		if !kind.Valid() {
 			t.Fatalf("resource kind %q is not valid", kind)

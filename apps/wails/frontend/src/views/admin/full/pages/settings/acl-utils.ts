@@ -21,6 +21,7 @@ export const resourceKinds: AclResourceKind[] = [
   "view",
   "firmware",
   "gameruleset",
+  "tool",
 ];
 
 export const commonPermissions: AclPermission[] = [

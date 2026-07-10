@@ -8,6 +8,7 @@ import (
 	"errors"
 	"time"
 
+	jsonschema "github.com/google/jsonschema-go/jsonschema"
 	"github.com/oapi-codegen/runtime"
 )
 
@@ -56,6 +57,7 @@ const (
 	ACLResourceKindFirmware    ACLResourceKind = "firmware"
 	ACLResourceKindGameruleset ACLResourceKind = "gameruleset"
 	ACLResourceKindModel       ACLResourceKind = "model"
+	ACLResourceKindTool        ACLResourceKind = "tool"
 	ACLResourceKindView        ACLResourceKind = "view"
 	ACLResourceKindVoice       ACLResourceKind = "voice"
 	ACLResourceKindWorkflow    ACLResourceKind = "workflow"
@@ -72,6 +74,8 @@ func (e ACLResourceKind) Valid() bool {
 	case ACLResourceKindGameruleset:
 		return true
 	case ACLResourceKindModel:
+		return true
+	case ACLResourceKindTool:
 		return true
 	case ACLResourceKindView:
 		return true
@@ -1093,6 +1097,7 @@ const (
 	ResourceKindPeerConfig             ResourceKind = "PeerConfig"
 	ResourceKindPetDef                 ResourceKind = "PetDef"
 	ResourceKindResourceList           ResourceKind = "ResourceList"
+	ResourceKindTool                   ResourceKind = "Tool"
 	ResourceKindVoice                  ResourceKind = "Voice"
 	ResourceKindVolcTenant             ResourceKind = "VolcTenant"
 	ResourceKindWorkflow               ResourceKind = "Workflow"
@@ -1144,6 +1149,8 @@ func (e ResourceKind) Valid() bool {
 		return true
 	case ResourceKindResourceList:
 		return true
+	case ResourceKindTool:
+		return true
 	case ResourceKindVoice:
 		return true
 	case ResourceKindVolcTenant:
@@ -1166,6 +1173,60 @@ const (
 func (e ResourceListResourceKind) Valid() bool {
 	switch e {
 	case ResourceListResourceKindResourceList:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ToolExecutorKind.
+const (
+	ToolExecutorKindBuiltin   ToolExecutorKind = "builtin"
+	ToolExecutorKindDeviceRpc ToolExecutorKind = "device_rpc"
+)
+
+// Valid indicates whether the value is a known member of the ToolExecutorKind enum.
+func (e ToolExecutorKind) Valid() bool {
+	switch e {
+	case ToolExecutorKindBuiltin:
+		return true
+	case ToolExecutorKindDeviceRpc:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ToolResourceKind.
+const (
+	ToolResourceKindTool ToolResourceKind = "Tool"
+)
+
+// Valid indicates whether the value is a known member of the ToolResourceKind enum.
+func (e ToolResourceKind) Valid() bool {
+	switch e {
+	case ToolResourceKindTool:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ToolSource.
+const (
+	ToolSourceAdmin   ToolSource = "admin"
+	ToolSourceBuiltin ToolSource = "builtin"
+	ToolSourceDevice  ToolSource = "device"
+)
+
+// Valid indicates whether the value is a known member of the ToolSource enum.
+func (e ToolSource) Valid() bool {
+	switch e {
+	case ToolSourceAdmin:
+		return true
+	case ToolSourceBuiltin:
+		return true
+	case ToolSourceDevice:
 		return true
 	default:
 		return false
@@ -3208,6 +3269,95 @@ type ServerLogStreamEnd struct {
 // StatMap defines model for StatMap.
 type StatMap map[string]int64
 
+// Tool defines model for Tool.
+type Tool struct {
+	CreatedAt   time.Time    `json:"created_at"`
+	Description *string      `json:"description,omitempty"`
+	Enabled     bool         `json:"enabled"`
+	Executor    ToolExecutor `json:"executor"`
+	Id          string       `json:"id"`
+
+	// InputSchema JSON Schema draft-07 or 2020-12 object. Provider adapters decide which keywords they can preserve.
+	InputSchema ToolJSONSchema          `json:"input_schema"`
+	Metadata    *map[string]interface{} `json:"metadata,omitempty"`
+	Name        *string                 `json:"name,omitempty"`
+
+	// OutputSchema JSON Schema draft-07 or 2020-12 object. Provider adapters decide which keywords they can preserve.
+	OutputSchema *ToolJSONSchema `json:"output_schema,omitempty"`
+	OwnerPeer    *string         `json:"owner_peer,omitempty"`
+	Source       ToolSource      `json:"source"`
+	Triggers     *[]ToolTrigger  `json:"triggers,omitempty"`
+	UpdatedAt    time.Time       `json:"updated_at"`
+	Version      *string         `json:"version,omitempty"`
+}
+
+// ToolExecutor defines model for ToolExecutor.
+type ToolExecutor struct {
+	Config *map[string]interface{} `json:"config,omitempty"`
+	Kind   ToolExecutorKind        `json:"kind"`
+	Method *string                 `json:"method,omitempty"`
+	Name   *string                 `json:"name,omitempty"`
+	PeerId *string                 `json:"peer_id,omitempty"`
+}
+
+// ToolExecutorKind defines model for ToolExecutorKind.
+type ToolExecutorKind string
+
+// ToolJSONSchema JSON Schema draft-07 or 2020-12 object. Provider adapters decide which keywords they can preserve.
+type ToolJSONSchema = jsonschema.Schema
+
+// ToolResource defines model for ToolResource.
+type ToolResource struct {
+	// ApiVersion API version for declarative GizClaw resources.
+	ApiVersion ResourceAPIVersion `json:"apiVersion"`
+	Kind       ToolResourceKind   `json:"kind"`
+
+	// Metadata metadata.name is the stable Tool ID and must not contain a colon.
+	Metadata ResourceMetadata `json:"metadata"`
+	Spec     ToolSpec         `json:"spec"`
+}
+
+// ToolResourceKind defines model for ToolResource.Kind.
+type ToolResourceKind string
+
+// ToolSource defines model for ToolSource.
+type ToolSource string
+
+// ToolSpec defines model for ToolSpec.
+type ToolSpec struct {
+	Description *string      `json:"description,omitempty"`
+	Enabled     *bool        `json:"enabled,omitempty"`
+	Executor    ToolExecutor `json:"executor"`
+
+	// InputSchema JSON Schema draft-07 or 2020-12 object. Provider adapters decide which keywords they can preserve.
+	InputSchema ToolJSONSchema          `json:"input_schema"`
+	Metadata    *map[string]interface{} `json:"metadata,omitempty"`
+	Name        *string                 `json:"name,omitempty"`
+
+	// OutputSchema JSON Schema draft-07 or 2020-12 object. Provider adapters decide which keywords they can preserve.
+	OutputSchema *ToolJSONSchema `json:"output_schema,omitempty"`
+	OwnerPeer    *string         `json:"owner_peer,omitempty"`
+	Source       ToolSource      `json:"source"`
+	Triggers     *[]ToolTrigger  `json:"triggers,omitempty"`
+	Version      *string         `json:"version,omitempty"`
+}
+
+// ToolTrigger defines model for ToolTrigger.
+type ToolTrigger struct {
+	Description *string                 `json:"description,omitempty"`
+	Examples    *[]ToolTriggerExample   `json:"examples,omitempty"`
+	Metadata    *map[string]interface{} `json:"metadata,omitempty"`
+	Name        string                  `json:"name"`
+	Patterns    *[]string               `json:"patterns,omitempty"`
+}
+
+// ToolTriggerExample defines model for ToolTriggerExample.
+type ToolTriggerExample struct {
+	Args   *map[string]interface{} `json:"args,omitempty"`
+	Input  string                  `json:"input"`
+	Output *string                 `json:"output,omitempty"`
+}
+
 // Voice defines model for Voice.
 type Voice struct {
 	CreatedAt   time.Time     `json:"created_at"`
@@ -4216,6 +4366,34 @@ func (t *Resource) MergeVoiceResource(v VoiceResource) error {
 	return err
 }
 
+// AsToolResource returns the union data inside the Resource as a ToolResource
+func (t Resource) AsToolResource() (ToolResource, error) {
+	var body ToolResource
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromToolResource overwrites any union data inside the Resource as the provided ToolResource
+func (t *Resource) FromToolResource(v ToolResource) error {
+	v.Kind = "ToolResource"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeToolResource performs a merge with any union data inside the Resource, using the provided ToolResource
+func (t *Resource) MergeToolResource(v ToolResource) error {
+	v.Kind = "ToolResource"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
 // AsWorkflowResource returns the union data inside the Resource as a WorkflowResource
 func (t Resource) AsWorkflowResource() (WorkflowResource, error) {
 	var body WorkflowResource
@@ -4496,6 +4674,8 @@ func (t Resource) ValueByDiscriminator() (interface{}, error) {
 		return t.AsPetDefResource()
 	case "ResourceListResource":
 		return t.AsResourceListResource()
+	case "ToolResource":
+		return t.AsToolResource()
 	case "VoiceResource":
 		return t.AsVoiceResource()
 	case "VolcTenantResource":

@@ -1080,6 +1080,74 @@ export type SpeedTestResponse = {
   "up_content_length": number;
 };
 export type StatMap = Record<string, number>;
+export type Tool = {
+  "id": string;
+  "name"?: string;
+  "description"?: string;
+  "source": string | number;
+  "enabled"?: boolean;
+  "owner_peer"?: string;
+  "version"?: string;
+  "input_schema": Record<string, unknown>;
+  "output_schema"?: Record<string, unknown>;
+  "triggers": ToolTrigger[];
+  "executor": ToolExecutor;
+  "metadata"?: Record<string, unknown>;
+  "created_at": string;
+  "updated_at": string;
+};
+export type ToolCreateRequest = Tool;
+export type ToolCreateResponse = Tool;
+export type ToolDeleteRequest = {
+  "id": string;
+};
+export type ToolDeleteResponse = Tool;
+export type ToolExecutor = {
+  "kind": string | number;
+  "name"?: string;
+  "method"?: string;
+  "peer_id"?: string;
+  "config"?: Record<string, unknown>;
+};
+export type ToolGetRequest = {
+  "id": string;
+};
+export type ToolGetResponse = Tool;
+export type ToolInvokeRequest = {
+  "call_id": string;
+  "tool_id": string;
+  "method": string;
+  "args": Record<string, unknown>;
+};
+export type ToolInvokeResponse = {
+  "data_json": string;
+};
+export type ToolListRequest = {
+  "cursor"?: string;
+  "limit"?: number;
+};
+export type ToolListResponse = {
+  "items": Tool[];
+  "has_next": boolean;
+  "next_cursor"?: string;
+};
+export type ToolPutRequest = {
+  "id": string;
+  "body": Tool;
+};
+export type ToolPutResponse = Tool;
+export type ToolTrigger = {
+  "name": string;
+  "description"?: string;
+  "patterns": string[];
+  "examples": ToolTriggerExample[];
+  "metadata"?: Record<string, unknown>;
+};
+export type ToolTriggerExample = {
+  "input": string;
+  "args"?: Record<string, unknown>;
+  "output"?: string;
+};
 export type Voice = {
   "created_at": string;
   "description"?: string;
@@ -1238,6 +1306,7 @@ const REQUEST_PAYLOAD_MESSAGES: Record<string, string> = {
   "all.speed_test.run": "SpeedTestRequest",
   "client.identifiers.get": "ClientGetIdentifiersRequest",
   "client.info.get": "ClientGetInfoRequest",
+  "client.tool.invoke": "ToolInvokeRequest",
   "server.badge_def.pixa.download": "BadgeDefPixaDownloadRequest",
   "server.badge.get": "ServerBadgeGetRequest",
   "server.badge.list": "ServerBadgeListRequest",
@@ -1313,6 +1382,11 @@ const REQUEST_PAYLOAD_MESSAGES: Record<string, string> = {
   "server.run.workspace.set": "ServerSetRunWorkspaceRequest",
   "server.runtime.get": "ServerGetRuntimeRequest",
   "server.status.get": "ServerGetStatusRequest",
+  "server.tool.create": "ToolCreateRequest",
+  "server.tool.delete": "ToolDeleteRequest",
+  "server.tool.get": "ToolGetRequest",
+  "server.tool.list": "ToolListRequest",
+  "server.tool.put": "ToolPutRequest",
   "server.voice.get": "VoiceGetRequest",
   "server.voice.list": "VoiceListRequest",
   "server.workflow.create": "WorkflowCreateRequest",
@@ -1334,6 +1408,7 @@ const RESPONSE_PAYLOAD_MESSAGES: Record<string, string> = {
   "all.speed_test.run": "SpeedTestResponse",
   "client.identifiers.get": "ClientGetIdentifiersResponse",
   "client.info.get": "ClientGetInfoResponse",
+  "client.tool.invoke": "ToolInvokeResponse",
   "server.badge_def.pixa.download": "BadgeDefPixaDownloadResponse",
   "server.badge.get": "ServerBadgeGetResponse",
   "server.badge.list": "ServerBadgeListResponse",
@@ -1409,6 +1484,11 @@ const RESPONSE_PAYLOAD_MESSAGES: Record<string, string> = {
   "server.run.workspace.set": "ServerSetRunWorkspaceResponse",
   "server.runtime.get": "ServerGetRuntimeResponse",
   "server.status.get": "ServerGetStatusResponse",
+  "server.tool.create": "ToolCreateResponse",
+  "server.tool.delete": "ToolDeleteResponse",
+  "server.tool.get": "ToolGetResponse",
+  "server.tool.list": "ToolListResponse",
+  "server.tool.put": "ToolPutResponse",
   "server.voice.get": "VoiceGetResponse",
   "server.voice.list": "VoiceListResponse",
   "server.workflow.create": "WorkflowCreateResponse",
@@ -6463,6 +6543,322 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       }
     ]
   },
+  "Tool": {
+    "fields": [
+      {
+        "name": "id",
+        "number": 1,
+        "type": "string"
+      },
+      {
+        "name": "name",
+        "number": 2,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "description",
+        "number": 3,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "source",
+        "number": 4,
+        "type": "ToolSource"
+      },
+      {
+        "name": "enabled",
+        "number": 5,
+        "optional": true,
+        "type": "bool"
+      },
+      {
+        "name": "owner_peer",
+        "number": 6,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "version",
+        "number": 7,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "input_schema",
+        "number": 8,
+        "type": "google.protobuf.Struct"
+      },
+      {
+        "name": "output_schema",
+        "number": 9,
+        "optional": true,
+        "type": "google.protobuf.Struct"
+      },
+      {
+        "name": "triggers",
+        "number": 10,
+        "repeated": true,
+        "type": "ToolTrigger"
+      },
+      {
+        "name": "executor",
+        "number": 11,
+        "type": "ToolExecutor"
+      },
+      {
+        "name": "metadata",
+        "number": 12,
+        "optional": true,
+        "type": "google.protobuf.Struct"
+      },
+      {
+        "name": "created_at",
+        "number": 13,
+        "type": "string"
+      },
+      {
+        "name": "updated_at",
+        "number": 14,
+        "type": "string"
+      }
+    ]
+  },
+  "ToolCreateRequest": {
+    "fields": [
+      {
+        "name": "value",
+        "number": 1,
+        "type": "Tool"
+      }
+    ]
+  },
+  "ToolCreateResponse": {
+    "fields": [
+      {
+        "name": "value",
+        "number": 1,
+        "type": "Tool"
+      }
+    ]
+  },
+  "ToolDeleteRequest": {
+    "fields": [
+      {
+        "name": "id",
+        "number": 1,
+        "type": "string"
+      }
+    ]
+  },
+  "ToolDeleteResponse": {
+    "fields": [
+      {
+        "name": "value",
+        "number": 1,
+        "type": "Tool"
+      }
+    ]
+  },
+  "ToolExecutor": {
+    "fields": [
+      {
+        "name": "kind",
+        "number": 1,
+        "type": "ToolExecutorKind"
+      },
+      {
+        "name": "name",
+        "number": 2,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "method",
+        "number": 3,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "peer_id",
+        "number": 4,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "config",
+        "number": 5,
+        "optional": true,
+        "type": "google.protobuf.Struct"
+      }
+    ]
+  },
+  "ToolGetRequest": {
+    "fields": [
+      {
+        "name": "id",
+        "number": 1,
+        "type": "string"
+      }
+    ]
+  },
+  "ToolGetResponse": {
+    "fields": [
+      {
+        "name": "value",
+        "number": 1,
+        "type": "Tool"
+      }
+    ]
+  },
+  "ToolInvokeRequest": {
+    "fields": [
+      {
+        "name": "call_id",
+        "number": 1,
+        "type": "string"
+      },
+      {
+        "name": "tool_id",
+        "number": 2,
+        "type": "string"
+      },
+      {
+        "name": "method",
+        "number": 3,
+        "type": "string"
+      },
+      {
+        "name": "args",
+        "number": 4,
+        "type": "google.protobuf.Struct"
+      }
+    ]
+  },
+  "ToolInvokeResponse": {
+    "fields": [
+      {
+        "name": "data_json",
+        "number": 1,
+        "type": "string"
+      }
+    ]
+  },
+  "ToolListRequest": {
+    "fields": [
+      {
+        "name": "cursor",
+        "number": 1,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "limit",
+        "number": 2,
+        "optional": true,
+        "type": "int64"
+      }
+    ]
+  },
+  "ToolListResponse": {
+    "fields": [
+      {
+        "name": "items",
+        "number": 1,
+        "repeated": true,
+        "type": "Tool"
+      },
+      {
+        "name": "has_next",
+        "number": 2,
+        "type": "bool"
+      },
+      {
+        "name": "next_cursor",
+        "number": 3,
+        "optional": true,
+        "type": "string"
+      }
+    ]
+  },
+  "ToolPutRequest": {
+    "fields": [
+      {
+        "name": "id",
+        "number": 1,
+        "type": "string"
+      },
+      {
+        "name": "body",
+        "number": 2,
+        "type": "Tool"
+      }
+    ]
+  },
+  "ToolPutResponse": {
+    "fields": [
+      {
+        "name": "value",
+        "number": 1,
+        "type": "Tool"
+      }
+    ]
+  },
+  "ToolTrigger": {
+    "fields": [
+      {
+        "name": "name",
+        "number": 1,
+        "type": "string"
+      },
+      {
+        "name": "description",
+        "number": 2,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "patterns",
+        "number": 3,
+        "repeated": true,
+        "type": "string"
+      },
+      {
+        "name": "examples",
+        "number": 4,
+        "repeated": true,
+        "type": "ToolTriggerExample"
+      },
+      {
+        "name": "metadata",
+        "number": 5,
+        "optional": true,
+        "type": "google.protobuf.Struct"
+      }
+    ]
+  },
+  "ToolTriggerExample": {
+    "fields": [
+      {
+        "name": "input",
+        "number": 1,
+        "type": "string"
+      },
+      {
+        "name": "args",
+        "number": 2,
+        "optional": true,
+        "type": "google.protobuf.Struct"
+      },
+      {
+        "name": "output",
+        "number": 3,
+        "optional": true,
+        "type": "string"
+      }
+    ]
+  },
   "Voice": {
     "fields": [
       {
@@ -7502,6 +7898,32 @@ const ENUM_DESCS: Record<string, EnumDesc> = {
       "3": "running",
       "4": "stopping",
       "5": "error"
+    }
+  },
+  "ToolExecutorKind": {
+    "byName": {
+      "builtin": 1,
+      "device_rpc": 2,
+      "unspecified": 0
+    },
+    "byNumber": {
+      "0": "",
+      "1": "builtin",
+      "2": "device_rpc"
+    }
+  },
+  "ToolSource": {
+    "byName": {
+      "admin": 3,
+      "builtin": 1,
+      "device": 2,
+      "unspecified": 0
+    },
+    "byNumber": {
+      "0": "",
+      "1": "builtin",
+      "2": "device",
+      "3": "admin"
     }
   },
   "VoiceProviderKind": {

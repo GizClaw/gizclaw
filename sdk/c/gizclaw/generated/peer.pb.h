@@ -105,7 +105,13 @@ typedef enum _gizclaw_rpc_v1_RpcMethod {
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_GAME_RESULT_LIST = 91,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_GAME_RESULT_GET = 92,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_REWARD_GRANT_LIST = 93,
-    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_REWARD_GRANT_GET = 94
+    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_REWARD_GRANT_GET = 94,
+    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_TOOL_LIST = 95,
+    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_TOOL_GET = 96,
+    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_TOOL_CREATE = 97,
+    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_TOOL_PUT = 98,
+    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_TOOL_DELETE = 99,
+    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_TOOL_INVOKE = 100
 } gizclaw_rpc_v1_RpcMethod;
 
 /* Struct definitions */
@@ -131,8 +137,8 @@ extern "C" {
 
 /* Helper constants for enums */
 #define _gizclaw_rpc_v1_RpcMethod_MIN gizclaw_rpc_v1_RpcMethod_RPC_METHOD_UNSPECIFIED
-#define _gizclaw_rpc_v1_RpcMethod_MAX gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_REWARD_GRANT_GET
-#define _gizclaw_rpc_v1_RpcMethod_ARRAYSIZE ((gizclaw_rpc_v1_RpcMethod)(gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_REWARD_GRANT_GET+1))
+#define _gizclaw_rpc_v1_RpcMethod_MAX gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_TOOL_INVOKE
+#define _gizclaw_rpc_v1_RpcMethod_ARRAYSIZE ((gizclaw_rpc_v1_RpcMethod)(gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_TOOL_INVOKE+1))
 
 
 #define gizclaw_rpc_v1_RpcRequest_method_ENUMTYPE gizclaw_rpc_v1_RpcMethod

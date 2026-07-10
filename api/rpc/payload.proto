@@ -192,6 +192,19 @@ enum WorkspaceInputMode {
   WORKSPACE_INPUT_MODE_REALTIME = 2;
 }
 
+enum ToolSource {
+  TOOL_SOURCE_UNSPECIFIED = 0;
+  TOOL_SOURCE_BUILTIN = 1;
+  TOOL_SOURCE_DEVICE = 2;
+  TOOL_SOURCE_ADMIN = 3;
+}
+
+enum ToolExecutorKind {
+  TOOL_EXECUTOR_KIND_UNSPECIFIED = 0;
+  TOOL_EXECUTOR_KIND_BUILTIN = 1;
+  TOOL_EXECUTOR_KIND_DEVICE_RPC = 2;
+}
+
 message ASTTranslateExternalVoiceParameters {
   string tts_voice = 1;
 }
@@ -1952,4 +1965,98 @@ message WorkspacePutRequest {
 
 message WorkspacePutResponse {
   Workspace value = 1;
+}
+
+message ToolExecutor {
+  ToolExecutorKind kind = 1;
+  optional string name = 2;
+  optional string method = 3;
+  optional string peer_id = 4;
+  optional google.protobuf.Struct config = 5;
+}
+
+message ToolTriggerExample {
+  string input = 1;
+  optional google.protobuf.Struct args = 2;
+  optional string output = 3;
+}
+
+message ToolTrigger {
+  string name = 1;
+  optional string description = 2;
+  repeated string patterns = 3;
+  repeated ToolTriggerExample examples = 4;
+  optional google.protobuf.Struct metadata = 5;
+}
+
+message Tool {
+  string id = 1;
+  optional string name = 2;
+  optional string description = 3;
+  ToolSource source = 4;
+  optional bool enabled = 5;
+  optional string owner_peer = 6;
+  optional string version = 7;
+  google.protobuf.Struct input_schema = 8;
+  optional google.protobuf.Struct output_schema = 9;
+  repeated ToolTrigger triggers = 10;
+  ToolExecutor executor = 11;
+  optional google.protobuf.Struct metadata = 12;
+  string created_at = 13;
+  string updated_at = 14;
+}
+
+message ToolListRequest {
+  optional string cursor = 1;
+  optional int64 limit = 2;
+}
+
+message ToolListResponse {
+  repeated Tool items = 1;
+  bool has_next = 2;
+  optional string next_cursor = 3;
+}
+
+message ToolGetRequest {
+  string id = 1;
+}
+
+message ToolGetResponse {
+  Tool value = 1;
+}
+
+message ToolCreateRequest {
+  Tool value = 1;
+}
+
+message ToolCreateResponse {
+  Tool value = 1;
+}
+
+message ToolPutRequest {
+  string id = 1;
+  Tool body = 2;
+}
+
+message ToolPutResponse {
+  Tool value = 1;
+}
+
+message ToolDeleteRequest {
+  string id = 1;
+}
+
+message ToolDeleteResponse {
+  Tool value = 1;
+}
+
+message ToolInvokeRequest {
+  string call_id = 1;
+  string tool_id = 2;
+  string method = 3;
+  google.protobuf.Struct args = 4;
+}
+
+message ToolInvokeResponse {
+  string data_json = 1;
 }

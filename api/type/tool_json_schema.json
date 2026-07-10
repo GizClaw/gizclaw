@@ -1,0 +1,147 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Tool JSON Schema Type",
+    "description": "Provider-neutral JSON Schema structure used by Tool definitions.",
+    "version": "1.0.0"
+  },
+  "paths": {},
+  "components": {
+    "schemas": {
+      "ToolJSONSchema": {
+        "type": "object",
+        "description": "JSON Schema draft-07 or 2020-12 object. Provider adapters decide which keywords they can preserve.",
+        "additionalProperties": true,
+        "x-go-type": "jsonschema.Schema",
+        "x-go-type-import": {
+          "path": "github.com/google/jsonschema-go/jsonschema",
+          "name": "jsonschema"
+        },
+        "properties": {
+          "$id": {
+            "type": "string"
+          },
+          "$schema": {
+            "type": "string"
+          },
+          "$comment": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "type": {
+            "oneOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "null",
+                  "boolean",
+                  "object",
+                  "array",
+                  "number",
+                  "string",
+                  "integer"
+                ]
+              },
+              {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "null",
+                    "boolean",
+                    "object",
+                    "array",
+                    "number",
+                    "string",
+                    "integer"
+                  ]
+                }
+              }
+            ]
+          },
+          "properties": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/ToolJSONSchema"
+            }
+          },
+          "required": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "items": {
+            "$ref": "#/components/schemas/ToolJSONSchema"
+          },
+          "enum": {
+            "type": "array",
+            "items": {}
+          },
+          "const": {},
+          "default": {},
+          "examples": {
+            "type": "array",
+            "items": {}
+          },
+          "format": {
+            "type": "string"
+          },
+          "pattern": {
+            "type": "string"
+          },
+          "minimum": {
+            "type": "number"
+          },
+          "maximum": {
+            "type": "number"
+          },
+          "minLength": {
+            "type": "integer"
+          },
+          "maxLength": {
+            "type": "integer"
+          },
+          "minItems": {
+            "type": "integer"
+          },
+          "maxItems": {
+            "type": "integer"
+          },
+          "minProperties": {
+            "type": "integer"
+          },
+          "maxProperties": {
+            "type": "integer"
+          },
+          "allOf": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ToolJSONSchema"
+            }
+          },
+          "anyOf": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ToolJSONSchema"
+            }
+          },
+          "oneOf": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ToolJSONSchema"
+            }
+          },
+          "not": {
+            "$ref": "#/components/schemas/ToolJSONSchema"
+          }
+        }
+      }
+    }
+  }
+}

@@ -8,6 +8,7 @@
     "test": "npm test --prefix gizclaw"
   },
   "devDependencies": {
-    "@hey-api/openapi-ts": "^0.99.0"
+    "@hey-api/openapi-ts": "^0.99.0",
+    "typescript": "5.9.3"
   }
 }

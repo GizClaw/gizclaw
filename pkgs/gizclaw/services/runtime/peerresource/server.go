@@ -22,6 +22,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/device/firmware"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/gameplay"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/toolkit"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/contact"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/friend"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/friendgroup"
@@ -52,6 +53,8 @@ type Server struct {
 	Friends      *friend.Server
 	FriendGroups *friendgroup.Server
 	Gameplay     *gameplay.Runtime
+	Tools        *toolkit.Server
+	ToolACL      ToolACLService
 }
 
 type WorkspaceHistoryService interface {
@@ -134,7 +137,12 @@ func IsMethod(method rpcapi.RPCMethod) bool {
 		rpcapi.RPCMethodServerGameResultList,
 		rpcapi.RPCMethodServerGameResultGet,
 		rpcapi.RPCMethodServerRewardGrantList,
-		rpcapi.RPCMethodServerRewardGrantGet:
+		rpcapi.RPCMethodServerRewardGrantGet,
+		rpcapi.RPCMethodServerToolList,
+		rpcapi.RPCMethodServerToolGet,
+		rpcapi.RPCMethodServerToolCreate,
+		rpcapi.RPCMethodServerToolPut,
+		rpcapi.RPCMethodServerToolDelete:
 		return true
 	default:
 		return false
@@ -292,6 +300,16 @@ func (s *Server) Dispatch(ctx context.Context, req *rpcapi.RPCRequest) (*rpcapi.
 		return s.handleRewardGrantList(ctx, req), true, nil
 	case rpcapi.RPCMethodServerRewardGrantGet:
 		return s.handleRewardGrantGet(ctx, req), true, nil
+	case rpcapi.RPCMethodServerToolList:
+		return s.handleToolList(ctx, req), true, nil
+	case rpcapi.RPCMethodServerToolGet:
+		return s.handleToolGet(ctx, req), true, nil
+	case rpcapi.RPCMethodServerToolCreate:
+		return s.handleToolCreate(ctx, req), true, nil
+	case rpcapi.RPCMethodServerToolPut:
+		return s.handleToolPut(ctx, req), true, nil
+	case rpcapi.RPCMethodServerToolDelete:
+		return s.handleToolDelete(ctx, req), true, nil
 	default:
 		return nil, false, nil
 	}

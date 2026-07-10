@@ -4,7 +4,6 @@ package rpc_test
 
 import (
 	"context"
-	"encoding/json"
 	"path/filepath"
 	"strings"
 	"testing"

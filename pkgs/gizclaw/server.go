@@ -20,6 +20,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerrun"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peertelemetry"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/toolkit"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/contact"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/friend"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/friendgroup"
@@ -59,6 +60,7 @@ type Server struct {
 	VoiceStore                   kv.Store
 	WorkspaceStore               kv.Store
 	WorkflowStore                kv.Store
+	ToolStore                    kv.Store
 	PublicLoginStore             kv.Store
 	ContactStore                 kv.Store
 	FriendInviteTokenStore       kv.Store
@@ -311,6 +313,7 @@ func (s *Server) init() error {
 		s.MiniMaxCredentialStore == nil &&
 		s.WorkspaceStore == nil &&
 		s.WorkflowStore == nil &&
+		s.ToolStore == nil &&
 		s.PeerRunStore == nil &&
 		s.PublicLoginStore == nil &&
 		s.ContactStore == nil &&
@@ -345,6 +348,7 @@ func (s *Server) init() error {
 	voiceStore := moduleStore(s.VoiceStore, s.PeerStore, "voices")
 	workspaceStore := moduleStore(s.WorkspaceStore, s.PeerStore, "workspaces")
 	workflowStore := moduleStore(s.WorkflowStore, s.PeerStore, "workflows")
+	toolStore := moduleStore(s.ToolStore, s.PeerStore, "tools")
 	peerRunStore := moduleStore(s.PeerRunStore, s.PeerStore, "peer-run")
 	publicLoginStore := moduleStore(s.PublicLoginStore, s.PeerStore, "public-login")
 	contactStore := moduleStore(s.ContactStore, s.PeerStore, "contacts")
@@ -383,6 +387,7 @@ func (s *Server) init() error {
 	firmwareServer := &firmware.Server{Store: firmwareStore, Assets: s.FirmwareAssets}
 	modelServer := &model.Server{Store: modelStore}
 	voiceServer := &voice.Server{Store: voiceStore}
+	toolServer := &toolkit.Server{Store: toolStore}
 	var aclServer *acl.Server
 	if s.ACLDB != nil {
 		aclServer = &acl.Server{DB: s.ACLDB}
@@ -436,6 +441,14 @@ func (s *Server) init() error {
 		}
 	}
 	manager.ACL = aclServer
+	deviceToolExecutor := &toolkit.DeviceRPCExecutor{Client: manager}
+	toolExecutors := toolkit.NewExecutorRegistry()
+	if err := toolExecutors.RegisterDevice(deviceToolExecutor, deviceToolExecutor); err != nil {
+		return err
+	}
+	manager.Tools = toolServer
+	manager.ToolExecutors = toolExecutors
+	manager.ToolBuilder = &toolkit.Builder{Tools: toolServer, Authorizer: aclServer, Availability: toolExecutors}
 	manager.AgentHost = agenthost.New(agenthost.ServiceResolver{
 		Workspaces: workspaceServer,
 		Workflows:  workflowServer,
@@ -466,6 +479,7 @@ func (s *Server) init() error {
 		Friends:         friendServer,
 		FriendGroups:    friendGroupServer,
 		GameplayCatalog: gameplayCatalog,
+		Tools:           toolServer,
 	})
 
 	s.manager = manager
