@@ -226,6 +226,75 @@ func TestPutOwnedResourceRollsBackOwnerWhenWriteFails(t *testing.T) {
 	}
 }
 
+func TestPutOwnedResourceRestoresDriftedOwnerBindingWhenWriteFails(t *testing.T) {
+	ctx := context.Background()
+	manager := newACLResourceManager(t)
+	workspaces := newFakeWorkspaces()
+	workspaces.putStatus = 500
+	manager.services.Workspaces = workspaces
+	if _, err := manager.services.ACL.CreateRole(ctx, resourceOwnerRole, resourceOwnerPermissions); err != nil {
+		t.Fatalf("CreateRole(owner) error = %v", err)
+	}
+	expiresAt := time.Now().UTC().Add(time.Hour)
+	bindingID := resourceOwnerPolicyBindingID(apitypes.ACLResourceKindWorkspace, "demo")
+	previous := apitypes.ACLPolicy{
+		ExpiresAt: &expiresAt,
+		Subject:   acl.PublicKeySubject("owner-a"),
+		Resource:  apitypes.ACLResource{Kind: apitypes.ACLResourceKindModel, Id: "wrong-resource"},
+		Role:      resourceOwnerRole,
+	}
+	if _, err := manager.services.ACL.CreatePolicyBinding(ctx, bindingID, 7, previous); err != nil {
+		t.Fatalf("CreatePolicyBinding(drifted owner) error = %v", err)
+	}
+
+	_, err := manager.Put(ctx, workspaceResourceWithOwner(t, "demo", "owner-b"))
+	assertResourceError(t, err, 500, "INTERNAL_ERROR")
+	binding, err := manager.services.ACL.GetPolicyBinding(ctx, bindingID)
+	if err != nil {
+		t.Fatalf("GetPolicyBinding(restored owner) error = %v", err)
+	}
+	if binding.DisplayOrder != 7 || binding.Policy.Subject != previous.Subject || binding.Policy.Resource != previous.Resource || binding.Policy.Role != previous.Role || binding.Policy.ExpiresAt == nil || !binding.Policy.ExpiresAt.Equal(expiresAt) {
+		t.Fatalf("restored binding = %#v, want previous %#v with display_order 7", binding, previous)
+	}
+}
+
+func TestWithOwnerMetadataPreservesGameRulesetInt64Spec(t *testing.T) {
+	large := int64(1<<53 + 17)
+	resource := apitypes.GameRulesetResource{
+		ApiVersion: apitypes.ResourceAPIVersionGizclawAdminv1alpha1,
+		Kind:       apitypes.GameRulesetResourceKindGameRuleset,
+		Metadata:   apitypes.ResourceMetadata{Name: "rules"},
+		Spec: apitypes.GameRulesetSpec{
+			Enabled: true,
+			PetPool: []apitypes.GameRulesetPetPoolEntry{{
+				AdoptionCost: &large,
+				PetdefId:     "pet",
+				Weight:       large,
+			}},
+			Points: &apitypes.GameRulesetPointsSpec{InitialBalance: &large},
+		},
+	}
+	var raw apitypes.Resource
+	if err := raw.FromGameRulesetResource(resource); err != nil {
+		t.Fatalf("FromGameRulesetResource() error = %v", err)
+	}
+
+	withOwner, err := withOwnerMetadata(raw, "owner-a")
+	if err != nil {
+		t.Fatalf("withOwnerMetadata() error = %v", err)
+	}
+	got, err := withOwner.AsGameRulesetResource()
+	if err != nil {
+		t.Fatalf("AsGameRulesetResource() error = %v", err)
+	}
+	if got.Metadata.OwnerPublicKey == nil || *got.Metadata.OwnerPublicKey != "owner-a" {
+		t.Fatalf("owner_public_key = %#v, want owner-a", got.Metadata.OwnerPublicKey)
+	}
+	if got.Spec.PetPool[0].Weight != large || got.Spec.PetPool[0].AdoptionCost == nil || *got.Spec.PetPool[0].AdoptionCost != large || got.Spec.Points == nil || got.Spec.Points.InitialBalance == nil || *got.Spec.Points.InitialBalance != large {
+		t.Fatalf("GameRuleset spec after owner metadata = %#v, want int64 %d preserved", got.Spec, large)
+	}
+}
+
 func TestPutExistingOwnedResourceAllowsMissingOwner(t *testing.T) {
 	ctx := context.Background()
 	manager := newACLResourceManager(t)

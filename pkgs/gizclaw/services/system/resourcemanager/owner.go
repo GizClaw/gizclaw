@@ -146,16 +146,26 @@ func withOwnerMetadata(resource apitypes.Resource, owner string) (apitypes.Resou
 	if err != nil {
 		return apitypes.Resource{}, err
 	}
-	var body map[string]interface{}
+	var body map[string]json.RawMessage
 	if err := json.Unmarshal(data, &body); err != nil {
 		return apitypes.Resource{}, err
 	}
-	metadata, _ := body["metadata"].(map[string]interface{})
-	if metadata == nil {
-		metadata = map[string]interface{}{}
+	metadata := map[string]json.RawMessage{}
+	if raw := body["metadata"]; len(raw) > 0 && string(raw) != "null" {
+		if err := json.Unmarshal(raw, &metadata); err != nil {
+			return apitypes.Resource{}, err
+		}
 	}
-	metadata["owner_public_key"] = owner
-	body["metadata"] = metadata
+	ownerData, err := json.Marshal(owner)
+	if err != nil {
+		return apitypes.Resource{}, err
+	}
+	metadata["owner_public_key"] = ownerData
+	metadataData, err := json.Marshal(metadata)
+	if err != nil {
+		return apitypes.Resource{}, err
+	}
+	body["metadata"] = metadataData
 	data, err = json.Marshal(body)
 	if err != nil {
 		return apitypes.Resource{}, err
@@ -216,7 +226,7 @@ func permissionListsEqual(left, right apitypes.ACLPermissionList) bool {
 type ownedResourceOwnerRollback struct {
 	kind     apitypes.ACLResourceKind
 	id       string
-	previous *string
+	previous *apitypes.ACLPolicyBinding
 	changed  bool
 }
 
@@ -228,7 +238,7 @@ func (m *Manager) ensureOwnedResourceOwnerBeforeWrite(ctx context.Context, kind 
 	if m.services.ACL == nil {
 		return nil, missingService("acl")
 	}
-	previous, err := m.ownedResourceOwner(ctx, kind, id)
+	previous, exists, err := m.ownedResourceOwnerBinding(ctx, kind, id)
 	if err != nil {
 		return nil, err
 	}
@@ -236,21 +246,29 @@ func (m *Manager) ensureOwnedResourceOwnerBeforeWrite(ctx context.Context, kind 
 	if err != nil {
 		return nil, err
 	}
-	return &ownedResourceOwnerRollback{kind: kind, id: id, previous: previous, changed: changed}, nil
+	rollback := &ownedResourceOwnerRollback{kind: kind, id: id, changed: changed}
+	if exists {
+		rollback.previous = &previous
+	}
+	return rollback, nil
 }
 
 func (m *Manager) removeOwnedResourceOwnerBeforeDelete(ctx context.Context, kind apitypes.ACLResourceKind, id string, extraBindingIDs ...string) (*ownedResourceOwnerRollback, error) {
 	if m.services.ACL == nil {
 		return nil, nil
 	}
-	previous, err := m.ownedResourceOwner(ctx, kind, id)
+	previous, exists, err := m.ownedResourceOwnerBinding(ctx, kind, id)
 	if err != nil {
 		return nil, err
 	}
 	if err := m.removeOwnedResourceOwner(context.WithoutCancel(ctx), kind, id, extraBindingIDs...); err != nil {
 		return nil, err
 	}
-	return &ownedResourceOwnerRollback{kind: kind, id: id, previous: previous, changed: previous != nil}, nil
+	rollback := &ownedResourceOwnerRollback{kind: kind, id: id, changed: exists}
+	if exists {
+		rollback.previous = &previous
+	}
+	return rollback, nil
 }
 
 func (m *Manager) rollbackOwnedResourceOwner(ctx context.Context, rollback *ownedResourceOwnerRollback, cause error) error {
@@ -261,7 +279,7 @@ func (m *Manager) rollbackOwnedResourceOwner(ctx context.Context, rollback *owne
 	if rollback.previous == nil {
 		err = m.removeOwnedResourceOwner(context.WithoutCancel(ctx), rollback.kind, rollback.id)
 	} else {
-		_, err = m.putOwnedResourceOwner(context.WithoutCancel(ctx), rollback.kind, rollback.id, *rollback.previous)
+		_, err = m.services.ACL.PutPolicyBinding(context.WithoutCancel(ctx), rollback.previous.Id, rollback.previous.DisplayOrder, rollback.previous.Policy)
 	}
 	if err != nil {
 		return applyError(500, "RESOURCE_OWNER_ACL_ROLLBACK_FAILED", fmt.Sprintf("%v; rollback failed: %v", cause, err))
