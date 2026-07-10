@@ -51,10 +51,18 @@ func (m *Manager) applyTool(ctx context.Context, resource apitypes.Resource) (ap
 			if err != nil {
 				return apitypes.ApplyResult{}, err
 			}
-			if ownerRollback != nil && ownerRollback.changed {
-				if err := m.removeLegacyToolOwnerBinding(ctx, existing); err != nil {
+			_, hasMetadataOwner, err := resourceOwnerHint(item.Metadata)
+			if err != nil {
+				return apitypes.ApplyResult{}, m.rollbackOwnedResourceOwner(ctx, ownerRollback, err)
+			}
+			legacyRemoved := false
+			if hasMetadataOwner {
+				legacyRemoved, err = m.removeLegacyToolOwnerBindingIfExists(ctx, existing)
+				if err != nil {
 					return apitypes.ApplyResult{}, m.rollbackOwnedResourceOwner(ctx, ownerRollback, err)
 				}
+			}
+			if (ownerRollback != nil && ownerRollback.changed) || legacyRemoved {
 				return applyResult(apitypes.ApplyActionUpdated, apitypes.ResourceKindTool, item.Metadata.Name), nil
 			}
 			return applyResult(apitypes.ApplyActionUnchanged, apitypes.ResourceKindTool, item.Metadata.Name), nil
@@ -196,15 +204,20 @@ func (m *Manager) removeToolOwnerBinding(ctx context.Context, tool toolkit.Tool)
 }
 
 func (m *Manager) removeLegacyToolOwnerBinding(ctx context.Context, tool toolkit.Tool) error {
+	_, err := m.removeLegacyToolOwnerBindingIfExists(ctx, tool)
+	return err
+}
+
+func (m *Manager) removeLegacyToolOwnerBindingIfExists(ctx context.Context, tool toolkit.Tool) (bool, error) {
 	owner, ok := deviceToolOwner(tool)
 	if !ok || m.services.ACL == nil {
-		return nil
+		return false, nil
 	}
 	_, err := m.services.ACL.DeletePolicyBinding(context.WithoutCancel(ctx), toolkit.LegacyToolOwnerPolicyBindingID(tool.ID, owner))
 	if err == nil || errors.Is(err, acl.ErrPolicyBindingNotFound) {
-		return nil
+		return err == nil, nil
 	}
-	return applyError(500, "TOOL_OWNER_ACL_CLEANUP_FAILED", err.Error())
+	return false, applyError(500, "TOOL_OWNER_ACL_CLEANUP_FAILED", err.Error())
 }
 
 func (m *Manager) rollbackToolWrite(ctx context.Context, existing toolkit.Tool, exists bool, writtenID string, cause error) error {
