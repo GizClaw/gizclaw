@@ -12,7 +12,14 @@ type rpcClient struct {
 }
 
 func (c *rpcClient) Handle(conn net.Conn) error {
-	return handleRPC(conn, c.dispatch)
+	return handleRPCWithStream(conn, c.dispatch, c.dispatchStream)
+}
+
+func (c *rpcClient) dispatchStream(ctx context.Context, stream *rpcStream, req *rpcapi.RPCRequest) (bool, error) {
+	if req == nil || req.Method != rpcapi.RPCMethodAllSpeedTestRun {
+		return false, nil
+	}
+	return true, handleRPCSpeedTest(ctx, stream, req)
 }
 
 func (c *rpcClient) dispatch(ctx context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {

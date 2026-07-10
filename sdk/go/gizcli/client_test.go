@@ -388,4 +388,29 @@ func TestClientRPCHandle(t *testing.T) {
 			t.Fatalf("Handle() error = %v", err)
 		}
 	})
+
+	t.Run("serve rpc stream speed test", func(t *testing.T) {
+		serverSide, clientSide := net.Pipe()
+		defer serverSide.Close()
+		defer clientSide.Close()
+
+		errCh := make(chan error, 1)
+		go func() {
+			errCh <- (&rpcClient{}).Handle(serverSide)
+		}()
+
+		result, err := callRPCSpeedTest(context.Background(), clientSide, "server-speed", rpcapi.SpeedTestRequest{
+			UpContentLength:   rpcSpeedTestFrameSize + 5,
+			DownContentLength: rpcSpeedTestFrameSize + 7,
+		})
+		if err != nil {
+			t.Fatalf("callRPCSpeedTest() error = %v", err)
+		}
+		if result.UpBytes != rpcSpeedTestFrameSize+5 || result.DownBytes != rpcSpeedTestFrameSize+7 {
+			t.Fatalf("callRPCSpeedTest() result = %+v", result)
+		}
+		if err := <-errCh; err != nil {
+			t.Fatalf("Handle() error = %v", err)
+		}
+	})
 }

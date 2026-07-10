@@ -19,6 +19,9 @@ Current coverage:
 - `rpc/webrtc_rpc_e2e.test.ts` uses the shared setup server and
   `testdata/identities/peer` to establish a real server-public WebRTC
   connection, then runs `all.ping` over the RPC service data channel.
+- `rpc/server_initiated_rpc_e2e.test.ts` connects to a local Pion probe and
+  serves server-initiated protobuf `all.ping` and full-duplex
+  `all.speed_test.run` calls.
 
 Run through the default Docker e2e gate:
 

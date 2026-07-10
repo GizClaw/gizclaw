@@ -1,6 +1,13 @@
 import type { CreateGiznetWebRtcOfferData } from "./generated/peerhttp/types.gen";
 import { RPC_METHOD_IDS } from "./generated/rpc/method-map.ts";
-import { decodeRPCResponsePayload, encodeRPCRequestPayload, encodeRPCResponsePayload } from "./generated/rpc/payload-codec.ts";
+import {
+  decodeRPCRequestPayload,
+  decodeRPCResponsePayload,
+  encodeRPCRequestPayload,
+  encodeRPCResponsePayload,
+  type PingRequest,
+  type SpeedTestRequest,
+} from "./generated/rpc/payload-codec.ts";
 import { base58Decode, prepareEncryptedGiznetWebRTCOffer } from "./signaling.ts";
 import { encodeTelemetryPacket, type TelemetryFrame } from "./telemetry.ts";
 export * from "./telemetry.ts";
@@ -27,7 +34,12 @@ const RPC_MAX_ENVELOPE_SIZE = RPC_MAX_FRAME_PAYLOAD_SIZE * 16;
 const DATA_CHANNEL_SEND_RETRY_DELAY_MS = 5;
 const DATA_CHANNEL_SEND_RETRY_LIMIT = 20;
 const PACKET_DATA_CHANNEL_OPEN_TIMEOUT_MS = 30000;
+const RPC_SPEED_TEST_FRAME_SIZE = 32 * 1024;
+const RPC_SPEED_TEST_MAX_CONTENT_LENGTH = 1 << 30;
+const RPC_DATA_CHANNEL_BUFFER_HIGH_WATER_MARK = 1024 * 1024;
 const giznetPacketDataChannels = new WeakMap<object, WebRTCRPCDataChannel>();
+const giznetRPCServers = new WeakSet<object>();
+const rpcMethodNamesByID = new Map<number, string>(Object.entries(RPC_METHOD_IDS).map(([name, id]) => [id, name]));
 
 export type RPCID = string;
 
@@ -62,7 +74,9 @@ export type WebRTCRPCDataChannel = {
   addEventListener(type: "error", listener: () => void): void;
   addEventListener(type: "close", listener: () => void): void;
   binaryType?: BinaryType;
+  bufferedAmount?: number;
   close(): void;
+  label?: string;
   readyState: RTCDataChannelState;
   removeEventListener(type: "open", listener: () => void): void;
   removeEventListener(type: "message", listener: (event: MessageEvent) => void): void;
@@ -73,6 +87,10 @@ export type WebRTCRPCDataChannel = {
 
 export type WebRTCRPCDataChannelFactory = {
   createDataChannel(label: string, options?: RTCDataChannelInit): WebRTCRPCDataChannel;
+};
+
+export type WebRTCRPCDataChannelServer = {
+  addEventListener(type: "datachannel", listener: (event: { channel: WebRTCRPCDataChannel }) => void): void;
 };
 
 export type PreparedGiznetWebRTCOffer = {
@@ -554,6 +572,7 @@ export function prepareGiznetWebRTCPeerConnection(
   pc: RTCPeerConnection,
   options: Pick<ConnectGiznetWebRTCOptions, "addAudioTransceiver" | "createPacketDataChannel"> = {},
 ): void {
+  serveGiznetWebRTCRPC(pc);
   if (options.createPacketDataChannel !== false) {
     const packetDataChannel = pc.createDataChannel(GIZNET_WEBRTC_PACKET_DATA_CHANNEL_LABEL, {
       maxRetransmits: 0,
@@ -566,6 +585,23 @@ export function prepareGiznetWebRTCPeerConnection(
   if (options.addAudioTransceiver !== false && typeof pc.addTransceiver === "function") {
     pc.addTransceiver("audio", { direction: "sendrecv" });
   }
+}
+
+// serveGiznetWebRTCRPC installs the built-in server for RPC streams initiated
+// by the remote GizClaw server. Installation is idempotent for each peer
+// connection and handles all.ping plus all.speed_test.run.
+export function serveGiznetWebRTCRPC(pc: WebRTCRPCDataChannelServer): void {
+  if (giznetRPCServers.has(pc)) {
+    return;
+  }
+  giznetRPCServers.add(pc);
+  pc.addEventListener("datachannel", (event) => {
+    const channel = event.channel;
+    if (channel.label !== giznetServiceDataChannelLabel(GIZCLAW_SERVICE_PEER_RPC)) {
+      return;
+    }
+    handleInboundRPCDataChannel(channel);
+  });
 }
 
 export function getGiznetWebRTCPacketDataChannel(pc: RTCPeerConnection): WebRTCRPCDataChannel | undefined {
@@ -726,6 +762,235 @@ function decodeRPCResponseEnvelope<TResult>(payload: Uint8Array, method: string)
   return response;
 }
 
+function decodeRPCRequestEnvelope(payload: Uint8Array): RPCRequest {
+  const reader = new ProtoReader(payload);
+  let id = "";
+  let methodID: number | undefined;
+  let paramsPayload: Uint8Array | undefined;
+  while (!reader.done()) {
+    const field = reader.field();
+    switch (field.number) {
+      case 1:
+        id = reader.string(field);
+        break;
+      case 2:
+        methodID = reader.int32(field);
+        break;
+      case 3:
+        paramsPayload = reader.bytes(field);
+        break;
+      default:
+        reader.skip(field);
+        break;
+    }
+  }
+  if (id === "" || methodID == null) {
+    throw new Error("invalid WebRTC RPC request: missing id or method");
+  }
+  const method = rpcMethodNamesByID.get(methodID) ?? `unknown:${methodID}`;
+  return {
+    id,
+    method,
+    ...(paramsPayload == null || !rpcMethodNamesByID.has(methodID)
+      ? {}
+      : { params: decodeRPCRequestPayload(method, paramsPayload) }),
+    v: RPC_VERSION,
+  };
+}
+
+function handleInboundRPCDataChannel(channel: WebRTCRPCDataChannel): void {
+  channel.binaryType = "arraybuffer";
+  let buffer: Uint8Array<ArrayBufferLike> = new Uint8Array();
+  let messageQueue = Promise.resolve();
+  let request: RPCRequest | undefined;
+  let envelopeLength = 0;
+  const envelopeChunks: Uint8Array[] = [];
+  let uploaded = 0;
+  let ignoreBody = false;
+  let closed = false;
+
+  const cleanup = (): void => {
+    channel.removeEventListener("message", onMessage);
+    channel.removeEventListener("close", onClose);
+    channel.removeEventListener("error", onError);
+  };
+  const close = (): void => {
+    if (closed) {
+      return;
+    }
+    closed = true;
+    cleanup();
+    try {
+      channel.close();
+    } catch {
+      // Ignore close races from an already closed remote stream.
+    }
+  };
+  const fail = (): void => close();
+  const sendResponse = (response: RPCResponse, method: string): Promise<void> =>
+    sendInboundRPCFrames(channel, [...encodeRPCEnvelopeFrames(encodeRPCResponseEnvelope(response, method)), encodeFrame(RPC_FRAME_TYPE_EOS)]);
+
+  const startRequest = (next: RPCRequest): void => {
+    request = next;
+    switch (next.method) {
+      case "all.ping":
+        return;
+      case "all.speed_test.run": {
+        const params = validSpeedTestParams(next.params);
+        if (params == null) {
+          ignoreBody = true;
+          void sendResponse(rpcErrorResponse(next.id, -32602, "invalid params"), next.method).catch(fail);
+          return;
+        }
+        void sendInboundSpeedTestResponse(channel, next.id, params).catch(fail);
+        return;
+      }
+      default:
+        ignoreBody = true;
+        void sendResponse(rpcErrorResponse(next.id, -32601, `unsupported method: ${next.method}`), next.method).catch(fail);
+    }
+  };
+
+  const handleFrame = (frame: { payload: Uint8Array; type: number }): void => {
+    if (request == null) {
+      if (frame.type === RPC_FRAME_TYPE_TEXT) {
+        envelopeLength += frame.payload.length;
+        if (envelopeLength > RPC_MAX_ENVELOPE_SIZE) {
+          throw new Error(`RPC protobuf envelope too large: ${envelopeLength}`);
+        }
+        envelopeChunks.push(copyBytes(frame.payload));
+        return;
+      }
+      if (frame.type === RPC_FRAME_TYPE_BINARY) {
+        if (envelopeChunks.length > 0) {
+          throw new Error("RPC request contains multiple protobuf frames.");
+        }
+        startRequest(decodeRPCRequestEnvelope(frame.payload));
+        return;
+      }
+      if (frame.type === RPC_FRAME_TYPE_EOS && envelopeChunks.length > 0) {
+        startRequest(decodeRPCRequestEnvelope(concatByteArrays(envelopeChunks)));
+        return;
+      }
+      throw new Error(`rpc: expected protobuf request frame, got type ${frame.type}`);
+    }
+
+    if (ignoreBody) {
+      return;
+    }
+    if (request.method === "all.ping") {
+      if (frame.type !== RPC_FRAME_TYPE_EOS) {
+        throw new Error(`rpc: expected ping EOS frame, got type ${frame.type}`);
+      }
+      const params = request.params as PingRequest | undefined;
+      const response = params == null
+        ? rpcErrorResponse(request.id, -32602, "missing params")
+        : { id: request.id, result: { server_time: Date.now() }, v: RPC_VERSION } satisfies RPCResponse;
+      ignoreBody = true;
+      void sendResponse(response, request.method).catch(fail);
+      return;
+    }
+    if (request.method === "all.speed_test.run") {
+      if (frame.type === RPC_FRAME_TYPE_BINARY) {
+        uploaded += frame.payload.length;
+        return;
+      }
+      if (frame.type !== RPC_FRAME_TYPE_EOS) {
+        throw new Error(`rpc: expected speed-test binary frame, got type ${frame.type}`);
+      }
+      const params = request.params as SpeedTestRequest;
+      if (uploaded !== params.up_content_length) {
+        throw new Error(`rpc: speed test upload length mismatch: got ${uploaded} want ${params.up_content_length}`);
+      }
+      ignoreBody = true;
+    }
+  };
+
+  const drainFrames = (): void => {
+    for (;;) {
+      const parsed = tryReadFrame(buffer);
+      if (parsed == null) {
+        return;
+      }
+      buffer = parsed.rest;
+      handleFrame(parsed.frame);
+    }
+  };
+  const onMessage = (event: MessageEvent): void => {
+    messageQueue = messageQueue.then(async () => {
+      if (closed) {
+        return;
+      }
+      buffer = appendBytes(buffer, await messageDataBytes(event.data));
+      drainFrames();
+    }).catch(fail);
+  };
+  const onClose = (): void => {
+    closed = true;
+    cleanup();
+  };
+  const onError = (): void => fail();
+
+  channel.addEventListener("message", onMessage);
+  channel.addEventListener("close", onClose);
+  channel.addEventListener("error", onError);
+}
+
+function validSpeedTestParams(value: unknown): SpeedTestRequest | null {
+  if (value == null || typeof value !== "object") {
+    return null;
+  }
+  const params = value as Partial<SpeedTestRequest>;
+  if (
+    !Number.isSafeInteger(params.up_content_length)
+    || !Number.isSafeInteger(params.down_content_length)
+    || (params.up_content_length ?? -1) < 0
+    || (params.down_content_length ?? -1) < 0
+    || (params.up_content_length ?? 0) > RPC_SPEED_TEST_MAX_CONTENT_LENGTH
+    || (params.down_content_length ?? 0) > RPC_SPEED_TEST_MAX_CONTENT_LENGTH
+  ) {
+    return null;
+  }
+  return params as SpeedTestRequest;
+}
+
+function rpcErrorResponse(id: string, code: number, message: string): RPCResponse {
+  return { error: { code, message }, id, v: RPC_VERSION };
+}
+
+async function sendInboundSpeedTestResponse(channel: WebRTCRPCDataChannel, id: string, params: SpeedTestRequest): Promise<void> {
+  const response: RPCResponse = {
+    id,
+    result: {
+      down_content_length: params.down_content_length,
+      up_content_length: params.up_content_length,
+    },
+    v: RPC_VERSION,
+  };
+  await sendInboundRPCFrames(channel, encodeRPCEnvelopeFrames(encodeRPCResponseEnvelope(response, "all.speed_test.run")));
+  const chunk = new Uint8Array(RPC_SPEED_TEST_FRAME_SIZE);
+  for (let offset = 0; offset < params.down_content_length; offset += chunk.length) {
+    const size = Math.min(chunk.length, params.down_content_length - offset);
+    await sendInboundRPCFrames(channel, [encodeFrame(RPC_FRAME_TYPE_BINARY, chunk.subarray(0, size))]);
+  }
+  await sendInboundRPCFrames(channel, [encodeFrame(RPC_FRAME_TYPE_EOS)]);
+}
+
+async function sendInboundRPCFrames(channel: WebRTCRPCDataChannel, frames: ArrayBuffer[]): Promise<void> {
+  for (const frame of frames) {
+    while ((channel.bufferedAmount ?? 0) > RPC_DATA_CHANNEL_BUFFER_HIGH_WATER_MARK) {
+      if (channel.readyState === "closed" || channel.readyState === "closing") {
+        throw new Error("WebRTC RPC data channel closed while sending response.");
+      }
+      await new Promise((resolve) => setTimeout(resolve, DATA_CHANNEL_SEND_RETRY_DELAY_MS));
+    }
+    if (channel.readyState !== "open") {
+      throw new Error(`RTCDataChannel.readyState is ${JSON.stringify(channel.readyState)}, want "open"`);
+    }
+    channel.send(frame);
+  }
+}
+
 function decodeRPCError(payload: Uint8Array): RPCErrorBody {
   const reader = new ProtoReader(payload);
   const error: RPCErrorBody = { code: 0, message: "" };
@@ -786,6 +1051,27 @@ export function decodeFrames(data: ArrayBuffer | Uint8Array): Array<{ payload: U
     offset += length;
   }
   return frames;
+}
+
+function tryReadFrame(
+  buffer: Uint8Array<ArrayBufferLike>,
+): { frame: { payload: Uint8Array; type: number }; rest: Uint8Array<ArrayBufferLike> } | null {
+  if (buffer.length < 4) {
+    return null;
+  }
+  const view = new DataView(buffer.buffer, buffer.byteOffset, 4);
+  const length = view.getUint16(0, true);
+  const type = view.getUint16(2, true);
+  if (buffer.length < 4 + length) {
+    return null;
+  }
+  if (type === RPC_FRAME_TYPE_EOS && length !== 0) {
+    throw new Error("RPC EOS frame must be empty.");
+  }
+  return {
+    frame: { payload: buffer.slice(4, 4 + length), type },
+    rest: buffer.slice(4 + length),
+  };
 }
 
 export async function encodeHTTPRequest(request: Request, host = "gizclaw"): Promise<Uint8Array> {

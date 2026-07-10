@@ -2,6 +2,7 @@ package gizcli
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"time"
@@ -123,6 +124,65 @@ func callRPCSpeedTest(ctx context.Context, conn net.Conn, id string, request rpc
 	}, nil
 }
 
+func handleRPCSpeedTest(ctx context.Context, stream *rpcStream, req *rpcapi.RPCRequest) error {
+	if req.Params == nil {
+		return writeRPCErrorResponse(stream, req.Id, rpcapi.RPCErrorCodeInvalidParams, "missing params")
+	}
+	params, err := req.Params.AsSpeedTestRequest()
+	if err != nil {
+		return writeRPCErrorResponse(stream, req.Id, rpcapi.RPCErrorCodeInvalidParams, "invalid params")
+	}
+	if err := validateSpeedTestRequest(params); err != nil {
+		return writeRPCErrorResponse(stream, req.Id, rpcapi.RPCErrorCodeInvalidParams, err.Error())
+	}
+
+	result, err := newRPCResultResponse(req.Id, rpcapi.SpeedTestResponse{
+		UpContentLength:   params.UpContentLength,
+		DownContentLength: params.DownContentLength,
+	}, (*rpcapi.RPCPayload).FromSpeedTestResponse)
+	if err != nil {
+		return err
+	}
+	metadataEOS, err := stream.WriteResponseEnvelopeForMethod(req.Method, result)
+	if err != nil {
+		return err
+	}
+	if metadataEOS {
+		if err := stream.WriteEOS(); err != nil {
+			return err
+		}
+	}
+
+	var g errgroup.Group
+	cancelStream := func(err error) error {
+		if err != nil {
+			_ = stream.conn.SetDeadline(time.Now())
+		}
+		return err
+	}
+	g.Go(func() error {
+		n, err := readBinaryFrames(stream)
+		if err != nil {
+			return cancelStream(err)
+		}
+		if n != params.UpContentLength {
+			return cancelStream(fmt.Errorf("rpc: speed test upload length mismatch: got %d want %d", n, params.UpContentLength))
+		}
+		return nil
+	})
+	g.Go(func() error {
+		_, err := writeBinaryFrames(stream, params.DownContentLength)
+		return cancelStream(err)
+	})
+	if err := g.Wait(); err != nil {
+		if errors.Is(err, net.ErrClosed) {
+			return nil
+		}
+		return err
+	}
+	return ctx.Err()
+}
+
 func validateSpeedTestRequest(request rpcapi.SpeedTestRequest) error {
 	if request.UpContentLength < 0 {
 		return fmt.Errorf("up_content_length must be non-negative")
@@ -137,6 +197,13 @@ func validateSpeedTestRequest(request rpcapi.SpeedTestRequest) error {
 		return fmt.Errorf("down_content_length exceeds %d", maxRPCSpeedTestContentLength)
 	}
 	return nil
+}
+
+func writeRPCErrorResponse(stream *rpcStream, id string, code rpcapi.RPCErrorCode, message string) error {
+	if _, err := stream.WriteResponseEnvelope(rpcapi.Error{RequestID: id, Code: code, Message: message}.RPCResponse()); err != nil {
+		return err
+	}
+	return stream.WriteEOS()
 }
 
 func writeBinaryFrames(stream *rpcStream, total int64) (int64, error) {
