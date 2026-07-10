@@ -119,6 +119,42 @@ func TestOwnedResourceOwnerReadsDeterministicBinding(t *testing.T) {
 	}
 }
 
+func TestOwnedResourceOwnerIgnoresDriftedDeterministicBinding(t *testing.T) {
+	ctx := context.Background()
+	manager := newACLResourceManager(t)
+	workspaces := newFakeWorkspaces()
+	now := time.Now().UTC()
+	workspaces.items["demo"] = apitypes.Workspace{
+		CreatedAt:    now,
+		Name:         "demo",
+		UpdatedAt:    now,
+		WorkflowName: "workflow",
+	}
+	manager.services.Workspaces = workspaces
+	if _, err := manager.services.ACL.CreateRole(ctx, resourceOwnerRole, resourceOwnerPermissions); err != nil {
+		t.Fatalf("CreateRole(owner) error = %v", err)
+	}
+	if _, err := manager.services.ACL.CreatePolicyBinding(ctx, resourceOwnerPolicyBindingID(apitypes.ACLResourceKindWorkspace, "demo"), 0, apitypes.ACLPolicy{
+		Subject:  acl.PublicKeySubject("owner-a"),
+		Resource: apitypes.ACLResource{Kind: apitypes.ACLResourceKindModel, Id: "wrong-resource"},
+		Role:     resourceOwnerRole,
+	}); err != nil {
+		t.Fatalf("CreatePolicyBinding(drifted owner) error = %v", err)
+	}
+
+	gotResource, err := manager.Get(ctx, apitypes.ResourceKindWorkspace, "demo")
+	if err != nil {
+		t.Fatalf("Get() error = %v", err)
+	}
+	got, err := gotResource.AsWorkspaceResource()
+	if err != nil {
+		t.Fatalf("AsWorkspaceResource() error = %v", err)
+	}
+	if got.Metadata.OwnerPublicKey != nil {
+		t.Fatalf("owner_public_key = %#v, want nil for drifted owner binding", got.Metadata.OwnerPublicKey)
+	}
+}
+
 func TestApplyOwnedResourceRepairsOwnerBindingAndRoleDrift(t *testing.T) {
 	ctx := context.Background()
 	manager := newACLResourceManager(t)
@@ -134,10 +170,12 @@ func TestApplyOwnedResourceRepairsOwnerBindingAndRoleDrift(t *testing.T) {
 	if _, err := manager.services.ACL.CreateRole(ctx, resourceOwnerRole, apitypes.ACLPermissionList{apitypes.ACLPermissionRead}); err != nil {
 		t.Fatalf("CreateRole(drifted owner role) error = %v", err)
 	}
+	expiresAt := now.Add(time.Hour)
 	if _, err := manager.services.ACL.CreatePolicyBinding(ctx, resourceOwnerPolicyBindingID(apitypes.ACLResourceKindWorkspace, "demo"), 0, apitypes.ACLPolicy{
-		Subject:  acl.PublicKeySubject("owner-a"),
-		Resource: apitypes.ACLResource{Kind: apitypes.ACLResourceKindModel, Id: "wrong-resource"},
-		Role:     resourceOwnerRole,
+		ExpiresAt: &expiresAt,
+		Subject:   acl.PublicKeySubject("owner-a"),
+		Resource:  acl.WorkspaceResource("demo"),
+		Role:      resourceOwnerRole,
 	}); err != nil {
 		t.Fatalf("CreatePolicyBinding(drifted owner) error = %v", err)
 	}

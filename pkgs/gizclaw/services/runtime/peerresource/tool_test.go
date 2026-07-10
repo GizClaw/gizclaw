@@ -78,6 +78,10 @@ func TestToolPeerCRUDNamespaceACLAndOwnerBinding(t *testing.T) {
 	if !bindings.deletedBinding(legacyToolOwnerBindingID(id, callerID)) {
 		t.Fatalf("legacy owner binding was not deleted; deleted = %#v", bindings.deletedIDs)
 	}
+	wantDeleted := []string{legacyToolOwnerBindingID(id, callerID), toolOwnerBindingID(id, callerID)}
+	if len(bindings.deletedIDs) < len(wantDeleted) || bindings.deletedIDs[0] != wantDeleted[0] || bindings.deletedIDs[1] != wantDeleted[1] {
+		t.Fatalf("deleted owner binding order = %#v, want prefix %#v", bindings.deletedIDs, wantDeleted)
+	}
 }
 
 func TestToolPeerCreateRejectsNonDeviceAndForeignNamespace(t *testing.T) {

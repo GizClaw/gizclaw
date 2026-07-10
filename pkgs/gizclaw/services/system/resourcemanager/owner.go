@@ -106,7 +106,13 @@ func (m *Manager) ownedResourceOwner(ctx context.Context, kind apitypes.ACLResou
 	if err != nil || !exists {
 		return nil, err
 	}
-	if binding.Policy.Subject.Kind == acl.SubjectKindPublicKey && strings.TrimSpace(binding.Policy.Subject.Id) != "" {
+	if binding.Policy.Subject.Kind == acl.SubjectKindPublicKey &&
+		strings.TrimSpace(binding.Policy.Subject.Id) != "" &&
+		ownerPolicyEqual(binding.Policy, apitypes.ACLPolicy{
+			Subject:  binding.Policy.Subject,
+			Resource: apitypes.ACLResource{Kind: kind, Id: id},
+			Role:     resourceOwnerRole,
+		}) {
 		owner := binding.Policy.Subject.Id
 		return &owner, nil
 	}
@@ -181,7 +187,13 @@ func (m *Manager) removeOwnedResourceOwner(ctx context.Context, kind apitypes.AC
 }
 
 func ownerPolicyEqual(left, right apitypes.ACLPolicy) bool {
-	return left.Subject == right.Subject && left.Resource == right.Resource && left.Role == right.Role
+	return left.Subject == right.Subject &&
+		left.Resource == right.Resource &&
+		left.Role == right.Role &&
+		left.NotBefore == nil &&
+		left.ExpiresAt == nil &&
+		right.NotBefore == nil &&
+		right.ExpiresAt == nil
 }
 
 func permissionListsEqual(left, right apitypes.ACLPermissionList) bool {

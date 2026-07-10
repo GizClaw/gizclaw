@@ -189,8 +189,8 @@ func (s *Server) handleToolDelete(ctx context.Context, req *rpcapi.RPCRequest) *
 	}
 	if s.ToolACL != nil {
 		for _, bindingID := range []string{
-			toolOwnerBindingID(params.Id, s.Caller.String()),
 			legacyToolOwnerBindingID(params.Id, s.Caller.String()),
+			toolOwnerBindingID(params.Id, s.Caller.String()),
 		} {
 			if _, err := s.ToolACL.DeletePolicyBinding(context.WithoutCancel(ctx), bindingID); err != nil && !errors.Is(err, acl.ErrPolicyBindingNotFound) {
 				if _, rollbackErr := s.Tools.PutTool(context.WithoutCancel(ctx), stored); rollbackErr != nil {

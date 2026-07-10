@@ -47,13 +47,13 @@ func (m *Manager) applyTool(ctx context.Context, resource apitypes.Resource) (ap
 			return apitypes.ApplyResult{}, applyError(500, "RESOURCE_COMPARE_FAILED", err.Error())
 		}
 		if same {
-			ownerChanged, err := m.ensureOwnedResourceOwnerFromMetadata(ctx, apitypes.ACLResourceKindTool, item.Metadata.Name, item.Metadata)
+			ownerRollback, err := m.ensureOwnedResourceOwnerBeforeWrite(ctx, apitypes.ACLResourceKindTool, item.Metadata.Name, item.Metadata)
 			if err != nil {
 				return apitypes.ApplyResult{}, err
 			}
-			if ownerChanged {
+			if ownerRollback != nil && ownerRollback.changed {
 				if err := m.removeLegacyToolOwnerBinding(ctx, existing); err != nil {
-					return apitypes.ApplyResult{}, err
+					return apitypes.ApplyResult{}, m.rollbackOwnedResourceOwner(ctx, ownerRollback, err)
 				}
 				return applyResult(apitypes.ApplyActionUpdated, apitypes.ResourceKindTool, item.Metadata.Name), nil
 			}
@@ -101,21 +101,30 @@ func (m *Manager) putToolResource(ctx context.Context, item apitypes.ToolResourc
 	if err := m.validateOwnedResourceOwner(apitypes.ACLResourceKindTool, item.Metadata.Name, item.Metadata, exists); err != nil {
 		return apitypes.Resource{}, err
 	}
+	ownerRollback, err := m.ensureOwnedResourceOwnerBeforeWrite(ctx, apitypes.ACLResourceKindTool, item.Metadata.Name, item.Metadata)
+	if err != nil {
+		return apitypes.Resource{}, err
+	}
 	stored, err := m.services.Tools.PutTool(ctx, tool)
 	if err != nil {
-		return apitypes.Resource{}, toolServiceError(err)
+		return apitypes.Resource{}, m.rollbackOwnedResourceOwner(ctx, ownerRollback, toolServiceError(err))
 	}
 	if exists && toolOwnerBindingChanged(existing, stored) {
-		if err := m.removeToolOwnerBinding(ctx, existing); err != nil {
-			return apitypes.Resource{}, m.rollbackTool(ctx, existing, err)
+		_, hasMetadataOwner, err := resourceOwnerHint(item.Metadata)
+		if err != nil {
+			return apitypes.Resource{}, m.rollbackOwnedResourceOwner(ctx, ownerRollback, m.rollbackTool(ctx, existing, err))
 		}
-	}
-	if _, err := m.ensureOwnedResourceOwnerFromMetadata(ctx, apitypes.ACLResourceKindTool, item.Metadata.Name, item.Metadata); err != nil {
-		return apitypes.Resource{}, m.rollbackToolWrite(ctx, existing, exists, stored.ID, err)
+		cleanupOwner := m.removeToolOwnerBinding
+		if hasMetadataOwner {
+			cleanupOwner = m.removeLegacyToolOwnerBinding
+		}
+		if err := cleanupOwner(ctx, existing); err != nil {
+			return apitypes.Resource{}, m.rollbackOwnedResourceOwner(ctx, ownerRollback, m.rollbackTool(ctx, existing, err))
+		}
 	}
 	if exists {
 		if err := m.removeLegacyToolOwnerBinding(ctx, existing); err != nil {
-			return apitypes.Resource{}, m.rollbackToolWrite(ctx, existing, exists, stored.ID, err)
+			return apitypes.Resource{}, m.rollbackOwnedResourceOwner(ctx, ownerRollback, m.rollbackToolWrite(ctx, existing, exists, stored.ID, err))
 		}
 	}
 	return m.Get(ctx, apitypes.ResourceKindTool, stored.ID)

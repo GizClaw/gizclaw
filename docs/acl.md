@@ -177,8 +177,8 @@ only that metadata field updates the ACL binding without rewriting the
 underlying resource.
 
 Social resources, provider tenant configuration, peer config, gameplay catalog
-resources, ACL control-plane resources, and `ResourceList` do not use this
-generic owner binding.
+definitions such as `PetDef`, `BadgeDef`, and `GameDef`, ACL control-plane
+resources, and `ResourceList` do not use this generic owner binding.
 
 | Create path | Subject to bind | Resource to bind | Role | Permissions |
 | --- | --- | --- | --- | --- |
