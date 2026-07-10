@@ -471,10 +471,10 @@ int gzc_cgo_session_read_packet(
 }
 
 int gzc_cgo_session_poll(gzc_cgo_session_t *session, int timeout_ms, char *errbuf, unsigned long errbuf_len) {
-  if (session == NULL || session->webrtc.peer_poll == NULL) {
+  if (session == NULL || session->client == NULL) {
     return fail(errbuf, errbuf_len, "poll", GZC_ERR_INVALID_ARGUMENT);
   }
-  int rc = session->webrtc.peer_poll(&session->backend.peer, timeout_ms);
+  int rc = gzc_client_poll(session->client, timeout_ms);
   if (rc != GZC_OK) {
     return fail(errbuf, errbuf_len, "poll", rc);
   }

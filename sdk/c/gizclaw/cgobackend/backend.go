@@ -52,27 +52,59 @@ type HTTPResponse struct {
 }
 
 type EventSink interface {
+	RemoteChannel(channelID int, label string, ordered, reliable bool)
 	ChannelState(channelID int, state int)
 	ChannelMessage(channelID int, data []byte, isText bool)
 }
 
 type Backend struct {
-	mu   sync.Mutex
-	pc   *webrtc.PeerConnection
-	dcs  map[int]*dataChannelState
-	sink EventSink
+	mu         sync.Mutex
+	dispatchMu sync.Mutex
+	pc         *webrtc.PeerConnection
+	dcs        map[int]*dataChannelState
+	nextDCID   int
+	sink       EventSink
+	events     []backendEvent
+	eventReady chan struct{}
+	closed     bool
 }
 
 type dataChannelState struct {
 	dc        *webrtc.DataChannel
+	label     string
+	ordered   bool
+	reliable  bool
 	openCh    chan struct{}
 	closeCh   chan struct{}
 	openOnce  sync.Once
 	closeOnce sync.Once
 }
 
+type backendEventKind uint8
+
+const (
+	backendEventRemoteChannel backendEventKind = iota
+	backendEventChannelState
+	backendEventChannelMessage
+)
+
+type backendEvent struct {
+	kind      backendEventKind
+	channelID int
+	label     string
+	ordered   bool
+	reliable  bool
+	state     int
+	data      []byte
+	isText    bool
+}
+
 func New() *Backend {
-	return &Backend{dcs: make(map[int]*dataChannelState)}
+	return &Backend{
+		dcs:        make(map[int]*dataChannelState),
+		nextDCID:   3,
+		eventReady: make(chan struct{}, 1),
+	}
 }
 
 func Random(out []byte) error {
@@ -193,8 +225,58 @@ func (b *Backend) CreatePeer() error {
 			go b.forwardRemoteOpus(track)
 		}
 	})
+	pc.OnDataChannel(func(dc *webrtc.DataChannel) {
+		b.acceptRemoteDataChannel(dc)
+	})
 	b.pc = pc
+	b.closed = false
 	return nil
+}
+
+func (b *Backend) acceptRemoteDataChannel(dc *webrtc.DataChannel) {
+	if dc == nil {
+		return
+	}
+	ordered := dc.Ordered()
+	reliable := dc.MaxRetransmits() == nil && dc.MaxPacketLifeTime() == nil
+	state := &dataChannelState{
+		dc: dc, label: dc.Label(), ordered: ordered, reliable: reliable,
+		openCh: make(chan struct{}), closeCh: make(chan struct{}),
+	}
+	b.mu.Lock()
+	if b.closed || b.dcs == nil {
+		b.mu.Unlock()
+		_ = dc.Close()
+		return
+	}
+	channelID := b.nextDCID
+	b.nextDCID++
+	b.dcs[channelID] = state
+	b.mu.Unlock()
+	b.enqueue(backendEvent{
+		kind: backendEventRemoteChannel, channelID: channelID,
+		label: state.label, ordered: state.ordered, reliable: state.reliable,
+	})
+	dc.OnOpen(func() {
+		state.openOnce.Do(func() {
+			close(state.openCh)
+			b.emitChannelState(channelID, RTCChannelOpen)
+		})
+	})
+	dc.OnClose(func() {
+		state.closeOnce.Do(func() {
+			close(state.closeCh)
+			b.mu.Lock()
+			if b.dcs[channelID] == state {
+				delete(b.dcs, channelID)
+			}
+			b.mu.Unlock()
+			b.emitChannelState(channelID, RTCChannelClosed)
+		})
+	})
+	dc.OnMessage(func(msg webrtc.DataChannelMessage) {
+		b.emitChannelMessage(channelID, msg.Data, msg.IsString)
+	})
 }
 
 func (b *Backend) CreateDataChannel(label string, channelID int, ordered, reliable bool) error {
@@ -207,10 +289,16 @@ func (b *Backend) CreateDataChannel(label string, channelID int, ordered, reliab
 		b.mu.Unlock()
 		return fmt.Errorf("data channel %d already exists", channelID)
 	}
-	state := &dataChannelState{openCh: make(chan struct{}), closeCh: make(chan struct{})}
+	state := &dataChannelState{
+		label: label, ordered: ordered, reliable: reliable,
+		openCh: make(chan struct{}), closeCh: make(chan struct{}),
+	}
 	b.dcs[channelID] = state
 	b.mu.Unlock()
 	if pc == nil {
+		b.mu.Lock()
+		delete(b.dcs, channelID)
+		b.mu.Unlock()
 		return fmt.Errorf("nil peer connection")
 	}
 	init := &webrtc.DataChannelInit{}
@@ -235,6 +323,11 @@ func (b *Backend) CreateDataChannel(label string, channelID int, ordered, reliab
 	dc.OnClose(func() {
 		state.closeOnce.Do(func() {
 			close(state.closeCh)
+			b.mu.Lock()
+			if b.dcs[channelID] == state {
+				delete(b.dcs, channelID)
+			}
+			b.mu.Unlock()
 			b.emitChannelState(channelID, RTCChannelClosed)
 		})
 	})
@@ -295,8 +388,46 @@ func (b *Backend) SetRemoteSDP(answer string) error {
 }
 
 func (b *Backend) Poll(timeoutMS int) {
-	if timeoutMS > 0 {
-		time.Sleep(time.Duration(timeoutMS) * time.Millisecond)
+	b.dispatchMu.Lock()
+	defer b.dispatchMu.Unlock()
+
+	b.mu.Lock()
+	hasEvents := len(b.events) != 0
+	closed := b.closed
+	ready := b.eventReady
+	b.mu.Unlock()
+	if hasEvents {
+		select {
+		case <-ready:
+		default:
+		}
+	} else if !closed && timeoutMS > 0 {
+		timer := time.NewTimer(time.Duration(timeoutMS) * time.Millisecond)
+		select {
+		case <-ready:
+			timer.Stop()
+		case <-timer.C:
+		}
+	}
+
+	b.mu.Lock()
+	events := b.events
+	b.events = nil
+	sink := b.sink
+	closed = b.closed
+	b.mu.Unlock()
+	if sink == nil || closed {
+		return
+	}
+	for _, event := range events {
+		switch event.kind {
+		case backendEventRemoteChannel:
+			sink.RemoteChannel(event.channelID, event.label, event.ordered, event.reliable)
+		case backendEventChannelState:
+			sink.ChannelState(event.channelID, event.state)
+		case backendEventChannelMessage:
+			sink.ChannelMessage(event.channelID, event.data, event.isText)
+		}
 	}
 }
 
@@ -330,6 +461,8 @@ func (b *Backend) CloseDataChannel(channelID int) {
 }
 
 func (b *Backend) Close() {
+	b.dispatchMu.Lock()
+	defer b.dispatchMu.Unlock()
 	b.mu.Lock()
 	states := make([]*dataChannelState, 0, len(b.dcs))
 	for _, state := range b.dcs {
@@ -339,6 +472,8 @@ func (b *Backend) Close() {
 	b.dcs = nil
 	b.pc = nil
 	b.sink = nil
+	b.events = nil
+	b.closed = true
 	b.mu.Unlock()
 	for _, state := range states {
 		if state != nil && state.dc != nil {
@@ -371,20 +506,28 @@ func (b *Backend) forwardRemoteOpus(track *webrtc.TrackRemote) {
 }
 
 func (b *Backend) emitChannelState(channelID int, state int) {
-	b.mu.Lock()
-	sink := b.sink
-	b.mu.Unlock()
-	if sink != nil {
-		sink.ChannelState(channelID, state)
-	}
+	b.enqueue(backendEvent{kind: backendEventChannelState, channelID: channelID, state: state})
 }
 
 func (b *Backend) emitChannelMessage(channelID int, data []byte, isText bool) {
+	b.enqueue(backendEvent{
+		kind: backendEventChannelMessage, channelID: channelID,
+		data: append([]byte(nil), data...), isText: isText,
+	})
+}
+
+func (b *Backend) enqueue(event backendEvent) {
 	b.mu.Lock()
-	sink := b.sink
+	if b.closed {
+		b.mu.Unlock()
+		return
+	}
+	b.events = append(b.events, event)
+	ready := b.eventReady
 	b.mu.Unlock()
-	if sink != nil {
-		sink.ChannelMessage(channelID, append([]byte(nil), data...), isText)
+	select {
+	case ready <- struct{}{}:
+	default:
 	}
 }
 

@@ -79,6 +79,10 @@ int gzc_cgo_backend_init(gzc_cgo_backend_t *backend) {
   backend->rpc_channel.id = gzc_cgo_channel_rpc;
   backend->event_channel.backend = backend;
   backend->event_channel.id = gzc_cgo_channel_event;
+  for (size_t i = 0; i < GZC_RPC_MAX_INBOUND_CHANNELS; i++) {
+    backend->remote_channels[i].backend = backend;
+    backend->remote_channels[i].remote = true;
+  }
   backend->handle = gzcGoBackendCreate();
   if (backend->handle == 0) {
     return GZC_ERR_WEBRTC;
@@ -100,7 +104,7 @@ static int bridge_http_request(void *userdata, const gzc_http_request_t *request
   if (backend == NULL || request == NULL || out_response == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
-  if (request->method != GZC_HTTP_METHOD_POST) {
+  if (request->method != GZC_HTTP_METHOD_GET && request->method != GZC_HTTP_METHOD_POST) {
     return GZC_ERR_UNSUPPORTED;
   }
   memset(out_response, 0, sizeof(*out_response));
@@ -375,51 +379,131 @@ void gzc_cgo_backend_webrtc_vtable(gzc_cgo_backend_t *backend, gzc_webrtc_vtable
   out_webrtc->peer_close = bridge_peer_close;
 }
 
+static gzc_rtc_channel_t *remote_channel_by_id(gzc_cgo_backend_t *backend, int channel_id) {
+  if (backend == NULL) {
+    return NULL;
+  }
+  for (size_t i = 0; i < GZC_RPC_MAX_INBOUND_CHANNELS; i++) {
+    gzc_rtc_channel_t *channel = &backend->remote_channels[i];
+    if (channel->in_use && channel->id == channel_id) {
+      return channel;
+    }
+  }
+  return NULL;
+}
+
+static void fill_channel_info(const gzc_rtc_channel_t *channel, gzc_rtc_channel_info_t *info) {
+  memset(info, 0, sizeof(*info));
+  if (channel->remote) {
+    info->label = gzc_str_from_cstr(channel->label);
+    info->stream_id = (uint16_t)channel->id;
+    info->ordered = channel->ordered;
+    info->reliable = channel->reliable;
+  } else if (channel->id == gzc_cgo_channel_packet) {
+    info->label = gzc_str_from_cstr("giznet/v1/packet");
+    info->stream_id = 0;
+    info->ordered = false;
+    info->reliable = false;
+  } else if (channel->id == gzc_cgo_channel_rpc) {
+    info->label = gzc_str_from_cstr("giznet/v1/service/0");
+    info->stream_id = 1;
+    info->ordered = true;
+    info->reliable = true;
+  } else {
+    info->label = gzc_str_from_cstr("giznet/v1/service/32");
+    info->stream_id = 2;
+    info->ordered = true;
+    info->reliable = true;
+  }
+}
+
+void gzc_cgo_emit_remote_channel(
+    gzc_cgo_backend_t *backend,
+    int channel_id,
+    const char *label,
+    size_t label_len,
+    bool ordered,
+    bool reliable) {
+  if (backend == NULL || label == NULL || label_len >= sizeof(backend->remote_channels[0].label)) {
+    if (backend != NULL) {
+      gzcGoChannelClose(backend->handle, channel_id);
+    }
+    return;
+  }
+  gzc_rtc_channel_t *channel = NULL;
+  for (size_t i = 0; i < GZC_RPC_MAX_INBOUND_CHANNELS; i++) {
+    if (!backend->remote_channels[i].in_use) {
+      channel = &backend->remote_channels[i];
+      break;
+    }
+  }
+  if (channel == NULL) {
+    gzcGoChannelClose(backend->handle, channel_id);
+    return;
+  }
+  channel->id = channel_id;
+  channel->in_use = true;
+  channel->ordered = ordered;
+  channel->reliable = reliable;
+  memcpy(channel->label, label, label_len);
+  channel->label[label_len] = 0;
+  if (backend->callbacks.on_remote_channel == NULL) {
+    channel->in_use = false;
+    gzcGoChannelClose(backend->handle, channel_id);
+    return;
+  }
+  gzc_rtc_channel_info_t info;
+  fill_channel_info(channel, &info);
+  backend->callbacks.on_remote_channel(
+      backend->callbacks.userdata, &backend->peer, channel, &info);
+}
+
 void gzc_cgo_emit_channel_state(gzc_cgo_backend_t *backend, int channel_id, gzc_rtc_channel_state_t state) {
   if (backend == NULL || backend->callbacks.on_channel_state == NULL) {
     return;
   }
-  gzc_rtc_channel_t *channel = &backend->rpc_channel;
-  if (channel_id == gzc_cgo_channel_packet) {
-    channel = &backend->packet_channel;
-  } else if (channel_id == gzc_cgo_channel_event) {
-    channel = &backend->event_channel;
+  gzc_rtc_channel_t *channel = remote_channel_by_id(backend, channel_id);
+  if (channel == NULL) {
+    if (channel_id == gzc_cgo_channel_packet) {
+      channel = &backend->packet_channel;
+    } else if (channel_id == gzc_cgo_channel_rpc) {
+      channel = &backend->rpc_channel;
+    } else if (channel_id == gzc_cgo_channel_event) {
+      channel = &backend->event_channel;
+    } else {
+      return;
+    }
   }
   gzc_rtc_channel_info_t info;
-  memset(&info, 0, sizeof(info));
-  if (channel_id == gzc_cgo_channel_packet) {
-    info.label = gzc_str_from_cstr("giznet/v1/packet");
-    info.stream_id = 0;
-    info.ordered = false;
-    info.reliable = false;
-  } else if (channel_id == gzc_cgo_channel_rpc) {
-    info.label = gzc_str_from_cstr("giznet/v1/service/0");
-    info.stream_id = 1;
-    info.ordered = true;
-    info.reliable = true;
-  } else {
-    info.label = gzc_str_from_cstr("giznet/v1/service/32");
-    info.stream_id = 2;
-    info.ordered = true;
-    info.reliable = true;
-  }
+  fill_channel_info(channel, &info);
   backend->callbacks.on_channel_state(
       backend->callbacks.userdata,
       &backend->peer,
       channel,
       &info,
       state);
+  if (channel->remote && (state == GZC_RTC_CHANNEL_CLOSED || state == GZC_RTC_CHANNEL_ERROR)) {
+    channel->in_use = false;
+    channel->id = 0;
+    channel->label[0] = 0;
+  }
 }
 
 void gzc_cgo_emit_channel_message(gzc_cgo_backend_t *backend, int channel_id, const uint8_t *data, size_t len, bool is_text) {
   if (backend == NULL || backend->callbacks.on_channel_message == NULL) {
     return;
   }
-  gzc_rtc_channel_t *channel = &backend->rpc_channel;
-  if (channel_id == gzc_cgo_channel_packet) {
-    channel = &backend->packet_channel;
-  } else if (channel_id == gzc_cgo_channel_event) {
-    channel = &backend->event_channel;
+  gzc_rtc_channel_t *channel = remote_channel_by_id(backend, channel_id);
+  if (channel == NULL) {
+    if (channel_id == gzc_cgo_channel_packet) {
+      channel = &backend->packet_channel;
+    } else if (channel_id == gzc_cgo_channel_rpc) {
+      channel = &backend->rpc_channel;
+    } else if (channel_id == gzc_cgo_channel_event) {
+      channel = &backend->event_channel;
+    } else {
+      return;
+    }
   }
   backend->callbacks.on_channel_message(
       backend->callbacks.userdata,

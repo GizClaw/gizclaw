@@ -10,7 +10,7 @@ struct gzc_rtc_peer {
 };
 
 struct gzc_rtc_channel {
-  int unused;
+  int id;
 };
 
 typedef enum {
@@ -26,10 +26,13 @@ typedef struct {
   struct gzc_rtc_peer peer;
   struct gzc_rtc_channel packet_channel;
   struct gzc_rtc_channel rpc_channel;
+  struct gzc_rtc_channel remote_channels[GZC_RPC_MAX_INBOUND_CHANNELS + 1u];
   gzc_buf_t sent;
   const gzc_platform_t *platform;
   int poll_count;
   int create_channel_count;
+  int close_count;
+  gzc_rtc_channel_t *last_closed;
   fake_response_mode_t response_mode;
 } fake_webrtc_t;
 
@@ -44,6 +47,8 @@ typedef struct {
   const gzc_platform_t *platform;
 } fake_crypto_t;
 
+static fake_webrtc_t *global_fake_webrtc;
+
 static bool str_eq_cstr(gzc_str_t value, const char *want) {
   size_t want_len = strlen(want);
   return value.len == want_len && strncmp(value.data, want, want_len) == 0;
@@ -57,14 +62,15 @@ static int fake_peer_create(void *userdata, const gzc_webrtc_callbacks_t *callba
 }
 
 static void fake_channel_close(gzc_rtc_channel_t *channel) {
-  (void)channel;
+  if (global_fake_webrtc != NULL) {
+    global_fake_webrtc->close_count++;
+    global_fake_webrtc->last_closed = channel;
+  }
 }
 
 static void fake_peer_close(gzc_rtc_peer_t *peer) {
   (void)peer;
 }
-
-static fake_webrtc_t *global_fake_webrtc;
 
 static int test_peer_create(void *userdata, const gzc_webrtc_callbacks_t *callbacks, gzc_rtc_peer_t **out_peer) {
   fake_webrtc_t *fake = (fake_webrtc_t *)userdata;
@@ -303,6 +309,11 @@ static int test_channel_send(gzc_rtc_channel_t *channel, const uint8_t *data, si
     gzc_buf_reset(&fake->sent);
     return gzc_buf_append(&fake->sent, fake->platform, data, len);
   }
+  for (size_t i = 0; i < GZC_RPC_MAX_INBOUND_CHANNELS + 1u; i++) {
+    if (channel == &fake->remote_channels[i] && !is_text) {
+      return gzc_buf_append(&fake->sent, fake->platform, data, len);
+    }
+  }
   if (channel != &fake->rpc_channel || is_text) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
@@ -453,6 +464,33 @@ static int test_channel_send(gzc_rtc_channel_t *channel, const uint8_t *data, si
   gzc_buf_free(&response_payload, fake->platform);
   gzc_buf_free(&framed, fake->platform);
   return GZC_OK;
+}
+
+static void announce_remote_rpc(fake_webrtc_t *fake, size_t index) {
+  gzc_rtc_channel_info_t info;
+  memset(&info, 0, sizeof(info));
+  info.label = gzc_str_from_cstr("giznet/v1/service/0");
+  info.stream_id = (uint16_t)(3 + index);
+  info.ordered = true;
+  info.reliable = true;
+  fake->remote_channels[index].id = (int)(3 + index);
+  fake->callbacks.on_remote_channel(
+      fake->callbacks.userdata, &fake->peer, &fake->remote_channels[index], &info);
+  fake->callbacks.on_channel_state(
+      fake->callbacks.userdata, &fake->peer, &fake->remote_channels[index], &info,
+      GZC_RTC_CHANNEL_OPEN);
+}
+
+static void close_remote_rpc(fake_webrtc_t *fake, size_t index) {
+  gzc_rtc_channel_info_t info;
+  memset(&info, 0, sizeof(info));
+  info.label = gzc_str_from_cstr("giznet/v1/service/0");
+  info.stream_id = (uint16_t)(3 + index);
+  info.ordered = true;
+  info.reliable = true;
+  fake->callbacks.on_channel_state(
+      fake->callbacks.userdata, &fake->peer, &fake->remote_channels[index], &info,
+      GZC_RTC_CHANNEL_CLOSED);
 }
 
 typedef struct {
@@ -1089,8 +1127,271 @@ int main(void) {
   }
   gzc_buf_free(&encoded_binary, platform);
 
+  if (expect(GZC_RPC_MAX_INBOUND_CHANNELS == 4u, "inbound RPC channel limit") != 0) {
+    return 1;
+  }
+  if (expect(gzc_client_poll(NULL, 0) == GZC_ERR_INVALID_ARGUMENT, "poll rejects null client") != 0) {
+    return 1;
+  }
+
+  announce_remote_rpc(&fake_webrtc, 0);
+  gzc_buf_t inbound_request;
+  gzc_buf_t inbound_framed;
+  gzc_buf_init(&inbound_request);
+  gzc_buf_init(&inbound_framed);
+  rc = gzc_rpc_encode_request_envelope(
+      platform,
+      gzc_str_from_cstr("server-ping"),
+      gizclaw_rpc_v1_RpcMethod_RPC_METHOD_ALL_PING,
+      gzc_str_from_parts((const char *)params.data, params.len),
+      &inbound_request);
+  if (rc == GZC_OK) {
+    size_t split = inbound_request.len / 2;
+    rc = append_test_frame(platform, &inbound_framed, GZC_RPC_FRAME_TEXT,
+                           inbound_request.data, split);
+    if (rc == GZC_OK) {
+      rc = append_test_frame(platform, &inbound_framed, GZC_RPC_FRAME_TEXT,
+                             inbound_request.data + split,
+                             inbound_request.len - split);
+    }
+  }
+  if (rc == GZC_OK) {
+    rc = append_test_frame(platform, &inbound_framed, GZC_RPC_FRAME_EOS, NULL, 0);
+  }
+  if (expect(rc == GZC_OK, "build continued inbound ping request") != 0) {
+    return 1;
+  }
+  gzc_buf_reset(&fake_webrtc.sent);
+  fake_webrtc.callbacks.on_channel_message(
+      fake_webrtc.callbacks.userdata, &fake_webrtc.peer,
+      &fake_webrtc.remote_channels[0], NULL,
+      inbound_framed.data, inbound_framed.len, false);
+  rc = gzc_client_poll(client, 0);
+  if (expect(rc == GZC_OK, "poll serves inbound ping") != 0) {
+    return 1;
+  }
+  size_t inbound_frame_size = first_frame_size(&fake_webrtc.sent);
+  gzc_rpc_frame_t inbound_frame;
+  rc = gzc_rpc_frame_decode(fake_webrtc.sent.data, inbound_frame_size, &inbound_frame);
+  if (expect(rc == GZC_OK && inbound_frame.type == GZC_RPC_FRAME_BINARY,
+             "inbound ping response envelope") != 0) {
+    return 1;
+  }
+  gzc_rpc_response_t inbound_response;
+  rc = gzc_rpc_decode_response_envelope(
+      gzc_str_from_parts((const char *)inbound_frame.data, inbound_frame.len),
+      &inbound_response);
+  if (expect(rc == GZC_OK && str_eq_cstr(inbound_response.id, "server-ping") &&
+                 !inbound_response.has_error,
+             "inbound ping response preserves id") != 0) {
+    return 1;
+  }
+  gizclaw_rpc_v1_PingResponse inbound_ping = gizclaw_rpc_v1_PingResponse_init_zero;
+  rc = decode_test_pb_message(
+      inbound_response.result_payload,
+      gizclaw_rpc_v1_PingResponse_fields,
+      &inbound_ping);
+  if (expect(rc == GZC_OK && inbound_ping.server_time > 0,
+             "inbound ping response payload") != 0) {
+    return 1;
+  }
+  size_t eos_offset = inbound_frame_size;
+  rc = gzc_rpc_frame_decode(fake_webrtc.sent.data + eos_offset,
+                            fake_webrtc.sent.len - eos_offset, &inbound_frame);
+  if (expect(rc == GZC_OK && inbound_frame.type == GZC_RPC_FRAME_EOS,
+             "inbound ping response eos") != 0) {
+    return 1;
+  }
+
+  for (size_t i = 1; i < GZC_RPC_MAX_INBOUND_CHANNELS; i++) {
+    announce_remote_rpc(&fake_webrtc, i);
+  }
+  int close_count_before_limit = fake_webrtc.close_count;
+  announce_remote_rpc(&fake_webrtc, GZC_RPC_MAX_INBOUND_CHANNELS);
+  if (expect(fake_webrtc.close_count == close_count_before_limit + 1 &&
+                 fake_webrtc.last_closed ==
+                     &fake_webrtc.remote_channels[GZC_RPC_MAX_INBOUND_CHANNELS],
+             "fifth inbound RPC channel is rejected") != 0) {
+    return 1;
+  }
+  for (size_t i = 0; i < GZC_RPC_MAX_INBOUND_CHANNELS; i++) {
+    close_remote_rpc(&fake_webrtc, i);
+  }
+
+  gizclaw_rpc_v1_SpeedTestRequest speed_request = gizclaw_rpc_v1_SpeedTestRequest_init_zero;
+  speed_request.up_content_length = 2;
+  speed_request.down_content_length = 3;
+  gzc_buf_t speed_payload;
+  gzc_buf_init(&speed_payload);
+  gzc_buf_reset(&inbound_request);
+  gzc_buf_reset(&inbound_framed);
+  rc = encode_test_pb_message(
+      platform, gizclaw_rpc_v1_SpeedTestRequest_fields, &speed_request,
+      &speed_payload);
+  if (rc == GZC_OK) {
+    rc = gzc_rpc_encode_request_envelope(
+        platform, gzc_str_from_cstr("server-speed"),
+        gizclaw_rpc_v1_RpcMethod_RPC_METHOD_ALL_SPEED_TEST_RUN,
+        gzc_str_from_parts((const char *)speed_payload.data, speed_payload.len),
+        &inbound_request);
+  }
+  if (rc == GZC_OK) {
+    rc = append_test_frame(platform, &inbound_framed, GZC_RPC_FRAME_BINARY,
+                           inbound_request.data, inbound_request.len);
+  }
+  const uint8_t upload_body[] = {0x01, 0x02};
+  if (rc == GZC_OK) {
+    rc = append_test_frame(platform, &inbound_framed, GZC_RPC_FRAME_BINARY,
+                           upload_body, sizeof(upload_body));
+  }
+  if (rc == GZC_OK) {
+    rc = append_test_frame(platform, &inbound_framed, GZC_RPC_FRAME_EOS, NULL, 0);
+  }
+  if (expect(rc == GZC_OK, "build inbound speed request") != 0) {
+    return 1;
+  }
+  announce_remote_rpc(&fake_webrtc, 0);
+  gzc_buf_reset(&fake_webrtc.sent);
+  fake_webrtc.callbacks.on_channel_message(
+      fake_webrtc.callbacks.userdata, &fake_webrtc.peer,
+      &fake_webrtc.remote_channels[0], NULL,
+      inbound_framed.data, inbound_framed.len, false);
+  rc = gzc_client_poll(client, 0);
+  if (expect(rc == GZC_OK, "poll serves inbound full-duplex speed test") != 0) {
+    return 1;
+  }
+  size_t offset = 0;
+  size_t response_frames = 0;
+  size_t download_bytes = 0;
+  while (offset < fake_webrtc.sent.len) {
+    size_t size = first_frame_size(&(gzc_buf_t){
+        .data = fake_webrtc.sent.data + offset,
+        .len = fake_webrtc.sent.len - offset,
+        .cap = fake_webrtc.sent.len - offset});
+    rc = gzc_rpc_frame_decode(fake_webrtc.sent.data + offset, size, &inbound_frame);
+    if (rc != GZC_OK) {
+      return 1;
+    }
+    response_frames++;
+    if (response_frames == 2 && inbound_frame.type == GZC_RPC_FRAME_BINARY) {
+      download_bytes += inbound_frame.len;
+    }
+    offset += size;
+  }
+  if (expect(response_frames == 3 && download_bytes == 3 &&
+                 inbound_frame.type == GZC_RPC_FRAME_EOS,
+             "inbound speed response envelope body and eos") != 0) {
+    return 1;
+  }
+  close_remote_rpc(&fake_webrtc, 0);
+
+  announce_remote_rpc(&fake_webrtc, 0);
+  gzc_buf_reset(&inbound_request);
+  gzc_buf_reset(&inbound_framed);
+  gzc_buf_reset(&fake_webrtc.sent);
+  rc = gzc_rpc_encode_request_envelope(
+      platform, gzc_str_from_cstr("unknown-method"),
+      (gizclaw_rpc_v1_RpcMethod)999,
+      gzc_str_from_parts((const char *)params.data, params.len),
+      &inbound_request);
+  if (rc == GZC_OK) {
+    rc = append_test_frame(platform, &inbound_framed, GZC_RPC_FRAME_BINARY,
+                           inbound_request.data, inbound_request.len);
+  }
+  if (rc == GZC_OK) {
+    rc = append_test_frame(platform, &inbound_framed, GZC_RPC_FRAME_EOS, NULL, 0);
+  }
+  if (expect(rc == GZC_OK, "build unknown inbound method") != 0) {
+    return 1;
+  }
+  fake_webrtc.callbacks.on_channel_message(
+      fake_webrtc.callbacks.userdata, &fake_webrtc.peer,
+      &fake_webrtc.remote_channels[0], NULL,
+      inbound_framed.data, inbound_framed.len, false);
+  inbound_frame_size = first_frame_size(&fake_webrtc.sent);
+  rc = gzc_rpc_frame_decode(fake_webrtc.sent.data, inbound_frame_size, &inbound_frame);
+  if (rc == GZC_OK) {
+    rc = gzc_rpc_decode_response_envelope(
+        gzc_str_from_parts((const char *)inbound_frame.data, inbound_frame.len),
+        &inbound_response);
+  }
+  if (expect(rc == GZC_OK && inbound_response.has_error &&
+                 inbound_response.error.code ==
+                     gizclaw_rpc_v1_RpcErrorCode_RPC_ERROR_CODE_METHOD_NOT_FOUND,
+             "unknown inbound method returns method-not-found") != 0) {
+    return 1;
+  }
+  close_remote_rpc(&fake_webrtc, 0);
+
+  announce_remote_rpc(&fake_webrtc, 0);
+  gzc_buf_reset(&inbound_request);
+  gzc_buf_reset(&inbound_framed);
+  gzc_buf_reset(&fake_webrtc.sent);
+  rc = gzc_rpc_encode_request_envelope(
+      platform, gzc_str_from_parts("", 0),
+      gizclaw_rpc_v1_RpcMethod_RPC_METHOD_ALL_PING,
+      gzc_str_from_parts((const char *)params.data, params.len),
+      &inbound_request);
+  if (rc == GZC_OK) {
+    rc = append_test_frame(platform, &inbound_framed, GZC_RPC_FRAME_BINARY,
+                           inbound_request.data, inbound_request.len);
+  }
+  if (rc == GZC_OK) {
+    rc = append_test_frame(platform, &inbound_framed, GZC_RPC_FRAME_EOS, NULL, 0);
+  }
+  if (expect(rc == GZC_OK, "build empty-id inbound request") != 0) {
+    return 1;
+  }
+  fake_webrtc.callbacks.on_channel_message(
+      fake_webrtc.callbacks.userdata, &fake_webrtc.peer,
+      &fake_webrtc.remote_channels[0], NULL,
+      inbound_framed.data, inbound_framed.len, false);
+  inbound_frame_size = first_frame_size(&fake_webrtc.sent);
+  rc = gzc_rpc_frame_decode(fake_webrtc.sent.data, inbound_frame_size, &inbound_frame);
+  if (rc == GZC_OK) {
+    rc = gzc_rpc_decode_response_envelope(
+        gzc_str_from_parts((const char *)inbound_frame.data, inbound_frame.len),
+        &inbound_response);
+  }
+  if (expect(rc == GZC_OK && inbound_response.has_error &&
+                 inbound_response.error.code ==
+                     gizclaw_rpc_v1_RpcErrorCode_RPC_ERROR_CODE_INVALID_REQUEST,
+             "empty inbound request id returns invalid-request") != 0) {
+    return 1;
+  }
+  close_remote_rpc(&fake_webrtc, 0);
+
+  announce_remote_rpc(&fake_webrtc, 0);
+  gzc_buf_reset(&inbound_framed);
+  gzc_buf_reset(&fake_webrtc.sent);
+  const uint8_t malformed_protobuf[] = {0xff};
+  rc = append_test_frame(platform, &inbound_framed, GZC_RPC_FRAME_BINARY,
+                         malformed_protobuf, sizeof(malformed_protobuf));
+  int close_count_before_malformed = fake_webrtc.close_count;
+  if (rc == GZC_OK) {
+    fake_webrtc.callbacks.on_channel_message(
+        fake_webrtc.callbacks.userdata, &fake_webrtc.peer,
+        &fake_webrtc.remote_channels[0], NULL,
+        inbound_framed.data, inbound_framed.len, false);
+  }
+  if (expect(rc == GZC_OK && fake_webrtc.close_count == close_count_before_malformed + 1 &&
+                 fake_webrtc.sent.len == 0,
+             "malformed inbound protobuf without id closes channel") != 0) {
+    return 1;
+  }
+  close_remote_rpc(&fake_webrtc, 0);
+
+  gzc_buf_free(&speed_payload, platform);
+  gzc_buf_free(&inbound_request, platform);
+  gzc_buf_free(&inbound_framed, platform);
+
   gzc_buf_free(&params, platform);
   gzc_buf_free(&fake_webrtc.sent, platform);
+  rc = gzc_client_close(client);
+  if (expect(rc == GZC_OK && gzc_client_poll(client, 0) == GZC_ERR_CLOSED,
+             "poll reports closed client") != 0) {
+    return 1;
+  }
   gzc_client_destroy(client);
   return 0;
 }

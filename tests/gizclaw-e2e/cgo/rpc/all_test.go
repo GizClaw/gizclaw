@@ -25,6 +25,42 @@ func TestCSDKSpeedTest(t *testing.T) {
 	runCSDKRPC(t, "speed-test", cgointernal.CSDKSpeedTest)
 }
 
+func TestCSDKServerInitiatedPing(t *testing.T) {
+	fixture := cgointernal.NewServerRPCFixture(t)
+	response, err := fixture.Ping("server-ping")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if response.ServerTime <= 0 {
+		t.Fatalf("server_time = %d", response.ServerTime)
+	}
+}
+
+func TestCSDKServerInitiatedSpeedTest(t *testing.T) {
+	tests := []struct {
+		name string
+		up   int64
+		down int64
+	}{
+		{name: "zero"},
+		{name: "upload-only", up: 32*1024 + 7},
+		{name: "download-only", down: 32*1024 + 11},
+		{name: "full-duplex", up: 64*1024 + 3, down: 64*1024 + 5},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			fixture := cgointernal.NewServerRPCFixture(t)
+			uploaded, downloaded, err := fixture.SpeedTest("server-speed-"+tc.name, tc.up, tc.down)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if uploaded != tc.up || downloaded != tc.down {
+				t.Fatalf("transferred up=%d down=%d, want up=%d down=%d", uploaded, downloaded, tc.up, tc.down)
+			}
+		})
+	}
+}
+
 func TestCSDKFirmwareRPC(t *testing.T) {
 	runCSDKRPC(t, "firmware-rpc", cgointernal.CSDKFirmwareRPC)
 }

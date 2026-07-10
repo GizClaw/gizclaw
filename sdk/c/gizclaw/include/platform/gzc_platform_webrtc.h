@@ -70,12 +70,24 @@ typedef void (*gzc_rtc_channel_message_cb)(
     size_t len,
     bool is_text);
 
+/*
+ * Announces a remotely created channel before any state or message callback
+ * for that channel. channel and info->label are borrowed for the callback;
+ * the channel remains valid until its close/error callback or peer_close.
+ */
+typedef void (*gzc_rtc_remote_channel_cb)(
+    void *userdata,
+    gzc_rtc_peer_t *peer,
+    gzc_rtc_channel_t *channel,
+    const gzc_rtc_channel_info_t *info);
+
 typedef struct {
   void *userdata;
   gzc_rtc_peer_state_cb on_peer_state;
   gzc_rtc_local_sdp_cb on_local_sdp;
   gzc_rtc_channel_state_cb on_channel_state;
   gzc_rtc_channel_message_cb on_channel_message;
+  gzc_rtc_remote_channel_cb on_remote_channel;
 } gzc_webrtc_callbacks_t;
 
 typedef struct {

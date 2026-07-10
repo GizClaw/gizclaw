@@ -50,9 +50,13 @@ func NewClient(identityDir string) (*Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	cEndpoint := C.CString(cfg.endpoint)
+	return NewClientWithCredentials(cfg.endpoint, cfg.privateKey)
+}
+
+func NewClientWithCredentials(endpoint, privateKey string) (*Client, error) {
+	cEndpoint := C.CString(endpoint)
 	defer C.free(unsafe.Pointer(cEndpoint))
-	cPrivateKey := C.CString(cfg.privateKey)
+	cPrivateKey := C.CString(privateKey)
 	defer C.free(unsafe.Pointer(cPrivateKey))
 	errbuf := make([]byte, 1024)
 	var session *C.gzc_cgo_session_t

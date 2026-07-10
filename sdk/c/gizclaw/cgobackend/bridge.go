@@ -18,6 +18,19 @@ type cgoSink struct {
 	cBackend unsafe.Pointer
 }
 
+func (s cgoSink) RemoteChannel(channelID int, label string, ordered, reliable bool) {
+	if s.cBackend == nil {
+		return
+	}
+	raw := C.CBytes([]byte(label))
+	defer C.free(raw)
+	C.gzc_cgo_emit_remote_channel(
+		(*C.gzc_cgo_backend_t)(s.cBackend),
+		C.int(channelID), (*C.char)(raw), C.size_t(len(label)),
+		C.bool(ordered), C.bool(reliable),
+	)
+}
+
 func backendFromHandle(handle C.uint64_t) *Backend {
 	if handle == 0 {
 		return nil

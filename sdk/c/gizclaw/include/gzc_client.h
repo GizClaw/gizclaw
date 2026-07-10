@@ -13,6 +13,9 @@ extern "C" {
 typedef struct gzc_client gzc_client_t;
 typedef struct gzc_service_channel gzc_service_channel_t;
 
+/* Maximum live server-created ServicePeerRPC exchanges per client. */
+#define GZC_RPC_MAX_INBOUND_CHANNELS 4u
+
 typedef struct {
   gzc_str_t server_endpoint;
   gzc_str_t private_key;
@@ -27,6 +30,11 @@ typedef struct {
 
 int gzc_client_create(const gzc_client_config_t *config, gzc_client_t **out_client);
 int gzc_client_connect(gzc_client_t *client);
+/*
+ * Drives queued WebRTC callbacks and inbound RPC work on the caller's thread.
+ * Applications serving server-initiated RPCs must call this repeatedly.
+ */
+int gzc_client_poll(gzc_client_t *client, int timeout_ms);
 int gzc_client_close(gzc_client_t *client);
 void gzc_client_destroy(gzc_client_t *client);
 
