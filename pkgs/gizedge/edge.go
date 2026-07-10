@@ -123,8 +123,11 @@ func (t *upstreamTransport) RoundTrip(req *http.Request) (*http.Response, error)
 	if err == nil {
 		return resp, nil
 	}
+	if req.Context().Err() != nil {
+		return nil, err
+	}
 	t.resetConn()
-	if req.Context().Err() != nil || !canRetryUpstreamRequest(req.Method) {
+	if !canRetryUpstreamRequest(req.Method) {
 		return nil, err
 	}
 	return t.roundTrip(req)

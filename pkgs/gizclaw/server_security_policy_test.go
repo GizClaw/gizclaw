@@ -66,7 +66,7 @@ func TestServerSecurityPolicyAllowsAdminServiceForActiveAdminPeer(t *testing.T) 
 	}
 }
 
-func TestServerSecurityPolicyAllowsEdgeServicesOnlyForActiveEdgeNode(t *testing.T) {
+func TestServerSecurityPolicyAllowsEdgeHTTPOnlyForActiveEdgeNode(t *testing.T) {
 	ctx := context.Background()
 	edgeKey, err := giznet.GenerateKeyPair()
 	if err != nil {
@@ -106,8 +106,8 @@ func TestServerSecurityPolicyAllowsEdgeServicesOnlyForActiveEdgeNode(t *testing.
 	if !policy.AllowService(edgeKey.Public, ServiceEdgeHTTP) {
 		t.Fatal("active edge-node should allow edge HTTP")
 	}
-	if !policy.AllowService(edgeKey.Public, ServiceEdgeRPC) {
-		t.Fatal("active edge-node should allow edge RPC")
+	if policy.AllowService(edgeKey.Public, ServiceEdgeRPC) {
+		t.Fatal("edge RPC should stay denied until a handler is implemented")
 	}
 	if policy.AllowService(edgeKey.Public, ServiceAdminHTTP) {
 		t.Fatal("edge-node should not allow admin HTTP")

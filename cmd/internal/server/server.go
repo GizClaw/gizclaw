@@ -19,6 +19,7 @@ import (
 	runtimepeer "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
 var BuildCommit = "dev"
@@ -122,9 +123,6 @@ func newWithOptions(cfg Config, newOpts newServerOptions) (srv *CmdServer, err e
 	peersKV, err := ss.KV(defaultPeersStore)
 	if err != nil {
 		return nil, fmt.Errorf("server: peers store: %w", err)
-	}
-	if err := bootstrapEdgeNodes(context.Background(), &runtimepeer.Server{Store: peersKV}, cfg.EdgeNodes); err != nil {
-		return nil, err
 	}
 
 	cmdSrv := &CmdServer{stores: ss, AdminPublicKey: cfg.AdminPublicKey, ServeToClients: cfg.ServeToClients}
@@ -309,7 +307,51 @@ func newWithOptions(cfg Config, newOpts newServerOptions) (srv *CmdServer, err e
 			return nil, fmt.Errorf("server: metrics store: %w", err)
 		}
 	}
+	if err := bootstrapEdgeNodes(context.Background(), &runtimepeer.Server{Store: effectivePeerStore(gizServer)}, cfg.EdgeNodes); err != nil {
+		return nil, err
+	}
 	return cmdSrv, nil
+}
+
+func effectivePeerStore(s *gizclaw.Server) kv.Store {
+	if usesLegacySharedStore(s) {
+		return kv.Prefixed(s.PeerStore, kv.Key{"peers"})
+	}
+	return s.PeerStore
+}
+
+func usesLegacySharedStore(s *gizclaw.Server) bool {
+	return s.CredentialStore == nil &&
+		s.FirmwareStore == nil &&
+		s.AgentHostStore == nil &&
+		s.MiniMaxTenantStore == nil &&
+		s.VolcTenantStore == nil &&
+		s.ModelStore == nil &&
+		s.VoiceStore == nil &&
+		s.MiniMaxCredentialStore == nil &&
+		s.WorkspaceStore == nil &&
+		s.WorkflowStore == nil &&
+		s.PeerRunStore == nil &&
+		s.PublicLoginStore == nil &&
+		s.ContactStore == nil &&
+		s.FriendInviteTokenStore == nil &&
+		s.FriendStore == nil &&
+		s.FriendGroupStore == nil &&
+		s.FriendGroupInviteTokenStore == nil &&
+		s.FriendGroupMemberStore == nil &&
+		s.FriendGroupBelongStore == nil &&
+		s.FriendGroupMessageStore == nil &&
+		s.FriendGroupMessageAssets == nil &&
+		s.GameRulesetStore == nil &&
+		s.PetDefStore == nil &&
+		s.BadgeDefStore == nil &&
+		s.GameDefStore == nil &&
+		s.GameplayAssets == nil &&
+		s.GameplayDB == nil &&
+		s.FriendGroupMessageDefaultTTL == 0 &&
+		s.FriendGroupMessageMaxTTL == 0 &&
+		s.FriendGroupMessageCleanup == 0 &&
+		s.FriendGroupMessageMaxBytes == 0
 }
 
 func bootstrapEdgeNodes(ctx context.Context, peers *runtimepeer.Server, publicKeys []giznet.PublicKey) error {

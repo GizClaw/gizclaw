@@ -2,6 +2,7 @@ package gizedge
 
 import (
 	"context"
+	"errors"
 	"io"
 	"net"
 	"net/http"
@@ -370,6 +371,27 @@ func TestUpstreamTransportReconnectsAfterClosedConn(t *testing.T) {
 	}
 }
 
+func TestUpstreamTransportDoesNotResetCanceledRequest(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://gizclaw/server-info", nil)
+	if err != nil {
+		t.Fatalf("http.NewRequestWithContext error = %v", err)
+	}
+	conn := &failingGiznetConn{dialErr: context.Canceled}
+	transport := &upstreamTransport{conn: conn}
+
+	if _, err := transport.RoundTrip(req); err == nil {
+		t.Fatal("RoundTrip error = nil, want canceled request error")
+	}
+	if conn.closed {
+		t.Fatal("canceled request reset shared upstream conn")
+	}
+	if transport.conn == nil {
+		t.Fatal("canceled request cleared shared upstream conn")
+	}
+}
+
 func edgeHTTPGetBody(t *testing.T, client *http.Client) string {
 	t.Helper()
 	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, "http://gizclaw/server-info", nil)
@@ -389,6 +411,33 @@ func edgeHTTPGetBody(t *testing.T, client *http.Client) string {
 		t.Fatalf("status = %d body=%s", resp.StatusCode, string(body))
 	}
 	return string(body)
+}
+
+type failingGiznetConn struct {
+	dialErr error
+	closed  bool
+}
+
+func (c *failingGiznetConn) Dial(uint64) (net.Conn, error) {
+	return nil, c.dialErr
+}
+
+func (c *failingGiznetConn) ListenService(uint64) giznet.ServiceListener {
+	return nil
+}
+
+func (c *failingGiznetConn) CloseService(uint64) error       { return nil }
+func (c *failingGiznetConn) Read([]byte) (byte, int, error)  { return 0, 0, nil }
+func (c *failingGiznetConn) Write(byte, []byte) (int, error) { return 0, nil }
+func (c *failingGiznetConn) PublicKey() giznet.PublicKey     { return giznet.PublicKey{} }
+func (c *failingGiznetConn) PeerInfo() *giznet.PeerInfo      { return nil }
+
+func (c *failingGiznetConn) Close() error {
+	if c.closed {
+		return errors.New("already closed")
+	}
+	c.closed = true
+	return nil
 }
 
 func TestEdgeCORSHandlerHandlesBrowserPreflight(t *testing.T) {

@@ -15,6 +15,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	runtimepeer "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
 func testPublicKey(fill byte) giznet.PublicKey {
@@ -399,6 +400,29 @@ func TestNewBootstrapsConfiguredEdgeNodes(t *testing.T) {
 	}
 	if peer.Role != apitypes.PeerRoleEdgeNode || peer.Status != apitypes.PeerRegistrationStatusActive {
 		t.Fatalf("bootstrapped edge peer = %+v", peer)
+	}
+}
+
+func TestNewBootstrapsConfiguredEdgeNodesWithLegacySharedStore(t *testing.T) {
+	edgeKey := testKeyPair(t, 0x14)
+	srv, err := New(Config{
+		EdgeNodes: []giznet.PublicKey{edgeKey.Public},
+		Stores: map[string]stores.Config{
+			"peers": {Kind: stores.KindKeyValue, Backend: "memory"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("New error = %v", err)
+	}
+	t.Cleanup(func() { _ = srv.Close() })
+
+	peerStore := &runtimepeer.Server{Store: kv.Prefixed(srv.Server.PeerStore, kv.Key{"peers"})}
+	peer, err := peerStore.LoadPeer(context.Background(), edgeKey.Public)
+	if err != nil {
+		t.Fatalf("LoadPeer error = %v", err)
+	}
+	if peer.Role != apitypes.PeerRoleEdgeNode || peer.Status != apitypes.PeerRegistrationStatusActive {
+		t.Fatalf("bootstrapped legacy edge peer = %+v", peer)
 	}
 }
 
