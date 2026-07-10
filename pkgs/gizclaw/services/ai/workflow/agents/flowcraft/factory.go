@@ -95,7 +95,11 @@ func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.A
 	if err != nil {
 		return nil, err
 	}
-	if err := configureFlowcraftTools(clawConfig, tools.Tools); err != nil {
+	flowcraftTools := executableFlowcraftTools(tools.Tools)
+	if len(flowcraftTools) > 0 && f.ToolExecutors == nil {
+		return nil, fmt.Errorf("flowcraft: toolkit executors are required when toolkit exposes tools")
+	}
+	if err := configureFlowcraftTools(clawConfig, flowcraftTools); err != nil {
 		return nil, err
 	}
 	if err := validateVoiceAdapterResources(ctx, f.GenX, cfg); err != nil {
@@ -112,7 +116,9 @@ func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.A
 	if err != nil {
 		return nil, err
 	}
-	f.handleToolCalls(claw, toolBuild)
+	if len(flowcraftTools) > 0 {
+		f.handleToolCalls(claw, toolBuild)
+	}
 	starts, initiativePolicy := flowcraftConversationSettings(workspaceParams, cfg.Spec.Flowcraft)
 	inputMode := inputModePushToTalk
 	if workspaceParams != nil && workspaceParams.Input != nil {
@@ -145,7 +151,7 @@ func (f Factory) buildToolKit(ctx context.Context, req toolkit.BuildRequest) (to
 }
 
 func (f Factory) handleToolCalls(claw *flowclaw.Claw, req toolkit.BuildRequest) {
-	if claw == nil || f.ToolKit == nil {
+	if claw == nil || f.ToolKit == nil || f.ToolExecutors == nil {
 		return
 	}
 	claw.HandleDefault(flowcraftToolHandler(f.ToolKit, f.ToolExecutors, req))
@@ -2540,7 +2546,7 @@ func configureFlowcraftTools(cfg map[string]any, tools []toolkit.Tool) error {
 			seen[strings.TrimSpace(name)] = true
 		}
 	}
-	for _, tool := range tools {
+	for _, tool := range executableFlowcraftTools(tools) {
 		name := flowcraftToolName(tool)
 		if name == "" || seen[name] {
 			continue
@@ -2560,6 +2566,19 @@ func configureFlowcraftTools(cfg map[string]any, tools []toolkit.Tool) error {
 		agent["tools"] = configured
 	}
 	return nil
+}
+
+func executableFlowcraftTools(tools []toolkit.Tool) []toolkit.Tool {
+	if len(tools) == 0 {
+		return nil
+	}
+	out := make([]toolkit.Tool, 0, len(tools))
+	for _, tool := range tools {
+		if tool.Executor.Kind == toolkit.ToolExecutorKindBuiltin {
+			out = append(out, tool)
+		}
+	}
+	return out
 }
 
 func flowcraftToolName(tool toolkit.Tool) string {

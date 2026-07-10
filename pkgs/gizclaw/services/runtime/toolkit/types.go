@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	ResourceKindTool = apitypes.ACLResourceKind("tool")
+	ResourceKindTool = apitypes.ACLResourceKindTool
 )
 
 type ToolSource string

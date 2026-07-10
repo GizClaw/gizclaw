@@ -100,3 +100,43 @@ func TestBuilderInvokeReturnsExecutorErrors(t *testing.T) {
 		t.Fatalf("Invoke(missing executor) error = %v, want %v", err, ErrExecutorNotFound)
 	}
 }
+
+func TestBuilderInvokeValidatesArgsAgainstInputSchema(t *testing.T) {
+	ctx := context.Background()
+	store := &Server{Store: kv.NewMemory(nil)}
+	tool := testBuiltinTool("system.music.play")
+	tool.InputSchema = json.RawMessage(`{"type":"object","required":["query"],"properties":{"query":{"type":"string"},"limit":{"type":"integer"}}}`)
+	if _, err := store.PutTool(ctx, tool); err != nil {
+		t.Fatalf("PutTool() error = %v", err)
+	}
+	builder := &Builder{Tools: store}
+	executors := NewExecutorRegistry()
+	if err := executors.Register("music.play", ExecutorFunc(func(context.Context, Call) (Result, error) {
+		t.Fatal("executor should not be called for invalid args")
+		return Result{}, nil
+	})); err != nil {
+		t.Fatalf("Register() error = %v", err)
+	}
+
+	tests := []struct {
+		name string
+		args json.RawMessage
+	}{
+		{name: "malformed", args: json.RawMessage(`{`)},
+		{name: "non-object", args: json.RawMessage(`[]`)},
+		{name: "missing required", args: json.RawMessage(`{"limit":1}`)},
+		{name: "wrong type", args: json.RawMessage(`{"query":1}`)},
+		{name: "wrong integer", args: json.RawMessage(`{"query":"song","limit":1.5}`)},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := builder.Invoke(ctx, executors, InvokeRequest{
+				Name: "system.music.play",
+				Args: tt.args,
+			})
+			if !errors.Is(err, ErrInvalidTool) {
+				t.Fatalf("Invoke() error = %v, want %v", err, ErrInvalidTool)
+			}
+		})
+	}
+}

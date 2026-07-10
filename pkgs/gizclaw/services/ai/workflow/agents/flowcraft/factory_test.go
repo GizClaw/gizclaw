@@ -1037,9 +1037,10 @@ func TestFactoryNewAgentWritesToolKitTools(t *testing.T) {
 	})
 	localDir := t.TempDir()
 	transformer, err := (Factory{
-		GenX:    service,
-		ToolKit: &toolkit.Builder{Tools: store},
-		ToolIDs: []string{"system.music.play"},
+		GenX:          service,
+		ToolKit:       &toolkit.Builder{Tools: store},
+		ToolExecutors: toolkit.NewExecutorRegistry(),
+		ToolIDs:       []string{"system.music.play"},
 	}).NewAgent(ctx, agenthost.Spec{
 		Workspace: apitypes.Workspace{Name: "ws", Parameters: &workspaceParams},
 		Workflow:  workflow,
@@ -1072,6 +1073,49 @@ func TestFactoryNewAgentWritesToolKitTools(t *testing.T) {
 	tool, ok := tools[0].(map[string]any)
 	if !ok || tool["name"] != "play_music" {
 		t.Fatalf("tool config = %#v", tools[0])
+	}
+}
+
+func TestFactoryNewAgentRejectsToolKitToolsWithoutExecutors(t *testing.T) {
+	ctx := context.Background()
+	events := []string{}
+	service := peergenx.New(peergenx.Service{
+		Peer:            testPeer{},
+		Authorizer:      recordingAuthorizer{events: &events},
+		Models:          fakeModels{events: &events},
+		Voices:          fakeVoices{events: &events},
+		Credentials:     fakeCredentials{events: &events},
+		ProviderTenants: fakeTenants{events: &events},
+	})
+	store := &toolkit.Server{Store: kv.NewMemory(nil)}
+	if _, err := store.PutTool(ctx, testFlowcraftTool("system.music.play", "play_music")); err != nil {
+		t.Fatalf("PutTool() error = %v", err)
+	}
+	generateModel := "chat"
+	var workspaceParams apitypes.WorkspaceParameters
+	if err := workspaceParams.FromFlowcraftWorkspaceParameters(apitypes.FlowcraftWorkspaceParameters{GenerateModel: &generateModel}); err != nil {
+		t.Fatalf("FromFlowcraftWorkspaceParameters() error = %v", err)
+	}
+	workflow := testFlowcraftWorkflow(apitypes.FlowcraftWorkflowSpec{
+		"history": map[string]any{"enabled": false},
+		"memory":  map[string]any{"enabled": false},
+		"voice_adapter": map[string]any{
+			"asr_model":     "asr",
+			"default_voice": "voice",
+		},
+	})
+
+	_, err := (Factory{
+		GenX:    service,
+		ToolKit: &toolkit.Builder{Tools: store},
+		ToolIDs: []string{"system.music.play"},
+	}).NewAgent(ctx, agenthost.Spec{
+		Workspace: apitypes.Workspace{Name: "ws", Parameters: &workspaceParams},
+		Workflow:  workflow,
+		Runtime:   workspace.Runtime{LocalDir: t.TempDir()},
+	})
+	if err == nil || !strings.Contains(err.Error(), "toolkit executors are required") {
+		t.Fatalf("NewAgent() error = %v, want missing toolkit executors", err)
 	}
 }
 
@@ -1143,6 +1187,28 @@ func TestConfigureFlowcraftToolsFromToolKit(t *testing.T) {
 	schema, ok := tool["input_schema"].(map[string]any)
 	if !ok || schema["type"] != "object" {
 		t.Fatalf("input_schema = %#v", tool["input_schema"])
+	}
+}
+
+func TestConfigureFlowcraftToolsSkipsUnsupportedExecutors(t *testing.T) {
+	cfg := map[string]any{}
+	if err := configureFlowcraftTools(cfg, []toolkit.Tool{
+		testFlowcraftTool("system.music.play", "play_music"),
+		testFlowcraftDeviceTool("peer.peer-a.music.play", "peer_music"),
+	}); err != nil {
+		t.Fatalf("configureFlowcraftTools() error = %v", err)
+	}
+	agent, ok := cfg["agent"].(map[string]any)
+	if !ok {
+		t.Fatalf("agent config = %#v", cfg["agent"])
+	}
+	tools, ok := agent["tools"].([]any)
+	if !ok || len(tools) != 1 {
+		t.Fatalf("agent.tools = %#v, want only builtin tool", agent["tools"])
+	}
+	tool, ok := tools[0].(map[string]any)
+	if !ok || tool["name"] != "play_music" {
+		t.Fatalf("tool config = %#v", tools[0])
 	}
 }
 
@@ -2680,6 +2746,22 @@ func testFlowcraftTool(id, name string) toolkit.Tool {
 		Executor: toolkit.ToolExecutor{
 			Kind: toolkit.ToolExecutorKindBuiltin,
 			Name: ptrString("music.play"),
+		},
+	}
+}
+
+func testFlowcraftDeviceTool(id, name string) toolkit.Tool {
+	return toolkit.Tool{
+		ID:          id,
+		Name:        ptrString(name),
+		Description: ptrString("device tool"),
+		Source:      toolkit.ToolSourceDevice,
+		Enabled:     true,
+		OwnerPeer:   ptrString("peer-a"),
+		InputSchema: json.RawMessage(`{"type":"object","properties":{"query":{"type":"string"}}}`),
+		Executor: toolkit.ToolExecutor{
+			Kind:   toolkit.ToolExecutorKindDeviceRPC,
+			Method: ptrString("music.play"),
 		},
 	}
 }

@@ -73,7 +73,6 @@ func (s *Server) PutTool(ctx context.Context, tool Tool) (Tool, error) {
 	now := s.now()
 	if existing, err := s.GetTool(ctx, tool.ID); err == nil {
 		tool.CreatedAt = existing.CreatedAt
-		tool.SyncedAt = cloneTimePtr(existing.SyncedAt)
 	} else if !errors.Is(err, ErrToolNotFound) {
 		return Tool{}, err
 	} else {

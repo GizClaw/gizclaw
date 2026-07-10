@@ -56,6 +56,7 @@ const (
 	ACLResourceKindFirmware    ACLResourceKind = "firmware"
 	ACLResourceKindGameruleset ACLResourceKind = "gameruleset"
 	ACLResourceKindModel       ACLResourceKind = "model"
+	ACLResourceKindTool        ACLResourceKind = "tool"
 	ACLResourceKindView        ACLResourceKind = "view"
 	ACLResourceKindVoice       ACLResourceKind = "voice"
 	ACLResourceKindWorkflow    ACLResourceKind = "workflow"
@@ -72,6 +73,8 @@ func (e ACLResourceKind) Valid() bool {
 	case ACLResourceKindGameruleset:
 		return true
 	case ACLResourceKindModel:
+		return true
+	case ACLResourceKindTool:
 		return true
 	case ACLResourceKindView:
 		return true

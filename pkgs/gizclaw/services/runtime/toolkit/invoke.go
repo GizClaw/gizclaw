@@ -30,6 +30,9 @@ func (b *Builder) Invoke(ctx context.Context, executors *ExecutorRegistry, req I
 	if !ok {
 		return Result{}, fmt.Errorf("%w: %s", ErrToolNotFound, name)
 	}
+	if err := validateToolArgs(tool, req.Args); err != nil {
+		return Result{}, err
+	}
 	return executors.Invoke(ctx, Call{
 		ID:        req.CallID,
 		Tool:      tool,

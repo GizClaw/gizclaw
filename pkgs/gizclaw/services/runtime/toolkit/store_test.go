@@ -40,6 +40,8 @@ func TestServerPutGetListDelete(t *testing.T) {
 	now = now.Add(time.Minute)
 	updated := got
 	updated.Version = stringPtr("2")
+	syncedAt := now.Add(-time.Second)
+	updated.SyncedAt = &syncedAt
 	if updated, err = store.PutTool(ctx, updated); err != nil {
 		t.Fatalf("PutTool(update) error = %v", err)
 	}
@@ -48,6 +50,18 @@ func TestServerPutGetListDelete(t *testing.T) {
 	}
 	if updated.UpdatedAt != now {
 		t.Fatalf("UpdatedAt = %s, want %s", updated.UpdatedAt, now)
+	}
+	if updated.SyncedAt == nil || !updated.SyncedAt.Equal(syncedAt) {
+		t.Fatalf("SyncedAt = %v, want %s", updated.SyncedAt, syncedAt)
+	}
+
+	now = now.Add(time.Minute)
+	updated.SyncedAt = nil
+	if updated, err = store.PutTool(ctx, updated); err != nil {
+		t.Fatalf("PutTool(clear sync) error = %v", err)
+	}
+	if updated.SyncedAt != nil {
+		t.Fatalf("SyncedAt after clear = %v, want nil", updated.SyncedAt)
 	}
 
 	if _, err := store.PutTool(ctx, testBuiltinTool("system.mode.switch")); err != nil {
@@ -74,6 +88,19 @@ func TestNormalizeToolValidatesExecutorAndJSON(t *testing.T) {
 	tool.InputSchema = json.RawMessage(`{`)
 	if _, err := NormalizeTool(tool); err == nil {
 		t.Fatal("NormalizeTool(invalid JSON) error = nil")
+	}
+
+	for _, schema := range []json.RawMessage{
+		json.RawMessage(`null`),
+		json.RawMessage(`[]`),
+		json.RawMessage(`"object"`),
+		json.RawMessage(`{"type":"string"}`),
+	} {
+		tool = testBuiltinTool("system.bad")
+		tool.InputSchema = schema
+		if _, err := NormalizeTool(tool); err == nil {
+			t.Fatalf("NormalizeTool(input_schema=%s) error = nil", schema)
+		}
 	}
 
 	tool = testDeviceTool("peer.peer-a.music.play", "peer-a")
