@@ -506,6 +506,8 @@ func (s *Server) init() error {
 		},
 		public: &peerHTTP{
 			PeerHTTPService: peersServer,
+			Self:            peersServer,
+			Status:          manager.PeerRun,
 			PeerHTTP:        publicLoginServer,
 			WebRTCSignalingHandler: func() http.Handler {
 				return s.WebRTCSignalingHandler
@@ -518,6 +520,10 @@ func (s *Server) init() error {
 	mux.Handle("/login", publicHandler)
 	mux.Handle("/server-info", publicHandler)
 	mux.Handle(gizwebrtc.SignalingPath, publicHandler)
+	mux.Handle("/me", publicHandler)
+	mux.Handle("/me/status", publicHandler)
+	mux.Handle("/me/runtime", publicHandler)
+	mux.Handle("/openai/v1/", s.peerOpenAIHTTPHandler(sessions))
 	s.httpHandler = httpLabelSetHandler(mux)
 	return nil
 }

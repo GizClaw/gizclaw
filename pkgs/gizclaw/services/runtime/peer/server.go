@@ -274,6 +274,22 @@ func (s *Server) GetSelfInfo(ctx context.Context, publicKey giznet.PublicKey) (a
 	return info, nil
 }
 
+func (s *Server) GetSelfRegistration(ctx context.Context, publicKey giznet.PublicKey) (peerhttp.PeerSelf, error) {
+	peer, err := s.get(ctx, publicKey)
+	if err != nil {
+		return peerhttp.PeerSelf{}, err
+	}
+	info, err := toPeerDeviceInfo(peer.Device)
+	if err != nil {
+		return peerhttp.PeerSelf{}, err
+	}
+	return peerhttp.PeerSelf{
+		Device:             &info,
+		PublicKey:          peer.PublicKey,
+		RegistrationStatus: apitypes.PeerRegistrationStatus(peer.Status),
+	}, nil
+}
+
 func (s *Server) PutSelfInfo(ctx context.Context, publicKey giznet.PublicKey, body apitypes.DeviceInfo) (apitypes.DeviceInfo, error) {
 	info, err := toAdminDeviceInfo(body)
 	if err != nil {

@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/http"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/peerhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/publiclogin"
@@ -33,8 +34,20 @@ const (
 
 type peerHTTP struct {
 	peer.PeerHTTPService
+	Self   peerHTTPSelfService
+	Status peerHTTPStatusService
 	publiclogin.PeerHTTP
 	WebRTCSignalingHandler func() http.Handler
+}
+
+type peerHTTPSelfService interface {
+	GetSelfRegistration(context.Context, giznet.PublicKey) (peerhttp.PeerSelf, error)
+	GetSelfRuntime(context.Context, giznet.PublicKey) apitypes.Runtime
+}
+
+type peerHTTPStatusService interface {
+	GetStatus(context.Context, giznet.PublicKey) (apitypes.PeerStatus, error)
+	PutStatus(context.Context, giznet.PublicKey, apitypes.PeerStatus) (apitypes.PeerStatus, error)
 }
 
 // PeerService serves one peer connection.

@@ -2,7 +2,7 @@
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client/index.ts';
 import { client } from './client.gen.ts';
-import type { CreateGiznetWebRtcOfferData, CreateGiznetWebRtcOfferErrors, CreateGiznetWebRtcOfferResponses, GetServerInfoData, GetServerInfoErrors, GetServerInfoResponses, LoginData, LoginErrors, LoginResponses } from './types.gen.ts';
+import type { CreateGiznetWebRtcOfferData, CreateGiznetWebRtcOfferErrors, CreateGiznetWebRtcOfferResponses, GetMeData, GetMeErrors, GetMeResponses, GetMeRuntimeData, GetMeRuntimeErrors, GetMeRuntimeResponses, GetMeStatusData, GetMeStatusErrors, GetMeStatusResponses, GetServerInfoData, GetServerInfoErrors, GetServerInfoResponses, LoginData, LoginErrors, LoginResponses, PutMeStatusData, PutMeStatusErrors, PutMeStatusResponses } from './types.gen.ts';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -41,4 +41,44 @@ export const createGiznetWebRtcOffer = <ThrowOnError extends boolean = false>(op
         'Content-Type': 'application/octet-stream',
         ...options.headers
     }
+});
+
+/**
+ * Get caller peer summary
+ */
+export const getMe = <ThrowOnError extends boolean = false>(options?: Options<GetMeData, ThrowOnError>): RequestResult<GetMeResponses, GetMeErrors, ThrowOnError> => (options?.client ?? client).get<GetMeResponses, GetMeErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/me',
+    ...options
+});
+
+/**
+ * Get caller peer status
+ */
+export const getMeStatus = <ThrowOnError extends boolean = false>(options?: Options<GetMeStatusData, ThrowOnError>): RequestResult<GetMeStatusResponses, GetMeStatusErrors, ThrowOnError> => (options?.client ?? client).get<GetMeStatusResponses, GetMeStatusErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/me/status',
+    ...options
+});
+
+/**
+ * Update caller peer status
+ */
+export const putMeStatus = <ThrowOnError extends boolean = false>(options: Options<PutMeStatusData, ThrowOnError>): RequestResult<PutMeStatusResponses, PutMeStatusErrors, ThrowOnError> => (options.client ?? client).put<PutMeStatusResponses, PutMeStatusErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/me/status',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Get caller peer runtime
+ */
+export const getMeRuntime = <ThrowOnError extends boolean = false>(options?: Options<GetMeRuntimeData, ThrowOnError>): RequestResult<GetMeRuntimeResponses, GetMeRuntimeErrors, ThrowOnError> => (options?.client ?? client).get<GetMeRuntimeResponses, GetMeRuntimeErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/me/runtime',
+    ...options
 });

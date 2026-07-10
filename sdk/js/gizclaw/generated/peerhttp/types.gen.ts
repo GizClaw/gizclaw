@@ -4,6 +4,12 @@ export type ClientOptions = {
     baseUrl: `${string}://${string}` | (string & {});
 };
 
+export type PeerSelf = {
+    public_key: string;
+    registration_status: PeerRegistrationStatus;
+    device?: DeviceInfo;
+};
+
 export type LoginResult = {
     access_token: string;
     token_type: 'Bearer';
@@ -12,6 +18,12 @@ export type LoginResult = {
 
 export type GiznetWebRtcSignalingError = {
     error: string;
+};
+
+export type DeviceInfo = {
+    name?: string;
+    sn?: string;
+    hardware?: HardwareInfo;
 };
 
 export type ErrorPayload = {
@@ -24,6 +36,53 @@ export type ErrorPayload = {
 
 export type ErrorResponse = {
     error: ErrorPayload;
+};
+
+export type HardwareInfo = {
+    manufacturer?: string;
+    model?: string;
+    hardware_revision?: string;
+    imeis?: Array<PeerImei>;
+    labels?: Array<PeerLabel>;
+};
+
+export type PeerImei = {
+    name?: string;
+    tac: string;
+    serial: string;
+};
+
+export type PeerLabel = {
+    key: string;
+    value: string;
+};
+
+export type PeerRegistrationStatus = 'unspecified' | 'active' | 'blocked';
+
+export type PeerStatus = {
+    reported_at?: string;
+    volume?: number;
+    muted?: boolean;
+    battery_percent?: number;
+    charging?: boolean;
+    gnss_latitude?: number;
+    gnss_longitude?: number;
+    gnss_altitude_m?: number;
+    gnss_accuracy_m?: number;
+    labels?: {
+        [key: string]: string;
+    };
+    details?: {
+        [key: string]: unknown;
+    };
+};
+
+export type Runtime = {
+    online: boolean;
+    last_seen_at: string;
+    last_addr?: string;
+    rx_bytes?: number;
+    tx_bytes?: number;
 };
 
 export type ServerInfo = {
@@ -159,3 +218,111 @@ export type CreateGiznetWebRtcOfferResponses = {
 };
 
 export type CreateGiznetWebRtcOfferResponse = CreateGiznetWebRtcOfferResponses[keyof CreateGiznetWebRtcOfferResponses];
+
+export type GetMeData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/me';
+};
+
+export type GetMeErrors = {
+    /**
+     * Peer not found
+     */
+    404: ErrorResponse;
+    /**
+     * Internal error
+     */
+    500: ErrorResponse;
+};
+
+export type GetMeError = GetMeErrors[keyof GetMeErrors];
+
+export type GetMeResponses = {
+    /**
+     * Caller peer summary
+     */
+    200: PeerSelf;
+};
+
+export type GetMeResponse = GetMeResponses[keyof GetMeResponses];
+
+export type GetMeStatusData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/me/status';
+};
+
+export type GetMeStatusErrors = {
+    /**
+     * Internal error
+     */
+    500: ErrorResponse;
+};
+
+export type GetMeStatusError = GetMeStatusErrors[keyof GetMeStatusErrors];
+
+export type GetMeStatusResponses = {
+    /**
+     * Caller peer status
+     */
+    200: PeerStatus;
+};
+
+export type GetMeStatusResponse = GetMeStatusResponses[keyof GetMeStatusResponses];
+
+export type PutMeStatusData = {
+    body: PeerStatus;
+    path?: never;
+    query?: never;
+    url: '/me/status';
+};
+
+export type PutMeStatusErrors = {
+    /**
+     * Invalid status payload
+     */
+    400: ErrorResponse;
+    /**
+     * Internal error
+     */
+    500: ErrorResponse;
+};
+
+export type PutMeStatusError = PutMeStatusErrors[keyof PutMeStatusErrors];
+
+export type PutMeStatusResponses = {
+    /**
+     * Updated caller peer status
+     */
+    200: PeerStatus;
+};
+
+export type PutMeStatusResponse = PutMeStatusResponses[keyof PutMeStatusResponses];
+
+export type GetMeRuntimeData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/me/runtime';
+};
+
+export type GetMeRuntimeErrors = {
+    /**
+     * Internal error
+     */
+    500: ErrorResponse;
+};
+
+export type GetMeRuntimeError = GetMeRuntimeErrors[keyof GetMeRuntimeErrors];
+
+export type GetMeRuntimeResponses = {
+    /**
+     * Caller peer runtime
+     */
+    200: Runtime;
+};
+
+export type GetMeRuntimeResponse = GetMeRuntimeResponses[keyof GetMeRuntimeResponses];
