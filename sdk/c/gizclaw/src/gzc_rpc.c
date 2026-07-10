@@ -7,6 +7,7 @@
 #include <string.h>
 
 #define GZC_RPC_MAX_ENVELOPE_SIZE (GZC_RPC_MAX_FRAME_SIZE * 16u)
+#define GZC_RPC_DOWNLOAD_FRAMES_PER_POLL 16u
 
 int gzc_client_reset_rpc_rx_internal(gzc_client_t *client);
 int gzc_client_open_rpc_channel_internal(gzc_client_t *client, int timeout_ms);
@@ -857,8 +858,10 @@ int gzc_rpc_inbound_poll(struct gzc_rpc_inbound *inbound) {
       inbound->phase == GZC_INBOUND_TERMINAL || !inbound->response_envelope_sent) {
     return GZC_OK;
   }
-  if (inbound->download_sent < inbound->download_expected) {
-    uint8_t chunk[4096];
+  uint8_t chunk[4096];
+  size_t frames_sent = 0;
+  while (inbound->download_sent < inbound->download_expected &&
+         frames_sent < GZC_RPC_DOWNLOAD_FRAMES_PER_POLL) {
     size_t count = sizeof(chunk);
     uint64_t remaining = inbound->download_expected - inbound->download_sent;
     if (remaining < count) {
@@ -872,6 +875,7 @@ int gzc_rpc_inbound_poll(struct gzc_rpc_inbound *inbound) {
       return inbound_close_transport(inbound, rc);
     }
     inbound->download_sent += count;
+    frames_sent++;
   }
   if (inbound->download_sent == inbound->download_expected && !inbound->response_eos_sent) {
     int rc = inbound_send_frame(inbound, GZC_RPC_FRAME_EOS, NULL, 0);
@@ -884,6 +888,13 @@ int gzc_rpc_inbound_poll(struct gzc_rpc_inbound *inbound) {
     inbound->phase = GZC_INBOUND_TERMINAL;
   }
   return GZC_OK;
+}
+
+bool gzc_rpc_inbound_has_pending_output(struct gzc_rpc_inbound *inbound) {
+  return inbound != NULL &&
+         inbound->method == gizclaw_rpc_v1_RpcMethod_RPC_METHOD_ALL_SPEED_TEST_RUN &&
+         inbound->phase != GZC_INBOUND_TERMINAL && inbound->response_envelope_sent &&
+         !inbound->response_eos_sent;
 }
 
 bool gzc_rpc_inbound_close_requested(struct gzc_rpc_inbound *inbound) {

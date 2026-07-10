@@ -251,19 +251,17 @@ func (b *Backend) acceptRemoteDataChannel(dc *webrtc.DataChannel) {
 	}
 	channelID := b.nextDCID
 	b.nextDCID++
-	b.dcs[channelID] = state
 	b.mu.Unlock()
-	b.enqueue(backendEvent{
-		kind: backendEventRemoteChannel, channelID: channelID,
-		label: state.label, ordered: state.ordered, reliable: state.reliable,
-	})
+	published := make(chan struct{})
 	dc.OnOpen(func() {
+		<-published
 		state.openOnce.Do(func() {
 			close(state.openCh)
 			b.emitChannelState(channelID, RTCChannelOpen)
 		})
 	})
 	dc.OnClose(func() {
+		<-published
 		state.closeOnce.Do(func() {
 			close(state.closeCh)
 			b.mu.Lock()
@@ -275,8 +273,28 @@ func (b *Backend) acceptRemoteDataChannel(dc *webrtc.DataChannel) {
 		})
 	})
 	dc.OnMessage(func(msg webrtc.DataChannelMessage) {
+		<-published
 		b.emitChannelMessage(channelID, msg.Data, msg.IsString)
 	})
+	b.mu.Lock()
+	if b.closed || b.dcs == nil {
+		b.mu.Unlock()
+		close(published)
+		_ = dc.Close()
+		return
+	}
+	b.dcs[channelID] = state
+	b.events = append(b.events, backendEvent{
+		kind: backendEventRemoteChannel, channelID: channelID,
+		label: state.label, ordered: state.ordered, reliable: state.reliable,
+	})
+	ready := b.eventReady
+	b.mu.Unlock()
+	close(published)
+	select {
+	case ready <- struct{}{}:
+	default:
+	}
 }
 
 func (b *Backend) CreateDataChannel(label string, channelID int, ordered, reliable bool) error {
@@ -388,9 +406,6 @@ func (b *Backend) SetRemoteSDP(answer string) error {
 }
 
 func (b *Backend) Poll(timeoutMS int) {
-	b.dispatchMu.Lock()
-	defer b.dispatchMu.Unlock()
-
 	b.mu.Lock()
 	hasEvents := len(b.events) != 0
 	closed := b.closed
@@ -409,6 +424,9 @@ func (b *Backend) Poll(timeoutMS int) {
 		case <-timer.C:
 		}
 	}
+
+	b.dispatchMu.Lock()
+	defer b.dispatchMu.Unlock()
 
 	b.mu.Lock()
 	events := b.events
@@ -474,7 +492,12 @@ func (b *Backend) Close() {
 	b.sink = nil
 	b.events = nil
 	b.closed = true
+	ready := b.eventReady
 	b.mu.Unlock()
+	select {
+	case ready <- struct{}{}:
+	default:
+	}
 	for _, state := range states {
 		if state != nil && state.dc != nil {
 			_ = state.dc.Close()
