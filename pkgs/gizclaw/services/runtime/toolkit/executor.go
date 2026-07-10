@@ -58,6 +58,7 @@ func (r *ExecutorRegistry) Register(name string, executor Executor) error {
 	if r == nil {
 		return ErrNotConfigured
 	}
+	name = strings.TrimSpace(name)
 	if name == "" {
 		return fmt.Errorf("%w: executor name is required", ErrInvalidTool)
 	}

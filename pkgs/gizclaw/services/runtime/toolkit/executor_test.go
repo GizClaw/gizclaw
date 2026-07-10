@@ -71,12 +71,20 @@ func TestExecutorRegistryRegisterValidation(t *testing.T) {
 		t.Fatalf("Register(nil registry) error = %v, want %v", err, ErrNotConfigured)
 	}
 	registry := NewExecutorRegistry()
-	if err := registry.Register("", ExecutorFunc(func(context.Context, Call) (Result, error) {
+	if err := registry.Register("   ", ExecutorFunc(func(context.Context, Call) (Result, error) {
 		return Result{}, nil
 	})); err == nil {
-		t.Fatal("Register(empty name) error = nil")
+		t.Fatal("Register(whitespace name) error = nil")
 	}
 	if err := registry.Register("x", nil); err == nil {
 		t.Fatal("Register(nil executor) error = nil")
+	}
+	if err := registry.Register(" music.play ", ExecutorFunc(func(context.Context, Call) (Result, error) {
+		return Result{}, nil
+	})); err != nil {
+		t.Fatalf("Register(padded name) error = %v", err)
+	}
+	if !registry.Has("music.play") {
+		t.Fatal("Has(normalized name) = false, want true")
 	}
 }

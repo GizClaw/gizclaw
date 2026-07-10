@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
-	"strings"
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
@@ -24,9 +23,9 @@ func (s *Server) GetTool(ctx context.Context, id string) (Tool, error) {
 	if err != nil {
 		return Tool{}, err
 	}
-	id = strings.TrimSpace(id)
-	if id == "" {
-		return Tool{}, fmt.Errorf("%w: id is required", ErrInvalidTool)
+	id, err = normalizeToolID(id)
+	if err != nil {
+		return Tool{}, err
 	}
 	data, err := store.Get(ctx, toolKey(id))
 	if err != nil {
@@ -94,9 +93,9 @@ func (s *Server) DeleteTool(ctx context.Context, id string) error {
 	if err != nil {
 		return err
 	}
-	id = strings.TrimSpace(id)
-	if id == "" {
-		return fmt.Errorf("%w: id is required", ErrInvalidTool)
+	id, err = normalizeToolID(id)
+	if err != nil {
+		return err
 	}
 	if err := store.Delete(ctx, toolKey(id)); err != nil {
 		return fmt.Errorf("toolkit: delete tool %q: %w", id, err)

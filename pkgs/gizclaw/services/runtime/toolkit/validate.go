@@ -7,12 +7,10 @@ import (
 )
 
 func NormalizeTool(tool Tool) (Tool, error) {
-	tool.ID = strings.TrimSpace(tool.ID)
-	if tool.ID == "" {
-		return Tool{}, fmt.Errorf("%w: id is required", ErrInvalidTool)
-	}
-	if strings.Contains(tool.ID, ":") {
-		return Tool{}, fmt.Errorf("%w: id must not contain ':'", ErrInvalidTool)
+	var err error
+	tool.ID, err = normalizeToolID(tool.ID)
+	if err != nil {
+		return Tool{}, err
 	}
 	tool.Name = normalizedStringPtr(tool.Name)
 	tool.Description = normalizedStringPtr(tool.Description)
@@ -39,6 +37,17 @@ func NormalizeTool(tool Tool) (Tool, error) {
 		return Tool{}, err
 	}
 	return cloneTool(tool), nil
+}
+
+func normalizeToolID(id string) (string, error) {
+	id = strings.TrimSpace(id)
+	if id == "" {
+		return "", fmt.Errorf("%w: id is required", ErrInvalidTool)
+	}
+	if strings.Contains(id, ":") {
+		return "", fmt.Errorf("%w: id must not contain ':'", ErrInvalidTool)
+	}
+	return id, nil
 }
 
 func validateInputSchema(single string, many []string) error {

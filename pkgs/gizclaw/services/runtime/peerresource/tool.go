@@ -35,11 +35,12 @@ func (s *Server) handleToolList(ctx context.Context, req *rpcapi.RPCRequest) *rp
 		return internalError(req.Id, err.Error())
 	}
 	cursor := strings.TrimSpace(valueOrZero(params.Cursor))
+	cursorKey := url.PathEscape(cursor)
 	limit := peerListLimit(params.Limit)
 	items := make([]rpcapi.Tool, 0, limit)
 	hasNext := false
 	for _, tool := range tools {
-		if tool.ID <= cursor {
+		if url.PathEscape(tool.ID) <= cursorKey {
 			continue
 		}
 		err := s.authorizeErr(ctx, acl.ToolResource(tool.ID), apitypes.ACLPermissionRead)

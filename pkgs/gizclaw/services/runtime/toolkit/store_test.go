@@ -153,6 +153,12 @@ func TestServerInvalidStateAndConfigErrors(t *testing.T) {
 	if err := store.DeleteTool(ctx, ""); err == nil {
 		t.Fatal("DeleteTool(empty) error = nil")
 	}
+	if _, err := store.GetTool(ctx, "bad:id"); !errors.Is(err, ErrInvalidTool) {
+		t.Fatalf("GetTool(colon) error = %v, want %v", err, ErrInvalidTool)
+	}
+	if err := store.DeleteTool(ctx, "bad:id"); !errors.Is(err, ErrInvalidTool) {
+		t.Fatalf("DeleteTool(colon) error = %v, want %v", err, ErrInvalidTool)
+	}
 	if err := store.Store.Set(ctx, toolKey("bad-json"), []byte(`{`)); err != nil {
 		t.Fatalf("raw Set() error = %v", err)
 	}

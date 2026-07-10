@@ -96,6 +96,34 @@ func TestToolPeerCreateRejectsNonDeviceAndForeignNamespace(t *testing.T) {
 	}
 }
 
+func TestToolPeerListUsesStorageCursorOrdering(t *testing.T) {
+	caller := giznet.PublicKey{3}
+	auth := newRuleAuthorizer()
+	srv := &Server{Caller: caller, ACL: auth, Tools: &toolkit.Server{Store: kv.NewMemory(nil)}}
+	for _, id := range []string{"a/b", "a-b"} {
+		tool := toolkit.Tool{ID: id, Source: toolkit.ToolSourceBuiltin, Enabled: true, InputSchema: jsonschema.Schema{Type: "object"}, Executor: toolkit.ToolExecutor{Kind: toolkit.ToolExecutorKindBuiltin, Name: stringPointer("test")}}
+		if _, err := srv.Tools.PutTool(context.Background(), tool); err != nil {
+			t.Fatalf("PutTool(%q) error = %v", id, err)
+		}
+		auth.allow(acl.ResourceKindTool, id, apitypes.ACLPermissionRead)
+	}
+
+	limit := 1
+	firstResp := callRPC(t, srv, "list-first", rpcapi.RPCMethodServerToolList, rpcParams(t, (*rpcapi.RPCPayload).FromToolListRequest, rpcapi.ToolListRequest{Limit: &limit}))
+	requireNoRPCError(t, firstResp)
+	first := mustResult(t, firstResp.Result.AsToolListResponse)
+	if len(first.Items) != 1 || first.Items[0].Id != "a/b" || first.NextCursor == nil {
+		t.Fatalf("first Tool page = %#v", first)
+	}
+
+	secondResp := callRPC(t, srv, "list-second", rpcapi.RPCMethodServerToolList, rpcParams(t, (*rpcapi.RPCPayload).FromToolListRequest, rpcapi.ToolListRequest{Cursor: first.NextCursor, Limit: &limit}))
+	requireNoRPCError(t, secondResp)
+	second := mustResult(t, secondResp.Result.AsToolListResponse)
+	if len(second.Items) != 1 || second.Items[0].Id != "a-b" || second.HasNext {
+		t.Fatalf("second Tool page = %#v", second)
+	}
+}
+
 func rpcTool(id, peer string) rpcapi.Tool {
 	method := "music.play"
 	enabled := true
