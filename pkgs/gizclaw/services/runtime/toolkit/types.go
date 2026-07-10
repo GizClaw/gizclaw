@@ -2,6 +2,7 @@ package toolkit
 
 import (
 	"encoding/json"
+	"net/url"
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
@@ -10,6 +11,8 @@ import (
 
 const (
 	ResourceKindTool = apitypes.ACLResourceKindTool
+	// ToolOwnerRole is the reserved ACL role used by peer-created device Tools.
+	ToolOwnerRole = "tool-owner"
 )
 
 type ToolSource string
@@ -76,4 +79,9 @@ func ToolResource(id string) apitypes.ACLResource {
 		Kind: ResourceKindTool,
 		Id:   id,
 	}
+}
+
+// ToolOwnerPolicyBindingID returns the deterministic ACL binding ID for a peer-created device Tool.
+func ToolOwnerPolicyBindingID(toolID, owner string) string {
+	return "tool-owner:" + url.PathEscape(toolID) + ":" + url.PathEscape(owner)
 }

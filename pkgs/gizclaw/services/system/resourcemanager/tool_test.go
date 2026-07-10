@@ -2,11 +2,13 @@ package resourcemanager
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/toolkit"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/acl"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 	"github.com/google/jsonschema-go/jsonschema"
 )
@@ -70,6 +72,48 @@ func TestToolResourceApplyGetPutDelete(t *testing.T) {
 	}
 	if _, err := manager.Get(ctx, apitypes.ResourceKindTool, "system.music.play"); err == nil {
 		t.Fatal("Get(deleted) error = nil")
+	}
+}
+
+func TestToolResourceAdminWritesRemoveStaleOwnerBindings(t *testing.T) {
+	ctx := context.Background()
+	manager := newACLResourceManager(t)
+	manager.services.Tools = &toolkit.Server{Store: kv.NewMemory(nil)}
+	if _, err := manager.services.ACL.CreateRole(ctx, toolkit.ToolOwnerRole, apitypes.ACLPermissionList{apitypes.ACLPermissionRead, apitypes.ACLPermissionUse, apitypes.ACLPermissionAdmin}); err != nil {
+		t.Fatalf("CreateRole() error = %v", err)
+	}
+
+	for _, tc := range []struct {
+		name string
+		id   string
+		run  func(apitypes.Resource) error
+	}{
+		{name: "apply", id: "peer.owner.apply", run: func(resource apitypes.Resource) error { _, err := manager.Apply(ctx, resource); return err }},
+		{name: "put", id: "peer.owner.put", run: func(resource apitypes.Resource) error { _, err := manager.Put(ctx, resource); return err }},
+		{name: "delete", id: "peer.owner.delete", run: func(_ apitypes.Resource) error {
+			_, err := manager.Delete(ctx, apitypes.ResourceKindTool, "peer.owner.delete")
+			return err
+		}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			owner := "owner-peer"
+			method := "device.invoke"
+			device := toolkit.Tool{ID: tc.id, Source: toolkit.ToolSourceDevice, Enabled: true, OwnerPeer: &owner, InputSchema: jsonschema.Schema{Type: "object"}, Executor: toolkit.ToolExecutor{Kind: toolkit.ToolExecutorKindDeviceRPC, Method: &method, PeerID: &owner}}
+			if _, err := manager.services.Tools.PutTool(ctx, device); err != nil {
+				t.Fatalf("PutTool(device) error = %v", err)
+			}
+			bindingID := toolkit.ToolOwnerPolicyBindingID(tc.id, owner)
+			if _, err := manager.services.ACL.CreatePolicyBinding(ctx, bindingID, 0, apitypes.ACLPolicy{Subject: acl.PublicKeySubject(owner), Resource: acl.ToolResource(tc.id), Role: toolkit.ToolOwnerRole}); err != nil {
+				t.Fatalf("CreatePolicyBinding() error = %v", err)
+			}
+
+			if err := tc.run(toolResource(t, tc.id)); err != nil {
+				t.Fatalf("admin %s error = %v", tc.name, err)
+			}
+			if _, err := manager.services.ACL.GetPolicyBinding(ctx, bindingID); !errors.Is(err, acl.ErrPolicyBindingNotFound) {
+				t.Fatalf("GetPolicyBinding(stale) error = %v, want %v", err, acl.ErrPolicyBindingNotFound)
+			}
+		})
 	}
 }
 

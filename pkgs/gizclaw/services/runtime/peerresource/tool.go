@@ -14,10 +14,10 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/acl"
 )
 
-const toolOwnerRole = "tool-owner"
+const toolOwnerRole = toolkit.ToolOwnerRole
 
 type ToolACLService interface {
-	PutRole(context.Context, string, apitypes.ACLPermissionList) (apitypes.ACLRole, error)
+	CreateRole(context.Context, string, apitypes.ACLPermissionList) (apitypes.ACLRole, error)
 	PutPolicyBinding(context.Context, string, float64, apitypes.ACLPolicy) (apitypes.ACLPolicyBinding, error)
 	DeletePolicyBinding(context.Context, string) (apitypes.ACLPolicyBinding, error)
 }
@@ -143,10 +143,14 @@ func (s *Server) handleToolPut(ctx context.Context, req *rpcapi.RPCRequest) *rpc
 	if err != nil {
 		return statusError(req.Id, http.StatusBadRequest, err.Error())
 	}
-	if _, err := s.Tools.GetTool(ctx, tool.ID); errors.Is(err, toolkit.ErrToolNotFound) {
+	existing, err := s.Tools.GetTool(ctx, tool.ID)
+	if errors.Is(err, toolkit.ErrToolNotFound) {
 		return statusError(req.Id, http.StatusNotFound, err.Error())
 	} else if err != nil {
 		return internalError(req.Id, err.Error())
+	}
+	if err := s.validateOwnedDeviceTool(existing); err != nil {
+		return statusError(req.Id, http.StatusForbidden, err.Error())
 	}
 	stored, err := s.Tools.PutTool(ctx, tool)
 	if err != nil {
@@ -230,7 +234,7 @@ func (s *Server) grantToolOwner(ctx context.Context, toolID string) error {
 		return errors.New("tool ACL service not configured")
 	}
 	permissions := apitypes.ACLPermissionList{apitypes.ACLPermissionRead, apitypes.ACLPermissionUse, apitypes.ACLPermissionAdmin}
-	if _, err := s.ToolACL.PutRole(ctx, toolOwnerRole, permissions); err != nil {
+	if _, err := s.ToolACL.CreateRole(ctx, toolOwnerRole, permissions); err != nil && !errors.Is(err, acl.ErrRoleAlreadyExists) {
 		return err
 	}
 	caller := s.Caller.String()
@@ -243,5 +247,5 @@ func (s *Server) grantToolOwner(ctx context.Context, toolID string) error {
 }
 
 func toolOwnerBindingID(toolID, owner string) string {
-	return "tool-owner:" + url.PathEscape(toolID) + ":" + url.PathEscape(owner)
+	return toolkit.ToolOwnerPolicyBindingID(toolID, owner)
 }

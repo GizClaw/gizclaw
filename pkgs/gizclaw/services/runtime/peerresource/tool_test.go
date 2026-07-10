@@ -96,6 +96,44 @@ func TestToolPeerCreateRejectsNonDeviceAndForeignNamespace(t *testing.T) {
 	}
 }
 
+func TestToolPeerPutRejectsExistingNonOwnedTool(t *testing.T) {
+	caller := giznet.PublicKey{4}
+	callerID := caller.String()
+	id := "peer." + callerID + ".admin-owned"
+	auth := newRuleAuthorizer()
+	auth.allow(acl.ResourceKindTool, id, apitypes.ACLPermissionAdmin)
+	srv := &Server{Caller: caller, ACL: auth, Tools: &toolkit.Server{Store: kv.NewMemory(nil)}, ToolACL: &recordingToolACL{}}
+	existing := toolkit.Tool{ID: id, Source: toolkit.ToolSourceAdmin, Enabled: true, InputSchema: jsonschema.Schema{Type: "object"}, Executor: toolkit.ToolExecutor{Kind: toolkit.ToolExecutorKindBuiltin, Name: stringPointer("admin")}}
+	if _, err := srv.Tools.PutTool(context.Background(), existing); err != nil {
+		t.Fatalf("PutTool(existing) error = %v", err)
+	}
+
+	resp := callRPC(t, srv, "put", rpcapi.RPCMethodServerToolPut, rpcParams(t, (*rpcapi.RPCPayload).FromToolPutRequest, rpcapi.ToolPutRequest{Id: id, Body: rpcTool(id, callerID)}))
+	if resp.Error == nil || resp.Error.Code != rpcapi.RPCErrorCodeForbidden {
+		t.Fatalf("put non-owned Tool response = %#v", resp)
+	}
+	stored, err := srv.Tools.GetTool(context.Background(), id)
+	if err != nil || stored.Source != toolkit.ToolSourceAdmin {
+		t.Fatalf("stored Tool after rejected put = %#v, %v", stored, err)
+	}
+}
+
+func TestToolPeerCreateDoesNotRewriteExistingOwnerRole(t *testing.T) {
+	caller := giznet.PublicKey{5}
+	callerID := caller.String()
+	id := "peer." + callerID + ".music.play"
+	auth := newRuleAuthorizer()
+	auth.allow(acl.ResourceKindTool, acl.CollectionResourceID, apitypes.ACLPermissionCreate)
+	bindings := &recordingToolACL{roleErr: acl.ErrRoleAlreadyExists}
+	srv := &Server{Caller: caller, ACL: auth, Tools: &toolkit.Server{Store: kv.NewMemory(nil)}, ToolACL: bindings}
+
+	resp := callRPC(t, srv, "create", rpcapi.RPCMethodServerToolCreate, rpcParams(t, (*rpcapi.RPCPayload).FromToolCreateRequest, rpcTool(id, callerID)))
+	requireNoRPCError(t, resp)
+	if bindings.roleCreates != 1 || bindings.policy.Role != toolOwnerRole {
+		t.Fatalf("owner role handling = creates %d policy %#v", bindings.roleCreates, bindings.policy)
+	}
+}
+
 func TestToolPeerListUsesStorageCursorOrdering(t *testing.T) {
 	caller := giznet.PublicKey{3}
 	auth := newRuleAuthorizer()
@@ -142,12 +180,15 @@ type recordingToolACL struct {
 	permissions apitypes.ACLPermissionList
 	policy      apitypes.ACLPolicy
 	deleted     string
+	roleErr     error
+	roleCreates int
 }
 
-func (a *recordingToolACL) PutRole(_ context.Context, name string, permissions apitypes.ACLPermissionList) (apitypes.ACLRole, error) {
+func (a *recordingToolACL) CreateRole(_ context.Context, name string, permissions apitypes.ACLPermissionList) (apitypes.ACLRole, error) {
+	a.roleCreates++
 	a.role = name
 	a.permissions = append(apitypes.ACLPermissionList(nil), permissions...)
-	return apitypes.ACLRole{Name: name, Permissions: permissions}, nil
+	return apitypes.ACLRole{Name: name, Permissions: permissions}, a.roleErr
 }
 
 func (a *recordingToolACL) PutPolicyBinding(_ context.Context, id string, _ float64, policy apitypes.ACLPolicy) (apitypes.ACLPolicyBinding, error) {
