@@ -72,8 +72,11 @@ func TestToolPeerCRUDNamespaceACLAndOwnerBinding(t *testing.T) {
 
 	deleteResp := callRPC(t, srv, "delete", rpcapi.RPCMethodServerToolDelete, rpcParams(t, (*rpcapi.RPCPayload).FromToolDeleteRequest, rpcapi.ToolDeleteRequest{Id: id}))
 	requireNoRPCError(t, deleteResp)
-	if bindings.deleted == "" {
-		t.Fatal("owner binding was not deleted")
+	if !bindings.deletedBinding(toolOwnerBindingID(id, callerID)) {
+		t.Fatalf("owner binding was not deleted; deleted = %#v", bindings.deletedIDs)
+	}
+	if !bindings.deletedBinding(legacyToolOwnerBindingID(id, callerID)) {
+		t.Fatalf("legacy owner binding was not deleted; deleted = %#v", bindings.deletedIDs)
 	}
 }
 
@@ -226,6 +229,7 @@ type recordingToolACL struct {
 	permissions  apitypes.ACLPermissionList
 	policy       apitypes.ACLPolicy
 	deleted      string
+	deletedIDs   []string
 	roleErr      error
 	putRoleErr   error
 	roleCreates  int
@@ -262,7 +266,17 @@ func (a *recordingToolACL) PutPolicyBinding(_ context.Context, id string, _ floa
 
 func (a *recordingToolACL) DeletePolicyBinding(_ context.Context, id string) (apitypes.ACLPolicyBinding, error) {
 	a.deleted = id
+	a.deletedIDs = append(a.deletedIDs, id)
 	return apitypes.ACLPolicyBinding{Id: id}, a.deleteErr
+}
+
+func (a *recordingToolACL) deletedBinding(id string) bool {
+	for _, deleted := range a.deletedIDs {
+		if deleted == id {
+			return true
+		}
+	}
+	return false
 }
 
 func stringPointer(value string) *string { return &value }

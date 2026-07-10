@@ -10,11 +10,11 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/acl"
 )
 
-func TestApplyOwnedResourceRequiresOwnerWithACL(t *testing.T) {
+func TestApplyOwnedResourceAllowsMissingOwnerWithACL(t *testing.T) {
 	manager := newACLResourceManager(t)
 	manager.services.Workspaces = newFakeWorkspaces()
 
-	_, err := manager.Apply(context.Background(), mustResource(t, `{
+	result, err := manager.Apply(context.Background(), mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "Workspace",
 		"metadata": {"name": "demo"},
@@ -22,7 +22,12 @@ func TestApplyOwnedResourceRequiresOwnerWithACL(t *testing.T) {
 			"workflow_name": "workflow"
 		}
 	}`))
-	assertResourceError(t, err, 400, "RESOURCE_OWNER_REQUIRED")
+	if err != nil {
+		t.Fatalf("Apply(without owner) error = %v", err)
+	}
+	if result.Action != apitypes.ApplyActionCreated {
+		t.Fatalf("Apply(without owner) action = %q, want %q", result.Action, apitypes.ApplyActionCreated)
+	}
 }
 
 func TestApplyOwnedResourceManagesOwnerBinding(t *testing.T) {
@@ -85,6 +90,35 @@ func TestApplyOwnedResourceManagesOwnerBinding(t *testing.T) {
 	}
 }
 
+func TestOwnedResourceOwnerReadsDeterministicBinding(t *testing.T) {
+	ctx := context.Background()
+	manager := newACLResourceManager(t)
+	manager.services.Workspaces = newFakeWorkspaces()
+
+	if _, err := manager.Apply(ctx, workspaceResourceWithOwner(t, "demo", "owner-a")); err != nil {
+		t.Fatalf("Apply(create) error = %v", err)
+	}
+	if _, err := manager.services.ACL.CreatePolicyBinding(ctx, "extra-owner", 0, apitypes.ACLPolicy{
+		Subject:  acl.PublicKeySubject("stale-owner"),
+		Resource: acl.WorkspaceResource("demo"),
+		Role:     resourceOwnerRole,
+	}); err != nil {
+		t.Fatalf("CreatePolicyBinding(extra owner) error = %v", err)
+	}
+
+	gotResource, err := manager.Get(ctx, apitypes.ResourceKindWorkspace, "demo")
+	if err != nil {
+		t.Fatalf("Get() error = %v", err)
+	}
+	got, err := gotResource.AsWorkspaceResource()
+	if err != nil {
+		t.Fatalf("AsWorkspaceResource() error = %v", err)
+	}
+	if got.Metadata.OwnerPublicKey == nil || *got.Metadata.OwnerPublicKey != "owner-a" {
+		t.Fatalf("owner_public_key = %#v, want deterministic owner-a", got.Metadata.OwnerPublicKey)
+	}
+}
+
 func TestPutOwnedResourceManagesOwnerBinding(t *testing.T) {
 	ctx := context.Background()
 	manager := newACLResourceManager(t)
@@ -94,6 +128,21 @@ func TestPutOwnedResourceManagesOwnerBinding(t *testing.T) {
 		t.Fatalf("Put() error = %v", err)
 	}
 	assertWorkspaceOwnerBinding(t, manager, "demo", "owner-a")
+}
+
+func TestPutOwnedResourceRollsBackOwnerWhenWriteFails(t *testing.T) {
+	ctx := context.Background()
+	manager := newACLResourceManager(t)
+	workspaces := newFakeWorkspaces()
+	workspaces.putStatus = 500
+	manager.services.Workspaces = workspaces
+
+	_, err := manager.Put(ctx, workspaceResourceWithOwner(t, "demo", "owner-a"))
+	assertResourceError(t, err, 500, "INTERNAL_ERROR")
+	bindingID := resourceOwnerPolicyBindingID(apitypes.ACLResourceKindWorkspace, "demo")
+	if _, err := manager.services.ACL.GetPolicyBinding(ctx, bindingID); !errors.Is(err, acl.ErrPolicyBindingNotFound) {
+		t.Fatalf("GetPolicyBinding(rolled back owner) error = %v, want %v", err, acl.ErrPolicyBindingNotFound)
+	}
 }
 
 func TestPutExistingOwnedResourceAllowsMissingOwner(t *testing.T) {
@@ -123,6 +172,28 @@ func TestPutExistingOwnedResourceAllowsMissingOwner(t *testing.T) {
 	if workspaces.items["demo"].WorkflowName != "new-workflow" {
 		t.Fatalf("workflow = %q, want new-workflow", workspaces.items["demo"].WorkflowName)
 	}
+}
+
+func TestDeleteOwnedResourceRestoresOwnerWhenDeleteFails(t *testing.T) {
+	ctx := context.Background()
+	manager := newACLResourceManager(t)
+	workspaces := newFakeWorkspaces()
+	now := time.Now().UTC()
+	workspaces.items["demo"] = apitypes.Workspace{
+		CreatedAt:    now,
+		Name:         "demo",
+		UpdatedAt:    now,
+		WorkflowName: "workflow",
+	}
+	workspaces.deleteStatus = 500
+	manager.services.Workspaces = workspaces
+	if _, err := manager.ensureOwnedResourceOwnerFromMetadata(ctx, apitypes.ACLResourceKindWorkspace, "demo", apitypes.ResourceMetadata{Name: "demo", OwnerPublicKey: ptr("owner-a")}); err != nil {
+		t.Fatalf("ensureOwnedResourceOwnerFromMetadata() error = %v", err)
+	}
+
+	_, err := manager.Delete(ctx, apitypes.ResourceKindWorkspace, "demo")
+	assertResourceError(t, err, 500, "INTERNAL_ERROR")
+	assertWorkspaceOwnerBinding(t, manager, "demo", "owner-a")
 }
 
 func workspaceResourceWithOwner(t *testing.T, name, owner string) apitypes.Resource {

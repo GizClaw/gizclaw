@@ -42,11 +42,12 @@ func (m *Manager) applyFirmware(ctx context.Context, resource apitypes.Resource)
 			return applyResult(apitypes.ApplyActionUnchanged, apitypes.ResourceKindFirmware, item.Metadata.Name), nil
 		}
 	}
-	if err := m.putFirmware(ctx, name, firmwareUpsert(item)); err != nil {
+	ownerRollback, err := m.ensureOwnedResourceOwnerBeforeWrite(ctx, apitypes.ACLResourceKindFirmware, item.Metadata.Name, item.Metadata)
+	if err != nil {
 		return apitypes.ApplyResult{}, err
 	}
-	if _, err := m.ensureOwnedResourceOwnerFromMetadata(ctx, apitypes.ACLResourceKindFirmware, item.Metadata.Name, item.Metadata); err != nil {
-		return apitypes.ApplyResult{}, err
+	if err := m.putFirmware(ctx, name, firmwareUpsert(item)); err != nil {
+		return apitypes.ApplyResult{}, m.rollbackOwnedResourceOwner(ctx, ownerRollback, err)
 	}
 	if exists {
 		return applyResult(apitypes.ApplyActionUpdated, apitypes.ResourceKindFirmware, item.Metadata.Name), nil

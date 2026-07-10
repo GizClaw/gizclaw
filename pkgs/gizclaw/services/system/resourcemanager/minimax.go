@@ -76,11 +76,12 @@ func (m *Manager) applyVoice(ctx context.Context, resource apitypes.Resource) (a
 			return applyResult(apitypes.ApplyActionUnchanged, apitypes.ResourceKindVoice, item.Metadata.Name), nil
 		}
 	}
-	if err := m.putVoice(ctx, id, voiceUpsert(item)); err != nil {
+	ownerRollback, err := m.ensureOwnedResourceOwnerBeforeWrite(ctx, apitypes.ACLResourceKindVoice, item.Metadata.Name, item.Metadata)
+	if err != nil {
 		return apitypes.ApplyResult{}, err
 	}
-	if _, err := m.ensureOwnedResourceOwnerFromMetadata(ctx, apitypes.ACLResourceKindVoice, item.Metadata.Name, item.Metadata); err != nil {
-		return apitypes.ApplyResult{}, err
+	if err := m.putVoice(ctx, id, voiceUpsert(item)); err != nil {
+		return apitypes.ApplyResult{}, m.rollbackOwnedResourceOwner(ctx, ownerRollback, err)
 	}
 	if exists {
 		return applyResult(apitypes.ApplyActionUpdated, apitypes.ResourceKindVoice, item.Metadata.Name), nil

@@ -109,7 +109,7 @@ func (m *Manager) putToolResource(ctx context.Context, item apitypes.ToolResourc
 	if _, err := m.ensureOwnedResourceOwnerFromMetadata(ctx, apitypes.ACLResourceKindTool, item.Metadata.Name, item.Metadata); err != nil {
 		return apitypes.Resource{}, m.rollbackToolWrite(ctx, existing, exists, stored.ID, err)
 	}
-	return resourceFromTool(stored)
+	return m.Get(ctx, apitypes.ResourceKindTool, stored.ID)
 }
 
 func (m *Manager) deleteTool(ctx context.Context, id string) (toolkit.Tool, bool, error) {

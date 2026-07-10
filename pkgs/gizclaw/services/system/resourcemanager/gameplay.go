@@ -38,11 +38,12 @@ func (m *Manager) applyGameRuleset(ctx context.Context, resource apitypes.Resour
 			return applyResult(apitypes.ApplyActionUnchanged, apitypes.ResourceKindGameRuleset, item.Metadata.Name), nil
 		}
 	}
-	if err := m.putGameRuleset(ctx, string(pathParam(item.Metadata.Name)), gameRulesetUpsert(item)); err != nil {
+	ownerRollback, err := m.ensureOwnedResourceOwnerBeforeWrite(ctx, apitypes.ACLResourceKindGameruleset, item.Metadata.Name, item.Metadata)
+	if err != nil {
 		return apitypes.ApplyResult{}, err
 	}
-	if _, err := m.ensureOwnedResourceOwnerFromMetadata(ctx, apitypes.ACLResourceKindGameruleset, item.Metadata.Name, item.Metadata); err != nil {
-		return apitypes.ApplyResult{}, err
+	if err := m.putGameRuleset(ctx, string(pathParam(item.Metadata.Name)), gameRulesetUpsert(item)); err != nil {
+		return apitypes.ApplyResult{}, m.rollbackOwnedResourceOwner(ctx, ownerRollback, err)
 	}
 	if exists {
 		return applyResult(apitypes.ApplyActionUpdated, apitypes.ResourceKindGameRuleset, item.Metadata.Name), nil

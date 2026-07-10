@@ -129,6 +129,34 @@ func TestToolResourceAdminWritesRemoveStaleOwnerBindings(t *testing.T) {
 	}
 }
 
+func TestToolResourcePutReturnsOwnerMetadata(t *testing.T) {
+	ctx := context.Background()
+	manager := newACLResourceManager(t)
+	manager.services.Tools = &toolkit.Server{Store: kv.NewMemory(nil)}
+	owner := "owner-peer"
+	resource := toolResource(t, "system/music.play")
+	item, err := resource.AsToolResource()
+	if err != nil {
+		t.Fatalf("AsToolResource() error = %v", err)
+	}
+	item.Metadata.OwnerPublicKey = &owner
+	if err := resource.FromToolResource(item); err != nil {
+		t.Fatalf("FromToolResource() error = %v", err)
+	}
+
+	storedResource, err := manager.Put(ctx, resource)
+	if err != nil {
+		t.Fatalf("Put() error = %v", err)
+	}
+	stored, err := storedResource.AsToolResource()
+	if err != nil {
+		t.Fatalf("AsToolResource(stored) error = %v", err)
+	}
+	if stored.Metadata.OwnerPublicKey == nil || *stored.Metadata.OwnerPublicKey != owner {
+		t.Fatalf("owner_public_key = %#v, want %q", stored.Metadata.OwnerPublicKey, owner)
+	}
+}
+
 func toolResource(t *testing.T, id string) apitypes.Resource {
 	t.Helper()
 	name := "play_music"

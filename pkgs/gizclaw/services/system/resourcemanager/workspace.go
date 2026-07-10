@@ -42,11 +42,12 @@ func (m *Manager) applyWorkspace(ctx context.Context, resource apitypes.Resource
 			return applyResult(apitypes.ApplyActionUnchanged, apitypes.ResourceKindWorkspace, item.Metadata.Name), nil
 		}
 	}
-	if err := m.putWorkspace(ctx, name, workspaceUpsert(item)); err != nil {
+	ownerRollback, err := m.ensureOwnedResourceOwnerBeforeWrite(ctx, apitypes.ACLResourceKindWorkspace, item.Metadata.Name, item.Metadata)
+	if err != nil {
 		return apitypes.ApplyResult{}, err
 	}
-	if _, err := m.ensureOwnedResourceOwnerFromMetadata(ctx, apitypes.ACLResourceKindWorkspace, item.Metadata.Name, item.Metadata); err != nil {
-		return apitypes.ApplyResult{}, err
+	if err := m.putWorkspace(ctx, name, workspaceUpsert(item)); err != nil {
+		return apitypes.ApplyResult{}, m.rollbackOwnedResourceOwner(ctx, ownerRollback, err)
 	}
 	if exists {
 		return applyResult(apitypes.ApplyActionUpdated, apitypes.ResourceKindWorkspace, item.Metadata.Name), nil

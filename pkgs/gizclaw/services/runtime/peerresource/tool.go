@@ -188,11 +188,16 @@ func (s *Server) handleToolDelete(ctx context.Context, req *rpcapi.RPCRequest) *
 		return internalError(req.Id, err.Error())
 	}
 	if s.ToolACL != nil {
-		if _, err := s.ToolACL.DeletePolicyBinding(context.WithoutCancel(ctx), toolOwnerBindingID(params.Id, s.Caller.String())); err != nil && !errors.Is(err, acl.ErrPolicyBindingNotFound) {
-			if _, rollbackErr := s.Tools.PutTool(context.WithoutCancel(ctx), stored); rollbackErr != nil {
-				return internalError(req.Id, fmt.Sprintf("%v; Tool rollback failed: %v", err, rollbackErr))
+		for _, bindingID := range []string{
+			toolOwnerBindingID(params.Id, s.Caller.String()),
+			legacyToolOwnerBindingID(params.Id, s.Caller.String()),
+		} {
+			if _, err := s.ToolACL.DeletePolicyBinding(context.WithoutCancel(ctx), bindingID); err != nil && !errors.Is(err, acl.ErrPolicyBindingNotFound) {
+				if _, rollbackErr := s.Tools.PutTool(context.WithoutCancel(ctx), stored); rollbackErr != nil {
+					return internalError(req.Id, fmt.Sprintf("%v; Tool rollback failed: %v", err, rollbackErr))
+				}
+				return internalError(req.Id, err.Error())
 			}
-			return internalError(req.Id, err.Error())
 		}
 	}
 	item, err := toolkit.ToRPC(stored)
@@ -251,4 +256,8 @@ func (s *Server) grantToolOwner(ctx context.Context, toolID string) error {
 
 func toolOwnerBindingID(toolID, owner string) string {
 	return toolkit.ToolOwnerPolicyBindingID(toolID, owner)
+}
+
+func legacyToolOwnerBindingID(toolID, owner string) string {
+	return toolkit.LegacyToolOwnerPolicyBindingID(toolID, owner)
 }

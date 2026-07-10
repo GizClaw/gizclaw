@@ -42,11 +42,12 @@ func (m *Manager) applyWorkflow(ctx context.Context, resource apitypes.Resource)
 			return applyResult(apitypes.ApplyActionUnchanged, apitypes.ResourceKindWorkflow, item.Metadata.Name), nil
 		}
 	}
-	if err := m.putWorkflow(ctx, name, workflowDocumentFromResource(item)); err != nil {
+	ownerRollback, err := m.ensureOwnedResourceOwnerBeforeWrite(ctx, apitypes.ACLResourceKindWorkflow, item.Metadata.Name, item.Metadata)
+	if err != nil {
 		return apitypes.ApplyResult{}, err
 	}
-	if _, err := m.ensureOwnedResourceOwnerFromMetadata(ctx, apitypes.ACLResourceKindWorkflow, item.Metadata.Name, item.Metadata); err != nil {
-		return apitypes.ApplyResult{}, err
+	if err := m.putWorkflow(ctx, name, workflowDocumentFromResource(item)); err != nil {
+		return apitypes.ApplyResult{}, m.rollbackOwnedResourceOwner(ctx, ownerRollback, err)
 	}
 	if exists {
 		return applyResult(apitypes.ApplyActionUpdated, apitypes.ResourceKindWorkflow, item.Metadata.Name), nil

@@ -161,19 +161,20 @@ creates a shared workspace, access to that workspace is represented by normal
 
 ## Default Ownership Rules
 
-ResourceManager apply/import for ACL-backed owned resources uses
-`metadata.owner_public_key` as the owner subject. New resources of these kinds
-require the field when ACL is configured:
+ResourceManager apply/import for ACL-backed owned resources can use
+`metadata.owner_public_key` as the owner subject. These kinds support the
+generic owner metadata hint when ACL is configured:
 
 ```text
 Workspace, Workflow, Model, Credential, Voice, Firmware, GameRuleset, Tool
 ```
 
-ResourceManager stores the ownership grant as a deterministic
-`resource-owner:<resource-kind>:<resource-id>` policy binding with role
-`resource-owner` and permissions `read`, `use`, and `admin`. `Get` returns the
-current owner in `metadata.owner_public_key`; changing only that metadata field
-updates the ACL binding without rewriting the underlying resource.
+When the metadata field is present, ResourceManager stores the ownership grant
+as a deterministic `resource-owner:<resource-kind>:<resource-id>` policy binding
+with role `resource-owner` and permissions `read`, `use`, and `admin`. `Get`
+returns the current deterministic owner in `metadata.owner_public_key`; changing
+only that metadata field updates the ACL binding without rewriting the
+underlying resource.
 
 Social resources, provider tenant configuration, peer config, gameplay catalog
 resources, ACL control-plane resources, and `ResourceList` do not use this

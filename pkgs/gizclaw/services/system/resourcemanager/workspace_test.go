@@ -160,10 +160,11 @@ func TestWorkspaceServiceErrorResponses(t *testing.T) {
 }
 
 type fakeWorkspaces struct {
-	items     map[string]apitypes.Workspace
-	putCount  int
-	getStatus int
-	putStatus int
+	items        map[string]apitypes.Workspace
+	putCount     int
+	getStatus    int
+	putStatus    int
+	deleteStatus int
 }
 
 func newFakeWorkspaces() *fakeWorkspaces {
@@ -179,6 +180,9 @@ func (f *fakeWorkspaces) CreateWorkspace(context.Context, adminhttp.CreateWorksp
 }
 
 func (f *fakeWorkspaces) DeleteWorkspace(_ context.Context, request adminhttp.DeleteWorkspaceRequestObject) (adminhttp.DeleteWorkspaceResponseObject, error) {
+	if f.deleteStatus == 500 {
+		return adminhttp.DeleteWorkspace500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "failed")), nil
+	}
 	item, ok := f.items[string(request.Name)]
 	if !ok {
 		return adminhttp.DeleteWorkspace404JSONResponse(apitypes.NewErrorResponse("WORKSPACE_NOT_FOUND", "not found")), nil

@@ -42,11 +42,12 @@ func (m *Manager) applyModel(ctx context.Context, resource apitypes.Resource) (a
 			return applyResult(apitypes.ApplyActionUnchanged, apitypes.ResourceKindModel, item.Metadata.Name), nil
 		}
 	}
-	if err := m.putModel(ctx, id, modelUpsert(item)); err != nil {
+	ownerRollback, err := m.ensureOwnedResourceOwnerBeforeWrite(ctx, apitypes.ACLResourceKindModel, item.Metadata.Name, item.Metadata)
+	if err != nil {
 		return apitypes.ApplyResult{}, err
 	}
-	if _, err := m.ensureOwnedResourceOwnerFromMetadata(ctx, apitypes.ACLResourceKindModel, item.Metadata.Name, item.Metadata); err != nil {
-		return apitypes.ApplyResult{}, err
+	if err := m.putModel(ctx, id, modelUpsert(item)); err != nil {
+		return apitypes.ApplyResult{}, m.rollbackOwnedResourceOwner(ctx, ownerRollback, err)
 	}
 	if exists {
 		return applyResult(apitypes.ApplyActionUpdated, apitypes.ResourceKindModel, item.Metadata.Name), nil

@@ -49,9 +49,6 @@ func (m *Manager) validateOwnedResourceOwner(kind apitypes.ACLResourceKind, id s
 		}
 		return nil
 	}
-	if !exists && !hasOwner {
-		return applyError(400, "RESOURCE_OWNER_REQUIRED", fmt.Sprintf("metadata.owner_public_key is required for new %s resource %q", kind, id))
-	}
 	return nil
 }
 
@@ -99,19 +96,16 @@ func (m *Manager) ownedResourceOwner(ctx context.Context, kind apitypes.ACLResou
 	if m.services.ACL == nil {
 		return nil, nil
 	}
-	bindings, _, _, err := m.services.ACL.ListPolicyBindings(ctx, acl.ListPolicyBindingsRequest{
-		ResourceKind: kind,
-		ResourceID:   id,
-		Role:         resourceOwnerRole,
-	})
+	binding, err := m.services.ACL.GetPolicyBinding(ctx, resourceOwnerPolicyBindingID(kind, id))
+	if errors.Is(err, acl.ErrPolicyBindingNotFound) {
+		return nil, nil
+	}
 	if err != nil {
 		return nil, err
 	}
-	for _, binding := range bindings {
-		if binding.Policy.Subject.Kind == acl.SubjectKindPublicKey && strings.TrimSpace(binding.Policy.Subject.Id) != "" {
-			owner := binding.Policy.Subject.Id
-			return &owner, nil
-		}
+	if binding.Policy.Subject.Kind == acl.SubjectKindPublicKey && strings.TrimSpace(binding.Policy.Subject.Id) != "" {
+		owner := binding.Policy.Subject.Id
+		return &owner, nil
 	}
 	return nil, nil
 }
@@ -166,4 +160,60 @@ func (m *Manager) removeOwnedResourceOwner(ctx context.Context, kind apitypes.AC
 		return err
 	}
 	return nil
+}
+
+type ownedResourceOwnerRollback struct {
+	kind     apitypes.ACLResourceKind
+	id       string
+	previous *string
+	changed  bool
+}
+
+func (m *Manager) ensureOwnedResourceOwnerBeforeWrite(ctx context.Context, kind apitypes.ACLResourceKind, id string, metadata apitypes.ResourceMetadata) (*ownedResourceOwnerRollback, error) {
+	owner, hasOwner, err := resourceOwnerHint(metadata)
+	if err != nil || !hasOwner {
+		return nil, err
+	}
+	if m.services.ACL == nil {
+		return nil, missingService("acl")
+	}
+	previous, err := m.ownedResourceOwner(ctx, kind, id)
+	if err != nil {
+		return nil, err
+	}
+	changed, err := m.putOwnedResourceOwner(ctx, kind, id, owner)
+	if err != nil {
+		return nil, err
+	}
+	return &ownedResourceOwnerRollback{kind: kind, id: id, previous: previous, changed: changed}, nil
+}
+
+func (m *Manager) removeOwnedResourceOwnerBeforeDelete(ctx context.Context, kind apitypes.ACLResourceKind, id string, extraBindingIDs ...string) (*ownedResourceOwnerRollback, error) {
+	if m.services.ACL == nil {
+		return nil, nil
+	}
+	previous, err := m.ownedResourceOwner(ctx, kind, id)
+	if err != nil {
+		return nil, err
+	}
+	if err := m.removeOwnedResourceOwner(context.WithoutCancel(ctx), kind, id, extraBindingIDs...); err != nil {
+		return nil, err
+	}
+	return &ownedResourceOwnerRollback{kind: kind, id: id, previous: previous, changed: previous != nil}, nil
+}
+
+func (m *Manager) rollbackOwnedResourceOwner(ctx context.Context, rollback *ownedResourceOwnerRollback, cause error) error {
+	if rollback == nil || !rollback.changed {
+		return cause
+	}
+	var err error
+	if rollback.previous == nil {
+		err = m.removeOwnedResourceOwner(context.WithoutCancel(ctx), rollback.kind, rollback.id)
+	} else {
+		_, err = m.putOwnedResourceOwner(context.WithoutCancel(ctx), rollback.kind, rollback.id, *rollback.previous)
+	}
+	if err != nil {
+		return applyError(500, "RESOURCE_OWNER_ACL_ROLLBACK_FAILED", fmt.Sprintf("%v; rollback failed: %v", cause, err))
+	}
+	return cause
 }
