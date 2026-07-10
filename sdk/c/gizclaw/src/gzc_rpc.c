@@ -476,6 +476,7 @@ typedef struct {
   gzc_buf_t *out;
   const gzc_platform_t *platform;
   int rc;
+  bool seen;
 } gzc_pb_copy_arg_t;
 
 static bool decode_pb_copy(pb_istream_t *stream, const pb_field_t *field, void **arg) {
@@ -485,6 +486,7 @@ static bool decode_pb_copy(pb_istream_t *stream, const pb_field_t *field, void *
       (stream->state == NULL && stream->bytes_left != 0)) {
     return false;
   }
+  copy->seen = true;
   copy->rc = gzc_buf_append(copy->out, copy->platform, stream->state, stream->bytes_left);
   if (copy->rc != GZC_OK) {
     return false;
@@ -551,6 +553,35 @@ static int inbound_encode_response(
   return encode_pb_message(inbound->platform, gizclaw_rpc_v1_RpcResponse_fields, &response, out);
 }
 
+static int inbound_send_response_envelope(
+    struct gzc_rpc_inbound *inbound,
+    const uint8_t *data,
+    size_t len,
+    bool body_follows) {
+  if (len > GZC_RPC_MAX_ENVELOPE_SIZE) {
+    return GZC_ERR_RPC;
+  }
+  if (len <= GZC_RPC_MAX_FRAME_SIZE) {
+    return inbound_send_frame(inbound, GZC_RPC_FRAME_BINARY, data, len);
+  }
+  size_t offset = 0;
+  while (offset < len) {
+    size_t chunk = len - offset;
+    if (chunk > GZC_RPC_MAX_FRAME_SIZE) {
+      chunk = GZC_RPC_MAX_FRAME_SIZE;
+    }
+    int rc = inbound_send_frame(inbound, GZC_RPC_FRAME_TEXT, data + offset, chunk);
+    if (rc != GZC_OK) {
+      return rc;
+    }
+    offset += chunk;
+  }
+  if (body_follows) {
+    return inbound_send_frame(inbound, GZC_RPC_FRAME_EOS, NULL, 0);
+  }
+  return GZC_OK;
+}
+
 static int inbound_send_response_payload(
     struct gzc_rpc_inbound *inbound,
     const pb_msgdesc_t *fields,
@@ -566,7 +597,10 @@ static int inbound_send_response_payload(
                                  NULL, &response);
   }
   if (rc == GZC_OK) {
-    rc = inbound_send_frame(inbound, GZC_RPC_FRAME_BINARY, response.data, response.len);
+    bool body_follows =
+        inbound->method == gizclaw_rpc_v1_RpcMethod_RPC_METHOD_ALL_SPEED_TEST_RUN;
+    rc = inbound_send_response_envelope(
+        inbound, response.data, response.len, body_follows);
   }
   if (rc == GZC_OK) {
     inbound->response_envelope_sent = true;
@@ -593,26 +627,25 @@ static int inbound_error(
   gzc_buf_init(&response);
   int rc = inbound_encode_response(inbound, NULL, 0, true, code, message, &response);
   if (rc == GZC_OK) {
-    rc = inbound_send_frame(inbound, GZC_RPC_FRAME_BINARY, response.data, response.len);
+    rc = inbound_send_response_envelope(inbound, response.data, response.len, false);
   }
   if (rc == GZC_OK) {
     rc = inbound_send_frame(inbound, GZC_RPC_FRAME_EOS, NULL, 0);
   }
   gzc_buf_free(&response, inbound->platform);
-  inbound->phase = GZC_INBOUND_TERMINAL;
   inbound->response_envelope_sent = rc == GZC_OK;
   inbound->response_eos_sent = rc == GZC_OK;
   if (rc != GZC_OK) {
     return inbound_close_transport(inbound, rc);
   }
-  return GZC_OK;
+  return inbound_close_transport(inbound, GZC_OK);
 }
 
 static int inbound_decode_request(struct gzc_rpc_inbound *inbound, const uint8_t *data, size_t len) {
   gzc_buf_reset(&inbound->id);
   gzc_buf_reset(&inbound->payload);
-  gzc_pb_copy_arg_t id_arg = {&inbound->id, inbound->platform, GZC_OK};
-  gzc_pb_copy_arg_t payload_arg = {&inbound->payload, inbound->platform, GZC_OK};
+  gzc_pb_copy_arg_t id_arg = {&inbound->id, inbound->platform, GZC_OK, false};
+  gzc_pb_copy_arg_t payload_arg = {&inbound->payload, inbound->platform, GZC_OK, false};
   gizclaw_rpc_v1_RpcRequest request = gizclaw_rpc_v1_RpcRequest_init_zero;
   request.id.funcs.decode = decode_pb_copy;
   request.id.arg = &id_arg;
@@ -638,6 +671,11 @@ static int inbound_decode_request(struct gzc_rpc_inbound *inbound, const uint8_t
 
   pb_istream_t payload_stream = pb_istream_from_buffer(inbound->payload.data, inbound->payload.len);
   if (request.method == gizclaw_rpc_v1_RpcMethod_RPC_METHOD_ALL_PING) {
+    if (!payload_arg.seen) {
+      return inbound_error(inbound,
+                           gizclaw_rpc_v1_RpcErrorCode_RPC_ERROR_CODE_INVALID_PARAMS,
+                           "missing ping payload");
+    }
     gizclaw_rpc_v1_PingRequest ping = gizclaw_rpc_v1_PingRequest_init_zero;
     if (!pb_decode(&payload_stream, gizclaw_rpc_v1_PingRequest_fields, &ping)) {
       return inbound_error(inbound,
@@ -648,6 +686,11 @@ static int inbound_decode_request(struct gzc_rpc_inbound *inbound, const uint8_t
     return GZC_OK;
   }
   if (request.method == gizclaw_rpc_v1_RpcMethod_RPC_METHOD_ALL_SPEED_TEST_RUN) {
+    if (!payload_arg.seen) {
+      return inbound_error(inbound,
+                           gizclaw_rpc_v1_RpcErrorCode_RPC_ERROR_CODE_INVALID_PARAMS,
+                           "missing speed-test payload");
+    }
     gizclaw_rpc_v1_SpeedTestRequest speed = gizclaw_rpc_v1_SpeedTestRequest_init_zero;
     if (!pb_decode(&payload_stream, gizclaw_rpc_v1_SpeedTestRequest_fields, &speed) ||
         speed.up_content_length < 0 || speed.down_content_length < 0 ||
@@ -693,8 +736,7 @@ static int inbound_finish_ping(struct gzc_rpc_inbound *inbound) {
   }
   inbound->request_done = true;
   inbound->response_eos_sent = true;
-  inbound->phase = GZC_INBOUND_TERMINAL;
-  return GZC_OK;
+  return inbound_close_transport(inbound, GZC_OK);
 }
 
 static int inbound_process_frame(struct gzc_rpc_inbound *inbound, const gzc_rpc_frame_t *frame) {
@@ -722,13 +764,6 @@ static int inbound_process_frame(struct gzc_rpc_inbound *inbound, const gzc_rpc_
       }
       if (inbound->method == gizclaw_rpc_v1_RpcMethod_RPC_METHOD_ALL_PING) {
         return inbound_finish_ping(inbound);
-      }
-      if (inbound->upload_expected == 0) {
-        inbound->request_done = true;
-      } else {
-        return inbound_error(inbound,
-                             gizclaw_rpc_v1_RpcErrorCode_RPC_ERROR_CODE_INVALID_PARAMS,
-                             "continued speed request cannot contain an upload body");
       }
       return GZC_OK;
     }
@@ -885,7 +920,7 @@ int gzc_rpc_inbound_poll(struct gzc_rpc_inbound *inbound) {
     inbound->response_eos_sent = true;
   }
   if (inbound->request_done && inbound->response_eos_sent) {
-    inbound->phase = GZC_INBOUND_TERMINAL;
+    return inbound_close_transport(inbound, GZC_OK);
   }
   return GZC_OK;
 }

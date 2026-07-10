@@ -830,6 +830,15 @@ function handleInboundRPCDataChannel(channel: WebRTCRPCDataChannel): void {
   const sendResponse = (response: RPCResponse, method: string): Promise<void> =>
     sendInboundRPCFrames(channel, [...encodeRPCEnvelopeFrames(encodeRPCResponseEnvelope(response, method)), encodeFrame(RPC_FRAME_TYPE_EOS)]);
 
+  const finishPing = (pingRequest: RPCRequest): void => {
+    const params = pingRequest.params as PingRequest | undefined;
+    const response = params == null
+      ? rpcErrorResponse(pingRequest.id, -32602, "missing params")
+      : { id: pingRequest.id, result: { server_time: Date.now() }, v: RPC_VERSION } satisfies RPCResponse;
+    ignoreBody = true;
+    void sendResponse(response, pingRequest.method).catch(fail);
+  };
+
   const startRequest = (next: RPCRequest): void => {
     request = next;
     switch (next.method) {
@@ -869,7 +878,11 @@ function handleInboundRPCDataChannel(channel: WebRTCRPCDataChannel): void {
         return;
       }
       if (frame.type === RPC_FRAME_TYPE_EOS && envelopeChunks.length > 0) {
-        startRequest(decodeRPCRequestEnvelope(concatByteArrays(envelopeChunks)));
+        const continuedRequest = decodeRPCRequestEnvelope(concatByteArrays(envelopeChunks));
+        startRequest(continuedRequest);
+        if (continuedRequest.method === "all.ping") {
+          finishPing(continuedRequest);
+        }
         return;
       }
       throw new Error(`rpc: expected protobuf request frame, got type ${frame.type}`);
@@ -882,12 +895,7 @@ function handleInboundRPCDataChannel(channel: WebRTCRPCDataChannel): void {
       if (frame.type !== RPC_FRAME_TYPE_EOS) {
         throw new Error(`rpc: expected ping EOS frame, got type ${frame.type}`);
       }
-      const params = request.params as PingRequest | undefined;
-      const response = params == null
-        ? rpcErrorResponse(request.id, -32602, "missing params")
-        : { id: request.id, result: { server_time: Date.now() }, v: RPC_VERSION } satisfies RPCResponse;
-      ignoreBody = true;
-      void sendResponse(response, request.method).catch(fail);
+      finishPing(request);
       return;
     }
     if (request.method === "all.speed_test.run") {
@@ -967,7 +975,11 @@ async function sendInboundSpeedTestResponse(channel: WebRTCRPCDataChannel, id: s
     },
     v: RPC_VERSION,
   };
-  await sendInboundRPCFrames(channel, encodeRPCEnvelopeFrames(encodeRPCResponseEnvelope(response, "all.speed_test.run")));
+  const responseEnvelope = encodeRPCResponseEnvelope(response, "all.speed_test.run");
+  await sendInboundRPCFrames(channel, encodeRPCEnvelopeFrames(responseEnvelope));
+  if (responseEnvelope.length > RPC_MAX_FRAME_PAYLOAD_SIZE) {
+    await sendInboundRPCFrames(channel, [encodeFrame(RPC_FRAME_TYPE_EOS)]);
+  }
   const chunk = new Uint8Array(RPC_SPEED_TEST_FRAME_SIZE);
   for (let offset = 0; offset < params.down_content_length; offset += chunk.length) {
     const size = Math.min(chunk.length, params.down_content_length - offset);

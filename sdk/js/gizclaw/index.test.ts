@@ -834,6 +834,56 @@ test("prepared WebRTC peer serves full-duplex server-initiated speed test", asyn
   assert.deepEqual(frames.slice(1, 3).map((frame) => frame.payload.length), [32 * 1024, 7]);
 });
 
+test("prepared WebRTC peer finishes a continued server-initiated ping on its envelope EOS", async () => {
+  const pc = new FakePeerConnection();
+  prepareGiznetWebRTCPeerConnection(pc as unknown as RTCPeerConnection);
+  const channel = new FakeDataChannel(giznetServiceDataChannelLabel(GIZCLAW_SERVICE_PEER_RPC));
+  channel.open();
+  pc.receiveDataChannel(channel);
+  const id = "p".repeat(70_000);
+
+  channel.receive(encodeRPCRequest({
+    id,
+    method: "all.ping",
+    params: { client_send_time: 123 },
+    v: 1,
+  }));
+  await channel.waitForSentCount(3);
+
+  const response = parseRPCResponse<{ server_time: number }>(concatBuffers(channel.sent), "all.ping");
+  assert.equal(response.id, id);
+  assert.ok((response.result?.server_time ?? 0) > 0);
+});
+
+test("prepared WebRTC peer delimits a continued speed-test response envelope", async () => {
+  const pc = new FakePeerConnection();
+  prepareGiznetWebRTCPeerConnection(pc as unknown as RTCPeerConnection);
+  const channel = new FakeDataChannel(giznetServiceDataChannelLabel(GIZCLAW_SERVICE_PEER_RPC));
+  channel.open();
+  pc.receiveDataChannel(channel);
+  const id = "s".repeat(70_000);
+
+  channel.receive(encodeRPCRequest({
+    id,
+    method: "all.speed_test.run",
+    params: { down_content_length: 7, up_content_length: 5 },
+    v: 1,
+  }));
+  channel.receive(encodeFrame(RPC_FRAME_TYPE_BINARY, new Uint8Array(5)));
+  channel.receive(encodeFrame(RPC_FRAME_TYPE_EOS));
+  await channel.waitForSentCount(5);
+
+  const frames = decodeFrames(concatBuffers(channel.sent));
+  assert.deepEqual(frames.map((frame) => frame.type), [
+    RPC_FRAME_TYPE_TEXT,
+    RPC_FRAME_TYPE_TEXT,
+    RPC_FRAME_TYPE_EOS,
+    RPC_FRAME_TYPE_BINARY,
+    RPC_FRAME_TYPE_EOS,
+  ]);
+  assert.equal(frames[3]?.payload.length, 7);
+});
+
 test("sendGiznetWebRTCTelemetry uses the prepared packet channel", async () => {
   const pc = new FakePeerConnection();
   prepareGiznetWebRTCPeerConnection(pc as unknown as RTCPeerConnection);
