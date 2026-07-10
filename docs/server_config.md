@@ -9,14 +9,18 @@ business settings such as TTLs and system task generators.
 ## Example
 
 ```yaml
-# Local bind address. The same port serves HTTP public APIs and WebRTC
-# signaling over TCP, and WebRTC ICE over UDP.
+# Local bind address. WebRTC ICE UDP and the single TCP mux use this address.
+# serving-public controls which public/device-facing HTTP routes are exposed.
 listen: 0.0.0.0:9820
 
 # Client-facing server address. LAN deployments should set this to the address
 # clients can actually reach. It is used by client contexts and advertised in
 # WebRTC ICE UDP host candidates when the host is a concrete IP.
 endpoint: 192.168.1.20:9820
+
+# Direct peer/public HTTP routes on the TCP mux are opt-in. Keep this disabled
+# for deployments that route device access through an edge ingress.
+serving-public: true
 
 # Optional admin public key. When set, admin HTTP/RPC calls must authenticate as
 # this key. Leave empty only for local development or tests that inject runtime
@@ -246,17 +250,31 @@ friend_groups:
 
 ## Transport Config
 
-The command server uses one local bind address and one client-facing endpoint:
+The command server uses one local bind address, one client-facing endpoint, and
+an explicit public serving mode:
 
 ```yaml
 listen: 0.0.0.0:9820
 endpoint: 192.168.1.20:9820
+serving-public: true
 ```
 
 Binding and dialing direction:
 
-- `listen/tcp` serves server-public HTTP APIs, including `/server-info`,
-  `/login`, and the fixed WebRTC signaling path `/webrtc/v1/offer`.
+- `listen/tcp` is one shared TCP mux port. It is not split into separate public
+  and private HTTP ports.
+- `serving-public: true` lets that TCP mux serve the peer/public HTTP face,
+  including `/server-info`, `/login`, the fixed WebRTC signaling path
+  `/webrtc/v1/offer`, caller-scoped `/me/...` routes, and the Peer
+  OpenAI-compatible `/openai/v1/...` prefix.
+- `serving-public: false` keeps the TCP mux bound for server ingress and WebRTC
+  ICE TCP, but public/device-facing HTTP routes require private ingress
+  identity. `/login` only issues a session after the assertion maps to an
+  active private-ingress peer role (`admin`, or the current server-side role
+  used for non-device ingress peers), and subsequent `/server-info`, signaling,
+  `/me/...`, and `/openai/v1/...` requests must present that session.
+  Peer API, Peer OpenAI-compatible API, and Admin API handlers remain available
+  over authenticated `gizhttp` service streams.
 - `listen/udp` serves WebRTC ICE UDP.
 - `endpoint` is the public `host:port` clients use for server HTTP/signaling
   and peer setup. When the host is a concrete IP, it is also advertised in
@@ -266,6 +284,8 @@ Defaults:
 
 - `listen`: `0.0.0.0:9820`
 - `endpoint`: defaults to `listen` when omitted.
+- `serving-public`: `false`; local development and e2e templates enable it
+  explicitly.
 
 ## Logging Config
 

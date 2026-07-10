@@ -2,6 +2,7 @@ identity:
   private-key: 287thuEga1hbBYjM7sxrY3eMoPAqpB3nJ81S8CEuNHKu
 listen: 0.0.0.0:9820
 endpoint: ${GIZCLAW_E2E_SERVER_ENDPOINT}
+serving-public: true
 admin-public-key: "6Ww6ANsXDCf91Yp7Tvi65hqpywjMmXqAoZDiq33kfCee"
 log:
   level: info

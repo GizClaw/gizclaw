@@ -84,6 +84,9 @@ The peer HTTP surface uses `ServicePeerHTTP`.
 /server-info GET
 /login POST
 /webrtc/v1/offer POST
+/me GET
+/me/status GET, PUT
+/me/runtime GET
 ```
 
 ## Peer OpenAI-Compatible HTTP Surface
@@ -91,6 +94,11 @@ The peer HTTP surface uses `ServicePeerHTTP`.
 The peer OpenAI-compatible HTTP surface uses `ServicePeerOpenAI`. It exposes
 OpenAI-compatible HTTP routes over the peer connection and is separate from the
 peer HTTP bootstrap/signaling surface.
+
+When the optional peer/public TCP HTTP face is enabled, the same
+OpenAI-compatible handler is mounted under `/openai/v1/...`. The underlying
+conn-service contract remains `ServicePeerOpenAI`; these routes are not part of
+the Peer HTTP schema.
 
 ## Admin HTTP Surface
 

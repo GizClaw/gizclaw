@@ -114,6 +114,7 @@ func TestServeContextServerInfoReportsTCPICE(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(workspace, workspaceConfigFile), []byte(fmt.Sprintf(`
 listen: %q
 endpoint: %q
+serving-public: true
 stores:
   peers:
     kind: keyvalue
@@ -141,6 +142,53 @@ stores:
 	if info.Endpoint != addr {
 		t.Fatalf("server-info endpoint = %q, want %q", info.Endpoint, addr)
 	}
+}
+
+func TestServeContextDefaultKeepsTCPMuxAndRequiresPrivateAuth(t *testing.T) {
+	addr := localTCPUDPAddr(t)
+	workspace := t.TempDir()
+	if err := os.WriteFile(filepath.Join(workspace, workspaceConfigFile), []byte(fmt.Sprintf(`
+listen: %q
+endpoint: %q
+stores:
+  peers:
+    kind: keyvalue
+    backend: memory
+`, addr, addr)), 0o644); err != nil {
+		t.Fatalf("WriteFile error = %v", err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- ServeContext(ctx, workspace, ServeOptions{Force: true})
+	}()
+	t.Cleanup(func() {
+		cancel()
+		if err := <-errCh; err != nil && !errors.Is(err, context.Canceled) {
+			t.Fatalf("ServeContext shutdown error = %v", err)
+		}
+	})
+
+	var lastErr error
+	var lastStatus int
+	client := http.Client{Timeout: 200 * time.Millisecond}
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		resp, err := client.Get("http://" + addr + "/server-info")
+		if err != nil {
+			lastErr = err
+			time.Sleep(50 * time.Millisecond)
+			continue
+		}
+		lastStatus = resp.StatusCode
+		_ = resp.Body.Close()
+		if resp.StatusCode == http.StatusUnauthorized {
+			return
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	t.Fatalf("server-info status = %d err = %v, want 401 over active TCP mux when serving-public is disabled", lastStatus, lastErr)
 }
 
 func localTCPUDPAddr(t *testing.T) string {

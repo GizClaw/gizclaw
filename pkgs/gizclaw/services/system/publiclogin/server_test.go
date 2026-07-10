@@ -32,7 +32,7 @@ func TestLoginAssertionAndSession(t *testing.T) {
 	manager := NewSessionManager(kv.NewMemory(nil))
 	manager.now = func() time.Time { return now.Add(10 * time.Second) }
 
-	login, err := manager.login(context.Background(), serverKey, deviceKey.Public, assertion)
+	login, err := manager.login(context.Background(), serverKey, deviceKey.Public, assertion, nil)
 	if err != nil {
 		t.Fatalf("login error = %v", err)
 	}
@@ -57,7 +57,7 @@ func TestLoginAssertionAndSession(t *testing.T) {
 		t.Fatalf("reloaded Authenticate public key = %s, want %s", publicKey, deviceKey.Public)
 	}
 
-	if _, err := reloaded.login(context.Background(), serverKey, deviceKey.Public, assertion); err == nil {
+	if _, err := reloaded.login(context.Background(), serverKey, deviceKey.Public, assertion, nil); err == nil {
 		t.Fatal("replayed assertion should fail")
 	}
 }
@@ -80,7 +80,7 @@ func TestLoginAssertionRejectsWrongAudience(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewLoginAssertion error = %v", err)
 	}
-	if _, err := NewSessionManager(kv.NewMemory(nil)).login(context.Background(), serverKey, deviceKey.Public, assertion); err == nil {
+	if _, err := NewSessionManager(kv.NewMemory(nil)).login(context.Background(), serverKey, deviceKey.Public, assertion, nil); err == nil {
 		t.Fatal("wrong audience assertion should fail")
 	}
 }
@@ -101,10 +101,10 @@ func TestLoginAssertionRejectsExpiredAndMalformedTokens(t *testing.T) {
 	}
 	manager := NewSessionManager(kv.NewMemory(nil))
 	manager.now = func() time.Time { return time.Unix(1_700_000_120, 0) }
-	if _, err := manager.login(context.Background(), serverKey, deviceKey.Public, assertion); err == nil {
+	if _, err := manager.login(context.Background(), serverKey, deviceKey.Public, assertion, nil); err == nil {
 		t.Fatal("expired assertion should fail")
 	}
-	if _, err := manager.login(context.Background(), serverKey, deviceKey.Public, "not-a-token"); err == nil {
+	if _, err := manager.login(context.Background(), serverKey, deviceKey.Public, "not-a-token", nil); err == nil {
 		t.Fatal("malformed assertion should fail")
 	}
 }

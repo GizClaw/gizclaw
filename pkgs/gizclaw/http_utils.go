@@ -39,6 +39,28 @@ func authenticateFiberSession(ctx *fiber.Ctx, sessions *publiclogin.SessionManag
 	return publicKey, true
 }
 
+func authenticateHTTPSession(w http.ResponseWriter, r *http.Request, sessions *publiclogin.SessionManager) (giznet.PublicKey, bool) {
+	publicKey, err := sessions.AuthenticateHeaders(r.Header.Get("Authorization"), r.Header.Get(publiclogin.PublicKeyHeader))
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusUnauthorized)
+		if errors.Is(err, publiclogin.ErrPublicKeyMismatch) {
+			_, _ = io.WriteString(w, `{"error":{"code":"PUBLIC_KEY_MISMATCH","message":"x-public-key does not match bearer session"}}`)
+			return giznet.PublicKey{}, false
+		}
+		_, _ = io.WriteString(w, `{"error":{"code":"INVALID_SESSION","message":"missing or invalid bearer session"}}`)
+		return giznet.PublicKey{}, false
+	}
+	return publicKey, true
+}
+
+func setPublicHTTPCORSHeaders(header http.Header) {
+	header.Set("Access-Control-Allow-Origin", "*")
+	header.Set("Access-Control-Allow-Methods", "GET,POST,PUT,OPTIONS")
+	header.Set("Access-Control-Allow-Headers", "Authorization,Content-Type,X-Public-Key,X-Giznet-Nonce,X-Giznet-Public-Key,X-Giznet-Timestamp")
+	header.Set("Access-Control-Expose-Headers", "Content-Length,Content-Type")
+}
+
 func httpLabelSetHandler(inner http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx, err := Tag(r.Context(), &HTTPLabelSet{

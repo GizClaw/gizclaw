@@ -196,11 +196,12 @@ func ServeContext(ctx context.Context, workspace string, opts ServeOptions) (err
 
 	publicListener, err := net.Listen("tcp", cfg.PublicAPIListenAddr())
 	if err != nil {
-		return fmt.Errorf("server: listen public http: %w", err)
+		return fmt.Errorf("server: listen tcp mux: %w", err)
 	}
 	publicMux := newPublicTCPMux(publicListener)
+	iceTCPListener := publicMux.ICETCPListener()
 	defer publicMux.Close()
-	srv, err := newWithOptions(cfg, newServerOptions{ICETCPListener: publicMux.ICETCPListener()})
+	srv, err := newWithOptions(cfg, newServerOptions{ICETCPListener: iceTCPListener})
 	if err != nil {
 		return err
 	}

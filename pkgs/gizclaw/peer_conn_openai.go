@@ -11,6 +11,9 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/openaihttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/openaiapi"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/peergenx"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerresource"
+	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizhttp"
 )
 
@@ -26,21 +29,77 @@ func (h *PeerConn) serveOpenAI() error {
 func (h *PeerConn) openAIHTTPHandler() http.Handler {
 	h.initPeerGenX()
 
-	var svc openaiapi.Server
-	if h != nil && h.Conn != nil {
-		svc.Caller = h.Conn.PublicKey()
+	if h != nil && h.Conn != nil && h.Service != nil {
+		return h.Service.openAIHTTPHandlerForPeer(h.Conn.PublicKey(), h.serverGenX)
 	}
-	if h != nil && h.Service != nil && h.Service.manager != nil {
-		svc.Authorizer = h.peerAuthorizer()
-		resources := h.peerResources()
+	return newOpenAIHTTPHandler(&openaiapi.Server{})
+}
+
+func (s *PeerService) openAIHTTPHandlerForPeer(publicKey giznet.PublicKey, genxSvc *peergenx.Service) http.Handler {
+	var svc openaiapi.Server
+	svc.Caller = publicKey
+	if s != nil && s.manager != nil {
+		authorizer := s.peerAuthorizer(publicKey)
+		resources := s.peerResources(publicKey)
+		svc.Authorizer = authorizer
 		svc.Models = resources
 		svc.Voices = resources
+		if genxSvc == nil && s.manager.ACL != nil && s.manager.Models != nil && s.manager.Voices != nil && s.manager.Credentials != nil && s.manager.ProviderTenants != nil {
+			genxSvc = peergenx.New(peergenx.Service{
+				Peer:            peerPublicKey(publicKey),
+				Authorizer:      authorizer,
+				Models:          resources,
+				Voices:          resources,
+				Credentials:     resources,
+				ProviderTenants: s.manager.ProviderTenants,
+			})
+		}
 	}
-	if h != nil && h.serverGenX != nil {
-		svc.Generator = h.serverGenX.Generator()
-		svc.Transformer = h.serverGenX.Transformer()
+	if genxSvc != nil {
+		svc.Generator = genxSvc.Generator()
+		svc.Transformer = genxSvc.Transformer()
 	}
 	return newOpenAIHTTPHandler(&svc)
+}
+
+func (s *PeerService) peerResources(publicKey giznet.PublicKey) *peerresource.Server {
+	if s == nil || s.manager == nil {
+		return nil
+	}
+	manager := s.manager
+	return &peerresource.Server{
+		Caller:       publicKey,
+		ACL:          s.peerAuthorizer(publicKey),
+		Firmwares:    manager.Firmwares,
+		Workspaces:   manager.Workspaces,
+		Workflows:    manager.Workflows,
+		Models:       manager.Models,
+		Credentials:  manager.Credentials,
+		Voices:       manager.Voices,
+		Contacts:     manager.Contacts,
+		Friends:      manager.Friends,
+		FriendGroups: manager.FriendGroups,
+		Gameplay:     manager.Gameplay,
+		Tools:        manager.Tools,
+		ToolACL:      manager.ACL,
+	}
+}
+
+func (s *PeerService) peerAuthorizer(publicKey giznet.PublicKey) aclAuthorizer {
+	if s == nil || s.manager == nil || s.manager.ACL == nil {
+		return nil
+	}
+	return peerAuthorizer{
+		ACL:       s.manager.ACL,
+		Peers:     s.manager.Peers,
+		PublicKey: publicKey,
+	}
+}
+
+type peerPublicKey giznet.PublicKey
+
+func (p peerPublicKey) PublicKey() giznet.PublicKey {
+	return giznet.PublicKey(p)
 }
 
 func newOpenAIHTTPHandler(svc *openaiapi.Server) http.Handler {

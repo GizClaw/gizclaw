@@ -244,10 +244,276 @@
           }
         }
       }
+    },
+    "/me": {
+      "get": {
+        "operationId": "getMe",
+        "summary": "Get caller peer summary",
+        "tags": [
+          "PeerHTTP"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Caller peer summary",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PeerSelf"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid or missing bearer session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Peer not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/me/status": {
+      "get": {
+        "operationId": "getMeStatus",
+        "summary": "Get caller peer status",
+        "tags": [
+          "PeerHTTP"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Caller peer status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/PeerStatus"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid or missing bearer session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Peer not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "putMeStatus",
+        "summary": "Update caller peer status",
+        "tags": [
+          "PeerHTTP"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./types.json#/components/schemas/PeerStatus"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated caller peer status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/PeerStatus"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid or missing bearer session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Peer not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid status payload",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/me/runtime": {
+      "get": {
+        "operationId": "getMeRuntime",
+        "summary": "Get caller peer runtime",
+        "tags": [
+          "PeerHTTP"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Caller peer runtime",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/Runtime"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid or missing bearer session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Peer not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./types.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer"
+      }
+    },
     "schemas": {
+      "PeerSelf": {
+        "type": "object",
+        "required": [
+          "public_key",
+          "registration_status"
+        ],
+        "properties": {
+          "public_key": {
+            "type": "string"
+          },
+          "registration_status": {
+            "$ref": "./types.json#/components/schemas/PeerRegistrationStatus"
+          },
+          "device": {
+            "$ref": "./types.json#/components/schemas/DeviceInfo"
+          }
+        }
+      },
       "LoginResult": {
         "type": "object",
         "required": [

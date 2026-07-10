@@ -16,6 +16,7 @@ var (
 	ErrNilServer             = errors.New("peerrun: nil server")
 	ErrNilStore              = errors.New("peerrun: nil store")
 	ErrInvalidPublicKey      = errors.New("peerrun: invalid public key")
+	ErrInvalidStatus         = errors.New("peerrun: invalid status")
 	ErrRunAgentNotConfigured = errors.New("peerrun: run agent not configured")
 	ErrRunAgentChanged       = errors.New("peerrun: run agent selection changed")
 )
@@ -206,10 +207,10 @@ func key(publicKey giznet.PublicKey, name string) (kv.Key, error) {
 
 func validateStatus(status apitypes.PeerStatus) error {
 	if status.Volume != nil && (*status.Volume < 0 || *status.Volume > 100) {
-		return fmt.Errorf("peerrun: volume must be between 0 and 100")
+		return fmt.Errorf("%w: volume must be between 0 and 100", ErrInvalidStatus)
 	}
 	if status.BatteryPercent != nil && (*status.BatteryPercent < 0 || *status.BatteryPercent > 100) {
-		return fmt.Errorf("peerrun: battery_percent must be between 0 and 100")
+		return fmt.Errorf("%w: battery_percent must be between 0 and 100", ErrInvalidStatus)
 	}
 	return nil
 }

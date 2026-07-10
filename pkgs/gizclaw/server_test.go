@@ -422,6 +422,9 @@ func TestServerServeHTTPLoginRegisterAndPeerAPI(t *testing.T) {
 	if err := server.init(); err != nil {
 		t.Fatalf("init error = %v", err)
 	}
+	if _, err := server.manager.EnsurePeer(context.Background(), deviceKey.Public); err != nil {
+		t.Fatalf("EnsurePeer error = %v", err)
+	}
 	ts := httptest.NewServer(server)
 	defer ts.Close()
 
@@ -443,7 +446,163 @@ func TestServerServeHTTPLoginRegisterAndPeerAPI(t *testing.T) {
 	}
 	_ = oldInfoResp.Body.Close()
 
-	_ = publicHTTPTestLogin(t, ts.URL, serverKey.Public, deviceKey)
+	session := publicHTTPTestLogin(t, ts.URL, serverKey.Public, deviceKey)
+
+	openAIPreflightReq, err := http.NewRequestWithContext(context.Background(), http.MethodOptions, ts.URL+"/openai/v1/models", nil)
+	if err != nil {
+		t.Fatalf("NewRequest OPTIONS /openai/v1/models error = %v", err)
+	}
+	openAIPreflightReq.Header.Set("Origin", "wails://wails.localhost")
+	openAIPreflightReq.Header.Set("Access-Control-Request-Method", http.MethodGet)
+	openAIPreflightReq.Header.Set("Access-Control-Request-Headers", "authorization,x-public-key")
+	openAIPreflightResp, err := http.DefaultClient.Do(openAIPreflightReq)
+	if err != nil {
+		t.Fatalf("OPTIONS /openai/v1/models error = %v", err)
+	}
+	defer openAIPreflightResp.Body.Close()
+	if openAIPreflightResp.StatusCode != http.StatusNoContent {
+		body, _ := io.ReadAll(openAIPreflightResp.Body)
+		t.Fatalf("OPTIONS /openai/v1/models status = %d body=%s", openAIPreflightResp.StatusCode, string(body))
+	}
+	if got := openAIPreflightResp.Header.Get("Access-Control-Allow-Headers"); !strings.Contains(got, "Authorization") || !strings.Contains(got, publiclogin.PublicKeyHeader) {
+		t.Fatalf("Access-Control-Allow-Headers = %q, want session headers", got)
+	}
+
+	unauthMe, err := http.Get(ts.URL + "/me")
+	if err != nil {
+		t.Fatalf("GET unauth /me error = %v", err)
+	}
+	if unauthMe.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("GET unauth /me status = %d, want %d", unauthMe.StatusCode, http.StatusUnauthorized)
+	}
+	_ = unauthMe.Body.Close()
+
+	missingKey, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("GenerateKeyPair(missing) error = %v", err)
+	}
+	missingSession := publicHTTPTestLogin(t, ts.URL, serverKey.Public, missingKey)
+	for _, tc := range []struct {
+		method string
+		path   string
+		body   string
+	}{
+		{method: http.MethodGet, path: "/me/status"},
+		{method: http.MethodPut, path: "/me/status", body: `{"battery_percent":66}`},
+		{method: http.MethodGet, path: "/me/runtime"},
+	} {
+		req, err := http.NewRequestWithContext(context.Background(), tc.method, ts.URL+tc.path, strings.NewReader(tc.body))
+		if err != nil {
+			t.Fatalf("NewRequest missing peer %s %s error = %v", tc.method, tc.path, err)
+		}
+		req.Header.Set("Authorization", "Bearer "+missingSession.AccessToken)
+		if tc.body != "" {
+			req.Header.Set("Content-Type", "application/json")
+		}
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatalf("missing peer %s %s error = %v", tc.method, tc.path, err)
+		}
+		if resp.StatusCode != http.StatusNotFound {
+			body, _ := io.ReadAll(resp.Body)
+			_ = resp.Body.Close()
+			t.Fatalf("missing peer %s %s status = %d body=%s", tc.method, tc.path, resp.StatusCode, string(body))
+		}
+		_ = resp.Body.Close()
+	}
+
+	getMeReq, err := http.NewRequestWithContext(context.Background(), http.MethodGet, ts.URL+"/me", nil)
+	if err != nil {
+		t.Fatalf("NewRequest /me error = %v", err)
+	}
+	getMeReq.Header.Set("Authorization", "Bearer "+session.AccessToken)
+	getMeResp, err := http.DefaultClient.Do(getMeReq)
+	if err != nil {
+		t.Fatalf("GET /me error = %v", err)
+	}
+	defer getMeResp.Body.Close()
+	if getMeResp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(getMeResp.Body)
+		t.Fatalf("GET /me status = %d body=%s", getMeResp.StatusCode, string(body))
+	}
+	var me struct {
+		PublicKey          string `json:"public_key"`
+		RegistrationStatus string `json:"registration_status"`
+	}
+	if err := json.NewDecoder(getMeResp.Body).Decode(&me); err != nil {
+		t.Fatalf("decode /me response: %v", err)
+	}
+	if me.PublicKey != deviceKey.Public.String() || me.RegistrationStatus != string(apitypes.PeerRegistrationStatusActive) {
+		t.Fatalf("/me response = %+v", me)
+	}
+
+	putStatusReq, err := http.NewRequestWithContext(context.Background(), http.MethodPut, ts.URL+"/me/status", strings.NewReader(`{"battery_percent":77}`))
+	if err != nil {
+		t.Fatalf("NewRequest PUT /me/status error = %v", err)
+	}
+	putStatusReq.Header.Set("Authorization", "Bearer "+session.AccessToken)
+	putStatusReq.Header.Set("Content-Type", "application/json")
+	putStatusResp, err := http.DefaultClient.Do(putStatusReq)
+	if err != nil {
+		t.Fatalf("PUT /me/status error = %v", err)
+	}
+	defer putStatusResp.Body.Close()
+	if putStatusResp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(putStatusResp.Body)
+		t.Fatalf("PUT /me/status status = %d body=%s", putStatusResp.StatusCode, string(body))
+	}
+
+	getStatusReq, err := http.NewRequestWithContext(context.Background(), http.MethodGet, ts.URL+"/me/status", nil)
+	if err != nil {
+		t.Fatalf("NewRequest GET /me/status error = %v", err)
+	}
+	getStatusReq.Header.Set("Authorization", "Bearer "+session.AccessToken)
+	getStatusResp, err := http.DefaultClient.Do(getStatusReq)
+	if err != nil {
+		t.Fatalf("GET /me/status error = %v", err)
+	}
+	defer getStatusResp.Body.Close()
+	if getStatusResp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(getStatusResp.Body)
+		t.Fatalf("GET /me/status status = %d body=%s", getStatusResp.StatusCode, string(body))
+	}
+	var status apitypes.PeerStatus
+	if err := json.NewDecoder(getStatusResp.Body).Decode(&status); err != nil {
+		t.Fatalf("decode /me/status response: %v", err)
+	}
+	if status.BatteryPercent == nil || *status.BatteryPercent != 77 {
+		t.Fatalf("/me/status = %+v", status)
+	}
+
+	getRuntimeReq, err := http.NewRequestWithContext(context.Background(), http.MethodGet, ts.URL+"/me/runtime", nil)
+	if err != nil {
+		t.Fatalf("NewRequest GET /me/runtime error = %v", err)
+	}
+	getRuntimeReq.Header.Set("Authorization", "Bearer "+session.AccessToken)
+	getRuntimeResp, err := http.DefaultClient.Do(getRuntimeReq)
+	if err != nil {
+		t.Fatalf("GET /me/runtime error = %v", err)
+	}
+	defer getRuntimeResp.Body.Close()
+	if getRuntimeResp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(getRuntimeResp.Body)
+		t.Fatalf("GET /me/runtime status = %d body=%s", getRuntimeResp.StatusCode, string(body))
+	}
+
+	openAIReq, err := http.NewRequestWithContext(context.Background(), http.MethodGet, ts.URL+"/openai/v1/models", nil)
+	if err != nil {
+		t.Fatalf("NewRequest GET /openai/v1/models error = %v", err)
+	}
+	openAIReq.Header.Set("Authorization", "Bearer "+session.AccessToken)
+	openAIResp, err := http.DefaultClient.Do(openAIReq)
+	if err != nil {
+		t.Fatalf("GET /openai/v1/models error = %v", err)
+	}
+	defer openAIResp.Body.Close()
+	if openAIResp.StatusCode == http.StatusNotFound || openAIResp.StatusCode == http.StatusUnauthorized {
+		body, _ := io.ReadAll(openAIResp.Body)
+		t.Fatalf("GET /openai/v1/models status = %d body=%s", openAIResp.StatusCode, string(body))
+	}
 }
 
 func publicHTTPTestLogin(t *testing.T, baseURL string, serverPublicKey giznet.PublicKey, deviceKey *giznet.KeyPair) publiclogin.LoginResponse {

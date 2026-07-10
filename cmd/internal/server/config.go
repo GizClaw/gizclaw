@@ -18,6 +18,7 @@ type Config struct {
 	KeyPair        *giznet.KeyPair
 	Listen         string
 	Endpoint       string
+	ServingPublic  bool
 	AdminPublicKey giznet.PublicKey
 	Storage        map[string]storage.Config
 	Stores         map[string]stores.Config
@@ -43,6 +44,7 @@ type ConfigFile struct {
 	Identity       IdentityConfig            `yaml:"identity"`
 	Listen         string                    `yaml:"listen"`
 	Endpoint       string                    `yaml:"endpoint"`
+	ServingPublic  bool                      `yaml:"serving-public"`
 	AdminPublicKey giznet.PublicKey          `yaml:"admin-public-key"`
 	Storage        map[string]storage.Config `yaml:"storage"`
 	Stores         map[string]stores.Config  `yaml:"stores"`
@@ -93,6 +95,7 @@ func parseConfigData(data []byte) (ConfigFile, error) {
 		Identity       *IdentityConfig           `yaml:"identity"`
 		Listen         string                    `yaml:"listen"`
 		Endpoint       string                    `yaml:"endpoint"`
+		ServingPublic  bool                      `yaml:"serving-public"`
 		AdminPublicKey *giznet.PublicKey         `yaml:"admin-public-key"`
 		Storage        map[string]storage.Config `yaml:"storage"`
 		Stores         map[string]stores.Config  `yaml:"stores"`
@@ -127,6 +130,7 @@ func parseConfigData(data []byte) (ConfigFile, error) {
 		Identity:       identity,
 		Listen:         raw.Listen,
 		Endpoint:       raw.Endpoint,
+		ServingPublic:  raw.ServingPublic,
 		AdminPublicKey: adminPublicKey,
 		Storage:        raw.Storage,
 		Stores:         raw.Stores,
@@ -161,6 +165,9 @@ func mergeFileConfig(cfg Config, fileCfg ConfigFile) (Config, error) {
 	}
 	if cfg.Endpoint == "" {
 		cfg.Endpoint = fileCfg.Endpoint
+	}
+	if !cfg.ServingPublic {
+		cfg.ServingPublic = fileCfg.ServingPublic
 	}
 	if cfg.AdminPublicKey.IsZero() {
 		cfg.AdminPublicKey = fileCfg.AdminPublicKey

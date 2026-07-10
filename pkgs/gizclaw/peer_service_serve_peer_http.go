@@ -64,14 +64,14 @@ func (s *PeerService) publicHTTPHandler(sessions *publiclogin.SessionManager) ht
 
 func setPeerHTTPCORSHeaders(ctx *fiber.Ctx) {
 	ctx.Set(fiber.HeaderAccessControlAllowOrigin, "*")
-	ctx.Set(fiber.HeaderAccessControlAllowMethods, "GET,POST,OPTIONS")
-	ctx.Set(fiber.HeaderAccessControlAllowHeaders, "Authorization,Content-Type,X-Giznet-Nonce,X-Giznet-Public-Key,X-Giznet-Timestamp")
+	ctx.Set(fiber.HeaderAccessControlAllowMethods, "GET,POST,PUT,OPTIONS")
+	ctx.Set(fiber.HeaderAccessControlAllowHeaders, "Authorization,Content-Type,X-Public-Key,X-Giznet-Nonce,X-Giznet-Public-Key,X-Giznet-Timestamp")
 	ctx.Set(fiber.HeaderAccessControlExposeHeaders, "Content-Length,Content-Type")
 }
 
 func isPeerHTTPPath(path string) bool {
 	switch path {
-	case "/login", "/server-info", "/webrtc/v1/offer":
+	case "/login", "/server-info", "/webrtc/v1/offer", "/me", "/me/status", "/me/runtime":
 		return true
 	default:
 		return false

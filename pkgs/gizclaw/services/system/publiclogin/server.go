@@ -56,9 +56,13 @@ type PeerHTTP interface {
 	Login(context.Context, peerhttp.LoginRequestObject) (peerhttp.LoginResponseObject, error)
 }
 
+type SessionAuthorizer func(context.Context, giznet.PublicKey) error
+
 type Server struct {
 	KeyPair *giznet.KeyPair
 	Store   kv.Store
+
+	SessionAuthorizer SessionAuthorizer
 
 	mu       sync.Mutex
 	sessions *SessionManager
@@ -98,7 +102,7 @@ func (s *Server) Login(ctx context.Context, request peerhttp.LoginRequestObject)
 	if assertion == "" {
 		return peerhttp.Login401JSONResponse(apitypes.NewErrorResponse("MISSING_ASSERTION", "missing bearer assertion")), nil
 	}
-	result, err := s.SessionManager().login(ctx, s.KeyPair, publicKey, assertion)
+	result, err := s.SessionManager().login(ctx, s.KeyPair, publicKey, assertion, s.SessionAuthorizer)
 	if err != nil {
 		return peerhttp.Login401JSONResponse(apitypes.NewErrorResponse("INVALID_ASSERTION", err.Error())), nil
 	}
@@ -154,7 +158,7 @@ func newLoginAssertionAt(keyPair *giznet.KeyPair, serverPublicKey giznet.PublicK
 	return encodeLoginAssertion(header, claims, shared[:])
 }
 
-func (m *SessionManager) login(ctx context.Context, serverKeyPair *giznet.KeyPair, publicKey giznet.PublicKey, assertion string) (LoginResponse, error) {
+func (m *SessionManager) login(ctx context.Context, serverKeyPair *giznet.KeyPair, publicKey giznet.PublicKey, assertion string, authorizer SessionAuthorizer) (LoginResponse, error) {
 	if m == nil || m.Store == nil {
 		return LoginResponse{}, errInvalidSession
 	}
@@ -165,6 +169,11 @@ func (m *SessionManager) login(ctx context.Context, serverKeyPair *giznet.KeyPai
 	claims, err := verifyLoginAssertion(serverKeyPair, publicKey, assertion, now)
 	if err != nil {
 		return LoginResponse{}, err
+	}
+	if authorizer != nil {
+		if err := authorizer(ctx, publicKey); err != nil {
+			return LoginResponse{}, err
+		}
 	}
 	assertionDeadline := time.Unix(claims.Exp, 0)
 

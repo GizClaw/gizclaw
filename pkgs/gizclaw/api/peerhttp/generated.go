@@ -18,6 +18,10 @@ import (
 	"github.com/oapi-codegen/runtime"
 )
 
+const (
+	BearerAuthScopes = "BearerAuth.Scopes"
+)
+
 // Defines values for LoginResultTokenType.
 const (
 	Bearer LoginResultTokenType = "Bearer"
@@ -48,6 +52,13 @@ type LoginResult struct {
 // LoginResultTokenType defines model for LoginResult.TokenType.
 type LoginResultTokenType string
 
+// PeerSelf defines model for PeerSelf.
+type PeerSelf struct {
+	Device             *externalRef0.DeviceInfo            `json:"device,omitempty"`
+	PublicKey          string                              `json:"public_key"`
+	RegistrationStatus externalRef0.PeerRegistrationStatus `json:"registration_status"`
+}
+
 // LoginParams defines parameters for Login.
 type LoginParams struct {
 	XPublicKey    string `json:"X-Public-Key"`
@@ -65,6 +76,9 @@ type CreateGiznetWebRTCOfferParams struct {
 	// XGiznetNonce Base64url nonce used by signaling AEAD derivation and replay checks.
 	XGiznetNonce string `json:"X-Giznet-Nonce"`
 }
+
+// PutMeStatusJSONRequestBody defines body for PutMeStatus for application/json ContentType.
+type PutMeStatusJSONRequestBody = externalRef0.PeerStatus
 
 // RequestEditorFn  is the function signature for the RequestEditor callback function
 type RequestEditorFn func(ctx context.Context, req *http.Request) error
@@ -142,6 +156,20 @@ type ClientInterface interface {
 	// Login request
 	Login(ctx context.Context, params *LoginParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// GetMe request
+	GetMe(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetMeRuntime request
+	GetMeRuntime(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetMeStatus request
+	GetMeStatus(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PutMeStatusWithBody request with any body
+	PutMeStatusWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	PutMeStatus(ctx context.Context, body PutMeStatusJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetServerInfo request
 	GetServerInfo(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -151,6 +179,66 @@ type ClientInterface interface {
 
 func (c *Client) Login(ctx context.Context, params *LoginParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewLoginRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetMe(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetMeRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetMeRuntime(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetMeRuntimeRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetMeStatus(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetMeStatusRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PutMeStatusWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutMeStatusRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PutMeStatus(ctx context.Context, body PutMeStatusJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutMeStatusRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -230,6 +318,127 @@ func NewLoginRequest(server string, params *LoginParams) (*http.Request, error) 
 		req.Header.Set("Authorization", headerParam1)
 
 	}
+
+	return req, nil
+}
+
+// NewGetMeRequest generates requests for GetMe
+func NewGetMeRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/me")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetMeRuntimeRequest generates requests for GetMeRuntime
+func NewGetMeRuntimeRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/me/runtime")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetMeStatusRequest generates requests for GetMeStatus
+func NewGetMeStatusRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/me/status")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewPutMeStatusRequest calls the generic PutMeStatus builder with application/json body
+func NewPutMeStatusRequest(server string, body PutMeStatusJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPutMeStatusRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewPutMeStatusRequestWithBody generates requests for PutMeStatus with any type of body
+func NewPutMeStatusRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/me/status")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PUT", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -367,6 +576,20 @@ type ClientWithResponsesInterface interface {
 	// LoginWithResponse request
 	LoginWithResponse(ctx context.Context, params *LoginParams, reqEditors ...RequestEditorFn) (*LoginResponse, error)
 
+	// GetMeWithResponse request
+	GetMeWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetMeResponse, error)
+
+	// GetMeRuntimeWithResponse request
+	GetMeRuntimeWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetMeRuntimeResponse, error)
+
+	// GetMeStatusWithResponse request
+	GetMeStatusWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetMeStatusResponse, error)
+
+	// PutMeStatusWithBodyWithResponse request with any body
+	PutMeStatusWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutMeStatusResponse, error)
+
+	PutMeStatusWithResponse(ctx context.Context, body PutMeStatusJSONRequestBody, reqEditors ...RequestEditorFn) (*PutMeStatusResponse, error)
+
 	// GetServerInfoWithResponse request
 	GetServerInfoWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetServerInfoResponse, error)
 
@@ -391,6 +614,107 @@ func (r LoginResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r LoginResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetMeResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *PeerSelf
+	JSON401      *externalRef0.ErrorResponse
+	JSON404      *externalRef0.ErrorResponse
+	JSON500      *externalRef0.ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r GetMeResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetMeResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetMeRuntimeResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *externalRef0.Runtime
+	JSON401      *externalRef0.ErrorResponse
+	JSON404      *externalRef0.ErrorResponse
+	JSON500      *externalRef0.ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r GetMeRuntimeResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetMeRuntimeResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetMeStatusResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *externalRef0.PeerStatus
+	JSON401      *externalRef0.ErrorResponse
+	JSON404      *externalRef0.ErrorResponse
+	JSON500      *externalRef0.ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r GetMeStatusResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetMeStatusResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type PutMeStatusResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *externalRef0.PeerStatus
+	JSON400      *externalRef0.ErrorResponse
+	JSON401      *externalRef0.ErrorResponse
+	JSON404      *externalRef0.ErrorResponse
+	JSON500      *externalRef0.ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r PutMeStatusResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PutMeStatusResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -458,6 +782,50 @@ func (c *ClientWithResponses) LoginWithResponse(ctx context.Context, params *Log
 	return ParseLoginResponse(rsp)
 }
 
+// GetMeWithResponse request returning *GetMeResponse
+func (c *ClientWithResponses) GetMeWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetMeResponse, error) {
+	rsp, err := c.GetMe(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetMeResponse(rsp)
+}
+
+// GetMeRuntimeWithResponse request returning *GetMeRuntimeResponse
+func (c *ClientWithResponses) GetMeRuntimeWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetMeRuntimeResponse, error) {
+	rsp, err := c.GetMeRuntime(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetMeRuntimeResponse(rsp)
+}
+
+// GetMeStatusWithResponse request returning *GetMeStatusResponse
+func (c *ClientWithResponses) GetMeStatusWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetMeStatusResponse, error) {
+	rsp, err := c.GetMeStatus(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetMeStatusResponse(rsp)
+}
+
+// PutMeStatusWithBodyWithResponse request with arbitrary body returning *PutMeStatusResponse
+func (c *ClientWithResponses) PutMeStatusWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutMeStatusResponse, error) {
+	rsp, err := c.PutMeStatusWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePutMeStatusResponse(rsp)
+}
+
+func (c *ClientWithResponses) PutMeStatusWithResponse(ctx context.Context, body PutMeStatusJSONRequestBody, reqEditors ...RequestEditorFn) (*PutMeStatusResponse, error) {
+	rsp, err := c.PutMeStatus(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePutMeStatusResponse(rsp)
+}
+
 // GetServerInfoWithResponse request returning *GetServerInfoResponse
 func (c *ClientWithResponses) GetServerInfoWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetServerInfoResponse, error) {
 	rsp, err := c.GetServerInfo(ctx, reqEditors...)
@@ -503,6 +871,201 @@ func ParseLoginResponse(rsp *http.Response) (*LoginResponse, error) {
 			return nil, err
 		}
 		response.JSON401 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetMeResponse parses an HTTP response from a GetMeWithResponse call
+func ParseGetMeResponse(rsp *http.Response) (*GetMeResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetMeResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest PeerSelf
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetMeRuntimeResponse parses an HTTP response from a GetMeRuntimeWithResponse call
+func ParseGetMeRuntimeResponse(rsp *http.Response) (*GetMeRuntimeResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetMeRuntimeResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest externalRef0.Runtime
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetMeStatusResponse parses an HTTP response from a GetMeStatusWithResponse call
+func ParseGetMeStatusResponse(rsp *http.Response) (*GetMeStatusResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetMeStatusResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest externalRef0.PeerStatus
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePutMeStatusResponse parses an HTTP response from a PutMeStatusWithResponse call
+func ParsePutMeStatusResponse(rsp *http.Response) (*PutMeStatusResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PutMeStatusResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest externalRef0.PeerStatus
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
 
 	}
 
@@ -622,6 +1185,18 @@ type ServerInterface interface {
 	// Exchange a device assertion for a bearer session
 	// (POST /login)
 	Login(c *fiber.Ctx, params LoginParams) error
+	// Get caller peer summary
+	// (GET /me)
+	GetMe(c *fiber.Ctx) error
+	// Get caller peer runtime
+	// (GET /me/runtime)
+	GetMeRuntime(c *fiber.Ctx) error
+	// Get caller peer status
+	// (GET /me/status)
+	GetMeStatus(c *fiber.Ctx) error
+	// Update caller peer status
+	// (PUT /me/status)
+	PutMeStatus(c *fiber.Ctx) error
 	// Get server information
 	// (GET /server-info)
 	GetServerInfo(c *fiber.Ctx) error
@@ -688,6 +1263,38 @@ func (siw *ServerInterfaceWrapper) Login(c *fiber.Ctx) error {
 	}
 
 	return siw.Handler.Login(c, params)
+}
+
+// GetMe operation middleware
+func (siw *ServerInterfaceWrapper) GetMe(c *fiber.Ctx) error {
+
+	c.Context().SetUserValue(BearerAuthScopes, []string{})
+
+	return siw.Handler.GetMe(c)
+}
+
+// GetMeRuntime operation middleware
+func (siw *ServerInterfaceWrapper) GetMeRuntime(c *fiber.Ctx) error {
+
+	c.Context().SetUserValue(BearerAuthScopes, []string{})
+
+	return siw.Handler.GetMeRuntime(c)
+}
+
+// GetMeStatus operation middleware
+func (siw *ServerInterfaceWrapper) GetMeStatus(c *fiber.Ctx) error {
+
+	c.Context().SetUserValue(BearerAuthScopes, []string{})
+
+	return siw.Handler.GetMeStatus(c)
+}
+
+// PutMeStatus operation middleware
+func (siw *ServerInterfaceWrapper) PutMeStatus(c *fiber.Ctx) error {
+
+	c.Context().SetUserValue(BearerAuthScopes, []string{})
+
+	return siw.Handler.PutMeStatus(c)
 }
 
 // GetServerInfo operation middleware
@@ -792,6 +1399,14 @@ func RegisterHandlersWithOptions(router fiber.Router, si ServerInterface, option
 
 	router.Post(options.BaseURL+"/login", wrapper.Login)
 
+	router.Get(options.BaseURL+"/me", wrapper.GetMe)
+
+	router.Get(options.BaseURL+"/me/runtime", wrapper.GetMeRuntime)
+
+	router.Get(options.BaseURL+"/me/status", wrapper.GetMeStatus)
+
+	router.Put(options.BaseURL+"/me/status", wrapper.PutMeStatus)
+
 	router.Get(options.BaseURL+"/server-info", wrapper.GetServerInfo)
 
 	router.Post(options.BaseURL+"/webrtc/v1/offer", wrapper.CreateGiznetWebRTCOffer)
@@ -820,6 +1435,188 @@ type Login401JSONResponse externalRef0.ErrorResponse
 func (response Login401JSONResponse) VisitLoginResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(401)
+
+	return ctx.JSON(&response)
+}
+
+type GetMeRequestObject struct {
+}
+
+type GetMeResponseObject interface {
+	VisitGetMeResponse(ctx *fiber.Ctx) error
+}
+
+type GetMe200JSONResponse PeerSelf
+
+func (response GetMe200JSONResponse) VisitGetMeResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type GetMe401JSONResponse externalRef0.ErrorResponse
+
+func (response GetMe401JSONResponse) VisitGetMeResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(401)
+
+	return ctx.JSON(&response)
+}
+
+type GetMe404JSONResponse externalRef0.ErrorResponse
+
+func (response GetMe404JSONResponse) VisitGetMeResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type GetMe500JSONResponse externalRef0.ErrorResponse
+
+func (response GetMe500JSONResponse) VisitGetMeResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type GetMeRuntimeRequestObject struct {
+}
+
+type GetMeRuntimeResponseObject interface {
+	VisitGetMeRuntimeResponse(ctx *fiber.Ctx) error
+}
+
+type GetMeRuntime200JSONResponse externalRef0.Runtime
+
+func (response GetMeRuntime200JSONResponse) VisitGetMeRuntimeResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type GetMeRuntime401JSONResponse externalRef0.ErrorResponse
+
+func (response GetMeRuntime401JSONResponse) VisitGetMeRuntimeResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(401)
+
+	return ctx.JSON(&response)
+}
+
+type GetMeRuntime404JSONResponse externalRef0.ErrorResponse
+
+func (response GetMeRuntime404JSONResponse) VisitGetMeRuntimeResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type GetMeRuntime500JSONResponse externalRef0.ErrorResponse
+
+func (response GetMeRuntime500JSONResponse) VisitGetMeRuntimeResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type GetMeStatusRequestObject struct {
+}
+
+type GetMeStatusResponseObject interface {
+	VisitGetMeStatusResponse(ctx *fiber.Ctx) error
+}
+
+type GetMeStatus200JSONResponse externalRef0.PeerStatus
+
+func (response GetMeStatus200JSONResponse) VisitGetMeStatusResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type GetMeStatus401JSONResponse externalRef0.ErrorResponse
+
+func (response GetMeStatus401JSONResponse) VisitGetMeStatusResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(401)
+
+	return ctx.JSON(&response)
+}
+
+type GetMeStatus404JSONResponse externalRef0.ErrorResponse
+
+func (response GetMeStatus404JSONResponse) VisitGetMeStatusResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type GetMeStatus500JSONResponse externalRef0.ErrorResponse
+
+func (response GetMeStatus500JSONResponse) VisitGetMeStatusResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type PutMeStatusRequestObject struct {
+	Body *PutMeStatusJSONRequestBody
+}
+
+type PutMeStatusResponseObject interface {
+	VisitPutMeStatusResponse(ctx *fiber.Ctx) error
+}
+
+type PutMeStatus200JSONResponse externalRef0.PeerStatus
+
+func (response PutMeStatus200JSONResponse) VisitPutMeStatusResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type PutMeStatus400JSONResponse externalRef0.ErrorResponse
+
+func (response PutMeStatus400JSONResponse) VisitPutMeStatusResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(400)
+
+	return ctx.JSON(&response)
+}
+
+type PutMeStatus401JSONResponse externalRef0.ErrorResponse
+
+func (response PutMeStatus401JSONResponse) VisitPutMeStatusResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(401)
+
+	return ctx.JSON(&response)
+}
+
+type PutMeStatus404JSONResponse externalRef0.ErrorResponse
+
+func (response PutMeStatus404JSONResponse) VisitPutMeStatusResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type PutMeStatus500JSONResponse externalRef0.ErrorResponse
+
+func (response PutMeStatus500JSONResponse) VisitPutMeStatusResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
 
 	return ctx.JSON(&response)
 }
@@ -954,6 +1751,18 @@ type StrictServerInterface interface {
 	// Exchange a device assertion for a bearer session
 	// (POST /login)
 	Login(ctx context.Context, request LoginRequestObject) (LoginResponseObject, error)
+	// Get caller peer summary
+	// (GET /me)
+	GetMe(ctx context.Context, request GetMeRequestObject) (GetMeResponseObject, error)
+	// Get caller peer runtime
+	// (GET /me/runtime)
+	GetMeRuntime(ctx context.Context, request GetMeRuntimeRequestObject) (GetMeRuntimeResponseObject, error)
+	// Get caller peer status
+	// (GET /me/status)
+	GetMeStatus(ctx context.Context, request GetMeStatusRequestObject) (GetMeStatusResponseObject, error)
+	// Update caller peer status
+	// (PUT /me/status)
+	PutMeStatus(ctx context.Context, request PutMeStatusRequestObject) (PutMeStatusResponseObject, error)
 	// Get server information
 	// (GET /server-info)
 	GetServerInfo(ctx context.Context, request GetServerInfoRequestObject) (GetServerInfoResponseObject, error)
@@ -994,6 +1803,112 @@ func (sh *strictHandler) Login(ctx *fiber.Ctx, params LoginParams) error {
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
 	} else if validResponse, ok := response.(LoginResponseObject); ok {
 		if err := validResponse.VisitLoginResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// GetMe operation middleware
+func (sh *strictHandler) GetMe(ctx *fiber.Ctx) error {
+	var request GetMeRequestObject
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.GetMe(ctx.UserContext(), request.(GetMeRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetMe")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(GetMeResponseObject); ok {
+		if err := validResponse.VisitGetMeResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// GetMeRuntime operation middleware
+func (sh *strictHandler) GetMeRuntime(ctx *fiber.Ctx) error {
+	var request GetMeRuntimeRequestObject
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.GetMeRuntime(ctx.UserContext(), request.(GetMeRuntimeRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetMeRuntime")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(GetMeRuntimeResponseObject); ok {
+		if err := validResponse.VisitGetMeRuntimeResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// GetMeStatus operation middleware
+func (sh *strictHandler) GetMeStatus(ctx *fiber.Ctx) error {
+	var request GetMeStatusRequestObject
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.GetMeStatus(ctx.UserContext(), request.(GetMeStatusRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetMeStatus")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(GetMeStatusResponseObject); ok {
+		if err := validResponse.VisitGetMeStatusResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// PutMeStatus operation middleware
+func (sh *strictHandler) PutMeStatus(ctx *fiber.Ctx) error {
+	var request PutMeStatusRequestObject
+
+	var body PutMeStatusJSONRequestBody
+	if err := ctx.BodyParser(&body); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	}
+	request.Body = &body
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.PutMeStatus(ctx.UserContext(), request.(PutMeStatusRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PutMeStatus")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(PutMeStatusResponseObject); ok {
+		if err := validResponse.VisitPutMeStatusResponse(ctx); err != nil {
 			return fiber.NewError(fiber.StatusBadRequest, err.Error())
 		}
 	} else if response != nil {
