@@ -89,7 +89,7 @@ func apiCredentialListToRPC(in adminhttp.CredentialList) (rpcapi.CredentialListR
 }
 
 func apiCredentialToRPC(in apitypes.Credential) (rpcapi.Credential, error) {
-	body, err := apiCredentialBodyToRPC(in.Body)
+	body, err := apiCredentialBodyToRPC(in.Provider, in.Body)
 	if err != nil {
 		return rpcapi.Credential{}, err
 	}
@@ -103,9 +103,14 @@ func apiCredentialToRPC(in apitypes.Credential) (rpcapi.Credential, error) {
 	}, nil
 }
 
-func apiCredentialBodyToRPC(in apitypes.CredentialBody) (rpcapi.CredentialBody, error) {
+func apiCredentialBodyToRPC(provider string, in apitypes.CredentialBody) (rpcapi.CredentialBody, error) {
 	var out rpcapi.CredentialBody
-	if typed, err := in.AsOpenAICredentialBody(); err == nil {
+	switch provider {
+	case "openai":
+		typed, err := in.AsOpenAICredentialBody()
+		if err != nil {
+			return out, err
+		}
 		err = out.FromOpenAICredentialBody(rpcapi.OpenAICredentialBody{
 			ApiKey:       typed.ApiKey,
 			BaseUrl:      typed.BaseUrl,
@@ -114,24 +119,33 @@ func apiCredentialBodyToRPC(in apitypes.CredentialBody) (rpcapi.CredentialBody, 
 			Token:        typed.Token,
 		})
 		return out, err
-	}
-	if typed, err := in.AsGeminiCredentialBody(); err == nil {
+	case "gemini":
+		typed, err := in.AsGeminiCredentialBody()
+		if err != nil {
+			return out, err
+		}
 		err = out.FromGeminiCredentialBody(rpcapi.GeminiCredentialBody{
 			ApiKey:  typed.ApiKey,
 			BaseUrl: typed.BaseUrl,
 			Token:   typed.Token,
 		})
 		return out, err
-	}
-	if typed, err := in.AsDashScopeCredentialBody(); err == nil {
+	case "dashscope":
+		typed, err := in.AsDashScopeCredentialBody()
+		if err != nil {
+			return out, err
+		}
 		err = out.FromDashScopeCredentialBody(rpcapi.DashScopeCredentialBody{
 			ApiKey:  typed.ApiKey,
 			BaseUrl: typed.BaseUrl,
 			Token:   typed.Token,
 		})
 		return out, err
-	}
-	if typed, err := in.AsMiniMaxCredentialBody(); err == nil {
+	case "minimax":
+		typed, err := in.AsMiniMaxCredentialBody()
+		if err != nil {
+			return out, err
+		}
 		err = out.FromMiniMaxCredentialBody(rpcapi.MiniMaxCredentialBody{
 			ApiKey:              typed.ApiKey,
 			BaseUrl:             typed.BaseUrl,
@@ -140,8 +154,11 @@ func apiCredentialBodyToRPC(in apitypes.CredentialBody) (rpcapi.CredentialBody, 
 			VoiceBaseUrl:        typed.VoiceBaseUrl,
 		})
 		return out, err
-	}
-	if typed, err := in.AsVolcCredentialBody(); err == nil {
+	case "volc":
+		typed, err := in.AsVolcCredentialBody()
+		if err != nil {
+			return out, err
+		}
 		err = out.FromVolcCredentialBody(rpcapi.VolcCredentialBody{
 			ApiKey:             typed.ApiKey,
 			AppId:              typed.AppId,
@@ -150,6 +167,7 @@ func apiCredentialBodyToRPC(in apitypes.CredentialBody) (rpcapi.CredentialBody, 
 			SearchApiKey:       typed.SearchApiKey,
 		})
 		return out, err
+	default:
+		return out, fmt.Errorf("unsupported credential provider %q", provider)
 	}
-	return out, fmt.Errorf("credential body is empty or unsupported")
 }
