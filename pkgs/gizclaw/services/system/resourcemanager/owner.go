@@ -64,43 +64,46 @@ func (m *Manager) ensureOwnedResourceOwnerFromMetadata(ctx context.Context, kind
 }
 
 func (m *Manager) putOwnedResourceOwner(ctx context.Context, kind apitypes.ACLResourceKind, id, owner string) (bool, error) {
-	existing, err := m.ownedResourceOwner(ctx, kind, id)
-	if err != nil {
-		return false, err
-	}
-	if existing != nil && *existing == owner {
-		return false, nil
-	}
-	if err := m.ensureResourceOwnerRole(ctx); err != nil {
-		return false, err
-	}
-	_, err = m.services.ACL.PutPolicyBinding(ctx, resourceOwnerPolicyBindingID(kind, id), 0, apitypes.ACLPolicy{
+	desired := apitypes.ACLPolicy{
 		Subject:  acl.PublicKeySubject(owner),
 		Resource: apitypes.ACLResource{Kind: kind, Id: id},
 		Role:     resourceOwnerRole,
-	})
+	}
+	existing, exists, err := m.ownedResourceOwnerBinding(ctx, kind, id)
+	if err != nil {
+		return false, err
+	}
+	roleChanged, err := m.ensureResourceOwnerRole(ctx)
+	if err != nil {
+		return false, err
+	}
+	if exists && ownerPolicyEqual(existing.Policy, desired) {
+		return roleChanged, nil
+	}
+	_, err = m.services.ACL.PutPolicyBinding(ctx, resourceOwnerPolicyBindingID(kind, id), 0, desired)
 	if err != nil {
 		return false, err
 	}
 	return true, nil
 }
 
-func (m *Manager) ensureResourceOwnerRole(ctx context.Context) error {
-	if _, err := m.services.ACL.PutRole(ctx, resourceOwnerRole, resourceOwnerPermissions); err != nil {
-		return err
+func (m *Manager) ensureResourceOwnerRole(ctx context.Context) (bool, error) {
+	role, err := m.services.ACL.GetRole(ctx, resourceOwnerRole)
+	if err == nil && permissionListsEqual(role.Permissions, resourceOwnerPermissions) {
+		return false, nil
 	}
-	return nil
+	if err != nil && !errors.Is(err, acl.ErrRoleNotFound) {
+		return false, err
+	}
+	if _, err := m.services.ACL.PutRole(ctx, resourceOwnerRole, resourceOwnerPermissions); err != nil {
+		return false, err
+	}
+	return true, nil
 }
 
 func (m *Manager) ownedResourceOwner(ctx context.Context, kind apitypes.ACLResourceKind, id string) (*string, error) {
-	if m.services.ACL == nil {
-		return nil, nil
-	}
-	binding, err := m.services.ACL.GetPolicyBinding(ctx, resourceOwnerPolicyBindingID(kind, id))
-	if errors.Is(err, acl.ErrPolicyBindingNotFound) {
-		return nil, nil
-	}
-	if err != nil {
+	binding, exists, err := m.ownedResourceOwnerBinding(ctx, kind, id)
+	if err != nil || !exists {
 		return nil, err
 	}
 	if binding.Policy.Subject.Kind == acl.SubjectKindPublicKey && strings.TrimSpace(binding.Policy.Subject.Id) != "" {
@@ -108,6 +111,20 @@ func (m *Manager) ownedResourceOwner(ctx context.Context, kind apitypes.ACLResou
 		return &owner, nil
 	}
 	return nil, nil
+}
+
+func (m *Manager) ownedResourceOwnerBinding(ctx context.Context, kind apitypes.ACLResourceKind, id string) (apitypes.ACLPolicyBinding, bool, error) {
+	if m.services.ACL == nil {
+		return apitypes.ACLPolicyBinding{}, false, nil
+	}
+	binding, err := m.services.ACL.GetPolicyBinding(ctx, resourceOwnerPolicyBindingID(kind, id))
+	if errors.Is(err, acl.ErrPolicyBindingNotFound) {
+		return apitypes.ACLPolicyBinding{}, false, nil
+	}
+	if err != nil {
+		return apitypes.ACLPolicyBinding{}, false, err
+	}
+	return binding, true, nil
 }
 
 func (m *Manager) withOwnedResourceOwner(ctx context.Context, kind apitypes.ACLResourceKind, id string, resource apitypes.Resource) (apitypes.Resource, error) {
@@ -148,7 +165,8 @@ func (m *Manager) removeOwnedResourceOwner(ctx context.Context, kind apitypes.AC
 	if m.services.ACL == nil {
 		return nil
 	}
-	ids := append([]string{resourceOwnerPolicyBindingID(kind, id)}, extraBindingIDs...)
+	ids := append([]string{}, extraBindingIDs...)
+	ids = append(ids, resourceOwnerPolicyBindingID(kind, id))
 	for _, bindingID := range ids {
 		if strings.TrimSpace(bindingID) == "" {
 			continue
@@ -160,6 +178,27 @@ func (m *Manager) removeOwnedResourceOwner(ctx context.Context, kind apitypes.AC
 		return err
 	}
 	return nil
+}
+
+func ownerPolicyEqual(left, right apitypes.ACLPolicy) bool {
+	return left.Subject == right.Subject && left.Resource == right.Resource && left.Role == right.Role
+}
+
+func permissionListsEqual(left, right apitypes.ACLPermissionList) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	seen := make(map[apitypes.ACLPermission]int, len(left))
+	for _, permission := range left {
+		seen[permission]++
+	}
+	for _, permission := range right {
+		if seen[permission] == 0 {
+			return false
+		}
+		seen[permission]--
+	}
+	return true
 }
 
 type ownedResourceOwnerRollback struct {

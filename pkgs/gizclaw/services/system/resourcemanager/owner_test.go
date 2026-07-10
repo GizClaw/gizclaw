@@ -119,6 +119,49 @@ func TestOwnedResourceOwnerReadsDeterministicBinding(t *testing.T) {
 	}
 }
 
+func TestApplyOwnedResourceRepairsOwnerBindingAndRoleDrift(t *testing.T) {
+	ctx := context.Background()
+	manager := newACLResourceManager(t)
+	workspaces := newFakeWorkspaces()
+	now := time.Now().UTC()
+	workspaces.items["demo"] = apitypes.Workspace{
+		CreatedAt:    now,
+		Name:         "demo",
+		UpdatedAt:    now,
+		WorkflowName: "workflow",
+	}
+	manager.services.Workspaces = workspaces
+	if _, err := manager.services.ACL.CreateRole(ctx, resourceOwnerRole, apitypes.ACLPermissionList{apitypes.ACLPermissionRead}); err != nil {
+		t.Fatalf("CreateRole(drifted owner role) error = %v", err)
+	}
+	if _, err := manager.services.ACL.CreatePolicyBinding(ctx, resourceOwnerPolicyBindingID(apitypes.ACLResourceKindWorkspace, "demo"), 0, apitypes.ACLPolicy{
+		Subject:  acl.PublicKeySubject("owner-a"),
+		Resource: apitypes.ACLResource{Kind: apitypes.ACLResourceKindModel, Id: "wrong-resource"},
+		Role:     resourceOwnerRole,
+	}); err != nil {
+		t.Fatalf("CreatePolicyBinding(drifted owner) error = %v", err)
+	}
+
+	result, err := manager.Apply(ctx, workspaceResourceWithOwner(t, "demo", "owner-a"))
+	if err != nil {
+		t.Fatalf("Apply(repair owner) error = %v", err)
+	}
+	if result.Action != apitypes.ApplyActionUpdated {
+		t.Fatalf("Apply(repair owner) action = %q, want %q", result.Action, apitypes.ApplyActionUpdated)
+	}
+	if workspaces.putCount != 0 {
+		t.Fatalf("putCount after owner repair = %d, want 0", workspaces.putCount)
+	}
+	role, err := manager.services.ACL.GetRole(ctx, resourceOwnerRole)
+	if err != nil {
+		t.Fatalf("GetRole(%q) error = %v", resourceOwnerRole, err)
+	}
+	if !permissionsEqual(role.Permissions, resourceOwnerPermissions) {
+		t.Fatalf("owner role permissions = %#v, want %#v", role.Permissions, resourceOwnerPermissions)
+	}
+	assertWorkspaceOwnerBinding(t, manager, "demo", "owner-a")
+}
+
 func TestPutOwnedResourceManagesOwnerBinding(t *testing.T) {
 	ctx := context.Background()
 	manager := newACLResourceManager(t)

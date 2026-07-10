@@ -8,6 +8,7 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/toolkit"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/acl"
 )
 
 func (m *Manager) applyTool(ctx context.Context, resource apitypes.Resource) (apitypes.ApplyResult, error) {
@@ -51,6 +52,9 @@ func (m *Manager) applyTool(ctx context.Context, resource apitypes.Resource) (ap
 				return apitypes.ApplyResult{}, err
 			}
 			if ownerChanged {
+				if err := m.removeLegacyToolOwnerBinding(ctx, existing); err != nil {
+					return apitypes.ApplyResult{}, err
+				}
 				return applyResult(apitypes.ApplyActionUpdated, apitypes.ResourceKindTool, item.Metadata.Name), nil
 			}
 			return applyResult(apitypes.ApplyActionUnchanged, apitypes.ResourceKindTool, item.Metadata.Name), nil
@@ -109,6 +113,11 @@ func (m *Manager) putToolResource(ctx context.Context, item apitypes.ToolResourc
 	if _, err := m.ensureOwnedResourceOwnerFromMetadata(ctx, apitypes.ACLResourceKindTool, item.Metadata.Name, item.Metadata); err != nil {
 		return apitypes.Resource{}, m.rollbackToolWrite(ctx, existing, exists, stored.ID, err)
 	}
+	if exists {
+		if err := m.removeLegacyToolOwnerBinding(ctx, existing); err != nil {
+			return apitypes.Resource{}, m.rollbackToolWrite(ctx, existing, exists, stored.ID, err)
+		}
+	}
 	return m.Get(ctx, apitypes.ResourceKindTool, stored.ID)
 }
 
@@ -153,6 +162,18 @@ func (m *Manager) removeToolOwnerBinding(ctx context.Context, tool toolkit.Tool)
 		return applyError(500, "TOOL_OWNER_ACL_CLEANUP_FAILED", err.Error())
 	}
 	return nil
+}
+
+func (m *Manager) removeLegacyToolOwnerBinding(ctx context.Context, tool toolkit.Tool) error {
+	owner, ok := deviceToolOwner(tool)
+	if !ok || m.services.ACL == nil {
+		return nil
+	}
+	_, err := m.services.ACL.DeletePolicyBinding(context.WithoutCancel(ctx), toolkit.LegacyToolOwnerPolicyBindingID(tool.ID, owner))
+	if err == nil || errors.Is(err, acl.ErrPolicyBindingNotFound) {
+		return nil
+	}
+	return applyError(500, "TOOL_OWNER_ACL_CLEANUP_FAILED", err.Error())
 }
 
 func (m *Manager) rollbackToolWrite(ctx context.Context, existing toolkit.Tool, exists bool, writtenID string, cause error) error {
