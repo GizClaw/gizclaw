@@ -114,7 +114,7 @@ func TestServeContextServerInfoReportsTCPICE(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(workspace, workspaceConfigFile), []byte(fmt.Sprintf(`
 listen: %q
 endpoint: %q
-public-http: true
+serving-public: true
 stores:
   peers:
     kind: keyvalue
@@ -144,7 +144,7 @@ stores:
 	}
 }
 
-func TestServeContextDefaultDisablesPublicHTTP(t *testing.T) {
+func TestServeContextDefaultKeepsTCPMuxAndDisablesPublicRoutes(t *testing.T) {
 	addr := localTCPUDPAddr(t)
 	workspace := t.TempDir()
 	if err := os.WriteFile(filepath.Join(workspace, workspaceConfigFile), []byte(fmt.Sprintf(`
@@ -170,17 +170,25 @@ stores:
 		}
 	})
 
+	var lastErr error
+	var lastStatus int
 	client := http.Client{Timeout: 200 * time.Millisecond}
 	deadline := time.Now().Add(2 * time.Second)
 	for time.Now().Before(deadline) {
 		resp, err := client.Get("http://" + addr + "/server-info")
 		if err != nil {
+			lastErr = err
+			time.Sleep(50 * time.Millisecond)
+			continue
+		}
+		lastStatus = resp.StatusCode
+		_ = resp.Body.Close()
+		if resp.StatusCode == http.StatusNotFound {
 			return
 		}
-		_ = resp.Body.Close()
 		time.Sleep(50 * time.Millisecond)
 	}
-	t.Fatalf("server-info became reachable even though public-http was disabled")
+	t.Fatalf("server-info status = %d err = %v, want 404 over active TCP mux when serving-public is disabled", lastStatus, lastErr)
 }
 
 func localTCPUDPAddr(t *testing.T) string {

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"strings"
 
 	"github.com/GizClaw/gizclaw-go/cmd/internal/logging/volclog"
 	"github.com/GizClaw/gizclaw-go/cmd/internal/storage"
@@ -20,6 +21,7 @@ var BuildCommit = "dev"
 type CmdServer struct {
 	*gizclaw.Server
 	AdminPublicKey giznet.PublicKey
+	ServingPublic  bool
 	stores         *stores.Stores
 }
 
@@ -44,7 +46,20 @@ func (s *CmdServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
+	if !s.ServingPublic && isPublicHTTPRoute(r.URL.Path) {
+		http.NotFound(w, r)
+		return
+	}
 	s.Server.ServeHTTP(w, r)
+}
+
+func isPublicHTTPRoute(path string) bool {
+	switch path {
+	case "/server-info", "/login", gizwebrtc.SignalingPath, "/me", "/me/status", "/me/runtime":
+		return true
+	default:
+		return strings.HasPrefix(path, "/openai/v1/")
+	}
 }
 
 // New wires an already prepared in-memory config into a command server.
@@ -77,7 +92,7 @@ func newWithOptions(cfg Config, newOpts newServerOptions) (srv *CmdServer, err e
 		return nil, fmt.Errorf("server: peers store: %w", err)
 	}
 
-	cmdSrv := &CmdServer{stores: ss, AdminPublicKey: cfg.AdminPublicKey}
+	cmdSrv := &CmdServer{stores: ss, AdminPublicKey: cfg.AdminPublicKey, ServingPublic: cfg.ServingPublic}
 	var gizServer *gizclaw.Server
 	gizServer = &gizclaw.Server{
 		LocalStatic:    *cfg.KeyPair,

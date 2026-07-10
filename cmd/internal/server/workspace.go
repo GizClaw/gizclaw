@@ -194,26 +194,19 @@ func ServeContext(ctx context.Context, workspace string, opts ServeOptions) (err
 		}
 	}
 
-	var publicMux *publicTCPMux
-	var iceTCPListener net.Listener
-	if cfg.PublicHTTP {
-		publicListener, err := net.Listen("tcp", cfg.PublicAPIListenAddr())
-		if err != nil {
-			return fmt.Errorf("server: listen public http: %w", err)
-		}
-		publicMux = newPublicTCPMux(publicListener)
-		iceTCPListener = publicMux.ICETCPListener()
-		defer publicMux.Close()
+	publicListener, err := net.Listen("tcp", cfg.PublicAPIListenAddr())
+	if err != nil {
+		return fmt.Errorf("server: listen tcp mux: %w", err)
 	}
+	publicMux := newPublicTCPMux(publicListener)
+	iceTCPListener := publicMux.ICETCPListener()
+	defer publicMux.Close()
 	srv, err := newWithOptions(cfg, newServerOptions{ICETCPListener: iceTCPListener})
 	if err != nil {
 		return err
 	}
 	defer srv.Close()
-	var publicHTTP *http.Server
-	if publicMux != nil {
-		publicHTTP = &http.Server{Handler: srv}
-	}
+	publicHTTP := &http.Server{Handler: srv}
 	releasePID, err := acquireWorkspacePID(root, opts.Force)
 	if err != nil {
 		return err
@@ -224,40 +217,29 @@ func ServeContext(ctx context.Context, workspace string, opts ServeOptions) (err
 		return err
 	}
 	errCh := make(chan error, 2)
-	serveCount := 1
 	gizServer := srv.Server
 	go func() {
 		errCh <- gizServer.Serve()
 	}()
-	if publicHTTP != nil {
-		serveCount++
-		go func() {
-			err := publicHTTP.Serve(publicMux.HTTPListener())
-			if errors.Is(err, http.ErrServerClosed) || errors.Is(err, net.ErrClosed) {
-				err = nil
-			}
-			errCh <- err
-		}()
-	}
+	go func() {
+		err := publicHTTP.Serve(publicMux.HTTPListener())
+		if errors.Is(err, http.ErrServerClosed) || errors.Is(err, net.ErrClosed) {
+			err = nil
+		}
+		errCh <- err
+	}()
 
 	select {
 	case err := <-errCh:
-		if publicHTTP != nil {
-			_ = publicHTTP.Shutdown(context.Background())
-		}
+		_ = publicHTTP.Shutdown(context.Background())
 		_ = srv.Close()
 		return err
 	case <-ctx.Done():
-		var shutdownErr error
-		if publicHTTP != nil {
-			shutdownErr = publicHTTP.Shutdown(context.Background())
-		}
+		shutdownErr := publicHTTP.Shutdown(context.Background())
 		closeErr := srv.Close()
-		errs := []error{shutdownErr, closeErr}
-		for range serveCount {
-			errs = append(errs, <-errCh)
-		}
-		return errors.Join(errs...)
+		err1 := <-errCh
+		err2 := <-errCh
+		return errors.Join(shutdownErr, closeErr, err1, err2)
 	}
 }
 
