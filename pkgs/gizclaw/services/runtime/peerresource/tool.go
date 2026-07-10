@@ -17,8 +17,7 @@ import (
 const toolOwnerRole = toolkit.ToolOwnerRole
 
 type ToolACLService interface {
-	CreateRole(context.Context, string, apitypes.ACLPermissionList) (apitypes.ACLRole, error)
-	GetRole(context.Context, string) (apitypes.ACLRole, error)
+	PutRole(context.Context, string, apitypes.ACLPermissionList) (apitypes.ACLRole, error)
 	PutPolicyBinding(context.Context, string, float64, apitypes.ACLPolicy) (apitypes.ACLPolicyBinding, error)
 	DeletePolicyBinding(context.Context, string) (apitypes.ACLPolicyBinding, error)
 }
@@ -238,40 +237,16 @@ func (s *Server) grantToolOwner(ctx context.Context, toolID string) error {
 		return errors.New("tool ACL service not configured")
 	}
 	permissions := apitypes.ACLPermissionList{apitypes.ACLPermissionRead, apitypes.ACLPermissionUse, apitypes.ACLPermissionAdmin}
-	role, err := s.ToolACL.CreateRole(ctx, toolOwnerRole, permissions)
-	if errors.Is(err, acl.ErrRoleAlreadyExists) {
-		role, err = s.ToolACL.GetRole(ctx, toolOwnerRole)
-	}
-	if err != nil {
+	if _, err := s.ToolACL.PutRole(ctx, toolOwnerRole, permissions); err != nil {
 		return err
 	}
-	if !samePermissions(role.Permissions, permissions) {
-		return fmt.Errorf("reserved ACL role %q must have exactly read, use, and admin permissions", toolOwnerRole)
-	}
 	caller := s.Caller.String()
-	_, err = s.ToolACL.PutPolicyBinding(ctx, toolOwnerBindingID(toolID, caller), 0, apitypes.ACLPolicy{
+	_, err := s.ToolACL.PutPolicyBinding(ctx, toolOwnerBindingID(toolID, caller), 0, apitypes.ACLPolicy{
 		Subject:  acl.PublicKeySubject(caller),
 		Resource: acl.ToolResource(toolID),
 		Role:     toolOwnerRole,
 	})
 	return err
-}
-
-func samePermissions(left, right apitypes.ACLPermissionList) bool {
-	if len(left) != len(right) {
-		return false
-	}
-	want := make(map[apitypes.ACLPermission]struct{}, len(right))
-	for _, permission := range right {
-		want[permission] = struct{}{}
-	}
-	for _, permission := range left {
-		if _, ok := want[permission]; !ok {
-			return false
-		}
-		delete(want, permission)
-	}
-	return len(want) == 0
 }
 
 func toolOwnerBindingID(toolID, owner string) string {

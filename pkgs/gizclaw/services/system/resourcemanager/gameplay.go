@@ -19,16 +19,29 @@ func (m *Manager) applyGameRuleset(ctx context.Context, resource apitypes.Resour
 	if err != nil {
 		return apitypes.ApplyResult{}, err
 	}
+	if err := m.validateOwnedResourceOwner(apitypes.ACLResourceKindGameruleset, item.Metadata.Name, item.Metadata, exists); err != nil {
+		return apitypes.ApplyResult{}, err
+	}
 	if exists {
 		same, err := semanticEqual(existing.Spec, item.Spec)
 		if err != nil {
 			return apitypes.ApplyResult{}, applyError(500, "RESOURCE_COMPARE_FAILED", err.Error())
 		}
 		if same {
+			ownerChanged, err := m.ensureOwnedResourceOwnerFromMetadata(ctx, apitypes.ACLResourceKindGameruleset, item.Metadata.Name, item.Metadata)
+			if err != nil {
+				return apitypes.ApplyResult{}, err
+			}
+			if ownerChanged {
+				return applyResult(apitypes.ApplyActionUpdated, apitypes.ResourceKindGameRuleset, item.Metadata.Name), nil
+			}
 			return applyResult(apitypes.ApplyActionUnchanged, apitypes.ResourceKindGameRuleset, item.Metadata.Name), nil
 		}
 	}
 	if err := m.putGameRuleset(ctx, string(pathParam(item.Metadata.Name)), gameRulesetUpsert(item)); err != nil {
+		return apitypes.ApplyResult{}, err
+	}
+	if _, err := m.ensureOwnedResourceOwnerFromMetadata(ctx, apitypes.ACLResourceKindGameruleset, item.Metadata.Name, item.Metadata); err != nil {
 		return apitypes.ApplyResult{}, err
 	}
 	if exists {

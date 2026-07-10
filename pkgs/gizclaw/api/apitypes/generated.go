@@ -3180,6 +3180,9 @@ type ResourceMetadata struct {
 
 	// Name Resource name. Kind-specific rules apply. User-defined custom IDs use 8-48 lowercase ASCII characters, start with [a-z], end with [a-z0-9], and contain only [a-z0-9._-]. For PeerConfig this is the peer public key.
 	Name string `json:"name"`
+
+	// OwnerPublicKey Primary owner peer public key hint for ACL-backed managed resources. ResourceManager persists ownership as an ACL binding and may synthesize this value from ACL on read.
+	OwnerPublicKey *string `json:"owner_public_key,omitempty"`
 }
 
 // RewardGrant defines model for RewardGrant.

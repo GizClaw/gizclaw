@@ -57,16 +57,29 @@ func (m *Manager) applyVoice(ctx context.Context, resource apitypes.Resource) (a
 	if err != nil {
 		return apitypes.ApplyResult{}, err
 	}
+	if err := m.validateOwnedResourceOwner(apitypes.ACLResourceKindVoice, item.Metadata.Name, item.Metadata, exists); err != nil {
+		return apitypes.ApplyResult{}, err
+	}
 	if exists {
 		same, err := semanticEqual(voiceSpec(existing), item.Spec)
 		if err != nil {
 			return apitypes.ApplyResult{}, applyError(500, "RESOURCE_COMPARE_FAILED", err.Error())
 		}
 		if same {
+			ownerChanged, err := m.ensureOwnedResourceOwnerFromMetadata(ctx, apitypes.ACLResourceKindVoice, item.Metadata.Name, item.Metadata)
+			if err != nil {
+				return apitypes.ApplyResult{}, err
+			}
+			if ownerChanged {
+				return applyResult(apitypes.ApplyActionUpdated, apitypes.ResourceKindVoice, item.Metadata.Name), nil
+			}
 			return applyResult(apitypes.ApplyActionUnchanged, apitypes.ResourceKindVoice, item.Metadata.Name), nil
 		}
 	}
 	if err := m.putVoice(ctx, id, voiceUpsert(item)); err != nil {
+		return apitypes.ApplyResult{}, err
+	}
+	if _, err := m.ensureOwnedResourceOwnerFromMetadata(ctx, apitypes.ACLResourceKindVoice, item.Metadata.Name, item.Metadata); err != nil {
 		return apitypes.ApplyResult{}, err
 	}
 	if exists {

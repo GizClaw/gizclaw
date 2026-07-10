@@ -23,16 +23,29 @@ func (m *Manager) applyModel(ctx context.Context, resource apitypes.Resource) (a
 	if err != nil {
 		return apitypes.ApplyResult{}, err
 	}
+	if err := m.validateOwnedResourceOwner(apitypes.ACLResourceKindModel, item.Metadata.Name, item.Metadata, exists); err != nil {
+		return apitypes.ApplyResult{}, err
+	}
 	if exists {
 		same, err := semanticEqual(modelSpec(existing), item.Spec)
 		if err != nil {
 			return apitypes.ApplyResult{}, applyError(500, "RESOURCE_COMPARE_FAILED", err.Error())
 		}
 		if same {
+			ownerChanged, err := m.ensureOwnedResourceOwnerFromMetadata(ctx, apitypes.ACLResourceKindModel, item.Metadata.Name, item.Metadata)
+			if err != nil {
+				return apitypes.ApplyResult{}, err
+			}
+			if ownerChanged {
+				return applyResult(apitypes.ApplyActionUpdated, apitypes.ResourceKindModel, item.Metadata.Name), nil
+			}
 			return applyResult(apitypes.ApplyActionUnchanged, apitypes.ResourceKindModel, item.Metadata.Name), nil
 		}
 	}
 	if err := m.putModel(ctx, id, modelUpsert(item)); err != nil {
+		return apitypes.ApplyResult{}, err
+	}
+	if _, err := m.ensureOwnedResourceOwnerFromMetadata(ctx, apitypes.ACLResourceKindModel, item.Metadata.Name, item.Metadata); err != nil {
 		return apitypes.ApplyResult{}, err
 	}
 	if exists {

@@ -68,6 +68,10 @@
             "additionalProperties": {
               "type": "string"
             }
+          },
+          "owner_public_key": {
+            "type": "string",
+            "description": "Primary owner peer public key hint for ACL-backed managed resources. ResourceManager persists ownership as an ACL binding and may synthesize this value from ACL on read."
           }
         }
       },

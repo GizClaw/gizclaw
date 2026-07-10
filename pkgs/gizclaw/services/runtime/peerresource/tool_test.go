@@ -119,40 +119,30 @@ func TestToolPeerPutRejectsExistingNonOwnedTool(t *testing.T) {
 	}
 }
 
-func TestToolPeerCreateDoesNotRewriteExistingOwnerRole(t *testing.T) {
+func TestToolPeerCreateUpsertsResourceOwnerRole(t *testing.T) {
 	caller := giznet.PublicKey{5}
 	callerID := caller.String()
 	id := "peer." + callerID + ".music.play"
 	auth := newRuleAuthorizer()
 	auth.allow(acl.ResourceKindTool, acl.CollectionResourceID, apitypes.ACLPermissionCreate)
-	bindings := &recordingToolACL{
-		roleErr: acl.ErrRoleAlreadyExists,
-		existingRole: apitypes.ACLRole{
-			Name:        toolOwnerRole,
-			Permissions: apitypes.ACLPermissionList{apitypes.ACLPermissionAdmin, apitypes.ACLPermissionRead, apitypes.ACLPermissionUse},
-		},
-	}
+	bindings := &recordingToolACL{}
 	srv := &Server{Caller: caller, ACL: auth, Tools: &toolkit.Server{Store: kv.NewMemory(nil)}, ToolACL: bindings}
 
 	resp := callRPC(t, srv, "create", rpcapi.RPCMethodServerToolCreate, rpcParams(t, (*rpcapi.RPCPayload).FromToolCreateRequest, rpcTool(id, callerID)))
 	requireNoRPCError(t, resp)
-	if bindings.roleCreates != 1 || bindings.roleGets != 1 || bindings.policy.Role != toolOwnerRole {
-		t.Fatalf("owner role handling = creates %d gets %d policy %#v", bindings.roleCreates, bindings.roleGets, bindings.policy)
+	if bindings.rolePuts != 1 || bindings.roleCreates != 0 || bindings.roleGets != 0 || bindings.policy.Role != toolOwnerRole {
+		t.Fatalf("owner role handling = puts %d creates %d gets %d policy %#v", bindings.rolePuts, bindings.roleCreates, bindings.roleGets, bindings.policy)
 	}
 }
 
-func TestToolPeerCreateRejectsIncompatibleOwnerRole(t *testing.T) {
+func TestToolPeerCreateRollsBackWhenOwnerRoleFails(t *testing.T) {
 	caller := giznet.PublicKey{6}
 	callerID := caller.String()
 	id := "peer." + callerID + ".music.play"
 	auth := newRuleAuthorizer()
 	auth.allow(acl.ResourceKindTool, acl.CollectionResourceID, apitypes.ACLPermissionCreate)
 	bindings := &recordingToolACL{
-		roleErr: acl.ErrRoleAlreadyExists,
-		existingRole: apitypes.ACLRole{
-			Name:        toolOwnerRole,
-			Permissions: apitypes.ACLPermissionList{apitypes.ACLPermissionRead},
-		},
+		putRoleErr: errors.New("owner role failed"),
 	}
 	srv := &Server{Caller: caller, ACL: auth, Tools: &toolkit.Server{Store: kv.NewMemory(nil)}, ToolACL: bindings}
 
@@ -237,8 +227,10 @@ type recordingToolACL struct {
 	policy       apitypes.ACLPolicy
 	deleted      string
 	roleErr      error
+	putRoleErr   error
 	roleCreates  int
 	roleGets     int
+	rolePuts     int
 	existingRole apitypes.ACLRole
 	getRoleErr   error
 	deleteErr    error
@@ -254,6 +246,13 @@ func (a *recordingToolACL) CreateRole(_ context.Context, name string, permission
 func (a *recordingToolACL) GetRole(_ context.Context, _ string) (apitypes.ACLRole, error) {
 	a.roleGets++
 	return a.existingRole, a.getRoleErr
+}
+
+func (a *recordingToolACL) PutRole(_ context.Context, name string, permissions apitypes.ACLPermissionList) (apitypes.ACLRole, error) {
+	a.rolePuts++
+	a.role = name
+	a.permissions = append(apitypes.ACLPermissionList(nil), permissions...)
+	return apitypes.ACLRole{Name: name, Permissions: permissions}, a.putRoleErr
 }
 
 func (a *recordingToolACL) PutPolicyBinding(_ context.Context, id string, _ float64, policy apitypes.ACLPolicy) (apitypes.ACLPolicyBinding, error) {
