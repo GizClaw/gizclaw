@@ -268,7 +268,11 @@ Binding and dialing direction:
   `/webrtc/v1/offer`, caller-scoped `/me/...` routes, and the Peer
   OpenAI-compatible `/openai/v1/...` prefix.
 - `serving-public: false` keeps the TCP mux bound for server ingress and WebRTC
-  ICE TCP, but disables direct public/device-facing HTTP routes on that mux.
+  ICE TCP, but public/device-facing HTTP routes require private ingress
+  identity. `/login` only issues a session after the assertion maps to an
+  active private-ingress peer role (`admin`, or the current server-side role
+  used for non-device ingress peers), and subsequent `/server-info`, signaling,
+  `/me/...`, and `/openai/v1/...` requests must present that session.
   Peer API, Peer OpenAI-compatible API, and Admin API handlers remain available
   over authenticated `gizhttp` service streams.
 - `listen/udp` serves WebRTC ICE UDP.

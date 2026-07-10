@@ -86,6 +86,7 @@ type Server struct {
 	BuildCommit                  string
 	PublicEndpoint               string
 	PublicICETCP                 bool
+	PublicLoginAuthorizer        publiclogin.SessionAuthorizer
 	ACLDB                        *sql.DB
 	WebRTCSignalingHandler       http.Handler
 
@@ -365,6 +366,7 @@ func (s *Server) init() error {
 	gameDefStore := moduleStore(s.GameDefStore, s.PeerStore, "game-defs")
 
 	publicLoginServer := publiclogin.NewServer(&s.LocalStatic, publicLoginStore)
+	publicLoginServer.SessionAuthorizer = s.PublicLoginAuthorizer
 	sessions := publicLoginServer.SessionManager()
 	peersServer := &peer.Server{
 		Store:           peerStore,

@@ -1,14 +1,21 @@
 package server
 
 import (
+	"context"
+	"encoding/json"
 	"net"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/GizClaw/gizclaw-go/cmd/internal/stores"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/publiclogin"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/metrics"
 )
 
@@ -19,6 +26,103 @@ func TestCmdServerServeHTTPNilServerReturnsNotFound(t *testing.T) {
 	if rec.Code != http.StatusNotFound {
 		t.Fatalf("nil server status = %d, want %d", rec.Code, http.StatusNotFound)
 	}
+}
+
+func TestCmdServerPrivateIngressRequiresAuthorizedSession(t *testing.T) {
+	serverKey, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("GenerateKeyPair(server) error = %v", err)
+	}
+	adminKey, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("GenerateKeyPair(admin) error = %v", err)
+	}
+	clientKey, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("GenerateKeyPair(client) error = %v", err)
+	}
+
+	srv, err := New(Config{
+		KeyPair:  serverKey,
+		Listen:   "127.0.0.1:0",
+		Endpoint: "127.0.0.1:0",
+		Stores: map[string]stores.Config{
+			defaultPeersStore: {Kind: stores.KindKeyValue, Backend: "memory"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("New() error = %v", err)
+	}
+	defer srv.Close()
+
+	peers := &peer.Server{Store: kv.Prefixed(srv.Server.PeerStore, kv.Key{"peers"})}
+	for _, item := range []apitypes.Peer{
+		{
+			PublicKey:     adminKey.Public.String(),
+			Role:          apitypes.PeerRoleAdmin,
+			Status:        apitypes.PeerRegistrationStatusActive,
+			Device:        apitypes.DeviceInfo{},
+			Configuration: apitypes.Configuration{},
+		},
+		{
+			PublicKey:     clientKey.Public.String(),
+			Role:          apitypes.PeerRoleClient,
+			Status:        apitypes.PeerRegistrationStatusActive,
+			Device:        apitypes.DeviceInfo{},
+			Configuration: apitypes.Configuration{},
+		},
+	} {
+		if _, err := peers.SavePeer(context.Background(), item); err != nil {
+			t.Fatalf("SavePeer(%s) error = %v", item.PublicKey, err)
+		}
+	}
+
+	if err := srv.Listen(); err != nil {
+		t.Fatalf("Listen() error = %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/server-info", nil)
+	rec := httptest.NewRecorder()
+	srv.ServeHTTP(rec, req)
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("GET /server-info without session status = %d body=%s", rec.Code, rec.Body.String())
+	}
+
+	clientLogin := cmdServerTestLogin(t, srv, serverKey.Public, clientKey)
+	if clientLogin.Code != http.StatusUnauthorized {
+		t.Fatalf("client POST /login status = %d body=%s", clientLogin.Code, clientLogin.Body.String())
+	}
+
+	adminLogin := cmdServerTestLogin(t, srv, serverKey.Public, adminKey)
+	if adminLogin.Code != http.StatusOK {
+		t.Fatalf("admin POST /login status = %d body=%s", adminLogin.Code, adminLogin.Body.String())
+	}
+	var session publiclogin.LoginResponse
+	if err := json.Unmarshal(adminLogin.Body.Bytes(), &session); err != nil {
+		t.Fatalf("decode admin login response: %v", err)
+	}
+
+	req = httptest.NewRequest(http.MethodGet, "/server-info", nil)
+	req.Header.Set("Authorization", "Bearer "+session.AccessToken)
+	rec = httptest.NewRecorder()
+	srv.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("authorized GET /server-info status = %d body=%s", rec.Code, rec.Body.String())
+	}
+}
+
+func cmdServerTestLogin(t *testing.T, srv *CmdServer, serverPublicKey giznet.PublicKey, keyPair *giznet.KeyPair) *httptest.ResponseRecorder {
+	t.Helper()
+	assertion, err := publiclogin.NewLoginAssertion(keyPair, serverPublicKey, time.Minute)
+	if err != nil {
+		t.Fatalf("NewLoginAssertion error = %v", err)
+	}
+	req := httptest.NewRequest(http.MethodPost, "/login", nil)
+	req.Header.Set(publiclogin.PublicKeyHeader, keyPair.Public.String())
+	req.Header.Set("Authorization", "Bearer "+assertion)
+	rec := httptest.NewRecorder()
+	srv.ServeHTTP(rec, req)
+	return rec
 }
 
 func TestNewWithOptionsWiresLegacyMetricsStore(t *testing.T) {

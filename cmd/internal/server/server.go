@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/publiclogin"
+
 	"github.com/GizClaw/gizclaw-go/cmd/internal/logging/volclog"
 	"github.com/GizClaw/gizclaw-go/cmd/internal/storage"
 	"github.com/GizClaw/gizclaw-go/cmd/internal/stores"
@@ -47,10 +49,32 @@ func (s *CmdServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !s.ServingPublic && isPublicHTTPRoute(r.URL.Path) {
-		http.NotFound(w, r)
-		return
+		if !isPublicHTTPLoginRoute(r.Method, r.URL.Path) && !s.authorizePrivateHTTPIngress(w, r) {
+			return
+		}
 	}
 	s.Server.ServeHTTP(w, r)
+}
+
+func (s *CmdServer) authorizePrivateHTTPIngress(w http.ResponseWriter, r *http.Request) bool {
+	publicKey, err := s.Server.AuthenticateHTTPSessionHeaders(r.Header.Get("Authorization"), r.Header.Get(publiclogin.PublicKeyHeader))
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusUnauthorized)
+		if errors.Is(err, publiclogin.ErrPublicKeyMismatch) {
+			_, _ = w.Write([]byte(`{"error":{"code":"PUBLIC_KEY_MISMATCH","message":"x-public-key does not match bearer session"}}`))
+			return false
+		}
+		_, _ = w.Write([]byte(`{"error":{"code":"INVALID_SESSION","message":"missing or invalid bearer session"}}`))
+		return false
+	}
+	if err := s.Server.AuthorizePrivateHTTPIngress(r.Context(), publicKey); err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusForbidden)
+		_, _ = w.Write([]byte(`{"error":{"code":"PRIVATE_INGRESS_DENIED","message":"session peer is not authorized for private server ingress"}}`))
+		return false
+	}
+	return true
 }
 
 func isPublicHTTPRoute(path string) bool {
@@ -60,6 +84,10 @@ func isPublicHTTPRoute(path string) bool {
 	default:
 		return strings.HasPrefix(path, "/openai/v1/")
 	}
+}
+
+func isPublicHTTPLoginRoute(method, path string) bool {
+	return method == http.MethodPost && path == "/login"
 }
 
 // New wires an already prepared in-memory config into a command server.
@@ -152,6 +180,9 @@ func newWithOptions(cfg Config, newOpts newServerOptions) (srv *CmdServer, err e
 		gizServer.SecurityPolicy = adminPublicKeySecurityPolicy{
 			PublicKey: cfg.AdminPublicKey,
 		}
+	}
+	if !cfg.ServingPublic {
+		gizServer.PublicLoginAuthorizer = gizclaw.PrivateHTTPIngressLoginAuthorizer(gizServer)
 	}
 	if len(cfg.Storage) > 0 {
 		if gizServer.CredentialStore, err = ss.KV(defaultCredentialsStore); err != nil {

@@ -144,7 +144,7 @@ stores:
 	}
 }
 
-func TestServeContextDefaultKeepsTCPMuxAndDisablesPublicRoutes(t *testing.T) {
+func TestServeContextDefaultKeepsTCPMuxAndRequiresPrivateAuth(t *testing.T) {
 	addr := localTCPUDPAddr(t)
 	workspace := t.TempDir()
 	if err := os.WriteFile(filepath.Join(workspace, workspaceConfigFile), []byte(fmt.Sprintf(`
@@ -183,12 +183,12 @@ stores:
 		}
 		lastStatus = resp.StatusCode
 		_ = resp.Body.Close()
-		if resp.StatusCode == http.StatusNotFound {
+		if resp.StatusCode == http.StatusUnauthorized {
 			return
 		}
 		time.Sleep(50 * time.Millisecond)
 	}
-	t.Fatalf("server-info status = %d err = %v, want 404 over active TCP mux when serving-public is disabled", lastStatus, lastErr)
+	t.Fatalf("server-info status = %d err = %v, want 401 over active TCP mux when serving-public is disabled", lastStatus, lastErr)
 }
 
 func localTCPUDPAddr(t *testing.T) string {
