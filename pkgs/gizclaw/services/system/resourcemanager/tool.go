@@ -80,7 +80,11 @@ func (m *Manager) applyTool(ctx context.Context, resource apitypes.Resource) (ap
 			return apitypes.ApplyResult{}, m.rollbackOwnedResourceOwner(ctx, ownerRollback, m.rollbackTool(ctx, existing, err))
 		}
 	}
-	if exists {
+	_, hasMetadataOwner, err := resourceOwnerHint(item.Metadata)
+	if err != nil {
+		return apitypes.ApplyResult{}, m.rollbackOwnedResourceOwner(ctx, ownerRollback, m.rollbackToolWrite(ctx, existing, exists, desired.ID, err))
+	}
+	if exists && hasMetadataOwner {
 		if err := m.removeLegacyToolOwnerBinding(ctx, existing); err != nil {
 			return apitypes.ApplyResult{}, m.rollbackOwnedResourceOwner(ctx, ownerRollback, m.rollbackToolWrite(ctx, existing, exists, desired.ID, err))
 		}
@@ -136,7 +140,11 @@ func (m *Manager) putToolResource(ctx context.Context, item apitypes.ToolResourc
 			return apitypes.Resource{}, m.rollbackOwnedResourceOwner(ctx, ownerRollback, m.rollbackTool(ctx, existing, err))
 		}
 	}
-	if exists {
+	_, hasMetadataOwner, err := resourceOwnerHint(item.Metadata)
+	if err != nil {
+		return apitypes.Resource{}, m.rollbackOwnedResourceOwner(ctx, ownerRollback, m.rollbackToolWrite(ctx, existing, exists, stored.ID, err))
+	}
+	if exists && hasMetadataOwner {
 		if err := m.removeLegacyToolOwnerBinding(ctx, existing); err != nil {
 			return apitypes.Resource{}, m.rollbackOwnedResourceOwner(ctx, ownerRollback, m.rollbackToolWrite(ctx, existing, exists, stored.ID, err))
 		}
