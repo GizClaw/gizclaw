@@ -9,6 +9,8 @@ const OPTIONAL_REPEATED_FIELDS = new Set([
   "DoubaoRealtimeJSONSchema.anyOf",
   "DoubaoRealtimeJSONSchema.enum",
   "DoubaoRealtimeJSONSchema.required",
+  "RefreshIdentifiers.imeis",
+  "RefreshIdentifiers.labels",
 ]);
 
 const methods = parseRPCMethods(readFileSync(peerProtoURL, "utf8"));

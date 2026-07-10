@@ -807,7 +807,7 @@ export type PeerRunRecallHit = {
   "source_type"?: string;
 };
 export type PeerRunRecallRequest = {
-  "filters": Record<string, unknown>;
+  "filters"?: Record<string, unknown>;
   "limit"?: number;
   "query": string;
 };
@@ -956,8 +956,8 @@ export type PointsTransactionListResponse = {
   "next_cursor"?: string;
 };
 export type RefreshIdentifiers = {
-  "imeis": PeerIMEI[];
-  "labels": PeerLabel[];
+  "imeis"?: PeerIMEI[];
+  "labels"?: PeerLabel[];
   "sn"?: string;
 };
 export type RefreshInfo = {
@@ -5016,6 +5016,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "filters",
         "number": 1,
+        "optional": true,
         "type": "google.protobuf.Struct"
       },
       {
@@ -5682,12 +5683,14 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "imeis",
         "number": 1,
+        "optionalRepeated": true,
         "repeated": true,
         "type": "PeerIMEI"
       },
       {
         "name": "labels",
         "number": 2,
+        "optionalRepeated": true,
         "repeated": true,
         "type": "PeerLabel"
       },

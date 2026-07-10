@@ -11934,7 +11934,7 @@ func (x *PeerRunRecallHit) GetSourceType() string {
 
 type PeerRunRecallRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Filters       *structpb.Struct       `protobuf:"bytes,1,opt,name=filters,proto3" json:"filters,omitempty"`
+	Filters       *structpb.Struct       `protobuf:"bytes,1,opt,name=filters,proto3,oneof" json:"filters,omitempty"`
 	Limit         *int64                 `protobuf:"varint,2,opt,name=limit,proto3,oneof" json:"limit,omitempty"`
 	Query         string                 `protobuf:"bytes,3,opt,name=query,proto3" json:"query,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -20537,11 +20537,13 @@ const file_payload_proto_rawDesc = "" +
 	"\v_created_atB\f\n" +
 	"\n" +
 	"_source_idB\x0e\n" +
-	"\f_source_type\"\x84\x01\n" +
-	"\x14PeerRunRecallRequest\x121\n" +
-	"\afilters\x18\x01 \x01(\v2\x17.google.protobuf.StructR\afilters\x12\x19\n" +
-	"\x05limit\x18\x02 \x01(\x03H\x00R\x05limit\x88\x01\x01\x12\x14\n" +
-	"\x05query\x18\x03 \x01(\tR\x05queryB\b\n" +
+	"\f_source_type\"\x95\x01\n" +
+	"\x14PeerRunRecallRequest\x126\n" +
+	"\afilters\x18\x01 \x01(\v2\x17.google.protobuf.StructH\x00R\afilters\x88\x01\x01\x12\x19\n" +
+	"\x05limit\x18\x02 \x01(\x03H\x01R\x05limit\x88\x01\x01\x12\x14\n" +
+	"\x05query\x18\x03 \x01(\tR\x05queryB\n" +
+	"\n" +
+	"\b_filtersB\b\n" +
 	"\x06_limit\"\x96\x01\n" +
 	"\x15PeerRunRecallResponse\x12\x1c\n" +
 	"\tavailable\x18\x01 \x01(\bR\tavailable\x124\n" +

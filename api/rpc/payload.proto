@@ -1234,7 +1234,7 @@ message PeerRunRecallHit {
 }
 
 message PeerRunRecallRequest {
-  google.protobuf.Struct filters = 1;
+  optional google.protobuf.Struct filters = 1;
   optional int64 limit = 2;
   string query = 3;
 }
