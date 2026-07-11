@@ -82,11 +82,6 @@ func (s *edgeRPCServer) handleResolve(ctx context.Context, req *rpcapi.RPCReques
 	if err != nil {
 		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeInvalidParams, Message: err.Error()}.RPCResponse()
 	}
-	if params.CallerPublicKey != nil && *params.CallerPublicKey != "" {
-		if _, err := peerroute.ParsePublicKey(*params.CallerPublicKey); err != nil {
-			return edgeRPCError(req.Id, err)
-		}
-	}
 	publicKey, err := peerroute.ParsePublicKey(params.TargetPeerPublicKey)
 	if err != nil {
 		return edgeRPCError(req.Id, err)

@@ -10,7 +10,7 @@ func ToRPC(assignment apitypes.PeerAssignment) rpcapi.EdgePeerAssignment {
 		PeerPublicKey:   assignment.PeerPublicKey,
 		ServerPublicKey: assignment.ServerPublicKey,
 		ServerEndpoint:  assignment.ServerEndpoint,
-		Role:            string(assignment.Role),
+		Role:            rpcapi.PeerRole(assignment.Role),
 		Version:         assignment.Version,
 		UpdatedAt:       assignment.UpdatedAt,
 	}

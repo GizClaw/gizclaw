@@ -365,8 +365,30 @@ func (c *Client) GetWorkspaceHistoryAudio(ctx context.Context, id string, reques
 	return c.rpcClient().GetWorkspaceHistoryAudio(ctx, stream, id, request, out)
 }
 
+func (c *Client) EdgePeerLookup(ctx context.Context, id string, request rpcapi.EdgePeerLookupRequest) (*rpcapi.EdgePeerLookupResponse, error) {
+	return callClientServiceRPC(c, ServiceEdgeRPC, func(client *rpcClient, conn net.Conn) (*rpcapi.EdgePeerLookupResponse, error) {
+		return client.EdgePeerLookup(ctx, conn, id, request)
+	})
+}
+
+func (c *Client) EdgePeerAssign(ctx context.Context, id string, request rpcapi.EdgePeerAssignRequest) (*rpcapi.EdgePeerAssignResponse, error) {
+	return callClientServiceRPC(c, ServiceEdgeRPC, func(client *rpcClient, conn net.Conn) (*rpcapi.EdgePeerAssignResponse, error) {
+		return client.EdgePeerAssign(ctx, conn, id, request)
+	})
+}
+
+func (c *Client) EdgeRouteResolve(ctx context.Context, id string, request rpcapi.EdgeRouteResolveRequest) (*rpcapi.EdgeRouteResolveResponse, error) {
+	return callClientServiceRPC(c, ServiceEdgeRPC, func(client *rpcClient, conn net.Conn) (*rpcapi.EdgeRouteResolveResponse, error) {
+		return client.EdgeRouteResolve(ctx, conn, id, request)
+	})
+}
+
 func callClientRPC[T any](c *Client, call func(*rpcClient, net.Conn) (*T, error)) (*T, error) {
-	stream, err := c.rpcConn()
+	return callClientServiceRPC(c, ServicePeerRPC, call)
+}
+
+func callClientServiceRPC[T any](c *Client, service uint64, call func(*rpcClient, net.Conn) (*T, error)) (*T, error) {
+	stream, err := c.rpcConnForService(service)
 	if err != nil {
 		return nil, err
 	}
@@ -375,11 +397,15 @@ func callClientRPC[T any](c *Client, call func(*rpcClient, net.Conn) (*T, error)
 }
 
 func (c *Client) rpcConn() (net.Conn, error) {
+	return c.rpcConnForService(ServicePeerRPC)
+}
+
+func (c *Client) rpcConnForService(service uint64) (net.Conn, error) {
 	conn := c.PeerConn()
 	if conn == nil {
 		return nil, fmt.Errorf("gizclaw: client is not connected")
 	}
-	stream, err := conn.Dial(ServicePeerRPC)
+	stream, err := conn.Dial(service)
 	if err != nil {
 		return nil, fmt.Errorf("gizclaw: dial rpc stream: %w", err)
 	}

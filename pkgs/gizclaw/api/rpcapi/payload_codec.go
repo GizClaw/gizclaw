@@ -1333,6 +1333,7 @@ var enumJSONValueOverrides = map[string]string{
 	"DASHSCOPE_TENANT":  "dashscope-tenant",
 	"DASH_SCOPE_TENANT": "dashscope-tenant",
 	"DOUBAO_REALTIME":   "doubao-realtime",
+	"EDGE_NODE":         "edge-node",
 	"GEMINI_TENANT":     "gemini-tenant",
 	"MINI_MAX":          "minimax",
 	"MINIMAX_TENANT":    "minimax-tenant",

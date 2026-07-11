@@ -801,6 +801,33 @@ func (e RPCVersion) Valid() bool {
 	}
 }
 
+// Defines values for PeerRole.
+const (
+	PeerRoleAdmin       PeerRole = "admin"
+	PeerRoleClient      PeerRole = "client"
+	PeerRoleEdgeNode    PeerRole = "edge-node"
+	PeerRoleServer      PeerRole = "server"
+	PeerRoleUnspecified PeerRole = "unspecified"
+)
+
+// Valid indicates whether the value is a known member of the PeerRole enum.
+func (e PeerRole) Valid() bool {
+	switch e {
+	case PeerRoleAdmin:
+		return true
+	case PeerRoleClient:
+		return true
+	case PeerRoleEdgeNode:
+		return true
+	case PeerRoleServer:
+		return true
+	case PeerRoleUnspecified:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for VoiceProviderKind.
 const (
 	VoiceProviderKindDashscopeTenant VoiceProviderKind = "dashscope-tenant"
@@ -2165,6 +2192,9 @@ type PeerLabel struct {
 	Value string `json:"value"`
 }
 
+// PeerRole defines model for PeerRole.
+type PeerRole string
+
 // PeerRunAgent defines model for PeerRunAgent.
 type PeerRunAgent struct {
 	Active  *AgentSelection `json:"active,omitempty"`
@@ -2739,7 +2769,7 @@ type ServerRunSayResponse struct {
 // EdgePeerAssignment defines model for EdgePeerAssignment.
 type EdgePeerAssignment struct {
 	PeerPublicKey   string    `json:"peer_public_key"`
-	Role            string    `json:"role"`
+	Role            PeerRole  `json:"role"`
 	ServerEndpoint  string    `json:"server_endpoint"`
 	ServerPublicKey string    `json:"server_public_key"`
 	UpdatedAt       time.Time `json:"updated_at"`
@@ -2769,9 +2799,7 @@ type EdgePeerAssignResponse struct {
 
 // EdgeRouteResolveRequest defines model for EdgeRouteResolveRequest.
 type EdgeRouteResolveRequest struct {
-	CallerPublicKey     *string `json:"caller_public_key,omitempty"`
-	ResourceKind        *string `json:"resource_kind,omitempty"`
-	TargetPeerPublicKey string  `json:"target_peer_public_key"`
+	TargetPeerPublicKey string `json:"target_peer_public_key"`
 }
 
 // EdgeRouteResolveResponse defines model for EdgeRouteResolveResponse.

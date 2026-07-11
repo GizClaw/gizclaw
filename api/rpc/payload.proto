@@ -105,6 +105,14 @@ enum FriendGroupMemberRole {
   FRIEND_GROUP_MEMBER_ROLE_MEMBER = 3;
 }
 
+enum PeerRole {
+  PEER_ROLE_UNSPECIFIED = 0;
+  PEER_ROLE_ADMIN = 1;
+  PEER_ROLE_SERVER = 2;
+  PEER_ROLE_EDGE_NODE = 3;
+  PEER_ROLE_CLIENT = 4;
+}
+
 enum ModelKind {
   MODEL_KIND_UNSPECIFIED = 0;
   MODEL_KIND_LLM = 1;
@@ -472,7 +480,7 @@ message EdgePeerAssignment {
   string peer_public_key = 1;
   string server_public_key = 2;
   string server_endpoint = 3;
-  string role = 4;
+  PeerRole role = 4;
   int64 version = 5;
   string updated_at = 6;
 }
@@ -496,8 +504,6 @@ message EdgePeerAssignResponse {
 
 message EdgeRouteResolveRequest {
   string target_peer_public_key = 1;
-  optional string caller_public_key = 2;
-  optional string resource_kind = 3;
 }
 
 message EdgeRouteResolveResponse {

@@ -11,6 +11,7 @@
 | Peer HTTP surface | Bootstrap, login, and WebRTC signaling HTTP routes on `ServicePeerHTTP`. |
 | Peer OpenAI-compatible HTTP surface | OpenAI-compatible HTTP routes on `ServicePeerOpenAI`. |
 | Admin HTTP surface | Admin-only HTTP routes on `ServiceAdminHTTP`. |
+| Edge RPC surface | Edge-node RPC routes on `ServiceEdgeRPC`. |
 | Agent event stream | Reliable framed event stream on `EventStreamAgent`. |
 | Telemetry event stream | Unreliable direct packet event stream on `EventStreamTelemetry`. |
 | Opus media stream | WebRTC Opus media channel identified by `MediaStreamOpus`. |
@@ -23,6 +24,7 @@ ServicePeerRPC        = 0x00
 ServicePeerHTTP       = 0x01
 ServicePeerOpenAI     = 0x02
 ServiceAdminHTTP      = 0x10
+ServiceEdgeRPC        = 0x31
 EventStreamAgent      = 0x20
 EventStreamTelemetry  = 0x40
 MediaStreamOpus       = "audio/opus"

@@ -49,6 +49,9 @@ func (s *Server) Resolve(ctx context.Context, target giznet.PublicKey) (apitypes
 	if target.IsZero() {
 		return apitypes.PeerAssignment{}, ErrInvalidPublicKey
 	}
+	if err := s.validateRoute(); err != nil {
+		return apitypes.PeerAssignment{}, err
+	}
 	if s.Peers == nil {
 		return apitypes.PeerAssignment{}, ErrPeerStoreNil
 	}
@@ -59,7 +62,26 @@ func (s *Server) Resolve(ctx context.Context, target giznet.PublicKey) (apitypes
 	if err := validateAssignablePeer(peer); err != nil {
 		return apitypes.PeerAssignment{}, err
 	}
-	return s.Lookup(ctx, target)
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	current, err := s.get(ctx, target)
+	if err != nil {
+		return apitypes.PeerAssignment{}, err
+	}
+	if s.assignmentCurrent(current, peer) {
+		return current, nil
+	}
+	current.ServerPublicKey = s.ServerPublicKey.String()
+	current.ServerEndpoint = strings.TrimSpace(s.ServerEndpoint)
+	current.Role = peer.Role
+	current.Version++
+	current.UpdatedAt = time.Now()
+	if err := s.put(ctx, current); err != nil {
+		return apitypes.PeerAssignment{}, err
+	}
+	return s.get(ctx, target)
 }
 
 func (s *Server) Assign(ctx context.Context, publicKey giznet.PublicKey, expectedVersion *int64) (apitypes.PeerAssignment, error) {

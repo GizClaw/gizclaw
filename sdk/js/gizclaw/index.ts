@@ -23,6 +23,7 @@ export const GIZCLAW_SERVICE_PEER_HTTP = 0x01;
 export const GIZCLAW_SERVICE_PEER_OPENAI = 0x02;
 export const GIZCLAW_SERVICE_ADMIN_HTTP = 0x10;
 export const GIZCLAW_EVENT_STREAM_AGENT = 0x20;
+export const GIZCLAW_SERVICE_EDGE_RPC = 0x31;
 export const GIZCLAW_MEDIA_STREAM_OPUS = "audio/opus";
 export const GIZCLAW_PACKET_STAMPED_OPUS = 0x10;
 export const RPC_FRAME_TYPE_EOS = 0;

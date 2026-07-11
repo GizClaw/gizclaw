@@ -9,5 +9,5 @@ func (clientSecurityPolicy) AllowPeer(giznet.PublicKey) bool {
 }
 
 func (clientSecurityPolicy) AllowService(_ giznet.PublicKey, service uint64) bool {
-	return service == ServicePeerHTTP || service == ServicePeerOpenAI || service == ServicePeerRPC || service == EventStreamAgent
+	return service == ServicePeerHTTP || service == ServicePeerOpenAI || service == ServicePeerRPC || service == ServiceEdgeRPC || service == EventStreamAgent
 }

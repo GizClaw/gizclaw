@@ -988,10 +988,21 @@ function parseField(line, oneof, messageName) {
 
 function emitPayloadTypes(parsed) {
   const out = [];
+  for (const name of Object.keys(parsed.enums).sort()) {
+    out.push(`export type ${name} = ${enumTypeExpression(parsed.enums[name])};`);
+  }
   for (const name of Object.keys(parsed.messages).sort()) {
     out.push(`export type ${name} = ${messageTypeExpression(name, parsed)};`);
   }
   return out.join("\n");
+}
+
+function enumTypeExpression(desc) {
+  const values = new Set([""]);
+  for (const name of Object.keys(desc.byName).sort()) {
+    values.add(name);
+  }
+  return `${[...values].sort().map((value) => JSON.stringify(value)).join(" | ")} | number`;
 }
 
 function messageTypeExpression(name, parsed) {
@@ -1077,7 +1088,7 @@ function tsType(type, parsed) {
       return "unknown";
     default:
       if (parsed.enums[type] != null) {
-        return "string | number";
+        return type;
       }
       return parsed.messages[type] != null ? type : "unknown";
   }
@@ -1105,6 +1116,7 @@ function enumJSONValue(name) {
     "DASH_SCOPE_TENANT": "dashscope-tenant",
     "DASHSCOPE_TENANT": "dashscope-tenant",
     "DOUBAO_REALTIME": "doubao-realtime",
+    "EDGE_NODE": "edge-node",
     "GEMINI_TENANT": "gemini-tenant",
     "MINI_MAX": "minimax",
     "MINIMAX_TENANT": "minimax-tenant",

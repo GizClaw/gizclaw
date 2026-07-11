@@ -108,6 +108,14 @@ typedef enum _gizclaw_rpc_v1_FriendGroupMemberRole {
     gizclaw_rpc_v1_FriendGroupMemberRole_FRIEND_GROUP_MEMBER_ROLE_MEMBER = 3
 } gizclaw_rpc_v1_FriendGroupMemberRole;
 
+typedef enum _gizclaw_rpc_v1_PeerRole {
+    gizclaw_rpc_v1_PeerRole_PEER_ROLE_UNSPECIFIED = 0,
+    gizclaw_rpc_v1_PeerRole_PEER_ROLE_ADMIN = 1,
+    gizclaw_rpc_v1_PeerRole_PEER_ROLE_SERVER = 2,
+    gizclaw_rpc_v1_PeerRole_PEER_ROLE_EDGE_NODE = 3,
+    gizclaw_rpc_v1_PeerRole_PEER_ROLE_CLIENT = 4
+} gizclaw_rpc_v1_PeerRole;
+
 typedef enum _gizclaw_rpc_v1_ModelKind {
     gizclaw_rpc_v1_ModelKind_MODEL_KIND_UNSPECIFIED = 0,
     gizclaw_rpc_v1_ModelKind_MODEL_KIND_LLM = 1,
@@ -453,7 +461,7 @@ typedef struct _gizclaw_rpc_v1_EdgePeerAssignment {
     pb_callback_t peer_public_key;
     pb_callback_t server_public_key;
     pb_callback_t server_endpoint;
-    pb_callback_t role;
+    gizclaw_rpc_v1_PeerRole role;
     int64_t version;
     pb_callback_t updated_at;
 } gizclaw_rpc_v1_EdgePeerAssignment;
@@ -480,8 +488,6 @@ typedef struct _gizclaw_rpc_v1_EdgePeerAssignResponse {
 
 typedef struct _gizclaw_rpc_v1_EdgeRouteResolveRequest {
     pb_callback_t target_peer_public_key;
-    pb_callback_t caller_public_key;
-    pb_callback_t resource_kind;
 } gizclaw_rpc_v1_EdgeRouteResolveRequest;
 
 typedef struct _gizclaw_rpc_v1_EdgeRouteResolveResponse {
@@ -2558,6 +2564,10 @@ extern "C" {
 #define _gizclaw_rpc_v1_FriendGroupMemberRole_MAX gizclaw_rpc_v1_FriendGroupMemberRole_FRIEND_GROUP_MEMBER_ROLE_MEMBER
 #define _gizclaw_rpc_v1_FriendGroupMemberRole_ARRAYSIZE ((gizclaw_rpc_v1_FriendGroupMemberRole)(gizclaw_rpc_v1_FriendGroupMemberRole_FRIEND_GROUP_MEMBER_ROLE_MEMBER+1))
 
+#define _gizclaw_rpc_v1_PeerRole_MIN gizclaw_rpc_v1_PeerRole_PEER_ROLE_UNSPECIFIED
+#define _gizclaw_rpc_v1_PeerRole_MAX gizclaw_rpc_v1_PeerRole_PEER_ROLE_CLIENT
+#define _gizclaw_rpc_v1_PeerRole_ARRAYSIZE ((gizclaw_rpc_v1_PeerRole)(gizclaw_rpc_v1_PeerRole_PEER_ROLE_CLIENT+1))
+
 #define _gizclaw_rpc_v1_ModelKind_MIN gizclaw_rpc_v1_ModelKind_MODEL_KIND_UNSPECIFIED
 #define _gizclaw_rpc_v1_ModelKind_MAX gizclaw_rpc_v1_ModelKind_MODEL_KIND_EMBEDDING
 #define _gizclaw_rpc_v1_ModelKind_ARRAYSIZE ((gizclaw_rpc_v1_ModelKind)(gizclaw_rpc_v1_ModelKind_MODEL_KIND_EMBEDDING+1))
@@ -2669,6 +2679,7 @@ extern "C" {
 
 
 
+#define gizclaw_rpc_v1_EdgePeerAssignment_role_ENUMTYPE gizclaw_rpc_v1_PeerRole
 
 
 
@@ -3045,12 +3056,12 @@ extern "C" {
 #define gizclaw_rpc_v1_DashScopeTenantModelProviderData_init_default {false, _gizclaw_rpc_v1_DashScopeTenantModelProviderDataApiMode_MIN, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_DashScopeTenantVoiceProviderData_init_default {false, google_protobuf_Struct_init_default, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_DeviceInfo_init_default   {false, gizclaw_rpc_v1_HardwareInfo_init_default, {{NULL}, NULL}, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_EdgePeerAssignment_init_default {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, 0, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_EdgePeerAssignment_init_default {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, _gizclaw_rpc_v1_PeerRole_MIN, 0, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_EdgePeerLookupRequest_init_default {{{NULL}, NULL}}
 #define gizclaw_rpc_v1_EdgePeerLookupResponse_init_default {false, gizclaw_rpc_v1_EdgePeerAssignment_init_default}
 #define gizclaw_rpc_v1_EdgePeerAssignRequest_init_default {{{NULL}, NULL}, false, 0}
 #define gizclaw_rpc_v1_EdgePeerAssignResponse_init_default {false, gizclaw_rpc_v1_EdgePeerAssignment_init_default}
-#define gizclaw_rpc_v1_EdgeRouteResolveRequest_init_default {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_EdgeRouteResolveRequest_init_default {{{NULL}, NULL}}
 #define gizclaw_rpc_v1_EdgeRouteResolveResponse_init_default {false, gizclaw_rpc_v1_EdgePeerAssignment_init_default}
 #define gizclaw_rpc_v1_DoubaoRealtimeAIGCMetadata_init_default {{{NULL}, NULL}, {{NULL}, NULL}, false, 0, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_DoubaoRealtimeASRContext_init_default {{{NULL}, NULL}, {{NULL}, NULL}}
@@ -3389,12 +3400,12 @@ extern "C" {
 #define gizclaw_rpc_v1_DashScopeTenantModelProviderData_init_zero {false, _gizclaw_rpc_v1_DashScopeTenantModelProviderDataApiMode_MIN, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_DashScopeTenantVoiceProviderData_init_zero {false, google_protobuf_Struct_init_zero, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_DeviceInfo_init_zero      {false, gizclaw_rpc_v1_HardwareInfo_init_zero, {{NULL}, NULL}, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_EdgePeerAssignment_init_zero {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, 0, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_EdgePeerAssignment_init_zero {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, _gizclaw_rpc_v1_PeerRole_MIN, 0, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_EdgePeerLookupRequest_init_zero {{{NULL}, NULL}}
 #define gizclaw_rpc_v1_EdgePeerLookupResponse_init_zero {false, gizclaw_rpc_v1_EdgePeerAssignment_init_zero}
 #define gizclaw_rpc_v1_EdgePeerAssignRequest_init_zero {{{NULL}, NULL}, false, 0}
 #define gizclaw_rpc_v1_EdgePeerAssignResponse_init_zero {false, gizclaw_rpc_v1_EdgePeerAssignment_init_zero}
-#define gizclaw_rpc_v1_EdgeRouteResolveRequest_init_zero {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_EdgeRouteResolveRequest_init_zero {{{NULL}, NULL}}
 #define gizclaw_rpc_v1_EdgeRouteResolveResponse_init_zero {false, gizclaw_rpc_v1_EdgePeerAssignment_init_zero}
 #define gizclaw_rpc_v1_DoubaoRealtimeAIGCMetadata_init_zero {{{NULL}, NULL}, {{NULL}, NULL}, false, 0, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_DoubaoRealtimeASRContext_init_zero {{{NULL}, NULL}, {{NULL}, NULL}}
@@ -3795,8 +3806,6 @@ extern "C" {
 #define gizclaw_rpc_v1_EdgePeerAssignRequest_expected_version_tag 2
 #define gizclaw_rpc_v1_EdgePeerAssignResponse_assignment_tag 1
 #define gizclaw_rpc_v1_EdgeRouteResolveRequest_target_peer_public_key_tag 1
-#define gizclaw_rpc_v1_EdgeRouteResolveRequest_caller_public_key_tag 2
-#define gizclaw_rpc_v1_EdgeRouteResolveRequest_resource_kind_tag 3
 #define gizclaw_rpc_v1_EdgeRouteResolveResponse_assignment_tag 1
 #define gizclaw_rpc_v1_DoubaoRealtimeAIGCMetadata_content_producer_tag 1
 #define gizclaw_rpc_v1_DoubaoRealtimeAIGCMetadata_content_propagator_tag 2
@@ -4938,7 +4947,7 @@ X(a, CALLBACK, OPTIONAL, STRING,   sn,                3)
 X(a, CALLBACK, SINGULAR, STRING,   peer_public_key,   1) \
 X(a, CALLBACK, SINGULAR, STRING,   server_public_key,   2) \
 X(a, CALLBACK, SINGULAR, STRING,   server_endpoint,   3) \
-X(a, CALLBACK, SINGULAR, STRING,   role,              4) \
+X(a, STATIC,   SINGULAR, UENUM,    role,              4) \
 X(a, STATIC,   SINGULAR, INT64,    version,           5) \
 X(a, CALLBACK, SINGULAR, STRING,   updated_at,        6)
 #define gizclaw_rpc_v1_EdgePeerAssignment_CALLBACK pb_default_field_callback
@@ -4968,9 +4977,7 @@ X(a, STATIC,   OPTIONAL, MESSAGE,  assignment,        1)
 #define gizclaw_rpc_v1_EdgePeerAssignResponse_assignment_MSGTYPE gizclaw_rpc_v1_EdgePeerAssignment
 
 #define gizclaw_rpc_v1_EdgeRouteResolveRequest_FIELDLIST(X, a) \
-X(a, CALLBACK, SINGULAR, STRING,   target_peer_public_key,   1) \
-X(a, CALLBACK, OPTIONAL, STRING,   caller_public_key,   2) \
-X(a, CALLBACK, OPTIONAL, STRING,   resource_kind,     3)
+X(a, CALLBACK, SINGULAR, STRING,   target_peer_public_key,   1)
 #define gizclaw_rpc_v1_EdgeRouteResolveRequest_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_EdgeRouteResolveRequest_DEFAULT NULL
 

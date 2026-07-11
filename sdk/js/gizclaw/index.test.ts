@@ -7,6 +7,7 @@ import {
   GIZCLAW_SERVICE_ADMIN_HTTP,
   GIZCLAW_MAX_PACKET_MESSAGE_SIZE,
   GIZCLAW_EVENT_STREAM_TELEMETRY,
+  GIZCLAW_SERVICE_EDGE_RPC,
   GIZCLAW_SERVICE_PEER_RPC,
   GIZNET_WEBRTC_PACKET_DATA_CHANNEL_LABEL,
   GIZNET_WEBRTC_SIGNALING_PATH,
@@ -35,7 +36,7 @@ import {
 } from "./index.ts";
 import { createSseClient } from "./generated/adminhttp/core/serverSentEvents.gen.ts";
 import { decodeRPCRequestPayload, decodeRPCResponsePayload, encodeRPCRequestPayload, encodeRPCResponsePayload } from "./generated/rpc/payload-codec.ts";
-import { createPeerRPCClient } from "./rpc.ts";
+import { createEdgeRPCClient, createPeerRPCClient } from "./rpc.ts";
 import { base58Decode, base58Encode, base64Decode, prepareEncryptedGiznetWebRTCOffer } from "./signaling.ts";
 
 function concatBuffers(parts: Array<ArrayBuffer | Uint8Array>): ArrayBuffer {
@@ -560,6 +561,64 @@ test("createPeerRPCClient calls generated typed RPC methods", async () => {
     { method: "server.run.workspace.history.play", params: { history_id: "h1" } },
     { method: "server.firmware.files.download", params: { channel: "stable", firmware_id: "devkit", path: "firmware.bin" } },
     { method: "server.friend_group.messages.send", params: { friend_group_id: "group-a", text: "hello" } },
+  ]);
+});
+
+test("createEdgeRPCClient uses the edge RPC service channel", async () => {
+  const pc = new FakePeerConnection();
+  const rpc = createEdgeRPCClient(pc, { createID: () => "req-edge" });
+
+  const promise = rpc.call("edge.route.resolve", { target_peer_public_key: "peer-b" });
+  const channel = pc.lastChannel();
+  channel.open();
+
+  assert.equal(channel.label, giznetServiceDataChannelLabel(GIZCLAW_SERVICE_EDGE_RPC));
+  channel.receive(encodeRPCResponse({
+    id: "req-edge",
+    result: {
+      assignment: {
+        role: "edge-node",
+        server_endpoint: "https://edge.example",
+        server_public_key: "server-pk",
+        version: 1,
+      },
+    },
+    v: 1,
+  }, "edge.route.resolve"));
+
+  assert.deepEqual(await promise, {
+    assignment: {
+      peer_public_key: "",
+      role: "edge-node",
+      server_endpoint: "https://edge.example",
+      server_public_key: "server-pk",
+      updated_at: "",
+      version: 1,
+    },
+  });
+});
+
+test("createEdgeRPCClient calls generated edge RPC methods", async () => {
+  const calls: Array<{ method: string; params: unknown }> = [];
+  const client = {
+    call: async (method: string, params: unknown) => {
+      calls.push({ method, params });
+      return { assignment: { server_public_key: "server-pk" } };
+    },
+    callBinary: async () => {
+      throw new Error("unexpected binary call");
+    },
+  } as unknown as WebRTCRPCClient;
+  const rpc = createEdgeRPCClient(client);
+
+  await rpc.call("edge.peer.lookup", { peer_public_key: "peer-a" });
+  await rpc.call("edge.peer.assign", { peer_public_key: "peer-a" });
+  await rpc.call("edge.route.resolve", { target_peer_public_key: "peer-a" });
+
+  assert.deepEqual(calls, [
+    { method: "edge.peer.lookup", params: { peer_public_key: "peer-a" } },
+    { method: "edge.peer.assign", params: { peer_public_key: "peer-a" } },
+    { method: "edge.route.resolve", params: { target_peer_public_key: "peer-a" } },
   ]);
 });
 

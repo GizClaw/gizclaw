@@ -1,4 +1,4 @@
-import { GIZCLAW_SERVICE_PEER_RPC, WebRTCRPCClient } from "./index.ts";
+import { GIZCLAW_SERVICE_EDGE_RPC, GIZCLAW_SERVICE_PEER_RPC, WebRTCRPCClient } from "./index.ts";
 import type { RPCBinaryCallResult, RPCCallOptions, WebRTCRPCClientOptions, WebRTCRPCDataChannelFactory } from "./index.ts";
 import type { RPCMethodMap as GeneratedRPCMethodMap, RPCMethodName as GeneratedRPCMethodName } from "./generated/rpc/method-map.ts";
 import type * as RPCPayload from "./generated/rpc/payload-codec.ts";
@@ -52,9 +52,12 @@ export type RPCMethodMap = Override<GeneratedRPCMethodMap, {
     response: ServerRunWorkspaceRecallResponse;
   }>;
 }>;
+export type EdgeRPCMethodName = Extract<RPCMethodName, "edge.peer.lookup" | "edge.peer.assign" | "edge.route.resolve">;
 
 export type PeerRPCClientOptions = Omit<WebRTCRPCClientOptions, "service">;
 export type PeerRPCCaller = Pick<WebRTCRPCClient, "call" | "callBinary">;
+export type EdgeRPCClientOptions = Omit<WebRTCRPCClientOptions, "service">;
+export type EdgeRPCCaller = Pick<WebRTCRPCClient, "call" | "callBinary">;
 
 export class PeerRPCClient {
   private readonly client: PeerRPCCaller;
@@ -93,6 +96,47 @@ export function createPeerRPCClient(
   return new PeerRPCClient(pc, options);
 }
 
+export class EdgeRPCClient {
+  private readonly client: EdgeRPCCaller;
+
+  constructor(pc: WebRTCRPCDataChannelFactory | EdgeRPCCaller, options: EdgeRPCClientOptions = {}) {
+    this.client =
+      isEdgeRPCCaller(pc)
+        ? pc
+        : new WebRTCRPCClient(pc, {
+            ...options,
+            service: GIZCLAW_SERVICE_EDGE_RPC,
+          });
+  }
+
+  call<M extends EdgeRPCMethodName>(
+    method: M,
+    params: RPCMethodMap[M]["request"],
+    options?: RPCCallOptions,
+  ): Promise<RPCMethodMap[M]["response"]> {
+    return this.client.call<RPCMethodMap[M]["response"], RPCMethodMap[M]["request"]>(method, params, options);
+  }
+
+  callBinary<M extends EdgeRPCMethodName>(
+    method: M,
+    params: RPCMethodMap[M]["request"],
+    options?: RPCCallOptions,
+  ): Promise<RPCBinaryCallResult<RPCMethodMap[M]["response"]>> {
+    return this.client.callBinary<RPCMethodMap[M]["response"], RPCMethodMap[M]["request"]>(method, params, options);
+  }
+}
+
+export function createEdgeRPCClient(
+  pc: WebRTCRPCDataChannelFactory | EdgeRPCCaller,
+  options: EdgeRPCClientOptions = {},
+): EdgeRPCClient {
+  return new EdgeRPCClient(pc, options);
+}
+
 function isPeerRPCCaller(value: WebRTCRPCDataChannelFactory | PeerRPCCaller): value is PeerRPCCaller {
+  return "call" in value && typeof value.call === "function" && "callBinary" in value && typeof value.callBinary === "function";
+}
+
+function isEdgeRPCCaller(value: WebRTCRPCDataChannelFactory | EdgeRPCCaller): value is EdgeRPCCaller {
   return "call" in value && typeof value.call === "function" && "callBinary" in value && typeof value.callBinary === "function";
 }

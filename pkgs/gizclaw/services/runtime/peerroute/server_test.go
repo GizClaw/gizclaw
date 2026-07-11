@@ -204,6 +204,43 @@ func TestResolveRequiresActiveClientPeer(t *testing.T) {
 	}
 }
 
+func TestResolveRefreshesStaleAssignment(t *testing.T) {
+	ctx := context.Background()
+	peerKey := giznet.PublicKey{1}
+	service := &Server{
+		Store:           kv.NewMemory(nil),
+		ServerPublicKey: giznet.PublicKey{2},
+		ServerEndpoint:  "server-a:9820",
+		Peers: testPeers{items: map[giznet.PublicKey]apitypes.Peer{
+			peerKey: {
+				PublicKey:     peerKey.String(),
+				Role:          apitypes.PeerRoleClient,
+				Status:        apitypes.PeerRegistrationStatusActive,
+				Device:        apitypes.DeviceInfo{},
+				Configuration: apitypes.Configuration{},
+			},
+		}},
+	}
+	created, err := service.Assign(ctx, peerKey, nil)
+	if err != nil {
+		t.Fatalf("Assign create error = %v", err)
+	}
+	service.ServerPublicKey = giznet.PublicKey{3}
+	service.ServerEndpoint = "server-b:9820"
+	resolved, err := service.Resolve(ctx, peerKey)
+	if err != nil {
+		t.Fatalf("Resolve refresh error = %v", err)
+	}
+	if resolved.Version != created.Version+1 || resolved.ServerPublicKey != service.ServerPublicKey.String() || resolved.ServerEndpoint != "server-b:9820" {
+		t.Fatalf("resolved assignment = %+v, created = %+v", resolved, created)
+	}
+
+	service.ServerEndpoint = ""
+	if _, err := service.Resolve(ctx, peerKey); !errors.Is(err, ErrMissingRoute) {
+		t.Fatalf("Resolve missing route error = %v, want %v", err, ErrMissingRoute)
+	}
+}
+
 func TestLookupNotFoundAndInvalidKey(t *testing.T) {
 	service := &Server{Store: kv.NewMemory(nil)}
 	if _, err := service.Lookup(context.Background(), giznet.PublicKey{1}); !errors.Is(err, ErrAssignmentNotFound) {

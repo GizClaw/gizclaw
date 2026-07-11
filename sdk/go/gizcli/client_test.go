@@ -307,6 +307,9 @@ func TestClientSecurityPolicyAllowsExpectedPeerAndService(t *testing.T) {
 	if !(clientSecurityPolicy{}).AllowService(giznet.PublicKey{}, ServicePeerRPC) {
 		t.Fatal("AllowService(ServicePeerRPC) = false, want true")
 	}
+	if !(clientSecurityPolicy{}).AllowService(giznet.PublicKey{}, ServiceEdgeRPC) {
+		t.Fatal("AllowService(ServiceEdgeRPC) = false, want true")
+	}
 }
 
 func TestClientRPCHandle(t *testing.T) {

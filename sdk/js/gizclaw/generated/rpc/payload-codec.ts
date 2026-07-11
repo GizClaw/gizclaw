@@ -22,6 +22,37 @@ type EnumDesc = {
   byNumber: Record<number, string>;
 };
 
+export type ASTTranslateMode = "" | "s2s" | "s2t" | "unspecified" | number;
+export type ASTTranslateWorkspaceParametersAgentType = "" | "ast-translate" | "unspecified" | number;
+export type ChatRoomMode = "" | "direct" | "group" | "unspecified" | number;
+export type ChatRoomWorkspaceParametersAgentType = "" | "chatroom" | "unspecified" | number;
+export type DashScopeTenantModelProviderDataApiMode = "" | "chat_completions" | "realtime" | "unspecified" | number;
+export type DoubaoRealtimeAudioFormatType = "" | "ogg_opus" | "pcm" | "pcm_s16le" | "speech_opus" | "unspecified" | number;
+export type DoubaoRealtimeDialogExtraVolcWebsearchType = "" | "unspecified" | "web" | "web_agent" | "web_summary" | number;
+export type DoubaoRealtimeFunctionToolType = "" | "function" | "unspecified" | number;
+export type DoubaoRealtimeWorkspaceParametersAgentType = "" | "doubao-realtime" | "unspecified" | number;
+export type FirmwareArtifactEntryType = "" | "dir" | "file" | "unspecified" | number;
+export type FirmwareChannelName = "" | "beta" | "develop" | "pending" | "stable" | "unspecified" | number;
+export type FlowcraftConversationParametersAgentInitiativePolicy = "" | "on_reload" | "once_when_empty" | "unspecified" | number;
+export type FlowcraftConversationParametersInitiative = "" | "agent" | "peer" | "unspecified" | number;
+export type FlowcraftWorkspaceParametersAgentType = "" | "flowcraft" | "unspecified" | number;
+export type FriendGroupMemberMutableRole = "" | "admin" | "member" | "unspecified" | number;
+export type FriendGroupMemberRole = "" | "admin" | "member" | "owner" | "unspecified" | number;
+export type ModelKind = "" | "asr" | "embedding" | "llm" | "realtime" | "translation" | "tts" | "unspecified" | number;
+export type ModelProviderKind = "" | "dashscope-tenant" | "gemini-tenant" | "openai-tenant" | "unspecified" | "volc-tenant" | number;
+export type ModelSource = "" | "manual" | "sync" | "unspecified" | number;
+export type PeerRole = "" | "admin" | "client" | "edge-node" | "server" | "unspecified" | number;
+export type PeerRunHistoryEntryType = "" | "agent" | "gear" | "unspecified" | number;
+export type PeerRunHistoryListRequestOrder = "" | "asc" | "desc" | "unspecified" | number;
+export type PeerRunStatusState = "" | "error" | "running" | "starting" | "stopped" | "stopping" | "unspecified" | number;
+export type ToolExecutorKind = "" | "builtin" | "device_rpc" | "unspecified" | number;
+export type ToolSource = "" | "admin" | "builtin" | "device" | "unspecified" | number;
+export type VoiceProviderKind = "" | "dashscope-tenant" | "gemini-tenant" | "minimax-tenant" | "openai-tenant" | "unspecified" | "volc-tenant" | number;
+export type VoiceSource = "" | "manual" | "sync" | "unspecified" | number;
+export type VolcTenantModelProviderDataApiMode = "" | "asr" | "realtime" | "tts" | "unspecified" | number;
+export type WorkflowDriver = "" | "ast-translate" | "chatroom" | "doubao-realtime" | "flowcraft" | "unspecified" | number;
+export type WorkspaceHistoryListRequestOrder = "" | "asc" | "desc" | "unspecified" | number;
+export type WorkspaceInputMode = "" | "push-to-talk" | "realtime" | "unspecified" | number;
 export type ASTTranslateExternalVoiceParameters = {
   "tts_voice": string;
 };
@@ -36,7 +67,7 @@ export type ASTTranslateWorkflowSpec = {
   "denoise"?: boolean;
   "enable_source_language_detect"?: boolean;
   "is_custom_speaker"?: boolean;
-  "mode"?: string | number;
+  "mode"?: ASTTranslateMode;
   "resource_id"?: string;
   "speaker_id"?: string;
   "speech_rate"?: number;
@@ -49,10 +80,10 @@ export type ASTTranslateWorkspaceParameters = {
   "denoise"?: boolean;
   "e2e"?: boolean;
   "enable_source_language_detect"?: boolean;
-  "input"?: string | number;
+  "input"?: WorkspaceInputMode;
   "is_custom_speaker"?: boolean;
   "lang_pair"?: string;
-  "mode"?: string | number;
+  "mode"?: ASTTranslateMode;
   "speaker_id"?: string;
   "speech_rate"?: number;
   "translation_model"?: string;
@@ -103,8 +134,8 @@ export type ChatRoomWorkspaceHistoryParameters = {
 export type ChatRoomWorkspaceParameters = {
   "agent_type": string;
   "history"?: ChatRoomWorkspaceHistoryParameters;
-  "input"?: string | number;
-  "mode"?: string | number;
+  "input"?: WorkspaceInputMode;
+  "mode"?: ChatRoomMode;
   "transcript"?: ChatRoomWorkspaceTranscriptParameters;
 };
 export type ChatRoomWorkspaceTranscriptParameters = {
@@ -189,7 +220,7 @@ export type DashScopeCredentialBody = {
   "token"?: string;
 };
 export type DashScopeTenantModelProviderData = {
-  "api_mode"?: string | number;
+  "api_mode"?: DashScopeTenantModelProviderDataApiMode;
   "upstream_model"?: string;
 };
 export type DashScopeTenantVoiceProviderData = {
@@ -234,7 +265,7 @@ export type DoubaoRealtimeAudio = {
 };
 export type DoubaoRealtimeAudioFormat = {
   "rate": number;
-  "type": string | number;
+  "type": DoubaoRealtimeAudioFormatType;
 };
 export type DoubaoRealtimeAudioInput = {
   "format": DoubaoRealtimeAudioFormat;
@@ -259,7 +290,7 @@ export type DoubaoRealtimeDialogExtra = {
   "volc_websearch_bot_id"?: string;
   "volc_websearch_no_result_message"?: string;
   "volc_websearch_result_count"?: number;
-  "volc_websearch_type"?: string | number;
+  "volc_websearch_type"?: DoubaoRealtimeDialogExtraVolcWebsearchType;
 };
 export type DoubaoRealtimeExtension = {
   "asr"?: DoubaoRealtimeASRExtension;
@@ -271,7 +302,7 @@ export type DoubaoRealtimeFunctionTool = {
   "name": string;
   "parameters"?: DoubaoRealtimeJSONSchema;
   "strict"?: boolean;
-  "type": string | number;
+  "type": DoubaoRealtimeFunctionToolType;
 };
 export type DoubaoRealtimeJSONSchema = {
   "additionalProperties"?: boolean;
@@ -307,7 +338,7 @@ export type DoubaoRealtimeWorkspaceParameters = {
   "audio"?: DoubaoRealtimeAudio;
   "e2e"?: boolean;
   "extension"?: DoubaoRealtimeExtension;
-  "input"?: string | number;
+  "input"?: WorkspaceInputMode;
   "instructions"?: string;
   "model"?: string;
   "tools": DoubaoRealtimeFunctionTool[];
@@ -323,7 +354,7 @@ export type EdgePeerAssignment = {
   "peer_public_key": string;
   "server_public_key": string;
   "server_endpoint": string;
-  "role": string;
+  "role": PeerRole;
   "version": number;
   "updated_at": string;
 };
@@ -335,8 +366,6 @@ export type EdgePeerLookupResponse = {
 };
 export type EdgeRouteResolveRequest = {
   "target_peer_public_key": string;
-  "caller_public_key"?: string;
-  "resource_kind"?: string;
 };
 export type EdgeRouteResolveResponse = {
   "assignment": EdgePeerAssignment;
@@ -363,16 +392,16 @@ export type FirmwareArtifactEntry = {
   "mode": number;
   "path": string;
   "size": number;
-  "type": string | number;
+  "type": FirmwareArtifactEntryType;
 };
 export type FirmwareFilesDownloadRequest = {
-  "channel": string | number;
+  "channel": FirmwareChannelName;
   "firmware_id": string;
   "path": string;
 };
 export type FirmwareFilesDownloadResponse = {
   "artifact": FirmwareArtifact;
-  "channel": string | number;
+  "channel": FirmwareChannelName;
   "file": FirmwareArtifactEntry;
   "firmware_id": string;
   "path": string;
@@ -401,8 +430,8 @@ export type FirmwareSlots = {
   "stable": FirmwareSlot;
 };
 export type FlowcraftConversationParameters = {
-  "agent_initiative_policy"?: string | number;
-  "initiative"?: string | number;
+  "agent_initiative_policy"?: FlowcraftConversationParametersAgentInitiativePolicy;
+  "initiative"?: FlowcraftConversationParametersInitiative;
 };
 export type FlowcraftWorkflowSpec = {
   "fields": Record<string, unknown>;
@@ -414,7 +443,7 @@ export type FlowcraftWorkspaceParameters = {
   "embedding_model"?: string;
   "extract_model"?: string;
   "generate_model"?: string;
-  "input"?: string | number;
+  "input"?: WorkspaceInputMode;
 };
 export type FriendAddRequest = {
   "invite_token": string;
@@ -474,7 +503,7 @@ export type FriendGroupListResponse = {
 export type FriendGroupMemberAddRequest = {
   "friend_group_id": string;
   "peer_public_key": string;
-  "role": string | number;
+  "role": FriendGroupMemberMutableRole;
 };
 export type FriendGroupMemberAddResponse = FriendGroupMemberObject;
 export type FriendGroupMemberDeleteRequest = {
@@ -497,13 +526,13 @@ export type FriendGroupMemberObject = {
   "friend_group_id"?: string;
   "id"?: string;
   "peer_public_key"?: string;
-  "role"?: string | number;
+  "role"?: FriendGroupMemberRole;
   "updated_at"?: string;
 };
 export type FriendGroupMemberPutRequest = {
   "friend_group_id": string;
   "id": string;
-  "role": string | number;
+  "role": FriendGroupMemberMutableRole;
 };
 export type FriendGroupMemberPutResponse = FriendGroupMemberObject;
 export type FriendGroupMessageGetRequest = {
@@ -544,7 +573,7 @@ export type FriendGroupObject = {
   "created_by_peer_public_key"?: string;
   "description"?: string;
   "id"?: string;
-  "my_role"?: string | number;
+  "my_role"?: FriendGroupMemberRole;
   "name"?: string;
   "updated_at"?: string;
   "workspace_name"?: string;
@@ -694,11 +723,11 @@ export type Model = {
   "created_at": string;
   "description"?: string;
   "id": string;
-  "kind": string | number;
+  "kind": ModelKind;
   "name"?: string;
   "provider": ModelProvider;
   "provider_data"?: ModelProviderData;
-  "source": string | number;
+  "source": ModelSource;
   "synced_at"?: string;
   "updated_at": string;
 };
@@ -730,7 +759,7 @@ export type ModelListResponse = {
   "next_cursor"?: string;
 };
 export type ModelProvider = {
-  "kind": string | number;
+  "kind": ModelProviderKind;
   "name": string;
 };
 export type ModelProviderData = GeminiTenantModelProviderData | DashScopeTenantModelProviderData | OpenAITenantModelProviderData | VolcTenantModelProviderData;
@@ -789,12 +818,12 @@ export type PeerRunHistoryEntry = {
   "name": string;
   "replay_available": boolean;
   "text": string;
-  "type": string | number;
+  "type": PeerRunHistoryEntryType;
 };
 export type PeerRunHistoryListRequest = {
   "cursor"?: string;
   "limit"?: number;
-  "order"?: string | number;
+  "order"?: PeerRunHistoryListRequestOrder;
 };
 export type PeerRunHistoryListResponse = {
   "available": boolean;
@@ -848,7 +877,7 @@ export type PeerRunRecallResponse = {
 export type PeerRunStatus = {
   "message"?: string;
   "started_at"?: string;
-  "state": string | number;
+  "state": PeerRunStatusState;
   "updated_at"?: string;
   "workspace_name"?: string;
 };
@@ -860,7 +889,7 @@ export type PeerRunWorkspaceState = {
   "message"?: string;
   "pending_workspace_name"?: string;
   "recall_available"?: boolean;
-  "runtime_state": string | number;
+  "runtime_state": PeerRunStatusState;
   "selected_workspace_name"?: string;
   "started_at"?: string;
   "updated_at"?: string;
@@ -1113,7 +1142,7 @@ export type Tool = {
   "id": string;
   "name"?: string;
   "description"?: string;
-  "source": string | number;
+  "source": ToolSource;
   "enabled"?: boolean;
   "owner_peer"?: string;
   "version"?: string;
@@ -1132,7 +1161,7 @@ export type ToolDeleteRequest = {
 };
 export type ToolDeleteResponse = Tool;
 export type ToolExecutor = {
-  "kind": string | number;
+  "kind": ToolExecutorKind;
   "name"?: string;
   "method"?: string;
   "peer_id"?: string;
@@ -1188,7 +1217,7 @@ export type Voice = {
   "name"?: string;
   "provider": VoiceProvider;
   "provider_data"?: VoiceProviderData;
-  "source": string | number;
+  "source": VoiceSource;
   "synced_at"?: string;
   "updated_at": string;
 };
@@ -1206,7 +1235,7 @@ export type VoiceListResponse = {
   "next_cursor"?: string;
 };
 export type VoiceProvider = {
-  "kind": string | number;
+  "kind": VoiceProviderKind;
   "name": string;
 };
 export type VoiceProviderData = GeminiTenantVoiceProviderData | DashScopeTenantVoiceProviderData | OpenAITenantVoiceProviderData | MiniMaxTenantVoiceProviderData | VolcTenantVoiceProviderData;
@@ -1218,7 +1247,7 @@ export type VolcCredentialBody = {
   "search_api_key"?: string;
 };
 export type VolcTenantModelProviderData = {
-  "api_mode"?: string | number;
+  "api_mode"?: VolcTenantModelProviderDataApiMode;
   "default_thinking_level"?: string;
   "resource_id"?: string;
   "support_json_output"?: boolean;
@@ -1274,7 +1303,7 @@ export type WorkflowSpec = {
   "ast_translate"?: ASTTranslateWorkflowSpec;
   "chatroom"?: ChatRoomWorkflowSpec;
   "doubao_realtime"?: DoubaoRealtimeWorkflowSpec;
-  "driver": string | number;
+  "driver": WorkflowDriver;
   "flowcraft"?: FlowcraftWorkflowSpec;
   "toolkit"?: ToolkitPolicy;
 };
@@ -1315,7 +1344,7 @@ export type WorkspaceHistoryGetResponse = PeerRunHistoryEntry;
 export type WorkspaceHistoryListRequest = {
   "cursor"?: string;
   "limit"?: number;
-  "order"?: string | number;
+  "order"?: WorkspaceHistoryListRequestOrder;
   "workspace_name": string;
 };
 export type WorkspaceHistoryListResponse = PeerRunHistoryListResponse;
@@ -2931,7 +2960,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "role",
         "number": 4,
-        "type": "string"
+        "type": "PeerRole"
       },
       {
         "name": "version",
@@ -2992,18 +3021,6 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "target_peer_public_key",
         "number": 1,
-        "type": "string"
-      },
-      {
-        "name": "caller_public_key",
-        "number": 2,
-        "optional": true,
-        "type": "string"
-      },
-      {
-        "name": "resource_kind",
-        "number": 3,
-        "optional": true,
         "type": "string"
       }
     ]
@@ -8035,6 +8052,22 @@ const ENUM_DESCS: Record<string, EnumDesc> = {
       "0": "",
       "1": "sync",
       "2": "manual"
+    }
+  },
+  "PeerRole": {
+    "byName": {
+      "admin": 1,
+      "client": 4,
+      "edge-node": 3,
+      "server": 2,
+      "unspecified": 0
+    },
+    "byNumber": {
+      "0": "",
+      "1": "admin",
+      "2": "server",
+      "3": "edge-node",
+      "4": "client"
     }
   },
   "PeerRunHistoryEntryType": {
