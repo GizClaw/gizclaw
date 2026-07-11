@@ -926,7 +926,7 @@ func (m *Manager) Delete(ctx context.Context, kind apitypes.ResourceKind, name s
 			return apitypes.Resource{}, m.rollbackOwnedResourceOwner(ctx, ownerRollback, err)
 		}
 		if !exists {
-			return apitypes.Resource{}, notFound(kind, name)
+			return apitypes.Resource{}, m.rollbackOwnedResourceOwner(ctx, ownerRollback, notFound(kind, name))
 		}
 		return resourceFromCredential(item)
 	case apitypes.ResourceKindFirmware:
@@ -942,7 +942,7 @@ func (m *Manager) Delete(ctx context.Context, kind apitypes.ResourceKind, name s
 			return apitypes.Resource{}, m.rollbackOwnedResourceOwner(ctx, ownerRollback, err)
 		}
 		if !exists {
-			return apitypes.Resource{}, notFound(kind, name)
+			return apitypes.Resource{}, m.rollbackOwnedResourceOwner(ctx, ownerRollback, notFound(kind, name))
 		}
 		return resourceFromFirmware(item)
 	case apitypes.ResourceKindPeerConfig:
@@ -960,7 +960,7 @@ func (m *Manager) Delete(ctx context.Context, kind apitypes.ResourceKind, name s
 			return apitypes.Resource{}, m.rollbackOwnedResourceOwner(ctx, ownerRollback, err)
 		}
 		if !exists {
-			return apitypes.Resource{}, notFound(kind, name)
+			return apitypes.Resource{}, m.rollbackOwnedResourceOwner(ctx, ownerRollback, notFound(kind, name))
 		}
 		return resourceFromModel(item)
 	case apitypes.ResourceKindTool:
@@ -985,7 +985,7 @@ func (m *Manager) Delete(ctx context.Context, kind apitypes.ResourceKind, name s
 			return apitypes.Resource{}, m.rollbackOwnedResourceOwner(ctx, ownerRollback, err)
 		}
 		if !exists {
-			return apitypes.Resource{}, notFound(kind, name)
+			return apitypes.Resource{}, m.rollbackOwnedResourceOwner(ctx, ownerRollback, notFound(kind, name))
 		}
 		return resourceFromGameRuleset(item)
 	case apitypes.ResourceKindPetDef:
@@ -1088,7 +1088,7 @@ func (m *Manager) Delete(ctx context.Context, kind apitypes.ResourceKind, name s
 			return apitypes.Resource{}, m.rollbackOwnedResourceOwner(ctx, ownerRollback, err)
 		}
 		if !exists {
-			return apitypes.Resource{}, notFound(kind, name)
+			return apitypes.Resource{}, m.rollbackOwnedResourceOwner(ctx, ownerRollback, notFound(kind, name))
 		}
 		return resourceFromVoice(item)
 	case apitypes.ResourceKindWorkspace:
@@ -1104,7 +1104,7 @@ func (m *Manager) Delete(ctx context.Context, kind apitypes.ResourceKind, name s
 			return apitypes.Resource{}, m.rollbackOwnedResourceOwner(ctx, ownerRollback, err)
 		}
 		if !exists {
-			return apitypes.Resource{}, notFound(kind, name)
+			return apitypes.Resource{}, m.rollbackOwnedResourceOwner(ctx, ownerRollback, notFound(kind, name))
 		}
 		return resourceFromWorkspace(item)
 	case apitypes.ResourceKindWorkflow:
@@ -1120,7 +1120,7 @@ func (m *Manager) Delete(ctx context.Context, kind apitypes.ResourceKind, name s
 			return apitypes.Resource{}, m.rollbackOwnedResourceOwner(ctx, ownerRollback, err)
 		}
 		if !exists {
-			return apitypes.Resource{}, notFound(kind, name)
+			return apitypes.Resource{}, m.rollbackOwnedResourceOwner(ctx, ownerRollback, notFound(kind, name))
 		}
 		return resourceFromWorkflow(name, item)
 	case apitypes.ResourceKindResourceList:

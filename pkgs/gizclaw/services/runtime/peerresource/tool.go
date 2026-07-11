@@ -17,9 +17,16 @@ import (
 const toolOwnerRole = toolkit.ToolOwnerRole
 
 type ToolACLService interface {
-	PutRole(context.Context, string, apitypes.ACLPermissionList) (apitypes.ACLRole, error)
+	CreateRole(context.Context, string, apitypes.ACLPermissionList) (apitypes.ACLRole, error)
+	GetRole(context.Context, string) (apitypes.ACLRole, error)
 	PutPolicyBinding(context.Context, string, float64, apitypes.ACLPolicy) (apitypes.ACLPolicyBinding, error)
 	DeletePolicyBinding(context.Context, string) (apitypes.ACLPolicyBinding, error)
+}
+
+var toolOwnerPermissions = apitypes.ACLPermissionList{
+	apitypes.ACLPermissionRead,
+	apitypes.ACLPermissionUse,
+	apitypes.ACLPermissionAdmin,
 }
 
 func (s *Server) handleToolList(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
@@ -241,8 +248,7 @@ func (s *Server) grantToolOwner(ctx context.Context, toolID string) error {
 	if s.ToolACL == nil {
 		return errors.New("tool ACL service not configured")
 	}
-	permissions := apitypes.ACLPermissionList{apitypes.ACLPermissionRead, apitypes.ACLPermissionUse, apitypes.ACLPermissionAdmin}
-	if _, err := s.ToolACL.PutRole(ctx, toolOwnerRole, permissions); err != nil {
+	if err := s.ensureToolOwnerRole(ctx); err != nil {
 		return err
 	}
 	caller := s.Caller.String()
@@ -252,6 +258,49 @@ func (s *Server) grantToolOwner(ctx context.Context, toolID string) error {
 		Role:     toolOwnerRole,
 	})
 	return err
+}
+
+func (s *Server) ensureToolOwnerRole(ctx context.Context) error {
+	role, err := s.ToolACL.GetRole(ctx, toolOwnerRole)
+	if err == nil {
+		if permissionListsEqual(role.Permissions, toolOwnerPermissions) {
+			return nil
+		}
+		return fmt.Errorf("%s ACL role permissions are not current", toolOwnerRole)
+	}
+	if !errors.Is(err, acl.ErrRoleNotFound) {
+		return err
+	}
+	if _, err := s.ToolACL.CreateRole(ctx, toolOwnerRole, toolOwnerPermissions); err != nil {
+		if !errors.Is(err, acl.ErrRoleAlreadyExists) {
+			return err
+		}
+		role, err = s.ToolACL.GetRole(ctx, toolOwnerRole)
+		if err != nil {
+			return err
+		}
+		if !permissionListsEqual(role.Permissions, toolOwnerPermissions) {
+			return fmt.Errorf("%s ACL role permissions are not current", toolOwnerRole)
+		}
+	}
+	return nil
+}
+
+func permissionListsEqual(left, right apitypes.ACLPermissionList) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	seen := make(map[apitypes.ACLPermission]int, len(left))
+	for _, permission := range left {
+		seen[permission]++
+	}
+	for _, permission := range right {
+		if seen[permission] == 0 {
+			return false
+		}
+		seen[permission]--
+	}
+	return true
 }
 
 func toolOwnerBindingID(toolID, owner string) string {

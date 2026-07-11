@@ -126,7 +126,7 @@ func TestToolPeerPutRejectsExistingNonOwnedTool(t *testing.T) {
 	}
 }
 
-func TestToolPeerCreateUpsertsResourceOwnerRole(t *testing.T) {
+func TestToolPeerCreateCreatesResourceOwnerRoleWhenMissing(t *testing.T) {
 	caller := giznet.PublicKey{5}
 	callerID := caller.String()
 	id := "peer." + callerID + ".music.play"
@@ -137,8 +137,49 @@ func TestToolPeerCreateUpsertsResourceOwnerRole(t *testing.T) {
 
 	resp := callRPC(t, srv, "create", rpcapi.RPCMethodServerToolCreate, rpcParams(t, (*rpcapi.RPCPayload).FromToolCreateRequest, rpcTool(id, callerID)))
 	requireNoRPCError(t, resp)
-	if bindings.rolePuts != 1 || bindings.roleCreates != 0 || bindings.roleGets != 0 || bindings.policy.Role != toolOwnerRole {
+	if bindings.rolePuts != 0 || bindings.roleCreates != 1 || bindings.roleGets != 1 || bindings.policy.Role != toolOwnerRole {
 		t.Fatalf("owner role handling = puts %d creates %d gets %d policy %#v", bindings.rolePuts, bindings.roleCreates, bindings.roleGets, bindings.policy)
+	}
+}
+
+func TestToolPeerCreateReusesCurrentResourceOwnerRole(t *testing.T) {
+	caller := giznet.PublicKey{8}
+	callerID := caller.String()
+	id := "peer." + callerID + ".music.play"
+	auth := newRuleAuthorizer()
+	auth.allow(acl.ResourceKindTool, acl.CollectionResourceID, apitypes.ACLPermissionCreate)
+	bindings := &recordingToolACL{
+		existingRole: apitypes.ACLRole{Name: toolOwnerRole, Permissions: append(apitypes.ACLPermissionList(nil), toolOwnerPermissions...)},
+	}
+	srv := &Server{Caller: caller, ACL: auth, Tools: &toolkit.Server{Store: kv.NewMemory(nil)}, ToolACL: bindings}
+
+	resp := callRPC(t, srv, "create", rpcapi.RPCMethodServerToolCreate, rpcParams(t, (*rpcapi.RPCPayload).FromToolCreateRequest, rpcTool(id, callerID)))
+	requireNoRPCError(t, resp)
+	if bindings.rolePuts != 0 || bindings.roleCreates != 0 || bindings.roleGets != 1 || bindings.policy.Role != toolOwnerRole {
+		t.Fatalf("owner role handling = puts %d creates %d gets %d policy %#v", bindings.rolePuts, bindings.roleCreates, bindings.roleGets, bindings.policy)
+	}
+}
+
+func TestToolPeerCreateRejectsDriftedResourceOwnerRole(t *testing.T) {
+	caller := giznet.PublicKey{9}
+	callerID := caller.String()
+	id := "peer." + callerID + ".music.play"
+	auth := newRuleAuthorizer()
+	auth.allow(acl.ResourceKindTool, acl.CollectionResourceID, apitypes.ACLPermissionCreate)
+	bindings := &recordingToolACL{
+		existingRole: apitypes.ACLRole{Name: toolOwnerRole, Permissions: apitypes.ACLPermissionList{apitypes.ACLPermissionRead}},
+	}
+	srv := &Server{Caller: caller, ACL: auth, Tools: &toolkit.Server{Store: kv.NewMemory(nil)}, ToolACL: bindings}
+
+	resp := callRPC(t, srv, "create", rpcapi.RPCMethodServerToolCreate, rpcParams(t, (*rpcapi.RPCPayload).FromToolCreateRequest, rpcTool(id, callerID)))
+	if resp.Error == nil || resp.Error.Code != rpcapi.RPCErrorCodeInternalError {
+		t.Fatalf("create with drifted owner role response = %#v", resp)
+	}
+	if _, err := srv.Tools.GetTool(context.Background(), id); !errors.Is(err, toolkit.ErrToolNotFound) {
+		t.Fatalf("GetTool(rolled back) error = %v, want %v", err, toolkit.ErrToolNotFound)
+	}
+	if bindings.rolePuts != 0 || bindings.roleCreates != 0 || bindings.policy.Role != "" {
+		t.Fatalf("owner role handling = puts %d creates %d policy %#v", bindings.rolePuts, bindings.roleCreates, bindings.policy)
 	}
 }
 
@@ -149,7 +190,7 @@ func TestToolPeerCreateRollsBackWhenOwnerRoleFails(t *testing.T) {
 	auth := newRuleAuthorizer()
 	auth.allow(acl.ResourceKindTool, acl.CollectionResourceID, apitypes.ACLPermissionCreate)
 	bindings := &recordingToolACL{
-		putRoleErr: errors.New("owner role failed"),
+		roleErr: errors.New("owner role failed"),
 	}
 	srv := &Server{Caller: caller, ACL: auth, Tools: &toolkit.Server{Store: kv.NewMemory(nil)}, ToolACL: bindings}
 
@@ -253,6 +294,12 @@ func (a *recordingToolACL) CreateRole(_ context.Context, name string, permission
 
 func (a *recordingToolACL) GetRole(_ context.Context, _ string) (apitypes.ACLRole, error) {
 	a.roleGets++
+	if a.getRoleErr != nil {
+		return apitypes.ACLRole{}, a.getRoleErr
+	}
+	if a.existingRole.Name == "" {
+		return apitypes.ACLRole{}, acl.ErrRoleNotFound
+	}
 	return a.existingRole, a.getRoleErr
 }
 

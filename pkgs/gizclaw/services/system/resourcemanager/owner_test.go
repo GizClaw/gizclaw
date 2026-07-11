@@ -258,6 +258,28 @@ func TestPutOwnedResourceRestoresDriftedOwnerBindingWhenWriteFails(t *testing.T)
 	}
 }
 
+func TestPutOwnedResourceRestoresOwnerRoleWhenWriteFails(t *testing.T) {
+	ctx := context.Background()
+	manager := newACLResourceManager(t)
+	workspaces := newFakeWorkspaces()
+	workspaces.putStatus = 500
+	manager.services.Workspaces = workspaces
+	previousPermissions := apitypes.ACLPermissionList{apitypes.ACLPermissionRead}
+	if _, err := manager.services.ACL.CreateRole(ctx, resourceOwnerRole, previousPermissions); err != nil {
+		t.Fatalf("CreateRole(drifted owner role) error = %v", err)
+	}
+
+	_, err := manager.Put(ctx, workspaceResourceWithOwner(t, "demo", "owner-a"))
+	assertResourceError(t, err, 500, "INTERNAL_ERROR")
+	role, err := manager.services.ACL.GetRole(ctx, resourceOwnerRole)
+	if err != nil {
+		t.Fatalf("GetRole(%q) error = %v", resourceOwnerRole, err)
+	}
+	if !permissionsEqual(role.Permissions, previousPermissions) {
+		t.Fatalf("owner role permissions = %#v, want restored %#v", role.Permissions, previousPermissions)
+	}
+}
+
 func TestWithOwnerMetadataPreservesGameRulesetInt64Spec(t *testing.T) {
 	large := int64(1<<53 + 17)
 	resource := apitypes.GameRulesetResource{
@@ -343,6 +365,26 @@ func TestDeleteOwnedResourceRestoresOwnerWhenDeleteFails(t *testing.T) {
 
 	_, err := manager.Delete(ctx, apitypes.ResourceKindWorkspace, "demo")
 	assertResourceError(t, err, 500, "INTERNAL_ERROR")
+	assertWorkspaceOwnerBinding(t, manager, "demo", "owner-a")
+}
+
+func TestDeleteOwnedResourceRestoresOwnerWhenResourceMissing(t *testing.T) {
+	ctx := context.Background()
+	manager := newACLResourceManager(t)
+	manager.services.Workspaces = newFakeWorkspaces()
+	if _, err := manager.services.ACL.CreateRole(ctx, resourceOwnerRole, resourceOwnerPermissions); err != nil {
+		t.Fatalf("CreateRole(owner) error = %v", err)
+	}
+	if _, err := manager.services.ACL.CreatePolicyBinding(ctx, resourceOwnerPolicyBindingID(apitypes.ACLResourceKindWorkspace, "demo"), 0, apitypes.ACLPolicy{
+		Subject:  acl.PublicKeySubject("owner-a"),
+		Resource: acl.WorkspaceResource("demo"),
+		Role:     resourceOwnerRole,
+	}); err != nil {
+		t.Fatalf("CreatePolicyBinding(owner) error = %v", err)
+	}
+
+	_, err := manager.Delete(ctx, apitypes.ResourceKindWorkspace, "demo")
+	assertResourceError(t, err, 404, "RESOURCE_NOT_FOUND")
 	assertWorkspaceOwnerBinding(t, manager, "demo", "owner-a")
 }
 

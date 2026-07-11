@@ -101,6 +101,21 @@ func (m *Manager) ensureResourceOwnerRole(ctx context.Context) (bool, error) {
 	return true, nil
 }
 
+func (m *Manager) resourceOwnerRoleSnapshot(ctx context.Context) (*apitypes.ACLRole, error) {
+	role, err := m.services.ACL.GetRole(ctx, resourceOwnerRole)
+	if errors.Is(err, acl.ErrRoleNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &role, nil
+}
+
+func resourceOwnerRoleChanged(previous *apitypes.ACLRole) bool {
+	return previous == nil || !permissionListsEqual(previous.Permissions, resourceOwnerPermissions)
+}
+
 func (m *Manager) ownedResourceOwner(ctx context.Context, kind apitypes.ACLResourceKind, id string) (*string, error) {
 	binding, exists, err := m.ownedResourceOwnerBinding(ctx, kind, id)
 	if err != nil || !exists {
@@ -224,10 +239,13 @@ func permissionListsEqual(left, right apitypes.ACLPermissionList) bool {
 }
 
 type ownedResourceOwnerRollback struct {
-	kind     apitypes.ACLResourceKind
-	id       string
-	previous *apitypes.ACLPolicyBinding
-	changed  bool
+	kind           apitypes.ACLResourceKind
+	id             string
+	previous       *apitypes.ACLPolicyBinding
+	bindingChanged bool
+	previousRole   *apitypes.ACLRole
+	roleChanged    bool
+	changed        bool
 }
 
 func (m *Manager) ensureOwnedResourceOwnerBeforeWrite(ctx context.Context, kind apitypes.ACLResourceKind, id string, metadata apitypes.ResourceMetadata) (*ownedResourceOwnerRollback, error) {
@@ -242,11 +260,29 @@ func (m *Manager) ensureOwnedResourceOwnerBeforeWrite(ctx context.Context, kind 
 	if err != nil {
 		return nil, err
 	}
+	previousRole, err := m.resourceOwnerRoleSnapshot(ctx)
+	if err != nil {
+		return nil, err
+	}
+	desired := apitypes.ACLPolicy{
+		Subject:  acl.PublicKeySubject(owner),
+		Resource: apitypes.ACLResource{Kind: kind, Id: id},
+		Role:     resourceOwnerRole,
+	}
+	bindingChanged := !exists || !ownerPolicyEqual(previous.Policy, desired)
+	roleChanged := resourceOwnerRoleChanged(previousRole)
 	changed, err := m.putOwnedResourceOwner(ctx, kind, id, owner)
 	if err != nil {
 		return nil, err
 	}
-	rollback := &ownedResourceOwnerRollback{kind: kind, id: id, changed: changed}
+	rollback := &ownedResourceOwnerRollback{
+		kind:           kind,
+		id:             id,
+		bindingChanged: bindingChanged,
+		previousRole:   previousRole,
+		roleChanged:    roleChanged,
+		changed:        changed,
+	}
 	if exists {
 		rollback.previous = &previous
 	}
@@ -264,7 +300,7 @@ func (m *Manager) removeOwnedResourceOwnerBeforeDelete(ctx context.Context, kind
 	if err := m.removeOwnedResourceOwner(context.WithoutCancel(ctx), kind, id, extraBindingIDs...); err != nil {
 		return nil, err
 	}
-	rollback := &ownedResourceOwnerRollback{kind: kind, id: id, changed: exists}
+	rollback := &ownedResourceOwnerRollback{kind: kind, id: id, bindingChanged: exists, changed: exists}
 	if exists {
 		rollback.previous = &previous
 	}
@@ -276,13 +312,28 @@ func (m *Manager) rollbackOwnedResourceOwner(ctx context.Context, rollback *owne
 		return cause
 	}
 	var err error
-	if rollback.previous == nil {
-		err = m.removeOwnedResourceOwner(context.WithoutCancel(ctx), rollback.kind, rollback.id)
-	} else {
-		_, err = m.services.ACL.PutPolicyBinding(context.WithoutCancel(ctx), rollback.previous.Id, rollback.previous.DisplayOrder, rollback.previous.Policy)
+	if rollback.bindingChanged {
+		if rollback.previous == nil {
+			err = m.removeOwnedResourceOwner(context.WithoutCancel(ctx), rollback.kind, rollback.id)
+		} else {
+			_, err = m.services.ACL.PutPolicyBinding(context.WithoutCancel(ctx), rollback.previous.Id, rollback.previous.DisplayOrder, rollback.previous.Policy)
+		}
+		if err != nil {
+			return applyError(500, "RESOURCE_OWNER_ACL_ROLLBACK_FAILED", fmt.Sprintf("%v; rollback failed: %v", cause, err))
+		}
 	}
-	if err != nil {
-		return applyError(500, "RESOURCE_OWNER_ACL_ROLLBACK_FAILED", fmt.Sprintf("%v; rollback failed: %v", cause, err))
+	if rollback.roleChanged {
+		if rollback.previousRole == nil {
+			_, err = m.services.ACL.DeleteRole(context.WithoutCancel(ctx), resourceOwnerRole)
+			if errors.Is(err, acl.ErrRoleNotFound) {
+				err = nil
+			}
+		} else {
+			_, err = m.services.ACL.PutRole(context.WithoutCancel(ctx), rollback.previousRole.Name, rollback.previousRole.Permissions)
+		}
+		if err != nil {
+			return applyError(500, "RESOURCE_OWNER_ACL_ROLLBACK_FAILED", fmt.Sprintf("%v; role rollback failed: %v", cause, err))
+		}
 	}
 	return cause
 }
