@@ -78,7 +78,7 @@ The server host port maps to container `9820/tcp` and `9820/udp`. The edge host
 port maps to container `9821/tcp`, and TURN uses its own UDP listener plus relay
 range. Generated client contexts use `GIZCLAW_E2E_EDGE_ENDPOINT`; the direct
 `GIZCLAW_E2E_SERVER_ENDPOINT` remains published for server readiness checks,
-admin/debug workflows, and transition coverage.
+admin contexts, admin/debug workflows, and transition coverage.
 
 ## Runtime Env
 
@@ -106,9 +106,9 @@ source tests/gizclaw-e2e/testdata/docker/current.env
 Important values in `current.env`:
 
 - `GIZCLAW_E2E_EDGE_ENDPOINT`: client-facing edge endpoint used by generated
-  contexts.
+  peer/client contexts.
 - `GIZCLAW_E2E_SERVER_ENDPOINT`: direct server endpoint published for
-  readiness/debug coverage.
+  admin contexts and readiness/debug coverage.
 - `GIZCLAW_E2E_CONFIG_HOME`: generated CLI config home used by cmd tests.
 - `GIZCLAW_E2E_IDENTITIES_HOME`: generated identity directory used by Go/JS
   harnesses.

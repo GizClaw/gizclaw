@@ -45,3 +45,16 @@ func TestFetchE2EServerInfoIncludesICEServers(t *testing.T) {
 		t.Fatalf("ICE server credentials = %+v", info.ICEServers[0])
 	}
 }
+
+func TestHarnessSplitsClientAndAdminEndpoints(t *testing.T) {
+	h := &Harness{
+		ServerAddr: "127.0.0.1:19820",
+		EdgeAddr:   "127.0.0.1:19821",
+	}
+	if got := h.clientEndpoint(); got != h.EdgeAddr {
+		t.Fatalf("clientEndpoint = %q, want edge endpoint %q", got, h.EdgeAddr)
+	}
+	if got := h.adminEndpoint(); got != h.ServerAddr {
+		t.Fatalf("adminEndpoint = %q, want server endpoint %q", got, h.ServerAddr)
+	}
+}

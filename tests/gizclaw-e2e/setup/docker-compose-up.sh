@@ -160,6 +160,16 @@ rewrite_endpoint_configs() {
   done < <(find "$root" -type f -name config.yaml -print)
 }
 
+rewrite_endpoint_config_file() {
+  local file="$1"
+  local endpoint="$2"
+  if [[ ! -f "$file" ]]; then
+    return 0
+  fi
+  GIZCLAW_REWRITE_ENDPOINT="$endpoint" \
+    perl -0pi -e 's/^(\s*endpoint:\s*)[^\s]+/${1}$ENV{GIZCLAW_REWRITE_ENDPOINT}/mg' "$file"
+}
+
 write_runtime_env() {
   local state_dir="$1"
   local config_home="$2"
@@ -204,6 +214,8 @@ materialize_runtime_config() {
   cp -R "$e2e_dir/testdata/cmd-config-home" "$config_home"
   rewrite_endpoint_configs "$identities_home" "$GIZCLAW_E2E_EDGE_ENDPOINT"
   rewrite_endpoint_configs "$config_home" "$GIZCLAW_E2E_EDGE_ENDPOINT"
+  rewrite_endpoint_config_file "$identities_home/${GIZCLAW_E2E_ADMIN_IDENTITY:-admin}/config.yaml" "$GIZCLAW_E2E_SERVER_ENDPOINT"
+  rewrite_endpoint_config_file "$config_home/gizclaw/${GIZCLAW_E2E_ADMIN_CONTEXT:-admin}/config.yaml" "$GIZCLAW_E2E_SERVER_ENDPOINT"
   write_runtime_env "$state_dir" "$config_home" "$identities_home" ""
   echo "$state_dir/docker.env"
 }

@@ -57,6 +57,7 @@ type Harness struct {
 
 	BinaryPath      string
 	ServerAddr      string
+	EdgeAddr        string
 	ServerPublicKey string
 	ServerLogPath   string
 
@@ -185,12 +186,13 @@ func (h *Harness) UseSetupServer() {
 	if edgeAddr == "" {
 		edgeAddr = serverAddr
 	}
-	if edgeAddr == "" || serverPublicKey == "" {
-		h.t.Fatalf("setup server requires GIZCLAW_E2E_EDGE_ENDPOINT and GIZCLAW_E2E_SERVER_PUBLIC_KEY; start Docker e2e and source tests/gizclaw-e2e/testdata/docker/current.env")
+	if serverAddr == "" || edgeAddr == "" || serverPublicKey == "" {
+		h.t.Fatalf("setup server requires GIZCLAW_E2E_SERVER_ENDPOINT, GIZCLAW_E2E_EDGE_ENDPOINT, and GIZCLAW_E2E_SERVER_PUBLIC_KEY; start Docker e2e and source tests/gizclaw-e2e/testdata/docker/current.env")
 	}
 
 	h.ServerWorkspace = workspaceDir
-	h.ServerAddr = edgeAddr
+	h.ServerAddr = serverAddr
+	h.EdgeAddr = edgeAddr
 	h.ServerPublicKey = serverPublicKey
 	h.applySetupContextServer()
 	h.waitForSetupServerReady()
@@ -264,6 +266,21 @@ func (h *Harness) applySetupContextServer() {
 	}
 
 	h.ServerAddr = cliContextDialAddr(cfg)
+}
+
+func (h *Harness) clientEndpoint() string {
+	if h.EdgeAddr != "" {
+		return h.EdgeAddr
+	}
+	return h.ServerAddr
+}
+
+func (h *Harness) ClientEndpoint() string {
+	return h.clientEndpoint()
+}
+
+func (h *Harness) adminEndpoint() string {
+	return h.ServerAddr
 }
 
 func (h *Harness) StartServerFromFixture(fixtureName string) {
@@ -352,7 +369,7 @@ func (h *Harness) startServerProcess() {
 
 func (h *Harness) CreateContext(name string) Result {
 	h.t.Helper()
-	return h.CreateContextWith(name, h.ServerAddr)
+	return h.CreateContextWith(name, h.clientEndpoint())
 }
 
 func (h *Harness) CreateContextWith(name, serverAddr string) Result {
@@ -388,7 +405,7 @@ func (h *Harness) EnsureContext(name string) Result {
 	if _, err := keyPairFromConfigPrivateKey(cfg.Identity.PrivateKey); err != nil {
 		return Result{Args: []string{"ensure-context", name}, Err: err, Stderr: err.Error()}
 	}
-	cfg.Server.Endpoint = h.ServerAddr
+	cfg.Server.Endpoint = h.clientEndpoint()
 	h.t.Logf("ensure context %s endpoint=%s", name, cfg.Server.Endpoint)
 	data, err := yaml.Marshal(cfg)
 	if err != nil {
@@ -419,7 +436,7 @@ func (h *Harness) InstallFixedAdminContext(name string) Result {
 	if _, err := keyPairFromConfigPrivateKey(cfg.Identity.PrivateKey); err != nil {
 		return Result{Args: []string{"install-fixed-admin-context", name}, Err: err, Stderr: err.Error()}
 	}
-	cfg.Server.Endpoint = h.ServerAddr
+	cfg.Server.Endpoint = h.adminEndpoint()
 	h.t.Logf("install fixed admin context %s endpoint=%s", name, cfg.Server.Endpoint)
 	data, err := yaml.Marshal(cfg)
 	if err != nil {
@@ -544,7 +561,7 @@ func (h *Harness) ContextKeyPair(name string) *giznet.KeyPair {
 }
 
 func (h *Harness) PublicHTTPURL() string {
-	return "http://" + h.ServerAddr
+	return "http://" + h.clientEndpoint()
 }
 
 func (h *Harness) PublicHTTPLogin(name string) publiclogin.LoginResponse {
