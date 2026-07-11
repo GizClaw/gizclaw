@@ -709,6 +709,33 @@ func TestServerGameplayPixaDownloads(t *testing.T) {
 	auth := newRuleAuthorizer()
 	auth.allow(acl.ResourceKindGameRuleset, "default", apitypes.ACLPermissionRead)
 	srv := &Server{Caller: caller, ACL: auth, Gameplay: runtime}
+	presentationResp := callRPC(t, srv, "pet-presentation-get", rpcapi.RPCMethodServerPetPresentationGet, rpcParams(t, (*rpcapi.RPCPayload).FromServerPetPresentationGetRequest, rpcapi.ServerPetPresentationGetRequest{Id: adopted.Pet.Id}))
+	gotPresentation := mustResult(t, presentationResp.Result.AsServerPetPresentationGetResponse)
+	if gotPresentation.PetId != adopted.Pet.Id || gotPresentation.PetdefId != "petdef-a" || gotPresentation.DefaultLocale != "en" {
+		t.Fatalf("pet presentation identity = %#v", gotPresentation)
+	}
+	if gotPresentation.Attr.Life["hunger"].Initial != 100 || gotPresentation.Attr.Progression["xp"].Initial != 0 {
+		t.Fatalf("pet presentation attr = %#v", gotPresentation.Attr)
+	}
+	if len(gotPresentation.Drive.Actions) != 2 || gotPresentation.Drive.Actions[1].Id != "feed" || gotPresentation.Drive.Actions[1].VisualClipId == nil || *gotPresentation.Drive.Actions[1].VisualClipId != "feed" {
+		t.Fatalf("pet presentation actions = %#v", gotPresentation.Drive.Actions)
+	}
+	if gotPresentation.PixaMetadata.Canvas.Width != 16 || gotPresentation.PixaMetadata.Clips[0].PixaClipName != "default" {
+		t.Fatalf("pet presentation pixa metadata = %#v", gotPresentation.PixaMetadata)
+	}
+	petPixaResp := callRPC(t, srv, "pet-pixa-download", rpcapi.RPCMethodServerPetPixaDownload, rpcParams(t, (*rpcapi.RPCPayload).FromServerPetPixaDownloadRequest, rpcapi.PetPixaDownloadRequest{PetId: adopted.Pet.Id}))
+	gotPetPixa := mustResult(t, petPixaResp.Result.AsServerPetPixaDownloadResponse)
+	if gotPetPixa.PetId != adopted.Pet.Id || gotPetPixa.PetdefId != "petdef-a" || gotPetPixa.SizeBytes != int64(len(petPixa)) || valueOrZero(gotPetPixa.PixaPath) != "pet-defs/petdef-a/pixa" {
+		t.Fatalf("pet pixa metadata = %#v", gotPetPixa)
+	}
+	gotPetPixaMetadata, petPixaReader, rpcErr, err := srv.PreparePetPixaDownload(ctx, rpcapi.PetPixaDownloadRequest{PetId: adopted.Pet.Id})
+	if err != nil || rpcErr != nil {
+		t.Fatalf("PreparePetPixaDownload err = %v rpcErr = %+v", err, rpcErr)
+	}
+	defer petPixaReader.Close()
+	if data, err := io.ReadAll(petPixaReader); err != nil || !bytes.Equal(data, petPixa) || gotPetPixaMetadata.SizeBytes != int64(len(petPixa)) {
+		t.Fatalf("pet pixa data len=%d metadata=%#v err=%v", len(data), gotPetPixaMetadata, err)
+	}
 	petResp := callRPC(t, srv, "petdef-pixa-download", rpcapi.RPCMethodServerPetDefPixaDownload, rpcParams(t, (*rpcapi.RPCPayload).FromPetDefPixaDownloadRequest, rpcapi.PetDefPixaDownloadRequest{Id: "petdef-a"}))
 	gotPet := mustResult(t, petResp.Result.AsPetDefPixaDownloadResponse)
 	if gotPet.Id != "petdef-a" || gotPet.SizeBytes != int64(len(petPixa)) || valueOrZero(gotPet.PixaPath) != "pet-defs/petdef-a/pixa" {
@@ -732,6 +759,10 @@ func TestServerGameplayPixaDownloads(t *testing.T) {
 	}
 
 	other := &Server{Caller: giznet.PublicKey{8}, ACL: newRuleAuthorizer(), Gameplay: runtime}
+	presentationDenied := callRPC(t, other, "pet-presentation-denied", rpcapi.RPCMethodServerPetPresentationGet, rpcParams(t, (*rpcapi.RPCPayload).FromServerPetPresentationGetRequest, rpcapi.ServerPetPresentationGetRequest{Id: adopted.Pet.Id}))
+	requireRPCError(t, presentationDenied, rpcapi.RPCErrorCodeNotFound)
+	petPixaDenied := callRPC(t, other, "pet-pixa-denied", rpcapi.RPCMethodServerPetPixaDownload, rpcParams(t, (*rpcapi.RPCPayload).FromServerPetPixaDownloadRequest, rpcapi.PetPixaDownloadRequest{PetId: adopted.Pet.Id}))
+	requireRPCError(t, petPixaDenied, rpcapi.RPCErrorCodeNotFound)
 	denied := callRPC(t, other, "petdef-pixa-denied", rpcapi.RPCMethodServerPetDefPixaDownload, rpcParams(t, (*rpcapi.RPCPayload).FromPetDefPixaDownloadRequest, rpcapi.PetDefPixaDownloadRequest{Id: "petdef-a"}))
 	requireRPCError(t, denied, rpcapi.RPCErrorCodeForbidden)
 }

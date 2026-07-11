@@ -319,6 +319,12 @@ func (c *Client) GetPet(ctx context.Context, id string, request rpcapi.ServerPet
 	})
 }
 
+func (c *Client) GetPetPresentation(ctx context.Context, id string, request rpcapi.ServerPetPresentationGetRequest) (*rpcapi.ServerPetPresentationGetResponse, error) {
+	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.ServerPetPresentationGetResponse, error) {
+		return client.GetPetPresentation(ctx, conn, id, request)
+	})
+}
+
 func (c *Client) AdoptPet(ctx context.Context, id string, request rpcapi.ServerPetAdoptRequest) (*rpcapi.ServerPetAdoptResponse, error) {
 	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.ServerPetAdoptResponse, error) {
 		return client.AdoptPet(ctx, conn, id, request)

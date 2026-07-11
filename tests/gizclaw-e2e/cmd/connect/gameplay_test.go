@@ -3,7 +3,10 @@
 package connect_test
 
 import (
+	"bytes"
 	"context"
+	"encoding/binary"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -22,6 +25,7 @@ func TestConnectGameplayUserStory(t *testing.T) {
 	h.CreateContext("peer-a").MustSucceed(t)
 	h.RegisterContext("peer-a", "--sn", "connect-gameplay-peer-a-sn").MustSucceed(t)
 	applyGameplayCLIResources(t, h)
+	uploadGameplayCLIPixa(t, h)
 	applyGameplayCLIACL(t, h, "peer-a")
 
 	ruleset := mustRunCLIJSON[rpcapi.GameRuleset](t, h, "connect", "gameplay", "ruleset", "--name", "default-gameplay", "--context", "peer-a")
@@ -75,6 +79,34 @@ func TestConnectGameplayUserStory(t *testing.T) {
 	if petGet.Id != adopted.Pet.Id {
 		t.Fatalf("pet get = %#v", petGet)
 	}
+	presentation := mustRunCLIJSON[rpcapi.PetPresentation](t, h, "connect", "gameplay", "pet", "presentation", adopted.Pet.Id, "--context", "peer-a")
+	if presentation.PetId != adopted.Pet.Id || presentation.PetdefId != adopted.Pet.PetdefId || presentation.DefaultLocale != "en" {
+		t.Fatalf("pet presentation identity = %#v", presentation)
+	}
+	if presentation.Attr.Life["hunger"].Initial != 100 || presentation.Attr.Progression["xp"].Initial != 0 {
+		t.Fatalf("pet presentation attr = %#v", presentation.Attr)
+	}
+	if !hasCLIPresentationAction(presentation.Drive.Actions, "bath", 5, "bath") {
+		t.Fatalf("pet presentation actions = %#v", presentation.Drive.Actions)
+	}
+	if presentation.PixaMetadata.Canvas.Width != 60 || presentation.PixaMetadata.Canvas.Height != 60 || !hasCLIPresentationClip(presentation.PixaMetadata.Clips, "idle", "default") {
+		t.Fatalf("pet presentation pixa metadata = %#v", presentation.PixaMetadata)
+	}
+	if presentation.I18n["en"].DisplayName == nil || *presentation.I18n["en"].DisplayName != "Starter Pet" {
+		t.Fatalf("pet presentation i18n = %#v", presentation.I18n)
+	}
+	petPixaPath := filepath.Join(t.TempDir(), "pet.pixa")
+	pixaDownload := mustRunCLIJSON[struct {
+		Metadata rpcapi.PetPixaDownloadResponse `json:"metadata"`
+		Output   string                         `json:"output"`
+		Bytes    int64                          `json:"bytes"`
+	}](t, h, "connect", "gameplay", "pet", "pixa", adopted.Pet.Id, "--output", petPixaPath, "--context", "peer-a")
+	if pixaDownload.Metadata.PetId != adopted.Pet.Id || pixaDownload.Metadata.PetdefId != adopted.Pet.PetdefId || pixaDownload.Bytes <= 0 {
+		t.Fatalf("pet pixa download = %#v", pixaDownload)
+	}
+	if info, err := os.Stat(petPixaPath); err != nil || info.Size() != pixaDownload.Bytes {
+		t.Fatalf("pet pixa file stat size=%d err=%v download=%#v", fileSize(info), err, pixaDownload)
+	}
 	points := mustRunCLIJSON[rpcapi.PointsAccount](t, h, "connect", "gameplay", "points", "get", "--ruleset", "default-gameplay", "--context", "peer-a")
 	if points.Balance != drive.Points.Balance {
 		t.Fatalf("points = %#v drive=%#v", points, drive.Points)
@@ -112,6 +144,26 @@ func applyGameplayCLIResources(t *testing.T, h *clitest.Harness) {
 		filepath.Join(h.RepoRoot, "tests", "gizclaw-e2e", "testdata", "resources", "07-gameplay", "00-starter-gameplay.yaml"),
 	} {
 		h.RunCLI("admin", "apply", "--context", "admin-a", "-f", fixture).MustSucceed(t)
+	}
+}
+
+func uploadGameplayCLIPixa(t *testing.T, h *clitest.Harness) {
+	t.Helper()
+	admin := h.ConnectClientFromContext("admin-a")
+	defer admin.Close()
+	api, err := admin.ServerAdminClient()
+	if err != nil {
+		t.Fatalf("create admin API client: %v", err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	pixa := makeGameplayCLITestPixa(t, []string{"default", "bath"}, 60, 60)
+	resp, err := api.UploadPetDefPixaWithBodyWithResponse(ctx, "petdef-starter", "application/octet-stream", bytes.NewReader(pixa))
+	if err != nil {
+		t.Fatalf("upload gameplay pet pixa: %v", err)
+	}
+	if resp.JSON200 == nil || resp.JSON200.PixaPath == nil {
+		t.Fatalf("upload gameplay pet pixa status %d: %s", resp.StatusCode(), strings.TrimSpace(string(resp.Body)))
 	}
 }
 
@@ -166,6 +218,53 @@ func applyGameplayCLIACL(t *testing.T, h *clitest.Harness, contextName string) {
 	}
 }
 
+func makeGameplayCLITestPixa(t *testing.T, clips []string, width uint16, height uint16) []byte {
+	t.Helper()
+	if len(clips) == 0 {
+		t.Fatal("makeGameplayCLITestPixa requires at least one clip")
+	}
+	const (
+		headerSize       = 40
+		clipEntrySize    = 56
+		frameEntrySize   = 16
+		clipNameSize     = 32
+		paletteByteCount = 2
+	)
+	paletteOffset := headerSize
+	clipOffset := paletteOffset + paletteByteCount
+	frameOffset := clipOffset + len(clips)*clipEntrySize
+	payload := []byte{0x00, 0xf8, 0xe0, 0x07}
+	payloadOffset := frameOffset + frameEntrySize
+	data := make([]byte, payloadOffset+len(payload))
+	copy(data[:4], "PIXA")
+	binary.LittleEndian.PutUint16(data[4:6], 1)
+	binary.LittleEndian.PutUint16(data[6:8], headerSize)
+	binary.LittleEndian.PutUint16(data[8:10], width)
+	binary.LittleEndian.PutUint16(data[10:12], height)
+	binary.LittleEndian.PutUint16(data[12:14], 1)
+	binary.LittleEndian.PutUint16(data[14:16], uint16(len(clips)))
+	binary.LittleEndian.PutUint32(data[16:20], 1)
+	binary.LittleEndian.PutUint32(data[20:24], uint32(paletteOffset))
+	binary.LittleEndian.PutUint32(data[24:28], uint32(clipOffset))
+	binary.LittleEndian.PutUint32(data[28:32], uint32(frameOffset))
+	binary.LittleEndian.PutUint32(data[32:36], uint32(payloadOffset))
+	binary.LittleEndian.PutUint32(data[36:40], uint32(len(payload)))
+	for i, clip := range clips {
+		base := clipOffset + i*clipEntrySize
+		copy(data[base:base+clipNameSize], []byte(clip))
+		binary.LittleEndian.PutUint32(data[base+36:base+40], 0)
+		binary.LittleEndian.PutUint32(data[base+40:base+44], 1)
+		binary.LittleEndian.PutUint32(data[base+44:base+48], 120)
+		binary.LittleEndian.PutUint16(data[base+48:base+50], 1)
+	}
+	binary.LittleEndian.PutUint16(data[frameOffset:frameOffset+2], 120)
+	data[frameOffset+2] = 0
+	binary.LittleEndian.PutUint32(data[frameOffset+4:frameOffset+8], 0)
+	binary.LittleEndian.PutUint32(data[frameOffset+8:frameOffset+12], uint32(len(payload)))
+	copy(data[payloadOffset:], payload)
+	return data
+}
+
 func requireCLIPetID(t *testing.T, items []rpcapi.Pet, id string) {
 	t.Helper()
 	for _, item := range items {
@@ -174,6 +273,31 @@ func requireCLIPetID(t *testing.T, items []rpcapi.Pet, id string) {
 		}
 	}
 	t.Fatalf("pet %q not found in %#v", id, items)
+}
+
+func hasCLIPresentationAction(items []rpcapi.PetPresentationActionSpec, id string, cost int64, visualClipID string) bool {
+	for _, item := range items {
+		if item.Id == id && item.Cost == cost && item.VisualClipId != nil && *item.VisualClipId == visualClipID {
+			return true
+		}
+	}
+	return false
+}
+
+func hasCLIPresentationClip(items []rpcapi.PetPresentationPixaClipMetadata, id string, pixaClipName string) bool {
+	for _, item := range items {
+		if item.Id == id && item.PixaClipName == pixaClipName {
+			return true
+		}
+	}
+	return false
+}
+
+func fileSize(info os.FileInfo) int64 {
+	if info == nil {
+		return 0
+	}
+	return info.Size()
 }
 
 func requireCLIPointsTransactionID(t *testing.T, items []rpcapi.PointsTransaction, id string) {

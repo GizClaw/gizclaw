@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
@@ -56,6 +57,49 @@ func (s *Server) handlePetDefPixaDownload(ctx context.Context, req *rpcapi.RPCRe
 		return rpcapi.Error{RequestID: req.Id, Code: rpcErr.Code, Message: strings.TrimSpace(rpcErr.Message)}.RPCResponse()
 	}
 	return resultResponse(req.Id, result, (*rpcapi.RPCPayload).FromPetDefPixaDownloadResponse)
+}
+
+func (s *Server) handlePetPixaDownload(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
+	params, ok := decodeRequiredParams(req, rpcapi.RPCPayload.AsServerPetPixaDownloadRequest)
+	if !ok {
+		return invalidParams(req.Id)
+	}
+	result, reader, rpcErr, err := s.PreparePetPixaDownload(ctx, params)
+	if err != nil {
+		return internalError(req.Id, err.Error())
+	}
+	if reader != nil {
+		_ = reader.Close()
+	}
+	if rpcErr != nil {
+		return rpcapi.Error{RequestID: req.Id, Code: rpcErr.Code, Message: strings.TrimSpace(rpcErr.Message)}.RPCResponse()
+	}
+	return resultResponse(req.Id, result, (*rpcapi.RPCPayload).FromServerPetPixaDownloadResponse)
+}
+
+func (s *Server) PreparePetPixaDownload(ctx context.Context, params rpcapi.PetPixaDownloadRequest) (rpcapi.PetPixaDownloadResponse, io.ReadCloser, *rpcapi.RPCError, error) {
+	runtime := s.Gameplay
+	if runtime == nil || runtime.Catalog == nil {
+		return rpcapi.PetPixaDownloadResponse{}, nil, &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeInternalError, Message: "gameplay service not configured"}, nil
+	}
+	petID := strings.TrimSpace(params.PetId)
+	if petID == "" {
+		return rpcapi.PetPixaDownloadResponse{}, nil, &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeInvalidParams, Message: "pet id is required"}, nil
+	}
+	pet, err := runtime.GetPet(ctx, s.Caller.String(), petID)
+	if err != nil {
+		return rpcapi.PetPixaDownloadResponse{}, nil, gameplayRPCError(err), nil
+	}
+	item, err := runtime.Catalog.GetPetDefByID(ctx, pet.PetdefId)
+	if err != nil {
+		return rpcapi.PetPixaDownloadResponse{}, nil, gameplayRPCError(err), nil
+	}
+	path := valueOrZero(item.PixaPath)
+	reader, size, err := runtime.Catalog.OpenAsset(path)
+	if err != nil {
+		return rpcapi.PetPixaDownloadResponse{}, nil, &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeNotFound, Message: err.Error()}, nil
+	}
+	return rpcapi.PetPixaDownloadResponse{PetId: pet.Id, PetdefId: item.Id, PixaPath: item.PixaPath, SizeBytes: size}, reader, nil, nil
 }
 
 func (s *Server) PreparePetDefPixaDownload(ctx context.Context, params rpcapi.PetDefPixaDownloadRequest) (rpcapi.PetDefPixaDownloadResponse, io.ReadCloser, *rpcapi.RPCError, error) {
@@ -246,6 +290,29 @@ func (s *Server) handlePetGet(ctx context.Context, req *rpcapi.RPCRequest) *rpca
 	return resultResponse(req.Id, resp, (*rpcapi.RPCPayload).FromServerPetGetResponse)
 }
 
+func (s *Server) handlePetPresentationGet(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
+	runtime, failure := s.gameplayRuntime(req)
+	if failure != nil {
+		return failure
+	}
+	if runtime.Catalog == nil {
+		return internalError(req.Id, "gameplay catalog is not configured")
+	}
+	params, ok := decodeRequiredParams(req, rpcapi.RPCPayload.AsServerPetPresentationGetRequest)
+	if !ok {
+		return invalidParams(req.Id)
+	}
+	pet, err := runtime.GetPet(ctx, s.Caller.String(), params.Id)
+	if err != nil {
+		return businessError(req.Id, err)
+	}
+	petDef, err := runtime.Catalog.GetPetDefByID(ctx, pet.PetdefId)
+	if err != nil {
+		return businessError(req.Id, err)
+	}
+	return resultResponse(req.Id, petPresentation(pet, petDef), (*rpcapi.RPCPayload).FromServerPetPresentationGetResponse)
+}
+
 func (s *Server) handlePetAdopt(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
 	runtime, failure := s.gameplayRuntime(req)
 	if failure != nil {
@@ -272,6 +339,122 @@ func (s *Server) handlePetAdopt(ctx context.Context, req *rpcapi.RPCRequest) *rp
 		return businessError(req.Id, err)
 	}
 	return resultResponse(req.Id, resp, (*rpcapi.RPCPayload).FromServerPetAdoptResponse)
+}
+
+func petPresentation(pet apitypes.Pet, petDef apitypes.PetDef) rpcapi.PetPresentation {
+	spec := petDef.Spec
+	return rpcapi.PetPresentation{
+		PetId:           pet.Id,
+		PetdefId:        petDef.Id,
+		DefaultLocale:   spec.DefaultLocale,
+		Attr:            petPresentationAttr(spec.Attr),
+		Drive:           petPresentationDrive(spec.Drive),
+		PixaMetadata:    petPresentationPixaMetadata(spec.Visual.Pixa.Metadata),
+		I18n:            petPresentationI18n(spec.I18n),
+		PixaPath:        petDef.PixaPath,
+		PetdefUpdatedAt: petDef.UpdatedAt.Format(time.RFC3339Nano),
+	}
+}
+
+func petPresentationAttr(in apitypes.PetDefAttrSpec) rpcapi.PetPresentationAttrSpec {
+	return rpcapi.PetPresentationAttrSpec{
+		Life:        petPresentationAttrGroup(in.Life),
+		Progression: petPresentationAttrGroup(in.Progression),
+	}
+}
+
+func petPresentationAttrGroup(in apitypes.PetAttrGroupSpec) rpcapi.PetPresentationAttrGroupSpec {
+	out := make(rpcapi.PetPresentationAttrGroupSpec, len(in))
+	for key, value := range in {
+		out[key] = rpcapi.PetPresentationAttrValueSpec{Initial: value.Initial}
+	}
+	return out
+}
+
+func petPresentationDrive(in apitypes.PetDefDriveSpec) rpcapi.PetPresentationDriveSpec {
+	actions := make([]rpcapi.PetPresentationActionSpec, 0, len(in.Actions))
+	for _, action := range in.Actions {
+		item := rpcapi.PetPresentationActionSpec{
+			Id:           action.Id,
+			Cost:         action.Cost,
+			VisualClipId: action.VisualClipId,
+		}
+		if action.Effect != nil {
+			item.Effect = &rpcapi.PetPresentationActionEffectSpec{PetExpDelta: action.Effect.PetExpDelta}
+			if action.Effect.AttrDelta != nil {
+				item.Effect.AttrDelta = &rpcapi.PetPresentationAttrDelta{Life: petLifePtr(action.Effect.AttrDelta.Life)}
+			}
+		}
+		actions = append(actions, item)
+	}
+	return rpcapi.PetPresentationDriveSpec{Actions: actions}
+}
+
+func petLifePtr(in *apitypes.PetLife) *rpcapi.PetLife {
+	if in == nil {
+		return nil
+	}
+	out := make(rpcapi.PetLife, len(*in))
+	for key, value := range *in {
+		out[key] = value
+	}
+	return &out
+}
+
+func petPresentationPixaMetadata(in apitypes.PetDefPixaMetadata) rpcapi.PetPresentationPixaMetadata {
+	clips := make([]rpcapi.PetPresentationPixaClipMetadata, 0, len(in.Clips))
+	for _, clip := range in.Clips {
+		clips = append(clips, rpcapi.PetPresentationPixaClipMetadata{
+			Id:           clip.Id,
+			ActionId:     clip.ActionId,
+			PixaClipName: clip.PixaClipName,
+		})
+	}
+	return rpcapi.PetPresentationPixaMetadata{
+		Version: in.Version,
+		Canvas: rpcapi.PetPresentationPixaCanvasMetadata{
+			Width:  in.Canvas.Width,
+			Height: in.Canvas.Height,
+		},
+		Clips: clips,
+	}
+}
+
+func petPresentationI18n(in apitypes.PetDefI18nSpec) rpcapi.PetPresentationI18nSpec {
+	out := make(rpcapi.PetPresentationI18nSpec, len(in))
+	for locale, catalog := range in {
+		item := rpcapi.PetPresentationI18nCatalog{
+			DisplayName: catalog.DisplayName,
+			Description: catalog.Description,
+		}
+		if catalog.Attr != nil {
+			item.Attr = &rpcapi.PetPresentationI18nAttrSpec{
+				Life:        petPresentationI18nAttrGroup(catalog.Attr.Life),
+				Progression: petPresentationI18nAttrGroup(catalog.Attr.Progression),
+			}
+		}
+		if catalog.Drive != nil && catalog.Drive.Actions != nil {
+			item.Drive = &rpcapi.PetPresentationI18nDriveSpec{Actions: petPresentationI18nDisplayMap(*catalog.Drive.Actions)}
+		}
+		out[locale] = item
+	}
+	return out
+}
+
+func petPresentationI18nAttrGroup(in *apitypes.PetDefI18nAttrGroup) *rpcapi.PetPresentationI18nAttrGroup {
+	if in == nil {
+		return nil
+	}
+	out := rpcapi.PetPresentationI18nAttrGroup(petPresentationI18nDisplayMap(*in))
+	return &out
+}
+
+func petPresentationI18nDisplayMap(in map[string]apitypes.PetDefI18nDisplayText) map[string]rpcapi.PetPresentationI18nDisplayText {
+	out := make(map[string]rpcapi.PetPresentationI18nDisplayText, len(in))
+	for key, value := range in {
+		out[key] = rpcapi.PetPresentationI18nDisplayText{DisplayName: value.DisplayName}
+	}
+	return out
 }
 
 func (s *Server) handlePetPut(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {

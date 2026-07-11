@@ -224,6 +224,10 @@ func (c *rpcClient) GetPet(ctx context.Context, conn net.Conn, id string, reques
 	return callResourceRPC(ctx, conn, id, rpcapi.RPCMethodServerPetGet, request, (*rpcapi.RPCPayload).FromServerPetGetRequest, rpcapi.RPCPayload.AsServerPetGetResponse, "pet get")
 }
 
+func (c *rpcClient) GetPetPresentation(ctx context.Context, conn net.Conn, id string, request rpcapi.ServerPetPresentationGetRequest) (*rpcapi.ServerPetPresentationGetResponse, error) {
+	return callResourceRPC(ctx, conn, id, rpcapi.RPCMethodServerPetPresentationGet, request, (*rpcapi.RPCPayload).FromServerPetPresentationGetRequest, rpcapi.RPCPayload.AsServerPetPresentationGetResponse, "pet presentation get")
+}
+
 func (c *rpcClient) AdoptPet(ctx context.Context, conn net.Conn, id string, request rpcapi.ServerPetAdoptRequest) (*rpcapi.ServerPetAdoptResponse, error) {
 	return callResourceRPC(ctx, conn, id, rpcapi.RPCMethodServerPetAdopt, request, (*rpcapi.RPCPayload).FromServerPetAdoptRequest, rpcapi.RPCPayload.AsServerPetAdoptResponse, "pet adopt")
 }

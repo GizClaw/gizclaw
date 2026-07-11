@@ -14,9 +14,57 @@ type PetDefPixaDownloadResult struct {
 	Bytes    int64
 }
 
+type PetPixaDownloadResult struct {
+	Metadata rpcapi.PetPixaDownloadResponse
+	Bytes    int64
+}
+
 type BadgeDefPixaDownloadResult struct {
 	Metadata rpcapi.BadgeDefPixaDownloadResponse
 	Bytes    int64
+}
+
+func (c *rpcClient) DownloadPetPixa(ctx context.Context, conn net.Conn, id string, request rpcapi.PetPixaDownloadRequest, out io.Writer) (PetPixaDownloadResult, error) {
+	if out == nil {
+		return PetPixaDownloadResult{}, fmt.Errorf("pet pixa download output is required")
+	}
+	params, err := newRPCRequestParams(request, (*rpcapi.RPCPayload).FromServerPetPixaDownloadRequest)
+	if err != nil {
+		return PetPixaDownloadResult{}, err
+	}
+	stream, err := newRPCStream(ctx, conn)
+	if err != nil {
+		return PetPixaDownloadResult{}, err
+	}
+	defer stream.Close()
+	if err := stream.WriteRequest(newRPCRequest(id, rpcapi.RPCMethodServerPetPixaDownload, params)); err != nil {
+		return PetPixaDownloadResult{}, err
+	}
+	if err := stream.WriteEOS(); err != nil {
+		return PetPixaDownloadResult{}, err
+	}
+	resp, responseEOS, err := stream.ReadResponseEnvelopeForMethod(rpcapi.RPCMethodServerPetPixaDownload)
+	if err != nil {
+		return PetPixaDownloadResult{}, err
+	}
+	if resp.Error != nil {
+		if !responseEOS {
+			_ = stream.ReadEOS()
+		}
+		return PetPixaDownloadResult{}, fmt.Errorf("rpc: %w", rpcapi.Error{RequestID: resp.Id, Code: resp.Error.Code, Message: resp.Error.Message})
+	}
+	if resp.Result == nil {
+		return PetPixaDownloadResult{}, errRPCMissingResult
+	}
+	metadata, err := resp.Result.AsServerPetPixaDownloadResponse()
+	if err != nil {
+		return PetPixaDownloadResult{}, wrapRPCResultError("pet pixa download", err)
+	}
+	n, err := copyBinaryFrames(out, stream)
+	if err != nil {
+		return PetPixaDownloadResult{}, err
+	}
+	return PetPixaDownloadResult{Metadata: metadata, Bytes: n}, nil
 }
 
 func (c *rpcClient) DownloadPetDefPixa(ctx context.Context, conn net.Conn, id string, request rpcapi.PetDefPixaDownloadRequest, out io.Writer) (PetDefPixaDownloadResult, error) {

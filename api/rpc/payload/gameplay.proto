@@ -159,6 +159,107 @@ message PetDefPixaDownloadResponse {
   int64 size_bytes = 3;
 }
 
+message PetPixaDownloadRequest {
+  string pet_id = 1;
+}
+
+message PetPixaDownloadResponse {
+  string pet_id = 1;
+  string petdef_id = 2;
+  optional string pixa_path = 3;
+  int64 size_bytes = 4;
+}
+
+message PetPresentation {
+  string pet_id = 1;
+  string petdef_id = 2;
+  string default_locale = 3;
+  PetPresentationAttrSpec attr = 4;
+  PetPresentationDriveSpec drive = 5;
+  PetPresentationPixaMetadata pixa_metadata = 6;
+  PetPresentationI18nSpec i18n = 7;
+  optional string pixa_path = 8;
+  string petdef_updated_at = 9;
+}
+
+message PetPresentationActionEffectSpec {
+  optional PetPresentationAttrDelta attr_delta = 1;
+  optional int64 pet_exp_delta = 2;
+}
+
+message PetPresentationActionSpec {
+  string id = 1;
+  int64 cost = 2;
+  optional PetPresentationActionEffectSpec effect = 3;
+  optional string visual_clip_id = 4;
+}
+
+message PetPresentationAttrDelta {
+  optional PetLife life = 1;
+}
+
+message PetPresentationAttrGroupSpec {
+  map<string, PetPresentationAttrValueSpec> value = 1;
+}
+
+message PetPresentationAttrSpec {
+  PetPresentationAttrGroupSpec life = 1;
+  PetPresentationAttrGroupSpec progression = 2;
+}
+
+message PetPresentationAttrValueSpec {
+  int64 initial = 1;
+}
+
+message PetPresentationDriveSpec {
+  repeated PetPresentationActionSpec actions = 1;
+}
+
+message PetPresentationI18nAttrGroup {
+  map<string, PetPresentationI18nDisplayText> value = 1;
+}
+
+message PetPresentationI18nAttrSpec {
+  optional PetPresentationI18nAttrGroup life = 1;
+  optional PetPresentationI18nAttrGroup progression = 2;
+}
+
+message PetPresentationI18nCatalog {
+  optional string display_name = 1;
+  optional string description = 2;
+  optional PetPresentationI18nAttrSpec attr = 3;
+  optional PetPresentationI18nDriveSpec drive = 4;
+}
+
+message PetPresentationI18nDisplayText {
+  string display_name = 1;
+}
+
+message PetPresentationI18nDriveSpec {
+  map<string, PetPresentationI18nDisplayText> actions = 1;
+}
+
+message PetPresentationI18nSpec {
+  map<string, PetPresentationI18nCatalog> value = 1;
+}
+
+message PetPresentationPixaCanvasMetadata {
+  int64 width = 1;
+  int64 height = 2;
+}
+
+message PetPresentationPixaClipMetadata {
+  string id = 1;
+  optional string action_id = 2;
+  string pixa_clip_name = 3;
+}
+
+message PetPresentationPixaMetadata {
+  string version = 1;
+  PetPresentationPixaCanvasMetadata canvas = 2;
+  repeated PetPresentationPixaClipMetadata clips = 3;
+}
+
 message PetDeleteRequest {
   string id = 1;
 }
@@ -328,6 +429,22 @@ message ServerPetGetRequest {
 
 message ServerPetGetResponse {
   Pet value = 1;
+}
+
+message ServerPetPixaDownloadRequest {
+  PetPixaDownloadRequest value = 1;
+}
+
+message ServerPetPixaDownloadResponse {
+  PetPixaDownloadResponse value = 1;
+}
+
+message ServerPetPresentationGetRequest {
+  PetGetRequest value = 1;
+}
+
+message ServerPetPresentationGetResponse {
+  PetPresentation value = 1;
 }
 
 message ServerPetListRequest {

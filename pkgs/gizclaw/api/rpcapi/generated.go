@@ -533,6 +533,8 @@ const (
 	RPCMethodServerPetDrive                     RPCMethod = "server.pet.drive"
 	RPCMethodServerPetGet                       RPCMethod = "server.pet.get"
 	RPCMethodServerPetList                      RPCMethod = "server.pet.list"
+	RPCMethodServerPetPixaDownload              RPCMethod = "server.pet.pixa.download"
+	RPCMethodServerPetPresentationGet           RPCMethod = "server.pet.presentation.get"
 	RPCMethodServerPetPut                       RPCMethod = "server.pet.put"
 	RPCMethodServerPointsGet                    RPCMethod = "server.points.get"
 	RPCMethodServerPointsTransactionsGet        RPCMethod = "server.points.transactions.get"
@@ -694,6 +696,10 @@ func (e RPCMethod) Valid() bool {
 	case RPCMethodServerPetGet:
 		return true
 	case RPCMethodServerPetList:
+		return true
+	case RPCMethodServerPetPixaDownload:
+		return true
+	case RPCMethodServerPetPresentationGet:
 		return true
 	case RPCMethodServerPetPut:
 		return true

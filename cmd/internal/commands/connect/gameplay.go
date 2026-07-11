@@ -3,6 +3,7 @@ package connectcmd
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -47,7 +48,7 @@ func newGameplayRulesetCmd() *cobra.Command {
 
 func newPetCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "pet", Short: "Use peer pets"}
-	cmd.AddCommand(newPetListCmd(), newPetGetCmd(), newPetAdoptCmd(), newPetRenameCmd(), newPetDeleteCmd(), newPetDriveCmd())
+	cmd.AddCommand(newPetListCmd(), newPetGetCmd(), newPetPresentationCmd(), newPetPixaCmd(), newPetAdoptCmd(), newPetRenameCmd(), newPetDeleteCmd(), newPetDriveCmd())
 	return cmd
 }
 
@@ -83,6 +84,70 @@ func newPetGetCmd() *cobra.Command {
 		},
 	}
 	opts.addFlags(cmd)
+	return cmd
+}
+
+func newPetPresentationCmd() *cobra.Command {
+	var opts connectRPCOptions
+	cmd := &cobra.Command{
+		Use:   "presentation <pet-id>",
+		Short: "Get pet presentation metadata",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runConnectJSON(cmd, opts, func(ctx context.Context, c *gizcli.Client) (any, error) {
+				return c.GetPetPresentation(ctx, "server.pet.presentation.get", rpcapi.ServerPetPresentationGetRequest{Id: args[0]})
+			})
+		},
+	}
+	opts.addFlags(cmd)
+	return cmd
+}
+
+func newPetPixaCmd() *cobra.Command {
+	var opts connectRPCOptions
+	var output string
+	cmd := &cobra.Command{
+		Use:   "pixa <pet-id> --output <file>",
+		Short: "Download pet pixa",
+		Args: func(cmd *cobra.Command, args []string) error {
+			if err := cobra.ExactArgs(1)(cmd, args); err != nil {
+				return err
+			}
+			if strings.TrimSpace(output) == "" {
+				return fmt.Errorf("output is required")
+			}
+			if strings.TrimSpace(output) == "-" {
+				return fmt.Errorf("output must be a file path")
+			}
+			return nil
+		},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runConnectJSON(cmd, opts, func(ctx context.Context, c *gizcli.Client) (any, error) {
+				path := strings.TrimSpace(output)
+				out, err := os.Create(path)
+				if err != nil {
+					return nil, err
+				}
+				result, err := c.DownloadPetPixa(ctx, "server.pet.pixa.download", rpcapi.PetPixaDownloadRequest{PetId: args[0]}, out)
+				closeErr := out.Close()
+				if err != nil {
+					_ = os.Remove(path)
+					return nil, err
+				}
+				if closeErr != nil {
+					_ = os.Remove(path)
+					return nil, closeErr
+				}
+				return struct {
+					Metadata rpcapi.PetPixaDownloadResponse `json:"metadata"`
+					Output   string                         `json:"output"`
+					Bytes    int64                          `json:"bytes"`
+				}{Metadata: result.Metadata, Output: path, Bytes: result.Bytes}, nil
+			})
+		},
+	}
+	opts.addFlags(cmd)
+	cmd.Flags().StringVarP(&output, "output", "o", "", "output file")
 	return cmd
 }
 

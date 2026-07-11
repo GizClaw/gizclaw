@@ -347,6 +347,15 @@ func (c *Client) DownloadPetDefPixa(ctx context.Context, id string, request rpca
 	return c.rpcClient().DownloadPetDefPixa(ctx, stream, id, request, out)
 }
 
+func (c *Client) DownloadPetPixa(ctx context.Context, id string, request rpcapi.PetPixaDownloadRequest, out io.Writer) (PetPixaDownloadResult, error) {
+	stream, err := c.rpcConn()
+	if err != nil {
+		return PetPixaDownloadResult{}, err
+	}
+	defer func() { _ = stream.Close() }()
+	return c.rpcClient().DownloadPetPixa(ctx, stream, id, request, out)
+}
+
 func (c *Client) DownloadBadgeDefPixa(ctx context.Context, id string, request rpcapi.BadgeDefPixaDownloadRequest, out io.Writer) (BadgeDefPixaDownloadResult, error) {
 	stream, err := c.rpcConn()
 	if err != nil {

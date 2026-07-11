@@ -125,6 +125,8 @@ func IsMethod(method rpcapi.RPCMethod) bool {
 		rpcapi.RPCMethodServerBadgeDefPixaDownload,
 		rpcapi.RPCMethodServerPetList,
 		rpcapi.RPCMethodServerPetGet,
+		rpcapi.RPCMethodServerPetPresentationGet,
+		rpcapi.RPCMethodServerPetPixaDownload,
 		rpcapi.RPCMethodServerPetAdopt,
 		rpcapi.RPCMethodServerPetPut,
 		rpcapi.RPCMethodServerPetDelete,
@@ -274,6 +276,10 @@ func (s *Server) Dispatch(ctx context.Context, req *rpcapi.RPCRequest) (*rpcapi.
 		return s.handlePetList(ctx, req), true, nil
 	case rpcapi.RPCMethodServerPetGet:
 		return s.handlePetGet(ctx, req), true, nil
+	case rpcapi.RPCMethodServerPetPresentationGet:
+		return s.handlePetPresentationGet(ctx, req), true, nil
+	case rpcapi.RPCMethodServerPetPixaDownload:
+		return s.handlePetPixaDownload(ctx, req), true, nil
 	case rpcapi.RPCMethodServerPetAdopt:
 		return s.handlePetAdopt(ctx, req), true, nil
 	case rpcapi.RPCMethodServerPetPut:
