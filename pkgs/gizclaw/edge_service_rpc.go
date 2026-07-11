@@ -117,7 +117,7 @@ func edgeRPCResult[T any](id string, value T, encode func(*rpcapi.RPCPayload, T)
 func edgeRPCError(id string, err error) *rpcapi.RPCResponse {
 	code := rpcapi.RPCErrorCodeInternalError
 	switch {
-	case errors.Is(err, peerroute.ErrInvalidPublicKey):
+	case errors.Is(err, peerroute.ErrInvalidPublicKey), errors.Is(err, peerroute.ErrPeerNotAssignable):
 		code = rpcapi.RPCErrorCodeInvalidParams
 	case errors.Is(err, peerroute.ErrAssignmentNotFound), errors.Is(err, peerroute.ErrPeerInactive), errors.Is(err, peer.ErrPeerNotFound), errors.Is(err, kv.ErrNotFound):
 		code = rpcapi.RPCErrorCodeNotFound

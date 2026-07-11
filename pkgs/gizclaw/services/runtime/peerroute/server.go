@@ -22,6 +22,7 @@ var (
 	ErrMissingRoute       = errors.New("peerroute: server route not configured")
 	ErrVersionConflict    = errors.New("peerroute: assignment version conflict")
 	ErrPeerInactive       = errors.New("peerroute: peer is not active")
+	ErrPeerNotAssignable  = errors.New("peerroute: peer role is not assignable")
 )
 
 type PeerStore interface {
@@ -55,7 +56,7 @@ func (s *Server) Resolve(ctx context.Context, target giznet.PublicKey) (apitypes
 	if err != nil {
 		return apitypes.PeerAssignment{}, err
 	}
-	if err := validateActivePeer(peer); err != nil {
+	if err := validateAssignablePeer(peer); err != nil {
 		return apitypes.PeerAssignment{}, err
 	}
 	return s.Lookup(ctx, target)
@@ -75,7 +76,7 @@ func (s *Server) Assign(ctx context.Context, publicKey giznet.PublicKey, expecte
 	if err != nil {
 		return apitypes.PeerAssignment{}, err
 	}
-	if err := validateActivePeer(peer); err != nil {
+	if err := validateAssignablePeer(peer); err != nil {
 		return apitypes.PeerAssignment{}, err
 	}
 
@@ -120,9 +121,12 @@ func (s *Server) Assign(ctx context.Context, publicKey giznet.PublicKey, expecte
 	return s.get(ctx, publicKey)
 }
 
-func validateActivePeer(peer apitypes.Peer) error {
+func validateAssignablePeer(peer apitypes.Peer) error {
 	if peer.Status != apitypes.PeerRegistrationStatusActive {
 		return ErrPeerInactive
+	}
+	if peer.Role != apitypes.PeerRoleClient {
+		return ErrPeerNotAssignable
 	}
 	return nil
 }
@@ -164,7 +168,7 @@ func (s *Server) put(ctx context.Context, assignment apitypes.PeerAssignment) er
 	if err != nil {
 		return err
 	}
-	if assignment.ServerPublicKey == "" || assignment.ServerEndpoint == "" || assignment.Version <= 0 || assignment.UpdatedAt.IsZero() || !assignment.Role.Valid() {
+	if assignment.ServerPublicKey == "" || assignment.ServerEndpoint == "" || assignment.Version <= 0 || assignment.UpdatedAt.IsZero() || assignment.Role != apitypes.PeerRoleClient {
 		return fmt.Errorf("peerroute: invalid assignment")
 	}
 	data, err := json.Marshal(assignment)

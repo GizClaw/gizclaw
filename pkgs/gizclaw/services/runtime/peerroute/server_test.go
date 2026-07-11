@@ -145,9 +145,30 @@ func TestAssignConflictAndValidation(t *testing.T) {
 	if _, err := blockedPeer.Assign(ctx, peerKey, nil); !errors.Is(err, ErrPeerInactive) {
 		t.Fatalf("Assign blocked peer error = %v, want %v", err, ErrPeerInactive)
 	}
+	serverPeerKey := giznet.PublicKey{3}
+	serverPeer := &Server{
+		Store:           kv.NewMemory(nil),
+		ServerPublicKey: giznet.PublicKey{2},
+		ServerEndpoint:  "server:9820",
+	}
+	serverPeer.Peers = testPeers{items: map[giznet.PublicKey]apitypes.Peer{
+		serverPeerKey: {
+			PublicKey:     serverPeerKey.String(),
+			Role:          apitypes.PeerRoleServer,
+			Status:        apitypes.PeerRegistrationStatusActive,
+			Device:        apitypes.DeviceInfo{},
+			Configuration: apitypes.Configuration{},
+		},
+	}}
+	if _, err := serverPeer.Assign(ctx, serverPeerKey, nil); !errors.Is(err, ErrPeerNotAssignable) {
+		t.Fatalf("Assign server peer error = %v, want %v", err, ErrPeerNotAssignable)
+	}
+	if _, err := serverPeer.Lookup(ctx, serverPeerKey); !errors.Is(err, ErrAssignmentNotFound) {
+		t.Fatalf("Lookup server peer assignment error = %v, want %v", err, ErrAssignmentNotFound)
+	}
 }
 
-func TestResolveRequiresActivePeer(t *testing.T) {
+func TestResolveRequiresActiveClientPeer(t *testing.T) {
 	ctx := context.Background()
 	peerKey := giznet.PublicKey{1}
 	peerRecord := apitypes.Peer{
@@ -170,6 +191,12 @@ func TestResolveRequiresActivePeer(t *testing.T) {
 	service.Peers = testPeers{items: map[giznet.PublicKey]apitypes.Peer{peerKey: peerRecord}}
 	if _, err := service.Resolve(ctx, peerKey); !errors.Is(err, ErrPeerInactive) {
 		t.Fatalf("Resolve blocked peer error = %v, want %v", err, ErrPeerInactive)
+	}
+	peerRecord.Status = apitypes.PeerRegistrationStatusActive
+	peerRecord.Role = apitypes.PeerRoleAdmin
+	service.Peers = testPeers{items: map[giznet.PublicKey]apitypes.Peer{peerKey: peerRecord}}
+	if _, err := service.Resolve(ctx, peerKey); !errors.Is(err, ErrPeerNotAssignable) {
+		t.Fatalf("Resolve admin peer error = %v, want %v", err, ErrPeerNotAssignable)
 	}
 	service.Peers = testPeers{}
 	if _, err := service.Resolve(ctx, peerKey); !errors.Is(err, kv.ErrNotFound) {

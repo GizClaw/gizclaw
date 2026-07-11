@@ -94,6 +94,28 @@ func TestEdgeRPCMapsMissingPeerToNotFound(t *testing.T) {
 	}
 }
 
+func TestEdgeRPCRejectsNonClientAssignment(t *testing.T) {
+	peerKey := giznet.PublicKey{1}
+	server := &edgeRPCServer{routes: &peerroute.Server{
+		Store: kv.NewMemory(nil),
+		Peers: edgeTestPeers{items: map[giznet.PublicKey]apitypes.Peer{
+			peerKey: {
+				PublicKey:     peerKey.String(),
+				Role:          apitypes.PeerRoleServer,
+				Status:        apitypes.PeerRegistrationStatusActive,
+				Device:        apitypes.DeviceInfo{},
+				Configuration: apitypes.Configuration{},
+			},
+		}},
+		ServerPublicKey: giznet.PublicKey{2},
+		ServerEndpoint:  "server:9820",
+	}}
+	resp := edgeDispatch(t, server, "assign", rpcapi.RPCMethodEdgePeerAssign, edgeParams(t, (*rpcapi.RPCPayload).FromEdgePeerAssignRequest, rpcapi.EdgePeerAssignRequest{PeerPublicKey: peerKey.String()}))
+	if resp.Error == nil || resp.Error.Code != rpcapi.RPCErrorCodeInvalidParams {
+		t.Fatalf("server peer assign response = %+v", resp)
+	}
+}
+
 type edgeTestPeers struct {
 	items map[giznet.PublicKey]apitypes.Peer
 	err   error
