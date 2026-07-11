@@ -92,6 +92,13 @@ class ServiceHttpClient {
       try {
         final parsed = tryParseHttpResponse(buffer.toBytes(), closed: closed);
         if (parsed == null) {
+          if (closed) {
+            fail(
+              StateError(
+                'HTTP service data channel closed before complete response',
+              ),
+            );
+          }
           return;
         }
         if (!completer.isCompleted) {
@@ -133,16 +140,16 @@ Uint8List encodeHttpRequest(
   ServiceHttpRequest request, {
   String host = 'gizclaw',
 }) {
-  final headers = <String, String>{
-    ...request.headers,
-    'Host': host,
-    'Connection': 'close',
-  };
+  final headers = <String, String>{...request.headers};
   headers.removeWhere(
     (key, _) =>
+        key.toLowerCase() == 'host' ||
+        key.toLowerCase() == 'connection' ||
         key.toLowerCase() == 'content-length' ||
         key.toLowerCase() == 'transfer-encoding',
   );
+  headers['Host'] = host;
+  headers['Connection'] = 'close';
   if (request.body.isNotEmpty) {
     headers['Content-Length'] = request.body.length.toString();
   }

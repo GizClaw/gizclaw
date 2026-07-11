@@ -25,6 +25,28 @@ void main() {
     expect(text, contains('Content-Length: 2'));
   });
 
+  test('replaces controlled HTTP headers case-insensitively', () {
+    final bytes = encodeHttpRequest(
+      const ServiceHttpRequest(
+        headers: {
+          'host': 'caller.example',
+          'Connection': 'keep-alive',
+          'content-length': '999',
+          'Transfer-Encoding': 'chunked',
+        },
+      ),
+      host: 'gizclaw.local',
+    );
+    final text = ascii.decode(bytes);
+
+    expect(RegExp(r'\r\nHost: ').allMatches(text), hasLength(1));
+    expect(text, contains('\r\nHost: gizclaw.local\r\n'));
+    expect(RegExp(r'\r\nConnection: ').allMatches(text), hasLength(1));
+    expect(text, contains('\r\nConnection: close\r\n'));
+    expect(text, isNot(contains('Content-Length: 999')));
+    expect(text, isNot(contains('Transfer-Encoding: chunked')));
+  });
+
   test('parses content-length and close-delimited responses', () {
     final fixed = tryParseHttpResponse(
       ascii.encode('HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\n{}'),
@@ -126,6 +148,26 @@ void main() {
       );
 
       await expectLater(future, throwsFormatException);
+    },
+  );
+
+  test(
+    'fails immediately when the service channel closes mid-response',
+    () async {
+      final factory = FakeDataChannelFactory();
+      final client = ServiceHttpClient(
+        factory,
+        requestTimeout: const Duration(minutes: 1),
+      );
+
+      final future = client.send(const ServiceHttpRequest(path: '/bad'));
+      await Future<void>.delayed(Duration.zero);
+      factory.channels.single.addMessage(
+        ascii.encode('HTTP/1.1 200 OK\r\nContent-Length: 4\r\n\r\n{}'),
+      );
+      factory.channels.single.setState(GizClawDataChannelState.closed);
+
+      await expectLater(future, throwsA(isA<StateError>()));
     },
   );
 

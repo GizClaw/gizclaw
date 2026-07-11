@@ -5,6 +5,40 @@ import 'package:gizclaw/gizclaw.dart';
 import 'package:test/test.dart';
 
 void main() {
+  test(
+    'prepares packet, audio, and inbound RPC before creating offer',
+    () async {
+      final pc = _FakePeerConnection();
+
+      await expectLater(
+        connectFlutterGiznetWebRtc(
+          peerConnection: pc,
+          prepareOffer: (_) => throw UnimplementedError(),
+          sendOffer: (_) => throw UnimplementedError(),
+        ),
+        throwsA(isA<_StopAfterAudio>()),
+      );
+
+      expect(pc.onDataChannel, isNotNull);
+      expect(pc.createdDataChannels, hasLength(1));
+      expect(
+        pc.createdDataChannels.single.label,
+        giznetWebRtcPacketDataChannelLabel,
+      );
+      expect(pc.dataChannelInits.single.ordered, isFalse);
+      expect(pc.dataChannelInits.single.maxRetransmits, 0);
+      expect(pc.addTransceiverCalls, hasLength(1));
+      expect(
+        pc.addTransceiverCalls.single.kind,
+        rtc.RTCRtpMediaType.RTCRtpMediaTypeAudio,
+      );
+      expect(
+        pc.addTransceiverCalls.single.init?.direction,
+        rtc.TransceiverDirection.SendRecv,
+      );
+    },
+  );
+
   test('treats a newly created native data channel as connecting', () async {
     final native = _FakeRtcDataChannel();
     final channel = FlutterWebRtcDataChannel(native);
@@ -23,12 +57,192 @@ void main() {
   });
 }
 
+class _StopAfterAudio implements Exception {}
+
+class _AddTransceiverCall {
+  const _AddTransceiverCall(this.kind, this.init);
+
+  final rtc.RTCRtpMediaType? kind;
+  final rtc.RTCRtpTransceiverInit? init;
+}
+
+class _FakePeerConnection extends rtc.RTCPeerConnection {
+  final addTransceiverCalls = <_AddTransceiverCall>[];
+  final createdDataChannels = <_FakeRtcDataChannel>[];
+  final dataChannelInits = <rtc.RTCDataChannelInit>[];
+
+  @override
+  Future<rtc.RTCRtpTransceiver> addTransceiver({
+    rtc.MediaStreamTrack? track,
+    rtc.RTCRtpMediaType? kind,
+    rtc.RTCRtpTransceiverInit? init,
+  }) async {
+    addTransceiverCalls.add(_AddTransceiverCall(kind, init));
+    throw _StopAfterAudio();
+  }
+
+  @override
+  Future<rtc.RTCDataChannel> createDataChannel(
+    String label,
+    rtc.RTCDataChannelInit dataChannelDict,
+  ) async {
+    dataChannelInits.add(dataChannelDict);
+    final channel = _FakeRtcDataChannel(label);
+    createdDataChannels.add(channel);
+    return channel;
+  }
+
+  @override
+  rtc.RTCIceGatheringState? get iceGatheringState =>
+      rtc.RTCIceGatheringState.RTCIceGatheringStateComplete;
+
+  @override
+  Future<rtc.RTCSessionDescription> createOffer([
+    Map<String, dynamic> constraints = const {},
+  ]) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<rtc.RTCSessionDescription> createAnswer([
+    Map<String, dynamic> constraints = const {},
+  ]) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<void> addCandidate(rtc.RTCIceCandidate candidate) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<rtc.RTCRtpSender> addTrack(
+    rtc.MediaStreamTrack track, [
+    rtc.MediaStream? stream,
+  ]) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<void> addStream(rtc.MediaStream stream) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<void> close() {
+    throw UnimplementedError();
+  }
+
+  @override
+  rtc.RTCDTMFSender createDtmfSender(rtc.MediaStreamTrack track) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<void> dispose() {
+    throw UnimplementedError();
+  }
+
+  @override
+  rtc.RTCPeerConnectionState? get connectionState => null;
+
+  @override
+  Map<String, dynamic> get getConfiguration => const {};
+
+  @override
+  Future<rtc.RTCIceConnectionState?> getIceConnectionState() {
+    throw UnimplementedError();
+  }
+
+  @override
+  rtc.RTCIceConnectionState? get iceConnectionState => null;
+
+  @override
+  Future<rtc.RTCSessionDescription?> getLocalDescription() {
+    throw UnimplementedError();
+  }
+
+  @override
+  List<rtc.MediaStream?> getLocalStreams() {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<List<rtc.RTCRtpReceiver>> getReceivers() {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<rtc.RTCSessionDescription?> getRemoteDescription() {
+    throw UnimplementedError();
+  }
+
+  @override
+  List<rtc.MediaStream?> getRemoteStreams() {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<List<rtc.RTCRtpSender>> getSenders() {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<rtc.RTCSignalingState?> getSignalingState() {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<List<rtc.StatsReport>> getStats([rtc.MediaStreamTrack? track]) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<List<rtc.RTCRtpTransceiver>> getTransceivers() {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<void> removeStream(rtc.MediaStream stream) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<bool> removeTrack(rtc.RTCRtpSender sender) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<void> restartIce() {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<void> setConfiguration(Map<String, dynamic> configuration) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<void> setLocalDescription(rtc.RTCSessionDescription description) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<void> setRemoteDescription(rtc.RTCSessionDescription description) {
+    throw UnimplementedError();
+  }
+
+  @override
+  rtc.RTCSignalingState? get signalingState => null;
+}
+
 class _FakeRtcDataChannel extends rtc.RTCDataChannel {
-  _FakeRtcDataChannel() {
+  _FakeRtcDataChannel([this._label = 'test']) {
     stateChangeStream = const Stream.empty();
     messageStream = const Stream.empty();
   }
 
+  final String _label;
   rtc.RTCDataChannelState? _state;
 
   void emitState(rtc.RTCDataChannelState state) {
@@ -46,7 +260,7 @@ class _FakeRtcDataChannel extends rtc.RTCDataChannel {
   int? get id => 1;
 
   @override
-  String? get label => 'test';
+  String? get label => _label;
 
   @override
   Future<void> send(rtc.RTCDataChannelMessage message) async {}

@@ -3,8 +3,11 @@ import 'dart:typed_data';
 
 import 'package:flutter_webrtc/flutter_webrtc.dart' as rtc;
 
+import 'peer_rpc_server.dart';
 import 'signaling.dart';
 import 'transport.dart';
+
+final _servedPeerConnections = Expando<bool>();
 
 class FlutterWebRtcDataChannelFactory implements GizClawDataChannelFactory {
   FlutterWebRtcDataChannelFactory(this.peerConnection);
@@ -29,11 +32,25 @@ class FlutterWebRtcDataChannelFactory implements GizClawDataChannelFactory {
   }
 }
 
+void serveFlutterGiznetWebRtcRpc(rtc.RTCPeerConnection peerConnection) {
+  if (_servedPeerConnections[peerConnection] == true) {
+    return;
+  }
+  _servedPeerConnections[peerConnection] = true;
+  final previous = peerConnection.onDataChannel;
+  peerConnection.onDataChannel = (channel) {
+    previous?.call(channel);
+    if (channel.label == giznetServiceDataChannelLabel(servicePeerRpc)) {
+      serveGizClawPeerRpcChannel(FlutterWebRtcDataChannel(channel));
+    }
+  };
+}
+
 typedef SendGiznetWebRtcOffer =
     Future<List<int>> Function(PreparedGiznetWebRtcOffer offer);
 
 Future<rtc.RTCPeerConnection> connectFlutterGiznetWebRtc({
-  bool addAudioTransceiver = false,
+  bool addAudioTransceiver = true,
   bool createPacketDataChannel = true,
   Map<String, dynamic> configuration = const {},
   required Future<PreparedGiznetWebRtcOffer> Function(String offerSdp)
@@ -42,6 +59,7 @@ Future<rtc.RTCPeerConnection> connectFlutterGiznetWebRtc({
   required SendGiznetWebRtcOffer sendOffer,
 }) async {
   final pc = peerConnection ?? await rtc.createPeerConnection(configuration);
+  serveFlutterGiznetWebRtcRpc(pc);
   if (createPacketDataChannel) {
     final init = rtc.RTCDataChannelInit()
       ..ordered = false

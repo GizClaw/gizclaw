@@ -85,15 +85,15 @@ class PeerRpcClient {
     Duration? timeout,
   }) async {
     final requestId = id ?? _createId();
-    final channel = await _factory.createDataChannel(
-      _channelLabel,
-      options: const GizClawDataChannelOptions(ordered: true),
-    );
     final encodedRequest = encodeRpcRequest(methodName, request, id: requestId);
     final responseReader = _ResponseReader(
       methodName,
       expectBody: expectBody,
       requestId: requestId,
+    );
+    final channel = await _factory.createDataChannel(
+      _channelLabel,
+      options: const GizClawDataChannelOptions(ordered: true),
     );
     final completer = Completer<RpcCallResult>();
     var requestSent = false;

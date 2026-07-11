@@ -120,6 +120,17 @@ void main() {
     );
   });
 
+  test('does not open a channel when request encoding fails', () async {
+    final factory = FakeDataChannelFactory();
+    final client = PeerRpcClient(factory);
+
+    await expectLater(
+      client.call('unknown.method', payload.PingRequest()),
+      throwsArgumentError,
+    );
+    expect(factory.channels, isEmpty);
+  });
+
   test('completes plain RPC responses with continuation envelopes', () async {
     final factory = FakeDataChannelFactory();
     final client = PeerRpcClient(factory, createId: () => 'rpc-continuation');
