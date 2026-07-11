@@ -892,6 +892,7 @@ type doubaoRealtimeDuplexInputReader struct {
 	source    genx.Stream
 	results   chan doubaoRealtimeDuplexInputResult
 	done      chan struct{}
+	pending   *doubaoRealtimeDuplexInputResult
 	closeOnce sync.Once
 }
 
@@ -922,6 +923,11 @@ func (r *doubaoRealtimeDuplexInputReader) read() {
 }
 
 func (r *doubaoRealtimeDuplexInputReader) Next() (*genx.MessageChunk, error) {
+	if r.pending != nil {
+		result := *r.pending
+		r.pending = nil
+		return result.chunk, result.err
+	}
 	result, ok := <-r.results
 	if !ok {
 		return nil, io.EOF
@@ -930,14 +936,38 @@ func (r *doubaoRealtimeDuplexInputReader) Next() (*genx.MessageChunk, error) {
 }
 
 func (r *doubaoRealtimeDuplexInputReader) NextOrDone(done <-chan struct{}) (*genx.MessageChunk, error, bool) {
+	if r.pending != nil {
+		select {
+		case <-done:
+			return nil, nil, true
+		default:
+		}
+		result := *r.pending
+		r.pending = nil
+		return result.chunk, result.err, false
+	}
 	select {
 	case <-done:
 		return nil, nil, true
+	default:
+	}
+	select {
 	case result, ok := <-r.results:
 		if !ok {
 			return nil, io.EOF, false
 		}
+		select {
+		case <-done:
+			r.pending = &result
+			return nil, nil, true
+		default:
+		}
 		return result.chunk, result.err, false
+	default:
+	}
+	select {
+	case <-done:
+		return nil, nil, true
 	default:
 	}
 	select {
@@ -946,6 +976,12 @@ func (r *doubaoRealtimeDuplexInputReader) NextOrDone(done <-chan struct{}) (*gen
 	case result, ok := <-r.results:
 		if !ok {
 			return nil, io.EOF, false
+		}
+		select {
+		case <-done:
+			r.pending = &result
+			return nil, nil, true
+		default:
 		}
 		return result.chunk, result.err, false
 	}

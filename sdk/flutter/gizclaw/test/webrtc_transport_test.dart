@@ -125,13 +125,38 @@ void main() {
     expect(pc.remoteDescription?.sdp, 'answer-sdp');
   });
 
-  test('waits for native readiness when the open event was missed', () async {
-    final pc = _FakePeerConnection(channelsNativeReady: true);
+  test('treats an already-open native data channel as open', () async {
+    final pc = _FakePeerConnection(
+      channelInitialState: rtc.RTCDataChannelState.RTCDataChannelOpen,
+    );
     final factory = FlutterWebRtcDataChannelFactory(pc);
 
     final channel = await factory.createDataChannel('giznet/v1/service/0');
 
     expect(pc.dataChannelInits.single.id, -1);
+    expect(channel.state, GizClawDataChannelState.open);
+  });
+
+  test('waits for open state instead of bufferedAmount readiness', () async {
+    final pc = _FakePeerConnection(channelsNativeReady: true);
+    final factory = FlutterWebRtcDataChannelFactory(pc);
+    var completed = false;
+
+    final future = factory.createDataChannel('giznet/v1/service/0').then((
+      channel,
+    ) {
+      completed = true;
+      return channel;
+    });
+    await Future<void>.delayed(Duration.zero);
+    expect(pc.createdDataChannels, hasLength(1));
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+    expect(completed, isFalse);
+
+    pc.createdDataChannels.single.emitState(
+      rtc.RTCDataChannelState.RTCDataChannelOpen,
+    );
+    final channel = await future;
     expect(channel.state, GizClawDataChannelState.open);
   });
 
@@ -191,6 +216,47 @@ void main() {
     native.emitMessage('你好, GizClaw');
 
     expect(utf8.decode(await message), '你好, GizClaw');
+  });
+
+  test('splits large service writes into bounded native messages', () async {
+    final native = _FakeRtcDataChannel(
+      initialState: rtc.RTCDataChannelState.RTCDataChannelOpen,
+    );
+    final channel = FlutterWebRtcDataChannel(
+      native,
+      initialState: GizClawDataChannelState.open,
+    );
+    final bytes = Uint8List.fromList(
+      List.generate(3001, (index) => index % 251),
+    );
+
+    await channel.send(bytes);
+
+    expect(native.sent.map((message) => message.binary.length), [
+      1400,
+      1400,
+      201,
+    ]);
+    expect(native.sent.expand((message) => message.binary).toList(), bytes);
+  });
+
+  test('waits for bufferedAmount before sending native chunks', () async {
+    final native = _FakeRtcDataChannel(
+      bufferedAmountValue: 1024 * 1024 + 1,
+      initialState: rtc.RTCDataChannelState.RTCDataChannelOpen,
+    );
+    final channel = FlutterWebRtcDataChannel(
+      native,
+      initialState: GizClawDataChannelState.open,
+    );
+    final future = channel.send(Uint8List.fromList([1, 2, 3]));
+
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+    expect(native.sent, isEmpty);
+
+    native.bufferedAmountValue = 0;
+    await future;
+    expect(native.sent, hasLength(1));
   });
 }
 
@@ -415,6 +481,7 @@ class _FakePeerConnection extends rtc.RTCPeerConnection {
 
 class _FakeRtcDataChannel extends rtc.RTCDataChannel {
   _FakeRtcDataChannel({
+    this.bufferedAmountValue = 0,
     rtc.RTCDataChannelState? initialState,
     String label = 'test',
     this.nativeReady = false,
@@ -428,6 +495,8 @@ class _FakeRtcDataChannel extends rtc.RTCDataChannel {
   final bool nativeReady;
   rtc.RTCDataChannelState? _state;
   int closeCalls = 0;
+  int? bufferedAmountValue;
+  final sent = <rtc.RTCDataChannelMessage>[];
 
   void emitState(rtc.RTCDataChannelState state) {
     _state = state;
@@ -439,7 +508,7 @@ class _FakeRtcDataChannel extends rtc.RTCDataChannel {
   }
 
   @override
-  int? get bufferedAmount => 0;
+  int? get bufferedAmount => bufferedAmountValue;
 
   @override
   Future<int> getBufferedAmount() async {
@@ -460,7 +529,9 @@ class _FakeRtcDataChannel extends rtc.RTCDataChannel {
   String? get label => _label;
 
   @override
-  Future<void> send(rtc.RTCDataChannelMessage message) async {}
+  Future<void> send(rtc.RTCDataChannelMessage message) async {
+    sent.add(message);
+  }
 
   @override
   rtc.RTCDataChannelState? get state => _state;

@@ -8,6 +8,10 @@ import 'peer_rpc_server.dart';
 import 'signaling.dart';
 import 'transport.dart';
 
+const _dataChannelMessageChunkSize = 1400;
+const _dataChannelBufferHighWaterMark = 1024 * 1024;
+const _dataChannelSendRetryDelay = Duration(milliseconds: 5);
+
 final _servedPeerConnections = Expando<void Function(rtc.RTCDataChannel)>();
 
 class FlutterWebRtcDataChannelFactory implements GizClawDataChannelFactory {
@@ -173,8 +177,31 @@ class FlutterWebRtcDataChannel implements GizClawDataChannel {
   Future<void> close() => _channel.close();
 
   @override
-  Future<void> send(Uint8List bytes) {
-    return _channel.send(rtc.RTCDataChannelMessage.fromBinary(bytes));
+  Future<void> send(Uint8List bytes) async {
+    for (
+      var offset = 0;
+      offset < bytes.length;
+      offset += _dataChannelMessageChunkSize
+    ) {
+      while ((_channel.bufferedAmount ?? 0) > _dataChannelBufferHighWaterMark) {
+        if (_state == GizClawDataChannelState.closed ||
+            _state == GizClawDataChannelState.closing) {
+          throw StateError('WebRTC data channel closed while sending');
+        }
+        await Future<void>.delayed(_dataChannelSendRetryDelay);
+      }
+      if (_state != GizClawDataChannelState.open) {
+        throw StateError('WebRTC data channel is $_state, want open');
+      }
+      final end = offset + _dataChannelMessageChunkSize > bytes.length
+          ? bytes.length
+          : offset + _dataChannelMessageChunkSize;
+      await _channel.send(
+        rtc.RTCDataChannelMessage.fromBinary(
+          Uint8List.sublistView(bytes, offset, end),
+        ),
+      );
+    }
   }
 }
 
@@ -232,23 +259,48 @@ Future<void> _waitForIceGatheringComplete(rtc.RTCPeerConnection pc) {
 }
 
 Future<void> _waitForDataChannelOpen(rtc.RTCDataChannel channel) {
-  return _pollDataChannelOpen(channel).timeout(const Duration(seconds: 30));
-}
-
-Future<void> _pollDataChannelOpen(rtc.RTCDataChannel channel) async {
-  for (;;) {
-    final state = channel.state;
-    if (state == rtc.RTCDataChannelState.RTCDataChannelOpen) return;
-    if (state == rtc.RTCDataChannelState.RTCDataChannelClosed) {
-      throw StateError('WebRTC data channel closed');
-    }
-    try {
-      await channel.getBufferedAmount();
-      return;
-    } catch (_) {
-      await Future<void>.delayed(const Duration(milliseconds: 10));
+  final state = channel.state;
+  if (state == rtc.RTCDataChannelState.RTCDataChannelOpen) {
+    return Future.value();
+  }
+  if (state == rtc.RTCDataChannelState.RTCDataChannelClosed) {
+    throw StateError('WebRTC data channel closed');
+  }
+  final completer = Completer<void>();
+  final previous = channel.onDataChannelState;
+  late void Function(rtc.RTCDataChannelState) handler;
+  void restoreHandler() {
+    if (channel.onDataChannelState == handler) {
+      channel.onDataChannelState = previous;
     }
   }
+
+  void completeIfReady(rtc.RTCDataChannelState? state) {
+    if (completer.isCompleted) {
+      return;
+    }
+    if (state == rtc.RTCDataChannelState.RTCDataChannelOpen) {
+      restoreHandler();
+      completer.complete();
+    } else if (state == rtc.RTCDataChannelState.RTCDataChannelClosed) {
+      restoreHandler();
+      completer.completeError(StateError('WebRTC data channel closed'));
+    }
+  }
+
+  handler = (state) {
+    previous?.call(state);
+    completeIfReady(state);
+  };
+  channel.onDataChannelState = handler;
+  completeIfReady(channel.state);
+  return completer.future.timeout(
+    const Duration(seconds: 30),
+    onTimeout: () {
+      restoreHandler();
+      throw TimeoutException('WebRTC data channel open timed out');
+    },
+  );
 }
 
 Future<void> _disposePeerConnection(rtc.RTCPeerConnection pc) async {

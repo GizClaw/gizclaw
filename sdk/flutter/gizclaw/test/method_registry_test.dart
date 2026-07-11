@@ -30,4 +30,8 @@ void main() {
       throwsArgumentError,
     );
   });
+
+  test('exports generated enum payload types from public barrel', () {
+    expect(ASTTranslateMode.ASTTRANSLATE_MODE_S2S.value, 2);
+  });
 }
