@@ -20,7 +20,41 @@ class GizClawApp extends StatelessWidget {
           surface: const Color(0xFFF4F5F1),
         ),
         scaffoldBackgroundColor: const Color(0xFFF4F5F1),
-        fontFamily: 'SF Pro Display',
+        fontFamily: 'Manrope',
+        textTheme: const TextTheme(
+          displaySmall: TextStyle(
+            fontSize: 38,
+            height: 1.02,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 0,
+          ),
+          headlineMedium: TextStyle(
+            fontSize: 29,
+            height: 1.08,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 0,
+          ),
+          titleLarge: TextStyle(
+            fontSize: 21,
+            height: 1.2,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 0,
+          ),
+          titleMedium: TextStyle(
+            fontSize: 16,
+            height: 1.3,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0,
+          ),
+          bodyLarge: TextStyle(fontSize: 16, height: 1.45, letterSpacing: 0),
+          bodyMedium: TextStyle(fontSize: 14, height: 1.45, letterSpacing: 0),
+          labelMedium: TextStyle(
+            fontSize: 12,
+            height: 1.2,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0,
+          ),
+        ),
         cardTheme: const CardThemeData(
           elevation: 0,
           margin: EdgeInsets.zero,
@@ -226,11 +260,8 @@ class BrowsePage extends StatelessWidget {
               children: [
                 Expanded(
                   child: Text(
-                    'PLAY YOUR\nWORKFLOWS',
-                    style: theme.textTheme.headlineMedium?.copyWith(
-                      fontWeight: FontWeight.w900,
-                      height: 0.96,
-                    ),
+                    'Play your\nworkflows',
+                    style: theme.textTheme.displaySmall,
                   ),
                 ),
                 const SignalBadge(label: 'LIVE'),
@@ -297,7 +328,7 @@ class BrowsePage extends StatelessWidget {
                   .fadeIn(duration: 320.ms)
                   .slideY(begin: 0.08, end: 0, curve: Curves.easeOutCubic);
             },
-            separatorBuilder: (_, _) => const SizedBox(height: 10),
+            separatorBuilder: (_, _) => const SizedBox.shrink(),
             itemCount: allWorkflows.length,
           ),
         ),
@@ -414,6 +445,49 @@ class _PulseRing extends StatelessWidget {
   }
 }
 
+class WorkflowArtworkHero extends StatelessWidget {
+  const WorkflowArtworkHero({
+    super.key,
+    required this.workflow,
+    required this.compact,
+  });
+
+  final WorkflowCard workflow;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    final imagePath = workflow.imagePath!;
+    final radius = BorderRadius.circular(compact ? 18 : 0);
+    return Hero(
+      tag: 'workflow-${workflow.name}',
+      transitionOnUserGestures: true,
+      placeholderBuilder: (_, _, child) => child,
+      flightShuttleBuilder:
+          (flightContext, animation, direction, fromContext, toContext) {
+            final pushing = direction == HeroFlightDirection.push;
+            final begin = BorderRadius.circular(pushing ? 18 : 0);
+            final end = BorderRadius.circular(pushing ? 0 : 18);
+            return AnimatedBuilder(
+              animation: animation,
+              builder: (context, child) => ClipRRect(
+                borderRadius: BorderRadius.lerp(begin, end, animation.value)!,
+                child: child,
+              ),
+              child: Material(
+                color: Colors.transparent,
+                child: Image.asset(imagePath, fit: BoxFit.cover),
+              ),
+            );
+          },
+      child: ClipRRect(
+        borderRadius: radius,
+        child: Image.asset(imagePath, fit: BoxFit.cover),
+      ),
+    );
+  }
+}
+
 class FeaturedWorkflowCard extends StatelessWidget {
   const FeaturedWorkflowCard({
     super.key,
@@ -438,10 +512,7 @@ class FeaturedWorkflowCard extends StatelessWidget {
             children: [
               if (workflow.imagePath != null)
                 Positioned.fill(
-                  child: Hero(
-                    tag: 'workflow-${workflow.name}',
-                    child: Image.asset(workflow.imagePath!, fit: BoxFit.cover),
-                  ),
+                  child: WorkflowArtworkHero(workflow: workflow, compact: true),
                 ),
               Positioned.fill(
                 child: DecoratedBox(
@@ -525,14 +596,12 @@ class WorkspaceStrip extends StatelessWidget {
         scrollDirection: Axis.horizontal,
         itemBuilder: (context, index) {
           final workspace = workspaces[index];
+          final colors = [const Color(0xFFDDF7EE), const Color(0xFFFFE5DD)];
           return SizedBox(
-            width: 228,
-            child: Card(
-              margin: EdgeInsets.zero,
-              elevation: 0,
-              color: Colors.white,
-              shape: RoundedRectangleBorder(
-                side: const BorderSide(color: Color(0xFFE2E6DF)),
+            width: 230,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: colors[index % colors.length],
                 borderRadius: BorderRadius.circular(16),
               ),
               child: Padding(
@@ -553,7 +622,9 @@ class WorkspaceStrip extends StatelessWidget {
                       workspace.workflowName,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodySmall,
+                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                        color: const Color(0xFF59615E),
+                      ),
                     ),
                     const Spacer(),
                     Row(
@@ -591,37 +662,69 @@ class WorkflowListTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      margin: EdgeInsets.zero,
-      elevation: 0,
-      color: Colors.white,
-      shape: RoundedRectangleBorder(
-        side: const BorderSide(color: Color(0xFFE2E6DF)),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: ListTile(
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
         onTap: onTap,
-        leading: Container(
-          width: 48,
-          height: 48,
-          decoration: BoxDecoration(
-            color: workflow.bannerColor.withValues(alpha: 0.14),
-            borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          decoration: const BoxDecoration(
+            border: Border(bottom: BorderSide(color: Color(0xFFD8DDD6))),
           ),
-          child: Icon(workflow.icon, color: workflow.bannerColor),
+          child: Row(
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: SizedBox(
+                  width: 66,
+                  height: 66,
+                  child: workflow.imagePath != null
+                      ? Image.asset(workflow.imagePath!, fit: BoxFit.cover)
+                      : ColoredBox(
+                          color: workflow.bannerColor.withValues(alpha: 0.14),
+                          child: Icon(
+                            workflow.icon,
+                            color: workflow.bannerColor,
+                          ),
+                        ),
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      workflow.category.toUpperCase(),
+                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                        color: workflow.bannerColor,
+                        fontSize: 10,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      workflow.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      workflow.subtitle,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: const Color(0xFF5F6865),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 10),
+              const Icon(Icons.arrow_forward, size: 20),
+            ],
+          ),
         ),
-        title: Text(
-          workflow.title,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(fontWeight: FontWeight.w700),
-        ),
-        subtitle: Text(
-          workflow.subtitle,
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-        ),
-        trailing: const Icon(Icons.chevron_right),
       ),
     );
   }
@@ -652,13 +755,7 @@ class WorkflowDetailPage extends StatelessWidget {
                 fit: StackFit.expand,
                 children: [
                   if (workflow.imagePath != null)
-                    Hero(
-                      tag: 'workflow-${workflow.name}',
-                      child: Image.asset(
-                        workflow.imagePath!,
-                        fit: BoxFit.cover,
-                      ),
-                    )
+                    WorkflowArtworkHero(workflow: workflow, compact: false)
                   else
                     ColoredBox(color: workflow.bannerColor),
                   DecoratedBox(
@@ -697,9 +794,9 @@ class WorkflowDetailPage extends StatelessWidget {
                 spacing: 8,
                 runSpacing: 8,
                 children: [
-                  Chip(label: Text(workflow.driverLabel)),
-                  Chip(label: Text('${workspaces.length} workspaces')),
-                  Chip(label: Text(workflow.category)),
+                  WorkflowMetaTag(label: workflow.driverLabel),
+                  WorkflowMetaTag(label: '${workspaces.length} workspaces'),
+                  WorkflowMetaTag(label: workflow.category),
                 ],
               ),
             ),
@@ -722,13 +819,16 @@ class WorkflowDetailPage extends StatelessWidget {
                 final workspace = workspaces[index];
                 return WorkspaceListTile(workspace: workspace);
               },
-              separatorBuilder: (_, _) => const SizedBox(height: 10),
+              separatorBuilder: (_, _) => const SizedBox.shrink(),
               itemCount: workspaces.length,
             ),
           ),
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
+        backgroundColor: const Color(0xFF111916),
+        foregroundColor: Colors.white,
+        shape: const StadiumBorder(),
         onPressed: () {
           Navigator.of(context).push(
             MaterialPageRoute<void>(
@@ -752,6 +852,29 @@ class WorkflowDetailPage extends StatelessWidget {
   }
 }
 
+class WorkflowMetaTag extends StatelessWidget {
+  const WorkflowMetaTag({super.key, required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFFE4E9E2),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Text(
+        label,
+        style: Theme.of(
+          context,
+        ).textTheme.labelMedium?.copyWith(color: const Color(0xFF3F4945)),
+      ),
+    );
+  }
+}
+
 class WorkspaceListTile extends StatelessWidget {
   const WorkspaceListTile({super.key, required this.workspace});
 
@@ -759,40 +882,9 @@ class WorkspaceListTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      margin: EdgeInsets.zero,
-      elevation: 0,
-      color: Colors.white,
-      shape: RoundedRectangleBorder(
-        side: const BorderSide(color: Color(0xFFE2E6DF)),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: ListTile(
-        leading: Container(
-          width: 42,
-          height: 42,
-          decoration: BoxDecoration(
-            color: const Color(0xFF111916),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: const Center(child: SignalPulse(size: 26)),
-        ),
-        title: Text(
-          workspace.name,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(fontWeight: FontWeight.w700),
-        ),
-        subtitle: Text(workspace.lastActive),
-        trailing: Container(
-          width: 34,
-          height: 34,
-          decoration: const BoxDecoration(
-            color: Color(0xFFB9F82E),
-            shape: BoxShape.circle,
-          ),
-          child: const Icon(Icons.arrow_forward, size: 18),
-        ),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
         onTap: () {
           final workflow = allWorkflows.firstWhere(
             (item) => item.name == workspace.workflowName,
@@ -805,6 +897,50 @@ class WorkspaceListTile extends StatelessWidget {
             ),
           );
         },
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          decoration: const BoxDecoration(
+            border: Border(bottom: BorderSide(color: Color(0xFFD8DDD6))),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF111916),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: const Center(child: SignalPulse(size: 28)),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      workspace.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 5),
+                    Text(
+                      '${workspace.workflowName}  ·  ${workspace.lastActive}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: const Color(0xFF65706C),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 10),
+              const Icon(Icons.arrow_forward, size: 20),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -951,10 +1087,8 @@ class _ChatsPageState extends State<ChatsPage> {
             children: [
               Expanded(
                 child: Text(
-                  'CHATS',
-                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                    fontWeight: FontWeight.w900,
-                  ),
+                  'Chats',
+                  style: Theme.of(context).textTheme.headlineMedium,
                 ),
               ),
               const SignalBadge(label: 'WEBRTC'),
@@ -1094,7 +1228,7 @@ class WorkspaceChats extends StatelessWidget {
     return ListView.separated(
       padding: const EdgeInsets.fromLTRB(20, 18, 20, 110),
       itemCount: workflowWorkspaces.length,
-      separatorBuilder: (_, _) => const SizedBox(height: 10),
+      separatorBuilder: (_, _) => const SizedBox.shrink(),
       itemBuilder: (context, index) =>
           WorkspaceListTile(workspace: workflowWorkspaces[index])
               .animate(delay: (index * 55).ms)
@@ -1112,25 +1246,60 @@ class GroupChats extends StatelessWidget {
     return ListView.separated(
       padding: const EdgeInsets.fromLTRB(20, 18, 20, 110),
       itemCount: chatrooms.length,
-      separatorBuilder: (_, _) => const SizedBox(height: 10),
+      separatorBuilder: (_, _) => const SizedBox.shrink(),
       itemBuilder: (context, index) {
         final room = chatrooms[index];
-        return Card(
-          margin: EdgeInsets.zero,
-          elevation: 0,
-          color: Colors.white,
-          shape: RoundedRectangleBorder(
-            side: const BorderSide(color: Color(0xFFE2E6DF)),
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: ListTile(
-            leading: const Icon(Icons.groups_outlined),
-            title: Text(
-              room.name,
-              style: const TextStyle(fontWeight: FontWeight.w700),
+        return Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: () {},
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 15),
+              decoration: const BoxDecoration(
+                border: Border(bottom: BorderSide(color: Color(0xFFD8DDD6))),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 48,
+                    height: 48,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: index.isEven
+                          ? const Color(0xFFFFDDD2)
+                          : const Color(0xFFD8EBFF),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Text(
+                      '${index + 1}'.padLeft(2, '0'),
+                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                        color: const Color(0xFF111916),
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          room.name,
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                        const SizedBox(height: 5),
+                        Text(
+                          room.subtitle,
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(color: const Color(0xFF65706C)),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Icon(Icons.arrow_forward, size: 20),
+                ],
+              ),
             ),
-            subtitle: Text(room.subtitle),
-            trailing: const Icon(Icons.chevron_right),
           ),
         );
       },

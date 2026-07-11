@@ -11,7 +11,7 @@ void main() {
   testWidgets('shows workflow-first mobile shell', (tester) async {
     await pumpApp(tester);
 
-    expect(find.text('PLAY YOUR\nWORKFLOWS'), findsOneWidget);
+    expect(find.text('Play your\nworkflows'), findsOneWidget);
     expect(find.text('Daily Companion'), findsWidgets);
     expect(find.text('All Workflows'), findsOneWidget);
     expect(find.byIcon(Icons.explore), findsOneWidget);
