@@ -1583,6 +1583,532 @@ class SyncStatesCompanion extends UpdateCompanion<SyncState> {
   }
 }
 
+class $WorkspaceChatEntriesTable extends WorkspaceChatEntries
+    with TableInfo<$WorkspaceChatEntriesTable, WorkspaceChatEntry> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $WorkspaceChatEntriesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _serverIdMeta = const VerificationMeta(
+    'serverId',
+  );
+  @override
+  late final GeneratedColumn<String> serverId = GeneratedColumn<String>(
+    'server_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _workspaceNameMeta = const VerificationMeta(
+    'workspaceName',
+  );
+  @override
+  late final GeneratedColumn<String> workspaceName = GeneratedColumn<String>(
+    'workspace_name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _historyIdMeta = const VerificationMeta(
+    'historyId',
+  );
+  @override
+  late final GeneratedColumn<String> historyId = GeneratedColumn<String>(
+    'history_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _roleMeta = const VerificationMeta('role');
+  @override
+  late final GeneratedColumn<String> role = GeneratedColumn<String>(
+    'role',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _contentMeta = const VerificationMeta(
+    'content',
+  );
+  @override
+  late final GeneratedColumn<String> content = GeneratedColumn<String>(
+    'content',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _nameMeta = const VerificationMeta('name');
+  @override
+  late final GeneratedColumn<String> name = GeneratedColumn<String>(
+    'name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _refreshedAtMeta = const VerificationMeta(
+    'refreshedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> refreshedAt = GeneratedColumn<DateTime>(
+    'refreshed_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    serverId,
+    workspaceName,
+    historyId,
+    role,
+    content,
+    name,
+    createdAt,
+    refreshedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'workspace_chat_entries';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<WorkspaceChatEntry> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('server_id')) {
+      context.handle(
+        _serverIdMeta,
+        serverId.isAcceptableOrUnknown(data['server_id']!, _serverIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_serverIdMeta);
+    }
+    if (data.containsKey('workspace_name')) {
+      context.handle(
+        _workspaceNameMeta,
+        workspaceName.isAcceptableOrUnknown(
+          data['workspace_name']!,
+          _workspaceNameMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_workspaceNameMeta);
+    }
+    if (data.containsKey('history_id')) {
+      context.handle(
+        _historyIdMeta,
+        historyId.isAcceptableOrUnknown(data['history_id']!, _historyIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_historyIdMeta);
+    }
+    if (data.containsKey('role')) {
+      context.handle(
+        _roleMeta,
+        role.isAcceptableOrUnknown(data['role']!, _roleMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_roleMeta);
+    }
+    if (data.containsKey('content')) {
+      context.handle(
+        _contentMeta,
+        content.isAcceptableOrUnknown(data['content']!, _contentMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_contentMeta);
+    }
+    if (data.containsKey('name')) {
+      context.handle(
+        _nameMeta,
+        name.isAcceptableOrUnknown(data['name']!, _nameMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_nameMeta);
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    }
+    if (data.containsKey('refreshed_at')) {
+      context.handle(
+        _refreshedAtMeta,
+        refreshedAt.isAcceptableOrUnknown(
+          data['refreshed_at']!,
+          _refreshedAtMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_refreshedAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {serverId, workspaceName, historyId};
+  @override
+  WorkspaceChatEntry map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return WorkspaceChatEntry(
+      serverId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}server_id'],
+      )!,
+      workspaceName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}workspace_name'],
+      )!,
+      historyId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}history_id'],
+      )!,
+      role: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}role'],
+      )!,
+      content: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}content'],
+      )!,
+      name: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}name'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      ),
+      refreshedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}refreshed_at'],
+      )!,
+    );
+  }
+
+  @override
+  $WorkspaceChatEntriesTable createAlias(String alias) {
+    return $WorkspaceChatEntriesTable(attachedDatabase, alias);
+  }
+}
+
+class WorkspaceChatEntry extends DataClass
+    implements Insertable<WorkspaceChatEntry> {
+  final String serverId;
+  final String workspaceName;
+  final String historyId;
+  final String role;
+  final String content;
+  final String name;
+  final DateTime? createdAt;
+  final DateTime refreshedAt;
+  const WorkspaceChatEntry({
+    required this.serverId,
+    required this.workspaceName,
+    required this.historyId,
+    required this.role,
+    required this.content,
+    required this.name,
+    this.createdAt,
+    required this.refreshedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['server_id'] = Variable<String>(serverId);
+    map['workspace_name'] = Variable<String>(workspaceName);
+    map['history_id'] = Variable<String>(historyId);
+    map['role'] = Variable<String>(role);
+    map['content'] = Variable<String>(content);
+    map['name'] = Variable<String>(name);
+    if (!nullToAbsent || createdAt != null) {
+      map['created_at'] = Variable<DateTime>(createdAt);
+    }
+    map['refreshed_at'] = Variable<DateTime>(refreshedAt);
+    return map;
+  }
+
+  WorkspaceChatEntriesCompanion toCompanion(bool nullToAbsent) {
+    return WorkspaceChatEntriesCompanion(
+      serverId: Value(serverId),
+      workspaceName: Value(workspaceName),
+      historyId: Value(historyId),
+      role: Value(role),
+      content: Value(content),
+      name: Value(name),
+      createdAt: createdAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(createdAt),
+      refreshedAt: Value(refreshedAt),
+    );
+  }
+
+  factory WorkspaceChatEntry.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return WorkspaceChatEntry(
+      serverId: serializer.fromJson<String>(json['serverId']),
+      workspaceName: serializer.fromJson<String>(json['workspaceName']),
+      historyId: serializer.fromJson<String>(json['historyId']),
+      role: serializer.fromJson<String>(json['role']),
+      content: serializer.fromJson<String>(json['content']),
+      name: serializer.fromJson<String>(json['name']),
+      createdAt: serializer.fromJson<DateTime?>(json['createdAt']),
+      refreshedAt: serializer.fromJson<DateTime>(json['refreshedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'serverId': serializer.toJson<String>(serverId),
+      'workspaceName': serializer.toJson<String>(workspaceName),
+      'historyId': serializer.toJson<String>(historyId),
+      'role': serializer.toJson<String>(role),
+      'content': serializer.toJson<String>(content),
+      'name': serializer.toJson<String>(name),
+      'createdAt': serializer.toJson<DateTime?>(createdAt),
+      'refreshedAt': serializer.toJson<DateTime>(refreshedAt),
+    };
+  }
+
+  WorkspaceChatEntry copyWith({
+    String? serverId,
+    String? workspaceName,
+    String? historyId,
+    String? role,
+    String? content,
+    String? name,
+    Value<DateTime?> createdAt = const Value.absent(),
+    DateTime? refreshedAt,
+  }) => WorkspaceChatEntry(
+    serverId: serverId ?? this.serverId,
+    workspaceName: workspaceName ?? this.workspaceName,
+    historyId: historyId ?? this.historyId,
+    role: role ?? this.role,
+    content: content ?? this.content,
+    name: name ?? this.name,
+    createdAt: createdAt.present ? createdAt.value : this.createdAt,
+    refreshedAt: refreshedAt ?? this.refreshedAt,
+  );
+  WorkspaceChatEntry copyWithCompanion(WorkspaceChatEntriesCompanion data) {
+    return WorkspaceChatEntry(
+      serverId: data.serverId.present ? data.serverId.value : this.serverId,
+      workspaceName: data.workspaceName.present
+          ? data.workspaceName.value
+          : this.workspaceName,
+      historyId: data.historyId.present ? data.historyId.value : this.historyId,
+      role: data.role.present ? data.role.value : this.role,
+      content: data.content.present ? data.content.value : this.content,
+      name: data.name.present ? data.name.value : this.name,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      refreshedAt: data.refreshedAt.present
+          ? data.refreshedAt.value
+          : this.refreshedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('WorkspaceChatEntry(')
+          ..write('serverId: $serverId, ')
+          ..write('workspaceName: $workspaceName, ')
+          ..write('historyId: $historyId, ')
+          ..write('role: $role, ')
+          ..write('content: $content, ')
+          ..write('name: $name, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('refreshedAt: $refreshedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    serverId,
+    workspaceName,
+    historyId,
+    role,
+    content,
+    name,
+    createdAt,
+    refreshedAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is WorkspaceChatEntry &&
+          other.serverId == this.serverId &&
+          other.workspaceName == this.workspaceName &&
+          other.historyId == this.historyId &&
+          other.role == this.role &&
+          other.content == this.content &&
+          other.name == this.name &&
+          other.createdAt == this.createdAt &&
+          other.refreshedAt == this.refreshedAt);
+}
+
+class WorkspaceChatEntriesCompanion
+    extends UpdateCompanion<WorkspaceChatEntry> {
+  final Value<String> serverId;
+  final Value<String> workspaceName;
+  final Value<String> historyId;
+  final Value<String> role;
+  final Value<String> content;
+  final Value<String> name;
+  final Value<DateTime?> createdAt;
+  final Value<DateTime> refreshedAt;
+  final Value<int> rowid;
+  const WorkspaceChatEntriesCompanion({
+    this.serverId = const Value.absent(),
+    this.workspaceName = const Value.absent(),
+    this.historyId = const Value.absent(),
+    this.role = const Value.absent(),
+    this.content = const Value.absent(),
+    this.name = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.refreshedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  WorkspaceChatEntriesCompanion.insert({
+    required String serverId,
+    required String workspaceName,
+    required String historyId,
+    required String role,
+    required String content,
+    required String name,
+    this.createdAt = const Value.absent(),
+    required DateTime refreshedAt,
+    this.rowid = const Value.absent(),
+  }) : serverId = Value(serverId),
+       workspaceName = Value(workspaceName),
+       historyId = Value(historyId),
+       role = Value(role),
+       content = Value(content),
+       name = Value(name),
+       refreshedAt = Value(refreshedAt);
+  static Insertable<WorkspaceChatEntry> custom({
+    Expression<String>? serverId,
+    Expression<String>? workspaceName,
+    Expression<String>? historyId,
+    Expression<String>? role,
+    Expression<String>? content,
+    Expression<String>? name,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? refreshedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (serverId != null) 'server_id': serverId,
+      if (workspaceName != null) 'workspace_name': workspaceName,
+      if (historyId != null) 'history_id': historyId,
+      if (role != null) 'role': role,
+      if (content != null) 'content': content,
+      if (name != null) 'name': name,
+      if (createdAt != null) 'created_at': createdAt,
+      if (refreshedAt != null) 'refreshed_at': refreshedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  WorkspaceChatEntriesCompanion copyWith({
+    Value<String>? serverId,
+    Value<String>? workspaceName,
+    Value<String>? historyId,
+    Value<String>? role,
+    Value<String>? content,
+    Value<String>? name,
+    Value<DateTime?>? createdAt,
+    Value<DateTime>? refreshedAt,
+    Value<int>? rowid,
+  }) {
+    return WorkspaceChatEntriesCompanion(
+      serverId: serverId ?? this.serverId,
+      workspaceName: workspaceName ?? this.workspaceName,
+      historyId: historyId ?? this.historyId,
+      role: role ?? this.role,
+      content: content ?? this.content,
+      name: name ?? this.name,
+      createdAt: createdAt ?? this.createdAt,
+      refreshedAt: refreshedAt ?? this.refreshedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (serverId.present) {
+      map['server_id'] = Variable<String>(serverId.value);
+    }
+    if (workspaceName.present) {
+      map['workspace_name'] = Variable<String>(workspaceName.value);
+    }
+    if (historyId.present) {
+      map['history_id'] = Variable<String>(historyId.value);
+    }
+    if (role.present) {
+      map['role'] = Variable<String>(role.value);
+    }
+    if (content.present) {
+      map['content'] = Variable<String>(content.value);
+    }
+    if (name.present) {
+      map['name'] = Variable<String>(name.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (refreshedAt.present) {
+      map['refreshed_at'] = Variable<DateTime>(refreshedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('WorkspaceChatEntriesCompanion(')
+          ..write('serverId: $serverId, ')
+          ..write('workspaceName: $workspaceName, ')
+          ..write('historyId: $historyId, ')
+          ..write('role: $role, ')
+          ..write('content: $content, ')
+          ..write('name: $name, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('refreshedAt: $refreshedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -1594,6 +2120,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     this,
   );
   late final $SyncStatesTable syncStates = $SyncStatesTable(this);
+  late final $WorkspaceChatEntriesTable workspaceChatEntries =
+      $WorkspaceChatEntriesTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -1603,6 +2131,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     workflowEntries,
     workspaceEntries,
     syncStates,
+    workspaceChatEntries,
   ];
 }
 
@@ -2442,6 +2971,283 @@ typedef $$SyncStatesTableProcessedTableManager =
       SyncState,
       PrefetchHooks Function()
     >;
+typedef $$WorkspaceChatEntriesTableCreateCompanionBuilder =
+    WorkspaceChatEntriesCompanion Function({
+      required String serverId,
+      required String workspaceName,
+      required String historyId,
+      required String role,
+      required String content,
+      required String name,
+      Value<DateTime?> createdAt,
+      required DateTime refreshedAt,
+      Value<int> rowid,
+    });
+typedef $$WorkspaceChatEntriesTableUpdateCompanionBuilder =
+    WorkspaceChatEntriesCompanion Function({
+      Value<String> serverId,
+      Value<String> workspaceName,
+      Value<String> historyId,
+      Value<String> role,
+      Value<String> content,
+      Value<String> name,
+      Value<DateTime?> createdAt,
+      Value<DateTime> refreshedAt,
+      Value<int> rowid,
+    });
+
+class $$WorkspaceChatEntriesTableFilterComposer
+    extends Composer<_$AppDatabase, $WorkspaceChatEntriesTable> {
+  $$WorkspaceChatEntriesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get serverId => $composableBuilder(
+    column: $table.serverId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get workspaceName => $composableBuilder(
+    column: $table.workspaceName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get historyId => $composableBuilder(
+    column: $table.historyId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get role => $composableBuilder(
+    column: $table.role,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get content => $composableBuilder(
+    column: $table.content,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get refreshedAt => $composableBuilder(
+    column: $table.refreshedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$WorkspaceChatEntriesTableOrderingComposer
+    extends Composer<_$AppDatabase, $WorkspaceChatEntriesTable> {
+  $$WorkspaceChatEntriesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get serverId => $composableBuilder(
+    column: $table.serverId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get workspaceName => $composableBuilder(
+    column: $table.workspaceName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get historyId => $composableBuilder(
+    column: $table.historyId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get role => $composableBuilder(
+    column: $table.role,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get content => $composableBuilder(
+    column: $table.content,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get refreshedAt => $composableBuilder(
+    column: $table.refreshedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$WorkspaceChatEntriesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $WorkspaceChatEntriesTable> {
+  $$WorkspaceChatEntriesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get serverId =>
+      $composableBuilder(column: $table.serverId, builder: (column) => column);
+
+  GeneratedColumn<String> get workspaceName => $composableBuilder(
+    column: $table.workspaceName,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get historyId =>
+      $composableBuilder(column: $table.historyId, builder: (column) => column);
+
+  GeneratedColumn<String> get role =>
+      $composableBuilder(column: $table.role, builder: (column) => column);
+
+  GeneratedColumn<String> get content =>
+      $composableBuilder(column: $table.content, builder: (column) => column);
+
+  GeneratedColumn<String> get name =>
+      $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get refreshedAt => $composableBuilder(
+    column: $table.refreshedAt,
+    builder: (column) => column,
+  );
+}
+
+class $$WorkspaceChatEntriesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $WorkspaceChatEntriesTable,
+          WorkspaceChatEntry,
+          $$WorkspaceChatEntriesTableFilterComposer,
+          $$WorkspaceChatEntriesTableOrderingComposer,
+          $$WorkspaceChatEntriesTableAnnotationComposer,
+          $$WorkspaceChatEntriesTableCreateCompanionBuilder,
+          $$WorkspaceChatEntriesTableUpdateCompanionBuilder,
+          (
+            WorkspaceChatEntry,
+            BaseReferences<
+              _$AppDatabase,
+              $WorkspaceChatEntriesTable,
+              WorkspaceChatEntry
+            >,
+          ),
+          WorkspaceChatEntry,
+          PrefetchHooks Function()
+        > {
+  $$WorkspaceChatEntriesTableTableManager(
+    _$AppDatabase db,
+    $WorkspaceChatEntriesTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$WorkspaceChatEntriesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$WorkspaceChatEntriesTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$WorkspaceChatEntriesTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> serverId = const Value.absent(),
+                Value<String> workspaceName = const Value.absent(),
+                Value<String> historyId = const Value.absent(),
+                Value<String> role = const Value.absent(),
+                Value<String> content = const Value.absent(),
+                Value<String> name = const Value.absent(),
+                Value<DateTime?> createdAt = const Value.absent(),
+                Value<DateTime> refreshedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => WorkspaceChatEntriesCompanion(
+                serverId: serverId,
+                workspaceName: workspaceName,
+                historyId: historyId,
+                role: role,
+                content: content,
+                name: name,
+                createdAt: createdAt,
+                refreshedAt: refreshedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String serverId,
+                required String workspaceName,
+                required String historyId,
+                required String role,
+                required String content,
+                required String name,
+                Value<DateTime?> createdAt = const Value.absent(),
+                required DateTime refreshedAt,
+                Value<int> rowid = const Value.absent(),
+              }) => WorkspaceChatEntriesCompanion.insert(
+                serverId: serverId,
+                workspaceName: workspaceName,
+                historyId: historyId,
+                role: role,
+                content: content,
+                name: name,
+                createdAt: createdAt,
+                refreshedAt: refreshedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$WorkspaceChatEntriesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $WorkspaceChatEntriesTable,
+      WorkspaceChatEntry,
+      $$WorkspaceChatEntriesTableFilterComposer,
+      $$WorkspaceChatEntriesTableOrderingComposer,
+      $$WorkspaceChatEntriesTableAnnotationComposer,
+      $$WorkspaceChatEntriesTableCreateCompanionBuilder,
+      $$WorkspaceChatEntriesTableUpdateCompanionBuilder,
+      (
+        WorkspaceChatEntry,
+        BaseReferences<
+          _$AppDatabase,
+          $WorkspaceChatEntriesTable,
+          WorkspaceChatEntry
+        >,
+      ),
+      WorkspaceChatEntry,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -2454,4 +3260,6 @@ class $AppDatabaseManager {
       $$WorkspaceEntriesTableTableManager(_db, _db.workspaceEntries);
   $$SyncStatesTableTableManager get syncStates =>
       $$SyncStatesTableTableManager(_db, _db.syncStates);
+  $$WorkspaceChatEntriesTableTableManager get workspaceChatEntries =>
+      $$WorkspaceChatEntriesTableTableManager(_db, _db.workspaceChatEntries);
 }

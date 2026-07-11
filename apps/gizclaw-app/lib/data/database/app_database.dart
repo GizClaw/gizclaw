@@ -48,12 +48,44 @@ class SyncStates extends Table {
   Set<Column<Object>> get primaryKey => {serverId, scope};
 }
 
-@DriftDatabase(tables: [Servers, WorkflowEntries, WorkspaceEntries, SyncStates])
+class WorkspaceChatEntries extends Table {
+  TextColumn get serverId => text()();
+  TextColumn get workspaceName => text()();
+  TextColumn get historyId => text()();
+  TextColumn get role => text()();
+  TextColumn get content => text()();
+  TextColumn get name => text()();
+  DateTimeColumn get createdAt => dateTime().nullable()();
+  DateTimeColumn get refreshedAt => dateTime()();
+
+  @override
+  Set<Column<Object>> get primaryKey => {serverId, workspaceName, historyId};
+}
+
+@DriftDatabase(
+  tables: [
+    Servers,
+    WorkflowEntries,
+    WorkspaceEntries,
+    SyncStates,
+    WorkspaceChatEntries,
+  ],
+)
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(driftDatabase(name: 'gizclaw_mobile_cache'));
 
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
+
+  @override
+  MigrationStrategy get migration => MigrationStrategy(
+    onCreate: (migrator) => migrator.createAll(),
+    onUpgrade: (migrator, from, to) async {
+      if (from < 2) {
+        await migrator.createTable(workspaceChatEntries);
+      }
+    },
+  );
 }

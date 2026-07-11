@@ -8,6 +8,8 @@ import '../prototype/prototype_data.dart';
 import '../prototype/prototype_models.dart';
 import 'database/app_database.dart';
 import 'repositories/mobile_data_repository.dart';
+import 'repositories/workspace_chat_repository.dart';
+import 'workspace_chat_controller.dart';
 
 enum MobileConnectionState { unconfigured, connecting, connected, offline }
 
@@ -32,11 +34,14 @@ class MobileDataController extends ChangeNotifier {
   final AppDatabase database;
   final GizClawConnectionController connection;
   late final MobileDataRepository repository;
+  late final WorkspaceChatRepository workspaceChatRepository =
+      WorkspaceChatRepository(database);
 
   StreamSubscription<List<WorkflowCard>>? _workflowSubscription;
   StreamSubscription<List<WorkspaceCard>>? _workspaceSubscription;
   List<WorkflowCard> workflows = const [];
   List<WorkspaceCard> workspaces = const [];
+  String? activeServerId;
   MobileConnectionState connectionState = MobileConnectionState.unconfigured;
   Object? lastError;
   bool refreshing = false;
@@ -76,6 +81,7 @@ class MobileDataController extends ChangeNotifier {
   }
 
   Future<void> _watchServer(String serverId) async {
+    activeServerId = serverId;
     await _workflowSubscription?.cancel();
     await _workspaceSubscription?.cancel();
     _workflowSubscription = repository.watchWorkflows(serverId).listen((value) {
@@ -132,6 +138,17 @@ class MobileDataController extends ChangeNotifier {
         workflowName: '',
         lastActive: 'Unavailable',
       ),
+    );
+  }
+
+  WorkspaceChatController createWorkspaceChat(String workspaceName) {
+    return WorkspaceChatController(
+      workspaceName: workspaceName,
+      repository: workspaceChatRepository,
+      serverId: activeServerId,
+      client: connection.client,
+      dataChannelFactory: connection.dataChannelFactory,
+      peerConnection: connection.peerConnection,
     );
   }
 

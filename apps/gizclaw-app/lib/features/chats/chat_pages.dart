@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../data/mobile_data_controller.dart';
+import '../../data/workspace_chat_controller.dart';
 import '../../giz_ui/giz_ui.dart';
 import '../../prototype/prototype_data.dart';
 import '../../prototype/prototype_models.dart';
@@ -184,11 +187,40 @@ class WorkspaceChatPage extends StatefulWidget {
 }
 
 class _WorkspaceChatPageState extends State<WorkspaceChatPage> {
-  final _controller = TextEditingController();
+  final _scrollController = ScrollController();
+  WorkspaceChatController? _chat;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_chat != null) return;
+    final data = MobileDataScope.watch(context);
+    if (data.connectionState == MobileConnectionState.connecting) return;
+    final chat = data.createWorkspaceChat(widget.workspaceName);
+    _chat = chat;
+    chat.addListener(_handleChatChanged);
+    unawaited(chat.start());
+  }
+
+  void _handleChatChanged() {
+    if (!mounted) return;
+    setState(() {});
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeOutCubic,
+        );
+      }
+    });
+  }
 
   @override
   void dispose() {
-    _controller.dispose();
+    _chat?.removeListener(_handleChatChanged);
+    _chat?.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -197,6 +229,8 @@ class _WorkspaceChatPageState extends State<WorkspaceChatPage> {
     final data = MobileDataScope.watch(context);
     final workspace = data.workspace(widget.workspaceName);
     final workflow = data.workflow(workspace.workflowName);
+    final chat = _chat;
+    final messages = chat?.messages ?? const <WorkspaceChatMessage>[];
     return CupertinoPageScaffold(
       navigationBar: CupertinoNavigationBar(
         middle: Column(
@@ -216,33 +250,182 @@ class _WorkspaceChatPageState extends State<WorkspaceChatPage> {
         child: Column(
           children: [
             Expanded(
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(16, 20, 16, 18),
-                children: [
-                  _ChatBubble(
-                    text:
-                        'This workspace is ready. What would you like to work on?',
-                    incoming: true,
-                    color: workflow.bannerColor,
-                  ),
-                  const SizedBox(height: 10),
-                  const _ChatBubble(
-                    text: 'Help me turn today into a short, focused plan.',
-                    incoming: false,
-                    color: GizColors.ink,
-                  ),
-                  const SizedBox(height: 10),
-                  _ChatBubble(
-                    text:
-                        'Start with one outcome, then choose two actions that move it forward.',
-                    incoming: true,
-                    color: workflow.bannerColor,
-                  ),
-                ],
+              child: _WorkspaceMessageList(
+                controller: _scrollController,
+                messages: messages,
+                state: chat?.state ?? WorkspaceChatState.loading,
+                color: workflow.bannerColor,
+                error: chat?.lastError,
               ),
             ),
-            _Composer(controller: _controller),
+            _PushToTalkControl(chat: chat),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _WorkspaceMessageList extends StatelessWidget {
+  const _WorkspaceMessageList({
+    required this.controller,
+    required this.messages,
+    required this.state,
+    required this.color,
+    required this.error,
+  });
+
+  final Color color;
+  final ScrollController controller;
+  final Object? error;
+  final List<WorkspaceChatMessage> messages;
+  final WorkspaceChatState state;
+
+  @override
+  Widget build(BuildContext context) {
+    if (messages.isEmpty &&
+        (state == WorkspaceChatState.loading ||
+            state == WorkspaceChatState.connecting)) {
+      return const Center(child: CupertinoActivityIndicator());
+    }
+    if (messages.isEmpty) {
+      final unavailable =
+          state == WorkspaceChatState.error ||
+          state == WorkspaceChatState.offline;
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 36),
+          child: Text(
+            unavailable
+                ? 'This conversation is unavailable right now.'
+                : 'Start a new conversation.',
+            textAlign: TextAlign.center,
+            style: GizText.body.copyWith(color: GizColors.secondaryInk),
+          ),
+        ),
+      );
+    }
+    return ListView.separated(
+      controller: controller,
+      padding: const EdgeInsets.fromLTRB(16, 20, 16, 18),
+      itemCount: messages.length + (error == null ? 0 : 1),
+      separatorBuilder: (_, _) => const SizedBox(height: 10),
+      itemBuilder: (context, index) {
+        if (index == messages.length) {
+          return Text(
+            'Live updates paused. Showing saved messages.',
+            textAlign: TextAlign.center,
+            style: GizText.label.copyWith(color: GizColors.secondaryInk),
+          );
+        }
+        final message = messages[index];
+        return _ChatBubble(
+          text: message.text.isEmpty ? '...' : message.text,
+          incoming: message.incoming,
+          color: color,
+          state: message.state,
+        );
+      },
+    );
+  }
+}
+
+class _PushToTalkControl extends StatelessWidget {
+  const _PushToTalkControl({required this.chat});
+
+  final WorkspaceChatController? chat;
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = chat;
+    final enabled = controller?.canRecord ?? false;
+    final recording = controller?.recording ?? false;
+    final preparing = controller?.startingInput ?? false;
+    final label = recording
+        ? 'Release to send'
+        : preparing
+        ? 'Opening microphone'
+        : enabled
+        ? 'Hold to talk'
+        : 'Voice unavailable';
+    return DecoratedBox(
+      decoration: const BoxDecoration(
+        color: Color(0xFAF4F5F1),
+        border: Border(top: BorderSide(color: GizColors.separator)),
+      ),
+      child: SizedBox(
+        height: 116,
+        width: double.infinity,
+        child: Center(
+          child: Listener(
+            onPointerDown: enabled
+                ? (_) => unawaited(controller!.startInput())
+                : null,
+            onPointerUp: enabled
+                ? (_) => unawaited(controller!.finishInput())
+                : null,
+            onPointerCancel: enabled
+                ? (_) => unawaited(
+                    controller!.finishInput(error: 'recording canceled'),
+                  )
+                : null,
+            child: Semantics(
+              button: true,
+              enabled: enabled,
+              label: label,
+              child: AnimatedScale(
+                scale: recording ? 1.08 : 1,
+                duration: const Duration(milliseconds: 160),
+                curve: Curves.easeOutCubic,
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 180),
+                  curve: Curves.easeOutCubic,
+                  width: 190,
+                  height: 64,
+                  decoration: BoxDecoration(
+                    color: recording ? GizColors.accent : GizColors.ink,
+                    borderRadius: BorderRadius.circular(32),
+                    boxShadow: recording
+                        ? [
+                            BoxShadow(
+                              color: GizColors.accent.withValues(alpha: 0.28),
+                              blurRadius: 20,
+                              spreadRadius: 5,
+                            ),
+                          ]
+                        : const [],
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        recording
+                            ? CupertinoIcons.waveform
+                            : CupertinoIcons.mic_fill,
+                        size: 22,
+                        color: recording ? GizColors.ink : GizColors.surface,
+                      ),
+                      const SizedBox(width: 9),
+                      Flexible(
+                        child: Text(
+                          label,
+                          maxLines: 1,
+                          overflow: TextOverflow.fade,
+                          softWrap: false,
+                          style: GizText.label.copyWith(
+                            color: recording
+                                ? GizColors.ink
+                                : GizColors.surface,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
         ),
       ),
     );
@@ -317,11 +500,13 @@ class _ChatBubble extends StatelessWidget {
     required this.text,
     required this.incoming,
     required this.color,
+    this.state,
   });
 
   final String text;
   final bool incoming;
   final Color color;
+  final WorkspaceMessageState? state;
 
   @override
   Widget build(BuildContext context) {
@@ -337,11 +522,30 @@ class _ChatBubble extends StatelessWidget {
           ),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
-            child: Text(
-              text,
-              style: GizText.body.copyWith(
-                color: incoming ? GizColors.ink : GizColors.surface,
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  text,
+                  style: GizText.body.copyWith(
+                    color: incoming ? GizColors.ink : GizColors.surface,
+                  ),
+                ),
+                if (state == WorkspaceMessageState.streaming ||
+                    state == WorkspaceMessageState.failed) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    state == WorkspaceMessageState.failed
+                        ? 'Not delivered'
+                        : 'Responding',
+                    style: GizText.label.copyWith(
+                      color: incoming
+                          ? GizColors.secondaryInk
+                          : GizColors.surface.withValues(alpha: 0.72),
+                    ),
+                  ),
+                ],
+              ],
             ),
           ),
         ),
@@ -377,6 +581,8 @@ class _Composer extends StatelessWidget {
                   vertical: 11,
                 ),
                 style: GizText.body,
+                textInputAction: TextInputAction.send,
+                onSubmitted: (_) => controller.clear(),
                 decoration: BoxDecoration(
                   color: GizColors.surface,
                   borderRadius: BorderRadius.circular(8),
@@ -390,7 +596,7 @@ class _Composer extends StatelessWidget {
               padding: EdgeInsets.zero,
               color: GizColors.ink,
               borderRadius: BorderRadius.circular(21),
-              onPressed: () => controller.clear(),
+              onPressed: controller.clear,
               child: const Icon(
                 CupertinoIcons.arrow_up,
                 size: 20,
