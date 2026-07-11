@@ -95,14 +95,14 @@ class MobileDataController extends ChangeNotifier {
     }
     try {
       final workspaceName = mobileAstWorkspaceName(clientPublicKey);
-      final existingWorkflowName = await repository.workspaceWorkflowName(
+      final existingWorkspace = await repository.workspaceDocument(
         serverId,
         workspaceName,
       );
       final refreshNeeded = await DeviceWorkspaceProvisioner.forClient(client)
           .ensureMobileAstWorkspace(
             clientPublicKey,
-            existingWorkflowName: existingWorkflowName,
+            existingWorkspace: existingWorkspace,
           );
       if (refreshNeeded) {
         await refresh(client: client, serverId: serverId);

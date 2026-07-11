@@ -45,13 +45,13 @@ void main() {
     expect(await repository.hasWorkflow('server-a', 'build-helper'), isTrue);
     expect(await repository.hasWorkflow('server-a', 'missing'), isFalse);
     expect(
-      await repository.workspaceWorkflowName('server-a', 'mobile-plan'),
+      (await repository.workspaceDocument(
+        'server-a',
+        'mobile-plan',
+      ))?.workflowName,
       'build-helper',
     );
-    expect(
-      await repository.workspaceWorkflowName('server-a', 'missing'),
-      isNull,
-    );
+    expect(await repository.workspaceDocument('server-a', 'missing'), isNull);
   });
 
   test('complete refresh removes rows absent from the snapshot', () async {

@@ -44,11 +44,12 @@ class MobileDataRepository {
     return await query.getSingleOrNull() != null;
   }
 
-  Future<String?> workspaceWorkflowName(String serverId, String name) async {
+  Future<Workspace?> workspaceDocument(String serverId, String name) async {
     final query = database.select(database.workspaceEntries)
       ..where((row) => row.serverId.equals(serverId) & row.name.equals(name))
       ..limit(1);
-    return (await query.getSingleOrNull())?.workflowName;
+    final row = await query.getSingleOrNull();
+    return row == null ? null : Workspace.fromBuffer(row.rawProtobuf);
   }
 
   Future<void> refresh({

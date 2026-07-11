@@ -15,6 +15,7 @@ void main() {
   test('reuses an existing device workspace', () async {
     var getCalls = 0;
     var createCalls = 0;
+    var putCalls = 0;
     final provisioner = DeviceWorkspaceProvisioner(
       getWorkspace: (_) async {
         getCalls++;
@@ -24,17 +25,22 @@ void main() {
         createCalls++;
         throw StateError('unexpected create');
       },
+      putWorkspace: (_, _) async {
+        putCalls++;
+        throw StateError('unexpected put');
+      },
     );
 
     expect(
       await provisioner.ensureMobileAstWorkspace(
         publicKey,
-        existingWorkflowName: mobileAstWorkflowName,
+        existingWorkspace: mobileAstWorkspace(expectedName),
       ),
       isFalse,
     );
     expect(getCalls, 0);
     expect(createCalls, 0);
+    expect(putCalls, 0);
   });
 
   test('creates an embedded push-to-talk AST workspace when absent', () async {
@@ -45,6 +51,7 @@ void main() {
         created = workspace;
         return workspace;
       },
+      putWorkspace: (_, _) async => throw StateError('unexpected put'),
     );
 
     expect(await provisioner.ensureMobileAstWorkspace(publicKey), isTrue);
@@ -57,15 +64,55 @@ void main() {
           .ASTTRANSLATE_WORKSPACE_PARAMETERS_AGENT_TYPE_AST_TRANSLATE,
     );
     expect(ast.input, WorkspaceInputMode.WORKSPACE_INPUT_MODE_PUSH_TO_TALK);
-    expect(ast.langPair, 'auto');
+    expect(ast.enableSourceLanguageDetect, isTrue);
+    expect(ast.langPair, mobileAstLanguagePair);
+    expect(ast.mode, ASTTranslateMode.ASTTRANSLATE_MODE_S2S);
     expect(ast.translationModel, mobileAstWorkflowName);
   });
+
+  test(
+    'updates an existing workspace to the fixed auto zh-en profile',
+    () async {
+      Workspace? updated;
+      final provisioner = DeviceWorkspaceProvisioner(
+        getWorkspace: (_) async => throw StateError('unexpected get'),
+        createWorkspace: (_) async => throw StateError('unexpected create'),
+        putWorkspace: (name, workspace) async {
+          expect(name, expectedName);
+          updated = workspace;
+          return workspace;
+        },
+      );
+      final stale = Workspace(
+        name: expectedName,
+        workflowName: mobileAstWorkflowName,
+        parameters: WorkspaceParameters(
+          asttranslateWorkspaceParameters: ASTTranslateWorkspaceParameters(
+            langPair: 'zh/en',
+          ),
+        ),
+      );
+
+      expect(
+        await provisioner.ensureMobileAstWorkspace(
+          publicKey,
+          existingWorkspace: stale,
+        ),
+        isTrue,
+      );
+      final ast = updated!.parameters.asttranslateWorkspaceParameters;
+      expect(ast.langPair, mobileAstLanguagePair);
+      expect(ast.enableSourceLanguageDetect, isTrue);
+      expect(ast.mode, ASTTranslateMode.ASTTRANSLATE_MODE_S2S);
+    },
+  );
 
   test('recovers when another ensure creates the workspace first', () async {
     final provisioner = DeviceWorkspaceProvisioner(
       getWorkspace: (_) async =>
           Workspace(name: expectedName, workflowName: mobileAstWorkflowName),
       createWorkspace: (_) async => throw RpcError(409, 'already exists'),
+      putWorkspace: (_, workspace) async => workspace,
     );
 
     expect(await provisioner.ensureMobileAstWorkspace(publicKey), isTrue);
@@ -75,12 +122,16 @@ void main() {
     final provisioner = DeviceWorkspaceProvisioner(
       getWorkspace: (_) async => throw StateError('unexpected get'),
       createWorkspace: (_) async => throw StateError('unexpected create'),
+      putWorkspace: (_, _) async => throw StateError('unexpected put'),
     );
 
     expect(
       provisioner.ensureMobileAstWorkspace(
         publicKey,
-        existingWorkflowName: 'other-workflow',
+        existingWorkspace: Workspace(
+          name: expectedName,
+          workflowName: 'other-workflow',
+        ),
       ),
       throwsStateError,
     );
