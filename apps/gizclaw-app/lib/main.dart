@@ -40,7 +40,8 @@ class _HomeShellState extends State<HomeShell> {
   Widget build(BuildContext context) {
     final pages = <Widget>[
       BrowsePage(onOpenWorkflow: _openWorkflow),
-      const ChatroomPage(),
+      const ChatsPage(),
+      const FriendsPage(),
       const PetPage(),
       const MePage(),
     ];
@@ -61,7 +62,12 @@ class _HomeShellState extends State<HomeShell> {
           NavigationDestination(
             icon: Icon(Icons.forum_outlined),
             selectedIcon: Icon(Icons.forum),
-            label: 'Chatroom',
+            label: 'Chats',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.people_outline),
+            selectedIcon: Icon(Icons.people),
+            label: 'Friends',
           ),
           NavigationDestination(
             icon: Icon(Icons.pets_outlined),
@@ -636,33 +642,152 @@ class ChatBubble extends StatelessWidget {
   }
 }
 
-class ChatroomPage extends StatelessWidget {
-  const ChatroomPage({super.key});
+class ChatsPage extends StatelessWidget {
+  const ChatsPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return DefaultTabController(
+      length: 2,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 4),
+            child: Text(
+              'Chats',
+              style: Theme.of(
+                context,
+              ).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w800),
+            ),
+          ),
+          const TabBar(
+            tabs: [
+              Tab(text: 'Workspace'),
+              Tab(text: 'Group Chat'),
+            ],
+          ),
+          const Expanded(
+            child: TabBarView(children: [WorkspaceChats(), GroupChats()]),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class WorkspaceChats extends StatelessWidget {
+  const WorkspaceChats({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView.separated(
+      padding: const EdgeInsets.all(20),
+      itemCount: workflowWorkspaces.length,
+      separatorBuilder: (_, _) => const SizedBox(height: 10),
+      itemBuilder: (context, index) =>
+          WorkspaceListTile(workspace: workflowWorkspaces[index]),
+    );
+  }
+}
+
+class GroupChats extends StatelessWidget {
+  const GroupChats({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView.separated(
+      padding: const EdgeInsets.all(20),
+      itemCount: chatrooms.length,
+      separatorBuilder: (_, _) => const SizedBox(height: 10),
+      itemBuilder: (context, index) {
+        final room = chatrooms[index];
+        return Card(
+          margin: EdgeInsets.zero,
+          elevation: 0,
+          color: Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          child: ListTile(
+            leading: const Icon(Icons.groups_outlined),
+            title: Text(
+              room.name,
+              style: const TextStyle(fontWeight: FontWeight.w700),
+            ),
+            subtitle: Text(room.subtitle),
+            trailing: const Icon(Icons.chevron_right),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class FriendsPage extends StatelessWidget {
+  const FriendsPage({super.key});
 
   @override
   Widget build(BuildContext context) {
     return ListView(
       padding: const EdgeInsets.all(20),
       children: [
-        Text(
-          'Chatroom',
-          style: Theme.of(
-            context,
-          ).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w800),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                'Friends',
+                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+            IconButton(
+              tooltip: 'Add friend',
+              onPressed: () {},
+              icon: const Icon(Icons.person_add_alt_1_outlined),
+            ),
+          ],
         ),
         const SizedBox(height: 16),
-        ...chatrooms.map(
-          (room) => Card(
+        ...friends.map(
+          (friend) => Card(
             elevation: 0,
             color: Colors.white,
+            margin: const EdgeInsets.only(bottom: 10),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(8),
             ),
             child: ListTile(
-              leading: const Icon(Icons.groups_outlined),
-              title: Text(room.name),
-              subtitle: Text(room.subtitle),
-              trailing: const Icon(Icons.chevron_right),
+              leading: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  CircleAvatar(child: Text(friend.name.substring(0, 1))),
+                  Positioned(
+                    right: -1,
+                    bottom: -1,
+                    child: Container(
+                      width: 12,
+                      height: 12,
+                      decoration: BoxDecoration(
+                        color: friend.online
+                            ? const Color(0xFF2E9B65)
+                            : const Color(0xFF9AA0A6),
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white, width: 2),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              title: Text(
+                friend.name,
+                style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
+              subtitle: Text(friend.status),
+              trailing: IconButton(
+                tooltip: 'Message ${friend.name}',
+                onPressed: () {},
+                icon: const Icon(Icons.chat_bubble_outline),
+              ),
             ),
           ),
         ),
@@ -833,6 +958,18 @@ class ChatroomCard {
   final String subtitle;
 }
 
+class FriendCard {
+  const FriendCard({
+    required this.name,
+    required this.status,
+    required this.online,
+  });
+
+  final String name;
+  final String status;
+  final bool online;
+}
+
 const featuredWorkflows = [
   WorkflowCard(
     name: 'chatroom-daily',
@@ -907,4 +1044,10 @@ const chatrooms = [
   ChatroomCard(name: 'Home Room', subtitle: '3 recent voice messages'),
   ChatroomCard(name: 'Builder Crew', subtitle: 'Last active today'),
   ChatroomCard(name: 'Game Night', subtitle: 'Invite token available'),
+];
+
+const friends = [
+  FriendCard(name: 'Avery', status: 'Building in Flowcraft', online: true),
+  FriendCard(name: 'Morgan', status: 'Online', online: true),
+  FriendCard(name: 'Rin', status: 'Last active yesterday', online: false),
 ];
