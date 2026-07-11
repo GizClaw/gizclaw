@@ -485,7 +485,7 @@ Peer RPC:
 
 ```text
 server.game_ruleset.get
-server.pet.{list,get,adopt,put,delete,drive}
+server.pet.{list,get,adopt,put,delete,drive,presentation.get,pixa.download}
 server.points.get
 server.points.transactions.{list,get}
 server.badge.{list,get}
@@ -495,8 +495,11 @@ server.pet_def.pixa.download
 server.badge_def.pixa.download
 ```
 
-The peer RPC download methods should use the same binary-frame download pattern
-as firmware downloads, with simple metadata responses and binary payload frames.
+The peer RPC PIXA download methods should use the same binary-frame download
+pattern as firmware downloads, with simple metadata responses and binary payload
+frames. `server.pet.pixa.download` is for an owned pet and resolves its PetDef
+visual through pet ownership; `server.pet_def.pixa.download` is for direct
+PetDef asset access.
 
 ## Current Model Summary
 

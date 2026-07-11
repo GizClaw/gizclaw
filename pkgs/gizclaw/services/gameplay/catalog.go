@@ -267,7 +267,7 @@ func (c *Catalog) PutPetDef(ctx context.Context, request adminhttp.PutPetDefRequ
 			pixaPath = nil
 		}
 	}
-	item, err := c.buildPetDef(id, request.Body.Spec, pixaPath, createdAt)
+	item, err := c.buildPetDefForUpdate(id, request.Body.Spec, previous, err == nil, pixaPath, createdAt)
 	if err != nil {
 		return adminhttp.PutPetDef400JSONResponse(apitypes.NewErrorResponse("INVALID_PET_DEF", err.Error())), nil
 	}
@@ -668,11 +668,31 @@ func (c *Catalog) buildGameRuleset(name string, spec apitypes.GameRulesetSpec, c
 }
 
 func (c *Catalog) buildPetDef(id string, spec apitypes.PetDefSpec, pixaPath *string, createdAt time.Time) (apitypes.PetDef, error) {
+	return c.buildPetDefWithValidator(id, spec, pixaPath, createdAt, validatePetDefSpec)
+}
+
+func (c *Catalog) buildPetDefForUpdate(id string, spec apitypes.PetDefSpec, previous apitypes.PetDef, hasPrevious bool, pixaPath *string, createdAt time.Time) (apitypes.PetDef, error) {
+	validate := func(spec apitypes.PetDefSpec) error {
+		err := validatePetDefSpec(spec)
+		if err == nil {
+			return nil
+		}
+		if hasPrevious && isLegacyMigratedPetDef(previous) && isLegacyMigratedPetDefSpec(id, spec) {
+			if legacyErr := validateMigratedLegacyPetDefSpec(spec); legacyErr == nil {
+				return nil
+			}
+		}
+		return err
+	}
+	return c.buildPetDefWithValidator(id, spec, pixaPath, createdAt, validate)
+}
+
+func (c *Catalog) buildPetDefWithValidator(id string, spec apitypes.PetDefSpec, pixaPath *string, createdAt time.Time, validate func(apitypes.PetDefSpec) error) (apitypes.PetDef, error) {
 	id = strings.TrimSpace(id)
 	if id == "" {
 		return apitypes.PetDef{}, errors.New("id is required")
 	}
-	if err := validatePetDefSpec(spec); err != nil {
+	if err := validate(spec); err != nil {
 		return apitypes.PetDef{}, err
 	}
 	now := c.now()
@@ -1057,6 +1077,11 @@ func (c *Catalog) readPetDefJSON(ctx context.Context, store kv.Store, key kv.Key
 	if err := validatePetDefSpec(item.Spec); err == nil {
 		return item, nil
 	}
+	if isLegacyMigratedPetDef(item) {
+		if err := validateMigratedLegacyPetDefSpec(item.Spec); err == nil {
+			return item, nil
+		}
+	}
 	return c.migrateLegacyPetDefJSON(data)
 }
 
@@ -1084,6 +1109,11 @@ func (c *Catalog) migratePetDefData(data []byte) (apitypes.PetDef, error) {
 	}
 	if err := validatePetDefSpec(item.Spec); err == nil {
 		return item, nil
+	}
+	if isLegacyMigratedPetDef(item) {
+		if err := validateMigratedLegacyPetDefSpec(item.Spec); err == nil {
+			return item, nil
+		}
 	}
 	return c.migrateLegacyPetDefJSON(data)
 }

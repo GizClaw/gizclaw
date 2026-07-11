@@ -50,6 +50,7 @@ type PlayDataClientLike = {
   drivePet?(params: Record<string, unknown>): Promise<unknown>;
   downloadBadgeDefPixa?(params: Record<string, unknown>): Promise<unknown>;
   downloadPetDefPixa?(params: Record<string, unknown>): Promise<unknown>;
+  downloadPetPixa?(params: Record<string, unknown>): Promise<unknown>;
   getBadge?(params: Record<string, unknown>): Promise<unknown>;
   getGameResult?(params: Record<string, unknown>): Promise<unknown>;
   getGameRuleset?(params: Record<string, unknown>): Promise<unknown>;
@@ -327,6 +328,14 @@ export const getPeerPetDefPixa = async (options: RequestOptions): Promise<ApiRes
     return normalizeInjectedBinary(result);
   }
   const result = await callRPCBinary(RPC_METHODS["server.pet_def.pixa.download"], options);
+  return binaryBlobResult(result);
+};
+export const getPeerPetPixa = async (options: RequestOptions): Promise<ApiResult<Blob>> => {
+  if (currentDataClient != null) {
+    const result = await injectedResult<Blob | ArrayBuffer | Uint8Array>("downloadPetPixa", options);
+    return normalizeInjectedBinary(result);
+  }
+  const result = await callRPCBinary(RPC_METHODS["server.pet.pixa.download"], options);
   return binaryBlobResult(result);
 };
 export const getPeerPoints = (options?: RequestOptions) => currentDataClient ? injectedResult("getPoints", options) : callRPC(RPC_METHODS["server.points.get"], options);

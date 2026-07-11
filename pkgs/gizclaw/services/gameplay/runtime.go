@@ -476,7 +476,11 @@ func (r *Runtime) DrivePet(ctx context.Context, owner string, req apitypes.PetDr
 }
 
 func isLegacyMigratedPetDef(petDef apitypes.PetDef) bool {
-	return len(petDef.Spec.Drive.Actions) == 0 && petDef.Spec.Visual.Pixa.AssetRef == "asset://pets/"+petDef.Id+"/pet.pixa"
+	return isLegacyMigratedPetDefSpec(petDef.Id, petDef.Spec)
+}
+
+func isLegacyMigratedPetDefSpec(id string, spec apitypes.PetDefSpec) bool {
+	return len(spec.Drive.Actions) == 0 && spec.Visual.Pixa.AssetRef == "asset://pets/"+id+"/pet.pixa"
 }
 
 func (r *Runtime) GetPoints(ctx context.Context, owner, rulesetName string) (apitypes.PointsAccount, error) {

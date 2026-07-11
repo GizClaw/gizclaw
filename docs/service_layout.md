@@ -69,7 +69,7 @@ Server RPC
 ├── server.game_ruleset.get
 ├── server.pet_def.pixa.download
 ├── server.badge_def.pixa.download
-├── server.pet.{list,get,adopt,put,delete,drive}
+├── server.pet.{list,get,adopt,put,delete,drive,presentation.get,pixa.download}
 ├── server.points.get
 ├── server.points.transactions.{list,get}
 ├── server.badge.{list,get}

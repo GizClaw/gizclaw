@@ -510,6 +510,16 @@ func TestCatalogMigratesLegacyPetDefOnRead(t *testing.T) {
 	if petDef.Spec.Visual.Pixa.Metadata.Canvas.Width != 32 || petDef.Spec.Visual.Pixa.Metadata.Canvas.Height != 24 {
 		t.Fatalf("legacy pixa canvas = %#v, want 32x24", petDef.Spec.Visual.Pixa.Metadata.Canvas)
 	}
+	putResp, err := catalog.PutPetDef(ctx, adminhttp.PutPetDefRequestObject{
+		Id: "legacy-pet",
+		Body: &adminhttp.PetDefUpsert{
+			Spec: petDef.Spec,
+		},
+	})
+	if err != nil {
+		t.Fatalf("PutPetDef() migrated legacy error = %v", err)
+	}
+	requireResponse[adminhttp.PutPetDef200JSONResponse](t, putResp)
 	listResp, err := catalog.ListPetDefs(ctx, adminhttp.ListPetDefsRequestObject{})
 	if err != nil {
 		t.Fatalf("ListPetDefs() error = %v", err)

@@ -256,7 +256,7 @@ export function ResourcesPage(): JSX.Element {
     setNotice("");
     try {
       const buffer = await file.arrayBuffer();
-      const asset = validateResourcePixa(buffer, mode, currentPetDefPixaMetadata());
+      const asset = validateResourcePixa(buffer, mode, await persistedPetDefPixaMetadata());
       setPixaPreview({ asset, blob: new Blob([buffer], { type: "application/octet-stream" }), mode, pendingUpload: true });
     } catch (err) {
       setError(toMessage(err));
@@ -296,7 +296,7 @@ export function ResourcesPage(): JSX.Element {
     setNotice("");
     try {
       const blob = await expectData(kind === "PetDef" ? downloadPetDefPixa({ path: { id: name.trim() } }) : downloadBadgeDefPixa({ path: { id: name.trim() } }));
-      const asset = validateResourcePixa(await blob.arrayBuffer(), mode, currentPetDefPixaMetadata());
+      const asset = validateResourcePixa(await blob.arrayBuffer(), mode, await persistedPetDefPixaMetadata());
       setPixaPreview({ asset, mode, pendingUpload: false });
     } catch (err) {
       setError(toMessage(err));
@@ -308,15 +308,17 @@ export function ResourcesPage(): JSX.Element {
   const selectedSummary = useMemo(() => resourceSummary(kind), [kind]);
   const supportsPixa = kind === "PetDef" || kind === "BadgeDef";
 
-  const currentPetDefPixaMetadata = (): PetDefPixaMetadata | null => {
+  const persistedPetDefPixaMetadata = async (): Promise<PetDefPixaMetadata | null> => {
     if (kind !== "PetDef") {
       return null;
     }
-    let source: unknown;
-    try {
-      source = JSON.parse(resourceText) as unknown;
-    } catch (err) {
-      throw new Error(`PetDef JSON is invalid: ${toMessage(err)}`);
+    let source: unknown = resource;
+    if (canAddressResource) {
+      source = await expectData(getResource({ path: { kind: "PetDef", name: name.trim() } }));
+      setResource(source as Resource);
+    }
+    if (source == null) {
+      throw new Error("Load or save the PetDef before uploading PIXA.");
     }
     return readPetDefPixaMetadata(source);
   };

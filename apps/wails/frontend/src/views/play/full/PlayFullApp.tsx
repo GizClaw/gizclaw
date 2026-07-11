@@ -49,6 +49,7 @@ import {
   getPeerPetPresentation,
   getPeerPoints,
   getPeerPetDefPixa,
+  getPeerPetPixa,
   getPeerWorkspaceHistoryAudio,
   getPeerRunWorkspace,
   getPeerRunWorkspaceDetails,
@@ -683,7 +684,7 @@ function GameplayPetTable({ busy, onDelete, onRename, pager, petClipByID }: { bu
                 <TableRow key={pet.id}>
                   <TableCell>
                     <div className="flex items-center gap-3">
-                      <GameplayPixaSprite clipName={petClipByID[pet.id] ?? "idle"} id={pet.petdef_id} type="petdef" />
+                      <GameplayPixaSprite clipName={petClipByID[pet.id] ?? "idle"} id={pet.id} type="pet" />
                       <div>
                         <div className="font-medium">{pet.display_name || pet.id}</div>
                         <div className="font-mono text-xs text-muted-foreground">{pet.id}</div>
@@ -780,7 +781,7 @@ function GameplayBadgeTable({ pager }: { pager: ReturnType<typeof usePagedList<B
   );
 }
 
-function GameplayPixaSprite({ clipName, id, type }: { clipName: string; id: string; type: "petdef" | "badgedef" }): JSX.Element {
+function GameplayPixaSprite({ clipName, id, type }: { clipName: string; id: string; type: "pet" | "petdef" | "badgedef" }): JSX.Element {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [asset, setAsset] = useState<PixaAsset | null>(null);
   const [error, setError] = useState("");
@@ -793,7 +794,11 @@ function GameplayPixaSprite({ clipName, id, type }: { clipName: string; id: stri
       return;
     }
     void (async () => {
-      const result = type === "petdef" ? await getPeerPetDefPixa({ body: { id } }) : await getPeerBadgeDefPixa({ body: { id } });
+      const result = type === "pet"
+        ? await getPeerPetPixa({ body: { pet_id: id } })
+        : type === "petdef"
+          ? await getPeerPetDefPixa({ body: { id } })
+          : await getPeerBadgeDefPixa({ body: { id } });
       if (cancelled) {
         return;
       }
