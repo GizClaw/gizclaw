@@ -412,6 +412,31 @@ func TestRuntimeErrorsPaginationAndTimeDrive(t *testing.T) {
 	}
 }
 
+func TestScanPetIgnoresLegacyAbilityStats(t *testing.T) {
+	ctx := context.Background()
+	db := testDB(t)
+	runtime := &Runtime{DB: db}
+	if err := runtime.Migration(ctx); err != nil {
+		t.Fatalf("Migration() error = %v", err)
+	}
+	now := time.Date(2026, 7, 5, 12, 0, 0, 0, time.UTC)
+	_, err := db.ExecContext(ctx, `INSERT INTO gameplay_pets (owner_public_key, id, ruleset_name, petdef_id, display_name, workspace_name, workflow_name, life_json, ability_json, exp, level, last_active_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		"peer-a", "pet-a", "default", "petdef-a", "Pet A", "pet-pet-a", "pet-chat", `{"hunger":100}`, `{"play":1}`, int64(42), int64(1), formatTime(now), formatTime(now), formatTime(now))
+	if err != nil {
+		t.Fatalf("insert legacy pet error = %v", err)
+	}
+	pet, err := scanPet(db.QueryRowContext(ctx, petSelectSQL()+` WHERE id = ?`, "pet-a"))
+	if err != nil {
+		t.Fatalf("scanPet() error = %v", err)
+	}
+	if _, ok := pet.Progression["play"]; ok {
+		t.Fatalf("legacy ability stat leaked into progression: %#v", pet.Progression)
+	}
+	if got := pet.Progression["xp"]; got != 42 {
+		t.Fatalf("progression xp = %d, want 42", got)
+	}
+}
+
 func TestRuntimeHelperBranches(t *testing.T) {
 	if got := (&Runtime{PickWeight: func(int64) int64 { return -5 }}).pickWeight(10); got != 0 {
 		t.Fatalf("negative pickWeight = %d", got)

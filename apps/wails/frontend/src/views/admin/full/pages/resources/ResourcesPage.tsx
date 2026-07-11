@@ -376,7 +376,7 @@ export function ResourcesPage(): JSX.Element {
                 <div className="mb-3 flex items-center justify-between gap-3">
                   <div>
                     <p className="text-sm font-medium">Pixa</p>
-                    <p className="text-xs text-muted-foreground">{kind === "PetDef" ? "Requires an idle clip." : "Requires a single-frame icon clip."}</p>
+                    <p className="text-xs text-muted-foreground">{kind === "PetDef" ? "Requires clips listed in visual.pixa.metadata." : "Requires a single-frame icon clip."}</p>
                   </div>
                   <Button disabled={!canAddressResource || acting !== ""} onClick={() => void previewSavedPixa()} size="icon" type="button" variant="outline">
                     <Download className="size-4" />

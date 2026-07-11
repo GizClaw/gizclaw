@@ -35,11 +35,13 @@ func scanPet(row rowScanner) (apitypes.Pet, error) {
 	if err := unmarshalJSON(lifeJSON, &pet.Life); err != nil {
 		return apitypes.Pet{}, err
 	}
-	if err := unmarshalJSON(abilityJSON, &pet.Progression); err != nil {
+	var storedProgression apitypes.PetProgression
+	if err := unmarshalJSON(abilityJSON, &storedProgression); err != nil {
 		return apitypes.Pet{}, err
 	}
-	if pet.Progression == nil {
-		pet.Progression = apitypes.PetProgression{}
+	pet.Progression = apitypes.PetProgression{}
+	if xp, ok := storedProgression["xp"]; ok {
+		pet.Progression["xp"] = xp
 	}
 	if _, ok := pet.Progression["xp"]; !ok && legacyExp != 0 {
 		pet.Progression["xp"] = legacyExp

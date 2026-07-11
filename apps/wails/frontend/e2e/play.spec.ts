@@ -32,13 +32,11 @@ test.beforeEach(async ({ page }) => {
       models: [{ id: "fake-openai-chat-000", name: "Fake OpenAI Chat", title: "Fake OpenAI Chat" }],
       pets: [
         {
-          ability: { play: 1 },
           display_name: "Starter Pet",
-          exp: 90,
           id: "pet-main",
-          level: 1,
           life: { clean: 80, hunger: 90 },
           petdef_id: "petdef-basic",
+          progression: { xp: 90 },
           ruleset_name: "default-gameplay",
           workspace_name: "pet-pet-main",
         },
@@ -102,13 +100,11 @@ test.beforeEach(async ({ page }) => {
         const displayName = String(req.display_name ?? "Adopted Pet");
         const id = `pet-${snapshot.pets.length + 1}`;
         const pet = {
-          ability: { play: 1 },
           display_name: displayName,
-          exp: 0,
           id,
-          level: 1,
           life: { clean: 100, hunger: 100 },
           petdef_id: "petdef-basic",
+          progression: { xp: 0 },
           ruleset_name: "default-gameplay",
           workspace_name: `pet-${id}`,
         };
@@ -137,7 +133,7 @@ test.beforeEach(async ({ page }) => {
         if (pet == null) {
           throw new Error("pet not found");
         }
-        pet.exp += 20;
+        pet.progression.xp += 20;
         pet.life.clean = Math.min(100, pet.life.clean + 10);
         snapshot.points.balance += 5;
         snapshot.pointsTransactions.push({

@@ -3878,7 +3878,7 @@ const file_payload_gameplay_proto_rawDesc = "" +
 	"\x05items\x18\x02 \x03(\v2\x1a.gizclaw.rpc.v1.GameResultR\x05items\x12$\n" +
 	"\vnext_cursor\x18\x03 \x01(\tH\x00R\n" +
 	"nextCursor\x88\x01\x01B\x0e\n" +
-	"\f_next_cursor\"\xa1\x02\n" +
+	"\f_next_cursor\"\xc8\x02\n" +
 	"\x0eGameRewardSpec\x12Y\n" +
 	"\x0fbadge_exp_delta\x18\x02 \x03(\v21.gizclaw.rpc.v1.GameRewardSpec.BadgeExpDeltaEntryR\rbadgeExpDelta\x12'\n" +
 	"\rpet_exp_delta\x18\x04 \x01(\x03H\x00R\vpetExpDelta\x88\x01\x01\x12&\n" +
@@ -3887,21 +3887,22 @@ const file_payload_gameplay_proto_rawDesc = "" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\x03R\x05value:\x028\x01B\x10\n" +
 	"\x0e_pet_exp_deltaB\x0f\n" +
-	"\r_points_delta\"\x94\x01\n" +
+	"\r_points_deltaJ\x04\b\x01\x10\x02J\x04\b\x03\x10\x04R\rability_deltaR\n" +
+	"life_delta\"\x94\x01\n" +
 	"\vGameRuleset\x12\x1d\n" +
 	"\n" +
 	"created_at\x18\x01 \x01(\tR\tcreatedAt\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x123\n" +
 	"\x04spec\x18\x03 \x01(\v2\x1f.gizclaw.rpc.v1.GameRulesetSpecR\x04spec\x12\x1d\n" +
 	"\n" +
-	"updated_at\x18\x04 \x01(\tR\tupdatedAt\"\xaf\x02\n" +
+	"updated_at\x18\x04 \x01(\tR\tupdatedAt\"\xf4\x02\n" +
 	"\x14GameRulesetDriveSpec\x12J\n" +
 	"\x0edefault_reward\x18\x03 \x01(\v2\x1e.gizclaw.rpc.v1.GameRewardSpecH\x00R\rdefaultReward\x88\x01\x01\x12X\n" +
 	"\fgame_rewards\x18\x04 \x03(\v25.gizclaw.rpc.v1.GameRulesetDriveSpec.GameRewardsEntryR\vgameRewards\x1a^\n" +
 	"\x10GameRewardsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x124\n" +
 	"\x05value\x18\x02 \x01(\v2\x1e.gizclaw.rpc.v1.GameRewardSpecR\x05value:\x028\x01B\x11\n" +
-	"\x0f_default_reward\"\xee\x01\n" +
+	"\x0f_default_rewardJ\x04\b\x01\x10\x02J\x04\b\x02\x10\x03J\x04\b\x05\x10\x06R\faction_costsR\x0eaction_rewardsR\x13life_decay_per_hour\"\xee\x01\n" +
 	"\x17GameRulesetPetPoolEntry\x12(\n" +
 	"\radoption_cost\x18\x01 \x01(\x03H\x00R\fadoptionCost\x88\x01\x01\x12\x1b\n" +
 	"\tpetdef_id\x18\x02 \x01(\tR\bpetdefId\x12\x1b\n" +
@@ -3938,7 +3939,7 @@ const file_payload_gameplay_proto_rawDesc = "" +
 	"\a_cursorB\b\n" +
 	"\x06_limit\"C\n" +
 	"\x10GameplayMetadata\x12/\n" +
-	"\x06fields\x18\x01 \x01(\v2\x17.google.protobuf.StructR\x06fields\"\xd8\x03\n" +
+	"\x06fields\x18\x01 \x01(\v2\x17.google.protobuf.StructR\x06fields\"\xff\x03\n" +
 	"\x03Pet\x12\x1d\n" +
 	"\n" +
 	"created_at\x18\x02 \x01(\tR\tcreatedAt\x12!\n" +
@@ -3955,7 +3956,7 @@ const file_payload_gameplay_proto_rawDesc = "" +
 	"\rworkflow_name\x18\r \x01(\tH\x00R\fworkflowName\x88\x01\x01\x12%\n" +
 	"\x0eworkspace_name\x18\x0e \x01(\tR\rworkspaceName\x12@\n" +
 	"\vprogression\x18\x0f \x01(\v2\x1e.gizclaw.rpc.v1.PetProgressionR\vprogressionB\x10\n" +
-	"\x0e_workflow_name\"\x83\x01\n" +
+	"\x0e_workflow_nameJ\x04\b\x01\x10\x02J\x04\b\x04\x10\x05J\x04\b\a\x10\bR\aabilityR\x03expR\x05level\"\x83\x01\n" +
 	"\x0fPetAdoptRequest\x12&\n" +
 	"\fdisplay_name\x18\x01 \x01(\tH\x00R\vdisplayName\x88\x01\x01\x12&\n" +
 	"\fruleset_name\x18\x02 \x01(\tH\x01R\vrulesetName\x88\x01\x01B\x0f\n" +
@@ -4060,7 +4061,7 @@ const file_payload_gameplay_proto_rawDesc = "" +
 	"\x05items\x18\x02 \x03(\v2!.gizclaw.rpc.v1.PointsTransactionR\x05items\x12$\n" +
 	"\vnext_cursor\x18\x03 \x01(\tH\x00R\n" +
 	"nextCursor\x88\x01\x01B\x0e\n" +
-	"\f_next_cursor\"\xb5\x04\n" +
+	"\f_next_cursor\"\xdc\x04\n" +
 	"\vRewardGrant\x12V\n" +
 	"\x0fbadge_exp_delta\x18\x02 \x03(\v2..gizclaw.rpc.v1.RewardGrant.BadgeExpDeltaEntryR\rbadgeExpDelta\x12\x1d\n" +
 	"\n" +
@@ -4082,7 +4083,8 @@ const file_payload_gameplay_proto_rawDesc = "" +
 	"\x05value\x18\x02 \x01(\x03R\x05value:\x028\x01B\x11\n" +
 	"\x0f_game_result_idB\t\n" +
 	"\a_pet_idB\t\n" +
-	"\a_reason\"\x9d\x01\n" +
+	"\a_reasonJ\x04\b\x01\x10\x02J\x04\b\x06\x10\aR\rability_deltaR\n" +
+	"life_delta\"\x9d\x01\n" +
 	"\x17RewardGrantListResponse\x12\x19\n" +
 	"\bhas_next\x18\x01 \x01(\bR\ahasNext\x121\n" +
 	"\x05items\x18\x02 \x03(\v2\x1b.gizclaw.rpc.v1.RewardGrantR\x05items\x12$\n" +

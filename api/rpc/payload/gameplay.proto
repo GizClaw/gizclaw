@@ -60,6 +60,9 @@ message GameResultListResponse {
 }
 
 message GameRewardSpec {
+  reserved 1, 3;
+  reserved "ability_delta", "life_delta";
+
   map<string, int64> badge_exp_delta = 2;
   optional int64 pet_exp_delta = 4;
   optional int64 points_delta = 5;
@@ -73,6 +76,9 @@ message GameRuleset {
 }
 
 message GameRulesetDriveSpec {
+  reserved 1, 2, 5;
+  reserved "action_costs", "action_rewards", "life_decay_per_hour";
+
   optional GameRewardSpec default_reward = 3;
   map<string, GameRewardSpec> game_rewards = 4;
 }
@@ -115,6 +121,9 @@ message GameplayMetadata {
 }
 
 message Pet {
+  reserved 1, 4, 7;
+  reserved "ability", "exp", "level";
+
   string created_at = 2;
   string display_name = 3;
   string id = 5;
@@ -226,6 +235,9 @@ message PointsTransactionListResponse {
 }
 
 message RewardGrant {
+  reserved 1, 6;
+  reserved "ability_delta", "life_delta";
+
   map<string, int64> badge_exp_delta = 2;
   string created_at = 3;
   optional string game_result_id = 4;

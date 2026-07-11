@@ -60,7 +60,7 @@ func TestCatalogAdminCRUDAndAssets(t *testing.T) {
 	if list := requireResponse[adminhttp.ListPetDefs200JSONResponse](t, listPetResp); len(list.Items) != 1 {
 		t.Fatalf("ListPetDefs() = %#v", list)
 	}
-	petPixa := makeTestPixa(t, []string{"idle", "feed"}, 16, 16)
+	petPixa := makeTestPixa(t, []string{"default", "bath"}, 16, 16)
 	assetResp, err := catalog.UploadPetDefPixa(ctx, adminhttp.UploadPetDefPixaRequestObject{Id: "petdef-a", Body: bytes.NewReader(petPixa)})
 	if err != nil {
 		t.Fatalf("UploadPetDefPixa() error = %v", err)
@@ -266,6 +266,16 @@ func TestCatalogAdminErrorsAndPagination(t *testing.T) {
 		t.Fatalf("CreatePetDef() error = %v", err)
 	}
 	requireResponse[adminhttp.CreatePetDef409JSONResponse](t, duplicatePetResp)
+	invalidActionSpec := testPetDefSpec("bad action")
+	invalidActionSpec.Drive.Actions[0].Id = " idle"
+	invalidActionResp, err := catalog.CreatePetDef(ctx, adminhttp.CreatePetDefRequestObject{Body: &adminhttp.PetDefUpsert{
+		Id:   "pet-whitespace-action",
+		Spec: invalidActionSpec,
+	}})
+	if err != nil {
+		t.Fatalf("CreatePetDef() whitespace action error = %v", err)
+	}
+	requireResponse[adminhttp.CreatePetDef400JSONResponse](t, invalidActionResp)
 
 	limit := int32(1)
 	firstPageResp, err := catalog.ListPetDefs(ctx, adminhttp.ListPetDefsRequestObject{Params: adminhttp.ListPetDefsParams{Limit: &limit}})
@@ -310,6 +320,11 @@ func TestCatalogAdminErrorsAndPagination(t *testing.T) {
 		t.Fatalf("UploadPetDefPixa() invalid error = %v", err)
 	}
 	requireResponse[adminhttp.UploadPetDefPixa500JSONResponse](t, invalidPetPixaResp)
+	missingClipPetPixaResp, err := catalog.UploadPetDefPixa(ctx, adminhttp.UploadPetDefPixaRequestObject{Id: "pet-a", Body: bytes.NewReader(makeTestPixa(t, []string{"default"}, 16, 16))})
+	if err != nil {
+		t.Fatalf("UploadPetDefPixa() missing clip error = %v", err)
+	}
+	requireResponse[adminhttp.UploadPetDefPixa500JSONResponse](t, missingClipPetPixaResp)
 
 	badgeMissingResp, err := catalog.GetBadgeDef(ctx, adminhttp.GetBadgeDefRequestObject{Id: "missing"})
 	if err != nil {
@@ -402,6 +417,46 @@ func TestCatalogAdminErrorsAndPagination(t *testing.T) {
 		t.Fatalf("ListPetDefs() error = %v", err)
 	}
 	requireResponse[adminhttp.ListPetDefs500JSONResponse](t, missingStoreResp)
+}
+
+func TestCatalogMigratesLegacyPetDefOnRead(t *testing.T) {
+	ctx := context.Background()
+	catalog := testCatalog(t, time.Date(2026, 7, 5, 11, 0, 0, 0, time.UTC))
+	store, err := catalog.store(catalog.PetDefs, "pet defs")
+	if err != nil {
+		t.Fatalf("store() error = %v", err)
+	}
+	data := []byte(`{
+		"id":"legacy-pet",
+		"spec":{
+			"display_name":"Legacy Pet",
+			"description":"Legacy description",
+			"workflow_name":"pet-chat",
+			"initial_life":{"hunger":100,"clean":80},
+			"initial_ability":{"play":1}
+		},
+		"created_at":"2026-07-05T11:00:00Z",
+		"updated_at":"2026-07-05T11:00:00Z"
+	}`)
+	if err := store.Set(ctx, petDefKey("legacy-pet"), data); err != nil {
+		t.Fatalf("store.Set() error = %v", err)
+	}
+	petDef, err := catalog.GetPetDefByID(ctx, "legacy-pet")
+	if err != nil {
+		t.Fatalf("GetPetDefByID() error = %v", err)
+	}
+	if got := petDef.Spec.Attr.Life["hunger"].Initial; got != 100 {
+		t.Fatalf("legacy life hunger = %d, want 100", got)
+	}
+	if got := petDef.Spec.Attr.Progression["xp"].Initial; got != 0 {
+		t.Fatalf("legacy progression xp = %d, want 0", got)
+	}
+	if got := valueOrZero(petDef.Spec.I18n["en"].DisplayName); got != "Legacy Pet" {
+		t.Fatalf("legacy display name = %q", got)
+	}
+	if petDef.Spec.Character.Prompt == "" || petDef.Spec.Voice.Prompt == "" {
+		t.Fatalf("legacy prompts were not populated: %#v %#v", petDef.Spec.Character, petDef.Spec.Voice)
+	}
 }
 
 func requireResponse[T any](t *testing.T, value any) T {

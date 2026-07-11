@@ -307,7 +307,7 @@ func (c *Catalog) UploadPetDefPixa(ctx context.Context, request adminhttp.Upload
 	if err != nil {
 		return adminhttp.UploadPetDefPixa500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	if err := validatePetDefPixa(data); err != nil {
+	if err := validatePetDefPixa(data, item.Spec.Visual.Pixa.Metadata); err != nil {
 		return adminhttp.UploadPetDefPixa500JSONResponse(apitypes.NewErrorResponse("INVALID_PET_DEF_PIXA", err.Error())), nil
 	}
 	pixaPath := path.Join("pet-defs", item.Id, "pixa")
@@ -601,7 +601,7 @@ func (c *Catalog) GetPetDefByID(ctx context.Context, id string) (apitypes.PetDef
 	if err != nil {
 		return apitypes.PetDef{}, err
 	}
-	item, err := readJSON[apitypes.PetDef](ctx, store, petDefKey(id))
+	item, err := readPetDefJSON(ctx, store, petDefKey(id))
 	if errors.Is(err, kv.ErrNotFound) {
 		return apitypes.PetDef{}, fmt.Errorf("pet def %q not found: %w", id, kv.ErrNotFound)
 	}
@@ -727,9 +727,11 @@ func validatePetAttrGroup(path string, group apitypes.PetAttrGroupSpec) error {
 		return fmt.Errorf("%s must define at least one attribute", path)
 	}
 	for id := range group {
-		id = strings.TrimSpace(id)
 		if id == "" {
 			return fmt.Errorf("%s contains an empty attribute id", path)
+		}
+		if strings.TrimSpace(id) != id {
+			return fmt.Errorf("%s.%s must not contain leading or trailing whitespace", path, id)
 		}
 		switch id {
 		case "initial", "display_name", "description":
@@ -762,6 +764,9 @@ func validatePetDefVisual(visual apitypes.PetDefVisualSpec) error {
 		if id == "" {
 			return fmt.Errorf("visual.pixa.metadata.clips[%d].id is required", i)
 		}
+		if id != clip.Id {
+			return fmt.Errorf("visual.pixa.metadata.clips[%d].id must not contain leading or trailing whitespace", i)
+		}
 		if _, ok := seenIDs[id]; ok {
 			return fmt.Errorf("visual.pixa.metadata.clips[%d].id %q is duplicated", i, id)
 		}
@@ -769,6 +774,9 @@ func validatePetDefVisual(visual apitypes.PetDefVisualSpec) error {
 		pixaClipName := strings.TrimSpace(clip.PixaClipName)
 		if pixaClipName == "" {
 			return fmt.Errorf("visual.pixa.metadata.clips[%d].pixa_clip_name is required", i)
+		}
+		if pixaClipName != clip.PixaClipName {
+			return fmt.Errorf("visual.pixa.metadata.clips[%d].pixa_clip_name must not contain leading or trailing whitespace", i)
 		}
 		if _, ok := seenPixaClipNames[pixaClipName]; ok {
 			return fmt.Errorf("visual.pixa.metadata.clips[%d].pixa_clip_name %q is duplicated", i, pixaClipName)
@@ -792,6 +800,9 @@ func validatePetDefDrive(drive apitypes.PetDefDriveSpec, clips []apitypes.PetDef
 		if id == "" {
 			return fmt.Errorf("drive.actions[%d].id is required", i)
 		}
+		if id != action.Id {
+			return fmt.Errorf("drive.actions[%d].id must not contain leading or trailing whitespace", i)
+		}
 		if _, ok := seen[id]; ok {
 			return fmt.Errorf("drive.actions[%d].id %q is duplicated", i, id)
 		}
@@ -804,6 +815,9 @@ func validatePetDefDrive(drive apitypes.PetDefDriveSpec, clips []apitypes.PetDef
 			if clipID == "" {
 				return fmt.Errorf("drive.actions[%d].visual_clip_id must not be empty", i)
 			}
+			if clipID != *action.VisualClipId {
+				return fmt.Errorf("drive.actions[%d].visual_clip_id must not contain leading or trailing whitespace", i)
+			}
 			if _, ok := clipIDs[clipID]; !ok {
 				return fmt.Errorf("drive.actions[%d].visual_clip_id %q is not in visual.pixa.metadata.clips", i, clipID)
 			}
@@ -812,6 +826,9 @@ func validatePetDefDrive(drive apitypes.PetDefDriveSpec, clips []apitypes.PetDef
 			for attrID := range *action.Effect.AttrDelta.Life {
 				if strings.TrimSpace(attrID) == "" {
 					return fmt.Errorf("drive.actions[%d].effect.attr_delta.life contains an empty attribute id", i)
+				}
+				if strings.TrimSpace(attrID) != attrID {
+					return fmt.Errorf("drive.actions[%d].effect.attr_delta.life.%s must not contain leading or trailing whitespace", i, attrID)
 				}
 				if _, ok := attr.Life[attrID]; !ok {
 					return fmt.Errorf("drive.actions[%d].effect.attr_delta.life.%s does not match a PetDef life attribute", i, attrID)
@@ -826,6 +843,9 @@ func validatePetDefDrive(drive apitypes.PetDefDriveSpec, clips []apitypes.PetDef
 		actionID := strings.TrimSpace(*clip.ActionId)
 		if actionID == "" {
 			return fmt.Errorf("visual.pixa.metadata.clips[%d].action_id must not be empty", i)
+		}
+		if actionID != *clip.ActionId {
+			return fmt.Errorf("visual.pixa.metadata.clips[%d].action_id must not contain leading or trailing whitespace", i)
 		}
 		if _, ok := seen[actionID]; !ok {
 			return fmt.Errorf("visual.pixa.metadata.clips[%d].action_id %q is not in drive.actions", i, actionID)
@@ -982,6 +1002,117 @@ func readJSON[T any](ctx context.Context, store kv.Store, key kv.Key) (T, error)
 		return out, err
 	}
 	return out, nil
+}
+
+type legacyPetDefJSON struct {
+	Id   string `json:"id"`
+	Spec struct {
+		DisplayName    string            `json:"display_name"`
+		Description    string            `json:"description"`
+		WorkflowName   *string           `json:"workflow_name,omitempty"`
+		InitialLife    map[string]int64  `json:"initial_life"`
+		InitialAbility map[string]int64  `json:"initial_ability"`
+		Character      map[string]string `json:"character,omitempty"`
+		Voice          map[string]string `json:"voice,omitempty"`
+	} `json:"spec"`
+	PixaPath  *string   `json:"pixa_path,omitempty"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+func readPetDefJSON(ctx context.Context, store kv.Store, key kv.Key) (apitypes.PetDef, error) {
+	data, err := store.Get(ctx, key)
+	if err != nil {
+		return apitypes.PetDef{}, err
+	}
+	var item apitypes.PetDef
+	if err := json.Unmarshal(data, &item); err != nil {
+		return apitypes.PetDef{}, err
+	}
+	if err := validatePetDefSpec(item.Spec); err == nil {
+		return item, nil
+	}
+	return migrateLegacyPetDefJSON(data)
+}
+
+func migrateLegacyPetDefJSON(data []byte) (apitypes.PetDef, error) {
+	var legacy legacyPetDefJSON
+	if err := json.Unmarshal(data, &legacy); err != nil {
+		return apitypes.PetDef{}, err
+	}
+	if legacy.Id == "" || legacy.Spec.DisplayName == "" || len(legacy.Spec.InitialLife) == 0 {
+		var item apitypes.PetDef
+		if err := json.Unmarshal(data, &item); err != nil {
+			return apitypes.PetDef{}, err
+		}
+		return apitypes.PetDef{}, validatePetDefSpec(item.Spec)
+	}
+	description := legacy.Spec.Description
+	if strings.TrimSpace(description) == "" {
+		description = legacy.Spec.DisplayName
+	}
+	spec := apitypes.PetDefSpec{
+		DefaultLocale: "en",
+		WorkflowName:  legacy.Spec.WorkflowName,
+		Attr: apitypes.PetDefAttrSpec{
+			Life:        apitypes.PetAttrGroupSpec{},
+			Progression: apitypes.PetAttrGroupSpec{"xp": {Initial: 0}},
+		},
+		Character: apitypes.PetDefCharacterSpec{Prompt: legacy.Spec.Character["prompt"]},
+		Voice: apitypes.PetDefVoiceSpec{
+			VoiceId: legacy.Spec.Voice["voice_id"],
+			Prompt:  legacy.Spec.Voice["prompt"],
+		},
+		Drive: apitypes.PetDefDriveSpec{Actions: []apitypes.PetDefActionSpec{
+			{Id: "idle", Cost: 0, VisualClipId: stringPtr("idle")},
+		}},
+		Visual: apitypes.PetDefVisualSpec{
+			Refs: apitypes.PetDefVisualRefsSpec{},
+			Pixa: apitypes.PetDefPixaSpec{
+				AssetRef: "asset://pets/" + legacy.Id + "/pet.pixa",
+				Metadata: apitypes.PetDefPixaMetadata{
+					Version: "1",
+					Canvas:  apitypes.PetDefPixaCanvasMetadata{Width: 60, Height: 60},
+					Clips: []apitypes.PetDefPixaClipMetadata{
+						{Id: "idle", ActionId: stringPtr("idle"), PixaClipName: "idle"},
+					},
+				},
+			},
+		},
+		I18n: apitypes.PetDefI18nSpec{
+			"en": {
+				DisplayName: &legacy.Spec.DisplayName,
+				Description: &description,
+			},
+		},
+	}
+	for id, initial := range legacy.Spec.InitialLife {
+		spec.Attr.Life[id] = apitypes.PetAttrValueSpec{Initial: initial}
+	}
+	if legacy.Spec.InitialAbility != nil {
+		if xp, ok := legacy.Spec.InitialAbility["xp"]; ok {
+			spec.Attr.Progression["xp"] = apitypes.PetAttrValueSpec{Initial: xp}
+		}
+	}
+	if strings.TrimSpace(spec.Character.Prompt) == "" {
+		spec.Character.Prompt = legacy.Spec.DisplayName
+	}
+	if strings.TrimSpace(spec.Voice.VoiceId) == "" {
+		spec.Voice.VoiceId = "default"
+	}
+	if strings.TrimSpace(spec.Voice.Prompt) == "" {
+		spec.Voice.Prompt = legacy.Spec.DisplayName
+	}
+	if err := validatePetDefSpec(spec); err != nil {
+		return apitypes.PetDef{}, err
+	}
+	return apitypes.PetDef{
+		Id:        legacy.Id,
+		Spec:      spec,
+		PixaPath:  legacy.PixaPath,
+		CreatedAt: legacy.CreatedAt,
+		UpdatedAt: legacy.UpdatedAt,
+	}, nil
 }
 
 func listJSON[T any](ctx context.Context, store kv.Store, prefix kv.Key, cursor string, limit int) ([]T, bool, *string, error) {

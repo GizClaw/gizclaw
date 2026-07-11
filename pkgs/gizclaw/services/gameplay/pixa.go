@@ -5,6 +5,8 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 )
 
 const (
@@ -38,7 +40,7 @@ type pixaFrame struct {
 	payloadLength uint32
 }
 
-func validatePetDefPixa(data []byte) error {
+func validatePetDefPixa(data []byte, metadata apitypes.PetDefPixaMetadata) error {
 	asset, err := parsePixa(data)
 	if err != nil {
 		return err
@@ -46,8 +48,13 @@ func validatePetDefPixa(data []byte) error {
 	if asset.clipCount == 0 || asset.frameCount == 0 {
 		return errors.New("petdef pixa must contain at least one clip and one frame")
 	}
-	if _, ok := asset.clipByName("idle"); !ok {
-		return errors.New(`petdef pixa must contain an "idle" clip`)
+	if int64(asset.width) != metadata.Canvas.Width || int64(asset.height) != metadata.Canvas.Height {
+		return fmt.Errorf("petdef pixa canvas is %dx%d, want %dx%d", asset.width, asset.height, metadata.Canvas.Width, metadata.Canvas.Height)
+	}
+	for i, clip := range metadata.Clips {
+		if _, ok := asset.clipByName(clip.PixaClipName); !ok {
+			return fmt.Errorf("petdef pixa is missing metadata clip %q at visual.pixa.metadata.clips[%d].pixa_clip_name", clip.PixaClipName, i)
+		}
 	}
 	return nil
 }

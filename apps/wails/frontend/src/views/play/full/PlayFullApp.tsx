@@ -665,8 +665,8 @@ function GameplayPetTable({ busy, onDelete, onRename, pager, petClipByID }: { bu
               <TableRow>
                 <TableHead>Pet</TableHead>
                 <TableHead>PetDef</TableHead>
-                <TableHead>Level</TableHead>
-                <TableHead>Exp</TableHead>
+                <TableHead>XP</TableHead>
+                <TableHead>Progression</TableHead>
                 <TableHead>Life</TableHead>
                 <TableHead>Workspace</TableHead>
                 <TableHead className="w-36 text-right">Actions</TableHead>
@@ -685,8 +685,8 @@ function GameplayPetTable({ busy, onDelete, onRename, pager, petClipByID }: { bu
                     </div>
                   </TableCell>
                   <TableCell className="font-mono text-xs">{pet.petdef_id}</TableCell>
-                  <TableCell>{pet.level}</TableCell>
-                  <TableCell>{pet.exp}</TableCell>
+                  <TableCell>{petXP(pet)}</TableCell>
+                  <TableCell className="max-w-52 truncate font-mono text-xs" title={jsonSummary(pet.progression)}>{jsonSummary(pet.progression)}</TableCell>
                   <TableCell className="max-w-52 truncate font-mono text-xs" title={jsonSummary(pet.life)}>{jsonSummary(pet.life)}</TableCell>
                   <TableCell className="max-w-52 truncate font-mono text-xs" title={pet.workspace_name}>{pet.workspace_name}</TableCell>
                   <TableCell>
@@ -5173,6 +5173,15 @@ function jsonSummary(value: unknown): string {
     return "";
   }
   return text.length > 96 ? `${text.slice(0, 93)}...` : text;
+}
+
+function petXP(pet: PetObject): string {
+  const progression = pet.progression;
+  if (typeof progression !== "object" || progression == null || Array.isArray(progression)) {
+    return "0";
+  }
+  const xp = (progression as Record<string, unknown>).xp;
+  return typeof xp === "number" ? String(xp) : "0";
 }
 
 function gameplayCell(value: unknown): string {
