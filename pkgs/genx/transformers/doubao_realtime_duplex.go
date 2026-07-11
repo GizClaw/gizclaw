@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/binary"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"iter"
@@ -299,6 +300,8 @@ func (t *DoubaoRealtimeDuplex) realtimeConfig() *doubaospeech.RealtimeDuplexConf
 
 func (t *DoubaoRealtimeDuplex) sessionLoop(ctx context.Context, input genx.Stream, output *bufferStream) {
 	defer output.Close()
+	input = newDoubaoRealtimeDuplexInputReader(input)
+	defer input.Close()
 	var pending *genx.MessageChunk
 	for {
 		if err := ctx.Err(); err != nil {
@@ -728,8 +731,8 @@ func (t *DoubaoRealtimeDuplex) processLoop(ctx context.Context, input genx.Strea
 	audioInputs := newDoubaoRealtimeDuplexAudioInputs(t.inputFormat, t.inputSampleRate, t.inputChannels, t.inputTranscode)
 	defer audioInputs.close()
 	for {
-		select {
-		case <-eventsDone:
+		chunk, err, done := doubaoRealtimeDuplexNextOrDone(input, eventsDone)
+		if done {
 			if err := eventError(); err != nil {
 				return nil, err
 			}
@@ -748,10 +751,7 @@ func (t *DoubaoRealtimeDuplex) processLoop(ctx context.Context, input genx.Strea
 					return chunk.Clone(), nil
 				}
 			}
-		default:
 		}
-
-		chunk, err := input.Next()
 		if err != nil {
 			if err != io.EOF && err != genx.ErrDone {
 				slog.Error("doubao: input error", "error", err)
@@ -858,12 +858,132 @@ func (s *doubaoRealtimeDuplexPendingChunkStream) Next() (*genx.MessageChunk, err
 	return s.rest.Next()
 }
 
+func (s *doubaoRealtimeDuplexPendingChunkStream) NextOrDone(done <-chan struct{}) (*genx.MessageChunk, error, bool) {
+	if s.first != nil {
+		chunk := s.first
+		s.first = nil
+		return chunk, nil, false
+	}
+	if stream, ok := s.rest.(doubaoRealtimeDuplexDoneAwareStream); ok {
+		return stream.NextOrDone(done)
+	}
+	return doubaoRealtimeDuplexNextOrDone(s.rest, done)
+}
+
 func (s *doubaoRealtimeDuplexPendingChunkStream) Close() error {
 	return s.rest.Close()
 }
 
 func (s *doubaoRealtimeDuplexPendingChunkStream) CloseWithError(err error) error {
 	return s.rest.CloseWithError(err)
+}
+
+type doubaoRealtimeDuplexDoneAwareStream interface {
+	genx.Stream
+	NextOrDone(<-chan struct{}) (*genx.MessageChunk, error, bool)
+}
+
+type doubaoRealtimeDuplexInputResult struct {
+	chunk *genx.MessageChunk
+	err   error
+}
+
+type doubaoRealtimeDuplexInputReader struct {
+	source    genx.Stream
+	results   chan doubaoRealtimeDuplexInputResult
+	done      chan struct{}
+	closeOnce sync.Once
+}
+
+func newDoubaoRealtimeDuplexInputReader(source genx.Stream) *doubaoRealtimeDuplexInputReader {
+	reader := &doubaoRealtimeDuplexInputReader{
+		source:  source,
+		results: make(chan doubaoRealtimeDuplexInputResult, 1),
+		done:    make(chan struct{}),
+	}
+	go reader.read()
+	return reader
+}
+
+func (r *doubaoRealtimeDuplexInputReader) read() {
+	defer close(r.results)
+	for {
+		chunk, err := r.source.Next()
+		result := doubaoRealtimeDuplexInputResult{chunk: chunk, err: err}
+		select {
+		case r.results <- result:
+		case <-r.done:
+			return
+		}
+		if err != nil {
+			return
+		}
+	}
+}
+
+func (r *doubaoRealtimeDuplexInputReader) Next() (*genx.MessageChunk, error) {
+	result, ok := <-r.results
+	if !ok {
+		return nil, io.EOF
+	}
+	return result.chunk, result.err
+}
+
+func (r *doubaoRealtimeDuplexInputReader) NextOrDone(done <-chan struct{}) (*genx.MessageChunk, error, bool) {
+	select {
+	case result, ok := <-r.results:
+		if !ok {
+			return nil, io.EOF, false
+		}
+		return result.chunk, result.err, false
+	default:
+	}
+	select {
+	case result, ok := <-r.results:
+		if !ok {
+			return nil, io.EOF, false
+		}
+		return result.chunk, result.err, false
+	case <-done:
+		select {
+		case result, ok := <-r.results:
+			if !ok {
+				return nil, io.EOF, false
+			}
+			return result.chunk, result.err, false
+		default:
+			return nil, nil, true
+		}
+	}
+}
+
+func (r *doubaoRealtimeDuplexInputReader) Close() error {
+	return r.CloseWithError(io.EOF)
+}
+
+func (r *doubaoRealtimeDuplexInputReader) CloseWithError(err error) error {
+	r.closeOnce.Do(func() {
+		close(r.done)
+		if err == nil || errors.Is(err, io.EOF) || errors.Is(err, genx.ErrDone) {
+			_ = r.source.Close()
+			return
+		}
+		_ = r.source.CloseWithError(err)
+	})
+	return nil
+}
+
+func doubaoRealtimeDuplexNextOrDone(input genx.Stream, done <-chan struct{}) (*genx.MessageChunk, error, bool) {
+	if stream, ok := input.(doubaoRealtimeDuplexDoneAwareStream); ok {
+		return stream.NextOrDone(done)
+	}
+	select {
+	case <-done:
+		return nil, nil, true
+	default:
+	}
+	chunk, err := input.Next()
+	return chunk, err, false
 }
 
 func (t *DoubaoRealtimeDuplex) pushInputEOSError(output *bufferStream, streamID string, err error) {
