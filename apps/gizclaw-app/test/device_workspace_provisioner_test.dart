@@ -56,6 +56,7 @@ void main() {
 
     expect(await provisioner.ensureMobileAstWorkspace(publicKey), isTrue);
     expect(created?.name, expectedName);
+    expect(created?.displayName, mobileAstDisplayName);
     expect(created?.workflowName, mobileAstWorkflowName);
     final ast = created!.parameters.asttranslateWorkspaceParameters;
     expect(
@@ -101,6 +102,7 @@ void main() {
         isTrue,
       );
       final ast = updated!.parameters.asttranslateWorkspaceParameters;
+      expect(updated!.displayName, mobileAstDisplayName);
       expect(ast.langPair, mobileAstLanguagePair);
       expect(ast.enableSourceLanguageDetect, isTrue);
       expect(ast.mode, ASTTranslateMode.ASTTRANSLATE_MODE_S2S);

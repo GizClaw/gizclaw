@@ -21,6 +21,7 @@ void main() {
       ],
       workspaces: [
         Workspace(
+          displayName: 'My Mobile Plan',
           name: 'mobile-plan',
           workflowName: 'build-helper',
           lastActiveAt: '2026-07-12T00:00:00Z',
@@ -40,6 +41,7 @@ void main() {
     expect(workflows.single.title, 'Build Helper');
     expect(workflows.single.driverLabel, 'Flowcraft');
     expect(workspaces.single.name, 'mobile-plan');
+    expect(workspaces.single.title, 'My Mobile Plan');
     expect(workspaces.single.workflowName, 'build-helper');
     expect(await repository.serverIdForEndpoint('127.0.0.1:23820'), 'server-a');
     expect(await repository.hasWorkflow('server-a', 'build-helper'), isTrue);

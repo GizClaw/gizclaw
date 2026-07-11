@@ -234,6 +234,7 @@ message Workspace {
   string updated_at = 5;
   string workflow_name = 6;
   optional ToolkitPolicy toolkit = 7;
+  optional string display_name = 8;
 }
 
 message WorkspaceCreateRequest {

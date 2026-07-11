@@ -3126,7 +3126,8 @@ type WorkflowSpec struct {
 
 // Workspace defines model for Workspace.
 type Workspace struct {
-	CreatedAt time.Time `json:"created_at"`
+	CreatedAt   time.Time `json:"created_at"`
+	DisplayName *string   `json:"display_name,omitempty"`
 
 	// LastActiveAt Last user-visible workspace conversation or history activity time. Configuration-only updates must not modify this field.
 	LastActiveAt time.Time `json:"last_active_at"`

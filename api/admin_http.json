@@ -10867,6 +10867,12 @@
           "name": {
             "type": "string"
           },
+          "display_name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80,
+            "description": "Optional user-facing workspace name."
+          },
           "workflow_name": {
             "type": "string"
           },

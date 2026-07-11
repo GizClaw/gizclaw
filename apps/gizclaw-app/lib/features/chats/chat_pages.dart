@@ -231,7 +231,7 @@ class _WorkspaceChatPageState extends State<WorkspaceChatPage> {
         middle: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(workspace.name, style: GizText.title),
+            Text(workspace.title, style: GizText.title),
             Text(
               workflow.title,
               style: GizText.label.copyWith(color: GizColors.secondaryInk),
@@ -441,7 +441,7 @@ class ChatroomWorkspacePage extends StatelessWidget {
     return GroupChatPage(
       room: ChatroomCard(
         id: workspace.name,
-        name: workspace.name,
+        name: workspace.title,
         subtitle: workflow.title,
         memberCount: 0,
       ),

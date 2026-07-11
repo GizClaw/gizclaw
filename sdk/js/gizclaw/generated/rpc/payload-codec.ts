@@ -1387,6 +1387,7 @@ export type Workspace = {
   "updated_at": string;
   "workflow_name": string;
   "toolkit"?: ToolkitPolicy;
+  "display_name"?: string;
 };
 export type WorkspaceCreateRequest = Workspace;
 export type WorkspaceCreateResponse = Workspace;
@@ -7948,6 +7949,12 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "number": 7,
         "optional": true,
         "type": "ToolkitPolicy"
+      },
+      {
+        "name": "display_name",
+        "number": 8,
+        "optional": true,
+        "type": "string"
       }
     ]
   },

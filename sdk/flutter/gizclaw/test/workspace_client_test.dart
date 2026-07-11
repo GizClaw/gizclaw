@@ -16,6 +16,7 @@ void main() {
     final factory = FakeDataChannelFactory();
     final client = GizClawClient(factory);
     final workspace = payload.Workspace(
+      displayName: 'Chinese-English Translator',
       name: 'mobile-ast-device',
       workflowName: 'volc-ast-translate',
     );
@@ -26,6 +27,7 @@ void main() {
         decodeRpcRequestPayload('server.workspace.create', request.payload)
             as payload.WorkspaceCreateRequest;
     expect(body.value.name, 'mobile-ast-device');
+    expect(body.value.displayName, 'Chinese-English Translator');
     expect(body.value.workflowName, 'volc-ast-translate');
     _respond(
       factory.channels.single,

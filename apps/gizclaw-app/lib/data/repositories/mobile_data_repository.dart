@@ -160,7 +160,9 @@ WorkflowCard _workflowCardFromRow(WorkflowEntry row) {
 }
 
 WorkspaceCard _workspaceCardFromRow(WorkspaceEntry row) {
+  final workspace = Workspace.fromBuffer(row.rawProtobuf);
   return WorkspaceCard(
+    displayName: workspace.displayName,
     name: row.name,
     workflowName: row.workflowName,
     lastActive: _relativeTime(

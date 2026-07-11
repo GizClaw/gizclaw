@@ -2,6 +2,7 @@ import 'package:gizclaw/gizclaw.dart';
 
 const mobileAstWorkflowName = 'volc-ast-translate';
 const mobileAstLanguagePair = 'auto';
+const mobileAstDisplayName = 'Chinese-English Translator';
 
 typedef WorkspaceGetter = Future<Workspace> Function(String name);
 typedef WorkspaceCreator = Future<Workspace> Function(Workspace workspace);
@@ -57,7 +58,9 @@ class DeviceWorkspaceProvisioner {
   Future<bool> _converge(Workspace current, String name) async {
     if (_hasMobileAstConfiguration(current)) return false;
 
-    final updated = current.deepCopy()..parameters = mobileAstParameters();
+    final updated = current.deepCopy()
+      ..displayName = mobileAstDisplayName
+      ..parameters = mobileAstParameters();
     _validate(await _putWorkspace(name, updated), name);
     return true;
   }
@@ -79,6 +82,7 @@ String mobileAstWorkspaceName(String clientPublicKey) {
 
 Workspace mobileAstWorkspace(String name) {
   return Workspace(
+    displayName: mobileAstDisplayName,
     name: name,
     workflowName: mobileAstWorkflowName,
     parameters: mobileAstParameters(),
@@ -105,7 +109,8 @@ bool _hasMobileAstConfiguration(Workspace workspace) {
     return false;
   }
   final ast = workspace.parameters.asttranslateWorkspaceParameters;
-  return ast.agentType ==
+  return workspace.displayName == mobileAstDisplayName &&
+      ast.agentType ==
           ASTTranslateWorkspaceParametersAgentType
               .ASTTRANSLATE_WORKSPACE_PARAMETERS_AGENT_TYPE_AST_TRANSLATE &&
       ast.enableSourceLanguageDetect &&

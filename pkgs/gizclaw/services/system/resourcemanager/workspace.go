@@ -2,6 +2,9 @@ package resourcemanager
 
 import (
 	"context"
+	"fmt"
+	"strings"
+	"unicode/utf8"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
@@ -62,6 +65,16 @@ func (m *Manager) applyWorkspace(ctx context.Context, resource apitypes.Resource
 }
 
 func normalizeWorkspaceResourceSpec(spec apitypes.WorkspaceSpec) (apitypes.WorkspaceSpec, error) {
+	if spec.DisplayName != nil {
+		displayName := strings.TrimSpace(*spec.DisplayName)
+		if displayName == "" {
+			return spec, fmt.Errorf("display_name must not be empty")
+		}
+		if utf8.RuneCountInString(displayName) > 80 {
+			return spec, fmt.Errorf("display_name must be at most 80 characters")
+		}
+		spec.DisplayName = &displayName
+	}
 	policy, err := toolkit.NormalizePolicy(spec.Toolkit)
 	if err != nil {
 		return spec, err
@@ -123,6 +136,7 @@ func (m *Manager) deleteWorkspace(ctx context.Context, name string) (apitypes.Wo
 
 func workspaceSpec(workspace apitypes.Workspace) apitypes.WorkspaceSpec {
 	return apitypes.WorkspaceSpec{
+		DisplayName:  workspace.DisplayName,
 		Parameters:   workspace.Parameters,
 		Toolkit:      workspace.Toolkit,
 		WorkflowName: workspace.WorkflowName,
@@ -131,6 +145,7 @@ func workspaceSpec(workspace apitypes.Workspace) apitypes.WorkspaceSpec {
 
 func workspaceUpsert(resource apitypes.WorkspaceResource) adminhttp.WorkspaceUpsert {
 	return adminhttp.WorkspaceUpsert{
+		DisplayName:  resource.Spec.DisplayName,
 		Name:         string(resource.Metadata.Name),
 		Parameters:   resource.Spec.Parameters,
 		Toolkit:      resource.Spec.Toolkit,

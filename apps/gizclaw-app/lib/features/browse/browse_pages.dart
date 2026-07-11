@@ -296,7 +296,7 @@ class _WorkspaceStrip extends StatelessWidget {
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Text(
-                              workspace.name,
+                              workspace.title,
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
                               style: GizText.title,
@@ -708,7 +708,7 @@ class WorkspaceListTile extends StatelessWidget {
                 filterQuality: FilterQuality.high,
               ),
       ),
-      title: workspace.name,
+      title: workspace.title,
       subtitle: '${workflow.title}  |  ${workspace.lastActive}',
       onPressed:
           onPressed ??

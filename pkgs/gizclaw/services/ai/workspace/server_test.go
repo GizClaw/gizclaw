@@ -22,6 +22,7 @@ func TestServerWorkspacesCRUD(t *testing.T) {
 
 	createBody := mustWorkspaceUpsert(t, `{
 		"name": "alpha001",
+		"display_name": " Alpha Workspace ",
 		"workflow_name": "workflow-1",
 		"parameters": {"mode": "demo"}
 	}`)
@@ -36,6 +37,9 @@ func TestServerWorkspacesCRUD(t *testing.T) {
 	}
 	if created.Name != "alpha001" || created.WorkflowName != "workflow-1" {
 		t.Fatalf("CreateWorkspace() workspace = %#v", created)
+	}
+	if created.DisplayName == nil || *created.DisplayName != "Alpha Workspace" {
+		t.Fatalf("CreateWorkspace() display_name = %#v", created.DisplayName)
 	}
 	if created.CreatedAt.IsZero() || created.UpdatedAt.IsZero() || created.LastActiveAt.IsZero() {
 		t.Fatalf("CreateWorkspace() timestamps = %#v", created)
@@ -114,6 +118,25 @@ func TestServerWorkspacesCRUD(t *testing.T) {
 	}
 	if _, ok := getAfterDelete.(adminhttp.GetWorkspace404JSONResponse); !ok {
 		t.Fatalf("GetWorkspace() after delete response = %#v", getAfterDelete)
+	}
+}
+
+func TestServerWorkspaceRejectsBlankDisplayName(t *testing.T) {
+	t.Parallel()
+
+	srv := newTestServer(t)
+	seedWorkflow(t, srv, "workflow-1")
+	body := mustWorkspaceUpsert(t, `{
+		"name": "alpha001",
+		"display_name": "   ",
+		"workflow_name": "workflow-1"
+	}`)
+	resp, err := srv.CreateWorkspace(context.Background(), adminhttp.CreateWorkspaceRequestObject{Body: &body})
+	if err != nil {
+		t.Fatalf("CreateWorkspace() error = %v", err)
+	}
+	if _, ok := resp.(adminhttp.CreateWorkspace400JSONResponse); !ok {
+		t.Fatalf("CreateWorkspace() response = %#v, want 400", resp)
 	}
 }
 

@@ -456,7 +456,9 @@ func TestPayloadCodecMapsGoDTOsDirectlyToProtobuf(t *testing.T) {
 
 	var workspaceCreate RPCPayload
 	workspaceToolIDs := []string{"system.toolkit.echo"}
+	workspaceDisplayName := "Demo Workspace"
 	if err := workspaceCreate.FromWorkspaceCreateRequest(WorkspaceCreateRequest{
+		DisplayName:  &workspaceDisplayName,
 		Name:         "demo",
 		Toolkit:      &ToolkitPolicy{ToolIds: &workspaceToolIDs},
 		WorkflowName: "chat",
@@ -469,6 +471,9 @@ func TestPayloadCodecMapsGoDTOsDirectlyToProtobuf(t *testing.T) {
 	}
 	if workspaceCreateProto.GetValue().GetName() != "demo" || workspaceCreateProto.GetValue().GetWorkflowName() != "chat" {
 		t.Fatalf("workspace create = %+v", workspaceCreateProto.GetValue())
+	}
+	if workspaceCreateProto.GetValue().GetDisplayName() != workspaceDisplayName {
+		t.Fatalf("workspace display_name = %q", workspaceCreateProto.GetValue().GetDisplayName())
 	}
 	if got := workspaceCreateProto.GetValue().GetToolkit().GetToolIds().GetValue(); len(got) != 1 || got[0] != "system.toolkit.echo" {
 		t.Fatalf("workspace toolkit = %#v", got)

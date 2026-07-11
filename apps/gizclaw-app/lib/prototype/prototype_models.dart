@@ -156,11 +156,18 @@ class WorkspaceCard {
     required this.name,
     required this.workflowName,
     required this.lastActive,
+    this.displayName,
   });
 
+  final String? displayName;
   final String name;
   final String workflowName;
   final String lastActive;
+
+  String get title {
+    final value = displayName?.trim();
+    return value == null || value.isEmpty ? name : value;
+  }
 }
 
 class ChatroomCard {
