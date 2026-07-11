@@ -38,6 +38,7 @@ const featuredWorkflows = [
     category: 'Featured',
     bannerColor: Color(0xFF1F7A68),
     icon: CupertinoIcons.waveform,
+    family: WorkflowFamily.chatroom,
     imagePath: 'assets/workflows/daily-companion.png',
   ),
   WorkflowCard(

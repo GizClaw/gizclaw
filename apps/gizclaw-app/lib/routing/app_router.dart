@@ -57,38 +57,47 @@ GoRouter createAppRouter() {
             ],
           ),
           StatefulShellBranch(
-            initialLocation: '/chats/workspaces',
+            initialLocation: '/chats',
             routes: [
               GoRoute(
-                path: '/chats/:mode',
-                pageBuilder: (context, state) {
-                  final mode = state.pathParameters['mode'] == 'groups'
-                      ? ChatListMode.groups
-                      : ChatListMode.workspaces;
-                  return _page(state, ChatsPage(mode: mode));
-                },
+                path: '/chats',
+                pageBuilder: (context, state) =>
+                    _page(state, const ChatsPage()),
                 routes: [
                   GoRoute(
-                    path: ':conversationId',
-                    pageBuilder: (context, state) {
-                      if (state.pathParameters['mode'] == 'groups') {
-                        return _page(
+                    path: 'raids',
+                    pageBuilder: (context, state) =>
+                        _page(state, const RaidWorkspacesPage()),
+                    routes: [
+                      GoRoute(
+                        path: ':workspaceName',
+                        pageBuilder: (context, state) => _page(
+                          state,
+                          WorkspaceChatPage(
+                            workspaceName:
+                                state.pathParameters['workspaceName']!,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  GoRoute(
+                    path: 'groups',
+                    pageBuilder: (context, state) =>
+                        _page(state, const GroupChatsPage()),
+                    routes: [
+                      GoRoute(
+                        path: ':conversationId',
+                        pageBuilder: (context, state) => _page(
                           state,
                           GroupChatPage(
                             room: chatroomById(
                               state.pathParameters['conversationId']!,
                             ),
                           ),
-                        );
-                      }
-                      return _page(
-                        state,
-                        WorkspaceChatPage(
-                          workspaceName:
-                              state.pathParameters['conversationId']!,
                         ),
-                      );
-                    },
+                      ),
+                    ],
                   ),
                 ],
               ),

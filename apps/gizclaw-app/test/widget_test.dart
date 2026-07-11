@@ -61,22 +61,28 @@ void main() {
     expect(find.byType(AllWorkflowsPage), findsOneWidget);
   });
 
-  testWidgets('switches between workspace and group chat routes', (
-    tester,
-  ) async {
+  testWidgets('opens chat types before their conversations', (tester) async {
     await pumpApp(tester);
 
     await tester.tap(find.text('Chats'));
     await tester.pump(const Duration(milliseconds: 700));
 
-    expect(find.text('Workspace'), findsOneWidget);
+    expect(find.text('Raid'), findsOneWidget);
     expect(find.text('Group Chat'), findsOneWidget);
-    expect(find.text('Morning check-in'), findsOneWidget);
+    expect(find.byType(CupertinoSlidingSegmentedControl), findsNothing);
+    expect(find.text('Morning check-in'), findsNothing);
 
+    await tester.tap(find.text('Raid'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(RaidWorkspacesPage), findsOneWidget);
+    expect(find.text('Mobile app plan'), findsOneWidget);
+    expect(find.text('Morning check-in'), findsNothing);
+
+    await tester.pageBack();
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Group Chat'));
-    await tester.pump(const Duration(milliseconds: 400));
-    await tester.pump(const Duration(milliseconds: 500));
-
+    await tester.pumpAndSettle();
     expect(find.text('Home Room'), findsOneWidget);
   });
 
@@ -84,8 +90,11 @@ void main() {
     await pumpApp(tester);
 
     await tester.tap(find.text('Chats'));
-    await tester.pump(const Duration(milliseconds: 500));
-    await tester.tap(find.text('Morning check-in'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Raid'));
+    await tester.pumpAndSettle();
+    expect(find.byType(RaidWorkspacesPage), findsOneWidget);
+    await tester.tap(find.text('Mobile app plan'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
     expect(find.byType(WorkspaceChatPage), findsOneWidget);

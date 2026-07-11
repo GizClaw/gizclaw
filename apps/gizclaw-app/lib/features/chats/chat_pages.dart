@@ -11,12 +11,8 @@ import '../../prototype/prototype_data.dart';
 import '../../prototype/prototype_models.dart';
 import '../browse/browse_pages.dart';
 
-enum ChatListMode { workspaces, groups }
-
 class ChatsPage extends StatelessWidget {
-  const ChatsPage({super.key, required this.mode});
-
-  final ChatListMode mode;
+  const ChatsPage({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -30,58 +26,7 @@ class ChatsPage extends StatelessWidget {
               padding: EdgeInsets.fromLTRB(20, 12, 20, 16),
               child: Text('Chats', style: GizText.pageTitle),
             ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: SizedBox(
-                width: double.infinity,
-                child: CupertinoSlidingSegmentedControl<ChatListMode>(
-                  groupValue: mode,
-                  thumbColor: GizColors.ink,
-                  backgroundColor: const Color(0xFFE3E7E0),
-                  padding: const EdgeInsets.all(3),
-                  children: {
-                    ChatListMode.workspaces: _SegmentLabel(
-                      label: 'Workspace',
-                      selected: mode == ChatListMode.workspaces,
-                    ),
-                    ChatListMode.groups: _SegmentLabel(
-                      label: 'Group Chat',
-                      selected: mode == ChatListMode.groups,
-                    ),
-                  },
-                  onValueChanged: (value) {
-                    if (value == ChatListMode.groups) {
-                      context.go('/chats/groups');
-                    } else if (value == ChatListMode.workspaces) {
-                      context.go('/chats/workspaces');
-                    }
-                  },
-                ),
-              ),
-            ),
-            const SizedBox(height: 10),
-            Expanded(
-              child: AnimatedSwitcher(
-                duration: 220.ms,
-                switchInCurve: Curves.easeOutCubic,
-                switchOutCurve: Curves.easeInCubic,
-                transitionBuilder: (child, animation) {
-                  return FadeTransition(
-                    opacity: animation,
-                    child: SlideTransition(
-                      position: Tween<Offset>(
-                        begin: const Offset(0.02, 0),
-                        end: Offset.zero,
-                      ).animate(animation),
-                      child: child,
-                    ),
-                  );
-                },
-                child: mode == ChatListMode.workspaces
-                    ? const _WorkspaceChats(key: ValueKey('workspaces'))
-                    : const _GroupChats(key: ValueKey('groups')),
-              ),
-            ),
+            const Expanded(child: _ChatTypeMenu()),
           ],
         ),
       ),
@@ -89,44 +34,115 @@ class ChatsPage extends StatelessWidget {
   }
 }
 
-class _SegmentLabel extends StatelessWidget {
-  const _SegmentLabel({required this.label, required this.selected});
-
-  final String label;
-  final bool selected;
+class _ChatTypeMenu extends StatelessWidget {
+  const _ChatTypeMenu();
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 9),
-      child: Text(
-        label,
-        style: GizText.label.copyWith(
-          color: selected ? GizColors.surface : GizColors.secondaryInk,
-          fontSize: 13,
-        ),
-      ),
+    final data = MobileDataScope.watch(context);
+    final raidCount = data.workspaces.where((workspace) {
+      return data.workflow(workspace.workflowName).family ==
+          WorkflowFamily.raid;
+    }).length;
+    final groupCount = data.workspaces.where((workspace) {
+      return data.workflow(workspace.workflowName).family ==
+          WorkflowFamily.chatroom;
+    }).length;
+    return ListView(
+      key: const PageStorageKey('chat-types'),
+      padding: const EdgeInsets.only(bottom: 112),
+      children: [
+        GizListRow(
+              leading: const _ChatTypeIcon(
+                icon: CupertinoIcons.game_controller_solid,
+                color: Color(0xFF416986),
+              ),
+              title: 'Raid',
+              subtitle: '$raidCount workspaces',
+              onPressed: () => context.push('/chats/raids'),
+            )
+            .animate()
+            .fadeIn(duration: 280.ms)
+            .slideY(begin: 0.05, end: 0, curve: Curves.easeOutCubic),
+        GizListRow(
+              leading: const _ChatTypeIcon(
+                icon: CupertinoIcons.person_2_fill,
+                color: Color(0xFF1F7A68),
+              ),
+              title: 'Group Chat',
+              subtitle: '$groupCount chatrooms',
+              onPressed: () => context.push('/chats/groups'),
+            )
+            .animate(delay: 45.ms)
+            .fadeIn(duration: 280.ms)
+            .slideY(begin: 0.05, end: 0, curve: Curves.easeOutCubic),
+      ],
     );
   }
 }
 
-class _WorkspaceChats extends StatelessWidget {
-  const _WorkspaceChats({super.key});
+class _ChatTypeIcon extends StatelessWidget {
+  const _ChatTypeIcon({required this.icon, required this.color});
+
+  final IconData icon;
+  final Color color;
 
   @override
   Widget build(BuildContext context) {
-    final workspaces = MobileDataScope.watch(context).workspaces;
+    return Container(
+      width: 50,
+      height: 50,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Icon(icon, color: GizColors.surface, size: 25),
+    );
+  }
+}
+
+class RaidWorkspacesPage extends StatelessWidget {
+  const RaidWorkspacesPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final data = MobileDataScope.watch(context);
+    final workspaces = data.workspaces
+        .where((workspace) {
+          return data.workflow(workspace.workflowName).family ==
+              WorkflowFamily.raid;
+        })
+        .toList(growable: false);
+    return CupertinoPageScaffold(
+      navigationBar: const CupertinoNavigationBar(
+        middle: Text('Raid', style: GizText.title),
+        border: null,
+        transitionBetweenRoutes: false,
+      ),
+      child: SafeArea(child: _RaidWorkspaceList(workspaces: workspaces)),
+    );
+  }
+}
+
+class _RaidWorkspaceList extends StatelessWidget {
+  const _RaidWorkspaceList({required this.workspaces});
+
+  final List<WorkspaceCard> workspaces;
+
+  @override
+  Widget build(BuildContext context) {
     if (workspaces.isEmpty) {
       return Center(
         child: Text(
-          'No synced workspaces yet.',
+          'No Raid workspaces yet.',
           style: GizText.body.copyWith(color: GizColors.secondaryInk),
         ),
       );
     }
     return ListView.builder(
-      key: const PageStorageKey('workspace-chats'),
-      padding: const EdgeInsets.only(bottom: 112),
+      key: const PageStorageKey('raid-workspaces'),
+      padding: const EdgeInsets.only(bottom: 24),
       itemCount: workspaces.length,
       itemBuilder: (context, index) {
         return WorkspaceListTile(workspace: workspaces[index])
@@ -138,41 +154,50 @@ class _WorkspaceChats extends StatelessWidget {
   }
 }
 
-class _GroupChats extends StatelessWidget {
-  const _GroupChats({super.key});
+class GroupChatsPage extends StatelessWidget {
+  const GroupChatsPage({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return ListView.builder(
-      key: const PageStorageKey('group-chats'),
-      padding: const EdgeInsets.only(bottom: 112),
-      itemCount: chatrooms.length,
-      itemBuilder: (context, index) {
-        final room = chatrooms[index];
-        final palette = [
-          const Color(0xFFFFDDD2),
-          const Color(0xFFD7ECFF),
-          const Color(0xFFE5DDF8),
-        ];
-        return GizListRow(
-              leading: Container(
-                width: 50,
-                height: 50,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: palette[index % palette.length],
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text('${room.memberCount}', style: GizText.title),
-              ),
-              title: room.name,
-              subtitle: room.subtitle,
-              onPressed: () => context.push('/chats/groups/${room.id}'),
-            )
-            .animate(delay: (index * 45).ms)
-            .fadeIn(duration: 280.ms)
-            .slideY(begin: 0.05, end: 0, curve: Curves.easeOutCubic);
-      },
+    return CupertinoPageScaffold(
+      navigationBar: const CupertinoNavigationBar(
+        middle: Text('Group Chat', style: GizText.title),
+        border: null,
+        transitionBetweenRoutes: false,
+      ),
+      child: SafeArea(
+        child: ListView.builder(
+          key: const PageStorageKey('group-chats'),
+          padding: const EdgeInsets.only(bottom: 24),
+          itemCount: chatrooms.length,
+          itemBuilder: (context, index) {
+            final room = chatrooms[index];
+            final palette = [
+              const Color(0xFFFFDDD2),
+              const Color(0xFFD7ECFF),
+              const Color(0xFFE5DDF8),
+            ];
+            return GizListRow(
+                  leading: Container(
+                    width: 50,
+                    height: 50,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: palette[index % palette.length],
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text('${room.memberCount}', style: GizText.title),
+                  ),
+                  title: room.name,
+                  subtitle: room.subtitle,
+                  onPressed: () => context.push('/chats/groups/${room.id}'),
+                )
+                .animate(delay: (index * 45).ms)
+                .fadeIn(duration: 280.ms)
+                .slideY(begin: 0.05, end: 0, curve: Curves.easeOutCubic);
+          },
+        ),
+      ),
     );
   }
 }
@@ -245,6 +270,7 @@ class _WorkspaceChatPageState extends State<WorkspaceChatPage> {
         ),
         trailing: const GizSignalPulse(size: 24),
         border: null,
+        transitionBetweenRoutes: false,
       ),
       child: SafeArea(
         child: Column(
@@ -465,6 +491,7 @@ class _GroupChatPageState extends State<GroupChatPage> {
           ],
         ),
         border: null,
+        transitionBetweenRoutes: false,
       ),
       child: SafeArea(
         child: Column(

@@ -18,6 +18,8 @@ class WorkflowCollection {
   final List<String> workflowNames;
 }
 
+enum WorkflowFamily { raid, chatroom, pet, unsupported }
+
 class WorkflowCard {
   const WorkflowCard({
     required this.name,
@@ -27,6 +29,7 @@ class WorkflowCard {
     required this.category,
     required this.bannerColor,
     required this.icon,
+    this.family = WorkflowFamily.raid,
     this.imagePath,
   });
 
@@ -37,6 +40,7 @@ class WorkflowCard {
   final String category;
   final Color bannerColor;
   final IconData icon;
+  final WorkflowFamily family;
   final String? imagePath;
 
   factory WorkflowCard.fromServer({
@@ -78,14 +82,39 @@ class WorkflowCard {
         icon: CupertinoIcons.chevron_left_slash_chevron_right,
       );
     }
+    if (normalized.contains('chatroom')) {
+      return WorkflowCard(
+        name: name,
+        title: _displayName(name),
+        subtitle: description,
+        driverLabel: 'Chatroom',
+        category: 'Conversation',
+        bannerColor: const Color(0xFF1F7A68),
+        icon: CupertinoIcons.waveform,
+        family: WorkflowFamily.chatroom,
+      );
+    }
+    if (normalized.contains('pet')) {
+      return WorkflowCard(
+        name: name,
+        title: _displayName(name),
+        subtitle: description,
+        driverLabel: 'Pet',
+        category: 'Companion',
+        bannerColor: const Color(0xFF75517D),
+        icon: CupertinoIcons.sparkles,
+        family: WorkflowFamily.pet,
+      );
+    }
     return WorkflowCard(
       name: name,
       title: _displayName(name),
       subtitle: description,
-      driverLabel: 'Chatroom',
-      category: 'Conversation',
-      bannerColor: const Color(0xFF1F7A68),
-      icon: CupertinoIcons.waveform,
+      driverLabel: 'Unavailable',
+      category: 'Other',
+      bannerColor: const Color(0xFF69736F),
+      icon: CupertinoIcons.question_circle,
+      family: WorkflowFamily.unsupported,
     );
   }
 

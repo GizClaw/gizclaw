@@ -700,9 +700,8 @@ class WorkspaceListTile extends StatelessWidget {
       ),
       title: workspace.name,
       subtitle: '${workflow.title}  |  ${workspace.lastActive}',
-      onPressed: () => context.push(
-        '/chats/workspaces/${Uri.encodeComponent(workspace.name)}',
-      ),
+      onPressed: () =>
+          context.push('/chats/raids/${Uri.encodeComponent(workspace.name)}'),
     );
   }
 }
