@@ -249,7 +249,8 @@ class _InboundPeerRpcChannel {
     final chunk = Uint8List(_rpcSpeedTestFrameSize);
     final downLength = params.downContentLength.toInt();
     for (var offset = 0; offset < downLength; offset += chunk.length) {
-      final size = (downLength - offset).clamp(0, chunk.length);
+      final remaining = downLength - offset;
+      final size = remaining < chunk.length ? remaining : chunk.length;
       await _sendFrame(encodeFrame(rpcFrameTypeBinary, chunk.sublist(0, size)));
     }
     await _sendFrame(encodeFrame(rpcFrameTypeEos));

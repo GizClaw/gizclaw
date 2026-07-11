@@ -82,7 +82,9 @@ List<Uint8List> encodeEnvelopeFrames(List<int> envelope) {
     offset < envelope.length;
     offset += rpcMaxFramePayloadSize
   ) {
-    final end = (offset + rpcMaxFramePayloadSize).clamp(0, envelope.length);
+    final end = offset + rpcMaxFramePayloadSize > envelope.length
+        ? envelope.length
+        : offset + rpcMaxFramePayloadSize;
     frames.add(encodeFrame(rpcFrameTypeText, envelope.sublist(offset, end)));
   }
   return frames;
