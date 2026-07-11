@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter_webrtc/flutter_webrtc.dart' as rtc;
 import 'package:gizclaw/gizclaw.dart';
@@ -50,6 +51,23 @@ void main() {
     expect(channel.state, GizClawDataChannelState.open);
   });
 
+  test('reinstalls inbound RPC handler after app handler replacement', () {
+    final pc = _FakePeerConnection();
+    serveFlutterGiznetWebRtcRpc(pc);
+
+    var appHandlerCalled = false;
+    pc.onDataChannel = (channel) {
+      appHandlerCalled = true;
+    };
+    serveFlutterGiznetWebRtcRpc(pc);
+
+    final channel = _FakeRtcDataChannel(label: 'giznet/v1/service/0');
+    pc.onDataChannel?.call(channel);
+
+    expect(appHandlerCalled, isTrue);
+    expect(channel.onMessage, isNotNull);
+  });
+
   test('treats a newly created native data channel as connecting', () async {
     final native = _FakeRtcDataChannel();
     final channel = FlutterWebRtcDataChannel(native);
@@ -65,6 +83,16 @@ void main() {
     native.emitState(rtc.RTCDataChannelState.RTCDataChannelClosed);
     await subscription.asFuture<void>();
     expect(states.last, GizClawDataChannelState.closed);
+  });
+
+  test('encodes native text messages as UTF-8', () async {
+    final native = _FakeRtcDataChannel();
+    final channel = FlutterWebRtcDataChannel(native);
+
+    final message = channel.messages.first;
+    native.emitMessage('你好, GizClaw');
+
+    expect(utf8.decode(await message), '你好, GizClaw');
   });
 }
 
@@ -267,6 +295,10 @@ class _FakeRtcDataChannel extends rtc.RTCDataChannel {
   void emitState(rtc.RTCDataChannelState state) {
     _state = state;
     onDataChannelState?.call(state);
+  }
+
+  void emitMessage(String text) {
+    onMessage?.call(rtc.RTCDataChannelMessage(text));
   }
 
   @override

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter_webrtc/flutter_webrtc.dart' as rtc;
@@ -7,7 +8,7 @@ import 'peer_rpc_server.dart';
 import 'signaling.dart';
 import 'transport.dart';
 
-final _servedPeerConnections = Expando<bool>();
+final _servedPeerConnections = Expando<void Function(rtc.RTCDataChannel)>();
 
 class FlutterWebRtcDataChannelFactory implements GizClawDataChannelFactory {
   FlutterWebRtcDataChannelFactory(this.peerConnection);
@@ -37,17 +38,20 @@ class FlutterWebRtcDataChannelFactory implements GizClawDataChannelFactory {
 }
 
 void serveFlutterGiznetWebRtcRpc(rtc.RTCPeerConnection peerConnection) {
-  if (_servedPeerConnections[peerConnection] == true) {
+  final installed = _servedPeerConnections[peerConnection];
+  if (installed != null && peerConnection.onDataChannel == installed) {
     return;
   }
-  _servedPeerConnections[peerConnection] = true;
   final previous = peerConnection.onDataChannel;
-  peerConnection.onDataChannel = (channel) {
+  void handler(rtc.RTCDataChannel channel) {
     previous?.call(channel);
     if (channel.label == giznetServiceDataChannelLabel(servicePeerRpc)) {
       serveGizClawPeerRpcChannel(FlutterWebRtcDataChannel(channel));
     }
-  };
+  }
+
+  _servedPeerConnections[peerConnection] = handler;
+  peerConnection.onDataChannel = handler;
 }
 
 typedef SendGiznetWebRtcOffer =
@@ -111,7 +115,7 @@ class FlutterWebRtcDataChannel implements GizClawDataChannel {
       if (message.isBinary) {
         _messages.add(Uint8List.fromList(message.binary));
       } else {
-        _messages.add(Uint8List.fromList(message.text.codeUnits));
+        _messages.add(Uint8List.fromList(utf8.encode(message.text)));
       }
     };
     _channel.onDataChannelState = (state) {
