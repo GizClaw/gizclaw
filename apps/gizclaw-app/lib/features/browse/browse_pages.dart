@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../data/mobile_data_controller.dart';
 import '../../giz_ui/giz_ui.dart';
 import '../../prototype/prototype_data.dart';
 import '../../prototype/prototype_models.dart';
@@ -11,6 +12,9 @@ class BrowsePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final data = MobileDataScope.watch(context);
+    final visibleWorkflows = data.workflows.take(3).toList();
+    final recent = data.workspaces.take(4).toList();
     return CupertinoPageScaffold(
       child: SafeArea(
         bottom: false,
@@ -26,7 +30,7 @@ class BrowsePage extends StatelessWidget {
                     const Expanded(
                       child: Text('Play your\nworkflows', style: GizText.hero),
                     ),
-                    const _LiveBadge(),
+                    _LiveBadge(state: data.connectionState),
                   ],
                 ),
               ),
@@ -55,9 +59,7 @@ class BrowsePage extends StatelessWidget {
               child: GizSectionHeader(title: 'Jump back in'),
             ),
             const SliverPadding(padding: EdgeInsets.only(top: 10)),
-            SliverToBoxAdapter(
-              child: _WorkspaceStrip(workspaces: recentWorkspaces),
-            ),
+            SliverToBoxAdapter(child: _WorkspaceStrip(workspaces: recent)),
             const SliverPadding(padding: EdgeInsets.only(top: 28)),
             SliverToBoxAdapter(
               child: GizSectionHeader(
@@ -67,16 +69,19 @@ class BrowsePage extends StatelessWidget {
               ),
             ),
             const SliverPadding(padding: EdgeInsets.only(top: 4)),
-            SliverList.builder(
-              itemCount: 3,
-              itemBuilder: (context, index) {
-                final workflow = allWorkflows[index];
-                return WorkflowListTile(workflow: workflow)
-                    .animate(delay: (index * 45).ms)
-                    .fadeIn(duration: 300.ms)
-                    .slideY(begin: 0.06, end: 0, curve: Curves.easeOutCubic);
-              },
-            ),
+            if (visibleWorkflows.isEmpty)
+              SliverToBoxAdapter(child: _DataStatus(controller: data))
+            else
+              SliverList.builder(
+                itemCount: visibleWorkflows.length,
+                itemBuilder: (context, index) {
+                  final workflow = visibleWorkflows[index];
+                  return WorkflowListTile(workflow: workflow)
+                      .animate(delay: (index * 45).ms)
+                      .fadeIn(duration: 300.ms)
+                      .slideY(begin: 0.06, end: 0, curve: Curves.easeOutCubic);
+                },
+              ),
             const SliverPadding(padding: EdgeInsets.only(bottom: 112)),
           ],
         ),
@@ -86,7 +91,9 @@ class BrowsePage extends StatelessWidget {
 }
 
 class _LiveBadge extends StatelessWidget {
-  const _LiveBadge();
+  const _LiveBadge({required this.state});
+
+  final MobileConnectionState state;
 
   @override
   Widget build(BuildContext context) {
@@ -97,13 +104,13 @@ class _LiveBadge extends StatelessWidget {
         color: GizColors.ink,
         borderRadius: BorderRadius.circular(99),
       ),
-      child: const Row(
+      child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           GizSignalPulse(size: 17),
           SizedBox(width: 4),
           Text(
-            'LIVE',
+            state == MobileConnectionState.connected ? 'LIVE' : 'LOCAL',
             style: TextStyle(
               fontFamily: 'Manrope',
               color: GizColors.surface,
@@ -230,6 +237,16 @@ class _WorkspaceStrip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (workspaces.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        child: Text(
+          'Workspaces will appear after the server syncs.',
+          style: GizText.body.copyWith(color: GizColors.secondaryInk),
+        ),
+      );
+    }
+    final data = MobileDataScope.watch(context);
     return SizedBox(
       height: 116,
       child: ListView.separated(
@@ -239,7 +256,7 @@ class _WorkspaceStrip extends StatelessWidget {
         separatorBuilder: (_, _) => const SizedBox(width: 10),
         itemBuilder: (context, index) {
           final workspace = workspaces[index];
-          final workflow = workflowByName(workspace.workflowName);
+          final workflow = data.workflow(workspace.workflowName);
           return SizedBox(
             width: 248,
             child: GizPressable(
@@ -436,6 +453,7 @@ class AllWorkflowsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final data = MobileDataScope.watch(context);
     return CupertinoPageScaffold(
       navigationBar: const CupertinoNavigationBar(
         middle: Text('All Workflows'),
@@ -444,9 +462,9 @@ class AllWorkflowsPage extends StatelessWidget {
       child: SafeArea(
         child: ListView.builder(
           padding: const EdgeInsets.only(top: 8, bottom: 28),
-          itemCount: allWorkflows.length,
+          itemCount: data.workflows.length,
           itemBuilder: (context, index) {
-            return WorkflowListTile(workflow: allWorkflows[index]);
+            return WorkflowListTile(workflow: data.workflows[index]);
           },
         ),
       ),
@@ -461,7 +479,8 @@ class CollectionPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final workflows = allWorkflows
+    final data = MobileDataScope.watch(context);
+    final workflows = data.workflows
         .where((workflow) => collection.workflowNames.contains(workflow.name))
         .toList();
     return CupertinoPageScaffold(
@@ -563,13 +582,15 @@ class _CollectionWorkflowRow extends StatelessWidget {
 }
 
 class WorkflowDetailPage extends StatelessWidget {
-  const WorkflowDetailPage({super.key, required this.workflow});
+  const WorkflowDetailPage({super.key, required this.workflowName});
 
-  final WorkflowCard workflow;
+  final String workflowName;
 
   @override
   Widget build(BuildContext context) {
-    final workspaces = workflowWorkspaces
+    final data = MobileDataScope.watch(context);
+    final workflow = data.workflow(workflowName);
+    final workspaces = data.workspaces
         .where((workspace) => workspace.workflowName == workflow.name)
         .toList();
     return CupertinoPageScaffold(
@@ -663,7 +684,9 @@ class WorkspaceListTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final workflow = workflowByName(workspace.workflowName);
+    final workflow = MobileDataScope.watch(
+      context,
+    ).workflow(workspace.workflowName);
     return GizListRow(
       leading: Container(
         width: 50,
@@ -679,6 +702,61 @@ class WorkspaceListTile extends StatelessWidget {
       subtitle: '${workflow.title}  |  ${workspace.lastActive}',
       onPressed: () => context.push(
         '/chats/workspaces/${Uri.encodeComponent(workspace.name)}',
+      ),
+    );
+  }
+}
+
+class _DataStatus extends StatelessWidget {
+  const _DataStatus({required this.controller});
+
+  final MobileDataController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    final String title;
+    final String message;
+    switch (controller.connectionState) {
+      case MobileConnectionState.connecting:
+        title = 'Connecting';
+        message = 'Opening a secure WebRTC session.';
+        break;
+      case MobileConnectionState.unconfigured:
+        title = 'No server connected';
+        message = 'Add a development connection profile to load workflows.';
+        break;
+      case MobileConnectionState.offline:
+        title = 'Server unavailable';
+        message = 'Cached workflows stay available while GizClaw reconnects.';
+        break;
+      case MobileConnectionState.connected:
+        title = 'No workflows';
+        message = 'This server has no workflows visible to this client.';
+        break;
+    }
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
+      child: Row(
+        children: [
+          if (controller.connectionState == MobileConnectionState.connecting)
+            const CupertinoActivityIndicator()
+          else
+            const Icon(CupertinoIcons.cloud, color: GizColors.secondaryInk),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: GizText.title),
+                const SizedBox(height: 3),
+                Text(
+                  message,
+                  style: GizText.body.copyWith(color: GizColors.secondaryInk),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

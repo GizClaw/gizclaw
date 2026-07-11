@@ -1,10 +1,13 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gizclaw_app/main.dart';
+import 'package:gizclaw_app/data/mobile_data_controller.dart';
 
 void main() {
   Future<void> pumpApp(WidgetTester tester) async {
-    await tester.pumpWidget(const GizClawApp());
+    await tester.pumpWidget(
+      GizClawApp(dataController: MobileDataController.demo()),
+    );
     await tester.pump(const Duration(milliseconds: 700));
   }
 

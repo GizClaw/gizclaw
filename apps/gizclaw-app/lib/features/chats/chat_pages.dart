@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../data/mobile_data_controller.dart';
 import '../../giz_ui/giz_ui.dart';
 import '../../prototype/prototype_data.dart';
 import '../../prototype/prototype_models.dart';
@@ -111,12 +112,21 @@ class _WorkspaceChats extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final workspaces = MobileDataScope.watch(context).workspaces;
+    if (workspaces.isEmpty) {
+      return Center(
+        child: Text(
+          'No synced workspaces yet.',
+          style: GizText.body.copyWith(color: GizColors.secondaryInk),
+        ),
+      );
+    }
     return ListView.builder(
       key: const PageStorageKey('workspace-chats'),
       padding: const EdgeInsets.only(bottom: 112),
-      itemCount: workflowWorkspaces.length,
+      itemCount: workspaces.length,
       itemBuilder: (context, index) {
-        return WorkspaceListTile(workspace: workflowWorkspaces[index])
+        return WorkspaceListTile(workspace: workspaces[index])
             .animate(delay: (index * 45).ms)
             .fadeIn(duration: 280.ms)
             .slideY(begin: 0.05, end: 0, curve: Curves.easeOutCubic);
@@ -165,14 +175,9 @@ class _GroupChats extends StatelessWidget {
 }
 
 class WorkspaceChatPage extends StatefulWidget {
-  const WorkspaceChatPage({
-    super.key,
-    required this.workflow,
-    required this.workspace,
-  });
+  const WorkspaceChatPage({super.key, required this.workspaceName});
 
-  final WorkflowCard workflow;
-  final WorkspaceCard workspace;
+  final String workspaceName;
 
   @override
   State<WorkspaceChatPage> createState() => _WorkspaceChatPageState();
@@ -189,14 +194,17 @@ class _WorkspaceChatPageState extends State<WorkspaceChatPage> {
 
   @override
   Widget build(BuildContext context) {
+    final data = MobileDataScope.watch(context);
+    final workspace = data.workspace(widget.workspaceName);
+    final workflow = data.workflow(workspace.workflowName);
     return CupertinoPageScaffold(
       navigationBar: CupertinoNavigationBar(
         middle: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(widget.workspace.name, style: GizText.title),
+            Text(workspace.name, style: GizText.title),
             Text(
-              widget.workflow.title,
+              workflow.title,
               style: GizText.label.copyWith(color: GizColors.secondaryInk),
             ),
           ],
@@ -215,7 +223,7 @@ class _WorkspaceChatPageState extends State<WorkspaceChatPage> {
                     text:
                         'This workspace is ready. What would you like to work on?',
                     incoming: true,
-                    color: widget.workflow.bannerColor,
+                    color: workflow.bannerColor,
                   ),
                   const SizedBox(height: 10),
                   const _ChatBubble(
@@ -228,7 +236,7 @@ class _WorkspaceChatPageState extends State<WorkspaceChatPage> {
                     text:
                         'Start with one outcome, then choose two actions that move it forward.',
                     incoming: true,
-                    color: widget.workflow.bannerColor,
+                    color: workflow.bannerColor,
                   ),
                 ],
               ),

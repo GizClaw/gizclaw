@@ -46,9 +46,7 @@ GoRouter createAppRouter() {
                         pageBuilder: (context, state) => _page(
                           state,
                           WorkflowDetailPage(
-                            workflow: workflowByName(
-                              state.pathParameters['workflowName']!,
-                            ),
+                            workflowName: state.pathParameters['workflowName']!,
                           ),
                         ),
                       ),
@@ -83,14 +81,11 @@ GoRouter createAppRouter() {
                           ),
                         );
                       }
-                      final workspace = workspaceByName(
-                        state.pathParameters['conversationId']!,
-                      );
                       return _page(
                         state,
                         WorkspaceChatPage(
-                          workflow: workflowByName(workspace.workflowName),
-                          workspace: workspace,
+                          workspaceName:
+                              state.pathParameters['conversationId']!,
                         ),
                       );
                     },

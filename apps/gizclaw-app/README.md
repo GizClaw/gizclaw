@@ -10,9 +10,9 @@ project targets iOS and Android.
 - Enter a workspace chat screen.
 - Show starter Chatroom, Pet, and Me tabs.
 
-The current UI uses local fixture data. Runtime integration should attach this
-shell to the GizClaw WebRTC client path instead of reimplementing the protocol
-in the widget layer.
+Workflow and workspace surfaces read from a Drift cache populated through the
+GizClaw WebRTC client. Collection, group chat, friends, and pet content remain
+prototype fixtures until their server contracts are designed.
 
 ## Development
 
@@ -21,6 +21,17 @@ flutter run
 flutter analyze
 flutter test
 ```
+
+For a development server, inject the ignored e2e identity at build time:
+
+```sh
+flutter run \
+  --dart-define=GIZCLAW_ENDPOINT=127.0.0.1:19820 \
+  --dart-define=GIZCLAW_PRIVATE_KEY=<development-private-key>
+```
+
+Do not commit a private key or persist it in Drift. Production enrollment and
+secure identity storage are outside the prototype connection flow.
 
 Run commands from this directory:
 

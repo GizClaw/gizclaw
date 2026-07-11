@@ -121,7 +121,7 @@ reproducible version authority for application builds.
 ### Animated Media: Pixa from the GizClaw Dart SDK
 
 Pet and badge visuals use the Pixa runtime exported by the existing
-`sdk/dart/gizclaw` package. The SDK owns Pixa parsing, format validation, clip
+`sdk/flutter/gizclaw` package. The SDK owns Pixa parsing, format validation, clip
 selection, frame timing, pixel decoding, and Flutter painting primitives. The
 application must consume this API instead of implementing a second Pixa decoder
 inside a feature or widget.
