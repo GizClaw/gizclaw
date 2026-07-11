@@ -72,8 +72,15 @@ func TestToolPeerCRUDNamespaceACLAndOwnerBinding(t *testing.T) {
 
 	deleteResp := callRPC(t, srv, "delete", rpcapi.RPCMethodServerToolDelete, rpcParams(t, (*rpcapi.RPCPayload).FromToolDeleteRequest, rpcapi.ToolDeleteRequest{Id: id}))
 	requireNoRPCError(t, deleteResp)
-	if bindings.deleted == "" {
-		t.Fatal("owner binding was not deleted")
+	if !bindings.deletedBinding(toolOwnerBindingID(id, callerID)) {
+		t.Fatalf("owner binding was not deleted; deleted = %#v", bindings.deletedIDs)
+	}
+	if !bindings.deletedBinding(legacyToolOwnerBindingID(id, callerID)) {
+		t.Fatalf("legacy owner binding was not deleted; deleted = %#v", bindings.deletedIDs)
+	}
+	wantDeleted := []string{legacyToolOwnerBindingID(id, callerID), toolOwnerBindingID(id, callerID)}
+	if len(bindings.deletedIDs) < len(wantDeleted) || bindings.deletedIDs[0] != wantDeleted[0] || bindings.deletedIDs[1] != wantDeleted[1] {
+		t.Fatalf("deleted owner binding order = %#v, want prefix %#v", bindings.deletedIDs, wantDeleted)
 	}
 }
 
@@ -119,40 +126,71 @@ func TestToolPeerPutRejectsExistingNonOwnedTool(t *testing.T) {
 	}
 }
 
-func TestToolPeerCreateDoesNotRewriteExistingOwnerRole(t *testing.T) {
+func TestToolPeerCreateCreatesResourceOwnerRoleWhenMissing(t *testing.T) {
 	caller := giznet.PublicKey{5}
 	callerID := caller.String()
 	id := "peer." + callerID + ".music.play"
 	auth := newRuleAuthorizer()
 	auth.allow(acl.ResourceKindTool, acl.CollectionResourceID, apitypes.ACLPermissionCreate)
+	bindings := &recordingToolACL{}
+	srv := &Server{Caller: caller, ACL: auth, Tools: &toolkit.Server{Store: kv.NewMemory(nil)}, ToolACL: bindings}
+
+	resp := callRPC(t, srv, "create", rpcapi.RPCMethodServerToolCreate, rpcParams(t, (*rpcapi.RPCPayload).FromToolCreateRequest, rpcTool(id, callerID)))
+	requireNoRPCError(t, resp)
+	if bindings.rolePuts != 0 || bindings.roleCreates != 1 || bindings.roleGets != 1 || bindings.policy.Role != toolOwnerRole {
+		t.Fatalf("owner role handling = puts %d creates %d gets %d policy %#v", bindings.rolePuts, bindings.roleCreates, bindings.roleGets, bindings.policy)
+	}
+}
+
+func TestToolPeerCreateReusesCurrentResourceOwnerRole(t *testing.T) {
+	caller := giznet.PublicKey{8}
+	callerID := caller.String()
+	id := "peer." + callerID + ".music.play"
+	auth := newRuleAuthorizer()
+	auth.allow(acl.ResourceKindTool, acl.CollectionResourceID, apitypes.ACLPermissionCreate)
 	bindings := &recordingToolACL{
-		roleErr: acl.ErrRoleAlreadyExists,
-		existingRole: apitypes.ACLRole{
-			Name:        toolOwnerRole,
-			Permissions: apitypes.ACLPermissionList{apitypes.ACLPermissionAdmin, apitypes.ACLPermissionRead, apitypes.ACLPermissionUse},
-		},
+		existingRole: apitypes.ACLRole{Name: toolOwnerRole, Permissions: append(apitypes.ACLPermissionList(nil), toolOwnerPermissions...)},
 	}
 	srv := &Server{Caller: caller, ACL: auth, Tools: &toolkit.Server{Store: kv.NewMemory(nil)}, ToolACL: bindings}
 
 	resp := callRPC(t, srv, "create", rpcapi.RPCMethodServerToolCreate, rpcParams(t, (*rpcapi.RPCPayload).FromToolCreateRequest, rpcTool(id, callerID)))
 	requireNoRPCError(t, resp)
-	if bindings.roleCreates != 1 || bindings.roleGets != 1 || bindings.policy.Role != toolOwnerRole {
-		t.Fatalf("owner role handling = creates %d gets %d policy %#v", bindings.roleCreates, bindings.roleGets, bindings.policy)
+	if bindings.rolePuts != 0 || bindings.roleCreates != 0 || bindings.roleGets != 1 || bindings.policy.Role != toolOwnerRole {
+		t.Fatalf("owner role handling = puts %d creates %d gets %d policy %#v", bindings.rolePuts, bindings.roleCreates, bindings.roleGets, bindings.policy)
 	}
 }
 
-func TestToolPeerCreateRejectsIncompatibleOwnerRole(t *testing.T) {
+func TestToolPeerCreateRejectsDriftedResourceOwnerRole(t *testing.T) {
+	caller := giznet.PublicKey{9}
+	callerID := caller.String()
+	id := "peer." + callerID + ".music.play"
+	auth := newRuleAuthorizer()
+	auth.allow(acl.ResourceKindTool, acl.CollectionResourceID, apitypes.ACLPermissionCreate)
+	bindings := &recordingToolACL{
+		existingRole: apitypes.ACLRole{Name: toolOwnerRole, Permissions: apitypes.ACLPermissionList{apitypes.ACLPermissionRead}},
+	}
+	srv := &Server{Caller: caller, ACL: auth, Tools: &toolkit.Server{Store: kv.NewMemory(nil)}, ToolACL: bindings}
+
+	resp := callRPC(t, srv, "create", rpcapi.RPCMethodServerToolCreate, rpcParams(t, (*rpcapi.RPCPayload).FromToolCreateRequest, rpcTool(id, callerID)))
+	if resp.Error == nil || resp.Error.Code != rpcapi.RPCErrorCodeInternalError {
+		t.Fatalf("create with drifted owner role response = %#v", resp)
+	}
+	if _, err := srv.Tools.GetTool(context.Background(), id); !errors.Is(err, toolkit.ErrToolNotFound) {
+		t.Fatalf("GetTool(rolled back) error = %v, want %v", err, toolkit.ErrToolNotFound)
+	}
+	if bindings.rolePuts != 0 || bindings.roleCreates != 0 || bindings.policy.Role != "" {
+		t.Fatalf("owner role handling = puts %d creates %d policy %#v", bindings.rolePuts, bindings.roleCreates, bindings.policy)
+	}
+}
+
+func TestToolPeerCreateRollsBackWhenOwnerRoleFails(t *testing.T) {
 	caller := giznet.PublicKey{6}
 	callerID := caller.String()
 	id := "peer." + callerID + ".music.play"
 	auth := newRuleAuthorizer()
 	auth.allow(acl.ResourceKindTool, acl.CollectionResourceID, apitypes.ACLPermissionCreate)
 	bindings := &recordingToolACL{
-		roleErr: acl.ErrRoleAlreadyExists,
-		existingRole: apitypes.ACLRole{
-			Name:        toolOwnerRole,
-			Permissions: apitypes.ACLPermissionList{apitypes.ACLPermissionRead},
-		},
+		roleErr: errors.New("owner role failed"),
 	}
 	srv := &Server{Caller: caller, ACL: auth, Tools: &toolkit.Server{Store: kv.NewMemory(nil)}, ToolACL: bindings}
 
@@ -236,9 +274,12 @@ type recordingToolACL struct {
 	permissions  apitypes.ACLPermissionList
 	policy       apitypes.ACLPolicy
 	deleted      string
+	deletedIDs   []string
 	roleErr      error
+	putRoleErr   error
 	roleCreates  int
 	roleGets     int
+	rolePuts     int
 	existingRole apitypes.ACLRole
 	getRoleErr   error
 	deleteErr    error
@@ -253,7 +294,20 @@ func (a *recordingToolACL) CreateRole(_ context.Context, name string, permission
 
 func (a *recordingToolACL) GetRole(_ context.Context, _ string) (apitypes.ACLRole, error) {
 	a.roleGets++
+	if a.getRoleErr != nil {
+		return apitypes.ACLRole{}, a.getRoleErr
+	}
+	if a.existingRole.Name == "" {
+		return apitypes.ACLRole{}, acl.ErrRoleNotFound
+	}
 	return a.existingRole, a.getRoleErr
+}
+
+func (a *recordingToolACL) PutRole(_ context.Context, name string, permissions apitypes.ACLPermissionList) (apitypes.ACLRole, error) {
+	a.rolePuts++
+	a.role = name
+	a.permissions = append(apitypes.ACLPermissionList(nil), permissions...)
+	return apitypes.ACLRole{Name: name, Permissions: permissions}, a.putRoleErr
 }
 
 func (a *recordingToolACL) PutPolicyBinding(_ context.Context, id string, _ float64, policy apitypes.ACLPolicy) (apitypes.ACLPolicyBinding, error) {
@@ -263,7 +317,17 @@ func (a *recordingToolACL) PutPolicyBinding(_ context.Context, id string, _ floa
 
 func (a *recordingToolACL) DeletePolicyBinding(_ context.Context, id string) (apitypes.ACLPolicyBinding, error) {
 	a.deleted = id
+	a.deletedIDs = append(a.deletedIDs, id)
 	return apitypes.ACLPolicyBinding{Id: id}, a.deleteErr
+}
+
+func (a *recordingToolACL) deletedBinding(id string) bool {
+	for _, deleted := range a.deletedIDs {
+		if deleted == id {
+			return true
+		}
+	}
+	return false
 }
 
 func stringPointer(value string) *string { return &value }

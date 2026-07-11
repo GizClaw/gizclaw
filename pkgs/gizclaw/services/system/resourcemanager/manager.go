@@ -122,7 +122,11 @@ func (m *Manager) Get(ctx context.Context, kind apitypes.ResourceKind, name stri
 		if !exists {
 			return apitypes.Resource{}, notFound(kind, name)
 		}
-		return resourceFromCredential(item)
+		resource, err := resourceFromCredential(item)
+		if err != nil {
+			return apitypes.Resource{}, err
+		}
+		return m.withOwnedResourceOwner(ctx, apitypes.ACLResourceKindCredential, name, resource)
 	case apitypes.ResourceKindFirmware:
 		if m.services.Firmwares == nil {
 			return apitypes.Resource{}, missingService("firmwares")
@@ -134,7 +138,11 @@ func (m *Manager) Get(ctx context.Context, kind apitypes.ResourceKind, name stri
 		if !exists {
 			return apitypes.Resource{}, notFound(kind, name)
 		}
-		return resourceFromFirmware(item)
+		resource, err := resourceFromFirmware(item)
+		if err != nil {
+			return apitypes.Resource{}, err
+		}
+		return m.withOwnedResourceOwner(ctx, apitypes.ACLResourceKindFirmware, name, resource)
 	case apitypes.ResourceKindPeerConfig:
 		if m.services.Peers == nil {
 			return apitypes.Resource{}, missingService("peers")
@@ -155,7 +163,11 @@ func (m *Manager) Get(ctx context.Context, kind apitypes.ResourceKind, name stri
 		if !exists {
 			return apitypes.Resource{}, notFound(kind, name)
 		}
-		return resourceFromModel(item)
+		resource, err := resourceFromModel(item)
+		if err != nil {
+			return apitypes.Resource{}, err
+		}
+		return m.withOwnedResourceOwner(ctx, apitypes.ACLResourceKindModel, name, resource)
 	case apitypes.ResourceKindTool:
 		if m.services.Tools == nil {
 			return apitypes.Resource{}, missingService("tools")
@@ -167,7 +179,11 @@ func (m *Manager) Get(ctx context.Context, kind apitypes.ResourceKind, name stri
 		if !exists {
 			return apitypes.Resource{}, notFound(kind, name)
 		}
-		return resourceFromTool(item)
+		resource, err := resourceFromTool(item)
+		if err != nil {
+			return apitypes.Resource{}, err
+		}
+		return m.withOwnedResourceOwner(ctx, apitypes.ACLResourceKindTool, name, resource)
 	case apitypes.ResourceKindGameRuleset:
 		item, exists, err := m.getGameRuleset(ctx, string(pathParam(name)))
 		if err != nil {
@@ -176,7 +192,11 @@ func (m *Manager) Get(ctx context.Context, kind apitypes.ResourceKind, name stri
 		if !exists {
 			return apitypes.Resource{}, notFound(kind, name)
 		}
-		return resourceFromGameRuleset(item)
+		resource, err := resourceFromGameRuleset(item)
+		if err != nil {
+			return apitypes.Resource{}, err
+		}
+		return m.withOwnedResourceOwner(ctx, apitypes.ACLResourceKindGameruleset, name, resource)
 	case apitypes.ResourceKindPetDef:
 		item, exists, err := m.getPetDef(ctx, string(pathParam(name)))
 		if err != nil {
@@ -275,7 +295,11 @@ func (m *Manager) Get(ctx context.Context, kind apitypes.ResourceKind, name stri
 		if !exists {
 			return apitypes.Resource{}, notFound(kind, name)
 		}
-		return resourceFromVoice(item)
+		resource, err := resourceFromVoice(item)
+		if err != nil {
+			return apitypes.Resource{}, err
+		}
+		return m.withOwnedResourceOwner(ctx, apitypes.ACLResourceKindVoice, name, resource)
 	case apitypes.ResourceKindWorkspace:
 		if m.services.Workspaces == nil {
 			return apitypes.Resource{}, missingService("workspaces")
@@ -287,7 +311,11 @@ func (m *Manager) Get(ctx context.Context, kind apitypes.ResourceKind, name stri
 		if !exists {
 			return apitypes.Resource{}, notFound(kind, name)
 		}
-		return resourceFromWorkspace(item)
+		resource, err := resourceFromWorkspace(item)
+		if err != nil {
+			return apitypes.Resource{}, err
+		}
+		return m.withOwnedResourceOwner(ctx, apitypes.ACLResourceKindWorkspace, name, resource)
 	case apitypes.ResourceKindWorkflow:
 		if m.services.Workflows == nil {
 			return apitypes.Resource{}, missingService("workflows")
@@ -299,7 +327,11 @@ func (m *Manager) Get(ctx context.Context, kind apitypes.ResourceKind, name stri
 		if !exists {
 			return apitypes.Resource{}, notFound(kind, name)
 		}
-		return resourceFromWorkflow(name, item)
+		resource, err := resourceFromWorkflow(name, item)
+		if err != nil {
+			return apitypes.Resource{}, err
+		}
+		return m.withOwnedResourceOwner(ctx, apitypes.ACLResourceKindWorkflow, name, resource)
 	case apitypes.ResourceKindResourceList:
 		return apitypes.Resource{}, applyError(400, "UNSUPPORTED_RESOURCE_GET", "ResourceList is not stored as a named resource")
 	case apitypes.ResourceKindFriend:
@@ -433,8 +465,19 @@ func (m *Manager) Put(ctx context.Context, resource apitypes.Resource) (apitypes
 		if err := validateResourceHeader(item.ApiVersion, item.Metadata.Name); err != nil {
 			return apitypes.Resource{}, err
 		}
-		if err := m.putCredential(ctx, string(pathParam(item.Metadata.Name)), credentialUpsert(item)); err != nil {
+		_, exists, err := m.getCredential(ctx, string(pathParam(item.Metadata.Name)))
+		if err != nil {
 			return apitypes.Resource{}, err
+		}
+		if err := m.validateOwnedResourceOwner(apitypes.ACLResourceKindCredential, item.Metadata.Name, item.Metadata, exists); err != nil {
+			return apitypes.Resource{}, err
+		}
+		ownerRollback, err := m.ensureOwnedResourceOwnerBeforeWrite(ctx, apitypes.ACLResourceKindCredential, item.Metadata.Name, item.Metadata)
+		if err != nil {
+			return apitypes.Resource{}, err
+		}
+		if err := m.putCredential(ctx, string(pathParam(item.Metadata.Name)), credentialUpsert(item)); err != nil {
+			return apitypes.Resource{}, m.rollbackOwnedResourceOwner(ctx, ownerRollback, err)
 		}
 		return m.Get(ctx, apitypes.ResourceKindCredential, item.Metadata.Name)
 	case string(apitypes.ResourceKindFirmware), "FirmwareResource":
@@ -448,8 +491,19 @@ func (m *Manager) Put(ctx context.Context, resource apitypes.Resource) (apitypes
 		if err := validateResourceHeader(item.ApiVersion, item.Metadata.Name); err != nil {
 			return apitypes.Resource{}, err
 		}
-		if err := m.putFirmware(ctx, string(pathParam(item.Metadata.Name)), firmwareUpsert(item)); err != nil {
+		_, exists, err := m.getFirmware(ctx, string(pathParam(item.Metadata.Name)))
+		if err != nil {
 			return apitypes.Resource{}, err
+		}
+		if err := m.validateOwnedResourceOwner(apitypes.ACLResourceKindFirmware, item.Metadata.Name, item.Metadata, exists); err != nil {
+			return apitypes.Resource{}, err
+		}
+		ownerRollback, err := m.ensureOwnedResourceOwnerBeforeWrite(ctx, apitypes.ACLResourceKindFirmware, item.Metadata.Name, item.Metadata)
+		if err != nil {
+			return apitypes.Resource{}, err
+		}
+		if err := m.putFirmware(ctx, string(pathParam(item.Metadata.Name)), firmwareUpsert(item)); err != nil {
+			return apitypes.Resource{}, m.rollbackOwnedResourceOwner(ctx, ownerRollback, err)
 		}
 		return m.Get(ctx, apitypes.ResourceKindFirmware, item.Metadata.Name)
 	case string(apitypes.ResourceKindPeerConfig), "PeerConfigResource":
@@ -538,8 +592,19 @@ func (m *Manager) Put(ctx context.Context, resource apitypes.Resource) (apitypes
 		if err := validateResourceHeader(item.ApiVersion, item.Metadata.Name); err != nil {
 			return apitypes.Resource{}, err
 		}
-		if err := m.putModel(ctx, string(pathParam(item.Metadata.Name)), modelUpsert(item)); err != nil {
+		_, exists, err := m.getModel(ctx, string(pathParam(item.Metadata.Name)))
+		if err != nil {
 			return apitypes.Resource{}, err
+		}
+		if err := m.validateOwnedResourceOwner(apitypes.ACLResourceKindModel, item.Metadata.Name, item.Metadata, exists); err != nil {
+			return apitypes.Resource{}, err
+		}
+		ownerRollback, err := m.ensureOwnedResourceOwnerBeforeWrite(ctx, apitypes.ACLResourceKindModel, item.Metadata.Name, item.Metadata)
+		if err != nil {
+			return apitypes.Resource{}, err
+		}
+		if err := m.putModel(ctx, string(pathParam(item.Metadata.Name)), modelUpsert(item)); err != nil {
+			return apitypes.Resource{}, m.rollbackOwnedResourceOwner(ctx, ownerRollback, err)
 		}
 		return m.Get(ctx, apitypes.ResourceKindModel, item.Metadata.Name)
 	case string(apitypes.ResourceKindTool), "ToolResource":
@@ -562,8 +627,19 @@ func (m *Manager) Put(ctx context.Context, resource apitypes.Resource) (apitypes
 		if err := validateResourceHeader(item.ApiVersion, item.Metadata.Name); err != nil {
 			return apitypes.Resource{}, err
 		}
-		if err := m.putGameRuleset(ctx, string(pathParam(item.Metadata.Name)), gameRulesetUpsert(item)); err != nil {
+		_, exists, err := m.getGameRuleset(ctx, string(pathParam(item.Metadata.Name)))
+		if err != nil {
 			return apitypes.Resource{}, err
+		}
+		if err := m.validateOwnedResourceOwner(apitypes.ACLResourceKindGameruleset, item.Metadata.Name, item.Metadata, exists); err != nil {
+			return apitypes.Resource{}, err
+		}
+		ownerRollback, err := m.ensureOwnedResourceOwnerBeforeWrite(ctx, apitypes.ACLResourceKindGameruleset, item.Metadata.Name, item.Metadata)
+		if err != nil {
+			return apitypes.Resource{}, err
+		}
+		if err := m.putGameRuleset(ctx, string(pathParam(item.Metadata.Name)), gameRulesetUpsert(item)); err != nil {
+			return apitypes.Resource{}, m.rollbackOwnedResourceOwner(ctx, ownerRollback, err)
 		}
 		return m.Get(ctx, apitypes.ResourceKindGameRuleset, item.Metadata.Name)
 	case string(apitypes.ResourceKindPetDef), "PetDefResource":
@@ -645,8 +721,19 @@ func (m *Manager) Put(ctx context.Context, resource apitypes.Resource) (apitypes
 		if err := validateResourceHeader(item.ApiVersion, item.Metadata.Name); err != nil {
 			return apitypes.Resource{}, err
 		}
-		if err := m.putVoice(ctx, string(pathParam(item.Metadata.Name)), voiceUpsert(item)); err != nil {
+		_, exists, err := m.getVoice(ctx, string(pathParam(item.Metadata.Name)))
+		if err != nil {
 			return apitypes.Resource{}, err
+		}
+		if err := m.validateOwnedResourceOwner(apitypes.ACLResourceKindVoice, item.Metadata.Name, item.Metadata, exists); err != nil {
+			return apitypes.Resource{}, err
+		}
+		ownerRollback, err := m.ensureOwnedResourceOwnerBeforeWrite(ctx, apitypes.ACLResourceKindVoice, item.Metadata.Name, item.Metadata)
+		if err != nil {
+			return apitypes.Resource{}, err
+		}
+		if err := m.putVoice(ctx, string(pathParam(item.Metadata.Name)), voiceUpsert(item)); err != nil {
+			return apitypes.Resource{}, m.rollbackOwnedResourceOwner(ctx, ownerRollback, err)
 		}
 		return m.Get(ctx, apitypes.ResourceKindVoice, item.Metadata.Name)
 	case string(apitypes.ResourceKindWorkspace), "WorkspaceResource":
@@ -660,8 +747,19 @@ func (m *Manager) Put(ctx context.Context, resource apitypes.Resource) (apitypes
 		if err := validateResourceHeader(item.ApiVersion, item.Metadata.Name); err != nil {
 			return apitypes.Resource{}, err
 		}
-		if err := m.putWorkspace(ctx, string(pathParam(item.Metadata.Name)), workspaceUpsert(item)); err != nil {
+		_, exists, err := m.getWorkspace(ctx, string(pathParam(item.Metadata.Name)))
+		if err != nil {
 			return apitypes.Resource{}, err
+		}
+		if err := m.validateOwnedResourceOwner(apitypes.ACLResourceKindWorkspace, item.Metadata.Name, item.Metadata, exists); err != nil {
+			return apitypes.Resource{}, err
+		}
+		ownerRollback, err := m.ensureOwnedResourceOwnerBeforeWrite(ctx, apitypes.ACLResourceKindWorkspace, item.Metadata.Name, item.Metadata)
+		if err != nil {
+			return apitypes.Resource{}, err
+		}
+		if err := m.putWorkspace(ctx, string(pathParam(item.Metadata.Name)), workspaceUpsert(item)); err != nil {
+			return apitypes.Resource{}, m.rollbackOwnedResourceOwner(ctx, ownerRollback, err)
 		}
 		return m.Get(ctx, apitypes.ResourceKindWorkspace, item.Metadata.Name)
 	case string(apitypes.ResourceKindWorkflow), "WorkflowResource":
@@ -675,8 +773,19 @@ func (m *Manager) Put(ctx context.Context, resource apitypes.Resource) (apitypes
 		if err := validateResourceHeader(item.ApiVersion, item.Metadata.Name); err != nil {
 			return apitypes.Resource{}, err
 		}
-		if err := m.putWorkflow(ctx, string(pathParam(item.Metadata.Name)), workflowDocumentFromResource(item)); err != nil {
+		_, exists, err := m.getWorkflow(ctx, string(pathParam(item.Metadata.Name)))
+		if err != nil {
 			return apitypes.Resource{}, err
+		}
+		if err := m.validateOwnedResourceOwner(apitypes.ACLResourceKindWorkflow, item.Metadata.Name, item.Metadata, exists); err != nil {
+			return apitypes.Resource{}, err
+		}
+		ownerRollback, err := m.ensureOwnedResourceOwnerBeforeWrite(ctx, apitypes.ACLResourceKindWorkflow, item.Metadata.Name, item.Metadata)
+		if err != nil {
+			return apitypes.Resource{}, err
+		}
+		if err := m.putWorkflow(ctx, string(pathParam(item.Metadata.Name)), workflowDocumentFromResource(item)); err != nil {
+			return apitypes.Resource{}, m.rollbackOwnedResourceOwner(ctx, ownerRollback, err)
 		}
 		return m.Get(ctx, apitypes.ResourceKindWorkflow, item.Metadata.Name)
 	case string(apitypes.ResourceKindFriend), "FriendResource":
@@ -808,24 +917,32 @@ func (m *Manager) Delete(ctx context.Context, kind apitypes.ResourceKind, name s
 		if m.services.Credentials == nil {
 			return apitypes.Resource{}, missingService("credentials")
 		}
-		item, exists, err := m.deleteCredential(ctx, string(pathParam(name)))
+		ownerRollback, err := m.removeOwnedResourceOwnerBeforeDelete(ctx, apitypes.ACLResourceKindCredential, name)
 		if err != nil {
 			return apitypes.Resource{}, err
 		}
+		item, exists, err := m.deleteCredential(ctx, string(pathParam(name)))
+		if err != nil {
+			return apitypes.Resource{}, m.rollbackOwnedResourceOwner(ctx, ownerRollback, err)
+		}
 		if !exists {
-			return apitypes.Resource{}, notFound(kind, name)
+			return apitypes.Resource{}, m.rollbackOwnedResourceOwner(ctx, ownerRollback, notFound(kind, name))
 		}
 		return resourceFromCredential(item)
 	case apitypes.ResourceKindFirmware:
 		if m.services.Firmwares == nil {
 			return apitypes.Resource{}, missingService("firmwares")
 		}
-		item, exists, err := m.deleteFirmware(ctx, string(pathParam(name)))
+		ownerRollback, err := m.removeOwnedResourceOwnerBeforeDelete(ctx, apitypes.ACLResourceKindFirmware, name)
 		if err != nil {
 			return apitypes.Resource{}, err
 		}
+		item, exists, err := m.deleteFirmware(ctx, string(pathParam(name)))
+		if err != nil {
+			return apitypes.Resource{}, m.rollbackOwnedResourceOwner(ctx, ownerRollback, err)
+		}
 		if !exists {
-			return apitypes.Resource{}, notFound(kind, name)
+			return apitypes.Resource{}, m.rollbackOwnedResourceOwner(ctx, ownerRollback, notFound(kind, name))
 		}
 		return resourceFromFirmware(item)
 	case apitypes.ResourceKindPeerConfig:
@@ -834,12 +951,16 @@ func (m *Manager) Delete(ctx context.Context, kind apitypes.ResourceKind, name s
 		if m.services.Models == nil {
 			return apitypes.Resource{}, missingService("models")
 		}
-		item, exists, err := m.deleteModel(ctx, string(pathParam(name)))
+		ownerRollback, err := m.removeOwnedResourceOwnerBeforeDelete(ctx, apitypes.ACLResourceKindModel, name)
 		if err != nil {
 			return apitypes.Resource{}, err
 		}
+		item, exists, err := m.deleteModel(ctx, string(pathParam(name)))
+		if err != nil {
+			return apitypes.Resource{}, m.rollbackOwnedResourceOwner(ctx, ownerRollback, err)
+		}
 		if !exists {
-			return apitypes.Resource{}, notFound(kind, name)
+			return apitypes.Resource{}, m.rollbackOwnedResourceOwner(ctx, ownerRollback, notFound(kind, name))
 		}
 		return resourceFromModel(item)
 	case apitypes.ResourceKindTool:
@@ -855,12 +976,16 @@ func (m *Manager) Delete(ctx context.Context, kind apitypes.ResourceKind, name s
 		}
 		return resourceFromTool(item)
 	case apitypes.ResourceKindGameRuleset:
-		item, exists, err := m.deleteGameRuleset(ctx, string(pathParam(name)))
+		ownerRollback, err := m.removeOwnedResourceOwnerBeforeDelete(ctx, apitypes.ACLResourceKindGameruleset, name)
 		if err != nil {
 			return apitypes.Resource{}, err
 		}
+		item, exists, err := m.deleteGameRuleset(ctx, string(pathParam(name)))
+		if err != nil {
+			return apitypes.Resource{}, m.rollbackOwnedResourceOwner(ctx, ownerRollback, err)
+		}
 		if !exists {
-			return apitypes.Resource{}, notFound(kind, name)
+			return apitypes.Resource{}, m.rollbackOwnedResourceOwner(ctx, ownerRollback, notFound(kind, name))
 		}
 		return resourceFromGameRuleset(item)
 	case apitypes.ResourceKindPetDef:
@@ -954,36 +1079,48 @@ func (m *Manager) Delete(ctx context.Context, kind apitypes.ResourceKind, name s
 		if m.services.Voices == nil {
 			return apitypes.Resource{}, missingService("voices")
 		}
-		item, exists, err := m.deleteVoice(ctx, string(pathParam(name)))
+		ownerRollback, err := m.removeOwnedResourceOwnerBeforeDelete(ctx, apitypes.ACLResourceKindVoice, name)
 		if err != nil {
 			return apitypes.Resource{}, err
 		}
+		item, exists, err := m.deleteVoice(ctx, string(pathParam(name)))
+		if err != nil {
+			return apitypes.Resource{}, m.rollbackOwnedResourceOwner(ctx, ownerRollback, err)
+		}
 		if !exists {
-			return apitypes.Resource{}, notFound(kind, name)
+			return apitypes.Resource{}, m.rollbackOwnedResourceOwner(ctx, ownerRollback, notFound(kind, name))
 		}
 		return resourceFromVoice(item)
 	case apitypes.ResourceKindWorkspace:
 		if m.services.Workspaces == nil {
 			return apitypes.Resource{}, missingService("workspaces")
 		}
-		item, exists, err := m.deleteWorkspace(ctx, string(pathParam(name)))
+		ownerRollback, err := m.removeOwnedResourceOwnerBeforeDelete(ctx, apitypes.ACLResourceKindWorkspace, name)
 		if err != nil {
 			return apitypes.Resource{}, err
 		}
+		item, exists, err := m.deleteWorkspace(ctx, string(pathParam(name)))
+		if err != nil {
+			return apitypes.Resource{}, m.rollbackOwnedResourceOwner(ctx, ownerRollback, err)
+		}
 		if !exists {
-			return apitypes.Resource{}, notFound(kind, name)
+			return apitypes.Resource{}, m.rollbackOwnedResourceOwner(ctx, ownerRollback, notFound(kind, name))
 		}
 		return resourceFromWorkspace(item)
 	case apitypes.ResourceKindWorkflow:
 		if m.services.Workflows == nil {
 			return apitypes.Resource{}, missingService("workflows")
 		}
-		item, exists, err := m.deleteWorkflow(ctx, string(pathParam(name)))
+		ownerRollback, err := m.removeOwnedResourceOwnerBeforeDelete(ctx, apitypes.ACLResourceKindWorkflow, name)
 		if err != nil {
 			return apitypes.Resource{}, err
 		}
+		item, exists, err := m.deleteWorkflow(ctx, string(pathParam(name)))
+		if err != nil {
+			return apitypes.Resource{}, m.rollbackOwnedResourceOwner(ctx, ownerRollback, err)
+		}
 		if !exists {
-			return apitypes.Resource{}, notFound(kind, name)
+			return apitypes.Resource{}, m.rollbackOwnedResourceOwner(ctx, ownerRollback, notFound(kind, name))
 		}
 		return resourceFromWorkflow(name, item)
 	case apitypes.ResourceKindResourceList:

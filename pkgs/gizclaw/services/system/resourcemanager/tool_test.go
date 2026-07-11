@@ -80,8 +80,12 @@ func TestToolResourceAdminWritesRemoveStaleOwnerBindings(t *testing.T) {
 	ctx := context.Background()
 	manager := newACLResourceManager(t)
 	manager.services.Tools = &toolkit.Server{Store: kv.NewMemory(nil)}
-	if _, err := manager.services.ACL.CreateRole(ctx, toolkit.ToolOwnerRole, apitypes.ACLPermissionList{apitypes.ACLPermissionRead, apitypes.ACLPermissionUse, apitypes.ACLPermissionAdmin}); err != nil {
-		t.Fatalf("CreateRole() error = %v", err)
+	ownerPermissions := apitypes.ACLPermissionList{apitypes.ACLPermissionRead, apitypes.ACLPermissionUse, apitypes.ACLPermissionAdmin}
+	if _, err := manager.services.ACL.CreateRole(ctx, toolkit.ToolOwnerRole, ownerPermissions); err != nil {
+		t.Fatalf("CreateRole(resource owner) error = %v", err)
+	}
+	if _, err := manager.services.ACL.CreateRole(ctx, "tool-owner", ownerPermissions); err != nil {
+		t.Fatalf("CreateRole(legacy tool owner) error = %v", err)
 	}
 
 	for _, tc := range []struct {
@@ -103,18 +107,219 @@ func TestToolResourceAdminWritesRemoveStaleOwnerBindings(t *testing.T) {
 			if _, err := manager.services.Tools.PutTool(ctx, device); err != nil {
 				t.Fatalf("PutTool(device) error = %v", err)
 			}
-			bindingID := toolkit.ToolOwnerPolicyBindingID(tc.id, owner)
-			if _, err := manager.services.ACL.CreatePolicyBinding(ctx, bindingID, 0, apitypes.ACLPolicy{Subject: acl.PublicKeySubject(owner), Resource: acl.ToolResource(tc.id), Role: toolkit.ToolOwnerRole}); err != nil {
-				t.Fatalf("CreatePolicyBinding() error = %v", err)
+			genericBindingID := toolkit.ToolOwnerPolicyBindingID(tc.id, owner)
+			if _, err := manager.services.ACL.CreatePolicyBinding(ctx, genericBindingID, 0, apitypes.ACLPolicy{Subject: acl.PublicKeySubject(owner), Resource: acl.ToolResource(tc.id), Role: toolkit.ToolOwnerRole}); err != nil {
+				t.Fatalf("CreatePolicyBinding(generic) error = %v", err)
+			}
+			legacyBindingID := toolkit.LegacyToolOwnerPolicyBindingID(tc.id, owner)
+			if _, err := manager.services.ACL.CreatePolicyBinding(ctx, legacyBindingID, 0, apitypes.ACLPolicy{Subject: acl.PublicKeySubject(owner), Resource: acl.ToolResource(tc.id), Role: "tool-owner"}); err != nil {
+				t.Fatalf("CreatePolicyBinding(legacy) error = %v", err)
 			}
 
 			if err := tc.run(toolResource(t, tc.id)); err != nil {
 				t.Fatalf("admin %s error = %v", tc.name, err)
 			}
-			if _, err := manager.services.ACL.GetPolicyBinding(ctx, bindingID); !errors.Is(err, acl.ErrPolicyBindingNotFound) {
-				t.Fatalf("GetPolicyBinding(stale) error = %v, want %v", err, acl.ErrPolicyBindingNotFound)
+			if _, err := manager.services.ACL.GetPolicyBinding(ctx, genericBindingID); !errors.Is(err, acl.ErrPolicyBindingNotFound) {
+				t.Fatalf("GetPolicyBinding(generic stale) error = %v, want %v", err, acl.ErrPolicyBindingNotFound)
+			}
+			if _, err := manager.services.ACL.GetPolicyBinding(ctx, legacyBindingID); !errors.Is(err, acl.ErrPolicyBindingNotFound) {
+				t.Fatalf("GetPolicyBinding(legacy stale) error = %v, want %v", err, acl.ErrPolicyBindingNotFound)
 			}
 		})
+	}
+}
+
+func TestToolResourceWritesWithoutMetadataOwnerPreserveLegacyOwnerBinding(t *testing.T) {
+	ctx := context.Background()
+
+	for _, tc := range []struct {
+		name string
+		run  func(*Manager, apitypes.Resource) error
+	}{
+		{name: "apply", run: func(manager *Manager, resource apitypes.Resource) error {
+			_, err := manager.Apply(ctx, resource)
+			return err
+		}},
+		{name: "put", run: func(manager *Manager, resource apitypes.Resource) error {
+			_, err := manager.Put(ctx, resource)
+			return err
+		}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			manager := newACLResourceManager(t)
+			manager.services.Tools = &toolkit.Server{Store: kv.NewMemory(nil)}
+			ownerPermissions := apitypes.ACLPermissionList{apitypes.ACLPermissionRead, apitypes.ACLPermissionUse, apitypes.ACLPermissionAdmin}
+			if _, err := manager.services.ACL.CreateRole(ctx, "tool-owner", ownerPermissions); err != nil {
+				t.Fatalf("CreateRole(legacy tool owner) error = %v", err)
+			}
+			owner := "owner-peer"
+			method := "device.invoke"
+			existing := toolkit.Tool{ID: "peer.legacy-owner." + tc.name, Source: toolkit.ToolSourceDevice, Enabled: true, OwnerPeer: &owner, InputSchema: jsonschema.Schema{Type: "object"}, Executor: toolkit.ToolExecutor{Kind: toolkit.ToolExecutorKindDeviceRPC, Method: &method, PeerID: &owner}}
+			if _, err := manager.services.Tools.PutTool(ctx, existing); err != nil {
+				t.Fatalf("PutTool(device) error = %v", err)
+			}
+			legacyBindingID := toolkit.LegacyToolOwnerPolicyBindingID(existing.ID, owner)
+			if _, err := manager.services.ACL.CreatePolicyBinding(ctx, legacyBindingID, 0, apitypes.ACLPolicy{Subject: acl.PublicKeySubject(owner), Resource: acl.ToolResource(existing.ID), Role: "tool-owner"}); err != nil {
+				t.Fatalf("CreatePolicyBinding(legacy) error = %v", err)
+			}
+			resource, err := resourceFromTool(existing)
+			if err != nil {
+				t.Fatalf("resourceFromTool() error = %v", err)
+			}
+
+			if err := tc.run(manager, resource); err != nil {
+				t.Fatalf("%s without metadata owner error = %v", tc.name, err)
+			}
+			if _, err := manager.services.ACL.GetPolicyBinding(ctx, legacyBindingID); err != nil {
+				t.Fatalf("GetPolicyBinding(legacy owner) error = %v", err)
+			}
+			if _, err := manager.services.ACL.GetPolicyBinding(ctx, toolkit.ToolOwnerPolicyBindingID(existing.ID, owner)); !errors.Is(err, acl.ErrPolicyBindingNotFound) {
+				t.Fatalf("GetPolicyBinding(generic owner) error = %v, want %v", err, acl.ErrPolicyBindingNotFound)
+			}
+		})
+	}
+}
+
+func TestToolResourcePutReturnsOwnerMetadata(t *testing.T) {
+	ctx := context.Background()
+	manager := newACLResourceManager(t)
+	manager.services.Tools = &toolkit.Server{Store: kv.NewMemory(nil)}
+	owner := "owner-peer"
+	resource := toolResource(t, "system/music.play")
+	item, err := resource.AsToolResource()
+	if err != nil {
+		t.Fatalf("AsToolResource() error = %v", err)
+	}
+	item.Metadata.OwnerPublicKey = &owner
+	if err := resource.FromToolResource(item); err != nil {
+		t.Fatalf("FromToolResource() error = %v", err)
+	}
+
+	storedResource, err := manager.Put(ctx, resource)
+	if err != nil {
+		t.Fatalf("Put() error = %v", err)
+	}
+	stored, err := storedResource.AsToolResource()
+	if err != nil {
+		t.Fatalf("AsToolResource(stored) error = %v", err)
+	}
+	if stored.Metadata.OwnerPublicKey == nil || *stored.Metadata.OwnerPublicKey != owner {
+		t.Fatalf("owner_public_key = %#v, want %q", stored.Metadata.OwnerPublicKey, owner)
+	}
+}
+
+func TestToolResourceOwnerOnlyApplyRemovesLegacyOwnerBinding(t *testing.T) {
+	ctx := context.Background()
+	manager := newACLResourceManager(t)
+	manager.services.Tools = &toolkit.Server{Store: kv.NewMemory(nil)}
+	owner := "old-owner"
+	newOwner := "new-owner"
+	method := "device.invoke"
+	existing := toolkit.Tool{
+		ID:          "peer.old-owner.music.play",
+		Source:      toolkit.ToolSourceDevice,
+		Enabled:     true,
+		OwnerPeer:   &owner,
+		InputSchema: jsonschema.Schema{Type: "object"},
+		Executor:    toolkit.ToolExecutor{Kind: toolkit.ToolExecutorKindDeviceRPC, Method: &method, PeerID: &owner},
+	}
+	if _, err := manager.services.Tools.PutTool(ctx, existing); err != nil {
+		t.Fatalf("PutTool(existing) error = %v", err)
+	}
+	ownerPermissions := apitypes.ACLPermissionList{apitypes.ACLPermissionRead, apitypes.ACLPermissionUse, apitypes.ACLPermissionAdmin}
+	if _, err := manager.services.ACL.CreateRole(ctx, "tool-owner", ownerPermissions); err != nil {
+		t.Fatalf("CreateRole(legacy tool owner) error = %v", err)
+	}
+	legacyBindingID := toolkit.LegacyToolOwnerPolicyBindingID(existing.ID, owner)
+	if _, err := manager.services.ACL.CreatePolicyBinding(ctx, legacyBindingID, 0, apitypes.ACLPolicy{Subject: acl.PublicKeySubject(owner), Resource: acl.ToolResource(existing.ID), Role: "tool-owner"}); err != nil {
+		t.Fatalf("CreatePolicyBinding(legacy) error = %v", err)
+	}
+	resource, err := resourceFromTool(existing)
+	if err != nil {
+		t.Fatalf("resourceFromTool() error = %v", err)
+	}
+	item, err := resource.AsToolResource()
+	if err != nil {
+		t.Fatalf("AsToolResource() error = %v", err)
+	}
+	item.Metadata.OwnerPublicKey = &newOwner
+	if err := resource.FromToolResource(item); err != nil {
+		t.Fatalf("FromToolResource() error = %v", err)
+	}
+
+	result, err := manager.Apply(ctx, resource)
+	if err != nil {
+		t.Fatalf("Apply(owner only) error = %v", err)
+	}
+	if result.Action != apitypes.ApplyActionUpdated {
+		t.Fatalf("Apply(owner only) action = %q, want %q", result.Action, apitypes.ApplyActionUpdated)
+	}
+	if _, err := manager.services.ACL.GetPolicyBinding(ctx, legacyBindingID); !errors.Is(err, acl.ErrPolicyBindingNotFound) {
+		t.Fatalf("GetPolicyBinding(legacy stale) error = %v, want %v", err, acl.ErrPolicyBindingNotFound)
+	}
+	binding, err := manager.services.ACL.GetPolicyBinding(ctx, toolkit.ToolOwnerPolicyBindingID(existing.ID, newOwner))
+	if err != nil {
+		t.Fatalf("GetPolicyBinding(generic owner) error = %v", err)
+	}
+	if binding.Policy.Subject != acl.PublicKeySubject(newOwner) {
+		t.Fatalf("owner subject = %#v, want %q", binding.Policy.Subject, newOwner)
+	}
+}
+
+func TestToolResourceSameSpecApplyRemovesLegacyWhenMetadataOwnerAlreadyCurrent(t *testing.T) {
+	ctx := context.Background()
+	manager := newACLResourceManager(t)
+	manager.services.Tools = &toolkit.Server{Store: kv.NewMemory(nil)}
+	owner := "old-owner"
+	newOwner := "new-owner"
+	method := "device.invoke"
+	existing := toolkit.Tool{
+		ID:          "peer.old-owner.music.status",
+		Source:      toolkit.ToolSourceDevice,
+		Enabled:     true,
+		OwnerPeer:   &owner,
+		InputSchema: jsonschema.Schema{Type: "object"},
+		Executor:    toolkit.ToolExecutor{Kind: toolkit.ToolExecutorKindDeviceRPC, Method: &method, PeerID: &owner},
+	}
+	if _, err := manager.services.Tools.PutTool(ctx, existing); err != nil {
+		t.Fatalf("PutTool(existing) error = %v", err)
+	}
+	ownerPermissions := apitypes.ACLPermissionList{apitypes.ACLPermissionRead, apitypes.ACLPermissionUse, apitypes.ACLPermissionAdmin}
+	if _, err := manager.services.ACL.CreateRole(ctx, resourceOwnerRole, ownerPermissions); err != nil {
+		t.Fatalf("CreateRole(resource owner) error = %v", err)
+	}
+	if _, err := manager.services.ACL.CreateRole(ctx, "tool-owner", ownerPermissions); err != nil {
+		t.Fatalf("CreateRole(legacy tool owner) error = %v", err)
+	}
+	if _, err := manager.services.ACL.CreatePolicyBinding(ctx, toolkit.ToolOwnerPolicyBindingID(existing.ID, newOwner), 0, apitypes.ACLPolicy{Subject: acl.PublicKeySubject(newOwner), Resource: acl.ToolResource(existing.ID), Role: resourceOwnerRole}); err != nil {
+		t.Fatalf("CreatePolicyBinding(generic owner) error = %v", err)
+	}
+	legacyBindingID := toolkit.LegacyToolOwnerPolicyBindingID(existing.ID, owner)
+	if _, err := manager.services.ACL.CreatePolicyBinding(ctx, legacyBindingID, 0, apitypes.ACLPolicy{Subject: acl.PublicKeySubject(owner), Resource: acl.ToolResource(existing.ID), Role: "tool-owner"}); err != nil {
+		t.Fatalf("CreatePolicyBinding(legacy) error = %v", err)
+	}
+	resource, err := resourceFromTool(existing)
+	if err != nil {
+		t.Fatalf("resourceFromTool() error = %v", err)
+	}
+	item, err := resource.AsToolResource()
+	if err != nil {
+		t.Fatalf("AsToolResource() error = %v", err)
+	}
+	item.Metadata.OwnerPublicKey = &newOwner
+	if err := resource.FromToolResource(item); err != nil {
+		t.Fatalf("FromToolResource() error = %v", err)
+	}
+
+	result, err := manager.Apply(ctx, resource)
+	if err != nil {
+		t.Fatalf("Apply(same spec metadata owner) error = %v", err)
+	}
+	if result.Action != apitypes.ApplyActionUpdated {
+		t.Fatalf("Apply(same spec metadata owner) action = %q, want %q", result.Action, apitypes.ApplyActionUpdated)
+	}
+	if _, err := manager.services.ACL.GetPolicyBinding(ctx, legacyBindingID); !errors.Is(err, acl.ErrPolicyBindingNotFound) {
+		t.Fatalf("GetPolicyBinding(legacy stale) error = %v, want %v", err, acl.ErrPolicyBindingNotFound)
 	}
 }
 

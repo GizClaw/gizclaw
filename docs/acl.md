@@ -161,16 +161,32 @@ creates a shared workspace, access to that workspace is represented by normal
 
 ## Default Ownership Rules
 
-| Create path | Subject to bind | Resource to bind | Permissions |
-| --- | --- | --- | --- |
-| Peer creates workspace | `pk:{peerPublicKey}` | `workspace:{name}` | `read`, `use`, `admin` |
-| Peer creates workflow | `pk:{peerPublicKey}` | `workflow:{name}` | `read`, `use`, `admin` |
-| Peer creates model | `pk:{peerPublicKey}` | `model:{id}` | `read`, `use`, `admin` |
-| Peer creates credential | `pk:{peerPublicKey}` | `credential:{name}` | `read`, `use`, `admin` |
-| Peer creates device Tool | `pk:{peerPublicKey}` | `tool:{id}` | `read`, `use`, `admin` |
+ResourceManager apply/import for ACL-backed owned resources can use
+`metadata.owner_public_key` as the owner subject. These kinds support the
+generic owner metadata hint when ACL is configured:
 
-The caller also needs the relevant collection `create` permission before the
-resource is created.
+```text
+Workspace, Workflow, Model, Credential, Voice, Firmware, GameRuleset, Tool
+```
+
+When the metadata field is present, ResourceManager stores the ownership grant
+as a deterministic `resource-owner:<resource-kind>:<resource-id>` policy binding
+with role `resource-owner` and permissions `read`, `use`, and `admin`. `Get`
+returns the current deterministic owner in `metadata.owner_public_key`; changing
+only that metadata field updates the ACL binding without rewriting the
+underlying resource.
+
+Social resources, provider tenant configuration, peer config, gameplay catalog
+definitions such as `PetDef`, `BadgeDef`, and `GameDef`, ACL control-plane
+resources, and `ResourceList` do not use this generic owner binding.
+
+| Create path | Subject to bind | Resource to bind | Role | Permissions |
+| --- | --- | --- | --- | --- |
+| ResourceManager applies an owned ACL-backed resource with `metadata.owner_public_key` | `pk:{ownerPublicKey}` | Concrete ACL resource for the ResourceManager kind | `resource-owner` | `read`, `use`, `admin` |
+| Peer creates device Tool | `pk:{peerPublicKey}` | `tool:{id}` | `resource-owner` | `read`, `use`, `admin` |
+
+Peer runtime callers also need the relevant collection `create` permission
+before the resource is created.
 
 ## Shared Resource Rules
 

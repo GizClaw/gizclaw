@@ -637,6 +637,10 @@ export type ResourceMetadata = {
     labels?: {
         [key: string]: string;
     };
+    /**
+     * Primary owner peer public key hint for ACL-backed managed resources. ResourceManager persists ownership as an ACL binding and may synthesize this value from ACL on read.
+     */
+    owner_public_key?: string;
 };
 
 export type ResourceListResource = {

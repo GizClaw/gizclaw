@@ -23,6 +23,12 @@ type ToolACLService interface {
 	DeletePolicyBinding(context.Context, string) (apitypes.ACLPolicyBinding, error)
 }
 
+var toolOwnerPermissions = apitypes.ACLPermissionList{
+	apitypes.ACLPermissionRead,
+	apitypes.ACLPermissionUse,
+	apitypes.ACLPermissionAdmin,
+}
+
 func (s *Server) handleToolList(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
 	if s.Tools == nil {
 		return internalError(req.Id, "toolkit service not configured")
@@ -189,11 +195,16 @@ func (s *Server) handleToolDelete(ctx context.Context, req *rpcapi.RPCRequest) *
 		return internalError(req.Id, err.Error())
 	}
 	if s.ToolACL != nil {
-		if _, err := s.ToolACL.DeletePolicyBinding(context.WithoutCancel(ctx), toolOwnerBindingID(params.Id, s.Caller.String())); err != nil && !errors.Is(err, acl.ErrPolicyBindingNotFound) {
-			if _, rollbackErr := s.Tools.PutTool(context.WithoutCancel(ctx), stored); rollbackErr != nil {
-				return internalError(req.Id, fmt.Sprintf("%v; Tool rollback failed: %v", err, rollbackErr))
+		for _, bindingID := range []string{
+			legacyToolOwnerBindingID(params.Id, s.Caller.String()),
+			toolOwnerBindingID(params.Id, s.Caller.String()),
+		} {
+			if _, err := s.ToolACL.DeletePolicyBinding(context.WithoutCancel(ctx), bindingID); err != nil && !errors.Is(err, acl.ErrPolicyBindingNotFound) {
+				if _, rollbackErr := s.Tools.PutTool(context.WithoutCancel(ctx), stored); rollbackErr != nil {
+					return internalError(req.Id, fmt.Sprintf("%v; Tool rollback failed: %v", err, rollbackErr))
+				}
+				return internalError(req.Id, err.Error())
 			}
-			return internalError(req.Id, err.Error())
 		}
 	}
 	item, err := toolkit.ToRPC(stored)
@@ -237,19 +248,11 @@ func (s *Server) grantToolOwner(ctx context.Context, toolID string) error {
 	if s.ToolACL == nil {
 		return errors.New("tool ACL service not configured")
 	}
-	permissions := apitypes.ACLPermissionList{apitypes.ACLPermissionRead, apitypes.ACLPermissionUse, apitypes.ACLPermissionAdmin}
-	role, err := s.ToolACL.CreateRole(ctx, toolOwnerRole, permissions)
-	if errors.Is(err, acl.ErrRoleAlreadyExists) {
-		role, err = s.ToolACL.GetRole(ctx, toolOwnerRole)
-	}
-	if err != nil {
+	if err := s.ensureToolOwnerRole(ctx); err != nil {
 		return err
 	}
-	if !samePermissions(role.Permissions, permissions) {
-		return fmt.Errorf("reserved ACL role %q must have exactly read, use, and admin permissions", toolOwnerRole)
-	}
 	caller := s.Caller.String()
-	_, err = s.ToolACL.PutPolicyBinding(ctx, toolOwnerBindingID(toolID, caller), 0, apitypes.ACLPolicy{
+	_, err := s.ToolACL.PutPolicyBinding(ctx, toolOwnerBindingID(toolID, caller), 0, apitypes.ACLPolicy{
 		Subject:  acl.PublicKeySubject(caller),
 		Resource: acl.ToolResource(toolID),
 		Role:     toolOwnerRole,
@@ -257,23 +260,53 @@ func (s *Server) grantToolOwner(ctx context.Context, toolID string) error {
 	return err
 }
 
-func samePermissions(left, right apitypes.ACLPermissionList) bool {
+func (s *Server) ensureToolOwnerRole(ctx context.Context) error {
+	role, err := s.ToolACL.GetRole(ctx, toolOwnerRole)
+	if err == nil {
+		if permissionListsEqual(role.Permissions, toolOwnerPermissions) {
+			return nil
+		}
+		return fmt.Errorf("%s ACL role permissions are not current", toolOwnerRole)
+	}
+	if !errors.Is(err, acl.ErrRoleNotFound) {
+		return err
+	}
+	if _, err := s.ToolACL.CreateRole(ctx, toolOwnerRole, toolOwnerPermissions); err != nil {
+		if !errors.Is(err, acl.ErrRoleAlreadyExists) {
+			return err
+		}
+		role, err = s.ToolACL.GetRole(ctx, toolOwnerRole)
+		if err != nil {
+			return err
+		}
+		if !permissionListsEqual(role.Permissions, toolOwnerPermissions) {
+			return fmt.Errorf("%s ACL role permissions are not current", toolOwnerRole)
+		}
+	}
+	return nil
+}
+
+func permissionListsEqual(left, right apitypes.ACLPermissionList) bool {
 	if len(left) != len(right) {
 		return false
 	}
-	want := make(map[apitypes.ACLPermission]struct{}, len(right))
-	for _, permission := range right {
-		want[permission] = struct{}{}
-	}
+	seen := make(map[apitypes.ACLPermission]int, len(left))
 	for _, permission := range left {
-		if _, ok := want[permission]; !ok {
+		seen[permission]++
+	}
+	for _, permission := range right {
+		if seen[permission] == 0 {
 			return false
 		}
-		delete(want, permission)
+		seen[permission]--
 	}
-	return len(want) == 0
+	return true
 }
 
 func toolOwnerBindingID(toolID, owner string) string {
 	return toolkit.ToolOwnerPolicyBindingID(toolID, owner)
+}
+
+func legacyToolOwnerBindingID(toolID, owner string) string {
+	return toolkit.LegacyToolOwnerPolicyBindingID(toolID, owner)
 }

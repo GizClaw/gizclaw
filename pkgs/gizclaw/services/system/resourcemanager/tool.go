@@ -30,6 +30,9 @@ func (m *Manager) applyTool(ctx context.Context, resource apitypes.Resource) (ap
 	if err != nil {
 		return apitypes.ApplyResult{}, err
 	}
+	if err := m.validateOwnedResourceOwner(apitypes.ACLResourceKindTool, item.Metadata.Name, item.Metadata, exists); err != nil {
+		return apitypes.ApplyResult{}, err
+	}
 	if exists {
 		left, err := toolkit.ToSpec(existing)
 		if err != nil {
@@ -44,15 +47,54 @@ func (m *Manager) applyTool(ctx context.Context, resource apitypes.Resource) (ap
 			return apitypes.ApplyResult{}, applyError(500, "RESOURCE_COMPARE_FAILED", err.Error())
 		}
 		if same {
+			ownerRollback, err := m.ensureOwnedResourceOwnerBeforeWrite(ctx, apitypes.ACLResourceKindTool, item.Metadata.Name, item.Metadata)
+			if err != nil {
+				return apitypes.ApplyResult{}, err
+			}
+			_, hasMetadataOwner, err := resourceOwnerHint(item.Metadata)
+			if err != nil {
+				return apitypes.ApplyResult{}, m.rollbackOwnedResourceOwner(ctx, ownerRollback, err)
+			}
+			legacyRemoved := false
+			if hasMetadataOwner {
+				legacyRemoved, err = m.removeLegacyToolOwnerBindingIfExists(ctx, existing)
+				if err != nil {
+					return apitypes.ApplyResult{}, m.rollbackOwnedResourceOwner(ctx, ownerRollback, err)
+				}
+			}
+			if (ownerRollback != nil && ownerRollback.changed) || legacyRemoved {
+				return applyResult(apitypes.ApplyActionUpdated, apitypes.ResourceKindTool, item.Metadata.Name), nil
+			}
 			return applyResult(apitypes.ApplyActionUnchanged, apitypes.ResourceKindTool, item.Metadata.Name), nil
 		}
 	}
+	ownerRollback, err := m.ensureOwnedResourceOwnerBeforeWrite(ctx, apitypes.ACLResourceKindTool, item.Metadata.Name, item.Metadata)
+	if err != nil {
+		return apitypes.ApplyResult{}, err
+	}
 	if _, err := m.services.Tools.PutTool(ctx, desired); err != nil {
-		return apitypes.ApplyResult{}, toolServiceError(err)
+		return apitypes.ApplyResult{}, m.rollbackOwnedResourceOwner(ctx, ownerRollback, toolServiceError(err))
 	}
 	if exists && toolOwnerBindingChanged(existing, desired) {
-		if err := m.removeToolOwnerBinding(ctx, existing); err != nil {
-			return apitypes.ApplyResult{}, m.rollbackTool(ctx, existing, err)
+		_, hasMetadataOwner, err := resourceOwnerHint(item.Metadata)
+		if err != nil {
+			return apitypes.ApplyResult{}, m.rollbackOwnedResourceOwner(ctx, ownerRollback, m.rollbackTool(ctx, existing, err))
+		}
+		cleanupOwner := m.removeToolOwnerBinding
+		if hasMetadataOwner {
+			cleanupOwner = m.removeLegacyToolOwnerBinding
+		}
+		if err := cleanupOwner(ctx, existing); err != nil {
+			return apitypes.ApplyResult{}, m.rollbackOwnedResourceOwner(ctx, ownerRollback, m.rollbackTool(ctx, existing, err))
+		}
+	}
+	_, hasMetadataOwner, err := resourceOwnerHint(item.Metadata)
+	if err != nil {
+		return apitypes.ApplyResult{}, m.rollbackOwnedResourceOwner(ctx, ownerRollback, m.rollbackToolWrite(ctx, existing, exists, desired.ID, err))
+	}
+	if exists && hasMetadataOwner {
+		if err := m.removeLegacyToolOwnerBinding(ctx, existing); err != nil {
+			return apitypes.ApplyResult{}, m.rollbackOwnedResourceOwner(ctx, ownerRollback, m.rollbackToolWrite(ctx, existing, exists, desired.ID, err))
 		}
 	}
 	action := apitypes.ApplyActionCreated
@@ -82,16 +124,40 @@ func (m *Manager) putToolResource(ctx context.Context, item apitypes.ToolResourc
 	if err != nil {
 		return apitypes.Resource{}, err
 	}
+	if err := m.validateOwnedResourceOwner(apitypes.ACLResourceKindTool, item.Metadata.Name, item.Metadata, exists); err != nil {
+		return apitypes.Resource{}, err
+	}
+	ownerRollback, err := m.ensureOwnedResourceOwnerBeforeWrite(ctx, apitypes.ACLResourceKindTool, item.Metadata.Name, item.Metadata)
+	if err != nil {
+		return apitypes.Resource{}, err
+	}
 	stored, err := m.services.Tools.PutTool(ctx, tool)
 	if err != nil {
-		return apitypes.Resource{}, toolServiceError(err)
+		return apitypes.Resource{}, m.rollbackOwnedResourceOwner(ctx, ownerRollback, toolServiceError(err))
 	}
 	if exists && toolOwnerBindingChanged(existing, stored) {
-		if err := m.removeToolOwnerBinding(ctx, existing); err != nil {
-			return apitypes.Resource{}, m.rollbackTool(ctx, existing, err)
+		_, hasMetadataOwner, err := resourceOwnerHint(item.Metadata)
+		if err != nil {
+			return apitypes.Resource{}, m.rollbackOwnedResourceOwner(ctx, ownerRollback, m.rollbackTool(ctx, existing, err))
+		}
+		cleanupOwner := m.removeToolOwnerBinding
+		if hasMetadataOwner {
+			cleanupOwner = m.removeLegacyToolOwnerBinding
+		}
+		if err := cleanupOwner(ctx, existing); err != nil {
+			return apitypes.Resource{}, m.rollbackOwnedResourceOwner(ctx, ownerRollback, m.rollbackTool(ctx, existing, err))
 		}
 	}
-	return resourceFromTool(stored)
+	_, hasMetadataOwner, err := resourceOwnerHint(item.Metadata)
+	if err != nil {
+		return apitypes.Resource{}, m.rollbackOwnedResourceOwner(ctx, ownerRollback, m.rollbackToolWrite(ctx, existing, exists, stored.ID, err))
+	}
+	if exists && hasMetadataOwner {
+		if err := m.removeLegacyToolOwnerBinding(ctx, existing); err != nil {
+			return apitypes.Resource{}, m.rollbackOwnedResourceOwner(ctx, ownerRollback, m.rollbackToolWrite(ctx, existing, exists, stored.ID, err))
+		}
+	}
+	return m.Get(ctx, apitypes.ResourceKindTool, stored.ID)
 }
 
 func (m *Manager) deleteTool(ctx context.Context, id string) (toolkit.Tool, bool, error) {
@@ -127,14 +193,41 @@ func deviceToolOwner(tool toolkit.Tool) (string, bool) {
 
 func (m *Manager) removeToolOwnerBinding(ctx context.Context, tool toolkit.Tool) error {
 	owner, ok := deviceToolOwner(tool)
+	extraIDs := []string{}
+	if ok {
+		extraIDs = append(extraIDs, toolkit.LegacyToolOwnerPolicyBindingID(tool.ID, owner))
+	}
+	if err := m.removeOwnedResourceOwner(ctx, apitypes.ACLResourceKindTool, tool.ID, extraIDs...); err != nil {
+		return applyError(500, "TOOL_OWNER_ACL_CLEANUP_FAILED", err.Error())
+	}
+	return nil
+}
+
+func (m *Manager) removeLegacyToolOwnerBinding(ctx context.Context, tool toolkit.Tool) error {
+	_, err := m.removeLegacyToolOwnerBindingIfExists(ctx, tool)
+	return err
+}
+
+func (m *Manager) removeLegacyToolOwnerBindingIfExists(ctx context.Context, tool toolkit.Tool) (bool, error) {
+	owner, ok := deviceToolOwner(tool)
 	if !ok || m.services.ACL == nil {
-		return nil
+		return false, nil
 	}
-	_, err := m.services.ACL.DeletePolicyBinding(ctx, toolkit.ToolOwnerPolicyBindingID(tool.ID, owner))
+	_, err := m.services.ACL.DeletePolicyBinding(context.WithoutCancel(ctx), toolkit.LegacyToolOwnerPolicyBindingID(tool.ID, owner))
 	if err == nil || errors.Is(err, acl.ErrPolicyBindingNotFound) {
-		return nil
+		return err == nil, nil
 	}
-	return applyError(500, "TOOL_OWNER_ACL_CLEANUP_FAILED", err.Error())
+	return false, applyError(500, "TOOL_OWNER_ACL_CLEANUP_FAILED", err.Error())
+}
+
+func (m *Manager) rollbackToolWrite(ctx context.Context, existing toolkit.Tool, exists bool, writtenID string, cause error) error {
+	if exists {
+		return m.rollbackTool(ctx, existing, cause)
+	}
+	if err := m.services.Tools.DeleteTool(context.WithoutCancel(ctx), writtenID); err != nil {
+		return applyError(500, "TOOL_OWNER_ACL_ROLLBACK_FAILED", fmt.Sprintf("%v; rollback failed: %v", cause, err))
+	}
+	return cause
 }
 
 func (m *Manager) rollbackTool(ctx context.Context, tool toolkit.Tool, cause error) error {

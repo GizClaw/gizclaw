@@ -11,8 +11,10 @@ import (
 
 const (
 	ResourceKindTool = apitypes.ACLResourceKindTool
-	// ToolOwnerRole is the reserved ACL role used by peer-created device Tools.
-	ToolOwnerRole = "tool-owner"
+	// ResourceOwnerRole is the reserved ACL role used for primary resource owners.
+	ResourceOwnerRole = "resource-owner"
+	// ToolOwnerRole is kept for Tool callers but now uses the shared managed-resource owner role.
+	ToolOwnerRole = ResourceOwnerRole
 )
 
 type ToolSource string
@@ -81,7 +83,17 @@ func ToolResource(id string) apitypes.ACLResource {
 	}
 }
 
-// ToolOwnerPolicyBindingID returns the deterministic ACL binding ID for a peer-created device Tool.
+// ResourceOwnerPolicyBindingID returns the deterministic ACL binding ID for one owned resource.
+func ResourceOwnerPolicyBindingID(kind apitypes.ACLResourceKind, id string) string {
+	return "resource-owner:" + url.PathEscape(string(kind)) + ":" + url.PathEscape(id)
+}
+
+// ToolOwnerPolicyBindingID returns the deterministic ACL binding ID for a Tool owner.
 func ToolOwnerPolicyBindingID(toolID, owner string) string {
+	return ResourceOwnerPolicyBindingID(ResourceKindTool, toolID)
+}
+
+// LegacyToolOwnerPolicyBindingID returns the pre-resource-owner binding ID used by older device Tools.
+func LegacyToolOwnerPolicyBindingID(toolID, owner string) string {
 	return "tool-owner:" + url.PathEscape(toolID) + ":" + url.PathEscape(owner)
 }
