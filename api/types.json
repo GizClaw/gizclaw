@@ -494,9 +494,6 @@
       "GameplayMetadata": {
         "$ref": "./type/gameplay.json#/components/schemas/GameplayMetadata"
       },
-      "StatMap": {
-        "$ref": "./type/gameplay.json#/components/schemas/StatMap"
-      },
       "GameRulesetPointsSpec": {
         "$ref": "./type/gameplay.json#/components/schemas/GameRulesetPointsSpec"
       },
@@ -607,6 +604,78 @@
       },
       "GameDefResource": {
         "$ref": "./resource/game_def.json#/components/schemas/GameDefResource"
+      },
+      "PetAttrValueSpec": {
+        "$ref": "./type/gameplay.json#/components/schemas/PetAttrValueSpec"
+      },
+      "PetAttrGroupSpec": {
+        "$ref": "./type/gameplay.json#/components/schemas/PetAttrGroupSpec"
+      },
+      "PetDefAttrSpec": {
+        "$ref": "./type/gameplay.json#/components/schemas/PetDefAttrSpec"
+      },
+      "PetLife": {
+        "$ref": "./type/gameplay.json#/components/schemas/PetLife"
+      },
+      "PetProgression": {
+        "$ref": "./type/gameplay.json#/components/schemas/PetProgression"
+      },
+      "PetAttrDelta": {
+        "$ref": "./type/gameplay.json#/components/schemas/PetAttrDelta"
+      },
+      "PetDefCharacterSpec": {
+        "$ref": "./type/gameplay.json#/components/schemas/PetDefCharacterSpec"
+      },
+      "PetDefVoiceSpec": {
+        "$ref": "./type/gameplay.json#/components/schemas/PetDefVoiceSpec"
+      },
+      "PetDefActionEffectSpec": {
+        "$ref": "./type/gameplay.json#/components/schemas/PetDefActionEffectSpec"
+      },
+      "PetDefActionSpec": {
+        "$ref": "./type/gameplay.json#/components/schemas/PetDefActionSpec"
+      },
+      "PetDefDriveSpec": {
+        "$ref": "./type/gameplay.json#/components/schemas/PetDefDriveSpec"
+      },
+      "PetDefVisualRefSpec": {
+        "$ref": "./type/gameplay.json#/components/schemas/PetDefVisualRefSpec"
+      },
+      "PetDefVisualRefsSpec": {
+        "$ref": "./type/gameplay.json#/components/schemas/PetDefVisualRefsSpec"
+      },
+      "PetDefPixaClipMetadata": {
+        "$ref": "./type/gameplay.json#/components/schemas/PetDefPixaClipMetadata"
+      },
+      "PetDefPixaCanvasMetadata": {
+        "$ref": "./type/gameplay.json#/components/schemas/PetDefPixaCanvasMetadata"
+      },
+      "PetDefPixaMetadata": {
+        "$ref": "./type/gameplay.json#/components/schemas/PetDefPixaMetadata"
+      },
+      "PetDefPixaSpec": {
+        "$ref": "./type/gameplay.json#/components/schemas/PetDefPixaSpec"
+      },
+      "PetDefVisualSpec": {
+        "$ref": "./type/gameplay.json#/components/schemas/PetDefVisualSpec"
+      },
+      "PetDefI18nDisplayText": {
+        "$ref": "./type/gameplay.json#/components/schemas/PetDefI18nDisplayText"
+      },
+      "PetDefI18nAttrGroup": {
+        "$ref": "./type/gameplay.json#/components/schemas/PetDefI18nAttrGroup"
+      },
+      "PetDefI18nAttrSpec": {
+        "$ref": "./type/gameplay.json#/components/schemas/PetDefI18nAttrSpec"
+      },
+      "PetDefI18nDriveSpec": {
+        "$ref": "./type/gameplay.json#/components/schemas/PetDefI18nDriveSpec"
+      },
+      "PetDefI18nCatalog": {
+        "$ref": "./type/gameplay.json#/components/schemas/PetDefI18nCatalog"
+      },
+      "PetDefI18nSpec": {
+        "$ref": "./type/gameplay.json#/components/schemas/PetDefI18nSpec"
       }
     }
   }

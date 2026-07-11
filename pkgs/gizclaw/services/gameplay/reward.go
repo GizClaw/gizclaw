@@ -11,13 +11,6 @@ func defaultReward(ruleset apitypes.GameRuleset) apitypes.GameRewardSpec {
 	return *ruleset.Spec.Drive.DefaultReward
 }
 
-func actionReward(ruleset apitypes.GameRuleset, action string) apitypes.GameRewardSpec {
-	if action == "" || ruleset.Spec.Drive == nil || ruleset.Spec.Drive.ActionRewards == nil {
-		return apitypes.GameRewardSpec{}
-	}
-	return (*ruleset.Spec.Drive.ActionRewards)[action]
-}
-
 func gameReward(ruleset apitypes.GameRuleset, gameDefID string) apitypes.GameRewardSpec {
 	if gameDefID == "" || ruleset.Spec.Drive == nil || ruleset.Spec.Drive.GameRewards == nil {
 		return apitypes.GameRewardSpec{}
@@ -25,20 +18,11 @@ func gameReward(ruleset apitypes.GameRuleset, gameDefID string) apitypes.GameRew
 	return (*ruleset.Spec.Drive.GameRewards)[gameDefID]
 }
 
-func actionCost(ruleset apitypes.GameRuleset, action string) int64 {
-	if action == "" || ruleset.Spec.Drive == nil || ruleset.Spec.Drive.ActionCosts == nil {
-		return 0
-	}
-	return (*ruleset.Spec.Drive.ActionCosts)[action]
-}
-
 func mergeRewards(left, right apitypes.GameRewardSpec) apitypes.GameRewardSpec {
 	out := apitypes.GameRewardSpec{
 		PointsDelta:   int64Ptr(int64Value(left.PointsDelta) + int64Value(right.PointsDelta)),
 		PetExpDelta:   int64Ptr(int64Value(left.PetExpDelta) + int64Value(right.PetExpDelta)),
 		BadgeExpDelta: mergeIntMap(left.BadgeExpDelta, right.BadgeExpDelta),
-		LifeDelta:     mergeStatMap(left.LifeDelta, right.LifeDelta),
-		AbilityDelta:  mergeStatMap(left.AbilityDelta, right.AbilityDelta),
 	}
 	if int64Value(out.PointsDelta) == 0 {
 		out.PointsDelta = nil
@@ -49,21 +33,13 @@ func mergeRewards(left, right apitypes.GameRewardSpec) apitypes.GameRewardSpec {
 	if len(mapValue(out.BadgeExpDelta)) == 0 {
 		out.BadgeExpDelta = nil
 	}
-	if out.LifeDelta != nil && len(*out.LifeDelta) == 0 {
-		out.LifeDelta = nil
-	}
-	if out.AbilityDelta != nil && len(*out.AbilityDelta) == 0 {
-		out.AbilityDelta = nil
-	}
 	return out
 }
 
 func rewardEmpty(reward apitypes.GameRewardSpec) bool {
 	return int64Value(reward.PointsDelta) == 0 &&
 		int64Value(reward.PetExpDelta) == 0 &&
-		len(mapValue(reward.BadgeExpDelta)) == 0 &&
-		(reward.LifeDelta == nil || len(*reward.LifeDelta) == 0) &&
-		(reward.AbilityDelta == nil || len(*reward.AbilityDelta) == 0)
+		len(mapValue(reward.BadgeExpDelta)) == 0
 }
 
 func mergeIntMap(left, right *map[string]int64) *map[string]int64 {
@@ -77,22 +53,30 @@ func mergeIntMap(left, right *map[string]int64) *map[string]int64 {
 	return &out
 }
 
-func mergeStatMap(left, right *apitypes.StatMap) *apitypes.StatMap {
-	out := apitypes.StatMap{}
-	if left != nil {
-		for k, v := range *left {
-			out[k] += v
+func petDefAction(petDef apitypes.PetDef, action string) (apitypes.PetDefActionSpec, bool) {
+	for _, candidate := range petDef.Spec.Drive.Actions {
+		if candidate.Id == action {
+			return candidate, true
 		}
 	}
-	if right != nil {
-		for k, v := range *right {
-			out[k] += v
-		}
-	}
-	return &out
+	return apitypes.PetDefActionSpec{}, false
 }
 
-func applyStatDelta(target apitypes.StatMap, delta *apitypes.StatMap) {
+func actionEffectReward(action apitypes.PetDefActionSpec) apitypes.GameRewardSpec {
+	if action.Effect == nil || int64Value(action.Effect.PetExpDelta) == 0 {
+		return apitypes.GameRewardSpec{}
+	}
+	return apitypes.GameRewardSpec{PetExpDelta: action.Effect.PetExpDelta}
+}
+
+func applyActionEffect(pet *apitypes.Pet, action apitypes.PetDefActionSpec) {
+	if pet == nil || action.Effect == nil || action.Effect.AttrDelta == nil {
+		return
+	}
+	applyLifeDelta(pet.Life, action.Effect.AttrDelta.Life)
+}
+
+func applyLifeDelta(target apitypes.PetLife, delta *apitypes.PetLife) {
 	if target == nil || delta == nil {
 		return
 	}
@@ -104,12 +88,40 @@ func applyStatDelta(target apitypes.StatMap, delta *apitypes.StatMap) {
 	}
 }
 
-func cloneStatMap(in apitypes.StatMap) apitypes.StatMap {
-	out := apitypes.StatMap{}
-	for k, v := range in {
-		out[k] = v
+func initPetLife(in apitypes.PetAttrGroupSpec) apitypes.PetLife {
+	out := apitypes.PetLife{}
+	for k, spec := range in {
+		out[k] = spec.Initial
 	}
 	return out
+}
+
+func initPetProgression(in apitypes.PetAttrGroupSpec) apitypes.PetProgression {
+	out := apitypes.PetProgression{}
+	for k, spec := range in {
+		out[k] = spec.Initial
+	}
+	return out
+}
+
+func petProgressionExp(pet apitypes.Pet) int64 {
+	if pet.Progression == nil {
+		return 0
+	}
+	return pet.Progression["xp"]
+}
+
+func applyPetExp(pet *apitypes.Pet, delta int64) {
+	if pet == nil || delta == 0 {
+		return
+	}
+	if pet.Progression == nil {
+		pet.Progression = apitypes.PetProgression{}
+	}
+	pet.Progression["xp"] += delta
+	if pet.Progression["xp"] < 0 {
+		pet.Progression["xp"] = 0
+	}
 }
 
 func mapValue(in *map[string]int64) map[string]int64 {

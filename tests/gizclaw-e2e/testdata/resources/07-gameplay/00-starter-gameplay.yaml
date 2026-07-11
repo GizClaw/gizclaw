@@ -10,14 +10,72 @@ spec:
     metadata:
       name: petdef-starter
     spec:
-      display_name: Starter Pet
-      description: Starter pet for gameplay e2e coverage.
+      default_locale: en
       workflow_name: pet-care-flowcraft
-      initial_life:
-        hunger: 100
-        clean: 100
-      initial_ability:
-        play: 1
+      attr:
+        life:
+          hunger:
+            initial: 100
+          clean:
+            initial: 100
+        progression:
+          xp:
+            initial: 0
+      character:
+        prompt: Starter gameplay test pet with a clear friendly pixel-sprite silhouette.
+      voice:
+        voice_id: gizclaw-test-soft
+        prompt: Short warm replies with curious, friendly energy.
+      drive:
+        actions:
+        - id: idle
+          cost: 0
+          visual_clip_id: idle
+        - id: bath
+          cost: 5
+          visual_clip_id: bath
+          effect:
+            attr_delta:
+              life:
+                clean: 10
+            pet_exp_delta: 80
+      visual:
+        refs:
+          images: []
+          videos: []
+        pixa:
+          asset_ref: asset://pets/starter/pet.pixa
+          metadata:
+            version: "1"
+            canvas:
+              width: 60
+              height: 60
+            clips:
+            - id: idle
+              action_id: idle
+              pixa_clip_name: default
+            - id: bath
+              action_id: bath
+              pixa_clip_name: bath
+      i18n:
+        en:
+          display_name: Starter Pet
+          description: Starter pet for gameplay e2e coverage.
+          attr:
+            life:
+              hunger:
+                display_name: Hunger
+              clean:
+                display_name: Clean
+            progression:
+              xp:
+                display_name: XP
+          drive:
+            actions:
+              idle:
+                display_name: Idle
+              bath:
+                display_name: Bath
   - apiVersion: gizclaw.admin/v1alpha1
     kind: BadgeDef
     metadata:
@@ -56,18 +114,9 @@ spec:
       game_def_ids:
       - game-starter
       drive:
-        action_costs:
-          bath: 5
-        action_rewards:
-          bath:
-            pet_exp_delta: 80
-            life_delta:
-              clean: 10
         game_rewards:
           game-starter:
             points_delta: 20
             pet_exp_delta: 25
             badge_exp_delta:
               badge-starter: 100
-        life_decay_per_hour:
-          hunger: 1

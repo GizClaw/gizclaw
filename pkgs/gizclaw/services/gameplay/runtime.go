@@ -185,7 +185,7 @@ func (r *Runtime) AdoptPet(ctx context.Context, owner string, req apitypes.PetAd
 	workspaceName := "pet-" + petID
 	displayName := strings.TrimSpace(valueOrZero(req.DisplayName))
 	if displayName == "" {
-		displayName = petDef.Spec.DisplayName
+		displayName = petDefDisplayName(petDef)
 	}
 	if err := r.createPetWorkspace(ctx, workspaceName, workflowName); err != nil {
 		return apitypes.PetAdoptResponse{}, err
@@ -209,10 +209,8 @@ func (r *Runtime) AdoptPet(ctx context.Context, owner string, req apitypes.PetAd
 		DisplayName:    displayName,
 		WorkspaceName:  workspaceName,
 		WorkflowName:   stringPtr(workflowName),
-		Life:           cloneStatMap(valueOrZero(petDef.Spec.InitialLife)),
-		Ability:        cloneStatMap(valueOrZero(petDef.Spec.InitialAbility)),
-		Exp:            0,
-		Level:          1,
+		Life:           initPetLife(petDef.Spec.Attr.Life),
+		Progression:    initPetProgression(petDef.Spec.Attr.Progression),
 		LastActiveAt:   now,
 		CreatedAt:      now,
 		UpdatedAt:      now,
@@ -323,6 +321,10 @@ func (r *Runtime) DrivePet(ctx context.Context, owner string, req apitypes.PetDr
 	if err != nil {
 		return apitypes.PetDriveResponse{}, err
 	}
+	petDef, err := r.Catalog.GetPetDefByID(ctx, pet.PetdefId)
+	if err != nil {
+		return apitypes.PetDriveResponse{}, err
+	}
 	db, err := r.db()
 	if err != nil {
 		return apitypes.PetDriveResponse{}, err
@@ -337,15 +339,21 @@ func (r *Runtime) DrivePet(ctx context.Context, owner string, req apitypes.PetDr
 		return apitypes.PetDriveResponse{}, err
 	}
 	now := r.now()
-	r.applyTimeDecay(&pet, ruleset, now)
 	var transactions []apitypes.PointsTransaction
 	var badges []apitypes.Badge
 	var grants []apitypes.RewardGrant
 	action := strings.TrimSpace(valueOrZero(req.Action))
+	var actionSpec apitypes.PetDefActionSpec
+	hasAction := false
 	if action != "" {
-		cost := actionCost(ruleset, action)
-		if cost > 0 {
-			txn, err := r.applyPointsTx(ctx, tx, &account, -cost, ruleset.Name, pet.Id, "", "", "pet.drive."+action, "pet_action", action)
+		var ok bool
+		actionSpec, ok = petDefAction(petDef, action)
+		if !ok {
+			return apitypes.PetDriveResponse{}, fmt.Errorf("pet action %q is not defined by petdef %q", action, petDef.Id)
+		}
+		hasAction = true
+		if actionSpec.Cost > 0 {
+			txn, err := r.applyPointsTx(ctx, tx, &account, -actionSpec.Cost, ruleset.Name, pet.Id, "", "", "pet.drive."+action, "pet_action", action)
 			if err != nil {
 				return apitypes.PetDriveResponse{}, err
 			}
@@ -353,7 +361,7 @@ func (r *Runtime) DrivePet(ctx context.Context, owner string, req apitypes.PetDr
 		}
 	}
 	var result *apitypes.GameResult
-	reward := mergeRewards(defaultReward(ruleset), actionReward(ruleset, action))
+	reward := mergeRewards(defaultReward(ruleset), actionEffectReward(actionSpec))
 	if req.GameResult != nil {
 		if err := r.validateGameResult(ctx, ruleset, req.GameResult.GameDefId); err != nil {
 			return apitypes.PetDriveResponse{}, err
@@ -401,8 +409,6 @@ func (r *Runtime) DrivePet(ctx context.Context, owner string, req apitypes.PetDr
 			PointsDelta:    int64Value(reward.PointsDelta),
 			PetExpDelta:    int64Value(reward.PetExpDelta),
 			BadgeExpDelta:  mapValue(reward.BadgeExpDelta),
-			LifeDelta:      reward.LifeDelta,
-			AbilityDelta:   reward.AbilityDelta,
 			SourceType:     sourceType,
 			SourceId:       sourceID,
 			Reason:         stringPtr(rewardReason(action, result)),
@@ -411,10 +417,7 @@ func (r *Runtime) DrivePet(ctx context.Context, owner string, req apitypes.PetDr
 		if result != nil {
 			grant.GameResultId = &result.Id
 		}
-		applyStatDelta(pet.Life, reward.LifeDelta)
-		applyStatDelta(pet.Ability, reward.AbilityDelta)
-		pet.Exp += grant.PetExpDelta
-		pet.Level = petLevel(pet.Exp)
+		applyPetExp(&pet, grant.PetExpDelta)
 		if err := insertRewardGrant(ctx, tx, grant); err != nil {
 			return apitypes.PetDriveResponse{}, err
 		}
@@ -437,6 +440,9 @@ func (r *Runtime) DrivePet(ctx context.Context, owner string, req apitypes.PetDr
 			}
 			badges = append(badges, badge)
 		}
+	}
+	if hasAction {
+		applyActionEffect(&pet, actionSpec)
 	}
 	pet.UpdatedAt = now
 	pet.LastActiveAt = now
@@ -783,27 +789,6 @@ func (r *Runtime) validateGameResult(ctx context.Context, ruleset apitypes.GameR
 	return err
 }
 
-func (r *Runtime) applyTimeDecay(pet *apitypes.Pet, ruleset apitypes.GameRuleset, now time.Time) {
-	if pet == nil || ruleset.Spec.Drive == nil || ruleset.Spec.Drive.LifeDecayPerHour == nil {
-		return
-	}
-	period := r.DecayPeriod
-	if period <= 0 {
-		period = time.Hour
-	}
-	elapsed := now.Sub(pet.LastActiveAt)
-	if elapsed < period {
-		return
-	}
-	steps := int64(elapsed / period)
-	for k, v := range *ruleset.Spec.Drive.LifeDecayPerHour {
-		pet.Life[k] -= v * steps
-		if pet.Life[k] < 0 {
-			pet.Life[k] = 0
-		}
-	}
-}
-
 func (r *Runtime) db() (*sql.DB, error) {
 	if r == nil || r.DB == nil {
 		return nil, errors.New("gameplay: sql db is not configured")
@@ -832,6 +817,18 @@ func selectedWorkflow(ruleset apitypes.GameRuleset, petDef apitypes.PetDef, pool
 		}
 	}
 	return defaultPetWorkflowName
+}
+
+func petDefDisplayName(petDef apitypes.PetDef) string {
+	if catalog, ok := petDef.Spec.I18n[petDef.Spec.DefaultLocale]; ok && catalog.DisplayName != nil && strings.TrimSpace(*catalog.DisplayName) != "" {
+		return strings.TrimSpace(*catalog.DisplayName)
+	}
+	for _, catalog := range petDef.Spec.I18n {
+		if catalog.DisplayName != nil && strings.TrimSpace(*catalog.DisplayName) != "" {
+			return strings.TrimSpace(*catalog.DisplayName)
+		}
+	}
+	return petDef.Id
 }
 
 func requireOwner(owner string) error {

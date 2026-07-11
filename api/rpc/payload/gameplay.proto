@@ -60,9 +60,7 @@ message GameResultListResponse {
 }
 
 message GameRewardSpec {
-  optional StatMap ability_delta = 1;
   map<string, int64> badge_exp_delta = 2;
-  optional StatMap life_delta = 3;
   optional int64 pet_exp_delta = 4;
   optional int64 points_delta = 5;
 }
@@ -75,11 +73,8 @@ message GameRuleset {
 }
 
 message GameRulesetDriveSpec {
-  map<string, int64> action_costs = 1;
-  map<string, GameRewardSpec> action_rewards = 2;
   optional GameRewardSpec default_reward = 3;
   map<string, GameRewardSpec> game_rewards = 4;
-  optional StatMap life_decay_per_hour = 5;
 }
 
 message GameRulesetPetPoolEntry {
@@ -120,20 +115,18 @@ message GameplayMetadata {
 }
 
 message Pet {
-  StatMap ability = 1;
   string created_at = 2;
   string display_name = 3;
-  int64 exp = 4;
   string id = 5;
   string last_active_at = 6;
-  int64 level = 7;
-  StatMap life = 8;
+  PetLife life = 8;
   string owner_public_key = 9;
   string petdef_id = 10;
   string ruleset_name = 11;
   string updated_at = 12;
   optional string workflow_name = 13;
   string workspace_name = 14;
+  PetProgression progression = 15;
 }
 
 message PetAdoptRequest {
@@ -233,12 +226,10 @@ message PointsTransactionListResponse {
 }
 
 message RewardGrant {
-  optional StatMap ability_delta = 1;
   map<string, int64> badge_exp_delta = 2;
   string created_at = 3;
   optional string game_result_id = 4;
   string id = 5;
-  optional StatMap life_delta = 6;
   string owner_public_key = 7;
   int64 pet_exp_delta = 8;
   optional string pet_id = 9;
@@ -383,6 +374,10 @@ message ServerRewardGrantListResponse {
   RewardGrantListResponse value = 1;
 }
 
-message StatMap {
+message PetLife {
+  map<string, int64> value = 1;
+}
+
+message PetProgression {
   map<string, int64> value = 1;
 }

@@ -67,8 +67,8 @@ func TestGameplayAdoptDriveAndPetWorkspace(t *testing.T) {
 	if err != nil {
 		t.Fatalf("pet.drive: %v", err)
 	}
-	if drive.Pet.Level != 2 || drive.Pet.Exp != 105 {
-		t.Fatalf("pet.drive pet = %#v", drive.Pet)
+	if drive.Pet.Progression["xp"] != 105 {
+		t.Fatalf("pet.drive pet = %#v reward_grants = %#v", drive.Pet, drive.RewardGrants)
 	}
 	if drive.Points.Balance != 105 {
 		t.Fatalf("pet.drive points = %#v", drive.Points)

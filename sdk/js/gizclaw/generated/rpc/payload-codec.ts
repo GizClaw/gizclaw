@@ -607,9 +607,7 @@ export type GameResultListResponse = {
   "next_cursor"?: string;
 };
 export type GameRewardSpec = {
-  "ability_delta"?: StatMap;
   "badge_exp_delta": Record<string, number>;
-  "life_delta"?: StatMap;
   "pet_exp_delta"?: number;
   "points_delta"?: number;
 };
@@ -620,11 +618,8 @@ export type GameRuleset = {
   "updated_at": string;
 };
 export type GameRulesetDriveSpec = {
-  "action_costs": Record<string, number>;
-  "action_rewards": Record<string, GameRewardSpec>;
   "default_reward"?: GameRewardSpec;
   "game_rewards": Record<string, GameRewardSpec>;
-  "life_decay_per_hour"?: StatMap;
 };
 export type GameRulesetPetPoolEntry = {
   "adoption_cost"?: number;
@@ -891,20 +886,18 @@ export type PeerStatus = {
   "volume"?: number;
 };
 export type Pet = {
-  "ability": StatMap;
   "created_at": string;
   "display_name": string;
-  "exp": number;
   "id": string;
   "last_active_at": string;
-  "level": number;
-  "life": StatMap;
+  "life": PetLife;
   "owner_public_key": string;
   "petdef_id": string;
   "ruleset_name": string;
   "updated_at": string;
   "workflow_name"?: string;
   "workspace_name": string;
+  "progression": PetProgression;
 };
 export type PetAdoptRequest = {
   "display_name"?: string;
@@ -953,11 +946,13 @@ export type PetDriveResponse = {
 export type PetGetRequest = {
   "id": string;
 };
+export type PetLife = Record<string, number>;
 export type PetListResponse = {
   "has_next": boolean;
   "items": Pet[];
   "next_cursor"?: string;
 };
+export type PetProgression = Record<string, number>;
 export type PetPutRequest = {
   "display_name": string;
   "id": string;
@@ -1006,12 +1001,10 @@ export type RefreshInfo = {
   "name"?: string;
 };
 export type RewardGrant = {
-  "ability_delta"?: StatMap;
   "badge_exp_delta": Record<string, number>;
   "created_at": string;
   "game_result_id"?: string;
   "id": string;
-  "life_delta"?: StatMap;
   "owner_public_key": string;
   "pet_exp_delta": number;
   "pet_id"?: string;
@@ -1137,7 +1130,6 @@ export type SpeedTestResponse = {
   "down_content_length": number;
   "up_content_length": number;
 };
-export type StatMap = Record<string, number>;
 export type Tool = {
   "id": string;
   "name"?: string;
@@ -4127,22 +4119,10 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
   "GameRewardSpec": {
     "fields": [
       {
-        "name": "ability_delta",
-        "number": 1,
-        "optional": true,
-        "type": "StatMap"
-      },
-      {
         "mapValue": "int64",
         "name": "badge_exp_delta",
         "number": 2,
         "type": "map"
-      },
-      {
-        "name": "life_delta",
-        "number": 3,
-        "optional": true,
-        "type": "StatMap"
       },
       {
         "name": "pet_exp_delta",
@@ -4185,18 +4165,6 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
   "GameRulesetDriveSpec": {
     "fields": [
       {
-        "mapValue": "int64",
-        "name": "action_costs",
-        "number": 1,
-        "type": "map"
-      },
-      {
-        "mapValue": "GameRewardSpec",
-        "name": "action_rewards",
-        "number": 2,
-        "type": "map"
-      },
-      {
         "name": "default_reward",
         "number": 3,
         "optional": true,
@@ -4207,12 +4175,6 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "name": "game_rewards",
         "number": 4,
         "type": "map"
-      },
-      {
-        "name": "life_decay_per_hour",
-        "number": 5,
-        "optional": true,
-        "type": "StatMap"
       }
     ]
   },
@@ -5424,11 +5386,6 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
   "Pet": {
     "fields": [
       {
-        "name": "ability",
-        "number": 1,
-        "type": "StatMap"
-      },
-      {
         "name": "created_at",
         "number": 2,
         "type": "string"
@@ -5437,11 +5394,6 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "name": "display_name",
         "number": 3,
         "type": "string"
-      },
-      {
-        "name": "exp",
-        "number": 4,
-        "type": "int64"
       },
       {
         "name": "id",
@@ -5454,14 +5406,9 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "type": "string"
       },
       {
-        "name": "level",
-        "number": 7,
-        "type": "int64"
-      },
-      {
         "name": "life",
         "number": 8,
-        "type": "StatMap"
+        "type": "PetLife"
       },
       {
         "name": "owner_public_key",
@@ -5493,6 +5440,11 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "name": "workspace_name",
         "number": 14,
         "type": "string"
+      },
+      {
+        "name": "progression",
+        "number": 15,
+        "type": "PetProgression"
       }
     ]
   },
@@ -5694,6 +5646,16 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       }
     ]
   },
+  "PetLife": {
+    "fields": [
+      {
+        "mapValue": "int64",
+        "name": "value",
+        "number": 1,
+        "type": "map"
+      }
+    ]
+  },
   "PetListResponse": {
     "fields": [
       {
@@ -5712,6 +5674,16 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "number": 3,
         "optional": true,
         "type": "string"
+      }
+    ]
+  },
+  "PetProgression": {
+    "fields": [
+      {
+        "mapValue": "int64",
+        "name": "value",
+        "number": 1,
+        "type": "map"
       }
     ]
   },
@@ -5919,12 +5891,6 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
   "RewardGrant": {
     "fields": [
       {
-        "name": "ability_delta",
-        "number": 1,
-        "optional": true,
-        "type": "StatMap"
-      },
-      {
         "mapValue": "int64",
         "name": "badge_exp_delta",
         "number": 2,
@@ -5945,12 +5911,6 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "name": "id",
         "number": 5,
         "type": "string"
-      },
-      {
-        "name": "life_delta",
-        "number": 6,
-        "optional": true,
-        "type": "StatMap"
       },
       {
         "name": "owner_public_key",
@@ -6694,16 +6654,6 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "name": "up_content_length",
         "number": 2,
         "type": "int64"
-      }
-    ]
-  },
-  "StatMap": {
-    "fields": [
-      {
-        "mapValue": "int64",
-        "name": "value",
-        "number": 1,
-        "type": "map"
       }
     ]
   },

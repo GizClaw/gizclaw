@@ -36,12 +36,6 @@ PB_BIND(gizclaw_rpc_v1_GameRuleset, gizclaw_rpc_v1_GameRuleset, 2)
 PB_BIND(gizclaw_rpc_v1_GameRulesetDriveSpec, gizclaw_rpc_v1_GameRulesetDriveSpec, AUTO)
 
 
-PB_BIND(gizclaw_rpc_v1_GameRulesetDriveSpec_ActionCostsEntry, gizclaw_rpc_v1_GameRulesetDriveSpec_ActionCostsEntry, AUTO)
-
-
-PB_BIND(gizclaw_rpc_v1_GameRulesetDriveSpec_ActionRewardsEntry, gizclaw_rpc_v1_GameRulesetDriveSpec_ActionRewardsEntry, AUTO)
-
-
 PB_BIND(gizclaw_rpc_v1_GameRulesetDriveSpec_GameRewardsEntry, gizclaw_rpc_v1_GameRulesetDriveSpec_GameRewardsEntry, AUTO)
 
 
@@ -108,7 +102,7 @@ PB_BIND(gizclaw_rpc_v1_PointsTransaction, gizclaw_rpc_v1_PointsTransaction, AUTO
 PB_BIND(gizclaw_rpc_v1_PointsTransactionListResponse, gizclaw_rpc_v1_PointsTransactionListResponse, AUTO)
 
 
-PB_BIND(gizclaw_rpc_v1_RewardGrant, gizclaw_rpc_v1_RewardGrant, 2)
+PB_BIND(gizclaw_rpc_v1_RewardGrant, gizclaw_rpc_v1_RewardGrant, AUTO)
 
 
 PB_BIND(gizclaw_rpc_v1_RewardGrant_BadgeExpDeltaEntry, gizclaw_rpc_v1_RewardGrant_BadgeExpDeltaEntry, AUTO)
@@ -156,7 +150,7 @@ PB_BIND(gizclaw_rpc_v1_ServerPetAdoptResponse, gizclaw_rpc_v1_ServerPetAdoptResp
 PB_BIND(gizclaw_rpc_v1_ServerPetDeleteRequest, gizclaw_rpc_v1_ServerPetDeleteRequest, AUTO)
 
 
-PB_BIND(gizclaw_rpc_v1_ServerPetDeleteResponse, gizclaw_rpc_v1_ServerPetDeleteResponse, 2)
+PB_BIND(gizclaw_rpc_v1_ServerPetDeleteResponse, gizclaw_rpc_v1_ServerPetDeleteResponse, AUTO)
 
 
 PB_BIND(gizclaw_rpc_v1_ServerPetDriveRequest, gizclaw_rpc_v1_ServerPetDriveRequest, 2)
@@ -168,7 +162,7 @@ PB_BIND(gizclaw_rpc_v1_ServerPetDriveResponse, gizclaw_rpc_v1_ServerPetDriveResp
 PB_BIND(gizclaw_rpc_v1_ServerPetGetRequest, gizclaw_rpc_v1_ServerPetGetRequest, AUTO)
 
 
-PB_BIND(gizclaw_rpc_v1_ServerPetGetResponse, gizclaw_rpc_v1_ServerPetGetResponse, 2)
+PB_BIND(gizclaw_rpc_v1_ServerPetGetResponse, gizclaw_rpc_v1_ServerPetGetResponse, AUTO)
 
 
 PB_BIND(gizclaw_rpc_v1_ServerPetListRequest, gizclaw_rpc_v1_ServerPetListRequest, AUTO)
@@ -180,7 +174,7 @@ PB_BIND(gizclaw_rpc_v1_ServerPetListResponse, gizclaw_rpc_v1_ServerPetListRespon
 PB_BIND(gizclaw_rpc_v1_ServerPetPutRequest, gizclaw_rpc_v1_ServerPetPutRequest, AUTO)
 
 
-PB_BIND(gizclaw_rpc_v1_ServerPetPutResponse, gizclaw_rpc_v1_ServerPetPutResponse, 2)
+PB_BIND(gizclaw_rpc_v1_ServerPetPutResponse, gizclaw_rpc_v1_ServerPetPutResponse, AUTO)
 
 
 PB_BIND(gizclaw_rpc_v1_ServerPointsGetRequest, gizclaw_rpc_v1_ServerPointsGetRequest, AUTO)
@@ -204,7 +198,7 @@ PB_BIND(gizclaw_rpc_v1_ServerPointsTransactionListResponse, gizclaw_rpc_v1_Serve
 PB_BIND(gizclaw_rpc_v1_ServerRewardGrantGetRequest, gizclaw_rpc_v1_ServerRewardGrantGetRequest, AUTO)
 
 
-PB_BIND(gizclaw_rpc_v1_ServerRewardGrantGetResponse, gizclaw_rpc_v1_ServerRewardGrantGetResponse, 2)
+PB_BIND(gizclaw_rpc_v1_ServerRewardGrantGetResponse, gizclaw_rpc_v1_ServerRewardGrantGetResponse, AUTO)
 
 
 PB_BIND(gizclaw_rpc_v1_ServerRewardGrantListRequest, gizclaw_rpc_v1_ServerRewardGrantListRequest, AUTO)
@@ -213,10 +207,16 @@ PB_BIND(gizclaw_rpc_v1_ServerRewardGrantListRequest, gizclaw_rpc_v1_ServerReward
 PB_BIND(gizclaw_rpc_v1_ServerRewardGrantListResponse, gizclaw_rpc_v1_ServerRewardGrantListResponse, AUTO)
 
 
-PB_BIND(gizclaw_rpc_v1_StatMap, gizclaw_rpc_v1_StatMap, AUTO)
+PB_BIND(gizclaw_rpc_v1_PetLife, gizclaw_rpc_v1_PetLife, AUTO)
 
 
-PB_BIND(gizclaw_rpc_v1_StatMap_ValueEntry, gizclaw_rpc_v1_StatMap_ValueEntry, AUTO)
+PB_BIND(gizclaw_rpc_v1_PetLife_ValueEntry, gizclaw_rpc_v1_PetLife_ValueEntry, AUTO)
+
+
+PB_BIND(gizclaw_rpc_v1_PetProgression, gizclaw_rpc_v1_PetProgression, AUTO)
+
+
+PB_BIND(gizclaw_rpc_v1_PetProgression_ValueEntry, gizclaw_rpc_v1_PetProgression_ValueEntry, AUTO)
 
 
 

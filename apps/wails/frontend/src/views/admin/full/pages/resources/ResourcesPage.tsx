@@ -514,17 +514,58 @@ function resourceSpecTemplate(kind: ResourceKind): unknown {
         badge_def_ids: ["badge-basic"],
         game_def_ids: ["game-basic"],
         drive: {
-          action_costs: { bath: 5 },
-          action_rewards: { bath: { pet_exp_delta: 10, life_delta: { clean: 20 } } },
           game_rewards: { "game-basic": { points_delta: 10, pet_exp_delta: 20, badge_exp_delta: { "badge-basic": 100 } } },
-          life_decay_per_hour: { hunger: 1 },
         },
       };
     case "PetDef":
       return {
-        display_name: "Starter Pet",
-        initial_life: { hunger: 100, clean: 100 },
-        initial_ability: { play: 1 },
+        default_locale: "en",
+        attr: {
+          life: { hunger: { initial: 100 }, clean: { initial: 100 } },
+          progression: { xp: { initial: 0 } },
+        },
+        character: { prompt: "Small friendly pixel pet." },
+        voice: { voice_id: "gizclaw-soft", prompt: "Soft and curious." },
+        drive: {
+          actions: [
+            {
+              id: "idle",
+              cost: 0,
+              visual_clip_id: "idle",
+            },
+            {
+              id: "bath",
+              cost: 5,
+              visual_clip_id: "bath",
+              effect: { attr_delta: { life: { clean: 10 } }, pet_exp_delta: 10 },
+            },
+          ],
+        },
+        visual: {
+          refs: { images: [], videos: [] },
+          pixa: {
+            asset_ref: "asset://pets/starter/pet.pixa",
+            metadata: {
+              version: "1",
+              canvas: { width: 60, height: 60 },
+              clips: [
+                { id: "idle", action_id: "idle", pixa_clip_name: "default" },
+                { id: "bath", action_id: "bath", pixa_clip_name: "bath" },
+              ],
+            },
+          },
+        },
+        i18n: {
+          en: {
+            display_name: "Starter Pet",
+            description: "Starter pet for gameplay resource editing.",
+            attr: {
+              life: { hunger: { display_name: "Hunger" }, clean: { display_name: "Clean" } },
+              progression: { xp: { display_name: "XP" } },
+            },
+            drive: { actions: { idle: { display_name: "Idle" }, bath: { display_name: "Bath" } } },
+          },
+        },
       };
     case "BadgeDef":
       return { display_name: "Starter Badge" };

@@ -55,6 +55,9 @@ func TestConnectGameplayUserStory(t *testing.T) {
 	if len(drive.Badges) != 1 || !drive.Badges[0].Active || len(drive.RewardGrants) != 1 || len(drive.Transactions) != 2 {
 		t.Fatalf("drive = %#v", drive)
 	}
+	if drive.Pet.Progression["xp"] != 105 {
+		t.Fatalf("drive pet progression = %#v", drive.Pet)
+	}
 
 	duplicate := h.RunCLI(
 		"connect", "gameplay", "pet", "drive", adopted.Pet.Id,
@@ -105,7 +108,7 @@ func TestConnectGameplayUserStory(t *testing.T) {
 func applyGameplayCLIResources(t *testing.T, h *clitest.Harness) {
 	t.Helper()
 	for _, fixture := range []string{
-		filepath.Join(h.RepoRoot, "tests", "gizclaw-e2e", "testdata", "resources", "04-workflows", "22-chatroom-direct.yaml"),
+		filepath.Join(h.RepoRoot, "tests", "gizclaw-e2e", "testdata", "resources", "04-workflows", "23-flowcraft-pet-care.yaml"),
 		filepath.Join(h.RepoRoot, "tests", "gizclaw-e2e", "testdata", "resources", "07-gameplay", "00-starter-gameplay.yaml"),
 	} {
 		h.RunCLI("admin", "apply", "--context", "admin-a", "-f", fixture).MustSucceed(t)

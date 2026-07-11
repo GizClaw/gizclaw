@@ -23,8 +23,9 @@ func scanPet(row rowScanner) (apitypes.Pet, error) {
 	var pet apitypes.Pet
 	var workflowName sql.NullString
 	var lifeJSON, abilityJSON string
+	var legacyExp, legacyLevel int64
 	var lastActiveAt, createdAt, updatedAt string
-	err := row.Scan(&pet.OwnerPublicKey, &pet.Id, &pet.RulesetName, &pet.PetdefId, &pet.DisplayName, &pet.WorkspaceName, &workflowName, &lifeJSON, &abilityJSON, &pet.Exp, &pet.Level, &lastActiveAt, &createdAt, &updatedAt)
+	err := row.Scan(&pet.OwnerPublicKey, &pet.Id, &pet.RulesetName, &pet.PetdefId, &pet.DisplayName, &pet.WorkspaceName, &workflowName, &lifeJSON, &abilityJSON, &legacyExp, &legacyLevel, &lastActiveAt, &createdAt, &updatedAt)
 	if err != nil {
 		return apitypes.Pet{}, err
 	}
@@ -34,8 +35,14 @@ func scanPet(row rowScanner) (apitypes.Pet, error) {
 	if err := unmarshalJSON(lifeJSON, &pet.Life); err != nil {
 		return apitypes.Pet{}, err
 	}
-	if err := unmarshalJSON(abilityJSON, &pet.Ability); err != nil {
+	if err := unmarshalJSON(abilityJSON, &pet.Progression); err != nil {
 		return apitypes.Pet{}, err
+	}
+	if pet.Progression == nil {
+		pet.Progression = apitypes.PetProgression{}
+	}
+	if _, ok := pet.Progression["xp"]; !ok && legacyExp != 0 {
+		pet.Progression["xp"] = legacyExp
 	}
 	pet.LastActiveAt = parseTime(lastActiveAt)
 	pet.CreatedAt = parseTime(createdAt)
@@ -48,12 +55,13 @@ func insertPet(ctx context.Context, tx *sql.Tx, pet apitypes.Pet) error {
 	if err != nil {
 		return err
 	}
-	abilityJSON, err := marshalJSON(pet.Ability)
+	progressionJSON, err := marshalJSON(pet.Progression)
 	if err != nil {
 		return err
 	}
+	exp := petProgressionExp(pet)
 	_, err = tx.ExecContext(ctx, `INSERT INTO gameplay_pets (owner_public_key, id, ruleset_name, petdef_id, display_name, workspace_name, workflow_name, life_json, ability_json, exp, level, last_active_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		pet.OwnerPublicKey, pet.Id, pet.RulesetName, pet.PetdefId, pet.DisplayName, pet.WorkspaceName, valueOrZero(pet.WorkflowName), lifeJSON, abilityJSON, pet.Exp, pet.Level, formatTime(pet.LastActiveAt), formatTime(pet.CreatedAt), formatTime(pet.UpdatedAt))
+		pet.OwnerPublicKey, pet.Id, pet.RulesetName, pet.PetdefId, pet.DisplayName, pet.WorkspaceName, valueOrZero(pet.WorkflowName), lifeJSON, progressionJSON, exp, petLevel(exp), formatTime(pet.LastActiveAt), formatTime(pet.CreatedAt), formatTime(pet.UpdatedAt))
 	return err
 }
 
@@ -62,12 +70,13 @@ func updatePet(ctx context.Context, tx *sql.Tx, pet apitypes.Pet) error {
 	if err != nil {
 		return err
 	}
-	abilityJSON, err := marshalJSON(pet.Ability)
+	progressionJSON, err := marshalJSON(pet.Progression)
 	if err != nil {
 		return err
 	}
+	exp := petProgressionExp(pet)
 	_, err = tx.ExecContext(ctx, `UPDATE gameplay_pets SET display_name = ?, life_json = ?, ability_json = ?, exp = ?, level = ?, last_active_at = ?, updated_at = ? WHERE owner_public_key = ? AND id = ?`,
-		pet.DisplayName, lifeJSON, abilityJSON, pet.Exp, pet.Level, formatTime(pet.LastActiveAt), formatTime(pet.UpdatedAt), pet.OwnerPublicKey, pet.Id)
+		pet.DisplayName, lifeJSON, progressionJSON, exp, petLevel(exp), formatTime(pet.LastActiveAt), formatTime(pet.UpdatedAt), pet.OwnerPublicKey, pet.Id)
 	return err
 }
 
@@ -216,19 +225,11 @@ func scanRewardGrant(row rowScanner) (apitypes.RewardGrant, error) {
 	if err := unmarshalJSON(badgeExpJSON, &item.BadgeExpDelta); err != nil {
 		return apitypes.RewardGrant{}, err
 	}
-	var lifeDelta apitypes.StatMap
-	if err := unmarshalJSON(lifeDeltaJSON, &lifeDelta); err != nil {
-		return apitypes.RewardGrant{}, err
-	}
-	if len(lifeDelta) > 0 {
-		item.LifeDelta = &lifeDelta
-	}
-	var abilityDelta apitypes.StatMap
-	if err := unmarshalJSON(abilityDeltaJSON, &abilityDelta); err != nil {
-		return apitypes.RewardGrant{}, err
-	}
-	if len(abilityDelta) > 0 {
-		item.AbilityDelta = &abilityDelta
+	for _, legacyDeltaJSON := range []string{lifeDeltaJSON, abilityDeltaJSON} {
+		var ignored map[string]int64
+		if err := unmarshalJSON(legacyDeltaJSON, &ignored); err != nil {
+			return apitypes.RewardGrant{}, err
+		}
 	}
 	item.CreatedAt = parseTime(createdAt)
 	return item, nil
@@ -239,11 +240,11 @@ func insertRewardGrant(ctx context.Context, tx *sql.Tx, item apitypes.RewardGran
 	if err != nil {
 		return err
 	}
-	lifeDeltaJSON, err := marshalJSON(statMapValue(item.LifeDelta))
+	lifeDeltaJSON, err := marshalJSON(map[string]int64{})
 	if err != nil {
 		return err
 	}
-	abilityDeltaJSON, err := marshalJSON(statMapValue(item.AbilityDelta))
+	abilityDeltaJSON, err := marshalJSON(map[string]int64{})
 	if err != nil {
 		return err
 	}
@@ -360,13 +361,6 @@ func nullStringPtr(v sql.NullString) *string {
 		return nil
 	}
 	return &v.String
-}
-
-func statMapValue(in *apitypes.StatMap) apitypes.StatMap {
-	if in == nil {
-		return apitypes.StatMap{}
-	}
-	return *in
 }
 
 func nullableInt64(v *int64) sql.NullInt64 {

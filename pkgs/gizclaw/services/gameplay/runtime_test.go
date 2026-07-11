@@ -95,10 +95,10 @@ func TestRuntimeAdoptAndDrive(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DrivePet() error = %v", err)
 	}
-	if drive.Pet.Exp != 110 || drive.Pet.Level != 2 {
-		t.Fatalf("pet exp/level = %d/%d, want 110/2", drive.Pet.Exp, drive.Pet.Level)
+	if drive.Pet.Progression["xp"] != 110 {
+		t.Fatalf("pet progression = %#v, want xp=110", drive.Pet.Progression)
 	}
-	if drive.Pet.Life["hunger"] != 90 || drive.Pet.Life["clean"] != 110 {
+	if drive.Pet.Life["hunger"] != 100 || drive.Pet.Life["clean"] != 110 {
 		t.Fatalf("pet life = %#v", drive.Pet.Life)
 	}
 	if drive.Points.Balance != 55 {
@@ -113,7 +113,7 @@ func TestRuntimeAdoptAndDrive(t *testing.T) {
 	if len(drive.RewardGrants) != 1 || drive.RewardGrants[0].Id != "grant-1" || drive.RewardGrants[0].BadgeExpDelta["badge-basic"] != 100 {
 		t.Fatalf("reward grants = %#v", drive.RewardGrants)
 	}
-	if drive.RewardGrants[0].SourceType != "game_result" || drive.RewardGrants[0].SourceId != "game-result-1" || drive.RewardGrants[0].LifeDelta == nil || (*drive.RewardGrants[0].LifeDelta)["clean"] != 10 {
+	if drive.RewardGrants[0].SourceType != "game_result" || drive.RewardGrants[0].SourceId != "game-result-1" || drive.RewardGrants[0].PetExpDelta != 110 {
 		t.Fatalf("reward grant details = %#v", drive.RewardGrants[0])
 	}
 	if len(drive.Badges) != 1 || !drive.Badges[0].Active || drive.Badges[0].Level != 1 || drive.Badges[0].Progress != 0 {
@@ -360,7 +360,7 @@ func TestRuntimeErrorsPaginationAndTimeDrive(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DrivePet() time drive error = %v", err)
 	}
-	if timeDrive.Pet.Life["hunger"] != 85 || len(timeDrive.Transactions) != 0 || len(timeDrive.RewardGrants) != 0 {
+	if timeDrive.Pet.Life["hunger"] != 100 || len(timeDrive.Transactions) != 0 || len(timeDrive.RewardGrants) != 0 {
 		t.Fatalf("time drive = %#v", timeDrive)
 	}
 
@@ -432,12 +432,12 @@ func TestRuntimeHelperBranches(t *testing.T) {
 		t.Fatalf("petLevel(-100) = %d", got)
 	}
 
-	life := apitypes.StatMap{"hunger": 1}
-	applyStatDelta(life, &apitypes.StatMap{"hunger": -5, "clean": 3})
+	life := apitypes.PetLife{"hunger": 1}
+	applyLifeDelta(life, &apitypes.PetLife{"hunger": -5, "clean": 3})
 	if life["hunger"] != 0 || life["clean"] != 3 {
-		t.Fatalf("applyStatDelta() = %#v", life)
+		t.Fatalf("applyLifeDelta() = %#v", life)
 	}
-	applyStatDelta(nil, &apitypes.StatMap{"hunger": 1})
+	applyLifeDelta(nil, &apitypes.PetLife{"hunger": 1})
 
 	result := apitypes.GameResult{GameDefId: "game-a"}
 	if got := rewardReason("", nil); got != "time" {
@@ -508,17 +508,10 @@ func testCatalog(t *testing.T, now time.Time) *Catalog {
 
 func seedGameplayCatalog(t *testing.T, ctx context.Context, catalog *Catalog) {
 	t.Helper()
-	life := apitypes.StatMap{"hunger": 100, "clean": 100}
-	ability := apitypes.StatMap{"play": 1}
 	petResp, err := catalog.CreatePetDef(ctx, adminhttp.CreatePetDefRequestObject{
 		Body: &adminhttp.PetDefUpsert{
-			Id: "petdef-basic",
-			Spec: apitypes.PetDefSpec{
-				DisplayName:    "Spark",
-				WorkflowName:   stringPtr("pet-chat"),
-				InitialLife:    &life,
-				InitialAbility: &ability,
-			},
+			Id:   "petdef-basic",
+			Spec: testPetDefSpec("Spark"),
 		},
 	})
 	if err != nil {
@@ -547,12 +540,8 @@ func seedGameplayCatalog(t *testing.T, ctx context.Context, catalog *Catalog) {
 	}
 	initialBalance := int64(50)
 	adoptionCost := int64(15)
-	actionCosts := map[string]int64{"bath": 10}
-	petExp := int64(90)
 	points := int64(30)
 	gameExp := int64(20)
-	cleanDelta := apitypes.StatMap{"clean": 10}
-	decay := apitypes.StatMap{"hunger": 5}
 	badgeDelta := map[string]int64{"badge-basic": 100}
 	gameIDs := []string{"game-basic"}
 	rulesetResp, err := catalog.CreateGameRuleset(ctx, adminhttp.CreateGameRulesetRequestObject{
@@ -568,11 +557,6 @@ func seedGameplayCatalog(t *testing.T, ctx context.Context, catalog *Catalog) {
 				}},
 				GameDefIds: &gameIDs,
 				Drive: &apitypes.GameRulesetDriveSpec{
-					ActionCosts:      &actionCosts,
-					LifeDecayPerHour: &decay,
-					ActionRewards: &map[string]apitypes.GameRewardSpec{
-						"bath": {PetExpDelta: &petExp, LifeDelta: &cleanDelta},
-					},
 					GameRewards: &map[string]apitypes.GameRewardSpec{
 						"game-basic": {PointsDelta: &points, PetExpDelta: &gameExp, BadgeExpDelta: &badgeDelta},
 					},

@@ -506,9 +506,7 @@ func (x *GameResultListResponse) GetNextCursor() string {
 
 type GameRewardSpec struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	AbilityDelta  *StatMap               `protobuf:"bytes,1,opt,name=ability_delta,json=abilityDelta,proto3,oneof" json:"ability_delta,omitempty"`
 	BadgeExpDelta map[string]int64       `protobuf:"bytes,2,rep,name=badge_exp_delta,json=badgeExpDelta,proto3" json:"badge_exp_delta,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"varint,2,opt,name=value"`
-	LifeDelta     *StatMap               `protobuf:"bytes,3,opt,name=life_delta,json=lifeDelta,proto3,oneof" json:"life_delta,omitempty"`
 	PetExpDelta   *int64                 `protobuf:"varint,4,opt,name=pet_exp_delta,json=petExpDelta,proto3,oneof" json:"pet_exp_delta,omitempty"`
 	PointsDelta   *int64                 `protobuf:"varint,5,opt,name=points_delta,json=pointsDelta,proto3,oneof" json:"points_delta,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -545,23 +543,9 @@ func (*GameRewardSpec) Descriptor() ([]byte, []int) {
 	return file_payload_gameplay_proto_rawDescGZIP(), []int{6}
 }
 
-func (x *GameRewardSpec) GetAbilityDelta() *StatMap {
-	if x != nil {
-		return x.AbilityDelta
-	}
-	return nil
-}
-
 func (x *GameRewardSpec) GetBadgeExpDelta() map[string]int64 {
 	if x != nil {
 		return x.BadgeExpDelta
-	}
-	return nil
-}
-
-func (x *GameRewardSpec) GetLifeDelta() *StatMap {
-	if x != nil {
-		return x.LifeDelta
 	}
 	return nil
 }
@@ -649,14 +633,11 @@ func (x *GameRuleset) GetUpdatedAt() string {
 }
 
 type GameRulesetDriveSpec struct {
-	state            protoimpl.MessageState     `protogen:"open.v1"`
-	ActionCosts      map[string]int64           `protobuf:"bytes,1,rep,name=action_costs,json=actionCosts,proto3" json:"action_costs,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"varint,2,opt,name=value"`
-	ActionRewards    map[string]*GameRewardSpec `protobuf:"bytes,2,rep,name=action_rewards,json=actionRewards,proto3" json:"action_rewards,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	DefaultReward    *GameRewardSpec            `protobuf:"bytes,3,opt,name=default_reward,json=defaultReward,proto3,oneof" json:"default_reward,omitempty"`
-	GameRewards      map[string]*GameRewardSpec `protobuf:"bytes,4,rep,name=game_rewards,json=gameRewards,proto3" json:"game_rewards,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	LifeDecayPerHour *StatMap                   `protobuf:"bytes,5,opt,name=life_decay_per_hour,json=lifeDecayPerHour,proto3,oneof" json:"life_decay_per_hour,omitempty"`
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
+	state         protoimpl.MessageState     `protogen:"open.v1"`
+	DefaultReward *GameRewardSpec            `protobuf:"bytes,3,opt,name=default_reward,json=defaultReward,proto3,oneof" json:"default_reward,omitempty"`
+	GameRewards   map[string]*GameRewardSpec `protobuf:"bytes,4,rep,name=game_rewards,json=gameRewards,proto3" json:"game_rewards,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *GameRulesetDriveSpec) Reset() {
@@ -689,20 +670,6 @@ func (*GameRulesetDriveSpec) Descriptor() ([]byte, []int) {
 	return file_payload_gameplay_proto_rawDescGZIP(), []int{8}
 }
 
-func (x *GameRulesetDriveSpec) GetActionCosts() map[string]int64 {
-	if x != nil {
-		return x.ActionCosts
-	}
-	return nil
-}
-
-func (x *GameRulesetDriveSpec) GetActionRewards() map[string]*GameRewardSpec {
-	if x != nil {
-		return x.ActionRewards
-	}
-	return nil
-}
-
 func (x *GameRulesetDriveSpec) GetDefaultReward() *GameRewardSpec {
 	if x != nil {
 		return x.DefaultReward
@@ -713,13 +680,6 @@ func (x *GameRulesetDriveSpec) GetDefaultReward() *GameRewardSpec {
 func (x *GameRulesetDriveSpec) GetGameRewards() map[string]*GameRewardSpec {
 	if x != nil {
 		return x.GameRewards
-	}
-	return nil
-}
-
-func (x *GameRulesetDriveSpec) GetLifeDecayPerHour() *StatMap {
-	if x != nil {
-		return x.LifeDecayPerHour
 	}
 	return nil
 }
@@ -1094,20 +1054,18 @@ func (x *GameplayMetadata) GetFields() *structpb.Struct {
 
 type Pet struct {
 	state          protoimpl.MessageState `protogen:"open.v1"`
-	Ability        *StatMap               `protobuf:"bytes,1,opt,name=ability,proto3" json:"ability,omitempty"`
 	CreatedAt      string                 `protobuf:"bytes,2,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	DisplayName    string                 `protobuf:"bytes,3,opt,name=display_name,json=displayName,proto3" json:"display_name,omitempty"`
-	Exp            int64                  `protobuf:"varint,4,opt,name=exp,proto3" json:"exp,omitempty"`
 	Id             string                 `protobuf:"bytes,5,opt,name=id,proto3" json:"id,omitempty"`
 	LastActiveAt   string                 `protobuf:"bytes,6,opt,name=last_active_at,json=lastActiveAt,proto3" json:"last_active_at,omitempty"`
-	Level          int64                  `protobuf:"varint,7,opt,name=level,proto3" json:"level,omitempty"`
-	Life           *StatMap               `protobuf:"bytes,8,opt,name=life,proto3" json:"life,omitempty"`
+	Life           *PetLife               `protobuf:"bytes,8,opt,name=life,proto3" json:"life,omitempty"`
 	OwnerPublicKey string                 `protobuf:"bytes,9,opt,name=owner_public_key,json=ownerPublicKey,proto3" json:"owner_public_key,omitempty"`
 	PetdefId       string                 `protobuf:"bytes,10,opt,name=petdef_id,json=petdefId,proto3" json:"petdef_id,omitempty"`
 	RulesetName    string                 `protobuf:"bytes,11,opt,name=ruleset_name,json=rulesetName,proto3" json:"ruleset_name,omitempty"`
 	UpdatedAt      string                 `protobuf:"bytes,12,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
 	WorkflowName   *string                `protobuf:"bytes,13,opt,name=workflow_name,json=workflowName,proto3,oneof" json:"workflow_name,omitempty"`
 	WorkspaceName  string                 `protobuf:"bytes,14,opt,name=workspace_name,json=workspaceName,proto3" json:"workspace_name,omitempty"`
+	Progression    *PetProgression        `protobuf:"bytes,15,opt,name=progression,proto3" json:"progression,omitempty"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
 }
@@ -1142,13 +1100,6 @@ func (*Pet) Descriptor() ([]byte, []int) {
 	return file_payload_gameplay_proto_rawDescGZIP(), []int{15}
 }
 
-func (x *Pet) GetAbility() *StatMap {
-	if x != nil {
-		return x.Ability
-	}
-	return nil
-}
-
 func (x *Pet) GetCreatedAt() string {
 	if x != nil {
 		return x.CreatedAt
@@ -1161,13 +1112,6 @@ func (x *Pet) GetDisplayName() string {
 		return x.DisplayName
 	}
 	return ""
-}
-
-func (x *Pet) GetExp() int64 {
-	if x != nil {
-		return x.Exp
-	}
-	return 0
 }
 
 func (x *Pet) GetId() string {
@@ -1184,14 +1128,7 @@ func (x *Pet) GetLastActiveAt() string {
 	return ""
 }
 
-func (x *Pet) GetLevel() int64 {
-	if x != nil {
-		return x.Level
-	}
-	return 0
-}
-
-func (x *Pet) GetLife() *StatMap {
+func (x *Pet) GetLife() *PetLife {
 	if x != nil {
 		return x.Life
 	}
@@ -1238,6 +1175,13 @@ func (x *Pet) GetWorkspaceName() string {
 		return x.WorkspaceName
 	}
 	return ""
+}
+
+func (x *Pet) GetProgression() *PetProgression {
+	if x != nil {
+		return x.Progression
+	}
+	return nil
 }
 
 type PetAdoptRequest struct {
@@ -2178,12 +2122,10 @@ func (x *PointsTransactionListResponse) GetNextCursor() string {
 
 type RewardGrant struct {
 	state          protoimpl.MessageState `protogen:"open.v1"`
-	AbilityDelta   *StatMap               `protobuf:"bytes,1,opt,name=ability_delta,json=abilityDelta,proto3,oneof" json:"ability_delta,omitempty"`
 	BadgeExpDelta  map[string]int64       `protobuf:"bytes,2,rep,name=badge_exp_delta,json=badgeExpDelta,proto3" json:"badge_exp_delta,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"varint,2,opt,name=value"`
 	CreatedAt      string                 `protobuf:"bytes,3,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	GameResultId   *string                `protobuf:"bytes,4,opt,name=game_result_id,json=gameResultId,proto3,oneof" json:"game_result_id,omitempty"`
 	Id             string                 `protobuf:"bytes,5,opt,name=id,proto3" json:"id,omitempty"`
-	LifeDelta      *StatMap               `protobuf:"bytes,6,opt,name=life_delta,json=lifeDelta,proto3,oneof" json:"life_delta,omitempty"`
 	OwnerPublicKey string                 `protobuf:"bytes,7,opt,name=owner_public_key,json=ownerPublicKey,proto3" json:"owner_public_key,omitempty"`
 	PetExpDelta    int64                  `protobuf:"varint,8,opt,name=pet_exp_delta,json=petExpDelta,proto3" json:"pet_exp_delta,omitempty"`
 	PetId          *string                `protobuf:"bytes,9,opt,name=pet_id,json=petId,proto3,oneof" json:"pet_id,omitempty"`
@@ -2226,13 +2168,6 @@ func (*RewardGrant) Descriptor() ([]byte, []int) {
 	return file_payload_gameplay_proto_rawDescGZIP(), []int{30}
 }
 
-func (x *RewardGrant) GetAbilityDelta() *StatMap {
-	if x != nil {
-		return x.AbilityDelta
-	}
-	return nil
-}
-
 func (x *RewardGrant) GetBadgeExpDelta() map[string]int64 {
 	if x != nil {
 		return x.BadgeExpDelta
@@ -2259,13 +2194,6 @@ func (x *RewardGrant) GetId() string {
 		return x.Id
 	}
 	return ""
-}
-
-func (x *RewardGrant) GetLifeDelta() *StatMap {
-	if x != nil {
-		return x.LifeDelta
-	}
-	return nil
 }
 
 func (x *RewardGrant) GetOwnerPublicKey() string {
@@ -3792,27 +3720,27 @@ func (x *ServerRewardGrantListResponse) GetValue() *RewardGrantListResponse {
 	return nil
 }
 
-type StatMap struct {
+type PetLife struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Value         map[string]int64       `protobuf:"bytes,1,rep,name=value,proto3" json:"value,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"varint,2,opt,name=value"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *StatMap) Reset() {
-	*x = StatMap{}
+func (x *PetLife) Reset() {
+	*x = PetLife{}
 	mi := &file_payload_gameplay_proto_msgTypes[64]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *StatMap) String() string {
+func (x *PetLife) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*StatMap) ProtoMessage() {}
+func (*PetLife) ProtoMessage() {}
 
-func (x *StatMap) ProtoReflect() protoreflect.Message {
+func (x *PetLife) ProtoReflect() protoreflect.Message {
 	mi := &file_payload_gameplay_proto_msgTypes[64]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -3824,12 +3752,56 @@ func (x *StatMap) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use StatMap.ProtoReflect.Descriptor instead.
-func (*StatMap) Descriptor() ([]byte, []int) {
+// Deprecated: Use PetLife.ProtoReflect.Descriptor instead.
+func (*PetLife) Descriptor() ([]byte, []int) {
 	return file_payload_gameplay_proto_rawDescGZIP(), []int{64}
 }
 
-func (x *StatMap) GetValue() map[string]int64 {
+func (x *PetLife) GetValue() map[string]int64 {
+	if x != nil {
+		return x.Value
+	}
+	return nil
+}
+
+type PetProgression struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Value         map[string]int64       `protobuf:"bytes,1,rep,name=value,proto3" json:"value,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"varint,2,opt,name=value"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PetProgression) Reset() {
+	*x = PetProgression{}
+	mi := &file_payload_gameplay_proto_msgTypes[65]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PetProgression) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PetProgression) ProtoMessage() {}
+
+func (x *PetProgression) ProtoReflect() protoreflect.Message {
+	mi := &file_payload_gameplay_proto_msgTypes[65]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PetProgression.ProtoReflect.Descriptor instead.
+func (*PetProgression) Descriptor() ([]byte, []int) {
+	return file_payload_gameplay_proto_rawDescGZIP(), []int{65}
+}
+
+func (x *PetProgression) GetValue() map[string]int64 {
 	if x != nil {
 		return x.Value
 	}
@@ -3906,19 +3878,14 @@ const file_payload_gameplay_proto_rawDesc = "" +
 	"\x05items\x18\x02 \x03(\v2\x1a.gizclaw.rpc.v1.GameResultR\x05items\x12$\n" +
 	"\vnext_cursor\x18\x03 \x01(\tH\x00R\n" +
 	"nextCursor\x88\x01\x01B\x0e\n" +
-	"\f_next_cursor\"\xc2\x03\n" +
-	"\x0eGameRewardSpec\x12A\n" +
-	"\rability_delta\x18\x01 \x01(\v2\x17.gizclaw.rpc.v1.StatMapH\x00R\fabilityDelta\x88\x01\x01\x12Y\n" +
-	"\x0fbadge_exp_delta\x18\x02 \x03(\v21.gizclaw.rpc.v1.GameRewardSpec.BadgeExpDeltaEntryR\rbadgeExpDelta\x12;\n" +
-	"\n" +
-	"life_delta\x18\x03 \x01(\v2\x17.gizclaw.rpc.v1.StatMapH\x01R\tlifeDelta\x88\x01\x01\x12'\n" +
-	"\rpet_exp_delta\x18\x04 \x01(\x03H\x02R\vpetExpDelta\x88\x01\x01\x12&\n" +
-	"\fpoints_delta\x18\x05 \x01(\x03H\x03R\vpointsDelta\x88\x01\x01\x1a@\n" +
+	"\f_next_cursor\"\xa1\x02\n" +
+	"\x0eGameRewardSpec\x12Y\n" +
+	"\x0fbadge_exp_delta\x18\x02 \x03(\v21.gizclaw.rpc.v1.GameRewardSpec.BadgeExpDeltaEntryR\rbadgeExpDelta\x12'\n" +
+	"\rpet_exp_delta\x18\x04 \x01(\x03H\x00R\vpetExpDelta\x88\x01\x01\x12&\n" +
+	"\fpoints_delta\x18\x05 \x01(\x03H\x01R\vpointsDelta\x88\x01\x01\x1a@\n" +
 	"\x12BadgeExpDeltaEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\x03R\x05value:\x028\x01B\x10\n" +
-	"\x0e_ability_deltaB\r\n" +
-	"\v_life_deltaB\x10\n" +
 	"\x0e_pet_exp_deltaB\x0f\n" +
 	"\r_points_delta\"\x94\x01\n" +
 	"\vGameRuleset\x12\x1d\n" +
@@ -3927,24 +3894,14 @@ const file_payload_gameplay_proto_rawDesc = "" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x123\n" +
 	"\x04spec\x18\x03 \x01(\v2\x1f.gizclaw.rpc.v1.GameRulesetSpecR\x04spec\x12\x1d\n" +
 	"\n" +
-	"updated_at\x18\x04 \x01(\tR\tupdatedAt\"\xf0\x05\n" +
-	"\x14GameRulesetDriveSpec\x12X\n" +
-	"\faction_costs\x18\x01 \x03(\v25.gizclaw.rpc.v1.GameRulesetDriveSpec.ActionCostsEntryR\vactionCosts\x12^\n" +
-	"\x0eaction_rewards\x18\x02 \x03(\v27.gizclaw.rpc.v1.GameRulesetDriveSpec.ActionRewardsEntryR\ractionRewards\x12J\n" +
+	"updated_at\x18\x04 \x01(\tR\tupdatedAt\"\xaf\x02\n" +
+	"\x14GameRulesetDriveSpec\x12J\n" +
 	"\x0edefault_reward\x18\x03 \x01(\v2\x1e.gizclaw.rpc.v1.GameRewardSpecH\x00R\rdefaultReward\x88\x01\x01\x12X\n" +
-	"\fgame_rewards\x18\x04 \x03(\v25.gizclaw.rpc.v1.GameRulesetDriveSpec.GameRewardsEntryR\vgameRewards\x12K\n" +
-	"\x13life_decay_per_hour\x18\x05 \x01(\v2\x17.gizclaw.rpc.v1.StatMapH\x01R\x10lifeDecayPerHour\x88\x01\x01\x1a>\n" +
-	"\x10ActionCostsEntry\x12\x10\n" +
-	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\x03R\x05value:\x028\x01\x1a`\n" +
-	"\x12ActionRewardsEntry\x12\x10\n" +
-	"\x03key\x18\x01 \x01(\tR\x03key\x124\n" +
-	"\x05value\x18\x02 \x01(\v2\x1e.gizclaw.rpc.v1.GameRewardSpecR\x05value:\x028\x01\x1a^\n" +
+	"\fgame_rewards\x18\x04 \x03(\v25.gizclaw.rpc.v1.GameRulesetDriveSpec.GameRewardsEntryR\vgameRewards\x1a^\n" +
 	"\x10GameRewardsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x124\n" +
 	"\x05value\x18\x02 \x01(\v2\x1e.gizclaw.rpc.v1.GameRewardSpecR\x05value:\x028\x01B\x11\n" +
-	"\x0f_default_rewardB\x16\n" +
-	"\x14_life_decay_per_hour\"\xee\x01\n" +
+	"\x0f_default_reward\"\xee\x01\n" +
 	"\x17GameRulesetPetPoolEntry\x12(\n" +
 	"\radoption_cost\x18\x01 \x01(\x03H\x00R\fadoptionCost\x88\x01\x01\x12\x1b\n" +
 	"\tpetdef_id\x18\x02 \x01(\tR\bpetdefId\x12\x1b\n" +
@@ -3981,17 +3938,14 @@ const file_payload_gameplay_proto_rawDesc = "" +
 	"\a_cursorB\b\n" +
 	"\x06_limit\"C\n" +
 	"\x10GameplayMetadata\x12/\n" +
-	"\x06fields\x18\x01 \x01(\v2\x17.google.protobuf.StructR\x06fields\"\xf1\x03\n" +
-	"\x03Pet\x121\n" +
-	"\aability\x18\x01 \x01(\v2\x17.gizclaw.rpc.v1.StatMapR\aability\x12\x1d\n" +
+	"\x06fields\x18\x01 \x01(\v2\x17.google.protobuf.StructR\x06fields\"\xd8\x03\n" +
+	"\x03Pet\x12\x1d\n" +
 	"\n" +
 	"created_at\x18\x02 \x01(\tR\tcreatedAt\x12!\n" +
-	"\fdisplay_name\x18\x03 \x01(\tR\vdisplayName\x12\x10\n" +
-	"\x03exp\x18\x04 \x01(\x03R\x03exp\x12\x0e\n" +
+	"\fdisplay_name\x18\x03 \x01(\tR\vdisplayName\x12\x0e\n" +
 	"\x02id\x18\x05 \x01(\tR\x02id\x12$\n" +
-	"\x0elast_active_at\x18\x06 \x01(\tR\flastActiveAt\x12\x14\n" +
-	"\x05level\x18\a \x01(\x03R\x05level\x12+\n" +
-	"\x04life\x18\b \x01(\v2\x17.gizclaw.rpc.v1.StatMapR\x04life\x12(\n" +
+	"\x0elast_active_at\x18\x06 \x01(\tR\flastActiveAt\x12+\n" +
+	"\x04life\x18\b \x01(\v2\x17.gizclaw.rpc.v1.PetLifeR\x04life\x12(\n" +
 	"\x10owner_public_key\x18\t \x01(\tR\x0eownerPublicKey\x12\x1b\n" +
 	"\tpetdef_id\x18\n" +
 	" \x01(\tR\bpetdefId\x12!\n" +
@@ -3999,7 +3953,8 @@ const file_payload_gameplay_proto_rawDesc = "" +
 	"\n" +
 	"updated_at\x18\f \x01(\tR\tupdatedAt\x12(\n" +
 	"\rworkflow_name\x18\r \x01(\tH\x00R\fworkflowName\x88\x01\x01\x12%\n" +
-	"\x0eworkspace_name\x18\x0e \x01(\tR\rworkspaceNameB\x10\n" +
+	"\x0eworkspace_name\x18\x0e \x01(\tR\rworkspaceName\x12@\n" +
+	"\vprogression\x18\x0f \x01(\v2\x1e.gizclaw.rpc.v1.PetProgressionR\vprogressionB\x10\n" +
 	"\x0e_workflow_name\"\x83\x01\n" +
 	"\x0fPetAdoptRequest\x12&\n" +
 	"\fdisplay_name\x18\x01 \x01(\tH\x00R\vdisplayName\x88\x01\x01\x12&\n" +
@@ -4105,32 +4060,27 @@ const file_payload_gameplay_proto_rawDesc = "" +
 	"\x05items\x18\x02 \x03(\v2!.gizclaw.rpc.v1.PointsTransactionR\x05items\x12$\n" +
 	"\vnext_cursor\x18\x03 \x01(\tH\x00R\n" +
 	"nextCursor\x88\x01\x01B\x0e\n" +
-	"\f_next_cursor\"\xd6\x05\n" +
-	"\vRewardGrant\x12A\n" +
-	"\rability_delta\x18\x01 \x01(\v2\x17.gizclaw.rpc.v1.StatMapH\x00R\fabilityDelta\x88\x01\x01\x12V\n" +
+	"\f_next_cursor\"\xb5\x04\n" +
+	"\vRewardGrant\x12V\n" +
 	"\x0fbadge_exp_delta\x18\x02 \x03(\v2..gizclaw.rpc.v1.RewardGrant.BadgeExpDeltaEntryR\rbadgeExpDelta\x12\x1d\n" +
 	"\n" +
 	"created_at\x18\x03 \x01(\tR\tcreatedAt\x12)\n" +
-	"\x0egame_result_id\x18\x04 \x01(\tH\x01R\fgameResultId\x88\x01\x01\x12\x0e\n" +
-	"\x02id\x18\x05 \x01(\tR\x02id\x12;\n" +
-	"\n" +
-	"life_delta\x18\x06 \x01(\v2\x17.gizclaw.rpc.v1.StatMapH\x02R\tlifeDelta\x88\x01\x01\x12(\n" +
+	"\x0egame_result_id\x18\x04 \x01(\tH\x00R\fgameResultId\x88\x01\x01\x12\x0e\n" +
+	"\x02id\x18\x05 \x01(\tR\x02id\x12(\n" +
 	"\x10owner_public_key\x18\a \x01(\tR\x0eownerPublicKey\x12\"\n" +
 	"\rpet_exp_delta\x18\b \x01(\x03R\vpetExpDelta\x12\x1a\n" +
-	"\x06pet_id\x18\t \x01(\tH\x03R\x05petId\x88\x01\x01\x12!\n" +
+	"\x06pet_id\x18\t \x01(\tH\x01R\x05petId\x88\x01\x01\x12!\n" +
 	"\fpoints_delta\x18\n" +
 	" \x01(\x03R\vpointsDelta\x12\x1b\n" +
-	"\x06reason\x18\v \x01(\tH\x04R\x06reason\x88\x01\x01\x12!\n" +
+	"\x06reason\x18\v \x01(\tH\x02R\x06reason\x88\x01\x01\x12!\n" +
 	"\fruleset_name\x18\f \x01(\tR\vrulesetName\x12\x1b\n" +
 	"\tsource_id\x18\r \x01(\tR\bsourceId\x12\x1f\n" +
 	"\vsource_type\x18\x0e \x01(\tR\n" +
 	"sourceType\x1a@\n" +
 	"\x12BadgeExpDeltaEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\x03R\x05value:\x028\x01B\x10\n" +
-	"\x0e_ability_deltaB\x11\n" +
-	"\x0f_game_result_idB\r\n" +
-	"\v_life_deltaB\t\n" +
+	"\x05value\x18\x02 \x01(\x03R\x05value:\x028\x01B\x11\n" +
+	"\x0f_game_result_idB\t\n" +
 	"\a_pet_idB\t\n" +
 	"\a_reason\"\x9d\x01\n" +
 	"\x17RewardGrantListResponse\x12\x19\n" +
@@ -4205,8 +4155,14 @@ const file_payload_gameplay_proto_rawDesc = "" +
 	"\x05value\x18\x01 \x01(\v2#.gizclaw.rpc.v1.GameplayListRequestR\x05value\"^\n" +
 	"\x1dServerRewardGrantListResponse\x12=\n" +
 	"\x05value\x18\x01 \x01(\v2'.gizclaw.rpc.v1.RewardGrantListResponseR\x05value\"}\n" +
-	"\aStatMap\x128\n" +
-	"\x05value\x18\x01 \x03(\v2\".gizclaw.rpc.v1.StatMap.ValueEntryR\x05value\x1a8\n" +
+	"\aPetLife\x128\n" +
+	"\x05value\x18\x01 \x03(\v2\".gizclaw.rpc.v1.PetLife.ValueEntryR\x05value\x1a8\n" +
+	"\n" +
+	"ValueEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\x03R\x05value:\x028\x01\"\x8b\x01\n" +
+	"\x0ePetProgression\x12?\n" +
+	"\x05value\x18\x01 \x03(\v2).gizclaw.rpc.v1.PetProgression.ValueEntryR\x05value\x1a8\n" +
 	"\n" +
 	"ValueEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
@@ -4290,90 +4246,83 @@ var file_payload_gameplay_proto_goTypes = []any{
 	(*ServerRewardGrantGetResponse)(nil),        // 61: gizclaw.rpc.v1.ServerRewardGrantGetResponse
 	(*ServerRewardGrantListRequest)(nil),        // 62: gizclaw.rpc.v1.ServerRewardGrantListRequest
 	(*ServerRewardGrantListResponse)(nil),       // 63: gizclaw.rpc.v1.ServerRewardGrantListResponse
-	(*StatMap)(nil),                             // 64: gizclaw.rpc.v1.StatMap
-	nil,                                         // 65: gizclaw.rpc.v1.GameRewardSpec.BadgeExpDeltaEntry
-	nil,                                         // 66: gizclaw.rpc.v1.GameRulesetDriveSpec.ActionCostsEntry
-	nil,                                         // 67: gizclaw.rpc.v1.GameRulesetDriveSpec.ActionRewardsEntry
-	nil,                                         // 68: gizclaw.rpc.v1.GameRulesetDriveSpec.GameRewardsEntry
-	nil,                                         // 69: gizclaw.rpc.v1.RewardGrant.BadgeExpDeltaEntry
-	nil,                                         // 70: gizclaw.rpc.v1.StatMap.ValueEntry
+	(*PetLife)(nil),                             // 64: gizclaw.rpc.v1.PetLife
+	(*PetProgression)(nil),                      // 65: gizclaw.rpc.v1.PetProgression
+	nil,                                         // 66: gizclaw.rpc.v1.GameRewardSpec.BadgeExpDeltaEntry
+	nil,                                         // 67: gizclaw.rpc.v1.GameRulesetDriveSpec.GameRewardsEntry
+	nil,                                         // 68: gizclaw.rpc.v1.RewardGrant.BadgeExpDeltaEntry
+	nil,                                         // 69: gizclaw.rpc.v1.PetLife.ValueEntry
+	nil,                                         // 70: gizclaw.rpc.v1.PetProgression.ValueEntry
 	(*structpb.Struct)(nil),                     // 71: google.protobuf.Struct
 }
 var file_payload_gameplay_proto_depIdxs = []int32{
 	0,  // 0: gizclaw.rpc.v1.BadgeListResponse.items:type_name -> gizclaw.rpc.v1.Badge
 	14, // 1: gizclaw.rpc.v1.GameResult.payload:type_name -> gizclaw.rpc.v1.GameplayMetadata
 	4,  // 2: gizclaw.rpc.v1.GameResultListResponse.items:type_name -> gizclaw.rpc.v1.GameResult
-	64, // 3: gizclaw.rpc.v1.GameRewardSpec.ability_delta:type_name -> gizclaw.rpc.v1.StatMap
-	65, // 4: gizclaw.rpc.v1.GameRewardSpec.badge_exp_delta:type_name -> gizclaw.rpc.v1.GameRewardSpec.BadgeExpDeltaEntry
-	64, // 5: gizclaw.rpc.v1.GameRewardSpec.life_delta:type_name -> gizclaw.rpc.v1.StatMap
-	11, // 6: gizclaw.rpc.v1.GameRuleset.spec:type_name -> gizclaw.rpc.v1.GameRulesetSpec
-	66, // 7: gizclaw.rpc.v1.GameRulesetDriveSpec.action_costs:type_name -> gizclaw.rpc.v1.GameRulesetDriveSpec.ActionCostsEntry
-	67, // 8: gizclaw.rpc.v1.GameRulesetDriveSpec.action_rewards:type_name -> gizclaw.rpc.v1.GameRulesetDriveSpec.ActionRewardsEntry
-	6,  // 9: gizclaw.rpc.v1.GameRulesetDriveSpec.default_reward:type_name -> gizclaw.rpc.v1.GameRewardSpec
-	68, // 10: gizclaw.rpc.v1.GameRulesetDriveSpec.game_rewards:type_name -> gizclaw.rpc.v1.GameRulesetDriveSpec.GameRewardsEntry
-	64, // 11: gizclaw.rpc.v1.GameRulesetDriveSpec.life_decay_per_hour:type_name -> gizclaw.rpc.v1.StatMap
-	8,  // 12: gizclaw.rpc.v1.GameRulesetSpec.drive:type_name -> gizclaw.rpc.v1.GameRulesetDriveSpec
-	14, // 13: gizclaw.rpc.v1.GameRulesetSpec.metadata:type_name -> gizclaw.rpc.v1.GameplayMetadata
-	9,  // 14: gizclaw.rpc.v1.GameRulesetSpec.pet_pool:type_name -> gizclaw.rpc.v1.GameRulesetPetPoolEntry
-	10, // 15: gizclaw.rpc.v1.GameRulesetSpec.points:type_name -> gizclaw.rpc.v1.GameRulesetPointsSpec
-	71, // 16: gizclaw.rpc.v1.GameplayMetadata.fields:type_name -> google.protobuf.Struct
-	64, // 17: gizclaw.rpc.v1.Pet.ability:type_name -> gizclaw.rpc.v1.StatMap
-	64, // 18: gizclaw.rpc.v1.Pet.life:type_name -> gizclaw.rpc.v1.StatMap
-	15, // 19: gizclaw.rpc.v1.PetAdoptResponse.pet:type_name -> gizclaw.rpc.v1.Pet
-	27, // 20: gizclaw.rpc.v1.PetAdoptResponse.points:type_name -> gizclaw.rpc.v1.PointsAccount
-	28, // 21: gizclaw.rpc.v1.PetAdoptResponse.transaction:type_name -> gizclaw.rpc.v1.PointsTransaction
-	14, // 22: gizclaw.rpc.v1.PetDriveGameResultInput.payload:type_name -> gizclaw.rpc.v1.GameplayMetadata
-	21, // 23: gizclaw.rpc.v1.PetDriveRequest.game_result:type_name -> gizclaw.rpc.v1.PetDriveGameResultInput
-	0,  // 24: gizclaw.rpc.v1.PetDriveResponse.badges:type_name -> gizclaw.rpc.v1.Badge
-	4,  // 25: gizclaw.rpc.v1.PetDriveResponse.game_result:type_name -> gizclaw.rpc.v1.GameResult
-	15, // 26: gizclaw.rpc.v1.PetDriveResponse.pet:type_name -> gizclaw.rpc.v1.Pet
-	27, // 27: gizclaw.rpc.v1.PetDriveResponse.points:type_name -> gizclaw.rpc.v1.PointsAccount
-	30, // 28: gizclaw.rpc.v1.PetDriveResponse.reward_grants:type_name -> gizclaw.rpc.v1.RewardGrant
-	28, // 29: gizclaw.rpc.v1.PetDriveResponse.transactions:type_name -> gizclaw.rpc.v1.PointsTransaction
-	15, // 30: gizclaw.rpc.v1.PetListResponse.items:type_name -> gizclaw.rpc.v1.Pet
-	28, // 31: gizclaw.rpc.v1.PointsTransactionListResponse.items:type_name -> gizclaw.rpc.v1.PointsTransaction
-	64, // 32: gizclaw.rpc.v1.RewardGrant.ability_delta:type_name -> gizclaw.rpc.v1.StatMap
-	69, // 33: gizclaw.rpc.v1.RewardGrant.badge_exp_delta:type_name -> gizclaw.rpc.v1.RewardGrant.BadgeExpDeltaEntry
-	64, // 34: gizclaw.rpc.v1.RewardGrant.life_delta:type_name -> gizclaw.rpc.v1.StatMap
-	30, // 35: gizclaw.rpc.v1.RewardGrantListResponse.items:type_name -> gizclaw.rpc.v1.RewardGrant
-	12, // 36: gizclaw.rpc.v1.ServerBadgeGetRequest.value:type_name -> gizclaw.rpc.v1.GameplayGetRequest
-	0,  // 37: gizclaw.rpc.v1.ServerBadgeGetResponse.value:type_name -> gizclaw.rpc.v1.Badge
-	13, // 38: gizclaw.rpc.v1.ServerBadgeListRequest.value:type_name -> gizclaw.rpc.v1.GameplayListRequest
-	3,  // 39: gizclaw.rpc.v1.ServerBadgeListResponse.value:type_name -> gizclaw.rpc.v1.BadgeListResponse
-	12, // 40: gizclaw.rpc.v1.ServerGameResultGetRequest.value:type_name -> gizclaw.rpc.v1.GameplayGetRequest
-	4,  // 41: gizclaw.rpc.v1.ServerGameResultGetResponse.value:type_name -> gizclaw.rpc.v1.GameResult
-	13, // 42: gizclaw.rpc.v1.ServerGameResultListRequest.value:type_name -> gizclaw.rpc.v1.GameplayListRequest
-	5,  // 43: gizclaw.rpc.v1.ServerGameResultListResponse.value:type_name -> gizclaw.rpc.v1.GameResultListResponse
-	7,  // 44: gizclaw.rpc.v1.ServerGameRulesetGetResponse.value:type_name -> gizclaw.rpc.v1.GameRuleset
-	16, // 45: gizclaw.rpc.v1.ServerPetAdoptRequest.value:type_name -> gizclaw.rpc.v1.PetAdoptRequest
-	17, // 46: gizclaw.rpc.v1.ServerPetAdoptResponse.value:type_name -> gizclaw.rpc.v1.PetAdoptResponse
-	20, // 47: gizclaw.rpc.v1.ServerPetDeleteRequest.value:type_name -> gizclaw.rpc.v1.PetDeleteRequest
-	15, // 48: gizclaw.rpc.v1.ServerPetDeleteResponse.value:type_name -> gizclaw.rpc.v1.Pet
-	22, // 49: gizclaw.rpc.v1.ServerPetDriveRequest.value:type_name -> gizclaw.rpc.v1.PetDriveRequest
-	23, // 50: gizclaw.rpc.v1.ServerPetDriveResponse.value:type_name -> gizclaw.rpc.v1.PetDriveResponse
-	24, // 51: gizclaw.rpc.v1.ServerPetGetRequest.value:type_name -> gizclaw.rpc.v1.PetGetRequest
-	15, // 52: gizclaw.rpc.v1.ServerPetGetResponse.value:type_name -> gizclaw.rpc.v1.Pet
-	13, // 53: gizclaw.rpc.v1.ServerPetListRequest.value:type_name -> gizclaw.rpc.v1.GameplayListRequest
-	25, // 54: gizclaw.rpc.v1.ServerPetListResponse.value:type_name -> gizclaw.rpc.v1.PetListResponse
-	26, // 55: gizclaw.rpc.v1.ServerPetPutRequest.value:type_name -> gizclaw.rpc.v1.PetPutRequest
-	15, // 56: gizclaw.rpc.v1.ServerPetPutResponse.value:type_name -> gizclaw.rpc.v1.Pet
-	27, // 57: gizclaw.rpc.v1.ServerPointsGetResponse.value:type_name -> gizclaw.rpc.v1.PointsAccount
-	12, // 58: gizclaw.rpc.v1.ServerPointsTransactionGetRequest.value:type_name -> gizclaw.rpc.v1.GameplayGetRequest
-	28, // 59: gizclaw.rpc.v1.ServerPointsTransactionGetResponse.value:type_name -> gizclaw.rpc.v1.PointsTransaction
-	13, // 60: gizclaw.rpc.v1.ServerPointsTransactionListRequest.value:type_name -> gizclaw.rpc.v1.GameplayListRequest
-	29, // 61: gizclaw.rpc.v1.ServerPointsTransactionListResponse.value:type_name -> gizclaw.rpc.v1.PointsTransactionListResponse
-	12, // 62: gizclaw.rpc.v1.ServerRewardGrantGetRequest.value:type_name -> gizclaw.rpc.v1.GameplayGetRequest
-	30, // 63: gizclaw.rpc.v1.ServerRewardGrantGetResponse.value:type_name -> gizclaw.rpc.v1.RewardGrant
-	13, // 64: gizclaw.rpc.v1.ServerRewardGrantListRequest.value:type_name -> gizclaw.rpc.v1.GameplayListRequest
-	31, // 65: gizclaw.rpc.v1.ServerRewardGrantListResponse.value:type_name -> gizclaw.rpc.v1.RewardGrantListResponse
-	70, // 66: gizclaw.rpc.v1.StatMap.value:type_name -> gizclaw.rpc.v1.StatMap.ValueEntry
-	6,  // 67: gizclaw.rpc.v1.GameRulesetDriveSpec.ActionRewardsEntry.value:type_name -> gizclaw.rpc.v1.GameRewardSpec
-	6,  // 68: gizclaw.rpc.v1.GameRulesetDriveSpec.GameRewardsEntry.value:type_name -> gizclaw.rpc.v1.GameRewardSpec
-	69, // [69:69] is the sub-list for method output_type
-	69, // [69:69] is the sub-list for method input_type
-	69, // [69:69] is the sub-list for extension type_name
-	69, // [69:69] is the sub-list for extension extendee
-	0,  // [0:69] is the sub-list for field type_name
+	66, // 3: gizclaw.rpc.v1.GameRewardSpec.badge_exp_delta:type_name -> gizclaw.rpc.v1.GameRewardSpec.BadgeExpDeltaEntry
+	11, // 4: gizclaw.rpc.v1.GameRuleset.spec:type_name -> gizclaw.rpc.v1.GameRulesetSpec
+	6,  // 5: gizclaw.rpc.v1.GameRulesetDriveSpec.default_reward:type_name -> gizclaw.rpc.v1.GameRewardSpec
+	67, // 6: gizclaw.rpc.v1.GameRulesetDriveSpec.game_rewards:type_name -> gizclaw.rpc.v1.GameRulesetDriveSpec.GameRewardsEntry
+	8,  // 7: gizclaw.rpc.v1.GameRulesetSpec.drive:type_name -> gizclaw.rpc.v1.GameRulesetDriveSpec
+	14, // 8: gizclaw.rpc.v1.GameRulesetSpec.metadata:type_name -> gizclaw.rpc.v1.GameplayMetadata
+	9,  // 9: gizclaw.rpc.v1.GameRulesetSpec.pet_pool:type_name -> gizclaw.rpc.v1.GameRulesetPetPoolEntry
+	10, // 10: gizclaw.rpc.v1.GameRulesetSpec.points:type_name -> gizclaw.rpc.v1.GameRulesetPointsSpec
+	71, // 11: gizclaw.rpc.v1.GameplayMetadata.fields:type_name -> google.protobuf.Struct
+	64, // 12: gizclaw.rpc.v1.Pet.life:type_name -> gizclaw.rpc.v1.PetLife
+	65, // 13: gizclaw.rpc.v1.Pet.progression:type_name -> gizclaw.rpc.v1.PetProgression
+	15, // 14: gizclaw.rpc.v1.PetAdoptResponse.pet:type_name -> gizclaw.rpc.v1.Pet
+	27, // 15: gizclaw.rpc.v1.PetAdoptResponse.points:type_name -> gizclaw.rpc.v1.PointsAccount
+	28, // 16: gizclaw.rpc.v1.PetAdoptResponse.transaction:type_name -> gizclaw.rpc.v1.PointsTransaction
+	14, // 17: gizclaw.rpc.v1.PetDriveGameResultInput.payload:type_name -> gizclaw.rpc.v1.GameplayMetadata
+	21, // 18: gizclaw.rpc.v1.PetDriveRequest.game_result:type_name -> gizclaw.rpc.v1.PetDriveGameResultInput
+	0,  // 19: gizclaw.rpc.v1.PetDriveResponse.badges:type_name -> gizclaw.rpc.v1.Badge
+	4,  // 20: gizclaw.rpc.v1.PetDriveResponse.game_result:type_name -> gizclaw.rpc.v1.GameResult
+	15, // 21: gizclaw.rpc.v1.PetDriveResponse.pet:type_name -> gizclaw.rpc.v1.Pet
+	27, // 22: gizclaw.rpc.v1.PetDriveResponse.points:type_name -> gizclaw.rpc.v1.PointsAccount
+	30, // 23: gizclaw.rpc.v1.PetDriveResponse.reward_grants:type_name -> gizclaw.rpc.v1.RewardGrant
+	28, // 24: gizclaw.rpc.v1.PetDriveResponse.transactions:type_name -> gizclaw.rpc.v1.PointsTransaction
+	15, // 25: gizclaw.rpc.v1.PetListResponse.items:type_name -> gizclaw.rpc.v1.Pet
+	28, // 26: gizclaw.rpc.v1.PointsTransactionListResponse.items:type_name -> gizclaw.rpc.v1.PointsTransaction
+	68, // 27: gizclaw.rpc.v1.RewardGrant.badge_exp_delta:type_name -> gizclaw.rpc.v1.RewardGrant.BadgeExpDeltaEntry
+	30, // 28: gizclaw.rpc.v1.RewardGrantListResponse.items:type_name -> gizclaw.rpc.v1.RewardGrant
+	12, // 29: gizclaw.rpc.v1.ServerBadgeGetRequest.value:type_name -> gizclaw.rpc.v1.GameplayGetRequest
+	0,  // 30: gizclaw.rpc.v1.ServerBadgeGetResponse.value:type_name -> gizclaw.rpc.v1.Badge
+	13, // 31: gizclaw.rpc.v1.ServerBadgeListRequest.value:type_name -> gizclaw.rpc.v1.GameplayListRequest
+	3,  // 32: gizclaw.rpc.v1.ServerBadgeListResponse.value:type_name -> gizclaw.rpc.v1.BadgeListResponse
+	12, // 33: gizclaw.rpc.v1.ServerGameResultGetRequest.value:type_name -> gizclaw.rpc.v1.GameplayGetRequest
+	4,  // 34: gizclaw.rpc.v1.ServerGameResultGetResponse.value:type_name -> gizclaw.rpc.v1.GameResult
+	13, // 35: gizclaw.rpc.v1.ServerGameResultListRequest.value:type_name -> gizclaw.rpc.v1.GameplayListRequest
+	5,  // 36: gizclaw.rpc.v1.ServerGameResultListResponse.value:type_name -> gizclaw.rpc.v1.GameResultListResponse
+	7,  // 37: gizclaw.rpc.v1.ServerGameRulesetGetResponse.value:type_name -> gizclaw.rpc.v1.GameRuleset
+	16, // 38: gizclaw.rpc.v1.ServerPetAdoptRequest.value:type_name -> gizclaw.rpc.v1.PetAdoptRequest
+	17, // 39: gizclaw.rpc.v1.ServerPetAdoptResponse.value:type_name -> gizclaw.rpc.v1.PetAdoptResponse
+	20, // 40: gizclaw.rpc.v1.ServerPetDeleteRequest.value:type_name -> gizclaw.rpc.v1.PetDeleteRequest
+	15, // 41: gizclaw.rpc.v1.ServerPetDeleteResponse.value:type_name -> gizclaw.rpc.v1.Pet
+	22, // 42: gizclaw.rpc.v1.ServerPetDriveRequest.value:type_name -> gizclaw.rpc.v1.PetDriveRequest
+	23, // 43: gizclaw.rpc.v1.ServerPetDriveResponse.value:type_name -> gizclaw.rpc.v1.PetDriveResponse
+	24, // 44: gizclaw.rpc.v1.ServerPetGetRequest.value:type_name -> gizclaw.rpc.v1.PetGetRequest
+	15, // 45: gizclaw.rpc.v1.ServerPetGetResponse.value:type_name -> gizclaw.rpc.v1.Pet
+	13, // 46: gizclaw.rpc.v1.ServerPetListRequest.value:type_name -> gizclaw.rpc.v1.GameplayListRequest
+	25, // 47: gizclaw.rpc.v1.ServerPetListResponse.value:type_name -> gizclaw.rpc.v1.PetListResponse
+	26, // 48: gizclaw.rpc.v1.ServerPetPutRequest.value:type_name -> gizclaw.rpc.v1.PetPutRequest
+	15, // 49: gizclaw.rpc.v1.ServerPetPutResponse.value:type_name -> gizclaw.rpc.v1.Pet
+	27, // 50: gizclaw.rpc.v1.ServerPointsGetResponse.value:type_name -> gizclaw.rpc.v1.PointsAccount
+	12, // 51: gizclaw.rpc.v1.ServerPointsTransactionGetRequest.value:type_name -> gizclaw.rpc.v1.GameplayGetRequest
+	28, // 52: gizclaw.rpc.v1.ServerPointsTransactionGetResponse.value:type_name -> gizclaw.rpc.v1.PointsTransaction
+	13, // 53: gizclaw.rpc.v1.ServerPointsTransactionListRequest.value:type_name -> gizclaw.rpc.v1.GameplayListRequest
+	29, // 54: gizclaw.rpc.v1.ServerPointsTransactionListResponse.value:type_name -> gizclaw.rpc.v1.PointsTransactionListResponse
+	12, // 55: gizclaw.rpc.v1.ServerRewardGrantGetRequest.value:type_name -> gizclaw.rpc.v1.GameplayGetRequest
+	30, // 56: gizclaw.rpc.v1.ServerRewardGrantGetResponse.value:type_name -> gizclaw.rpc.v1.RewardGrant
+	13, // 57: gizclaw.rpc.v1.ServerRewardGrantListRequest.value:type_name -> gizclaw.rpc.v1.GameplayListRequest
+	31, // 58: gizclaw.rpc.v1.ServerRewardGrantListResponse.value:type_name -> gizclaw.rpc.v1.RewardGrantListResponse
+	69, // 59: gizclaw.rpc.v1.PetLife.value:type_name -> gizclaw.rpc.v1.PetLife.ValueEntry
+	70, // 60: gizclaw.rpc.v1.PetProgression.value:type_name -> gizclaw.rpc.v1.PetProgression.ValueEntry
+	6,  // 61: gizclaw.rpc.v1.GameRulesetDriveSpec.GameRewardsEntry.value:type_name -> gizclaw.rpc.v1.GameRewardSpec
+	62, // [62:62] is the sub-list for method output_type
+	62, // [62:62] is the sub-list for method input_type
+	62, // [62:62] is the sub-list for extension type_name
+	62, // [62:62] is the sub-list for extension extendee
+	0,  // [0:62] is the sub-list for field type_name
 }
 
 func init() { file_payload_gameplay_proto_init() }

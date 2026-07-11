@@ -668,14 +668,217 @@ func (c *Catalog) buildPetDef(id string, spec apitypes.PetDefSpec, pixaPath *str
 	if id == "" {
 		return apitypes.PetDef{}, errors.New("id is required")
 	}
-	if strings.TrimSpace(spec.DisplayName) == "" {
-		return apitypes.PetDef{}, errors.New("display_name is required")
+	if err := validatePetDefSpec(spec); err != nil {
+		return apitypes.PetDef{}, err
 	}
 	now := c.now()
 	if createdAt.IsZero() {
 		createdAt = now
 	}
 	return apitypes.PetDef{Id: id, Spec: spec, PixaPath: pixaPath, CreatedAt: createdAt, UpdatedAt: now}, nil
+}
+
+func validatePetDefSpec(spec apitypes.PetDefSpec) error {
+	if strings.TrimSpace(spec.DefaultLocale) == "" {
+		return errors.New("default_locale is required")
+	}
+	if err := validatePetAttrGroup("attr.life", spec.Attr.Life); err != nil {
+		return err
+	}
+	if err := validatePetAttrGroup("attr.progression", spec.Attr.Progression); err != nil {
+		return err
+	}
+	if _, ok := spec.Attr.Progression["xp"]; !ok {
+		return errors.New("attr.progression.xp is required")
+	}
+	if strings.TrimSpace(spec.Character.Prompt) == "" {
+		return errors.New("character.prompt is required")
+	}
+	if strings.TrimSpace(spec.Voice.VoiceId) == "" {
+		return errors.New("voice.voice_id is required")
+	}
+	if strings.TrimSpace(spec.Voice.Prompt) == "" {
+		return errors.New("voice.prompt is required")
+	}
+	if err := validatePetDefVisual(spec.Visual); err != nil {
+		return err
+	}
+	if err := validatePetDefDrive(spec.Drive, spec.Visual.Pixa.Metadata.Clips, spec.Attr); err != nil {
+		return err
+	}
+	locale, ok := spec.I18n[spec.DefaultLocale]
+	if !ok {
+		return fmt.Errorf("i18n.%s is required", spec.DefaultLocale)
+	}
+	if locale.DisplayName == nil || strings.TrimSpace(*locale.DisplayName) == "" {
+		return fmt.Errorf("i18n.%s.display_name is required", spec.DefaultLocale)
+	}
+	if locale.Description == nil || strings.TrimSpace(*locale.Description) == "" {
+		return fmt.Errorf("i18n.%s.description is required", spec.DefaultLocale)
+	}
+	if err := validatePetDefI18n(spec); err != nil {
+		return err
+	}
+	return nil
+}
+
+func validatePetAttrGroup(path string, group apitypes.PetAttrGroupSpec) error {
+	if len(group) == 0 {
+		return fmt.Errorf("%s must define at least one attribute", path)
+	}
+	for id := range group {
+		id = strings.TrimSpace(id)
+		if id == "" {
+			return fmt.Errorf("%s contains an empty attribute id", path)
+		}
+		switch id {
+		case "initial", "display_name", "description":
+			return fmt.Errorf("%s.%s uses a reserved attribute id", path, id)
+		}
+	}
+	return nil
+}
+
+func validatePetDefVisual(visual apitypes.PetDefVisualSpec) error {
+	if strings.TrimSpace(visual.Pixa.AssetRef) == "" {
+		return errors.New("visual.pixa.asset_ref is required")
+	}
+	if strings.TrimSpace(visual.Pixa.Metadata.Version) == "" {
+		return errors.New("visual.pixa.metadata.version is required")
+	}
+	if strings.TrimSpace(visual.Pixa.Metadata.Version) != "1" {
+		return errors.New("visual.pixa.metadata.version must be 1")
+	}
+	if visual.Pixa.Metadata.Canvas.Width <= 0 || visual.Pixa.Metadata.Canvas.Height <= 0 {
+		return errors.New("visual.pixa.metadata.canvas width and height must be positive")
+	}
+	if len(visual.Pixa.Metadata.Clips) == 0 {
+		return errors.New("visual.pixa.metadata.clips is required")
+	}
+	seenIDs := map[string]struct{}{}
+	seenPixaClipNames := map[string]struct{}{}
+	for i, clip := range visual.Pixa.Metadata.Clips {
+		id := strings.TrimSpace(clip.Id)
+		if id == "" {
+			return fmt.Errorf("visual.pixa.metadata.clips[%d].id is required", i)
+		}
+		if _, ok := seenIDs[id]; ok {
+			return fmt.Errorf("visual.pixa.metadata.clips[%d].id %q is duplicated", i, id)
+		}
+		seenIDs[id] = struct{}{}
+		pixaClipName := strings.TrimSpace(clip.PixaClipName)
+		if pixaClipName == "" {
+			return fmt.Errorf("visual.pixa.metadata.clips[%d].pixa_clip_name is required", i)
+		}
+		if _, ok := seenPixaClipNames[pixaClipName]; ok {
+			return fmt.Errorf("visual.pixa.metadata.clips[%d].pixa_clip_name %q is duplicated", i, pixaClipName)
+		}
+		seenPixaClipNames[pixaClipName] = struct{}{}
+	}
+	return nil
+}
+
+func validatePetDefDrive(drive apitypes.PetDefDriveSpec, clips []apitypes.PetDefPixaClipMetadata, attr apitypes.PetDefAttrSpec) error {
+	if len(drive.Actions) == 0 {
+		return errors.New("drive.actions is required")
+	}
+	clipIDs := map[string]struct{}{}
+	for _, clip := range clips {
+		clipIDs[clip.Id] = struct{}{}
+	}
+	seen := map[string]struct{}{}
+	for i, action := range drive.Actions {
+		id := strings.TrimSpace(action.Id)
+		if id == "" {
+			return fmt.Errorf("drive.actions[%d].id is required", i)
+		}
+		if _, ok := seen[id]; ok {
+			return fmt.Errorf("drive.actions[%d].id %q is duplicated", i, id)
+		}
+		seen[id] = struct{}{}
+		if action.Cost < 0 {
+			return fmt.Errorf("drive.actions[%d].cost must be non-negative", i)
+		}
+		if action.VisualClipId != nil {
+			clipID := strings.TrimSpace(*action.VisualClipId)
+			if clipID == "" {
+				return fmt.Errorf("drive.actions[%d].visual_clip_id must not be empty", i)
+			}
+			if _, ok := clipIDs[clipID]; !ok {
+				return fmt.Errorf("drive.actions[%d].visual_clip_id %q is not in visual.pixa.metadata.clips", i, clipID)
+			}
+		}
+		if action.Effect != nil && action.Effect.AttrDelta != nil && action.Effect.AttrDelta.Life != nil {
+			for attrID := range *action.Effect.AttrDelta.Life {
+				if strings.TrimSpace(attrID) == "" {
+					return fmt.Errorf("drive.actions[%d].effect.attr_delta.life contains an empty attribute id", i)
+				}
+				if _, ok := attr.Life[attrID]; !ok {
+					return fmt.Errorf("drive.actions[%d].effect.attr_delta.life.%s does not match a PetDef life attribute", i, attrID)
+				}
+			}
+		}
+	}
+	for i, clip := range clips {
+		if clip.ActionId == nil {
+			continue
+		}
+		actionID := strings.TrimSpace(*clip.ActionId)
+		if actionID == "" {
+			return fmt.Errorf("visual.pixa.metadata.clips[%d].action_id must not be empty", i)
+		}
+		if _, ok := seen[actionID]; !ok {
+			return fmt.Errorf("visual.pixa.metadata.clips[%d].action_id %q is not in drive.actions", i, actionID)
+		}
+	}
+	return nil
+}
+
+func validatePetDefI18n(spec apitypes.PetDefSpec) error {
+	for localeName, locale := range spec.I18n {
+		if strings.TrimSpace(localeName) == "" {
+			return errors.New("i18n contains an empty locale")
+		}
+		if locale.Attr != nil {
+			if err := validateI18nAttrGroup("i18n."+localeName+".attr.life", locale.Attr.Life, spec.Attr.Life); err != nil {
+				return err
+			}
+			if err := validateI18nAttrGroup("i18n."+localeName+".attr.progression", locale.Attr.Progression, spec.Attr.Progression); err != nil {
+				return err
+			}
+		}
+		if locale.Drive != nil && locale.Drive.Actions != nil {
+			actionIDs := map[string]struct{}{}
+			for _, action := range spec.Drive.Actions {
+				actionIDs[action.Id] = struct{}{}
+			}
+			for actionID := range *locale.Drive.Actions {
+				text := (*locale.Drive.Actions)[actionID]
+				if _, ok := actionIDs[actionID]; !ok {
+					return fmt.Errorf("i18n.%s.drive.actions.%s does not match a drive action", localeName, actionID)
+				}
+				if strings.TrimSpace(text.DisplayName) == "" {
+					return fmt.Errorf("i18n.%s.drive.actions.%s.display_name is required", localeName, actionID)
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func validateI18nAttrGroup(path string, values *apitypes.PetDefI18nAttrGroup, defs apitypes.PetAttrGroupSpec) error {
+	if values == nil {
+		return nil
+	}
+	for attrID, text := range *values {
+		if _, ok := defs[attrID]; !ok {
+			return fmt.Errorf("%s.%s does not match a PetDef attribute", path, attrID)
+		}
+		if strings.TrimSpace(text.DisplayName) == "" {
+			return fmt.Errorf("%s.%s.display_name is required", path, attrID)
+		}
+	}
+	return nil
 }
 
 func (c *Catalog) buildBadgeDef(id string, spec apitypes.BadgeDefSpec, pixaPath *string, createdAt time.Time) (apitypes.BadgeDef, error) {

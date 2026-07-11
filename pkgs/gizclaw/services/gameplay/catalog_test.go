@@ -30,7 +30,7 @@ func TestCatalogAdminCRUDAndAssets(t *testing.T) {
 
 	petResp, err := catalog.CreatePetDef(ctx, adminhttp.CreatePetDefRequestObject{Body: &adminhttp.PetDefUpsert{
 		Id:   "petdef-a",
-		Spec: apitypes.PetDefSpec{DisplayName: "Pet A"},
+		Spec: testPetDefSpec("Pet A"),
 	}})
 	if err != nil {
 		t.Fatalf("CreatePetDef() error = %v", err)
@@ -40,12 +40,12 @@ func TestCatalogAdminCRUDAndAssets(t *testing.T) {
 	}
 	putPetResp, err := catalog.PutPetDef(ctx, adminhttp.PutPetDefRequestObject{
 		Id:   "petdef-a",
-		Body: &adminhttp.PetDefUpsert{Id: "ignored", Spec: apitypes.PetDefSpec{DisplayName: "Pet A2"}},
+		Body: &adminhttp.PetDefUpsert{Id: "ignored", Spec: testPetDefSpec("Pet A2")},
 	})
 	if err != nil {
 		t.Fatalf("PutPetDef() error = %v", err)
 	}
-	if pet := requireResponse[adminhttp.PutPetDef200JSONResponse](t, putPetResp); pet.Spec.DisplayName != "Pet A2" {
+	if pet := requireResponse[adminhttp.PutPetDef200JSONResponse](t, putPetResp); valueOrZero(pet.Spec.I18n[pet.Spec.DefaultLocale].DisplayName) != "Pet A2" {
 		t.Fatalf("PutPetDef() = %#v", pet)
 	}
 	getPetResp, err := catalog.GetPetDef(ctx, adminhttp.GetPetDefRequestObject{Id: "petdef-a"})
@@ -249,7 +249,7 @@ func TestCatalogAdminErrorsAndPagination(t *testing.T) {
 		t.Helper()
 		resp, err := catalog.CreatePetDef(ctx, adminhttp.CreatePetDefRequestObject{Body: &adminhttp.PetDefUpsert{
 			Id:   id,
-			Spec: apitypes.PetDefSpec{DisplayName: id},
+			Spec: testPetDefSpec(id),
 		}})
 		if err != nil {
 			t.Fatalf("CreatePetDef(%q) error = %v", id, err)
@@ -260,7 +260,7 @@ func TestCatalogAdminErrorsAndPagination(t *testing.T) {
 	createPet("pet-b")
 	duplicatePetResp, err := catalog.CreatePetDef(ctx, adminhttp.CreatePetDefRequestObject{Body: &adminhttp.PetDefUpsert{
 		Id:   "pet-a",
-		Spec: apitypes.PetDefSpec{DisplayName: "again"},
+		Spec: testPetDefSpec("again"),
 	}})
 	if err != nil {
 		t.Fatalf("CreatePetDef() error = %v", err)
@@ -420,6 +420,77 @@ func readAllBytes(t *testing.T, reader io.Reader) []byte {
 		t.Fatalf("read body: %v", err)
 	}
 	return data
+}
+
+func testPetDefSpec(displayName string) apitypes.PetDefSpec {
+	description := "Test pet."
+	return apitypes.PetDefSpec{
+		DefaultLocale: "en",
+		WorkflowName:  stringPtr("pet-chat"),
+		Attr: apitypes.PetDefAttrSpec{
+			Life: apitypes.PetAttrGroupSpec{
+				"hunger": {Initial: 100},
+				"clean":  {Initial: 100},
+			},
+			Progression: apitypes.PetAttrGroupSpec{
+				"xp": {Initial: 0},
+			},
+		},
+		Character: apitypes.PetDefCharacterSpec{
+			Prompt: "Small friendly pixel pet.",
+		},
+		Voice: apitypes.PetDefVoiceSpec{
+			VoiceId: "gizclaw-soft",
+			Prompt:  "Soft and curious.",
+		},
+		Drive: apitypes.PetDefDriveSpec{Actions: []apitypes.PetDefActionSpec{
+			{
+				Id:           "idle",
+				Cost:         0,
+				VisualClipId: stringPtr("idle"),
+			},
+			{
+				Id:           "bath",
+				Cost:         10,
+				VisualClipId: stringPtr("bath"),
+				Effect: &apitypes.PetDefActionEffectSpec{
+					AttrDelta:   &apitypes.PetAttrDelta{Life: &apitypes.PetLife{"clean": 10}},
+					PetExpDelta: int64Ptr(90),
+				},
+			},
+		}},
+		Visual: apitypes.PetDefVisualSpec{
+			Refs: apitypes.PetDefVisualRefsSpec{},
+			Pixa: apitypes.PetDefPixaSpec{
+				AssetRef: "asset://pets/test/pet.pixa",
+				Metadata: apitypes.PetDefPixaMetadata{
+					Version: "1",
+					Canvas:  apitypes.PetDefPixaCanvasMetadata{Width: 16, Height: 16},
+					Clips: []apitypes.PetDefPixaClipMetadata{
+						{Id: "idle", ActionId: stringPtr("idle"), PixaClipName: "default"},
+						{Id: "bath", ActionId: stringPtr("bath"), PixaClipName: "bath"},
+					},
+				},
+			},
+		},
+		I18n: apitypes.PetDefI18nSpec{
+			"en": {
+				DisplayName: &displayName,
+				Description: &description,
+				Attr: &apitypes.PetDefI18nAttrSpec{
+					Life: &apitypes.PetDefI18nAttrGroup{
+						"hunger": {DisplayName: "Hunger"},
+						"clean":  {DisplayName: "Clean"},
+					},
+					Progression: &apitypes.PetDefI18nAttrGroup{"xp": {DisplayName: "XP"}},
+				},
+				Drive: &apitypes.PetDefI18nDriveSpec{Actions: &map[string]apitypes.PetDefI18nDisplayText{
+					"idle": {DisplayName: "Idle"},
+					"bath": {DisplayName: "Bath"},
+				}},
+			},
+		},
+	}
 }
 
 func makeTestPixa(t *testing.T, clips []string, width uint16, height uint16) []byte {
