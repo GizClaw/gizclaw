@@ -615,7 +615,7 @@ function resourceSpecTemplate(kind: ResourceKind): unknown {
               version: "1",
               canvas: { width: 60, height: 60 },
               clips: [
-                { id: "idle", action_id: "idle", pixa_clip_name: "default" },
+                { id: "idle", action_id: "idle", pixa_clip_name: "idle" },
                 { id: "bath", action_id: "bath", pixa_clip_name: "bath" },
               ],
             },

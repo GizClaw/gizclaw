@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/url"
 	"path"
+	"reflect"
 	"strings"
 	"time"
 
@@ -174,7 +175,7 @@ func (c *Catalog) ListPetDefs(ctx context.Context, request adminhttp.ListPetDefs
 		return adminhttp.ListPetDefs500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	cursor, limit := normalizeListParams(request.Params.Cursor, request.Params.Limit)
-	items, hasNext, nextCursor, err := listPetDefJSON(ctx, store, cursor, limit)
+	items, hasNext, nextCursor, err := c.listPetDefJSON(ctx, store, cursor, limit)
 	if err != nil {
 		return adminhttp.ListPetDefs500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
@@ -253,7 +254,7 @@ func (c *Catalog) PutPetDef(ctx context.Context, request adminhttp.PutPetDefRequ
 	if err != nil {
 		return nil, err
 	}
-	previous, err := readJSON[apitypes.PetDef](ctx, store, petDefKey(id))
+	previous, err := c.readPetDefJSON(ctx, store, petDefKey(id))
 	if err != nil && !errors.Is(err, kv.ErrNotFound) {
 		return adminhttp.PutPetDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
@@ -262,6 +263,9 @@ func (c *Catalog) PutPetDef(ctx context.Context, request adminhttp.PutPetDefRequ
 	if err == nil {
 		createdAt = previous.CreatedAt
 		pixaPath = previous.PixaPath
+		if pixaPath != nil && !reflect.DeepEqual(previous.Spec.Visual.Pixa.Metadata, request.Body.Spec.Visual.Pixa.Metadata) {
+			pixaPath = nil
+		}
 	}
 	item, err := c.buildPetDef(id, request.Body.Spec, pixaPath, createdAt)
 	if err != nil {
@@ -601,7 +605,7 @@ func (c *Catalog) GetPetDefByID(ctx context.Context, id string) (apitypes.PetDef
 	if err != nil {
 		return apitypes.PetDef{}, err
 	}
-	item, err := readPetDefJSON(ctx, store, petDefKey(id))
+	item, err := c.readPetDefJSON(ctx, store, petDefKey(id))
 	if errors.Is(err, kv.ErrNotFound) {
 		return apitypes.PetDef{}, fmt.Errorf("pet def %q not found: %w", id, kv.ErrNotFound)
 	}
@@ -1048,7 +1052,7 @@ type legacyRewardSpec struct {
 	PointsDelta   *int64           `json:"points_delta"`
 }
 
-func readPetDefJSON(ctx context.Context, store kv.Store, key kv.Key) (apitypes.PetDef, error) {
+func (c *Catalog) readPetDefJSON(ctx context.Context, store kv.Store, key kv.Key) (apitypes.PetDef, error) {
 	data, err := store.Get(ctx, key)
 	if err != nil {
 		return apitypes.PetDef{}, err
@@ -1060,10 +1064,10 @@ func readPetDefJSON(ctx context.Context, store kv.Store, key kv.Key) (apitypes.P
 	if err := validatePetDefSpec(item.Spec); err == nil {
 		return item, nil
 	}
-	return migrateLegacyPetDefJSON(data)
+	return c.migrateLegacyPetDefJSON(data)
 }
 
-func listPetDefJSON(ctx context.Context, store kv.Store, cursor string, limit int) ([]apitypes.PetDef, bool, *string, error) {
+func (c *Catalog) listPetDefJSON(ctx context.Context, store kv.Store, cursor string, limit int) ([]apitypes.PetDef, bool, *string, error) {
 	entries, err := kv.ListAfter(ctx, store, petDefsRoot, cursorAfterKey(petDefsRoot, cursor), limit+1)
 	if err != nil {
 		return nil, false, nil, err
@@ -1071,7 +1075,7 @@ func listPetDefJSON(ctx context.Context, store kv.Store, cursor string, limit in
 	pageEntries, hasNext, nextCursor := paginateEntries(entries, limit)
 	items := make([]apitypes.PetDef, 0, len(pageEntries))
 	for _, entry := range pageEntries {
-		item, err := migratePetDefData(entry.Value)
+		item, err := c.migratePetDefData(entry.Value)
 		if err != nil {
 			return nil, false, nil, err
 		}
@@ -1080,7 +1084,7 @@ func listPetDefJSON(ctx context.Context, store kv.Store, cursor string, limit in
 	return items, hasNext, nextCursor, nil
 }
 
-func migratePetDefData(data []byte) (apitypes.PetDef, error) {
+func (c *Catalog) migratePetDefData(data []byte) (apitypes.PetDef, error) {
 	var item apitypes.PetDef
 	if err := json.Unmarshal(data, &item); err != nil {
 		return apitypes.PetDef{}, err
@@ -1088,10 +1092,10 @@ func migratePetDefData(data []byte) (apitypes.PetDef, error) {
 	if err := validatePetDefSpec(item.Spec); err == nil {
 		return item, nil
 	}
-	return migrateLegacyPetDefJSON(data)
+	return c.migrateLegacyPetDefJSON(data)
 }
 
-func migrateLegacyPetDefJSON(data []byte) (apitypes.PetDef, error) {
+func (c *Catalog) migrateLegacyPetDefJSON(data []byte) (apitypes.PetDef, error) {
 	var legacy legacyPetDefJSON
 	if err := json.Unmarshal(data, &legacy); err != nil {
 		return apitypes.PetDef{}, err
@@ -1110,6 +1114,7 @@ func migrateLegacyPetDefJSON(data []byte) (apitypes.PetDef, error) {
 	if strings.TrimSpace(description) == "" {
 		description = legacy.Spec.DisplayName
 	}
+	pixaMetadata := c.legacyPetDefPixaMetadata(legacy.PixaPath)
 	spec := apitypes.PetDefSpec{
 		DefaultLocale: "en",
 		WorkflowName:  legacy.Spec.WorkflowName,
@@ -1129,13 +1134,7 @@ func migrateLegacyPetDefJSON(data []byte) (apitypes.PetDef, error) {
 			Refs: apitypes.PetDefVisualRefsSpec{},
 			Pixa: apitypes.PetDefPixaSpec{
 				AssetRef: "asset://pets/" + legacy.Id + "/pet.pixa",
-				Metadata: apitypes.PetDefPixaMetadata{
-					Version: "1",
-					Canvas:  apitypes.PetDefPixaCanvasMetadata{Width: 60, Height: 60},
-					Clips: []apitypes.PetDefPixaClipMetadata{
-						{Id: "idle", ActionId: stringPtr("idle"), PixaClipName: "idle"},
-					},
-				},
+				Metadata: pixaMetadata,
 			},
 		},
 		I18n: apitypes.PetDefI18nSpec{
@@ -1172,6 +1171,37 @@ func migrateLegacyPetDefJSON(data []byte) (apitypes.PetDef, error) {
 		CreatedAt: legacy.CreatedAt,
 		UpdatedAt: legacy.UpdatedAt,
 	}, nil
+}
+
+func (c *Catalog) legacyPetDefPixaMetadata(pixaPath *string) apitypes.PetDefPixaMetadata {
+	metadata := apitypes.PetDefPixaMetadata{
+		Version: "1",
+		Canvas:  apitypes.PetDefPixaCanvasMetadata{Width: 60, Height: 60},
+		Clips: []apitypes.PetDefPixaClipMetadata{
+			{Id: "idle", ActionId: stringPtr("idle"), PixaClipName: "idle"},
+		},
+	}
+	if pixaPath == nil {
+		return metadata
+	}
+	reader, _, err := c.openAsset(*pixaPath)
+	if err != nil {
+		return metadata
+	}
+	defer reader.Close()
+	data, err := io.ReadAll(reader)
+	if err != nil {
+		return metadata
+	}
+	asset, err := parsePixa(data)
+	if err != nil {
+		return metadata
+	}
+	metadata.Canvas = apitypes.PetDefPixaCanvasMetadata{
+		Width:  int64(asset.width),
+		Height: int64(asset.height),
+	}
+	return metadata
 }
 
 func (c *Catalog) legacyGameRulesetAction(ctx context.Context, rulesetName, actionID string) (legacyGameRulesetAction, bool, error) {

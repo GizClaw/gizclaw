@@ -77,6 +77,23 @@ func TestCatalogAdminCRUDAndAssets(t *testing.T) {
 	if got := readAllBytes(t, asset.Body); !bytes.Equal(got, petPixa) || asset.ContentLength != int64(len(petPixa)) {
 		t.Fatalf("DownloadPetDefPixa() len=%d want %d equal=%v", asset.ContentLength, len(petPixa), bytes.Equal(got, petPixa))
 	}
+	updatedPetSpec := testPetDefSpec("Pet A3")
+	updatedPetSpec.Visual.Pixa.Metadata.Canvas.Width = 32
+	putChangedMetadataResp, err := catalog.PutPetDef(ctx, adminhttp.PutPetDefRequestObject{
+		Id:   "petdef-a",
+		Body: &adminhttp.PetDefUpsert{Spec: updatedPetSpec},
+	})
+	if err != nil {
+		t.Fatalf("PutPetDef() changed metadata error = %v", err)
+	}
+	if pet := requireResponse[adminhttp.PutPetDef200JSONResponse](t, putChangedMetadataResp); pet.PixaPath != nil {
+		t.Fatalf("PutPetDef() preserved mismatched pixa path %q", valueOrZero(pet.PixaPath))
+	}
+	downloadClearedPetAssetResp, err := catalog.DownloadPetDefPixa(ctx, adminhttp.DownloadPetDefPixaRequestObject{Id: "petdef-a"})
+	if err != nil {
+		t.Fatalf("DownloadPetDefPixa() cleared metadata error = %v", err)
+	}
+	requireResponse[adminhttp.DownloadPetDefPixa404JSONResponse](t, downloadClearedPetAssetResp)
 
 	badgeResp, err := catalog.CreateBadgeDef(ctx, adminhttp.CreateBadgeDefRequestObject{Body: &adminhttp.BadgeDefUpsert{
 		Id:   "badge-a",
@@ -443,22 +460,28 @@ func TestCatalogAdminErrorsAndPagination(t *testing.T) {
 func TestCatalogMigratesLegacyPetDefOnRead(t *testing.T) {
 	ctx := context.Background()
 	catalog := testCatalog(t, time.Date(2026, 7, 5, 11, 0, 0, 0, time.UTC))
+	catalog.Assets = objectstore.Dir(t.TempDir())
 	store, err := catalog.store(catalog.PetDefs, "pet defs")
 	if err != nil {
 		t.Fatalf("store() error = %v", err)
 	}
+	const pixaPath = "pet-defs/legacy-pet/pixa"
+	if err := catalog.Assets.Put(pixaPath, bytes.NewReader(makeTestPixa(t, []string{"idle"}, 32, 24))); err != nil {
+		t.Fatalf("Assets.Put() error = %v", err)
+	}
 	data := []byte(`{
-		"id":"legacy-pet",
-		"spec":{
+			"id":"legacy-pet",
+			"spec":{
 			"display_name":"Legacy Pet",
 			"description":"Legacy description",
 			"workflow_name":"pet-chat",
 			"initial_life":{"hunger":100,"clean":80},
 			"initial_ability":{"play":1}
-		},
-		"created_at":"2026-07-05T11:00:00Z",
-		"updated_at":"2026-07-05T11:00:00Z"
-	}`)
+			},
+			"pixa_path":"pet-defs/legacy-pet/pixa",
+			"created_at":"2026-07-05T11:00:00Z",
+			"updated_at":"2026-07-05T11:00:00Z"
+		}`)
 	if err := store.Set(ctx, petDefKey("legacy-pet"), data); err != nil {
 		t.Fatalf("store.Set() error = %v", err)
 	}
@@ -478,12 +501,15 @@ func TestCatalogMigratesLegacyPetDefOnRead(t *testing.T) {
 	if petDef.Spec.Character.Prompt == "" || petDef.Spec.Voice.Prompt == "" {
 		t.Fatalf("legacy prompts were not populated: %#v %#v", petDef.Spec.Character, petDef.Spec.Voice)
 	}
+	if petDef.Spec.Visual.Pixa.Metadata.Canvas.Width != 32 || petDef.Spec.Visual.Pixa.Metadata.Canvas.Height != 24 {
+		t.Fatalf("legacy pixa canvas = %#v, want 32x24", petDef.Spec.Visual.Pixa.Metadata.Canvas)
+	}
 	listResp, err := catalog.ListPetDefs(ctx, adminhttp.ListPetDefsRequestObject{})
 	if err != nil {
 		t.Fatalf("ListPetDefs() error = %v", err)
 	}
 	list := requireResponse[adminhttp.ListPetDefs200JSONResponse](t, listResp)
-	if len(list.Items) != 1 || list.Items[0].Spec.Attr.Life["clean"].Initial != 80 {
+	if len(list.Items) != 1 || list.Items[0].Spec.Attr.Life["clean"].Initial != 80 || list.Items[0].Spec.Visual.Pixa.Metadata.Canvas.Width != 32 {
 		t.Fatalf("ListPetDefs() legacy migration = %#v", list)
 	}
 }
