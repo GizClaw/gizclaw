@@ -179,6 +179,19 @@ class _InboundPeerRpcChannel {
   }
 
   void _finishPing(peer.RpcRequest request) {
+    if (!request.hasPayload()) {
+      _ignoreBody = true;
+      _unawaited(
+        _sendEnvelopeOnly(
+          _rpcErrorResponse(
+            request.id,
+            common.RpcErrorCode.RPC_ERROR_CODE_INVALID_PARAMS,
+            'missing params',
+          ),
+        ).catchError((_) => _close()),
+      );
+      return;
+    }
     decodeRpcRequestPayload('all.ping', request.payload);
     _ignoreBody = true;
     _unawaited(
@@ -197,6 +210,9 @@ class _InboundPeerRpcChannel {
   }
 
   payload.SpeedTestRequest? _validSpeedTestParams(peer.RpcRequest request) {
+    if (!request.hasPayload()) {
+      return null;
+    }
     final params =
         decodeRpcRequestPayload('all.speed_test.run', request.payload)
             as payload.SpeedTestRequest;

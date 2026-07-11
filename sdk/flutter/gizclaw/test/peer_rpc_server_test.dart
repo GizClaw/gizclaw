@@ -23,7 +23,7 @@ void main() {
         method: peer.RpcMethod.RPC_METHOD_ALL_PING,
         payloadBytes: encodeRpcRequestPayload(
           'all.ping',
-          payload.PingRequest(),
+          payload.PingRequest(clientSendTime: fixnum.Int64(1)),
         ),
       ),
     );
@@ -73,12 +73,52 @@ void main() {
     expect(frames[1].payload, [0, 0, 0]);
     expect(frames.last.type, rpcFrameTypeEos);
   });
+
+  test('rejects server-initiated all.ping without payload', () async {
+    final channel = FakeDataChannel('giznet/v1/service/0');
+    serveGizClawPeerRpcChannel(channel);
+
+    channel.addMessage(
+      _rpcRequestBytes(
+        id: 'srv-missing-ping',
+        method: peer.RpcMethod.RPC_METHOD_ALL_PING,
+      ),
+    );
+    await Future<void>.delayed(Duration.zero);
+
+    final response = _singleEnvelopeResponse(channel);
+    expect(response.id, 'srv-missing-ping');
+    expect(
+      response.error.code,
+      common.RpcErrorCode.RPC_ERROR_CODE_INVALID_PARAMS,
+    );
+  });
+
+  test('rejects server-initiated all.speed_test.run without payload', () async {
+    final channel = FakeDataChannel('giznet/v1/service/0');
+    serveGizClawPeerRpcChannel(channel);
+
+    channel.addMessage(
+      _rpcRequestEnvelopeBytes(
+        id: 'srv-missing-speed',
+        method: peer.RpcMethod.RPC_METHOD_ALL_SPEED_TEST_RUN,
+      ),
+    );
+    await Future<void>.delayed(Duration.zero);
+
+    final response = _singleEnvelopeResponse(channel);
+    expect(response.id, 'srv-missing-speed');
+    expect(
+      response.error.code,
+      common.RpcErrorCode.RPC_ERROR_CODE_INVALID_PARAMS,
+    );
+  });
 }
 
 Uint8List _rpcRequestBytes({
   required String id,
   required peer.RpcMethod method,
-  required List<int> payloadBytes,
+  List<int>? payloadBytes,
 }) {
   return concatBytes([
     _rpcRequestEnvelopeBytes(
@@ -93,7 +133,7 @@ Uint8List _rpcRequestBytes({
 Uint8List _rpcRequestEnvelopeBytes({
   required String id,
   required peer.RpcMethod method,
-  required List<int> payloadBytes,
+  List<int>? payloadBytes,
 }) {
   return concatBytes(
     encodeEnvelopeFrames(
