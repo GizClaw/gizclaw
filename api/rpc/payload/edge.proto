@@ -1,0 +1,43 @@
+// Peer RPC edge payload protobuf schema.
+
+syntax = "proto3";
+
+package gizclaw.rpc.v1;
+
+import "payload/enums.proto";
+
+option go_package = "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto;rpcpb";
+
+message PeerAssignment {
+  string peer_public_key = 1;
+  string server_public_key = 2;
+  string server_endpoint = 3;
+  PeerRole role = 4;
+  int64 version = 5;
+  string updated_at = 6;
+}
+
+message ServerPeerLookupRequest {
+  string peer_public_key = 1;
+}
+
+message ServerPeerLookupResponse {
+  PeerAssignment assignment = 1;
+}
+
+message ServerPeerAssignRequest {
+  string peer_public_key = 1;
+  optional int64 expected_version = 2;
+}
+
+message ServerPeerAssignResponse {
+  PeerAssignment assignment = 1;
+}
+
+message ServerRouteResolveRequest {
+  string target_peer_public_key = 1;
+}
+
+message ServerRouteResolveResponse {
+  PeerAssignment assignment = 1;
+}

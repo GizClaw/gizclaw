@@ -1,8 +1,8 @@
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
 
 const peerProtoURL = new URL("../../../api/rpc/peer.proto", import.meta.url);
-const payloadProtoURL = new URL("../../../api/rpc/payload.proto", import.meta.url);
+const payloadProtoDirURL = new URL("../../../api/rpc/payload/", import.meta.url);
 const outputURL = new URL("../gizclaw/generated/rpc/payload-codec.ts", import.meta.url);
 
 const OPTIONAL_REPEATED_FIELDS = new Set([
@@ -19,7 +19,12 @@ const OPTIONAL_MAP_FIELDS = new Set([
 ]);
 
 const methods = parseRPCMethods(readFileSync(peerProtoURL, "utf8"));
-const parsed = parsePayloadProto(readFileSync(payloadProtoURL, "utf8"));
+const payloadProtoText = readdirSync(payloadProtoDirURL)
+  .filter((name) => name.endsWith(".proto"))
+  .sort()
+  .map((name) => readFileSync(new URL(name, payloadProtoDirURL), "utf8"))
+  .join("\n");
+const parsed = parsePayloadProto(payloadProtoText);
 
 if (methods.length === 0) {
   throw new Error("api/rpc/peer.proto must define RpcMethod entries before generating RPC payload codec.");

@@ -5,7 +5,14 @@
 #include "gzc_json.h"
 #include "gzc_rpc_frame.h"
 #include "common.pb.h"
-#include "payload.pb.h"
+#include "payload/ai.pb.h"
+#include "payload/edge.pb.h"
+#include "payload/enums.pb.h"
+#include "payload/firmware.pb.h"
+#include "payload/gameplay.pb.h"
+#include "payload/social.pb.h"
+#include "payload/system.pb.h"
+#include "payload/workspace.pb.h"
 #include "peer.pb.h"
 
 #ifdef __cplusplus

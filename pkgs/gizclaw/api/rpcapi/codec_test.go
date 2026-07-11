@@ -211,6 +211,73 @@ func TestMethodPayloadsUseProtobufBytes(t *testing.T) {
 	}
 }
 
+func TestServerPeerRoutePayloadsUseRPCProtoMessages(t *testing.T) {
+	var params RPCPayload
+	if err := params.FromServerPeerAssignRequest(ServerPeerAssignRequest{
+		PeerPublicKey:   "peer-a",
+		ExpectedVersion: int64Ptr(7),
+	}); err != nil {
+		t.Fatalf("FromServerPeerAssignRequest() error = %v", err)
+	}
+	reqMsg, err := EncodeRPCRequest(&RPCRequest{
+		V:      RPCVersionV1,
+		Id:     "req-server-peer",
+		Method: RPCMethodServerPeerAssign,
+		Params: &params,
+	})
+	if err != nil {
+		t.Fatalf("EncodeRPCRequest() error = %v", err)
+	}
+	var protoReq rpcpb.ServerPeerAssignRequest
+	if err := proto.Unmarshal(reqMsg.GetPayload(), &protoReq); err != nil {
+		t.Fatalf("protobuf request payload unmarshal error = %v", err)
+	}
+	if protoReq.GetPeerPublicKey() != "peer-a" || protoReq.GetExpectedVersion() != 7 {
+		t.Fatalf("protobuf request payload = %+v", protoReq)
+	}
+
+	var result RPCPayload
+	if err := result.FromServerPeerAssignResponse(ServerPeerAssignResponse{
+		Assignment: &PeerAssignment{
+			PeerPublicKey:   "peer-a",
+			ServerPublicKey: "server-a",
+			ServerEndpoint:  "server:9820",
+			Role:            rpcpb.PeerRole_PEER_ROLE_CLIENT,
+			Version:         8,
+			UpdatedAt:       "2026-07-12T00:00:00Z",
+		},
+	}); err != nil {
+		t.Fatalf("FromServerPeerAssignResponse() error = %v", err)
+	}
+	respMsg, err := EncodeRPCResponseForMethod(RPCMethodServerPeerAssign, &RPCResponse{
+		V:      RPCVersionV1,
+		Id:     "req-server-peer",
+		Result: &result,
+	})
+	if err != nil {
+		t.Fatalf("EncodeRPCResponseForMethod() error = %v", err)
+	}
+	var protoResp rpcpb.ServerPeerAssignResponse
+	if err := proto.Unmarshal(respMsg.GetPayload(), &protoResp); err != nil {
+		t.Fatalf("protobuf response payload unmarshal error = %v", err)
+	}
+	if protoResp.GetAssignment().GetPeerPublicKey() != "peer-a" || protoResp.GetAssignment().GetVersion() != 8 {
+		t.Fatalf("protobuf response payload = %+v", protoResp)
+	}
+
+	decoded, err := DecodeRPCResponseForMethod(RPCMethodServerPeerAssign, respMsg)
+	if err != nil {
+		t.Fatalf("DecodeRPCResponseForMethod() error = %v", err)
+	}
+	got, err := decoded.Result.AsServerPeerAssignResponse()
+	if err != nil {
+		t.Fatalf("AsServerPeerAssignResponse() error = %v", err)
+	}
+	if got.GetAssignment().GetServerPublicKey() != "server-a" {
+		t.Fatalf("decoded response = %+v", got)
+	}
+}
+
 func TestDecodeRPCRequestPreservesMissingPayload(t *testing.T) {
 	msg := &rpcpb.RpcRequest{
 		Id:     "req-1",
@@ -590,6 +657,10 @@ func assertResponseUnion[T any](
 }
 
 func stringPtr(value string) *string {
+	return &value
+}
+
+func int64Ptr(value int64) *int64 {
 	return &value
 }
 

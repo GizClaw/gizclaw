@@ -1,0 +1,305 @@
+// Peer RPC social payload protobuf schema.
+
+syntax = "proto3";
+
+package gizclaw.rpc.v1;
+
+import "payload/enums.proto";
+
+option go_package = "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto;rpcpb";
+
+message ContactCreateRequest {
+  optional string display_name = 1;
+  optional string phone_number = 2;
+}
+
+message ContactCreateResponse {
+  ContactObject value = 1;
+}
+
+message ContactDeleteRequest {
+  string id = 1;
+}
+
+message ContactDeleteResponse {
+  ContactObject value = 1;
+}
+
+message ContactGetRequest {
+  string id = 1;
+}
+
+message ContactGetResponse {
+  ContactObject value = 1;
+}
+
+message ContactListRequest {
+  optional string cursor = 1;
+  optional int64 limit = 2;
+}
+
+message ContactListResponse {
+  bool has_next = 1;
+  repeated ContactObject items = 2;
+  optional string next_cursor = 3;
+}
+
+message ContactObject {
+  optional string created_at = 1;
+  optional string display_name = 2;
+  optional string id = 3;
+  optional string phone_number = 4;
+  optional string updated_at = 5;
+}
+
+message ContactPutRequest {
+  optional string display_name = 1;
+  string id = 2;
+  optional string phone_number = 3;
+}
+
+message ContactPutResponse {
+  ContactObject value = 1;
+}
+
+message FriendAddRequest {
+  string invite_token = 1;
+}
+
+message FriendAddResponse {
+  FriendObject value = 1;
+}
+
+message FriendDeleteRequest {
+  string id = 1;
+}
+
+message FriendDeleteResponse {
+  FriendObject value = 1;
+}
+
+message FriendGroupCreateRequest {
+  optional string description = 1;
+  string name = 2;
+}
+
+message FriendGroupCreateResponse {
+  FriendGroupObject value = 1;
+}
+
+message FriendGroupDeleteRequest {
+  string id = 1;
+}
+
+message FriendGroupDeleteResponse {
+  FriendGroupObject value = 1;
+}
+
+message FriendGroupGetRequest {
+  string id = 1;
+}
+
+message FriendGroupGetResponse {
+  FriendGroupObject value = 1;
+}
+
+message FriendGroupInviteTokenClearRequest {
+  string friend_group_id = 1;
+}
+
+message FriendGroupInviteTokenClearResponse {
+}
+
+message FriendGroupInviteTokenCreateRequest {
+  string friend_group_id = 1;
+}
+
+message FriendGroupInviteTokenCreateResponse {
+  string expires_at = 1;
+  string invite_token = 2;
+}
+
+message FriendGroupInviteTokenGetRequest {
+  string friend_group_id = 1;
+}
+
+message FriendGroupInviteTokenGetResponse {
+  optional string expires_at = 1;
+  optional string invite_token = 2;
+}
+
+message FriendGroupJoinRequest {
+  string invite_token = 1;
+}
+
+message FriendGroupJoinResponse {
+  FriendGroupObject group = 1;
+  FriendGroupMemberObject member = 2;
+}
+
+message FriendGroupListRequest {
+  optional string cursor = 1;
+  optional int64 limit = 2;
+}
+
+message FriendGroupListResponse {
+  bool has_next = 1;
+  repeated FriendGroupObject items = 2;
+  optional string next_cursor = 3;
+}
+
+message FriendGroupMemberAddRequest {
+  string friend_group_id = 1;
+  string peer_public_key = 2;
+  FriendGroupMemberMutableRole role = 3;
+}
+
+message FriendGroupMemberAddResponse {
+  FriendGroupMemberObject value = 1;
+}
+
+message FriendGroupMemberDeleteRequest {
+  string friend_group_id = 1;
+  string id = 2;
+}
+
+message FriendGroupMemberDeleteResponse {
+  FriendGroupMemberObject value = 1;
+}
+
+message FriendGroupMemberListRequest {
+  optional string cursor = 1;
+  optional string friend_group_id = 2;
+  optional int64 limit = 3;
+}
+
+message FriendGroupMemberListResponse {
+  bool has_next = 1;
+  repeated FriendGroupMemberObject items = 2;
+  optional string next_cursor = 3;
+}
+
+message FriendGroupMemberObject {
+  optional string created_at = 1;
+  optional string friend_group_id = 2;
+  optional string id = 3;
+  optional string peer_public_key = 4;
+  optional FriendGroupMemberRole role = 5;
+  optional string updated_at = 6;
+}
+
+message FriendGroupMemberPutRequest {
+  string friend_group_id = 1;
+  string id = 2;
+  FriendGroupMemberMutableRole role = 3;
+}
+
+message FriendGroupMemberPutResponse {
+  FriendGroupMemberObject value = 1;
+}
+
+message FriendGroupMessageGetRequest {
+  string friend_group_id = 1;
+  string id = 2;
+}
+
+message FriendGroupMessageGetResponse {
+  FriendGroupMessageObject value = 1;
+}
+
+message FriendGroupMessageListRequest {
+  optional string cursor = 1;
+  optional string friend_group_id = 2;
+  optional int64 limit = 3;
+}
+
+message FriendGroupMessageListResponse {
+  bool has_next = 1;
+  repeated FriendGroupMessageObject items = 2;
+  optional string next_cursor = 3;
+}
+
+message FriendGroupMessageObject {
+  optional string audio_content_type = 1;
+  optional string audio_path = 2;
+  optional int64 audio_size_bytes = 3;
+  optional string created_at = 4;
+  optional string expires_at = 5;
+  optional string friend_group_id = 6;
+  optional string id = 7;
+  optional string sender_peer_public_key = 8;
+  optional int64 ttl_seconds = 9;
+}
+
+message FriendGroupMessageSendRequest {
+  bytes audio_base64 = 1;
+  string audio_content_type = 2;
+  string friend_group_id = 3;
+  optional int64 ttl_seconds = 4;
+}
+
+message FriendGroupMessageSendResponse {
+  FriendGroupMessageObject value = 1;
+}
+
+message FriendGroupObject {
+  optional string created_at = 1;
+  optional string created_by_peer_public_key = 2;
+  optional string description = 3;
+  optional string id = 4;
+  optional FriendGroupMemberRole my_role = 5;
+  optional string name = 6;
+  optional string updated_at = 7;
+  optional string workspace_name = 8;
+}
+
+message FriendGroupPutRequest {
+  optional string description = 1;
+  string id = 2;
+  optional string name = 3;
+}
+
+message FriendGroupPutResponse {
+  FriendGroupObject value = 1;
+}
+
+message FriendInviteTokenClearRequest {
+}
+
+message FriendInviteTokenClearResponse {
+}
+
+message FriendInviteTokenCreateRequest {
+}
+
+message FriendInviteTokenCreateResponse {
+  string expires_at = 1;
+  string invite_token = 2;
+}
+
+message FriendInviteTokenGetRequest {
+}
+
+message FriendInviteTokenGetResponse {
+  optional string expires_at = 1;
+  optional string invite_token = 2;
+}
+
+message FriendListRequest {
+  optional string cursor = 1;
+  optional int64 limit = 2;
+}
+
+message FriendListResponse {
+  bool has_next = 1;
+  repeated FriendObject items = 2;
+  optional string next_cursor = 3;
+}
+
+message FriendObject {
+  optional string created_at = 1;
+  optional string id = 2;
+  optional string peer_public_key = 3;
+  optional string updated_at = 4;
+  optional string workspace_name = 5;
+}

@@ -109,15 +109,17 @@ do not gain this service.
 
 ```text
 Edge RPC
-├── edge.peer.lookup
-├── edge.peer.assign
-└── edge.route.resolve
+├── server.peer.lookup
+├── server.peer.assign
+└── server.route.resolve
 ```
 
-`edge.peer.assign` creates or refreshes a local peer assignment for the target
+`server.peer.assign` creates or refreshes a local peer assignment for the target
 peer on the current server. The assignment record contains `peer_public_key`,
 `server_public_key`, `server_endpoint`, `role`, `version`, and `updated_at`.
-`edge.peer.lookup` and `edge.route.resolve` read the local assignment store; this
+`server.peer.lookup` and `server.route.resolve` read the local assignment store. The
+`server.*` method prefix identifies the provider namespace, while
+`ServiceEdgeRPC` controls that only edge-node peers can access this service. This
 surface does not perform mesh-wide route synchronization.
 
 ## Admin HTTP Surface

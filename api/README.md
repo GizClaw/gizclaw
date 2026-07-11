@@ -10,7 +10,8 @@ interfaces, and shared API types under `pkgs/gizclaw/api/`.
   GizClaw HTTP API surfaces.
 - `rpc/common.proto` defines shared Peer RPC envelopes, errors, and stream frames.
 - `rpc/peer.proto` defines the Peer RPC request envelope and method registry.
-- `rpc/payload.proto` defines method-specific Peer RPC payload messages.
+- `rpc/payload/*.proto` defines method-specific Peer RPC payload messages by
+  domain.
 - `openai-compat/v1/service.json` defines the OpenAI-compatible HTTP surface.
 - `types.json` collects shared schemas and exposes them through
   `#/components/schemas`.
@@ -31,14 +32,20 @@ Generated Go code lives outside this directory:
 - `pkgs/gizclaw/api/rpcapi/payload_codec.go`
 - `pkgs/gizclaw/api/rpcproto/common.pb.go`
 - `pkgs/gizclaw/api/rpcproto/peer.pb.go`
-- `pkgs/gizclaw/api/rpcproto/payload.pb.go`
+- `pkgs/gizclaw/api/rpcproto/{ai,edge,enums,firmware,gameplay,social,system,workspace}.pb.go`
 - `pkgs/gizclaw/api/peerhttp/generated.go`
 
-`rpcproto` is generated directly from `api/rpc/*.proto`. The `rpcapi` package is
-the committed Go wrapper surface on top of those protobuf payload descriptors;
-when changing Peer RPC methods or payload messages, update `rpcapi/generated.go`
-and `rpcapi/payload_codec.go` in the same change and verify them with
-`go test ./pkgs/gizclaw/api/rpcapi`.
+`rpcproto` is generated directly from `api/rpc/common.proto`,
+`api/rpc/peer.proto`, and the split `api/rpc/payload/*.proto` files. The
+`rpcapi` package is the committed Go wrapper surface on top of those protobuf
+payload descriptors; when changing Peer RPC methods or payload messages, update
+`rpcapi/generated.go` and `rpcapi/payload_codec.go` in the same change and
+verify them with `go test ./pkgs/gizclaw/api/rpcapi`. Do not generate Go RPC
+payload DTOs by converting protobuf schemas to JSON Schema or OpenAPI first;
+use the protoc-generated `rpcproto` Go messages directly. Edge route RPC
+payloads such as `server.peer.lookup`, `server.peer.assign`, and
+`server.route.resolve` use those `rpcproto` messages through `rpcapi` aliases;
+do not add JSON-schema DTOs for those payloads under `api/type/server.json`.
 
 Current generated TypeScript SDK code lives under `sdk/js/gizclaw/`:
 

@@ -1,0 +1,81 @@
+// Peer RPC firmware payload protobuf schema.
+
+syntax = "proto3";
+
+package gizclaw.rpc.v1;
+
+import "payload/enums.proto";
+
+option go_package = "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto;rpcpb";
+
+message Firmware {
+  string created_at = 1;
+  optional string description = 2;
+  string name = 3;
+  FirmwareSlots slots = 4;
+  string updated_at = 5;
+}
+
+message FirmwareArtifact {
+  string content_type = 1;
+  string files_path = 2;
+  string manifest_path = 3;
+  string sha256 = 4;
+  int64 size = 5;
+  string tar_path = 6;
+  string uploaded_at = 7;
+}
+
+message FirmwareArtifactEntry {
+  optional string content_type = 1;
+  string mod_time = 2;
+  int32 mode = 3;
+  string path = 4;
+  int64 size = 5;
+  FirmwareArtifactEntryType type = 6;
+}
+
+message FirmwareFilesDownloadRequest {
+  FirmwareChannelName channel = 1;
+  string firmware_id = 2;
+  string path = 3;
+}
+
+message FirmwareFilesDownloadResponse {
+  FirmwareArtifact artifact = 1;
+  FirmwareChannelName channel = 2;
+  FirmwareArtifactEntry file = 3;
+  string firmware_id = 4;
+  string path = 5;
+}
+
+message FirmwareGetRequest {
+  string firmware_id = 1;
+}
+
+message FirmwareGetResponse {
+  Firmware value = 1;
+}
+
+message FirmwareListRequest {
+  optional string cursor = 1;
+  optional int64 limit = 2;
+}
+
+message FirmwareListResponse {
+  bool has_next = 1;
+  repeated Firmware items = 2;
+  optional string next_cursor = 3;
+}
+
+message FirmwareSlot {
+  optional FirmwareArtifact artifact = 1;
+  optional string description = 2;
+}
+
+message FirmwareSlots {
+  FirmwareSlot beta = 1;
+  FirmwareSlot develop = 2;
+  FirmwareSlot pending = 3;
+  FirmwareSlot stable = 4;
+}

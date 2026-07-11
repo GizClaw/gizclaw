@@ -812,7 +812,7 @@ int main(void) {
   memset(&response, 0, sizeof(response));
   rc = gzc_rpc_call(
       client,
-      gizclaw_rpc_v1_RpcMethod_RPC_METHOD_EDGE_PEER_LOOKUP,
+      gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_PEER_LOOKUP,
       gzc_str_from_parts((const char *)params.data, params.len),
       &response);
   if (expect(rc == GZC_OK, "edge rpc call") != 0) {
@@ -830,7 +830,7 @@ int main(void) {
   if (expect(rc == GZC_OK, "edge request method id field") != 0) {
     return 1;
   }
-  if (expect(method_id == gizclaw_rpc_v1_RpcMethod_RPC_METHOD_EDGE_PEER_LOOKUP, "edge request method id value") != 0) {
+  if (expect(method_id == gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_PEER_LOOKUP, "edge request method id value") != 0) {
     return 1;
   }
 

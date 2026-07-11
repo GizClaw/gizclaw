@@ -1,0 +1,123 @@
+// Peer RPC system payload protobuf schema.
+
+syntax = "proto3";
+
+package gizclaw.rpc.v1;
+
+import "google/protobuf/struct.proto";
+
+option go_package = "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto;rpcpb";
+
+message ClientGetIdentifiersRequest {
+}
+
+message ClientGetIdentifiersResponse {
+  RefreshIdentifiers value = 1;
+}
+
+message ClientGetInfoRequest {
+}
+
+message ClientGetInfoResponse {
+  RefreshInfo value = 1;
+}
+
+message DeviceInfo {
+  optional HardwareInfo hardware = 1;
+  optional string name = 2;
+  optional string sn = 3;
+}
+
+message HardwareInfo {
+  optional string hardware_revision = 1;
+  repeated PeerIMEI imeis = 2;
+  repeated PeerLabel labels = 3;
+  optional string manufacturer = 4;
+  optional string model = 5;
+}
+
+message PeerIMEI {
+  optional string name = 1;
+  string serial = 2;
+  string tac = 3;
+}
+
+message PeerLabel {
+  string key = 1;
+  string value = 2;
+}
+
+message PeerStatus {
+  optional int64 battery_percent = 1;
+  optional bool charging = 2;
+  google.protobuf.Struct details = 3;
+  optional double gnss_accuracy_m = 4;
+  optional double gnss_altitude_m = 5;
+  optional double gnss_latitude = 6;
+  optional double gnss_longitude = 7;
+  map<string, string> labels = 8;
+  optional bool muted = 9;
+  optional string reported_at = 10;
+  optional int64 volume = 11;
+}
+
+message PingRequest {
+  int64 client_send_time = 1;
+}
+
+message PingResponse {
+  int64 server_time = 1;
+}
+
+message RefreshIdentifiers {
+  repeated PeerIMEI imeis = 1;
+  repeated PeerLabel labels = 2;
+  optional string sn = 3;
+}
+
+message RefreshInfo {
+  optional string hardware_revision = 1;
+  optional string manufacturer = 2;
+  optional string model = 3;
+  optional string name = 4;
+}
+
+message Runtime {
+  optional string last_addr = 1;
+  string last_seen_at = 2;
+  bool online = 3;
+  optional uint64 rx_bytes = 4;
+  optional uint64 tx_bytes = 5;
+}
+
+message ServerGetInfoRequest {
+}
+
+message ServerGetInfoResponse {
+  DeviceInfo value = 1;
+}
+
+message ServerGetStatusRequest {
+}
+
+message ServerGetStatusResponse {
+  PeerStatus value = 1;
+}
+
+message ServerPutInfoRequest {
+  DeviceInfo value = 1;
+}
+
+message ServerPutInfoResponse {
+  DeviceInfo value = 1;
+}
+
+message SpeedTestRequest {
+  int64 down_content_length = 1;
+  int64 up_content_length = 2;
+}
+
+message SpeedTestResponse {
+  int64 down_content_length = 1;
+  int64 up_content_length = 2;
+}

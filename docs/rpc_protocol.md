@@ -70,8 +70,8 @@ containing a protobuf message from `api/rpc/common.proto` and
 `api/rpc/peer.proto`. If the encoded envelope is larger than 65535 bytes, the
 same envelope bytes are split across one or more `Text` frames. The receiver
 reassembles those continuation chunks until the following EOS frame and then
-decodes the protobuf envelope. Method-specific payload messages are generated in
-`api/rpc/payload.proto`.
+decodes the protobuf envelope. Method-specific payload messages are generated
+from the split `api/rpc/payload/*.proto` files.
 
 `JSON` remains reserved for non-RPC stream families that need it. `Text` is only
 valid in Peer RPC as a protobuf envelope continuation frame before the first

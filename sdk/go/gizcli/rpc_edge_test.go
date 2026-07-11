@@ -8,7 +8,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 )
 
-func TestClientEdgeRPCMethodsUseEdgeService(t *testing.T) {
+func TestClientServerRouteRPCMethodsUseEdgeService(t *testing.T) {
 	client, serverConn, cleanup := connectedFirmwareTestClient(t)
 	defer cleanup()
 
@@ -16,31 +16,31 @@ func TestClientEdgeRPCMethodsUseEdgeService(t *testing.T) {
 	defer listener.Close()
 
 	serverErrCh := make(chan error, 3)
-	assignment := rpcapi.EdgePeerAssignment{
+	assignment := rpcapi.PeerAssignment{
 		ServerPublicKey: "server-pk",
 		ServerEndpoint:  "https://edge.example",
 		Version:         1,
 	}
 	go func() {
-		serveEdgeRPCResponse(t, listener, rpcapi.RPCMethodEdgePeerLookup, rpcapi.EdgePeerLookupResponse{
-			Assignment: assignment,
-		}, (*rpcapi.RPCPayload).FromEdgePeerLookupResponse, serverErrCh)
-		serveEdgeRPCResponse(t, listener, rpcapi.RPCMethodEdgePeerAssign, rpcapi.EdgePeerAssignResponse{
-			Assignment: assignment,
-		}, (*rpcapi.RPCPayload).FromEdgePeerAssignResponse, serverErrCh)
-		serveEdgeRPCResponse(t, listener, rpcapi.RPCMethodEdgeRouteResolve, rpcapi.EdgeRouteResolveResponse{
-			Assignment: assignment,
-		}, (*rpcapi.RPCPayload).FromEdgeRouteResolveResponse, serverErrCh)
+		serveEdgeRPCResponse(t, listener, rpcapi.RPCMethodServerPeerLookup, rpcapi.ServerPeerLookupResponse{
+			Assignment: &assignment,
+		}, (*rpcapi.RPCPayload).FromServerPeerLookupResponse, serverErrCh)
+		serveEdgeRPCResponse(t, listener, rpcapi.RPCMethodServerPeerAssign, rpcapi.ServerPeerAssignResponse{
+			Assignment: &assignment,
+		}, (*rpcapi.RPCPayload).FromServerPeerAssignResponse, serverErrCh)
+		serveEdgeRPCResponse(t, listener, rpcapi.RPCMethodServerRouteResolve, rpcapi.ServerRouteResolveResponse{
+			Assignment: &assignment,
+		}, (*rpcapi.RPCPayload).FromServerRouteResolveResponse, serverErrCh)
 	}()
 
-	if _, err := client.EdgePeerLookup(context.Background(), "edge-lookup", rpcapi.EdgePeerLookupRequest{PeerPublicKey: "peer-a"}); err != nil {
-		t.Fatalf("EdgePeerLookup error = %v", err)
+	if _, err := client.ServerPeerLookup(context.Background(), "edge-lookup", rpcapi.ServerPeerLookupRequest{PeerPublicKey: "peer-a"}); err != nil {
+		t.Fatalf("ServerPeerLookup error = %v", err)
 	}
-	if _, err := client.EdgePeerAssign(context.Background(), "edge-assign", rpcapi.EdgePeerAssignRequest{PeerPublicKey: "peer-a"}); err != nil {
-		t.Fatalf("EdgePeerAssign error = %v", err)
+	if _, err := client.ServerPeerAssign(context.Background(), "edge-assign", rpcapi.ServerPeerAssignRequest{PeerPublicKey: "peer-a"}); err != nil {
+		t.Fatalf("ServerPeerAssign error = %v", err)
 	}
-	if _, err := client.EdgeRouteResolve(context.Background(), "edge-route-resolve", rpcapi.EdgeRouteResolveRequest{TargetPeerPublicKey: "peer-a"}); err != nil {
-		t.Fatalf("EdgeRouteResolve error = %v", err)
+	if _, err := client.ServerRouteResolve(context.Background(), "edge-route-resolve", rpcapi.ServerRouteResolveRequest{TargetPeerPublicKey: "peer-a"}); err != nil {
+		t.Fatalf("ServerRouteResolve error = %v", err)
 	}
 
 	for i := 0; i < 3; i++ {

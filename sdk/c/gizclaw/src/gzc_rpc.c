@@ -145,9 +145,9 @@ static void close_rpc_channel_on_error(gzc_client_t *client, int rc) {
 }
 
 static bool is_edge_rpc_method(gizclaw_rpc_v1_RpcMethod method) {
-  return method == gizclaw_rpc_v1_RpcMethod_RPC_METHOD_EDGE_PEER_LOOKUP ||
-         method == gizclaw_rpc_v1_RpcMethod_RPC_METHOD_EDGE_PEER_ASSIGN ||
-         method == gizclaw_rpc_v1_RpcMethod_RPC_METHOD_EDGE_ROUTE_RESOLVE;
+  return method == gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_PEER_LOOKUP ||
+         method == gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_PEER_ASSIGN ||
+         method == gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_ROUTE_RESOLVE;
 }
 
 static int send_request_envelope(

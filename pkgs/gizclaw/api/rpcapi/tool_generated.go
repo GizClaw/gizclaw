@@ -1,4 +1,4 @@
-// Code generated from api/rpc/peer.proto and api/rpc/payload.proto; DO NOT EDIT.
+// Code generated from api/rpc/peer.proto and api/rpc/payload/*.proto; DO NOT EDIT.
 
 package rpcapi
 

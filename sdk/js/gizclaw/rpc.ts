@@ -52,7 +52,7 @@ export type RPCMethodMap = Override<GeneratedRPCMethodMap, {
     response: ServerRunWorkspaceRecallResponse;
   }>;
 }>;
-export type EdgeRPCMethodName = Extract<RPCMethodName, "edge.peer.lookup" | "edge.peer.assign" | "edge.route.resolve">;
+export type EdgeRPCMethodName = Extract<RPCMethodName, "server.peer.lookup" | "server.peer.assign" | "server.route.resolve">;
 export type PeerRPCMethodName = Exclude<RPCMethodName, EdgeRPCMethodName>;
 
 export type PeerRPCClientOptions = Omit<WebRTCRPCClientOptions, "service">;

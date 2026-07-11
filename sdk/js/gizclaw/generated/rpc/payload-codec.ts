@@ -343,33 +343,6 @@ export type DoubaoRealtimeWorkspaceParameters = {
   "model"?: string;
   "tools": DoubaoRealtimeFunctionTool[];
 };
-export type EdgePeerAssignRequest = {
-  "peer_public_key": string;
-  "expected_version"?: number;
-};
-export type EdgePeerAssignResponse = {
-  "assignment": EdgePeerAssignment;
-};
-export type EdgePeerAssignment = {
-  "peer_public_key": string;
-  "server_public_key": string;
-  "server_endpoint": string;
-  "role": PeerRole;
-  "version": number;
-  "updated_at": string;
-};
-export type EdgePeerLookupRequest = {
-  "peer_public_key": string;
-};
-export type EdgePeerLookupResponse = {
-  "assignment": EdgePeerAssignment;
-};
-export type EdgeRouteResolveRequest = {
-  "target_peer_public_key": string;
-};
-export type EdgeRouteResolveResponse = {
-  "assignment": EdgePeerAssignment;
-};
 export type Firmware = {
   "created_at": string;
   "description"?: string;
@@ -798,6 +771,14 @@ export type OpenAITenantVoiceProviderData = {
   "raw": Record<string, unknown>;
   "voice_id"?: string;
 };
+export type PeerAssignment = {
+  "peer_public_key": string;
+  "server_public_key": string;
+  "server_endpoint": string;
+  "role": PeerRole;
+  "version": number;
+  "updated_at": string;
+};
 export type PeerIMEI = {
   "name"?: string;
   "serial": string;
@@ -1080,6 +1061,19 @@ export type ServerGetStatusRequest = Record<string, never>;
 export type ServerGetStatusResponse = PeerStatus;
 export type ServerListRunWorkspaceHistoryRequest = PeerRunHistoryListRequest;
 export type ServerListRunWorkspaceHistoryResponse = PeerRunHistoryListResponse;
+export type ServerPeerAssignRequest = {
+  "peer_public_key": string;
+  "expected_version"?: number;
+};
+export type ServerPeerAssignResponse = {
+  "assignment": PeerAssignment;
+};
+export type ServerPeerLookupRequest = {
+  "peer_public_key": string;
+};
+export type ServerPeerLookupResponse = {
+  "assignment": PeerAssignment;
+};
 export type ServerPetAdoptRequest = PetAdoptRequest;
 export type ServerPetAdoptResponse = PetAdoptResponse;
 export type ServerPetDeleteRequest = PetDeleteRequest;
@@ -1112,6 +1106,12 @@ export type ServerRewardGrantGetRequest = GameplayGetRequest;
 export type ServerRewardGrantGetResponse = RewardGrant;
 export type ServerRewardGrantListRequest = GameplayListRequest;
 export type ServerRewardGrantListResponse = RewardGrantListResponse;
+export type ServerRouteResolveRequest = {
+  "target_peer_public_key": string;
+};
+export type ServerRouteResolveResponse = {
+  "assignment": PeerAssignment;
+};
 export type ServerRunSayRequest = {
   "credential_name"?: string;
   "model_id"?: string;
@@ -1371,9 +1371,6 @@ const REQUEST_PAYLOAD_MESSAGES: Record<string, string> = {
   "client.identifiers.get": "ClientGetIdentifiersRequest",
   "client.info.get": "ClientGetInfoRequest",
   "client.tool.invoke": "ToolInvokeRequest",
-  "edge.peer.assign": "EdgePeerAssignRequest",
-  "edge.peer.lookup": "EdgePeerLookupRequest",
-  "edge.route.resolve": "EdgeRouteResolveRequest",
   "server.badge_def.pixa.download": "BadgeDefPixaDownloadRequest",
   "server.badge.get": "ServerBadgeGetRequest",
   "server.badge.list": "ServerBadgeListRequest",
@@ -1422,6 +1419,8 @@ const REQUEST_PAYLOAD_MESSAGES: Record<string, string> = {
   "server.model.get": "ModelGetRequest",
   "server.model.list": "ModelListRequest",
   "server.model.put": "ModelPutRequest",
+  "server.peer.assign": "ServerPeerAssignRequest",
+  "server.peer.lookup": "ServerPeerLookupRequest",
   "server.pet_def.pixa.download": "PetDefPixaDownloadRequest",
   "server.pet.adopt": "ServerPetAdoptRequest",
   "server.pet.delete": "ServerPetDeleteRequest",
@@ -1434,6 +1433,7 @@ const REQUEST_PAYLOAD_MESSAGES: Record<string, string> = {
   "server.points.transactions.list": "ServerPointsTransactionListRequest",
   "server.reward_grant.get": "ServerRewardGrantGetRequest",
   "server.reward_grant.list": "ServerRewardGrantListRequest",
+  "server.route.resolve": "ServerRouteResolveRequest",
   "server.run.agent.get": "ServerGetRunAgentRequest",
   "server.run.agent.set": "ServerSetRunAgentRequest",
   "server.run.reload": "ServerReloadRunRequest",
@@ -1476,9 +1476,6 @@ const RESPONSE_PAYLOAD_MESSAGES: Record<string, string> = {
   "client.identifiers.get": "ClientGetIdentifiersResponse",
   "client.info.get": "ClientGetInfoResponse",
   "client.tool.invoke": "ToolInvokeResponse",
-  "edge.peer.assign": "EdgePeerAssignResponse",
-  "edge.peer.lookup": "EdgePeerLookupResponse",
-  "edge.route.resolve": "EdgeRouteResolveResponse",
   "server.badge_def.pixa.download": "BadgeDefPixaDownloadResponse",
   "server.badge.get": "ServerBadgeGetResponse",
   "server.badge.list": "ServerBadgeListResponse",
@@ -1527,6 +1524,8 @@ const RESPONSE_PAYLOAD_MESSAGES: Record<string, string> = {
   "server.model.get": "ModelGetResponse",
   "server.model.list": "ModelListResponse",
   "server.model.put": "ModelPutResponse",
+  "server.peer.assign": "ServerPeerAssignResponse",
+  "server.peer.lookup": "ServerPeerLookupResponse",
   "server.pet_def.pixa.download": "PetDefPixaDownloadResponse",
   "server.pet.adopt": "ServerPetAdoptResponse",
   "server.pet.delete": "ServerPetDeleteResponse",
@@ -1539,6 +1538,7 @@ const RESPONSE_PAYLOAD_MESSAGES: Record<string, string> = {
   "server.points.transactions.list": "ServerPointsTransactionListResponse",
   "server.reward_grant.get": "ServerRewardGrantGetResponse",
   "server.reward_grant.list": "ServerRewardGrantListResponse",
+  "server.route.resolve": "ServerRouteResolveResponse",
   "server.run.agent.get": "ServerGetRunAgentResponse",
   "server.run.agent.set": "ServerSetRunAgentResponse",
   "server.run.reload": "ServerReloadRunResponse",
@@ -2937,100 +2937,6 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "number": 8,
         "repeated": true,
         "type": "DoubaoRealtimeFunctionTool"
-      }
-    ]
-  },
-  "EdgePeerAssignment": {
-    "fields": [
-      {
-        "name": "peer_public_key",
-        "number": 1,
-        "type": "string"
-      },
-      {
-        "name": "server_public_key",
-        "number": 2,
-        "type": "string"
-      },
-      {
-        "name": "server_endpoint",
-        "number": 3,
-        "type": "string"
-      },
-      {
-        "name": "role",
-        "number": 4,
-        "type": "PeerRole"
-      },
-      {
-        "name": "version",
-        "number": 5,
-        "type": "int64"
-      },
-      {
-        "name": "updated_at",
-        "number": 6,
-        "type": "string"
-      }
-    ]
-  },
-  "EdgePeerAssignRequest": {
-    "fields": [
-      {
-        "name": "peer_public_key",
-        "number": 1,
-        "type": "string"
-      },
-      {
-        "name": "expected_version",
-        "number": 2,
-        "optional": true,
-        "type": "int64"
-      }
-    ]
-  },
-  "EdgePeerAssignResponse": {
-    "fields": [
-      {
-        "name": "assignment",
-        "number": 1,
-        "type": "EdgePeerAssignment"
-      }
-    ]
-  },
-  "EdgePeerLookupRequest": {
-    "fields": [
-      {
-        "name": "peer_public_key",
-        "number": 1,
-        "type": "string"
-      }
-    ]
-  },
-  "EdgePeerLookupResponse": {
-    "fields": [
-      {
-        "name": "assignment",
-        "number": 1,
-        "type": "EdgePeerAssignment"
-      }
-    ]
-  },
-  "EdgeRouteResolveRequest": {
-    "fields": [
-      {
-        "name": "target_peer_public_key",
-        "number": 1,
-        "type": "string"
-      }
-    ]
-  },
-  "EdgeRouteResolveResponse": {
-    "fields": [
-      {
-        "name": "assignment",
-        "number": 1,
-        "type": "EdgePeerAssignment"
       }
     ]
   },
@@ -4969,6 +4875,40 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       }
     ]
   },
+  "PeerAssignment": {
+    "fields": [
+      {
+        "name": "peer_public_key",
+        "number": 1,
+        "type": "string"
+      },
+      {
+        "name": "server_public_key",
+        "number": 2,
+        "type": "string"
+      },
+      {
+        "name": "server_endpoint",
+        "number": 3,
+        "type": "string"
+      },
+      {
+        "name": "role",
+        "number": 4,
+        "type": "PeerRole"
+      },
+      {
+        "name": "version",
+        "number": 5,
+        "type": "int64"
+      },
+      {
+        "name": "updated_at",
+        "number": 6,
+        "type": "string"
+      }
+    ]
+  },
   "PeerIMEI": {
     "fields": [
       {
@@ -6308,6 +6248,48 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       }
     ]
   },
+  "ServerPeerAssignRequest": {
+    "fields": [
+      {
+        "name": "peer_public_key",
+        "number": 1,
+        "type": "string"
+      },
+      {
+        "name": "expected_version",
+        "number": 2,
+        "optional": true,
+        "type": "int64"
+      }
+    ]
+  },
+  "ServerPeerAssignResponse": {
+    "fields": [
+      {
+        "name": "assignment",
+        "number": 1,
+        "type": "PeerAssignment"
+      }
+    ]
+  },
+  "ServerPeerLookupRequest": {
+    "fields": [
+      {
+        "name": "peer_public_key",
+        "number": 1,
+        "type": "string"
+      }
+    ]
+  },
+  "ServerPeerLookupResponse": {
+    "fields": [
+      {
+        "name": "assignment",
+        "number": 1,
+        "type": "PeerAssignment"
+      }
+    ]
+  },
   "ServerPetAdoptRequest": {
     "fields": [
       {
@@ -6564,6 +6546,24 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "name": "value",
         "number": 1,
         "type": "RewardGrantListResponse"
+      }
+    ]
+  },
+  "ServerRouteResolveRequest": {
+    "fields": [
+      {
+        "name": "target_peer_public_key",
+        "number": 1,
+        "type": "string"
+      }
+    ]
+  },
+  "ServerRouteResolveResponse": {
+    "fields": [
+      {
+        "name": "assignment",
+        "number": 1,
+        "type": "PeerAssignment"
       }
     ]
   },

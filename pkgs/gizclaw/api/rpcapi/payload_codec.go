@@ -79,6 +79,19 @@ func (t RPCPayload) bytesForMessage(messageName string) ([]byte, error) {
 }
 
 func (t *RPCPayload) encode(messageName string, value any) error {
+	if protoValue, ok, err := rpcPayloadProtoMessage(messageName, value); ok || err != nil {
+		if err != nil {
+			return err
+		}
+		payload, err := proto.Marshal(protoValue)
+		if err != nil {
+			return fmt.Errorf("rpc: marshal %s payload: %w", messageName, err)
+		}
+		t.payload = payload
+		t.messageName = messageName
+		t.emitDefaults = false
+		return nil
+	}
 	msg, err := newRPCPayloadMessage(messageName)
 	if err != nil {
 		return err
@@ -102,6 +115,17 @@ func (t RPCPayload) decode(messageName string, out any) error {
 	}
 	if t.messageName != "" && t.messageName != messageName {
 		return fmt.Errorf("rpc: payload contains %s, want %s", t.messageName, messageName)
+	}
+	if protoOut, ok, err := rpcPayloadProtoMessage(messageName, out); ok || err != nil {
+		if err != nil {
+			return err
+		}
+		if len(t.payload) > 0 {
+			if err := proto.Unmarshal(t.payload, protoOut); err != nil {
+				return fmt.Errorf("rpc: unmarshal %s payload: %w", messageName, err)
+			}
+		}
+		return nil
 	}
 	msg, err := newRPCPayloadMessage(messageName)
 	if err != nil {
@@ -128,6 +152,30 @@ func (t *RPCPayload) merge(messageName string, value any) error {
 			return fmt.Errorf("rpc: unmarshal %s payload: %w", messageName, err)
 		}
 	}
+	if protoValue, ok, err := rpcPayloadProtoMessage(messageName, value); ok || err != nil {
+		if err != nil {
+			return err
+		}
+		patch, err := newRPCPayloadMessage(messageName)
+		if err != nil {
+			return err
+		}
+		payload, err := proto.Marshal(protoValue)
+		if err != nil {
+			return fmt.Errorf("rpc: marshal %s payload: %w", messageName, err)
+		}
+		if err := proto.Unmarshal(payload, patch.Interface()); err != nil {
+			return fmt.Errorf("rpc: merge %s payload: %w", messageName, err)
+		}
+		proto.Merge(msg.Interface(), patch.Interface())
+		payload, err = proto.Marshal(msg.Interface())
+		if err != nil {
+			return fmt.Errorf("rpc: marshal %s payload: %w", messageName, err)
+		}
+		t.payload = payload
+		t.messageName = messageName
+		return nil
+	}
 	patch, err := newRPCPayloadMessage(messageName)
 	if err != nil {
 		return err
@@ -143,6 +191,24 @@ func (t *RPCPayload) merge(messageName string, value any) error {
 	t.payload = payload
 	t.messageName = messageName
 	return nil
+}
+
+func rpcPayloadProtoMessage(messageName string, value any) (proto.Message, bool, error) {
+	msg, ok := value.(proto.Message)
+	if !ok {
+		return nil, false, nil
+	}
+	if value := reflect.ValueOf(msg); value.Kind() == reflect.Pointer && value.IsNil() {
+		return nil, true, fmt.Errorf("rpc: %s payload proto message is nil", messageName)
+	}
+	if msg == nil || !msg.ProtoReflect().IsValid() {
+		return nil, true, fmt.Errorf("rpc: %s payload proto message is nil", messageName)
+	}
+	fullName := protoreflect.FullName(rpcPayloadProtoPackage + messageName)
+	if got := msg.ProtoReflect().Descriptor().FullName(); got != fullName {
+		return nil, true, fmt.Errorf("rpc: payload contains %s, want %s", got, fullName)
+	}
+	return msg, true, nil
 }
 
 func newRPCPayloadMessage(messageName string) (*dynamicpb.Message, error) {

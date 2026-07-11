@@ -44,7 +44,7 @@ as the source of truth.
 - Keep headers and sources synchronized, including declarations, includes,
   ownership comments, and error return semantics.
 - Verify generated C RPC methods, request/response structs, encode/decode
-  helpers, and method maps match `api/rpc/*.proto` and the protoc/nanopb
+  helpers, and method maps match `api/rpc/**/*.proto` and the protoc/nanopb
   generator behavior.
 - Check that platform vtables remain coherent: required callbacks are checked,
   userdata is threaded correctly, and default platform fallbacks are explicit.

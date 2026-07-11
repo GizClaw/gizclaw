@@ -25,11 +25,11 @@ func (s *edgeRPCServer) dispatch(ctx context.Context, req *rpcapi.RPCRequest) (*
 		return rpcapi.Error{Code: rpcapi.RPCErrorCodeInvalidRequest, Message: "nil request"}.RPCResponse(), nil
 	}
 	switch req.Method {
-	case rpcapi.RPCMethodEdgePeerLookup:
+	case rpcapi.RPCMethodServerPeerLookup:
 		return s.handleLookup(ctx, req), nil
-	case rpcapi.RPCMethodEdgePeerAssign:
+	case rpcapi.RPCMethodServerPeerAssign:
 		return s.handleAssign(ctx, req), nil
-	case rpcapi.RPCMethodEdgeRouteResolve:
+	case rpcapi.RPCMethodServerRouteResolve:
 		return s.handleResolve(ctx, req), nil
 	default:
 		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeMethodNotFound, Message: fmt.Sprintf("unknown method: %s", req.Method)}.RPCResponse(), nil
@@ -40,7 +40,7 @@ func (s *edgeRPCServer) handleLookup(ctx context.Context, req *rpcapi.RPCRequest
 	if s == nil || s.routes == nil {
 		return edgeRPCError(req.Id, peerroute.ErrStoreNil)
 	}
-	params, err := edgeRequiredParams(req, rpcapi.RPCPayload.AsEdgePeerLookupRequest)
+	params, err := edgeRequiredParams(req, rpcapi.RPCPayload.AsServerPeerLookupRequest)
 	if err != nil {
 		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeInvalidParams, Message: err.Error()}.RPCResponse()
 	}
@@ -52,14 +52,14 @@ func (s *edgeRPCServer) handleLookup(ctx context.Context, req *rpcapi.RPCRequest
 	if err != nil {
 		return edgeRPCError(req.Id, err)
 	}
-	return edgeRPCResult(req.Id, rpcapi.EdgePeerLookupResponse{Assignment: peerroute.ToRPC(assignment)}, (*rpcapi.RPCPayload).FromEdgePeerLookupResponse)
+	return edgeRPCResult(req.Id, rpcapi.ServerPeerLookupResponse{Assignment: peerroute.ToRPC(assignment)}, (*rpcapi.RPCPayload).FromServerPeerLookupResponse)
 }
 
 func (s *edgeRPCServer) handleAssign(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
 	if s == nil || s.routes == nil {
 		return edgeRPCError(req.Id, peerroute.ErrStoreNil)
 	}
-	params, err := edgeRequiredParams(req, rpcapi.RPCPayload.AsEdgePeerAssignRequest)
+	params, err := edgeRequiredParams(req, rpcapi.RPCPayload.AsServerPeerAssignRequest)
 	if err != nil {
 		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeInvalidParams, Message: err.Error()}.RPCResponse()
 	}
@@ -71,14 +71,14 @@ func (s *edgeRPCServer) handleAssign(ctx context.Context, req *rpcapi.RPCRequest
 	if err != nil {
 		return edgeRPCError(req.Id, err)
 	}
-	return edgeRPCResult(req.Id, rpcapi.EdgePeerAssignResponse{Assignment: peerroute.ToRPC(assignment)}, (*rpcapi.RPCPayload).FromEdgePeerAssignResponse)
+	return edgeRPCResult(req.Id, rpcapi.ServerPeerAssignResponse{Assignment: peerroute.ToRPC(assignment)}, (*rpcapi.RPCPayload).FromServerPeerAssignResponse)
 }
 
 func (s *edgeRPCServer) handleResolve(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
 	if s == nil || s.routes == nil {
 		return edgeRPCError(req.Id, peerroute.ErrStoreNil)
 	}
-	params, err := edgeRequiredParams(req, rpcapi.RPCPayload.AsEdgeRouteResolveRequest)
+	params, err := edgeRequiredParams(req, rpcapi.RPCPayload.AsServerRouteResolveRequest)
 	if err != nil {
 		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeInvalidParams, Message: err.Error()}.RPCResponse()
 	}
@@ -90,7 +90,7 @@ func (s *edgeRPCServer) handleResolve(ctx context.Context, req *rpcapi.RPCReques
 	if err != nil {
 		return edgeRPCError(req.Id, err)
 	}
-	return edgeRPCResult(req.Id, rpcapi.EdgeRouteResolveResponse{Assignment: peerroute.ToRPC(assignment)}, (*rpcapi.RPCPayload).FromEdgeRouteResolveResponse)
+	return edgeRPCResult(req.Id, rpcapi.ServerRouteResolveResponse{Assignment: peerroute.ToRPC(assignment)}, (*rpcapi.RPCPayload).FromServerRouteResolveResponse)
 }
 
 func edgeRequiredParams[T any](req *rpcapi.RPCRequest, decode func(rpcapi.RPCPayload) (T, error)) (T, error) {

@@ -568,7 +568,7 @@ test("createEdgeRPCClient uses the edge RPC service channel", async () => {
   const pc = new FakePeerConnection();
   const rpc = createEdgeRPCClient(pc, { createID: () => "req-edge" });
 
-  const promise = rpc.call("edge.route.resolve", { target_peer_public_key: "peer-b" });
+  const promise = rpc.call("server.route.resolve", { target_peer_public_key: "peer-b" });
   const channel = pc.lastChannel();
   channel.open();
 
@@ -584,7 +584,7 @@ test("createEdgeRPCClient uses the edge RPC service channel", async () => {
       },
     },
     v: 1,
-  }, "edge.route.resolve"));
+  }, "server.route.resolve"));
 
   assert.deepEqual(await promise, {
     assignment: {
@@ -611,21 +611,21 @@ test("createEdgeRPCClient calls generated edge RPC methods", async () => {
   } as unknown as WebRTCRPCClient;
   const rpc = createEdgeRPCClient(client);
 
-  await rpc.call("edge.peer.lookup", { peer_public_key: "peer-a" });
-  await rpc.call("edge.peer.assign", { peer_public_key: "peer-a" });
-  await rpc.call("edge.route.resolve", { target_peer_public_key: "peer-a" });
+  await rpc.call("server.peer.lookup", { peer_public_key: "peer-a" });
+  await rpc.call("server.peer.assign", { peer_public_key: "peer-a" });
+  await rpc.call("server.route.resolve", { target_peer_public_key: "peer-a" });
 
   assert.deepEqual(calls, [
-    { method: "edge.peer.lookup", params: { peer_public_key: "peer-a" } },
-    { method: "edge.peer.assign", params: { peer_public_key: "peer-a" } },
-    { method: "edge.route.resolve", params: { target_peer_public_key: "peer-a" } },
+    { method: "server.peer.lookup", params: { peer_public_key: "peer-a" } },
+    { method: "server.peer.assign", params: { peer_public_key: "peer-a" } },
+    { method: "server.route.resolve", params: { target_peer_public_key: "peer-a" } },
   ]);
 });
 
 type AssertAssignable<T extends U, U> = T;
 type PeerRPCMethodParameter = Parameters<ReturnType<typeof createPeerRPCClient>["call"]>[0];
 // @ts-expect-error edge RPC methods must use createEdgeRPCClient.
-type PeerRPCRejectsEdgeMethod = AssertAssignable<"edge.peer.assign", PeerRPCMethodParameter>;
+type PeerRPCRejectsEdgeMethod = AssertAssignable<"server.peer.assign", PeerRPCMethodParameter>;
 
 test("createWebRTCFetch turns generated-client fetch calls into RPC calls", async () => {
   const calls: Array<{ method: string; params: unknown }> = [];
