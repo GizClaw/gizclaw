@@ -622,10 +622,10 @@ test("createEdgeRPCClient calls generated edge RPC methods", async () => {
   ]);
 });
 
-if (false) {
-  // @ts-expect-error edge RPC methods must use createEdgeRPCClient.
-  createPeerRPCClient({} as WebRTCRPCClient).call("edge.peer.assign", { peer_public_key: "peer-a" });
-}
+type AssertAssignable<T extends U, U> = T;
+type PeerRPCMethodParameter = Parameters<ReturnType<typeof createPeerRPCClient>["call"]>[0];
+// @ts-expect-error edge RPC methods must use createEdgeRPCClient.
+type PeerRPCRejectsEdgeMethod = AssertAssignable<"edge.peer.assign", PeerRPCMethodParameter>;
 
 test("createWebRTCFetch turns generated-client fetch calls into RPC calls", async () => {
   const calls: Array<{ method: string; params: unknown }> = [];
