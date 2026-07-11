@@ -53,6 +53,7 @@ export type RPCMethodMap = Override<GeneratedRPCMethodMap, {
   }>;
 }>;
 export type EdgeRPCMethodName = Extract<RPCMethodName, "edge.peer.lookup" | "edge.peer.assign" | "edge.route.resolve">;
+export type PeerRPCMethodName = Exclude<RPCMethodName, EdgeRPCMethodName>;
 
 export type PeerRPCClientOptions = Omit<WebRTCRPCClientOptions, "service">;
 export type PeerRPCCaller = Pick<WebRTCRPCClient, "call" | "callBinary">;
@@ -72,7 +73,7 @@ export class PeerRPCClient {
           });
   }
 
-  call<M extends RPCMethodName>(
+  call<M extends PeerRPCMethodName>(
     method: M,
     params: RPCMethodMap[M]["request"],
     options?: RPCCallOptions,
@@ -80,7 +81,7 @@ export class PeerRPCClient {
     return this.client.call<RPCMethodMap[M]["response"], RPCMethodMap[M]["request"]>(method, params, options);
   }
 
-  callBinary<M extends RPCMethodName>(
+  callBinary<M extends PeerRPCMethodName>(
     method: M,
     params: RPCMethodMap[M]["request"],
     options?: RPCCallOptions,

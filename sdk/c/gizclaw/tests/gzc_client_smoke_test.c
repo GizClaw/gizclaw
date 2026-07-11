@@ -26,6 +26,7 @@ typedef struct {
   struct gzc_rtc_peer peer;
   struct gzc_rtc_channel packet_channel;
   struct gzc_rtc_channel rpc_channel;
+  struct gzc_rtc_channel edge_channel;
   struct gzc_rtc_channel remote_channels[GZC_RPC_MAX_INBOUND_CHANNELS + 1u];
   gzc_buf_t sent;
   const gzc_platform_t *platform;
@@ -140,6 +141,21 @@ static int test_peer_create_data_channel(gzc_rtc_peer_t *peer, const gzc_rtc_cha
       info.ordered = true;
       info.reliable = true;
       fake->callbacks.on_channel_state(fake->callbacks.userdata, peer, &fake->rpc_channel, &info, GZC_RTC_CHANNEL_OPEN);
+    }
+  } else if (config->label.len == strlen("giznet/v1/service/49") &&
+             strncmp(config->label.data, "giznet/v1/service/49", config->label.len) == 0) {
+    if (!config->ordered || !config->reliable) {
+      return GZC_ERR_INVALID_ARGUMENT;
+    }
+    *out_channel = &fake->edge_channel;
+    if (fake->callbacks.on_channel_state != NULL) {
+      gzc_rtc_channel_info_t info;
+      memset(&info, 0, sizeof(info));
+      info.label = gzc_str_from_cstr("giznet/v1/service/49");
+      info.stream_id = 2;
+      info.ordered = true;
+      info.reliable = true;
+      fake->callbacks.on_channel_state(fake->callbacks.userdata, peer, &fake->edge_channel, &info, GZC_RTC_CHANNEL_OPEN);
     }
   } else {
     return GZC_ERR_INVALID_ARGUMENT;
@@ -314,8 +330,13 @@ static int test_channel_send(gzc_rtc_channel_t *channel, const uint8_t *data, si
       return gzc_buf_append(&fake->sent, fake->platform, data, len);
     }
   }
-  if (channel != &fake->rpc_channel || is_text) {
+  if ((channel != &fake->rpc_channel && channel != &fake->edge_channel) || is_text) {
     return GZC_ERR_INVALID_ARGUMENT;
+  }
+  gzc_rtc_channel_t *response_channel = channel;
+  gzc_rpc_frame_t request_frame;
+  if (gzc_rpc_frame_decode(data, len, &request_frame) == GZC_OK && request_frame.type == GZC_RPC_FRAME_EOS) {
+    return GZC_OK;
   }
   gzc_buf_reset(&fake->sent);
   int rc = gzc_buf_append(&fake->sent, fake->platform, data, len);
@@ -358,7 +379,7 @@ static int test_channel_send(gzc_rtc_channel_t *channel, const uint8_t *data, si
       fake->callbacks.on_channel_message(
           fake->callbacks.userdata,
           &fake->peer,
-          &fake->rpc_channel,
+          response_channel,
           NULL,
           framed.data,
           framed.len,
@@ -387,7 +408,7 @@ static int test_channel_send(gzc_rtc_channel_t *channel, const uint8_t *data, si
       fake->callbacks.on_channel_message(
           fake->callbacks.userdata,
           &fake->peer,
-          &fake->rpc_channel,
+          response_channel,
           NULL,
           framed.data,
           framed.len,
@@ -454,11 +475,11 @@ static int test_channel_send(gzc_rtc_channel_t *channel, const uint8_t *data, si
   fake->callbacks.on_channel_message(
       fake->callbacks.userdata,
       &fake->peer,
-      &fake->rpc_channel,
+      response_channel,
       NULL,
       framed.data,
       framed.len,
-          false);
+      false);
   gzc_buf_free(&response_result, fake->platform);
   gzc_buf_free(&response_error, fake->platform);
   gzc_buf_free(&response_payload, fake->platform);
@@ -783,6 +804,33 @@ int main(void) {
     return 1;
   }
   if (expect(gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_BADGE_DEF_PIXA_DOWNLOAD == 79, "badge pixa method id value") != 0) {
+    return 1;
+  }
+
+  gzc_buf_reset(&fake_webrtc.sent);
+  int create_channel_count_before_edge = fake_webrtc.create_channel_count;
+  memset(&response, 0, sizeof(response));
+  rc = gzc_rpc_call(
+      client,
+      gizclaw_rpc_v1_RpcMethod_RPC_METHOD_EDGE_PEER_LOOKUP,
+      gzc_str_from_parts((const char *)params.data, params.len),
+      &response);
+  if (expect(rc == GZC_OK, "edge rpc call") != 0) {
+    return 1;
+  }
+  if (expect(fake_webrtc.create_channel_count == create_channel_count_before_edge + 1, "edge rpc opens service 49 channel") != 0) {
+    return 1;
+  }
+  rc = gzc_rpc_frame_decode(fake_webrtc.sent.data, first_frame_size(&fake_webrtc.sent), &sent_frame);
+  if (expect(rc == GZC_OK && sent_frame.type == GZC_RPC_FRAME_BINARY, "edge request protobuf frame") != 0) {
+    return 1;
+  }
+  method_id = 0;
+  rc = read_test_proto_method_id(gzc_str_from_parts((const char *)sent_frame.data, sent_frame.len), &method_id);
+  if (expect(rc == GZC_OK, "edge request method id field") != 0) {
+    return 1;
+  }
+  if (expect(method_id == gizclaw_rpc_v1_RpcMethod_RPC_METHOD_EDGE_PEER_LOOKUP, "edge request method id value") != 0) {
     return 1;
   }
 

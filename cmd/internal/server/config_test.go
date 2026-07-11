@@ -73,6 +73,33 @@ endpoint: 127.0.0.1:9820
 	}
 }
 
+func TestParseConfigServingPublicAlias(t *testing.T) {
+	cfg, err := parseConfigData([]byte(`
+serving-public: true
+listen: 127.0.0.1:9820
+endpoint: 127.0.0.1:9820
+`))
+	if err != nil {
+		t.Fatalf("parseConfigData error = %v", err)
+	}
+	if !cfg.ServeToClients {
+		t.Fatal("ServeToClients = false, want true from serving-public alias")
+	}
+
+	cfg, err = parseConfigData([]byte(`
+serve-to-clients: false
+serving-public: true
+listen: 127.0.0.1:9820
+endpoint: 127.0.0.1:9820
+`))
+	if err != nil {
+		t.Fatalf("parseConfigData override error = %v", err)
+	}
+	if cfg.ServeToClients {
+		t.Fatal("ServeToClients = true, want serve-to-clients to override serving-public alias")
+	}
+}
+
 func TestAdminPublicKeySecurityPolicy(t *testing.T) {
 	allowed := testPublicKey(1)
 	other := testPublicKey(2)

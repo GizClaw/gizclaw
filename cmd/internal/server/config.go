@@ -97,7 +97,8 @@ func parseConfigData(data []byte) (ConfigFile, error) {
 		Identity       *IdentityConfig           `yaml:"identity"`
 		Listen         string                    `yaml:"listen"`
 		Endpoint       string                    `yaml:"endpoint"`
-		ServeToClients bool                      `yaml:"serve-to-clients"`
+		ServeToClients *bool                     `yaml:"serve-to-clients"`
+		ServingPublic  *bool                     `yaml:"serving-public"`
 		EdgeNodes      []giznet.PublicKey        `yaml:"edge-nodes"`
 		AdminPublicKey *giznet.PublicKey         `yaml:"admin-public-key"`
 		Storage        map[string]storage.Config `yaml:"storage"`
@@ -129,11 +130,18 @@ func parseConfigData(data []byte) (ConfigFile, error) {
 		identity = *raw.Identity
 		identity.PrivateKey = keyPair.Private
 	}
+	serveToClients := false
+	switch {
+	case raw.ServeToClients != nil:
+		serveToClients = *raw.ServeToClients
+	case raw.ServingPublic != nil:
+		serveToClients = *raw.ServingPublic
+	}
 	cfg := ConfigFile{
 		Identity:       identity,
 		Listen:         raw.Listen,
 		Endpoint:       raw.Endpoint,
-		ServeToClients: raw.ServeToClients,
+		ServeToClients: serveToClients,
 		EdgeNodes:      raw.EdgeNodes,
 		AdminPublicKey: adminPublicKey,
 		Storage:        raw.Storage,

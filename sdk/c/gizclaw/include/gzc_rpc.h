@@ -34,6 +34,12 @@ int gzc_rpc_encode_request_envelope(
     gzc_str_t params_payload,
     gzc_buf_t *out_payload);
 int gzc_rpc_decode_response_envelope(gzc_str_t response_payload, gzc_rpc_response_t *out_response);
+int gzc_rpc_call_service(
+    gzc_client_t *client,
+    uint64_t service,
+    gizclaw_rpc_v1_RpcMethod method,
+    gzc_str_t params_payload,
+    gzc_rpc_response_t *out_response);
 int gzc_rpc_call(gzc_client_t *client, gizclaw_rpc_v1_RpcMethod method, gzc_str_t params_payload, gzc_rpc_response_t *out_response);
 int gzc_rpc_call_stream(
     gzc_client_t *client,

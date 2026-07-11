@@ -8,6 +8,7 @@
 
 #define GZC_RPC_MAX_ENVELOPE_SIZE (GZC_RPC_MAX_FRAME_SIZE * 16u)
 #define GZC_RPC_DOWNLOAD_FRAMES_PER_POLL 16u
+#define GZC_SERVICE_EDGE_RPC 0x31u
 
 int gzc_client_reset_rpc_rx_internal(gzc_client_t *client);
 int gzc_client_open_rpc_channel_internal(gzc_client_t *client, int timeout_ms);
@@ -129,10 +130,24 @@ static int read_frame(gzc_client_t *client, const gzc_platform_t *platform, int 
   return decode_frame_bytes(frame_bytes, out_frame);
 }
 
+static int read_service_frame(gzc_service_channel_t *channel, int timeout_ms, gzc_buf_t *frame_bytes, gzc_rpc_frame_t *out_frame) {
+  int rc = gzc_service_channel_read_frame(channel, timeout_ms, frame_bytes);
+  if (rc != GZC_OK) {
+    return rc;
+  }
+  return decode_frame_bytes(frame_bytes, out_frame);
+}
+
 static void close_rpc_channel_on_error(gzc_client_t *client, int rc) {
   if (rc != GZC_OK) {
     gzc_client_close_rpc_channel_internal(client);
   }
+}
+
+static bool is_edge_rpc_method(gizclaw_rpc_v1_RpcMethod method) {
+  return method == gizclaw_rpc_v1_RpcMethod_RPC_METHOD_EDGE_PEER_LOOKUP ||
+         method == gizclaw_rpc_v1_RpcMethod_RPC_METHOD_EDGE_PEER_ASSIGN ||
+         method == gizclaw_rpc_v1_RpcMethod_RPC_METHOD_EDGE_ROUTE_RESOLVE;
 }
 
 static int send_request_envelope(
@@ -161,6 +176,49 @@ static int send_request_envelope(
   }
   gzc_buf_free(&request, platform);
   gzc_buf_free(&framed, platform);
+  return rc;
+}
+
+static int send_request_envelope_service(
+    gzc_service_channel_t *channel,
+    const gzc_platform_t *platform,
+    gizclaw_rpc_v1_RpcMethod method,
+    gzc_str_t params_payload) {
+  gzc_buf_t request;
+  gzc_buf_init(&request);
+  int rc = gzc_rpc_encode_request_envelope(platform, gzc_str_from_cstr("1"), method, params_payload, &request);
+  if (rc == GZC_OK) {
+    if (request.len <= GZC_RPC_MAX_FRAME_SIZE) {
+      gzc_rpc_frame_t frame;
+      memset(&frame, 0, sizeof(frame));
+      frame.type = GZC_RPC_FRAME_BINARY;
+      frame.data = request.data;
+      frame.len = request.len;
+      rc = gzc_service_channel_send_frame(channel, &frame);
+    } else {
+      size_t offset = 0;
+      while (offset < request.len && rc == GZC_OK) {
+        size_t chunk = request.len - offset;
+        if (chunk > GZC_RPC_MAX_FRAME_SIZE) {
+          chunk = GZC_RPC_MAX_FRAME_SIZE;
+        }
+        gzc_rpc_frame_t frame;
+        memset(&frame, 0, sizeof(frame));
+        frame.type = GZC_RPC_FRAME_TEXT;
+        frame.data = request.data + offset;
+        frame.len = chunk;
+        rc = gzc_service_channel_send_frame(channel, &frame);
+        offset += chunk;
+      }
+    }
+  }
+  if (rc == GZC_OK) {
+    gzc_rpc_frame_t eos;
+    memset(&eos, 0, sizeof(eos));
+    eos.type = GZC_RPC_FRAME_EOS;
+    rc = gzc_service_channel_send_frame(channel, &eos);
+  }
+  gzc_buf_free(&request, platform);
   return rc;
 }
 
@@ -223,9 +281,99 @@ int gzc_rpc_decode_response_envelope(gzc_str_t response_payload, gzc_rpc_respons
   return GZC_OK;
 }
 
+int gzc_rpc_call_service(
+    gzc_client_t *client,
+    uint64_t service,
+    gizclaw_rpc_v1_RpcMethod method,
+    gzc_str_t params_payload,
+    gzc_rpc_response_t *out_response) {
+  if (client == NULL || out_response == NULL) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  const gzc_platform_t *platform = gzc_client_platform(client);
+  if (platform == NULL) {
+    return GZC_ERR_CLOSED;
+  }
+  gzc_service_channel_t *channel = NULL;
+  int rc = gzc_client_open_service_channel(client, service, 5000, &channel);
+  if (rc != GZC_OK) {
+    return rc;
+  }
+  rc = send_request_envelope_service(channel, platform, method, params_payload);
+  if (rc != GZC_OK) {
+    gzc_service_channel_close(channel);
+    return rc;
+  }
+
+  gzc_buf_t frame_bytes;
+  gzc_buf_t envelope;
+  gzc_buf_init(&frame_bytes);
+  gzc_buf_init(&envelope);
+  gzc_rpc_frame_t frame;
+  bool saw_response = false;
+  bool saw_continuation = false;
+  for (;;) {
+    rc = read_service_frame(channel, 5000, &frame_bytes, &frame);
+    if (rc != GZC_OK) {
+      break;
+    }
+    if (frame.type == GZC_RPC_FRAME_EOS) {
+      if (saw_continuation && !saw_response) {
+        gzc_str_t response_payload;
+        rc = gzc_client_store_rpc_response_internal(client, envelope.data, envelope.len, &response_payload);
+        if (rc != GZC_OK) {
+          break;
+        }
+        rc = gzc_rpc_decode_response_envelope(response_payload, out_response);
+        if (rc != GZC_OK) {
+          break;
+        }
+        saw_response = true;
+      }
+      rc = saw_response ? GZC_OK : GZC_ERR_RPC;
+      break;
+    }
+    if (frame.type == GZC_RPC_FRAME_TEXT) {
+      if (saw_response) {
+        rc = GZC_ERR_RPC;
+        break;
+      }
+      saw_continuation = true;
+      rc = append_envelope_continuation(&envelope, platform, &frame);
+      if (rc != GZC_OK) {
+        break;
+      }
+      continue;
+    }
+    if (frame.type != GZC_RPC_FRAME_BINARY || saw_response || saw_continuation) {
+      rc = GZC_ERR_RPC;
+      break;
+    }
+    gzc_str_t response_payload;
+    rc = gzc_client_store_rpc_response_internal(client, frame.data, frame.len, &response_payload);
+    if (rc != GZC_OK) {
+      break;
+    }
+    rc = gzc_rpc_decode_response_envelope(response_payload, out_response);
+    if (rc != GZC_OK) {
+      break;
+    }
+    saw_response = true;
+    rc = GZC_OK;
+    continue;
+  }
+  gzc_buf_free(&envelope, platform);
+  gzc_buf_free(&frame_bytes, platform);
+  gzc_service_channel_close(channel);
+  return rc;
+}
+
 int gzc_rpc_call(gzc_client_t *client, gizclaw_rpc_v1_RpcMethod method, gzc_str_t params_payload, gzc_rpc_response_t *out_response) {
   if (client == NULL || out_response == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
+  }
+  if (is_edge_rpc_method(method)) {
+    return gzc_rpc_call_service(client, GZC_SERVICE_EDGE_RPC, method, params_payload, out_response);
   }
   const gzc_platform_t *platform = gzc_client_platform(client);
   const gzc_webrtc_vtable_t *webrtc = gzc_client_webrtc(client);

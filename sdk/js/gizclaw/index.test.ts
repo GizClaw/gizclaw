@@ -622,6 +622,11 @@ test("createEdgeRPCClient calls generated edge RPC methods", async () => {
   ]);
 });
 
+if (false) {
+  // @ts-expect-error edge RPC methods must use createEdgeRPCClient.
+  createPeerRPCClient({} as WebRTCRPCClient).call("edge.peer.assign", { peer_public_key: "peer-a" });
+}
+
 test("createWebRTCFetch turns generated-client fetch calls into RPC calls", async () => {
   const calls: Array<{ method: string; params: unknown }> = [];
   const client = {
