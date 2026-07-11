@@ -34,6 +34,7 @@ typedef SendGiznetWebRtcOffer =
 
 Future<rtc.RTCPeerConnection> connectFlutterGiznetWebRtc({
   bool addAudioTransceiver = false,
+  bool createPacketDataChannel = true,
   Map<String, dynamic> configuration = const {},
   required Future<PreparedGiznetWebRtcOffer> Function(String offerSdp)
   prepareOffer,
@@ -41,6 +42,13 @@ Future<rtc.RTCPeerConnection> connectFlutterGiznetWebRtc({
   required SendGiznetWebRtcOffer sendOffer,
 }) async {
   final pc = peerConnection ?? await rtc.createPeerConnection(configuration);
+  if (createPacketDataChannel) {
+    final init = rtc.RTCDataChannelInit()
+      ..ordered = false
+      ..maxRetransmits = 0
+      ..binaryType = 'binary';
+    await pc.createDataChannel(giznetWebRtcPacketDataChannelLabel, init);
+  }
   if (addAudioTransceiver) {
     await pc.addTransceiver(
       kind: rtc.RTCRtpMediaType.RTCRtpMediaTypeAudio,
