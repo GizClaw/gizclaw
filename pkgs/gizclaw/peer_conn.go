@@ -88,6 +88,7 @@ func (h *PeerConn) serve() error {
 	g.Go(h.serveService)
 	g.Go(h.servePackets)
 	g.Go(h.serveRPC)
+	g.Go(h.serveEdgeRPC)
 	g.Go(h.serveOpenAI)
 	g.Go(h.serveEvents)
 	err := g.Wait()
@@ -123,6 +124,31 @@ func (h *PeerConn) serveRPC() error {
 		_ = listener.Close()
 	}()
 	server := h.rpcServer()
+	for {
+		stream, err := listener.Accept()
+		if err != nil {
+			if errors.Is(err, net.ErrClosed) {
+				return nil
+			}
+			return err
+		}
+		go func(stream net.Conn) {
+			if err := server.Handle(stream); err != nil {
+				_ = stream.Close()
+			}
+		}(stream)
+	}
+}
+
+func (h *PeerConn) serveEdgeRPC() error {
+	if h == nil || h.Service == nil || h.Service.manager == nil || h.Service.manager.PeerRoutes == nil {
+		return nil
+	}
+	listener := h.Conn.ListenService(ServiceEdgeRPC)
+	defer func() {
+		_ = listener.Close()
+	}()
+	server := &edgeRPCServer{routes: h.Service.manager.PeerRoutes}
 	for {
 		stream, err := listener.Accept()
 		if err != nil {

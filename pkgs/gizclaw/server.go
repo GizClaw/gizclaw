@@ -18,6 +18,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/gameplay"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/agenthost"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerroute"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerrun"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peertelemetry"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/toolkit"
@@ -89,6 +90,7 @@ type Server struct {
 	PublicLoginAuthorizer        publiclogin.SessionAuthorizer
 	ACLDB                        *sql.DB
 	WebRTCSignalingHandler       http.Handler
+	EdgeNodes                    []giznet.PublicKey
 
 	manager     *Manager
 	peerService *PeerService
@@ -364,6 +366,7 @@ func (s *Server) init() error {
 	petDefStore := moduleStore(s.PetDefStore, s.PeerStore, "pet-defs")
 	badgeDefStore := moduleStore(s.BadgeDefStore, s.PeerStore, "badge-defs")
 	gameDefStore := moduleStore(s.GameDefStore, s.PeerStore, "game-defs")
+	peerRouteStore := moduleStore(nil, peerStore, "routes")
 
 	publicLoginServer := publiclogin.NewServer(&s.LocalStatic, publicLoginStore)
 	publicLoginServer.SessionAuthorizer = s.PublicLoginAuthorizer
@@ -377,8 +380,17 @@ func (s *Server) init() error {
 		ICETCP:          s.PublicICETCP,
 	}
 	manager := NewManager(peersServer)
+	manager.PeerRoutes = &peerroute.Server{
+		Store:           peerRouteStore,
+		Peers:           peersServer,
+		ServerPublicKey: s.LocalStatic.Public,
+		ServerEndpoint:  s.PublicEndpoint,
+	}
 	manager.PeerRun = &peerrun.Server{Store: peerRunStore}
 	peersServer.PeerManager = manager
+	if err := peersServer.BootstrapEdgeNodes(context.Background(), s.EdgeNodes); err != nil {
+		return err
+	}
 
 	workflowServer := &workflow.Server{Store: workflowStore}
 	workspaceServer := &workspace.Server{Store: workspaceStore, WorkflowStore: workflowStore}

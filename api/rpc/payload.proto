@@ -468,6 +468,42 @@ message DeviceInfo {
   optional string sn = 3;
 }
 
+message EdgePeerAssignment {
+  string peer_public_key = 1;
+  string server_public_key = 2;
+  string server_endpoint = 3;
+  string role = 4;
+  int64 version = 5;
+  string updated_at = 6;
+}
+
+message EdgePeerLookupRequest {
+  string peer_public_key = 1;
+}
+
+message EdgePeerLookupResponse {
+  EdgePeerAssignment assignment = 1;
+}
+
+message EdgePeerAssignRequest {
+  string peer_public_key = 1;
+  optional int64 expected_version = 2;
+}
+
+message EdgePeerAssignResponse {
+  EdgePeerAssignment assignment = 1;
+}
+
+message EdgeRouteResolveRequest {
+  string target_peer_public_key = 1;
+  optional string caller_public_key = 2;
+  optional string resource_kind = 3;
+}
+
+message EdgeRouteResolveResponse {
+  EdgePeerAssignment assignment = 1;
+}
+
 message DoubaoRealtimeAIGCMetadata {
   optional string content_producer = 1;
   optional string content_propagator = 2;

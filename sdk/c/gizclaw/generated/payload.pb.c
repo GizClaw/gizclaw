@@ -147,6 +147,27 @@ PB_BIND(gizclaw_rpc_v1_DashScopeTenantVoiceProviderData, gizclaw_rpc_v1_DashScop
 PB_BIND(gizclaw_rpc_v1_DeviceInfo, gizclaw_rpc_v1_DeviceInfo, AUTO)
 
 
+PB_BIND(gizclaw_rpc_v1_EdgePeerAssignment, gizclaw_rpc_v1_EdgePeerAssignment, AUTO)
+
+
+PB_BIND(gizclaw_rpc_v1_EdgePeerLookupRequest, gizclaw_rpc_v1_EdgePeerLookupRequest, AUTO)
+
+
+PB_BIND(gizclaw_rpc_v1_EdgePeerLookupResponse, gizclaw_rpc_v1_EdgePeerLookupResponse, AUTO)
+
+
+PB_BIND(gizclaw_rpc_v1_EdgePeerAssignRequest, gizclaw_rpc_v1_EdgePeerAssignRequest, AUTO)
+
+
+PB_BIND(gizclaw_rpc_v1_EdgePeerAssignResponse, gizclaw_rpc_v1_EdgePeerAssignResponse, AUTO)
+
+
+PB_BIND(gizclaw_rpc_v1_EdgeRouteResolveRequest, gizclaw_rpc_v1_EdgeRouteResolveRequest, AUTO)
+
+
+PB_BIND(gizclaw_rpc_v1_EdgeRouteResolveResponse, gizclaw_rpc_v1_EdgeRouteResolveResponse, AUTO)
+
+
 PB_BIND(gizclaw_rpc_v1_DoubaoRealtimeAIGCMetadata, gizclaw_rpc_v1_DoubaoRealtimeAIGCMetadata, AUTO)
 
 

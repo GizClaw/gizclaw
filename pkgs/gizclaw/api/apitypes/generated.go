@@ -811,6 +811,7 @@ func (e PeerRegistrationStatus) Valid() bool {
 const (
 	PeerRoleAdmin       PeerRole = "admin"
 	PeerRoleClient      PeerRole = "client"
+	PeerRoleEdgeNode    PeerRole = "edge-node"
 	PeerRoleServer      PeerRole = "server"
 	PeerRoleUnspecified PeerRole = "unspecified"
 )
@@ -821,6 +822,8 @@ func (e PeerRole) Valid() bool {
 	case PeerRoleAdmin:
 		return true
 	case PeerRoleClient:
+		return true
+	case PeerRoleEdgeNode:
 		return true
 	case PeerRoleServer:
 		return true
@@ -2713,6 +2716,16 @@ type Peer struct {
 	Role           PeerRole               `json:"role"`
 	Status         PeerRegistrationStatus `json:"status"`
 	UpdatedAt      time.Time              `json:"updated_at"`
+}
+
+// PeerAssignment defines model for PeerAssignment.
+type PeerAssignment struct {
+	PeerPublicKey   string    `json:"peer_public_key"`
+	Role            PeerRole  `json:"role"`
+	ServerEndpoint  string    `json:"server_endpoint"`
+	ServerPublicKey string    `json:"server_public_key"`
+	UpdatedAt       time.Time `json:"updated_at"`
+	Version         int64     `json:"version"`
 }
 
 // PeerConfigResource defines model for PeerConfigResource.

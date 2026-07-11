@@ -4267,6 +4267,378 @@ func (x *DeviceInfo) GetSn() string {
 	return ""
 }
 
+type EdgePeerAssignment struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	PeerPublicKey   string                 `protobuf:"bytes,1,opt,name=peer_public_key,json=peerPublicKey,proto3" json:"peer_public_key,omitempty"`
+	ServerPublicKey string                 `protobuf:"bytes,2,opt,name=server_public_key,json=serverPublicKey,proto3" json:"server_public_key,omitempty"`
+	ServerEndpoint  string                 `protobuf:"bytes,3,opt,name=server_endpoint,json=serverEndpoint,proto3" json:"server_endpoint,omitempty"`
+	Role            string                 `protobuf:"bytes,4,opt,name=role,proto3" json:"role,omitempty"`
+	Version         int64                  `protobuf:"varint,5,opt,name=version,proto3" json:"version,omitempty"`
+	UpdatedAt       string                 `protobuf:"bytes,6,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *EdgePeerAssignment) Reset() {
+	*x = EdgePeerAssignment{}
+	mi := &file_payload_proto_msgTypes[47]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *EdgePeerAssignment) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*EdgePeerAssignment) ProtoMessage() {}
+
+func (x *EdgePeerAssignment) ProtoReflect() protoreflect.Message {
+	mi := &file_payload_proto_msgTypes[47]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use EdgePeerAssignment.ProtoReflect.Descriptor instead.
+func (*EdgePeerAssignment) Descriptor() ([]byte, []int) {
+	return file_payload_proto_rawDescGZIP(), []int{47}
+}
+
+func (x *EdgePeerAssignment) GetPeerPublicKey() string {
+	if x != nil {
+		return x.PeerPublicKey
+	}
+	return ""
+}
+
+func (x *EdgePeerAssignment) GetServerPublicKey() string {
+	if x != nil {
+		return x.ServerPublicKey
+	}
+	return ""
+}
+
+func (x *EdgePeerAssignment) GetServerEndpoint() string {
+	if x != nil {
+		return x.ServerEndpoint
+	}
+	return ""
+}
+
+func (x *EdgePeerAssignment) GetRole() string {
+	if x != nil {
+		return x.Role
+	}
+	return ""
+}
+
+func (x *EdgePeerAssignment) GetVersion() int64 {
+	if x != nil {
+		return x.Version
+	}
+	return 0
+}
+
+func (x *EdgePeerAssignment) GetUpdatedAt() string {
+	if x != nil {
+		return x.UpdatedAt
+	}
+	return ""
+}
+
+type EdgePeerLookupRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	PeerPublicKey string                 `protobuf:"bytes,1,opt,name=peer_public_key,json=peerPublicKey,proto3" json:"peer_public_key,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *EdgePeerLookupRequest) Reset() {
+	*x = EdgePeerLookupRequest{}
+	mi := &file_payload_proto_msgTypes[48]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *EdgePeerLookupRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*EdgePeerLookupRequest) ProtoMessage() {}
+
+func (x *EdgePeerLookupRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_payload_proto_msgTypes[48]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use EdgePeerLookupRequest.ProtoReflect.Descriptor instead.
+func (*EdgePeerLookupRequest) Descriptor() ([]byte, []int) {
+	return file_payload_proto_rawDescGZIP(), []int{48}
+}
+
+func (x *EdgePeerLookupRequest) GetPeerPublicKey() string {
+	if x != nil {
+		return x.PeerPublicKey
+	}
+	return ""
+}
+
+type EdgePeerLookupResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Assignment    *EdgePeerAssignment    `protobuf:"bytes,1,opt,name=assignment,proto3" json:"assignment,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *EdgePeerLookupResponse) Reset() {
+	*x = EdgePeerLookupResponse{}
+	mi := &file_payload_proto_msgTypes[49]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *EdgePeerLookupResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*EdgePeerLookupResponse) ProtoMessage() {}
+
+func (x *EdgePeerLookupResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_payload_proto_msgTypes[49]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use EdgePeerLookupResponse.ProtoReflect.Descriptor instead.
+func (*EdgePeerLookupResponse) Descriptor() ([]byte, []int) {
+	return file_payload_proto_rawDescGZIP(), []int{49}
+}
+
+func (x *EdgePeerLookupResponse) GetAssignment() *EdgePeerAssignment {
+	if x != nil {
+		return x.Assignment
+	}
+	return nil
+}
+
+type EdgePeerAssignRequest struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	PeerPublicKey   string                 `protobuf:"bytes,1,opt,name=peer_public_key,json=peerPublicKey,proto3" json:"peer_public_key,omitempty"`
+	ExpectedVersion *int64                 `protobuf:"varint,2,opt,name=expected_version,json=expectedVersion,proto3,oneof" json:"expected_version,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *EdgePeerAssignRequest) Reset() {
+	*x = EdgePeerAssignRequest{}
+	mi := &file_payload_proto_msgTypes[50]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *EdgePeerAssignRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*EdgePeerAssignRequest) ProtoMessage() {}
+
+func (x *EdgePeerAssignRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_payload_proto_msgTypes[50]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use EdgePeerAssignRequest.ProtoReflect.Descriptor instead.
+func (*EdgePeerAssignRequest) Descriptor() ([]byte, []int) {
+	return file_payload_proto_rawDescGZIP(), []int{50}
+}
+
+func (x *EdgePeerAssignRequest) GetPeerPublicKey() string {
+	if x != nil {
+		return x.PeerPublicKey
+	}
+	return ""
+}
+
+func (x *EdgePeerAssignRequest) GetExpectedVersion() int64 {
+	if x != nil && x.ExpectedVersion != nil {
+		return *x.ExpectedVersion
+	}
+	return 0
+}
+
+type EdgePeerAssignResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Assignment    *EdgePeerAssignment    `protobuf:"bytes,1,opt,name=assignment,proto3" json:"assignment,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *EdgePeerAssignResponse) Reset() {
+	*x = EdgePeerAssignResponse{}
+	mi := &file_payload_proto_msgTypes[51]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *EdgePeerAssignResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*EdgePeerAssignResponse) ProtoMessage() {}
+
+func (x *EdgePeerAssignResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_payload_proto_msgTypes[51]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use EdgePeerAssignResponse.ProtoReflect.Descriptor instead.
+func (*EdgePeerAssignResponse) Descriptor() ([]byte, []int) {
+	return file_payload_proto_rawDescGZIP(), []int{51}
+}
+
+func (x *EdgePeerAssignResponse) GetAssignment() *EdgePeerAssignment {
+	if x != nil {
+		return x.Assignment
+	}
+	return nil
+}
+
+type EdgeRouteResolveRequest struct {
+	state               protoimpl.MessageState `protogen:"open.v1"`
+	TargetPeerPublicKey string                 `protobuf:"bytes,1,opt,name=target_peer_public_key,json=targetPeerPublicKey,proto3" json:"target_peer_public_key,omitempty"`
+	CallerPublicKey     *string                `protobuf:"bytes,2,opt,name=caller_public_key,json=callerPublicKey,proto3,oneof" json:"caller_public_key,omitempty"`
+	ResourceKind        *string                `protobuf:"bytes,3,opt,name=resource_kind,json=resourceKind,proto3,oneof" json:"resource_kind,omitempty"`
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
+}
+
+func (x *EdgeRouteResolveRequest) Reset() {
+	*x = EdgeRouteResolveRequest{}
+	mi := &file_payload_proto_msgTypes[52]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *EdgeRouteResolveRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*EdgeRouteResolveRequest) ProtoMessage() {}
+
+func (x *EdgeRouteResolveRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_payload_proto_msgTypes[52]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use EdgeRouteResolveRequest.ProtoReflect.Descriptor instead.
+func (*EdgeRouteResolveRequest) Descriptor() ([]byte, []int) {
+	return file_payload_proto_rawDescGZIP(), []int{52}
+}
+
+func (x *EdgeRouteResolveRequest) GetTargetPeerPublicKey() string {
+	if x != nil {
+		return x.TargetPeerPublicKey
+	}
+	return ""
+}
+
+func (x *EdgeRouteResolveRequest) GetCallerPublicKey() string {
+	if x != nil && x.CallerPublicKey != nil {
+		return *x.CallerPublicKey
+	}
+	return ""
+}
+
+func (x *EdgeRouteResolveRequest) GetResourceKind() string {
+	if x != nil && x.ResourceKind != nil {
+		return *x.ResourceKind
+	}
+	return ""
+}
+
+type EdgeRouteResolveResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Assignment    *EdgePeerAssignment    `protobuf:"bytes,1,opt,name=assignment,proto3" json:"assignment,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *EdgeRouteResolveResponse) Reset() {
+	*x = EdgeRouteResolveResponse{}
+	mi := &file_payload_proto_msgTypes[53]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *EdgeRouteResolveResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*EdgeRouteResolveResponse) ProtoMessage() {}
+
+func (x *EdgeRouteResolveResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_payload_proto_msgTypes[53]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use EdgeRouteResolveResponse.ProtoReflect.Descriptor instead.
+func (*EdgeRouteResolveResponse) Descriptor() ([]byte, []int) {
+	return file_payload_proto_rawDescGZIP(), []int{53}
+}
+
+func (x *EdgeRouteResolveResponse) GetAssignment() *EdgePeerAssignment {
+	if x != nil {
+		return x.Assignment
+	}
+	return nil
+}
+
 type DoubaoRealtimeAIGCMetadata struct {
 	state             protoimpl.MessageState `protogen:"open.v1"`
 	ContentProducer   *string                `protobuf:"bytes,1,opt,name=content_producer,json=contentProducer,proto3,oneof" json:"content_producer,omitempty"`
@@ -4280,7 +4652,7 @@ type DoubaoRealtimeAIGCMetadata struct {
 
 func (x *DoubaoRealtimeAIGCMetadata) Reset() {
 	*x = DoubaoRealtimeAIGCMetadata{}
-	mi := &file_payload_proto_msgTypes[47]
+	mi := &file_payload_proto_msgTypes[54]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4292,7 +4664,7 @@ func (x *DoubaoRealtimeAIGCMetadata) String() string {
 func (*DoubaoRealtimeAIGCMetadata) ProtoMessage() {}
 
 func (x *DoubaoRealtimeAIGCMetadata) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[47]
+	mi := &file_payload_proto_msgTypes[54]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4305,7 +4677,7 @@ func (x *DoubaoRealtimeAIGCMetadata) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DoubaoRealtimeAIGCMetadata.ProtoReflect.Descriptor instead.
 func (*DoubaoRealtimeAIGCMetadata) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{47}
+	return file_payload_proto_rawDescGZIP(), []int{54}
 }
 
 func (x *DoubaoRealtimeAIGCMetadata) GetContentProducer() string {
@@ -4353,7 +4725,7 @@ type DoubaoRealtimeASRContext struct {
 
 func (x *DoubaoRealtimeASRContext) Reset() {
 	*x = DoubaoRealtimeASRContext{}
-	mi := &file_payload_proto_msgTypes[48]
+	mi := &file_payload_proto_msgTypes[55]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4365,7 +4737,7 @@ func (x *DoubaoRealtimeASRContext) String() string {
 func (*DoubaoRealtimeASRContext) ProtoMessage() {}
 
 func (x *DoubaoRealtimeASRContext) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[48]
+	mi := &file_payload_proto_msgTypes[55]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4378,7 +4750,7 @@ func (x *DoubaoRealtimeASRContext) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DoubaoRealtimeASRContext.ProtoReflect.Descriptor instead.
 func (*DoubaoRealtimeASRContext) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{48}
+	return file_payload_proto_rawDescGZIP(), []int{55}
 }
 
 func (x *DoubaoRealtimeASRContext) GetCorrectWords() map[string]string {
@@ -4404,7 +4776,7 @@ type DoubaoRealtimeASRExtension struct {
 
 func (x *DoubaoRealtimeASRExtension) Reset() {
 	*x = DoubaoRealtimeASRExtension{}
-	mi := &file_payload_proto_msgTypes[49]
+	mi := &file_payload_proto_msgTypes[56]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4416,7 +4788,7 @@ func (x *DoubaoRealtimeASRExtension) String() string {
 func (*DoubaoRealtimeASRExtension) ProtoMessage() {}
 
 func (x *DoubaoRealtimeASRExtension) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[49]
+	mi := &file_payload_proto_msgTypes[56]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4429,7 +4801,7 @@ func (x *DoubaoRealtimeASRExtension) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DoubaoRealtimeASRExtension.ProtoReflect.Descriptor instead.
 func (*DoubaoRealtimeASRExtension) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{49}
+	return file_payload_proto_rawDescGZIP(), []int{56}
 }
 
 func (x *DoubaoRealtimeASRExtension) GetExtra() *DoubaoRealtimeASRExtra {
@@ -4455,7 +4827,7 @@ type DoubaoRealtimeASRExtra struct {
 
 func (x *DoubaoRealtimeASRExtra) Reset() {
 	*x = DoubaoRealtimeASRExtra{}
-	mi := &file_payload_proto_msgTypes[50]
+	mi := &file_payload_proto_msgTypes[57]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4467,7 +4839,7 @@ func (x *DoubaoRealtimeASRExtra) String() string {
 func (*DoubaoRealtimeASRExtra) ProtoMessage() {}
 
 func (x *DoubaoRealtimeASRExtra) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[50]
+	mi := &file_payload_proto_msgTypes[57]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4480,7 +4852,7 @@ func (x *DoubaoRealtimeASRExtra) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DoubaoRealtimeASRExtra.ProtoReflect.Descriptor instead.
 func (*DoubaoRealtimeASRExtra) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{50}
+	return file_payload_proto_rawDescGZIP(), []int{57}
 }
 
 func (x *DoubaoRealtimeASRExtra) GetBoostingTableId() string {
@@ -4548,7 +4920,7 @@ type DoubaoRealtimeASRHotword struct {
 
 func (x *DoubaoRealtimeASRHotword) Reset() {
 	*x = DoubaoRealtimeASRHotword{}
-	mi := &file_payload_proto_msgTypes[51]
+	mi := &file_payload_proto_msgTypes[58]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4560,7 +4932,7 @@ func (x *DoubaoRealtimeASRHotword) String() string {
 func (*DoubaoRealtimeASRHotword) ProtoMessage() {}
 
 func (x *DoubaoRealtimeASRHotword) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[51]
+	mi := &file_payload_proto_msgTypes[58]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4573,7 +4945,7 @@ func (x *DoubaoRealtimeASRHotword) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DoubaoRealtimeASRHotword.ProtoReflect.Descriptor instead.
 func (*DoubaoRealtimeASRHotword) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{51}
+	return file_payload_proto_rawDescGZIP(), []int{58}
 }
 
 func (x *DoubaoRealtimeASRHotword) GetWord() string {
@@ -4593,7 +4965,7 @@ type DoubaoRealtimeAudio struct {
 
 func (x *DoubaoRealtimeAudio) Reset() {
 	*x = DoubaoRealtimeAudio{}
-	mi := &file_payload_proto_msgTypes[52]
+	mi := &file_payload_proto_msgTypes[59]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4605,7 +4977,7 @@ func (x *DoubaoRealtimeAudio) String() string {
 func (*DoubaoRealtimeAudio) ProtoMessage() {}
 
 func (x *DoubaoRealtimeAudio) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[52]
+	mi := &file_payload_proto_msgTypes[59]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4618,7 +4990,7 @@ func (x *DoubaoRealtimeAudio) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DoubaoRealtimeAudio.ProtoReflect.Descriptor instead.
 func (*DoubaoRealtimeAudio) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{52}
+	return file_payload_proto_rawDescGZIP(), []int{59}
 }
 
 func (x *DoubaoRealtimeAudio) GetInput() *DoubaoRealtimeAudioInput {
@@ -4645,7 +5017,7 @@ type DoubaoRealtimeAudioFormat struct {
 
 func (x *DoubaoRealtimeAudioFormat) Reset() {
 	*x = DoubaoRealtimeAudioFormat{}
-	mi := &file_payload_proto_msgTypes[53]
+	mi := &file_payload_proto_msgTypes[60]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4657,7 +5029,7 @@ func (x *DoubaoRealtimeAudioFormat) String() string {
 func (*DoubaoRealtimeAudioFormat) ProtoMessage() {}
 
 func (x *DoubaoRealtimeAudioFormat) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[53]
+	mi := &file_payload_proto_msgTypes[60]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4670,7 +5042,7 @@ func (x *DoubaoRealtimeAudioFormat) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DoubaoRealtimeAudioFormat.ProtoReflect.Descriptor instead.
 func (*DoubaoRealtimeAudioFormat) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{53}
+	return file_payload_proto_rawDescGZIP(), []int{60}
 }
 
 func (x *DoubaoRealtimeAudioFormat) GetRate() int64 {
@@ -4696,7 +5068,7 @@ type DoubaoRealtimeAudioInput struct {
 
 func (x *DoubaoRealtimeAudioInput) Reset() {
 	*x = DoubaoRealtimeAudioInput{}
-	mi := &file_payload_proto_msgTypes[54]
+	mi := &file_payload_proto_msgTypes[61]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4708,7 +5080,7 @@ func (x *DoubaoRealtimeAudioInput) String() string {
 func (*DoubaoRealtimeAudioInput) ProtoMessage() {}
 
 func (x *DoubaoRealtimeAudioInput) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[54]
+	mi := &file_payload_proto_msgTypes[61]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4721,7 +5093,7 @@ func (x *DoubaoRealtimeAudioInput) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DoubaoRealtimeAudioInput.ProtoReflect.Descriptor instead.
 func (*DoubaoRealtimeAudioInput) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{54}
+	return file_payload_proto_rawDescGZIP(), []int{61}
 }
 
 func (x *DoubaoRealtimeAudioInput) GetFormat() *DoubaoRealtimeAudioFormat {
@@ -4743,7 +5115,7 @@ type DoubaoRealtimeAudioOutput struct {
 
 func (x *DoubaoRealtimeAudioOutput) Reset() {
 	*x = DoubaoRealtimeAudioOutput{}
-	mi := &file_payload_proto_msgTypes[55]
+	mi := &file_payload_proto_msgTypes[62]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4755,7 +5127,7 @@ func (x *DoubaoRealtimeAudioOutput) String() string {
 func (*DoubaoRealtimeAudioOutput) ProtoMessage() {}
 
 func (x *DoubaoRealtimeAudioOutput) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[55]
+	mi := &file_payload_proto_msgTypes[62]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4768,7 +5140,7 @@ func (x *DoubaoRealtimeAudioOutput) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DoubaoRealtimeAudioOutput.ProtoReflect.Descriptor instead.
 func (*DoubaoRealtimeAudioOutput) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{55}
+	return file_payload_proto_rawDescGZIP(), []int{62}
 }
 
 func (x *DoubaoRealtimeAudioOutput) GetFormat() *DoubaoRealtimeAudioFormat {
@@ -4808,7 +5180,7 @@ type DoubaoRealtimeDialogExtension struct {
 
 func (x *DoubaoRealtimeDialogExtension) Reset() {
 	*x = DoubaoRealtimeDialogExtension{}
-	mi := &file_payload_proto_msgTypes[56]
+	mi := &file_payload_proto_msgTypes[63]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4820,7 +5192,7 @@ func (x *DoubaoRealtimeDialogExtension) String() string {
 func (*DoubaoRealtimeDialogExtension) ProtoMessage() {}
 
 func (x *DoubaoRealtimeDialogExtension) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[56]
+	mi := &file_payload_proto_msgTypes[63]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4833,7 +5205,7 @@ func (x *DoubaoRealtimeDialogExtension) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DoubaoRealtimeDialogExtension.ProtoReflect.Descriptor instead.
 func (*DoubaoRealtimeDialogExtension) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{56}
+	return file_payload_proto_rawDescGZIP(), []int{63}
 }
 
 func (x *DoubaoRealtimeDialogExtension) GetExtra() *DoubaoRealtimeDialogExtra {
@@ -4862,7 +5234,7 @@ type DoubaoRealtimeDialogExtra struct {
 
 func (x *DoubaoRealtimeDialogExtra) Reset() {
 	*x = DoubaoRealtimeDialogExtra{}
-	mi := &file_payload_proto_msgTypes[57]
+	mi := &file_payload_proto_msgTypes[64]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4874,7 +5246,7 @@ func (x *DoubaoRealtimeDialogExtra) String() string {
 func (*DoubaoRealtimeDialogExtra) ProtoMessage() {}
 
 func (x *DoubaoRealtimeDialogExtra) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[57]
+	mi := &file_payload_proto_msgTypes[64]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4887,7 +5259,7 @@ func (x *DoubaoRealtimeDialogExtra) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DoubaoRealtimeDialogExtra.ProtoReflect.Descriptor instead.
 func (*DoubaoRealtimeDialogExtra) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{57}
+	return file_payload_proto_rawDescGZIP(), []int{64}
 }
 
 func (x *DoubaoRealtimeDialogExtra) GetAuditResponse() string {
@@ -4978,7 +5350,7 @@ type DoubaoRealtimeExtension struct {
 
 func (x *DoubaoRealtimeExtension) Reset() {
 	*x = DoubaoRealtimeExtension{}
-	mi := &file_payload_proto_msgTypes[58]
+	mi := &file_payload_proto_msgTypes[65]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4990,7 +5362,7 @@ func (x *DoubaoRealtimeExtension) String() string {
 func (*DoubaoRealtimeExtension) ProtoMessage() {}
 
 func (x *DoubaoRealtimeExtension) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[58]
+	mi := &file_payload_proto_msgTypes[65]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5003,7 +5375,7 @@ func (x *DoubaoRealtimeExtension) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DoubaoRealtimeExtension.ProtoReflect.Descriptor instead.
 func (*DoubaoRealtimeExtension) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{58}
+	return file_payload_proto_rawDescGZIP(), []int{65}
 }
 
 func (x *DoubaoRealtimeExtension) GetAsr() *DoubaoRealtimeASRExtension {
@@ -5040,7 +5412,7 @@ type DoubaoRealtimeFunctionTool struct {
 
 func (x *DoubaoRealtimeFunctionTool) Reset() {
 	*x = DoubaoRealtimeFunctionTool{}
-	mi := &file_payload_proto_msgTypes[59]
+	mi := &file_payload_proto_msgTypes[66]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5052,7 +5424,7 @@ func (x *DoubaoRealtimeFunctionTool) String() string {
 func (*DoubaoRealtimeFunctionTool) ProtoMessage() {}
 
 func (x *DoubaoRealtimeFunctionTool) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[59]
+	mi := &file_payload_proto_msgTypes[66]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5065,7 +5437,7 @@ func (x *DoubaoRealtimeFunctionTool) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DoubaoRealtimeFunctionTool.ProtoReflect.Descriptor instead.
 func (*DoubaoRealtimeFunctionTool) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{59}
+	return file_payload_proto_rawDescGZIP(), []int{66}
 }
 
 func (x *DoubaoRealtimeFunctionTool) GetDescription() string {
@@ -5123,7 +5495,7 @@ type DoubaoRealtimeJSONSchema struct {
 
 func (x *DoubaoRealtimeJSONSchema) Reset() {
 	*x = DoubaoRealtimeJSONSchema{}
-	mi := &file_payload_proto_msgTypes[60]
+	mi := &file_payload_proto_msgTypes[67]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5135,7 +5507,7 @@ func (x *DoubaoRealtimeJSONSchema) String() string {
 func (*DoubaoRealtimeJSONSchema) ProtoMessage() {}
 
 func (x *DoubaoRealtimeJSONSchema) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[60]
+	mi := &file_payload_proto_msgTypes[67]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5148,7 +5520,7 @@ func (x *DoubaoRealtimeJSONSchema) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DoubaoRealtimeJSONSchema.ProtoReflect.Descriptor instead.
 func (*DoubaoRealtimeJSONSchema) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{60}
+	return file_payload_proto_rawDescGZIP(), []int{67}
 }
 
 func (x *DoubaoRealtimeJSONSchema) GetAdditionalProperties() bool {
@@ -5244,7 +5616,7 @@ type DoubaoRealtimeTTSExtension struct {
 
 func (x *DoubaoRealtimeTTSExtension) Reset() {
 	*x = DoubaoRealtimeTTSExtension{}
-	mi := &file_payload_proto_msgTypes[61]
+	mi := &file_payload_proto_msgTypes[68]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5256,7 +5628,7 @@ func (x *DoubaoRealtimeTTSExtension) String() string {
 func (*DoubaoRealtimeTTSExtension) ProtoMessage() {}
 
 func (x *DoubaoRealtimeTTSExtension) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[61]
+	mi := &file_payload_proto_msgTypes[68]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5269,7 +5641,7 @@ func (x *DoubaoRealtimeTTSExtension) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DoubaoRealtimeTTSExtension.ProtoReflect.Descriptor instead.
 func (*DoubaoRealtimeTTSExtension) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{61}
+	return file_payload_proto_rawDescGZIP(), []int{68}
 }
 
 func (x *DoubaoRealtimeTTSExtension) GetExtra() *DoubaoRealtimeTTSExtra {
@@ -5290,7 +5662,7 @@ type DoubaoRealtimeTTSExtra struct {
 
 func (x *DoubaoRealtimeTTSExtra) Reset() {
 	*x = DoubaoRealtimeTTSExtra{}
-	mi := &file_payload_proto_msgTypes[62]
+	mi := &file_payload_proto_msgTypes[69]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5302,7 +5674,7 @@ func (x *DoubaoRealtimeTTSExtra) String() string {
 func (*DoubaoRealtimeTTSExtra) ProtoMessage() {}
 
 func (x *DoubaoRealtimeTTSExtra) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[62]
+	mi := &file_payload_proto_msgTypes[69]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5315,7 +5687,7 @@ func (x *DoubaoRealtimeTTSExtra) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DoubaoRealtimeTTSExtra.ProtoReflect.Descriptor instead.
 func (*DoubaoRealtimeTTSExtra) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{62}
+	return file_payload_proto_rawDescGZIP(), []int{69}
 }
 
 func (x *DoubaoRealtimeTTSExtra) GetAigcMetadata() *DoubaoRealtimeAIGCMetadata {
@@ -5352,7 +5724,7 @@ type DoubaoRealtimeWorkflowSpec struct {
 
 func (x *DoubaoRealtimeWorkflowSpec) Reset() {
 	*x = DoubaoRealtimeWorkflowSpec{}
-	mi := &file_payload_proto_msgTypes[63]
+	mi := &file_payload_proto_msgTypes[70]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5364,7 +5736,7 @@ func (x *DoubaoRealtimeWorkflowSpec) String() string {
 func (*DoubaoRealtimeWorkflowSpec) ProtoMessage() {}
 
 func (x *DoubaoRealtimeWorkflowSpec) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[63]
+	mi := &file_payload_proto_msgTypes[70]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5377,7 +5749,7 @@ func (x *DoubaoRealtimeWorkflowSpec) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DoubaoRealtimeWorkflowSpec.ProtoReflect.Descriptor instead.
 func (*DoubaoRealtimeWorkflowSpec) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{63}
+	return file_payload_proto_rawDescGZIP(), []int{70}
 }
 
 func (x *DoubaoRealtimeWorkflowSpec) GetAudio() *DoubaoRealtimeAudio {
@@ -5431,7 +5803,7 @@ type DoubaoRealtimeWorkspaceParameters struct {
 
 func (x *DoubaoRealtimeWorkspaceParameters) Reset() {
 	*x = DoubaoRealtimeWorkspaceParameters{}
-	mi := &file_payload_proto_msgTypes[64]
+	mi := &file_payload_proto_msgTypes[71]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5443,7 +5815,7 @@ func (x *DoubaoRealtimeWorkspaceParameters) String() string {
 func (*DoubaoRealtimeWorkspaceParameters) ProtoMessage() {}
 
 func (x *DoubaoRealtimeWorkspaceParameters) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[64]
+	mi := &file_payload_proto_msgTypes[71]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5456,7 +5828,7 @@ func (x *DoubaoRealtimeWorkspaceParameters) ProtoReflect() protoreflect.Message 
 
 // Deprecated: Use DoubaoRealtimeWorkspaceParameters.ProtoReflect.Descriptor instead.
 func (*DoubaoRealtimeWorkspaceParameters) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{64}
+	return file_payload_proto_rawDescGZIP(), []int{71}
 }
 
 func (x *DoubaoRealtimeWorkspaceParameters) GetAgentType() DoubaoRealtimeWorkspaceParametersAgentType {
@@ -5528,7 +5900,7 @@ type Firmware struct {
 
 func (x *Firmware) Reset() {
 	*x = Firmware{}
-	mi := &file_payload_proto_msgTypes[65]
+	mi := &file_payload_proto_msgTypes[72]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5540,7 +5912,7 @@ func (x *Firmware) String() string {
 func (*Firmware) ProtoMessage() {}
 
 func (x *Firmware) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[65]
+	mi := &file_payload_proto_msgTypes[72]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5553,7 +5925,7 @@ func (x *Firmware) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Firmware.ProtoReflect.Descriptor instead.
 func (*Firmware) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{65}
+	return file_payload_proto_rawDescGZIP(), []int{72}
 }
 
 func (x *Firmware) GetCreatedAt() string {
@@ -5606,7 +5978,7 @@ type FirmwareArtifact struct {
 
 func (x *FirmwareArtifact) Reset() {
 	*x = FirmwareArtifact{}
-	mi := &file_payload_proto_msgTypes[66]
+	mi := &file_payload_proto_msgTypes[73]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5618,7 +5990,7 @@ func (x *FirmwareArtifact) String() string {
 func (*FirmwareArtifact) ProtoMessage() {}
 
 func (x *FirmwareArtifact) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[66]
+	mi := &file_payload_proto_msgTypes[73]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5631,7 +6003,7 @@ func (x *FirmwareArtifact) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FirmwareArtifact.ProtoReflect.Descriptor instead.
 func (*FirmwareArtifact) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{66}
+	return file_payload_proto_rawDescGZIP(), []int{73}
 }
 
 func (x *FirmwareArtifact) GetContentType() string {
@@ -5697,7 +6069,7 @@ type FirmwareArtifactEntry struct {
 
 func (x *FirmwareArtifactEntry) Reset() {
 	*x = FirmwareArtifactEntry{}
-	mi := &file_payload_proto_msgTypes[67]
+	mi := &file_payload_proto_msgTypes[74]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5709,7 +6081,7 @@ func (x *FirmwareArtifactEntry) String() string {
 func (*FirmwareArtifactEntry) ProtoMessage() {}
 
 func (x *FirmwareArtifactEntry) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[67]
+	mi := &file_payload_proto_msgTypes[74]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5722,7 +6094,7 @@ func (x *FirmwareArtifactEntry) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FirmwareArtifactEntry.ProtoReflect.Descriptor instead.
 func (*FirmwareArtifactEntry) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{67}
+	return file_payload_proto_rawDescGZIP(), []int{74}
 }
 
 func (x *FirmwareArtifactEntry) GetContentType() string {
@@ -5778,7 +6150,7 @@ type FirmwareFilesDownloadRequest struct {
 
 func (x *FirmwareFilesDownloadRequest) Reset() {
 	*x = FirmwareFilesDownloadRequest{}
-	mi := &file_payload_proto_msgTypes[68]
+	mi := &file_payload_proto_msgTypes[75]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5790,7 +6162,7 @@ func (x *FirmwareFilesDownloadRequest) String() string {
 func (*FirmwareFilesDownloadRequest) ProtoMessage() {}
 
 func (x *FirmwareFilesDownloadRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[68]
+	mi := &file_payload_proto_msgTypes[75]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5803,7 +6175,7 @@ func (x *FirmwareFilesDownloadRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FirmwareFilesDownloadRequest.ProtoReflect.Descriptor instead.
 func (*FirmwareFilesDownloadRequest) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{68}
+	return file_payload_proto_rawDescGZIP(), []int{75}
 }
 
 func (x *FirmwareFilesDownloadRequest) GetChannel() FirmwareChannelName {
@@ -5840,7 +6212,7 @@ type FirmwareFilesDownloadResponse struct {
 
 func (x *FirmwareFilesDownloadResponse) Reset() {
 	*x = FirmwareFilesDownloadResponse{}
-	mi := &file_payload_proto_msgTypes[69]
+	mi := &file_payload_proto_msgTypes[76]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5852,7 +6224,7 @@ func (x *FirmwareFilesDownloadResponse) String() string {
 func (*FirmwareFilesDownloadResponse) ProtoMessage() {}
 
 func (x *FirmwareFilesDownloadResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[69]
+	mi := &file_payload_proto_msgTypes[76]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5865,7 +6237,7 @@ func (x *FirmwareFilesDownloadResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FirmwareFilesDownloadResponse.ProtoReflect.Descriptor instead.
 func (*FirmwareFilesDownloadResponse) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{69}
+	return file_payload_proto_rawDescGZIP(), []int{76}
 }
 
 func (x *FirmwareFilesDownloadResponse) GetArtifact() *FirmwareArtifact {
@@ -5912,7 +6284,7 @@ type FirmwareGetRequest struct {
 
 func (x *FirmwareGetRequest) Reset() {
 	*x = FirmwareGetRequest{}
-	mi := &file_payload_proto_msgTypes[70]
+	mi := &file_payload_proto_msgTypes[77]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5924,7 +6296,7 @@ func (x *FirmwareGetRequest) String() string {
 func (*FirmwareGetRequest) ProtoMessage() {}
 
 func (x *FirmwareGetRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[70]
+	mi := &file_payload_proto_msgTypes[77]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5937,7 +6309,7 @@ func (x *FirmwareGetRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FirmwareGetRequest.ProtoReflect.Descriptor instead.
 func (*FirmwareGetRequest) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{70}
+	return file_payload_proto_rawDescGZIP(), []int{77}
 }
 
 func (x *FirmwareGetRequest) GetFirmwareId() string {
@@ -5956,7 +6328,7 @@ type FirmwareGetResponse struct {
 
 func (x *FirmwareGetResponse) Reset() {
 	*x = FirmwareGetResponse{}
-	mi := &file_payload_proto_msgTypes[71]
+	mi := &file_payload_proto_msgTypes[78]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5968,7 +6340,7 @@ func (x *FirmwareGetResponse) String() string {
 func (*FirmwareGetResponse) ProtoMessage() {}
 
 func (x *FirmwareGetResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[71]
+	mi := &file_payload_proto_msgTypes[78]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5981,7 +6353,7 @@ func (x *FirmwareGetResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FirmwareGetResponse.ProtoReflect.Descriptor instead.
 func (*FirmwareGetResponse) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{71}
+	return file_payload_proto_rawDescGZIP(), []int{78}
 }
 
 func (x *FirmwareGetResponse) GetValue() *Firmware {
@@ -6001,7 +6373,7 @@ type FirmwareListRequest struct {
 
 func (x *FirmwareListRequest) Reset() {
 	*x = FirmwareListRequest{}
-	mi := &file_payload_proto_msgTypes[72]
+	mi := &file_payload_proto_msgTypes[79]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6013,7 +6385,7 @@ func (x *FirmwareListRequest) String() string {
 func (*FirmwareListRequest) ProtoMessage() {}
 
 func (x *FirmwareListRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[72]
+	mi := &file_payload_proto_msgTypes[79]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6026,7 +6398,7 @@ func (x *FirmwareListRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FirmwareListRequest.ProtoReflect.Descriptor instead.
 func (*FirmwareListRequest) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{72}
+	return file_payload_proto_rawDescGZIP(), []int{79}
 }
 
 func (x *FirmwareListRequest) GetCursor() string {
@@ -6054,7 +6426,7 @@ type FirmwareListResponse struct {
 
 func (x *FirmwareListResponse) Reset() {
 	*x = FirmwareListResponse{}
-	mi := &file_payload_proto_msgTypes[73]
+	mi := &file_payload_proto_msgTypes[80]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6066,7 +6438,7 @@ func (x *FirmwareListResponse) String() string {
 func (*FirmwareListResponse) ProtoMessage() {}
 
 func (x *FirmwareListResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[73]
+	mi := &file_payload_proto_msgTypes[80]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6079,7 +6451,7 @@ func (x *FirmwareListResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FirmwareListResponse.ProtoReflect.Descriptor instead.
 func (*FirmwareListResponse) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{73}
+	return file_payload_proto_rawDescGZIP(), []int{80}
 }
 
 func (x *FirmwareListResponse) GetHasNext() bool {
@@ -6113,7 +6485,7 @@ type FirmwareSlot struct {
 
 func (x *FirmwareSlot) Reset() {
 	*x = FirmwareSlot{}
-	mi := &file_payload_proto_msgTypes[74]
+	mi := &file_payload_proto_msgTypes[81]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6125,7 +6497,7 @@ func (x *FirmwareSlot) String() string {
 func (*FirmwareSlot) ProtoMessage() {}
 
 func (x *FirmwareSlot) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[74]
+	mi := &file_payload_proto_msgTypes[81]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6138,7 +6510,7 @@ func (x *FirmwareSlot) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FirmwareSlot.ProtoReflect.Descriptor instead.
 func (*FirmwareSlot) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{74}
+	return file_payload_proto_rawDescGZIP(), []int{81}
 }
 
 func (x *FirmwareSlot) GetArtifact() *FirmwareArtifact {
@@ -6167,7 +6539,7 @@ type FirmwareSlots struct {
 
 func (x *FirmwareSlots) Reset() {
 	*x = FirmwareSlots{}
-	mi := &file_payload_proto_msgTypes[75]
+	mi := &file_payload_proto_msgTypes[82]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6179,7 +6551,7 @@ func (x *FirmwareSlots) String() string {
 func (*FirmwareSlots) ProtoMessage() {}
 
 func (x *FirmwareSlots) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[75]
+	mi := &file_payload_proto_msgTypes[82]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6192,7 +6564,7 @@ func (x *FirmwareSlots) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FirmwareSlots.ProtoReflect.Descriptor instead.
 func (*FirmwareSlots) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{75}
+	return file_payload_proto_rawDescGZIP(), []int{82}
 }
 
 func (x *FirmwareSlots) GetBeta() *FirmwareSlot {
@@ -6233,7 +6605,7 @@ type FlowcraftConversationParameters struct {
 
 func (x *FlowcraftConversationParameters) Reset() {
 	*x = FlowcraftConversationParameters{}
-	mi := &file_payload_proto_msgTypes[76]
+	mi := &file_payload_proto_msgTypes[83]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6245,7 +6617,7 @@ func (x *FlowcraftConversationParameters) String() string {
 func (*FlowcraftConversationParameters) ProtoMessage() {}
 
 func (x *FlowcraftConversationParameters) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[76]
+	mi := &file_payload_proto_msgTypes[83]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6258,7 +6630,7 @@ func (x *FlowcraftConversationParameters) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FlowcraftConversationParameters.ProtoReflect.Descriptor instead.
 func (*FlowcraftConversationParameters) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{76}
+	return file_payload_proto_rawDescGZIP(), []int{83}
 }
 
 func (x *FlowcraftConversationParameters) GetAgentInitiativePolicy() FlowcraftConversationParametersAgentInitiativePolicy {
@@ -6284,7 +6656,7 @@ type FlowcraftWorkflowSpec struct {
 
 func (x *FlowcraftWorkflowSpec) Reset() {
 	*x = FlowcraftWorkflowSpec{}
-	mi := &file_payload_proto_msgTypes[77]
+	mi := &file_payload_proto_msgTypes[84]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6296,7 +6668,7 @@ func (x *FlowcraftWorkflowSpec) String() string {
 func (*FlowcraftWorkflowSpec) ProtoMessage() {}
 
 func (x *FlowcraftWorkflowSpec) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[77]
+	mi := &file_payload_proto_msgTypes[84]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6309,7 +6681,7 @@ func (x *FlowcraftWorkflowSpec) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FlowcraftWorkflowSpec.ProtoReflect.Descriptor instead.
 func (*FlowcraftWorkflowSpec) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{77}
+	return file_payload_proto_rawDescGZIP(), []int{84}
 }
 
 func (x *FlowcraftWorkflowSpec) GetFields() *structpb.Struct {
@@ -6334,7 +6706,7 @@ type FlowcraftWorkspaceParameters struct {
 
 func (x *FlowcraftWorkspaceParameters) Reset() {
 	*x = FlowcraftWorkspaceParameters{}
-	mi := &file_payload_proto_msgTypes[78]
+	mi := &file_payload_proto_msgTypes[85]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6346,7 +6718,7 @@ func (x *FlowcraftWorkspaceParameters) String() string {
 func (*FlowcraftWorkspaceParameters) ProtoMessage() {}
 
 func (x *FlowcraftWorkspaceParameters) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[78]
+	mi := &file_payload_proto_msgTypes[85]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6359,7 +6731,7 @@ func (x *FlowcraftWorkspaceParameters) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FlowcraftWorkspaceParameters.ProtoReflect.Descriptor instead.
 func (*FlowcraftWorkspaceParameters) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{78}
+	return file_payload_proto_rawDescGZIP(), []int{85}
 }
 
 func (x *FlowcraftWorkspaceParameters) GetAgentType() FlowcraftWorkspaceParametersAgentType {
@@ -6420,7 +6792,7 @@ type FriendAddRequest struct {
 
 func (x *FriendAddRequest) Reset() {
 	*x = FriendAddRequest{}
-	mi := &file_payload_proto_msgTypes[79]
+	mi := &file_payload_proto_msgTypes[86]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6432,7 +6804,7 @@ func (x *FriendAddRequest) String() string {
 func (*FriendAddRequest) ProtoMessage() {}
 
 func (x *FriendAddRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[79]
+	mi := &file_payload_proto_msgTypes[86]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6445,7 +6817,7 @@ func (x *FriendAddRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FriendAddRequest.ProtoReflect.Descriptor instead.
 func (*FriendAddRequest) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{79}
+	return file_payload_proto_rawDescGZIP(), []int{86}
 }
 
 func (x *FriendAddRequest) GetInviteToken() string {
@@ -6464,7 +6836,7 @@ type FriendAddResponse struct {
 
 func (x *FriendAddResponse) Reset() {
 	*x = FriendAddResponse{}
-	mi := &file_payload_proto_msgTypes[80]
+	mi := &file_payload_proto_msgTypes[87]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6476,7 +6848,7 @@ func (x *FriendAddResponse) String() string {
 func (*FriendAddResponse) ProtoMessage() {}
 
 func (x *FriendAddResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[80]
+	mi := &file_payload_proto_msgTypes[87]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6489,7 +6861,7 @@ func (x *FriendAddResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FriendAddResponse.ProtoReflect.Descriptor instead.
 func (*FriendAddResponse) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{80}
+	return file_payload_proto_rawDescGZIP(), []int{87}
 }
 
 func (x *FriendAddResponse) GetValue() *FriendObject {
@@ -6508,7 +6880,7 @@ type FriendDeleteRequest struct {
 
 func (x *FriendDeleteRequest) Reset() {
 	*x = FriendDeleteRequest{}
-	mi := &file_payload_proto_msgTypes[81]
+	mi := &file_payload_proto_msgTypes[88]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6520,7 +6892,7 @@ func (x *FriendDeleteRequest) String() string {
 func (*FriendDeleteRequest) ProtoMessage() {}
 
 func (x *FriendDeleteRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[81]
+	mi := &file_payload_proto_msgTypes[88]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6533,7 +6905,7 @@ func (x *FriendDeleteRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FriendDeleteRequest.ProtoReflect.Descriptor instead.
 func (*FriendDeleteRequest) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{81}
+	return file_payload_proto_rawDescGZIP(), []int{88}
 }
 
 func (x *FriendDeleteRequest) GetId() string {
@@ -6552,7 +6924,7 @@ type FriendDeleteResponse struct {
 
 func (x *FriendDeleteResponse) Reset() {
 	*x = FriendDeleteResponse{}
-	mi := &file_payload_proto_msgTypes[82]
+	mi := &file_payload_proto_msgTypes[89]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6564,7 +6936,7 @@ func (x *FriendDeleteResponse) String() string {
 func (*FriendDeleteResponse) ProtoMessage() {}
 
 func (x *FriendDeleteResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[82]
+	mi := &file_payload_proto_msgTypes[89]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6577,7 +6949,7 @@ func (x *FriendDeleteResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FriendDeleteResponse.ProtoReflect.Descriptor instead.
 func (*FriendDeleteResponse) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{82}
+	return file_payload_proto_rawDescGZIP(), []int{89}
 }
 
 func (x *FriendDeleteResponse) GetValue() *FriendObject {
@@ -6597,7 +6969,7 @@ type FriendGroupCreateRequest struct {
 
 func (x *FriendGroupCreateRequest) Reset() {
 	*x = FriendGroupCreateRequest{}
-	mi := &file_payload_proto_msgTypes[83]
+	mi := &file_payload_proto_msgTypes[90]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6609,7 +6981,7 @@ func (x *FriendGroupCreateRequest) String() string {
 func (*FriendGroupCreateRequest) ProtoMessage() {}
 
 func (x *FriendGroupCreateRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[83]
+	mi := &file_payload_proto_msgTypes[90]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6622,7 +6994,7 @@ func (x *FriendGroupCreateRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FriendGroupCreateRequest.ProtoReflect.Descriptor instead.
 func (*FriendGroupCreateRequest) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{83}
+	return file_payload_proto_rawDescGZIP(), []int{90}
 }
 
 func (x *FriendGroupCreateRequest) GetDescription() string {
@@ -6648,7 +7020,7 @@ type FriendGroupCreateResponse struct {
 
 func (x *FriendGroupCreateResponse) Reset() {
 	*x = FriendGroupCreateResponse{}
-	mi := &file_payload_proto_msgTypes[84]
+	mi := &file_payload_proto_msgTypes[91]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6660,7 +7032,7 @@ func (x *FriendGroupCreateResponse) String() string {
 func (*FriendGroupCreateResponse) ProtoMessage() {}
 
 func (x *FriendGroupCreateResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[84]
+	mi := &file_payload_proto_msgTypes[91]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6673,7 +7045,7 @@ func (x *FriendGroupCreateResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FriendGroupCreateResponse.ProtoReflect.Descriptor instead.
 func (*FriendGroupCreateResponse) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{84}
+	return file_payload_proto_rawDescGZIP(), []int{91}
 }
 
 func (x *FriendGroupCreateResponse) GetValue() *FriendGroupObject {
@@ -6692,7 +7064,7 @@ type FriendGroupDeleteRequest struct {
 
 func (x *FriendGroupDeleteRequest) Reset() {
 	*x = FriendGroupDeleteRequest{}
-	mi := &file_payload_proto_msgTypes[85]
+	mi := &file_payload_proto_msgTypes[92]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6704,7 +7076,7 @@ func (x *FriendGroupDeleteRequest) String() string {
 func (*FriendGroupDeleteRequest) ProtoMessage() {}
 
 func (x *FriendGroupDeleteRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[85]
+	mi := &file_payload_proto_msgTypes[92]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6717,7 +7089,7 @@ func (x *FriendGroupDeleteRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FriendGroupDeleteRequest.ProtoReflect.Descriptor instead.
 func (*FriendGroupDeleteRequest) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{85}
+	return file_payload_proto_rawDescGZIP(), []int{92}
 }
 
 func (x *FriendGroupDeleteRequest) GetId() string {
@@ -6736,7 +7108,7 @@ type FriendGroupDeleteResponse struct {
 
 func (x *FriendGroupDeleteResponse) Reset() {
 	*x = FriendGroupDeleteResponse{}
-	mi := &file_payload_proto_msgTypes[86]
+	mi := &file_payload_proto_msgTypes[93]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6748,7 +7120,7 @@ func (x *FriendGroupDeleteResponse) String() string {
 func (*FriendGroupDeleteResponse) ProtoMessage() {}
 
 func (x *FriendGroupDeleteResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[86]
+	mi := &file_payload_proto_msgTypes[93]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6761,7 +7133,7 @@ func (x *FriendGroupDeleteResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FriendGroupDeleteResponse.ProtoReflect.Descriptor instead.
 func (*FriendGroupDeleteResponse) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{86}
+	return file_payload_proto_rawDescGZIP(), []int{93}
 }
 
 func (x *FriendGroupDeleteResponse) GetValue() *FriendGroupObject {
@@ -6780,7 +7152,7 @@ type FriendGroupGetRequest struct {
 
 func (x *FriendGroupGetRequest) Reset() {
 	*x = FriendGroupGetRequest{}
-	mi := &file_payload_proto_msgTypes[87]
+	mi := &file_payload_proto_msgTypes[94]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6792,7 +7164,7 @@ func (x *FriendGroupGetRequest) String() string {
 func (*FriendGroupGetRequest) ProtoMessage() {}
 
 func (x *FriendGroupGetRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[87]
+	mi := &file_payload_proto_msgTypes[94]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6805,7 +7177,7 @@ func (x *FriendGroupGetRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FriendGroupGetRequest.ProtoReflect.Descriptor instead.
 func (*FriendGroupGetRequest) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{87}
+	return file_payload_proto_rawDescGZIP(), []int{94}
 }
 
 func (x *FriendGroupGetRequest) GetId() string {
@@ -6824,7 +7196,7 @@ type FriendGroupGetResponse struct {
 
 func (x *FriendGroupGetResponse) Reset() {
 	*x = FriendGroupGetResponse{}
-	mi := &file_payload_proto_msgTypes[88]
+	mi := &file_payload_proto_msgTypes[95]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6836,7 +7208,7 @@ func (x *FriendGroupGetResponse) String() string {
 func (*FriendGroupGetResponse) ProtoMessage() {}
 
 func (x *FriendGroupGetResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[88]
+	mi := &file_payload_proto_msgTypes[95]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6849,7 +7221,7 @@ func (x *FriendGroupGetResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FriendGroupGetResponse.ProtoReflect.Descriptor instead.
 func (*FriendGroupGetResponse) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{88}
+	return file_payload_proto_rawDescGZIP(), []int{95}
 }
 
 func (x *FriendGroupGetResponse) GetValue() *FriendGroupObject {
@@ -6868,7 +7240,7 @@ type FriendGroupInviteTokenClearRequest struct {
 
 func (x *FriendGroupInviteTokenClearRequest) Reset() {
 	*x = FriendGroupInviteTokenClearRequest{}
-	mi := &file_payload_proto_msgTypes[89]
+	mi := &file_payload_proto_msgTypes[96]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6880,7 +7252,7 @@ func (x *FriendGroupInviteTokenClearRequest) String() string {
 func (*FriendGroupInviteTokenClearRequest) ProtoMessage() {}
 
 func (x *FriendGroupInviteTokenClearRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[89]
+	mi := &file_payload_proto_msgTypes[96]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6893,7 +7265,7 @@ func (x *FriendGroupInviteTokenClearRequest) ProtoReflect() protoreflect.Message
 
 // Deprecated: Use FriendGroupInviteTokenClearRequest.ProtoReflect.Descriptor instead.
 func (*FriendGroupInviteTokenClearRequest) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{89}
+	return file_payload_proto_rawDescGZIP(), []int{96}
 }
 
 func (x *FriendGroupInviteTokenClearRequest) GetFriendGroupId() string {
@@ -6911,7 +7283,7 @@ type FriendGroupInviteTokenClearResponse struct {
 
 func (x *FriendGroupInviteTokenClearResponse) Reset() {
 	*x = FriendGroupInviteTokenClearResponse{}
-	mi := &file_payload_proto_msgTypes[90]
+	mi := &file_payload_proto_msgTypes[97]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6923,7 +7295,7 @@ func (x *FriendGroupInviteTokenClearResponse) String() string {
 func (*FriendGroupInviteTokenClearResponse) ProtoMessage() {}
 
 func (x *FriendGroupInviteTokenClearResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[90]
+	mi := &file_payload_proto_msgTypes[97]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6936,7 +7308,7 @@ func (x *FriendGroupInviteTokenClearResponse) ProtoReflect() protoreflect.Messag
 
 // Deprecated: Use FriendGroupInviteTokenClearResponse.ProtoReflect.Descriptor instead.
 func (*FriendGroupInviteTokenClearResponse) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{90}
+	return file_payload_proto_rawDescGZIP(), []int{97}
 }
 
 type FriendGroupInviteTokenCreateRequest struct {
@@ -6948,7 +7320,7 @@ type FriendGroupInviteTokenCreateRequest struct {
 
 func (x *FriendGroupInviteTokenCreateRequest) Reset() {
 	*x = FriendGroupInviteTokenCreateRequest{}
-	mi := &file_payload_proto_msgTypes[91]
+	mi := &file_payload_proto_msgTypes[98]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6960,7 +7332,7 @@ func (x *FriendGroupInviteTokenCreateRequest) String() string {
 func (*FriendGroupInviteTokenCreateRequest) ProtoMessage() {}
 
 func (x *FriendGroupInviteTokenCreateRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[91]
+	mi := &file_payload_proto_msgTypes[98]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6973,7 +7345,7 @@ func (x *FriendGroupInviteTokenCreateRequest) ProtoReflect() protoreflect.Messag
 
 // Deprecated: Use FriendGroupInviteTokenCreateRequest.ProtoReflect.Descriptor instead.
 func (*FriendGroupInviteTokenCreateRequest) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{91}
+	return file_payload_proto_rawDescGZIP(), []int{98}
 }
 
 func (x *FriendGroupInviteTokenCreateRequest) GetFriendGroupId() string {
@@ -6993,7 +7365,7 @@ type FriendGroupInviteTokenCreateResponse struct {
 
 func (x *FriendGroupInviteTokenCreateResponse) Reset() {
 	*x = FriendGroupInviteTokenCreateResponse{}
-	mi := &file_payload_proto_msgTypes[92]
+	mi := &file_payload_proto_msgTypes[99]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7005,7 +7377,7 @@ func (x *FriendGroupInviteTokenCreateResponse) String() string {
 func (*FriendGroupInviteTokenCreateResponse) ProtoMessage() {}
 
 func (x *FriendGroupInviteTokenCreateResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[92]
+	mi := &file_payload_proto_msgTypes[99]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7018,7 +7390,7 @@ func (x *FriendGroupInviteTokenCreateResponse) ProtoReflect() protoreflect.Messa
 
 // Deprecated: Use FriendGroupInviteTokenCreateResponse.ProtoReflect.Descriptor instead.
 func (*FriendGroupInviteTokenCreateResponse) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{92}
+	return file_payload_proto_rawDescGZIP(), []int{99}
 }
 
 func (x *FriendGroupInviteTokenCreateResponse) GetExpiresAt() string {
@@ -7044,7 +7416,7 @@ type FriendGroupInviteTokenGetRequest struct {
 
 func (x *FriendGroupInviteTokenGetRequest) Reset() {
 	*x = FriendGroupInviteTokenGetRequest{}
-	mi := &file_payload_proto_msgTypes[93]
+	mi := &file_payload_proto_msgTypes[100]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7056,7 +7428,7 @@ func (x *FriendGroupInviteTokenGetRequest) String() string {
 func (*FriendGroupInviteTokenGetRequest) ProtoMessage() {}
 
 func (x *FriendGroupInviteTokenGetRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[93]
+	mi := &file_payload_proto_msgTypes[100]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7069,7 +7441,7 @@ func (x *FriendGroupInviteTokenGetRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FriendGroupInviteTokenGetRequest.ProtoReflect.Descriptor instead.
 func (*FriendGroupInviteTokenGetRequest) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{93}
+	return file_payload_proto_rawDescGZIP(), []int{100}
 }
 
 func (x *FriendGroupInviteTokenGetRequest) GetFriendGroupId() string {
@@ -7089,7 +7461,7 @@ type FriendGroupInviteTokenGetResponse struct {
 
 func (x *FriendGroupInviteTokenGetResponse) Reset() {
 	*x = FriendGroupInviteTokenGetResponse{}
-	mi := &file_payload_proto_msgTypes[94]
+	mi := &file_payload_proto_msgTypes[101]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7101,7 +7473,7 @@ func (x *FriendGroupInviteTokenGetResponse) String() string {
 func (*FriendGroupInviteTokenGetResponse) ProtoMessage() {}
 
 func (x *FriendGroupInviteTokenGetResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[94]
+	mi := &file_payload_proto_msgTypes[101]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7114,7 +7486,7 @@ func (x *FriendGroupInviteTokenGetResponse) ProtoReflect() protoreflect.Message 
 
 // Deprecated: Use FriendGroupInviteTokenGetResponse.ProtoReflect.Descriptor instead.
 func (*FriendGroupInviteTokenGetResponse) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{94}
+	return file_payload_proto_rawDescGZIP(), []int{101}
 }
 
 func (x *FriendGroupInviteTokenGetResponse) GetExpiresAt() string {
@@ -7140,7 +7512,7 @@ type FriendGroupJoinRequest struct {
 
 func (x *FriendGroupJoinRequest) Reset() {
 	*x = FriendGroupJoinRequest{}
-	mi := &file_payload_proto_msgTypes[95]
+	mi := &file_payload_proto_msgTypes[102]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7152,7 +7524,7 @@ func (x *FriendGroupJoinRequest) String() string {
 func (*FriendGroupJoinRequest) ProtoMessage() {}
 
 func (x *FriendGroupJoinRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[95]
+	mi := &file_payload_proto_msgTypes[102]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7165,7 +7537,7 @@ func (x *FriendGroupJoinRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FriendGroupJoinRequest.ProtoReflect.Descriptor instead.
 func (*FriendGroupJoinRequest) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{95}
+	return file_payload_proto_rawDescGZIP(), []int{102}
 }
 
 func (x *FriendGroupJoinRequest) GetInviteToken() string {
@@ -7185,7 +7557,7 @@ type FriendGroupJoinResponse struct {
 
 func (x *FriendGroupJoinResponse) Reset() {
 	*x = FriendGroupJoinResponse{}
-	mi := &file_payload_proto_msgTypes[96]
+	mi := &file_payload_proto_msgTypes[103]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7197,7 +7569,7 @@ func (x *FriendGroupJoinResponse) String() string {
 func (*FriendGroupJoinResponse) ProtoMessage() {}
 
 func (x *FriendGroupJoinResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[96]
+	mi := &file_payload_proto_msgTypes[103]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7210,7 +7582,7 @@ func (x *FriendGroupJoinResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FriendGroupJoinResponse.ProtoReflect.Descriptor instead.
 func (*FriendGroupJoinResponse) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{96}
+	return file_payload_proto_rawDescGZIP(), []int{103}
 }
 
 func (x *FriendGroupJoinResponse) GetGroup() *FriendGroupObject {
@@ -7237,7 +7609,7 @@ type FriendGroupListRequest struct {
 
 func (x *FriendGroupListRequest) Reset() {
 	*x = FriendGroupListRequest{}
-	mi := &file_payload_proto_msgTypes[97]
+	mi := &file_payload_proto_msgTypes[104]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7249,7 +7621,7 @@ func (x *FriendGroupListRequest) String() string {
 func (*FriendGroupListRequest) ProtoMessage() {}
 
 func (x *FriendGroupListRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[97]
+	mi := &file_payload_proto_msgTypes[104]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7262,7 +7634,7 @@ func (x *FriendGroupListRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FriendGroupListRequest.ProtoReflect.Descriptor instead.
 func (*FriendGroupListRequest) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{97}
+	return file_payload_proto_rawDescGZIP(), []int{104}
 }
 
 func (x *FriendGroupListRequest) GetCursor() string {
@@ -7290,7 +7662,7 @@ type FriendGroupListResponse struct {
 
 func (x *FriendGroupListResponse) Reset() {
 	*x = FriendGroupListResponse{}
-	mi := &file_payload_proto_msgTypes[98]
+	mi := &file_payload_proto_msgTypes[105]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7302,7 +7674,7 @@ func (x *FriendGroupListResponse) String() string {
 func (*FriendGroupListResponse) ProtoMessage() {}
 
 func (x *FriendGroupListResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[98]
+	mi := &file_payload_proto_msgTypes[105]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7315,7 +7687,7 @@ func (x *FriendGroupListResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FriendGroupListResponse.ProtoReflect.Descriptor instead.
 func (*FriendGroupListResponse) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{98}
+	return file_payload_proto_rawDescGZIP(), []int{105}
 }
 
 func (x *FriendGroupListResponse) GetHasNext() bool {
@@ -7350,7 +7722,7 @@ type FriendGroupMemberAddRequest struct {
 
 func (x *FriendGroupMemberAddRequest) Reset() {
 	*x = FriendGroupMemberAddRequest{}
-	mi := &file_payload_proto_msgTypes[99]
+	mi := &file_payload_proto_msgTypes[106]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7362,7 +7734,7 @@ func (x *FriendGroupMemberAddRequest) String() string {
 func (*FriendGroupMemberAddRequest) ProtoMessage() {}
 
 func (x *FriendGroupMemberAddRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[99]
+	mi := &file_payload_proto_msgTypes[106]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7375,7 +7747,7 @@ func (x *FriendGroupMemberAddRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FriendGroupMemberAddRequest.ProtoReflect.Descriptor instead.
 func (*FriendGroupMemberAddRequest) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{99}
+	return file_payload_proto_rawDescGZIP(), []int{106}
 }
 
 func (x *FriendGroupMemberAddRequest) GetFriendGroupId() string {
@@ -7408,7 +7780,7 @@ type FriendGroupMemberAddResponse struct {
 
 func (x *FriendGroupMemberAddResponse) Reset() {
 	*x = FriendGroupMemberAddResponse{}
-	mi := &file_payload_proto_msgTypes[100]
+	mi := &file_payload_proto_msgTypes[107]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7420,7 +7792,7 @@ func (x *FriendGroupMemberAddResponse) String() string {
 func (*FriendGroupMemberAddResponse) ProtoMessage() {}
 
 func (x *FriendGroupMemberAddResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[100]
+	mi := &file_payload_proto_msgTypes[107]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7433,7 +7805,7 @@ func (x *FriendGroupMemberAddResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FriendGroupMemberAddResponse.ProtoReflect.Descriptor instead.
 func (*FriendGroupMemberAddResponse) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{100}
+	return file_payload_proto_rawDescGZIP(), []int{107}
 }
 
 func (x *FriendGroupMemberAddResponse) GetValue() *FriendGroupMemberObject {
@@ -7453,7 +7825,7 @@ type FriendGroupMemberDeleteRequest struct {
 
 func (x *FriendGroupMemberDeleteRequest) Reset() {
 	*x = FriendGroupMemberDeleteRequest{}
-	mi := &file_payload_proto_msgTypes[101]
+	mi := &file_payload_proto_msgTypes[108]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7465,7 +7837,7 @@ func (x *FriendGroupMemberDeleteRequest) String() string {
 func (*FriendGroupMemberDeleteRequest) ProtoMessage() {}
 
 func (x *FriendGroupMemberDeleteRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[101]
+	mi := &file_payload_proto_msgTypes[108]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7478,7 +7850,7 @@ func (x *FriendGroupMemberDeleteRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FriendGroupMemberDeleteRequest.ProtoReflect.Descriptor instead.
 func (*FriendGroupMemberDeleteRequest) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{101}
+	return file_payload_proto_rawDescGZIP(), []int{108}
 }
 
 func (x *FriendGroupMemberDeleteRequest) GetFriendGroupId() string {
@@ -7504,7 +7876,7 @@ type FriendGroupMemberDeleteResponse struct {
 
 func (x *FriendGroupMemberDeleteResponse) Reset() {
 	*x = FriendGroupMemberDeleteResponse{}
-	mi := &file_payload_proto_msgTypes[102]
+	mi := &file_payload_proto_msgTypes[109]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7516,7 +7888,7 @@ func (x *FriendGroupMemberDeleteResponse) String() string {
 func (*FriendGroupMemberDeleteResponse) ProtoMessage() {}
 
 func (x *FriendGroupMemberDeleteResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[102]
+	mi := &file_payload_proto_msgTypes[109]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7529,7 +7901,7 @@ func (x *FriendGroupMemberDeleteResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FriendGroupMemberDeleteResponse.ProtoReflect.Descriptor instead.
 func (*FriendGroupMemberDeleteResponse) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{102}
+	return file_payload_proto_rawDescGZIP(), []int{109}
 }
 
 func (x *FriendGroupMemberDeleteResponse) GetValue() *FriendGroupMemberObject {
@@ -7550,7 +7922,7 @@ type FriendGroupMemberListRequest struct {
 
 func (x *FriendGroupMemberListRequest) Reset() {
 	*x = FriendGroupMemberListRequest{}
-	mi := &file_payload_proto_msgTypes[103]
+	mi := &file_payload_proto_msgTypes[110]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7562,7 +7934,7 @@ func (x *FriendGroupMemberListRequest) String() string {
 func (*FriendGroupMemberListRequest) ProtoMessage() {}
 
 func (x *FriendGroupMemberListRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[103]
+	mi := &file_payload_proto_msgTypes[110]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7575,7 +7947,7 @@ func (x *FriendGroupMemberListRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FriendGroupMemberListRequest.ProtoReflect.Descriptor instead.
 func (*FriendGroupMemberListRequest) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{103}
+	return file_payload_proto_rawDescGZIP(), []int{110}
 }
 
 func (x *FriendGroupMemberListRequest) GetCursor() string {
@@ -7610,7 +7982,7 @@ type FriendGroupMemberListResponse struct {
 
 func (x *FriendGroupMemberListResponse) Reset() {
 	*x = FriendGroupMemberListResponse{}
-	mi := &file_payload_proto_msgTypes[104]
+	mi := &file_payload_proto_msgTypes[111]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7622,7 +7994,7 @@ func (x *FriendGroupMemberListResponse) String() string {
 func (*FriendGroupMemberListResponse) ProtoMessage() {}
 
 func (x *FriendGroupMemberListResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[104]
+	mi := &file_payload_proto_msgTypes[111]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7635,7 +8007,7 @@ func (x *FriendGroupMemberListResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FriendGroupMemberListResponse.ProtoReflect.Descriptor instead.
 func (*FriendGroupMemberListResponse) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{104}
+	return file_payload_proto_rawDescGZIP(), []int{111}
 }
 
 func (x *FriendGroupMemberListResponse) GetHasNext() bool {
@@ -7673,7 +8045,7 @@ type FriendGroupMemberObject struct {
 
 func (x *FriendGroupMemberObject) Reset() {
 	*x = FriendGroupMemberObject{}
-	mi := &file_payload_proto_msgTypes[105]
+	mi := &file_payload_proto_msgTypes[112]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7685,7 +8057,7 @@ func (x *FriendGroupMemberObject) String() string {
 func (*FriendGroupMemberObject) ProtoMessage() {}
 
 func (x *FriendGroupMemberObject) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[105]
+	mi := &file_payload_proto_msgTypes[112]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7698,7 +8070,7 @@ func (x *FriendGroupMemberObject) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FriendGroupMemberObject.ProtoReflect.Descriptor instead.
 func (*FriendGroupMemberObject) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{105}
+	return file_payload_proto_rawDescGZIP(), []int{112}
 }
 
 func (x *FriendGroupMemberObject) GetCreatedAt() string {
@@ -7754,7 +8126,7 @@ type FriendGroupMemberPutRequest struct {
 
 func (x *FriendGroupMemberPutRequest) Reset() {
 	*x = FriendGroupMemberPutRequest{}
-	mi := &file_payload_proto_msgTypes[106]
+	mi := &file_payload_proto_msgTypes[113]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7766,7 +8138,7 @@ func (x *FriendGroupMemberPutRequest) String() string {
 func (*FriendGroupMemberPutRequest) ProtoMessage() {}
 
 func (x *FriendGroupMemberPutRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[106]
+	mi := &file_payload_proto_msgTypes[113]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7779,7 +8151,7 @@ func (x *FriendGroupMemberPutRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FriendGroupMemberPutRequest.ProtoReflect.Descriptor instead.
 func (*FriendGroupMemberPutRequest) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{106}
+	return file_payload_proto_rawDescGZIP(), []int{113}
 }
 
 func (x *FriendGroupMemberPutRequest) GetFriendGroupId() string {
@@ -7812,7 +8184,7 @@ type FriendGroupMemberPutResponse struct {
 
 func (x *FriendGroupMemberPutResponse) Reset() {
 	*x = FriendGroupMemberPutResponse{}
-	mi := &file_payload_proto_msgTypes[107]
+	mi := &file_payload_proto_msgTypes[114]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7824,7 +8196,7 @@ func (x *FriendGroupMemberPutResponse) String() string {
 func (*FriendGroupMemberPutResponse) ProtoMessage() {}
 
 func (x *FriendGroupMemberPutResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[107]
+	mi := &file_payload_proto_msgTypes[114]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7837,7 +8209,7 @@ func (x *FriendGroupMemberPutResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FriendGroupMemberPutResponse.ProtoReflect.Descriptor instead.
 func (*FriendGroupMemberPutResponse) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{107}
+	return file_payload_proto_rawDescGZIP(), []int{114}
 }
 
 func (x *FriendGroupMemberPutResponse) GetValue() *FriendGroupMemberObject {
@@ -7857,7 +8229,7 @@ type FriendGroupMessageGetRequest struct {
 
 func (x *FriendGroupMessageGetRequest) Reset() {
 	*x = FriendGroupMessageGetRequest{}
-	mi := &file_payload_proto_msgTypes[108]
+	mi := &file_payload_proto_msgTypes[115]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7869,7 +8241,7 @@ func (x *FriendGroupMessageGetRequest) String() string {
 func (*FriendGroupMessageGetRequest) ProtoMessage() {}
 
 func (x *FriendGroupMessageGetRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[108]
+	mi := &file_payload_proto_msgTypes[115]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7882,7 +8254,7 @@ func (x *FriendGroupMessageGetRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FriendGroupMessageGetRequest.ProtoReflect.Descriptor instead.
 func (*FriendGroupMessageGetRequest) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{108}
+	return file_payload_proto_rawDescGZIP(), []int{115}
 }
 
 func (x *FriendGroupMessageGetRequest) GetFriendGroupId() string {
@@ -7908,7 +8280,7 @@ type FriendGroupMessageGetResponse struct {
 
 func (x *FriendGroupMessageGetResponse) Reset() {
 	*x = FriendGroupMessageGetResponse{}
-	mi := &file_payload_proto_msgTypes[109]
+	mi := &file_payload_proto_msgTypes[116]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7920,7 +8292,7 @@ func (x *FriendGroupMessageGetResponse) String() string {
 func (*FriendGroupMessageGetResponse) ProtoMessage() {}
 
 func (x *FriendGroupMessageGetResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[109]
+	mi := &file_payload_proto_msgTypes[116]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7933,7 +8305,7 @@ func (x *FriendGroupMessageGetResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FriendGroupMessageGetResponse.ProtoReflect.Descriptor instead.
 func (*FriendGroupMessageGetResponse) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{109}
+	return file_payload_proto_rawDescGZIP(), []int{116}
 }
 
 func (x *FriendGroupMessageGetResponse) GetValue() *FriendGroupMessageObject {
@@ -7954,7 +8326,7 @@ type FriendGroupMessageListRequest struct {
 
 func (x *FriendGroupMessageListRequest) Reset() {
 	*x = FriendGroupMessageListRequest{}
-	mi := &file_payload_proto_msgTypes[110]
+	mi := &file_payload_proto_msgTypes[117]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7966,7 +8338,7 @@ func (x *FriendGroupMessageListRequest) String() string {
 func (*FriendGroupMessageListRequest) ProtoMessage() {}
 
 func (x *FriendGroupMessageListRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[110]
+	mi := &file_payload_proto_msgTypes[117]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7979,7 +8351,7 @@ func (x *FriendGroupMessageListRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FriendGroupMessageListRequest.ProtoReflect.Descriptor instead.
 func (*FriendGroupMessageListRequest) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{110}
+	return file_payload_proto_rawDescGZIP(), []int{117}
 }
 
 func (x *FriendGroupMessageListRequest) GetCursor() string {
@@ -8014,7 +8386,7 @@ type FriendGroupMessageListResponse struct {
 
 func (x *FriendGroupMessageListResponse) Reset() {
 	*x = FriendGroupMessageListResponse{}
-	mi := &file_payload_proto_msgTypes[111]
+	mi := &file_payload_proto_msgTypes[118]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8026,7 +8398,7 @@ func (x *FriendGroupMessageListResponse) String() string {
 func (*FriendGroupMessageListResponse) ProtoMessage() {}
 
 func (x *FriendGroupMessageListResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[111]
+	mi := &file_payload_proto_msgTypes[118]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8039,7 +8411,7 @@ func (x *FriendGroupMessageListResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FriendGroupMessageListResponse.ProtoReflect.Descriptor instead.
 func (*FriendGroupMessageListResponse) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{111}
+	return file_payload_proto_rawDescGZIP(), []int{118}
 }
 
 func (x *FriendGroupMessageListResponse) GetHasNext() bool {
@@ -8080,7 +8452,7 @@ type FriendGroupMessageObject struct {
 
 func (x *FriendGroupMessageObject) Reset() {
 	*x = FriendGroupMessageObject{}
-	mi := &file_payload_proto_msgTypes[112]
+	mi := &file_payload_proto_msgTypes[119]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8092,7 +8464,7 @@ func (x *FriendGroupMessageObject) String() string {
 func (*FriendGroupMessageObject) ProtoMessage() {}
 
 func (x *FriendGroupMessageObject) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[112]
+	mi := &file_payload_proto_msgTypes[119]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8105,7 +8477,7 @@ func (x *FriendGroupMessageObject) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FriendGroupMessageObject.ProtoReflect.Descriptor instead.
 func (*FriendGroupMessageObject) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{112}
+	return file_payload_proto_rawDescGZIP(), []int{119}
 }
 
 func (x *FriendGroupMessageObject) GetAudioContentType() string {
@@ -8183,7 +8555,7 @@ type FriendGroupMessageSendRequest struct {
 
 func (x *FriendGroupMessageSendRequest) Reset() {
 	*x = FriendGroupMessageSendRequest{}
-	mi := &file_payload_proto_msgTypes[113]
+	mi := &file_payload_proto_msgTypes[120]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8195,7 +8567,7 @@ func (x *FriendGroupMessageSendRequest) String() string {
 func (*FriendGroupMessageSendRequest) ProtoMessage() {}
 
 func (x *FriendGroupMessageSendRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[113]
+	mi := &file_payload_proto_msgTypes[120]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8208,7 +8580,7 @@ func (x *FriendGroupMessageSendRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FriendGroupMessageSendRequest.ProtoReflect.Descriptor instead.
 func (*FriendGroupMessageSendRequest) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{113}
+	return file_payload_proto_rawDescGZIP(), []int{120}
 }
 
 func (x *FriendGroupMessageSendRequest) GetAudioBase64() []byte {
@@ -8248,7 +8620,7 @@ type FriendGroupMessageSendResponse struct {
 
 func (x *FriendGroupMessageSendResponse) Reset() {
 	*x = FriendGroupMessageSendResponse{}
-	mi := &file_payload_proto_msgTypes[114]
+	mi := &file_payload_proto_msgTypes[121]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8260,7 +8632,7 @@ func (x *FriendGroupMessageSendResponse) String() string {
 func (*FriendGroupMessageSendResponse) ProtoMessage() {}
 
 func (x *FriendGroupMessageSendResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[114]
+	mi := &file_payload_proto_msgTypes[121]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8273,7 +8645,7 @@ func (x *FriendGroupMessageSendResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FriendGroupMessageSendResponse.ProtoReflect.Descriptor instead.
 func (*FriendGroupMessageSendResponse) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{114}
+	return file_payload_proto_rawDescGZIP(), []int{121}
 }
 
 func (x *FriendGroupMessageSendResponse) GetValue() *FriendGroupMessageObject {
@@ -8299,7 +8671,7 @@ type FriendGroupObject struct {
 
 func (x *FriendGroupObject) Reset() {
 	*x = FriendGroupObject{}
-	mi := &file_payload_proto_msgTypes[115]
+	mi := &file_payload_proto_msgTypes[122]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8311,7 +8683,7 @@ func (x *FriendGroupObject) String() string {
 func (*FriendGroupObject) ProtoMessage() {}
 
 func (x *FriendGroupObject) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[115]
+	mi := &file_payload_proto_msgTypes[122]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8324,7 +8696,7 @@ func (x *FriendGroupObject) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FriendGroupObject.ProtoReflect.Descriptor instead.
 func (*FriendGroupObject) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{115}
+	return file_payload_proto_rawDescGZIP(), []int{122}
 }
 
 func (x *FriendGroupObject) GetCreatedAt() string {
@@ -8394,7 +8766,7 @@ type FriendGroupPutRequest struct {
 
 func (x *FriendGroupPutRequest) Reset() {
 	*x = FriendGroupPutRequest{}
-	mi := &file_payload_proto_msgTypes[116]
+	mi := &file_payload_proto_msgTypes[123]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8406,7 +8778,7 @@ func (x *FriendGroupPutRequest) String() string {
 func (*FriendGroupPutRequest) ProtoMessage() {}
 
 func (x *FriendGroupPutRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[116]
+	mi := &file_payload_proto_msgTypes[123]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8419,7 +8791,7 @@ func (x *FriendGroupPutRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FriendGroupPutRequest.ProtoReflect.Descriptor instead.
 func (*FriendGroupPutRequest) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{116}
+	return file_payload_proto_rawDescGZIP(), []int{123}
 }
 
 func (x *FriendGroupPutRequest) GetDescription() string {
@@ -8452,7 +8824,7 @@ type FriendGroupPutResponse struct {
 
 func (x *FriendGroupPutResponse) Reset() {
 	*x = FriendGroupPutResponse{}
-	mi := &file_payload_proto_msgTypes[117]
+	mi := &file_payload_proto_msgTypes[124]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8464,7 +8836,7 @@ func (x *FriendGroupPutResponse) String() string {
 func (*FriendGroupPutResponse) ProtoMessage() {}
 
 func (x *FriendGroupPutResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[117]
+	mi := &file_payload_proto_msgTypes[124]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8477,7 +8849,7 @@ func (x *FriendGroupPutResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FriendGroupPutResponse.ProtoReflect.Descriptor instead.
 func (*FriendGroupPutResponse) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{117}
+	return file_payload_proto_rawDescGZIP(), []int{124}
 }
 
 func (x *FriendGroupPutResponse) GetValue() *FriendGroupObject {
@@ -8495,7 +8867,7 @@ type FriendInviteTokenClearRequest struct {
 
 func (x *FriendInviteTokenClearRequest) Reset() {
 	*x = FriendInviteTokenClearRequest{}
-	mi := &file_payload_proto_msgTypes[118]
+	mi := &file_payload_proto_msgTypes[125]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8507,7 +8879,7 @@ func (x *FriendInviteTokenClearRequest) String() string {
 func (*FriendInviteTokenClearRequest) ProtoMessage() {}
 
 func (x *FriendInviteTokenClearRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[118]
+	mi := &file_payload_proto_msgTypes[125]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8520,7 +8892,7 @@ func (x *FriendInviteTokenClearRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FriendInviteTokenClearRequest.ProtoReflect.Descriptor instead.
 func (*FriendInviteTokenClearRequest) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{118}
+	return file_payload_proto_rawDescGZIP(), []int{125}
 }
 
 type FriendInviteTokenClearResponse struct {
@@ -8531,7 +8903,7 @@ type FriendInviteTokenClearResponse struct {
 
 func (x *FriendInviteTokenClearResponse) Reset() {
 	*x = FriendInviteTokenClearResponse{}
-	mi := &file_payload_proto_msgTypes[119]
+	mi := &file_payload_proto_msgTypes[126]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8543,7 +8915,7 @@ func (x *FriendInviteTokenClearResponse) String() string {
 func (*FriendInviteTokenClearResponse) ProtoMessage() {}
 
 func (x *FriendInviteTokenClearResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[119]
+	mi := &file_payload_proto_msgTypes[126]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8556,7 +8928,7 @@ func (x *FriendInviteTokenClearResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FriendInviteTokenClearResponse.ProtoReflect.Descriptor instead.
 func (*FriendInviteTokenClearResponse) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{119}
+	return file_payload_proto_rawDescGZIP(), []int{126}
 }
 
 type FriendInviteTokenCreateRequest struct {
@@ -8567,7 +8939,7 @@ type FriendInviteTokenCreateRequest struct {
 
 func (x *FriendInviteTokenCreateRequest) Reset() {
 	*x = FriendInviteTokenCreateRequest{}
-	mi := &file_payload_proto_msgTypes[120]
+	mi := &file_payload_proto_msgTypes[127]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8579,7 +8951,7 @@ func (x *FriendInviteTokenCreateRequest) String() string {
 func (*FriendInviteTokenCreateRequest) ProtoMessage() {}
 
 func (x *FriendInviteTokenCreateRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[120]
+	mi := &file_payload_proto_msgTypes[127]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8592,7 +8964,7 @@ func (x *FriendInviteTokenCreateRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FriendInviteTokenCreateRequest.ProtoReflect.Descriptor instead.
 func (*FriendInviteTokenCreateRequest) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{120}
+	return file_payload_proto_rawDescGZIP(), []int{127}
 }
 
 type FriendInviteTokenCreateResponse struct {
@@ -8605,7 +8977,7 @@ type FriendInviteTokenCreateResponse struct {
 
 func (x *FriendInviteTokenCreateResponse) Reset() {
 	*x = FriendInviteTokenCreateResponse{}
-	mi := &file_payload_proto_msgTypes[121]
+	mi := &file_payload_proto_msgTypes[128]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8617,7 +8989,7 @@ func (x *FriendInviteTokenCreateResponse) String() string {
 func (*FriendInviteTokenCreateResponse) ProtoMessage() {}
 
 func (x *FriendInviteTokenCreateResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[121]
+	mi := &file_payload_proto_msgTypes[128]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8630,7 +9002,7 @@ func (x *FriendInviteTokenCreateResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FriendInviteTokenCreateResponse.ProtoReflect.Descriptor instead.
 func (*FriendInviteTokenCreateResponse) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{121}
+	return file_payload_proto_rawDescGZIP(), []int{128}
 }
 
 func (x *FriendInviteTokenCreateResponse) GetExpiresAt() string {
@@ -8655,7 +9027,7 @@ type FriendInviteTokenGetRequest struct {
 
 func (x *FriendInviteTokenGetRequest) Reset() {
 	*x = FriendInviteTokenGetRequest{}
-	mi := &file_payload_proto_msgTypes[122]
+	mi := &file_payload_proto_msgTypes[129]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8667,7 +9039,7 @@ func (x *FriendInviteTokenGetRequest) String() string {
 func (*FriendInviteTokenGetRequest) ProtoMessage() {}
 
 func (x *FriendInviteTokenGetRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[122]
+	mi := &file_payload_proto_msgTypes[129]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8680,7 +9052,7 @@ func (x *FriendInviteTokenGetRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FriendInviteTokenGetRequest.ProtoReflect.Descriptor instead.
 func (*FriendInviteTokenGetRequest) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{122}
+	return file_payload_proto_rawDescGZIP(), []int{129}
 }
 
 type FriendInviteTokenGetResponse struct {
@@ -8693,7 +9065,7 @@ type FriendInviteTokenGetResponse struct {
 
 func (x *FriendInviteTokenGetResponse) Reset() {
 	*x = FriendInviteTokenGetResponse{}
-	mi := &file_payload_proto_msgTypes[123]
+	mi := &file_payload_proto_msgTypes[130]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8705,7 +9077,7 @@ func (x *FriendInviteTokenGetResponse) String() string {
 func (*FriendInviteTokenGetResponse) ProtoMessage() {}
 
 func (x *FriendInviteTokenGetResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[123]
+	mi := &file_payload_proto_msgTypes[130]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8718,7 +9090,7 @@ func (x *FriendInviteTokenGetResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FriendInviteTokenGetResponse.ProtoReflect.Descriptor instead.
 func (*FriendInviteTokenGetResponse) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{123}
+	return file_payload_proto_rawDescGZIP(), []int{130}
 }
 
 func (x *FriendInviteTokenGetResponse) GetExpiresAt() string {
@@ -8745,7 +9117,7 @@ type FriendListRequest struct {
 
 func (x *FriendListRequest) Reset() {
 	*x = FriendListRequest{}
-	mi := &file_payload_proto_msgTypes[124]
+	mi := &file_payload_proto_msgTypes[131]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8757,7 +9129,7 @@ func (x *FriendListRequest) String() string {
 func (*FriendListRequest) ProtoMessage() {}
 
 func (x *FriendListRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[124]
+	mi := &file_payload_proto_msgTypes[131]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8770,7 +9142,7 @@ func (x *FriendListRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FriendListRequest.ProtoReflect.Descriptor instead.
 func (*FriendListRequest) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{124}
+	return file_payload_proto_rawDescGZIP(), []int{131}
 }
 
 func (x *FriendListRequest) GetCursor() string {
@@ -8798,7 +9170,7 @@ type FriendListResponse struct {
 
 func (x *FriendListResponse) Reset() {
 	*x = FriendListResponse{}
-	mi := &file_payload_proto_msgTypes[125]
+	mi := &file_payload_proto_msgTypes[132]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8810,7 +9182,7 @@ func (x *FriendListResponse) String() string {
 func (*FriendListResponse) ProtoMessage() {}
 
 func (x *FriendListResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[125]
+	mi := &file_payload_proto_msgTypes[132]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8823,7 +9195,7 @@ func (x *FriendListResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FriendListResponse.ProtoReflect.Descriptor instead.
 func (*FriendListResponse) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{125}
+	return file_payload_proto_rawDescGZIP(), []int{132}
 }
 
 func (x *FriendListResponse) GetHasNext() bool {
@@ -8860,7 +9232,7 @@ type FriendObject struct {
 
 func (x *FriendObject) Reset() {
 	*x = FriendObject{}
-	mi := &file_payload_proto_msgTypes[126]
+	mi := &file_payload_proto_msgTypes[133]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8872,7 +9244,7 @@ func (x *FriendObject) String() string {
 func (*FriendObject) ProtoMessage() {}
 
 func (x *FriendObject) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[126]
+	mi := &file_payload_proto_msgTypes[133]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8885,7 +9257,7 @@ func (x *FriendObject) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FriendObject.ProtoReflect.Descriptor instead.
 func (*FriendObject) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{126}
+	return file_payload_proto_rawDescGZIP(), []int{133}
 }
 
 func (x *FriendObject) GetCreatedAt() string {
@@ -8945,7 +9317,7 @@ type GameResult struct {
 
 func (x *GameResult) Reset() {
 	*x = GameResult{}
-	mi := &file_payload_proto_msgTypes[127]
+	mi := &file_payload_proto_msgTypes[134]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8957,7 +9329,7 @@ func (x *GameResult) String() string {
 func (*GameResult) ProtoMessage() {}
 
 func (x *GameResult) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[127]
+	mi := &file_payload_proto_msgTypes[134]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8970,7 +9342,7 @@ func (x *GameResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GameResult.ProtoReflect.Descriptor instead.
 func (*GameResult) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{127}
+	return file_payload_proto_rawDescGZIP(), []int{134}
 }
 
 func (x *GameResult) GetCreatedAt() string {
@@ -9082,7 +9454,7 @@ type GameResultListResponse struct {
 
 func (x *GameResultListResponse) Reset() {
 	*x = GameResultListResponse{}
-	mi := &file_payload_proto_msgTypes[128]
+	mi := &file_payload_proto_msgTypes[135]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9094,7 +9466,7 @@ func (x *GameResultListResponse) String() string {
 func (*GameResultListResponse) ProtoMessage() {}
 
 func (x *GameResultListResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[128]
+	mi := &file_payload_proto_msgTypes[135]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9107,7 +9479,7 @@ func (x *GameResultListResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GameResultListResponse.ProtoReflect.Descriptor instead.
 func (*GameResultListResponse) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{128}
+	return file_payload_proto_rawDescGZIP(), []int{135}
 }
 
 func (x *GameResultListResponse) GetHasNext() bool {
@@ -9144,7 +9516,7 @@ type GameRewardSpec struct {
 
 func (x *GameRewardSpec) Reset() {
 	*x = GameRewardSpec{}
-	mi := &file_payload_proto_msgTypes[129]
+	mi := &file_payload_proto_msgTypes[136]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9156,7 +9528,7 @@ func (x *GameRewardSpec) String() string {
 func (*GameRewardSpec) ProtoMessage() {}
 
 func (x *GameRewardSpec) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[129]
+	mi := &file_payload_proto_msgTypes[136]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9169,7 +9541,7 @@ func (x *GameRewardSpec) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GameRewardSpec.ProtoReflect.Descriptor instead.
 func (*GameRewardSpec) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{129}
+	return file_payload_proto_rawDescGZIP(), []int{136}
 }
 
 func (x *GameRewardSpec) GetAbilityDelta() *StatMap {
@@ -9219,7 +9591,7 @@ type GameRuleset struct {
 
 func (x *GameRuleset) Reset() {
 	*x = GameRuleset{}
-	mi := &file_payload_proto_msgTypes[130]
+	mi := &file_payload_proto_msgTypes[137]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9231,7 +9603,7 @@ func (x *GameRuleset) String() string {
 func (*GameRuleset) ProtoMessage() {}
 
 func (x *GameRuleset) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[130]
+	mi := &file_payload_proto_msgTypes[137]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9244,7 +9616,7 @@ func (x *GameRuleset) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GameRuleset.ProtoReflect.Descriptor instead.
 func (*GameRuleset) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{130}
+	return file_payload_proto_rawDescGZIP(), []int{137}
 }
 
 func (x *GameRuleset) GetCreatedAt() string {
@@ -9288,7 +9660,7 @@ type GameRulesetDriveSpec struct {
 
 func (x *GameRulesetDriveSpec) Reset() {
 	*x = GameRulesetDriveSpec{}
-	mi := &file_payload_proto_msgTypes[131]
+	mi := &file_payload_proto_msgTypes[138]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9300,7 +9672,7 @@ func (x *GameRulesetDriveSpec) String() string {
 func (*GameRulesetDriveSpec) ProtoMessage() {}
 
 func (x *GameRulesetDriveSpec) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[131]
+	mi := &file_payload_proto_msgTypes[138]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9313,7 +9685,7 @@ func (x *GameRulesetDriveSpec) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GameRulesetDriveSpec.ProtoReflect.Descriptor instead.
 func (*GameRulesetDriveSpec) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{131}
+	return file_payload_proto_rawDescGZIP(), []int{138}
 }
 
 func (x *GameRulesetDriveSpec) GetActionCosts() map[string]int64 {
@@ -9364,7 +9736,7 @@ type GameRulesetPetPoolEntry struct {
 
 func (x *GameRulesetPetPoolEntry) Reset() {
 	*x = GameRulesetPetPoolEntry{}
-	mi := &file_payload_proto_msgTypes[132]
+	mi := &file_payload_proto_msgTypes[139]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9376,7 +9748,7 @@ func (x *GameRulesetPetPoolEntry) String() string {
 func (*GameRulesetPetPoolEntry) ProtoMessage() {}
 
 func (x *GameRulesetPetPoolEntry) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[132]
+	mi := &file_payload_proto_msgTypes[139]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9389,7 +9761,7 @@ func (x *GameRulesetPetPoolEntry) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GameRulesetPetPoolEntry.ProtoReflect.Descriptor instead.
 func (*GameRulesetPetPoolEntry) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{132}
+	return file_payload_proto_rawDescGZIP(), []int{139}
 }
 
 func (x *GameRulesetPetPoolEntry) GetAdoptionCost() int64 {
@@ -9436,7 +9808,7 @@ type GameRulesetPointsSpec struct {
 
 func (x *GameRulesetPointsSpec) Reset() {
 	*x = GameRulesetPointsSpec{}
-	mi := &file_payload_proto_msgTypes[133]
+	mi := &file_payload_proto_msgTypes[140]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9448,7 +9820,7 @@ func (x *GameRulesetPointsSpec) String() string {
 func (*GameRulesetPointsSpec) ProtoMessage() {}
 
 func (x *GameRulesetPointsSpec) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[133]
+	mi := &file_payload_proto_msgTypes[140]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9461,7 +9833,7 @@ func (x *GameRulesetPointsSpec) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GameRulesetPointsSpec.ProtoReflect.Descriptor instead.
 func (*GameRulesetPointsSpec) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{133}
+	return file_payload_proto_rawDescGZIP(), []int{140}
 }
 
 func (x *GameRulesetPointsSpec) GetInitialBalance() int64 {
@@ -9488,7 +9860,7 @@ type GameRulesetSpec struct {
 
 func (x *GameRulesetSpec) Reset() {
 	*x = GameRulesetSpec{}
-	mi := &file_payload_proto_msgTypes[134]
+	mi := &file_payload_proto_msgTypes[141]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9500,7 +9872,7 @@ func (x *GameRulesetSpec) String() string {
 func (*GameRulesetSpec) ProtoMessage() {}
 
 func (x *GameRulesetSpec) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[134]
+	mi := &file_payload_proto_msgTypes[141]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9513,7 +9885,7 @@ func (x *GameRulesetSpec) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GameRulesetSpec.ProtoReflect.Descriptor instead.
 func (*GameRulesetSpec) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{134}
+	return file_payload_proto_rawDescGZIP(), []int{141}
 }
 
 func (x *GameRulesetSpec) GetBadgeDefIds() []string {
@@ -9588,7 +9960,7 @@ type GameplayGetRequest struct {
 
 func (x *GameplayGetRequest) Reset() {
 	*x = GameplayGetRequest{}
-	mi := &file_payload_proto_msgTypes[135]
+	mi := &file_payload_proto_msgTypes[142]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9600,7 +9972,7 @@ func (x *GameplayGetRequest) String() string {
 func (*GameplayGetRequest) ProtoMessage() {}
 
 func (x *GameplayGetRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[135]
+	mi := &file_payload_proto_msgTypes[142]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9613,7 +9985,7 @@ func (x *GameplayGetRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GameplayGetRequest.ProtoReflect.Descriptor instead.
 func (*GameplayGetRequest) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{135}
+	return file_payload_proto_rawDescGZIP(), []int{142}
 }
 
 func (x *GameplayGetRequest) GetId() string {
@@ -9633,7 +10005,7 @@ type GameplayListRequest struct {
 
 func (x *GameplayListRequest) Reset() {
 	*x = GameplayListRequest{}
-	mi := &file_payload_proto_msgTypes[136]
+	mi := &file_payload_proto_msgTypes[143]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9645,7 +10017,7 @@ func (x *GameplayListRequest) String() string {
 func (*GameplayListRequest) ProtoMessage() {}
 
 func (x *GameplayListRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[136]
+	mi := &file_payload_proto_msgTypes[143]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9658,7 +10030,7 @@ func (x *GameplayListRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GameplayListRequest.ProtoReflect.Descriptor instead.
 func (*GameplayListRequest) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{136}
+	return file_payload_proto_rawDescGZIP(), []int{143}
 }
 
 func (x *GameplayListRequest) GetCursor() string {
@@ -9684,7 +10056,7 @@ type GameplayMetadata struct {
 
 func (x *GameplayMetadata) Reset() {
 	*x = GameplayMetadata{}
-	mi := &file_payload_proto_msgTypes[137]
+	mi := &file_payload_proto_msgTypes[144]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9696,7 +10068,7 @@ func (x *GameplayMetadata) String() string {
 func (*GameplayMetadata) ProtoMessage() {}
 
 func (x *GameplayMetadata) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[137]
+	mi := &file_payload_proto_msgTypes[144]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9709,7 +10081,7 @@ func (x *GameplayMetadata) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GameplayMetadata.ProtoReflect.Descriptor instead.
 func (*GameplayMetadata) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{137}
+	return file_payload_proto_rawDescGZIP(), []int{144}
 }
 
 func (x *GameplayMetadata) GetFields() *structpb.Struct {
@@ -9730,7 +10102,7 @@ type GeminiCredentialBody struct {
 
 func (x *GeminiCredentialBody) Reset() {
 	*x = GeminiCredentialBody{}
-	mi := &file_payload_proto_msgTypes[138]
+	mi := &file_payload_proto_msgTypes[145]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9742,7 +10114,7 @@ func (x *GeminiCredentialBody) String() string {
 func (*GeminiCredentialBody) ProtoMessage() {}
 
 func (x *GeminiCredentialBody) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[138]
+	mi := &file_payload_proto_msgTypes[145]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9755,7 +10127,7 @@ func (x *GeminiCredentialBody) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GeminiCredentialBody.ProtoReflect.Descriptor instead.
 func (*GeminiCredentialBody) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{138}
+	return file_payload_proto_rawDescGZIP(), []int{145}
 }
 
 func (x *GeminiCredentialBody) GetApiKey() string {
@@ -9788,7 +10160,7 @@ type GeminiTenantModelProviderData struct {
 
 func (x *GeminiTenantModelProviderData) Reset() {
 	*x = GeminiTenantModelProviderData{}
-	mi := &file_payload_proto_msgTypes[139]
+	mi := &file_payload_proto_msgTypes[146]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9800,7 +10172,7 @@ func (x *GeminiTenantModelProviderData) String() string {
 func (*GeminiTenantModelProviderData) ProtoMessage() {}
 
 func (x *GeminiTenantModelProviderData) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[139]
+	mi := &file_payload_proto_msgTypes[146]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9813,7 +10185,7 @@ func (x *GeminiTenantModelProviderData) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GeminiTenantModelProviderData.ProtoReflect.Descriptor instead.
 func (*GeminiTenantModelProviderData) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{139}
+	return file_payload_proto_rawDescGZIP(), []int{146}
 }
 
 func (x *GeminiTenantModelProviderData) GetUpstreamModel() string {
@@ -9833,7 +10205,7 @@ type GeminiTenantVoiceProviderData struct {
 
 func (x *GeminiTenantVoiceProviderData) Reset() {
 	*x = GeminiTenantVoiceProviderData{}
-	mi := &file_payload_proto_msgTypes[140]
+	mi := &file_payload_proto_msgTypes[147]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9845,7 +10217,7 @@ func (x *GeminiTenantVoiceProviderData) String() string {
 func (*GeminiTenantVoiceProviderData) ProtoMessage() {}
 
 func (x *GeminiTenantVoiceProviderData) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[140]
+	mi := &file_payload_proto_msgTypes[147]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9858,7 +10230,7 @@ func (x *GeminiTenantVoiceProviderData) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GeminiTenantVoiceProviderData.ProtoReflect.Descriptor instead.
 func (*GeminiTenantVoiceProviderData) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{140}
+	return file_payload_proto_rawDescGZIP(), []int{147}
 }
 
 func (x *GeminiTenantVoiceProviderData) GetRaw() *structpb.Struct {
@@ -9888,7 +10260,7 @@ type HardwareInfo struct {
 
 func (x *HardwareInfo) Reset() {
 	*x = HardwareInfo{}
-	mi := &file_payload_proto_msgTypes[141]
+	mi := &file_payload_proto_msgTypes[148]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9900,7 +10272,7 @@ func (x *HardwareInfo) String() string {
 func (*HardwareInfo) ProtoMessage() {}
 
 func (x *HardwareInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[141]
+	mi := &file_payload_proto_msgTypes[148]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9913,7 +10285,7 @@ func (x *HardwareInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HardwareInfo.ProtoReflect.Descriptor instead.
 func (*HardwareInfo) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{141}
+	return file_payload_proto_rawDescGZIP(), []int{148}
 }
 
 func (x *HardwareInfo) GetHardwareRevision() string {
@@ -9964,7 +10336,7 @@ type MiniMaxCredentialBody struct {
 
 func (x *MiniMaxCredentialBody) Reset() {
 	*x = MiniMaxCredentialBody{}
-	mi := &file_payload_proto_msgTypes[142]
+	mi := &file_payload_proto_msgTypes[149]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9976,7 +10348,7 @@ func (x *MiniMaxCredentialBody) String() string {
 func (*MiniMaxCredentialBody) ProtoMessage() {}
 
 func (x *MiniMaxCredentialBody) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[142]
+	mi := &file_payload_proto_msgTypes[149]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9989,7 +10361,7 @@ func (x *MiniMaxCredentialBody) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MiniMaxCredentialBody.ProtoReflect.Descriptor instead.
 func (*MiniMaxCredentialBody) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{142}
+	return file_payload_proto_rawDescGZIP(), []int{149}
 }
 
 func (x *MiniMaxCredentialBody) GetApiKey() string {
@@ -10041,7 +10413,7 @@ type MiniMaxTenantVoiceProviderData struct {
 
 func (x *MiniMaxTenantVoiceProviderData) Reset() {
 	*x = MiniMaxTenantVoiceProviderData{}
-	mi := &file_payload_proto_msgTypes[143]
+	mi := &file_payload_proto_msgTypes[150]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10053,7 +10425,7 @@ func (x *MiniMaxTenantVoiceProviderData) String() string {
 func (*MiniMaxTenantVoiceProviderData) ProtoMessage() {}
 
 func (x *MiniMaxTenantVoiceProviderData) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[143]
+	mi := &file_payload_proto_msgTypes[150]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10066,7 +10438,7 @@ func (x *MiniMaxTenantVoiceProviderData) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MiniMaxTenantVoiceProviderData.ProtoReflect.Descriptor instead.
 func (*MiniMaxTenantVoiceProviderData) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{143}
+	return file_payload_proto_rawDescGZIP(), []int{150}
 }
 
 func (x *MiniMaxTenantVoiceProviderData) GetFormat() string {
@@ -10130,7 +10502,7 @@ type Model struct {
 
 func (x *Model) Reset() {
 	*x = Model{}
-	mi := &file_payload_proto_msgTypes[144]
+	mi := &file_payload_proto_msgTypes[151]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10142,7 +10514,7 @@ func (x *Model) String() string {
 func (*Model) ProtoMessage() {}
 
 func (x *Model) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[144]
+	mi := &file_payload_proto_msgTypes[151]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10155,7 +10527,7 @@ func (x *Model) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Model.ProtoReflect.Descriptor instead.
 func (*Model) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{144}
+	return file_payload_proto_rawDescGZIP(), []int{151}
 }
 
 func (x *Model) GetCapabilities() *ModelCapabilities {
@@ -10249,7 +10621,7 @@ type ModelCapabilities struct {
 
 func (x *ModelCapabilities) Reset() {
 	*x = ModelCapabilities{}
-	mi := &file_payload_proto_msgTypes[145]
+	mi := &file_payload_proto_msgTypes[152]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10261,7 +10633,7 @@ func (x *ModelCapabilities) String() string {
 func (*ModelCapabilities) ProtoMessage() {}
 
 func (x *ModelCapabilities) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[145]
+	mi := &file_payload_proto_msgTypes[152]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10274,7 +10646,7 @@ func (x *ModelCapabilities) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ModelCapabilities.ProtoReflect.Descriptor instead.
 func (*ModelCapabilities) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{145}
+	return file_payload_proto_rawDescGZIP(), []int{152}
 }
 
 func (x *ModelCapabilities) GetJsonOutput() bool {
@@ -10328,7 +10700,7 @@ type ModelCreateRequest struct {
 
 func (x *ModelCreateRequest) Reset() {
 	*x = ModelCreateRequest{}
-	mi := &file_payload_proto_msgTypes[146]
+	mi := &file_payload_proto_msgTypes[153]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10340,7 +10712,7 @@ func (x *ModelCreateRequest) String() string {
 func (*ModelCreateRequest) ProtoMessage() {}
 
 func (x *ModelCreateRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[146]
+	mi := &file_payload_proto_msgTypes[153]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10353,7 +10725,7 @@ func (x *ModelCreateRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ModelCreateRequest.ProtoReflect.Descriptor instead.
 func (*ModelCreateRequest) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{146}
+	return file_payload_proto_rawDescGZIP(), []int{153}
 }
 
 func (x *ModelCreateRequest) GetValue() *Model {
@@ -10372,7 +10744,7 @@ type ModelCreateResponse struct {
 
 func (x *ModelCreateResponse) Reset() {
 	*x = ModelCreateResponse{}
-	mi := &file_payload_proto_msgTypes[147]
+	mi := &file_payload_proto_msgTypes[154]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10384,7 +10756,7 @@ func (x *ModelCreateResponse) String() string {
 func (*ModelCreateResponse) ProtoMessage() {}
 
 func (x *ModelCreateResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[147]
+	mi := &file_payload_proto_msgTypes[154]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10397,7 +10769,7 @@ func (x *ModelCreateResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ModelCreateResponse.ProtoReflect.Descriptor instead.
 func (*ModelCreateResponse) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{147}
+	return file_payload_proto_rawDescGZIP(), []int{154}
 }
 
 func (x *ModelCreateResponse) GetValue() *Model {
@@ -10416,7 +10788,7 @@ type ModelDeleteRequest struct {
 
 func (x *ModelDeleteRequest) Reset() {
 	*x = ModelDeleteRequest{}
-	mi := &file_payload_proto_msgTypes[148]
+	mi := &file_payload_proto_msgTypes[155]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10428,7 +10800,7 @@ func (x *ModelDeleteRequest) String() string {
 func (*ModelDeleteRequest) ProtoMessage() {}
 
 func (x *ModelDeleteRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[148]
+	mi := &file_payload_proto_msgTypes[155]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10441,7 +10813,7 @@ func (x *ModelDeleteRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ModelDeleteRequest.ProtoReflect.Descriptor instead.
 func (*ModelDeleteRequest) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{148}
+	return file_payload_proto_rawDescGZIP(), []int{155}
 }
 
 func (x *ModelDeleteRequest) GetId() string {
@@ -10460,7 +10832,7 @@ type ModelDeleteResponse struct {
 
 func (x *ModelDeleteResponse) Reset() {
 	*x = ModelDeleteResponse{}
-	mi := &file_payload_proto_msgTypes[149]
+	mi := &file_payload_proto_msgTypes[156]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10472,7 +10844,7 @@ func (x *ModelDeleteResponse) String() string {
 func (*ModelDeleteResponse) ProtoMessage() {}
 
 func (x *ModelDeleteResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[149]
+	mi := &file_payload_proto_msgTypes[156]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10485,7 +10857,7 @@ func (x *ModelDeleteResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ModelDeleteResponse.ProtoReflect.Descriptor instead.
 func (*ModelDeleteResponse) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{149}
+	return file_payload_proto_rawDescGZIP(), []int{156}
 }
 
 func (x *ModelDeleteResponse) GetValue() *Model {
@@ -10504,7 +10876,7 @@ type ModelGetRequest struct {
 
 func (x *ModelGetRequest) Reset() {
 	*x = ModelGetRequest{}
-	mi := &file_payload_proto_msgTypes[150]
+	mi := &file_payload_proto_msgTypes[157]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10516,7 +10888,7 @@ func (x *ModelGetRequest) String() string {
 func (*ModelGetRequest) ProtoMessage() {}
 
 func (x *ModelGetRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[150]
+	mi := &file_payload_proto_msgTypes[157]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10529,7 +10901,7 @@ func (x *ModelGetRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ModelGetRequest.ProtoReflect.Descriptor instead.
 func (*ModelGetRequest) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{150}
+	return file_payload_proto_rawDescGZIP(), []int{157}
 }
 
 func (x *ModelGetRequest) GetId() string {
@@ -10548,7 +10920,7 @@ type ModelGetResponse struct {
 
 func (x *ModelGetResponse) Reset() {
 	*x = ModelGetResponse{}
-	mi := &file_payload_proto_msgTypes[151]
+	mi := &file_payload_proto_msgTypes[158]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10560,7 +10932,7 @@ func (x *ModelGetResponse) String() string {
 func (*ModelGetResponse) ProtoMessage() {}
 
 func (x *ModelGetResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[151]
+	mi := &file_payload_proto_msgTypes[158]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10573,7 +10945,7 @@ func (x *ModelGetResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ModelGetResponse.ProtoReflect.Descriptor instead.
 func (*ModelGetResponse) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{151}
+	return file_payload_proto_rawDescGZIP(), []int{158}
 }
 
 func (x *ModelGetResponse) GetValue() *Model {
@@ -10593,7 +10965,7 @@ type ModelListRequest struct {
 
 func (x *ModelListRequest) Reset() {
 	*x = ModelListRequest{}
-	mi := &file_payload_proto_msgTypes[152]
+	mi := &file_payload_proto_msgTypes[159]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10605,7 +10977,7 @@ func (x *ModelListRequest) String() string {
 func (*ModelListRequest) ProtoMessage() {}
 
 func (x *ModelListRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[152]
+	mi := &file_payload_proto_msgTypes[159]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10618,7 +10990,7 @@ func (x *ModelListRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ModelListRequest.ProtoReflect.Descriptor instead.
 func (*ModelListRequest) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{152}
+	return file_payload_proto_rawDescGZIP(), []int{159}
 }
 
 func (x *ModelListRequest) GetCursor() string {
@@ -10646,7 +11018,7 @@ type ModelListResponse struct {
 
 func (x *ModelListResponse) Reset() {
 	*x = ModelListResponse{}
-	mi := &file_payload_proto_msgTypes[153]
+	mi := &file_payload_proto_msgTypes[160]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10658,7 +11030,7 @@ func (x *ModelListResponse) String() string {
 func (*ModelListResponse) ProtoMessage() {}
 
 func (x *ModelListResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[153]
+	mi := &file_payload_proto_msgTypes[160]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10671,7 +11043,7 @@ func (x *ModelListResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ModelListResponse.ProtoReflect.Descriptor instead.
 func (*ModelListResponse) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{153}
+	return file_payload_proto_rawDescGZIP(), []int{160}
 }
 
 func (x *ModelListResponse) GetHasNext() bool {
@@ -10705,7 +11077,7 @@ type ModelProvider struct {
 
 func (x *ModelProvider) Reset() {
 	*x = ModelProvider{}
-	mi := &file_payload_proto_msgTypes[154]
+	mi := &file_payload_proto_msgTypes[161]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10717,7 +11089,7 @@ func (x *ModelProvider) String() string {
 func (*ModelProvider) ProtoMessage() {}
 
 func (x *ModelProvider) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[154]
+	mi := &file_payload_proto_msgTypes[161]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10730,7 +11102,7 @@ func (x *ModelProvider) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ModelProvider.ProtoReflect.Descriptor instead.
 func (*ModelProvider) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{154}
+	return file_payload_proto_rawDescGZIP(), []int{161}
 }
 
 func (x *ModelProvider) GetKind() ModelProviderKind {
@@ -10762,7 +11134,7 @@ type ModelProviderData struct {
 
 func (x *ModelProviderData) Reset() {
 	*x = ModelProviderData{}
-	mi := &file_payload_proto_msgTypes[155]
+	mi := &file_payload_proto_msgTypes[162]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10774,7 +11146,7 @@ func (x *ModelProviderData) String() string {
 func (*ModelProviderData) ProtoMessage() {}
 
 func (x *ModelProviderData) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[155]
+	mi := &file_payload_proto_msgTypes[162]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10787,7 +11159,7 @@ func (x *ModelProviderData) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ModelProviderData.ProtoReflect.Descriptor instead.
 func (*ModelProviderData) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{155}
+	return file_payload_proto_rawDescGZIP(), []int{162}
 }
 
 func (x *ModelProviderData) GetValue() isModelProviderData_Value {
@@ -10871,7 +11243,7 @@ type ModelPutRequest struct {
 
 func (x *ModelPutRequest) Reset() {
 	*x = ModelPutRequest{}
-	mi := &file_payload_proto_msgTypes[156]
+	mi := &file_payload_proto_msgTypes[163]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10883,7 +11255,7 @@ func (x *ModelPutRequest) String() string {
 func (*ModelPutRequest) ProtoMessage() {}
 
 func (x *ModelPutRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[156]
+	mi := &file_payload_proto_msgTypes[163]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10896,7 +11268,7 @@ func (x *ModelPutRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ModelPutRequest.ProtoReflect.Descriptor instead.
 func (*ModelPutRequest) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{156}
+	return file_payload_proto_rawDescGZIP(), []int{163}
 }
 
 func (x *ModelPutRequest) GetBody() *Model {
@@ -10922,7 +11294,7 @@ type ModelPutResponse struct {
 
 func (x *ModelPutResponse) Reset() {
 	*x = ModelPutResponse{}
-	mi := &file_payload_proto_msgTypes[157]
+	mi := &file_payload_proto_msgTypes[164]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10934,7 +11306,7 @@ func (x *ModelPutResponse) String() string {
 func (*ModelPutResponse) ProtoMessage() {}
 
 func (x *ModelPutResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[157]
+	mi := &file_payload_proto_msgTypes[164]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10947,7 +11319,7 @@ func (x *ModelPutResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ModelPutResponse.ProtoReflect.Descriptor instead.
 func (*ModelPutResponse) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{157}
+	return file_payload_proto_rawDescGZIP(), []int{164}
 }
 
 func (x *ModelPutResponse) GetValue() *Model {
@@ -10970,7 +11342,7 @@ type ModelThinkingCapability struct {
 
 func (x *ModelThinkingCapability) Reset() {
 	*x = ModelThinkingCapability{}
-	mi := &file_payload_proto_msgTypes[158]
+	mi := &file_payload_proto_msgTypes[165]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10982,7 +11354,7 @@ func (x *ModelThinkingCapability) String() string {
 func (*ModelThinkingCapability) ProtoMessage() {}
 
 func (x *ModelThinkingCapability) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[158]
+	mi := &file_payload_proto_msgTypes[165]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10995,7 +11367,7 @@ func (x *ModelThinkingCapability) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ModelThinkingCapability.ProtoReflect.Descriptor instead.
 func (*ModelThinkingCapability) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{158}
+	return file_payload_proto_rawDescGZIP(), []int{165}
 }
 
 func (x *ModelThinkingCapability) GetDefaultLevel() string {
@@ -11046,7 +11418,7 @@ type OpenAICredentialBody struct {
 
 func (x *OpenAICredentialBody) Reset() {
 	*x = OpenAICredentialBody{}
-	mi := &file_payload_proto_msgTypes[159]
+	mi := &file_payload_proto_msgTypes[166]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11058,7 +11430,7 @@ func (x *OpenAICredentialBody) String() string {
 func (*OpenAICredentialBody) ProtoMessage() {}
 
 func (x *OpenAICredentialBody) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[159]
+	mi := &file_payload_proto_msgTypes[166]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11071,7 +11443,7 @@ func (x *OpenAICredentialBody) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use OpenAICredentialBody.ProtoReflect.Descriptor instead.
 func (*OpenAICredentialBody) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{159}
+	return file_payload_proto_rawDescGZIP(), []int{166}
 }
 
 func (x *OpenAICredentialBody) GetApiKey() string {
@@ -11127,7 +11499,7 @@ type OpenAITenantModelProviderData struct {
 
 func (x *OpenAITenantModelProviderData) Reset() {
 	*x = OpenAITenantModelProviderData{}
-	mi := &file_payload_proto_msgTypes[160]
+	mi := &file_payload_proto_msgTypes[167]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11139,7 +11511,7 @@ func (x *OpenAITenantModelProviderData) String() string {
 func (*OpenAITenantModelProviderData) ProtoMessage() {}
 
 func (x *OpenAITenantModelProviderData) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[160]
+	mi := &file_payload_proto_msgTypes[167]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11152,7 +11524,7 @@ func (x *OpenAITenantModelProviderData) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use OpenAITenantModelProviderData.ProtoReflect.Descriptor instead.
 func (*OpenAITenantModelProviderData) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{160}
+	return file_payload_proto_rawDescGZIP(), []int{167}
 }
 
 func (x *OpenAITenantModelProviderData) GetDefaultThinkingLevel() string {
@@ -11235,7 +11607,7 @@ type OpenAITenantVoiceProviderData struct {
 
 func (x *OpenAITenantVoiceProviderData) Reset() {
 	*x = OpenAITenantVoiceProviderData{}
-	mi := &file_payload_proto_msgTypes[161]
+	mi := &file_payload_proto_msgTypes[168]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11247,7 +11619,7 @@ func (x *OpenAITenantVoiceProviderData) String() string {
 func (*OpenAITenantVoiceProviderData) ProtoMessage() {}
 
 func (x *OpenAITenantVoiceProviderData) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[161]
+	mi := &file_payload_proto_msgTypes[168]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11260,7 +11632,7 @@ func (x *OpenAITenantVoiceProviderData) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use OpenAITenantVoiceProviderData.ProtoReflect.Descriptor instead.
 func (*OpenAITenantVoiceProviderData) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{161}
+	return file_payload_proto_rawDescGZIP(), []int{168}
 }
 
 func (x *OpenAITenantVoiceProviderData) GetRaw() *structpb.Struct {
@@ -11288,7 +11660,7 @@ type PeerIMEI struct {
 
 func (x *PeerIMEI) Reset() {
 	*x = PeerIMEI{}
-	mi := &file_payload_proto_msgTypes[162]
+	mi := &file_payload_proto_msgTypes[169]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11300,7 +11672,7 @@ func (x *PeerIMEI) String() string {
 func (*PeerIMEI) ProtoMessage() {}
 
 func (x *PeerIMEI) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[162]
+	mi := &file_payload_proto_msgTypes[169]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11313,7 +11685,7 @@ func (x *PeerIMEI) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PeerIMEI.ProtoReflect.Descriptor instead.
 func (*PeerIMEI) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{162}
+	return file_payload_proto_rawDescGZIP(), []int{169}
 }
 
 func (x *PeerIMEI) GetName() string {
@@ -11347,7 +11719,7 @@ type PeerLabel struct {
 
 func (x *PeerLabel) Reset() {
 	*x = PeerLabel{}
-	mi := &file_payload_proto_msgTypes[163]
+	mi := &file_payload_proto_msgTypes[170]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11359,7 +11731,7 @@ func (x *PeerLabel) String() string {
 func (*PeerLabel) ProtoMessage() {}
 
 func (x *PeerLabel) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[163]
+	mi := &file_payload_proto_msgTypes[170]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11372,7 +11744,7 @@ func (x *PeerLabel) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PeerLabel.ProtoReflect.Descriptor instead.
 func (*PeerLabel) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{163}
+	return file_payload_proto_rawDescGZIP(), []int{170}
 }
 
 func (x *PeerLabel) GetKey() string {
@@ -11399,7 +11771,7 @@ type PeerRunAgent struct {
 
 func (x *PeerRunAgent) Reset() {
 	*x = PeerRunAgent{}
-	mi := &file_payload_proto_msgTypes[164]
+	mi := &file_payload_proto_msgTypes[171]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11411,7 +11783,7 @@ func (x *PeerRunAgent) String() string {
 func (*PeerRunAgent) ProtoMessage() {}
 
 func (x *PeerRunAgent) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[164]
+	mi := &file_payload_proto_msgTypes[171]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11424,7 +11796,7 @@ func (x *PeerRunAgent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PeerRunAgent.ProtoReflect.Descriptor instead.
 func (*PeerRunAgent) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{164}
+	return file_payload_proto_rawDescGZIP(), []int{171}
 }
 
 func (x *PeerRunAgent) GetActive() *AgentSelection {
@@ -11456,7 +11828,7 @@ type PeerRunHistoryEntry struct {
 
 func (x *PeerRunHistoryEntry) Reset() {
 	*x = PeerRunHistoryEntry{}
-	mi := &file_payload_proto_msgTypes[165]
+	mi := &file_payload_proto_msgTypes[172]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11468,7 +11840,7 @@ func (x *PeerRunHistoryEntry) String() string {
 func (*PeerRunHistoryEntry) ProtoMessage() {}
 
 func (x *PeerRunHistoryEntry) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[165]
+	mi := &file_payload_proto_msgTypes[172]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11481,7 +11853,7 @@ func (x *PeerRunHistoryEntry) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PeerRunHistoryEntry.ProtoReflect.Descriptor instead.
 func (*PeerRunHistoryEntry) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{165}
+	return file_payload_proto_rawDescGZIP(), []int{172}
 }
 
 func (x *PeerRunHistoryEntry) GetCreatedAt() string {
@@ -11544,7 +11916,7 @@ type PeerRunHistoryListRequest struct {
 
 func (x *PeerRunHistoryListRequest) Reset() {
 	*x = PeerRunHistoryListRequest{}
-	mi := &file_payload_proto_msgTypes[166]
+	mi := &file_payload_proto_msgTypes[173]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11556,7 +11928,7 @@ func (x *PeerRunHistoryListRequest) String() string {
 func (*PeerRunHistoryListRequest) ProtoMessage() {}
 
 func (x *PeerRunHistoryListRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[166]
+	mi := &file_payload_proto_msgTypes[173]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11569,7 +11941,7 @@ func (x *PeerRunHistoryListRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PeerRunHistoryListRequest.ProtoReflect.Descriptor instead.
 func (*PeerRunHistoryListRequest) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{166}
+	return file_payload_proto_rawDescGZIP(), []int{173}
 }
 
 func (x *PeerRunHistoryListRequest) GetCursor() string {
@@ -11606,7 +11978,7 @@ type PeerRunHistoryListResponse struct {
 
 func (x *PeerRunHistoryListResponse) Reset() {
 	*x = PeerRunHistoryListResponse{}
-	mi := &file_payload_proto_msgTypes[167]
+	mi := &file_payload_proto_msgTypes[174]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11618,7 +11990,7 @@ func (x *PeerRunHistoryListResponse) String() string {
 func (*PeerRunHistoryListResponse) ProtoMessage() {}
 
 func (x *PeerRunHistoryListResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[167]
+	mi := &file_payload_proto_msgTypes[174]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11631,7 +12003,7 @@ func (x *PeerRunHistoryListResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PeerRunHistoryListResponse.ProtoReflect.Descriptor instead.
 func (*PeerRunHistoryListResponse) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{167}
+	return file_payload_proto_rawDescGZIP(), []int{174}
 }
 
 func (x *PeerRunHistoryListResponse) GetAvailable() bool {
@@ -11678,7 +12050,7 @@ type PeerRunHistoryPlayRequest struct {
 
 func (x *PeerRunHistoryPlayRequest) Reset() {
 	*x = PeerRunHistoryPlayRequest{}
-	mi := &file_payload_proto_msgTypes[168]
+	mi := &file_payload_proto_msgTypes[175]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11690,7 +12062,7 @@ func (x *PeerRunHistoryPlayRequest) String() string {
 func (*PeerRunHistoryPlayRequest) ProtoMessage() {}
 
 func (x *PeerRunHistoryPlayRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[168]
+	mi := &file_payload_proto_msgTypes[175]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11703,7 +12075,7 @@ func (x *PeerRunHistoryPlayRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PeerRunHistoryPlayRequest.ProtoReflect.Descriptor instead.
 func (*PeerRunHistoryPlayRequest) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{168}
+	return file_payload_proto_rawDescGZIP(), []int{175}
 }
 
 func (x *PeerRunHistoryPlayRequest) GetHistoryId() string {
@@ -11725,7 +12097,7 @@ type PeerRunHistoryPlayResponse struct {
 
 func (x *PeerRunHistoryPlayResponse) Reset() {
 	*x = PeerRunHistoryPlayResponse{}
-	mi := &file_payload_proto_msgTypes[169]
+	mi := &file_payload_proto_msgTypes[176]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11737,7 +12109,7 @@ func (x *PeerRunHistoryPlayResponse) String() string {
 func (*PeerRunHistoryPlayResponse) ProtoMessage() {}
 
 func (x *PeerRunHistoryPlayResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[169]
+	mi := &file_payload_proto_msgTypes[176]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11750,7 +12122,7 @@ func (x *PeerRunHistoryPlayResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PeerRunHistoryPlayResponse.ProtoReflect.Descriptor instead.
 func (*PeerRunHistoryPlayResponse) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{169}
+	return file_payload_proto_rawDescGZIP(), []int{176}
 }
 
 func (x *PeerRunHistoryPlayResponse) GetAccepted() bool {
@@ -11789,7 +12161,7 @@ type PeerRunMemoryStatsRequest struct {
 
 func (x *PeerRunMemoryStatsRequest) Reset() {
 	*x = PeerRunMemoryStatsRequest{}
-	mi := &file_payload_proto_msgTypes[170]
+	mi := &file_payload_proto_msgTypes[177]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11801,7 +12173,7 @@ func (x *PeerRunMemoryStatsRequest) String() string {
 func (*PeerRunMemoryStatsRequest) ProtoMessage() {}
 
 func (x *PeerRunMemoryStatsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[170]
+	mi := &file_payload_proto_msgTypes[177]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11814,7 +12186,7 @@ func (x *PeerRunMemoryStatsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PeerRunMemoryStatsRequest.ProtoReflect.Descriptor instead.
 func (*PeerRunMemoryStatsRequest) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{170}
+	return file_payload_proto_rawDescGZIP(), []int{177}
 }
 
 type PeerRunMemoryStatsResponse struct {
@@ -11836,7 +12208,7 @@ type PeerRunMemoryStatsResponse struct {
 
 func (x *PeerRunMemoryStatsResponse) Reset() {
 	*x = PeerRunMemoryStatsResponse{}
-	mi := &file_payload_proto_msgTypes[171]
+	mi := &file_payload_proto_msgTypes[178]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11848,7 +12220,7 @@ func (x *PeerRunMemoryStatsResponse) String() string {
 func (*PeerRunMemoryStatsResponse) ProtoMessage() {}
 
 func (x *PeerRunMemoryStatsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[171]
+	mi := &file_payload_proto_msgTypes[178]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11861,7 +12233,7 @@ func (x *PeerRunMemoryStatsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PeerRunMemoryStatsResponse.ProtoReflect.Descriptor instead.
 func (*PeerRunMemoryStatsResponse) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{171}
+	return file_payload_proto_rawDescGZIP(), []int{178}
 }
 
 func (x *PeerRunMemoryStatsResponse) GetAvailable() bool {
@@ -11956,7 +12328,7 @@ type PeerRunRecallHit struct {
 
 func (x *PeerRunRecallHit) Reset() {
 	*x = PeerRunRecallHit{}
-	mi := &file_payload_proto_msgTypes[172]
+	mi := &file_payload_proto_msgTypes[179]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11968,7 +12340,7 @@ func (x *PeerRunRecallHit) String() string {
 func (*PeerRunRecallHit) ProtoMessage() {}
 
 func (x *PeerRunRecallHit) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[172]
+	mi := &file_payload_proto_msgTypes[179]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11981,7 +12353,7 @@ func (x *PeerRunRecallHit) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PeerRunRecallHit.ProtoReflect.Descriptor instead.
 func (*PeerRunRecallHit) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{172}
+	return file_payload_proto_rawDescGZIP(), []int{179}
 }
 
 func (x *PeerRunRecallHit) GetCreatedAt() string {
@@ -12044,7 +12416,7 @@ type PeerRunRecallRequest struct {
 
 func (x *PeerRunRecallRequest) Reset() {
 	*x = PeerRunRecallRequest{}
-	mi := &file_payload_proto_msgTypes[173]
+	mi := &file_payload_proto_msgTypes[180]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12056,7 +12428,7 @@ func (x *PeerRunRecallRequest) String() string {
 func (*PeerRunRecallRequest) ProtoMessage() {}
 
 func (x *PeerRunRecallRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[173]
+	mi := &file_payload_proto_msgTypes[180]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12069,7 +12441,7 @@ func (x *PeerRunRecallRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PeerRunRecallRequest.ProtoReflect.Descriptor instead.
 func (*PeerRunRecallRequest) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{173}
+	return file_payload_proto_rawDescGZIP(), []int{180}
 }
 
 func (x *PeerRunRecallRequest) GetFilters() *structpb.Struct {
@@ -12104,7 +12476,7 @@ type PeerRunRecallResponse struct {
 
 func (x *PeerRunRecallResponse) Reset() {
 	*x = PeerRunRecallResponse{}
-	mi := &file_payload_proto_msgTypes[174]
+	mi := &file_payload_proto_msgTypes[181]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12116,7 +12488,7 @@ func (x *PeerRunRecallResponse) String() string {
 func (*PeerRunRecallResponse) ProtoMessage() {}
 
 func (x *PeerRunRecallResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[174]
+	mi := &file_payload_proto_msgTypes[181]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12129,7 +12501,7 @@ func (x *PeerRunRecallResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PeerRunRecallResponse.ProtoReflect.Descriptor instead.
 func (*PeerRunRecallResponse) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{174}
+	return file_payload_proto_rawDescGZIP(), []int{181}
 }
 
 func (x *PeerRunRecallResponse) GetAvailable() bool {
@@ -12166,7 +12538,7 @@ type PeerRunStatus struct {
 
 func (x *PeerRunStatus) Reset() {
 	*x = PeerRunStatus{}
-	mi := &file_payload_proto_msgTypes[175]
+	mi := &file_payload_proto_msgTypes[182]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12178,7 +12550,7 @@ func (x *PeerRunStatus) String() string {
 func (*PeerRunStatus) ProtoMessage() {}
 
 func (x *PeerRunStatus) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[175]
+	mi := &file_payload_proto_msgTypes[182]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12191,7 +12563,7 @@ func (x *PeerRunStatus) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PeerRunStatus.ProtoReflect.Descriptor instead.
 func (*PeerRunStatus) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{175}
+	return file_payload_proto_rawDescGZIP(), []int{182}
 }
 
 func (x *PeerRunStatus) GetMessage() string {
@@ -12250,7 +12622,7 @@ type PeerRunWorkspaceState struct {
 
 func (x *PeerRunWorkspaceState) Reset() {
 	*x = PeerRunWorkspaceState{}
-	mi := &file_payload_proto_msgTypes[176]
+	mi := &file_payload_proto_msgTypes[183]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12262,7 +12634,7 @@ func (x *PeerRunWorkspaceState) String() string {
 func (*PeerRunWorkspaceState) ProtoMessage() {}
 
 func (x *PeerRunWorkspaceState) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[176]
+	mi := &file_payload_proto_msgTypes[183]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12275,7 +12647,7 @@ func (x *PeerRunWorkspaceState) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PeerRunWorkspaceState.ProtoReflect.Descriptor instead.
 func (*PeerRunWorkspaceState) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{176}
+	return file_payload_proto_rawDescGZIP(), []int{183}
 }
 
 func (x *PeerRunWorkspaceState) GetActiveWorkspaceName() string {
@@ -12388,7 +12760,7 @@ type PeerStatus struct {
 
 func (x *PeerStatus) Reset() {
 	*x = PeerStatus{}
-	mi := &file_payload_proto_msgTypes[177]
+	mi := &file_payload_proto_msgTypes[184]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12400,7 +12772,7 @@ func (x *PeerStatus) String() string {
 func (*PeerStatus) ProtoMessage() {}
 
 func (x *PeerStatus) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[177]
+	mi := &file_payload_proto_msgTypes[184]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12413,7 +12785,7 @@ func (x *PeerStatus) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PeerStatus.ProtoReflect.Descriptor instead.
 func (*PeerStatus) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{177}
+	return file_payload_proto_rawDescGZIP(), []int{184}
 }
 
 func (x *PeerStatus) GetBatteryPercent() int64 {
@@ -12515,7 +12887,7 @@ type Pet struct {
 
 func (x *Pet) Reset() {
 	*x = Pet{}
-	mi := &file_payload_proto_msgTypes[178]
+	mi := &file_payload_proto_msgTypes[185]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12527,7 +12899,7 @@ func (x *Pet) String() string {
 func (*Pet) ProtoMessage() {}
 
 func (x *Pet) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[178]
+	mi := &file_payload_proto_msgTypes[185]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12540,7 +12912,7 @@ func (x *Pet) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Pet.ProtoReflect.Descriptor instead.
 func (*Pet) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{178}
+	return file_payload_proto_rawDescGZIP(), []int{185}
 }
 
 func (x *Pet) GetAbility() *StatMap {
@@ -12651,7 +13023,7 @@ type PetAdoptRequest struct {
 
 func (x *PetAdoptRequest) Reset() {
 	*x = PetAdoptRequest{}
-	mi := &file_payload_proto_msgTypes[179]
+	mi := &file_payload_proto_msgTypes[186]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12663,7 +13035,7 @@ func (x *PetAdoptRequest) String() string {
 func (*PetAdoptRequest) ProtoMessage() {}
 
 func (x *PetAdoptRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[179]
+	mi := &file_payload_proto_msgTypes[186]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12676,7 +13048,7 @@ func (x *PetAdoptRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PetAdoptRequest.ProtoReflect.Descriptor instead.
 func (*PetAdoptRequest) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{179}
+	return file_payload_proto_rawDescGZIP(), []int{186}
 }
 
 func (x *PetAdoptRequest) GetDisplayName() string {
@@ -12704,7 +13076,7 @@ type PetAdoptResponse struct {
 
 func (x *PetAdoptResponse) Reset() {
 	*x = PetAdoptResponse{}
-	mi := &file_payload_proto_msgTypes[180]
+	mi := &file_payload_proto_msgTypes[187]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12716,7 +13088,7 @@ func (x *PetAdoptResponse) String() string {
 func (*PetAdoptResponse) ProtoMessage() {}
 
 func (x *PetAdoptResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[180]
+	mi := &file_payload_proto_msgTypes[187]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12729,7 +13101,7 @@ func (x *PetAdoptResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PetAdoptResponse.ProtoReflect.Descriptor instead.
 func (*PetAdoptResponse) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{180}
+	return file_payload_proto_rawDescGZIP(), []int{187}
 }
 
 func (x *PetAdoptResponse) GetPet() *Pet {
@@ -12762,7 +13134,7 @@ type PetDefPixaDownloadRequest struct {
 
 func (x *PetDefPixaDownloadRequest) Reset() {
 	*x = PetDefPixaDownloadRequest{}
-	mi := &file_payload_proto_msgTypes[181]
+	mi := &file_payload_proto_msgTypes[188]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12774,7 +13146,7 @@ func (x *PetDefPixaDownloadRequest) String() string {
 func (*PetDefPixaDownloadRequest) ProtoMessage() {}
 
 func (x *PetDefPixaDownloadRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[181]
+	mi := &file_payload_proto_msgTypes[188]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12787,7 +13159,7 @@ func (x *PetDefPixaDownloadRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PetDefPixaDownloadRequest.ProtoReflect.Descriptor instead.
 func (*PetDefPixaDownloadRequest) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{181}
+	return file_payload_proto_rawDescGZIP(), []int{188}
 }
 
 func (x *PetDefPixaDownloadRequest) GetId() string {
@@ -12808,7 +13180,7 @@ type PetDefPixaDownloadResponse struct {
 
 func (x *PetDefPixaDownloadResponse) Reset() {
 	*x = PetDefPixaDownloadResponse{}
-	mi := &file_payload_proto_msgTypes[182]
+	mi := &file_payload_proto_msgTypes[189]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12820,7 +13192,7 @@ func (x *PetDefPixaDownloadResponse) String() string {
 func (*PetDefPixaDownloadResponse) ProtoMessage() {}
 
 func (x *PetDefPixaDownloadResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[182]
+	mi := &file_payload_proto_msgTypes[189]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12833,7 +13205,7 @@ func (x *PetDefPixaDownloadResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PetDefPixaDownloadResponse.ProtoReflect.Descriptor instead.
 func (*PetDefPixaDownloadResponse) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{182}
+	return file_payload_proto_rawDescGZIP(), []int{189}
 }
 
 func (x *PetDefPixaDownloadResponse) GetId() string {
@@ -12866,7 +13238,7 @@ type PetDeleteRequest struct {
 
 func (x *PetDeleteRequest) Reset() {
 	*x = PetDeleteRequest{}
-	mi := &file_payload_proto_msgTypes[183]
+	mi := &file_payload_proto_msgTypes[190]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12878,7 +13250,7 @@ func (x *PetDeleteRequest) String() string {
 func (*PetDeleteRequest) ProtoMessage() {}
 
 func (x *PetDeleteRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[183]
+	mi := &file_payload_proto_msgTypes[190]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12891,7 +13263,7 @@ func (x *PetDeleteRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PetDeleteRequest.ProtoReflect.Descriptor instead.
 func (*PetDeleteRequest) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{183}
+	return file_payload_proto_rawDescGZIP(), []int{190}
 }
 
 func (x *PetDeleteRequest) GetId() string {
@@ -12918,7 +13290,7 @@ type PetDriveGameResultInput struct {
 
 func (x *PetDriveGameResultInput) Reset() {
 	*x = PetDriveGameResultInput{}
-	mi := &file_payload_proto_msgTypes[184]
+	mi := &file_payload_proto_msgTypes[191]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12930,7 +13302,7 @@ func (x *PetDriveGameResultInput) String() string {
 func (*PetDriveGameResultInput) ProtoMessage() {}
 
 func (x *PetDriveGameResultInput) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[184]
+	mi := &file_payload_proto_msgTypes[191]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12943,7 +13315,7 @@ func (x *PetDriveGameResultInput) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PetDriveGameResultInput.ProtoReflect.Descriptor instead.
 func (*PetDriveGameResultInput) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{184}
+	return file_payload_proto_rawDescGZIP(), []int{191}
 }
 
 func (x *PetDriveGameResultInput) GetDifficulty() string {
@@ -13020,7 +13392,7 @@ type PetDriveRequest struct {
 
 func (x *PetDriveRequest) Reset() {
 	*x = PetDriveRequest{}
-	mi := &file_payload_proto_msgTypes[185]
+	mi := &file_payload_proto_msgTypes[192]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -13032,7 +13404,7 @@ func (x *PetDriveRequest) String() string {
 func (*PetDriveRequest) ProtoMessage() {}
 
 func (x *PetDriveRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[185]
+	mi := &file_payload_proto_msgTypes[192]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -13045,7 +13417,7 @@ func (x *PetDriveRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PetDriveRequest.ProtoReflect.Descriptor instead.
 func (*PetDriveRequest) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{185}
+	return file_payload_proto_rawDescGZIP(), []int{192}
 }
 
 func (x *PetDriveRequest) GetAction() string {
@@ -13083,7 +13455,7 @@ type PetDriveResponse struct {
 
 func (x *PetDriveResponse) Reset() {
 	*x = PetDriveResponse{}
-	mi := &file_payload_proto_msgTypes[186]
+	mi := &file_payload_proto_msgTypes[193]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -13095,7 +13467,7 @@ func (x *PetDriveResponse) String() string {
 func (*PetDriveResponse) ProtoMessage() {}
 
 func (x *PetDriveResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[186]
+	mi := &file_payload_proto_msgTypes[193]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -13108,7 +13480,7 @@ func (x *PetDriveResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PetDriveResponse.ProtoReflect.Descriptor instead.
 func (*PetDriveResponse) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{186}
+	return file_payload_proto_rawDescGZIP(), []int{193}
 }
 
 func (x *PetDriveResponse) GetBadges() []*Badge {
@@ -13162,7 +13534,7 @@ type PetGetRequest struct {
 
 func (x *PetGetRequest) Reset() {
 	*x = PetGetRequest{}
-	mi := &file_payload_proto_msgTypes[187]
+	mi := &file_payload_proto_msgTypes[194]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -13174,7 +13546,7 @@ func (x *PetGetRequest) String() string {
 func (*PetGetRequest) ProtoMessage() {}
 
 func (x *PetGetRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[187]
+	mi := &file_payload_proto_msgTypes[194]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -13187,7 +13559,7 @@ func (x *PetGetRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PetGetRequest.ProtoReflect.Descriptor instead.
 func (*PetGetRequest) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{187}
+	return file_payload_proto_rawDescGZIP(), []int{194}
 }
 
 func (x *PetGetRequest) GetId() string {
@@ -13208,7 +13580,7 @@ type PetListResponse struct {
 
 func (x *PetListResponse) Reset() {
 	*x = PetListResponse{}
-	mi := &file_payload_proto_msgTypes[188]
+	mi := &file_payload_proto_msgTypes[195]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -13220,7 +13592,7 @@ func (x *PetListResponse) String() string {
 func (*PetListResponse) ProtoMessage() {}
 
 func (x *PetListResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[188]
+	mi := &file_payload_proto_msgTypes[195]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -13233,7 +13605,7 @@ func (x *PetListResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PetListResponse.ProtoReflect.Descriptor instead.
 func (*PetListResponse) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{188}
+	return file_payload_proto_rawDescGZIP(), []int{195}
 }
 
 func (x *PetListResponse) GetHasNext() bool {
@@ -13267,7 +13639,7 @@ type PetPutRequest struct {
 
 func (x *PetPutRequest) Reset() {
 	*x = PetPutRequest{}
-	mi := &file_payload_proto_msgTypes[189]
+	mi := &file_payload_proto_msgTypes[196]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -13279,7 +13651,7 @@ func (x *PetPutRequest) String() string {
 func (*PetPutRequest) ProtoMessage() {}
 
 func (x *PetPutRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[189]
+	mi := &file_payload_proto_msgTypes[196]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -13292,7 +13664,7 @@ func (x *PetPutRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PetPutRequest.ProtoReflect.Descriptor instead.
 func (*PetPutRequest) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{189}
+	return file_payload_proto_rawDescGZIP(), []int{196}
 }
 
 func (x *PetPutRequest) GetDisplayName() string {
@@ -13318,7 +13690,7 @@ type PingRequest struct {
 
 func (x *PingRequest) Reset() {
 	*x = PingRequest{}
-	mi := &file_payload_proto_msgTypes[190]
+	mi := &file_payload_proto_msgTypes[197]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -13330,7 +13702,7 @@ func (x *PingRequest) String() string {
 func (*PingRequest) ProtoMessage() {}
 
 func (x *PingRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[190]
+	mi := &file_payload_proto_msgTypes[197]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -13343,7 +13715,7 @@ func (x *PingRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PingRequest.ProtoReflect.Descriptor instead.
 func (*PingRequest) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{190}
+	return file_payload_proto_rawDescGZIP(), []int{197}
 }
 
 func (x *PingRequest) GetClientSendTime() int64 {
@@ -13362,7 +13734,7 @@ type PingResponse struct {
 
 func (x *PingResponse) Reset() {
 	*x = PingResponse{}
-	mi := &file_payload_proto_msgTypes[191]
+	mi := &file_payload_proto_msgTypes[198]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -13374,7 +13746,7 @@ func (x *PingResponse) String() string {
 func (*PingResponse) ProtoMessage() {}
 
 func (x *PingResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[191]
+	mi := &file_payload_proto_msgTypes[198]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -13387,7 +13759,7 @@ func (x *PingResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PingResponse.ProtoReflect.Descriptor instead.
 func (*PingResponse) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{191}
+	return file_payload_proto_rawDescGZIP(), []int{198}
 }
 
 func (x *PingResponse) GetServerTime() int64 {
@@ -13410,7 +13782,7 @@ type PointsAccount struct {
 
 func (x *PointsAccount) Reset() {
 	*x = PointsAccount{}
-	mi := &file_payload_proto_msgTypes[192]
+	mi := &file_payload_proto_msgTypes[199]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -13422,7 +13794,7 @@ func (x *PointsAccount) String() string {
 func (*PointsAccount) ProtoMessage() {}
 
 func (x *PointsAccount) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[192]
+	mi := &file_payload_proto_msgTypes[199]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -13435,7 +13807,7 @@ func (x *PointsAccount) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PointsAccount.ProtoReflect.Descriptor instead.
 func (*PointsAccount) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{192}
+	return file_payload_proto_rawDescGZIP(), []int{199}
 }
 
 func (x *PointsAccount) GetBalance() int64 {
@@ -13493,7 +13865,7 @@ type PointsTransaction struct {
 
 func (x *PointsTransaction) Reset() {
 	*x = PointsTransaction{}
-	mi := &file_payload_proto_msgTypes[193]
+	mi := &file_payload_proto_msgTypes[200]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -13505,7 +13877,7 @@ func (x *PointsTransaction) String() string {
 func (*PointsTransaction) ProtoMessage() {}
 
 func (x *PointsTransaction) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[193]
+	mi := &file_payload_proto_msgTypes[200]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -13518,7 +13890,7 @@ func (x *PointsTransaction) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PointsTransaction.ProtoReflect.Descriptor instead.
 func (*PointsTransaction) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{193}
+	return file_payload_proto_rawDescGZIP(), []int{200}
 }
 
 func (x *PointsTransaction) GetBalanceAfter() int64 {
@@ -13616,7 +13988,7 @@ type PointsTransactionListResponse struct {
 
 func (x *PointsTransactionListResponse) Reset() {
 	*x = PointsTransactionListResponse{}
-	mi := &file_payload_proto_msgTypes[194]
+	mi := &file_payload_proto_msgTypes[201]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -13628,7 +14000,7 @@ func (x *PointsTransactionListResponse) String() string {
 func (*PointsTransactionListResponse) ProtoMessage() {}
 
 func (x *PointsTransactionListResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[194]
+	mi := &file_payload_proto_msgTypes[201]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -13641,7 +14013,7 @@ func (x *PointsTransactionListResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PointsTransactionListResponse.ProtoReflect.Descriptor instead.
 func (*PointsTransactionListResponse) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{194}
+	return file_payload_proto_rawDescGZIP(), []int{201}
 }
 
 func (x *PointsTransactionListResponse) GetHasNext() bool {
@@ -13676,7 +14048,7 @@ type RefreshIdentifiers struct {
 
 func (x *RefreshIdentifiers) Reset() {
 	*x = RefreshIdentifiers{}
-	mi := &file_payload_proto_msgTypes[195]
+	mi := &file_payload_proto_msgTypes[202]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -13688,7 +14060,7 @@ func (x *RefreshIdentifiers) String() string {
 func (*RefreshIdentifiers) ProtoMessage() {}
 
 func (x *RefreshIdentifiers) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[195]
+	mi := &file_payload_proto_msgTypes[202]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -13701,7 +14073,7 @@ func (x *RefreshIdentifiers) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RefreshIdentifiers.ProtoReflect.Descriptor instead.
 func (*RefreshIdentifiers) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{195}
+	return file_payload_proto_rawDescGZIP(), []int{202}
 }
 
 func (x *RefreshIdentifiers) GetImeis() []*PeerIMEI {
@@ -13737,7 +14109,7 @@ type RefreshInfo struct {
 
 func (x *RefreshInfo) Reset() {
 	*x = RefreshInfo{}
-	mi := &file_payload_proto_msgTypes[196]
+	mi := &file_payload_proto_msgTypes[203]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -13749,7 +14121,7 @@ func (x *RefreshInfo) String() string {
 func (*RefreshInfo) ProtoMessage() {}
 
 func (x *RefreshInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[196]
+	mi := &file_payload_proto_msgTypes[203]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -13762,7 +14134,7 @@ func (x *RefreshInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RefreshInfo.ProtoReflect.Descriptor instead.
 func (*RefreshInfo) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{196}
+	return file_payload_proto_rawDescGZIP(), []int{203}
 }
 
 func (x *RefreshInfo) GetHardwareRevision() string {
@@ -13815,7 +14187,7 @@ type RewardGrant struct {
 
 func (x *RewardGrant) Reset() {
 	*x = RewardGrant{}
-	mi := &file_payload_proto_msgTypes[197]
+	mi := &file_payload_proto_msgTypes[204]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -13827,7 +14199,7 @@ func (x *RewardGrant) String() string {
 func (*RewardGrant) ProtoMessage() {}
 
 func (x *RewardGrant) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[197]
+	mi := &file_payload_proto_msgTypes[204]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -13840,7 +14212,7 @@ func (x *RewardGrant) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RewardGrant.ProtoReflect.Descriptor instead.
 func (*RewardGrant) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{197}
+	return file_payload_proto_rawDescGZIP(), []int{204}
 }
 
 func (x *RewardGrant) GetAbilityDelta() *StatMap {
@@ -13952,7 +14324,7 @@ type RewardGrantListResponse struct {
 
 func (x *RewardGrantListResponse) Reset() {
 	*x = RewardGrantListResponse{}
-	mi := &file_payload_proto_msgTypes[198]
+	mi := &file_payload_proto_msgTypes[205]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -13964,7 +14336,7 @@ func (x *RewardGrantListResponse) String() string {
 func (*RewardGrantListResponse) ProtoMessage() {}
 
 func (x *RewardGrantListResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[198]
+	mi := &file_payload_proto_msgTypes[205]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -13977,7 +14349,7 @@ func (x *RewardGrantListResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RewardGrantListResponse.ProtoReflect.Descriptor instead.
 func (*RewardGrantListResponse) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{198}
+	return file_payload_proto_rawDescGZIP(), []int{205}
 }
 
 func (x *RewardGrantListResponse) GetHasNext() bool {
@@ -14014,7 +14386,7 @@ type Runtime struct {
 
 func (x *Runtime) Reset() {
 	*x = Runtime{}
-	mi := &file_payload_proto_msgTypes[199]
+	mi := &file_payload_proto_msgTypes[206]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -14026,7 +14398,7 @@ func (x *Runtime) String() string {
 func (*Runtime) ProtoMessage() {}
 
 func (x *Runtime) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[199]
+	mi := &file_payload_proto_msgTypes[206]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -14039,7 +14411,7 @@ func (x *Runtime) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Runtime.ProtoReflect.Descriptor instead.
 func (*Runtime) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{199}
+	return file_payload_proto_rawDescGZIP(), []int{206}
 }
 
 func (x *Runtime) GetLastAddr() string {
@@ -14086,7 +14458,7 @@ type ServerBadgeGetRequest struct {
 
 func (x *ServerBadgeGetRequest) Reset() {
 	*x = ServerBadgeGetRequest{}
-	mi := &file_payload_proto_msgTypes[200]
+	mi := &file_payload_proto_msgTypes[207]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -14098,7 +14470,7 @@ func (x *ServerBadgeGetRequest) String() string {
 func (*ServerBadgeGetRequest) ProtoMessage() {}
 
 func (x *ServerBadgeGetRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[200]
+	mi := &file_payload_proto_msgTypes[207]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -14111,7 +14483,7 @@ func (x *ServerBadgeGetRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerBadgeGetRequest.ProtoReflect.Descriptor instead.
 func (*ServerBadgeGetRequest) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{200}
+	return file_payload_proto_rawDescGZIP(), []int{207}
 }
 
 func (x *ServerBadgeGetRequest) GetValue() *GameplayGetRequest {
@@ -14130,7 +14502,7 @@ type ServerBadgeGetResponse struct {
 
 func (x *ServerBadgeGetResponse) Reset() {
 	*x = ServerBadgeGetResponse{}
-	mi := &file_payload_proto_msgTypes[201]
+	mi := &file_payload_proto_msgTypes[208]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -14142,7 +14514,7 @@ func (x *ServerBadgeGetResponse) String() string {
 func (*ServerBadgeGetResponse) ProtoMessage() {}
 
 func (x *ServerBadgeGetResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[201]
+	mi := &file_payload_proto_msgTypes[208]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -14155,7 +14527,7 @@ func (x *ServerBadgeGetResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerBadgeGetResponse.ProtoReflect.Descriptor instead.
 func (*ServerBadgeGetResponse) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{201}
+	return file_payload_proto_rawDescGZIP(), []int{208}
 }
 
 func (x *ServerBadgeGetResponse) GetValue() *Badge {
@@ -14174,7 +14546,7 @@ type ServerBadgeListRequest struct {
 
 func (x *ServerBadgeListRequest) Reset() {
 	*x = ServerBadgeListRequest{}
-	mi := &file_payload_proto_msgTypes[202]
+	mi := &file_payload_proto_msgTypes[209]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -14186,7 +14558,7 @@ func (x *ServerBadgeListRequest) String() string {
 func (*ServerBadgeListRequest) ProtoMessage() {}
 
 func (x *ServerBadgeListRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[202]
+	mi := &file_payload_proto_msgTypes[209]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -14199,7 +14571,7 @@ func (x *ServerBadgeListRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerBadgeListRequest.ProtoReflect.Descriptor instead.
 func (*ServerBadgeListRequest) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{202}
+	return file_payload_proto_rawDescGZIP(), []int{209}
 }
 
 func (x *ServerBadgeListRequest) GetValue() *GameplayListRequest {
@@ -14218,7 +14590,7 @@ type ServerBadgeListResponse struct {
 
 func (x *ServerBadgeListResponse) Reset() {
 	*x = ServerBadgeListResponse{}
-	mi := &file_payload_proto_msgTypes[203]
+	mi := &file_payload_proto_msgTypes[210]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -14230,7 +14602,7 @@ func (x *ServerBadgeListResponse) String() string {
 func (*ServerBadgeListResponse) ProtoMessage() {}
 
 func (x *ServerBadgeListResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[203]
+	mi := &file_payload_proto_msgTypes[210]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -14243,7 +14615,7 @@ func (x *ServerBadgeListResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerBadgeListResponse.ProtoReflect.Descriptor instead.
 func (*ServerBadgeListResponse) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{203}
+	return file_payload_proto_rawDescGZIP(), []int{210}
 }
 
 func (x *ServerBadgeListResponse) GetValue() *BadgeListResponse {
@@ -14262,7 +14634,7 @@ type ServerGameResultGetRequest struct {
 
 func (x *ServerGameResultGetRequest) Reset() {
 	*x = ServerGameResultGetRequest{}
-	mi := &file_payload_proto_msgTypes[204]
+	mi := &file_payload_proto_msgTypes[211]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -14274,7 +14646,7 @@ func (x *ServerGameResultGetRequest) String() string {
 func (*ServerGameResultGetRequest) ProtoMessage() {}
 
 func (x *ServerGameResultGetRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[204]
+	mi := &file_payload_proto_msgTypes[211]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -14287,7 +14659,7 @@ func (x *ServerGameResultGetRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerGameResultGetRequest.ProtoReflect.Descriptor instead.
 func (*ServerGameResultGetRequest) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{204}
+	return file_payload_proto_rawDescGZIP(), []int{211}
 }
 
 func (x *ServerGameResultGetRequest) GetValue() *GameplayGetRequest {
@@ -14306,7 +14678,7 @@ type ServerGameResultGetResponse struct {
 
 func (x *ServerGameResultGetResponse) Reset() {
 	*x = ServerGameResultGetResponse{}
-	mi := &file_payload_proto_msgTypes[205]
+	mi := &file_payload_proto_msgTypes[212]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -14318,7 +14690,7 @@ func (x *ServerGameResultGetResponse) String() string {
 func (*ServerGameResultGetResponse) ProtoMessage() {}
 
 func (x *ServerGameResultGetResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[205]
+	mi := &file_payload_proto_msgTypes[212]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -14331,7 +14703,7 @@ func (x *ServerGameResultGetResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerGameResultGetResponse.ProtoReflect.Descriptor instead.
 func (*ServerGameResultGetResponse) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{205}
+	return file_payload_proto_rawDescGZIP(), []int{212}
 }
 
 func (x *ServerGameResultGetResponse) GetValue() *GameResult {
@@ -14350,7 +14722,7 @@ type ServerGameResultListRequest struct {
 
 func (x *ServerGameResultListRequest) Reset() {
 	*x = ServerGameResultListRequest{}
-	mi := &file_payload_proto_msgTypes[206]
+	mi := &file_payload_proto_msgTypes[213]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -14362,7 +14734,7 @@ func (x *ServerGameResultListRequest) String() string {
 func (*ServerGameResultListRequest) ProtoMessage() {}
 
 func (x *ServerGameResultListRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[206]
+	mi := &file_payload_proto_msgTypes[213]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -14375,7 +14747,7 @@ func (x *ServerGameResultListRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerGameResultListRequest.ProtoReflect.Descriptor instead.
 func (*ServerGameResultListRequest) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{206}
+	return file_payload_proto_rawDescGZIP(), []int{213}
 }
 
 func (x *ServerGameResultListRequest) GetValue() *GameplayListRequest {
@@ -14394,7 +14766,7 @@ type ServerGameResultListResponse struct {
 
 func (x *ServerGameResultListResponse) Reset() {
 	*x = ServerGameResultListResponse{}
-	mi := &file_payload_proto_msgTypes[207]
+	mi := &file_payload_proto_msgTypes[214]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -14406,7 +14778,7 @@ func (x *ServerGameResultListResponse) String() string {
 func (*ServerGameResultListResponse) ProtoMessage() {}
 
 func (x *ServerGameResultListResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[207]
+	mi := &file_payload_proto_msgTypes[214]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -14419,7 +14791,7 @@ func (x *ServerGameResultListResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerGameResultListResponse.ProtoReflect.Descriptor instead.
 func (*ServerGameResultListResponse) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{207}
+	return file_payload_proto_rawDescGZIP(), []int{214}
 }
 
 func (x *ServerGameResultListResponse) GetValue() *GameResultListResponse {
@@ -14438,7 +14810,7 @@ type ServerGameRulesetGetRequest struct {
 
 func (x *ServerGameRulesetGetRequest) Reset() {
 	*x = ServerGameRulesetGetRequest{}
-	mi := &file_payload_proto_msgTypes[208]
+	mi := &file_payload_proto_msgTypes[215]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -14450,7 +14822,7 @@ func (x *ServerGameRulesetGetRequest) String() string {
 func (*ServerGameRulesetGetRequest) ProtoMessage() {}
 
 func (x *ServerGameRulesetGetRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[208]
+	mi := &file_payload_proto_msgTypes[215]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -14463,7 +14835,7 @@ func (x *ServerGameRulesetGetRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerGameRulesetGetRequest.ProtoReflect.Descriptor instead.
 func (*ServerGameRulesetGetRequest) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{208}
+	return file_payload_proto_rawDescGZIP(), []int{215}
 }
 
 func (x *ServerGameRulesetGetRequest) GetName() string {
@@ -14482,7 +14854,7 @@ type ServerGameRulesetGetResponse struct {
 
 func (x *ServerGameRulesetGetResponse) Reset() {
 	*x = ServerGameRulesetGetResponse{}
-	mi := &file_payload_proto_msgTypes[209]
+	mi := &file_payload_proto_msgTypes[216]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -14494,7 +14866,7 @@ func (x *ServerGameRulesetGetResponse) String() string {
 func (*ServerGameRulesetGetResponse) ProtoMessage() {}
 
 func (x *ServerGameRulesetGetResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[209]
+	mi := &file_payload_proto_msgTypes[216]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -14507,7 +14879,7 @@ func (x *ServerGameRulesetGetResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerGameRulesetGetResponse.ProtoReflect.Descriptor instead.
 func (*ServerGameRulesetGetResponse) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{209}
+	return file_payload_proto_rawDescGZIP(), []int{216}
 }
 
 func (x *ServerGameRulesetGetResponse) GetValue() *GameRuleset {
@@ -14525,7 +14897,7 @@ type ServerGetInfoRequest struct {
 
 func (x *ServerGetInfoRequest) Reset() {
 	*x = ServerGetInfoRequest{}
-	mi := &file_payload_proto_msgTypes[210]
+	mi := &file_payload_proto_msgTypes[217]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -14537,7 +14909,7 @@ func (x *ServerGetInfoRequest) String() string {
 func (*ServerGetInfoRequest) ProtoMessage() {}
 
 func (x *ServerGetInfoRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[210]
+	mi := &file_payload_proto_msgTypes[217]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -14550,7 +14922,7 @@ func (x *ServerGetInfoRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerGetInfoRequest.ProtoReflect.Descriptor instead.
 func (*ServerGetInfoRequest) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{210}
+	return file_payload_proto_rawDescGZIP(), []int{217}
 }
 
 type ServerGetInfoResponse struct {
@@ -14562,7 +14934,7 @@ type ServerGetInfoResponse struct {
 
 func (x *ServerGetInfoResponse) Reset() {
 	*x = ServerGetInfoResponse{}
-	mi := &file_payload_proto_msgTypes[211]
+	mi := &file_payload_proto_msgTypes[218]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -14574,7 +14946,7 @@ func (x *ServerGetInfoResponse) String() string {
 func (*ServerGetInfoResponse) ProtoMessage() {}
 
 func (x *ServerGetInfoResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[211]
+	mi := &file_payload_proto_msgTypes[218]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -14587,7 +14959,7 @@ func (x *ServerGetInfoResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerGetInfoResponse.ProtoReflect.Descriptor instead.
 func (*ServerGetInfoResponse) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{211}
+	return file_payload_proto_rawDescGZIP(), []int{218}
 }
 
 func (x *ServerGetInfoResponse) GetValue() *DeviceInfo {
@@ -14605,7 +14977,7 @@ type ServerGetRunAgentRequest struct {
 
 func (x *ServerGetRunAgentRequest) Reset() {
 	*x = ServerGetRunAgentRequest{}
-	mi := &file_payload_proto_msgTypes[212]
+	mi := &file_payload_proto_msgTypes[219]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -14617,7 +14989,7 @@ func (x *ServerGetRunAgentRequest) String() string {
 func (*ServerGetRunAgentRequest) ProtoMessage() {}
 
 func (x *ServerGetRunAgentRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[212]
+	mi := &file_payload_proto_msgTypes[219]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -14630,7 +15002,7 @@ func (x *ServerGetRunAgentRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerGetRunAgentRequest.ProtoReflect.Descriptor instead.
 func (*ServerGetRunAgentRequest) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{212}
+	return file_payload_proto_rawDescGZIP(), []int{219}
 }
 
 type ServerGetRunAgentResponse struct {
@@ -14642,7 +15014,7 @@ type ServerGetRunAgentResponse struct {
 
 func (x *ServerGetRunAgentResponse) Reset() {
 	*x = ServerGetRunAgentResponse{}
-	mi := &file_payload_proto_msgTypes[213]
+	mi := &file_payload_proto_msgTypes[220]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -14654,7 +15026,7 @@ func (x *ServerGetRunAgentResponse) String() string {
 func (*ServerGetRunAgentResponse) ProtoMessage() {}
 
 func (x *ServerGetRunAgentResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[213]
+	mi := &file_payload_proto_msgTypes[220]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -14667,7 +15039,7 @@ func (x *ServerGetRunAgentResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerGetRunAgentResponse.ProtoReflect.Descriptor instead.
 func (*ServerGetRunAgentResponse) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{213}
+	return file_payload_proto_rawDescGZIP(), []int{220}
 }
 
 func (x *ServerGetRunAgentResponse) GetValue() *PeerRunAgent {
@@ -14685,7 +15057,7 @@ type ServerGetRunStatusRequest struct {
 
 func (x *ServerGetRunStatusRequest) Reset() {
 	*x = ServerGetRunStatusRequest{}
-	mi := &file_payload_proto_msgTypes[214]
+	mi := &file_payload_proto_msgTypes[221]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -14697,7 +15069,7 @@ func (x *ServerGetRunStatusRequest) String() string {
 func (*ServerGetRunStatusRequest) ProtoMessage() {}
 
 func (x *ServerGetRunStatusRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[214]
+	mi := &file_payload_proto_msgTypes[221]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -14710,7 +15082,7 @@ func (x *ServerGetRunStatusRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerGetRunStatusRequest.ProtoReflect.Descriptor instead.
 func (*ServerGetRunStatusRequest) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{214}
+	return file_payload_proto_rawDescGZIP(), []int{221}
 }
 
 type ServerGetRunStatusResponse struct {
@@ -14722,7 +15094,7 @@ type ServerGetRunStatusResponse struct {
 
 func (x *ServerGetRunStatusResponse) Reset() {
 	*x = ServerGetRunStatusResponse{}
-	mi := &file_payload_proto_msgTypes[215]
+	mi := &file_payload_proto_msgTypes[222]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -14734,7 +15106,7 @@ func (x *ServerGetRunStatusResponse) String() string {
 func (*ServerGetRunStatusResponse) ProtoMessage() {}
 
 func (x *ServerGetRunStatusResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[215]
+	mi := &file_payload_proto_msgTypes[222]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -14747,7 +15119,7 @@ func (x *ServerGetRunStatusResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerGetRunStatusResponse.ProtoReflect.Descriptor instead.
 func (*ServerGetRunStatusResponse) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{215}
+	return file_payload_proto_rawDescGZIP(), []int{222}
 }
 
 func (x *ServerGetRunStatusResponse) GetValue() *PeerRunStatus {
@@ -14766,7 +15138,7 @@ type ServerGetRunWorkspaceMemoryStatsRequest struct {
 
 func (x *ServerGetRunWorkspaceMemoryStatsRequest) Reset() {
 	*x = ServerGetRunWorkspaceMemoryStatsRequest{}
-	mi := &file_payload_proto_msgTypes[216]
+	mi := &file_payload_proto_msgTypes[223]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -14778,7 +15150,7 @@ func (x *ServerGetRunWorkspaceMemoryStatsRequest) String() string {
 func (*ServerGetRunWorkspaceMemoryStatsRequest) ProtoMessage() {}
 
 func (x *ServerGetRunWorkspaceMemoryStatsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[216]
+	mi := &file_payload_proto_msgTypes[223]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -14791,7 +15163,7 @@ func (x *ServerGetRunWorkspaceMemoryStatsRequest) ProtoReflect() protoreflect.Me
 
 // Deprecated: Use ServerGetRunWorkspaceMemoryStatsRequest.ProtoReflect.Descriptor instead.
 func (*ServerGetRunWorkspaceMemoryStatsRequest) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{216}
+	return file_payload_proto_rawDescGZIP(), []int{223}
 }
 
 func (x *ServerGetRunWorkspaceMemoryStatsRequest) GetValue() *PeerRunMemoryStatsRequest {
@@ -14810,7 +15182,7 @@ type ServerGetRunWorkspaceMemoryStatsResponse struct {
 
 func (x *ServerGetRunWorkspaceMemoryStatsResponse) Reset() {
 	*x = ServerGetRunWorkspaceMemoryStatsResponse{}
-	mi := &file_payload_proto_msgTypes[217]
+	mi := &file_payload_proto_msgTypes[224]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -14822,7 +15194,7 @@ func (x *ServerGetRunWorkspaceMemoryStatsResponse) String() string {
 func (*ServerGetRunWorkspaceMemoryStatsResponse) ProtoMessage() {}
 
 func (x *ServerGetRunWorkspaceMemoryStatsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[217]
+	mi := &file_payload_proto_msgTypes[224]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -14835,7 +15207,7 @@ func (x *ServerGetRunWorkspaceMemoryStatsResponse) ProtoReflect() protoreflect.M
 
 // Deprecated: Use ServerGetRunWorkspaceMemoryStatsResponse.ProtoReflect.Descriptor instead.
 func (*ServerGetRunWorkspaceMemoryStatsResponse) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{217}
+	return file_payload_proto_rawDescGZIP(), []int{224}
 }
 
 func (x *ServerGetRunWorkspaceMemoryStatsResponse) GetValue() *PeerRunMemoryStatsResponse {
@@ -14853,7 +15225,7 @@ type ServerGetRunWorkspaceRequest struct {
 
 func (x *ServerGetRunWorkspaceRequest) Reset() {
 	*x = ServerGetRunWorkspaceRequest{}
-	mi := &file_payload_proto_msgTypes[218]
+	mi := &file_payload_proto_msgTypes[225]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -14865,7 +15237,7 @@ func (x *ServerGetRunWorkspaceRequest) String() string {
 func (*ServerGetRunWorkspaceRequest) ProtoMessage() {}
 
 func (x *ServerGetRunWorkspaceRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[218]
+	mi := &file_payload_proto_msgTypes[225]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -14878,7 +15250,7 @@ func (x *ServerGetRunWorkspaceRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerGetRunWorkspaceRequest.ProtoReflect.Descriptor instead.
 func (*ServerGetRunWorkspaceRequest) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{218}
+	return file_payload_proto_rawDescGZIP(), []int{225}
 }
 
 type ServerGetRunWorkspaceResponse struct {
@@ -14890,7 +15262,7 @@ type ServerGetRunWorkspaceResponse struct {
 
 func (x *ServerGetRunWorkspaceResponse) Reset() {
 	*x = ServerGetRunWorkspaceResponse{}
-	mi := &file_payload_proto_msgTypes[219]
+	mi := &file_payload_proto_msgTypes[226]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -14902,7 +15274,7 @@ func (x *ServerGetRunWorkspaceResponse) String() string {
 func (*ServerGetRunWorkspaceResponse) ProtoMessage() {}
 
 func (x *ServerGetRunWorkspaceResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[219]
+	mi := &file_payload_proto_msgTypes[226]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -14915,7 +15287,7 @@ func (x *ServerGetRunWorkspaceResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerGetRunWorkspaceResponse.ProtoReflect.Descriptor instead.
 func (*ServerGetRunWorkspaceResponse) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{219}
+	return file_payload_proto_rawDescGZIP(), []int{226}
 }
 
 func (x *ServerGetRunWorkspaceResponse) GetValue() *PeerRunWorkspaceState {
@@ -14933,7 +15305,7 @@ type ServerGetRuntimeRequest struct {
 
 func (x *ServerGetRuntimeRequest) Reset() {
 	*x = ServerGetRuntimeRequest{}
-	mi := &file_payload_proto_msgTypes[220]
+	mi := &file_payload_proto_msgTypes[227]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -14945,7 +15317,7 @@ func (x *ServerGetRuntimeRequest) String() string {
 func (*ServerGetRuntimeRequest) ProtoMessage() {}
 
 func (x *ServerGetRuntimeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[220]
+	mi := &file_payload_proto_msgTypes[227]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -14958,7 +15330,7 @@ func (x *ServerGetRuntimeRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerGetRuntimeRequest.ProtoReflect.Descriptor instead.
 func (*ServerGetRuntimeRequest) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{220}
+	return file_payload_proto_rawDescGZIP(), []int{227}
 }
 
 type ServerGetRuntimeResponse struct {
@@ -14970,7 +15342,7 @@ type ServerGetRuntimeResponse struct {
 
 func (x *ServerGetRuntimeResponse) Reset() {
 	*x = ServerGetRuntimeResponse{}
-	mi := &file_payload_proto_msgTypes[221]
+	mi := &file_payload_proto_msgTypes[228]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -14982,7 +15354,7 @@ func (x *ServerGetRuntimeResponse) String() string {
 func (*ServerGetRuntimeResponse) ProtoMessage() {}
 
 func (x *ServerGetRuntimeResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[221]
+	mi := &file_payload_proto_msgTypes[228]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -14995,7 +15367,7 @@ func (x *ServerGetRuntimeResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerGetRuntimeResponse.ProtoReflect.Descriptor instead.
 func (*ServerGetRuntimeResponse) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{221}
+	return file_payload_proto_rawDescGZIP(), []int{228}
 }
 
 func (x *ServerGetRuntimeResponse) GetValue() *Runtime {
@@ -15013,7 +15385,7 @@ type ServerGetStatusRequest struct {
 
 func (x *ServerGetStatusRequest) Reset() {
 	*x = ServerGetStatusRequest{}
-	mi := &file_payload_proto_msgTypes[222]
+	mi := &file_payload_proto_msgTypes[229]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -15025,7 +15397,7 @@ func (x *ServerGetStatusRequest) String() string {
 func (*ServerGetStatusRequest) ProtoMessage() {}
 
 func (x *ServerGetStatusRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[222]
+	mi := &file_payload_proto_msgTypes[229]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -15038,7 +15410,7 @@ func (x *ServerGetStatusRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerGetStatusRequest.ProtoReflect.Descriptor instead.
 func (*ServerGetStatusRequest) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{222}
+	return file_payload_proto_rawDescGZIP(), []int{229}
 }
 
 type ServerGetStatusResponse struct {
@@ -15050,7 +15422,7 @@ type ServerGetStatusResponse struct {
 
 func (x *ServerGetStatusResponse) Reset() {
 	*x = ServerGetStatusResponse{}
-	mi := &file_payload_proto_msgTypes[223]
+	mi := &file_payload_proto_msgTypes[230]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -15062,7 +15434,7 @@ func (x *ServerGetStatusResponse) String() string {
 func (*ServerGetStatusResponse) ProtoMessage() {}
 
 func (x *ServerGetStatusResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[223]
+	mi := &file_payload_proto_msgTypes[230]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -15075,7 +15447,7 @@ func (x *ServerGetStatusResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerGetStatusResponse.ProtoReflect.Descriptor instead.
 func (*ServerGetStatusResponse) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{223}
+	return file_payload_proto_rawDescGZIP(), []int{230}
 }
 
 func (x *ServerGetStatusResponse) GetValue() *PeerStatus {
@@ -15094,7 +15466,7 @@ type ServerListRunWorkspaceHistoryRequest struct {
 
 func (x *ServerListRunWorkspaceHistoryRequest) Reset() {
 	*x = ServerListRunWorkspaceHistoryRequest{}
-	mi := &file_payload_proto_msgTypes[224]
+	mi := &file_payload_proto_msgTypes[231]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -15106,7 +15478,7 @@ func (x *ServerListRunWorkspaceHistoryRequest) String() string {
 func (*ServerListRunWorkspaceHistoryRequest) ProtoMessage() {}
 
 func (x *ServerListRunWorkspaceHistoryRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[224]
+	mi := &file_payload_proto_msgTypes[231]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -15119,7 +15491,7 @@ func (x *ServerListRunWorkspaceHistoryRequest) ProtoReflect() protoreflect.Messa
 
 // Deprecated: Use ServerListRunWorkspaceHistoryRequest.ProtoReflect.Descriptor instead.
 func (*ServerListRunWorkspaceHistoryRequest) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{224}
+	return file_payload_proto_rawDescGZIP(), []int{231}
 }
 
 func (x *ServerListRunWorkspaceHistoryRequest) GetValue() *PeerRunHistoryListRequest {
@@ -15138,7 +15510,7 @@ type ServerListRunWorkspaceHistoryResponse struct {
 
 func (x *ServerListRunWorkspaceHistoryResponse) Reset() {
 	*x = ServerListRunWorkspaceHistoryResponse{}
-	mi := &file_payload_proto_msgTypes[225]
+	mi := &file_payload_proto_msgTypes[232]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -15150,7 +15522,7 @@ func (x *ServerListRunWorkspaceHistoryResponse) String() string {
 func (*ServerListRunWorkspaceHistoryResponse) ProtoMessage() {}
 
 func (x *ServerListRunWorkspaceHistoryResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[225]
+	mi := &file_payload_proto_msgTypes[232]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -15163,7 +15535,7 @@ func (x *ServerListRunWorkspaceHistoryResponse) ProtoReflect() protoreflect.Mess
 
 // Deprecated: Use ServerListRunWorkspaceHistoryResponse.ProtoReflect.Descriptor instead.
 func (*ServerListRunWorkspaceHistoryResponse) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{225}
+	return file_payload_proto_rawDescGZIP(), []int{232}
 }
 
 func (x *ServerListRunWorkspaceHistoryResponse) GetValue() *PeerRunHistoryListResponse {
@@ -15182,7 +15554,7 @@ type ServerPetAdoptRequest struct {
 
 func (x *ServerPetAdoptRequest) Reset() {
 	*x = ServerPetAdoptRequest{}
-	mi := &file_payload_proto_msgTypes[226]
+	mi := &file_payload_proto_msgTypes[233]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -15194,7 +15566,7 @@ func (x *ServerPetAdoptRequest) String() string {
 func (*ServerPetAdoptRequest) ProtoMessage() {}
 
 func (x *ServerPetAdoptRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[226]
+	mi := &file_payload_proto_msgTypes[233]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -15207,7 +15579,7 @@ func (x *ServerPetAdoptRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerPetAdoptRequest.ProtoReflect.Descriptor instead.
 func (*ServerPetAdoptRequest) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{226}
+	return file_payload_proto_rawDescGZIP(), []int{233}
 }
 
 func (x *ServerPetAdoptRequest) GetValue() *PetAdoptRequest {
@@ -15226,7 +15598,7 @@ type ServerPetAdoptResponse struct {
 
 func (x *ServerPetAdoptResponse) Reset() {
 	*x = ServerPetAdoptResponse{}
-	mi := &file_payload_proto_msgTypes[227]
+	mi := &file_payload_proto_msgTypes[234]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -15238,7 +15610,7 @@ func (x *ServerPetAdoptResponse) String() string {
 func (*ServerPetAdoptResponse) ProtoMessage() {}
 
 func (x *ServerPetAdoptResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[227]
+	mi := &file_payload_proto_msgTypes[234]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -15251,7 +15623,7 @@ func (x *ServerPetAdoptResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerPetAdoptResponse.ProtoReflect.Descriptor instead.
 func (*ServerPetAdoptResponse) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{227}
+	return file_payload_proto_rawDescGZIP(), []int{234}
 }
 
 func (x *ServerPetAdoptResponse) GetValue() *PetAdoptResponse {
@@ -15270,7 +15642,7 @@ type ServerPetDeleteRequest struct {
 
 func (x *ServerPetDeleteRequest) Reset() {
 	*x = ServerPetDeleteRequest{}
-	mi := &file_payload_proto_msgTypes[228]
+	mi := &file_payload_proto_msgTypes[235]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -15282,7 +15654,7 @@ func (x *ServerPetDeleteRequest) String() string {
 func (*ServerPetDeleteRequest) ProtoMessage() {}
 
 func (x *ServerPetDeleteRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[228]
+	mi := &file_payload_proto_msgTypes[235]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -15295,7 +15667,7 @@ func (x *ServerPetDeleteRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerPetDeleteRequest.ProtoReflect.Descriptor instead.
 func (*ServerPetDeleteRequest) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{228}
+	return file_payload_proto_rawDescGZIP(), []int{235}
 }
 
 func (x *ServerPetDeleteRequest) GetValue() *PetDeleteRequest {
@@ -15314,7 +15686,7 @@ type ServerPetDeleteResponse struct {
 
 func (x *ServerPetDeleteResponse) Reset() {
 	*x = ServerPetDeleteResponse{}
-	mi := &file_payload_proto_msgTypes[229]
+	mi := &file_payload_proto_msgTypes[236]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -15326,7 +15698,7 @@ func (x *ServerPetDeleteResponse) String() string {
 func (*ServerPetDeleteResponse) ProtoMessage() {}
 
 func (x *ServerPetDeleteResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[229]
+	mi := &file_payload_proto_msgTypes[236]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -15339,7 +15711,7 @@ func (x *ServerPetDeleteResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerPetDeleteResponse.ProtoReflect.Descriptor instead.
 func (*ServerPetDeleteResponse) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{229}
+	return file_payload_proto_rawDescGZIP(), []int{236}
 }
 
 func (x *ServerPetDeleteResponse) GetValue() *Pet {
@@ -15358,7 +15730,7 @@ type ServerPetDriveRequest struct {
 
 func (x *ServerPetDriveRequest) Reset() {
 	*x = ServerPetDriveRequest{}
-	mi := &file_payload_proto_msgTypes[230]
+	mi := &file_payload_proto_msgTypes[237]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -15370,7 +15742,7 @@ func (x *ServerPetDriveRequest) String() string {
 func (*ServerPetDriveRequest) ProtoMessage() {}
 
 func (x *ServerPetDriveRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[230]
+	mi := &file_payload_proto_msgTypes[237]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -15383,7 +15755,7 @@ func (x *ServerPetDriveRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerPetDriveRequest.ProtoReflect.Descriptor instead.
 func (*ServerPetDriveRequest) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{230}
+	return file_payload_proto_rawDescGZIP(), []int{237}
 }
 
 func (x *ServerPetDriveRequest) GetValue() *PetDriveRequest {
@@ -15402,7 +15774,7 @@ type ServerPetDriveResponse struct {
 
 func (x *ServerPetDriveResponse) Reset() {
 	*x = ServerPetDriveResponse{}
-	mi := &file_payload_proto_msgTypes[231]
+	mi := &file_payload_proto_msgTypes[238]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -15414,7 +15786,7 @@ func (x *ServerPetDriveResponse) String() string {
 func (*ServerPetDriveResponse) ProtoMessage() {}
 
 func (x *ServerPetDriveResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[231]
+	mi := &file_payload_proto_msgTypes[238]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -15427,7 +15799,7 @@ func (x *ServerPetDriveResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerPetDriveResponse.ProtoReflect.Descriptor instead.
 func (*ServerPetDriveResponse) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{231}
+	return file_payload_proto_rawDescGZIP(), []int{238}
 }
 
 func (x *ServerPetDriveResponse) GetValue() *PetDriveResponse {
@@ -15446,7 +15818,7 @@ type ServerPetGetRequest struct {
 
 func (x *ServerPetGetRequest) Reset() {
 	*x = ServerPetGetRequest{}
-	mi := &file_payload_proto_msgTypes[232]
+	mi := &file_payload_proto_msgTypes[239]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -15458,7 +15830,7 @@ func (x *ServerPetGetRequest) String() string {
 func (*ServerPetGetRequest) ProtoMessage() {}
 
 func (x *ServerPetGetRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[232]
+	mi := &file_payload_proto_msgTypes[239]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -15471,7 +15843,7 @@ func (x *ServerPetGetRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerPetGetRequest.ProtoReflect.Descriptor instead.
 func (*ServerPetGetRequest) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{232}
+	return file_payload_proto_rawDescGZIP(), []int{239}
 }
 
 func (x *ServerPetGetRequest) GetValue() *PetGetRequest {
@@ -15490,7 +15862,7 @@ type ServerPetGetResponse struct {
 
 func (x *ServerPetGetResponse) Reset() {
 	*x = ServerPetGetResponse{}
-	mi := &file_payload_proto_msgTypes[233]
+	mi := &file_payload_proto_msgTypes[240]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -15502,7 +15874,7 @@ func (x *ServerPetGetResponse) String() string {
 func (*ServerPetGetResponse) ProtoMessage() {}
 
 func (x *ServerPetGetResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[233]
+	mi := &file_payload_proto_msgTypes[240]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -15515,7 +15887,7 @@ func (x *ServerPetGetResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerPetGetResponse.ProtoReflect.Descriptor instead.
 func (*ServerPetGetResponse) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{233}
+	return file_payload_proto_rawDescGZIP(), []int{240}
 }
 
 func (x *ServerPetGetResponse) GetValue() *Pet {
@@ -15534,7 +15906,7 @@ type ServerPetListRequest struct {
 
 func (x *ServerPetListRequest) Reset() {
 	*x = ServerPetListRequest{}
-	mi := &file_payload_proto_msgTypes[234]
+	mi := &file_payload_proto_msgTypes[241]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -15546,7 +15918,7 @@ func (x *ServerPetListRequest) String() string {
 func (*ServerPetListRequest) ProtoMessage() {}
 
 func (x *ServerPetListRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[234]
+	mi := &file_payload_proto_msgTypes[241]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -15559,7 +15931,7 @@ func (x *ServerPetListRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerPetListRequest.ProtoReflect.Descriptor instead.
 func (*ServerPetListRequest) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{234}
+	return file_payload_proto_rawDescGZIP(), []int{241}
 }
 
 func (x *ServerPetListRequest) GetValue() *GameplayListRequest {
@@ -15578,7 +15950,7 @@ type ServerPetListResponse struct {
 
 func (x *ServerPetListResponse) Reset() {
 	*x = ServerPetListResponse{}
-	mi := &file_payload_proto_msgTypes[235]
+	mi := &file_payload_proto_msgTypes[242]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -15590,7 +15962,7 @@ func (x *ServerPetListResponse) String() string {
 func (*ServerPetListResponse) ProtoMessage() {}
 
 func (x *ServerPetListResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[235]
+	mi := &file_payload_proto_msgTypes[242]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -15603,7 +15975,7 @@ func (x *ServerPetListResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerPetListResponse.ProtoReflect.Descriptor instead.
 func (*ServerPetListResponse) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{235}
+	return file_payload_proto_rawDescGZIP(), []int{242}
 }
 
 func (x *ServerPetListResponse) GetValue() *PetListResponse {
@@ -15622,7 +15994,7 @@ type ServerPetPutRequest struct {
 
 func (x *ServerPetPutRequest) Reset() {
 	*x = ServerPetPutRequest{}
-	mi := &file_payload_proto_msgTypes[236]
+	mi := &file_payload_proto_msgTypes[243]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -15634,7 +16006,7 @@ func (x *ServerPetPutRequest) String() string {
 func (*ServerPetPutRequest) ProtoMessage() {}
 
 func (x *ServerPetPutRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[236]
+	mi := &file_payload_proto_msgTypes[243]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -15647,7 +16019,7 @@ func (x *ServerPetPutRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerPetPutRequest.ProtoReflect.Descriptor instead.
 func (*ServerPetPutRequest) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{236}
+	return file_payload_proto_rawDescGZIP(), []int{243}
 }
 
 func (x *ServerPetPutRequest) GetValue() *PetPutRequest {
@@ -15666,7 +16038,7 @@ type ServerPetPutResponse struct {
 
 func (x *ServerPetPutResponse) Reset() {
 	*x = ServerPetPutResponse{}
-	mi := &file_payload_proto_msgTypes[237]
+	mi := &file_payload_proto_msgTypes[244]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -15678,7 +16050,7 @@ func (x *ServerPetPutResponse) String() string {
 func (*ServerPetPutResponse) ProtoMessage() {}
 
 func (x *ServerPetPutResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[237]
+	mi := &file_payload_proto_msgTypes[244]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -15691,7 +16063,7 @@ func (x *ServerPetPutResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerPetPutResponse.ProtoReflect.Descriptor instead.
 func (*ServerPetPutResponse) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{237}
+	return file_payload_proto_rawDescGZIP(), []int{244}
 }
 
 func (x *ServerPetPutResponse) GetValue() *Pet {
@@ -15710,7 +16082,7 @@ type ServerPlayRunWorkspaceHistoryRequest struct {
 
 func (x *ServerPlayRunWorkspaceHistoryRequest) Reset() {
 	*x = ServerPlayRunWorkspaceHistoryRequest{}
-	mi := &file_payload_proto_msgTypes[238]
+	mi := &file_payload_proto_msgTypes[245]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -15722,7 +16094,7 @@ func (x *ServerPlayRunWorkspaceHistoryRequest) String() string {
 func (*ServerPlayRunWorkspaceHistoryRequest) ProtoMessage() {}
 
 func (x *ServerPlayRunWorkspaceHistoryRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[238]
+	mi := &file_payload_proto_msgTypes[245]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -15735,7 +16107,7 @@ func (x *ServerPlayRunWorkspaceHistoryRequest) ProtoReflect() protoreflect.Messa
 
 // Deprecated: Use ServerPlayRunWorkspaceHistoryRequest.ProtoReflect.Descriptor instead.
 func (*ServerPlayRunWorkspaceHistoryRequest) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{238}
+	return file_payload_proto_rawDescGZIP(), []int{245}
 }
 
 func (x *ServerPlayRunWorkspaceHistoryRequest) GetValue() *PeerRunHistoryPlayRequest {
@@ -15754,7 +16126,7 @@ type ServerPlayRunWorkspaceHistoryResponse struct {
 
 func (x *ServerPlayRunWorkspaceHistoryResponse) Reset() {
 	*x = ServerPlayRunWorkspaceHistoryResponse{}
-	mi := &file_payload_proto_msgTypes[239]
+	mi := &file_payload_proto_msgTypes[246]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -15766,7 +16138,7 @@ func (x *ServerPlayRunWorkspaceHistoryResponse) String() string {
 func (*ServerPlayRunWorkspaceHistoryResponse) ProtoMessage() {}
 
 func (x *ServerPlayRunWorkspaceHistoryResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[239]
+	mi := &file_payload_proto_msgTypes[246]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -15779,7 +16151,7 @@ func (x *ServerPlayRunWorkspaceHistoryResponse) ProtoReflect() protoreflect.Mess
 
 // Deprecated: Use ServerPlayRunWorkspaceHistoryResponse.ProtoReflect.Descriptor instead.
 func (*ServerPlayRunWorkspaceHistoryResponse) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{239}
+	return file_payload_proto_rawDescGZIP(), []int{246}
 }
 
 func (x *ServerPlayRunWorkspaceHistoryResponse) GetValue() *PeerRunHistoryPlayResponse {
@@ -15798,7 +16170,7 @@ type ServerPointsGetRequest struct {
 
 func (x *ServerPointsGetRequest) Reset() {
 	*x = ServerPointsGetRequest{}
-	mi := &file_payload_proto_msgTypes[240]
+	mi := &file_payload_proto_msgTypes[247]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -15810,7 +16182,7 @@ func (x *ServerPointsGetRequest) String() string {
 func (*ServerPointsGetRequest) ProtoMessage() {}
 
 func (x *ServerPointsGetRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[240]
+	mi := &file_payload_proto_msgTypes[247]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -15823,7 +16195,7 @@ func (x *ServerPointsGetRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerPointsGetRequest.ProtoReflect.Descriptor instead.
 func (*ServerPointsGetRequest) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{240}
+	return file_payload_proto_rawDescGZIP(), []int{247}
 }
 
 func (x *ServerPointsGetRequest) GetRulesetName() string {
@@ -15842,7 +16214,7 @@ type ServerPointsGetResponse struct {
 
 func (x *ServerPointsGetResponse) Reset() {
 	*x = ServerPointsGetResponse{}
-	mi := &file_payload_proto_msgTypes[241]
+	mi := &file_payload_proto_msgTypes[248]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -15854,7 +16226,7 @@ func (x *ServerPointsGetResponse) String() string {
 func (*ServerPointsGetResponse) ProtoMessage() {}
 
 func (x *ServerPointsGetResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[241]
+	mi := &file_payload_proto_msgTypes[248]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -15867,7 +16239,7 @@ func (x *ServerPointsGetResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerPointsGetResponse.ProtoReflect.Descriptor instead.
 func (*ServerPointsGetResponse) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{241}
+	return file_payload_proto_rawDescGZIP(), []int{248}
 }
 
 func (x *ServerPointsGetResponse) GetValue() *PointsAccount {
@@ -15886,7 +16258,7 @@ type ServerPointsTransactionGetRequest struct {
 
 func (x *ServerPointsTransactionGetRequest) Reset() {
 	*x = ServerPointsTransactionGetRequest{}
-	mi := &file_payload_proto_msgTypes[242]
+	mi := &file_payload_proto_msgTypes[249]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -15898,7 +16270,7 @@ func (x *ServerPointsTransactionGetRequest) String() string {
 func (*ServerPointsTransactionGetRequest) ProtoMessage() {}
 
 func (x *ServerPointsTransactionGetRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[242]
+	mi := &file_payload_proto_msgTypes[249]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -15911,7 +16283,7 @@ func (x *ServerPointsTransactionGetRequest) ProtoReflect() protoreflect.Message 
 
 // Deprecated: Use ServerPointsTransactionGetRequest.ProtoReflect.Descriptor instead.
 func (*ServerPointsTransactionGetRequest) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{242}
+	return file_payload_proto_rawDescGZIP(), []int{249}
 }
 
 func (x *ServerPointsTransactionGetRequest) GetValue() *GameplayGetRequest {
@@ -15930,7 +16302,7 @@ type ServerPointsTransactionGetResponse struct {
 
 func (x *ServerPointsTransactionGetResponse) Reset() {
 	*x = ServerPointsTransactionGetResponse{}
-	mi := &file_payload_proto_msgTypes[243]
+	mi := &file_payload_proto_msgTypes[250]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -15942,7 +16314,7 @@ func (x *ServerPointsTransactionGetResponse) String() string {
 func (*ServerPointsTransactionGetResponse) ProtoMessage() {}
 
 func (x *ServerPointsTransactionGetResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[243]
+	mi := &file_payload_proto_msgTypes[250]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -15955,7 +16327,7 @@ func (x *ServerPointsTransactionGetResponse) ProtoReflect() protoreflect.Message
 
 // Deprecated: Use ServerPointsTransactionGetResponse.ProtoReflect.Descriptor instead.
 func (*ServerPointsTransactionGetResponse) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{243}
+	return file_payload_proto_rawDescGZIP(), []int{250}
 }
 
 func (x *ServerPointsTransactionGetResponse) GetValue() *PointsTransaction {
@@ -15974,7 +16346,7 @@ type ServerPointsTransactionListRequest struct {
 
 func (x *ServerPointsTransactionListRequest) Reset() {
 	*x = ServerPointsTransactionListRequest{}
-	mi := &file_payload_proto_msgTypes[244]
+	mi := &file_payload_proto_msgTypes[251]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -15986,7 +16358,7 @@ func (x *ServerPointsTransactionListRequest) String() string {
 func (*ServerPointsTransactionListRequest) ProtoMessage() {}
 
 func (x *ServerPointsTransactionListRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[244]
+	mi := &file_payload_proto_msgTypes[251]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -15999,7 +16371,7 @@ func (x *ServerPointsTransactionListRequest) ProtoReflect() protoreflect.Message
 
 // Deprecated: Use ServerPointsTransactionListRequest.ProtoReflect.Descriptor instead.
 func (*ServerPointsTransactionListRequest) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{244}
+	return file_payload_proto_rawDescGZIP(), []int{251}
 }
 
 func (x *ServerPointsTransactionListRequest) GetValue() *GameplayListRequest {
@@ -16018,7 +16390,7 @@ type ServerPointsTransactionListResponse struct {
 
 func (x *ServerPointsTransactionListResponse) Reset() {
 	*x = ServerPointsTransactionListResponse{}
-	mi := &file_payload_proto_msgTypes[245]
+	mi := &file_payload_proto_msgTypes[252]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -16030,7 +16402,7 @@ func (x *ServerPointsTransactionListResponse) String() string {
 func (*ServerPointsTransactionListResponse) ProtoMessage() {}
 
 func (x *ServerPointsTransactionListResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[245]
+	mi := &file_payload_proto_msgTypes[252]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -16043,7 +16415,7 @@ func (x *ServerPointsTransactionListResponse) ProtoReflect() protoreflect.Messag
 
 // Deprecated: Use ServerPointsTransactionListResponse.ProtoReflect.Descriptor instead.
 func (*ServerPointsTransactionListResponse) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{245}
+	return file_payload_proto_rawDescGZIP(), []int{252}
 }
 
 func (x *ServerPointsTransactionListResponse) GetValue() *PointsTransactionListResponse {
@@ -16062,7 +16434,7 @@ type ServerPutInfoRequest struct {
 
 func (x *ServerPutInfoRequest) Reset() {
 	*x = ServerPutInfoRequest{}
-	mi := &file_payload_proto_msgTypes[246]
+	mi := &file_payload_proto_msgTypes[253]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -16074,7 +16446,7 @@ func (x *ServerPutInfoRequest) String() string {
 func (*ServerPutInfoRequest) ProtoMessage() {}
 
 func (x *ServerPutInfoRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[246]
+	mi := &file_payload_proto_msgTypes[253]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -16087,7 +16459,7 @@ func (x *ServerPutInfoRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerPutInfoRequest.ProtoReflect.Descriptor instead.
 func (*ServerPutInfoRequest) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{246}
+	return file_payload_proto_rawDescGZIP(), []int{253}
 }
 
 func (x *ServerPutInfoRequest) GetValue() *DeviceInfo {
@@ -16106,7 +16478,7 @@ type ServerPutInfoResponse struct {
 
 func (x *ServerPutInfoResponse) Reset() {
 	*x = ServerPutInfoResponse{}
-	mi := &file_payload_proto_msgTypes[247]
+	mi := &file_payload_proto_msgTypes[254]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -16118,7 +16490,7 @@ func (x *ServerPutInfoResponse) String() string {
 func (*ServerPutInfoResponse) ProtoMessage() {}
 
 func (x *ServerPutInfoResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[247]
+	mi := &file_payload_proto_msgTypes[254]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -16131,7 +16503,7 @@ func (x *ServerPutInfoResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerPutInfoResponse.ProtoReflect.Descriptor instead.
 func (*ServerPutInfoResponse) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{247}
+	return file_payload_proto_rawDescGZIP(), []int{254}
 }
 
 func (x *ServerPutInfoResponse) GetValue() *DeviceInfo {
@@ -16149,7 +16521,7 @@ type ServerReloadRunRequest struct {
 
 func (x *ServerReloadRunRequest) Reset() {
 	*x = ServerReloadRunRequest{}
-	mi := &file_payload_proto_msgTypes[248]
+	mi := &file_payload_proto_msgTypes[255]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -16161,7 +16533,7 @@ func (x *ServerReloadRunRequest) String() string {
 func (*ServerReloadRunRequest) ProtoMessage() {}
 
 func (x *ServerReloadRunRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[248]
+	mi := &file_payload_proto_msgTypes[255]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -16174,7 +16546,7 @@ func (x *ServerReloadRunRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerReloadRunRequest.ProtoReflect.Descriptor instead.
 func (*ServerReloadRunRequest) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{248}
+	return file_payload_proto_rawDescGZIP(), []int{255}
 }
 
 type ServerReloadRunResponse struct {
@@ -16186,7 +16558,7 @@ type ServerReloadRunResponse struct {
 
 func (x *ServerReloadRunResponse) Reset() {
 	*x = ServerReloadRunResponse{}
-	mi := &file_payload_proto_msgTypes[249]
+	mi := &file_payload_proto_msgTypes[256]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -16198,7 +16570,7 @@ func (x *ServerReloadRunResponse) String() string {
 func (*ServerReloadRunResponse) ProtoMessage() {}
 
 func (x *ServerReloadRunResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[249]
+	mi := &file_payload_proto_msgTypes[256]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -16211,7 +16583,7 @@ func (x *ServerReloadRunResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerReloadRunResponse.ProtoReflect.Descriptor instead.
 func (*ServerReloadRunResponse) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{249}
+	return file_payload_proto_rawDescGZIP(), []int{256}
 }
 
 func (x *ServerReloadRunResponse) GetValue() *PeerRunStatus {
@@ -16229,7 +16601,7 @@ type ServerReloadRunWorkspaceRequest struct {
 
 func (x *ServerReloadRunWorkspaceRequest) Reset() {
 	*x = ServerReloadRunWorkspaceRequest{}
-	mi := &file_payload_proto_msgTypes[250]
+	mi := &file_payload_proto_msgTypes[257]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -16241,7 +16613,7 @@ func (x *ServerReloadRunWorkspaceRequest) String() string {
 func (*ServerReloadRunWorkspaceRequest) ProtoMessage() {}
 
 func (x *ServerReloadRunWorkspaceRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[250]
+	mi := &file_payload_proto_msgTypes[257]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -16254,7 +16626,7 @@ func (x *ServerReloadRunWorkspaceRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerReloadRunWorkspaceRequest.ProtoReflect.Descriptor instead.
 func (*ServerReloadRunWorkspaceRequest) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{250}
+	return file_payload_proto_rawDescGZIP(), []int{257}
 }
 
 type ServerReloadRunWorkspaceResponse struct {
@@ -16266,7 +16638,7 @@ type ServerReloadRunWorkspaceResponse struct {
 
 func (x *ServerReloadRunWorkspaceResponse) Reset() {
 	*x = ServerReloadRunWorkspaceResponse{}
-	mi := &file_payload_proto_msgTypes[251]
+	mi := &file_payload_proto_msgTypes[258]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -16278,7 +16650,7 @@ func (x *ServerReloadRunWorkspaceResponse) String() string {
 func (*ServerReloadRunWorkspaceResponse) ProtoMessage() {}
 
 func (x *ServerReloadRunWorkspaceResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[251]
+	mi := &file_payload_proto_msgTypes[258]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -16291,7 +16663,7 @@ func (x *ServerReloadRunWorkspaceResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerReloadRunWorkspaceResponse.ProtoReflect.Descriptor instead.
 func (*ServerReloadRunWorkspaceResponse) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{251}
+	return file_payload_proto_rawDescGZIP(), []int{258}
 }
 
 func (x *ServerReloadRunWorkspaceResponse) GetValue() *PeerRunWorkspaceState {
@@ -16310,7 +16682,7 @@ type ServerRewardGrantGetRequest struct {
 
 func (x *ServerRewardGrantGetRequest) Reset() {
 	*x = ServerRewardGrantGetRequest{}
-	mi := &file_payload_proto_msgTypes[252]
+	mi := &file_payload_proto_msgTypes[259]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -16322,7 +16694,7 @@ func (x *ServerRewardGrantGetRequest) String() string {
 func (*ServerRewardGrantGetRequest) ProtoMessage() {}
 
 func (x *ServerRewardGrantGetRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[252]
+	mi := &file_payload_proto_msgTypes[259]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -16335,7 +16707,7 @@ func (x *ServerRewardGrantGetRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerRewardGrantGetRequest.ProtoReflect.Descriptor instead.
 func (*ServerRewardGrantGetRequest) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{252}
+	return file_payload_proto_rawDescGZIP(), []int{259}
 }
 
 func (x *ServerRewardGrantGetRequest) GetValue() *GameplayGetRequest {
@@ -16354,7 +16726,7 @@ type ServerRewardGrantGetResponse struct {
 
 func (x *ServerRewardGrantGetResponse) Reset() {
 	*x = ServerRewardGrantGetResponse{}
-	mi := &file_payload_proto_msgTypes[253]
+	mi := &file_payload_proto_msgTypes[260]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -16366,7 +16738,7 @@ func (x *ServerRewardGrantGetResponse) String() string {
 func (*ServerRewardGrantGetResponse) ProtoMessage() {}
 
 func (x *ServerRewardGrantGetResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[253]
+	mi := &file_payload_proto_msgTypes[260]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -16379,7 +16751,7 @@ func (x *ServerRewardGrantGetResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerRewardGrantGetResponse.ProtoReflect.Descriptor instead.
 func (*ServerRewardGrantGetResponse) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{253}
+	return file_payload_proto_rawDescGZIP(), []int{260}
 }
 
 func (x *ServerRewardGrantGetResponse) GetValue() *RewardGrant {
@@ -16398,7 +16770,7 @@ type ServerRewardGrantListRequest struct {
 
 func (x *ServerRewardGrantListRequest) Reset() {
 	*x = ServerRewardGrantListRequest{}
-	mi := &file_payload_proto_msgTypes[254]
+	mi := &file_payload_proto_msgTypes[261]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -16410,7 +16782,7 @@ func (x *ServerRewardGrantListRequest) String() string {
 func (*ServerRewardGrantListRequest) ProtoMessage() {}
 
 func (x *ServerRewardGrantListRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[254]
+	mi := &file_payload_proto_msgTypes[261]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -16423,7 +16795,7 @@ func (x *ServerRewardGrantListRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerRewardGrantListRequest.ProtoReflect.Descriptor instead.
 func (*ServerRewardGrantListRequest) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{254}
+	return file_payload_proto_rawDescGZIP(), []int{261}
 }
 
 func (x *ServerRewardGrantListRequest) GetValue() *GameplayListRequest {
@@ -16442,7 +16814,7 @@ type ServerRewardGrantListResponse struct {
 
 func (x *ServerRewardGrantListResponse) Reset() {
 	*x = ServerRewardGrantListResponse{}
-	mi := &file_payload_proto_msgTypes[255]
+	mi := &file_payload_proto_msgTypes[262]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -16454,7 +16826,7 @@ func (x *ServerRewardGrantListResponse) String() string {
 func (*ServerRewardGrantListResponse) ProtoMessage() {}
 
 func (x *ServerRewardGrantListResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[255]
+	mi := &file_payload_proto_msgTypes[262]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -16467,7 +16839,7 @@ func (x *ServerRewardGrantListResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerRewardGrantListResponse.ProtoReflect.Descriptor instead.
 func (*ServerRewardGrantListResponse) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{255}
+	return file_payload_proto_rawDescGZIP(), []int{262}
 }
 
 func (x *ServerRewardGrantListResponse) GetValue() *RewardGrantListResponse {
@@ -16489,7 +16861,7 @@ type ServerRunSayRequest struct {
 
 func (x *ServerRunSayRequest) Reset() {
 	*x = ServerRunSayRequest{}
-	mi := &file_payload_proto_msgTypes[256]
+	mi := &file_payload_proto_msgTypes[263]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -16501,7 +16873,7 @@ func (x *ServerRunSayRequest) String() string {
 func (*ServerRunSayRequest) ProtoMessage() {}
 
 func (x *ServerRunSayRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[256]
+	mi := &file_payload_proto_msgTypes[263]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -16514,7 +16886,7 @@ func (x *ServerRunSayRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerRunSayRequest.ProtoReflect.Descriptor instead.
 func (*ServerRunSayRequest) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{256}
+	return file_payload_proto_rawDescGZIP(), []int{263}
 }
 
 func (x *ServerRunSayRequest) GetCredentialName() string {
@@ -16554,7 +16926,7 @@ type ServerRunSayResponse struct {
 
 func (x *ServerRunSayResponse) Reset() {
 	*x = ServerRunSayResponse{}
-	mi := &file_payload_proto_msgTypes[257]
+	mi := &file_payload_proto_msgTypes[264]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -16566,7 +16938,7 @@ func (x *ServerRunSayResponse) String() string {
 func (*ServerRunSayResponse) ProtoMessage() {}
 
 func (x *ServerRunSayResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[257]
+	mi := &file_payload_proto_msgTypes[264]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -16579,7 +16951,7 @@ func (x *ServerRunSayResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerRunSayResponse.ProtoReflect.Descriptor instead.
 func (*ServerRunSayResponse) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{257}
+	return file_payload_proto_rawDescGZIP(), []int{264}
 }
 
 func (x *ServerRunSayResponse) GetAccepted() bool {
@@ -16598,7 +16970,7 @@ type ServerRunWorkspaceRecallRequest struct {
 
 func (x *ServerRunWorkspaceRecallRequest) Reset() {
 	*x = ServerRunWorkspaceRecallRequest{}
-	mi := &file_payload_proto_msgTypes[258]
+	mi := &file_payload_proto_msgTypes[265]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -16610,7 +16982,7 @@ func (x *ServerRunWorkspaceRecallRequest) String() string {
 func (*ServerRunWorkspaceRecallRequest) ProtoMessage() {}
 
 func (x *ServerRunWorkspaceRecallRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[258]
+	mi := &file_payload_proto_msgTypes[265]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -16623,7 +16995,7 @@ func (x *ServerRunWorkspaceRecallRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerRunWorkspaceRecallRequest.ProtoReflect.Descriptor instead.
 func (*ServerRunWorkspaceRecallRequest) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{258}
+	return file_payload_proto_rawDescGZIP(), []int{265}
 }
 
 func (x *ServerRunWorkspaceRecallRequest) GetValue() *PeerRunRecallRequest {
@@ -16642,7 +17014,7 @@ type ServerRunWorkspaceRecallResponse struct {
 
 func (x *ServerRunWorkspaceRecallResponse) Reset() {
 	*x = ServerRunWorkspaceRecallResponse{}
-	mi := &file_payload_proto_msgTypes[259]
+	mi := &file_payload_proto_msgTypes[266]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -16654,7 +17026,7 @@ func (x *ServerRunWorkspaceRecallResponse) String() string {
 func (*ServerRunWorkspaceRecallResponse) ProtoMessage() {}
 
 func (x *ServerRunWorkspaceRecallResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[259]
+	mi := &file_payload_proto_msgTypes[266]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -16667,7 +17039,7 @@ func (x *ServerRunWorkspaceRecallResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerRunWorkspaceRecallResponse.ProtoReflect.Descriptor instead.
 func (*ServerRunWorkspaceRecallResponse) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{259}
+	return file_payload_proto_rawDescGZIP(), []int{266}
 }
 
 func (x *ServerRunWorkspaceRecallResponse) GetValue() *PeerRunRecallResponse {
@@ -16686,7 +17058,7 @@ type ServerSetRunAgentRequest struct {
 
 func (x *ServerSetRunAgentRequest) Reset() {
 	*x = ServerSetRunAgentRequest{}
-	mi := &file_payload_proto_msgTypes[260]
+	mi := &file_payload_proto_msgTypes[267]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -16698,7 +17070,7 @@ func (x *ServerSetRunAgentRequest) String() string {
 func (*ServerSetRunAgentRequest) ProtoMessage() {}
 
 func (x *ServerSetRunAgentRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[260]
+	mi := &file_payload_proto_msgTypes[267]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -16711,7 +17083,7 @@ func (x *ServerSetRunAgentRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerSetRunAgentRequest.ProtoReflect.Descriptor instead.
 func (*ServerSetRunAgentRequest) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{260}
+	return file_payload_proto_rawDescGZIP(), []int{267}
 }
 
 func (x *ServerSetRunAgentRequest) GetValue() *AgentSelection {
@@ -16730,7 +17102,7 @@ type ServerSetRunAgentResponse struct {
 
 func (x *ServerSetRunAgentResponse) Reset() {
 	*x = ServerSetRunAgentResponse{}
-	mi := &file_payload_proto_msgTypes[261]
+	mi := &file_payload_proto_msgTypes[268]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -16742,7 +17114,7 @@ func (x *ServerSetRunAgentResponse) String() string {
 func (*ServerSetRunAgentResponse) ProtoMessage() {}
 
 func (x *ServerSetRunAgentResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[261]
+	mi := &file_payload_proto_msgTypes[268]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -16755,7 +17127,7 @@ func (x *ServerSetRunAgentResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerSetRunAgentResponse.ProtoReflect.Descriptor instead.
 func (*ServerSetRunAgentResponse) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{261}
+	return file_payload_proto_rawDescGZIP(), []int{268}
 }
 
 func (x *ServerSetRunAgentResponse) GetValue() *PeerRunAgent {
@@ -16774,7 +17146,7 @@ type ServerSetRunWorkspaceRequest struct {
 
 func (x *ServerSetRunWorkspaceRequest) Reset() {
 	*x = ServerSetRunWorkspaceRequest{}
-	mi := &file_payload_proto_msgTypes[262]
+	mi := &file_payload_proto_msgTypes[269]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -16786,7 +17158,7 @@ func (x *ServerSetRunWorkspaceRequest) String() string {
 func (*ServerSetRunWorkspaceRequest) ProtoMessage() {}
 
 func (x *ServerSetRunWorkspaceRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[262]
+	mi := &file_payload_proto_msgTypes[269]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -16799,7 +17171,7 @@ func (x *ServerSetRunWorkspaceRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerSetRunWorkspaceRequest.ProtoReflect.Descriptor instead.
 func (*ServerSetRunWorkspaceRequest) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{262}
+	return file_payload_proto_rawDescGZIP(), []int{269}
 }
 
 func (x *ServerSetRunWorkspaceRequest) GetValue() *AgentSelection {
@@ -16818,7 +17190,7 @@ type ServerSetRunWorkspaceResponse struct {
 
 func (x *ServerSetRunWorkspaceResponse) Reset() {
 	*x = ServerSetRunWorkspaceResponse{}
-	mi := &file_payload_proto_msgTypes[263]
+	mi := &file_payload_proto_msgTypes[270]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -16830,7 +17202,7 @@ func (x *ServerSetRunWorkspaceResponse) String() string {
 func (*ServerSetRunWorkspaceResponse) ProtoMessage() {}
 
 func (x *ServerSetRunWorkspaceResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[263]
+	mi := &file_payload_proto_msgTypes[270]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -16843,7 +17215,7 @@ func (x *ServerSetRunWorkspaceResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerSetRunWorkspaceResponse.ProtoReflect.Descriptor instead.
 func (*ServerSetRunWorkspaceResponse) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{263}
+	return file_payload_proto_rawDescGZIP(), []int{270}
 }
 
 func (x *ServerSetRunWorkspaceResponse) GetValue() *PeerRunWorkspaceState {
@@ -16861,7 +17233,7 @@ type ServerStopRunRequest struct {
 
 func (x *ServerStopRunRequest) Reset() {
 	*x = ServerStopRunRequest{}
-	mi := &file_payload_proto_msgTypes[264]
+	mi := &file_payload_proto_msgTypes[271]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -16873,7 +17245,7 @@ func (x *ServerStopRunRequest) String() string {
 func (*ServerStopRunRequest) ProtoMessage() {}
 
 func (x *ServerStopRunRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[264]
+	mi := &file_payload_proto_msgTypes[271]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -16886,7 +17258,7 @@ func (x *ServerStopRunRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerStopRunRequest.ProtoReflect.Descriptor instead.
 func (*ServerStopRunRequest) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{264}
+	return file_payload_proto_rawDescGZIP(), []int{271}
 }
 
 type ServerStopRunResponse struct {
@@ -16898,7 +17270,7 @@ type ServerStopRunResponse struct {
 
 func (x *ServerStopRunResponse) Reset() {
 	*x = ServerStopRunResponse{}
-	mi := &file_payload_proto_msgTypes[265]
+	mi := &file_payload_proto_msgTypes[272]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -16910,7 +17282,7 @@ func (x *ServerStopRunResponse) String() string {
 func (*ServerStopRunResponse) ProtoMessage() {}
 
 func (x *ServerStopRunResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[265]
+	mi := &file_payload_proto_msgTypes[272]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -16923,7 +17295,7 @@ func (x *ServerStopRunResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerStopRunResponse.ProtoReflect.Descriptor instead.
 func (*ServerStopRunResponse) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{265}
+	return file_payload_proto_rawDescGZIP(), []int{272}
 }
 
 func (x *ServerStopRunResponse) GetValue() *PeerRunStatus {
@@ -16943,7 +17315,7 @@ type SpeedTestRequest struct {
 
 func (x *SpeedTestRequest) Reset() {
 	*x = SpeedTestRequest{}
-	mi := &file_payload_proto_msgTypes[266]
+	mi := &file_payload_proto_msgTypes[273]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -16955,7 +17327,7 @@ func (x *SpeedTestRequest) String() string {
 func (*SpeedTestRequest) ProtoMessage() {}
 
 func (x *SpeedTestRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[266]
+	mi := &file_payload_proto_msgTypes[273]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -16968,7 +17340,7 @@ func (x *SpeedTestRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SpeedTestRequest.ProtoReflect.Descriptor instead.
 func (*SpeedTestRequest) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{266}
+	return file_payload_proto_rawDescGZIP(), []int{273}
 }
 
 func (x *SpeedTestRequest) GetDownContentLength() int64 {
@@ -16995,7 +17367,7 @@ type SpeedTestResponse struct {
 
 func (x *SpeedTestResponse) Reset() {
 	*x = SpeedTestResponse{}
-	mi := &file_payload_proto_msgTypes[267]
+	mi := &file_payload_proto_msgTypes[274]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -17007,7 +17379,7 @@ func (x *SpeedTestResponse) String() string {
 func (*SpeedTestResponse) ProtoMessage() {}
 
 func (x *SpeedTestResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[267]
+	mi := &file_payload_proto_msgTypes[274]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -17020,7 +17392,7 @@ func (x *SpeedTestResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SpeedTestResponse.ProtoReflect.Descriptor instead.
 func (*SpeedTestResponse) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{267}
+	return file_payload_proto_rawDescGZIP(), []int{274}
 }
 
 func (x *SpeedTestResponse) GetDownContentLength() int64 {
@@ -17046,7 +17418,7 @@ type StatMap struct {
 
 func (x *StatMap) Reset() {
 	*x = StatMap{}
-	mi := &file_payload_proto_msgTypes[268]
+	mi := &file_payload_proto_msgTypes[275]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -17058,7 +17430,7 @@ func (x *StatMap) String() string {
 func (*StatMap) ProtoMessage() {}
 
 func (x *StatMap) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[268]
+	mi := &file_payload_proto_msgTypes[275]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -17071,7 +17443,7 @@ func (x *StatMap) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StatMap.ProtoReflect.Descriptor instead.
 func (*StatMap) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{268}
+	return file_payload_proto_rawDescGZIP(), []int{275}
 }
 
 func (x *StatMap) GetValue() map[string]int64 {
@@ -17098,7 +17470,7 @@ type Voice struct {
 
 func (x *Voice) Reset() {
 	*x = Voice{}
-	mi := &file_payload_proto_msgTypes[269]
+	mi := &file_payload_proto_msgTypes[276]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -17110,7 +17482,7 @@ func (x *Voice) String() string {
 func (*Voice) ProtoMessage() {}
 
 func (x *Voice) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[269]
+	mi := &file_payload_proto_msgTypes[276]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -17123,7 +17495,7 @@ func (x *Voice) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Voice.ProtoReflect.Descriptor instead.
 func (*Voice) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{269}
+	return file_payload_proto_rawDescGZIP(), []int{276}
 }
 
 func (x *Voice) GetCreatedAt() string {
@@ -17198,7 +17570,7 @@ type VoiceGetRequest struct {
 
 func (x *VoiceGetRequest) Reset() {
 	*x = VoiceGetRequest{}
-	mi := &file_payload_proto_msgTypes[270]
+	mi := &file_payload_proto_msgTypes[277]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -17210,7 +17582,7 @@ func (x *VoiceGetRequest) String() string {
 func (*VoiceGetRequest) ProtoMessage() {}
 
 func (x *VoiceGetRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[270]
+	mi := &file_payload_proto_msgTypes[277]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -17223,7 +17595,7 @@ func (x *VoiceGetRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use VoiceGetRequest.ProtoReflect.Descriptor instead.
 func (*VoiceGetRequest) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{270}
+	return file_payload_proto_rawDescGZIP(), []int{277}
 }
 
 func (x *VoiceGetRequest) GetId() string {
@@ -17242,7 +17614,7 @@ type VoiceGetResponse struct {
 
 func (x *VoiceGetResponse) Reset() {
 	*x = VoiceGetResponse{}
-	mi := &file_payload_proto_msgTypes[271]
+	mi := &file_payload_proto_msgTypes[278]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -17254,7 +17626,7 @@ func (x *VoiceGetResponse) String() string {
 func (*VoiceGetResponse) ProtoMessage() {}
 
 func (x *VoiceGetResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[271]
+	mi := &file_payload_proto_msgTypes[278]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -17267,7 +17639,7 @@ func (x *VoiceGetResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use VoiceGetResponse.ProtoReflect.Descriptor instead.
 func (*VoiceGetResponse) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{271}
+	return file_payload_proto_rawDescGZIP(), []int{278}
 }
 
 func (x *VoiceGetResponse) GetValue() *Voice {
@@ -17287,7 +17659,7 @@ type VoiceListRequest struct {
 
 func (x *VoiceListRequest) Reset() {
 	*x = VoiceListRequest{}
-	mi := &file_payload_proto_msgTypes[272]
+	mi := &file_payload_proto_msgTypes[279]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -17299,7 +17671,7 @@ func (x *VoiceListRequest) String() string {
 func (*VoiceListRequest) ProtoMessage() {}
 
 func (x *VoiceListRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[272]
+	mi := &file_payload_proto_msgTypes[279]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -17312,7 +17684,7 @@ func (x *VoiceListRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use VoiceListRequest.ProtoReflect.Descriptor instead.
 func (*VoiceListRequest) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{272}
+	return file_payload_proto_rawDescGZIP(), []int{279}
 }
 
 func (x *VoiceListRequest) GetCursor() string {
@@ -17340,7 +17712,7 @@ type VoiceListResponse struct {
 
 func (x *VoiceListResponse) Reset() {
 	*x = VoiceListResponse{}
-	mi := &file_payload_proto_msgTypes[273]
+	mi := &file_payload_proto_msgTypes[280]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -17352,7 +17724,7 @@ func (x *VoiceListResponse) String() string {
 func (*VoiceListResponse) ProtoMessage() {}
 
 func (x *VoiceListResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[273]
+	mi := &file_payload_proto_msgTypes[280]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -17365,7 +17737,7 @@ func (x *VoiceListResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use VoiceListResponse.ProtoReflect.Descriptor instead.
 func (*VoiceListResponse) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{273}
+	return file_payload_proto_rawDescGZIP(), []int{280}
 }
 
 func (x *VoiceListResponse) GetHasNext() bool {
@@ -17399,7 +17771,7 @@ type VoiceProvider struct {
 
 func (x *VoiceProvider) Reset() {
 	*x = VoiceProvider{}
-	mi := &file_payload_proto_msgTypes[274]
+	mi := &file_payload_proto_msgTypes[281]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -17411,7 +17783,7 @@ func (x *VoiceProvider) String() string {
 func (*VoiceProvider) ProtoMessage() {}
 
 func (x *VoiceProvider) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[274]
+	mi := &file_payload_proto_msgTypes[281]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -17424,7 +17796,7 @@ func (x *VoiceProvider) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use VoiceProvider.ProtoReflect.Descriptor instead.
 func (*VoiceProvider) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{274}
+	return file_payload_proto_rawDescGZIP(), []int{281}
 }
 
 func (x *VoiceProvider) GetKind() VoiceProviderKind {
@@ -17457,7 +17829,7 @@ type VoiceProviderData struct {
 
 func (x *VoiceProviderData) Reset() {
 	*x = VoiceProviderData{}
-	mi := &file_payload_proto_msgTypes[275]
+	mi := &file_payload_proto_msgTypes[282]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -17469,7 +17841,7 @@ func (x *VoiceProviderData) String() string {
 func (*VoiceProviderData) ProtoMessage() {}
 
 func (x *VoiceProviderData) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[275]
+	mi := &file_payload_proto_msgTypes[282]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -17482,7 +17854,7 @@ func (x *VoiceProviderData) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use VoiceProviderData.ProtoReflect.Descriptor instead.
 func (*VoiceProviderData) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{275}
+	return file_payload_proto_rawDescGZIP(), []int{282}
 }
 
 func (x *VoiceProviderData) GetValue() isVoiceProviderData_Value {
@@ -17584,7 +17956,7 @@ type VolcCredentialBody struct {
 
 func (x *VolcCredentialBody) Reset() {
 	*x = VolcCredentialBody{}
-	mi := &file_payload_proto_msgTypes[276]
+	mi := &file_payload_proto_msgTypes[283]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -17596,7 +17968,7 @@ func (x *VolcCredentialBody) String() string {
 func (*VolcCredentialBody) ProtoMessage() {}
 
 func (x *VolcCredentialBody) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[276]
+	mi := &file_payload_proto_msgTypes[283]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -17609,7 +17981,7 @@ func (x *VolcCredentialBody) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use VolcCredentialBody.ProtoReflect.Descriptor instead.
 func (*VolcCredentialBody) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{276}
+	return file_payload_proto_rawDescGZIP(), []int{283}
 }
 
 func (x *VolcCredentialBody) GetApiKey() string {
@@ -17667,7 +18039,7 @@ type VolcTenantModelProviderData struct {
 
 func (x *VolcTenantModelProviderData) Reset() {
 	*x = VolcTenantModelProviderData{}
-	mi := &file_payload_proto_msgTypes[277]
+	mi := &file_payload_proto_msgTypes[284]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -17679,7 +18051,7 @@ func (x *VolcTenantModelProviderData) String() string {
 func (*VolcTenantModelProviderData) ProtoMessage() {}
 
 func (x *VolcTenantModelProviderData) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[277]
+	mi := &file_payload_proto_msgTypes[284]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -17692,7 +18064,7 @@ func (x *VolcTenantModelProviderData) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use VolcTenantModelProviderData.ProtoReflect.Descriptor instead.
 func (*VolcTenantModelProviderData) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{277}
+	return file_payload_proto_rawDescGZIP(), []int{284}
 }
 
 func (x *VolcTenantModelProviderData) GetApiMode() VolcTenantModelProviderDataApiMode {
@@ -17792,7 +18164,7 @@ type VolcTenantVoiceProviderData struct {
 
 func (x *VolcTenantVoiceProviderData) Reset() {
 	*x = VolcTenantVoiceProviderData{}
-	mi := &file_payload_proto_msgTypes[278]
+	mi := &file_payload_proto_msgTypes[285]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -17804,7 +18176,7 @@ func (x *VolcTenantVoiceProviderData) String() string {
 func (*VolcTenantVoiceProviderData) ProtoMessage() {}
 
 func (x *VolcTenantVoiceProviderData) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[278]
+	mi := &file_payload_proto_msgTypes[285]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -17817,7 +18189,7 @@ func (x *VolcTenantVoiceProviderData) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use VolcTenantVoiceProviderData.ProtoReflect.Descriptor instead.
 func (*VolcTenantVoiceProviderData) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{278}
+	return file_payload_proto_rawDescGZIP(), []int{285}
 }
 
 func (x *VolcTenantVoiceProviderData) GetRaw() *structpb.Struct {
@@ -17864,7 +18236,7 @@ type WorkflowCreateRequest struct {
 
 func (x *WorkflowCreateRequest) Reset() {
 	*x = WorkflowCreateRequest{}
-	mi := &file_payload_proto_msgTypes[279]
+	mi := &file_payload_proto_msgTypes[286]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -17876,7 +18248,7 @@ func (x *WorkflowCreateRequest) String() string {
 func (*WorkflowCreateRequest) ProtoMessage() {}
 
 func (x *WorkflowCreateRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[279]
+	mi := &file_payload_proto_msgTypes[286]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -17889,7 +18261,7 @@ func (x *WorkflowCreateRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WorkflowCreateRequest.ProtoReflect.Descriptor instead.
 func (*WorkflowCreateRequest) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{279}
+	return file_payload_proto_rawDescGZIP(), []int{286}
 }
 
 func (x *WorkflowCreateRequest) GetValue() *WorkflowDocument {
@@ -17908,7 +18280,7 @@ type WorkflowCreateResponse struct {
 
 func (x *WorkflowCreateResponse) Reset() {
 	*x = WorkflowCreateResponse{}
-	mi := &file_payload_proto_msgTypes[280]
+	mi := &file_payload_proto_msgTypes[287]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -17920,7 +18292,7 @@ func (x *WorkflowCreateResponse) String() string {
 func (*WorkflowCreateResponse) ProtoMessage() {}
 
 func (x *WorkflowCreateResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[280]
+	mi := &file_payload_proto_msgTypes[287]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -17933,7 +18305,7 @@ func (x *WorkflowCreateResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WorkflowCreateResponse.ProtoReflect.Descriptor instead.
 func (*WorkflowCreateResponse) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{280}
+	return file_payload_proto_rawDescGZIP(), []int{287}
 }
 
 func (x *WorkflowCreateResponse) GetValue() *WorkflowDocument {
@@ -17952,7 +18324,7 @@ type WorkflowDeleteRequest struct {
 
 func (x *WorkflowDeleteRequest) Reset() {
 	*x = WorkflowDeleteRequest{}
-	mi := &file_payload_proto_msgTypes[281]
+	mi := &file_payload_proto_msgTypes[288]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -17964,7 +18336,7 @@ func (x *WorkflowDeleteRequest) String() string {
 func (*WorkflowDeleteRequest) ProtoMessage() {}
 
 func (x *WorkflowDeleteRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[281]
+	mi := &file_payload_proto_msgTypes[288]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -17977,7 +18349,7 @@ func (x *WorkflowDeleteRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WorkflowDeleteRequest.ProtoReflect.Descriptor instead.
 func (*WorkflowDeleteRequest) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{281}
+	return file_payload_proto_rawDescGZIP(), []int{288}
 }
 
 func (x *WorkflowDeleteRequest) GetName() string {
@@ -17996,7 +18368,7 @@ type WorkflowDeleteResponse struct {
 
 func (x *WorkflowDeleteResponse) Reset() {
 	*x = WorkflowDeleteResponse{}
-	mi := &file_payload_proto_msgTypes[282]
+	mi := &file_payload_proto_msgTypes[289]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -18008,7 +18380,7 @@ func (x *WorkflowDeleteResponse) String() string {
 func (*WorkflowDeleteResponse) ProtoMessage() {}
 
 func (x *WorkflowDeleteResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[282]
+	mi := &file_payload_proto_msgTypes[289]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -18021,7 +18393,7 @@ func (x *WorkflowDeleteResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WorkflowDeleteResponse.ProtoReflect.Descriptor instead.
 func (*WorkflowDeleteResponse) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{282}
+	return file_payload_proto_rawDescGZIP(), []int{289}
 }
 
 func (x *WorkflowDeleteResponse) GetValue() *WorkflowDocument {
@@ -18041,7 +18413,7 @@ type WorkflowDocument struct {
 
 func (x *WorkflowDocument) Reset() {
 	*x = WorkflowDocument{}
-	mi := &file_payload_proto_msgTypes[283]
+	mi := &file_payload_proto_msgTypes[290]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -18053,7 +18425,7 @@ func (x *WorkflowDocument) String() string {
 func (*WorkflowDocument) ProtoMessage() {}
 
 func (x *WorkflowDocument) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[283]
+	mi := &file_payload_proto_msgTypes[290]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -18066,7 +18438,7 @@ func (x *WorkflowDocument) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WorkflowDocument.ProtoReflect.Descriptor instead.
 func (*WorkflowDocument) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{283}
+	return file_payload_proto_rawDescGZIP(), []int{290}
 }
 
 func (x *WorkflowDocument) GetMetadata() *WorkflowMetadata {
@@ -18092,7 +18464,7 @@ type WorkflowGetRequest struct {
 
 func (x *WorkflowGetRequest) Reset() {
 	*x = WorkflowGetRequest{}
-	mi := &file_payload_proto_msgTypes[284]
+	mi := &file_payload_proto_msgTypes[291]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -18104,7 +18476,7 @@ func (x *WorkflowGetRequest) String() string {
 func (*WorkflowGetRequest) ProtoMessage() {}
 
 func (x *WorkflowGetRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[284]
+	mi := &file_payload_proto_msgTypes[291]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -18117,7 +18489,7 @@ func (x *WorkflowGetRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WorkflowGetRequest.ProtoReflect.Descriptor instead.
 func (*WorkflowGetRequest) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{284}
+	return file_payload_proto_rawDescGZIP(), []int{291}
 }
 
 func (x *WorkflowGetRequest) GetName() string {
@@ -18136,7 +18508,7 @@ type WorkflowGetResponse struct {
 
 func (x *WorkflowGetResponse) Reset() {
 	*x = WorkflowGetResponse{}
-	mi := &file_payload_proto_msgTypes[285]
+	mi := &file_payload_proto_msgTypes[292]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -18148,7 +18520,7 @@ func (x *WorkflowGetResponse) String() string {
 func (*WorkflowGetResponse) ProtoMessage() {}
 
 func (x *WorkflowGetResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[285]
+	mi := &file_payload_proto_msgTypes[292]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -18161,7 +18533,7 @@ func (x *WorkflowGetResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WorkflowGetResponse.ProtoReflect.Descriptor instead.
 func (*WorkflowGetResponse) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{285}
+	return file_payload_proto_rawDescGZIP(), []int{292}
 }
 
 func (x *WorkflowGetResponse) GetValue() *WorkflowDocument {
@@ -18181,7 +18553,7 @@ type WorkflowListRequest struct {
 
 func (x *WorkflowListRequest) Reset() {
 	*x = WorkflowListRequest{}
-	mi := &file_payload_proto_msgTypes[286]
+	mi := &file_payload_proto_msgTypes[293]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -18193,7 +18565,7 @@ func (x *WorkflowListRequest) String() string {
 func (*WorkflowListRequest) ProtoMessage() {}
 
 func (x *WorkflowListRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[286]
+	mi := &file_payload_proto_msgTypes[293]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -18206,7 +18578,7 @@ func (x *WorkflowListRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WorkflowListRequest.ProtoReflect.Descriptor instead.
 func (*WorkflowListRequest) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{286}
+	return file_payload_proto_rawDescGZIP(), []int{293}
 }
 
 func (x *WorkflowListRequest) GetCursor() string {
@@ -18234,7 +18606,7 @@ type WorkflowListResponse struct {
 
 func (x *WorkflowListResponse) Reset() {
 	*x = WorkflowListResponse{}
-	mi := &file_payload_proto_msgTypes[287]
+	mi := &file_payload_proto_msgTypes[294]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -18246,7 +18618,7 @@ func (x *WorkflowListResponse) String() string {
 func (*WorkflowListResponse) ProtoMessage() {}
 
 func (x *WorkflowListResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[287]
+	mi := &file_payload_proto_msgTypes[294]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -18259,7 +18631,7 @@ func (x *WorkflowListResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WorkflowListResponse.ProtoReflect.Descriptor instead.
 func (*WorkflowListResponse) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{287}
+	return file_payload_proto_rawDescGZIP(), []int{294}
 }
 
 func (x *WorkflowListResponse) GetHasNext() bool {
@@ -18293,7 +18665,7 @@ type WorkflowMetadata struct {
 
 func (x *WorkflowMetadata) Reset() {
 	*x = WorkflowMetadata{}
-	mi := &file_payload_proto_msgTypes[288]
+	mi := &file_payload_proto_msgTypes[295]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -18305,7 +18677,7 @@ func (x *WorkflowMetadata) String() string {
 func (*WorkflowMetadata) ProtoMessage() {}
 
 func (x *WorkflowMetadata) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[288]
+	mi := &file_payload_proto_msgTypes[295]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -18318,7 +18690,7 @@ func (x *WorkflowMetadata) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WorkflowMetadata.ProtoReflect.Descriptor instead.
 func (*WorkflowMetadata) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{288}
+	return file_payload_proto_rawDescGZIP(), []int{295}
 }
 
 func (x *WorkflowMetadata) GetDescription() string {
@@ -18344,7 +18716,7 @@ type ToolkitPolicyToolIds struct {
 
 func (x *ToolkitPolicyToolIds) Reset() {
 	*x = ToolkitPolicyToolIds{}
-	mi := &file_payload_proto_msgTypes[289]
+	mi := &file_payload_proto_msgTypes[296]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -18356,7 +18728,7 @@ func (x *ToolkitPolicyToolIds) String() string {
 func (*ToolkitPolicyToolIds) ProtoMessage() {}
 
 func (x *ToolkitPolicyToolIds) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[289]
+	mi := &file_payload_proto_msgTypes[296]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -18369,7 +18741,7 @@ func (x *ToolkitPolicyToolIds) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ToolkitPolicyToolIds.ProtoReflect.Descriptor instead.
 func (*ToolkitPolicyToolIds) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{289}
+	return file_payload_proto_rawDescGZIP(), []int{296}
 }
 
 func (x *ToolkitPolicyToolIds) GetValue() []string {
@@ -18388,7 +18760,7 @@ type ToolkitPolicy struct {
 
 func (x *ToolkitPolicy) Reset() {
 	*x = ToolkitPolicy{}
-	mi := &file_payload_proto_msgTypes[290]
+	mi := &file_payload_proto_msgTypes[297]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -18400,7 +18772,7 @@ func (x *ToolkitPolicy) String() string {
 func (*ToolkitPolicy) ProtoMessage() {}
 
 func (x *ToolkitPolicy) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[290]
+	mi := &file_payload_proto_msgTypes[297]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -18413,7 +18785,7 @@ func (x *ToolkitPolicy) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ToolkitPolicy.ProtoReflect.Descriptor instead.
 func (*ToolkitPolicy) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{290}
+	return file_payload_proto_rawDescGZIP(), []int{297}
 }
 
 func (x *ToolkitPolicy) GetToolIds() *ToolkitPolicyToolIds {
@@ -18433,7 +18805,7 @@ type WorkflowPutRequest struct {
 
 func (x *WorkflowPutRequest) Reset() {
 	*x = WorkflowPutRequest{}
-	mi := &file_payload_proto_msgTypes[291]
+	mi := &file_payload_proto_msgTypes[298]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -18445,7 +18817,7 @@ func (x *WorkflowPutRequest) String() string {
 func (*WorkflowPutRequest) ProtoMessage() {}
 
 func (x *WorkflowPutRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[291]
+	mi := &file_payload_proto_msgTypes[298]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -18458,7 +18830,7 @@ func (x *WorkflowPutRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WorkflowPutRequest.ProtoReflect.Descriptor instead.
 func (*WorkflowPutRequest) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{291}
+	return file_payload_proto_rawDescGZIP(), []int{298}
 }
 
 func (x *WorkflowPutRequest) GetBody() *WorkflowDocument {
@@ -18484,7 +18856,7 @@ type WorkflowPutResponse struct {
 
 func (x *WorkflowPutResponse) Reset() {
 	*x = WorkflowPutResponse{}
-	mi := &file_payload_proto_msgTypes[292]
+	mi := &file_payload_proto_msgTypes[299]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -18496,7 +18868,7 @@ func (x *WorkflowPutResponse) String() string {
 func (*WorkflowPutResponse) ProtoMessage() {}
 
 func (x *WorkflowPutResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[292]
+	mi := &file_payload_proto_msgTypes[299]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -18509,7 +18881,7 @@ func (x *WorkflowPutResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WorkflowPutResponse.ProtoReflect.Descriptor instead.
 func (*WorkflowPutResponse) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{292}
+	return file_payload_proto_rawDescGZIP(), []int{299}
 }
 
 func (x *WorkflowPutResponse) GetValue() *WorkflowDocument {
@@ -18533,7 +18905,7 @@ type WorkflowSpec struct {
 
 func (x *WorkflowSpec) Reset() {
 	*x = WorkflowSpec{}
-	mi := &file_payload_proto_msgTypes[293]
+	mi := &file_payload_proto_msgTypes[300]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -18545,7 +18917,7 @@ func (x *WorkflowSpec) String() string {
 func (*WorkflowSpec) ProtoMessage() {}
 
 func (x *WorkflowSpec) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[293]
+	mi := &file_payload_proto_msgTypes[300]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -18558,7 +18930,7 @@ func (x *WorkflowSpec) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WorkflowSpec.ProtoReflect.Descriptor instead.
 func (*WorkflowSpec) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{293}
+	return file_payload_proto_rawDescGZIP(), []int{300}
 }
 
 func (x *WorkflowSpec) GetAstTranslate() *ASTTranslateWorkflowSpec {
@@ -18618,7 +18990,7 @@ type Workspace struct {
 
 func (x *Workspace) Reset() {
 	*x = Workspace{}
-	mi := &file_payload_proto_msgTypes[294]
+	mi := &file_payload_proto_msgTypes[301]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -18630,7 +19002,7 @@ func (x *Workspace) String() string {
 func (*Workspace) ProtoMessage() {}
 
 func (x *Workspace) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[294]
+	mi := &file_payload_proto_msgTypes[301]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -18643,7 +19015,7 @@ func (x *Workspace) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Workspace.ProtoReflect.Descriptor instead.
 func (*Workspace) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{294}
+	return file_payload_proto_rawDescGZIP(), []int{301}
 }
 
 func (x *Workspace) GetCreatedAt() string {
@@ -18704,7 +19076,7 @@ type WorkspaceCreateRequest struct {
 
 func (x *WorkspaceCreateRequest) Reset() {
 	*x = WorkspaceCreateRequest{}
-	mi := &file_payload_proto_msgTypes[295]
+	mi := &file_payload_proto_msgTypes[302]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -18716,7 +19088,7 @@ func (x *WorkspaceCreateRequest) String() string {
 func (*WorkspaceCreateRequest) ProtoMessage() {}
 
 func (x *WorkspaceCreateRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[295]
+	mi := &file_payload_proto_msgTypes[302]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -18729,7 +19101,7 @@ func (x *WorkspaceCreateRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WorkspaceCreateRequest.ProtoReflect.Descriptor instead.
 func (*WorkspaceCreateRequest) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{295}
+	return file_payload_proto_rawDescGZIP(), []int{302}
 }
 
 func (x *WorkspaceCreateRequest) GetValue() *Workspace {
@@ -18748,7 +19120,7 @@ type WorkspaceCreateResponse struct {
 
 func (x *WorkspaceCreateResponse) Reset() {
 	*x = WorkspaceCreateResponse{}
-	mi := &file_payload_proto_msgTypes[296]
+	mi := &file_payload_proto_msgTypes[303]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -18760,7 +19132,7 @@ func (x *WorkspaceCreateResponse) String() string {
 func (*WorkspaceCreateResponse) ProtoMessage() {}
 
 func (x *WorkspaceCreateResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[296]
+	mi := &file_payload_proto_msgTypes[303]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -18773,7 +19145,7 @@ func (x *WorkspaceCreateResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WorkspaceCreateResponse.ProtoReflect.Descriptor instead.
 func (*WorkspaceCreateResponse) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{296}
+	return file_payload_proto_rawDescGZIP(), []int{303}
 }
 
 func (x *WorkspaceCreateResponse) GetValue() *Workspace {
@@ -18792,7 +19164,7 @@ type WorkspaceDeleteRequest struct {
 
 func (x *WorkspaceDeleteRequest) Reset() {
 	*x = WorkspaceDeleteRequest{}
-	mi := &file_payload_proto_msgTypes[297]
+	mi := &file_payload_proto_msgTypes[304]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -18804,7 +19176,7 @@ func (x *WorkspaceDeleteRequest) String() string {
 func (*WorkspaceDeleteRequest) ProtoMessage() {}
 
 func (x *WorkspaceDeleteRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[297]
+	mi := &file_payload_proto_msgTypes[304]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -18817,7 +19189,7 @@ func (x *WorkspaceDeleteRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WorkspaceDeleteRequest.ProtoReflect.Descriptor instead.
 func (*WorkspaceDeleteRequest) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{297}
+	return file_payload_proto_rawDescGZIP(), []int{304}
 }
 
 func (x *WorkspaceDeleteRequest) GetName() string {
@@ -18836,7 +19208,7 @@ type WorkspaceDeleteResponse struct {
 
 func (x *WorkspaceDeleteResponse) Reset() {
 	*x = WorkspaceDeleteResponse{}
-	mi := &file_payload_proto_msgTypes[298]
+	mi := &file_payload_proto_msgTypes[305]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -18848,7 +19220,7 @@ func (x *WorkspaceDeleteResponse) String() string {
 func (*WorkspaceDeleteResponse) ProtoMessage() {}
 
 func (x *WorkspaceDeleteResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[298]
+	mi := &file_payload_proto_msgTypes[305]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -18861,7 +19233,7 @@ func (x *WorkspaceDeleteResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WorkspaceDeleteResponse.ProtoReflect.Descriptor instead.
 func (*WorkspaceDeleteResponse) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{298}
+	return file_payload_proto_rawDescGZIP(), []int{305}
 }
 
 func (x *WorkspaceDeleteResponse) GetValue() *Workspace {
@@ -18880,7 +19252,7 @@ type WorkspaceGetRequest struct {
 
 func (x *WorkspaceGetRequest) Reset() {
 	*x = WorkspaceGetRequest{}
-	mi := &file_payload_proto_msgTypes[299]
+	mi := &file_payload_proto_msgTypes[306]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -18892,7 +19264,7 @@ func (x *WorkspaceGetRequest) String() string {
 func (*WorkspaceGetRequest) ProtoMessage() {}
 
 func (x *WorkspaceGetRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[299]
+	mi := &file_payload_proto_msgTypes[306]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -18905,7 +19277,7 @@ func (x *WorkspaceGetRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WorkspaceGetRequest.ProtoReflect.Descriptor instead.
 func (*WorkspaceGetRequest) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{299}
+	return file_payload_proto_rawDescGZIP(), []int{306}
 }
 
 func (x *WorkspaceGetRequest) GetName() string {
@@ -18924,7 +19296,7 @@ type WorkspaceGetResponse struct {
 
 func (x *WorkspaceGetResponse) Reset() {
 	*x = WorkspaceGetResponse{}
-	mi := &file_payload_proto_msgTypes[300]
+	mi := &file_payload_proto_msgTypes[307]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -18936,7 +19308,7 @@ func (x *WorkspaceGetResponse) String() string {
 func (*WorkspaceGetResponse) ProtoMessage() {}
 
 func (x *WorkspaceGetResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[300]
+	mi := &file_payload_proto_msgTypes[307]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -18949,7 +19321,7 @@ func (x *WorkspaceGetResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WorkspaceGetResponse.ProtoReflect.Descriptor instead.
 func (*WorkspaceGetResponse) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{300}
+	return file_payload_proto_rawDescGZIP(), []int{307}
 }
 
 func (x *WorkspaceGetResponse) GetValue() *Workspace {
@@ -18969,7 +19341,7 @@ type WorkspaceHistoryAudioGetRequest struct {
 
 func (x *WorkspaceHistoryAudioGetRequest) Reset() {
 	*x = WorkspaceHistoryAudioGetRequest{}
-	mi := &file_payload_proto_msgTypes[301]
+	mi := &file_payload_proto_msgTypes[308]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -18981,7 +19353,7 @@ func (x *WorkspaceHistoryAudioGetRequest) String() string {
 func (*WorkspaceHistoryAudioGetRequest) ProtoMessage() {}
 
 func (x *WorkspaceHistoryAudioGetRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[301]
+	mi := &file_payload_proto_msgTypes[308]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -18994,7 +19366,7 @@ func (x *WorkspaceHistoryAudioGetRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WorkspaceHistoryAudioGetRequest.ProtoReflect.Descriptor instead.
 func (*WorkspaceHistoryAudioGetRequest) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{301}
+	return file_payload_proto_rawDescGZIP(), []int{308}
 }
 
 func (x *WorkspaceHistoryAudioGetRequest) GetHistoryId() string {
@@ -19023,7 +19395,7 @@ type WorkspaceHistoryAudioGetResponse struct {
 
 func (x *WorkspaceHistoryAudioGetResponse) Reset() {
 	*x = WorkspaceHistoryAudioGetResponse{}
-	mi := &file_payload_proto_msgTypes[302]
+	mi := &file_payload_proto_msgTypes[309]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -19035,7 +19407,7 @@ func (x *WorkspaceHistoryAudioGetResponse) String() string {
 func (*WorkspaceHistoryAudioGetResponse) ProtoMessage() {}
 
 func (x *WorkspaceHistoryAudioGetResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[302]
+	mi := &file_payload_proto_msgTypes[309]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -19048,7 +19420,7 @@ func (x *WorkspaceHistoryAudioGetResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WorkspaceHistoryAudioGetResponse.ProtoReflect.Descriptor instead.
 func (*WorkspaceHistoryAudioGetResponse) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{302}
+	return file_payload_proto_rawDescGZIP(), []int{309}
 }
 
 func (x *WorkspaceHistoryAudioGetResponse) GetHistoryId() string {
@@ -19089,7 +19461,7 @@ type WorkspaceHistoryGetRequest struct {
 
 func (x *WorkspaceHistoryGetRequest) Reset() {
 	*x = WorkspaceHistoryGetRequest{}
-	mi := &file_payload_proto_msgTypes[303]
+	mi := &file_payload_proto_msgTypes[310]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -19101,7 +19473,7 @@ func (x *WorkspaceHistoryGetRequest) String() string {
 func (*WorkspaceHistoryGetRequest) ProtoMessage() {}
 
 func (x *WorkspaceHistoryGetRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[303]
+	mi := &file_payload_proto_msgTypes[310]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -19114,7 +19486,7 @@ func (x *WorkspaceHistoryGetRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WorkspaceHistoryGetRequest.ProtoReflect.Descriptor instead.
 func (*WorkspaceHistoryGetRequest) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{303}
+	return file_payload_proto_rawDescGZIP(), []int{310}
 }
 
 func (x *WorkspaceHistoryGetRequest) GetHistoryId() string {
@@ -19140,7 +19512,7 @@ type WorkspaceHistoryGetResponse struct {
 
 func (x *WorkspaceHistoryGetResponse) Reset() {
 	*x = WorkspaceHistoryGetResponse{}
-	mi := &file_payload_proto_msgTypes[304]
+	mi := &file_payload_proto_msgTypes[311]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -19152,7 +19524,7 @@ func (x *WorkspaceHistoryGetResponse) String() string {
 func (*WorkspaceHistoryGetResponse) ProtoMessage() {}
 
 func (x *WorkspaceHistoryGetResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[304]
+	mi := &file_payload_proto_msgTypes[311]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -19165,7 +19537,7 @@ func (x *WorkspaceHistoryGetResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WorkspaceHistoryGetResponse.ProtoReflect.Descriptor instead.
 func (*WorkspaceHistoryGetResponse) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{304}
+	return file_payload_proto_rawDescGZIP(), []int{311}
 }
 
 func (x *WorkspaceHistoryGetResponse) GetValue() *PeerRunHistoryEntry {
@@ -19187,7 +19559,7 @@ type WorkspaceHistoryListRequest struct {
 
 func (x *WorkspaceHistoryListRequest) Reset() {
 	*x = WorkspaceHistoryListRequest{}
-	mi := &file_payload_proto_msgTypes[305]
+	mi := &file_payload_proto_msgTypes[312]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -19199,7 +19571,7 @@ func (x *WorkspaceHistoryListRequest) String() string {
 func (*WorkspaceHistoryListRequest) ProtoMessage() {}
 
 func (x *WorkspaceHistoryListRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[305]
+	mi := &file_payload_proto_msgTypes[312]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -19212,7 +19584,7 @@ func (x *WorkspaceHistoryListRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WorkspaceHistoryListRequest.ProtoReflect.Descriptor instead.
 func (*WorkspaceHistoryListRequest) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{305}
+	return file_payload_proto_rawDescGZIP(), []int{312}
 }
 
 func (x *WorkspaceHistoryListRequest) GetCursor() string {
@@ -19252,7 +19624,7 @@ type WorkspaceHistoryListResponse struct {
 
 func (x *WorkspaceHistoryListResponse) Reset() {
 	*x = WorkspaceHistoryListResponse{}
-	mi := &file_payload_proto_msgTypes[306]
+	mi := &file_payload_proto_msgTypes[313]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -19264,7 +19636,7 @@ func (x *WorkspaceHistoryListResponse) String() string {
 func (*WorkspaceHistoryListResponse) ProtoMessage() {}
 
 func (x *WorkspaceHistoryListResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[306]
+	mi := &file_payload_proto_msgTypes[313]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -19277,7 +19649,7 @@ func (x *WorkspaceHistoryListResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WorkspaceHistoryListResponse.ProtoReflect.Descriptor instead.
 func (*WorkspaceHistoryListResponse) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{306}
+	return file_payload_proto_rawDescGZIP(), []int{313}
 }
 
 func (x *WorkspaceHistoryListResponse) GetValue() *PeerRunHistoryListResponse {
@@ -19298,7 +19670,7 @@ type WorkspaceListRequest struct {
 
 func (x *WorkspaceListRequest) Reset() {
 	*x = WorkspaceListRequest{}
-	mi := &file_payload_proto_msgTypes[307]
+	mi := &file_payload_proto_msgTypes[314]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -19310,7 +19682,7 @@ func (x *WorkspaceListRequest) String() string {
 func (*WorkspaceListRequest) ProtoMessage() {}
 
 func (x *WorkspaceListRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[307]
+	mi := &file_payload_proto_msgTypes[314]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -19323,7 +19695,7 @@ func (x *WorkspaceListRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WorkspaceListRequest.ProtoReflect.Descriptor instead.
 func (*WorkspaceListRequest) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{307}
+	return file_payload_proto_rawDescGZIP(), []int{314}
 }
 
 func (x *WorkspaceListRequest) GetCursor() string {
@@ -19358,7 +19730,7 @@ type WorkspaceListResponse struct {
 
 func (x *WorkspaceListResponse) Reset() {
 	*x = WorkspaceListResponse{}
-	mi := &file_payload_proto_msgTypes[308]
+	mi := &file_payload_proto_msgTypes[315]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -19370,7 +19742,7 @@ func (x *WorkspaceListResponse) String() string {
 func (*WorkspaceListResponse) ProtoMessage() {}
 
 func (x *WorkspaceListResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[308]
+	mi := &file_payload_proto_msgTypes[315]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -19383,7 +19755,7 @@ func (x *WorkspaceListResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WorkspaceListResponse.ProtoReflect.Descriptor instead.
 func (*WorkspaceListResponse) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{308}
+	return file_payload_proto_rawDescGZIP(), []int{315}
 }
 
 func (x *WorkspaceListResponse) GetHasNext() bool {
@@ -19422,7 +19794,7 @@ type WorkspaceParameters struct {
 
 func (x *WorkspaceParameters) Reset() {
 	*x = WorkspaceParameters{}
-	mi := &file_payload_proto_msgTypes[309]
+	mi := &file_payload_proto_msgTypes[316]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -19434,7 +19806,7 @@ func (x *WorkspaceParameters) String() string {
 func (*WorkspaceParameters) ProtoMessage() {}
 
 func (x *WorkspaceParameters) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[309]
+	mi := &file_payload_proto_msgTypes[316]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -19447,7 +19819,7 @@ func (x *WorkspaceParameters) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WorkspaceParameters.ProtoReflect.Descriptor instead.
 func (*WorkspaceParameters) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{309}
+	return file_payload_proto_rawDescGZIP(), []int{316}
 }
 
 func (x *WorkspaceParameters) GetValue() isWorkspaceParameters_Value {
@@ -19531,7 +19903,7 @@ type WorkspacePutRequest struct {
 
 func (x *WorkspacePutRequest) Reset() {
 	*x = WorkspacePutRequest{}
-	mi := &file_payload_proto_msgTypes[310]
+	mi := &file_payload_proto_msgTypes[317]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -19543,7 +19915,7 @@ func (x *WorkspacePutRequest) String() string {
 func (*WorkspacePutRequest) ProtoMessage() {}
 
 func (x *WorkspacePutRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[310]
+	mi := &file_payload_proto_msgTypes[317]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -19556,7 +19928,7 @@ func (x *WorkspacePutRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WorkspacePutRequest.ProtoReflect.Descriptor instead.
 func (*WorkspacePutRequest) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{310}
+	return file_payload_proto_rawDescGZIP(), []int{317}
 }
 
 func (x *WorkspacePutRequest) GetBody() *Workspace {
@@ -19582,7 +19954,7 @@ type WorkspacePutResponse struct {
 
 func (x *WorkspacePutResponse) Reset() {
 	*x = WorkspacePutResponse{}
-	mi := &file_payload_proto_msgTypes[311]
+	mi := &file_payload_proto_msgTypes[318]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -19594,7 +19966,7 @@ func (x *WorkspacePutResponse) String() string {
 func (*WorkspacePutResponse) ProtoMessage() {}
 
 func (x *WorkspacePutResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[311]
+	mi := &file_payload_proto_msgTypes[318]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -19607,7 +19979,7 @@ func (x *WorkspacePutResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WorkspacePutResponse.ProtoReflect.Descriptor instead.
 func (*WorkspacePutResponse) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{311}
+	return file_payload_proto_rawDescGZIP(), []int{318}
 }
 
 func (x *WorkspacePutResponse) GetValue() *Workspace {
@@ -19630,7 +20002,7 @@ type ToolExecutor struct {
 
 func (x *ToolExecutor) Reset() {
 	*x = ToolExecutor{}
-	mi := &file_payload_proto_msgTypes[312]
+	mi := &file_payload_proto_msgTypes[319]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -19642,7 +20014,7 @@ func (x *ToolExecutor) String() string {
 func (*ToolExecutor) ProtoMessage() {}
 
 func (x *ToolExecutor) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[312]
+	mi := &file_payload_proto_msgTypes[319]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -19655,7 +20027,7 @@ func (x *ToolExecutor) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ToolExecutor.ProtoReflect.Descriptor instead.
 func (*ToolExecutor) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{312}
+	return file_payload_proto_rawDescGZIP(), []int{319}
 }
 
 func (x *ToolExecutor) GetKind() ToolExecutorKind {
@@ -19704,7 +20076,7 @@ type ToolTriggerExample struct {
 
 func (x *ToolTriggerExample) Reset() {
 	*x = ToolTriggerExample{}
-	mi := &file_payload_proto_msgTypes[313]
+	mi := &file_payload_proto_msgTypes[320]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -19716,7 +20088,7 @@ func (x *ToolTriggerExample) String() string {
 func (*ToolTriggerExample) ProtoMessage() {}
 
 func (x *ToolTriggerExample) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[313]
+	mi := &file_payload_proto_msgTypes[320]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -19729,7 +20101,7 @@ func (x *ToolTriggerExample) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ToolTriggerExample.ProtoReflect.Descriptor instead.
 func (*ToolTriggerExample) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{313}
+	return file_payload_proto_rawDescGZIP(), []int{320}
 }
 
 func (x *ToolTriggerExample) GetInput() string {
@@ -19766,7 +20138,7 @@ type ToolTrigger struct {
 
 func (x *ToolTrigger) Reset() {
 	*x = ToolTrigger{}
-	mi := &file_payload_proto_msgTypes[314]
+	mi := &file_payload_proto_msgTypes[321]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -19778,7 +20150,7 @@ func (x *ToolTrigger) String() string {
 func (*ToolTrigger) ProtoMessage() {}
 
 func (x *ToolTrigger) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[314]
+	mi := &file_payload_proto_msgTypes[321]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -19791,7 +20163,7 @@ func (x *ToolTrigger) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ToolTrigger.ProtoReflect.Descriptor instead.
 func (*ToolTrigger) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{314}
+	return file_payload_proto_rawDescGZIP(), []int{321}
 }
 
 func (x *ToolTrigger) GetName() string {
@@ -19851,7 +20223,7 @@ type Tool struct {
 
 func (x *Tool) Reset() {
 	*x = Tool{}
-	mi := &file_payload_proto_msgTypes[315]
+	mi := &file_payload_proto_msgTypes[322]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -19863,7 +20235,7 @@ func (x *Tool) String() string {
 func (*Tool) ProtoMessage() {}
 
 func (x *Tool) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[315]
+	mi := &file_payload_proto_msgTypes[322]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -19876,7 +20248,7 @@ func (x *Tool) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Tool.ProtoReflect.Descriptor instead.
 func (*Tool) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{315}
+	return file_payload_proto_rawDescGZIP(), []int{322}
 }
 
 func (x *Tool) GetId() string {
@@ -19987,7 +20359,7 @@ type ToolListRequest struct {
 
 func (x *ToolListRequest) Reset() {
 	*x = ToolListRequest{}
-	mi := &file_payload_proto_msgTypes[316]
+	mi := &file_payload_proto_msgTypes[323]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -19999,7 +20371,7 @@ func (x *ToolListRequest) String() string {
 func (*ToolListRequest) ProtoMessage() {}
 
 func (x *ToolListRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[316]
+	mi := &file_payload_proto_msgTypes[323]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -20012,7 +20384,7 @@ func (x *ToolListRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ToolListRequest.ProtoReflect.Descriptor instead.
 func (*ToolListRequest) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{316}
+	return file_payload_proto_rawDescGZIP(), []int{323}
 }
 
 func (x *ToolListRequest) GetCursor() string {
@@ -20040,7 +20412,7 @@ type ToolListResponse struct {
 
 func (x *ToolListResponse) Reset() {
 	*x = ToolListResponse{}
-	mi := &file_payload_proto_msgTypes[317]
+	mi := &file_payload_proto_msgTypes[324]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -20052,7 +20424,7 @@ func (x *ToolListResponse) String() string {
 func (*ToolListResponse) ProtoMessage() {}
 
 func (x *ToolListResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[317]
+	mi := &file_payload_proto_msgTypes[324]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -20065,7 +20437,7 @@ func (x *ToolListResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ToolListResponse.ProtoReflect.Descriptor instead.
 func (*ToolListResponse) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{317}
+	return file_payload_proto_rawDescGZIP(), []int{324}
 }
 
 func (x *ToolListResponse) GetItems() []*Tool {
@@ -20098,7 +20470,7 @@ type ToolGetRequest struct {
 
 func (x *ToolGetRequest) Reset() {
 	*x = ToolGetRequest{}
-	mi := &file_payload_proto_msgTypes[318]
+	mi := &file_payload_proto_msgTypes[325]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -20110,7 +20482,7 @@ func (x *ToolGetRequest) String() string {
 func (*ToolGetRequest) ProtoMessage() {}
 
 func (x *ToolGetRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[318]
+	mi := &file_payload_proto_msgTypes[325]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -20123,7 +20495,7 @@ func (x *ToolGetRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ToolGetRequest.ProtoReflect.Descriptor instead.
 func (*ToolGetRequest) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{318}
+	return file_payload_proto_rawDescGZIP(), []int{325}
 }
 
 func (x *ToolGetRequest) GetId() string {
@@ -20142,7 +20514,7 @@ type ToolGetResponse struct {
 
 func (x *ToolGetResponse) Reset() {
 	*x = ToolGetResponse{}
-	mi := &file_payload_proto_msgTypes[319]
+	mi := &file_payload_proto_msgTypes[326]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -20154,7 +20526,7 @@ func (x *ToolGetResponse) String() string {
 func (*ToolGetResponse) ProtoMessage() {}
 
 func (x *ToolGetResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[319]
+	mi := &file_payload_proto_msgTypes[326]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -20167,7 +20539,7 @@ func (x *ToolGetResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ToolGetResponse.ProtoReflect.Descriptor instead.
 func (*ToolGetResponse) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{319}
+	return file_payload_proto_rawDescGZIP(), []int{326}
 }
 
 func (x *ToolGetResponse) GetValue() *Tool {
@@ -20186,7 +20558,7 @@ type ToolCreateRequest struct {
 
 func (x *ToolCreateRequest) Reset() {
 	*x = ToolCreateRequest{}
-	mi := &file_payload_proto_msgTypes[320]
+	mi := &file_payload_proto_msgTypes[327]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -20198,7 +20570,7 @@ func (x *ToolCreateRequest) String() string {
 func (*ToolCreateRequest) ProtoMessage() {}
 
 func (x *ToolCreateRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[320]
+	mi := &file_payload_proto_msgTypes[327]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -20211,7 +20583,7 @@ func (x *ToolCreateRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ToolCreateRequest.ProtoReflect.Descriptor instead.
 func (*ToolCreateRequest) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{320}
+	return file_payload_proto_rawDescGZIP(), []int{327}
 }
 
 func (x *ToolCreateRequest) GetValue() *Tool {
@@ -20230,7 +20602,7 @@ type ToolCreateResponse struct {
 
 func (x *ToolCreateResponse) Reset() {
 	*x = ToolCreateResponse{}
-	mi := &file_payload_proto_msgTypes[321]
+	mi := &file_payload_proto_msgTypes[328]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -20242,7 +20614,7 @@ func (x *ToolCreateResponse) String() string {
 func (*ToolCreateResponse) ProtoMessage() {}
 
 func (x *ToolCreateResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[321]
+	mi := &file_payload_proto_msgTypes[328]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -20255,7 +20627,7 @@ func (x *ToolCreateResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ToolCreateResponse.ProtoReflect.Descriptor instead.
 func (*ToolCreateResponse) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{321}
+	return file_payload_proto_rawDescGZIP(), []int{328}
 }
 
 func (x *ToolCreateResponse) GetValue() *Tool {
@@ -20275,7 +20647,7 @@ type ToolPutRequest struct {
 
 func (x *ToolPutRequest) Reset() {
 	*x = ToolPutRequest{}
-	mi := &file_payload_proto_msgTypes[322]
+	mi := &file_payload_proto_msgTypes[329]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -20287,7 +20659,7 @@ func (x *ToolPutRequest) String() string {
 func (*ToolPutRequest) ProtoMessage() {}
 
 func (x *ToolPutRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[322]
+	mi := &file_payload_proto_msgTypes[329]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -20300,7 +20672,7 @@ func (x *ToolPutRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ToolPutRequest.ProtoReflect.Descriptor instead.
 func (*ToolPutRequest) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{322}
+	return file_payload_proto_rawDescGZIP(), []int{329}
 }
 
 func (x *ToolPutRequest) GetId() string {
@@ -20326,7 +20698,7 @@ type ToolPutResponse struct {
 
 func (x *ToolPutResponse) Reset() {
 	*x = ToolPutResponse{}
-	mi := &file_payload_proto_msgTypes[323]
+	mi := &file_payload_proto_msgTypes[330]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -20338,7 +20710,7 @@ func (x *ToolPutResponse) String() string {
 func (*ToolPutResponse) ProtoMessage() {}
 
 func (x *ToolPutResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[323]
+	mi := &file_payload_proto_msgTypes[330]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -20351,7 +20723,7 @@ func (x *ToolPutResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ToolPutResponse.ProtoReflect.Descriptor instead.
 func (*ToolPutResponse) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{323}
+	return file_payload_proto_rawDescGZIP(), []int{330}
 }
 
 func (x *ToolPutResponse) GetValue() *Tool {
@@ -20370,7 +20742,7 @@ type ToolDeleteRequest struct {
 
 func (x *ToolDeleteRequest) Reset() {
 	*x = ToolDeleteRequest{}
-	mi := &file_payload_proto_msgTypes[324]
+	mi := &file_payload_proto_msgTypes[331]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -20382,7 +20754,7 @@ func (x *ToolDeleteRequest) String() string {
 func (*ToolDeleteRequest) ProtoMessage() {}
 
 func (x *ToolDeleteRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[324]
+	mi := &file_payload_proto_msgTypes[331]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -20395,7 +20767,7 @@ func (x *ToolDeleteRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ToolDeleteRequest.ProtoReflect.Descriptor instead.
 func (*ToolDeleteRequest) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{324}
+	return file_payload_proto_rawDescGZIP(), []int{331}
 }
 
 func (x *ToolDeleteRequest) GetId() string {
@@ -20414,7 +20786,7 @@ type ToolDeleteResponse struct {
 
 func (x *ToolDeleteResponse) Reset() {
 	*x = ToolDeleteResponse{}
-	mi := &file_payload_proto_msgTypes[325]
+	mi := &file_payload_proto_msgTypes[332]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -20426,7 +20798,7 @@ func (x *ToolDeleteResponse) String() string {
 func (*ToolDeleteResponse) ProtoMessage() {}
 
 func (x *ToolDeleteResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[325]
+	mi := &file_payload_proto_msgTypes[332]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -20439,7 +20811,7 @@ func (x *ToolDeleteResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ToolDeleteResponse.ProtoReflect.Descriptor instead.
 func (*ToolDeleteResponse) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{325}
+	return file_payload_proto_rawDescGZIP(), []int{332}
 }
 
 func (x *ToolDeleteResponse) GetValue() *Tool {
@@ -20461,7 +20833,7 @@ type ToolInvokeRequest struct {
 
 func (x *ToolInvokeRequest) Reset() {
 	*x = ToolInvokeRequest{}
-	mi := &file_payload_proto_msgTypes[326]
+	mi := &file_payload_proto_msgTypes[333]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -20473,7 +20845,7 @@ func (x *ToolInvokeRequest) String() string {
 func (*ToolInvokeRequest) ProtoMessage() {}
 
 func (x *ToolInvokeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[326]
+	mi := &file_payload_proto_msgTypes[333]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -20486,7 +20858,7 @@ func (x *ToolInvokeRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ToolInvokeRequest.ProtoReflect.Descriptor instead.
 func (*ToolInvokeRequest) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{326}
+	return file_payload_proto_rawDescGZIP(), []int{333}
 }
 
 func (x *ToolInvokeRequest) GetCallId() string {
@@ -20526,7 +20898,7 @@ type ToolInvokeResponse struct {
 
 func (x *ToolInvokeResponse) Reset() {
 	*x = ToolInvokeResponse{}
-	mi := &file_payload_proto_msgTypes[327]
+	mi := &file_payload_proto_msgTypes[334]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -20538,7 +20910,7 @@ func (x *ToolInvokeResponse) String() string {
 func (*ToolInvokeResponse) ProtoMessage() {}
 
 func (x *ToolInvokeResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_proto_msgTypes[327]
+	mi := &file_payload_proto_msgTypes[334]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -20551,7 +20923,7 @@ func (x *ToolInvokeResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ToolInvokeResponse.ProtoReflect.Descriptor instead.
 func (*ToolInvokeResponse) Descriptor() ([]byte, []int) {
-	return file_payload_proto_rawDescGZIP(), []int{327}
+	return file_payload_proto_rawDescGZIP(), []int{334}
 }
 
 func (x *ToolInvokeResponse) GetDataJson() string {
@@ -20833,7 +21205,39 @@ const file_payload_proto_rawDesc = "" +
 	"\x02sn\x18\x03 \x01(\tH\x02R\x02sn\x88\x01\x01B\v\n" +
 	"\t_hardwareB\a\n" +
 	"\x05_nameB\x05\n" +
-	"\x03_sn\"\xc0\x02\n" +
+	"\x03_sn\"\xde\x01\n" +
+	"\x12EdgePeerAssignment\x12&\n" +
+	"\x0fpeer_public_key\x18\x01 \x01(\tR\rpeerPublicKey\x12*\n" +
+	"\x11server_public_key\x18\x02 \x01(\tR\x0fserverPublicKey\x12'\n" +
+	"\x0fserver_endpoint\x18\x03 \x01(\tR\x0eserverEndpoint\x12\x12\n" +
+	"\x04role\x18\x04 \x01(\tR\x04role\x12\x18\n" +
+	"\aversion\x18\x05 \x01(\x03R\aversion\x12\x1d\n" +
+	"\n" +
+	"updated_at\x18\x06 \x01(\tR\tupdatedAt\"?\n" +
+	"\x15EdgePeerLookupRequest\x12&\n" +
+	"\x0fpeer_public_key\x18\x01 \x01(\tR\rpeerPublicKey\"\\\n" +
+	"\x16EdgePeerLookupResponse\x12B\n" +
+	"\n" +
+	"assignment\x18\x01 \x01(\v2\".gizclaw.rpc.v1.EdgePeerAssignmentR\n" +
+	"assignment\"\x84\x01\n" +
+	"\x15EdgePeerAssignRequest\x12&\n" +
+	"\x0fpeer_public_key\x18\x01 \x01(\tR\rpeerPublicKey\x12.\n" +
+	"\x10expected_version\x18\x02 \x01(\x03H\x00R\x0fexpectedVersion\x88\x01\x01B\x13\n" +
+	"\x11_expected_version\"\\\n" +
+	"\x16EdgePeerAssignResponse\x12B\n" +
+	"\n" +
+	"assignment\x18\x01 \x01(\v2\".gizclaw.rpc.v1.EdgePeerAssignmentR\n" +
+	"assignment\"\xd1\x01\n" +
+	"\x17EdgeRouteResolveRequest\x123\n" +
+	"\x16target_peer_public_key\x18\x01 \x01(\tR\x13targetPeerPublicKey\x12/\n" +
+	"\x11caller_public_key\x18\x02 \x01(\tH\x00R\x0fcallerPublicKey\x88\x01\x01\x12(\n" +
+	"\rresource_kind\x18\x03 \x01(\tH\x01R\fresourceKind\x88\x01\x01B\x14\n" +
+	"\x12_caller_public_keyB\x10\n" +
+	"\x0e_resource_kind\"^\n" +
+	"\x18EdgeRouteResolveResponse\x12B\n" +
+	"\n" +
+	"assignment\x18\x01 \x01(\v2\".gizclaw.rpc.v1.EdgePeerAssignmentR\n" +
+	"assignment\"\xc0\x02\n" +
 	"\x1aDoubaoRealtimeAIGCMetadata\x12.\n" +
 	"\x10content_producer\x18\x01 \x01(\tH\x00R\x0fcontentProducer\x88\x01\x01\x122\n" +
 	"\x12content_propagator\x18\x02 \x01(\tH\x01R\x11contentPropagator\x88\x01\x01\x12\x1b\n" +
@@ -22565,7 +22969,7 @@ func file_payload_proto_rawDescGZIP() []byte {
 }
 
 var file_payload_proto_enumTypes = make([]protoimpl.EnumInfo, 30)
-var file_payload_proto_msgTypes = make([]protoimpl.MessageInfo, 337)
+var file_payload_proto_msgTypes = make([]protoimpl.MessageInfo, 344)
 var file_payload_proto_goTypes = []any{
 	(ASTTranslateMode)(0),                                     // 0: gizclaw.rpc.v1.ASTTranslateMode
 	(ASTTranslateWorkspaceParametersAgentType)(0),             // 1: gizclaw.rpc.v1.ASTTranslateWorkspaceParametersAgentType
@@ -22644,297 +23048,304 @@ var file_payload_proto_goTypes = []any{
 	(*DashScopeTenantModelProviderData)(nil),                  // 74: gizclaw.rpc.v1.DashScopeTenantModelProviderData
 	(*DashScopeTenantVoiceProviderData)(nil),                  // 75: gizclaw.rpc.v1.DashScopeTenantVoiceProviderData
 	(*DeviceInfo)(nil),                                        // 76: gizclaw.rpc.v1.DeviceInfo
-	(*DoubaoRealtimeAIGCMetadata)(nil),                        // 77: gizclaw.rpc.v1.DoubaoRealtimeAIGCMetadata
-	(*DoubaoRealtimeASRContext)(nil),                          // 78: gizclaw.rpc.v1.DoubaoRealtimeASRContext
-	(*DoubaoRealtimeASRExtension)(nil),                        // 79: gizclaw.rpc.v1.DoubaoRealtimeASRExtension
-	(*DoubaoRealtimeASRExtra)(nil),                            // 80: gizclaw.rpc.v1.DoubaoRealtimeASRExtra
-	(*DoubaoRealtimeASRHotword)(nil),                          // 81: gizclaw.rpc.v1.DoubaoRealtimeASRHotword
-	(*DoubaoRealtimeAudio)(nil),                               // 82: gizclaw.rpc.v1.DoubaoRealtimeAudio
-	(*DoubaoRealtimeAudioFormat)(nil),                         // 83: gizclaw.rpc.v1.DoubaoRealtimeAudioFormat
-	(*DoubaoRealtimeAudioInput)(nil),                          // 84: gizclaw.rpc.v1.DoubaoRealtimeAudioInput
-	(*DoubaoRealtimeAudioOutput)(nil),                         // 85: gizclaw.rpc.v1.DoubaoRealtimeAudioOutput
-	(*DoubaoRealtimeDialogExtension)(nil),                     // 86: gizclaw.rpc.v1.DoubaoRealtimeDialogExtension
-	(*DoubaoRealtimeDialogExtra)(nil),                         // 87: gizclaw.rpc.v1.DoubaoRealtimeDialogExtra
-	(*DoubaoRealtimeExtension)(nil),                           // 88: gizclaw.rpc.v1.DoubaoRealtimeExtension
-	(*DoubaoRealtimeFunctionTool)(nil),                        // 89: gizclaw.rpc.v1.DoubaoRealtimeFunctionTool
-	(*DoubaoRealtimeJSONSchema)(nil),                          // 90: gizclaw.rpc.v1.DoubaoRealtimeJSONSchema
-	(*DoubaoRealtimeTTSExtension)(nil),                        // 91: gizclaw.rpc.v1.DoubaoRealtimeTTSExtension
-	(*DoubaoRealtimeTTSExtra)(nil),                            // 92: gizclaw.rpc.v1.DoubaoRealtimeTTSExtra
-	(*DoubaoRealtimeWorkflowSpec)(nil),                        // 93: gizclaw.rpc.v1.DoubaoRealtimeWorkflowSpec
-	(*DoubaoRealtimeWorkspaceParameters)(nil),                 // 94: gizclaw.rpc.v1.DoubaoRealtimeWorkspaceParameters
-	(*Firmware)(nil),                                          // 95: gizclaw.rpc.v1.Firmware
-	(*FirmwareArtifact)(nil),                                  // 96: gizclaw.rpc.v1.FirmwareArtifact
-	(*FirmwareArtifactEntry)(nil),                             // 97: gizclaw.rpc.v1.FirmwareArtifactEntry
-	(*FirmwareFilesDownloadRequest)(nil),                      // 98: gizclaw.rpc.v1.FirmwareFilesDownloadRequest
-	(*FirmwareFilesDownloadResponse)(nil),                     // 99: gizclaw.rpc.v1.FirmwareFilesDownloadResponse
-	(*FirmwareGetRequest)(nil),                                // 100: gizclaw.rpc.v1.FirmwareGetRequest
-	(*FirmwareGetResponse)(nil),                               // 101: gizclaw.rpc.v1.FirmwareGetResponse
-	(*FirmwareListRequest)(nil),                               // 102: gizclaw.rpc.v1.FirmwareListRequest
-	(*FirmwareListResponse)(nil),                              // 103: gizclaw.rpc.v1.FirmwareListResponse
-	(*FirmwareSlot)(nil),                                      // 104: gizclaw.rpc.v1.FirmwareSlot
-	(*FirmwareSlots)(nil),                                     // 105: gizclaw.rpc.v1.FirmwareSlots
-	(*FlowcraftConversationParameters)(nil),                   // 106: gizclaw.rpc.v1.FlowcraftConversationParameters
-	(*FlowcraftWorkflowSpec)(nil),                             // 107: gizclaw.rpc.v1.FlowcraftWorkflowSpec
-	(*FlowcraftWorkspaceParameters)(nil),                      // 108: gizclaw.rpc.v1.FlowcraftWorkspaceParameters
-	(*FriendAddRequest)(nil),                                  // 109: gizclaw.rpc.v1.FriendAddRequest
-	(*FriendAddResponse)(nil),                                 // 110: gizclaw.rpc.v1.FriendAddResponse
-	(*FriendDeleteRequest)(nil),                               // 111: gizclaw.rpc.v1.FriendDeleteRequest
-	(*FriendDeleteResponse)(nil),                              // 112: gizclaw.rpc.v1.FriendDeleteResponse
-	(*FriendGroupCreateRequest)(nil),                          // 113: gizclaw.rpc.v1.FriendGroupCreateRequest
-	(*FriendGroupCreateResponse)(nil),                         // 114: gizclaw.rpc.v1.FriendGroupCreateResponse
-	(*FriendGroupDeleteRequest)(nil),                          // 115: gizclaw.rpc.v1.FriendGroupDeleteRequest
-	(*FriendGroupDeleteResponse)(nil),                         // 116: gizclaw.rpc.v1.FriendGroupDeleteResponse
-	(*FriendGroupGetRequest)(nil),                             // 117: gizclaw.rpc.v1.FriendGroupGetRequest
-	(*FriendGroupGetResponse)(nil),                            // 118: gizclaw.rpc.v1.FriendGroupGetResponse
-	(*FriendGroupInviteTokenClearRequest)(nil),                // 119: gizclaw.rpc.v1.FriendGroupInviteTokenClearRequest
-	(*FriendGroupInviteTokenClearResponse)(nil),               // 120: gizclaw.rpc.v1.FriendGroupInviteTokenClearResponse
-	(*FriendGroupInviteTokenCreateRequest)(nil),               // 121: gizclaw.rpc.v1.FriendGroupInviteTokenCreateRequest
-	(*FriendGroupInviteTokenCreateResponse)(nil),              // 122: gizclaw.rpc.v1.FriendGroupInviteTokenCreateResponse
-	(*FriendGroupInviteTokenGetRequest)(nil),                  // 123: gizclaw.rpc.v1.FriendGroupInviteTokenGetRequest
-	(*FriendGroupInviteTokenGetResponse)(nil),                 // 124: gizclaw.rpc.v1.FriendGroupInviteTokenGetResponse
-	(*FriendGroupJoinRequest)(nil),                            // 125: gizclaw.rpc.v1.FriendGroupJoinRequest
-	(*FriendGroupJoinResponse)(nil),                           // 126: gizclaw.rpc.v1.FriendGroupJoinResponse
-	(*FriendGroupListRequest)(nil),                            // 127: gizclaw.rpc.v1.FriendGroupListRequest
-	(*FriendGroupListResponse)(nil),                           // 128: gizclaw.rpc.v1.FriendGroupListResponse
-	(*FriendGroupMemberAddRequest)(nil),                       // 129: gizclaw.rpc.v1.FriendGroupMemberAddRequest
-	(*FriendGroupMemberAddResponse)(nil),                      // 130: gizclaw.rpc.v1.FriendGroupMemberAddResponse
-	(*FriendGroupMemberDeleteRequest)(nil),                    // 131: gizclaw.rpc.v1.FriendGroupMemberDeleteRequest
-	(*FriendGroupMemberDeleteResponse)(nil),                   // 132: gizclaw.rpc.v1.FriendGroupMemberDeleteResponse
-	(*FriendGroupMemberListRequest)(nil),                      // 133: gizclaw.rpc.v1.FriendGroupMemberListRequest
-	(*FriendGroupMemberListResponse)(nil),                     // 134: gizclaw.rpc.v1.FriendGroupMemberListResponse
-	(*FriendGroupMemberObject)(nil),                           // 135: gizclaw.rpc.v1.FriendGroupMemberObject
-	(*FriendGroupMemberPutRequest)(nil),                       // 136: gizclaw.rpc.v1.FriendGroupMemberPutRequest
-	(*FriendGroupMemberPutResponse)(nil),                      // 137: gizclaw.rpc.v1.FriendGroupMemberPutResponse
-	(*FriendGroupMessageGetRequest)(nil),                      // 138: gizclaw.rpc.v1.FriendGroupMessageGetRequest
-	(*FriendGroupMessageGetResponse)(nil),                     // 139: gizclaw.rpc.v1.FriendGroupMessageGetResponse
-	(*FriendGroupMessageListRequest)(nil),                     // 140: gizclaw.rpc.v1.FriendGroupMessageListRequest
-	(*FriendGroupMessageListResponse)(nil),                    // 141: gizclaw.rpc.v1.FriendGroupMessageListResponse
-	(*FriendGroupMessageObject)(nil),                          // 142: gizclaw.rpc.v1.FriendGroupMessageObject
-	(*FriendGroupMessageSendRequest)(nil),                     // 143: gizclaw.rpc.v1.FriendGroupMessageSendRequest
-	(*FriendGroupMessageSendResponse)(nil),                    // 144: gizclaw.rpc.v1.FriendGroupMessageSendResponse
-	(*FriendGroupObject)(nil),                                 // 145: gizclaw.rpc.v1.FriendGroupObject
-	(*FriendGroupPutRequest)(nil),                             // 146: gizclaw.rpc.v1.FriendGroupPutRequest
-	(*FriendGroupPutResponse)(nil),                            // 147: gizclaw.rpc.v1.FriendGroupPutResponse
-	(*FriendInviteTokenClearRequest)(nil),                     // 148: gizclaw.rpc.v1.FriendInviteTokenClearRequest
-	(*FriendInviteTokenClearResponse)(nil),                    // 149: gizclaw.rpc.v1.FriendInviteTokenClearResponse
-	(*FriendInviteTokenCreateRequest)(nil),                    // 150: gizclaw.rpc.v1.FriendInviteTokenCreateRequest
-	(*FriendInviteTokenCreateResponse)(nil),                   // 151: gizclaw.rpc.v1.FriendInviteTokenCreateResponse
-	(*FriendInviteTokenGetRequest)(nil),                       // 152: gizclaw.rpc.v1.FriendInviteTokenGetRequest
-	(*FriendInviteTokenGetResponse)(nil),                      // 153: gizclaw.rpc.v1.FriendInviteTokenGetResponse
-	(*FriendListRequest)(nil),                                 // 154: gizclaw.rpc.v1.FriendListRequest
-	(*FriendListResponse)(nil),                                // 155: gizclaw.rpc.v1.FriendListResponse
-	(*FriendObject)(nil),                                      // 156: gizclaw.rpc.v1.FriendObject
-	(*GameResult)(nil),                                        // 157: gizclaw.rpc.v1.GameResult
-	(*GameResultListResponse)(nil),                            // 158: gizclaw.rpc.v1.GameResultListResponse
-	(*GameRewardSpec)(nil),                                    // 159: gizclaw.rpc.v1.GameRewardSpec
-	(*GameRuleset)(nil),                                       // 160: gizclaw.rpc.v1.GameRuleset
-	(*GameRulesetDriveSpec)(nil),                              // 161: gizclaw.rpc.v1.GameRulesetDriveSpec
-	(*GameRulesetPetPoolEntry)(nil),                           // 162: gizclaw.rpc.v1.GameRulesetPetPoolEntry
-	(*GameRulesetPointsSpec)(nil),                             // 163: gizclaw.rpc.v1.GameRulesetPointsSpec
-	(*GameRulesetSpec)(nil),                                   // 164: gizclaw.rpc.v1.GameRulesetSpec
-	(*GameplayGetRequest)(nil),                                // 165: gizclaw.rpc.v1.GameplayGetRequest
-	(*GameplayListRequest)(nil),                               // 166: gizclaw.rpc.v1.GameplayListRequest
-	(*GameplayMetadata)(nil),                                  // 167: gizclaw.rpc.v1.GameplayMetadata
-	(*GeminiCredentialBody)(nil),                              // 168: gizclaw.rpc.v1.GeminiCredentialBody
-	(*GeminiTenantModelProviderData)(nil),                     // 169: gizclaw.rpc.v1.GeminiTenantModelProviderData
-	(*GeminiTenantVoiceProviderData)(nil),                     // 170: gizclaw.rpc.v1.GeminiTenantVoiceProviderData
-	(*HardwareInfo)(nil),                                      // 171: gizclaw.rpc.v1.HardwareInfo
-	(*MiniMaxCredentialBody)(nil),                             // 172: gizclaw.rpc.v1.MiniMaxCredentialBody
-	(*MiniMaxTenantVoiceProviderData)(nil),                    // 173: gizclaw.rpc.v1.MiniMaxTenantVoiceProviderData
-	(*Model)(nil),                                             // 174: gizclaw.rpc.v1.Model
-	(*ModelCapabilities)(nil),                                 // 175: gizclaw.rpc.v1.ModelCapabilities
-	(*ModelCreateRequest)(nil),                                // 176: gizclaw.rpc.v1.ModelCreateRequest
-	(*ModelCreateResponse)(nil),                               // 177: gizclaw.rpc.v1.ModelCreateResponse
-	(*ModelDeleteRequest)(nil),                                // 178: gizclaw.rpc.v1.ModelDeleteRequest
-	(*ModelDeleteResponse)(nil),                               // 179: gizclaw.rpc.v1.ModelDeleteResponse
-	(*ModelGetRequest)(nil),                                   // 180: gizclaw.rpc.v1.ModelGetRequest
-	(*ModelGetResponse)(nil),                                  // 181: gizclaw.rpc.v1.ModelGetResponse
-	(*ModelListRequest)(nil),                                  // 182: gizclaw.rpc.v1.ModelListRequest
-	(*ModelListResponse)(nil),                                 // 183: gizclaw.rpc.v1.ModelListResponse
-	(*ModelProvider)(nil),                                     // 184: gizclaw.rpc.v1.ModelProvider
-	(*ModelProviderData)(nil),                                 // 185: gizclaw.rpc.v1.ModelProviderData
-	(*ModelPutRequest)(nil),                                   // 186: gizclaw.rpc.v1.ModelPutRequest
-	(*ModelPutResponse)(nil),                                  // 187: gizclaw.rpc.v1.ModelPutResponse
-	(*ModelThinkingCapability)(nil),                           // 188: gizclaw.rpc.v1.ModelThinkingCapability
-	(*OpenAICredentialBody)(nil),                              // 189: gizclaw.rpc.v1.OpenAICredentialBody
-	(*OpenAITenantModelProviderData)(nil),                     // 190: gizclaw.rpc.v1.OpenAITenantModelProviderData
-	(*OpenAITenantVoiceProviderData)(nil),                     // 191: gizclaw.rpc.v1.OpenAITenantVoiceProviderData
-	(*PeerIMEI)(nil),                                          // 192: gizclaw.rpc.v1.PeerIMEI
-	(*PeerLabel)(nil),                                         // 193: gizclaw.rpc.v1.PeerLabel
-	(*PeerRunAgent)(nil),                                      // 194: gizclaw.rpc.v1.PeerRunAgent
-	(*PeerRunHistoryEntry)(nil),                               // 195: gizclaw.rpc.v1.PeerRunHistoryEntry
-	(*PeerRunHistoryListRequest)(nil),                         // 196: gizclaw.rpc.v1.PeerRunHistoryListRequest
-	(*PeerRunHistoryListResponse)(nil),                        // 197: gizclaw.rpc.v1.PeerRunHistoryListResponse
-	(*PeerRunHistoryPlayRequest)(nil),                         // 198: gizclaw.rpc.v1.PeerRunHistoryPlayRequest
-	(*PeerRunHistoryPlayResponse)(nil),                        // 199: gizclaw.rpc.v1.PeerRunHistoryPlayResponse
-	(*PeerRunMemoryStatsRequest)(nil),                         // 200: gizclaw.rpc.v1.PeerRunMemoryStatsRequest
-	(*PeerRunMemoryStatsResponse)(nil),                        // 201: gizclaw.rpc.v1.PeerRunMemoryStatsResponse
-	(*PeerRunRecallHit)(nil),                                  // 202: gizclaw.rpc.v1.PeerRunRecallHit
-	(*PeerRunRecallRequest)(nil),                              // 203: gizclaw.rpc.v1.PeerRunRecallRequest
-	(*PeerRunRecallResponse)(nil),                             // 204: gizclaw.rpc.v1.PeerRunRecallResponse
-	(*PeerRunStatus)(nil),                                     // 205: gizclaw.rpc.v1.PeerRunStatus
-	(*PeerRunWorkspaceState)(nil),                             // 206: gizclaw.rpc.v1.PeerRunWorkspaceState
-	(*PeerStatus)(nil),                                        // 207: gizclaw.rpc.v1.PeerStatus
-	(*Pet)(nil),                                               // 208: gizclaw.rpc.v1.Pet
-	(*PetAdoptRequest)(nil),                                   // 209: gizclaw.rpc.v1.PetAdoptRequest
-	(*PetAdoptResponse)(nil),                                  // 210: gizclaw.rpc.v1.PetAdoptResponse
-	(*PetDefPixaDownloadRequest)(nil),                         // 211: gizclaw.rpc.v1.PetDefPixaDownloadRequest
-	(*PetDefPixaDownloadResponse)(nil),                        // 212: gizclaw.rpc.v1.PetDefPixaDownloadResponse
-	(*PetDeleteRequest)(nil),                                  // 213: gizclaw.rpc.v1.PetDeleteRequest
-	(*PetDriveGameResultInput)(nil),                           // 214: gizclaw.rpc.v1.PetDriveGameResultInput
-	(*PetDriveRequest)(nil),                                   // 215: gizclaw.rpc.v1.PetDriveRequest
-	(*PetDriveResponse)(nil),                                  // 216: gizclaw.rpc.v1.PetDriveResponse
-	(*PetGetRequest)(nil),                                     // 217: gizclaw.rpc.v1.PetGetRequest
-	(*PetListResponse)(nil),                                   // 218: gizclaw.rpc.v1.PetListResponse
-	(*PetPutRequest)(nil),                                     // 219: gizclaw.rpc.v1.PetPutRequest
-	(*PingRequest)(nil),                                       // 220: gizclaw.rpc.v1.PingRequest
-	(*PingResponse)(nil),                                      // 221: gizclaw.rpc.v1.PingResponse
-	(*PointsAccount)(nil),                                     // 222: gizclaw.rpc.v1.PointsAccount
-	(*PointsTransaction)(nil),                                 // 223: gizclaw.rpc.v1.PointsTransaction
-	(*PointsTransactionListResponse)(nil),                     // 224: gizclaw.rpc.v1.PointsTransactionListResponse
-	(*RefreshIdentifiers)(nil),                                // 225: gizclaw.rpc.v1.RefreshIdentifiers
-	(*RefreshInfo)(nil),                                       // 226: gizclaw.rpc.v1.RefreshInfo
-	(*RewardGrant)(nil),                                       // 227: gizclaw.rpc.v1.RewardGrant
-	(*RewardGrantListResponse)(nil),                           // 228: gizclaw.rpc.v1.RewardGrantListResponse
-	(*Runtime)(nil),                                           // 229: gizclaw.rpc.v1.Runtime
-	(*ServerBadgeGetRequest)(nil),                             // 230: gizclaw.rpc.v1.ServerBadgeGetRequest
-	(*ServerBadgeGetResponse)(nil),                            // 231: gizclaw.rpc.v1.ServerBadgeGetResponse
-	(*ServerBadgeListRequest)(nil),                            // 232: gizclaw.rpc.v1.ServerBadgeListRequest
-	(*ServerBadgeListResponse)(nil),                           // 233: gizclaw.rpc.v1.ServerBadgeListResponse
-	(*ServerGameResultGetRequest)(nil),                        // 234: gizclaw.rpc.v1.ServerGameResultGetRequest
-	(*ServerGameResultGetResponse)(nil),                       // 235: gizclaw.rpc.v1.ServerGameResultGetResponse
-	(*ServerGameResultListRequest)(nil),                       // 236: gizclaw.rpc.v1.ServerGameResultListRequest
-	(*ServerGameResultListResponse)(nil),                      // 237: gizclaw.rpc.v1.ServerGameResultListResponse
-	(*ServerGameRulesetGetRequest)(nil),                       // 238: gizclaw.rpc.v1.ServerGameRulesetGetRequest
-	(*ServerGameRulesetGetResponse)(nil),                      // 239: gizclaw.rpc.v1.ServerGameRulesetGetResponse
-	(*ServerGetInfoRequest)(nil),                              // 240: gizclaw.rpc.v1.ServerGetInfoRequest
-	(*ServerGetInfoResponse)(nil),                             // 241: gizclaw.rpc.v1.ServerGetInfoResponse
-	(*ServerGetRunAgentRequest)(nil),                          // 242: gizclaw.rpc.v1.ServerGetRunAgentRequest
-	(*ServerGetRunAgentResponse)(nil),                         // 243: gizclaw.rpc.v1.ServerGetRunAgentResponse
-	(*ServerGetRunStatusRequest)(nil),                         // 244: gizclaw.rpc.v1.ServerGetRunStatusRequest
-	(*ServerGetRunStatusResponse)(nil),                        // 245: gizclaw.rpc.v1.ServerGetRunStatusResponse
-	(*ServerGetRunWorkspaceMemoryStatsRequest)(nil),           // 246: gizclaw.rpc.v1.ServerGetRunWorkspaceMemoryStatsRequest
-	(*ServerGetRunWorkspaceMemoryStatsResponse)(nil),          // 247: gizclaw.rpc.v1.ServerGetRunWorkspaceMemoryStatsResponse
-	(*ServerGetRunWorkspaceRequest)(nil),                      // 248: gizclaw.rpc.v1.ServerGetRunWorkspaceRequest
-	(*ServerGetRunWorkspaceResponse)(nil),                     // 249: gizclaw.rpc.v1.ServerGetRunWorkspaceResponse
-	(*ServerGetRuntimeRequest)(nil),                           // 250: gizclaw.rpc.v1.ServerGetRuntimeRequest
-	(*ServerGetRuntimeResponse)(nil),                          // 251: gizclaw.rpc.v1.ServerGetRuntimeResponse
-	(*ServerGetStatusRequest)(nil),                            // 252: gizclaw.rpc.v1.ServerGetStatusRequest
-	(*ServerGetStatusResponse)(nil),                           // 253: gizclaw.rpc.v1.ServerGetStatusResponse
-	(*ServerListRunWorkspaceHistoryRequest)(nil),              // 254: gizclaw.rpc.v1.ServerListRunWorkspaceHistoryRequest
-	(*ServerListRunWorkspaceHistoryResponse)(nil),             // 255: gizclaw.rpc.v1.ServerListRunWorkspaceHistoryResponse
-	(*ServerPetAdoptRequest)(nil),                             // 256: gizclaw.rpc.v1.ServerPetAdoptRequest
-	(*ServerPetAdoptResponse)(nil),                            // 257: gizclaw.rpc.v1.ServerPetAdoptResponse
-	(*ServerPetDeleteRequest)(nil),                            // 258: gizclaw.rpc.v1.ServerPetDeleteRequest
-	(*ServerPetDeleteResponse)(nil),                           // 259: gizclaw.rpc.v1.ServerPetDeleteResponse
-	(*ServerPetDriveRequest)(nil),                             // 260: gizclaw.rpc.v1.ServerPetDriveRequest
-	(*ServerPetDriveResponse)(nil),                            // 261: gizclaw.rpc.v1.ServerPetDriveResponse
-	(*ServerPetGetRequest)(nil),                               // 262: gizclaw.rpc.v1.ServerPetGetRequest
-	(*ServerPetGetResponse)(nil),                              // 263: gizclaw.rpc.v1.ServerPetGetResponse
-	(*ServerPetListRequest)(nil),                              // 264: gizclaw.rpc.v1.ServerPetListRequest
-	(*ServerPetListResponse)(nil),                             // 265: gizclaw.rpc.v1.ServerPetListResponse
-	(*ServerPetPutRequest)(nil),                               // 266: gizclaw.rpc.v1.ServerPetPutRequest
-	(*ServerPetPutResponse)(nil),                              // 267: gizclaw.rpc.v1.ServerPetPutResponse
-	(*ServerPlayRunWorkspaceHistoryRequest)(nil),              // 268: gizclaw.rpc.v1.ServerPlayRunWorkspaceHistoryRequest
-	(*ServerPlayRunWorkspaceHistoryResponse)(nil),             // 269: gizclaw.rpc.v1.ServerPlayRunWorkspaceHistoryResponse
-	(*ServerPointsGetRequest)(nil),                            // 270: gizclaw.rpc.v1.ServerPointsGetRequest
-	(*ServerPointsGetResponse)(nil),                           // 271: gizclaw.rpc.v1.ServerPointsGetResponse
-	(*ServerPointsTransactionGetRequest)(nil),                 // 272: gizclaw.rpc.v1.ServerPointsTransactionGetRequest
-	(*ServerPointsTransactionGetResponse)(nil),                // 273: gizclaw.rpc.v1.ServerPointsTransactionGetResponse
-	(*ServerPointsTransactionListRequest)(nil),                // 274: gizclaw.rpc.v1.ServerPointsTransactionListRequest
-	(*ServerPointsTransactionListResponse)(nil),               // 275: gizclaw.rpc.v1.ServerPointsTransactionListResponse
-	(*ServerPutInfoRequest)(nil),                              // 276: gizclaw.rpc.v1.ServerPutInfoRequest
-	(*ServerPutInfoResponse)(nil),                             // 277: gizclaw.rpc.v1.ServerPutInfoResponse
-	(*ServerReloadRunRequest)(nil),                            // 278: gizclaw.rpc.v1.ServerReloadRunRequest
-	(*ServerReloadRunResponse)(nil),                           // 279: gizclaw.rpc.v1.ServerReloadRunResponse
-	(*ServerReloadRunWorkspaceRequest)(nil),                   // 280: gizclaw.rpc.v1.ServerReloadRunWorkspaceRequest
-	(*ServerReloadRunWorkspaceResponse)(nil),                  // 281: gizclaw.rpc.v1.ServerReloadRunWorkspaceResponse
-	(*ServerRewardGrantGetRequest)(nil),                       // 282: gizclaw.rpc.v1.ServerRewardGrantGetRequest
-	(*ServerRewardGrantGetResponse)(nil),                      // 283: gizclaw.rpc.v1.ServerRewardGrantGetResponse
-	(*ServerRewardGrantListRequest)(nil),                      // 284: gizclaw.rpc.v1.ServerRewardGrantListRequest
-	(*ServerRewardGrantListResponse)(nil),                     // 285: gizclaw.rpc.v1.ServerRewardGrantListResponse
-	(*ServerRunSayRequest)(nil),                               // 286: gizclaw.rpc.v1.ServerRunSayRequest
-	(*ServerRunSayResponse)(nil),                              // 287: gizclaw.rpc.v1.ServerRunSayResponse
-	(*ServerRunWorkspaceRecallRequest)(nil),                   // 288: gizclaw.rpc.v1.ServerRunWorkspaceRecallRequest
-	(*ServerRunWorkspaceRecallResponse)(nil),                  // 289: gizclaw.rpc.v1.ServerRunWorkspaceRecallResponse
-	(*ServerSetRunAgentRequest)(nil),                          // 290: gizclaw.rpc.v1.ServerSetRunAgentRequest
-	(*ServerSetRunAgentResponse)(nil),                         // 291: gizclaw.rpc.v1.ServerSetRunAgentResponse
-	(*ServerSetRunWorkspaceRequest)(nil),                      // 292: gizclaw.rpc.v1.ServerSetRunWorkspaceRequest
-	(*ServerSetRunWorkspaceResponse)(nil),                     // 293: gizclaw.rpc.v1.ServerSetRunWorkspaceResponse
-	(*ServerStopRunRequest)(nil),                              // 294: gizclaw.rpc.v1.ServerStopRunRequest
-	(*ServerStopRunResponse)(nil),                             // 295: gizclaw.rpc.v1.ServerStopRunResponse
-	(*SpeedTestRequest)(nil),                                  // 296: gizclaw.rpc.v1.SpeedTestRequest
-	(*SpeedTestResponse)(nil),                                 // 297: gizclaw.rpc.v1.SpeedTestResponse
-	(*StatMap)(nil),                                           // 298: gizclaw.rpc.v1.StatMap
-	(*Voice)(nil),                                             // 299: gizclaw.rpc.v1.Voice
-	(*VoiceGetRequest)(nil),                                   // 300: gizclaw.rpc.v1.VoiceGetRequest
-	(*VoiceGetResponse)(nil),                                  // 301: gizclaw.rpc.v1.VoiceGetResponse
-	(*VoiceListRequest)(nil),                                  // 302: gizclaw.rpc.v1.VoiceListRequest
-	(*VoiceListResponse)(nil),                                 // 303: gizclaw.rpc.v1.VoiceListResponse
-	(*VoiceProvider)(nil),                                     // 304: gizclaw.rpc.v1.VoiceProvider
-	(*VoiceProviderData)(nil),                                 // 305: gizclaw.rpc.v1.VoiceProviderData
-	(*VolcCredentialBody)(nil),                                // 306: gizclaw.rpc.v1.VolcCredentialBody
-	(*VolcTenantModelProviderData)(nil),                       // 307: gizclaw.rpc.v1.VolcTenantModelProviderData
-	(*VolcTenantVoiceProviderData)(nil),                       // 308: gizclaw.rpc.v1.VolcTenantVoiceProviderData
-	(*WorkflowCreateRequest)(nil),                             // 309: gizclaw.rpc.v1.WorkflowCreateRequest
-	(*WorkflowCreateResponse)(nil),                            // 310: gizclaw.rpc.v1.WorkflowCreateResponse
-	(*WorkflowDeleteRequest)(nil),                             // 311: gizclaw.rpc.v1.WorkflowDeleteRequest
-	(*WorkflowDeleteResponse)(nil),                            // 312: gizclaw.rpc.v1.WorkflowDeleteResponse
-	(*WorkflowDocument)(nil),                                  // 313: gizclaw.rpc.v1.WorkflowDocument
-	(*WorkflowGetRequest)(nil),                                // 314: gizclaw.rpc.v1.WorkflowGetRequest
-	(*WorkflowGetResponse)(nil),                               // 315: gizclaw.rpc.v1.WorkflowGetResponse
-	(*WorkflowListRequest)(nil),                               // 316: gizclaw.rpc.v1.WorkflowListRequest
-	(*WorkflowListResponse)(nil),                              // 317: gizclaw.rpc.v1.WorkflowListResponse
-	(*WorkflowMetadata)(nil),                                  // 318: gizclaw.rpc.v1.WorkflowMetadata
-	(*ToolkitPolicyToolIds)(nil),                              // 319: gizclaw.rpc.v1.ToolkitPolicyToolIds
-	(*ToolkitPolicy)(nil),                                     // 320: gizclaw.rpc.v1.ToolkitPolicy
-	(*WorkflowPutRequest)(nil),                                // 321: gizclaw.rpc.v1.WorkflowPutRequest
-	(*WorkflowPutResponse)(nil),                               // 322: gizclaw.rpc.v1.WorkflowPutResponse
-	(*WorkflowSpec)(nil),                                      // 323: gizclaw.rpc.v1.WorkflowSpec
-	(*Workspace)(nil),                                         // 324: gizclaw.rpc.v1.Workspace
-	(*WorkspaceCreateRequest)(nil),                            // 325: gizclaw.rpc.v1.WorkspaceCreateRequest
-	(*WorkspaceCreateResponse)(nil),                           // 326: gizclaw.rpc.v1.WorkspaceCreateResponse
-	(*WorkspaceDeleteRequest)(nil),                            // 327: gizclaw.rpc.v1.WorkspaceDeleteRequest
-	(*WorkspaceDeleteResponse)(nil),                           // 328: gizclaw.rpc.v1.WorkspaceDeleteResponse
-	(*WorkspaceGetRequest)(nil),                               // 329: gizclaw.rpc.v1.WorkspaceGetRequest
-	(*WorkspaceGetResponse)(nil),                              // 330: gizclaw.rpc.v1.WorkspaceGetResponse
-	(*WorkspaceHistoryAudioGetRequest)(nil),                   // 331: gizclaw.rpc.v1.WorkspaceHistoryAudioGetRequest
-	(*WorkspaceHistoryAudioGetResponse)(nil),                  // 332: gizclaw.rpc.v1.WorkspaceHistoryAudioGetResponse
-	(*WorkspaceHistoryGetRequest)(nil),                        // 333: gizclaw.rpc.v1.WorkspaceHistoryGetRequest
-	(*WorkspaceHistoryGetResponse)(nil),                       // 334: gizclaw.rpc.v1.WorkspaceHistoryGetResponse
-	(*WorkspaceHistoryListRequest)(nil),                       // 335: gizclaw.rpc.v1.WorkspaceHistoryListRequest
-	(*WorkspaceHistoryListResponse)(nil),                      // 336: gizclaw.rpc.v1.WorkspaceHistoryListResponse
-	(*WorkspaceListRequest)(nil),                              // 337: gizclaw.rpc.v1.WorkspaceListRequest
-	(*WorkspaceListResponse)(nil),                             // 338: gizclaw.rpc.v1.WorkspaceListResponse
-	(*WorkspaceParameters)(nil),                               // 339: gizclaw.rpc.v1.WorkspaceParameters
-	(*WorkspacePutRequest)(nil),                               // 340: gizclaw.rpc.v1.WorkspacePutRequest
-	(*WorkspacePutResponse)(nil),                              // 341: gizclaw.rpc.v1.WorkspacePutResponse
-	(*ToolExecutor)(nil),                                      // 342: gizclaw.rpc.v1.ToolExecutor
-	(*ToolTriggerExample)(nil),                                // 343: gizclaw.rpc.v1.ToolTriggerExample
-	(*ToolTrigger)(nil),                                       // 344: gizclaw.rpc.v1.ToolTrigger
-	(*Tool)(nil),                                              // 345: gizclaw.rpc.v1.Tool
-	(*ToolListRequest)(nil),                                   // 346: gizclaw.rpc.v1.ToolListRequest
-	(*ToolListResponse)(nil),                                  // 347: gizclaw.rpc.v1.ToolListResponse
-	(*ToolGetRequest)(nil),                                    // 348: gizclaw.rpc.v1.ToolGetRequest
-	(*ToolGetResponse)(nil),                                   // 349: gizclaw.rpc.v1.ToolGetResponse
-	(*ToolCreateRequest)(nil),                                 // 350: gizclaw.rpc.v1.ToolCreateRequest
-	(*ToolCreateResponse)(nil),                                // 351: gizclaw.rpc.v1.ToolCreateResponse
-	(*ToolPutRequest)(nil),                                    // 352: gizclaw.rpc.v1.ToolPutRequest
-	(*ToolPutResponse)(nil),                                   // 353: gizclaw.rpc.v1.ToolPutResponse
-	(*ToolDeleteRequest)(nil),                                 // 354: gizclaw.rpc.v1.ToolDeleteRequest
-	(*ToolDeleteResponse)(nil),                                // 355: gizclaw.rpc.v1.ToolDeleteResponse
-	(*ToolInvokeRequest)(nil),                                 // 356: gizclaw.rpc.v1.ToolInvokeRequest
-	(*ToolInvokeResponse)(nil),                                // 357: gizclaw.rpc.v1.ToolInvokeResponse
-	nil,                                                       // 358: gizclaw.rpc.v1.DoubaoRealtimeASRContext.CorrectWordsEntry
-	nil,                                                       // 359: gizclaw.rpc.v1.DoubaoRealtimeJSONSchema.PropertiesEntry
-	nil,                                                       // 360: gizclaw.rpc.v1.GameRewardSpec.BadgeExpDeltaEntry
-	nil,                                                       // 361: gizclaw.rpc.v1.GameRulesetDriveSpec.ActionCostsEntry
-	nil,                                                       // 362: gizclaw.rpc.v1.GameRulesetDriveSpec.ActionRewardsEntry
-	nil,                                                       // 363: gizclaw.rpc.v1.GameRulesetDriveSpec.GameRewardsEntry
-	nil,                                                       // 364: gizclaw.rpc.v1.PeerStatus.LabelsEntry
-	nil,                                                       // 365: gizclaw.rpc.v1.RewardGrant.BadgeExpDeltaEntry
-	nil,                                                       // 366: gizclaw.rpc.v1.StatMap.ValueEntry
-	(*structpb.Struct)(nil),                                   // 367: google.protobuf.Struct
+	(*EdgePeerAssignment)(nil),                                // 77: gizclaw.rpc.v1.EdgePeerAssignment
+	(*EdgePeerLookupRequest)(nil),                             // 78: gizclaw.rpc.v1.EdgePeerLookupRequest
+	(*EdgePeerLookupResponse)(nil),                            // 79: gizclaw.rpc.v1.EdgePeerLookupResponse
+	(*EdgePeerAssignRequest)(nil),                             // 80: gizclaw.rpc.v1.EdgePeerAssignRequest
+	(*EdgePeerAssignResponse)(nil),                            // 81: gizclaw.rpc.v1.EdgePeerAssignResponse
+	(*EdgeRouteResolveRequest)(nil),                           // 82: gizclaw.rpc.v1.EdgeRouteResolveRequest
+	(*EdgeRouteResolveResponse)(nil),                          // 83: gizclaw.rpc.v1.EdgeRouteResolveResponse
+	(*DoubaoRealtimeAIGCMetadata)(nil),                        // 84: gizclaw.rpc.v1.DoubaoRealtimeAIGCMetadata
+	(*DoubaoRealtimeASRContext)(nil),                          // 85: gizclaw.rpc.v1.DoubaoRealtimeASRContext
+	(*DoubaoRealtimeASRExtension)(nil),                        // 86: gizclaw.rpc.v1.DoubaoRealtimeASRExtension
+	(*DoubaoRealtimeASRExtra)(nil),                            // 87: gizclaw.rpc.v1.DoubaoRealtimeASRExtra
+	(*DoubaoRealtimeASRHotword)(nil),                          // 88: gizclaw.rpc.v1.DoubaoRealtimeASRHotword
+	(*DoubaoRealtimeAudio)(nil),                               // 89: gizclaw.rpc.v1.DoubaoRealtimeAudio
+	(*DoubaoRealtimeAudioFormat)(nil),                         // 90: gizclaw.rpc.v1.DoubaoRealtimeAudioFormat
+	(*DoubaoRealtimeAudioInput)(nil),                          // 91: gizclaw.rpc.v1.DoubaoRealtimeAudioInput
+	(*DoubaoRealtimeAudioOutput)(nil),                         // 92: gizclaw.rpc.v1.DoubaoRealtimeAudioOutput
+	(*DoubaoRealtimeDialogExtension)(nil),                     // 93: gizclaw.rpc.v1.DoubaoRealtimeDialogExtension
+	(*DoubaoRealtimeDialogExtra)(nil),                         // 94: gizclaw.rpc.v1.DoubaoRealtimeDialogExtra
+	(*DoubaoRealtimeExtension)(nil),                           // 95: gizclaw.rpc.v1.DoubaoRealtimeExtension
+	(*DoubaoRealtimeFunctionTool)(nil),                        // 96: gizclaw.rpc.v1.DoubaoRealtimeFunctionTool
+	(*DoubaoRealtimeJSONSchema)(nil),                          // 97: gizclaw.rpc.v1.DoubaoRealtimeJSONSchema
+	(*DoubaoRealtimeTTSExtension)(nil),                        // 98: gizclaw.rpc.v1.DoubaoRealtimeTTSExtension
+	(*DoubaoRealtimeTTSExtra)(nil),                            // 99: gizclaw.rpc.v1.DoubaoRealtimeTTSExtra
+	(*DoubaoRealtimeWorkflowSpec)(nil),                        // 100: gizclaw.rpc.v1.DoubaoRealtimeWorkflowSpec
+	(*DoubaoRealtimeWorkspaceParameters)(nil),                 // 101: gizclaw.rpc.v1.DoubaoRealtimeWorkspaceParameters
+	(*Firmware)(nil),                                          // 102: gizclaw.rpc.v1.Firmware
+	(*FirmwareArtifact)(nil),                                  // 103: gizclaw.rpc.v1.FirmwareArtifact
+	(*FirmwareArtifactEntry)(nil),                             // 104: gizclaw.rpc.v1.FirmwareArtifactEntry
+	(*FirmwareFilesDownloadRequest)(nil),                      // 105: gizclaw.rpc.v1.FirmwareFilesDownloadRequest
+	(*FirmwareFilesDownloadResponse)(nil),                     // 106: gizclaw.rpc.v1.FirmwareFilesDownloadResponse
+	(*FirmwareGetRequest)(nil),                                // 107: gizclaw.rpc.v1.FirmwareGetRequest
+	(*FirmwareGetResponse)(nil),                               // 108: gizclaw.rpc.v1.FirmwareGetResponse
+	(*FirmwareListRequest)(nil),                               // 109: gizclaw.rpc.v1.FirmwareListRequest
+	(*FirmwareListResponse)(nil),                              // 110: gizclaw.rpc.v1.FirmwareListResponse
+	(*FirmwareSlot)(nil),                                      // 111: gizclaw.rpc.v1.FirmwareSlot
+	(*FirmwareSlots)(nil),                                     // 112: gizclaw.rpc.v1.FirmwareSlots
+	(*FlowcraftConversationParameters)(nil),                   // 113: gizclaw.rpc.v1.FlowcraftConversationParameters
+	(*FlowcraftWorkflowSpec)(nil),                             // 114: gizclaw.rpc.v1.FlowcraftWorkflowSpec
+	(*FlowcraftWorkspaceParameters)(nil),                      // 115: gizclaw.rpc.v1.FlowcraftWorkspaceParameters
+	(*FriendAddRequest)(nil),                                  // 116: gizclaw.rpc.v1.FriendAddRequest
+	(*FriendAddResponse)(nil),                                 // 117: gizclaw.rpc.v1.FriendAddResponse
+	(*FriendDeleteRequest)(nil),                               // 118: gizclaw.rpc.v1.FriendDeleteRequest
+	(*FriendDeleteResponse)(nil),                              // 119: gizclaw.rpc.v1.FriendDeleteResponse
+	(*FriendGroupCreateRequest)(nil),                          // 120: gizclaw.rpc.v1.FriendGroupCreateRequest
+	(*FriendGroupCreateResponse)(nil),                         // 121: gizclaw.rpc.v1.FriendGroupCreateResponse
+	(*FriendGroupDeleteRequest)(nil),                          // 122: gizclaw.rpc.v1.FriendGroupDeleteRequest
+	(*FriendGroupDeleteResponse)(nil),                         // 123: gizclaw.rpc.v1.FriendGroupDeleteResponse
+	(*FriendGroupGetRequest)(nil),                             // 124: gizclaw.rpc.v1.FriendGroupGetRequest
+	(*FriendGroupGetResponse)(nil),                            // 125: gizclaw.rpc.v1.FriendGroupGetResponse
+	(*FriendGroupInviteTokenClearRequest)(nil),                // 126: gizclaw.rpc.v1.FriendGroupInviteTokenClearRequest
+	(*FriendGroupInviteTokenClearResponse)(nil),               // 127: gizclaw.rpc.v1.FriendGroupInviteTokenClearResponse
+	(*FriendGroupInviteTokenCreateRequest)(nil),               // 128: gizclaw.rpc.v1.FriendGroupInviteTokenCreateRequest
+	(*FriendGroupInviteTokenCreateResponse)(nil),              // 129: gizclaw.rpc.v1.FriendGroupInviteTokenCreateResponse
+	(*FriendGroupInviteTokenGetRequest)(nil),                  // 130: gizclaw.rpc.v1.FriendGroupInviteTokenGetRequest
+	(*FriendGroupInviteTokenGetResponse)(nil),                 // 131: gizclaw.rpc.v1.FriendGroupInviteTokenGetResponse
+	(*FriendGroupJoinRequest)(nil),                            // 132: gizclaw.rpc.v1.FriendGroupJoinRequest
+	(*FriendGroupJoinResponse)(nil),                           // 133: gizclaw.rpc.v1.FriendGroupJoinResponse
+	(*FriendGroupListRequest)(nil),                            // 134: gizclaw.rpc.v1.FriendGroupListRequest
+	(*FriendGroupListResponse)(nil),                           // 135: gizclaw.rpc.v1.FriendGroupListResponse
+	(*FriendGroupMemberAddRequest)(nil),                       // 136: gizclaw.rpc.v1.FriendGroupMemberAddRequest
+	(*FriendGroupMemberAddResponse)(nil),                      // 137: gizclaw.rpc.v1.FriendGroupMemberAddResponse
+	(*FriendGroupMemberDeleteRequest)(nil),                    // 138: gizclaw.rpc.v1.FriendGroupMemberDeleteRequest
+	(*FriendGroupMemberDeleteResponse)(nil),                   // 139: gizclaw.rpc.v1.FriendGroupMemberDeleteResponse
+	(*FriendGroupMemberListRequest)(nil),                      // 140: gizclaw.rpc.v1.FriendGroupMemberListRequest
+	(*FriendGroupMemberListResponse)(nil),                     // 141: gizclaw.rpc.v1.FriendGroupMemberListResponse
+	(*FriendGroupMemberObject)(nil),                           // 142: gizclaw.rpc.v1.FriendGroupMemberObject
+	(*FriendGroupMemberPutRequest)(nil),                       // 143: gizclaw.rpc.v1.FriendGroupMemberPutRequest
+	(*FriendGroupMemberPutResponse)(nil),                      // 144: gizclaw.rpc.v1.FriendGroupMemberPutResponse
+	(*FriendGroupMessageGetRequest)(nil),                      // 145: gizclaw.rpc.v1.FriendGroupMessageGetRequest
+	(*FriendGroupMessageGetResponse)(nil),                     // 146: gizclaw.rpc.v1.FriendGroupMessageGetResponse
+	(*FriendGroupMessageListRequest)(nil),                     // 147: gizclaw.rpc.v1.FriendGroupMessageListRequest
+	(*FriendGroupMessageListResponse)(nil),                    // 148: gizclaw.rpc.v1.FriendGroupMessageListResponse
+	(*FriendGroupMessageObject)(nil),                          // 149: gizclaw.rpc.v1.FriendGroupMessageObject
+	(*FriendGroupMessageSendRequest)(nil),                     // 150: gizclaw.rpc.v1.FriendGroupMessageSendRequest
+	(*FriendGroupMessageSendResponse)(nil),                    // 151: gizclaw.rpc.v1.FriendGroupMessageSendResponse
+	(*FriendGroupObject)(nil),                                 // 152: gizclaw.rpc.v1.FriendGroupObject
+	(*FriendGroupPutRequest)(nil),                             // 153: gizclaw.rpc.v1.FriendGroupPutRequest
+	(*FriendGroupPutResponse)(nil),                            // 154: gizclaw.rpc.v1.FriendGroupPutResponse
+	(*FriendInviteTokenClearRequest)(nil),                     // 155: gizclaw.rpc.v1.FriendInviteTokenClearRequest
+	(*FriendInviteTokenClearResponse)(nil),                    // 156: gizclaw.rpc.v1.FriendInviteTokenClearResponse
+	(*FriendInviteTokenCreateRequest)(nil),                    // 157: gizclaw.rpc.v1.FriendInviteTokenCreateRequest
+	(*FriendInviteTokenCreateResponse)(nil),                   // 158: gizclaw.rpc.v1.FriendInviteTokenCreateResponse
+	(*FriendInviteTokenGetRequest)(nil),                       // 159: gizclaw.rpc.v1.FriendInviteTokenGetRequest
+	(*FriendInviteTokenGetResponse)(nil),                      // 160: gizclaw.rpc.v1.FriendInviteTokenGetResponse
+	(*FriendListRequest)(nil),                                 // 161: gizclaw.rpc.v1.FriendListRequest
+	(*FriendListResponse)(nil),                                // 162: gizclaw.rpc.v1.FriendListResponse
+	(*FriendObject)(nil),                                      // 163: gizclaw.rpc.v1.FriendObject
+	(*GameResult)(nil),                                        // 164: gizclaw.rpc.v1.GameResult
+	(*GameResultListResponse)(nil),                            // 165: gizclaw.rpc.v1.GameResultListResponse
+	(*GameRewardSpec)(nil),                                    // 166: gizclaw.rpc.v1.GameRewardSpec
+	(*GameRuleset)(nil),                                       // 167: gizclaw.rpc.v1.GameRuleset
+	(*GameRulesetDriveSpec)(nil),                              // 168: gizclaw.rpc.v1.GameRulesetDriveSpec
+	(*GameRulesetPetPoolEntry)(nil),                           // 169: gizclaw.rpc.v1.GameRulesetPetPoolEntry
+	(*GameRulesetPointsSpec)(nil),                             // 170: gizclaw.rpc.v1.GameRulesetPointsSpec
+	(*GameRulesetSpec)(nil),                                   // 171: gizclaw.rpc.v1.GameRulesetSpec
+	(*GameplayGetRequest)(nil),                                // 172: gizclaw.rpc.v1.GameplayGetRequest
+	(*GameplayListRequest)(nil),                               // 173: gizclaw.rpc.v1.GameplayListRequest
+	(*GameplayMetadata)(nil),                                  // 174: gizclaw.rpc.v1.GameplayMetadata
+	(*GeminiCredentialBody)(nil),                              // 175: gizclaw.rpc.v1.GeminiCredentialBody
+	(*GeminiTenantModelProviderData)(nil),                     // 176: gizclaw.rpc.v1.GeminiTenantModelProviderData
+	(*GeminiTenantVoiceProviderData)(nil),                     // 177: gizclaw.rpc.v1.GeminiTenantVoiceProviderData
+	(*HardwareInfo)(nil),                                      // 178: gizclaw.rpc.v1.HardwareInfo
+	(*MiniMaxCredentialBody)(nil),                             // 179: gizclaw.rpc.v1.MiniMaxCredentialBody
+	(*MiniMaxTenantVoiceProviderData)(nil),                    // 180: gizclaw.rpc.v1.MiniMaxTenantVoiceProviderData
+	(*Model)(nil),                                             // 181: gizclaw.rpc.v1.Model
+	(*ModelCapabilities)(nil),                                 // 182: gizclaw.rpc.v1.ModelCapabilities
+	(*ModelCreateRequest)(nil),                                // 183: gizclaw.rpc.v1.ModelCreateRequest
+	(*ModelCreateResponse)(nil),                               // 184: gizclaw.rpc.v1.ModelCreateResponse
+	(*ModelDeleteRequest)(nil),                                // 185: gizclaw.rpc.v1.ModelDeleteRequest
+	(*ModelDeleteResponse)(nil),                               // 186: gizclaw.rpc.v1.ModelDeleteResponse
+	(*ModelGetRequest)(nil),                                   // 187: gizclaw.rpc.v1.ModelGetRequest
+	(*ModelGetResponse)(nil),                                  // 188: gizclaw.rpc.v1.ModelGetResponse
+	(*ModelListRequest)(nil),                                  // 189: gizclaw.rpc.v1.ModelListRequest
+	(*ModelListResponse)(nil),                                 // 190: gizclaw.rpc.v1.ModelListResponse
+	(*ModelProvider)(nil),                                     // 191: gizclaw.rpc.v1.ModelProvider
+	(*ModelProviderData)(nil),                                 // 192: gizclaw.rpc.v1.ModelProviderData
+	(*ModelPutRequest)(nil),                                   // 193: gizclaw.rpc.v1.ModelPutRequest
+	(*ModelPutResponse)(nil),                                  // 194: gizclaw.rpc.v1.ModelPutResponse
+	(*ModelThinkingCapability)(nil),                           // 195: gizclaw.rpc.v1.ModelThinkingCapability
+	(*OpenAICredentialBody)(nil),                              // 196: gizclaw.rpc.v1.OpenAICredentialBody
+	(*OpenAITenantModelProviderData)(nil),                     // 197: gizclaw.rpc.v1.OpenAITenantModelProviderData
+	(*OpenAITenantVoiceProviderData)(nil),                     // 198: gizclaw.rpc.v1.OpenAITenantVoiceProviderData
+	(*PeerIMEI)(nil),                                          // 199: gizclaw.rpc.v1.PeerIMEI
+	(*PeerLabel)(nil),                                         // 200: gizclaw.rpc.v1.PeerLabel
+	(*PeerRunAgent)(nil),                                      // 201: gizclaw.rpc.v1.PeerRunAgent
+	(*PeerRunHistoryEntry)(nil),                               // 202: gizclaw.rpc.v1.PeerRunHistoryEntry
+	(*PeerRunHistoryListRequest)(nil),                         // 203: gizclaw.rpc.v1.PeerRunHistoryListRequest
+	(*PeerRunHistoryListResponse)(nil),                        // 204: gizclaw.rpc.v1.PeerRunHistoryListResponse
+	(*PeerRunHistoryPlayRequest)(nil),                         // 205: gizclaw.rpc.v1.PeerRunHistoryPlayRequest
+	(*PeerRunHistoryPlayResponse)(nil),                        // 206: gizclaw.rpc.v1.PeerRunHistoryPlayResponse
+	(*PeerRunMemoryStatsRequest)(nil),                         // 207: gizclaw.rpc.v1.PeerRunMemoryStatsRequest
+	(*PeerRunMemoryStatsResponse)(nil),                        // 208: gizclaw.rpc.v1.PeerRunMemoryStatsResponse
+	(*PeerRunRecallHit)(nil),                                  // 209: gizclaw.rpc.v1.PeerRunRecallHit
+	(*PeerRunRecallRequest)(nil),                              // 210: gizclaw.rpc.v1.PeerRunRecallRequest
+	(*PeerRunRecallResponse)(nil),                             // 211: gizclaw.rpc.v1.PeerRunRecallResponse
+	(*PeerRunStatus)(nil),                                     // 212: gizclaw.rpc.v1.PeerRunStatus
+	(*PeerRunWorkspaceState)(nil),                             // 213: gizclaw.rpc.v1.PeerRunWorkspaceState
+	(*PeerStatus)(nil),                                        // 214: gizclaw.rpc.v1.PeerStatus
+	(*Pet)(nil),                                               // 215: gizclaw.rpc.v1.Pet
+	(*PetAdoptRequest)(nil),                                   // 216: gizclaw.rpc.v1.PetAdoptRequest
+	(*PetAdoptResponse)(nil),                                  // 217: gizclaw.rpc.v1.PetAdoptResponse
+	(*PetDefPixaDownloadRequest)(nil),                         // 218: gizclaw.rpc.v1.PetDefPixaDownloadRequest
+	(*PetDefPixaDownloadResponse)(nil),                        // 219: gizclaw.rpc.v1.PetDefPixaDownloadResponse
+	(*PetDeleteRequest)(nil),                                  // 220: gizclaw.rpc.v1.PetDeleteRequest
+	(*PetDriveGameResultInput)(nil),                           // 221: gizclaw.rpc.v1.PetDriveGameResultInput
+	(*PetDriveRequest)(nil),                                   // 222: gizclaw.rpc.v1.PetDriveRequest
+	(*PetDriveResponse)(nil),                                  // 223: gizclaw.rpc.v1.PetDriveResponse
+	(*PetGetRequest)(nil),                                     // 224: gizclaw.rpc.v1.PetGetRequest
+	(*PetListResponse)(nil),                                   // 225: gizclaw.rpc.v1.PetListResponse
+	(*PetPutRequest)(nil),                                     // 226: gizclaw.rpc.v1.PetPutRequest
+	(*PingRequest)(nil),                                       // 227: gizclaw.rpc.v1.PingRequest
+	(*PingResponse)(nil),                                      // 228: gizclaw.rpc.v1.PingResponse
+	(*PointsAccount)(nil),                                     // 229: gizclaw.rpc.v1.PointsAccount
+	(*PointsTransaction)(nil),                                 // 230: gizclaw.rpc.v1.PointsTransaction
+	(*PointsTransactionListResponse)(nil),                     // 231: gizclaw.rpc.v1.PointsTransactionListResponse
+	(*RefreshIdentifiers)(nil),                                // 232: gizclaw.rpc.v1.RefreshIdentifiers
+	(*RefreshInfo)(nil),                                       // 233: gizclaw.rpc.v1.RefreshInfo
+	(*RewardGrant)(nil),                                       // 234: gizclaw.rpc.v1.RewardGrant
+	(*RewardGrantListResponse)(nil),                           // 235: gizclaw.rpc.v1.RewardGrantListResponse
+	(*Runtime)(nil),                                           // 236: gizclaw.rpc.v1.Runtime
+	(*ServerBadgeGetRequest)(nil),                             // 237: gizclaw.rpc.v1.ServerBadgeGetRequest
+	(*ServerBadgeGetResponse)(nil),                            // 238: gizclaw.rpc.v1.ServerBadgeGetResponse
+	(*ServerBadgeListRequest)(nil),                            // 239: gizclaw.rpc.v1.ServerBadgeListRequest
+	(*ServerBadgeListResponse)(nil),                           // 240: gizclaw.rpc.v1.ServerBadgeListResponse
+	(*ServerGameResultGetRequest)(nil),                        // 241: gizclaw.rpc.v1.ServerGameResultGetRequest
+	(*ServerGameResultGetResponse)(nil),                       // 242: gizclaw.rpc.v1.ServerGameResultGetResponse
+	(*ServerGameResultListRequest)(nil),                       // 243: gizclaw.rpc.v1.ServerGameResultListRequest
+	(*ServerGameResultListResponse)(nil),                      // 244: gizclaw.rpc.v1.ServerGameResultListResponse
+	(*ServerGameRulesetGetRequest)(nil),                       // 245: gizclaw.rpc.v1.ServerGameRulesetGetRequest
+	(*ServerGameRulesetGetResponse)(nil),                      // 246: gizclaw.rpc.v1.ServerGameRulesetGetResponse
+	(*ServerGetInfoRequest)(nil),                              // 247: gizclaw.rpc.v1.ServerGetInfoRequest
+	(*ServerGetInfoResponse)(nil),                             // 248: gizclaw.rpc.v1.ServerGetInfoResponse
+	(*ServerGetRunAgentRequest)(nil),                          // 249: gizclaw.rpc.v1.ServerGetRunAgentRequest
+	(*ServerGetRunAgentResponse)(nil),                         // 250: gizclaw.rpc.v1.ServerGetRunAgentResponse
+	(*ServerGetRunStatusRequest)(nil),                         // 251: gizclaw.rpc.v1.ServerGetRunStatusRequest
+	(*ServerGetRunStatusResponse)(nil),                        // 252: gizclaw.rpc.v1.ServerGetRunStatusResponse
+	(*ServerGetRunWorkspaceMemoryStatsRequest)(nil),           // 253: gizclaw.rpc.v1.ServerGetRunWorkspaceMemoryStatsRequest
+	(*ServerGetRunWorkspaceMemoryStatsResponse)(nil),          // 254: gizclaw.rpc.v1.ServerGetRunWorkspaceMemoryStatsResponse
+	(*ServerGetRunWorkspaceRequest)(nil),                      // 255: gizclaw.rpc.v1.ServerGetRunWorkspaceRequest
+	(*ServerGetRunWorkspaceResponse)(nil),                     // 256: gizclaw.rpc.v1.ServerGetRunWorkspaceResponse
+	(*ServerGetRuntimeRequest)(nil),                           // 257: gizclaw.rpc.v1.ServerGetRuntimeRequest
+	(*ServerGetRuntimeResponse)(nil),                          // 258: gizclaw.rpc.v1.ServerGetRuntimeResponse
+	(*ServerGetStatusRequest)(nil),                            // 259: gizclaw.rpc.v1.ServerGetStatusRequest
+	(*ServerGetStatusResponse)(nil),                           // 260: gizclaw.rpc.v1.ServerGetStatusResponse
+	(*ServerListRunWorkspaceHistoryRequest)(nil),              // 261: gizclaw.rpc.v1.ServerListRunWorkspaceHistoryRequest
+	(*ServerListRunWorkspaceHistoryResponse)(nil),             // 262: gizclaw.rpc.v1.ServerListRunWorkspaceHistoryResponse
+	(*ServerPetAdoptRequest)(nil),                             // 263: gizclaw.rpc.v1.ServerPetAdoptRequest
+	(*ServerPetAdoptResponse)(nil),                            // 264: gizclaw.rpc.v1.ServerPetAdoptResponse
+	(*ServerPetDeleteRequest)(nil),                            // 265: gizclaw.rpc.v1.ServerPetDeleteRequest
+	(*ServerPetDeleteResponse)(nil),                           // 266: gizclaw.rpc.v1.ServerPetDeleteResponse
+	(*ServerPetDriveRequest)(nil),                             // 267: gizclaw.rpc.v1.ServerPetDriveRequest
+	(*ServerPetDriveResponse)(nil),                            // 268: gizclaw.rpc.v1.ServerPetDriveResponse
+	(*ServerPetGetRequest)(nil),                               // 269: gizclaw.rpc.v1.ServerPetGetRequest
+	(*ServerPetGetResponse)(nil),                              // 270: gizclaw.rpc.v1.ServerPetGetResponse
+	(*ServerPetListRequest)(nil),                              // 271: gizclaw.rpc.v1.ServerPetListRequest
+	(*ServerPetListResponse)(nil),                             // 272: gizclaw.rpc.v1.ServerPetListResponse
+	(*ServerPetPutRequest)(nil),                               // 273: gizclaw.rpc.v1.ServerPetPutRequest
+	(*ServerPetPutResponse)(nil),                              // 274: gizclaw.rpc.v1.ServerPetPutResponse
+	(*ServerPlayRunWorkspaceHistoryRequest)(nil),              // 275: gizclaw.rpc.v1.ServerPlayRunWorkspaceHistoryRequest
+	(*ServerPlayRunWorkspaceHistoryResponse)(nil),             // 276: gizclaw.rpc.v1.ServerPlayRunWorkspaceHistoryResponse
+	(*ServerPointsGetRequest)(nil),                            // 277: gizclaw.rpc.v1.ServerPointsGetRequest
+	(*ServerPointsGetResponse)(nil),                           // 278: gizclaw.rpc.v1.ServerPointsGetResponse
+	(*ServerPointsTransactionGetRequest)(nil),                 // 279: gizclaw.rpc.v1.ServerPointsTransactionGetRequest
+	(*ServerPointsTransactionGetResponse)(nil),                // 280: gizclaw.rpc.v1.ServerPointsTransactionGetResponse
+	(*ServerPointsTransactionListRequest)(nil),                // 281: gizclaw.rpc.v1.ServerPointsTransactionListRequest
+	(*ServerPointsTransactionListResponse)(nil),               // 282: gizclaw.rpc.v1.ServerPointsTransactionListResponse
+	(*ServerPutInfoRequest)(nil),                              // 283: gizclaw.rpc.v1.ServerPutInfoRequest
+	(*ServerPutInfoResponse)(nil),                             // 284: gizclaw.rpc.v1.ServerPutInfoResponse
+	(*ServerReloadRunRequest)(nil),                            // 285: gizclaw.rpc.v1.ServerReloadRunRequest
+	(*ServerReloadRunResponse)(nil),                           // 286: gizclaw.rpc.v1.ServerReloadRunResponse
+	(*ServerReloadRunWorkspaceRequest)(nil),                   // 287: gizclaw.rpc.v1.ServerReloadRunWorkspaceRequest
+	(*ServerReloadRunWorkspaceResponse)(nil),                  // 288: gizclaw.rpc.v1.ServerReloadRunWorkspaceResponse
+	(*ServerRewardGrantGetRequest)(nil),                       // 289: gizclaw.rpc.v1.ServerRewardGrantGetRequest
+	(*ServerRewardGrantGetResponse)(nil),                      // 290: gizclaw.rpc.v1.ServerRewardGrantGetResponse
+	(*ServerRewardGrantListRequest)(nil),                      // 291: gizclaw.rpc.v1.ServerRewardGrantListRequest
+	(*ServerRewardGrantListResponse)(nil),                     // 292: gizclaw.rpc.v1.ServerRewardGrantListResponse
+	(*ServerRunSayRequest)(nil),                               // 293: gizclaw.rpc.v1.ServerRunSayRequest
+	(*ServerRunSayResponse)(nil),                              // 294: gizclaw.rpc.v1.ServerRunSayResponse
+	(*ServerRunWorkspaceRecallRequest)(nil),                   // 295: gizclaw.rpc.v1.ServerRunWorkspaceRecallRequest
+	(*ServerRunWorkspaceRecallResponse)(nil),                  // 296: gizclaw.rpc.v1.ServerRunWorkspaceRecallResponse
+	(*ServerSetRunAgentRequest)(nil),                          // 297: gizclaw.rpc.v1.ServerSetRunAgentRequest
+	(*ServerSetRunAgentResponse)(nil),                         // 298: gizclaw.rpc.v1.ServerSetRunAgentResponse
+	(*ServerSetRunWorkspaceRequest)(nil),                      // 299: gizclaw.rpc.v1.ServerSetRunWorkspaceRequest
+	(*ServerSetRunWorkspaceResponse)(nil),                     // 300: gizclaw.rpc.v1.ServerSetRunWorkspaceResponse
+	(*ServerStopRunRequest)(nil),                              // 301: gizclaw.rpc.v1.ServerStopRunRequest
+	(*ServerStopRunResponse)(nil),                             // 302: gizclaw.rpc.v1.ServerStopRunResponse
+	(*SpeedTestRequest)(nil),                                  // 303: gizclaw.rpc.v1.SpeedTestRequest
+	(*SpeedTestResponse)(nil),                                 // 304: gizclaw.rpc.v1.SpeedTestResponse
+	(*StatMap)(nil),                                           // 305: gizclaw.rpc.v1.StatMap
+	(*Voice)(nil),                                             // 306: gizclaw.rpc.v1.Voice
+	(*VoiceGetRequest)(nil),                                   // 307: gizclaw.rpc.v1.VoiceGetRequest
+	(*VoiceGetResponse)(nil),                                  // 308: gizclaw.rpc.v1.VoiceGetResponse
+	(*VoiceListRequest)(nil),                                  // 309: gizclaw.rpc.v1.VoiceListRequest
+	(*VoiceListResponse)(nil),                                 // 310: gizclaw.rpc.v1.VoiceListResponse
+	(*VoiceProvider)(nil),                                     // 311: gizclaw.rpc.v1.VoiceProvider
+	(*VoiceProviderData)(nil),                                 // 312: gizclaw.rpc.v1.VoiceProviderData
+	(*VolcCredentialBody)(nil),                                // 313: gizclaw.rpc.v1.VolcCredentialBody
+	(*VolcTenantModelProviderData)(nil),                       // 314: gizclaw.rpc.v1.VolcTenantModelProviderData
+	(*VolcTenantVoiceProviderData)(nil),                       // 315: gizclaw.rpc.v1.VolcTenantVoiceProviderData
+	(*WorkflowCreateRequest)(nil),                             // 316: gizclaw.rpc.v1.WorkflowCreateRequest
+	(*WorkflowCreateResponse)(nil),                            // 317: gizclaw.rpc.v1.WorkflowCreateResponse
+	(*WorkflowDeleteRequest)(nil),                             // 318: gizclaw.rpc.v1.WorkflowDeleteRequest
+	(*WorkflowDeleteResponse)(nil),                            // 319: gizclaw.rpc.v1.WorkflowDeleteResponse
+	(*WorkflowDocument)(nil),                                  // 320: gizclaw.rpc.v1.WorkflowDocument
+	(*WorkflowGetRequest)(nil),                                // 321: gizclaw.rpc.v1.WorkflowGetRequest
+	(*WorkflowGetResponse)(nil),                               // 322: gizclaw.rpc.v1.WorkflowGetResponse
+	(*WorkflowListRequest)(nil),                               // 323: gizclaw.rpc.v1.WorkflowListRequest
+	(*WorkflowListResponse)(nil),                              // 324: gizclaw.rpc.v1.WorkflowListResponse
+	(*WorkflowMetadata)(nil),                                  // 325: gizclaw.rpc.v1.WorkflowMetadata
+	(*ToolkitPolicyToolIds)(nil),                              // 326: gizclaw.rpc.v1.ToolkitPolicyToolIds
+	(*ToolkitPolicy)(nil),                                     // 327: gizclaw.rpc.v1.ToolkitPolicy
+	(*WorkflowPutRequest)(nil),                                // 328: gizclaw.rpc.v1.WorkflowPutRequest
+	(*WorkflowPutResponse)(nil),                               // 329: gizclaw.rpc.v1.WorkflowPutResponse
+	(*WorkflowSpec)(nil),                                      // 330: gizclaw.rpc.v1.WorkflowSpec
+	(*Workspace)(nil),                                         // 331: gizclaw.rpc.v1.Workspace
+	(*WorkspaceCreateRequest)(nil),                            // 332: gizclaw.rpc.v1.WorkspaceCreateRequest
+	(*WorkspaceCreateResponse)(nil),                           // 333: gizclaw.rpc.v1.WorkspaceCreateResponse
+	(*WorkspaceDeleteRequest)(nil),                            // 334: gizclaw.rpc.v1.WorkspaceDeleteRequest
+	(*WorkspaceDeleteResponse)(nil),                           // 335: gizclaw.rpc.v1.WorkspaceDeleteResponse
+	(*WorkspaceGetRequest)(nil),                               // 336: gizclaw.rpc.v1.WorkspaceGetRequest
+	(*WorkspaceGetResponse)(nil),                              // 337: gizclaw.rpc.v1.WorkspaceGetResponse
+	(*WorkspaceHistoryAudioGetRequest)(nil),                   // 338: gizclaw.rpc.v1.WorkspaceHistoryAudioGetRequest
+	(*WorkspaceHistoryAudioGetResponse)(nil),                  // 339: gizclaw.rpc.v1.WorkspaceHistoryAudioGetResponse
+	(*WorkspaceHistoryGetRequest)(nil),                        // 340: gizclaw.rpc.v1.WorkspaceHistoryGetRequest
+	(*WorkspaceHistoryGetResponse)(nil),                       // 341: gizclaw.rpc.v1.WorkspaceHistoryGetResponse
+	(*WorkspaceHistoryListRequest)(nil),                       // 342: gizclaw.rpc.v1.WorkspaceHistoryListRequest
+	(*WorkspaceHistoryListResponse)(nil),                      // 343: gizclaw.rpc.v1.WorkspaceHistoryListResponse
+	(*WorkspaceListRequest)(nil),                              // 344: gizclaw.rpc.v1.WorkspaceListRequest
+	(*WorkspaceListResponse)(nil),                             // 345: gizclaw.rpc.v1.WorkspaceListResponse
+	(*WorkspaceParameters)(nil),                               // 346: gizclaw.rpc.v1.WorkspaceParameters
+	(*WorkspacePutRequest)(nil),                               // 347: gizclaw.rpc.v1.WorkspacePutRequest
+	(*WorkspacePutResponse)(nil),                              // 348: gizclaw.rpc.v1.WorkspacePutResponse
+	(*ToolExecutor)(nil),                                      // 349: gizclaw.rpc.v1.ToolExecutor
+	(*ToolTriggerExample)(nil),                                // 350: gizclaw.rpc.v1.ToolTriggerExample
+	(*ToolTrigger)(nil),                                       // 351: gizclaw.rpc.v1.ToolTrigger
+	(*Tool)(nil),                                              // 352: gizclaw.rpc.v1.Tool
+	(*ToolListRequest)(nil),                                   // 353: gizclaw.rpc.v1.ToolListRequest
+	(*ToolListResponse)(nil),                                  // 354: gizclaw.rpc.v1.ToolListResponse
+	(*ToolGetRequest)(nil),                                    // 355: gizclaw.rpc.v1.ToolGetRequest
+	(*ToolGetResponse)(nil),                                   // 356: gizclaw.rpc.v1.ToolGetResponse
+	(*ToolCreateRequest)(nil),                                 // 357: gizclaw.rpc.v1.ToolCreateRequest
+	(*ToolCreateResponse)(nil),                                // 358: gizclaw.rpc.v1.ToolCreateResponse
+	(*ToolPutRequest)(nil),                                    // 359: gizclaw.rpc.v1.ToolPutRequest
+	(*ToolPutResponse)(nil),                                   // 360: gizclaw.rpc.v1.ToolPutResponse
+	(*ToolDeleteRequest)(nil),                                 // 361: gizclaw.rpc.v1.ToolDeleteRequest
+	(*ToolDeleteResponse)(nil),                                // 362: gizclaw.rpc.v1.ToolDeleteResponse
+	(*ToolInvokeRequest)(nil),                                 // 363: gizclaw.rpc.v1.ToolInvokeRequest
+	(*ToolInvokeResponse)(nil),                                // 364: gizclaw.rpc.v1.ToolInvokeResponse
+	nil,                                                       // 365: gizclaw.rpc.v1.DoubaoRealtimeASRContext.CorrectWordsEntry
+	nil,                                                       // 366: gizclaw.rpc.v1.DoubaoRealtimeJSONSchema.PropertiesEntry
+	nil,                                                       // 367: gizclaw.rpc.v1.GameRewardSpec.BadgeExpDeltaEntry
+	nil,                                                       // 368: gizclaw.rpc.v1.GameRulesetDriveSpec.ActionCostsEntry
+	nil,                                                       // 369: gizclaw.rpc.v1.GameRulesetDriveSpec.ActionRewardsEntry
+	nil,                                                       // 370: gizclaw.rpc.v1.GameRulesetDriveSpec.GameRewardsEntry
+	nil,                                                       // 371: gizclaw.rpc.v1.PeerStatus.LabelsEntry
+	nil,                                                       // 372: gizclaw.rpc.v1.RewardGrant.BadgeExpDeltaEntry
+	nil,                                                       // 373: gizclaw.rpc.v1.StatMap.ValueEntry
+	(*structpb.Struct)(nil),                                   // 374: google.protobuf.Struct
 }
 var file_payload_proto_depIdxs = []int32{
 	31,  // 0: gizclaw.rpc.v1.ASTTranslateVoiceParameters.asttranslate_internal_speaker_parameters:type_name -> gizclaw.rpc.v1.ASTTranslateInternalSpeakerParameters
@@ -22953,19 +23364,19 @@ var file_payload_proto_depIdxs = []int32{
 	27,  // 13: gizclaw.rpc.v1.ChatRoomWorkspaceParameters.input:type_name -> gizclaw.rpc.v1.WorkspaceInputMode
 	2,   // 14: gizclaw.rpc.v1.ChatRoomWorkspaceParameters.mode:type_name -> gizclaw.rpc.v1.ChatRoomMode
 	45,  // 15: gizclaw.rpc.v1.ChatRoomWorkspaceParameters.transcript:type_name -> gizclaw.rpc.v1.ChatRoomWorkspaceTranscriptParameters
-	225, // 16: gizclaw.rpc.v1.ClientGetIdentifiersResponse.value:type_name -> gizclaw.rpc.v1.RefreshIdentifiers
-	226, // 17: gizclaw.rpc.v1.ClientGetInfoResponse.value:type_name -> gizclaw.rpc.v1.RefreshInfo
+	232, // 16: gizclaw.rpc.v1.ClientGetIdentifiersResponse.value:type_name -> gizclaw.rpc.v1.RefreshIdentifiers
+	233, // 17: gizclaw.rpc.v1.ClientGetInfoResponse.value:type_name -> gizclaw.rpc.v1.RefreshInfo
 	58,  // 18: gizclaw.rpc.v1.ContactCreateResponse.value:type_name -> gizclaw.rpc.v1.ContactObject
 	58,  // 19: gizclaw.rpc.v1.ContactDeleteResponse.value:type_name -> gizclaw.rpc.v1.ContactObject
 	58,  // 20: gizclaw.rpc.v1.ContactGetResponse.value:type_name -> gizclaw.rpc.v1.ContactObject
 	58,  // 21: gizclaw.rpc.v1.ContactListResponse.items:type_name -> gizclaw.rpc.v1.ContactObject
 	58,  // 22: gizclaw.rpc.v1.ContactPutResponse.value:type_name -> gizclaw.rpc.v1.ContactObject
 	62,  // 23: gizclaw.rpc.v1.Credential.body:type_name -> gizclaw.rpc.v1.CredentialBody
-	189, // 24: gizclaw.rpc.v1.CredentialBody.open_aicredential_body:type_name -> gizclaw.rpc.v1.OpenAICredentialBody
-	168, // 25: gizclaw.rpc.v1.CredentialBody.gemini_credential_body:type_name -> gizclaw.rpc.v1.GeminiCredentialBody
+	196, // 24: gizclaw.rpc.v1.CredentialBody.open_aicredential_body:type_name -> gizclaw.rpc.v1.OpenAICredentialBody
+	175, // 25: gizclaw.rpc.v1.CredentialBody.gemini_credential_body:type_name -> gizclaw.rpc.v1.GeminiCredentialBody
 	73,  // 26: gizclaw.rpc.v1.CredentialBody.dash_scope_credential_body:type_name -> gizclaw.rpc.v1.DashScopeCredentialBody
-	172, // 27: gizclaw.rpc.v1.CredentialBody.mini_max_credential_body:type_name -> gizclaw.rpc.v1.MiniMaxCredentialBody
-	306, // 28: gizclaw.rpc.v1.CredentialBody.volc_credential_body:type_name -> gizclaw.rpc.v1.VolcCredentialBody
+	179, // 27: gizclaw.rpc.v1.CredentialBody.mini_max_credential_body:type_name -> gizclaw.rpc.v1.MiniMaxCredentialBody
+	313, // 28: gizclaw.rpc.v1.CredentialBody.volc_credential_body:type_name -> gizclaw.rpc.v1.VolcCredentialBody
 	61,  // 29: gizclaw.rpc.v1.CredentialCreateRequest.value:type_name -> gizclaw.rpc.v1.Credential
 	61,  // 30: gizclaw.rpc.v1.CredentialCreateResponse.value:type_name -> gizclaw.rpc.v1.Credential
 	61,  // 31: gizclaw.rpc.v1.CredentialDeleteResponse.value:type_name -> gizclaw.rpc.v1.Credential
@@ -22974,276 +23385,279 @@ var file_payload_proto_depIdxs = []int32{
 	61,  // 34: gizclaw.rpc.v1.CredentialPutRequest.body:type_name -> gizclaw.rpc.v1.Credential
 	61,  // 35: gizclaw.rpc.v1.CredentialPutResponse.value:type_name -> gizclaw.rpc.v1.Credential
 	4,   // 36: gizclaw.rpc.v1.DashScopeTenantModelProviderData.api_mode:type_name -> gizclaw.rpc.v1.DashScopeTenantModelProviderDataApiMode
-	367, // 37: gizclaw.rpc.v1.DashScopeTenantVoiceProviderData.raw:type_name -> google.protobuf.Struct
-	171, // 38: gizclaw.rpc.v1.DeviceInfo.hardware:type_name -> gizclaw.rpc.v1.HardwareInfo
-	358, // 39: gizclaw.rpc.v1.DoubaoRealtimeASRContext.correct_words:type_name -> gizclaw.rpc.v1.DoubaoRealtimeASRContext.CorrectWordsEntry
-	81,  // 40: gizclaw.rpc.v1.DoubaoRealtimeASRContext.hotwords:type_name -> gizclaw.rpc.v1.DoubaoRealtimeASRHotword
-	80,  // 41: gizclaw.rpc.v1.DoubaoRealtimeASRExtension.extra:type_name -> gizclaw.rpc.v1.DoubaoRealtimeASRExtra
-	78,  // 42: gizclaw.rpc.v1.DoubaoRealtimeASRExtra.context:type_name -> gizclaw.rpc.v1.DoubaoRealtimeASRContext
-	84,  // 43: gizclaw.rpc.v1.DoubaoRealtimeAudio.input:type_name -> gizclaw.rpc.v1.DoubaoRealtimeAudioInput
-	85,  // 44: gizclaw.rpc.v1.DoubaoRealtimeAudio.output:type_name -> gizclaw.rpc.v1.DoubaoRealtimeAudioOutput
-	5,   // 45: gizclaw.rpc.v1.DoubaoRealtimeAudioFormat.type:type_name -> gizclaw.rpc.v1.DoubaoRealtimeAudioFormatType
-	83,  // 46: gizclaw.rpc.v1.DoubaoRealtimeAudioInput.format:type_name -> gizclaw.rpc.v1.DoubaoRealtimeAudioFormat
-	83,  // 47: gizclaw.rpc.v1.DoubaoRealtimeAudioOutput.format:type_name -> gizclaw.rpc.v1.DoubaoRealtimeAudioFormat
-	87,  // 48: gizclaw.rpc.v1.DoubaoRealtimeDialogExtension.extra:type_name -> gizclaw.rpc.v1.DoubaoRealtimeDialogExtra
-	6,   // 49: gizclaw.rpc.v1.DoubaoRealtimeDialogExtra.volc_websearch_type:type_name -> gizclaw.rpc.v1.DoubaoRealtimeDialogExtraVolcWebsearchType
-	79,  // 50: gizclaw.rpc.v1.DoubaoRealtimeExtension.asr:type_name -> gizclaw.rpc.v1.DoubaoRealtimeASRExtension
-	86,  // 51: gizclaw.rpc.v1.DoubaoRealtimeExtension.dialog:type_name -> gizclaw.rpc.v1.DoubaoRealtimeDialogExtension
-	91,  // 52: gizclaw.rpc.v1.DoubaoRealtimeExtension.tts:type_name -> gizclaw.rpc.v1.DoubaoRealtimeTTSExtension
-	90,  // 53: gizclaw.rpc.v1.DoubaoRealtimeFunctionTool.parameters:type_name -> gizclaw.rpc.v1.DoubaoRealtimeJSONSchema
-	7,   // 54: gizclaw.rpc.v1.DoubaoRealtimeFunctionTool.type:type_name -> gizclaw.rpc.v1.DoubaoRealtimeFunctionToolType
-	90,  // 55: gizclaw.rpc.v1.DoubaoRealtimeJSONSchema.any_of:type_name -> gizclaw.rpc.v1.DoubaoRealtimeJSONSchema
-	90,  // 56: gizclaw.rpc.v1.DoubaoRealtimeJSONSchema.items:type_name -> gizclaw.rpc.v1.DoubaoRealtimeJSONSchema
-	359, // 57: gizclaw.rpc.v1.DoubaoRealtimeJSONSchema.properties:type_name -> gizclaw.rpc.v1.DoubaoRealtimeJSONSchema.PropertiesEntry
-	92,  // 58: gizclaw.rpc.v1.DoubaoRealtimeTTSExtension.extra:type_name -> gizclaw.rpc.v1.DoubaoRealtimeTTSExtra
-	77,  // 59: gizclaw.rpc.v1.DoubaoRealtimeTTSExtra.aigc_metadata:type_name -> gizclaw.rpc.v1.DoubaoRealtimeAIGCMetadata
-	82,  // 60: gizclaw.rpc.v1.DoubaoRealtimeWorkflowSpec.audio:type_name -> gizclaw.rpc.v1.DoubaoRealtimeAudio
-	88,  // 61: gizclaw.rpc.v1.DoubaoRealtimeWorkflowSpec.extension:type_name -> gizclaw.rpc.v1.DoubaoRealtimeExtension
-	89,  // 62: gizclaw.rpc.v1.DoubaoRealtimeWorkflowSpec.tools:type_name -> gizclaw.rpc.v1.DoubaoRealtimeFunctionTool
-	8,   // 63: gizclaw.rpc.v1.DoubaoRealtimeWorkspaceParameters.agent_type:type_name -> gizclaw.rpc.v1.DoubaoRealtimeWorkspaceParametersAgentType
-	82,  // 64: gizclaw.rpc.v1.DoubaoRealtimeWorkspaceParameters.audio:type_name -> gizclaw.rpc.v1.DoubaoRealtimeAudio
-	88,  // 65: gizclaw.rpc.v1.DoubaoRealtimeWorkspaceParameters.extension:type_name -> gizclaw.rpc.v1.DoubaoRealtimeExtension
-	27,  // 66: gizclaw.rpc.v1.DoubaoRealtimeWorkspaceParameters.input:type_name -> gizclaw.rpc.v1.WorkspaceInputMode
-	89,  // 67: gizclaw.rpc.v1.DoubaoRealtimeWorkspaceParameters.tools:type_name -> gizclaw.rpc.v1.DoubaoRealtimeFunctionTool
-	105, // 68: gizclaw.rpc.v1.Firmware.slots:type_name -> gizclaw.rpc.v1.FirmwareSlots
-	9,   // 69: gizclaw.rpc.v1.FirmwareArtifactEntry.type:type_name -> gizclaw.rpc.v1.FirmwareArtifactEntryType
-	10,  // 70: gizclaw.rpc.v1.FirmwareFilesDownloadRequest.channel:type_name -> gizclaw.rpc.v1.FirmwareChannelName
-	96,  // 71: gizclaw.rpc.v1.FirmwareFilesDownloadResponse.artifact:type_name -> gizclaw.rpc.v1.FirmwareArtifact
-	10,  // 72: gizclaw.rpc.v1.FirmwareFilesDownloadResponse.channel:type_name -> gizclaw.rpc.v1.FirmwareChannelName
-	97,  // 73: gizclaw.rpc.v1.FirmwareFilesDownloadResponse.file:type_name -> gizclaw.rpc.v1.FirmwareArtifactEntry
-	95,  // 74: gizclaw.rpc.v1.FirmwareGetResponse.value:type_name -> gizclaw.rpc.v1.Firmware
-	95,  // 75: gizclaw.rpc.v1.FirmwareListResponse.items:type_name -> gizclaw.rpc.v1.Firmware
-	96,  // 76: gizclaw.rpc.v1.FirmwareSlot.artifact:type_name -> gizclaw.rpc.v1.FirmwareArtifact
-	104, // 77: gizclaw.rpc.v1.FirmwareSlots.beta:type_name -> gizclaw.rpc.v1.FirmwareSlot
-	104, // 78: gizclaw.rpc.v1.FirmwareSlots.develop:type_name -> gizclaw.rpc.v1.FirmwareSlot
-	104, // 79: gizclaw.rpc.v1.FirmwareSlots.pending:type_name -> gizclaw.rpc.v1.FirmwareSlot
-	104, // 80: gizclaw.rpc.v1.FirmwareSlots.stable:type_name -> gizclaw.rpc.v1.FirmwareSlot
-	11,  // 81: gizclaw.rpc.v1.FlowcraftConversationParameters.agent_initiative_policy:type_name -> gizclaw.rpc.v1.FlowcraftConversationParametersAgentInitiativePolicy
-	12,  // 82: gizclaw.rpc.v1.FlowcraftConversationParameters.initiative:type_name -> gizclaw.rpc.v1.FlowcraftConversationParametersInitiative
-	367, // 83: gizclaw.rpc.v1.FlowcraftWorkflowSpec.fields:type_name -> google.protobuf.Struct
-	13,  // 84: gizclaw.rpc.v1.FlowcraftWorkspaceParameters.agent_type:type_name -> gizclaw.rpc.v1.FlowcraftWorkspaceParametersAgentType
-	106, // 85: gizclaw.rpc.v1.FlowcraftWorkspaceParameters.conversation:type_name -> gizclaw.rpc.v1.FlowcraftConversationParameters
-	27,  // 86: gizclaw.rpc.v1.FlowcraftWorkspaceParameters.input:type_name -> gizclaw.rpc.v1.WorkspaceInputMode
-	156, // 87: gizclaw.rpc.v1.FriendAddResponse.value:type_name -> gizclaw.rpc.v1.FriendObject
-	156, // 88: gizclaw.rpc.v1.FriendDeleteResponse.value:type_name -> gizclaw.rpc.v1.FriendObject
-	145, // 89: gizclaw.rpc.v1.FriendGroupCreateResponse.value:type_name -> gizclaw.rpc.v1.FriendGroupObject
-	145, // 90: gizclaw.rpc.v1.FriendGroupDeleteResponse.value:type_name -> gizclaw.rpc.v1.FriendGroupObject
-	145, // 91: gizclaw.rpc.v1.FriendGroupGetResponse.value:type_name -> gizclaw.rpc.v1.FriendGroupObject
-	145, // 92: gizclaw.rpc.v1.FriendGroupJoinResponse.group:type_name -> gizclaw.rpc.v1.FriendGroupObject
-	135, // 93: gizclaw.rpc.v1.FriendGroupJoinResponse.member:type_name -> gizclaw.rpc.v1.FriendGroupMemberObject
-	145, // 94: gizclaw.rpc.v1.FriendGroupListResponse.items:type_name -> gizclaw.rpc.v1.FriendGroupObject
-	14,  // 95: gizclaw.rpc.v1.FriendGroupMemberAddRequest.role:type_name -> gizclaw.rpc.v1.FriendGroupMemberMutableRole
-	135, // 96: gizclaw.rpc.v1.FriendGroupMemberAddResponse.value:type_name -> gizclaw.rpc.v1.FriendGroupMemberObject
-	135, // 97: gizclaw.rpc.v1.FriendGroupMemberDeleteResponse.value:type_name -> gizclaw.rpc.v1.FriendGroupMemberObject
-	135, // 98: gizclaw.rpc.v1.FriendGroupMemberListResponse.items:type_name -> gizclaw.rpc.v1.FriendGroupMemberObject
-	15,  // 99: gizclaw.rpc.v1.FriendGroupMemberObject.role:type_name -> gizclaw.rpc.v1.FriendGroupMemberRole
-	14,  // 100: gizclaw.rpc.v1.FriendGroupMemberPutRequest.role:type_name -> gizclaw.rpc.v1.FriendGroupMemberMutableRole
-	135, // 101: gizclaw.rpc.v1.FriendGroupMemberPutResponse.value:type_name -> gizclaw.rpc.v1.FriendGroupMemberObject
-	142, // 102: gizclaw.rpc.v1.FriendGroupMessageGetResponse.value:type_name -> gizclaw.rpc.v1.FriendGroupMessageObject
-	142, // 103: gizclaw.rpc.v1.FriendGroupMessageListResponse.items:type_name -> gizclaw.rpc.v1.FriendGroupMessageObject
-	142, // 104: gizclaw.rpc.v1.FriendGroupMessageSendResponse.value:type_name -> gizclaw.rpc.v1.FriendGroupMessageObject
-	15,  // 105: gizclaw.rpc.v1.FriendGroupObject.my_role:type_name -> gizclaw.rpc.v1.FriendGroupMemberRole
-	145, // 106: gizclaw.rpc.v1.FriendGroupPutResponse.value:type_name -> gizclaw.rpc.v1.FriendGroupObject
-	156, // 107: gizclaw.rpc.v1.FriendListResponse.items:type_name -> gizclaw.rpc.v1.FriendObject
-	167, // 108: gizclaw.rpc.v1.GameResult.payload:type_name -> gizclaw.rpc.v1.GameplayMetadata
-	157, // 109: gizclaw.rpc.v1.GameResultListResponse.items:type_name -> gizclaw.rpc.v1.GameResult
-	298, // 110: gizclaw.rpc.v1.GameRewardSpec.ability_delta:type_name -> gizclaw.rpc.v1.StatMap
-	360, // 111: gizclaw.rpc.v1.GameRewardSpec.badge_exp_delta:type_name -> gizclaw.rpc.v1.GameRewardSpec.BadgeExpDeltaEntry
-	298, // 112: gizclaw.rpc.v1.GameRewardSpec.life_delta:type_name -> gizclaw.rpc.v1.StatMap
-	164, // 113: gizclaw.rpc.v1.GameRuleset.spec:type_name -> gizclaw.rpc.v1.GameRulesetSpec
-	361, // 114: gizclaw.rpc.v1.GameRulesetDriveSpec.action_costs:type_name -> gizclaw.rpc.v1.GameRulesetDriveSpec.ActionCostsEntry
-	362, // 115: gizclaw.rpc.v1.GameRulesetDriveSpec.action_rewards:type_name -> gizclaw.rpc.v1.GameRulesetDriveSpec.ActionRewardsEntry
-	159, // 116: gizclaw.rpc.v1.GameRulesetDriveSpec.default_reward:type_name -> gizclaw.rpc.v1.GameRewardSpec
-	363, // 117: gizclaw.rpc.v1.GameRulesetDriveSpec.game_rewards:type_name -> gizclaw.rpc.v1.GameRulesetDriveSpec.GameRewardsEntry
-	298, // 118: gizclaw.rpc.v1.GameRulesetDriveSpec.life_decay_per_hour:type_name -> gizclaw.rpc.v1.StatMap
-	161, // 119: gizclaw.rpc.v1.GameRulesetSpec.drive:type_name -> gizclaw.rpc.v1.GameRulesetDriveSpec
-	167, // 120: gizclaw.rpc.v1.GameRulesetSpec.metadata:type_name -> gizclaw.rpc.v1.GameplayMetadata
-	162, // 121: gizclaw.rpc.v1.GameRulesetSpec.pet_pool:type_name -> gizclaw.rpc.v1.GameRulesetPetPoolEntry
-	163, // 122: gizclaw.rpc.v1.GameRulesetSpec.points:type_name -> gizclaw.rpc.v1.GameRulesetPointsSpec
-	367, // 123: gizclaw.rpc.v1.GameplayMetadata.fields:type_name -> google.protobuf.Struct
-	367, // 124: gizclaw.rpc.v1.GeminiTenantVoiceProviderData.raw:type_name -> google.protobuf.Struct
-	192, // 125: gizclaw.rpc.v1.HardwareInfo.imeis:type_name -> gizclaw.rpc.v1.PeerIMEI
-	193, // 126: gizclaw.rpc.v1.HardwareInfo.labels:type_name -> gizclaw.rpc.v1.PeerLabel
-	367, // 127: gizclaw.rpc.v1.MiniMaxTenantVoiceProviderData.raw:type_name -> google.protobuf.Struct
-	175, // 128: gizclaw.rpc.v1.Model.capabilities:type_name -> gizclaw.rpc.v1.ModelCapabilities
-	16,  // 129: gizclaw.rpc.v1.Model.kind:type_name -> gizclaw.rpc.v1.ModelKind
-	184, // 130: gizclaw.rpc.v1.Model.provider:type_name -> gizclaw.rpc.v1.ModelProvider
-	185, // 131: gizclaw.rpc.v1.Model.provider_data:type_name -> gizclaw.rpc.v1.ModelProviderData
-	18,  // 132: gizclaw.rpc.v1.Model.source:type_name -> gizclaw.rpc.v1.ModelSource
-	188, // 133: gizclaw.rpc.v1.ModelCapabilities.thinking:type_name -> gizclaw.rpc.v1.ModelThinkingCapability
-	174, // 134: gizclaw.rpc.v1.ModelCreateRequest.value:type_name -> gizclaw.rpc.v1.Model
-	174, // 135: gizclaw.rpc.v1.ModelCreateResponse.value:type_name -> gizclaw.rpc.v1.Model
-	174, // 136: gizclaw.rpc.v1.ModelDeleteResponse.value:type_name -> gizclaw.rpc.v1.Model
-	174, // 137: gizclaw.rpc.v1.ModelGetResponse.value:type_name -> gizclaw.rpc.v1.Model
-	174, // 138: gizclaw.rpc.v1.ModelListResponse.items:type_name -> gizclaw.rpc.v1.Model
-	17,  // 139: gizclaw.rpc.v1.ModelProvider.kind:type_name -> gizclaw.rpc.v1.ModelProviderKind
-	169, // 140: gizclaw.rpc.v1.ModelProviderData.gemini_tenant_model_provider_data:type_name -> gizclaw.rpc.v1.GeminiTenantModelProviderData
-	74,  // 141: gizclaw.rpc.v1.ModelProviderData.dash_scope_tenant_model_provider_data:type_name -> gizclaw.rpc.v1.DashScopeTenantModelProviderData
-	190, // 142: gizclaw.rpc.v1.ModelProviderData.open_aitenant_model_provider_data:type_name -> gizclaw.rpc.v1.OpenAITenantModelProviderData
-	307, // 143: gizclaw.rpc.v1.ModelProviderData.volc_tenant_model_provider_data:type_name -> gizclaw.rpc.v1.VolcTenantModelProviderData
-	174, // 144: gizclaw.rpc.v1.ModelPutRequest.body:type_name -> gizclaw.rpc.v1.Model
-	174, // 145: gizclaw.rpc.v1.ModelPutResponse.value:type_name -> gizclaw.rpc.v1.Model
-	367, // 146: gizclaw.rpc.v1.OpenAITenantVoiceProviderData.raw:type_name -> google.protobuf.Struct
-	35,  // 147: gizclaw.rpc.v1.PeerRunAgent.active:type_name -> gizclaw.rpc.v1.AgentSelection
-	35,  // 148: gizclaw.rpc.v1.PeerRunAgent.pending:type_name -> gizclaw.rpc.v1.AgentSelection
-	19,  // 149: gizclaw.rpc.v1.PeerRunHistoryEntry.type:type_name -> gizclaw.rpc.v1.PeerRunHistoryEntryType
-	20,  // 150: gizclaw.rpc.v1.PeerRunHistoryListRequest.order:type_name -> gizclaw.rpc.v1.PeerRunHistoryListRequestOrder
-	195, // 151: gizclaw.rpc.v1.PeerRunHistoryListResponse.items:type_name -> gizclaw.rpc.v1.PeerRunHistoryEntry
-	367, // 152: gizclaw.rpc.v1.PeerRunMemoryStatsResponse.metadata:type_name -> google.protobuf.Struct
-	367, // 153: gizclaw.rpc.v1.PeerRunRecallHit.metadata:type_name -> google.protobuf.Struct
-	367, // 154: gizclaw.rpc.v1.PeerRunRecallRequest.filters:type_name -> google.protobuf.Struct
-	202, // 155: gizclaw.rpc.v1.PeerRunRecallResponse.hits:type_name -> gizclaw.rpc.v1.PeerRunRecallHit
-	21,  // 156: gizclaw.rpc.v1.PeerRunStatus.state:type_name -> gizclaw.rpc.v1.PeerRunStatusState
-	21,  // 157: gizclaw.rpc.v1.PeerRunWorkspaceState.runtime_state:type_name -> gizclaw.rpc.v1.PeerRunStatusState
-	367, // 158: gizclaw.rpc.v1.PeerStatus.details:type_name -> google.protobuf.Struct
-	364, // 159: gizclaw.rpc.v1.PeerStatus.labels:type_name -> gizclaw.rpc.v1.PeerStatus.LabelsEntry
-	298, // 160: gizclaw.rpc.v1.Pet.ability:type_name -> gizclaw.rpc.v1.StatMap
-	298, // 161: gizclaw.rpc.v1.Pet.life:type_name -> gizclaw.rpc.v1.StatMap
-	208, // 162: gizclaw.rpc.v1.PetAdoptResponse.pet:type_name -> gizclaw.rpc.v1.Pet
-	222, // 163: gizclaw.rpc.v1.PetAdoptResponse.points:type_name -> gizclaw.rpc.v1.PointsAccount
-	223, // 164: gizclaw.rpc.v1.PetAdoptResponse.transaction:type_name -> gizclaw.rpc.v1.PointsTransaction
-	167, // 165: gizclaw.rpc.v1.PetDriveGameResultInput.payload:type_name -> gizclaw.rpc.v1.GameplayMetadata
-	214, // 166: gizclaw.rpc.v1.PetDriveRequest.game_result:type_name -> gizclaw.rpc.v1.PetDriveGameResultInput
-	36,  // 167: gizclaw.rpc.v1.PetDriveResponse.badges:type_name -> gizclaw.rpc.v1.Badge
-	157, // 168: gizclaw.rpc.v1.PetDriveResponse.game_result:type_name -> gizclaw.rpc.v1.GameResult
-	208, // 169: gizclaw.rpc.v1.PetDriveResponse.pet:type_name -> gizclaw.rpc.v1.Pet
-	222, // 170: gizclaw.rpc.v1.PetDriveResponse.points:type_name -> gizclaw.rpc.v1.PointsAccount
-	227, // 171: gizclaw.rpc.v1.PetDriveResponse.reward_grants:type_name -> gizclaw.rpc.v1.RewardGrant
-	223, // 172: gizclaw.rpc.v1.PetDriveResponse.transactions:type_name -> gizclaw.rpc.v1.PointsTransaction
-	208, // 173: gizclaw.rpc.v1.PetListResponse.items:type_name -> gizclaw.rpc.v1.Pet
-	223, // 174: gizclaw.rpc.v1.PointsTransactionListResponse.items:type_name -> gizclaw.rpc.v1.PointsTransaction
-	192, // 175: gizclaw.rpc.v1.RefreshIdentifiers.imeis:type_name -> gizclaw.rpc.v1.PeerIMEI
-	193, // 176: gizclaw.rpc.v1.RefreshIdentifiers.labels:type_name -> gizclaw.rpc.v1.PeerLabel
-	298, // 177: gizclaw.rpc.v1.RewardGrant.ability_delta:type_name -> gizclaw.rpc.v1.StatMap
-	365, // 178: gizclaw.rpc.v1.RewardGrant.badge_exp_delta:type_name -> gizclaw.rpc.v1.RewardGrant.BadgeExpDeltaEntry
-	298, // 179: gizclaw.rpc.v1.RewardGrant.life_delta:type_name -> gizclaw.rpc.v1.StatMap
-	227, // 180: gizclaw.rpc.v1.RewardGrantListResponse.items:type_name -> gizclaw.rpc.v1.RewardGrant
-	165, // 181: gizclaw.rpc.v1.ServerBadgeGetRequest.value:type_name -> gizclaw.rpc.v1.GameplayGetRequest
-	36,  // 182: gizclaw.rpc.v1.ServerBadgeGetResponse.value:type_name -> gizclaw.rpc.v1.Badge
-	166, // 183: gizclaw.rpc.v1.ServerBadgeListRequest.value:type_name -> gizclaw.rpc.v1.GameplayListRequest
-	39,  // 184: gizclaw.rpc.v1.ServerBadgeListResponse.value:type_name -> gizclaw.rpc.v1.BadgeListResponse
-	165, // 185: gizclaw.rpc.v1.ServerGameResultGetRequest.value:type_name -> gizclaw.rpc.v1.GameplayGetRequest
-	157, // 186: gizclaw.rpc.v1.ServerGameResultGetResponse.value:type_name -> gizclaw.rpc.v1.GameResult
-	166, // 187: gizclaw.rpc.v1.ServerGameResultListRequest.value:type_name -> gizclaw.rpc.v1.GameplayListRequest
-	158, // 188: gizclaw.rpc.v1.ServerGameResultListResponse.value:type_name -> gizclaw.rpc.v1.GameResultListResponse
-	160, // 189: gizclaw.rpc.v1.ServerGameRulesetGetResponse.value:type_name -> gizclaw.rpc.v1.GameRuleset
-	76,  // 190: gizclaw.rpc.v1.ServerGetInfoResponse.value:type_name -> gizclaw.rpc.v1.DeviceInfo
-	194, // 191: gizclaw.rpc.v1.ServerGetRunAgentResponse.value:type_name -> gizclaw.rpc.v1.PeerRunAgent
-	205, // 192: gizclaw.rpc.v1.ServerGetRunStatusResponse.value:type_name -> gizclaw.rpc.v1.PeerRunStatus
-	200, // 193: gizclaw.rpc.v1.ServerGetRunWorkspaceMemoryStatsRequest.value:type_name -> gizclaw.rpc.v1.PeerRunMemoryStatsRequest
-	201, // 194: gizclaw.rpc.v1.ServerGetRunWorkspaceMemoryStatsResponse.value:type_name -> gizclaw.rpc.v1.PeerRunMemoryStatsResponse
-	206, // 195: gizclaw.rpc.v1.ServerGetRunWorkspaceResponse.value:type_name -> gizclaw.rpc.v1.PeerRunWorkspaceState
-	229, // 196: gizclaw.rpc.v1.ServerGetRuntimeResponse.value:type_name -> gizclaw.rpc.v1.Runtime
-	207, // 197: gizclaw.rpc.v1.ServerGetStatusResponse.value:type_name -> gizclaw.rpc.v1.PeerStatus
-	196, // 198: gizclaw.rpc.v1.ServerListRunWorkspaceHistoryRequest.value:type_name -> gizclaw.rpc.v1.PeerRunHistoryListRequest
-	197, // 199: gizclaw.rpc.v1.ServerListRunWorkspaceHistoryResponse.value:type_name -> gizclaw.rpc.v1.PeerRunHistoryListResponse
-	209, // 200: gizclaw.rpc.v1.ServerPetAdoptRequest.value:type_name -> gizclaw.rpc.v1.PetAdoptRequest
-	210, // 201: gizclaw.rpc.v1.ServerPetAdoptResponse.value:type_name -> gizclaw.rpc.v1.PetAdoptResponse
-	213, // 202: gizclaw.rpc.v1.ServerPetDeleteRequest.value:type_name -> gizclaw.rpc.v1.PetDeleteRequest
-	208, // 203: gizclaw.rpc.v1.ServerPetDeleteResponse.value:type_name -> gizclaw.rpc.v1.Pet
-	215, // 204: gizclaw.rpc.v1.ServerPetDriveRequest.value:type_name -> gizclaw.rpc.v1.PetDriveRequest
-	216, // 205: gizclaw.rpc.v1.ServerPetDriveResponse.value:type_name -> gizclaw.rpc.v1.PetDriveResponse
-	217, // 206: gizclaw.rpc.v1.ServerPetGetRequest.value:type_name -> gizclaw.rpc.v1.PetGetRequest
-	208, // 207: gizclaw.rpc.v1.ServerPetGetResponse.value:type_name -> gizclaw.rpc.v1.Pet
-	166, // 208: gizclaw.rpc.v1.ServerPetListRequest.value:type_name -> gizclaw.rpc.v1.GameplayListRequest
-	218, // 209: gizclaw.rpc.v1.ServerPetListResponse.value:type_name -> gizclaw.rpc.v1.PetListResponse
-	219, // 210: gizclaw.rpc.v1.ServerPetPutRequest.value:type_name -> gizclaw.rpc.v1.PetPutRequest
-	208, // 211: gizclaw.rpc.v1.ServerPetPutResponse.value:type_name -> gizclaw.rpc.v1.Pet
-	198, // 212: gizclaw.rpc.v1.ServerPlayRunWorkspaceHistoryRequest.value:type_name -> gizclaw.rpc.v1.PeerRunHistoryPlayRequest
-	199, // 213: gizclaw.rpc.v1.ServerPlayRunWorkspaceHistoryResponse.value:type_name -> gizclaw.rpc.v1.PeerRunHistoryPlayResponse
-	222, // 214: gizclaw.rpc.v1.ServerPointsGetResponse.value:type_name -> gizclaw.rpc.v1.PointsAccount
-	165, // 215: gizclaw.rpc.v1.ServerPointsTransactionGetRequest.value:type_name -> gizclaw.rpc.v1.GameplayGetRequest
-	223, // 216: gizclaw.rpc.v1.ServerPointsTransactionGetResponse.value:type_name -> gizclaw.rpc.v1.PointsTransaction
-	166, // 217: gizclaw.rpc.v1.ServerPointsTransactionListRequest.value:type_name -> gizclaw.rpc.v1.GameplayListRequest
-	224, // 218: gizclaw.rpc.v1.ServerPointsTransactionListResponse.value:type_name -> gizclaw.rpc.v1.PointsTransactionListResponse
-	76,  // 219: gizclaw.rpc.v1.ServerPutInfoRequest.value:type_name -> gizclaw.rpc.v1.DeviceInfo
-	76,  // 220: gizclaw.rpc.v1.ServerPutInfoResponse.value:type_name -> gizclaw.rpc.v1.DeviceInfo
-	205, // 221: gizclaw.rpc.v1.ServerReloadRunResponse.value:type_name -> gizclaw.rpc.v1.PeerRunStatus
-	206, // 222: gizclaw.rpc.v1.ServerReloadRunWorkspaceResponse.value:type_name -> gizclaw.rpc.v1.PeerRunWorkspaceState
-	165, // 223: gizclaw.rpc.v1.ServerRewardGrantGetRequest.value:type_name -> gizclaw.rpc.v1.GameplayGetRequest
-	227, // 224: gizclaw.rpc.v1.ServerRewardGrantGetResponse.value:type_name -> gizclaw.rpc.v1.RewardGrant
-	166, // 225: gizclaw.rpc.v1.ServerRewardGrantListRequest.value:type_name -> gizclaw.rpc.v1.GameplayListRequest
-	228, // 226: gizclaw.rpc.v1.ServerRewardGrantListResponse.value:type_name -> gizclaw.rpc.v1.RewardGrantListResponse
-	203, // 227: gizclaw.rpc.v1.ServerRunWorkspaceRecallRequest.value:type_name -> gizclaw.rpc.v1.PeerRunRecallRequest
-	204, // 228: gizclaw.rpc.v1.ServerRunWorkspaceRecallResponse.value:type_name -> gizclaw.rpc.v1.PeerRunRecallResponse
-	35,  // 229: gizclaw.rpc.v1.ServerSetRunAgentRequest.value:type_name -> gizclaw.rpc.v1.AgentSelection
-	194, // 230: gizclaw.rpc.v1.ServerSetRunAgentResponse.value:type_name -> gizclaw.rpc.v1.PeerRunAgent
-	35,  // 231: gizclaw.rpc.v1.ServerSetRunWorkspaceRequest.value:type_name -> gizclaw.rpc.v1.AgentSelection
-	206, // 232: gizclaw.rpc.v1.ServerSetRunWorkspaceResponse.value:type_name -> gizclaw.rpc.v1.PeerRunWorkspaceState
-	205, // 233: gizclaw.rpc.v1.ServerStopRunResponse.value:type_name -> gizclaw.rpc.v1.PeerRunStatus
-	366, // 234: gizclaw.rpc.v1.StatMap.value:type_name -> gizclaw.rpc.v1.StatMap.ValueEntry
-	304, // 235: gizclaw.rpc.v1.Voice.provider:type_name -> gizclaw.rpc.v1.VoiceProvider
-	305, // 236: gizclaw.rpc.v1.Voice.provider_data:type_name -> gizclaw.rpc.v1.VoiceProviderData
-	23,  // 237: gizclaw.rpc.v1.Voice.source:type_name -> gizclaw.rpc.v1.VoiceSource
-	299, // 238: gizclaw.rpc.v1.VoiceGetResponse.value:type_name -> gizclaw.rpc.v1.Voice
-	299, // 239: gizclaw.rpc.v1.VoiceListResponse.items:type_name -> gizclaw.rpc.v1.Voice
-	22,  // 240: gizclaw.rpc.v1.VoiceProvider.kind:type_name -> gizclaw.rpc.v1.VoiceProviderKind
-	170, // 241: gizclaw.rpc.v1.VoiceProviderData.gemini_tenant_voice_provider_data:type_name -> gizclaw.rpc.v1.GeminiTenantVoiceProviderData
-	75,  // 242: gizclaw.rpc.v1.VoiceProviderData.dash_scope_tenant_voice_provider_data:type_name -> gizclaw.rpc.v1.DashScopeTenantVoiceProviderData
-	191, // 243: gizclaw.rpc.v1.VoiceProviderData.open_aitenant_voice_provider_data:type_name -> gizclaw.rpc.v1.OpenAITenantVoiceProviderData
-	173, // 244: gizclaw.rpc.v1.VoiceProviderData.mini_max_tenant_voice_provider_data:type_name -> gizclaw.rpc.v1.MiniMaxTenantVoiceProviderData
-	308, // 245: gizclaw.rpc.v1.VoiceProviderData.volc_tenant_voice_provider_data:type_name -> gizclaw.rpc.v1.VolcTenantVoiceProviderData
-	24,  // 246: gizclaw.rpc.v1.VolcTenantModelProviderData.api_mode:type_name -> gizclaw.rpc.v1.VolcTenantModelProviderDataApiMode
-	367, // 247: gizclaw.rpc.v1.VolcTenantVoiceProviderData.raw:type_name -> google.protobuf.Struct
-	313, // 248: gizclaw.rpc.v1.WorkflowCreateRequest.value:type_name -> gizclaw.rpc.v1.WorkflowDocument
-	313, // 249: gizclaw.rpc.v1.WorkflowCreateResponse.value:type_name -> gizclaw.rpc.v1.WorkflowDocument
-	313, // 250: gizclaw.rpc.v1.WorkflowDeleteResponse.value:type_name -> gizclaw.rpc.v1.WorkflowDocument
-	318, // 251: gizclaw.rpc.v1.WorkflowDocument.metadata:type_name -> gizclaw.rpc.v1.WorkflowMetadata
-	323, // 252: gizclaw.rpc.v1.WorkflowDocument.spec:type_name -> gizclaw.rpc.v1.WorkflowSpec
-	313, // 253: gizclaw.rpc.v1.WorkflowGetResponse.value:type_name -> gizclaw.rpc.v1.WorkflowDocument
-	313, // 254: gizclaw.rpc.v1.WorkflowListResponse.items:type_name -> gizclaw.rpc.v1.WorkflowDocument
-	319, // 255: gizclaw.rpc.v1.ToolkitPolicy.tool_ids:type_name -> gizclaw.rpc.v1.ToolkitPolicyToolIds
-	313, // 256: gizclaw.rpc.v1.WorkflowPutRequest.body:type_name -> gizclaw.rpc.v1.WorkflowDocument
-	313, // 257: gizclaw.rpc.v1.WorkflowPutResponse.value:type_name -> gizclaw.rpc.v1.WorkflowDocument
-	33,  // 258: gizclaw.rpc.v1.WorkflowSpec.ast_translate:type_name -> gizclaw.rpc.v1.ASTTranslateWorkflowSpec
-	41,  // 259: gizclaw.rpc.v1.WorkflowSpec.chatroom:type_name -> gizclaw.rpc.v1.ChatRoomWorkflowSpec
-	93,  // 260: gizclaw.rpc.v1.WorkflowSpec.doubao_realtime:type_name -> gizclaw.rpc.v1.DoubaoRealtimeWorkflowSpec
-	25,  // 261: gizclaw.rpc.v1.WorkflowSpec.driver:type_name -> gizclaw.rpc.v1.WorkflowDriver
-	107, // 262: gizclaw.rpc.v1.WorkflowSpec.flowcraft:type_name -> gizclaw.rpc.v1.FlowcraftWorkflowSpec
-	320, // 263: gizclaw.rpc.v1.WorkflowSpec.toolkit:type_name -> gizclaw.rpc.v1.ToolkitPolicy
-	339, // 264: gizclaw.rpc.v1.Workspace.parameters:type_name -> gizclaw.rpc.v1.WorkspaceParameters
-	320, // 265: gizclaw.rpc.v1.Workspace.toolkit:type_name -> gizclaw.rpc.v1.ToolkitPolicy
-	324, // 266: gizclaw.rpc.v1.WorkspaceCreateRequest.value:type_name -> gizclaw.rpc.v1.Workspace
-	324, // 267: gizclaw.rpc.v1.WorkspaceCreateResponse.value:type_name -> gizclaw.rpc.v1.Workspace
-	324, // 268: gizclaw.rpc.v1.WorkspaceDeleteResponse.value:type_name -> gizclaw.rpc.v1.Workspace
-	324, // 269: gizclaw.rpc.v1.WorkspaceGetResponse.value:type_name -> gizclaw.rpc.v1.Workspace
-	195, // 270: gizclaw.rpc.v1.WorkspaceHistoryGetResponse.value:type_name -> gizclaw.rpc.v1.PeerRunHistoryEntry
-	26,  // 271: gizclaw.rpc.v1.WorkspaceHistoryListRequest.order:type_name -> gizclaw.rpc.v1.WorkspaceHistoryListRequestOrder
-	197, // 272: gizclaw.rpc.v1.WorkspaceHistoryListResponse.value:type_name -> gizclaw.rpc.v1.PeerRunHistoryListResponse
-	324, // 273: gizclaw.rpc.v1.WorkspaceListResponse.items:type_name -> gizclaw.rpc.v1.Workspace
-	108, // 274: gizclaw.rpc.v1.WorkspaceParameters.flowcraft_workspace_parameters:type_name -> gizclaw.rpc.v1.FlowcraftWorkspaceParameters
-	94,  // 275: gizclaw.rpc.v1.WorkspaceParameters.doubao_realtime_workspace_parameters:type_name -> gizclaw.rpc.v1.DoubaoRealtimeWorkspaceParameters
-	34,  // 276: gizclaw.rpc.v1.WorkspaceParameters.asttranslate_workspace_parameters:type_name -> gizclaw.rpc.v1.ASTTranslateWorkspaceParameters
-	44,  // 277: gizclaw.rpc.v1.WorkspaceParameters.chat_room_workspace_parameters:type_name -> gizclaw.rpc.v1.ChatRoomWorkspaceParameters
-	324, // 278: gizclaw.rpc.v1.WorkspacePutRequest.body:type_name -> gizclaw.rpc.v1.Workspace
-	324, // 279: gizclaw.rpc.v1.WorkspacePutResponse.value:type_name -> gizclaw.rpc.v1.Workspace
-	29,  // 280: gizclaw.rpc.v1.ToolExecutor.kind:type_name -> gizclaw.rpc.v1.ToolExecutorKind
-	367, // 281: gizclaw.rpc.v1.ToolExecutor.config:type_name -> google.protobuf.Struct
-	367, // 282: gizclaw.rpc.v1.ToolTriggerExample.args:type_name -> google.protobuf.Struct
-	343, // 283: gizclaw.rpc.v1.ToolTrigger.examples:type_name -> gizclaw.rpc.v1.ToolTriggerExample
-	367, // 284: gizclaw.rpc.v1.ToolTrigger.metadata:type_name -> google.protobuf.Struct
-	28,  // 285: gizclaw.rpc.v1.Tool.source:type_name -> gizclaw.rpc.v1.ToolSource
-	367, // 286: gizclaw.rpc.v1.Tool.input_schema:type_name -> google.protobuf.Struct
-	367, // 287: gizclaw.rpc.v1.Tool.output_schema:type_name -> google.protobuf.Struct
-	344, // 288: gizclaw.rpc.v1.Tool.triggers:type_name -> gizclaw.rpc.v1.ToolTrigger
-	342, // 289: gizclaw.rpc.v1.Tool.executor:type_name -> gizclaw.rpc.v1.ToolExecutor
-	367, // 290: gizclaw.rpc.v1.Tool.metadata:type_name -> google.protobuf.Struct
-	345, // 291: gizclaw.rpc.v1.ToolListResponse.items:type_name -> gizclaw.rpc.v1.Tool
-	345, // 292: gizclaw.rpc.v1.ToolGetResponse.value:type_name -> gizclaw.rpc.v1.Tool
-	345, // 293: gizclaw.rpc.v1.ToolCreateRequest.value:type_name -> gizclaw.rpc.v1.Tool
-	345, // 294: gizclaw.rpc.v1.ToolCreateResponse.value:type_name -> gizclaw.rpc.v1.Tool
-	345, // 295: gizclaw.rpc.v1.ToolPutRequest.body:type_name -> gizclaw.rpc.v1.Tool
-	345, // 296: gizclaw.rpc.v1.ToolPutResponse.value:type_name -> gizclaw.rpc.v1.Tool
-	345, // 297: gizclaw.rpc.v1.ToolDeleteResponse.value:type_name -> gizclaw.rpc.v1.Tool
-	367, // 298: gizclaw.rpc.v1.ToolInvokeRequest.args:type_name -> google.protobuf.Struct
-	90,  // 299: gizclaw.rpc.v1.DoubaoRealtimeJSONSchema.PropertiesEntry.value:type_name -> gizclaw.rpc.v1.DoubaoRealtimeJSONSchema
-	159, // 300: gizclaw.rpc.v1.GameRulesetDriveSpec.ActionRewardsEntry.value:type_name -> gizclaw.rpc.v1.GameRewardSpec
-	159, // 301: gizclaw.rpc.v1.GameRulesetDriveSpec.GameRewardsEntry.value:type_name -> gizclaw.rpc.v1.GameRewardSpec
-	302, // [302:302] is the sub-list for method output_type
-	302, // [302:302] is the sub-list for method input_type
-	302, // [302:302] is the sub-list for extension type_name
-	302, // [302:302] is the sub-list for extension extendee
-	0,   // [0:302] is the sub-list for field type_name
+	374, // 37: gizclaw.rpc.v1.DashScopeTenantVoiceProviderData.raw:type_name -> google.protobuf.Struct
+	178, // 38: gizclaw.rpc.v1.DeviceInfo.hardware:type_name -> gizclaw.rpc.v1.HardwareInfo
+	77,  // 39: gizclaw.rpc.v1.EdgePeerLookupResponse.assignment:type_name -> gizclaw.rpc.v1.EdgePeerAssignment
+	77,  // 40: gizclaw.rpc.v1.EdgePeerAssignResponse.assignment:type_name -> gizclaw.rpc.v1.EdgePeerAssignment
+	77,  // 41: gizclaw.rpc.v1.EdgeRouteResolveResponse.assignment:type_name -> gizclaw.rpc.v1.EdgePeerAssignment
+	365, // 42: gizclaw.rpc.v1.DoubaoRealtimeASRContext.correct_words:type_name -> gizclaw.rpc.v1.DoubaoRealtimeASRContext.CorrectWordsEntry
+	88,  // 43: gizclaw.rpc.v1.DoubaoRealtimeASRContext.hotwords:type_name -> gizclaw.rpc.v1.DoubaoRealtimeASRHotword
+	87,  // 44: gizclaw.rpc.v1.DoubaoRealtimeASRExtension.extra:type_name -> gizclaw.rpc.v1.DoubaoRealtimeASRExtra
+	85,  // 45: gizclaw.rpc.v1.DoubaoRealtimeASRExtra.context:type_name -> gizclaw.rpc.v1.DoubaoRealtimeASRContext
+	91,  // 46: gizclaw.rpc.v1.DoubaoRealtimeAudio.input:type_name -> gizclaw.rpc.v1.DoubaoRealtimeAudioInput
+	92,  // 47: gizclaw.rpc.v1.DoubaoRealtimeAudio.output:type_name -> gizclaw.rpc.v1.DoubaoRealtimeAudioOutput
+	5,   // 48: gizclaw.rpc.v1.DoubaoRealtimeAudioFormat.type:type_name -> gizclaw.rpc.v1.DoubaoRealtimeAudioFormatType
+	90,  // 49: gizclaw.rpc.v1.DoubaoRealtimeAudioInput.format:type_name -> gizclaw.rpc.v1.DoubaoRealtimeAudioFormat
+	90,  // 50: gizclaw.rpc.v1.DoubaoRealtimeAudioOutput.format:type_name -> gizclaw.rpc.v1.DoubaoRealtimeAudioFormat
+	94,  // 51: gizclaw.rpc.v1.DoubaoRealtimeDialogExtension.extra:type_name -> gizclaw.rpc.v1.DoubaoRealtimeDialogExtra
+	6,   // 52: gizclaw.rpc.v1.DoubaoRealtimeDialogExtra.volc_websearch_type:type_name -> gizclaw.rpc.v1.DoubaoRealtimeDialogExtraVolcWebsearchType
+	86,  // 53: gizclaw.rpc.v1.DoubaoRealtimeExtension.asr:type_name -> gizclaw.rpc.v1.DoubaoRealtimeASRExtension
+	93,  // 54: gizclaw.rpc.v1.DoubaoRealtimeExtension.dialog:type_name -> gizclaw.rpc.v1.DoubaoRealtimeDialogExtension
+	98,  // 55: gizclaw.rpc.v1.DoubaoRealtimeExtension.tts:type_name -> gizclaw.rpc.v1.DoubaoRealtimeTTSExtension
+	97,  // 56: gizclaw.rpc.v1.DoubaoRealtimeFunctionTool.parameters:type_name -> gizclaw.rpc.v1.DoubaoRealtimeJSONSchema
+	7,   // 57: gizclaw.rpc.v1.DoubaoRealtimeFunctionTool.type:type_name -> gizclaw.rpc.v1.DoubaoRealtimeFunctionToolType
+	97,  // 58: gizclaw.rpc.v1.DoubaoRealtimeJSONSchema.any_of:type_name -> gizclaw.rpc.v1.DoubaoRealtimeJSONSchema
+	97,  // 59: gizclaw.rpc.v1.DoubaoRealtimeJSONSchema.items:type_name -> gizclaw.rpc.v1.DoubaoRealtimeJSONSchema
+	366, // 60: gizclaw.rpc.v1.DoubaoRealtimeJSONSchema.properties:type_name -> gizclaw.rpc.v1.DoubaoRealtimeJSONSchema.PropertiesEntry
+	99,  // 61: gizclaw.rpc.v1.DoubaoRealtimeTTSExtension.extra:type_name -> gizclaw.rpc.v1.DoubaoRealtimeTTSExtra
+	84,  // 62: gizclaw.rpc.v1.DoubaoRealtimeTTSExtra.aigc_metadata:type_name -> gizclaw.rpc.v1.DoubaoRealtimeAIGCMetadata
+	89,  // 63: gizclaw.rpc.v1.DoubaoRealtimeWorkflowSpec.audio:type_name -> gizclaw.rpc.v1.DoubaoRealtimeAudio
+	95,  // 64: gizclaw.rpc.v1.DoubaoRealtimeWorkflowSpec.extension:type_name -> gizclaw.rpc.v1.DoubaoRealtimeExtension
+	96,  // 65: gizclaw.rpc.v1.DoubaoRealtimeWorkflowSpec.tools:type_name -> gizclaw.rpc.v1.DoubaoRealtimeFunctionTool
+	8,   // 66: gizclaw.rpc.v1.DoubaoRealtimeWorkspaceParameters.agent_type:type_name -> gizclaw.rpc.v1.DoubaoRealtimeWorkspaceParametersAgentType
+	89,  // 67: gizclaw.rpc.v1.DoubaoRealtimeWorkspaceParameters.audio:type_name -> gizclaw.rpc.v1.DoubaoRealtimeAudio
+	95,  // 68: gizclaw.rpc.v1.DoubaoRealtimeWorkspaceParameters.extension:type_name -> gizclaw.rpc.v1.DoubaoRealtimeExtension
+	27,  // 69: gizclaw.rpc.v1.DoubaoRealtimeWorkspaceParameters.input:type_name -> gizclaw.rpc.v1.WorkspaceInputMode
+	96,  // 70: gizclaw.rpc.v1.DoubaoRealtimeWorkspaceParameters.tools:type_name -> gizclaw.rpc.v1.DoubaoRealtimeFunctionTool
+	112, // 71: gizclaw.rpc.v1.Firmware.slots:type_name -> gizclaw.rpc.v1.FirmwareSlots
+	9,   // 72: gizclaw.rpc.v1.FirmwareArtifactEntry.type:type_name -> gizclaw.rpc.v1.FirmwareArtifactEntryType
+	10,  // 73: gizclaw.rpc.v1.FirmwareFilesDownloadRequest.channel:type_name -> gizclaw.rpc.v1.FirmwareChannelName
+	103, // 74: gizclaw.rpc.v1.FirmwareFilesDownloadResponse.artifact:type_name -> gizclaw.rpc.v1.FirmwareArtifact
+	10,  // 75: gizclaw.rpc.v1.FirmwareFilesDownloadResponse.channel:type_name -> gizclaw.rpc.v1.FirmwareChannelName
+	104, // 76: gizclaw.rpc.v1.FirmwareFilesDownloadResponse.file:type_name -> gizclaw.rpc.v1.FirmwareArtifactEntry
+	102, // 77: gizclaw.rpc.v1.FirmwareGetResponse.value:type_name -> gizclaw.rpc.v1.Firmware
+	102, // 78: gizclaw.rpc.v1.FirmwareListResponse.items:type_name -> gizclaw.rpc.v1.Firmware
+	103, // 79: gizclaw.rpc.v1.FirmwareSlot.artifact:type_name -> gizclaw.rpc.v1.FirmwareArtifact
+	111, // 80: gizclaw.rpc.v1.FirmwareSlots.beta:type_name -> gizclaw.rpc.v1.FirmwareSlot
+	111, // 81: gizclaw.rpc.v1.FirmwareSlots.develop:type_name -> gizclaw.rpc.v1.FirmwareSlot
+	111, // 82: gizclaw.rpc.v1.FirmwareSlots.pending:type_name -> gizclaw.rpc.v1.FirmwareSlot
+	111, // 83: gizclaw.rpc.v1.FirmwareSlots.stable:type_name -> gizclaw.rpc.v1.FirmwareSlot
+	11,  // 84: gizclaw.rpc.v1.FlowcraftConversationParameters.agent_initiative_policy:type_name -> gizclaw.rpc.v1.FlowcraftConversationParametersAgentInitiativePolicy
+	12,  // 85: gizclaw.rpc.v1.FlowcraftConversationParameters.initiative:type_name -> gizclaw.rpc.v1.FlowcraftConversationParametersInitiative
+	374, // 86: gizclaw.rpc.v1.FlowcraftWorkflowSpec.fields:type_name -> google.protobuf.Struct
+	13,  // 87: gizclaw.rpc.v1.FlowcraftWorkspaceParameters.agent_type:type_name -> gizclaw.rpc.v1.FlowcraftWorkspaceParametersAgentType
+	113, // 88: gizclaw.rpc.v1.FlowcraftWorkspaceParameters.conversation:type_name -> gizclaw.rpc.v1.FlowcraftConversationParameters
+	27,  // 89: gizclaw.rpc.v1.FlowcraftWorkspaceParameters.input:type_name -> gizclaw.rpc.v1.WorkspaceInputMode
+	163, // 90: gizclaw.rpc.v1.FriendAddResponse.value:type_name -> gizclaw.rpc.v1.FriendObject
+	163, // 91: gizclaw.rpc.v1.FriendDeleteResponse.value:type_name -> gizclaw.rpc.v1.FriendObject
+	152, // 92: gizclaw.rpc.v1.FriendGroupCreateResponse.value:type_name -> gizclaw.rpc.v1.FriendGroupObject
+	152, // 93: gizclaw.rpc.v1.FriendGroupDeleteResponse.value:type_name -> gizclaw.rpc.v1.FriendGroupObject
+	152, // 94: gizclaw.rpc.v1.FriendGroupGetResponse.value:type_name -> gizclaw.rpc.v1.FriendGroupObject
+	152, // 95: gizclaw.rpc.v1.FriendGroupJoinResponse.group:type_name -> gizclaw.rpc.v1.FriendGroupObject
+	142, // 96: gizclaw.rpc.v1.FriendGroupJoinResponse.member:type_name -> gizclaw.rpc.v1.FriendGroupMemberObject
+	152, // 97: gizclaw.rpc.v1.FriendGroupListResponse.items:type_name -> gizclaw.rpc.v1.FriendGroupObject
+	14,  // 98: gizclaw.rpc.v1.FriendGroupMemberAddRequest.role:type_name -> gizclaw.rpc.v1.FriendGroupMemberMutableRole
+	142, // 99: gizclaw.rpc.v1.FriendGroupMemberAddResponse.value:type_name -> gizclaw.rpc.v1.FriendGroupMemberObject
+	142, // 100: gizclaw.rpc.v1.FriendGroupMemberDeleteResponse.value:type_name -> gizclaw.rpc.v1.FriendGroupMemberObject
+	142, // 101: gizclaw.rpc.v1.FriendGroupMemberListResponse.items:type_name -> gizclaw.rpc.v1.FriendGroupMemberObject
+	15,  // 102: gizclaw.rpc.v1.FriendGroupMemberObject.role:type_name -> gizclaw.rpc.v1.FriendGroupMemberRole
+	14,  // 103: gizclaw.rpc.v1.FriendGroupMemberPutRequest.role:type_name -> gizclaw.rpc.v1.FriendGroupMemberMutableRole
+	142, // 104: gizclaw.rpc.v1.FriendGroupMemberPutResponse.value:type_name -> gizclaw.rpc.v1.FriendGroupMemberObject
+	149, // 105: gizclaw.rpc.v1.FriendGroupMessageGetResponse.value:type_name -> gizclaw.rpc.v1.FriendGroupMessageObject
+	149, // 106: gizclaw.rpc.v1.FriendGroupMessageListResponse.items:type_name -> gizclaw.rpc.v1.FriendGroupMessageObject
+	149, // 107: gizclaw.rpc.v1.FriendGroupMessageSendResponse.value:type_name -> gizclaw.rpc.v1.FriendGroupMessageObject
+	15,  // 108: gizclaw.rpc.v1.FriendGroupObject.my_role:type_name -> gizclaw.rpc.v1.FriendGroupMemberRole
+	152, // 109: gizclaw.rpc.v1.FriendGroupPutResponse.value:type_name -> gizclaw.rpc.v1.FriendGroupObject
+	163, // 110: gizclaw.rpc.v1.FriendListResponse.items:type_name -> gizclaw.rpc.v1.FriendObject
+	174, // 111: gizclaw.rpc.v1.GameResult.payload:type_name -> gizclaw.rpc.v1.GameplayMetadata
+	164, // 112: gizclaw.rpc.v1.GameResultListResponse.items:type_name -> gizclaw.rpc.v1.GameResult
+	305, // 113: gizclaw.rpc.v1.GameRewardSpec.ability_delta:type_name -> gizclaw.rpc.v1.StatMap
+	367, // 114: gizclaw.rpc.v1.GameRewardSpec.badge_exp_delta:type_name -> gizclaw.rpc.v1.GameRewardSpec.BadgeExpDeltaEntry
+	305, // 115: gizclaw.rpc.v1.GameRewardSpec.life_delta:type_name -> gizclaw.rpc.v1.StatMap
+	171, // 116: gizclaw.rpc.v1.GameRuleset.spec:type_name -> gizclaw.rpc.v1.GameRulesetSpec
+	368, // 117: gizclaw.rpc.v1.GameRulesetDriveSpec.action_costs:type_name -> gizclaw.rpc.v1.GameRulesetDriveSpec.ActionCostsEntry
+	369, // 118: gizclaw.rpc.v1.GameRulesetDriveSpec.action_rewards:type_name -> gizclaw.rpc.v1.GameRulesetDriveSpec.ActionRewardsEntry
+	166, // 119: gizclaw.rpc.v1.GameRulesetDriveSpec.default_reward:type_name -> gizclaw.rpc.v1.GameRewardSpec
+	370, // 120: gizclaw.rpc.v1.GameRulesetDriveSpec.game_rewards:type_name -> gizclaw.rpc.v1.GameRulesetDriveSpec.GameRewardsEntry
+	305, // 121: gizclaw.rpc.v1.GameRulesetDriveSpec.life_decay_per_hour:type_name -> gizclaw.rpc.v1.StatMap
+	168, // 122: gizclaw.rpc.v1.GameRulesetSpec.drive:type_name -> gizclaw.rpc.v1.GameRulesetDriveSpec
+	174, // 123: gizclaw.rpc.v1.GameRulesetSpec.metadata:type_name -> gizclaw.rpc.v1.GameplayMetadata
+	169, // 124: gizclaw.rpc.v1.GameRulesetSpec.pet_pool:type_name -> gizclaw.rpc.v1.GameRulesetPetPoolEntry
+	170, // 125: gizclaw.rpc.v1.GameRulesetSpec.points:type_name -> gizclaw.rpc.v1.GameRulesetPointsSpec
+	374, // 126: gizclaw.rpc.v1.GameplayMetadata.fields:type_name -> google.protobuf.Struct
+	374, // 127: gizclaw.rpc.v1.GeminiTenantVoiceProviderData.raw:type_name -> google.protobuf.Struct
+	199, // 128: gizclaw.rpc.v1.HardwareInfo.imeis:type_name -> gizclaw.rpc.v1.PeerIMEI
+	200, // 129: gizclaw.rpc.v1.HardwareInfo.labels:type_name -> gizclaw.rpc.v1.PeerLabel
+	374, // 130: gizclaw.rpc.v1.MiniMaxTenantVoiceProviderData.raw:type_name -> google.protobuf.Struct
+	182, // 131: gizclaw.rpc.v1.Model.capabilities:type_name -> gizclaw.rpc.v1.ModelCapabilities
+	16,  // 132: gizclaw.rpc.v1.Model.kind:type_name -> gizclaw.rpc.v1.ModelKind
+	191, // 133: gizclaw.rpc.v1.Model.provider:type_name -> gizclaw.rpc.v1.ModelProvider
+	192, // 134: gizclaw.rpc.v1.Model.provider_data:type_name -> gizclaw.rpc.v1.ModelProviderData
+	18,  // 135: gizclaw.rpc.v1.Model.source:type_name -> gizclaw.rpc.v1.ModelSource
+	195, // 136: gizclaw.rpc.v1.ModelCapabilities.thinking:type_name -> gizclaw.rpc.v1.ModelThinkingCapability
+	181, // 137: gizclaw.rpc.v1.ModelCreateRequest.value:type_name -> gizclaw.rpc.v1.Model
+	181, // 138: gizclaw.rpc.v1.ModelCreateResponse.value:type_name -> gizclaw.rpc.v1.Model
+	181, // 139: gizclaw.rpc.v1.ModelDeleteResponse.value:type_name -> gizclaw.rpc.v1.Model
+	181, // 140: gizclaw.rpc.v1.ModelGetResponse.value:type_name -> gizclaw.rpc.v1.Model
+	181, // 141: gizclaw.rpc.v1.ModelListResponse.items:type_name -> gizclaw.rpc.v1.Model
+	17,  // 142: gizclaw.rpc.v1.ModelProvider.kind:type_name -> gizclaw.rpc.v1.ModelProviderKind
+	176, // 143: gizclaw.rpc.v1.ModelProviderData.gemini_tenant_model_provider_data:type_name -> gizclaw.rpc.v1.GeminiTenantModelProviderData
+	74,  // 144: gizclaw.rpc.v1.ModelProviderData.dash_scope_tenant_model_provider_data:type_name -> gizclaw.rpc.v1.DashScopeTenantModelProviderData
+	197, // 145: gizclaw.rpc.v1.ModelProviderData.open_aitenant_model_provider_data:type_name -> gizclaw.rpc.v1.OpenAITenantModelProviderData
+	314, // 146: gizclaw.rpc.v1.ModelProviderData.volc_tenant_model_provider_data:type_name -> gizclaw.rpc.v1.VolcTenantModelProviderData
+	181, // 147: gizclaw.rpc.v1.ModelPutRequest.body:type_name -> gizclaw.rpc.v1.Model
+	181, // 148: gizclaw.rpc.v1.ModelPutResponse.value:type_name -> gizclaw.rpc.v1.Model
+	374, // 149: gizclaw.rpc.v1.OpenAITenantVoiceProviderData.raw:type_name -> google.protobuf.Struct
+	35,  // 150: gizclaw.rpc.v1.PeerRunAgent.active:type_name -> gizclaw.rpc.v1.AgentSelection
+	35,  // 151: gizclaw.rpc.v1.PeerRunAgent.pending:type_name -> gizclaw.rpc.v1.AgentSelection
+	19,  // 152: gizclaw.rpc.v1.PeerRunHistoryEntry.type:type_name -> gizclaw.rpc.v1.PeerRunHistoryEntryType
+	20,  // 153: gizclaw.rpc.v1.PeerRunHistoryListRequest.order:type_name -> gizclaw.rpc.v1.PeerRunHistoryListRequestOrder
+	202, // 154: gizclaw.rpc.v1.PeerRunHistoryListResponse.items:type_name -> gizclaw.rpc.v1.PeerRunHistoryEntry
+	374, // 155: gizclaw.rpc.v1.PeerRunMemoryStatsResponse.metadata:type_name -> google.protobuf.Struct
+	374, // 156: gizclaw.rpc.v1.PeerRunRecallHit.metadata:type_name -> google.protobuf.Struct
+	374, // 157: gizclaw.rpc.v1.PeerRunRecallRequest.filters:type_name -> google.protobuf.Struct
+	209, // 158: gizclaw.rpc.v1.PeerRunRecallResponse.hits:type_name -> gizclaw.rpc.v1.PeerRunRecallHit
+	21,  // 159: gizclaw.rpc.v1.PeerRunStatus.state:type_name -> gizclaw.rpc.v1.PeerRunStatusState
+	21,  // 160: gizclaw.rpc.v1.PeerRunWorkspaceState.runtime_state:type_name -> gizclaw.rpc.v1.PeerRunStatusState
+	374, // 161: gizclaw.rpc.v1.PeerStatus.details:type_name -> google.protobuf.Struct
+	371, // 162: gizclaw.rpc.v1.PeerStatus.labels:type_name -> gizclaw.rpc.v1.PeerStatus.LabelsEntry
+	305, // 163: gizclaw.rpc.v1.Pet.ability:type_name -> gizclaw.rpc.v1.StatMap
+	305, // 164: gizclaw.rpc.v1.Pet.life:type_name -> gizclaw.rpc.v1.StatMap
+	215, // 165: gizclaw.rpc.v1.PetAdoptResponse.pet:type_name -> gizclaw.rpc.v1.Pet
+	229, // 166: gizclaw.rpc.v1.PetAdoptResponse.points:type_name -> gizclaw.rpc.v1.PointsAccount
+	230, // 167: gizclaw.rpc.v1.PetAdoptResponse.transaction:type_name -> gizclaw.rpc.v1.PointsTransaction
+	174, // 168: gizclaw.rpc.v1.PetDriveGameResultInput.payload:type_name -> gizclaw.rpc.v1.GameplayMetadata
+	221, // 169: gizclaw.rpc.v1.PetDriveRequest.game_result:type_name -> gizclaw.rpc.v1.PetDriveGameResultInput
+	36,  // 170: gizclaw.rpc.v1.PetDriveResponse.badges:type_name -> gizclaw.rpc.v1.Badge
+	164, // 171: gizclaw.rpc.v1.PetDriveResponse.game_result:type_name -> gizclaw.rpc.v1.GameResult
+	215, // 172: gizclaw.rpc.v1.PetDriveResponse.pet:type_name -> gizclaw.rpc.v1.Pet
+	229, // 173: gizclaw.rpc.v1.PetDriveResponse.points:type_name -> gizclaw.rpc.v1.PointsAccount
+	234, // 174: gizclaw.rpc.v1.PetDriveResponse.reward_grants:type_name -> gizclaw.rpc.v1.RewardGrant
+	230, // 175: gizclaw.rpc.v1.PetDriveResponse.transactions:type_name -> gizclaw.rpc.v1.PointsTransaction
+	215, // 176: gizclaw.rpc.v1.PetListResponse.items:type_name -> gizclaw.rpc.v1.Pet
+	230, // 177: gizclaw.rpc.v1.PointsTransactionListResponse.items:type_name -> gizclaw.rpc.v1.PointsTransaction
+	199, // 178: gizclaw.rpc.v1.RefreshIdentifiers.imeis:type_name -> gizclaw.rpc.v1.PeerIMEI
+	200, // 179: gizclaw.rpc.v1.RefreshIdentifiers.labels:type_name -> gizclaw.rpc.v1.PeerLabel
+	305, // 180: gizclaw.rpc.v1.RewardGrant.ability_delta:type_name -> gizclaw.rpc.v1.StatMap
+	372, // 181: gizclaw.rpc.v1.RewardGrant.badge_exp_delta:type_name -> gizclaw.rpc.v1.RewardGrant.BadgeExpDeltaEntry
+	305, // 182: gizclaw.rpc.v1.RewardGrant.life_delta:type_name -> gizclaw.rpc.v1.StatMap
+	234, // 183: gizclaw.rpc.v1.RewardGrantListResponse.items:type_name -> gizclaw.rpc.v1.RewardGrant
+	172, // 184: gizclaw.rpc.v1.ServerBadgeGetRequest.value:type_name -> gizclaw.rpc.v1.GameplayGetRequest
+	36,  // 185: gizclaw.rpc.v1.ServerBadgeGetResponse.value:type_name -> gizclaw.rpc.v1.Badge
+	173, // 186: gizclaw.rpc.v1.ServerBadgeListRequest.value:type_name -> gizclaw.rpc.v1.GameplayListRequest
+	39,  // 187: gizclaw.rpc.v1.ServerBadgeListResponse.value:type_name -> gizclaw.rpc.v1.BadgeListResponse
+	172, // 188: gizclaw.rpc.v1.ServerGameResultGetRequest.value:type_name -> gizclaw.rpc.v1.GameplayGetRequest
+	164, // 189: gizclaw.rpc.v1.ServerGameResultGetResponse.value:type_name -> gizclaw.rpc.v1.GameResult
+	173, // 190: gizclaw.rpc.v1.ServerGameResultListRequest.value:type_name -> gizclaw.rpc.v1.GameplayListRequest
+	165, // 191: gizclaw.rpc.v1.ServerGameResultListResponse.value:type_name -> gizclaw.rpc.v1.GameResultListResponse
+	167, // 192: gizclaw.rpc.v1.ServerGameRulesetGetResponse.value:type_name -> gizclaw.rpc.v1.GameRuleset
+	76,  // 193: gizclaw.rpc.v1.ServerGetInfoResponse.value:type_name -> gizclaw.rpc.v1.DeviceInfo
+	201, // 194: gizclaw.rpc.v1.ServerGetRunAgentResponse.value:type_name -> gizclaw.rpc.v1.PeerRunAgent
+	212, // 195: gizclaw.rpc.v1.ServerGetRunStatusResponse.value:type_name -> gizclaw.rpc.v1.PeerRunStatus
+	207, // 196: gizclaw.rpc.v1.ServerGetRunWorkspaceMemoryStatsRequest.value:type_name -> gizclaw.rpc.v1.PeerRunMemoryStatsRequest
+	208, // 197: gizclaw.rpc.v1.ServerGetRunWorkspaceMemoryStatsResponse.value:type_name -> gizclaw.rpc.v1.PeerRunMemoryStatsResponse
+	213, // 198: gizclaw.rpc.v1.ServerGetRunWorkspaceResponse.value:type_name -> gizclaw.rpc.v1.PeerRunWorkspaceState
+	236, // 199: gizclaw.rpc.v1.ServerGetRuntimeResponse.value:type_name -> gizclaw.rpc.v1.Runtime
+	214, // 200: gizclaw.rpc.v1.ServerGetStatusResponse.value:type_name -> gizclaw.rpc.v1.PeerStatus
+	203, // 201: gizclaw.rpc.v1.ServerListRunWorkspaceHistoryRequest.value:type_name -> gizclaw.rpc.v1.PeerRunHistoryListRequest
+	204, // 202: gizclaw.rpc.v1.ServerListRunWorkspaceHistoryResponse.value:type_name -> gizclaw.rpc.v1.PeerRunHistoryListResponse
+	216, // 203: gizclaw.rpc.v1.ServerPetAdoptRequest.value:type_name -> gizclaw.rpc.v1.PetAdoptRequest
+	217, // 204: gizclaw.rpc.v1.ServerPetAdoptResponse.value:type_name -> gizclaw.rpc.v1.PetAdoptResponse
+	220, // 205: gizclaw.rpc.v1.ServerPetDeleteRequest.value:type_name -> gizclaw.rpc.v1.PetDeleteRequest
+	215, // 206: gizclaw.rpc.v1.ServerPetDeleteResponse.value:type_name -> gizclaw.rpc.v1.Pet
+	222, // 207: gizclaw.rpc.v1.ServerPetDriveRequest.value:type_name -> gizclaw.rpc.v1.PetDriveRequest
+	223, // 208: gizclaw.rpc.v1.ServerPetDriveResponse.value:type_name -> gizclaw.rpc.v1.PetDriveResponse
+	224, // 209: gizclaw.rpc.v1.ServerPetGetRequest.value:type_name -> gizclaw.rpc.v1.PetGetRequest
+	215, // 210: gizclaw.rpc.v1.ServerPetGetResponse.value:type_name -> gizclaw.rpc.v1.Pet
+	173, // 211: gizclaw.rpc.v1.ServerPetListRequest.value:type_name -> gizclaw.rpc.v1.GameplayListRequest
+	225, // 212: gizclaw.rpc.v1.ServerPetListResponse.value:type_name -> gizclaw.rpc.v1.PetListResponse
+	226, // 213: gizclaw.rpc.v1.ServerPetPutRequest.value:type_name -> gizclaw.rpc.v1.PetPutRequest
+	215, // 214: gizclaw.rpc.v1.ServerPetPutResponse.value:type_name -> gizclaw.rpc.v1.Pet
+	205, // 215: gizclaw.rpc.v1.ServerPlayRunWorkspaceHistoryRequest.value:type_name -> gizclaw.rpc.v1.PeerRunHistoryPlayRequest
+	206, // 216: gizclaw.rpc.v1.ServerPlayRunWorkspaceHistoryResponse.value:type_name -> gizclaw.rpc.v1.PeerRunHistoryPlayResponse
+	229, // 217: gizclaw.rpc.v1.ServerPointsGetResponse.value:type_name -> gizclaw.rpc.v1.PointsAccount
+	172, // 218: gizclaw.rpc.v1.ServerPointsTransactionGetRequest.value:type_name -> gizclaw.rpc.v1.GameplayGetRequest
+	230, // 219: gizclaw.rpc.v1.ServerPointsTransactionGetResponse.value:type_name -> gizclaw.rpc.v1.PointsTransaction
+	173, // 220: gizclaw.rpc.v1.ServerPointsTransactionListRequest.value:type_name -> gizclaw.rpc.v1.GameplayListRequest
+	231, // 221: gizclaw.rpc.v1.ServerPointsTransactionListResponse.value:type_name -> gizclaw.rpc.v1.PointsTransactionListResponse
+	76,  // 222: gizclaw.rpc.v1.ServerPutInfoRequest.value:type_name -> gizclaw.rpc.v1.DeviceInfo
+	76,  // 223: gizclaw.rpc.v1.ServerPutInfoResponse.value:type_name -> gizclaw.rpc.v1.DeviceInfo
+	212, // 224: gizclaw.rpc.v1.ServerReloadRunResponse.value:type_name -> gizclaw.rpc.v1.PeerRunStatus
+	213, // 225: gizclaw.rpc.v1.ServerReloadRunWorkspaceResponse.value:type_name -> gizclaw.rpc.v1.PeerRunWorkspaceState
+	172, // 226: gizclaw.rpc.v1.ServerRewardGrantGetRequest.value:type_name -> gizclaw.rpc.v1.GameplayGetRequest
+	234, // 227: gizclaw.rpc.v1.ServerRewardGrantGetResponse.value:type_name -> gizclaw.rpc.v1.RewardGrant
+	173, // 228: gizclaw.rpc.v1.ServerRewardGrantListRequest.value:type_name -> gizclaw.rpc.v1.GameplayListRequest
+	235, // 229: gizclaw.rpc.v1.ServerRewardGrantListResponse.value:type_name -> gizclaw.rpc.v1.RewardGrantListResponse
+	210, // 230: gizclaw.rpc.v1.ServerRunWorkspaceRecallRequest.value:type_name -> gizclaw.rpc.v1.PeerRunRecallRequest
+	211, // 231: gizclaw.rpc.v1.ServerRunWorkspaceRecallResponse.value:type_name -> gizclaw.rpc.v1.PeerRunRecallResponse
+	35,  // 232: gizclaw.rpc.v1.ServerSetRunAgentRequest.value:type_name -> gizclaw.rpc.v1.AgentSelection
+	201, // 233: gizclaw.rpc.v1.ServerSetRunAgentResponse.value:type_name -> gizclaw.rpc.v1.PeerRunAgent
+	35,  // 234: gizclaw.rpc.v1.ServerSetRunWorkspaceRequest.value:type_name -> gizclaw.rpc.v1.AgentSelection
+	213, // 235: gizclaw.rpc.v1.ServerSetRunWorkspaceResponse.value:type_name -> gizclaw.rpc.v1.PeerRunWorkspaceState
+	212, // 236: gizclaw.rpc.v1.ServerStopRunResponse.value:type_name -> gizclaw.rpc.v1.PeerRunStatus
+	373, // 237: gizclaw.rpc.v1.StatMap.value:type_name -> gizclaw.rpc.v1.StatMap.ValueEntry
+	311, // 238: gizclaw.rpc.v1.Voice.provider:type_name -> gizclaw.rpc.v1.VoiceProvider
+	312, // 239: gizclaw.rpc.v1.Voice.provider_data:type_name -> gizclaw.rpc.v1.VoiceProviderData
+	23,  // 240: gizclaw.rpc.v1.Voice.source:type_name -> gizclaw.rpc.v1.VoiceSource
+	306, // 241: gizclaw.rpc.v1.VoiceGetResponse.value:type_name -> gizclaw.rpc.v1.Voice
+	306, // 242: gizclaw.rpc.v1.VoiceListResponse.items:type_name -> gizclaw.rpc.v1.Voice
+	22,  // 243: gizclaw.rpc.v1.VoiceProvider.kind:type_name -> gizclaw.rpc.v1.VoiceProviderKind
+	177, // 244: gizclaw.rpc.v1.VoiceProviderData.gemini_tenant_voice_provider_data:type_name -> gizclaw.rpc.v1.GeminiTenantVoiceProviderData
+	75,  // 245: gizclaw.rpc.v1.VoiceProviderData.dash_scope_tenant_voice_provider_data:type_name -> gizclaw.rpc.v1.DashScopeTenantVoiceProviderData
+	198, // 246: gizclaw.rpc.v1.VoiceProviderData.open_aitenant_voice_provider_data:type_name -> gizclaw.rpc.v1.OpenAITenantVoiceProviderData
+	180, // 247: gizclaw.rpc.v1.VoiceProviderData.mini_max_tenant_voice_provider_data:type_name -> gizclaw.rpc.v1.MiniMaxTenantVoiceProviderData
+	315, // 248: gizclaw.rpc.v1.VoiceProviderData.volc_tenant_voice_provider_data:type_name -> gizclaw.rpc.v1.VolcTenantVoiceProviderData
+	24,  // 249: gizclaw.rpc.v1.VolcTenantModelProviderData.api_mode:type_name -> gizclaw.rpc.v1.VolcTenantModelProviderDataApiMode
+	374, // 250: gizclaw.rpc.v1.VolcTenantVoiceProviderData.raw:type_name -> google.protobuf.Struct
+	320, // 251: gizclaw.rpc.v1.WorkflowCreateRequest.value:type_name -> gizclaw.rpc.v1.WorkflowDocument
+	320, // 252: gizclaw.rpc.v1.WorkflowCreateResponse.value:type_name -> gizclaw.rpc.v1.WorkflowDocument
+	320, // 253: gizclaw.rpc.v1.WorkflowDeleteResponse.value:type_name -> gizclaw.rpc.v1.WorkflowDocument
+	325, // 254: gizclaw.rpc.v1.WorkflowDocument.metadata:type_name -> gizclaw.rpc.v1.WorkflowMetadata
+	330, // 255: gizclaw.rpc.v1.WorkflowDocument.spec:type_name -> gizclaw.rpc.v1.WorkflowSpec
+	320, // 256: gizclaw.rpc.v1.WorkflowGetResponse.value:type_name -> gizclaw.rpc.v1.WorkflowDocument
+	320, // 257: gizclaw.rpc.v1.WorkflowListResponse.items:type_name -> gizclaw.rpc.v1.WorkflowDocument
+	326, // 258: gizclaw.rpc.v1.ToolkitPolicy.tool_ids:type_name -> gizclaw.rpc.v1.ToolkitPolicyToolIds
+	320, // 259: gizclaw.rpc.v1.WorkflowPutRequest.body:type_name -> gizclaw.rpc.v1.WorkflowDocument
+	320, // 260: gizclaw.rpc.v1.WorkflowPutResponse.value:type_name -> gizclaw.rpc.v1.WorkflowDocument
+	33,  // 261: gizclaw.rpc.v1.WorkflowSpec.ast_translate:type_name -> gizclaw.rpc.v1.ASTTranslateWorkflowSpec
+	41,  // 262: gizclaw.rpc.v1.WorkflowSpec.chatroom:type_name -> gizclaw.rpc.v1.ChatRoomWorkflowSpec
+	100, // 263: gizclaw.rpc.v1.WorkflowSpec.doubao_realtime:type_name -> gizclaw.rpc.v1.DoubaoRealtimeWorkflowSpec
+	25,  // 264: gizclaw.rpc.v1.WorkflowSpec.driver:type_name -> gizclaw.rpc.v1.WorkflowDriver
+	114, // 265: gizclaw.rpc.v1.WorkflowSpec.flowcraft:type_name -> gizclaw.rpc.v1.FlowcraftWorkflowSpec
+	327, // 266: gizclaw.rpc.v1.WorkflowSpec.toolkit:type_name -> gizclaw.rpc.v1.ToolkitPolicy
+	346, // 267: gizclaw.rpc.v1.Workspace.parameters:type_name -> gizclaw.rpc.v1.WorkspaceParameters
+	327, // 268: gizclaw.rpc.v1.Workspace.toolkit:type_name -> gizclaw.rpc.v1.ToolkitPolicy
+	331, // 269: gizclaw.rpc.v1.WorkspaceCreateRequest.value:type_name -> gizclaw.rpc.v1.Workspace
+	331, // 270: gizclaw.rpc.v1.WorkspaceCreateResponse.value:type_name -> gizclaw.rpc.v1.Workspace
+	331, // 271: gizclaw.rpc.v1.WorkspaceDeleteResponse.value:type_name -> gizclaw.rpc.v1.Workspace
+	331, // 272: gizclaw.rpc.v1.WorkspaceGetResponse.value:type_name -> gizclaw.rpc.v1.Workspace
+	202, // 273: gizclaw.rpc.v1.WorkspaceHistoryGetResponse.value:type_name -> gizclaw.rpc.v1.PeerRunHistoryEntry
+	26,  // 274: gizclaw.rpc.v1.WorkspaceHistoryListRequest.order:type_name -> gizclaw.rpc.v1.WorkspaceHistoryListRequestOrder
+	204, // 275: gizclaw.rpc.v1.WorkspaceHistoryListResponse.value:type_name -> gizclaw.rpc.v1.PeerRunHistoryListResponse
+	331, // 276: gizclaw.rpc.v1.WorkspaceListResponse.items:type_name -> gizclaw.rpc.v1.Workspace
+	115, // 277: gizclaw.rpc.v1.WorkspaceParameters.flowcraft_workspace_parameters:type_name -> gizclaw.rpc.v1.FlowcraftWorkspaceParameters
+	101, // 278: gizclaw.rpc.v1.WorkspaceParameters.doubao_realtime_workspace_parameters:type_name -> gizclaw.rpc.v1.DoubaoRealtimeWorkspaceParameters
+	34,  // 279: gizclaw.rpc.v1.WorkspaceParameters.asttranslate_workspace_parameters:type_name -> gizclaw.rpc.v1.ASTTranslateWorkspaceParameters
+	44,  // 280: gizclaw.rpc.v1.WorkspaceParameters.chat_room_workspace_parameters:type_name -> gizclaw.rpc.v1.ChatRoomWorkspaceParameters
+	331, // 281: gizclaw.rpc.v1.WorkspacePutRequest.body:type_name -> gizclaw.rpc.v1.Workspace
+	331, // 282: gizclaw.rpc.v1.WorkspacePutResponse.value:type_name -> gizclaw.rpc.v1.Workspace
+	29,  // 283: gizclaw.rpc.v1.ToolExecutor.kind:type_name -> gizclaw.rpc.v1.ToolExecutorKind
+	374, // 284: gizclaw.rpc.v1.ToolExecutor.config:type_name -> google.protobuf.Struct
+	374, // 285: gizclaw.rpc.v1.ToolTriggerExample.args:type_name -> google.protobuf.Struct
+	350, // 286: gizclaw.rpc.v1.ToolTrigger.examples:type_name -> gizclaw.rpc.v1.ToolTriggerExample
+	374, // 287: gizclaw.rpc.v1.ToolTrigger.metadata:type_name -> google.protobuf.Struct
+	28,  // 288: gizclaw.rpc.v1.Tool.source:type_name -> gizclaw.rpc.v1.ToolSource
+	374, // 289: gizclaw.rpc.v1.Tool.input_schema:type_name -> google.protobuf.Struct
+	374, // 290: gizclaw.rpc.v1.Tool.output_schema:type_name -> google.protobuf.Struct
+	351, // 291: gizclaw.rpc.v1.Tool.triggers:type_name -> gizclaw.rpc.v1.ToolTrigger
+	349, // 292: gizclaw.rpc.v1.Tool.executor:type_name -> gizclaw.rpc.v1.ToolExecutor
+	374, // 293: gizclaw.rpc.v1.Tool.metadata:type_name -> google.protobuf.Struct
+	352, // 294: gizclaw.rpc.v1.ToolListResponse.items:type_name -> gizclaw.rpc.v1.Tool
+	352, // 295: gizclaw.rpc.v1.ToolGetResponse.value:type_name -> gizclaw.rpc.v1.Tool
+	352, // 296: gizclaw.rpc.v1.ToolCreateRequest.value:type_name -> gizclaw.rpc.v1.Tool
+	352, // 297: gizclaw.rpc.v1.ToolCreateResponse.value:type_name -> gizclaw.rpc.v1.Tool
+	352, // 298: gizclaw.rpc.v1.ToolPutRequest.body:type_name -> gizclaw.rpc.v1.Tool
+	352, // 299: gizclaw.rpc.v1.ToolPutResponse.value:type_name -> gizclaw.rpc.v1.Tool
+	352, // 300: gizclaw.rpc.v1.ToolDeleteResponse.value:type_name -> gizclaw.rpc.v1.Tool
+	374, // 301: gizclaw.rpc.v1.ToolInvokeRequest.args:type_name -> google.protobuf.Struct
+	97,  // 302: gizclaw.rpc.v1.DoubaoRealtimeJSONSchema.PropertiesEntry.value:type_name -> gizclaw.rpc.v1.DoubaoRealtimeJSONSchema
+	166, // 303: gizclaw.rpc.v1.GameRulesetDriveSpec.ActionRewardsEntry.value:type_name -> gizclaw.rpc.v1.GameRewardSpec
+	166, // 304: gizclaw.rpc.v1.GameRulesetDriveSpec.GameRewardsEntry.value:type_name -> gizclaw.rpc.v1.GameRewardSpec
+	305, // [305:305] is the sub-list for method output_type
+	305, // [305:305] is the sub-list for method input_type
+	305, // [305:305] is the sub-list for extension type_name
+	305, // [305:305] is the sub-list for extension extendee
+	0,   // [0:305] is the sub-list for field type_name
 }
 
 func init() { file_payload_proto_init() }
@@ -23285,142 +23699,144 @@ func file_payload_proto_init() {
 	file_payload_proto_msgTypes[44].OneofWrappers = []any{}
 	file_payload_proto_msgTypes[45].OneofWrappers = []any{}
 	file_payload_proto_msgTypes[46].OneofWrappers = []any{}
-	file_payload_proto_msgTypes[47].OneofWrappers = []any{}
-	file_payload_proto_msgTypes[49].OneofWrappers = []any{}
 	file_payload_proto_msgTypes[50].OneofWrappers = []any{}
-	file_payload_proto_msgTypes[55].OneofWrappers = []any{}
+	file_payload_proto_msgTypes[52].OneofWrappers = []any{}
+	file_payload_proto_msgTypes[54].OneofWrappers = []any{}
 	file_payload_proto_msgTypes[56].OneofWrappers = []any{}
 	file_payload_proto_msgTypes[57].OneofWrappers = []any{}
-	file_payload_proto_msgTypes[58].OneofWrappers = []any{}
-	file_payload_proto_msgTypes[59].OneofWrappers = []any{}
-	file_payload_proto_msgTypes[60].OneofWrappers = []any{}
-	file_payload_proto_msgTypes[61].OneofWrappers = []any{}
 	file_payload_proto_msgTypes[62].OneofWrappers = []any{}
 	file_payload_proto_msgTypes[63].OneofWrappers = []any{}
 	file_payload_proto_msgTypes[64].OneofWrappers = []any{}
 	file_payload_proto_msgTypes[65].OneofWrappers = []any{}
+	file_payload_proto_msgTypes[66].OneofWrappers = []any{}
 	file_payload_proto_msgTypes[67].OneofWrappers = []any{}
+	file_payload_proto_msgTypes[68].OneofWrappers = []any{}
+	file_payload_proto_msgTypes[69].OneofWrappers = []any{}
+	file_payload_proto_msgTypes[70].OneofWrappers = []any{}
+	file_payload_proto_msgTypes[71].OneofWrappers = []any{}
 	file_payload_proto_msgTypes[72].OneofWrappers = []any{}
-	file_payload_proto_msgTypes[73].OneofWrappers = []any{}
 	file_payload_proto_msgTypes[74].OneofWrappers = []any{}
-	file_payload_proto_msgTypes[76].OneofWrappers = []any{}
-	file_payload_proto_msgTypes[78].OneofWrappers = []any{}
+	file_payload_proto_msgTypes[79].OneofWrappers = []any{}
+	file_payload_proto_msgTypes[80].OneofWrappers = []any{}
+	file_payload_proto_msgTypes[81].OneofWrappers = []any{}
 	file_payload_proto_msgTypes[83].OneofWrappers = []any{}
-	file_payload_proto_msgTypes[94].OneofWrappers = []any{}
-	file_payload_proto_msgTypes[97].OneofWrappers = []any{}
-	file_payload_proto_msgTypes[98].OneofWrappers = []any{}
-	file_payload_proto_msgTypes[103].OneofWrappers = []any{}
+	file_payload_proto_msgTypes[85].OneofWrappers = []any{}
+	file_payload_proto_msgTypes[90].OneofWrappers = []any{}
+	file_payload_proto_msgTypes[101].OneofWrappers = []any{}
 	file_payload_proto_msgTypes[104].OneofWrappers = []any{}
 	file_payload_proto_msgTypes[105].OneofWrappers = []any{}
 	file_payload_proto_msgTypes[110].OneofWrappers = []any{}
 	file_payload_proto_msgTypes[111].OneofWrappers = []any{}
 	file_payload_proto_msgTypes[112].OneofWrappers = []any{}
-	file_payload_proto_msgTypes[113].OneofWrappers = []any{}
-	file_payload_proto_msgTypes[115].OneofWrappers = []any{}
-	file_payload_proto_msgTypes[116].OneofWrappers = []any{}
+	file_payload_proto_msgTypes[117].OneofWrappers = []any{}
+	file_payload_proto_msgTypes[118].OneofWrappers = []any{}
+	file_payload_proto_msgTypes[119].OneofWrappers = []any{}
+	file_payload_proto_msgTypes[120].OneofWrappers = []any{}
+	file_payload_proto_msgTypes[122].OneofWrappers = []any{}
 	file_payload_proto_msgTypes[123].OneofWrappers = []any{}
-	file_payload_proto_msgTypes[124].OneofWrappers = []any{}
-	file_payload_proto_msgTypes[125].OneofWrappers = []any{}
-	file_payload_proto_msgTypes[126].OneofWrappers = []any{}
-	file_payload_proto_msgTypes[127].OneofWrappers = []any{}
-	file_payload_proto_msgTypes[128].OneofWrappers = []any{}
-	file_payload_proto_msgTypes[129].OneofWrappers = []any{}
+	file_payload_proto_msgTypes[130].OneofWrappers = []any{}
 	file_payload_proto_msgTypes[131].OneofWrappers = []any{}
 	file_payload_proto_msgTypes[132].OneofWrappers = []any{}
 	file_payload_proto_msgTypes[133].OneofWrappers = []any{}
 	file_payload_proto_msgTypes[134].OneofWrappers = []any{}
+	file_payload_proto_msgTypes[135].OneofWrappers = []any{}
 	file_payload_proto_msgTypes[136].OneofWrappers = []any{}
 	file_payload_proto_msgTypes[138].OneofWrappers = []any{}
 	file_payload_proto_msgTypes[139].OneofWrappers = []any{}
 	file_payload_proto_msgTypes[140].OneofWrappers = []any{}
 	file_payload_proto_msgTypes[141].OneofWrappers = []any{}
-	file_payload_proto_msgTypes[142].OneofWrappers = []any{}
 	file_payload_proto_msgTypes[143].OneofWrappers = []any{}
-	file_payload_proto_msgTypes[144].OneofWrappers = []any{}
 	file_payload_proto_msgTypes[145].OneofWrappers = []any{}
+	file_payload_proto_msgTypes[146].OneofWrappers = []any{}
+	file_payload_proto_msgTypes[147].OneofWrappers = []any{}
+	file_payload_proto_msgTypes[148].OneofWrappers = []any{}
+	file_payload_proto_msgTypes[149].OneofWrappers = []any{}
+	file_payload_proto_msgTypes[150].OneofWrappers = []any{}
+	file_payload_proto_msgTypes[151].OneofWrappers = []any{}
 	file_payload_proto_msgTypes[152].OneofWrappers = []any{}
-	file_payload_proto_msgTypes[153].OneofWrappers = []any{}
-	file_payload_proto_msgTypes[155].OneofWrappers = []any{
+	file_payload_proto_msgTypes[159].OneofWrappers = []any{}
+	file_payload_proto_msgTypes[160].OneofWrappers = []any{}
+	file_payload_proto_msgTypes[162].OneofWrappers = []any{
 		(*ModelProviderData_GeminiTenantModelProviderData)(nil),
 		(*ModelProviderData_DashScopeTenantModelProviderData)(nil),
 		(*ModelProviderData_OpenAitenantModelProviderData)(nil),
 		(*ModelProviderData_VolcTenantModelProviderData)(nil),
 	}
-	file_payload_proto_msgTypes[158].OneofWrappers = []any{}
-	file_payload_proto_msgTypes[159].OneofWrappers = []any{}
-	file_payload_proto_msgTypes[160].OneofWrappers = []any{}
-	file_payload_proto_msgTypes[161].OneofWrappers = []any{}
-	file_payload_proto_msgTypes[162].OneofWrappers = []any{}
-	file_payload_proto_msgTypes[164].OneofWrappers = []any{}
 	file_payload_proto_msgTypes[165].OneofWrappers = []any{}
 	file_payload_proto_msgTypes[166].OneofWrappers = []any{}
 	file_payload_proto_msgTypes[167].OneofWrappers = []any{}
+	file_payload_proto_msgTypes[168].OneofWrappers = []any{}
 	file_payload_proto_msgTypes[169].OneofWrappers = []any{}
 	file_payload_proto_msgTypes[171].OneofWrappers = []any{}
 	file_payload_proto_msgTypes[172].OneofWrappers = []any{}
 	file_payload_proto_msgTypes[173].OneofWrappers = []any{}
 	file_payload_proto_msgTypes[174].OneofWrappers = []any{}
-	file_payload_proto_msgTypes[175].OneofWrappers = []any{}
 	file_payload_proto_msgTypes[176].OneofWrappers = []any{}
-	file_payload_proto_msgTypes[177].OneofWrappers = []any{}
 	file_payload_proto_msgTypes[178].OneofWrappers = []any{}
 	file_payload_proto_msgTypes[179].OneofWrappers = []any{}
+	file_payload_proto_msgTypes[180].OneofWrappers = []any{}
+	file_payload_proto_msgTypes[181].OneofWrappers = []any{}
 	file_payload_proto_msgTypes[182].OneofWrappers = []any{}
+	file_payload_proto_msgTypes[183].OneofWrappers = []any{}
 	file_payload_proto_msgTypes[184].OneofWrappers = []any{}
 	file_payload_proto_msgTypes[185].OneofWrappers = []any{}
 	file_payload_proto_msgTypes[186].OneofWrappers = []any{}
-	file_payload_proto_msgTypes[188].OneofWrappers = []any{}
+	file_payload_proto_msgTypes[189].OneofWrappers = []any{}
+	file_payload_proto_msgTypes[191].OneofWrappers = []any{}
+	file_payload_proto_msgTypes[192].OneofWrappers = []any{}
 	file_payload_proto_msgTypes[193].OneofWrappers = []any{}
-	file_payload_proto_msgTypes[194].OneofWrappers = []any{}
 	file_payload_proto_msgTypes[195].OneofWrappers = []any{}
-	file_payload_proto_msgTypes[196].OneofWrappers = []any{}
-	file_payload_proto_msgTypes[197].OneofWrappers = []any{}
-	file_payload_proto_msgTypes[198].OneofWrappers = []any{}
-	file_payload_proto_msgTypes[199].OneofWrappers = []any{}
-	file_payload_proto_msgTypes[208].OneofWrappers = []any{}
-	file_payload_proto_msgTypes[240].OneofWrappers = []any{}
-	file_payload_proto_msgTypes[256].OneofWrappers = []any{}
-	file_payload_proto_msgTypes[269].OneofWrappers = []any{}
-	file_payload_proto_msgTypes[272].OneofWrappers = []any{}
-	file_payload_proto_msgTypes[273].OneofWrappers = []any{}
-	file_payload_proto_msgTypes[275].OneofWrappers = []any{
+	file_payload_proto_msgTypes[200].OneofWrappers = []any{}
+	file_payload_proto_msgTypes[201].OneofWrappers = []any{}
+	file_payload_proto_msgTypes[202].OneofWrappers = []any{}
+	file_payload_proto_msgTypes[203].OneofWrappers = []any{}
+	file_payload_proto_msgTypes[204].OneofWrappers = []any{}
+	file_payload_proto_msgTypes[205].OneofWrappers = []any{}
+	file_payload_proto_msgTypes[206].OneofWrappers = []any{}
+	file_payload_proto_msgTypes[215].OneofWrappers = []any{}
+	file_payload_proto_msgTypes[247].OneofWrappers = []any{}
+	file_payload_proto_msgTypes[263].OneofWrappers = []any{}
+	file_payload_proto_msgTypes[276].OneofWrappers = []any{}
+	file_payload_proto_msgTypes[279].OneofWrappers = []any{}
+	file_payload_proto_msgTypes[280].OneofWrappers = []any{}
+	file_payload_proto_msgTypes[282].OneofWrappers = []any{
 		(*VoiceProviderData_GeminiTenantVoiceProviderData)(nil),
 		(*VoiceProviderData_DashScopeTenantVoiceProviderData)(nil),
 		(*VoiceProviderData_OpenAitenantVoiceProviderData)(nil),
 		(*VoiceProviderData_MiniMaxTenantVoiceProviderData)(nil),
 		(*VoiceProviderData_VolcTenantVoiceProviderData)(nil),
 	}
-	file_payload_proto_msgTypes[276].OneofWrappers = []any{}
-	file_payload_proto_msgTypes[277].OneofWrappers = []any{}
-	file_payload_proto_msgTypes[278].OneofWrappers = []any{}
-	file_payload_proto_msgTypes[286].OneofWrappers = []any{}
-	file_payload_proto_msgTypes[287].OneofWrappers = []any{}
-	file_payload_proto_msgTypes[288].OneofWrappers = []any{}
-	file_payload_proto_msgTypes[290].OneofWrappers = []any{}
+	file_payload_proto_msgTypes[283].OneofWrappers = []any{}
+	file_payload_proto_msgTypes[284].OneofWrappers = []any{}
+	file_payload_proto_msgTypes[285].OneofWrappers = []any{}
 	file_payload_proto_msgTypes[293].OneofWrappers = []any{}
 	file_payload_proto_msgTypes[294].OneofWrappers = []any{}
-	file_payload_proto_msgTypes[305].OneofWrappers = []any{}
-	file_payload_proto_msgTypes[307].OneofWrappers = []any{}
-	file_payload_proto_msgTypes[308].OneofWrappers = []any{}
-	file_payload_proto_msgTypes[309].OneofWrappers = []any{
+	file_payload_proto_msgTypes[295].OneofWrappers = []any{}
+	file_payload_proto_msgTypes[297].OneofWrappers = []any{}
+	file_payload_proto_msgTypes[300].OneofWrappers = []any{}
+	file_payload_proto_msgTypes[301].OneofWrappers = []any{}
+	file_payload_proto_msgTypes[312].OneofWrappers = []any{}
+	file_payload_proto_msgTypes[314].OneofWrappers = []any{}
+	file_payload_proto_msgTypes[315].OneofWrappers = []any{}
+	file_payload_proto_msgTypes[316].OneofWrappers = []any{
 		(*WorkspaceParameters_FlowcraftWorkspaceParameters)(nil),
 		(*WorkspaceParameters_DoubaoRealtimeWorkspaceParameters)(nil),
 		(*WorkspaceParameters_AsttranslateWorkspaceParameters)(nil),
 		(*WorkspaceParameters_ChatRoomWorkspaceParameters)(nil),
 	}
-	file_payload_proto_msgTypes[312].OneofWrappers = []any{}
-	file_payload_proto_msgTypes[313].OneofWrappers = []any{}
-	file_payload_proto_msgTypes[314].OneofWrappers = []any{}
-	file_payload_proto_msgTypes[315].OneofWrappers = []any{}
-	file_payload_proto_msgTypes[316].OneofWrappers = []any{}
-	file_payload_proto_msgTypes[317].OneofWrappers = []any{}
+	file_payload_proto_msgTypes[319].OneofWrappers = []any{}
+	file_payload_proto_msgTypes[320].OneofWrappers = []any{}
+	file_payload_proto_msgTypes[321].OneofWrappers = []any{}
+	file_payload_proto_msgTypes[322].OneofWrappers = []any{}
+	file_payload_proto_msgTypes[323].OneofWrappers = []any{}
+	file_payload_proto_msgTypes[324].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_payload_proto_rawDesc), len(file_payload_proto_rawDesc)),
 			NumEnums:      30,
-			NumMessages:   337,
+			NumMessages:   344,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

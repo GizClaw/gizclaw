@@ -1,0 +1,46 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Peer Assignment Type",
+    "description": "Server route assignment for one peer.",
+    "version": "1.0.0"
+  },
+  "paths": {},
+  "components": {
+    "schemas": {
+      "PeerAssignment": {
+        "type": "object",
+        "required": [
+          "peer_public_key",
+          "server_public_key",
+          "server_endpoint",
+          "role",
+          "version",
+          "updated_at"
+        ],
+        "properties": {
+          "peer_public_key": {
+            "type": "string"
+          },
+          "server_public_key": {
+            "type": "string"
+          },
+          "server_endpoint": {
+            "type": "string"
+          },
+          "role": {
+            "$ref": "./peer_role.json#/components/schemas/PeerRole"
+          },
+          "version": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      }
+    }
+  }
+}

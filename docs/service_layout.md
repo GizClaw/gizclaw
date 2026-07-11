@@ -13,6 +13,7 @@ ServicePeerRPC    = 0x00
 ServicePeerHTTP   = 0x01
 ServicePeerOpenAI = 0x02
 ServiceAdminHTTP  = 0x10
+ServiceEdgeRPC    = 0x31
 ```
 
 Event streams and media streams are not listed as services here. They are
@@ -99,6 +100,25 @@ When the optional peer/public TCP HTTP face is enabled, the same
 OpenAI-compatible handler is mounted under `/openai/v1/...`. The underlying
 conn-service contract remains `ServicePeerOpenAI`; these routes are not part of
 the Peer HTTP schema.
+
+## Edge RPC Surface
+
+The edge RPC surface uses `ServiceEdgeRPC`. It is accepted only from active
+peers with role `edge-node`; admin peers continue to use the admin surface and
+do not gain this service.
+
+```text
+Edge RPC
+├── edge.peer.lookup
+├── edge.peer.assign
+└── edge.route.resolve
+```
+
+`edge.peer.assign` creates or refreshes a local peer assignment for the target
+peer on the current server. The assignment record contains `peer_public_key`,
+`server_public_key`, `server_endpoint`, `role`, `version`, and `updated_at`.
+`edge.peer.lookup` and `edge.route.resolve` read the local assignment store; this
+surface does not perform mesh-wide route synchronization.
 
 ## Admin HTTP Surface
 

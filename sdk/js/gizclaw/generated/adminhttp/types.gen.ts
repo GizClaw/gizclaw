@@ -1434,7 +1434,7 @@ export type PeerLabel = {
 
 export type PeerRegistrationStatus = 'unspecified' | 'active' | 'blocked';
 
-export type PeerRole = 'unspecified' | 'admin' | 'server' | 'client';
+export type PeerRole = 'unspecified' | 'admin' | 'server' | 'edge-node' | 'client';
 
 export type PeerRunHistoryEntry = {
     id: string;

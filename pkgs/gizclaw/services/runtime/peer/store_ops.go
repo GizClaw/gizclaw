@@ -65,6 +65,33 @@ func (s *Server) LoadPeer(ctx context.Context, publicKey giznet.PublicKey) (apit
 	return s.get(ctx, publicKey)
 }
 
+// BootstrapEdgeNodes inserts or updates configured edge-node peers while
+// preserving existing peer metadata.
+func (s *Server) BootstrapEdgeNodes(ctx context.Context, publicKeys []giznet.PublicKey) error {
+	for _, publicKey := range publicKeys {
+		if publicKey.IsZero() {
+			return fmt.Errorf("peer: empty edge-node public key")
+		}
+		peer, err := s.get(ctx, publicKey)
+		if err != nil {
+			if !errors.Is(err, ErrPeerNotFound) {
+				return err
+			}
+			peer = apitypes.Peer{
+				PublicKey:     publicKey.String(),
+				Device:        apitypes.DeviceInfo{},
+				Configuration: apitypes.Configuration{},
+			}
+		}
+		peer.Role = apitypes.PeerRoleEdgeNode
+		peer.Status = apitypes.PeerRegistrationStatusActive
+		if _, err := s.put(ctx, peer); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // SavePeer stores a full peer record and returns the persisted value.
 func (s *Server) SavePeer(ctx context.Context, peer apitypes.Peer) (apitypes.Peer, error) {
 	return s.put(ctx, peer)

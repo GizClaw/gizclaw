@@ -126,6 +126,9 @@ const (
 	RpcMethod_RPC_METHOD_SERVER_TOOL_PUT                         RpcMethod = 98
 	RpcMethod_RPC_METHOD_SERVER_TOOL_DELETE                      RpcMethod = 99
 	RpcMethod_RPC_METHOD_CLIENT_TOOL_INVOKE                      RpcMethod = 100
+	RpcMethod_RPC_METHOD_EDGE_PEER_LOOKUP                        RpcMethod = 101
+	RpcMethod_RPC_METHOD_EDGE_PEER_ASSIGN                        RpcMethod = 102
+	RpcMethod_RPC_METHOD_EDGE_ROUTE_RESOLVE                      RpcMethod = 103
 )
 
 // Enum value maps for RpcMethod.
@@ -232,6 +235,9 @@ var (
 		98:  "RPC_METHOD_SERVER_TOOL_PUT",
 		99:  "RPC_METHOD_SERVER_TOOL_DELETE",
 		100: "RPC_METHOD_CLIENT_TOOL_INVOKE",
+		101: "RPC_METHOD_EDGE_PEER_LOOKUP",
+		102: "RPC_METHOD_EDGE_PEER_ASSIGN",
+		103: "RPC_METHOD_EDGE_ROUTE_RESOLVE",
 	}
 	RpcMethod_value = map[string]int32{
 		"RPC_METHOD_UNSPECIFIED":                             0,
@@ -335,6 +341,9 @@ var (
 		"RPC_METHOD_SERVER_TOOL_PUT":                         98,
 		"RPC_METHOD_SERVER_TOOL_DELETE":                      99,
 		"RPC_METHOD_CLIENT_TOOL_INVOKE":                      100,
+		"RPC_METHOD_EDGE_PEER_LOOKUP":                        101,
+		"RPC_METHOD_EDGE_PEER_ASSIGN":                        102,
+		"RPC_METHOD_EDGE_ROUTE_RESOLVE":                      103,
 	}
 )
 
@@ -518,7 +527,7 @@ const file_peer_proto_rawDesc = "" +
 	"\x06method\x18\x02 \x01(\x0e2\x19.gizclaw.rpc.v1.RpcMethodR\x06method\x12\x1d\n" +
 	"\apayload\x18\x03 \x01(\fH\x00R\apayload\x88\x01\x01B\n" +
 	"\n" +
-	"\b_payload*\xd9^\n" +
+	"\b_payload*\x99a\n" +
 	"\tRpcMethod\x12\x1a\n" +
 	"\x16RPC_METHOD_UNSPECIFIED\x10\x00\x12B\n" +
 	"\x13RPC_METHOD_ALL_PING\x10\x01\x1a)\xc2\xf3\x18%\n" +
@@ -721,7 +730,13 @@ const file_peer_proto_rawDesc = "" +
 	"\x1dRPC_METHOD_SERVER_TOOL_DELETE\x10c\x1a?\xc2\xf3\x18;\n" +
 	"\x12server.tool.delete\x12\x11ToolDeleteRequest\x1a\x12ToolDeleteResponse\x12b\n" +
 	"\x1dRPC_METHOD_CLIENT_TOOL_INVOKE\x10d\x1a?\xc2\xf3\x18;\n" +
-	"\x12client.tool.invoke\x12\x11ToolInvokeRequest\x1a\x12ToolInvokeResponse:d\n" +
+	"\x12client.tool.invoke\x12\x11ToolInvokeRequest\x1a\x12ToolInvokeResponse\x12f\n" +
+	"\x1bRPC_METHOD_EDGE_PEER_LOOKUP\x10e\x1aE\xc2\xf3\x18A\n" +
+	"\x10edge.peer.lookup\x12\x15EdgePeerLookupRequest\x1a\x16EdgePeerLookupResponse\x12f\n" +
+	"\x1bRPC_METHOD_EDGE_PEER_ASSIGN\x10f\x1aE\xc2\xf3\x18A\n" +
+	"\x10edge.peer.assign\x12\x15EdgePeerAssignRequest\x1a\x16EdgePeerAssignResponse\x12n\n" +
+	"\x1dRPC_METHOD_EDGE_ROUTE_RESOLVE\x10g\x1aK\xc2\xf3\x18G\n" +
+	"\x12edge.route.resolve\x12\x17EdgeRouteResolveRequest\x1a\x18EdgeRouteResolveResponse:d\n" +
 	"\n" +
 	"rpc_method\x12!.google.protobuf.EnumValueOptions\x18\xb8\x8e\x03 \x01(\v2 .gizclaw.rpc.v1.RpcMethodOptionsR\trpcMethodB?Z=github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto;rpcpbb\x06proto3"
 

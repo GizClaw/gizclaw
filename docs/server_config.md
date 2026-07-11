@@ -22,6 +22,11 @@ endpoint: 192.168.1.20:9820
 # for deployments that route device access through an edge ingress.
 serving-public: true
 
+# Optional edge-node bootstrap peers. Listed public keys are created or updated
+# as active peers with role edge-node during server initialization.
+edge-nodes:
+  - "J8wzYhsJ2xehy4JnuR1f5tF9KX3hTzP7yGkFvpS7hTsg"
+
 # Optional admin public key. When set, admin HTTP/RPC calls must authenticate as
 # this key. Leave empty only for local development or tests that inject runtime
 # admin identity another way.
@@ -258,6 +263,15 @@ listen: 0.0.0.0:9820
 endpoint: 192.168.1.20:9820
 serving-public: true
 ```
+
+`edge-nodes` is an optional list of peer public keys. On startup, each key is
+stored as an active `edge-node` peer, preserving existing peer metadata when the
+peer already exists. Edge-node peers may open `ServiceEdgeRPC`; they do not gain
+admin HTTP access.
+
+Edge peer assignment RPCs use the configured server identity and `endpoint` as
+the local route target. Assignments are stored locally under the peer store
+namespace and are not synchronized across a wider mesh.
 
 Binding and dialing direction:
 

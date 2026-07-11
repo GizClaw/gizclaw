@@ -124,4 +124,7 @@ enum RpcMethod {
   RPC_METHOD_SERVER_TOOL_PUT = 98 [(rpc_method) = { name: "server.tool.put" request: "ToolPutRequest" response: "ToolPutResponse" }];
   RPC_METHOD_SERVER_TOOL_DELETE = 99 [(rpc_method) = { name: "server.tool.delete" request: "ToolDeleteRequest" response: "ToolDeleteResponse" }];
   RPC_METHOD_CLIENT_TOOL_INVOKE = 100 [(rpc_method) = { name: "client.tool.invoke" request: "ToolInvokeRequest" response: "ToolInvokeResponse" }];
+  RPC_METHOD_EDGE_PEER_LOOKUP = 101 [(rpc_method) = { name: "edge.peer.lookup" request: "EdgePeerLookupRequest" response: "EdgePeerLookupResponse" }];
+  RPC_METHOD_EDGE_PEER_ASSIGN = 102 [(rpc_method) = { name: "edge.peer.assign" request: "EdgePeerAssignRequest" response: "EdgePeerAssignResponse" }];
+  RPC_METHOD_EDGE_ROUTE_RESOLVE = 103 [(rpc_method) = { name: "edge.route.resolve" request: "EdgeRouteResolveRequest" response: "EdgeRouteResolveResponse" }];
 }

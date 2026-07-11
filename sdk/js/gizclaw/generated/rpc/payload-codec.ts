@@ -312,6 +312,35 @@ export type DoubaoRealtimeWorkspaceParameters = {
   "model"?: string;
   "tools": DoubaoRealtimeFunctionTool[];
 };
+export type EdgePeerAssignRequest = {
+  "peer_public_key": string;
+  "expected_version"?: number;
+};
+export type EdgePeerAssignResponse = {
+  "assignment": EdgePeerAssignment;
+};
+export type EdgePeerAssignment = {
+  "peer_public_key": string;
+  "server_public_key": string;
+  "server_endpoint": string;
+  "role": string;
+  "version": number;
+  "updated_at": string;
+};
+export type EdgePeerLookupRequest = {
+  "peer_public_key": string;
+};
+export type EdgePeerLookupResponse = {
+  "assignment": EdgePeerAssignment;
+};
+export type EdgeRouteResolveRequest = {
+  "target_peer_public_key": string;
+  "caller_public_key"?: string;
+  "resource_kind"?: string;
+};
+export type EdgeRouteResolveResponse = {
+  "assignment": EdgePeerAssignment;
+};
 export type Firmware = {
   "created_at": string;
   "description"?: string;
@@ -1313,6 +1342,9 @@ const REQUEST_PAYLOAD_MESSAGES: Record<string, string> = {
   "client.identifiers.get": "ClientGetIdentifiersRequest",
   "client.info.get": "ClientGetInfoRequest",
   "client.tool.invoke": "ToolInvokeRequest",
+  "edge.peer.assign": "EdgePeerAssignRequest",
+  "edge.peer.lookup": "EdgePeerLookupRequest",
+  "edge.route.resolve": "EdgeRouteResolveRequest",
   "server.badge_def.pixa.download": "BadgeDefPixaDownloadRequest",
   "server.badge.get": "ServerBadgeGetRequest",
   "server.badge.list": "ServerBadgeListRequest",
@@ -1415,6 +1447,9 @@ const RESPONSE_PAYLOAD_MESSAGES: Record<string, string> = {
   "client.identifiers.get": "ClientGetIdentifiersResponse",
   "client.info.get": "ClientGetInfoResponse",
   "client.tool.invoke": "ToolInvokeResponse",
+  "edge.peer.assign": "EdgePeerAssignResponse",
+  "edge.peer.lookup": "EdgePeerLookupResponse",
+  "edge.route.resolve": "EdgeRouteResolveResponse",
   "server.badge_def.pixa.download": "BadgeDefPixaDownloadResponse",
   "server.badge.get": "ServerBadgeGetResponse",
   "server.badge.list": "ServerBadgeListResponse",
@@ -2873,6 +2908,112 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "number": 8,
         "repeated": true,
         "type": "DoubaoRealtimeFunctionTool"
+      }
+    ]
+  },
+  "EdgePeerAssignment": {
+    "fields": [
+      {
+        "name": "peer_public_key",
+        "number": 1,
+        "type": "string"
+      },
+      {
+        "name": "server_public_key",
+        "number": 2,
+        "type": "string"
+      },
+      {
+        "name": "server_endpoint",
+        "number": 3,
+        "type": "string"
+      },
+      {
+        "name": "role",
+        "number": 4,
+        "type": "string"
+      },
+      {
+        "name": "version",
+        "number": 5,
+        "type": "int64"
+      },
+      {
+        "name": "updated_at",
+        "number": 6,
+        "type": "string"
+      }
+    ]
+  },
+  "EdgePeerAssignRequest": {
+    "fields": [
+      {
+        "name": "peer_public_key",
+        "number": 1,
+        "type": "string"
+      },
+      {
+        "name": "expected_version",
+        "number": 2,
+        "optional": true,
+        "type": "int64"
+      }
+    ]
+  },
+  "EdgePeerAssignResponse": {
+    "fields": [
+      {
+        "name": "assignment",
+        "number": 1,
+        "type": "EdgePeerAssignment"
+      }
+    ]
+  },
+  "EdgePeerLookupRequest": {
+    "fields": [
+      {
+        "name": "peer_public_key",
+        "number": 1,
+        "type": "string"
+      }
+    ]
+  },
+  "EdgePeerLookupResponse": {
+    "fields": [
+      {
+        "name": "assignment",
+        "number": 1,
+        "type": "EdgePeerAssignment"
+      }
+    ]
+  },
+  "EdgeRouteResolveRequest": {
+    "fields": [
+      {
+        "name": "target_peer_public_key",
+        "number": 1,
+        "type": "string"
+      },
+      {
+        "name": "caller_public_key",
+        "number": 2,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "resource_kind",
+        "number": 3,
+        "optional": true,
+        "type": "string"
+      }
+    ]
+  },
+  "EdgeRouteResolveResponse": {
+    "fields": [
+      {
+        "name": "assignment",
+        "number": 1,
+        "type": "EdgePeerAssignment"
       }
     ]
   },

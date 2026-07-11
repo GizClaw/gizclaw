@@ -128,6 +128,7 @@ func newWithOptions(cfg Config, newOpts newServerOptions) (srv *CmdServer, err e
 		BuildCommit:    BuildCommit,
 		PublicEndpoint: cfg.Endpoint,
 		PublicICETCP:   newOpts.ICETCPListener != nil,
+		EdgeNodes:      cfg.EdgeNodes,
 		PeerListenerFactories: []gizclaw.PeerListenerFactory{
 			func(opts gizclaw.PeerListenerOptions) (giznet.Listener, error) {
 				listenConfig := webRTCListenConfig(cfg, opts, newOpts.ICETCPListener)

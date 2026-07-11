@@ -86,6 +86,9 @@
       "Peer": {
         "$ref": "./type/peer.json#/components/schemas/Peer"
       },
+      "PeerAssignment": {
+        "$ref": "./type/peer_assignment.json#/components/schemas/PeerAssignment"
+      },
       "PeerIMEI": {
         "$ref": "./type/peer_imei.json#/components/schemas/PeerIMEI"
       },

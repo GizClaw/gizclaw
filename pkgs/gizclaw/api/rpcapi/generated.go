@@ -477,6 +477,9 @@ const (
 	RPCMethodAllSpeedTestRun                    RPCMethod = "all.speed_test.run"
 	RPCMethodClientIdentifiersGet               RPCMethod = "client.identifiers.get"
 	RPCMethodClientInfoGet                      RPCMethod = "client.info.get"
+	RPCMethodEdgePeerAssign                     RPCMethod = "edge.peer.assign"
+	RPCMethodEdgePeerLookup                     RPCMethod = "edge.peer.lookup"
+	RPCMethodEdgeRouteResolve                   RPCMethod = "edge.route.resolve"
 	RPCMethodServerBadgeDefPixaDownload         RPCMethod = "server.badge_def.pixa.download"
 	RPCMethodServerBadgeGet                     RPCMethod = "server.badge.get"
 	RPCMethodServerBadgeList                    RPCMethod = "server.badge.list"
@@ -581,6 +584,12 @@ func (e RPCMethod) Valid() bool {
 	case RPCMethodClientInfoGet:
 		return true
 	case RPCMethodClientToolInvoke:
+		return true
+	case RPCMethodEdgePeerAssign:
+		return true
+	case RPCMethodEdgePeerLookup:
+		return true
+	case RPCMethodEdgeRouteResolve:
 		return true
 	case RPCMethodServerBadgeDefPixaDownload:
 		return true
@@ -2725,6 +2734,49 @@ type ServerRunSayRequest struct {
 // ServerRunSayResponse defines model for ServerRunSayResponse.
 type ServerRunSayResponse struct {
 	Accepted bool `json:"accepted"`
+}
+
+// EdgePeerAssignment defines model for EdgePeerAssignment.
+type EdgePeerAssignment struct {
+	PeerPublicKey   string    `json:"peer_public_key"`
+	Role            string    `json:"role"`
+	ServerEndpoint  string    `json:"server_endpoint"`
+	ServerPublicKey string    `json:"server_public_key"`
+	UpdatedAt       time.Time `json:"updated_at"`
+	Version         int64     `json:"version"`
+}
+
+// EdgePeerLookupRequest defines model for EdgePeerLookupRequest.
+type EdgePeerLookupRequest struct {
+	PeerPublicKey string `json:"peer_public_key"`
+}
+
+// EdgePeerLookupResponse defines model for EdgePeerLookupResponse.
+type EdgePeerLookupResponse struct {
+	Assignment EdgePeerAssignment `json:"assignment"`
+}
+
+// EdgePeerAssignRequest defines model for EdgePeerAssignRequest.
+type EdgePeerAssignRequest struct {
+	ExpectedVersion *int64 `json:"expected_version,omitempty"`
+	PeerPublicKey   string `json:"peer_public_key"`
+}
+
+// EdgePeerAssignResponse defines model for EdgePeerAssignResponse.
+type EdgePeerAssignResponse struct {
+	Assignment EdgePeerAssignment `json:"assignment"`
+}
+
+// EdgeRouteResolveRequest defines model for EdgeRouteResolveRequest.
+type EdgeRouteResolveRequest struct {
+	CallerPublicKey     *string `json:"caller_public_key,omitempty"`
+	ResourceKind        *string `json:"resource_kind,omitempty"`
+	TargetPeerPublicKey string  `json:"target_peer_public_key"`
+}
+
+// EdgeRouteResolveResponse defines model for EdgeRouteResolveResponse.
+type EdgeRouteResolveResponse struct {
+	Assignment EdgePeerAssignment `json:"assignment"`
 }
 
 // ServerRunWorkspaceRecallRequest defines model for ServerRunWorkspaceRecallRequest.
@@ -6433,6 +6485,108 @@ func (t *RPCPayload) FromServerRewardGrantGetResponse(v ServerRewardGrantGetResp
 // MergeServerRewardGrantGetResponse performs a merge with any protobuf payload, using the provided ServerRewardGrantGetResponse
 func (t *RPCPayload) MergeServerRewardGrantGetResponse(v ServerRewardGrantGetResponse) error {
 	return t.merge("ServerRewardGrantGetResponse", v)
+}
+
+// AsEdgePeerLookupRequest decodes the RPCPayload as a EdgePeerLookupRequest
+func (t RPCPayload) AsEdgePeerLookupRequest() (EdgePeerLookupRequest, error) {
+	var body EdgePeerLookupRequest
+	err := t.decode("EdgePeerLookupRequest", &body)
+	return body, err
+}
+
+// FromEdgePeerLookupRequest overwrites any protobuf payload as the provided EdgePeerLookupRequest
+func (t *RPCPayload) FromEdgePeerLookupRequest(v EdgePeerLookupRequest) error {
+	return t.encode("EdgePeerLookupRequest", v)
+}
+
+// MergeEdgePeerLookupRequest performs a merge with any protobuf payload, using the provided EdgePeerLookupRequest
+func (t *RPCPayload) MergeEdgePeerLookupRequest(v EdgePeerLookupRequest) error {
+	return t.merge("EdgePeerLookupRequest", v)
+}
+
+// AsEdgePeerAssignRequest decodes the RPCPayload as a EdgePeerAssignRequest
+func (t RPCPayload) AsEdgePeerAssignRequest() (EdgePeerAssignRequest, error) {
+	var body EdgePeerAssignRequest
+	err := t.decode("EdgePeerAssignRequest", &body)
+	return body, err
+}
+
+// FromEdgePeerAssignRequest overwrites any protobuf payload as the provided EdgePeerAssignRequest
+func (t *RPCPayload) FromEdgePeerAssignRequest(v EdgePeerAssignRequest) error {
+	return t.encode("EdgePeerAssignRequest", v)
+}
+
+// MergeEdgePeerAssignRequest performs a merge with any protobuf payload, using the provided EdgePeerAssignRequest
+func (t *RPCPayload) MergeEdgePeerAssignRequest(v EdgePeerAssignRequest) error {
+	return t.merge("EdgePeerAssignRequest", v)
+}
+
+// AsEdgeRouteResolveRequest decodes the RPCPayload as a EdgeRouteResolveRequest
+func (t RPCPayload) AsEdgeRouteResolveRequest() (EdgeRouteResolveRequest, error) {
+	var body EdgeRouteResolveRequest
+	err := t.decode("EdgeRouteResolveRequest", &body)
+	return body, err
+}
+
+// FromEdgeRouteResolveRequest overwrites any protobuf payload as the provided EdgeRouteResolveRequest
+func (t *RPCPayload) FromEdgeRouteResolveRequest(v EdgeRouteResolveRequest) error {
+	return t.encode("EdgeRouteResolveRequest", v)
+}
+
+// MergeEdgeRouteResolveRequest performs a merge with any protobuf payload, using the provided EdgeRouteResolveRequest
+func (t *RPCPayload) MergeEdgeRouteResolveRequest(v EdgeRouteResolveRequest) error {
+	return t.merge("EdgeRouteResolveRequest", v)
+}
+
+// AsEdgePeerLookupResponse decodes the RPCPayload as a EdgePeerLookupResponse
+func (t RPCPayload) AsEdgePeerLookupResponse() (EdgePeerLookupResponse, error) {
+	var body EdgePeerLookupResponse
+	err := t.decode("EdgePeerLookupResponse", &body)
+	return body, err
+}
+
+// FromEdgePeerLookupResponse overwrites any protobuf payload as the provided EdgePeerLookupResponse
+func (t *RPCPayload) FromEdgePeerLookupResponse(v EdgePeerLookupResponse) error {
+	return t.encode("EdgePeerLookupResponse", v)
+}
+
+// MergeEdgePeerLookupResponse performs a merge with any protobuf payload, using the provided EdgePeerLookupResponse
+func (t *RPCPayload) MergeEdgePeerLookupResponse(v EdgePeerLookupResponse) error {
+	return t.merge("EdgePeerLookupResponse", v)
+}
+
+// AsEdgePeerAssignResponse decodes the RPCPayload as a EdgePeerAssignResponse
+func (t RPCPayload) AsEdgePeerAssignResponse() (EdgePeerAssignResponse, error) {
+	var body EdgePeerAssignResponse
+	err := t.decode("EdgePeerAssignResponse", &body)
+	return body, err
+}
+
+// FromEdgePeerAssignResponse overwrites any protobuf payload as the provided EdgePeerAssignResponse
+func (t *RPCPayload) FromEdgePeerAssignResponse(v EdgePeerAssignResponse) error {
+	return t.encode("EdgePeerAssignResponse", v)
+}
+
+// MergeEdgePeerAssignResponse performs a merge with any protobuf payload, using the provided EdgePeerAssignResponse
+func (t *RPCPayload) MergeEdgePeerAssignResponse(v EdgePeerAssignResponse) error {
+	return t.merge("EdgePeerAssignResponse", v)
+}
+
+// AsEdgeRouteResolveResponse decodes the RPCPayload as a EdgeRouteResolveResponse
+func (t RPCPayload) AsEdgeRouteResolveResponse() (EdgeRouteResolveResponse, error) {
+	var body EdgeRouteResolveResponse
+	err := t.decode("EdgeRouteResolveResponse", &body)
+	return body, err
+}
+
+// FromEdgeRouteResolveResponse overwrites any protobuf payload as the provided EdgeRouteResolveResponse
+func (t *RPCPayload) FromEdgeRouteResolveResponse(v EdgeRouteResolveResponse) error {
+	return t.encode("EdgeRouteResolveResponse", v)
+}
+
+// MergeEdgeRouteResolveResponse performs a merge with any protobuf payload, using the provided EdgeRouteResolveResponse
+func (t *RPCPayload) MergeEdgeRouteResolveResponse(v EdgeRouteResolveResponse) error {
+	return t.merge("EdgeRouteResolveResponse", v)
 }
 
 // AsGeminiTenantVoiceProviderData returns the union data inside the VoiceProviderData as a GeminiTenantVoiceProviderData

@@ -14,6 +14,7 @@
           "unspecified",
           "admin",
           "server",
+          "edge-node",
           "client"
         ]
       }

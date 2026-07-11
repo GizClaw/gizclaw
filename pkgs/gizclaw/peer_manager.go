@@ -22,6 +22,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/gameplay"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/agenthost"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerroute"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerrun"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/toolkit"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/contact"
@@ -47,10 +48,11 @@ type telemetryStatusLock struct {
 }
 
 type Manager struct {
-	Peers     *peer.Server
-	PeerRun   *peerrun.Server
-	AgentHost *agenthost.Host
-	ACL       *acl.Server
+	Peers      *peer.Server
+	PeerRoutes *peerroute.Server
+	PeerRun    *peerrun.Server
+	AgentHost  *agenthost.Host
+	ACL        *acl.Server
 
 	Workspaces    workspace.WorkspaceAdminService
 	Workflows     workflow.WorkflowAdminService
@@ -138,6 +140,12 @@ func (m *Manager) allowService(ctx context.Context, publicKey giznet.PublicKey, 
 			return false
 		}
 		return peer.Status == apitypes.PeerRegistrationStatusActive && peer.Role == apitypes.PeerRoleAdmin
+	case ServiceEdgeRPC:
+		peer, err := m.Peers.LoadPeer(ctx, publicKey)
+		if err != nil {
+			return false
+		}
+		return peer.Status == apitypes.PeerRegistrationStatusActive && peer.Role == apitypes.PeerRoleEdgeNode
 	default:
 		return false
 	}
