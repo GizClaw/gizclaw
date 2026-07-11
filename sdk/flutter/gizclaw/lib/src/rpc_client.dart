@@ -208,7 +208,7 @@ RpcCallResult decodeRpcResponse(
   String requestId,
 ) {
   final envelope = common.RpcResponse.fromBuffer(envelopeBytes);
-  if (envelope.id.isNotEmpty && envelope.id != requestId) {
+  if (envelope.id != requestId) {
     throw FormatException(
       'RPC response id mismatch: got ${envelope.id}, want $requestId',
     );

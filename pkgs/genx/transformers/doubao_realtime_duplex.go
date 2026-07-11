@@ -860,6 +860,11 @@ func (s *doubaoRealtimeDuplexPendingChunkStream) Next() (*genx.MessageChunk, err
 
 func (s *doubaoRealtimeDuplexPendingChunkStream) NextOrDone(done <-chan struct{}) (*genx.MessageChunk, error, bool) {
 	if s.first != nil {
+		select {
+		case <-done:
+			return nil, nil, true
+		default:
+		}
 		chunk := s.first
 		s.first = nil
 		return chunk, nil, false

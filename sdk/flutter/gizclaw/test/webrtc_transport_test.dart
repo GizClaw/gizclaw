@@ -2,7 +2,10 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:fixnum/fixnum.dart' as fixnum;
 import 'package:flutter_webrtc/flutter_webrtc.dart' as rtc;
+import 'package:gizclaw/src/generated/rpc/common.pb.dart' as common;
+import 'package:gizclaw/src/generated/rpc/peer.pb.dart' as peer;
 import 'package:gizclaw/gizclaw.dart';
 import 'package:test/test.dart';
 
@@ -190,6 +193,38 @@ void main() {
     expect(appHandlerCalled, isTrue);
     expect(channel.onMessage, isNotNull);
   });
+
+  test(
+    'serves inbound RPC channels as open when native state is transient',
+    () async {
+      final pc = _FakePeerConnection();
+      serveFlutterGiznetWebRtcRpc(pc);
+
+      final channel = _FakeRtcDataChannel(label: 'giznet/v1/service/0');
+      pc.onDataChannel?.call(channel);
+      channel.emitBinaryMessage(
+        _rpcRequestBytes(
+          id: 'srv-ping',
+          method: peer.RpcMethod.RPC_METHOD_ALL_PING,
+          payloadBytes: encodeRpcRequestPayload(
+            'all.ping',
+            PingRequest(clientSendTime: fixnum.Int64(1)),
+          ),
+        ),
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      final frames = decodeFrames(
+        Uint8List.fromList(
+          channel.sent.expand((message) => message.binary).toList(),
+        ),
+      );
+      expect(frames, hasLength(2));
+      final response = common.RpcResponse.fromBuffer(frames.first.payload);
+      expect(response.id, 'srv-ping');
+      expect(response.hasError(), isFalse);
+    },
+  );
 
   test('treats a newly created native data channel as connecting', () async {
     final native = _FakeRtcDataChannel();
@@ -507,6 +542,10 @@ class _FakeRtcDataChannel extends rtc.RTCDataChannel {
     onMessage?.call(rtc.RTCDataChannelMessage(text));
   }
 
+  void emitBinaryMessage(Uint8List bytes) {
+    onMessage?.call(rtc.RTCDataChannelMessage.fromBinary(bytes));
+  }
+
   @override
   int? get bufferedAmount => bufferedAmountValue;
 
@@ -535,4 +574,21 @@ class _FakeRtcDataChannel extends rtc.RTCDataChannel {
 
   @override
   rtc.RTCDataChannelState? get state => _state;
+}
+
+Uint8List _rpcRequestBytes({
+  required String id,
+  required peer.RpcMethod method,
+  List<int>? payloadBytes,
+}) {
+  return concatBytes([
+    ...encodeEnvelopeFrames(
+      peer.RpcRequest(
+        id: id,
+        method: method,
+        payload: payloadBytes,
+      ).writeToBuffer(),
+    ),
+    encodeFrame(rpcFrameTypeEos),
+  ]);
 }

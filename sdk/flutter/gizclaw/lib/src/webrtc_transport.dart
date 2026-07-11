@@ -55,7 +55,12 @@ void serveFlutterGiznetWebRtcRpc(rtc.RTCPeerConnection peerConnection) {
   void handler(rtc.RTCDataChannel channel) {
     previous?.call(channel);
     if (channel.label == giznetServiceDataChannelLabel(servicePeerRpc)) {
-      serveGizClawPeerRpcChannel(FlutterWebRtcDataChannel(channel));
+      serveGizClawPeerRpcChannel(
+        FlutterWebRtcDataChannel(
+          channel,
+          initialState: GizClawDataChannelState.open,
+        ),
+      );
     }
   }
 

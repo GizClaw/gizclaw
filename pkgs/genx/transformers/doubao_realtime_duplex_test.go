@@ -771,6 +771,25 @@ func TestDoubaoRealtimeDuplexInputReaderPrioritizesDoneOverBufferedInput(t *test
 	}
 }
 
+func TestDoubaoRealtimeDuplexPendingChunkPrioritizesDone(t *testing.T) {
+	chunk := &genx.MessageChunk{Ctrl: &genx.StreamCtrl{StreamID: "pending", BeginOfStream: true}}
+	stream := withDoubaoRealtimeDuplexPendingChunk(emptyRealtimeStream{}, chunk).(doubaoRealtimeDuplexDoneAwareStream)
+	done := make(chan struct{})
+	close(done)
+
+	got, err, closed := stream.NextOrDone(done)
+	if got != nil || err != nil || !closed {
+		t.Fatalf("NextOrDone() = (%#v, %v, %v), want done without consuming pending chunk", got, err, closed)
+	}
+	got, err = stream.Next()
+	if err != nil {
+		t.Fatalf("Next() after done = %v", err)
+	}
+	if got != chunk {
+		t.Fatalf("Next() after done = %#v, want pending chunk %#v", got, chunk)
+	}
+}
+
 func TestDoubaoRealtimeDuplexTextDoneAfterAudioDoneAllowsNextTurn(t *testing.T) {
 	firstInputDrained := make(chan struct{})
 	allowNextInput := make(chan struct{})
