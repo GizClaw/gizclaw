@@ -113,13 +113,13 @@ class FlutterWebRtcDataChannel implements GizClawDataChannel {
 GizClawDataChannelState _convertState(rtc.RTCDataChannelState? state) {
   switch (state) {
     case rtc.RTCDataChannelState.RTCDataChannelConnecting:
+    case null:
       return GizClawDataChannelState.connecting;
     case rtc.RTCDataChannelState.RTCDataChannelOpen:
       return GizClawDataChannelState.open;
     case rtc.RTCDataChannelState.RTCDataChannelClosing:
       return GizClawDataChannelState.closing;
     case rtc.RTCDataChannelState.RTCDataChannelClosed:
-    case null:
       return GizClawDataChannelState.closed;
   }
 }
