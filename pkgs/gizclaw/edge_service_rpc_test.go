@@ -6,6 +6,7 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerroute"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
@@ -79,11 +80,29 @@ func TestEdgeRPCMapsMissingAssignmentToNotFound(t *testing.T) {
 	}
 }
 
+func TestEdgeRPCMapsMissingPeerToNotFound(t *testing.T) {
+	peerKey := giznet.PublicKey{1}
+	server := &edgeRPCServer{routes: &peerroute.Server{
+		Store:           kv.NewMemory(nil),
+		Peers:           edgeTestPeers{err: peer.ErrPeerNotFound},
+		ServerPublicKey: giznet.PublicKey{2},
+		ServerEndpoint:  "server:9820",
+	}}
+	resp := edgeDispatch(t, server, "assign", rpcapi.RPCMethodEdgePeerAssign, edgeParams(t, (*rpcapi.RPCPayload).FromEdgePeerAssignRequest, rpcapi.EdgePeerAssignRequest{PeerPublicKey: peerKey.String()}))
+	if resp.Error == nil || resp.Error.Code != rpcapi.RPCErrorCodeNotFound {
+		t.Fatalf("missing peer response = %+v", resp)
+	}
+}
+
 type edgeTestPeers struct {
 	items map[giznet.PublicKey]apitypes.Peer
+	err   error
 }
 
 func (p edgeTestPeers) LoadPeer(_ context.Context, publicKey giznet.PublicKey) (apitypes.Peer, error) {
+	if p.err != nil {
+		return apitypes.Peer{}, p.err
+	}
 	peer, ok := p.items[publicKey]
 	if !ok {
 		return apitypes.Peer{}, kv.ErrNotFound

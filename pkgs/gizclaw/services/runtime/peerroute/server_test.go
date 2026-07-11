@@ -63,13 +63,21 @@ func TestAssignLookupAndRefresh(t *testing.T) {
 
 	service.ServerPublicKey = otherServerKey
 	service.ServerEndpoint = "server-b:9820"
-	version := existing.Version
-	refreshed, err := service.Assign(ctx, peerKey, &version)
+	refreshed, err := service.Assign(ctx, peerKey, nil)
 	if err != nil {
-		t.Fatalf("Assign refresh error = %v", err)
+		t.Fatalf("Assign changed route refresh error = %v", err)
 	}
 	if refreshed.Version != 2 || refreshed.ServerPublicKey != otherServerKey.String() || refreshed.ServerEndpoint != "server-b:9820" {
 		t.Fatalf("refreshed assignment = %+v", refreshed)
+	}
+	service.ServerEndpoint = "server-c:9820"
+	version := refreshed.Version
+	refreshed, err = service.Assign(ctx, peerKey, &version)
+	if err != nil {
+		t.Fatalf("Assign CAS refresh error = %v", err)
+	}
+	if refreshed.Version != 3 || refreshed.ServerEndpoint != "server-c:9820" {
+		t.Fatalf("CAS refreshed assignment = %+v", refreshed)
 	}
 	loaded, err := service.Lookup(ctx, peerKey)
 	if err != nil {
@@ -123,6 +131,49 @@ func TestAssignConflictAndValidation(t *testing.T) {
 	missingPeer.Peers = testPeers{}
 	if _, err := missingPeer.Assign(ctx, giznet.PublicKey{9}, nil); err == nil {
 		t.Fatal("Assign unknown peer succeeded")
+	}
+	blockedPeer := *service
+	blockedPeer.Peers = testPeers{items: map[giznet.PublicKey]apitypes.Peer{
+		peerKey: {
+			PublicKey:     peerKey.String(),
+			Role:          apitypes.PeerRoleClient,
+			Status:        apitypes.PeerRegistrationStatusBlocked,
+			Device:        apitypes.DeviceInfo{},
+			Configuration: apitypes.Configuration{},
+		},
+	}}
+	if _, err := blockedPeer.Assign(ctx, peerKey, nil); !errors.Is(err, ErrPeerInactive) {
+		t.Fatalf("Assign blocked peer error = %v, want %v", err, ErrPeerInactive)
+	}
+}
+
+func TestResolveRequiresActivePeer(t *testing.T) {
+	ctx := context.Background()
+	peerKey := giznet.PublicKey{1}
+	peerRecord := apitypes.Peer{
+		PublicKey:     peerKey.String(),
+		Role:          apitypes.PeerRoleClient,
+		Status:        apitypes.PeerRegistrationStatusActive,
+		Device:        apitypes.DeviceInfo{},
+		Configuration: apitypes.Configuration{},
+	}
+	service := &Server{
+		Store:           kv.NewMemory(nil),
+		ServerPublicKey: giznet.PublicKey{2},
+		ServerEndpoint:  "server:9820",
+		Peers:           testPeers{items: map[giznet.PublicKey]apitypes.Peer{peerKey: peerRecord}},
+	}
+	if _, err := service.Assign(ctx, peerKey, nil); err != nil {
+		t.Fatalf("Assign create error = %v", err)
+	}
+	peerRecord.Status = apitypes.PeerRegistrationStatusBlocked
+	service.Peers = testPeers{items: map[giznet.PublicKey]apitypes.Peer{peerKey: peerRecord}}
+	if _, err := service.Resolve(ctx, peerKey); !errors.Is(err, ErrPeerInactive) {
+		t.Fatalf("Resolve blocked peer error = %v, want %v", err, ErrPeerInactive)
+	}
+	service.Peers = testPeers{}
+	if _, err := service.Resolve(ctx, peerKey); !errors.Is(err, kv.ErrNotFound) {
+		t.Fatalf("Resolve deleted peer error = %v, want %v", err, kv.ErrNotFound)
 	}
 }
 

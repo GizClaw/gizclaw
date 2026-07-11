@@ -21,6 +21,7 @@ var (
 	ErrStoreNil           = errors.New("peerroute: store not configured")
 	ErrMissingRoute       = errors.New("peerroute: server route not configured")
 	ErrVersionConflict    = errors.New("peerroute: assignment version conflict")
+	ErrPeerInactive       = errors.New("peerroute: peer is not active")
 )
 
 type PeerStore interface {
@@ -44,6 +45,19 @@ func (s *Server) Lookup(ctx context.Context, publicKey giznet.PublicKey) (apityp
 }
 
 func (s *Server) Resolve(ctx context.Context, target giznet.PublicKey) (apitypes.PeerAssignment, error) {
+	if target.IsZero() {
+		return apitypes.PeerAssignment{}, ErrInvalidPublicKey
+	}
+	if s.Peers == nil {
+		return apitypes.PeerAssignment{}, ErrPeerStoreNil
+	}
+	peer, err := s.Peers.LoadPeer(ctx, target)
+	if err != nil {
+		return apitypes.PeerAssignment{}, err
+	}
+	if err := validateActivePeer(peer); err != nil {
+		return apitypes.PeerAssignment{}, err
+	}
 	return s.Lookup(ctx, target)
 }
 
@@ -61,6 +75,9 @@ func (s *Server) Assign(ctx context.Context, publicKey giznet.PublicKey, expecte
 	if err != nil {
 		return apitypes.PeerAssignment{}, err
 	}
+	if err := validateActivePeer(peer); err != nil {
+		return apitypes.PeerAssignment{}, err
+	}
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -68,10 +85,10 @@ func (s *Server) Assign(ctx context.Context, publicKey giznet.PublicKey, expecte
 	current, err := s.get(ctx, publicKey)
 	switch {
 	case err == nil:
-		if expectedVersion == nil {
+		if expectedVersion == nil && s.assignmentCurrent(current, peer) {
 			return current, nil
 		}
-		if current.Version != *expectedVersion {
+		if expectedVersion != nil && current.Version != *expectedVersion {
 			return apitypes.PeerAssignment{}, ErrVersionConflict
 		}
 		current.ServerPublicKey = s.ServerPublicKey.String()
@@ -101,6 +118,19 @@ func (s *Server) Assign(ctx context.Context, publicKey giznet.PublicKey, expecte
 		return apitypes.PeerAssignment{}, err
 	}
 	return s.get(ctx, publicKey)
+}
+
+func validateActivePeer(peer apitypes.Peer) error {
+	if peer.Status != apitypes.PeerRegistrationStatusActive {
+		return ErrPeerInactive
+	}
+	return nil
+}
+
+func (s *Server) assignmentCurrent(assignment apitypes.PeerAssignment, peer apitypes.Peer) bool {
+	return assignment.ServerPublicKey == s.ServerPublicKey.String() &&
+		assignment.ServerEndpoint == strings.TrimSpace(s.ServerEndpoint) &&
+		assignment.Role == peer.Role
 }
 
 func (s *Server) validateRoute() error {

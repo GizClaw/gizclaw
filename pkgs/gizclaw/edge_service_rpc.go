@@ -7,6 +7,7 @@ import (
 	"net"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerroute"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
@@ -118,7 +119,7 @@ func edgeRPCError(id string, err error) *rpcapi.RPCResponse {
 	switch {
 	case errors.Is(err, peerroute.ErrInvalidPublicKey):
 		code = rpcapi.RPCErrorCodeInvalidParams
-	case errors.Is(err, peerroute.ErrAssignmentNotFound), errors.Is(err, kv.ErrNotFound):
+	case errors.Is(err, peerroute.ErrAssignmentNotFound), errors.Is(err, peerroute.ErrPeerInactive), errors.Is(err, peer.ErrPeerNotFound), errors.Is(err, kv.ErrNotFound):
 		code = rpcapi.RPCErrorCodeNotFound
 	case errors.Is(err, peerroute.ErrVersionConflict):
 		code = rpcapi.RPCErrorCodeConflict
