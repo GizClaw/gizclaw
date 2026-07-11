@@ -118,6 +118,24 @@ Drift code generation will also require compatible `drift_dev` and
 tested when the database implementation begins. Committed lockfiles remain the
 reproducible version authority for application builds.
 
+### Animated Media: Pixa from the GizClaw Dart SDK
+
+Pet and badge visuals use the Pixa runtime exported by the existing
+`sdk/dart/gizclaw` package. The SDK owns Pixa parsing, format validation, clip
+selection, frame timing, pixel decoding, and Flutter painting primitives. The
+application must consume this API instead of implementing a second Pixa decoder
+inside a feature or widget.
+
+Pixa is not an additional pub.dev dependency for the application. It is part of
+the existing local `gizclaw` path dependency and shares the SDK's version and
+compatibility boundary.
+
+The Pet feature may build a GizUI playback component around the SDK primitives
+for lifecycle, sizing, placeholders, and error presentation. That component
+must not redefine the Pixa file format or validation rules. General page,
+navigation, and interaction animations continue to use Flutter animation APIs;
+Pixa is reserved for GizClaw visual assets.
+
 ## Application Architecture
 
 Feature widgets do not call the WebRTC SDK or Drift directly. Repositories
@@ -155,6 +173,12 @@ lib/
 Structured metadata and text history belong in Drift. Large binary content such
 as audio, workflow covers, pet Pixa files, and promotional images belongs in the
 application file cache; Drift stores the local path and cache metadata.
+
+Downloaded Pixa bytes belong in the file cache. Drift records their owning
+server, PetDef or BadgeDef identifier, local path, media type, version or
+checksum, size, and last access time. The active clip, elapsed playback time,
+decoded frame, and Flutter image objects are transient rendering state and must
+remain in memory.
 
 The initial database model should cover:
 
@@ -244,8 +268,9 @@ the boundary themselves.
 3. Add Drift, the initial schema, migrations, and repository interfaces.
 4. Connect workflow and workspace repositories to the GizClaw WebRTC SDK.
 5. Replace fixture Browse and workspace data with stale-while-revalidate data.
-6. Integrate workspace history and live conversation state.
-7. Add Friends, Group Chat, Pet, and Me data incrementally as their server
+6. Connect Pet visuals to downloaded Pixa assets through the Dart SDK runtime.
+7. Integrate workspace history and live conversation state.
+8. Add Friends, Group Chat, Pet, and Me data incrementally as their server
    contracts are finalized.
 
 Each step should retain an independently runnable iOS and Android application.
