@@ -366,6 +366,19 @@ func (r *Runtime) DrivePet(ctx context.Context, owner string, req apitypes.PetDr
 				actionSpec.Effect = nil
 			}
 			legacyActionReward = legacyAction.Reward
+		} else if isNoopPetDefAction(actionSpec) {
+			legacyAction, legacyOK, err := r.Catalog.legacyGameRulesetAction(ctx, ruleset.Name, action)
+			if err != nil {
+				return apitypes.PetDriveResponse{}, err
+			}
+			if legacyOK {
+				actionSpec.Cost = legacyAction.Cost
+				actionSpec.Effect = &legacyAction.Effect
+				if actionSpec.Effect.AttrDelta == nil && actionSpec.Effect.PetExpDelta == nil {
+					actionSpec.Effect = nil
+				}
+				legacyActionReward = legacyAction.Reward
+			}
 		}
 		hasAction = true
 		if actionSpec.Cost > 0 {

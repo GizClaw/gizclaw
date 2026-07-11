@@ -437,7 +437,27 @@ func TestScanPetIgnoresLegacyAbilityStats(t *testing.T) {
 	}
 
 	_, err = db.ExecContext(ctx, `INSERT INTO gameplay_pets (owner_public_key, id, ruleset_name, petdef_id, display_name, workspace_name, workflow_name, life_json, ability_json, exp, level, last_active_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		"peer-a", "pet-b", "default", "petdef-a", "Pet B", "pet-pet-b", "pet-chat", `{"hunger":100}`, `{"xp":7,"rank":2}`, int64(7), int64(1), formatTime(now), formatTime(now), formatTime(now))
+		"peer-a", "pet-c", "default", "petdef-a", "Pet C", "pet-pet-c", "pet-chat", `{"hunger":100}`, `{"xp":1,"play":1}`, int64(42), int64(1), formatTime(now), formatTime(now), formatTime(now))
+	if err != nil {
+		t.Fatalf("insert legacy xp ability pet error = %v", err)
+	}
+	pet, err = scanPet(db.QueryRowContext(ctx, petSelectSQL()+` WHERE id = ?`, "pet-c"))
+	if err != nil {
+		t.Fatalf("scanPet() legacy xp ability error = %v", err)
+	}
+	if _, ok := pet.Progression["play"]; ok {
+		t.Fatalf("legacy xp ability stat leaked into progression: %#v", pet.Progression)
+	}
+	if got := pet.Progression["xp"]; got != 42 {
+		t.Fatalf("legacy xp ability progression xp = %d, want 42", got)
+	}
+
+	progressionJSON, err := marshalStoredPetProgression(apitypes.PetProgression{"xp": 7, "rank": 2})
+	if err != nil {
+		t.Fatalf("marshalStoredPetProgression() error = %v", err)
+	}
+	_, err = db.ExecContext(ctx, `INSERT INTO gameplay_pets (owner_public_key, id, ruleset_name, petdef_id, display_name, workspace_name, workflow_name, life_json, ability_json, exp, level, last_active_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		"peer-a", "pet-b", "default", "petdef-a", "Pet B", "pet-pet-b", "pet-chat", `{"hunger":100}`, progressionJSON, int64(7), int64(1), formatTime(now), formatTime(now), formatTime(now))
 	if err != nil {
 		t.Fatalf("insert progression pet error = %v", err)
 	}
@@ -481,11 +501,11 @@ func TestRuntimeDrivesLegacyRulesetActionFallback(t *testing.T) {
 		"spec":{
 			"enabled":true,
 			"points":{"initial_balance":50},
-			"pet_pool":[{"petdef_id":"legacy-pet","weight":1}],
-			"drive":{
-				"action_costs":{"feed":3},
-				"action_rewards":{"feed":{"points_delta":4,"pet_exp_delta":5,"life_delta":{"hunger":10}}}
-			}
+				"pet_pool":[{"petdef_id":"legacy-pet","weight":1}],
+				"drive":{
+					"action_costs":{"idle":3},
+					"action_rewards":{"idle":{"points_delta":4,"pet_exp_delta":5,"life_delta":{"hunger":10}}}
+				}
 		},
 		"created_at":"2026-07-05T11:00:00Z",
 		"updated_at":"2026-07-05T11:00:00Z"
@@ -497,14 +517,14 @@ func TestRuntimeDrivesLegacyRulesetActionFallback(t *testing.T) {
 		Catalog:    catalog,
 		Workspaces: &recordingWorkspaceService{},
 		Now:        func() time.Time { return now },
-		NewID:      sequentialIDs("pet-1", "adopt-txn", "feed-cost-txn", "grant-1", "reward-txn"),
+		NewID:      sequentialIDs("pet-1", "adopt-txn", "idle-cost-txn", "grant-1", "reward-txn"),
 		PickWeight: func(int64) int64 { return 0 },
 	}
 	adopted, err := runtime.AdoptPet(ctx, "peer-a", apitypes.PetAdoptRequest{})
 	if err != nil {
 		t.Fatalf("AdoptPet() error = %v", err)
 	}
-	drive, err := runtime.DrivePet(ctx, "peer-a", apitypes.PetDriveRequest{PetId: adopted.Pet.Id, Action: stringPtr("feed")})
+	drive, err := runtime.DrivePet(ctx, "peer-a", apitypes.PetDriveRequest{PetId: adopted.Pet.Id, Action: stringPtr("idle")})
 	if err != nil {
 		t.Fatalf("DrivePet() legacy action error = %v", err)
 	}

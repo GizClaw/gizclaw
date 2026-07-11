@@ -710,16 +710,6 @@ func validatePetDefSpec(spec apitypes.PetDefSpec) error {
 	if err := validatePetDefDrive(spec.Drive, spec.Visual.Pixa.Metadata.Clips, spec.Attr); err != nil {
 		return err
 	}
-	locale, ok := spec.I18n[spec.DefaultLocale]
-	if !ok {
-		return fmt.Errorf("i18n.%s is required", spec.DefaultLocale)
-	}
-	if locale.DisplayName == nil || strings.TrimSpace(*locale.DisplayName) == "" {
-		return fmt.Errorf("i18n.%s.display_name is required", spec.DefaultLocale)
-	}
-	if locale.Description == nil || strings.TrimSpace(*locale.Description) == "" {
-		return fmt.Errorf("i18n.%s.description is required", spec.DefaultLocale)
-	}
 	if err := validatePetDefI18n(spec); err != nil {
 		return err
 	}
@@ -738,7 +728,7 @@ func validatePetAttrGroup(path string, group apitypes.PetAttrGroupSpec) error {
 			return fmt.Errorf("%s.%s must not contain leading or trailing whitespace", path, id)
 		}
 		switch id {
-		case "initial", "display_name", "description":
+		case "initial", "display_name", "description", petProgressionStorageMarker:
 			return fmt.Errorf("%s.%s uses a reserved attribute id", path, id)
 		}
 	}

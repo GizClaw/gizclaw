@@ -89,7 +89,7 @@ func TestConnectGameplayUserStory(t *testing.T) {
 	if !hasCLIPresentationAction(presentation.Drive.Actions, "bath", 5, "bath") {
 		t.Fatalf("pet presentation actions = %#v", presentation.Drive.Actions)
 	}
-	if presentation.PixaMetadata.Canvas.Width != 60 || presentation.PixaMetadata.Canvas.Height != 60 || !hasCLIPresentationClip(presentation.PixaMetadata.Clips, "idle", "default") {
+	if presentation.PixaMetadata.Canvas.Width != 60 || presentation.PixaMetadata.Canvas.Height != 60 || !hasCLIPresentationClip(presentation.PixaMetadata.Clips, "idle", "idle") {
 		t.Fatalf("pet presentation pixa metadata = %#v", presentation.PixaMetadata)
 	}
 	if presentation.I18n["en"].DisplayName == nil || *presentation.I18n["en"].DisplayName != "Starter Pet" {
@@ -157,7 +157,7 @@ func uploadGameplayCLIPixa(t *testing.T, h *clitest.Harness) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	pixa := makeGameplayCLITestPixa(t, []string{"default", "bath"}, 60, 60)
+	pixa := makeGameplayCLITestPixa(t, []string{"idle", "bath"}, 60, 60)
 	resp, err := api.UploadPetDefPixaWithBodyWithResponse(ctx, "petdef-starter", "application/octet-stream", bytes.NewReader(pixa))
 	if err != nil {
 		t.Fatalf("upload gameplay pet pixa: %v", err)

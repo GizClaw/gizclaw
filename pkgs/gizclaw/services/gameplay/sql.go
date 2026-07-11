@@ -15,6 +15,8 @@ type rowScanner interface {
 	Scan(dest ...any) error
 }
 
+const petProgressionStorageMarker = "__gizclaw_progression_v1"
+
 func petSelectSQL() string {
 	return `SELECT owner_public_key, id, ruleset_name, petdef_id, display_name, workspace_name, workflow_name, life_json, ability_json, exp, level, last_active_at, created_at, updated_at FROM gameplay_pets`
 }
@@ -39,15 +41,7 @@ func scanPet(row rowScanner) (apitypes.Pet, error) {
 	if err := unmarshalJSON(abilityJSON, &storedProgression); err != nil {
 		return apitypes.Pet{}, err
 	}
-	pet.Progression = apitypes.PetProgression{}
-	if _, ok := storedProgression["xp"]; ok {
-		for key, value := range storedProgression {
-			pet.Progression[key] = value
-		}
-	}
-	if _, ok := pet.Progression["xp"]; !ok && legacyExp != 0 {
-		pet.Progression["xp"] = legacyExp
-	}
+	pet.Progression = scanStoredPetProgression(storedProgression, legacyExp)
 	pet.LastActiveAt = parseTime(lastActiveAt)
 	pet.CreatedAt = parseTime(createdAt)
 	pet.UpdatedAt = parseTime(updatedAt)
@@ -59,7 +53,7 @@ func insertPet(ctx context.Context, tx *sql.Tx, pet apitypes.Pet) error {
 	if err != nil {
 		return err
 	}
-	progressionJSON, err := marshalJSON(pet.Progression)
+	progressionJSON, err := marshalStoredPetProgression(pet.Progression)
 	if err != nil {
 		return err
 	}
@@ -74,7 +68,7 @@ func updatePet(ctx context.Context, tx *sql.Tx, pet apitypes.Pet) error {
 	if err != nil {
 		return err
 	}
-	progressionJSON, err := marshalJSON(pet.Progression)
+	progressionJSON, err := marshalStoredPetProgression(pet.Progression)
 	if err != nil {
 		return err
 	}
@@ -342,6 +336,37 @@ func unmarshalJSON(data string, out any) error {
 		data = "{}"
 	}
 	return json.Unmarshal([]byte(data), out)
+}
+
+func scanStoredPetProgression(stored apitypes.PetProgression, legacyExp int64) apitypes.PetProgression {
+	out := apitypes.PetProgression{}
+	if stored[petProgressionStorageMarker] == 1 {
+		for key, value := range stored {
+			if key == petProgressionStorageMarker {
+				continue
+			}
+			out[key] = value
+		}
+		if _, ok := out["xp"]; !ok && legacyExp != 0 {
+			out["xp"] = legacyExp
+		}
+		return out
+	}
+	if legacyExp != 0 {
+		out["xp"] = legacyExp
+	}
+	return out
+}
+
+func marshalStoredPetProgression(progression apitypes.PetProgression) (string, error) {
+	stored := apitypes.PetProgression{petProgressionStorageMarker: 1}
+	for key, value := range progression {
+		if key == petProgressionStorageMarker {
+			continue
+		}
+		stored[key] = value
+	}
+	return marshalJSON(stored)
 }
 
 func formatTime(t time.Time) string {

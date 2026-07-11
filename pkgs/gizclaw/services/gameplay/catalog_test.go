@@ -542,6 +542,23 @@ func TestCatalogMigratesDisplayNameOnlyLegacyPetDef(t *testing.T) {
 	}
 }
 
+func TestCatalogAcceptsOptionalDefaultLocaleI18nText(t *testing.T) {
+	ctx := context.Background()
+	catalog := testCatalog(t, time.Date(2026, 7, 5, 11, 0, 0, 0, time.UTC))
+	spec := testPetDefSpec("Schema Valid Pet")
+	spec.I18n = apitypes.PetDefI18nSpec{
+		"en": {},
+	}
+	resp, err := catalog.CreatePetDef(ctx, adminhttp.CreatePetDefRequestObject{Body: &adminhttp.PetDefUpsert{
+		Id:   "schema-valid-pet",
+		Spec: spec,
+	}})
+	if err != nil {
+		t.Fatalf("CreatePetDef() optional i18n error = %v", err)
+	}
+	requireResponse[adminhttp.CreatePetDef200JSONResponse](t, resp)
+}
+
 func requireResponse[T any](t *testing.T, value any) T {
 	t.Helper()
 	resp, ok := value.(T)

@@ -53,7 +53,7 @@ spec:
             clips:
             - id: idle
               action_id: idle
-              pixa_clip_name: default
+              pixa_clip_name: idle
             - id: bath
               action_id: bath
               pixa_clip_name: bath
