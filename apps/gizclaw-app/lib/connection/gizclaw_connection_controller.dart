@@ -50,6 +50,7 @@ class GizClawConnectionController {
       serverPublicKey: base58Decode(info.publicKey),
     );
     final peerConnection = await connectFlutterGiznetWebRtc(
+      addAudioTransceiver: false,
       prepareOffer: (sdp) => prepareEncryptedGiznetWebRtcOffer(identity, sdp),
       sendOffer: (offer) =>
           _sendOffer(baseUri.resolve(info.signalingPath), offer),
