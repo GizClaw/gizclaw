@@ -100,9 +100,16 @@ func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.A
 	if err != nil {
 		return nil, err
 	}
+	agentReady := false
+	defer func() {
+		if !agentReady {
+			_ = claw.CloseContext(context.Background())
+		}
+	}()
 	if err := registerToolkitHandlers(ctx, claw, spec.Toolkit); err != nil {
 		return nil, err
 	}
+	agentReady = true
 	starts, initiativePolicy := flowcraftConversationSettings(workspaceParams, cfg.Spec.Flowcraft)
 	inputMode := inputModePushToTalk
 	if workspaceParams != nil && workspaceParams.Input != nil {

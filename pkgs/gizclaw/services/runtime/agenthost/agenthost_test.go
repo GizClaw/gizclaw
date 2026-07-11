@@ -432,7 +432,7 @@ func TestHostTransformReusesAgentForConcurrentSameWorkspace(t *testing.T) {
 	}
 }
 
-func TestHostTransformReusesToolkitRuntimeAcrossSubjects(t *testing.T) {
+func TestHostTransformDoesNotReuseToolkitRuntimeAcrossSubjects(t *testing.T) {
 	host := New(subjectToolkitResolver{})
 	var subjects []string
 	if err := host.Register("echo", FactoryFunc(func(_ context.Context, spec Spec) (genx.Transformer, error) {
@@ -445,16 +445,25 @@ func TestHostTransformReusesToolkitRuntimeAcrossSubjects(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Transform(peer-a) error = %v", err)
 	}
-	defer first.Close()
+
+	if _, err := host.Transform(WithACLSubject(context.Background(), acl.PublicKeySubject("peer-b")), "demo", emptyStream{}); !errors.Is(err, ErrWorkspaceBusy) {
+		t.Fatalf("Transform(peer-b while peer-a active) error = %v, want %v", err, ErrWorkspaceBusy)
+	}
+	if len(subjects) != 1 || subjects[0] != "peer-a" {
+		t.Fatalf("factory subjects while busy = %#v, want only peer-a", subjects)
+	}
+	if err := first.Close(); err != nil {
+		t.Fatalf("Close(peer-a) error = %v", err)
+	}
 
 	second, err := host.Transform(WithACLSubject(context.Background(), acl.PublicKeySubject("peer-b")), "demo", emptyStream{})
 	if err != nil {
-		t.Fatalf("Transform(peer-b) error = %v", err)
+		t.Fatalf("Transform(peer-b after release) error = %v", err)
 	}
 	defer second.Close()
 
-	if len(subjects) != 1 || subjects[0] != "peer-a" {
-		t.Fatalf("factory subjects = %#v, want one workspace runtime for peer-a", subjects)
+	if len(subjects) != 2 || subjects[0] != "peer-a" || subjects[1] != "peer-b" {
+		t.Fatalf("factory subjects = %#v, want distinct peer subjects after release", subjects)
 	}
 }
 

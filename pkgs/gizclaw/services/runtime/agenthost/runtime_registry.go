@@ -2,6 +2,7 @@ package agenthost
 
 import (
 	"context"
+	"net/url"
 	"sync"
 )
 
@@ -31,7 +32,7 @@ func (r *RuntimeRegistry) Acquire(ctx context.Context, host *Host, workspaceName
 	if r.runtimes == nil {
 		r.runtimes = make(map[string]*workspaceRuntime)
 	}
-	key := workspaceName
+	key := runtimeKey(workspaceName, spec)
 	if current := r.runtimes[key]; current != nil {
 		current.refs++
 		return current.agent, r.releaseFunc(key, current), nil
@@ -43,6 +44,14 @@ func (r *RuntimeRegistry) Acquire(ctx context.Context, host *Host, workspaceName
 	current := &workspaceRuntime{agent: agent, release: release, refs: 1}
 	r.runtimes[key] = current
 	return agent, r.releaseFunc(key, current), nil
+}
+
+func runtimeKey(workspaceName string, spec Spec) string {
+	if spec.Toolkit == nil {
+		return workspaceName
+	}
+	subject := spec.Toolkit.BuildRequest.Subject
+	return workspaceName + "#toolkit-subject=" + url.QueryEscape(string(subject.Kind)) + ":" + url.QueryEscape(subject.Id)
 }
 
 func (r *RuntimeRegistry) releaseFunc(key string, current *workspaceRuntime) func() {

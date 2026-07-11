@@ -3353,3 +3353,39 @@ spec:
       subject:
         id: default-client
         kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-tool-system-toolkit-echo
+    spec:
+      resource:
+        id: system.toolkit.echo
+        kind: tool
+      role: default-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-workflow-flowcraft-toolkit-smoke
+    spec:
+      resource:
+        id: flowcraft-toolkit-smoke
+        kind: workflow
+      role: default-client
+      subject:
+        id: default-client
+        kind: view
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: ACLPolicyBinding
+    metadata:
+      name: view-default-client-workspace-flowcraft-toolkit-smoke
+    spec:
+      resource:
+        id: workspace-flowcraft-toolkit-smoke
+        kind: workspace
+      role: default-client
+      subject:
+        id: default-client
+        kind: view
