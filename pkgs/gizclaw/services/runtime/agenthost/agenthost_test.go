@@ -182,6 +182,46 @@ func TestServiceResolverWorkspaceToolkitCanExposeNoTools(t *testing.T) {
 	}
 }
 
+func TestServiceResolverUsesToolkitAuthorizerFromContext(t *testing.T) {
+	workflowToolIDs := []string{"system.music.play"}
+	rawAuthorizer := &testToolkitAuthorizer{}
+	overrideAuthorizer := &testToolkitAuthorizer{}
+	resolver := ServiceResolver{
+		Workspaces: fakeWorkspaceService{items: map[string]apitypes.Workspace{
+			"demo": {
+				Name:         "demo",
+				WorkflowName: "workflow-1",
+			},
+		}},
+		Workflows: fakeWorkflowService{items: map[string]apitypes.WorkflowDocument{
+			"workflow-1": {
+				Metadata: apitypes.WorkflowMetadata{Name: "workflow-1"},
+				Spec: apitypes.WorkflowSpec{
+					Driver:  apitypes.WorkflowDriverFlowcraft,
+					Toolkit: &apitypes.ToolkitPolicy{ToolIds: &workflowToolIDs},
+				},
+			},
+		}},
+		ToolBuilder:   &toolkit.Builder{Authorizer: rawAuthorizer},
+		ToolExecutors: toolkit.NewExecutorRegistry(),
+	}
+
+	ctx := WithACLSubject(context.Background(), acl.PublicKeySubject("peer-a"))
+	spec, err := resolver.Resolve(WithToolkitAuthorizer(ctx, overrideAuthorizer), "demo")
+	if err != nil {
+		t.Fatalf("Resolve() error = %v", err)
+	}
+	if spec.Toolkit == nil {
+		t.Fatal("Toolkit = nil")
+	}
+	if spec.Toolkit.Builder.Authorizer != overrideAuthorizer {
+		t.Fatalf("Toolkit authorizer = %#v, want context override", spec.Toolkit.Builder.Authorizer)
+	}
+	if resolver.ToolBuilder.Authorizer != rawAuthorizer {
+		t.Fatalf("resolver builder authorizer mutated to %#v", resolver.ToolBuilder.Authorizer)
+	}
+}
+
 func TestServiceResolverRequiresSubjectForToolkit(t *testing.T) {
 	resolver := ServiceResolver{
 		Workspaces: fakeWorkspaceService{items: map[string]apitypes.Workspace{
@@ -339,6 +379,32 @@ func TestHostTransformReusesAgentForConcurrentSameWorkspace(t *testing.T) {
 	}
 }
 
+func TestHostTransformDoesNotReuseToolkitRuntimeAcrossSubjects(t *testing.T) {
+	host := New(subjectToolkitResolver{})
+	var subjects []string
+	if err := host.Register("echo", FactoryFunc(func(_ context.Context, spec Spec) (genx.Transformer, error) {
+		subjects = append(subjects, spec.Toolkit.BuildRequest.Subject.Id)
+		return fixedTransformer{text: "ok"}, nil
+	})); err != nil {
+		t.Fatalf("Register() error = %v", err)
+	}
+	first, err := host.Transform(WithACLSubject(context.Background(), acl.PublicKeySubject("peer-a")), "demo", emptyStream{})
+	if err != nil {
+		t.Fatalf("Transform(peer-a) error = %v", err)
+	}
+	defer first.Close()
+
+	second, err := host.Transform(WithACLSubject(context.Background(), acl.PublicKeySubject("peer-b")), "demo", emptyStream{})
+	if err != nil {
+		t.Fatalf("Transform(peer-b) error = %v", err)
+	}
+	defer second.Close()
+
+	if len(subjects) != 2 || subjects[0] != "peer-a" || subjects[1] != "peer-b" {
+		t.Fatalf("factory subjects = %#v, want distinct peer subjects", subjects)
+	}
+}
+
 func TestHostTransformReleasesWhenOutputEnds(t *testing.T) {
 	host := New(fakeResolver{spec: Spec{Workspace: apitypes.Workspace{Name: "demo"}, AgentType: "echo"}})
 	if err := host.Register("echo", FactoryFunc(func(context.Context, Spec) (genx.Transformer, error) {
@@ -478,6 +544,28 @@ func (s fakeWorkspaceService) GetWorkspaceRuntime(context.Context, string) (work
 type fakeWorkflowService struct {
 	workflow.WorkflowAdminService
 	items map[string]apitypes.WorkflowDocument
+}
+
+type subjectToolkitResolver struct{}
+
+func (subjectToolkitResolver) Resolve(ctx context.Context, _ string) (Spec, error) {
+	subject, ok := aclSubjectFromContext(ctx)
+	if !ok {
+		return Spec{}, errors.New("missing subject")
+	}
+	return Spec{
+		Workspace: apitypes.Workspace{Name: "demo"},
+		AgentType: "echo",
+		Toolkit: &ToolkitContext{
+			BuildRequest: toolkit.BuildRequest{Subject: subject},
+		},
+	}, nil
+}
+
+type testToolkitAuthorizer struct{}
+
+func (*testToolkitAuthorizer) Authorize(context.Context, acl.AuthorizeRequest) error {
+	return nil
 }
 
 func (s fakeWorkflowService) GetWorkflow(_ context.Context, request adminhttp.GetWorkflowRequestObject) (adminhttp.GetWorkflowResponseObject, error) {

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
@@ -262,6 +263,36 @@ func TestServerRejectsInvalidWorkspaceReferences(t *testing.T) {
 	}
 	if _, ok := invalidWorkflowResp.(adminhttp.CreateWorkspace400JSONResponse); !ok {
 		t.Fatalf("CreateWorkspace(invalid workflow name) response = %#v", invalidWorkflowResp)
+	}
+}
+
+func TestServerRejectsInvalidToolkitPolicy(t *testing.T) {
+	t.Parallel()
+
+	srv := newTestServer(t)
+	ctx := context.Background()
+	seedWorkflow(t, srv, "workflow-1")
+	toolIDs := []string{""}
+	body := adminhttp.WorkspaceUpsert{
+		Name:         "alpha001",
+		WorkflowName: "workflow-1",
+		Toolkit:      &apitypes.ToolkitPolicy{ToolIds: &toolIDs},
+	}
+
+	createResp, err := srv.CreateWorkspace(ctx, adminhttp.CreateWorkspaceRequestObject{Body: &body})
+	if err != nil {
+		t.Fatalf("CreateWorkspace() error = %v", err)
+	}
+	if _, ok := createResp.(adminhttp.CreateWorkspace400JSONResponse); !ok {
+		t.Fatalf("CreateWorkspace() response = %#v", createResp)
+	}
+
+	putResp, err := srv.PutWorkspace(ctx, adminhttp.PutWorkspaceRequestObject{Name: "alpha001", Body: &body})
+	if err != nil {
+		t.Fatalf("PutWorkspace() error = %v", err)
+	}
+	if _, ok := putResp.(adminhttp.PutWorkspace400JSONResponse); !ok {
+		t.Fatalf("PutWorkspace() response = %#v", putResp)
 	}
 }
 

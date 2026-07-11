@@ -900,6 +900,9 @@ PB_BIND(gizclaw_rpc_v1_WorkflowListResponse, gizclaw_rpc_v1_WorkflowListResponse
 PB_BIND(gizclaw_rpc_v1_WorkflowMetadata, gizclaw_rpc_v1_WorkflowMetadata, AUTO)
 
 
+PB_BIND(gizclaw_rpc_v1_ToolkitPolicy, gizclaw_rpc_v1_ToolkitPolicy, AUTO)
+
+
 PB_BIND(gizclaw_rpc_v1_WorkflowPutRequest, gizclaw_rpc_v1_WorkflowPutRequest, 2)
 
 

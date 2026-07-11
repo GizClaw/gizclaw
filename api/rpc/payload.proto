@@ -1855,6 +1855,10 @@ message WorkflowMetadata {
   string name = 2;
 }
 
+message ToolkitPolicy {
+  repeated string tool_ids = 1;
+}
+
 message WorkflowPutRequest {
   WorkflowDocument body = 1;
   string name = 2;
@@ -1870,6 +1874,7 @@ message WorkflowSpec {
   optional DoubaoRealtimeWorkflowSpec doubao_realtime = 3;
   WorkflowDriver driver = 4;
   optional FlowcraftWorkflowSpec flowcraft = 5;
+  optional ToolkitPolicy toolkit = 6;
 }
 
 message Workspace {
@@ -1879,6 +1884,7 @@ message Workspace {
   optional WorkspaceParameters parameters = 4;
   string updated_at = 5;
   string workflow_name = 6;
+  optional ToolkitPolicy toolkit = 7;
 }
 
 message WorkspaceCreateRequest {

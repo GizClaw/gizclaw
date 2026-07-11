@@ -103,7 +103,11 @@ func (s *Service) Reload(ctx context.Context) (apitypes.PeerRunStatus, error) {
 		return s.setErrorStatus(selection.WorkspaceName, err), err
 	}
 	subject := acl.PublicKeySubject(s.PublicKey.String())
-	runCtx, cancel := context.WithCancel(WithACLSubject(withHistoryGearID(context.WithoutCancel(ctx), s.PublicKey.String()), subject))
+	baseCtx := WithACLSubject(withHistoryGearID(context.WithoutCancel(ctx), s.PublicKey.String()), subject)
+	if s.Authorizer != nil {
+		baseCtx = WithToolkitAuthorizer(baseCtx, s.Authorizer)
+	}
+	runCtx, cancel := context.WithCancel(baseCtx)
 	pattern := workspacePattern(selection.WorkspaceName)
 	agent, release, output, err := s.openAgentOutput(runCtx, pattern, input)
 	if err != nil {

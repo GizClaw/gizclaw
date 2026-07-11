@@ -2911,6 +2911,12 @@ type WorkflowMetadata struct {
 	Name string `json:"name"`
 }
 
+// ToolkitPolicy defines model for ToolkitPolicy.
+type ToolkitPolicy struct {
+	// ToolIds Explicit list of Tool resource IDs an agent runtime may see. Omit to inherit a broader policy; set an empty list to expose no tools.
+	ToolIds *[]string `json:"tool_ids,omitempty"`
+}
+
 // WorkflowPutRequest defines model for WorkflowPutRequest.
 type WorkflowPutRequest struct {
 	Body WorkflowDocument `json:"body"`
@@ -2927,6 +2933,7 @@ type WorkflowSpec struct {
 	DoubaoRealtime *DoubaoRealtimeWorkflowSpec `json:"doubao_realtime,omitempty"`
 	Driver         WorkflowDriver              `json:"driver"`
 	Flowcraft      *FlowcraftWorkflowSpec      `json:"flowcraft,omitempty"`
+	Toolkit        *ToolkitPolicy              `json:"toolkit,omitempty"`
 }
 
 // Workspace defines model for Workspace.
@@ -2939,6 +2946,7 @@ type Workspace struct {
 
 	// Parameters Agent-specific workspace parameters. The shape is selected by agent_type.
 	Parameters   *WorkspaceParameters `json:"parameters,omitempty"`
+	Toolkit      *ToolkitPolicy       `json:"toolkit,omitempty"`
 	UpdatedAt    time.Time            `json:"updated_at"`
 	WorkflowName string               `json:"workflow_name"`
 }

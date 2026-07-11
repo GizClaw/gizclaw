@@ -8,23 +8,23 @@ spec:
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Tool
     metadata:
-      name: system.music.play
+      name: system.toolkit.echo
       description: Toolkit smoke Tool exposed to Flowcraft.
     spec:
-      name: play_music
-      description: Play music by query.
+      name: echo_toolkit
+      description: Echo ToolKit smoke input.
       source: admin
       enabled: true
       input_schema:
         type: object
         required:
-        - query
+        - text
         properties:
-          query:
+          text:
             type: string
       executor:
         kind: builtin
-        name: music.play
+        name: toolkit.echo
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
@@ -34,7 +34,7 @@ spec:
       driver: flowcraft
       toolkit:
         tool_ids:
-        - system.music.play
+        - system.toolkit.echo
       flowcraft:
         workspace:
           memory_root: memory
@@ -53,7 +53,7 @@ spec:
           id: toolkit-smoke
           name: Toolkit Smoke
           model: generate_model
-          system_prompt: 你是一个简短、自然的中文语音聊天助手。需要播放音乐时调用 play_music。
+          system_prompt: 你是一个简短、自然的中文语音聊天助手。需要验证工具链时调用 echo_toolkit。
           max_iterations: 4
         voice_adapter:
           asr_model: volc-bigasr-sauc
@@ -68,7 +68,7 @@ spec:
       workflow_name: flowcraft-toolkit-smoke
       toolkit:
         tool_ids:
-        - system.music.play
+        - system.toolkit.echo
       parameters:
         agent_type: flowcraft
         generate_model: doubao-lite-chat

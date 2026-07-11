@@ -448,6 +448,9 @@ func (s *Server) init() error {
 	if err := toolExecutors.RegisterDevice(deviceToolExecutor, deviceToolExecutor); err != nil {
 		return err
 	}
+	if err := toolExecutors.Register(toolkit.EchoExecutorName, toolkit.EchoExecutor{}); err != nil {
+		return err
+	}
 	manager.Tools = toolServer
 	manager.ToolExecutors = toolExecutors
 	manager.ToolBuilder = &toolkit.Builder{Tools: toolServer, Authorizer: aclServer, Availability: toolExecutors}

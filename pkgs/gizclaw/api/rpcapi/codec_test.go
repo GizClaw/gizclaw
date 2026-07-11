@@ -357,8 +357,10 @@ func TestPayloadCodecMapsGoDTOsDirectlyToProtobuf(t *testing.T) {
 	}
 
 	var workspaceCreate RPCPayload
+	workspaceToolIDs := []string{"system.toolkit.echo"}
 	if err := workspaceCreate.FromWorkspaceCreateRequest(WorkspaceCreateRequest{
 		Name:         "demo",
+		Toolkit:      &ToolkitPolicy{ToolIds: &workspaceToolIDs},
 		WorkflowName: "chat",
 	}); err != nil {
 		t.Fatalf("FromWorkspaceCreateRequest() error = %v", err)
@@ -369,6 +371,28 @@ func TestPayloadCodecMapsGoDTOsDirectlyToProtobuf(t *testing.T) {
 	}
 	if workspaceCreateProto.GetValue().GetName() != "demo" || workspaceCreateProto.GetValue().GetWorkflowName() != "chat" {
 		t.Fatalf("workspace create = %+v", workspaceCreateProto.GetValue())
+	}
+	if got := workspaceCreateProto.GetValue().GetToolkit().GetToolIds(); len(got) != 1 || got[0] != "system.toolkit.echo" {
+		t.Fatalf("workspace toolkit = %#v", got)
+	}
+
+	var workflowCreate RPCPayload
+	workflowToolIDs := []string{"system.toolkit.echo"}
+	if err := workflowCreate.FromWorkflowCreateRequest(WorkflowCreateRequest{
+		Metadata: WorkflowMetadata{Name: "flowcraft-toolkit"},
+		Spec: WorkflowSpec{
+			Driver:  WorkflowDriverFlowcraft,
+			Toolkit: &ToolkitPolicy{ToolIds: &workflowToolIDs},
+		},
+	}); err != nil {
+		t.Fatalf("FromWorkflowCreateRequest() error = %v", err)
+	}
+	var workflowCreateProto rpcpb.WorkflowCreateRequest
+	if err := proto.Unmarshal(workflowCreate.payload, &workflowCreateProto); err != nil {
+		t.Fatalf("unmarshal workflow create payload error = %v", err)
+	}
+	if got := workflowCreateProto.GetValue().GetSpec().GetToolkit().GetToolIds(); len(got) != 1 || got[0] != "system.toolkit.echo" {
+		t.Fatalf("workflow toolkit = %#v", got)
 	}
 
 	var statPayload RPCPayload

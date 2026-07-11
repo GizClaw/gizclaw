@@ -235,6 +235,37 @@ func TestServerRejectsInvalidChatRoomWorkflowSpec(t *testing.T) {
 	}
 }
 
+func TestServerRejectsInvalidToolkitPolicy(t *testing.T) {
+	t.Parallel()
+
+	srv := newTestServer(t)
+	ctx := context.Background()
+	toolIDs := []string{""}
+	doc := apitypes.WorkflowDocument{
+		Metadata: apitypes.WorkflowMetadata{Name: "bad-toolkit"},
+		Spec: apitypes.WorkflowSpec{
+			Driver:  apitypes.WorkflowDriverFlowcraft,
+			Toolkit: &apitypes.ToolkitPolicy{ToolIds: &toolIDs},
+		},
+	}
+
+	createResp, err := srv.CreateWorkflow(ctx, adminhttp.CreateWorkflowRequestObject{Body: &doc})
+	if err != nil {
+		t.Fatalf("CreateWorkflow() error = %v", err)
+	}
+	if _, ok := createResp.(adminhttp.CreateWorkflow400JSONResponse); !ok {
+		t.Fatalf("CreateWorkflow() response = %#v", createResp)
+	}
+
+	putResp, err := srv.PutWorkflow(ctx, adminhttp.PutWorkflowRequestObject{Name: "bad-toolkit", Body: &doc})
+	if err != nil {
+		t.Fatalf("PutWorkflow() error = %v", err)
+	}
+	if _, ok := putResp.(adminhttp.PutWorkflow400JSONResponse); !ok {
+		t.Fatalf("PutWorkflow() response = %#v", putResp)
+	}
+}
+
 func TestServerCreateWorkflowRequiresName(t *testing.T) {
 	t.Parallel()
 

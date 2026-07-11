@@ -2,6 +2,7 @@ package agenthost
 
 import (
 	"context"
+	"net/url"
 	"sync"
 )
 
@@ -31,38 +32,47 @@ func (r *RuntimeRegistry) Acquire(ctx context.Context, host *Host, workspaceName
 	if r.runtimes == nil {
 		r.runtimes = make(map[string]*workspaceRuntime)
 	}
-	if current := r.runtimes[workspaceName]; current != nil {
+	key := runtimeKey(workspaceName, spec)
+	if current := r.runtimes[key]; current != nil {
 		current.refs++
-		return current.agent, r.releaseFunc(workspaceName, current), nil
+		return current.agent, r.releaseFunc(key, current), nil
 	}
-	agent, release, err := host.openWorkspaceAgent(ctx, workspaceName, spec)
+	agent, release, err := host.openWorkspaceAgent(ctx, key, spec)
 	if err != nil {
 		return nil, nil, err
 	}
 	current := &workspaceRuntime{agent: agent, release: release, refs: 1}
-	r.runtimes[workspaceName] = current
-	return agent, r.releaseFunc(workspaceName, current), nil
+	r.runtimes[key] = current
+	return agent, r.releaseFunc(key, current), nil
 }
 
-func (r *RuntimeRegistry) releaseFunc(workspaceName string, current *workspaceRuntime) func() {
+func runtimeKey(workspaceName string, spec Spec) string {
+	if spec.Toolkit == nil {
+		return workspaceName
+	}
+	subject := spec.Toolkit.BuildRequest.Subject
+	return workspaceName + "#toolkit-subject=" + url.QueryEscape(string(subject.Kind)) + ":" + url.QueryEscape(subject.Id)
+}
+
+func (r *RuntimeRegistry) releaseFunc(key string, current *workspaceRuntime) func() {
 	var once sync.Once
 	return func() {
 		once.Do(func() {
-			r.release(workspaceName, current)
+			r.release(key, current)
 		})
 	}
 }
 
-func (r *RuntimeRegistry) release(workspaceName string, current *workspaceRuntime) {
+func (r *RuntimeRegistry) release(key string, current *workspaceRuntime) {
 	if r == nil || current == nil {
 		return
 	}
 	var release func()
 	r.mu.Lock()
-	if r.runtimes[workspaceName] == current {
+	if r.runtimes[key] == current {
 		current.refs--
 		if current.refs <= 0 {
-			delete(r.runtimes, workspaceName)
+			delete(r.runtimes, key)
 			release = current.release
 		}
 	}

@@ -12,6 +12,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/customid"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/toolkit"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
@@ -283,10 +284,14 @@ func normalizeWorkspaceUpsert(in adminhttp.WorkspaceUpsert, expectedName string)
 	if err := customid.ValidateField("workflow_name", workflowName); err != nil {
 		return adminhttp.WorkspaceUpsert{}, err
 	}
+	policy, err := toolkit.NormalizePolicy(in.Toolkit)
+	if err != nil {
+		return adminhttp.WorkspaceUpsert{}, err
+	}
 	return adminhttp.WorkspaceUpsert{
 		Name:         string(name),
 		Parameters:   cloneParameters(in.Parameters),
-		Toolkit:      cloneToolkitPolicy(in.Toolkit),
+		Toolkit:      policy,
 		WorkflowName: string(workflowName),
 	}, nil
 }

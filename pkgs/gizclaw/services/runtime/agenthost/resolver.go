@@ -100,8 +100,14 @@ func (r ServiceResolver) resolveToolkit(ctx context.Context, ws apitypes.Workspa
 	case workspaceRestrict:
 		ids = workspaceIDs
 	}
+	builder := r.ToolBuilder
+	if authorizer := toolkitAuthorizerFromContext(ctx); authorizer != nil {
+		copied := *r.ToolBuilder
+		copied.Authorizer = authorizer
+		builder = &copied
+	}
 	return &ToolkitContext{
-		Builder:   r.ToolBuilder,
+		Builder:   builder,
 		Executors: r.ToolExecutors,
 		BuildRequest: toolkit.BuildRequest{
 			Subject:         subject,
@@ -115,21 +121,11 @@ func policyToolIDs(policy *apitypes.ToolkitPolicy) ([]string, bool, error) {
 	if policy == nil || policy.ToolIds == nil {
 		return nil, false, nil
 	}
-	seen := map[string]bool{}
-	out := make([]string, 0, len(*policy.ToolIds))
-	for _, raw := range *policy.ToolIds {
-		id := strings.TrimSpace(raw)
-		if id == "" {
-			return nil, false, fmt.Errorf("tool_ids contains an empty Tool ID")
-		}
-		if seen[id] {
-			continue
-		}
-		seen[id] = true
-		out = append(out, id)
+	normalized, err := toolkit.NormalizePolicy(policy)
+	if err != nil {
+		return nil, false, err
 	}
-	sort.Strings(out)
-	return out, true, nil
+	return append([]string(nil), (*normalized.ToolIds)...), true, nil
 }
 
 func intersectToolIDs(left, right []string) []string {
