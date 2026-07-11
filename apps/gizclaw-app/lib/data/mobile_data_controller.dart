@@ -7,6 +7,7 @@ import '../connection/gizclaw_connection_controller.dart';
 import '../prototype/prototype_data.dart';
 import '../prototype/prototype_models.dart';
 import 'database/app_database.dart';
+import 'device_workspace_provisioner.dart';
 import 'repositories/mobile_data_repository.dart';
 import 'repositories/workspace_chat_repository.dart';
 import 'workspace_chat_controller.dart';
@@ -65,6 +66,9 @@ class MobileDataController extends ChangeNotifier {
       connectionState = MobileConnectionState.connected;
       notifyListeners();
       await refresh(client: client, serverId: serverId);
+      if (connectionState == MobileConnectionState.connected) {
+        await _ensureDeviceWorkspace(client: client, serverId: serverId);
+      }
     } catch (error) {
       final discoveredServerId = connection.serverId;
       if (cachedServerId == null && discoveredServerId != null) {
@@ -76,6 +80,39 @@ class MobileDataController extends ChangeNotifier {
         return true;
       }());
       connectionState = MobileConnectionState.offline;
+      notifyListeners();
+    }
+  }
+
+  Future<void> _ensureDeviceWorkspace({
+    required GizClawClient client,
+    required String serverId,
+  }) async {
+    final clientPublicKey = connection.clientPublicKey;
+    if (clientPublicKey == null ||
+        !await repository.hasWorkflow(serverId, mobileAstWorkflowName)) {
+      return;
+    }
+    try {
+      final workspaceName = mobileAstWorkspaceName(clientPublicKey);
+      final existingWorkflowName = await repository.workspaceWorkflowName(
+        serverId,
+        workspaceName,
+      );
+      final refreshNeeded = await DeviceWorkspaceProvisioner.forClient(client)
+          .ensureMobileAstWorkspace(
+            clientPublicKey,
+            existingWorkflowName: existingWorkflowName,
+          );
+      if (refreshNeeded) {
+        await refresh(client: client, serverId: serverId);
+      }
+    } catch (error) {
+      lastError = error;
+      assert(() {
+        debugPrint('GizClaw device workspace ensure failed: $error');
+        return true;
+      }());
       notifyListeners();
     }
   }

@@ -32,12 +32,14 @@ class GizClawConnectionController {
   rtc.RTCPeerConnection? _peerConnection;
   GizClawClient? _client;
   FlutterWebRtcDataChannelFactory? _dataChannelFactory;
+  String? _clientPublicKey;
   String? _serverId;
 
   GizClawClient? get client => _client;
   FlutterWebRtcDataChannelFactory? get dataChannelFactory =>
       _dataChannelFactory;
   rtc.RTCPeerConnection? get peerConnection => _peerConnection;
+  String? get clientPublicKey => _clientPublicKey;
   String? get serverId => _serverId;
 
   Future<GizClawClient> connect() async {
@@ -55,7 +57,11 @@ class GizClawConnectionController {
     );
     final peerConnection = await connectFlutterGiznetWebRtc(
       addAudioTransceiver: true,
-      prepareOffer: (sdp) => prepareEncryptedGiznetWebRtcOffer(identity, sdp),
+      prepareOffer: (sdp) async {
+        final offer = await prepareEncryptedGiznetWebRtcOffer(identity, sdp);
+        _clientPublicKey = offer.clientPublicKey;
+        return offer;
+      },
       sendOffer: (offer) =>
           _sendOffer(baseUri.resolve(info.signalingPath), offer),
     );
@@ -68,6 +74,7 @@ class GizClawConnectionController {
   Future<void> close() async {
     _client = null;
     _dataChannelFactory = null;
+    _clientPublicKey = null;
     _serverId = null;
     final peerConnection = _peerConnection;
     _peerConnection = null;

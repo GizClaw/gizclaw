@@ -37,6 +37,20 @@ class MobileDataRepository {
     );
   }
 
+  Future<bool> hasWorkflow(String serverId, String name) async {
+    final query = database.select(database.workflowEntries)
+      ..where((row) => row.serverId.equals(serverId) & row.name.equals(name))
+      ..limit(1);
+    return await query.getSingleOrNull() != null;
+  }
+
+  Future<String?> workspaceWorkflowName(String serverId, String name) async {
+    final query = database.select(database.workspaceEntries)
+      ..where((row) => row.serverId.equals(serverId) & row.name.equals(name))
+      ..limit(1);
+    return (await query.getSingleOrNull())?.workflowName;
+  }
+
   Future<void> refresh({
     required GizClawClient client,
     required String endpoint,

@@ -42,6 +42,16 @@ void main() {
     expect(workspaces.single.name, 'mobile-plan');
     expect(workspaces.single.workflowName, 'build-helper');
     expect(await repository.serverIdForEndpoint('127.0.0.1:23820'), 'server-a');
+    expect(await repository.hasWorkflow('server-a', 'build-helper'), isTrue);
+    expect(await repository.hasWorkflow('server-a', 'missing'), isFalse);
+    expect(
+      await repository.workspaceWorkflowName('server-a', 'mobile-plan'),
+      'build-helper',
+    );
+    expect(
+      await repository.workspaceWorkflowName('server-a', 'missing'),
+      isNull,
+    );
   });
 
   test('complete refresh removes rows absent from the snapshot', () async {
