@@ -41,6 +41,8 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 700));
     expect(find.byType(CollectionPage), findsOneWidget);
+    expect(find.byType(CollectionArtworkHero), findsOneWidget);
+    expect(find.byType(WorkflowArtworkHero), findsNothing);
 
     await tester.pageBack();
     await tester.pump();

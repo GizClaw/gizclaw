@@ -141,7 +141,7 @@ class FeaturedCollectionCard extends StatelessWidget {
           child: Stack(
             fit: StackFit.expand,
             children: [
-              Image.asset(collection.imagePath, fit: BoxFit.cover),
+              CollectionArtworkHero(collection: collection),
               const DecoratedBox(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
@@ -191,6 +191,33 @@ class FeaturedCollectionCard extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class CollectionArtworkHero extends StatelessWidget {
+  const CollectionArtworkHero({super.key, required this.collection});
+
+  final WorkflowCollection collection;
+
+  @override
+  Widget build(BuildContext context) {
+    const radius = BorderRadius.all(Radius.circular(12));
+    return Hero(
+      tag: 'collection-${collection.id}',
+      transitionOnUserGestures: true,
+      placeholderBuilder: (_, _, child) => child,
+      flightShuttleBuilder:
+          (flightContext, animation, direction, fromContext, toContext) {
+            return ClipRRect(
+              borderRadius: radius,
+              child: Image.asset(collection.imagePath, fit: BoxFit.cover),
+            );
+          },
+      child: ClipRRect(
+        borderRadius: radius,
+        child: Image.asset(collection.imagePath, fit: BoxFit.cover),
       ),
     );
   }
@@ -456,7 +483,7 @@ class CollectionPage extends StatelessWidget {
                     child: Stack(
                       fit: StackFit.expand,
                       children: [
-                        Image.asset(collection.imagePath, fit: BoxFit.cover),
+                        CollectionArtworkHero(collection: collection),
                         const DecoratedBox(
                           decoration: BoxDecoration(
                             gradient: LinearGradient(
@@ -502,12 +529,35 @@ class CollectionPage extends StatelessWidget {
           SliverList.builder(
             itemCount: workflows.length,
             itemBuilder: (context, index) {
-              return WorkflowListTile(workflow: workflows[index]);
+              return _CollectionWorkflowRow(workflow: workflows[index]);
             },
           ),
           const SliverPadding(padding: EdgeInsets.only(bottom: 30)),
         ],
       ),
+    );
+  }
+}
+
+class _CollectionWorkflowRow extends StatelessWidget {
+  const _CollectionWorkflowRow({required this.workflow});
+
+  final WorkflowCard workflow;
+
+  @override
+  Widget build(BuildContext context) {
+    return GizListRow(
+      leading: ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: SizedBox(
+          width: 58,
+          height: 58,
+          child: _WorkflowArtwork(workflow: workflow),
+        ),
+      ),
+      title: workflow.title,
+      subtitle: '${workflow.category}  |  ${workflow.driverLabel}',
+      onPressed: () => context.push('/browse/workflows/${workflow.name}'),
     );
   }
 }
