@@ -344,12 +344,28 @@ func (r *Runtime) DrivePet(ctx context.Context, owner string, req apitypes.PetDr
 	var grants []apitypes.RewardGrant
 	action := strings.TrimSpace(valueOrZero(req.Action))
 	var actionSpec apitypes.PetDefActionSpec
+	var legacyActionReward apitypes.GameRewardSpec
 	hasAction := false
 	if action != "" {
 		var ok bool
 		actionSpec, ok = petDefAction(petDef, action)
 		if !ok {
-			return apitypes.PetDriveResponse{}, fmt.Errorf("pet action %q is not defined by petdef %q", action, petDef.Id)
+			legacyAction, legacyOK, err := r.Catalog.legacyGameRulesetAction(ctx, ruleset.Name, action)
+			if err != nil {
+				return apitypes.PetDriveResponse{}, err
+			}
+			if !legacyOK {
+				return apitypes.PetDriveResponse{}, fmt.Errorf("pet action %q is not defined by petdef %q", action, petDef.Id)
+			}
+			actionSpec = apitypes.PetDefActionSpec{
+				Id:     action,
+				Cost:   legacyAction.Cost,
+				Effect: &legacyAction.Effect,
+			}
+			if actionSpec.Effect.AttrDelta == nil && actionSpec.Effect.PetExpDelta == nil {
+				actionSpec.Effect = nil
+			}
+			legacyActionReward = legacyAction.Reward
 		}
 		hasAction = true
 		if actionSpec.Cost > 0 {
@@ -362,6 +378,7 @@ func (r *Runtime) DrivePet(ctx context.Context, owner string, req apitypes.PetDr
 	}
 	var result *apitypes.GameResult
 	reward := mergeRewards(defaultReward(ruleset), actionEffectReward(actionSpec))
+	reward = mergeRewards(reward, legacyActionReward)
 	if req.GameResult != nil {
 		if err := r.validateGameResult(ctx, ruleset, req.GameResult.GameDefId); err != nil {
 			return apitypes.PetDriveResponse{}, err

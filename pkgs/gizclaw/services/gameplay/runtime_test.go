@@ -437,6 +437,78 @@ func TestScanPetIgnoresLegacyAbilityStats(t *testing.T) {
 	}
 }
 
+func TestRuntimeDrivesLegacyRulesetActionFallback(t *testing.T) {
+	ctx := context.Background()
+	now := time.Date(2026, 7, 5, 12, 0, 0, 0, time.UTC)
+	catalog := testCatalog(t, now)
+	petStore, err := catalog.store(catalog.PetDefs, "pet defs")
+	if err != nil {
+		t.Fatalf("pet store error = %v", err)
+	}
+	rulesetStore, err := catalog.store(catalog.GameRulesets, "game rulesets")
+	if err != nil {
+		t.Fatalf("ruleset store error = %v", err)
+	}
+	if err := petStore.Set(ctx, petDefKey("legacy-pet"), []byte(`{
+		"id":"legacy-pet",
+		"spec":{
+			"display_name":"Legacy Pet",
+			"description":"Legacy description",
+			"workflow_name":"pet-chat",
+			"initial_life":{"hunger":100},
+			"initial_ability":{"play":1}
+		},
+		"created_at":"2026-07-05T11:00:00Z",
+		"updated_at":"2026-07-05T11:00:00Z"
+	}`)); err != nil {
+		t.Fatalf("seed legacy petdef: %v", err)
+	}
+	if err := rulesetStore.Set(ctx, rulesetKey("default"), []byte(`{
+		"name":"default",
+		"spec":{
+			"enabled":true,
+			"points":{"initial_balance":50},
+			"pet_pool":[{"petdef_id":"legacy-pet","weight":1}],
+			"drive":{
+				"action_costs":{"feed":3},
+				"action_rewards":{"feed":{"points_delta":4,"pet_exp_delta":5,"life_delta":{"hunger":10}}}
+			}
+		},
+		"created_at":"2026-07-05T11:00:00Z",
+		"updated_at":"2026-07-05T11:00:00Z"
+	}`)); err != nil {
+		t.Fatalf("seed legacy ruleset: %v", err)
+	}
+	runtime := &Runtime{
+		DB:         testDB(t),
+		Catalog:    catalog,
+		Workspaces: &recordingWorkspaceService{},
+		Now:        func() time.Time { return now },
+		NewID:      sequentialIDs("pet-1", "adopt-txn", "feed-cost-txn", "grant-1", "reward-txn"),
+		PickWeight: func(int64) int64 { return 0 },
+	}
+	adopted, err := runtime.AdoptPet(ctx, "peer-a", apitypes.PetAdoptRequest{})
+	if err != nil {
+		t.Fatalf("AdoptPet() error = %v", err)
+	}
+	drive, err := runtime.DrivePet(ctx, "peer-a", apitypes.PetDriveRequest{PetId: adopted.Pet.Id, Action: stringPtr("feed")})
+	if err != nil {
+		t.Fatalf("DrivePet() legacy action error = %v", err)
+	}
+	if drive.Pet.Life["hunger"] != 110 || drive.Pet.Progression["xp"] != 5 {
+		t.Fatalf("legacy action pet = %#v", drive.Pet)
+	}
+	if drive.Points.Balance != 51 {
+		t.Fatalf("legacy action points = %d, want 51", drive.Points.Balance)
+	}
+	if len(drive.Transactions) != 2 || drive.Transactions[0].Delta != -3 || drive.Transactions[1].Delta != 4 {
+		t.Fatalf("legacy action transactions = %#v", drive.Transactions)
+	}
+	if len(drive.RewardGrants) != 1 || drive.RewardGrants[0].PetExpDelta != 5 || drive.RewardGrants[0].PointsDelta != 4 {
+		t.Fatalf("legacy action grants = %#v", drive.RewardGrants)
+	}
+}
+
 func TestRuntimeHelperBranches(t *testing.T) {
 	if got := (&Runtime{PickWeight: func(int64) int64 { return -5 }}).pickWeight(10); got != 0 {
 		t.Fatalf("negative pickWeight = %d", got)

@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/binary"
 	"io"
+	"strings"
 	"testing"
 	"time"
 
@@ -276,6 +277,26 @@ func TestCatalogAdminErrorsAndPagination(t *testing.T) {
 		t.Fatalf("CreatePetDef() whitespace action error = %v", err)
 	}
 	requireResponse[adminhttp.CreatePetDef400JSONResponse](t, invalidActionResp)
+	invalidCanvasSpec := testPetDefSpec("bad canvas")
+	invalidCanvasSpec.Visual.Pixa.Metadata.Canvas.Width = pixaMaxCanvasSize + 1
+	invalidCanvasResp, err := catalog.CreatePetDef(ctx, adminhttp.CreatePetDefRequestObject{Body: &adminhttp.PetDefUpsert{
+		Id:   "pet-invalid-canvas",
+		Spec: invalidCanvasSpec,
+	}})
+	if err != nil {
+		t.Fatalf("CreatePetDef() invalid canvas error = %v", err)
+	}
+	requireResponse[adminhttp.CreatePetDef400JSONResponse](t, invalidCanvasResp)
+	invalidClipNameSpec := testPetDefSpec("bad clip name")
+	invalidClipNameSpec.Visual.Pixa.Metadata.Clips[0].PixaClipName = strings.Repeat("x", pixaClipNameSize+1)
+	invalidClipNameResp, err := catalog.CreatePetDef(ctx, adminhttp.CreatePetDefRequestObject{Body: &adminhttp.PetDefUpsert{
+		Id:   "pet-invalid-clip-name",
+		Spec: invalidClipNameSpec,
+	}})
+	if err != nil {
+		t.Fatalf("CreatePetDef() invalid clip name error = %v", err)
+	}
+	requireResponse[adminhttp.CreatePetDef400JSONResponse](t, invalidClipNameResp)
 
 	limit := int32(1)
 	firstPageResp, err := catalog.ListPetDefs(ctx, adminhttp.ListPetDefsRequestObject{Params: adminhttp.ListPetDefsParams{Limit: &limit}})
@@ -456,6 +477,14 @@ func TestCatalogMigratesLegacyPetDefOnRead(t *testing.T) {
 	}
 	if petDef.Spec.Character.Prompt == "" || petDef.Spec.Voice.Prompt == "" {
 		t.Fatalf("legacy prompts were not populated: %#v %#v", petDef.Spec.Character, petDef.Spec.Voice)
+	}
+	listResp, err := catalog.ListPetDefs(ctx, adminhttp.ListPetDefsRequestObject{})
+	if err != nil {
+		t.Fatalf("ListPetDefs() error = %v", err)
+	}
+	list := requireResponse[adminhttp.ListPetDefs200JSONResponse](t, listResp)
+	if len(list.Items) != 1 || list.Items[0].Spec.Attr.Life["clean"].Initial != 80 {
+		t.Fatalf("ListPetDefs() legacy migration = %#v", list)
 	}
 }
 

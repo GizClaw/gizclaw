@@ -256,7 +256,7 @@ export function ResourcesPage(): JSX.Element {
     setNotice("");
     try {
       const buffer = await file.arrayBuffer();
-      const asset = validatePixa(buffer, mode);
+      const asset = validateResourcePixa(buffer, mode, currentPetDefPixaMetadata());
       setPixaPreview({ asset, blob: new Blob([buffer], { type: "application/octet-stream" }), mode, pendingUpload: true });
     } catch (err) {
       setError(toMessage(err));
@@ -296,7 +296,7 @@ export function ResourcesPage(): JSX.Element {
     setNotice("");
     try {
       const blob = await expectData(kind === "PetDef" ? downloadPetDefPixa({ path: { id: name.trim() } }) : downloadBadgeDefPixa({ path: { id: name.trim() } }));
-      const asset = validatePixa(await blob.arrayBuffer(), mode);
+      const asset = validateResourcePixa(await blob.arrayBuffer(), mode, currentPetDefPixaMetadata());
       setPixaPreview({ asset, mode, pendingUpload: false });
     } catch (err) {
       setError(toMessage(err));
@@ -307,6 +307,14 @@ export function ResourcesPage(): JSX.Element {
 
   const selectedSummary = useMemo(() => resourceSummary(kind), [kind]);
   const supportsPixa = kind === "PetDef" || kind === "BadgeDef";
+
+  const currentPetDefPixaMetadata = (): PetDefPixaMetadata | null => {
+    if (kind !== "PetDef") {
+      return null;
+    }
+    const source = resource ?? JSON.parse(resourceText) as unknown;
+    return readPetDefPixaMetadata(source);
+  };
 
   return (
     <div className="flex flex-col gap-6">
@@ -464,6 +472,64 @@ export function ResourcesPage(): JSX.Element {
       ) : null}
     </div>
   );
+}
+
+type PetDefPixaMetadata = {
+  canvas: {
+    height: number;
+    width: number;
+  };
+  clips: Array<{
+    pixa_clip_name: string;
+  }>;
+};
+
+function validateResourcePixa(input: ArrayBuffer | ArrayBufferView, mode: "petdef" | "badgedef", metadata: PetDefPixaMetadata | null): PixaAsset {
+  if (mode === "badgedef") {
+    return validatePixa(input, "badgedef");
+  }
+  const asset = validatePixa(input);
+  if (asset.clipCount === 0 || asset.frameCount === 0) {
+    throw new Error("PetDef PIXA must contain at least one clip and one frame.");
+  }
+  if (metadata == null) {
+    throw new Error("PetDef visual.pixa.metadata is required to validate PIXA uploads.");
+  }
+  if (asset.canvas.width !== metadata.canvas.width || asset.canvas.height !== metadata.canvas.height) {
+    throw new Error(`PetDef PIXA canvas is ${asset.canvas.width}x${asset.canvas.height}, expected ${metadata.canvas.width}x${metadata.canvas.height}.`);
+  }
+  for (const clip of metadata.clips) {
+    if (!asset.clips.some((candidate) => candidate.name === clip.pixa_clip_name)) {
+      throw new Error(`PetDef PIXA is missing clip "${clip.pixa_clip_name}".`);
+    }
+  }
+  return asset;
+}
+
+function readPetDefPixaMetadata(value: unknown): PetDefPixaMetadata | null {
+  if (!isRecord(value) || value.kind !== "PetDef" || !isRecord(value.spec)) {
+    return null;
+  }
+  const visual = value.spec.visual;
+  if (!isRecord(visual) || !isRecord(visual.pixa) || !isRecord(visual.pixa.metadata)) {
+    return null;
+  }
+  const metadata = visual.pixa.metadata;
+  if (!isRecord(metadata.canvas) || !Array.isArray(metadata.clips)) {
+    return null;
+  }
+  const width = metadata.canvas.width;
+  const height = metadata.canvas.height;
+  if (typeof width !== "number" || typeof height !== "number") {
+    return null;
+  }
+  const clips = metadata.clips.flatMap((clip) => {
+    if (!isRecord(clip) || typeof clip.pixa_clip_name !== "string") {
+      return [];
+    }
+    return [{ pixa_clip_name: clip.pixa_clip_name }];
+  });
+  return { canvas: { height, width }, clips };
 }
 
 function parseResourceKind(value: string | null): ResourceKind | null {

@@ -16,6 +16,7 @@ const (
 	pixaFrameEntrySize = 16
 	pixaClipNameSize   = 32
 	pixaVersion        = 1
+	pixaMaxCanvasSize  = 1<<16 - 1
 )
 
 type pixaAsset struct {
