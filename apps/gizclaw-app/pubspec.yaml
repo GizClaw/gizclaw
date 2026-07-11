@@ -64,6 +64,7 @@ flutter:
   uses-material-design: false
 
   assets:
+    - assets/drivers/
     - assets/workflows/
     - assets/pet/
 

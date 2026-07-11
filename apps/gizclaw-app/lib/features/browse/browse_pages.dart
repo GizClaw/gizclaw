@@ -693,11 +693,20 @@ class WorkspaceListTile extends StatelessWidget {
         width: 50,
         height: 50,
         alignment: Alignment.center,
+        clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
           color: workflow.bannerColor,
           borderRadius: BorderRadius.circular(8),
         ),
-        child: Icon(workflow.icon, color: GizColors.surface, size: 22),
+        child: workflow.driver.imagePath == null
+            ? Icon(workflow.icon, color: GizColors.surface, size: 22)
+            : Image.asset(
+                workflow.driver.imagePath!,
+                width: 50,
+                height: 50,
+                fit: BoxFit.cover,
+                filterQuality: FilterQuality.high,
+              ),
       ),
       title: workspace.name,
       subtitle: '${workflow.title}  |  ${workspace.lastActive}',

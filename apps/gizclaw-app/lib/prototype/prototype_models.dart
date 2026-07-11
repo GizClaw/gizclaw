@@ -19,16 +19,25 @@ class WorkflowCollection {
 }
 
 enum WorkflowDriverKind {
-  flowcraft('flowcraft', 'Flowcraft'),
-  doubaoRealtime('doubao-realtime', 'Doubao Realtime'),
-  astTranslate('ast-translate', 'AST Translate'),
-  chatroom('chatroom', 'Chatroom'),
-  unsupported('unsupported', 'Unavailable');
+  flowcraft('flowcraft', 'Flowcraft', 'assets/drivers/flowcraft.png'),
+  doubaoRealtime(
+    'doubao-realtime',
+    'Doubao Realtime',
+    'assets/drivers/doubao-realtime.png',
+  ),
+  astTranslate(
+    'ast-translate',
+    'AST Translate',
+    'assets/drivers/ast-translate.png',
+  ),
+  chatroom('chatroom', 'Chatroom', 'assets/drivers/chatroom.png'),
+  unsupported('unsupported', 'Unavailable', null);
 
-  const WorkflowDriverKind(this.routeKey, this.label);
+  const WorkflowDriverKind(this.routeKey, this.label, this.imagePath);
 
   final String routeKey;
   final String label;
+  final String? imagePath;
 
   static WorkflowDriverKind fromRouteKey(String value) {
     return values.firstWhere(

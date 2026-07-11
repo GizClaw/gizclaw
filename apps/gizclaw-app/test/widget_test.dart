@@ -4,9 +4,12 @@ import 'package:gizclaw_app/main.dart';
 import 'package:gizclaw_app/data/mobile_data_controller.dart';
 
 void main() {
-  Future<void> pumpApp(WidgetTester tester) async {
+  Future<void> pumpApp(
+    WidgetTester tester, {
+    MobileDataController? controller,
+  }) async {
     await tester.pumpWidget(
-      GizClawApp(dataController: MobileDataController.demo()),
+      GizClawApp(dataController: controller ?? MobileDataController.demo()),
     );
     await tester.pump(const Duration(milliseconds: 700));
   }
@@ -65,7 +68,7 @@ void main() {
     await pumpApp(tester);
 
     await tester.tap(find.text('Chats'));
-    await tester.pump(const Duration(milliseconds: 700));
+    await tester.pumpAndSettle();
 
     for (final driver in [
       'Flowcraft',
@@ -75,16 +78,14 @@ void main() {
     ]) {
       expect(find.text(driver), findsOneWidget);
     }
-    expect(
-      find.byIcon(CupertinoIcons.rectangle_3_offgrid_fill),
-      findsOneWidget,
-    );
-    expect(find.byIcon(CupertinoIcons.waveform_path), findsOneWidget);
-    expect(
-      find.byIcon(CupertinoIcons.chevron_left_slash_chevron_right),
-      findsOneWidget,
-    );
-    expect(find.byIcon(CupertinoIcons.chat_bubble_2_fill), findsWidgets);
+    for (final asset in [
+      'assets/drivers/flowcraft.png',
+      'assets/drivers/doubao-realtime.png',
+      'assets/drivers/ast-translate.png',
+      'assets/drivers/chatroom.png',
+    ]) {
+      expect(find.image(AssetImage(asset)), findsOneWidget);
+    }
     expect(find.byType(CupertinoSlidingSegmentedControl), findsNothing);
     expect(find.text('Morning check-in'), findsNothing);
 
@@ -101,6 +102,27 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Morning check-in'), findsOneWidget);
     expect(find.text('Mobile app plan'), findsNothing);
+  });
+
+  testWidgets('keeps drivers visible without matching workspaces', (
+    tester,
+  ) async {
+    final controller = MobileDataController.demo();
+    controller.workspaces = controller.workspaces
+        .where(
+          (workspace) =>
+              workspace.workflowName != 'realtime-lab' &&
+              workspace.workflowName != 'ast-translate',
+        )
+        .toList(growable: false);
+    await pumpApp(tester, controller: controller);
+
+    await tester.tap(find.text('Chats'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Doubao Realtime'), findsOneWidget);
+    expect(find.text('AST Translate'), findsOneWidget);
+    expect(find.text('0 workspaces'), findsNWidgets(2));
   });
 
   testWidgets('keeps each primary tab navigation stack', (tester) async {

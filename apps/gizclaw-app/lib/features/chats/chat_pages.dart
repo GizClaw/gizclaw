@@ -42,9 +42,7 @@ class _ChatTypeMenu extends StatelessWidget {
     final drivers = WorkflowDriverKind.values
         .where((driver) {
           if (driver == WorkflowDriverKind.unsupported) return false;
-          return data.workspaces.any((workspace) {
-            return data.workflow(workspace.workflowName).driver == driver;
-          });
+          return data.workflows.any((workflow) => workflow.driver == driver);
         })
         .toList(growable: false);
     if (drivers.isEmpty) {
@@ -61,15 +59,11 @@ class _ChatTypeMenu extends StatelessWidget {
       itemCount: drivers.length,
       itemBuilder: (context, index) {
         final driver = drivers[index];
-        final presentation = _driverPresentation(driver);
         final count = data.workspaces.where((workspace) {
           return data.workflow(workspace.workflowName).driver == driver;
         }).length;
         return GizListRow(
-              leading: _ChatTypeIcon(
-                icon: presentation.icon,
-                color: presentation.color,
-              ),
+              leading: _ChatTypeIcon(driver: driver),
               title: driver.label,
               subtitle: '$count workspaces',
               onPressed: () =>
@@ -83,55 +77,34 @@ class _ChatTypeMenu extends StatelessWidget {
   }
 }
 
-class _DriverPresentation {
-  const _DriverPresentation(this.icon, this.color);
-
-  final IconData icon;
-  final Color color;
-}
-
-_DriverPresentation _driverPresentation(WorkflowDriverKind driver) {
-  return switch (driver) {
-    WorkflowDriverKind.flowcraft => const _DriverPresentation(
-      CupertinoIcons.rectangle_3_offgrid_fill,
-      Color(0xFF416986),
-    ),
-    WorkflowDriverKind.doubaoRealtime => const _DriverPresentation(
-      CupertinoIcons.waveform_path,
-      Color(0xFF9A5A36),
-    ),
-    WorkflowDriverKind.astTranslate => const _DriverPresentation(
-      CupertinoIcons.chevron_left_slash_chevron_right,
-      Color(0xFF75517D),
-    ),
-    WorkflowDriverKind.chatroom => const _DriverPresentation(
-      CupertinoIcons.chat_bubble_2_fill,
-      Color(0xFF1F7A68),
-    ),
-    WorkflowDriverKind.unsupported => const _DriverPresentation(
-      CupertinoIcons.question_circle_fill,
-      Color(0xFF69736F),
-    ),
-  };
-}
-
 class _ChatTypeIcon extends StatelessWidget {
-  const _ChatTypeIcon({required this.icon, required this.color});
+  const _ChatTypeIcon({required this.driver});
 
-  final IconData icon;
-  final Color color;
+  final WorkflowDriverKind driver;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 50,
-      height: 50,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(8),
+    final imagePath = driver.imagePath;
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        width: 50,
+        height: 50,
+        alignment: Alignment.center,
+        color: const Color(0xFFE9ECE9),
+        child: imagePath == null
+            ? const Icon(
+                CupertinoIcons.question_circle_fill,
+                color: GizColors.secondaryInk,
+              )
+            : Image.asset(
+                imagePath,
+                width: 50,
+                height: 50,
+                fit: BoxFit.cover,
+                filterQuality: FilterQuality.high,
+              ),
       ),
-      child: Icon(icon, color: GizColors.surface, size: 25),
     );
   }
 }
