@@ -29,11 +29,23 @@ pick_free_tcp_port() {
 
 pick_free_udp_range() {
   local width="${1:-20}"
+  shift || true
+  local excludes=("$@")
   local base port in_use
   for _ in {1..100}; do
     base=$((30000 + RANDOM % 20000))
     in_use=0
     for ((port = base; port < base + width; port++)); do
+      local exclude
+      for exclude in "${excludes[@]}"; do
+        if [[ -n "$exclude" && "$port" == "$exclude" ]]; then
+          in_use=1
+          break
+        fi
+      done
+      if [[ "$in_use" == "1" ]]; then
+        break
+      fi
       if command -v lsof >/dev/null 2>&1 && lsof -nP -iUDP:"$port" >/dev/null 2>&1; then
         in_use=1
         break
@@ -74,10 +86,14 @@ PY
 pick_free_udp_port() {
   local exclude_min="$1"
   local exclude_max="$2"
+  local exclude_port="${3:-}"
   local port
   for _ in {1..100}; do
     port=$((20000 + RANDOM % 30000))
     if ((port >= exclude_min && port <= exclude_max)); then
+      continue
+    fi
+    if [[ -n "$exclude_port" && "$port" == "$exclude_port" ]]; then
       continue
     fi
     if udp_port_available "$port"; then
@@ -92,6 +108,11 @@ pick_free_udp_port() {
 detect_turn_host() {
   if [[ -n "${GIZCLAW_E2E_TURN_HOST:-}" ]]; then
     echo "$GIZCLAW_E2E_TURN_HOST"
+    return 0
+  fi
+  local edge_host="${GIZCLAW_E2E_EDGE_HOST:-}"
+  if [[ -n "$edge_host" && "$edge_host" != "127.0.0.1" && "$edge_host" != "localhost" && "$edge_host" != "::1" ]]; then
+    echo "$edge_host"
     return 0
   fi
   local server_host="${GIZCLAW_E2E_SERVER_HOST:-}"
@@ -152,6 +173,7 @@ GIZCLAW_E2E_IDENTITIES_HOME=$identities_home
 GIZCLAW_E2E_JS_IDENTITY_DIR=$identities_home/peer
 GIZCLAW_E2E_JS_ADMIN_IDENTITY_DIR=$identities_home/admin
 GIZCLAW_E2E_SERVER_ENDPOINT=$GIZCLAW_E2E_SERVER_ENDPOINT
+GIZCLAW_E2E_EDGE_ENDPOINT=$GIZCLAW_E2E_EDGE_ENDPOINT
 GIZCLAW_E2E_TURN_ENDPOINT=$GIZCLAW_E2E_TURN_ENDPOINT
 GIZCLAW_E2E_TURN_RELAY_ADDRESS=$GIZCLAW_E2E_TURN_RELAY_ADDRESS
 GIZCLAW_E2E_TURN_REALM=$GIZCLAW_E2E_TURN_REALM
@@ -164,6 +186,7 @@ GIZCLAW_E2E_SKIP_PROVIDER_SYNC=${GIZCLAW_E2E_SKIP_PROVIDER_SYNC:-1}
 GIZCLAW_E2E_DESKTOP_URL=$desktop_url
 GIZCLAW_E2E_DOCKER_PROJECT=$GIZCLAW_E2E_DOCKER_PROJECT
 GIZCLAW_E2E_DOCKER_SERVER_PORT=$GIZCLAW_E2E_DOCKER_SERVER_PORT
+GIZCLAW_E2E_DOCKER_EDGE_PORT=$GIZCLAW_E2E_DOCKER_EDGE_PORT
 GIZCLAW_E2E_DOCKER_TURN_PORT=$GIZCLAW_E2E_DOCKER_TURN_PORT
 GIZCLAW_E2E_DOCKER_COMPOSE_FILE=$compose_file
 EOF
@@ -179,8 +202,8 @@ materialize_runtime_config() {
   mkdir -p "$state_dir"
   cp -R "$e2e_dir/testdata/identities" "$identities_home"
   cp -R "$e2e_dir/testdata/cmd-config-home" "$config_home"
-  rewrite_endpoint_configs "$identities_home" "$GIZCLAW_E2E_SERVER_ENDPOINT"
-  rewrite_endpoint_configs "$config_home" "$GIZCLAW_E2E_SERVER_ENDPOINT"
+  rewrite_endpoint_configs "$identities_home" "$GIZCLAW_E2E_EDGE_ENDPOINT"
+  rewrite_endpoint_configs "$config_home" "$GIZCLAW_E2E_EDGE_ENDPOINT"
   write_runtime_env "$state_dir" "$config_home" "$identities_home" ""
   echo "$state_dir/docker.env"
 }
@@ -257,21 +280,44 @@ validate_docker_project
 if [[ -z "${GIZCLAW_E2E_DOCKER_SERVER_PORT:-}" ]]; then
   GIZCLAW_E2E_DOCKER_SERVER_PORT="$(pick_free_tcp_port)"
 fi
+if [[ -z "${GIZCLAW_E2E_DOCKER_EDGE_PORT:-}" ]]; then
+  GIZCLAW_E2E_DOCKER_EDGE_PORT="$(pick_free_tcp_port)"
+fi
+if [[ "$GIZCLAW_E2E_DOCKER_EDGE_PORT" == "$GIZCLAW_E2E_DOCKER_SERVER_PORT" ]]; then
+  echo "edge and server Docker TCP ports must differ: $GIZCLAW_E2E_DOCKER_EDGE_PORT" >&2
+  exit 2
+fi
+if ! udp_port_available "$GIZCLAW_E2E_DOCKER_SERVER_PORT"; then
+  echo "server UDP port is unavailable: $GIZCLAW_E2E_DOCKER_SERVER_PORT" >&2
+  exit 2
+fi
 if [[ -z "${GIZCLAW_E2E_SERVER_ENDPOINT:-}" ]]; then
   GIZCLAW_E2E_SERVER_ENDPOINT="${GIZCLAW_E2E_SERVER_HOST:-127.0.0.1}:$GIZCLAW_E2E_DOCKER_SERVER_PORT"
 fi
+if [[ -z "${GIZCLAW_E2E_EDGE_ENDPOINT:-}" ]]; then
+  GIZCLAW_E2E_EDGE_ENDPOINT="${GIZCLAW_E2E_EDGE_HOST:-${GIZCLAW_E2E_SERVER_HOST:-127.0.0.1}}:$GIZCLAW_E2E_DOCKER_EDGE_PORT"
+fi
 if [[ -z "${GIZCLAW_E2E_TURN_RELAY_MIN_PORT:-}" ]]; then
-  GIZCLAW_E2E_TURN_RELAY_MIN_PORT="$(pick_free_udp_range 20)"
+  GIZCLAW_E2E_TURN_RELAY_MIN_PORT="$(pick_free_udp_range 20 "$GIZCLAW_E2E_DOCKER_SERVER_PORT")"
 fi
 if [[ -z "${GIZCLAW_E2E_TURN_RELAY_MAX_PORT:-}" ]]; then
   GIZCLAW_E2E_TURN_RELAY_MAX_PORT=$((GIZCLAW_E2E_TURN_RELAY_MIN_PORT + 19))
 fi
 if [[ -z "${GIZCLAW_E2E_DOCKER_TURN_PORT:-}" ]]; then
-  GIZCLAW_E2E_DOCKER_TURN_PORT="$(pick_free_udp_port "$GIZCLAW_E2E_TURN_RELAY_MIN_PORT" "$GIZCLAW_E2E_TURN_RELAY_MAX_PORT")"
+  GIZCLAW_E2E_DOCKER_TURN_PORT="$(pick_free_udp_port "$GIZCLAW_E2E_TURN_RELAY_MIN_PORT" "$GIZCLAW_E2E_TURN_RELAY_MAX_PORT" "$GIZCLAW_E2E_DOCKER_SERVER_PORT")"
 fi
 if ((GIZCLAW_E2E_DOCKER_TURN_PORT >= GIZCLAW_E2E_TURN_RELAY_MIN_PORT &&
   GIZCLAW_E2E_DOCKER_TURN_PORT <= GIZCLAW_E2E_TURN_RELAY_MAX_PORT)); then
   echo "TURN listener port overlaps relay range: $GIZCLAW_E2E_DOCKER_TURN_PORT in $GIZCLAW_E2E_TURN_RELAY_MIN_PORT-$GIZCLAW_E2E_TURN_RELAY_MAX_PORT" >&2
+  exit 2
+fi
+if [[ "$GIZCLAW_E2E_DOCKER_TURN_PORT" == "$GIZCLAW_E2E_DOCKER_SERVER_PORT" ]]; then
+  echo "TURN listener port overlaps server UDP port: $GIZCLAW_E2E_DOCKER_TURN_PORT" >&2
+  exit 2
+fi
+if ((GIZCLAW_E2E_DOCKER_SERVER_PORT >= GIZCLAW_E2E_TURN_RELAY_MIN_PORT &&
+  GIZCLAW_E2E_DOCKER_SERVER_PORT <= GIZCLAW_E2E_TURN_RELAY_MAX_PORT)); then
+  echo "server UDP port overlaps TURN relay range: $GIZCLAW_E2E_DOCKER_SERVER_PORT in $GIZCLAW_E2E_TURN_RELAY_MIN_PORT-$GIZCLAW_E2E_TURN_RELAY_MAX_PORT" >&2
   exit 2
 fi
 if ! udp_port_available "$GIZCLAW_E2E_DOCKER_TURN_PORT"; then
@@ -287,7 +333,8 @@ fi
 GIZCLAW_E2E_TURN_REALM="${GIZCLAW_E2E_TURN_REALM:-gizclaw-e2e-edge}"
 GIZCLAW_E2E_TURN_USERNAME="${GIZCLAW_E2E_TURN_USERNAME:-gizclaw-e2e}"
 GIZCLAW_E2E_TURN_CREDENTIAL="${GIZCLAW_E2E_TURN_CREDENTIAL:-gizclaw-e2e-turn}"
-export GIZCLAW_E2E_DOCKER_PROJECT GIZCLAW_E2E_DOCKER_SERVER_PORT GIZCLAW_E2E_DOCKER_TURN_PORT GIZCLAW_E2E_SERVER_ENDPOINT
+export GIZCLAW_E2E_DOCKER_PROJECT GIZCLAW_E2E_DOCKER_SERVER_PORT GIZCLAW_E2E_DOCKER_EDGE_PORT GIZCLAW_E2E_DOCKER_TURN_PORT
+export GIZCLAW_E2E_SERVER_ENDPOINT GIZCLAW_E2E_EDGE_ENDPOINT
 export GIZCLAW_E2E_TURN_ENDPOINT GIZCLAW_E2E_TURN_RELAY_ADDRESS GIZCLAW_E2E_TURN_REALM GIZCLAW_E2E_TURN_USERNAME GIZCLAW_E2E_TURN_CREDENTIAL
 export GIZCLAW_E2E_TURN_RELAY_MIN_PORT GIZCLAW_E2E_TURN_RELAY_MAX_PORT
 export GIZCLAW_E2E_DOCKER_SERVER_BIND="${GIZCLAW_E2E_DOCKER_SERVER_BIND:-0.0.0.0}"
@@ -301,28 +348,25 @@ export GIZCLAW_E2E_DOCKER_BASE_IMAGE="$base_image"
 
 docker_env="$(materialize_runtime_config)"
 echo "==> docker e2e env: $docker_env"
-echo "==> start Docker e2e stack project=$GIZCLAW_E2E_DOCKER_PROJECT edge=$GIZCLAW_E2E_SERVER_ENDPOINT turn=$GIZCLAW_E2E_TURN_ENDPOINT relay=${GIZCLAW_E2E_TURN_RELAY_MIN_PORT}-${GIZCLAW_E2E_TURN_RELAY_MAX_PORT}"
+echo "==> start Docker e2e stack project=$GIZCLAW_E2E_DOCKER_PROJECT server=$GIZCLAW_E2E_SERVER_ENDPOINT edge=$GIZCLAW_E2E_EDGE_ENDPOINT turn=$GIZCLAW_E2E_TURN_ENDPOINT relay=${GIZCLAW_E2E_TURN_RELAY_MIN_PORT}-${GIZCLAW_E2E_TURN_RELAY_MAX_PORT}"
 if [[ $# -gt 0 ]]; then
   docker compose -p "$GIZCLAW_E2E_DOCKER_PROJECT" -f "$compose_file" up "$@"
 else
   docker compose -p "$GIZCLAW_E2E_DOCKER_PROJECT" -f "$compose_file" up -d --build
 fi
 
+server_tcp_port="$(docker compose -p "$GIZCLAW_E2E_DOCKER_PROJECT" -f "$compose_file" port --protocol tcp server 9820 | awk -F: '{print $NF}')"
 edge_tcp_port="$(docker compose -p "$GIZCLAW_E2E_DOCKER_PROJECT" -f "$compose_file" port --protocol tcp edge 9821 | awk -F: '{print $NF}')"
 desktop_port="$(docker compose -p "$GIZCLAW_E2E_DOCKER_PROJECT" -f "$compose_file" port desktop 4191 | awk -F: '{print $NF}')"
 desktop_url="http://127.0.0.1:${desktop_port}"
 
 wait_docker_ready_file "server" "/tmp/gizclaw-e2e-server-ready" "docker server"
+wait_http_ready "http://127.0.0.1:${server_tcp_port}/server-info" "docker server" "server"
 wait_http_ready "http://127.0.0.1:${edge_tcp_port}/server-info" "docker edge" "edge"
 wait_docker_ready_file "edge" "/tmp/gizclaw-e2e-edge-ready" "docker edge"
 server_public_key="$(fetch_server_public_key "http://127.0.0.1:${edge_tcp_port}/server-info")"
 if [[ -z "$server_public_key" ]]; then
   echo "docker edge /server-info did not return server public_key" >&2
-  exit 2
-fi
-if docker compose -p "$GIZCLAW_E2E_DOCKER_PROJECT" -f "$compose_file" port --protocol tcp server 9820 >/tmp/gizclaw-e2e-server-port.out 2>/dev/null &&
-  [[ -s /tmp/gizclaw-e2e-server-port.out ]]; then
-  echo "docker server ICE port is unexpectedly published: $(cat /tmp/gizclaw-e2e-server-port.out)" >&2
   exit 2
 fi
 wait_http_ready "$desktop_url" "docker desktop" "desktop"

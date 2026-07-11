@@ -180,13 +180,17 @@ func (h *Harness) UseSetupServer() {
 	workspaceDir := filepath.Join(h.RepoRoot, "tests", "gizclaw-e2e", "testdata", "server-workspace")
 	runtimeEnv := e2eRuntimeEnv(h)
 	serverAddr := strings.TrimSpace(runtimeEnv["GIZCLAW_E2E_SERVER_ENDPOINT"])
+	edgeAddr := strings.TrimSpace(runtimeEnv["GIZCLAW_E2E_EDGE_ENDPOINT"])
 	serverPublicKey := strings.TrimSpace(runtimeEnv["GIZCLAW_E2E_SERVER_PUBLIC_KEY"])
-	if serverAddr == "" || serverPublicKey == "" {
-		h.t.Fatalf("setup server requires GIZCLAW_E2E_SERVER_ENDPOINT and GIZCLAW_E2E_SERVER_PUBLIC_KEY; start Docker e2e and source tests/gizclaw-e2e/testdata/docker/current.env")
+	if edgeAddr == "" {
+		edgeAddr = serverAddr
+	}
+	if edgeAddr == "" || serverPublicKey == "" {
+		h.t.Fatalf("setup server requires GIZCLAW_E2E_EDGE_ENDPOINT and GIZCLAW_E2E_SERVER_PUBLIC_KEY; start Docker e2e and source tests/gizclaw-e2e/testdata/docker/current.env")
 	}
 
 	h.ServerWorkspace = workspaceDir
-	h.ServerAddr = serverAddr
+	h.ServerAddr = edgeAddr
 	h.ServerPublicKey = serverPublicKey
 	h.applySetupContextServer()
 	h.waitForSetupServerReady()
@@ -200,6 +204,7 @@ func e2eRuntimeEnv(h *Harness) map[string]string {
 		"GIZCLAW_E2E_CONFIG_HOME",
 		"GIZCLAW_E2E_ADMIN_CONTEXT",
 		"GIZCLAW_E2E_SERVER_ENDPOINT",
+		"GIZCLAW_E2E_EDGE_ENDPOINT",
 		"GIZCLAW_E2E_SERVER_PUBLIC_KEY",
 	} {
 		if value := strings.TrimSpace(os.Getenv(key)); value != "" {

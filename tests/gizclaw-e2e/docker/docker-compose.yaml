@@ -27,6 +27,9 @@ services:
       timeout: 1s
       retries: 60
       start_period: 300s
+    ports:
+      - "${GIZCLAW_E2E_DOCKER_SERVER_BIND:-0.0.0.0}:${GIZCLAW_E2E_DOCKER_SERVER_PORT:?set by docker-compose-up.sh}:9820/tcp"
+      - "${GIZCLAW_E2E_DOCKER_SERVER_BIND:-0.0.0.0}:${GIZCLAW_E2E_DOCKER_SERVER_PORT:?set by docker-compose-up.sh}:9820/udp"
 
   edge:
     platform: linux/amd64
@@ -41,6 +44,7 @@ services:
         condition: service_healthy
     environment:
       GIZCLAW_E2E_SERVER_ENDPOINT: ${GIZCLAW_E2E_SERVER_ENDPOINT:?set by docker-compose-up.sh}
+      GIZCLAW_E2E_EDGE_ENDPOINT: ${GIZCLAW_E2E_EDGE_ENDPOINT:?set by docker-compose-up.sh}
       GIZCLAW_E2E_TURN_ENDPOINT: ${GIZCLAW_E2E_TURN_ENDPOINT:?set by docker-compose-up.sh}
       GIZCLAW_E2E_TURN_RELAY_ADDRESS: ${GIZCLAW_E2E_TURN_RELAY_ADDRESS:?set by docker-compose-up.sh}
       GIZCLAW_E2E_TURN_REALM: ${GIZCLAW_E2E_TURN_REALM:?set by docker-compose-up.sh}
@@ -50,7 +54,7 @@ services:
       GIZCLAW_E2E_TURN_RELAY_MAX_PORT: ${GIZCLAW_E2E_TURN_RELAY_MAX_PORT:?set by docker-compose-up.sh}
       GIZCLAW_E2E_EDGE_UPSTREAM_ENDPOINT: http://server:9822
     ports:
-      - "${GIZCLAW_E2E_DOCKER_SERVER_BIND:-0.0.0.0}:${GIZCLAW_E2E_DOCKER_SERVER_PORT:?set by docker-compose-up.sh}:9821/tcp"
+      - "${GIZCLAW_E2E_DOCKER_SERVER_BIND:-0.0.0.0}:${GIZCLAW_E2E_DOCKER_EDGE_PORT:?set by docker-compose-up.sh}:9821/tcp"
       - "${GIZCLAW_E2E_DOCKER_SERVER_BIND:-0.0.0.0}:${GIZCLAW_E2E_DOCKER_TURN_PORT:?set by docker-compose-up.sh}:9823/udp"
       - "${GIZCLAW_E2E_DOCKER_SERVER_BIND:-0.0.0.0}:${GIZCLAW_E2E_TURN_RELAY_MIN_PORT:?set by docker-compose-up.sh}-${GIZCLAW_E2E_TURN_RELAY_MAX_PORT:?set by docker-compose-up.sh}:${GIZCLAW_E2E_TURN_RELAY_MIN_PORT:?set by docker-compose-up.sh}-${GIZCLAW_E2E_TURN_RELAY_MAX_PORT:?set by docker-compose-up.sh}/udp"
     volumes:

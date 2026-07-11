@@ -1,7 +1,7 @@
 identity:
   private-key: 65kcbmbz2Eo2SgSA2Q3QqBoLhyLvYyMuZ7gfTSKaTvpR
 listen: 0.0.0.0:9821
-endpoint: ${GIZCLAW_E2E_SERVER_ENDPOINT}
+endpoint: ${GIZCLAW_E2E_EDGE_ENDPOINT}
 upstream:
   endpoint: ${GIZCLAW_E2E_EDGE_UPSTREAM_ENDPOINT}
   public-key: ${GIZCLAW_E2E_EDGE_UPSTREAM_PUBLIC_KEY}
