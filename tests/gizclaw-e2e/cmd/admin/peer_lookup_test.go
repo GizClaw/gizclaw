@@ -12,7 +12,7 @@ import (
 func TestAdminLookupPeerUserStory(t *testing.T) {
 	h := clitest.NewSetupHarness(t, "502-admin-lookup-peer")
 
-	h.CreateContext("admin-a").MustSucceed(t)
+	h.CreateAdminContext("admin-a").MustSucceed(t)
 	h.CreateContext("device-a").MustSucceed(t)
 
 	h.RegisterContext("admin-a", "--sn", "admin-lookup-peer-sn").MustSucceed(t)

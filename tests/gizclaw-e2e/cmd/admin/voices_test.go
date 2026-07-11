@@ -11,7 +11,7 @@ import (
 
 func TestAdminVoicesUserStory(t *testing.T) {
 	h := clitest.NewSetupHarness(t, "506-admin-voices")
-	h.CreateContext("admin-a").MustSucceed(t)
+	h.CreateAdminContext("admin-a").MustSucceed(t)
 	h.RegisterContext("admin-a", "--sn", "admin-voices-sn").MustSucceed(t)
 
 	list := h.RunCLI("admin", "voices", "list", "--context", "admin-a")

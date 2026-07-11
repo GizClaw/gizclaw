@@ -11,7 +11,7 @@ import (
 
 func TestAdminWorkflowsUserStory(t *testing.T) {
 	h := clitest.NewSetupHarness(t, "507-admin-workflows")
-	h.CreateContext("admin-a").MustSucceed(t)
+	h.CreateAdminContext("admin-a").MustSucceed(t)
 	h.RegisterContext("admin-a", "--sn", "admin-sn").MustSucceed(t)
 
 	list := h.RunCLI("admin", "workflows", "list", "--context", "admin-a")

@@ -6,10 +6,13 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
+	"github.com/goccy/go-yaml"
 )
 
 func TestFetchE2EServerInfoIncludesICEServers(t *testing.T) {
@@ -47,14 +50,41 @@ func TestFetchE2EServerInfoIncludesICEServers(t *testing.T) {
 }
 
 func TestHarnessSplitsClientAndAdminEndpoints(t *testing.T) {
-	h := &Harness{
-		ServerAddr: "127.0.0.1:19820",
-		EdgeAddr:   "127.0.0.1:19821",
-	}
+	h := NewPersistentHarnessForRoot(t, "tests/gizclaw-e2e/cmd", "endpoint-split", t.TempDir())
+	h.ServerAddr = "127.0.0.1:19820"
+	h.EdgeAddr = "127.0.0.1:19821"
+	h.ServerPublicKey = "test"
+
 	if got := h.clientEndpoint(); got != h.EdgeAddr {
 		t.Fatalf("clientEndpoint = %q, want edge endpoint %q", got, h.EdgeAddr)
 	}
 	if got := h.adminEndpoint(); got != h.ServerAddr {
 		t.Fatalf("adminEndpoint = %q, want server endpoint %q", got, h.ServerAddr)
 	}
+
+	client := h.CreateContext("client-a")
+	client.MustSucceed(t)
+	admin := h.CreateAdminContext("admin-a")
+	admin.MustSucceed(t)
+
+	if got := readTestContextEndpoint(t, h, "client-a"); got != h.EdgeAddr {
+		t.Fatalf("client endpoint = %q, want edge endpoint %q", got, h.EdgeAddr)
+	}
+	if got := readTestContextEndpoint(t, h, "admin-a"); got != h.ServerAddr {
+		t.Fatalf("admin endpoint = %q, want server endpoint %q", got, h.ServerAddr)
+	}
+}
+
+func readTestContextEndpoint(t *testing.T, h *Harness, name string) string {
+	t.Helper()
+
+	data, err := os.ReadFile(filepath.Join(h.contextRoot(), name, "config.yaml"))
+	if err != nil {
+		t.Fatalf("read context %s config: %v", name, err)
+	}
+	var cfg cliContextConfig
+	if err := yaml.Unmarshal(data, &cfg); err != nil {
+		t.Fatalf("parse context %s config: %v", name, err)
+	}
+	return cliContextDialAddr(cfg)
 }

@@ -11,7 +11,7 @@ import (
 
 func TestAdminMiniMaxTenantsUserStory(t *testing.T) {
 	h := clitest.NewSetupHarness(t, "505-admin-minimax-tenants")
-	h.CreateContext("admin-a").MustSucceed(t)
+	h.CreateAdminContext("admin-a").MustSucceed(t)
 	h.RegisterContext("admin-a", "--sn", "admin-sn").MustSucceed(t)
 
 	list := h.RunCLI("admin", "minimax-tenants", "list", "--context", "admin-a")

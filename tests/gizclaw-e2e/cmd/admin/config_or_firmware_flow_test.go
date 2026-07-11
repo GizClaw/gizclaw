@@ -15,7 +15,7 @@ func TestAdminConfigFlowUserStory(t *testing.T) {
 	h := clitest.NewHarness(t, "503-admin-config-flow")
 	h.StartServerFromFixture("server_config.yaml")
 
-	h.CreateContext("admin-a").MustSucceed(t)
+	h.CreateAdminContext("admin-a").MustSucceed(t)
 	h.RegisterContext("admin-a", "--sn", "admin-sn").MustSucceed(t)
 	h.CreateContext("device-a").MustSucceed(t)
 	h.RegisterContext("device-a", "--sn", "device-sn").MustSucceed(t)

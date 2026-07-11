@@ -372,6 +372,11 @@ func (h *Harness) CreateContext(name string) Result {
 	return h.CreateContextWith(name, h.clientEndpoint())
 }
 
+func (h *Harness) CreateAdminContext(name string) Result {
+	h.t.Helper()
+	return h.CreateContextWith(name, h.adminEndpoint())
+}
+
 func (h *Harness) CreateContextWith(name, serverAddr string) Result {
 	h.t.Helper()
 	args := []string{

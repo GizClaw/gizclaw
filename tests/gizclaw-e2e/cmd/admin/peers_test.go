@@ -12,7 +12,7 @@ import (
 func TestAdminListPeersUserStory(t *testing.T) {
 	h := clitest.NewSetupHarness(t, "501-admin-list-peers")
 
-	h.CreateContext("admin-a").MustSucceed(t)
+	h.CreateAdminContext("admin-a").MustSucceed(t)
 	h.CreateContext("device-a").MustSucceed(t)
 	h.CreateContext("device-b").MustSucceed(t)
 

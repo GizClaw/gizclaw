@@ -14,7 +14,7 @@ import (
 func TestAdminResourcesUserStory(t *testing.T) {
 	h := clitest.NewHarness(t, "509-admin-resources")
 	h.StartServerFromFixture("server_config.yaml")
-	h.CreateContext("admin-a").MustSucceed(t)
+	h.CreateAdminContext("admin-a").MustSucceed(t)
 	h.RegisterContext("admin-a", "--sn", "admin-sn").MustSucceed(t)
 
 	resourcePath := filepath.Join(h.SandboxDir, "credential-resource.json")
@@ -86,7 +86,7 @@ func TestAdminResourcesUserStory(t *testing.T) {
 func TestAdminResourceListAppliesModelAndVoice(t *testing.T) {
 	h := clitest.NewHarness(t, "509-admin-resources")
 	h.StartServerFromFixture("server_config.yaml")
-	h.CreateContext("admin-a").MustSucceed(t)
+	h.CreateAdminContext("admin-a").MustSucceed(t)
 	h.RegisterContext("admin-a", "--sn", "admin-sn").MustSucceed(t)
 
 	resourcePath := filepath.Join(h.SandboxDir, "model-voice-resources.json")

@@ -23,7 +23,7 @@ import (
 func TestAdminFirmwaresUserStory(t *testing.T) {
 	h := clitest.NewHarness(t, "511-admin-firmwares")
 	h.StartServerFromFixture("server_config.yaml")
-	h.CreateContext("admin-a").MustSucceed(t)
+	h.CreateAdminContext("admin-a").MustSucceed(t)
 	h.RegisterContext("admin-a", "--sn", "admin-sn").MustSucceed(t)
 	h.CreateContext("device-a").MustSucceed(t)
 	h.RegisterContext("device-a", "--sn", "device-sn").MustSucceed(t)
@@ -133,7 +133,7 @@ func TestAdminFirmwaresUserStory(t *testing.T) {
 
 func TestAdminFirmwaresSharedSetupCatalog(t *testing.T) {
 	h := clitest.NewSetupHarness(t, "511-admin-firmwares-shared-resources")
-	h.CreateContext("admin-a").MustSucceed(t)
+	h.CreateAdminContext("admin-a").MustSucceed(t)
 	h.RegisterContext("admin-a", "--sn", "admin-sn").MustSucceed(t)
 
 	list := h.RunCLI("admin", "firmwares", "list", "--context", "admin-a")

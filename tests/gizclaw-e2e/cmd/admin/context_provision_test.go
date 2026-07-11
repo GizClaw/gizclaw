@@ -11,7 +11,7 @@ import (
 func TestAdminContextProvisionUserStory(t *testing.T) {
 	h := clitest.NewSetupHarness(t, "500-admin-context-provision")
 
-	h.CreateContext("admin-a").MustSucceed(t)
+	h.CreateAdminContext("admin-a").MustSucceed(t)
 	h.RegisterContext("admin-a", "--sn", "admin-context-provision-sn").MustSucceed(t)
 
 	after := h.RunCLI("admin", "peers", "list", "--context", "admin-a")
