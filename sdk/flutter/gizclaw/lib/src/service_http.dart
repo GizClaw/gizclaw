@@ -140,6 +140,13 @@ Uint8List encodeHttpRequest(
   ServiceHttpRequest request, {
   String host = 'gizclaw',
 }) {
+  _rejectCrlf(request.method, 'method');
+  _rejectCrlf(request.path, 'path');
+  _rejectCrlf(host, 'host');
+  for (final entry in request.headers.entries) {
+    _rejectCrlf(entry.key, 'header name');
+    _rejectCrlf(entry.value, 'header value');
+  }
   final headers = <String, String>{...request.headers};
   headers.removeWhere(
     (key, _) =>
@@ -327,5 +334,11 @@ String _canonicalHeader(String name) => name
           : '${part[0].toUpperCase()}${part.substring(1).toLowerCase()}',
     )
     .join('-');
+
+void _rejectCrlf(String value, String field) {
+  if (value.contains('\r') || value.contains('\n')) {
+    throw ArgumentError.value(value, field, 'must not contain CR or LF');
+  }
+}
 
 void _unawaited(Future<void> future) {}

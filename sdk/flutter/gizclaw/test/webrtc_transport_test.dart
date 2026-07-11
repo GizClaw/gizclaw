@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:flutter_webrtc/flutter_webrtc.dart' as rtc;
 import 'package:gizclaw/gizclaw.dart';
@@ -40,6 +41,68 @@ void main() {
       );
     },
   );
+
+  test('disposes owned peer connection when signaling fails', () async {
+    final pc = _FakePeerConnection(stopAfterAudio: false);
+    final error = StateError('send failed');
+
+    await expectLater(
+      connectFlutterGiznetWebRtc(
+        addAudioTransceiver: false,
+        createPacketDataChannel: false,
+        createPeerConnection: (_) async => pc,
+        prepareOffer: (_) async => _preparedOffer(),
+        sendOffer: (_) async => throw error,
+      ),
+      throwsA(same(error)),
+    );
+
+    expect(pc.closeCalls, 1);
+    expect(pc.disposeCalls, 1);
+  });
+
+  test('does not dispose caller-provided peer connection on failure', () async {
+    final pc = _FakePeerConnection(stopAfterAudio: false);
+
+    await expectLater(
+      connectFlutterGiznetWebRtc(
+        addAudioTransceiver: false,
+        createPacketDataChannel: false,
+        peerConnection: pc,
+        prepareOffer: (_) async => _preparedOffer(),
+        sendOffer: (_) async => throw StateError('send failed'),
+      ),
+      throwsStateError,
+    );
+
+    expect(pc.closeCalls, 0);
+    expect(pc.disposeCalls, 0);
+  });
+
+  test('rechecks ICE state after installing the gathering handler', () async {
+    final pc = _FakePeerConnection(
+      completeIceAfterHandler: true,
+      stopAfterAudio: false,
+    );
+    var previousCalls = 0;
+    void previousHandler(rtc.RTCIceGatheringState state) {
+      previousCalls++;
+    }
+
+    pc.onIceGatheringState = previousHandler;
+    final connected = await connectFlutterGiznetWebRtc(
+      addAudioTransceiver: false,
+      createPacketDataChannel: false,
+      peerConnection: pc,
+      prepareOffer: (_) async => _preparedOffer(answerSdp: 'answer-sdp'),
+      sendOffer: (_) async => [1, 2, 3],
+    );
+
+    expect(connected, same(pc));
+    expect(pc.onIceGatheringState, same(previousHandler));
+    expect(previousCalls, 0);
+    expect(pc.remoteDescription?.sdp, 'answer-sdp');
+  });
 
   test('waits for native readiness when the open event was missed', () async {
     final pc = _FakePeerConnection(channelsNativeReady: true);
@@ -98,6 +161,16 @@ void main() {
 
 class _StopAfterAudio implements Exception {}
 
+PreparedGiznetWebRtcOffer _preparedOffer({String answerSdp = 'answer'}) {
+  return PreparedGiznetWebRtcOffer(
+    body: Uint8List(0),
+    clientPublicKey: 'client',
+    nonce: 'nonce',
+    openAnswer: (_) async => answerSdp,
+    timestamp: 1,
+  );
+}
+
 class _AddTransceiverCall {
   const _AddTransceiverCall(this.kind, this.init);
 
@@ -106,12 +179,22 @@ class _AddTransceiverCall {
 }
 
 class _FakePeerConnection extends rtc.RTCPeerConnection {
-  _FakePeerConnection({this.channelsNativeReady = false});
+  _FakePeerConnection({
+    this.channelsNativeReady = false,
+    this.completeIceAfterHandler = false,
+    this.stopAfterAudio = true,
+  });
 
   final bool channelsNativeReady;
+  final bool completeIceAfterHandler;
+  final bool stopAfterAudio;
   final addTransceiverCalls = <_AddTransceiverCall>[];
   final createdDataChannels = <_FakeRtcDataChannel>[];
   final dataChannelInits = <rtc.RTCDataChannelInit>[];
+  int closeCalls = 0;
+  int disposeCalls = 0;
+  rtc.RTCSessionDescription? localDescription;
+  rtc.RTCSessionDescription? remoteDescription;
 
   @override
   Future<rtc.RTCRtpTransceiver> addTransceiver({
@@ -120,7 +203,10 @@ class _FakePeerConnection extends rtc.RTCPeerConnection {
     rtc.RTCRtpTransceiverInit? init,
   }) async {
     addTransceiverCalls.add(_AddTransceiverCall(kind, init));
-    throw _StopAfterAudio();
+    if (stopAfterAudio) {
+      throw _StopAfterAudio();
+    }
+    throw UnimplementedError();
   }
 
   @override
@@ -138,14 +224,18 @@ class _FakePeerConnection extends rtc.RTCPeerConnection {
   }
 
   @override
-  rtc.RTCIceGatheringState? get iceGatheringState =>
-      rtc.RTCIceGatheringState.RTCIceGatheringStateComplete;
+  rtc.RTCIceGatheringState? get iceGatheringState {
+    if (completeIceAfterHandler && onIceGatheringState == null) {
+      return rtc.RTCIceGatheringState.RTCIceGatheringStateGathering;
+    }
+    return rtc.RTCIceGatheringState.RTCIceGatheringStateComplete;
+  }
 
   @override
   Future<rtc.RTCSessionDescription> createOffer([
     Map<String, dynamic> constraints = const {},
-  ]) {
-    throw UnimplementedError();
+  ]) async {
+    return rtc.RTCSessionDescription('offer-sdp', 'offer');
   }
 
   @override
@@ -174,8 +264,8 @@ class _FakePeerConnection extends rtc.RTCPeerConnection {
   }
 
   @override
-  Future<void> close() {
-    throw UnimplementedError();
+  Future<void> close() async {
+    closeCalls++;
   }
 
   @override
@@ -184,8 +274,8 @@ class _FakePeerConnection extends rtc.RTCPeerConnection {
   }
 
   @override
-  Future<void> dispose() {
-    throw UnimplementedError();
+  Future<void> dispose() async {
+    disposeCalls++;
   }
 
   @override
@@ -203,8 +293,8 @@ class _FakePeerConnection extends rtc.RTCPeerConnection {
   rtc.RTCIceConnectionState? get iceConnectionState => null;
 
   @override
-  Future<rtc.RTCSessionDescription?> getLocalDescription() {
-    throw UnimplementedError();
+  Future<rtc.RTCSessionDescription?> getLocalDescription() async {
+    return localDescription;
   }
 
   @override
@@ -218,8 +308,8 @@ class _FakePeerConnection extends rtc.RTCPeerConnection {
   }
 
   @override
-  Future<rtc.RTCSessionDescription?> getRemoteDescription() {
-    throw UnimplementedError();
+  Future<rtc.RTCSessionDescription?> getRemoteDescription() async {
+    return remoteDescription;
   }
 
   @override
@@ -268,13 +358,17 @@ class _FakePeerConnection extends rtc.RTCPeerConnection {
   }
 
   @override
-  Future<void> setLocalDescription(rtc.RTCSessionDescription description) {
-    throw UnimplementedError();
+  Future<void> setLocalDescription(
+    rtc.RTCSessionDescription description,
+  ) async {
+    localDescription = description;
   }
 
   @override
-  Future<void> setRemoteDescription(rtc.RTCSessionDescription description) {
-    throw UnimplementedError();
+  Future<void> setRemoteDescription(
+    rtc.RTCSessionDescription description,
+  ) async {
+    remoteDescription = description;
   }
 
   @override

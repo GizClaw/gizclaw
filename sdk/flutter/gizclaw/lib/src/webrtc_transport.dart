@@ -59,6 +59,9 @@ typedef SendGiznetWebRtcOffer =
 
 Future<rtc.RTCPeerConnection> connectFlutterGiznetWebRtc({
   bool addAudioTransceiver = true,
+  Future<rtc.RTCPeerConnection> Function(Map<String, dynamic> configuration)
+      createPeerConnection =
+      rtc.createPeerConnection,
   bool createPacketDataChannel = true,
   Map<String, dynamic> configuration = const {},
   required Future<PreparedGiznetWebRtcOffer> Function(String offerSdp)
@@ -66,44 +69,54 @@ Future<rtc.RTCPeerConnection> connectFlutterGiznetWebRtc({
   rtc.RTCPeerConnection? peerConnection,
   required SendGiznetWebRtcOffer sendOffer,
 }) async {
-  final pc = peerConnection ?? await rtc.createPeerConnection(configuration);
-  serveFlutterGiznetWebRtcRpc(pc);
-  rtc.RTCDataChannel? packetDataChannel;
-  if (createPacketDataChannel) {
-    final init = rtc.RTCDataChannelInit()
-      ..id = -1
-      ..ordered = false
-      ..maxRetransmits = 0
-      ..binaryType = 'binary';
-    packetDataChannel = await pc.createDataChannel(
-      giznetWebRtcPacketDataChannelLabel,
-      init,
+  final ownsPeerConnection = peerConnection == null;
+  final pc = peerConnection ?? await createPeerConnection(configuration);
+  try {
+    serveFlutterGiznetWebRtcRpc(pc);
+    rtc.RTCDataChannel? packetDataChannel;
+    if (createPacketDataChannel) {
+      final init = rtc.RTCDataChannelInit()
+        ..id = -1
+        ..ordered = false
+        ..maxRetransmits = 0
+        ..binaryType = 'binary';
+      packetDataChannel = await pc.createDataChannel(
+        giznetWebRtcPacketDataChannelLabel,
+        init,
+      );
+    }
+    if (addAudioTransceiver) {
+      await pc.addTransceiver(
+        kind: rtc.RTCRtpMediaType.RTCRtpMediaTypeAudio,
+        init: rtc.RTCRtpTransceiverInit(
+          direction: rtc.TransceiverDirection.SendRecv,
+        ),
+      );
+    }
+    final offer = await pc.createOffer();
+    await pc.setLocalDescription(offer);
+    await _waitForIceGatheringComplete(pc);
+    final local = await pc.getLocalDescription();
+    final sdp = local?.sdp;
+    if (sdp == null || sdp.isEmpty) {
+      throw StateError('WebRTC offer was not created');
+    }
+    final prepared = await prepareOffer(sdp);
+    final encryptedAnswer = await sendOffer(prepared);
+    final answerSdp = await prepared.openAnswer(encryptedAnswer);
+    await pc.setRemoteDescription(
+      rtc.RTCSessionDescription(answerSdp, 'answer'),
     );
+    if (packetDataChannel != null) {
+      await _waitForDataChannelOpen(packetDataChannel);
+    }
+    return pc;
+  } catch (_) {
+    if (ownsPeerConnection) {
+      await _disposePeerConnection(pc);
+    }
+    rethrow;
   }
-  if (addAudioTransceiver) {
-    await pc.addTransceiver(
-      kind: rtc.RTCRtpMediaType.RTCRtpMediaTypeAudio,
-      init: rtc.RTCRtpTransceiverInit(
-        direction: rtc.TransceiverDirection.SendRecv,
-      ),
-    );
-  }
-  final offer = await pc.createOffer();
-  await pc.setLocalDescription(offer);
-  await _waitForIceGatheringComplete(pc);
-  final local = await pc.getLocalDescription();
-  final sdp = local?.sdp;
-  if (sdp == null || sdp.isEmpty) {
-    throw StateError('WebRTC offer was not created');
-  }
-  final prepared = await prepareOffer(sdp);
-  final encryptedAnswer = await sendOffer(prepared);
-  final answerSdp = await prepared.openAnswer(encryptedAnswer);
-  await pc.setRemoteDescription(rtc.RTCSessionDescription(answerSdp, 'answer'));
-  if (packetDataChannel != null) {
-    await _waitForDataChannelOpen(packetDataChannel);
-  }
-  return pc;
 }
 
 class FlutterWebRtcDataChannel implements GizClawDataChannel {
@@ -180,14 +193,34 @@ Future<void> _waitForIceGatheringComplete(rtc.RTCPeerConnection pc) {
   }
   final completer = Completer<void>();
   final previous = pc.onIceGatheringState;
-  pc.onIceGatheringState = (state) {
-    previous?.call(state);
+  late void Function(rtc.RTCIceGatheringState) handler;
+  void restoreHandler() {
+    if (pc.onIceGatheringState == handler) {
+      pc.onIceGatheringState = previous;
+    }
+  }
+
+  void completeIfReady(rtc.RTCIceGatheringState? state) {
     if (state == rtc.RTCIceGatheringState.RTCIceGatheringStateComplete &&
         !completer.isCompleted) {
+      restoreHandler();
       completer.complete();
     }
+  }
+
+  handler = (state) {
+    previous?.call(state);
+    completeIfReady(state);
   };
-  return completer.future.timeout(const Duration(seconds: 30));
+  pc.onIceGatheringState = handler;
+  completeIfReady(pc.iceGatheringState);
+  return completer.future.timeout(
+    const Duration(seconds: 30),
+    onTimeout: () {
+      restoreHandler();
+      throw TimeoutException('WebRTC ICE gathering timed out');
+    },
+  );
 }
 
 Future<void> _waitForDataChannelOpen(rtc.RTCDataChannel channel) {
@@ -208,4 +241,13 @@ Future<void> _pollDataChannelOpen(rtc.RTCDataChannel channel) async {
       await Future<void>.delayed(const Duration(milliseconds: 10));
     }
   }
+}
+
+Future<void> _disposePeerConnection(rtc.RTCPeerConnection pc) async {
+  try {
+    await pc.close();
+  } catch (_) {}
+  try {
+    await pc.dispose();
+  } catch (_) {}
 }

@@ -47,6 +47,35 @@ void main() {
     expect(text, isNot(contains('Transfer-Encoding: chunked')));
   });
 
+  test('rejects CRLF in encoded HTTP request fields', () {
+    expect(
+      () => encodeHttpRequest(
+        const ServiceHttpRequest(method: 'GET\r\nInjected: yes'),
+      ),
+      throwsArgumentError,
+    );
+    expect(
+      () => encodeHttpRequest(const ServiceHttpRequest(path: '/ok\n/bad')),
+      throwsArgumentError,
+    );
+    expect(
+      () => encodeHttpRequest(
+        const ServiceHttpRequest(headers: {'x-test\r\nInjected': 'yes'}),
+      ),
+      throwsArgumentError,
+    );
+    expect(
+      () => encodeHttpRequest(
+        const ServiceHttpRequest(headers: {'x-test': 'yes\r\nInjected: yes'}),
+      ),
+      throwsArgumentError,
+    );
+    expect(
+      () => encodeHttpRequest(const ServiceHttpRequest(), host: 'gizclaw\r\nx'),
+      throwsArgumentError,
+    );
+  });
+
   test('parses content-length and close-delimited responses', () {
     final fixed = tryParseHttpResponse(
       ascii.encode('HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\n{}'),
