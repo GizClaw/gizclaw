@@ -38,7 +38,7 @@ const featuredWorkflows = [
     category: 'Featured',
     bannerColor: Color(0xFF1F7A68),
     icon: CupertinoIcons.waveform,
-    family: WorkflowFamily.chatroom,
+    driver: WorkflowDriverKind.chatroom,
     imagePath: 'assets/workflows/daily-companion.png',
   ),
   WorkflowCard(
@@ -49,6 +49,7 @@ const featuredWorkflows = [
     category: 'Productivity',
     bannerColor: Color(0xFF416986),
     icon: CupertinoIcons.rectangle_3_offgrid,
+    driver: WorkflowDriverKind.flowcraft,
     imagePath: 'assets/workflows/flowcraft-studio.png',
   ),
   WorkflowCard(
@@ -59,6 +60,7 @@ const featuredWorkflows = [
     category: 'Audio',
     bannerColor: Color(0xFF9A5A36),
     icon: CupertinoIcons.waveform_path,
+    driver: WorkflowDriverKind.doubaoRealtime,
     imagePath: 'assets/workflows/realtime-lab.png',
   ),
 ];
@@ -73,6 +75,7 @@ const allWorkflows = [
     category: 'Code',
     bannerColor: Color(0xFF75517D),
     icon: CupertinoIcons.chevron_left_slash_chevron_right,
+    driver: WorkflowDriverKind.astTranslate,
   ),
 ];
 

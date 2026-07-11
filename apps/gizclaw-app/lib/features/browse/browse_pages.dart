@@ -678,9 +678,10 @@ class WorkflowDetailPage extends StatelessWidget {
 }
 
 class WorkspaceListTile extends StatelessWidget {
-  const WorkspaceListTile({super.key, required this.workspace});
+  const WorkspaceListTile({super.key, required this.workspace, this.onPressed});
 
   final WorkspaceCard workspace;
+  final VoidCallback? onPressed;
 
   @override
   Widget build(BuildContext context) {
@@ -700,8 +701,12 @@ class WorkspaceListTile extends StatelessWidget {
       ),
       title: workspace.name,
       subtitle: '${workflow.title}  |  ${workspace.lastActive}',
-      onPressed: () =>
-          context.push('/chats/raids/${Uri.encodeComponent(workspace.name)}'),
+      onPressed:
+          onPressed ??
+          () => context.push(
+            '/chats/drivers/${workflow.driver.routeKey}/'
+            '${Uri.encodeComponent(workspace.name)}',
+          ),
     );
   }
 }

@@ -7,7 +7,6 @@ import 'package:go_router/go_router.dart';
 import '../../data/mobile_data_controller.dart';
 import '../../data/workspace_chat_controller.dart';
 import '../../giz_ui/giz_ui.dart';
-import '../../prototype/prototype_data.dart';
 import '../../prototype/prototype_models.dart';
 import '../browse/browse_pages.dart';
 
@@ -40,45 +39,80 @@ class _ChatTypeMenu extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final data = MobileDataScope.watch(context);
-    final raidCount = data.workspaces.where((workspace) {
-      return data.workflow(workspace.workflowName).family ==
-          WorkflowFamily.raid;
-    }).length;
-    final groupCount = data.workspaces.where((workspace) {
-      return data.workflow(workspace.workflowName).family ==
-          WorkflowFamily.chatroom;
-    }).length;
-    return ListView(
+    final drivers = WorkflowDriverKind.values
+        .where((driver) {
+          if (driver == WorkflowDriverKind.unsupported) return false;
+          return data.workspaces.any((workspace) {
+            return data.workflow(workspace.workflowName).driver == driver;
+          });
+        })
+        .toList(growable: false);
+    if (drivers.isEmpty) {
+      return Center(
+        child: Text(
+          'No chat workspaces yet.',
+          style: GizText.body.copyWith(color: GizColors.secondaryInk),
+        ),
+      );
+    }
+    return ListView.builder(
       key: const PageStorageKey('chat-types'),
       padding: const EdgeInsets.only(bottom: 112),
-      children: [
-        GizListRow(
-              leading: const _ChatTypeIcon(
-                icon: CupertinoIcons.game_controller_solid,
-                color: Color(0xFF416986),
+      itemCount: drivers.length,
+      itemBuilder: (context, index) {
+        final driver = drivers[index];
+        final presentation = _driverPresentation(driver);
+        final count = data.workspaces.where((workspace) {
+          return data.workflow(workspace.workflowName).driver == driver;
+        }).length;
+        return GizListRow(
+              leading: _ChatTypeIcon(
+                icon: presentation.icon,
+                color: presentation.color,
               ),
-              title: 'Raid',
-              subtitle: '$raidCount workspaces',
-              onPressed: () => context.push('/chats/raids'),
+              title: driver.label,
+              subtitle: '$count workspaces',
+              onPressed: () =>
+                  context.push('/chats/drivers/${driver.routeKey}'),
             )
-            .animate()
+            .animate(delay: (index * 45).ms)
             .fadeIn(duration: 280.ms)
-            .slideY(begin: 0.05, end: 0, curve: Curves.easeOutCubic),
-        GizListRow(
-              leading: const _ChatTypeIcon(
-                icon: CupertinoIcons.person_2_fill,
-                color: Color(0xFF1F7A68),
-              ),
-              title: 'Group Chat',
-              subtitle: '$groupCount chatrooms',
-              onPressed: () => context.push('/chats/groups'),
-            )
-            .animate(delay: 45.ms)
-            .fadeIn(duration: 280.ms)
-            .slideY(begin: 0.05, end: 0, curve: Curves.easeOutCubic),
-      ],
+            .slideY(begin: 0.05, end: 0, curve: Curves.easeOutCubic);
+      },
     );
   }
+}
+
+class _DriverPresentation {
+  const _DriverPresentation(this.icon, this.color);
+
+  final IconData icon;
+  final Color color;
+}
+
+_DriverPresentation _driverPresentation(WorkflowDriverKind driver) {
+  return switch (driver) {
+    WorkflowDriverKind.flowcraft => const _DriverPresentation(
+      CupertinoIcons.rectangle_3_offgrid_fill,
+      Color(0xFF416986),
+    ),
+    WorkflowDriverKind.doubaoRealtime => const _DriverPresentation(
+      CupertinoIcons.waveform_path,
+      Color(0xFF9A5A36),
+    ),
+    WorkflowDriverKind.astTranslate => const _DriverPresentation(
+      CupertinoIcons.chevron_left_slash_chevron_right,
+      Color(0xFF75517D),
+    ),
+    WorkflowDriverKind.chatroom => const _DriverPresentation(
+      CupertinoIcons.chat_bubble_2_fill,
+      Color(0xFF1F7A68),
+    ),
+    WorkflowDriverKind.unsupported => const _DriverPresentation(
+      CupertinoIcons.question_circle_fill,
+      Color(0xFF69736F),
+    ),
+  };
 }
 
 class _ChatTypeIcon extends StatelessWidget {
@@ -102,32 +136,36 @@ class _ChatTypeIcon extends StatelessWidget {
   }
 }
 
-class RaidWorkspacesPage extends StatelessWidget {
-  const RaidWorkspacesPage({super.key});
+class DriverWorkspacesPage extends StatelessWidget {
+  const DriverWorkspacesPage({super.key, required this.driver});
+
+  final WorkflowDriverKind driver;
 
   @override
   Widget build(BuildContext context) {
     final data = MobileDataScope.watch(context);
     final workspaces = data.workspaces
         .where((workspace) {
-          return data.workflow(workspace.workflowName).family ==
-              WorkflowFamily.raid;
+          return data.workflow(workspace.workflowName).driver == driver;
         })
         .toList(growable: false);
     return CupertinoPageScaffold(
-      navigationBar: const CupertinoNavigationBar(
-        middle: Text('Raid', style: GizText.title),
+      navigationBar: CupertinoNavigationBar(
+        middle: Text(driver.label, style: GizText.title),
         border: null,
         transitionBetweenRoutes: false,
       ),
-      child: SafeArea(child: _RaidWorkspaceList(workspaces: workspaces)),
+      child: SafeArea(
+        child: _DriverWorkspaceList(driver: driver, workspaces: workspaces),
+      ),
     );
   }
 }
 
-class _RaidWorkspaceList extends StatelessWidget {
-  const _RaidWorkspaceList({required this.workspaces});
+class _DriverWorkspaceList extends StatelessWidget {
+  const _DriverWorkspaceList({required this.driver, required this.workspaces});
 
+  final WorkflowDriverKind driver;
   final List<WorkspaceCard> workspaces;
 
   @override
@@ -135,69 +173,28 @@ class _RaidWorkspaceList extends StatelessWidget {
     if (workspaces.isEmpty) {
       return Center(
         child: Text(
-          'No Raid workspaces yet.',
+          'No ${driver.label} workspaces yet.',
           style: GizText.body.copyWith(color: GizColors.secondaryInk),
         ),
       );
     }
     return ListView.builder(
-      key: const PageStorageKey('raid-workspaces'),
+      key: PageStorageKey('driver-workspaces-${driver.routeKey}'),
       padding: const EdgeInsets.only(bottom: 24),
       itemCount: workspaces.length,
       itemBuilder: (context, index) {
-        return WorkspaceListTile(workspace: workspaces[index])
+        final workspace = workspaces[index];
+        return WorkspaceListTile(
+              workspace: workspace,
+              onPressed: () => context.push(
+                '/chats/drivers/${driver.routeKey}/'
+                '${Uri.encodeComponent(workspace.name)}',
+              ),
+            )
             .animate(delay: (index * 45).ms)
             .fadeIn(duration: 280.ms)
             .slideY(begin: 0.05, end: 0, curve: Curves.easeOutCubic);
       },
-    );
-  }
-}
-
-class GroupChatsPage extends StatelessWidget {
-  const GroupChatsPage({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return CupertinoPageScaffold(
-      navigationBar: const CupertinoNavigationBar(
-        middle: Text('Group Chat', style: GizText.title),
-        border: null,
-        transitionBetweenRoutes: false,
-      ),
-      child: SafeArea(
-        child: ListView.builder(
-          key: const PageStorageKey('group-chats'),
-          padding: const EdgeInsets.only(bottom: 24),
-          itemCount: chatrooms.length,
-          itemBuilder: (context, index) {
-            final room = chatrooms[index];
-            final palette = [
-              const Color(0xFFFFDDD2),
-              const Color(0xFFD7ECFF),
-              const Color(0xFFE5DDF8),
-            ];
-            return GizListRow(
-                  leading: Container(
-                    width: 50,
-                    height: 50,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: palette[index % palette.length],
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text('${room.memberCount}', style: GizText.title),
-                  ),
-                  title: room.name,
-                  subtitle: room.subtitle,
-                  onPressed: () => context.push('/chats/groups/${room.id}'),
-                )
-                .animate(delay: (index * 45).ms)
-                .fadeIn(duration: 280.ms)
-                .slideY(begin: 0.05, end: 0, curve: Curves.easeOutCubic);
-          },
-        ),
-      ),
     );
   }
 }
@@ -458,6 +455,27 @@ class _PushToTalkControl extends StatelessWidget {
   }
 }
 
+class ChatroomWorkspacePage extends StatelessWidget {
+  const ChatroomWorkspacePage({super.key, required this.workspaceName});
+
+  final String workspaceName;
+
+  @override
+  Widget build(BuildContext context) {
+    final data = MobileDataScope.watch(context);
+    final workspace = data.workspace(workspaceName);
+    final workflow = data.workflow(workspace.workflowName);
+    return GroupChatPage(
+      room: ChatroomCard(
+        id: workspace.name,
+        name: workspace.name,
+        subtitle: workflow.title,
+        memberCount: 0,
+      ),
+    );
+  }
+}
+
 class GroupChatPage extends StatefulWidget {
   const GroupChatPage({super.key, required this.room});
 
@@ -485,7 +503,9 @@ class _GroupChatPageState extends State<GroupChatPage> {
           children: [
             Text(widget.room.name, style: GizText.title),
             Text(
-              '${widget.room.memberCount} members',
+              widget.room.memberCount > 0
+                  ? '${widget.room.memberCount} members'
+                  : widget.room.subtitle,
               style: GizText.label.copyWith(color: GizColors.secondaryInk),
             ),
           ],

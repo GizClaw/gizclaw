@@ -18,7 +18,25 @@ class WorkflowCollection {
   final List<String> workflowNames;
 }
 
-enum WorkflowFamily { raid, chatroom, pet, unsupported }
+enum WorkflowDriverKind {
+  flowcraft('flowcraft', 'Flowcraft'),
+  doubaoRealtime('doubao-realtime', 'Doubao Realtime'),
+  astTranslate('ast-translate', 'AST Translate'),
+  chatroom('chatroom', 'Chatroom'),
+  unsupported('unsupported', 'Unavailable');
+
+  const WorkflowDriverKind(this.routeKey, this.label);
+
+  final String routeKey;
+  final String label;
+
+  static WorkflowDriverKind fromRouteKey(String value) {
+    return values.firstWhere(
+      (driver) => driver.routeKey == value,
+      orElse: () => unsupported,
+    );
+  }
+}
 
 class WorkflowCard {
   const WorkflowCard({
@@ -29,7 +47,7 @@ class WorkflowCard {
     required this.category,
     required this.bannerColor,
     required this.icon,
-    this.family = WorkflowFamily.raid,
+    required this.driver,
     this.imagePath,
   });
 
@@ -40,7 +58,7 @@ class WorkflowCard {
   final String category;
   final Color bannerColor;
   final IconData icon;
-  final WorkflowFamily family;
+  final WorkflowDriverKind driver;
   final String? imagePath;
 
   factory WorkflowCard.fromServer({
@@ -58,6 +76,7 @@ class WorkflowCard {
         category: 'Productivity',
         bannerColor: const Color(0xFF416986),
         icon: CupertinoIcons.rectangle_3_offgrid,
+        driver: WorkflowDriverKind.flowcraft,
       );
     }
     if (normalized.contains('doubao')) {
@@ -69,6 +88,7 @@ class WorkflowCard {
         category: 'Audio',
         bannerColor: const Color(0xFF9A5A36),
         icon: CupertinoIcons.waveform_path,
+        driver: WorkflowDriverKind.doubaoRealtime,
       );
     }
     if (normalized.contains('ast')) {
@@ -80,6 +100,7 @@ class WorkflowCard {
         category: 'Code',
         bannerColor: const Color(0xFF75517D),
         icon: CupertinoIcons.chevron_left_slash_chevron_right,
+        driver: WorkflowDriverKind.astTranslate,
       );
     }
     if (normalized.contains('chatroom')) {
@@ -91,19 +112,7 @@ class WorkflowCard {
         category: 'Conversation',
         bannerColor: const Color(0xFF1F7A68),
         icon: CupertinoIcons.waveform,
-        family: WorkflowFamily.chatroom,
-      );
-    }
-    if (normalized.contains('pet')) {
-      return WorkflowCard(
-        name: name,
-        title: _displayName(name),
-        subtitle: description,
-        driverLabel: 'Pet',
-        category: 'Companion',
-        bannerColor: const Color(0xFF75517D),
-        icon: CupertinoIcons.sparkles,
-        family: WorkflowFamily.pet,
+        driver: WorkflowDriverKind.chatroom,
       );
     }
     return WorkflowCard(
@@ -114,7 +123,7 @@ class WorkflowCard {
       category: 'Other',
       bannerColor: const Color(0xFF69736F),
       icon: CupertinoIcons.question_circle,
-      family: WorkflowFamily.unsupported,
+      driver: WorkflowDriverKind.unsupported,
     );
   }
 

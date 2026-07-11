@@ -7,6 +7,7 @@ import '../features/chats/chat_pages.dart';
 import '../features/social/social_pages.dart';
 import '../giz_ui/giz_ui.dart';
 import '../prototype/prototype_data.dart';
+import '../prototype/prototype_models.dart';
 
 GoRouter createAppRouter() {
   return GoRouter(
@@ -65,37 +66,35 @@ GoRouter createAppRouter() {
                     _page(state, const ChatsPage()),
                 routes: [
                   GoRoute(
-                    path: 'raids',
-                    pageBuilder: (context, state) =>
-                        _page(state, const RaidWorkspacesPage()),
+                    path: 'drivers/:driver',
+                    pageBuilder: (context, state) => _page(
+                      state,
+                      DriverWorkspacesPage(
+                        driver: WorkflowDriverKind.fromRouteKey(
+                          state.pathParameters['driver']!,
+                        ),
+                      ),
+                    ),
                     routes: [
                       GoRoute(
                         path: ':workspaceName',
-                        pageBuilder: (context, state) => _page(
-                          state,
-                          WorkspaceChatPage(
-                            workspaceName:
-                                state.pathParameters['workspaceName']!,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  GoRoute(
-                    path: 'groups',
-                    pageBuilder: (context, state) =>
-                        _page(state, const GroupChatsPage()),
-                    routes: [
-                      GoRoute(
-                        path: ':conversationId',
-                        pageBuilder: (context, state) => _page(
-                          state,
-                          GroupChatPage(
-                            room: chatroomById(
-                              state.pathParameters['conversationId']!,
-                            ),
-                          ),
-                        ),
+                        pageBuilder: (context, state) {
+                          final workspaceName =
+                              state.pathParameters['workspaceName']!;
+                          final driver = WorkflowDriverKind.fromRouteKey(
+                            state.pathParameters['driver']!,
+                          );
+                          return _page(
+                            state,
+                            driver == WorkflowDriverKind.chatroom
+                                ? ChatroomWorkspacePage(
+                                    workspaceName: workspaceName,
+                                  )
+                                : WorkspaceChatPage(
+                                    workspaceName: workspaceName,
+                                  ),
+                          );
+                        },
                       ),
                     ],
                   ),

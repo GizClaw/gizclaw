@@ -67,23 +67,40 @@ void main() {
     await tester.tap(find.text('Chats'));
     await tester.pump(const Duration(milliseconds: 700));
 
-    expect(find.text('Raid'), findsOneWidget);
-    expect(find.text('Group Chat'), findsOneWidget);
+    for (final driver in [
+      'Flowcraft',
+      'Doubao Realtime',
+      'AST Translate',
+      'Chatroom',
+    ]) {
+      expect(find.text(driver), findsOneWidget);
+    }
+    expect(
+      find.byIcon(CupertinoIcons.rectangle_3_offgrid_fill),
+      findsOneWidget,
+    );
+    expect(find.byIcon(CupertinoIcons.waveform_path), findsOneWidget);
+    expect(
+      find.byIcon(CupertinoIcons.chevron_left_slash_chevron_right),
+      findsOneWidget,
+    );
+    expect(find.byIcon(CupertinoIcons.chat_bubble_2_fill), findsWidgets);
     expect(find.byType(CupertinoSlidingSegmentedControl), findsNothing);
     expect(find.text('Morning check-in'), findsNothing);
 
-    await tester.tap(find.text('Raid'));
+    await tester.tap(find.text('Flowcraft'));
     await tester.pumpAndSettle();
 
-    expect(find.byType(RaidWorkspacesPage), findsOneWidget);
+    expect(find.byType(DriverWorkspacesPage), findsOneWidget);
     expect(find.text('Mobile app plan'), findsOneWidget);
     expect(find.text('Morning check-in'), findsNothing);
 
     await tester.pageBack();
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Group Chat'));
+    await tester.tap(find.text('Chatroom'));
     await tester.pumpAndSettle();
-    expect(find.text('Home Room'), findsOneWidget);
+    expect(find.text('Morning check-in'), findsOneWidget);
+    expect(find.text('Mobile app plan'), findsNothing);
   });
 
   testWidgets('keeps each primary tab navigation stack', (tester) async {
@@ -91,9 +108,9 @@ void main() {
 
     await tester.tap(find.text('Chats'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Raid'));
+    await tester.tap(find.text('Flowcraft'));
     await tester.pumpAndSettle();
-    expect(find.byType(RaidWorkspacesPage), findsOneWidget);
+    expect(find.byType(DriverWorkspacesPage), findsOneWidget);
     await tester.tap(find.text('Mobile app plan'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
